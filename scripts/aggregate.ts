@@ -307,6 +307,28 @@ function processPlayers(game: StoredGame, players: Map<string, PlayerAccumulator
   }
 }
 
+/** チーム行（Category=3）から試合ログ用のボックススコア詳細を抽出する */
+function teamGameLogStats(row: BoxscoreRow) {
+  return {
+    min: parsePlayTime(row.PlayTime),
+    oreb: row.RB_OFF,
+    dreb: row.RB_DEF,
+    reb: row.RB_TOT,
+    ast: row.AS,
+    stl: row.ST,
+    blk: row.BS,
+    tov: row.TO,
+    pf: row.FOUL,
+    fgm: row.PT2M + row.PT3M,
+    fga: row.PT2A + row.PT3A,
+    tpm: row.PT3M,
+    tpa: row.PT3A,
+    ftm: row.FTM,
+    fta: row.FTA,
+    poss: row.POSS ?? 0,
+  };
+}
+
 function processTeams(
   game: StoredGame,
   teams: Map<string, TeamAccumulator>,
@@ -344,6 +366,7 @@ function processTeams(
     teamScore: game.homeScore,
     opponentScore: game.awayScore,
     win: homeWin,
+    ...teamGameLogStats(homeRow),
   });
   away.gameLogs.push({
     scheduleKey: game.scheduleKey,
@@ -354,6 +377,7 @@ function processTeams(
     teamScore: game.awayScore,
     opponentScore: game.homeScore,
     win: awayWin,
+    ...teamGameLogStats(awayRow),
   });
 }
 

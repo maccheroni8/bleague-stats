@@ -544,6 +544,26 @@ table.glossary-table td {
   color: var(--muted);
 }
 
+.situational-filter {
+  margin-bottom: 16px;
+}
+
+.date-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.date-range-inputs input[type="date"] {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+}
+
 @media (max-width: 640px) {
   .game-leaders,
   .key-stats-grid,

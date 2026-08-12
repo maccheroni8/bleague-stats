@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fetchPlayers, fetchTeamGameLogs, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import type { PlayerSummary, TeamGameLog } from "../lib/types";
 import { SortableTable, type Column } from "../components/SortableTable";
+import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
+import { computeTeamSituationalStats, filterGameLogs, isDefaultFilter, type SituationalFilter } from "../lib/situational";
 
 const playerColumns: Column<PlayerSummary>[] = [
   { key: "name", label: "選手", sortValue: (p) => p.name, align: "left" },
@@ -26,6 +29,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     () => (teamId ? fetchTeamGameLogs(season, teamId) : Promise.resolve([])),
     [season, teamId],
   );
+  const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
 
   if (teamsLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (teamsError) return <p className="error-message">{teamsError}</p>;
@@ -34,6 +38,9 @@ export function TeamDetailPage({ season }: { season: string }) {
   if (!team) return <p className="error-message">チームが見つかりませんでした</p>;
 
   const teamPlayers = (players ?? []).filter((p) => p.teamId === teamId);
+
+  const filteredLogs = gameLogs ? filterGameLogs(gameLogs, filter) : [];
+  const situational = isDefaultFilter(filter) ? null : computeTeamSituationalStats(filteredLogs);
 
   return (
     <div>
@@ -45,21 +52,48 @@ export function TeamDetailPage({ season }: { season: string }) {
         {season}シーズン・{formatRecord(team.wins, team.losses)}
       </p>
 
-      <div className="stat-grid">
-        <StatTile label="得点" value={formatDecimal(team.perGame.pts)} />
-        <StatTile label="失点" value={formatDecimal(team.opponentPerGame.pts)} />
-        <StatTile label="Net" value={formatSigned(team.netPerGame.pts)} />
-        <StatTile label="REB" value={formatDecimal(team.perGame.reb)} />
-        <StatTile label="AST" value={formatDecimal(team.perGame.ast)} />
-        <StatTile label="STL" value={formatDecimal(team.perGame.stl)} />
-        <StatTile label="BLK" value={formatDecimal(team.perGame.blk)} />
-        <StatTile label="TOV" value={formatDecimal(team.perGame.tov)} />
-        <StatTile label="FG%" value={formatPct(team.shooting.fgPct)} />
-        <StatTile label="3P%" value={formatPct(team.shooting.tpPct)} />
-        <StatTile label="FT%" value={formatPct(team.shooting.ftPct)} />
-        <StatTile label="eFG%" value={formatPct(team.shooting.efgPct)} />
-        <StatTile label="TS%" value={formatPct(team.shooting.tsPct)} />
-      </div>
+      <SituationalFilterPicker filter={filter} onChange={setFilter} />
+
+      {isDefaultFilter(filter) ? (
+        <div className="stat-grid">
+          <StatTile label="得点" value={formatDecimal(team.perGame.pts)} />
+          <StatTile label="失点" value={formatDecimal(team.opponentPerGame.pts)} />
+          <StatTile label="Net" value={formatSigned(team.netPerGame.pts)} />
+          <StatTile label="REB" value={formatDecimal(team.perGame.reb)} />
+          <StatTile label="AST" value={formatDecimal(team.perGame.ast)} />
+          <StatTile label="STL" value={formatDecimal(team.perGame.stl)} />
+          <StatTile label="BLK" value={formatDecimal(team.perGame.blk)} />
+          <StatTile label="TOV" value={formatDecimal(team.perGame.tov)} />
+          <StatTile label="FG%" value={formatPct(team.shooting.fgPct)} />
+          <StatTile label="3P%" value={formatPct(team.shooting.tpPct)} />
+          <StatTile label="FT%" value={formatPct(team.shooting.ftPct)} />
+          <StatTile label="eFG%" value={formatPct(team.shooting.efgPct)} />
+          <StatTile label="TS%" value={formatPct(team.shooting.tsPct)} />
+        </div>
+      ) : !situational ? (
+        <p className="empty-message">該当する試合がありません</p>
+      ) : (
+        <div className="stat-grid">
+          <StatTile label="試合数" value={String(situational.gamesPlayed)} />
+          <StatTile label="得点" value={formatDecimal(situational.perGame.pts)} />
+          <StatTile label="失点" value={formatDecimal(situational.perGame.oppPts)} />
+          <StatTile label="Net" value={formatSigned(situational.perGame.net)} />
+          <StatTile label="REB" value={formatDecimal(situational.perGame.reb)} />
+          <StatTile label="AST" value={formatDecimal(situational.perGame.ast)} />
+          <StatTile label="STL" value={formatDecimal(situational.perGame.stl)} />
+          <StatTile label="BLK" value={formatDecimal(situational.perGame.blk)} />
+          <StatTile label="TOV" value={formatDecimal(situational.perGame.tov)} />
+          <StatTile label="FG%" value={formatPct(situational.shooting.fgPct)} />
+          <StatTile label="3P%" value={formatPct(situational.shooting.tpPct)} />
+          <StatTile label="FT%" value={formatPct(situational.shooting.ftPct)} />
+          <StatTile label="eFG%" value={formatPct(situational.shooting.efgPct)} />
+          <StatTile label="TS%" value={formatPct(situational.shooting.tsPct)} />
+          <StatTile label="PACE" value={formatDecimal(situational.advanced.pace)} />
+          <StatTile label="ORtg" value={formatDecimal(situational.advanced.offRtg)} />
+          <StatTile label="DRtg" value={formatDecimal(situational.advanced.defRtg)} />
+          <StatTile label="NetRtg" value={formatSigned(situational.advanced.netRtg)} />
+        </div>
+      )}
 
       <h2>個人スタッツ</h2>
       {teamPlayers.length === 0 ? (

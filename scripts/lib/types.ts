@@ -298,6 +298,24 @@ export interface TeamGameLog {
   teamScore: number;
   opponentScore: number;
   win: boolean;
+  /** チーム総プレイタイム（5人合計・分）。通常40分×5=200だがOT試合は変動する */
+  min: number;
+  oreb: number;
+  dreb: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  tov: number;
+  pf: number;
+  fgm: number;
+  fga: number;
+  tpm: number;
+  tpa: number;
+  ftm: number;
+  fta: number;
+  /** 生データのチーム行に含まれる公式POSS値（シチュエーション別集計で合算する。式の再計算はしない） */
+  poss: number;
 }
 
 // ---- data/{season}/standings-history.json の保存スキーマ（順位表ページ用） ----

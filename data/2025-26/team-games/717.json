@@ -7,6 +7,22 @@
     "isHome": true,
     "teamScore": 79,
     "opponentScore": 85,
-    "win": false
+    "win": false,
+    "min": 225,
+    "oreb": 16,
+    "dreb": 33,
+    "reb": 49,
+    "ast": 19,
+    "stl": 6,
+    "blk": 0,
+    "tov": 15,
+    "pf": 18,
+    "fgm": 31,
+    "fga": 72,
+    "tpm": 7,
+    "tpa": 22,
+    "ftm": 10,
+    "fta": 15,
+    "poss": 77.70019886363636
   }
 ]
