@@ -368,6 +368,111 @@ table.boxscore-table .dnp-row {
   text-decoration: none;
 }
 
+.mode-toggle,
+.stat-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.mode-toggle button,
+.stat-picker button {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mode-toggle button.active,
+.stat-picker button.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.rankings-table .rank-cell {
+  color: var(--muted);
+  width: 40px;
+}
+
+.rank-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rank-name {
+  font-weight: 600;
+}
+
+.rank-sublabel {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.rankings-table .rank-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.compare-slots select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  min-width: 160px;
+}
+
+table.compare-table th a {
+  color: var(--fg);
+  text-decoration: none;
+}
+
+table.compare-table td.compare-best {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.export-image-button {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.export-image-button:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.export-image-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.export-target {
+  padding: 4px;
+}
+
 @media (max-width: 640px) {
   .game-leaders,
   .key-stats-grid {
