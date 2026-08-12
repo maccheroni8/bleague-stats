@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { fetchPlayers, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
-import type { PlayerSummary, TeamSummary } from "../lib/types";
+import type { PlayerSummary, TeamSummary } from "../../shared/types";
 import { ExportImageButton } from "../components/ExportImageButton";
 
 type Mode = "team" | "player";

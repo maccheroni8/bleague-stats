@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { StoredGame } from "./types.ts";
+import type { StoredGame } from "../../shared/types.ts";
 
 const SCRIPTS_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = path.resolve(SCRIPTS_DIR, "..", "..", "data");

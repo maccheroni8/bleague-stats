@@ -1,6 +1,6 @@
 import { fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import type { TeamSummary } from "../lib/types";
+import type { TeamSummary } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
 

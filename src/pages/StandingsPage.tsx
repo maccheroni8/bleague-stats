@@ -3,7 +3,7 @@ import { useJsonData } from "../lib/useJsonData";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart } from "../components/StandingsLineChart";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
-import type { StandingsSnapshot, StandingsTeamSnapshot } from "../lib/types";
+import type { StandingsSnapshot, StandingsTeamSnapshot } from "../../shared/types";
 
 const divisionStandingsColumns: Column<StandingsTeamSnapshot>[] = [
   {

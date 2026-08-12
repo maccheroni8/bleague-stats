@@ -9,8 +9,8 @@
 // - POSS/ORtg/DRtg/Paceは、各試合ログに保存済みの公式POSS値をそのまま合算する
 //   （比率項を含む式をシーズン合計値に再適用すると非線形性で誤差が出るため。POSS配線時と同じ方針）
 
-import { efgPct, offensiveRating, pace, safeDiv, tsPct } from "./formulas";
-import type { PlayerGameLog, TeamGameLog } from "./types";
+import { efgPct, offensiveRating, pace, safeDiv, tsPct } from "../../shared/formulas";
+import type { PlayerGameLog, TeamGameLog } from "../../shared/types";
 
 export type SituationalFilter =
   | { kind: "all" }

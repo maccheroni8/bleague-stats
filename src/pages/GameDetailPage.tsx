@@ -1,7 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { fetchGame } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import type { BoxscoreRow } from "../lib/types";
+import type { BoxscoreRow } from "../../shared/types";
 import { KeyStatsChart } from "../components/KeyStatsChart";
 
 function periodLabel(index: number, total: number): string {

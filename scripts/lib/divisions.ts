@@ -4,7 +4,7 @@
 // 実ブラウザで確認して作成（2026-08-13時点）。地区分けは固定情報の想定だが、シーズンによる
 // クラブ入れ替え・再編があれば要更新。TeamIDはbleague.jp/club_detail/?TeamID=... のIDと同一。
 
-export type Division = "east" | "west";
+import type { Division } from "../../shared/types.ts";
 
 export const TEAM_DIVISIONS: Record<string, Division> = {
   "702": "east", // レバンガ北海道

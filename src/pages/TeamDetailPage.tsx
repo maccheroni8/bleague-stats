@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fetchPlayers, fetchTeamGameLogs, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import type { PlayerSummary, TeamGameLog } from "../lib/types";
+import type { PlayerSummary, TeamGameLog } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";

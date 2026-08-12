@@ -1,7 +1,11 @@
-// v2_genius_contexts APIの型定義。
-// フィールドはDESIGN.md 2-2章の実機検証（6試合・4,513件のPlayByPlaysで確認済み）に基づく。
+// data/{season}/*.json の型定義。scripts/（バックエンド集計）・src/（フロントエンド表示）の
+// 両方から参照する共通モジュール（旧scripts/lib/types.ts・src/lib/types.tsを統合）。
+// 生データ（GeniusAPIレスポンス）系の型はDESIGN.md 2-2章の実機検証（6試合・4,513件の
+// PlayByPlaysで確認済み）に基づく。
 
-import type { Division } from "./divisions.ts";
+export type Division = "east" | "west";
+
+// ---- GeniusAPI (v2_genius_contexts) の型定義 ----
 
 export interface GameRaw {
   Code: number;
@@ -254,6 +258,105 @@ export interface ScheduleFile {
   season: string;
   generatedAt: string;
   scheduleKeys: string[];
+}
+
+// ---- data/{season}/teams.json・players.json の保存スキーマ（aggregate.tsの集計結果） ----
+
+export interface StatTotals {
+  gamesPlayed: number;
+  gamesStarted: number;
+  min: number;
+  pts: number;
+  oreb: number;
+  dreb: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  tov: number;
+  pf: number;
+  fgm: number;
+  fga: number;
+  tpm: number;
+  tpa: number;
+  ftm: number;
+  fta: number;
+  foulsDrawn: number;
+  blockedAgainst: number;
+}
+
+export interface PerGameStats {
+  min: number;
+  pts: number;
+  oreb: number;
+  dreb: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  tov: number;
+  pf: number;
+}
+
+export interface ShootingStats {
+  fgPct: number;
+  tpPct: number;
+  ftPct: number;
+  efgPct: number;
+  tsPct: number;
+  ftRate: number;
+}
+
+export interface TeamAdvancedStats {
+  /** Bリーグ公式EFF（貢献度）。1試合あたりの値。DESIGN.md 6章 */
+  eff: number;
+  /** 推定ポゼッション（シーズン合計）。生データのチーム行のPOSS値を合算した値 */
+  poss: number;
+  /** ペース。40分換算・5人あたりの推定ポゼッション数 */
+  pace: number;
+  /** オフェンシブレーティング（100ポゼッションあたり得点） */
+  offRtg: number;
+  /** ディフェンシブレーティング（100ポゼッションあたり失点） */
+  defRtg: number;
+  /** ネットレーティング = offRtg - defRtg */
+  netRtg: number;
+  /** オフェンスリバウンド率。公式に定義がないためNBA流を採用（DESIGN.md 6章） */
+  orbPct: number;
+}
+
+export interface PlayerAdvancedStats {
+  /** Bリーグ公式EFF（貢献度）。1試合あたりの値。DESIGN.md 6章 */
+  eff: number;
+  /** ユーセージ率。公式に定義がないためNBA流を採用（DESIGN.md 6章） */
+  usagePct: number;
+}
+
+export interface TeamSummary {
+  teamId: string;
+  teamName: string;
+  wins: number;
+  losses: number;
+  gamesPlayed: number;
+  gamesStarted: number;
+  totals: StatTotals;
+  perGame: PerGameStats;
+  shooting: ShootingStats;
+  advanced: TeamAdvancedStats;
+  opponentPerGame: PerGameStats;
+  netPerGame: PerGameStats;
+}
+
+export interface PlayerSummary {
+  playerId: string;
+  name: string;
+  teamId: string;
+  teamName: string;
+  gamesPlayed: number;
+  gamesStarted: number;
+  totals: StatTotals;
+  perGame: PerGameStats;
+  shooting: ShootingStats;
+  advanced: PlayerAdvancedStats;
 }
 
 // ---- data/{season}/player-games/{playerId}.json の保存スキーマ（個人詳細ページの試合ログ用） ----

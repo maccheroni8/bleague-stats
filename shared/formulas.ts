@@ -1,6 +1,9 @@
 // アドバンスドスタッツ計算式（DESIGN.md 6章）。
 // Bリーグ公式の「スタッツ用語解説」(bleague.jp/glossary/)に定義がある項目はその式を採用し、
 // 公式に定義がない項目のみNBA/Basketball-Reference流の一般的な式で補う。
+//
+// scripts/（バックエンド集計）・src/（フロントエンドのシチュエーション別再集計）の両方から
+// 参照する共通モジュール。数値がズレないよう、この1箇所だけを正とする。
 
 export function safeDiv(numerator: number, denominator: number): number {
   return denominator === 0 ? 0 : numerator / denominator;

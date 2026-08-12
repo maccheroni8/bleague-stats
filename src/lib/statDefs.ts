@@ -2,7 +2,7 @@
 // ここに1件追加するだけで、計算ロジック(value/format)・ランキング/比較ページの項目選択・
 // グロッサリーページの用語集、全部に自動反映される（DESIGN.md 6章の分類方針と整合させること）。
 
-import type { PlayerSummary, TeamSummary } from "./types";
+import type { PlayerSummary, TeamSummary } from "../../shared/types";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 
 export type StatSource = "official" | "nba" | "custom";

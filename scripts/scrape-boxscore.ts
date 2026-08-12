@@ -9,7 +9,7 @@
 import path from "node:path";
 import { fetchLatestGameContext, getPeriodScores, parseAspNetDate } from "./lib/geniusApi.ts";
 import { gameFilePath, readGameFile, writeGameFile, seasonFromYear, DATA_DIR } from "./lib/storage.ts";
-import type { ScheduleFile, StoredGame, StoredGameMeta } from "./lib/types.ts";
+import type { ScheduleFile, StoredGame, StoredGameMeta } from "../shared/types.ts";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { isMainModule } from "./lib/isMain.ts";

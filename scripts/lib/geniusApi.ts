@@ -2,7 +2,7 @@
 // 有効ホストは b-league.s3.amazonaws.com のみ（dev-bleagueは403で無効）。
 
 import { createThrottledFetch } from "./throttle.ts";
-import type { GeniusContext } from "./types.ts";
+import type { GeniusContext } from "../../shared/types.ts";
 
 const HOST = "http://b-league.s3.amazonaws.com";
 const MIN_REQUEST_INTERVAL_MS = 2500;

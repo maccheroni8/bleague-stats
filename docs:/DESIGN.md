@@ -524,6 +524,9 @@ jobs:
 
 ```
 bleague-stats/
+  shared/                     # scripts/・src/両方から参照する共通モジュール（型定義・計算式）
+    types.ts                  # data/{season}/*.jsonの型定義（旧scripts/lib/types.ts + src/lib/types.ts）
+    formulas.ts                # アドバンスドスタッツ計算式
   scripts/
     scrape-schedule.ts
     scrape-boxscore.ts       # Q別得点・スタメン判定含む
@@ -532,13 +535,21 @@ bleague-stats/
     aggregate.ts             # 生データ→チーム/選手集計
     aggregate-standings.ts   # 順位表スナップショット生成
     aggregate-lineups.ts     # ティアC：ラインナップ/オンオフコート算出（精度検証ロジック含む）
-    formulas.ts               # アドバンスドスタッツ計算式
     backfill.ts               # 過去シーズン一括取得（通常運用とは別実行）
+    lib/divisions.ts           # 東西地区マスタ（バックエンド専用、shared/ではない）
   data/ ...
   src/                        # フロントエンド（7章の画面構成）
   .github/workflows/update-stats.yml
   package.json / README.md
 ```
+
+**共通モジュールの重複解消（実装済み）**: 当初`scripts/lib/types.ts`・`src/lib/types.ts`
+（および`formulas.ts`も同様）を別々に持っていたが、数値がズレるリスクがあったため
+`shared/`ディレクトリに統合した。バックエンドは`tsconfig.scripts.json`（`module: NodeNext`の
+ため`../shared/types.ts`のように拡張子込みでimport）、フロントエンドは`tsconfig.json`
+（Viteのbundler解決のため`../../shared/types`のように拡張子なしでimport）の両方の`include`に
+`shared`を追加して型チェック対象にしている。`scripts/lib/divisions.ts`（東西地区マスタの実データ）
+はバックエンド専用のため`shared/`には含めない。
 
 ---
 

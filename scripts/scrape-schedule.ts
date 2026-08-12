@@ -24,7 +24,7 @@ import { createThrottledFetch } from "./lib/throttle.ts";
 import { DATA_DIR, writeJson } from "./lib/storage.ts";
 import { seasonStartYearForDate } from "./lib/season.ts";
 import { isMainModule } from "./lib/isMain.ts";
-import type { ScheduleFile } from "./lib/types.ts";
+import type { ScheduleFile } from "../shared/types.ts";
 
 const MIN_REQUEST_INTERVAL_MS = 2500;
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
