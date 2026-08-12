@@ -297,3 +297,29 @@ export interface TeamGameLog {
   opponentScore: number;
   win: boolean;
 }
+
+// ---- data/{season}/standings-history.json の保存スキーマ（順位表ページ用） ----
+
+export interface StandingsTeamSnapshot {
+  teamId: string;
+  teamName: string;
+  wins: number;
+  losses: number;
+  winPct: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  pointDiff: number;
+  /**
+   * 勝率降順・同率は得失点差降順のシンプルな方法（DESIGN.md参照）。
+   * 公式のタイブレークルール（直接対決等）が判明次第見直す
+   */
+  rank: number;
+  /** 首位とのゲーム差 */
+  gamesBehind: number;
+}
+
+export interface StandingsSnapshot {
+  /** JST基準のYYYY-MM-DD。その日に試合があった日のみ記録 */
+  date: string;
+  teams: StandingsTeamSnapshot[];
+}

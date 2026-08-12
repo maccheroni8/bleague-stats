@@ -473,9 +473,28 @@ table.compare-table td.compare-best {
   padding: 4px;
 }
 
+.standings-chart {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.standings-chart h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.standings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
 @media (max-width: 640px) {
   .game-leaders,
-  .key-stats-grid {
+  .key-stats-grid,
+  .standings-grid {
     grid-template-columns: 1fr;
   }
 }

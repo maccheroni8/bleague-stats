@@ -7,6 +7,7 @@ import { PlayerDetailPage } from "./pages/PlayerDetailPage";
 import { GameDetailPage } from "./pages/GameDetailPage";
 import { RankingsPage } from "./pages/RankingsPage";
 import { ComparePage } from "./pages/ComparePage";
+import { StandingsPage } from "./pages/StandingsPage";
 
 const season = currentSeason();
 
@@ -32,6 +33,9 @@ export default function App() {
             <NavLink to="/compare" className={({ isActive }) => (isActive ? "active" : "")}>
               比較
             </NavLink>
+            <NavLink to="/standings" className={({ isActive }) => (isActive ? "active" : "")}>
+              順位表
+            </NavLink>
           </nav>
         </header>
         <main className="app-main">
@@ -44,6 +48,7 @@ export default function App() {
             <Route path="/games/:scheduleKey" element={<GameDetailPage season={season} />} />
             <Route path="/rankings" element={<RankingsPage season={season} />} />
             <Route path="/compare" element={<ComparePage season={season} />} />
+            <Route path="/standings" element={<StandingsPage season={season} />} />
           </Routes>
         </main>
       </div>

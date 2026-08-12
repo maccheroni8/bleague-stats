@@ -1,0 +1,202 @@
+[
+  {
+    "date": "2025-12-26",
+    "teams": [
+      {
+        "teamId": "1638",
+        "teamName": "佐賀バルーナーズ",
+        "wins": 1,
+        "losses": 0,
+        "winPct": 1,
+        "pointsFor": 82,
+        "pointsAgainst": 73,
+        "pointDiff": 9,
+        "rank": 1,
+        "gamesBehind": 0
+      },
+      {
+        "teamId": "727",
+        "teamName": "川崎ブレイブサンダース",
+        "wins": 0,
+        "losses": 1,
+        "winPct": 0,
+        "pointsFor": 73,
+        "pointsAgainst": 82,
+        "pointDiff": -9,
+        "rank": 2,
+        "gamesBehind": 1
+      }
+    ]
+  },
+  {
+    "date": "2026-01-24",
+    "teams": [
+      {
+        "teamId": "1638",
+        "teamName": "佐賀バルーナーズ",
+        "wins": 1,
+        "losses": 0,
+        "winPct": 1,
+        "pointsFor": 82,
+        "pointsAgainst": 73,
+        "pointDiff": 9,
+        "rank": 1,
+        "gamesBehind": 0
+      },
+      {
+        "teamId": "727",
+        "teamName": "川崎ブレイブサンダース",
+        "wins": 1,
+        "losses": 1,
+        "winPct": 0.5,
+        "pointsFor": 171,
+        "pointsAgainst": 171,
+        "pointDiff": 0,
+        "rank": 2,
+        "gamesBehind": 0.5
+      },
+      {
+        "teamId": "693",
+        "teamName": "秋田ノーザンハピネッツ",
+        "wins": 0,
+        "losses": 1,
+        "winPct": 0,
+        "pointsFor": 89,
+        "pointsAgainst": 98,
+        "pointDiff": -9,
+        "rank": 3,
+        "gamesBehind": 1
+      }
+    ]
+  },
+  {
+    "date": "2026-03-14",
+    "teams": [
+      {
+        "teamId": "1638",
+        "teamName": "佐賀バルーナーズ",
+        "wins": 1,
+        "losses": 0,
+        "winPct": 1,
+        "pointsFor": 82,
+        "pointsAgainst": 73,
+        "pointDiff": 9,
+        "rank": 1,
+        "gamesBehind": 0
+      },
+      {
+        "teamId": "727",
+        "teamName": "川崎ブレイブサンダース",
+        "wins": 2,
+        "losses": 1,
+        "winPct": 0.6666666666666666,
+        "pointsFor": 256,
+        "pointsAgainst": 250,
+        "pointDiff": 6,
+        "rank": 2,
+        "gamesBehind": 0
+      },
+      {
+        "teamId": "717",
+        "teamName": "ファイティングイーグルス名古屋",
+        "wins": 0,
+        "losses": 1,
+        "winPct": 0,
+        "pointsFor": 79,
+        "pointsAgainst": 85,
+        "pointDiff": -6,
+        "rank": 3,
+        "gamesBehind": 1
+      },
+      {
+        "teamId": "693",
+        "teamName": "秋田ノーザンハピネッツ",
+        "wins": 0,
+        "losses": 1,
+        "winPct": 0,
+        "pointsFor": 89,
+        "pointsAgainst": 98,
+        "pointDiff": -9,
+        "rank": 4,
+        "gamesBehind": 1
+      }
+    ]
+  },
+  {
+    "date": "2026-05-26",
+    "teams": [
+      {
+        "teamId": "1638",
+        "teamName": "佐賀バルーナーズ",
+        "wins": 1,
+        "losses": 0,
+        "winPct": 1,
+        "pointsFor": 82,
+        "pointsAgainst": 73,
+        "pointDiff": 9,
+        "rank": 1,
+        "gamesBehind": 0
+      },
+      {
+        "teamId": "2488",
+        "teamName": "長崎ヴェルカ",
+        "wins": 1,
+        "losses": 0,
+        "winPct": 1,
+        "pointsFor": 72,
+        "pointsAgainst": 64,
+        "pointDiff": 8,
+        "rank": 2,
+        "gamesBehind": 0
+      },
+      {
+        "teamId": "727",
+        "teamName": "川崎ブレイブサンダース",
+        "wins": 2,
+        "losses": 1,
+        "winPct": 0.6666666666666666,
+        "pointsFor": 256,
+        "pointsAgainst": 250,
+        "pointDiff": 6,
+        "rank": 3,
+        "gamesBehind": 0
+      },
+      {
+        "teamId": "717",
+        "teamName": "ファイティングイーグルス名古屋",
+        "wins": 0,
+        "losses": 1,
+        "winPct": 0,
+        "pointsFor": 79,
+        "pointsAgainst": 85,
+        "pointDiff": -6,
+        "rank": 4,
+        "gamesBehind": 1
+      },
+      {
+        "teamId": "701",
+        "teamName": "琉球ゴールデンキングス",
+        "wins": 0,
+        "losses": 1,
+        "winPct": 0,
+        "pointsFor": 64,
+        "pointsAgainst": 72,
+        "pointDiff": -8,
+        "rank": 5,
+        "gamesBehind": 1
+      },
+      {
+        "teamId": "693",
+        "teamName": "秋田ノーザンハピネッツ",
+        "wins": 0,
+        "losses": 1,
+        "winPct": 0,
+        "pointsFor": 89,
+        "pointsAgainst": 98,
+        "pointDiff": -9,
+        "rank": 6,
+        "gamesBehind": 1
+      }
+    ]
+  }
+]

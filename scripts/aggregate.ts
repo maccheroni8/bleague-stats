@@ -6,7 +6,7 @@
 import path from "node:path";
 import { DATA_DIR, readAllGames, writeJson } from "./lib/storage.ts";
 import { efgPct, ftRate, parsePlayTime, safeDiv, tsPct } from "./lib/formulas.ts";
-import type { BoxscoreRow, PlayerGameLog, StoredGame, TeamGameLog } from "./lib/types.ts";
+import type { BoxscoreRow, PlayerGameLog, StandingsSnapshot, StoredGame, TeamGameLog } from "./lib/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
 
 interface StatTotals {
@@ -196,9 +196,15 @@ async function aggregateSeason(season: string): Promise<void> {
     await writeJson(path.join(DATA_DIR, season, "team-games", `${t.teamId}.json`), gameLogs);
   }
 
+  const standingsHistory = buildStandingsHistory(games);
+  await writeJson(path.join(DATA_DIR, season, "standings-history.json"), standingsHistory);
+
   await writeJson(path.join(DATA_DIR, season, "players.json"), playersJson);
   await writeJson(path.join(DATA_DIR, season, "teams.json"), teamsJson);
-  console.log(`保存完了: players.json(${playersJson.length}名) / teams.json(${teamsJson.length}チーム)`);
+  console.log(
+    `保存完了: players.json(${playersJson.length}名) / teams.json(${teamsJson.length}チーム) / ` +
+      `standings-history.json(${standingsHistory.length}日分)`,
+  );
 }
 
 function processPlayers(game: StoredGame, players: Map<string, PlayerAccumulator>): void {
@@ -304,6 +310,85 @@ function processTeams(
     opponentScore: game.homeScore,
     win: awayWin,
   });
+}
+
+interface StandingsAccumulator {
+  teamId: string;
+  teamName: string;
+  wins: number;
+  losses: number;
+  pointsFor: number;
+  pointsAgainst: number;
+}
+
+/**
+ * シーズン全試合を日付順に走査し、日付ごとの各チームの累積成績スナップショットを作る。
+ * 同率の順位付けは勝率降順→得失点差降順のシンプルな方法（DESIGN.md参照。公式タイブレーク
+ * ルールが判明次第見直す）。
+ */
+function buildStandingsHistory(games: StoredGame[]): StandingsSnapshot[] {
+  const sorted = [...games].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey),
+  );
+  const accumulators = new Map<string, StandingsAccumulator>();
+
+  const ensure = (teamId: string, teamName: string): StandingsAccumulator => {
+    let acc = accumulators.get(teamId);
+    if (!acc) {
+      acc = { teamId, teamName, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0 };
+      accumulators.set(teamId, acc);
+    }
+    acc.teamName = teamName;
+    return acc;
+  };
+
+  const history: StandingsSnapshot[] = [];
+  let i = 0;
+  while (i < sorted.length) {
+    const date = sorted[i]!.date;
+
+    while (i < sorted.length && sorted[i]!.date === date) {
+      const game = sorted[i]!;
+      const home = ensure(game.homeTeam.id, game.homeTeam.name);
+      const away = ensure(game.awayTeam.id, game.awayTeam.name);
+      home.pointsFor += game.homeScore;
+      home.pointsAgainst += game.awayScore;
+      away.pointsFor += game.awayScore;
+      away.pointsAgainst += game.homeScore;
+      if (game.homeScore > game.awayScore) {
+        home.wins += 1;
+        away.losses += 1;
+      } else {
+        away.wins += 1;
+        home.losses += 1;
+      }
+      i += 1;
+    }
+
+    const ranked = [...accumulators.values()]
+      .map((t) => ({
+        teamId: t.teamId,
+        teamName: t.teamName,
+        wins: t.wins,
+        losses: t.losses,
+        winPct: safeDiv(t.wins, t.wins + t.losses),
+        pointsFor: t.pointsFor,
+        pointsAgainst: t.pointsAgainst,
+        pointDiff: t.pointsFor - t.pointsAgainst,
+      }))
+      .sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
+
+    const leader = ranked[0];
+    const teams = ranked.map((t, idx) => ({
+      ...t,
+      rank: idx + 1,
+      gamesBehind: leader ? (leader.wins - t.wins + (t.losses - leader.losses)) / 2 : 0,
+    }));
+
+    history.push({ date, teams });
+  }
+
+  return history;
 }
 
 async function main(): Promise<void> {

@@ -2,7 +2,7 @@
 // シンボリックリンクになっているため、ビルド後は dist/data 配下にそのまま含まれる。
 // GitHub Pagesのサブパス配信（vite.config.tsのbase）に対応するため、BASE_URLを起点にする。
 
-import type { PlayerGameLog, PlayerSummary, StoredGame, TeamGameLog, TeamSummary } from "./types";
+import type { PlayerGameLog, PlayerSummary, StandingsSnapshot, StoredGame, TeamGameLog, TeamSummary } from "./types";
 
 const dataBase = `${import.meta.env.BASE_URL}data`;
 
@@ -32,4 +32,8 @@ export function fetchGame(season: string, scheduleKey: string): Promise<StoredGa
 
 export function fetchTeamGameLogs(season: string, teamId: string): Promise<TeamGameLog[]> {
   return fetchJson<TeamGameLog[]>(`${dataBase}/${season}/team-games/${teamId}.json`);
+}
+
+export function fetchStandingsHistory(season: string): Promise<StandingsSnapshot[]> {
+  return fetchJson<StandingsSnapshot[]>(`${dataBase}/${season}/standings-history.json`);
 }

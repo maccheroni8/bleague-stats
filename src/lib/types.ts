@@ -177,3 +177,21 @@ export interface PlayerGameLog {
   fta: number;
   plusMinus: number;
 }
+
+export interface StandingsTeamSnapshot {
+  teamId: string;
+  teamName: string;
+  wins: number;
+  losses: number;
+  winPct: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  pointDiff: number;
+  rank: number;
+  gamesBehind: number;
+}
+
+export interface StandingsSnapshot {
+  date: string;
+  teams: StandingsTeamSnapshot[];
+}
