@@ -12,7 +12,10 @@
         "pointsAgainst": 73,
         "pointDiff": 9,
         "rank": 1,
-        "gamesBehind": 0
+        "gamesBehind": 0,
+        "division": "west",
+        "divisionRank": 1,
+        "divisionGamesBehind": 0
       },
       {
         "teamId": "727",
@@ -24,7 +27,10 @@
         "pointsAgainst": 82,
         "pointDiff": -9,
         "rank": 2,
-        "gamesBehind": 1
+        "gamesBehind": 1,
+        "division": "east",
+        "divisionRank": 1,
+        "divisionGamesBehind": 0
       }
     ]
   },
@@ -41,7 +47,10 @@
         "pointsAgainst": 73,
         "pointDiff": 9,
         "rank": 1,
-        "gamesBehind": 0
+        "gamesBehind": 0,
+        "division": "west",
+        "divisionRank": 1,
+        "divisionGamesBehind": 0
       },
       {
         "teamId": "727",
@@ -53,7 +62,10 @@
         "pointsAgainst": 171,
         "pointDiff": 0,
         "rank": 2,
-        "gamesBehind": 0.5
+        "gamesBehind": 0.5,
+        "division": "east",
+        "divisionRank": 1,
+        "divisionGamesBehind": 0
       },
       {
         "teamId": "693",
@@ -65,7 +77,10 @@
         "pointsAgainst": 98,
         "pointDiff": -9,
         "rank": 3,
-        "gamesBehind": 1
+        "gamesBehind": 1,
+        "division": "east",
+        "divisionRank": 2,
+        "divisionGamesBehind": 0.5
       }
     ]
   },
@@ -82,7 +97,10 @@
         "pointsAgainst": 73,
         "pointDiff": 9,
         "rank": 1,
-        "gamesBehind": 0
+        "gamesBehind": 0,
+        "division": "west",
+        "divisionRank": 1,
+        "divisionGamesBehind": 0
       },
       {
         "teamId": "727",
@@ -94,7 +112,10 @@
         "pointsAgainst": 250,
         "pointDiff": 6,
         "rank": 2,
-        "gamesBehind": 0
+        "gamesBehind": 0,
+        "division": "east",
+        "divisionRank": 1,
+        "divisionGamesBehind": 0
       },
       {
         "teamId": "717",
@@ -118,7 +139,10 @@
         "pointsAgainst": 98,
         "pointDiff": -9,
         "rank": 4,
-        "gamesBehind": 1
+        "gamesBehind": 1,
+        "division": "east",
+        "divisionRank": 2,
+        "divisionGamesBehind": 1
       }
     ]
   },
@@ -135,7 +159,10 @@
         "pointsAgainst": 73,
         "pointDiff": 9,
         "rank": 1,
-        "gamesBehind": 0
+        "gamesBehind": 0,
+        "division": "west",
+        "divisionRank": 1,
+        "divisionGamesBehind": 0
       },
       {
         "teamId": "2488",
@@ -147,7 +174,10 @@
         "pointsAgainst": 64,
         "pointDiff": 8,
         "rank": 2,
-        "gamesBehind": 0
+        "gamesBehind": 0,
+        "division": "west",
+        "divisionRank": 2,
+        "divisionGamesBehind": 0
       },
       {
         "teamId": "727",
@@ -159,7 +189,10 @@
         "pointsAgainst": 250,
         "pointDiff": 6,
         "rank": 3,
-        "gamesBehind": 0
+        "gamesBehind": 0,
+        "division": "east",
+        "divisionRank": 1,
+        "divisionGamesBehind": 0
       },
       {
         "teamId": "717",
@@ -183,7 +216,10 @@
         "pointsAgainst": 72,
         "pointDiff": -8,
         "rank": 5,
-        "gamesBehind": 1
+        "gamesBehind": 1,
+        "division": "west",
+        "divisionRank": 3,
+        "divisionGamesBehind": 1
       },
       {
         "teamId": "693",
@@ -195,7 +231,10 @@
         "pointsAgainst": 98,
         "pointDiff": -9,
         "rank": 6,
-        "gamesBehind": 1
+        "gamesBehind": 1,
+        "division": "east",
+        "divisionRank": 2,
+        "divisionGamesBehind": 1
       }
     ]
   }

@@ -206,6 +206,8 @@ export interface PlayerGameLog {
   plusMinus: number;
 }
 
+export type Division = "east" | "west";
+
 export interface StandingsTeamSnapshot {
   teamId: string;
   teamName: string;
@@ -217,6 +219,10 @@ export interface StandingsTeamSnapshot {
   pointDiff: number;
   rank: number;
   gamesBehind: number;
+  /** マスタが2026-27シーズンのB.PREMIER構成基準のため、過去シーズンのチームは未定義になりうる */
+  division?: Division;
+  divisionRank?: number;
+  divisionGamesBehind?: number;
 }
 
 export interface StandingsSnapshot {

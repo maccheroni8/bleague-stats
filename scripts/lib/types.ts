@@ -1,6 +1,8 @@
 // v2_genius_contexts APIの型定義。
 // フィールドはDESIGN.md 2-2章の実機検証（6試合・4,513件のPlayByPlaysで確認済み）に基づく。
 
+import type { Division } from "./divisions.ts";
+
 export interface GameRaw {
   Code: number;
   ScheduleKey: number;
@@ -316,6 +318,16 @@ export interface StandingsTeamSnapshot {
   rank: number;
   /** 首位とのゲーム差 */
   gamesBehind: number;
+  /**
+   * 東地区/西地区。scripts/lib/divisions.tsのマスタに基づく（DESIGN.md参照）。
+   * マスタは2026-27シーズンのB.PREMIER構成を基準にしているため、過去シーズンの
+   * チーム（地区再編前・移籍前）はマスタに無く未定義になりうる
+   */
+  division?: Division;
+  /** 地区内の順位（タイブレーク方法はrankと同じ。地区内で適用）。divisionが不明な場合は未定義 */
+  divisionRank?: number;
+  /** 地区首位とのゲーム差。divisionが不明な場合は未定義 */
+  divisionGamesBehind?: number;
 }
 
 export interface StandingsSnapshot {

@@ -5,8 +5,13 @@ import { StandingsLineChart } from "../components/StandingsLineChart";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
 import type { StandingsSnapshot, StandingsTeamSnapshot } from "../lib/types";
 
-const standingsColumns: Column<StandingsTeamSnapshot>[] = [
-  { key: "rank", label: "順位", sortValue: (t) => t.rank, format: (t) => String(t.rank) },
+const divisionStandingsColumns: Column<StandingsTeamSnapshot>[] = [
+  {
+    key: "divisionRank",
+    label: "順位",
+    sortValue: (t) => t.divisionRank ?? 0,
+    format: (t) => String(t.divisionRank ?? "-"),
+  },
   { key: "teamName", label: "チーム", sortValue: (t) => t.teamName, align: "left" },
   {
     key: "record",
@@ -16,10 +21,10 @@ const standingsColumns: Column<StandingsTeamSnapshot>[] = [
   },
   { key: "winPct", label: "勝率", sortValue: (t) => t.winPct, format: (t) => formatPct(t.winPct) },
   {
-    key: "gamesBehind",
+    key: "divisionGamesBehind",
     label: "GB",
-    sortValue: (t) => t.gamesBehind,
-    format: (t) => (t.gamesBehind === 0 ? "-" : formatDecimal(t.gamesBehind)),
+    sortValue: (t) => t.divisionGamesBehind ?? 0,
+    format: (t) => (!t.divisionGamesBehind ? "-" : formatDecimal(t.divisionGamesBehind)),
   },
   {
     key: "pointDiff",
@@ -46,6 +51,8 @@ export function StandingsPage({ season }: { season: string }) {
 
   const latest = history[history.length - 1]!;
   const teams = latest.teams;
+  const eastTeams = teams.filter((t) => t.division === "east");
+  const westTeams = teams.filter((t) => t.division === "west");
 
   const rankData = reshape(history, (t) => t.rank);
   const winsData = reshape(history, (t) => t.wins);
@@ -56,15 +63,33 @@ export function StandingsPage({ season }: { season: string }) {
       <h1>順位表</h1>
       <p className="page-subtitle">{season}シーズン・{latest.date}時点</p>
 
-      <div className="table-scroll">
-        <SortableTable
-          columns={standingsColumns}
-          rows={teams}
-          rowKey={(t) => t.teamId}
-          defaultSortKey="rank"
-          defaultSortDir="asc"
-          linkTo={(t) => `/teams/${t.teamId}`}
-        />
+      <div className="standings-grid">
+        <div>
+          <h2>東地区</h2>
+          <div className="table-scroll">
+            <SortableTable
+              columns={divisionStandingsColumns}
+              rows={eastTeams}
+              rowKey={(t) => t.teamId}
+              defaultSortKey="divisionRank"
+              defaultSortDir="asc"
+              linkTo={(t) => `/teams/${t.teamId}`}
+            />
+          </div>
+        </div>
+        <div>
+          <h2>西地区</h2>
+          <div className="table-scroll">
+            <SortableTable
+              columns={divisionStandingsColumns}
+              rows={westTeams}
+              rowKey={(t) => t.teamId}
+              defaultSortKey="divisionRank"
+              defaultSortDir="asc"
+              linkTo={(t) => `/teams/${t.teamId}`}
+            />
+          </div>
+        </div>
       </div>
 
       <h2>順位・勝敗の推移</h2>

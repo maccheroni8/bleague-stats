@@ -6,7 +6,8 @@
 import path from "node:path";
 import { DATA_DIR, readAllGames, writeJson } from "./lib/storage.ts";
 import { eff, efgPct, ftRate, offensiveRating, orbPct, pace, parsePlayTime, safeDiv, tsPct, usagePct } from "./lib/formulas.ts";
-import type { BoxscoreRow, PlayerGameLog, StandingsSnapshot, StoredGame, TeamGameLog } from "./lib/types.ts";
+import { teamDivision, type Division } from "./lib/divisions.ts";
+import type { BoxscoreRow, PlayerGameLog, StandingsSnapshot, StandingsTeamSnapshot, StoredGame, TeamGameLog } from "./lib/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
 
 interface StatTotals {
@@ -429,10 +430,40 @@ function buildStandingsHistory(games: StoredGame[]): StandingsSnapshot[] {
       gamesBehind: leader ? (leader.wins - t.wins + (t.losses - leader.losses)) / 2 : 0,
     }));
 
-    history.push({ date, teams });
+    history.push({ date, teams: attachDivisionRanks(teams) });
   }
 
   return history;
+}
+
+/**
+ * 全体ランキング済みのteamsに、地区（東/西）ごとの順位・地区首位とのゲーム差を付与する。
+ * タイブレークは全体順位と同じ勝率降順→得失点差降順を地区内で適用する（DESIGN.md参照）。
+ * divisions.tsのマスタに無いチーム（過去シーズンの地区再編前後のチーム等）はdivision系が未定義のまま
+ */
+function attachDivisionRanks(
+  teams: Omit<StandingsTeamSnapshot, "division" | "divisionRank" | "divisionGamesBehind">[],
+): StandingsTeamSnapshot[] {
+  const withDivision: StandingsTeamSnapshot[] = teams.map((t) => ({ ...t, division: teamDivision(t.teamId) }));
+
+  const byDivision = new Map<Division, StandingsTeamSnapshot[]>();
+  for (const t of withDivision) {
+    if (!t.division) continue;
+    const list = byDivision.get(t.division) ?? [];
+    list.push(t);
+    byDivision.set(t.division, list);
+  }
+
+  for (const list of byDivision.values()) {
+    list.sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
+    const divLeader = list[0]!;
+    list.forEach((t, idx) => {
+      t.divisionRank = idx + 1;
+      t.divisionGamesBehind = (divLeader.wins - t.wins + (t.losses - divLeader.losses)) / 2;
+    });
+  }
+
+  return withDivision;
 }
 
 async function main(): Promise<void> {
