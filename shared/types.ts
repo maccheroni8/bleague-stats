@@ -456,3 +456,33 @@ export interface StandingsSnapshot {
   date: string;
   teams: StandingsTeamSnapshot[];
 }
+
+// ---- data/{season}/head-to-head.json の保存スキーマ（星取り表ページ用） ----
+
+/** 特定の対戦相手1チームとの通算成績（星取り表の1セル分） */
+export interface HeadToHeadRecord {
+  wins: number;
+  losses: number;
+  /** 自チーム視点の合計得失点差 */
+  pointDiff: number;
+}
+
+export interface HeadToHeadSummary {
+  wins: number;
+  losses: number;
+  winPct: number;
+}
+
+export interface HeadToHeadTeamRow {
+  teamId: string;
+  teamName: string;
+  /** scripts/lib/divisions.tsのマスタに基づく（未登録チームは未定義） */
+  division?: Division;
+  /** 対戦相手のteamIdをキーにした通算成績。対戦していない相手はキー自体が存在しない */
+  vs: Record<string, HeadToHeadRecord>;
+  overall: HeadToHeadSummary;
+  /** 相手が東地区のチームだった試合の合算成績（相手の地区が不明な試合は含まない） */
+  vsEast: HeadToHeadSummary;
+  /** 相手が西地区のチームだった試合の合算成績（相手の地区が不明な試合は含まない） */
+  vsWest: HeadToHeadSummary;
+}

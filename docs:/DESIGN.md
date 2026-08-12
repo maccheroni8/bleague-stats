@@ -318,16 +318,6 @@ PTS, OREB/DREB/REB, AST, STL, BLK, TOV, PF, FG(M/A/%), 3P(M/A/%), FT(M/A/%), MIN
 → シーズン合計・平均（Per Game）、スタメン/ベンチ別、国籍区分別、シチュエーション別（時期・勝敗・直近N試合）
 にフィルタして再集計できる設計にする
 
-**シチュエーション別フィルタ（実装済み・チーム/個人詳細ページ）**: 直近N試合（5/10/20）・勝敗別・
-期間指定の3種類。新しいバックエンド集計ファイルは作らず、既存の`team-games/{teamId}.json`・
-`player-games/{playerId}.json`をフロントエンド（`src/lib/situational.ts`）でその場フィルタ・
-再集計する方式。この用途のために`TeamGameLog`にボックススコア詳細（fgm/fga/oreb/dreb/ast等）と
-公式POSS値を追加した（従来はスコアと勝敗のみだった）。集計方針は他の箇所と同じ3原則を踏襲：
-①基本カウント統計は単純合算・平均、②eFG%/TS%等の式ベース指標は基本カウントを合算してから
-式を適用（各試合の%をそのまま平均しない）、③POSS/ORtg/DRtg/Paceは各試合ログの公式POSS値を
-そのまま合算する（式の再計算はしない。POSS配線時と同じ理由）。ランキング・比較ページへの
-シチュエーション別フィルタ追加は未対応（スコープ外、詳細ページのみ）
-
 ### アドバンスドスタッツ（Bリーグ公式定義を優先し、NBA流で補足）
 
 方針: **Bリーグ公式の「スタッツ用語解説」（`https://www.bleague.jp/glossary/`）に定義がある
@@ -413,7 +403,13 @@ Bリーグ公式の用語解説には存在しない。ユーザー独自の集�
   であることを明示しておくこと
 - StandingsPageの「現在の順位表」は東地区・西地区の2テーブルに分割表示。順位遷移等の推移
   グラフは全チームまとめたまま（地区別に分けていない）
-- 星取り表: 対戦カードごとの結果一覧＋未消化カードは残り試合として表示
+- **星取り表（実装済み）**: `data/{season}/head-to-head.json`に、チームごとの対戦相手別
+  通算成績（W-L・合計得失点差。`aggregate.ts`の`buildHeadToHead`が`team-games/{teamId}.json`
+  相当のgameLogsから集計）と、地区別サマリー（対東地区/対西地区。相手チームの地区で
+  グルーピング。地区が不明なチームとの対戦はどちらにも含めない）を出力。フロントエンドは
+  `HeadToHeadMatrix`コンポーネントで全チーム×全チームのマトリックス表示（対角線は黒塗り、
+  未消化カードはダッシュ表示、横スクロール＋左端の行見出し列を固定表示、勝ち越し/負け越しの
+  簡易な背景色分け）。StandingsPageに「順位表」「星取り表」の2タブとして統合
 - マジックナンバー・プレーオフ進出条件（各地区上位3クラブ＋ワイルドカード上位2クラブ、計8クラブ）:
   スコープ外、シーズンが進んでから対応
 
@@ -520,36 +516,47 @@ jobs:
 
 ---
 
-## 9. ディレクトリ構成案
+## 9. ディレクトリ構成案（実装反映版）
 
 ```
 bleague-stats/
-  shared/                     # scripts/・src/両方から参照する共通モジュール（型定義・計算式）
-    types.ts                  # data/{season}/*.jsonの型定義（旧scripts/lib/types.ts + src/lib/types.ts）
-    formulas.ts                # アドバンスドスタッツ計算式
-  scripts/
+  CLAUDE.md
+  docs/
+    DESIGN.md
+  shared/                     # バックエンド/フロントエンド共通ロジック（唯一の情報源）
+    types.ts
+    formulas.ts                # POSS/EFF/Usage%等の計算式
+  scripts/                    # バックエンド（Node.jsネイティブTypeScript実行）
+    lib/
+      geniusApi.ts             # v2_genius_contexts APIクライアント
+      throttle.ts               # レート制限
+      storage.ts                 # ファイルI/O
+      divisions.ts                # 東西地区マスタ（2026-27シーズン基準）
+      isMain.ts
     scrape-schedule.ts
-    scrape-boxscore.ts       # Q別得点・スタメン判定含む
-    scrape-playbyplay.ts     # スコアチャート/テキスト速報の調査結果に応じて実装
-    scrape-roster.ts         # 選手マスタ（国籍・区分・身長体重）取得
-    aggregate.ts             # 生データ→チーム/選手集計
-    aggregate-standings.ts   # 順位表スナップショット生成
-    aggregate-lineups.ts     # ティアC：ラインナップ/オンオフコート算出（精度検証ロジック含む）
-    backfill.ts               # 過去シーズン一括取得（通常運用とは別実行）
-    lib/divisions.ts           # 東西地区マスタ（バックエンド専用、shared/ではない）
-  data/ ...
-  src/                        # フロントエンド（7章の画面構成）
+    scrape-boxscore.ts          # Q別得点・スタメン判定・8章の再チェック運用を含む
+    aggregate.ts                # 生データ→teams/players/player-games/team-games/
+                                  # standings-history生成。地区別ランキング・EFF等を含む
+  src/                         # フロントエンド（Vite + React + HashRouter）
+    lib/
+      statDefs.ts                # スタッツ定義の単一情報源（計算・ランキング・比較・
+                                    # グロッサリー全部がここを参照）
+      situational.ts              # シチュエーション別フィルタと再集計ロジック
+    pages/                      # 7章の画面構成（TeamsPage, PlayerDetailPage,
+                                  # GameDetailPage, RankingsPage, ComparePage,
+                                  # StandingsPage, GlossaryPage 等）
+    components/                 # SortableTable, StandingsLineChart, KeyStatsChart 等
+  public/data -> ../data        # data/へのシンボリックリンク（本番ビルド時の実体化を確認済み）
+  data/ ...                     # 5章のデータモデル
+  tsconfig.json                 # フロントエンド用
+  tsconfig.node.json            # vite.config.ts用
+  tsconfig.scripts.json         # バックエンド用
   .github/workflows/update-stats.yml
-  package.json / README.md
+  package.json
 ```
 
-**共通モジュールの重複解消（実装済み）**: 当初`scripts/lib/types.ts`・`src/lib/types.ts`
-（および`formulas.ts`も同様）を別々に持っていたが、数値がズレるリスクがあったため
-`shared/`ディレクトリに統合した。バックエンドは`tsconfig.scripts.json`（`module: NodeNext`の
-ため`../shared/types.ts`のように拡張子込みでimport）、フロントエンドは`tsconfig.json`
-（Viteのbundler解決のため`../../shared/types`のように拡張子なしでimport）の両方の`include`に
-`shared`を追加して型チェック対象にしている。`scripts/lib/divisions.ts`（東西地区マスタの実データ）
-はバックエンド専用のため`shared/`には含めない。
+（まだ未着手: `scrape-playbyplay.ts`相当の機能はscrape-boxscore.ts内に統合済み、
+`scrape-roster.ts`・`aggregate-lineups.ts`・`backfill.ts`はPhase 3以降で追加予定）
 
 ---
 

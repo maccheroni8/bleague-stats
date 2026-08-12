@@ -1,9 +1,13 @@
-import { fetchStandingsHistory } from "../lib/data";
+import { useState } from "react";
+import { fetchHeadToHead, fetchStandingsHistory } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart } from "../components/StandingsLineChart";
+import { HeadToHeadMatrix } from "../components/HeadToHeadMatrix";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
 import type { StandingsSnapshot, StandingsTeamSnapshot } from "../../shared/types";
+
+type View = "standings" | "h2h";
 
 const divisionStandingsColumns: Column<StandingsTeamSnapshot>[] = [
   {
@@ -43,7 +47,13 @@ function reshape(history: StandingsSnapshot[], metric: (t: StandingsTeamSnapshot
 }
 
 export function StandingsPage({ season }: { season: string }) {
+  const [view, setView] = useState<View>("standings");
   const { data: history, loading, error } = useJsonData(() => fetchStandingsHistory(season), [season]);
+  const {
+    data: headToHead,
+    loading: h2hLoading,
+    error: h2hError,
+  } = useJsonData(() => fetchHeadToHead(season), [season]);
 
   if (loading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
@@ -63,41 +73,62 @@ export function StandingsPage({ season }: { season: string }) {
       <h1>順位表</h1>
       <p className="page-subtitle">{season}シーズン・{latest.date}時点</p>
 
-      <div className="standings-grid">
-        <div>
-          <h2>東地区</h2>
-          <div className="table-scroll">
-            <SortableTable
-              columns={divisionStandingsColumns}
-              rows={eastTeams}
-              rowKey={(t) => t.teamId}
-              defaultSortKey="divisionRank"
-              defaultSortDir="asc"
-              linkTo={(t) => `/teams/${t.teamId}`}
-            />
-          </div>
-        </div>
-        <div>
-          <h2>西地区</h2>
-          <div className="table-scroll">
-            <SortableTable
-              columns={divisionStandingsColumns}
-              rows={westTeams}
-              rowKey={(t) => t.teamId}
-              defaultSortKey="divisionRank"
-              defaultSortDir="asc"
-              linkTo={(t) => `/teams/${t.teamId}`}
-            />
-          </div>
-        </div>
+      <div className="mode-toggle">
+        <button className={view === "standings" ? "active" : ""} onClick={() => setView("standings")}>
+          順位表
+        </button>
+        <button className={view === "h2h" ? "active" : ""} onClick={() => setView("h2h")}>
+          星取り表
+        </button>
       </div>
 
-      <h2>順位・勝敗の推移</h2>
-      <StandingsLineChart title="順位推移" data={rankData} teams={teams} reversed height={360} />
-      <div className="standings-grid">
-        <StandingsLineChart title="勝ち星推移" data={winsData} teams={teams} height={280} />
-        <StandingsLineChart title="貯金推移" data={gamesAboveData} teams={teams} height={280} />
-      </div>
+      {view === "standings" ? (
+        <>
+          <div className="standings-grid">
+            <div>
+              <h2>東地区</h2>
+              <div className="table-scroll">
+                <SortableTable
+                  columns={divisionStandingsColumns}
+                  rows={eastTeams}
+                  rowKey={(t) => t.teamId}
+                  defaultSortKey="divisionRank"
+                  defaultSortDir="asc"
+                  linkTo={(t) => `/teams/${t.teamId}`}
+                />
+              </div>
+            </div>
+            <div>
+              <h2>西地区</h2>
+              <div className="table-scroll">
+                <SortableTable
+                  columns={divisionStandingsColumns}
+                  rows={westTeams}
+                  rowKey={(t) => t.teamId}
+                  defaultSortKey="divisionRank"
+                  defaultSortDir="asc"
+                  linkTo={(t) => `/teams/${t.teamId}`}
+                />
+              </div>
+            </div>
+          </div>
+
+          <h2>順位・勝敗の推移</h2>
+          <StandingsLineChart title="順位推移" data={rankData} teams={teams} reversed height={360} />
+          <div className="standings-grid">
+            <StandingsLineChart title="勝ち星推移" data={winsData} teams={teams} height={280} />
+            <StandingsLineChart title="貯金推移" data={gamesAboveData} teams={teams} height={280} />
+          </div>
+        </>
+      ) : h2hLoading ? (
+        <p className="loading">読み込み中...</p>
+      ) : h2hError ? (
+        <p className="error-message">{h2hError}</p>
+      ) : !headToHead || headToHead.length === 0 ? (
+        <p className="empty-message">データがありません</p>
+      ) : (
+        <HeadToHeadMatrix rows={headToHead} />
+      )}
     </div>
   );
 }

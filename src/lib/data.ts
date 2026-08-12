@@ -3,6 +3,7 @@
 // GitHub Pagesのサブパス配信（vite.config.tsのbase）に対応するため、BASE_URLを起点にする。
 
 import type {
+  HeadToHeadTeamRow,
   PlayerGameLog,
   PlayerSummary,
   StandingsSnapshot,
@@ -43,4 +44,8 @@ export function fetchTeamGameLogs(season: string, teamId: string): Promise<TeamG
 
 export function fetchStandingsHistory(season: string): Promise<StandingsSnapshot[]> {
   return fetchJson<StandingsSnapshot[]>(`${dataBase}/${season}/standings-history.json`);
+}
+
+export function fetchHeadToHead(season: string): Promise<HeadToHeadTeamRow[]> {
+  return fetchJson<HeadToHeadTeamRow[]>(`${dataBase}/${season}/head-to-head.json`);
 }

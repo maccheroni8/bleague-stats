@@ -10,6 +10,8 @@ import { teamDivision } from "./lib/divisions.ts";
 import type {
   BoxscoreRow,
   Division,
+  HeadToHeadRecord,
+  HeadToHeadTeamRow,
   PlayerGameLog,
   StandingsSnapshot,
   StandingsTeamSnapshot,
@@ -252,11 +254,14 @@ async function aggregateSeason(season: string): Promise<void> {
   const standingsHistory = buildStandingsHistory(games);
   await writeJson(path.join(DATA_DIR, season, "standings-history.json"), standingsHistory);
 
+  const headToHead = buildHeadToHead(teams);
+  await writeJson(path.join(DATA_DIR, season, "head-to-head.json"), headToHead);
+
   await writeJson(path.join(DATA_DIR, season, "players.json"), playersJson);
   await writeJson(path.join(DATA_DIR, season, "teams.json"), teamsJson);
   console.log(
     `保存完了: players.json(${playersJson.length}名) / teams.json(${teamsJson.length}チーム) / ` +
-      `standings-history.json(${standingsHistory.length}日分)`,
+      `standings-history.json(${standingsHistory.length}日分) / head-to-head.json(${headToHead.length}チーム)`,
   );
 }
 
@@ -496,6 +501,56 @@ function attachDivisionRanks(
   }
 
   return withDivision;
+}
+
+/**
+ * チームごとのgameLogs（team-games/{teamId}.json相当）から、対戦相手ごとのペアワイズ成績
+ * （W-L・合計得失点差）と、地区別（対東地区/対西地区）のまとめを作る（星取り表ページ用）。
+ * 対戦していない相手はvsに含めない（フロントエンドでダッシュ/空欄表示にする）。
+ */
+function buildHeadToHead(teams: Map<string, TeamAccumulator>): HeadToHeadTeamRow[] {
+  const withPct = (wins: number, losses: number) => ({ wins, losses, winPct: safeDiv(wins, wins + losses) });
+
+  const rows = [...teams.values()].map((team) => {
+    const vs = new Map<string, HeadToHeadRecord>();
+    for (const log of team.gameLogs) {
+      let rec = vs.get(log.opponentTeamId);
+      if (!rec) {
+        rec = { wins: 0, losses: 0, pointDiff: 0 };
+        vs.set(log.opponentTeamId, rec);
+      }
+      if (log.win) rec.wins += 1;
+      else rec.losses += 1;
+      rec.pointDiff += log.teamScore - log.opponentScore;
+    }
+
+    let eastWins = 0;
+    let eastLosses = 0;
+    let westWins = 0;
+    let westLosses = 0;
+    for (const [opponentTeamId, rec] of vs) {
+      const division = teamDivision(opponentTeamId);
+      if (division === "east") {
+        eastWins += rec.wins;
+        eastLosses += rec.losses;
+      } else if (division === "west") {
+        westWins += rec.wins;
+        westLosses += rec.losses;
+      }
+    }
+
+    return {
+      teamId: team.teamId,
+      teamName: team.teamName,
+      division: teamDivision(team.teamId),
+      vs: Object.fromEntries(vs),
+      overall: withPct(team.wins, team.losses),
+      vsEast: withPct(eastWins, eastLosses),
+      vsWest: withPct(westWins, westLosses),
+    };
+  });
+
+  return rows.sort((a, b) => b.overall.wins - a.overall.wins);
 }
 
 async function main(): Promise<void> {

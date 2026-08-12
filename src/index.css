@@ -564,6 +564,122 @@ table.glossary-table td {
   font-size: 13px;
 }
 
+.h2h-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+table.h2h-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 10.5px;
+}
+
+table.h2h-table th,
+table.h2h-table td {
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  padding: 0;
+  text-align: center;
+}
+
+.h2h-corner,
+.h2h-row-header {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bg);
+}
+
+.h2h-corner {
+  z-index: 3;
+  min-width: 140px;
+}
+
+.h2h-col-header {
+  height: 130px;
+  min-width: 34px;
+  max-width: 34px;
+  vertical-align: bottom;
+  padding-bottom: 6px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.h2h-col-header span {
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+}
+
+.h2h-row-header {
+  min-width: 140px;
+  max-width: 140px;
+  text-align: left;
+  font-weight: 600;
+  padding: 6px 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h2h-row-header a {
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.h2h-cell {
+  min-width: 34px;
+  max-width: 34px;
+  padding: 4px 2px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.h2h-cell.h2h-win {
+  background: color-mix(in srgb, #2e7d32 16%, transparent);
+}
+
+.h2h-cell.h2h-loss {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.h2h-cell.h2h-self {
+  background: #1a1a1a;
+}
+
+.h2h-record {
+  font-weight: 700;
+}
+
+.h2h-diff {
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.h2h-cell .h2h-diff {
+  color: inherit;
+  opacity: 0.75;
+}
+
+.h2h-summary-header {
+  min-width: 56px;
+  max-width: 56px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  vertical-align: bottom;
+  padding-bottom: 6px;
+  line-height: 1.3;
+}
+
+.h2h-summary-cell {
+  min-width: 56px;
+  max-width: 56px;
+  padding: 4px;
+  background: var(--header-bg);
+}
+
 @media (max-width: 640px) {
   .game-leaders,
   .key-stats-grid,
