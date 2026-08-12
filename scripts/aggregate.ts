@@ -5,7 +5,7 @@
 
 import path from "node:path";
 import { DATA_DIR, readAllGames, writeJson } from "./lib/storage.ts";
-import { eff, efgPct, ftRate, parsePlayTime, safeDiv, tsPct } from "./lib/formulas.ts";
+import { eff, efgPct, ftRate, offensiveRating, orbPct, pace, parsePlayTime, safeDiv, tsPct, usagePct } from "./lib/formulas.ts";
 import type { BoxscoreRow, PlayerGameLog, StandingsSnapshot, StoredGame, TeamGameLog } from "./lib/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
 
@@ -32,6 +32,13 @@ interface StatTotals {
   foulsDrawn: number;
   /** 被ブロック数。EFF計算のBSRに対応 */
   blockedAgainst: number;
+  /**
+   * 推定ポゼッション。GeniusAPI生データのチーム行に含まれる公式POSS値をそのまま合算する
+   * （自チーム/相手チーム行で同一値であることを確認済み。formulas.tsのestimatedPossessions()で
+   * シーズン合計値から再計算すると比率項の非線形性で誤差が出るため、生値の合算を採用する）。
+   * 個人行にはPOSSが存在しないため選手集計では常に0のまま
+   */
+  poss: number;
 }
 
 function emptyTotals(): StatTotals {
@@ -56,6 +63,7 @@ function emptyTotals(): StatTotals {
     fta: 0,
     foulsDrawn: 0,
     blockedAgainst: 0,
+    poss: 0,
   };
 }
 
@@ -80,6 +88,7 @@ function addBoxscoreRow(totals: StatTotals, row: BoxscoreRow, countGame: boolean
   totals.fta += row.FTA;
   totals.foulsDrawn += row.FOULON;
   totals.blockedAgainst += row.BSON;
+  totals.poss += row.POSS ?? 0;
 }
 
 function buildStatBlock(totals: StatTotals, seasonStartYear: number) {
@@ -170,13 +179,20 @@ async function aggregateSeason(season: string): Promise<void> {
   }
 
   const playersJson = [...players.values()]
-    .map((p) => ({
-      playerId: p.playerId,
-      name: p.name,
-      teamId: p.teamId,
-      teamName: p.teamName,
-      ...buildStatBlock(p.totals, seasonStartYear),
-    }))
+    .map((p) => {
+      const statBlock = buildStatBlock(p.totals, seasonStartYear);
+      // Usage%はチームの出場全体（シーズン合計）を基準に算出する。移籍選手は直近所属チームで近似する
+      const team = teams.get(p.teamId);
+      const usage = team ? usagePct(p.totals, team.totals) : 0;
+      return {
+        playerId: p.playerId,
+        name: p.name,
+        teamId: p.teamId,
+        teamName: p.teamName,
+        ...statBlock,
+        advanced: { eff: statBlock.advanced.eff, usagePct: usage },
+      };
+    })
     .sort((a, b) => b.perGame.pts - a.perGame.pts);
 
   for (const p of players.values()) {
@@ -188,12 +204,26 @@ async function aggregateSeason(season: string): Promise<void> {
     .map((t) => {
       const ownStats = buildStatBlock(t.totals, seasonStartYear);
       const oppStats = buildStatBlock(t.opponentTotals, seasonStartYear);
+      // POSSは生データのチーム行から合算済みの値（totals.poss）を使う。自チーム/相手チーム行で
+      // 同一の値になることを確認済みなので、opponentTotals.possも同じ値になる
+      const poss = t.totals.poss;
+      const offRtg = offensiveRating(t.totals.pts, poss);
+      const defRtg = offensiveRating(t.opponentTotals.pts, poss);
       return {
         teamId: t.teamId,
         teamName: t.teamName,
         wins: t.wins,
         losses: t.losses,
         ...ownStats,
+        advanced: {
+          eff: ownStats.advanced.eff,
+          poss,
+          pace: pace(poss, t.totals.min),
+          offRtg,
+          defRtg,
+          netRtg: offRtg - defRtg,
+          orbPct: orbPct(t.totals.oreb, t.opponentTotals.dreb),
+        },
         opponentPerGame: oppStats.perGame,
         netPerGame: Object.fromEntries(
           Object.entries(ownStats.perGame).map(([key, value]) => [

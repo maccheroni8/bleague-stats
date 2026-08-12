@@ -3,7 +3,7 @@
 // グロッサリーページの用語集、全部に自動反映される（DESIGN.md 6章の分類方針と整合させること）。
 
 import type { PlayerSummary, TeamSummary } from "./types";
-import { formatDecimal, formatPct, formatSigned } from "./format";
+import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 
 export type StatSource = "official" | "nba" | "custom";
 
@@ -152,6 +152,65 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
     officialAbbr: "EFF",
     category: "rating",
   },
+  {
+    key: "ftRate",
+    label: "FTR",
+    value: (t) => t.shooting.ftRate,
+    format: (t) => formatDecimal(t.shooting.ftRate, 3),
+    formulaText: "FTA / FGA",
+    source: "nba",
+    category: "shooting",
+  },
+  {
+    key: "orbPct",
+    label: "ORB%",
+    value: (t) => t.advanced.orbPct,
+    format: (t) => formatPct100(t.advanced.orbPct),
+    formulaText: "100 × 自チームOREB / (自チームOREB + 相手DREB)",
+    source: "nba",
+    category: "rebounding",
+  },
+  {
+    key: "pace",
+    label: "PACE",
+    value: (t) => t.advanced.pace,
+    format: (t) => formatDecimal(t.advanced.pace),
+    formulaText: "40 × POSS / (チーム総プレイタイム / 5)",
+    source: "official",
+    officialAbbr: "PACE",
+    category: "rating",
+  },
+  {
+    key: "offRtg",
+    label: "ORtg",
+    value: (t) => t.advanced.offRtg,
+    format: (t) => formatDecimal(t.advanced.offRtg),
+    formulaText: "100 × PTS / POSS",
+    source: "official",
+    officialAbbr: "OFFRTG",
+    category: "rating",
+  },
+  {
+    key: "defRtg",
+    label: "DRtg",
+    value: (t) => t.advanced.defRtg,
+    format: (t) => formatDecimal(t.advanced.defRtg),
+    higherIsBetter: false,
+    formulaText: "100 × 相手PTS / POSS",
+    source: "official",
+    officialAbbr: "DEFRTG",
+    category: "rating",
+  },
+  {
+    key: "netRtg",
+    label: "NetRtg",
+    value: (t) => t.advanced.netRtg,
+    format: (t) => formatSigned(t.advanced.netRtg),
+    formulaText: "OFFRTG − DEFRTG",
+    source: "official",
+    officialAbbr: "NETRTG",
+    category: "rating",
+  },
 ];
 
 export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
@@ -264,6 +323,24 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     formulaText: "(PTS+AST+BLK+STL+FD+REB) − (TOV+BSR+PF) − (FGA−FGM) − (FTA−FTM)　※2020-21シーズン以降の式",
     source: "official",
     officialAbbr: "EFF",
+    category: "rating",
+  },
+  {
+    key: "ftRate",
+    label: "FTR",
+    value: (p) => p.shooting.ftRate,
+    format: (p) => formatDecimal(p.shooting.ftRate, 3),
+    formulaText: "FTA / FGA",
+    source: "nba",
+    category: "shooting",
+  },
+  {
+    key: "usagePct",
+    label: "Usage%",
+    value: (p) => p.advanced.usagePct,
+    format: (p) => formatPct100(p.advanced.usagePct),
+    formulaText: "100 × ((FGA+0.44×FTA+TOV)×(チームMIN/5)) / (MIN×(チームFGA+0.44×チームFTA+チームTOV))",
+    source: "nba",
     category: "rating",
   },
 ];

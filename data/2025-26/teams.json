@@ -26,7 +26,8 @@
       "ftm": 25,
       "fta": 37,
       "foulsDrawn": 49,
-      "blockedAgainst": 6
+      "blockedAgainst": 6,
+      "poss": 231.9018551491508
     },
     "perGame": {
       "min": 216.66666666666666,
@@ -49,7 +50,13 @@
       "ftRate": 0.1778846153846154
     },
     "advanced": {
-      "eff": 96
+      "eff": 96,
+      "poss": 231.9018551491508,
+      "pace": 71.35441696896947,
+      "offRtg": 110.3915274137631,
+      "defRtg": 107.80422599000302,
+      "netRtg": 2.5873014237600813,
+      "orbPct": 30.434782608695652
     },
     "opponentPerGame": {
       "min": 216.66666666666666,
@@ -103,7 +110,8 @@
       "ftm": 19,
       "fta": 23,
       "foulsDrawn": 20,
-      "blockedAgainst": 1
+      "blockedAgainst": 1,
+      "poss": 72.51846184107002
     },
     "perGame": {
       "min": 200,
@@ -126,7 +134,13 @@
       "ftRate": 0.34328358208955223
     },
     "advanced": {
-      "eff": 106
+      "eff": 106,
+      "poss": 72.51846184107002,
+      "pace": 72.51846184107002,
+      "offRtg": 113.07465425798678,
+      "defRtg": 100.6640214735736,
+      "netRtg": 12.410632784413181,
+      "orbPct": 31.70731707317073
     },
     "opponentPerGame": {
       "min": 200,
@@ -180,7 +194,8 @@
       "ftm": 15,
       "fta": 23,
       "foulsDrawn": 22,
-      "blockedAgainst": 1
+      "blockedAgainst": 1,
+      "poss": 63.94400510204082
     },
     "perGame": {
       "min": 200,
@@ -203,7 +218,13 @@
       "ftRate": 0.4107142857142857
     },
     "advanced": {
-      "eff": 78
+      "eff": 78,
+      "poss": 63.94400510204082,
+      "pace": 63.94400510204082,
+      "offRtg": 112.59851472409892,
+      "defRtg": 100.0875686436435,
+      "netRtg": 12.510946080455426,
+      "orbPct": 25
     },
     "opponentPerGame": {
       "min": 200,
@@ -257,7 +278,8 @@
       "ftm": 16,
       "fta": 18,
       "foulsDrawn": 22,
-      "blockedAgainst": 2
+      "blockedAgainst": 2,
+      "poss": 81.68319444444444
     },
     "perGame": {
       "min": 225,
@@ -280,7 +302,13 @@
       "ftRate": 0.2535211267605634
     },
     "advanced": {
-      "eff": 98
+      "eff": 98,
+      "poss": 81.68319444444444,
+      "pace": 72.60728395061727,
+      "offRtg": 108.95754090583709,
+      "defRtg": 119.97571919968578,
+      "netRtg": -11.018178293848692,
+      "orbPct": 31.70731707317073
     },
     "opponentPerGame": {
       "min": 225,
@@ -334,7 +362,8 @@
       "ftm": 10,
       "fta": 15,
       "foulsDrawn": 22,
-      "blockedAgainst": 2
+      "blockedAgainst": 2,
+      "poss": 77.70019886363636
     },
     "perGame": {
       "min": 225,
@@ -357,7 +386,13 @@
       "ftRate": 0.20833333333333334
     },
     "advanced": {
-      "eff": 94
+      "eff": 94,
+      "poss": 77.70019886363636,
+      "pace": 69.06684343434344,
+      "offRtg": 101.67284145391287,
+      "defRtg": 109.39482941243789,
+      "netRtg": -7.72198795852502,
+      "orbPct": 36.36363636363637
     },
     "opponentPerGame": {
       "min": 225,
@@ -411,7 +446,8 @@
       "ftm": 12,
       "fta": 18,
       "foulsDrawn": 23,
-      "blockedAgainst": 8
+      "blockedAgainst": 8,
+      "poss": 63.94400510204082
     },
     "perGame": {
       "min": 200,
@@ -434,7 +470,13 @@
       "ftRate": 0.2571428571428571
     },
     "advanced": {
-      "eff": 60
+      "eff": 60,
+      "poss": 63.94400510204082,
+      "pace": 63.94400510204082,
+      "offRtg": 100.0875686436435,
+      "defRtg": 112.59851472409892,
+      "netRtg": -12.510946080455426,
+      "orbPct": 53.06122448979592
     },
     "opponentPerGame": {
       "min": 200,

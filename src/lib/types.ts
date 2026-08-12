@@ -45,9 +45,28 @@ export interface ShootingStats {
   ftRate: number;
 }
 
-export interface AdvancedStats {
+export interface TeamAdvancedStats {
   /** Bリーグ公式EFF（貢献度）。1試合あたりの値。DESIGN.md 6章 */
   eff: number;
+  /** 推定ポゼッション（シーズン合計）。生データのチーム行のPOSS値を合算した値 */
+  poss: number;
+  /** ペース。40分換算・5人あたりの推定ポゼッション数 */
+  pace: number;
+  /** オフェンシブレーティング（100ポゼッションあたり得点） */
+  offRtg: number;
+  /** ディフェンシブレーティング（100ポゼッションあたり失点） */
+  defRtg: number;
+  /** ネットレーティング = offRtg - defRtg */
+  netRtg: number;
+  /** オフェンスリバウンド率。公式に定義がないためNBA流を採用（DESIGN.md 6章） */
+  orbPct: number;
+}
+
+export interface PlayerAdvancedStats {
+  /** Bリーグ公式EFF（貢献度）。1試合あたりの値。DESIGN.md 6章 */
+  eff: number;
+  /** ユーセージ率。公式に定義がないためNBA流を採用（DESIGN.md 6章） */
+  usagePct: number;
 }
 
 export interface TeamSummary {
@@ -60,7 +79,7 @@ export interface TeamSummary {
   totals: StatTotals;
   perGame: PerGameStats;
   shooting: ShootingStats;
-  advanced: AdvancedStats;
+  advanced: TeamAdvancedStats;
   opponentPerGame: PerGameStats;
   netPerGame: PerGameStats;
 }
@@ -75,7 +94,7 @@ export interface PlayerSummary {
   totals: StatTotals;
   perGame: PerGameStats;
   shooting: ShootingStats;
-  advanced: AdvancedStats;
+  advanced: PlayerAdvancedStats;
 }
 
 // ---- data/{season}/games/{scheduleKey}.json（試合詳細ページ用） ----

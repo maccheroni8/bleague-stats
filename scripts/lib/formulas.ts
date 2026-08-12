@@ -118,6 +118,20 @@ export function eff(seasonStartYear: number, totals: EffTotals, gamesPlayed: num
   );
 }
 
+/**
+ * Usage% = 100 * ((FGA + 0.44*FTA + TOV) * (TeamMIN/5)) / (MIN * (TeamFGA + 0.44*TeamFTA + TeamTOV))。
+ * 公式に定義がないためNBA流を採用（DESIGN.md 6章）。GeniusAPI生データの個人USGフィールドと
+ * 一致することを確認済み（複数選手・1試合分で検証）
+ */
+export function usagePct(
+  player: { fga: number; fta: number; tov: number; min: number },
+  team: { fga: number; fta: number; tov: number; min: number },
+): number {
+  const numerator = (player.fga + 0.44 * player.fta + player.tov) * (team.min / 5);
+  const denominator = player.min * (team.fga + 0.44 * team.fta + team.tov);
+  return safeDiv(100 * numerator, denominator);
+}
+
 /** MM:SS または "DNP" 形式のPlayTimeを分（小数）に変換する */
 export function parsePlayTime(playTime: string): number {
   const match = /^(\d+):(\d{2})$/.exec(playTime);
