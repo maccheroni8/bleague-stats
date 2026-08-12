@@ -1,0 +1,22 @@
+{
+  "name": "bleague-stats",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "scrape:schedule": "node --experimental-strip-types scripts/scrape-schedule.ts",
+    "scrape:boxscore": "node --experimental-strip-types scripts/scrape-boxscore.ts",
+    "aggregate": "node --experimental-strip-types scripts/aggregate.ts",
+    "print:current-season": "node --experimental-strip-types scripts/print-current-season.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.7.0"
+  }
+}
