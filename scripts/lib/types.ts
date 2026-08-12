@@ -253,3 +253,47 @@ export interface ScheduleFile {
   generatedAt: string;
   scheduleKeys: string[];
 }
+
+// ---- data/{season}/player-games/{playerId}.json の保存スキーマ（個人詳細ページの試合ログ用） ----
+
+export interface PlayerGameLog {
+  scheduleKey: string;
+  /** JST基準のYYYY-MM-DD */
+  date: string;
+  opponentTeamId: string;
+  opponentTeamName: string;
+  isHome: boolean;
+  win: boolean;
+  isStarter: boolean;
+  min: number;
+  pts: number;
+  oreb: number;
+  dreb: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  tov: number;
+  pf: number;
+  fgm: number;
+  fga: number;
+  tpm: number;
+  tpa: number;
+  ftm: number;
+  fta: number;
+  plusMinus: number;
+}
+
+// ---- data/{season}/team-games/{teamId}.json の保存スキーマ（チーム詳細ページの試合結果一覧用） ----
+
+export interface TeamGameLog {
+  scheduleKey: string;
+  /** JST基準のYYYY-MM-DD */
+  date: string;
+  opponentTeamId: string;
+  opponentTeamName: string;
+  isHome: boolean;
+  teamScore: number;
+  opponentScore: number;
+  win: boolean;
+}

@@ -6,17 +6,31 @@
     "node": ">=24"
   },
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "scrape:schedule": "node --experimental-strip-types scripts/scrape-schedule.ts",
     "scrape:boxscore": "node --experimental-strip-types scripts/scrape-boxscore.ts",
     "aggregate": "node --experimental-strip-types scripts/aggregate.ts",
     "print:current-season": "node --experimental-strip-types scripts/print-current-season.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc -p tsconfig.scripts.json --noEmit && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "cheerio": "^1.0.0"
+    "cheerio": "^1.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "recharts": "^2.13.3"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "typescript": "^5.7.0"
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.3"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
   }
 }

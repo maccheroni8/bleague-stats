@@ -6,7 +6,7 @@
 import path from "node:path";
 import { DATA_DIR, readAllGames, writeJson } from "./lib/storage.ts";
 import { efgPct, ftRate, parsePlayTime, safeDiv, tsPct } from "./lib/formulas.ts";
-import type { BoxscoreRow, StoredGame } from "./lib/types.ts";
+import type { BoxscoreRow, PlayerGameLog, StoredGame, TeamGameLog } from "./lib/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
 
 interface StatTotals {
@@ -109,6 +109,7 @@ interface PlayerAccumulator {
   teamId: string;
   teamName: string;
   totals: StatTotals;
+  gameLogs: PlayerGameLog[];
 }
 
 interface TeamAccumulator {
@@ -118,6 +119,7 @@ interface TeamAccumulator {
   losses: number;
   totals: StatTotals;
   opponentTotals: StatTotals;
+  gameLogs: TeamGameLog[];
 }
 
 function pickTeamRow(rows: BoxscoreRow[], category: 1 | 3): BoxscoreRow[] {
@@ -134,7 +136,15 @@ async function aggregateSeason(season: string): Promise<void> {
   const ensureTeam = (teamId: string, teamName: string): TeamAccumulator => {
     let team = teams.get(teamId);
     if (!team) {
-      team = { teamId, teamName, wins: 0, losses: 0, totals: emptyTotals(), opponentTotals: emptyTotals() };
+      team = {
+        teamId,
+        teamName,
+        wins: 0,
+        losses: 0,
+        totals: emptyTotals(),
+        opponentTotals: emptyTotals(),
+        gameLogs: [],
+      };
       teams.set(teamId, team);
     }
     return team;
@@ -154,6 +164,11 @@ async function aggregateSeason(season: string): Promise<void> {
       ...buildStatBlock(p.totals),
     }))
     .sort((a, b) => b.perGame.pts - a.perGame.pts);
+
+  for (const p of players.values()) {
+    const gameLogs = [...p.gameLogs].sort((a, b) => a.date.localeCompare(b.date));
+    await writeJson(path.join(DATA_DIR, season, "player-games", `${p.playerId}.json`), gameLogs);
+  }
 
   const teamsJson = [...teams.values()]
     .map((t) => {
@@ -176,6 +191,11 @@ async function aggregateSeason(season: string): Promise<void> {
     })
     .sort((a, b) => b.wins - a.wins);
 
+  for (const t of teams.values()) {
+    const gameLogs = [...t.gameLogs].sort((a, b) => a.date.localeCompare(b.date));
+    await writeJson(path.join(DATA_DIR, season, "team-games", `${t.teamId}.json`), gameLogs);
+  }
+
   await writeJson(path.join(DATA_DIR, season, "players.json"), playersJson);
   await writeJson(path.join(DATA_DIR, season, "teams.json"), teamsJson);
   console.log(`保存完了: players.json(${playersJson.length}名) / teams.json(${teamsJson.length}チーム)`);
@@ -193,6 +213,7 @@ function processPlayers(game: StoredGame, players: Map<string, PlayerAccumulator
         teamId: row.TeamID ?? "",
         teamName: row.TeamNameJ,
         totals: emptyTotals(),
+        gameLogs: [],
       };
       players.set(row.PlayerID, acc);
     }
@@ -202,6 +223,36 @@ function processPlayers(game: StoredGame, players: Map<string, PlayerAccumulator
     // 出場判定はPlayingFlgではなくPlayTime基準（実データ検証でPlayingFlg=falseでも
     // 得点等が記録されている選手が見つかったため。DESIGN.md 2-2章の記述は誤りだった）
     addBoxscoreRow(acc.totals, row, row.PlayTime !== "DNP");
+
+    const isHome = row.TeamID === game.homeTeam.id;
+    const opponent = isHome ? game.awayTeam : game.homeTeam;
+    const win = isHome ? game.homeScore > game.awayScore : game.awayScore > game.homeScore;
+    acc.gameLogs.push({
+      scheduleKey: game.scheduleKey,
+      date: game.date,
+      opponentTeamId: opponent.id,
+      opponentTeamName: opponent.name,
+      isHome,
+      win,
+      isStarter: row.StartingFlg === 1,
+      min: parsePlayTime(row.PlayTime),
+      pts: row.Point,
+      oreb: row.RB_OFF,
+      dreb: row.RB_DEF,
+      reb: row.RB_TOT,
+      ast: row.AS,
+      stl: row.ST,
+      blk: row.BS,
+      tov: row.TO,
+      pf: row.FOUL,
+      fgm: row.PT2M + row.PT3M,
+      fga: row.PT2A + row.PT3A,
+      tpm: row.PT3M,
+      tpa: row.PT3A,
+      ftm: row.FTM,
+      fta: row.FTA,
+      plusMinus: row.PLUSMINUS ?? 0,
+    });
   }
 }
 
@@ -223,13 +274,36 @@ function processTeams(
   addBoxscoreRow(away.totals, awayRow, true);
   addBoxscoreRow(away.opponentTotals, homeRow, true);
 
-  if (game.homeScore > game.awayScore) {
+  const homeWin = game.homeScore > game.awayScore;
+  const awayWin = game.awayScore > game.homeScore;
+  if (homeWin) {
     home.wins += 1;
     away.losses += 1;
-  } else if (game.awayScore > game.homeScore) {
+  } else if (awayWin) {
     away.wins += 1;
     home.losses += 1;
   }
+
+  home.gameLogs.push({
+    scheduleKey: game.scheduleKey,
+    date: game.date,
+    opponentTeamId: game.awayTeam.id,
+    opponentTeamName: game.awayTeam.name,
+    isHome: true,
+    teamScore: game.homeScore,
+    opponentScore: game.awayScore,
+    win: homeWin,
+  });
+  away.gameLogs.push({
+    scheduleKey: game.scheduleKey,
+    date: game.date,
+    opponentTeamId: game.homeTeam.id,
+    opponentTeamName: game.homeTeam.name,
+    isHome: false,
+    teamScore: game.awayScore,
+    opponentScore: game.homeScore,
+    win: awayWin,
+  });
 }
 
 async function main(): Promise<void> {

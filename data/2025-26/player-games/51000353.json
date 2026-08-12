@@ -1,0 +1,28 @@
+[
+  {
+    "scheduleKey": "505076",
+    "date": "2025-12-26",
+    "opponentTeamId": "727",
+    "opponentTeamName": "川崎ブレイブサンダース",
+    "isHome": false,
+    "win": true,
+    "isStarter": true,
+    "min": 17.733333333333334,
+    "pts": 3,
+    "oreb": 0,
+    "dreb": 2,
+    "reb": 2,
+    "ast": 1,
+    "stl": 0,
+    "blk": 0,
+    "tov": 0,
+    "pf": 1,
+    "fgm": 1,
+    "fga": 3,
+    "tpm": 1,
+    "tpa": 2,
+    "ftm": 0,
+    "fta": 0,
+    "plusMinus": -21
+  }
+]

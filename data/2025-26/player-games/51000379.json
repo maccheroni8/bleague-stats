@@ -1,0 +1,28 @@
+[
+  {
+    "scheduleKey": "506099",
+    "date": "2026-05-26",
+    "opponentTeamId": "701",
+    "opponentTeamName": "琉球ゴールデンキングス",
+    "isHome": true,
+    "win": true,
+    "isStarter": true,
+    "min": 38.266666666666666,
+    "pts": 23,
+    "oreb": 0,
+    "dreb": 5,
+    "reb": 5,
+    "ast": 1,
+    "stl": 0,
+    "blk": 2,
+    "tov": 0,
+    "pf": 1,
+    "fgm": 6,
+    "fga": 12,
+    "tpm": 3,
+    "tpa": 8,
+    "ftm": 8,
+    "fta": 11,
+    "plusMinus": 5
+  }
+]

@@ -1,0 +1,28 @@
+[
+  {
+    "scheduleKey": "506099",
+    "date": "2026-05-26",
+    "opponentTeamId": "2488",
+    "opponentTeamName": "長崎ヴェルカ",
+    "isHome": false,
+    "win": false,
+    "isStarter": true,
+    "min": 30.433333333333334,
+    "pts": 13,
+    "oreb": 1,
+    "dreb": 1,
+    "reb": 2,
+    "ast": 2,
+    "stl": 0,
+    "blk": 0,
+    "tov": 3,
+    "pf": 3,
+    "fgm": 4,
+    "fga": 15,
+    "tpm": 0,
+    "tpa": 9,
+    "ftm": 5,
+    "fta": 5,
+    "plusMinus": -7
+  }
+]

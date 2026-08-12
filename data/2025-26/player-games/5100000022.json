@@ -1,0 +1,28 @@
+[
+  {
+    "scheduleKey": "505288",
+    "date": "2026-03-14",
+    "opponentTeamId": "717",
+    "opponentTeamName": "ファイティングイーグルス名古屋",
+    "isHome": false,
+    "win": true,
+    "isStarter": true,
+    "min": 23.866666666666667,
+    "pts": 13,
+    "oreb": 0,
+    "dreb": 2,
+    "reb": 2,
+    "ast": 3,
+    "stl": 3,
+    "blk": 0,
+    "tov": 1,
+    "pf": 2,
+    "fgm": 4,
+    "fga": 10,
+    "tpm": 2,
+    "tpa": 8,
+    "ftm": 3,
+    "fta": 3,
+    "plusMinus": 3
+  }
+]

@@ -209,11 +209,14 @@ Lead Trackerのタイムアウトプロット・選手交代バー・ライン�
 
 ---
 
-## 4. 技術スタック（提案）
+## 4. 技術スタック
 
-- **データ取得（スクレイパー）**: Node.js + TypeScript + `cheerio`（Python + BeautifulSoupでも可）
+- **データ取得（スクレイパー）**: Node.js（ネイティブTypeScript実行）＋ `v2_genius_contexts` JSON API直接取得
 - **データストア**: JSON静的ファイルをリポジトリにコミットする方式（DBレス、無料、シンプル）
-- **フロントエンド**: 軽量SPA（Vite + React 等）。チャート描画は `recharts` や `d3` 等
+- **フロントエンド（確定）**: **Vite + React**。ルーティングは `react-router`（GitHub Pagesでの
+  デプロイのため **hashルーター**を使用。素のパスルーティングだとリロード時に404になるため）。
+  チャート描画は `recharts`（Lead Tracker・ランキング・キースタッツビジュアライザ等の大半をカバー）。
+  ショットチャートの座標プロットのみ`recharts`では表現しづらい場合、SVG直描画かd3を部分的に併用
 - **画像出力**: `html2canvas` 等でDOMをそのまま画像化する方式を軸に検討
 - **ホスティング**: GitHub Pages
 - **自動更新**: GitHub Actions の `schedule`（cron）トリガーでスクレイパーを定期実行 →
@@ -229,6 +232,12 @@ data/
     games/
       505076.json         # 1試合分の生データ（ボックススコア＋Q別得点＋PBP等）
       ...
+    player-games/
+      {playerId}.json      # 選手ごとの試合ログ（個人詳細ページ用。aggregate.tsが生成）
+      ...
+    team-games/
+      {teamId}.json         # チームごとの試合結果一覧（チーム詳細ページ用。aggregate.tsが生成）
+      ...
     teams.json             # シーズン通算のチーム別集計（基本＋アドバンスド）
     players.json           # シーズン通算の選手別集計（基本＋アドバンスド）
     standings-history.json # 日付ごとの順位スナップショット（順位遷移用）
@@ -237,6 +246,10 @@ data/
   players-master.json      # 選手プロフィール（国籍・登録区分・身長・体重・生年月日）※全シーズン共通
   seasons.json              # 収録済みシーズン一覧・メタ情報
 ```
+
+フロントエンド（Vite + React）は `public/data` を `data/` へのシンボリックリンクにして配信する。
+**本番ビルド（`npm run build`）時にシンボリックリンクが実体としてコピーされるかは別途要確認**
+（壊れている場合はビルドステップで `cp -rL` 等の実体コピーに差し替える）。
 
 **games/{scheduleKey}.json（生データ）の例**:
 ```json
@@ -399,32 +412,24 @@ PTS, OREB/DREB/REB, AST, STL, BLK, TOV, PF, FG(M/A/%), 3P(M/A/%), FT(M/A/%), MIN
 - 個人利用のフロントエンドのみが読む前提なので、圧縮方式は将来変更しても影響範囲は小さい。
   Phase 1〜4は無圧縮のまま進め、Phase 5着手時にこの方針を確定させて対応する
 
-### 8-4. GitHub Actions ワークフロー（実装済み: `.github/workflows/update-stats.yml`）
+### 8-4. GitHub Actions ワークフロー（イメージ）
 
 ```yaml
 on:
   schedule:
-    - cron: "0 18 * * *"   # 毎日JST3時（UTC18時）
-  workflow_dispatch:
-    inputs:
-      season: {}            # 空なら現在日付から自動判定（scripts/lib/season.ts）
-      full_schedule: {}      # trueならフル収集（8-2章。日次cronはfalse=--recent 14固定）
+    - cron: "0 18 * * *"   # 毎日JST3時（UTC18時）。試合日程に合わせ調整
+  workflow_dispatch: {}
 jobs:
   update:
     steps:
-      - checkout / setup-node / npm ci
-      - シーズン判定（inputs.season優先、無ければ print-current-season.ts で自動算出）
-      - スケジュール取得: full_schedule=true ならフル収集、それ以外は --recent 14
-        （新規試合の発見はこの軽量チェックでカバー。8-2章）
-      - scrape-boxscore.ts --season {season}
-        （schedule.json記載キーのうち status!=final を全て再取得。新規試合の取得と
-        "watching"試合の再チェック・差分検知・status final判定を一括で行う。8-1章）
-      - aggregate.ts --season {season}（games/*.json全体からteams/players.jsonを再生成）
-      - 差分があればcommit & push（変更なしならスキップ）
+      - checkout
+      - 直近数週間分のスケジュール再チェック（8-2参照。フル収集は含めない）
+      - 新規試合のスクレイピング（未取得試合分のボックススコア・PBPを取得）
+      - 直近14日以内の"watching"試合を再取得し、差分があれば上書き（8-1参照）
+      - 監視期間を過ぎた試合を"final"に更新
+      - 集計再計算（games/*.json全体からteams/players/standings-historyを再生成）
+      - 差分があればcommit & push
 ```
-`concurrency`グループで多重実行を防止、`permissions: contents: write`でpush権限を付与。
-`standings-history.json`の生成（順位表関連）はPhase 2で別途実装予定のため、このワークフローの
-集計ステップには未着手。
 - シーズンオフはcron停止 or 差分なしで実質何もしない
 - 過去シーズンのバックフィルは通常運用のcronとは別の一回限りのスクリプトとして、
   サーバー負荷をかけすぎないようゆっくり実行する（バックフィル時点で試合終了から
@@ -486,7 +491,6 @@ bleague-stats/
   に着手する前に、交代の多い試合で実際のコードを個別確認する
 - デッドTOV/ライブTOV、被ブロックの該当ActionCD1コード特定（未確認）
 - 複数OT（延長2回以上）時の`PeriodCategory`の挙動（未検証、低頻度事象）
-- フロントエンドのフレームワーク選定
 - 更新頻度（1日1回で十分か）
 - 過去シーズンのHTML構造差異への対応方針
 - B.PREMIER新フォーマットの昇降格・プレーオフ進出ルール（マジックナンバー計算に必要）

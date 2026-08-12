@@ -1,0 +1,28 @@
+[
+  {
+    "scheduleKey": "505288",
+    "date": "2026-03-14",
+    "opponentTeamId": "727",
+    "opponentTeamName": "川崎ブレイブサンダース",
+    "isHome": true,
+    "win": false,
+    "isStarter": true,
+    "min": 35.28333333333333,
+    "pts": 19,
+    "oreb": 6,
+    "dreb": 12,
+    "reb": 18,
+    "ast": 1,
+    "stl": 2,
+    "blk": 0,
+    "tov": 2,
+    "pf": 3,
+    "fgm": 6,
+    "fga": 10,
+    "tpm": 0,
+    "tpa": 0,
+    "ftm": 7,
+    "fta": 7,
+    "plusMinus": 11
+  }
+]
