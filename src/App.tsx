@@ -8,6 +8,7 @@ import { GameDetailPage } from "./pages/GameDetailPage";
 import { RankingsPage } from "./pages/RankingsPage";
 import { ComparePage } from "./pages/ComparePage";
 import { StandingsPage } from "./pages/StandingsPage";
+import { GlossaryPage } from "./pages/GlossaryPage";
 
 const season = currentSeason();
 
@@ -36,6 +37,9 @@ export default function App() {
             <NavLink to="/standings" className={({ isActive }) => (isActive ? "active" : "")}>
               順位表
             </NavLink>
+            <NavLink to="/glossary" className={({ isActive }) => (isActive ? "active" : "")}>
+              用語集
+            </NavLink>
           </nav>
         </header>
         <main className="app-main">
@@ -49,6 +53,7 @@ export default function App() {
             <Route path="/rankings" element={<RankingsPage season={season} />} />
             <Route path="/compare" element={<ComparePage season={season} />} />
             <Route path="/standings" element={<StandingsPage season={season} />} />
+            <Route path="/glossary" element={<GlossaryPage />} />
           </Routes>
         </main>
       </div>

@@ -491,6 +491,59 @@ table.compare-table td.compare-best {
   gap: 16px;
 }
 
+.glossary-section {
+  margin-bottom: 32px;
+}
+
+.glossary-section h2 {
+  margin: 0 0 12px;
+}
+
+table.glossary-table td {
+  vertical-align: top;
+}
+
+.glossary-formula {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.glossary-abbr {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.source-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.source-badge.source-official {
+  background: color-mix(in srgb, #2e7d32 18%, transparent);
+  color: #2e7d32;
+}
+
+.source-badge.source-nba {
+  background: color-mix(in srgb, #1565c0 18%, transparent);
+  color: #4d8fdb;
+}
+
+.source-badge.source-custom {
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
+  color: var(--muted);
+}
+
 @media (max-width: 640px) {
   .game-leaders,
   .key-stats-grid,
