@@ -19,6 +19,8 @@ export interface StatTotals {
   tpa: number;
   ftm: number;
   fta: number;
+  foulsDrawn: number;
+  blockedAgainst: number;
 }
 
 export interface PerGameStats {
@@ -43,6 +45,11 @@ export interface ShootingStats {
   ftRate: number;
 }
 
+export interface AdvancedStats {
+  /** Bリーグ公式EFF（貢献度）。1試合あたりの値。DESIGN.md 6章 */
+  eff: number;
+}
+
 export interface TeamSummary {
   teamId: string;
   teamName: string;
@@ -53,6 +60,7 @@ export interface TeamSummary {
   totals: StatTotals;
   perGame: PerGameStats;
   shooting: ShootingStats;
+  advanced: AdvancedStats;
   opponentPerGame: PerGameStats;
   netPerGame: PerGameStats;
 }
@@ -67,6 +75,7 @@ export interface PlayerSummary {
   totals: StatTotals;
   perGame: PerGameStats;
   shooting: ShootingStats;
+  advanced: AdvancedStats;
 }
 
 // ---- data/{season}/games/{scheduleKey}.json（試合詳細ページ用） ----

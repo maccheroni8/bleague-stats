@@ -24,7 +24,9 @@
       "tpm": 39,
       "tpa": 98,
       "ftm": 25,
-      "fta": 37
+      "fta": 37,
+      "foulsDrawn": 49,
+      "blockedAgainst": 6
     },
     "perGame": {
       "min": 216.66666666666666,
@@ -45,6 +47,9 @@
       "efgPct": 0.5552884615384616,
       "tsPct": 0.5707151774567505,
       "ftRate": 0.1778846153846154
+    },
+    "advanced": {
+      "eff": 96
     },
     "opponentPerGame": {
       "min": 216.66666666666666,
@@ -96,7 +101,9 @@
       "tpm": 7,
       "tpa": 28,
       "ftm": 19,
-      "fta": 23
+      "fta": 23,
+      "foulsDrawn": 20,
+      "blockedAgainst": 1
     },
     "perGame": {
       "min": 200,
@@ -117,6 +124,9 @@
       "efgPct": 0.4701492537313433,
       "tsPct": 0.5316390041493776,
       "ftRate": 0.34328358208955223
+    },
+    "advanced": {
+      "eff": 106
     },
     "opponentPerGame": {
       "min": 200,
@@ -168,7 +178,9 @@
       "tpm": 11,
       "tpa": 31,
       "ftm": 15,
-      "fta": 23
+      "fta": 23,
+      "foulsDrawn": 22,
+      "blockedAgainst": 1
     },
     "perGame": {
       "min": 200,
@@ -189,6 +201,9 @@
       "efgPct": 0.5089285714285714,
       "tsPct": 0.5444646098003629,
       "ftRate": 0.4107142857142857
+    },
+    "advanced": {
+      "eff": 78
     },
     "opponentPerGame": {
       "min": 200,
@@ -240,7 +255,9 @@
       "tpm": 13,
       "tpa": 31,
       "ftm": 16,
-      "fta": 18
+      "fta": 18,
+      "foulsDrawn": 22,
+      "blockedAgainst": 2
     },
     "perGame": {
       "min": 225,
@@ -261,6 +278,9 @@
       "efgPct": 0.5140845070422535,
       "tsPct": 0.56386213887481,
       "ftRate": 0.2535211267605634
+    },
+    "advanced": {
+      "eff": 98
     },
     "opponentPerGame": {
       "min": 225,
@@ -312,7 +332,9 @@
       "tpm": 7,
       "tpa": 22,
       "ftm": 10,
-      "fta": 15
+      "fta": 15,
+      "foulsDrawn": 22,
+      "blockedAgainst": 2
     },
     "perGame": {
       "min": 225,
@@ -333,6 +355,9 @@
       "efgPct": 0.4791666666666667,
       "tsPct": 0.5025445292620866,
       "ftRate": 0.20833333333333334
+    },
+    "advanced": {
+      "eff": 94
     },
     "opponentPerGame": {
       "min": 225,
@@ -384,7 +409,9 @@
       "tpm": 6,
       "tpa": 28,
       "ftm": 12,
-      "fta": 18
+      "fta": 18,
+      "foulsDrawn": 23,
+      "blockedAgainst": 8
     },
     "perGame": {
       "min": 200,
@@ -405,6 +432,9 @@
       "efgPct": 0.37142857142857144,
       "tsPct": 0.4106776180698152,
       "ftRate": 0.2571428571428571
+    },
+    "advanced": {
+      "eff": 60
     },
     "opponentPerGame": {
       "min": 200,

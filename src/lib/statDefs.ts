@@ -1,5 +1,6 @@
 // ランキングページ・比較ページで共通に使う基本スタッツ項目の定義。
-// アドバンスドスタッツ（ORtg/Pace等）はPhase2で追加する想定のため、ここではティアAの基本項目のみ。
+// EFF（Bリーグ公式の貢献度指標）のみアドバンスドスタッツとして追加済み。
+// ORtg/Pace等その他のアドバンスドスタッツはPhase2で追加する想定。
 
 import type { PlayerSummary, TeamSummary } from "./types";
 import { formatDecimal, formatPct, formatSigned } from "./format";
@@ -30,6 +31,7 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
   { key: "fgPct", label: "FG%", value: (t) => t.shooting.fgPct, format: (t) => formatPct(t.shooting.fgPct) },
   { key: "tpPct", label: "3P%", value: (t) => t.shooting.tpPct, format: (t) => formatPct(t.shooting.tpPct) },
   { key: "ftPct", label: "FT%", value: (t) => t.shooting.ftPct, format: (t) => formatPct(t.shooting.ftPct) },
+  { key: "eff", label: "EFF", value: (t) => t.advanced.eff, format: (t) => formatDecimal(t.advanced.eff) },
 ];
 
 export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
@@ -49,4 +51,5 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
   { key: "fgPct", label: "FG%", value: (p) => p.shooting.fgPct, format: (p) => formatPct(p.shooting.fgPct) },
   { key: "tpPct", label: "3P%", value: (p) => p.shooting.tpPct, format: (p) => formatPct(p.shooting.tpPct) },
   { key: "ftPct", label: "FT%", value: (p) => p.shooting.ftPct, format: (p) => formatPct(p.shooting.ftPct) },
+  { key: "eff", label: "EFF", value: (p) => p.advanced.eff, format: (p) => formatDecimal(p.advanced.eff) },
 ];

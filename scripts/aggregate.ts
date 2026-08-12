@@ -5,7 +5,7 @@
 
 import path from "node:path";
 import { DATA_DIR, readAllGames, writeJson } from "./lib/storage.ts";
-import { efgPct, ftRate, parsePlayTime, safeDiv, tsPct } from "./lib/formulas.ts";
+import { eff, efgPct, ftRate, parsePlayTime, safeDiv, tsPct } from "./lib/formulas.ts";
 import type { BoxscoreRow, PlayerGameLog, StandingsSnapshot, StoredGame, TeamGameLog } from "./lib/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
 
@@ -28,6 +28,10 @@ interface StatTotals {
   tpa: number;
   ftm: number;
   fta: number;
+  /** ファウルドローン（相手にファウルを誘発した回数）。EFF計算のFDに対応 */
+  foulsDrawn: number;
+  /** 被ブロック数。EFF計算のBSRに対応 */
+  blockedAgainst: number;
 }
 
 function emptyTotals(): StatTotals {
@@ -50,6 +54,8 @@ function emptyTotals(): StatTotals {
     tpa: 0,
     ftm: 0,
     fta: 0,
+    foulsDrawn: 0,
+    blockedAgainst: 0,
   };
 }
 
@@ -72,9 +78,11 @@ function addBoxscoreRow(totals: StatTotals, row: BoxscoreRow, countGame: boolean
   totals.tpa += row.PT3A;
   totals.ftm += row.FTM;
   totals.fta += row.FTA;
+  totals.foulsDrawn += row.FOULON;
+  totals.blockedAgainst += row.BSON;
 }
 
-function buildStatBlock(totals: StatTotals) {
+function buildStatBlock(totals: StatTotals, seasonStartYear: number) {
   const gp = totals.gamesPlayed || 1; // 0除算防止（gamesPlayed=0ならperGameは全て0になる）
   return {
     gamesPlayed: totals.gamesPlayed,
@@ -99,6 +107,9 @@ function buildStatBlock(totals: StatTotals) {
       efgPct: efgPct(totals.fgm, totals.tpm, totals.fga),
       tsPct: tsPct(totals.pts, totals.fga, totals.fta),
       ftRate: ftRate(totals.fta, totals.fga),
+    },
+    advanced: {
+      eff: eff(seasonStartYear, totals, gp),
     },
   };
 }
@@ -129,6 +140,9 @@ function pickTeamRow(rows: BoxscoreRow[], category: 1 | 3): BoxscoreRow[] {
 async function aggregateSeason(season: string): Promise<void> {
   const games = (await readAllGames(season)).filter((g) => g.gameEndedFlg);
   console.log(`[${season}] 集計対象: ${games.length}試合（終了済みのみ）`);
+
+  // EFFの計算式は年度で異なる（DESIGN.md 6章）。シーズン文字列("2025-26")から開始年を取り出す
+  const seasonStartYear = Number(season.split("-")[0]);
 
   const players = new Map<string, PlayerAccumulator>();
   const teams = new Map<string, TeamAccumulator>();
@@ -161,7 +175,7 @@ async function aggregateSeason(season: string): Promise<void> {
       name: p.name,
       teamId: p.teamId,
       teamName: p.teamName,
-      ...buildStatBlock(p.totals),
+      ...buildStatBlock(p.totals, seasonStartYear),
     }))
     .sort((a, b) => b.perGame.pts - a.perGame.pts);
 
@@ -172,8 +186,8 @@ async function aggregateSeason(season: string): Promise<void> {
 
   const teamsJson = [...teams.values()]
     .map((t) => {
-      const ownStats = buildStatBlock(t.totals);
-      const oppStats = buildStatBlock(t.opponentTotals);
+      const ownStats = buildStatBlock(t.totals, seasonStartYear);
+      const oppStats = buildStatBlock(t.opponentTotals, seasonStartYear);
       return {
         teamId: t.teamId,
         teamName: t.teamName,
