@@ -74,8 +74,8 @@
   {
     "playerId": "10852",
     "name": "水野 幹太",
-    "teamId": "699",
-    "teamName": "京都ハンナリーズ",
+    "teamId": "727",
+    "teamName": "川崎ブレイブサンダース",
     "position": "PG/SG",
     "nationality": "日本",
     "heightCm": 185,
@@ -86,8 +86,8 @@
   {
     "playerId": "10885",
     "name": "青木 ブレイク",
-    "teamId": "2486",
-    "teamName": "アルティーリ千葉",
+    "teamId": "703",
+    "teamName": "宇都宮ブレックス",
     "position": "PF",
     "nationality": "日本",
     "heightCm": 205,
@@ -98,8 +98,8 @@
   {
     "playerId": "12582",
     "name": "アレックス・カーク",
-    "teamId": "727",
-    "teamName": "川崎ブレイブサンダース",
+    "teamId": "701",
+    "teamName": "琉球ゴールデンキングス",
     "position": "C",
     "nationality": "日本",
     "heightCm": 211,
@@ -146,8 +146,8 @@
   {
     "playerId": "15811",
     "name": "佐藤 卓磨",
-    "teamId": "694",
-    "teamName": "横浜ビー・コルセアーズ",
+    "teamId": "729",
+    "teamName": "名古屋ダイヤモンドドルフィンズ",
     "position": "SG/SF",
     "nationality": "日本",
     "heightCm": 197,
@@ -158,8 +158,8 @@
   {
     "playerId": "15815",
     "name": "井上 宗一郎",
-    "teamId": "720",
-    "teamName": "島根スサノオマジック",
+    "teamId": "692",
+    "teamName": "仙台89ERS",
     "position": "PF",
     "nationality": "日本",
     "heightCm": 201,
@@ -206,8 +206,8 @@
   {
     "playerId": "18429",
     "name": "大崎 裕太",
-    "teamId": "702",
-    "teamName": "レバンガ北海道",
+    "teamId": "2486",
+    "teamName": "アルティーリ千葉",
     "position": "PG/SG",
     "nationality": "日本",
     "heightCm": 177,
@@ -218,8 +218,8 @@
   {
     "playerId": "18430",
     "name": "グラント・ジェレット",
-    "teamId": "701",
-    "teamName": "琉球ゴールデンキングス",
+    "teamId": "703",
+    "teamName": "宇都宮ブレックス",
     "position": "PF",
     "nationality": "アメリカ合衆国",
     "heightCm": 208,
@@ -290,8 +290,8 @@
   {
     "playerId": "20021",
     "name": "吉井 裕鷹",
-    "teamId": "712",
-    "teamName": "茨城ロボッツ",
+    "teamId": "697",
+    "teamName": "三遠ネオフェニックス",
     "position": "SF",
     "nationality": "日本",
     "heightCm": 196,
@@ -362,8 +362,8 @@
   {
     "playerId": "22405",
     "name": "鶴巻 啓太",
-    "teamId": "713",
-    "teamName": "群馬クレインサンダーズ",
+    "teamId": "712",
+    "teamName": "茨城ロボッツ",
     "position": "SG/SF",
     "nationality": "日本",
     "heightCm": 190,
@@ -386,8 +386,8 @@
   {
     "playerId": "26874",
     "name": "ジョーダン・ヒース",
-    "teamId": "720",
-    "teamName": "島根スサノオマジック",
+    "teamId": "699",
+    "teamName": "京都ハンナリーズ",
     "position": "C/PF",
     "nationality": "アメリカ合衆国",
     "heightCm": 210,
@@ -398,8 +398,8 @@
   {
     "playerId": "26886",
     "name": "マット・ボンズ",
-    "teamId": "727",
-    "teamName": "川崎ブレイブサンダース",
+    "teamId": "700",
+    "teamName": "大阪エヴェッサ",
     "position": "PF",
     "nationality": "アメリカ合衆国",
     "heightCm": 196,
@@ -434,8 +434,8 @@
   {
     "playerId": "26921",
     "name": "セバスチャン・サイズ",
-    "teamId": "700",
-    "teamName": "大阪エヴェッサ",
+    "teamId": "706",
+    "teamName": "アルバルク東京",
     "position": "C/PF",
     "nationality": "スペイン",
     "heightCm": 205,
@@ -465,6 +465,18 @@
     "heightCm": 190,
     "weightKg": 95,
     "birthDate": "1999-05-19",
+    "classification": "日本人"
+  },
+  {
+    "playerId": "27048",
+    "name": "ダマ ムッサ",
+    "teamId": "720",
+    "teamName": "島根スサノオマジック",
+    "position": "C/PF",
+    "nationality": "日本",
+    "heightCm": 207,
+    "weightKg": 97,
+    "birthDate": "1996-07-03",
     "classification": "日本人"
   },
   {
@@ -518,8 +530,8 @@
   {
     "playerId": "30402",
     "name": "前田 怜緒",
-    "teamId": "712",
-    "teamName": "茨城ロボッツ",
+    "teamId": "2486",
+    "teamName": "アルティーリ千葉",
     "position": "SG/SF",
     "nationality": "日本",
     "heightCm": 191,
@@ -542,8 +554,8 @@
   {
     "playerId": "30437",
     "name": "山口 颯斗",
-    "teamId": "718",
-    "teamName": "神戸ストークス",
+    "teamId": "2488",
+    "teamName": "長崎ヴェルカ",
     "position": "SG/SF",
     "nationality": "日本",
     "heightCm": 195,
@@ -554,8 +566,8 @@
   {
     "playerId": "30443",
     "name": "ウィタカ ケンタ",
-    "teamId": "694",
-    "teamName": "横浜ビー・コルセアーズ",
+    "teamId": "701",
+    "teamName": "琉球ゴールデンキングス",
     "position": "C/PF",
     "nationality": "日本",
     "heightCm": 202,
@@ -566,8 +578,8 @@
   {
     "playerId": "30458",
     "name": "荒川 颯",
-    "teamId": "703",
-    "teamName": "宇都宮ブレックス",
+    "teamId": "701",
+    "teamName": "琉球ゴールデンキングス",
     "position": "PG/SG",
     "nationality": "日本",
     "heightCm": 182,
@@ -576,10 +588,22 @@
     "classification": "日本人"
   },
   {
+    "playerId": "30466",
+    "name": "佐藤 誠人",
+    "teamId": "713",
+    "teamName": "群馬クレインサンダーズ",
+    "position": "SF",
+    "nationality": "日本",
+    "heightCm": 190,
+    "weightKg": 82,
+    "birthDate": "1997-10-14",
+    "classification": "日本人"
+  },
+  {
     "playerId": "30513",
     "name": "大浦 颯太",
-    "teamId": "701",
-    "teamName": "琉球ゴールデンキングス",
+    "teamId": "697",
+    "teamName": "三遠ネオフェニックス",
     "position": "PG",
     "nationality": "日本",
     "heightCm": 182,
@@ -597,6 +621,30 @@
     "heightCm": 187,
     "weightKg": 92,
     "birthDate": "1997-11-17",
+    "classification": "日本人"
+  },
+  {
+    "playerId": "30522",
+    "name": "鈴木 悠介",
+    "teamId": "697",
+    "teamName": "三遠ネオフェニックス",
+    "position": "PF",
+    "nationality": "日本",
+    "heightCm": 200,
+    "weightKg": 100,
+    "birthDate": "1997-06-06",
+    "classification": "日本人"
+  },
+  {
+    "playerId": "32953",
+    "name": "菅原 暉",
+    "teamId": "693",
+    "teamName": "秋田ノーザンハピネッツ",
+    "position": "PG",
+    "nationality": "日本",
+    "heightCm": 183,
+    "weightKg": 83,
+    "birthDate": "1998-05-27",
     "classification": "日本人"
   },
   {
@@ -662,8 +710,8 @@
   {
     "playerId": "33085",
     "name": "D.J・ニュービル",
-    "teamId": "2486",
-    "teamName": "アルティーリ千葉",
+    "teamId": "703",
+    "teamName": "宇都宮ブレックス",
     "position": "PG/SG",
     "nationality": "アメリカ合衆国",
     "heightCm": 193,
@@ -686,8 +734,8 @@
   {
     "playerId": "5100000012",
     "name": "荒谷 裕秀",
-    "teamId": "727",
-    "teamName": "川崎ブレイブサンダース",
+    "teamId": "692",
+    "teamName": "仙台89ERS",
     "position": "SG/SF",
     "nationality": "日本",
     "heightCm": 189,
@@ -710,8 +758,8 @@
   {
     "playerId": "5100000015",
     "name": "川真田 紘也",
-    "teamId": "701",
-    "teamName": "琉球ゴールデンキングス",
+    "teamId": "2488",
+    "teamName": "長崎ヴェルカ",
     "position": "C",
     "nationality": "日本",
     "heightCm": 204,
@@ -818,8 +866,8 @@
   {
     "playerId": "5100000032",
     "name": "駒沢 颯",
-    "teamId": "698",
-    "teamName": "滋賀レイクス",
+    "teamId": "712",
+    "teamName": "茨城ロボッツ",
     "position": "PG",
     "nationality": "日本",
     "heightCm": 188,
@@ -830,8 +878,8 @@
   {
     "playerId": "5100000033",
     "name": "小川 麻斗",
-    "teamId": "718",
-    "teamName": "神戸ストークス",
+    "teamId": "699",
+    "teamName": "京都ハンナリーズ",
     "position": "PG",
     "nationality": "日本",
     "heightCm": 176,
@@ -876,6 +924,18 @@
     "classification": "日本人"
   },
   {
+    "playerId": "5100000040",
+    "name": "常田 耕平",
+    "teamId": "698",
+    "teamName": "滋賀レイクス",
+    "position": "PG",
+    "nationality": "日本",
+    "heightCm": 186,
+    "weightKg": 85,
+    "birthDate": "1999-11-06",
+    "classification": "日本人"
+  },
+  {
     "playerId": "5100000046",
     "name": "スコット・エサトン",
     "teamId": "729",
@@ -914,8 +974,8 @@
   {
     "playerId": "5100000062",
     "name": "キーファー・ラベナ",
-    "teamId": "701",
-    "teamName": "琉球ゴールデンキングス",
+    "teamId": "694",
+    "teamName": "横浜ビー・コルセアーズ",
     "position": "PG/SG",
     "nationality": "フィリピン",
     "heightCm": 183,
@@ -938,14 +998,26 @@
   {
     "playerId": "5100000069",
     "name": "レイ・パークスジュニア",
-    "teamId": "712",
-    "teamName": "茨城ロボッツ",
+    "teamId": "700",
+    "teamName": "大阪エヴェッサ",
     "position": "SG",
     "nationality": "フィリピン",
     "heightCm": 193,
     "weightKg": 96,
     "birthDate": "1993-02-19",
     "classification": "アジア特別枠"
+  },
+  {
+    "playerId": "5100000079",
+    "name": "チェイス・フィーラー",
+    "teamId": "706",
+    "teamName": "アルバルク東京",
+    "position": "PF",
+    "nationality": "アメリカ合衆国",
+    "heightCm": 203,
+    "weightKg": 109,
+    "birthDate": "1992-06-10",
+    "classification": "外国籍"
   },
   {
     "playerId": "5100000081",
@@ -994,6 +1066,18 @@
     "weightKg": 95,
     "birthDate": "1998-09-02",
     "classification": "アジア特別枠"
+  },
+  {
+    "playerId": "51000104",
+    "name": "マシュー・アキノ",
+    "teamId": "696",
+    "teamName": "富山グラウジーズ",
+    "position": "PF",
+    "nationality": "日本",
+    "heightCm": 205,
+    "weightKg": 100,
+    "birthDate": "1996-09-28",
+    "classification": "日本人"
   },
   {
     "playerId": "51000113",
@@ -1058,8 +1142,8 @@
   {
     "playerId": "51000166",
     "name": "ヴィック・ロー",
-    "teamId": "712",
-    "teamName": "茨城ロボッツ",
+    "teamId": "701",
+    "teamName": "琉球ゴールデンキングス",
     "position": "SF/PF",
     "nationality": "アメリカ合衆国",
     "heightCm": 201,
@@ -1118,8 +1202,8 @@
   {
     "playerId": "51000227",
     "name": "松崎 裕樹",
-    "teamId": "702",
-    "teamName": "レバンガ北海道",
+    "teamId": "694",
+    "teamName": "横浜ビー・コルセアーズ",
     "position": "SG/SF",
     "nationality": "日本",
     "heightCm": 192,
@@ -1252,11 +1336,23 @@
     "name": "若野 瑛太",
     "teamId": "729",
     "teamName": "名古屋ダイヤモンドドルフィンズ",
-    "position": "SG",
+    "position": "SF",
     "nationality": "日本",
     "heightCm": 186,
     "weightKg": 85,
     "birthDate": "2007-06-13",
+    "classification": "日本人"
+  },
+  {
+    "playerId": "51000307",
+    "name": "市川 真人",
+    "teamId": "721",
+    "teamName": "広島ドラゴンフライズ",
+    "position": "C/PF",
+    "nationality": "日本",
+    "heightCm": 206,
+    "weightKg": 110,
+    "birthDate": "2001-09-20",
     "classification": "日本人"
   },
   {
@@ -1418,8 +1514,8 @@
   {
     "playerId": "51000406",
     "name": "ゲイリー・クラーク",
-    "teamId": "702",
-    "teamName": "レバンガ北海道",
+    "teamId": "694",
+    "teamName": "横浜ビー・コルセアーズ",
     "position": "PF",
     "nationality": "アメリカ合衆国",
     "heightCm": 200,
@@ -1430,8 +1526,8 @@
   {
     "playerId": "51000416",
     "name": "デイビッド・ヌワバ",
-    "teamId": "701",
-    "teamName": "琉球ゴールデンキングス",
+    "teamId": "697",
+    "teamName": "三遠ネオフェニックス",
     "position": "SG/SF",
     "nationality": "アメリカ合衆国",
     "heightCm": 196,
@@ -1596,6 +1692,18 @@
     "classification": "日本人"
   },
   {
+    "playerId": "51000494",
+    "name": "ドゥシャン・リスティッチ",
+    "teamId": "727",
+    "teamName": "川崎ブレイブサンダース",
+    "position": "C",
+    "nationality": "セルビア",
+    "heightCm": 212,
+    "weightKg": 114,
+    "birthDate": "1995-11-27",
+    "classification": "外国籍"
+  },
+  {
     "playerId": "51000498",
     "name": "小澤 飛悠",
     "teamId": "729",
@@ -1634,8 +1742,8 @@
   {
     "playerId": "51000524",
     "name": "トレイ・ケル",
-    "teamId": "703",
-    "teamName": "宇都宮ブレックス",
+    "teamId": "696",
+    "teamName": "富山グラウジーズ",
     "position": "SG",
     "nationality": "アメリカ合衆国",
     "heightCm": 193,
@@ -1646,8 +1754,8 @@
   {
     "playerId": "51000529",
     "name": "スタンリー・ジョンソン",
-    "teamId": "713",
-    "teamName": "群馬クレインサンダーズ",
+    "teamId": "2488",
+    "teamName": "長崎ヴェルカ",
     "position": "SF",
     "nationality": "アメリカ合衆国",
     "heightCm": 198,
@@ -1668,6 +1776,18 @@
     "classification": "日本人"
   },
   {
+    "playerId": "51000550",
+    "name": "松村 竜吾",
+    "teamId": "721",
+    "teamName": "広島ドラゴンフライズ",
+    "position": "SF",
+    "nationality": "日本",
+    "heightCm": 190,
+    "weightKg": 90,
+    "birthDate": "2002-09-13",
+    "classification": "日本人"
+  },
+  {
     "playerId": "51000563",
     "name": "松野 遥弥",
     "teamId": "721",
@@ -1682,8 +1802,8 @@
   {
     "playerId": "51000576",
     "name": "クエンティン・ミロラ・ブラウン",
-    "teamId": "729",
-    "teamName": "名古屋ダイヤモンドドルフィンズ",
+    "teamId": "704",
+    "teamName": "千葉ジェッツ",
     "position": "C",
     "nationality": "フィリピン",
     "heightCm": 208,
@@ -1725,6 +1845,18 @@
     "heightCm": 180,
     "weightKg": 82,
     "birthDate": "2003-04-02",
+    "classification": "日本人"
+  },
+  {
+    "playerId": "51000589",
+    "name": "佐古 竜誠",
+    "teamId": "721",
+    "teamName": "広島ドラゴンフライズ",
+    "position": "PG",
+    "nationality": "日本",
+    "heightCm": 178,
+    "weightKg": 85,
+    "birthDate": "2004-02-26",
     "classification": "日本人"
   },
   {
@@ -1994,8 +2126,8 @@
   {
     "playerId": "8467",
     "name": "安藤 誓哉",
-    "teamId": "2486",
-    "teamName": "アルティーリ千葉",
+    "teamId": "694",
+    "teamName": "横浜ビー・コルセアーズ",
     "position": "PG",
     "nationality": "日本",
     "heightCm": 181,
@@ -2073,6 +2205,18 @@
     "heightCm": 185,
     "weightKg": 82,
     "birthDate": "1989-09-08",
+    "classification": "日本人"
+  },
+  {
+    "playerId": "8488",
+    "name": "谷口 光貴",
+    "teamId": "694",
+    "teamName": "横浜ビー・コルセアーズ",
+    "position": "SG/SF",
+    "nationality": "日本",
+    "heightCm": 190,
+    "weightKg": 87,
+    "birthDate": "1992-12-18",
     "classification": "日本人"
   },
   {
@@ -2208,6 +2352,18 @@
     "classification": "日本人"
   },
   {
+    "playerId": "8568",
+    "name": "鈴木 達也",
+    "teamId": "700",
+    "teamName": "大阪エヴェッサ",
+    "position": "PG",
+    "nationality": "日本",
+    "heightCm": 169,
+    "weightKg": 69,
+    "birthDate": "1991-03-30",
+    "classification": "日本人"
+  },
+  {
     "playerId": "8582",
     "name": "荒尾 岳",
     "teamId": "704",
@@ -2229,6 +2385,18 @@
     "heightCm": 187,
     "weightKg": 100,
     "birthDate": "1993-12-17",
+    "classification": "日本人"
+  },
+  {
+    "playerId": "8585",
+    "name": "小野 龍猛",
+    "teamId": "699",
+    "teamName": "京都ハンナリーズ",
+    "position": "SF",
+    "nationality": "日本",
+    "heightCm": 197,
+    "weightKg": 97,
+    "birthDate": "1988-01-06",
     "classification": "日本人"
   },
   {
@@ -2270,8 +2438,8 @@
   {
     "playerId": "8597",
     "name": "市岡 ショーン",
-    "teamId": "703",
-    "teamName": "宇都宮ブレックス",
+    "teamId": "698",
+    "teamName": "滋賀レイクス",
     "position": "C/PF",
     "nationality": "日本",
     "heightCm": 198,
@@ -2306,8 +2474,8 @@
   {
     "playerId": "8655",
     "name": "岸本 隆一",
-    "teamId": "699",
-    "teamName": "京都ハンナリーズ",
+    "teamId": "701",
+    "teamName": "琉球ゴールデンキングス",
     "position": "PG/SG",
     "nationality": "日本",
     "heightCm": 176,
@@ -2330,8 +2498,8 @@
   {
     "playerId": "8658",
     "name": "山内 盛久",
-    "teamId": "701",
-    "teamName": "琉球ゴールデンキングス",
+    "teamId": "726",
+    "teamName": "東京サンロッカーズ",
     "position": "PG",
     "nationality": "日本",
     "heightCm": 175,
@@ -2388,6 +2556,18 @@
     "classification": "日本人"
   },
   {
+    "playerId": "8736",
+    "name": "藤永 佳昭",
+    "teamId": "696",
+    "teamName": "富山グラウジーズ",
+    "position": "PG",
+    "nationality": "日本",
+    "heightCm": 175,
+    "weightKg": 75,
+    "birthDate": "1992-04-10",
+    "classification": "日本人"
+  },
+  {
     "playerId": "8738",
     "name": "張本 天傑",
     "teamId": "729",
@@ -2426,8 +2606,8 @@
   {
     "playerId": "9044",
     "name": "福澤 晃平",
-    "teamId": "712",
-    "teamName": "茨城ロボッツ",
+    "teamId": "706",
+    "teamName": "アルバルク東京",
     "position": "PG/SG",
     "nationality": "日本",
     "heightCm": 177,
@@ -2462,8 +2642,8 @@
   {
     "playerId": "9345",
     "name": "ウィリアムス ニカ",
-    "teamId": "704",
-    "teamName": "千葉ジェッツ",
+    "teamId": "696",
+    "teamName": "富山グラウジーズ",
     "position": "C",
     "nationality": "日本",
     "heightCm": 203,
@@ -2486,8 +2666,8 @@
   {
     "playerId": "9435",
     "name": "カイル・リチャードソン",
-    "teamId": "694",
-    "teamName": "横浜ビー・コルセアーズ",
+    "teamId": "729",
+    "teamName": "名古屋ダイヤモンドドルフィンズ",
     "position": "C/PF",
     "nationality": "日本",
     "heightCm": 198,
