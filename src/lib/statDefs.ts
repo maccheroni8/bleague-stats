@@ -343,4 +343,14 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     source: "nba",
     category: "rating",
   },
+  {
+    key: "plusMinus",
+    label: "+/-",
+    value: (p) => p.perGame.plusMinus,
+    format: (p) => formatSigned(p.perGame.plusMinus),
+    formulaText: "出場中の自チーム得点 − 相手チーム得点（1試合あたり平均）",
+    source: "official",
+    officialAbbr: "+/-",
+    category: "basic",
+  },
 ];

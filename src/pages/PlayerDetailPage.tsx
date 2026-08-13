@@ -104,6 +104,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           <StatTile label="STL" value={formatDecimal(player.perGame.stl)} />
           <StatTile label="BLK" value={formatDecimal(player.perGame.blk)} />
           <StatTile label="TOV" value={formatDecimal(player.perGame.tov)} />
+          <StatTile label="+/-" value={formatSigned(player.perGame.plusMinus)} />
           <StatTile label="FG%" value={formatPct(player.shooting.fgPct)} />
           <StatTile label="3P%" value={formatPct(player.shooting.tpPct)} />
           <StatTile label="FT%" value={formatPct(player.shooting.ftPct)} />
@@ -122,6 +123,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           <StatTile label="STL" value={formatDecimal(situational.perGame.stl)} />
           <StatTile label="BLK" value={formatDecimal(situational.perGame.blk)} />
           <StatTile label="TOV" value={formatDecimal(situational.perGame.tov)} />
+          <StatTile label="+/-" value={formatSigned(situational.perGame.plusMinus)} />
           <StatTile label="FG%" value={formatPct(situational.shooting.fgPct)} />
           <StatTile label="3P%" value={formatPct(situational.shooting.tpPct)} />
           <StatTile label="FT%" value={formatPct(situational.shooting.ftPct)} />

@@ -152,6 +152,7 @@ export interface PlayerSituationalStats {
     stl: number;
     blk: number;
     tov: number;
+    plusMinus: number;
   };
   shooting: {
     fgPct: number;
@@ -181,8 +182,9 @@ export function computePlayerSituationalStats(logs: PlayerGameLog[]): PlayerSitu
       tpa: acc.tpa + g.tpa,
       ftm: acc.ftm + g.ftm,
       fta: acc.fta + g.fta,
+      plusMinus: acc.plusMinus + g.plusMinus,
     }),
-    { min: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, tov: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0 },
+    { min: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, tov: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, plusMinus: 0 },
   );
 
   return {
@@ -195,6 +197,7 @@ export function computePlayerSituationalStats(logs: PlayerGameLog[]): PlayerSitu
       stl: totals.stl / gp,
       blk: totals.blk / gp,
       tov: totals.tov / gp,
+      plusMinus: totals.plusMinus / gp,
     },
     shooting: {
       fgPct: safeDiv(totals.fgm, totals.fga),

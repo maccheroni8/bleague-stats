@@ -283,6 +283,8 @@ export interface StatTotals {
   fta: number;
   foulsDrawn: number;
   blockedAgainst: number;
+  /** 個人+/-（生データのPLUSMINUSをそのまま合算）。Bリーグ公式フィールド。DESIGN.md 2-2章 */
+  plusMinus: number;
 }
 
 export interface PerGameStats {
@@ -296,6 +298,7 @@ export interface PerGameStats {
   blk: number;
   tov: number;
   pf: number;
+  plusMinus: number;
 }
 
 export interface ShootingStats {

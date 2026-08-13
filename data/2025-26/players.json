@@ -27,7 +27,8 @@
       "fta": 4,
       "foulsDrawn": 3,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -10
     },
     "perGame": {
       "min": 25.516666666666666,
@@ -39,7 +40,8 @@
       "stl": 1,
       "blk": 1,
       "tov": 3,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": -10
     },
     "shooting": {
       "fgPct": 0.5555555555555556,
@@ -82,7 +84,8 @@
       "fta": 9,
       "foulsDrawn": 9,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 21
     },
     "perGame": {
       "min": 27.25,
@@ -94,7 +97,8 @@
       "stl": 4,
       "blk": 1,
       "tov": 0,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": 21
     },
     "shooting": {
       "fgPct": 0.7272727272727273,
@@ -137,7 +141,8 @@
       "fta": 11,
       "foulsDrawn": 8,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 5
     },
     "perGame": {
       "min": 38.266666666666666,
@@ -149,7 +154,8 @@
       "stl": 0,
       "blk": 2,
       "tov": 0,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": 5
     },
     "shooting": {
       "fgPct": 0.5,
@@ -192,7 +198,8 @@
       "fta": 7,
       "foulsDrawn": 10,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 11
     },
     "perGame": {
       "min": 35.28333333333333,
@@ -204,7 +211,8 @@
       "stl": 2,
       "blk": 0,
       "tov": 2,
-      "pf": 3
+      "pf": 3,
+      "plusMinus": 11
     },
     "shooting": {
       "fgPct": 0.6,
@@ -247,7 +255,8 @@
       "fta": 4,
       "foulsDrawn": 3,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 3
     },
     "perGame": {
       "min": 38.38333333333333,
@@ -259,7 +268,8 @@
       "stl": 1,
       "blk": 1,
       "tov": 1,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": 3
     },
     "shooting": {
       "fgPct": 0.4,
@@ -302,7 +312,8 @@
       "fta": 8,
       "foulsDrawn": 7,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -8
     },
     "perGame": {
       "min": 31.4,
@@ -314,7 +325,8 @@
       "stl": 3,
       "blk": 0,
       "tov": 1,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": -8
     },
     "shooting": {
       "fgPct": 0.4,
@@ -357,7 +369,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -9
     },
     "perGame": {
       "min": 38.6,
@@ -369,7 +382,8 @@
       "stl": 1,
       "blk": 1,
       "tov": 2,
-      "pf": 4
+      "pf": 4,
+      "plusMinus": -9
     },
     "shooting": {
       "fgPct": 0.45454545454545453,
@@ -412,7 +426,8 @@
       "fta": 8,
       "foulsDrawn": 7,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 15
     },
     "perGame": {
       "min": 31.45,
@@ -424,7 +439,8 @@
       "stl": 0.6666666666666666,
       "blk": 0.3333333333333333,
       "tov": 1.6666666666666667,
-      "pf": 1.6666666666666667
+      "pf": 1.6666666666666667,
+      "plusMinus": 5
     },
     "shooting": {
       "fgPct": 0.4146341463414634,
@@ -467,7 +483,8 @@
       "fta": 5,
       "foulsDrawn": 10,
       "blockedAgainst": 2,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -13
     },
     "perGame": {
       "min": 28.48888888888889,
@@ -479,7 +496,8 @@
       "stl": 1.3333333333333333,
       "blk": 0,
       "tov": 1.6666666666666667,
-      "pf": 1.6666666666666667
+      "pf": 1.6666666666666667,
+      "plusMinus": -4.333333333333333
     },
     "shooting": {
       "fgPct": 0.48484848484848486,
@@ -522,7 +540,8 @@
       "fta": 1,
       "foulsDrawn": 3,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 5
     },
     "perGame": {
       "min": 24.283333333333335,
@@ -534,7 +553,8 @@
       "stl": 0,
       "blk": 2,
       "tov": 0,
-      "pf": 3
+      "pf": 3,
+      "plusMinus": 5
     },
     "shooting": {
       "fgPct": 0.4,
@@ -577,7 +597,8 @@
       "fta": 4,
       "foulsDrawn": 2,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 12
     },
     "perGame": {
       "min": 23.85,
@@ -589,7 +610,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 1,
-      "pf": 4
+      "pf": 4,
+      "plusMinus": 12
     },
     "shooting": {
       "fgPct": 0.7142857142857143,
@@ -638,7 +660,8 @@
       "fta": 6,
       "foulsDrawn": 5,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -12
     },
     "perGame": {
       "min": 29.433333333333334,
@@ -650,7 +673,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 1,
-      "pf": 3
+      "pf": 3,
+      "plusMinus": -12
     },
     "shooting": {
       "fgPct": 0.3333333333333333,
@@ -693,7 +717,8 @@
       "fta": 0,
       "foulsDrawn": 1,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 33
     },
     "perGame": {
       "min": 25.516666666666666,
@@ -705,7 +730,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 33
     },
     "shooting": {
       "fgPct": 0.38461538461538464,
@@ -754,7 +780,8 @@
       "fta": 0,
       "foulsDrawn": 1,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 13
     },
     "perGame": {
       "min": 31.883333333333333,
@@ -766,7 +793,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 4
+      "pf": 4,
+      "plusMinus": 13
     },
     "shooting": {
       "fgPct": 0.6666666666666666,
@@ -815,7 +843,8 @@
       "fta": 3,
       "foulsDrawn": 2,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 3
     },
     "perGame": {
       "min": 23.866666666666667,
@@ -827,7 +856,8 @@
       "stl": 3,
       "blk": 0,
       "tov": 1,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": 3
     },
     "shooting": {
       "fgPct": 0.4,
@@ -876,7 +906,8 @@
       "fta": 5,
       "foulsDrawn": 5,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -7
     },
     "perGame": {
       "min": 30.433333333333334,
@@ -888,7 +919,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 3,
-      "pf": 3
+      "pf": 3,
+      "plusMinus": -7
     },
     "shooting": {
       "fgPct": 0.26666666666666666,
@@ -931,7 +963,8 @@
       "fta": 2,
       "foulsDrawn": 1,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 6
     },
     "perGame": {
       "min": 32.833333333333336,
@@ -943,7 +976,8 @@
       "stl": 1,
       "blk": 2,
       "tov": 1,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 6
     },
     "shooting": {
       "fgPct": 0.4166666666666667,
@@ -986,7 +1020,8 @@
       "fta": 0,
       "foulsDrawn": 1,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -1
     },
     "perGame": {
       "min": 23.55,
@@ -998,7 +1033,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 1,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": -1
     },
     "shooting": {
       "fgPct": 0.5,
@@ -1041,7 +1077,8 @@
       "fta": 5,
       "foulsDrawn": 4,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 3
     },
     "perGame": {
       "min": 34.333333333333336,
@@ -1053,7 +1090,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 3,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": 3
     },
     "shooting": {
       "fgPct": 0.4,
@@ -1102,7 +1140,8 @@
       "fta": 1,
       "foulsDrawn": 3,
       "blockedAgainst": 2,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -4
     },
     "perGame": {
       "min": 32.05,
@@ -1114,7 +1153,8 @@
       "stl": 0,
       "blk": 1,
       "tov": 1,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": -4
     },
     "shooting": {
       "fgPct": 0.5,
@@ -1163,7 +1203,8 @@
       "fta": 4,
       "foulsDrawn": 3,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -2
     },
     "perGame": {
       "min": 23.916666666666668,
@@ -1175,7 +1216,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 1.6666666666666667,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": -0.6666666666666666
     },
     "shooting": {
       "fgPct": 0.45454545454545453,
@@ -1224,7 +1266,8 @@
       "fta": 4,
       "foulsDrawn": 6,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 2
     },
     "perGame": {
       "min": 31.483333333333334,
@@ -1236,7 +1279,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 1,
-      "pf": 4
+      "pf": 4,
+      "plusMinus": 2
     },
     "shooting": {
       "fgPct": 0.36363636363636365,
@@ -1279,7 +1323,8 @@
       "fta": 1,
       "foulsDrawn": 3,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -23
     },
     "perGame": {
       "min": 19,
@@ -1291,7 +1336,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 1,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": -23
     },
     "shooting": {
       "fgPct": 0.4,
@@ -1340,7 +1386,8 @@
       "fta": 3,
       "foulsDrawn": 5,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 8
     },
     "perGame": {
       "min": 32.766666666666666,
@@ -1352,7 +1399,8 @@
       "stl": 0,
       "blk": 3,
       "tov": 3,
-      "pf": 4
+      "pf": 4,
+      "plusMinus": 8
     },
     "shooting": {
       "fgPct": 0.2727272727272727,
@@ -1395,7 +1443,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 4
     },
     "perGame": {
       "min": 19.872222222222224,
@@ -1407,7 +1456,8 @@
       "stl": 0.3333333333333333,
       "blk": 0.6666666666666666,
       "tov": 1.3333333333333333,
-      "pf": 3.6666666666666665
+      "pf": 3.6666666666666665,
+      "plusMinus": 1.3333333333333333
     },
     "shooting": {
       "fgPct": 0.5,
@@ -1450,7 +1500,8 @@
       "fta": 8,
       "foulsDrawn": 8,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 1
     },
     "perGame": {
       "min": 16.61111111111111,
@@ -1462,7 +1513,8 @@
       "stl": 0.3333333333333333,
       "blk": 0,
       "tov": 1,
-      "pf": 1.6666666666666667
+      "pf": 1.6666666666666667,
+      "plusMinus": 0.3333333333333333
     },
     "shooting": {
       "fgPct": 0.5,
@@ -1505,7 +1557,8 @@
       "fta": 0,
       "foulsDrawn": 2,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 11
     },
     "perGame": {
       "min": 32.291666666666664,
@@ -1517,7 +1570,8 @@
       "stl": 1,
       "blk": 0.5,
       "tov": 0.5,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": 5.5
     },
     "shooting": {
       "fgPct": 0.6666666666666666,
@@ -1566,7 +1620,8 @@
       "fta": 1,
       "foulsDrawn": 7,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 7
     },
     "perGame": {
       "min": 24.21666666666667,
@@ -1578,7 +1633,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 4,
-      "pf": 3
+      "pf": 3,
+      "plusMinus": 2.3333333333333335
     },
     "shooting": {
       "fgPct": 0.5263157894736842,
@@ -1621,7 +1677,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -7
     },
     "perGame": {
       "min": 36.7,
@@ -1633,7 +1690,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 5,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": -7
     },
     "shooting": {
       "fgPct": 0.25,
@@ -1682,7 +1740,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -3
     },
     "perGame": {
       "min": 9.4,
@@ -1694,7 +1753,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": -3
     },
     "shooting": {
       "fgPct": 0.42857142857142855,
@@ -1737,7 +1797,8 @@
       "fta": 6,
       "foulsDrawn": 3,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -7
     },
     "perGame": {
       "min": 23.366666666666667,
@@ -1749,7 +1810,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 5,
-      "pf": 4
+      "pf": 4,
+      "plusMinus": -7
     },
     "shooting": {
       "fgPct": 0.125,
@@ -1792,7 +1854,8 @@
       "fta": 4,
       "foulsDrawn": 5,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 25.833333333333332,
@@ -1804,7 +1867,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 2,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0.5,
@@ -1853,7 +1917,8 @@
       "fta": 0,
       "foulsDrawn": 1,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 1
     },
     "perGame": {
       "min": 19.066666666666666,
@@ -1865,7 +1930,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 3,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 1
     },
     "shooting": {
       "fgPct": 0.5,
@@ -1908,7 +1974,8 @@
       "fta": 0,
       "foulsDrawn": 1,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 3
     },
     "perGame": {
       "min": 33.233333333333334,
@@ -1920,7 +1987,8 @@
       "stl": 2,
       "blk": 0,
       "tov": 0,
-      "pf": 4
+      "pf": 4,
+      "plusMinus": 3
     },
     "shooting": {
       "fgPct": 0.2857142857142857,
@@ -1969,7 +2037,8 @@
       "fta": 2,
       "foulsDrawn": 1,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 4
     },
     "perGame": {
       "min": 17.25,
@@ -1981,7 +2050,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 1,
-      "pf": 5
+      "pf": 5,
+      "plusMinus": 4
     },
     "shooting": {
       "fgPct": 0.4,
@@ -2024,7 +2094,8 @@
       "fta": 0,
       "foulsDrawn": 1,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 6
     },
     "perGame": {
       "min": 8.85,
@@ -2036,7 +2107,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": 6
     },
     "shooting": {
       "fgPct": 1,
@@ -2085,7 +2157,8 @@
       "fta": 6,
       "foulsDrawn": 3,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -4
     },
     "perGame": {
       "min": 10.166666666666668,
@@ -2097,7 +2170,8 @@
       "stl": 1,
       "blk": 0.5,
       "tov": 0.5,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": -2
     },
     "shooting": {
       "fgPct": 0.2727272727272727,
@@ -2140,7 +2214,8 @@
       "fta": 2,
       "foulsDrawn": 3,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -20
     },
     "perGame": {
       "min": 13.716666666666667,
@@ -2152,7 +2227,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": -20
     },
     "shooting": {
       "fgPct": 0.6666666666666666,
@@ -2195,7 +2271,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -4
     },
     "perGame": {
       "min": 22.683333333333334,
@@ -2207,7 +2284,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 1,
-      "pf": 3
+      "pf": 3,
+      "plusMinus": -4
     },
     "shooting": {
       "fgPct": 0.25,
@@ -2256,7 +2334,8 @@
       "fta": 2,
       "foulsDrawn": 1,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 4
     },
     "perGame": {
       "min": 21.966666666666665,
@@ -2268,7 +2347,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": 4
     },
     "shooting": {
       "fgPct": 0.3333333333333333,
@@ -2317,7 +2397,8 @@
       "fta": 0,
       "foulsDrawn": 1,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -1
     },
     "perGame": {
       "min": 16.61111111111111,
@@ -2329,7 +2410,8 @@
       "stl": 0.6666666666666666,
       "blk": 0,
       "tov": 0.3333333333333333,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": -0.3333333333333333
     },
     "shooting": {
       "fgPct": 0.5555555555555556,
@@ -2372,7 +2454,8 @@
       "fta": 0,
       "foulsDrawn": 3,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -6
     },
     "perGame": {
       "min": 18.1,
@@ -2384,7 +2467,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 3,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": -6
     },
     "shooting": {
       "fgPct": 0.4,
@@ -2427,7 +2511,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 7
     },
     "perGame": {
       "min": 16.333333333333332,
@@ -2439,7 +2524,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 1,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": 7
     },
     "shooting": {
       "fgPct": 0.2857142857142857,
@@ -2482,7 +2568,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -21
     },
     "perGame": {
       "min": 17.733333333333334,
@@ -2494,7 +2581,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": -21
     },
     "shooting": {
       "fgPct": 0.3333333333333333,
@@ -2543,7 +2631,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 2
     },
     "perGame": {
       "min": 3.7333333333333334,
@@ -2555,7 +2644,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 1.5
+      "pf": 1.5,
+      "plusMinus": 1
     },
     "shooting": {
       "fgPct": 0.4,
@@ -2598,7 +2688,8 @@
       "fta": 2,
       "foulsDrawn": 2,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 1
     },
     "perGame": {
       "min": 22.666666666666668,
@@ -2610,7 +2701,8 @@
       "stl": 5,
       "blk": 0,
       "tov": 2,
-      "pf": 3
+      "pf": 3,
+      "plusMinus": 1
     },
     "shooting": {
       "fgPct": 0,
@@ -2653,7 +2745,8 @@
       "fta": 2,
       "foulsDrawn": 1,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -5
     },
     "perGame": {
       "min": 17.216666666666665,
@@ -2665,7 +2758,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 2,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": -5
     },
     "shooting": {
       "fgPct": 0,
@@ -2708,7 +2802,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 7.25,
@@ -2720,7 +2815,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0.3333333333333333,
@@ -2763,7 +2859,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -3
     },
     "perGame": {
       "min": 3.25,
@@ -2775,7 +2872,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 0,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": -3
     },
     "shooting": {
       "fgPct": 0.5,
@@ -2824,7 +2922,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -9
     },
     "perGame": {
       "min": 25.183333333333334,
@@ -2836,7 +2935,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 2,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": -9
     },
     "shooting": {
       "fgPct": 0.5,
@@ -2879,7 +2979,8 @@
       "fta": 2,
       "foulsDrawn": 6,
       "blockedAgainst": 1,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 11
     },
     "perGame": {
       "min": 12.75,
@@ -2891,7 +2992,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 1.3333333333333333,
-      "pf": 1.3333333333333333
+      "pf": 1.3333333333333333,
+      "plusMinus": 3.6666666666666665
     },
     "shooting": {
       "fgPct": 0.2857142857142857,
@@ -2940,7 +3042,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -3
     },
     "perGame": {
       "min": 4.066666666666666,
@@ -2952,7 +3055,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 2
+      "pf": 2,
+      "plusMinus": -1.5
     },
     "shooting": {
       "fgPct": 0.3333333333333333,
@@ -2995,7 +3099,8 @@
       "fta": 2,
       "foulsDrawn": 2,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 3
     },
     "perGame": {
       "min": 22.95,
@@ -3007,7 +3112,8 @@
       "stl": 2,
       "blk": 1,
       "tov": 4,
-      "pf": 4
+      "pf": 4,
+      "plusMinus": 3
     },
     "shooting": {
       "fgPct": 0,
@@ -3056,7 +3162,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -1
     },
     "perGame": {
       "min": 3.8666666666666667,
@@ -3068,7 +3175,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": -1
     },
     "shooting": {
       "fgPct": 0,
@@ -3111,7 +3219,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 0.23333333333333334,
@@ -3123,7 +3232,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0,
@@ -3166,7 +3276,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 0,
@@ -3178,7 +3289,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0,
@@ -3221,7 +3333,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 1
     },
     "perGame": {
       "min": 2.95,
@@ -3233,7 +3346,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": 1
     },
     "shooting": {
       "fgPct": 0,
@@ -3276,7 +3390,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 2
     },
     "perGame": {
       "min": 0.23333333333333334,
@@ -3288,7 +3403,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 2
     },
     "shooting": {
       "fgPct": 0,
@@ -3331,7 +3447,8 @@
       "fta": 0,
       "foulsDrawn": 2,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -7
     },
     "perGame": {
       "min": 10.433333333333334,
@@ -3343,7 +3460,8 @@
       "stl": 1,
       "blk": 0,
       "tov": 1,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": -7
     },
     "shooting": {
       "fgPct": 0,
@@ -3386,7 +3504,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 0,
@@ -3398,7 +3517,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0,
@@ -3441,7 +3561,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -6
     },
     "perGame": {
       "min": 10.766666666666667,
@@ -3453,7 +3574,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 3
+      "pf": 3,
+      "plusMinus": -6
     },
     "shooting": {
       "fgPct": 0,
@@ -3496,7 +3618,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 0,
@@ -3508,7 +3631,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0,
@@ -3551,7 +3675,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -1
     },
     "perGame": {
       "min": 9.083333333333334,
@@ -3563,7 +3688,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": -1
     },
     "shooting": {
       "fgPct": 0,
@@ -3606,7 +3732,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 0,
@@ -3618,7 +3745,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0,
@@ -3661,7 +3789,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 2
     },
     "perGame": {
       "min": 1.6,
@@ -3673,7 +3802,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 1
+      "pf": 1,
+      "plusMinus": 2
     },
     "shooting": {
       "fgPct": 0,
@@ -3716,7 +3846,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 0,
@@ -3728,7 +3859,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0,
@@ -3771,7 +3903,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 0,
@@ -3783,7 +3916,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0,
@@ -3826,7 +3960,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -2
     },
     "perGame": {
       "min": 1.0833333333333333,
@@ -3838,7 +3973,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": -2
     },
     "shooting": {
       "fgPct": 0,
@@ -3887,7 +4023,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 0,
@@ -3899,7 +4036,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0,
@@ -3948,7 +4086,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 0,
@@ -3960,7 +4099,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0,
@@ -4009,7 +4149,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 0.016666666666666666,
@@ -4021,7 +4162,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0,
@@ -4070,7 +4212,8 @@
       "fta": 0,
       "foulsDrawn": 1,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -1
     },
     "perGame": {
       "min": 9.566666666666666,
@@ -4082,7 +4225,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 1,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": -1
     },
     "shooting": {
       "fgPct": 0,
@@ -4125,7 +4269,8 @@
       "fta": 0,
       "foulsDrawn": 2,
       "blockedAgainst": 3,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": -10
     },
     "perGame": {
       "min": 15.166666666666666,
@@ -4137,7 +4282,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 1,
-      "pf": 3
+      "pf": 3,
+      "plusMinus": -10
     },
     "shooting": {
       "fgPct": 0,
@@ -4180,7 +4326,8 @@
       "fta": 0,
       "foulsDrawn": 0,
       "blockedAgainst": 0,
-      "poss": 0
+      "poss": 0,
+      "plusMinus": 0
     },
     "perGame": {
       "min": 0,
@@ -4192,7 +4339,8 @@
       "stl": 0,
       "blk": 0,
       "tov": 0,
-      "pf": 0
+      "pf": 0,
+      "plusMinus": 0
     },
     "shooting": {
       "fgPct": 0,

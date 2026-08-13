@@ -51,6 +51,13 @@ interface StatTotals {
    * 個人行にはPOSSが存在しないため選手集計では常に0のまま
    */
   poss: number;
+  /**
+   * 個人+/-。生データのPLUSMINUS値をそのまま合算する（Bリーグ公式フィールド。DESIGN.md 2-2章で
+   * フィールドの存在自体は確認済みだったが未活用だった。POSS等と同様、算出ロジックの
+   * 再実装は不要）。チーム合計行（Category=3）にはPLUSMINUSが存在しないため
+   * チーム集計では常に0のまま
+   */
+  plusMinus: number;
 }
 
 function emptyTotals(): StatTotals {
@@ -76,6 +83,7 @@ function emptyTotals(): StatTotals {
     foulsDrawn: 0,
     blockedAgainst: 0,
     poss: 0,
+    plusMinus: 0,
   };
 }
 
@@ -101,6 +109,7 @@ function addBoxscoreRow(totals: StatTotals, row: BoxscoreRow, countGame: boolean
   totals.foulsDrawn += row.FOULON;
   totals.blockedAgainst += row.BSON;
   totals.poss += row.POSS ?? 0;
+  totals.plusMinus += row.PLUSMINUS ?? 0;
 }
 
 function buildStatBlock(totals: StatTotals, seasonStartYear: number) {
@@ -120,6 +129,7 @@ function buildStatBlock(totals: StatTotals, seasonStartYear: number) {
       blk: totals.blk / gp,
       tov: totals.tov / gp,
       pf: totals.pf / gp,
+      plusMinus: totals.plusMinus / gp,
     },
     shooting: {
       fgPct: safeDiv(totals.fgm, totals.fga),
