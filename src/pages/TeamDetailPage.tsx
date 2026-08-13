@@ -8,6 +8,19 @@ import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
 import { computeTeamSituationalStats, filterGameLogs, isDefaultFilter, type SituationalFilter } from "../lib/situational";
 
+function averageOf(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+function calculateAge(birthDate: string, asOf: Date = new Date()): number {
+  const [y, m, d] = birthDate.split("-").map(Number) as [number, number, number];
+  let age = asOf.getFullYear() - y;
+  const hadBirthdayThisYear = asOf.getMonth() + 1 > m || (asOf.getMonth() + 1 === m && asOf.getDate() >= d);
+  if (!hadBirthdayThisYear) age -= 1;
+  return age;
+}
+
 const playerColumns: Column<PlayerSummary>[] = [
   { key: "name", label: "選手", sortValue: (p) => p.name, align: "left" },
   { key: "gamesPlayed", label: "試合数", sortValue: (p) => p.gamesPlayed, format: (p) => String(p.gamesPlayed) },
@@ -38,6 +51,13 @@ export function TeamDetailPage({ season }: { season: string }) {
   if (!team) return <p className="error-message">チームが見つかりませんでした</p>;
 
   const teamPlayers = (players ?? []).filter((p) => p.teamId === teamId);
+
+  // 「スタメン選手」は現状このアプリに現在の先発5人という概念が無いため、シーズン中に
+  // 1度でも先発出場した選手（gamesStarted > 0）を近似として使う
+  const starters = teamPlayers.filter((p) => p.gamesStarted > 0);
+  const avgHeightCm = averageOf(starters.flatMap((p) => (p.heightCm != null ? [p.heightCm] : [])));
+  const avgWeightKg = averageOf(starters.flatMap((p) => (p.weightKg != null ? [p.weightKg] : [])));
+  const avgAge = averageOf(starters.flatMap((p) => (p.birthDate ? [calculateAge(p.birthDate)] : [])));
 
   const filteredLogs = gameLogs ? filterGameLogs(gameLogs, filter) : [];
   const situational = isDefaultFilter(filter) ? null : computeTeamSituationalStats(filteredLogs);
@@ -93,6 +113,17 @@ export function TeamDetailPage({ season }: { season: string }) {
           <StatTile label="DRtg" value={formatDecimal(situational.advanced.defRtg)} />
           <StatTile label="NetRtg" value={formatSigned(situational.advanced.netRtg)} />
         </div>
+      )}
+
+      {(avgHeightCm != null || avgWeightKg != null || avgAge != null) && (
+        <>
+          <h2>スタメン平均（先発出場経験のある選手）</h2>
+          <div className="stat-grid">
+            <StatTile label="平均身長" value={avgHeightCm != null ? `${formatDecimal(avgHeightCm)}cm` : "-"} />
+            <StatTile label="平均体重" value={avgWeightKg != null ? `${formatDecimal(avgWeightKg)}kg` : "-"} />
+            <StatTile label="平均年齢" value={avgAge != null ? `${formatDecimal(avgAge)}歳` : "-"} />
+          </div>
+        </>
       )}
 
       <h2>個人スタッツ</h2>

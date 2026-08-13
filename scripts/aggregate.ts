@@ -4,7 +4,7 @@
 // 使い方: npm run aggregate -- --season 2025-26
 
 import path from "node:path";
-import { DATA_DIR, readAllGames, writeJson } from "./lib/storage.ts";
+import { DATA_DIR, readAllGames, readJson, writeJson } from "./lib/storage.ts";
 import { eff, efgPct, ftRate, offensiveRating, orbPct, pace, parsePlayTime, safeDiv, tsPct, usagePct } from "../shared/formulas.ts";
 import { teamDivision } from "./lib/divisions.ts";
 import type {
@@ -13,6 +13,7 @@ import type {
   HeadToHeadRecord,
   HeadToHeadTeamRow,
   PlayerGameLog,
+  PlayerMasterEntry,
   StandingsSnapshot,
   StandingsTeamSnapshot,
   StoredGame,
@@ -164,6 +165,10 @@ async function aggregateSeason(season: string): Promise<void> {
   // EFFの計算式は年度で異なる（DESIGN.md 6章）。シーズン文字列("2025-26")から開始年を取り出す
   const seasonStartYear = Number(season.split("-")[0]);
 
+  // 選手マスタ（シーズン非依存。scrape-roster.tsが生成）。未生成でも集計自体は動く
+  const playersMaster = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
+  const masterById = new Map(playersMaster.map((p) => [p.playerId, p]));
+
   const players = new Map<string, PlayerAccumulator>();
   const teams = new Map<string, TeamAccumulator>();
 
@@ -195,11 +200,19 @@ async function aggregateSeason(season: string): Promise<void> {
       // Usage%はチームの出場全体（シーズン合計）を基準に算出する。移籍選手は直近所属チームで近似する
       const team = teams.get(p.teamId);
       const usage = team ? usagePct(p.totals, team.totals) : 0;
+      // 国籍・身長体重・生年月日・ポジションはplayers-master.jsonから突合（未登録選手は全て未定義のまま）
+      const master = masterById.get(p.playerId);
       return {
         playerId: p.playerId,
         name: p.name,
         teamId: p.teamId,
         teamName: p.teamName,
+        position: master?.position,
+        nationality: master?.nationality,
+        classification: master?.classification,
+        heightCm: master?.heightCm,
+        weightKg: master?.weightKg,
+        birthDate: master?.birthDate,
         ...statBlock,
         advanced: { eff: statBlock.advanced.eff, usagePct: usage },
       };

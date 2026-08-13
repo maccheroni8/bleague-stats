@@ -1,0 +1,193 @@
+// bleague.jp/roster/（クラブ別一覧）+ roster_detail/（個人ページ）から選手マスタを取得し、
+// data/players-master.json に保存する（シーズン非依存、全選手共通。DESIGN.md 5章参照）。
+//
+// 裏側JSON APIは存在しない（実機調査済み。game_detail/scheduleと違い、フィルタ操作も含めて
+// 素のHTMLページがクエリパラメータ付きで返るだけ）ため、cheerioでHTMLをパースする。
+//
+// 仕組み:
+//   一覧: https://www.bleague.jp/roster/?year={year}&club={teamId}&p=&c=&o=random&e=在籍中&tab=1
+//     → クラブを絞ると在籍中選手が1ページに収まる（26クラブ分回せば全選手を網羅できる）。
+//        取れるのは playerId・氏名・ポジションのみ
+//   個人: https://www.bleague.jp/roster_detail/?PlayerID={id}
+//     → 生年月日・身長／体重・リーグ登録国籍。一覧だけでは取れない項目をここで補う
+//
+// 登録区分（日本人/外国籍/帰化選手/アジア特別枠）について: bleague.jp上に明示的なラベルが
+// 見当たらなかった（個人ページの「リーグ登録国籍」は単一の国名のみで、帰化選手も「日本」表記に
+// なり生え抜き選手と区別できない）。そのため現時点ではclassificationは設定せず、
+// nationality（リーグ登録国籍の生値）のみ保持する（ユーザーとの合意事項）。
+//
+// 更新方針（DESIGN.md 8章）: 一覧ページは毎回26クラブ分取得してteamId/teamName/positionを
+// 更新する（軽量・移籍を検知できる）。個人ページは「まだマスタに無い新規選手」だけ追加取得する
+// （身長体重等の属性は変化しないため、既知選手を毎回取り直す必要が無い＝日次cronでも軽量に保てる）。
+// --force を付けると全選手の個人ページを強制的に取り直す。
+//
+// 注意: 初回実行時は在籍中の全選手（300名超）の個人ページを新規取得するため、
+// 2〜3秒間隔のレート制限により15〜20分程度かかる。日次cronに組み込む前に、
+// 一度手動でフル実行して players-master.json を作っておくこと。
+//
+// 使い方:
+//   npm run scrape:roster -- --season 2026-27
+//   npm run scrape:roster -- --season 2026-27 --force
+
+import path from "node:path";
+import { load } from "cheerio";
+import { createThrottledFetch } from "./lib/throttle.ts";
+import { DATA_DIR, readJson, writeJson } from "./lib/storage.ts";
+import { TEAM_NAMES } from "./lib/divisions.ts";
+import { isMainModule } from "./lib/isMain.ts";
+import type { PlayerMasterEntry } from "../shared/types.ts";
+
+const MIN_REQUEST_INTERVAL_MS = 2500;
+const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
+const throttledFetch = createThrottledFetch(MIN_REQUEST_INTERVAL_MS, USER_AGENT);
+
+const MASTER_PATH = path.join(DATA_DIR, "players-master.json");
+
+async function fetchHtml(url: string): Promise<string> {
+  const res = await throttledFetch(url);
+  if (!res.ok) {
+    throw new Error(`GET ${url} failed: ${res.status}`);
+  }
+  return res.text();
+}
+
+interface RosterListItem {
+  playerId: string;
+  name: string;
+  position?: string;
+}
+
+function parseRosterList(html: string): RosterListItem[] {
+  const $ = load(html);
+  const items: RosterListItem[] = [];
+  $('a.playerInfo-player[href*="roster_detail"]').each((_, el) => {
+    const href = $(el).attr("href") ?? "";
+    const idMatch = /PlayerID=(\d+)/.exec(href);
+    if (!idMatch) return;
+    const name = $(el).find(".playerInfo-player-name").text().trim();
+    const positionText = $(el).find(".playerInfo-player-position").text().replace(/\s+/g, " ").trim();
+    // 例: "ポジション：PF #5" → "PF" / "ポジション：SG/SF #21" → "SG/SF"
+    const positionMatch = /ポジション[：:]\s*([A-Z/]+)/.exec(positionText);
+    items.push({ playerId: idMatch[1]!, name, position: positionMatch?.[1] });
+  });
+  return items;
+}
+
+async function fetchClubRoster(year: number, teamId: string): Promise<RosterListItem[]> {
+  const url = `https://www.bleague.jp/roster/?year=${year}&club=${teamId}&p=&c=&o=random&e=${encodeURIComponent("在籍中")}&tab=1`;
+  return parseRosterList(await fetchHtml(url));
+}
+
+function parseHeightWeight(text: string): { heightCm?: number; weightKg?: number } {
+  const [heightPart, weightPart] = text.split("／");
+  const heightMatch = heightPart ? /(\d+)/.exec(heightPart) : null;
+  const weightMatch = weightPart ? /(\d+)/.exec(weightPart) : null;
+  return {
+    heightCm: heightMatch ? Number(heightMatch[1]) : undefined,
+    weightKg: weightMatch ? Number(weightMatch[1]) : undefined,
+  };
+}
+
+/** 例: "1998年9月2日｜27歳" → "1998-09-02" */
+function parseBirthDate(text: string): string | undefined {
+  const match = /(\d{4})年(\d{1,2})月(\d{1,2})日/.exec(text);
+  if (!match) return undefined;
+  const [, y, m, d] = match as unknown as [string, string, string, string];
+  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
+interface PlayerDetail {
+  position?: string;
+  nationality?: string;
+  heightCm?: number;
+  weightKg?: number;
+  birthDate?: string;
+}
+
+function parsePlayerDetail(html: string): PlayerDetail {
+  const $ = load(html);
+  const detail: PlayerDetail = {};
+  $("li.rosterDetail-kv-playerProfile-list-item").each((_, el) => {
+    const spans = $(el).find("span");
+    const label = $(spans[0]).text().trim();
+    const value = $(spans[1]).text().trim();
+    if (label === "ポジション") detail.position = value || undefined;
+    else if (label === "生年月日") detail.birthDate = parseBirthDate(value);
+    else if (label === "身長／体重") Object.assign(detail, parseHeightWeight(value));
+    else if (label === "リーグ登録国籍") detail.nationality = value || undefined;
+  });
+  return detail;
+}
+
+async function fetchPlayerDetail(playerId: string): Promise<PlayerDetail> {
+  return parsePlayerDetail(await fetchHtml(`https://www.bleague.jp/roster_detail/?PlayerID=${playerId}`));
+}
+
+export async function scrapeRosterMaster(
+  season: string,
+  options: { force?: boolean } = {},
+): Promise<PlayerMasterEntry[]> {
+  const year = Number(season.split("-")[0]);
+  const existing = (await readJson<PlayerMasterEntry[]>(MASTER_PATH)) ?? [];
+  const byId = new Map(existing.map((p) => [p.playerId, p]));
+
+  let newCount = 0;
+  let movedCount = 0;
+
+  for (const [teamId, teamName] of Object.entries(TEAM_NAMES)) {
+    const items = await fetchClubRoster(year, teamId);
+    console.log(`[roster] ${teamName}: ${items.length}名`);
+
+    for (const item of items) {
+      const entry = byId.get(item.playerId);
+      if (!entry) {
+        byId.set(item.playerId, { playerId: item.playerId, name: item.name, teamId, teamName, position: item.position });
+        newCount += 1;
+      } else {
+        if (entry.teamId !== teamId) movedCount += 1;
+        entry.name = item.name;
+        entry.teamId = teamId;
+        entry.teamName = teamName;
+        entry.position = item.position ?? entry.position;
+      }
+    }
+  }
+
+  // birthDateが未取得＝個人ページ未取得の判定に使う（既存選手の属性は変化しないため再取得しない）
+  const targets = [...byId.values()].filter((p) => options.force || !p.birthDate);
+  console.log(`[roster] 個人ページ取得対象: ${targets.length}名（新規${newCount}名／移籍検知${movedCount}件）`);
+
+  for (const entry of targets) {
+    const detail = await fetchPlayerDetail(entry.playerId);
+    entry.position = detail.position ?? entry.position;
+    entry.nationality = detail.nationality ?? entry.nationality;
+    entry.heightCm = detail.heightCm ?? entry.heightCm;
+    entry.weightKg = detail.weightKg ?? entry.weightKg;
+    entry.birthDate = detail.birthDate ?? entry.birthDate;
+  }
+
+  return [...byId.values()].sort((a, b) => a.playerId.localeCompare(b.playerId));
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const seasonIndex = args.indexOf("--season");
+  const season = seasonIndex !== -1 ? args[seasonIndex + 1] : undefined;
+  if (!season) {
+    console.error("使い方: scrape-roster.ts --season 2026-27 [--force]");
+    process.exitCode = 1;
+    return;
+  }
+  const force = args.includes("--force");
+
+  const master = await scrapeRosterMaster(season, { force });
+  await writeJson(MASTER_PATH, master);
+  console.log(`保存完了: ${MASTER_PATH}（${master.length}名）`);
+}
+
+if (isMainModule(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
+}

@@ -68,6 +68,9 @@ jobs:
       - name: Scrape boxscores (new games + watching re-checks)
         run: node --experimental-strip-types scripts/scrape-boxscore.ts --season ${{ steps.season.outputs.season }}
 
+      - name: Scrape roster (players master, incremental)
+        run: node --experimental-strip-types scripts/scrape-roster.ts --season ${{ steps.season.outputs.season }}
+
       - name: Aggregate teams/players
         run: node --experimental-strip-types scripts/aggregate.ts --season ${{ steps.season.outputs.season }}
 

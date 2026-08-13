@@ -6,6 +6,7 @@ import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs"
 import { ExportImageButton } from "../components/ExportImageButton";
 
 type Mode = "team" | "player";
+type NationalityFilter = "all" | "jp" | "intl";
 
 interface RankedListProps<T> {
   rows: T[];
@@ -51,6 +52,7 @@ export function RankingsPage({ season }: { season: string }) {
   const exportRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<Mode>("team");
   const [statKey, setStatKey] = useState("pts");
+  const [nationalityFilter, setNationalityFilter] = useState<NationalityFilter>("all");
 
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
   const {
@@ -69,7 +71,14 @@ export function RankingsPage({ season }: { season: string }) {
   const selectMode = (next: Mode) => {
     setMode(next);
     setStatKey("pts");
+    setNationalityFilter("all");
   };
+
+  const filteredPlayers = (players ?? []).filter((p) => {
+    if (nationalityFilter === "all") return true;
+    if (!p.nationality) return false;
+    return nationalityFilter === "jp" ? p.nationality === "日本" : p.nationality !== "日本";
+  });
 
   return (
     <div>
@@ -84,6 +93,20 @@ export function RankingsPage({ season }: { season: string }) {
           個人
         </button>
       </div>
+
+      {mode === "player" && (
+        <div className="mode-toggle">
+          <button className={nationalityFilter === "all" ? "active" : ""} onClick={() => setNationalityFilter("all")}>
+            すべて
+          </button>
+          <button className={nationalityFilter === "jp" ? "active" : ""} onClick={() => setNationalityFilter("jp")}>
+            日本人選手
+          </button>
+          <button className={nationalityFilter === "intl" ? "active" : ""} onClick={() => setNationalityFilter("intl")}>
+            外国籍選手
+          </button>
+        </div>
+      )}
 
       <div className="stat-picker">
         {defs.map((d) => (
@@ -114,7 +137,7 @@ export function RankingsPage({ season }: { season: string }) {
               />
             ) : (
               <RankedList
-                rows={players ?? []}
+                rows={filteredPlayers}
                 def={playerDef}
                 rowKey={(p) => p.playerId}
                 name={(p) => p.name}

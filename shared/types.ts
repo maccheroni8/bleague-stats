@@ -357,6 +357,16 @@ export interface PlayerSummary {
   perGame: PerGameStats;
   shooting: ShootingStats;
   advanced: PlayerAdvancedStats;
+  /**
+   * data/players-master.json（scrape-roster.ts）から突合した選手属性。マスタに未登録の選手
+   * （新加入直後でまだスクレイプできていない等）は全フィールド未定義になりうる
+   */
+  position?: string;
+  nationality?: string;
+  classification?: "日本人" | "外国籍" | "帰化選手" | "アジア特別枠";
+  heightCm?: number;
+  weightKg?: number;
+  birthDate?: string;
 }
 
 // ---- data/{season}/player-games/{playerId}.json の保存スキーマ（個人詳細ページの試合ログ用） ----
@@ -485,4 +495,27 @@ export interface HeadToHeadTeamRow {
   vsEast: HeadToHeadSummary;
   /** 相手が西地区のチームだった試合の合算成績（相手の地区が不明な試合は含まない） */
   vsWest: HeadToHeadSummary;
+}
+
+// ---- data/players-master.json の保存スキーマ（シーズン非依存、全選手共通。DESIGN.md 5章参照） ----
+
+export interface PlayerMasterEntry {
+  playerId: string;
+  name: string;
+  /** 直近確認できたクラブ（移籍があればscrape-roster.ts実行のたびに更新される） */
+  teamId: string;
+  teamName: string;
+  /** bleague.jp表記そのまま（例: "SG/SF"）。複数ポジション兼任時はスラッシュ区切り */
+  position?: string;
+  /** 「リーグ登録国籍」欄の値をそのまま保持（例: "日本", "フィリピン"）。DESIGN.md 11章参照 */
+  nationality?: string;
+  /**
+   * 日本人/外国籍/帰化選手/アジア特別枠。bleague.jp上に明示的なラベルが存在しないため
+   * 自動判定は未実装（2026-08時点）。判定基準が決まり次第、別途ロジックを追加する
+   */
+  classification?: "日本人" | "外国籍" | "帰化選手" | "アジア特別枠";
+  heightCm?: number;
+  weightKg?: number;
+  /** YYYY-MM-DD */
+  birthDate?: string;
 }

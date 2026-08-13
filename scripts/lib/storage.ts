@@ -50,3 +50,10 @@ export async function writeJson(filePath: string, data: unknown): Promise<void> 
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf-8");
 }
+
+/** ファイルが無ければnullを返す汎用JSON読み込み（players-master.json等、単一ファイルもの向け） */
+export async function readJson<T>(filePath: string): Promise<T | null> {
+  if (!existsSync(filePath)) return null;
+  const text = await readFile(filePath, "utf-8");
+  return JSON.parse(text) as T;
+}

@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "scrape:schedule": "node --experimental-strip-types scripts/scrape-schedule.ts",
     "scrape:boxscore": "node --experimental-strip-types scripts/scrape-boxscore.ts",
+    "scrape:roster": "node --experimental-strip-types scripts/scrape-roster.ts",
     "aggregate": "node --experimental-strip-types scripts/aggregate.ts",
     "print:current-season": "node --experimental-strip-types scripts/print-current-season.ts",
     "typecheck": "tsc -p tsconfig.scripts.json --noEmit && tsc -p tsconfig.json --noEmit"
