@@ -197,7 +197,7 @@ function pickTeamRow(rows: BoxscoreRow[], category: 1 | 3): BoxscoreRow[] {
   return rows.filter((r) => r.Category === category && r.PeriodCategory === 18);
 }
 
-async function aggregateSeason(season: string): Promise<void> {
+export async function aggregateSeason(season: string): Promise<void> {
   const games = (await readAllGames(season)).filter((g) => g.gameEndedFlg);
   console.log(`[${season}] 集計対象: ${games.length}試合（終了済みのみ）`);
 

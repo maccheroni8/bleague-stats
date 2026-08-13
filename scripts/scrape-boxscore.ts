@@ -119,7 +119,7 @@ async function loadScheduleKeys(season: string): Promise<string[]> {
 }
 
 /** シーズン一括モード: 未取得試合 + status=watchingの再チェック対象をまとめて処理する */
-async function runForSeason(season: string): Promise<void> {
+export async function runForSeason(season: string): Promise<void> {
   const scheduleKeys = await loadScheduleKeys(season);
   console.log(`[${season}] schedule.json から ${scheduleKeys.length} 試合を確認`);
 
