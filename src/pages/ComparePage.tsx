@@ -158,7 +158,7 @@ export function ComparePage({ season }: { season: string }) {
           <div ref={exportRef} className="export-target">
             <ComparisonTable
               rows={selectedPlayers}
-              defs={PLAYER_STAT_DEFS}
+              defs={PLAYER_STAT_DEFS.filter((d) => !d.hiddenFromPicker)}
               rowKey={(p) => p.playerId}
               name={(p) => p.name}
               linkTo={(p) => `/players/${p.playerId}`}

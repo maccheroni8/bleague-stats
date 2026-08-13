@@ -64,7 +64,7 @@ export function RankingsPage({ season }: { season: string }) {
   const loading = mode === "team" ? teamsLoading : playersLoading;
   const error = mode === "team" ? teamsError : playersError;
 
-  const defs = mode === "team" ? TEAM_STAT_DEFS : PLAYER_STAT_DEFS;
+  const defs = mode === "team" ? TEAM_STAT_DEFS : PLAYER_STAT_DEFS.filter((d) => !d.hiddenFromPicker);
   const teamDef = TEAM_STAT_DEFS.find((d) => d.key === statKey) ?? TEAM_STAT_DEFS[0]!;
   const playerDef = PLAYER_STAT_DEFS.find((d) => d.key === statKey) ?? PLAYER_STAT_DEFS[0]!;
 

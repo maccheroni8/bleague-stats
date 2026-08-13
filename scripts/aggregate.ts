@@ -58,6 +58,13 @@ interface StatTotals {
    * チーム集計では常に0のまま
    */
   plusMinus: number;
+  /**
+   * 出場した試合における「その試合のチーム得失点差」の合計（オンコート/オフコート純得失点の
+   * 算出用アキュムレータ。個人+/-＝オンコート純得失点そのものなので、この値からplusMinusを
+   * 引けばオフコート純得失点になる）。チーム合計行（Category=3）を集計する際は常に0を渡すため
+   * チーム集計では使わない
+   */
+  teamNetSum: number;
 }
 
 function emptyTotals(): StatTotals {
@@ -84,11 +91,15 @@ function emptyTotals(): StatTotals {
     blockedAgainst: 0,
     poss: 0,
     plusMinus: 0,
+    teamNetSum: 0,
   };
 }
 
-function addBoxscoreRow(totals: StatTotals, row: BoxscoreRow, countGame: boolean): void {
-  if (countGame) totals.gamesPlayed += 1;
+function addBoxscoreRow(totals: StatTotals, row: BoxscoreRow, countGame: boolean, teamNetForGame: number): void {
+  if (countGame) {
+    totals.gamesPlayed += 1;
+    totals.teamNetSum += teamNetForGame;
+  }
   if (row.StartingFlg === 1) totals.gamesStarted += 1;
   totals.min += parsePlayTime(row.PlayTime);
   totals.pts += row.Point;
@@ -224,7 +235,16 @@ async function aggregateSeason(season: string): Promise<void> {
         weightKg: master?.weightKg,
         birthDate: master?.birthDate,
         ...statBlock,
-        advanced: { eff: statBlock.advanced.eff, usagePct: usage },
+        advanced: {
+          eff: statBlock.advanced.eff,
+          usagePct: usage,
+          // オンコート純得失点＝個人+/-（PLUSMINUS）合計そのもの。オフコートはそこから
+          // 「出場試合のチーム得失点差合計(teamNetSum)」を差し引いた残りとして導出する
+          onCourtNet: p.totals.plusMinus,
+          onCourtNetPerGame: statBlock.perGame.plusMinus,
+          offCourtNet: p.totals.teamNetSum - p.totals.plusMinus,
+          offCourtNetPerGame: (p.totals.teamNetSum - p.totals.plusMinus) / (p.totals.gamesPlayed || 1),
+        },
       };
     })
     .sort((a, b) => b.perGame.pts - a.perGame.pts);
@@ -307,11 +327,12 @@ function processPlayers(game: StoredGame, players: Map<string, PlayerAccumulator
     // 直近の試合のチーム所属で上書き（移籍対応。DESIGN.mdでは選手マスタでの厳密な履歴管理は未対応）
     acc.teamId = row.TeamID ?? acc.teamId;
     acc.teamName = row.TeamNameJ;
+    const isHome = row.TeamID === game.homeTeam.id;
+    const teamNetForGame = isHome ? game.homeScore - game.awayScore : game.awayScore - game.homeScore;
     // 出場判定はPlayingFlgではなくPlayTime基準（実データ検証でPlayingFlg=falseでも
     // 得点等が記録されている選手が見つかったため。DESIGN.md 2-2章の記述は誤りだった）
-    addBoxscoreRow(acc.totals, row, row.PlayTime !== "DNP");
+    addBoxscoreRow(acc.totals, row, row.PlayTime !== "DNP", teamNetForGame);
 
-    const isHome = row.TeamID === game.homeTeam.id;
     const opponent = isHome ? game.awayTeam : game.homeTeam;
     const win = isHome ? game.homeScore > game.awayScore : game.awayScore > game.homeScore;
     acc.gameLogs.push({
@@ -377,11 +398,12 @@ function processTeams(
   const home = ensureTeam(game.homeTeam.id, game.homeTeam.name);
   const away = ensureTeam(game.awayTeam.id, game.awayTeam.name);
 
-  // opponentTotalsもgamesPlayedを数える（perGame算出の分母は「自チームの試合数」と一致させる必要がある）
-  addBoxscoreRow(home.totals, homeRow, true);
-  addBoxscoreRow(home.opponentTotals, awayRow, true);
-  addBoxscoreRow(away.totals, awayRow, true);
-  addBoxscoreRow(away.opponentTotals, homeRow, true);
+  // opponentTotalsもgamesPlayedを数える（perGame算出の分母は「自チームの試合数」と一致させる必要がある）。
+  // teamNetForGame（オンコート/オフコート算出用）は個人集計専用なのでチーム集計では常に0を渡す
+  addBoxscoreRow(home.totals, homeRow, true, 0);
+  addBoxscoreRow(home.opponentTotals, awayRow, true, 0);
+  addBoxscoreRow(away.totals, awayRow, true, 0);
+  addBoxscoreRow(away.opponentTotals, homeRow, true, 0);
 
   const homeWin = game.homeScore > game.awayScore;
   const awayWin = game.awayScore > game.homeScore;

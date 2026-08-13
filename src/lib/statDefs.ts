@@ -32,6 +32,11 @@ export interface StatMeta {
   /** Bリーグ公式の略称が確認できている項目のみ設定（DESIGN.md 6章で確認済みのもの） */
   officialAbbr?: string;
   category: StatCategory;
+  /**
+   * trueなら用語集には載せるが、ランキング/比較ページの選択肢からは外す
+   * （検証中の項目を先に個人詳細ページだけで確認したい場合等に使う）
+   */
+  hiddenFromPicker?: boolean;
 }
 
 export interface StatDef<T> extends StatMeta {
@@ -352,5 +357,25 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     source: "official",
     officialAbbr: "+/-",
     category: "basic",
+  },
+  {
+    key: "onCourtNet",
+    label: "オンコート+/-",
+    value: (p) => p.advanced.onCourtNetPerGame,
+    format: (p) => formatSigned(p.advanced.onCourtNetPerGame),
+    formulaText: "個人+/-（PLUSMINUS）と同義。出場中の自チーム得失点差（1試合あたり平均）",
+    source: "custom",
+    category: "basic",
+    hiddenFromPicker: true,
+  },
+  {
+    key: "offCourtNet",
+    label: "オフコート+/-",
+    value: (p) => p.advanced.offCourtNetPerGame,
+    format: (p) => formatSigned(p.advanced.offCourtNetPerGame),
+    formulaText: "出場試合のチーム得失点差 − 個人+/-（ベンチにいる間の自チーム得失点差、1試合あたり平均）",
+    source: "custom",
+    category: "basic",
+    hiddenFromPicker: true,
   },
 ];

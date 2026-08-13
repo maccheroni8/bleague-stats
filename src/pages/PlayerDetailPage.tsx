@@ -105,6 +105,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
           <StatTile label="BLK" value={formatDecimal(player.perGame.blk)} />
           <StatTile label="TOV" value={formatDecimal(player.perGame.tov)} />
           <StatTile label="+/-" value={formatSigned(player.perGame.plusMinus)} />
+          <StatTile label="オンコート+/-" value={formatSigned(player.advanced.onCourtNetPerGame)} />
+          <StatTile label="オフコート+/-" value={formatSigned(player.advanced.offCourtNetPerGame)} />
           <StatTile label="FG%" value={formatPct(player.shooting.fgPct)} />
           <StatTile label="3P%" value={formatPct(player.shooting.tpPct)} />
           <StatTile label="FT%" value={formatPct(player.shooting.ftPct)} />

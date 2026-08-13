@@ -332,6 +332,14 @@ export interface PlayerAdvancedStats {
   eff: number;
   /** ユーセージ率。公式に定義がないためNBA流を採用（DESIGN.md 6章） */
   usagePct: number;
+  /** オンコート純得失点（シーズン合計）。定義上、個人+/-（PLUSMINUS）合計と同値 */
+  onCourtNet: number;
+  /** オンコート純得失点（1試合あたり平均） */
+  onCourtNetPerGame: number;
+  /** オフコート純得失点（シーズン合計）= 出場試合のチーム得失点差合計 − オンコート純得失点 */
+  offCourtNet: number;
+  /** オフコート純得失点（1試合あたり平均） */
+  offCourtNetPerGame: number;
 }
 
 export interface TeamSummary {

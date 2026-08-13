@@ -28,7 +28,8 @@
       "foulsDrawn": 49,
       "blockedAgainst": 6,
       "poss": 231.9018551491508,
-      "plusMinus": 0
+      "plusMinus": 0,
+      "teamNetSum": 0
     },
     "perGame": {
       "min": 216.66666666666666,
@@ -116,7 +117,8 @@
       "foulsDrawn": 20,
       "blockedAgainst": 1,
       "poss": 72.51846184107002,
-      "plusMinus": 0
+      "plusMinus": 0,
+      "teamNetSum": 0
     },
     "perGame": {
       "min": 200,
@@ -204,7 +206,8 @@
       "foulsDrawn": 22,
       "blockedAgainst": 1,
       "poss": 63.94400510204082,
-      "plusMinus": 0
+      "plusMinus": 0,
+      "teamNetSum": 0
     },
     "perGame": {
       "min": 200,
@@ -292,7 +295,8 @@
       "foulsDrawn": 22,
       "blockedAgainst": 2,
       "poss": 81.68319444444444,
-      "plusMinus": 0
+      "plusMinus": 0,
+      "teamNetSum": 0
     },
     "perGame": {
       "min": 225,
@@ -380,7 +384,8 @@
       "foulsDrawn": 22,
       "blockedAgainst": 2,
       "poss": 77.70019886363636,
-      "plusMinus": 0
+      "plusMinus": 0,
+      "teamNetSum": 0
     },
     "perGame": {
       "min": 225,
@@ -468,7 +473,8 @@
       "foulsDrawn": 23,
       "blockedAgainst": 8,
       "poss": 63.94400510204082,
-      "plusMinus": 0
+      "plusMinus": 0,
+      "teamNetSum": 0
     },
     "perGame": {
       "min": 200,
