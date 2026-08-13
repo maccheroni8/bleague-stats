@@ -16,10 +16,8 @@
 import path from "node:path";
 import { fetchLatestGameContext, getPeriodScores, parseAspNetDate } from "./lib/geniusApi.ts";
 import { fetchLegacyGameContext, legacyPeriodScores, parseLegacyGameDateTime } from "./lib/legacyGameDetail.ts";
-import { gameFilePath, readGameFile, writeGameFile, seasonFromYear, DATA_DIR } from "./lib/storage.ts";
+import { gameFilePath, readGameFile, readJson, writeGameFile, seasonFromYear, DATA_DIR } from "./lib/storage.ts";
 import type { GeniusContext, ScheduleFile, StoredGame, StoredGameMeta } from "../shared/types.ts";
-import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { isMainModule } from "./lib/isMain.ts";
 
 const WATCHING_PERIOD_DAYS = 14;
@@ -111,13 +109,13 @@ export async function scrapeAndSaveGame(scheduleKey: string | number): Promise<S
 
 async function loadScheduleKeys(season: string): Promise<string[]> {
   const schedulePath = path.join(DATA_DIR, season, "schedule.json");
-  if (!existsSync(schedulePath)) {
+  const schedule = await readJson<ScheduleFile>(schedulePath);
+  if (!schedule) {
     throw new Error(
-      `${schedulePath} が見つかりません。先に npm run scrape:schedule -- --season ${season} を実行してください`,
+      `${schedulePath}.gz が見つかりません。先に npm run scrape:schedule -- --season ${season} を実行してください`,
     );
   }
-  const text = await readFile(schedulePath, "utf-8");
-  return (JSON.parse(text) as ScheduleFile).scheduleKeys;
+  return schedule.scheduleKeys;
 }
 
 /** シーズン一括モード: 未取得試合 + status=watchingの再チェック対象をまとめて処理する */

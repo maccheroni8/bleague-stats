@@ -18,10 +18,8 @@
 //   npm run scrape:schedule -- --season 2025-26 --recent 14           # 直近14日の軽量チェック
 
 import path from "node:path";
-import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { createThrottledFetch } from "./lib/throttle.ts";
-import { DATA_DIR, writeJson } from "./lib/storage.ts";
+import { DATA_DIR, readJson, writeJson } from "./lib/storage.ts";
 import { seasonStartYearForDate } from "./lib/season.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import type { ScheduleFile } from "../shared/types.ts";
@@ -112,9 +110,8 @@ export async function scrapeRecentSchedule(
 }
 
 async function readExistingScheduleKeys(outPath: string): Promise<string[]> {
-  if (!existsSync(outPath)) return [];
-  const text = await readFile(outPath, "utf-8");
-  return (JSON.parse(text) as ScheduleFile).scheduleKeys;
+  const schedule = await readJson<ScheduleFile>(outPath);
+  return schedule?.scheduleKeys ?? [];
 }
 
 async function main(): Promise<void> {
