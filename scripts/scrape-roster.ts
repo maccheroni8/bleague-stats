@@ -12,9 +12,11 @@
 //     → 生年月日・身長／体重・リーグ登録国籍。一覧だけでは取れない項目をここで補う
 //
 // 登録区分（日本人/外国籍/帰化選手/アジア特別枠）について: bleague.jp上に明示的なラベルが
-// 見当たらなかった（個人ページの「リーグ登録国籍」は単一の国名のみで、帰化選手も「日本」表記に
-// なり生え抜き選手と区別できない）。そのため現時点ではclassificationは設定せず、
-// nationality（リーグ登録国籍の生値）のみ保持する（ユーザーとの合意事項）。
+// 見当たらない（個人ページの「リーグ登録国籍」は単一の国名のみで、帰化選手も「日本」表記になり
+// 生え抜き選手と区別できない。roster一覧の絞り込みセレクタも「日本/海外」の2値のみ。
+// club_detail・roster一覧のHTML全文検索でも該当キーワードは見つからなかった）。
+// そのため日本人/外国籍はnationalityから自動判定し、帰化選手/アジア特別枠は
+// lib/playerClassificationOverrides.ts の手動リストで個別に上書きする（DESIGN.md参照）。
 //
 // 更新方針（DESIGN.md 8章）: 一覧ページは毎回26クラブ分取得してteamId/teamName/positionを
 // 更新する（軽量・移籍を検知できる）。個人ページは「まだマスタに無い新規選手」だけ追加取得する
@@ -34,6 +36,7 @@ import { load } from "cheerio";
 import { createThrottledFetch } from "./lib/throttle.ts";
 import { DATA_DIR, readJson, writeJson } from "./lib/storage.ts";
 import { TEAM_NAMES } from "./lib/divisions.ts";
+import { CLASSIFICATION_OVERRIDES } from "./lib/playerClassificationOverrides.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import type { PlayerMasterEntry } from "../shared/types.ts";
 
@@ -166,7 +169,20 @@ export async function scrapeRosterMaster(
     entry.birthDate = detail.birthDate ?? entry.birthDate;
   }
 
+  // classificationはネットワーク取得不要（nationality + 手動上書きから算出）なので、
+  // 新規/既存に関わらず毎回全選手に適用する。CLASSIFICATION_OVERRIDESの更新も次回実行で反映される
+  for (const entry of byId.values()) {
+    entry.classification = deriveClassification(entry);
+  }
+
   return [...byId.values()].sort((a, b) => a.playerId.localeCompare(b.playerId));
+}
+
+function deriveClassification(entry: PlayerMasterEntry): PlayerMasterEntry["classification"] {
+  const override = CLASSIFICATION_OVERRIDES[entry.playerId];
+  if (override) return override;
+  if (!entry.nationality) return undefined;
+  return entry.nationality === "日本" ? "日本人" : "外国籍";
 }
 
 async function main(): Promise<void> {

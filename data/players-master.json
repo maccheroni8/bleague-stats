@@ -8,7 +8,8 @@
     "nationality": "日本",
     "heightCm": 181,
     "weightKg": 85,
-    "birthDate": "1994-04-25"
+    "birthDate": "1994-04-25",
+    "classification": "日本人"
   },
   {
     "playerId": "10821",
@@ -19,7 +20,8 @@
     "nationality": "日本",
     "heightCm": 190,
     "weightKg": 87,
-    "birthDate": "1997-06-29"
+    "birthDate": "1997-06-29",
+    "classification": "日本人"
   },
   {
     "playerId": "10832",
@@ -30,7 +32,8 @@
     "nationality": "日本",
     "heightCm": 176,
     "weightKg": 71,
-    "birthDate": "1998-08-22"
+    "birthDate": "1998-08-22",
+    "classification": "日本人"
   },
   {
     "playerId": "10849",
@@ -41,7 +44,8 @@
     "nationality": "日本",
     "heightCm": 173,
     "weightKg": 72,
-    "birthDate": "1994-11-26"
+    "birthDate": "1994-11-26",
+    "classification": "日本人"
   },
   {
     "playerId": "10850",
@@ -52,7 +56,8 @@
     "nationality": "日本",
     "heightCm": 183,
     "weightKg": 80,
-    "birthDate": "1994-08-01"
+    "birthDate": "1994-08-01",
+    "classification": "日本人"
   },
   {
     "playerId": "10851",
@@ -63,7 +68,8 @@
     "nationality": "日本",
     "heightCm": 178,
     "weightKg": 77,
-    "birthDate": "1995-09-22"
+    "birthDate": "1995-09-22",
+    "classification": "日本人"
   },
   {
     "playerId": "10852",
@@ -74,7 +80,8 @@
     "nationality": "日本",
     "heightCm": 185,
     "weightKg": 84,
-    "birthDate": "1998-06-04"
+    "birthDate": "1998-06-04",
+    "classification": "日本人"
   },
   {
     "playerId": "10885",
@@ -85,7 +92,8 @@
     "nationality": "日本",
     "heightCm": 205,
     "weightKg": 102,
-    "birthDate": "1993-11-13"
+    "birthDate": "1993-11-13",
+    "classification": "日本人"
   },
   {
     "playerId": "12582",
@@ -96,7 +104,8 @@
     "nationality": "日本",
     "heightCm": 211,
     "weightKg": 114,
-    "birthDate": "1991-11-14"
+    "birthDate": "1991-11-14",
+    "classification": "帰化選手"
   },
   {
     "playerId": "14301",
@@ -107,7 +116,8 @@
     "nationality": "日本",
     "heightCm": 172,
     "weightKg": 69,
-    "birthDate": "1995-08-11"
+    "birthDate": "1995-08-11",
+    "classification": "日本人"
   },
   {
     "playerId": "14302",
@@ -118,7 +128,8 @@
     "nationality": "日本",
     "heightCm": 191,
     "weightKg": 92,
-    "birthDate": "1996-01-25"
+    "birthDate": "1996-01-25",
+    "classification": "日本人"
   },
   {
     "playerId": "15750",
@@ -129,7 +140,8 @@
     "nationality": "日本",
     "heightCm": 188,
     "weightKg": 86,
-    "birthDate": "1995-07-16"
+    "birthDate": "1995-07-16",
+    "classification": "日本人"
   },
   {
     "playerId": "15811",
@@ -140,7 +152,8 @@
     "nationality": "日本",
     "heightCm": 197,
     "weightKg": 93,
-    "birthDate": "1995-05-10"
+    "birthDate": "1995-05-10",
+    "classification": "日本人"
   },
   {
     "playerId": "15815",
@@ -151,7 +164,8 @@
     "nationality": "日本",
     "heightCm": 201,
     "weightKg": 105,
-    "birthDate": "1999-05-07"
+    "birthDate": "1999-05-07",
+    "classification": "日本人"
   },
   {
     "playerId": "15817",
@@ -162,7 +176,8 @@
     "nationality": "日本",
     "heightCm": 182,
     "weightKg": 84,
-    "birthDate": "1995-06-23"
+    "birthDate": "1995-06-23",
+    "classification": "日本人"
   },
   {
     "playerId": "15829",
@@ -173,7 +188,8 @@
     "nationality": "日本",
     "heightCm": 175,
     "weightKg": 75,
-    "birthDate": "1996-12-21"
+    "birthDate": "1996-12-21",
+    "classification": "日本人"
   },
   {
     "playerId": "18148",
@@ -184,7 +200,8 @@
     "nationality": "日本",
     "heightCm": 172,
     "weightKg": 71,
-    "birthDate": "1994-06-28"
+    "birthDate": "1994-06-28",
+    "classification": "日本人"
   },
   {
     "playerId": "18429",
@@ -195,7 +212,8 @@
     "nationality": "日本",
     "heightCm": 177,
     "weightKg": 79,
-    "birthDate": "1994-06-01"
+    "birthDate": "1994-06-01",
+    "classification": "日本人"
   },
   {
     "playerId": "18430",
@@ -206,7 +224,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 208,
     "weightKg": 110,
-    "birthDate": "1993-07-08"
+    "birthDate": "1993-07-08",
+    "classification": "外国籍"
   },
   {
     "playerId": "18441",
@@ -217,7 +236,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 196,
     "weightKg": 98,
-    "birthDate": "1990-08-27"
+    "birthDate": "1990-08-27",
+    "classification": "外国籍"
   },
   {
     "playerId": "18475",
@@ -228,7 +248,8 @@
     "nationality": "日本",
     "heightCm": 189,
     "weightKg": 85,
-    "birthDate": "1998-06-10"
+    "birthDate": "1998-06-10",
+    "classification": "日本人"
   },
   {
     "playerId": "18478",
@@ -239,7 +260,8 @@
     "nationality": "日本",
     "heightCm": 182,
     "weightKg": 80,
-    "birthDate": "1997-01-04"
+    "birthDate": "1997-01-04",
+    "classification": "日本人"
   },
   {
     "playerId": "18845",
@@ -250,7 +272,8 @@
     "nationality": "日本",
     "heightCm": 182,
     "weightKg": 79,
-    "birthDate": "1996-09-16"
+    "birthDate": "1996-09-16",
+    "classification": "日本人"
   },
   {
     "playerId": "19755",
@@ -261,7 +284,8 @@
     "nationality": "日本",
     "heightCm": 188,
     "weightKg": 85,
-    "birthDate": "2001-02-01"
+    "birthDate": "2001-02-01",
+    "classification": "日本人"
   },
   {
     "playerId": "20021",
@@ -272,7 +296,8 @@
     "nationality": "日本",
     "heightCm": 196,
     "weightKg": 94,
-    "birthDate": "1998-06-04"
+    "birthDate": "1998-06-04",
+    "classification": "日本人"
   },
   {
     "playerId": "20023",
@@ -283,7 +308,8 @@
     "nationality": "日本",
     "heightCm": 175,
     "weightKg": 73,
-    "birthDate": "1996-09-27"
+    "birthDate": "1996-09-27",
+    "classification": "日本人"
   },
   {
     "playerId": "20024",
@@ -294,7 +320,8 @@
     "nationality": "日本",
     "heightCm": 192,
     "weightKg": 89,
-    "birthDate": "1997-03-06"
+    "birthDate": "1997-03-06",
+    "classification": "日本人"
   },
   {
     "playerId": "20031",
@@ -305,7 +332,8 @@
     "nationality": "日本",
     "heightCm": 185,
     "weightKg": 84,
-    "birthDate": "1996-10-28"
+    "birthDate": "1996-10-28",
+    "classification": "日本人"
   },
   {
     "playerId": "20034",
@@ -316,7 +344,8 @@
     "nationality": "日本",
     "heightCm": 185,
     "weightKg": 80,
-    "birthDate": "1997-03-31"
+    "birthDate": "1997-03-31",
+    "classification": "日本人"
   },
   {
     "playerId": "22401",
@@ -327,7 +356,8 @@
     "nationality": "日本",
     "heightCm": 176,
     "weightKg": 76,
-    "birthDate": "1999-07-28"
+    "birthDate": "1999-07-28",
+    "classification": "日本人"
   },
   {
     "playerId": "22405",
@@ -338,7 +368,8 @@
     "nationality": "日本",
     "heightCm": 190,
     "weightKg": 90,
-    "birthDate": "1996-04-24"
+    "birthDate": "1996-04-24",
+    "classification": "日本人"
   },
   {
     "playerId": "22497",
@@ -349,7 +380,8 @@
     "nationality": "日本",
     "heightCm": 188,
     "weightKg": 75,
-    "birthDate": "1996-05-20"
+    "birthDate": "1996-05-20",
+    "classification": "日本人"
   },
   {
     "playerId": "26874",
@@ -360,7 +392,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 210,
     "weightKg": 115,
-    "birthDate": "1991-08-20"
+    "birthDate": "1991-08-20",
+    "classification": "外国籍"
   },
   {
     "playerId": "26886",
@@ -371,7 +404,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 196,
     "weightKg": 103,
-    "birthDate": "1995-11-06"
+    "birthDate": "1995-11-06",
+    "classification": "外国籍"
   },
   {
     "playerId": "26890",
@@ -382,7 +416,8 @@
     "nationality": "日本",
     "heightCm": 206,
     "weightKg": 113,
-    "birthDate": "1997-08-18"
+    "birthDate": "1997-08-18",
+    "classification": "帰化選手"
   },
   {
     "playerId": "26914",
@@ -393,7 +428,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 206,
     "weightKg": 115,
-    "birthDate": "1991-04-12"
+    "birthDate": "1991-04-12",
+    "classification": "外国籍"
   },
   {
     "playerId": "26921",
@@ -404,7 +440,8 @@
     "nationality": "スペイン",
     "heightCm": 205,
     "weightKg": 106,
-    "birthDate": "1994-07-15"
+    "birthDate": "1994-07-15",
+    "classification": "外国籍"
   },
   {
     "playerId": "26922",
@@ -415,7 +452,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 208,
     "weightKg": 108,
-    "birthDate": "1993-05-22"
+    "birthDate": "1993-05-22",
+    "classification": "外国籍"
   },
   {
     "playerId": "26926",
@@ -426,7 +464,8 @@
     "nationality": "日本",
     "heightCm": 190,
     "weightKg": 95,
-    "birthDate": "1999-05-19"
+    "birthDate": "1999-05-19",
+    "classification": "日本人"
   },
   {
     "playerId": "30396",
@@ -437,7 +476,8 @@
     "nationality": "日本",
     "heightCm": 192,
     "weightKg": 97,
-    "birthDate": "2001-06-15"
+    "birthDate": "2001-06-15",
+    "classification": "日本人"
   },
   {
     "playerId": "30398",
@@ -448,7 +488,8 @@
     "nationality": "日本",
     "heightCm": 188,
     "weightKg": 88,
-    "birthDate": "1997-12-14"
+    "birthDate": "1997-12-14",
+    "classification": "日本人"
   },
   {
     "playerId": "30399",
@@ -459,7 +500,8 @@
     "nationality": "日本",
     "heightCm": 182,
     "weightKg": 83,
-    "birthDate": "1997-04-10"
+    "birthDate": "1997-04-10",
+    "classification": "日本人"
   },
   {
     "playerId": "30400",
@@ -470,7 +512,8 @@
     "nationality": "日本",
     "heightCm": 175,
     "weightKg": 77,
-    "birthDate": "1997-10-23"
+    "birthDate": "1997-10-23",
+    "classification": "日本人"
   },
   {
     "playerId": "30402",
@@ -481,7 +524,8 @@
     "nationality": "日本",
     "heightCm": 191,
     "weightKg": 86,
-    "birthDate": "1997-09-15"
+    "birthDate": "1997-09-15",
+    "classification": "日本人"
   },
   {
     "playerId": "30434",
@@ -492,7 +536,8 @@
     "nationality": "日本",
     "heightCm": 185,
     "weightKg": 90,
-    "birthDate": "1997-05-15"
+    "birthDate": "1997-05-15",
+    "classification": "日本人"
   },
   {
     "playerId": "30437",
@@ -503,7 +548,8 @@
     "nationality": "日本",
     "heightCm": 195,
     "weightKg": 90,
-    "birthDate": "1998-10-01"
+    "birthDate": "1998-10-01",
+    "classification": "日本人"
   },
   {
     "playerId": "30443",
@@ -514,7 +560,8 @@
     "nationality": "日本",
     "heightCm": 202,
     "weightKg": 106,
-    "birthDate": "1997-12-15"
+    "birthDate": "1997-12-15",
+    "classification": "日本人"
   },
   {
     "playerId": "30458",
@@ -525,7 +572,8 @@
     "nationality": "日本",
     "heightCm": 182,
     "weightKg": 80,
-    "birthDate": "1997-07-25"
+    "birthDate": "1997-07-25",
+    "classification": "日本人"
   },
   {
     "playerId": "30513",
@@ -536,7 +584,8 @@
     "nationality": "日本",
     "heightCm": 182,
     "weightKg": 76,
-    "birthDate": "1997-12-23"
+    "birthDate": "1997-12-23",
+    "classification": "日本人"
   },
   {
     "playerId": "30519",
@@ -547,7 +596,8 @@
     "nationality": "日本",
     "heightCm": 187,
     "weightKg": 92,
-    "birthDate": "1997-11-17"
+    "birthDate": "1997-11-17",
+    "classification": "日本人"
   },
   {
     "playerId": "32956",
@@ -558,7 +608,8 @@
     "nationality": "日本",
     "heightCm": 186,
     "weightKg": 93,
-    "birthDate": "1997-05-15"
+    "birthDate": "1997-05-15",
+    "classification": "日本人"
   },
   {
     "playerId": "32983",
@@ -569,7 +620,8 @@
     "nationality": "日本",
     "heightCm": 200,
     "weightKg": 95,
-    "birthDate": "1998-11-04"
+    "birthDate": "1998-11-04",
+    "classification": "日本人"
   },
   {
     "playerId": "32992",
@@ -580,7 +632,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 206,
     "weightKg": 104,
-    "birthDate": "1993-01-04"
+    "birthDate": "1993-01-04",
+    "classification": "外国籍"
   },
   {
     "playerId": "32995",
@@ -591,7 +644,8 @@
     "nationality": "日本",
     "heightCm": 196,
     "weightKg": 88,
-    "birthDate": "1998-04-10"
+    "birthDate": "1998-04-10",
+    "classification": "日本人"
   },
   {
     "playerId": "33040",
@@ -602,7 +656,8 @@
     "nationality": "日本",
     "heightCm": 187,
     "weightKg": 81,
-    "birthDate": "2002-07-05"
+    "birthDate": "2002-07-05",
+    "classification": "日本人"
   },
   {
     "playerId": "33085",
@@ -613,7 +668,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 193,
     "weightKg": 96,
-    "birthDate": "1992-05-22"
+    "birthDate": "1992-05-22",
+    "classification": "外国籍"
   },
   {
     "playerId": "33097",
@@ -624,7 +680,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 201,
     "weightKg": 104,
-    "birthDate": "1992-01-24"
+    "birthDate": "1992-01-24",
+    "classification": "外国籍"
   },
   {
     "playerId": "5100000012",
@@ -635,7 +692,8 @@
     "nationality": "日本",
     "heightCm": 189,
     "weightKg": 86,
-    "birthDate": "1998-12-05"
+    "birthDate": "1998-12-05",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000014",
@@ -646,7 +704,8 @@
     "nationality": "日本",
     "heightCm": 192,
     "weightKg": 97,
-    "birthDate": "1999-10-24"
+    "birthDate": "1999-10-24",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000015",
@@ -657,7 +716,8 @@
     "nationality": "日本",
     "heightCm": 204,
     "weightKg": 117,
-    "birthDate": "1998-06-16"
+    "birthDate": "1998-06-16",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000016",
@@ -668,7 +728,8 @@
     "nationality": "日本",
     "heightCm": 198,
     "weightKg": 102,
-    "birthDate": "1999-12-20"
+    "birthDate": "1999-12-20",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000022",
@@ -679,7 +740,8 @@
     "nationality": "日本",
     "heightCm": 177,
     "weightKg": 74,
-    "birthDate": "2003-01-14"
+    "birthDate": "2003-01-14",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000023",
@@ -690,7 +752,8 @@
     "nationality": "日本",
     "heightCm": 184,
     "weightKg": 79,
-    "birthDate": "2001-03-03"
+    "birthDate": "2001-03-03",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000024",
@@ -701,7 +764,8 @@
     "nationality": "日本",
     "heightCm": 185,
     "weightKg": 90,
-    "birthDate": "2000-02-29"
+    "birthDate": "2000-02-29",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000027",
@@ -712,7 +776,8 @@
     "nationality": "日本",
     "heightCm": 182,
     "weightKg": 82,
-    "birthDate": "1999-09-13"
+    "birthDate": "1999-09-13",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000028",
@@ -723,7 +788,8 @@
     "nationality": "日本",
     "heightCm": 183,
     "weightKg": 80,
-    "birthDate": "1998-06-25"
+    "birthDate": "1998-06-25",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000030",
@@ -734,7 +800,8 @@
     "nationality": "日本",
     "heightCm": 190,
     "weightKg": 90,
-    "birthDate": "1998-12-18"
+    "birthDate": "1998-12-18",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000031",
@@ -745,7 +812,8 @@
     "nationality": "日本",
     "heightCm": 195,
     "weightKg": 82,
-    "birthDate": "2000-09-29"
+    "birthDate": "2000-09-29",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000032",
@@ -756,7 +824,8 @@
     "nationality": "日本",
     "heightCm": 188,
     "weightKg": 78,
-    "birthDate": "1998-04-05"
+    "birthDate": "1998-04-05",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000033",
@@ -767,7 +836,8 @@
     "nationality": "日本",
     "heightCm": 176,
     "weightKg": 77,
-    "birthDate": "2001-08-23"
+    "birthDate": "2001-08-23",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000035",
@@ -778,7 +848,8 @@
     "nationality": "日本",
     "heightCm": 193,
     "weightKg": 92,
-    "birthDate": "2000-10-03"
+    "birthDate": "2000-10-03",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000036",
@@ -789,7 +860,8 @@
     "nationality": "日本",
     "heightCm": 191,
     "weightKg": 90,
-    "birthDate": "2000-10-13"
+    "birthDate": "2000-10-13",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000039",
@@ -800,7 +872,8 @@
     "nationality": "日本",
     "heightCm": 176,
     "weightKg": 77,
-    "birthDate": "1998-06-02"
+    "birthDate": "1998-06-02",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000046",
@@ -811,7 +884,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 208,
     "weightKg": 102,
-    "birthDate": "1991-12-26"
+    "birthDate": "1991-12-26",
+    "classification": "外国籍"
   },
   {
     "playerId": "5100000049",
@@ -822,7 +896,8 @@
     "nationality": "日本",
     "heightCm": 207,
     "weightKg": 106,
-    "birthDate": "1998-12-23"
+    "birthDate": "1998-12-23",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000055",
@@ -833,7 +908,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 193,
     "weightKg": 95,
-    "birthDate": "1994-03-08"
+    "birthDate": "1994-03-08",
+    "classification": "外国籍"
   },
   {
     "playerId": "5100000062",
@@ -844,7 +920,8 @@
     "nationality": "フィリピン",
     "heightCm": 183,
     "weightKg": 82,
-    "birthDate": "1993-10-27"
+    "birthDate": "1993-10-27",
+    "classification": "アジア特別枠"
   },
   {
     "playerId": "5100000066",
@@ -855,7 +932,8 @@
     "nationality": "日本",
     "heightCm": 188,
     "weightKg": 82,
-    "birthDate": "2000-11-08"
+    "birthDate": "2000-11-08",
+    "classification": "日本人"
   },
   {
     "playerId": "5100000069",
@@ -866,7 +944,8 @@
     "nationality": "フィリピン",
     "heightCm": 193,
     "weightKg": 96,
-    "birthDate": "1993-02-19"
+    "birthDate": "1993-02-19",
+    "classification": "アジア特別枠"
   },
   {
     "playerId": "5100000081",
@@ -877,7 +956,8 @@
     "nationality": "ニュージーランド",
     "heightCm": 203,
     "weightKg": 108,
-    "birthDate": "1993-12-18"
+    "birthDate": "1993-12-18",
+    "classification": "外国籍"
   },
   {
     "playerId": "5100000088",
@@ -888,7 +968,8 @@
     "nationality": "オーストラリア",
     "heightCm": 206,
     "weightKg": 106,
-    "birthDate": "1992-08-03"
+    "birthDate": "1992-08-03",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000101",
@@ -899,7 +980,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 208,
     "weightKg": 118,
-    "birthDate": "1998-04-24"
+    "birthDate": "1998-04-24",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000102",
@@ -910,7 +992,8 @@
     "nationality": "フィリピン",
     "heightCm": 193,
     "weightKg": 95,
-    "birthDate": "1998-09-02"
+    "birthDate": "1998-09-02",
+    "classification": "アジア特別枠"
   },
   {
     "playerId": "51000113",
@@ -921,7 +1004,8 @@
     "nationality": "日本",
     "heightCm": 187,
     "weightKg": 85,
-    "birthDate": "2000-06-10"
+    "birthDate": "2000-06-10",
+    "classification": "日本人"
   },
   {
     "playerId": "51000116",
@@ -932,7 +1016,8 @@
     "nationality": "日本",
     "heightCm": 193,
     "weightKg": 86,
-    "birthDate": "2002-03-11"
+    "birthDate": "2002-03-11",
+    "classification": "日本人"
   },
   {
     "playerId": "51000119",
@@ -943,7 +1028,8 @@
     "nationality": "日本",
     "heightCm": 178,
     "weightKg": 73,
-    "birthDate": "2000-01-15"
+    "birthDate": "2000-01-15",
+    "classification": "日本人"
   },
   {
     "playerId": "51000137",
@@ -954,7 +1040,8 @@
     "nationality": "日本",
     "heightCm": 188,
     "weightKg": 80,
-    "birthDate": "1999-09-18"
+    "birthDate": "1999-09-18",
+    "classification": "日本人"
   },
   {
     "playerId": "51000145",
@@ -965,7 +1052,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 208,
     "weightKg": 116,
-    "birthDate": "1997-01-28"
+    "birthDate": "1997-01-28",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000166",
@@ -976,7 +1064,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 201,
     "weightKg": 94,
-    "birthDate": "1995-12-19"
+    "birthDate": "1995-12-19",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000188",
@@ -987,7 +1076,8 @@
     "nationality": "日本",
     "heightCm": 176,
     "weightKg": 75,
-    "birthDate": "2003-08-01"
+    "birthDate": "2003-08-01",
+    "classification": "日本人"
   },
   {
     "playerId": "51000189",
@@ -998,7 +1088,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 206,
     "weightKg": 101,
-    "birthDate": "1994-07-15"
+    "birthDate": "1994-07-15",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000202",
@@ -1009,7 +1100,8 @@
     "nationality": "日本",
     "heightCm": 191,
     "weightKg": 97,
-    "birthDate": "2006-01-11"
+    "birthDate": "2006-01-11",
+    "classification": "日本人"
   },
   {
     "playerId": "51000216",
@@ -1020,7 +1112,8 @@
     "nationality": "ジャマイカ",
     "heightCm": 211,
     "weightKg": 140,
-    "birthDate": "1999-09-01"
+    "birthDate": "1999-09-01",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000227",
@@ -1031,7 +1124,8 @@
     "nationality": "日本",
     "heightCm": 192,
     "weightKg": 95,
-    "birthDate": "2000-06-02"
+    "birthDate": "2000-06-02",
+    "classification": "日本人"
   },
   {
     "playerId": "51000228",
@@ -1042,7 +1136,8 @@
     "nationality": "日本",
     "heightCm": 190,
     "weightKg": 85,
-    "birthDate": "2002-06-24"
+    "birthDate": "2002-06-24",
+    "classification": "日本人"
   },
   {
     "playerId": "51000232",
@@ -1053,7 +1148,8 @@
     "nationality": "日本",
     "heightCm": 198,
     "weightKg": 95,
-    "birthDate": "2002-08-16"
+    "birthDate": "2002-08-16",
+    "classification": "日本人"
   },
   {
     "playerId": "51000234",
@@ -1064,7 +1160,8 @@
     "nationality": "日本",
     "heightCm": 175,
     "weightKg": 72,
-    "birthDate": "2000-07-28"
+    "birthDate": "2000-07-28",
+    "classification": "日本人"
   },
   {
     "playerId": "51000252",
@@ -1075,7 +1172,8 @@
     "nationality": "日本",
     "heightCm": 172,
     "weightKg": 72,
-    "birthDate": "1999-05-18"
+    "birthDate": "1999-05-18",
+    "classification": "日本人"
   },
   {
     "playerId": "51000267",
@@ -1086,7 +1184,8 @@
     "nationality": "日本",
     "heightCm": 197,
     "weightKg": 98,
-    "birthDate": "2003-03-11"
+    "birthDate": "2003-03-11",
+    "classification": "日本人"
   },
   {
     "playerId": "51000269",
@@ -1097,7 +1196,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 203,
     "weightKg": 102,
-    "birthDate": "1989-07-28"
+    "birthDate": "1989-07-28",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000278",
@@ -1108,7 +1208,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 211,
     "weightKg": 107,
-    "birthDate": "1997-02-04"
+    "birthDate": "1997-02-04",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000294",
@@ -1119,7 +1220,8 @@
     "nationality": "ウクライナ",
     "heightCm": 208,
     "weightKg": 113,
-    "birthDate": "1994-03-25"
+    "birthDate": "1994-03-25",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000296",
@@ -1130,7 +1232,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 205,
     "weightKg": 109,
-    "birthDate": "1999-07-13"
+    "birthDate": "1999-07-13",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000301",
@@ -1141,7 +1244,8 @@
     "nationality": "フィリピン",
     "heightCm": 208,
     "weightKg": 102,
-    "birthDate": "2000-01-01"
+    "birthDate": "2000-01-01",
+    "classification": "アジア特別枠"
   },
   {
     "playerId": "51000305",
@@ -1152,7 +1256,8 @@
     "nationality": "日本",
     "heightCm": 186,
     "weightKg": 85,
-    "birthDate": "2007-06-13"
+    "birthDate": "2007-06-13",
+    "classification": "日本人"
   },
   {
     "playerId": "51000312",
@@ -1163,7 +1268,8 @@
     "nationality": "ギリシャ",
     "heightCm": 208,
     "weightKg": 110,
-    "birthDate": "1993-07-08"
+    "birthDate": "1993-07-08",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000317",
@@ -1174,7 +1280,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 202,
     "weightKg": 102,
-    "birthDate": "1998-01-13"
+    "birthDate": "1998-01-13",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000321",
@@ -1185,7 +1292,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 203,
     "weightKg": 107,
-    "birthDate": "1996-10-01"
+    "birthDate": "1996-10-01",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000343",
@@ -1196,7 +1304,8 @@
     "nationality": "日本",
     "heightCm": 192,
     "weightKg": 90,
-    "birthDate": "2001-08-20"
+    "birthDate": "2001-08-20",
+    "classification": "日本人"
   },
   {
     "playerId": "51000345",
@@ -1207,7 +1316,8 @@
     "nationality": "日本",
     "heightCm": 191,
     "weightKg": 88,
-    "birthDate": "2003-02-28"
+    "birthDate": "2003-02-28",
+    "classification": "日本人"
   },
   {
     "playerId": "51000349",
@@ -1218,7 +1328,8 @@
     "nationality": "日本",
     "heightCm": 200,
     "weightKg": 96,
-    "birthDate": "2002-03-30"
+    "birthDate": "2002-03-30",
+    "classification": "日本人"
   },
   {
     "playerId": "51000350",
@@ -1229,7 +1340,8 @@
     "nationality": "日本",
     "heightCm": 178,
     "weightKg": 79,
-    "birthDate": "2001-10-05"
+    "birthDate": "2001-10-05",
+    "classification": "日本人"
   },
   {
     "playerId": "51000352",
@@ -1240,7 +1352,8 @@
     "nationality": "日本",
     "heightCm": 206,
     "weightKg": 100,
-    "birthDate": "2006-04-02"
+    "birthDate": "2006-04-02",
+    "classification": "日本人"
   },
   {
     "playerId": "51000359",
@@ -1251,7 +1364,8 @@
     "nationality": "日本",
     "heightCm": 175,
     "weightKg": 76,
-    "birthDate": "2001-04-08"
+    "birthDate": "2001-04-08",
+    "classification": "日本人"
   },
   {
     "playerId": "51000382",
@@ -1262,7 +1376,8 @@
     "nationality": "チャイニーズタイペイ",
     "heightCm": 180,
     "weightKg": 78,
-    "birthDate": "2002-02-14"
+    "birthDate": "2002-02-14",
+    "classification": "アジア特別枠"
   },
   {
     "playerId": "51000383",
@@ -1273,7 +1388,8 @@
     "nationality": "日本",
     "heightCm": 198,
     "weightKg": 90,
-    "birthDate": "2001-12-18"
+    "birthDate": "2001-12-18",
+    "classification": "日本人"
   },
   {
     "playerId": "51000394",
@@ -1284,7 +1400,8 @@
     "nationality": "エストニア",
     "heightCm": 209,
     "weightKg": 122,
-    "birthDate": "1996-12-22"
+    "birthDate": "1996-12-22",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000400",
@@ -1295,7 +1412,8 @@
     "nationality": "ニュージーランド",
     "heightCm": 200,
     "weightKg": 107,
-    "birthDate": "1995-08-12"
+    "birthDate": "1995-08-12",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000406",
@@ -1306,7 +1424,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 200,
     "weightKg": 104,
-    "birthDate": "1994-11-16"
+    "birthDate": "1994-11-16",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000416",
@@ -1317,7 +1436,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 196,
     "weightKg": 99,
-    "birthDate": "1993-01-14"
+    "birthDate": "1993-01-14",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000425",
@@ -1328,7 +1448,8 @@
     "nationality": "日本",
     "heightCm": 176,
     "weightKg": 75,
-    "birthDate": "2004-11-24"
+    "birthDate": "2004-11-24",
+    "classification": "日本人"
   },
   {
     "playerId": "51000428",
@@ -1339,7 +1460,8 @@
     "nationality": "日本",
     "heightCm": 206,
     "weightKg": 98,
-    "birthDate": "1994-10-13"
+    "birthDate": "1994-10-13",
+    "classification": "日本人"
   },
   {
     "playerId": "51000431",
@@ -1350,7 +1472,8 @@
     "nationality": "日本",
     "heightCm": 200,
     "weightKg": 98,
-    "birthDate": "2003-05-06"
+    "birthDate": "2003-05-06",
+    "classification": "日本人"
   },
   {
     "playerId": "51000441",
@@ -1361,7 +1484,8 @@
     "nationality": "日本",
     "heightCm": 190,
     "weightKg": 96,
-    "birthDate": "2002-12-05"
+    "birthDate": "2002-12-05",
+    "classification": "日本人"
   },
   {
     "playerId": "51000446",
@@ -1372,7 +1496,8 @@
     "nationality": "日本",
     "heightCm": 187,
     "weightKg": 85,
-    "birthDate": "2003-02-14"
+    "birthDate": "2003-02-14",
+    "classification": "日本人"
   },
   {
     "playerId": "51000447",
@@ -1383,7 +1508,8 @@
     "nationality": "日本",
     "heightCm": 175,
     "weightKg": 86,
-    "birthDate": "2003-07-09"
+    "birthDate": "2003-07-09",
+    "classification": "日本人"
   },
   {
     "playerId": "51000458",
@@ -1394,7 +1520,8 @@
     "nationality": "日本",
     "heightCm": 197,
     "weightKg": 93,
-    "birthDate": "2004-03-30"
+    "birthDate": "2004-03-30",
+    "classification": "日本人"
   },
   {
     "playerId": "51000461",
@@ -1405,7 +1532,8 @@
     "nationality": "日本",
     "heightCm": 194,
     "weightKg": 100,
-    "birthDate": "2004-11-19"
+    "birthDate": "2004-11-19",
+    "classification": "日本人"
   },
   {
     "playerId": "51000467",
@@ -1416,7 +1544,8 @@
     "nationality": "日本",
     "heightCm": 185,
     "weightKg": 83,
-    "birthDate": "2006-08-14"
+    "birthDate": "2006-08-14",
+    "classification": "日本人"
   },
   {
     "playerId": "51000468",
@@ -1427,7 +1556,8 @@
     "nationality": "日本",
     "heightCm": 194,
     "weightKg": 90,
-    "birthDate": "2002-08-12"
+    "birthDate": "2002-08-12",
+    "classification": "日本人"
   },
   {
     "playerId": "51000470",
@@ -1438,7 +1568,8 @@
     "nationality": "日本",
     "heightCm": 185,
     "weightKg": 82,
-    "birthDate": "2002-05-26"
+    "birthDate": "2002-05-26",
+    "classification": "日本人"
   },
   {
     "playerId": "51000479",
@@ -1449,7 +1580,8 @@
     "nationality": "日本",
     "heightCm": 188,
     "weightKg": 93,
-    "birthDate": "2003-02-01"
+    "birthDate": "2003-02-01",
+    "classification": "日本人"
   },
   {
     "playerId": "51000491",
@@ -1460,7 +1592,8 @@
     "nationality": "日本",
     "heightCm": 201,
     "weightKg": 102,
-    "birthDate": "2004-08-26"
+    "birthDate": "2004-08-26",
+    "classification": "日本人"
   },
   {
     "playerId": "51000498",
@@ -1471,7 +1604,8 @@
     "nationality": "日本",
     "heightCm": 190,
     "weightKg": 92,
-    "birthDate": "2004-10-04"
+    "birthDate": "2004-10-04",
+    "classification": "日本人"
   },
   {
     "playerId": "51000499",
@@ -1482,7 +1616,8 @@
     "nationality": "日本",
     "heightCm": 194,
     "weightKg": 102,
-    "birthDate": "2002-01-03"
+    "birthDate": "2002-01-03",
+    "classification": "日本人"
   },
   {
     "playerId": "51000502",
@@ -1493,7 +1628,8 @@
     "nationality": "日本",
     "heightCm": 184,
     "weightKg": 78,
-    "birthDate": "2001-04-06"
+    "birthDate": "2001-04-06",
+    "classification": "日本人"
   },
   {
     "playerId": "51000524",
@@ -1504,7 +1640,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 193,
     "weightKg": 99,
-    "birthDate": "1996-04-05"
+    "birthDate": "1996-04-05",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000529",
@@ -1515,7 +1652,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 198,
     "weightKg": 110,
-    "birthDate": "1996-05-29"
+    "birthDate": "1996-05-29",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000547",
@@ -1526,7 +1664,8 @@
     "nationality": "日本",
     "heightCm": 179,
     "weightKg": 73,
-    "birthDate": "2002-10-11"
+    "birthDate": "2002-10-11",
+    "classification": "日本人"
   },
   {
     "playerId": "51000563",
@@ -1537,7 +1676,8 @@
     "nationality": "日本",
     "heightCm": 190,
     "weightKg": 83,
-    "birthDate": "2003-04-16"
+    "birthDate": "2003-04-16",
+    "classification": "日本人"
   },
   {
     "playerId": "51000576",
@@ -1548,7 +1688,8 @@
     "nationality": "フィリピン",
     "heightCm": 208,
     "weightKg": 111,
-    "birthDate": "2000-08-09"
+    "birthDate": "2000-08-09",
+    "classification": "アジア特別枠"
   },
   {
     "playerId": "51000583",
@@ -1559,7 +1700,8 @@
     "nationality": "日本",
     "heightCm": 189,
     "weightKg": 81,
-    "birthDate": "2005-06-19"
+    "birthDate": "2005-06-19",
+    "classification": "日本人"
   },
   {
     "playerId": "51000585",
@@ -1570,7 +1712,8 @@
     "nationality": "日本",
     "heightCm": 189,
     "weightKg": 87,
-    "birthDate": "2003-05-20"
+    "birthDate": "2003-05-20",
+    "classification": "日本人"
   },
   {
     "playerId": "51000586",
@@ -1581,7 +1724,8 @@
     "nationality": "日本",
     "heightCm": 180,
     "weightKg": 82,
-    "birthDate": "2003-04-02"
+    "birthDate": "2003-04-02",
+    "classification": "日本人"
   },
   {
     "playerId": "51000591",
@@ -1592,7 +1736,8 @@
     "nationality": "日本",
     "heightCm": 190,
     "weightKg": 90,
-    "birthDate": "2004-03-11"
+    "birthDate": "2004-03-11",
+    "classification": "日本人"
   },
   {
     "playerId": "51000603",
@@ -1603,7 +1748,8 @@
     "nationality": "日本",
     "heightCm": 172,
     "weightKg": 72,
-    "birthDate": "2004-03-02"
+    "birthDate": "2004-03-02",
+    "classification": "日本人"
   },
   {
     "playerId": "51000611",
@@ -1614,7 +1760,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 197,
     "weightKg": 88,
-    "birthDate": "1997-09-09"
+    "birthDate": "1997-09-09",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000612",
@@ -1625,7 +1772,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 196,
     "weightKg": 98,
-    "birthDate": "1997-12-21"
+    "birthDate": "1997-12-21",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000620",
@@ -1636,7 +1784,8 @@
     "nationality": "大韓民国",
     "heightCm": 199,
     "weightKg": 95,
-    "birthDate": "1996-07-03"
+    "birthDate": "1996-07-03",
+    "classification": "アジア特別枠"
   },
   {
     "playerId": "51000622",
@@ -1647,7 +1796,8 @@
     "nationality": "レバノン",
     "heightCm": 198,
     "weightKg": 95,
-    "birthDate": "2000-05-01"
+    "birthDate": "2000-05-01",
+    "classification": "アジア特別枠"
   },
   {
     "playerId": "51000623",
@@ -1658,7 +1808,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 198,
     "weightKg": 95,
-    "birthDate": "2001-01-16"
+    "birthDate": "2001-01-16",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000625",
@@ -1669,7 +1820,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 196,
     "weightKg": 94,
-    "birthDate": "1996-07-31"
+    "birthDate": "1996-07-31",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000626",
@@ -1680,7 +1832,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 196,
     "weightKg": 94,
-    "birthDate": "1997-05-16"
+    "birthDate": "1997-05-16",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000627",
@@ -1691,7 +1844,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 206,
     "weightKg": 109,
-    "birthDate": "1999-07-25"
+    "birthDate": "1999-07-25",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000631",
@@ -1702,7 +1856,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 198,
     "weightKg": 86,
-    "birthDate": "2001-09-06"
+    "birthDate": "2001-09-06",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000635",
@@ -1713,7 +1868,8 @@
     "nationality": "カナダ",
     "heightCm": 211,
     "weightKg": 111,
-    "birthDate": "1999-01-06"
+    "birthDate": "1999-01-06",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000636",
@@ -1724,7 +1880,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 206,
     "weightKg": 86,
-    "birthDate": "1998-01-31"
+    "birthDate": "1998-01-31",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000637",
@@ -1735,7 +1892,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 211,
     "weightKg": 113,
-    "birthDate": "1998-04-17"
+    "birthDate": "1998-04-17",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000638",
@@ -1746,7 +1904,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 203,
     "weightKg": 96,
-    "birthDate": "1995-12-07"
+    "birthDate": "1995-12-07",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000639",
@@ -1757,7 +1916,8 @@
     "nationality": "フィリピン",
     "heightCm": 203,
     "weightKg": 100,
-    "birthDate": "2002-07-05"
+    "birthDate": "2002-07-05",
+    "classification": "アジア特別枠"
   },
   {
     "playerId": "51000641",
@@ -1768,7 +1928,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 196,
     "weightKg": 93,
-    "birthDate": "1999-02-12"
+    "birthDate": "1999-02-12",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000642",
@@ -1779,7 +1940,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 208,
     "weightKg": 111,
-    "birthDate": "1993-08-05"
+    "birthDate": "1993-08-05",
+    "classification": "外国籍"
   },
   {
     "playerId": "51000643",
@@ -1790,7 +1952,8 @@
     "nationality": "アメリカ合衆国",
     "heightCm": 198,
     "weightKg": 86,
-    "birthDate": "1997-09-02"
+    "birthDate": "1997-09-02",
+    "classification": "外国籍"
   },
   {
     "playerId": "55000567",
@@ -1801,7 +1964,8 @@
     "nationality": "日本",
     "heightCm": 187,
     "weightKg": 77,
-    "birthDate": "2006-09-30"
+    "birthDate": "2006-09-30",
+    "classification": "日本人"
   },
   {
     "playerId": "55000589",
@@ -1812,7 +1976,8 @@
     "nationality": "日本",
     "heightCm": 182,
     "weightKg": 82,
-    "birthDate": "2007-04-24"
+    "birthDate": "2007-04-24",
+    "classification": "日本人"
   },
   {
     "playerId": "8456",
@@ -1823,7 +1988,8 @@
     "nationality": "日本",
     "heightCm": 181,
     "weightKg": 83,
-    "birthDate": "1994-02-19"
+    "birthDate": "1994-02-19",
+    "classification": "日本人"
   },
   {
     "playerId": "8467",
@@ -1834,7 +2000,8 @@
     "nationality": "日本",
     "heightCm": 181,
     "weightKg": 81,
-    "birthDate": "1992-07-15"
+    "birthDate": "1992-07-15",
+    "classification": "日本人"
   },
   {
     "playerId": "8470",
@@ -1845,7 +2012,8 @@
     "nationality": "日本",
     "heightCm": 201,
     "weightKg": 108,
-    "birthDate": "1990-04-15"
+    "birthDate": "1990-04-15",
+    "classification": "日本人"
   },
   {
     "playerId": "8482",
@@ -1856,7 +2024,8 @@
     "nationality": "日本",
     "heightCm": 178,
     "weightKg": 75,
-    "birthDate": "1991-12-23"
+    "birthDate": "1991-12-23",
+    "classification": "日本人"
   },
   {
     "playerId": "8483",
@@ -1867,7 +2036,8 @@
     "nationality": "日本",
     "heightCm": 191,
     "weightKg": 90,
-    "birthDate": "1993-01-14"
+    "birthDate": "1993-01-14",
+    "classification": "日本人"
   },
   {
     "playerId": "8484",
@@ -1878,7 +2048,8 @@
     "nationality": "日本",
     "heightCm": 178,
     "weightKg": 75,
-    "birthDate": "1988-07-20"
+    "birthDate": "1988-07-20",
+    "classification": "日本人"
   },
   {
     "playerId": "8486",
@@ -1889,7 +2060,8 @@
     "nationality": "日本",
     "heightCm": 201,
     "weightKg": 103,
-    "birthDate": "1992-04-25"
+    "birthDate": "1992-04-25",
+    "classification": "日本人"
   },
   {
     "playerId": "8487",
@@ -1900,7 +2072,8 @@
     "nationality": "日本",
     "heightCm": 185,
     "weightKg": 82,
-    "birthDate": "1989-09-08"
+    "birthDate": "1989-09-08",
+    "classification": "日本人"
   },
   {
     "playerId": "8492",
@@ -1911,7 +2084,8 @@
     "nationality": "日本",
     "heightCm": 190,
     "weightKg": 92,
-    "birthDate": "1989-07-21"
+    "birthDate": "1989-07-21",
+    "classification": "日本人"
   },
   {
     "playerId": "8497",
@@ -1922,7 +2096,8 @@
     "nationality": "日本",
     "heightCm": 186,
     "weightKg": 87,
-    "birthDate": "1989-10-19"
+    "birthDate": "1989-10-19",
+    "classification": "日本人"
   },
   {
     "playerId": "8498",
@@ -1933,7 +2108,8 @@
     "nationality": "日本",
     "heightCm": 195,
     "weightKg": 92,
-    "birthDate": "1990-11-16"
+    "birthDate": "1990-11-16",
+    "classification": "日本人"
   },
   {
     "playerId": "8499",
@@ -1944,7 +2120,8 @@
     "nationality": "日本",
     "heightCm": 180,
     "weightKg": 80,
-    "birthDate": "1988-03-22"
+    "birthDate": "1988-03-22",
+    "classification": "日本人"
   },
   {
     "playerId": "8504",
@@ -1955,7 +2132,8 @@
     "nationality": "日本",
     "heightCm": 183,
     "weightKg": 80,
-    "birthDate": "1992-09-25"
+    "birthDate": "1992-09-25",
+    "classification": "日本人"
   },
   {
     "playerId": "8516",
@@ -1966,7 +2144,8 @@
     "nationality": "日本",
     "heightCm": 191,
     "weightKg": 84,
-    "birthDate": "1992-06-18"
+    "birthDate": "1992-06-18",
+    "classification": "日本人"
   },
   {
     "playerId": "8520",
@@ -1977,7 +2156,8 @@
     "nationality": "日本",
     "heightCm": 184,
     "weightKg": 82,
-    "birthDate": "1992-07-09"
+    "birthDate": "1992-07-09",
+    "classification": "日本人"
   },
   {
     "playerId": "8529",
@@ -1988,7 +2168,8 @@
     "nationality": "日本",
     "heightCm": 185,
     "weightKg": 95,
-    "birthDate": "1994-01-08"
+    "birthDate": "1994-01-08",
+    "classification": "日本人"
   },
   {
     "playerId": "8532",
@@ -1999,7 +2180,8 @@
     "nationality": "日本",
     "heightCm": 183,
     "weightKg": 75,
-    "birthDate": "1991-10-16"
+    "birthDate": "1991-10-16",
+    "classification": "日本人"
   },
   {
     "playerId": "8538",
@@ -2010,7 +2192,8 @@
     "nationality": "日本",
     "heightCm": 178,
     "weightKg": 69,
-    "birthDate": "1989-09-07"
+    "birthDate": "1989-09-07",
+    "classification": "日本人"
   },
   {
     "playerId": "8561",
@@ -2021,7 +2204,8 @@
     "nationality": "日本",
     "heightCm": 178,
     "weightKg": 74,
-    "birthDate": "1989-04-04"
+    "birthDate": "1989-04-04",
+    "classification": "日本人"
   },
   {
     "playerId": "8582",
@@ -2032,7 +2216,8 @@
     "nationality": "日本",
     "heightCm": 198,
     "weightKg": 113,
-    "birthDate": "1987-01-15"
+    "birthDate": "1987-01-15",
+    "classification": "日本人"
   },
   {
     "playerId": "8584",
@@ -2043,7 +2228,8 @@
     "nationality": "日本",
     "heightCm": 187,
     "weightKg": 100,
-    "birthDate": "1993-12-17"
+    "birthDate": "1993-12-17",
+    "classification": "日本人"
   },
   {
     "playerId": "8589",
@@ -2054,7 +2240,8 @@
     "nationality": "日本",
     "heightCm": 191,
     "weightKg": 87,
-    "birthDate": "1990-08-11"
+    "birthDate": "1990-08-11",
+    "classification": "日本人"
   },
   {
     "playerId": "8593",
@@ -2065,7 +2252,8 @@
     "nationality": "日本",
     "heightCm": 206,
     "weightKg": 112,
-    "birthDate": "1988-01-15"
+    "birthDate": "1988-01-15",
+    "classification": "帰化選手"
   },
   {
     "playerId": "8594",
@@ -2076,7 +2264,8 @@
     "nationality": "日本",
     "heightCm": 185,
     "weightKg": 81,
-    "birthDate": "1989-04-22"
+    "birthDate": "1989-04-22",
+    "classification": "日本人"
   },
   {
     "playerId": "8597",
@@ -2087,7 +2276,8 @@
     "nationality": "日本",
     "heightCm": 198,
     "weightKg": 96,
-    "birthDate": "1991-04-03"
+    "birthDate": "1991-04-03",
+    "classification": "日本人"
   },
   {
     "playerId": "8650",
@@ -2098,7 +2288,8 @@
     "nationality": "日本",
     "heightCm": 173,
     "weightKg": 77,
-    "birthDate": "1980-10-05"
+    "birthDate": "1980-10-05",
+    "classification": "日本人"
   },
   {
     "playerId": "8654",
@@ -2109,7 +2300,8 @@
     "nationality": "日本",
     "heightCm": 180,
     "weightKg": 85,
-    "birthDate": "1996-04-16"
+    "birthDate": "1996-04-16",
+    "classification": "日本人"
   },
   {
     "playerId": "8655",
@@ -2120,7 +2312,8 @@
     "nationality": "日本",
     "heightCm": 176,
     "weightKg": 75,
-    "birthDate": "1990-05-17"
+    "birthDate": "1990-05-17",
+    "classification": "日本人"
   },
   {
     "playerId": "8656",
@@ -2131,7 +2324,8 @@
     "nationality": "日本",
     "heightCm": 188,
     "weightKg": 95,
-    "birthDate": "1993-06-24"
+    "birthDate": "1993-06-24",
+    "classification": "日本人"
   },
   {
     "playerId": "8658",
@@ -2142,7 +2336,8 @@
     "nationality": "日本",
     "heightCm": 175,
     "weightKg": 75,
-    "birthDate": "1990-03-23"
+    "birthDate": "1990-03-23",
+    "classification": "日本人"
   },
   {
     "playerId": "8690",
@@ -2153,7 +2348,8 @@
     "nationality": "日本",
     "heightCm": 183,
     "weightKg": 80,
-    "birthDate": "1993-08-31"
+    "birthDate": "1993-08-31",
+    "classification": "日本人"
   },
   {
     "playerId": "8726",
@@ -2164,7 +2360,8 @@
     "nationality": "日本",
     "heightCm": 206,
     "weightKg": 100,
-    "birthDate": "1985-01-29"
+    "birthDate": "1985-01-29",
+    "classification": "日本人"
   },
   {
     "playerId": "8727",
@@ -2175,7 +2372,8 @@
     "nationality": "日本",
     "heightCm": 186,
     "weightKg": 83,
-    "birthDate": "1990-05-15"
+    "birthDate": "1990-05-15",
+    "classification": "日本人"
   },
   {
     "playerId": "8734",
@@ -2186,7 +2384,8 @@
     "nationality": "日本",
     "heightCm": 189,
     "weightKg": 92,
-    "birthDate": "1991-08-29"
+    "birthDate": "1991-08-29",
+    "classification": "日本人"
   },
   {
     "playerId": "8738",
@@ -2197,7 +2396,8 @@
     "nationality": "日本",
     "heightCm": 198,
     "weightKg": 105,
-    "birthDate": "1992-01-08"
+    "birthDate": "1992-01-08",
+    "classification": "日本人"
   },
   {
     "playerId": "8756",
@@ -2208,7 +2408,8 @@
     "nationality": "日本",
     "heightCm": 182,
     "weightKg": 82,
-    "birthDate": "1994-11-06"
+    "birthDate": "1994-11-06",
+    "classification": "日本人"
   },
   {
     "playerId": "9033",
@@ -2219,7 +2420,8 @@
     "nationality": "日本",
     "heightCm": 207,
     "weightKg": 98,
-    "birthDate": "1985-01-29"
+    "birthDate": "1985-01-29",
+    "classification": "日本人"
   },
   {
     "playerId": "9044",
@@ -2230,7 +2432,8 @@
     "nationality": "日本",
     "heightCm": 177,
     "weightKg": 76,
-    "birthDate": "1993-04-02"
+    "birthDate": "1993-04-02",
+    "classification": "日本人"
   },
   {
     "playerId": "9055",
@@ -2241,7 +2444,8 @@
     "nationality": "日本",
     "heightCm": 167,
     "weightKg": 65,
-    "birthDate": "1993-07-30"
+    "birthDate": "1993-07-30",
+    "classification": "日本人"
   },
   {
     "playerId": "9329",
@@ -2252,7 +2456,8 @@
     "nationality": "日本",
     "heightCm": 189,
     "weightKg": 90,
-    "birthDate": "1994-08-24"
+    "birthDate": "1994-08-24",
+    "classification": "日本人"
   },
   {
     "playerId": "9345",
@@ -2263,7 +2468,8 @@
     "nationality": "日本",
     "heightCm": 203,
     "weightKg": 111,
-    "birthDate": "1987-07-09"
+    "birthDate": "1987-07-09",
+    "classification": "帰化選手"
   },
   {
     "playerId": "9418",
@@ -2274,7 +2480,8 @@
     "nationality": "日本",
     "heightCm": 203,
     "weightKg": 106,
-    "birthDate": "1991-03-16"
+    "birthDate": "1991-03-16",
+    "classification": "帰化選手"
   },
   {
     "playerId": "9435",
@@ -2285,7 +2492,8 @@
     "nationality": "日本",
     "heightCm": 198,
     "weightKg": 101,
-    "birthDate": "1991-04-17"
+    "birthDate": "1991-04-17",
+    "classification": "帰化選手"
   },
   {
     "playerId": "9489",
@@ -2296,6 +2504,7 @@
     "nationality": "日本",
     "heightCm": 172,
     "weightKg": 72,
-    "birthDate": "1989-08-07"
+    "birthDate": "1989-08-07",
+    "classification": "日本人"
   }
 ]
