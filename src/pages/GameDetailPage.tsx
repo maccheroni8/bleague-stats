@@ -3,6 +3,8 @@ import { fetchGame } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import type { BoxscoreRow } from "../../shared/types";
 import { KeyStatsChart } from "../components/KeyStatsChart";
+import { LeadTrackerChart } from "../components/LeadTrackerChart";
+import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
 
 function periodLabel(index: number, total: number): string {
   if (index < 4) return `${index + 1}Q`;
@@ -46,6 +48,14 @@ export function GameDetailPage({ season }: { season: string }) {
   const awayTotal = teamTotalRow(game.raw.AwayBoxscores);
 
   const periods = game.quarterScores.home.length;
+
+  const scoreTimeline = buildScoreTimeline(
+    game.raw.PlayByPlays,
+    { home: game.homeScore, away: game.awayScore },
+    periods,
+  );
+  const timeoutMarks = buildTimeoutMarks(game.raw.PlayByPlays);
+  const periodBoundaries = buildPeriodBoundaries(periods);
 
   return (
     <div>
@@ -101,6 +111,16 @@ export function GameDetailPage({ season }: { season: string }) {
           </tbody>
         </table>
       </div>
+
+      <h2>Lead Tracker</h2>
+      <LeadTrackerChart
+        points={scoreTimeline}
+        timeouts={timeoutMarks}
+        periodBoundaries={periodBoundaries}
+        totalSeconds={totalGameSeconds(periods)}
+        homeTeamName={game.homeTeam.name}
+        awayTeamName={game.awayTeam.name}
+      />
 
       <h2>ゲームリーダー</h2>
       <div className="game-leaders">
