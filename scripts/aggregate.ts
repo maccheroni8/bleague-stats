@@ -6,7 +6,7 @@
 import path from "node:path";
 import { DATA_DIR, readAllGames, readJson, writeJson } from "./lib/storage.ts";
 import { eff, efgPct, ftRate, offensiveRating, orbPct, pace, parsePlayTime, safeDiv, tsPct, usagePct } from "../shared/formulas.ts";
-import { reconstructOnCourt } from "../shared/onCourt.ts";
+import { reconstructOnCourt, substitutionModelForSeason, type OnCourtReconstruction } from "../shared/onCourt.ts";
 import { teamDivision } from "./lib/divisions.ts";
 import type {
   BoxscoreRow,
@@ -98,7 +98,13 @@ function emptyTotals(): StatTotals {
   };
 }
 
-function addBoxscoreRow(totals: StatTotals, row: BoxscoreRow, countGame: boolean, teamNetForGame: number): void {
+function addBoxscoreRow(
+  totals: StatTotals,
+  row: BoxscoreRow,
+  countGame: boolean,
+  teamNetForGame: number,
+  reconstructedPlusMinus?: number,
+): void {
   if (countGame) {
     totals.gamesPlayed += 1;
     totals.teamNetSum += teamNetForGame;
@@ -123,7 +129,9 @@ function addBoxscoreRow(totals: StatTotals, row: BoxscoreRow, countGame: boolean
   totals.foulsDrawn += row.FOULON;
   totals.blockedAgainst += row.BSON;
   totals.poss += row.POSS ?? 0;
-  totals.plusMinus += row.PLUSMINUS ?? 0;
+  // 公式PLUSMINUSが無いシーズン（2016-17〜2021-22）はshared/onCourt.tsによる自前復元値を使う
+  // （DESIGN.md 2-7章。信頼度が公式値より一段低い旨をフロントエンドで注記する）
+  totals.plusMinus += row.PLUSMINUS ?? reconstructedPlusMinus ?? 0;
 }
 
 function buildStatBlock(totals: StatTotals, seasonStartYear: number) {
@@ -222,9 +230,22 @@ async function aggregateSeason(season: string): Promise<void> {
   };
 
   for (const game of games) {
-    processPlayers(game, players);
+    const periods = game.quarterScores.home.length;
+    const onCourt =
+      game.raw.PlayByPlays.length > 0
+        ? reconstructOnCourt(
+            game.raw.PlayByPlays,
+            game.raw.HomeBoxscores,
+            game.raw.AwayBoxscores,
+            game.homeTeam.id,
+            game.awayTeam.id,
+            periods,
+            substitutionModelForSeason(game.season),
+          )
+        : null;
+    processPlayers(game, players, onCourt);
     processTeams(game, teams, ensureTeam);
-    processLineups(game, teamLineups);
+    processLineups(game, teamLineups, onCourt);
   }
 
   const playersJson = [...players.values()]
@@ -350,17 +371,13 @@ async function aggregateSeason(season: string): Promise<void> {
 }
 
 /** 1試合分のラインナップスティント（shared/onCourt.ts）をチームごとに積算する */
-function processLineups(game: StoredGame, teamLineups: Map<string, Map<string, LineupAccumulator>>): void {
-  const periods = game.quarterScores.home.length;
-  const result = reconstructOnCourt(
-    game.raw.PlayByPlays,
-    game.raw.HomeBoxscores,
-    game.raw.AwayBoxscores,
-    game.homeTeam.id,
-    game.awayTeam.id,
-    periods,
-  );
-  for (const stint of result.lineupStints) {
+function processLineups(
+  game: StoredGame,
+  teamLineups: Map<string, Map<string, LineupAccumulator>>,
+  onCourt: OnCourtReconstruction | null,
+): void {
+  if (!onCourt) return;
+  for (const stint of onCourt.lineupStints) {
     let lineupMap = teamLineups.get(stint.teamId);
     if (!lineupMap) {
       lineupMap = new Map();
@@ -377,7 +394,11 @@ function processLineups(game: StoredGame, teamLineups: Map<string, Map<string, L
   }
 }
 
-function processPlayers(game: StoredGame, players: Map<string, PlayerAccumulator>): void {
+function processPlayers(
+  game: StoredGame,
+  players: Map<string, PlayerAccumulator>,
+  onCourt: OnCourtReconstruction | null,
+): void {
   const rows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
   for (const row of pickTeamRow(rows, 1)) {
     if (!row.PlayerID) continue;
@@ -398,9 +419,11 @@ function processPlayers(game: StoredGame, players: Map<string, PlayerAccumulator
     acc.teamName = row.TeamNameJ;
     const isHome = row.TeamID === game.homeTeam.id;
     const teamNetForGame = isHome ? game.homeScore - game.awayScore : game.awayScore - game.homeScore;
+    // 公式PLUSMINUSが無いシーズンはshared/onCourt.tsの自前復元値をフォールバックとして使う
+    const reconstructedPlusMinus = onCourt?.plusMinus[row.PlayerID];
     // 出場判定はPlayingFlgではなくPlayTime基準（実データ検証でPlayingFlg=falseでも
     // 得点等が記録されている選手が見つかったため。DESIGN.md 2-2章の記述は誤りだった）
-    addBoxscoreRow(acc.totals, row, row.PlayTime !== "DNP", teamNetForGame);
+    addBoxscoreRow(acc.totals, row, row.PlayTime !== "DNP", teamNetForGame, reconstructedPlusMinus);
 
     const opponent = isHome ? game.awayTeam : game.homeTeam;
     const win = isHome ? game.homeScore > game.awayScore : game.awayScore > game.homeScore;
@@ -428,7 +451,7 @@ function processPlayers(game: StoredGame, players: Map<string, PlayerAccumulator
       tpa: row.PT3A,
       ftm: row.FTM,
       fta: row.FTA,
-      plusMinus: row.PLUSMINUS ?? 0,
+      plusMinus: row.PLUSMINUS ?? reconstructedPlusMinus ?? 0,
     });
   }
 }

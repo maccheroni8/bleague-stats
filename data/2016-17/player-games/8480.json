@@ -1,0 +1,28 @@
+[
+  {
+    "scheduleKey": "170",
+    "date": "2016-12-02",
+    "opponentTeamId": "701",
+    "opponentTeamName": "琉球ゴールデンキングス",
+    "isHome": true,
+    "win": false,
+    "isStarter": false,
+    "min": 20.966666666666665,
+    "pts": 8,
+    "oreb": 1,
+    "dreb": 0,
+    "reb": 1,
+    "ast": 0,
+    "stl": 1,
+    "blk": 1,
+    "tov": 1,
+    "pf": 0,
+    "fgm": 3,
+    "fga": 8,
+    "tpm": 1,
+    "tpa": 5,
+    "ftm": 1,
+    "fta": 1,
+    "plusMinus": -16
+  }
+]

@@ -1,0 +1,28 @@
+[
+  {
+    "scheduleKey": "6004",
+    "date": "2020-12-02",
+    "opponentTeamId": "702",
+    "opponentTeamName": "レバンガ北海道",
+    "isHome": false,
+    "win": true,
+    "isStarter": true,
+    "min": 33.15,
+    "pts": 11,
+    "oreb": 3,
+    "dreb": 12,
+    "reb": 15,
+    "ast": 2,
+    "stl": 1,
+    "blk": 0,
+    "tov": 4,
+    "pf": 5,
+    "fgm": 3,
+    "fga": 9,
+    "tpm": 0,
+    "tpa": 2,
+    "ftm": 5,
+    "fta": 11,
+    "plusMinus": 8
+  }
+]

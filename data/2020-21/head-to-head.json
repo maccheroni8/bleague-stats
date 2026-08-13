@@ -1,0 +1,110 @@
+[
+  {
+    "teamId": "704",
+    "teamName": "千葉ジェッツ",
+    "division": "east",
+    "vs": {
+      "702": {
+        "wins": 1,
+        "losses": 0,
+        "pointDiff": 4
+      }
+    },
+    "overall": {
+      "wins": 1,
+      "losses": 0,
+      "winPct": 1
+    },
+    "vsEast": {
+      "wins": 1,
+      "losses": 0,
+      "winPct": 1
+    },
+    "vsWest": {
+      "wins": 0,
+      "losses": 0,
+      "winPct": 0
+    }
+  },
+  {
+    "teamId": "726",
+    "teamName": "サンロッカーズ渋谷",
+    "division": "east",
+    "vs": {
+      "694": {
+        "wins": 1,
+        "losses": 0,
+        "pointDiff": 15
+      }
+    },
+    "overall": {
+      "wins": 1,
+      "losses": 0,
+      "winPct": 1
+    },
+    "vsEast": {
+      "wins": 1,
+      "losses": 0,
+      "winPct": 1
+    },
+    "vsWest": {
+      "wins": 0,
+      "losses": 0,
+      "winPct": 0
+    }
+  },
+  {
+    "teamId": "702",
+    "teamName": "レバンガ北海道",
+    "division": "east",
+    "vs": {
+      "704": {
+        "wins": 0,
+        "losses": 1,
+        "pointDiff": -4
+      }
+    },
+    "overall": {
+      "wins": 0,
+      "losses": 1,
+      "winPct": 0
+    },
+    "vsEast": {
+      "wins": 0,
+      "losses": 1,
+      "winPct": 0
+    },
+    "vsWest": {
+      "wins": 0,
+      "losses": 0,
+      "winPct": 0
+    }
+  },
+  {
+    "teamId": "694",
+    "teamName": "横浜ビー・コルセアーズ",
+    "division": "east",
+    "vs": {
+      "726": {
+        "wins": 0,
+        "losses": 1,
+        "pointDiff": -15
+      }
+    },
+    "overall": {
+      "wins": 0,
+      "losses": 1,
+      "winPct": 0
+    },
+    "vsEast": {
+      "wins": 0,
+      "losses": 1,
+      "winPct": 0
+    },
+    "vsWest": {
+      "wins": 0,
+      "losses": 0,
+      "winPct": 0
+    }
+  }
+]

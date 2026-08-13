@@ -12,7 +12,7 @@
 // 使い方: node --experimental-strip-types scripts/validate-oncourt.ts --season 2025-26
 
 import { readAllGames } from "./lib/storage.ts";
-import { reconstructOnCourt, totalGameSeconds, totalOnCourtSeconds } from "../shared/onCourt.ts";
+import { reconstructOnCourt, substitutionModelForSeason, totalGameSeconds, totalOnCourtSeconds } from "../shared/onCourt.ts";
 import { parsePlayTime } from "../shared/formulas.ts";
 import type { BoxscoreRow, StoredGame } from "../shared/types.ts";
 
@@ -52,6 +52,7 @@ function evaluateGame(game: StoredGame): GameReport {
     homeId,
     awayId,
     periods,
+    substitutionModelForSeason(game.season),
   );
 
   const warningsByType: Record<string, number> = {};

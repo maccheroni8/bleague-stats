@@ -1,5 +1,12 @@
-// 1試合分のボックススコア・PBPをGeniusAPIから取得し、data/{season}/games/{scheduleKey}.jsonに保存する。
-// DESIGN.md 5章（保存スキーマ）・8章（再チェック・差分検知運用）を実装。
+// 1試合分のボックススコア・PBPを取得し、data/{season}/games/{scheduleKey}.jsonに保存する。
+// DESIGN.md 5章（保存スキーマ）・8章（再チェック・差分検知運用）・2-7章（バックフィル方針）を実装。
+//
+// データ源は2層構成（DESIGN.md 2-7章）:
+//   - 2020-21シーズン以降: genius_contexts API本体を直接叩く（従来通り）
+//   - 2016-17〜2019-20シーズン: genius_contexts APIが403で使えないため、game_detailページに
+//     埋め込まれた同一構造のJSONを代わりに使う（lib/legacyGameDetail.ts）。
+//   呼び出し側でシーズンを事前判定する必要は無く、genius_contexts APIが失敗した場合に
+//   自動的にlegacy取得へフォールバックする（結果的に境界年で自然に切り替わる）
 //
 // 使い方:
 //   npm run scrape:boxscore -- 505076 505118       # ScheduleKeyを直接指定
@@ -8,8 +15,9 @@
 
 import path from "node:path";
 import { fetchLatestGameContext, getPeriodScores, parseAspNetDate } from "./lib/geniusApi.ts";
+import { fetchLegacyGameContext, legacyPeriodScores, parseLegacyGameDateTime } from "./lib/legacyGameDetail.ts";
 import { gameFilePath, readGameFile, writeGameFile, seasonFromYear, DATA_DIR } from "./lib/storage.ts";
-import type { ScheduleFile, StoredGame, StoredGameMeta } from "../shared/types.ts";
+import type { GeniusContext, ScheduleFile, StoredGame, StoredGameMeta } from "../shared/types.ts";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { isMainModule } from "./lib/isMain.ts";
@@ -31,13 +39,27 @@ export type ScrapeResult =
   | { outcome: "not-played-yet"; scheduleKey: string }
   | { outcome: "saved"; scheduleKey: string; season: string; changed: boolean; status: StoredGameMeta["status"] };
 
+async function fetchGameContextWithFallback(
+  key: string,
+): Promise<{ context: GeniusContext; latestId: number; isLegacy: boolean } | null> {
+  const apiResult = await fetchLatestGameContext(key);
+  if (apiResult) {
+    return { context: apiResult.context, latestId: apiResult.latestId, isLegacy: false };
+  }
+  // genius_contexts APIが失敗した場合（2019-20以前の403を含む）、game_detailページ埋め込みJSONに
+  // フォールバックする。latestidの概念が無いlegacy取得では0固定にする（DESIGN.md 2-7章）
+  const legacyContext = await fetchLegacyGameContext(key);
+  if (!legacyContext) return null;
+  return { context: legacyContext, latestId: 0, isLegacy: true };
+}
+
 export async function scrapeAndSaveGame(scheduleKey: string | number): Promise<ScrapeResult> {
   const key = String(scheduleKey);
-  const result = await fetchLatestGameContext(key);
+  const result = await fetchGameContextWithFallback(key);
   if (!result) {
     return { outcome: "no-data", scheduleKey: key };
   }
-  const { latestId, context } = result;
+  const { latestId, context, isLegacy } = result;
   const { Game } = context;
 
   if (!Game.BoxscoreExistsFlg && !Game.GameEndedFlg) {
@@ -45,7 +67,7 @@ export async function scrapeAndSaveGame(scheduleKey: string | number): Promise<S
     return { outcome: "not-played-yet", scheduleKey: key };
   }
 
-  const gameDate = parseAspNetDate(Game.GameDateTime);
+  const gameDate = isLegacy ? parseLegacyGameDateTime(Game.GameDateTime) : parseAspNetDate(Game.GameDateTime);
   const dateStr = formatJstDate(gameDate);
   const season = seasonFromYear(Game.Year);
   const filePath = gameFilePath(season, key);
@@ -74,8 +96,8 @@ export async function scrapeAndSaveGame(scheduleKey: string | number): Promise<S
     homeScore: Game.HomeTeamScore,
     awayScore: Game.AwayTeamScore,
     quarterScores: {
-      home: getPeriodScores(Game, "Home"),
-      away: getPeriodScores(Game, "Away"),
+      home: isLegacy ? legacyPeriodScores(Game, "Home") : getPeriodScores(Game, "Home"),
+      away: isLegacy ? legacyPeriodScores(Game, "Away") : getPeriodScores(Game, "Away"),
     },
     gameEndedFlg: Game.GameEndedFlg,
     recordFixedFlg: Game.RecordFixedFlg,

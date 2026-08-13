@@ -1,0 +1,28 @@
+[
+  {
+    "scheduleKey": "170",
+    "date": "2016-12-02",
+    "opponentTeamId": "692",
+    "opponentTeamName": "仙台89ERS",
+    "isHome": false,
+    "win": true,
+    "isStarter": true,
+    "min": 15.466666666666667,
+    "pts": 2,
+    "oreb": 0,
+    "dreb": 2,
+    "reb": 2,
+    "ast": 0,
+    "stl": 0,
+    "blk": 0,
+    "tov": 1,
+    "pf": 0,
+    "fgm": 1,
+    "fga": 5,
+    "tpm": 0,
+    "tpa": 1,
+    "ftm": 0,
+    "fta": 1,
+    "plusMinus": -3
+  }
+]

@@ -1,0 +1,166 @@
+[
+  {
+    "season": "2016-17",
+    "eraLabel": "2016-17〜2017-18: クォーター別事前申請制",
+    "foreignPlayerRule": {
+      "registration": "外国籍選手（帰化選手を含む）3名まで契約可能",
+      "benchEntry": "帰化選手を含めて3名までベンチ登録可能",
+      "onCourt": "帰化選手を除く外国籍選手は1試合合計6枠以内（試合前に対戦相手と共有する事前申請制。各Qごとの配分例: 1-2-1-2等）。外国籍選手2名の同時出場は不可",
+      "notes": "帰化選手は6枠に含まれないが、外国籍選手2名と同時出場することはできない、との記述あり。「帰化選手は各クラブ1名まで」という別枠制限は今回の調査では裏取りできなかった（契約可能人数3名の枠内に帰化選手も含まれる、という記述のみ確認）"
+    },
+    "hasAsiaSpecialQuota": false,
+    "onTheCourtFree": false,
+    "hasDivisionSystem": false,
+    "sourceConfidence": "secondary-source",
+    "sourceNotes": "susatama.com「Bリーグ外国籍選手の登録数とオンザコートのルールの変遷」記事の要約に基づく。公式PDF（試合実施要項等）の原文は今回未確認（該当PDFがOCR不能なmojibake状態だったため）。ユーザー提供の原案（「帰化選手は各クラブ1名まで」）とは一致しない点があるため要ユーザー確認"
+  },
+  {
+    "season": "2017-18",
+    "eraLabel": "2016-17〜2017-18: クォーター別事前申請制",
+    "foreignPlayerRule": {
+      "registration": "外国籍選手（帰化選手を含む）3名まで契約可能",
+      "benchEntry": "帰化選手を含めて3名までベンチ登録可能",
+      "onCourt": "帰化選手を除く外国籍選手は1試合合計6枠以内（試合前に対戦相手と共有する事前申請制。各Qごとの配分例: 1-2-1-2等）。外国籍選手2名の同時出場は不可",
+      "notes": "2016-17シーズンと同一ルールとして扱う（出典記事内で2016-17/2017-18が同じ区分として説明されている）"
+    },
+    "hasAsiaSpecialQuota": false,
+    "onTheCourtFree": false,
+    "hasDivisionSystem": false,
+    "sourceConfidence": "secondary-source",
+    "sourceNotes": "2016-17と同一出典。公式PDF原文は今回未確認"
+  },
+  {
+    "season": "2018-19",
+    "eraLabel": "2018-19〜2019-20: 外国籍2名+帰化選手1名の「オン3」制",
+    "foreignPlayerRule": {
+      "registration": "外国籍選手3名（帰化選手除く）+ 帰化選手1名を別枠で契約可能",
+      "benchEntry": "外国籍選手2名 + 帰化選手1名までベンチ登録可能",
+      "onCourt": "外国籍選手2名以内。帰化選手は外国籍選手2名と同時出場可能（いわゆる「オン3」）",
+      "notes": "ユーザー提供の原案「外国籍選手（帰化選手含む）登録・エントリー3名まで」とは異なり、この出典では外国籍3名+帰化1名で別枠合計4名という記述だった。要ユーザー確認"
+    },
+    "hasAsiaSpecialQuota": false,
+    "onTheCourtFree": false,
+    "hasDivisionSystem": false,
+    "sourceConfidence": "secondary-source",
+    "sourceNotes": "susatama.com記事に基づく。公式PDF原文は今回未確認"
+  },
+  {
+    "season": "2019-20",
+    "eraLabel": "2018-19〜2019-20: 外国籍2名+帰化選手1名の「オン3」制",
+    "foreignPlayerRule": {
+      "registration": "外国籍選手3名（帰化選手除く）+ 帰化選手1名を別枠で契約可能",
+      "benchEntry": "外国籍選手2名 + 帰化選手1名までベンチ登録可能",
+      "onCourt": "外国籍選手2名以内。帰化選手は外国籍選手2名と同時出場可能（いわゆる「オン3」）",
+      "notes": "2018-19シーズンと同一ルールとして扱う"
+    },
+    "hasAsiaSpecialQuota": false,
+    "onTheCourtFree": false,
+    "hasDivisionSystem": false,
+    "sourceConfidence": "secondary-source",
+    "sourceNotes": "2018-19と同一出典。公式PDF原文は今回未確認"
+  },
+  {
+    "season": "2020-21",
+    "eraLabel": "2020-21〜2025-26: アジア特別枠導入・外国籍エントリー3名化",
+    "foreignPlayerRule": {
+      "registration": "外国籍選手3名 + 帰化選手またはアジア特別枠選手1名を登録可能",
+      "benchEntry": "試合エントリーが外国籍選手2名から3名に拡大",
+      "onCourt": "外国籍選手2名以内 + 帰化選手またはアジア特別枠選手1名以内が同時出場可能",
+      "notes": "アジア特別枠の対象国（導入時点）: 中国、チャイニーズ・タイペイ、インドネシア、フィリピン、韓国の5カ国・地域（後年拡大。2024-25シーズンに13カ国・地域、2025-26シーズンにレバノン追加で14カ国・地域）。新ルールは当初2020-21・2021-22の2シーズン運用予定として発表され、以降は再検討とされていた"
+    },
+    "hasAsiaSpecialQuota": true,
+    "onTheCourtFree": false,
+    "hasDivisionSystem": false,
+    "sourceConfidence": "official-pdf",
+    "sourceNotes": "公式PDF https://www.bleague.jp/files/user/1119.pdf （B.LEAGUE 2020-21 SEASONより適用の 外国籍選手の登録数とオンザコートルールの変更）本文で、アジア特別枠導入・対象5カ国・エントリー2→3名化を確認済み。同時出場人数の内訳（外国籍2+帰化orアジア1）は本文中の図表がテキスト抽出できなかったため、web検索・susatama.com記事の記述で補完（ユーザー原案と一致）"
+  },
+  {
+    "season": "2021-22",
+    "eraLabel": "2020-21〜2025-26: アジア特別枠導入・外国籍エントリー3名化",
+    "foreignPlayerRule": {
+      "registration": "外国籍選手3名 + 帰化選手またはアジア特別枠選手1名を登録可能",
+      "benchEntry": "外国籍選手3名までベンチ登録可能",
+      "onCourt": "外国籍選手2名以内 + 帰化選手またはアジア特別枠選手1名以内が同時出場可能",
+      "notes": "2020-21シーズンと同一ルール（公式PDFで「2020-21及び2021-22の2シーズンの運用」と明記されている）"
+    },
+    "hasAsiaSpecialQuota": true,
+    "onTheCourtFree": false,
+    "hasDivisionSystem": false,
+    "sourceConfidence": "official-pdf",
+    "sourceNotes": "2020-21と同一出典。公式PDFで2021-22までの適用が明記されている"
+  },
+  {
+    "season": "2022-23",
+    "eraLabel": "2020-21〜2025-26: アジア特別枠導入・外国籍エントリー3名化",
+    "foreignPlayerRule": {
+      "registration": "外国籍選手3名 + 帰化選手またはアジア特別枠選手1名を登録可能",
+      "benchEntry": "外国籍選手3名までベンチ登録可能",
+      "onCourt": "外国籍選手2名以内 + 帰化選手またはアジア特別枠選手1名以内が同時出場可能",
+      "notes": "2020-21〜2021-22の運用が「以降は再検討」とされていたが、実質的に継続されたと見られる（複数の一般記事で2022-23以降も同ルールが前提として扱われている）。このシーズン以降の継続を確定させる公式文書は今回未確認"
+    },
+    "hasAsiaSpecialQuota": true,
+    "onTheCourtFree": false,
+    "hasDivisionSystem": false,
+    "sourceConfidence": "secondary-source",
+    "sourceNotes": "2021-22までの適用は公式PDFで確認済みだが、2022-23以降への継続は二次情報ベース。要ユーザー確認"
+  },
+  {
+    "season": "2023-24",
+    "eraLabel": "2020-21〜2025-26: アジア特別枠導入・外国籍エントリー3名化",
+    "foreignPlayerRule": {
+      "registration": "外国籍選手3名 + 帰化選手またはアジア特別枠選手1名を登録可能",
+      "benchEntry": "外国籍選手3名までベンチ登録可能",
+      "onCourt": "外国籍選手2名以内 + 帰化選手またはアジア特別枠選手1名以内が同時出場可能",
+      "notes": "2022-23と同様、継続を確定させる公式文書は今回未確認"
+    },
+    "hasAsiaSpecialQuota": true,
+    "onTheCourtFree": false,
+    "hasDivisionSystem": false,
+    "sourceConfidence": "secondary-source",
+    "sourceNotes": "2022-23と同様、二次情報ベース"
+  },
+  {
+    "season": "2024-25",
+    "eraLabel": "2020-21〜2025-26: アジア特別枠導入・外国籍エントリー3名化",
+    "foreignPlayerRule": {
+      "registration": "外国籍選手3名 + 帰化選手またはアジア特別枠選手1名を登録可能",
+      "benchEntry": "外国籍選手3名までベンチ登録可能",
+      "onCourt": "外国籍選手2名以内 + 帰化選手またはアジア特別枠選手1名以内が同時出場可能",
+      "notes": "アジア特別枠の対象が13カ国・地域に拡大（公式発表 https://www.bleague.jp/news_detail/id=434346 ・ https://www.bleague.jp/media_news/detail/id=434350 ）"
+    },
+    "hasAsiaSpecialQuota": true,
+    "onTheCourtFree": false,
+    "hasDivisionSystem": false,
+    "sourceConfidence": "official-pdf",
+    "sourceNotes": "アジア特別枠対象拡大は公式ニュースページで確認済み。登録・同時出場人数の基本ルール自体は2020-21と同一と仮定（未確定）"
+  },
+  {
+    "season": "2025-26",
+    "eraLabel": "2020-21〜2025-26: アジア特別枠導入・外国籍エントリー3名化",
+    "foreignPlayerRule": {
+      "registration": "外国籍選手3名 + 帰化選手またはアジア特別枠選手1名を登録可能",
+      "benchEntry": "外国籍選手3名までベンチ登録可能",
+      "onCourt": "外国籍選手2名以内 + 帰化選手またはアジア特別枠選手1名以内が同時出場可能",
+      "notes": "アジア特別枠の対象が14カ国・地域に拡大（レバノン追加。公式発表 https://www.bleague.jp/news_detail/id=437109 ）。選手契約・登録規程 https://www.bleague.jp/files/user/about/pdf/r-25.pdf 、試合実施要項 https://www.bleague.jp/files/user/about/pdf/r-19.pdf が最新版として公開されているが、今回はPDF内の該当箇所のテキスト抽出ができず本文未確認"
+    },
+    "hasAsiaSpecialQuota": true,
+    "onTheCourtFree": false,
+    "hasDivisionSystem": false,
+    "sourceConfidence": "official-pdf",
+    "sourceNotes": "アジア特別枠対象拡大は公式ニュースページで確認済み。r-19.pdf/r-25.pdfの本文は未確認（PDF内テキストのエンコーディング起因で自動抽出が失敗した）"
+  },
+  {
+    "season": "2026-27",
+    "eraLabel": "2026-27〜: B.PREMIER・オンザコートフリー・東西地区制",
+    "foreignPlayerRule": {
+      "registration": "オンザコート人数制限の撤廃に伴い、従来型の帰化選手/アジア特別枠別枠登録の枠組み自体が変わる見込み（詳細は開幕後に要確認）",
+      "onCourt": "オンザコートフリー（外国籍・帰化選手・アジア特別枠選手の同時出場人数制限を撤廃）",
+      "notes": "DESIGN.md記載の通り、東西地区制もこのシーズンから導入（scripts/lib/divisions.ts参照）"
+    },
+    "hasAsiaSpecialQuota": true,
+    "onTheCourtFree": true,
+    "hasDivisionSystem": true,
+    "sourceConfidence": "secondary-source",
+    "sourceNotes": "B.PREMIER新フォーマット関連の一般記事に基づく。開幕（2026年秋）後に公式規程で再確認が必要"
+  }
+]

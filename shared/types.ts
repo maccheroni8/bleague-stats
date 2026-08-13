@@ -65,6 +65,12 @@ export interface PlayByPlayEvent {
   PlayerID1: string | null;
   PlayerNo1: string;
   PlayerNameJ1: string;
+  /**
+   * 2016-17〜2019-20シーズン（game_detailページ埋め込みJSON経由の取得のみ）のActionCD1=89
+   * （選手交代スワップ、1イベントでOUT→INのペアを表す）でのみ使用。PlayerID1=退場選手・
+   * PlayerID2=入場選手。それ以外のイベント種別・シーズンではnull（DESIGN.md参照）
+   */
+  PlayerID2: string | null;
   No: number;
   RecordDateTime: string;
   RecordEditDateTime: string | null;
@@ -534,6 +540,66 @@ export interface TeamLineupsFile {
   teamName: string;
   season: string;
   lineups: LineupAggregate[];
+}
+
+// ---- data/season-rules.json の保存スキーマ（シーズン非依存、レギュレーション変遷。DESIGN.md参照） ----
+
+/**
+ * 各シーズンの外国籍/帰化選手/アジア特別枠に関するレギュレーション（登録・ベンチ入り・
+ * 同時出場の人数制限）。ルールの構造自体が年代で大きく異なる（クォーター別事前申請制→
+ * シンプルな人数上限制、等）ため、数値だけを固定スキーマに収めず、説明文（human-readable）
+ * を主とし、確認できた数値のみ構造化フィールドに入れる方式にしている。
+ */
+export interface ForeignPlayerRule {
+  /** リーグ登録可能人数の説明（帰化選手・アジア特別枠を含む/別枠かで年代により構造が異なる） */
+  registration: string;
+  /** 1試合のベンチ入り（試合エントリー）人数の説明 */
+  benchEntry?: string;
+  /** 同時出場（オンザコート）人数の説明 */
+  onCourt: string;
+  /** 事前申請制等、上記だけでは表現しきれない補足 */
+  notes?: string;
+}
+
+export interface SeasonRules {
+  season: string;
+  /** この期間区分の通称（例: "2016-17〜2017-18: クォーター別事前申請制"） */
+  eraLabel: string;
+  foreignPlayerRule: ForeignPlayerRule;
+  /** アジア特別枠制度が存在するか（2020-21シーズン導入） */
+  hasAsiaSpecialQuota: boolean;
+  /** オンザコート人数制限が撤廃されているか（B.PREMIER 2026-27シーズン〜） */
+  onTheCourtFree: boolean;
+  /** 東西地区制が存在するか（B.PREMIER 2026-27シーズン〜。scripts/lib/divisions.ts参照） */
+  hasDivisionSystem: boolean;
+  /**
+   * 情報の裏取り状況。official-pdf=公式PDF本文で直接確認、secondary-source=第三者記事等の
+   * 二次情報のみで公式一次情報は未確認、unverified=未確認
+   */
+  sourceConfidence: "official-pdf" | "secondary-source" | "unverified";
+  sourceNotes?: string;
+}
+
+// ---- data/team-history.json の保存スキーマ（シーズン非依存、クラブ名称変更履歴。DESIGN.md参照） ----
+
+/**
+ * クラブの名称変更履歴（改称回数に上限を設けない配列。改称が無いクラブも要素数1の配列で表現し、
+ * 特別扱いしない）。TeamIDはbleague.jpの内部クラブIDで改称をまたいでも不変であることを実証済み
+ * （DESIGN.md 2-8章。宇都宮ブレックス（旧栃木）・東京サンロッカーズ（旧SR渋谷）・
+ * 神戸ストークス（旧西宮・旧兵庫、3段階改称）で確認）
+ */
+export interface TeamNameHistoryEntry {
+  name: string;
+  /** この名称が使われ始めたシーズン（"2016-17"形式）。判明している範囲で入れる。不明なら省略 */
+  fromSeason?: string;
+  /** この名称が使われていた最後のシーズン。現在も使われている場合は省略（末尾要素は基本省略） */
+  toSeason?: string;
+}
+
+export interface TeamHistoryEntry {
+  teamId: string;
+  /** 名称変更履歴を古い順に並べた配列。最後の要素が現行名 */
+  names: TeamNameHistoryEntry[];
 }
 
 // ---- data/players-master.json の保存スキーマ（シーズン非依存、全選手共通。DESIGN.md 5章参照） ----

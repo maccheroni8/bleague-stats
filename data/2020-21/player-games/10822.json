@@ -1,0 +1,28 @@
+[
+  {
+    "scheduleKey": "6007",
+    "date": "2020-12-02",
+    "opponentTeamId": "726",
+    "opponentTeamName": "サンロッカーズ渋谷",
+    "isHome": false,
+    "win": false,
+    "isStarter": true,
+    "min": 26.383333333333333,
+    "pts": 6,
+    "oreb": 1,
+    "dreb": 2,
+    "reb": 3,
+    "ast": 5,
+    "stl": 2,
+    "blk": 0,
+    "tov": 1,
+    "pf": 4,
+    "fgm": 1,
+    "fga": 9,
+    "tpm": 0,
+    "tpa": 5,
+    "ftm": 4,
+    "fta": 5,
+    "plusMinus": -16
+  }
+]

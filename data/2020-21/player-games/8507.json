@@ -1,0 +1,28 @@
+[
+  {
+    "scheduleKey": "6004",
+    "date": "2020-12-02",
+    "opponentTeamId": "704",
+    "opponentTeamName": "千葉ジェッツ",
+    "isHome": true,
+    "win": false,
+    "isStarter": false,
+    "min": 17.533333333333335,
+    "pts": 2,
+    "oreb": 0,
+    "dreb": 2,
+    "reb": 2,
+    "ast": 1,
+    "stl": 1,
+    "blk": 0,
+    "tov": 1,
+    "pf": 0,
+    "fgm": 1,
+    "fga": 5,
+    "tpm": 0,
+    "tpa": 2,
+    "ftm": 0,
+    "fta": 0,
+    "plusMinus": -3
+  }
+]

@@ -8,10 +8,19 @@
 // Lead Trackerはフロントエンド専用機能のため独立させてあり、ここでは同じ定数・変換式を
 // このモジュール内に閉じて持つ（意図的な重複。DESIGN.md参照）。
 //
-// イベント種別コード（DESIGN.md 2-4章で確定済み）:
-// - 86=選手交代イン、87=選手交代アウト（1イベント=1選手。IN/OUTは別々の行）
+// イベント種別コード（DESIGN.md 2-4章・2-7章で確定済み）:
 // - 1, 3, 4, 7, 44=得点イベント（点数は公式サイトのpointsHashTableと同じ対応）
-// - 89=86/87と同じアイコンが割り当てられているが意味未確認・実データ未出現（出現したら警告に出す）
+// - 86=選手交代イン（両モデル共通。試合開始時のスタメン挿入にも使われる）
+// - モデルによって選手交代の記録方式が異なる（2020-21シーズンでgenius_contexts APIの
+//   スキーマが変わったタイミングで交代イベントの記録方式自体も変わったとみられる。
+//   DESIGN.md 2-7章参照。試合ごとの自動判定ではなく、シーズンによる明示的な分岐にする
+//   ことをユーザーと合意済み。substitutionModelForSeason()で判定する）:
+//   - "modern"（2020-21シーズン以降）: 86=IN・87=OUT、それぞれ単独イベントとして
+//     全ての交代を記録
+//   - "legacy"（2016-17〜2019-20シーズン。game_detailページ埋め込みJSON経由でのみ取得可能。
+//     genius_contexts API本体は403）: 86は試合開始時のスタメン挿入のみに使われ、
+//     87は一度も出現しない。試合中の交代は全てActionCD1=89で、1イベントに
+//     PlayerID1（退場選手）・PlayerID2（入場選手）のペアとして記録される
 
 import type { BoxscoreRow, PlayByPlayEvent } from "./types.ts";
 
@@ -20,8 +29,19 @@ const OT_PERIOD_SECONDS = 5 * 60;
 
 const SUB_IN_CODE = 86;
 const SUB_OUT_CODE = 87;
-const SUB_UNKNOWN_CODE = 89;
+const LEGACY_SUB_SWAP_CODE = 89;
 const POINTS_BY_ACTION_CD1: Record<number, number> = { 1: 3, 3: 2, 4: 2, 7: 1, 44: 2 };
+
+export type SubstitutionModel = "modern" | "legacy";
+
+/**
+ * シーズン文字列から選手交代の記録モデルを判定する。境界は実データ4シーズン分
+ * （2016-17・2017-18・2018-19・2019-20）で確定済み（DESIGN.md 2-7章）。
+ */
+export function substitutionModelForSeason(season: string): SubstitutionModel {
+  const startYear = Number(season.split("-")[0]);
+  return startYear < 2020 ? "legacy" : "modern";
+}
 
 function periodDurationSeconds(period: number): number {
   return period <= 4 ? REGULAR_PERIOD_SECONDS : OT_PERIOD_SECONDS;
@@ -106,7 +126,11 @@ interface RelevantEvent {
   points: number;
 }
 
-function buildRelevantEvents(playByPlays: PlayByPlayEvent[], warnings: OnCourtWarning[]): RelevantEvent[] {
+function buildRelevantEvents(
+  playByPlays: PlayByPlayEvent[],
+  warnings: OnCourtWarning[],
+  model: SubstitutionModel,
+): RelevantEvent[] {
   const events: RelevantEvent[] = [];
   for (const ev of playByPlays) {
     const points = POINTS_BY_ACTION_CD1[ev.ActionCD1];
@@ -123,11 +147,12 @@ function buildRelevantEvents(playByPlays: PlayByPlayEvent[], warnings: OnCourtWa
       });
       continue;
     }
-    if (ev.ActionCD1 === SUB_IN_CODE || ev.ActionCD1 === SUB_OUT_CODE) {
+    // 86（IN）は両モデル共通（試合開始時のスタメン挿入・legacyモデルでもここだけは共通）
+    if (ev.ActionCD1 === SUB_IN_CODE) {
       if (!ev.TeamID || !ev.PlayerID1) {
         warnings.push({
           type: "missing-team-or-player",
-          message: `交代イベントにTeamID/PlayerID1が無い（No=${ev.No}）`,
+          message: `交代INイベントにTeamID/PlayerID1が無い（No=${ev.No}）`,
           period: ev.Period,
           restTime: ev.RestTime,
         });
@@ -137,17 +162,84 @@ function buildRelevantEvents(playByPlays: PlayByPlayEvent[], warnings: OnCourtWa
         elapsedSec: elapsedSeconds(ev.Period, ev.RestTime),
         period: ev.Period,
         restTime: ev.RestTime,
-        kind: ev.ActionCD1 === SUB_IN_CODE ? "sub-in" : "sub-out",
+        kind: "sub-in",
         teamId: ev.TeamID,
         playerId: ev.PlayerID1,
         points: 0,
       });
       continue;
     }
-    if (ev.ActionCD1 === SUB_UNKNOWN_CODE) {
+    if (model === "modern") {
+      if (ev.ActionCD1 === SUB_OUT_CODE) {
+        if (!ev.TeamID || !ev.PlayerID1) {
+          warnings.push({
+            type: "missing-team-or-player",
+            message: `交代OUTイベントにTeamID/PlayerID1が無い（No=${ev.No}）`,
+            period: ev.Period,
+            restTime: ev.RestTime,
+          });
+          continue;
+        }
+        events.push({
+          elapsedSec: elapsedSeconds(ev.Period, ev.RestTime),
+          period: ev.Period,
+          restTime: ev.RestTime,
+          kind: "sub-out",
+          teamId: ev.TeamID,
+          playerId: ev.PlayerID1,
+          points: 0,
+        });
+        continue;
+      }
+      if (ev.ActionCD1 === LEGACY_SUB_SWAP_CODE) {
+        warnings.push({
+          type: "unknown-sub-code",
+          message: `ActionCD1=89が出現（modernモデルでは未確認のため在コート復元では無視。No=${ev.No}）`,
+          period: ev.Period,
+          restTime: ev.RestTime,
+          teamId: ev.TeamID ?? undefined,
+        });
+      }
+      continue;
+    }
+
+    // legacyモデル: 交代はActionCD1=89の1イベントにOUT→INのペアとして記録される
+    // （PlayerID1=退場選手・PlayerID2=入場選手。DESIGN.md 2-7章）。87は実データ上出現しない
+    if (ev.ActionCD1 === LEGACY_SUB_SWAP_CODE) {
+      if (!ev.TeamID || !ev.PlayerID1 || !ev.PlayerID2) {
+        warnings.push({
+          type: "missing-team-or-player",
+          message: `legacy交代イベントにTeamID/PlayerID1/PlayerID2が無い（No=${ev.No}）`,
+          period: ev.Period,
+          restTime: ev.RestTime,
+        });
+        continue;
+      }
+      const elapsedSec = elapsedSeconds(ev.Period, ev.RestTime);
+      events.push({
+        elapsedSec,
+        period: ev.Period,
+        restTime: ev.RestTime,
+        kind: "sub-out",
+        teamId: ev.TeamID,
+        playerId: ev.PlayerID1,
+        points: 0,
+      });
+      events.push({
+        elapsedSec,
+        period: ev.Period,
+        restTime: ev.RestTime,
+        kind: "sub-in",
+        teamId: ev.TeamID,
+        playerId: ev.PlayerID2,
+        points: 0,
+      });
+      continue;
+    }
+    if (ev.ActionCD1 === SUB_OUT_CODE) {
       warnings.push({
         type: "unknown-sub-code",
-        message: `ActionCD1=89が出現（IN/OUTどちらか未確認のため在コート復元では無視）`,
+        message: `ActionCD1=87が出現（legacyモデルでは想定外のため在コート復元では無視。No=${ev.No}）`,
         period: ev.Period,
         restTime: ev.RestTime,
         teamId: ev.TeamID ?? undefined,
@@ -179,6 +271,7 @@ export function reconstructOnCourt(
   homeTeamId: string,
   awayTeamId: string,
   totalPeriods: number,
+  substitutionModel: SubstitutionModel,
 ): OnCourtReconstruction {
   const warnings: OnCourtWarning[] = [];
 
@@ -204,7 +297,7 @@ export function reconstructOnCourt(
     [awayTeamId]: { start: 0, net: 0 },
   };
 
-  const events = buildRelevantEvents(playByPlays, warnings);
+  const events = buildRelevantEvents(playByPlays, warnings, substitutionModel);
 
   let i = 0;
   while (i < events.length) {

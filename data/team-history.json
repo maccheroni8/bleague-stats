@@ -1,0 +1,31 @@
+[
+  {
+    "teamId": "703",
+    "names": [
+      { "name": "栃木ブレックス", "toSeason": "2018-19" },
+      { "name": "宇都宮ブレックス", "fromSeason": "2019-20" }
+    ]
+  },
+  {
+    "teamId": "726",
+    "names": [
+      { "name": "サンロッカーズ渋谷", "toSeason": "2025-26" },
+      { "name": "東京サンロッカーズ", "fromSeason": "2026-27" }
+    ]
+  },
+  {
+    "teamId": "718",
+    "names": [
+      { "name": "兵庫ストークス", "toSeason": "2014-15" },
+      { "name": "西宮ストークス", "fromSeason": "2015-16", "toSeason": "2022-23" },
+      { "name": "神戸ストークス", "fromSeason": "2023-24" }
+    ]
+  },
+  {
+    "teamId": "698",
+    "names": [
+      { "name": "滋賀レイクスターズ", "toSeason": "2021-22" },
+      { "name": "滋賀レイクス", "fromSeason": "2022-23" }
+    ]
+  }
+]

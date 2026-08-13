@@ -1,0 +1,28 @@
+[
+  {
+    "scheduleKey": "6007",
+    "date": "2020-12-02",
+    "opponentTeamId": "694",
+    "opponentTeamName": "横浜ビー・コルセアーズ",
+    "isHome": true,
+    "win": true,
+    "isStarter": true,
+    "min": 25.616666666666667,
+    "pts": 22,
+    "oreb": 2,
+    "dreb": 6,
+    "reb": 8,
+    "ast": 3,
+    "stl": 1,
+    "blk": 2,
+    "tov": 0,
+    "pf": 1,
+    "fgm": 7,
+    "fga": 13,
+    "tpm": 2,
+    "tpa": 5,
+    "ftm": 6,
+    "fta": 6,
+    "plusMinus": 22
+  }
+]

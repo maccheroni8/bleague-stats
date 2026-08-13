@@ -1,0 +1,301 @@
+{
+  "teamId": "726",
+  "teamName": "サンロッカーズ渋谷",
+  "season": "2020-21",
+  "lineups": [
+    {
+      "lineupKey": "10850,18398,19998,26922,8447",
+      "playerIds": [
+        "10850",
+        "18398",
+        "19998",
+        "26922",
+        "8447"
+      ],
+      "secondsPlayed": 502,
+      "netPoints": 6,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "32992,8450,8512,8571,9329",
+      "playerIds": [
+        "32992",
+        "8450",
+        "8512",
+        "8571",
+        "9329"
+      ],
+      "secondsPlayed": 195,
+      "netPoints": 2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "18398,26922,8447,8450,8571",
+      "playerIds": [
+        "18398",
+        "26922",
+        "8447",
+        "8450",
+        "8571"
+      ],
+      "secondsPlayed": 186,
+      "netPoints": 12,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "10850,18398,26922,8447,8583",
+      "playerIds": [
+        "10850",
+        "18398",
+        "26922",
+        "8447",
+        "8583"
+      ],
+      "secondsPlayed": 180,
+      "netPoints": 5,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "19998,26922,32992,8571,9329",
+      "playerIds": [
+        "19998",
+        "26922",
+        "32992",
+        "8571",
+        "9329"
+      ],
+      "secondsPlayed": 179,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "26922,8447,8450,8512,8583",
+      "playerIds": [
+        "26922",
+        "8447",
+        "8450",
+        "8512",
+        "8583"
+      ],
+      "secondsPlayed": 166,
+      "netPoints": -2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "18398,19998,32992,8571,9329",
+      "playerIds": [
+        "18398",
+        "19998",
+        "32992",
+        "8571",
+        "9329"
+      ],
+      "secondsPlayed": 143,
+      "netPoints": 3,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "18398,32992,8450,8571,9329",
+      "playerIds": [
+        "18398",
+        "32992",
+        "8450",
+        "8571",
+        "9329"
+      ],
+      "secondsPlayed": 128,
+      "netPoints": 3,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "26922,32992,8447,8571,8583",
+      "playerIds": [
+        "26922",
+        "32992",
+        "8447",
+        "8571",
+        "8583"
+      ],
+      "secondsPlayed": 110,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "18398,26922,8450,8583,9329",
+      "playerIds": [
+        "18398",
+        "26922",
+        "8450",
+        "8583",
+        "9329"
+      ],
+      "secondsPlayed": 89,
+      "netPoints": -3,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "18398,26922,8447,8571,8583",
+      "playerIds": [
+        "18398",
+        "26922",
+        "8447",
+        "8571",
+        "8583"
+      ],
+      "secondsPlayed": 74,
+      "netPoints": -1,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "18398,26922,8447,8450,8583",
+      "playerIds": [
+        "18398",
+        "26922",
+        "8447",
+        "8450",
+        "8583"
+      ],
+      "secondsPlayed": 67,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "32992,8447,8512,8571,8583",
+      "playerIds": [
+        "32992",
+        "8447",
+        "8512",
+        "8571",
+        "8583"
+      ],
+      "secondsPlayed": 61,
+      "netPoints": -4,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "26922,8450,8512,8571,9329",
+      "playerIds": [
+        "26922",
+        "8450",
+        "8512",
+        "8571",
+        "9329"
+      ],
+      "secondsPlayed": 61,
+      "netPoints": 1,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "10850,18398,26922,8571,9329",
+      "playerIds": [
+        "10850",
+        "18398",
+        "26922",
+        "8571",
+        "9329"
+      ],
+      "secondsPlayed": 57,
+      "netPoints": -3,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "10850,19998,26922,8512,8583",
+      "playerIds": [
+        "10850",
+        "19998",
+        "26922",
+        "8512",
+        "8583"
+      ],
+      "secondsPlayed": 49,
+      "netPoints": -4,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "10850,18398,26922,8583,9329",
+      "playerIds": [
+        "10850",
+        "18398",
+        "26922",
+        "8583",
+        "9329"
+      ],
+      "secondsPlayed": 49,
+      "netPoints": -2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "10850,19998,32992,8512,9329",
+      "playerIds": [
+        "10850",
+        "19998",
+        "32992",
+        "8512",
+        "9329"
+      ],
+      "secondsPlayed": 42,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "10850,18398,32992,8447,8583",
+      "playerIds": [
+        "10850",
+        "18398",
+        "32992",
+        "8447",
+        "8583"
+      ],
+      "secondsPlayed": 25,
+      "netPoints": 2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "18398,32992,8447,8571,8583",
+      "playerIds": [
+        "18398",
+        "32992",
+        "8447",
+        "8571",
+        "8583"
+      ],
+      "secondsPlayed": 22,
+      "netPoints": -2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "18398,19998,26922,8571,9329",
+      "playerIds": [
+        "18398",
+        "19998",
+        "26922",
+        "8571",
+        "9329"
+      ],
+      "secondsPlayed": 15,
+      "netPoints": 2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    }
+  ]
+}

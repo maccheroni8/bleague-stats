@@ -1,0 +1,67 @@
+[
+  {
+    "date": "2020-12-02",
+    "teams": [
+      {
+        "teamId": "726",
+        "teamName": "サンロッカーズ渋谷",
+        "wins": 1,
+        "losses": 0,
+        "winPct": 1,
+        "pointsFor": 87,
+        "pointsAgainst": 72,
+        "pointDiff": 15,
+        "rank": 1,
+        "gamesBehind": 0,
+        "division": "east",
+        "divisionRank": 1,
+        "divisionGamesBehind": 0
+      },
+      {
+        "teamId": "704",
+        "teamName": "千葉ジェッツ",
+        "wins": 1,
+        "losses": 0,
+        "winPct": 1,
+        "pointsFor": 72,
+        "pointsAgainst": 68,
+        "pointDiff": 4,
+        "rank": 2,
+        "gamesBehind": 0,
+        "division": "east",
+        "divisionRank": 2,
+        "divisionGamesBehind": 0
+      },
+      {
+        "teamId": "702",
+        "teamName": "レバンガ北海道",
+        "wins": 0,
+        "losses": 1,
+        "winPct": 0,
+        "pointsFor": 68,
+        "pointsAgainst": 72,
+        "pointDiff": -4,
+        "rank": 3,
+        "gamesBehind": 1,
+        "division": "east",
+        "divisionRank": 3,
+        "divisionGamesBehind": 1
+      },
+      {
+        "teamId": "694",
+        "teamName": "横浜ビー・コルセアーズ",
+        "wins": 0,
+        "losses": 1,
+        "winPct": 0,
+        "pointsFor": 72,
+        "pointsAgainst": 87,
+        "pointDiff": -15,
+        "rank": 4,
+        "gamesBehind": 1,
+        "division": "east",
+        "divisionRank": 4,
+        "divisionGamesBehind": 1
+      }
+    ]
+  }
+]

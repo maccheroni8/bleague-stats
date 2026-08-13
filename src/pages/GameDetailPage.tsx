@@ -6,7 +6,7 @@ import { KeyStatsChart } from "../components/KeyStatsChart";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
-import { reconstructOnCourt } from "../../shared/onCourt";
+import { reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
 
 function periodLabel(index: number, total: number): string {
   if (index < 4) return `${index + 1}Q`;
@@ -66,6 +66,7 @@ export function GameDetailPage({ season }: { season: string }) {
     game.homeTeam.id,
     game.awayTeam.id,
     periods,
+    substitutionModelForSeason(game.season),
   );
   const intervalsByPlayer = new Map<string, { startSec: number; endSec: number }[]>();
   for (const iv of onCourt.intervals) {
