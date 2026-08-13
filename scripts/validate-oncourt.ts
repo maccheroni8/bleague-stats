@@ -5,11 +5,14 @@
 //   1. 在コート人数チェック（常にちょうど5人になっているか。崩れの警告件数）
 //   2. 選手ごとの在コート合計時間 vs ボックススコアのMIN（±6秒/0.1分以内の一致率）
 //   3. 復元ロジックから再計算した個人+/- vs 公式PLUSMINUSフィールドの完全一致率
+//   4. ラインナップスティント（同じ5人の在コート区間）の整合性チェック（DESIGN.md参照）:
+//      a. 1試合内、あるチームの全スティント時間の合計 == 試合時間（40分+OT）
+//      b. 1試合内、あるチームの全スティント純得失点の合計 == そのチームの最終得失点差
 //
 // 使い方: node --experimental-strip-types scripts/validate-oncourt.ts --season 2025-26
 
 import { readAllGames } from "./lib/storage.ts";
-import { reconstructOnCourt, totalOnCourtSeconds } from "../shared/onCourt.ts";
+import { reconstructOnCourt, totalGameSeconds, totalOnCourtSeconds } from "../shared/onCourt.ts";
 import { parsePlayTime } from "../shared/formulas.ts";
 import type { BoxscoreRow, StoredGame } from "../shared/types.ts";
 
@@ -28,6 +31,9 @@ interface GameReport {
   minMismatchDetails: { name: string; team: string; officialMin: number; reconstructedMin: number; diffSec: number }[];
   plusMinusMatchCount: number;
   plusMinusMismatchDetails: { name: string; team: string; official: number; reconstructed: number }[];
+  lineupTimeMismatches: { team: string; expectedSec: number; actualSec: number }[];
+  lineupNetMismatches: { team: string; expectedNet: number; actualNet: number }[];
+  lineupCount: number;
 }
 
 function playerRows(rows: BoxscoreRow[]): BoxscoreRow[] {
@@ -95,6 +101,28 @@ function evaluateGame(game: StoredGame): GameReport {
     }
   }
 
+  const gameSeconds = totalGameSeconds(periods);
+  const lineupTimeMismatches: GameReport["lineupTimeMismatches"] = [];
+  const lineupNetMismatches: GameReport["lineupNetMismatches"] = [];
+  const teamNet: Record<string, number> = {
+    [homeId]: game.homeScore - game.awayScore,
+    [awayId]: game.awayScore - game.homeScore,
+  };
+  for (const [teamId, teamName] of [
+    [homeId, game.homeTeam.name],
+    [awayId, game.awayTeam.name],
+  ] as const) {
+    const stints = result.lineupStints.filter((s) => s.teamId === teamId);
+    const totalSec = stints.reduce((sum, s) => sum + (s.endSec - s.startSec), 0);
+    if (totalSec !== gameSeconds) {
+      lineupTimeMismatches.push({ team: teamName, expectedSec: gameSeconds, actualSec: totalSec });
+    }
+    const totalNet = stints.reduce((sum, s) => sum + s.netPoints, 0);
+    if (totalNet !== teamNet[teamId]) {
+      lineupNetMismatches.push({ team: teamName, expectedNet: teamNet[teamId]!, actualNet: totalNet });
+    }
+  }
+
   return {
     scheduleKey: game.scheduleKey,
     homeTeam: game.homeTeam.name,
@@ -108,6 +136,9 @@ function evaluateGame(game: StoredGame): GameReport {
     minMismatchDetails,
     plusMinusMatchCount,
     plusMinusMismatchDetails,
+    lineupTimeMismatches,
+    lineupNetMismatches,
+    lineupCount: result.lineupStints.length,
   };
 }
 
@@ -132,6 +163,10 @@ async function main(): Promise<void> {
   let totalMinMatch = 0;
   let totalPlayers = 0;
   let totalPMMatch = 0;
+  let totalLineupTimeMismatches = 0;
+  let totalLineupNetMismatches = 0;
+  let totalLineupTeamChecks = 0;
+  let totalLineupStints = 0;
 
   for (const r of reports) {
     console.log(
@@ -150,6 +185,13 @@ async function main(): Promise<void> {
     for (const m of r.plusMinusMismatchDetails) {
       console.log(`    ✗ +/-不一致: ${m.name}（${m.team}） 公式=${m.official} 復元=${m.reconstructed}`);
     }
+    console.log(`  ラインナップスティント: ${r.lineupCount}件`);
+    for (const m of r.lineupTimeMismatches) {
+      console.log(`    ✗ スティント時間合計不一致: ${m.team} 期待=${m.expectedSec}秒 実際=${m.actualSec}秒`);
+    }
+    for (const m of r.lineupNetMismatches) {
+      console.log(`    ✗ スティント純得失点合計不一致: ${m.team} 期待=${m.expectedNet} 実際=${m.actualNet}`);
+    }
     console.log("");
 
     totalWarnings += r.warningCount;
@@ -160,6 +202,10 @@ async function main(): Promise<void> {
     totalMinMatch += r.minMatchWithinTolerance;
     totalPlayers += r.playerCount;
     totalPMMatch += r.plusMinusMatchCount;
+    totalLineupTimeMismatches += r.lineupTimeMismatches.length;
+    totalLineupNetMismatches += r.lineupNetMismatches.length;
+    totalLineupTeamChecks += 2;
+    totalLineupStints += r.lineupCount;
   }
 
   console.log("===== 全体集計 =====");
@@ -170,6 +216,13 @@ async function main(): Promise<void> {
   );
   console.log(
     `+/-完全一致率（DNP含む全選手）: ${totalPMMatch}/${totalPlayers} = ${((totalPMMatch / totalPlayers) * 100).toFixed(1)}%`,
+  );
+  console.log(`ラインナップスティント総数: ${totalLineupStints}件`);
+  console.log(
+    `スティント時間合計一致率（チーム×試合単位）: ${totalLineupTeamChecks - totalLineupTimeMismatches}/${totalLineupTeamChecks} = ${(((totalLineupTeamChecks - totalLineupTimeMismatches) / totalLineupTeamChecks) * 100).toFixed(1)}%`,
+  );
+  console.log(
+    `スティント純得失点合計一致率（チーム×試合単位）: ${totalLineupTeamChecks - totalLineupNetMismatches}/${totalLineupTeamChecks} = ${(((totalLineupTeamChecks - totalLineupNetMismatches) / totalLineupTeamChecks) * 100).toFixed(1)}%`,
   );
 }
 

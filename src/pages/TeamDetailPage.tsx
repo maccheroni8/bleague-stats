@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { fetchPlayers, fetchTeamGameLogs, fetchTeams } from "../lib/data";
+import { fetchPlayers, fetchTeamGameLogs, fetchTeamLineups, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import type { PlayerSummary, TeamGameLog } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
 import { computeTeamSituationalStats, filterGameLogs, isDefaultFilter, type SituationalFilter } from "../lib/situational";
+
+// 出場時間がこれ未満のラインナップはサンプルが小さすぎてノイズが大きいため一覧から除外する
+// （実データ確認: 4試合時点で3分(180秒)基準だとチームあたり4〜14組が該当。DESIGN.md参照）
+const MIN_LINEUP_SECONDS = 180;
+const MAX_LINEUP_ROWS = 10;
 
 function averageOf(values: number[]): number | null {
   if (values.length === 0) return null;
@@ -42,6 +47,10 @@ export function TeamDetailPage({ season }: { season: string }) {
     () => (teamId ? fetchTeamGameLogs(season, teamId) : Promise.resolve([])),
     [season, teamId],
   );
+  const { data: lineupsFile } = useJsonData(
+    () => (teamId ? fetchTeamLineups(season, teamId) : Promise.resolve(null)),
+    [season, teamId],
+  );
   const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
 
   if (teamsLoading || playersLoading) return <p className="loading">読み込み中...</p>;
@@ -61,6 +70,11 @@ export function TeamDetailPage({ season }: { season: string }) {
 
   const filteredLogs = gameLogs ? filterGameLogs(gameLogs, filter) : [];
   const situational = isDefaultFilter(filter) ? null : computeTeamSituationalStats(filteredLogs);
+
+  const playerNameById = new Map((players ?? []).map((p) => [p.playerId, p.name]));
+  const topLineups = (lineupsFile?.lineups ?? [])
+    .filter((l) => l.secondsPlayed >= MIN_LINEUP_SECONDS)
+    .slice(0, MAX_LINEUP_ROWS);
 
   return (
     <div>
@@ -139,6 +153,47 @@ export function TeamDetailPage({ season }: { season: string }) {
             linkTo={(p) => `/players/${p.playerId}`}
           />
         </div>
+      )}
+
+      <h2>よく使われるラインナップ</h2>
+      {topLineups.length === 0 ? (
+        <p className="empty-message">
+          {(lineupsFile?.lineups.length ?? 0) === 0
+            ? "ラインナップデータがありません"
+            : `出場時間${MIN_LINEUP_SECONDS}秒以上の組み合わせがまだありません（試合数が増えると表示されます）`}
+        </p>
+      ) : (
+        <>
+          <div className="table-scroll">
+            <table className="sortable-table">
+              <thead>
+                <tr>
+                  <th className="align-left">5人の組み合わせ</th>
+                  <th className="align-right">試合数</th>
+                  <th className="align-right">出場時間</th>
+                  <th className="align-right">得失点差</th>
+                  <th className="align-right">Net Rating（推定）</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topLineups.map((l) => (
+                  <tr key={l.lineupKey}>
+                    <td className="align-left">{l.playerIds.map((id) => playerNameById.get(id) ?? id).join(" / ")}</td>
+                    <td className="align-right">{l.gamesPlayed}</td>
+                    <td className="align-right">{formatDecimal(l.secondsPlayed / 60)}分</td>
+                    <td className="align-right">{formatSigned(l.netPoints, 0)}</td>
+                    <td className="align-right">{formatSigned(l.estimatedNetRtg)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="page-subtitle">
+            出場時間{MIN_LINEUP_SECONDS}秒未満の組み合わせは除外・上位{MAX_LINEUP_ROWS}組まで表示。Net
+            Ratingはスティント単位の実ポゼッション数が無いため、チームのシーズン平均ペースから推定した参考値。
+            試合数がまだ少ないため、いずれの数値もサンプルサイズが小さい点に留意
+          </p>
+        </>
       )}
 
       <h2>試合結果</h2>

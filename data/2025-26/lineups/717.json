@@ -1,0 +1,231 @@
+{
+  "teamId": "717",
+  "teamName": "ファイティングイーグルス名古屋",
+  "season": "2025-26",
+  "lineups": [
+    {
+      "lineupKey": "10834,10878,26912,51000502,8517",
+      "playerIds": [
+        "10834",
+        "10878",
+        "26912",
+        "51000502",
+        "8517"
+      ],
+      "secondsPlayed": 791,
+      "netPoints": 2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 8.786079851671966
+    },
+    {
+      "lineupKey": "10834,10878,26912,51000502,9489",
+      "playerIds": [
+        "10834",
+        "10878",
+        "26912",
+        "51000502",
+        "9489"
+      ],
+      "secondsPlayed": 299,
+      "netPoints": 12,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 139.46065209376303
+    },
+    {
+      "lineupKey": "10878,26912,51000500,51000536,9489",
+      "playerIds": [
+        "10878",
+        "26912",
+        "51000500",
+        "51000536",
+        "9489"
+      ],
+      "secondsPlayed": 290,
+      "netPoints": -5,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -59.91197554028039
+    },
+    {
+      "lineupKey": "10834,26912,30512,51000502,8517",
+      "playerIds": [
+        "10834",
+        "26912",
+        "30512",
+        "51000502",
+        "8517"
+      ],
+      "secondsPlayed": 276,
+      "netPoints": 7,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 88.13138430925304
+    },
+    {
+      "lineupKey": "10834,10878,51000500,51000536,9489",
+      "playerIds": [
+        "10834",
+        "10878",
+        "51000500",
+        "51000536",
+        "9489"
+      ],
+      "secondsPlayed": 251,
+      "netPoints": -3,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -41.53260455780393
+    },
+    {
+      "lineupKey": "10878,26912,51000502,51000536,9489",
+      "playerIds": [
+        "10878",
+        "26912",
+        "51000502",
+        "51000536",
+        "9489"
+      ],
+      "secondsPlayed": 196,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "10878,26912,30512,51000443,51000536",
+      "playerIds": [
+        "10878",
+        "26912",
+        "30512",
+        "51000443",
+        "51000536"
+      ],
+      "secondsPlayed": 108,
+      "netPoints": -2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -64.34989965437524
+    },
+    {
+      "lineupKey": "10834,10878,26912,51000443,51000502",
+      "playerIds": [
+        "10834",
+        "10878",
+        "26912",
+        "51000443",
+        "51000502"
+      ],
+      "secondsPlayed": 87,
+      "netPoints": -1,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -39.94131702685359
+    },
+    {
+      "lineupKey": "10834,30512,51000500,51000536,8517",
+      "playerIds": [
+        "10834",
+        "30512",
+        "51000500",
+        "51000536",
+        "8517"
+      ],
+      "secondsPlayed": 85,
+      "netPoints": -4,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -163.52445088641232
+    },
+    {
+      "lineupKey": "10834,10878,51000500,51000502,9489",
+      "playerIds": [
+        "10834",
+        "10878",
+        "51000500",
+        "51000502",
+        "9489"
+      ],
+      "secondsPlayed": 83,
+      "netPoints": -3,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -125.59859932540705
+    },
+    {
+      "lineupKey": "10834,51000500,51000502,51000536,8517",
+      "playerIds": [
+        "10834",
+        "51000500",
+        "51000502",
+        "51000536",
+        "8517"
+      ],
+      "secondsPlayed": 61,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "10834,10878,51000500,51000536,8517",
+      "playerIds": [
+        "10834",
+        "10878",
+        "51000500",
+        "51000536",
+        "8517"
+      ],
+      "secondsPlayed": 52,
+      "netPoints": -5,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -334.12447897464057
+    },
+    {
+      "lineupKey": "10834,30512,51000502,51000536,8517",
+      "playerIds": [
+        "10834",
+        "30512",
+        "51000502",
+        "51000536",
+        "8517"
+      ],
+      "secondsPlayed": 50,
+      "netPoints": -2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -138.99578325345047
+    },
+    {
+      "lineupKey": "10878,26912,51000502,51000536,8517",
+      "playerIds": [
+        "10878",
+        "26912",
+        "51000502",
+        "51000536",
+        "8517"
+      ],
+      "secondsPlayed": 46,
+      "netPoints": -2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -151.08237310157662
+    },
+    {
+      "lineupKey": "10834,26912,30512,51000502,9489",
+      "playerIds": [
+        "10834",
+        "26912",
+        "30512",
+        "51000502",
+        "9489"
+      ],
+      "secondsPlayed": 25,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "10834,10878,51000443,51000500,51000536",
+      "playerIds": [
+        "10834",
+        "10878",
+        "51000443",
+        "51000500",
+        "51000536"
+      ],
+      "secondsPlayed": 0,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    }
+  ]
+}

@@ -9,6 +9,7 @@ import type {
   StandingsSnapshot,
   StoredGame,
   TeamGameLog,
+  TeamLineupsFile,
   TeamSummary,
 } from "../../shared/types";
 
@@ -48,4 +49,8 @@ export function fetchStandingsHistory(season: string): Promise<StandingsSnapshot
 
 export function fetchHeadToHead(season: string): Promise<HeadToHeadTeamRow[]> {
   return fetchJson<HeadToHeadTeamRow[]>(`${dataBase}/${season}/head-to-head.json`);
+}
+
+export function fetchTeamLineups(season: string, teamId: string): Promise<TeamLineupsFile> {
+  return fetchJson<TeamLineupsFile>(`${dataBase}/${season}/lineups/${teamId}.json`);
 }

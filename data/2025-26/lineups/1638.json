@@ -1,0 +1,217 @@
+{
+  "teamId": "1638",
+  "teamName": "佐賀バルーナーズ",
+  "season": "2025-26",
+  "lineups": [
+    {
+      "lineupKey": "15756,51000111,51000271,51000353,9063",
+      "playerIds": [
+        "15756",
+        "51000111",
+        "51000271",
+        "51000353",
+        "9063"
+      ],
+      "secondsPlayed": 697,
+      "netPoints": -16,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -75.97135324748385
+    },
+    {
+      "lineupKey": "26888,33100,51000111,51000271,8592",
+      "playerIds": [
+        "26888",
+        "33100",
+        "51000111",
+        "51000271",
+        "8592"
+      ],
+      "secondsPlayed": 387,
+      "netPoints": 2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 17.10336990100008
+    },
+    {
+      "lineupKey": "15756,33100,51000271,8592,9063",
+      "playerIds": [
+        "15756",
+        "33100",
+        "51000271",
+        "8592",
+        "9063"
+      ],
+      "secondsPlayed": 349,
+      "netPoints": 14,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 132.75939559257657
+    },
+    {
+      "lineupKey": "33100,51000111,51000271,8592,9063",
+      "playerIds": [
+        "33100",
+        "51000111",
+        "51000271",
+        "8592",
+        "9063"
+      ],
+      "secondsPlayed": 254,
+      "netPoints": 3,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 39.088607195002155
+    },
+    {
+      "lineupKey": "33100,51000271,51000353,8592,9063",
+      "playerIds": [
+        "33100",
+        "51000271",
+        "51000353",
+        "8592",
+        "9063"
+      ],
+      "secondsPlayed": 209,
+      "netPoints": 5,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 79.17469080965348
+    },
+    {
+      "lineupKey": "15756,33100,51000271,51000353,9063",
+      "playerIds": [
+        "15756",
+        "33100",
+        "51000271",
+        "51000353",
+        "9063"
+      ],
+      "secondsPlayed": 154,
+      "netPoints": -7,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -150.43191253834158
+    },
+    {
+      "lineupKey": "18461,33100,51000271,8592,9063",
+      "playerIds": [
+        "18461",
+        "33100",
+        "51000271",
+        "8592",
+        "9063"
+      ],
+      "secondsPlayed": 139,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "15756,26888,33100,8592,9063",
+      "playerIds": [
+        "15756",
+        "26888",
+        "33100",
+        "8592",
+        "9063"
+      ],
+      "secondsPlayed": 87,
+      "netPoints": 6,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 228.2415224719666
+    },
+    {
+      "lineupKey": "15756,51000111,51000271,8592,9063",
+      "playerIds": [
+        "15756",
+        "51000111",
+        "51000271",
+        "8592",
+        "9063"
+      ],
+      "secondsPlayed": 54,
+      "netPoints": 2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 122.57415095716723
+    },
+    {
+      "lineupKey": "18461,26888,33100,51000271,8592",
+      "playerIds": [
+        "18461",
+        "26888",
+        "33100",
+        "51000271",
+        "8592"
+      ],
+      "secondsPlayed": 38,
+      "netPoints": 1,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 87.09215989061884
+    },
+    {
+      "lineupKey": "15756,51000271,51000440,9063,9310",
+      "playerIds": [
+        "15756",
+        "51000271",
+        "51000440",
+        "9063",
+        "9310"
+      ],
+      "secondsPlayed": 14,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "26888,33100,51000111,8592,9063",
+      "playerIds": [
+        "26888",
+        "33100",
+        "51000111",
+        "8592",
+        "9063"
+      ],
+      "secondsPlayed": 10,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "15756,26888,33100,51000271,8592",
+      "playerIds": [
+        "15756",
+        "26888",
+        "33100",
+        "51000271",
+        "8592"
+      ],
+      "secondsPlayed": 5,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "26888,33100,51000271,51000353,9063",
+      "playerIds": [
+        "26888",
+        "33100",
+        "51000271",
+        "51000353",
+        "9063"
+      ],
+      "secondsPlayed": 3,
+      "netPoints": -3,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -3309.5020758435153
+    },
+    {
+      "lineupKey": "15756,51000111,51000271,51000440,9063",
+      "playerIds": [
+        "15756",
+        "51000111",
+        "51000271",
+        "51000440",
+        "9063"
+      ],
+      "secondsPlayed": 0,
+      "netPoints": 2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    }
+  ]
+}

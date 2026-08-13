@@ -64,11 +64,29 @@ export interface OnCourtWarning {
   teamId?: string;
 }
 
+/** 同じ5人が同時にコートにいた区間（ラインナップスティント） */
+export interface LineupStint {
+  teamId: string;
+  /** playerIdをソートして","結合した正規化キー（5人の組み合わせを順不同で同一視する） */
+  lineupKey: string;
+  playerIds: string[];
+  startSec: number;
+  endSec: number;
+  /** このスティント中のチーム純得失点（自チーム得点 − 相手チーム得点） */
+  netPoints: number;
+}
+
 export interface OnCourtReconstruction {
   intervals: OnCourtInterval[];
   /** 復元ロジックが算出した個人+/-。復元結果からの再計算値であり、公式PLUSMINUSとは別物 */
   plusMinus: Record<string, number>;
+  /** 5人組の在コートスティント（ラインナップスタッツの基盤データ） */
+  lineupStints: LineupStint[];
   warnings: OnCourtWarning[];
+}
+
+function lineupKeyOf(set: Set<string>): string {
+  return [...set].sort().join(",");
 }
 
 /** BoxscoreRow（個人・試合全体行）からスタメン5人のplayerIdを抽出する */
@@ -177,6 +195,15 @@ export function reconstructOnCourt(
     plusMinus[playerId] = (plusMinus[playerId] ?? 0) + delta;
   };
 
+  // ラインナップスティント（同じ5人の在コート区間）は個人+/-と全く同じイベント順で
+  // 同時に積算する。tie-break不要（配列の元の並び順を信頼する）という結論は個人+/-の
+  // 検証で確立済みなので、そのロジックをそのまま流用する（ズレる余地がない）
+  const lineupStints: LineupStint[] = [];
+  const currentStint: Record<string, { start: number; net: number }> = {
+    [homeTeamId]: { start: 0, net: 0 },
+    [awayTeamId]: { start: 0, net: 0 },
+  };
+
   const events = buildRelevantEvents(playByPlays, warnings);
 
   let i = 0;
@@ -186,6 +213,8 @@ export function reconstructOnCourt(
       const opponentTeamId = event.teamId === homeTeamId ? awayTeamId : homeTeamId;
       for (const pid of onCourt[event.teamId]!) addPlusMinus(pid, event.points);
       for (const pid of onCourt[opponentTeamId]!) addPlusMinus(pid, -event.points);
+      currentStint[event.teamId]!.net += event.points;
+      currentStint[opponentTeamId]!.net -= event.points;
       i += 1;
       continue;
     }
@@ -205,6 +234,8 @@ export function reconstructOnCourt(
     const batch = events.slice(i, j);
     const teamId = event.teamId;
     const t = event.elapsedSec;
+    const lineupBeforeBatch = lineupKeyOf(onCourt[teamId]!);
+    const playersBeforeBatch = [...onCourt[teamId]!].sort();
 
     for (const s of batch) {
       if (s.kind !== "sub-out") continue;
@@ -252,11 +283,42 @@ export function reconstructOnCourt(
         teamId,
       });
     }
+
+    // このバッチで実際にラインナップ（5人の組み合わせ）が変わった場合のみスティントを区切る。
+    // バッチ処理前が有効な5人組（playersBeforeBatch.length===5）の場合のみ記録する
+    // （試合開始直後の最初のバッチは在コートが空集合からのスタートなので対象外）
+    const lineupAfterBatch = lineupKeyOf(onCourt[teamId]!);
+    if (lineupAfterBatch !== lineupBeforeBatch && playersBeforeBatch.length === 5) {
+      const stint = currentStint[teamId]!;
+      lineupStints.push({
+        teamId,
+        lineupKey: lineupBeforeBatch,
+        playerIds: playersBeforeBatch,
+        startSec: stint.start,
+        endSec: t,
+        netPoints: stint.net,
+      });
+    }
+    if (lineupAfterBatch !== lineupBeforeBatch) {
+      currentStint[teamId] = { start: t, net: 0 };
+    }
     i = j;
   }
 
   const gameEnd = totalGameSeconds(totalPeriods);
   for (const teamId of [homeTeamId, awayTeamId]) {
+    const finalLineup = lineupKeyOf(onCourt[teamId]!);
+    if (finalLineup.length > 0 && onCourt[teamId]!.size === 5) {
+      const stint = currentStint[teamId]!;
+      lineupStints.push({
+        teamId,
+        lineupKey: finalLineup,
+        playerIds: [...onCourt[teamId]!].sort(),
+        startSec: stint.start,
+        endSec: gameEnd,
+        netPoints: stint.net,
+      });
+    }
     for (const [playerId, start] of openStart[teamId]!.entries()) {
       intervals.push({ playerId, teamId, startSec: start, endSec: gameEnd });
     }
@@ -283,7 +345,7 @@ export function reconstructOnCourt(
     }
   }
 
-  return { intervals, plusMinus, warnings };
+  return { intervals, plusMinus, lineupStints, warnings };
 }
 
 /** 選手ごとの在コート合計秒数（intervalsの合算） */

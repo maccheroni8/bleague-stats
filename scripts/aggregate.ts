@@ -6,18 +6,21 @@
 import path from "node:path";
 import { DATA_DIR, readAllGames, readJson, writeJson } from "./lib/storage.ts";
 import { eff, efgPct, ftRate, offensiveRating, orbPct, pace, parsePlayTime, safeDiv, tsPct, usagePct } from "../shared/formulas.ts";
+import { reconstructOnCourt } from "../shared/onCourt.ts";
 import { teamDivision } from "./lib/divisions.ts";
 import type {
   BoxscoreRow,
   Division,
   HeadToHeadRecord,
   HeadToHeadTeamRow,
+  LineupAggregate,
   PlayerGameLog,
   PlayerMasterEntry,
   StandingsSnapshot,
   StandingsTeamSnapshot,
   StoredGame,
   TeamGameLog,
+  TeamLineupsFile,
 } from "../shared/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
 
@@ -175,6 +178,13 @@ interface TeamAccumulator {
   gameLogs: TeamGameLog[];
 }
 
+interface LineupAccumulator {
+  playerIds: string[];
+  secondsPlayed: number;
+  netPoints: number;
+  games: Set<string>;
+}
+
 function pickTeamRow(rows: BoxscoreRow[], category: 1 | 3): BoxscoreRow[] {
   return rows.filter((r) => r.Category === category && r.PeriodCategory === 18);
 }
@@ -192,6 +202,7 @@ async function aggregateSeason(season: string): Promise<void> {
 
   const players = new Map<string, PlayerAccumulator>();
   const teams = new Map<string, TeamAccumulator>();
+  const teamLineups = new Map<string, Map<string, LineupAccumulator>>();
 
   const ensureTeam = (teamId: string, teamName: string): TeamAccumulator => {
     let team = teams.get(teamId);
@@ -213,6 +224,7 @@ async function aggregateSeason(season: string): Promise<void> {
   for (const game of games) {
     processPlayers(game, players);
     processTeams(game, teams, ensureTeam);
+    processLineups(game, teamLineups);
   }
 
   const playersJson = [...players.values()]
@@ -300,12 +312,69 @@ async function aggregateSeason(season: string): Promise<void> {
   const headToHead = buildHeadToHead(teams);
   await writeJson(path.join(DATA_DIR, season, "head-to-head.json"), headToHead);
 
+  for (const [teamId, lineupMap] of teamLineups) {
+    const team = teams.get(teamId);
+    const teamPoss = team?.totals.poss ?? 0;
+    const teamMin = team?.totals.min ?? 0;
+    const lineups: LineupAggregate[] = [...lineupMap.entries()]
+      .map(([lineupKey, acc]) => {
+        // 推定Net Rating: スティント単位の実ポゼッション数は記録されていないため、
+        // チームのシーズン平均「POSS / MIN(5人合計分)」からスティント時間分を按分推定する
+        const estimatedPoss = teamMin > 0 ? (teamPoss * 5 * (acc.secondsPlayed / 60)) / teamMin : 0;
+        return {
+          lineupKey,
+          playerIds: acc.playerIds,
+          secondsPlayed: acc.secondsPlayed,
+          netPoints: acc.netPoints,
+          gamesPlayed: acc.games.size,
+          estimatedNetRtg: safeDiv(100 * acc.netPoints, estimatedPoss),
+        };
+      })
+      .sort((a, b) => b.secondsPlayed - a.secondsPlayed);
+    const file: TeamLineupsFile = {
+      teamId,
+      teamName: team?.teamName ?? "",
+      season,
+      lineups,
+    };
+    await writeJson(path.join(DATA_DIR, season, "lineups", `${teamId}.json`), file);
+  }
+
   await writeJson(path.join(DATA_DIR, season, "players.json"), playersJson);
   await writeJson(path.join(DATA_DIR, season, "teams.json"), teamsJson);
   console.log(
     `保存完了: players.json(${playersJson.length}名) / teams.json(${teamsJson.length}チーム) / ` +
-      `standings-history.json(${standingsHistory.length}日分) / head-to-head.json(${headToHead.length}チーム)`,
+      `standings-history.json(${standingsHistory.length}日分) / head-to-head.json(${headToHead.length}チーム) / ` +
+      `lineups/(${teamLineups.size}チーム)`,
   );
+}
+
+/** 1試合分のラインナップスティント（shared/onCourt.ts）をチームごとに積算する */
+function processLineups(game: StoredGame, teamLineups: Map<string, Map<string, LineupAccumulator>>): void {
+  const periods = game.quarterScores.home.length;
+  const result = reconstructOnCourt(
+    game.raw.PlayByPlays,
+    game.raw.HomeBoxscores,
+    game.raw.AwayBoxscores,
+    game.homeTeam.id,
+    game.awayTeam.id,
+    periods,
+  );
+  for (const stint of result.lineupStints) {
+    let lineupMap = teamLineups.get(stint.teamId);
+    if (!lineupMap) {
+      lineupMap = new Map();
+      teamLineups.set(stint.teamId, lineupMap);
+    }
+    let acc = lineupMap.get(stint.lineupKey);
+    if (!acc) {
+      acc = { playerIds: stint.playerIds, secondsPlayed: 0, netPoints: 0, games: new Set() };
+      lineupMap.set(stint.lineupKey, acc);
+    }
+    acc.secondsPlayed += stint.endSec - stint.startSec;
+    acc.netPoints += stint.netPoints;
+    acc.games.add(game.scheduleKey);
+  }
 }
 
 function processPlayers(game: StoredGame, players: Map<string, PlayerAccumulator>): void {

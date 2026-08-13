@@ -508,6 +508,34 @@ export interface HeadToHeadTeamRow {
   vsWest: HeadToHeadSummary;
 }
 
+// ---- data/{season}/lineups/{teamId}.json の保存スキーマ（ラインナップスタッツ。DESIGN.md参照） ----
+
+export interface LineupAggregate {
+  /** playerIdをソートして","結合した正規化キー（5人の組み合わせを順不同で同一視する） */
+  lineupKey: string;
+  playerIds: string[];
+  /** シーズン通算の在コート合計秒数 */
+  secondsPlayed: number;
+  /** シーズン通算の純得失点（この5人が同時に出場していた時間帯のチーム得失点差の合計） */
+  netPoints: number;
+  /** この組み合わせが出場した試合数（延べではなく試合単位のユニーク数） */
+  gamesPlayed: number;
+  /**
+   * 推定Net Rating（100ポゼッションあたり純得失点）。スティント単位の実ポゼッション数は
+   * 記録されていないため、チームのシーズン平均ペース（POSS/MIN）から按分推定した近似値
+   * （公式に定義がないためNBA流の考え方をチームレベル平均で代用。DESIGN.md 6章の他のアドバンスド
+   * スタッツと同様の位置づけ）
+   */
+  estimatedNetRtg: number;
+}
+
+export interface TeamLineupsFile {
+  teamId: string;
+  teamName: string;
+  season: string;
+  lineups: LineupAggregate[];
+}
+
 // ---- data/players-master.json の保存スキーマ（シーズン非依存、全選手共通。DESIGN.md 5章参照） ----
 
 export interface PlayerMasterEntry {

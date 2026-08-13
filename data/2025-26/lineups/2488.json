@@ -1,0 +1,161 @@
+{
+  "teamId": "2488",
+  "teamName": "長崎ヴェルカ",
+  "season": "2025-26",
+  "lineups": [
+    {
+      "lineupKey": "19957,30437,51000304,51000379,51000529",
+      "playerIds": [
+        "19957",
+        "30437",
+        "51000304",
+        "51000379",
+        "51000529"
+      ],
+      "secondsPlayed": 521,
+      "netPoints": 1,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 7.203999662450347
+    },
+    {
+      "lineupKey": "12577,19957,51000304,51000379,51000395",
+      "playerIds": [
+        "12577",
+        "19957",
+        "51000304",
+        "51000379",
+        "51000395"
+      ],
+      "secondsPlayed": 434,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "12577,19957,51000304,51000379,51000529",
+      "playerIds": [
+        "12577",
+        "19957",
+        "51000304",
+        "51000379",
+        "51000529"
+      ],
+      "secondsPlayed": 342,
+      "netPoints": 1,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 10.974514105662662
+    },
+    {
+      "lineupKey": "19957,30437,51000379,51000395,51000529",
+      "playerIds": [
+        "19957",
+        "30437",
+        "51000379",
+        "51000395",
+        "51000529"
+      ],
+      "secondsPlayed": 331,
+      "netPoints": -2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -22.678452109586893
+    },
+    {
+      "lineupKey": "12577,30437,51000379,51000395,51000529",
+      "playerIds": [
+        "12577",
+        "30437",
+        "51000379",
+        "51000395",
+        "51000529"
+      ],
+      "secondsPlayed": 288,
+      "netPoints": 8,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 104.2578840037953
+    },
+    {
+      "lineupKey": "12577,19957,51000379,51000395,51000529",
+      "playerIds": [
+        "12577",
+        "19957",
+        "51000379",
+        "51000395",
+        "51000529"
+      ],
+      "secondsPlayed": 263,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "30437,5100000021,51000304,51000379,51000529",
+      "playerIds": [
+        "30437",
+        "5100000021",
+        "51000304",
+        "51000379",
+        "51000529"
+      ],
+      "secondsPlayed": 65,
+      "netPoints": -2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": -115.48565612728095
+    },
+    {
+      "lineupKey": "12577,19957,30437,51000395,51000529",
+      "playerIds": [
+        "12577",
+        "19957",
+        "30437",
+        "51000395",
+        "51000529"
+      ],
+      "secondsPlayed": 61,
+      "netPoints": 0,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    },
+    {
+      "lineupKey": "10893,30437,51000304,51000379,51000529",
+      "playerIds": [
+        "10893",
+        "30437",
+        "51000304",
+        "51000379",
+        "51000529"
+      ],
+      "secondsPlayed": 52,
+      "netPoints": 2,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 144.3570701591012
+    },
+    {
+      "lineupKey": "10893,12577,19957,51000304,51000529",
+      "playerIds": [
+        "10893",
+        "12577",
+        "19957",
+        "51000304",
+        "51000529"
+      ],
+      "secondsPlayed": 43,
+      "netPoints": 3,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 261.8570109862766
+    },
+    {
+      "lineupKey": "10893,30437,51000379,51000395,51000529",
+      "playerIds": [
+        "10893",
+        "30437",
+        "51000379",
+        "51000395",
+        "51000529"
+      ],
+      "secondsPlayed": 0,
+      "netPoints": -3,
+      "gamesPlayed": 1,
+      "estimatedNetRtg": 0
+    }
+  ]
+}
