@@ -4,7 +4,9 @@ import { useJsonData } from "../lib/useJsonData";
 import type { BoxscoreRow } from "../../shared/types";
 import { KeyStatsChart } from "../components/KeyStatsChart";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
+import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
+import { reconstructOnCourt } from "../../shared/onCourt";
 
 function periodLabel(index: number, total: number): string {
   if (index < 4) return `${index + 1}Q`;
@@ -56,6 +58,31 @@ export function GameDetailPage({ season }: { season: string }) {
   );
   const timeoutMarks = buildTimeoutMarks(game.raw.PlayByPlays);
   const periodBoundaries = buildPeriodBoundaries(periods);
+
+  const onCourt = reconstructOnCourt(
+    game.raw.PlayByPlays,
+    game.raw.HomeBoxscores,
+    game.raw.AwayBoxscores,
+    game.homeTeam.id,
+    game.awayTeam.id,
+    periods,
+  );
+  const intervalsByPlayer = new Map<string, { startSec: number; endSec: number }[]>();
+  for (const iv of onCourt.intervals) {
+    const list = intervalsByPlayer.get(iv.playerId) ?? [];
+    list.push({ startSec: iv.startSec, endSec: iv.endSec });
+    intervalsByPlayer.set(iv.playerId, list);
+  }
+  const toSubstitutionRows = (rows: BoxscoreRow[]): SubstitutionRow[] =>
+    rows.map((r) => ({
+      playerId: r.PlayerID,
+      name: r.PlayerNameJ,
+      intervals: (intervalsByPlayer.get(r.PlayerID) ?? []).sort((a, b) => a.startSec - b.startSec),
+    }));
+  const homeStarters = toSubstitutionRows(homePlayers.filter((r) => r.StartingFlg === 1));
+  const homeBench = toSubstitutionRows(homePlayers.filter((r) => r.StartingFlg !== 1));
+  const awayStarters = toSubstitutionRows(awayPlayers.filter((r) => r.StartingFlg === 1));
+  const awayBench = toSubstitutionRows(awayPlayers.filter((r) => r.StartingFlg !== 1));
 
   return (
     <div>
@@ -120,6 +147,18 @@ export function GameDetailPage({ season }: { season: string }) {
         totalSeconds={totalGameSeconds(periods)}
         homeTeamName={game.homeTeam.name}
         awayTeamName={game.awayTeam.name}
+      />
+
+      <h2>出場交代</h2>
+      <SubstitutionBarChart
+        homeTeamName={game.homeTeam.name}
+        awayTeamName={game.awayTeam.name}
+        homeStarters={homeStarters}
+        homeBench={homeBench}
+        awayStarters={awayStarters}
+        awayBench={awayBench}
+        periodBoundaries={periodBoundaries}
+        totalSeconds={totalGameSeconds(periods)}
       />
 
       <h2>ゲームリーダー</h2>

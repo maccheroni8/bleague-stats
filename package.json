@@ -14,6 +14,7 @@
     "scrape:roster": "node --experimental-strip-types scripts/scrape-roster.ts",
     "aggregate": "node --experimental-strip-types scripts/aggregate.ts",
     "print:current-season": "node --experimental-strip-types scripts/print-current-season.ts",
+    "validate:oncourt": "node --experimental-strip-types scripts/validate-oncourt.ts",
     "typecheck": "tsc -p tsconfig.scripts.json --noEmit && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

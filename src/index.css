@@ -553,6 +553,90 @@ table.compare-table td.compare-best {
   color: var(--muted);
 }
 
+.substitution-chart {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+
+.sub-bar-team {
+  min-width: 480px;
+}
+
+.sub-bar-team-name {
+  margin: 12px 0 4px;
+  font-size: 13px;
+}
+
+.sub-bar-team:first-of-type .sub-bar-team-name {
+  margin-top: 4px;
+}
+
+.sub-bar-group-label {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 0 2px 130px;
+}
+
+.sub-bar-row {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  min-width: 480px;
+}
+
+.sub-bar-header {
+  height: 18px;
+  margin-bottom: 2px;
+}
+
+.sub-bar-label {
+  width: 130px;
+  flex-shrink: 0;
+  padding-right: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sub-bar-track {
+  position: relative;
+  flex: 1;
+  height: 100%;
+}
+
+.sub-bar-segment {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 2px;
+  min-width: 2px;
+}
+
+.sub-bar-gridline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.sub-bar-dnp {
+  position: relative;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.sub-bar-axis-label {
+  position: absolute;
+  top: 0;
+  font-size: 10px;
+  color: var(--muted);
+}
+
 .glossary-section {
   margin-bottom: 32px;
 }
