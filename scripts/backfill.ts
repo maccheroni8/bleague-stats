@@ -25,7 +25,8 @@ import { DATA_DIR, readJson, writeJson } from "./lib/storage.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import type { ScheduleFile } from "../shared/types.ts";
 
-// 2025-26は現行シーズンとして通常運用（cron）で既にカバーされているため対象外。
+// 2025-26は当初「現行シーズンとして通常運用（cron）でカバー済み」としていたが、
+// シーズン終了に伴い他シーズンと同様にフルバックフィル対象とする。
 // 2026-27（B.PREMIER）は開幕前のため対象データが無い
 const DEFAULT_SEASONS = [
   "2016-17",
@@ -37,16 +38,25 @@ const DEFAULT_SEASONS = [
   "2022-23",
   "2023-24",
   "2024-25",
+  "2025-26",
 ];
+
+// 空または極端に少ないscheduleKeysを「収集済み」と誤認しないための下限値。
+// 実データ最小の2019-20（COVID短縮シーズン）でも367試合あるため、
+// 十分に安全マージンを取った値にしておく。
+const MIN_REASONABLE_SCHEDULE_GAMES = 100;
 
 async function backfillSeason(season: string): Promise<void> {
   console.log(`\n========== [${season}] バックフィル開始 (${new Date().toISOString()}) ==========`);
 
   const schedulePath = path.join(DATA_DIR, season, "schedule.json");
   const existingSchedule = await readJson<ScheduleFile>(schedulePath);
-  if (existingSchedule) {
+  if (existingSchedule && existingSchedule.scheduleKeys.length >= MIN_REASONABLE_SCHEDULE_GAMES) {
     console.log(`[${season}] スケジュール取得済み（${existingSchedule.scheduleKeys.length}試合）、収集をスキップ`);
   } else {
+    if (existingSchedule) {
+      console.log(`[${season}] 既存のschedule.jsonは${existingSchedule.scheduleKeys.length}試合と件数が異常に少ないため、収集をやり直します`);
+    }
     console.log(`[${season}] スケジュール収集中...`);
     const scheduleKeys = await scrapeSeasonSchedule(season);
     await writeJson(schedulePath, { season, generatedAt: new Date().toISOString(), scheduleKeys });
