@@ -380,6 +380,19 @@ table.boxscore-table .dnp-row {
   color: var(--muted);
 }
 
+table.boxscore-table .boxscore-summary-row td {
+  font-weight: 700;
+  background: var(--row-hover);
+  border-top: 1px solid var(--border);
+}
+
+table.boxscore-table .row-note {
+  margin-left: 4px;
+  color: var(--muted);
+  font-weight: 400;
+  cursor: help;
+}
+
 .recent-games-table a {
   color: inherit;
   text-decoration: none;

@@ -1,9 +1,10 @@
 import { useParams } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
-import { fetchGame } from "../lib/data";
+import { fetchGame, fetchPlayers } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
-import type { BoxscoreRow } from "../../shared/types";
+import { formatSigned } from "../lib/format";
+import type { BoxscoreRow, PlayerSummary } from "../../shared/types";
 import { KeyStatsChart } from "../components/KeyStatsChart";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
@@ -35,6 +36,79 @@ function safeDiv(a: number, b: number): number {
   return b === 0 ? 0 : a / b;
 }
 
+/** "7-12 (58.3%)"。試投0本の場合は成功率を出さず本数だけ表示する */
+function formatShotLine(makes: number, attempts: number): string {
+  if (attempts === 0) return `${makes}-${attempts}`;
+  return `${makes}-${attempts} (${((makes / attempts) * 100).toFixed(1)}%)`;
+}
+
+function playTimeToSeconds(playTime: string): number {
+  if (playTime === "DNP") return 0;
+  const [m, s] = playTime.split(":").map(Number);
+  return (m ?? 0) * 60 + (s ?? 0);
+}
+
+/** 合計秒数を"MM:SS"に戻す（5人×試合時間なので99分を超えうる） */
+function formatMinutesFromSeconds(totalSec: number): string {
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+interface StatTotals {
+  minSec: number;
+  pts: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  tov: number;
+  pt2m: number;
+  pt2a: number;
+  pt3m: number;
+  pt3a: number;
+  ftm: number;
+  fta: number;
+  plusMinus: number;
+}
+
+function sumBoxscoreRows(rows: BoxscoreRow[]): StatTotals {
+  return rows.reduce(
+    (acc, r) => ({
+      minSec: acc.minSec + playTimeToSeconds(r.PlayTime),
+      pts: acc.pts + r.Point,
+      reb: acc.reb + r.RB_TOT,
+      ast: acc.ast + r.AS,
+      stl: acc.stl + r.ST,
+      blk: acc.blk + r.BS,
+      tov: acc.tov + r.TO,
+      pt2m: acc.pt2m + r.PT2M,
+      pt2a: acc.pt2a + r.PT2A,
+      pt3m: acc.pt3m + r.PT3M,
+      pt3a: acc.pt3a + r.PT3A,
+      ftm: acc.ftm + r.FTM,
+      fta: acc.fta + r.FTA,
+      plusMinus: acc.plusMinus + (r.PLUSMINUS ?? 0),
+    }),
+    {
+      minSec: 0,
+      pts: 0,
+      reb: 0,
+      ast: 0,
+      stl: 0,
+      blk: 0,
+      tov: 0,
+      pt2m: 0,
+      pt2a: 0,
+      pt3m: 0,
+      pt3a: 0,
+      ftm: 0,
+      fta: 0,
+      plusMinus: 0,
+    },
+  );
+}
+
 export function GameDetailPage({ season }: { season: string }) {
   const { scheduleKey } = useParams<{ scheduleKey: string }>();
   const { data: game, loading, error } = useJsonData(
@@ -42,12 +116,16 @@ export function GameDetailPage({ season }: { season: string }) {
     [season, scheduleKey],
   );
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
+  // players-master.json由来の国籍・登録区分（players.jsonに突合済み）をボックススコア集計に流用する。
+  // 退団済み選手など現在のロースターに載っていない選手はclassification未定義のままになりうる
+  const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season), [season]);
 
-  if (loading || coverageLoading) return <p className="loading">読み込み中...</p>;
+  if (loading || coverageLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
   if (!game) return <p className="error-message">試合が見つかりませんでした</p>;
 
   const pbpSupported = isPbpSupported(coverage);
+  const classificationById = new Map((players ?? []).map((p) => [p.playerId, p.classification] as const));
 
   const homePlayers = playerRows(game.raw.HomeBoxscores);
   const awayPlayers = playerRows(game.raw.AwayBoxscores);
@@ -233,8 +311,8 @@ export function GameDetailPage({ season }: { season: string }) {
       )}
 
       <h2>ボックススコア</h2>
-      <BoxscoreSection teamName={game.homeTeam.name} rows={homePlayers} />
-      <BoxscoreSection teamName={game.awayTeam.name} rows={awayPlayers} />
+      <BoxscoreSection teamName={game.homeTeam.name} rows={homePlayers} classificationById={classificationById} />
+      <BoxscoreSection teamName={game.awayTeam.name} rows={awayPlayers} classificationById={classificationById} />
     </div>
   );
 }
@@ -273,9 +351,31 @@ function LeaderRow({
   );
 }
 
-function BoxscoreSection({ teamName, rows }: { teamName: string; rows: BoxscoreRow[] }) {
+function BoxscoreSection({
+  teamName,
+  rows,
+  classificationById,
+}: {
+  teamName: string;
+  rows: BoxscoreRow[];
+  classificationById: Map<string, PlayerSummary["classification"]>;
+}) {
   const starters = rows.filter((r) => r.StartingFlg === 1);
   const bench = rows.filter((r) => r.StartingFlg !== 1);
+  const japanese = rows.filter((r) => classificationById.get(r.PlayerID) === "日本人");
+  const international = rows.filter((r) => {
+    const c = classificationById.get(r.PlayerID);
+    return c === "外国籍" || c === "帰化選手" || c === "アジア特別枠";
+  });
+  // classificationはplayers-master.jsonの「現在の登録情報」をシーズン非依存で突合したもの
+  // （帰化選手/アジア特別枠の手動判定リストも一時点のスナップショット）。出場した選手のうち
+  // 区分不明な人数を、日本人/外国籍等どちらの合計にも反映されない欠落として注記する
+  const unclassifiedPlayedCount = rows.filter(
+    (r) => r.PlayTime !== "DNP" && classificationById.get(r.PlayerID) === undefined,
+  ).length;
+  const classificationNote =
+    "※現在の登録情報に基づく参考値" +
+    (unclassifiedPlayedCount > 0 ? `／${unclassifiedPlayedCount}名分のデータ欠落あり` : "");
 
   return (
     <div className="boxscore-section">
@@ -293,6 +393,7 @@ function BoxscoreSection({ teamName, rows }: { teamName: string; rows: BoxscoreR
               <th>BLK</th>
               <th>TOV</th>
               <th>FG</th>
+              <th>2P</th>
               <th>3P</th>
               <th>FT</th>
               <th>+/-</th>
@@ -301,6 +402,10 @@ function BoxscoreSection({ teamName, rows }: { teamName: string; rows: BoxscoreR
           <tbody>
             <BoxscoreGroup title="スタメン" rows={starters} />
             <BoxscoreGroup title="ベンチ" rows={bench} />
+            <SummaryRow label="スタメン合計" rows={starters} />
+            <SummaryRow label="ベンチ合計" rows={bench} />
+            <SummaryRow label="日本人選手合計" rows={japanese} note={classificationNote} />
+            <SummaryRow label="外国籍+帰化+アジア特別枠合計" rows={international} note={classificationNote} />
           </tbody>
         </table>
       </div>
@@ -313,7 +418,7 @@ function BoxscoreGroup({ title, rows }: { title: string; rows: BoxscoreRow[] }) 
   return (
     <>
       <tr className="boxscore-group-row">
-        <td colSpan={12}>{title}</td>
+        <td colSpan={13}>{title}</td>
       </tr>
       {rows.map((r) => {
         const dnp = r.PlayTime === "DNP";
@@ -321,7 +426,7 @@ function BoxscoreGroup({ title, rows }: { title: string; rows: BoxscoreRow[] }) 
           <tr key={r.PlayerID} className={dnp ? "dnp-row" : undefined}>
             <td className="align-left">{r.PlayerNameJ}</td>
             {dnp ? (
-              <td colSpan={11}>DNP</td>
+              <td colSpan={12}>DNP</td>
             ) : (
               <>
                 <td>{r.PlayTime}</td>
@@ -331,9 +436,10 @@ function BoxscoreGroup({ title, rows }: { title: string; rows: BoxscoreRow[] }) 
                 <td>{r.ST}</td>
                 <td>{r.BS}</td>
                 <td>{r.TO}</td>
-                <td>{`${r.PT2M + r.PT3M}-${r.PT2A + r.PT3A}`}</td>
-                <td>{`${r.PT3M}-${r.PT3A}`}</td>
-                <td>{`${r.FTM}-${r.FTA}`}</td>
+                <td>{formatShotLine(r.PT2M + r.PT3M, r.PT2A + r.PT3A)}</td>
+                <td>{formatShotLine(r.PT2M, r.PT2A)}</td>
+                <td>{formatShotLine(r.PT3M, r.PT3A)}</td>
+                <td>{formatShotLine(r.FTM, r.FTA)}</td>
                 <td>{r.PLUSMINUS ?? "-"}</td>
               </>
             )}
@@ -341,6 +447,39 @@ function BoxscoreGroup({ title, rows }: { title: string; rows: BoxscoreRow[] }) 
         );
       })}
     </>
+  );
+}
+
+/**
+ * スタメン/ベンチ/国籍区分ごとの合計行。対象選手が0人の区分（classification未登録の
+ * 選手しかいない旧シーズン等）は表示しない
+ */
+function SummaryRow({ label, rows, note }: { label: string; rows: BoxscoreRow[]; note?: string }) {
+  if (rows.length === 0) return null;
+  const t = sumBoxscoreRows(rows);
+  return (
+    <tr className="boxscore-summary-row">
+      <td className="align-left">
+        {label}
+        {note && (
+          <span className="row-note" title={note}>
+            ※
+          </span>
+        )}
+      </td>
+      <td>{formatMinutesFromSeconds(t.minSec)}</td>
+      <td>{t.pts}</td>
+      <td>{t.reb}</td>
+      <td>{t.ast}</td>
+      <td>{t.stl}</td>
+      <td>{t.blk}</td>
+      <td>{t.tov}</td>
+      <td>{formatShotLine(t.pt2m + t.pt3m, t.pt2a + t.pt3a)}</td>
+      <td>{formatShotLine(t.pt2m, t.pt2a)}</td>
+      <td>{formatShotLine(t.pt3m, t.pt3a)}</td>
+      <td>{formatShotLine(t.ftm, t.fta)}</td>
+      <td>{formatSigned(t.plusMinus, 0)}</td>
+    </tr>
   );
 }
 
