@@ -56,18 +56,23 @@ body {
   text-decoration: none;
 }
 
-.season-badge {
+.season-select {
   font-size: 12px;
-  color: var(--muted);
+  font-weight: 600;
+  color: var(--fg);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 2px 10px;
+  padding: 3px 10px;
+  cursor: pointer;
 }
 
 .app-nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin-left: auto;
+  flex-basis: 100%;
 }
 
 .app-nav a {
@@ -76,6 +81,7 @@ body {
   text-decoration: none;
   color: var(--muted);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .app-nav a.active {

@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGameSummaries, fetchSchedule } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { formatDateHeading } from "../lib/format";

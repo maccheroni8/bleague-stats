@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { SeasonLink as Link } from "./SeasonLink";
 import type { HeadToHeadRecord, HeadToHeadSummary, HeadToHeadTeamRow } from "../../shared/types";
 import { formatPct, formatRecord, formatSigned } from "../lib/format";
 

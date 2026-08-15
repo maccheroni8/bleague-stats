@@ -1,4 +1,5 @@
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGame } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
