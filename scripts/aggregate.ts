@@ -11,9 +11,11 @@ import { reconstructOnCourt, substitutionModelForSeason, type OnCourtReconstruct
 import { teamDivision } from "./lib/divisions.ts";
 import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
+import { classifyGameType } from "./lib/gameType.ts";
 import type {
   BoxscoreRow,
   Division,
+  GameType,
   HeadToHeadRecord,
   HeadToHeadTeamRow,
   LineupAggregate,
@@ -221,8 +223,13 @@ export async function aggregateSeason(season: string): Promise<void> {
   const allGames = (await readAllGames(season)).filter((g) => g.gameEndedFlg);
   const games = allGames.filter((g) => !isExhibitionGame(g.raw.Game.ConventionNameJ));
   const excludedCount = allGames.length - games.length;
+  // players.json/teams.json・standings-history.json・head-to-head.jsonのデフォルト集計は
+  // レギュラーシーズンのみとする（プレーオフ込みで合算すると選手スタッツが60試合超になる等の
+  // バグの原因だった。2026-08-16）。プレーオフは除外せずgameLogsにgameType付きで残し、
+  // フロントエンドのシチュエーション別フィルタ（src/lib/situational.ts）で任意に合算できるようにする
+  const playoffCount = games.filter((g) => classifyGameType(g.raw.Game.ConventionNameJ) === "playoff").length;
   console.log(
-    `[${season}] 集計対象: ${games.length}試合（終了済みのみ）` +
+    `[${season}] 集計対象: ${games.length}試合（終了済みのみ、レギュラー${games.length - playoffCount}／プレーオフ${playoffCount}）` +
       (excludedCount > 0 ? ` ／ オールスター等${excludedCount}試合を除外` : ""),
   );
 
@@ -255,6 +262,7 @@ export async function aggregateSeason(season: string): Promise<void> {
   };
 
   for (const game of games) {
+    const gameType = classifyGameType(game.raw.Game.ConventionNameJ);
     const periods = game.quarterScores.home.length;
     const onCourt =
       game.raw.PlayByPlays.length > 0
@@ -268,8 +276,8 @@ export async function aggregateSeason(season: string): Promise<void> {
             substitutionModelForSeason(game.season),
           )
         : null;
-    processPlayers(game, players, onCourt);
-    processTeams(game, teams, ensureTeam);
+    processPlayers(game, gameType, players, onCourt);
+    processTeams(game, gameType, teams, ensureTeam);
     processLineups(game, teamLineups, onCourt);
   }
 
@@ -352,7 +360,9 @@ export async function aggregateSeason(season: string): Promise<void> {
     await writeJson(path.join(DATA_DIR, season, "team-games", `${t.teamId}.json`), gameLogs);
   }
 
-  const standingsHistory = buildStandingsHistory(games);
+  // 順位表・星取り表はプレーオフの結果に左右されないよう、レギュラーシーズンの試合のみで作る
+  const regularGames = games.filter((g) => classifyGameType(g.raw.Game.ConventionNameJ) === "regular");
+  const standingsHistory = buildStandingsHistory(regularGames);
   await writeJson(path.join(DATA_DIR, season, "standings-history.json"), standingsHistory);
 
   const headToHead = buildHeadToHead(teams);
@@ -422,6 +432,7 @@ function processLineups(
 
 function processPlayers(
   game: StoredGame,
+  gameType: GameType,
   players: Map<string, PlayerAccumulator>,
   onCourt: OnCourtReconstruction | null,
 ): void {
@@ -447,9 +458,13 @@ function processPlayers(
     const teamNetForGame = isHome ? game.homeScore - game.awayScore : game.awayScore - game.homeScore;
     // 公式PLUSMINUSが無いシーズンはshared/onCourt.tsの自前復元値をフォールバックとして使う
     const reconstructedPlusMinus = onCourt?.plusMinus[row.PlayerID];
-    // 出場判定はPlayingFlgではなくPlayTime基準（実データ検証でPlayingFlg=falseでも
-    // 得点等が記録されている選手が見つかったため。DESIGN.md 2-2章の記述は誤りだった）
-    addBoxscoreRow(acc.totals, row, row.PlayTime !== "DNP", teamNetForGame, reconstructedPlusMinus);
+    // players.jsonのシーズン集計（totals）はレギュラーシーズンのみ加算する。プレーオフの試合も
+    // gameLogsには残すため、フロントエンドのシチュエーション別フィルタでは合算参照できる
+    if (gameType === "regular") {
+      // 出場判定はPlayingFlgではなくPlayTime基準（実データ検証でPlayingFlg=falseでも
+      // 得点等が記録されている選手が見つかったため。DESIGN.md 2-2章の記述は誤りだった）
+      addBoxscoreRow(acc.totals, row, row.PlayTime !== "DNP", teamNetForGame, reconstructedPlusMinus);
+    }
 
     const opponent = isHome ? game.awayTeam : game.homeTeam;
     const win = isHome ? game.homeScore > game.awayScore : game.awayScore > game.homeScore;
@@ -478,6 +493,7 @@ function processPlayers(
       ftm: row.FTM,
       fta: row.FTA,
       plusMinus: row.PLUSMINUS ?? reconstructedPlusMinus ?? 0,
+      gameType,
     });
   }
 }
@@ -506,6 +522,7 @@ function teamGameLogStats(row: BoxscoreRow) {
 
 function processTeams(
   game: StoredGame,
+  gameType: GameType,
   teams: Map<string, TeamAccumulator>,
   ensureTeam: (teamId: string, teamName: string) => TeamAccumulator,
 ): void {
@@ -516,21 +533,27 @@ function processTeams(
   const home = ensureTeam(game.homeTeam.id, game.homeTeam.name);
   const away = ensureTeam(game.awayTeam.id, game.awayTeam.name);
 
-  // opponentTotalsもgamesPlayedを数える（perGame算出の分母は「自チームの試合数」と一致させる必要がある）。
-  // teamNetForGame（オンコート/オフコート算出用）は個人集計専用なのでチーム集計では常に0を渡す
-  addBoxscoreRow(home.totals, homeRow, true, 0);
-  addBoxscoreRow(home.opponentTotals, awayRow, true, 0);
-  addBoxscoreRow(away.totals, awayRow, true, 0);
-  addBoxscoreRow(away.opponentTotals, homeRow, true, 0);
-
   const homeWin = game.homeScore > game.awayScore;
   const awayWin = game.awayScore > game.homeScore;
-  if (homeWin) {
-    home.wins += 1;
-    away.losses += 1;
-  } else if (awayWin) {
-    away.wins += 1;
-    home.losses += 1;
+
+  // teams.jsonのシーズン集計（totals・wins/losses）はレギュラーシーズンのみ加算する。
+  // プレーオフの試合もgameLogsには残すため、フロントエンドのシチュエーション別フィルタでは
+  // 合算参照できる
+  if (gameType === "regular") {
+    // opponentTotalsもgamesPlayedを数える（perGame算出の分母は「自チームの試合数」と一致させる必要がある）。
+    // teamNetForGame（オンコート/オフコート算出用）は個人集計専用なのでチーム集計では常に0を渡す
+    addBoxscoreRow(home.totals, homeRow, true, 0);
+    addBoxscoreRow(home.opponentTotals, awayRow, true, 0);
+    addBoxscoreRow(away.totals, awayRow, true, 0);
+    addBoxscoreRow(away.opponentTotals, homeRow, true, 0);
+
+    if (homeWin) {
+      home.wins += 1;
+      away.losses += 1;
+    } else if (awayWin) {
+      away.wins += 1;
+      home.losses += 1;
+    }
   }
 
   home.gameLogs.push({
@@ -542,6 +565,7 @@ function processTeams(
     teamScore: game.homeScore,
     opponentScore: game.awayScore,
     win: homeWin,
+    gameType,
     ...teamGameLogStats(homeRow),
   });
   away.gameLogs.push({
@@ -553,6 +577,7 @@ function processTeams(
     teamScore: game.awayScore,
     opponentScore: game.homeScore,
     win: awayWin,
+    gameType,
     ...teamGameLogStats(awayRow),
   });
 }
@@ -676,7 +701,8 @@ function buildHeadToHead(teams: Map<string, TeamAccumulator>): HeadToHeadTeamRow
 
   const rows = [...teams.values()].map((team) => {
     const vs = new Map<string, HeadToHeadRecord>();
-    for (const log of team.gameLogs) {
+    // 星取り表もプレーオフの結果に左右されないよう、レギュラーシーズンの試合のみ集計する
+    for (const log of team.gameLogs.filter((l) => l.gameType === "regular")) {
       let rec = vs.get(log.opponentTeamId);
       if (!rec) {
         rec = { wins: 0, losses: 0, pointDiff: 0 };

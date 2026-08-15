@@ -224,7 +224,12 @@ const gameLogColumns: Column<TeamGameLog>[] = [
     label: "対戦相手",
     sortValue: (g) => g.opponentTeamName,
     align: "left",
-    render: (g) => `${g.isHome ? "vs" : "@"} ${g.opponentTeamName}`,
+    render: (g) => (
+      <>
+        {g.isHome ? "vs" : "@"} {g.opponentTeamName}
+        {g.gameType === "playoff" && <span className="playoff-badge">PO</span>}
+      </>
+    ),
   },
   {
     key: "result",

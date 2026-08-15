@@ -214,6 +214,17 @@ table.sortable-table tbody tr:hover {
   color: var(--accent);
 }
 
+.playoff-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  background: color-mix(in srgb, #b8860b 20%, transparent);
+  color: #b8860b;
+}
+
 .scoreboard {
   display: flex;
   align-items: center;

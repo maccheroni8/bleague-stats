@@ -5,6 +5,13 @@
 
 export type Division = "east" | "west";
 
+/**
+ * レギュラーシーズン戦とプレーオフ（チャンピオンシップ）戦の区別。ConventionNameJから
+ * scripts/lib/gameType.tsのclassifyGameType()で判定する（オールスター等はisExhibitionGame()で
+ * 事前に除外済みの前提。2026-08-16、選手個人スタッツが60試合超になる集計バグの修正で導入）。
+ */
+export type GameType = "regular" | "playoff";
+
 // ---- GeniusAPI (v2_genius_contexts) の型定義 ----
 
 export interface GameRaw {
@@ -414,6 +421,7 @@ export interface PlayerGameLog {
   ftm: number;
   fta: number;
   plusMinus: number;
+  gameType: GameType;
 }
 
 // ---- data/{season}/team-games/{teamId}.json の保存スキーマ（チーム詳細ページの試合結果一覧用） ----
@@ -428,6 +436,7 @@ export interface TeamGameLog {
   teamScore: number;
   opponentScore: number;
   win: boolean;
+  gameType: GameType;
   /** チーム総プレイタイム（5人合計・分）。通常40分×5=200だがOT試合は変動する */
   min: number;
   oreb: number;

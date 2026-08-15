@@ -12,32 +12,46 @@
 import { efgPct, offensiveRating, pace, safeDiv, tsPct } from "../../shared/formulas";
 import type { PlayerGameLog, TeamGameLog } from "../../shared/types";
 
-export type SituationalFilter =
+export type SituationalFilterKind =
   | { kind: "all" }
   | { kind: "recent"; n: number }
   | { kind: "result"; win: boolean }
   | { kind: "dateRange"; start: string; end: string };
 
+/**
+ * kind（直近N試合・勝敗別・期間指定）とは独立した軸として、プレーオフを合算するかどうかを持つ。
+ * デフォルト（未指定/false）はレギュラーシーズンのみ。teams.json/players.jsonの season 集計と
+ * 同じ既定に揃える（2026-08-16、選手個人スタッツが60試合超になる集計バグの修正で導入）
+ */
+export type SituationalFilter = SituationalFilterKind & { includePlayoffs?: boolean };
+
 export const RECENT_N_OPTIONS = [5, 10, 20] as const;
 
 export function isDefaultFilter(filter: SituationalFilter): boolean {
-  return filter.kind === "all";
+  return filter.kind === "all" && !filter.includePlayoffs;
 }
 
-/** 試合ログ（日付昇順ソート済み前提）をフィルタ条件で絞り込む */
-export function filterGameLogs<T extends { date: string; win: boolean }>(
+/**
+ * 試合ログ（日付昇順ソート済み前提）をフィルタ条件で絞り込む。
+ * DNP（出場0分）の試合は「出場した試合」の集計対象から除く（players.json/teams.jsonの
+ * season集計と同じ基準。含めるとcomputePlayerSituationalStats等のgamesPlayedが
+ * 実際の出場試合数より多くカウントされてしまう）
+ */
+export function filterGameLogs<T extends { date: string; win: boolean; gameType: "regular" | "playoff"; min: number }>(
   logs: T[],
   filter: SituationalFilter,
 ): T[] {
+  const played = logs.filter((g) => g.min > 0);
+  const scoped = filter.includePlayoffs ? played : played.filter((g) => g.gameType === "regular");
   switch (filter.kind) {
     case "all":
-      return logs;
+      return scoped;
     case "recent":
-      return logs.slice(Math.max(0, logs.length - filter.n));
+      return scoped.slice(Math.max(0, scoped.length - filter.n));
     case "result":
-      return logs.filter((g) => g.win === filter.win);
+      return scoped.filter((g) => g.win === filter.win);
     case "dateRange":
-      return logs.filter(
+      return scoped.filter(
         (g) => (!filter.start || g.date >= filter.start) && (!filter.end || g.date <= filter.end),
       );
   }
