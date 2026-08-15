@@ -4,6 +4,7 @@
 
 import type { PlayerSummary, TeamSummary } from "../../shared/types";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
+import { safeDiv } from "../../shared/formulas";
 
 export type StatSource = "official" | "nba" | "custom";
 
@@ -125,6 +126,16 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
     formulaText: "FGM / FGA",
     source: "official",
     officialAbbr: "FG%",
+    category: "shooting",
+  },
+  {
+    key: "twoPct",
+    label: "2P%",
+    value: (t) => safeDiv(t.totals.fgm - t.totals.tpm, t.totals.fga - t.totals.tpa),
+    format: (t) => formatPct(safeDiv(t.totals.fgm - t.totals.tpm, t.totals.fga - t.totals.tpa)),
+    formulaText: "2PM / 2PA　※2PM=FGM−3PM, 2PA=FGA−3PA",
+    source: "official",
+    officialAbbr: "2FG%",
     category: "shooting",
   },
   {
@@ -298,6 +309,16 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     formulaText: "FGM / FGA",
     source: "official",
     officialAbbr: "FG%",
+    category: "shooting",
+  },
+  {
+    key: "twoPct",
+    label: "2P%",
+    value: (p) => safeDiv(p.totals.fgm - p.totals.tpm, p.totals.fga - p.totals.tpa),
+    format: (p) => formatPct(safeDiv(p.totals.fgm - p.totals.tpm, p.totals.fga - p.totals.tpa)),
+    formulaText: "2PM / 2PA　※2PM=FGM−3PM, 2PA=FGA−3PA",
+    source: "official",
+    officialAbbr: "2FG%",
     category: "shooting",
   },
   {

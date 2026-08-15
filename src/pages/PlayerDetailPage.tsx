@@ -165,6 +165,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             rows={gameLogs}
             rowKey={(g) => g.scheduleKey}
             defaultSortKey="date"
+            linkTo={(g) => `/games/${g.scheduleKey}`}
           />
         </div>
       )}
