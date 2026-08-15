@@ -59,7 +59,8 @@ async function backfillSeason(season: string): Promise<void> {
     }
     console.log(`[${season}] スケジュール収集中...`);
     const scheduleKeys = await scrapeSeasonSchedule(season);
-    await writeJson(schedulePath, { season, generatedAt: new Date().toISOString(), scheduleKeys });
+    // backfillは過去の完了済みシーズンが対象なので開催予定は常に無い（生データが全試合揃っている前提）
+    await writeJson(schedulePath, { season, generatedAt: new Date().toISOString(), scheduleKeys, upcomingGames: [] });
     console.log(`[${season}] スケジュール収集完了: ${scheduleKeys.length}試合`);
   }
 

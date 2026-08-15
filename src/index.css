@@ -844,3 +844,54 @@ table.h2h-table td {
     grid-template-columns: 1fr;
   }
 }
+
+.schedule-jump {
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.schedule-jump input[type="date"] {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  margin-left: 6px;
+}
+
+.schedule-date-group {
+  margin-bottom: 20px;
+}
+
+.schedule-date-group h2 {
+  margin: 0 0 8px;
+}
+
+table.schedule-table th {
+  cursor: default;
+}
+
+.schedule-row.status-upcoming {
+  color: var(--muted);
+}
+
+.live-badge,
+.upcoming-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.live-badge {
+  background: color-mix(in srgb, #2e7d32 20%, transparent);
+  color: #2e7d32;
+}
+
+.upcoming-badge {
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
+  color: var(--muted);
+}

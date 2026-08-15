@@ -54,6 +54,17 @@ export async function writeGameFile(filePath: string, data: StoredGame): Promise
   await writeJsonGz(filePath, data);
 }
 
+/**
+ * 生データ（games/）が既に存在するScheduleKeyの集合を返す（ファイル一覧のみ、中身は読まない軽量版）。
+ * scrape-schedule.tsが「まだ生データが無い試合＝開催予定」を判定するために使う
+ */
+export async function listStoredScheduleKeys(season: string): Promise<Set<string>> {
+  const dir = gamesDir(season);
+  if (!existsSync(dir)) return new Set();
+  const files = await readdir(dir);
+  return new Set(files.filter((f) => f.endsWith(".json.gz")).map((f) => f.replace(/\.json\.gz$/, "")));
+}
+
 /** シーズンに保存済みの全試合ファイルを読み込む（aggregate.ts等で使用） */
 export async function readAllGames(season: string): Promise<StoredGame[]> {
   const dir = gamesDir(season);

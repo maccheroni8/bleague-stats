@@ -13,9 +13,11 @@
 // 両方の環境に対応する
 
 import type {
+  GameSummary,
   HeadToHeadTeamRow,
   PlayerGameLog,
   PlayerSummary,
+  ScheduleFile,
   SeasonEntry,
   StandingsSnapshot,
   StoredGame,
@@ -75,4 +77,12 @@ export function fetchTeamLineups(season: string, teamId: string): Promise<TeamLi
 
 export function fetchSeasons(): Promise<SeasonEntry[]> {
   return fetchJson<SeasonEntry[]>(`${dataBase}/seasons.json`);
+}
+
+export function fetchSchedule(season: string): Promise<ScheduleFile> {
+  return fetchJson<ScheduleFile>(`${dataBase}/${season}/schedule.json`);
+}
+
+export function fetchGameSummaries(season: string): Promise<GameSummary[]> {
+  return fetchJson<GameSummary[]>(`${dataBase}/${season}/games-summary.json`);
 }

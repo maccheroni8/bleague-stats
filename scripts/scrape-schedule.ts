@@ -19,10 +19,11 @@
 
 import path from "node:path";
 import { createThrottledFetch } from "./lib/throttle.ts";
-import { DATA_DIR, readJson, writeJson } from "./lib/storage.ts";
+import { DATA_DIR, listStoredScheduleKeys, readJson, writeJson } from "./lib/storage.ts";
 import { seasonStartYearForDate } from "./lib/season.ts";
 import { isMainModule } from "./lib/isMain.ts";
-import type { ScheduleFile } from "../shared/types.ts";
+import { fetchUpcomingGameEntry } from "./lib/upcomingGame.ts";
+import type { ScheduleFile, UpcomingGameEntry } from "../shared/types.ts";
 
 const MIN_REQUEST_INTERVAL_MS = 2500;
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
@@ -109,9 +110,39 @@ export async function scrapeRecentSchedule(
   return [...foundKeys].sort();
 }
 
-async function readExistingScheduleKeys(outPath: string): Promise<string[]> {
-  const schedule = await readJson<ScheduleFile>(outPath);
-  return schedule?.scheduleKeys ?? [];
+/**
+ * scheduleKeysのうち、生データ（games/）がまだ無い試合（開催予定）だけをgame_detailページから
+ * 解決する。既に解決済み（existingUpcoming）なら再取得せず使い回し、生データが揃った試合は
+ * 自然にこの一覧から外れる（日程ページはgames-summary.json側を見るようになる）
+ */
+async function resolveUpcomingGames(
+  season: string,
+  scheduleKeys: string[],
+  existingUpcoming: UpcomingGameEntry[],
+): Promise<UpcomingGameEntry[]> {
+  const withBoxscore = await listStoredScheduleKeys(season);
+  const cached = new Map(existingUpcoming.map((g) => [g.scheduleKey, g]));
+  const result: UpcomingGameEntry[] = [];
+
+  for (const key of scheduleKeys) {
+    if (withBoxscore.has(key)) continue;
+    const existing = cached.get(key);
+    if (existing) {
+      result.push(existing);
+      continue;
+    }
+    const entry = await fetchUpcomingGameEntry(key);
+    if (entry) {
+      console.log(
+        `[${season}] 開催予定を解決: ScheduleKey=${key} ${entry.date} ${entry.homeTeamName} vs ${entry.awayTeamName}`,
+      );
+      result.push(entry);
+    } else {
+      console.warn(`[${season}] 開催予定の解決に失敗（次回再試行）: ScheduleKey=${key}`);
+    }
+  }
+
+  return result;
 }
 
 async function main(): Promise<void> {
@@ -131,25 +162,35 @@ async function main(): Promise<void> {
   const recentIndex = args.indexOf("--recent");
   if (recentIndex !== -1) {
     const days = Number(args[recentIndex + 1] ?? "14");
-    const existingKeys = await readExistingScheduleKeys(outPath);
+    const existingFile = await readJson<ScheduleFile>(outPath);
+    const existingKeys = existingFile?.scheduleKeys ?? [];
     const recentKeys = await scrapeRecentSchedule(season, days, events);
     const mergedKeys = [...new Set([...existingKeys, ...recentKeys])].sort();
     const addedCount = mergedKeys.length - existingKeys.length;
+    const upcomingGames = await resolveUpcomingGames(season, mergedKeys, existingFile?.upcomingGames ?? []);
 
-    await writeJson(outPath, { season, generatedAt: new Date().toISOString(), scheduleKeys: mergedKeys });
+    await writeJson(outPath, {
+      season,
+      generatedAt: new Date().toISOString(),
+      scheduleKeys: mergedKeys,
+      upcomingGames,
+    });
     console.log(
-      `[${season}] 直近${days}日の軽量チェック完了: 新規${addedCount}件（累計${mergedKeys.length}件）`,
+      `[${season}] 直近${days}日の軽量チェック完了: 新規${addedCount}件（累計${mergedKeys.length}件） ／ 開催予定${upcomingGames.length}件`,
     );
     return;
   }
 
   const scheduleKeys = await scrapeSeasonSchedule(season, events);
+  const existingFile = await readJson<ScheduleFile>(outPath);
+  const upcomingGames = await resolveUpcomingGames(season, scheduleKeys, existingFile?.upcomingGames ?? []);
   await writeJson(outPath, {
     season,
     generatedAt: new Date().toISOString(),
     scheduleKeys,
+    upcomingGames,
   });
-  console.log(`保存完了: ${outPath}（${scheduleKeys.length}試合）`);
+  console.log(`保存完了: ${outPath}（${scheduleKeys.length}試合／開催予定${upcomingGames.length}件）`);
 }
 
 if (isMainModule(import.meta.url)) {

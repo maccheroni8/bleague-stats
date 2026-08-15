@@ -19,3 +19,12 @@ export function formatSigned(value: number, digits = 1): string {
 export function formatRecord(wins: number, losses: number): string {
   return `${wins}-${losses}`;
 }
+
+const WEEKDAY_JA = ["日", "月", "火", "水", "木", "金", "土"];
+
+/** "2026-10-03" -> "2026年10月3日（土）"。JSTの暦日文字列前提でUTC基準に構築し、閲覧者側のtzに影響されないようにする */
+export function formatDateHeading(date: string): string {
+  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
+  const weekday = WEEKDAY_JA[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return `${y}年${m}月${d}日（${weekday}）`;
+}

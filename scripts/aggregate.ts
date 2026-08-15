@@ -15,6 +15,7 @@ import { classifyGameType } from "./lib/gameType.ts";
 import type {
   BoxscoreRow,
   Division,
+  GameSummary,
   GameType,
   HeadToHeadRecord,
   HeadToHeadTeamRow,
@@ -220,7 +221,8 @@ function pickTeamRow(rows: BoxscoreRow[], category: 1 | 3): BoxscoreRow[] {
 }
 
 export async function aggregateSeason(season: string): Promise<void> {
-  const allGames = (await readAllGames(season)).filter((g) => g.gameEndedFlg);
+  const rawGames = await readAllGames(season);
+  const allGames = rawGames.filter((g) => g.gameEndedFlg);
   const games = allGames.filter((g) => !isExhibitionGame(g.raw.Game.ConventionNameJ));
   const excludedCount = allGames.length - games.length;
   // players.json/teams.json・standings-history.json・head-to-head.jsonのデフォルト集計は
@@ -232,6 +234,12 @@ export async function aggregateSeason(season: string): Promise<void> {
     `[${season}] 集計対象: ${games.length}試合（終了済みのみ、レギュラー${games.length - playoffCount}／プレーオフ${playoffCount}）` +
       (excludedCount > 0 ? ` ／ オールスター等${excludedCount}試合を除外` : ""),
   );
+
+  // 日程ページ（#/schedule）用。進行中（box scoreはあるがgameEndedFlgがまだfalse）の試合も
+  // 含めるため、gameEndedFlgで絞り込む前のrawGamesを使う（exhibitionのみ除外）
+  const scheduleGames = rawGames.filter((g) => !isExhibitionGame(g.raw.Game.ConventionNameJ));
+  const gameSummaries = buildGameSummaries(scheduleGames);
+  await writeJson(path.join(DATA_DIR, season, "games-summary.json"), gameSummaries);
 
   // EFFの計算式は年度で異なる（DESIGN.md 6章）。シーズン文字列("2025-26")から開始年を取り出す
   const seasonStartYear = Number(season.split("-")[0]);
@@ -402,7 +410,7 @@ export async function aggregateSeason(season: string): Promise<void> {
   console.log(
     `保存完了: players.json(${playersJson.length}名) / teams.json(${teamsJson.length}チーム) / ` +
       `standings-history.json(${standingsHistory.length}日分) / head-to-head.json(${headToHead.length}チーム) / ` +
-      `lineups/(${teamLineups.size}チーム)`,
+      `lineups/(${teamLineups.size}チーム) / games-summary.json(${gameSummaries.length}試合)`,
   );
 }
 
@@ -580,6 +588,25 @@ function processTeams(
     gameType,
     ...teamGameLogStats(awayRow),
   });
+}
+
+/** 日程ページ（#/schedule）用の1試合1行サマリを作る。日付→ScheduleKey順にソートする */
+function buildGameSummaries(games: StoredGame[]): GameSummary[] {
+  return [...games]
+    .map((g) => ({
+      scheduleKey: g.scheduleKey,
+      date: g.date,
+      homeTeamId: g.homeTeam.id,
+      homeTeamName: g.homeTeam.name,
+      awayTeamId: g.awayTeam.id,
+      awayTeamName: g.awayTeam.name,
+      homeScore: g.homeScore,
+      awayScore: g.awayScore,
+      gameEndedFlg: g.gameEndedFlg,
+      gameType: classifyGameType(g.raw.Game.ConventionNameJ),
+      venue: g.raw.Game.StadiumNameJ || undefined,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
 }
 
 interface StandingsAccumulator {

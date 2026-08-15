@@ -5,6 +5,7 @@ import { TeamDetailPage } from "./pages/TeamDetailPage";
 import { PlayersListPage } from "./pages/PlayersListPage";
 import { PlayerDetailPage } from "./pages/PlayerDetailPage";
 import { GameDetailPage } from "./pages/GameDetailPage";
+import { SchedulePage } from "./pages/SchedulePage";
 import { RankingsPage } from "./pages/RankingsPage";
 import { ComparePage } from "./pages/ComparePage";
 import { StandingsPage } from "./pages/StandingsPage";
@@ -28,6 +29,9 @@ export default function App() {
             <NavLink to="/players" className={({ isActive }) => (isActive ? "active" : "")}>
               個人
             </NavLink>
+            <NavLink to="/schedule" className={({ isActive }) => (isActive ? "active" : "")}>
+              日程
+            </NavLink>
             <NavLink to="/rankings" className={({ isActive }) => (isActive ? "active" : "")}>
               ランキング
             </NavLink>
@@ -50,6 +54,7 @@ export default function App() {
             <Route path="/players" element={<PlayersListPage season={season} />} />
             <Route path="/players/:playerId" element={<PlayerDetailPage season={season} />} />
             <Route path="/games/:scheduleKey" element={<GameDetailPage season={season} />} />
+            <Route path="/schedule" element={<SchedulePage season={season} />} />
             <Route path="/rankings" element={<RankingsPage season={season} />} />
             <Route path="/compare" element={<ComparePage season={season} />} />
             <Route path="/standings" element={<StandingsPage season={season} />} />

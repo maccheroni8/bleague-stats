@@ -267,10 +267,44 @@ export interface StoredGame {
 
 // ---- data/{season}/schedule.json の保存スキーマ ----
 
+/**
+ * 生データ（data/{season}/games/）がまだ無い試合（開催予定）の日程情報。
+ * GeniusAPIは未開催の試合にAccessDeniedを返すため使えず、game_detailページのHTMLから
+ * 日付・対戦カード・会場を取得する（scripts/lib/upcomingGame.ts、2026-08-16導入）。
+ * 生データが揃い次第（試合開始後）この一覧からは自然に外れ、games-summary.json側に載る
+ */
+export interface UpcomingGameEntry {
+  scheduleKey: string;
+  /** JST基準のYYYY-MM-DD */
+  date: string;
+  homeTeamName: string;
+  awayTeamName: string;
+  venue?: string;
+}
+
 export interface ScheduleFile {
   season: string;
   generatedAt: string;
   scheduleKeys: string[];
+  upcomingGames: UpcomingGameEntry[];
+}
+
+// ---- data/{season}/games-summary.json の保存スキーマ（日程ページ用。1試合1行、レギュラー+
+// プレーオフ。オールスター等除外済み。games/の生データからaggregate.tsが毎回作り直す） ----
+
+export interface GameSummary {
+  scheduleKey: string;
+  /** JST基準のYYYY-MM-DD */
+  date: string;
+  homeTeamId: string;
+  homeTeamName: string;
+  awayTeamId: string;
+  awayTeamName: string;
+  homeScore: number;
+  awayScore: number;
+  gameEndedFlg: boolean;
+  gameType: GameType;
+  venue?: string;
 }
 
 // ---- data/{season}/teams.json・players.json の保存スキーマ（aggregate.tsの集計結果） ----
