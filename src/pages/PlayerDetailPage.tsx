@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fetchPlayerGameLogs, fetchPlayers } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
+import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import type { PlayerGameLog } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
@@ -73,6 +74,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
     [season, playerId],
   );
   const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
+  const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
+  const pbpSupported = isPbpSupported(coverage);
 
   if (playersLoading) return <p className="loading">読み込み中...</p>;
   if (playersError) return <p className="error-message">{playersError}</p>;
@@ -105,8 +108,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
           <StatTile label="BLK" value={formatDecimal(player.perGame.blk)} />
           <StatTile label="TOV" value={formatDecimal(player.perGame.tov)} />
           <StatTile label="+/-" value={formatSigned(player.perGame.plusMinus)} />
-          <StatTile label="オンコート+/-" value={formatSigned(player.advanced.onCourtNetPerGame)} />
-          <StatTile label="オフコート+/-" value={formatSigned(player.advanced.offCourtNetPerGame)} />
           <StatTile label="FG%" value={formatPct(player.shooting.fgPct)} />
           <StatTile label="3P%" value={formatPct(player.shooting.tpPct)} />
           <StatTile label="FT%" value={formatPct(player.shooting.ftPct)} />
@@ -131,6 +132,18 @@ export function PlayerDetailPage({ season }: { season: string }) {
           <StatTile label="FT%" value={formatPct(situational.shooting.ftPct)} />
           <StatTile label="eFG%" value={formatPct(situational.shooting.efgPct)} />
           <StatTile label="TS%" value={formatPct(situational.shooting.tsPct)} />
+        </div>
+      )}
+
+      <h2>オンオフコートスタッツ</h2>
+      {coverageLoading ? (
+        <p className="loading">読み込み中...</p>
+      ) : !pbpSupported ? (
+        <p className="empty-message">このシーズンのデータには対応していません</p>
+      ) : (
+        <div className="stat-grid">
+          <StatTile label="オンコート+/-" value={formatSigned(player.advanced.onCourtNetPerGame)} />
+          <StatTile label="オフコート+/-" value={formatSigned(player.advanced.offCourtNetPerGame)} />
         </div>
       )}
 

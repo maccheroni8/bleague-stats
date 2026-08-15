@@ -4,10 +4,12 @@
 // 使い方: npm run aggregate -- --season 2025-26
 
 import path from "node:path";
+import { readdir } from "node:fs/promises";
 import { DATA_DIR, readAllGames, readJson, writeJson } from "./lib/storage.ts";
 import { eff, efgPct, ftRate, offensiveRating, orbPct, pace, parsePlayTime, safeDiv, tsPct, usagePct } from "../shared/formulas.ts";
 import { reconstructOnCourt, substitutionModelForSeason, type OnCourtReconstruction } from "../shared/onCourt.ts";
 import { teamDivision } from "./lib/divisions.ts";
+import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import type {
   BoxscoreRow,
   Division,
@@ -16,6 +18,7 @@ import type {
   LineupAggregate,
   PlayerGameLog,
   PlayerMasterEntry,
+  SeasonEntry,
   StandingsSnapshot,
   StandingsTeamSnapshot,
   StoredGame,
@@ -23,6 +26,22 @@ import type {
   TeamLineupsFile,
 } from "../shared/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
+
+const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
+
+/**
+ * data/配下に存在するシーズンディレクトリを走査してdata/seasons.jsonを再生成する。
+ * どのシーズンをaggregateしても全シーズン分を書き直す（冪等）ため、専用の実行手順は不要。
+ */
+async function regenerateSeasonsFile(): Promise<void> {
+  const entries = await readdir(DATA_DIR, { withFileTypes: true });
+  const seasons = entries
+    .filter((e) => e.isDirectory() && SEASON_DIR_PATTERN.test(e.name))
+    .map((e) => e.name)
+    .sort();
+  const seasonsFile: SeasonEntry[] = seasons.map((season) => ({ season, coverage: seasonCoverage(season) }));
+  await writeJson(path.join(DATA_DIR, "seasons.json"), seasonsFile);
+}
 
 interface StatTotals {
   gamesPlayed: number;
@@ -363,6 +382,7 @@ export async function aggregateSeason(season: string): Promise<void> {
 
   await writeJson(path.join(DATA_DIR, season, "players.json"), playersJson);
   await writeJson(path.join(DATA_DIR, season, "teams.json"), teamsJson);
+  await regenerateSeasonsFile();
   console.log(
     `保存完了: players.json(${playersJson.length}名) / teams.json(${teamsJson.length}チーム) / ` +
       `standings-history.json(${standingsHistory.length}日分) / head-to-head.json(${headToHead.length}チーム) / ` +

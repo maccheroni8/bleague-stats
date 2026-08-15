@@ -16,6 +16,7 @@ import type {
   HeadToHeadTeamRow,
   PlayerGameLog,
   PlayerSummary,
+  SeasonEntry,
   StandingsSnapshot,
   StoredGame,
   TeamGameLog,
@@ -70,4 +71,8 @@ export function fetchHeadToHead(season: string): Promise<HeadToHeadTeamRow[]> {
 
 export function fetchTeamLineups(season: string, teamId: string): Promise<TeamLineupsFile> {
   return fetchJson<TeamLineupsFile>(`${dataBase}/${season}/lineups/${teamId}.json`);
+}
+
+export function fetchSeasons(): Promise<SeasonEntry[]> {
+  return fetchJson<SeasonEntry[]>(`${dataBase}/seasons.json`);
 }

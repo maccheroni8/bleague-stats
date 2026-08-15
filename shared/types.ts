@@ -542,6 +542,29 @@ export interface TeamLineupsFile {
   lineups: LineupAggregate[];
 }
 
+// ---- data/seasons.json の保存スキーマ（収録済みシーズン一覧・データ対応範囲。DESIGN.md参照） ----
+
+/**
+ * シーズンごとのデータ対応範囲（フロントエンドがPBP系機能・ショットチャートの表示可否を
+ * 判定するためのフラグ）。2層構成（2026-08-15、ユーザー確定）:
+ * - "full": 基本＋アドバンスド＋PBP系（Lead Tracker・出場交代バー・ラインナップ・
+ *   オンオフコートスタッツ）＋ショットチャート全部対応（2022-23〜。公式PLUSMINUS/USG/
+ *   ショット座標がAPIに存在する）
+ * - "pbpNoShotChart": 基本＋アドバンスド＋PBP系はあるがショットチャートのみ非対応
+ *   （2016-17〜2021-22。個人+/-はshared/onCourt.tsによる自前復元。2016-17〜2019-20は
+ *   legacyモデルでの復元だが、2026-08-13検証で警告0件・MIN一致率100%を確認済みのため
+ *   2020-21〜2021-22と同じ扱いとする。将来ショットチャートを実装する際もこのフラグを
+ *   そのまま参照する）
+ */
+export type SeasonCoverage = "full" | "pbpNoShotChart";
+
+export interface SeasonEntry {
+  season: string;
+  coverage: SeasonCoverage;
+}
+
+export type SeasonsFile = SeasonEntry[];
+
 // ---- data/season-rules.json の保存スキーマ（シーズン非依存、レギュレーション変遷。DESIGN.md参照） ----
 
 /**

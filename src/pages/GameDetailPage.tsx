@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { fetchGame } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
+import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import type { BoxscoreRow } from "../../shared/types";
 import { KeyStatsChart } from "../components/KeyStatsChart";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
@@ -39,10 +40,13 @@ export function GameDetailPage({ season }: { season: string }) {
     () => (scheduleKey ? fetchGame(season, scheduleKey) : Promise.reject(new Error("scheduleKeyがありません"))),
     [season, scheduleKey],
   );
+  const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
 
-  if (loading) return <p className="loading">読み込み中...</p>;
+  if (loading || coverageLoading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
   if (!game) return <p className="error-message">試合が見つかりませんでした</p>;
+
+  const pbpSupported = isPbpSupported(coverage);
 
   const homePlayers = playerRows(game.raw.HomeBoxscores);
   const awayPlayers = playerRows(game.raw.AwayBoxscores);
@@ -59,31 +63,38 @@ export function GameDetailPage({ season }: { season: string }) {
   const timeoutMarks = buildTimeoutMarks(game.raw.PlayByPlays);
   const periodBoundaries = buildPeriodBoundaries(periods);
 
-  const onCourt = reconstructOnCourt(
-    game.raw.PlayByPlays,
-    game.raw.HomeBoxscores,
-    game.raw.AwayBoxscores,
-    game.homeTeam.id,
-    game.awayTeam.id,
-    periods,
-    substitutionModelForSeason(game.season),
-  );
-  const intervalsByPlayer = new Map<string, { startSec: number; endSec: number }[]>();
-  for (const iv of onCourt.intervals) {
-    const list = intervalsByPlayer.get(iv.playerId) ?? [];
-    list.push({ startSec: iv.startSec, endSec: iv.endSec });
-    intervalsByPlayer.set(iv.playerId, list);
+  let homeStarters: SubstitutionRow[] = [];
+  let homeBench: SubstitutionRow[] = [];
+  let awayStarters: SubstitutionRow[] = [];
+  let awayBench: SubstitutionRow[] = [];
+
+  if (pbpSupported) {
+    const onCourt = reconstructOnCourt(
+      game.raw.PlayByPlays,
+      game.raw.HomeBoxscores,
+      game.raw.AwayBoxscores,
+      game.homeTeam.id,
+      game.awayTeam.id,
+      periods,
+      substitutionModelForSeason(game.season),
+    );
+    const intervalsByPlayer = new Map<string, { startSec: number; endSec: number }[]>();
+    for (const iv of onCourt.intervals) {
+      const list = intervalsByPlayer.get(iv.playerId) ?? [];
+      list.push({ startSec: iv.startSec, endSec: iv.endSec });
+      intervalsByPlayer.set(iv.playerId, list);
+    }
+    const toSubstitutionRows = (rows: BoxscoreRow[]): SubstitutionRow[] =>
+      rows.map((r) => ({
+        playerId: r.PlayerID,
+        name: r.PlayerNameJ,
+        intervals: (intervalsByPlayer.get(r.PlayerID) ?? []).sort((a, b) => a.startSec - b.startSec),
+      }));
+    homeStarters = toSubstitutionRows(homePlayers.filter((r) => r.StartingFlg === 1));
+    homeBench = toSubstitutionRows(homePlayers.filter((r) => r.StartingFlg !== 1));
+    awayStarters = toSubstitutionRows(awayPlayers.filter((r) => r.StartingFlg === 1));
+    awayBench = toSubstitutionRows(awayPlayers.filter((r) => r.StartingFlg !== 1));
   }
-  const toSubstitutionRows = (rows: BoxscoreRow[]): SubstitutionRow[] =>
-    rows.map((r) => ({
-      playerId: r.PlayerID,
-      name: r.PlayerNameJ,
-      intervals: (intervalsByPlayer.get(r.PlayerID) ?? []).sort((a, b) => a.startSec - b.startSec),
-    }));
-  const homeStarters = toSubstitutionRows(homePlayers.filter((r) => r.StartingFlg === 1));
-  const homeBench = toSubstitutionRows(homePlayers.filter((r) => r.StartingFlg !== 1));
-  const awayStarters = toSubstitutionRows(awayPlayers.filter((r) => r.StartingFlg === 1));
-  const awayBench = toSubstitutionRows(awayPlayers.filter((r) => r.StartingFlg !== 1));
 
   return (
     <div>
@@ -141,26 +152,34 @@ export function GameDetailPage({ season }: { season: string }) {
       </div>
 
       <h2>Lead Tracker</h2>
-      <LeadTrackerChart
-        points={scoreTimeline}
-        timeouts={timeoutMarks}
-        periodBoundaries={periodBoundaries}
-        totalSeconds={totalGameSeconds(periods)}
-        homeTeamName={game.homeTeam.name}
-        awayTeamName={game.awayTeam.name}
-      />
+      {pbpSupported ? (
+        <LeadTrackerChart
+          points={scoreTimeline}
+          timeouts={timeoutMarks}
+          periodBoundaries={periodBoundaries}
+          totalSeconds={totalGameSeconds(periods)}
+          homeTeamName={game.homeTeam.name}
+          awayTeamName={game.awayTeam.name}
+        />
+      ) : (
+        <p className="empty-message">このシーズンのデータには対応していません</p>
+      )}
 
       <h2>出場交代</h2>
-      <SubstitutionBarChart
-        homeTeamName={game.homeTeam.name}
-        awayTeamName={game.awayTeam.name}
-        homeStarters={homeStarters}
-        homeBench={homeBench}
-        awayStarters={awayStarters}
-        awayBench={awayBench}
-        periodBoundaries={periodBoundaries}
-        totalSeconds={totalGameSeconds(periods)}
-      />
+      {pbpSupported ? (
+        <SubstitutionBarChart
+          homeTeamName={game.homeTeam.name}
+          awayTeamName={game.awayTeam.name}
+          homeStarters={homeStarters}
+          homeBench={homeBench}
+          awayStarters={awayStarters}
+          awayBench={awayBench}
+          periodBoundaries={periodBoundaries}
+          totalSeconds={totalGameSeconds(periods)}
+        />
+      ) : (
+        <p className="empty-message">このシーズンのデータには対応していません</p>
+      )}
 
       <h2>ゲームリーダー</h2>
       <div className="game-leaders">

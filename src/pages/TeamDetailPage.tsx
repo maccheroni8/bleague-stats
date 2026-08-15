@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fetchPlayers, fetchTeamGameLogs, fetchTeamLineups, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
+import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import type { PlayerSummary, TeamGameLog } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
@@ -52,6 +53,8 @@ export function TeamDetailPage({ season }: { season: string }) {
     [season, teamId],
   );
   const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
+  const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
+  const pbpSupported = isPbpSupported(coverage);
 
   if (teamsLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (teamsError) return <p className="error-message">{teamsError}</p>;
@@ -156,7 +159,11 @@ export function TeamDetailPage({ season }: { season: string }) {
       )}
 
       <h2>よく使われるラインナップ</h2>
-      {topLineups.length === 0 ? (
+      {coverageLoading ? (
+        <p className="loading">読み込み中...</p>
+      ) : !pbpSupported ? (
+        <p className="empty-message">このシーズンのデータには対応していません</p>
+      ) : topLineups.length === 0 ? (
         <p className="empty-message">
           {(lineupsFile?.lineups.length ?? 0) === 0
             ? "ラインナップデータがありません"
