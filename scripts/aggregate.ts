@@ -10,6 +10,7 @@ import { eff, efgPct, ftRate, offensiveRating, orbPct, pace, parsePlayTime, safe
 import { reconstructOnCourt, substitutionModelForSeason, type OnCourtReconstruction } from "../shared/onCourt.ts";
 import { teamDivision } from "./lib/divisions.ts";
 import { seasonCoverage } from "./lib/seasonCoverage.ts";
+import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import type {
   BoxscoreRow,
   Division,
@@ -217,8 +218,13 @@ function pickTeamRow(rows: BoxscoreRow[], category: 1 | 3): BoxscoreRow[] {
 }
 
 export async function aggregateSeason(season: string): Promise<void> {
-  const games = (await readAllGames(season)).filter((g) => g.gameEndedFlg);
-  console.log(`[${season}] 集計対象: ${games.length}試合（終了済みのみ）`);
+  const allGames = (await readAllGames(season)).filter((g) => g.gameEndedFlg);
+  const games = allGames.filter((g) => !isExhibitionGame(g.raw.Game.ConventionNameJ));
+  const excludedCount = allGames.length - games.length;
+  console.log(
+    `[${season}] 集計対象: ${games.length}試合（終了済みのみ）` +
+      (excludedCount > 0 ? ` ／ オールスター等${excludedCount}試合を除外` : ""),
+  );
 
   // EFFの計算式は年度で異なる（DESIGN.md 6章）。シーズン文字列("2025-26")から開始年を取り出す
   const seasonStartYear = Number(season.split("-")[0]);
