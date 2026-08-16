@@ -117,7 +117,7 @@ async function fetchDivisionChampions(season: string): Promise<DivisionChampion[
   return champions;
 }
 
-// 国際大会（2026-08-16、複数の一次情報を突き合わせて確定。docs:/DESIGN.md参照）
+// 国際大会（2026-08-16、複数の一次情報を突き合わせて確定。docs/DESIGN.md参照）
 const INTERNATIONAL_HONORS: Array<{ teamId: string; competition: string; season: string; note: string }> = [
   {
     teamId: "706",
