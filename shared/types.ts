@@ -680,6 +680,20 @@ export interface TeamHistoryEntry {
   names: TeamNameHistoryEntry[];
 }
 
+// ---- data/club-honors.json の保存スキーマ（teamId→獲得タイトル配列。scripts/scrape-club-honors.ts参照） ----
+
+export type HonorCategory = "overall" | "division" | "international";
+
+export interface ClubHonor {
+  competition: string;
+  /** "2023-24"形式のシーズン、または国際大会の一部実績は暦年（"2019"等） */
+  season: string;
+  category: HonorCategory;
+  note?: string;
+}
+
+export type ClubHonorsFile = Record<string, ClubHonor[]>;
+
 // ---- data/players-master.json の保存スキーマ（シーズン非依存、全選手共通。DESIGN.md 5章参照） ----
 
 export interface PlayerMasterEntry {

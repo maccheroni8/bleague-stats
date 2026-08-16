@@ -13,6 +13,7 @@
 // 両方の環境に対応する
 
 import type {
+  ClubHonorsFile,
   GameSummary,
   HeadToHeadTeamRow,
   PlayerGameLog,
@@ -23,6 +24,7 @@ import type {
   StoredGame,
   TeamColors,
   TeamGameLog,
+  TeamHistoryEntry,
   TeamLineupsFile,
   TeamSummary,
 } from "../../shared/types";
@@ -82,6 +84,14 @@ export function fetchSeasons(): Promise<SeasonEntry[]> {
 
 export function fetchTeamColors(): Promise<Record<string, TeamColors>> {
   return fetchJson<Record<string, TeamColors>>(`${dataBase}/team-colors.json`);
+}
+
+export function fetchTeamHistory(): Promise<TeamHistoryEntry[]> {
+  return fetchJson<TeamHistoryEntry[]>(`${dataBase}/team-history.json`);
+}
+
+export function fetchClubHonors(): Promise<ClubHonorsFile> {
+  return fetchJson<ClubHonorsFile>(`${dataBase}/club-honors.json`);
 }
 
 export function fetchSchedule(season: string): Promise<ScheduleFile> {
