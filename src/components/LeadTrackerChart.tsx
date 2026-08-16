@@ -38,6 +38,16 @@ export function LeadTrackerChart({
   const homeStroke = homeColor ?? "var(--accent)";
   const awayStroke = awayColor ?? "var(--muted)";
 
+  // linearGradientはデフォルトでobjectBoundingBox（描画されたAreaの実際の最大値〜最小値の矩形）を
+  // 基準にオフセットを解釈するため、単純に50%で区切ると「得失点差0」の位置とズレる
+  // （ホームの最大リードとアウェイの最大リードの大きさが非対称な場合、境界がホーム/アウェイ
+  // どちらかの色に偏って侵食する）。Rechartsの定番パターンに倣い、実データのmax/minから
+  // 0が来る位置の比率を計算し、そこを色の境界に使う
+  const dataMaxDiff = points.reduce((max, p) => Math.max(max, p.diff), -Infinity);
+  const dataMinDiff = points.reduce((min, p) => Math.min(min, p.diff), Infinity);
+  const zeroOffset =
+    dataMaxDiff <= 0 ? 0 : dataMinDiff >= 0 ? 1 : dataMaxDiff / (dataMaxDiff - dataMinDiff);
+
   return (
     <div className="lead-tracker-chart">
       <div className="lead-tracker-legend">
@@ -58,10 +68,8 @@ export function LeadTrackerChart({
         <AreaChart data={points} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
           <defs>
             <linearGradient id="leadTrackerGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={homeStroke} stopOpacity={0.9} />
-              <stop offset="50%" stopColor={homeStroke} stopOpacity={0.9} />
-              <stop offset="50%" stopColor={awayStroke} stopOpacity={0.9} />
-              <stop offset="100%" stopColor={awayStroke} stopOpacity={0.9} />
+              <stop offset={zeroOffset} stopColor={homeStroke} stopOpacity={0.9} />
+              <stop offset={zeroOffset} stopColor={awayStroke} stopOpacity={0.9} />
             </linearGradient>
           </defs>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
@@ -89,15 +97,26 @@ export function LeadTrackerChart({
             .map((b) => (
               <ReferenceLine key={`period-${b.period}`} x={b.startSec} stroke="var(--border)" />
             ))}
-          {timeouts.map((t, i) => (
-            <ReferenceLine
-              key={`timeout-${i}`}
-              x={t.elapsedSec}
-              stroke={t.homeAway === 1 ? homeStroke : t.homeAway === 2 ? awayStroke : "var(--border)"}
-              strokeDasharray="2 3"
-              strokeOpacity={0.6}
-            />
-          ))}
+          {timeouts.map((t, i) =>
+            t.homeAway === null ? (
+              <ReferenceLine
+                key={`timeout-${i}`}
+                x={t.elapsedSec}
+                stroke="var(--fg)"
+                strokeDasharray="2 3"
+                strokeOpacity={0.9}
+                strokeWidth={1.5}
+              />
+            ) : (
+              <ReferenceLine
+                key={`timeout-${i}`}
+                x={t.elapsedSec}
+                stroke={t.homeAway === 1 ? homeStroke : awayStroke}
+                strokeDasharray="2 3"
+                strokeOpacity={0.6}
+              />
+            ),
+          )}
           <Area
             type="stepAfter"
             dataKey="diff"
@@ -110,7 +129,9 @@ export function LeadTrackerChart({
           />
         </AreaChart>
       </ResponsiveContainer>
-      <p className="lead-tracker-note">点線: タイムアウト（{homeTeamName}色/{awayTeamName}色/オフィシャルは灰色）</p>
+      <p className="lead-tracker-note">
+        点線: タイムアウト（{homeTeamName}色/{awayTeamName}色。オフィシャルタイムアウトは白/黒）
+      </p>
     </div>
   );
 }
