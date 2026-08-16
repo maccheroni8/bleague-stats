@@ -271,23 +271,55 @@ table.sortable-table tbody tr:hover {
   color: #b8860b;
 }
 
+/* 試合詳細ページ: 1枚のスクリーンショットで内容が読み取れる密度を狙い、見出し・カードの
+   余白とフォントサイズを他ページより一段引き締める。ホーム/アウェイの区別はdata/team-colors.json
+   の各チームprimaryカラーをカード左端・スコアボード上端のアクセントに使う（値が無いチームは
+   var(--border)にフォールバックする） */
+.game-detail-page h2 {
+  margin: 20px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.gd-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.gd-card h2 {
+  margin: 0 0 10px;
+}
+
+.quarter-tables-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
 .scoreboard {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 32px;
-  padding: 24px 0;
-  margin-bottom: 24px;
+  gap: 28px;
+  padding: 6px 0 14px;
+  margin-bottom: 16px;
 }
 
 .scoreboard-team {
   text-align: center;
-  min-width: 160px;
+  min-width: 150px;
+  border-top: 4px solid var(--border);
+  padding-top: 10px;
 }
 
 .scoreboard-logo {
   display: block;
-  margin: 0 auto 8px;
+  margin: 0 auto 6px;
   object-fit: contain;
 }
 
@@ -295,14 +327,14 @@ table.sortable-table tbody tr:hover {
   color: var(--fg);
   text-decoration: none;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .scoreboard-score {
-  font-size: 40px;
+  font-size: 34px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .scoreboard-vs {
@@ -318,12 +350,12 @@ table.sortable-table tbody tr:hover {
 table.quarter-table {
   border-collapse: collapse;
   width: 100%;
-  margin-bottom: 24px;
+  white-space: nowrap;
 }
 
 table.quarter-table th,
 table.quarter-table td {
-  padding: 8px 12px;
+  padding: 6px 10px;
   text-align: center;
   border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
@@ -344,6 +376,7 @@ table.quarter-table th {
 
 .game-leaders-team {
   border: 1px solid var(--border);
+  border-left-width: 4px;
   border-radius: 8px;
   padding: 12px 16px;
 }
@@ -393,6 +426,7 @@ table.quarter-table th {
 
 .shot-chart-panel {
   border: 1px solid var(--border);
+  border-left-width: 4px;
   border-radius: 8px;
   padding: 12px 16px;
 }
@@ -507,22 +541,28 @@ table.quarter-table th {
 }
 
 .boxscore-section {
-  margin-bottom: 28px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
 }
 
 .boxscore-section h3 {
   margin: 0 0 10px;
+  font-size: 14px;
 }
 
 table.boxscore-table {
   border-collapse: collapse;
   width: 100%;
   white-space: nowrap;
+  font-size: 13px;
 }
 
 table.boxscore-table th,
 table.boxscore-table td {
-  padding: 6px 10px;
+  padding: 5px 8px;
   text-align: center;
   border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
@@ -534,18 +574,28 @@ table.boxscore-table th {
   font-weight: 600;
 }
 
+table.boxscore-table .cell-link:hover {
+  text-decoration: underline;
+}
+
 table.boxscore-table .boxscore-group-row td {
   text-align: left;
   background: var(--header-bg);
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
-  padding-top: 8px;
-  padding-bottom: 4px;
+  padding-top: 7px;
+  padding-bottom: 3px;
 }
 
 table.boxscore-table .dnp-row {
   color: var(--muted);
+}
+
+table.boxscore-table .team-coaches-row td {
+  color: var(--muted);
+  font-style: italic;
+  background: color-mix(in srgb, var(--muted) 6%, transparent);
 }
 
 table.boxscore-table .boxscore-summary-row td {
@@ -1053,7 +1103,8 @@ table.h2h-table td {
   .game-leaders,
   .key-stats-grid,
   .shot-chart-grid,
-  .standings-grid {
+  .standings-grid,
+  .quarter-tables-grid {
     grid-template-columns: 1fr;
   }
 }

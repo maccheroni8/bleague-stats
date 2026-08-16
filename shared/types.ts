@@ -389,6 +389,13 @@ export interface PlayerAdvancedStats {
   offCourtNetPerGame: number;
 }
 
+// ---- data/team-colors.json の保存スキーマ（scripts/extract-team-colors.ts生成） ----
+
+export interface TeamColors {
+  primary: string;
+  secondary: string;
+}
+
 export interface TeamSummary {
   teamId: string;
   teamName: string;

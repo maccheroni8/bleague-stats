@@ -21,6 +21,7 @@ import type {
   SeasonEntry,
   StandingsSnapshot,
   StoredGame,
+  TeamColors,
   TeamGameLog,
   TeamLineupsFile,
   TeamSummary,
@@ -77,6 +78,10 @@ export function fetchTeamLineups(season: string, teamId: string): Promise<TeamLi
 
 export function fetchSeasons(): Promise<SeasonEntry[]> {
   return fetchJson<SeasonEntry[]>(`${dataBase}/seasons.json`);
+}
+
+export function fetchTeamColors(): Promise<Record<string, TeamColors>> {
+  return fetchJson<Record<string, TeamColors>>(`${dataBase}/team-colors.json`);
 }
 
 export function fetchSchedule(season: string): Promise<ScheduleFile> {

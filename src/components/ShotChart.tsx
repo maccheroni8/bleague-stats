@@ -116,16 +116,18 @@ interface ShotChartPanelProps {
   players: BoxscoreRow[];
   shots: ShotEvent[];
   color: string;
+  /** チームカラー（data/team-colors.json）。カード左端のアクセント線にのみ使う（ショット点の色はcolorのまま） */
+  accentColor?: string;
 }
 
-export function ShotChartPanel({ teamName, players, shots, color }: ShotChartPanelProps) {
+export function ShotChartPanel({ teamName, players, shots, color, accentColor }: ShotChartPanelProps) {
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
   const [viewMode, setViewMode] = useState<"dots" | "zones">("dots");
   const selectablePlayers = useMemo(() => playersWithShots(players, shots), [players, shots]);
   const visibleShots = selectedPlayerId ? shots.filter((s) => s.playerId === selectedPlayerId) : shots;
 
   return (
-    <div className="shot-chart-panel">
+    <div className="shot-chart-panel" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
       <div className="shot-chart-header">
         <h3>{teamName}</h3>
         <select value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)}>

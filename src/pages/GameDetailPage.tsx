@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
-import { fetchGame, fetchPlayers } from "../lib/data";
+import { fetchGame, fetchPlayers, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import { formatSigned } from "../lib/format";
@@ -26,6 +26,21 @@ function playerRows(rows: BoxscoreRow[]): BoxscoreRow[] {
 
 function teamTotalRow(rows: BoxscoreRow[]): BoxscoreRow | undefined {
   return rows.find((r) => r.Category === 3 && r.PeriodCategory === 18);
+}
+
+/**
+ * 個人に紐付かないチーム発生イベント行（コーチ/ベンチのテクニカルファウル等）の試合合計行。
+ * bleague.jp公式サイトのgenius_game_new2208.jsでも同じCategory=2行を「TEAM / COACHES」として
+ * 表示している（docs:/DESIGN.md 2-2章参照）
+ */
+function teamCoachesRow(rows: BoxscoreRow[]): BoxscoreRow | undefined {
+  return rows.find((r) => r.Category === 2 && r.PeriodCategory === 18);
+}
+
+/** Q別得点（非累積）から、そのQ終了時点までの累積スコアを求める */
+function cumulativeScores(quarterScores: number[]): number[] {
+  let sum = 0;
+  return quarterScores.map((s) => (sum += s));
 }
 
 function topPlayers(rows: BoxscoreRow[], statKey: "Point" | "RB_TOT" | "AS", count = 3): BoxscoreRow[] {
@@ -122,6 +137,10 @@ export function GameDetailPage({ season }: { season: string }) {
   // players-master.json由来の国籍・登録区分（players.jsonに突合済み）をボックススコア集計に流用する。
   // 退団済み選手など現在のロースターに載っていない選手はclassification未定義のままになりうる
   const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season), [season]);
+  // シーズン非依存の静的データなので空配列depsで一度だけ取得する。無くても表示は成立する
+  // （ロゴ・写真と同じくグレースフルデグラデーション。デフォルト色にフォールバックする）ため
+  // ローディング/エラーで画面全体をブロックしない
+  const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
 
   if (loading || coverageLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
@@ -130,11 +149,15 @@ export function GameDetailPage({ season }: { season: string }) {
   const pbpSupported = isPbpSupported(coverage);
   const shotChartSupported = isShotChartSupported(coverage);
   const classificationById = new Map((players ?? []).map((p) => [p.playerId, p.classification] as const));
+  const homeColor = teamColors?.[game.homeTeam.id]?.primary;
+  const awayColor = teamColors?.[game.awayTeam.id]?.primary;
 
   const homePlayers = playerRows(game.raw.HomeBoxscores);
   const awayPlayers = playerRows(game.raw.AwayBoxscores);
   const homeTotal = teamTotalRow(game.raw.HomeBoxscores);
   const awayTotal = teamTotalRow(game.raw.AwayBoxscores);
+  const homeCoachesRow = teamCoachesRow(game.raw.HomeBoxscores);
+  const awayCoachesRow = teamCoachesRow(game.raw.AwayBoxscores);
 
   const allShots = shotChartSupported ? buildShotEvents(game.raw.PlayByPlays) : [];
   const homeShots = allShots.filter((s) => s.teamId === game.homeTeam.id);
@@ -183,15 +206,18 @@ export function GameDetailPage({ season }: { season: string }) {
     awayBench = toSubstitutionRows(awayPlayers.filter((r) => r.StartingFlg !== 1));
   }
 
+  const homeCum = cumulativeScores(game.quarterScores.home);
+  const awayCum = cumulativeScores(game.quarterScores.away);
+
   return (
-    <div>
+    <div className="game-detail-page">
       <Link to="/teams" className="back-link">
         ← チーム一覧に戻る
       </Link>
 
       <div className="scoreboard">
-        <div className="scoreboard-team">
-          <TeamLogo teamId={game.homeTeam.id} size={48} className="scoreboard-logo" />
+        <div className="scoreboard-team" style={homeColor ? { borderTopColor: homeColor } : undefined}>
+          <TeamLogo teamId={game.homeTeam.id} size={44} className="scoreboard-logo" />
           <Link to={`/teams/${game.homeTeam.id}`}>{game.homeTeam.name}</Link>
           <div className="scoreboard-score">{game.homeScore}</div>
         </div>
@@ -199,82 +225,141 @@ export function GameDetailPage({ season }: { season: string }) {
           <div className="scoreboard-date">{game.date}</div>
           <div>{game.gameEndedFlg ? "FINAL" : "試合中"}</div>
         </div>
-        <div className="scoreboard-team">
-          <TeamLogo teamId={game.awayTeam.id} size={48} className="scoreboard-logo" />
+        <div className="scoreboard-team" style={awayColor ? { borderTopColor: awayColor } : undefined}>
+          <TeamLogo teamId={game.awayTeam.id} size={44} className="scoreboard-logo" />
           <Link to={`/teams/${game.awayTeam.id}`}>{game.awayTeam.name}</Link>
           <div className="scoreboard-score">{game.awayScore}</div>
         </div>
       </div>
 
-      <div className="table-scroll">
-        <table className="quarter-table">
-          <thead>
-            <tr>
-              <th className="align-left">チーム</th>
-              {Array.from({ length: periods }, (_, i) => (
-                <th key={i}>{periodLabel(i, periods)}</th>
-              ))}
-              <th>合計</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className="align-left">{game.homeTeam.name}</td>
-              {game.quarterScores.home.map((s, i) => (
-                <td key={i}>{s}</td>
-              ))}
-              <td>
-                <strong>{game.homeScore}</strong>
-              </td>
-            </tr>
-            <tr>
-              <td className="align-left">{game.awayTeam.name}</td>
-              {game.quarterScores.away.map((s, i) => (
-                <td key={i}>{s}</td>
-              ))}
-              <td>
-                <strong>{game.awayScore}</strong>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div className="quarter-tables-grid">
+        <section className="gd-card">
+          <h2>Q別得点</h2>
+          <div className="table-scroll">
+            <table className="quarter-table">
+              <thead>
+                <tr>
+                  <th className="align-left">チーム</th>
+                  {Array.from({ length: periods }, (_, i) => (
+                    <th key={i}>{periodLabel(i, periods)}</th>
+                  ))}
+                  <th>合計</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="align-left" style={homeColor ? { color: homeColor } : undefined}>
+                    {game.homeTeam.name}
+                  </td>
+                  {game.quarterScores.home.map((s, i) => (
+                    <td key={i}>{s}</td>
+                  ))}
+                  <td>
+                    <strong>{game.homeScore}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="align-left" style={awayColor ? { color: awayColor } : undefined}>
+                    {game.awayTeam.name}
+                  </td>
+                  {game.quarterScores.away.map((s, i) => (
+                    <td key={i}>{s}</td>
+                  ))}
+                  <td>
+                    <strong>{game.awayScore}</strong>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="gd-card">
+          <h2>累積スコア</h2>
+          <div className="table-scroll">
+            <table className="quarter-table">
+              <thead>
+                <tr>
+                  <th className="align-left">チーム</th>
+                  {Array.from({ length: periods }, (_, i) => (
+                    <th key={i}>{periodLabel(i, periods)}終了</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="align-left" style={homeColor ? { color: homeColor } : undefined}>
+                    {game.homeTeam.name}
+                  </td>
+                  {homeCum.map((s, i) => (
+                    <td key={i}>{s}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="align-left" style={awayColor ? { color: awayColor } : undefined}>
+                    {game.awayTeam.name}
+                  </td>
+                  {awayCum.map((s, i) => (
+                    <td key={i}>{s}</td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
-      <h2>Lead Tracker</h2>
-      {pbpSupported ? (
-        <LeadTrackerChart
-          points={scoreTimeline}
-          timeouts={timeoutMarks}
-          periodBoundaries={periodBoundaries}
-          totalSeconds={totalGameSeconds(periods)}
-          homeTeamName={game.homeTeam.name}
-          awayTeamName={game.awayTeam.name}
-        />
-      ) : (
-        <p className="empty-message">このシーズンのデータには対応していません</p>
-      )}
+      <section className="gd-card">
+        <h2>Lead Tracker</h2>
+        {pbpSupported ? (
+          <LeadTrackerChart
+            points={scoreTimeline}
+            timeouts={timeoutMarks}
+            periodBoundaries={periodBoundaries}
+            totalSeconds={totalGameSeconds(periods)}
+            homeTeamName={game.homeTeam.name}
+            awayTeamName={game.awayTeam.name}
+          />
+        ) : (
+          <p className="empty-message">このシーズンのデータには対応していません</p>
+        )}
+      </section>
 
-      <h2>出場交代</h2>
-      {pbpSupported ? (
-        <SubstitutionBarChart
-          homeTeamName={game.homeTeam.name}
-          awayTeamName={game.awayTeam.name}
-          homeStarters={homeStarters}
-          homeBench={homeBench}
-          awayStarters={awayStarters}
-          awayBench={awayBench}
-          periodBoundaries={periodBoundaries}
-          totalSeconds={totalGameSeconds(periods)}
-        />
-      ) : (
-        <p className="empty-message">このシーズンのデータには対応していません</p>
-      )}
+      <section className="gd-card">
+        <h2>出場交代</h2>
+        {pbpSupported ? (
+          <SubstitutionBarChart
+            homeTeamName={game.homeTeam.name}
+            awayTeamName={game.awayTeam.name}
+            homeStarters={homeStarters}
+            homeBench={homeBench}
+            awayStarters={awayStarters}
+            awayBench={awayBench}
+            periodBoundaries={periodBoundaries}
+            totalSeconds={totalGameSeconds(periods)}
+          />
+        ) : (
+          <p className="empty-message">このシーズンのデータには対応していません</p>
+        )}
+      </section>
 
       <h2>ショットチャート</h2>
       {shotChartSupported ? (
         <div className="shot-chart-grid">
-          <ShotChartPanel teamName={game.homeTeam.name} players={homePlayers} shots={homeShots} color="var(--accent)" />
-          <ShotChartPanel teamName={game.awayTeam.name} players={awayPlayers} shots={awayShots} color="var(--muted)" />
+          <ShotChartPanel
+            teamName={game.homeTeam.name}
+            players={homePlayers}
+            shots={homeShots}
+            color="var(--accent)"
+            accentColor={homeColor}
+          />
+          <ShotChartPanel
+            teamName={game.awayTeam.name}
+            players={awayPlayers}
+            shots={awayShots}
+            color="var(--muted)"
+            accentColor={awayColor}
+          />
         </div>
       ) : (
         <p className="empty-message">このシーズンのデータには対応していません</p>
@@ -282,8 +367,8 @@ export function GameDetailPage({ season }: { season: string }) {
 
       <h2>ゲームリーダー</h2>
       <div className="game-leaders">
-        <GameLeadersTeam teamName={game.homeTeam.name} rows={homePlayers} />
-        <GameLeadersTeam teamName={game.awayTeam.name} rows={awayPlayers} />
+        <GameLeadersTeam teamName={game.homeTeam.name} rows={homePlayers} accentColor={homeColor} />
+        <GameLeadersTeam teamName={game.awayTeam.name} rows={awayPlayers} accentColor={awayColor} />
       </div>
 
       {homeTotal && awayTotal && (
@@ -331,8 +416,20 @@ export function GameDetailPage({ season }: { season: string }) {
       )}
 
       <h2>ボックススコア</h2>
-      <BoxscoreSection teamName={game.homeTeam.name} rows={homePlayers} classificationById={classificationById} />
-      <BoxscoreSection teamName={game.awayTeam.name} rows={awayPlayers} classificationById={classificationById} />
+      <BoxscoreSection
+        teamName={game.homeTeam.name}
+        rows={homePlayers}
+        coachesRow={homeCoachesRow}
+        classificationById={classificationById}
+        accentColor={homeColor}
+      />
+      <BoxscoreSection
+        teamName={game.awayTeam.name}
+        rows={awayPlayers}
+        coachesRow={awayCoachesRow}
+        classificationById={classificationById}
+        accentColor={awayColor}
+      />
     </div>
   );
 }
@@ -341,9 +438,17 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-function GameLeadersTeam({ teamName, rows }: { teamName: string; rows: BoxscoreRow[] }) {
+function GameLeadersTeam({
+  teamName,
+  rows,
+  accentColor,
+}: {
+  teamName: string;
+  rows: BoxscoreRow[];
+  accentColor?: string;
+}) {
   return (
-    <div className="game-leaders-team">
+    <div className="game-leaders-team" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
       <h3>{teamName}</h3>
       <LeaderRow label="PTS" players={topPlayers(rows, "Point")} statKey="Point" />
       <LeaderRow label="REB" players={topPlayers(rows, "RB_TOT")} statKey="RB_TOT" />
@@ -374,11 +479,15 @@ function LeaderRow({
 function BoxscoreSection({
   teamName,
   rows,
+  coachesRow,
   classificationById,
+  accentColor,
 }: {
   teamName: string;
   rows: BoxscoreRow[];
+  coachesRow?: BoxscoreRow;
   classificationById: Map<string, PlayerSummary["classification"]>;
+  accentColor?: string;
 }) {
   const starters = rows.filter((r) => r.StartingFlg === 1);
   const bench = rows.filter((r) => r.StartingFlg !== 1);
@@ -398,7 +507,7 @@ function BoxscoreSection({
     (unclassifiedPlayedCount > 0 ? `／${unclassifiedPlayedCount}名分のデータ欠落あり` : "");
 
   return (
-    <div className="boxscore-section">
+    <div className="boxscore-section" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
       <h3>{teamName}</h3>
       <div className="table-scroll">
         <table className="boxscore-table">
@@ -422,6 +531,7 @@ function BoxscoreSection({
           <tbody>
             <BoxscoreGroup title="スタメン" rows={starters} />
             <BoxscoreGroup title="ベンチ" rows={bench} />
+            {coachesRow && <TeamCoachesRow row={coachesRow} />}
             <SummaryRow label="スタメン合計" rows={starters} />
             <SummaryRow label="ベンチ合計" rows={bench} />
             <SummaryRow label="日本人選手合計" rows={japanese} note={classificationNote} />
@@ -444,7 +554,15 @@ function BoxscoreGroup({ title, rows }: { title: string; rows: BoxscoreRow[] }) 
         const dnp = r.PlayTime === "DNP";
         return (
           <tr key={r.PlayerID} className={dnp ? "dnp-row" : undefined}>
-            <td className="align-left">{r.PlayerNameJ}</td>
+            <td className="align-left">
+              {r.PlayerID ? (
+                <Link to={`/players/${r.PlayerID}`} className="cell-link">
+                  {r.PlayerNameJ}
+                </Link>
+              ) : (
+                r.PlayerNameJ
+              )}
+            </td>
             {dnp ? (
               <td colSpan={12}>DNP</td>
             ) : (
@@ -467,6 +585,30 @@ function BoxscoreGroup({ title, rows }: { title: string; rows: BoxscoreRow[] }) 
         );
       })}
     </>
+  );
+}
+
+/**
+ * 個人に紐付かないチーム発生イベント（コーチ/ベンチのテクニカルファウル等）の行。
+ * bleague.jp公式サイトでの表示名「TEAM / COACHES」をそのまま使う（docs:/DESIGN.md 2-2章参照）
+ */
+function TeamCoachesRow({ row }: { row: BoxscoreRow }) {
+  return (
+    <tr className="team-coaches-row">
+      <td className="align-left">TEAM / COACHES</td>
+      <td>-</td>
+      <td>{row.Point}</td>
+      <td>{row.RB_TOT}</td>
+      <td>{row.AS}</td>
+      <td>{row.ST}</td>
+      <td>{row.BS}</td>
+      <td>{row.TO}</td>
+      <td>{formatShotLine(row.PT2M + row.PT3M, row.PT2A + row.PT3A)}</td>
+      <td>{formatShotLine(row.PT2M, row.PT2A)}</td>
+      <td>{formatShotLine(row.PT3M, row.PT3A)}</td>
+      <td>{formatShotLine(row.FTM, row.FTA)}</td>
+      <td>-</td>
+    </tr>
   );
 }
 
