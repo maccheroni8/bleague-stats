@@ -4,7 +4,7 @@
 // 実ブラウザで確認して作成（2026-08-13時点）。地区分けは固定情報の想定だが、シーズンによる
 // クラブ入れ替え・再編があれば要更新。TeamIDはbleague.jp/club_detail/?TeamID=... のIDと同一。
 
-import type { Division } from "../../shared/types.ts";
+import type { Category, Division } from "../../shared/types.ts";
 
 export const TEAM_DIVISIONS: Record<string, Division> = {
   "702": "east", // レバンガ北海道
@@ -36,8 +36,56 @@ export const TEAM_DIVISIONS: Record<string, Division> = {
   "701": "west", // 琉球ゴールデンキングス
 };
 
-export function teamDivision(teamId: string): Division | undefined {
-  return TEAM_DIVISIONS[teamId];
+/**
+ * B.ONE全25クラブの北/東/中/西/南地区マスタ。**2026-27シーズン基準**（bleague.jp/standings/の
+ * `year=2026`表示、および裏側のクラブ一覧API`getTeamsByYearAndEventAndDistrict&event=7`で確認。
+ * 2026-08-16、DESIGN.md 14-4章）。B.PREMIERの`TEAM_DIVISIONS`と同じく「東地区」「西地区」の
+ * 呼称があるが、所属クラブは別集合で意味が異なる（Division型の値は共有するが、参照時は必ず
+ * categoryを指定して混同を避けること）。
+ *
+ * ⚠️ **2025-26シーズン以前の旧B2にはそのまま適用できない**（2026-08-17判明、DESIGN.md 14-7章）:
+ * 旧B2（2025-26シーズン）は東地区/西地区/ワイルドカードの**14クラブ制**で、2026-27シーズンの
+ * B.ONE（25クラブ・5地区制）とは全く別の構造だった（`bleague.jp/standings/?year=2025&tab=2`で
+ * 実機確認済み）。B.PREMIERの`TEAM_DIVISIONS`が抱える「過去シーズンには適用できない」という
+ * 既知の制約（本ファイル冒頭のコメント参照）と同種の限定であり、このマスタに無いクラブは
+ * `teamDivision()`が`undefined`を返す設計で自然に無効化される（過去シーズンの地区別集計
+ * （順位表の地区タブ・星取り表の地区別成績）は現状非対応。バックフィル時に別途シーズンごとの
+ * マスタ整備が必要）
+ */
+export const ONE_TEAM_DIVISIONS: Record<string, Division> = {
+  "708": "north", // 青森ワッツ
+  "709": "north", // 岩手ビッグブルズ
+  "710": "north", // 山形ワイヴァンズ
+  "711": "north", // 福島ファイヤーボンズ
+  "745": "north", // 越谷アルファーズ
+
+  "744": "east", // さいたまブロンコス
+  "2725": "east", // 東京ユナイテッドバスケットボールクラブ
+  "715": "east", // アースフレンズ東京Z
+  "2727": "east", // 立川ダイス
+  "749": "east", // 東京八王子ビートレインズ
+
+  "714": "central", // 横浜エクセレンス
+  "695": "central", // 新潟アルビレックスBB
+  "750": "central", // 金沢サムライズ
+  "2891": "central", // 福井ブローウィンズ
+  "1363": "central", // 岐阜スゥープス
+
+  "1637": "west", // ベルテックス静岡
+  "717": "west", // ファイティングイーグルス名古屋
+  "719": "west", // バンビシャス奈良
+  "1639": "west", // トライフープ岡山
+  "2890": "west", // 徳島ガンバロウズ
+
+  "722": "south", // 香川ファイブアローズ
+  "723": "south", // 愛媛オレンジバイキングス
+  "753": "south", // ライジングゼファー福岡
+  "724": "south", // 熊本ヴォルターズ
+  "725": "south", // 鹿児島レブナイズ
+};
+
+export function teamDivision(teamId: string, category: Category = "premier"): Division | undefined {
+  return category === "one" ? ONE_TEAM_DIVISIONS[teamId] : TEAM_DIVISIONS[teamId];
 }
 
 /**

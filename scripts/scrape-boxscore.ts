@@ -9,15 +9,24 @@
 //   自動的にlegacy取得へフォールバックする（結果的に境界年で自然に切り替わる）
 //
 // 使い方:
-//   npm run scrape:boxscore -- 505076 505118       # ScheduleKeyを直接指定
-//   npm run scrape:boxscore -- --season 2025-26     # そのシーズンのschedule.jsonから
-//                                                     未取得試合＋再チェック対象(watching)をまとめて処理
+//   npm run scrape:boxscore -- 505076 505118                     # ScheduleKeyを直接指定
+//   npm run scrape:boxscore -- --season 2025-26                  # そのシーズンのschedule.jsonから
+//                                                                   未取得試合＋再チェック対象(watching)をまとめて処理
+//   npm run scrape:boxscore -- --season 2025-26 --category one   # B.ONE分（保存先はdata/{season}/one/games/）
 
 import path from "node:path";
 import { fetchLatestGameContext, getPeriodScores, parseAspNetDate } from "./lib/geniusApi.ts";
 import { fetchLegacyGameContext, legacyPeriodScores, parseLegacyGameDateTime } from "./lib/legacyGameDetail.ts";
-import { gameFilePath, readGameFile, readJson, writeGameFile, seasonFromYear, DATA_DIR } from "./lib/storage.ts";
-import type { GeniusContext, ScheduleFile, StoredGame, StoredGameMeta } from "../shared/types.ts";
+import {
+  gameFilePath,
+  readGameFile,
+  readJson,
+  writeGameFile,
+  seasonFromYear,
+  seasonDirName,
+  DATA_DIR,
+} from "./lib/storage.ts";
+import type { Category, GeniusContext, ScheduleFile, StoredGame, StoredGameMeta } from "../shared/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
 
 const WATCHING_PERIOD_DAYS = 14;
@@ -51,7 +60,10 @@ async function fetchGameContextWithFallback(
   return { context: legacyContext, latestId: 0, isLegacy: true };
 }
 
-export async function scrapeAndSaveGame(scheduleKey: string | number): Promise<ScrapeResult> {
+export async function scrapeAndSaveGame(
+  scheduleKey: string | number,
+  category: Category = "premier",
+): Promise<ScrapeResult> {
   const key = String(scheduleKey);
   const result = await fetchGameContextWithFallback(key);
   if (!result) {
@@ -68,7 +80,7 @@ export async function scrapeAndSaveGame(scheduleKey: string | number): Promise<S
   const gameDate = isLegacy ? parseLegacyGameDateTime(Game.GameDateTime) : parseAspNetDate(Game.GameDateTime);
   const dateStr = formatJstDate(gameDate);
   const season = seasonFromYear(Game.Year);
-  const filePath = gameFilePath(season, key);
+  const filePath = gameFilePath(season, key, category);
 
   const existing = await readGameFile(filePath);
   const isFirstScrape = existing === null;
@@ -107,24 +119,25 @@ export async function scrapeAndSaveGame(scheduleKey: string | number): Promise<S
   return { outcome: "saved", scheduleKey: key, season, changed: isFirstScrape || rawChanged, status: meta.status };
 }
 
-async function loadScheduleKeys(season: string): Promise<string[]> {
-  const schedulePath = path.join(DATA_DIR, season, "schedule.json");
+async function loadScheduleKeys(season: string, category: Category): Promise<string[]> {
+  const schedulePath = path.join(DATA_DIR, seasonDirName(season, category), "schedule.json");
   const schedule = await readJson<ScheduleFile>(schedulePath);
   if (!schedule) {
+    const categoryFlag = category === "premier" ? "" : ` --category ${category}`;
     throw new Error(
-      `${schedulePath}.gz が見つかりません。先に npm run scrape:schedule -- --season ${season} を実行してください`,
+      `${schedulePath}.gz が見つかりません。先に npm run scrape:schedule -- --season ${season}${categoryFlag} を実行してください`,
     );
   }
   return schedule.scheduleKeys;
 }
 
 /** シーズン一括モード: 未取得試合 + status=watchingの再チェック対象をまとめて処理する */
-export async function runForSeason(season: string): Promise<void> {
-  const scheduleKeys = await loadScheduleKeys(season);
+export async function runForSeason(season: string, category: Category = "premier"): Promise<void> {
+  const scheduleKeys = await loadScheduleKeys(season, category);
   console.log(`[${season}] schedule.json から ${scheduleKeys.length} 試合を確認`);
 
   for (const scheduleKey of scheduleKeys) {
-    const filePath = gameFilePath(season, scheduleKey);
+    const filePath = gameFilePath(season, scheduleKey, category);
     const existing = await readGameFile(filePath);
 
     // 既に final の試合はスキップ（8章: 再チェック終了後はスクレイピング量を抑える）
@@ -132,7 +145,7 @@ export async function runForSeason(season: string): Promise<void> {
       continue;
     }
 
-    const result = await scrapeAndSaveGame(scheduleKey);
+    const result = await scrapeAndSaveGame(scheduleKey, category);
     logResult(result);
   }
 }
@@ -156,22 +169,27 @@ function logResult(result: ScrapeResult): void {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const seasonFlagIndex = args.indexOf("--season");
+  const categoryIndex = args.indexOf("--category");
+  const category: Category = categoryIndex !== -1 ? (args[categoryIndex + 1] as Category) : "premier";
+  // --category <value> をScheduleKeyの直接指定リストから除いた残り
+  const scheduleKeyArgs =
+    categoryIndex !== -1 ? args.filter((_, i) => i !== categoryIndex && i !== categoryIndex + 1) : args;
 
   if (seasonFlagIndex !== -1) {
     const season = args[seasonFlagIndex + 1];
     if (!season) throw new Error("--season の後にシーズン(例: 2025-26)を指定してください");
-    await runForSeason(season);
+    await runForSeason(season, category);
     return;
   }
 
-  if (args.length === 0) {
-    console.error("使い方: scrape-boxscore.ts <ScheduleKey...> | --season <2025-26>");
+  if (scheduleKeyArgs.length === 0) {
+    console.error("使い方: scrape-boxscore.ts <ScheduleKey...> | --season <2025-26> [--category one]");
     process.exitCode = 1;
     return;
   }
 
-  for (const key of args) {
-    const result = await scrapeAndSaveGame(key);
+  for (const key of scheduleKeyArgs) {
+    const result = await scrapeAndSaveGame(key, category);
     logResult(result);
   }
 }

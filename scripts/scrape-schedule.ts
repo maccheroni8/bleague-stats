@@ -1,29 +1,38 @@
 // bleague.jp/schedule/ の裏側JSON（?data_format=json）からScheduleKeyを収集し、
-// data/{season}/schedule.jsonに保存する。
+// data/{season}/schedule.json（B.PREMIER）またはdata/{season}/{category}/schedule.json
+// （B.ONE等）に保存する（DESIGN.md 14-5章の案A）。
 //
 // 仕組み（ブラウザのネットワークログから発見）:
-//   GET https://www.bleague.jp/schedule/?data_format=json&year={year}&mon={mon}&day={day}&event={event}&club=&tab=1&ha=&fb=
+//   GET https://www.bleague.jp/schedule/?data_format=json&year={year}&mon={mon}&day={day}&event={event}&club=&tab={tab}&ha=&fb=
 //   → { topics: string[] } で、指定日に試合があればその日の試合カードHTML断片一覧、
 //     無ければ次の開催日にスナップして返る。day=01〜31を総当たりし、ScheduleKeyをdedupeすれば
 //     その月の全試合を漏れなく拾える。
 //   year: シーズン開始年（"2025-26"シーズンなら2025固定。1〜5月の試合でも2025のまま）
-//   event: 2=B1リーグ, 3=B1チャンピオンシップ, 5=オールスターゲーム
+//   event: 2=B1(B.PREMIER)リーグ, 3=B1(B.PREMIER)チャンピオンシップ, 5=オールスターゲーム,
+//          7=B2(B.ONE)。B.ONEはレギュラーシーズンとプレーオフ（"PLAYOFFS"表記）が同じevent=7に
+//          混在する（B.PREMIERのようにチャンピオンシップ用の別event番号は無い。2026-08-16確認、
+//          DESIGN.md 14章）
+//   tab: 1=B.PREMIER, 2=B.ONE, 3=B.NEXT。⚠️ eventだけを変えてもtabが伴わないとサーバー側の
+//        フィルタが効かず、常にtab=1（B.PREMIER）相当の結果が返ってくる（2026-08-16、
+//        B.ONE対応の実装時にこの不具合で誤ってB.PREMIERのスケジュールを取得してしまい発覚。
+//        eventとtabは必ずカテゴリに応じたペアで指定すること。DESIGN.md 14章）
 //
 // 2モードあり（DESIGN.md 8-2章: フル収集は日次cronに含めない）:
 //   フル収集: 全月×全日を総当たり。約500リクエスト・20分。シーズン開幕時/日程変更時に手動実行
 //   --recent N: 直近N日分の日付だけ問い合わせ、既存schedule.jsonにマージ。日次cron向けの軽量版
 //
 // 使い方:
-//   npm run scrape:schedule -- --season 2025-26 [--events 2,3]        # フル収集
-//   npm run scrape:schedule -- --season 2025-26 --recent 14           # 直近14日の軽量チェック
+//   npm run scrape:schedule -- --season 2025-26 [--events 2,3]                  # フル収集(B.PREMIER)
+//   npm run scrape:schedule -- --season 2025-26 --category one                  # フル収集(B.ONE)
+//   npm run scrape:schedule -- --season 2025-26 --recent 14                     # 直近14日の軽量チェック
 
 import path from "node:path";
 import { createThrottledFetch } from "./lib/throttle.ts";
-import { DATA_DIR, listStoredScheduleKeys, readJson, writeJson } from "./lib/storage.ts";
+import { DATA_DIR, listStoredScheduleKeys, readJson, seasonDirName, writeJson } from "./lib/storage.ts";
 import { seasonStartYearForDate } from "./lib/season.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import { fetchUpcomingGameEntry } from "./lib/upcomingGame.ts";
-import type { ScheduleFile, UpcomingGameEntry } from "../shared/types.ts";
+import type { Category, ScheduleFile, UpcomingGameEntry } from "../shared/types.ts";
 
 const MIN_REQUEST_INTERVAL_MS = 2500;
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
@@ -32,8 +41,21 @@ const throttledFetch = createThrottledFetch(MIN_REQUEST_INTERVAL_MS, USER_AGENT)
 // B.LEAGUEのシーズンは10月開幕・5月終了（DESIGN.md 1章）
 const SEASON_MONTHS = ["10", "11", "12", "01", "02", "03", "04", "05"];
 
-/** 2=B1リーグ, 3=B1チャンピオンシップ。オールスター(5)は対象外（DESIGN.md 1章: B.PREMIER優先） */
-const DEFAULT_EVENTS = [2, 3];
+/**
+ * カテゴリ別のデフォルトevent番号（DESIGN.md 14章）。
+ * B.PREMIER: 2=リーグ戦, 3=チャンピオンシップ（オールスター5は対象外）。
+ * B.ONE: 7のみ（レギュラーシーズン・プレーオフとも同じevent番号）
+ */
+const DEFAULT_EVENTS_BY_CATEGORY: Record<Category, number[]> = {
+  premier: [2, 3],
+  one: [7],
+};
+
+/** カテゴリ別のtab番号（DESIGN.md 14章）。eventと必ずペアで指定する（ファイル冒頭の注記参照） */
+const CATEGORY_TAB: Record<Category, number> = {
+  premier: 1,
+  one: 2,
+};
 
 interface ScheduleJsonResponse {
   topics: string[];
@@ -44,8 +66,8 @@ function extractScheduleKeys(topics: string[]): string[] {
   return [...new Set([...html.matchAll(/ScheduleKey=(\d+)/g)].map((m) => m[1]!))];
 }
 
-async function fetchDaySchedule(year: number, mon: string, day: string, event: number): Promise<string[]> {
-  const url = `https://www.bleague.jp/schedule/?data_format=json&year=${year}&mon=${mon}&day=${day}&event=${event}&club=&tab=1&ha=&fb=`;
+async function fetchDaySchedule(year: number, mon: string, day: string, event: number, tab: number): Promise<string[]> {
+  const url = `https://www.bleague.jp/schedule/?data_format=json&year=${year}&mon=${mon}&day=${day}&event=${event}&club=&tab=${tab}&ha=&fb=`;
   const res = await throttledFetch(url);
   if (!res.ok) {
     throw new Error(`GET ${url} failed: ${res.status}`);
@@ -54,26 +76,30 @@ async function fetchDaySchedule(year: number, mon: string, day: string, event: n
   return extractScheduleKeys(data.topics);
 }
 
-async function fetchMonthScheduleKeys(year: number, mon: string, event: number): Promise<Set<string>> {
+async function fetchMonthScheduleKeys(year: number, mon: string, event: number, tab: number): Promise<Set<string>> {
   const keys = new Set<string>();
   for (let day = 1; day <= 31; day++) {
     const dayStr = String(day).padStart(2, "0");
-    for (const key of await fetchDaySchedule(year, mon, dayStr, event)) {
+    for (const key of await fetchDaySchedule(year, mon, dayStr, event, tab)) {
       keys.add(key);
     }
   }
   return keys;
 }
 
-export async function scrapeSeasonSchedule(season: string, events: number[] = DEFAULT_EVENTS): Promise<string[]> {
+export async function scrapeSeasonSchedule(
+  season: string,
+  events: number[] = DEFAULT_EVENTS_BY_CATEGORY.premier,
+  tab: number = CATEGORY_TAB.premier,
+): Promise<string[]> {
   const year = Number(season.split("-")[0]);
   const allKeys = new Set<string>();
 
   for (const event of events) {
     for (const mon of SEASON_MONTHS) {
-      const monthKeys = await fetchMonthScheduleKeys(year, mon, event);
+      const monthKeys = await fetchMonthScheduleKeys(year, mon, event, tab);
       for (const key of monthKeys) allKeys.add(key);
-      console.log(`[${season}] event=${event} mon=${mon}: ${monthKeys.size}件（累計${allKeys.size}件）`);
+      console.log(`[${season}] event=${event} tab=${tab} mon=${mon}: ${monthKeys.size}件（累計${allKeys.size}件）`);
     }
   }
 
@@ -87,8 +113,9 @@ export async function scrapeSeasonSchedule(season: string, events: number[] = DE
 export async function scrapeRecentSchedule(
   season: string,
   days: number,
-  events: number[] = DEFAULT_EVENTS,
+  events: number[] = DEFAULT_EVENTS_BY_CATEGORY.premier,
   referenceDate: Date = new Date(),
+  tab: number = CATEGORY_TAB.premier,
 ): Promise<string[]> {
   const seasonYear = Number(season.split("-")[0]);
   const foundKeys = new Set<string>();
@@ -101,7 +128,7 @@ export async function scrapeRecentSchedule(
     const [, monStr, dayStr] = jst.split("-") as [string, string, string];
 
     for (const event of events) {
-      for (const key of await fetchDaySchedule(seasonYear, monStr, dayStr, event)) {
+      for (const key of await fetchDaySchedule(seasonYear, monStr, dayStr, event, tab)) {
         foundKeys.add(key);
       }
     }
@@ -119,8 +146,9 @@ async function resolveUpcomingGames(
   season: string,
   scheduleKeys: string[],
   existingUpcoming: UpcomingGameEntry[],
+  category: Category,
 ): Promise<UpcomingGameEntry[]> {
-  const withBoxscore = await listStoredScheduleKeys(season);
+  const withBoxscore = await listStoredScheduleKeys(season, category);
   const cached = new Map(existingUpcoming.map((g) => [g.scheduleKey, g]));
   const result: UpcomingGameEntry[] = [];
 
@@ -150,24 +178,31 @@ async function main(): Promise<void> {
   const seasonIndex = args.indexOf("--season");
   const season = seasonIndex !== -1 ? args[seasonIndex + 1] : undefined;
   if (!season) {
-    console.error("使い方: scrape-schedule.ts --season 2025-26 [--events 2,3] [--recent 14]");
+    console.error(
+      "使い方: scrape-schedule.ts --season 2025-26 [--category one] [--events 2,3] [--recent 14]",
+    );
     process.exitCode = 1;
     return;
   }
 
+  const categoryIndex = args.indexOf("--category");
+  const category: Category = categoryIndex !== -1 ? (args[categoryIndex + 1] as Category) : "premier";
+
   const eventsIndex = args.indexOf("--events");
-  const events = eventsIndex !== -1 ? args[eventsIndex + 1]!.split(",").map(Number) : DEFAULT_EVENTS;
-  const outPath = path.join(DATA_DIR, season, "schedule.json");
+  const events =
+    eventsIndex !== -1 ? args[eventsIndex + 1]!.split(",").map(Number) : DEFAULT_EVENTS_BY_CATEGORY[category];
+  const tab = CATEGORY_TAB[category];
+  const outPath = path.join(DATA_DIR, seasonDirName(season, category), "schedule.json");
 
   const recentIndex = args.indexOf("--recent");
   if (recentIndex !== -1) {
     const days = Number(args[recentIndex + 1] ?? "14");
     const existingFile = await readJson<ScheduleFile>(outPath);
     const existingKeys = existingFile?.scheduleKeys ?? [];
-    const recentKeys = await scrapeRecentSchedule(season, days, events);
+    const recentKeys = await scrapeRecentSchedule(season, days, events, new Date(), tab);
     const mergedKeys = [...new Set([...existingKeys, ...recentKeys])].sort();
     const addedCount = mergedKeys.length - existingKeys.length;
-    const upcomingGames = await resolveUpcomingGames(season, mergedKeys, existingFile?.upcomingGames ?? []);
+    const upcomingGames = await resolveUpcomingGames(season, mergedKeys, existingFile?.upcomingGames ?? [], category);
 
     await writeJson(outPath, {
       season,
@@ -181,9 +216,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  const scheduleKeys = await scrapeSeasonSchedule(season, events);
+  const scheduleKeys = await scrapeSeasonSchedule(season, events, tab);
   const existingFile = await readJson<ScheduleFile>(outPath);
-  const upcomingGames = await resolveUpcomingGames(season, scheduleKeys, existingFile?.upcomingGames ?? []);
+  const upcomingGames = await resolveUpcomingGames(season, scheduleKeys, existingFile?.upcomingGames ?? [], category);
   await writeJson(outPath, {
     season,
     generatedAt: new Date().toISOString(),
