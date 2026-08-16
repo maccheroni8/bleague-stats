@@ -394,6 +394,72 @@ table.quarter-table th {
   stroke-width: 1;
 }
 
+.shot-chart-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.shot-chart-controls .mode-toggle {
+  margin-bottom: 0;
+}
+
+.shot-chart-controls .mode-toggle button {
+  padding: 3px 10px;
+  font-size: 11px;
+}
+
+.shot-chart-legend {
+  display: flex;
+  gap: 12px;
+}
+
+.shot-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.shot-dot-sample {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid;
+  background: transparent;
+}
+
+.shot-dot-sample.shot-missed {
+  background: transparent !important;
+}
+
+.zone-fill {
+  stroke: var(--bg);
+  stroke-width: 0.6;
+  cursor: default;
+}
+
+.zone-empty {
+  fill: none;
+}
+
+.zone-label {
+  fill: #fff;
+  font-size: 5.5px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 0.6px;
+  pointer-events: none;
+}
+
 .boxscore-section {
   margin-bottom: 28px;
 }
