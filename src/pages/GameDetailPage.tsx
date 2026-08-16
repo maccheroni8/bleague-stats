@@ -2,13 +2,15 @@ import { useParams } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGame, fetchPlayers } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
+import { isPbpSupported, isShotChartSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import { formatSigned } from "../lib/format";
 import type { BoxscoreRow, PlayerSummary } from "../../shared/types";
 import { KeyStatsChart } from "../components/KeyStatsChart";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
+import { ShotChartPanel } from "../components/ShotChart";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
+import { buildShotEvents } from "../lib/shotChart";
 import { reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
 
 function periodLabel(index: number, total: number): string {
@@ -125,12 +127,17 @@ export function GameDetailPage({ season }: { season: string }) {
   if (!game) return <p className="error-message">試合が見つかりませんでした</p>;
 
   const pbpSupported = isPbpSupported(coverage);
+  const shotChartSupported = isShotChartSupported(coverage);
   const classificationById = new Map((players ?? []).map((p) => [p.playerId, p.classification] as const));
 
   const homePlayers = playerRows(game.raw.HomeBoxscores);
   const awayPlayers = playerRows(game.raw.AwayBoxscores);
   const homeTotal = teamTotalRow(game.raw.HomeBoxscores);
   const awayTotal = teamTotalRow(game.raw.AwayBoxscores);
+
+  const allShots = shotChartSupported ? buildShotEvents(game.raw.PlayByPlays) : [];
+  const homeShots = allShots.filter((s) => s.teamId === game.homeTeam.id);
+  const awayShots = allShots.filter((s) => s.teamId === game.awayTeam.id);
 
   const periods = game.quarterScores.home.length;
 
@@ -256,6 +263,16 @@ export function GameDetailPage({ season }: { season: string }) {
           periodBoundaries={periodBoundaries}
           totalSeconds={totalGameSeconds(periods)}
         />
+      ) : (
+        <p className="empty-message">このシーズンのデータには対応していません</p>
+      )}
+
+      <h2>ショットチャート</h2>
+      {shotChartSupported ? (
+        <div className="shot-chart-grid">
+          <ShotChartPanel teamName={game.homeTeam.name} players={homePlayers} shots={homeShots} color="var(--accent)" />
+          <ShotChartPanel teamName={game.awayTeam.name} players={awayPlayers} shots={awayShots} color="var(--muted)" />
+        </div>
       ) : (
         <p className="empty-message">このシーズンのデータには対応していません</p>
       )}

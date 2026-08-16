@@ -16,3 +16,8 @@ export function useSeasonCoverage(season: string): { coverage: SeasonCoverage | 
 export function isPbpSupported(coverage: SeasonCoverage | null): boolean {
   return coverage !== null;
 }
+
+/** ショットチャート（X/Y/AreaCD付きのシュートイベント）が対応範囲内か。fullのみ対応 */
+export function isShotChartSupported(coverage: SeasonCoverage | null): boolean {
+  return coverage === "full";
+}

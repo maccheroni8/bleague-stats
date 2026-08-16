@@ -338,6 +338,62 @@ table.quarter-table th {
   font-size: 14px;
 }
 
+.shot-chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.shot-chart-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.shot-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.shot-chart-header h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.shot-chart-header select {
+  font-size: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+
+.shot-chart-summary {
+  margin: 6px 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.shot-chart-svg {
+  width: 100%;
+  height: auto;
+  background: var(--bg);
+}
+
+.shot-court-lines {
+  stroke: var(--border);
+  stroke-width: 0.8;
+}
+
+.shot-dot {
+  stroke-width: 1;
+}
+
 .boxscore-section {
   margin-bottom: 28px;
 }
@@ -859,6 +915,7 @@ table.h2h-table td {
 @media (max-width: 640px) {
   .game-leaders,
   .key-stats-grid,
+  .shot-chart-grid,
   .standings-grid {
     grid-template-columns: 1fr;
   }
