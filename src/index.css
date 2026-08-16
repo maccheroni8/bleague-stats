@@ -1108,3 +1108,153 @@ table.schedule-table th {
   background: color-mix(in srgb, var(--muted) 20%, transparent);
   color: var(--muted);
 }
+
+.home-section {
+  margin-bottom: 40px;
+}
+
+.home-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-section-head h2 {
+  margin: 32px 0 12px;
+}
+
+.home-section-more {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.home-section-more:hover {
+  color: var(--fg);
+}
+
+.recent-games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.recent-game-card {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.recent-game-card:hover {
+  background: var(--row-hover);
+}
+
+.recent-game-date {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.recent-game-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.recent-game-team-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-game-score {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.leaders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.leader-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.leader-card:hover {
+  background: var(--row-hover);
+}
+
+.leader-photo {
+  flex-shrink: 0;
+}
+
+.leader-info {
+  min-width: 0;
+}
+
+.leader-stat-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.leader-value {
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.leader-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leader-team {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.team-logo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.team-logo-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.team-logo-card:hover {
+  background: var(--row-hover);
+}

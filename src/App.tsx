@@ -1,8 +1,9 @@
-import { HashRouter, NavLink, Navigate, Route, Routes, useSearchParams } from "react-router-dom";
+import { HashRouter, NavLink, Route, Routes, useSearchParams } from "react-router-dom";
 import { SeasonLink, SeasonNavLink } from "./components/SeasonLink";
 import { currentSeason } from "./lib/season";
 import { fetchSeasons } from "./lib/data";
 import { useJsonData } from "./lib/useJsonData";
+import { HomePage } from "./pages/HomePage";
 import { TeamsListPage } from "./pages/TeamsListPage";
 import { TeamDetailPage } from "./pages/TeamDetailPage";
 import { PlayersListPage } from "./pages/PlayersListPage";
@@ -34,9 +35,6 @@ function AppShell() {
   // 初めてそのシーズンのデータが集計されseasons.jsonに載った瞬間に自動でそちらへ切り替わる
   const latestSeason = seasons && seasons.length > 0 ? seasons[seasons.length - 1]!.season : null;
   const season = explicitSeason ?? latestSeason ?? currentSeason();
-  // 新しいURL（クエリパラメータの有無に関わらず）で "/" にアクセスした場合のリダイレクト先。
-  // ?season=が付いていればそのまま引き継ぐ
-  const rootRedirect = searchParams.toString() ? `/teams?${searchParams.toString()}` : "/teams";
 
   // ?season=が無い場合は、seasons.jsonの読み込みが終わるまでデフォルトシーズンが確定しない。
   // 確定前に描画すると誤ったシーズンで一瞬フェッチしてしまうため、読み込み中は待つ
@@ -47,7 +45,7 @@ function AppShell() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <SeasonLink to="/teams" className="app-title">
+        <SeasonLink to="/" className="app-title">
           B.LEAGUE Stats
         </SeasonLink>
         <select
@@ -62,6 +60,9 @@ function AppShell() {
           ))}
         </select>
         <nav className="app-nav">
+          <SeasonNavLink to="/" end className={({ isActive }) => (isActive ? "active" : "")}>
+            ホーム
+          </SeasonNavLink>
           <SeasonNavLink to="/teams" className={({ isActive }) => (isActive ? "active" : "")}>
             チーム
           </SeasonNavLink>
@@ -87,7 +88,7 @@ function AppShell() {
       </header>
       <main className="app-main">
         <Routes>
-          <Route path="/" element={<Navigate to={rootRedirect} replace />} />
+          <Route path="/" element={<HomePage season={season} />} />
           <Route path="/teams" element={<TeamsListPage season={season} />} />
           <Route path="/teams/:teamId" element={<TeamDetailPage season={season} />} />
           <Route path="/players" element={<PlayersListPage season={season} />} />
