@@ -100,48 +100,23 @@ function TimeAxisHeader({
 }
 
 function TeamSubstitutionBlock({ teamName, starters, bench, periodBoundaries, totalSeconds, color }: TeamSubstitutionBlockProps) {
+  // スタメン5人を上5段に固定し、ベンチは出場時間のある選手を先に詰めて表示、
+  // DNP（出場0分）の選手を最後尾にまとめる（「スタメン」「ベンチ」ラベルは廃止し、
+  // スタメンは名前の先頭に"*"を付けて区別する）
+  const benchPlayed = bench.filter((r) => r.intervals.length > 0);
+  const benchDnp = bench.filter((r) => r.intervals.length === 0);
+  const rows: (SubstitutionRow & { isStarter: boolean })[] = [
+    ...starters.map((r) => ({ ...r, isStarter: true })),
+    ...benchPlayed.map((r) => ({ ...r, isStarter: false })),
+    ...benchDnp.map((r) => ({ ...r, isStarter: false })),
+  ];
   return (
     <div className="sub-bar-team">
       <h4 className="sub-bar-team-name">{teamName}</h4>
-      <SubstitutionGroup
-        title="スタメン"
-        rows={starters}
-        periodBoundaries={periodBoundaries}
-        totalSeconds={totalSeconds}
-        color={color}
-      />
-      <SubstitutionGroup
-        title="ベンチ"
-        rows={bench}
-        periodBoundaries={periodBoundaries}
-        totalSeconds={totalSeconds}
-        color={color}
-      />
-    </div>
-  );
-}
-
-function SubstitutionGroup({
-  title,
-  rows,
-  periodBoundaries,
-  totalSeconds,
-  color,
-}: {
-  title: string;
-  rows: SubstitutionRow[];
-  periodBoundaries: PeriodBoundary[];
-  totalSeconds: number;
-  color: string;
-}) {
-  if (rows.length === 0) return null;
-  return (
-    <>
-      <div className="sub-bar-group-label">{title}</div>
       {rows.map((row) => (
         <div className="sub-bar-row" key={row.playerId}>
           <div className="sub-bar-label" title={row.name}>
-            {row.name}
+            {row.isStarter ? `*${row.name}` : row.name}
           </div>
           <div className="sub-bar-track">
             {periodBoundaries
@@ -167,6 +142,6 @@ function SubstitutionGroup({
           </div>
         </div>
       ))}
-    </>
+    </div>
   );
 }

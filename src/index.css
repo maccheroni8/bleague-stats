@@ -1174,12 +1174,6 @@ table.compare-table td.compare-best {
   margin-top: 4px;
 }
 
-.sub-bar-group-label {
-  font-size: 11px;
-  color: var(--muted);
-  padding: 4px 0 2px 130px;
-}
-
 .sub-bar-row {
   display: flex;
   align-items: center;
