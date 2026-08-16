@@ -14,6 +14,7 @@
     "scrape:roster": "node --experimental-strip-types scripts/scrape-roster.ts",
     "colors:extract": "node --experimental-strip-types scripts/extract-team-colors.ts",
     "scrape:club-honors": "node --experimental-strip-types scripts/scrape-club-honors.ts",
+    "backfill:legacy-photos": "node --experimental-strip-types scripts/backfill-legacy-player-photos.ts",
     "aggregate": "node --experimental-strip-types scripts/aggregate.ts",
     "print:current-season": "node --experimental-strip-types scripts/print-current-season.ts",
     "validate:oncourt": "node --experimental-strip-types scripts/validate-oncourt.ts",
