@@ -350,6 +350,15 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     category: "shooting",
   },
   {
+    key: "efgPct",
+    label: "eFG%",
+    value: (p) => p.shooting.efgPct,
+    format: (p) => formatPct(p.shooting.efgPct),
+    formulaText: "(FGM + 0.5×3PM) / FGA",
+    source: "official",
+    category: "shooting",
+  },
+  {
     key: "eff",
     label: "EFF",
     value: (p) => p.advanced.eff,

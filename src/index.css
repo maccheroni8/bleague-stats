@@ -1521,13 +1521,15 @@ table.schedule-table th {
 }
 
 .recent-games-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  display: flex;
   gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 6px;
 }
 
 .recent-game-card {
   display: block;
+  flex: 0 0 190px;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px 14px;
@@ -1570,23 +1572,33 @@ table.schedule-table th {
 
 .leaders-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
 
 .leader-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px 14px;
-  color: inherit;
-  text-decoration: none;
 }
 
-.leader-card:hover {
-  background: var(--row-hover);
+.leader-stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.leader-top1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+  margin-bottom: 8px;
+}
+
+.leader-top1:hover {
+  color: var(--accent);
 }
 
 .leader-photo {
@@ -1595,11 +1607,6 @@ table.schedule-table th {
 
 .leader-info {
   min-width: 0;
-}
-
-.leader-stat-label {
-  font-size: 11px;
-  color: var(--muted);
 }
 
 .leader-value {
@@ -1622,25 +1629,53 @@ table.schedule-table th {
   color: var(--muted);
 }
 
+.leader-rest-list {
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}
+
+.leader-rest-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  color: inherit;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.leader-rest-item:hover {
+  color: var(--accent);
+}
+
+.leader-rest-rank {
+  color: var(--muted);
+  width: 1.2em;
+  flex-shrink: 0;
+}
+
+.leader-rest-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leader-rest-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
 .team-logo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
 }
 
 .team-logo-card {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
+  flex: 0 0 auto;
   color: inherit;
   text-decoration: none;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.team-logo-card:hover {
-  background: var(--row-hover);
 }
