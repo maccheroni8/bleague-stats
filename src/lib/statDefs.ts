@@ -38,6 +38,12 @@ export interface StatMeta {
    * （検証中の項目を先に個人詳細ページだけで確認したい場合等に使う）
    */
   hiddenFromPicker?: boolean;
+  /**
+   * trueなら、生データのPOSSフィールドが存在しないシーズン（coverage!=="full"、2022-23シーズンより前）
+   * では値を使わずN/A表示にする（比較ページで異なるシーズンを跨いで比較する際に使用。DESIGN.md参照）。
+   * PLUSMINUS/Usage%等の他のPBP系項目はreconstructOnCourtによる自前復元があるため対象外
+   */
+  requiresFullCoverage?: boolean;
 }
 
 export interface StatDef<T> extends StatMeta {
@@ -195,6 +201,7 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
     source: "official",
     officialAbbr: "PACE",
     category: "rating",
+    requiresFullCoverage: true,
   },
   {
     key: "offRtg",
@@ -205,6 +212,7 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
     source: "official",
     officialAbbr: "OFFRTG",
     category: "rating",
+    requiresFullCoverage: true,
   },
   {
     key: "defRtg",
@@ -216,6 +224,7 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
     source: "official",
     officialAbbr: "DEFRTG",
     category: "rating",
+    requiresFullCoverage: true,
   },
   {
     key: "netRtg",
@@ -224,6 +233,7 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
     format: (t) => formatSigned(t.advanced.netRtg),
     formulaText: "OFFRTG − DEFRTG",
     source: "official",
+    requiresFullCoverage: true,
     officialAbbr: "NETRTG",
     category: "rating",
   },

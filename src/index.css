@@ -547,6 +547,11 @@ table.boxscore-table .row-note {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
+.stat-picker button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .rankings-table .rank-cell {
   color: var(--muted);
   width: 40px;
@@ -575,8 +580,14 @@ table.boxscore-table .row-note {
 .compare-slots {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 16px;
   margin-bottom: 20px;
+}
+
+.compare-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .compare-slots select {
@@ -589,9 +600,28 @@ table.boxscore-table .row-note {
   min-width: 160px;
 }
 
+.compare-slot-note {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.compare-mixed-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 table.compare-table th a {
   color: var(--fg);
   text-decoration: none;
+}
+
+table.compare-table th .compare-season-tag {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 2px;
 }
 
 table.compare-table td.compare-best {

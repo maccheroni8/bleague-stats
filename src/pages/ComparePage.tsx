@@ -1,23 +1,67 @@
-import { useRef, useState } from "react";
-import { SeasonLink as Link } from "../components/SeasonLink";
-import { fetchPlayers, fetchTeams } from "../lib/data";
+import { useRef } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { fetchPlayers, fetchSeasons, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
-import type { PlayerSummary, TeamSummary } from "../../shared/types";
+import type { PlayerSummary, SeasonCoverage, TeamSummary } from "../../shared/types";
 import { ExportImageButton } from "../components/ExportImageButton";
 
 type Mode = "team" | "player";
 const SLOT_COUNT = 3;
 
+interface SlotValue {
+  id: string;
+  season: string;
+}
+
+interface ComparisonRow<T> {
+  item: T;
+  season: string;
+}
+
+// URLには "playerId@season" のようにID・シーズンを1パラメータに詰めて保持する（?t0=703@2018-19 等）。
+// paramが無ければ「そのスロットは未上書き＝ページのデフォルトシーズン＋デフォルトIDを使う」を意味する
+function parseSlotParam(raw: string | null): SlotValue | null {
+  if (raw === null) return null;
+  const at = raw.indexOf("@");
+  if (at === -1) return { id: "", season: "" };
+  return { id: raw.slice(0, at), season: raw.slice(at + 1) };
+}
+
+function encodeSlotParam(id: string, season: string): string {
+  return `${id}@${season}`;
+}
+
+/** 複数シーズン分のteams.json/players.jsonをまとめて取得する。1シーズンの取得失敗が他シーズンに波及しないようallSettledを使う */
+function useSeasonKeyedData<T>(
+  seasonsNeeded: string[],
+  fetcher: (season: string) => Promise<T[]>,
+): { dataBySeason: Map<string, T[] | null> | null; loading: boolean } {
+  const key = Array.from(new Set(seasonsNeeded)).sort().join(",");
+  const { data, loading } = useJsonData(async () => {
+    const uniqueSeasons = Array.from(new Set(seasonsNeeded));
+    const settled = await Promise.allSettled(uniqueSeasons.map((s) => fetcher(s)));
+    const map = new Map<string, T[] | null>();
+    uniqueSeasons.forEach((s, i) => {
+      const r = settled[i]!;
+      map.set(s, r.status === "fulfilled" ? r.value : null);
+    });
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return { dataBySeason: data, loading };
+}
+
 interface ComparisonTableProps<T> {
-  rows: T[];
+  rows: ComparisonRow<T>[];
   defs: StatDef<T>[];
   rowKey: (row: T) => string;
   name: (row: T) => string;
   linkTo: (row: T) => string;
+  coverageBySeason: Map<string, SeasonCoverage>;
 }
 
-function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo }: ComparisonTableProps<T>) {
+function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo, coverageBySeason }: ComparisonTableProps<T>) {
   if (rows.length === 0) {
     return <p className="empty-message">比較する項目を選んでください</p>;
   }
@@ -27,28 +71,38 @@ function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo }: ComparisonTabl
         <thead>
           <tr>
             <th className="align-left">項目</th>
-            {rows.map((row) => (
-              <th key={rowKey(row)} className="align-right">
-                <Link to={linkTo(row)} className="cell-link">
-                  {name(row)}
+            {rows.map(({ item, season }) => (
+              <th key={rowKey(item)} className="align-right">
+                <Link to={`${linkTo(item)}?season=${season}`} className="cell-link">
+                  {name(item)}
                 </Link>
+                <span className="compare-season-tag">{season}</span>
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {defs.map((def) => {
-            const values = rows.map((row) => def.value(row));
-            const best = def.higherIsBetter === false ? Math.min(...values) : Math.max(...values);
+            const cells = rows.map(({ item, season }) => {
+              const supported = !def.requiresFullCoverage || coverageBySeason.get(season) === "full";
+              return supported ? { value: def.value(item), text: def.format(item) } : { value: null, text: "N/A" };
+            });
+            const numericValues = cells.map((c) => c.value).filter((v): v is number => v !== null);
+            const best =
+              numericValues.length > 0
+                ? def.higherIsBetter === false
+                  ? Math.min(...numericValues)
+                  : Math.max(...numericValues)
+                : null;
             return (
               <tr key={def.key}>
                 <td className="align-left">{def.label}</td>
-                {rows.map((row, i) => (
+                {rows.map(({ item }, i) => (
                   <td
-                    key={rowKey(row)}
-                    className={`align-right${rows.length > 1 && values[i] === best ? " compare-best" : ""}`}
+                    key={rowKey(item)}
+                    className={`align-right${rows.length > 1 && cells[i]!.value !== null && cells[i]!.value === best ? " compare-best" : ""}`}
                   >
-                    {def.format(row)}
+                    {cells[i]!.text}
                   </td>
                 ))}
               </tr>
@@ -60,47 +114,84 @@ function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo }: ComparisonTabl
   );
 }
 
-function useSlotSelection(defaultIds: string[]) {
-  const [overrides, setOverrides] = useState<(string | null)[]>(Array(SLOT_COUNT).fill(null));
-  const ids = Array.from({ length: SLOT_COUNT }, (_, i) => overrides[i] ?? defaultIds[i] ?? "");
-  const setSlot = (index: number, id: string) => {
-    setOverrides((prev) => {
-      const next = [...prev];
-      next[index] = id;
-      return next;
-    });
-  };
-  return { ids, setSlot };
-}
-
 export function ComparePage({ season }: { season: string }) {
   const exportRef = useRef<HTMLDivElement>(null);
-  const [mode, setMode] = useState<Mode>("team");
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
-  const {
-    data: players,
-    loading: playersLoading,
-    error: playersError,
-  } = useJsonData(() => fetchPlayers(season), [season]);
+  const mode: Mode = searchParams.get("cmp") === "player" ? "player" : "team";
 
-  const teamSelection = useSlotSelection((teams ?? []).slice(0, 2).map((t) => t.teamId));
-  const playerSelection = useSlotSelection((players ?? []).slice(0, 2).map((p) => p.playerId));
+  const { data: seasons, loading: seasonsLoading } = useJsonData(() => fetchSeasons(), []);
+  const coverageBySeason = new Map<string, SeasonCoverage>((seasons ?? []).map((s) => [s.season, s.coverage]));
 
-  const loading = mode === "team" ? teamsLoading : playersLoading;
-  const error = mode === "team" ? teamsError : playersError;
+  const rawTeamSlots = Array.from({ length: SLOT_COUNT }, (_, i) => parseSlotParam(searchParams.get(`t${i}`)));
+  const rawPlayerSlots = Array.from({ length: SLOT_COUNT }, (_, i) => parseSlotParam(searchParams.get(`p${i}`)));
+  const teamSeasons = rawTeamSlots.map((s) => s?.season || season);
+  const playerSeasons = rawPlayerSlots.map((s) => s?.season || season);
 
-  const selectedTeams = teamSelection.ids
-    .map((id) => teams?.find((t) => t.teamId === id))
-    .filter((t): t is TeamSummary => Boolean(t));
-  const selectedPlayers = playerSelection.ids
-    .map((id) => players?.find((p) => p.playerId === id))
-    .filter((p): p is PlayerSummary => Boolean(p));
+  const { dataBySeason: teamsBySeason, loading: teamsLoading } = useSeasonKeyedData(teamSeasons, fetchTeams);
+  const { dataBySeason: playersBySeason, loading: playersLoading } = useSeasonKeyedData(playerSeasons, fetchPlayers);
+
+  const loading = seasonsLoading || (mode === "team" ? teamsLoading : playersLoading);
+
+  const resolvedTeamSlots: SlotValue[] = rawTeamSlots.map((raw, i) => {
+    const slotSeason = raw?.season || season;
+    if (raw !== null) return { id: raw.id, season: slotSeason };
+    const defaultId = i < 2 ? (teamsBySeason?.get(slotSeason)?.[i]?.teamId ?? "") : "";
+    return { id: defaultId, season: slotSeason };
+  });
+  const resolvedPlayerSlots: SlotValue[] = rawPlayerSlots.map((raw, i) => {
+    const slotSeason = raw?.season || season;
+    if (raw !== null) return { id: raw.id, season: slotSeason };
+    const defaultId = i < 2 ? (playersBySeason?.get(slotSeason)?.[i]?.playerId ?? "") : "";
+    return { id: defaultId, season: slotSeason };
+  });
+
+  const updateSlot = (kind: "t" | "p", index: number, next: Partial<SlotValue>, current: SlotValue) => {
+    const merged = { ...current, ...next };
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set(`${kind}${index}`, encodeSlotParam(merged.id, merged.season));
+      return params;
+    });
+  };
+
+  const setMode = (next: Mode) => {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next === "team") params.delete("cmp");
+      else params.set("cmp", "player");
+      return params;
+    });
+  };
+
+  const selectedTeams: ComparisonRow<TeamSummary>[] = resolvedTeamSlots
+    .map((slot) => {
+      const item = teamsBySeason?.get(slot.season)?.find((t) => t.teamId === slot.id);
+      return item ? { item, season: slot.season } : null;
+    })
+    .filter((r): r is ComparisonRow<TeamSummary> => r !== null);
+  const selectedPlayers: ComparisonRow<PlayerSummary>[] = resolvedPlayerSlots
+    .map((slot) => {
+      const item = playersBySeason?.get(slot.season)?.find((p) => p.playerId === slot.id);
+      return item ? { item, season: slot.season } : null;
+    })
+    .filter((r): r is ComparisonRow<PlayerSummary> => r !== null);
+
+  // 比較中の項目が全て同一シーズンの場合のみ、シチュエーション別フィルタ等の将来拡張を想定した
+  // 情報として使えるようフラグ化しておく（現状はシチュエーションフィルタ自体は未実装・対象外）
+  const activeSlots = mode === "team" ? resolvedTeamSlots : resolvedPlayerSlots;
+  const usedSeasons = new Set(activeSlots.filter((s) => s.id).map((s) => s.season));
+  const seasonsMatch = usedSeasons.size <= 1;
+
+  const reversedSeasons = [...(seasons ?? [])].reverse();
 
   return (
     <div>
       <h1>比較</h1>
-      <p className="page-subtitle">{season}シーズン・最大3件まで選んで比較</p>
+      <p className="page-subtitle">
+        最大3件まで選んで比較（項目ごとに異なるシーズンも選択可能）
+        {!seasonsMatch && <span className="compare-mixed-note"> ※シーズンが異なる項目を比較しています</span>}
+      </p>
 
       <div className="mode-toggle">
         <button className={mode === "team" ? "active" : ""} onClick={() => setMode("team")}>
@@ -113,21 +204,36 @@ export function ComparePage({ season }: { season: string }) {
 
       {loading ? (
         <p className="loading">読み込み中...</p>
-      ) : error ? (
-        <p className="error-message">{error}</p>
       ) : mode === "team" ? (
         <>
           <div className="compare-slots">
-            {teamSelection.ids.map((id, i) => (
-              <select key={i} value={id} onChange={(e) => teamSelection.setSlot(i, e.target.value)}>
-                <option value="">未選択</option>
-                {(teams ?? []).map((t) => (
-                  <option key={t.teamId} value={t.teamId}>
-                    {t.teamName}
-                  </option>
-                ))}
-              </select>
-            ))}
+            {resolvedTeamSlots.map((slot, i) => {
+              const list = teamsBySeason?.get(slot.season) ?? null;
+              const selectValue = list?.some((t) => t.teamId === slot.id) ? slot.id : "";
+              return (
+                <div className="compare-slot" key={i}>
+                  <select
+                    value={slot.season}
+                    onChange={(e) => updateSlot("t", i, { season: e.target.value }, slot)}
+                  >
+                    {reversedSeasons.map((s) => (
+                      <option key={s.season} value={s.season}>
+                        {s.season}シーズン
+                      </option>
+                    ))}
+                  </select>
+                  <select value={selectValue} onChange={(e) => updateSlot("t", i, { id: e.target.value }, slot)}>
+                    <option value="">未選択</option>
+                    {(list ?? []).map((t) => (
+                      <option key={t.teamId} value={t.teamId}>
+                        {t.teamName}
+                      </option>
+                    ))}
+                  </select>
+                  {(!list || list.length === 0) && <p className="compare-slot-note">このシーズンのデータがありません</p>}
+                </div>
+              );
+            })}
           </div>
           <ExportImageButton targetRef={exportRef} filename="compare-teams.png" />
           <div ref={exportRef} className="export-target">
@@ -137,22 +243,40 @@ export function ComparePage({ season }: { season: string }) {
               rowKey={(t) => t.teamId}
               name={(t) => t.teamName}
               linkTo={(t) => `/teams/${t.teamId}`}
+              coverageBySeason={coverageBySeason}
             />
           </div>
         </>
       ) : (
         <>
           <div className="compare-slots">
-            {playerSelection.ids.map((id, i) => (
-              <select key={i} value={id} onChange={(e) => playerSelection.setSlot(i, e.target.value)}>
-                <option value="">未選択</option>
-                {(players ?? []).map((p) => (
-                  <option key={p.playerId} value={p.playerId}>
-                    {p.name}（{p.teamName}）
-                  </option>
-                ))}
-              </select>
-            ))}
+            {resolvedPlayerSlots.map((slot, i) => {
+              const list = playersBySeason?.get(slot.season) ?? null;
+              const selectValue = list?.some((p) => p.playerId === slot.id) ? slot.id : "";
+              return (
+                <div className="compare-slot" key={i}>
+                  <select
+                    value={slot.season}
+                    onChange={(e) => updateSlot("p", i, { season: e.target.value }, slot)}
+                  >
+                    {reversedSeasons.map((s) => (
+                      <option key={s.season} value={s.season}>
+                        {s.season}シーズン
+                      </option>
+                    ))}
+                  </select>
+                  <select value={selectValue} onChange={(e) => updateSlot("p", i, { id: e.target.value }, slot)}>
+                    <option value="">未選択</option>
+                    {(list ?? []).map((p) => (
+                      <option key={p.playerId} value={p.playerId}>
+                        {p.name}（{p.teamName}）
+                      </option>
+                    ))}
+                  </select>
+                  {(!list || list.length === 0) && <p className="compare-slot-note">このシーズンのデータがありません</p>}
+                </div>
+              );
+            })}
           </div>
           <ExportImageButton targetRef={exportRef} filename="compare-players.png" />
           <div ref={exportRef} className="export-target">
@@ -162,6 +286,7 @@ export function ComparePage({ season }: { season: string }) {
               rowKey={(p) => p.playerId}
               name={(p) => p.name}
               linkTo={(p) => `/players/${p.playerId}`}
+              coverageBySeason={coverageBySeason}
             />
           </div>
         </>

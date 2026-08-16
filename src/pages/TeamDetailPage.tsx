@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchPlayers, fetchTeamGameLogs, fetchTeamLineups, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
+import { isPbpSupported, isPossessionStatsSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import type { PlayerSummary, TeamGameLog } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
@@ -56,6 +56,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   const pbpSupported = isPbpSupported(coverage);
+  const possStatsSupported = isPossessionStatsSupported(coverage);
 
   if (teamsLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (teamsError) return <p className="error-message">{teamsError}</p>;
@@ -126,10 +127,10 @@ export function TeamDetailPage({ season }: { season: string }) {
           <StatTile label="FT%" value={formatPct(situational.shooting.ftPct)} />
           <StatTile label="eFG%" value={formatPct(situational.shooting.efgPct)} />
           <StatTile label="TS%" value={formatPct(situational.shooting.tsPct)} />
-          <StatTile label="PACE" value={formatDecimal(situational.advanced.pace)} />
-          <StatTile label="ORtg" value={formatDecimal(situational.advanced.offRtg)} />
-          <StatTile label="DRtg" value={formatDecimal(situational.advanced.defRtg)} />
-          <StatTile label="NetRtg" value={formatSigned(situational.advanced.netRtg)} />
+          <StatTile label="PACE" value={possStatsSupported ? formatDecimal(situational.advanced.pace) : "N/A"} />
+          <StatTile label="ORtg" value={possStatsSupported ? formatDecimal(situational.advanced.offRtg) : "N/A"} />
+          <StatTile label="DRtg" value={possStatsSupported ? formatDecimal(situational.advanced.defRtg) : "N/A"} />
+          <StatTile label="NetRtg" value={possStatsSupported ? formatSigned(situational.advanced.netRtg) : "N/A"} />
         </div>
       )}
 
