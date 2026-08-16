@@ -517,6 +517,11 @@ table.sortable-table tbody tr:hover {
   background: var(--row-hover);
 }
 
+table.sortable-table td.row-accent-cell {
+  border-left: 3px solid var(--border);
+  padding-left: 9px;
+}
+
 .cell-link {
   color: inherit;
   text-decoration: none;
@@ -1025,6 +1030,10 @@ table.compare-table th a {
   text-decoration: none;
 }
 
+table.compare-table thead th.align-right {
+  border-top: 3px solid var(--border);
+}
+
 table.compare-table th .compare-season-tag {
   display: block;
   font-size: 11px;
@@ -1107,11 +1116,11 @@ table.compare-table td.compare-best {
 }
 
 .lead-tracker-legend-item.home::before {
-  background: var(--accent);
+  background: var(--legend-dot-color, var(--accent));
 }
 
 .lead-tracker-legend-item.away::before {
-  background: var(--muted);
+  background: var(--legend-dot-color, var(--muted));
 }
 
 .lead-tracker-note {
@@ -1342,6 +1351,7 @@ table.h2h-table td {
   padding-bottom: 6px;
   font-weight: 600;
   color: var(--muted);
+  border-top: 3px solid var(--border);
 }
 
 .h2h-col-header span {
@@ -1358,6 +1368,7 @@ table.h2h-table td {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  border-left: 3px solid var(--border);
 }
 
 .h2h-row-header a {
@@ -1459,6 +1470,11 @@ table.schedule-table th {
   color: var(--muted);
 }
 
+.schedule-team-chip {
+  border-left: 3px solid var(--border);
+  padding-left: 6px;
+}
+
 .live-badge,
 .upcoming-badge {
   display: inline-block;
@@ -1533,7 +1549,8 @@ table.schedule-table th {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 3px 0;
+  padding: 3px 0 3px 8px;
+  border-left: 3px solid var(--border);
 }
 
 .recent-game-team-name {

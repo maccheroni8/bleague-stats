@@ -1,9 +1,10 @@
 import { SeasonLink as Link } from "./SeasonLink";
-import type { HeadToHeadRecord, HeadToHeadSummary, HeadToHeadTeamRow } from "../../shared/types";
+import type { HeadToHeadRecord, HeadToHeadSummary, HeadToHeadTeamRow, TeamColors } from "../../shared/types";
 import { formatPct, formatRecord, formatSigned } from "../lib/format";
 
 interface Props {
   rows: HeadToHeadTeamRow[];
+  teamColors?: Record<string, TeamColors>;
 }
 
 function cellClass(rec: HeadToHeadRecord | undefined): string {
@@ -28,18 +29,25 @@ function SummaryCell({ summary }: { summary: HeadToHeadSummary }) {
   );
 }
 
-export function HeadToHeadMatrix({ rows }: Props) {
+export function HeadToHeadMatrix({ rows, teamColors }: Props) {
   return (
     <div className="table-scroll h2h-scroll">
       <table className="h2h-table">
         <thead>
           <tr>
             <th className="h2h-corner" />
-            {rows.map((col) => (
-              <th key={col.teamId} className="h2h-col-header">
-                <span>{col.teamName}</span>
-              </th>
-            ))}
+            {rows.map((col) => {
+              const accent = teamColors?.[col.teamId]?.primary;
+              return (
+                <th
+                  key={col.teamId}
+                  className="h2h-col-header"
+                  style={accent ? { borderTopColor: accent } : undefined}
+                >
+                  <span>{col.teamName}</span>
+                </th>
+              );
+            })}
             <th className="h2h-summary-header">
               シーズン
               <br />
@@ -58,36 +66,39 @@ export function HeadToHeadMatrix({ rows }: Props) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.teamId}>
-              <th className="h2h-row-header">
-                <Link to={`/teams/${row.teamId}`}>{row.teamName}</Link>
-              </th>
-              {rows.map((col) => {
-                if (col.teamId === row.teamId) {
-                  return <td key={col.teamId} className="h2h-cell h2h-self" />;
-                }
-                const rec = row.vs[col.teamId];
-                return (
-                  <td key={col.teamId} className={`h2h-cell ${cellClass(rec)}`}>
-                    {rec ? (
-                      <>
-                        <div className="h2h-record">
-                          {rec.wins} - {rec.losses}
-                        </div>
-                        <div className="h2h-diff">{formatSigned(rec.pointDiff, 0)}</div>
-                      </>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
-                );
-              })}
-              <SummaryCell summary={row.overall} />
-              <SummaryCell summary={row.vsEast} />
-              <SummaryCell summary={row.vsWest} />
-            </tr>
-          ))}
+          {rows.map((row) => {
+            const accent = teamColors?.[row.teamId]?.primary;
+            return (
+              <tr key={row.teamId}>
+                <th className="h2h-row-header" style={accent ? { borderLeftColor: accent } : undefined}>
+                  <Link to={`/teams/${row.teamId}`}>{row.teamName}</Link>
+                </th>
+                {rows.map((col) => {
+                  if (col.teamId === row.teamId) {
+                    return <td key={col.teamId} className="h2h-cell h2h-self" />;
+                  }
+                  const rec = row.vs[col.teamId];
+                  return (
+                    <td key={col.teamId} className={`h2h-cell ${cellClass(rec)}`}>
+                      {rec ? (
+                        <>
+                          <div className="h2h-record">
+                            {rec.wins} - {rec.losses}
+                          </div>
+                          <div className="h2h-diff">{formatSigned(rec.pointDiff, 0)}</div>
+                        </>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                  );
+                })}
+                <SummaryCell summary={row.overall} />
+                <SummaryCell summary={row.vsEast} />
+                <SummaryCell summary={row.vsWest} />
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

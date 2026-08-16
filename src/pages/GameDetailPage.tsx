@@ -319,6 +319,8 @@ export function GameDetailPage({ season }: { season: string }) {
             totalSeconds={totalGameSeconds(periods)}
             homeTeamName={game.homeTeam.name}
             awayTeamName={game.awayTeam.name}
+            homeColor={homeColor}
+            awayColor={awayColor}
           />
         ) : (
           <p className="empty-message">このシーズンのデータには対応していません</p>
@@ -337,6 +339,8 @@ export function GameDetailPage({ season }: { season: string }) {
             awayBench={awayBench}
             periodBoundaries={periodBoundaries}
             totalSeconds={totalGameSeconds(periods)}
+            homeColor={homeColor}
+            awayColor={awayColor}
           />
         ) : (
           <p className="empty-message">このシーズンのデータには対応していません</p>

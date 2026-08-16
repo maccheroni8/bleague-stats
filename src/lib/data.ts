@@ -28,6 +28,7 @@ import type {
   TeamLineupsFile,
   TeamSummary,
 } from "../../shared/types";
+import { legibleAccentColor } from "./color";
 
 const dataBase = `${import.meta.env.BASE_URL}data`;
 
@@ -82,8 +83,25 @@ export function fetchSeasons(): Promise<SeasonEntry[]> {
   return fetchJson<SeasonEntry[]>(`${dataBase}/seasons.json`);
 }
 
-export function fetchTeamColors(): Promise<Record<string, TeamColors>> {
-  return fetchJson<Record<string, TeamColors>>(`${dataBase}/team-colors.json`);
+// 自動抽出した色の中には、ロゴが濃色主体のデザイン等の理由でUIアクセントとしては
+// 視認性が低すぎるものが混ざりうる（DESIGN.md参照）。ここで一括して視認性チェックを通し、
+// 不合格の色はundefinedにする（呼び出し側は`color ?? デフォルト色`のパターンで
+// 既存の配色に自動フォールバックできる）。個々の呼び出し元でチェックする必要が無いよう、
+// 取得の時点で一度だけ済ませる。
+// primaryが視認性不足の場合はsecondaryを代わりに採用する（例: ロゴの支配色が濃紺一色でも、
+// 縁取り等に使われている2番目の色なら視認性を満たすことがある）。両方とも不合格なら
+// 空文字のままにし、呼び出し側で既存の配色にフォールバックさせる
+export async function fetchTeamColors(): Promise<Record<string, TeamColors>> {
+  const raw = await fetchJson<Record<string, TeamColors>>(`${dataBase}/team-colors.json`);
+  const sanitized: Record<string, TeamColors> = {};
+  for (const [teamId, colors] of Object.entries(raw)) {
+    const legibleSecondary = legibleAccentColor(colors.secondary) ?? "";
+    sanitized[teamId] = {
+      primary: legibleAccentColor(colors.primary) ?? legibleSecondary,
+      secondary: legibleSecondary,
+    };
+  }
+  return sanitized;
 }
 
 export function fetchTeamHistory(): Promise<TeamHistoryEntry[]> {

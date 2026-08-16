@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
-import { fetchPlayers, fetchTeams } from "../lib/data";
+import { fetchPlayers, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
 import { ExportImageButton } from "../components/ExportImageButton";
@@ -15,9 +15,10 @@ interface RankedListProps<T> {
   name: (row: T) => string;
   subLabel?: (row: T) => string;
   linkTo: (row: T) => string;
+  teamColor?: (row: T) => string | undefined;
 }
 
-function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo }: RankedListProps<T>) {
+function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo, teamColor }: RankedListProps<T>) {
   const sorted = [...rows].sort((a, b) => def.value(b) - def.value(a));
   return (
     <div className="table-scroll">
@@ -30,18 +31,26 @@ function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo }: RankedList
           </tr>
         </thead>
         <tbody>
-          {sorted.map((row, i) => (
-            <tr key={rowKey(row)}>
-              <td className="align-right rank-cell">{i + 1}</td>
-              <td className="align-left">
-                <Link to={linkTo(row)} className="cell-link rank-name-cell">
-                  <span className="rank-name">{name(row)}</span>
-                  {subLabel && <span className="rank-sublabel">{subLabel(row)}</span>}
-                </Link>
-              </td>
-              <td className="align-right rank-value">{def.format(row)}</td>
-            </tr>
-          ))}
+          {sorted.map((row, i) => {
+            const accent = teamColor?.(row);
+            return (
+              <tr key={rowKey(row)}>
+                <td
+                  className={`align-right rank-cell${accent ? " row-accent-cell" : ""}`}
+                  style={accent ? { borderLeftColor: accent } : undefined}
+                >
+                  {i + 1}
+                </td>
+                <td className="align-left">
+                  <Link to={linkTo(row)} className="cell-link rank-name-cell">
+                    <span className="rank-name">{name(row)}</span>
+                    {subLabel && <span className="rank-sublabel">{subLabel(row)}</span>}
+                  </Link>
+                </td>
+                <td className="align-right rank-value">{def.format(row)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -60,6 +69,7 @@ export function RankingsPage({ season }: { season: string }) {
     loading: playersLoading,
     error: playersError,
   } = useJsonData(() => fetchPlayers(season), [season]);
+  const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
 
   const loading = mode === "team" ? teamsLoading : playersLoading;
   const error = mode === "team" ? teamsError : playersError;
@@ -134,6 +144,7 @@ export function RankingsPage({ season }: { season: string }) {
                 rowKey={(t) => t.teamId}
                 name={(t) => t.teamName}
                 linkTo={(t) => `/teams/${t.teamId}`}
+                teamColor={(t) => teamColors?.[t.teamId]?.primary}
               />
             ) : (
               <RankedList
@@ -143,6 +154,7 @@ export function RankingsPage({ season }: { season: string }) {
                 name={(p) => p.name}
                 subLabel={(p) => p.teamName}
                 linkTo={(p) => `/players/${p.playerId}`}
+                teamColor={(p) => teamColors?.[p.teamId]?.primary}
               />
             )}
           </div>

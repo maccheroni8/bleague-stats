@@ -18,6 +18,8 @@ interface SortableTableProps<T> {
   defaultSortKey: string;
   defaultSortDir?: "asc" | "desc";
   linkTo?: (row: T) => string;
+  /** 指定時、各行の先頭セルに左端の縦線としてチームカラー等のアクセントを付ける */
+  rowAccentColor?: (row: T) => string | undefined;
 }
 
 export function SortableTable<T>({
@@ -27,6 +29,7 @@ export function SortableTable<T>({
   defaultSortKey,
   defaultSortDir = "desc",
   linkTo,
+  rowAccentColor,
 }: SortableTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
@@ -70,24 +73,34 @@ export function SortableTable<T>({
         </tr>
       </thead>
       <tbody>
-        {sortedRows.map((row) => (
-          <tr key={rowKey(row)}>
-            {columns.map((col) => {
-              const content: ReactNode = col.render ? col.render(row) : (col.format?.(row) ?? String(col.sortValue(row)));
-              return (
-                <td key={col.key} className={col.align === "left" ? "align-left" : "align-right"}>
-                  {linkTo ? (
-                    <Link to={linkTo(row)} className="cell-link">
-                      {content}
-                    </Link>
-                  ) : (
-                    content
-                  )}
-                </td>
-              );
-            })}
-          </tr>
-        ))}
+        {sortedRows.map((row) => {
+          const accent = rowAccentColor?.(row);
+          return (
+            <tr key={rowKey(row)}>
+              {columns.map((col, i) => {
+                const content: ReactNode = col.render
+                  ? col.render(row)
+                  : (col.format?.(row) ?? String(col.sortValue(row)));
+                const isFirst = i === 0;
+                return (
+                  <td
+                    key={col.key}
+                    className={`${col.align === "left" ? "align-left" : "align-right"}${isFirst && accent ? " row-accent-cell" : ""}`}
+                    style={isFirst && accent ? { borderLeftColor: accent } : undefined}
+                  >
+                    {linkTo ? (
+                      <Link to={linkTo(row)} className="cell-link">
+                        {content}
+                      </Link>
+                    ) : (
+                      content
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );

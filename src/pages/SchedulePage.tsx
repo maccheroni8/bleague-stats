@@ -1,16 +1,18 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
-import { fetchGameSummaries, fetchSchedule } from "../lib/data";
+import { fetchGameSummaries, fetchSchedule, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { formatDateHeading } from "../lib/format";
-import type { GameSummary, GameType, UpcomingGameEntry } from "../../shared/types";
+import type { GameSummary, GameType, TeamColors, UpcomingGameEntry } from "../../shared/types";
 
 type ScheduleStatus = "final" | "live" | "upcoming";
 
 interface ScheduleRow {
   scheduleKey: string;
   date: string;
+  homeTeamId?: string;
   homeTeamName: string;
+  awayTeamId?: string;
   awayTeamName: string;
   status: ScheduleStatus;
   homeScore?: number;
@@ -22,14 +24,17 @@ interface ScheduleRow {
 /**
  * games-summary.json（生データが揃っている試合）とschedule.jsonのupcomingGames（開催予定）を
  * 1つの日程一覧にまとめる。両方に載ることは無い前提（開催予定は生データが揃った時点で
- * scrape-schedule.tsのresolveUpcomingGamesが自然に除外する）だが、念のためscheduleKeyで重複除去する
+ * scrape-schedule.tsのresolveUpcomingGamesが自然に除外する）だが、念のためscheduleKeyで重複除去する。
+ * upcomingGamesはteamIdを持たないため、teamIdByNameで補う（チームカラー適用に使う）
  */
-function toRows(summaries: GameSummary[], upcoming: UpcomingGameEntry[]): ScheduleRow[] {
+function toRows(summaries: GameSummary[], upcoming: UpcomingGameEntry[], teamIdByName: Map<string, string>): ScheduleRow[] {
   const summaryKeys = new Set(summaries.map((g) => g.scheduleKey));
   const finishedRows: ScheduleRow[] = summaries.map((g) => ({
     scheduleKey: g.scheduleKey,
     date: g.date,
+    homeTeamId: g.homeTeamId,
     homeTeamName: g.homeTeamName,
+    awayTeamId: g.awayTeamId,
     awayTeamName: g.awayTeamName,
     status: g.gameEndedFlg ? "final" : "live",
     homeScore: g.homeScore,
@@ -42,7 +47,9 @@ function toRows(summaries: GameSummary[], upcoming: UpcomingGameEntry[]): Schedu
     .map((g) => ({
       scheduleKey: g.scheduleKey,
       date: g.date,
+      homeTeamId: teamIdByName.get(g.homeTeamName),
       homeTeamName: g.homeTeamName,
+      awayTeamId: teamIdByName.get(g.awayTeamName),
       awayTeamName: g.awayTeamName,
       status: "upcoming",
       venue: g.venue,
@@ -70,11 +77,14 @@ export function SchedulePage({ season }: { season: string }) {
   } = useJsonData(() => fetchGameSummaries(season), [season]);
   // schedule.jsonの取得に失敗しても開催予定が出ないだけで日程ページ自体は表示できるようにする
   const { data: schedule, loading: scheduleLoading } = useJsonData(() => fetchSchedule(season), [season]);
+  const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
+  const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const [jumpDate, setJumpDate] = useState("");
 
+  const teamIdByName = useMemo(() => new Map((teams ?? []).map((t) => [t.teamName, t.teamId])), [teams]);
   const rows = useMemo(
-    () => (summaries ? toRows(summaries, schedule?.upcomingGames ?? []) : []),
-    [summaries, schedule],
+    () => (summaries ? toRows(summaries, schedule?.upcomingGames ?? [], teamIdByName) : []),
+    [summaries, schedule, teamIdByName],
   );
   const groups = useMemo(() => groupByDate(rows), [rows]);
 
@@ -112,7 +122,7 @@ export function SchedulePage({ season }: { season: string }) {
               </thead>
               <tbody>
                 {gamesOnDate.map((row) => (
-                  <ScheduleRowView key={row.scheduleKey} row={row} />
+                  <ScheduleRowView key={row.scheduleKey} row={row} teamColors={teamColors ?? undefined} />
                 ))}
               </tbody>
             </table>
@@ -133,14 +143,22 @@ function MaybeLink({ to, children }: { to?: string; children: ReactNode }) {
   );
 }
 
-function ScheduleRowView({ row }: { row: ScheduleRow }) {
+function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: Record<string, TeamColors> }) {
   // 開催予定はまだ生データ（試合詳細ページのソース）が無いのでリンクしない
   const linkTo = row.status === "upcoming" ? undefined : `/games/${row.scheduleKey}`;
+  const homeColor = row.homeTeamId ? teamColors?.[row.homeTeamId]?.primary : undefined;
+  const awayColor = row.awayTeamId ? teamColors?.[row.awayTeamId]?.primary : undefined;
   return (
     <tr className={`schedule-row status-${row.status}`}>
       <td className="align-left">
         <MaybeLink to={linkTo}>
-          {row.homeTeamName} vs {row.awayTeamName}
+          <span className="schedule-team-chip" style={homeColor ? { borderLeftColor: homeColor } : undefined}>
+            {row.homeTeamName}
+          </span>{" "}
+          vs{" "}
+          <span className="schedule-team-chip" style={awayColor ? { borderLeftColor: awayColor } : undefined}>
+            {row.awayTeamName}
+          </span>
           {row.gameType === "playoff" && <span className="playoff-badge">PO</span>}
         </MaybeLink>
       </td>

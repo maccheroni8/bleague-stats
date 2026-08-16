@@ -1,5 +1,5 @@
 import { SeasonLink as Link } from "../components/SeasonLink";
-import { fetchGameSummaries, fetchPlayers, fetchStandingsHistory } from "../lib/data";
+import { fetchGameSummaries, fetchPlayers, fetchStandingsHistory, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { TeamLogo } from "../components/TeamLogo";
@@ -33,6 +33,7 @@ export function HomePage({ season }: { season: string }) {
     loading: standingsLoading,
     error: standingsError,
   } = useJsonData(() => fetchStandingsHistory(season), [season]);
+  const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
 
   const recentGames = games ? recentFinishedGames(games) : [];
   const latestSnapshot = history && history.length > 0 ? history[history.length - 1]! : null;
@@ -65,8 +66,18 @@ export function HomePage({ season }: { season: string }) {
                   {formatDateHeading(g.date)}
                   {g.gameType === "playoff" && <span className="playoff-badge">PO</span>}
                 </div>
-                <RecentGameTeamRow teamId={g.homeTeamId} teamName={g.homeTeamName} score={g.homeScore} />
-                <RecentGameTeamRow teamId={g.awayTeamId} teamName={g.awayTeamName} score={g.awayScore} />
+                <RecentGameTeamRow
+                  teamId={g.homeTeamId}
+                  teamName={g.homeTeamName}
+                  score={g.homeScore}
+                  color={teamColors?.[g.homeTeamId]?.primary}
+                />
+                <RecentGameTeamRow
+                  teamId={g.awayTeamId}
+                  teamName={g.awayTeamName}
+                  score={g.awayScore}
+                  color={teamColors?.[g.awayTeamId]?.primary}
+                />
               </Link>
             ))}
           </div>
@@ -133,9 +144,19 @@ export function HomePage({ season }: { season: string }) {
   );
 }
 
-function RecentGameTeamRow({ teamId, teamName, score }: { teamId: string; teamName: string; score: number }) {
+function RecentGameTeamRow({
+  teamId,
+  teamName,
+  score,
+  color,
+}: {
+  teamId: string;
+  teamName: string;
+  score: number;
+  color?: string;
+}) {
   return (
-    <div className="recent-game-team">
+    <div className="recent-game-team" style={color ? { borderLeftColor: color } : undefined}>
       <TeamLogo teamId={teamId} size={28} />
       <span className="recent-game-team-name">{teamName}</span>
       <span className="recent-game-score">{score}</span>

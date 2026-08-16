@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fetchHeadToHead, fetchStandingsHistory } from "../lib/data";
+import { fetchHeadToHead, fetchStandingsHistory, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart } from "../components/StandingsLineChart";
@@ -54,6 +54,7 @@ export function StandingsPage({ season }: { season: string }) {
     loading: h2hLoading,
     error: h2hError,
   } = useJsonData(() => fetchHeadToHead(season), [season]);
+  const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
 
   if (loading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
@@ -95,6 +96,7 @@ export function StandingsPage({ season }: { season: string }) {
                   defaultSortKey="divisionRank"
                   defaultSortDir="asc"
                   linkTo={(t) => `/teams/${t.teamId}`}
+                  rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
                 />
               </div>
             </div>
@@ -108,6 +110,7 @@ export function StandingsPage({ season }: { season: string }) {
                   defaultSortKey="divisionRank"
                   defaultSortDir="asc"
                   linkTo={(t) => `/teams/${t.teamId}`}
+                  rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
                 />
               </div>
             </div>
@@ -127,7 +130,7 @@ export function StandingsPage({ season }: { season: string }) {
       ) : !headToHead || headToHead.length === 0 ? (
         <p className="empty-message">データがありません</p>
       ) : (
-        <HeadToHeadMatrix rows={headToHead} />
+        <HeadToHeadMatrix rows={headToHead} teamColors={teamColors ?? undefined} />
       )}
     </div>
   );

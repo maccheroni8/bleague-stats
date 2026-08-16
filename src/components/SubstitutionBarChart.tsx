@@ -24,6 +24,9 @@ interface SubstitutionBarChartProps {
   awayBench: SubstitutionRow[];
   periodBoundaries: PeriodBoundary[];
   totalSeconds: number;
+  /** data/team-colors.json由来のチームカラー。未指定時は既存のvar(--accent)/var(--muted)にフォールバックする */
+  homeColor?: string;
+  awayColor?: string;
 }
 
 function pct(sec: number, totalSeconds: number): number {
@@ -49,6 +52,8 @@ export function SubstitutionBarChart({
   awayBench,
   periodBoundaries,
   totalSeconds,
+  homeColor,
+  awayColor,
 }: SubstitutionBarChartProps) {
   return (
     <div className="substitution-chart">
@@ -59,7 +64,7 @@ export function SubstitutionBarChart({
         bench={homeBench}
         periodBoundaries={periodBoundaries}
         totalSeconds={totalSeconds}
-        color="var(--accent)"
+        color={homeColor ?? "var(--accent)"}
       />
       <TeamSubstitutionBlock
         teamName={awayTeamName}
@@ -67,7 +72,7 @@ export function SubstitutionBarChart({
         bench={awayBench}
         periodBoundaries={periodBoundaries}
         totalSeconds={totalSeconds}
-        color="var(--muted)"
+        color={awayColor ?? "var(--muted)"}
       />
     </div>
   );

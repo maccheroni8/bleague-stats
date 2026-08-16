@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { PeriodBoundary, ScorePoint, TimeoutMark } from "../lib/leadTracker";
 
@@ -8,6 +9,9 @@ interface LeadTrackerChartProps {
   totalSeconds: number;
   homeTeamName: string;
   awayTeamName: string;
+  /** data/team-colors.json由来のチームカラー。未指定時は既存のvar(--accent)/var(--muted)にフォールバックする */
+  homeColor?: string;
+  awayColor?: string;
   height?: number;
 }
 
@@ -23,27 +27,41 @@ export function LeadTrackerChart({
   totalSeconds,
   homeTeamName,
   awayTeamName,
+  homeColor,
+  awayColor,
   height = 280,
 }: LeadTrackerChartProps) {
   const maxAbsDiff = points.reduce((max, p) => Math.max(max, Math.abs(p.diff)), 0);
   const halfRange = Math.max(5, Math.ceil((maxAbsDiff + 2) / 5) * 5);
 
   const boundaryLabels = new Map(periodBoundaries.map((b) => [b.startSec, b.label]));
+  const homeStroke = homeColor ?? "var(--accent)";
+  const awayStroke = awayColor ?? "var(--muted)";
 
   return (
     <div className="lead-tracker-chart">
       <div className="lead-tracker-legend">
-        <span className="lead-tracker-legend-item home">{homeTeamName}リード</span>
-        <span className="lead-tracker-legend-item away">{awayTeamName}リード</span>
+        <span
+          className="lead-tracker-legend-item home"
+          style={{ "--legend-dot-color": homeStroke } as CSSProperties}
+        >
+          {homeTeamName}リード
+        </span>
+        <span
+          className="lead-tracker-legend-item away"
+          style={{ "--legend-dot-color": awayStroke } as CSSProperties}
+        >
+          {awayTeamName}リード
+        </span>
       </div>
       <ResponsiveContainer width="100%" height={height}>
         <AreaChart data={points} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
           <defs>
             <linearGradient id="leadTrackerGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.9} />
-              <stop offset="50%" stopColor="var(--accent)" stopOpacity={0.9} />
-              <stop offset="50%" stopColor="var(--muted)" stopOpacity={0.9} />
-              <stop offset="100%" stopColor="var(--muted)" stopOpacity={0.9} />
+              <stop offset="0%" stopColor={homeStroke} stopOpacity={0.9} />
+              <stop offset="50%" stopColor={homeStroke} stopOpacity={0.9} />
+              <stop offset="50%" stopColor={awayStroke} stopOpacity={0.9} />
+              <stop offset="100%" stopColor={awayStroke} stopOpacity={0.9} />
             </linearGradient>
           </defs>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
@@ -75,7 +93,7 @@ export function LeadTrackerChart({
             <ReferenceLine
               key={`timeout-${i}`}
               x={t.elapsedSec}
-              stroke={t.homeAway === 1 ? "var(--accent)" : t.homeAway === 2 ? "var(--muted)" : "var(--border)"}
+              stroke={t.homeAway === 1 ? homeStroke : t.homeAway === 2 ? awayStroke : "var(--border)"}
               strokeDasharray="2 3"
               strokeOpacity={0.6}
             />

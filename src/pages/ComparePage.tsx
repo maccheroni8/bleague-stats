@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { fetchPlayers, fetchSeasons, fetchTeams } from "../lib/data";
+import { fetchPlayers, fetchSeasons, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
 import type { PlayerSummary, TeamSummary } from "../../shared/types";
@@ -58,9 +58,10 @@ interface ComparisonTableProps<T> {
   rowKey: (row: T) => string;
   name: (row: T) => string;
   linkTo: (row: T) => string;
+  teamColor?: (row: T) => string | undefined;
 }
 
-function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo }: ComparisonTableProps<T>) {
+function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo, teamColor }: ComparisonTableProps<T>) {
   if (rows.length === 0) {
     return <p className="empty-message">比較する項目を選んでください</p>;
   }
@@ -70,14 +71,21 @@ function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo }: ComparisonTabl
         <thead>
           <tr>
             <th className="align-left">項目</th>
-            {rows.map(({ item, season }) => (
-              <th key={rowKey(item)} className="align-right">
-                <Link to={`${linkTo(item)}?season=${season}`} className="cell-link">
-                  {name(item)}
-                </Link>
-                <span className="compare-season-tag">{season}</span>
-              </th>
-            ))}
+            {rows.map(({ item, season }) => {
+              const accent = teamColor?.(item);
+              return (
+                <th
+                  key={rowKey(item)}
+                  className="align-right"
+                  style={accent ? { borderTopColor: accent } : undefined}
+                >
+                  <Link to={`${linkTo(item)}?season=${season}`} className="cell-link">
+                    {name(item)}
+                  </Link>
+                  <span className="compare-season-tag">{season}</span>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
@@ -111,6 +119,7 @@ export function ComparePage({ season }: { season: string }) {
   const mode: Mode = searchParams.get("cmp") === "player" ? "player" : "team";
 
   const { data: seasons, loading: seasonsLoading } = useJsonData(() => fetchSeasons(), []);
+  const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
 
   const rawTeamSlots = Array.from({ length: SLOT_COUNT }, (_, i) => parseSlotParam(searchParams.get(`t${i}`)));
   const rawPlayerSlots = Array.from({ length: SLOT_COUNT }, (_, i) => parseSlotParam(searchParams.get(`p${i}`)));
@@ -232,6 +241,7 @@ export function ComparePage({ season }: { season: string }) {
               rowKey={(t) => t.teamId}
               name={(t) => t.teamName}
               linkTo={(t) => `/teams/${t.teamId}`}
+              teamColor={(t) => teamColors?.[t.teamId]?.primary}
             />
           </div>
         </>
@@ -274,6 +284,7 @@ export function ComparePage({ season }: { season: string }) {
               rowKey={(p) => p.playerId}
               name={(p) => p.name}
               linkTo={(p) => `/players/${p.playerId}`}
+              teamColor={(p) => teamColors?.[p.teamId]?.primary}
             />
           </div>
         </>
