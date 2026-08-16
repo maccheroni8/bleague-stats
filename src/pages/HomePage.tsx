@@ -191,7 +191,7 @@ export function HomePage({ season }: { season: string }) {
         ) : !latestSnapshot ? (
           <p className="empty-message">チームデータがありません</p>
         ) : (
-          <div className="standings-grid">
+          <div className="team-logo-section">
             <TeamLogoGroup title="東地区" teams={eastTeams} />
             <TeamLogoGroup title="西地区" teams={westTeams} />
           </div>
@@ -223,8 +223,11 @@ function RecentGameTeamRow({
 
 function TeamLogoGroup({ title, teams }: { title: string; teams: StandingsTeamSnapshot[] }) {
   return (
-    <div>
-      <h2>{title}</h2>
+    <div className="team-logo-group">
+      <h3 className="team-logo-group-title">
+        {title}
+        <span className="team-logo-group-count">{teams.length}</span>
+      </h3>
       <div className="team-logo-grid">
         {teams.map((t) => (
           <Link key={t.teamId} to={`/teams/${t.teamId}`} className="team-logo-card">
