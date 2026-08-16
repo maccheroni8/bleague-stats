@@ -38,6 +38,14 @@ export interface StatMeta {
    * （検証中の項目を先に個人詳細ページだけで確認したい場合等に使う）
    */
   hiddenFromPicker?: boolean;
+  /**
+   * ランキングページでのみ、シーズン合計出場時間（分）がこの値未満の選手を除外する。
+   * 個人詳細ページ・比較ページでは適用しない（その選手個人の値をそのまま参照する場面のため）。
+   * PERのような「1分あたり」の指標は出場時間が極端に短い選手で値が異常に振れるため、
+   * 「多数の中から上位を選ぶ」ランキングという文脈でのみ意味のある足切りとして用意している。
+   * 他のレート系スタッツでも同じ問題が起きれば同じ仕組みをそのまま使える汎用フィールドにしてある
+   */
+  minMinutesForRanking?: number;
 }
 
 export interface StatDef<T> extends StatMeta {
@@ -378,6 +386,18 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     source: "official",
     officialAbbr: "+/-",
     category: "basic",
+  },
+  {
+    key: "per",
+    label: "PER",
+    value: (p) => p.advanced.per,
+    format: (p) => formatDecimal(p.advanced.per),
+    formulaText:
+      "uPER × (リーグPACE/チームPACE) × (15/リーグ平均uPER)　※uPERはHollinger方式（NBA/Basketball-Reference流）。" +
+      "ランキングページではシーズン合計出場時間200分未満の選手を除外（個人詳細・比較ページでは適用しない）",
+    source: "nba",
+    category: "rating",
+    minMinutesForRanking: 200,
   },
   {
     key: "onCourtNet",

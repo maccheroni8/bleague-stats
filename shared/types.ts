@@ -3,7 +3,18 @@
 // 生データ（GeniusAPIレスポンス）系の型はDESIGN.md 2-2章の実機検証（6試合・4,513件の
 // PlayByPlaysで確認済み）に基づく。
 
-export type Division = "east" | "west";
+/**
+ * 東西2地区（B.PREMIER）に加え、北/東/中/西/南5地区（B.ONE）の値を含む（DESIGN.md 14-4章）。
+ * どの値集合が使われるかはCategoryに依存する（同じ"east"でもB.PREMIERとB.ONEでは別の地区）
+ */
+export type Division = "east" | "west" | "north" | "central" | "south";
+
+/**
+ * B.LEAGUEのカテゴリ区分（DESIGN.md 14章）。"premier"は既存のB.PREMIER（旧B1）で、
+ * data/{season}/... に無変更で保存する。"one"はB.ONE（旧B2）で、data/{season}/one/... に
+ * 保存する（14-5章の案A）。B.NEXTは調査のみでまだ未実装のため型に含めていない
+ */
+export type Category = "premier" | "one";
 
 /**
  * レギュラーシーズン戦とプレーオフ（チャンピオンシップ）戦の区別。ConventionNameJから
@@ -387,6 +398,11 @@ export interface PlayerAdvancedStats {
   offCourtNet: number;
   /** オフコート純得失点（1試合あたり平均） */
   offCourtNetPerGame: number;
+  /**
+   * PER（Hollinger方式、NBA/Basketball-Reference流）。公式に定義が無いためNBA流を採用。
+   * リーグ全体を出場時間で加重平均するとちょうど15になるよう正規化されている
+   */
+  per: number;
 }
 
 // ---- data/team-colors.json の保存スキーマ（scripts/extract-team-colors.ts生成） ----

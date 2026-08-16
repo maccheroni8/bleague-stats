@@ -1,23 +1,29 @@
 // data/{season}/games/*.json（生データ）から teams.json / players.json を再生成する。
 // 生データを正とし、集計は都度作り直す（DESIGN.md 5章）。ティアAの基本＋一部アドバンスドスタッツが対象。
 //
-// 使い方: npm run aggregate -- --season 2025-26
+// 使い方:
+//   npm run aggregate -- --season 2025-26                # B.PREMIER（従来通り、data/{season}/配下）
+//   npm run aggregate -- --season 2025-26 --category one # B.ONE（data/{season}/one/配下。DESIGN.md 14章）
 
 import path from "node:path";
 import { readdir } from "node:fs/promises";
-import { DATA_DIR, readAllGames, readJson, writeJson } from "./lib/storage.ts";
+import { DATA_DIR, readAllGames, readJson, seasonDirName, writeJson } from "./lib/storage.ts";
 import {
   eff,
   efgPct,
   estimatedPossessions,
+  finalizePer,
   ftRate,
   offensiveRating,
   orbPct,
   pace,
   parsePlayTime,
+  perConstants,
   safeDiv,
   tsPct,
+  uPer,
   usagePct,
+  type PerLeagueTotals,
 } from "../shared/formulas.ts";
 import { reconstructOnCourt, substitutionModelForSeason, type OnCourtReconstruction } from "../shared/onCourt.ts";
 import { teamDivision } from "./lib/divisions.ts";
@@ -26,6 +32,7 @@ import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { classifyGameType } from "./lib/gameType.ts";
 import type {
   BoxscoreRow,
+  Category,
   Division,
   GameSummary,
   GameType,
@@ -292,8 +299,9 @@ function gamePossession(homeRow: BoxscoreRow, awayRow: BoxscoreRow): number {
   return estimatedPossessions(toPossessionTotals(homeRow), toPossessionTotals(awayRow));
 }
 
-export async function aggregateSeason(season: string): Promise<void> {
-  const rawGames = await readAllGames(season);
+export async function aggregateSeason(season: string, category: Category = "premier"): Promise<void> {
+  const seasonDir = seasonDirName(season, category);
+  const rawGames = await readAllGames(season, category);
   const allGames = rawGames.filter((g) => g.gameEndedFlg);
   const games = allGames.filter((g) => !isExhibitionGame(g.raw.Game.ConventionNameJ));
   const excludedCount = allGames.length - games.length;
@@ -311,7 +319,7 @@ export async function aggregateSeason(season: string): Promise<void> {
   // 含めるため、gameEndedFlgで絞り込む前のrawGamesを使う（exhibitionのみ除外）
   const scheduleGames = rawGames.filter((g) => !isExhibitionGame(g.raw.Game.ConventionNameJ));
   const gameSummaries = buildGameSummaries(scheduleGames);
-  await writeJson(path.join(DATA_DIR, season, "games-summary.json"), gameSummaries);
+  await writeJson(path.join(DATA_DIR, seasonDir, "games-summary.json"), gameSummaries);
 
   // EFFの計算式は年度で異なる（DESIGN.md 6章）。シーズン文字列("2025-26")から開始年を取り出す
   const seasonStartYear = Number(season.split("-")[0]);
@@ -362,12 +370,54 @@ export async function aggregateSeason(season: string): Promise<void> {
     processLineups(game, teamLineups, onCourt);
   }
 
+  // PER（Hollinger方式、NBA/Basketball-Reference流。DESIGN.md参照）。
+  // リーグ全体の合計値（自チーム視点のteams.totalsを全チーム分足し合わせたもの。相手チーム視点の
+  // opponentTotalsを混ぜると二重集計になるため使わない）からfactor/VOP/DRBP・lgPaceを1回だけ求め、
+  // 各選手のuPERを算出したあと、出場時間で加重平均したリーグ平均uPERを求めて15に正規化する
+  const lgTotals: PerLeagueTotals = { ast: 0, fgm: 0, fga: 0, ftm: 0, fta: 0, pts: 0, oreb: 0, trb: 0, tov: 0, pf: 0 };
+  let lgPoss = 0;
+  let lgMin = 0;
+  for (const team of teams.values()) {
+    lgTotals.ast += team.totals.ast;
+    lgTotals.fgm += team.totals.fgm;
+    lgTotals.fga += team.totals.fga;
+    lgTotals.ftm += team.totals.ftm;
+    lgTotals.fta += team.totals.fta;
+    lgTotals.pts += team.totals.pts;
+    lgTotals.oreb += team.totals.oreb;
+    lgTotals.trb += team.totals.reb;
+    lgTotals.tov += team.totals.tov;
+    lgTotals.pf += team.totals.pf;
+    lgPoss += team.totals.poss;
+    lgMin += team.totals.min;
+  }
+  const perConst = perConstants(lgTotals);
+  const lgPace = pace(lgPoss, lgMin);
+
+  const uPerByPlayer = new Map<string, number>();
+  let sumWeightedUPer = 0;
+  let sumMinForUPer = 0;
+  for (const p of players.values()) {
+    const team = teams.get(p.teamId);
+    const teamAstFgRatio = team ? safeDiv(team.totals.ast, team.totals.fgm) : 0;
+    const uPerValue = uPer({ ...p.totals, trb: p.totals.reb }, teamAstFgRatio, lgTotals, perConst);
+    uPerByPlayer.set(p.playerId, uPerValue);
+    sumWeightedUPer += uPerValue * p.totals.min;
+    sumMinForUPer += p.totals.min;
+  }
+  const lgAvgUPer = safeDiv(sumWeightedUPer, sumMinForUPer);
+
   const playersJson = [...players.values()]
     .map((p) => {
       const statBlock = buildStatBlock(p.totals, seasonStartYear);
       // Usage%はチームの出場全体（シーズン合計）を基準に算出する。移籍選手は直近所属チームで近似する
       const team = teams.get(p.teamId);
       const usage = team ? usagePct(p.totals, team.totals) : 0;
+      const teamPaceForPlayer = team ? pace(team.totals.poss, team.totals.min) : 0;
+      const per =
+        teamPaceForPlayer > 0
+          ? finalizePer(uPerByPlayer.get(p.playerId) ?? 0, teamPaceForPlayer, lgPace, lgAvgUPer)
+          : 0;
       // 国籍・身長体重・生年月日・ポジションはplayers-master.jsonから突合（未登録選手は全て未定義のまま）
       const master = masterById.get(p.playerId);
       return {
@@ -391,6 +441,7 @@ export async function aggregateSeason(season: string): Promise<void> {
           onCourtNetPerGame: statBlock.perGame.plusMinus,
           offCourtNet: p.totals.teamNetSum - p.totals.plusMinus,
           offCourtNetPerGame: (p.totals.teamNetSum - p.totals.plusMinus) / (p.totals.gamesPlayed || 1),
+          per,
         },
       };
     })
@@ -398,7 +449,7 @@ export async function aggregateSeason(season: string): Promise<void> {
 
   for (const p of players.values()) {
     const gameLogs = [...p.gameLogs].sort((a, b) => a.date.localeCompare(b.date));
-    await writeJson(path.join(DATA_DIR, season, "player-games", `${p.playerId}.json`), gameLogs);
+    await writeJson(path.join(DATA_DIR, seasonDir, "player-games", `${p.playerId}.json`), gameLogs);
   }
 
   const teamsJson = [...teams.values()]
@@ -438,16 +489,16 @@ export async function aggregateSeason(season: string): Promise<void> {
 
   for (const t of teams.values()) {
     const gameLogs = [...t.gameLogs].sort((a, b) => a.date.localeCompare(b.date));
-    await writeJson(path.join(DATA_DIR, season, "team-games", `${t.teamId}.json`), gameLogs);
+    await writeJson(path.join(DATA_DIR, seasonDir, "team-games", `${t.teamId}.json`), gameLogs);
   }
 
   // 順位表・星取り表はプレーオフの結果に左右されないよう、レギュラーシーズンの試合のみで作る
   const regularGames = games.filter((g) => classifyGameType(g.raw.Game.ConventionNameJ) === "regular");
-  const standingsHistory = buildStandingsHistory(regularGames);
-  await writeJson(path.join(DATA_DIR, season, "standings-history.json"), standingsHistory);
+  const standingsHistory = buildStandingsHistory(regularGames, category);
+  await writeJson(path.join(DATA_DIR, seasonDir, "standings-history.json"), standingsHistory);
 
-  const headToHead = buildHeadToHead(teams);
-  await writeJson(path.join(DATA_DIR, season, "head-to-head.json"), headToHead);
+  const headToHead = buildHeadToHead(teams, category);
+  await writeJson(path.join(DATA_DIR, seasonDir, "head-to-head.json"), headToHead);
 
   for (const [teamId, lineupMap] of teamLineups) {
     const team = teams.get(teamId);
@@ -474,11 +525,11 @@ export async function aggregateSeason(season: string): Promise<void> {
       season,
       lineups,
     };
-    await writeJson(path.join(DATA_DIR, season, "lineups", `${teamId}.json`), file);
+    await writeJson(path.join(DATA_DIR, seasonDir, "lineups", `${teamId}.json`), file);
   }
 
-  await writeJson(path.join(DATA_DIR, season, "players.json"), playersJson);
-  await writeJson(path.join(DATA_DIR, season, "teams.json"), teamsJson);
+  await writeJson(path.join(DATA_DIR, seasonDir, "players.json"), playersJson);
+  await writeJson(path.join(DATA_DIR, seasonDir, "teams.json"), teamsJson);
   await regenerateSeasonsFile();
   console.log(
     `保存完了: players.json(${playersJson.length}名) / teams.json(${teamsJson.length}チーム) / ` +
@@ -712,7 +763,7 @@ interface StandingsAccumulator {
  * 同率の順位付けは勝率降順→得失点差降順のシンプルな方法（DESIGN.md参照。公式タイブレーク
  * ルールが判明次第見直す）。
  */
-function buildStandingsHistory(games: StoredGame[]): StandingsSnapshot[] {
+function buildStandingsHistory(games: StoredGame[], category: Category): StandingsSnapshot[] {
   const sorted = [...games].sort(
     (a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey),
   );
@@ -771,7 +822,7 @@ function buildStandingsHistory(games: StoredGame[]): StandingsSnapshot[] {
       gamesBehind: leader ? (leader.wins - t.wins + (t.losses - leader.losses)) / 2 : 0,
     }));
 
-    history.push({ date, teams: attachDivisionRanks(teams) });
+    history.push({ date, teams: attachDivisionRanks(teams, category) });
   }
 
   return history;
@@ -784,8 +835,12 @@ function buildStandingsHistory(games: StoredGame[]): StandingsSnapshot[] {
  */
 function attachDivisionRanks(
   teams: Omit<StandingsTeamSnapshot, "division" | "divisionRank" | "divisionGamesBehind">[],
+  category: Category,
 ): StandingsTeamSnapshot[] {
-  const withDivision: StandingsTeamSnapshot[] = teams.map((t) => ({ ...t, division: teamDivision(t.teamId) }));
+  const withDivision: StandingsTeamSnapshot[] = teams.map((t) => ({
+    ...t,
+    division: teamDivision(t.teamId, category),
+  }));
 
   const byDivision = new Map<Division, StandingsTeamSnapshot[]>();
   for (const t of withDivision) {
@@ -811,8 +866,15 @@ function attachDivisionRanks(
  * チームごとのgameLogs（team-games/{teamId}.json相当）から、対戦相手ごとのペアワイズ成績
  * （W-L・合計得失点差）と、地区別（対東地区/対西地区）のまとめを作る（星取り表ページ用）。
  * 対戦していない相手はvsに含めない（フロントエンドでダッシュ/空欄表示にする）。
+ *
+ * ⚠️ vsEast/vsWestはB.PREMIERの東西2地区専用のフィールドのまま（B.ONEの5地区
+ * （北/東/中/西/南）には未対応）。B.ONEでcategoryを渡してもteamDivision()自体は正しい
+ * 地区値（north/east/central/west/south）を返すが、この関数が集計するのはdivision==="east"/
+ * "west"の2つのみのため、B.ONEの北/中/南地区との対戦成績はvsEast/vsWestに含まれず
+ * 事実上欠落する（vs自体・overallには影響なし）。フロントエンドでB.ONEの地区別集計を
+ * 表示する段になったら、5地区対応の汎用的な集計に拡張すること
  */
-function buildHeadToHead(teams: Map<string, TeamAccumulator>): HeadToHeadTeamRow[] {
+function buildHeadToHead(teams: Map<string, TeamAccumulator>, category: Category): HeadToHeadTeamRow[] {
   const withPct = (wins: number, losses: number) => ({ wins, losses, winPct: safeDiv(wins, wins + losses) });
 
   const rows = [...teams.values()].map((team) => {
@@ -834,7 +896,7 @@ function buildHeadToHead(teams: Map<string, TeamAccumulator>): HeadToHeadTeamRow
     let westWins = 0;
     let westLosses = 0;
     for (const [opponentTeamId, rec] of vs) {
-      const division = teamDivision(opponentTeamId);
+      const division = teamDivision(opponentTeamId, category);
       if (division === "east") {
         eastWins += rec.wins;
         eastLosses += rec.losses;
@@ -847,7 +909,7 @@ function buildHeadToHead(teams: Map<string, TeamAccumulator>): HeadToHeadTeamRow
     return {
       teamId: team.teamId,
       teamName: team.teamName,
-      division: teamDivision(team.teamId),
+      division: teamDivision(team.teamId, category),
       vs: Object.fromEntries(vs),
       overall: withPct(team.wins, team.losses),
       vsEast: withPct(eastWins, eastLosses),
@@ -863,11 +925,13 @@ async function main(): Promise<void> {
   const seasonIndex = args.indexOf("--season");
   const season = seasonIndex !== -1 ? args[seasonIndex + 1] : undefined;
   if (!season) {
-    console.error("使い方: aggregate.ts --season 2025-26");
+    console.error("使い方: aggregate.ts --season 2025-26 [--category one]");
     process.exitCode = 1;
     return;
   }
-  await aggregateSeason(season);
+  const categoryIndex = args.indexOf("--category");
+  const category: Category = categoryIndex !== -1 ? (args[categoryIndex + 1] as Category) : "premier";
+  await aggregateSeason(season, category);
 }
 
 if (isMainModule(import.meta.url)) {

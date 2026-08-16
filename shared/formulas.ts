@@ -160,3 +160,90 @@ export function parsePlayTime(playTime: string): number {
   if (!match) return 0;
   return Number(match[1]) + Number(match[2]) / 60;
 }
+
+// ---- PER（Hollinger方式、NBA/Basketball-Reference流。公式に定義が無いためNBA流を採用） ----
+//
+// Bリーグ公式にPERに相当する指標が無いため、NBA/Basketball-Reference流のuPER→PERの2段階計算を
+// そのまま採用する。公式の照合値が存在しない指標のため、検証は「リーグ全体を出場時間で加重平均
+// するとちょうど15になる」という計算方法自体の性質を使う（aggregate.tsのコメント参照）。
+
+export interface PerLeagueTotals {
+  ast: number;
+  fgm: number;
+  fga: number;
+  ftm: number;
+  fta: number;
+  pts: number;
+  oreb: number;
+  /** TRB（総リバウンド）。StatTotalsの`reb`に対応 */
+  trb: number;
+  tov: number;
+  pf: number;
+}
+
+export interface PerConstants {
+  factor: number;
+  vop: number;
+  drbp: number;
+}
+
+/** uPER計算で使うリーグ全体の定数（factor/VOP/DRBP）を、シーズン全チーム合計値から算出する */
+export function perConstants(lg: PerLeagueTotals): PerConstants {
+  const factor = 2 / 3 - safeDiv(0.5 * safeDiv(lg.ast, lg.fgm), 2 * safeDiv(lg.fgm, lg.ftm));
+  const vop = safeDiv(lg.pts, lg.fga - lg.oreb + lg.tov + 0.44 * lg.fta);
+  const drbp = safeDiv(lg.trb - lg.oreb, lg.trb);
+  return { factor, vop, drbp };
+}
+
+export interface PerPlayerTotals {
+  min: number;
+  tpm: number;
+  ast: number;
+  fgm: number;
+  fga: number;
+  ftm: number;
+  fta: number;
+  tov: number;
+  trb: number;
+  oreb: number;
+  stl: number;
+  blk: number;
+  pf: number;
+}
+
+/**
+ * uPER（ペース調整・リーグ平均15への正規化を行う前の、1分あたりの粗い効率値）。
+ * teamAstFgRatioはその選手が所属するチームのシーズン合計AST/FG。出場時間0の選手は
+ * 1/MPが定義できないため0を返す（呼び出し側でシーズン未出場選手を除外する必要はない）
+ */
+export function uPer(
+  totals: PerPlayerTotals,
+  teamAstFgRatio: number,
+  lg: PerLeagueTotals,
+  constants: PerConstants,
+): number {
+  if (totals.min <= 0) return 0;
+  const { factor, vop, drbp } = constants;
+  const raw =
+    totals.tpm +
+    (2 / 3) * totals.ast +
+    (2 - factor * teamAstFgRatio) * totals.fgm +
+    totals.ftm * 0.5 * (1 + (1 - teamAstFgRatio) + (2 / 3) * teamAstFgRatio) -
+    vop * totals.tov -
+    vop * drbp * (totals.fga - totals.fgm) -
+    vop * 0.44 * (0.44 + 0.56 * drbp) * (totals.fta - totals.ftm) +
+    vop * (1 - drbp) * (totals.trb - totals.oreb) +
+    vop * drbp * totals.oreb +
+    vop * totals.stl +
+    vop * drbp * totals.blk -
+    totals.pf * (safeDiv(lg.ftm, lg.pf) - 0.44 * safeDiv(lg.fta, lg.pf) * vop);
+  return raw / totals.min;
+}
+
+/**
+ * uPERにペース調整とリーグ平均15への正規化を適用し、最終的なPERにする。
+ * PER = uPER × (lgPace/teamPace) × (15/lgAvgUPER)
+ */
+export function finalizePer(uPerValue: number, teamPace: number, lgPace: number, lgAvgUPer: number): number {
+  return uPerValue * safeDiv(lgPace, teamPace) * safeDiv(15, lgAvgUPer);
+}

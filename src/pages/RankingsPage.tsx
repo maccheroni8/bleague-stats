@@ -84,11 +84,15 @@ export function RankingsPage({ season }: { season: string }) {
     setNationalityFilter("all");
   };
 
-  const filteredPlayers = (players ?? []).filter((p) => {
-    if (nationalityFilter === "all") return true;
-    if (!p.nationality) return false;
-    return nationalityFilter === "jp" ? p.nationality === "日本" : p.nationality !== "日本";
-  });
+  const filteredPlayers = (players ?? [])
+    .filter((p) => {
+      if (nationalityFilter === "all") return true;
+      if (!p.nationality) return false;
+      return nationalityFilter === "jp" ? p.nationality === "日本" : p.nationality !== "日本";
+    })
+    // ランキングという「多数の中から上位を選ぶ」文脈でのみ、極端に出場時間が短い選手を除外する
+    // （個人詳細・比較ページでは適用しない。statDefs.tsのminMinutesForRankingコメント参照）
+    .filter((p) => p.totals.min >= (playerDef.minMinutesForRanking ?? 0));
 
   return (
     <div>
