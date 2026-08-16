@@ -547,11 +547,6 @@ table.boxscore-table .row-note {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-.stat-picker button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 .rankings-table .rank-cell {
   color: var(--muted);
   width: 40px;

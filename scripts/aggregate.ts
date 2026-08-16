@@ -6,7 +6,19 @@
 import path from "node:path";
 import { readdir } from "node:fs/promises";
 import { DATA_DIR, readAllGames, readJson, writeJson } from "./lib/storage.ts";
-import { eff, efgPct, ftRate, offensiveRating, orbPct, pace, parsePlayTime, safeDiv, tsPct, usagePct } from "../shared/formulas.ts";
+import {
+  eff,
+  efgPct,
+  estimatedPossessions,
+  ftRate,
+  offensiveRating,
+  orbPct,
+  pace,
+  parsePlayTime,
+  safeDiv,
+  tsPct,
+  usagePct,
+} from "../shared/formulas.ts";
 import { reconstructOnCourt, substitutionModelForSeason, type OnCourtReconstruction } from "../shared/onCourt.ts";
 import { teamDivision } from "./lib/divisions.ts";
 import { seasonCoverage } from "./lib/seasonCoverage.ts";
@@ -71,9 +83,11 @@ interface StatTotals {
   /** 被ブロック数。EFF計算のBSRに対応 */
   blockedAgainst: number;
   /**
-   * 推定ポゼッション。GeniusAPI生データのチーム行に含まれる公式POSS値をそのまま合算する
-   * （自チーム/相手チーム行で同一値であることを確認済み。formulas.tsのestimatedPossessions()で
-   * シーズン合計値から再計算すると比率項の非線形性で誤差が出るため、生値の合算を採用する）。
+   * 推定ポゼッション。生データのチーム行に公式POSS値がある試合（fullティア、2022-23シーズン
+   * 以降）はその値を、無い試合（pbpNoShotChartティア、2022-23シーズンより前）は
+   * gamePossession()でformulas.tsのestimatedPossessions()を試合単位で適用した推定値を、
+   * それぞれ試合ごとに合算する（シーズン合計値に対して式を再適用すると比率項の非線形性で
+   * 誤差が出るため、必ず試合単位で確定させた値を合算する方針を踏襲する）。
    * 個人行にはPOSSが存在しないため選手集計では常に0のまま
    */
   poss: number;
@@ -127,6 +141,8 @@ function addBoxscoreRow(
   countGame: boolean,
   teamNetForGame: number,
   reconstructedPlusMinus?: number,
+  // チーム集計のみ、gamePossession()で試合単位で確定させた値を渡す（個人集計は常に未指定＝0のまま）
+  possForGame?: number,
 ): void {
   if (countGame) {
     totals.gamesPlayed += 1;
@@ -151,7 +167,7 @@ function addBoxscoreRow(
   totals.fta += row.FTA;
   totals.foulsDrawn += row.FOULON;
   totals.blockedAgainst += row.BSON;
-  totals.poss += row.POSS ?? 0;
+  totals.poss += possForGame ?? row.POSS ?? 0;
   // 公式PLUSMINUSが無いシーズン（2016-17〜2021-22）はshared/onCourt.tsによる自前復元値を使う
   // （DESIGN.md 2-7章。信頼度が公式値より一段低い旨をフロントエンドで注記する）
   totals.plusMinus += row.PLUSMINUS ?? reconstructedPlusMinus ?? 0;
@@ -218,6 +234,26 @@ interface LineupAccumulator {
 
 function pickTeamRow(rows: BoxscoreRow[], category: 1 | 3): BoxscoreRow[] {
   return rows.filter((r) => r.Category === category && r.PeriodCategory === 18);
+}
+
+/**
+ * 1試合分のポゼッション数を確定する。公式POSS値がある試合（fullティア）はそれをそのまま使う。
+ * 無い試合（pbpNoShotChartティア、2022-23シーズンより前）は、その試合のホーム/アウェイ
+ * チーム行のボックススコア（FGA/FGM/FTA/OREB/DREB/TOV）からestimatedPossessions()
+ * （公式のポゼッション推定式）で算出する。必ず試合単位で1つの値に確定させてから
+ * シーズン合計に加算する（シーズン合計値に対して式を再適用すると比率項の非線形性で誤差が出るため）
+ */
+function gamePossession(homeRow: BoxscoreRow, awayRow: BoxscoreRow): number {
+  if (homeRow.POSS !== undefined) return homeRow.POSS;
+  const toPossessionTotals = (row: BoxscoreRow) => ({
+    fga: row.PT2A + row.PT3A,
+    fgm: row.PT2M + row.PT3M,
+    fta: row.FTA,
+    oreb: row.RB_OFF,
+    dreb: row.RB_DEF,
+    tov: row.TO,
+  });
+  return estimatedPossessions(toPossessionTotals(homeRow), toPossessionTotals(awayRow));
 }
 
 export async function aggregateSeason(season: string): Promise<void> {
@@ -332,8 +368,8 @@ export async function aggregateSeason(season: string): Promise<void> {
     .map((t) => {
       const ownStats = buildStatBlock(t.totals, seasonStartYear);
       const oppStats = buildStatBlock(t.opponentTotals, seasonStartYear);
-      // POSSは生データのチーム行から合算済みの値（totals.poss）を使う。自チーム/相手チーム行で
-      // 同一の値になることを確認済みなので、opponentTotals.possも同じ値になる
+      // POSSはgamePossession()で試合単位で確定・合算済みの値（totals.poss）を使う。
+      // 自チーム/相手チーム行に同じ値を加算しているため、opponentTotals.possも同じ値になる
       const poss = t.totals.poss;
       const offRtg = offensiveRating(t.totals.pts, poss);
       const defRtg = offensiveRating(t.opponentTotals.pts, poss);
@@ -506,8 +542,8 @@ function processPlayers(
   }
 }
 
-/** チーム行（Category=3）から試合ログ用のボックススコア詳細を抽出する */
-function teamGameLogStats(row: BoxscoreRow) {
+/** チーム行（Category=3）から試合ログ用のボックススコア詳細を抽出する。possはgamePossession()で試合単位で確定済みの値を渡す */
+function teamGameLogStats(row: BoxscoreRow, poss: number) {
   return {
     min: parsePlayTime(row.PlayTime),
     oreb: row.RB_OFF,
@@ -524,7 +560,7 @@ function teamGameLogStats(row: BoxscoreRow) {
     tpa: row.PT3A,
     ftm: row.FTM,
     fta: row.FTA,
-    poss: row.POSS ?? 0,
+    poss,
   };
 }
 
@@ -544,16 +580,20 @@ function processTeams(
   const homeWin = game.homeScore > game.awayScore;
   const awayWin = game.awayScore > game.homeScore;
 
+  // この試合のポゼッション数を1つに確定させる（公式POSS値、無ければ推定値）。
+  // 自チーム/相手チーム行のいずれに合算する場合も同じ値を使う
+  const gamePoss = gamePossession(homeRow, awayRow);
+
   // teams.jsonのシーズン集計（totals・wins/losses）はレギュラーシーズンのみ加算する。
   // プレーオフの試合もgameLogsには残すため、フロントエンドのシチュエーション別フィルタでは
   // 合算参照できる
   if (gameType === "regular") {
     // opponentTotalsもgamesPlayedを数える（perGame算出の分母は「自チームの試合数」と一致させる必要がある）。
     // teamNetForGame（オンコート/オフコート算出用）は個人集計専用なのでチーム集計では常に0を渡す
-    addBoxscoreRow(home.totals, homeRow, true, 0);
-    addBoxscoreRow(home.opponentTotals, awayRow, true, 0);
-    addBoxscoreRow(away.totals, awayRow, true, 0);
-    addBoxscoreRow(away.opponentTotals, homeRow, true, 0);
+    addBoxscoreRow(home.totals, homeRow, true, 0, undefined, gamePoss);
+    addBoxscoreRow(home.opponentTotals, awayRow, true, 0, undefined, gamePoss);
+    addBoxscoreRow(away.totals, awayRow, true, 0, undefined, gamePoss);
+    addBoxscoreRow(away.opponentTotals, homeRow, true, 0, undefined, gamePoss);
 
     if (homeWin) {
       home.wins += 1;
@@ -574,7 +614,7 @@ function processTeams(
     opponentScore: game.awayScore,
     win: homeWin,
     gameType,
-    ...teamGameLogStats(homeRow),
+    ...teamGameLogStats(homeRow, gamePoss),
   });
   away.gameLogs.push({
     scheduleKey: game.scheduleKey,
@@ -586,7 +626,7 @@ function processTeams(
     opponentScore: game.homeScore,
     win: awayWin,
     gameType,
-    ...teamGameLogStats(awayRow),
+    ...teamGameLogStats(awayRow, gamePoss),
   });
 }
 

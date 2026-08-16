@@ -487,7 +487,12 @@ export interface TeamGameLog {
   tpa: number;
   ftm: number;
   fta: number;
-  /** 生データのチーム行に含まれる公式POSS値（シチュエーション別集計で合算する。式の再計算はしない） */
+  /**
+   * ポゼッション。生データのチーム行に公式POSS値がある場合（fullティア、2022-23シーズン以降）は
+   * それをそのまま使う。無い場合（pbpNoShotChartティア、2022-23シーズンより前）は、
+   * 公式のポゼッション推定式（shared/formulas.tsのestimatedPossessions()）を試合単位で適用した値。
+   * シチュエーション別集計ではこの値をそのまま合算する（式の再計算はしない。非線形性回避）
+   */
   poss: number;
 }
 

@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchPlayers, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { isPossessionStatsSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
 import { ExportImageButton } from "../components/ExportImageButton";
 
@@ -62,17 +61,12 @@ export function RankingsPage({ season }: { season: string }) {
     error: playersError,
   } = useJsonData(() => fetchPlayers(season), [season]);
 
-  const { coverage } = useSeasonCoverage(season);
-  const possStatsSupported = isPossessionStatsSupported(coverage);
-
   const loading = mode === "team" ? teamsLoading : playersLoading;
   const error = mode === "team" ? teamsError : playersError;
 
   const defs = mode === "team" ? TEAM_STAT_DEFS : PLAYER_STAT_DEFS.filter((d) => !d.hiddenFromPicker);
   const teamDef = TEAM_STAT_DEFS.find((d) => d.key === statKey) ?? TEAM_STAT_DEFS[0]!;
   const playerDef = PLAYER_STAT_DEFS.find((d) => d.key === statKey) ?? PLAYER_STAT_DEFS[0]!;
-  const selectedDefUnsupported =
-    mode === "team" && teamDef.requiresFullCoverage === true && !possStatsSupported;
 
   const selectMode = (next: Mode) => {
     setMode(next);
@@ -115,28 +109,17 @@ export function RankingsPage({ season }: { season: string }) {
       )}
 
       <div className="stat-picker">
-        {defs.map((d) => {
-          const unsupported = mode === "team" && d.requiresFullCoverage === true && !possStatsSupported;
-          return (
-            <button
-              key={d.key}
-              className={d.key === statKey ? "active" : ""}
-              disabled={unsupported}
-              title={unsupported ? "このシーズンはPOSSデータが無いため算出できません" : undefined}
-              onClick={() => setStatKey(d.key)}
-            >
-              {d.label}
-            </button>
-          );
-        })}
+        {defs.map((d) => (
+          <button key={d.key} className={d.key === statKey ? "active" : ""} onClick={() => setStatKey(d.key)}>
+            {d.label}
+          </button>
+        ))}
       </div>
 
       {loading ? (
         <p className="loading">読み込み中...</p>
       ) : error ? (
         <p className="error-message">{error}</p>
-      ) : selectedDefUnsupported ? (
-        <p className="empty-message">このシーズンはPOSSデータが無いため、{teamDef.label}は算出できません</p>
       ) : (
         <>
           <ExportImageButton

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { fetchPlayers, fetchSeasons, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
-import type { PlayerSummary, SeasonCoverage, TeamSummary } from "../../shared/types";
+import type { PlayerSummary, TeamSummary } from "../../shared/types";
 import { ExportImageButton } from "../components/ExportImageButton";
 
 type Mode = "team" | "player";
@@ -58,10 +58,9 @@ interface ComparisonTableProps<T> {
   rowKey: (row: T) => string;
   name: (row: T) => string;
   linkTo: (row: T) => string;
-  coverageBySeason: Map<string, SeasonCoverage>;
 }
 
-function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo, coverageBySeason }: ComparisonTableProps<T>) {
+function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo }: ComparisonTableProps<T>) {
   if (rows.length === 0) {
     return <p className="empty-message">比較する項目を選んでください</p>;
   }
@@ -83,26 +82,17 @@ function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo, coverageBySeason
         </thead>
         <tbody>
           {defs.map((def) => {
-            const cells = rows.map(({ item, season }) => {
-              const supported = !def.requiresFullCoverage || coverageBySeason.get(season) === "full";
-              return supported ? { value: def.value(item), text: def.format(item) } : { value: null, text: "N/A" };
-            });
-            const numericValues = cells.map((c) => c.value).filter((v): v is number => v !== null);
-            const best =
-              numericValues.length > 0
-                ? def.higherIsBetter === false
-                  ? Math.min(...numericValues)
-                  : Math.max(...numericValues)
-                : null;
+            const values = rows.map(({ item }) => def.value(item));
+            const best = def.higherIsBetter === false ? Math.min(...values) : Math.max(...values);
             return (
               <tr key={def.key}>
                 <td className="align-left">{def.label}</td>
                 {rows.map(({ item }, i) => (
                   <td
                     key={rowKey(item)}
-                    className={`align-right${rows.length > 1 && cells[i]!.value !== null && cells[i]!.value === best ? " compare-best" : ""}`}
+                    className={`align-right${rows.length > 1 && values[i] === best ? " compare-best" : ""}`}
                   >
-                    {cells[i]!.text}
+                    {def.format(item)}
                   </td>
                 ))}
               </tr>
@@ -121,7 +111,6 @@ export function ComparePage({ season }: { season: string }) {
   const mode: Mode = searchParams.get("cmp") === "player" ? "player" : "team";
 
   const { data: seasons, loading: seasonsLoading } = useJsonData(() => fetchSeasons(), []);
-  const coverageBySeason = new Map<string, SeasonCoverage>((seasons ?? []).map((s) => [s.season, s.coverage]));
 
   const rawTeamSlots = Array.from({ length: SLOT_COUNT }, (_, i) => parseSlotParam(searchParams.get(`t${i}`)));
   const rawPlayerSlots = Array.from({ length: SLOT_COUNT }, (_, i) => parseSlotParam(searchParams.get(`p${i}`)));
@@ -243,7 +232,6 @@ export function ComparePage({ season }: { season: string }) {
               rowKey={(t) => t.teamId}
               name={(t) => t.teamName}
               linkTo={(t) => `/teams/${t.teamId}`}
-              coverageBySeason={coverageBySeason}
             />
           </div>
         </>
@@ -286,7 +274,6 @@ export function ComparePage({ season }: { season: string }) {
               rowKey={(p) => p.playerId}
               name={(p) => p.name}
               linkTo={(p) => `/players/${p.playerId}`}
-              coverageBySeason={coverageBySeason}
             />
           </div>
         </>

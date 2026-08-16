@@ -21,13 +21,3 @@ export function isPbpSupported(coverage: SeasonCoverage | null): boolean {
 export function isShotChartSupported(coverage: SeasonCoverage | null): boolean {
   return coverage === "full";
 }
-
-/**
- * POSSフィールドを用いるアドバンスドレーティング系（PACE/ORtg/DRtg/NetRtg）が対応範囲内か。
- * POSSは生データ上fullティア（2022-23シーズン以降）にのみ存在し、pbpNoShotChartティアでは
- * 常に0になる（PLUSMINUS/Usage%等の他のPBP系項目はreconstructOnCourtによる自前復元があるため
- * この問題が無い）。ショットチャートと同じ判定基準（coverage==="full"）を流用する
- */
-export function isPossessionStatsSupported(coverage: SeasonCoverage | null): boolean {
-  return coverage === "full";
-}
