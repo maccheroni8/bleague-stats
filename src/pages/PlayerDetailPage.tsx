@@ -7,6 +7,7 @@ import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import type { PlayerGameLog } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
+import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatSigned } from "../lib/format";
 import {
   computePlayerSituationalStats,
@@ -97,10 +98,15 @@ export function PlayerDetailPage({ season }: { season: string }) {
       <Link to="/players" className="back-link">
         ← 個人一覧に戻る
       </Link>
-      <h1>{player.name}</h1>
-      <p className="page-subtitle">
-        {player.teamName}・{season}シーズン・{player.gamesPlayed}試合出場
-      </p>
+      <div className="player-detail-header">
+        <PlayerPhoto playerId={player.playerId} size={96} />
+        <div>
+          <h1>{player.name}</h1>
+          <p className="page-subtitle">
+            {player.teamName}・{season}シーズン・{player.gamesPlayed}試合出場
+          </p>
+        </div>
+      </div>
 
       <SituationalFilterPicker filter={filter} onChange={setFilter} />
 

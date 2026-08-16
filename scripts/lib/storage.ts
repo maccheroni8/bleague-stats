@@ -82,6 +82,19 @@ export async function writeJson(filePath: string, data: unknown): Promise<void> 
   await writeJsonGz(filePath, data);
 }
 
+/**
+ * バイナリファイル（ロゴ・選手写真等）をそのまま保存する。PNG/WebPは既に圧縮済みの
+ * フォーマットなのでJSONと違いgzip化はしない
+ */
+export async function writeBinaryFile(filePath: string, data: Buffer): Promise<void> {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, data);
+}
+
+export function fileExists(filePath: string): boolean {
+  return existsSync(filePath);
+}
+
 /** ファイルが無ければnullを返す汎用JSON読み込み（players-master.json等、単一ファイルもの向け） */
 export async function readJson<T>(filePath: string): Promise<T | null> {
   return readJsonGz<T>(filePath);

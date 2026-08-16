@@ -2,10 +2,22 @@ import { fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import type { TeamSummary } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
+import { TeamLogo } from "../components/TeamLogo";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
 
 const columns: Column<TeamSummary>[] = [
-  { key: "teamName", label: "チーム", sortValue: (t) => t.teamName, align: "left" },
+  {
+    key: "teamName",
+    label: "チーム",
+    sortValue: (t) => t.teamName,
+    align: "left",
+    render: (t) => (
+      <span className="team-name-cell">
+        <TeamLogo teamId={t.teamId} size={20} />
+        {t.teamName}
+      </span>
+    ),
+  },
   {
     key: "record",
     label: "勝敗",

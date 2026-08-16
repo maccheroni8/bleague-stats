@@ -86,3 +86,13 @@ export function fetchSchedule(season: string): Promise<ScheduleFile> {
 export function fetchGameSummaries(season: string): Promise<GameSummary[]> {
   return fetchJson<GameSummary[]>(`${dataBase}/${season}/games-summary.json`);
 }
+
+// チームロゴ・選手写真は自前保存の生画像（gzip非対応・シーズン非依存）なので、
+// fetchJsonを介さずURLを直接組み立てるだけでよい。存在しない場合は呼び出し側の<img onError>で処理する
+export function teamLogoUrl(teamId: string): string {
+  return `${dataBase}/logos/${teamId}.png`;
+}
+
+export function playerPhotoUrl(playerId: string): string {
+  return `${dataBase}/player-photos/${playerId}.webp`;
+}

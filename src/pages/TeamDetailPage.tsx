@@ -7,6 +7,7 @@ import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import type { PlayerSummary, TeamGameLog } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
+import { TeamLogo } from "../components/TeamLogo";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
 import { computeTeamSituationalStats, filterGameLogs, isDefaultFilter, type SituationalFilter } from "../lib/situational";
 
@@ -85,7 +86,10 @@ export function TeamDetailPage({ season }: { season: string }) {
       <Link to="/teams" className="back-link">
         ← チーム一覧に戻る
       </Link>
-      <h1>{team.teamName}</h1>
+      <h1 className="team-detail-heading">
+        <TeamLogo teamId={team.teamId} size={36} />
+        {team.teamName}
+      </h1>
       <p className="page-subtitle">
         {season}シーズン・{formatRecord(team.wins, team.losses)}
       </p>

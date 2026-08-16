@@ -37,6 +37,7 @@ import { createThrottledFetch } from "./lib/throttle.ts";
 import { DATA_DIR, readJson, writeJson } from "./lib/storage.ts";
 import { TEAM_NAMES } from "./lib/divisions.ts";
 import { CLASSIFICATION_OVERRIDES } from "./lib/playerClassificationOverrides.ts";
+import { downloadPlayerPhoto, downloadTeamLogos } from "./lib/mediaAssets.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import type { PlayerMasterEntry } from "../shared/types.ts";
 
@@ -134,6 +135,9 @@ export async function scrapeRosterMaster(
   const existing = (await readJson<PlayerMasterEntry[]>(MASTER_PATH)) ?? [];
   const byId = new Map(existing.map((p) => [p.playerId, p]));
 
+  // ブランド刷新への追従を自動化するため毎回26クラブ分取得し直す（軽量なので週次実行でも問題ない）
+  await downloadTeamLogos(season, throttledFetch);
+
   let newCount = 0;
   let movedCount = 0;
 
@@ -155,6 +159,16 @@ export async function scrapeRosterMaster(
       }
     }
   }
+
+  // 選手写真: 既に保存済みならdownloadPlayerPhoto内でスキップされるため、新規選手のみ実質取得される
+  let photoCount = 0;
+  for (const entry of byId.values()) {
+    const saved = await downloadPlayerPhoto(entry.teamId, entry.playerId, season, throttledFetch, {
+      force: options.force,
+    });
+    if (saved) photoCount += 1;
+  }
+  if (photoCount > 0) console.log(`[photo] ${photoCount}名分の写真を新規保存`);
 
   // birthDateが未取得＝個人ページ未取得の判定に使う（既存選手の属性は変化しないため再取得しない）
   const targets = [...byId.values()].filter((p) => options.force || !p.birthDate);

@@ -9,6 +9,7 @@ import { KeyStatsChart } from "../components/KeyStatsChart";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
 import { ShotChartPanel } from "../components/ShotChart";
+import { TeamLogo } from "../components/TeamLogo";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
 import { buildShotEvents } from "../lib/shotChart";
 import { reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
@@ -190,6 +191,7 @@ export function GameDetailPage({ season }: { season: string }) {
 
       <div className="scoreboard">
         <div className="scoreboard-team">
+          <TeamLogo teamId={game.homeTeam.id} size={48} className="scoreboard-logo" />
           <Link to={`/teams/${game.homeTeam.id}`}>{game.homeTeam.name}</Link>
           <div className="scoreboard-score">{game.homeScore}</div>
         </div>
@@ -198,6 +200,7 @@ export function GameDetailPage({ season }: { season: string }) {
           <div>{game.gameEndedFlg ? "FINAL" : "試合中"}</div>
         </div>
         <div className="scoreboard-team">
+          <TeamLogo teamId={game.awayTeam.id} size={48} className="scoreboard-logo" />
           <Link to={`/teams/${game.awayTeam.id}`}>{game.awayTeam.name}</Link>
           <div className="scoreboard-score">{game.awayScore}</div>
         </div>
