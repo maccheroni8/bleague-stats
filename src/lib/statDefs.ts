@@ -76,6 +76,27 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
     category: "basic",
   },
   {
+    key: "oppPts",
+    label: "失点",
+    value: (t) => t.opponentPerGame.pts,
+    format: (t) => formatDecimal(t.opponentPerGame.pts),
+    higherIsBetter: false,
+    formulaText: "相手チームの得点（ボックススコア）",
+    source: "official",
+    category: "basic",
+  },
+  {
+    key: "benchPoints",
+    label: "ベンチポイント",
+    value: (t) => t.advanced.benchPointsPerGame,
+    format: (t) => formatDecimal(t.advanced.benchPointsPerGame),
+    // GeniusAPIに直接の該当フィールドが無いため、ボックススコア個人行のStartingFlg!==1
+    // （先発以外）の選手のPoint合計から導出した独自集計（DESIGN.md 12章、2026-08-17訂正）
+    formulaText: "先発以外の選手のPoint合計（1試合あたり平均）",
+    source: "custom",
+    category: "basic",
+  },
+  {
     key: "reb",
     label: "REB",
     value: (t) => t.perGame.reb,
@@ -164,6 +185,15 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
     formulaText: "FTM / FTA",
     source: "official",
     officialAbbr: "FT%",
+    category: "shooting",
+  },
+  {
+    key: "efgPct",
+    label: "eFG%",
+    value: (t) => t.shooting.efgPct,
+    format: (t) => formatPct(t.shooting.efgPct),
+    formulaText: "(FGM + 0.5×3PM) / FGA",
+    source: "official",
     category: "shooting",
   },
   {

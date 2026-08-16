@@ -120,6 +120,14 @@ interface StatTotals {
    * countTechnicalFouls()で個別にカウントする（DESIGN.md 14-6章、2026-08-16発見）
    */
   technicalFouls: number;
+  /**
+   * ベンチ得点（DESIGN.md 12章、2026-08-17実装）。当初はGeniusAPIの`Summaries`に直接
+   * 含まれると想定していたが実際には無かったため、既存のボックススコア個人行
+   * （Category=1・PeriodCategory=18）の`StartingFlg`と`Point`から、試合単位で
+   * 「先発以外（StartingFlg!==1）の選手のPoint合計」を算出しシーズン合計する方式で導出する
+   * （benchPointsForGame()参照）。個人集計では常に0のまま（チーム集計専用）
+   */
+  benchPoints: number;
 }
 
 function emptyTotals(): StatTotals {
@@ -148,6 +156,7 @@ function emptyTotals(): StatTotals {
     plusMinus: 0,
     teamNetSum: 0,
     technicalFouls: 0,
+    benchPoints: 0,
   };
 }
 
@@ -173,6 +182,18 @@ function countTechnicalFouls(playByPlays: PlayByPlayEvent[]): {
     }
   }
   return { byPlayer, byTeam };
+}
+
+/**
+ * ベンチ得点（DESIGN.md 12章）。試合全体の個人行（Category=1・PeriodCategory=18）のうち、
+ * 指定チーム・先発以外（StartingFlg!==1）の選手のPointを合計する。単純合計のため
+ * （POSSのような比率項を含む式と違い）試合単位で確定させる必要は無いが、他のチーム集計と
+ * 同じ「試合単位で求めてからシーズン合計に積算する」方式に揃えている
+ */
+function benchPointsForGame(rows: BoxscoreRow[], teamId: string): number {
+  return rows
+    .filter((r) => r.Category === 1 && r.PeriodCategory === 18 && r.TeamID === teamId && r.StartingFlg !== 1)
+    .reduce((sum, r) => sum + r.Point, 0);
 }
 
 function addBoxscoreRow(
@@ -475,6 +496,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
           defRtg,
           netRtg: offRtg - defRtg,
           orbPct: orbPct(t.totals.oreb, t.opponentTotals.dreb),
+          benchPointsPerGame: safeDiv(t.totals.benchPoints, ownStats.gamesPlayed),
         },
         opponentPerGame: oppStats.perGame,
         netPerGame: Object.fromEntries(
@@ -694,6 +716,11 @@ function processTeams(
     addBoxscoreRow(home.opponentTotals, awayRow, true, 0, undefined, gamePoss, awayTechnicalFouls);
     addBoxscoreRow(away.totals, awayRow, true, 0, undefined, gamePoss, awayTechnicalFouls);
     addBoxscoreRow(away.opponentTotals, homeRow, true, 0, undefined, gamePoss, homeTechnicalFouls);
+
+    // ベンチ得点はaddBoxscoreRow経由のチーム行集計とは別に、個人行から直接算出する
+    const individualRows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
+    home.totals.benchPoints += benchPointsForGame(individualRows, game.homeTeam.id);
+    away.totals.benchPoints += benchPointsForGame(individualRows, game.awayTeam.id);
 
     if (homeWin) {
       home.wins += 1;

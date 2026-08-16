@@ -1254,7 +1254,14 @@ Net版は単純な差分で自動生成できる**ため、以下では項目ご
   必要になり、GeniusAPIの公式EFF値との53人完全一致検証で正しく取得できていることを確認済み | A |
 | ファウル | ファウル数、被ファウル数（＝相手チームのファウル数） | 基本ボックススコア（両チーム分） | A |
 | ゲーム展開 | 最大リード、ビッグラン（連続得点） | PlayByPlaysの時系列データ（同一API） | A |
-| プレータイプ内訳 | Fastbreak Points(FBPS)、Points Off Turnovers(PTSOFFTO)、Second Chance Points(2NDPTS)、Points In Paint(PITP)、Bench Points、Starting5 Points | **`Summaries`に直接含まれることを確認済み。Bリーグ公式の正式な指標名であることも確認済み**（6章） | A |
+| プレータイプ内訳 | Fastbreak Points(FBPS)、Points Off Turnovers(PTSOFFTO)、Second Chance Points(2NDPTS)、Points In Paint(PITP) | **`Summaries`に直接含まれることを確認済み。Bリーグ公式の正式な指標名であることも確認済み**（6章） | A |
+| ベンチ得点・スタメン得点 | Bench Points、Starting5 Points | ⚠️ **訂正（2026-08-17）**: 上記「プレータイプ内訳」と同様に`Summaries`に直接含まれると
+  誤って記載していたが、実際に確認できたのはFastbreak Points/Points In Paint/Second Chance Pointsの
+  3つのみで、Bench Points・Starting5 Pointsが`Summaries`に含まれることは未確認だった。
+  代わりに、既存のボックススコア個人行（`Category=1`・`PeriodCategory=18`）の`StartingFlg`と
+  `Point`から、試合単位で「先発以外（`StartingFlg!==1`）の選手のPoint合計」を算出しシーズン
+  合計する方式で導出する（ホーム画面のチームスタッツリーダー実装時、2026-08-17にBench Pointsを
+  この方式で実装済み。Starting5 Pointsは未実装だが同じ方式で対応可能） | A |
 | 選手構成別得点 | 日本人得点、外国籍帰化アジア得点、二桁得点人数 | 二桁得点人数は基本ボックススコアのみでA。日本人/外国籍等の内訳は選手マスタ（国籍区分）が必要でB | A / B |
 | レート指標 | eFG%、FTR、ORB%、TS%、EFF（貢献度）、個人+/- | 基本ボックススコアからの計算式のみでeFG%/FTR/ORB%/TS%/EFFはA。**個人+/-は実装済み**
   （✅2026年8月13日。ActionCD1によるPBP再構築を検討したが、実際にはBoxscoreRowに公式`PLUSMINUS`

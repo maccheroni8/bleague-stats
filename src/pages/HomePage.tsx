@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
-import { fetchGameSummaries, fetchPlayers, fetchStandingsHistory, fetchTeamColors } from "../lib/data";
+import { fetchGameSummaries, fetchPlayers, fetchStandingsHistory, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { PLAYER_STAT_DEFS, type StatDef } from "../lib/statDefs";
+import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDateHeading } from "../lib/format";
 import { teamShortName } from "../../shared/teamNames";
-import type { GameSummary, PlayerSummary, StandingsTeamSnapshot } from "../../shared/types";
+import type { GameSummary, PlayerSummary, StandingsTeamSnapshot, TeamSummary } from "../../shared/types";
+
+type LeaderMode = "player" | "team";
 
 // B.PREMIERは26チーム÷2で同日最大13試合になりうる。直近日の試合が13に満たない場合は
 // 同じ横1列の枠内でより古い日程の試合を足して埋める（date desc, scheduleKey descの上位を
@@ -15,6 +18,24 @@ const RECENT_GAMES_COUNT = 13;
 const LEADER_TOP_N = 5;
 // 1行3項目×4行（得点/REB/AST、BLK/STL/FG%、3P%/2P%/FT%、MIN/eFG%/PER）
 const LEADER_STAT_KEYS = ["pts", "reb", "ast", "blk", "stl", "fgPct", "tpPct", "twoPct", "ftPct", "min", "efgPct", "per"];
+// 1行3項目×5行（得点/REB/AST、BLK/STL/FG%、3P%/2P%/FT%、eFG%/失点/ベンチポイント、ORtg/DRtg/NetRtg）
+const TEAM_LEADER_STAT_KEYS = [
+  "pts",
+  "reb",
+  "ast",
+  "blk",
+  "stl",
+  "fgPct",
+  "tpPct",
+  "twoPct",
+  "ftPct",
+  "efgPct",
+  "oppPts",
+  "benchPoints",
+  "offRtg",
+  "defRtg",
+  "netRtg",
+];
 
 function recentFinishedGames(summaries: GameSummary[]): GameSummary[] {
   return [...summaries]
@@ -48,6 +69,11 @@ function attemptsForStatTemp(p: PlayerSummary, statKey: string): number | null {
   }
 }
 
+/** DRtg・失点のようにhigherIsBetter=falseの項目は昇順（数値が小さい方が上位）でソートする */
+function compareByStat<T>(def: StatDef<T>, a: T, b: T): number {
+  return def.higherIsBetter === false ? def.value(a) - def.value(b) : def.value(b) - def.value(a);
+}
+
 /** ランキングページと同じ最低出場時間フィルタ（PERのみ設定される）を適用してから上位N人を返す */
 function topPlayersForStat(players: PlayerSummary[], def: StatDef<PlayerSummary>, count: number): PlayerSummary[] {
   return [...players]
@@ -56,11 +82,16 @@ function topPlayersForStat(players: PlayerSummary[], def: StatDef<PlayerSummary>
       const attempts = attemptsForStatTemp(p, def.key);
       return attempts === null || attempts >= HOME_MIN_ATTEMPTS_TEMP;
     })
-    .sort((a, b) => def.value(b) - def.value(a))
+    .sort((a, b) => compareByStat(def, a, b))
     .slice(0, count);
 }
 
+function topTeamsForStat(teams: TeamSummary[], def: StatDef<TeamSummary>, count: number): TeamSummary[] {
+  return [...teams].sort((a, b) => compareByStat(def, a, b)).slice(0, count);
+}
+
 export function HomePage({ season }: { season: string }) {
+  const [leaderMode, setLeaderMode] = useState<LeaderMode>("player");
   const {
     data: games,
     loading: gamesLoading,
@@ -71,6 +102,11 @@ export function HomePage({ season }: { season: string }) {
     loading: playersLoading,
     error: playersError,
   } = useJsonData(() => fetchPlayers(season), [season]);
+  const {
+    data: teams,
+    loading: teamsLoading,
+    error: teamsError,
+  } = useJsonData(() => fetchTeams(season), [season]);
   const {
     data: history,
     loading: standingsLoading,
@@ -134,38 +170,87 @@ export function HomePage({ season }: { season: string }) {
             ランキングを見る →
           </Link>
         </div>
-        {playersLoading ? (
+        <div className="mode-toggle">
+          <button className={leaderMode === "player" ? "active" : ""} onClick={() => setLeaderMode("player")}>
+            個人
+          </button>
+          <button className={leaderMode === "team" ? "active" : ""} onClick={() => setLeaderMode("team")}>
+            チーム
+          </button>
+        </div>
+        {leaderMode === "player" ? (
+          playersLoading ? (
+            <p className="loading">読み込み中...</p>
+          ) : playersError ? (
+            <p className="error-message">{playersError}</p>
+          ) : !players || players.length === 0 ? (
+            <p className="empty-message">選手データがありません</p>
+          ) : (
+            <div className="leaders-grid">
+              {LEADER_STAT_KEYS.map((key) => {
+                const def = PLAYER_STAT_DEFS.find((d) => d.key === key);
+                if (!def) return null;
+                const top = topPlayersForStat(players, def, LEADER_TOP_N);
+                const leader = top[0];
+                if (!leader) return null;
+                return (
+                  <div key={key} className="leader-card">
+                    <div className="leader-stat-label">{def.label}</div>
+                    <Link to={`/players/${leader.playerId}`} className="leader-top1">
+                      <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" />
+                      <div className="leader-info">
+                        <div className="leader-value">{def.format(leader)}</div>
+                        <div className="leader-name">{leader.name}</div>
+                        <div className="leader-team">{leader.teamName}</div>
+                      </div>
+                    </Link>
+                    {top.length > 1 && (
+                      <div className="leader-rest-list">
+                        {top.slice(1).map((p, i) => (
+                          <Link key={p.playerId} to={`/players/${p.playerId}`} className="leader-rest-item">
+                            <span className="leader-rest-rank">{i + 2}</span>
+                            <span className="leader-rest-name">{p.name}</span>
+                            <span className="leader-rest-value">{def.format(p)}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : teamsLoading ? (
           <p className="loading">読み込み中...</p>
-        ) : playersError ? (
-          <p className="error-message">{playersError}</p>
-        ) : !players || players.length === 0 ? (
-          <p className="empty-message">選手データがありません</p>
+        ) : teamsError ? (
+          <p className="error-message">{teamsError}</p>
+        ) : !teams || teams.length === 0 ? (
+          <p className="empty-message">チームデータがありません</p>
         ) : (
           <div className="leaders-grid">
-            {LEADER_STAT_KEYS.map((key) => {
-              const def = PLAYER_STAT_DEFS.find((d) => d.key === key);
+            {TEAM_LEADER_STAT_KEYS.map((key) => {
+              const def = TEAM_STAT_DEFS.find((d) => d.key === key);
               if (!def) return null;
-              const top = topPlayersForStat(players, def, LEADER_TOP_N);
+              const top = topTeamsForStat(teams, def, LEADER_TOP_N);
               const leader = top[0];
               if (!leader) return null;
               return (
                 <div key={key} className="leader-card">
                   <div className="leader-stat-label">{def.label}</div>
-                  <Link to={`/players/${leader.playerId}`} className="leader-top1">
-                    <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" />
+                  <Link to={`/teams/${leader.teamId}`} className="leader-top1">
+                    <TeamLogo teamId={leader.teamId} size={56} className="leader-photo" />
                     <div className="leader-info">
                       <div className="leader-value">{def.format(leader)}</div>
-                      <div className="leader-name">{leader.name}</div>
-                      <div className="leader-team">{leader.teamName}</div>
+                      <div className="leader-name">{leader.teamName}</div>
                     </div>
                   </Link>
                   {top.length > 1 && (
                     <div className="leader-rest-list">
-                      {top.slice(1).map((p, i) => (
-                        <Link key={p.playerId} to={`/players/${p.playerId}`} className="leader-rest-item">
+                      {top.slice(1).map((t, i) => (
+                        <Link key={t.teamId} to={`/teams/${t.teamId}`} className="leader-rest-item">
                           <span className="leader-rest-rank">{i + 2}</span>
-                          <span className="leader-rest-name">{p.name}</span>
-                          <span className="leader-rest-value">{def.format(p)}</span>
+                          <span className="leader-rest-name">{t.teamName}</span>
+                          <span className="leader-rest-value">{def.format(t)}</span>
                         </Link>
                       ))}
                     </div>

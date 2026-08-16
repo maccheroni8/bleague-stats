@@ -383,6 +383,12 @@ export interface TeamAdvancedStats {
   netRtg: number;
   /** オフェンスリバウンド率。公式に定義がないためNBA流を採用（DESIGN.md 6章） */
   orbPct: number;
+  /**
+   * ベンチ得点（1試合あたり平均）。GeniusAPIに直接の該当フィールドが無いため、
+   * ボックススコア個人行の StartingFlg!==1（先発以外）の選手のPoint合計から導出した
+   * 独自集計（DESIGN.md 12章）
+   */
+  benchPointsPerGame: number;
 }
 
 export interface PlayerAdvancedStats {
