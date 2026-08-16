@@ -853,13 +853,25 @@ table.quarter-table th {
 
 .zone-label {
   fill: #fff;
-  font-size: 5.5px;
+  font-size: 4.4px;
   font-weight: 700;
   text-anchor: middle;
   dominant-baseline: central;
   paint-order: stroke;
   stroke: rgba(0, 0, 0, 0.55);
   stroke-width: 0.6px;
+  pointer-events: none;
+}
+
+.zone-label-sub {
+  fill: rgba(255, 255, 255, 0.85);
+  font-size: 3.1px;
+  font-weight: 500;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 0.5px;
   pointer-events: none;
 }
 
@@ -964,6 +976,15 @@ table.boxscore-table .row-note {
   color: var(--accent);
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.period-range-toggle {
+  margin-bottom: 12px;
+}
+
+.period-range-toggle button {
+  padding: 4px 12px;
+  font-size: 12px;
 }
 
 .rankings-table .rank-cell {

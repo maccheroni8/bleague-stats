@@ -83,6 +83,22 @@ function zoneHeatColor(pct: number): string {
   return `hsl(${hue}, 65%, 45%)`;
 }
 
+/** ヒートマップの塗り不透明度。濃すぎて数値ラベルの視認性を損なわないよう抑える */
+const ZONE_FILL_OPACITY = 0.6;
+
+/**
+ * ラベル位置をコート図（viewBox 0 0 COURT_WIDTH COURT_LENGTH）の可視範囲内に収める。
+ * コーナー3のような扇形は角度レンジの中間点でセントロイドを取ると実際のコート外（サイドライン
+ * 外側）にはみ出すことがあり、そのままだとラベルが枠外に出て見えなくなる（実データで確認済み）
+ */
+function clampLabelPoint(point: { x: number; y: number }): { x: number; y: number } {
+  const margin = 9;
+  return {
+    x: Math.min(COURT_WIDTH - margin, Math.max(margin, point.x)),
+    y: Math.min(COURT_LENGTH - margin, Math.max(margin, point.y)),
+  };
+}
+
 function ZoneHeatmap({ shots }: { shots: ShotEvent[] }) {
   const zoneStats = useMemo(() => buildZoneStats(shots), [shots]);
   return (
@@ -93,16 +109,21 @@ function ZoneHeatmap({ shots }: { shots: ShotEvent[] }) {
           return <path key={zone.id} d={path} className="zone-empty" />;
         }
         const pct = makes / attempts;
-        const centroid = polarToSvgPoint((zone.rInner + zone.rOuter) / 2, (zone.thetaStart + zone.thetaEnd) / 2);
+        const centroid = clampLabelPoint(
+          polarToSvgPoint((zone.rInner + zone.rOuter) / 2, (zone.thetaStart + zone.thetaEnd) / 2),
+        );
         return (
           <g key={zone.id}>
-            <path d={path} fill={zoneHeatColor(pct)} className="zone-fill">
+            <path d={path} fill={zoneHeatColor(pct)} fillOpacity={ZONE_FILL_OPACITY} className="zone-fill">
               <title>
                 {zone.label}: {makes}-{attempts} ({(pct * 100).toFixed(1)}%)
               </title>
             </path>
-            <text x={centroid.x} y={centroid.y} className="zone-label">
-              {Math.round(pct * 100)}%
+            <text x={centroid.x} y={centroid.y - 1.8} className="zone-label">
+              {(pct * 100).toFixed(1)}%
+            </text>
+            <text x={centroid.x} y={centroid.y + 2.6} className="zone-label-sub">
+              {makes}/{attempts}
             </text>
           </g>
         );

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGame, fetchPlayers, fetchTeamColors } from "../lib/data";
@@ -10,8 +11,10 @@ import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
 import { ShotChartPanel } from "../components/ShotChart";
 import { TeamLogo } from "../components/TeamLogo";
+import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
 import { buildShotEvents } from "../lib/shotChart";
+import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
 
 function periodLabel(index: number, total: number): string {
@@ -141,6 +144,7 @@ export function GameDetailPage({ season }: { season: string }) {
   // （ロゴ・写真と同じくグレースフルデグラデーション。デフォルト色にフォールバックする）ため
   // ローディング/エラーで画面全体をブロックしない
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
+  const [shotPeriodRange, setShotPeriodRange] = useState<PeriodRangeValue>("all");
 
   if (loading || coverageLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
@@ -164,6 +168,11 @@ export function GameDetailPage({ season }: { season: string }) {
   const awayShots = allShots.filter((s) => s.teamId === game.awayTeam.id);
 
   const periods = game.quarterScores.home.length;
+
+  const shotPeriodOptions = buildPeriodRangeOptions(periods);
+  const selectedShotPeriodOption = shotPeriodOptions.find((o) => o.value === shotPeriodRange);
+  const shotPeriodHomeShots = homeShots.filter((s) => periodInRange(selectedShotPeriodOption, s.period));
+  const shotPeriodAwayShots = awayShots.filter((s) => periodInRange(selectedShotPeriodOption, s.period));
 
   const scoreTimeline = buildScoreTimeline(
     game.raw.PlayByPlays,
@@ -349,22 +358,25 @@ export function GameDetailPage({ season }: { season: string }) {
 
       <h2>ショットチャート</h2>
       {shotChartSupported ? (
-        <div className="shot-chart-grid">
-          <ShotChartPanel
-            teamName={game.homeTeam.name}
-            players={homePlayers}
-            shots={homeShots}
-            color="var(--accent)"
-            accentColor={homeColor}
-          />
-          <ShotChartPanel
-            teamName={game.awayTeam.name}
-            players={awayPlayers}
-            shots={awayShots}
-            color="var(--muted)"
-            accentColor={awayColor}
-          />
-        </div>
+        <>
+          <PeriodRangeToggle options={shotPeriodOptions} value={shotPeriodRange} onChange={setShotPeriodRange} />
+          <div className="shot-chart-grid">
+            <ShotChartPanel
+              teamName={game.homeTeam.name}
+              players={homePlayers}
+              shots={shotPeriodHomeShots}
+              color="var(--accent)"
+              accentColor={homeColor}
+            />
+            <ShotChartPanel
+              teamName={game.awayTeam.name}
+              players={awayPlayers}
+              shots={shotPeriodAwayShots}
+              color="var(--muted)"
+              accentColor={awayColor}
+            />
+          </div>
+        </>
       ) : (
         <p className="empty-message">このシーズンのデータには対応していません</p>
       )}

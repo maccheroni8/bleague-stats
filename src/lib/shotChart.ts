@@ -35,6 +35,8 @@ export interface ShotEvent {
   /** ハーフコート正規化済み座標（0〜100、バスケット方向・左右とも正規化済み） */
   x: number;
   y: number;
+  /** 発生したピリオド（1〜4=各Q、5以降=延長）。試合/Q別/前半後半の絞り込みに使う */
+  period: number;
 }
 
 export function buildShotEvents(events: PlayByPlayEvent[]): ShotEvent[] {
@@ -53,6 +55,7 @@ export function buildShotEvents(events: PlayByPlayEvent[]): ShotEvent[] {
       isThree: THREE_POINT_ACTION_CODES.has(ev.ActionCD1),
       x: mirror ? 100 - ev.X : ev.X,
       y: mirror ? 100 - ev.Y : ev.Y,
+      period: ev.Period,
     });
   }
   return shots;
