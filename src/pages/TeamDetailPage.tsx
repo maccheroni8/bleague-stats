@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams, Link as RouterLink } from "react-router-dom";
+import {
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+} from "recharts";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import {
   fetchClubHonors,
@@ -32,6 +41,74 @@ const MAX_LINEUP_ROWS = 10;
 
 const LEADER_STAT_KEYS = ["pts", "reb", "ast", "stl", "blk"];
 const LEADERS_PER_STAT = 3;
+
+interface RadarStatDef {
+  key: string;
+  label: string;
+  value: (t: TeamSummary) => number;
+  format: (t: TeamSummary) => string;
+  /** falseならDRtgのように値が小さいほど良い項目。パーセンタイル換算・順位算出の向きに使う */
+  higherIsBetter: boolean;
+}
+
+// 他クラブ比較レーダーチャート用の8項目。多すぎると見づらいため主要項目のみに絞る
+const RADAR_STAT_DEFS: RadarStatDef[] = [
+  { key: "pts", label: "PTS", value: (t) => t.perGame.pts, format: (t) => formatDecimal(t.perGame.pts), higherIsBetter: true },
+  { key: "reb", label: "REB", value: (t) => t.perGame.reb, format: (t) => formatDecimal(t.perGame.reb), higherIsBetter: true },
+  { key: "ast", label: "AST", value: (t) => t.perGame.ast, format: (t) => formatDecimal(t.perGame.ast), higherIsBetter: true },
+  { key: "stl", label: "STL", value: (t) => t.perGame.stl, format: (t) => formatDecimal(t.perGame.stl), higherIsBetter: true },
+  { key: "blk", label: "BLK", value: (t) => t.perGame.blk, format: (t) => formatDecimal(t.perGame.blk), higherIsBetter: true },
+  {
+    key: "efgPct",
+    label: "eFG%",
+    value: (t) => t.shooting.efgPct,
+    format: (t) => formatPct(t.shooting.efgPct),
+    higherIsBetter: true,
+  },
+  {
+    key: "offRtg",
+    label: "ORtg",
+    value: (t) => t.advanced.offRtg,
+    format: (t) => formatDecimal(t.advanced.offRtg),
+    higherIsBetter: true,
+  },
+  {
+    key: "defRtg",
+    label: "DRtg",
+    value: (t) => t.advanced.defRtg,
+    format: (t) => formatDecimal(t.advanced.defRtg),
+    higherIsBetter: false,
+  },
+];
+
+interface RadarDataPoint {
+  key: string;
+  label: string;
+  percentile: number;
+  rank: number;
+  total: number;
+  actualValue: string;
+}
+
+/** リーグ全チーム中でのteamの各項目の順位を0〜100のパーセンタイルに変換する（DRtg等は向きを反転） */
+function buildRadarData(team: TeamSummary, allTeams: TeamSummary[]): RadarDataPoint[] {
+  const total = allTeams.length;
+  return RADAR_STAT_DEFS.map((def) => {
+    const sorted = [...allTeams].sort((a, b) =>
+      def.higherIsBetter ? def.value(b) - def.value(a) : def.value(a) - def.value(b),
+    );
+    const rank = sorted.findIndex((t) => t.teamId === team.teamId) + 1;
+    const percentile = total > 1 ? (100 * (total - rank)) / (total - 1) : 50;
+    return { key: def.key, label: def.label, percentile, rank, total, actualValue: def.format(team) };
+  });
+}
+
+type PlayerStatMode = "basic" | "advanced";
+
+const PLAYER_STAT_MODE_LABELS: Record<PlayerStatMode, string> = {
+  basic: "基本",
+  advanced: "アドバンスド",
+};
 
 const HONOR_CATEGORY_LABELS: Record<ClubHonor["category"], string> = {
   overall: "年間優勝",
@@ -79,18 +156,50 @@ function calculateAge(birthDate: string, asOf: Date = new Date()): number {
   return age;
 }
 
-const playerColumns: Column<PlayerSummary>[] = [
-  { key: "name", label: "選手", sortValue: (p) => p.name, align: "left" },
-  { key: "gamesPlayed", label: "試合数", sortValue: (p) => p.gamesPlayed, format: (p) => String(p.gamesPlayed) },
-  { key: "min", label: "MIN", sortValue: (p) => p.perGame.min, format: (p) => formatDecimal(p.perGame.min) },
-  { key: "pts", label: "PTS", sortValue: (p) => p.perGame.pts, format: (p) => formatDecimal(p.perGame.pts) },
-  { key: "reb", label: "REB", sortValue: (p) => p.perGame.reb, format: (p) => formatDecimal(p.perGame.reb) },
-  { key: "ast", label: "AST", sortValue: (p) => p.perGame.ast, format: (p) => formatDecimal(p.perGame.ast) },
-  { key: "stl", label: "STL", sortValue: (p) => p.perGame.stl, format: (p) => formatDecimal(p.perGame.stl) },
-  { key: "blk", label: "BLK", sortValue: (p) => p.perGame.blk, format: (p) => formatDecimal(p.perGame.blk) },
-  { key: "fgPct", label: "FG%", sortValue: (p) => p.shooting.fgPct, format: (p) => formatPct(p.shooting.fgPct) },
-  { key: "tpPct", label: "3P%", sortValue: (p) => p.shooting.tpPct, format: (p) => formatPct(p.shooting.tpPct) },
-];
+/** 選手名セル: サムネイル写真＋名前＋簡易プロフィール（ポジション・身長・体重）をまとめて表示する */
+function playerProfileLine(p: PlayerSummary): string | null {
+  const parts: string[] = [];
+  if (p.position) parts.push(p.position);
+  if (p.heightCm != null) parts.push(`${p.heightCm}cm`);
+  if (p.weightKg != null) parts.push(`${p.weightKg}kg`);
+  return parts.length > 0 ? parts.join("・") : null;
+}
+
+function buildPlayerColumns(mode: PlayerStatMode): Column<PlayerSummary>[] {
+  const nameColumn: Column<PlayerSummary> = {
+    key: "name",
+    label: "選手",
+    align: "left",
+    sortValue: (p) => p.name,
+    render: (p) => (
+      <div className="player-cell">
+        <PlayerPhoto playerId={p.playerId} size={32} className="player-cell-photo" />
+        <div className="player-cell-info">
+          <div className="player-cell-name">{p.name}</div>
+          {playerProfileLine(p) && <div className="player-cell-profile">{playerProfileLine(p)}</div>}
+        </div>
+      </div>
+    ),
+  };
+  const baseColumns: Column<PlayerSummary>[] = [
+    nameColumn,
+    { key: "gamesPlayed", label: "試合数", sortValue: (p) => p.gamesPlayed, format: (p) => String(p.gamesPlayed) },
+    { key: "min", label: "MIN", sortValue: (p) => p.perGame.min, format: (p) => formatDecimal(p.perGame.min) },
+  ];
+  // 基本＝Bリーグ公式ボックススコアに基づく項目（source: "official"）、
+  // アドバンスド＝NBA/Basketball-Reference流の補足・独自集計項目（source: "nba"/"custom"）。
+  // statDefsのsourceフラグをそのまま切り替え軸に使う
+  const statDefs = PLAYER_STAT_DEFS.filter((d) =>
+    mode === "basic" ? d.source === "official" && d.key !== "min" : d.source !== "official",
+  );
+  const statColumns: Column<PlayerSummary>[] = statDefs.map((d) => ({
+    key: d.key,
+    label: d.label,
+    sortValue: d.value,
+    format: d.format,
+  }));
+  return [...baseColumns, ...statColumns];
+}
 
 function buildTeamScheduleRows(
   summaries: GameSummary[],
@@ -157,6 +266,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const pbpSupported = isPbpSupported(coverage);
 
   const [tab, setTab] = useState<DetailTab>("overview");
+  const [playerStatMode, setPlayerStatMode] = useState<PlayerStatMode>("basic");
 
   // careerLoading/careerDataをdeps配列に含めると自己キャンセルのループになるため
   // （PlayerDetailPageと同じ理由）、fetch開始済みかどうかはrefで管理する
@@ -226,6 +336,9 @@ export function TeamDetailPage({ season }: { season: string }) {
       ? buildTeamScheduleRows(summaries, schedule?.upcomingGames ?? [], teamId, team.teamName)
       : [];
 
+  const radarData = teams && teams.length > 1 ? buildRadarData(team, teams) : [];
+  const playerColumns = buildPlayerColumns(playerStatMode);
+
   return (
     <div>
       <Link to="/teams" className="back-link">
@@ -258,6 +371,47 @@ export function TeamDetailPage({ season }: { season: string }) {
             <StatTile label="勝敗" value={formatRecord(team.wins, team.losses)} />
             <StatTile label="勝率" value={formatPct(winPct)} />
           </div>
+
+          <h2>他クラブ比較</h2>
+          {radarData.length === 0 ? (
+            <p className="empty-message">比較対象のチームがありません</p>
+          ) : (
+            <div className="radar-section">
+              <div className="radar-chart-wrapper">
+                <ResponsiveContainer width="100%" height={280}>
+                  <RadarChart data={radarData} outerRadius="72%">
+                    <PolarGrid stroke="var(--border)" />
+                    <PolarAngleAxis dataKey="label" tick={{ fill: "var(--muted)", fontSize: 12 }} />
+                    <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar
+                      name={team.teamName}
+                      dataKey="percentile"
+                      stroke={accentColor ?? "var(--accent)"}
+                      fill={accentColor ?? "var(--accent)"}
+                      fillOpacity={0.35}
+                    />
+                    <RechartsTooltip
+                      formatter={(_value: number, _name, props: { payload?: RadarDataPoint }) => {
+                        const point = props.payload;
+                        return point ? [`${point.rank}位/${point.total}（${point.actualValue}）`, point.label] : ["", ""];
+                      }}
+                      contentStyle={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--fg)" }}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="radar-rank-list">
+                {radarData.map((d) => (
+                  <div className="radar-rank-item" key={d.key}>
+                    <span className="radar-rank-label">{d.label}</span>
+                    <span className="radar-rank-value">
+                      {d.rank}位/{d.total}（{d.actualValue}）
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <h2>シーズン別成績</h2>
           {nameHistory.length > 1 && (
@@ -465,15 +619,29 @@ export function TeamDetailPage({ season }: { season: string }) {
           {teamPlayers.length === 0 ? (
             <p className="empty-message">このチームの選手データがありません</p>
           ) : (
-            <div className="table-scroll">
-              <SortableTable
-                columns={playerColumns}
-                rows={teamPlayers}
-                rowKey={(p) => p.playerId}
-                defaultSortKey="pts"
-                linkTo={(p) => `/players/${p.playerId}`}
-              />
-            </div>
+            <>
+              <div className="mode-toggle">
+                {(Object.keys(PLAYER_STAT_MODE_LABELS) as PlayerStatMode[]).map((m) => (
+                  <button
+                    key={m}
+                    className={playerStatMode === m ? "active" : ""}
+                    onClick={() => setPlayerStatMode(m)}
+                  >
+                    {PLAYER_STAT_MODE_LABELS[m]}
+                  </button>
+                ))}
+              </div>
+              <div className="table-scroll">
+                <SortableTable
+                  key={playerStatMode}
+                  columns={playerColumns}
+                  rows={teamPlayers}
+                  rowKey={(p) => p.playerId}
+                  defaultSortKey={playerStatMode === "basic" ? "pts" : "ftRate"}
+                  linkTo={(p) => `/players/${p.playerId}`}
+                />
+              </div>
+            </>
           )}
 
           <h2>よく使われるラインナップ</h2>

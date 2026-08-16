@@ -241,6 +241,73 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
+.radar-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.radar-chart-wrapper {
+  flex: 1 1 320px;
+  min-width: 280px;
+}
+
+.radar-rank-list {
+  flex: 1 1 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.radar-rank-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.radar-rank-label {
+  color: var(--muted);
+}
+
+.radar-rank-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.player-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.player-cell-photo {
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--header-bg);
+  flex-shrink: 0;
+}
+
+.player-cell-info {
+  min-width: 0;
+}
+
+.player-cell-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.player-cell-profile {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .player-detail-header {
   display: flex;
   align-items: center;
