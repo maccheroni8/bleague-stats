@@ -82,6 +82,13 @@ export interface EffTotals {
   fta: number;
   foulsDrawn: number;
   blockedAgainst: number;
+  /**
+   * テクニカルファウル数（選手個人＝ActionCD1=24。チーム集計時はHC/ベンチテクニカル
+   * ActionCD1=20/21も含む）。公式EFFはテクニカルファウルを通常のパーソナル/オフェンス
+   * ファウルの2倍の重みで減点しているため、`pf`（ボックススコアのFOULフィールド、
+   * 全ファウル種別を1件=1として合算した値）とは別に持つ必要がある。詳細はeff()のコメント参照
+   */
+  technicalFouls: number;
 }
 
 /**
@@ -89,10 +96,22 @@ export interface EffTotals {
  * 年度で式が異なる（DESIGN.md 6章）。戻り値は常に「1試合あたり」の値（totals×gamesPlayedで
  * 割って揃えている。2019-20以前の式はもともと試合数で割る定義のため、この関数内で統一する）。
  *
- * - 2020-21シーズン以降: (PTS+AS+BS+ST+FD+TR) - (TO+BSR+F) - (FGA-FGM) - (FTA-FTM)
+ * - 2020-21シーズン以降: (PTS+AS+BS+ST+FD+TR) - (TO+BSR+F+TF) - (FGA-FGM) - (FTA-FTM)
  *   ※ (2FGA-2FGM)+(3FGA-3FGM) は代数的に (FGA-FGM)（2P/3P合算値）と同じなので、
  *     内訳を分けて集計しなくても2P/3P合算のfgm/fgaでそのまま計算できる
+ *   ※ **TF（テクニカルファウルの追加減点）は2026-08-16にB.ONEの35試合検証で発見した項**。
+ *     ボックススコアの`FOUL`（=pf）フィールドはテクニカルファウルも通常のパーソナル/
+ *     オフェンスファウルと同じ「1」としてカウントするが、GeniusAPI生データの公式`EFF`値と
+ *     突き合わせたところ、テクニカルファウル1回につき公式値は`pf`だけを引いた場合より
+ *     さらに1多く減点していた（＝テクニカルファウルは実質「2」として重み付けされている）。
+ *     `technicalFouls`（ActionCD1=24で個別に検出した回数）をpfに加算することで再現する。
+ *     この不一致はB.PREMIER側の1試合53人検証（低頻度事象のテクニカルファウルがサンプルに
+ *     たまたま出現しなかった）では見つからず、B.ONEの35試合・768人規模の検証で初めて発覚した。
+ *     B.PREMIER側にも同じ式が使われていたため、本修正はB.PREMIER全シーズンに影響する
+ *     （DESIGN.md 14-6章）
  * - 2019-20シーズン以前: ((PTS+TR+AS+ST+BS) - (FGA-FGM) - (FTA-FTM) - TO) / 試合数
+ *   ※ この年代の式はもともとF（ファウル）の項が無いため、テクニカルファウルの重み付けは
+ *     無関係（technicalFoulsは2020-21以降の分岐でのみ使用する）
  *
  * 2026-27シーズンのみを扱う現時点では前者の分岐しか使わないが、Phase 5の過去シーズン
  * バックフィル時にそのまま使えるよう分岐を用意してある。
@@ -109,7 +128,7 @@ export function eff(seasonStartYear: number, totals: EffTotals, gamesPlayed: num
       totals.stl +
       totals.foulsDrawn +
       totals.reb -
-      (totals.tov + totals.blockedAgainst + totals.pf) -
+      (totals.tov + totals.blockedAgainst + totals.pf + totals.technicalFouls) -
       missedFg -
       missedFt;
     return safeDiv(total, gamesPlayed);

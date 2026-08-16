@@ -32,6 +32,7 @@ import type {
   HeadToHeadRecord,
   HeadToHeadTeamRow,
   LineupAggregate,
+  PlayByPlayEvent,
   PlayerGameLog,
   PlayerMasterEntry,
   SeasonEntry,
@@ -105,6 +106,13 @@ interface StatTotals {
    * チーム集計では使わない
    */
   teamNetSum: number;
+  /**
+   * テクニカルファウル数（EFF計算専用のアキュムレータ。formulas.tsのeff()参照）。
+   * ボックススコアの`FOUL`（=pf）には既に含まれている値だが、公式EFFはテクニカルファウルを
+   * 2倍の重みで減点しているため、追加で1回分ずつ加算する必要がある。`PlayByPlays`から
+   * countTechnicalFouls()で個別にカウントする（DESIGN.md 14-6章、2026-08-16発見）
+   */
+  technicalFouls: number;
 }
 
 function emptyTotals(): StatTotals {
@@ -132,7 +140,32 @@ function emptyTotals(): StatTotals {
     poss: 0,
     plusMinus: 0,
     teamNetSum: 0,
+    technicalFouls: 0,
   };
+}
+
+/**
+ * PlayByPlaysからテクニカルファウルの発生回数を数える（EFF計算専用。formulas.tsのeff()参照）。
+ * - 選手個人（ActionCD1=24）はPlayerID1で選手単位に集計する（個人EFFの補正に使う）
+ * - チーム単位はActionCD1=20（HCテクニカル）・21（ベンチテクニカル）・24（選手個人テクニカル）
+ *   の合計をTeamIDで集計する（チームEFFの補正に使う。20・21は選手に紐付かずCategory=2の
+ *   チーム発生イベント行にのみ計上されるため、個人側には含めない。DESIGN.md 2-2章）
+ */
+function countTechnicalFouls(playByPlays: PlayByPlayEvent[]): {
+  byPlayer: Map<string, number>;
+  byTeam: Map<string, number>;
+} {
+  const byPlayer = new Map<string, number>();
+  const byTeam = new Map<string, number>();
+  for (const play of playByPlays) {
+    if (play.ActionCD1 === 24 && play.PlayerID1) {
+      byPlayer.set(play.PlayerID1, (byPlayer.get(play.PlayerID1) ?? 0) + 1);
+    }
+    if ((play.ActionCD1 === 20 || play.ActionCD1 === 21 || play.ActionCD1 === 24) && play.TeamID) {
+      byTeam.set(play.TeamID, (byTeam.get(play.TeamID) ?? 0) + 1);
+    }
+  }
+  return { byPlayer, byTeam };
 }
 
 function addBoxscoreRow(
@@ -143,6 +176,8 @@ function addBoxscoreRow(
   reconstructedPlusMinus?: number,
   // チーム集計のみ、gamePossession()で試合単位で確定させた値を渡す（個人集計は常に未指定＝0のまま）
   possForGame?: number,
+  // countTechnicalFouls()で試合単位に求めた値（個人はbyPlayer、チームはbyTeamの参照）。EFF補正専用
+  technicalFoulsForRow = 0,
 ): void {
   if (countGame) {
     totals.gamesPlayed += 1;
@@ -159,6 +194,7 @@ function addBoxscoreRow(
   totals.blk += row.BS;
   totals.tov += row.TO;
   totals.pf += row.FOUL;
+  totals.technicalFouls += technicalFoulsForRow;
   totals.fgm += row.PT2M + row.PT3M;
   totals.fga += row.PT2A + row.PT3A;
   totals.tpm += row.PT3M;
@@ -320,8 +356,9 @@ export async function aggregateSeason(season: string): Promise<void> {
             substitutionModelForSeason(game.season),
           )
         : null;
-    processPlayers(game, gameType, players, onCourt);
-    processTeams(game, gameType, teams, ensureTeam);
+    const technicalFouls = countTechnicalFouls(game.raw.PlayByPlays);
+    processPlayers(game, gameType, players, onCourt, technicalFouls.byPlayer);
+    processTeams(game, gameType, teams, ensureTeam, technicalFouls.byTeam);
     processLineups(game, teamLineups, onCourt);
   }
 
@@ -479,6 +516,7 @@ function processPlayers(
   gameType: GameType,
   players: Map<string, PlayerAccumulator>,
   onCourt: OnCourtReconstruction | null,
+  technicalFoulsByPlayer: Map<string, number>,
 ): void {
   const rows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
   for (const row of pickTeamRow(rows, 1)) {
@@ -507,7 +545,15 @@ function processPlayers(
     if (gameType === "regular") {
       // 出場判定はPlayingFlgではなくPlayTime基準（実データ検証でPlayingFlg=falseでも
       // 得点等が記録されている選手が見つかったため。DESIGN.md 2-2章の記述は誤りだった）
-      addBoxscoreRow(acc.totals, row, row.PlayTime !== "DNP", teamNetForGame, reconstructedPlusMinus);
+      addBoxscoreRow(
+        acc.totals,
+        row,
+        row.PlayTime !== "DNP",
+        teamNetForGame,
+        reconstructedPlusMinus,
+        undefined,
+        technicalFoulsByPlayer.get(row.PlayerID) ?? 0,
+      );
     }
 
     const opponent = isHome ? game.awayTeam : game.homeTeam;
@@ -569,6 +615,7 @@ function processTeams(
   gameType: GameType,
   teams: Map<string, TeamAccumulator>,
   ensureTeam: (teamId: string, teamName: string) => TeamAccumulator,
+  technicalFoulsByTeam: Map<string, number>,
 ): void {
   const homeRow = pickTeamRow(game.raw.HomeBoxscores, 3)[0];
   const awayRow = pickTeamRow(game.raw.AwayBoxscores, 3)[0];
@@ -590,10 +637,12 @@ function processTeams(
   if (gameType === "regular") {
     // opponentTotalsもgamesPlayedを数える（perGame算出の分母は「自チームの試合数」と一致させる必要がある）。
     // teamNetForGame（オンコート/オフコート算出用）は個人集計専用なのでチーム集計では常に0を渡す
-    addBoxscoreRow(home.totals, homeRow, true, 0, undefined, gamePoss);
-    addBoxscoreRow(home.opponentTotals, awayRow, true, 0, undefined, gamePoss);
-    addBoxscoreRow(away.totals, awayRow, true, 0, undefined, gamePoss);
-    addBoxscoreRow(away.opponentTotals, homeRow, true, 0, undefined, gamePoss);
+    const homeTechnicalFouls = technicalFoulsByTeam.get(game.homeTeam.id) ?? 0;
+    const awayTechnicalFouls = technicalFoulsByTeam.get(game.awayTeam.id) ?? 0;
+    addBoxscoreRow(home.totals, homeRow, true, 0, undefined, gamePoss, homeTechnicalFouls);
+    addBoxscoreRow(home.opponentTotals, awayRow, true, 0, undefined, gamePoss, awayTechnicalFouls);
+    addBoxscoreRow(away.totals, awayRow, true, 0, undefined, gamePoss, awayTechnicalFouls);
+    addBoxscoreRow(away.opponentTotals, homeRow, true, 0, undefined, gamePoss, homeTechnicalFouls);
 
     if (homeWin) {
       home.wins += 1;
