@@ -70,15 +70,6 @@ const EXPECTED_OVERALL_CHAMPIONS: Record<string, string | null> = {
   "2025-26": "長崎ヴェルカ",
 };
 
-// 2020-21シーズンのファイナルGAME3（2021-06-01、千葉ジェッツが優勝を決めた決着試合。
-// bleague.jp公式ニュース「千葉ジェッツが初の優勝」で確認）のScheduleKeyが、このプロジェクトの
-// data/2020-21/schedule.json（当時のscrape-schedule.tsのスキャン範囲）に存在しないデータ欠落を
-// 2026-08-16調査で発見した。自前データからの導出はGAME2（宇都宮が勝利）を最終戦と誤認するため、
-// このシーズンのみ公式発表に基づき手動で補正する（試合データ自体の欠落なので導出では直せない）。
-const OVERALL_CHAMPION_OVERRIDES: Record<string, { teamId: string; teamName: string }> = {
-  "2020-21": { teamId: "704", teamName: "千葉ジェッツ" },
-};
-
 async function deriveOverallChampion(season: string): Promise<{ teamId: string; teamName: string } | null> {
   const games = await readJson<GameSummary[]>(path.join(DATA_DIR, season, "games-summary.json"));
   if (!games) return null;
@@ -188,9 +179,7 @@ async function main() {
 
   console.log("=== 1. 年間優勝を自前データから導出 ===");
   for (const season of SEASONS) {
-    const derived = await deriveOverallChampion(season);
-    const override = OVERALL_CHAMPION_OVERRIDES[season];
-    const champion = override ?? derived;
+    const champion = await deriveOverallChampion(season);
     const expected = EXPECTED_OVERALL_CHAMPIONS[season];
     if (!champion) {
       const note = expected ? `⚠️ 提供リストは「${expected}」だが試合データから導出できず` : "想定通り該当なし";
@@ -199,7 +188,7 @@ async function main() {
     }
     const isMatch = champion.teamName === expected || (expected === "栃木ブレックス" && champion.teamId === "703");
     console.log(
-      `[${season}] ${champion.teamName} (teamId=${champion.teamId}) ${isMatch ? "✅一致" : `⚠️不一致（提供リスト: ${expected}）`}${override ? " [手動補正を適用]" : ""}`,
+      `[${season}] ${champion.teamName} (teamId=${champion.teamId}) ${isMatch ? "✅一致" : `⚠️不一致（提供リスト: ${expected}）`}`,
     );
     const overallArr = result[champion.teamId] ?? (result[champion.teamId] = []);
     overallArr.push({ competition: "Bリーグチャンピオンシップ優勝", season, category: "overall" });
