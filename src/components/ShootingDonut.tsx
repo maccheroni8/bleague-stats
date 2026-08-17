@@ -41,7 +41,7 @@ export function ShootingDonut({ label, value, color, size = 120 }: ShootingDonut
         </PieChart>
       </ResponsiveContainer>
       <div className="shooting-donut-center">
-        <span className="shooting-donut-value">{Math.round(clamped)}</span>
+        <span className="shooting-donut-value">{clamped.toFixed(1)}</span>
         <span className="shooting-donut-label">{label}</span>
       </div>
     </div>
