@@ -17,6 +17,7 @@ import {
   type OliverBoxStats,
 } from "../../shared/formulas";
 import { computePointsOffTurnovers } from "../../shared/pointsOffTurnovers";
+import { computeAssistedScoring, type AssistedScoringCounts, type AssistPair } from "../../shared/assistedScoring";
 import { buildShotEvents, paintSplitForShot, type ShotEvent } from "./shotChart";
 
 export interface BoxscoreCounts {
@@ -89,6 +90,15 @@ export interface BoxscoreCounts {
   basketCounts: number;
   unsportsmanlikeFouls: number;
   disqualifyingFouls: number;
+  /**
+   * アシストからの得点（得点者視点の被アシスト内訳。shared/assistedScoring.ts参照）。
+   * アシストイベント自体にはどの得点に紐づくか示すタグが無いため、PlayByPlays配列内の
+   * 構造的な隣接パターン（DESIGN.md該当章の調査で確認済み）からペアリングして算出する。
+   * dunks等と同様sumCounts()では常に0のままで、buildPlayerBoxscores()が事後的に上書きする
+   */
+  assisted2m: number;
+  assisted3m: number;
+  assistedFtm: number;
 }
 
 const ZERO_COUNTS: BoxscoreCounts = {
@@ -125,6 +135,9 @@ const ZERO_COUNTS: BoxscoreCounts = {
   basketCounts: 0,
   unsportsmanlikeFouls: 0,
   disqualifyingFouls: 0,
+  assisted2m: 0,
+  assisted3m: 0,
+  assistedFtm: 0,
 };
 
 /**
@@ -190,6 +203,9 @@ export function sumCounts(rows: BoxscoreRow[]): BoxscoreCounts {
       basketCounts: acc.basketCounts,
       unsportsmanlikeFouls: acc.unsportsmanlikeFouls,
       disqualifyingFouls: acc.disqualifyingFouls,
+      assisted2m: acc.assisted2m,
+      assisted3m: acc.assisted3m,
+      assistedFtm: acc.assistedFtm,
     }),
     ZERO_COUNTS,
   );
@@ -242,6 +258,9 @@ export function sumCountsList(list: BoxscoreCounts[]): BoxscoreCounts {
       basketCounts: acc.basketCounts + c.basketCounts,
       unsportsmanlikeFouls: acc.unsportsmanlikeFouls + c.unsportsmanlikeFouls,
       disqualifyingFouls: acc.disqualifyingFouls + c.disqualifyingFouls,
+      assisted2m: acc.assisted2m + c.assisted2m,
+      assisted3m: acc.assisted3m + c.assisted3m,
+      assistedFtm: acc.assistedFtm + c.assistedFtm,
     }),
     ZERO_COUNTS,
   );
@@ -283,6 +302,8 @@ interface MiscEventCounts {
 }
 
 const ZERO_MISC_EVENTS: MiscEventCounts = { dunks: 0, basketCounts: 0, unsportsmanlikeFouls: 0, disqualifyingFouls: 0 };
+
+const ZERO_ASSISTED_SCORING: AssistedScoringCounts = { assisted2m: 0, assisted3m: 0, assistedFtm: 0 };
 
 // ダンク成功はActionCD1=4（2Pシュートインサイドペイント成功）のうちPlayTextに「ダンク」タグが
 // 付くもの、バスケットカウント（アンドワン）は単独のマーカーイベント（ActionCD1=16）、
@@ -353,10 +374,12 @@ export function buildPlayerBoxscores(
   // 見て「-」表示にケアする）
   const paintSplitByPlayer = buildPaintSplitByPlayer(buildShotEvents(periodFilteredPbp));
   const miscEventsByPlayer = buildMiscEventCounts(periodFilteredPbp);
+  const assistedScoringByPlayer = computeAssistedScoring(periodFilteredPbp).byScorer;
   return gameRows.map((meta) => {
     const periodRows = rowsInPeriodRange(rowsByPlayer.get(meta.PlayerID) ?? [], option);
     const paintSplit = paintSplitByPlayer.get(meta.PlayerID) ?? ZERO_PAINT_SPLIT;
     const miscEvents = miscEventsByPlayer.get(meta.PlayerID) ?? ZERO_MISC_EVENTS;
+    const assistedScoring = assistedScoringByPlayer.get(meta.PlayerID) ?? ZERO_ASSISTED_SCORING;
     return {
       playerId: meta.PlayerID,
       playerNo: meta.PlayerNo,
@@ -368,9 +391,20 @@ export function buildPlayerBoxscores(
         ptsOffTov: ptsOffTovByPlayer.get(meta.PlayerID) ?? 0,
         ...paintSplit,
         ...miscEvents,
+        ...assistedScoring,
       },
     };
   });
+}
+
+/**
+ * アシスト者-得点者のペア単位カウント（shared/assistedScoring.ts参照）。「誰から誰への
+ * アシストが多いか」というランキングを将来作れるようにするためのデータ構造で、今回は
+ * ランキングUI自体は未実装（データを用意するところまで。ユーザー確認済み）
+ */
+export function buildAssistPairs(playByPlays: PlayByPlayEvent[], option: PeriodRangeOption | undefined): AssistPair[] {
+  const periodFilteredPbp = playByPlays.filter((e) => periodInRange(option, e.Period));
+  return [...computeAssistedScoring(periodFilteredPbp).pairs.values()];
 }
 
 /** チーム発生イベント行（TEAM/COACHES、Category=2）を選択中の期間範囲で集計する */

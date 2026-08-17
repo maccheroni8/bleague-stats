@@ -236,6 +236,18 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
   // ほぼ全選手が0になるため、ハイライト対象からは外す＝valueを持たせない）
   { key: "ufoul", label: "UFOUL", format: (c) => String(c.unsportsmanlikeFouls) },
   { key: "dqfoul", label: "DQFOUL", format: (c) => String(c.disqualifyingFouls) },
+  // アシストからの得点（得点者視点。shared/assistedScoring.ts参照）。FTAST含め
+  // PlayByPlays配列内の構造的な隣接パターンから求めた「被アシスト」内訳
+  { key: "ast2m", label: "AST2M", format: (c) => String(c.assisted2m), value: (c) => c.assisted2m },
+  { key: "ast3m", label: "AST3M", format: (c) => String(c.assisted3m), value: (c) => c.assisted3m },
+  { key: "astftm", label: "ASTFTM", format: (c) => String(c.assistedFtm), value: (c) => c.assistedFtm },
+  {
+    key: "astpct",
+    label: "AST%",
+    format: (c) =>
+      formatPct100(sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts)),
+    value: (c) => sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts),
+  },
 ];
 
 const SCORING_COLUMNS: BoxscoreColumn[] = [
@@ -490,6 +502,9 @@ function BoxscoreTeamPanel({
     basketCounts: miscTeamTotals.basketCounts,
     unsportsmanlikeFouls: miscTeamTotals.unsportsmanlikeFouls,
     disqualifyingFouls: miscTeamTotals.disqualifyingFouls,
+    assisted2m: miscTeamTotals.assisted2m,
+    assisted3m: miscTeamTotals.assisted3m,
+    assistedFtm: miscTeamTotals.assistedFtm,
   };
 
   const starters = players.filter((p) => p.startingFlg === 1);
