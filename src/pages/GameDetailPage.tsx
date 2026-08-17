@@ -230,10 +230,10 @@ export function GameDetailPage({ season }: { season: string }) {
     if (shotChartSupported) {
       onCourtRatings = computeOnCourtRatings(onCourt.intervals);
     }
-    const intervalsByPlayer = new Map<string, { startSec: number; endSec: number }[]>();
+    const intervalsByPlayer = new Map<string, SubstitutionRow["intervals"]>();
     for (const iv of onCourt.intervals) {
       const list = intervalsByPlayer.get(iv.playerId) ?? [];
-      list.push({ startSec: iv.startSec, endSec: iv.endSec });
+      list.push({ startSec: iv.startSec, endSec: iv.endSec, ownPts: iv.ownPts, oppPts: iv.oppPts });
       intervalsByPlayer.set(iv.playerId, list);
     }
     const toSubstitutionRows = (rows: BoxscoreRow[]): SubstitutionRow[] =>
@@ -375,6 +375,7 @@ export function GameDetailPage({ season }: { season: string }) {
             totalSeconds={totalGameSeconds(periods)}
             homeColor={homeColor}
             awayColor={awayColor}
+            timeouts={timeoutMarks}
           />
         ) : (
           <p className="empty-message">このシーズンのデータには対応していません</p>
@@ -452,6 +453,15 @@ export function GameDetailPage({ season }: { season: string }) {
         homeColor={homeColor}
         awayColor={awayColor}
       />
+      <p className="official-boxscore-link">
+        <a
+          href={`https://www.bleague.jp/game_detail/?ScheduleKey=${game.scheduleKey}&tab=2`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          公式サイトのボックススコアを見る（bleague.jp）
+        </a>
+      </p>
     </div>
   );
 }

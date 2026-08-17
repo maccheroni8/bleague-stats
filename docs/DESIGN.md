@@ -2096,3 +2096,177 @@ B.ONE 2025-26で再実行した。全ての完了済みシーズンで`players.j
 PPSは算出される（例: PPS=3.00、1本の3P成功のみ等）一方、PPPは狙い通り「-」表示になり、
 ランキング内でも最下部付近に自然に並ぶことを確認した。用語集ページにも両項目の計算式が
 反映されていることを確認した。
+
+---
+
+## 20. ボックススコア列ツールチップ・公式リンク／出場交代バーの拡張（2026-08-18）
+
+### 20-1. ボックススコア列見出しツールチップ
+
+`src/components/BoxscoreTable.tsx`の`BoxscoreColumn`に`description`（必須文字列）を追加し、
+各列見出し`<th>`に`title`属性として設定した（既存の`row-note`・`sub-bar-label`と同じ、
+ネイティブ`title`属性によるツールチップという既存パターンを踏襲）。`statDefs.ts`の
+`TEAM_STAT_DEFS`/`PLAYER_STAT_DEFS`から`key`一致で`formulaText`を引く`desc(key, fallback)`
+ヘルパーを新設し、対応する項目（PTS/AST/eFG%/USG%/PACE等）はグロッサリーページと同じ
+情報源をそのまま再利用する。ただしボックススコア固有の列（PTSOFFTO/DUNK/AST2M等、
+シーズン集計の`PlayerSummary`/`TeamSummary`には存在しない）や、チーム合計行・選手行で
+意味が異なる列（ORtg/DRtg。チーム合計行=100×PTS/POSS、選手行=Dean Oliver方式の個人ORtg）は
+`statDefs.ts`に対応が無い/不正確になるため、この場合のみ独自の説明文をその場で用意した。
+
+### 20-2. 公式ボックススコアへのリンク
+
+`GameDetailPage.tsx`のボックススコアセクション最下部に、
+`https://www.bleague.jp/game_detail/?ScheduleKey={scheduleKey}&tab=2`への外部リンクを追加した。
+B.ONE（ScheduleKey=505508）・legacy取得の2016-17シーズン（ScheduleKey=100、栃木ブレックス
+時代）の両方で実際にURLを開き、該当試合のボックススコアタブが正しく表示されることを確認済み
+（GeniusAPI側の403制約とは無関係の、公式サイトの一般公開ページであるため）。
+
+### 20-3. 出場交代バーのツールチップ・タイムアウト表示
+
+`shared/onCourt.ts`の`OnCourtInterval`に`ownPts`/`oppPts`を再追加した（17章のDean Oliver方式
+移行時にPACE専用の`ownPoss`/`oppPoss`のみへ簡略化されていたが、区間単位の得失点は出場交代
+バーのツールチップに必要なため復活させた。個人+/-全体の累計とは別に、「現在の在コート区間
+だけに限定した得点」を`currentIntervalScore`で追跡し、sub-out・試合終了時に該当選手の
+intervalへ書き出してリセットする方式。個人+/-（`plusMinus`）の既存ロジックとは完全に独立した
+並行トラッキングのため、既存のsub-out/試合終了/ラインナップスティントの判定ロジックには
+一切手を加えていない）。
+
+ツールチップ内容（`src/components/SubstitutionBarChart.tsx`）: コートインした時刻
+（`formatElapsedTime()`、Lead Trackerと同じ「1Q 残り9:26」形式）・区間の出場時間
+（`formatMinutesFromSeconds()`）・区間の得失点（「16-9」形式、`ownPts-oppPts`）を`\n`区切りで
+`title`属性に設定（ネイティブツールチップ、複数行表示に対応）。
+
+タイムアウト表示は`src/lib/leadTracker.ts`の`buildTimeoutMarks()`をそのまま再利用し
+（新規ロジックは無し）、Lead Trackerと同様にホーム/アウェイ/オフィシャルタイムアウトを
+点線・チームカラーで区別する。両チームのブロックそれぞれに全タイムアウト（自チーム・
+相手チーム・オフィシャル）を表示する（Lead Trackerが単一の共有タイムラインに全タイムアウトを
+表示するのと同じ考え方）。
+
+### 20-4. 検証
+
+- 型チェック通過
+- 2025-26シーズン試合504728・2016-17シーズン試合100（legacy取得）の両方でブラウザ確認:
+  列見出しホバーで説明文が表示される・出場交代バーのセグメントホバーで「IN/出場時間/得失点」が
+  表示される・タイムアウトの点線が出場交代バーに表示される・公式サイトへのリンクが機能する、
+  いずれも確認済み。コンソールエラー無し
+- 新設した`ownPts`/`oppPts`の内部整合性を検証するスクリプトを一時的に実行: 2025-26シーズン
+  15試合・2016-17シーズン10試合（legacy/modern両モデル、計522選手×試合）で、各選手の
+  「全区間のownPts-oppPts合計」と「復元した個人+/-（`plusMinus`）」が完全一致することを
+  確認した（不一致0件）。恒久的な検証スクリプトとしては残していない（既存の
+  `validate-oncourt.ts`が個人+/-自体の精度は既に検証済みのため、今回のown/oppPts分割は
+  その内訳に過ぎず、この整合性チェックで実装ミスが無いことの確認としては十分と判断した）
+
+---
+
+## 21. チームカラー視認性バグの修正（2026-08-18）
+
+### 21-1. 原因
+
+`src/lib/color.ts`の輝度チェック自体（35〜220の範囲外を除外）は正しく機能していたが、
+`src/lib/data.ts`の`fetchTeamColors()`が不合格時のフォールバック合成で`legibleAccentColor(...)
+?? ""`という実装になっており、primary・secondary**両方**が不合格のチーム（アルティーリ千葉、
+TeamID 2486。primary `#001030`＝輝度14.9、secondary `#000a1d`＝輝度9.2、いずれも
+MIN_LUMINANCE=35を下回る）だけ、最終的に空文字列`""`が`TeamColors`に紛れ込んでいた。
+呼び出し側の`homeColor ?? "var(--accent)"`という`??`（null合体）パターンは`null`/`undefined`
+しか捕まえないため`""`をすり抜けさせ、CSS色値として無効な空文字列がそのまま渡っていた
+（`accent ? {...} : undefined`というtruthyチェックパターンの呼び出し元は元々安全だった）。
+
+### 21-2. 修正
+
+- `shared/types.ts`の`TeamColors`を`{ primary: string; secondary: string }`から
+  `{ primary?: string; secondary?: string }`に変更し、型レベルで「不合格時はフィールド自体が
+  存在しない」ことを表現できるようにした
+- `fetchTeamColors()`のサニタイズロジックを、primary・secondaryそれぞれ独立に
+  `legibleAccentColor(...)`を評価し、不合格ならそのまま`undefined`（空文字列にフォールバック
+  しない）にするよう修正。primaryが不合格でもsecondaryが合格ならprimaryにsecondaryを代入する
+  という既存の代替ロジックは維持
+- この1箇所の修正だけで、`??`パターン・truthyチェックパターンどちらの呼び出し元も自動的に
+  安全になる（`undefined`はどちらのパターンでも正しく「値なし」として扱われるため）。
+  呼び出し側（約20箇所）は変更していない
+
+### 21-3. 全消費箇所の洗い出し（`??`パターンの脆弱性があった箇所）
+
+`fetchTeamColors()`の戻り値を消費する全箇所をコードベース横断で確認した。`??`パターン
+（今回のバグの影響を受けていた箇所）:
+`LeadTrackerChart.tsx`(2箇所)・`KeyStatsSection.tsx`(2箇所)・`SubstitutionBarChart.tsx`
+(2箇所、うち1箇所は20章で新設したタイムアウト点線の色決定ロジック)・`GameDetailPage.tsx`の
+ShotChartPanelへの`color`props(2箇所)・`TeamDetailPage.tsx`のレーダーチャート`stroke`/`fill`
+(2箇所)の計10箇所。truthyチェックパターン（元々安全だった箇所）はHeadToHeadMatrix・
+SortableTable・StandingsPage・ComparePage・RankingsPage・SchedulePage・GameDetailPageの
+スコアボード/ゲームリーダー・BoxscoreTable・ShotChart（枠線）・PlayerDetailPage・
+TeamDetailPageのヘッダー枠線など、残り約10箇所。21-2の根本修正により両パターンとも
+安全になったため、個々の呼び出し元は変更していない。
+
+### 21-4. 検証
+
+アルティーリ千葉が絡む試合（ScheduleKey 504732）・チーム詳細ページ（TeamID 2486）で、
+元々`??`パターンで壊れていた5コンポーネント全てを実際にDOM/computed styleで確認した:
+Lead Trackerの凡例色（`var(--accent)`に正しくフォールバック）・出場交代バーのセグメント色
+（同）・KeyStatsSectionの棒グラフ色（同）・ShotChartPanelの枠線色（truthyパターンなので
+undefinedによりデフォルトボーダー色）・TeamDetailPageのレーダーチャート`stroke`/`fill`
+（`var(--accent)`に正しくフォールバック、修正前は空文字列が`path`要素に直接渡っていた）。
+いずれも空文字列の混入が解消され、意図通りテーマのデフォルト配色にフォールバックすることを
+確認した。型チェック通過・コンソールエラー無し。
+
+---
+
+## 22. 選手の登録名変更対応（2026-08-18）
+
+前章の選手名変更調査（ニカ・ウィリアムス→ウィリアムス ニカ playerId=9345、
+ルーク・エヴァンス→エヴァンス ルーク playerId=9418、ニック・メイヨ→メイヨ ニック
+playerId=26890。いずれも帰化に伴う登録名変更で、playerIdは改名をまたいで不変）を受けて、
+`data/player-history.json`を新設した。
+
+### 22-1. 実装方針の確認（team-history.jsonの実際の役割の再確認）
+
+実装前に`team-history.json`の使われ方を確認したところ、想定していた「シーズンごとに
+正しい名称へ動的に差し替える解決テーブル」としては使われておらず、**TeamDetailPageの
+「シーズン別成績」欄に「名称変更履歴: 栃木ブレックス（〜2018-19）→ 宇都宮ブレックス
+（2019-20〜）」という注記を表示するためだけ**に使われていることが判明した（`src/pages/
+TeamDetailPage.tsx`の`nameHistory`変数）。チーム名の季節ごとの正しい表示自体は、
+`teams.json`の`teamName`フィールドがそもそも**その試合・そのシーズンのGeniusAPI生データに
+記録されている当時の名称をそのまま反映している**ため、追加の解決ロジックなしに元々
+正しく表示される（`scripts/aggregate.ts`が生データの`TeamNameJ`をそのまま使っているため）。
+
+選手についても全く同じ構造であることを確認した: `players.json`の`name`は
+`PlayerNameJ`（生データ）由来で、シーズンごとに当時の登録名がそのまま入っている
+（実際に2018-19シーズンのplayers.jsonは「ニカ・ウィリアムス」、2019-20シーズン以降は
+「ウィリアムス ニカ」になっており、追加の解決ロジック無しで元々正しい）。ボックススコア
+（`BoxscoreRow.PlayerNameJ`）・ランキング/比較ページ（`fetchPlayers(season)`）も同じ経路で
+season-accurateな名前を参照しているため、同様に元々正しい。
+
+したがって「team-history.jsonと同じ考え方」を字義通り実装するなら、`player-history.json`も
+チームと同じ**情報提供用の注記データ**として位置づけるのが実態に即した実装であり、
+各ページの名前表示ロジックを個別に書き換える必要は無いと判断した。
+
+### 22-2. 実装
+
+- `shared/types.ts`: `PlayerNameHistoryEntry`/`PlayerHistoryEntry`を追加
+  （`TeamNameHistoryEntry`/`TeamHistoryEntry`と同型）
+- `data/player-history.json`: 手動作成（`team-history.json`と同じくスクリプト生成ではなく
+  手動メンテナンスの静的データ。今回確認できた3件を記載）
+- `src/lib/data.ts`: `fetchPlayerHistory()`を追加
+- `src/pages/PlayerDetailPage.tsx`: ヘッダー直下（`page-subtitle`の並び）に
+  「登録名変更履歴: ニカ・ウィリアムス（2018-19） → ウィリアムス ニカ（2019-20〜）」を
+  TeamDetailPageと同じ表示ロジックで追加
+
+### 22-3. 「同一人物として扱えるか」の確認（実装不要と判断）
+
+比較ページ・ランキングページの選手選択は全て`<select>`の`option value`が`playerId`（文字列の
+選手名ではない）になっており、URLパラメータも`playerId@season`形式でエンコードされる
+（`src/pages/ComparePage.tsx`冒頭のコメント参照）。つまり選手の同一性判定は最初から
+playerIdベースで、名前文字列によるマッチングには一切依存していない。コードベース全体を
+検索した結果、名前のフリーテキスト検索機能自体がどのページにも存在しないことも確認した
+（`<select>`によるシーズン別選手一覧からの選択のみ）。そのため「改名前後どちらの名前でも
+同一人物として扱えるか」という懸念は、既存のアーキテクチャ上そもそも発生しない
+（実データでも確認: 比較ページで2018-19シーズンのウィリアムス選手を選ぶと「ニカ・
+ウィリアムス」、2025-26シーズンで選ぶと「ウィリアムス ニカ」がそれぞれ表示され、
+どちらもplayerId=9345に紐づく）。追加実装は不要と判断した。
+
+### 22-4. 検証
+
+playerId=9345（ウィリアムス ニカ）で、2025-26シーズンのページ（ヘッダー「ウィリアムス
+ニカ」・登録名変更履歴の注記表示）・2018-19シーズンのページ（ヘッダーが正しく「ニカ・
+ウィリアムス」に切り替わる）の両方をブラウザで確認した。ランキングページ（2018-19
+シーズン選択時）でも「ニカ・ウィリアムス」表記で一覧に表示されることを確認した。
+型チェック通過・コンソールエラー無し。

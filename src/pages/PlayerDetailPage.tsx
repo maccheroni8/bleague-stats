@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Link as RouterLink } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
-import { fetchPlayerGameLogs, fetchPlayers, fetchSeasons, fetchTeamColors } from "../lib/data";
+import { fetchPlayerGameLogs, fetchPlayerHistory, fetchPlayers, fetchSeasons, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import type { PlayerGameLog } from "../../shared/types";
@@ -126,6 +126,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   );
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
+  const { data: playerHistory } = useJsonData(() => fetchPlayerHistory(), []);
   const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   const pbpSupported = isPbpSupported(coverage);
@@ -211,6 +212,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   if (!player) return <p className="error-message">選手が見つかりませんでした</p>;
 
   const accentColor = teamColors?.[player.teamId]?.primary;
+  const nameHistory = playerHistory?.find((h) => h.playerId === player.playerId)?.names ?? [];
   const filteredLogs = gameLogs ? filterGameLogs(gameLogs, filter) : [];
   const situational = isDefaultFilter(filter) ? null : computePlayerSituationalStats(filteredLogs);
 
@@ -226,6 +228,24 @@ export function PlayerDetailPage({ season }: { season: string }) {
           <p className="page-subtitle">
             {player.teamName}・{season}シーズン・{player.gamesPlayed}試合出場
           </p>
+          {nameHistory.length > 1 && (
+            <p className="page-subtitle">
+              登録名変更履歴:{" "}
+              {nameHistory.map((n, i) => (
+                <span key={n.name}>
+                  {i > 0 && " → "}
+                  {n.name}
+                  {n.fromSeason || n.toSeason ? (
+                    <>
+                      （{n.fromSeason ?? ""}
+                      {n.fromSeason && n.toSeason ? "〜" : ""}
+                      {n.toSeason ?? (n.fromSeason ? "〜" : "")}）
+                    </>
+                  ) : null}
+                </span>
+              ))}
+            </p>
+          )}
           <div className="player-profile-grid">
             {player.position && <ProfileItem label="ポジション" value={player.position} />}
             {player.classification && <ProfileItem label="登録区分" value={player.classification} />}

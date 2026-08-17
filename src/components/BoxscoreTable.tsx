@@ -23,6 +23,16 @@ import {
   type PlayerBoxscore,
   type TeamRatings,
 } from "../lib/boxscoreAggregate";
+import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS } from "../lib/statDefs";
+
+// グロッサリーページ・ランキング/比較ページと同じ情報源（statDefs.ts）のformulaTextを
+// 列見出しのツールチップに再利用する。ボックススコア固有の列（PTSOFFTO/DUNK等、シーズン
+// 集計のPlayerSummary/TeamSummaryには存在しない）はstatDefs.tsに対応が無いため、
+// この下の各列定義でその場合のみ独自の説明文を用意する
+const STAT_FORMULA_BY_KEY = new Map<string, string>();
+for (const def of [...TEAM_STAT_DEFS, ...PLAYER_STAT_DEFS]) {
+  if (!STAT_FORMULA_BY_KEY.has(def.key)) STAT_FORMULA_BY_KEY.set(def.key, def.formulaText);
+}
 
 type BoxscoreTabKey = "traditional" | "advanced" | "misc" | "scoring";
 
@@ -56,6 +66,13 @@ interface BoxscoreColumn {
   value?: (c: BoxscoreCounts, ctx: ColumnCtx) => number | undefined;
   /** falseならTOV/BSR/Fのように値が小さいほど良い列。比較ページの仕組みと同じ規約（未指定はtrue扱い） */
   higherIsBetter?: boolean;
+  /** 列見出しホバー時のツールチップ文言。statDefs.tsのformulaTextを再利用するかボックススコア固有の説明を書く */
+  description: string;
+}
+
+/** statDefs.tsに対応する項目があればそのformulaTextを、無ければ渡したfallbackを使う */
+function desc(key: string, fallback: string): string {
+  return STAT_FORMULA_BY_KEY.get(key) ?? fallback;
 }
 
 const plusMinusCol: BoxscoreColumn = {
@@ -63,98 +80,116 @@ const plusMinusCol: BoxscoreColumn = {
   label: "+/-",
   format: (c) => (c.hasPlusMinus ? formatSigned(c.plusMinus, 0) : "-"),
   value: (c) => (c.hasPlusMinus ? c.plusMinus : undefined),
+  description: "出場中の自チーム得点 − 相手チーム得点",
 };
 
 const TRADITIONAL_COLUMNS: BoxscoreColumn[] = [
-  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
-  { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
-  { key: "fgm", label: "FGM", format: (c) => String(c.pt2m + c.pt3m), value: (c) => c.pt2m + c.pt3m },
-  { key: "fga", label: "FGA", format: (c) => String(c.pt2a + c.pt3a), value: (c) => c.pt2a + c.pt3a },
+  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec, description: desc("min", "出場時間") },
+  { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts, description: desc("pts", "得点") },
+  { key: "fgm", label: "FGM", format: (c) => String(c.pt2m + c.pt3m), value: (c) => c.pt2m + c.pt3m, description: "FG成功数（2P成功+3P成功）" },
+  { key: "fga", label: "FGA", format: (c) => String(c.pt2a + c.pt3a), value: (c) => c.pt2a + c.pt3a, description: "FG試投数（2P試投+3P試投）" },
   {
     key: "fgpct",
     label: "FG%",
     format: (c) => formatPct(safeDiv(c.pt2m + c.pt3m, c.pt2a + c.pt3a)),
     value: (c) => safeDiv(c.pt2m + c.pt3m, c.pt2a + c.pt3a),
+    description: desc("fgPct", "FGM / FGA"),
   },
-  { key: "2pm", label: "2PM", format: (c) => String(c.pt2m), value: (c) => c.pt2m },
-  { key: "2pa", label: "2PA", format: (c) => String(c.pt2a), value: (c) => c.pt2a },
+  { key: "2pm", label: "2PM", format: (c) => String(c.pt2m), value: (c) => c.pt2m, description: "2P成功数" },
+  { key: "2pa", label: "2PA", format: (c) => String(c.pt2a), value: (c) => c.pt2a, description: "2P試投数" },
   {
     key: "2ppct",
     label: "2P%",
     format: (c) => formatPct(safeDiv(c.pt2m, c.pt2a)),
     value: (c) => safeDiv(c.pt2m, c.pt2a),
+    description: desc("twoPct", "2PM / 2PA"),
   },
-  { key: "3pm", label: "3PM", format: (c) => String(c.pt3m), value: (c) => c.pt3m },
-  { key: "3pa", label: "3PA", format: (c) => String(c.pt3a), value: (c) => c.pt3a },
+  { key: "3pm", label: "3PM", format: (c) => String(c.pt3m), value: (c) => c.pt3m, description: "3P成功数" },
+  { key: "3pa", label: "3PA", format: (c) => String(c.pt3a), value: (c) => c.pt3a, description: "3P試投数" },
   {
     key: "3ppct",
     label: "3P%",
     format: (c) => formatPct(safeDiv(c.pt3m, c.pt3a)),
     value: (c) => safeDiv(c.pt3m, c.pt3a),
+    description: desc("tpPct", "3PM / 3PA"),
   },
-  { key: "ftm", label: "FTM", format: (c) => String(c.ftm), value: (c) => c.ftm },
-  { key: "fta", label: "FTA", format: (c) => String(c.fta), value: (c) => c.fta },
+  { key: "ftm", label: "FTM", format: (c) => String(c.ftm), value: (c) => c.ftm, description: "FT成功数" },
+  { key: "fta", label: "FTA", format: (c) => String(c.fta), value: (c) => c.fta, description: "FT試投数" },
   {
     key: "ftpct",
     label: "FT%",
     format: (c) => formatPct(safeDiv(c.ftm, c.fta)),
     value: (c) => safeDiv(c.ftm, c.fta),
+    description: desc("ftPct", "FTM / FTA"),
   },
   {
     key: "efg",
     label: "eFG%",
     format: (c) => formatPct(efgPct(c.pt2m + c.pt3m, c.pt3m, c.pt2a + c.pt3a)),
     value: (c) => efgPct(c.pt2m + c.pt3m, c.pt3m, c.pt2a + c.pt3a),
+    description: desc("efgPct", "(FGM + 0.5×3PM) / FGA"),
   },
   {
     key: "ts",
     label: "TS%",
     format: (c) => formatPct(tsPct(c.pts, c.pt2a + c.pt3a, c.fta)),
     value: (c) => tsPct(c.pts, c.pt2a + c.pt3a, c.fta),
+    description: "PTS / (2 × (FGA + 0.44×FTA))",
   },
-  { key: "or", label: "OR", format: (c) => String(c.oreb), value: (c) => c.oreb },
-  { key: "dr", label: "DR", format: (c) => String(c.dreb), value: (c) => c.dreb },
-  { key: "tr", label: "TR", format: (c) => String(c.treb), value: (c) => c.treb },
-  { key: "ast", label: "AST", format: (c) => String(c.ast), value: (c) => c.ast },
-  { key: "tov", label: "TOV", format: (c) => String(c.tov), value: (c) => c.tov, higherIsBetter: false },
+  { key: "or", label: "OR", format: (c) => String(c.oreb), value: (c) => c.oreb, description: "オフェンスリバウンド" },
+  { key: "dr", label: "DR", format: (c) => String(c.dreb), value: (c) => c.dreb, description: "ディフェンスリバウンド" },
+  { key: "tr", label: "TR", format: (c) => String(c.treb), value: (c) => c.treb, description: desc("reb", "OREB + DREB") },
+  { key: "ast", label: "AST", format: (c) => String(c.ast), value: (c) => c.ast, description: desc("ast", "アシスト") },
+  { key: "tov", label: "TOV", format: (c) => String(c.tov), value: (c) => c.tov, higherIsBetter: false, description: desc("tov", "ターンオーバー") },
   {
     key: "asttov",
     label: "AST/TOV",
     format: (c) => formatAstToRatio(c.ast, c.tov),
     value: (c) => astToTovRatio(c.ast, c.tov),
+    description: "AST / TOV（TOV=0の場合はAST数をそのまま比率として使う）",
   },
-  { key: "stl", label: "STL", format: (c) => String(c.stl), value: (c) => c.stl },
-  { key: "blk", label: "BLK", format: (c) => String(c.blk), value: (c) => c.blk },
-  { key: "bsr", label: "BSR", format: (c) => String(c.bson), value: (c) => c.bson, higherIsBetter: false },
-  { key: "f", label: "F", format: (c) => String(c.foul), value: (c) => c.foul, higherIsBetter: false },
-  { key: "fd", label: "FD", format: (c) => String(c.foulon), value: (c) => c.foulon },
-  { key: "eff", label: "EFF", format: (c) => String(c.eff), value: (c) => c.eff },
+  { key: "stl", label: "STL", format: (c) => String(c.stl), value: (c) => c.stl, description: desc("stl", "スティール") },
+  { key: "blk", label: "BLK", format: (c) => String(c.blk), value: (c) => c.blk, description: desc("blk", "ブロック") },
+  { key: "bsr", label: "BSR", format: (c) => String(c.bson), value: (c) => c.bson, higherIsBetter: false, description: "被ブロック数" },
+  { key: "f", label: "F", format: (c) => String(c.foul), value: (c) => c.foul, higherIsBetter: false, description: "パーソナル/オフェンス等のファウル数" },
+  { key: "fd", label: "FD", format: (c) => String(c.foulon), value: (c) => c.foulon, description: "被ファウル数（ファウルを誘発した回数）" },
+  { key: "eff", label: "EFF", format: (c) => String(c.eff), value: (c) => c.eff, description: desc("eff", "Bリーグ公式の総合貢献度指標") },
   plusMinusCol,
 ];
 
 const ADVANCED_COLUMNS: BoxscoreColumn[] = [
-  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
-  { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
-  { key: "eff", label: "EFF", format: (c) => String(c.eff), value: (c) => c.eff },
+  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec, description: desc("min", "出場時間") },
+  { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts, description: desc("pts", "得点") },
+  { key: "eff", label: "EFF", format: (c) => String(c.eff), value: (c) => c.eff, description: desc("eff", "Bリーグ公式の総合貢献度指標") },
   {
     key: "usg",
     label: "USG%",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(usagePctOf(c, ctx)) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow ? usagePctOf(c, ctx) : undefined),
+    description: desc("usagePct", "自分が関与したプレー（FGA・FTA・TOV）の、出場中のチーム全体に占める割合"),
   },
   {
     key: "efg",
     label: "eFG%",
     format: (c) => formatPct(efgPct(c.pt2m + c.pt3m, c.pt3m, c.pt2a + c.pt3a)),
     value: (c) => efgPct(c.pt2m + c.pt3m, c.pt3m, c.pt2a + c.pt3a),
+    description: desc("efgPct", "(FGM + 0.5×3PM) / FGA"),
   },
   {
     key: "ts",
     label: "TS%",
     format: (c) => formatPct(tsPct(c.pts, c.pt2a + c.pt3a, c.fta)),
     value: (c) => tsPct(c.pts, c.pt2a + c.pt3a, c.fta),
+    description: "PTS / (2 × (FGA + 0.44×FTA))",
   },
-  { key: "poss", label: "POSS", format: (_c, ctx) => (ctx.ratings ? formatDecimal(ctx.ratings.poss, 1) : "-") },
+  {
+    key: "poss",
+    label: "POSS",
+    format: (_c, ctx) => (ctx.ratings ? formatDecimal(ctx.ratings.poss, 1) : "-"),
+    description:
+      "推定ポゼッション数（Bリーグ公式定義）。自チーム・相手チーム双方の視点から推定した値の平均。" +
+      "チーム合計行のみ算出（選手個人のPOSSという概念は無い）",
+  },
   {
     key: "pace",
     label: "PACE",
@@ -167,6 +202,7 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
           ? formatDecimal(c.onCourtPace, 1)
           : "-",
     value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.pace : ctx.isPlayerRow ? c.onCourtPace : undefined),
+    description: desc("pace", "40 × POSS / (チーム総プレイタイム / 5)") + "。選手行はその選手が出場中の在コート区間ベースの値（試合全体選択時のみ）",
   },
   {
     key: "ortg",
@@ -180,6 +216,7 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
           ? formatDecimal(c.offRtg, 1)
           : "-",
     value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.offRtg : ctx.isPlayerRow ? c.offRtg : undefined),
+    description: "チーム合計行: 100 × PTS / POSS。選手行: 個人ORtg（Dean Oliver方式）。出場時間4分未満は算出不能",
   },
   {
     key: "drtg",
@@ -194,6 +231,7 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
           : "-",
     value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.defRtg : ctx.isPlayerRow ? c.defRtg : undefined),
     higherIsBetter: false,
+    description: "チーム合計行: 100 × 相手PTS / POSS。選手行: 個人DRtg（Dean Oliver方式）。出場時間4分未満は算出不能",
   },
   {
     key: "netrtg",
@@ -207,6 +245,7 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
           ? formatSigned(c.netRtg, 1)
           : "-",
     value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.netRtg : ctx.isPlayerRow ? c.netRtg : undefined),
+    description: desc("netRtg", "ORtg − DRtg"),
   },
   plusMinusCol,
 ];
@@ -219,111 +258,125 @@ function usagePctOf(c: BoxscoreCounts, ctx: ColumnCtx): number {
 }
 
 const MISC_COLUMNS: BoxscoreColumn[] = [
-  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
-  { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
-  { key: "pitp", label: "PITP", format: (c) => String(c.pt2in), value: (c) => c.pt2in },
-  { key: "fbps", label: "FBPS", format: (c) => String(c.ptfb), value: (c) => c.ptfb },
-  { key: "2ndpts", label: "2ND PTS", format: (c) => String(c.pt2nd), value: (c) => c.pt2nd },
+  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec, description: desc("min", "出場時間") },
+  { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts, description: desc("pts", "得点") },
+  { key: "pitp", label: "PITP", format: (c) => String(c.pt2in), value: (c) => c.pt2in, description: "ペイント内での得点（Points in the Paint）" },
+  { key: "fbps", label: "FBPS", format: (c) => String(c.ptfb), value: (c) => c.ptfb, description: "ファストブレイクによる得点（Fastbreak Points）" },
+  { key: "2ndpts", label: "2ND PTS", format: (c) => String(c.pt2nd), value: (c) => c.pt2nd, description: "セカンドチャンス（オフェンスリバウンド後）による得点" },
   {
     key: "ptsofftov",
     label: "PTSOFFTO",
     format: (c, ctx) => (ctx.isTeamTotalRow ? String(ctx.ownPlayType.pft) : String(c.ptsOffTov)),
     value: (c) => c.ptsOffTov,
+    description: "ターンオーバーからの得点（Points From Turnover）",
   },
-  { key: "dunk", label: "DUNK", format: (c) => String(c.dunks), value: (c) => c.dunks },
-  { key: "and1", label: "AND1", format: (c) => String(c.basketCounts), value: (c) => c.basketCounts },
+  { key: "dunk", label: "DUNK", format: (c) => String(c.dunks), value: (c) => c.dunks, description: "ダンク成功数" },
+  { key: "and1", label: "AND1", format: (c) => String(c.basketCounts), value: (c) => c.basketCounts, description: "バスケットカウント（アンドワン）成功数" },
   // 低頻度なファウル2種は通常のFカラムとは別にMiscタブでのみ表示する（DUNK/AND1と異なり
   // ほぼ全選手が0になるため、ハイライト対象からは外す＝valueを持たせない）
-  { key: "ufoul", label: "UFOUL", format: (c) => String(c.unsportsmanlikeFouls) },
-  { key: "dqfoul", label: "DQFOUL", format: (c) => String(c.disqualifyingFouls) },
+  { key: "ufoul", label: "UFOUL", format: (c) => String(c.unsportsmanlikeFouls), description: "アンスポーツマンファウル数" },
+  { key: "dqfoul", label: "DQFOUL", format: (c) => String(c.disqualifyingFouls), description: "ディスクォリファイングファウル数" },
   // アシストからの得点（得点者視点。shared/assistedScoring.ts参照）。FTAST含め
   // PlayByPlays配列内の構造的な隣接パターンから求めた「被アシスト」内訳
-  { key: "ast2m", label: "AST2M", format: (c) => String(c.assisted2m), value: (c) => c.assisted2m },
-  { key: "ast3m", label: "AST3M", format: (c) => String(c.assisted3m), value: (c) => c.assisted3m },
-  { key: "astftm", label: "ASTFTM", format: (c) => String(c.assistedFtm), value: (c) => c.assistedFtm },
+  { key: "ast2m", label: "AST2M", format: (c) => String(c.assisted2m), value: (c) => c.assisted2m, description: "アシストされた2P成功数" },
+  { key: "ast3m", label: "AST3M", format: (c) => String(c.assisted3m), value: (c) => c.assisted3m, description: "アシストされた3P成功数" },
+  { key: "astftm", label: "ASTFTM", format: (c) => String(c.assistedFtm), value: (c) => c.assistedFtm, description: "アシストされたフリースロー成功数（シュートファウルでフリースローに切り替わったケース）" },
   {
     key: "astpct",
     label: "AST%",
     format: (c) =>
       formatPct100(sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts)),
     value: (c) => sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts),
+    description: "(被アシスト2PM×2 + 被アシスト3PM×3 + 被アシストFTM) / PTS × 100",
   },
 ];
 
 const SCORING_COLUMNS: BoxscoreColumn[] = [
-  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
-  { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
+  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec, description: desc("min", "出場時間") },
+  { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts, description: desc("pts", "得点") },
   {
     key: "pctpts",
     label: "%PTS",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pts, ctx.own.pts)) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pts, ctx.own.pts) : undefined),
+    description: "個人PTS / チーム合計PTS × 100",
   },
   {
     key: "pctfgm",
     label: "%FGM",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt2m + c.pt3m, ctx.own.pt2m + ctx.own.pt3m)) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt2m + c.pt3m, ctx.own.pt2m + ctx.own.pt3m) : undefined),
+    description: "個人FGM / チーム合計FGM × 100",
   },
   {
     key: "pctfga",
     label: "%FGA",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt2a + c.pt3a, ctx.own.pt2a + ctx.own.pt3a)) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt2a + c.pt3a, ctx.own.pt2a + ctx.own.pt3a) : undefined),
+    description: "個人FGA / チーム合計FGA × 100",
   },
   {
     key: "pct3pm",
     label: "%3PM",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt3m, ctx.own.pt3m)) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt3m, ctx.own.pt3m) : undefined),
+    description: "個人3PM / チーム合計3PM × 100",
   },
   {
     key: "pct3pa",
     label: "%3PA",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt3a, ctx.own.pt3a)) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt3a, ctx.own.pt3a) : undefined),
+    description: "個人3PA / チーム合計3PA × 100",
   },
   {
     key: "pctftm",
     label: "%FTM",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.ftm, ctx.own.ftm)) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.ftm, ctx.own.ftm) : undefined),
+    description: "個人FTM / チーム合計FTM × 100",
   },
   {
     key: "pctfta",
     label: "%FTA",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.fta, ctx.own.fta)) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.fta, ctx.own.fta) : undefined),
+    description: "個人FTA / チーム合計FTA × 100",
   },
   {
     key: "paint2m",
     label: "PAINT2M",
     format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? String(c.paint2m) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? c.paint2m : undefined),
+    description: "ペイント内2Pシュートの成功数（ショットチャート座標から判定。2022-23シーズン以降のみ）",
   },
   {
     key: "paint2a",
     label: "PAINT2A",
     format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? String(c.paint2a) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? c.paint2a : undefined),
+    description: "ペイント内2Pシュートの試投数（ショットチャート座標から判定。2022-23シーズン以降のみ）",
   },
   {
     key: "paint2pct",
     label: "PAINT2%",
     format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? formatPct(safeDiv(c.paint2m, c.paint2a)) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? safeDiv(c.paint2m, c.paint2a) : undefined),
+    description: "PAINT2M / PAINT2A",
   },
   {
     key: "mid2m",
     label: "MID2M",
     format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? String(c.nonPaint2m) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? c.nonPaint2m : undefined),
+    description: "ペイント外2Pシュート（ミッドレンジ）の成功数（ショットチャート座標から判定。2022-23シーズン以降のみ）",
   },
   {
     key: "mid2a",
     label: "MID2A",
     format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? String(c.nonPaint2a) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? c.nonPaint2a : undefined),
+    description: "ペイント外2Pシュート（ミッドレンジ）の試投数（ショットチャート座標から判定。2022-23シーズン以降のみ）",
   },
   {
     key: "mid2pct",
@@ -331,6 +384,7 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
     format: (c, ctx) =>
       ctx.isPlayerRow && ctx.shotChartSupported ? formatPct(safeDiv(c.nonPaint2m, c.nonPaint2a)) : "-",
     value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? safeDiv(c.nonPaint2m, c.nonPaint2a) : undefined),
+    description: "MID2M / MID2A",
   },
 ];
 
@@ -557,7 +611,7 @@ function BoxscoreTeamPanel({
               <tr>
                 <th className="align-left">選手</th>
                 {columns.map((col) => (
-                  <th key={col.key}>{col.label}</th>
+                  <th key={col.key} title={col.description}>{col.label}</th>
                 ))}
               </tr>
             </thead>
@@ -591,7 +645,7 @@ function BoxscoreTeamPanel({
               <tr>
                 <th className="align-left"> </th>
                 {columns.map((col) => (
-                  <th key={col.key}>{col.label}</th>
+                  <th key={col.key} title={col.description}>{col.label}</th>
                 ))}
               </tr>
             </thead>

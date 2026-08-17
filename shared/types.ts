@@ -717,6 +717,32 @@ export interface TeamHistoryEntry {
   names: TeamNameHistoryEntry[];
 }
 
+/**
+ * 選手の登録名変更履歴（team-history.jsonと同じ考え方）。playerIdは改名（主に帰化選手の
+ * 日本語名への変更）をまたいでも不変であることを実証済み（ニカ・ウィリアムス→ウィリアムス
+ * ニカ playerId=9345、ルーク・エヴァンス→エヴァンス ルーク playerId=9418、
+ * ニック・メイヨ→メイヨ ニック playerId=26890）。
+ *
+ * team-history.jsonと同様、各シーズンのplayers.json/games/*.json自体は元々その時点の
+ * 登録名で記録されているため（GeniusAPI生データのPlayerNameJがシーズンごとに正しい値を
+ * 持っている）、シーズン別の名前解決に本データを使う必要は無い。TeamDetailPageの
+ * 「名称変更履歴」表示と同じく、PlayerDetailPageに改名の経緯を示す注記を出すための
+ * 情報源として使う
+ */
+export interface PlayerNameHistoryEntry {
+  name: string;
+  /** この名称が使われ始めたシーズン（"2016-17"形式）。判明している範囲で入れる。不明なら省略 */
+  fromSeason?: string;
+  /** この名称が使われていた最後のシーズン。現在も使われている場合は省略（末尾要素は基本省略） */
+  toSeason?: string;
+}
+
+export interface PlayerHistoryEntry {
+  playerId: string;
+  /** 改名履歴を古い順に並べた配列。最後の要素が現行名 */
+  names: PlayerNameHistoryEntry[];
+}
+
 // ---- data/club-honors.json の保存スキーマ（teamId→獲得タイトル配列。scripts/scrape-club-honors.ts参照） ----
 
 export type HonorCategory = "overall" | "division" | "international";

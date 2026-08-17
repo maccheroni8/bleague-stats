@@ -89,6 +89,12 @@ export interface OnCourtInterval {
    */
   ownPoss: number;
   oppPoss: number;
+  /**
+   * この区間中の自チーム/相手チームの得点（出場交代バーのツールチップ「10-8」形式表示用。
+   * 個人+/-（plusMinus）は試合全体の累計だが、こちらは1区間分に限定した内訳）
+   */
+  ownPts: number;
+  oppPts: number;
 }
 
 export interface OnCourtWarning {
@@ -391,6 +397,19 @@ export function reconstructOnCourt(
   const addPlusMinus = (playerId: string, delta: number) => {
     plusMinus[playerId] = (plusMinus[playerId] ?? 0) + delta;
   };
+  // 現在の在コート区間だけに限定した得点内訳（sub-out・試合終了時にintervalへ書き出し、
+  // その選手が次にIN'した時点でまた0から積み上げ直す。plusMinusは試合全体の累計なので別物）
+  const currentIntervalScore: Record<string, { ownPts: number; oppPts: number }> = {};
+  const addIntervalScore = (playerId: string, key: "ownPts" | "oppPts", delta: number) => {
+    const acc = currentIntervalScore[playerId] ?? { ownPts: 0, oppPts: 0 };
+    acc[key] += delta;
+    currentIntervalScore[playerId] = acc;
+  };
+  const flushIntervalScore = (playerId: string): { ownPts: number; oppPts: number } => {
+    const acc = currentIntervalScore[playerId] ?? { ownPts: 0, oppPts: 0 };
+    delete currentIntervalScore[playerId];
+    return acc;
+  };
 
   // ラインナップスティント（同じ5人の在コート区間）は個人+/-と全く同じイベント順で
   // 同時に積算する。tie-break不要（配列の元の並び順を信頼する）という結論は個人+/-の
@@ -408,8 +427,14 @@ export function reconstructOnCourt(
     const event = events[i]!;
     if (event.kind === "score") {
       const opponentTeamId = event.teamId === homeTeamId ? awayTeamId : homeTeamId;
-      for (const pid of onCourt[event.teamId]!) addPlusMinus(pid, event.points);
-      for (const pid of onCourt[opponentTeamId]!) addPlusMinus(pid, -event.points);
+      for (const pid of onCourt[event.teamId]!) {
+        addPlusMinus(pid, event.points);
+        addIntervalScore(pid, "ownPts", event.points);
+      }
+      for (const pid of onCourt[opponentTeamId]!) {
+        addPlusMinus(pid, -event.points);
+        addIntervalScore(pid, "oppPts", event.points);
+      }
       currentStint[event.teamId]!.net += event.points;
       currentStint[opponentTeamId]!.net -= event.points;
       i += 1;
@@ -450,7 +475,8 @@ export function reconstructOnCourt(
       onCourt[teamId]!.delete(s.playerId);
       const start = openStart[teamId]!.get(s.playerId);
       if (start !== undefined) {
-        intervals.push({ playerId: s.playerId, teamId, startSec: start, endSec: t, ownPoss: 0, oppPoss: 0 });
+        const { ownPts, oppPts } = flushIntervalScore(s.playerId);
+        intervals.push({ playerId: s.playerId, teamId, startSec: start, endSec: t, ownPoss: 0, oppPoss: 0, ownPts, oppPts });
         openStart[teamId]!.delete(s.playerId);
       }
     }
@@ -517,7 +543,8 @@ export function reconstructOnCourt(
       });
     }
     for (const [playerId, start] of openStart[teamId]!.entries()) {
-      intervals.push({ playerId, teamId, startSec: start, endSec: gameEnd, ownPoss: 0, oppPoss: 0 });
+      const { ownPts, oppPts } = flushIntervalScore(playerId);
+      intervals.push({ playerId, teamId, startSec: start, endSec: gameEnd, ownPoss: 0, oppPoss: 0, ownPts, oppPts });
     }
   }
 

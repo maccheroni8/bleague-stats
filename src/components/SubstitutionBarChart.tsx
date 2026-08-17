@@ -1,9 +1,18 @@
-import type { PeriodBoundary } from "../lib/leadTracker";
+import { periodDurationSeconds, type PeriodBoundary, type TimeoutMark } from "../lib/leadTracker";
+import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
+
+export interface SubstitutionInterval {
+  startSec: number;
+  endSec: number;
+  /** この区間中の自チーム/相手チームの得点（ツールチップの「10-8」形式表示用。shared/onCourt.ts参照） */
+  ownPts: number;
+  oppPts: number;
+}
 
 export interface SubstitutionRow {
   playerId: string;
   name: string;
-  intervals: { startSec: number; endSec: number }[];
+  intervals: SubstitutionInterval[];
 }
 
 interface TeamSubstitutionBlockProps {
@@ -13,6 +22,9 @@ interface TeamSubstitutionBlockProps {
   periodBoundaries: PeriodBoundary[];
   totalSeconds: number;
   color: string;
+  timeouts: TimeoutMark[];
+  homeColor?: string;
+  awayColor?: string;
 }
 
 interface SubstitutionBarChartProps {
@@ -27,10 +39,33 @@ interface SubstitutionBarChartProps {
   /** data/team-colors.json由来のチームカラー。未指定時は既存のvar(--accent)/var(--muted)にフォールバックする */
   homeColor?: string;
   awayColor?: string;
+  /** Lead Trackerと同じタイムアウトマーク（buildTimeoutMarks()の結果をそのまま渡す） */
+  timeouts?: TimeoutMark[];
 }
 
 function pct(sec: number, totalSeconds: number): number {
   return (sec / totalSeconds) * 100;
+}
+
+/** そのピリオドの残り時間形式で表示する（Lead Trackerのツールチップと同じ書式） */
+function formatElapsedTime(sec: number, periodBoundaries: PeriodBoundary[]): string {
+  let current = periodBoundaries[0];
+  for (const b of periodBoundaries) {
+    if (b.startSec <= sec) current = b;
+    else break;
+  }
+  if (!current) return "";
+  const elapsedInPeriod = sec - current.startSec;
+  const remaining = Math.max(0, periodDurationSeconds(current.period) - elapsedInPeriod);
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
+  return `${current.label} 残り${m}:${String(s).padStart(2, "0")}`;
+}
+
+function segmentTooltip(iv: SubstitutionInterval, periodBoundaries: PeriodBoundary[]): string {
+  const inTime = formatElapsedTime(iv.startSec, periodBoundaries);
+  const duration = formatMinutesFromSeconds(iv.endSec - iv.startSec);
+  return `IN: ${inTime}\n出場時間: ${duration}\n得失点: ${iv.ownPts}-${iv.oppPts}`;
 }
 
 /**
@@ -54,6 +89,7 @@ export function SubstitutionBarChart({
   totalSeconds,
   homeColor,
   awayColor,
+  timeouts = [],
 }: SubstitutionBarChartProps) {
   return (
     <div className="substitution-chart">
@@ -65,6 +101,9 @@ export function SubstitutionBarChart({
         periodBoundaries={periodBoundaries}
         totalSeconds={totalSeconds}
         color={homeColor ?? "var(--accent)"}
+        timeouts={timeouts}
+        homeColor={homeColor}
+        awayColor={awayColor}
       />
       <TeamSubstitutionBlock
         teamName={awayTeamName}
@@ -73,7 +112,15 @@ export function SubstitutionBarChart({
         periodBoundaries={periodBoundaries}
         totalSeconds={totalSeconds}
         color={awayColor ?? "var(--muted)"}
+        timeouts={timeouts}
+        homeColor={homeColor}
+        awayColor={awayColor}
       />
+      {timeouts.length > 0 && (
+        <p className="sub-bar-note">
+          点線: タイムアウト（{homeTeamName}色/{awayTeamName}色。オフィシャルタイムアウトは基準色）
+        </p>
+      )}
     </div>
   );
 }
@@ -99,7 +146,17 @@ function TimeAxisHeader({
   );
 }
 
-function TeamSubstitutionBlock({ teamName, starters, bench, periodBoundaries, totalSeconds, color }: TeamSubstitutionBlockProps) {
+function TeamSubstitutionBlock({
+  teamName,
+  starters,
+  bench,
+  periodBoundaries,
+  totalSeconds,
+  color,
+  timeouts,
+  homeColor,
+  awayColor,
+}: TeamSubstitutionBlockProps) {
   // スタメン5人を上5段に固定し、ベンチは出場時間のある選手を先に詰めて表示、
   // DNP（出場0分）の選手を最後尾にまとめる（「スタメン」「ベンチ」ラベルは廃止し、
   // スタメンは名前の先頭に"*"を付けて区別する）
@@ -124,6 +181,16 @@ function TeamSubstitutionBlock({ teamName, starters, bench, periodBoundaries, to
               .map((b) => (
                 <div key={b.period} className="sub-bar-gridline" style={{ left: `${pct(b.startSec, totalSeconds)}%` }} />
               ))}
+            {timeouts.map((t, i) => (
+              <div
+                key={`timeout-${i}`}
+                className="sub-bar-timeout-line"
+                style={{
+                  left: `${pct(t.elapsedSec, totalSeconds)}%`,
+                  borderColor: t.homeAway === 1 ? (homeColor ?? "var(--accent)") : t.homeAway === 2 ? (awayColor ?? "var(--muted)") : "var(--fg)",
+                }}
+              />
+            ))}
             {row.intervals.length === 0 ? (
               <span className="sub-bar-dnp">DNP</span>
             ) : (
@@ -131,6 +198,7 @@ function TeamSubstitutionBlock({ teamName, starters, bench, periodBoundaries, to
                 <div
                   key={i}
                   className="sub-bar-segment"
+                  title={segmentTooltip(iv, periodBoundaries)}
                   style={{
                     left: `${pct(iv.startSec, totalSeconds)}%`,
                     width: `${pct(iv.endSec - iv.startSec, totalSeconds)}%`,
