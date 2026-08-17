@@ -39,6 +39,8 @@ interface ColumnCtx {
   ratings?: TeamRatings;
   isPlayerRow: boolean;
   isTeamTotalRow: boolean;
+  /** ペイント内外2P内訳の元になるX/Y/AreaCDが収録されているか（2022-23シーズン以降のみ。DESIGN.md参照） */
+  shotChartSupported: boolean;
 }
 
 interface BoxscoreColumn {
@@ -224,6 +226,43 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.fta, ctx.own.fta)) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.fta, ctx.own.fta) : undefined),
   },
+  {
+    key: "paint2m",
+    label: "PAINT2M",
+    format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? String(c.paint2m) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? c.paint2m : undefined),
+  },
+  {
+    key: "paint2a",
+    label: "PAINT2A",
+    format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? String(c.paint2a) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? c.paint2a : undefined),
+  },
+  {
+    key: "paint2pct",
+    label: "PAINT2%",
+    format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? formatPct(safeDiv(c.paint2m, c.paint2a)) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? safeDiv(c.paint2m, c.paint2a) : undefined),
+  },
+  {
+    key: "mid2m",
+    label: "MID2M",
+    format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? String(c.nonPaint2m) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? c.nonPaint2m : undefined),
+  },
+  {
+    key: "mid2a",
+    label: "MID2A",
+    format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? String(c.nonPaint2a) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? c.nonPaint2a : undefined),
+  },
+  {
+    key: "mid2pct",
+    label: "MID2%",
+    format: (c, ctx) =>
+      ctx.isPlayerRow && ctx.shotChartSupported ? formatPct(safeDiv(c.nonPaint2m, c.nonPaint2a)) : "-",
+    value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? safeDiv(c.nonPaint2m, c.nonPaint2a) : undefined),
+  },
 ];
 
 const COLUMNS_BY_TAB: Record<BoxscoreTabKey, BoxscoreColumn[]> = {
@@ -242,6 +281,8 @@ interface BoxscoreTableProps {
   playByPlays: PlayByPlayEvent[];
   periods: number;
   classificationById: Map<string, PlayerSummary["classification"]>;
+  /** ペイント内外2P内訳（スコアリングタブ）の元になるX/Y/AreaCDが収録されているか。2022-23シーズン以降のみ */
+  shotChartSupported: boolean;
   homeColor?: string;
   awayColor?: string;
 }
@@ -255,6 +296,7 @@ export function BoxscoreTable({
   playByPlays,
   periods,
   classificationById,
+  shotChartSupported,
   homeColor,
   awayColor,
 }: BoxscoreTableProps) {
@@ -287,6 +329,7 @@ export function BoxscoreTable({
         periodOption={selectedOption}
         columns={columns}
         classificationById={classificationById}
+        shotChartSupported={shotChartSupported}
         accentColor={homeColor}
       />
       <BoxscoreTeamPanel
@@ -299,6 +342,7 @@ export function BoxscoreTable({
         periodOption={selectedOption}
         columns={columns}
         classificationById={classificationById}
+        shotChartSupported={shotChartSupported}
         accentColor={awayColor}
       />
     </>
@@ -339,6 +383,7 @@ function BoxscoreTeamPanel({
   periodOption,
   columns,
   classificationById,
+  shotChartSupported,
   accentColor,
 }: {
   teamName: string;
@@ -350,6 +395,7 @@ function BoxscoreTeamPanel({
   periodOption: PeriodRangeOption | undefined;
   columns: BoxscoreColumn[];
   classificationById: Map<string, PlayerSummary["classification"]>;
+  shotChartSupported: boolean;
   accentColor?: string;
 }) {
   const players = buildPlayerBoxscores(ownRows, periodOption, playByPlays);
@@ -370,9 +416,28 @@ function BoxscoreTeamPanel({
   const classificationNote =
     "※現在の登録情報に基づく参考値" + (unclassifiedPlayedCount > 0 ? `／${unclassifiedPlayedCount}名分のデータ欠落あり` : "");
 
-  const playerCtx: ColumnCtx = { own: teamTotal, ownPlayType: playType, isPlayerRow: true, isTeamTotalRow: false };
-  const nonPlayerCtx: ColumnCtx = { own: teamTotal, ownPlayType: playType, isPlayerRow: false, isTeamTotalRow: false };
-  const teamTotalCtx: ColumnCtx = { own: teamTotal, ownPlayType: playType, ratings, isPlayerRow: false, isTeamTotalRow: true };
+  const playerCtx: ColumnCtx = {
+    own: teamTotal,
+    ownPlayType: playType,
+    isPlayerRow: true,
+    isTeamTotalRow: false,
+    shotChartSupported,
+  };
+  const nonPlayerCtx: ColumnCtx = {
+    own: teamTotal,
+    ownPlayType: playType,
+    isPlayerRow: false,
+    isTeamTotalRow: false,
+    shotChartSupported,
+  };
+  const teamTotalCtx: ColumnCtx = {
+    own: teamTotal,
+    ownPlayType: playType,
+    ratings,
+    isPlayerRow: false,
+    isTeamTotalRow: true,
+    shotChartSupported,
+  };
   // 内訳集計セクションの「チーム合計」行は+/-を除きteamTotalCtxと同じ扱い（POSS/PACE等は引き続き表示する）
   const summaryTotalCtx: ColumnCtx = teamTotalCtx;
 

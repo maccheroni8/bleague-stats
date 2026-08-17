@@ -440,6 +440,7 @@ export function GameDetailPage({ season }: { season: string }) {
         playByPlays={game.raw.PlayByPlays}
         periods={periods}
         classificationById={classificationById}
+        shotChartSupported={shotChartSupported}
         homeColor={homeColor}
         awayColor={awayColor}
       />

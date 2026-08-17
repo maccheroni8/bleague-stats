@@ -147,6 +147,22 @@ export function zoneForShot(shot: ShotEvent): ZoneId | null {
   return null;
 }
 
+/** リストリクテッドエリア＋ペイント＝「ペイント内」。それ以外の2Pゾーン（ミッドレンジ・ショートコーナー）は「ペイント外」（ボックススコアのスコアリングタブ用） */
+const PAINT_ZONE_IDS: ReadonlySet<ZoneId> = new Set(["restricted", "paint"]);
+
+export type PaintSplit = "paint" | "nonPaint";
+
+/**
+ * 2Pシュートをペイント内／ペイント外に分類する。3Pシュート、またはゾーン判定不能
+ * （ヒーブ級の外れ値）の場合はnullを返す
+ */
+export function paintSplitForShot(shot: ShotEvent): PaintSplit | null {
+  if (shot.isThree) return null;
+  const zoneId = zoneForShot(shot);
+  if (!zoneId) return null;
+  return PAINT_ZONE_IDS.has(zoneId) ? "paint" : "nonPaint";
+}
+
 export interface ZoneStat {
   zone: ZoneDef;
   attempts: number;

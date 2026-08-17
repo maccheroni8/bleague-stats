@@ -9,6 +9,7 @@ import type { PeriodRangeOption } from "./periodRange";
 import { periodInRange } from "./periodRange";
 import { estimatedPossessions, offensiveRating, pace, safeDiv } from "../../shared/formulas";
 import { computePointsOffTurnovers } from "../../shared/pointsOffTurnovers";
+import { buildShotEvents, paintSplitForShot, type ShotEvent } from "./shotChart";
 
 export interface BoxscoreCounts {
   minSec: number;
@@ -44,6 +45,17 @@ export interface BoxscoreCounts {
    * 常に0になる（「0点」ではなく「算出不能」。shared/pointsOffTurnovers.ts参照）
    */
   ptsOffTov: number;
+  /**
+   * ペイント内／ペイント外の2Pシュート内訳（ショットチャートと同じゾーン分類を再利用）。
+   * ptsOffTovと同様にBoxscoreRowには個人単位のフィールドが無いため、sumCounts()では常に0のままで、
+   * buildPlayerBoxscores()がPlayByPlaysのX/Y/AreaCDから事後的に上書きする。X/Y自体が
+   * 2022-23シーズン以降のみ存在するため（shotChart.ts参照）、それより前のシーズンでは
+   * 常に0になる（呼び出し側でshotChartSupportedを見て「-」表示にケアする）
+   */
+  paint2m: number;
+  paint2a: number;
+  nonPaint2m: number;
+  nonPaint2a: number;
 }
 
 const ZERO_COUNTS: BoxscoreCounts = {
@@ -72,6 +84,10 @@ const ZERO_COUNTS: BoxscoreCounts = {
   pt2nd: 0,
   ptfb: 0,
   ptsOffTov: 0,
+  paint2m: 0,
+  paint2a: 0,
+  nonPaint2m: 0,
+  nonPaint2a: 0,
 };
 
 /**
@@ -129,6 +145,10 @@ export function sumCounts(rows: BoxscoreRow[]): BoxscoreCounts {
       ptfb: acc.ptfb + num(r.PTFB),
       // BoxscoreRowにフィールドが無いため常に0のまま（buildPlayerBoxscores()が事後的に上書きする）
       ptsOffTov: acc.ptsOffTov,
+      paint2m: acc.paint2m,
+      paint2a: acc.paint2a,
+      nonPaint2m: acc.nonPaint2m,
+      nonPaint2a: acc.nonPaint2a,
     }),
     ZERO_COUNTS,
   );
@@ -173,9 +193,41 @@ export function sumCountsList(list: BoxscoreCounts[]): BoxscoreCounts {
       pt2nd: acc.pt2nd + c.pt2nd,
       ptfb: acc.ptfb + c.ptfb,
       ptsOffTov: acc.ptsOffTov + c.ptsOffTov,
+      paint2m: acc.paint2m + c.paint2m,
+      paint2a: acc.paint2a + c.paint2a,
+      nonPaint2m: acc.nonPaint2m + c.nonPaint2m,
+      nonPaint2a: acc.nonPaint2a + c.nonPaint2a,
     }),
     ZERO_COUNTS,
   );
+}
+
+interface PaintSplitCounts {
+  paint2m: number;
+  paint2a: number;
+  nonPaint2m: number;
+  nonPaint2a: number;
+}
+
+const ZERO_PAINT_SPLIT: PaintSplitCounts = { paint2m: 0, paint2a: 0, nonPaint2m: 0, nonPaint2a: 0 };
+
+/** ショットチャートと同じX/Y/AreaCDベースのゾーン分類で、選手ごとのペイント内外2P内訳を求める */
+function buildPaintSplitByPlayer(shots: ShotEvent[]): Map<string, PaintSplitCounts> {
+  const byPlayer = new Map<string, PaintSplitCounts>();
+  for (const shot of shots) {
+    const split = paintSplitForShot(shot);
+    if (!split) continue;
+    const entry = byPlayer.get(shot.playerId) ?? { ...ZERO_PAINT_SPLIT };
+    if (split === "paint") {
+      entry.paint2a += 1;
+      if (shot.made) entry.paint2m += 1;
+    } else {
+      entry.nonPaint2a += 1;
+      if (shot.made) entry.nonPaint2m += 1;
+    }
+    byPlayer.set(shot.playerId, entry);
+  }
+  return byPlayer;
 }
 
 export interface PlayerBoxscore {
@@ -210,15 +262,20 @@ export function buildPlayerBoxscores(
   // periodInRange()でそのまま絞り込める（rowsInPeriodRangeのPeriodCategoryベースの絞り込みとは別経路）
   const periodFilteredPbp = playByPlays.filter((e) => periodInRange(option, e.Period));
   const { byPlayer: ptsOffTovByPlayer } = computePointsOffTurnovers(periodFilteredPbp);
+  // buildShotEvents()はX/Y未収録の行を自然に除外するため、2022-23シーズンより前は
+  // 常に空配列になり、以降の集計もpaint2m等が常に0のままになる（呼び出し側でshotChartSupportedを
+  // 見て「-」表示にケアする）
+  const paintSplitByPlayer = buildPaintSplitByPlayer(buildShotEvents(periodFilteredPbp));
   return gameRows.map((meta) => {
     const periodRows = rowsInPeriodRange(rowsByPlayer.get(meta.PlayerID) ?? [], option);
+    const paintSplit = paintSplitByPlayer.get(meta.PlayerID) ?? ZERO_PAINT_SPLIT;
     return {
       playerId: meta.PlayerID,
       playerNo: meta.PlayerNo,
       nameJ: meta.PlayerNameJ,
       startingFlg: meta.StartingFlg,
       dnp: meta.PlayTime === "DNP",
-      counts: { ...sumCounts(periodRows), ptsOffTov: ptsOffTovByPlayer.get(meta.PlayerID) ?? 0 },
+      counts: { ...sumCounts(periodRows), ptsOffTov: ptsOffTovByPlayer.get(meta.PlayerID) ?? 0, ...paintSplit },
     };
   });
 }
