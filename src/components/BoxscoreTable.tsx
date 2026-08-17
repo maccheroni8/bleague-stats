@@ -284,9 +284,6 @@ export function BoxscoreTable({
         side="home"
         summaries={summaries}
         playByPlays={playByPlays}
-        periodOptions={periodOptions}
-        periodRange={periodRange}
-        onPeriodChange={setPeriodRange}
         periodOption={selectedOption}
         columns={columns}
         classificationById={classificationById}
@@ -299,9 +296,6 @@ export function BoxscoreTable({
         side="away"
         summaries={summaries}
         playByPlays={playByPlays}
-        periodOptions={periodOptions}
-        periodRange={periodRange}
-        onPeriodChange={setPeriodRange}
         periodOption={selectedOption}
         columns={columns}
         classificationById={classificationById}
@@ -342,9 +336,6 @@ function BoxscoreTeamPanel({
   side,
   summaries,
   playByPlays,
-  periodOptions,
-  periodRange,
-  onPeriodChange,
   periodOption,
   columns,
   classificationById,
@@ -356,9 +347,6 @@ function BoxscoreTeamPanel({
   side: "home" | "away";
   summaries: SummaryRow[];
   playByPlays: PlayByPlayEvent[];
-  periodOptions: PeriodRangeOption[];
-  periodRange: PeriodRangeValue;
-  onPeriodChange: (value: PeriodRangeValue) => void;
   periodOption: PeriodRangeOption | undefined;
   columns: BoxscoreColumn[];
   classificationById: Map<string, PlayerSummary["classification"]>;
@@ -430,7 +418,6 @@ function BoxscoreTeamPanel({
 
       <div className="boxscore-summary-section">
         <h4>内訳集計</h4>
-        <PeriodRangeToggle options={periodOptions} value={periodRange} onChange={onPeriodChange} />
         <div className="table-scroll">
           <table className="boxscore-table">
             <thead>
