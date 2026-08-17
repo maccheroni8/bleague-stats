@@ -4,8 +4,8 @@ import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGame, fetchPlayers, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
-import { formatPct, formatSigned } from "../lib/format";
-import type { BoxscoreRow, PlayerSummary } from "../../shared/types";
+import { formatPct } from "../lib/format";
+import type { BoxscoreRow } from "../../shared/types";
 import { KeyStatsSection } from "../components/KeyStatsSection";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
@@ -13,10 +13,12 @@ import { ShotChartPanel } from "../components/ShotChart";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
+import { BoxscoreTable } from "../components/BoxscoreTable";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
 import { buildShotEvents } from "../lib/shotChart";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
+import { playTimeToSeconds } from "../lib/boxscoreAggregate";
 
 function periodLabel(index: number, total: number): string {
   if (index < 4) return `${index + 1}Q`;
@@ -30,15 +32,6 @@ function playerRows(rows: BoxscoreRow[]): BoxscoreRow[] {
 
 function teamTotalRow(rows: BoxscoreRow[]): BoxscoreRow | undefined {
   return rows.find((r) => r.Category === 3 && r.PeriodCategory === 18);
-}
-
-/**
- * 個人に紐付かないチーム発生イベント行（コーチ/ベンチのテクニカルファウル等）の試合合計行。
- * bleague.jp公式サイトのgenius_game_new2208.jsでも同じCategory=2行を「TEAM / COACHES」として
- * 表示している（docs:/DESIGN.md 2-2章参照）
- */
-function teamCoachesRow(rows: BoxscoreRow[]): BoxscoreRow | undefined {
-  return rows.find((r) => r.Category === 2 && r.PeriodCategory === 18);
 }
 
 /** Q別得点（非累積）から、そのQ終了時点までの累積スコアを求める */
@@ -163,79 +156,6 @@ function gameLeaderPlayer(rows: BoxscoreRow[], def: GameLeaderStatDef): GameLead
   return { player: pickTieBreakWinner(narrowed), otherCount: byStat.length - 1 };
 }
 
-/** "7-12 (58.3%)"。試投0本の場合は成功率を出さず本数だけ表示する */
-function formatShotLine(makes: number, attempts: number): string {
-  if (attempts === 0) return `${makes}-${attempts}`;
-  return `${makes}-${attempts} (${((makes / attempts) * 100).toFixed(1)}%)`;
-}
-
-function playTimeToSeconds(playTime: string): number {
-  if (playTime === "DNP") return 0;
-  const [m, s] = playTime.split(":").map(Number);
-  return (m ?? 0) * 60 + (s ?? 0);
-}
-
-/** 合計秒数を"MM:SS"に戻す（5人×試合時間なので99分を超えうる） */
-function formatMinutesFromSeconds(totalSec: number): string {
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-interface StatTotals {
-  minSec: number;
-  pts: number;
-  reb: number;
-  ast: number;
-  stl: number;
-  blk: number;
-  tov: number;
-  pt2m: number;
-  pt2a: number;
-  pt3m: number;
-  pt3a: number;
-  ftm: number;
-  fta: number;
-  plusMinus: number;
-}
-
-function sumBoxscoreRows(rows: BoxscoreRow[]): StatTotals {
-  return rows.reduce(
-    (acc, r) => ({
-      minSec: acc.minSec + playTimeToSeconds(r.PlayTime),
-      pts: acc.pts + r.Point,
-      reb: acc.reb + r.RB_TOT,
-      ast: acc.ast + r.AS,
-      stl: acc.stl + r.ST,
-      blk: acc.blk + r.BS,
-      tov: acc.tov + r.TO,
-      pt2m: acc.pt2m + r.PT2M,
-      pt2a: acc.pt2a + r.PT2A,
-      pt3m: acc.pt3m + r.PT3M,
-      pt3a: acc.pt3a + r.PT3A,
-      ftm: acc.ftm + r.FTM,
-      fta: acc.fta + r.FTA,
-      plusMinus: acc.plusMinus + (r.PLUSMINUS ?? 0),
-    }),
-    {
-      minSec: 0,
-      pts: 0,
-      reb: 0,
-      ast: 0,
-      stl: 0,
-      blk: 0,
-      tov: 0,
-      pt2m: 0,
-      pt2a: 0,
-      pt3m: 0,
-      pt3a: 0,
-      ftm: 0,
-      fta: 0,
-      plusMinus: 0,
-    },
-  );
-}
-
 export function GameDetailPage({ season }: { season: string }) {
   const { scheduleKey } = useParams<{ scheduleKey: string }>();
   const { data: game, loading, error } = useJsonData(
@@ -268,8 +188,6 @@ export function GameDetailPage({ season }: { season: string }) {
   const homeTotal = teamTotalRow(game.raw.HomeBoxscores);
   const awayTotal = teamTotalRow(game.raw.AwayBoxscores);
   const gameSummary = game.raw.Summaries.find((s) => s.PeriodCategory === 18);
-  const homeCoachesRow = teamCoachesRow(game.raw.HomeBoxscores);
-  const awayCoachesRow = teamCoachesRow(game.raw.AwayBoxscores);
 
   const allShots = shotChartSupported ? buildShotEvents(game.raw.PlayByPlays) : [];
   const homeShots = allShots.filter((s) => s.teamId === game.homeTeam.id);
@@ -513,19 +431,16 @@ export function GameDetailPage({ season }: { season: string }) {
       )}
 
       <h2>ボックススコア</h2>
-      <BoxscoreSection
-        teamName={game.homeTeam.name}
-        rows={homePlayers}
-        coachesRow={homeCoachesRow}
+      <BoxscoreTable
+        homeTeamName={game.homeTeam.name}
+        awayTeamName={game.awayTeam.name}
+        homeRows={game.raw.HomeBoxscores}
+        awayRows={game.raw.AwayBoxscores}
+        summaries={game.raw.Summaries}
+        periods={periods}
         classificationById={classificationById}
-        accentColor={homeColor}
-      />
-      <BoxscoreSection
-        teamName={game.awayTeam.name}
-        rows={awayPlayers}
-        coachesRow={awayCoachesRow}
-        classificationById={classificationById}
-        accentColor={awayColor}
+        homeColor={homeColor}
+        awayColor={awayColor}
       />
     </div>
   );
@@ -632,172 +547,4 @@ function LeaderMatchupPlayer({ leader }: { leader: GameLeaderResult | undefined 
   );
 }
 
-function BoxscoreSection({
-  teamName,
-  rows,
-  coachesRow,
-  classificationById,
-  accentColor,
-}: {
-  teamName: string;
-  rows: BoxscoreRow[];
-  coachesRow?: BoxscoreRow;
-  classificationById: Map<string, PlayerSummary["classification"]>;
-  accentColor?: string;
-}) {
-  const starters = rows.filter((r) => r.StartingFlg === 1);
-  const bench = rows.filter((r) => r.StartingFlg !== 1);
-  const japanese = rows.filter((r) => classificationById.get(r.PlayerID) === "日本人");
-  const international = rows.filter((r) => {
-    const c = classificationById.get(r.PlayerID);
-    return c === "外国籍" || c === "帰化選手" || c === "アジア特別枠";
-  });
-  // classificationはplayers-master.jsonの「現在の登録情報」をシーズン非依存で突合したもの
-  // （帰化選手/アジア特別枠の手動判定リストも一時点のスナップショット）。出場した選手のうち
-  // 区分不明な人数を、日本人/外国籍等どちらの合計にも反映されない欠落として注記する
-  const unclassifiedPlayedCount = rows.filter(
-    (r) => r.PlayTime !== "DNP" && classificationById.get(r.PlayerID) === undefined,
-  ).length;
-  const classificationNote =
-    "※現在の登録情報に基づく参考値" +
-    (unclassifiedPlayedCount > 0 ? `／${unclassifiedPlayedCount}名分のデータ欠落あり` : "");
-
-  return (
-    <div className="boxscore-section" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
-      <h3>{teamName}</h3>
-      <div className="table-scroll">
-        <table className="boxscore-table">
-          <thead>
-            <tr>
-              <th className="align-left">選手</th>
-              <th>MIN</th>
-              <th>PTS</th>
-              <th>REB</th>
-              <th>AST</th>
-              <th>STL</th>
-              <th>BLK</th>
-              <th>TOV</th>
-              <th>FG</th>
-              <th>2P</th>
-              <th>3P</th>
-              <th>FT</th>
-              <th>+/-</th>
-            </tr>
-          </thead>
-          <tbody>
-            <BoxscoreGroup title="スタメン" rows={starters} />
-            <BoxscoreGroup title="ベンチ" rows={bench} />
-            {coachesRow && <TeamCoachesRow row={coachesRow} />}
-            <SummaryRow label="スタメン合計" rows={starters} />
-            <SummaryRow label="ベンチ合計" rows={bench} />
-            <SummaryRow label="日本人選手合計" rows={japanese} note={classificationNote} />
-            <SummaryRow label="外国籍+帰化+アジア特別枠合計" rows={international} note={classificationNote} />
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function BoxscoreGroup({ title, rows }: { title: string; rows: BoxscoreRow[] }) {
-  if (rows.length === 0) return null;
-  return (
-    <>
-      <tr className="boxscore-group-row">
-        <td colSpan={13}>{title}</td>
-      </tr>
-      {rows.map((r) => {
-        const dnp = r.PlayTime === "DNP";
-        return (
-          <tr key={r.PlayerID} className={dnp ? "dnp-row" : undefined}>
-            <td className="align-left">
-              {r.PlayerID ? (
-                <Link to={`/players/${r.PlayerID}`} className="cell-link">
-                  {r.PlayerNameJ}
-                </Link>
-              ) : (
-                r.PlayerNameJ
-              )}
-            </td>
-            {dnp ? (
-              <td colSpan={12}>DNP</td>
-            ) : (
-              <>
-                <td>{r.PlayTime}</td>
-                <td>{r.Point}</td>
-                <td>{r.RB_TOT}</td>
-                <td>{r.AS}</td>
-                <td>{r.ST}</td>
-                <td>{r.BS}</td>
-                <td>{r.TO}</td>
-                <td>{formatShotLine(r.PT2M + r.PT3M, r.PT2A + r.PT3A)}</td>
-                <td>{formatShotLine(r.PT2M, r.PT2A)}</td>
-                <td>{formatShotLine(r.PT3M, r.PT3A)}</td>
-                <td>{formatShotLine(r.FTM, r.FTA)}</td>
-                <td>{r.PLUSMINUS ?? "-"}</td>
-              </>
-            )}
-          </tr>
-        );
-      })}
-    </>
-  );
-}
-
-/**
- * 個人に紐付かないチーム発生イベント（コーチ/ベンチのテクニカルファウル等）の行。
- * bleague.jp公式サイトでの表示名「TEAM / COACHES」をそのまま使う（docs:/DESIGN.md 2-2章参照）
- */
-function TeamCoachesRow({ row }: { row: BoxscoreRow }) {
-  return (
-    <tr className="team-coaches-row">
-      <td className="align-left">TEAM / COACHES</td>
-      <td>-</td>
-      <td>{row.Point}</td>
-      <td>{row.RB_TOT}</td>
-      <td>{row.AS}</td>
-      <td>{row.ST}</td>
-      <td>{row.BS}</td>
-      <td>{row.TO}</td>
-      <td>{formatShotLine(row.PT2M + row.PT3M, row.PT2A + row.PT3A)}</td>
-      <td>{formatShotLine(row.PT2M, row.PT2A)}</td>
-      <td>{formatShotLine(row.PT3M, row.PT3A)}</td>
-      <td>{formatShotLine(row.FTM, row.FTA)}</td>
-      <td>-</td>
-    </tr>
-  );
-}
-
-/**
- * スタメン/ベンチ/国籍区分ごとの合計行。対象選手が0人の区分（classification未登録の
- * 選手しかいない旧シーズン等）は表示しない
- */
-function SummaryRow({ label, rows, note }: { label: string; rows: BoxscoreRow[]; note?: string }) {
-  if (rows.length === 0) return null;
-  const t = sumBoxscoreRows(rows);
-  return (
-    <tr className="boxscore-summary-row">
-      <td className="align-left">
-        {label}
-        {note && (
-          <span className="row-note" title={note}>
-            ※
-          </span>
-        )}
-      </td>
-      <td>{formatMinutesFromSeconds(t.minSec)}</td>
-      <td>{t.pts}</td>
-      <td>{t.reb}</td>
-      <td>{t.ast}</td>
-      <td>{t.stl}</td>
-      <td>{t.blk}</td>
-      <td>{t.tov}</td>
-      <td>{formatShotLine(t.pt2m + t.pt3m, t.pt2a + t.pt3a)}</td>
-      <td>{formatShotLine(t.pt2m, t.pt2a)}</td>
-      <td>{formatShotLine(t.pt3m, t.pt3a)}</td>
-      <td>{formatShotLine(t.ftm, t.fta)}</td>
-      <td>{formatSigned(t.plusMinus, 0)}</td>
-    </tr>
-  );
-}
 

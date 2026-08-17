@@ -1230,6 +1230,33 @@ table.boxscore-table .row-note {
   cursor: help;
 }
 
+.boxscore-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.boxscore-controls .boxscore-category-tabs {
+  margin-bottom: 0;
+}
+
+.boxscore-controls .period-range-toggle {
+  margin-bottom: 0;
+}
+
+.boxscore-summary-section {
+  margin: 4px 0 24px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.boxscore-summary-section table.boxscore-table .boxscore-summary-row:first-child td {
+  border-top: none;
+}
+
 .recent-games-table a {
   color: inherit;
   text-decoration: none;
