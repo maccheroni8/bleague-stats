@@ -278,10 +278,13 @@ export function computeTeamRatings(own: BoxscoreCounts, opp: BoxscoreCounts): Te
   };
 }
 
-/** AST/TOV。TOV=0の場合はAST数をそのまま比率として表示する（一般的な慣例） */
+/** AST/TOV。TOV=0の場合はAST数をそのまま比率として使う（一般的な慣例） */
+export function astToTovRatio(ast: number, tov: number): number {
+  return tov === 0 ? ast : ast / tov;
+}
+
 export function formatAstToRatio(ast: number, tov: number): string {
-  if (tov === 0) return ast.toFixed(1);
-  return (ast / tov).toFixed(1);
+  return astToTovRatio(ast, tov).toFixed(1);
 }
 
 /** "7-12 (58.3%)"。試投0本の場合は成功率を出さず本数だけ表示する */

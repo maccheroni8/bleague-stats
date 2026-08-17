@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { SeasonLink as Link } from "./SeasonLink";
 import { PeriodRangeToggle } from "./PeriodRangeToggle";
-import { buildPeriodRangeOptions, periodInRange, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
+import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
 import { efgPct, tsPct, usagePct } from "../../shared/formulas";
 import type { BoxscoreRow, PlayerSummary, SummaryRow } from "../../shared/types";
 import {
+  astToTovRatio,
   buildPlayTypeCounts,
   buildPlayerBoxscores,
   buildTeamCoachesCounts,
@@ -45,57 +46,83 @@ interface BoxscoreColumn {
   key: string;
   label: string;
   format: (c: BoxscoreCounts, ctx: ColumnCtx) => string;
+  /**
+   * トップ値ハイライト用の生数値。undefinedを返す（またはフィールド自体を省略する）列は
+   * ハイライト対象外にする（FG/2P/3P/FT等の複合表示列、チーム単位でしか値を持たない列など）
+   */
+  value?: (c: BoxscoreCounts, ctx: ColumnCtx) => number | undefined;
+  /** falseならTOV/BSR/Fのように値が小さいほど良い列。比較ページの仕組みと同じ規約（未指定はtrue扱い） */
+  higherIsBetter?: boolean;
 }
 
 const plusMinusCol: BoxscoreColumn = {
   key: "plusminus",
   label: "+/-",
   format: (c) => (c.hasPlusMinus ? formatSigned(c.plusMinus, 0) : "-"),
+  value: (c) => (c.hasPlusMinus ? c.plusMinus : undefined),
 };
 
 const TRADITIONAL_COLUMNS: BoxscoreColumn[] = [
-  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec) },
-  { key: "pts", label: "PTS", format: (c) => String(c.pts) },
+  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
+  { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
   { key: "fg", label: "FG", format: (c) => formatShotLine(c.pt2m + c.pt3m, c.pt2a + c.pt3a) },
   { key: "2p", label: "2P", format: (c) => formatShotLine(c.pt2m, c.pt2a) },
   { key: "3p", label: "3P", format: (c) => formatShotLine(c.pt3m, c.pt3a) },
   { key: "ft", label: "FT", format: (c) => formatShotLine(c.ftm, c.fta) },
-  { key: "efg", label: "eFG%", format: (c) => formatPct(efgPct(c.pt2m + c.pt3m, c.pt3m, c.pt2a + c.pt3a)) },
-  { key: "ts", label: "TS%", format: (c) => formatPct(tsPct(c.pts, c.pt2a + c.pt3a, c.fta)) },
-  { key: "or", label: "OR", format: (c) => String(c.oreb) },
-  { key: "dr", label: "DR", format: (c) => String(c.dreb) },
-  { key: "tr", label: "TR", format: (c) => String(c.treb) },
-  { key: "ast", label: "AST", format: (c) => String(c.ast) },
-  { key: "tov", label: "TOV", format: (c) => String(c.tov) },
-  { key: "asttov", label: "AST/TOV", format: (c) => formatAstToRatio(c.ast, c.tov) },
-  { key: "stl", label: "STL", format: (c) => String(c.stl) },
-  { key: "blk", label: "BLK", format: (c) => String(c.blk) },
-  { key: "bsr", label: "BSR", format: (c) => String(c.bson) },
-  { key: "f", label: "F", format: (c) => String(c.foul) },
-  { key: "fd", label: "FD", format: (c) => String(c.foulon) },
-  { key: "eff", label: "EFF", format: (c) => String(c.eff) },
+  {
+    key: "efg",
+    label: "eFG%",
+    format: (c) => formatPct(efgPct(c.pt2m + c.pt3m, c.pt3m, c.pt2a + c.pt3a)),
+    value: (c) => efgPct(c.pt2m + c.pt3m, c.pt3m, c.pt2a + c.pt3a),
+  },
+  {
+    key: "ts",
+    label: "TS%",
+    format: (c) => formatPct(tsPct(c.pts, c.pt2a + c.pt3a, c.fta)),
+    value: (c) => tsPct(c.pts, c.pt2a + c.pt3a, c.fta),
+  },
+  { key: "or", label: "OR", format: (c) => String(c.oreb), value: (c) => c.oreb },
+  { key: "dr", label: "DR", format: (c) => String(c.dreb), value: (c) => c.dreb },
+  { key: "tr", label: "TR", format: (c) => String(c.treb), value: (c) => c.treb },
+  { key: "ast", label: "AST", format: (c) => String(c.ast), value: (c) => c.ast },
+  { key: "tov", label: "TOV", format: (c) => String(c.tov), value: (c) => c.tov, higherIsBetter: false },
+  {
+    key: "asttov",
+    label: "AST/TOV",
+    format: (c) => formatAstToRatio(c.ast, c.tov),
+    value: (c) => astToTovRatio(c.ast, c.tov),
+  },
+  { key: "stl", label: "STL", format: (c) => String(c.stl), value: (c) => c.stl },
+  { key: "blk", label: "BLK", format: (c) => String(c.blk), value: (c) => c.blk },
+  { key: "bsr", label: "BSR", format: (c) => String(c.bson), value: (c) => c.bson, higherIsBetter: false },
+  { key: "f", label: "F", format: (c) => String(c.foul), value: (c) => c.foul, higherIsBetter: false },
+  { key: "fd", label: "FD", format: (c) => String(c.foulon), value: (c) => c.foulon },
+  { key: "eff", label: "EFF", format: (c) => String(c.eff), value: (c) => c.eff },
   plusMinusCol,
 ];
 
 const ADVANCED_COLUMNS: BoxscoreColumn[] = [
-  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec) },
-  { key: "pts", label: "PTS", format: (c) => String(c.pts) },
-  { key: "eff", label: "EFF", format: (c) => String(c.eff) },
+  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
+  { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
+  { key: "eff", label: "EFF", format: (c) => String(c.eff), value: (c) => c.eff },
   {
     key: "usg",
     label: "USG%",
-    format: (c, ctx) =>
-      ctx.isPlayerRow
-        ? formatPct100(
-            usagePct(
-              { fga: c.pt2a + c.pt3a, fta: c.fta, tov: c.tov, min: c.minSec / 60 },
-              { fga: ctx.own.pt2a + ctx.own.pt3a, fta: ctx.own.fta, tov: ctx.own.tov, min: ctx.own.minSec / 60 },
-            ),
-          )
-        : "-",
+    format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(usagePctOf(c, ctx)) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow ? usagePctOf(c, ctx) : undefined),
   },
-  { key: "efg", label: "eFG%", format: (c) => formatPct(efgPct(c.pt2m + c.pt3m, c.pt3m, c.pt2a + c.pt3a)) },
-  { key: "ts", label: "TS%", format: (c) => formatPct(tsPct(c.pts, c.pt2a + c.pt3a, c.fta)) },
+  {
+    key: "efg",
+    label: "eFG%",
+    format: (c) => formatPct(efgPct(c.pt2m + c.pt3m, c.pt3m, c.pt2a + c.pt3a)),
+    value: (c) => efgPct(c.pt2m + c.pt3m, c.pt3m, c.pt2a + c.pt3a),
+  },
+  {
+    key: "ts",
+    label: "TS%",
+    format: (c) => formatPct(tsPct(c.pts, c.pt2a + c.pt3a, c.fta)),
+    value: (c) => tsPct(c.pts, c.pt2a + c.pt3a, c.fta),
+  },
   { key: "poss", label: "POSS", format: (_c, ctx) => (ctx.ratings ? formatDecimal(ctx.ratings.poss, 1) : "-") },
   { key: "pace", label: "PACE", format: (_c, ctx) => (ctx.ratings ? formatDecimal(ctx.ratings.pace, 1) : "-") },
   { key: "ortg", label: "ORtg", format: (_c, ctx) => (ctx.ratings ? formatDecimal(ctx.ratings.offRtg, 1) : "-") },
@@ -104,12 +131,19 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
   plusMinusCol,
 ];
 
+function usagePctOf(c: BoxscoreCounts, ctx: ColumnCtx): number {
+  return usagePct(
+    { fga: c.pt2a + c.pt3a, fta: c.fta, tov: c.tov, min: c.minSec / 60 },
+    { fga: ctx.own.pt2a + ctx.own.pt3a, fta: ctx.own.fta, tov: ctx.own.tov, min: ctx.own.minSec / 60 },
+  );
+}
+
 const MISC_COLUMNS: BoxscoreColumn[] = [
-  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec) },
-  { key: "pts", label: "PTS", format: (c) => String(c.pts) },
-  { key: "pitp", label: "PITP", format: (c) => String(c.pt2in) },
-  { key: "fbps", label: "FBPS", format: (c) => String(c.ptfb) },
-  { key: "2ndpts", label: "2ND PTS", format: (c) => String(c.pt2nd) },
+  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
+  { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
+  { key: "pitp", label: "PITP", format: (c) => String(c.pt2in), value: (c) => c.pt2in },
+  { key: "fbps", label: "FBPS", format: (c) => String(c.ptfb), value: (c) => c.ptfb },
+  { key: "2ndpts", label: "2ND PTS", format: (c) => String(c.pt2nd), value: (c) => c.pt2nd },
   {
     key: "ptsofftov",
     label: "PTSOFFTO",
@@ -118,42 +152,49 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
 ];
 
 const SCORING_COLUMNS: BoxscoreColumn[] = [
-  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec) },
-  { key: "pts", label: "PTS", format: (c) => String(c.pts) },
+  { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
+  { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
   {
     key: "pctpts",
     label: "%PTS",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pts, ctx.own.pts)) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pts, ctx.own.pts) : undefined),
   },
   {
     key: "pctfgm",
     label: "%FGM",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt2m + c.pt3m, ctx.own.pt2m + ctx.own.pt3m)) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt2m + c.pt3m, ctx.own.pt2m + ctx.own.pt3m) : undefined),
   },
   {
     key: "pctfga",
     label: "%FGA",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt2a + c.pt3a, ctx.own.pt2a + ctx.own.pt3a)) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt2a + c.pt3a, ctx.own.pt2a + ctx.own.pt3a) : undefined),
   },
   {
     key: "pct3pm",
     label: "%3PM",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt3m, ctx.own.pt3m)) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt3m, ctx.own.pt3m) : undefined),
   },
   {
     key: "pct3pa",
     label: "%3PA",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt3a, ctx.own.pt3a)) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt3a, ctx.own.pt3a) : undefined),
   },
   {
     key: "pctftm",
     label: "%FTM",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.ftm, ctx.own.ftm)) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.ftm, ctx.own.ftm) : undefined),
   },
   {
     key: "pctfta",
     label: "%FTA",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.fta, ctx.own.fta)) : "-"),
+    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.fta, ctx.own.fta) : undefined),
   },
 ];
 
@@ -212,6 +253,9 @@ export function BoxscoreTable({
         oppRows={awayRows}
         side="home"
         summaries={summaries}
+        periodOptions={periodOptions}
+        periodRange={periodRange}
+        onPeriodChange={setPeriodRange}
         periodOption={selectedOption}
         columns={columns}
         classificationById={classificationById}
@@ -223,6 +267,9 @@ export function BoxscoreTable({
         oppRows={homeRows}
         side="away"
         summaries={summaries}
+        periodOptions={periodOptions}
+        periodRange={periodRange}
+        onPeriodChange={setPeriodRange}
         periodOption={selectedOption}
         columns={columns}
         classificationById={classificationById}
@@ -232,12 +279,39 @@ export function BoxscoreTable({
   );
 }
 
+/** トップ値ハイライト対象の各列について、DNPを除く選手の中でのベスト値を求める（比較ページのcompare-bestと同じ規約） */
+function computeBestByColumn(
+  players: PlayerBoxscore[],
+  columns: BoxscoreColumn[],
+  ctx: ColumnCtx,
+): Map<string, number> {
+  const candidates = players.filter((p) => !p.dnp);
+  const best = new Map<string, number>();
+  for (const col of columns) {
+    if (!col.value) continue;
+    const values = candidates
+      .map((p) => col.value!(p.counts, ctx))
+      .filter((v): v is number => v !== undefined);
+    if (values.length < 2) continue;
+    best.set(col.key, col.higherIsBetter === false ? Math.min(...values) : Math.max(...values));
+  }
+  return best;
+}
+
+/** この集計セクションでは+/-が意味を持たないため、常に「-」表示になるよう強制する */
+function withoutPlusMinus(counts: BoxscoreCounts): BoxscoreCounts {
+  return { ...counts, hasPlusMinus: false };
+}
+
 function BoxscoreTeamPanel({
   teamName,
   ownRows,
   oppRows,
   side,
   summaries,
+  periodOptions,
+  periodRange,
+  onPeriodChange,
   periodOption,
   columns,
   classificationById,
@@ -248,6 +322,9 @@ function BoxscoreTeamPanel({
   oppRows: BoxscoreRow[];
   side: "home" | "away";
   summaries: SummaryRow[];
+  periodOptions: PeriodRangeOption[];
+  periodRange: PeriodRangeValue;
+  onPeriodChange: (value: PeriodRangeValue) => void;
   periodOption: PeriodRangeOption | undefined;
   columns: BoxscoreColumn[];
   classificationById: Map<string, PlayerSummary["classification"]>;
@@ -274,6 +351,12 @@ function BoxscoreTeamPanel({
   const playerCtx: ColumnCtx = { own: teamTotal, ownPlayType: playType, isPlayerRow: true, isTeamTotalRow: false };
   const nonPlayerCtx: ColumnCtx = { own: teamTotal, ownPlayType: playType, isPlayerRow: false, isTeamTotalRow: false };
   const teamTotalCtx: ColumnCtx = { own: teamTotal, ownPlayType: playType, ratings, isPlayerRow: false, isTeamTotalRow: true };
+  // 内訳集計セクションの「チーム合計」行は+/-を除きteamTotalCtxと同じ扱い（POSS/PACE等は引き続き表示する）
+  const summaryTotalCtx: ColumnCtx = teamTotalCtx;
+
+  // ハイライトはスタメン・ベンチを跨いだチーム全体で見た「トップ値」（Bリーグ公式ボックススコアの
+  // チームリーダー表示と同じ考え方）。DNPは0値で不当に最良値を取ってしまうため候補から除外する
+  const bestByColumn = computeBestByColumn(players, columns, playerCtx);
 
   return (
     <>
@@ -290,8 +373,8 @@ function BoxscoreTeamPanel({
               </tr>
             </thead>
             <tbody>
-              <BoxscoreGroup title="スタメン" players={starters} columns={columns} ctx={playerCtx} />
-              <BoxscoreGroup title="ベンチ" players={bench} columns={columns} ctx={playerCtx} />
+              <BoxscoreGroup title="スタメン" players={starters} columns={columns} ctx={playerCtx} bestByColumn={bestByColumn} />
+              <BoxscoreGroup title="ベンチ" players={bench} columns={columns} ctx={playerCtx} bestByColumn={bestByColumn} />
               <BoxscoreDataRow
                 label="TEAM / COACHES"
                 counts={coaches}
@@ -312,55 +395,66 @@ function BoxscoreTeamPanel({
       </div>
 
       <div className="boxscore-summary-section">
+        <h4>内訳集計</h4>
+        <PeriodRangeToggle options={periodOptions} value={periodRange} onChange={onPeriodChange} />
         <div className="table-scroll">
           <table className="boxscore-table">
             <thead>
               <tr>
-                <th className="align-left">内訳集計</th>
+                <th className="align-left"> </th>
                 {columns.map((col) => (
                   <th key={col.key}>{col.label}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {starters.length > 0 && (
-                <BoxscoreDataRow
-                  label="スタメン合計"
-                  counts={sumCountsList(starters.map((p) => p.counts))}
-                  columns={columns}
-                  ctx={nonPlayerCtx}
-                  className="boxscore-summary-row"
-                />
-              )}
-              {bench.length > 0 && (
-                <BoxscoreDataRow
-                  label="ベンチ合計"
-                  counts={sumCountsList(bench.map((p) => p.counts))}
-                  columns={columns}
-                  ctx={nonPlayerCtx}
-                  className="boxscore-summary-row"
-                />
-              )}
-              {japanese.length > 0 && (
-                <BoxscoreDataRow
-                  label="日本人選手合計"
-                  counts={sumCountsList(japanese.map((p) => p.counts))}
-                  columns={columns}
-                  ctx={nonPlayerCtx}
-                  className="boxscore-summary-row"
-                  note={classificationNote}
-                />
-              )}
-              {international.length > 0 && (
-                <BoxscoreDataRow
-                  label="外国籍+帰化+アジア特別枠合計"
-                  counts={sumCountsList(international.map((p) => p.counts))}
-                  columns={columns}
-                  ctx={nonPlayerCtx}
-                  className="boxscore-summary-row"
-                  note={classificationNote}
-                />
-              )}
+              <BoxscoreDataRow
+                label="スタメン合計"
+                counts={withoutPlusMinus(sumCountsList(starters.map((p) => p.counts)))}
+                columns={columns}
+                ctx={nonPlayerCtx}
+                className="boxscore-summary-row"
+              />
+              <BoxscoreDataRow
+                label="ベンチ合計"
+                counts={withoutPlusMinus(sumCountsList(bench.map((p) => p.counts)))}
+                columns={columns}
+                ctx={nonPlayerCtx}
+                className="boxscore-summary-row"
+              />
+              <BoxscoreDataRow
+                label="チーム合計"
+                counts={withoutPlusMinus(teamTotal)}
+                columns={columns}
+                ctx={summaryTotalCtx}
+                className="boxscore-summary-row boxscore-summary-grand-total"
+              />
+              <tr className="boxscore-summary-spacer" aria-hidden="true">
+                <td colSpan={columns.length + 1} />
+              </tr>
+              <BoxscoreDataRow
+                label="日本人選手合計"
+                counts={withoutPlusMinus(sumCountsList(japanese.map((p) => p.counts)))}
+                columns={columns}
+                ctx={nonPlayerCtx}
+                className="boxscore-summary-row"
+                note={classificationNote}
+              />
+              <BoxscoreDataRow
+                label="外国籍+帰化+アジア特別枠合計"
+                counts={withoutPlusMinus(sumCountsList(international.map((p) => p.counts)))}
+                columns={columns}
+                ctx={nonPlayerCtx}
+                className="boxscore-summary-row"
+                note={classificationNote}
+              />
+              <BoxscoreDataRow
+                label="チーム合計"
+                counts={withoutPlusMinus(teamTotal)}
+                columns={columns}
+                ctx={summaryTotalCtx}
+                className="boxscore-summary-row boxscore-summary-grand-total"
+              />
             </tbody>
           </table>
         </div>
@@ -374,19 +468,23 @@ function BoxscoreGroup({
   players,
   columns,
   ctx,
+  bestByColumn,
 }: {
   title: string;
   players: PlayerBoxscore[];
   columns: BoxscoreColumn[];
   ctx: ColumnCtx;
+  bestByColumn: Map<string, number>;
 }) {
   if (players.length === 0) return null;
+  // DNPは各グループの下部にまとめる（出場した選手を先に見せる）。それ以外は元の並び順を保持する
+  const ordered = [...players].sort((a, b) => Number(a.dnp) - Number(b.dnp));
   return (
     <>
       <tr className="boxscore-group-row">
         <td colSpan={columns.length + 1}>{title}</td>
       </tr>
-      {players.map((p) => (
+      {ordered.map((p) => (
         <tr key={p.playerId} className={p.dnp ? "dnp-row" : undefined}>
           <td className="align-left">
             {p.playerId ? (
@@ -400,7 +498,15 @@ function BoxscoreGroup({
           {p.dnp ? (
             <td colSpan={columns.length}>DNP</td>
           ) : (
-            columns.map((col) => <td key={col.key}>{col.format(p.counts, ctx)}</td>)
+            columns.map((col) => {
+              const val = col.value?.(p.counts, ctx);
+              const isBest = val !== undefined && bestByColumn.get(col.key) === val;
+              return (
+                <td key={col.key} className={isBest ? "boxscore-best" : undefined}>
+                  {col.format(p.counts, ctx)}
+                </td>
+              );
+            })
           )}
         </tr>
       ))}

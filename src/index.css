@@ -1176,12 +1176,12 @@ table.boxscore-table {
   border-collapse: collapse;
   width: 100%;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 11px;
 }
 
 table.boxscore-table th,
 table.boxscore-table td {
-  padding: 5px 8px;
+  padding: 4px 2px;
   text-align: center;
   border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
@@ -1230,6 +1230,21 @@ table.boxscore-table .row-note {
   cursor: help;
 }
 
+table.boxscore-table td.boxscore-best {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+table.boxscore-table .boxscore-summary-spacer td {
+  padding: 6px 0 0;
+  border-bottom: none;
+}
+
+table.boxscore-table .boxscore-summary-grand-total td {
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 8%, var(--row-hover));
+}
+
 .boxscore-controls {
   display: flex;
   flex-wrap: wrap;
@@ -1253,7 +1268,17 @@ table.boxscore-table .row-note {
   border-top: 1px dashed var(--border);
 }
 
-.boxscore-summary-section table.boxscore-table .boxscore-summary-row:first-child td {
+.boxscore-summary-section h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.boxscore-summary-section .period-range-toggle {
+  margin-bottom: 10px;
+}
+
+.boxscore-summary-section table.boxscore-table tbody tr:first-child td {
   border-top: none;
 }
 
