@@ -49,19 +49,19 @@ const gameLogColumns: Column<PlayerGameLog>[] = [
     key: "fg",
     label: "FG",
     sortValue: (g) => g.fgm,
-    render: (g) => `${g.fgm}-${g.fga}`,
+    render: (g) => `${g.fgm}/${g.fga}`,
   },
   {
     key: "tp",
     label: "3P",
     sortValue: (g) => g.tpm,
-    render: (g) => `${g.tpm}-${g.tpa}`,
+    render: (g) => `${g.tpm}/${g.tpa}`,
   },
   {
     key: "ft",
     label: "FT",
     sortValue: (g) => g.ftm,
-    render: (g) => `${g.ftm}-${g.fta}`,
+    render: (g) => `${g.ftm}/${g.fta}`,
   },
   {
     key: "plusMinus",

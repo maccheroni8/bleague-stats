@@ -1181,7 +1181,7 @@ table.boxscore-table {
 
 table.boxscore-table th,
 table.boxscore-table td {
-  padding: 4px 2px;
+  padding: 4px 1px;
   text-align: center;
   border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
