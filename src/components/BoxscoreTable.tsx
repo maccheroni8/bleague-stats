@@ -3,8 +3,8 @@ import { SeasonLink as Link } from "./SeasonLink";
 import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
-import { efgPct, tsPct, usagePct } from "../../shared/formulas";
-import type { BoxscoreRow, PlayerSummary, SummaryRow } from "../../shared/types";
+import { efgPct, safeDiv, tsPct, usagePct } from "../../shared/formulas";
+import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow } from "../../shared/types";
 import {
   astToTovRatio,
   buildPlayTypeCounts,
@@ -14,7 +14,6 @@ import {
   computeTeamRatings,
   formatAstToRatio,
   formatMinutesFromSeconds,
-  formatShotLine,
   sharePct,
   sumCountsList,
   type BoxscoreCounts,
@@ -65,10 +64,38 @@ const plusMinusCol: BoxscoreColumn = {
 const TRADITIONAL_COLUMNS: BoxscoreColumn[] = [
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
   { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
-  { key: "fg", label: "FG", format: (c) => formatShotLine(c.pt2m + c.pt3m, c.pt2a + c.pt3a) },
-  { key: "2p", label: "2P", format: (c) => formatShotLine(c.pt2m, c.pt2a) },
-  { key: "3p", label: "3P", format: (c) => formatShotLine(c.pt3m, c.pt3a) },
-  { key: "ft", label: "FT", format: (c) => formatShotLine(c.ftm, c.fta) },
+  { key: "fgm", label: "FG M", format: (c) => String(c.pt2m + c.pt3m) },
+  { key: "fga", label: "FG A", format: (c) => String(c.pt2a + c.pt3a) },
+  {
+    key: "fgpct",
+    label: "FG%",
+    format: (c) => formatPct(safeDiv(c.pt2m + c.pt3m, c.pt2a + c.pt3a)),
+    value: (c) => safeDiv(c.pt2m + c.pt3m, c.pt2a + c.pt3a),
+  },
+  { key: "2pm", label: "2P M", format: (c) => String(c.pt2m) },
+  { key: "2pa", label: "2P A", format: (c) => String(c.pt2a) },
+  {
+    key: "2ppct",
+    label: "2P%",
+    format: (c) => formatPct(safeDiv(c.pt2m, c.pt2a)),
+    value: (c) => safeDiv(c.pt2m, c.pt2a),
+  },
+  { key: "3pm", label: "3P M", format: (c) => String(c.pt3m) },
+  { key: "3pa", label: "3P A", format: (c) => String(c.pt3a) },
+  {
+    key: "3ppct",
+    label: "3P%",
+    format: (c) => formatPct(safeDiv(c.pt3m, c.pt3a)),
+    value: (c) => safeDiv(c.pt3m, c.pt3a),
+  },
+  { key: "ftm", label: "FT M", format: (c) => String(c.ftm) },
+  { key: "fta", label: "FT A", format: (c) => String(c.fta) },
+  {
+    key: "ftpct",
+    label: "FT%",
+    format: (c) => formatPct(safeDiv(c.ftm, c.fta)),
+    value: (c) => safeDiv(c.ftm, c.fta),
+  },
   {
     key: "efg",
     label: "eFG%",
@@ -147,7 +174,8 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
   {
     key: "ptsofftov",
     label: "PTSOFFTO",
-    format: (_c, ctx) => (ctx.isTeamTotalRow ? String(ctx.ownPlayType.pft) : "-"),
+    format: (c, ctx) => (ctx.isTeamTotalRow ? String(ctx.ownPlayType.pft) : String(c.ptsOffTov)),
+    value: (c) => c.ptsOffTov,
   },
 ];
 
@@ -211,6 +239,7 @@ interface BoxscoreTableProps {
   homeRows: BoxscoreRow[];
   awayRows: BoxscoreRow[];
   summaries: SummaryRow[];
+  playByPlays: PlayByPlayEvent[];
   periods: number;
   classificationById: Map<string, PlayerSummary["classification"]>;
   homeColor?: string;
@@ -223,6 +252,7 @@ export function BoxscoreTable({
   homeRows,
   awayRows,
   summaries,
+  playByPlays,
   periods,
   classificationById,
   homeColor,
@@ -253,6 +283,7 @@ export function BoxscoreTable({
         oppRows={awayRows}
         side="home"
         summaries={summaries}
+        playByPlays={playByPlays}
         periodOptions={periodOptions}
         periodRange={periodRange}
         onPeriodChange={setPeriodRange}
@@ -267,6 +298,7 @@ export function BoxscoreTable({
         oppRows={homeRows}
         side="away"
         summaries={summaries}
+        playByPlays={playByPlays}
         periodOptions={periodOptions}
         periodRange={periodRange}
         onPeriodChange={setPeriodRange}
@@ -309,6 +341,7 @@ function BoxscoreTeamPanel({
   oppRows,
   side,
   summaries,
+  playByPlays,
   periodOptions,
   periodRange,
   onPeriodChange,
@@ -322,6 +355,7 @@ function BoxscoreTeamPanel({
   oppRows: BoxscoreRow[];
   side: "home" | "away";
   summaries: SummaryRow[];
+  playByPlays: PlayByPlayEvent[];
   periodOptions: PeriodRangeOption[];
   periodRange: PeriodRangeValue;
   onPeriodChange: (value: PeriodRangeValue) => void;
@@ -330,7 +364,7 @@ function BoxscoreTeamPanel({
   classificationById: Map<string, PlayerSummary["classification"]>;
   accentColor?: string;
 }) {
-  const players = buildPlayerBoxscores(ownRows, periodOption);
+  const players = buildPlayerBoxscores(ownRows, periodOption, playByPlays);
   const teamTotal = buildTeamTotalCounts(ownRows, periodOption);
   const oppTeamTotal = buildTeamTotalCounts(oppRows, periodOption);
   const coaches = buildTeamCoachesCounts(ownRows, periodOption);

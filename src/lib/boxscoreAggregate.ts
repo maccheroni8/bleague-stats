@@ -4,9 +4,11 @@
 // 該当するPeriodCategory=1..4(・OT分)の行を自前で合算する（15/16/17は「前半/後半/延長合計」
 // 専用の集計行で、PeriodRangeOptionのOTを含む「後半」等とは範囲が一致しないケースがあるため使わない）。
 
-import type { BoxscoreRow, SummaryRow } from "../../shared/types";
+import type { BoxscoreRow, PlayByPlayEvent, SummaryRow } from "../../shared/types";
 import type { PeriodRangeOption } from "./periodRange";
+import { periodInRange } from "./periodRange";
 import { estimatedPossessions, offensiveRating, pace, safeDiv } from "../../shared/formulas";
+import { computePointsOffTurnovers } from "../../shared/pointsOffTurnovers";
 
 export interface BoxscoreCounts {
   minSec: number;
@@ -34,6 +36,14 @@ export interface BoxscoreCounts {
   pt2in: number;
   pt2nd: number;
   ptfb: number;
+  /**
+   * ターンオーバーからの得点（PTSOFFTO）。他のフィールドと異なりBoxscoreRowには個人単位の
+   * フィールドが無いため、PlayByPlaysのPlayTextタグから別途算出する
+   * （shared/pointsOffTurnovers.ts）。そのためsumCounts()では常に0のままで、
+   * buildPlayerBoxscores()が事後的に上書きする。2016-17シーズンのみタグ自体が存在せず
+   * 常に0になる（「0点」ではなく「算出不能」。shared/pointsOffTurnovers.ts参照）
+   */
+  ptsOffTov: number;
 }
 
 const ZERO_COUNTS: BoxscoreCounts = {
@@ -61,6 +71,7 @@ const ZERO_COUNTS: BoxscoreCounts = {
   pt2in: 0,
   pt2nd: 0,
   ptfb: 0,
+  ptsOffTov: 0,
 };
 
 /**
@@ -116,6 +127,8 @@ export function sumCounts(rows: BoxscoreRow[]): BoxscoreCounts {
       pt2in: acc.pt2in + num(r.PT2IN),
       pt2nd: acc.pt2nd + num(r.PT2ND),
       ptfb: acc.ptfb + num(r.PTFB),
+      // BoxscoreRowにフィールドが無いため常に0のまま（buildPlayerBoxscores()が事後的に上書きする）
+      ptsOffTov: acc.ptsOffTov,
     }),
     ZERO_COUNTS,
   );
@@ -159,6 +172,7 @@ export function sumCountsList(list: BoxscoreCounts[]): BoxscoreCounts {
       pt2in: acc.pt2in + c.pt2in,
       pt2nd: acc.pt2nd + c.pt2nd,
       ptfb: acc.ptfb + c.ptfb,
+      ptsOffTov: acc.ptsOffTov + c.ptsOffTov,
     }),
     ZERO_COUNTS,
   );
@@ -179,7 +193,11 @@ export interface PlayerBoxscore {
  * 名前・背番号・スタメン区分・DNP判定は常に試合全体(PeriodCategory=18)の行を基準にする
  * （出場時間や成績は期間で変わるが、これらの属性は試合を通じて固定のため）
  */
-export function buildPlayerBoxscores(allRows: BoxscoreRow[], option: PeriodRangeOption | undefined): PlayerBoxscore[] {
+export function buildPlayerBoxscores(
+  allRows: BoxscoreRow[],
+  option: PeriodRangeOption | undefined,
+  playByPlays: PlayByPlayEvent[] = [],
+): PlayerBoxscore[] {
   const gameRows = allRows.filter((r) => r.Category === 1 && r.PeriodCategory === 18);
   const rowsByPlayer = new Map<string, BoxscoreRow[]>();
   for (const r of allRows) {
@@ -188,6 +206,10 @@ export function buildPlayerBoxscores(allRows: BoxscoreRow[], option: PeriodRange
     list.push(r);
     rowsByPlayer.set(r.PlayerID, list);
   }
+  // PlayByPlaysは選手行のようなPeriodCategory集計行を持たず、イベントごとにPeriodを直接持つため
+  // periodInRange()でそのまま絞り込める（rowsInPeriodRangeのPeriodCategoryベースの絞り込みとは別経路）
+  const periodFilteredPbp = playByPlays.filter((e) => periodInRange(option, e.Period));
+  const { byPlayer: ptsOffTovByPlayer } = computePointsOffTurnovers(periodFilteredPbp);
   return gameRows.map((meta) => {
     const periodRows = rowsInPeriodRange(rowsByPlayer.get(meta.PlayerID) ?? [], option);
     return {
@@ -196,7 +218,7 @@ export function buildPlayerBoxscores(allRows: BoxscoreRow[], option: PeriodRange
       nameJ: meta.PlayerNameJ,
       startingFlg: meta.StartingFlg,
       dnp: meta.PlayTime === "DNP",
-      counts: sumCounts(periodRows),
+      counts: { ...sumCounts(periodRows), ptsOffTov: ptsOffTovByPlayer.get(meta.PlayerID) ?? 0 },
     };
   });
 }
@@ -285,12 +307,6 @@ export function astToTovRatio(ast: number, tov: number): number {
 
 export function formatAstToRatio(ast: number, tov: number): string {
   return astToTovRatio(ast, tov).toFixed(1);
-}
-
-/** "7-12 (58.3%)"。試投0本の場合は成功率を出さず本数だけ表示する */
-export function formatShotLine(makes: number, attempts: number): string {
-  if (attempts === 0) return `${makes}-${attempts}`;
-  return `${makes}-${attempts} (${((makes / attempts) * 100).toFixed(1)}%)`;
 }
 
 /** %-shareスタッツ（個人の数値／チームの数値 × 100）。Bリーグ公式定義（DESIGN.md 6章） */

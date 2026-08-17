@@ -18,6 +18,7 @@
     "aggregate": "node --experimental-strip-types scripts/aggregate.ts",
     "print:current-season": "node --experimental-strip-types scripts/print-current-season.ts",
     "validate:oncourt": "node --experimental-strip-types scripts/validate-oncourt.ts",
+    "validate:points-off-turnovers": "node --experimental-strip-types scripts/validate-points-off-turnovers.ts",
     "typecheck": "tsc -p tsconfig.scripts.json --noEmit && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

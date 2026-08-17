@@ -437,6 +437,7 @@ export function GameDetailPage({ season }: { season: string }) {
         homeRows={game.raw.HomeBoxscores}
         awayRows={game.raw.AwayBoxscores}
         summaries={game.raw.Summaries}
+        playByPlays={game.raw.PlayByPlays}
         periods={periods}
         classificationById={classificationById}
         homeColor={homeColor}
