@@ -4,6 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>B.LEAGUE Stats</title>
+    <script>
+      // src/lib/theme.tsと同じキー("bleague-stats-theme")。CSS適用前に同期実行して
+      // data-theme属性を確定させ、手動選択済みテーマとOS設定が異なる場合の
+      // 一瞬の描画切り替わり(FOUC)を防ぐ
+      (function () {
+        try {
+          var stored = localStorage.getItem("bleague-stats-theme");
+          var theme =
+            stored === "light" || stored === "dark"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

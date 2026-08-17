@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { HashRouter, NavLink, Route, Routes, useSearchParams } from "react-router-dom";
 import { SeasonLink, SeasonNavLink } from "./components/SeasonLink";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { currentSeason } from "./lib/season";
 import { fetchSeasons } from "./lib/data";
 import { useJsonData } from "./lib/useJsonData";
@@ -72,6 +73,7 @@ function AppShell() {
             </option>
           ))}
         </select>
+        <ThemeToggle />
         <nav className="app-nav">
           <SeasonNavLink to="/" end className={({ isActive }) => (isActive ? "active" : "")}>
             ホーム

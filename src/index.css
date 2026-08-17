@@ -7,10 +7,15 @@
   --accent: #c8102e;
   --row-hover: #f5f5f5;
   --header-bg: #fafafa;
+  /* チームロゴ・選手写真の背景は、透過PNGが薄い/濃い配色どちらでも視認できるよう
+     テーマに関わらず常に白系で固定する（ダークモードで--bgに揃えると、ロゴの
+     背景が黒くなり見えづらくなるため） */
+  --media-bg: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  /* data-theme="light"で手動オーバーライドされていない限り、OSのダーク設定に従う */
+  :root:not([data-theme="light"]) {
     --bg: #15171a;
     --fg: #e8e8e8;
     --muted: #999999;
@@ -19,6 +24,25 @@
     --row-hover: #1f2226;
     --header-bg: #1c1e22;
   }
+}
+
+/* 手動トグル（ThemeToggle）でOS設定を上書きした場合。OSがライトでもここが優先される */
+:root[data-theme="dark"] {
+  --bg: #15171a;
+  --fg: #e8e8e8;
+  --muted: #999999;
+  --border: #333333;
+  --accent: #ff5c72;
+  --row-hover: #1f2226;
+  --header-bg: #1c1e22;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 * {
@@ -65,6 +89,28 @@ body {
   border-radius: 999px;
   padding: 3px 10px;
   cursor: pointer;
+}
+
+.theme-toggle {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  background: var(--row-hover);
 }
 
 .app-nav {
@@ -120,6 +166,7 @@ h2 {
   object-fit: contain;
   vertical-align: middle;
   flex-shrink: 0;
+  background: var(--media-bg);
 }
 
 .team-name-cell {
@@ -223,7 +270,7 @@ h2 {
 .team-leader-photo {
   border-radius: 50%;
   object-fit: cover;
-  background: var(--header-bg);
+  background: var(--media-bg);
   flex-shrink: 0;
 }
 
@@ -289,7 +336,7 @@ h2 {
 .player-cell-photo {
   border-radius: 50%;
   object-fit: cover;
-  background: var(--header-bg);
+  background: var(--media-bg);
   flex-shrink: 0;
 }
 
@@ -353,7 +400,7 @@ h2 {
 .player-photo {
   border-radius: 50%;
   object-fit: cover;
-  background: var(--header-bg);
+  background: var(--media-bg);
   flex-shrink: 0;
 }
 
@@ -644,6 +691,7 @@ table.sortable-table td.row-accent-cell {
   display: block;
   margin: 0 auto 6px;
   object-fit: contain;
+  background: var(--media-bg);
 }
 
 .scoreboard-team a {

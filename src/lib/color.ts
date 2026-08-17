@@ -40,3 +40,10 @@ export function isAccentColorLegible(hex: string | undefined | null): hex is str
 export function legibleAccentColor(hex: string | undefined | null): string | undefined {
   return isAccentColorLegible(hex) ? hex : undefined;
 }
+
+// primary/secondaryとも視認性不足のチーム（アルティーリ千葉等）向けの最終フォールバック。
+// 汎用アクセントカラー(var(--accent)、赤系)を使うと「それがそのチームの色である」かのように
+// 誤解を招くため、どのチームの色でもないことが一目でわかる、テーマに追従するモノクロ
+// （ライト: 黒系、ダーク: 白系）を使う。var(--fg)は本文の文字色と同じ変数で、
+// 手動テーマ切り替え（index.css の[data-theme]）にも自動で追従する
+export const MONO_FALLBACK_COLOR = "var(--fg)";

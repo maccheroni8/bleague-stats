@@ -29,7 +29,7 @@ import type {
   TeamLineupsFile,
   TeamSummary,
 } from "../../shared/types";
-import { legibleAccentColor } from "./color";
+import { legibleAccentColor, MONO_FALLBACK_COLOR } from "./color";
 
 const dataBase = `${import.meta.env.BASE_URL}data`;
 
@@ -86,16 +86,15 @@ export function fetchSeasons(): Promise<SeasonEntry[]> {
 
 // 自動抽出した色の中には、ロゴが濃色主体のデザイン等の理由でUIアクセントとしては
 // 視認性が低すぎるものが混ざりうる（DESIGN.md参照）。ここで一括して視認性チェックを通し、
-// 不合格の色はundefinedにする（呼び出し側は`color ?? デフォルト色`のパターンで
-// 既存の配色に自動フォールバックできる）。個々の呼び出し元でチェックする必要が無いよう、
-// 取得の時点で一度だけ済ませる。
+// 不合格の色はMONO_FALLBACK_COLOR（テーマに追従するモノクロ）に差し替える。
+// 個々の呼び出し元でチェックする必要が無いよう、取得の時点で一度だけ済ませる。
 // primaryが視認性不足の場合はsecondaryを代わりに採用する（例: ロゴの支配色が濃紺一色でも、
 // 縁取り等に使われている2番目の色なら視認性を満たすことがある）。両方とも不合格な場合は
-// primary/secondaryともundefinedのままにする（空文字列は返さない ── 以前は
+// MONO_FALLBACK_COLORにする（汎用アクセントカラー var(--accent) は使わない。そのチーム固有の
+// 色であるかのように誤解を招くため）。空文字列は返さない ── 以前は
 // `legibleAccentColor(...) ?? ""`という実装で、両方不合格のチーム（アルティーリ千葉等）だけ
 // 空文字列がTeamColorsに紛れ込み、呼び出し側の`color ?? デフォルト色`という`??`パターンだけが
-// それをすり抜けさせてしまうバグがあった。空文字は`??`に対して有効な値として扱われるため。
-// undefinedにすることで`??`・`? :`どちらのフォールバック記法でも安全に働く）
+// それをすり抜けさせてしまうバグがあった。空文字は`??`に対して有効な値として扱われるため
 export async function fetchTeamColors(): Promise<Record<string, TeamColors>> {
   const raw = await fetchJson<Record<string, TeamColors>>(`${dataBase}/team-colors.json`);
   const sanitized: Record<string, TeamColors> = {};
@@ -103,8 +102,8 @@ export async function fetchTeamColors(): Promise<Record<string, TeamColors>> {
     const legiblePrimary = legibleAccentColor(colors.primary);
     const legibleSecondary = legibleAccentColor(colors.secondary);
     sanitized[teamId] = {
-      primary: legiblePrimary ?? legibleSecondary,
-      secondary: legibleSecondary,
+      primary: legiblePrimary ?? legibleSecondary ?? MONO_FALLBACK_COLOR,
+      secondary: legibleSecondary ?? MONO_FALLBACK_COLOR,
     };
   }
   return sanitized;
