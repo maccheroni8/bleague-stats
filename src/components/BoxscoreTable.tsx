@@ -230,6 +230,12 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
     format: (c, ctx) => (ctx.isTeamTotalRow ? String(ctx.ownPlayType.pft) : String(c.ptsOffTov)),
     value: (c) => c.ptsOffTov,
   },
+  { key: "dunk", label: "DUNK", format: (c) => String(c.dunks), value: (c) => c.dunks },
+  { key: "and1", label: "AND1", format: (c) => String(c.basketCounts), value: (c) => c.basketCounts },
+  // 低頻度なファウル2種は通常のFカラムとは別にMiscタブでのみ表示する（DUNK/AND1と異なり
+  // ほぼ全選手が0になるため、ハイライト対象からは外す＝valueを持たせない）
+  { key: "ufoul", label: "UFOUL", format: (c) => String(c.unsportsmanlikeFouls) },
+  { key: "dqfoul", label: "DQFOUL", format: (c) => String(c.disqualifyingFouls) },
 ];
 
 const SCORING_COLUMNS: BoxscoreColumn[] = [
@@ -456,7 +462,7 @@ function BoxscoreTeamPanel({
   onCourtRatings: Record<string, PlayerOnCourtRatings>;
   accentColor?: string;
 }) {
-  const teamTotal = buildTeamTotalCounts(ownRows, periodOption);
+  let teamTotal = buildTeamTotalCounts(ownRows, periodOption);
   const oppTeamTotal = buildTeamTotalCounts(oppRows, periodOption);
   const coaches = buildTeamCoachesCounts(ownRows, periodOption);
   const playType = buildPlayTypeCounts(summaries, side, periodOption);
@@ -473,6 +479,18 @@ function BoxscoreTeamPanel({
     const onCourtPace = showOnCourtPace ? onCourtRatings[p.playerId]?.pace : undefined;
     return { ...p, counts: { ...p.counts, offRtg, defRtg, netRtg, onCourtPace } };
   });
+
+  // F4（ダンク数・バスケットカウント・アンスポーツマンファウル・ディスクォリファイングファウル）は
+  // BoxscoreRowに個人単位のフィールドが無く、buildTeamTotalCounts()（Category=3行ベース）では
+  // 常に0のままなので、選手ごとの集計値を合算してチーム合計行に反映する
+  const miscTeamTotals = sumCountsList(players.map((p) => p.counts));
+  teamTotal = {
+    ...teamTotal,
+    dunks: miscTeamTotals.dunks,
+    basketCounts: miscTeamTotals.basketCounts,
+    unsportsmanlikeFouls: miscTeamTotals.unsportsmanlikeFouls,
+    disqualifyingFouls: miscTeamTotals.disqualifyingFouls,
+  };
 
   const starters = players.filter((p) => p.startingFlg === 1);
   const bench = players.filter((p) => p.startingFlg !== 1);

@@ -79,6 +79,16 @@ export interface BoxscoreCounts {
    * 算出する。それ以外はundefinedのまま＝呼び出し側で「-」表示にする
    */
   onCourtPace?: number;
+  /**
+   * ダンク数・バスケットカウント（アンドワン）・アンスポーツマンファウル・
+   * ディスクォリファイングファウル（DESIGN.md 15-6章・F4）。いずれもBoxscoreRowには個人単位の
+   * フィールドが無いため、PlayByPlaysのActionCD1・PlayTextタグから別途算出する。
+   * ptsOffTovと同様にsumCounts()では常に0のままで、buildPlayerBoxscores()が事後的に上書きする
+   */
+  dunks: number;
+  basketCounts: number;
+  unsportsmanlikeFouls: number;
+  disqualifyingFouls: number;
 }
 
 const ZERO_COUNTS: BoxscoreCounts = {
@@ -111,6 +121,10 @@ const ZERO_COUNTS: BoxscoreCounts = {
   paint2a: 0,
   nonPaint2m: 0,
   nonPaint2a: 0,
+  dunks: 0,
+  basketCounts: 0,
+  unsportsmanlikeFouls: 0,
+  disqualifyingFouls: 0,
 };
 
 /**
@@ -172,6 +186,10 @@ export function sumCounts(rows: BoxscoreRow[]): BoxscoreCounts {
       paint2a: acc.paint2a,
       nonPaint2m: acc.nonPaint2m,
       nonPaint2a: acc.nonPaint2a,
+      dunks: acc.dunks,
+      basketCounts: acc.basketCounts,
+      unsportsmanlikeFouls: acc.unsportsmanlikeFouls,
+      disqualifyingFouls: acc.disqualifyingFouls,
     }),
     ZERO_COUNTS,
   );
@@ -220,6 +238,10 @@ export function sumCountsList(list: BoxscoreCounts[]): BoxscoreCounts {
       paint2a: acc.paint2a + c.paint2a,
       nonPaint2m: acc.nonPaint2m + c.nonPaint2m,
       nonPaint2a: acc.nonPaint2a + c.nonPaint2a,
+      dunks: acc.dunks + c.dunks,
+      basketCounts: acc.basketCounts + c.basketCounts,
+      unsportsmanlikeFouls: acc.unsportsmanlikeFouls + c.unsportsmanlikeFouls,
+      disqualifyingFouls: acc.disqualifyingFouls + c.disqualifyingFouls,
     }),
     ZERO_COUNTS,
   );
@@ -249,6 +271,47 @@ function buildPaintSplitByPlayer(shots: ShotEvent[]): Map<string, PaintSplitCoun
       if (shot.made) entry.nonPaint2m += 1;
     }
     byPlayer.set(shot.playerId, entry);
+  }
+  return byPlayer;
+}
+
+interface MiscEventCounts {
+  dunks: number;
+  basketCounts: number;
+  unsportsmanlikeFouls: number;
+  disqualifyingFouls: number;
+}
+
+const ZERO_MISC_EVENTS: MiscEventCounts = { dunks: 0, basketCounts: 0, unsportsmanlikeFouls: 0, disqualifyingFouls: 0 };
+
+// ダンク成功はActionCD1=4（2Pシュートインサイドペイント成功）のうちPlayTextに「ダンク」タグが
+// 付くもの、バスケットカウント（アンドワン）は単独のマーカーイベント（ActionCD1=16）、
+// アンスポーツマンファウル・ディスクォリファイングファウルはそれぞれActionCD1=25・26
+// （いずれもDESIGN.md 15-6章で確定済み。実データで裏付け済み）
+const DUNK_ACTION_CD1 = 4;
+const BASKET_COUNT_ACTION_CD1 = 16;
+const UNSPORTSMANLIKE_FOUL_ACTION_CD1 = 25;
+const DISQUALIFYING_FOUL_ACTION_CD1 = 26;
+
+/** F4（ダンク数・バスケットカウント・アンスポーツマンファウル・ディスクォリファイングファウル）を選手ごとに集計する */
+function buildMiscEventCounts(events: PlayByPlayEvent[]): Map<string, MiscEventCounts> {
+  const byPlayer = new Map<string, MiscEventCounts>();
+  const bump = (playerId: string | null, key: keyof MiscEventCounts) => {
+    if (!playerId) return;
+    const entry = byPlayer.get(playerId) ?? { ...ZERO_MISC_EVENTS };
+    entry[key] += 1;
+    byPlayer.set(playerId, entry);
+  };
+  for (const ev of events) {
+    if (ev.ActionCD1 === DUNK_ACTION_CD1 && ev.PlayText.includes("ダンク")) {
+      bump(ev.PlayerID1, "dunks");
+    } else if (ev.ActionCD1 === BASKET_COUNT_ACTION_CD1) {
+      bump(ev.PlayerID1, "basketCounts");
+    } else if (ev.ActionCD1 === UNSPORTSMANLIKE_FOUL_ACTION_CD1) {
+      bump(ev.PlayerID1, "unsportsmanlikeFouls");
+    } else if (ev.ActionCD1 === DISQUALIFYING_FOUL_ACTION_CD1) {
+      bump(ev.PlayerID1, "disqualifyingFouls");
+    }
   }
   return byPlayer;
 }
@@ -289,16 +352,23 @@ export function buildPlayerBoxscores(
   // 常に空配列になり、以降の集計もpaint2m等が常に0のままになる（呼び出し側でshotChartSupportedを
   // 見て「-」表示にケアする）
   const paintSplitByPlayer = buildPaintSplitByPlayer(buildShotEvents(periodFilteredPbp));
+  const miscEventsByPlayer = buildMiscEventCounts(periodFilteredPbp);
   return gameRows.map((meta) => {
     const periodRows = rowsInPeriodRange(rowsByPlayer.get(meta.PlayerID) ?? [], option);
     const paintSplit = paintSplitByPlayer.get(meta.PlayerID) ?? ZERO_PAINT_SPLIT;
+    const miscEvents = miscEventsByPlayer.get(meta.PlayerID) ?? ZERO_MISC_EVENTS;
     return {
       playerId: meta.PlayerID,
       playerNo: meta.PlayerNo,
       nameJ: meta.PlayerNameJ,
       startingFlg: meta.StartingFlg,
       dnp: meta.PlayTime === "DNP",
-      counts: { ...sumCounts(periodRows), ptsOffTov: ptsOffTovByPlayer.get(meta.PlayerID) ?? 0, ...paintSplit },
+      counts: {
+        ...sumCounts(periodRows),
+        ptsOffTov: ptsOffTovByPlayer.get(meta.PlayerID) ?? 0,
+        ...paintSplit,
+        ...miscEvents,
+      },
     };
   });
 }
