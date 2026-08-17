@@ -4,13 +4,14 @@ import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGame, fetchPlayers, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
-import { formatSigned } from "../lib/format";
+import { formatPct, formatSigned } from "../lib/format";
 import type { BoxscoreRow, PlayerSummary } from "../../shared/types";
 import { KeyStatsChart } from "../components/KeyStatsChart";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
 import { ShotChartPanel } from "../components/ShotChart";
 import { TeamLogo } from "../components/TeamLogo";
+import { PlayerPhoto } from "../components/PlayerPhoto";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
 import { buildShotEvents } from "../lib/shotChart";
@@ -46,15 +47,120 @@ function cumulativeScores(quarterScores: number[]): number[] {
   return quarterScores.map((s) => (sum += s));
 }
 
-function topPlayers(rows: BoxscoreRow[], statKey: "Point" | "RB_TOT" | "AS", count = 3): BoxscoreRow[] {
-  return [...rows]
-    .filter((r) => r.PlayTime !== "DNP")
-    .sort((a, b) => b[statKey] - a[statKey])
-    .slice(0, count);
+function byMax<T>(items: T[], keyFn: (item: T) => number): T[] {
+  const max = Math.max(...items.map(keyFn));
+  return items.filter((item) => keyFn(item) === max);
+}
+
+/**
+ * タイになった選手群から代表者を1人選ぶ。プレータイムが長い方→EFFが高い方の順で
+ * 絞り込み、それでも決まらなければ背番号昇順で確定させる（表示を一意にするための
+ * 最終フォールバック。スタッツ・プレータイム・EFFが全員完全一致する状況は現実的には稀）
+ */
+function pickTieBreakWinner(tied: BoxscoreRow[]): BoxscoreRow {
+  if (tied.length === 1) return tied[0]!;
+  const byPlayTime = byMax(tied, (r) => playTimeToSeconds(r.PlayTime));
+  if (byPlayTime.length === 1) return byPlayTime[0]!;
+  const byEff = byMax(byPlayTime, (r) => r.EFF);
+  if (byEff.length === 1) return byEff[0]!;
+  return [...byEff].sort((a, b) => Number(a.PlayerNo) - Number(b.PlayerNo))[0]!;
+}
+
+interface RankedLeader {
+  player: BoxscoreRow;
+  value: number;
+  /** 同順位でタイだった、表示選手以外の人数（"他◯人"表記用） */
+  otherCount: number;
+}
+
+/**
+ * スタッツ上位3「順位」を、同値タイは同順位扱いで求める（例: 1位タイが2人いれば
+ * 2位は欠番にせず、次に大きい値のグループを2位として繰り上げる＝密順位）。
+ * 各順位の代表者はpickTieBreakWinnerで1人選ぶ
+ */
+function topRankedLeaders(rows: BoxscoreRow[], statKey: "Point" | "RB_TOT" | "AS", ranks = 3): RankedLeader[] {
+  const candidates = rows.filter((r) => r.PlayTime !== "DNP");
+  if (candidates.length === 0) return [];
+  const distinctValues = Array.from(new Set(candidates.map((r) => r[statKey])))
+    .sort((a, b) => b - a)
+    .slice(0, ranks);
+  return distinctValues.map((value) => {
+    const tied = candidates.filter((r) => r[statKey] === value);
+    return { player: pickTieBreakWinner(tied), value, otherCount: tied.length - 1 };
+  });
 }
 
 function safeDiv(a: number, b: number): number {
   return b === 0 ? 0 : a / b;
+}
+
+/** ゲームリーダー拡張セクション（PTS/OREB/DREB/TREB/AST/STL/BLK/TO/2P%/3P%/FT%）の項目定義 */
+interface GameLeaderStatDef {
+  key: string;
+  label: string;
+  value: (r: BoxscoreRow) => number;
+  format: (r: BoxscoreRow) => string;
+  /** 2P%/3P%/FT%用。試投0の選手をリーダー候補から除外するための試投数 */
+  attempts?: (r: BoxscoreRow) => number;
+  /**
+   * 2P%/3P%/FT%用。%が同値タイの場合、プレータイム/EFFより先にこの値（成功数）が
+   * 多い方を優先する（例: 3P%は 3P% → 3P成功数 → プレータイム → EFF の順）
+   */
+  tieBreakValue?: (r: BoxscoreRow) => number;
+}
+
+const GAME_LEADER_STAT_DEFS: GameLeaderStatDef[] = [
+  { key: "pts", label: "PTS", value: (r) => r.Point, format: (r) => String(r.Point) },
+  { key: "oreb", label: "OREB", value: (r) => r.RB_OFF, format: (r) => String(r.RB_OFF) },
+  { key: "dreb", label: "DREB", value: (r) => r.RB_DEF, format: (r) => String(r.RB_DEF) },
+  { key: "treb", label: "TREB", value: (r) => r.RB_OFF + r.RB_DEF, format: (r) => String(r.RB_OFF + r.RB_DEF) },
+  { key: "ast", label: "AST", value: (r) => r.AS, format: (r) => String(r.AS) },
+  { key: "stl", label: "STL", value: (r) => r.ST, format: (r) => String(r.ST) },
+  { key: "blk", label: "BLK", value: (r) => r.BS, format: (r) => String(r.BS) },
+  { key: "to", label: "TO", value: (r) => r.TO, format: (r) => String(r.TO) },
+  {
+    key: "fg2pct",
+    label: "2P%",
+    value: (r) => safeDiv(r.PT2M, r.PT2A),
+    format: (r) => formatPct(safeDiv(r.PT2M, r.PT2A)),
+    attempts: (r) => r.PT2A,
+    tieBreakValue: (r) => r.PT2M,
+  },
+  {
+    key: "fg3pct",
+    label: "3P%",
+    value: (r) => safeDiv(r.PT3M, r.PT3A),
+    format: (r) => formatPct(safeDiv(r.PT3M, r.PT3A)),
+    attempts: (r) => r.PT3A,
+    tieBreakValue: (r) => r.PT3M,
+  },
+  {
+    key: "ftpct",
+    label: "FT%",
+    value: (r) => safeDiv(r.FTM, r.FTA),
+    format: (r) => formatPct(safeDiv(r.FTM, r.FTA)),
+    attempts: (r) => r.FTA,
+    tieBreakValue: (r) => r.FTM,
+  },
+];
+
+interface GameLeaderResult {
+  player: BoxscoreRow;
+  /** 同スタッツ値でタイだった、表示選手以外の人数（"他◯人"表記用） */
+  otherCount: number;
+}
+
+/**
+ * 該当スタッツの最大値を出した選手を1人選ぶ。%系スタッツ（2P%/3P%/FT%）は同値タイの場合、
+ * pickTieBreakWinner（プレータイム→EFF→背番号）より先にtieBreakValue（成功数）で絞り込む。
+ * 元のスタッツ値でタイだった人数はotherCountとして保持し、"他◯人"表記に使う
+ */
+function gameLeaderPlayer(rows: BoxscoreRow[], def: GameLeaderStatDef): GameLeaderResult | undefined {
+  const candidates = rows.filter((r) => r.PlayTime !== "DNP" && (def.attempts ? def.attempts(r) > 0 : true));
+  if (candidates.length === 0) return undefined;
+  const byStat = byMax(candidates, def.value);
+  const narrowed = def.tieBreakValue ? byMax(byStat, def.tieBreakValue) : byStat;
+  return { player: pickTieBreakWinner(narrowed), otherCount: byStat.length - 1 };
 }
 
 /** "7-12 (58.3%)"。試投0本の場合は成功率を出さず本数だけ表示する */
@@ -145,6 +251,7 @@ export function GameDetailPage({ season }: { season: string }) {
   // ローディング/エラーで画面全体をブロックしない
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const [shotPeriodRange, setShotPeriodRange] = useState<PeriodRangeValue>("all");
+  const [showExtendedLeaders, setShowExtendedLeaders] = useState(true);
 
   if (loading || coverageLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
@@ -257,9 +364,7 @@ export function GameDetailPage({ season }: { season: string }) {
               </thead>
               <tbody>
                 <tr>
-                  <td className="align-left" style={homeColor ? { color: homeColor } : undefined}>
-                    {game.homeTeam.name}
-                  </td>
+                  <td className="align-left">{game.homeTeam.name}</td>
                   {game.quarterScores.home.map((s, i) => (
                     <td key={i}>{s}</td>
                   ))}
@@ -268,9 +373,7 @@ export function GameDetailPage({ season }: { season: string }) {
                   </td>
                 </tr>
                 <tr>
-                  <td className="align-left" style={awayColor ? { color: awayColor } : undefined}>
-                    {game.awayTeam.name}
-                  </td>
+                  <td className="align-left">{game.awayTeam.name}</td>
                   {game.quarterScores.away.map((s, i) => (
                     <td key={i}>{s}</td>
                   ))}
@@ -297,17 +400,13 @@ export function GameDetailPage({ season }: { season: string }) {
               </thead>
               <tbody>
                 <tr>
-                  <td className="align-left" style={homeColor ? { color: homeColor } : undefined}>
-                    {game.homeTeam.name}
-                  </td>
+                  <td className="align-left">{game.homeTeam.name}</td>
                   {homeCum.map((s, i) => (
                     <td key={i}>{s}</td>
                   ))}
                 </tr>
                 <tr>
-                  <td className="align-left" style={awayColor ? { color: awayColor } : undefined}>
-                    {game.awayTeam.name}
-                  </td>
+                  <td className="align-left">{game.awayTeam.name}</td>
                   {awayCum.map((s, i) => (
                     <td key={i}>{s}</td>
                   ))}
@@ -386,6 +485,19 @@ export function GameDetailPage({ season }: { season: string }) {
         <GameLeadersTeam teamName={game.homeTeam.name} rows={homePlayers} accentColor={homeColor} />
         <GameLeadersTeam teamName={game.awayTeam.name} rows={awayPlayers} accentColor={awayColor} />
       </div>
+      <div className="leader-matchup-toggle">
+        <button onClick={() => setShowExtendedLeaders((v) => !v)}>
+          {showExtendedLeaders ? "その他のスタッツリーダーを隠す" : "その他のスタッツリーダーを表示"}
+        </button>
+      </div>
+      {showExtendedLeaders && (
+        <GameLeadersMatchup
+          homeTeamName={game.homeTeam.name}
+          awayTeamName={game.awayTeam.name}
+          homeRows={homePlayers}
+          awayRows={awayPlayers}
+        />
+      )}
 
       {homeTotal && awayTotal && (
         <>
@@ -466,29 +578,92 @@ function GameLeadersTeam({
   return (
     <div className="game-leaders-team" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
       <h3>{teamName}</h3>
-      <LeaderRow label="PTS" players={topPlayers(rows, "Point")} statKey="Point" />
-      <LeaderRow label="REB" players={topPlayers(rows, "RB_TOT")} statKey="RB_TOT" />
-      <LeaderRow label="AST" players={topPlayers(rows, "AS")} statKey="AS" />
+      <LeaderTop3Row label="PTS" leaders={topRankedLeaders(rows, "Point")} />
+      <LeaderTop3Row label="REB" leaders={topRankedLeaders(rows, "RB_TOT")} />
+      <LeaderTop3Row label="AST" leaders={topRankedLeaders(rows, "AS")} />
     </div>
   );
 }
 
-function LeaderRow({
-  label,
-  players,
-  statKey,
+function LeaderTop3Row({ label, leaders }: { label: string; leaders: RankedLeader[] }) {
+  const top1 = leaders[0];
+  return (
+    <div className="leader-top3-row">
+      <span className="leader-top3-label">{label}</span>
+      {top1 ? (
+        <PlayerPhoto playerId={top1.player.PlayerID} size={48} className="leader-top3-photo" />
+      ) : (
+        <div className="leader-top3-photo-placeholder" />
+      )}
+      <div className="leader-top3-list">
+        {leaders.map((leader, i) => (
+          <Link
+            key={leader.player.PlayerID}
+            to={`/players/${leader.player.PlayerID}`}
+            className={`leader-top3-item leader-top3-rank-${i + 1}`}
+          >
+            <span className="leader-top3-name">
+              {leader.player.PlayerNameJ}
+              {leader.otherCount > 0 && <span className="leader-top3-others"> 他{leader.otherCount}人</span>}
+            </span>
+            <span className="leader-top3-value">{leader.value}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GameLeadersMatchup({
+  homeTeamName,
+  awayTeamName,
+  homeRows,
+  awayRows,
 }: {
-  label: string;
-  players: BoxscoreRow[];
-  statKey: "Point" | "RB_TOT" | "AS";
+  homeTeamName: string;
+  awayTeamName: string;
+  homeRows: BoxscoreRow[];
+  awayRows: BoxscoreRow[];
 }) {
   return (
-    <div className="leader-row">
-      <span className="leader-label">{label}</span>
-      <span className="leader-names">
-        {players.map((p) => `${p.PlayerNameJ} ${p[statKey]}`).join(" / ")}
-      </span>
+    <div className="leader-matchup">
+      <div className="leader-matchup-header">
+        <span className="leader-matchup-header-team leader-matchup-header-team-home">{homeTeamName}</span>
+        <span />
+        <span className="leader-matchup-header-team leader-matchup-header-team-away">{awayTeamName}</span>
+      </div>
+      {GAME_LEADER_STAT_DEFS.map((def) => {
+        const homeLeader = gameLeaderPlayer(homeRows, def);
+        const awayLeader = gameLeaderPlayer(awayRows, def);
+        return (
+          <div key={def.key} className="leader-matchup-row">
+            <div className="leader-matchup-side leader-matchup-side-home">
+              <LeaderMatchupPlayer leader={homeLeader} />
+              <span className="leader-matchup-value">{homeLeader ? def.format(homeLeader.player) : "—"}</span>
+            </div>
+            <span className="leader-matchup-label">{def.label}</span>
+            <div className="leader-matchup-side leader-matchup-side-away">
+              <span className="leader-matchup-value">{awayLeader ? def.format(awayLeader.player) : "—"}</span>
+              <LeaderMatchupPlayer leader={awayLeader} />
+            </div>
+          </div>
+        );
+      })}
     </div>
+  );
+}
+
+function LeaderMatchupPlayer({ leader }: { leader: GameLeaderResult | undefined }) {
+  if (!leader) return <div className="leader-matchup-player" />;
+  const { player, otherCount } = leader;
+  return (
+    <Link to={`/players/${player.PlayerID}`} className="leader-matchup-player">
+      <PlayerPhoto playerId={player.PlayerID} size={44} className="leader-matchup-player-photo" />
+      <span className="leader-matchup-player-name">
+        {player.PlayerNameJ}
+        {otherCount > 0 && <span className="leader-matchup-player-others"> 他{otherCount}人</span>}
+      </span>
+    </Link>
   );
 }
 
