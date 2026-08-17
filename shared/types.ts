@@ -409,6 +409,14 @@ export interface PlayerAdvancedStats {
    * リーグ全体を出場時間で加重平均するとちょうど15になるよう正規化されている
    */
   per: number;
+  /**
+   * PPP（Points Per Possession）。個人ORtg（Dean Oliver方式、shared/formulas.tsの
+   * individualOffRtg。ボックススコア試合詳細ページの個人ORtgと同じ計算式をシーズン合計値に
+   * 適用）を100で割った値。同じ計算式をそのまま再利用しているため、qASTの分母近傍0の
+   * 不安定性ガード（MIN_MINUTES_FOR_INDIVIDUAL_RATING、シーズン合計出場時間4分未満）も
+   * 引き継ぎ、該当選手はundefined（算出不能）になる
+   */
+  ppp?: number;
 }
 
 // ---- data/team-colors.json の保存スキーマ（scripts/extract-team-colors.ts生成） ----

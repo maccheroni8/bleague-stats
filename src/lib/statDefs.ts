@@ -439,6 +439,26 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     minMinutesForRanking: 200,
   },
   {
+    key: "pps",
+    label: "PPS",
+    value: (p) => safeDiv(p.totals.pts, p.totals.fga),
+    format: (p) => formatDecimal(safeDiv(p.totals.pts, p.totals.fga), 2),
+    formulaText: "PTS / FGA",
+    source: "nba",
+    category: "shooting",
+  },
+  {
+    key: "ppp",
+    label: "PPP",
+    value: (p) => p.advanced.ppp ?? 0,
+    format: (p) => (p.advanced.ppp !== undefined ? formatDecimal(p.advanced.ppp, 2) : "-"),
+    formulaText:
+      "個人ORtg（Dean Oliver方式。試合詳細ページの個人ORtgと同じ計算式をシーズン合計値に適用） / 100。" +
+      "同じ計算式を再利用しているため、シーズン合計出場時間4分未満は算出不能（-表示）",
+    source: "nba",
+    category: "rating",
+  },
+  {
     key: "onCourtNet",
     label: "オンコート+/-",
     value: (p) => p.advanced.onCourtNetPerGame,

@@ -14,6 +14,7 @@ import {
   estimatedPossessions,
   finalizePer,
   ftRate,
+  individualOffRtg,
   offensiveRating,
   orbPct,
   pace,
@@ -23,6 +24,7 @@ import {
   tsPct,
   uPer,
   usagePct,
+  type OliverBoxStats,
   type PerLeagueTotals,
 } from "../shared/formulas.ts";
 import { reconstructOnCourt, substitutionModelForSeason, type OnCourtReconstruction } from "../shared/onCourt.ts";
@@ -270,6 +272,31 @@ function buildStatBlock(totals: StatTotals, seasonStartYear: number) {
   };
 }
 
+/**
+ * シーズン合計のStatTotalsを、個人ORtg計算式（shared/formulas.tsのindividualOffRtg、
+ * ボックススコア試合詳細ページの個人ORtgと同じDean Oliver方式）の入力形に変換する。
+ * ボックススコア側のtoOliverBox()（src/lib/boxscoreAggregate.ts）と同じフィールド対応だが、
+ * こちらは1試合分ではなくシーズン合計値を渡す
+ */
+function toOliverBoxFromTotals(totals: StatTotals): OliverBoxStats {
+  return {
+    min: totals.min,
+    fgm: totals.fgm,
+    fga: totals.fga,
+    fg3m: totals.tpm,
+    ftm: totals.ftm,
+    fta: totals.fta,
+    pts: totals.pts,
+    ast: totals.ast,
+    oreb: totals.oreb,
+    dreb: totals.dreb,
+    tov: totals.tov,
+    stl: totals.stl,
+    blk: totals.blk,
+    pf: totals.pf,
+  };
+}
+
 interface PlayerAccumulator {
   playerId: string;
   name: string;
@@ -439,6 +466,13 @@ export async function aggregateSeason(season: string, category: Category = "prem
         teamPaceForPlayer > 0
           ? finalizePer(uPerByPlayer.get(p.playerId) ?? 0, teamPaceForPlayer, lgPace, lgAvgUPer)
           : 0;
+      // PPP = 個人ORtg（Dean Oliver方式、試合詳細ページの個人ORtgと同じindividualOffRtg()）/ 100。
+      // シーズン合計値をそのまま渡す（移籍選手はUsage%と同様、直近所属チームで近似する）。
+      // 出場時間4分未満（シーズン合計）ではindividualOffRtg()自体がundefinedを返す
+      const individualSeasonOffRtg = team
+        ? individualOffRtg(toOliverBoxFromTotals(p.totals), toOliverBoxFromTotals(team.totals), toOliverBoxFromTotals(team.opponentTotals))
+        : undefined;
+      const ppp = individualSeasonOffRtg !== undefined ? individualSeasonOffRtg / 100 : undefined;
       // 国籍・身長体重・生年月日・ポジションはplayers-master.jsonから突合（未登録選手は全て未定義のまま）
       const master = masterById.get(p.playerId);
       return {
@@ -463,6 +497,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
           offCourtNet: p.totals.teamNetSum - p.totals.plusMinus,
           offCourtNetPerGame: (p.totals.teamNetSum - p.totals.plusMinus) / (p.totals.gamesPlayed || 1),
           per,
+          ppp,
         },
       };
     })
