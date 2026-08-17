@@ -6,7 +6,7 @@ import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import { formatPct, formatSigned } from "../lib/format";
 import type { BoxscoreRow, PlayerSummary } from "../../shared/types";
-import { KeyStatsChart } from "../components/KeyStatsChart";
+import { KeyStatsSection } from "../components/KeyStatsSection";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
 import { ShotChartPanel } from "../components/ShotChart";
@@ -267,6 +267,7 @@ export function GameDetailPage({ season }: { season: string }) {
   const awayPlayers = playerRows(game.raw.AwayBoxscores);
   const homeTotal = teamTotalRow(game.raw.HomeBoxscores);
   const awayTotal = teamTotalRow(game.raw.AwayBoxscores);
+  const gameSummary = game.raw.Summaries.find((s) => s.PeriodCategory === 18);
   const homeCoachesRow = teamCoachesRow(game.raw.HomeBoxscores);
   const awayCoachesRow = teamCoachesRow(game.raw.AwayBoxscores);
 
@@ -500,47 +501,15 @@ export function GameDetailPage({ season }: { season: string }) {
       )}
 
       {homeTotal && awayTotal && (
-        <>
-          <h2>キースタッツ</h2>
-          <div className="key-stats-grid">
-            <KeyStatsChart
-              title="ボリューム系"
-              homeTeamName={game.homeTeam.name}
-              awayTeamName={game.awayTeam.name}
-              rows={[
-                { label: "PTS", home: homeTotal.Point, away: awayTotal.Point },
-                { label: "REB", home: homeTotal.RB_TOT, away: awayTotal.RB_TOT },
-                { label: "AST", home: homeTotal.AS, away: awayTotal.AS },
-                { label: "STL", home: homeTotal.ST, away: awayTotal.ST },
-                { label: "BLK", home: homeTotal.BS, away: awayTotal.BS },
-                { label: "TOV", home: homeTotal.TO, away: awayTotal.TO },
-              ]}
-            />
-            <KeyStatsChart
-              title="シュート%"
-              homeTeamName={game.homeTeam.name}
-              awayTeamName={game.awayTeam.name}
-              valueSuffix="%"
-              rows={[
-                {
-                  label: "FG%",
-                  home: round1(safeDiv(homeTotal.PT2M + homeTotal.PT3M, homeTotal.PT2A + homeTotal.PT3A) * 100),
-                  away: round1(safeDiv(awayTotal.PT2M + awayTotal.PT3M, awayTotal.PT2A + awayTotal.PT3A) * 100),
-                },
-                {
-                  label: "3P%",
-                  home: round1(safeDiv(homeTotal.PT3M, homeTotal.PT3A) * 100),
-                  away: round1(safeDiv(awayTotal.PT3M, awayTotal.PT3A) * 100),
-                },
-                {
-                  label: "FT%",
-                  home: round1(safeDiv(homeTotal.FTM, homeTotal.FTA) * 100),
-                  away: round1(safeDiv(awayTotal.FTM, awayTotal.FTA) * 100),
-                },
-              ]}
-            />
-          </div>
-        </>
+        <KeyStatsSection
+          homeTotal={homeTotal}
+          awayTotal={awayTotal}
+          homePlayers={homePlayers}
+          awayPlayers={awayPlayers}
+          gameSummary={gameSummary}
+          homeColor={homeColor}
+          awayColor={awayColor}
+        />
       )}
 
       <h2>ボックススコア</h2>
@@ -560,10 +529,6 @@ export function GameDetailPage({ season }: { season: string }) {
       />
     </div>
   );
-}
-
-function round1(value: number): number {
-  return Math.round(value * 10) / 10;
 }
 
 function GameLeadersTeam({

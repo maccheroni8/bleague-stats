@@ -904,22 +904,124 @@ table.quarter-table th {
   color: var(--muted);
 }
 
-.key-stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.key-stats-chart {
+.key-stats-card {
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 16px;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
 }
 
-.key-stats-chart h3 {
-  margin: 0 0 4px;
+.key-stats-card h3 {
+  margin: 0 0 12px;
   font-size: 14px;
+}
+
+.shooting-donut-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 8px 0 16px;
+}
+
+.shooting-donut {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.shooting-donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.shooting-donut-value {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.shooting-donut-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.shooting-donut-divider {
+  width: 1px;
+  height: 100px;
+  background: var(--border);
+}
+
+.opposed-bar-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+}
+
+.opposed-bar-label {
+  min-width: 92px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.opposed-bar-track {
+  position: relative;
+  height: 22px;
+  background: var(--header-bg);
+  border-radius: 999px;
+}
+
+.opposed-bar-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.opposed-bar-fill-home {
+  right: 0;
+}
+
+.opposed-bar-fill-away {
+  left: 0;
+}
+
+.opposed-bar-value {
+  position: absolute;
+  top: 50%;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1.5px solid;
+  background: var(--bg);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.opposed-bar-value-home {
+  transform: translate(50%, -50%);
+}
+
+.opposed-bar-value-away {
+  transform: translate(-50%, -50%);
 }
 
 .shot-chart-grid {
@@ -1627,7 +1729,6 @@ table.h2h-table td {
 
 @media (max-width: 640px) {
   .game-leaders,
-  .key-stats-grid,
   .shot-chart-grid,
   .standings-grid,
   .quarter-tables-grid {

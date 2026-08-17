@@ -879,7 +879,15 @@ PTS, OREB/DREB/REB, AST, STL, BLK, TOV, PF, FG(M/A/%), 3P(M/A/%), FT(M/A/%), MIN
 - **得点内訳系（公式の略称、12章のプレータイプ内訳と対応）**: `PITP`(Points In Paint),
   `FBPS`(Fastbreak Points), `2NDPTS`(Second Chance Points), `PTSOFFTO`(Points Off
   Turnovers) — いずれも公式に定義された実在の指標であることを確認（`Summaries`に含まれる
-  ことは2-2章で確認済み）
+  ことは2-2章で確認済み）。**`Summaries`内の実フィールド名との対応は2026-08-17に確定済み**
+  （genius_game_new2208.jsのソースコードで「ゲームスコア/試合成績」欄のレンダリング処理を
+  直接確認。ActionCD1・TEAM/COACHES欄の特定と同じ手法。詳細は12章末尾）:
+  `HomeTeamPT2IN`/`AwayTeamPT2IN`=PITP（表示ラベル "Points in the Paint"／
+  「ペイントエリア内での得点」）、`HomeTeamPTFB`/`AwayTeamPTFB`=FBPS（"Fast Break Points"／
+  「ファストブレイクポイント」）、`HomeTeamPT2ND`/`AwayTeamPT2ND`=2NDPTS（"Second Chance
+  Points"／「セカンドチャンスポイント」）、`HomeTeamPTPFT`/`AwayTeamPTPFT`=PTSOFFTO
+  （"Points From Turnover"／「ターンオーバーからの得点」。フィールド名`PTPFT`からは意味が
+  読み取れなかったが、ソース確認により確定した）
 - **BSR（被ブロック）**: 公式に個人・ボックススコア両方で定義された指標
 
 **Bリーグ公式に定義がない項目（NBA流で補足・そのまま採用）**:
