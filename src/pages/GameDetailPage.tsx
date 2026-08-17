@@ -365,14 +365,14 @@ export function GameDetailPage({ season }: { season: string }) {
               teamName={game.homeTeam.name}
               players={homePlayers}
               shots={shotPeriodHomeShots}
-              color="var(--accent)"
+              color={homeColor ?? "var(--accent)"}
               accentColor={homeColor}
             />
             <ShotChartPanel
               teamName={game.awayTeam.name}
               players={awayPlayers}
               shots={shotPeriodAwayShots}
-              color="var(--muted)"
+              color={awayColor ?? "var(--muted)"}
               accentColor={awayColor}
             />
           </div>

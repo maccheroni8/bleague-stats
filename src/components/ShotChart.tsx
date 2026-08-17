@@ -46,8 +46,8 @@ function HalfCourt() {
 function formatShotSummary(shots: ShotEvent[]): string {
   const makes = shots.filter((s) => s.made).length;
   const attempts = shots.length;
-  if (attempts === 0) return "0-0";
-  return `${makes}-${attempts} (${((makes / attempts) * 100).toFixed(1)}%)`;
+  if (attempts === 0) return "0/0";
+  return `${makes}/${attempts} (${((makes / attempts) * 100).toFixed(1)}%)`;
 }
 
 /** バスケット中心からの距離r(m)・角度θ(度)をSVG座標(cx, cy)に変換する */
@@ -136,8 +136,9 @@ interface ShotChartPanelProps {
   teamName: string;
   players: BoxscoreRow[];
   shots: ShotEvent[];
+  /** ショット点（成功=塗りつぶし・失敗=枠線）の色。通常はチームカラー */
   color: string;
-  /** チームカラー（data/team-colors.json）。カード左端のアクセント線にのみ使う（ショット点の色はcolorのまま） */
+  /** チームカラー（data/team-colors.json）。カード左端のアクセント線に使う */
   accentColor?: string;
 }
 
@@ -193,7 +194,8 @@ export function ShotChartPanel({ teamName, players, shots, color, accentColor }:
               cy={s.x * X_SCALE}
               r={2.4}
               className={`shot-dot ${s.made ? "shot-made" : "shot-missed"}`}
-              style={{ stroke: color, fill: s.made ? color : "none" }}
+              stroke={color}
+              fill={s.made ? color : "none"}
             >
               <title>
                 {s.playerName} {s.isThree ? "3P" : "2P"} {s.made ? "成功" : "失敗"}
