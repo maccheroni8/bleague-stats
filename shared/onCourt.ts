@@ -23,7 +23,7 @@
 //     PlayerID1（退場選手）・PlayerID2（入場選手）のペアとして記録される
 
 import type { BoxscoreRow, PlayByPlayEvent } from "./types.ts";
-import { offensiveRating, safeDiv } from "./formulas.ts";
+import { safeDiv } from "./formulas.ts";
 
 const REGULAR_PERIOD_SECONDS = 10 * 60;
 const OT_PERIOD_SECONDS = 5 * 60;
@@ -82,10 +82,11 @@ export interface OnCourtInterval {
   teamId: string;
   startSec: number;
   endSec: number;
-  /** この区間中の自チーム得点・相手チーム得点（個人OFFRTG/DEFRTG算出用） */
-  ownPts: number;
-  oppPts: number;
-  /** この区間中の自チーム・相手チームの新ポゼッション開始回数（buildPossessionStartEvents参照） */
+  /**
+   * この区間中の自チーム・相手チームの新ポゼッション開始回数（buildPossessionStartEvents参照）。
+   * 個人PACE算出用（個人ORtg/DRtgはDean Oliver方式のボックススコアのみの式に置き換え済みで
+   * これらは使わない。shared/formulas.tsのindividualOffRtg/individualDefRtg参照）
+   */
   ownPoss: number;
   oppPoss: number;
 }
@@ -449,7 +450,7 @@ export function reconstructOnCourt(
       onCourt[teamId]!.delete(s.playerId);
       const start = openStart[teamId]!.get(s.playerId);
       if (start !== undefined) {
-        intervals.push({ playerId: s.playerId, teamId, startSec: start, endSec: t, ownPts: 0, oppPts: 0, ownPoss: 0, oppPoss: 0 });
+        intervals.push({ playerId: s.playerId, teamId, startSec: start, endSec: t, ownPoss: 0, oppPoss: 0 });
         openStart[teamId]!.delete(s.playerId);
       }
     }
@@ -516,7 +517,7 @@ export function reconstructOnCourt(
       });
     }
     for (const [playerId, start] of openStart[teamId]!.entries()) {
-      intervals.push({ playerId, teamId, startSec: start, endSec: gameEnd, ownPts: 0, oppPts: 0, ownPoss: 0, oppPoss: 0 });
+      intervals.push({ playerId, teamId, startSec: start, endSec: gameEnd, ownPoss: 0, oppPoss: 0 });
     }
   }
 
@@ -541,18 +542,11 @@ export function reconstructOnCourt(
     }
   }
 
-  // 個人OFFRTG/DEFRTG/PACE算出用に、各在コート区間へ自チーム/相手チームの得点・新ポゼッション
-  // 開始回数を集計する（既存の得点イベント抽出結果＝events中のkind==="score"をそのまま再利用し、
-  // ポゼッション区切りは別途buildPossessionStartEvents()で検出する）。在コート人数の判定・
-  // 個人+/-・ラインナップスティントの既存ロジックには一切影響しない、末尾の追加パスとして実装する
-  const scoreEvents = events.filter((e) => e.kind === "score");
+  // 個人PACE算出用に、各在コート区間へ自チーム/相手チームの新ポゼッション開始回数を集計する
+  // （buildPossessionStartEvents()参照）。在コート人数の判定・個人+/-・ラインナップスティントの
+  // 既存ロジックには一切影響しない、末尾の追加パスとして実装する
   const possessionStarts = buildPossessionStartEvents(playByPlays, homeTeamId, awayTeamId);
   for (const iv of intervals) {
-    for (const se of scoreEvents) {
-      if (se.elapsedSec < iv.startSec || se.elapsedSec >= iv.endSec) continue;
-      if (se.teamId === iv.teamId) iv.ownPts += se.points;
-      else iv.oppPts += se.points;
-    }
     for (const ps of possessionStarts) {
       if (ps.elapsedSec < iv.startSec || ps.elapsedSec >= iv.endSec) continue;
       if (ps.teamId === iv.teamId) iv.ownPoss += 1;
@@ -573,17 +567,16 @@ export function totalOnCourtSeconds(intervals: OnCourtInterval[]): Record<string
 }
 
 export interface PlayerOnCourtRatings {
-  offRtg: number;
-  defRtg: number;
-  netRtg: number;
   pace: number;
   onCourtSec: number;
 }
 
 /**
- * 選手ごとの在コート区間（reconstructOnCourt()が返すOnCourtInterval[]。ownPts/oppPts/
- * ownPoss/oppPossを保持済み）を合算し、個人単位のOFFRTG/DEFRTG/NETRTG/PACEを算出する
- * （NBA.comの「この選手が出場中のチームのレーティング」と同じ考え方）。
+ * 選手ごとの在コート区間（reconstructOnCourt()が返すOnCourtInterval[]。ownPoss/oppPossを
+ * 保持済み）を合算し、個人単位のPACEを算出する（NBA.comの「この選手が出場中のチームの
+ * ペース」と同じ考え方）。個人ORtg/DRtg/NETRTGはDean Oliver方式のボックススコアのみの式
+ * （shared/formulas.tsのindividualOffRtg/individualDefRtg）に置き換え済みのため、
+ * ここでは扱わない。
  *
  * PACEはteam-levelの`pace()`（shared/formulas.ts）をそのまま流用しない: `pace()`の第2引数は
  * 「5人分の合計プレイタイム」（内部で/5して実経過時間に戻す）という前提だが、ここでの
@@ -592,11 +585,9 @@ export interface PlayerOnCourtRatings {
  * 5倍に水増しされるため、ここでは同じ40分換算の考え方を直接計算する
  */
 export function computeOnCourtRatings(intervals: OnCourtInterval[]): Record<string, PlayerOnCourtRatings> {
-  const totals: Record<string, { ownPts: number; oppPts: number; ownPoss: number; oppPoss: number; onCourtSec: number }> = {};
+  const totals: Record<string, { ownPoss: number; oppPoss: number; onCourtSec: number }> = {};
   for (const iv of intervals) {
-    const acc = totals[iv.playerId] ?? { ownPts: 0, oppPts: 0, ownPoss: 0, oppPoss: 0, onCourtSec: 0 };
-    acc.ownPts += iv.ownPts;
-    acc.oppPts += iv.oppPts;
+    const acc = totals[iv.playerId] ?? { ownPoss: 0, oppPoss: 0, onCourtSec: 0 };
     acc.ownPoss += iv.ownPoss;
     acc.oppPoss += iv.oppPoss;
     acc.onCourtSec += iv.endSec - iv.startSec;
@@ -605,13 +596,8 @@ export function computeOnCourtRatings(intervals: OnCourtInterval[]): Record<stri
 
   const result: Record<string, PlayerOnCourtRatings> = {};
   for (const [playerId, acc] of Object.entries(totals)) {
-    const offRtg = offensiveRating(acc.ownPts, acc.ownPoss);
-    const defRtg = offensiveRating(acc.oppPts, acc.oppPoss);
     const onCourtMinutes = acc.onCourtSec / 60;
     result[playerId] = {
-      offRtg,
-      defRtg,
-      netRtg: offRtg - defRtg,
       pace: safeDiv(40 * ((acc.ownPoss + acc.oppPoss) / 2), onCourtMinutes),
       onCourtSec: acc.onCourtSec,
     };

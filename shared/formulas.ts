@@ -247,3 +247,184 @@ export function uPer(
 export function finalizePer(uPerValue: number, teamPace: number, lgPace: number, lgAvgUPer: number): number {
   return uPerValue * safeDiv(lgPace, teamPace) * safeDiv(15, lgAvgUPer);
 }
+
+// ---- 個人ORtg/DRtg（Dean Oliver方式、NBA.com/Basketball-Reference流） ----
+//
+// 出典: https://www.basketball-reference.com/about/ratings.html
+// Bリーグ公式に個人単位のORtg/DRtgの定義が無いため、この一次資料の計算式をそのまま採用する
+// （簡易な独自式は使わない方針。ユーザー指示によりオンコート区間ベースの旧実装から置き換えた。
+// DESIGN.md参照）。基本ボックススコアのみで計算できるためPlayByPlaysには依存しない
+// （PACEのみ別途オンコート区間ベースのまま残す）。
+
+/**
+ * qAST（アシスト貢献の重み）の第2項の分母 (Team_FGM/Team_MP)*MP*5 - FGM は、出場時間が
+ * 極端に短い選手でたまたま0に極めて近い値になることがあり、safeDiv()（完全な0のみガード）
+ * では防げない数値不安定性がある（例: 2025-26シーズン実データで2:35出場・FGM=2の選手が
+ * PProd=-1551という非現実的な値になったケースを検証で発見）。Basketball-Referenceの式自体に
+ * 内在する既知の弱点で、この項の分母が0近傍になるリスクは出場時間が短いほど高いことを
+ * 実データ（2025-26シーズン全試合）で確認した（4分未満で最大|PProd|が55.6〜1551.2と暴れるのに
+ * 対し、4分以上では39.3以下に収まる）。ユーザー承認の上、この閾値未満はORtg/DRtg/NetRtgとも
+ * 「算出不能」（undefined）として扱う
+ */
+const MIN_MINUTES_FOR_INDIVIDUAL_RATING = 4;
+
+/** 個人・チーム・相手チームいずれも同じ形の基本ボックススコア入力（分＝MPは小数分） */
+export interface OliverBoxStats {
+  min: number;
+  fgm: number;
+  fga: number;
+  fg3m: number;
+  ftm: number;
+  fta: number;
+  pts: number;
+  ast: number;
+  oreb: number;
+  dreb: number;
+  tov: number;
+  stl: number;
+  blk: number;
+  pf: number;
+}
+
+interface OliverTeamContext {
+  teamScoringPoss: number;
+  teamOrbPct: number;
+  teamPlayPct: number;
+  teamOrbWeight: number;
+}
+
+function oliverTeamContext(team: OliverBoxStats, opponent: OliverBoxStats): OliverTeamContext {
+  const teamScoringPoss = team.fgm + (1 - (1 - safeDiv(team.ftm, team.fta)) ** 2) * team.fta * 0.4;
+  const teamOrbPct = safeDiv(team.oreb, team.oreb + opponent.dreb);
+  const teamPlayPct = safeDiv(teamScoringPoss, team.fga + team.fta * 0.4 + team.tov);
+  const teamOrbWeight = safeDiv(
+    (1 - teamOrbPct) * teamPlayPct,
+    (1 - teamOrbPct) * teamPlayPct + teamOrbPct * (1 - teamPlayPct),
+  );
+  return { teamScoringPoss, teamOrbPct, teamPlayPct, teamOrbWeight };
+}
+
+interface OliverOffenseBreakdown {
+  /** PProd（個人の得点貢献推定値）。検証用に単独でも公開する（individualPointsProduced参照） */
+  pprod: number;
+  /** TotPoss（個人の推定得点機会数）。ORtgの分母 */
+  totPoss: number;
+}
+
+/**
+ * 個人ORtgの内部計算。分母が0になりうる箇所（FGA=0・FTA=0・Team_FGA=Player_FGA等）は
+ * すべてsafeDiv()でガードする（0を返す＝その項の寄与を0にする）。出場時間0の場合はundefinedを返す
+ */
+function oliverOffenseBreakdown(
+  player: OliverBoxStats,
+  team: OliverBoxStats,
+  opponent: OliverBoxStats,
+): OliverOffenseBreakdown | undefined {
+  if (player.min < MIN_MINUTES_FOR_INDIVIDUAL_RATING) return undefined;
+  const { teamScoringPoss, teamOrbPct, teamPlayPct, teamOrbWeight } = oliverTeamContext(team, opponent);
+
+  const rawQAst =
+    safeDiv(player.min, team.min / 5) * (1.14 * safeDiv(team.ast - player.ast, team.fgm)) +
+    safeDiv(
+      safeDiv(team.ast, team.min) * player.min * 5 - player.ast,
+      safeDiv(team.fgm, team.min) * player.min * 5 - player.fgm,
+    ) *
+      (1 - safeDiv(player.min, team.min / 5));
+  // qAstの第2項の分母は、出場時間がMIN_MINUTES_FOR_INDIVIDUAL_RATING以上でもたまたま0近傍に
+  // なることがあり（実データで4分・5分超の選手でもPProdが数百〜千規模に暴走するケースを検証で
+  // 発見）、safeDiv()は完全な0のみガードするため防げない。qAstは本来「アシストされた割合」を
+  // 表す値で概ね0〜1.2程度に収まる（2025-26シーズン実データ、出場10分以上の選手13,631人分で
+  // p1=0.32・p99=1.17・最大3.13）ため、この範囲を大きく外れる値は分母近傍0による暴走とみなし
+  // クランプする（ユーザー承認済み: 出場時間ガードに加えた追加の安全策。DESIGN.md参照）
+  const qAst = Math.max(-0.5, Math.min(2, rawQAst));
+
+  const fgPart = player.fgm * (1 - 0.5 * safeDiv(player.pts - player.ftm, 2 * player.fga) * qAst);
+  const astPart =
+    0.5 * safeDiv(team.pts - team.ftm - (player.pts - player.ftm), 2 * (team.fga - player.fga)) * player.ast;
+  const ftPart = (1 - (1 - safeDiv(player.ftm, player.fta)) ** 2) * 0.4 * player.fta;
+  const orbPart = player.oreb * teamOrbWeight * teamPlayPct;
+
+  const orbAdjust = safeDiv(team.oreb, teamScoringPoss) * teamOrbWeight * teamPlayPct;
+  const scPoss = (fgPart + astPart + ftPart) * (1 - orbAdjust) + orbPart;
+
+  const fgxPoss = (player.fga - player.fgm) * (1 - 1.07 * teamOrbPct);
+  const ftxPoss = (1 - safeDiv(player.ftm, player.fta)) ** 2 * 0.4 * player.fta;
+  const totPoss = scPoss + fgxPoss + ftxPoss + player.tov;
+
+  const pprodFgPart =
+    2 * (player.fgm + 0.5 * player.fg3m) * (1 - 0.5 * safeDiv(player.pts - player.ftm, 2 * player.fga) * qAst);
+  const pprodAstPart =
+    2 *
+    safeDiv(team.fgm - player.fgm + 0.5 * (team.fg3m - player.fg3m), team.fgm - player.fgm) *
+    0.5 *
+    safeDiv(team.pts - team.ftm - (player.pts - player.ftm), 2 * (team.fga - player.fga)) *
+    player.ast;
+  const pprodOrbPart = player.oreb * teamOrbWeight * teamPlayPct * safeDiv(team.pts, teamScoringPoss);
+  const pprod = (pprodFgPart + pprodAstPart + player.ftm) * (1 - orbAdjust) + pprodOrbPart;
+
+  return { pprod, totPoss };
+}
+
+/**
+ * 個人ORtg = 100 * PProd / TotPoss（Dean Oliver方式）。TotPoss（推定得点機会数）が0以下、
+ * または出場時間0の場合は「算出不能」としてundefinedを返す（0点ではなく非表示にするため。
+ * 呼び出し側で「-」表示にする）
+ */
+export function individualOffRtg(
+  player: OliverBoxStats,
+  team: OliverBoxStats,
+  opponent: OliverBoxStats,
+): number | undefined {
+  const breakdown = oliverOffenseBreakdown(player, team, opponent);
+  if (!breakdown || breakdown.totPoss <= 0) return undefined;
+  return 100 * (breakdown.pprod / breakdown.totPoss);
+}
+
+/**
+ * PProd（個人の得点貢献推定値、Dean Oliver方式）。1試合の全選手分を合算すると、そのチームの
+ * 実際の得点（PTS）に近い値になるはずという設計上の性質があり、この式の妥当性を間接検証する
+ * ために使う（scripts/validate-oliver-ratings.ts参照）。出場時間0の場合はundefinedを返す
+ */
+export function individualPointsProduced(
+  player: OliverBoxStats,
+  team: OliverBoxStats,
+  opponent: OliverBoxStats,
+): number | undefined {
+  return oliverOffenseBreakdown(player, team, opponent)?.pprod;
+}
+
+/**
+ * 個人DRtg（Dean Oliver方式）。teamPossessionsは既存のPOSS推定値（estimatedPossessions()、
+ * 自チーム視点の推定値）をそのまま渡す。出場時間0の場合はundefinedを返す
+ */
+export function individualDefRtg(
+  player: OliverBoxStats,
+  team: OliverBoxStats,
+  opponent: OliverBoxStats,
+  teamPossessions: number,
+): number | undefined {
+  // DRtg式自体にはORtgのqASTのような分母近傍0の不安定性は無いが、ORtgと同じ基準で
+  // 出場時間の短い選手を一律「算出不能」にする（ユーザー承認済み。DESIGN.md参照）
+  if (player.min < MIN_MINUTES_FOR_INDIVIDUAL_RATING) return undefined;
+
+  const dorPct = safeDiv(opponent.oreb, opponent.oreb + team.dreb);
+  const dfgPct = safeDiv(opponent.fgm, opponent.fga);
+  const fmWeight = safeDiv(dfgPct * (1 - dorPct), dfgPct * (1 - dorPct) + (1 - dfgPct) * dorPct);
+
+  const stops1 = player.stl + player.blk * fmWeight * (1 - 1.07 * dorPct) + player.dreb * (1 - fmWeight);
+  const stops2 =
+    (safeDiv(opponent.fga - opponent.fgm - team.blk, team.min) * fmWeight * (1 - 1.07 * dorPct) +
+      safeDiv(opponent.tov - team.stl, team.min)) *
+      player.min +
+    safeDiv(player.pf, team.pf) * 0.4 * opponent.fta * (1 - safeDiv(opponent.ftm, opponent.fta)) ** 2;
+  const stops = stops1 + stops2;
+
+  const teamDefensiveRating = 100 * safeDiv(opponent.pts, teamPossessions);
+  const dPtsPerScPoss = safeDiv(
+    opponent.pts,
+    opponent.fgm + (1 - (1 - safeDiv(opponent.ftm, opponent.fta)) ** 2) * opponent.fta * 0.4,
+  );
+  const stopPct = safeDiv(stops * opponent.min, teamPossessions * player.min);
+
+  return teamDefensiveRating + 0.2 * (100 * dPtsPerScPoss * (1 - stopPct) - teamDefensiveRating);
+}

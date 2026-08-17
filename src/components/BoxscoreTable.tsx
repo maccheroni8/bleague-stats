@@ -12,6 +12,7 @@ import {
   buildPlayerBoxscores,
   buildTeamCoachesCounts,
   buildTeamTotalCounts,
+  computeIndividualRatings,
   computeTeamRatings,
   formatAstToRatio,
   formatMinutesFromSeconds,
@@ -175,10 +176,10 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
         ? ctx.ratings
           ? formatDecimal(ctx.ratings.offRtg, 1)
           : "-"
-        : ctx.isPlayerRow && c.onCourtOffRtg !== undefined
-          ? formatDecimal(c.onCourtOffRtg, 1)
+        : ctx.isPlayerRow && c.offRtg !== undefined
+          ? formatDecimal(c.offRtg, 1)
           : "-",
-    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.offRtg : ctx.isPlayerRow ? c.onCourtOffRtg : undefined),
+    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.offRtg : ctx.isPlayerRow ? c.offRtg : undefined),
   },
   {
     key: "drtg",
@@ -188,10 +189,10 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
         ? ctx.ratings
           ? formatDecimal(ctx.ratings.defRtg, 1)
           : "-"
-        : ctx.isPlayerRow && c.onCourtDefRtg !== undefined
-          ? formatDecimal(c.onCourtDefRtg, 1)
+        : ctx.isPlayerRow && c.defRtg !== undefined
+          ? formatDecimal(c.defRtg, 1)
           : "-",
-    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.defRtg : ctx.isPlayerRow ? c.onCourtDefRtg : undefined),
+    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.defRtg : ctx.isPlayerRow ? c.defRtg : undefined),
     higherIsBetter: false,
   },
   {
@@ -202,10 +203,10 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
         ? ctx.ratings
           ? formatSigned(ctx.ratings.netRtg, 1)
           : "-"
-        : ctx.isPlayerRow && c.onCourtNetRtg !== undefined
-          ? formatSigned(c.onCourtNetRtg, 1)
+        : ctx.isPlayerRow && c.netRtg !== undefined
+          ? formatSigned(c.netRtg, 1)
           : "-",
-    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.netRtg : ctx.isPlayerRow ? c.onCourtNetRtg : undefined),
+    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.netRtg : ctx.isPlayerRow ? c.netRtg : undefined),
   },
   plusMinusCol,
 ];
@@ -455,30 +456,23 @@ function BoxscoreTeamPanel({
   onCourtRatings: Record<string, PlayerOnCourtRatings>;
   accentColor?: string;
 }) {
-  // 個人OFFRTG/DEFRTG/NETRTG/PACEは試合全体（periods===null）選択時のみマージする。
-  // Q別・前後半選択時にオンコートレーティングだけ「試合全体固定」の値が出ると誤解を招くため、
-  // その場合は他のペイント内外2P等と同じくonCourtOffRtg等をundefinedのままにし「-」表示にする
-  const showOnCourtRatings = periodOption === undefined || periodOption.periods === null;
-  const players = buildPlayerBoxscores(ownRows, periodOption, playByPlays).map((p) => {
-    if (!showOnCourtRatings) return p;
-    const r = onCourtRatings[p.playerId];
-    if (!r) return p;
-    return {
-      ...p,
-      counts: {
-        ...p.counts,
-        onCourtOffRtg: r.offRtg,
-        onCourtDefRtg: r.defRtg,
-        onCourtNetRtg: r.netRtg,
-        onCourtPace: r.pace,
-      },
-    };
-  });
   const teamTotal = buildTeamTotalCounts(ownRows, periodOption);
   const oppTeamTotal = buildTeamTotalCounts(oppRows, periodOption);
   const coaches = buildTeamCoachesCounts(ownRows, periodOption);
   const playType = buildPlayTypeCounts(summaries, side, periodOption);
   const ratings = computeTeamRatings(teamTotal, oppTeamTotal);
+
+  // 個人PACEは試合全体（periods===null）選択時のみマージする。PlayByPlaysのポゼッション区切り
+  // 検出（shared/onCourt.ts）に依存するため、Q別・前後半選択時に「試合全体固定」の値が出ると
+  // 誤解を招く（他のペイント内外2P等と同じくundefinedのままにし「-」表示にする）。
+  // 一方、個人ORtg/DRtg/NetRtg（Dean Oliver方式）は選択中の期間範囲のBoxscoreCountsのみで
+  // 計算できるため、期間範囲を問わず常にマージする
+  const showOnCourtPace = periodOption === undefined || periodOption.periods === null;
+  const players = buildPlayerBoxscores(ownRows, periodOption, playByPlays).map((p) => {
+    const { offRtg, defRtg, netRtg } = computeIndividualRatings(p.counts, teamTotal, oppTeamTotal, ratings.poss);
+    const onCourtPace = showOnCourtPace ? onCourtRatings[p.playerId]?.pace : undefined;
+    return { ...p, counts: { ...p.counts, offRtg, defRtg, netRtg, onCourtPace } };
+  });
 
   const starters = players.filter((p) => p.startingFlg === 1);
   const bench = players.filter((p) => p.startingFlg !== 1);

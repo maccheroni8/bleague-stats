@@ -7,7 +7,15 @@
 import type { BoxscoreRow, PlayByPlayEvent, SummaryRow } from "../../shared/types";
 import type { PeriodRangeOption } from "./periodRange";
 import { periodInRange } from "./periodRange";
-import { estimatedPossessions, offensiveRating, pace, safeDiv } from "../../shared/formulas";
+import {
+  estimatedPossessions,
+  individualDefRtg,
+  individualOffRtg,
+  offensiveRating,
+  pace,
+  safeDiv,
+  type OliverBoxStats,
+} from "../../shared/formulas";
 import { computePointsOffTurnovers } from "../../shared/pointsOffTurnovers";
 import { buildShotEvents, paintSplitForShot, type ShotEvent } from "./shotChart";
 
@@ -57,14 +65,19 @@ export interface BoxscoreCounts {
   nonPaint2m: number;
   nonPaint2a: number;
   /**
-   * 個人単位の「在コート中のチームレーティング」（NBA.com流、shared/onCourt.ts参照）。
-   * BoxscoreTeamPanel側でbuildPlayerBoxscores()の呼び出し後に事後的にマージする
-   * （試合全体選択時・coverage==="full"のシーズンのみ。それ以外はundefinedのまま＝
-   * 呼び出し側で「-」表示にする）
+   * 個人ORtg/DRtg/NetRtg（Dean Oliver方式、shared/formulas.tsのindividualOffRtg/
+   * individualDefRtg参照）。BoxscoreTeamPanel側でbuildPlayerBoxscores()の呼び出し後に
+   * 事後的にマージする。基本ボックススコアのみで計算できるため全シーズンで算出可能だが、
+   * 分母が0になる（出場時間0・シュート試投0等）場合はundefinedのまま＝呼び出し側で「-」表示にする
    */
-  onCourtOffRtg?: number;
-  onCourtDefRtg?: number;
-  onCourtNetRtg?: number;
+  offRtg?: number;
+  defRtg?: number;
+  netRtg?: number;
+  /**
+   * 個人PACE（在コート区間ベース、shared/onCourt.ts参照）。ORtg/DRtgとは異なりPlayByPlaysの
+   * ポゼッション区切り検出に依存するため、coverage==="full"のシーズン・試合全体選択時のみ
+   * 算出する。それ以外はundefinedのまま＝呼び出し側で「-」表示にする
+   */
   onCourtPace?: number;
 }
 
@@ -364,6 +377,55 @@ export function computeTeamRatings(own: BoxscoreCounts, opp: BoxscoreCounts): Te
     defRtg,
     netRtg: offRtg - defRtg,
     pace: pace(poss, own.minSec / 60),
+  };
+}
+
+/** BoxscoreCountsをDean Oliver方式の個人/チームORtg/DRtg計算式（shared/formulas.ts）の入力形に変換する */
+function toOliverBox(c: BoxscoreCounts): OliverBoxStats {
+  return {
+    min: c.minSec / 60,
+    fgm: c.pt2m + c.pt3m,
+    fga: c.pt2a + c.pt3a,
+    fg3m: c.pt3m,
+    ftm: c.ftm,
+    fta: c.fta,
+    pts: c.pts,
+    ast: c.ast,
+    oreb: c.oreb,
+    dreb: c.dreb,
+    tov: c.tov,
+    stl: c.stl,
+    blk: c.blk,
+    pf: c.foul,
+  };
+}
+
+export interface IndividualRatings {
+  offRtg?: number;
+  defRtg?: number;
+  netRtg?: number;
+}
+
+/**
+ * 個人ORtg/DRtg/NetRtg（Dean Oliver方式）。teamPossessionsには既存のPOSS推定値
+ * （computeTeamRatings()のratings.poss）をそのまま渡す。基本ボックススコアのみで計算できる
+ * ため選択中の期間範囲・シーズンを問わず動作する（PlayByPlaysには依存しない）
+ */
+export function computeIndividualRatings(
+  player: BoxscoreCounts,
+  team: BoxscoreCounts,
+  opponent: BoxscoreCounts,
+  teamPossessions: number,
+): IndividualRatings {
+  const playerBox = toOliverBox(player);
+  const teamBox = toOliverBox(team);
+  const opponentBox = toOliverBox(opponent);
+  const offRtg = individualOffRtg(playerBox, teamBox, opponentBox);
+  const defRtg = individualDefRtg(playerBox, teamBox, opponentBox, teamPossessions);
+  return {
+    offRtg,
+    defRtg,
+    netRtg: offRtg !== undefined && defRtg !== undefined ? offRtg - defRtg : undefined,
   };
 }
 
