@@ -56,6 +56,16 @@ export interface BoxscoreCounts {
   paint2a: number;
   nonPaint2m: number;
   nonPaint2a: number;
+  /**
+   * 個人単位の「在コート中のチームレーティング」（NBA.com流、shared/onCourt.ts参照）。
+   * BoxscoreTeamPanel側でbuildPlayerBoxscores()の呼び出し後に事後的にマージする
+   * （試合全体選択時・coverage==="full"のシーズンのみ。それ以外はundefinedのまま＝
+   * 呼び出し側で「-」表示にする）
+   */
+  onCourtOffRtg?: number;
+  onCourtDefRtg?: number;
+  onCourtNetRtg?: number;
+  onCourtPace?: number;
 }
 
 const ZERO_COUNTS: BoxscoreCounts = {

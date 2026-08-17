@@ -4,6 +4,7 @@ import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
 import { efgPct, safeDiv, tsPct, usagePct } from "../../shared/formulas";
+import type { PlayerOnCourtRatings } from "../../shared/onCourt";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow } from "../../shared/types";
 import {
   astToTovRatio,
@@ -153,10 +154,59 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
     value: (c) => tsPct(c.pts, c.pt2a + c.pt3a, c.fta),
   },
   { key: "poss", label: "POSS", format: (_c, ctx) => (ctx.ratings ? formatDecimal(ctx.ratings.poss, 1) : "-") },
-  { key: "pace", label: "PACE", format: (_c, ctx) => (ctx.ratings ? formatDecimal(ctx.ratings.pace, 1) : "-") },
-  { key: "ortg", label: "ORtg", format: (_c, ctx) => (ctx.ratings ? formatDecimal(ctx.ratings.offRtg, 1) : "-") },
-  { key: "drtg", label: "DRtg", format: (_c, ctx) => (ctx.ratings ? formatDecimal(ctx.ratings.defRtg, 1) : "-") },
-  { key: "netrtg", label: "NetRtg", format: (_c, ctx) => (ctx.ratings ? formatSigned(ctx.ratings.netRtg, 1) : "-") },
+  {
+    key: "pace",
+    label: "PACE",
+    format: (c, ctx) =>
+      ctx.isTeamTotalRow
+        ? ctx.ratings
+          ? formatDecimal(ctx.ratings.pace, 1)
+          : "-"
+        : ctx.isPlayerRow && c.onCourtPace !== undefined
+          ? formatDecimal(c.onCourtPace, 1)
+          : "-",
+    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.pace : ctx.isPlayerRow ? c.onCourtPace : undefined),
+  },
+  {
+    key: "ortg",
+    label: "ORtg",
+    format: (c, ctx) =>
+      ctx.isTeamTotalRow
+        ? ctx.ratings
+          ? formatDecimal(ctx.ratings.offRtg, 1)
+          : "-"
+        : ctx.isPlayerRow && c.onCourtOffRtg !== undefined
+          ? formatDecimal(c.onCourtOffRtg, 1)
+          : "-",
+    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.offRtg : ctx.isPlayerRow ? c.onCourtOffRtg : undefined),
+  },
+  {
+    key: "drtg",
+    label: "DRtg",
+    format: (c, ctx) =>
+      ctx.isTeamTotalRow
+        ? ctx.ratings
+          ? formatDecimal(ctx.ratings.defRtg, 1)
+          : "-"
+        : ctx.isPlayerRow && c.onCourtDefRtg !== undefined
+          ? formatDecimal(c.onCourtDefRtg, 1)
+          : "-",
+    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.defRtg : ctx.isPlayerRow ? c.onCourtDefRtg : undefined),
+    higherIsBetter: false,
+  },
+  {
+    key: "netrtg",
+    label: "NetRtg",
+    format: (c, ctx) =>
+      ctx.isTeamTotalRow
+        ? ctx.ratings
+          ? formatSigned(ctx.ratings.netRtg, 1)
+          : "-"
+        : ctx.isPlayerRow && c.onCourtNetRtg !== undefined
+          ? formatSigned(c.onCourtNetRtg, 1)
+          : "-",
+    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.netRtg : ctx.isPlayerRow ? c.onCourtNetRtg : undefined),
+  },
   plusMinusCol,
 ];
 
@@ -283,6 +333,8 @@ interface BoxscoreTableProps {
   classificationById: Map<string, PlayerSummary["classification"]>;
   /** ペイント内外2P内訳（スコアリングタブ）の元になるX/Y/AreaCDが収録されているか。2022-23シーズン以降のみ */
   shotChartSupported: boolean;
+  /** 個人単位の在コート中OFFRTG/DEFRTG/NETRTG/PACE（shared/onCourt.ts）。shotChartSupportedがfalseなら空 */
+  onCourtRatings: Record<string, PlayerOnCourtRatings>;
   homeColor?: string;
   awayColor?: string;
 }
@@ -297,6 +349,7 @@ export function BoxscoreTable({
   periods,
   classificationById,
   shotChartSupported,
+  onCourtRatings,
   homeColor,
   awayColor,
 }: BoxscoreTableProps) {
@@ -330,6 +383,7 @@ export function BoxscoreTable({
         columns={columns}
         classificationById={classificationById}
         shotChartSupported={shotChartSupported}
+        onCourtRatings={onCourtRatings}
         accentColor={homeColor}
       />
       <BoxscoreTeamPanel
@@ -343,6 +397,7 @@ export function BoxscoreTable({
         columns={columns}
         classificationById={classificationById}
         shotChartSupported={shotChartSupported}
+        onCourtRatings={onCourtRatings}
         accentColor={awayColor}
       />
     </>
@@ -384,6 +439,7 @@ function BoxscoreTeamPanel({
   columns,
   classificationById,
   shotChartSupported,
+  onCourtRatings,
   accentColor,
 }: {
   teamName: string;
@@ -396,9 +452,28 @@ function BoxscoreTeamPanel({
   columns: BoxscoreColumn[];
   classificationById: Map<string, PlayerSummary["classification"]>;
   shotChartSupported: boolean;
+  onCourtRatings: Record<string, PlayerOnCourtRatings>;
   accentColor?: string;
 }) {
-  const players = buildPlayerBoxscores(ownRows, periodOption, playByPlays);
+  // 個人OFFRTG/DEFRTG/NETRTG/PACEは試合全体（periods===null）選択時のみマージする。
+  // Q別・前後半選択時にオンコートレーティングだけ「試合全体固定」の値が出ると誤解を招くため、
+  // その場合は他のペイント内外2P等と同じくonCourtOffRtg等をundefinedのままにし「-」表示にする
+  const showOnCourtRatings = periodOption === undefined || periodOption.periods === null;
+  const players = buildPlayerBoxscores(ownRows, periodOption, playByPlays).map((p) => {
+    if (!showOnCourtRatings) return p;
+    const r = onCourtRatings[p.playerId];
+    if (!r) return p;
+    return {
+      ...p,
+      counts: {
+        ...p.counts,
+        onCourtOffRtg: r.offRtg,
+        onCourtDefRtg: r.defRtg,
+        onCourtNetRtg: r.netRtg,
+        onCourtPace: r.pace,
+      },
+    };
+  });
   const teamTotal = buildTeamTotalCounts(ownRows, periodOption);
   const oppTeamTotal = buildTeamTotalCounts(oppRows, periodOption);
   const coaches = buildTeamCoachesCounts(ownRows, periodOption);

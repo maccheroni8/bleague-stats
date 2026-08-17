@@ -17,7 +17,7 @@ import { BoxscoreTable } from "../components/BoxscoreTable";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
 import { buildShotEvents } from "../lib/shotChart";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
-import { reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
+import { computeOnCourtRatings, reconstructOnCourt, substitutionModelForSeason, type PlayerOnCourtRatings } from "../../shared/onCourt";
 import { playTimeToSeconds } from "../lib/boxscoreAggregate";
 
 function periodLabel(index: number, total: number): string {
@@ -212,6 +212,10 @@ export function GameDetailPage({ season }: { season: string }) {
   let homeBench: SubstitutionRow[] = [];
   let awayStarters: SubstitutionRow[] = [];
   let awayBench: SubstitutionRow[] = [];
+  // 個人OFFRTG/DEFRTG/NETRTG/PACE（在コート中のチームレーティング）。検証手段が無く精度を
+  // 保証できないため、coverage==="full"（ショットチャートと同じ2022-23シーズン以降）のみ算出する
+  // （DESIGN.md 17章参照）
+  let onCourtRatings: Record<string, PlayerOnCourtRatings> = {};
 
   if (pbpSupported) {
     const onCourt = reconstructOnCourt(
@@ -223,6 +227,9 @@ export function GameDetailPage({ season }: { season: string }) {
       periods,
       substitutionModelForSeason(game.season),
     );
+    if (shotChartSupported) {
+      onCourtRatings = computeOnCourtRatings(onCourt.intervals);
+    }
     const intervalsByPlayer = new Map<string, { startSec: number; endSec: number }[]>();
     for (const iv of onCourt.intervals) {
       const list = intervalsByPlayer.get(iv.playerId) ?? [];
@@ -441,6 +448,7 @@ export function GameDetailPage({ season }: { season: string }) {
         periods={periods}
         classificationById={classificationById}
         shotChartSupported={shotChartSupported}
+        onCourtRatings={onCourtRatings}
         homeColor={homeColor}
         awayColor={awayColor}
       />
