@@ -698,7 +698,7 @@ function TeamScheduleRowView({ row }: { row: TeamScheduleRow }) {
   const linkTo = row.status === "upcoming" ? undefined : `/games/${row.scheduleKey}`;
   return (
     <tr className={`schedule-row status-${row.status}`}>
-      <td className="align-left">{linkTo ? <RouterLink to={linkTo} className="cell-link">{row.date}</RouterLink> : row.date}</td>
+      <td className="align-left">{linkTo ? <Link to={linkTo} className="cell-link">{row.date}</Link> : row.date}</td>
       <td className="align-left">
         <MaybeLink to={linkTo}>
           {row.isHome ? "vs" : "@"} {row.opponentName}
@@ -723,9 +723,9 @@ function TeamScheduleRowView({ row }: { row: TeamScheduleRow }) {
 
 function MaybeLink({ to, children }: { to?: string; children: ReactNode }) {
   return to ? (
-    <RouterLink to={to} className="cell-link">
+    <Link to={to} className="cell-link">
       {children}
-    </RouterLink>
+    </Link>
   ) : (
     <>{children}</>
   );
