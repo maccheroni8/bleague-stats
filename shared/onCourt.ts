@@ -23,6 +23,7 @@
 //     PlayerID1（退場選手）・PlayerID2（入場選手）のペアとして記録される
 
 import type { BoxscoreRow, PlayByPlayEvent } from "./types.ts";
+import { offensiveRating, safeDiv } from "./formulas.ts";
 
 const REGULAR_PERIOD_SECONDS = 10 * 60;
 const OT_PERIOD_SECONDS = 5 * 60;
@@ -31,6 +32,14 @@ const SUB_IN_CODE = 86;
 const SUB_OUT_CODE = 87;
 const LEGACY_SUB_SWAP_CODE = 89;
 const POINTS_BY_ACTION_CD1: Record<number, number> = { 1: 3, 3: 2, 4: 2, 7: 1, 44: 2 };
+
+// ポゼッション区切り検出用のActionCD1コード（DESIGN.md 14-3章で確定済み。B.PREMIER/B.ONE共通）。
+// 2P/3Pの成功（1,3,4）、FT成功/失敗（7,8）、DREB（個人9・チーム18）、TOV（個人13・チーム17）
+const FG_MAKE_CODES = new Set([1, 3, 4]);
+const FT_MAKE_CODE = 7;
+const FT_MISS_CODE = 8;
+const DREB_CODES = new Set([9, 18]);
+const TOV_CODES = new Set([13, 17]);
 
 export type SubstitutionModel = "modern" | "legacy";
 
@@ -73,6 +82,12 @@ export interface OnCourtInterval {
   teamId: string;
   startSec: number;
   endSec: number;
+  /** この区間中の自チーム得点・相手チーム得点（個人OFFRTG/DEFRTG算出用） */
+  ownPts: number;
+  oppPts: number;
+  /** この区間中の自チーム・相手チームの新ポゼッション開始回数（buildPossessionStartEvents参照） */
+  ownPoss: number;
+  oppPoss: number;
 }
 
 export interface OnCourtWarning {
@@ -264,6 +279,94 @@ function buildRelevantEvents(
   return events;
 }
 
+export interface PossessionStartEvent {
+  /** このポゼッションを開始した（＝ボールを得た）チーム */
+  teamId: string;
+  elapsedSec: number;
+}
+
+/**
+ * PlayByPlaysから「ポゼッションが切り替わった瞬間」を検出する（個人OFFRTG/DEFRTG/PACEの
+ * 算出基盤。DESIGN.md参照）。
+ *
+ * 得点イベントの発生だけをポゼッションの区切りとして使うと、得点に至らなかった攻撃回
+ * （ミス＋守備リバウンド、ターンオーバー）を一切数えないため、既存のPOSS推定式（Oliver方式、
+ * `estimatedPossessions()`）が返す値（1試合あたり両チーム計150前後）の半分以下しか
+ * カウントできず、明らかに矛盾する。そのため以下の複数シグナルを組み合わせて「ボール保持
+ * チームの切り替わり」を検出する（DREB/TOVは単独イベントで確定、FG/FTは「同一トリップの
+ * 途中か最後か」を次イベントで確認する必要がある）:
+ *
+ * - ディフェンスリバウンド（DREB、個人9・チーム18）: リバウンドしたチームの新ポゼッション開始
+ *   （オフェンスリバウンド＝個人10・チーム19は同一ポゼッションの継続なのでトリガーにしない）
+ * - ターンオーバー（TOV、個人13・チーム17）: 相手チームの新ポゼッション開始
+ * - FGシュート成功（1,3,4）・FT成功（7）: 直後に同一選手・同一チームのFT試投イベントが
+ *   続く場合（アンドワン継続中・複数本FTの1本目等）は同一トリップの途中とみなし区切らない。
+ *   続かない場合はそのトリップの最後の得点とみなし、相手チームの新ポゼッション開始
+ * - FT失敗（8）単体ではトリガーにしない。トリップ最後のライブなミスなら直後に続くリバウンド
+ *   イベント（DREB/OREBいずれか）が上のDREB分岐で処理され、トリップ途中のミス（例:
+ *   2本のうち1本目）はリバウンドイベント自体が発生しないため何もしないままで正しい
+ *   （ポゼッションは継続中のため）
+ *
+ * 既知の限界（低頻度のため許容し、報告のみに留める）:
+ * - テクニカルファウルのFT（コーチ/ベンチ/選手のテクニカル。ActionCD1=20/21/24）は、
+ *   FIBAルール上ボールを保持していたチームがそのまま継続するが、本ロジックは他のFTトリップと
+ *   同じ扱い（成功なら相手ボールに切り替え）をしてしまう。低頻度のため個別対応はしていない
+ * - 試合開始（Q1オープニングの最初のポゼッション）・各ピリオド開始時の最初のポゼッションは、
+ *   その開始を示す明示的なトリガーイベントが無いため区切りとしてカウントされない
+ *   （1ピリオドあたり最大1回、両チーム合わせて1試合あたり4〜5回程度の過少カウント）
+ */
+function buildPossessionStartEvents(
+  playByPlays: PlayByPlayEvent[],
+  homeTeamId: string,
+  awayTeamId: string,
+): PossessionStartEvent[] {
+  const opponentOf = (teamId: string): string => (teamId === homeTeamId ? awayTeamId : homeTeamId);
+
+  const relevant = playByPlays
+    .filter(
+      (ev) =>
+        ev.TeamID != null &&
+        (FG_MAKE_CODES.has(ev.ActionCD1) ||
+          ev.ActionCD1 === FT_MAKE_CODE ||
+          ev.ActionCD1 === FT_MISS_CODE ||
+          DREB_CODES.has(ev.ActionCD1) ||
+          TOV_CODES.has(ev.ActionCD1)),
+    )
+    .map((ev) => ({ ev, elapsedSec: elapsedSeconds(ev.Period, ev.RestTime) }))
+    // buildRelevantEvents()と同じ理由でstable sortを使い、同一秒内は元の配列の並び順を信頼する
+    .sort((a, b) => a.elapsedSec - b.elapsedSec);
+
+  const starts: PossessionStartEvent[] = [];
+  for (let i = 0; i < relevant.length; i += 1) {
+    const { ev, elapsedSec } = relevant[i]!;
+    const teamId = ev.TeamID!;
+
+    if (DREB_CODES.has(ev.ActionCD1)) {
+      starts.push({ teamId, elapsedSec });
+      continue;
+    }
+    if (TOV_CODES.has(ev.ActionCD1)) {
+      starts.push({ teamId: opponentOf(teamId), elapsedSec });
+      continue;
+    }
+    if (ev.ActionCD1 === FT_MISS_CODE) {
+      continue;
+    }
+    // ここに来るのはFG成功またはFT成功。同一選手・同一チームの次のFT試投が続く場合は
+    // 同一トリップの途中とみなし、このイベントでは区切らない（次のFTイベントの判定に委ねる）
+    const next = relevant[i + 1];
+    const sameTripContinues =
+      next !== undefined &&
+      (next.ev.ActionCD1 === FT_MAKE_CODE || next.ev.ActionCD1 === FT_MISS_CODE) &&
+      next.ev.TeamID === teamId &&
+      next.ev.PlayerID1 === ev.PlayerID1;
+    if (sameTripContinues) continue;
+
+    starts.push({ teamId: opponentOf(teamId), elapsedSec });
+  }
+  return starts;
+}
+
 export function reconstructOnCourt(
   playByPlays: PlayByPlayEvent[],
   homeBoxscores: BoxscoreRow[],
@@ -346,7 +449,7 @@ export function reconstructOnCourt(
       onCourt[teamId]!.delete(s.playerId);
       const start = openStart[teamId]!.get(s.playerId);
       if (start !== undefined) {
-        intervals.push({ playerId: s.playerId, teamId, startSec: start, endSec: t });
+        intervals.push({ playerId: s.playerId, teamId, startSec: start, endSec: t, ownPts: 0, oppPts: 0, ownPoss: 0, oppPoss: 0 });
         openStart[teamId]!.delete(s.playerId);
       }
     }
@@ -413,7 +516,7 @@ export function reconstructOnCourt(
       });
     }
     for (const [playerId, start] of openStart[teamId]!.entries()) {
-      intervals.push({ playerId, teamId, startSec: start, endSec: gameEnd });
+      intervals.push({ playerId, teamId, startSec: start, endSec: gameEnd, ownPts: 0, oppPts: 0, ownPoss: 0, oppPoss: 0 });
     }
   }
 
@@ -438,6 +541,25 @@ export function reconstructOnCourt(
     }
   }
 
+  // 個人OFFRTG/DEFRTG/PACE算出用に、各在コート区間へ自チーム/相手チームの得点・新ポゼッション
+  // 開始回数を集計する（既存の得点イベント抽出結果＝events中のkind==="score"をそのまま再利用し、
+  // ポゼッション区切りは別途buildPossessionStartEvents()で検出する）。在コート人数の判定・
+  // 個人+/-・ラインナップスティントの既存ロジックには一切影響しない、末尾の追加パスとして実装する
+  const scoreEvents = events.filter((e) => e.kind === "score");
+  const possessionStarts = buildPossessionStartEvents(playByPlays, homeTeamId, awayTeamId);
+  for (const iv of intervals) {
+    for (const se of scoreEvents) {
+      if (se.elapsedSec < iv.startSec || se.elapsedSec >= iv.endSec) continue;
+      if (se.teamId === iv.teamId) iv.ownPts += se.points;
+      else iv.oppPts += se.points;
+    }
+    for (const ps of possessionStarts) {
+      if (ps.elapsedSec < iv.startSec || ps.elapsedSec >= iv.endSec) continue;
+      if (ps.teamId === iv.teamId) iv.ownPoss += 1;
+      else iv.oppPoss += 1;
+    }
+  }
+
   return { intervals, plusMinus, lineupStints, warnings };
 }
 
@@ -448,4 +570,51 @@ export function totalOnCourtSeconds(intervals: OnCourtInterval[]): Record<string
     totals[iv.playerId] = (totals[iv.playerId] ?? 0) + (iv.endSec - iv.startSec);
   }
   return totals;
+}
+
+export interface PlayerOnCourtRatings {
+  offRtg: number;
+  defRtg: number;
+  netRtg: number;
+  pace: number;
+  onCourtSec: number;
+}
+
+/**
+ * 選手ごとの在コート区間（reconstructOnCourt()が返すOnCourtInterval[]。ownPts/oppPts/
+ * ownPoss/oppPossを保持済み）を合算し、個人単位のOFFRTG/DEFRTG/NETRTG/PACEを算出する
+ * （NBA.comの「この選手が出場中のチームのレーティング」と同じ考え方）。
+ *
+ * PACEはteam-levelの`pace()`（shared/formulas.ts）をそのまま流用しない: `pace()`の第2引数は
+ * 「5人分の合計プレイタイム」（内部で/5して実経過時間に戻す）という前提だが、ここでの
+ * `onCourtSec`は選手1人分の実際の在コート秒数そのもの（既に実経過時間）なので、/5の前提に
+ * 合わせるための変換は不要。誤って`pace()`をそのまま呼ぶと実経過時間が1/5に縮んでPACEが
+ * 5倍に水増しされるため、ここでは同じ40分換算の考え方を直接計算する
+ */
+export function computeOnCourtRatings(intervals: OnCourtInterval[]): Record<string, PlayerOnCourtRatings> {
+  const totals: Record<string, { ownPts: number; oppPts: number; ownPoss: number; oppPoss: number; onCourtSec: number }> = {};
+  for (const iv of intervals) {
+    const acc = totals[iv.playerId] ?? { ownPts: 0, oppPts: 0, ownPoss: 0, oppPoss: 0, onCourtSec: 0 };
+    acc.ownPts += iv.ownPts;
+    acc.oppPts += iv.oppPts;
+    acc.ownPoss += iv.ownPoss;
+    acc.oppPoss += iv.oppPoss;
+    acc.onCourtSec += iv.endSec - iv.startSec;
+    totals[iv.playerId] = acc;
+  }
+
+  const result: Record<string, PlayerOnCourtRatings> = {};
+  for (const [playerId, acc] of Object.entries(totals)) {
+    const offRtg = offensiveRating(acc.ownPts, acc.ownPoss);
+    const defRtg = offensiveRating(acc.oppPts, acc.oppPoss);
+    const onCourtMinutes = acc.onCourtSec / 60;
+    result[playerId] = {
+      offRtg,
+      defRtg,
+      netRtg: offRtg - defRtg,
+      pace: safeDiv(40 * ((acc.ownPoss + acc.oppPoss) / 2), onCourtMinutes),
+      onCourtSec: acc.onCourtSec,
+    };
+  }
+  return result;
 }
