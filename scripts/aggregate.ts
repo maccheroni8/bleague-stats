@@ -6,8 +6,9 @@
 //   npm run aggregate -- --season 2025-26 --category one # B.ONE（data/{season}/one/配下。DESIGN.md 14章）
 
 import path from "node:path";
+import { existsSync, readdirSync } from "node:fs";
 import { readdir } from "node:fs/promises";
-import { DATA_DIR, readAllGames, readJson, seasonDirName, writeJson } from "./lib/storage.ts";
+import { DATA_DIR, gamesDir, readAllGames, readJson, seasonDirName, writeJson } from "./lib/storage.ts";
 import {
   eff,
   efgPct,
@@ -56,14 +57,30 @@ import { isMainModule } from "./lib/isMain.ts";
 const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
 
 /**
- * data/配下に存在するシーズンディレクトリを走査してdata/seasons.jsonを再生成する。
- * どのシーズンをaggregateしても全シーズン分を書き直す（冪等）ため、専用の実行手順は不要。
+ * そのシーズンに実際の試合データ（games/配下に.json.gzが1件以上）があるか確認する。
+ * data/{season}/ディレクトリ自体はscrape-schedule.tsが開幕前から日程だけ先行収集するため
+ * シーズン開始前でも存在しうる（2026-08時点の2026-27シーズンで実際に発生）。ディレクトリの
+ * 存在有無だけでseasons.jsonに載せると、試合が1件も無い「開幕前の次シーズン」が
+ * 文字列ソートの末尾＝「最新シーズン」としてフロントエンドのデフォルト値解決
+ * （src/App.tsxのAppShell）に誤って採用されてしまう（2026-08-18に発覚した不具合）
+ */
+function seasonHasGames(season: string): boolean {
+  const dir = gamesDir(season);
+  if (!existsSync(dir)) return false;
+  return readdirSync(dir).some((f) => f.endsWith(".json.gz"));
+}
+
+/**
+ * data/配下に存在する、かつ実際の試合データがあるシーズンディレクトリを走査して
+ * data/seasons.jsonを再生成する。どのシーズンをaggregateしても全シーズン分を書き直す
+ * （冪等）ため、専用の実行手順は不要。
  */
 async function regenerateSeasonsFile(): Promise<void> {
   const entries = await readdir(DATA_DIR, { withFileTypes: true });
   const seasons = entries
     .filter((e) => e.isDirectory() && SEASON_DIR_PATTERN.test(e.name))
     .map((e) => e.name)
+    .filter((season) => seasonHasGames(season))
     .sort();
   const seasonsFile: SeasonEntry[] = seasons.map((season) => ({ season, coverage: seasonCoverage(season) }));
   await writeJson(path.join(DATA_DIR, "seasons.json"), seasonsFile);

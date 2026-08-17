@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { HashRouter, NavLink, Route, Routes, useSearchParams } from "react-router-dom";
 import { SeasonLink, SeasonNavLink } from "./components/SeasonLink";
 import { currentSeason } from "./lib/season";
@@ -35,6 +36,18 @@ function AppShell() {
   // 初めてそのシーズンのデータが集計されseasons.jsonに載った瞬間に自動でそちらへ切り替わる
   const latestSeason = seasons && seasons.length > 0 ? seasons[seasons.length - 1]!.season : null;
   const season = explicitSeason ?? latestSeason ?? currentSeason();
+
+  // ?season=が無いURL（素のルートアクセス・外部リンク・ブックマーク等）で解決したフォールバック値を
+  // URLへ書き戻す。これをしないと、SeasonLink（src/components/SeasonLink.tsx）は
+  // 「現在のURLに?season=が無ければ何も付与しない」という仕様のため、一度?season=無しの状態に
+  // 着地すると以降のSeasonLink経由の遷移もずっと?season=無しのまま連鎖してしまう
+  // （2026-08-18に発覚。seasons.jsonの末尾が誤って未開幕シーズンになっていた際、この連鎖により
+  // 実際には存在しない試合詳細URLへ辿り着きFailed to fetchになる不具合の一因になっていた）
+  useEffect(() => {
+    if (!explicitSeason && !seasonsLoading) {
+      setSearchParams({ season }, { replace: true });
+    }
+  }, [explicitSeason, seasonsLoading, season, setSearchParams]);
 
   // ?season=が無い場合は、seasons.jsonの読み込みが終わるまでデフォルトシーズンが確定しない。
   // 確定前に描画すると誤ったシーズンで一瞬フェッチしてしまうため、読み込み中は待つ
