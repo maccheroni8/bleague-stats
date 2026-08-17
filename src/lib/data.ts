@@ -89,15 +89,20 @@ export function fetchSeasons(): Promise<SeasonEntry[]> {
 // 既存の配色に自動フォールバックできる）。個々の呼び出し元でチェックする必要が無いよう、
 // 取得の時点で一度だけ済ませる。
 // primaryが視認性不足の場合はsecondaryを代わりに採用する（例: ロゴの支配色が濃紺一色でも、
-// 縁取り等に使われている2番目の色なら視認性を満たすことがある）。両方とも不合格なら
-// 空文字のままにし、呼び出し側で既存の配色にフォールバックさせる
+// 縁取り等に使われている2番目の色なら視認性を満たすことがある）。両方とも不合格な場合は
+// primary/secondaryともundefinedのままにする（空文字列は返さない ── 以前は
+// `legibleAccentColor(...) ?? ""`という実装で、両方不合格のチーム（アルティーリ千葉等）だけ
+// 空文字列がTeamColorsに紛れ込み、呼び出し側の`color ?? デフォルト色`という`??`パターンだけが
+// それをすり抜けさせてしまうバグがあった。空文字は`??`に対して有効な値として扱われるため。
+// undefinedにすることで`??`・`? :`どちらのフォールバック記法でも安全に働く）
 export async function fetchTeamColors(): Promise<Record<string, TeamColors>> {
   const raw = await fetchJson<Record<string, TeamColors>>(`${dataBase}/team-colors.json`);
   const sanitized: Record<string, TeamColors> = {};
   for (const [teamId, colors] of Object.entries(raw)) {
-    const legibleSecondary = legibleAccentColor(colors.secondary) ?? "";
+    const legiblePrimary = legibleAccentColor(colors.primary);
+    const legibleSecondary = legibleAccentColor(colors.secondary);
     sanitized[teamId] = {
-      primary: legibleAccentColor(colors.primary) ?? legibleSecondary,
+      primary: legiblePrimary ?? legibleSecondary,
       secondary: legibleSecondary,
     };
   }

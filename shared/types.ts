@@ -421,9 +421,16 @@ export interface PlayerAdvancedStats {
 
 // ---- data/team-colors.json の保存スキーマ（scripts/extract-team-colors.ts生成） ----
 
+/**
+ * primary/secondaryは視認性チェック（src/lib/color.ts）を通過した色のみが入る
+ * フロントエンド消費用の型。不合格の場合はフィールド自体が無い（undefined）ことで表す
+ * ── 空文字列にはしない。呼び出し側は`??`（null合体）・`? :`（truthyチェック）どちらの
+ * フォールバックパターンでも安全に働く（DESIGN.md参照。以前は空文字列を返しており、
+ * `??`パターンの呼び出し元だけすり抜けるバグがあった）
+ */
 export interface TeamColors {
-  primary: string;
-  secondary: string;
+  primary?: string;
+  secondary?: string;
 }
 
 export interface TeamSummary {
