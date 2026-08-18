@@ -264,7 +264,15 @@ export function GameDetailPage({ season }: { season: string }) {
           <div className="scoreboard-score">{game.homeScore}</div>
         </div>
         <div className="scoreboard-vs">
-          <div className="scoreboard-date">{game.date}</div>
+          <a
+            href={`https://www.bleague.jp/game_detail/?ScheduleKey=${game.scheduleKey}&tab=2`}
+            target="_blank"
+            rel="noreferrer"
+            className="scoreboard-date"
+            title="公式サイトのボックススコアを見る（bleague.jp）"
+          >
+            {game.date}
+          </a>
           <div>{game.gameEndedFlg ? "FINAL" : "試合中"}</div>
         </div>
         <div className="scoreboard-team" style={awayColor ? { borderTopColor: awayColor } : undefined}>
@@ -453,15 +461,6 @@ export function GameDetailPage({ season }: { season: string }) {
       ) : (
         <p className="empty-message">このシーズンのデータには対応していません</p>
       )}
-      <p className="official-boxscore-link">
-        <a
-          href={`https://www.bleague.jp/game_detail/?ScheduleKey=${game.scheduleKey}&tab=2`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          公式サイトのボックススコアを見る（bleague.jp）
-        </a>
-      </p>
     </div>
   );
 }

@@ -345,6 +345,25 @@ export interface PlayerBoxscore {
   /** 試合を通じて出場が無かったか（選択中の期間に関わらず一定） */
   dnp: boolean;
   counts: BoxscoreCounts;
+  /**
+   * ダブルダブル/トリプルダブルの達成バッジ。PTS/REB/AST/STL/BLKのうち2桁到達が2部門なら"DD"、
+   * 3部門以上なら"TD"（両方満たす場合はTDのみ）。選択中の期間トグルに関わらず常に試合全体
+   * （PeriodCategory=18）の成績で判定する（達成状況は試合全体で決まるものであり、Q別表示に
+   * 切り替えても変わるべきではないため）
+   */
+  statBadge: "DD" | "TD" | null;
+}
+
+const DOUBLE_DIGIT_CATEGORY_COUNT_FOR_DD = 2;
+const DOUBLE_DIGIT_CATEGORY_COUNT_FOR_TD = 3;
+
+/** 試合全体の生行（PeriodCategory=18）からPTS/REB/AST/STL/BLKの2桁到達数を数え、DD/TDを判定する */
+function computeStatBadge(gameRow: BoxscoreRow): "DD" | "TD" | null {
+  const categories = [num(gameRow.Point), num(gameRow.RB_TOT), num(gameRow.AS), num(gameRow.ST), num(gameRow.BS)];
+  const doubleDigitCount = categories.filter((v) => v >= 10).length;
+  if (doubleDigitCount >= DOUBLE_DIGIT_CATEGORY_COUNT_FOR_TD) return "TD";
+  if (doubleDigitCount >= DOUBLE_DIGIT_CATEGORY_COUNT_FOR_DD) return "DD";
+  return null;
 }
 
 /**
@@ -386,6 +405,7 @@ export function buildPlayerBoxscores(
       nameJ: meta.PlayerNameJ,
       startingFlg: meta.StartingFlg,
       dnp: meta.PlayTime === "DNP",
+      statBadge: computeStatBadge(meta),
       counts: {
         ...sumCounts(periodRows),
         ptsOffTov: ptsOffTovByPlayer.get(meta.PlayerID) ?? 0,

@@ -716,7 +716,14 @@ table.sortable-table td.row-accent-cell {
 }
 
 .scoreboard-date {
+  display: block;
   margin-bottom: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.scoreboard-date:hover {
+  text-decoration: underline;
 }
 
 table.quarter-table {
@@ -1276,6 +1283,26 @@ table.boxscore-table .row-note {
   color: var(--muted);
   font-weight: 400;
   cursor: help;
+}
+
+.stat-badge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.stat-badge-dd {
+  background: color-mix(in srgb, #1565c0 20%, transparent);
+  color: #1565c0;
+}
+
+.stat-badge-td {
+  background: color-mix(in srgb, #8e24aa 20%, transparent);
+  color: #8e24aa;
 }
 
 table.boxscore-table td.boxscore-best {

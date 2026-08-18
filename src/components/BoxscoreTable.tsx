@@ -465,6 +465,7 @@ export function BoxscoreTable({
         shotChartSupported={shotChartSupported}
         onCourtRatings={onCourtRatings}
         accentColor={homeColor}
+        showStatBadges={activeTab === "traditional"}
       />
       <BoxscoreTeamPanel
         teamName={awayTeamName}
@@ -479,6 +480,7 @@ export function BoxscoreTable({
         shotChartSupported={shotChartSupported}
         onCourtRatings={onCourtRatings}
         accentColor={awayColor}
+        showStatBadges={activeTab === "traditional"}
       />
     </>
   );
@@ -521,6 +523,7 @@ function BoxscoreTeamPanel({
   shotChartSupported,
   onCourtRatings,
   accentColor,
+  showStatBadges,
 }: {
   teamName: string;
   ownRows: BoxscoreRow[];
@@ -534,6 +537,8 @@ function BoxscoreTeamPanel({
   shotChartSupported: boolean;
   onCourtRatings: Record<string, PlayerOnCourtRatings>;
   accentColor?: string;
+  /** ダブルダブル/トリプルダブルバッジをトラディショナルタブでのみ表示する */
+  showStatBadges: boolean;
 }) {
   let teamTotal = buildTeamTotalCounts(ownRows, periodOption);
   const oppTeamTotal = buildTeamTotalCounts(oppRows, periodOption);
@@ -623,8 +628,22 @@ function BoxscoreTeamPanel({
               </tr>
             </thead>
             <tbody>
-              <BoxscoreGroup title="スタメン" players={starters} columns={columns} ctx={playerCtx} bestByColumn={bestByColumn} />
-              <BoxscoreGroup title="ベンチ" players={bench} columns={columns} ctx={playerCtx} bestByColumn={bestByColumn} />
+              <BoxscoreGroup
+                title="スタメン"
+                players={starters}
+                columns={columns}
+                ctx={playerCtx}
+                bestByColumn={bestByColumn}
+                showStatBadges={showStatBadges}
+              />
+              <BoxscoreGroup
+                title="ベンチ"
+                players={bench}
+                columns={columns}
+                ctx={playerCtx}
+                bestByColumn={bestByColumn}
+                showStatBadges={showStatBadges}
+              />
               <BoxscoreDataRow
                 label="TEAM / COACHES"
                 counts={coaches}
@@ -718,12 +737,14 @@ function BoxscoreGroup({
   columns,
   ctx,
   bestByColumn,
+  showStatBadges,
 }: {
   title: string;
   players: PlayerBoxscore[];
   columns: BoxscoreColumn[];
   ctx: ColumnCtx;
   bestByColumn: Map<string, number>;
+  showStatBadges: boolean;
 }) {
   if (players.length === 0) return null;
   // DNPは各グループの下部にまとめる（出場した選手を先に見せる）。それ以外は元の並び順を保持する
@@ -742,6 +763,9 @@ function BoxscoreGroup({
               </Link>
             ) : (
               p.nameJ
+            )}
+            {showStatBadges && p.statBadge && (
+              <span className={`stat-badge stat-badge-${p.statBadge.toLowerCase()}`}>{p.statBadge}</span>
             )}
           </td>
           {p.dnp ? (
