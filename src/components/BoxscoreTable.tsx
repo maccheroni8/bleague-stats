@@ -183,6 +183,13 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
     description: "PTS / (2 × (FGA + 0.44×FTA))",
   },
   {
+    key: "pps",
+    label: "PPS",
+    format: (c) => formatDecimal(safeDiv(c.pts, c.pt2a + c.pt3a), 2),
+    value: (c) => safeDiv(c.pts, c.pt2a + c.pt3a),
+    description: desc("pps", "PTS / FGA"),
+  },
+  {
     key: "poss",
     label: "POSS",
     format: (_c, ctx) => (ctx.ratings ? formatDecimal(ctx.ratings.poss, 1) : "-"),

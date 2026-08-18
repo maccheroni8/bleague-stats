@@ -414,7 +414,7 @@ export function GameDetailPage({ season }: { season: string }) {
       </div>
       <div className="leader-matchup-toggle">
         <button onClick={() => setShowExtendedLeaders((v) => !v)}>
-          {showExtendedLeaders ? "その他のスタッツリーダーを隠す" : "その他のスタッツリーダーを表示"}
+          その後リーダー
         </button>
       </div>
       {showExtendedLeaders && (

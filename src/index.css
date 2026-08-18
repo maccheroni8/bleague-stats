@@ -1055,7 +1055,7 @@ table.quarter-table th {
   border-radius: 999px;
   border: 1.5px solid;
   background: var(--bg);
-  color: #fff;
+  color: var(--fg);
   font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
