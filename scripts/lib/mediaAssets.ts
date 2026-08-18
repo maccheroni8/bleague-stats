@@ -44,7 +44,15 @@ async function fetchBinary(
 
 /**
  * チームロゴを全26クラブ分ダウンロードする。ブランド刷新への追従を自動化するため、
- * 既存ファイルの有無に関わらず毎回取得し直す（26枚と軽量なので週次実行でも問題ない）
+ * 既存ファイルの有無に関わらず毎回取得し直す（26枚と軽量なので週次実行でも問題ない）。
+ *
+ * Bリーグ側は開幕（10月）を待たずに翌シーズンのロゴを先行公開することがある
+ * （2026-08-18、北海道・仙台・東京SR・信州・三遠・島根の6クラブでこの先行公開を確認済み。
+ * DESIGN.md参照）。一方`season`（`currentSeason()`）は10月にならないと繰り上がらないため、
+ * `season`が指す年のフォルダだけを見ていると、先行公開されたロゴに何ヶ月も気付けない。
+ * そこで`season`の年＋1のフォルダを毎回先に試し、無ければ`season`の年のフォルダに
+ * フォールバックする（まだ先行公開されていないクラブ向け）。毎回両方を再チェックする
+ * ことで、後から別のクラブが新ロゴを公開した場合も次回の週次実行で自動的に追従する
  */
 export async function downloadTeamLogos(
   season: string,
@@ -53,10 +61,11 @@ export async function downloadTeamLogos(
   const year = Number(season.split("-")[0]);
   let savedCount = 0;
   for (const [teamId, code] of Object.entries(TEAM_LOGO_CODES)) {
-    const url = `${IMG_HOST}/files/user/common/img/logo/${year}/m/${code}.png`;
-    const buf = await fetchBinary(throttledFetch, url);
+    const preferredUrl = `${IMG_HOST}/files/user/common/img/logo/${year + 1}/m/${code}.png`;
+    const fallbackUrl = `${IMG_HOST}/files/user/common/img/logo/${year}/m/${code}.png`;
+    const buf = (await fetchBinary(throttledFetch, preferredUrl)) ?? (await fetchBinary(throttledFetch, fallbackUrl));
     if (!buf) {
-      console.warn(`[logo] teamId=${teamId} (${code}) 取得失敗: ${url}`);
+      console.warn(`[logo] teamId=${teamId} (${code}) 取得失敗: ${preferredUrl} / ${fallbackUrl}`);
       continue;
     }
     await writeBinaryFile(path.join(LOGOS_DIR, `${teamId}.png`), buf);

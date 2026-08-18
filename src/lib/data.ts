@@ -30,6 +30,7 @@ import type {
   TeamSummary,
 } from "../../shared/types";
 import { legibleAccentColor, MONO_FALLBACK_COLOR } from "./color";
+import { TEAM_COLOR_OVERRIDES } from "./teamColorOverrides";
 
 const dataBase = `${import.meta.env.BASE_URL}data`;
 
@@ -95,12 +96,16 @@ export function fetchSeasons(): Promise<SeasonEntry[]> {
 // `legibleAccentColor(...) ?? ""`という実装で、両方不合格のチーム（アルティーリ千葉等）だけ
 // 空文字列がTeamColorsに紛れ込み、呼び出し側の`color ?? デフォルト色`という`??`パターンだけが
 // それをすり抜けさせてしまうバグがあった。空文字は`??`に対して有効な値として扱われるため
+// 自動抽出が公式サイトの実際のブランドカラーと大きくズレるチームは、TEAM_COLOR_OVERRIDES
+// （teamColorOverrides.ts）の値を自動抽出結果より優先する。上書き後の値も他のチームと同様に
+// 視認性チェックを通す（上書きだからといって無条件に採用しない）
 export async function fetchTeamColors(): Promise<Record<string, TeamColors>> {
   const raw = await fetchJson<Record<string, TeamColors>>(`${dataBase}/team-colors.json`);
   const sanitized: Record<string, TeamColors> = {};
   for (const [teamId, colors] of Object.entries(raw)) {
-    const legiblePrimary = legibleAccentColor(colors.primary);
-    const legibleSecondary = legibleAccentColor(colors.secondary);
+    const override = TEAM_COLOR_OVERRIDES[teamId];
+    const legiblePrimary = legibleAccentColor(override?.primary ?? colors.primary);
+    const legibleSecondary = legibleAccentColor(override?.secondary ?? colors.secondary);
     sanitized[teamId] = {
       primary: legiblePrimary ?? legibleSecondary ?? MONO_FALLBACK_COLOR,
       secondary: legibleSecondary ?? MONO_FALLBACK_COLOR,
