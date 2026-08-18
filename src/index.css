@@ -167,6 +167,7 @@ h2 {
   vertical-align: middle;
   flex-shrink: 0;
   background: var(--media-bg);
+  border-radius: 8px;
 }
 
 .team-name-cell {
@@ -268,7 +269,7 @@ h2 {
 }
 
 .team-leader-photo {
-  border-radius: 50%;
+  border-radius: 8px;
   object-fit: cover;
   background: var(--media-bg);
   flex-shrink: 0;
@@ -334,7 +335,7 @@ h2 {
 }
 
 .player-cell-photo {
-  border-radius: 50%;
+  border-radius: 8px;
   object-fit: cover;
   background: var(--media-bg);
   flex-shrink: 0;
@@ -398,7 +399,7 @@ h2 {
 }
 
 .player-photo {
-  border-radius: 50%;
+  border-radius: 8px;
   object-fit: cover;
   background: var(--media-bg);
   flex-shrink: 0;
@@ -778,7 +779,6 @@ table.quarter-table th {
 }
 
 .player-photo.leader-top3-photo {
-  border-radius: 8px;
   flex-shrink: 0;
 }
 
@@ -932,7 +932,6 @@ table.quarter-table th {
 }
 
 .player-photo.leader-matchup-player-photo {
-  border-radius: 8px;
   flex-shrink: 0;
 }
 
