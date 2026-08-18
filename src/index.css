@@ -1639,6 +1639,24 @@ table.compare-table td.compare-best {
   cursor: help;
 }
 
+/* position: fixedでdocument.bodyへportalする自前ツールチップ（SubstitutionBarChart.tsx参照）。
+   ネイティブtitle属性の代替。fg/bgを反転させた配色にすることでライト/ダーク両テーマで
+   自動的にコントラストを確保する */
+.sub-bar-tooltip {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 8px));
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 6px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
 .sub-bar-gridline {
   position: absolute;
   top: 0;

@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import { periodDurationSeconds, type PeriodBoundary, type TimeoutMark } from "../lib/leadTracker";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 
@@ -25,6 +27,8 @@ interface TeamSubstitutionBlockProps {
   timeouts: TimeoutMark[];
   homeColor?: string;
   awayColor?: string;
+  onSegmentHover: (e: React.MouseEvent<HTMLElement>, lines: string[]) => void;
+  onSegmentLeave: () => void;
 }
 
 interface SubstitutionBarChartProps {
@@ -41,6 +45,12 @@ interface SubstitutionBarChartProps {
   awayColor?: string;
   /** Lead Trackerと同じタイムアウトマーク（buildTimeoutMarks()の結果をそのまま渡す） */
   timeouts?: TimeoutMark[];
+}
+
+interface TooltipState {
+  x: number;
+  y: number;
+  lines: string[];
 }
 
 function pct(sec: number, totalSeconds: number): number {
@@ -62,10 +72,11 @@ function formatElapsedTime(sec: number, periodBoundaries: PeriodBoundary[]): str
   return `${current.label} 残り${m}:${String(s).padStart(2, "0")}`;
 }
 
-function segmentTooltip(iv: SubstitutionInterval, periodBoundaries: PeriodBoundary[]): string {
+/** 複数行（IN時刻・出場時間・得失点）を行の配列で返す。呼び出し側が1行ずつ描画する */
+function segmentTooltipLines(iv: SubstitutionInterval, periodBoundaries: PeriodBoundary[]): string[] {
   const inTime = formatElapsedTime(iv.startSec, periodBoundaries);
   const duration = formatMinutesFromSeconds(iv.endSec - iv.startSec);
-  return `IN: ${inTime}\n出場時間: ${duration}\n得失点: ${iv.ownPts}-${iv.oppPts}`;
+  return [`IN: ${inTime}`, `出場時間: ${duration}`, `得失点: ${iv.ownPts}-${iv.oppPts}`];
 }
 
 /**
@@ -77,6 +88,15 @@ function segmentTooltip(iv: SubstitutionInterval, periodBoundaries: PeriodBounda
  * rechartsのYAxis幅で決まり、こちらは選手名ラベル分の固定幅ガター(130px)を使うため左端の
  * 開始位置が微妙にズレる）が、時間軸のドメイン(0〜totalSeconds)と各Qの区切り線・ラベルは
  * 完全に同じものを使っているため、見比べれば十分に対応関係がわかる。
+ *
+ * 区間セグメントのツールチップは、ネイティブのtitle属性ではなく自前描画（React state +
+ * document.bodyへのportal）で実装している。ネイティブtitleはブラウザ側のツールチップ
+ * 制御が「クリック等のユーザー操作の後、他の要素にカーソルを移しても再表示されなくなり
+ * リロードでのみ復帰する」という既知の挙動を持つため（2026-08-18に不具合報告・調査済み）。
+ * .substitution-chartはoverflow-x: autoで横スクロールする（＝overflow-yも仕様上自動的に
+ * autoになる）ため、ツールチップをそのまま子要素として絶対配置すると上端付近の行で
+ * クリップされる恐れがある。position: fixedかつdocument.bodyへのportalにすることで、
+ * このスクロールコンテナの影響を受けずに常にカーソル上に表示できる
  */
 export function SubstitutionBarChart({
   homeTeamName,
@@ -91,6 +111,14 @@ export function SubstitutionBarChart({
   awayColor,
   timeouts = [],
 }: SubstitutionBarChartProps) {
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+
+  const handleSegmentHover = (e: React.MouseEvent<HTMLElement>, lines: string[]) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltip({ x: rect.left + rect.width / 2, y: rect.top, lines });
+  };
+  const handleSegmentLeave = () => setTooltip(null);
+
   return (
     <div className="substitution-chart">
       <TimeAxisHeader periodBoundaries={periodBoundaries} totalSeconds={totalSeconds} />
@@ -104,6 +132,8 @@ export function SubstitutionBarChart({
         timeouts={timeouts}
         homeColor={homeColor}
         awayColor={awayColor}
+        onSegmentHover={handleSegmentHover}
+        onSegmentLeave={handleSegmentLeave}
       />
       <TeamSubstitutionBlock
         teamName={awayTeamName}
@@ -115,12 +145,23 @@ export function SubstitutionBarChart({
         timeouts={timeouts}
         homeColor={homeColor}
         awayColor={awayColor}
+        onSegmentHover={handleSegmentHover}
+        onSegmentLeave={handleSegmentLeave}
       />
       {timeouts.length > 0 && (
         <p className="sub-bar-note">
           点線: タイムアウト（{homeTeamName}色/{awayTeamName}色。オフィシャルタイムアウトは基準色）
         </p>
       )}
+      {tooltip &&
+        createPortal(
+          <div className="sub-bar-tooltip" style={{ left: tooltip.x, top: tooltip.y }}>
+            {tooltip.lines.map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -156,6 +197,8 @@ function TeamSubstitutionBlock({
   timeouts,
   homeColor,
   awayColor,
+  onSegmentHover,
+  onSegmentLeave,
 }: TeamSubstitutionBlockProps) {
   // スタメン5人を上5段に固定し、ベンチは出場時間のある選手を先に詰めて表示、
   // DNP（出場0分）の選手を最後尾にまとめる（「スタメン」「ベンチ」ラベルは廃止し、
@@ -198,7 +241,8 @@ function TeamSubstitutionBlock({
                 <div
                   key={i}
                   className="sub-bar-segment"
-                  title={segmentTooltip(iv, periodBoundaries)}
+                  onMouseEnter={(e) => onSegmentHover(e, segmentTooltipLines(iv, periodBoundaries))}
+                  onMouseLeave={onSegmentLeave}
                   style={{
                     left: `${pct(iv.startSec, totalSeconds)}%`,
                     width: `${pct(iv.endSec - iv.startSec, totalSeconds)}%`,
