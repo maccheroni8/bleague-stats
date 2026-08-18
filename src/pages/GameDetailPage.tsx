@@ -397,15 +397,6 @@ export function GameDetailPage({ season }: { season: string }) {
         homeColor={homeColor}
         awayColor={awayColor}
       />
-      <p className="official-boxscore-link">
-        <a
-          href={`https://www.bleague.jp/game_detail/?ScheduleKey=${game.scheduleKey}&tab=2`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          公式サイトのボックススコアを見る（bleague.jp）
-        </a>
-      </p>
 
       <h2>ゲームリーダー</h2>
       <div className="game-leaders">
@@ -462,6 +453,15 @@ export function GameDetailPage({ season }: { season: string }) {
       ) : (
         <p className="empty-message">このシーズンのデータには対応していません</p>
       )}
+      <p className="official-boxscore-link">
+        <a
+          href={`https://www.bleague.jp/game_detail/?ScheduleKey=${game.scheduleKey}&tab=2`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          公式サイトのボックススコアを見る（bleague.jp）
+        </a>
+      </p>
     </div>
   );
 }
