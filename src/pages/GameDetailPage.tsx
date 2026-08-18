@@ -382,30 +382,30 @@ export function GameDetailPage({ season }: { season: string }) {
         )}
       </section>
 
-      <h2>ショットチャート</h2>
-      {shotChartSupported ? (
-        <>
-          <PeriodRangeToggle options={shotPeriodOptions} value={shotPeriodRange} onChange={setShotPeriodRange} />
-          <div className="shot-chart-grid">
-            <ShotChartPanel
-              teamName={game.homeTeam.name}
-              players={homePlayers}
-              shots={shotPeriodHomeShots}
-              color={homeColor ?? "var(--accent)"}
-              accentColor={homeColor}
-            />
-            <ShotChartPanel
-              teamName={game.awayTeam.name}
-              players={awayPlayers}
-              shots={shotPeriodAwayShots}
-              color={awayColor ?? "var(--muted)"}
-              accentColor={awayColor}
-            />
-          </div>
-        </>
-      ) : (
-        <p className="empty-message">このシーズンのデータには対応していません</p>
-      )}
+      <h2>ボックススコア</h2>
+      <BoxscoreTable
+        homeTeamName={game.homeTeam.name}
+        awayTeamName={game.awayTeam.name}
+        homeRows={game.raw.HomeBoxscores}
+        awayRows={game.raw.AwayBoxscores}
+        summaries={game.raw.Summaries}
+        playByPlays={game.raw.PlayByPlays}
+        periods={periods}
+        classificationById={classificationById}
+        shotChartSupported={shotChartSupported}
+        onCourtRatings={onCourtRatings}
+        homeColor={homeColor}
+        awayColor={awayColor}
+      />
+      <p className="official-boxscore-link">
+        <a
+          href={`https://www.bleague.jp/game_detail/?ScheduleKey=${game.scheduleKey}&tab=2`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          公式サイトのボックススコアを見る（bleague.jp）
+        </a>
+      </p>
 
       <h2>ゲームリーダー</h2>
       <div className="game-leaders">
@@ -438,30 +438,30 @@ export function GameDetailPage({ season }: { season: string }) {
         />
       )}
 
-      <h2>ボックススコア</h2>
-      <BoxscoreTable
-        homeTeamName={game.homeTeam.name}
-        awayTeamName={game.awayTeam.name}
-        homeRows={game.raw.HomeBoxscores}
-        awayRows={game.raw.AwayBoxscores}
-        summaries={game.raw.Summaries}
-        playByPlays={game.raw.PlayByPlays}
-        periods={periods}
-        classificationById={classificationById}
-        shotChartSupported={shotChartSupported}
-        onCourtRatings={onCourtRatings}
-        homeColor={homeColor}
-        awayColor={awayColor}
-      />
-      <p className="official-boxscore-link">
-        <a
-          href={`https://www.bleague.jp/game_detail/?ScheduleKey=${game.scheduleKey}&tab=2`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          公式サイトのボックススコアを見る（bleague.jp）
-        </a>
-      </p>
+      <h2>ショットチャート</h2>
+      {shotChartSupported ? (
+        <>
+          <PeriodRangeToggle options={shotPeriodOptions} value={shotPeriodRange} onChange={setShotPeriodRange} />
+          <div className="shot-chart-grid">
+            <ShotChartPanel
+              teamName={game.homeTeam.name}
+              players={homePlayers}
+              shots={shotPeriodHomeShots}
+              color={homeColor ?? "var(--accent)"}
+              accentColor={homeColor}
+            />
+            <ShotChartPanel
+              teamName={game.awayTeam.name}
+              players={awayPlayers}
+              shots={shotPeriodAwayShots}
+              color={awayColor ?? "var(--muted)"}
+              accentColor={awayColor}
+            />
+          </div>
+        </>
+      ) : (
+        <p className="empty-message">このシーズンのデータには対応していません</p>
+      )}
     </div>
   );
 }
