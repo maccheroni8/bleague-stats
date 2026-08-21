@@ -14,9 +14,24 @@ interface SlotValue {
   season: string;
 }
 
-interface ComparisonRow<T> {
+export interface ComparisonRow<T> {
   item: T;
   season: string;
+}
+
+/**
+ * ComparisonTableのdefsが実際に使うフィールドだけを持つ最小限の型。StatDef<T>は
+ * 用語集用の付随情報（formulaText/source/category等）を必須で持つため、そのまま比較表の
+ * defs型にすると呼び出し側（例: 個人詳細ページの「比較」タブ、シチュエーション別フィルタの
+ * 結果を比較する用途でPlayerSummary以外の型を渡す）が本来不要なダミー値を埋める羽目になる。
+ * StatDef<T>はこの型より情報が多いだけなので、そのまま代入できる（構造的部分型）
+ */
+export interface ComparisonStatDef<T> {
+  key: string;
+  label: string;
+  value: (row: T) => number;
+  format: (row: T) => string;
+  higherIsBetter?: boolean;
 }
 
 // URLには "playerId@season" のようにID・シーズンを1パラメータに詰めて保持する（?t0=703@2018-19 等）。
@@ -54,14 +69,14 @@ function useSeasonKeyedData<T>(
 
 interface ComparisonTableProps<T> {
   rows: ComparisonRow<T>[];
-  defs: StatDef<T>[];
+  defs: ComparisonStatDef<T>[];
   rowKey: (row: T) => string;
   name: (row: T) => string;
   linkTo: (row: T) => string;
   teamColor?: (row: T) => string | undefined;
 }
 
-function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo, teamColor }: ComparisonTableProps<T>) {
+export function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo, teamColor }: ComparisonTableProps<T>) {
   if (rows.length === 0) {
     return <p className="empty-message">比較する項目を選んでください</p>;
   }

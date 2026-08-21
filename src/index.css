@@ -1460,6 +1460,34 @@ table.boxscore-table .boxscore-summary-grand-total td {
   font-size: 12px;
 }
 
+.player-compare-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.player-compare-slot {
+  flex: 1 1 280px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.player-compare-slot > select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.player-compare-slot .situational-filter {
+  margin-bottom: 0;
+}
+
 table.compare-table th a {
   color: var(--fg);
   text-decoration: none;

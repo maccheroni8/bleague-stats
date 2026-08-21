@@ -3254,3 +3254,94 @@ DD=23・TD=1が、`players.json`の`totals.doubleDoubles`/`tripleDoubles`と完�
 「期間指定」ボタンは非activeになることも確認した。ブラウザのコンソールエラー無し
 （既知の`GameDetailPage.tsx`のVite HMRスタックトレースはリロード前の古いバッファであり、
 新規タブでは再現しないことを別途確認済み）。型チェック通過。
+
+---
+
+## 43. 個人詳細ページ「比較」タブ（2026-08-21）
+
+36章でスケルトンのまま残していた「比較」タブに、同一選手のシチュエーション別スタッツを
+2スロット並べて比較できる機能を実装した。
+
+### 43-1. データモデル: PlayerSituationalStatsベースの専用defs
+
+`ComparePage`のComparisonTable（3クラブ/3選手を並べる既存の比較表）は`StatDef<T>`
+（`statDefs.ts`、`PlayerSummary`前提でEFF・USG%・ランキング等の付随メタ情報を必須で持つ）を
+そのまま`defs`として受け取る設計だった。一方、本タブの各スロットは`computePlayerSituationalStats()`
+（`situational.ts`）が返す`PlayerSituationalStats`（試合数・MIN/PTS/REB/AST/STL/BLK/TOV/+/-・
+FG%/3P%/FT%/eFG%/TS%のみ。シーズン集計限定のEFF等は持たない）を扱うため、`StatDef<T>`をそのまま
+流用すると本来不要なformulaText等のダミー値を埋める必要が生じる。
+
+`ComparePage.tsx`に`ComparisonStatDef<T>`（`key`/`label`/`value`/`format`/`higherIsBetter`のみを
+持つ最小限の型）を新設し、`ComparisonTableProps.defs`の型をこちらに変更した。`StatDef<T>`は
+このより情報量の多い上位互換の型のため、既存の`TEAM_STAT_DEFS`/`PLAYER_STAT_DEFS`をそのまま
+渡している既存の呼び出し（ComparePage本体）は無変更で動作する（構造的部分型）。`ComparisonTable`
+コンポーネント自体・`ComparisonRow<T>`型もexportし、個人詳細ページ側から再利用した
+（「既存のComparePageと同じ形式を再利用」という要件を、見た目を似せた別実装ではなく実際に
+同じコンポーネントの再利用で満たす。40章のBoxscoreTable列定義exportと同じ再利用パターン）。
+
+`PlayerDetailPage.tsx`に、試合数＋既存の「スタッツ」タブのstat-gridと同じ13項目
+（MIN/PTS/REB/AST/STL/BLK/TOV/+/-/FG%/3P%/FT%/eFG%/TS%）から成る`COMPARE_STAT_DEFS`
+（`ComparisonStatDef<CompareColumnData>[]`）を定義した。
+
+### 43-2. スロットの状態管理とシーズン一覧の取得元
+
+各スロットは`{season: string; filter: SituationalFilter}`という単純な状態
+（`CompareSlotState`）。デフォルトはスロット1が現在選択中のシーズン・`{kind: "all"}`
+（＝「スタッツ」タブのデフォルト表示と同じ）、スロット2は`season: ""`（未選択）。選手が変わった
+時（`playerId`変更時の既存useEffect）にこのデフォルトへリセットする。season切り替え時は
+リセットしない（比較タブの選択状態を維持したいため、既存の`useEffect`の依存配列には
+`playerId`のみを指定し、`season`はクロージャ経由の最新値をそのまま使う）。
+
+各スロットの「シーズン」選択肢は、37章で導入済みの`careerData`
+（全シーズンをループして`fetchPlayerGameLogs()`を試行し、ログが1件以上あったシーズンだけを
+残す。「通算成績」「キャリアハイ」タブと共有）をそのまま使う。この遅延フェッチのトリガー条件
+（`tab !== "career" && tab !== "highs"`のときは何もしない、というガード）に`"compare"`を追加し、
+比較タブを開いた時にもこのフェッチが走るようにした（3つのタブが同じ全シーズン試合ログを
+共有する設計。二重フェッチは発生しない）。
+
+各スロットの実際のスタッツは、`careerData`から該当シーズンの`PlayerGameLog[]`を取り出し、
+既存の`filterGameLogs(logs, slot.filter)`→`computePlayerSituationalStats()`のパイプライン
+（42章で追加した前半戦/後半戦を含む、シチュエーション別フィルタの全kindに対応）にそのまま
+通すだけで求まる。「シーズン全体」時にplayers.jsonの`perGame`と数値が一致することは
+37章・42章で既に検証済みのロジックの再利用のため、本タブで改めての検算はしていない。
+
+### 43-3. 前半戦/後半戦ボタン用の試合日程取得
+
+42章の「前半戦」「後半戦」ボタンはシーズンごとの試合日程（`games-summary.json`）から算出した
+境界日を必要とする。各スロットが選んだシーズンは互いに異なりうる（かつページ本体の
+「現在選択中のシーズン」とも異なりうる）ため、スロットごとに個別の`useJsonData`で
+`fetchGameSummaries(slot.season)`を取得する（スロットは2つ固定のため、配列化せず
+`compareSummaries0`/`compareSummaries1`を素朴に2つ用意する形にした）。比較タブを開いている
+間だけ取得するようフェッチャー内で`tab === "compare"`を判定しており、他のタブを見ている間は
+通信が発生しない。
+
+列見出しに表示するラベル（「前半戦」「シーズン全体・PO込み」等）は`describeSituationalFilter()`
+が、`SituationalFilterPicker`のactive判定と同じロジック（`dateRange`の値が算出済みの境界日と
+一致するかどうか）で判定して生成する。
+
+### 43-4. UI
+
+`.player-compare-slot`（新設のCSS、`.career-high-card`と同じ枠線・角丸・パディングのパターンを
+踏襲）を2つ並べたコンテナに、シーズン選択の`<select>`と（シーズン選択済みなら）既存の
+`SituationalFilterPicker`をそのまま設置した。比較表本体は`ComparisonTable`をそのまま呼び出し、
+`linkTo`は選手詳細ページ自身へのリンク（同一選手のため選手選択UIは無し、要件通り）。
+`teamColor`は指定しない（スロットのシーズンによって所属チームが異なりうり、ヘッダー装飾の
+ためだけに誤った年度のチームカラーを出すのを避けるため）。
+
+### 43-5. 検証
+
+千葉ジェッツ・渡邊雄太（2024-25シーズン、B.LEAGUE入り初年度のため対象シーズンは2024-25・
+2025-26の2つのみ。デフォルトのスロット1がこの選手の「シーズン成績」タブと同じ2024-25
+シーズン全体になることを確認）で、「今シーズン前半戦」vs「今シーズン後半戦」
+（スロット1=2024-25前半戦17試合、スロット2=2024-25後半戦18試合、17+18=35で全試合が
+過不足なく分かれる42章の検証結果と整合）、「今シーズン」vs「去年」
+（スロット1を2025-26シーズン全体に切り替え、スロット2は2024-25のまま独立して維持される
+ことを確認）の両パターンをブラウザで確認した。TOV（値が小さいほど良い項目）が正しく
+小さい方の値でハイライトされることも確認した。
+
+宇都宮ブレックス・比江島慎（2016-17〜2025-26の10シーズン在籍）でスロットのシーズン選択肢が
+10シーズン分すべて表示されること、2016-17シーズン（legacy取得）を選んで
+「レギュラー+ポストシーズン」トグルを含めても正しく再集計されることを確認した。
+
+型チェック通過。ブラウザのコンソールエラー無し（既知のGameDetailPage.tsxのVite HMR
+スタックトレースは新規タブでは再現しないことを別途確認済み、42章と同じ既知の非問題）。

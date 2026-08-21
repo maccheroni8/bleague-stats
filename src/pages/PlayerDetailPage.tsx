@@ -57,8 +57,10 @@ import {
   filterGameLogs,
   isDefaultFilter,
   type PlayerSituationalStats,
+  type SeasonHalfBoundary,
   type SituationalFilter,
 } from "../lib/situational";
+import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "./ComparePage";
 
 /** 試合詳細ページのボックススコア列定義（BoxscoreColumn）を、試合ログテーブル用のColumnに変換する */
 function toGameLogColumns(tabKey: BoxscoreTabKey): Column<PlayerGameBoxscoreRow>[] {
@@ -257,6 +259,87 @@ function countDoubleTripleDoubles(logs: PlayerGameLog[]): { dd: number; td: numb
   return { dd, td };
 }
 
+interface CompareSlotState {
+  season: string;
+  filter: SituationalFilter;
+}
+
+function defaultCompareSlots(season: string): [CompareSlotState, CompareSlotState] {
+  return [
+    { season, filter: { kind: "all" } },
+    { season: "", filter: { kind: "all" } },
+  ];
+}
+
+/**
+ * シチュエーション別フィルタの選択内容を、比較表の列見出しに出す短い日本語ラベルに変換する。
+ * 前半戦/後半戦は内部的には「期間指定」（dateRange）として保持されている（situational.ts参照）ため、
+ * 境界日と一致するかどうかで判定し直す（SituationalFilterPickerのactive判定と同じロジック）
+ */
+function describeSituationalFilter(filter: SituationalFilter, boundary: SeasonHalfBoundary | null): string {
+  let base: string;
+  switch (filter.kind) {
+    case "all":
+      base = "シーズン全体";
+      break;
+    case "recent":
+      base = `直近${filter.n}試合`;
+      break;
+    case "result":
+      base = filter.win ? "勝った試合" : "負けた試合";
+      break;
+    case "dateRange":
+      if (boundary && filter.start === "" && filter.end === boundary.firstHalfEnd) base = "前半戦";
+      else if (boundary && filter.start === boundary.secondHalfStart && filter.end === "") base = "後半戦";
+      else if (!filter.start && !filter.end) base = "期間指定";
+      else base = `${filter.start || "…"}〜${filter.end || "…"}`;
+      break;
+  }
+  return filter.includePlayoffs ? `${base}・PO込み` : base;
+}
+
+interface CompareColumnData {
+  key: string;
+  label: string;
+  stats: PlayerSituationalStats;
+}
+
+// 「スタッツ」タブのstat-gridと同じ13項目＋試合数。シチュエーション別フィルタの結果
+// （PlayerSituationalStats）はEFF・USG%等のシーズン集計限定の項目を持たないため、
+// PLAYER_STAT_DEFSではなくこの専用の最小限のdefsを使う
+const COMPARE_STAT_DEFS: ComparisonStatDef<CompareColumnData>[] = [
+  { key: "gamesPlayed", label: "試合数", value: (r) => r.stats.gamesPlayed, format: (r) => String(r.stats.gamesPlayed) },
+  { key: "min", label: "MIN", value: (r) => r.stats.perGame.min, format: (r) => formatDecimal(r.stats.perGame.min) },
+  { key: "pts", label: "PTS", value: (r) => r.stats.perGame.pts, format: (r) => formatDecimal(r.stats.perGame.pts) },
+  { key: "reb", label: "REB", value: (r) => r.stats.perGame.reb, format: (r) => formatDecimal(r.stats.perGame.reb) },
+  { key: "ast", label: "AST", value: (r) => r.stats.perGame.ast, format: (r) => formatDecimal(r.stats.perGame.ast) },
+  { key: "stl", label: "STL", value: (r) => r.stats.perGame.stl, format: (r) => formatDecimal(r.stats.perGame.stl) },
+  { key: "blk", label: "BLK", value: (r) => r.stats.perGame.blk, format: (r) => formatDecimal(r.stats.perGame.blk) },
+  {
+    key: "tov",
+    label: "TOV",
+    value: (r) => r.stats.perGame.tov,
+    format: (r) => formatDecimal(r.stats.perGame.tov),
+    higherIsBetter: false,
+  },
+  {
+    key: "plusMinus",
+    label: "+/-",
+    value: (r) => r.stats.perGame.plusMinus,
+    format: (r) => formatSigned(r.stats.perGame.plusMinus),
+  },
+  { key: "fgPct", label: "FG%", value: (r) => r.stats.shooting.fgPct, format: (r) => formatPct(r.stats.shooting.fgPct) },
+  { key: "tpPct", label: "3P%", value: (r) => r.stats.shooting.tpPct, format: (r) => formatPct(r.stats.shooting.tpPct) },
+  { key: "ftPct", label: "FT%", value: (r) => r.stats.shooting.ftPct, format: (r) => formatPct(r.stats.shooting.ftPct) },
+  {
+    key: "efgPct",
+    label: "eFG%",
+    value: (r) => r.stats.shooting.efgPct,
+    format: (r) => formatPct(r.stats.shooting.efgPct),
+  },
+  { key: "tsPct", label: "TS%", value: (r) => r.stats.shooting.tsPct, format: (r) => formatPct(r.stats.shooting.tsPct) },
+];
+
 function formatBirthDate(date: string): string {
   const [y, m, d] = date.split("-").map(Number) as [number, number, number];
   return `${y}年${m}月${d}日`;
@@ -325,6 +408,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [gameBoxLoading, setGameBoxLoading] = useState(false);
   const gameBoxFetchStartedRef = useRef(false);
 
+  // 比較タブ: 2スロット分の{シーズン, シチュエーション別フィルタ}。スロット1は現在選択中の
+  // シーズン・シーズン全体、スロット2は未選択（ユーザーが選ぶ）がデフォルト
+  const [compareSlots, setCompareSlots] = useState<[CompareSlotState, CompareSlotState]>(() =>
+    defaultCompareSlots(season),
+  );
+
   // careerLoading/careerDataをdeps配列に含めると、setCareerLoading(true)自体がeffectを
   // 再発火させcleanupで直前のfetchをcancelしてしまう（自己キャンセルのループ）。
   // そのためfetch開始済みかどうかはstateではなくrefで管理する
@@ -337,6 +426,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
     careerFetchStartedRef.current = false;
     setGameBoxRows(null);
     gameBoxFetchStartedRef.current = false;
+    setCompareSlots(defaultCompareSlots(season));
+    // 選手が変わった時だけリセットする（season変更では比較タブの選択を維持したいため、
+    // 依存配列にseasonは含めない。ここで参照するのはリセット時点の最新値でよい）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerId]);
 
   // シーズン切り替え時も試合ログボックススコアを再取得する必要がある（careerは全シーズン
@@ -372,7 +465,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
   }, [tab, playerId, season, gameLogs, yahooSeasonSupported, shotChartSupported]);
 
   useEffect(() => {
-    if ((tab !== "career" && tab !== "highs") || !playerId || !seasons || careerFetchStartedRef.current) return;
+    if (
+      (tab !== "career" && tab !== "highs" && tab !== "compare") ||
+      !playerId ||
+      !seasons ||
+      careerFetchStartedRef.current
+    )
+      return;
     careerFetchStartedRef.current = true;
     setCareerLoading(true);
     setCareerError(null);
@@ -433,6 +532,35 @@ export function PlayerDetailPage({ season }: { season: string }) {
     }).filter((r): r is CareerHighDef & { game: PlayerGameLog & { season: string } } => r !== null);
   }, [careerData, careerGameTypeFilter]);
 
+  // 比較タブ: 各スロットの「前半戦/後半戦」ボタン用に、スロットで選ばれたシーズンの試合日程を
+  // 都度取得する（2スロットのみなので配列化せず個別にuseJsonDataを呼ぶ）。比較タブを開いている
+  // 間だけ取得する（タブを開くまで無駄な通信をしないため）
+  const { data: compareSummaries0 } = useJsonData(
+    () => (tab === "compare" && compareSlots[0].season ? fetchGameSummaries(compareSlots[0].season) : Promise.resolve(null)),
+    [tab, compareSlots[0].season],
+  );
+  const { data: compareSummaries1 } = useJsonData(
+    () => (tab === "compare" && compareSlots[1].season ? fetchGameSummaries(compareSlots[1].season) : Promise.resolve(null)),
+    [tab, compareSlots[1].season],
+  );
+  const compareBoundaries: [SeasonHalfBoundary | null, SeasonHalfBoundary | null] = [
+    useMemo(() => (compareSummaries0 ? computeSeasonHalfBoundary(compareSummaries0) : null), [compareSummaries0]),
+    useMemo(() => (compareSummaries1 ? computeSeasonHalfBoundary(compareSummaries1) : null), [compareSummaries1]),
+  ];
+
+  const compareRows: ComparisonRow<CompareColumnData>[] = compareSlots
+    .map((slot, i): ComparisonRow<CompareColumnData> | null => {
+      if (!slot.season || !careerData) return null;
+      const logs = careerData.find((cd) => cd.season === slot.season)?.logs;
+      if (!logs) return null;
+      const stats = computePlayerSituationalStats(filterGameLogs(logs, slot.filter));
+      if (!stats) return null;
+      return {
+        item: { key: `slot${i}`, label: describeSituationalFilter(slot.filter, compareBoundaries[i]!), stats },
+        season: slot.season,
+      };
+    })
+    .filter((r): r is ComparisonRow<CompareColumnData> => r !== null);
 
   if (playersLoading) return <p className="loading">読み込み中...</p>;
   if (playersError) return <p className="error-message">{playersError}</p>;
@@ -917,7 +1045,68 @@ export function PlayerDetailPage({ season }: { season: string }) {
         </>
       )}
 
-      {tab === "compare" && <p className="empty-message">Phase Bで実装予定です</p>}
+      {tab === "compare" && (
+        <>
+          <div className="player-compare-slots">
+            {([0, 1] as const).map((i) => {
+              const slot = compareSlots[i];
+              return (
+                <div className="player-compare-slot" key={i}>
+                  <select
+                    value={slot.season}
+                    onChange={(e) => {
+                      const nextSeason = e.target.value;
+                      setCompareSlots((prev) => {
+                        const next: [CompareSlotState, CompareSlotState] = [...prev];
+                        next[i] = { season: nextSeason, filter: { kind: "all" } };
+                        return next;
+                      });
+                    }}
+                  >
+                    <option value="">未選択</option>
+                    {[...(careerData ?? [])]
+                      .map((cd) => cd.season)
+                      .reverse()
+                      .map((s) => (
+                        <option key={s} value={s}>
+                          {s}シーズン
+                        </option>
+                      ))}
+                  </select>
+                  {slot.season ? (
+                    <SituationalFilterPicker
+                      filter={slot.filter}
+                      onChange={(f) =>
+                        setCompareSlots((prev) => {
+                          const next: [CompareSlotState, CompareSlotState] = [...prev];
+                          next[i] = { ...next[i], filter: f };
+                          return next;
+                        })
+                      }
+                      seasonHalfBoundary={compareBoundaries[i]}
+                    />
+                  ) : (
+                    <p className="compare-slot-note">シーズンを選択してください</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {careerLoading ? (
+            <p className="loading">読み込み中...</p>
+          ) : careerError ? (
+            <p className="error-message">{careerError}</p>
+          ) : (
+            <ComparisonTable
+              rows={compareRows}
+              defs={COMPARE_STAT_DEFS}
+              rowKey={(r) => r.key}
+              name={(r) => r.label}
+              linkTo={() => `/players/${player.playerId}`}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }
