@@ -163,8 +163,19 @@ export function parseYahooPbpHtml(
       if (remainingSec === null) {
         parseWarnings.push(`未知の時刻表記: "${clockLabel}" (period=${currentPeriod})`);
       }
-      const teamLogoClass = $li.find(".ba-teamLogo").attr("class") ?? "";
-      const teamId = /ba-teamLogo--(\d+)/.exec(teamLogoClass)?.[1] ?? null;
+      // TeamIDの埋め込み方式が2種類ある（2026-08-21実機確認）:
+      // 現行（2024-25シーズン以降で確認）: class="ba-teamLogo ba-teamLogo--{TeamID}"
+      // レガシー（2023-24シーズンで確認）: class="ba-teamLogo"のみで、代わりに
+      // style="background-image: url(https://image.dsimg.jp/team/{TeamID}.png)"にTeamIDが入る。
+      // レガシー形式に気づかず現行方式のみでパースすると、teamId解決不可でこの試合の
+      // 全イベントが黙って捨てられる（2023-24シーズン全体がshots/turnovers=0になっていた
+      // 実障害が発生済み。DESIGN.md参照）
+      const $teamLogo = $li.find(".ba-teamLogo");
+      const teamLogoClass = $teamLogo.attr("class") ?? "";
+      const teamId =
+        /ba-teamLogo--(\d+)/.exec(teamLogoClass)?.[1] ??
+        /\/team\/(\d+)\.png/.exec($teamLogo.attr("style") ?? "")?.[1] ??
+        null;
       const desc = $li.find(".ba-liveText__desc").text().trim();
       const foulMatch = OFFENSIVE_FOUL_RE.exec(desc);
       if (foulMatch) lastOffensiveFoulPlayerNo = foulMatch[1]!;

@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
-import { fetchGame, fetchPlayers, fetchTeamColors } from "../lib/data";
+import { fetchGame, fetchPlayers, fetchTeamColors, fetchYahooGamePbp } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { isPbpSupported, isShotChartSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
+import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import { formatPct } from "../lib/format";
-import type { BoxscoreRow } from "../../shared/types";
+import type { BoxscoreRow, ShotTypeBreakdown } from "../../shared/types";
 import { KeyStatsSection } from "../components/KeyStatsSection";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
@@ -19,6 +19,7 @@ import { buildShotEvents } from "../lib/shotChart";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { computeOnCourtRatings, reconstructOnCourt, substitutionModelForSeason, type PlayerOnCourtRatings } from "../../shared/onCourt";
 import { playTimeToSeconds } from "../lib/boxscoreAggregate";
+import { buildShotTypeBreakdownByPlayer, formatShotTypeCell, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 
 function periodLabel(index: number, total: number): string {
   if (index < 4) return `${index + 1}Q`;
@@ -192,6 +193,14 @@ export function GameDetailPage({ season }: { season: string }) {
     [season, scheduleKey],
   );
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
+  const { supported: yahooSeasonSupported } = useYahooPbpCoverage(season);
+  const { data: yahooPbp } = useJsonData(
+    () => (yahooSeasonSupported && scheduleKey ? fetchYahooGamePbp(season, scheduleKey) : Promise.resolve(null)),
+    [season, scheduleKey, yahooSeasonSupported],
+  );
+  // シーズン単位で対応範囲でも、この試合自体が未取得（Yahoo側500エラー等でスキップ）のことが
+  // あるため、実際にデータが取れているかで最終判定する（DESIGN.md参照）
+  const yahooPbpAvailable = yahooPbp !== null;
   // players-master.json由来の国籍・登録区分（players.jsonに突合済み）をボックススコア集計に流用する。
   // 退団済み選手など現在のロースターに載っていない選手はclassification未定義のままになりうる
   const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season), [season]);
@@ -221,6 +230,12 @@ export function GameDetailPage({ season }: { season: string }) {
   const allShots = shotChartSupported ? buildShotEvents(game.raw.PlayByPlays) : [];
   const homeShots = allShots.filter((s) => s.teamId === game.homeTeam.id);
   const awayShots = allShots.filter((s) => s.teamId === game.awayTeam.id);
+
+  // シュートタイプ内訳（Yahoo!スポーツplay-by-play由来。DESIGN.md参照）
+  const shotTypeBreakdownByPlayer = yahooPbp ? buildShotTypeBreakdownByPlayer(yahooPbp.shots) : new Map<string, ShotTypeBreakdown>();
+  const shotTypeKeys = yahooPbp
+    ? sortShotTypeKeys([...new Set(yahooPbp.shots.map((s) => s.shotType).filter((t) => t.length > 0))])
+    : [];
 
   const periods = game.quarterScores.home.length;
 
@@ -427,6 +442,8 @@ export function GameDetailPage({ season }: { season: string }) {
         awayRows={game.raw.AwayBoxscores}
         summaries={game.raw.Summaries}
         playByPlays={game.raw.PlayByPlays}
+        yahooTurnovers={yahooPbp?.turnovers ?? []}
+        yahooPbpSupported={yahooPbpAvailable}
         periods={periods}
         classificationById={classificationById}
         shotChartSupported={shotChartSupported}
@@ -489,6 +506,96 @@ export function GameDetailPage({ season }: { season: string }) {
         </>
       ) : (
         <p className="empty-message">このシーズンのデータには対応していません</p>
+      )}
+
+      <h2>シューティング</h2>
+      {!yahooPbpAvailable ? (
+        <p className="empty-message">このシーズンのデータには対応していません</p>
+      ) : (
+        <>
+          <ShootingBreakdownTable
+            teamName={game.homeTeam.name}
+            players={homePlayers}
+            breakdownByPlayer={shotTypeBreakdownByPlayer}
+            shotTypeKeys={shotTypeKeys}
+            accentColor={homeColor}
+          />
+          <ShootingBreakdownTable
+            teamName={game.awayTeam.name}
+            players={awayPlayers}
+            breakdownByPlayer={shotTypeBreakdownByPlayer}
+            shotTypeKeys={shotTypeKeys}
+            accentColor={awayColor}
+          />
+          <p className="page-subtitle">
+            Yahoo!スポーツplay-by-play由来のシュートタイプ内訳（2023-24シーズン以降。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ShootingBreakdownTable({
+  teamName,
+  players,
+  breakdownByPlayer,
+  shotTypeKeys,
+  accentColor,
+}: {
+  teamName: string;
+  players: BoxscoreRow[];
+  breakdownByPlayer: Map<string, ShotTypeBreakdown>;
+  shotTypeKeys: string[];
+  accentColor?: string;
+}) {
+  const renderRows = (rows: BoxscoreRow[]) =>
+    rows.map((p) => {
+      const breakdown = breakdownByPlayer.get(p.PlayerID) ?? {};
+      const total = shotTypeKeys.reduce(
+        (acc, key) => {
+          const c = breakdown[key];
+          return c ? { made: acc.made + c.made, attempted: acc.attempted + c.attempted } : acc;
+        },
+        { made: 0, attempted: 0 },
+      );
+      return (
+        <tr key={p.PlayerID}>
+          <td className="align-left">{p.PlayerNameJ}</td>
+          {shotTypeKeys.map((key) => (
+            <td key={key} className="align-right">
+              {formatShotTypeCell(breakdown[key])}
+            </td>
+          ))}
+          <td className="align-right">{formatShotTypeCell(total)}</td>
+        </tr>
+      );
+    });
+  const starters = players.filter((p) => p.StartingFlg === 1);
+  const bench = players.filter((p) => p.StartingFlg !== 1);
+  return (
+    <div className="boxscore-section" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
+      <h3>{teamName}</h3>
+      {shotTypeKeys.length === 0 ? (
+        <p className="empty-message">この試合のデータがありません</p>
+      ) : (
+        <div className="table-scroll">
+          <table className="boxscore-table">
+            <thead>
+              <tr>
+                <th className="align-left">選手</th>
+                {shotTypeKeys.map((key) => (
+                  <th key={key}>{key}</th>
+                ))}
+                <th>合計</th>
+              </tr>
+            </thead>
+            <tbody>
+              {renderRows(starters)}
+              {renderRows(bench)}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

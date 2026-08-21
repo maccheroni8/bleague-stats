@@ -2887,3 +2887,164 @@ ScheduleKeyだけに絞ったチーム側`TeamGameLog`（`fetchTeamGameLogs`）�
 ような「既存フィールドを足すだけ」の軽い変更とは一段違う）になると見込む。
 スキーマ設計（`PlayerGameLog`に時間帯別の内訳を持たせるか、別ファイルに分離するか）も
 含めて、実装方針はユーザーの判断を待つ。
+
+---
+
+## 38. Yahoo PBPデータ（シュートタイプ・ターンオーバー種別）のUI反映（2026-08-21）
+
+35章で基盤化したYahoo!スポーツplay-by-playデータ（シュートタイプ・ターンオーバー種別）を
+実際にUIへ反映した。共通基盤（対応シーズンフラグ）→ターンオーバー種別（個人・チーム）→
+シュートタイプ内訳、の順で実装し、各ステップでブラウザ・手計算による値の突合を行った。
+
+### 38-1. データ対応範囲の管理
+
+`shared/types.ts`の`SeasonEntry`に`yahooPbp: boolean`を追加した。既存の`coverage`
+（bleague.jp本体データの対応範囲）とは別軸で、「Yahoo PBPが理論上対応するシーズン
+（2023-24以降、35章の`yahooPbpCoverage()`）」ではなく**実際に`data/{season}/yahoo/`へ
+スクレイピング済みかどうか**を見るようにした（`scripts/aggregate.ts`の
+`seasonHasYahooPbp()`、`regenerateSeasonsFile()`から呼ぶ）。理論値ではなく実データの
+有無で判定する方針にしたのは、「対応シーズンと表示されるのに個々の試合が404で
+壊れる」という状態を避けるため。フロントエンド側は`src/lib/useSeasonCoverage.ts`に
+`useYahooPbpCoverage(season)`を追加し、既存の`useSeasonCoverage`と同じ`data/seasons.json`
+参照パターンを踏襲した。
+
+試合単位ではさらに一段階細かい判定が要る点に注意: シーズン全体が対応範囲でも、
+個々の試合はYahoo側の500エラー等で未取得のことがある（`fetchYahooGamePbp()`は404を
+エラーにせずnullを返す設計、`src/lib/data.ts`）。そのため試合詳細ページ
+（`GameDetailPage.tsx`）の各セクションは、シーズン単位の`useYahooPbpCoverage`ではなく
+**実際にその試合のデータが取得できたか（`yahooPbp !== null`）**で表示可否を判定している
+（`yahooPbpAvailable`変数）。個人詳細ページ・チーム詳細ページ（シーズン集計）は
+`players.json`/`teams.json`の該当フィールド自体の有無（`shotTypes`/`forcedTurnovers`が
+`undefined`かどうか）で判定する、という一貫した「実データの有無で判定する」方針を
+全箇所で採用した。
+
+対応データを広げるため、この実装と並行して2023-24・2025-26シーズンの
+`scrape:yahoo-pbp`をバックグラウンドで実行した（既存の2024-25に加え、Yahoo PBP対応の
+3シーズン全てを揃える目的）。取得完了後は`npm run aggregate`の再実行が必要
+（`seasons.json`・`teams.json`・`players.json`いずれも実データの有無を都度再計算する
+設計のため）。
+
+### 38-2. ターンオーバー種別（個人単位: ライブ/デッドボール内訳）
+
+`src/lib/boxscoreAggregate.ts`の`BoxscoreCounts`に`liveTov`/`deadTov`を追加した。
+`YahooTurnoverEvent`（`isTeamTurnover===false`かつ`playerId`が解決済みのもの）を
+`ballType`（"live"/"dead"。"unknown"はどちらにも計上しない）で選手ごとに集計する
+`buildYahooTovCounts()`を新設し、`buildPlayerBoxscores()`の第4引数
+（`yahooTurnovers: YahooTurnoverEvent[]`）として渡す設計にした（`ptsOffTov`等、
+既存のPlayByPlays由来フィールドと同じ「sumCounts()では常に0、buildPlayerBoxscores()が
+事後的に上書き」というパターンを踏襲）。`PeriodRangeOption`によるQ別/前後半の絞り込みは
+`YahooTurnoverEvent.period`（bleague.jp本体のPBPとは別の独自Period体系だが、
+`periodInRange()`は数値のPeriodを見るだけなのでそのまま流用できた）に対して同様に適用する。
+
+ボックススコアのMiscタブに`LIVETOV`/`DEADTOV`/`LIVE%`列を追加した（`ColumnCtx`に
+`yahooPbpSupported`を追加し、試合単位でデータが無い場合は列全体を「-」表示にする）。
+チーム合計行は既存のF4（ダンク数等）と同じく選手ごとの値を合算する方式
+（`isTeamTurnover===true`の個人に紐付かないターンオーバーは含まれないため、
+チーム合計行のLIVETOV+DEADTOVは同じ行のTOV列より僅かに少なくなりうる。仕様として
+コメントで明記）。
+
+**検証**（ScheduleKey=502710、2024-25シーズン）: 両チームとも
+「LIVETOV+DEADTOV（選手個人の合計）」が「トラディショナルタブのTOV合計 −
+TEAM/COACHES行のTOV（個人に紐付かないチーム発生ターンオーバー）」に完全一致すること
+をブラウザで確認した（仙台89ERS: 8+2=10 = 12−2、横浜ビー・コルセアーズ: 11+4=15 =
+17−2）。season非対応（2022-23シーズン等）では列全体が「-」になることも確認した。
+
+### 38-3. ターンオーバー種別（チーム単位: 相手に強制した種類別カウント）
+
+`shared/types.ts`に`TeamForcedTurnovers`を新設し（`offensiveFoul`/`violation24sec`/
+`backcourtViolation`/`violation5sec`/`otherDead`/`live`/`gamesWithData`）、
+`TeamSummary.forcedTurnovers?`として持たせた。ユーザーが例示した4種別
+（オフェンスファウル/24秒/バックコート/5秒バイオレーション強制）を独立フィールドにし、
+残りの低頻度デッドボール種別（トラベリング・ダブルドリブル・3秒/8秒バイオレーション・
+アウトオブバウンズ・オフェンスゴールテンディング・分類不能）は`otherDead`に、
+スティール由来のライブボールターンオーバーは参考値として`live`にまとめた
+（`scripts/aggregate.ts`の`classifyForcedTurnover()`）。
+
+季集計はバックエンドで実施する方針にした（`buildForcedTurnoversByTeam()`）。
+シーズン中のレギュラーシーズン全試合について、対応する`data/{season}/yahoo/
+{scheduleKey}.json`が存在すれば読み込み、ターンオーバーの主体（`teamId`）の
+対戦相手チームに「強制した」側として加算する。teams.jsonの他フィールドと同じく
+レギュラーシーズンのみを対象にし（`processTeams()`のgameType分岐と同じ方針）、
+B.ONE等Yahoo PBPデータ自体が存在しないカテゴリでは計算をスキップする
+（`category === "premier"`のみ実行）。
+
+表示はチーム詳細ページの「よく使われるラインナップ」直後に「相手に強制した
+ターンオーバー（種類別）」セクションとして追加した（「ディフェンス面の指標として
+既存のチームスタッツセクションに馴染む形で」というユーザー指定通り、新規タブ等は
+作らず既存の概要タブ内に統合）。`forcedTurnovers`が`undefined`（未対応シーズン）の
+場合は「このシーズンのデータには対応していません」を表示する。
+
+**検証**（宇都宮ブレックス、2024-25シーズン）: オフェンスファウル強制51・24秒
+バイオレーション強制62・バックコート強制5・5秒バイオレーション強制4・その他デッド
+ボール74・ライブボール575・合計771・データあり試合数60（レギュラーシーズン60試合
+全て取得済み）をブラウザで確認。1試合あたり約12.85件で、Bリーグの一般的なチーム
+被ターンオーバー数（12〜14件/試合）と整合する妥当な値であることを確認した。
+
+### 38-4. シュートタイプ内訳
+
+**実データでのシュートタイプ語彙の確認**（2024-25シーズン全737試合・95,484本の
+シュートイベントを集計）: 「ジャンプショット/プルアップジャンプショット/
+ステップバックジャンプショット/ターンアラウンドジャンプショット/フェイドアウェイ/
+フローティングジャンプショット/ドライビングレイアップ/レイアップ/フックショット/
+ダンク/アリウープ」の**11種類**であることを確認した。ユーザーが当初例示していた
+「キャッチアンドシュート」に相当する独立タグは存在せず、無印の「ジャンプショット」
+（全体の約51%・48,419本）に、プルアップでもステップバックでもない全てのジャンプ
+ショットが一括りになっている（キャッチアンドシュートとプルアップ以外のセットショット
+等が区別されない）。この制約をユーザーに報告した上で、**実データの11種類をそのまま
+表示する**方針で実装を進めることの確認を得た（データに無い分類を推測で作らない、
+という他の項目（ターンオーバー種別調査・34章等）と一貫した方針）。
+
+**データ構造**: `shared/types.ts`に`ShotTypeCounts`（`made`/`attempted`）・
+`ShotTypeBreakdown`（`Record<string, ShotTypeCounts>`、キーはYahoo表記のシュートタイプ
+原文をそのまま使う。`scrape-yahoo-pbp.ts`の`turnoverSubtypeCounts`と同じ「原文キー」
+方針）を追加。`src/lib/shotTypeBreakdown.ts`に、実データでの出現頻度順に並べた
+`SHOT_TYPE_DISPLAY_ORDER`定数と、未知の語彙が将来出現した場合に末尾へ回す
+`sortShotTypeKeys()`、1試合分の`YahooShotEvent[]`から選手ごとの内訳を組み立てる
+`buildShotTypeBreakdownByPlayer()`、「M/A (PCT%)」形式でセル表示する
+`formatShotTypeCell()`（ショットチャートの成功率表示"27/73 (37.0%)"と同じ表記）を実装した。
+
+**試合詳細ページ**: 「シューティング」を独立セクションとして新設（既存のボックス
+スコアには列を追加せず、別テーブル）。選手ごと（既存のスタメン/ベンチ順）に、
+その試合で実際に出現したシュートタイプを列として、成功/試投/成功率のセルを表示する。
+末尾に合計列（全シュートタイプの合算）を追加した。
+
+**個人詳細ページ**: シーズン集計版を「スタッツ」タブに追加。`scripts/aggregate.ts`の
+`buildShotTypeBreakdownByPlayer()`（チーム単位の`buildForcedTurnoversByTeam()`と対の
+関数。同じくレギュラーシーズンのみ・取得済み試合のみ集計）で`PlayerSummary.shotTypes?`
+として持たせ、平均/合計/30分換算のトグルは設けず**合計のみ**を表示する
+（ユーザー指定「まずは合計のみでも構いません」の通り）。
+
+**検証**: 試合単位（ScheduleKey=502710）でクリスティアーノ・フェリシオ（4/9,
+44.4%）・ゲイリー・クラーク（4/10, 40.0%）の合計列が、既存のトラディショナルタブの
+FGM/FGAと完全一致することをブラウザで確認した。シーズン単位（渡邊雄太、2024-25
+シーズン）でも合計列（161/393, 41.0%）がシーズンボックススコアのFGM/FGA
+（4.6×35.1試合≈161、11.2×35.1試合≈393）と整合することを確認した。
+
+### 38-5. スクレイパーのバグ発見・修正: TeamID埋め込み方式のシーズン差異
+
+対応シーズンを広げる目的で2023-24・2025-26シーズンを`scrape:yahoo-pbp`でバックグラウンド
+取得したところ、**2023-24シーズンのみ全試合でshots/turnovers=0**（`parseWarningCount`が
+`totalEvents`と完全一致＝全イベントがteamId解決不可で捨てられていた）という重大な不具合を
+検出した。実機調査（該当試合のwidget HTMLを直接取得・比較）の結果、TeamIDの埋め込み方式が
+シーズンで異なることが原因と判明した:
+- 現行（2024-25シーズン以降で確認）: `class="ba-teamLogo ba-teamLogo--{TeamID}"`
+- レガシー（2023-24シーズンで確認）: `class="ba-teamLogo"`のみで、代わりに
+  `style="background-image: url(https://image.dsimg.jp/team/{TeamID}.png)"`にTeamIDが入る
+
+`scripts/lib/yahooPbp.ts`のteamId抽出ロジックを、現行方式のクラス名パターンで
+マッチしなければ`style`属性のURLパターンにフォールバックする実装に修正した（季節による
+分岐は設けず、両方式を常に試す単純な実装。実データ（ScheduleKey=501291、レバンガ北海道
+702 vs 秋田693）で修正後の抽出結果が実際の対戦カードと一致することを確認済み）。
+2023-24シーズンは`--force`で再取得し直した。
+
+### 38-6. 未実施・今後の課題
+
+- 2023-24・2025-26シーズンのYahoo PBPスクレイピングはこの実装と並行してバックグラウンド
+  実行したが、本節執筆時点では完了していない。完了後に`npm run aggregate`を該当
+  シーズンで再実行する必要がある
+- シュートタイプ内訳・ターンオーバー種別ともグロッサリーページ・`statDefs.ts`への
+  反映は行っていない（PTSOFFTO/DUNK等と同じく、ボックススコア/新規セクション固有の
+  値であり、`statDefs.ts`が前提とするランキング/比較ページ向けのスタッツ定義とは
+  性質が異なるため。既存の運用ルール通り対象外とした）
+- シュートタイプ内訳の期間トグル（Q別/前後半）は試合詳細ページ側では未対応
+  （ユーザー要求になかったため、まずは試合全体のみ）

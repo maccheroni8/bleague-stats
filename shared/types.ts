@@ -455,6 +455,29 @@ export interface TeamSummary {
   advanced: TeamAdvancedStats;
   opponentPerGame: PerGameStats;
   netPerGame: PerGameStats;
+  /**
+   * 相手に強制したターンオーバーの種類別カウント（Yahoo!スポーツplay-by-play由来。DESIGN.md参照）。
+   * Yahoo PBPデータが1試合も取得できていないシーズンではフィールド自体を省略する
+   */
+  forcedTurnovers?: TeamForcedTurnovers;
+}
+
+/**
+ * 相手に強制したターンオーバーの種類別シーズン集計（DESIGN.md参照）。「等」で言及された
+ * 主要4種別（オフェンスファウル/24秒/バックコート/5秒バイオレーション）を独立フィールドにし、
+ * 残りの低頻度デッドボール種別（トラベリング・ダブルドリブル・3秒/8秒バイオレーション・
+ * アウトオブバウンズ・オフェンスゴールテンディング・分類不能）は`otherDead`にまとめる。
+ * `live`はスティール由来（バッドパス・ボールハンドリングロスト）の参考値
+ */
+export interface TeamForcedTurnovers {
+  /** Yahoo PBPデータが実際に取得できた試合数（分母の目安。全試合数と異なりうる） */
+  gamesWithData: number;
+  offensiveFoul: number;
+  violation24sec: number;
+  backcourtViolation: number;
+  violation5sec: number;
+  otherDead: number;
+  live: number;
 }
 
 export interface PlayerSummary {
@@ -478,7 +501,22 @@ export interface PlayerSummary {
   heightCm?: number;
   weightKg?: number;
   birthDate?: string;
+  /**
+   * シュートタイプ別の成功/試投カウント（Yahoo!スポーツplay-by-play由来、レギュラーシーズンのみ。
+   * DESIGN.md参照）。キーはYahoo表記のシュートタイプ原文をそのまま使う（scrape-yahoo-pbp.tsの
+   * turnoverSubtypeCountsと同じ方針）。「キャッチアンドシュート」に相当する独立タグはデータ上
+   * 存在せず、無印の「ジャンプショット」（全体の約51%）に一括りになっている点に注意。
+   * Yahoo PBPデータが1試合も取得できていないシーズンではフィールド自体を省略する
+   */
+  shotTypes?: ShotTypeBreakdown;
 }
+
+export interface ShotTypeCounts {
+  made: number;
+  attempted: number;
+}
+
+export type ShotTypeBreakdown = Record<string, ShotTypeCounts>;
 
 // ---- data/{season}/player-games/{playerId}.json の保存スキーマ（個人詳細ページの試合ログ用） ----
 
@@ -674,6 +712,13 @@ export type SeasonCoverage = "full" | "pbpNoShotChart";
 export interface SeasonEntry {
   season: string;
   coverage: SeasonCoverage;
+  /**
+   * Yahoo!スポーツplay-by-play（追加データ源、シュートタイプ・ターンオーバー種別。DESIGN.md
+   * 33章・35章参照）の取得済みデータが1件以上あるか。理論上の対応範囲（2023-24シーズン以降、
+   * scripts/lib/yahooCoverage.tsのyahooPbpCoverage()）とは別に、実際にdata/{season}/yahoo/へ
+   * スクレイピング済みかどうかを見る（未取得のうちはUIから機能を隠すため）
+   */
+  yahooPbp: boolean;
 }
 
 export type SeasonsFile = SeasonEntry[];

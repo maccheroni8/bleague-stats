@@ -5,7 +5,7 @@ import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue 
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
 import { efgPct, safeDiv, tovPct, tsPct, usagePct } from "../../shared/formulas";
 import type { PlayerOnCourtRatings } from "../../shared/onCourt";
-import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow } from "../../shared/types";
+import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow, YahooTurnoverEvent } from "../../shared/types";
 import {
   astToTovRatio,
   buildPlayTypeCounts,
@@ -53,6 +53,8 @@ interface ColumnCtx {
   isTeamTotalRow: boolean;
   /** ペイント内外2P内訳の元になるX/Y/AreaCDが収録されているか（2022-23シーズン以降のみ。DESIGN.md参照） */
   shotChartSupported: boolean;
+  /** Yahoo!スポーツplay-by-play由来の列（LIVETOV/DEADTOV等）が算出可能か。DESIGN.md参照 */
+  yahooPbpSupported: boolean;
 }
 
 interface BoxscoreColumn {
@@ -304,6 +306,32 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
     value: (c) => sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts),
     description: "(被アシスト2PM×2 + 被アシスト3PM×3 + 被アシストFTM) / PTS × 100",
   },
+  // ターンオーバーのライブ/デッドボール内訳（Yahoo!スポーツplay-by-play由来、2023-24シーズン
+  // 以降のみ。DESIGN.md参照）。未対応シーズン・未取得試合は「-」表示にする
+  {
+    key: "livetov",
+    label: "LIVETOV",
+    format: (c, ctx) => (ctx.yahooPbpSupported ? String(c.liveTov) : "-"),
+    value: (c, ctx) => (ctx.yahooPbpSupported ? c.liveTov : undefined),
+    higherIsBetter: false,
+    description: "ライブボールターンオーバー数（バッドパス・ボールハンドリングロスト等、相手の速攻に直結しうるもの）",
+  },
+  {
+    key: "deadtov",
+    label: "DEADTOV",
+    format: (c, ctx) => (ctx.yahooPbpSupported ? String(c.deadTov) : "-"),
+    value: (c, ctx) => (ctx.yahooPbpSupported ? c.deadTov : undefined),
+    higherIsBetter: false,
+    description: "デッドボールターンオーバー数（トラベリング・オフェンスファウル・各種バイオレーション等、笛で試合が止まるもの）",
+  },
+  {
+    key: "livetovpct",
+    label: "LIVE%",
+    format: (c, ctx) =>
+      ctx.yahooPbpSupported ? formatPct100(sharePct(c.liveTov, c.liveTov + c.deadTov)) : "-",
+    value: (c, ctx) => (ctx.yahooPbpSupported ? sharePct(c.liveTov, c.liveTov + c.deadTov) : undefined),
+    description: "LIVETOV / (LIVETOV + DEADTOV) × 100",
+  },
 ];
 
 const SCORING_COLUMNS: BoxscoreColumn[] = [
@@ -417,6 +445,9 @@ interface BoxscoreTableProps {
   awayRows: BoxscoreRow[];
   summaries: SummaryRow[];
   playByPlays: PlayByPlayEvent[];
+  /** Yahoo!スポーツplay-by-play由来のターンオーバーイベント（両チーム分。未対応/未取得なら空配列） */
+  yahooTurnovers: YahooTurnoverEvent[];
+  yahooPbpSupported: boolean;
   periods: number;
   classificationById: Map<string, PlayerSummary["classification"]>;
   /** ペイント内外2P内訳（スコアリングタブ）の元になるX/Y/AreaCDが収録されているか。2022-23シーズン以降のみ */
@@ -434,6 +465,8 @@ export function BoxscoreTable({
   awayRows,
   summaries,
   playByPlays,
+  yahooTurnovers,
+  yahooPbpSupported,
   periods,
   classificationById,
   shotChartSupported,
@@ -467,6 +500,8 @@ export function BoxscoreTable({
         side="home"
         summaries={summaries}
         playByPlays={playByPlays}
+        yahooTurnovers={yahooTurnovers}
+        yahooPbpSupported={yahooPbpSupported}
         periodOption={selectedOption}
         columns={columns}
         classificationById={classificationById}
@@ -482,6 +517,8 @@ export function BoxscoreTable({
         side="away"
         summaries={summaries}
         playByPlays={playByPlays}
+        yahooTurnovers={yahooTurnovers}
+        yahooPbpSupported={yahooPbpSupported}
         periodOption={selectedOption}
         columns={columns}
         classificationById={classificationById}
@@ -525,6 +562,8 @@ function BoxscoreTeamPanel({
   side,
   summaries,
   playByPlays,
+  yahooTurnovers,
+  yahooPbpSupported,
   periodOption,
   columns,
   classificationById,
@@ -539,6 +578,8 @@ function BoxscoreTeamPanel({
   side: "home" | "away";
   summaries: SummaryRow[];
   playByPlays: PlayByPlayEvent[];
+  yahooTurnovers: YahooTurnoverEvent[];
+  yahooPbpSupported: boolean;
   periodOption: PeriodRangeOption | undefined;
   columns: BoxscoreColumn[];
   classificationById: Map<string, PlayerSummary["classification"]>;
@@ -560,7 +601,7 @@ function BoxscoreTeamPanel({
   // 一方、個人ORtg/DRtg/NetRtg（Dean Oliver方式）は選択中の期間範囲のBoxscoreCountsのみで
   // 計算できるため、期間範囲を問わず常にマージする
   const showOnCourtPace = periodOption === undefined || periodOption.periods === null;
-  const players = buildPlayerBoxscores(ownRows, periodOption, playByPlays).map((p) => {
+  const players = buildPlayerBoxscores(ownRows, periodOption, playByPlays, yahooTurnovers).map((p) => {
     const { offRtg, defRtg, netRtg } = computeIndividualRatings(p.counts, teamTotal, oppTeamTotal, ratings.poss);
     const onCourtPace = showOnCourtPace ? onCourtRatings[p.playerId]?.pace : undefined;
     return { ...p, counts: { ...p.counts, offRtg, defRtg, netRtg, onCourtPace } };
@@ -579,6 +620,10 @@ function BoxscoreTeamPanel({
     assisted2m: miscTeamTotals.assisted2m,
     assisted3m: miscTeamTotals.assisted3m,
     assistedFtm: miscTeamTotals.assistedFtm,
+    // LIVETOV/DEADTOVも同様（isTeamTurnover=trueの個人に紐付かないターンオーバーは含まれない。
+    // DESIGN.md参照）
+    liveTov: miscTeamTotals.liveTov,
+    deadTov: miscTeamTotals.deadTov,
   };
 
   const starters = players.filter((p) => p.startingFlg === 1);
@@ -598,6 +643,7 @@ function BoxscoreTeamPanel({
     isPlayerRow: true,
     isTeamTotalRow: false,
     shotChartSupported,
+    yahooPbpSupported,
   };
   const nonPlayerCtx: ColumnCtx = {
     own: teamTotal,
@@ -605,6 +651,7 @@ function BoxscoreTeamPanel({
     isPlayerRow: false,
     isTeamTotalRow: false,
     shotChartSupported,
+    yahooPbpSupported,
   };
   const teamTotalCtx: ColumnCtx = {
     own: teamTotal,
@@ -613,6 +660,7 @@ function BoxscoreTeamPanel({
     isPlayerRow: false,
     isTeamTotalRow: true,
     shotChartSupported,
+    yahooPbpSupported,
   };
   // 内訳集計セクションの「チーム合計」行は+/-を除きteamTotalCtxと同じ扱い（POSS/PACE等は引き続き表示する）
   const summaryTotalCtx: ColumnCtx = teamTotalCtx;

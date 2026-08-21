@@ -21,3 +21,14 @@ export function isPbpSupported(coverage: SeasonCoverage | null): boolean {
 export function isShotChartSupported(coverage: SeasonCoverage | null): boolean {
   return coverage === "full";
 }
+
+/**
+ * Yahoo!スポーツplay-by-play由来の機能（シュートタイプ内訳・ターンオーバー種別）が
+ * 対応範囲内か。data/seasons.jsonの`yahooPbp`フラグ（実際にスクレイピング済みのシーズンのみ
+ * true）をそのまま使う
+ */
+export function useYahooPbpCoverage(season: string): { supported: boolean; loading: boolean } {
+  const { data, loading } = useJsonData(() => fetchSeasons(), []);
+  const supported = data?.find((s) => s.season === season)?.yahooPbp ?? false;
+  return { supported, loading };
+}

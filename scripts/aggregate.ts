@@ -48,9 +48,13 @@ import type {
   SeasonEntry,
   StandingsSnapshot,
   StandingsTeamSnapshot,
+  ShotTypeBreakdown,
   StoredGame,
+  TeamForcedTurnovers,
   TeamGameLog,
   TeamLineupsFile,
+  YahooGamePbp,
+  YahooTurnoverEvent,
 } from "../shared/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
 
@@ -70,6 +74,97 @@ function seasonHasGames(season: string): boolean {
   return readdirSync(dir).some((f) => f.endsWith(".json.gz"));
 }
 
+/** data/{season}/yahoo/配下に実際に取得済みのYahoo PBPファイルが1件以上あるか（DESIGN.md参照） */
+function seasonHasYahooPbp(season: string): boolean {
+  const dir = path.join(DATA_DIR, season, "yahoo");
+  if (!existsSync(dir)) return false;
+  return readdirSync(dir).some((f) => f.endsWith(".json.gz") && f !== "_validation-report.json.gz");
+}
+
+function emptyForcedTurnovers(): TeamForcedTurnovers {
+  return { gamesWithData: 0, offensiveFoul: 0, violation24sec: 0, backcourtViolation: 0, violation5sec: 0, otherDead: 0, live: 0 };
+}
+
+/**
+ * Yahoo!スポーツplay-by-playのターンオーバーイベントを、相手に強制した種類別カウントの
+ * バケットに分類する（scripts/lib/yahooPbp.tsのLIVE/DEAD_TURNOVER_SUBTYPESと同じ語彙、
+ * TeamForcedTurnoversの4主要種別＋その他デッド/ライブに集約する。DESIGN.md参照）
+ */
+function classifyForcedTurnover(to: YahooTurnoverEvent): keyof Omit<TeamForcedTurnovers, "gamesWithData"> {
+  if (to.ballType === "live") return "live";
+  switch (to.subtypeRaw) {
+    case "オフェンスファウル":
+      return "offensiveFoul";
+    case "24秒バイオレーション":
+      return "violation24sec";
+    case "バックコート":
+      return "backcourtViolation";
+    case "5秒バイオレーション":
+    case "5秒チームバイオレーション":
+      return "violation5sec";
+    default:
+      return "otherDead";
+  }
+}
+
+/**
+ * シーズン中の各試合について、取得済みのYahoo PBPデータ（data/{season}/yahoo/{scheduleKey}.json）
+ * があれば読み込み、相手チームに強制したターンオーバーの種類別カウントをチーム単位で積算する。
+ * B.ONE等ではYahoo PBPデータ自体が存在しないため、呼び出し側でcategory==="premier"の時のみ
+ * 呼ぶ想定（未取得試合は静かにスキップし、gamesWithDataで実際にカバーできた試合数を残す）
+ */
+async function buildForcedTurnoversByTeam(season: string, games: StoredGame[]): Promise<Map<string, TeamForcedTurnovers>> {
+  const byTeam = new Map<string, TeamForcedTurnovers>();
+  const ensure = (teamId: string): TeamForcedTurnovers => {
+    let t = byTeam.get(teamId);
+    if (!t) {
+      t = emptyForcedTurnovers();
+      byTeam.set(teamId, t);
+    }
+    return t;
+  };
+  // teams.jsonの他フィールド（totals等）と同じくレギュラーシーズンのみを対象にする
+  // （processTeams()がgameType==="regular"のみ加算するのと同じ方針）
+  const regularGames = games.filter((g) => classifyGameType(g.raw.Game.ConventionNameJ) === "regular");
+  for (const game of regularGames) {
+    const pbp = await readJson<YahooGamePbp>(path.join(DATA_DIR, season, "yahoo", `${game.scheduleKey}.json`));
+    if (!pbp) continue;
+    ensure(game.homeTeam.id).gamesWithData += 1;
+    ensure(game.awayTeam.id).gamesWithData += 1;
+    for (const to of pbp.turnovers) {
+      // toの主体（teamId）はターンオーバーを犯した側＝相手にとっての「強制した」側は対戦相手の方
+      const forcingTeamId = to.teamId === game.homeTeam.id ? game.awayTeam.id : game.homeTeam.id;
+      const bucket = classifyForcedTurnover(to);
+      ensure(forcingTeamId)[bucket] += 1;
+    }
+  }
+  return byTeam;
+}
+
+/**
+ * シュートタイプ別の成功/試投カウントを選手ごとにシーズン集計する（Yahoo!スポーツplay-by-play
+ * 由来、レギュラーシーズンのみ・取得済み試合のみ。DESIGN.md参照）。teams.jsonのforcedTurnovers
+ * と同じく、B.ONE等（Yahoo PBPデータ自体が存在しない）ではcategory==="premier"の時のみ呼ぶ想定
+ */
+async function buildShotTypeBreakdownByPlayer(season: string, games: StoredGame[]): Promise<Map<string, ShotTypeBreakdown>> {
+  const byPlayer = new Map<string, ShotTypeBreakdown>();
+  const regularGames = games.filter((g) => classifyGameType(g.raw.Game.ConventionNameJ) === "regular");
+  for (const game of regularGames) {
+    const pbp = await readJson<YahooGamePbp>(path.join(DATA_DIR, season, "yahoo", `${game.scheduleKey}.json`));
+    if (!pbp) continue;
+    for (const shot of pbp.shots) {
+      if (!shot.playerId || !shot.shotType) continue;
+      const breakdown = byPlayer.get(shot.playerId) ?? {};
+      const counts = breakdown[shot.shotType] ?? { made: 0, attempted: 0 };
+      counts.attempted += 1;
+      if (shot.made) counts.made += 1;
+      breakdown[shot.shotType] = counts;
+      byPlayer.set(shot.playerId, breakdown);
+    }
+  }
+  return byPlayer;
+}
+
 /**
  * data/配下に存在する、かつ実際の試合データがあるシーズンディレクトリを走査して
  * data/seasons.jsonを再生成する。どのシーズンをaggregateしても全シーズン分を書き直す
@@ -82,7 +177,11 @@ async function regenerateSeasonsFile(): Promise<void> {
     .map((e) => e.name)
     .filter((season) => seasonHasGames(season))
     .sort();
-  const seasonsFile: SeasonEntry[] = seasons.map((season) => ({ season, coverage: seasonCoverage(season) }));
+  const seasonsFile: SeasonEntry[] = seasons.map((season) => ({
+    season,
+    coverage: seasonCoverage(season),
+    yahooPbp: seasonHasYahooPbp(season),
+  }));
   await writeJson(path.join(DATA_DIR, "seasons.json"), seasonsFile);
 }
 
@@ -445,6 +544,15 @@ export async function aggregateSeason(season: string, category: Category = "prem
     processLineups(game, teamLineups, onCourt);
   }
 
+  // 相手に強制したターンオーバーの種類別カウント（Yahoo!スポーツplay-by-play由来、
+  // 2023-24シーズン以降・取得済み試合のみ。DESIGN.md参照）。B.ONE等ではYahoo PBPデータ自体が
+  // 存在しないため、premierカテゴリのみ計算する
+  const forcedTurnoversByTeam =
+    category === "premier" ? await buildForcedTurnoversByTeam(season, games) : new Map<string, TeamForcedTurnovers>();
+  // シュートタイプ別の成功/試投カウント（Yahoo!スポーツplay-by-play由来。DESIGN.md参照）
+  const shotTypesByPlayer =
+    category === "premier" ? await buildShotTypeBreakdownByPlayer(season, games) : new Map<string, ShotTypeBreakdown>();
+
   // PER（Hollinger方式、NBA/Basketball-Reference流。DESIGN.md参照）。
   // リーグ全体の合計値（自チーム視点のteams.totalsを全チーム分足し合わせたもの。相手チーム視点の
   // opponentTotalsを混ぜると二重集計になるため使わない）からfactor/VOP/DRBP・lgPaceを1回だけ求め、
@@ -513,6 +621,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         heightCm: master?.heightCm,
         weightKg: master?.weightKg,
         birthDate: master?.birthDate,
+        shotTypes: shotTypesByPlayer.get(p.playerId),
         ...statBlock,
         advanced: {
           eff: statBlock.advanced.eff,
@@ -567,6 +676,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
             value - oppStats.perGame[key as keyof typeof oppStats.perGame],
           ]),
         ),
+        forcedTurnovers: forcedTurnoversByTeam.get(t.teamId),
       };
     })
     .sort((a, b) => b.wins - a.wins);

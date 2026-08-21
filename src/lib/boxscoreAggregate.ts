@@ -4,7 +4,7 @@
 // 該当するPeriodCategory=1..4(・OT分)の行を自前で合算する（15/16/17は「前半/後半/延長合計」
 // 専用の集計行で、PeriodRangeOptionのOTを含む「後半」等とは範囲が一致しないケースがあるため使わない）。
 
-import type { BoxscoreRow, PlayByPlayEvent, SummaryRow } from "../../shared/types";
+import type { BoxscoreRow, PlayByPlayEvent, SummaryRow, YahooTurnoverEvent } from "../../shared/types";
 import type { PeriodRangeOption } from "./periodRange";
 import { periodInRange } from "./periodRange";
 import {
@@ -99,6 +99,16 @@ export interface BoxscoreCounts {
   assisted2m: number;
   assisted3m: number;
   assistedFtm: number;
+  /**
+   * ターンオーバーのライブボール/デッドボール内訳（Yahoo!スポーツplay-by-play由来。
+   * shared/types.tsのYahooTurnoverBallType参照。DESIGN.md参照）。2023-24シーズン以降のみ、
+   * かつ該当試合が実際に取得済みの場合のみ算出される。sumCounts()では常に0のままで、
+   * buildPlayerBoxscores()がyahooTurnovers引数から事後的に上書きする（ptsOffTov等と同じ扱い）。
+   * 「そのシーズン/試合でデータが無く算出不能」と「実際に0件だった」は区別できないため、
+   * 呼び出し側はYahoo PBP対応可否（useYahooPbpCoverage）を別途見て「-」表示にケアする
+   */
+  liveTov: number;
+  deadTov: number;
 }
 
 const ZERO_COUNTS: BoxscoreCounts = {
@@ -138,6 +148,8 @@ const ZERO_COUNTS: BoxscoreCounts = {
   assisted2m: 0,
   assisted3m: 0,
   assistedFtm: 0,
+  liveTov: 0,
+  deadTov: 0,
 };
 
 /**
@@ -206,6 +218,8 @@ export function sumCounts(rows: BoxscoreRow[]): BoxscoreCounts {
       assisted2m: acc.assisted2m,
       assisted3m: acc.assisted3m,
       assistedFtm: acc.assistedFtm,
+      liveTov: acc.liveTov,
+      deadTov: acc.deadTov,
     }),
     ZERO_COUNTS,
   );
@@ -261,6 +275,8 @@ export function sumCountsList(list: BoxscoreCounts[]): BoxscoreCounts {
       assisted2m: acc.assisted2m + c.assisted2m,
       assisted3m: acc.assisted3m + c.assisted3m,
       assistedFtm: acc.assistedFtm + c.assistedFtm,
+      liveTov: acc.liveTov + c.liveTov,
+      deadTov: acc.deadTov + c.deadTov,
     }),
     ZERO_COUNTS,
   );
@@ -337,6 +353,31 @@ function buildMiscEventCounts(events: PlayByPlayEvent[]): Map<string, MiscEventC
   return byPlayer;
 }
 
+interface YahooTovCounts {
+  liveTov: number;
+  deadTov: number;
+}
+
+const ZERO_YAHOO_TOV: YahooTovCounts = { liveTov: 0, deadTov: 0 };
+
+/**
+ * ターンオーバーのライブ/デッドボール内訳を選手ごとに集計する（Yahoo!スポーツplay-by-play由来。
+ * ballType==="unknown"（低頻度の未分類）はどちらにもカウントしない。isTeamTurnover===trueの
+ * （24秒バイオレーション強制等、個人に紐付かない）ターンオーバーはチーム側の集計であり
+ * 個人には計上しない
+ */
+function buildYahooTovCounts(turnovers: YahooTurnoverEvent[]): Map<string, YahooTovCounts> {
+  const byPlayer = new Map<string, YahooTovCounts>();
+  for (const to of turnovers) {
+    if (to.isTeamTurnover || !to.playerId || to.ballType === "unknown") continue;
+    const entry = byPlayer.get(to.playerId) ?? { ...ZERO_YAHOO_TOV };
+    if (to.ballType === "live") entry.liveTov += 1;
+    else entry.deadTov += 1;
+    byPlayer.set(to.playerId, entry);
+  }
+  return byPlayer;
+}
+
 export interface PlayerBoxscore {
   playerId: string;
   playerNo: string;
@@ -375,6 +416,7 @@ export function buildPlayerBoxscores(
   allRows: BoxscoreRow[],
   option: PeriodRangeOption | undefined,
   playByPlays: PlayByPlayEvent[] = [],
+  yahooTurnovers: YahooTurnoverEvent[] = [],
 ): PlayerBoxscore[] {
   const gameRows = allRows.filter((r) => r.Category === 1 && r.PeriodCategory === 18);
   const rowsByPlayer = new Map<string, BoxscoreRow[]>();
@@ -394,11 +436,16 @@ export function buildPlayerBoxscores(
   const paintSplitByPlayer = buildPaintSplitByPlayer(buildShotEvents(periodFilteredPbp));
   const miscEventsByPlayer = buildMiscEventCounts(periodFilteredPbp);
   const assistedScoringByPlayer = computeAssistedScoring(periodFilteredPbp).byScorer;
+  // YahooTurnoverEventはbleague.jp本体のPlayByPlaysとは別データ源・別のPeriod体系（periodRange.ts
+  // のperiodInRangeはPeriod番号の数値だけを見るため、そのまま流用できる）
+  const periodFilteredYahooTov = yahooTurnovers.filter((e) => periodInRange(option, e.period));
+  const yahooTovByPlayer = buildYahooTovCounts(periodFilteredYahooTov);
   return gameRows.map((meta) => {
     const periodRows = rowsInPeriodRange(rowsByPlayer.get(meta.PlayerID) ?? [], option);
     const paintSplit = paintSplitByPlayer.get(meta.PlayerID) ?? ZERO_PAINT_SPLIT;
     const miscEvents = miscEventsByPlayer.get(meta.PlayerID) ?? ZERO_MISC_EVENTS;
     const assistedScoring = assistedScoringByPlayer.get(meta.PlayerID) ?? ZERO_ASSISTED_SCORING;
+    const yahooTov = yahooTovByPlayer.get(meta.PlayerID) ?? ZERO_YAHOO_TOV;
     return {
       playerId: meta.PlayerID,
       playerNo: meta.PlayerNo,
@@ -412,6 +459,7 @@ export function buildPlayerBoxscores(
         ...paintSplit,
         ...miscEvents,
         ...assistedScoring,
+        ...yahooTov,
       },
     };
   });

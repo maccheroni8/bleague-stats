@@ -28,6 +28,7 @@ import type {
   TeamHistoryEntry,
   TeamLineupsFile,
   TeamSummary,
+  YahooGamePbp,
 } from "../../shared/types";
 import { legibleAccentColor, MONO_FALLBACK_COLOR } from "./color";
 import { TEAM_COLOR_OVERRIDES } from "./teamColorOverrides";
@@ -63,6 +64,19 @@ export function fetchPlayerGameLogs(season: string, playerId: string): Promise<P
 
 export function fetchGame(season: string, scheduleKey: string): Promise<StoredGame> {
   return fetchJson<StoredGame>(`${dataBase}/${season}/games/${scheduleKey}.json`);
+}
+
+/**
+ * Yahoo!スポーツplay-by-play（追加データ源、DESIGN.md 33章・35章）。対応シーズンでも
+ * 個別の試合が未取得（Yahoo側500エラー等でスキップ）のことがあるため、404はエラーにせず
+ * nullを返す（呼び出し側はnullを「この試合はデータ無し」として扱う）
+ */
+export async function fetchYahooGamePbp(season: string, scheduleKey: string): Promise<YahooGamePbp | null> {
+  try {
+    return await fetchJson<YahooGamePbp>(`${dataBase}/${season}/yahoo/${scheduleKey}.json`);
+  } catch {
+    return null;
+  }
 }
 
 export function fetchTeamGameLogs(season: string, teamId: string): Promise<TeamGameLog[]> {

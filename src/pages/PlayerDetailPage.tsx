@@ -27,6 +27,7 @@ import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatSigned } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
+import { formatShotTypeCell, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { safeDiv } from "../../shared/formulas";
 import {
   SEASON_ADVANCED_COLUMNS,
@@ -618,6 +619,48 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 </tbody>
               </table>
             </div>
+          )}
+
+          <h2>シューティング</h2>
+          {!player.shotTypes ? (
+            <p className="empty-message">このシーズンのデータには対応していません</p>
+          ) : (
+            <>
+              <div className="table-scroll">
+                <table className="stats-table">
+                  <thead>
+                    <tr>
+                      {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
+                        <th key={key} className="align-right">
+                          {key}
+                        </th>
+                      ))}
+                      <th className="align-right">合計</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
+                        <td key={key} className="align-right">
+                          {formatShotTypeCell(player.shotTypes![key])}
+                        </td>
+                      ))}
+                      <td className="align-right">
+                        {formatShotTypeCell(
+                          Object.values(player.shotTypes).reduce(
+                            (acc, c) => ({ made: acc.made + c.made, attempted: acc.attempted + c.attempted }),
+                            { made: 0, attempted: 0 },
+                          ),
+                        )}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="page-subtitle">
+                Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（シーズン合計、2023-24シーズン以降・レギュラーシーズンのみ。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意
+              </p>
+            </>
           )}
         </>
       )}
