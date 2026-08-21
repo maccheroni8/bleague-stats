@@ -313,6 +313,59 @@ function countTechnicalFouls(playByPlays: PlayByPlayEvent[]): {
 }
 
 /**
+ * 外国籍選手（外国籍/帰化選手/アジア特別枠の合算）同時出場人数の試合単位代表値
+ * （DESIGN.md参照）。onCourt.lineupStints（reconstructOnCourtの戻り値、既に計算済みの
+ * ものを再利用しPBP再走査は行わない）を、5人組のうち非日本人の人数でバケット分けし、
+ * チームごとに最も長い時間を占めたバケットをその試合の代表値とする（チーム全体の出場時間
+ * ベース。特定選手の出場時間には限定しない）。
+ * classificationが不明（players-master.jsonに存在しない選手を含む）な5人組は、
+ * どのバケットにも計上せず丸ごと除外する（推測しない方針。DESIGN.md 51章参照）。
+ * 対象チームの全スティントが不明だった場合、そのチームはMapに含まれない
+ * （呼び出し側は`.get(teamId)`がundefinedになることで「代表値なし」を扱う）
+ */
+function computeForeignPlayerCounts(
+  onCourt: OnCourtReconstruction,
+  masterById: Map<string, PlayerMasterEntry>,
+): Map<string, number> {
+  const secondsByTeamBucket = new Map<string, Map<number, number>>();
+  for (const stint of onCourt.lineupStints) {
+    let foreignCount = 0;
+    let hasUnknown = false;
+    for (const playerId of stint.playerIds) {
+      const classification = masterById.get(playerId)?.classification;
+      if (classification === undefined) {
+        hasUnknown = true;
+        break;
+      }
+      if (classification !== "日本人") foreignCount += 1;
+    }
+    if (hasUnknown) continue;
+
+    let bucketSeconds = secondsByTeamBucket.get(stint.teamId);
+    if (!bucketSeconds) {
+      bucketSeconds = new Map();
+      secondsByTeamBucket.set(stint.teamId, bucketSeconds);
+    }
+    const duration = stint.endSec - stint.startSec;
+    bucketSeconds.set(foreignCount, (bucketSeconds.get(foreignCount) ?? 0) + duration);
+  }
+
+  const result = new Map<string, number>();
+  for (const [teamId, bucketSeconds] of secondsByTeamBucket) {
+    let bestBucket = 0;
+    let bestSeconds = -1;
+    for (const [bucket, seconds] of bucketSeconds) {
+      if (seconds > bestSeconds) {
+        bestSeconds = seconds;
+        bestBucket = bucket;
+      }
+    }
+    result.set(teamId, bestBucket);
+  }
+  return result;
+}
+
+/**
  * ベンチ得点（DESIGN.md 12章）。試合全体の個人行（Category=1・PeriodCategory=18）のうち、
  * 指定チーム・先発以外（StartingFlg!==1）の選手のPointを合計する。単純合計のため
  * （POSSのような比率項を含む式と違い）試合単位で確定させる必要は無いが、他のチーム集計と
@@ -539,8 +592,9 @@ export async function aggregateSeason(season: string, category: Category = "prem
           )
         : null;
     const technicalFouls = countTechnicalFouls(game.raw.PlayByPlays);
-    processPlayers(game, gameType, players, onCourt, technicalFouls.byPlayer);
-    processTeams(game, gameType, teams, ensureTeam, technicalFouls.byTeam);
+    const foreignPlayerCounts = onCourt ? computeForeignPlayerCounts(onCourt, masterById) : new Map<string, number>();
+    processPlayers(game, gameType, players, onCourt, technicalFouls.byPlayer, foreignPlayerCounts);
+    processTeams(game, gameType, teams, ensureTeam, technicalFouls.byTeam, foreignPlayerCounts);
     processLineups(game, teamLineups, onCourt);
   }
 
@@ -762,6 +816,7 @@ function processPlayers(
   players: Map<string, PlayerAccumulator>,
   onCourt: OnCourtReconstruction | null,
   technicalFoulsByPlayer: Map<string, number>,
+  foreignPlayerCounts: Map<string, number>,
 ): void {
   const rows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
   for (const row of pickTeamRow(rows, 1)) {
@@ -843,6 +898,8 @@ function processPlayers(
       pt2in: row.PT2IN,
       ptfb: row.PTFB,
       pt2nd: row.PT2ND,
+      foreignPlayerCount: foreignPlayerCounts.get(isHome ? game.homeTeam.id : game.awayTeam.id),
+      opponentForeignPlayerCount: foreignPlayerCounts.get(opponent.id),
     });
   }
 }
@@ -875,6 +932,7 @@ function processTeams(
   teams: Map<string, TeamAccumulator>,
   ensureTeam: (teamId: string, teamName: string) => TeamAccumulator,
   technicalFoulsByTeam: Map<string, number>,
+  foreignPlayerCounts: Map<string, number>,
 ): void {
   const homeRow = pickTeamRow(game.raw.HomeBoxscores, 3)[0];
   const awayRow = pickTeamRow(game.raw.AwayBoxscores, 3)[0];
@@ -927,6 +985,8 @@ function processTeams(
     opponentScore: game.awayScore,
     win: homeWin,
     gameType,
+    foreignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
+    opponentForeignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     ...teamGameLogStats(homeRow, gamePoss),
   });
   away.gameLogs.push({
@@ -938,6 +998,8 @@ function processTeams(
     teamScore: game.awayScore,
     opponentScore: game.homeScore,
     win: awayWin,
+    foreignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
+    opponentForeignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     gameType,
     ...teamGameLogStats(awayRow, gamePoss),
   });

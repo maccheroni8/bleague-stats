@@ -821,6 +821,24 @@ export function PlayerDetailPage({ season }: { season: string }) {
             }))
           : [],
     },
+    {
+      key: "foreignPlayerCount",
+      label: "自チーム外国籍人数",
+      rows: [0, 1, 2, 3].map((n) => ({
+        key: `own${n}`,
+        label: `${n}人`,
+        predicate: (g: PlayerGameLog) => g.foreignPlayerCount === n,
+      })),
+    },
+    {
+      key: "opponentForeignPlayerCount",
+      label: "相手チーム外国籍人数",
+      rows: [0, 1, 2, 3].map((n) => ({
+        key: `opp${n}`,
+        label: `${n}人`,
+        predicate: (g: PlayerGameLog) => g.opponentForeignPlayerCount === n,
+      })),
+    },
   ];
 
   const situationalStatsGroups: SituationalStatsGroup[] = situationalStatsGroupDefs

@@ -559,6 +559,17 @@ export interface PlayerGameLog {
   ptfb: number;
   /** セカンドチャンス得点（PT2ND）。ボックススコアMiscタブの2ND PTS列に対応 */
   pt2nd: number;
+  /**
+   * この試合、自チームが最も長い時間コートに置いていた外国籍選手（外国籍/帰化選手/
+   * アジア特別枠の合算）同時出場人数（0〜。理論上は5だが実運用ではほぼ0〜3）。
+   * `reconstructOnCourt`のlineupStintsから、チーム全体の出場時間ベースで算出した
+   * 試合単位の代表値（特定選手の出場時間には限定しない）。classificationが不明な
+   * 選手を含む区間は集計から除外するため、対象試合の在コート区間が一つも分類できな
+   * かった場合はundefined（DESIGN.md参照）
+   */
+  foreignPlayerCount?: number;
+  /** 対戦相手チームの同時出場外国籍選手数（foreignPlayerCountと同じ算出方法、相手チーム視点） */
+  opponentForeignPlayerCount?: number;
 }
 
 // ---- data/{season}/team-games/{teamId}.json の保存スキーマ（チーム詳細ページの試合結果一覧用） ----
@@ -597,6 +608,10 @@ export interface TeamGameLog {
    * シチュエーション別集計ではこの値をそのまま合算する（式の再計算はしない。非線形性回避）
    */
   poss: number;
+  /** PlayerGameLog.foreignPlayerCountと同じ算出方法・同じ意味（チーム視点）。DESIGN.md参照 */
+  foreignPlayerCount?: number;
+  /** PlayerGameLog.opponentForeignPlayerCountと同じ（対戦相手チーム視点） */
+  opponentForeignPlayerCount?: number;
 }
 
 // ---- data/{season}/standings-history.json の保存スキーマ（順位表ページ用） ----
