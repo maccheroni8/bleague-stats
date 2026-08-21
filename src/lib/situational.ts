@@ -10,7 +10,7 @@
 //   （比率項を含む式をシーズン合計値に再適用すると非線形性で誤差が出るため。POSS配線時と同じ方針）
 
 import { efgPct, offensiveRating, pace, safeDiv, tsPct } from "../../shared/formulas";
-import type { PlayerGameLog, TeamGameLog } from "../../shared/types";
+import type { GameSummary, PlayerGameLog, TeamGameLog } from "../../shared/types";
 
 export type SituationalFilterKind =
   | { kind: "all" }
@@ -26,6 +26,34 @@ export type SituationalFilterKind =
 export type SituationalFilter = SituationalFilterKind & { includePlayoffs?: boolean };
 
 export const RECENT_N_OPTIONS = [5, 10, 20] as const;
+
+export interface SeasonHalfBoundary {
+  firstHalfEnd: string;
+  secondHalfStart: string;
+}
+
+/**
+ * シーズンの試合日程（games-summary.json、レギュラーシーズンのみ対象）を日付昇順・試合数ベースで
+ * ちょうど半分に分割し、既存の「期間指定」フィルタ（dateRange）にそのまま渡せる境界日
+ * （前半戦の最終日・後半戦の初日）を返す。プレーオフはこの前半/後半とは独立した軸
+ * （includePlayoffsトグル）のため中央値の算出対象から除く。
+ * 1日に複数カードが組まれることがあるため、中央値そのものの日付ではなく、その日付が属する
+ * 前後の「試合が行われた日」を境界にする（同じ日の試合が前半/後半に分かれてしまわないようにする）。
+ */
+export function computeSeasonHalfBoundary(games: GameSummary[]): SeasonHalfBoundary | null {
+  const regularDates = games
+    .filter((g) => g.gameType === "regular")
+    .map((g) => g.date)
+    .sort();
+  if (regularDates.length === 0) return null;
+
+  const splitDate = regularDates[Math.floor(regularDates.length / 2)]!;
+  const uniqueDates = [...new Set(regularDates)].sort();
+  const splitIdx = uniqueDates.indexOf(splitDate);
+  const firstHalfEnd = splitIdx > 0 ? uniqueDates[splitIdx - 1]! : splitDate;
+
+  return { firstHalfEnd, secondHalfStart: splitDate };
+}
 
 export function isDefaultFilter(filter: SituationalFilter): boolean {
   return filter.kind === "all" && !filter.includePlayoffs;

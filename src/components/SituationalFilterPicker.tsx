@@ -1,15 +1,27 @@
-import { RECENT_N_OPTIONS, type SituationalFilter } from "../lib/situational";
+import { RECENT_N_OPTIONS, type SeasonHalfBoundary, type SituationalFilter } from "../lib/situational";
 
 interface Props {
   filter: SituationalFilter;
   onChange: (filter: SituationalFilter) => void;
+  /** シーズン前半戦/後半戦ボタンの境界日。未指定または算出不能（null）の場合はボタン自体を出さない */
+  seasonHalfBoundary?: SeasonHalfBoundary | null;
 }
 
-export function SituationalFilterPicker({ filter, onChange }: Props) {
+export function SituationalFilterPicker({ filter, onChange, seasonHalfBoundary }: Props) {
   const dateRange = filter.kind === "dateRange" ? filter : { start: "", end: "" };
   const includePlayoffs = filter.includePlayoffs ?? false;
   // kind側の切り替えではincludePlayoffsの選択を維持する
   const withKind = (kind: SituationalFilter): SituationalFilter => ({ ...kind, includePlayoffs });
+  const isFirstHalf =
+    !!seasonHalfBoundary &&
+    filter.kind === "dateRange" &&
+    filter.start === "" &&
+    filter.end === seasonHalfBoundary.firstHalfEnd;
+  const isSecondHalf =
+    !!seasonHalfBoundary &&
+    filter.kind === "dateRange" &&
+    filter.start === seasonHalfBoundary.secondHalfStart &&
+    filter.end === "";
 
   return (
     <div className="situational-filter">
@@ -39,11 +51,31 @@ export function SituationalFilterPicker({ filter, onChange }: Props) {
           負けた試合
         </button>
         <button
-          className={filter.kind === "dateRange" ? "active" : ""}
+          className={filter.kind === "dateRange" && !isFirstHalf && !isSecondHalf ? "active" : ""}
           onClick={() => onChange(withKind({ kind: "dateRange", start: dateRange.start, end: dateRange.end }))}
         >
           期間指定
         </button>
+        {seasonHalfBoundary && (
+          <>
+            <button
+              className={isFirstHalf ? "active" : ""}
+              onClick={() =>
+                onChange(withKind({ kind: "dateRange", start: "", end: seasonHalfBoundary.firstHalfEnd }))
+              }
+            >
+              前半戦
+            </button>
+            <button
+              className={isSecondHalf ? "active" : ""}
+              onClick={() =>
+                onChange(withKind({ kind: "dateRange", start: seasonHalfBoundary.secondHalfStart, end: "" }))
+              }
+            >
+              後半戦
+            </button>
+          </>
+        )}
       </div>
       {filter.kind === "dateRange" && (
         <div className="date-range-inputs">

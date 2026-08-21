@@ -13,6 +13,7 @@ import {
 import { SeasonLink as Link } from "../components/SeasonLink";
 import {
   fetchGame,
+  fetchGameSummaries,
   fetchPlayerGameLogs,
   fetchPlayerHistory,
   fetchPlayers,
@@ -52,6 +53,7 @@ import {
 } from "../lib/playerSeasonBoxscore";
 import {
   computePlayerSituationalStats,
+  computeSeasonHalfBoundary,
   filterGameLogs,
   isDefaultFilter,
   type PlayerSituationalStats,
@@ -292,6 +294,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
   const { data: playerHistory } = useJsonData(() => fetchPlayerHistory(), []);
+  // シチュエーション別フィルタの「前半戦/後半戦」ボタン用（シーズン全体の試合日程が必要）
+  const { data: gameSummaries } = useJsonData(() => fetchGameSummaries(season), [season]);
+  const seasonHalfBoundary = useMemo(
+    () => (gameSummaries ? computeSeasonHalfBoundary(gameSummaries) : null),
+    [gameSummaries],
+  );
   const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   const pbpSupported = isPbpSupported(coverage);
@@ -574,7 +582,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
       {tab === "stats" && (
         <>
-          <SituationalFilterPicker filter={filter} onChange={setFilter} />
+          <SituationalFilterPicker filter={filter} onChange={setFilter} seasonHalfBoundary={seasonHalfBoundary} />
 
           {isDefaultFilter(filter) ? (
             <div className="stat-grid">
