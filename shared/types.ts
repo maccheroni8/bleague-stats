@@ -781,3 +781,84 @@ export interface PlayerMasterEntry {
   /** YYYY-MM-DD */
   birthDate?: string;
 }
+
+// ---- data/{season}/yahoo/{scheduleKey}.json の保存スキーマ（Yahoo!スポーツplay-by-playテキスト。
+// scripts/scrape-yahoo-pbp.ts参照。bleague.jp本体データとは独立した追加データ源で、対応シーズンは
+// scripts/lib/yahooCoverage.tsのyahooPbpCoverage()が判定する（2023-24以降のみ）） ----
+
+/**
+ * ターンオーバーのライブボール/デッドボール区別。"live"=スティール由来（バッドパス／
+ * ボールハンドリングロスト、相手の速攻に直結しうる）、"dead"=バイオレーション・
+ * オフェンスファウル由来（笛で試合が止まる）。"unknown"はsubtypeRawが未知の文言だった場合
+ * （scrape-yahoo-pbp.tsのparseWarningsにも記録される。新しい文言を見つけたら分類表を更新する）
+ */
+export type YahooTurnoverBallType = "live" | "dead" | "unknown";
+
+/** Yahoo!スポーツplay-by-play 1件（1<li>）に共通する時刻情報 */
+export interface YahooEventClock {
+  /** そのクォーター/延長内での通し番号（1〜4=各Q, 5以降=延長） */
+  period: number;
+  /** "残り9分11秒"のような原文表記 */
+  clockLabel: string;
+  /** clockLabelから解析したそのピリオド内の残り秒数 */
+  remainingSec: number;
+}
+
+export interface YahooShotEvent extends YahooEventClock {
+  teamId: string;
+  /** Yahoo表記の背番号（"#21"の21部分）。bleague.jp側TeamID+この番号でPlayerIDを解決する */
+  playerNo: string;
+  /** playerLookup（同じScheduleKeyの自前ボックススコアから作る）で解決できた場合のみ入る */
+  playerId: string | null;
+  /** Yahoo表記の選手名（姓のみのことが多い。playerId解決の裏取り・デバッグ用） */
+  playerNameRaw: string;
+  made: boolean;
+  /** "2Pシュート"/"3Pシュート"の表記から判定（このシュート自体の得点価値。カッコ内の数字ではない） */
+  shotValue: 2 | 3;
+  /** "インサイドペイント"/"アウトサイドペイント"等、シュートタイプの前に付くゾーン表記（無ければnull） */
+  zoneLabel: string | null;
+  /** "プルアップジャンプショット"等のシュートタイプ原文（分類はせず原文のまま保持。DESIGN.md参照） */
+  shotType: string;
+  /** "ファストブレイク"「セカンドチャンス」「ポインツオフターンオーバー」等、末尾に付く追加タグ */
+  tags: string[];
+  /**
+   * ○(N点)のNをそのまま保持した、そのプレーヤーのその試合での得点累計（実機確認の結果、FTを含む
+   * 総得点の累計と判明。シュート自体の得点ではない）。FT得点も混ざるためFG得点のクロスチェックには
+   * 使えない（scrape-yahoo-pbp.tsは代わりにmadeショットのshotValue合算で検証している）。ミスした
+   * 場合はnull
+   */
+  cumulativePointsAfter: number | null;
+  raw: string;
+}
+
+export interface YahooTurnoverEvent extends YahooEventClock {
+  teamId: string;
+  /** "チームターンオーバー"（24秒バイオレーション等、個人に紐付かない）の場合true */
+  isTeamTurnover: boolean;
+  playerNo: string | null;
+  playerId: string | null;
+  playerNameRaw: string | null;
+  /**
+   * ターンオーバー原因の原文（"バッドパス"等）。オフェンスファウル由来はターンオーバー行自体には
+   * 文言が付かず、直前の別イベント行にしか出ないため、その場合はパーサがそこから補って入れる
+   * （元々文言が無かったことはこのフィールドだけでは分からないので判別が必要ならrawを見る）
+   */
+  subtypeRaw: string | null;
+  ballType: YahooTurnoverBallType;
+  raw: string;
+}
+
+export interface YahooGamePbp {
+  scheduleKey: string;
+  season: string;
+  fetchedAt: string;
+  /** <li>の総数（プレイヤーイン/アウト・リバウンド・ファウル等、shots/turnovers以外も含む） */
+  eventCount: number;
+  /** playerId解決に失敗した人数（ScheduleKeyの自前ボックススコアに該当する(TeamID,PlayerNo)が
+   * 無かった件数。0でなければ自前データの欠落かYahoo側の表記ゆれを疑う） */
+  unresolvedPlayerCount: number;
+  /** 想定外のフォーマット（未知のターンオーバーsubtype・ピリオドラベル等）を検出した際の記録 */
+  parseWarnings: string[];
+  shots: YahooShotEvent[];
+  turnovers: YahooTurnoverEvent[];
+}

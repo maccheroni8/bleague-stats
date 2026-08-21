@@ -1,15 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Link as RouterLink } from "react-router-dom";
+import {
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+} from "recharts";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchPlayerGameLogs, fetchPlayerHistory, fetchPlayers, fetchSeasons, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
-import type { PlayerGameLog } from "../../shared/types";
+import type { PlayerGameLog, PlayerSummary } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatSigned } from "../lib/format";
+import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
+import { safeDiv } from "../../shared/formulas";
 import {
   computePlayerSituationalStats,
   filterGameLogs,
@@ -71,13 +82,118 @@ const gameLogColumns: Column<PlayerGameLog>[] = [
   },
 ];
 
-type DetailTab = "season" | "career" | "highs";
+type DetailTab = "stats" | "gamelog" | "career" | "highs" | "compare";
 
 const TAB_LABELS: Record<DetailTab, string> = {
-  season: "シーズン成績",
+  stats: "スタッツ",
+  gamelog: "試合ログ",
   career: "通算成績",
   highs: "キャリアハイ",
+  compare: "比較",
 };
+
+interface PlayerStatDef {
+  key: string;
+  label: string;
+  value: (p: PlayerSummary) => number;
+  format: (p: PlayerSummary) => string;
+  /** falseならTOVのように値が小さいほど良い項目。パーセンタイル換算・順位算出の向きに使う */
+  higherIsBetter: boolean;
+}
+
+/** (FGM-3PM)/(FGA-3PA)。ShootingStatsに2P%が無いため内訳から算出する */
+function pt2Pct(p: PlayerSummary): number {
+  return safeDiv(p.totals.fgm - p.totals.tpm, p.totals.fga - p.totals.tpa);
+}
+
+// ヘッダーのスタッツタイル用。レーダーチャートはこのうち一部（後述RADAR_STAT_KEYS）を流用する
+const TILE_STAT_DEFS: PlayerStatDef[] = [
+  {
+    key: "min",
+    label: "MIN",
+    value: (p) => p.perGame.min,
+    format: (p) => formatMinutesFromSeconds(Math.round(p.perGame.min * 60)),
+    higherIsBetter: true,
+  },
+  { key: "pts", label: "PTS", value: (p) => p.perGame.pts, format: (p) => formatDecimal(p.perGame.pts), higherIsBetter: true },
+  { key: "reb", label: "REB", value: (p) => p.perGame.reb, format: (p) => formatDecimal(p.perGame.reb), higherIsBetter: true },
+  { key: "ast", label: "AST", value: (p) => p.perGame.ast, format: (p) => formatDecimal(p.perGame.ast), higherIsBetter: true },
+  { key: "stl", label: "STL", value: (p) => p.perGame.stl, format: (p) => formatDecimal(p.perGame.stl), higherIsBetter: true },
+  { key: "blk", label: "BLK", value: (p) => p.perGame.blk, format: (p) => formatDecimal(p.perGame.blk), higherIsBetter: true },
+  { key: "tov", label: "TOV", value: (p) => p.perGame.tov, format: (p) => formatDecimal(p.perGame.tov), higherIsBetter: false },
+  {
+    key: "plusMinus",
+    label: "+/-",
+    value: (p) => p.perGame.plusMinus,
+    format: (p) => formatSigned(p.perGame.plusMinus),
+    higherIsBetter: true,
+  },
+  { key: "fgPct", label: "FG%", value: (p) => p.shooting.fgPct, format: (p) => formatPct(p.shooting.fgPct), higherIsBetter: true },
+  { key: "tpPct", label: "3P%", value: (p) => p.shooting.tpPct, format: (p) => formatPct(p.shooting.tpPct), higherIsBetter: true },
+  { key: "pt2Pct", label: "2P%", value: (p) => pt2Pct(p), format: (p) => formatPct(pt2Pct(p)), higherIsBetter: true },
+  { key: "ftPct", label: "FT%", value: (p) => p.shooting.ftPct, format: (p) => formatPct(p.shooting.ftPct), higherIsBetter: true },
+  { key: "efgPct", label: "eFG%", value: (p) => p.shooting.efgPct, format: (p) => formatPct(p.shooting.efgPct), higherIsBetter: true },
+  { key: "tsPct", label: "TS%", value: (p) => p.shooting.tsPct, format: (p) => formatPct(p.shooting.tsPct), higherIsBetter: true },
+];
+
+// レーダーチャート用の10項目（MIN/PTS/REB/AST/STL/BLK/TOV/3P%/2P%/FT%）。TILE_STAT_DEFSの
+// 定義済みaccessorをそのまま流用し、二重定義を避ける
+const RADAR_STAT_KEYS = ["min", "pts", "reb", "ast", "stl", "blk", "tov", "tpPct", "pt2Pct", "ftPct"];
+const RADAR_STAT_DEFS = TILE_STAT_DEFS.filter((d) => RADAR_STAT_KEYS.includes(d.key));
+
+interface RankResult {
+  rank: number;
+  total: number;
+}
+
+/** リーグ全選手中でのplayerの順位を返す（1位=最良）。higherIsBetterがfalseの項目は昇順で評価する */
+function rankAmong(player: PlayerSummary, allPlayers: PlayerSummary[], def: PlayerStatDef): RankResult {
+  const total = allPlayers.length;
+  const sorted = [...allPlayers].sort((a, b) => (def.higherIsBetter ? def.value(b) - def.value(a) : def.value(a) - def.value(b)));
+  const rank = sorted.findIndex((p) => p.playerId === player.playerId) + 1;
+  return { rank, total };
+}
+
+function formatRank({ rank, total }: RankResult): string {
+  return `${rank}位/${total}人`;
+}
+
+interface RadarDataPoint {
+  key: string;
+  label: string;
+  percentile: number;
+  rank: number;
+  total: number;
+  actualValue: string;
+}
+
+/** リーグ全選手中でのplayerの各項目の順位を0〜100のパーセンタイルに変換する（TeamDetailPageの
+ * buildRadarData()と同じ考え方を選手向けに転用したもの。TOV等は向きを反転） */
+function buildPlayerRadarData(player: PlayerSummary, allPlayers: PlayerSummary[]): RadarDataPoint[] {
+  const total = allPlayers.length;
+  return RADAR_STAT_DEFS.map((def) => {
+    const { rank } = rankAmong(player, allPlayers, def);
+    const percentile = total > 1 ? (100 * (total - rank)) / (total - 1) : 50;
+    return { key: def.key, label: def.label, percentile, rank, total, actualValue: def.format(player) };
+  });
+}
+
+/** DD2(ダブルダブル数)/TD3(トリプルダブル数)。GameDetailPageのcomputeStatBadge()と同じ
+ * 2桁到達数の閾値（2部門でDD、3部門でTD）を、選手個人の全試合ログに適用して数える。
+ * リーグ内順位は非表示にしている（全選手分のgame logを取得しないと算出できず、Phase Aの
+ * コストに見合わないため。DESIGN.md参照） */
+function countDoubleTriples(logs: PlayerGameLog[]): { dd: number; td: number } {
+  let dd = 0;
+  let td = 0;
+  for (const g of logs) {
+    const doubleDigitCount = [g.pts, g.reb, g.ast, g.stl, g.blk].filter((v) => v >= 10).length;
+    // トリプルダブルは定義上ダブルダブルの条件も満たすため、DD2にはTD3の試合も含める
+    // （NBA.com等の一般的な集計慣習。GameDetailPageのバッジ表示はTD優先の1つだけ選ぶ別ロジック）
+    if (doubleDigitCount >= 2) dd += 1;
+    if (doubleDigitCount >= 3) td += 1;
+  }
+  return { dd, td };
+}
 
 interface CareerSeasonLogs {
   season: string;
@@ -131,7 +247,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   const pbpSupported = isPbpSupported(coverage);
 
-  const [tab, setTab] = useState<DetailTab>("season");
+  const [tab, setTab] = useState<DetailTab>("stats");
   const [careerData, setCareerData] = useState<CareerSeasonLogs[] | null>(null);
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerError, setCareerError] = useState<string | null>(null);
@@ -142,14 +258,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const careerFetchStartedRef = useRef(false);
 
   useEffect(() => {
-    setTab("season");
+    setTab("stats");
     setCareerData(null);
     setCareerError(null);
     careerFetchStartedRef.current = false;
   }, [playerId]);
 
   useEffect(() => {
-    if (tab === "season" || !playerId || !seasons || careerFetchStartedRef.current) return;
+    if ((tab !== "career" && tab !== "highs") || !playerId || !seasons || careerFetchStartedRef.current) return;
     careerFetchStartedRef.current = true;
     setCareerLoading(true);
     setCareerError(null);
@@ -216,6 +332,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const filteredLogs = gameLogs ? filterGameLogs(gameLogs, filter) : [];
   const situational = isDefaultFilter(filter) ? null : computePlayerSituationalStats(filteredLogs);
 
+  const radarData = players && players.length > 1 ? buildPlayerRadarData(player, players) : [];
+  const ddTd = countDoubleTriples(gameLogs ?? []);
+
   return (
     <div>
       <Link to="/players" className="back-link">
@@ -262,6 +381,60 @@ export function PlayerDetailPage({ season }: { season: string }) {
         </div>
       </div>
 
+      <h2>リーグ内比較</h2>
+      {radarData.length === 0 ? (
+        <p className="empty-message">比較対象の選手がいません</p>
+      ) : (
+        <div className="radar-section">
+          <div className="radar-chart-wrapper">
+            <ResponsiveContainer width="100%" height={280}>
+              <RadarChart data={radarData} outerRadius="72%">
+                <PolarGrid stroke="var(--border)" />
+                <PolarAngleAxis dataKey="label" tick={{ fill: "var(--muted)", fontSize: 12 }} />
+                <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                <Radar
+                  name={player.name}
+                  dataKey="percentile"
+                  stroke={accentColor ?? "var(--accent)"}
+                  fill={accentColor ?? "var(--accent)"}
+                  fillOpacity={0.35}
+                />
+                <RechartsTooltip
+                  formatter={(_value: number, _name, props: { payload?: RadarDataPoint }) => {
+                    const point = props.payload;
+                    return point ? [`${point.rank}位/${point.total}（${point.actualValue}）`, point.label] : ["", ""];
+                  }}
+                  contentStyle={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--fg)" }}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="radar-rank-list">
+            {radarData.map((d) => (
+              <div className="radar-rank-item" key={d.key}>
+                <span className="radar-rank-label">{d.label}</span>
+                <span className="radar-rank-value">
+                  {d.rank}位/{d.total}（{d.actualValue}）
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="stat-grid">
+        {TILE_STAT_DEFS.map((def) => (
+          <StatTile
+            key={def.key}
+            label={def.label}
+            value={def.format(player)}
+            rank={players && players.length > 0 ? formatRank(rankAmong(player, players, def)) : undefined}
+          />
+        ))}
+        <StatTile label="DD2" value={String(ddTd.dd)} />
+        <StatTile label="TD3" value={String(ddTd.td)} />
+      </div>
+
       <div className="tab-bar">
         {(Object.keys(TAB_LABELS) as DetailTab[]).map((t) => (
           <button
@@ -275,7 +448,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         ))}
       </div>
 
-      {tab === "season" && (
+      {tab === "stats" && (
         <>
           <SituationalFilterPicker filter={filter} onChange={setFilter} />
 
@@ -329,25 +502,25 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </div>
             )}
           </section>
-
-          <h2>試合ログ</h2>
-          {logsLoading ? (
-            <p className="loading">読み込み中...</p>
-          ) : !gameLogs || gameLogs.length === 0 ? (
-            <p className="empty-message">試合ログがありません</p>
-          ) : (
-            <div className="table-scroll">
-              <SortableTable
-                columns={gameLogColumns}
-                rows={gameLogs}
-                rowKey={(g) => g.scheduleKey}
-                defaultSortKey="date"
-                linkTo={(g) => `/games/${g.scheduleKey}`}
-              />
-            </div>
-          )}
         </>
       )}
+
+      {tab === "gamelog" &&
+        (logsLoading ? (
+          <p className="loading">読み込み中...</p>
+        ) : !gameLogs || gameLogs.length === 0 ? (
+          <p className="empty-message">試合ログがありません</p>
+        ) : (
+          <div className="table-scroll">
+            <SortableTable
+              columns={gameLogColumns}
+              rows={gameLogs}
+              rowKey={(g) => g.scheduleKey}
+              defaultSortKey="date"
+              linkTo={(g) => `/games/${g.scheduleKey}`}
+            />
+          </div>
+        ))}
 
       {tab === "career" &&
         (careerLoading ? (
@@ -443,6 +616,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
             ))}
           </div>
         ))}
+
+      {tab === "compare" && <p className="empty-message">Phase Bで実装予定です</p>}
     </div>
   );
 }
@@ -456,11 +631,12 @@ function ProfileItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
+function StatTile({ label, value, rank }: { label: string; value: string; rank?: string }) {
   return (
     <div className="stat-tile">
       <div className="label">{label}</div>
       <div className="value">{value}</div>
+      {rank && <div className="rank">{rank}</div>}
     </div>
   );
 }

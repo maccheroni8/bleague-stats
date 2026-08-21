@@ -601,6 +601,13 @@ table.sortable-table td.row-accent-cell {
   font-variant-numeric: tabular-nums;
 }
 
+.stat-tile .rank {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
 .loading,
 .error-message,
 .empty-message {
