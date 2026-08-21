@@ -525,6 +525,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [situationalStatsGameType, setSituationalStatsGameType] = useState<SeasonGameTypeFilter>("regular");
   const [situationalStatsTab, setSituationalStatsTab] = useState<SeasonBoxTabKey>("traditional");
 
+  // 「シューティング」セクション: シチュエーション別成績と同様、ページ本体の現在シーズンとは
+  // 独立したシーズン選択を持つ（Yahoo PBP由来のシュートタイプ内訳はplayers.jsonにシーズン単位で
+  // 保存済みのため、選択したシーズンのplayers.jsonを取得するだけで済む）。デフォルトは
+  // 現在選択中のシーズン
+  const [shootingSeason, setShootingSeason] = useState(season);
+
   // careerLoading/careerDataをdeps配列に含めると、setCareerLoading(true)自体がeffectを
   // 再発火させcleanupで直前のfetchをcancelしてしまう（自己キャンセルのループ）。
   // そのためfetch開始済みかどうかはstateではなくrefで管理する
@@ -544,9 +550,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
     setShotChartPeriod("all");
     setCompareSlots(defaultCompareSlots(season));
     setSituationalStatsSeason(season);
-    // 選手が変わった時だけリセットする（season変更では比較タブ・シチュエーション別成績の
-    // 選択を維持したいため、依存配列にseasonは含めない。ここで参照するのはリセット時点の
-    // 最新値でよい）
+    setShootingSeason(season);
+    // 選手が変わった時だけリセットする（season変更では比較タブ・シチュエーション別成績・
+    // シューティングの選択を維持したいため、依存配列にseasonは含めない。ここで参照するのは
+    // リセット時点の最新値でよい）
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerId]);
 
@@ -785,6 +792,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
     () => (situationalStatsSummaries ? buildRecordsBeforeGame(situationalStatsSummaries) : undefined),
     [situationalStatsSummaries],
   );
+  // 「シューティング」セクション用データ。選択したシーズンのplayers.jsonからこの選手の
+  // shotTypesだけを取り出す（situationalStatsPlayersと同じフェッチパターン）
+  const { data: shootingPlayers } = useJsonData(
+    () => (tab === "stats" ? fetchPlayers(shootingSeason) : Promise.resolve(null)),
+    [tab, shootingSeason],
+  );
+  const shootingPlayer = shootingPlayers?.find((p) => p.playerId === playerId);
+
   const situationalStatsBackToBack = useMemo(
     () => (situationalStatsSummaries ? buildBackToBackStatus(situationalStatsSummaries) : undefined),
     [situationalStatsSummaries],
@@ -1224,7 +1239,19 @@ export function PlayerDetailPage({ season }: { season: string }) {
           )}
 
           <h2 title={SHOOTING_SECTION_TOOLTIP}>シューティング</h2>
-          {!player.shotTypes ? (
+          <div className="mode-toggle">
+            <select value={shootingSeason} onChange={(e) => setShootingSeason(e.target.value)}>
+              {[...(careerData ?? [])]
+                .map((cd) => cd.season)
+                .reverse()
+                .map((s) => (
+                  <option key={s} value={s}>
+                    {s}シーズン
+                  </option>
+                ))}
+            </select>
+          </div>
+          {!shootingPlayer?.shotTypes ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : (
             <div className="table-scroll">
@@ -1232,7 +1259,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 <thead>
                   <tr>
                     <th />
-                    {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
+                    {sortShotTypeKeys(Object.keys(shootingPlayer.shotTypes)).map((key) => (
                       <th key={key} className="align-right">
                         {key}
                       </th>
@@ -1243,14 +1270,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 <tbody>
                   <tr>
                     <td className="align-left">2P</td>
-                    {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
+                    {sortShotTypeKeys(Object.keys(shootingPlayer.shotTypes)).map((key) => (
                       <td key={key} className="align-right">
-                        {formatShotTypeCell(player.shotTypes![key]!.twoPoint)}
+                        {formatShotTypeCell(shootingPlayer.shotTypes![key]!.twoPoint)}
                       </td>
                     ))}
                     <td className="align-right">
                       {formatShotTypeCell(
-                        Object.values(player.shotTypes).reduce(
+                        Object.values(shootingPlayer.shotTypes).reduce(
                           (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
                           { made: 0, attempted: 0 },
                         ),
@@ -1259,14 +1286,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   </tr>
                   <tr>
                     <td className="align-left">3P</td>
-                    {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
+                    {sortShotTypeKeys(Object.keys(shootingPlayer.shotTypes)).map((key) => (
                       <td key={key} className="align-right">
-                        {formatShotTypeCell(player.shotTypes![key]!.threePoint)}
+                        {formatShotTypeCell(shootingPlayer.shotTypes![key]!.threePoint)}
                       </td>
                     ))}
                     <td className="align-right">
                       {formatShotTypeCell(
-                        Object.values(player.shotTypes).reduce(
+                        Object.values(shootingPlayer.shotTypes).reduce(
                           (acc, c) => sumShotTypeCounts(acc, c.threePoint),
                           { made: 0, attempted: 0 },
                         ),
