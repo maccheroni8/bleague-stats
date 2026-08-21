@@ -12,6 +12,7 @@
     "scrape:schedule": "node --experimental-strip-types scripts/scrape-schedule.ts",
     "scrape:boxscore": "node --experimental-strip-types scripts/scrape-boxscore.ts",
     "scrape:roster": "node --experimental-strip-types scripts/scrape-roster.ts",
+    "scrape:player-awards": "node --experimental-strip-types scripts/scrape-player-awards.ts",
     "colors:extract": "node --experimental-strip-types scripts/extract-team-colors.ts",
     "scrape:club-honors": "node --experimental-strip-types scripts/scrape-club-honors.ts",
     "scrape:yahoo-pbp": "node --experimental-strip-types scripts/scrape-yahoo-pbp.ts",

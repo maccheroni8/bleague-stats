@@ -846,6 +846,22 @@ export interface PlayerMasterEntry {
   birthDate?: string;
 }
 
+// ---- data/player-awards.json の保存スキーマ（シーズン非依存、Record<playerId, entries>。
+// bleague.jpのroster_detail/?PlayerID=ページ「受賞歴」セクション（.rosterDetail-awardHistory）
+// から取得。players-master.jsonとは別ファイル（更新頻度・再取得ポリシーが異なるため。
+// DESIGN.md 46章参照） ----
+
+export interface PlayerAwardEntry {
+  /** 受賞シーズン。bleague.jp表記そのまま（例: "2023-24"） */
+  season: string;
+  /** 賞の名称。原文の末尾に"(B1)"等が付いている場合はそこを除いた部分（例: "得点王"） */
+  name: string;
+  /** 賞名末尾の"(B1)"等から抽出したカテゴリ。無い賞（MVP・ベストファイブ等）はundefined */
+  category?: string;
+}
+
+export type PlayerAwardsFile = Record<string, PlayerAwardEntry[]>;
+
 // ---- data/{season}/yahoo/{scheduleKey}.json の保存スキーマ（Yahoo!スポーツplay-by-playテキスト。
 // scripts/scrape-yahoo-pbp.ts参照。bleague.jp本体データとは独立した追加データ源で、対応シーズンは
 // scripts/lib/yahooCoverage.tsのyahooPbpCoverage()が判定する（2023-24以降のみ）） ----

@@ -39,7 +39,7 @@ import { TEAM_NAMES } from "./lib/divisions.ts";
 import { CLASSIFICATION_OVERRIDES } from "./lib/playerClassificationOverrides.ts";
 import { downloadPlayerPhoto, downloadTeamLogos } from "./lib/mediaAssets.ts";
 import { isMainModule } from "./lib/isMain.ts";
-import type { PlayerMasterEntry } from "../shared/types.ts";
+import type { PlayerAwardEntry, PlayerMasterEntry } from "../shared/types.ts";
 
 const MIN_REQUEST_INTERVAL_MS = 2500;
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
@@ -123,8 +123,39 @@ function parsePlayerDetail(html: string): PlayerDetail {
   return detail;
 }
 
-async function fetchPlayerDetail(playerId: string): Promise<PlayerDetail> {
-  return parsePlayerDetail(await fetchHtml(`https://www.bleague.jp/roster_detail/?PlayerID=${playerId}`));
+/** 例: "得点王(B1)" → {name: "得点王", category: "B1"} / "レギュラーシーズンベストファイブ" → {name: "..."} (categoryなし) */
+function parseAwardName(raw: string): { name: string; category?: string } {
+  const match = /^(.*)\(([^()]+)\)$/.exec(raw.trim());
+  if (match) return { name: match[1]!.trim(), category: match[2]!.trim() };
+  return { name: raw.trim() };
+}
+
+/**
+ * roster_detail/?PlayerID=ページの「受賞歴」セクション（.rosterDetail-awardHistory、
+ * 見出し含めて受賞が無い選手はセクション自体が出力されない）をパースする。
+ * DESIGN.md 46章参照
+ */
+function parseAwardHistory(html: string): PlayerAwardEntry[] {
+  const $ = load(html);
+  const awards: PlayerAwardEntry[] = [];
+  $(".rosterDetail-awardHistory").each((_, el) => {
+    const season = $(el).find(".rosterDetail-awardHistory-date").text().trim();
+    const rawName = $(el).find(".rosterDetail-awardHistory-name").text().trim();
+    if (!season || !rawName) return;
+    awards.push({ season, ...parseAwardName(rawName) });
+  });
+  return awards;
+}
+
+interface PlayerPage {
+  detail: PlayerDetail;
+  awards: PlayerAwardEntry[];
+}
+
+/** 個人ページを1回取得し、プロフィール（detail）と受賞歴（awards）を同じHTMLから両方パースする */
+export async function fetchPlayerPage(playerId: string): Promise<PlayerPage> {
+  const html = await fetchHtml(`https://www.bleague.jp/roster_detail/?PlayerID=${playerId}`);
+  return { detail: parsePlayerDetail(html), awards: parseAwardHistory(html) };
 }
 
 export async function scrapeRosterMaster(
@@ -175,7 +206,7 @@ export async function scrapeRosterMaster(
   console.log(`[roster] 個人ページ取得対象: ${targets.length}名（新規${newCount}名／移籍検知${movedCount}件）`);
 
   for (const entry of targets) {
-    const detail = await fetchPlayerDetail(entry.playerId);
+    const { detail } = await fetchPlayerPage(entry.playerId);
     entry.position = detail.position ?? entry.position;
     entry.nationality = detail.nationality ?? entry.nationality;
     entry.heightCm = detail.heightCm ?? entry.heightCm;

@@ -1,0 +1,51 @@
+name: Update Player Awards
+
+# DESIGN.md 46章。個人賞の受賞歴（bleague.jpのroster_detail「受賞歴」セクション）を
+# players-master.json記載の全選手について再取得する。生年月日等の不変データと異なり
+# 受賞歴は毎シーズン増えうるため、scrape-roster.tsの「新規選手のみ再取得」方針とは別に、
+# 月1回・全選手を対象にした独立のスキャンとして実行する（頻度の判断根拠はスクリプト
+# 本体のコメント・DESIGN.md参照）。
+
+on:
+  schedule:
+    - cron: "0 19 1 * *" # 毎月1日 JST4時（UTC19時）
+  workflow_dispatch: {}
+
+concurrency:
+  group: update-stats
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Scrape player awards (full rescan)
+        run: node --experimental-strip-types scripts/scrape-player-awards.ts
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/player-awards.json.gz
+          if git diff --staged --quiet; then
+            echo "変更なし。コミットをスキップします"
+          else
+            git commit -m "chore: update player awards ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            git push
+          fi
