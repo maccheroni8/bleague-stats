@@ -16,6 +16,7 @@ import type {
   ClubHonorsFile,
   GameSummary,
   HeadToHeadTeamRow,
+  PlayerAwardsFile,
   PlayerGameLog,
   PlayerHistoryEntry,
   PlayerSummary,
@@ -134,6 +135,10 @@ export function fetchTeamHistory(): Promise<TeamHistoryEntry[]> {
 
 export function fetchPlayerHistory(): Promise<PlayerHistoryEntry[]> {
   return fetchJson<PlayerHistoryEntry[]>(`${dataBase}/player-history.json`);
+}
+
+export function fetchPlayerAwards(): Promise<PlayerAwardsFile> {
+  return fetchJson<PlayerAwardsFile>(`${dataBase}/player-awards.json`);
 }
 
 export function fetchClubHonors(): Promise<ClubHonorsFile> {

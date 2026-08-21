@@ -225,6 +225,45 @@ export function matchesOpponentWinRateTier<T extends { scheduleKey: string; oppo
 }
 
 /**
+ * ショットチャート用の複数選択フィルタ（AND合成）。既存のシチュエーション別フィルタは
+ * 「1つだけ選べる」単一選択（SituationalFilter）だが、こちらは各軸を独立にON/OFFでき、
+ * 選択した軸すべてをANDで絞り込む（例:「対5割未満」×「ホーム」の組み合わせ）。
+ * 各軸のON/OFF判定自体は、既存のmatchesDivision/matchesNewYearHalf/
+ * matchesOpponentWinRateTier/matchesMonth/isWeekdayGameをそのまま再利用する
+ * （新しい判定ロジックは追加しない。DESIGN.md参照）
+ */
+export interface ShotChartGameFilters {
+  homeAway?: "home" | "away";
+  division?: "east" | "west";
+  weekday?: boolean;
+  newYear?: "before" | "after";
+  opponentWinRate?: "under50" | "atLeast50" | "atLeast60";
+  result?: "win" | "loss";
+  month?: number;
+}
+
+export function matchesShotChartGameFilters<
+  T extends {
+    date: string;
+    win: boolean;
+    isHome: boolean;
+    opponentTeamId: string;
+    scheduleKey: string;
+  },
+>(g: T, filters: ShotChartGameFilters, opponentRecords?: Map<string, Map<string, RecordBeforeGame>>): boolean {
+  if (filters.homeAway === "home" && !g.isHome) return false;
+  if (filters.homeAway === "away" && g.isHome) return false;
+  if (filters.division && !matchesDivision(g, filters.division)) return false;
+  if (filters.weekday && !isWeekdayGame(g.date)) return false;
+  if (filters.newYear && !matchesNewYearHalf(g, filters.newYear)) return false;
+  if (filters.opponentWinRate && !matchesOpponentWinRateTier(g, filters.opponentWinRate, opponentRecords)) return false;
+  if (filters.result === "win" && !g.win) return false;
+  if (filters.result === "loss" && g.win) return false;
+  if (filters.month !== undefined && !matchesMonth(g, filters.month)) return false;
+  return true;
+}
+
+/**
  * 試合ログ（日付昇順ソート済み前提）をフィルタ条件で絞り込む。
  * DNP（出場0分）の試合は「出場した試合」の集計対象から除く（players.json/teams.jsonの
  * season集計と同じ基準。含めるとcomputePlayerSituationalStats等のgamesPlayedが

@@ -145,6 +145,11 @@ h2 {
   margin: 32px 0 12px;
 }
 
+.collapsible-heading {
+  cursor: pointer;
+  user-select: none;
+}
+
 .page-subtitle {
   color: var(--muted);
   margin: 0 0 20px;
@@ -356,32 +361,50 @@ h2 {
   white-space: nowrap;
 }
 
-.player-detail-header {
-  display: flex;
-  align-items: center;
-  gap: 20px;
+.player-detail-title {
   margin-bottom: 20px;
   border-top: 4px solid var(--border);
   padding-top: 16px;
 }
 
-.player-detail-header h1 {
+.player-detail-title h1 {
   margin-bottom: 4px;
 }
 
-.player-detail-header .page-subtitle {
+.player-detail-title .page-subtitle {
   margin: 0;
 }
 
-.player-detail-header-info {
-  min-width: 0;
+.player-header-columns {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.player-header-photo {
+  flex: 0 0 auto;
+}
+
+.player-header-profile {
+  flex: 1 1 240px;
+  min-width: 220px;
+}
+
+.player-header-radar {
+  flex: 1 1 320px;
+  min-width: 280px;
+}
+
+.player-header-radar h3 {
+  margin-top: 0;
 }
 
 .player-profile-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 18px;
-  margin-top: 10px;
 }
 
 .profile-item {
@@ -396,6 +419,27 @@ h2 {
 .profile-item .value {
   color: var(--fg);
   font-weight: 600;
+}
+
+.player-awards {
+  margin-top: 14px;
+}
+
+.player-awards-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.player-awards-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .player-photo {
@@ -1103,6 +1147,7 @@ table.quarter-table th {
 
 .shot-chart-grid-single {
   grid-template-columns: minmax(0, 480px);
+  justify-content: center;
 }
 
 .shot-chart-panel {

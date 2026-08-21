@@ -15,6 +15,7 @@ import {
   fetchGame,
   fetchGameSummaries,
   fetchPlayerGameLogs,
+  fetchPlayerAwards,
   fetchPlayerHistory,
   fetchPlayers,
   fetchSeasons,
@@ -24,7 +25,7 @@ import {
   fetchYahooGamePbp,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
+import { isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type { PlayerGameLog, PlayerSummary } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { BOXSCORE_TABS, type BoxscoreColumn, type BoxscoreTabKey, COLUMNS_BY_TAB } from "../components/BoxscoreTable";
@@ -36,6 +37,9 @@ import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { formatShotTypeCell, sortShotTypeKeys, sumShotTypeCounts } from "../lib/shotTypeBreakdown";
 import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
+import { ShotChartFilterPicker } from "../components/ShotChartFilterPicker";
+import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
+import { periodInRange, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { safeDiv } from "../../shared/formulas";
 import {
@@ -64,9 +68,11 @@ import {
   matchesMonth,
   matchesNewYearHalf,
   matchesOpponentWinRateTier,
+  matchesShotChartGameFilters,
   type PlayerSituationalStats,
   type RecordBeforeGame,
   type SeasonHalfBoundary,
+  type ShotChartGameFilters,
   type SituationalFilter,
 } from "../lib/situational";
 import { isWeekdayGame } from "../lib/japaneseHolidays";
@@ -425,6 +431,24 @@ function calcAge(birthDate: string): number {
   return age;
 }
 
+// シーズン集計ショットチャートのQ別/前後半トグル用の固定オプション。試合詳細ページの
+// buildPeriodRangeOptions()は1試合のOT数に応じて動的に組み立てるが、シーズン合計では
+// 試合ごとにOT数が異なりうるため、5〜9（最大4OTまで）を一括で「OT」として扱う固定表にする
+// （複数OTの試合自体が低頻度事象であることは既存のDESIGN.md記載の通り）
+const SEASON_SHOT_CHART_PERIOD_OPTIONS: PeriodRangeOption[] = [
+  { value: "all", label: "試合", periods: null },
+  { value: "q1", label: "1Q", periods: [1] },
+  { value: "q2", label: "2Q", periods: [2] },
+  { value: "q3", label: "3Q", periods: [3] },
+  { value: "q4", label: "4Q", periods: [4] },
+  { value: "ot1", label: "OT", periods: [5, 6, 7, 8, 9] },
+  { value: "h1", label: "前半", periods: [1, 2] },
+  { value: "h2", label: "後半", periods: [3, 4, 5, 6, 7, 8, 9] },
+];
+
+const SHOOTING_SECTION_TOOLTIP =
+  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（シーズン合計、2023-24シーズン以降・レギュラーシーズンのみ。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意";
+
 export function PlayerDetailPage({ season }: { season: string }) {
   const { playerId } = useParams<{ playerId: string }>();
   const {
@@ -448,8 +472,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
   const { data: playerHistory } = useJsonData(() => fetchPlayerHistory(), []);
-  const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
-  const pbpSupported = isPbpSupported(coverage);
+  const { data: playerAwards } = useJsonData(() => fetchPlayerAwards(), []);
+  const { coverage } = useSeasonCoverage(season);
   const shotChartSupported = isShotChartSupported(coverage);
   const { supported: yahooSeasonSupported } = useYahooPbpCoverage(season);
 
@@ -477,9 +501,15 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 遅延取得する（「スタッツ」タブはデフォルトタブのため、ここだけ自動取得にすると
   // ページを開くたびに毎回重い取得が走ってしまう）
   const [seasonShotChartExpanded, setSeasonShotChartExpanded] = useState(false);
-  const [seasonShotEvents, setSeasonShotEvents] = useState<ShotEvent[] | null>(null);
+  const [seasonShotGameData, setSeasonShotGameData] = useState<{ log: PlayerGameLog; shots: ShotEvent[] }[] | null>(
+    null,
+  );
   const [seasonShotChartLoading, setSeasonShotChartLoading] = useState(false);
   const seasonShotChartFetchStartedRef = useRef(false);
+  // ショットチャート専用の複数選択フィルタ（対勝率別・地区別・会場・時期・曜日・月別をAND合成）と
+  // Q別/前後半（試合ごとのPeriod番号ベース、試合詳細ページと同じPeriodRangeToggleを再利用）
+  const [shotChartFilters, setShotChartFilters] = useState<ShotChartGameFilters>({});
+  const [shotChartPeriod, setShotChartPeriod] = useState<PeriodRangeValue>("all");
 
   // 比較タブ: 2スロット分の{シーズン, シチュエーション別フィルタ}。スロット1は現在選択中の
   // シーズン・シーズン全体、スロット2は未選択（ユーザーが選ぶ）がデフォルト
@@ -508,8 +538,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
     setGameBoxRows(null);
     gameBoxFetchStartedRef.current = false;
     setSeasonShotChartExpanded(false);
-    setSeasonShotEvents(null);
+    setSeasonShotGameData(null);
     seasonShotChartFetchStartedRef.current = false;
+    setShotChartFilters({});
+    setShotChartPeriod("all");
     setCompareSlots(defaultCompareSlots(season));
     setSituationalStatsSeason(season);
     // 選手が変わった時だけリセットする（season変更では比較タブ・シチュエーション別成績の
@@ -524,15 +556,17 @@ export function PlayerDetailPage({ season }: { season: string }) {
     setGameBoxRows(null);
     gameBoxFetchStartedRef.current = false;
     setSeasonShotChartExpanded(false);
-    setSeasonShotEvents(null);
+    setSeasonShotGameData(null);
     seasonShotChartFetchStartedRef.current = false;
+    setShotChartFilters({});
+    setShotChartPeriod("all");
   }, [season]);
 
   // 「シーズン成績」のレギュラー/プレーオフ/合算トグル（gameTypeFilter、直上のボックススコアと
   // 同じstateを共有）が変わったら取り直す。上のYahoo由来シュートタイプ表はレギュラーシーズン
   // 固定（バックエンド集計）だが、こちらは生PBPからその場集計するため同じトグルに追従できる
   useEffect(() => {
-    setSeasonShotEvents(null);
+    setSeasonShotGameData(null);
     seasonShotChartFetchStartedRef.current = false;
   }, [gameTypeFilter]);
 
@@ -553,15 +587,35 @@ export function PlayerDetailPage({ season }: { season: string }) {
         .map(async (log) => {
           try {
             const game = await fetchGame(season, log.scheduleKey);
-            return buildShotEvents(game.raw.PlayByPlays).filter((s) => s.playerId === playerId);
+            const shots = buildShotEvents(game.raw.PlayByPlays).filter((s) => s.playerId === playerId);
+            return { log, shots };
           } catch {
-            return [];
+            return { log, shots: [] as ShotEvent[] };
           }
         }),
     )
-      .then((results) => setSeasonShotEvents(results.flat()))
+      .then((results) => setSeasonShotGameData(results))
       .finally(() => setSeasonShotChartLoading(false));
   }, [seasonShotChartExpanded, playerId, season, gameLogs, shotChartSupported, gameTypeFilter]);
+
+  // ショットチャートの「対勝率別」フィルタ用の試合日程（対応シーズンでのみ取得。ページ本体の
+  // 現在シーズンに紐づくため、シチュエーション別成績セクションが別シーズンを選んでいても影響しない）
+  const { data: shotChartGameSummaries } = useJsonData(
+    () => (seasonShotChartExpanded ? fetchGameSummaries(season) : Promise.resolve(null)),
+    [seasonShotChartExpanded, season],
+  );
+  const shotChartOpponentRecords = useMemo(
+    () => (shotChartGameSummaries ? buildRecordsBeforeGame(shotChartGameSummaries) : undefined),
+    [shotChartGameSummaries],
+  );
+
+  const shotChartPeriodOption = SEASON_SHOT_CHART_PERIOD_OPTIONS.find((o) => o.value === shotChartPeriod);
+  const filteredSeasonShotEvents = useMemo(() => {
+    if (!seasonShotGameData) return [];
+    return seasonShotGameData
+      .filter(({ log }) => matchesShotChartGameFilters(log, shotChartFilters, shotChartOpponentRecords))
+      .flatMap(({ shots }) => shots.filter((s) => periodInRange(shotChartPeriodOption, s.period)));
+  }, [seasonShotGameData, shotChartFilters, shotChartOpponentRecords, shotChartPeriodOption]);
 
   useEffect(() => {
     if (tab !== "gamelog" || !playerId || !gameLogs || gameBoxFetchStartedRef.current) return;
@@ -758,6 +812,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
   const accentColor = teamColors?.[player.teamId]?.primary;
   const nameHistory = playerHistory?.find((h) => h.playerId === player.playerId)?.names ?? [];
+  const playerAwardList = [...(playerAwards?.[player.playerId] ?? [])].sort((a, b) =>
+    b.season.localeCompare(a.season),
+  );
 
   // レーダーチャートのパーセンタイル算出対象は、所属チーム試合数の85%以上に出場した選手のみに
   // 絞り込む（出場が少なく数値が振れやすい選手を母集団から除くため。DESIGN.md参照）。
@@ -911,31 +968,37 @@ export function PlayerDetailPage({ season }: { season: string }) {
       <Link to="/players" className="back-link">
         ← 個人一覧に戻る
       </Link>
-      <div className="player-detail-header" style={accentColor ? { borderTopColor: accentColor } : undefined}>
-        <PlayerPhoto playerId={player.playerId} size={112} />
-        <div className="player-detail-header-info">
-          <h1>{player.name}</h1>
+      <div className="player-detail-title" style={accentColor ? { borderTopColor: accentColor } : undefined}>
+        <h1>{player.name}</h1>
+        <p className="page-subtitle">
+          {player.teamName}・{season}シーズン・{player.gamesPlayed}試合出場
+        </p>
+        {nameHistory.length > 1 && (
           <p className="page-subtitle">
-            {player.teamName}・{season}シーズン・{player.gamesPlayed}試合出場
+            登録名変更履歴:{" "}
+            {nameHistory.map((n, i) => (
+              <span key={n.name}>
+                {i > 0 && " → "}
+                {n.name}
+                {n.fromSeason || n.toSeason ? (
+                  <>
+                    （{n.fromSeason ?? ""}
+                    {n.fromSeason && n.toSeason ? "〜" : ""}
+                    {n.toSeason ?? (n.fromSeason ? "〜" : "")}）
+                  </>
+                ) : null}
+              </span>
+            ))}
           </p>
-          {nameHistory.length > 1 && (
-            <p className="page-subtitle">
-              登録名変更履歴:{" "}
-              {nameHistory.map((n, i) => (
-                <span key={n.name}>
-                  {i > 0 && " → "}
-                  {n.name}
-                  {n.fromSeason || n.toSeason ? (
-                    <>
-                      （{n.fromSeason ?? ""}
-                      {n.fromSeason && n.toSeason ? "〜" : ""}
-                      {n.toSeason ?? (n.fromSeason ? "〜" : "")}）
-                    </>
-                  ) : null}
-                </span>
-              ))}
-            </p>
-          )}
+        )}
+      </div>
+
+      <div className="player-header-columns">
+        <div className="player-header-photo">
+          <PlayerPhoto playerId={player.playerId} size={160} />
+        </div>
+
+        <div className="player-header-profile">
           <div className="player-profile-grid">
             {player.position && <ProfileItem label="ポジション" value={player.position} />}
             {player.classification && <ProfileItem label="登録区分" value={player.classification} />}
@@ -949,39 +1012,52 @@ export function PlayerDetailPage({ season }: { season: string }) {
               />
             )}
           </div>
+          {playerAwardList.length > 0 && (
+            <div className="player-awards">
+              <div className="player-awards-title">個人賞受賞歴</div>
+              <ul className="player-awards-list">
+                {playerAwardList.map((a, i) => (
+                  <li key={i}>
+                    {a.season} {a.name}
+                    {a.category ? `(${a.category})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className="player-header-radar">
+          <h3>リーグ内比較</h3>
+          {radarData.length === 0 ? (
+            <p className="empty-message">比較対象の選手がいません</p>
+          ) : (
+            <div className="radar-chart-wrapper">
+              <ResponsiveContainer width="100%" height={280}>
+                <RadarChart data={radarData} outerRadius="72%">
+                  <PolarGrid stroke="var(--border)" />
+                  <PolarAngleAxis dataKey="label" tick={{ fill: "var(--muted)", fontSize: 12 }} />
+                  <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                  <Radar
+                    name={player.name}
+                    dataKey="percentile"
+                    stroke={accentColor ?? "var(--accent)"}
+                    fill={accentColor ?? "var(--accent)"}
+                    fillOpacity={0.35}
+                  />
+                  <RechartsTooltip
+                    formatter={(_value: number, _name, props: { payload?: RadarDataPoint }) => {
+                      const point = props.payload;
+                      return point ? [`${point.rank}位/${point.total}（${point.actualValue}）`, point.label] : ["", ""];
+                    }}
+                    contentStyle={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--fg)" }}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
-
-      <h2>リーグ内比較</h2>
-      {radarData.length === 0 ? (
-        <p className="empty-message">比較対象の選手がいません</p>
-      ) : (
-        <div className="radar-section">
-          <div className="radar-chart-wrapper">
-            <ResponsiveContainer width="100%" height={280}>
-              <RadarChart data={radarData} outerRadius="72%">
-                <PolarGrid stroke="var(--border)" />
-                <PolarAngleAxis dataKey="label" tick={{ fill: "var(--muted)", fontSize: 12 }} />
-                <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                <Radar
-                  name={player.name}
-                  dataKey="percentile"
-                  stroke={accentColor ?? "var(--accent)"}
-                  fill={accentColor ?? "var(--accent)"}
-                  fillOpacity={0.35}
-                />
-                <RechartsTooltip
-                  formatter={(_value: number, _name, props: { payload?: RadarDataPoint }) => {
-                    const point = props.payload;
-                    return point ? [`${point.rank}位/${point.total}（${point.actualValue}）`, point.label] : ["", ""];
-                  }}
-                  contentStyle={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--fg)" }}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
 
       <div className="stat-grid">
         {TILE_STAT_DEFS.map((def) => (
@@ -1009,20 +1085,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
       {tab === "stats" && (
         <>
-          <section className="gd-card oncourt-card" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
-            <h2>オンコート/オフコートスタッツ</h2>
-            {coverageLoading ? (
-              <p className="loading">読み込み中...</p>
-            ) : !pbpSupported ? (
-              <p className="empty-message">このシーズンのデータには対応していません</p>
-            ) : (
-              <div className="stat-grid">
-                <StatTile label="オンコート+/-" value={formatSigned(player.advanced.onCourtNetPerGame)} />
-                <StatTile label="オフコート+/-" value={formatSigned(player.advanced.offCourtNetPerGame)} />
-              </div>
-            )}
-          </section>
-
           <h2>シーズン成績</h2>
           <div className="mode-toggle">
             {(Object.keys(SEASON_DISPLAY_MODE_LABELS) as SeasonDisplayMode[]).map((m) => (
@@ -1162,97 +1224,96 @@ export function PlayerDetailPage({ season }: { season: string }) {
             </div>
           )}
 
-          <h2>シューティング</h2>
+          <h2 title={SHOOTING_SECTION_TOOLTIP}>シューティング</h2>
           {!player.shotTypes ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : (
-            <>
-              <div className="table-scroll">
-                <table className="stats-table">
-                  <thead>
-                    <tr>
-                      <th rowSpan={2} />
-                      {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
-                        <th key={key} className="align-right" colSpan={2}>
-                          {key}
-                        </th>
-                      ))}
-                      <th className="align-right" colSpan={2}>
-                        合計
+            <div className="table-scroll">
+              <table className="stats-table">
+                <thead>
+                  <tr>
+                    <th />
+                    {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
+                      <th key={key} className="align-right">
+                        {key}
                       </th>
-                    </tr>
-                    <tr>
-                      {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
-                        <Fragment key={key}>
-                          <th className="align-right">2P</th>
-                          <th className="align-right">3P</th>
-                        </Fragment>
-                      ))}
-                      <th className="align-right">2P</th>
-                      <th className="align-right">3P</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="align-left">シーズン合計</td>
-                      {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => {
-                        const split = player.shotTypes![key]!;
-                        return (
-                          <Fragment key={key}>
-                            <td className="align-right">{formatShotTypeCell(split.twoPoint)}</td>
-                            <td className="align-right">{formatShotTypeCell(split.threePoint)}</td>
-                          </Fragment>
-                        );
-                      })}
-                      <td className="align-right">
-                        {formatShotTypeCell(
-                          Object.values(player.shotTypes).reduce(
-                            (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
-                            { made: 0, attempted: 0 },
-                          ),
-                        )}
+                    ))}
+                    <th className="align-right">合計</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="align-left">2P</td>
+                    {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
+                      <td key={key} className="align-right">
+                        {formatShotTypeCell(player.shotTypes![key]!.twoPoint)}
                       </td>
-                      <td className="align-right">
-                        {formatShotTypeCell(
-                          Object.values(player.shotTypes).reduce(
-                            (acc, c) => sumShotTypeCounts(acc, c.threePoint),
-                            { made: 0, attempted: 0 },
-                          ),
-                        )}
+                    ))}
+                    <td className="align-right">
+                      {formatShotTypeCell(
+                        Object.values(player.shotTypes).reduce(
+                          (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
+                          { made: 0, attempted: 0 },
+                        ),
+                      )}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="align-left">3P</td>
+                    {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
+                      <td key={key} className="align-right">
+                        {formatShotTypeCell(player.shotTypes![key]!.threePoint)}
                       </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p className="page-subtitle">
-                Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（シーズン合計、2023-24シーズン以降・レギュラーシーズンのみ。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意
-              </p>
-            </>
+                    ))}
+                    <td className="align-right">
+                      {formatShotTypeCell(
+                        Object.values(player.shotTypes).reduce(
+                          (acc, c) => sumShotTypeCounts(acc, c.threePoint),
+                          { made: 0, attempted: 0 },
+                        ),
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           )}
 
-          <h2>シーズン合計ショットチャート</h2>
+          <h2
+            className={shotChartSupported ? "collapsible-heading" : undefined}
+            onClick={shotChartSupported ? () => setSeasonShotChartExpanded((v) => !v) : undefined}
+          >
+            {shotChartSupported ? (seasonShotChartExpanded ? "▼ " : "▶ ") : ""}
+            ショットチャート
+          </h2>
           {!shotChartSupported ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
-          ) : !seasonShotChartExpanded ? (
-            <button type="button" onClick={() => setSeasonShotChartExpanded(true)}>
-              ショットチャートを表示
-            </button>
-          ) : seasonShotChartLoading || !seasonShotEvents ? (
+          ) : !seasonShotChartExpanded ? null : seasonShotChartLoading || !seasonShotGameData ? (
             <p className="loading">読み込み中...</p>
           ) : (
             <>
+              <ShotChartFilterPicker
+                filters={shotChartFilters}
+                onChange={setShotChartFilters}
+                opponentWinRateSupported={!!shotChartGameSummaries}
+              />
+              <PeriodRangeToggle
+                options={SEASON_SHOT_CHART_PERIOD_OPTIONS}
+                value={shotChartPeriod}
+                onChange={setShotChartPeriod}
+              />
               <div className="shot-chart-grid shot-chart-grid-single">
                 <ShotChartPanel
                   teamName={player.name}
                   players={[]}
-                  shots={seasonShotEvents}
+                  shots={filteredSeasonShotEvents}
                   color={accentColor ?? "var(--accent)"}
                   accentColor={accentColor}
                   showPlayerSelector={false}
                 />
               </div>
               <p className="page-subtitle">
-                選手が出場した各試合の生データ（GeniusAPI由来のショット座標）をシーズン合計したもの。試合詳細ページのショットチャートと同じ形式で、個別ショット/エリア別成功率を切り替えられる（2022-23シーズン以降のみ対応。DESIGN.md参照）。上の「シーズン成績」のレギュラー/プレーオフ/合算トグルに連動する
+                選手が出場した各試合の生データ（GeniusAPI由来のショット座標）をシーズン合計したもの。試合詳細ページのショットチャートと同じ形式で、個別ショット/エリア別成功率を切り替えられる（2022-23シーズン以降のみ対応。DESIGN.md参照）。上の「シーズン成績」のレギュラー/プレーオフ/合算トグルに連動する。フィルタ・Q別トグルは複数選択でき、選択した条件をすべて満たす試合・ショットに絞り込む
               </p>
             </>
           )}
