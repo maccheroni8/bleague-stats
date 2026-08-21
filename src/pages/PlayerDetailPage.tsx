@@ -52,6 +52,7 @@ import {
   type SeasonGameTypeFilter,
 } from "../lib/playerSeasonBoxscore";
 import {
+  buildRecordsBeforeGame,
   computePlayerSituationalStats,
   computeSeasonHalfBoundary,
   filterGameLogs,
@@ -324,6 +325,9 @@ function describeSituationalFilter(filter: SituationalFilter, boundary: SeasonHa
       break;
     case "weekday":
       base = "平日開催";
+      break;
+    case "opponentWinRate":
+      base = filter.tier === "under50" ? "対5割未満" : filter.tier === "atLeast50" ? "対5割以上" : "対6割以上";
       break;
   }
   return filter.includePlayoffs ? `${base}・PO込み` : base;
@@ -600,13 +604,19 @@ export function PlayerDetailPage({ season }: { season: string }) {
     useMemo(() => (compareSummaries0 ? computeSeasonHalfBoundary(compareSummaries0) : null), [compareSummaries0]),
     useMemo(() => (compareSummaries1 ? computeSeasonHalfBoundary(compareSummaries1) : null), [compareSummaries1]),
   ];
+  // 「対勝率別」フィルタ用（対戦相手のその試合時点までの勝率が必要。前半戦/後半戦の境界日と同じく
+  // スロットごとのシーズンの試合日程から求める）
+  const compareOpponentRecords = [
+    useMemo(() => (compareSummaries0 ? buildRecordsBeforeGame(compareSummaries0) : undefined), [compareSummaries0]),
+    useMemo(() => (compareSummaries1 ? buildRecordsBeforeGame(compareSummaries1) : undefined), [compareSummaries1]),
+  ];
 
   const compareRows: ComparisonRow<CompareColumnData>[] = compareSlots
     .map((slot, i): ComparisonRow<CompareColumnData> | null => {
       if (!slot.season || !careerData) return null;
       const logs = careerData.find((cd) => cd.season === slot.season)?.logs;
       if (!logs) return null;
-      const stats = computePlayerSituationalStats(filterGameLogs(logs, slot.filter));
+      const stats = computePlayerSituationalStats(filterGameLogs(logs, slot.filter, compareOpponentRecords[i]));
       if (!stats) return null;
       return {
         item: { key: `slot${i}`, label: describeSituationalFilter(slot.filter, compareBoundaries[i]!), stats },
@@ -1035,6 +1045,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                         })
                       }
                       seasonHalfBoundary={compareBoundaries[i]}
+                      opponentWinRateSupported={!!compareOpponentRecords[i]}
                     />
                   ) : (
                     <p className="compare-slot-note">シーズンを選択してください</p>

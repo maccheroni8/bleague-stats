@@ -5,9 +5,11 @@ interface Props {
   onChange: (filter: SituationalFilter) => void;
   /** シーズン前半戦/後半戦ボタンの境界日。未指定または算出不能（null）の場合はボタン自体を出さない */
   seasonHalfBoundary?: SeasonHalfBoundary | null;
+  /** 「対勝率別」ボタンの表示可否（対戦相手の勝率算出にシーズン全体の試合日程が必要なため） */
+  opponentWinRateSupported?: boolean;
 }
 
-export function SituationalFilterPicker({ filter, onChange, seasonHalfBoundary }: Props) {
+export function SituationalFilterPicker({ filter, onChange, seasonHalfBoundary, opponentWinRateSupported }: Props) {
   const dateRange = filter.kind === "dateRange" ? filter : { start: "", end: "" };
   const includePlayoffs = filter.includePlayoffs ?? false;
   // kind側の切り替えではincludePlayoffsの選択を維持する
@@ -141,6 +143,28 @@ export function SituationalFilterPicker({ filter, onChange, seasonHalfBoundary }
           平日開催
         </button>
       </div>
+      {opponentWinRateSupported && (
+        <div className="mode-toggle">
+          <button
+            className={filter.kind === "opponentWinRate" && filter.tier === "under50" ? "active" : ""}
+            onClick={() => onChange(withKind({ kind: "opponentWinRate", tier: "under50" }))}
+          >
+            対5割未満
+          </button>
+          <button
+            className={filter.kind === "opponentWinRate" && filter.tier === "atLeast50" ? "active" : ""}
+            onClick={() => onChange(withKind({ kind: "opponentWinRate", tier: "atLeast50" }))}
+          >
+            対5割以上
+          </button>
+          <button
+            className={filter.kind === "opponentWinRate" && filter.tier === "atLeast60" ? "active" : ""}
+            onClick={() => onChange(withKind({ kind: "opponentWinRate", tier: "atLeast60" }))}
+          >
+            対6割以上
+          </button>
+        </div>
+      )}
       <div className="mode-toggle">
         <button className={!includePlayoffs ? "active" : ""} onClick={() => onChange({ ...filter, includePlayoffs: false })}>
           レギュラーシーズンのみ

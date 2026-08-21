@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useParams, Link as RouterLink } from "react-router-dom";
 import {
   PolarAngleAxis,
@@ -30,7 +30,13 @@ import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
-import { computeTeamSituationalStats, filterGameLogs, isDefaultFilter, type SituationalFilter } from "../lib/situational";
+import {
+  buildRecordsBeforeGame,
+  computeTeamSituationalStats,
+  filterGameLogs,
+  isDefaultFilter,
+  type SituationalFilter,
+} from "../lib/situational";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { safeDiv } from "../../shared/formulas";
 
@@ -260,6 +266,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
   const { data: summaries, loading: summariesLoading } = useJsonData(() => fetchGameSummaries(season), [season]);
   const { data: schedule, loading: scheduleLoading } = useJsonData(() => fetchSchedule(season), [season]);
+  // シチュエーション別フィルタの「対勝率別」用（対戦相手のその試合時点までの勝率が必要）
+  const opponentRecords = useMemo(() => (summaries ? buildRecordsBeforeGame(summaries) : undefined), [summaries]);
 
   const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
@@ -318,7 +326,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const avgWeightKg = averageOf(starters.flatMap((p) => (p.weightKg != null ? [p.weightKg] : [])));
   const avgAge = averageOf(starters.flatMap((p) => (p.birthDate ? [calculateAge(p.birthDate)] : [])));
 
-  const filteredLogs = gameLogs ? filterGameLogs(gameLogs, filter) : [];
+  const filteredLogs = gameLogs ? filterGameLogs(gameLogs, filter, opponentRecords) : [];
   const situational = isDefaultFilter(filter) ? null : computeTeamSituationalStats(filteredLogs);
 
   const playerNameById = new Map((players ?? []).map((p) => [p.playerId, p.name]));
@@ -561,7 +569,11 @@ export function TeamDetailPage({ season }: { season: string }) {
 
       {tab === "stats" && (
         <>
-          <SituationalFilterPicker filter={filter} onChange={setFilter} />
+          <SituationalFilterPicker
+            filter={filter}
+            onChange={setFilter}
+            opponentWinRateSupported={!!opponentRecords}
+          />
 
           {isDefaultFilter(filter) ? (
             <div className="stat-grid">

@@ -28,7 +28,14 @@ export type SituationalFilterKind =
    * 7〜12月を「年明け前」、1〜6月を「年明け後」とする */
   | { kind: "newYear"; half: "before" | "after" }
   /** 土日祝を除く曜日に開催された試合 */
-  | { kind: "weekday" };
+  | { kind: "weekday" }
+  /**
+   * 対戦相手の「その試合時点までの」レギュラーシーズン勝率による絞り込み。3段階は独立した
+   * 閾値ボタン（5割以上と6割以上は重複しうる）。相手の消化試合数がMIN_GAMES_FOR_OPPONENT_WIN_RATE
+   * 未満の対戦はどの区分にも該当しない扱いにする（シーズン序盤の1〜数試合だけの勝率は
+   * 0%/100%に振れやすく、対戦相手として意味のある強さの指標にならないため。DESIGN.md参照）
+   */
+  | { kind: "opponentWinRate"; tier: "under50" | "atLeast50" | "atLeast60" };
 
 /**
  * kind（直近N試合・勝敗別・期間指定）とは独立した軸として、プレーオフを合算するかどうかを持つ。
@@ -71,11 +78,60 @@ export function isDefaultFilter(filter: SituationalFilter): boolean {
   return filter.kind === "all" && !filter.includePlayoffs;
 }
 
+/** 対戦相手のその試合時点までの勝率で絞り込む際、これ未満の消化試合数は対象外にする（DESIGN.md参照） */
+export const MIN_GAMES_FOR_OPPONENT_WIN_RATE = 5;
+
+export interface RecordBeforeGame {
+  wins: number;
+  losses: number;
+}
+
+/**
+ * シーズンの試合日程（games-summary.json、レギュラーシーズンのみ対象）から、各試合について
+ * 「その試合が始まる時点（その試合自体は含まない）」での両チームの勝敗数を求める。
+ * Map<scheduleKey, Map<teamId, RecordBeforeGame>>（1試合につき対戦した2チーム分のキーを持つ）。
+ * 「対勝率別」フィルタ（opponentWinRate）で、対戦相手のscheduleKeyをキーに引く用途で使う
+ */
+export function buildRecordsBeforeGame(games: GameSummary[]): Map<string, Map<string, RecordBeforeGame>> {
+  const sorted = games
+    .filter((g) => g.gameType === "regular" && g.gameEndedFlg)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
+
+  const result = new Map<string, Map<string, RecordBeforeGame>>();
+  const running = new Map<string, RecordBeforeGame>();
+  const ensure = (teamId: string): RecordBeforeGame => {
+    let r = running.get(teamId);
+    if (!r) {
+      r = { wins: 0, losses: 0 };
+      running.set(teamId, r);
+    }
+    return r;
+  };
+
+  for (const g of sorted) {
+    const perGame = new Map<string, RecordBeforeGame>();
+    perGame.set(g.homeTeamId, { ...ensure(g.homeTeamId) });
+    perGame.set(g.awayTeamId, { ...ensure(g.awayTeamId) });
+    result.set(g.scheduleKey, perGame);
+
+    if (g.homeScore > g.awayScore) {
+      ensure(g.homeTeamId).wins += 1;
+      ensure(g.awayTeamId).losses += 1;
+    } else {
+      ensure(g.awayTeamId).wins += 1;
+      ensure(g.homeTeamId).losses += 1;
+    }
+  }
+  return result;
+}
+
 /**
  * 試合ログ（日付昇順ソート済み前提）をフィルタ条件で絞り込む。
  * DNP（出場0分）の試合は「出場した試合」の集計対象から除く（players.json/teams.jsonの
  * season集計と同じ基準。含めるとcomputePlayerSituationalStats等のgamesPlayedが
- * 実際の出場試合数より多くカウントされてしまう）
+ * 実際の出場試合数より多くカウントされてしまう）。
+ * opponentRecordsは「対勝率別」フィルタでのみ使う（buildRecordsBeforeGame()の結果。
+ * 未指定の場合、このkindを選んでいても該当試合0件として扱う）
  */
 export function filterGameLogs<
   T extends {
@@ -85,8 +141,9 @@ export function filterGameLogs<
     min: number;
     isHome: boolean;
     opponentTeamId: string;
+    scheduleKey: string;
   },
->(logs: T[], filter: SituationalFilter): T[] {
+>(logs: T[], filter: SituationalFilter, opponentRecords?: Map<string, Map<string, RecordBeforeGame>>): T[] {
   const played = logs.filter((g) => g.min > 0);
   const scoped = filter.includePlayoffs ? played : played.filter((g) => g.gameType === "regular");
   switch (filter.kind) {
@@ -113,6 +170,22 @@ export function filterGameLogs<
       });
     case "weekday":
       return scoped.filter((g) => isWeekdayGame(g.date));
+    case "opponentWinRate":
+      return scoped.filter((g) => {
+        const rec = opponentRecords?.get(g.scheduleKey)?.get(g.opponentTeamId);
+        if (!rec) return false;
+        const gp = rec.wins + rec.losses;
+        if (gp < MIN_GAMES_FOR_OPPONENT_WIN_RATE) return false;
+        const winPct = rec.wins / gp;
+        switch (filter.tier) {
+          case "under50":
+            return winPct < 0.5;
+          case "atLeast50":
+            return winPct >= 0.5;
+          case "atLeast60":
+            return winPct >= 0.6;
+        }
+      });
   }
 }
 

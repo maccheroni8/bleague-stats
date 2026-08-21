@@ -3535,7 +3535,7 @@ PTS7598.0→8187.0等、期待通り増加することも確認した。「キ�
 型チェック通過（`tsconfig.json`・`tsconfig.scripts.json`とも）。ブラウザのコンソール
 エラー無し。
 
-### 48-5. 「対勝率別」の実データ確認（項目6、実装はまだ）
+### 48-5. 「対勝率別」の実データ確認（項目6）
 
 依頼通り、実装前に「相手チームのその試合時点までの勝率」が極端な値になるケースの実態を
 確認した。2022-23〜2025-26の4シーズン、`games-summary.json`のレギュラーシーズン全試合を
@@ -3564,7 +3564,56 @@ PTS7598.0→8187.0等、期待通り増加することも確認した。「キ�
 形で1シーズン分まとめて事前計算し、`filterGameLogs`にオプション引数として渡す設計を想定
 している（`filterGameLogs`は現状`(logs, filter)`の2引数だが、この軸だけ試合ログ自体には
 無い「シーズン全体の対戦成績」を必要とするため、既存の呼び出し側の変更が必要になる）。
-ユーザーの閾値判断を待ってから実装に進む。
+
+ユーザー確認の結果、閾値5試合以上で実装を進めることになった（48-6章）。
+
+### 48-6. 「対勝率別」の実装
+
+48-5章の設計方針通り実装した。`situational.ts`に`MIN_GAMES_FOR_OPPONENT_WIN_RATE = 5`・
+`RecordBeforeGame`型・`buildRecordsBeforeGame(games: GameSummary[])`
+（`Map<scheduleKey, Map<teamId, RecordBeforeGame>>`を返す。レギュラーシーズンかつ
+`gameEndedFlg`の試合のみを日付＋ScheduleKey順に走査し、各試合について両チームの
+「その試合に入る時点」での勝敗数を記録してから、その試合の結果を加算する）を追加した。
+
+`SituationalFilterKind`に`{ kind: "opponentWinRate"; tier: "under50" | "atLeast50" |
+"atLeast60" }`を追加。「5割以上」と「6割以上」は独立した閾値ボタン（重複しうる）で、
+「勝った試合/負けた試合」と同じ位置づけの単純な閾値フィルタとして実装した（3区分の
+排他的パーティションにはしていない）。`filterGameLogs`に3つ目の引数
+`opponentRecords?: Map<scheduleKey, Map<teamId, RecordBeforeGame>>`を追加し（ジェネリクス
+制約にも`scheduleKey: string`を追加。`PlayerGameLog`/`TeamGameLog`は元々両方持つため
+呼び出し側の型変更は不要）、`opponentWinRate`のcaseでは対戦相手の
+`opponentRecords.get(g.scheduleKey).get(g.opponentTeamId)`を引き、消化試合数が
+`MIN_GAMES_FOR_OPPONENT_WIN_RATE`未満なら（レコード自体が無い場合も含め）該当なしとして
+除外する。
+
+`SituationalFilterPicker`に`opponentWinRateSupported?: boolean`propを追加し、trueのときのみ
+「対5割未満/対5割以上/対6割以上」の3ボタンを表示する（`opponentRecords`が無い状態で
+このkindを選べてしまうと常に0件になる無意味なUIになるため、前半戦/後半戦ボタンの
+`seasonHalfBoundary`と同じ「データが無ければボタン自体を出さない」パターンを踏襲）。
+
+呼び出し側（`TeamDetailPage.tsx`・`PlayerDetailPage.tsx`の比較タブ）は、どちらも既存の
+`fetchGameSummaries(season)`の結果（TeamDetailPageは`summaries`、比較タブは各スロットの
+`compareSummaries0`/`compareSummaries1`）から`useMemo`で`buildRecordsBeforeGame()`を
+呼ぶだけで済み、新規のHTTPリクエストは発生しない。`describeSituationalFilter()`
+（比較タブの列見出し用）にも`opponentWinRate`のケース（「対5割未満」「対5割以上」
+「対6割以上」）を追加した。
+
+### 48-7. 検証
+
+千葉ジェッツ（2024-25シーズン、レギュラーシーズン60試合）のTeamDetailPage「スタッツ」タブで
+確認した: 対5割未満30試合・対5割以上25試合・対6割以上20試合（対6割以上は対5割以上の
+部分集合として妥当）、5試合が除外されている（30+25=55、60−55=5）。除外された5試合を
+`data/2024-25/team-games/704.json.gz`と`buildRecordsBeforeGame()`をNode.jsで独立実行して
+突き合わせたところ、全て相手の消化試合数が0〜4試合の対戦だった（例:
+2024-10-05宇都宮ブレックス戦は相手の消化試合数0、2024-10-19京都ハンナリーズ戦は相手が
+3勝1敗＝75%の一見「対6割以上」に該当しそうな記録だが消化試合数4のため正しく除外される）、
+かつカウントされた試合の中で相手の消化試合数の最小値がちょうど5（閾値ぴったり）である
+ことを確認し、極端な値（消化試合数の少ない対戦による0%/100%等）が正しく除外されている
+ことを確認した。ブラウザの表示値（30/25/20）もこの独立集計と完全一致した。
+
+PlayerDetailPageの「比較」タブでも「対6割以上」を選択でき、列見出しに正しく表示される
+ことを確認した。型チェック通過（`tsconfig.json`・`tsconfig.scripts.json`とも）。
+本番ビルド（`vite build`）も成功。ブラウザのコンソールエラー無し。
 
 ---
 
