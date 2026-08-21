@@ -147,6 +147,14 @@ interface StatTotals {
    * （benchPointsForGame()参照）。個人集計では常に0のまま（チーム集計専用）
    */
   benchPoints: number;
+  /**
+   * ダブルダブル/トリプルダブル数（PTS/REB/AST/STL/BLKの2桁到達部門数が2以上でDD、3以上でTD。
+   * src/lib/boxscoreAggregate.tsのcomputeStatBadge()と同じ閾値をprocessPlayers()内で適用する。
+   * チーム集計では意味を持たない値になる（チーム合計は常にほぼ全項目が2桁）ため、
+   * processTeams()側では加算しない＝常に0のまま）
+   */
+  doubleDoubles: number;
+  tripleDoubles: number;
 }
 
 function emptyTotals(): StatTotals {
@@ -176,6 +184,8 @@ function emptyTotals(): StatTotals {
     teamNetSum: 0,
     technicalFouls: 0,
     benchPoints: 0,
+    doubleDoubles: 0,
+    tripleDoubles: 0,
   };
 }
 
@@ -670,15 +680,23 @@ function processPlayers(
     if (gameType === "regular") {
       // 出場判定はPlayingFlgではなくPlayTime基準（実データ検証でPlayingFlg=falseでも
       // 得点等が記録されている選手が見つかったため。DESIGN.md 2-2章の記述は誤りだった）
+      const countGame = row.PlayTime !== "DNP";
       addBoxscoreRow(
         acc.totals,
         row,
-        row.PlayTime !== "DNP",
+        countGame,
         teamNetForGame,
         reconstructedPlusMinus,
         undefined,
         technicalFoulsByPlayer.get(row.PlayerID) ?? 0,
       );
+      // ダブルダブル/トリプルダブル判定（src/lib/boxscoreAggregate.tsのcomputeStatBadge()と
+      // 同じ閾値。PTS/REB/AST/STL/BLKのうち2桁到達部門数が2以上でDD、3以上でTD）
+      if (countGame) {
+        const doubleDigitCount = [row.Point, row.RB_TOT, row.AS, row.ST, row.BS].filter((v) => v >= 10).length;
+        if (doubleDigitCount >= 2) acc.totals.doubleDoubles += 1;
+        if (doubleDigitCount >= 3) acc.totals.tripleDoubles += 1;
+      }
     }
 
     const opponent = isHome ? game.awayTeam : game.homeTeam;
@@ -709,6 +727,12 @@ function processPlayers(
       fta: row.FTA,
       plusMinus: row.PLUSMINUS ?? reconstructedPlusMinus ?? 0,
       gameType,
+      foulsDrawn: row.FOULON,
+      blockedAgainst: row.BSON,
+      technicalFouls: technicalFoulsByPlayer.get(row.PlayerID) ?? 0,
+      pt2in: row.PT2IN,
+      ptfb: row.PTFB,
+      pt2nd: row.PT2ND,
     });
   }
 }

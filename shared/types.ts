@@ -343,6 +343,13 @@ export interface StatTotals {
   blockedAgainst: number;
   /** 個人+/-（生データのPLUSMINUSをそのまま合算）。Bリーグ公式フィールド。DESIGN.md 2-2章 */
   plusMinus: number;
+  /**
+   * ダブルダブル/トリプルダブル数（レギュラーシーズンのみ集計。PTS/REB/AST/STL/BLKのうち
+   * 2桁到達部門数が2以上でDD、3以上でTD。src/lib/boxscoreAggregate.tsのcomputeStatBadge()と
+   * 同じ閾値。トリプルダブルはダブルダブルの条件も満たすためdoubleDoublesに含まれる）
+   */
+  doubleDoubles: number;
+  tripleDoubles: number;
 }
 
 export interface PerGameStats {
@@ -502,6 +509,18 @@ export interface PlayerGameLog {
   fta: number;
   plusMinus: number;
   gameType: GameType;
+  /** ファウルドローン（FOULON）。EFF計算・ボックススコアのFD列に対応 */
+  foulsDrawn: number;
+  /** 被ブロック数（BSON）。EFF計算・ボックススコアのBSR列に対応 */
+  blockedAgainst: number;
+  /** テクニカルファウル数（ActionCD1=24）。EFF計算の追加減点補正に使う */
+  technicalFouls: number;
+  /** ペイント内得点（PT2IN）。ボックススコアMiscタブのPITP列に対応 */
+  pt2in: number;
+  /** ファストブレイク得点（PTFB）。ボックススコアMiscタブのFBPS列に対応 */
+  ptfb: number;
+  /** セカンドチャンス得点（PT2ND）。ボックススコアMiscタブの2ND PTS列に対応 */
+  pt2nd: number;
 }
 
 // ---- data/{season}/team-games/{teamId}.json の保存スキーマ（チーム詳細ページの試合結果一覧用） ----

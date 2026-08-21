@@ -11,7 +11,14 @@ import {
   Tooltip as RechartsTooltip,
 } from "recharts";
 import { SeasonLink as Link } from "../components/SeasonLink";
-import { fetchPlayerGameLogs, fetchPlayerHistory, fetchPlayers, fetchSeasons, fetchTeamColors } from "../lib/data";
+import {
+  fetchPlayerGameLogs,
+  fetchPlayerHistory,
+  fetchPlayers,
+  fetchSeasons,
+  fetchTeamColors,
+  fetchTeamGameLogs,
+} from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import type { PlayerGameLog, PlayerSummary } from "../../shared/types";
@@ -21,6 +28,21 @@ import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatSigned } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { safeDiv } from "../../shared/formulas";
+import {
+  SEASON_ADVANCED_COLUMNS,
+  SEASON_DISPLAY_MODE_LABELS,
+  SEASON_GAME_TYPE_LABELS,
+  SEASON_MISC_COLUMNS,
+  SEASON_SCORING_COLUMNS,
+  SEASON_TRADITIONAL_COLUMNS,
+  buildSeasonBoxscoreCtx,
+  filterByGameType,
+  sumPlayerGameLogs,
+  sumTeamGameLogsFor,
+  type SeasonBoxscoreColumn,
+  type SeasonDisplayMode,
+  type SeasonGameTypeFilter,
+} from "../lib/playerSeasonBoxscore";
 import {
   computePlayerSituationalStats,
   filterGameLogs,
@@ -92,6 +114,22 @@ const TAB_LABELS: Record<DetailTab, string> = {
   compare: "比較",
 };
 
+type SeasonBoxTabKey = "traditional" | "advanced" | "misc" | "scoring";
+
+const SEASON_BOX_TABS: { key: SeasonBoxTabKey; label: string }[] = [
+  { key: "traditional", label: "トラディショナル" },
+  { key: "advanced", label: "アドバンスド" },
+  { key: "misc", label: "Misc" },
+  { key: "scoring", label: "スコアリング" },
+];
+
+const SEASON_BOX_COLUMNS: Record<SeasonBoxTabKey, SeasonBoxscoreColumn[]> = {
+  traditional: SEASON_TRADITIONAL_COLUMNS,
+  advanced: SEASON_ADVANCED_COLUMNS,
+  misc: SEASON_MISC_COLUMNS,
+  scoring: SEASON_SCORING_COLUMNS,
+};
+
 interface PlayerStatDef {
   key: string;
   label: string;
@@ -134,6 +172,20 @@ const TILE_STAT_DEFS: PlayerStatDef[] = [
   { key: "ftPct", label: "FT%", value: (p) => p.shooting.ftPct, format: (p) => formatPct(p.shooting.ftPct), higherIsBetter: true },
   { key: "efgPct", label: "eFG%", value: (p) => p.shooting.efgPct, format: (p) => formatPct(p.shooting.efgPct), higherIsBetter: true },
   { key: "tsPct", label: "TS%", value: (p) => p.shooting.tsPct, format: (p) => formatPct(p.shooting.tsPct), higherIsBetter: true },
+  {
+    key: "doubleDoubles",
+    label: "DD2",
+    value: (p) => p.totals.doubleDoubles,
+    format: (p) => String(p.totals.doubleDoubles),
+    higherIsBetter: true,
+  },
+  {
+    key: "tripleDoubles",
+    label: "TD3",
+    value: (p) => p.totals.tripleDoubles,
+    format: (p) => String(p.totals.tripleDoubles),
+    higherIsBetter: true,
+  },
 ];
 
 // レーダーチャート用の10項目（MIN/PTS/REB/AST/STL/BLK/TOV/3P%/2P%/FT%）。TILE_STAT_DEFSの
@@ -178,22 +230,6 @@ function buildPlayerRadarData(player: PlayerSummary, allPlayers: PlayerSummary[]
   });
 }
 
-/** DD2(ダブルダブル数)/TD3(トリプルダブル数)。GameDetailPageのcomputeStatBadge()と同じ
- * 2桁到達数の閾値（2部門でDD、3部門でTD）を、選手個人の全試合ログに適用して数える。
- * リーグ内順位は非表示にしている（全選手分のgame logを取得しないと算出できず、Phase Aの
- * コストに見合わないため。DESIGN.md参照） */
-function countDoubleTriples(logs: PlayerGameLog[]): { dd: number; td: number } {
-  let dd = 0;
-  let td = 0;
-  for (const g of logs) {
-    const doubleDigitCount = [g.pts, g.reb, g.ast, g.stl, g.blk].filter((v) => v >= 10).length;
-    // トリプルダブルは定義上ダブルダブルの条件も満たすため、DD2にはTD3の試合も含める
-    // （NBA.com等の一般的な集計慣習。GameDetailPageのバッジ表示はTD優先の1つだけ選ぶ別ロジック）
-    if (doubleDigitCount >= 2) dd += 1;
-    if (doubleDigitCount >= 3) td += 1;
-  }
-  return { dd, td };
-}
 
 interface CareerSeasonLogs {
   season: string;
@@ -240,12 +276,23 @@ export function PlayerDetailPage({ season }: { season: string }) {
     () => (playerId ? fetchPlayerGameLogs(season, playerId) : Promise.resolve([])),
     [season, playerId],
   );
+  // シーズンボックススコア（%-share・USG%の分母）用。playerの解決を待つ必要があるが、
+  // Hooksはトップレベルで呼ぶ必要があるため、playersが未取得の間はteamIdをundefinedのまま渡す
+  const playerTeamId = players?.find((p) => p.playerId === playerId)?.teamId;
+  const { data: teamGameLogs } = useJsonData(
+    () => (playerTeamId ? fetchTeamGameLogs(season, playerTeamId) : Promise.resolve([])),
+    [season, playerTeamId],
+  );
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
   const { data: playerHistory } = useJsonData(() => fetchPlayerHistory(), []);
   const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   const pbpSupported = isPbpSupported(coverage);
+
+  const [seasonBoxTab, setSeasonBoxTab] = useState<SeasonBoxTabKey>("traditional");
+  const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  const [gameTypeFilter, setGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
 
   const [tab, setTab] = useState<DetailTab>("stats");
   const [careerData, setCareerData] = useState<CareerSeasonLogs[] | null>(null);
@@ -333,7 +380,20 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const situational = isDefaultFilter(filter) ? null : computePlayerSituationalStats(filteredLogs);
 
   const radarData = players && players.length > 1 ? buildPlayerRadarData(player, players) : [];
-  const ddTd = countDoubleTriples(gameLogs ?? []);
+
+  const seasonBoxGameLogs = gameLogs ? filterByGameType(gameLogs, gameTypeFilter) : [];
+  const seasonBoxRawTotals = sumPlayerGameLogs(seasonBoxGameLogs);
+  // sumPlayerGameLogs()はmin>0（実際に出場した試合）だけを合算するため、%-share/USG%の
+  // 分母となるチーム総計も同じ試合集合に揃える（DNP試合をチーム側にだけ含めると分母が
+  // 水増しされて%がズレる。2026-08-21のブラウザ検証で実際に0.7pt前後のズレとして発覚した）
+  const seasonBoxScheduleKeys = new Set(seasonBoxGameLogs.filter((g) => g.min > 0).map((g) => g.scheduleKey));
+  const seasonBoxTeamTotals = sumTeamGameLogsFor(teamGameLogs ?? [], seasonBoxScheduleKeys);
+  const seasonBoxCtx = buildSeasonBoxscoreCtx(
+    seasonBoxRawTotals,
+    seasonBoxTeamTotals,
+    displayMode,
+    Number(season.split("-")[0]),
+  );
 
   return (
     <div>
@@ -431,8 +491,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
             rank={players && players.length > 0 ? formatRank(rankAmong(player, players, def)) : undefined}
           />
         ))}
-        <StatTile label="DD2" value={String(ddTd.dd)} />
-        <StatTile label="TD3" value={String(ddTd.td)} />
       </div>
 
       <div className="tab-bar">
@@ -502,6 +560,65 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </div>
             )}
           </section>
+
+          <h2>シーズンボックススコア</h2>
+          <div className="mode-toggle">
+            {(Object.keys(SEASON_DISPLAY_MODE_LABELS) as SeasonDisplayMode[]).map((m) => (
+              <button key={m} className={m === displayMode ? "active" : ""} onClick={() => setDisplayMode(m)} type="button">
+                {SEASON_DISPLAY_MODE_LABELS[m]}
+              </button>
+            ))}
+          </div>
+          <div className="mode-toggle">
+            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
+              <button
+                key={g}
+                className={g === gameTypeFilter ? "active" : ""}
+                onClick={() => setGameTypeFilter(g)}
+                type="button"
+              >
+                {SEASON_GAME_TYPE_LABELS[g]}
+              </button>
+            ))}
+          </div>
+          <div className="tab-bar">
+            {SEASON_BOX_TABS.map((t) => (
+              <button
+                key={t.key}
+                className={`tab-button${seasonBoxTab === t.key ? " active" : ""}`}
+                onClick={() => setSeasonBoxTab(t.key)}
+                type="button"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {seasonBoxRawTotals.gamesPlayed === 0 ? (
+            <p className="empty-message">該当する試合がありません</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="stats-table">
+                <thead>
+                  <tr>
+                    {SEASON_BOX_COLUMNS[seasonBoxTab].map((col) => (
+                      <th key={col.key} className="align-right" title={col.description}>
+                        {col.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    {SEASON_BOX_COLUMNS[seasonBoxTab].map((col) => (
+                      <td key={col.key} className="align-right">
+                        {col.format(seasonBoxCtx, displayMode)}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
 
