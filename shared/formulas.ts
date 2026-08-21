@@ -29,6 +29,15 @@ export function orbPct(teamOreb: number, oppDreb: number): number {
   return safeDiv(100 * teamOreb, teamOreb + oppDreb);
 }
 
+/**
+ * TOV% = 100 * TOV / (FGA + 0.44*FTA + TOV)。Four Factorsの標準定義（Basketball-Reference等）。
+ * 「関与したプレー全体に占めるターンオーバーの割合」で、AST/TOV（分母にASTを含む別の比率）とは
+ * 別の指標として併存させる（ボックススコアのTOV RATIO列と混同しないこと）
+ */
+export function tovPct(tov: number, fga: number, fta: number): number {
+  return safeDiv(100 * tov, fga + 0.44 * fta + tov);
+}
+
 export interface PossessionTotals {
   fga: number;
   fgm: number;

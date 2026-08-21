@@ -72,11 +72,12 @@ function formatElapsedTime(sec: number, periodBoundaries: PeriodBoundary[]): str
   return `${current.label} 残り${m}:${String(s).padStart(2, "0")}`;
 }
 
-/** 複数行（IN時刻・出場時間・得失点）を行の配列で返す。呼び出し側が1行ずつ描画する */
+/** 複数行（IN時刻・OUT時刻・出場時間・得失点）を行の配列で返す。呼び出し側が1行ずつ描画する */
 function segmentTooltipLines(iv: SubstitutionInterval, periodBoundaries: PeriodBoundary[]): string[] {
   const inTime = formatElapsedTime(iv.startSec, periodBoundaries);
+  const outTime = formatElapsedTime(iv.endSec, periodBoundaries);
   const duration = formatMinutesFromSeconds(iv.endSec - iv.startSec);
-  return [`IN: ${inTime}`, `出場時間: ${duration}`, `得失点: ${iv.ownPts}-${iv.oppPts}`];
+  return [`IN: ${inTime}`, `OUT: ${outTime}`, `出場時間: ${duration}`, `得失点: ${iv.ownPts}-${iv.oppPts}`];
 }
 
 /**

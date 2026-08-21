@@ -3,7 +3,7 @@ import { SeasonLink as Link } from "./SeasonLink";
 import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
-import { efgPct, safeDiv, tsPct, usagePct } from "../../shared/formulas";
+import { efgPct, safeDiv, tovPct, tsPct, usagePct } from "../../shared/formulas";
 import type { PlayerOnCourtRatings } from "../../shared/onCourt";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow } from "../../shared/types";
 import {
@@ -147,6 +147,14 @@ const TRADITIONAL_COLUMNS: BoxscoreColumn[] = [
     format: (c) => formatAstToRatio(c.ast, c.tov),
     value: (c) => astToTovRatio(c.ast, c.tov),
     description: "AST / TOV（TOV=0の場合はAST数をそのまま比率として使う）",
+  },
+  {
+    key: "tovpct",
+    label: "TOV%",
+    format: (c) => formatPct100(tovPct(c.tov, c.pt2a + c.pt3a, c.fta)),
+    value: (c) => tovPct(c.tov, c.pt2a + c.pt3a, c.fta),
+    higherIsBetter: false,
+    description: "100 × TOV / (FGA + 0.44×FTA + TOV)。Four Factorsの標準定義（AST/TOVとは別の指標）",
   },
   { key: "stl", label: "STL", format: (c) => String(c.stl), value: (c) => c.stl, description: desc("stl", "スティール") },
   { key: "blk", label: "BLK", format: (c) => String(c.blk), value: (c) => c.blk, description: desc("blk", "ブロック") },

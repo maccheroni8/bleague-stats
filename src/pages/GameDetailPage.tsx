@@ -59,28 +59,57 @@ function pickTieBreakWinner(tied: BoxscoreRow[]): BoxscoreRow {
   return [...byEff].sort((a, b) => Number(a.PlayerNo) - Number(b.PlayerNo))[0]!;
 }
 
-interface RankedLeader {
+interface LeaderDisplayRow {
   player: BoxscoreRow;
   value: number;
-  /** 同順位でタイだった、表示選手以外の人数（"他◯人"表記用） */
+  /** このグループを代表者+「他◯人」の1行にまとめている場合の残り人数（分割表示時は常に0） */
   otherCount: number;
+  /** 値グループの順位（0始まり、1位グループ=0）。行位置ではなくこれで文字サイズ等の強調度を決める */
+  groupIndex: number;
 }
 
+/** pickTieBreakWinnerと同じ優先順位（プレータイム→EFF→背番号）の比較関数版。タイ内の表示順を揃えるのに使う */
+function compareTieBreak(a: BoxscoreRow, b: BoxscoreRow): number {
+  const playTimeDiff = playTimeToSeconds(b.PlayTime) - playTimeToSeconds(a.PlayTime);
+  if (playTimeDiff !== 0) return playTimeDiff;
+  const effDiff = b.EFF - a.EFF;
+  if (effDiff !== 0) return effDiff;
+  return Number(a.PlayerNo) - Number(b.PlayerNo);
+}
+
+const LEADER_TOP3_SLOTS = 3;
+
 /**
- * スタッツ上位3「順位」を、同値タイは同順位扱いで求める（例: 1位タイが2人いれば
- * 2位は欠番にせず、次に大きい値のグループを2位として繰り上げる＝密順位）。
- * 各順位の代表者はpickTieBreakWinnerで1人選ぶ
+ * スタッツ上位（表示枠3行）を、同値タイの扱いを含めて求める。値の大きいグループから順に、
+ * 残り枠にグループ全員が収まるならそれぞれ別の行で表示し、収まらない場合のみ
+ * pickTieBreakWinnerで代表者を1人選び「他◯人」を付けた1行にまとめる（この行が最後の表示行になる。
+ * 例えば残り2枠にタイ5人のグループが来た場合も、代表者1行にまとめて打ち切る＝以降のグループは
+ * 表示しない。複数行に分割されたグループ内の順序もcompareTieBreakで揃える）。
+ * 各行のgroupIndexは「何番目に大きい値のグループか」を表し、行位置ではなくこれをCSSの
+ * 強調度（文字サイズ等）に対応させる
  */
-function topRankedLeaders(rows: BoxscoreRow[], statKey: "Point" | "RB_TOT" | "AS", ranks = 3): RankedLeader[] {
+function topRankedLeaderRows(rows: BoxscoreRow[], statKey: "Point" | "RB_TOT" | "AS"): LeaderDisplayRow[] {
   const candidates = rows.filter((r) => r.PlayTime !== "DNP");
   if (candidates.length === 0) return [];
-  const distinctValues = Array.from(new Set(candidates.map((r) => r[statKey])))
-    .sort((a, b) => b - a)
-    .slice(0, ranks);
-  return distinctValues.map((value) => {
+  const distinctValues = Array.from(new Set(candidates.map((r) => r[statKey]))).sort((a, b) => b - a);
+
+  const result: LeaderDisplayRow[] = [];
+  let remaining = LEADER_TOP3_SLOTS;
+  for (let groupIndex = 0; groupIndex < distinctValues.length && remaining > 0; groupIndex++) {
+    const value = distinctValues[groupIndex]!;
     const tied = candidates.filter((r) => r[statKey] === value);
-    return { player: pickTieBreakWinner(tied), value, otherCount: tied.length - 1 };
-  });
+    if (tied.length <= remaining) {
+      for (const player of [...tied].sort(compareTieBreak)) {
+        result.push({ player, value, otherCount: 0, groupIndex });
+      }
+      remaining -= tied.length;
+    } else {
+      const representative = pickTieBreakWinner(tied);
+      result.push({ player: representative, value, otherCount: tied.length - 1, groupIndex });
+      remaining = 0;
+    }
+  }
+  return result;
 }
 
 function safeDiv(a: number, b: number): number {
@@ -477,15 +506,15 @@ function GameLeadersTeam({
   return (
     <div className="game-leaders-team" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
       <h3>{teamName}</h3>
-      <LeaderTop3Row label="PTS" leaders={topRankedLeaders(rows, "Point")} />
-      <LeaderTop3Row label="REB" leaders={topRankedLeaders(rows, "RB_TOT")} />
-      <LeaderTop3Row label="AST" leaders={topRankedLeaders(rows, "AS")} />
+      <LeaderTop3Row label="PTS" rows={topRankedLeaderRows(rows, "Point")} />
+      <LeaderTop3Row label="REB" rows={topRankedLeaderRows(rows, "RB_TOT")} />
+      <LeaderTop3Row label="AST" rows={topRankedLeaderRows(rows, "AS")} />
     </div>
   );
 }
 
-function LeaderTop3Row({ label, leaders }: { label: string; leaders: RankedLeader[] }) {
-  const top1 = leaders[0];
+function LeaderTop3Row({ label, rows }: { label: string; rows: LeaderDisplayRow[] }) {
+  const top1 = rows[0];
   return (
     <div className="leader-top3-row">
       <span className="leader-top3-label">{label}</span>
@@ -495,17 +524,17 @@ function LeaderTop3Row({ label, leaders }: { label: string; leaders: RankedLeade
         <div className="leader-top3-photo-placeholder" />
       )}
       <div className="leader-top3-list">
-        {leaders.map((leader, i) => (
+        {rows.map((row) => (
           <Link
-            key={leader.player.PlayerID}
-            to={`/players/${leader.player.PlayerID}`}
-            className={`leader-top3-item leader-top3-rank-${i + 1}`}
+            key={row.player.PlayerID}
+            to={`/players/${row.player.PlayerID}`}
+            className={`leader-top3-item leader-top3-rank-${row.groupIndex + 1}`}
           >
             <span className="leader-top3-name">
-              {leader.player.PlayerNameJ}
-              {leader.otherCount > 0 && <span className="leader-top3-others"> 他{leader.otherCount}人</span>}
+              {row.player.PlayerNameJ}
+              {row.otherCount > 0 && <span className="leader-top3-others"> 他{row.otherCount}人</span>}
             </span>
-            <span className="leader-top3-value">{leader.value}</span>
+            <span className="leader-top3-value">{row.value}</span>
           </Link>
         ))}
       </div>
