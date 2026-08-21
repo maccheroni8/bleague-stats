@@ -55,7 +55,6 @@ import {
   computePlayerSituationalStats,
   computeSeasonHalfBoundary,
   filterGameLogs,
-  isDefaultFilter,
   type PlayerSituationalStats,
   type SeasonHalfBoundary,
   type SituationalFilter,
@@ -394,13 +393,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
   const { data: playerHistory } = useJsonData(() => fetchPlayerHistory(), []);
-  // シチュエーション別フィルタの「前半戦/後半戦」ボタン用（シーズン全体の試合日程が必要）
-  const { data: gameSummaries } = useJsonData(() => fetchGameSummaries(season), [season]);
-  const seasonHalfBoundary = useMemo(
-    () => (gameSummaries ? computeSeasonHalfBoundary(gameSummaries) : null),
-    [gameSummaries],
-  );
-  const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   const pbpSupported = isPbpSupported(coverage);
   const shotChartSupported = isShotChartSupported(coverage);
@@ -483,7 +475,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
   useEffect(() => {
     if (
-      (tab !== "career" && tab !== "highs" && tab !== "compare") ||
+      (tab !== "stats" && tab !== "career" && tab !== "highs" && tab !== "compare") ||
       !playerId ||
       !seasons ||
       careerFetchStartedRef.current
@@ -616,8 +608,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
   const accentColor = teamColors?.[player.teamId]?.primary;
   const nameHistory = playerHistory?.find((h) => h.playerId === player.playerId)?.names ?? [];
-  const filteredLogs = gameLogs ? filterGameLogs(gameLogs, filter) : [];
-  const situational = isDefaultFilter(filter) ? null : computePlayerSituationalStats(filteredLogs);
 
   // レーダーチャートのパーセンタイル算出対象は、所属チーム試合数の85%以上に出場した選手のみに
   // 絞り込む（出場が少なく数値が振れやすい選手を母集団から除くため。DESIGN.md参照）。
@@ -746,45 +736,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
       {tab === "stats" && (
         <>
-          <SituationalFilterPicker filter={filter} onChange={setFilter} seasonHalfBoundary={seasonHalfBoundary} />
-
-          {isDefaultFilter(filter) ? (
-            <div className="stat-grid">
-              <StatTile label="MIN" value={formatDecimal(player.perGame.min)} />
-              <StatTile label="PTS" value={formatDecimal(player.perGame.pts)} />
-              <StatTile label="REB" value={formatDecimal(player.perGame.reb)} />
-              <StatTile label="AST" value={formatDecimal(player.perGame.ast)} />
-              <StatTile label="STL" value={formatDecimal(player.perGame.stl)} />
-              <StatTile label="BLK" value={formatDecimal(player.perGame.blk)} />
-              <StatTile label="TOV" value={formatDecimal(player.perGame.tov)} />
-              <StatTile label="+/-" value={formatSigned(player.perGame.plusMinus)} />
-              <StatTile label="FG%" value={formatPct(player.shooting.fgPct)} />
-              <StatTile label="3P%" value={formatPct(player.shooting.tpPct)} />
-              <StatTile label="FT%" value={formatPct(player.shooting.ftPct)} />
-              <StatTile label="eFG%" value={formatPct(player.shooting.efgPct)} />
-              <StatTile label="TS%" value={formatPct(player.shooting.tsPct)} />
-            </div>
-          ) : !situational ? (
-            <p className="empty-message">該当する試合がありません</p>
-          ) : (
-            <div className="stat-grid">
-              <StatTile label="試合数" value={String(situational.gamesPlayed)} />
-              <StatTile label="MIN" value={formatDecimal(situational.perGame.min)} />
-              <StatTile label="PTS" value={formatDecimal(situational.perGame.pts)} />
-              <StatTile label="REB" value={formatDecimal(situational.perGame.reb)} />
-              <StatTile label="AST" value={formatDecimal(situational.perGame.ast)} />
-              <StatTile label="STL" value={formatDecimal(situational.perGame.stl)} />
-              <StatTile label="BLK" value={formatDecimal(situational.perGame.blk)} />
-              <StatTile label="TOV" value={formatDecimal(situational.perGame.tov)} />
-              <StatTile label="+/-" value={formatSigned(situational.perGame.plusMinus)} />
-              <StatTile label="FG%" value={formatPct(situational.shooting.fgPct)} />
-              <StatTile label="3P%" value={formatPct(situational.shooting.tpPct)} />
-              <StatTile label="FT%" value={formatPct(situational.shooting.ftPct)} />
-              <StatTile label="eFG%" value={formatPct(situational.shooting.efgPct)} />
-              <StatTile label="TS%" value={formatPct(situational.shooting.tsPct)} />
-            </div>
-          )}
-
           <section className="gd-card oncourt-card" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
             <h2>オンコート/オフコートスタッツ</h2>
             {coverageLoading ? (
@@ -799,7 +750,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             )}
           </section>
 
-          <h2>シーズンボックススコア</h2>
+          <h2>シーズン成績</h2>
           <div className="mode-toggle">
             {(Object.keys(SEASON_DISPLAY_MODE_LABELS) as SeasonDisplayMode[]).map((m) => (
               <button key={m} className={m === displayMode ? "active" : ""} onClick={() => setDisplayMode(m)} type="button">
@@ -857,6 +808,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </table>
             </div>
           )}
+
+          <h2>シーズン別成績</h2>
+          <SeasonBreakdownTable careerData={careerData} gameTypeFilter={gameTypeFilter} />
 
           <h2>シューティング</h2>
           {!player.shotTypes ? (
@@ -1096,8 +1050,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
 /**
  * シーズンごとの内訳（レギュラー/プレーオフ/合算トグル込み）を表示するテーブル。
  * 以前は「通算成績」タブの表示そのものだったが、通算成績タブは全シーズン合算の単一の
- * 合計値タイル表示に置き換えた（DESIGN.md参照）。このテーブル自体は削除せず、Batch 3で
- * 「スタッツ」タブへ移設する前提でコードを温存している（現時点ではどこからも呼んでいない）。
+ * 合計値タイル表示に置き換えた（DESIGN.md参照）。テーブル自体は削除せず、「スタッツ」タブの
+ * 「シーズン成績」（当該シーズン単体のボックススコア）の下に「シーズン別成績」として再配置した。
  */
 function SeasonBreakdownTable({
   careerData,
