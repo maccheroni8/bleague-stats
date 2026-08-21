@@ -310,6 +310,21 @@ function describeSituationalFilter(filter: SituationalFilter, boundary: SeasonHa
       else if (!filter.start && !filter.end) base = "期間指定";
       else base = `${filter.start || "…"}〜${filter.end || "…"}`;
       break;
+    case "homeAway":
+      base = filter.home ? "ホーム" : "アウェイ";
+      break;
+    case "division":
+      base = filter.division === "east" ? "対東地区" : "対西地区";
+      break;
+    case "month":
+      base = `${filter.month}月`;
+      break;
+    case "newYear":
+      base = filter.half === "before" ? "年明け前" : "年明け後";
+      break;
+    case "weekday":
+      base = "平日開催";
+      break;
   }
   return filter.includePlayoffs ? `${base}・PO込み` : base;
 }

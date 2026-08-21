@@ -11,12 +11,24 @@
 
 import { efgPct, offensiveRating, pace, safeDiv, tsPct } from "../../shared/formulas";
 import type { GameSummary, PlayerGameLog, TeamGameLog } from "../../shared/types";
+import { teamDivision } from "../../scripts/lib/divisions";
+import { isWeekdayGame } from "./japaneseHolidays";
 
 export type SituationalFilterKind =
   | { kind: "all" }
   | { kind: "recent"; n: number }
   | { kind: "result"; win: boolean }
-  | { kind: "dateRange"; start: string; end: string };
+  | { kind: "dateRange"; start: string; end: string }
+  | { kind: "homeAway"; home: boolean }
+  /** 対戦相手の地区（scripts/lib/divisions.tsの東西マスタを使用。DESIGN.md参照） */
+  | { kind: "division"; division: "east" | "west" }
+  /** 1〜12（開催月） */
+  | { kind: "month"; month: number }
+  /** 年明け（1月）を境にした前後半。B.LEAGUEのシーズンは10月開幕〜翌年5,6月終幕のため、
+   * 7〜12月を「年明け前」、1〜6月を「年明け後」とする */
+  | { kind: "newYear"; half: "before" | "after" }
+  /** 土日祝を除く曜日に開催された試合 */
+  | { kind: "weekday" };
 
 /**
  * kind（直近N試合・勝敗別・期間指定）とは独立した軸として、プレーオフを合算するかどうかを持つ。
@@ -65,10 +77,16 @@ export function isDefaultFilter(filter: SituationalFilter): boolean {
  * season集計と同じ基準。含めるとcomputePlayerSituationalStats等のgamesPlayedが
  * 実際の出場試合数より多くカウントされてしまう）
  */
-export function filterGameLogs<T extends { date: string; win: boolean; gameType: "regular" | "playoff"; min: number }>(
-  logs: T[],
-  filter: SituationalFilter,
-): T[] {
+export function filterGameLogs<
+  T extends {
+    date: string;
+    win: boolean;
+    gameType: "regular" | "playoff";
+    min: number;
+    isHome: boolean;
+    opponentTeamId: string;
+  },
+>(logs: T[], filter: SituationalFilter): T[] {
   const played = logs.filter((g) => g.min > 0);
   const scoped = filter.includePlayoffs ? played : played.filter((g) => g.gameType === "regular");
   switch (filter.kind) {
@@ -82,6 +100,19 @@ export function filterGameLogs<T extends { date: string; win: boolean; gameType:
       return scoped.filter(
         (g) => (!filter.start || g.date >= filter.start) && (!filter.end || g.date <= filter.end),
       );
+    case "homeAway":
+      return scoped.filter((g) => g.isHome === filter.home);
+    case "division":
+      return scoped.filter((g) => teamDivision(g.opponentTeamId) === filter.division);
+    case "month":
+      return scoped.filter((g) => Number(g.date.slice(5, 7)) === filter.month);
+    case "newYear":
+      return scoped.filter((g) => {
+        const month = Number(g.date.slice(5, 7));
+        return filter.half === "before" ? month >= 7 : month <= 6;
+      });
+    case "weekday":
+      return scoped.filter((g) => isWeekdayGame(g.date));
   }
 }
 

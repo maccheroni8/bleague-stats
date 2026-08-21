@@ -85,6 +85,63 @@ export function SituationalFilterPicker({ filter, onChange, seasonHalfBoundary }
         </div>
       )}
       <div className="mode-toggle">
+        <button
+          className={filter.kind === "homeAway" && filter.home ? "active" : ""}
+          onClick={() => onChange(withKind({ kind: "homeAway", home: true }))}
+        >
+          ホーム
+        </button>
+        <button
+          className={filter.kind === "homeAway" && !filter.home ? "active" : ""}
+          onClick={() => onChange(withKind({ kind: "homeAway", home: false }))}
+        >
+          アウェイ
+        </button>
+        <button
+          className={filter.kind === "division" && filter.division === "east" ? "active" : ""}
+          onClick={() => onChange(withKind({ kind: "division", division: "east" }))}
+        >
+          対東地区
+        </button>
+        <button
+          className={filter.kind === "division" && filter.division === "west" ? "active" : ""}
+          onClick={() => onChange(withKind({ kind: "division", division: "west" }))}
+        >
+          対西地区
+        </button>
+      </div>
+      <div className="mode-toggle">
+        <select
+          value={filter.kind === "month" ? String(filter.month) : ""}
+          onChange={(e) => {
+            const value = e.target.value;
+            onChange(value === "" ? withKind({ kind: "all" }) : withKind({ kind: "month", month: Number(value) }));
+          }}
+        >
+          <option value="">月別</option>
+          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+            <option key={m} value={m}>
+              {m}月
+            </option>
+          ))}
+        </select>
+        <button
+          className={filter.kind === "newYear" && filter.half === "before" ? "active" : ""}
+          onClick={() => onChange(withKind({ kind: "newYear", half: "before" }))}
+        >
+          年明け前
+        </button>
+        <button
+          className={filter.kind === "newYear" && filter.half === "after" ? "active" : ""}
+          onClick={() => onChange(withKind({ kind: "newYear", half: "after" }))}
+        >
+          年明け後
+        </button>
+        <button className={filter.kind === "weekday" ? "active" : ""} onClick={() => onChange(withKind({ kind: "weekday" }))}>
+          平日開催
+        </button>
+      </div>
+      <div className="mode-toggle">
         <button className={!includePlayoffs ? "active" : ""} onClick={() => onChange({ ...filter, includePlayoffs: false })}>
           レギュラーシーズンのみ
         </button>

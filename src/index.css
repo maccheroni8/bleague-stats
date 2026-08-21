@@ -1784,6 +1784,15 @@ table.glossary-table td {
   margin-bottom: 16px;
 }
 
+.situational-filter .mode-toggle select {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+}
+
 .date-range-inputs {
   display: flex;
   align-items: center;
