@@ -202,7 +202,9 @@ export function GameDetailPage({ season }: { season: string }) {
   // あるため、実際にデータが取れているかで最終判定する（DESIGN.md参照）
   const yahooPbpAvailable = yahooPbp !== null;
   // players-master.json由来の国籍・登録区分（players.jsonに突合済み）をボックススコア集計に流用する。
-  // 退団済み選手など現在のロースターに載っていない選手はclassification未定義のままになりうる
+  // 2016-17〜2025-26シーズンの退団済み選手はscrape-season-rosters.tsのバックフィルで概ね
+  // カバー済みだが、それ以外（バックフィル対象外の選手・legacy期間の一覧漏れ等）は
+  // classification未定義のままになりうる
   const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season), [season]);
   // シーズン非依存の静的データなので空配列depsで一度だけ取得する。無くても表示は成立する
   // （ロゴ・写真と同じくグレースフルデグラデーション。デフォルト色にフォールバックする）ため

@@ -823,12 +823,27 @@ export interface ClubHonor {
 
 export type ClubHonorsFile = Record<string, ClubHonor[]>;
 
-// ---- data/players-master.json の保存スキーマ（シーズン非依存、全選手共通。DESIGN.md 5章参照） ----
+// ---- data/players-master.json の保存スキーマ（シーズン非依存、選手プロフィール共通。
+// DESIGN.md 5章・11章参照）----
+//
+// 2026-08時点でscrape-season-rosters.tsによる一回限りのバックフィルを実施し、対象を
+// 「現在契約中の選手のみ」から「2016-17〜2025-26シーズンに一度でも在籍した全選手」に
+// 拡張済み。「そのシーズン、どのクラブに所属していたか」というseason依存の情報は
+// data/season-rosters.json（SeasonRostersFile）が別途持つため、このファイルには含めない
+// （season非依存のプロフィールとseason依存のクラブ所属履歴を分離する設計）。
+// 継続的なメンテナンスは2つのスクリプトが分担する:
+//   - scrape-roster.ts（週次）: 現役選手のteamId/teamNameの鮮度維持・当該シーズンの新規選手検知
+//   - scrape-season-rosters.ts（一回限り、必要に応じて再実行）: 過去シーズンの退団済み選手の
+//     発掘・プロフィール補完（バックフィル済みのシーズン範囲を広げたい場合に再実行する）
 
 export interface PlayerMasterEntry {
   playerId: string;
   name: string;
-  /** 直近確認できたクラブ（移籍があればscrape-roster.ts実行のたびに更新される） */
+  /**
+   * 直近確認できたクラブ。現役選手はscrape-roster.ts実行のたびに更新されるが、
+   * 退団済み選手（scrape-season-rosters.ts由来のエントリ）は発見時点の所属クラブのまま
+   * 更新されない（＝「最後に確認できた時点」の値。現在の所属を意味しない）
+   */
   teamId: string;
   teamName: string;
   /** bleague.jp表記そのまま（例: "SG/SF"）。複数ポジション兼任時はスラッシュ区切り */
@@ -861,6 +876,30 @@ export interface PlayerAwardEntry {
 }
 
 export type PlayerAwardsFile = Record<string, PlayerAwardEntry[]>;
+
+// ---- data/season-rosters.json の保存スキーマ（ファイル自体はシーズン非依存だが、内容は
+// season→クラブ→選手ID一覧のアーカイブ。roster/?e=全選手（在籍中+退団済の全選手）から
+// scripts/scrape-season-rosters.tsが構築する。players-master.jsonが「直近確認できた
+// クラブ」という単一のスナップショットしか持てないのに対し、こちらは
+// 「そのシーズン、その選手がどのクラブに所属していたか」を正確に記録する。
+//
+// 用途: (1) players-master.jsonの新規選手発掘（未知のplayerIdをここから見つけてroster_detailで
+// 補完する）、(2) 将来のシーズン別ロースター表示等の参照用アーカイブ。
+// 一方、aggregate.tsの国籍区分（classification）突合には使わない ――
+// classificationは選手個人に紐づく性質（どのクラブに居たかとは無関係）で、
+// masterById.get(playerId)?.classification というplayerId単位の参照だけで完結し、
+// これは常にseason非依存で正しい。season-rostersを経由する必要があるのは「未知の選手を
+// 発見する」フェーズだけで、発見後の実際の分類はplayers-master.json単体で足りる。
+// DESIGN.md参照 ----
+
+export interface SeasonRosterEntry {
+  teamId: string;
+  teamName: string;
+  playerIds: string[];
+}
+
+/** キーは "2016-17" 形式のシーズン文字列 */
+export type SeasonRostersFile = Record<string, SeasonRosterEntry[]>;
 
 // ---- data/{season}/yahoo/{scheduleKey}.json の保存スキーマ（Yahoo!スポーツplay-by-playテキスト。
 // scripts/scrape-yahoo-pbp.ts参照。bleague.jp本体データとは独立した追加データ源で、対応シーズンは

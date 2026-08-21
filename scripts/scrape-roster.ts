@@ -1,5 +1,8 @@
-// bleague.jp/roster/（クラブ別一覧）+ roster_detail/（個人ページ）から選手マスタを取得し、
-// data/players-master.json に保存する（シーズン非依存、全選手共通。DESIGN.md 5章参照）。
+// bleague.jp/roster/（クラブ別一覧、e=在籍中）+ roster_detail/（個人ページ）から選手マスタを
+// 取得し、data/players-master.json に保存する（シーズン非依存の選手プロフィール。DESIGN.md 5章
+// 参照）。このスクリプトが週次でカバーするのは「現役選手」のみ（e=在籍中の26クラブ一覧に載る
+// 選手）。過去シーズンの退団済み選手の発掘・補完はscrape-season-rosters.ts（e=全選手を使った
+// 一回限りのバックフィル）が別途担当する。両スクリプトが同じplayers-master.jsonを共同メンテする。
 //
 // 裏側JSON APIは存在しない（実機調査済み。game_detail/scheduleと違い、フィルタ操作も含めて
 // 素のHTMLページがクエリパラメータ付きで返るだけ）ため、cheerioでHTMLをパースする。
@@ -55,13 +58,13 @@ async function fetchHtml(url: string): Promise<string> {
   return res.text();
 }
 
-interface RosterListItem {
+export interface RosterListItem {
   playerId: string;
   name: string;
   position?: string;
 }
 
-function parseRosterList(html: string): RosterListItem[] {
+export function parseRosterList(html: string): RosterListItem[] {
   const $ = load(html);
   const items: RosterListItem[] = [];
   $('a.playerInfo-player[href*="roster_detail"]').each((_, el) => {
@@ -223,7 +226,7 @@ export async function scrapeRosterMaster(
   return [...byId.values()].sort((a, b) => a.playerId.localeCompare(b.playerId));
 }
 
-function deriveClassification(entry: PlayerMasterEntry): PlayerMasterEntry["classification"] {
+export function deriveClassification(entry: PlayerMasterEntry): PlayerMasterEntry["classification"] {
   const override = CLASSIFICATION_OVERRIDES[entry.playerId];
   if (override) return override;
   if (!entry.nationality) return undefined;
