@@ -995,7 +995,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
       <div className="player-header-columns">
         <div className="player-header-photo">
-          <PlayerPhoto playerId={player.playerId} size={160} />
+          <PlayerPhoto playerId={player.playerId} size={280} />
         </div>
 
         <div className="player-header-profile">
@@ -1028,7 +1028,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
         </div>
 
         <div className="player-header-radar">
-          <h3>リーグ内比較</h3>
           {radarData.length === 0 ? (
             <p className="empty-message">比較対象の選手がいません</p>
           ) : (
@@ -1535,7 +1534,8 @@ function SeasonBreakdownTable({
         const stats = computePlayerSituationalStats(played);
         return stats ? { season: cd.season, stats, ddtd: countDoubleTripleDoubles(played) } : null;
       })
-      .filter((r): r is { season: string; stats: PlayerSituationalStats; ddtd: { dd: number; td: number } } => r !== null);
+      .filter((r): r is { season: string; stats: PlayerSituationalStats; ddtd: { dd: number; td: number } } => r !== null)
+      .reverse();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [careerData, gameTypeFilter]);
 

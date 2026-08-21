@@ -251,6 +251,7 @@ export interface SeasonBoxscoreColumn {
 }
 
 export const SEASON_TRADITIONAL_COLUMNS: SeasonBoxscoreColumn[] = [
+  { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), description: "試合数" },
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(Math.round(c.scaled.min * 60)), description: "出場時間" },
   { key: "pts", label: "PTS", format: (c) => formatDecimal(c.scaled.pts), description: "得点" },
   { key: "fgm", label: "FGM", format: (c) => formatDecimal(c.scaled.fgm), description: "フィールドゴール成功数" },
@@ -298,6 +299,7 @@ export const SEASON_TRADITIONAL_COLUMNS: SeasonBoxscoreColumn[] = [
 ];
 
 export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
+  { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), description: "試合数" },
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(Math.round(c.scaled.min * 60)), description: "出場時間" },
   { key: "pts", label: "PTS", format: (c) => formatDecimal(c.scaled.pts), description: "得点" },
   { key: "eff", label: "EFF", format: (c, mode) => formatDecimal(scaledEff(c, mode)), description: "Bリーグ公式の総合貢献度指標" },
@@ -363,6 +365,7 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
 ];
 
 export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
+  { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), description: "試合数" },
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(Math.round(c.scaled.min * 60)), description: "出場時間" },
   { key: "pts", label: "PTS", format: (c) => formatDecimal(c.scaled.pts), description: "得点" },
   { key: "pitp", label: "PITP", format: (c) => formatDecimal(c.scaled.pt2in), description: "ペイント内での得点（Points in the Paint）" },
@@ -385,6 +388,7 @@ export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
 ];
 
 export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
+  { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), description: "試合数" },
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(Math.round(c.scaled.min * 60)), description: "出場時間" },
   { key: "pts", label: "PTS", format: (c) => formatDecimal(c.scaled.pts), description: "得点" },
   { key: "pctpts", label: "%PTS", format: (c) => formatPct100(sharePct(c.raw.pts, c.team.pts)), description: "チーム総得点に占める割合" },

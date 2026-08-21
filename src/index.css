@@ -397,10 +397,6 @@ h2 {
   min-width: 280px;
 }
 
-.player-header-radar h3 {
-  margin-top: 0;
-}
-
 .player-profile-grid {
   display: flex;
   flex-wrap: wrap;
