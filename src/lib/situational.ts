@@ -125,6 +125,46 @@ export function buildRecordsBeforeGame(games: GameSummary[]): Map<string, Map<st
   return result;
 }
 
+/** 対戦相手の地区が一致するか（scripts/lib/divisions.tsの東西マスタを使用） */
+export function matchesDivision<T extends { opponentTeamId: string }>(g: T, division: "east" | "west"): boolean {
+  return teamDivision(g.opponentTeamId) === division;
+}
+
+/** 開催月（1〜12）が一致するか */
+export function matchesMonth<T extends { date: string }>(g: T, month: number): boolean {
+  return Number(g.date.slice(5, 7)) === month;
+}
+
+/** 年明け前（7〜12月）/年明け後（1〜6月）のどちらか */
+export function matchesNewYearHalf<T extends { date: string }>(g: T, half: "before" | "after"): boolean {
+  const month = Number(g.date.slice(5, 7));
+  return half === "before" ? month >= 7 : month <= 6;
+}
+
+/**
+ * 対戦相手のその試合時点までの勝率が指定の閾値区分に該当するか。opponentRecordsが未指定、
+ * または相手の消化試合数がMIN_GAMES_FOR_OPPONENT_WIN_RATE未満の場合は常にfalse（DESIGN.md参照）
+ */
+export function matchesOpponentWinRateTier<T extends { scheduleKey: string; opponentTeamId: string }>(
+  g: T,
+  tier: "under50" | "atLeast50" | "atLeast60",
+  opponentRecords: Map<string, Map<string, RecordBeforeGame>> | undefined,
+): boolean {
+  const rec = opponentRecords?.get(g.scheduleKey)?.get(g.opponentTeamId);
+  if (!rec) return false;
+  const gp = rec.wins + rec.losses;
+  if (gp < MIN_GAMES_FOR_OPPONENT_WIN_RATE) return false;
+  const winPct = rec.wins / gp;
+  switch (tier) {
+    case "under50":
+      return winPct < 0.5;
+    case "atLeast50":
+      return winPct >= 0.5;
+    case "atLeast60":
+      return winPct >= 0.6;
+  }
+}
+
 /**
  * 試合ログ（日付昇順ソート済み前提）をフィルタ条件で絞り込む。
  * DNP（出場0分）の試合は「出場した試合」の集計対象から除く（players.json/teams.jsonの
@@ -160,32 +200,15 @@ export function filterGameLogs<
     case "homeAway":
       return scoped.filter((g) => g.isHome === filter.home);
     case "division":
-      return scoped.filter((g) => teamDivision(g.opponentTeamId) === filter.division);
+      return scoped.filter((g) => matchesDivision(g, filter.division));
     case "month":
-      return scoped.filter((g) => Number(g.date.slice(5, 7)) === filter.month);
+      return scoped.filter((g) => matchesMonth(g, filter.month));
     case "newYear":
-      return scoped.filter((g) => {
-        const month = Number(g.date.slice(5, 7));
-        return filter.half === "before" ? month >= 7 : month <= 6;
-      });
+      return scoped.filter((g) => matchesNewYearHalf(g, filter.half));
     case "weekday":
       return scoped.filter((g) => isWeekdayGame(g.date));
     case "opponentWinRate":
-      return scoped.filter((g) => {
-        const rec = opponentRecords?.get(g.scheduleKey)?.get(g.opponentTeamId);
-        if (!rec) return false;
-        const gp = rec.wins + rec.losses;
-        if (gp < MIN_GAMES_FOR_OPPONENT_WIN_RATE) return false;
-        const winPct = rec.wins / gp;
-        switch (filter.tier) {
-          case "under50":
-            return winPct < 0.5;
-          case "atLeast50":
-            return winPct >= 0.5;
-          case "atLeast60":
-            return winPct >= 0.6;
-        }
-      });
+      return scoped.filter((g) => matchesOpponentWinRateTier(g, filter.tier, opponentRecords));
   }
 }
 

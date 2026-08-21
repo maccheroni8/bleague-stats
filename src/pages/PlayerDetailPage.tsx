@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Link as RouterLink } from "react-router-dom";
 import {
@@ -48,6 +48,7 @@ import {
   sumPlayerGameLogs,
   sumTeamGameLogsFor,
   type SeasonBoxscoreColumn,
+  type SeasonBoxscoreCtx,
   type SeasonDisplayMode,
   type SeasonGameTypeFilter,
 } from "../lib/playerSeasonBoxscore";
@@ -56,10 +57,16 @@ import {
   computePlayerSituationalStats,
   computeSeasonHalfBoundary,
   filterGameLogs,
+  matchesDivision,
+  matchesMonth,
+  matchesNewYearHalf,
+  matchesOpponentWinRateTier,
   type PlayerSituationalStats,
+  type RecordBeforeGame,
   type SeasonHalfBoundary,
   type SituationalFilter,
 } from "../lib/situational";
+import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "./ComparePage";
 
 /** 試合詳細ページのボックススコア列定義（BoxscoreColumn）を、試合ログテーブル用のColumnに変換する */
@@ -339,6 +346,32 @@ interface CompareColumnData {
   stats: PlayerSituationalStats;
 }
 
+/**
+ * 「シチュエーション別成績」の1グループ（会場・地区・曜日・時期・月別・対戦相手の強さ、等）。
+ * 将来項目7（外国籍選手同時出場人数別）・項目8（連戦GAME1/GAME2）を追加する際は、この配列に
+ * グループを1つ足すだけでよい構造にしている（DESIGN.md参照）
+ */
+interface SituationalStatsRowDef {
+  key: string;
+  label: string;
+  predicate: (g: PlayerGameLog) => boolean;
+}
+interface SituationalStatsGroupDef {
+  key: string;
+  label: string;
+  rows: SituationalStatsRowDef[];
+}
+interface SituationalStatsRow {
+  key: string;
+  label: string;
+  ctx: SeasonBoxscoreCtx;
+}
+interface SituationalStatsGroup {
+  key: string;
+  label: string;
+  rows: SituationalStatsRow[];
+}
+
 // 「スタッツ」タブのstat-gridと同じ13項目＋試合数。シチュエーション別フィルタの結果
 // （PlayerSituationalStats）はEFF・USG%等のシーズン集計限定の項目を持たないため、
 // PLAYER_STAT_DEFSではなくこの専用の最小限のdefsを使う
@@ -442,6 +475,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
     defaultCompareSlots(season),
   );
 
+  // 「スタッツ」タブの「シチュエーション別成績」セクション: 独立したシーズン選択・
+  // レギュラー/プレーオフ/合算トグル・ボックススコアのカテゴリタブを持つ
+  // （ページ本体の現在シーズンとは別のシーズンを選べるため、上のシーズン成績/シーズン別成績とは
+  // 独立させている）。デフォルトは現在選択中のシーズン
+  const [situationalStatsSeason, setSituationalStatsSeason] = useState(season);
+  const [situationalStatsGameType, setSituationalStatsGameType] = useState<SeasonGameTypeFilter>("regular");
+  const [situationalStatsTab, setSituationalStatsTab] = useState<SeasonBoxTabKey>("traditional");
+
   // careerLoading/careerDataをdeps配列に含めると、setCareerLoading(true)自体がeffectを
   // 再発火させcleanupで直前のfetchをcancelしてしまう（自己キャンセルのループ）。
   // そのためfetch開始済みかどうかはstateではなくrefで管理する
@@ -455,8 +496,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
     setGameBoxRows(null);
     gameBoxFetchStartedRef.current = false;
     setCompareSlots(defaultCompareSlots(season));
-    // 選手が変わった時だけリセットする（season変更では比較タブの選択を維持したいため、
-    // 依存配列にseasonは含めない。ここで参照するのはリセット時点の最新値でよい）
+    setSituationalStatsSeason(season);
+    // 選手が変わった時だけリセットする（season変更では比較タブ・シチュエーション別成績の
+    // 選択を維持したいため、依存配列にseasonは含めない。ここで参照するのはリセット時点の
+    // 最新値でよい）
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerId]);
 
@@ -611,6 +654,31 @@ export function PlayerDetailPage({ season }: { season: string }) {
     useMemo(() => (compareSummaries1 ? buildRecordsBeforeGame(compareSummaries1) : undefined), [compareSummaries1]),
   ];
 
+  // 「シチュエーション別成績」セクション用データ。選択中シーズンのチーム総計（%-share・USG%の
+  // 分母。ページ本体のteamGameLogsは現在シーズン専用のため、別シーズンを選んだ場合は
+  // このセクション専用に取り直す）と、対勝率別フィルタ用の試合日程。「スタッツ」タブを
+  // 開いている間だけ取得する
+  const { data: situationalStatsPlayers } = useJsonData(
+    () => (tab === "stats" ? fetchPlayers(situationalStatsSeason) : Promise.resolve(null)),
+    [tab, situationalStatsSeason],
+  );
+  const situationalStatsTeamId = situationalStatsPlayers?.find((p) => p.playerId === playerId)?.teamId;
+  const { data: situationalStatsTeamGameLogs } = useJsonData(
+    () =>
+      tab === "stats" && situationalStatsTeamId
+        ? fetchTeamGameLogs(situationalStatsSeason, situationalStatsTeamId)
+        : Promise.resolve([]),
+    [tab, situationalStatsSeason, situationalStatsTeamId],
+  );
+  const { data: situationalStatsSummaries } = useJsonData(
+    () => (tab === "stats" ? fetchGameSummaries(situationalStatsSeason) : Promise.resolve(null)),
+    [tab, situationalStatsSeason],
+  );
+  const situationalStatsOpponentRecords = useMemo(
+    () => (situationalStatsSummaries ? buildRecordsBeforeGame(situationalStatsSummaries) : undefined),
+    [situationalStatsSummaries],
+  );
+
   const compareRows: ComparisonRow<CompareColumnData>[] = compareSlots
     .map((slot, i): ComparisonRow<CompareColumnData> | null => {
       if (!slot.season || !careerData) return null;
@@ -657,6 +725,98 @@ export function PlayerDetailPage({ season }: { season: string }) {
     displayMode,
     Number(season.split("-")[0]),
   );
+
+  // 「シチュエーション別成績」: 選択中シーズンの試合ログをレギュラー/プレーオフ/合算で絞った上で、
+  // 各グループ・各行（例: ホーム/アウェイ）ごとに個別のSeasonBoxscoreCtxを組み立てる。
+  // 表示は常に平均（1試合あたり）固定（合計だと行ごとの試合数の違いで比較しづらいため）
+  const situationalStatsLogs = careerData?.find((cd) => cd.season === situationalStatsSeason)?.logs;
+  const situationalStatsScopedLogs = situationalStatsLogs
+    ? filterByGameType(situationalStatsLogs, situationalStatsGameType)
+    : [];
+
+  const buildSituationalStatsRowCtx = (matched: PlayerGameLog[]): SeasonBoxscoreCtx | null => {
+    const raw = sumPlayerGameLogs(matched);
+    if (raw.gamesPlayed === 0) return null;
+    const scheduleKeys = new Set(matched.filter((g) => g.min > 0).map((g) => g.scheduleKey));
+    const team = sumTeamGameLogsFor(situationalStatsTeamGameLogs ?? [], scheduleKeys);
+    return buildSeasonBoxscoreCtx(raw, team, "perGame", Number(situationalStatsSeason.split("-")[0]));
+  };
+
+  const situationalStatsMonthsWithData = new Set(
+    situationalStatsScopedLogs.filter((g) => g.min > 0).map((g) => Number(g.date.slice(5, 7))),
+  );
+
+  const situationalStatsGroupDefs: SituationalStatsGroupDef[] = [
+    {
+      key: "venue",
+      label: "会場",
+      rows: [
+        { key: "home", label: "ホーム", predicate: (g) => g.isHome },
+        { key: "away", label: "アウェイ", predicate: (g) => !g.isHome },
+      ],
+    },
+    {
+      key: "division",
+      label: "地区",
+      rows: [
+        { key: "east", label: "対東地区", predicate: (g) => matchesDivision(g, "east") },
+        { key: "west", label: "対西地区", predicate: (g) => matchesDivision(g, "west") },
+      ],
+    },
+    {
+      key: "weekday",
+      label: "曜日",
+      rows: [
+        { key: "weekday", label: "平日開催", predicate: (g) => isWeekdayGame(g.date) },
+        { key: "holiday", label: "休日開催", predicate: (g) => !isWeekdayGame(g.date) },
+      ],
+    },
+    {
+      key: "timing",
+      label: "時期",
+      rows: [
+        { key: "before", label: "年明け前", predicate: (g) => matchesNewYearHalf(g, "before") },
+        { key: "after", label: "年明け後", predicate: (g) => matchesNewYearHalf(g, "after") },
+      ],
+    },
+    {
+      key: "month",
+      label: "月別",
+      rows: Array.from({ length: 12 }, (_, i) => i + 1)
+        .filter((m) => situationalStatsMonthsWithData.has(m))
+        .map((m) => ({ key: `m${m}`, label: `${m}月`, predicate: (g) => matchesMonth(g, m) })),
+    },
+    {
+      key: "opponentStrength",
+      label: "対戦相手の強さ",
+      rows: situationalStatsOpponentRecords
+        ? (
+            [
+              ["under50", "対5割未満"],
+              ["atLeast50", "対5割以上"],
+              ["atLeast60", "対6割以上"],
+            ] as const
+          ).map(([tier, label]) => ({
+            key: tier,
+            label,
+            predicate: (g: PlayerGameLog) => matchesOpponentWinRateTier(g, tier, situationalStatsOpponentRecords),
+          }))
+        : [],
+    },
+  ];
+
+  const situationalStatsGroups: SituationalStatsGroup[] = situationalStatsGroupDefs
+    .map((group) => ({
+      key: group.key,
+      label: group.label,
+      rows: group.rows
+        .map((row) => {
+          const ctx = buildSituationalStatsRowCtx(situationalStatsScopedLogs.filter(row.predicate));
+          return ctx ? { key: row.key, label: row.label, ctx } : null;
+        })
+        .filter((r): r is SituationalStatsRow => r !== null),
+    }))
+    .filter((group) => group.rows.length > 0);
 
   return (
     <div>
@@ -836,6 +996,83 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
           <h2>シーズン別成績</h2>
           <SeasonBreakdownTable careerData={careerData} gameTypeFilter={gameTypeFilter} />
+
+          <h2>シチュエーション別成績</h2>
+          <div className="mode-toggle">
+            <select value={situationalStatsSeason} onChange={(e) => setSituationalStatsSeason(e.target.value)}>
+              {[...(careerData ?? [])]
+                .map((cd) => cd.season)
+                .reverse()
+                .map((s) => (
+                  <option key={s} value={s}>
+                    {s}シーズン
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div className="mode-toggle">
+            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
+              <button
+                key={g}
+                className={g === situationalStatsGameType ? "active" : ""}
+                onClick={() => setSituationalStatsGameType(g)}
+                type="button"
+              >
+                {SEASON_GAME_TYPE_LABELS[g]}
+              </button>
+            ))}
+          </div>
+          <div className="tab-bar">
+            {SEASON_BOX_TABS.map((t) => (
+              <button
+                key={t.key}
+                className={`tab-button${situationalStatsTab === t.key ? " active" : ""}`}
+                onClick={() => setSituationalStatsTab(t.key)}
+                type="button"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {!careerData ? (
+            <p className="loading">読み込み中...</p>
+          ) : situationalStatsGroups.length === 0 ? (
+            <p className="empty-message">該当する試合がありません</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="stats-table situational-groups-table">
+                <thead>
+                  <tr>
+                    <th className="align-left">区分</th>
+                    {SEASON_BOX_COLUMNS[situationalStatsTab].map((col) => (
+                      <th key={col.key} className="align-right" title={col.description}>
+                        {col.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {situationalStatsGroups.map((group) => (
+                    <Fragment key={group.key}>
+                      <tr className="situational-group-heading">
+                        <td colSpan={SEASON_BOX_COLUMNS[situationalStatsTab].length + 1}>{group.label}</td>
+                      </tr>
+                      {group.rows.map((row) => (
+                        <tr key={row.key}>
+                          <td className="align-left">{row.label}</td>
+                          {SEASON_BOX_COLUMNS[situationalStatsTab].map((col) => (
+                            <td key={col.key} className="align-right">
+                              {col.format(row.ctx, "perGame")}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <h2>シューティング</h2>
           {!player.shotTypes ? (
