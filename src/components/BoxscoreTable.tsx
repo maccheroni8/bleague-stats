@@ -332,6 +332,14 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
     value: (c, ctx) => (ctx.yahooPbpSupported ? sharePct(c.liveTov, c.liveTov + c.deadTov) : undefined),
     description: "LIVETOV / (LIVETOV + DEADTOV) × 100",
   },
+  {
+    key: "deadtovpct",
+    label: "DEAD%",
+    format: (c, ctx) =>
+      ctx.yahooPbpSupported ? formatPct100(sharePct(c.deadTov, c.liveTov + c.deadTov)) : "-",
+    value: (c, ctx) => (ctx.yahooPbpSupported ? sharePct(c.deadTov, c.liveTov + c.deadTov) : undefined),
+    description: "DEADTOV / (LIVETOV + DEADTOV) × 100",
+  },
 ];
 
 const SCORING_COLUMNS: BoxscoreColumn[] = [
