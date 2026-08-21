@@ -53,6 +53,33 @@ export interface StatDef<T> extends StatMeta {
   format: (row: T) => string;
 }
 
+/**
+ * ランキング母集団（パーセンタイル算出等）に含める最低出場率。所属チームの試合数のうち
+ * この割合以上に出場した選手のみを対象とする。minMutesForRankingと同じ位置づけ（出場が
+ * 少なく数値が振れやすい選手を除いた上で比較する）だが、こちらは「絶対分数」ではなく
+ * 「所属チームの試合数に対する出場率」で足切りする点が異なる（シーズン途中加入・移籍選手を
+ * 不当に排除しないため。個人詳細ページのレーダーチャートで導入、DESIGN.md参照）
+ */
+export const MIN_GAMES_PLAYED_RATIO_FOR_RANKING = 0.85;
+
+/**
+ * 所属チームの試合数に対する出場率が閾値（デフォルト85%）以上の選手だけを残す。
+ * `teams`に所属チームの情報が無い選手（移籍等でteams配列に該当チームが無いケース）は
+ * 判定不能として除外する。ランキングページ本体への適用は今回未実施だが、そのまま
+ * `filterPlayersByGamesPlayedRatio(players, teams)`で使える汎用シグネチャにしてある
+ */
+export function filterPlayersByGamesPlayedRatio<T extends { teamId: string; gamesPlayed: number }>(
+  players: T[],
+  teams: Pick<TeamSummary, "teamId" | "gamesPlayed">[],
+  minRatio: number = MIN_GAMES_PLAYED_RATIO_FOR_RANKING,
+): T[] {
+  const teamGamesById = new Map(teams.map((t) => [t.teamId, t.gamesPlayed]));
+  return players.filter((p) => {
+    const teamGames = teamGamesById.get(p.teamId);
+    return teamGames !== undefined && teamGames > 0 && p.gamesPlayed / teamGames >= minRatio;
+  });
+}
+
 export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
   {
     key: "pts",

@@ -18,6 +18,7 @@ import {
   fetchSeasons,
   fetchTeamColors,
   fetchTeamGameLogs,
+  fetchTeams,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
@@ -28,6 +29,7 @@ import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatSigned } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { formatShotTypeCell, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
+import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { safeDiv } from "../../shared/formulas";
 import {
   SEASON_ADVANCED_COLUMNS,
@@ -285,6 +287,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
     [season, playerTeamId],
   );
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
+  // レーダーチャートのランキング母集団の足切り（所属チーム試合数の85%以上出場）に使う
+  const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
   const { data: playerHistory } = useJsonData(() => fetchPlayerHistory(), []);
   const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
@@ -380,7 +384,15 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const filteredLogs = gameLogs ? filterGameLogs(gameLogs, filter) : [];
   const situational = isDefaultFilter(filter) ? null : computePlayerSituationalStats(filteredLogs);
 
-  const radarData = players && players.length > 1 ? buildPlayerRadarData(player, players) : [];
+  // レーダーチャートのパーセンタイル算出対象は、所属チーム試合数の85%以上に出場した選手のみに
+  // 絞り込む（出場が少なく数値が振れやすい選手を母集団から除くため。DESIGN.md参照）。
+  // ただし閲覧中の選手自身は、この条件を満たさなくても常にプロット対象に含める
+  // （比較先の母集団を絞るだけで、自分の値が消えるわけではないようにする）
+  const radarEligiblePool = players ? filterPlayersByGamesPlayedRatio(players, teams ?? []) : [];
+  const radarPool = radarEligiblePool.some((p) => p.playerId === player.playerId)
+    ? radarEligiblePool
+    : [...radarEligiblePool, player];
+  const radarData = radarPool.length > 1 ? buildPlayerRadarData(player, radarPool) : [];
 
   const seasonBoxGameLogs = gameLogs ? filterByGameType(gameLogs, gameTypeFilter) : [];
   const seasonBoxRawTotals = sumPlayerGameLogs(seasonBoxGameLogs);
