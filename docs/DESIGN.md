@@ -3865,3 +3865,60 @@ predicate」という枠組みでは表現できず（試合ごとにPBPを取�
 
 型チェック通過（`tsconfig.json`・`tsconfig.scripts.json`とも）。本番ビルド（`vite build`）も
 成功。ブラウザのコンソールエラー無し。
+
+---
+
+## 50. 「シチュエーション別成績」に「連戦GAME1/GAME2」グループを追加（2026-08-21）
+
+8項目の拡張依頼のうち残っていた項目8（連戦GAME1/GAME2）を実装した。49-2章で見込んでいた
+「事前計算した結果をpredicateでlookupする」という対勝率別（`opponentRecords`）と同じ
+パターンにそのまま乗り、`SituationalFilterKind`（インタラクティブなフィルタピッカー側の型）は
+変更していない（依頼が「シチュエーション別成績」の一覧グループへの追加に限定されていたため）。
+
+### 50-1. 判定ロジック
+
+`situational.ts`に`buildBackToBackStatus(games: GameSummary[])`を追加した。
+`games-summary.json`（`gameEndedFlg`の試合のみ、レギュラー・プレーオフとも対象）から
+チームごとに試合を日付昇順に並べ、直前の自チームの試合との間隔が中1日以内（連日=1日差、
+または中1日空き=2日差）の試合を「連戦」と判定する。対戦相手が同じかどうかは問わない
+（過密日程による疲労という観点のため、依頼文の「同じチームが中1日以内で複数試合を行っている
+場合」を文字通り解釈した）。`Map<scheduleKey, Map<teamId, "GAME1"|"GAME2">>`を返す
+（`buildRecordsBeforeGame`と同じ形）。
+
+**3試合以上の連戦の扱い（実データで判断）**: 2024-25シーズンで実際に日付ギャップを
+集計したところ、連戦チェーン588件中、長さ3以上は14件のみで、うち大半（8件）は
+「対戦相手の異なる1試合＋別カードの真の2連戦」が中1日空きの閾値でたまたま連結された
+もの（例: 10/23 vs 宇都宮、10/25-26 vs 川崎の2連戦）、残り（プレーオフのBest-of-3等）は
+真に3日連続で同一カードが続くケースだった。いずれのパターンでも「直前の自チームの試合が
+中1日以内なら（相手が同じでも違っても）GAME2、そうでなく直後の試合が中1日以内ならGAME1」
+という単純なルールで自然に扱える（3連戦の場合、1試合目=GAME1、2・3試合目=GAME2になる）
+と判断し、GAME1/GAME2の2区分のみで実装した（3試合以上専用の特別処理・GAME3等の追加区分は
+設けていない）。
+
+### 50-2. 実装
+
+`PlayerDetailPage.tsx`の「シチュエーション別成績」セクションに新しいグループ「連戦」
+（行: GAME1/GAME2）を追加した。既に「対戦相手の強さ」グループ用に取得済みの
+`situationalStatsSummaries`（`fetchGameSummaries`）をそのまま再利用して
+`buildBackToBackStatus()`を呼ぶため、新規のHTTPリクエストは発生しない。predicateは
+`situationalStatsBackToBack.get(g.scheduleKey)?.get(situationalStatsTeamId) === status`
+（対勝率別グループの`matchesOpponentWinRateTier`呼び出しと同じ「事前計算マップをlookupする」
+パターン）。
+
+### 50-3. 検証
+
+千葉ジェッツ・富樫勇樹（playerId 9055、2024-25シーズン）で確認した。まず2024-25シーズンの
+`games-summary.json`から独立にNode.jsで`buildBackToBackStatus`と同じロジックを再実装し、
+開幕週（2024-10-05・10-06の全26クラブ13カード）が全て正しくホーム&ホームの2連戦
+（GAME1→GAME2）として検出されることを確認した。
+
+その上で、実装した`situationalStatsBackToBack`の値をブラウザの「連戦」行（レギュラー
+シーズンのみ）と突き合わせた: GAME1（21試合、MIN29:35・PTS15.2）・GAME2（20試合、
+MIN28:34・PTS12.7）が、独立集計（gameType="regular"のみでGAME1/GAME2に分類し平均した
+結果）と完全一致することを確認した。「合算」トグルに切り替えると、5/17-19のプレーオフ
+Best-of-3（GAME1=5/17、GAME2=5/18・5/19の3試合連続）も含めた値（GAME1: 23試合
+MIN28:55・PTS14.8、GAME2: 23試合MIN27:33・PTS12.3）に変化し、これも独立集計と完全一致
+することを確認した。
+
+型チェック通過（`tsconfig.json`・`tsconfig.scripts.json`とも）。本番ビルド（`vite build`）も
+成功。ブラウザのコンソールエラー無し。

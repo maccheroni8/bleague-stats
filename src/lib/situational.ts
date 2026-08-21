@@ -125,6 +125,65 @@ export function buildRecordsBeforeGame(games: GameSummary[]): Map<string, Map<st
   return result;
 }
 
+export type BackToBackGame = "GAME1" | "GAME2";
+
+function daysBetweenDates(d1: string, d2: string): number {
+  return (new Date(d2).getTime() - new Date(d1).getTime()) / (1000 * 60 * 60 * 24);
+}
+
+/**
+ * 連戦GAME1/GAME2判定。シーズンの試合日程（games-summary.json、`gameEndedFlg`の試合のみ対象。
+ * レギュラー/プレーオフとも対象に含める。過密日程による疲労という観点のため、対戦相手が
+ * 同じかどうかは問わない）から、チームごとに日付昇順で並べ、直前の自チームの試合との間隔が
+ * 中1日以内（連日=1日差、または中1日空き=2日差）の試合を「連戦」とみなす。
+ * Map<scheduleKey, Map<teamId, BackToBackGame>>（1試合につき対戦した2チーム分、それぞれ独立に
+ * 判定した結果を持つ。片方のチームだけが連戦中というケースもありうる）。
+ * 3試合以上が中1日以内で連続する場合（プレーオフのBest-of-3等）は、直前の自チームの試合が
+ * 近接している試合をすべてGAME2（＝短い休養日数でプレーした試合）とし、GAME1はその連戦の
+ * 最初の1試合のみとする（実データ確認済み。DESIGN.md参照）
+ */
+export function buildBackToBackStatus(games: GameSummary[]): Map<string, Map<string, BackToBackGame>> {
+  const byTeam = new Map<string, GameSummary[]>();
+  for (const g of games) {
+    if (!g.gameEndedFlg) continue;
+    for (const teamId of [g.homeTeamId, g.awayTeamId]) {
+      let list = byTeam.get(teamId);
+      if (!list) {
+        list = [];
+        byTeam.set(teamId, list);
+      }
+      list.push(g);
+    }
+  }
+
+  const result = new Map<string, Map<string, BackToBackGame>>();
+  const setStatus = (scheduleKey: string, teamId: string, status: BackToBackGame) => {
+    let m = result.get(scheduleKey);
+    if (!m) {
+      m = new Map();
+      result.set(scheduleKey, m);
+    }
+    m.set(teamId, status);
+  };
+
+  for (const [teamId, list] of byTeam) {
+    list.sort((a, b) => a.date.localeCompare(b.date));
+    for (let i = 0; i < list.length; i++) {
+      const game = list[i]!;
+      const prev = list[i - 1];
+      const next = list[i + 1];
+      const closeToPrev = prev !== undefined && daysBetweenDates(prev.date, game.date) <= 2;
+      const closeToNext = next !== undefined && daysBetweenDates(game.date, next.date) <= 2;
+      if (closeToPrev) {
+        setStatus(game.scheduleKey, teamId, "GAME2");
+      } else if (closeToNext) {
+        setStatus(game.scheduleKey, teamId, "GAME1");
+      }
+    }
+  }
+  return result;
+}
+
 /** 対戦相手の地区が一致するか（scripts/lib/divisions.tsの東西マスタを使用） */
 export function matchesDivision<T extends { opponentTeamId: string }>(g: T, division: "east" | "west"): boolean {
   return teamDivision(g.opponentTeamId) === division;

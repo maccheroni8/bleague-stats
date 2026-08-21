@@ -53,6 +53,7 @@ import {
   type SeasonGameTypeFilter,
 } from "../lib/playerSeasonBoxscore";
 import {
+  buildBackToBackStatus,
   buildRecordsBeforeGame,
   computePlayerSituationalStats,
   computeSeasonHalfBoundary,
@@ -678,6 +679,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
     () => (situationalStatsSummaries ? buildRecordsBeforeGame(situationalStatsSummaries) : undefined),
     [situationalStatsSummaries],
   );
+  const situationalStatsBackToBack = useMemo(
+    () => (situationalStatsSummaries ? buildBackToBackStatus(situationalStatsSummaries) : undefined),
+    [situationalStatsSummaries],
+  );
 
   const compareRows: ComparisonRow<CompareColumnData>[] = compareSlots
     .map((slot, i): ComparisonRow<CompareColumnData> | null => {
@@ -802,6 +807,19 @@ export function PlayerDetailPage({ season }: { season: string }) {
             predicate: (g: PlayerGameLog) => matchesOpponentWinRateTier(g, tier, situationalStatsOpponentRecords),
           }))
         : [],
+    },
+    {
+      key: "backToBack",
+      label: "連戦",
+      rows:
+        situationalStatsBackToBack && situationalStatsTeamId
+          ? (["GAME1", "GAME2"] as const).map((status) => ({
+              key: status,
+              label: status,
+              predicate: (g: PlayerGameLog) =>
+                situationalStatsBackToBack.get(g.scheduleKey)?.get(situationalStatsTeamId) === status,
+            }))
+          : [],
     },
   ];
 
