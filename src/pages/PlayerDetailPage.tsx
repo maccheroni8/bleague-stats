@@ -226,6 +226,23 @@ interface CareerSeasonLogs {
   logs: PlayerGameLog[];
 }
 
+/** 「通算成績」タブ: 全シーズン合算の単一の合計値（平均ではない） */
+interface CareerCountTotals {
+  gamesPlayed: number;
+  minSeconds: number;
+  pts: number;
+  fgm: number;
+  tpm: number;
+  twoPm: number;
+  ftm: number;
+  ast: number;
+  reb: number;
+  blk: number;
+  stl: number;
+  dd: number;
+  td: number;
+}
+
 interface CareerHighDef {
   key: string;
   label: string;
@@ -500,17 +517,46 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // トグルで絞り込む（既存のSeasonGameTypeFilter/filterByGameTypeをそのまま再利用）
   const playedFilteredLogs = (logs: PlayerGameLog[]) => filterByGameType(logs.filter((g) => g.min > 0), careerGameTypeFilter);
 
-  const seasonRows = useMemo(() => {
-    if (!careerData) return [];
-    return careerData
-      .map((cd) => {
-        const played = playedFilteredLogs(cd.logs);
-        const stats = computePlayerSituationalStats(played);
-        return stats ? { season: cd.season, stats, ddtd: countDoubleTripleDoubles(played) } : null;
-      })
-      .filter((r): r is { season: string; stats: PlayerSituationalStats; ddtd: { dd: number; td: number } } => r !== null);
+  // 通算成績タブ: 全シーズン合算の単一の合計値（平均ではなく合計）。PlayerSituationalStatsは
+  // 平均値と割合しか持たないため、FGM/3PM/FTM等の合計はgameLogから直接合算し直す
+  const careerCountTotals = useMemo((): CareerCountTotals | null => {
+    if (!careerData) return null;
+    const allPlayed = careerData.flatMap((cd) => playedFilteredLogs(cd.logs));
+    if (allPlayed.length === 0) return null;
+    const sums = allPlayed.reduce(
+      (acc, g) => ({
+        min: acc.min + g.min,
+        pts: acc.pts + g.pts,
+        fgm: acc.fgm + g.fgm,
+        tpm: acc.tpm + g.tpm,
+        ftm: acc.ftm + g.ftm,
+        ast: acc.ast + g.ast,
+        reb: acc.reb + g.reb,
+        blk: acc.blk + g.blk,
+        stl: acc.stl + g.stl,
+      }),
+      { min: 0, pts: 0, fgm: 0, tpm: 0, ftm: 0, ast: 0, reb: 0, blk: 0, stl: 0 },
+    );
+    const { dd, td } = countDoubleTripleDoubles(allPlayed);
+    return {
+      gamesPlayed: allPlayed.length,
+      minSeconds: Math.round(sums.min * 60),
+      pts: sums.pts,
+      fgm: sums.fgm,
+      tpm: sums.tpm,
+      twoPm: sums.fgm - sums.tpm,
+      ftm: sums.ftm,
+      ast: sums.ast,
+      reb: sums.reb,
+      blk: sums.blk,
+      stl: sums.stl,
+      dd,
+      td,
+    };
   }, [careerData, careerGameTypeFilter]);
 
+  // 「キャリアハイ」タブのDD/TD達成数カードで引き続き使用（通算成績タブの表示自体は
+  // 上のcareerCountTotalsに置き換え済み）
   const careerTotal = useMemo(() => {
     if (!careerData) return null;
     const allPlayed = careerData.flatMap((cd) => playedFilteredLogs(cd.logs));
@@ -670,16 +716,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 />
               </RadarChart>
             </ResponsiveContainer>
-          </div>
-          <div className="radar-rank-list">
-            {radarData.map((d) => (
-              <div className="radar-rank-item" key={d.key}>
-                <span className="radar-rank-label">{d.label}</span>
-                <span className="radar-rank-value">
-                  {d.rank}位/{d.total}（{d.actualValue}）
-                </span>
-              </div>
-            ))}
           </div>
         </div>
       )}
@@ -920,77 +956,23 @@ export function PlayerDetailPage({ season }: { season: string }) {
             <p className="loading">読み込み中...</p>
           ) : careerError ? (
             <p className="error-message">{careerError}</p>
-          ) : !careerData || seasonRows.length === 0 ? (
+          ) : !careerCountTotals ? (
             <p className="empty-message">通算成績がありません</p>
           ) : (
-            <div className="table-scroll">
-              <table className="stats-table">
-                <thead>
-                  <tr>
-                    <th className="align-left">シーズン</th>
-                    <th className="align-right">試合数</th>
-                    <th className="align-right">MIN</th>
-                    <th className="align-right">PTS</th>
-                    <th className="align-right">REB</th>
-                    <th className="align-right">AST</th>
-                    <th className="align-right">STL</th>
-                    <th className="align-right">BLK</th>
-                    <th className="align-right">TOV</th>
-                    <th className="align-right">+/-</th>
-                    <th className="align-right">FG%</th>
-                    <th className="align-right">3P%</th>
-                    <th className="align-right">FT%</th>
-                    <th className="align-right">eFG%</th>
-                    <th className="align-right">TS%</th>
-                    <th className="align-right">DD2</th>
-                    <th className="align-right">TD3</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {seasonRows.map((r) => (
-                    <tr key={r.season}>
-                      <td className="align-left">{r.season}</td>
-                      <td className="align-right">{r.stats.gamesPlayed}</td>
-                      <td className="align-right">{formatDecimal(r.stats.perGame.min)}</td>
-                      <td className="align-right">{formatDecimal(r.stats.perGame.pts)}</td>
-                      <td className="align-right">{formatDecimal(r.stats.perGame.reb)}</td>
-                      <td className="align-right">{formatDecimal(r.stats.perGame.ast)}</td>
-                      <td className="align-right">{formatDecimal(r.stats.perGame.stl)}</td>
-                      <td className="align-right">{formatDecimal(r.stats.perGame.blk)}</td>
-                      <td className="align-right">{formatDecimal(r.stats.perGame.tov)}</td>
-                      <td className="align-right">{formatSigned(r.stats.perGame.plusMinus)}</td>
-                      <td className="align-right">{formatPct(r.stats.shooting.fgPct)}</td>
-                      <td className="align-right">{formatPct(r.stats.shooting.tpPct)}</td>
-                      <td className="align-right">{formatPct(r.stats.shooting.ftPct)}</td>
-                      <td className="align-right">{formatPct(r.stats.shooting.efgPct)}</td>
-                      <td className="align-right">{formatPct(r.stats.shooting.tsPct)}</td>
-                      <td className="align-right">{r.ddtd.dd}</td>
-                      <td className="align-right">{r.ddtd.td}</td>
-                    </tr>
-                  ))}
-                  {careerTotal && (
-                    <tr className="career-total-row">
-                      <td className="align-left">通算</td>
-                      <td className="align-right">{careerTotal.stats.gamesPlayed}</td>
-                      <td className="align-right">{formatDecimal(careerTotal.stats.perGame.min)}</td>
-                      <td className="align-right">{formatDecimal(careerTotal.stats.perGame.pts)}</td>
-                      <td className="align-right">{formatDecimal(careerTotal.stats.perGame.reb)}</td>
-                      <td className="align-right">{formatDecimal(careerTotal.stats.perGame.ast)}</td>
-                      <td className="align-right">{formatDecimal(careerTotal.stats.perGame.stl)}</td>
-                      <td className="align-right">{formatDecimal(careerTotal.stats.perGame.blk)}</td>
-                      <td className="align-right">{formatDecimal(careerTotal.stats.perGame.tov)}</td>
-                      <td className="align-right">{formatSigned(careerTotal.stats.perGame.plusMinus)}</td>
-                      <td className="align-right">{formatPct(careerTotal.stats.shooting.fgPct)}</td>
-                      <td className="align-right">{formatPct(careerTotal.stats.shooting.tpPct)}</td>
-                      <td className="align-right">{formatPct(careerTotal.stats.shooting.ftPct)}</td>
-                      <td className="align-right">{formatPct(careerTotal.stats.shooting.efgPct)}</td>
-                      <td className="align-right">{formatPct(careerTotal.stats.shooting.tsPct)}</td>
-                      <td className="align-right">{careerTotal.ddtd.dd}</td>
-                      <td className="align-right">{careerTotal.ddtd.td}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="stat-grid">
+              <StatTile label="PTS" value={formatDecimal(careerCountTotals.pts)} />
+              <StatTile label="FG成功数" value={formatDecimal(careerCountTotals.fgm)} />
+              <StatTile label="3PT成功数" value={formatDecimal(careerCountTotals.tpm)} />
+              <StatTile label="2PT成功数" value={formatDecimal(careerCountTotals.twoPm)} />
+              <StatTile label="FT成功数" value={formatDecimal(careerCountTotals.ftm)} />
+              <StatTile label="AST" value={formatDecimal(careerCountTotals.ast)} />
+              <StatTile label="REB" value={formatDecimal(careerCountTotals.reb)} />
+              <StatTile label="BLK" value={formatDecimal(careerCountTotals.blk)} />
+              <StatTile label="STL" value={formatDecimal(careerCountTotals.stl)} />
+              <StatTile label="試合数" value={String(careerCountTotals.gamesPlayed)} />
+              <StatTile label="出場時間" value={formatMinutesFromSeconds(careerCountTotals.minSeconds)} />
+              <StatTile label="DD数" value={String(careerCountTotals.dd)} />
+              <StatTile label="TD数" value={String(careerCountTotals.td)} />
             </div>
           )}
         </>
@@ -1107,6 +1089,118 @@ export function PlayerDetailPage({ season }: { season: string }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * シーズンごとの内訳（レギュラー/プレーオフ/合算トグル込み）を表示するテーブル。
+ * 以前は「通算成績」タブの表示そのものだったが、通算成績タブは全シーズン合算の単一の
+ * 合計値タイル表示に置き換えた（DESIGN.md参照）。このテーブル自体は削除せず、Batch 3で
+ * 「スタッツ」タブへ移設する前提でコードを温存している（現時点ではどこからも呼んでいない）。
+ */
+function SeasonBreakdownTable({
+  careerData,
+  gameTypeFilter,
+}: {
+  careerData: CareerSeasonLogs[] | null;
+  gameTypeFilter: SeasonGameTypeFilter;
+}) {
+  const playedFilteredLogs = (logs: PlayerGameLog[]) => filterByGameType(logs.filter((g) => g.min > 0), gameTypeFilter);
+
+  const seasonRows = useMemo(() => {
+    if (!careerData) return [];
+    return careerData
+      .map((cd) => {
+        const played = playedFilteredLogs(cd.logs);
+        const stats = computePlayerSituationalStats(played);
+        return stats ? { season: cd.season, stats, ddtd: countDoubleTripleDoubles(played) } : null;
+      })
+      .filter((r): r is { season: string; stats: PlayerSituationalStats; ddtd: { dd: number; td: number } } => r !== null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [careerData, gameTypeFilter]);
+
+  const total = useMemo(() => {
+    if (!careerData) return null;
+    const allPlayed = careerData.flatMap((cd) => playedFilteredLogs(cd.logs));
+    const stats = computePlayerSituationalStats(allPlayed);
+    return stats ? { stats, ddtd: countDoubleTripleDoubles(allPlayed) } : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [careerData, gameTypeFilter]);
+
+  if (!careerData || seasonRows.length === 0) {
+    return <p className="empty-message">通算成績がありません</p>;
+  }
+
+  return (
+    <div className="table-scroll">
+      <table className="stats-table">
+        <thead>
+          <tr>
+            <th className="align-left">シーズン</th>
+            <th className="align-right">試合数</th>
+            <th className="align-right">MIN</th>
+            <th className="align-right">PTS</th>
+            <th className="align-right">REB</th>
+            <th className="align-right">AST</th>
+            <th className="align-right">STL</th>
+            <th className="align-right">BLK</th>
+            <th className="align-right">TOV</th>
+            <th className="align-right">+/-</th>
+            <th className="align-right">FG%</th>
+            <th className="align-right">3P%</th>
+            <th className="align-right">FT%</th>
+            <th className="align-right">eFG%</th>
+            <th className="align-right">TS%</th>
+            <th className="align-right">DD2</th>
+            <th className="align-right">TD3</th>
+          </tr>
+        </thead>
+        <tbody>
+          {seasonRows.map((r) => (
+            <tr key={r.season}>
+              <td className="align-left">{r.season}</td>
+              <td className="align-right">{r.stats.gamesPlayed}</td>
+              <td className="align-right">{formatDecimal(r.stats.perGame.min)}</td>
+              <td className="align-right">{formatDecimal(r.stats.perGame.pts)}</td>
+              <td className="align-right">{formatDecimal(r.stats.perGame.reb)}</td>
+              <td className="align-right">{formatDecimal(r.stats.perGame.ast)}</td>
+              <td className="align-right">{formatDecimal(r.stats.perGame.stl)}</td>
+              <td className="align-right">{formatDecimal(r.stats.perGame.blk)}</td>
+              <td className="align-right">{formatDecimal(r.stats.perGame.tov)}</td>
+              <td className="align-right">{formatSigned(r.stats.perGame.plusMinus)}</td>
+              <td className="align-right">{formatPct(r.stats.shooting.fgPct)}</td>
+              <td className="align-right">{formatPct(r.stats.shooting.tpPct)}</td>
+              <td className="align-right">{formatPct(r.stats.shooting.ftPct)}</td>
+              <td className="align-right">{formatPct(r.stats.shooting.efgPct)}</td>
+              <td className="align-right">{formatPct(r.stats.shooting.tsPct)}</td>
+              <td className="align-right">{r.ddtd.dd}</td>
+              <td className="align-right">{r.ddtd.td}</td>
+            </tr>
+          ))}
+          {total && (
+            <tr className="career-total-row">
+              <td className="align-left">通算</td>
+              <td className="align-right">{total.stats.gamesPlayed}</td>
+              <td className="align-right">{formatDecimal(total.stats.perGame.min)}</td>
+              <td className="align-right">{formatDecimal(total.stats.perGame.pts)}</td>
+              <td className="align-right">{formatDecimal(total.stats.perGame.reb)}</td>
+              <td className="align-right">{formatDecimal(total.stats.perGame.ast)}</td>
+              <td className="align-right">{formatDecimal(total.stats.perGame.stl)}</td>
+              <td className="align-right">{formatDecimal(total.stats.perGame.blk)}</td>
+              <td className="align-right">{formatDecimal(total.stats.perGame.tov)}</td>
+              <td className="align-right">{formatSigned(total.stats.perGame.plusMinus)}</td>
+              <td className="align-right">{formatPct(total.stats.shooting.fgPct)}</td>
+              <td className="align-right">{formatPct(total.stats.shooting.tpPct)}</td>
+              <td className="align-right">{formatPct(total.stats.shooting.ftPct)}</td>
+              <td className="align-right">{formatPct(total.stats.shooting.efgPct)}</td>
+              <td className="align-right">{formatPct(total.stats.shooting.tsPct)}</td>
+              <td className="align-right">{total.ddtd.dd}</td>
+              <td className="align-right">{total.ddtd.td}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
