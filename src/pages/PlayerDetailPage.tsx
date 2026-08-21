@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import {
+  fetchGame,
   fetchPlayerGameLogs,
   fetchPlayerHistory,
   fetchPlayers,
@@ -19,11 +20,14 @@ import {
   fetchTeamColors,
   fetchTeamGameLogs,
   fetchTeams,
+  fetchYahooGamePbp,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
+import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type { PlayerGameLog, PlayerSummary } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
+import { BOXSCORE_TABS, type BoxscoreColumn, type BoxscoreTabKey, COLUMNS_BY_TAB } from "../components/BoxscoreTable";
+import { buildPlayerGameBoxscoreRow, type PlayerGameBoxscoreRow } from "../lib/playerGameBoxscore";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatSigned } from "../lib/format";
@@ -54,58 +58,37 @@ import {
   type SituationalFilter,
 } from "../lib/situational";
 
-const gameLogColumns: Column<PlayerGameLog>[] = [
-  { key: "date", label: "日付", sortValue: (g) => g.date, align: "left" },
-  {
-    key: "opponent",
-    label: "対戦相手",
-    sortValue: (g) => g.opponentTeamName,
-    align: "left",
-    render: (g) => (
-      <>
-        {g.isHome ? "vs" : "@"} {g.opponentTeamName}
-        {g.gameType === "playoff" && <span className="playoff-badge">PO</span>}
-      </>
-    ),
-  },
-  {
-    key: "result",
-    label: "結果",
-    sortValue: (g) => (g.win ? 1 : 0),
-    render: (g) => <span className={`result-badge ${g.win ? "win" : "loss"}`}>{g.win ? "W" : "L"}</span>,
-  },
-  { key: "min", label: "MIN", sortValue: (g) => g.min, format: (g) => formatDecimal(g.min) },
-  { key: "pts", label: "PTS", sortValue: (g) => g.pts, format: (g) => String(g.pts) },
-  { key: "reb", label: "REB", sortValue: (g) => g.reb, format: (g) => String(g.reb) },
-  { key: "ast", label: "AST", sortValue: (g) => g.ast, format: (g) => String(g.ast) },
-  { key: "stl", label: "STL", sortValue: (g) => g.stl, format: (g) => String(g.stl) },
-  { key: "blk", label: "BLK", sortValue: (g) => g.blk, format: (g) => String(g.blk) },
-  { key: "tov", label: "TOV", sortValue: (g) => g.tov, format: (g) => String(g.tov) },
-  {
-    key: "fg",
-    label: "FG",
-    sortValue: (g) => g.fgm,
-    render: (g) => `${g.fgm}/${g.fga}`,
-  },
-  {
-    key: "tp",
-    label: "3P",
-    sortValue: (g) => g.tpm,
-    render: (g) => `${g.tpm}/${g.tpa}`,
-  },
-  {
-    key: "ft",
-    label: "FT",
-    sortValue: (g) => g.ftm,
-    render: (g) => `${g.ftm}/${g.fta}`,
-  },
-  {
-    key: "plusMinus",
-    label: "+/-",
-    sortValue: (g) => g.plusMinus,
-    format: (g) => formatSigned(g.plusMinus, 0),
-  },
-];
+/** 試合詳細ページのボックススコア列定義（BoxscoreColumn）を、試合ログテーブル用のColumnに変換する */
+function toGameLogColumns(tabKey: BoxscoreTabKey): Column<PlayerGameBoxscoreRow>[] {
+  const fixed: Column<PlayerGameBoxscoreRow>[] = [
+    { key: "date", label: "日付", sortValue: (r) => r.gameLog.date, align: "left" },
+    {
+      key: "opponent",
+      label: "対戦相手",
+      sortValue: (r) => r.gameLog.opponentTeamName,
+      align: "left",
+      render: (r) => (
+        <>
+          {r.gameLog.isHome ? "vs" : "@"} {r.gameLog.opponentTeamName}
+          {r.gameLog.gameType === "playoff" && <span className="playoff-badge">PO</span>}
+        </>
+      ),
+    },
+    {
+      key: "result",
+      label: "結果",
+      sortValue: (r) => (r.gameLog.win ? 1 : 0),
+      render: (r) => <span className={`result-badge ${r.gameLog.win ? "win" : "loss"}`}>{r.gameLog.win ? "W" : "L"}</span>,
+    },
+  ];
+  const statColumns: Column<PlayerGameBoxscoreRow>[] = COLUMNS_BY_TAB[tabKey].map((col: BoxscoreColumn) => ({
+    key: col.key,
+    label: col.label,
+    sortValue: (r) => col.value?.(r.counts, r.ctx) ?? col.format(r.counts, r.ctx),
+    format: (r) => col.format(r.counts, r.ctx),
+  }));
+  return [...fixed, ...statColumns];
+}
 
 type DetailTab = "stats" | "gamelog" | "career" | "highs" | "compare";
 
@@ -294,6 +277,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   const pbpSupported = isPbpSupported(coverage);
+  const shotChartSupported = isShotChartSupported(coverage);
+  const { supported: yahooSeasonSupported } = useYahooPbpCoverage(season);
 
   const [seasonBoxTab, setSeasonBoxTab] = useState<SeasonBoxTabKey>("traditional");
   const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
@@ -303,6 +288,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [careerData, setCareerData] = useState<CareerSeasonLogs[] | null>(null);
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerError, setCareerError] = useState<string | null>(null);
+
+  // 試合ログタブのボックススコア形式表示（試合詳細ページと同じトラディショナル/アドバンスド/
+  // Misc/スコアリング切り替え）。各試合の生データ（PlayByPlays込み）を選手の出場試合数分
+  // フェッチする必要があるため、タブを開いたときだけ遅延取得する（careerと同じ方針）
+  const [gameBoxTab, setGameBoxTab] = useState<BoxscoreTabKey>("traditional");
+  const [gameBoxRows, setGameBoxRows] = useState<PlayerGameBoxscoreRow[] | null>(null);
+  const [gameBoxLoading, setGameBoxLoading] = useState(false);
+  const gameBoxFetchStartedRef = useRef(false);
 
   // careerLoading/careerDataをdeps配列に含めると、setCareerLoading(true)自体がeffectを
   // 再発火させcleanupで直前のfetchをcancelしてしまう（自己キャンセルのループ）。
@@ -314,7 +307,41 @@ export function PlayerDetailPage({ season }: { season: string }) {
     setCareerData(null);
     setCareerError(null);
     careerFetchStartedRef.current = false;
+    setGameBoxRows(null);
+    gameBoxFetchStartedRef.current = false;
   }, [playerId]);
+
+  // シーズン切り替え時も試合ログボックススコアを再取得する必要がある（careerは全シーズン
+  // 横断のため season 変更の影響を受けないが、こちらは選択中シーズンのgameLogsに依存する）
+  useEffect(() => {
+    setGameBoxRows(null);
+    gameBoxFetchStartedRef.current = false;
+  }, [season]);
+
+  useEffect(() => {
+    if (tab !== "gamelog" || !playerId || !gameLogs || gameBoxFetchStartedRef.current) return;
+    gameBoxFetchStartedRef.current = true;
+    setGameBoxLoading(true);
+    Promise.all(
+      gameLogs.map(async (log) => {
+        try {
+          const [game, yahooPbp] = await Promise.all([
+            fetchGame(season, log.scheduleKey),
+            yahooSeasonSupported ? fetchYahooGamePbp(season, log.scheduleKey) : Promise.resolve(null),
+          ]);
+          return buildPlayerGameBoxscoreRow(game, log, playerId, yahooPbp, shotChartSupported);
+        } catch {
+          return null;
+        }
+      }),
+    )
+      .then((results) => {
+        setGameBoxRows(results.filter((r): r is PlayerGameBoxscoreRow => r !== null));
+      })
+      .finally(() => {
+        setGameBoxLoading(false);
+      });
+  }, [tab, playerId, season, gameLogs, yahooSeasonSupported, shotChartSupported]);
 
   useEffect(() => {
     if ((tab !== "career" && tab !== "highs") || !playerId || !seasons || careerFetchStartedRef.current) return;
@@ -683,15 +710,34 @@ export function PlayerDetailPage({ season }: { season: string }) {
         ) : !gameLogs || gameLogs.length === 0 ? (
           <p className="empty-message">試合ログがありません</p>
         ) : (
-          <div className="table-scroll">
-            <SortableTable
-              columns={gameLogColumns}
-              rows={gameLogs}
-              rowKey={(g) => g.scheduleKey}
-              defaultSortKey="date"
-              linkTo={(g) => `/games/${g.scheduleKey}`}
-            />
-          </div>
+          <>
+            <div className="tab-bar">
+              {BOXSCORE_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  className={`tab-button${gameBoxTab === t.key ? " active" : ""}`}
+                  onClick={() => setGameBoxTab(t.key)}
+                  type="button"
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            {gameBoxLoading || !gameBoxRows ? (
+              <p className="loading">読み込み中...</p>
+            ) : (
+              <div className="table-scroll">
+                <SortableTable
+                  key={gameBoxTab}
+                  columns={toGameLogColumns(gameBoxTab)}
+                  rows={gameBoxRows}
+                  rowKey={(r) => r.gameLog.scheduleKey}
+                  defaultSortKey="date"
+                  linkTo={(r) => `/games/${r.gameLog.scheduleKey}`}
+                />
+              </div>
+            )}
+          </>
         ))}
 
       {tab === "career" &&

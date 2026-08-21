@@ -34,16 +34,16 @@ for (const def of [...TEAM_STAT_DEFS, ...PLAYER_STAT_DEFS]) {
   if (!STAT_FORMULA_BY_KEY.has(def.key)) STAT_FORMULA_BY_KEY.set(def.key, def.formulaText);
 }
 
-type BoxscoreTabKey = "traditional" | "advanced" | "misc" | "scoring";
+export type BoxscoreTabKey = "traditional" | "advanced" | "misc" | "scoring";
 
-const BOXSCORE_TABS: { key: BoxscoreTabKey; label: string }[] = [
+export const BOXSCORE_TABS: { key: BoxscoreTabKey; label: string }[] = [
   { key: "traditional", label: "トラディショナル" },
   { key: "advanced", label: "アドバンスド" },
   { key: "misc", label: "Misc" },
   { key: "scoring", label: "スコアリング" },
 ];
 
-interface ColumnCtx {
+export interface ColumnCtx {
   /** %-share・USG%の分母に使うチーム合計（選択中の期間範囲） */
   own: BoxscoreCounts;
   ownPlayType: PlayTypeCounts;
@@ -57,7 +57,7 @@ interface ColumnCtx {
   yahooPbpSupported: boolean;
 }
 
-interface BoxscoreColumn {
+export interface BoxscoreColumn {
   key: string;
   label: string;
   format: (c: BoxscoreCounts, ctx: ColumnCtx) => string;
@@ -439,7 +439,7 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
   },
 ];
 
-const COLUMNS_BY_TAB: Record<BoxscoreTabKey, BoxscoreColumn[]> = {
+export const COLUMNS_BY_TAB: Record<BoxscoreTabKey, BoxscoreColumn[]> = {
   traditional: TRADITIONAL_COLUMNS,
   advanced: ADVANCED_COLUMNS,
   misc: MISC_COLUMNS,
