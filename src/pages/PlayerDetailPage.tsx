@@ -782,7 +782,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     {
       key: "month",
       label: "月別",
-      rows: Array.from({ length: 12 }, (_, i) => i + 1)
+      rows: Array.from({ length: 12 }, (_, i) => ((i + 8) % 12) + 1)
         .filter((m) => situationalStatsMonthsWithData.has(m))
         .map((m) => ({ key: `m${m}`, label: `${m}月`, predicate: (g) => matchesMonth(g, m) })),
     },
