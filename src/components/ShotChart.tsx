@@ -140,26 +140,31 @@ interface ShotChartPanelProps {
   color: string;
   /** チームカラー（data/team-colors.json）。カード左端のアクセント線に使う */
   accentColor?: string;
+  /** 選手選択プルダウンの表示可否。既にshotsが単一選手分に絞られている場合（個人詳細ページの
+   * シーズン集計版等）はfalseで非表示にする。省略時はtrue（試合詳細ページの既存動作） */
+  showPlayerSelector?: boolean;
 }
 
-export function ShotChartPanel({ teamName, players, shots, color, accentColor }: ShotChartPanelProps) {
+export function ShotChartPanel({ teamName, players, shots, color, accentColor, showPlayerSelector = true }: ShotChartPanelProps) {
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
   const [viewMode, setViewMode] = useState<"dots" | "zones">("dots");
   const selectablePlayers = useMemo(() => playersWithShots(players, shots), [players, shots]);
-  const visibleShots = selectedPlayerId ? shots.filter((s) => s.playerId === selectedPlayerId) : shots;
+  const visibleShots = showPlayerSelector && selectedPlayerId ? shots.filter((s) => s.playerId === selectedPlayerId) : shots;
 
   return (
     <div className="shot-chart-panel" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
       <div className="shot-chart-header">
         <h3>{teamName}</h3>
-        <select value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)}>
-          <option value="">チーム全体</option>
-          {selectablePlayers.map((p) => (
-            <option key={p.PlayerID} value={p.PlayerID}>
-              {p.PlayerNameJ}
-            </option>
-          ))}
-        </select>
+        {showPlayerSelector && (
+          <select value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)}>
+            <option value="">チーム全体</option>
+            {selectablePlayers.map((p) => (
+              <option key={p.PlayerID} value={p.PlayerID}>
+                {p.PlayerNameJ}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
       <div className="shot-chart-controls">
         <div className="mode-toggle">

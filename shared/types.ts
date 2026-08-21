@@ -516,7 +516,13 @@ export interface ShotTypeCounts {
   attempted: number;
 }
 
-export type ShotTypeBreakdown = Record<string, ShotTypeCounts>;
+/** シュートタイプ1種類分の2P/3P別成功・試投カウント（同じシュートタイプ名でも2P/3Pどちらもありうる。DESIGN.md参照） */
+export interface ShotTypeSplitCounts {
+  twoPoint: ShotTypeCounts;
+  threePoint: ShotTypeCounts;
+}
+
+export type ShotTypeBreakdown = Record<string, ShotTypeSplitCounts>;
 
 // ---- data/{season}/player-games/{playerId}.json の保存スキーマ（個人詳細ページの試合ログ用） ----
 

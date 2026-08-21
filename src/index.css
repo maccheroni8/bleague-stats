@@ -1101,6 +1101,10 @@ table.quarter-table th {
   margin-bottom: 24px;
 }
 
+.shot-chart-grid-single {
+  grid-template-columns: minmax(0, 480px);
+}
+
 .shot-chart-panel {
   border: 1px solid var(--border);
   border-left-width: 4px;

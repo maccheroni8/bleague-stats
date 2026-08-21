@@ -155,10 +155,14 @@ async function buildShotTypeBreakdownByPlayer(season: string, games: StoredGame[
     for (const shot of pbp.shots) {
       if (!shot.playerId || !shot.shotType) continue;
       const breakdown = byPlayer.get(shot.playerId) ?? {};
-      const counts = breakdown[shot.shotType] ?? { made: 0, attempted: 0 };
+      const split = breakdown[shot.shotType] ?? {
+        twoPoint: { made: 0, attempted: 0 },
+        threePoint: { made: 0, attempted: 0 },
+      };
+      const counts = shot.shotValue === 3 ? split.threePoint : split.twoPoint;
       counts.attempted += 1;
       if (shot.made) counts.made += 1;
-      breakdown[shot.shotType] = counts;
+      breakdown[shot.shotType] = split;
       byPlayer.set(shot.playerId, breakdown);
     }
   }

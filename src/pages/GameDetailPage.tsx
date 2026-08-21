@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useParams } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGame, fetchPlayers, fetchTeamColors, fetchYahooGamePbp } from "../lib/data";
@@ -19,7 +19,7 @@ import { buildShotEvents } from "../lib/shotChart";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { computeOnCourtRatings, reconstructOnCourt, substitutionModelForSeason, type PlayerOnCourtRatings } from "../../shared/onCourt";
 import { playTimeToSeconds } from "../lib/boxscoreAggregate";
-import { buildShotTypeBreakdownByPlayer, formatShotTypeCell, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
+import { buildShotTypeBreakdownByPlayer, formatShotTypeCell, sortShotTypeKeys, sumShotTypeCounts } from "../lib/shotTypeBreakdown";
 
 function periodLabel(index: number, total: number): string {
   if (index < 4) return `${index + 1}Q`;
@@ -538,6 +538,8 @@ export function GameDetailPage({ season }: { season: string }) {
   );
 }
 
+const EMPTY_SHOT_TYPE_COUNTS = { made: 0, attempted: 0 };
+
 function ShootingBreakdownTable({
   teamName,
   players,
@@ -554,22 +556,25 @@ function ShootingBreakdownTable({
   const renderRows = (rows: BoxscoreRow[]) =>
     rows.map((p) => {
       const breakdown = breakdownByPlayer.get(p.PlayerID) ?? {};
-      const total = shotTypeKeys.reduce(
-        (acc, key) => {
-          const c = breakdown[key];
-          return c ? { made: acc.made + c.made, attempted: acc.attempted + c.attempted } : acc;
-        },
-        { made: 0, attempted: 0 },
-      );
+      const totalTwo = shotTypeKeys.reduce((acc, key) => {
+        const c = breakdown[key];
+        return c ? sumShotTypeCounts(acc, c.twoPoint) : acc;
+      }, EMPTY_SHOT_TYPE_COUNTS);
+      const totalThree = shotTypeKeys.reduce((acc, key) => {
+        const c = breakdown[key];
+        return c ? sumShotTypeCounts(acc, c.threePoint) : acc;
+      }, EMPTY_SHOT_TYPE_COUNTS);
       return (
         <tr key={p.PlayerID}>
           <td className="align-left">{p.PlayerNameJ}</td>
           {shotTypeKeys.map((key) => (
-            <td key={key} className="align-right">
-              {formatShotTypeCell(breakdown[key])}
-            </td>
+            <Fragment key={key}>
+              <td className="align-right">{formatShotTypeCell(breakdown[key]?.twoPoint)}</td>
+              <td className="align-right">{formatShotTypeCell(breakdown[key]?.threePoint)}</td>
+            </Fragment>
           ))}
-          <td className="align-right">{formatShotTypeCell(total)}</td>
+          <td className="align-right">{formatShotTypeCell(totalTwo)}</td>
+          <td className="align-right">{formatShotTypeCell(totalThree)}</td>
         </tr>
       );
     });
@@ -585,11 +590,21 @@ function ShootingBreakdownTable({
           <table className="boxscore-table">
             <thead>
               <tr>
-                <th className="align-left">選手</th>
+                <th className="align-left" rowSpan={2}>選手</th>
                 {shotTypeKeys.map((key) => (
-                  <th key={key}>{key}</th>
+                  <th key={key} colSpan={2}>{key}</th>
                 ))}
-                <th>合計</th>
+                <th colSpan={2}>合計</th>
+              </tr>
+              <tr>
+                {shotTypeKeys.map((key) => (
+                  <Fragment key={key}>
+                    <th className="align-right">2P</th>
+                    <th className="align-right">3P</th>
+                  </Fragment>
+                ))}
+                <th className="align-right">2P</th>
+                <th className="align-right">3P</th>
               </tr>
             </thead>
             <tbody>

@@ -33,7 +33,9 @@ import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatSigned } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
-import { formatShotTypeCell, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
+import { formatShotTypeCell, sortShotTypeKeys, sumShotTypeCounts } from "../lib/shotTypeBreakdown";
+import { ShotChartPanel } from "../components/ShotChart";
+import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { safeDiv } from "../../shared/formulas";
 import {
@@ -470,6 +472,15 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [gameBoxLoading, setGameBoxLoading] = useState(false);
   const gameBoxFetchStartedRef = useRef(false);
 
+  // シーズン集計ショットチャート: 選手の出場試合数分の生データ（PlayByPlays込み）を
+  // フェッチする必要があるため、試合ログタブと同じ方針で「ユーザーが表示を求めたときだけ」
+  // 遅延取得する（「スタッツ」タブはデフォルトタブのため、ここだけ自動取得にすると
+  // ページを開くたびに毎回重い取得が走ってしまう）
+  const [seasonShotChartExpanded, setSeasonShotChartExpanded] = useState(false);
+  const [seasonShotEvents, setSeasonShotEvents] = useState<ShotEvent[] | null>(null);
+  const [seasonShotChartLoading, setSeasonShotChartLoading] = useState(false);
+  const seasonShotChartFetchStartedRef = useRef(false);
+
   // 比較タブ: 2スロット分の{シーズン, シチュエーション別フィルタ}。スロット1は現在選択中の
   // シーズン・シーズン全体、スロット2は未選択（ユーザーが選ぶ）がデフォルト
   const [compareSlots, setCompareSlots] = useState<[CompareSlotState, CompareSlotState]>(() =>
@@ -496,6 +507,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
     careerFetchStartedRef.current = false;
     setGameBoxRows(null);
     gameBoxFetchStartedRef.current = false;
+    setSeasonShotChartExpanded(false);
+    setSeasonShotEvents(null);
+    seasonShotChartFetchStartedRef.current = false;
     setCompareSlots(defaultCompareSlots(season));
     setSituationalStatsSeason(season);
     // 選手が変わった時だけリセットする（season変更では比較タブ・シチュエーション別成績の
@@ -509,7 +523,45 @@ export function PlayerDetailPage({ season }: { season: string }) {
   useEffect(() => {
     setGameBoxRows(null);
     gameBoxFetchStartedRef.current = false;
+    setSeasonShotChartExpanded(false);
+    setSeasonShotEvents(null);
+    seasonShotChartFetchStartedRef.current = false;
   }, [season]);
+
+  // 「シーズン成績」のレギュラー/プレーオフ/合算トグル（gameTypeFilter、直上のボックススコアと
+  // 同じstateを共有）が変わったら取り直す。上のYahoo由来シュートタイプ表はレギュラーシーズン
+  // 固定（バックエンド集計）だが、こちらは生PBPからその場集計するため同じトグルに追従できる
+  useEffect(() => {
+    setSeasonShotEvents(null);
+    seasonShotChartFetchStartedRef.current = false;
+  }, [gameTypeFilter]);
+
+  useEffect(() => {
+    if (
+      !seasonShotChartExpanded ||
+      !playerId ||
+      !gameLogs ||
+      !shotChartSupported ||
+      seasonShotChartFetchStartedRef.current
+    )
+      return;
+    seasonShotChartFetchStartedRef.current = true;
+    setSeasonShotChartLoading(true);
+    Promise.all(
+      filterByGameType(gameLogs, gameTypeFilter)
+        .filter((log) => log.min > 0)
+        .map(async (log) => {
+          try {
+            const game = await fetchGame(season, log.scheduleKey);
+            return buildShotEvents(game.raw.PlayByPlays).filter((s) => s.playerId === playerId);
+          } catch {
+            return [];
+          }
+        }),
+    )
+      .then((results) => setSeasonShotEvents(results.flat()))
+      .finally(() => setSeasonShotChartLoading(false));
+  }, [seasonShotChartExpanded, playerId, season, gameLogs, shotChartSupported, gameTypeFilter]);
 
   useEffect(() => {
     if (tab !== "gamelog" || !playerId || !gameLogs || gameBoxFetchStartedRef.current) return;
@@ -1119,25 +1171,51 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 <table className="stats-table">
                   <thead>
                     <tr>
+                      <th rowSpan={2} />
                       {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
-                        <th key={key} className="align-right">
+                        <th key={key} className="align-right" colSpan={2}>
                           {key}
                         </th>
                       ))}
-                      <th className="align-right">合計</th>
+                      <th className="align-right" colSpan={2}>
+                        合計
+                      </th>
+                    </tr>
+                    <tr>
+                      {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
+                        <Fragment key={key}>
+                          <th className="align-right">2P</th>
+                          <th className="align-right">3P</th>
+                        </Fragment>
+                      ))}
+                      <th className="align-right">2P</th>
+                      <th className="align-right">3P</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => (
-                        <td key={key} className="align-right">
-                          {formatShotTypeCell(player.shotTypes![key])}
-                        </td>
-                      ))}
+                      <td className="align-left">シーズン合計</td>
+                      {sortShotTypeKeys(Object.keys(player.shotTypes)).map((key) => {
+                        const split = player.shotTypes![key]!;
+                        return (
+                          <Fragment key={key}>
+                            <td className="align-right">{formatShotTypeCell(split.twoPoint)}</td>
+                            <td className="align-right">{formatShotTypeCell(split.threePoint)}</td>
+                          </Fragment>
+                        );
+                      })}
                       <td className="align-right">
                         {formatShotTypeCell(
                           Object.values(player.shotTypes).reduce(
-                            (acc, c) => ({ made: acc.made + c.made, attempted: acc.attempted + c.attempted }),
+                            (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
+                            { made: 0, attempted: 0 },
+                          ),
+                        )}
+                      </td>
+                      <td className="align-right">
+                        {formatShotTypeCell(
+                          Object.values(player.shotTypes).reduce(
+                            (acc, c) => sumShotTypeCounts(acc, c.threePoint),
                             { made: 0, attempted: 0 },
                           ),
                         )}
@@ -1148,6 +1226,33 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </div>
               <p className="page-subtitle">
                 Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（シーズン合計、2023-24シーズン以降・レギュラーシーズンのみ。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意
+              </p>
+            </>
+          )}
+
+          <h2>シーズン合計ショットチャート</h2>
+          {!shotChartSupported ? (
+            <p className="empty-message">このシーズンのデータには対応していません</p>
+          ) : !seasonShotChartExpanded ? (
+            <button type="button" onClick={() => setSeasonShotChartExpanded(true)}>
+              ショットチャートを表示
+            </button>
+          ) : seasonShotChartLoading || !seasonShotEvents ? (
+            <p className="loading">読み込み中...</p>
+          ) : (
+            <>
+              <div className="shot-chart-grid shot-chart-grid-single">
+                <ShotChartPanel
+                  teamName={player.name}
+                  players={[]}
+                  shots={seasonShotEvents}
+                  color={accentColor ?? "var(--accent)"}
+                  accentColor={accentColor}
+                  showPlayerSelector={false}
+                />
+              </div>
+              <p className="page-subtitle">
+                選手が出場した各試合の生データ（GeniusAPI由来のショット座標）をシーズン合計したもの。試合詳細ページのショットチャートと同じ形式で、個別ショット/エリア別成功率を切り替えられる（2022-23シーズン以降のみ対応。DESIGN.md参照）。上の「シーズン成績」のレギュラー/プレーオフ/合算トグルに連動する
               </p>
             </>
           )}
