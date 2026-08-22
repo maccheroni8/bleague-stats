@@ -198,6 +198,24 @@ h2 {
   margin: 0;
 }
 
+.team-header-columns {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.team-header-info {
+  flex: 1 1 280px;
+  min-width: 240px;
+}
+
+.team-header-radar {
+  flex: 1 1 320px;
+  min-width: 280px;
+}
+
 .honors-groups {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -882,6 +900,11 @@ table.sortable-table td.row-accent-cell {
 
 .scoreboard-date:hover {
   text-decoration: underline;
+}
+
+.scoreboard-attendance {
+  margin-top: 4px;
+  font-size: 11px;
 }
 
 table.quarter-table {

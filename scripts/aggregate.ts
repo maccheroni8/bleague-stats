@@ -529,6 +529,7 @@ function buildStatBlock(totals: StatTotals, seasonStartYear: number) {
       fgPct: safeDiv(totals.fgm, totals.fga),
       tpPct: safeDiv(totals.tpm, totals.tpa),
       ftPct: safeDiv(totals.ftm, totals.fta),
+      pt2Pct: safeDiv(totals.fgm - totals.tpm, totals.fga - totals.tpa),
       efgPct: efgPct(totals.fgm, totals.tpm, totals.fga),
       tsPct: tsPct(totals.pts, totals.fga, totals.fta),
       ftRate: ftRate(totals.fta, totals.fga),
@@ -836,6 +837,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
           benchPointsPerGame: safeDiv(t.totals.benchPoints, ownStats.gamesPlayed),
         },
         opponentPerGame: oppStats.perGame,
+        opponentShooting: oppStats.shooting,
         netPerGame: Object.fromEntries(
           Object.entries(ownStats.perGame).map(([key, value]) => [
             key,
@@ -1172,6 +1174,7 @@ function buildGameSummaries(games: StoredGame[]): GameSummary[] {
       gameEndedFlg: g.gameEndedFlg,
       gameType: classifyGameType(g.raw.Game.ConventionNameJ),
       venue: g.raw.Game.StadiumNameJ || undefined,
+      attendance: g.raw.Game.Attendance ?? undefined,
     }))
     .sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
 }

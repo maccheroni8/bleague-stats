@@ -59,7 +59,9 @@ interface RadarStatDef {
   higherIsBetter: boolean;
 }
 
-// 他クラブ比較レーダーチャート用の8項目。多すぎると見づらいため主要項目のみに絞る
+// ヘッダーのレーダーチャート用の8項目。多すぎると見づらいため主要項目のみに絞る。
+// Phase TA時点では項目が未定のため、既存の「他クラブ比較」用に組んでいたこの配列を
+// そのまま流用している（差し替えは配列の中身を変えるだけで済む）
 const RADAR_STAT_DEFS: RadarStatDef[] = [
   { key: "pts", label: "PTS", value: (t) => t.perGame.pts, format: (t) => formatDecimal(t.perGame.pts), higherIsBetter: true },
   { key: "reb", label: "REB", value: (t) => t.perGame.reb, format: (t) => formatDecimal(t.perGame.reb), higherIsBetter: true },
@@ -110,6 +112,55 @@ function buildRadarData(team: TeamSummary, allTeams: TeamSummary[]): RadarDataPo
     return { key: def.key, label: def.label, percentile, rank, total, actualValue: def.format(team) };
   });
 }
+
+interface TeamHeaderStatDef {
+  key: string;
+  label: string;
+  format: (t: TeamSummary) => string;
+}
+
+// ヘッダーのスタッツタイル（4段）。1段目=自チームのオフェンス基本+ペース/ORtg、
+// 2段目=得失点・シュート効率+NetRtg、3段目=相手（opp）のオフェンス基本+DRtg、
+// 4段目=相手（opp）のシュート効率。シーズン合計（フィルタなし）固定で表示する
+const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
+  [
+    { key: "pts", label: "得点", format: (t) => formatDecimal(t.perGame.pts) },
+    { key: "reb", label: "リバウンド", format: (t) => formatDecimal(t.perGame.reb) },
+    { key: "ast", label: "アシスト", format: (t) => formatDecimal(t.perGame.ast) },
+    { key: "stl", label: "スティール", format: (t) => formatDecimal(t.perGame.stl) },
+    { key: "blk", label: "ブロック", format: (t) => formatDecimal(t.perGame.blk) },
+    { key: "tov", label: "ターンオーバー", format: (t) => formatDecimal(t.perGame.tov) },
+    { key: "pace", label: "PACE", format: (t) => formatDecimal(t.advanced.pace) },
+    { key: "offRtg", label: "ORtg", format: (t) => formatDecimal(t.advanced.offRtg) },
+  ],
+  [
+    { key: "netPts", label: "得失点", format: (t) => formatSigned(t.netPerGame.pts) },
+    { key: "fgPct", label: "FG%", format: (t) => formatPct(t.shooting.fgPct) },
+    { key: "tpPct", label: "3P%", format: (t) => formatPct(t.shooting.tpPct) },
+    { key: "pt2Pct", label: "2P%", format: (t) => formatPct(t.shooting.pt2Pct) },
+    { key: "ftPct", label: "FT%", format: (t) => formatPct(t.shooting.ftPct) },
+    { key: "efgPct", label: "eFG%", format: (t) => formatPct(t.shooting.efgPct) },
+    { key: "tsPct", label: "TS%", format: (t) => formatPct(t.shooting.tsPct) },
+    { key: "netRtg", label: "NetRtg", format: (t) => formatSigned(t.advanced.netRtg) },
+  ],
+  [
+    { key: "oppPts", label: "失点", format: (t) => formatDecimal(t.opponentPerGame.pts) },
+    { key: "oppReb", label: "oppリバウンド", format: (t) => formatDecimal(t.opponentPerGame.reb) },
+    { key: "oppAst", label: "oppアシスト", format: (t) => formatDecimal(t.opponentPerGame.ast) },
+    { key: "oppStl", label: "oppスティール", format: (t) => formatDecimal(t.opponentPerGame.stl) },
+    { key: "oppBlk", label: "oppブロック", format: (t) => formatDecimal(t.opponentPerGame.blk) },
+    { key: "oppTov", label: "oppターンオーバー", format: (t) => formatDecimal(t.opponentPerGame.tov) },
+    { key: "defRtg", label: "DRtg", format: (t) => formatDecimal(t.advanced.defRtg) },
+  ],
+  [
+    { key: "oppFgPct", label: "opp FG%", format: (t) => formatPct(t.opponentShooting.fgPct) },
+    { key: "oppTpPct", label: "opp 3P%", format: (t) => formatPct(t.opponentShooting.tpPct) },
+    { key: "oppPt2Pct", label: "opp 2P%", format: (t) => formatPct(t.opponentShooting.pt2Pct) },
+    { key: "oppFtPct", label: "opp FT%", format: (t) => formatPct(t.opponentShooting.ftPct) },
+    { key: "oppEfgPct", label: "opp eFG%", format: (t) => formatPct(t.opponentShooting.efgPct) },
+    { key: "oppTsPct", label: "opp TS%", format: (t) => formatPct(t.opponentShooting.tsPct) },
+  ],
+];
 
 type PlayerStatMode = "basic" | "advanced";
 
@@ -365,6 +416,76 @@ export function TeamDetailPage({ season }: { season: string }) {
         </div>
       </div>
 
+      <div className="team-header-columns">
+        <div className="team-header-info">
+          <div className="stat-grid">
+            <StatTile label="試合数" value={String(team.gamesPlayed)} />
+            <StatTile label="勝敗" value={formatRecord(team.wins, team.losses)} />
+            <StatTile label="勝率" value={formatPct(winPct)} />
+          </div>
+          {honors.length > 0 && (
+            <div className="honors-groups">
+              {HONOR_CATEGORY_ORDER.map((category) => {
+                const items = honors.filter((h) => h.category === category);
+                if (items.length === 0) return null;
+                return (
+                  <div className="honors-group" key={category}>
+                    <h3>{HONOR_CATEGORY_LABELS[category]}</h3>
+                    <ul>
+                      {items.map((h, i) => (
+                        <li key={`${h.season}-${h.competition}-${i}`} className="honor-item">
+                          <span className="honor-season">{h.season}</span>
+                          {h.competition}
+                          {h.note && <span className="honor-note">（{h.note}）</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="team-header-radar">
+          {radarData.length === 0 ? (
+            <p className="empty-message">比較対象のチームがありません</p>
+          ) : (
+            <div className="radar-chart-wrapper">
+              <ResponsiveContainer width="100%" height={280}>
+                <RadarChart data={radarData} outerRadius="72%">
+                  <PolarGrid stroke="var(--border)" />
+                  <PolarAngleAxis dataKey="label" tick={{ fill: "var(--muted)", fontSize: 12 }} />
+                  <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                  <Radar
+                    name={team.teamName}
+                    dataKey="percentile"
+                    stroke={accentColor ?? "var(--accent)"}
+                    fill={accentColor ?? "var(--accent)"}
+                    fillOpacity={0.35}
+                  />
+                  <RechartsTooltip
+                    formatter={(_value: number, _name, props: { payload?: RadarDataPoint }) => {
+                      const point = props.payload;
+                      return point ? [`${point.rank}位/${point.total}（${point.actualValue}）`, point.label] : ["", ""];
+                    }}
+                    contentStyle={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--fg)" }}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {TEAM_HEADER_STAT_ROWS.map((row, i) => (
+        <div className="stat-grid" key={i}>
+          {row.map((def) => (
+            <StatTile key={def.key} label={def.label} value={def.format(team)} />
+          ))}
+        </div>
+      ))}
+
       <div className="tab-bar">
         {(Object.keys(TAB_LABELS) as DetailTab[]).map((t) => (
           <button key={t} className={`tab-button${tab === t ? " active" : ""}`} onClick={() => setTab(t)} type="button">
@@ -375,54 +496,6 @@ export function TeamDetailPage({ season }: { season: string }) {
 
       {tab === "overview" && (
         <>
-          <h2>戦績</h2>
-          <div className="stat-grid">
-            <StatTile label="試合数" value={String(team.gamesPlayed)} />
-            <StatTile label="勝敗" value={formatRecord(team.wins, team.losses)} />
-            <StatTile label="勝率" value={formatPct(winPct)} />
-          </div>
-
-          <h2>他クラブ比較</h2>
-          {radarData.length === 0 ? (
-            <p className="empty-message">比較対象のチームがありません</p>
-          ) : (
-            <div className="radar-section">
-              <div className="radar-chart-wrapper">
-                <ResponsiveContainer width="100%" height={280}>
-                  <RadarChart data={radarData} outerRadius="72%">
-                    <PolarGrid stroke="var(--border)" />
-                    <PolarAngleAxis dataKey="label" tick={{ fill: "var(--muted)", fontSize: 12 }} />
-                    <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                    <Radar
-                      name={team.teamName}
-                      dataKey="percentile"
-                      stroke={accentColor ?? "var(--accent)"}
-                      fill={accentColor ?? "var(--accent)"}
-                      fillOpacity={0.35}
-                    />
-                    <RechartsTooltip
-                      formatter={(_value: number, _name, props: { payload?: RadarDataPoint }) => {
-                        const point = props.payload;
-                        return point ? [`${point.rank}位/${point.total}（${point.actualValue}）`, point.label] : ["", ""];
-                      }}
-                      contentStyle={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--fg)" }}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="radar-rank-list">
-                {radarData.map((d) => (
-                  <div className="radar-rank-item" key={d.key}>
-                    <span className="radar-rank-label">{d.label}</span>
-                    <span className="radar-rank-value">
-                      {d.rank}位/{d.total}（{d.actualValue}）
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           <h2>シーズン別成績</h2>
           {nameHistory.length > 1 && (
             <p className="page-subtitle">
@@ -488,32 +561,6 @@ export function TeamDetailPage({ season }: { season: string }) {
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
-
-          <h2>獲得タイトル</h2>
-          {honors.length === 0 ? (
-            <p className="empty-message">獲得タイトルの記録がありません</p>
-          ) : (
-            <div className="honors-groups">
-              {HONOR_CATEGORY_ORDER.map((category) => {
-                const items = honors.filter((h) => h.category === category);
-                if (items.length === 0) return null;
-                return (
-                  <div className="honors-group" key={category}>
-                    <h3>{HONOR_CATEGORY_LABELS[category]}</h3>
-                    <ul>
-                      {items.map((h, i) => (
-                        <li key={`${h.season}-${h.competition}-${i}`} className="honor-item">
-                          <span className="honor-season">{h.season}</span>
-                          {h.competition}
-                          {h.note && <span className="honor-note">（{h.note}）</span>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
             </div>
           )}
 

@@ -316,6 +316,12 @@ export interface GameSummary {
   gameEndedFlg: boolean;
   gameType: GameType;
   venue?: string;
+  /**
+   * 来場者数（生データのGame.Attendanceをそのまま転記）。試合単位で持たせておき、
+   * チーム詳細ページの通算成績（Phase TF予定）で合算できるようにする土台。
+   * Attendanceがnullの試合（データ欠損）はフィールド自体を省略する
+   */
+  attendance?: number;
 }
 
 // ---- data/{season}/teams.json・players.json の保存スキーマ（aggregate.tsの集計結果） ----
@@ -370,6 +376,8 @@ export interface ShootingStats {
   fgPct: number;
   tpPct: number;
   ftPct: number;
+  /** 2P%。(FGM-3PM)/(FGA-3PA)。他の%系フィールドと同じくtotalsから直接算出できる派生値 */
+  pt2Pct: number;
   efgPct: number;
   tsPct: number;
   ftRate: number;
@@ -455,6 +463,8 @@ export interface TeamSummary {
   advanced: TeamAdvancedStats;
   opponentPerGame: PerGameStats;
   netPerGame: PerGameStats;
+  /** 相手チームがこのチームとの試合で記録したシュート成功率（＝被シュート成功率）。DESIGN.md参照 */
+  opponentShooting: ShootingStats;
   /**
    * 相手に強制したターンオーバーの種類別カウント（Yahoo!スポーツplay-by-play由来。DESIGN.md参照）。
    * Yahoo PBPデータが1試合も取得できていないシーズンではフィールド自体を省略する
