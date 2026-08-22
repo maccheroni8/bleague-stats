@@ -7,9 +7,21 @@ interface Props {
   seasonHalfBoundary?: SeasonHalfBoundary | null;
   /** 「対勝率別」ボタンの表示可否（対戦相手の勝率算出にシーズン全体の試合日程が必要なため） */
   opponentWinRateSupported?: boolean;
+  /**
+   * 末尾の「レギュラーシーズンのみ/レギュラー+ポストシーズン」トグルを非表示にする。
+   * 呼び出し側が別途レギュラー/プレーオフ/合算の3値トグル（SeasonGameTypeFilter）を
+   * 持ち、そちらに一本化したい場合に指定する（個人詳細ページの比較タブ参照）
+   */
+  hideGameTypeToggle?: boolean;
 }
 
-export function SituationalFilterPicker({ filter, onChange, seasonHalfBoundary, opponentWinRateSupported }: Props) {
+export function SituationalFilterPicker({
+  filter,
+  onChange,
+  seasonHalfBoundary,
+  opponentWinRateSupported,
+  hideGameTypeToggle,
+}: Props) {
   const dateRange = filter.kind === "dateRange" ? filter : { start: "", end: "" };
   const includePlayoffs = filter.includePlayoffs ?? false;
   // kind側の切り替えではincludePlayoffsの選択を維持する
@@ -165,14 +177,16 @@ export function SituationalFilterPicker({ filter, onChange, seasonHalfBoundary, 
           </button>
         </div>
       )}
-      <div className="mode-toggle">
-        <button className={!includePlayoffs ? "active" : ""} onClick={() => onChange({ ...filter, includePlayoffs: false })}>
-          レギュラーシーズンのみ
-        </button>
-        <button className={includePlayoffs ? "active" : ""} onClick={() => onChange({ ...filter, includePlayoffs: true })}>
-          レギュラー+ポストシーズン
-        </button>
-      </div>
+      {!hideGameTypeToggle && (
+        <div className="mode-toggle">
+          <button className={!includePlayoffs ? "active" : ""} onClick={() => onChange({ ...filter, includePlayoffs: false })}>
+            レギュラーシーズンのみ
+          </button>
+          <button className={includePlayoffs ? "active" : ""} onClick={() => onChange({ ...filter, includePlayoffs: true })}>
+            レギュラー+ポストシーズン
+          </button>
+        </div>
+      )}
     </div>
   );
 }

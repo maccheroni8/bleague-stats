@@ -717,13 +717,6 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
   },
   { key: "pts", label: "PTS", format: (c, mode) => formatDecimal(c.scaled.pts, countDigits(mode)), value: (c) => c.scaled.pts, description: "得点" },
   {
-    key: "eff",
-    label: "EFF",
-    format: (c, mode) => formatDecimal(scaledEff(c, mode), countDigits(mode)),
-    value: (c, mode) => scaledEff(c, mode),
-    description: "Bリーグ公式の総合貢献度指標",
-  },
-  {
     key: "usg",
     label: "USG%",
     format: (c) => formatPct100(usgPctOf(c)),
