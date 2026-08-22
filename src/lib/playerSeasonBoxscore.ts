@@ -300,6 +300,12 @@ export function seasonTotalEff(raw: PlayerSeasonRawTotals, seasonStartYear: numb
   return effFormula(seasonStartYear, effTotalsOf(raw), 1);
 }
 
+/** 合計モードでは小数第一位を四捨五入して整数表示にする（%が付く比率系スタッツはformatPct/
+ * formatPct100を使うため対象外。平均モードは従来通り小数第一位のまま） */
+export function countDigits(mode: SeasonDisplayMode): number {
+  return mode === "total" ? 0 : 1;
+}
+
 const NA = "-";
 /** ショットチャート座標（X/Y/AreaCD）が存在する最初のシーズン開始年。scripts/lib/seasonCoverage.tsの
  * 判定基準（startYear >= 2022 で"full"）と一致させる */
@@ -316,23 +322,33 @@ export interface SeasonBoxscoreColumn {
 export const SEASON_TRADITIONAL_COLUMNS: SeasonBoxscoreColumn[] = [
   { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), description: "試合数" },
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(Math.round(c.scaled.min * 60)), description: "出場時間" },
-  { key: "pts", label: "PTS", format: (c) => formatDecimal(c.scaled.pts), description: "得点" },
-  { key: "fgm", label: "FGM", format: (c) => formatDecimal(c.scaled.fgm), description: "フィールドゴール成功数" },
-  { key: "fga", label: "FGA", format: (c) => formatDecimal(c.scaled.fga), description: "フィールドゴール試投数" },
+  { key: "pts", label: "PTS", format: (c, mode) => formatDecimal(c.scaled.pts, countDigits(mode)), description: "得点" },
+  { key: "fgm", label: "FGM", format: (c, mode) => formatDecimal(c.scaled.fgm, countDigits(mode)), description: "フィールドゴール成功数" },
+  { key: "fga", label: "FGA", format: (c, mode) => formatDecimal(c.scaled.fga, countDigits(mode)), description: "フィールドゴール試投数" },
   { key: "fgpct", label: "FG%", format: (c) => formatPct(safeDiv(c.raw.fgm, c.raw.fga)), description: "FGM / FGA" },
-  { key: "2pm", label: "2PM", format: (c) => formatDecimal(c.scaled.fgm - c.scaled.tpm), description: "2P成功数" },
-  { key: "2pa", label: "2PA", format: (c) => formatDecimal(c.scaled.fga - c.scaled.tpa), description: "2P試投数" },
+  {
+    key: "2pm",
+    label: "2PM",
+    format: (c, mode) => formatDecimal(c.scaled.fgm - c.scaled.tpm, countDigits(mode)),
+    description: "2P成功数",
+  },
+  {
+    key: "2pa",
+    label: "2PA",
+    format: (c, mode) => formatDecimal(c.scaled.fga - c.scaled.tpa, countDigits(mode)),
+    description: "2P試投数",
+  },
   {
     key: "2ppct",
     label: "2P%",
     format: (c) => formatPct(safeDiv(c.raw.fgm - c.raw.tpm, c.raw.fga - c.raw.tpa)),
     description: "2PM / 2PA",
   },
-  { key: "3pm", label: "3PM", format: (c) => formatDecimal(c.scaled.tpm), description: "3P成功数" },
-  { key: "3pa", label: "3PA", format: (c) => formatDecimal(c.scaled.tpa), description: "3P試投数" },
+  { key: "3pm", label: "3PM", format: (c, mode) => formatDecimal(c.scaled.tpm, countDigits(mode)), description: "3P成功数" },
+  { key: "3pa", label: "3PA", format: (c, mode) => formatDecimal(c.scaled.tpa, countDigits(mode)), description: "3P試投数" },
   { key: "3ppct", label: "3P%", format: (c) => formatPct(safeDiv(c.raw.tpm, c.raw.tpa)), description: "3PM / 3PA" },
-  { key: "ftm", label: "FTM", format: (c) => formatDecimal(c.scaled.ftm), description: "フリースロー成功数" },
-  { key: "fta", label: "FTA", format: (c) => formatDecimal(c.scaled.fta), description: "フリースロー試投数" },
+  { key: "ftm", label: "FTM", format: (c, mode) => formatDecimal(c.scaled.ftm, countDigits(mode)), description: "フリースロー成功数" },
+  { key: "fta", label: "FTA", format: (c, mode) => formatDecimal(c.scaled.fta, countDigits(mode)), description: "フリースロー試投数" },
   { key: "ftpct", label: "FT%", format: (c) => formatPct(safeDiv(c.raw.ftm, c.raw.fta)), description: "FTM / FTA" },
   {
     key: "efg",
@@ -341,31 +357,54 @@ export const SEASON_TRADITIONAL_COLUMNS: SeasonBoxscoreColumn[] = [
     description: "(FGM + 0.5×3PM) / FGA",
   },
   { key: "ts", label: "TS%", format: (c) => formatPct(tsPct(c.raw.pts, c.raw.fga, c.raw.fta)), description: "PTS / (2 × (FGA + 0.44×FTA))" },
-  { key: "or", label: "OR", format: (c) => formatDecimal(c.scaled.oreb), description: "オフェンスリバウンド" },
-  { key: "dr", label: "DR", format: (c) => formatDecimal(c.scaled.dreb), description: "ディフェンスリバウンド" },
-  { key: "tr", label: "TR", format: (c) => formatDecimal(c.scaled.reb), description: "OREB + DREB" },
-  { key: "ast", label: "AST", format: (c) => formatDecimal(c.scaled.ast), description: "アシスト" },
-  { key: "tov", label: "TOV", format: (c) => formatDecimal(c.scaled.tov), higherIsBetter: false, description: "ターンオーバー" },
+  { key: "or", label: "OR", format: (c, mode) => formatDecimal(c.scaled.oreb, countDigits(mode)), description: "オフェンスリバウンド" },
+  { key: "dr", label: "DR", format: (c, mode) => formatDecimal(c.scaled.dreb, countDigits(mode)), description: "ディフェンスリバウンド" },
+  { key: "tr", label: "TR", format: (c, mode) => formatDecimal(c.scaled.reb, countDigits(mode)), description: "OREB + DREB" },
+  { key: "ast", label: "AST", format: (c, mode) => formatDecimal(c.scaled.ast, countDigits(mode)), description: "アシスト" },
+  {
+    key: "tov",
+    label: "TOV",
+    format: (c, mode) => formatDecimal(c.scaled.tov, countDigits(mode)),
+    higherIsBetter: false,
+    description: "ターンオーバー",
+  },
   {
     key: "asttov",
     label: "AST/TOV",
     format: (c) => formatAstToRatio(c.raw.ast, c.raw.tov),
     description: "AST / TOV（TOV=0の場合はAST数をそのまま比率として使う）",
   },
-  { key: "stl", label: "STL", format: (c) => formatDecimal(c.scaled.stl), description: "スティール" },
-  { key: "blk", label: "BLK", format: (c) => formatDecimal(c.scaled.blk), description: "ブロック" },
-  { key: "bsr", label: "BSR", format: (c) => formatDecimal(c.scaled.blockedAgainst), higherIsBetter: false, description: "被ブロック数" },
-  { key: "f", label: "F", format: (c) => formatDecimal(c.scaled.pf), higherIsBetter: false, description: "ファウル数" },
-  { key: "fd", label: "FD", format: (c) => formatDecimal(c.scaled.foulsDrawn), description: "被ファウル数（ファウルを誘発した回数）" },
-  { key: "eff", label: "EFF", format: (c, mode) => formatDecimal(scaledEff(c, mode)), description: "Bリーグ公式の総合貢献度指標" },
-  { key: "plusminus", label: "+/-", format: (c) => formatSigned(c.scaled.plusMinus), description: "プラスマイナス" },
+  { key: "stl", label: "STL", format: (c, mode) => formatDecimal(c.scaled.stl, countDigits(mode)), description: "スティール" },
+  { key: "blk", label: "BLK", format: (c, mode) => formatDecimal(c.scaled.blk, countDigits(mode)), description: "ブロック" },
+  {
+    key: "bsr",
+    label: "BSR",
+    format: (c, mode) => formatDecimal(c.scaled.blockedAgainst, countDigits(mode)),
+    higherIsBetter: false,
+    description: "被ブロック数",
+  },
+  {
+    key: "f",
+    label: "F",
+    format: (c, mode) => formatDecimal(c.scaled.pf, countDigits(mode)),
+    higherIsBetter: false,
+    description: "ファウル数",
+  },
+  {
+    key: "fd",
+    label: "FD",
+    format: (c, mode) => formatDecimal(c.scaled.foulsDrawn, countDigits(mode)),
+    description: "被ファウル数（ファウルを誘発した回数）",
+  },
+  { key: "eff", label: "EFF", format: (c, mode) => formatDecimal(scaledEff(c, mode), countDigits(mode)), description: "Bリーグ公式の総合貢献度指標" },
+  { key: "plusminus", label: "+/-", format: (c, mode) => formatSigned(c.scaled.plusMinus, countDigits(mode)), description: "プラスマイナス" },
 ];
 
 export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
   { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), description: "試合数" },
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(Math.round(c.scaled.min * 60)), description: "出場時間" },
-  { key: "pts", label: "PTS", format: (c) => formatDecimal(c.scaled.pts), description: "得点" },
-  { key: "eff", label: "EFF", format: (c, mode) => formatDecimal(scaledEff(c, mode)), description: "Bリーグ公式の総合貢献度指標" },
+  { key: "pts", label: "PTS", format: (c, mode) => formatDecimal(c.scaled.pts, countDigits(mode)), description: "得点" },
+  { key: "eff", label: "EFF", format: (c, mode) => formatDecimal(scaledEff(c, mode), countDigits(mode)), description: "Bリーグ公式の総合貢献度指標" },
   {
     key: "usg",
     label: "USG%",
@@ -424,39 +463,74 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
     format: () => NA,
     description: "ORtg − DRtg。ORtg/DRtgがシーズン集計では非対応のため同様に非対応",
   },
-  { key: "plusminus", label: "+/-", format: (c) => formatSigned(c.scaled.plusMinus), description: "プラスマイナス" },
+  { key: "plusminus", label: "+/-", format: (c, mode) => formatSigned(c.scaled.plusMinus, countDigits(mode)), description: "プラスマイナス" },
 ];
 
 export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
   { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), description: "試合数" },
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(Math.round(c.scaled.min * 60)), description: "出場時間" },
-  { key: "pts", label: "PTS", format: (c) => formatDecimal(c.scaled.pts), description: "得点" },
-  { key: "pitp", label: "PITP", format: (c) => formatDecimal(c.scaled.pt2in), description: "ペイント内での得点（Points in the Paint）" },
-  { key: "fbps", label: "FBPS", format: (c) => formatDecimal(c.scaled.ptfb), description: "ファストブレイクによる得点（Fastbreak Points）" },
-  { key: "2ndpts", label: "2ND PTS", format: (c) => formatDecimal(c.scaled.pt2nd), description: "セカンドチャンスによる得点" },
+  { key: "pts", label: "PTS", format: (c, mode) => formatDecimal(c.scaled.pts, countDigits(mode)), description: "得点" },
+  {
+    key: "pitp",
+    label: "PITP",
+    format: (c, mode) => formatDecimal(c.scaled.pt2in, countDigits(mode)),
+    description: "ペイント内での得点（Points in the Paint）",
+  },
+  {
+    key: "fbps",
+    label: "FBPS",
+    format: (c, mode) => formatDecimal(c.scaled.ptfb, countDigits(mode)),
+    description: "ファストブレイクによる得点（Fastbreak Points）",
+  },
+  {
+    key: "2ndpts",
+    label: "2ND PTS",
+    format: (c, mode) => formatDecimal(c.scaled.pt2nd, countDigits(mode)),
+    description: "セカンドチャンスによる得点",
+  },
   {
     key: "ptsofftov",
     label: "PTSOFFTO",
-    format: (c) => formatDecimal(c.scaled.ptsOffTov),
+    format: (c, mode) => formatDecimal(c.scaled.ptsOffTov, countDigits(mode)),
     description: "ターンオーバーからの得点（PlayTextの公式判定タグ集計。2016-17シーズンはタグ自体が存在せず常に0）",
   },
-  { key: "dunk", label: "DUNK", format: (c) => formatDecimal(c.scaled.dunks), description: "ダンク成功数" },
-  { key: "and1", label: "AND1", format: (c) => formatDecimal(c.scaled.basketCounts), description: "バスケットカウント（アンドワン）数" },
+  { key: "dunk", label: "DUNK", format: (c, mode) => formatDecimal(c.scaled.dunks, countDigits(mode)), description: "ダンク成功数" },
+  {
+    key: "and1",
+    label: "AND1",
+    format: (c, mode) => formatDecimal(c.scaled.basketCounts, countDigits(mode)),
+    description: "バスケットカウント（アンドワン）数",
+  },
   {
     key: "ufoul",
     label: "UFOUL",
-    format: (c) => formatDecimal(c.scaled.unsportsmanlikeFouls),
+    format: (c, mode) => formatDecimal(c.scaled.unsportsmanlikeFouls, countDigits(mode)),
     description: "アンスポーツマンファウル数",
   },
   {
     key: "dqfoul",
     label: "DQFOUL",
-    format: (c) => formatDecimal(c.scaled.disqualifyingFouls),
+    format: (c, mode) => formatDecimal(c.scaled.disqualifyingFouls, countDigits(mode)),
     description: "ディスクォリファイングファウル数",
   },
-  { key: "ast2m", label: "AST2M", format: (c) => formatDecimal(c.scaled.assisted2m), description: "アシストされた2P成功数" },
-  { key: "ast3m", label: "AST3M", format: (c) => formatDecimal(c.scaled.assisted3m), description: "アシストされた3P成功数" },
-  { key: "astftm", label: "ASTFTM", format: (c) => formatDecimal(c.scaled.assistedFtm), description: "アシストされたFT成功数" },
+  {
+    key: "ast2m",
+    label: "AST2M",
+    format: (c, mode) => formatDecimal(c.scaled.assisted2m, countDigits(mode)),
+    description: "アシストされた2P成功数",
+  },
+  {
+    key: "ast3m",
+    label: "AST3M",
+    format: (c, mode) => formatDecimal(c.scaled.assisted3m, countDigits(mode)),
+    description: "アシストされた3P成功数",
+  },
+  {
+    key: "astftm",
+    label: "ASTFTM",
+    format: (c, mode) => formatDecimal(c.scaled.assistedFtm, countDigits(mode)),
+    description: "アシストされたFT成功数",
+  },
   {
     key: "astpct",
     label: "AST%",
@@ -469,7 +543,7 @@ export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
 export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
   { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), description: "試合数" },
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(Math.round(c.scaled.min * 60)), description: "出場時間" },
-  { key: "pts", label: "PTS", format: (c) => formatDecimal(c.scaled.pts), description: "得点" },
+  { key: "pts", label: "PTS", format: (c, mode) => formatDecimal(c.scaled.pts, countDigits(mode)), description: "得点" },
   { key: "pctpts", label: "%PTS", format: (c) => formatPct100(sharePct(c.raw.pts, c.team.pts)), description: "チーム総得点に占める割合" },
   { key: "pctfgm", label: "%FGM", format: (c) => formatPct100(sharePct(c.raw.fgm, c.team.fgm)), description: "チーム総FGMに占める割合" },
   { key: "pctfga", label: "%FGA", format: (c) => formatPct100(sharePct(c.raw.fga, c.team.fga)), description: "チーム総FGAに占める割合" },
@@ -480,13 +554,15 @@ export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
   {
     key: "paint2m",
     label: "PAINT2M",
-    format: (c) => (c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.paint2m) : NA),
+    format: (c, mode) =>
+      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.paint2m, countDigits(mode)) : NA,
     description: "ペイント内2P成功数（ショットチャート座標由来。2022-23シーズン以降のみ対応）",
   },
   {
     key: "paint2a",
     label: "PAINT2A",
-    format: (c) => (c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.paint2a) : NA),
+    format: (c, mode) =>
+      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.paint2a, countDigits(mode)) : NA,
     description: "ペイント内2P試投数（同上、2022-23シーズン以降のみ対応）",
   },
   {
@@ -499,13 +575,15 @@ export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
   {
     key: "mid2m",
     label: "MID2M",
-    format: (c) => (c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.mid2m) : NA),
+    format: (c, mode) =>
+      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.mid2m, countDigits(mode)) : NA,
     description: "ミッドレンジ（ペイント外）2P成功数（ショットチャート座標由来。2022-23シーズン以降のみ対応）",
   },
   {
     key: "mid2a",
     label: "MID2A",
-    format: (c) => (c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.mid2a) : NA),
+    format: (c, mode) =>
+      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.mid2a, countDigits(mode)) : NA,
     description: "ミッドレンジ（ペイント外）2P試投数（同上、2022-23シーズン以降のみ対応）",
   },
   {

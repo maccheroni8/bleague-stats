@@ -50,6 +50,7 @@ import {
   SEASON_SCORING_COLUMNS,
   SEASON_TRADITIONAL_COLUMNS,
   buildSeasonBoxscoreCtx,
+  countDigits,
   filterByGameType,
   modeFactor,
   seasonTotalEff,
@@ -1670,7 +1671,9 @@ function SeasonBreakdownTable({
                 <td className="align-left">通算</td>
                 {columns.map((col) => (
                   <td key={col.key} className="align-right">
-                    {col.key === "eff" ? formatDecimal(total.effValue) : col.format(total.ctx, displayMode)}
+                    {col.key === "eff"
+                      ? formatDecimal(total.effValue, countDigits(displayMode))
+                      : col.format(total.ctx, displayMode)}
                   </td>
                 ))}
                 <td className="align-right">{total.ddtd.dd}</td>
