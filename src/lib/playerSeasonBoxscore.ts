@@ -700,6 +700,13 @@ export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
     description: "ディスクォリファイングファウル数",
   },
   {
+    key: "tf",
+    label: "TF",
+    format: (c, mode) => formatDecimal(c.scaled.technicalFouls, countDigits(mode)),
+    higherIsBetter: false,
+    description: "テクニカルファウル数（選手個人のもの。ActionCD1=24）",
+  },
+  {
     key: "ast2m",
     label: "AST2M",
     format: (c, mode) => formatDecimal(c.scaled.assisted2m, countDigits(mode)),

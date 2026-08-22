@@ -109,6 +109,14 @@ export interface BoxscoreCounts {
    */
   liveTov: number;
   deadTov: number;
+  /**
+   * テクニカルファウル数。選手行はActionCD1=24（選手個人のテクニカル）のみを計上する。
+   * チーム合計行・TEAM/COACHES行はHC/ベンチテクニカル（ActionCD1=20/21、選手に紐付かず
+   * チームに帰属する）も含む（DESIGN.md 2-2章参照）。BoxscoreRowに個人単位のフィールドが
+   * 無いため、他のPlayByPlays由来フィールドと同様sumCounts()では常に0のままで、
+   * buildPlayerBoxscores()・BoxscoreTeamPanel側が事後的に上書きする
+   */
+  technicalFouls: number;
 }
 
 const ZERO_COUNTS: BoxscoreCounts = {
@@ -150,6 +158,7 @@ const ZERO_COUNTS: BoxscoreCounts = {
   assistedFtm: 0,
   liveTov: 0,
   deadTov: 0,
+  technicalFouls: 0,
 };
 
 /**
@@ -220,6 +229,7 @@ export function sumCounts(rows: BoxscoreRow[]): BoxscoreCounts {
       assistedFtm: acc.assistedFtm,
       liveTov: acc.liveTov,
       deadTov: acc.deadTov,
+      technicalFouls: acc.technicalFouls,
     }),
     ZERO_COUNTS,
   );
@@ -277,6 +287,7 @@ export function sumCountsList(list: BoxscoreCounts[]): BoxscoreCounts {
       assistedFtm: acc.assistedFtm + c.assistedFtm,
       liveTov: acc.liveTov + c.liveTov,
       deadTov: acc.deadTov + c.deadTov,
+      technicalFouls: acc.technicalFouls + c.technicalFouls,
     }),
     ZERO_COUNTS,
   );
@@ -315,22 +326,36 @@ interface MiscEventCounts {
   basketCounts: number;
   unsportsmanlikeFouls: number;
   disqualifyingFouls: number;
+  /** 選手個人のテクニカルファウル数（ActionCD1=24のみ。HC/ベンチ分はここに含めない） */
+  technicalFouls: number;
 }
 
-const ZERO_MISC_EVENTS: MiscEventCounts = { dunks: 0, basketCounts: 0, unsportsmanlikeFouls: 0, disqualifyingFouls: 0 };
+const ZERO_MISC_EVENTS: MiscEventCounts = {
+  dunks: 0,
+  basketCounts: 0,
+  unsportsmanlikeFouls: 0,
+  disqualifyingFouls: 0,
+  technicalFouls: 0,
+};
 
 const ZERO_ASSISTED_SCORING: AssistedScoringCounts = { assisted2m: 0, assisted3m: 0, assistedFtm: 0 };
 
 // ダンク成功はActionCD1=4（2Pシュートインサイドペイント成功）のうちPlayTextに「ダンク」タグが
 // 付くもの、バスケットカウント（アンドワン）は単独のマーカーイベント（ActionCD1=16）、
 // アンスポーツマンファウル・ディスクォリファイングファウルはそれぞれActionCD1=25・26
-// （いずれもDESIGN.md 15-6章で確定済み。実データで裏付け済み）
+// （いずれもDESIGN.md 15-6章で確定済み。実データで裏付け済み）。選手個人のテクニカルファウルは
+// ActionCD1=24（HC/ベンチテクニカルの20/21はPlayerID1を持たずここには乗らない。DESIGN.md 2-2章参照）
 const DUNK_ACTION_CD1 = 4;
 const BASKET_COUNT_ACTION_CD1 = 16;
 const UNSPORTSMANLIKE_FOUL_ACTION_CD1 = 25;
 const DISQUALIFYING_FOUL_ACTION_CD1 = 26;
+const TECHNICAL_FOUL_ACTION_CD1 = 24;
+/** HC/ベンチテクニカルファウル（選手に紐付かずチームに帰属する。DESIGN.md 2-2章参照） */
+const HC_TECHNICAL_FOUL_ACTION_CD1 = 20;
+const BENCH_TECHNICAL_FOUL_ACTION_CD1 = 21;
 
-/** F4（ダンク数・バスケットカウント・アンスポーツマンファウル・ディスクォリファイングファウル）を選手ごとに集計する */
+/** F4（ダンク数・バスケットカウント・アンスポーツマンファウル・ディスクォリファイングファウル）＋
+ * 選手個人のテクニカルファウル数を選手ごとに集計する */
 function buildMiscEventCounts(events: PlayByPlayEvent[]): Map<string, MiscEventCounts> {
   const byPlayer = new Map<string, MiscEventCounts>();
   const bump = (playerId: string | null, key: keyof MiscEventCounts) => {
@@ -348,9 +373,29 @@ function buildMiscEventCounts(events: PlayByPlayEvent[]): Map<string, MiscEventC
       bump(ev.PlayerID1, "unsportsmanlikeFouls");
     } else if (ev.ActionCD1 === DISQUALIFYING_FOUL_ACTION_CD1) {
       bump(ev.PlayerID1, "disqualifyingFouls");
+    } else if (ev.ActionCD1 === TECHNICAL_FOUL_ACTION_CD1) {
+      bump(ev.PlayerID1, "technicalFouls");
     }
   }
   return byPlayer;
+}
+
+/** HC/ベンチテクニカルファウル（ActionCD1=20/21）を選択中の期間範囲・チーム単位で数える。
+ * 選手に紐付かないためbuildMiscEventCounts()の対象外で、TEAM/COACHES行・チーム合計行の
+ * テクニカルファウル数にのみ計上する（DESIGN.md 2-2章参照） */
+export function countTeamGeneratedTechnicalFouls(
+  events: PlayByPlayEvent[],
+  teamId: string | null,
+  option: PeriodRangeOption | undefined,
+): number {
+  if (!teamId) return 0;
+  let count = 0;
+  for (const ev of events) {
+    if (!periodInRange(option, ev.Period)) continue;
+    if (ev.TeamID !== teamId) continue;
+    if (ev.ActionCD1 === HC_TECHNICAL_FOUL_ACTION_CD1 || ev.ActionCD1 === BENCH_TECHNICAL_FOUL_ACTION_CD1) count += 1;
+  }
+  return count;
 }
 
 interface YahooTovCounts {
@@ -475,9 +520,22 @@ export function buildAssistPairs(playByPlays: PlayByPlayEvent[], option: PeriodR
   return [...computeAssistedScoring(periodFilteredPbp).pairs.values()];
 }
 
-/** チーム発生イベント行（TEAM/COACHES、Category=2）を選択中の期間範囲で集計する */
-export function buildTeamCoachesCounts(allRows: BoxscoreRow[], option: PeriodRangeOption | undefined): BoxscoreCounts {
-  return sumCounts(rowsInPeriodRange(allRows.filter((r) => r.Category === 2), option));
+/**
+ * チーム発生イベント行（TEAM/COACHES、Category=2）を選択中の期間範囲で集計する。
+ * テクニカルファウル数のみ、Category=2行のFOULに他のチーム発生ファウルと混ざって計上されて
+ * しまうため（DESIGN.md 2-2章）、PlayByPlaysからHC/ベンチテクニカル（ActionCD1=20/21）を
+ * 個別に数えて上書きする
+ */
+export function buildTeamCoachesCounts(
+  allRows: BoxscoreRow[],
+  option: PeriodRangeOption | undefined,
+  playByPlays: PlayByPlayEvent[] = [],
+): BoxscoreCounts {
+  const teamId = allRows.find((r) => r.TeamID)?.TeamID ?? null;
+  return {
+    ...sumCounts(rowsInPeriodRange(allRows.filter((r) => r.Category === 2), option)),
+    technicalFouls: countTeamGeneratedTechnicalFouls(playByPlays, teamId, option),
+  };
 }
 
 /** チーム合計行（Category=3）を選択中の期間範囲で集計する */

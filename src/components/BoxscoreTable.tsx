@@ -14,6 +14,7 @@ import {
   buildTeamTotalCounts,
   computeIndividualRatings,
   computeTeamRatings,
+  countTeamGeneratedTechnicalFouls,
   formatAstToRatio,
   formatMinutesFromSeconds,
   sharePct,
@@ -293,6 +294,13 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
   // ほぼ全選手が0になるため、ハイライト対象からは外す＝valueを持たせない）
   { key: "ufoul", label: "UFOUL", format: (c) => String(c.unsportsmanlikeFouls), description: "アンスポーツマンファウル数" },
   { key: "dqfoul", label: "DQFOUL", format: (c) => String(c.disqualifyingFouls), description: "ディスクォリファイングファウル数" },
+  {
+    key: "tf",
+    label: "TF",
+    format: (c) => String(c.technicalFouls),
+    higherIsBetter: false,
+    description: "テクニカルファウル数（選手行は個人のテクニカルのみ。チーム合計行・TEAM/COACHES行はHC/ベンチテクニカルも含む）",
+  },
   // アシストからの得点（得点者視点。shared/assistedScoring.ts参照）。FTAST含め
   // PlayByPlays配列内の構造的な隣接パターンから求めた「被アシスト」内訳
   { key: "ast2m", label: "AST2M", format: (c) => String(c.assisted2m), value: (c) => c.assisted2m, description: "アシストされた2P成功数" },
@@ -599,7 +607,7 @@ function BoxscoreTeamPanel({
 }) {
   let teamTotal = buildTeamTotalCounts(ownRows, periodOption);
   const oppTeamTotal = buildTeamTotalCounts(oppRows, periodOption);
-  const coaches = buildTeamCoachesCounts(ownRows, periodOption);
+  const coaches = buildTeamCoachesCounts(ownRows, periodOption, playByPlays);
   const playType = buildPlayTypeCounts(summaries, side, periodOption);
   const ratings = computeTeamRatings(teamTotal, oppTeamTotal);
 
@@ -632,6 +640,11 @@ function BoxscoreTeamPanel({
     // DESIGN.md参照）
     liveTov: miscTeamTotals.liveTov,
     deadTov: miscTeamTotals.deadTov,
+    // テクニカルファウル数は選手個人分（miscTeamTotals、ActionCD1=24の合算）＋HC/ベンチ分
+    // （ActionCD1=20/21、選手に紐付かないためplayers側の合算には含まれない）の合計がチーム全体の
+    // 正しい値になる（DESIGN.md 2-2章参照）
+    technicalFouls:
+      miscTeamTotals.technicalFouls + countTeamGeneratedTechnicalFouls(playByPlays, ownRows[0]?.TeamID ?? null, periodOption),
   };
 
   const starters = players.filter((p) => p.startingFlg === 1);
