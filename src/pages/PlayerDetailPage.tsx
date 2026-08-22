@@ -265,6 +265,18 @@ interface CareerCountTotals {
   stl: number;
   dd: number;
   td: number;
+  oreb: number;
+  dreb: number;
+  pf: number;
+  foulsDrawn: number;
+  pt2in: number;
+  ptfb: number;
+  pt2nd: number;
+  ptsOffTov: number;
+  dunks: number;
+  basketCounts: number;
+  unsportsmanlikeFouls: number;
+  disqualifyingFouls: number;
 }
 
 interface CareerHighDef {
@@ -738,8 +750,42 @@ export function PlayerDetailPage({ season }: { season: string }) {
         reb: acc.reb + g.reb,
         blk: acc.blk + g.blk,
         stl: acc.stl + g.stl,
+        oreb: acc.oreb + g.oreb,
+        dreb: acc.dreb + g.dreb,
+        pf: acc.pf + g.pf,
+        foulsDrawn: acc.foulsDrawn + g.foulsDrawn,
+        pt2in: acc.pt2in + g.pt2in,
+        ptfb: acc.ptfb + g.ptfb,
+        pt2nd: acc.pt2nd + g.pt2nd,
+        ptsOffTov: acc.ptsOffTov + g.ptsOffTov,
+        dunks: acc.dunks + g.dunks,
+        basketCounts: acc.basketCounts + g.basketCounts,
+        unsportsmanlikeFouls: acc.unsportsmanlikeFouls + g.unsportsmanlikeFouls,
+        disqualifyingFouls: acc.disqualifyingFouls + g.disqualifyingFouls,
       }),
-      { min: 0, pts: 0, fgm: 0, tpm: 0, ftm: 0, ast: 0, reb: 0, blk: 0, stl: 0 },
+      {
+        min: 0,
+        pts: 0,
+        fgm: 0,
+        tpm: 0,
+        ftm: 0,
+        ast: 0,
+        reb: 0,
+        blk: 0,
+        stl: 0,
+        oreb: 0,
+        dreb: 0,
+        pf: 0,
+        foulsDrawn: 0,
+        pt2in: 0,
+        ptfb: 0,
+        pt2nd: 0,
+        ptsOffTov: 0,
+        dunks: 0,
+        basketCounts: 0,
+        unsportsmanlikeFouls: 0,
+        disqualifyingFouls: 0,
+      },
     );
     const { dd, td } = countDoubleTripleDoubles(allPlayed);
     return {
@@ -756,6 +802,18 @@ export function PlayerDetailPage({ season }: { season: string }) {
       stl: sums.stl,
       dd,
       td,
+      oreb: sums.oreb,
+      dreb: sums.dreb,
+      pf: sums.pf,
+      foulsDrawn: sums.foulsDrawn,
+      pt2in: sums.pt2in,
+      ptfb: sums.ptfb,
+      pt2nd: sums.pt2nd,
+      ptsOffTov: sums.ptsOffTov,
+      dunks: sums.dunks,
+      basketCounts: sums.basketCounts,
+      unsportsmanlikeFouls: sums.unsportsmanlikeFouls,
+      disqualifyingFouls: sums.disqualifyingFouls,
     };
   }, [careerData, careerGameTypeFilter]);
 
@@ -1426,19 +1484,31 @@ export function PlayerDetailPage({ season }: { season: string }) {
             <p className="empty-message">通算成績がありません</p>
           ) : (
             <div className="stat-grid">
-              <StatTile label="PTS" value={formatDecimal(careerCountTotals.pts)} />
-              <StatTile label="FG成功数" value={formatDecimal(careerCountTotals.fgm)} />
-              <StatTile label="3PT成功数" value={formatDecimal(careerCountTotals.tpm)} />
-              <StatTile label="2PT成功数" value={formatDecimal(careerCountTotals.twoPm)} />
-              <StatTile label="FT成功数" value={formatDecimal(careerCountTotals.ftm)} />
-              <StatTile label="AST" value={formatDecimal(careerCountTotals.ast)} />
-              <StatTile label="REB" value={formatDecimal(careerCountTotals.reb)} />
-              <StatTile label="BLK" value={formatDecimal(careerCountTotals.blk)} />
-              <StatTile label="STL" value={formatDecimal(careerCountTotals.stl)} />
+              <StatTile label="PTS" value={formatDecimal(careerCountTotals.pts, 0)} />
+              <StatTile label="FG成功数" value={formatDecimal(careerCountTotals.fgm, 0)} />
+              <StatTile label="3PT成功数" value={formatDecimal(careerCountTotals.tpm, 0)} />
+              <StatTile label="2PT成功数" value={formatDecimal(careerCountTotals.twoPm, 0)} />
+              <StatTile label="FT成功数" value={formatDecimal(careerCountTotals.ftm, 0)} />
+              <StatTile label="AST" value={formatDecimal(careerCountTotals.ast, 0)} />
+              <StatTile label="REB" value={formatDecimal(careerCountTotals.reb, 0)} />
+              <StatTile label="BLK" value={formatDecimal(careerCountTotals.blk, 0)} />
+              <StatTile label="STL" value={formatDecimal(careerCountTotals.stl, 0)} />
               <StatTile label="試合数" value={String(careerCountTotals.gamesPlayed)} />
               <StatTile label="出場時間" value={formatMinutesFromSeconds(careerCountTotals.minSeconds)} />
               <StatTile label="DD数" value={String(careerCountTotals.dd)} />
               <StatTile label="TD数" value={String(careerCountTotals.td)} />
+              <StatTile label="OR" value={formatDecimal(careerCountTotals.oreb, 0)} />
+              <StatTile label="DR" value={formatDecimal(careerCountTotals.dreb, 0)} />
+              <StatTile label="F" value={formatDecimal(careerCountTotals.pf, 0)} />
+              <StatTile label="FD" value={formatDecimal(careerCountTotals.foulsDrawn, 0)} />
+              <StatTile label="PITP" value={formatDecimal(careerCountTotals.pt2in, 0)} />
+              <StatTile label="FBPS" value={formatDecimal(careerCountTotals.ptfb, 0)} />
+              <StatTile label="2ND PTS" value={formatDecimal(careerCountTotals.pt2nd, 0)} />
+              <StatTile label="PTSOFFTO" value={formatDecimal(careerCountTotals.ptsOffTov, 0)} />
+              <StatTile label="DUNK" value={formatDecimal(careerCountTotals.dunks, 0)} />
+              <StatTile label="AND1" value={formatDecimal(careerCountTotals.basketCounts, 0)} />
+              <StatTile label="UFOUL" value={formatDecimal(careerCountTotals.unsportsmanlikeFouls, 0)} />
+              <StatTile label="DQFOUL" value={formatDecimal(careerCountTotals.disqualifyingFouls, 0)} />
             </div>
           )}
         </>
