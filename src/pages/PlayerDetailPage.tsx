@@ -27,7 +27,7 @@ import {
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
-import type { Category, PlayerGameLog, PlayerSummary, TeamGameLog } from "../../shared/types";
+import type { Category, PlayerGameLog, PlayerSummary, ShotTypeBreakdown, TeamGameLog, YahooShotEvent } from "../../shared/types";
 import { teamShortName } from "../../shared/teamNames";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { BOXSCORE_TABS, type BoxscoreColumn, type BoxscoreTabKey, COLUMNS_BY_TAB } from "../components/BoxscoreTable";
@@ -36,7 +36,13 @@ import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatSigned } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
-import { formatShotTypeCell, scaleShotTypeCounts, sortShotTypeKeys, sumShotTypeCounts } from "../lib/shotTypeBreakdown";
+import {
+  buildShotTypeBreakdownByPlayer,
+  formatShotTypeCell,
+  scaleShotTypeCounts,
+  sortShotTypeKeys,
+  sumShotTypeCounts,
+} from "../lib/shotTypeBreakdown";
 import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
 import { ShotChartFilterPicker } from "../components/ShotChartFilterPicker";
@@ -496,7 +502,7 @@ const SEASON_SHOT_CHART_PERIOD_OPTIONS: PeriodRangeOption[] = [
 ];
 
 const SHOOTING_SECTION_TOOLTIP =
-  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（シーズン合計、2023-24シーズン以降・レギュラーシーズンのみ。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意";
+  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（シーズン合計、2023-24シーズン以降・レギュラーシーズンのみ。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意。既定は全チーム合算表示。同一シーズンに複数チームでプレーした場合のみチーム別ボタンが表示され、選択したチームの試合のみで再集計する";
 
 export function PlayerDetailPage({ season }: { season: string }) {
   const { playerId } = useParams<{ playerId: string }>();
@@ -583,11 +589,17 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [situationalStatsDisplayMode, setSituationalStatsDisplayMode] = useState<SeasonDisplayMode>("perGame");
 
   // 「シューティング」セクション: シチュエーション別成績と同様、ページ本体の現在シーズンとは
-  // 独立したシーズン選択を持つ（Yahoo PBP由来のシュートタイプ内訳はplayers.jsonにシーズン単位で
-  // 保存済みのため、選択したシーズンのplayers.jsonを取得するだけで済む）。デフォルトは
-  // 現在選択中のシーズン
+  // 独立したシーズン選択を持つ。既定の「合算」表示はplayers.jsonのシーズン集計
+  // （shotTypes、Yahoo PBP由来）をそのまま使う（軽量）。シーズン内移籍でチームが複数に
+  // 分かれる場合のみ、チーム別ボタンを選んだ時点で該当シーズンの各試合のYahoo PBPを
+  // 遅延取得し、選手個人のシュートを所属チームごとに再集計する（shootingTeamShotTypes）。
+  // デフォルトは現在選択中のシーズン
   const [shootingSeason, setShootingSeason] = useState(season);
   const [shootingDisplayMode, setShootingDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  const [shootingTeamFilter, setShootingTeamFilter] = useState<string | null>(null);
+  const [shootingTeamShotTypes, setShootingTeamShotTypes] = useState<Map<string, ShotTypeBreakdown> | null>(null);
+  const [shootingTeamShotTypesLoading, setShootingTeamShotTypesLoading] = useState(false);
+  const shootingTeamShotTypesFetchStartedRef = useRef(false);
 
   // careerLoading/careerDataをdeps配列に含めると、setCareerLoading(true)自体がeffectを
   // 再発火させcleanupで直前のfetchをcancelしてしまう（自己キャンセルのループ）。
@@ -614,11 +626,22 @@ export function PlayerDetailPage({ season }: { season: string }) {
     setCompareSlots(defaultCompareSlots(season));
     setSituationalStatsSeason(season);
     setShootingSeason(season);
+    setShootingTeamFilter(null);
+    setShootingTeamShotTypes(null);
+    shootingTeamShotTypesFetchStartedRef.current = false;
     // 選手が変わった時だけリセットする（season変更では比較タブ・シチュエーション別成績・
     // シューティングの選択を維持したいため、依存配列にseasonは含めない。ここで参照するのは
     // リセット時点の最新値でよい）
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerId]);
+
+  // シューティングのシーズン選択（shootingSeason）が変わったら、チーム別選択・遅延取得済みの
+  // チーム別シュートタイプをリセットする（シーズンが変わればチーム構成も変わるため）
+  useEffect(() => {
+    setShootingTeamFilter(null);
+    setShootingTeamShotTypes(null);
+    shootingTeamShotTypesFetchStartedRef.current = false;
+  }, [shootingSeason]);
 
   // シーズン切り替え時も試合ログボックススコアを再取得する必要がある（careerは全シーズン
   // 横断のため season 変更の影響を受けないが、こちらは選択中シーズンのgameLogsに依存する）
@@ -678,14 +701,33 @@ export function PlayerDetailPage({ season }: { season: string }) {
     () => (shotChartGameSummaries ? buildRecordsBeforeGame(shotChartGameSummaries) : undefined),
     [shotChartGameSummaries],
   );
+  // シーズン内移籍対応: 所属チームを試合ログから動的に導出する（resolveOwnTeam参照）。
+  // 複数チームでプレーしたシーズンのみShotChartFilterPickerにチーム別ボタンが表示される
+  const shotChartGameTeams = useMemo(
+    () => (shotChartGameSummaries ? buildGameTeamsByScheduleKey(shotChartGameSummaries) : new Map()),
+    [shotChartGameSummaries],
+  );
+  const shotChartOwnTeamByScheduleKey = useMemo(() => {
+    const map = new Map<string, GameTeamInfo>();
+    for (const { log } of seasonShotGameData ?? []) {
+      const own = resolveOwnTeam(log, shotChartGameTeams);
+      if (own) map.set(log.scheduleKey, own);
+    }
+    return map;
+  }, [seasonShotGameData, shotChartGameTeams]);
+  const shotChartTeamOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const t of shotChartOwnTeamByScheduleKey.values()) byId.set(t.teamId, t.teamName);
+    return [...byId.entries()].map(([teamId, teamName]) => ({ teamId, label: teamShortName(teamId, teamName) }));
+  }, [shotChartOwnTeamByScheduleKey]);
 
   const shotChartPeriodOption = SEASON_SHOT_CHART_PERIOD_OPTIONS.find((o) => o.value === shotChartPeriod);
   const filteredSeasonShotEvents = useMemo(() => {
     if (!seasonShotGameData) return [];
     return seasonShotGameData
-      .filter(({ log }) => matchesShotChartGameFilters(log, shotChartFilters, shotChartOpponentRecords))
+      .filter(({ log }) => matchesShotChartGameFilters(log, shotChartFilters, shotChartOpponentRecords, shotChartOwnTeamByScheduleKey))
       .flatMap(({ shots }) => shots.filter((s) => periodInRange(shotChartPeriodOption, s.period)));
-  }, [seasonShotGameData, shotChartFilters, shotChartOpponentRecords, shotChartPeriodOption]);
+  }, [seasonShotGameData, shotChartFilters, shotChartOpponentRecords, shotChartOwnTeamByScheduleKey, shotChartPeriodOption]);
 
   useEffect(() => {
     if (tab !== "gamelog" || !playerId || !gameLogs || gameBoxFetchStartedRef.current) return;
@@ -1011,9 +1053,85 @@ export function PlayerDetailPage({ season }: { season: string }) {
     [tab, shootingSeason],
   );
   const shootingPlayer = shootingPlayers?.find((p) => p.playerId === playerId);
+
+  // シーズン内移籍対応: 所属チームを試合ログから動的に導出する（resolveOwnTeam参照）。
+  // レギュラーシーズンのみを対象にする（players.jsonのshotTypes集計自体がレギュラーシーズン
+  // 限定のため、「合算」表示との整合を保つ。DESIGN.md参照）
+  const { data: shootingSummaries } = useJsonData(
+    () => (tab === "stats" ? fetchGameSummaries(shootingSeason) : Promise.resolve(null)),
+    [tab, shootingSeason],
+  );
+  const shootingGameTeams = useMemo(
+    () => (shootingSummaries ? buildGameTeamsByScheduleKey(shootingSummaries) : new Map()),
+    [shootingSummaries],
+  );
+  const shootingOwnTeamByScheduleKey = useMemo(() => {
+    const map = new Map<string, GameTeamInfo>();
+    const logs = careerData?.find((cd) => cd.season === shootingSeason)?.logs ?? [];
+    for (const log of logs) {
+      if (log.min <= 0 || log.gameType !== "regular") continue;
+      const own = resolveOwnTeam(log, shootingGameTeams);
+      if (own) map.set(log.scheduleKey, own);
+    }
+    return map;
+  }, [careerData, shootingSeason, shootingGameTeams]);
+  const shootingTeamOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const t of shootingOwnTeamByScheduleKey.values()) byId.set(t.teamId, t.teamName);
+    return [...byId.entries()].map(([teamId, teamName]) => ({ teamId, label: teamShortName(teamId, teamName) }));
+  }, [shootingOwnTeamByScheduleKey]);
+
+  // チーム別ボタンが選ばれた時だけ、該当シーズンの各試合のYahoo PBPを遅延取得し、選手個人の
+  // シュートを所属チームごとに再集計する（「合算」表示はplayers.jsonの季集計をそのまま使うため
+  // この重い取得は発生しない。1チームのみのシーズンではチーム別ボタン自体を表示しないため、
+  // この取得は複数チームに在籍したシーズンでのみ発生する。DESIGN.md参照）
+  useEffect(() => {
+    if (
+      tab !== "stats" ||
+      shootingTeamFilter === null ||
+      !playerId ||
+      shootingTeamShotTypesFetchStartedRef.current ||
+      shootingOwnTeamByScheduleKey.size === 0
+    )
+      return;
+    shootingTeamShotTypesFetchStartedRef.current = true;
+    setShootingTeamShotTypesLoading(true);
+    const scheduleKeys = [...shootingOwnTeamByScheduleKey.keys()];
+    Promise.all(
+      scheduleKeys.map(async (scheduleKey) => {
+        try {
+          const pbp = await fetchYahooGamePbp(shootingSeason, scheduleKey);
+          return { scheduleKey, shots: pbp?.shots.filter((s) => s.playerId === playerId) ?? [] };
+        } catch {
+          return { scheduleKey, shots: [] as YahooShotEvent[] };
+        }
+      }),
+    )
+      .then((results) => {
+        const shotsByTeam = new Map<string, YahooShotEvent[]>();
+        for (const { scheduleKey, shots } of results) {
+          const teamId = shootingOwnTeamByScheduleKey.get(scheduleKey)?.teamId;
+          if (!teamId) continue;
+          const list = shotsByTeam.get(teamId) ?? [];
+          list.push(...shots);
+          shotsByTeam.set(teamId, list);
+        }
+        const byTeam = new Map<string, ShotTypeBreakdown>();
+        for (const [teamId, shots] of shotsByTeam) {
+          byTeam.set(teamId, buildShotTypeBreakdownByPlayer(shots).get(playerId) ?? {});
+        }
+        setShootingTeamShotTypes(byTeam);
+      })
+      .finally(() => setShootingTeamShotTypesLoading(false));
+  }, [tab, shootingTeamFilter, playerId, shootingSeason, shootingOwnTeamByScheduleKey]);
+
+  const shootingActiveShotTypes = shootingTeamFilter === null ? shootingPlayer?.shotTypes : shootingTeamShotTypes?.get(shootingTeamFilter);
+  const shootingActiveGamesPlayed =
+    shootingTeamFilter === null
+      ? (shootingPlayer?.gamesPlayed ?? 0)
+      : [...shootingOwnTeamByScheduleKey.values()].filter((t) => t.teamId === shootingTeamFilter).length;
   // 平均モードは合計を試合数で割るだけ（成功率は分子分母とも同じ係数のため不変）
-  const shootingFactor =
-    shootingDisplayMode === "total" || !shootingPlayer || shootingPlayer.gamesPlayed <= 0 ? 1 : 1 / shootingPlayer.gamesPlayed;
+  const shootingFactor = shootingDisplayMode === "total" || shootingActiveGamesPlayed <= 0 ? 1 : 1 / shootingActiveGamesPlayed;
   const shootingDigits = shootingDisplayMode === "total" ? 0 : 1;
 
   const situationalStatsBackToBack = useMemo(
@@ -1450,7 +1568,26 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </button>
             ))}
           </div>
-          {!shootingPlayer?.shotTypes ? (
+          {shootingTeamOptions.length > 1 && (
+            <div className="mode-toggle">
+              <button className={shootingTeamFilter === null ? "active" : ""} onClick={() => setShootingTeamFilter(null)} type="button">
+                合算
+              </button>
+              {shootingTeamOptions.map((t) => (
+                <button
+                  key={t.teamId}
+                  className={shootingTeamFilter === t.teamId ? "active" : ""}
+                  onClick={() => setShootingTeamFilter(t.teamId)}
+                  type="button"
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {shootingTeamFilter !== null && shootingTeamShotTypesLoading ? (
+            <p className="loading">読み込み中...</p>
+          ) : !shootingActiveShotTypes ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : (
             <div className="table-scroll">
@@ -1458,7 +1595,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 <thead>
                   <tr>
                     <th />
-                    {sortShotTypeKeys(Object.keys(shootingPlayer.shotTypes)).map((key) => (
+                    {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => (
                       <th key={key} className="align-right">
                         {key}
                       </th>
@@ -1469,15 +1606,15 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 <tbody>
                   <tr>
                     <td className="align-left">2P</td>
-                    {sortShotTypeKeys(Object.keys(shootingPlayer.shotTypes)).map((key) => (
+                    {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => (
                       <td key={key} className="align-right">
-                        {formatShotTypeCell(scaleShotTypeCounts(shootingPlayer.shotTypes![key]!.twoPoint, shootingFactor), shootingDigits)}
+                        {formatShotTypeCell(scaleShotTypeCounts(shootingActiveShotTypes[key]!.twoPoint, shootingFactor), shootingDigits)}
                       </td>
                     ))}
                     <td className="align-right">
                       {formatShotTypeCell(
                         scaleShotTypeCounts(
-                          Object.values(shootingPlayer.shotTypes).reduce(
+                          Object.values(shootingActiveShotTypes).reduce(
                             (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
                             { made: 0, attempted: 0 },
                           ),
@@ -1489,15 +1626,15 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   </tr>
                   <tr>
                     <td className="align-left">3P</td>
-                    {sortShotTypeKeys(Object.keys(shootingPlayer.shotTypes)).map((key) => (
+                    {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => (
                       <td key={key} className="align-right">
-                        {formatShotTypeCell(scaleShotTypeCounts(shootingPlayer.shotTypes![key]!.threePoint, shootingFactor), shootingDigits)}
+                        {formatShotTypeCell(scaleShotTypeCounts(shootingActiveShotTypes[key]!.threePoint, shootingFactor), shootingDigits)}
                       </td>
                     ))}
                     <td className="align-right">
                       {formatShotTypeCell(
                         scaleShotTypeCounts(
-                          Object.values(shootingPlayer.shotTypes).reduce(
+                          Object.values(shootingActiveShotTypes).reduce(
                             (acc, c) => sumShotTypeCounts(acc, c.threePoint),
                             { made: 0, attempted: 0 },
                           ),
@@ -1529,6 +1666,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 filters={shotChartFilters}
                 onChange={setShotChartFilters}
                 opponentWinRateSupported={!!shotChartGameSummaries}
+                teamOptions={shotChartTeamOptions}
               />
               <PeriodRangeToggle
                 options={SEASON_SHOT_CHART_PERIOD_OPTIONS}
@@ -1546,7 +1684,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 />
               </div>
               <p className="page-subtitle">
-                選手が出場した各試合の生データ（GeniusAPI由来のショット座標）をシーズン合計したもの。試合詳細ページのショットチャートと同じ形式で、個別ショット/エリア別成功率を切り替えられる（2022-23シーズン以降のみ対応。DESIGN.md参照）。上の「シーズン別成績」のレギュラー/プレーオフ/合算トグルに連動する。フィルタ・Q別トグルは複数選択でき、選択した条件をすべて満たす試合・ショットに絞り込む
+                選手が出場した各試合の生データ（GeniusAPI由来のショット座標）をシーズン合計したもの。試合詳細ページのショットチャートと同じ形式で、個別ショット/エリア別成功率を切り替えられる（2022-23シーズン以降のみ対応。DESIGN.md参照）。上の「シーズン別成績」のレギュラー/プレーオフ/合算トグルに連動する。フィルタ・Q別トグルは複数選択でき、選択した条件をすべて満たす試合・ショットに絞り込む。既定は全チーム合算表示で、同一シーズンに複数チームでプレーした場合のみチーム別ボタンが表示される
               </p>
             </>
           )}

@@ -5,6 +5,9 @@ interface Props {
   onChange: (filters: ShotChartGameFilters) => void;
   /** 「対勝率別」ボタンの表示可否（対戦相手の勝率算出にシーズン全体の試合日程が必要なため） */
   opponentWinRateSupported?: boolean;
+  /** シーズン内移籍対応: このシーズンに複数チームでプレーした場合のみチーム別ボタンを表示する
+   * （{teamId, label}の配列。1チームのみの通常ケースでは渡さない、または空配列にする） */
+  teamOptions?: { teamId: string; label: string }[];
 }
 
 /**
@@ -13,13 +16,22 @@ interface Props {
  * 独立にON/OFFでき、選択した条件すべてがANDで絞り込まれる。同じ行内の選択肢は
  * 再クリックでOFFに戻せる（排他ではあるが「未選択」状態を持つラジオボタンに近い挙動）
  */
-export function ShotChartFilterPicker({ filters, onChange, opponentWinRateSupported }: Props) {
+export function ShotChartFilterPicker({ filters, onChange, opponentWinRateSupported, teamOptions }: Props) {
   const toggle = <K extends keyof ShotChartGameFilters>(key: K, value: ShotChartGameFilters[K]) => {
     onChange({ ...filters, [key]: filters[key] === value ? undefined : value });
   };
 
   return (
     <div className="situational-filter">
+      {teamOptions && teamOptions.length > 1 && (
+        <div className="mode-toggle">
+          {teamOptions.map((t) => (
+            <button key={t.teamId} className={filters.ownTeamId === t.teamId ? "active" : ""} onClick={() => toggle("ownTeamId", t.teamId)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="mode-toggle">
         <button className={filters.homeAway === "home" ? "active" : ""} onClick={() => toggle("homeAway", "home")}>
           ホーム

@@ -274,6 +274,9 @@ export interface ShotChartGameFilters {
   opponentWinRate?: "under50" | "atLeast50" | "atLeast60";
   result?: "win" | "loss";
   month?: number;
+  /** シーズン内移籍対応: 試合ログから動的に導出した所属チーム（resolveOwnTeam参照）で絞り込む。
+   * 未選択（undefined）なら全チーム合算（従来通り） */
+  ownTeamId?: string;
 }
 
 export function matchesShotChartGameFilters<
@@ -284,7 +287,12 @@ export function matchesShotChartGameFilters<
     opponentTeamId: string;
     scheduleKey: string;
   },
->(g: T, filters: ShotChartGameFilters, opponentRecords?: Map<string, Map<string, RecordBeforeGame>>): boolean {
+>(
+  g: T,
+  filters: ShotChartGameFilters,
+  opponentRecords?: Map<string, Map<string, RecordBeforeGame>>,
+  ownTeamByScheduleKey?: Map<string, GameTeamInfo>,
+): boolean {
   if (filters.homeAway === "home" && !g.isHome) return false;
   if (filters.homeAway === "away" && g.isHome) return false;
   if (filters.division && !matchesDivision(g, filters.division)) return false;
@@ -294,6 +302,7 @@ export function matchesShotChartGameFilters<
   if (filters.result === "win" && !g.win) return false;
   if (filters.result === "loss" && g.win) return false;
   if (filters.month !== undefined && !matchesMonth(g, filters.month)) return false;
+  if (filters.ownTeamId && ownTeamByScheduleKey?.get(g.scheduleKey)?.teamId !== filters.ownTeamId) return false;
   return true;
 }
 
