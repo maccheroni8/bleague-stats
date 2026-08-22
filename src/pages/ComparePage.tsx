@@ -5,6 +5,8 @@ import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
 import type { PlayerSummary, TeamSummary } from "../../shared/types";
 import { ExportImageButton } from "../components/ExportImageButton";
+import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
+import { bleaguePlayerUrl } from "../lib/externalLinks";
 
 type Mode = "team" | "player";
 const SLOT_COUNT = 3;
@@ -73,10 +75,12 @@ interface ComparisonTableProps<T> {
   rowKey: (row: T) => string;
   name: (row: T) => string;
   linkTo: (row: T) => string;
+  /** 指定時、名前の直後にBリーグ公式サイトへの外部リンクアイコンを表示する（選手比較のみ） */
+  externalLinkTo?: (row: T) => string | undefined;
   teamColor?: (row: T) => string | undefined;
 }
 
-export function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo, teamColor }: ComparisonTableProps<T>) {
+export function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo, externalLinkTo, teamColor }: ComparisonTableProps<T>) {
   if (rows.length === 0) {
     return <p className="empty-message">比較する項目を選んでください</p>;
   }
@@ -91,12 +95,15 @@ export function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo, teamColor
               return (
                 <th
                   key={rowKey(item)}
-                  className="align-right"
+                  className={`align-right${externalLinkTo?.(item) ? " has-external-link" : ""}`}
                   style={accent ? { borderTopColor: accent } : undefined}
                 >
                   <Link to={`${linkTo(item)}?season=${season}`} className="cell-link">
                     {name(item)}
                   </Link>
+                  {externalLinkTo?.(item) && (
+                    <ExternalLinkIcon href={externalLinkTo(item)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
+                  )}
                   <span className="compare-season-tag">{season}</span>
                 </th>
               );
@@ -299,6 +306,7 @@ export function ComparePage({ season }: { season: string }) {
               rowKey={(p) => p.playerId}
               name={(p) => p.name}
               linkTo={(p) => `/players/${p.playerId}`}
+              externalLinkTo={(p) => bleaguePlayerUrl(p.playerId)}
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
             />
           </div>

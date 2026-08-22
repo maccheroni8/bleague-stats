@@ -39,6 +39,8 @@ import {
 } from "../lib/situational";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { safeDiv } from "../../shared/formulas";
+import { bleaguePlayerUrl } from "../lib/externalLinks";
+import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 
 // 出場時間がこれ未満のラインナップはサンプルが小さすぎてノイズが大きいため一覧から除外する
 // （実データ確認: 4試合時点で3分(180秒)基準だとチームあたり4〜14組が該当。DESIGN.md参照）
@@ -528,11 +530,14 @@ export function TeamDetailPage({ season }: { season: string }) {
                   <div className="team-leader-card" key={key}>
                     <div className="team-leader-stat-label">{def.label}</div>
                     {top.map((p) => (
-                      <Link key={p.playerId} to={`/players/${p.playerId}`} className="team-leader-row">
-                        <PlayerPhoto playerId={p.playerId} size={28} className="team-leader-photo" />
-                        <span className="team-leader-name">{p.name}</span>
+                      <div key={p.playerId} className="team-leader-row">
+                        <Link to={`/players/${p.playerId}`} className="team-leader-row-link">
+                          <PlayerPhoto playerId={p.playerId} size={28} className="team-leader-photo" />
+                          <span className="team-leader-name">{p.name}</span>
+                        </Link>
+                        <ExternalLinkIcon href={bleaguePlayerUrl(p.playerId)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                         <span className="team-leader-value">{def.format(p)}</span>
-                      </Link>
+                      </div>
                     ))}
                   </div>
                 );
@@ -651,6 +656,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   rowKey={(p) => p.playerId}
                   defaultSortKey={playerStatMode === "basic" ? "pts" : "ftRate"}
                   linkTo={(p) => `/players/${p.playerId}`}
+                  externalLinkTo={(p) => bleaguePlayerUrl(p.playerId)}
                 />
               </div>
             </>

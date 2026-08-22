@@ -34,6 +34,8 @@ import { BOXSCORE_TABS, type BoxscoreColumn, type BoxscoreTabKey, COLUMNS_BY_TAB
 import { buildPlayerGameBoxscoreRow, type PlayerGameBoxscoreRow } from "../lib/playerGameBoxscore";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { PlayerPhoto } from "../components/PlayerPhoto";
+import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
+import { bleaguePlayerUrl } from "../lib/externalLinks";
 import { formatDecimal, formatPct, formatSigned } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import {
@@ -1311,7 +1313,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
         ← 個人一覧に戻る
       </Link>
       <div className="player-detail-title" style={accentColor ? { borderTopColor: accentColor } : undefined}>
-        <h1>{player.name}</h1>
+        <h1>
+          {player.name}
+          <ExternalLinkIcon href={bleaguePlayerUrl(player.playerId)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
+        </h1>
         <p className="page-subtitle">
           {player.teamName}・{season}シーズン・{player.gamesPlayed}試合出場
         </p>
@@ -1899,6 +1904,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               rowKey={(r) => r.key}
               name={(r) => r.label}
               linkTo={() => `/players/${player.playerId}`}
+              externalLinkTo={() => bleaguePlayerUrl(player.playerId)}
             />
           )}
         </>

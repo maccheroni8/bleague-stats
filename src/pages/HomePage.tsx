@@ -8,6 +8,8 @@ import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDateHeading } from "../lib/format";
 import { teamShortName } from "../../shared/teamNames";
 import type { GameSummary, PlayerSummary, StandingsTeamSnapshot, TeamSummary } from "../../shared/types";
+import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
+import { bleaguePlayerUrl } from "../lib/externalLinks";
 
 type LeaderMode = "player" | "team";
 
@@ -196,22 +198,28 @@ export function HomePage({ season }: { season: string }) {
                 return (
                   <div key={key} className="leader-card">
                     <div className="leader-stat-label">{def.label}</div>
-                    <Link to={`/players/${leader.playerId}`} className="leader-top1">
-                      <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" />
-                      <div className="leader-info">
-                        <div className="leader-value">{def.format(leader)}</div>
-                        <div className="leader-name">{leader.name}</div>
-                        <div className="leader-team">{leader.teamName}</div>
-                      </div>
-                    </Link>
+                    <div className="has-external-link-bottom">
+                      <Link to={`/players/${leader.playerId}`} className="leader-top1">
+                        <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" />
+                        <div className="leader-info">
+                          <div className="leader-value">{def.format(leader)}</div>
+                          <div className="leader-name">{leader.name}</div>
+                          <div className="leader-team">{leader.teamName}</div>
+                        </div>
+                      </Link>
+                      <ExternalLinkIcon href={bleaguePlayerUrl(leader.playerId)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
+                    </div>
                     {top.length > 1 && (
                       <div className="leader-rest-list">
                         {top.slice(1).map((p, i) => (
-                          <Link key={p.playerId} to={`/players/${p.playerId}`} className="leader-rest-item">
-                            <span className="leader-rest-rank">{i + 2}</span>
-                            <span className="leader-rest-name">{p.name}</span>
+                          <div key={p.playerId} className="leader-rest-item">
+                            <Link to={`/players/${p.playerId}`} className="leader-rest-item-link">
+                              <span className="leader-rest-rank">{i + 2}</span>
+                              <span className="leader-rest-name">{p.name}</span>
+                            </Link>
+                            <ExternalLinkIcon href={bleaguePlayerUrl(p.playerId)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                             <span className="leader-rest-value">{def.format(p)}</span>
-                          </Link>
+                          </div>
                         ))}
                       </div>
                     )}

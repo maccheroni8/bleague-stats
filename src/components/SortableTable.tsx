@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "./SeasonLink";
+import { ExternalLinkIcon } from "./ExternalLinkIcon";
 
 export interface Column<T> {
   key: string;
@@ -18,6 +19,9 @@ interface SortableTableProps<T> {
   defaultSortKey: string;
   defaultSortDir?: "asc" | "desc";
   linkTo?: (row: T) => string;
+  /** 指定時、先頭セルの名前リンクの直後にBリーグ公式サイトへの外部リンクアイコンを表示する
+   * （選手名リンクの行でのみ指定する。チーム名等のテーブルでは渡さない） */
+  externalLinkTo?: (row: T) => string | undefined;
   /** 指定時、各行の先頭セルに左端の縦線としてチームカラー等のアクセントを付ける */
   rowAccentColor?: (row: T) => string | undefined;
 }
@@ -29,6 +33,7 @@ export function SortableTable<T>({
   defaultSortKey,
   defaultSortDir = "desc",
   linkTo,
+  externalLinkTo,
   rowAccentColor,
 }: SortableTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
@@ -82,10 +87,11 @@ export function SortableTable<T>({
                   ? col.render(row)
                   : (col.format?.(row) ?? String(col.sortValue(row)));
                 const isFirst = i === 0;
+                const external = isFirst ? externalLinkTo?.(row) : undefined;
                 return (
                   <td
                     key={col.key}
-                    className={`${col.align === "left" ? "align-left" : "align-right"}${isFirst && accent ? " row-accent-cell" : ""}`}
+                    className={`${col.align === "left" ? "align-left" : "align-right"}${isFirst && accent ? " row-accent-cell" : ""}${external ? " has-external-link" : ""}`}
                     style={isFirst && accent ? { borderLeftColor: accent } : undefined}
                   >
                     {linkTo ? (
@@ -95,6 +101,7 @@ export function SortableTable<T>({
                     ) : (
                       content
                     )}
+                    {external && <ExternalLinkIcon href={external} title="Bリーグ公式サイトで見る（新しいタブで開く）" />}
                   </td>
                 );
               })}

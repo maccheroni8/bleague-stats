@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { SeasonLink as Link } from "./SeasonLink";
+import { ExternalLinkIcon } from "./ExternalLinkIcon";
+import { bleaguePlayerUrl } from "../lib/externalLinks";
 import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
@@ -833,13 +835,16 @@ function BoxscoreGroup({
       </tr>
       {ordered.map((p) => (
         <tr key={p.playerId} className={p.dnp ? "dnp-row" : undefined}>
-          <td className="align-left">
+          <td className={`align-left${p.playerId ? " has-external-link" : ""}`}>
             {p.playerId ? (
               <Link to={`/players/${p.playerId}`} className="cell-link">
                 {p.nameJ}
               </Link>
             ) : (
               p.nameJ
+            )}
+            {p.playerId && (
+              <ExternalLinkIcon href={bleaguePlayerUrl(p.playerId)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
             )}
             {showStatBadges && p.statBadge && (
               <span className={`stat-badge stat-badge-${p.statBadge.toLowerCase()}`}>{p.statBadge}</span>

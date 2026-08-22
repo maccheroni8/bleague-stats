@@ -4,6 +4,8 @@ import { fetchPlayers, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
 import { ExportImageButton } from "../components/ExportImageButton";
+import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
+import { bleaguePlayerUrl } from "../lib/externalLinks";
 
 type Mode = "team" | "player";
 type NationalityFilter = "all" | "jp" | "intl";
@@ -15,10 +17,12 @@ interface RankedListProps<T> {
   name: (row: T) => string;
   subLabel?: (row: T) => string;
   linkTo: (row: T) => string;
+  /** 指定時、名前の直後にBリーグ公式サイトへの外部リンクアイコンを表示する（選手モードのみ） */
+  externalLinkTo?: (row: T) => string | undefined;
   teamColor?: (row: T) => string | undefined;
 }
 
-function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo, teamColor }: RankedListProps<T>) {
+function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo, externalLinkTo, teamColor }: RankedListProps<T>) {
   const sorted = [...rows].sort((a, b) => def.value(b) - def.value(a));
   return (
     <div className="table-scroll">
@@ -41,11 +45,14 @@ function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo, teamColor }:
                 >
                   {i + 1}
                 </td>
-                <td className="align-left">
+                <td className={`align-left${externalLinkTo?.(row) ? " has-external-link" : ""}`}>
                   <Link to={linkTo(row)} className="cell-link rank-name-cell">
                     <span className="rank-name">{name(row)}</span>
                     {subLabel && <span className="rank-sublabel">{subLabel(row)}</span>}
                   </Link>
+                  {externalLinkTo?.(row) && (
+                    <ExternalLinkIcon href={externalLinkTo(row)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
+                  )}
                 </td>
                 <td className="align-right rank-value">{def.format(row)}</td>
               </tr>
@@ -158,6 +165,7 @@ export function RankingsPage({ season }: { season: string }) {
                 name={(p) => p.name}
                 subLabel={(p) => p.teamName}
                 linkTo={(p) => `/players/${p.playerId}`}
+                externalLinkTo={(p) => bleaguePlayerUrl(p.playerId)}
                 teamColor={(p) => teamColors?.[p.teamId]?.primary}
               />
             )}

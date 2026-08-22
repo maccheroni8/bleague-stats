@@ -12,6 +12,8 @@ import { SubstitutionBarChart, type SubstitutionRow } from "../components/Substi
 import { ShotChartPanel } from "../components/ShotChart";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
+import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
+import { bleaguePlayerUrl } from "../lib/externalLinks";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { BoxscoreTable } from "../components/BoxscoreTable";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
@@ -649,17 +651,14 @@ function LeaderTop3Row({ label, rows }: { label: string; rows: LeaderDisplayRow[
       )}
       <div className="leader-top3-list">
         {rows.map((row) => (
-          <Link
-            key={row.player.PlayerID}
-            to={`/players/${row.player.PlayerID}`}
-            className={`leader-top3-item leader-top3-rank-${row.groupIndex + 1}`}
-          >
-            <span className="leader-top3-name">
+          <div key={row.player.PlayerID} className={`leader-top3-item leader-top3-rank-${row.groupIndex + 1}`}>
+            <Link to={`/players/${row.player.PlayerID}`} className="leader-top3-name">
               {row.player.PlayerNameJ}
               {row.otherCount > 0 && <span className="leader-top3-others"> 他{row.otherCount}人</span>}
-            </span>
+            </Link>
+            <ExternalLinkIcon href={bleaguePlayerUrl(row.player.PlayerID)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
             <span className="leader-top3-value">{row.value}</span>
-          </Link>
+          </div>
         ))}
       </div>
     </div>
@@ -709,13 +708,16 @@ function LeaderMatchupPlayer({ leader }: { leader: GameLeaderResult | undefined 
   if (!leader) return <div className="leader-matchup-player" />;
   const { player, otherCount } = leader;
   return (
-    <Link to={`/players/${player.PlayerID}`} className="leader-matchup-player">
-      <PlayerPhoto playerId={player.PlayerID} size={44} className="leader-matchup-player-photo" />
-      <span className="leader-matchup-player-name">
-        {player.PlayerNameJ}
-        {otherCount > 0 && <span className="leader-matchup-player-others"> 他{otherCount}人</span>}
-      </span>
-    </Link>
+    <div className="leader-matchup-player">
+      <Link to={`/players/${player.PlayerID}`} className="leader-matchup-player-link">
+        <PlayerPhoto playerId={player.PlayerID} size={44} className="leader-matchup-player-photo" />
+        <span className="leader-matchup-player-name">
+          {player.PlayerNameJ}
+          {otherCount > 0 && <span className="leader-matchup-player-others"> 他{otherCount}人</span>}
+        </span>
+      </Link>
+      <ExternalLinkIcon href={bleaguePlayerUrl(player.PlayerID)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
+    </div>
   );
 }
 
