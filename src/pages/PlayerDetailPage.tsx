@@ -681,6 +681,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [situationalStatsGameType, setSituationalStatsGameType] = useState<SeasonGameTypeFilter>("regular");
   const [situationalStatsTab, setSituationalStatsTab] = useState<SeasonBoxTabKey>("traditional");
   const [situationalStatsDisplayMode, setSituationalStatsDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  // 列ヘッダークリックソート。会場・地区・曜日等のグループ構造そのものを崩すと比較の意味が
+  // 失われるため、グループの並び順・見出し行は維持したまま「各グループ内の行だけ」をソートする
+  // （SeasonBreakdownTableと同じ「1回目クリックで降順、もう一度クリックで昇順」の方式。DESIGN.md参照）
+  const [situationalStatsSortKey, setSituationalStatsSortKey] = useState<string | null>(null);
+  const [situationalStatsSortDir, setSituationalStatsSortDir] = useState<"asc" | "desc">("desc");
 
   // 「シューティング」セクション: シチュエーション別成績と同様、ページ本体の現在シーズンとは
   // 独立したシーズン選択を持つ。既定の「合算」表示はplayers.jsonのシーズン集計
@@ -1409,12 +1414,47 @@ export function PlayerDetailPage({ season }: { season: string }) {
     },
   ];
 
+  const situationalStatsRowSortValue = (row: SituationalStatsRow, key: string): number | string => {
+    switch (key) {
+      case "label":
+        return row.label;
+      case "team":
+        return row.teamLabel;
+      default: {
+        const col = SEASON_BOX_COLUMNS[situationalStatsTab].find((c) => c.key === key);
+        return col ? col.value(row.ctx, situationalStatsDisplayMode) : 0;
+      }
+    }
+  };
+  const sortSituationalStatsRows = (rows: SituationalStatsRow[]): SituationalStatsRow[] => {
+    if (!situationalStatsSortKey) return rows;
+    const factor = situationalStatsSortDir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = situationalStatsRowSortValue(a, situationalStatsSortKey);
+      const bv = situationalStatsRowSortValue(b, situationalStatsSortKey);
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * factor;
+      return String(av).localeCompare(String(bv)) * factor;
+    });
+  };
+  const handleSituationalStatsHeaderClick = (key: string) => {
+    if (key === situationalStatsSortKey) {
+      setSituationalStatsSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSituationalStatsSortKey(key);
+      setSituationalStatsSortDir("desc");
+    }
+  };
+  const situationalStatsSortIndicator = (key: string) =>
+    situationalStatsSortKey === key ? (situationalStatsSortDir === "asc" ? " ▲" : " ▼") : "";
+  const situationalStatsSortAria = (key: string) =>
+    situationalStatsSortKey === key ? (situationalStatsSortDir === "asc" ? "ascending" : "descending") : undefined;
+
   const situationalStatsGroups: SituationalStatsGroup[] = situationalStatsGroupDefs
     .map((group) => ({
       key: group.key,
       label: group.label,
-      rows: group.rows.flatMap((row) =>
-        buildSituationalStatsRows(row.key, row.label, situationalStatsScopedLogs.filter(row.predicate)),
+      rows: sortSituationalStatsRows(
+        group.rows.flatMap((row) => buildSituationalStatsRows(row.key, row.label, situationalStatsScopedLogs.filter(row.predicate))),
       ),
     }))
     .filter((group) => group.rows.length > 0);
@@ -1629,11 +1669,30 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <table className="stats-table situational-groups-table">
                 <thead>
                   <tr>
-                    <th className="align-left">区分</th>
-                    <th className="align-left">チーム</th>
+                    <th
+                      className="align-left sortable-col"
+                      onClick={() => handleSituationalStatsHeaderClick("label")}
+                      aria-sort={situationalStatsSortAria("label")}
+                    >
+                      区分{situationalStatsSortIndicator("label")}
+                    </th>
+                    <th
+                      className="align-left sortable-col"
+                      onClick={() => handleSituationalStatsHeaderClick("team")}
+                      aria-sort={situationalStatsSortAria("team")}
+                    >
+                      チーム{situationalStatsSortIndicator("team")}
+                    </th>
                     {SEASON_BOX_COLUMNS[situationalStatsTab].map((col) => (
-                      <th key={col.key} className="align-right" title={col.description}>
+                      <th
+                        key={col.key}
+                        className="align-right sortable-col"
+                        title={col.description}
+                        onClick={() => handleSituationalStatsHeaderClick(col.key)}
+                        aria-sort={situationalStatsSortAria(col.key)}
+                      >
                         {col.label}
+                        {situationalStatsSortIndicator(col.key)}
                       </th>
                     ))}
                   </tr>
@@ -2216,6 +2275,11 @@ function SeasonBreakdownTable({
   displayMode: SeasonDisplayMode;
 }) {
   const [tab, setTab] = useState<SeasonBoxTabKey>("traditional");
+  // 列ヘッダークリックソート（RankingsPage等のSortableTableと同じ「1回目クリックで降順、
+  // もう一度クリックで昇順」の切り替え方式を踏襲。DESIGN.md参照）。未選択（null）時は
+  // 元の並び順（シーズン降順）のまま。「通算」行は常に最下部に固定し、ソート対象に含めない
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const playedFilteredLogs = (logs: PlayerGameLog[]) => filterByGameType(logs.filter((g) => g.min > 0), gameTypeFilter);
 
   // シーズン内移籍対応: 所属チームごとにbuildTeamSplitRowsで分割する（1チームのみなら1行、
@@ -2273,11 +2337,51 @@ function SeasonBreakdownTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [careerData, gameTypeFilter, seasonRows, displayMode]);
 
+  const columns = SEASON_BOX_COLUMNS[tab];
+
+  const seasonRowSortValue = (r: (typeof seasonRows)[number], key: string): number | string => {
+    switch (key) {
+      case "season":
+        return r.season;
+      case "team":
+        return r.teamLabel;
+      case "dd2":
+        return r.ddtd.dd;
+      case "td3":
+        return r.ddtd.td;
+      default: {
+        const col = columns.find((c) => c.key === key);
+        return col ? col.value(r.ctx, displayMode) : 0;
+      }
+    }
+  };
+
+  const sortedSeasonRows = useMemo(() => {
+    if (!sortKey) return seasonRows;
+    const factor = sortDir === "asc" ? 1 : -1;
+    return [...seasonRows].sort((a, b) => {
+      const av = seasonRowSortValue(a, sortKey);
+      const bv = seasonRowSortValue(b, sortKey);
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * factor;
+      return String(av).localeCompare(String(bv)) * factor;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seasonRows, sortKey, sortDir, columns, displayMode]);
+
+  const handleHeaderClick = (key: string) => {
+    if (key === sortKey) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+  const sortIndicator = (key: string) => (sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "");
+  const sortAria = (key: string) => (sortKey === key ? (sortDir === "asc" ? "ascending" : "descending") : undefined);
+
   if (!careerData || seasonRows.length === 0) {
     return <p className="empty-message">通算成績がありません</p>;
   }
-
-  const columns = SEASON_BOX_COLUMNS[tab];
 
   return (
     <>
@@ -2292,19 +2396,34 @@ function SeasonBreakdownTable({
         <table className="stats-table">
           <thead>
             <tr>
-              <th className="align-left">シーズン</th>
-              <th className="align-left">チーム</th>
+              <th className="align-left sortable-col" onClick={() => handleHeaderClick("season")} aria-sort={sortAria("season")}>
+                シーズン{sortIndicator("season")}
+              </th>
+              <th className="align-left sortable-col" onClick={() => handleHeaderClick("team")} aria-sort={sortAria("team")}>
+                チーム{sortIndicator("team")}
+              </th>
               {columns.map((col) => (
-                <th key={col.key} className="align-right" title={col.description}>
+                <th
+                  key={col.key}
+                  className="align-right sortable-col"
+                  title={col.description}
+                  onClick={() => handleHeaderClick(col.key)}
+                  aria-sort={sortAria(col.key)}
+                >
                   {col.label}
+                  {sortIndicator(col.key)}
                 </th>
               ))}
-              <th className="align-right">DD2</th>
-              <th className="align-right">TD3</th>
+              <th className="align-right sortable-col" onClick={() => handleHeaderClick("dd2")} aria-sort={sortAria("dd2")}>
+                DD2{sortIndicator("dd2")}
+              </th>
+              <th className="align-right sortable-col" onClick={() => handleHeaderClick("td3")} aria-sort={sortAria("td3")}>
+                TD3{sortIndicator("td3")}
+              </th>
             </tr>
           </thead>
           <tbody>
-            {seasonRows.map((r) => (
+            {sortedSeasonRows.map((r) => (
               <tr key={r.key} className={r.isCombined ? "season-team-total-row" : undefined}>
                 <td className="align-left">{r.season}</td>
                 <td className="align-left">{r.teamLabel}</td>

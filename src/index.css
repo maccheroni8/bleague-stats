@@ -513,6 +513,11 @@ table.stats-table th {
   color: var(--muted);
 }
 
+table.stats-table th.sortable-col {
+  cursor: pointer;
+  user-select: none;
+}
+
 table.stats-table th.align-left,
 table.stats-table td.align-left {
   text-align: left;
