@@ -23,10 +23,11 @@ import {
   fetchTeamGameLogs,
   fetchTeams,
   fetchYahooGamePbp,
+  ONE_CATEGORY_SEASONS,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
-import type { PlayerGameLog, PlayerSummary } from "../../shared/types";
+import type { Category, PlayerGameLog, PlayerSummary } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { BOXSCORE_TABS, type BoxscoreColumn, type BoxscoreTabKey, COLUMNS_BY_TAB } from "../components/BoxscoreTable";
 import { buildPlayerGameBoxscoreRow, type PlayerGameBoxscoreRow } from "../lib/playerGameBoxscore";
@@ -143,6 +144,15 @@ const SEASON_BOX_COLUMNS: Record<SeasonBoxTabKey, SeasonBoxscoreColumn[]> = {
 // 「シーズン別成績」「シチュエーション別成績」の平均/合計切り替え。SeasonDisplayModeには
 // 「30分換算」も含まれるが、ここでは依頼通り平均/合計の2択のみボタン化する
 const DISPLAY_MODE_TOGGLE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
+
+// 「通算成績」タブのカテゴリ選択。B.NEXTは未実装のためスコープ外、カテゴリ横断の
+// 「全カテゴリ合計」もB.ONEのデータが1シーズン分しか無く中途半端な合計になるため実装しない
+// （DESIGN.md参照）
+const CAREER_CATEGORY_OPTIONS: Category[] = ["premier", "one"];
+const CAREER_CATEGORY_LABELS: Record<Category, string> = {
+  premier: "B.PREMIER",
+  one: "B.ONE",
+};
 
 interface PlayerStatDef {
   key: string;
@@ -508,6 +518,15 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 通算成績・キャリアハイ両タブで共有するレギュラー/プレーオフ/合算トグル（既存のgameType軸を再利用）
   const [careerGameTypeFilter, setCareerGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
 
+  // 「通算成績」タブ専用のカテゴリ選択（B.PREMIER/B.ONE）。上のcareerData（キャリアハイ・比較・
+  // シーズン別成績等、他タブ全部が参照する共有state）はB.PREMIER専用のまま変更しない。
+  // B.ONE選択時だけ別途careerDataOneを遅延取得する（B.ONEは現状data/seasons.json相当の
+  // 季一覧が無いため、ONE_CATEGORY_SEASONS（既知の取得済みシーズン一覧）を直接ループする）
+  const [careerCategory, setCareerCategory] = useState<Category>("premier");
+  const [careerDataOne, setCareerDataOne] = useState<CareerSeasonLogs[] | null>(null);
+  const [careerOneLoading, setCareerOneLoading] = useState(false);
+  const careerOneFetchStartedRef = useRef(false);
+
   // 試合ログタブのボックススコア形式表示（試合詳細ページと同じトラディショナル/アドバンスド/
   // Misc/スコアリング切り替え）。各試合の生データ（PlayByPlays込み）を選手の出場試合数分
   // フェッチする必要があるため、タブを開いたときだけ遅延取得する（careerと同じ方針）
@@ -565,6 +584,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
     careerFetchStartedRef.current = false;
     setCareerTeamTotals(null);
     careerTeamTotalsFetchStartedRef.current = false;
+    setCareerCategory("premier");
+    setCareerDataOne(null);
+    careerOneFetchStartedRef.current = false;
     setGameBoxRows(null);
     gameBoxFetchStartedRef.current = false;
     setSeasonShotChartExpanded(false);
@@ -705,6 +727,32 @@ export function PlayerDetailPage({ season }: { season: string }) {
       });
   }, [tab, playerId, seasons]);
 
+  // 「通算成績」タブでB.ONEを選んだ時だけ遅延取得する（ONE_CATEGORY_SEASONSは既知の
+  // 取得済みシーズンの列挙。data/{season}/one/player-games/{playerId}.jsonが存在しない
+  // （＝その選手がそのシーズンB.ONEに出場していない）試合はfetchが失敗するため、
+  // 上のcareerData取得と同様catchしてlogsを空配列にし、結果からフィルタして除外する
+  useEffect(() => {
+    if (tab !== "career" || careerCategory !== "one" || !playerId || careerOneFetchStartedRef.current) return;
+    careerOneFetchStartedRef.current = true;
+    setCareerOneLoading(true);
+    Promise.all(
+      ONE_CATEGORY_SEASONS.map(async (s) => {
+        try {
+          const logs = await fetchPlayerGameLogs(s, playerId, "one");
+          return { season: s, logs };
+        } catch {
+          return { season: s, logs: [] as PlayerGameLog[] };
+        }
+      }),
+    )
+      .then((results) => {
+        setCareerDataOne(results.filter((r) => r.logs.length > 0));
+      })
+      .finally(() => {
+        setCareerOneLoading(false);
+      });
+  }, [tab, careerCategory, playerId]);
+
   // 「シーズン別成績」テーブルのUSG%・%-shareスタッツ用に、careerData取得済みの各シーズンについて
   // 選手の所属チームを解決してからチーム総計を取得する（careerData自体が揃うまで待つ必要があるため
   // 別effectに分離。careerFetchStartedRefと同じ「一度だけ・playerId変更時のみリセット」パターン）
@@ -735,9 +783,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
   // 通算成績タブ: 全シーズン合算の単一の合計値（平均ではなく合計）。PlayerSituationalStatsは
   // 平均値と割合しか持たないため、FGM/3PM/FTM等の合計はgameLogから直接合算し直す
+  const careerCountTotalsSource = careerCategory === "one" ? careerDataOne : careerData;
   const careerCountTotals = useMemo((): CareerCountTotals | null => {
-    if (!careerData) return null;
-    const allPlayed = careerData.flatMap((cd) => playedFilteredLogs(cd.logs));
+    if (!careerCountTotalsSource) return null;
+    const allPlayed = careerCountTotalsSource.flatMap((cd) => playedFilteredLogs(cd.logs));
     if (allPlayed.length === 0) return null;
     const sums = allPlayed.reduce(
       (acc, g) => ({
@@ -815,7 +864,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       unsportsmanlikeFouls: sums.unsportsmanlikeFouls,
       disqualifyingFouls: sums.disqualifyingFouls,
     };
-  }, [careerData, careerGameTypeFilter]);
+  }, [careerCountTotalsSource, careerGameTypeFilter]);
 
   // 「キャリアハイ」タブのDD/TD達成数カードで引き続き使用（通算成績タブの表示自体は
   // 上のcareerCountTotalsに置き換え済み）
@@ -1465,6 +1514,16 @@ export function PlayerDetailPage({ season }: { season: string }) {
       {tab === "career" && (
         <>
           <div className="mode-toggle">
+            {CAREER_CATEGORY_OPTIONS.map((c) => (
+              <button
+                key={c}
+                className={c === careerCategory ? "active" : ""}
+                onClick={() => setCareerCategory(c)}
+                type="button"
+              >
+                {CAREER_CATEGORY_LABELS[c]}
+              </button>
+            ))}
             {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
               <button
                 key={g}
@@ -1476,12 +1535,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </button>
             ))}
           </div>
-          {careerLoading ? (
+          {(careerCategory === "one" ? careerOneLoading : careerLoading) ? (
             <p className="loading">読み込み中...</p>
-          ) : careerError ? (
+          ) : careerCategory === "premier" && careerError ? (
             <p className="error-message">{careerError}</p>
           ) : !careerCountTotals ? (
-            <p className="empty-message">通算成績がありません</p>
+            <p className="empty-message">
+              {careerCategory === "one" ? "この選手のB.ONEでの出場歴はありません" : "通算成績がありません"}
+            </p>
           ) : (
             <div className="stat-grid">
               <StatTile label="PTS" value={formatDecimal(careerCountTotals.pts, 0)} />

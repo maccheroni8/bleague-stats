@@ -13,6 +13,7 @@
 // 両方の環境に対応する
 
 import type {
+  Category,
   ClubHonorsFile,
   GameSummary,
   HeadToHeadTeamRow,
@@ -59,8 +60,22 @@ export function fetchPlayers(season: string): Promise<PlayerSummary[]> {
   return fetchJson<PlayerSummary[]>(`${dataBase}/${season}/players.json`);
 }
 
-export function fetchPlayerGameLogs(season: string, playerId: string): Promise<PlayerGameLog[]> {
-  return fetchJson<PlayerGameLog[]>(`${dataBase}/${season}/player-games/${playerId}.json`);
+/** B.PREMIERは`data/{season}/...`のまま、B.ONEは`data/{season}/one/...`に保存されている
+ * （DESIGN.md 14-5章の案A）。カテゴリ別に読むfetcherはこのプレフィックスを差し替えるだけでよい */
+function categoryBase(season: string, category: Category): string {
+  return category === "one" ? `${dataBase}/${season}/one` : `${dataBase}/${season}`;
+}
+
+/**
+ * B.ONE（旧B2）は現状2025-26シーズンのみバックフィル済み（DESIGN.md参照。過去シーズンの
+ * 一括取得はまだ行っていない）。B.PREMIERのdata/seasons.jsonに相当する季一覧ファイルが
+ * 無いため、既知の取得済みシーズンをここに列挙する。今後シーズンを追加取得した場合はここに
+ * 追記する
+ */
+export const ONE_CATEGORY_SEASONS: string[] = ["2025-26"];
+
+export function fetchPlayerGameLogs(season: string, playerId: string, category: Category = "premier"): Promise<PlayerGameLog[]> {
+  return fetchJson<PlayerGameLog[]>(`${categoryBase(season, category)}/player-games/${playerId}.json`);
 }
 
 export function fetchGame(season: string, scheduleKey: string): Promise<StoredGame> {
