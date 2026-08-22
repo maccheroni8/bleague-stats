@@ -187,10 +187,11 @@ const PLAYER_STAT_MODE_LABELS: Record<PlayerStatMode, string> = {
 
 const HONOR_CATEGORY_LABELS: Record<ClubHonor["category"], string> = {
   overall: "年間優勝",
+  emperors_cup: "天皇杯",
   division: "地区優勝",
   international: "国際大会",
 };
-const HONOR_CATEGORY_ORDER: ClubHonor["category"][] = ["overall", "division", "international"];
+const HONOR_CATEGORY_ORDER: ClubHonor["category"][] = ["overall", "emperors_cup", "division", "international"];
 
 type DetailTab = "overview" | "schedule" | "stats";
 

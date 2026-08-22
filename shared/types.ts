@@ -890,7 +890,7 @@ export interface PlayerHistoryEntry {
 
 // ---- data/club-honors.json の保存スキーマ（teamId→獲得タイトル配列。scripts/scrape-club-honors.ts参照） ----
 
-export type HonorCategory = "overall" | "division" | "international";
+export type HonorCategory = "overall" | "division" | "international" | "emperors_cup";
 
 export interface ClubHonor {
   competition: string;

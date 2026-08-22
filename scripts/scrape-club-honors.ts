@@ -15,8 +15,17 @@
 //    特定はWeb検索で複数の一次情報を突き合わせて確定し、ここでは手入力する（該当が5件のみのため）。
 //
 // クラブ詳細ページのachievementウィジェット（累計回数のみ・season情報なし）は、生成結果の
-// 妥当性チェック用ログにのみ使う（fetchClubAchievementCounts）。天皇杯優勝・B2年間優勝・
-// B2地区優勝はスコープ外（ユーザー依頼は年間優勝／地区優勝／国際大会のB1・B.PREMIER実績）。
+// 妥当性チェック用ログにのみ使う（fetchClubAchievementCounts）。B2年間優勝・B2地区優勝は
+// 引き続きスコープ外（ユーザー依頼は年間優勝／地区優勝／国際大会／天皇杯のB1・B.PREMIER実績）。
+//
+// 4. 天皇杯優勝（全日本バスケットボール選手権大会）: 国際大会と同様、Web調査（Wikipedia「天皇杯・
+//    皇后杯全日本バスケットボール選手権大会」＋公式アーカイブサイト zennihon{season}.
+//    japanbasketball.jp/history/）で歴代優勝チームを確認し、手入力する（2026-08-22）。
+//    天皇杯は暦年（1〜3月に決勝）で開催されるが、公式アーカイブサイト自体がB.LEAGUEの
+//    シーズン表記（例: "2025-26"）をそのままサイト名に使っているため、season欄はB.LEAGUEの
+//    シーズン表記と揃えている（暦年からの変換は不要）。2016年（第91回、B.LEAGUE開幕前）の
+//    アイシン三河優勝はスコープ外。全件、bleague.jpのクラブ詳細ページachievementウィジェットの
+//    「天皇杯優勝◯回」カウントと突き合わせて裏取り済み（詳細はdocs/DESIGN.md参照）。
 
 import path from "node:path";
 import { load } from "cheerio";
@@ -29,7 +38,7 @@ const MIN_REQUEST_INTERVAL_MS = 2500;
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
 const throttledFetch = createThrottledFetch(MIN_REQUEST_INTERVAL_MS, USER_AGENT);
 
-type HonorCategory = "overall" | "division" | "international";
+type HonorCategory = "overall" | "division" | "international" | "emperors_cup";
 
 interface ClubHonor {
   competition: string;
@@ -151,6 +160,23 @@ const INTERNATIONAL_HONORS: Array<{ teamId: string; competition: string; season:
   },
 ];
 
+// 天皇杯優勝（2026-08-22、Wikipedia「天皇杯・皇后杯全日本バスケットボール選手権大会」＋
+// zennihon{season}.japanbasketball.jp/history/ を突き合わせて確定。B.LEAGUE開幕（2016-17）
+// 以降のみ対象。全件、各クラブのbleague.jpクラブ詳細ページachievementウィジェットの
+// 「天皇杯優勝◯回」カウントと一致することを確認済み（千葉5・川崎2・東京SR1・琉球1・A東京1）
+const EMPERORS_CUP_HONORS: Array<{ teamId: string; season: string; note: string }> = [
+  { teamId: "704", season: "2016-17", note: "第92回。千葉ジェッツ初優勝" },
+  { teamId: "704", season: "2017-18", note: "第93回。千葉ジェッツ連覇" },
+  { teamId: "704", season: "2018-19", note: "第94回。千葉ジェッツ3連覇" },
+  { teamId: "726", season: "2019-20", note: "第95回。当時のサンロッカーズ渋谷が優勝" },
+  { teamId: "727", season: "2020-21", note: "第96回。川崎ブレイブサンダースが7大会ぶり4度目の優勝" },
+  { teamId: "727", season: "2021-22", note: "第97回。川崎ブレイブサンダースがクラブ初の連覇（通算5度目）" },
+  { teamId: "704", season: "2022-23", note: "第98回。千葉ジェッツが優勝（翌年と合わせ2連覇）" },
+  { teamId: "704", season: "2023-24", note: "第99回。千葉ジェッツが2連覇達成（通算5度目）" },
+  { teamId: "701", season: "2024-25", note: "第100回。琉球ゴールデンキングス初優勝" },
+  { teamId: "706", season: "2025-26", note: "第101回。アルバルク東京が14大会ぶり3度目の優勝" },
+];
+
 interface ClubAchievementCount {
   name: string;
   count: string;
@@ -211,6 +237,19 @@ async function main() {
     console.log(`[${h.season}] ${TEAM_NAMES[h.teamId]}: ${h.competition}`);
   }
 
+  console.log("\n=== 4. 天皇杯優勝（手入力・Wikipedia＋公式アーカイブサイトで確認済み） ===");
+  for (const h of EMPERORS_CUP_HONORS) {
+    if (!TEAM_NAMES[h.teamId]) {
+      // B.PREMIER26クラブのマスタに存在しない優勝クラブ（B.ONE所属クラブ等）が
+      // 将来出現した場合はここで検知できるようにしておく（現状の10シーズン分は全件マスタ内）
+      console.log(`⚠️ teamId=${h.teamId}（${h.season}）はTEAM_NAMESに存在しません。手動確認が必要です`);
+      continue;
+    }
+    const cupArr = result[h.teamId] ?? (result[h.teamId] = []);
+    cupArr.push({ competition: "天皇杯優勝", season: h.season, category: "emperors_cup", note: h.note });
+    console.log(`[${h.season}] ${TEAM_NAMES[h.teamId]}: 天皇杯優勝`);
+  }
+
   await writeJson(path.join(DATA_DIR, "club-honors.json"), result);
   const total = Object.values(result).reduce((n, arr) => n + arr.length, 0);
   console.log(`\ndata/club-honors.jsonに保存しました（${total}件）`);
@@ -218,7 +257,7 @@ async function main() {
   console.log("\n=== 妥当性チェック: クラブ詳細ページの累計回数ウィジェットと突き合わせ ===");
   for (const teamId of Object.keys(TEAM_NAMES)) {
     const counts = await fetchClubAchievementCounts(teamId);
-    const relevant = counts.filter((c) => /^(Bリーグチャンピオンシップ優勝|B1地区優勝|バスケットボール|EASL優勝|FIBA)/.test(c.name));
+    const relevant = counts.filter((c) => /^(Bリーグチャンピオンシップ優勝|B1地区優勝|バスケットボール|EASL優勝|FIBA|天皇杯優勝)/.test(c.name));
     if (relevant.length === 0) continue;
     const derivedCount = (result[teamId] ?? []).length;
     const widgetTotal = relevant.reduce((n, c) => n + (Number(c.count.replace("回", "")) || 0), 0);
