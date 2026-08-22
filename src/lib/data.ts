@@ -52,18 +52,18 @@ async function fetchJson<T>(url: string): Promise<T> {
   return JSON.parse(text) as T;
 }
 
-export function fetchTeams(season: string): Promise<TeamSummary[]> {
-  return fetchJson<TeamSummary[]>(`${dataBase}/${season}/teams.json`);
-}
-
-export function fetchPlayers(season: string): Promise<PlayerSummary[]> {
-  return fetchJson<PlayerSummary[]>(`${dataBase}/${season}/players.json`);
-}
-
 /** B.PREMIERは`data/{season}/...`のまま、B.ONEは`data/{season}/one/...`に保存されている
  * （DESIGN.md 14-5章の案A）。カテゴリ別に読むfetcherはこのプレフィックスを差し替えるだけでよい */
 function categoryBase(season: string, category: Category): string {
   return category === "one" ? `${dataBase}/${season}/one` : `${dataBase}/${season}`;
+}
+
+export function fetchTeams(season: string, category: Category = "premier"): Promise<TeamSummary[]> {
+  return fetchJson<TeamSummary[]>(`${categoryBase(season, category)}/teams.json`);
+}
+
+export function fetchPlayers(season: string, category: Category = "premier"): Promise<PlayerSummary[]> {
+  return fetchJson<PlayerSummary[]>(`${categoryBase(season, category)}/players.json`);
 }
 
 /**

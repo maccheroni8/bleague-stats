@@ -547,6 +547,12 @@ table.stats-table tr.situational-group-heading td {
   padding-bottom: 4px;
 }
 
+.career-highs-subheading {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
 .career-highs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));

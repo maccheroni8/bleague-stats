@@ -37,7 +37,7 @@ import { PlayerPhoto } from "../components/PlayerPhoto";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { bleaguePlayerUrl } from "../lib/externalLinks";
 import { formatDecimal, formatPct, formatSigned } from "../lib/format";
-import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
+import { formatMinutesFromSeconds, astToTovRatio } from "../lib/boxscoreAggregate";
 import {
   buildShotTypeBreakdownByPlayer,
   formatShotTypeCell,
@@ -51,7 +51,7 @@ import { ShotChartFilterPicker } from "../components/ShotChartFilterPicker";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { periodInRange, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
-import { safeDiv } from "../../shared/formulas";
+import { safeDiv, eff, efgPct, tsPct } from "../../shared/formulas";
 import {
   SEASON_ADVANCED_COLUMNS,
   SEASON_DISPLAY_MODE_LABELS,
@@ -309,23 +309,115 @@ interface CareerCountTotals {
   dunks: number;
   basketCounts: number;
   unsportsmanlikeFouls: number;
-  disqualifyingFouls: number;
 }
+
+type CareerHighGame = PlayerGameLog & { season: string };
 
 interface CareerHighDef {
   key: string;
   label: string;
-  value: (g: PlayerGameLog) => number;
+  value: (g: CareerHighGame) => number;
+  format?: (v: number) => string;
+  /**
+   * %系の指標（FG%等）やAST/TOVのような比率は、試投数の少ない1試合でたまたま0%や
+   * 極端な値になりやすく「ワースト記録」として意味を持ちにくいため、キャリアワースト
+   * 一覧からは除外する（DESIGN.md参照。ユーザー確認済み）。デフォルトはtrue
+   */
+  worstEligible?: boolean;
+}
+
+function effTotalsOfGame(g: PlayerGameLog) {
+  return {
+    pts: g.pts,
+    ast: g.ast,
+    blk: g.blk,
+    stl: g.stl,
+    reb: g.reb,
+    tov: g.tov,
+    pf: g.pf,
+    fgm: g.fgm,
+    fga: g.fga,
+    ftm: g.ftm,
+    fta: g.fta,
+    foulsDrawn: g.foulsDrawn,
+    blockedAgainst: g.blockedAgainst,
+    technicalFouls: g.technicalFouls,
+  };
 }
 
 const CAREER_HIGH_STATS: CareerHighDef[] = [
+  {
+    key: "min",
+    label: "MIN",
+    value: (g) => g.min,
+    format: (v) => formatMinutesFromSeconds(Math.round(v * 60)),
+    worstEligible: false,
+  },
   { key: "pts", label: "PTS", value: (g) => g.pts },
-  { key: "reb", label: "REB", value: (g) => g.reb },
+  { key: "fgm", label: "FGM", value: (g) => g.fgm },
+  { key: "fga", label: "FGA", value: (g) => g.fga },
+  { key: "fgPct", label: "FG%", value: (g) => safeDiv(g.fgm, g.fga), format: formatPct, worstEligible: false },
+  { key: "2pm", label: "2PM", value: (g) => g.fgm - g.tpm },
+  { key: "2pa", label: "2PA", value: (g) => g.fga - g.tpa },
+  {
+    key: "2pPct",
+    label: "2P%",
+    value: (g) => safeDiv(g.fgm - g.tpm, g.fga - g.tpa),
+    format: formatPct,
+    worstEligible: false,
+  },
+  { key: "tpm", label: "3PM", value: (g) => g.tpm },
+  { key: "tpa", label: "3PA", value: (g) => g.tpa },
+  { key: "tpPct", label: "3P%", value: (g) => safeDiv(g.tpm, g.tpa), format: formatPct, worstEligible: false },
+  { key: "ftm", label: "FTM", value: (g) => g.ftm },
+  { key: "fta", label: "FTA", value: (g) => g.fta },
+  { key: "ftPct", label: "FT%", value: (g) => safeDiv(g.ftm, g.fta), format: formatPct, worstEligible: false },
+  {
+    key: "efgPct",
+    label: "eFG%",
+    value: (g) => efgPct(g.fgm, g.tpm, g.fga),
+    format: formatPct,
+    worstEligible: false,
+  },
+  {
+    key: "tsPct",
+    label: "TS%",
+    value: (g) => tsPct(g.pts, g.fga, g.fta),
+    format: formatPct,
+    worstEligible: false,
+  },
+  { key: "oreb", label: "OR", value: (g) => g.oreb },
+  { key: "dreb", label: "DR", value: (g) => g.dreb },
+  { key: "reb", label: "TR", value: (g) => g.reb },
   { key: "ast", label: "AST", value: (g) => g.ast },
+  { key: "tov", label: "TOV", value: (g) => g.tov },
+  {
+    key: "astTov",
+    label: "AST/TOV",
+    value: (g) => astToTovRatio(g.ast, g.tov),
+    format: (v) => v.toFixed(1),
+    worstEligible: false,
+  },
   { key: "stl", label: "STL", value: (g) => g.stl },
   { key: "blk", label: "BLK", value: (g) => g.blk },
-  { key: "tpm", label: "3P成功数", value: (g) => g.tpm },
-  { key: "technicalFouls", label: "テクニカルファウル数", value: (g) => g.technicalFouls },
+  { key: "blockedAgainst", label: "BSR", value: (g) => g.blockedAgainst },
+  { key: "pf", label: "F", value: (g) => g.pf },
+  { key: "foulsDrawn", label: "FD", value: (g) => g.foulsDrawn },
+  {
+    key: "eff",
+    label: "EFF",
+    value: (g) => eff(Number(g.season.split("-")[0]), effTotalsOfGame(g), 1),
+    format: (v) => v.toFixed(0),
+  },
+  { key: "plusMinus", label: "+/-", value: (g) => g.plusMinus, format: (v) => formatSigned(v, 0) },
+  { key: "pt2in", label: "PITP", value: (g) => g.pt2in },
+  { key: "ptfb", label: "FBPS", value: (g) => g.ptfb },
+  { key: "pt2nd", label: "2ND PTS", value: (g) => g.pt2nd },
+  { key: "ptsOffTov", label: "PTSOFFTO", value: (g) => g.ptsOffTov },
+  { key: "dunks", label: "DUNK", value: (g) => g.dunks },
+  { key: "basketCounts", label: "AND1", value: (g) => g.basketCounts },
+  { key: "unsportsmanlikeFouls", label: "UFOUL", value: (g) => g.unsportsmanlikeFouls },
+  { key: "technicalFouls", label: "TF", value: (g) => g.technicalFouls },
 ];
 
 /**
@@ -543,8 +635,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 通算成績・キャリアハイ両タブで共有するレギュラー/プレーオフ/合算トグル（既存のgameType軸を再利用）
   const [careerGameTypeFilter, setCareerGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
 
-  // 「通算成績」タブ専用のカテゴリ選択（B.PREMIER/B.ONE）。上のcareerData（キャリアハイ・比較・
-  // シーズン別成績等、他タブ全部が参照する共有state）はB.PREMIER専用のまま変更しない。
+  // 「通算成績」「キャリアハイ」両タブで共有するカテゴリ選択（B.PREMIER/B.ONE）。上のcareerData
+  // （比較・シーズン別成績等、他タブ全部が参照する共有state）はB.PREMIER専用のまま変更しない。
   // B.ONE選択時だけ別途careerDataOneを遅延取得する（B.ONEは現状data/seasons.json相当の
   // 季一覧が無いため、ONE_CATEGORY_SEASONS（既知の取得済みシーズン一覧）を直接ループする）
   const [careerCategory, setCareerCategory] = useState<Category>("premier");
@@ -788,12 +880,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
       });
   }, [tab, playerId, seasons]);
 
-  // 「通算成績」タブでB.ONEを選んだ時だけ遅延取得する（ONE_CATEGORY_SEASONSは既知の
-  // 取得済みシーズンの列挙。data/{season}/one/player-games/{playerId}.jsonが存在しない
+  // 「通算成績」「キャリアハイ」タブでB.ONEを選んだ時だけ遅延取得する（ONE_CATEGORY_SEASONSは
+  // 既知の取得済みシーズンの列挙。data/{season}/one/player-games/{playerId}.jsonが存在しない
   // （＝その選手がそのシーズンB.ONEに出場していない）試合はfetchが失敗するため、
   // 上のcareerData取得と同様catchしてlogsを空配列にし、結果からフィルタして除外する
   useEffect(() => {
-    if (tab !== "career" || careerCategory !== "one" || !playerId || careerOneFetchStartedRef.current) return;
+    if ((tab !== "career" && tab !== "highs") || careerCategory !== "one" || !playerId || careerOneFetchStartedRef.current) return;
     careerOneFetchStartedRef.current = true;
     setCareerOneLoading(true);
     Promise.all(
@@ -892,7 +984,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
         dunks: acc.dunks + g.dunks,
         basketCounts: acc.basketCounts + g.basketCounts,
         unsportsmanlikeFouls: acc.unsportsmanlikeFouls + g.unsportsmanlikeFouls,
-        disqualifyingFouls: acc.disqualifyingFouls + g.disqualifyingFouls,
       }),
       {
         min: 0,
@@ -915,7 +1006,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
         dunks: 0,
         basketCounts: 0,
         unsportsmanlikeFouls: 0,
-        disqualifyingFouls: 0,
       },
     );
     const { dd, td } = countDoubleTripleDoubles(allPlayed);
@@ -944,32 +1034,54 @@ export function PlayerDetailPage({ season }: { season: string }) {
       dunks: sums.dunks,
       basketCounts: sums.basketCounts,
       unsportsmanlikeFouls: sums.unsportsmanlikeFouls,
-      disqualifyingFouls: sums.disqualifyingFouls,
     };
   }, [careerCountTotalsSource, careerGameTypeFilter]);
 
   // 「キャリアハイ」タブのDD/TD達成数カードで引き続き使用（通算成績タブの表示自体は
-  // 上のcareerCountTotalsに置き換え済み）
+  // 上のcareerCountTotalsに置き換え済み）。通算成績タブと同じくcareerCountTotalsSource
+  // （careerCategoryに応じてcareerData/careerDataOneを切り替え）を参照する
   const careerTotal = useMemo(() => {
-    if (!careerData) return null;
-    const allPlayed = careerData.flatMap((cd) => playedFilteredLogs(cd.logs));
+    if (!careerCountTotalsSource) return null;
+    const allPlayed = careerCountTotalsSource.flatMap((cd) => playedFilteredLogs(cd.logs));
     const stats = computePlayerSituationalStats(allPlayed);
     return stats ? { stats, ddtd: countDoubleTripleDoubles(allPlayed) } : null;
-  }, [careerData, careerGameTypeFilter]);
+  }, [careerCountTotalsSource, careerGameTypeFilter]);
 
   const careerHighs = useMemo(() => {
-    if (!careerData) return [];
-    const allGames = careerData.flatMap((cd) =>
+    if (!careerCountTotalsSource) return [];
+    const allGames = careerCountTotalsSource.flatMap((cd) =>
       playedFilteredLogs(cd.logs).map((g) => ({ ...g, season: cd.season })),
     );
     return CAREER_HIGH_STATS.map((def) => {
-      const best = allGames.reduce<(typeof allGames)[number] | null>(
+      const best = allGames.reduce<CareerHighGame | null>(
         (acc, g) => (acc === null || def.value(g) > def.value(acc) ? g : acc),
         null,
       );
-      return best ? { ...def, game: best } : null;
-    }).filter((r): r is CareerHighDef & { game: PlayerGameLog & { season: string } } => r !== null);
-  }, [careerData, careerGameTypeFilter]);
+      if (!best) return null;
+      const v = def.value(best);
+      return { ...def, game: best, display: def.format ? def.format(v) : String(v) };
+    }).filter((r): r is CareerHighDef & { game: CareerHighGame; display: string } => r !== null);
+  }, [careerCountTotalsSource, careerGameTypeFilter]);
+
+  // 「キャリアワースト」: %系の指標・AST/TOV（worstEligible: false）を除いた項目について、
+  // 同じ試合ログ集合から最小値を求める（キャリアハイと対になる一覧。DESIGN.md参照）
+  const careerWorsts = useMemo(() => {
+    if (!careerCountTotalsSource) return [];
+    const allGames = careerCountTotalsSource.flatMap((cd) =>
+      playedFilteredLogs(cd.logs).map((g) => ({ ...g, season: cd.season })),
+    );
+    return CAREER_HIGH_STATS.filter((def) => def.worstEligible !== false)
+      .map((def) => {
+        const worst = allGames.reduce<CareerHighGame | null>(
+          (acc, g) => (acc === null || def.value(g) < def.value(acc) ? g : acc),
+          null,
+        );
+        if (!worst) return null;
+        const v = def.value(worst);
+        return { ...def, game: worst, display: def.format ? def.format(v) : String(v) };
+      })
+      .filter((r): r is CareerHighDef & { game: CareerHighGame; display: string } => r !== null);
+  }, [careerCountTotalsSource, careerGameTypeFilter]);
 
   // 比較タブ: 各スロットの「前半戦/後半戦」ボタン用に、スロットで選ばれたシーズンの試合日程を
   // 都度取得する（2スロットのみなので配列化せず個別にuseJsonDataを呼ぶ）。比較タブを開いている
@@ -1790,7 +1902,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <StatTile label="DUNK" value={formatDecimal(careerCountTotals.dunks, 0)} />
               <StatTile label="AND1" value={formatDecimal(careerCountTotals.basketCounts, 0)} />
               <StatTile label="UFOUL" value={formatDecimal(careerCountTotals.unsportsmanlikeFouls, 0)} />
-              <StatTile label="DQFOUL" value={formatDecimal(careerCountTotals.disqualifyingFouls, 0)} />
             </div>
           )}
         </>
@@ -1799,6 +1910,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
       {tab === "highs" && (
         <>
           <div className="mode-toggle">
+            {CAREER_CATEGORY_OPTIONS.map((c) => (
+              <button key={c} className={c === careerCategory ? "active" : ""} onClick={() => setCareerCategory(c)} type="button">
+                {CAREER_CATEGORY_LABELS[c]}
+              </button>
+            ))}
             {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
               <button
                 key={g}
@@ -1810,37 +1926,55 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </button>
             ))}
           </div>
-          {careerLoading ? (
+          {(careerCategory === "one" ? careerOneLoading : careerLoading) ? (
             <p className="loading">読み込み中...</p>
-          ) : careerError ? (
+          ) : careerCategory === "premier" && careerError ? (
             <p className="error-message">{careerError}</p>
-          ) : !careerData || (careerHighs.length === 0 && !careerTotal) ? (
-            <p className="empty-message">キャリアハイのデータがありません</p>
+          ) : !careerCountTotalsSource || (careerHighs.length === 0 && !careerTotal) ? (
+            <p className="empty-message">
+              {careerCategory === "one" ? "この選手のB.ONEでの出場歴はありません" : "キャリアハイのデータがありません"}
+            </p>
           ) : (
-            <div className="career-highs-grid">
-              {careerHighs.map((h) => (
-                <div className="career-high-card" key={h.key}>
-                  <div className="career-high-label">{h.label}</div>
-                  <div className="career-high-value">{h.value(h.game)}</div>
-                  <RouterLink to={`/games/${h.game.scheduleKey}?season=${h.game.season}`} className="career-high-game-link">
-                    {h.game.date}　{h.game.isHome ? "vs" : "@"}
-                    {h.game.opponentTeamName}
-                  </RouterLink>
-                </div>
-              ))}
-              {careerTotal && (
-                <>
-                  <div className="career-high-card" key="dd2">
-                    <div className="career-high-label">ダブルダブル達成数</div>
-                    <div className="career-high-value">{careerTotal.ddtd.dd}</div>
+            <>
+              <h3 className="career-highs-subheading">キャリアハイ</h3>
+              <div className="career-highs-grid">
+                {careerHighs.map((h) => (
+                  <div className="career-high-card" key={h.key}>
+                    <div className="career-high-label">{h.label}</div>
+                    <div className="career-high-value">{h.display}</div>
+                    <RouterLink to={`/games/${h.game.scheduleKey}?season=${h.game.season}`} className="career-high-game-link">
+                      {h.game.date}　{h.game.isHome ? "vs" : "@"}
+                      {h.game.opponentTeamName}
+                    </RouterLink>
                   </div>
-                  <div className="career-high-card" key="td3">
-                    <div className="career-high-label">トリプルダブル達成数</div>
-                    <div className="career-high-value">{careerTotal.ddtd.td}</div>
+                ))}
+                {careerTotal && (
+                  <>
+                    <div className="career-high-card" key="dd2">
+                      <div className="career-high-label">ダブルダブル達成数</div>
+                      <div className="career-high-value">{careerTotal.ddtd.dd}</div>
+                    </div>
+                    <div className="career-high-card" key="td3">
+                      <div className="career-high-label">トリプルダブル達成数</div>
+                      <div className="career-high-value">{careerTotal.ddtd.td}</div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <h3 className="career-highs-subheading">キャリアワースト</h3>
+              <div className="career-highs-grid">
+                {careerWorsts.map((h) => (
+                  <div className="career-high-card" key={h.key}>
+                    <div className="career-high-label">{h.label}</div>
+                    <div className="career-high-value">{h.display}</div>
+                    <RouterLink to={`/games/${h.game.scheduleKey}?season=${h.game.season}`} className="career-high-game-link">
+                      {h.game.date}　{h.game.isHome ? "vs" : "@"}
+                      {h.game.opponentTeamName}
+                    </RouterLink>
                   </div>
-                </>
-              )}
-            </div>
+                ))}
+              </div>
+            </>
           )}
         </>
       )}
