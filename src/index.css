@@ -524,6 +524,12 @@ table.stats-table tr.career-total-row {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
+/* シーズン内移籍で複数チームにまたがる行の「複数チーム」合計行（career-total-rowより控えめに） */
+table.stats-table tr.season-team-total-row {
+  font-style: italic;
+  background: var(--header-bg);
+}
+
 table.stats-table tr.situational-group-heading td {
   font-weight: 700;
   font-size: 12px;

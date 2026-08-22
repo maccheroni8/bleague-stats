@@ -78,6 +78,40 @@ export function isDefaultFilter(filter: SituationalFilter): boolean {
   return filter.kind === "all" && !filter.includePlayoffs;
 }
 
+export interface GameTeamInfo {
+  teamId: string;
+  teamName: string;
+}
+
+/**
+ * PlayerGameLog/TeamGameLogには自チームのteamId/teamNameが無いため（scheduleKey・opponentTeamId・
+ * isHomeのみ）、同じシーズンのgames-summary.json（homeTeamId/awayTeamId）とisHomeを突き合わせて
+ * 動的に導出する。scheduleKeyをキーにhome/away両チーム情報を持ち、呼び出し側でisHomeに応じて
+ * resolveOwnTeam()で選ぶ（シーズン内移籍で選手ごとに所属チームが変わりうる箇所で使う。DESIGN.md参照）
+ */
+export function buildGameTeamsByScheduleKey(
+  games: GameSummary[],
+): Map<string, { home: GameTeamInfo; away: GameTeamInfo }> {
+  const map = new Map<string, { home: GameTeamInfo; away: GameTeamInfo }>();
+  for (const g of games) {
+    map.set(g.scheduleKey, {
+      home: { teamId: g.homeTeamId, teamName: g.homeTeamName },
+      away: { teamId: g.awayTeamId, teamName: g.awayTeamName },
+    });
+  }
+  return map;
+}
+
+/** buildGameTeamsByScheduleKey()の結果とisHomeから、その1試合における自チームを解決する */
+export function resolveOwnTeam(
+  log: { scheduleKey: string; isHome: boolean },
+  gameTeams: Map<string, { home: GameTeamInfo; away: GameTeamInfo }>,
+): GameTeamInfo | null {
+  const entry = gameTeams.get(log.scheduleKey);
+  if (!entry) return null;
+  return log.isHome ? entry.home : entry.away;
+}
+
 /** 対戦相手のその試合時点までの勝率で絞り込む際、これ未満の消化試合数は対象外にする（DESIGN.md参照） */
 export const MIN_GAMES_FOR_OPPONENT_WIN_RATE = 5;
 

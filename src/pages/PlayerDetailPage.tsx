@@ -27,7 +27,8 @@ import {
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
-import type { Category, PlayerGameLog, PlayerSummary } from "../../shared/types";
+import type { Category, PlayerGameLog, PlayerSummary, TeamGameLog } from "../../shared/types";
+import { teamShortName } from "../../shared/teamNames";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { BOXSCORE_TABS, type BoxscoreColumn, type BoxscoreTabKey, COLUMNS_BY_TAB } from "../components/BoxscoreTable";
 import { buildPlayerGameBoxscoreRow, type PlayerGameBoxscoreRow } from "../lib/playerGameBoxscore";
@@ -65,6 +66,7 @@ import {
 } from "../lib/playerSeasonBoxscore";
 import {
   buildBackToBackStatus,
+  buildGameTeamsByScheduleKey,
   buildRecordsBeforeGame,
   computePlayerSituationalStats,
   computeSeasonHalfBoundary,
@@ -74,6 +76,8 @@ import {
   matchesNewYearHalf,
   matchesOpponentWinRateTier,
   matchesShotChartGameFilters,
+  resolveOwnTeam,
+  type GameTeamInfo,
   type PlayerSituationalStats,
   type RecordBeforeGame,
   type SeasonHalfBoundary,
@@ -260,6 +264,17 @@ interface CareerSeasonLogs {
   logs: PlayerGameLog[];
 }
 
+/**
+ * 1シーズン分の「試合ログから動的に導出した所属チーム」情報。ownTeamByScheduleKeyは
+ * resolveOwnTeam()の結果をscheduleKeyごとにキャッシュしたもの（シーズン内移籍で複数チームに
+ * 分かれうる）、teamTotalsByTeamIdは%-share/USG%の分母となるチーム総計をチームごとに持つ
+ * （移籍前後どちらのチームの試合かで正しい分母を出し分けるため、シーズン単位ではなくチーム単位で持つ）
+ */
+interface CareerSeasonTeamInfo {
+  ownTeamByScheduleKey: Map<string, GameTeamInfo>;
+  teamTotalsByTeamId: Map<string, TeamSeasonRawTotals>;
+}
+
 /** 「通算成績」タブ: 全シーズン合算の単一の合計値（平均ではない） */
 interface CareerCountTotals {
   gamesPlayed: number;
@@ -403,7 +418,11 @@ interface SituationalStatsGroupDef {
 interface SituationalStatsRow {
   key: string;
   label: string;
+  /** シーズン内移籍対応: 試合ログから動的に導出した所属チーム（略称）。1チームのみなら
+   * そのチーム名、複数チームにまたがる場合は「複数チーム」（buildTeamSplitRows参照） */
+  teamLabel: string;
   ctx: SeasonBoxscoreCtx;
+  isCombined: boolean;
 }
 interface SituationalStatsGroup {
   key: string;
@@ -509,12 +528,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerError, setCareerError] = useState<string | null>(null);
   // 「シーズン別成績」テーブルのカテゴリタブ（トラディショナル/アドバンスド/Misc/スコアリング）用に、
-  // careerData全シーズン分のチーム総計（USG%・%-shareスタッツの分母）をシーズンごとに取得する。
-  // 選手の所属チームはシーズンごとに異なりうるため、まずfetchPlayers(season)でteamIdを解決してから
-  // fetchTeamGameLogsを呼ぶ（ページ本体の現在シーズン用playerTeamId解決と同じパターンをシーズン数分
-  // 繰り返す）
-  const [careerTeamTotals, setCareerTeamTotals] = useState<Map<string, TeamSeasonRawTotals> | null>(null);
-  const careerTeamTotalsFetchStartedRef = useRef(false);
+  // careerData全シーズン分の「試合ログから動的に導出した所属チーム」情報を取得する
+  // （シーズン内移籍でチームが複数に分かれうるため、teamIdごとに%-share/USG%の分母を持つ）
+  const [careerTeamData, setCareerTeamData] = useState<Map<string, CareerSeasonTeamInfo> | null>(null);
+  const careerTeamDataFetchStartedRef = useRef(false);
   // 通算成績・キャリアハイ両タブで共有するレギュラー/プレーオフ/合算トグル（既存のgameType軸を再利用）
   const [careerGameTypeFilter, setCareerGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
 
@@ -582,8 +599,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
     setCareerData(null);
     setCareerError(null);
     careerFetchStartedRef.current = false;
-    setCareerTeamTotals(null);
-    careerTeamTotalsFetchStartedRef.current = false;
+    setCareerTeamData(null);
+    careerTeamDataFetchStartedRef.current = false;
     setCareerCategory("premier");
     setCareerDataOne(null);
     careerOneFetchStartedRef.current = false;
@@ -754,26 +771,47 @@ export function PlayerDetailPage({ season }: { season: string }) {
   }, [tab, careerCategory, playerId]);
 
   // 「シーズン別成績」テーブルのUSG%・%-shareスタッツ用に、careerData取得済みの各シーズンについて
-  // 選手の所属チームを解決してからチーム総計を取得する（careerData自体が揃うまで待つ必要があるため
-  // 別effectに分離。careerFetchStartedRefと同じ「一度だけ・playerId変更時のみリセット」パターン）
+  // 所属チームを試合ログから動的に導出（games-summary.jsonのhomeTeamId/awayTeamId×isHome、
+  // resolveOwnTeam参照）してからチーム総計を取得する。players.jsonの単一teamId（直近所属チームで
+  // 上書き済み）には頼らない（シーズン内移籍で複数チームに分かれる選手を正しく扱うため）。
+  // careerData自体が揃うまで待つ必要があるため別effectに分離。careerFetchStartedRefと同じ
+  // 「一度だけ・playerId変更時のみリセット」パターン
   useEffect(() => {
-    if (!careerData || careerTeamTotalsFetchStartedRef.current) return;
-    careerTeamTotalsFetchStartedRef.current = true;
+    if (!careerData || careerTeamDataFetchStartedRef.current) return;
+    careerTeamDataFetchStartedRef.current = true;
     Promise.all(
       careerData.map(async (cd) => {
         try {
-          const seasonPlayers = await fetchPlayers(cd.season);
-          const teamId = seasonPlayers.find((p) => p.playerId === playerId)?.teamId;
-          if (!teamId) return null;
-          const teamLogs = await fetchTeamGameLogs(cd.season, teamId);
-          const scheduleKeys = new Set(cd.logs.filter((g) => g.min > 0).map((g) => g.scheduleKey));
-          return [cd.season, sumTeamGameLogsFor(teamLogs, scheduleKeys)] as const;
+          const summaries = await fetchGameSummaries(cd.season);
+          const gameTeams = buildGameTeamsByScheduleKey(summaries);
+          const playedLogs = cd.logs.filter((g) => g.min > 0);
+          const ownTeamByScheduleKey = new Map<string, GameTeamInfo>();
+          for (const log of playedLogs) {
+            const own = resolveOwnTeam(log, gameTeams);
+            if (own) ownTeamByScheduleKey.set(log.scheduleKey, own);
+          }
+          const teamIds = [...new Set([...ownTeamByScheduleKey.values()].map((t) => t.teamId))];
+          const teamTotalsByTeamId = new Map<string, TeamSeasonRawTotals>();
+          await Promise.all(
+            teamIds.map(async (teamId) => {
+              try {
+                const teamLogs = await fetchTeamGameLogs(cd.season, teamId);
+                const scheduleKeys = new Set(
+                  playedLogs.filter((g) => ownTeamByScheduleKey.get(g.scheduleKey)?.teamId === teamId).map((g) => g.scheduleKey),
+                );
+                teamTotalsByTeamId.set(teamId, sumTeamGameLogsFor(teamLogs, scheduleKeys));
+              } catch {
+                // 取得失敗時はこのteamIdの分だけ空欄（呼び出し側でZERO_TEAM_SEASON_TOTALSにフォールバック）
+              }
+            }),
+          );
+          return [cd.season, { ownTeamByScheduleKey, teamTotalsByTeamId }] as const;
         } catch {
           return null;
         }
       }),
     ).then((entries) => {
-      setCareerTeamTotals(new Map(entries.filter((e): e is readonly [string, TeamSeasonRawTotals] => e !== null)));
+      setCareerTeamData(new Map(entries.filter((e): e is readonly [string, CareerSeasonTeamInfo] => e !== null)));
     });
   }, [careerData, playerId]);
 
@@ -911,22 +949,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
     useMemo(() => (compareSummaries1 ? buildRecordsBeforeGame(compareSummaries1) : undefined), [compareSummaries1]),
   ];
 
-  // 「シチュエーション別成績」セクション用データ。選択中シーズンのチーム総計（%-share・USG%の
-  // 分母。ページ本体のteamGameLogsは現在シーズン専用のため、別シーズンを選んだ場合は
-  // このセクション専用に取り直す）と、対勝率別フィルタ用の試合日程。「スタッツ」タブを
+  // 「シチュエーション別成績」セクション用データ。選択中シーズンの試合日程（対勝率別・連戦・
+  // 所属チーム解決に使う）と、チーム総計（%-share・USG%の分母）。「スタッツ」タブを
   // 開いている間だけ取得する
-  const { data: situationalStatsPlayers } = useJsonData(
-    () => (tab === "stats" ? fetchPlayers(situationalStatsSeason) : Promise.resolve(null)),
-    [tab, situationalStatsSeason],
-  );
-  const situationalStatsTeamId = situationalStatsPlayers?.find((p) => p.playerId === playerId)?.teamId;
-  const { data: situationalStatsTeamGameLogs } = useJsonData(
-    () =>
-      tab === "stats" && situationalStatsTeamId
-        ? fetchTeamGameLogs(situationalStatsSeason, situationalStatsTeamId)
-        : Promise.resolve([]),
-    [tab, situationalStatsSeason, situationalStatsTeamId],
-  );
   const { data: situationalStatsSummaries } = useJsonData(
     () => (tab === "stats" ? fetchGameSummaries(situationalStatsSeason) : Promise.resolve(null)),
     [tab, situationalStatsSeason],
@@ -935,8 +960,52 @@ export function PlayerDetailPage({ season }: { season: string }) {
     () => (situationalStatsSummaries ? buildRecordsBeforeGame(situationalStatsSummaries) : undefined),
     [situationalStatsSummaries],
   );
+  // 選手の所属チームはシーズン内移籍で複数に分かれうるため、players.jsonの単一teamIdには頼らず
+  // 試合ログから動的に導出する（resolveOwnTeam参照）。situationalStatsLogsは本来この下の
+  // 早期returnの後で計算していたが、この節のフックが参照する必要があるため早期returnより前に
+  // 前倒しした（player/playersには依存しないため安全）
+  const situationalStatsLogs = careerData?.find((cd) => cd.season === situationalStatsSeason)?.logs;
+  const situationalStatsGameTeams = useMemo(
+    () => (situationalStatsSummaries ? buildGameTeamsByScheduleKey(situationalStatsSummaries) : new Map()),
+    [situationalStatsSummaries],
+  );
+  const situationalStatsOwnTeamByScheduleKey = useMemo(() => {
+    const map = new Map<string, GameTeamInfo>();
+    for (const log of situationalStatsLogs ?? []) {
+      if (log.min <= 0) continue;
+      const own = resolveOwnTeam(log, situationalStatsGameTeams);
+      if (own) map.set(log.scheduleKey, own);
+    }
+    return map;
+  }, [situationalStatsLogs, situationalStatsGameTeams]);
+  const situationalStatsTeamIds = [...new Set([...situationalStatsOwnTeamByScheduleKey.values()].map((t) => t.teamId))];
+  const { data: situationalStatsTeamGameLogsByTeam } = useJsonData(
+    () =>
+      tab === "stats" && situationalStatsTeamIds.length > 0
+        ? Promise.all(
+            situationalStatsTeamIds.map(
+              async (teamId) => [teamId, await fetchTeamGameLogs(situationalStatsSeason, teamId)] as const,
+            ),
+          ).then((entries) => new Map(entries))
+        : Promise.resolve(new Map<string, TeamGameLog[]>()),
+    [tab, situationalStatsSeason, situationalStatsTeamIds.join("|")],
+  );
+  const situationalStatsTeamTotalsByTeamId = useMemo(() => {
+    const map = new Map<string, TeamSeasonRawTotals>();
+    for (const teamId of situationalStatsTeamIds) {
+      const teamLogs = situationalStatsTeamGameLogsByTeam?.get(teamId) ?? [];
+      const scheduleKeys = new Set(
+        (situationalStatsLogs ?? [])
+          .filter((g) => g.min > 0 && situationalStatsOwnTeamByScheduleKey.get(g.scheduleKey)?.teamId === teamId)
+          .map((g) => g.scheduleKey),
+      );
+      map.set(teamId, sumTeamGameLogsFor(teamLogs, scheduleKeys));
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [situationalStatsTeamGameLogsByTeam, situationalStatsLogs, situationalStatsOwnTeamByScheduleKey, situationalStatsTeamIds.join("|")]);
   // 「シューティング」セクション用データ。選択したシーズンのplayers.jsonからこの選手の
-  // shotTypesだけを取り出す（situationalStatsPlayersと同じフェッチパターン）
+  // shotTypesだけを取り出す
   const { data: shootingPlayers } = useJsonData(
     () => (tab === "stats" ? fetchPlayers(shootingSeason) : Promise.resolve(null)),
     [tab, shootingSeason],
@@ -989,19 +1058,24 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const radarData = radarPool.length > 1 ? buildPlayerRadarData(player, radarPool) : [];
 
   // 「シチュエーション別成績」: 選択中シーズンの試合ログをレギュラー/プレーオフ/合算で絞った上で、
-  // 各グループ・各行（例: ホーム/アウェイ）ごとに個別のSeasonBoxscoreCtxを組み立てる。
+  // 各グループ・各行（例: ホーム/アウェイ）ごとに、試合ログから動的に導出した所属チーム単位で
+  // 個別のSeasonBoxscoreCtxを組み立てる（シーズン内移籍でチームが複数に分かれる場合は
+  // buildTeamSplitRowsがチーム別行＋合計行に分ける。1チームのみなら1行のみ）。
   // 表示は常に平均（1試合あたり）固定（合計だと行ごとの試合数の違いで比較しづらいため）
-  const situationalStatsLogs = careerData?.find((cd) => cd.season === situationalStatsSeason)?.logs;
   const situationalStatsScopedLogs = situationalStatsLogs
     ? filterByGameType(situationalStatsLogs, situationalStatsGameType)
     : [];
 
-  const buildSituationalStatsRowCtx = (matched: PlayerGameLog[]): SeasonBoxscoreCtx | null => {
-    const raw = sumPlayerGameLogs(matched);
-    if (raw.gamesPlayed === 0) return null;
-    const scheduleKeys = new Set(matched.filter((g) => g.min > 0).map((g) => g.scheduleKey));
-    const team = sumTeamGameLogsFor(situationalStatsTeamGameLogs ?? [], scheduleKeys);
-    return buildSeasonBoxscoreCtx(raw, team, situationalStatsDisplayMode, Number(situationalStatsSeason.split("-")[0]));
+  const buildSituationalStatsRows = (rowKey: string, rowLabel: string, matched: PlayerGameLog[]): SituationalStatsRow[] => {
+    const seasonStartYear = Number(situationalStatsSeason.split("-")[0]);
+    return buildTeamSplitRows(
+      rowKey,
+      matched,
+      situationalStatsOwnTeamByScheduleKey,
+      situationalStatsTeamTotalsByTeamId,
+      situationalStatsDisplayMode,
+      seasonStartYear,
+    ).map((r) => ({ key: r.key, label: rowLabel, teamLabel: r.teamLabel, ctx: r.ctx, isCombined: r.isCombined }));
   };
 
   const situationalStatsMonthsWithData = new Set(
@@ -1068,13 +1142,18 @@ export function PlayerDetailPage({ season }: { season: string }) {
     {
       key: "backToBack",
       label: "連戦",
+      // 連戦GAME1/GAME2はチーム単位の判定（buildBackToBackStatus）のため、シーズン内移籍選手は
+      // その試合ごとの所属チーム（動的導出）で引く（固定の1チームだと移籍前後のどちらかが
+      // 常に不一致になってしまうため）
       rows:
-        situationalStatsBackToBack && situationalStatsTeamId
+        situationalStatsBackToBack
           ? (["GAME1", "GAME2"] as const).map((status) => ({
               key: status,
               label: status,
               predicate: (g: PlayerGameLog) =>
-                situationalStatsBackToBack.get(g.scheduleKey)?.get(situationalStatsTeamId) === status,
+                situationalStatsBackToBack
+                  .get(g.scheduleKey)
+                  ?.get(situationalStatsOwnTeamByScheduleKey.get(g.scheduleKey)?.teamId ?? "") === status,
             }))
           : [],
     },
@@ -1102,12 +1181,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
     .map((group) => ({
       key: group.key,
       label: group.label,
-      rows: group.rows
-        .map((row) => {
-          const ctx = buildSituationalStatsRowCtx(situationalStatsScopedLogs.filter(row.predicate));
-          return ctx ? { key: row.key, label: row.label, ctx } : null;
-        })
-        .filter((r): r is SituationalStatsRow => r !== null),
+      rows: group.rows.flatMap((row) =>
+        buildSituationalStatsRows(row.key, row.label, situationalStatsScopedLogs.filter(row.predicate)),
+      ),
     }))
     .filter((group) => group.rows.length > 0);
 
@@ -1258,7 +1334,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           <SeasonBreakdownTable
             careerData={careerData}
             gameTypeFilter={gameTypeFilter}
-            teamTotalsBySeason={careerTeamTotals}
+            teamData={careerTeamData}
             displayMode={seasonDisplayMode}
           />
 
@@ -1319,6 +1395,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 <thead>
                   <tr>
                     <th className="align-left">区分</th>
+                    <th className="align-left">チーム</th>
                     {SEASON_BOX_COLUMNS[situationalStatsTab].map((col) => (
                       <th key={col.key} className="align-right" title={col.description}>
                         {col.label}
@@ -1330,11 +1407,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   {situationalStatsGroups.map((group) => (
                     <Fragment key={group.key}>
                       <tr className="situational-group-heading">
-                        <td colSpan={SEASON_BOX_COLUMNS[situationalStatsTab].length + 1}>{group.label}</td>
+                        <td colSpan={SEASON_BOX_COLUMNS[situationalStatsTab].length + 2}>{group.label}</td>
                       </tr>
                       {group.rows.map((row) => (
-                        <tr key={row.key}>
+                        <tr key={row.key} className={row.isCombined ? "season-team-total-row" : undefined}>
                           <td className="align-left">{row.label}</td>
+                          <td className="align-left">{row.teamLabel}</td>
                           {SEASON_BOX_COLUMNS[situationalStatsTab].map((col) => (
                             <td key={col.key} className="align-right">
                               {col.format(row.ctx, situationalStatsDisplayMode)}
@@ -1749,6 +1827,96 @@ function sumTeamSeasonTotals(a: TeamSeasonRawTotals, b: TeamSeasonRawTotals): Te
   };
 }
 
+interface TeamSplitRow {
+  key: string;
+  teamId: string | null;
+  /** チーム略称（teamShortName）。所属チームが解決できなかった場合は"-"、複数チームにまたがる
+   * 合計行は「複数チーム」 */
+  teamLabel: string;
+  ctx: SeasonBoxscoreCtx;
+  /** その行の元になった試合ログ（DD/TD等、ctxに含まれない値の算出に呼び出し側が使う） */
+  logs: PlayerGameLog[];
+  /** 複数チームにまたがる合計行かどうか。通算集計（総計行）はisCombinedがtrueの行、または
+   * 単一チームの行のみを対象にする（チーム別の内訳行を二重に足し込まないため） */
+  isCombined: boolean;
+}
+
+/**
+ * 試合ログを、試合ログから動的に導出した所属チーム（resolveOwnTeam）ごとに分割する
+ * （シーズン内移籍対応。「シーズン別成績」「シチュエーション別成績」共通のロジック。DESIGN.md参照）。
+ * 1チームのみでプレーした場合は1行のみ、複数チームにまたがる場合はチーム別の行に加えて
+ * 「複数チーム」の合計行を返す。DNP（出場0分）の試合は所属チームの判定対象から除く
+ */
+function buildTeamSplitRows(
+  keyPrefix: string,
+  logs: PlayerGameLog[],
+  ownTeamByScheduleKey: Map<string, GameTeamInfo>,
+  teamTotalsByTeamId: Map<string, TeamSeasonRawTotals>,
+  displayMode: SeasonDisplayMode,
+  seasonStartYear: number,
+): TeamSplitRow[] {
+  const played = logs.filter((g) => g.min > 0);
+  if (played.length === 0) return [];
+
+  const byTeam = new Map<string, { teamName: string; logs: PlayerGameLog[] }>();
+  for (const log of played) {
+    const own = ownTeamByScheduleKey.get(log.scheduleKey);
+    const id = own?.teamId ?? "unknown";
+    let entry = byTeam.get(id);
+    if (!entry) {
+      entry = { teamName: own?.teamName ?? "", logs: [] };
+      byTeam.set(id, entry);
+    }
+    entry.logs.push(log);
+  }
+  const teamIds = [...byTeam.keys()];
+  const buildCtx = (teamLogs: PlayerGameLog[], team: TeamSeasonRawTotals) =>
+    buildSeasonBoxscoreCtx(sumPlayerGameLogs(teamLogs), team, displayMode, seasonStartYear);
+  const labelFor = (id: string, teamName: string) => (id === "unknown" ? "-" : teamShortName(id, teamName));
+
+  if (teamIds.length === 1) {
+    const id = teamIds[0]!;
+    const entry = byTeam.get(id)!;
+    const team = teamTotalsByTeamId.get(id) ?? ZERO_TEAM_SEASON_TOTALS;
+    return [
+      {
+        key: `${keyPrefix}|${id}`,
+        teamId: id === "unknown" ? null : id,
+        teamLabel: labelFor(id, entry.teamName),
+        ctx: buildCtx(entry.logs, team),
+        logs: entry.logs,
+        isCombined: false,
+      },
+    ];
+  }
+
+  const rows: TeamSplitRow[] = teamIds.map((id) => {
+    const entry = byTeam.get(id)!;
+    const team = teamTotalsByTeamId.get(id) ?? ZERO_TEAM_SEASON_TOTALS;
+    return {
+      key: `${keyPrefix}|${id}`,
+      teamId: id === "unknown" ? null : id,
+      teamLabel: labelFor(id, entry.teamName),
+      ctx: buildCtx(entry.logs, team),
+      logs: entry.logs,
+      isCombined: false,
+    };
+  });
+  const combinedTeam = teamIds.reduce(
+    (acc, id) => sumTeamSeasonTotals(acc, teamTotalsByTeamId.get(id) ?? ZERO_TEAM_SEASON_TOTALS),
+    ZERO_TEAM_SEASON_TOTALS,
+  );
+  rows.push({
+    key: `${keyPrefix}|combined`,
+    teamId: null,
+    teamLabel: "複数チーム",
+    ctx: buildCtx(played, combinedTeam),
+    logs: played,
+    isCombined: true,
+  });
+  return rows;
+}
+
 /**
  * シーズンごとの内訳（レギュラー/プレーオフ/合算トグル込み）を表示するテーブル。
  * 「シーズン成績」（当該シーズン単体のボックススコア）で使っていたのと同じ
@@ -1761,33 +1929,49 @@ function sumTeamSeasonTotals(a: TeamSeasonRawTotals, b: TeamSeasonRawTotals): Te
 function SeasonBreakdownTable({
   careerData,
   gameTypeFilter,
-  teamTotalsBySeason,
+  teamData,
   displayMode,
 }: {
   careerData: CareerSeasonLogs[] | null;
   gameTypeFilter: SeasonGameTypeFilter;
-  teamTotalsBySeason: Map<string, TeamSeasonRawTotals> | null;
+  teamData: Map<string, CareerSeasonTeamInfo> | null;
   displayMode: SeasonDisplayMode;
 }) {
   const [tab, setTab] = useState<SeasonBoxTabKey>("traditional");
   const playedFilteredLogs = (logs: PlayerGameLog[]) => filterByGameType(logs.filter((g) => g.min > 0), gameTypeFilter);
 
+  // シーズン内移籍対応: 所属チームごとにbuildTeamSplitRowsで分割する（1チームのみなら1行、
+  // 複数チームにまたがる場合はチーム別の行＋「複数チーム」の合計行）。通算（total）の集計対象は
+  // isCombinedがtrueの行、または単一チームの行のみ（countsTowardTotal）にし、チーム別の
+  // 内訳行を二重に足し込まないようにする
   const seasonRows = useMemo(() => {
     if (!careerData) return [];
-    return careerData
-      .map((cd) => {
-        const played = playedFilteredLogs(cd.logs);
-        const raw = sumPlayerGameLogs(played);
-        if (raw.gamesPlayed === 0) return null;
-        const team = teamTotalsBySeason?.get(cd.season) ?? ZERO_TEAM_SEASON_TOTALS;
-        const seasonStartYear = Number(cd.season.split("-")[0]);
-        const ctx = buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear);
-        return { season: cd.season, ctx, ddtd: countDoubleTripleDoubles(played) };
-      })
-      .filter((r): r is { season: string; ctx: SeasonBoxscoreCtx; ddtd: { dd: number; td: number } } => r !== null)
-      .reverse();
+    const rows: (TeamSplitRow & { season: string; ddtd: { dd: number; td: number }; countsTowardTotal: boolean })[] = [];
+    for (const cd of [...careerData].reverse()) {
+      const played = playedFilteredLogs(cd.logs);
+      if (played.length === 0) continue;
+      const info = teamData?.get(cd.season);
+      const seasonStartYear = Number(cd.season.split("-")[0]);
+      const splitRows = buildTeamSplitRows(
+        cd.season,
+        played,
+        info?.ownTeamByScheduleKey ?? new Map(),
+        info?.teamTotalsByTeamId ?? new Map(),
+        displayMode,
+        seasonStartYear,
+      );
+      for (const row of splitRows) {
+        rows.push({
+          ...row,
+          season: cd.season,
+          ddtd: countDoubleTripleDoubles(row.logs),
+          countsTowardTotal: row.isCombined || splitRows.length === 1,
+        });
+      }
+    }
+    return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [careerData, gameTypeFilter, teamTotalsBySeason, displayMode]);
+  }, [careerData, gameTypeFilter, teamData, displayMode]);
 
   // 通算行のEFFは、複数シーズンの生カウント値を先に合算してから1回だけeff()を呼ぶと
   // 年度で異なる計算式（DESIGN.md参照）を誤って混在適用してしまうため、シーズンごとに
@@ -1798,10 +1982,11 @@ function SeasonBreakdownTable({
     const allPlayed = careerData.flatMap((cd) => playedFilteredLogs(cd.logs));
     const totalRaw = sumPlayerGameLogs(allPlayed);
     if (totalRaw.gamesPlayed === 0) return null;
-    const totalTeam = seasonRows.reduce((acc, r) => sumTeamSeasonTotals(acc, r.ctx.team), ZERO_TEAM_SEASON_TOTALS);
+    const totalRows = seasonRows.filter((r) => r.countsTowardTotal);
+    const totalTeam = totalRows.reduce((acc, r) => sumTeamSeasonTotals(acc, r.ctx.team), ZERO_TEAM_SEASON_TOTALS);
     const latestSeasonStartYear = Math.max(...seasonRows.map((r) => r.ctx.seasonStartYear));
     const ctx = buildSeasonBoxscoreCtx(totalRaw, totalTeam, displayMode, latestSeasonStartYear);
-    const totalEffSum = seasonRows.reduce((sum, r) => sum + seasonTotalEff(r.ctx.raw, r.ctx.seasonStartYear), 0);
+    const totalEffSum = totalRows.reduce((sum, r) => sum + seasonTotalEff(r.ctx.raw, r.ctx.seasonStartYear), 0);
     return {
       ctx,
       ddtd: countDoubleTripleDoubles(allPlayed),
@@ -1830,6 +2015,7 @@ function SeasonBreakdownTable({
           <thead>
             <tr>
               <th className="align-left">シーズン</th>
+              <th className="align-left">チーム</th>
               {columns.map((col) => (
                 <th key={col.key} className="align-right" title={col.description}>
                   {col.label}
@@ -1841,8 +2027,9 @@ function SeasonBreakdownTable({
           </thead>
           <tbody>
             {seasonRows.map((r) => (
-              <tr key={r.season}>
+              <tr key={r.key} className={r.isCombined ? "season-team-total-row" : undefined}>
                 <td className="align-left">{r.season}</td>
+                <td className="align-left">{r.teamLabel}</td>
                 {columns.map((col) => (
                   <td key={col.key} className="align-right">
                     {col.format(r.ctx, displayMode)}
@@ -1855,6 +2042,7 @@ function SeasonBreakdownTable({
             {total && (
               <tr className="career-total-row">
                 <td className="align-left">通算</td>
+                <td className="align-left" />
                 {columns.map((col) => (
                   <td key={col.key} className="align-right">
                     {col.key === "eff"
