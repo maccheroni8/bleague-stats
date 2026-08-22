@@ -197,7 +197,7 @@ export function sumTeamGameLogsFor(logs: TeamGameLog[], scheduleKeys: Set<string
  * カウント系スタッツにはこの係数をそのまま掛ける。率系スタッツ（FG%等）は分子分母が同じ係数で
  * 相殺されるため常に生の合計値から計算すればよく、この係数は使わない
  */
-function modeFactor(raw: PlayerSeasonRawTotals, mode: SeasonDisplayMode): number {
+export function modeFactor(raw: PlayerSeasonRawTotals, mode: SeasonDisplayMode): number {
   if (mode === "total") return 1;
   if (mode === "perGame") return raw.gamesPlayed > 0 ? 1 / raw.gamesPlayed : 0;
   return raw.min > 0 ? 30 / raw.min : 0;

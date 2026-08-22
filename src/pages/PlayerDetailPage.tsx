@@ -44,17 +44,20 @@ import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { safeDiv } from "../../shared/formulas";
 import {
   SEASON_ADVANCED_COLUMNS,
+  SEASON_DISPLAY_MODE_LABELS,
   SEASON_GAME_TYPE_LABELS,
   SEASON_MISC_COLUMNS,
   SEASON_SCORING_COLUMNS,
   SEASON_TRADITIONAL_COLUMNS,
   buildSeasonBoxscoreCtx,
   filterByGameType,
+  modeFactor,
   seasonTotalEff,
   sumPlayerGameLogs,
   sumTeamGameLogsFor,
   type SeasonBoxscoreColumn,
   type SeasonBoxscoreCtx,
+  type SeasonDisplayMode,
   type SeasonGameTypeFilter,
   type TeamSeasonRawTotals,
 } from "../lib/playerSeasonBoxscore";
@@ -135,6 +138,10 @@ const SEASON_BOX_COLUMNS: Record<SeasonBoxTabKey, SeasonBoxscoreColumn[]> = {
   misc: SEASON_MISC_COLUMNS,
   scoring: SEASON_SCORING_COLUMNS,
 };
+
+// 「シーズン別成績」「シチュエーション別成績」の平均/合計切り替え。SeasonDisplayModeには
+// 「30分換算」も含まれるが、ここでは依頼通り平均/合計の2択のみボタン化する
+const DISPLAY_MODE_TOGGLE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
 
 interface PlayerStatDef {
   key: string;
@@ -471,6 +478,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { supported: yahooSeasonSupported } = useYahooPbpCoverage(season);
 
   const [gameTypeFilter, setGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
+  // 「シーズン別成績」の平均/合計切り替え（従来は「平均」固定だったが、選べるようにする要望）
+  const [seasonDisplayMode, setSeasonDisplayMode] = useState<SeasonDisplayMode>("perGame");
 
   const [tab, setTab] = useState<DetailTab>("stats");
   const [careerData, setCareerData] = useState<CareerSeasonLogs[] | null>(null);
@@ -522,6 +531,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [situationalStatsSeason, setSituationalStatsSeason] = useState(season);
   const [situationalStatsGameType, setSituationalStatsGameType] = useState<SeasonGameTypeFilter>("regular");
   const [situationalStatsTab, setSituationalStatsTab] = useState<SeasonBoxTabKey>("traditional");
+  const [situationalStatsDisplayMode, setSituationalStatsDisplayMode] = useState<SeasonDisplayMode>("perGame");
 
   // 「シューティング」セクション: シチュエーション別成績と同様、ページ本体の現在シーズンとは
   // 独立したシーズン選択を持つ（Yahoo PBP由来のシュートタイプ内訳はplayers.jsonにシーズン単位で
@@ -878,7 +888,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     if (raw.gamesPlayed === 0) return null;
     const scheduleKeys = new Set(matched.filter((g) => g.min > 0).map((g) => g.scheduleKey));
     const team = sumTeamGameLogsFor(situationalStatsTeamGameLogs ?? [], scheduleKeys);
-    return buildSeasonBoxscoreCtx(raw, team, "perGame", Number(situationalStatsSeason.split("-")[0]));
+    return buildSeasonBoxscoreCtx(raw, team, situationalStatsDisplayMode, Number(situationalStatsSeason.split("-")[0]));
   };
 
   const situationalStatsMonthsWithData = new Set(
@@ -1121,8 +1131,23 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 {SEASON_GAME_TYPE_LABELS[g]}
               </button>
             ))}
+            {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+              <button
+                key={m}
+                className={m === seasonDisplayMode ? "active" : ""}
+                onClick={() => setSeasonDisplayMode(m)}
+                type="button"
+              >
+                {SEASON_DISPLAY_MODE_LABELS[m]}
+              </button>
+            ))}
           </div>
-          <SeasonBreakdownTable careerData={careerData} gameTypeFilter={gameTypeFilter} teamTotalsBySeason={careerTeamTotals} />
+          <SeasonBreakdownTable
+            careerData={careerData}
+            gameTypeFilter={gameTypeFilter}
+            teamTotalsBySeason={careerTeamTotals}
+            displayMode={seasonDisplayMode}
+          />
 
           <h2>シチュエーション別成績</h2>
           <div className="mode-toggle">
@@ -1146,6 +1171,16 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 type="button"
               >
                 {SEASON_GAME_TYPE_LABELS[g]}
+              </button>
+            ))}
+            {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+              <button
+                key={m}
+                className={m === situationalStatsDisplayMode ? "active" : ""}
+                onClick={() => setSituationalStatsDisplayMode(m)}
+                type="button"
+              >
+                {SEASON_DISPLAY_MODE_LABELS[m]}
               </button>
             ))}
           </div>
@@ -1189,7 +1224,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                           <td className="align-left">{row.label}</td>
                           {SEASON_BOX_COLUMNS[situationalStatsTab].map((col) => (
                             <td key={col.key} className="align-right">
-                              {col.format(row.ctx, "perGame")}
+                              {col.format(row.ctx, situationalStatsDisplayMode)}
                             </td>
                           ))}
                         </tr>
@@ -1532,18 +1567,20 @@ function sumTeamSeasonTotals(a: TeamSeasonRawTotals, b: TeamSeasonRawTotals): Te
  * 「シーズン成績」（当該シーズン単体のボックススコア）で使っていたのと同じ
  * トラディショナル/アドバンスド/Misc/スコアリングのカテゴリタブをこちらに統合し、
  * 「シーズン成績」セクション自体は削除した（47章・49章で指摘した「片方にしかカテゴリ
- * 切り替えが無い」食い違いの解消。DESIGN.md参照）。表示モードは常に「平均」固定
- * （シチュエーション別成績と同じ方針。合計だと行ごとの試合数の違いで比較しづらいため）。
+ * 切り替えが無い」食い違いの解消。DESIGN.md参照）。表示モードは平均/合計を選べる
+ * （当初は「平均」固定だったが、切り替えられるようにする要望を受けて解除した）。
  * DD2/TD3のみ列定義に無いため、末尾に独自の列として追加する。
  */
 function SeasonBreakdownTable({
   careerData,
   gameTypeFilter,
   teamTotalsBySeason,
+  displayMode,
 }: {
   careerData: CareerSeasonLogs[] | null;
   gameTypeFilter: SeasonGameTypeFilter;
   teamTotalsBySeason: Map<string, TeamSeasonRawTotals> | null;
+  displayMode: SeasonDisplayMode;
 }) {
   const [tab, setTab] = useState<SeasonBoxTabKey>("traditional");
   const playedFilteredLogs = (logs: PlayerGameLog[]) => filterByGameType(logs.filter((g) => g.min > 0), gameTypeFilter);
@@ -1557,17 +1594,18 @@ function SeasonBreakdownTable({
         if (raw.gamesPlayed === 0) return null;
         const team = teamTotalsBySeason?.get(cd.season) ?? ZERO_TEAM_SEASON_TOTALS;
         const seasonStartYear = Number(cd.season.split("-")[0]);
-        const ctx = buildSeasonBoxscoreCtx(raw, team, "perGame", seasonStartYear);
+        const ctx = buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear);
         return { season: cd.season, ctx, ddtd: countDoubleTripleDoubles(played) };
       })
       .filter((r): r is { season: string; ctx: SeasonBoxscoreCtx; ddtd: { dd: number; td: number } } => r !== null)
       .reverse();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [careerData, gameTypeFilter, teamTotalsBySeason]);
+  }, [careerData, gameTypeFilter, teamTotalsBySeason, displayMode]);
 
   // 通算行のEFFは、複数シーズンの生カウント値を先に合算してから1回だけeff()を呼ぶと
   // 年度で異なる計算式（DESIGN.md参照）を誤って混在適用してしまうため、シーズンごとに
-  // 正しい式で算出した合計EFFをここで合算してから平均する（seasonTotalEff参照）
+  // 正しい式で算出した合計EFFをここで合算してから、表示モードに応じた係数（modeFactor、
+  // 平均/合計とも同じ考え方）をかける（seasonTotalEff参照）
   const total = useMemo(() => {
     if (!careerData || seasonRows.length === 0) return null;
     const allPlayed = careerData.flatMap((cd) => playedFilteredLogs(cd.logs));
@@ -1575,15 +1613,15 @@ function SeasonBreakdownTable({
     if (totalRaw.gamesPlayed === 0) return null;
     const totalTeam = seasonRows.reduce((acc, r) => sumTeamSeasonTotals(acc, r.ctx.team), ZERO_TEAM_SEASON_TOTALS);
     const latestSeasonStartYear = Math.max(...seasonRows.map((r) => r.ctx.seasonStartYear));
-    const ctx = buildSeasonBoxscoreCtx(totalRaw, totalTeam, "perGame", latestSeasonStartYear);
+    const ctx = buildSeasonBoxscoreCtx(totalRaw, totalTeam, displayMode, latestSeasonStartYear);
     const totalEffSum = seasonRows.reduce((sum, r) => sum + seasonTotalEff(r.ctx.raw, r.ctx.seasonStartYear), 0);
     return {
       ctx,
       ddtd: countDoubleTripleDoubles(allPlayed),
-      effPerGame: totalRaw.gamesPlayed > 0 ? totalEffSum / totalRaw.gamesPlayed : 0,
+      effValue: totalEffSum * modeFactor(totalRaw, displayMode),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [careerData, gameTypeFilter, seasonRows]);
+  }, [careerData, gameTypeFilter, seasonRows, displayMode]);
 
   if (!careerData || seasonRows.length === 0) {
     return <p className="empty-message">通算成績がありません</p>;
@@ -1620,7 +1658,7 @@ function SeasonBreakdownTable({
                 <td className="align-left">{r.season}</td>
                 {columns.map((col) => (
                   <td key={col.key} className="align-right">
-                    {col.format(r.ctx, "perGame")}
+                    {col.format(r.ctx, displayMode)}
                   </td>
                 ))}
                 <td className="align-right">{r.ddtd.dd}</td>
@@ -1632,7 +1670,7 @@ function SeasonBreakdownTable({
                 <td className="align-left">通算</td>
                 {columns.map((col) => (
                   <td key={col.key} className="align-right">
-                    {col.key === "eff" ? formatDecimal(total.effPerGame) : col.format(total.ctx, "perGame")}
+                    {col.key === "eff" ? formatDecimal(total.effValue) : col.format(total.ctx, displayMode)}
                   </td>
                 ))}
                 <td className="align-right">{total.ddtd.dd}</td>
