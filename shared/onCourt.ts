@@ -596,6 +596,12 @@ export function totalOnCourtSeconds(intervals: OnCourtInterval[]): Record<string
 export interface PlayerOnCourtRatings {
   pace: number;
   onCourtSec: number;
+  /** 在コート区間の推定ポゼッション合計（自チーム視点）。試合をまたいで単純合算すれば
+   * シーズンPACEになる（DESIGN.md参照。すでに区間ごとの正しい値を積算しているだけなので、
+   * 複数試合分のintervalsを連結してこの関数に渡しても同じ結果になる） */
+  ownPoss: number;
+  /** 同上、相手チーム視点 */
+  oppPoss: number;
 }
 
 /**
@@ -627,6 +633,8 @@ export function computeOnCourtRatings(intervals: OnCourtInterval[]): Record<stri
     result[playerId] = {
       pace: safeDiv(40 * ((acc.ownPoss + acc.oppPoss) / 2), onCourtMinutes),
       onCourtSec: acc.onCourtSec,
+      ownPoss: acc.ownPoss,
+      oppPoss: acc.oppPoss,
     };
   }
   return result;

@@ -28,7 +28,13 @@ import {
   type OliverBoxStats,
   type PerLeagueTotals,
 } from "../shared/formulas.ts";
-import { reconstructOnCourt, substitutionModelForSeason, type OnCourtReconstruction } from "../shared/onCourt.ts";
+import {
+  computeOnCourtRatings,
+  reconstructOnCourt,
+  substitutionModelForSeason,
+  type OnCourtReconstruction,
+  type PlayerOnCourtRatings,
+} from "../shared/onCourt.ts";
 import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
 import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
 import { buildShotEvents, paintSplitForShot } from "../shared/shotChart.ts";
@@ -675,6 +681,10 @@ export async function aggregateSeason(season: string, category: Category = "prem
         : null;
     const technicalFouls = countTechnicalFouls(game.raw.PlayByPlays);
     const foreignPlayerCounts = onCourt ? computeForeignPlayerCounts(onCourt, masterById) : new Map<string, number>();
+    // 個人PACE用の在コート区間ポゼッション（DESIGN.md参照）。既存のPACE表示ポリシー
+    // （17-4章）と同じくcoverage==="full"（2022-23シーズン以降）のみ算出する
+    const onCourtRatingsByPlayer: Record<string, PlayerOnCourtRatings> =
+      onCourt && seasonCoverage(game.season) === "full" ? computeOnCourtRatings(onCourt.intervals) : {};
     // シーズン集計ボックススコア（playerSeasonBoxscore.ts）でPTSOFFTO・DUNK・AND1・UFOUL・
     // DQFOUL・AST2M/AST3M/ASTFTM・PAINT2M/PAINT2A・MID2M/MID2Aを実数値表示するための追加集計。
     // いずれも試合単位の単純な合算値のため、ここで1回だけ計算しPlayerGameLogに永続化する
@@ -694,6 +704,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       assistedScoringByPlayer,
       miscEventsByPlayer,
       paintSplitByPlayer,
+      onCourtRatingsByPlayer,
     );
     processTeams(game, gameType, teams, ensureTeam, technicalFouls.byTeam, foreignPlayerCounts);
     processLineups(game, teamLineups, onCourt);
@@ -922,6 +933,7 @@ function processPlayers(
   assistedScoringByPlayer: Map<string, AssistedScoringCounts>,
   miscEventsByPlayer: Map<string, MiscEventCounts>,
   paintSplitByPlayer: Map<string, PaintSplitCounts>,
+  onCourtRatingsByPlayer: Record<string, PlayerOnCourtRatings>,
 ): void {
   const rows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
   for (const row of pickTeamRow(rows, 1)) {
@@ -1017,6 +1029,9 @@ function processPlayers(
       paint2a: paintSplitByPlayer.get(row.PlayerID)?.paint2a ?? 0,
       mid2m: paintSplitByPlayer.get(row.PlayerID)?.mid2m ?? 0,
       mid2a: paintSplitByPlayer.get(row.PlayerID)?.mid2a ?? 0,
+      onCourtOwnPoss: onCourtRatingsByPlayer[row.PlayerID]?.ownPoss ?? 0,
+      onCourtOppPoss: onCourtRatingsByPlayer[row.PlayerID]?.oppPoss ?? 0,
+      onCourtSeconds: onCourtRatingsByPlayer[row.PlayerID]?.onCourtSec ?? 0,
     });
   }
 }
@@ -1040,6 +1055,24 @@ function teamGameLogStats(row: BoxscoreRow, poss: number) {
     ftm: row.FTM,
     fta: row.FTA,
     poss,
+  };
+}
+
+/**
+ * 相手チームのボックススコアから、個人DRtg（Dean Oliver方式）の「opponent」役として必要な
+ * フィールドのみ抽出する（DESIGN.md参照。全項目はtoOliverBoxFromTotals()のopponent入力を
+ * 参照）。ptsはopponentScoreで別途持つため含めない
+ */
+function opponentGameLogStats(row: BoxscoreRow) {
+  return {
+    opponentMin: parsePlayTime(row.PlayTime),
+    opponentFgm: row.PT2M + row.PT3M,
+    opponentFga: row.PT2A + row.PT3A,
+    opponentFtm: row.FTM,
+    opponentFta: row.FTA,
+    opponentOreb: row.RB_OFF,
+    opponentDreb: row.RB_DEF,
+    opponentTov: row.TO,
   };
 }
 
@@ -1105,6 +1138,7 @@ function processTeams(
     foreignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     ...teamGameLogStats(homeRow, gamePoss),
+    ...opponentGameLogStats(awayRow),
   });
   away.gameLogs.push({
     scheduleKey: game.scheduleKey,
@@ -1119,6 +1153,7 @@ function processTeams(
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     gameType,
     ...teamGameLogStats(awayRow, gamePoss),
+    ...opponentGameLogStats(homeRow),
   });
 }
 

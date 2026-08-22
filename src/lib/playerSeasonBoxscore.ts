@@ -9,7 +9,18 @@
 // 非線形な計算式のためシーズン合算不可能（試合単位で確定させてから合算しないと誤差が出る）
 // と判断し、引き続き「-」表示にしている
 
-import { efgPct, safeDiv, tovPct, tsPct, usagePct, eff as effFormula, type EffTotals } from "../../shared/formulas";
+import {
+  efgPct,
+  individualDefRtg,
+  individualOffRtg,
+  safeDiv,
+  tovPct,
+  tsPct,
+  usagePct,
+  eff as effFormula,
+  type EffTotals,
+  type OliverBoxStats,
+} from "../../shared/formulas";
 import { astToTovRatio, formatAstToRatio, formatMinutesFromSeconds, sharePct } from "./boxscoreAggregate";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import type { GameType, PlayerGameLog, TeamGameLog } from "../../shared/types";
@@ -71,6 +82,11 @@ export interface PlayerSeasonRawTotals {
   paint2a: number;
   mid2m: number;
   mid2a: number;
+  /** 在コート区間の推定ポゼッション合計（自チーム視点）。個人PACEの季集計にのみ使う。
+   * coverage==="full"のシーズン（2022-23以降）以外は常に0（PlayerGameLog参照） */
+  onCourtOwnPoss: number;
+  onCourtOppPoss: number;
+  onCourtSeconds: number;
 }
 
 const EMPTY_RAW_TOTALS: PlayerSeasonRawTotals = {
@@ -110,6 +126,9 @@ const EMPTY_RAW_TOTALS: PlayerSeasonRawTotals = {
   paint2a: 0,
   mid2m: 0,
   mid2a: 0,
+  onCourtOwnPoss: 0,
+  onCourtOppPoss: 0,
+  onCourtSeconds: 0,
 };
 
 /** min>0（実際に出場した試合）のみを対象に合算する。DNP行はgamesPlayedにも数えない */
@@ -153,6 +172,9 @@ export function sumPlayerGameLogs(logs: PlayerGameLog[]): PlayerSeasonRawTotals 
       paint2a: acc.paint2a + g.paint2a,
       mid2m: acc.mid2m + g.mid2m,
       mid2a: acc.mid2a + g.mid2a,
+      onCourtOwnPoss: acc.onCourtOwnPoss + g.onCourtOwnPoss,
+      onCourtOppPoss: acc.onCourtOppPoss + g.onCourtOppPoss,
+      onCourtSeconds: acc.onCourtSeconds + g.onCourtSeconds,
     }),
     { ...EMPTY_RAW_TOTALS },
   );
@@ -168,9 +190,53 @@ export interface TeamSeasonRawTotals {
   fta: number;
   tov: number;
   min: number;
+  /** 以下、個人ORtg/DRtg（Dean Oliver方式）の算出にのみ使う追加フィールド。DESIGN.md参照 */
+  ast: number;
+  oreb: number;
+  dreb: number;
+  stl: number;
+  blk: number;
+  pf: number;
+  poss: number;
+  /** 相手チームのボックススコア（DRtgの「opponent」役に必要な項目のみ） */
+  opponentMin: number;
+  opponentPts: number;
+  opponentFgm: number;
+  opponentFga: number;
+  opponentFtm: number;
+  opponentFta: number;
+  opponentOreb: number;
+  opponentDreb: number;
+  opponentTov: number;
 }
 
-const EMPTY_TEAM_TOTALS: TeamSeasonRawTotals = { pts: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, tov: 0, min: 0 };
+const EMPTY_TEAM_TOTALS: TeamSeasonRawTotals = {
+  pts: 0,
+  fgm: 0,
+  fga: 0,
+  tpm: 0,
+  tpa: 0,
+  ftm: 0,
+  fta: 0,
+  tov: 0,
+  min: 0,
+  ast: 0,
+  oreb: 0,
+  dreb: 0,
+  stl: 0,
+  blk: 0,
+  pf: 0,
+  poss: 0,
+  opponentMin: 0,
+  opponentPts: 0,
+  opponentFgm: 0,
+  opponentFga: 0,
+  opponentFtm: 0,
+  opponentFta: 0,
+  opponentOreb: 0,
+  opponentDreb: 0,
+  opponentTov: 0,
+};
 
 /** USG%・%-shareスタッツの分母用に、選手が出場した試合と同じScheduleKeyだけを対象にチーム総計を合算する */
 export function sumTeamGameLogsFor(logs: TeamGameLog[], scheduleKeys: Set<string>): TeamSeasonRawTotals {
@@ -186,6 +252,22 @@ export function sumTeamGameLogsFor(logs: TeamGameLog[], scheduleKeys: Set<string
       fta: acc.fta + g.fta,
       tov: acc.tov + g.tov,
       min: acc.min + g.min,
+      ast: acc.ast + g.ast,
+      oreb: acc.oreb + g.oreb,
+      dreb: acc.dreb + g.dreb,
+      stl: acc.stl + g.stl,
+      blk: acc.blk + g.blk,
+      pf: acc.pf + g.pf,
+      poss: acc.poss + g.poss,
+      opponentMin: acc.opponentMin + g.opponentMin,
+      opponentPts: acc.opponentPts + g.opponentScore,
+      opponentFgm: acc.opponentFgm + g.opponentFgm,
+      opponentFga: acc.opponentFga + g.opponentFga,
+      opponentFtm: acc.opponentFtm + g.opponentFtm,
+      opponentFta: acc.opponentFta + g.opponentFta,
+      opponentOreb: acc.opponentOreb + g.opponentOreb,
+      opponentDreb: acc.opponentDreb + g.opponentDreb,
+      opponentTov: acc.opponentTov + g.opponentTov,
     }),
     { ...EMPTY_TEAM_TOTALS },
   );
@@ -241,6 +323,9 @@ function scaleTotals(raw: PlayerSeasonRawTotals, factor: number): PlayerSeasonRa
     paint2a: raw.paint2a * factor,
     mid2m: raw.mid2m * factor,
     mid2a: raw.mid2a * factor,
+    onCourtOwnPoss: raw.onCourtOwnPoss * factor,
+    onCourtOppPoss: raw.onCourtOppPoss * factor,
+    onCourtSeconds: raw.onCourtSeconds * factor,
   };
 }
 
@@ -298,6 +383,93 @@ function scaledEff(ctx: SeasonBoxscoreCtx, mode: SeasonDisplayMode): number {
  */
 export function seasonTotalEff(raw: PlayerSeasonRawTotals, seasonStartYear: number): number {
   return effFormula(seasonStartYear, effTotalsOf(raw), 1);
+}
+
+/**
+ * 個人ORtg/DRtg（Dean Oliver方式、Basketball-Reference準拠）は、試合ごとに計算してから
+ * 合算するのではなく、シーズン合計値に対して式を1回だけ適用するのが正しい使い方だと判明した
+ * （チームPOSSの式に含まれる比率項の非線形性の問題とは別物。DESIGN.md参照）。試合詳細ページの
+ * `src/lib/boxscoreAggregate.ts`の`toOliverBox()`と同じフィールド対応で、シーズン合計の
+ * raw値・team値をOliverBoxStatsに変換する
+ */
+function playerOliverBox(raw: PlayerSeasonRawTotals): OliverBoxStats {
+  return {
+    min: raw.min,
+    fgm: raw.fgm,
+    fga: raw.fga,
+    fg3m: raw.tpm,
+    ftm: raw.ftm,
+    fta: raw.fta,
+    pts: raw.pts,
+    ast: raw.ast,
+    oreb: raw.oreb,
+    dreb: raw.dreb,
+    tov: raw.tov,
+    stl: raw.stl,
+    blk: raw.blk,
+    pf: raw.pf,
+  };
+}
+
+function teamOliverBox(team: TeamSeasonRawTotals): OliverBoxStats {
+  return {
+    min: team.min,
+    fgm: team.fgm,
+    fga: team.fga,
+    fg3m: team.tpm,
+    ftm: team.ftm,
+    fta: team.fta,
+    pts: team.pts,
+    ast: team.ast,
+    oreb: team.oreb,
+    dreb: team.dreb,
+    tov: team.tov,
+    stl: team.stl,
+    blk: team.blk,
+    pf: team.pf,
+  };
+}
+
+/** DRtgの「opponent」役はmin/pts/fgm/fga/ftm/fta/oreb/dreb/tovの9項目のみ使う
+ * （ast/fg3m/stl/blk/pfは式が参照しないため0で埋めてよい。shared/formulas.ts参照） */
+function opponentOliverBox(team: TeamSeasonRawTotals): OliverBoxStats {
+  return {
+    min: team.opponentMin,
+    fgm: team.opponentFgm,
+    fga: team.opponentFga,
+    fg3m: 0,
+    ftm: team.opponentFtm,
+    fta: team.opponentFta,
+    pts: team.opponentPts,
+    ast: 0,
+    oreb: team.opponentOreb,
+    dreb: team.opponentDreb,
+    tov: team.opponentTov,
+    stl: 0,
+    blk: 0,
+    pf: 0,
+  };
+}
+
+function seasonOffRtg(c: SeasonBoxscoreCtx): number | undefined {
+  return individualOffRtg(playerOliverBox(c.raw), teamOliverBox(c.team), opponentOliverBox(c.team));
+}
+
+function seasonDefRtg(c: SeasonBoxscoreCtx): number | undefined {
+  return individualDefRtg(playerOliverBox(c.raw), teamOliverBox(c.team), opponentOliverBox(c.team), c.team.poss);
+}
+
+/**
+ * 個人PACE（在コート区間ベース）。試合ごとに`shared/onCourt.ts`の`computeOnCourtRatings`で
+ * 求めた区間の推定ポゼッション・在コート秒数を、そのままシーズン合計してから式を1回だけ
+ * 適用する（チームPOSSと同じ「正しい値を積算してから式を適用する」パターン。DESIGN.md参照）。
+ * onCourtSecondsが0（coverage!=="full"のシーズン、または当該選手の区間データが無い場合）は
+ * 算出不能としてundefinedを返す
+ */
+function seasonPace(raw: PlayerSeasonRawTotals): number | undefined {
+  if (raw.onCourtSeconds <= 0) return undefined;
+  const onCourtMinutes = raw.onCourtSeconds / 60;
+  return safeDiv(40 * ((raw.onCourtOwnPoss + raw.onCourtOppPoss) / 2), onCourtMinutes);
 }
 
 /** 合計モードでは小数第一位を四捨五入して整数表示にする（%が付く比率系スタッツはformatPct/
@@ -436,32 +608,46 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
     key: "poss",
     label: "POSS",
     format: () => NA,
-    description: "個人POSSという概念は無い＋シーズン集計では非対応（試合単位のみ算出可能）",
+    description: "個人POSSという概念は無いため非対応（チーム合計行専用の概念。DESIGN.md参照）",
   },
   {
     key: "pace",
     label: "PACE",
-    format: () => NA,
-    description: "PlayByPlays由来のオンコートスティント情報が必要なため、シーズン集計では非対応（試合単位のみ算出可能）",
+    format: (c) => {
+      const v = seasonPace(c.raw);
+      return v !== undefined ? formatDecimal(v, 1) : NA;
+    },
+    description:
+      "在コート区間ベース（試合ごとの推定ポゼッションをシーズン合計してから算出）。coverage=\"full\"のシーズン（2022-23以降）のみ対応",
   },
   {
     key: "ortg",
     label: "ORtg",
-    format: () => NA,
-    description: "相手チームのボックススコアとの突き合わせが必要なため、シーズン集計では非対応（試合単位のみ算出可能）",
+    format: (c) => {
+      const v = seasonOffRtg(c);
+      return v !== undefined ? formatDecimal(v, 1) : NA;
+    },
+    description: "個人ORtg（Dean Oliver方式）。シーズン合計値に式を1回だけ適用する（Basketball-Reference準拠）",
   },
   {
     key: "drtg",
     label: "DRtg",
-    format: () => NA,
+    format: (c) => {
+      const v = seasonDefRtg(c);
+      return v !== undefined ? formatDecimal(v, 1) : NA;
+    },
     higherIsBetter: false,
-    description: "相手チームのボックススコアとの突き合わせが必要なため、シーズン集計では非対応（試合単位のみ算出可能）",
+    description: "個人DRtg（Dean Oliver方式）。シーズン合計値に式を1回だけ適用する（Basketball-Reference準拠）",
   },
   {
     key: "netrtg",
     label: "NetRtg",
-    format: () => NA,
-    description: "ORtg − DRtg。ORtg/DRtgがシーズン集計では非対応のため同様に非対応",
+    format: (c) => {
+      const off = seasonOffRtg(c);
+      const def = seasonDefRtg(c);
+      return off !== undefined && def !== undefined ? formatSigned(off - def, 1) : NA;
+    },
+    description: "ORtg − DRtg",
   },
   { key: "plusminus", label: "+/-", format: (c, mode) => formatSigned(c.scaled.plusMinus, countDigits(mode)), description: "プラスマイナス" },
 ];

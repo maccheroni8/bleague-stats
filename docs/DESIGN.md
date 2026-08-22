@@ -4125,3 +4125,109 @@ B.ONE（2025-26）を再集計した。今回の変更は`player-games/{playerId
 B.ONE用の「シチュエーション別成績」UI自体が現状PlayerDetailPage側に存在しないため、
 このフィールドはデータとしてのみ存在し、UIには未反映（既存のB.PREMIER限定スコープと同じ
 扱い。41-4章と同様の判断）。
+
+---
+
+## 53. 「シーズン別成績」「シチュエーション別成績」のPOSS/PACE/ORtg/DRtg/NetRtg対応（2026-08-22）
+
+47章・49章で実装した「シーズン別成績」「シチュエーション別成績」の両テーブルは、
+POSS/PACE/ORtg/DRtg/NetRtgの5列がずっと「-」表示のままだった（`playerSeasonBoxscore.ts`の
+コメントで「シーズン集計では非対応（試合単位のみ算出可能）」としていた）。この判断が
+本当に正しいか、ユーザー指摘を受けて再調査した。
+
+### 53-1. 再調査の結論：ORtg/DRtg/NetRtgは元々「非対応」ではなかった
+
+17章で個人ORtg/DRtgをDean Oliver方式（Basketball-Reference準拠）に全面差し替えた際の
+設計は「基本ボックススコアのみで算出できる」というものだったが、これはそもそも
+**シーズン合計値に対して式を1回だけ適用するのが正しい使い方**（Basketball-Reference自身の
+定義がそうなっている。qASTの式が`Team_MP`のようなシーズン粒度の集計値を前提にした形を
+していることからも読み取れる）。19章のPPP実装が、まさにこの「シーズン合計値を
+`individualOffRtg()`に1回だけ渡す」方式（`scripts/aggregate.ts`の`toOliverBoxFromTotals()`）で
+既に動作・検証済みだったことが、この結論の直接の裏付けになった。
+
+**6章・11章の「非線形性」の記述は、個人ORtg/DRtgには当てはまらない**。6章・11章で
+述べている「シーズン合計の基本カウント統計に公式POSS式（比率項を含む）を再適用すると
+非線形性により誤差が出る」という指摘は、**チームPOSSの推定式**（`estimatedPossessions()`、
+`1.07 × (OR/(OR+OppDR)) × (FGA-FGM)`のような比率項を含む）に固有の問題であり、「試合ごとに
+確定した値をそのまま合算する（式を再適用しない）」という対処が必要になる。一方、個人
+ORtg/DRtgは「シーズン合計値に対して式を適用した結果」自体が定義そのものであり、
+「試合ごとの正しい値を合算した結果」という**別の量の近似ではない**。したがって非線形性の
+問題は生じない。`playerSeasonBoxscore.ts`のコメント（「シーズン集計では非対応」）は、
+チームPOSSの教訓を個人ORtg/DRtgに早合点で適用しすぎていた誤りだったと判断した。
+（DESIGN.md本文の6章・11章の記述自体はチームPOSSに関する記述としては正しく、訂正は不要）
+
+**唯一の実際のブロッカーはデータ配管だった**: `playerSeasonBoxscore.ts`の
+`TeamSeasonRawTotals`（シーズン別成績テーブルが使うチーム集計の型）が
+`pts/fgm/fga/tpm/tpa/ftm/fta/tov/min`の9項目しか持っておらず、ORtg/DRtgが必要とする
+`ast/oreb/dreb/stl/blk/pf/poss`（自チーム分）と、相手チームのボックススコア
+（`min/pts/fgm/fga/ftm/fta/oreb/dreb/tov`の9項目、DRtgの「opponent」役に必要）が
+欠けていた。自チーム分は`TeamGameLog`に既に存在していたため`sumTeamGameLogsFor()`の
+集計対象に加えるだけで済んだが、相手チームのボックススコアは`TeamGameLog`が
+`opponentScore`（相手の得点のみ）しか持っておらず、新規にフィールドを追加する必要が
+あった。
+
+### 53-2. PACE：在コート区間データを試合をまたいで合算するだけで良い
+
+`shared/onCourt.ts`の`computeOnCourtRatings()`は、既にある区間配列を単純に合算してから
+式を1回適用するだけの実装になっており（`ownPoss`/`oppPoss`/在コート秒数を積算 →
+最後に1回だけPACEの式を適用）、複数試合分の区間を連結して渡しても数学的にそのまま
+シーズン値になる（チームPOSSと同じ「正しい値を積算してから式を適用する」パターン）。
+ただし`PlayerGameLog`にはこの区間ごとの`ownPoss`/`oppPoss`/在コート秒数が永続化されて
+おらず、`scripts/aggregate.ts`のパイプラインは既に試合ごとに`reconstructOnCourt()`を
+1回呼んでいた（`processPlayers()`に`OnCourtReconstruction`をそのまま渡している）ため、
+その戻り値から3つの数値を保存するだけの安価な追加で済んだ。
+
+季ごとのPACE表示は、既存の試合詳細ページの方針（17-4章「PACEのみ在コート区間ベースの
+ため試合全体選択時・coverage==="full"のシーズンのみ、それ以外は「-」」）をそのまま
+シーズン集計にも引き継ぎ、`coverage !== "full"`（2022-23シーズンより前）は算出せず
+常に0を保存する形にした。個人POSSについては、17章で既に確立している「チーム合計行
+専用の概念で個人POSSという概念自体が無い」という設計判断はそのまま維持し、この列だけ
+引き続き「-」表示にしている。
+
+### 53-3. 実装
+
+- `shared/onCourt.ts`: `PlayerOnCourtRatings`に`ownPoss`/`oppPoss`を追加（`onCourtSec`と
+  合わせて3点セットで公開。`computeOnCourtRatings()`の戻り値を拡張しただけで、既存の
+  呼び出し元（`GameDetailPage.tsx`・`playerGameBoxscore.ts`）には影響なし）
+- `shared/types.ts`: `PlayerGameLog`に`onCourtOwnPoss`/`onCourtOppPoss`/`onCourtSeconds`
+  （coverage!=="full"のシーズンは常に0）、`TeamGameLog`に`opponentMin`/`opponentFgm`/
+  `opponentFga`/`opponentFtm`/`opponentFta`/`opponentOreb`/`opponentDreb`/`opponentTov`
+  （DRtgの「opponent」役専用。pts相当は既存の`opponentScore`をそのまま使う）を追加
+- `scripts/aggregate.ts`: 試合ごとのループで`computeOnCourtRatings(onCourt.intervals)`を
+  1回呼び（`seasonCoverage(game.season) === "full"`のときのみ）、`processPlayers()`の
+  `gameLogs.push()`に反映。`processTeams()`に`opponentGameLogStats(row)`を新設し、対戦相手
+  チーム行から8項目を抽出して両チームの`gameLogs.push()`に追加（`teamGameLogStats()`と対の
+  ヘルパー）
+- `src/lib/playerSeasonBoxscore.ts`: `TeamSeasonRawTotals`・`sumTeamGameLogsFor()`に上記の
+  自チーム7項目・相手チーム9項目を追加。`PlayerSeasonRawTotals`・`sumPlayerGameLogs()`・
+  `scaleTotals()`に在コート区間3項目を追加。`playerOliverBox()`/`teamOliverBox()`/
+  `opponentOliverBox()`（`scripts/aggregate.ts`の`toOliverBoxFromTotals()`と同じ
+  フィールド対応をフロントエンド型向けに用意したもの）・`seasonOffRtg()`/`seasonDefRtg()`/
+  `seasonPace()`を新設し、`SEASON_ADVANCED_COLUMNS`のPACE/ORtg/DRtg/NetRtgの
+  `format: () => NA`スタブを実装に置き換えた。POSSのみ「概念が無い」ため`NA`のまま維持
+- 全B.PREMIER11シーズン（2016-17〜2026-27）・B.ONE 2025-26を運用ルール通り再集計。
+  差分は`player-games/*.json.gz`（在コート区間3項目）・`team-games/*.json.gz`
+  （相手チーム8項目）にのみ限定され、`players.json`・`teams.json`・
+  `standings-history.json`・`head-to-head.json`・`lineups/`・`games-summary.json`は
+  デコード後バイト列が完全一致することを確認した（gzip再圧縮のみに伴う非決定的な
+  バイト差分はコミット対象から除外。既知の挙動）
+
+### 53-4. 検証
+
+千葉ジェッツ・富樫勇樹（playerId 9055）の2024-25シーズン（レギュラーシーズンのみ、
+チーム側は選手が出場した55試合分＝レギュラー50試合＋プレーオフ5試合の合算scheduleKeyを
+対象にする既存仕様通り）で、`shared/formulas.ts`の`individualOffRtg`/`individualDefRtg`を
+ブラウザが実際に使った入力値（コンソールに一時的にデバッグ出力させて採取）そのままで
+Node.jsから直接呼び出し、ORtg=114.1・DRtg=110.6が画面表示と完全一致することを確認した。
+（検証の過程で、独立に手計算しようとした際に`TeamGameLog`の得点フィールド名が`pts`ではなく
+`teamScore`であることを見落として0のまま合算してしまい、一時的にORtg=93.0という誤った
+値が出て「バグでは」と疑ったが、原因は検証スクリプト側の誤りで、実装自体は最初から
+正しかったことを確認した。）
+
+「シーズン別成績」テーブルで、ORtg/DRtg/NetRtgは全10シーズン（2016-17〜2025-26）すべてで
+実数値が表示され（Dean Oliver方式は基本ボックススコアのみに依存するためseason制約が無い、
+17-3章の既存検証と整合）、PACEは2022-23シーズン以降のみ実数値（71.9〜74.0の妥当な範囲）、
+それ以前は「-」表示になることを確認した。POSSは全シーズンで「-」のまま（意図通り）。
+「シチュエーション別成績」（会場・地区・曜日・時期・月別・対戦相手の強さ・連戦・外国籍
+人数の全グループ）でも同様に実数値が表示されることを確認した。型チェック
+（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。ブラウザのコンソールエラー無し。

@@ -601,6 +601,17 @@ export interface PlayerGameLog {
   mid2m: number;
   /** ミッドレンジ（ペイント外）2P試投数（同上） */
   mid2a: number;
+  /**
+   * 在コート区間（shared/onCourt.tsのreconstructOnCourt）の推定ポゼッション合計（自チーム視点）。
+   * シーズン合計してから個人PACEの式を1回だけ適用するために保持する（チームPOSSと同じ
+   * 「試合単位の正しい値をそのまま合算する」方針。DESIGN.md参照）。coverage==="full"の
+   * シーズン（2022-23以降）のみ算出し、それ以外は常に0
+   */
+  onCourtOwnPoss: number;
+  /** 同上、相手チーム視点 */
+  onCourtOppPoss: number;
+  /** 同上、在コート秒数 */
+  onCourtSeconds: number;
 }
 
 // ---- data/{season}/team-games/{teamId}.json の保存スキーマ（チーム詳細ページの試合結果一覧用） ----
@@ -643,6 +654,18 @@ export interface TeamGameLog {
   foreignPlayerCount?: number;
   /** PlayerGameLog.opponentForeignPlayerCountと同じ（対戦相手チーム視点） */
   opponentForeignPlayerCount?: number;
+  /**
+   * 相手チームのボックススコア（個人ORtg/DRtgのDean Oliver方式で「opponent」役として必要な
+   * フィールドのみ。opponentScoreがptsに相当するためptsは別途持たない）。DESIGN.md参照
+   */
+  opponentMin: number;
+  opponentFgm: number;
+  opponentFga: number;
+  opponentFtm: number;
+  opponentFta: number;
+  opponentOreb: number;
+  opponentDreb: number;
+  opponentTov: number;
 }
 
 // ---- data/{season}/standings-history.json の保存スキーマ（順位表ページ用） ----
