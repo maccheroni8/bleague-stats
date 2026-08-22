@@ -576,6 +576,31 @@ export interface PlayerGameLog {
   foreignPlayerCount?: number;
   /** 対戦相手チームの同時出場外国籍選手数（foreignPlayerCountと同じ算出方法、相手チーム視点） */
   opponentForeignPlayerCount?: number;
+  /** ターンオーバーからの得点（PTSOFFTO）。PlayTextの公式判定タグ集計。shared/pointsOffTurnovers.ts参照。
+   * 2016-17シーズンのみタグ自体が存在せず常に0（「算出不能」、DESIGN.md参照） */
+  ptsOffTov: number;
+  /** ダンク成功数 */
+  dunks: number;
+  /** バスケットカウント（アンドワン）数 */
+  basketCounts: number;
+  /** アンスポーツマンファウル数 */
+  unsportsmanlikeFouls: number;
+  /** ディスクォリファイングファウル数 */
+  disqualifyingFouls: number;
+  /** アシストされた2P成功数。shared/assistedScoring.ts参照 */
+  assisted2m: number;
+  /** アシストされた3P成功数 */
+  assisted3m: number;
+  /** アシストされたFT成功数 */
+  assistedFtm: number;
+  /** ペイント内2P成功数（ショットチャート座標由来。2022-23シーズン以降のみ、それ以前は常に0） */
+  paint2m: number;
+  /** ペイント内2P試投数（同上） */
+  paint2a: number;
+  /** ミッドレンジ（ペイント外）2P成功数（同上） */
+  mid2m: number;
+  /** ミッドレンジ（ペイント外）2P試投数（同上） */
+  mid2a: number;
 }
 
 // ---- data/{season}/team-games/{teamId}.json の保存スキーマ（チーム詳細ページの試合結果一覧用） ----

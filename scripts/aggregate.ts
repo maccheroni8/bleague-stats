@@ -29,6 +29,9 @@ import {
   type PerLeagueTotals,
 } from "../shared/formulas.ts";
 import { reconstructOnCourt, substitutionModelForSeason, type OnCourtReconstruction } from "../shared/onCourt.ts";
+import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
+import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
+import { buildShotEvents, paintSplitForShot } from "../shared/shotChart.ts";
 import { teamDivision } from "./lib/divisions.ts";
 import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
@@ -316,6 +319,81 @@ function countTechnicalFouls(playByPlays: PlayByPlayEvent[]): {
   return { byPlayer, byTeam };
 }
 
+interface MiscEventCounts {
+  dunks: number;
+  basketCounts: number;
+  unsportsmanlikeFouls: number;
+  disqualifyingFouls: number;
+}
+
+const ZERO_MISC_EVENTS: MiscEventCounts = { dunks: 0, basketCounts: 0, unsportsmanlikeFouls: 0, disqualifyingFouls: 0 };
+
+const DUNK_ACTION_CD1 = 4;
+const BASKET_COUNT_ACTION_CD1 = 16;
+const UNSPORTSMANLIKE_FOUL_ACTION_CD1 = 25;
+const DISQUALIFYING_FOUL_ACTION_CD1 = 26;
+
+/**
+ * ダンク数・アンドワン（バスケットカウント）・アンスポーツマンファウル・ディスクォリファイング
+ * ファウルを選手単位で集計する（src/lib/boxscoreAggregate.tsのbuildMiscEventCounts()と同じ
+ * ロジック。DESIGN.md 15-6章参照。試合単位のPlayByPlaysから毎回集計する必要があるため
+ * バックエンド側にも同じロジックを移植した）
+ */
+function buildMiscEventCounts(playByPlays: PlayByPlayEvent[]): Map<string, MiscEventCounts> {
+  const byPlayer = new Map<string, MiscEventCounts>();
+  const bump = (playerId: string | null, key: keyof MiscEventCounts) => {
+    if (!playerId) return;
+    const entry = byPlayer.get(playerId) ?? { ...ZERO_MISC_EVENTS };
+    entry[key] += 1;
+    byPlayer.set(playerId, entry);
+  };
+  for (const ev of playByPlays) {
+    if (ev.ActionCD1 === DUNK_ACTION_CD1 && ev.PlayText.includes("ダンク")) {
+      bump(ev.PlayerID1, "dunks");
+    } else if (ev.ActionCD1 === BASKET_COUNT_ACTION_CD1) {
+      bump(ev.PlayerID1, "basketCounts");
+    } else if (ev.ActionCD1 === UNSPORTSMANLIKE_FOUL_ACTION_CD1) {
+      bump(ev.PlayerID1, "unsportsmanlikeFouls");
+    } else if (ev.ActionCD1 === DISQUALIFYING_FOUL_ACTION_CD1) {
+      bump(ev.PlayerID1, "disqualifyingFouls");
+    }
+  }
+  return byPlayer;
+}
+
+interface PaintSplitCounts {
+  paint2m: number;
+  paint2a: number;
+  mid2m: number;
+  mid2a: number;
+}
+
+const ZERO_PAINT_SPLIT: PaintSplitCounts = { paint2m: 0, paint2a: 0, mid2m: 0, mid2a: 0 };
+
+/**
+ * ショットチャートと同じX/Y座標ベースのゾーン分類（shared/shotChart.ts）で、選手ごとの
+ * ペイント内外2P内訳を求める（src/lib/boxscoreAggregate.tsのbuildPaintSplitByPlayer()と同じ
+ * ロジック）。呼び出し側でseasonCoverage()==="full"（2022-23シーズン以降）のみ呼ぶこと
+ * （それ以前はX/Y自体が存在せずbuildShotEvents()が常に空配列を返す）
+ */
+function buildPaintSplitByPlayer(playByPlays: PlayByPlayEvent[]): Map<string, PaintSplitCounts> {
+  const byPlayer = new Map<string, PaintSplitCounts>();
+  for (const shot of buildShotEvents(playByPlays)) {
+    const split = paintSplitForShot(shot);
+    if (!split) continue;
+    const entry = byPlayer.get(shot.playerId) ?? { ...ZERO_PAINT_SPLIT };
+    if (split === "paint") {
+      entry.paint2a += 1;
+      if (shot.made) entry.paint2m += 1;
+    } else {
+      entry.mid2a += 1;
+      if (shot.made) entry.mid2m += 1;
+    }
+    byPlayer.set(shot.playerId, entry);
+  }
+  return byPlayer;
+}
+
 /**
  * 外国籍選手（外国籍/帰化選手/アジア特別枠の合算）同時出場人数の試合単位代表値
  * （DESIGN.md参照）。onCourt.lineupStints（reconstructOnCourtの戻り値、既に計算済みの
@@ -597,7 +675,26 @@ export async function aggregateSeason(season: string, category: Category = "prem
         : null;
     const technicalFouls = countTechnicalFouls(game.raw.PlayByPlays);
     const foreignPlayerCounts = onCourt ? computeForeignPlayerCounts(onCourt, masterById) : new Map<string, number>();
-    processPlayers(game, gameType, players, onCourt, technicalFouls.byPlayer, foreignPlayerCounts);
+    // シーズン集計ボックススコア（playerSeasonBoxscore.ts）でPTSOFFTO・DUNK・AND1・UFOUL・
+    // DQFOUL・AST2M/AST3M/ASTFTM・PAINT2M/PAINT2A・MID2M/MID2Aを実数値表示するための追加集計。
+    // いずれも試合単位の単純な合算値のため、ここで1回だけ計算しPlayerGameLogに永続化する
+    const ptsOffTovByPlayer = computePointsOffTurnovers(game.raw.PlayByPlays).byPlayer;
+    const assistedScoringByPlayer = computeAssistedScoring(game.raw.PlayByPlays).byScorer;
+    const miscEventsByPlayer = buildMiscEventCounts(game.raw.PlayByPlays);
+    const paintSplitByPlayer =
+      seasonCoverage(game.season) === "full" ? buildPaintSplitByPlayer(game.raw.PlayByPlays) : new Map<string, PaintSplitCounts>();
+    processPlayers(
+      game,
+      gameType,
+      players,
+      onCourt,
+      technicalFouls.byPlayer,
+      foreignPlayerCounts,
+      ptsOffTovByPlayer,
+      assistedScoringByPlayer,
+      miscEventsByPlayer,
+      paintSplitByPlayer,
+    );
     processTeams(game, gameType, teams, ensureTeam, technicalFouls.byTeam, foreignPlayerCounts);
     processLineups(game, teamLineups, onCourt);
   }
@@ -821,6 +918,10 @@ function processPlayers(
   onCourt: OnCourtReconstruction | null,
   technicalFoulsByPlayer: Map<string, number>,
   foreignPlayerCounts: Map<string, number>,
+  ptsOffTovByPlayer: Map<string, number>,
+  assistedScoringByPlayer: Map<string, AssistedScoringCounts>,
+  miscEventsByPlayer: Map<string, MiscEventCounts>,
+  paintSplitByPlayer: Map<string, PaintSplitCounts>,
 ): void {
   const rows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
   for (const row of pickTeamRow(rows, 1)) {
@@ -904,6 +1005,18 @@ function processPlayers(
       pt2nd: row.PT2ND,
       foreignPlayerCount: foreignPlayerCounts.get(isHome ? game.homeTeam.id : game.awayTeam.id),
       opponentForeignPlayerCount: foreignPlayerCounts.get(opponent.id),
+      ptsOffTov: ptsOffTovByPlayer.get(row.PlayerID) ?? 0,
+      dunks: miscEventsByPlayer.get(row.PlayerID)?.dunks ?? 0,
+      basketCounts: miscEventsByPlayer.get(row.PlayerID)?.basketCounts ?? 0,
+      unsportsmanlikeFouls: miscEventsByPlayer.get(row.PlayerID)?.unsportsmanlikeFouls ?? 0,
+      disqualifyingFouls: miscEventsByPlayer.get(row.PlayerID)?.disqualifyingFouls ?? 0,
+      assisted2m: assistedScoringByPlayer.get(row.PlayerID)?.assisted2m ?? 0,
+      assisted3m: assistedScoringByPlayer.get(row.PlayerID)?.assisted3m ?? 0,
+      assistedFtm: assistedScoringByPlayer.get(row.PlayerID)?.assistedFtm ?? 0,
+      paint2m: paintSplitByPlayer.get(row.PlayerID)?.paint2m ?? 0,
+      paint2a: paintSplitByPlayer.get(row.PlayerID)?.paint2a ?? 0,
+      mid2m: paintSplitByPlayer.get(row.PlayerID)?.mid2m ?? 0,
+      mid2a: paintSplitByPlayer.get(row.PlayerID)?.mid2a ?? 0,
     });
   }
 }

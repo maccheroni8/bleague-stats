@@ -44,19 +44,19 @@ import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { safeDiv } from "../../shared/formulas";
 import {
   SEASON_ADVANCED_COLUMNS,
-  SEASON_DISPLAY_MODE_LABELS,
   SEASON_GAME_TYPE_LABELS,
   SEASON_MISC_COLUMNS,
   SEASON_SCORING_COLUMNS,
   SEASON_TRADITIONAL_COLUMNS,
   buildSeasonBoxscoreCtx,
   filterByGameType,
+  seasonTotalEff,
   sumPlayerGameLogs,
   sumTeamGameLogsFor,
   type SeasonBoxscoreColumn,
   type SeasonBoxscoreCtx,
-  type SeasonDisplayMode,
   type SeasonGameTypeFilter,
+  type TeamSeasonRawTotals,
 } from "../lib/playerSeasonBoxscore";
 import {
   buildBackToBackStatus,
@@ -460,13 +460,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
     () => (playerId ? fetchPlayerGameLogs(season, playerId) : Promise.resolve([])),
     [season, playerId],
   );
-  // シーズンボックススコア（%-share・USG%の分母）用。playerの解決を待つ必要があるが、
-  // Hooksはトップレベルで呼ぶ必要があるため、playersが未取得の間はteamIdをundefinedのまま渡す
-  const playerTeamId = players?.find((p) => p.playerId === playerId)?.teamId;
-  const { data: teamGameLogs } = useJsonData(
-    () => (playerTeamId ? fetchTeamGameLogs(season, playerTeamId) : Promise.resolve([])),
-    [season, playerTeamId],
-  );
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   // レーダーチャートのランキング母集団の足切り（所属チーム試合数の85%以上出場）に使う
   const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
@@ -477,14 +470,19 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const shotChartSupported = isShotChartSupported(coverage);
   const { supported: yahooSeasonSupported } = useYahooPbpCoverage(season);
 
-  const [seasonBoxTab, setSeasonBoxTab] = useState<SeasonBoxTabKey>("traditional");
-  const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
   const [gameTypeFilter, setGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
 
   const [tab, setTab] = useState<DetailTab>("stats");
   const [careerData, setCareerData] = useState<CareerSeasonLogs[] | null>(null);
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerError, setCareerError] = useState<string | null>(null);
+  // 「シーズン別成績」テーブルのカテゴリタブ（トラディショナル/アドバンスド/Misc/スコアリング）用に、
+  // careerData全シーズン分のチーム総計（USG%・%-shareスタッツの分母）をシーズンごとに取得する。
+  // 選手の所属チームはシーズンごとに異なりうるため、まずfetchPlayers(season)でteamIdを解決してから
+  // fetchTeamGameLogsを呼ぶ（ページ本体の現在シーズン用playerTeamId解決と同じパターンをシーズン数分
+  // 繰り返す）
+  const [careerTeamTotals, setCareerTeamTotals] = useState<Map<string, TeamSeasonRawTotals> | null>(null);
+  const careerTeamTotalsFetchStartedRef = useRef(false);
   // 通算成績・キャリアハイ両タブで共有するレギュラー/プレーオフ/合算トグル（既存のgameType軸を再利用）
   const [careerGameTypeFilter, setCareerGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
 
@@ -541,6 +539,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
     setCareerData(null);
     setCareerError(null);
     careerFetchStartedRef.current = false;
+    setCareerTeamTotals(null);
+    careerTeamTotalsFetchStartedRef.current = false;
     setGameBoxRows(null);
     gameBoxFetchStartedRef.current = false;
     setSeasonShotChartExpanded(false);
@@ -680,6 +680,30 @@ export function PlayerDetailPage({ season }: { season: string }) {
         setCareerLoading(false);
       });
   }, [tab, playerId, seasons]);
+
+  // 「シーズン別成績」テーブルのUSG%・%-shareスタッツ用に、careerData取得済みの各シーズンについて
+  // 選手の所属チームを解決してからチーム総計を取得する（careerData自体が揃うまで待つ必要があるため
+  // 別effectに分離。careerFetchStartedRefと同じ「一度だけ・playerId変更時のみリセット」パターン）
+  useEffect(() => {
+    if (!careerData || careerTeamTotalsFetchStartedRef.current) return;
+    careerTeamTotalsFetchStartedRef.current = true;
+    Promise.all(
+      careerData.map(async (cd) => {
+        try {
+          const seasonPlayers = await fetchPlayers(cd.season);
+          const teamId = seasonPlayers.find((p) => p.playerId === playerId)?.teamId;
+          if (!teamId) return null;
+          const teamLogs = await fetchTeamGameLogs(cd.season, teamId);
+          const scheduleKeys = new Set(cd.logs.filter((g) => g.min > 0).map((g) => g.scheduleKey));
+          return [cd.season, sumTeamGameLogsFor(teamLogs, scheduleKeys)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((entries) => {
+      setCareerTeamTotals(new Map(entries.filter((e): e is readonly [string, TeamSeasonRawTotals] => e !== null)));
+    });
+  }, [careerData, playerId]);
 
   // 通算成績・キャリアハイ共通: DNP（出場0分）を除いた上で、選択中のレギュラー/プレーオフ/合算
   // トグルで絞り込む（既存のSeasonGameTypeFilter/filterByGameTypeをそのまま再利用）
@@ -840,20 +864,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
     ? radarEligiblePool
     : [...radarEligiblePool, player];
   const radarData = radarPool.length > 1 ? buildPlayerRadarData(player, radarPool) : [];
-
-  const seasonBoxGameLogs = gameLogs ? filterByGameType(gameLogs, gameTypeFilter) : [];
-  const seasonBoxRawTotals = sumPlayerGameLogs(seasonBoxGameLogs);
-  // sumPlayerGameLogs()はmin>0（実際に出場した試合）だけを合算するため、%-share/USG%の
-  // 分母となるチーム総計も同じ試合集合に揃える（DNP試合をチーム側にだけ含めると分母が
-  // 水増しされて%がズレる。2026-08-21のブラウザ検証で実際に0.7pt前後のズレとして発覚した）
-  const seasonBoxScheduleKeys = new Set(seasonBoxGameLogs.filter((g) => g.min > 0).map((g) => g.scheduleKey));
-  const seasonBoxTeamTotals = sumTeamGameLogsFor(teamGameLogs ?? [], seasonBoxScheduleKeys);
-  const seasonBoxCtx = buildSeasonBoxscoreCtx(
-    seasonBoxRawTotals,
-    seasonBoxTeamTotals,
-    displayMode,
-    Number(season.split("-")[0]),
-  );
 
   // 「シチュエーション別成績」: 選択中シーズンの試合ログをレギュラー/プレーオフ/合算で絞った上で、
   // 各グループ・各行（例: ホーム/アウェイ）ごとに個別のSeasonBoxscoreCtxを組み立てる。
@@ -1099,14 +1109,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
       {tab === "stats" && (
         <>
-          <h2>シーズン成績</h2>
-          <div className="mode-toggle">
-            {(Object.keys(SEASON_DISPLAY_MODE_LABELS) as SeasonDisplayMode[]).map((m) => (
-              <button key={m} className={m === displayMode ? "active" : ""} onClick={() => setDisplayMode(m)} type="button">
-                {SEASON_DISPLAY_MODE_LABELS[m]}
-              </button>
-            ))}
-          </div>
+          <h2>シーズン別成績</h2>
           <div className="mode-toggle">
             {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
               <button
@@ -1119,47 +1122,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </button>
             ))}
           </div>
-          <div className="tab-bar">
-            {SEASON_BOX_TABS.map((t) => (
-              <button
-                key={t.key}
-                className={`tab-button${seasonBoxTab === t.key ? " active" : ""}`}
-                onClick={() => setSeasonBoxTab(t.key)}
-                type="button"
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          {seasonBoxRawTotals.gamesPlayed === 0 ? (
-            <p className="empty-message">該当する試合がありません</p>
-          ) : (
-            <div className="table-scroll">
-              <table className="stats-table">
-                <thead>
-                  <tr>
-                    {SEASON_BOX_COLUMNS[seasonBoxTab].map((col) => (
-                      <th key={col.key} className="align-right" title={col.description}>
-                        {col.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    {SEASON_BOX_COLUMNS[seasonBoxTab].map((col) => (
-                      <td key={col.key} className="align-right">
-                        {col.format(seasonBoxCtx, displayMode)}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          <h2>シーズン別成績</h2>
-          <SeasonBreakdownTable careerData={careerData} gameTypeFilter={gameTypeFilter} />
+          <SeasonBreakdownTable careerData={careerData} gameTypeFilter={gameTypeFilter} teamTotalsBySeason={careerTeamTotals} />
 
           <h2>シチュエーション別成績</h2>
           <div className="mode-toggle">
@@ -1339,7 +1302,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 />
               </div>
               <p className="page-subtitle">
-                選手が出場した各試合の生データ（GeniusAPI由来のショット座標）をシーズン合計したもの。試合詳細ページのショットチャートと同じ形式で、個別ショット/エリア別成功率を切り替えられる（2022-23シーズン以降のみ対応。DESIGN.md参照）。上の「シーズン成績」のレギュラー/プレーオフ/合算トグルに連動する。フィルタ・Q別トグルは複数選択でき、選択した条件をすべて満たす試合・ショットに絞り込む
+                選手が出場した各試合の生データ（GeniusAPI由来のショット座標）をシーズン合計したもの。試合詳細ページのショットチャートと同じ形式で、個別ショット/エリア別成功率を切り替えられる（2022-23シーズン以降のみ対応。DESIGN.md参照）。上の「シーズン別成績」のレギュラー/プレーオフ/合算トグルに連動する。フィルタ・Q別トグルは複数選択でき、選択した条件をすべて満たす試合・ショットに絞り込む
               </p>
             </>
           )}
@@ -1538,19 +1501,51 @@ export function PlayerDetailPage({ season }: { season: string }) {
   );
 }
 
+const ZERO_TEAM_SEASON_TOTALS: TeamSeasonRawTotals = {
+  pts: 0,
+  fgm: 0,
+  fga: 0,
+  tpm: 0,
+  tpa: 0,
+  ftm: 0,
+  fta: 0,
+  tov: 0,
+  min: 0,
+};
+
+function sumTeamSeasonTotals(a: TeamSeasonRawTotals, b: TeamSeasonRawTotals): TeamSeasonRawTotals {
+  return {
+    pts: a.pts + b.pts,
+    fgm: a.fgm + b.fgm,
+    fga: a.fga + b.fga,
+    tpm: a.tpm + b.tpm,
+    tpa: a.tpa + b.tpa,
+    ftm: a.ftm + b.ftm,
+    fta: a.fta + b.fta,
+    tov: a.tov + b.tov,
+    min: a.min + b.min,
+  };
+}
+
 /**
  * シーズンごとの内訳（レギュラー/プレーオフ/合算トグル込み）を表示するテーブル。
- * 以前は「通算成績」タブの表示そのものだったが、通算成績タブは全シーズン合算の単一の
- * 合計値タイル表示に置き換えた（DESIGN.md参照）。テーブル自体は削除せず、「スタッツ」タブの
- * 「シーズン成績」（当該シーズン単体のボックススコア）の下に「シーズン別成績」として再配置した。
+ * 「シーズン成績」（当該シーズン単体のボックススコア）で使っていたのと同じ
+ * トラディショナル/アドバンスド/Misc/スコアリングのカテゴリタブをこちらに統合し、
+ * 「シーズン成績」セクション自体は削除した（47章・49章で指摘した「片方にしかカテゴリ
+ * 切り替えが無い」食い違いの解消。DESIGN.md参照）。表示モードは常に「平均」固定
+ * （シチュエーション別成績と同じ方針。合計だと行ごとの試合数の違いで比較しづらいため）。
+ * DD2/TD3のみ列定義に無いため、末尾に独自の列として追加する。
  */
 function SeasonBreakdownTable({
   careerData,
   gameTypeFilter,
+  teamTotalsBySeason,
 }: {
   careerData: CareerSeasonLogs[] | null;
   gameTypeFilter: SeasonGameTypeFilter;
+  teamTotalsBySeason: Map<string, TeamSeasonRawTotals> | null;
 }) {
+  const [tab, setTab] = useState<SeasonBoxTabKey>("traditional");
   const playedFilteredLogs = (logs: PlayerGameLog[]) => filterByGameType(logs.filter((g) => g.min > 0), gameTypeFilter);
 
   const seasonRows = useMemo(() => {
@@ -1558,96 +1553,96 @@ function SeasonBreakdownTable({
     return careerData
       .map((cd) => {
         const played = playedFilteredLogs(cd.logs);
-        const stats = computePlayerSituationalStats(played);
-        return stats ? { season: cd.season, stats, ddtd: countDoubleTripleDoubles(played) } : null;
+        const raw = sumPlayerGameLogs(played);
+        if (raw.gamesPlayed === 0) return null;
+        const team = teamTotalsBySeason?.get(cd.season) ?? ZERO_TEAM_SEASON_TOTALS;
+        const seasonStartYear = Number(cd.season.split("-")[0]);
+        const ctx = buildSeasonBoxscoreCtx(raw, team, "perGame", seasonStartYear);
+        return { season: cd.season, ctx, ddtd: countDoubleTripleDoubles(played) };
       })
-      .filter((r): r is { season: string; stats: PlayerSituationalStats; ddtd: { dd: number; td: number } } => r !== null)
+      .filter((r): r is { season: string; ctx: SeasonBoxscoreCtx; ddtd: { dd: number; td: number } } => r !== null)
       .reverse();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [careerData, gameTypeFilter]);
+  }, [careerData, gameTypeFilter, teamTotalsBySeason]);
 
+  // 通算行のEFFは、複数シーズンの生カウント値を先に合算してから1回だけeff()を呼ぶと
+  // 年度で異なる計算式（DESIGN.md参照）を誤って混在適用してしまうため、シーズンごとに
+  // 正しい式で算出した合計EFFをここで合算してから平均する（seasonTotalEff参照）
   const total = useMemo(() => {
-    if (!careerData) return null;
+    if (!careerData || seasonRows.length === 0) return null;
     const allPlayed = careerData.flatMap((cd) => playedFilteredLogs(cd.logs));
-    const stats = computePlayerSituationalStats(allPlayed);
-    return stats ? { stats, ddtd: countDoubleTripleDoubles(allPlayed) } : null;
+    const totalRaw = sumPlayerGameLogs(allPlayed);
+    if (totalRaw.gamesPlayed === 0) return null;
+    const totalTeam = seasonRows.reduce((acc, r) => sumTeamSeasonTotals(acc, r.ctx.team), ZERO_TEAM_SEASON_TOTALS);
+    const latestSeasonStartYear = Math.max(...seasonRows.map((r) => r.ctx.seasonStartYear));
+    const ctx = buildSeasonBoxscoreCtx(totalRaw, totalTeam, "perGame", latestSeasonStartYear);
+    const totalEffSum = seasonRows.reduce((sum, r) => sum + seasonTotalEff(r.ctx.raw, r.ctx.seasonStartYear), 0);
+    return {
+      ctx,
+      ddtd: countDoubleTripleDoubles(allPlayed),
+      effPerGame: totalRaw.gamesPlayed > 0 ? totalEffSum / totalRaw.gamesPlayed : 0,
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [careerData, gameTypeFilter]);
+  }, [careerData, gameTypeFilter, seasonRows]);
 
   if (!careerData || seasonRows.length === 0) {
     return <p className="empty-message">通算成績がありません</p>;
   }
 
+  const columns = SEASON_BOX_COLUMNS[tab];
+
   return (
-    <div className="table-scroll">
-      <table className="stats-table">
-        <thead>
-          <tr>
-            <th className="align-left">シーズン</th>
-            <th className="align-right">試合数</th>
-            <th className="align-right">MIN</th>
-            <th className="align-right">PTS</th>
-            <th className="align-right">REB</th>
-            <th className="align-right">AST</th>
-            <th className="align-right">STL</th>
-            <th className="align-right">BLK</th>
-            <th className="align-right">TOV</th>
-            <th className="align-right">+/-</th>
-            <th className="align-right">FG%</th>
-            <th className="align-right">3P%</th>
-            <th className="align-right">FT%</th>
-            <th className="align-right">eFG%</th>
-            <th className="align-right">TS%</th>
-            <th className="align-right">DD2</th>
-            <th className="align-right">TD3</th>
-          </tr>
-        </thead>
-        <tbody>
-          {seasonRows.map((r) => (
-            <tr key={r.season}>
-              <td className="align-left">{r.season}</td>
-              <td className="align-right">{r.stats.gamesPlayed}</td>
-              <td className="align-right">{formatDecimal(r.stats.perGame.min)}</td>
-              <td className="align-right">{formatDecimal(r.stats.perGame.pts)}</td>
-              <td className="align-right">{formatDecimal(r.stats.perGame.reb)}</td>
-              <td className="align-right">{formatDecimal(r.stats.perGame.ast)}</td>
-              <td className="align-right">{formatDecimal(r.stats.perGame.stl)}</td>
-              <td className="align-right">{formatDecimal(r.stats.perGame.blk)}</td>
-              <td className="align-right">{formatDecimal(r.stats.perGame.tov)}</td>
-              <td className="align-right">{formatSigned(r.stats.perGame.plusMinus)}</td>
-              <td className="align-right">{formatPct(r.stats.shooting.fgPct)}</td>
-              <td className="align-right">{formatPct(r.stats.shooting.tpPct)}</td>
-              <td className="align-right">{formatPct(r.stats.shooting.ftPct)}</td>
-              <td className="align-right">{formatPct(r.stats.shooting.efgPct)}</td>
-              <td className="align-right">{formatPct(r.stats.shooting.tsPct)}</td>
-              <td className="align-right">{r.ddtd.dd}</td>
-              <td className="align-right">{r.ddtd.td}</td>
+    <>
+      <div className="tab-bar">
+        {SEASON_BOX_TABS.map((t) => (
+          <button key={t.key} className={`tab-button${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)} type="button">
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="table-scroll">
+        <table className="stats-table">
+          <thead>
+            <tr>
+              <th className="align-left">シーズン</th>
+              {columns.map((col) => (
+                <th key={col.key} className="align-right" title={col.description}>
+                  {col.label}
+                </th>
+              ))}
+              <th className="align-right">DD2</th>
+              <th className="align-right">TD3</th>
             </tr>
-          ))}
-          {total && (
-            <tr className="career-total-row">
-              <td className="align-left">通算</td>
-              <td className="align-right">{total.stats.gamesPlayed}</td>
-              <td className="align-right">{formatDecimal(total.stats.perGame.min)}</td>
-              <td className="align-right">{formatDecimal(total.stats.perGame.pts)}</td>
-              <td className="align-right">{formatDecimal(total.stats.perGame.reb)}</td>
-              <td className="align-right">{formatDecimal(total.stats.perGame.ast)}</td>
-              <td className="align-right">{formatDecimal(total.stats.perGame.stl)}</td>
-              <td className="align-right">{formatDecimal(total.stats.perGame.blk)}</td>
-              <td className="align-right">{formatDecimal(total.stats.perGame.tov)}</td>
-              <td className="align-right">{formatSigned(total.stats.perGame.plusMinus)}</td>
-              <td className="align-right">{formatPct(total.stats.shooting.fgPct)}</td>
-              <td className="align-right">{formatPct(total.stats.shooting.tpPct)}</td>
-              <td className="align-right">{formatPct(total.stats.shooting.ftPct)}</td>
-              <td className="align-right">{formatPct(total.stats.shooting.efgPct)}</td>
-              <td className="align-right">{formatPct(total.stats.shooting.tsPct)}</td>
-              <td className="align-right">{total.ddtd.dd}</td>
-              <td className="align-right">{total.ddtd.td}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {seasonRows.map((r) => (
+              <tr key={r.season}>
+                <td className="align-left">{r.season}</td>
+                {columns.map((col) => (
+                  <td key={col.key} className="align-right">
+                    {col.format(r.ctx, "perGame")}
+                  </td>
+                ))}
+                <td className="align-right">{r.ddtd.dd}</td>
+                <td className="align-right">{r.ddtd.td}</td>
+              </tr>
+            ))}
+            {total && (
+              <tr className="career-total-row">
+                <td className="align-left">通算</td>
+                {columns.map((col) => (
+                  <td key={col.key} className="align-right">
+                    {col.key === "eff" ? formatDecimal(total.effPerGame) : col.format(total.ctx, "perGame")}
+                  </td>
+                ))}
+                <td className="align-right">{total.ddtd.dd}</td>
+                <td className="align-right">{total.ddtd.td}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 

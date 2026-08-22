@@ -3,10 +3,11 @@
 // シーズンのみ/プレーオフのみ/合算の3フィルタを掛け合わせて表示する。
 //
 // 列は原則PlayerGameLog（+ TeamGameLogとの突き合わせ）だけで算出できるものに絞っている。
-// GameDetailPage側のボックススコアにあるPTSOFFTO/DUNK/AND1/UFOUL/DQFOUL/被アシスト内訳/
-// ペイント・ミッドレンジ分割・POSS/PACE/ORtg/DRtg/NetRtgはPlayByPlays由来かつ試合単位でしか
-// 持っていないデータのため、シーズン集計では「-」表示にしている（DESIGN.md参照。将来
-// PlayerGameLogにPBP由来フィールドを追加すれば拡張できる）
+// PTSOFFTO/DUNK/AND1/UFOUL/DQFOUL/被アシスト内訳/ペイント・ミッドレンジ分割は単純な合算値
+// のため、aggregate.ts側でPlayByPlaysから試合単位に集計しPlayerGameLogへ永続化した上で
+// ここで合算表示している（DESIGN.md参照）。POSS/PACE/ORtg/DRtg/NetRtgのみ、比率項を含む
+// 非線形な計算式のためシーズン合算不可能（試合単位で確定させてから合算しないと誤差が出る）
+// と判断し、引き続き「-」表示にしている
 
 import { efgPct, safeDiv, tovPct, tsPct, usagePct, eff as effFormula, type EffTotals } from "../../shared/formulas";
 import { astToTovRatio, formatAstToRatio, formatMinutesFromSeconds, sharePct } from "./boxscoreAggregate";
@@ -58,6 +59,18 @@ export interface PlayerSeasonRawTotals {
   ptfb: number;
   pt2nd: number;
   plusMinus: number;
+  ptsOffTov: number;
+  dunks: number;
+  basketCounts: number;
+  unsportsmanlikeFouls: number;
+  disqualifyingFouls: number;
+  assisted2m: number;
+  assisted3m: number;
+  assistedFtm: number;
+  paint2m: number;
+  paint2a: number;
+  mid2m: number;
+  mid2a: number;
 }
 
 const EMPTY_RAW_TOTALS: PlayerSeasonRawTotals = {
@@ -85,6 +98,18 @@ const EMPTY_RAW_TOTALS: PlayerSeasonRawTotals = {
   ptfb: 0,
   pt2nd: 0,
   plusMinus: 0,
+  ptsOffTov: 0,
+  dunks: 0,
+  basketCounts: 0,
+  unsportsmanlikeFouls: 0,
+  disqualifyingFouls: 0,
+  assisted2m: 0,
+  assisted3m: 0,
+  assistedFtm: 0,
+  paint2m: 0,
+  paint2a: 0,
+  mid2m: 0,
+  mid2a: 0,
 };
 
 /** min>0（実際に出場した試合）のみを対象に合算する。DNP行はgamesPlayedにも数えない */
@@ -116,6 +141,18 @@ export function sumPlayerGameLogs(logs: PlayerGameLog[]): PlayerSeasonRawTotals 
       ptfb: acc.ptfb + g.ptfb,
       pt2nd: acc.pt2nd + g.pt2nd,
       plusMinus: acc.plusMinus + g.plusMinus,
+      ptsOffTov: acc.ptsOffTov + g.ptsOffTov,
+      dunks: acc.dunks + g.dunks,
+      basketCounts: acc.basketCounts + g.basketCounts,
+      unsportsmanlikeFouls: acc.unsportsmanlikeFouls + g.unsportsmanlikeFouls,
+      disqualifyingFouls: acc.disqualifyingFouls + g.disqualifyingFouls,
+      assisted2m: acc.assisted2m + g.assisted2m,
+      assisted3m: acc.assisted3m + g.assisted3m,
+      assistedFtm: acc.assistedFtm + g.assistedFtm,
+      paint2m: acc.paint2m + g.paint2m,
+      paint2a: acc.paint2a + g.paint2a,
+      mid2m: acc.mid2m + g.mid2m,
+      mid2a: acc.mid2a + g.mid2a,
     }),
     { ...EMPTY_RAW_TOTALS },
   );
@@ -192,6 +229,18 @@ function scaleTotals(raw: PlayerSeasonRawTotals, factor: number): PlayerSeasonRa
     ptfb: raw.ptfb * factor,
     pt2nd: raw.pt2nd * factor,
     plusMinus: raw.plusMinus * factor,
+    ptsOffTov: raw.ptsOffTov * factor,
+    dunks: raw.dunks * factor,
+    basketCounts: raw.basketCounts * factor,
+    unsportsmanlikeFouls: raw.unsportsmanlikeFouls * factor,
+    disqualifyingFouls: raw.disqualifyingFouls * factor,
+    assisted2m: raw.assisted2m * factor,
+    assisted3m: raw.assisted3m * factor,
+    assistedFtm: raw.assistedFtm * factor,
+    paint2m: raw.paint2m * factor,
+    paint2a: raw.paint2a * factor,
+    mid2m: raw.mid2m * factor,
+    mid2a: raw.mid2a * factor,
   };
 }
 
@@ -240,7 +289,21 @@ function scaledEff(ctx: SeasonBoxscoreCtx, mode: SeasonDisplayMode): number {
   return totalEff * modeFactor(ctx.raw, mode);
 }
 
+/**
+ * 指定シーズンの生合計値から「シーズン合計EFF」を求める（scaledEffのmode="total"相当）。
+ * EFFは年度によって計算式自体が異なる（DESIGN.md参照）ため、複数シーズンを横断する
+ * 「通算」行のEFFを求める際は、生カウント値を先に合算してから1回だけeff()を呼ぶのではなく、
+ * シーズンごとに正しい式でこの関数を呼んでから結果を合算する必要がある（呼び出し側:
+ * PlayerDetailPage.tsxのSeasonBreakdownTable参照）
+ */
+export function seasonTotalEff(raw: PlayerSeasonRawTotals, seasonStartYear: number): number {
+  return effFormula(seasonStartYear, effTotalsOf(raw), 1);
+}
+
 const NA = "-";
+/** ショットチャート座標（X/Y/AreaCD）が存在する最初のシーズン開始年。scripts/lib/seasonCoverage.tsの
+ * 判定基準（startYear >= 2022 で"full"）と一致させる */
+const MIN_SHOT_CHART_SEASON_START_YEAR = 2022;
 
 export interface SeasonBoxscoreColumn {
   key: string;
@@ -374,17 +437,33 @@ export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
   {
     key: "ptsofftov",
     label: "PTSOFFTO",
-    format: () => NA,
-    description: "PlayByPlaysのPlayTextタグ判定が必要なため、シーズン集計では非対応（試合単位のみ算出可能）",
+    format: (c) => formatDecimal(c.scaled.ptsOffTov),
+    description: "ターンオーバーからの得点（PlayTextの公式判定タグ集計。2016-17シーズンはタグ自体が存在せず常に0）",
   },
-  { key: "dunk", label: "DUNK", format: () => NA, description: "PlayByPlays由来のため、シーズン集計では非対応（試合単位のみ算出可能）" },
-  { key: "and1", label: "AND1", format: () => NA, description: "PlayByPlays由来のため、シーズン集計では非対応（試合単位のみ算出可能）" },
-  { key: "ufoul", label: "UFOUL", format: () => NA, description: "PlayByPlays由来のため、シーズン集計では非対応（試合単位のみ算出可能）" },
-  { key: "dqfoul", label: "DQFOUL", format: () => NA, description: "PlayByPlays由来のため、シーズン集計では非対応（試合単位のみ算出可能）" },
-  { key: "ast2m", label: "AST2M", format: () => NA, description: "PlayByPlays由来のため、シーズン集計では非対応（試合単位のみ算出可能）" },
-  { key: "ast3m", label: "AST3M", format: () => NA, description: "PlayByPlays由来のため、シーズン集計では非対応（試合単位のみ算出可能）" },
-  { key: "astftm", label: "ASTFTM", format: () => NA, description: "PlayByPlays由来のため、シーズン集計では非対応（試合単位のみ算出可能）" },
-  { key: "astpct", label: "AST%", format: () => NA, description: "被アシスト内訳がシーズン集計では非対応のため同様に非対応" },
+  { key: "dunk", label: "DUNK", format: (c) => formatDecimal(c.scaled.dunks), description: "ダンク成功数" },
+  { key: "and1", label: "AND1", format: (c) => formatDecimal(c.scaled.basketCounts), description: "バスケットカウント（アンドワン）数" },
+  {
+    key: "ufoul",
+    label: "UFOUL",
+    format: (c) => formatDecimal(c.scaled.unsportsmanlikeFouls),
+    description: "アンスポーツマンファウル数",
+  },
+  {
+    key: "dqfoul",
+    label: "DQFOUL",
+    format: (c) => formatDecimal(c.scaled.disqualifyingFouls),
+    description: "ディスクォリファイングファウル数",
+  },
+  { key: "ast2m", label: "AST2M", format: (c) => formatDecimal(c.scaled.assisted2m), description: "アシストされた2P成功数" },
+  { key: "ast3m", label: "AST3M", format: (c) => formatDecimal(c.scaled.assisted3m), description: "アシストされた3P成功数" },
+  { key: "astftm", label: "ASTFTM", format: (c) => formatDecimal(c.scaled.assistedFtm), description: "アシストされたFT成功数" },
+  {
+    key: "astpct",
+    label: "AST%",
+    format: (c) =>
+      formatPct100(safeDiv(c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm, c.raw.pts)),
+    description: "(アシストされた2Mx2 + 3Mx3 + FTMx1) / PTS。得点のうちアシストが付いた割合",
+  },
 ];
 
 export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
@@ -401,27 +480,39 @@ export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
   {
     key: "paint2m",
     label: "PAINT2M",
-    format: () => NA,
-    description: "ショットチャート座標データが必要なため、シーズン集計では非対応（試合単位のみ算出可能）",
+    format: (c) => (c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.paint2m) : NA),
+    description: "ペイント内2P成功数（ショットチャート座標由来。2022-23シーズン以降のみ対応）",
   },
   {
     key: "paint2a",
     label: "PAINT2A",
-    format: () => NA,
-    description: "ショットチャート座標データが必要なため、シーズン集計では非対応（試合単位のみ算出可能）",
+    format: (c) => (c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.paint2a) : NA),
+    description: "ペイント内2P試投数（同上、2022-23シーズン以降のみ対応）",
   },
-  { key: "paint2pct", label: "PAINT2%", format: () => NA, description: "PAINT2M/PAINT2Aがシーズン集計では非対応のため同様に非対応" },
+  {
+    key: "paint2pct",
+    label: "PAINT2%",
+    format: (c) =>
+      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatPct(safeDiv(c.raw.paint2m, c.raw.paint2a)) : NA,
+    description: "PAINT2M / PAINT2A（2022-23シーズン以降のみ対応）",
+  },
   {
     key: "mid2m",
     label: "MID2M",
-    format: () => NA,
-    description: "ショットチャート座標データが必要なため、シーズン集計では非対応（試合単位のみ算出可能）",
+    format: (c) => (c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.mid2m) : NA),
+    description: "ミッドレンジ（ペイント外）2P成功数（ショットチャート座標由来。2022-23シーズン以降のみ対応）",
   },
   {
     key: "mid2a",
     label: "MID2A",
-    format: () => NA,
-    description: "ショットチャート座標データが必要なため、シーズン集計では非対応（試合単位のみ算出可能）",
+    format: (c) => (c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.mid2a) : NA),
+    description: "ミッドレンジ（ペイント外）2P試投数（同上、2022-23シーズン以降のみ対応）",
   },
-  { key: "mid2pct", label: "MID2%", format: () => NA, description: "MID2M/MID2Aがシーズン集計では非対応のため同様に非対応" },
+  {
+    key: "mid2pct",
+    label: "MID2%",
+    format: (c) =>
+      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatPct(safeDiv(c.raw.mid2m, c.raw.mid2a)) : NA,
+    description: "MID2M / MID2A（2022-23シーズン以降のみ対応）",
+  },
 ];
