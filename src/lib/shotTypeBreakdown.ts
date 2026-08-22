@@ -57,8 +57,13 @@ export function sumShotTypeCounts(a: ShotTypeCounts, b: ShotTypeCounts): ShotTyp
   return { made: a.made + b.made, attempted: a.attempted + b.attempted };
 }
 
-export function formatShotTypeCell(counts: { made: number; attempted: number } | undefined): string {
+/** 平均/合計切り替え用に成功/試投数を係数倍する（成功率は分子分母とも同じ係数のため不変） */
+export function scaleShotTypeCounts(counts: ShotTypeCounts, factor: number): ShotTypeCounts {
+  return { made: counts.made * factor, attempted: counts.attempted * factor };
+}
+
+export function formatShotTypeCell(counts: { made: number; attempted: number } | undefined, digits = 0): string {
   if (!counts || counts.attempted === 0) return "-";
   const pct = (100 * counts.made) / counts.attempted;
-  return `${counts.made}/${counts.attempted} (${pct.toFixed(1)}%)`;
+  return `${counts.made.toFixed(digits)}/${counts.attempted.toFixed(digits)} (${pct.toFixed(1)}%)`;
 }

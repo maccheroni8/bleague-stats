@@ -34,7 +34,7 @@ import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatSigned } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
-import { formatShotTypeCell, sortShotTypeKeys, sumShotTypeCounts } from "../lib/shotTypeBreakdown";
+import { formatShotTypeCell, scaleShotTypeCounts, sortShotTypeKeys, sumShotTypeCounts } from "../lib/shotTypeBreakdown";
 import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
 import { ShotChartFilterPicker } from "../components/ShotChartFilterPicker";
@@ -539,6 +539,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 保存済みのため、選択したシーズンのplayers.jsonを取得するだけで済む）。デフォルトは
   // 現在選択中のシーズン
   const [shootingSeason, setShootingSeason] = useState(season);
+  const [shootingDisplayMode, setShootingDisplayMode] = useState<SeasonDisplayMode>("perGame");
 
   // careerLoading/careerDataをdeps配列に含めると、setCareerLoading(true)自体がeffectを
   // 再発火させcleanupで直前のfetchをcancelしてしまう（自己キャンセルのループ）。
@@ -834,6 +835,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
     [tab, shootingSeason],
   );
   const shootingPlayer = shootingPlayers?.find((p) => p.playerId === playerId);
+  // 平均モードは合計を試合数で割るだけ（成功率は分子分母とも同じ係数のため不変）
+  const shootingFactor =
+    shootingDisplayMode === "total" || !shootingPlayer || shootingPlayer.gamesPlayed <= 0 ? 1 : 1 / shootingPlayer.gamesPlayed;
+  const shootingDigits = shootingDisplayMode === "total" ? 0 : 1;
 
   const situationalStatsBackToBack = useMemo(
     () => (situationalStatsSummaries ? buildBackToBackStatus(situationalStatsSummaries) : undefined),
@@ -1249,6 +1254,16 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   </option>
                 ))}
             </select>
+            {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+              <button
+                key={m}
+                className={m === shootingDisplayMode ? "active" : ""}
+                onClick={() => setShootingDisplayMode(m)}
+                type="button"
+              >
+                {SEASON_DISPLAY_MODE_LABELS[m]}
+              </button>
+            ))}
           </div>
           {!shootingPlayer?.shotTypes ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
@@ -1271,15 +1286,19 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     <td className="align-left">2P</td>
                     {sortShotTypeKeys(Object.keys(shootingPlayer.shotTypes)).map((key) => (
                       <td key={key} className="align-right">
-                        {formatShotTypeCell(shootingPlayer.shotTypes![key]!.twoPoint)}
+                        {formatShotTypeCell(scaleShotTypeCounts(shootingPlayer.shotTypes![key]!.twoPoint, shootingFactor), shootingDigits)}
                       </td>
                     ))}
                     <td className="align-right">
                       {formatShotTypeCell(
-                        Object.values(shootingPlayer.shotTypes).reduce(
-                          (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
-                          { made: 0, attempted: 0 },
+                        scaleShotTypeCounts(
+                          Object.values(shootingPlayer.shotTypes).reduce(
+                            (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
+                            { made: 0, attempted: 0 },
+                          ),
+                          shootingFactor,
                         ),
+                        shootingDigits,
                       )}
                     </td>
                   </tr>
@@ -1287,15 +1306,19 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     <td className="align-left">3P</td>
                     {sortShotTypeKeys(Object.keys(shootingPlayer.shotTypes)).map((key) => (
                       <td key={key} className="align-right">
-                        {formatShotTypeCell(shootingPlayer.shotTypes![key]!.threePoint)}
+                        {formatShotTypeCell(scaleShotTypeCounts(shootingPlayer.shotTypes![key]!.threePoint, shootingFactor), shootingDigits)}
                       </td>
                     ))}
                     <td className="align-right">
                       {formatShotTypeCell(
-                        Object.values(shootingPlayer.shotTypes).reduce(
-                          (acc, c) => sumShotTypeCounts(acc, c.threePoint),
-                          { made: 0, attempted: 0 },
+                        scaleShotTypeCounts(
+                          Object.values(shootingPlayer.shotTypes).reduce(
+                            (acc, c) => sumShotTypeCounts(acc, c.threePoint),
+                            { made: 0, attempted: 0 },
+                          ),
+                          shootingFactor,
                         ),
+                        shootingDigits,
                       )}
                     </td>
                   </tr>
