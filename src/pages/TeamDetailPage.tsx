@@ -453,7 +453,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                         <li key={`${h.season}-${h.competition}-${i}`} className="honor-item">
                           <span className="honor-season">{h.season}</span>
                           {h.competition}
-                          {h.note && category !== "international" && <span className="honor-note">（{h.note}）</span>}
+                          {h.note && category !== "international" && category !== "emperors_cup" && (
+                            <span className="honor-note">（{h.note}）</span>
+                          )}
                         </li>
                       ))}
                     </ul>
