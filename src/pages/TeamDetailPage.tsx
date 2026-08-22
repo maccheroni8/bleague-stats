@@ -116,51 +116,67 @@ function buildRadarData(team: TeamSummary, allTeams: TeamSummary[]): RadarDataPo
 interface TeamHeaderStatDef {
   key: string;
   label: string;
+  value: (t: TeamSummary) => number;
   format: (t: TeamSummary) => string;
+  /** falseなら値が小さいほど良い項目（oppPTS等）。順位算出の向きに使う。
+   * oppTOVのみ「相手に強制したターンオーバー」の意味なので例外的にtrue */
+  higherIsBetter: boolean;
 }
 
-// ヘッダーのスタッツタイル（4段）。1段目=自チームのオフェンス基本+ペース/ORtg、
-// 2段目=得失点・シュート効率+NetRtg、3段目=相手（opp）のオフェンス基本+DRtg、
-// 4段目=相手（opp）のシュート効率。シーズン合計（フィルタなし）固定で表示する
+// ヘッダーのスタッツタイル（2段×14列）。上段=自チーム、下段=相手（opp）で、
+// 同じ列位置が対になるよう配置する（NetRtgの真下だけはoppNetRtgではなくPACEを配置）。
+// シーズン合計（フィルタなし）固定で表示し、各タイルにリーグ内順位を併記する
 const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
   [
-    { key: "pts", label: "得点", format: (t) => formatDecimal(t.perGame.pts) },
-    { key: "reb", label: "リバウンド", format: (t) => formatDecimal(t.perGame.reb) },
-    { key: "ast", label: "アシスト", format: (t) => formatDecimal(t.perGame.ast) },
-    { key: "stl", label: "スティール", format: (t) => formatDecimal(t.perGame.stl) },
-    { key: "blk", label: "ブロック", format: (t) => formatDecimal(t.perGame.blk) },
-    { key: "tov", label: "ターンオーバー", format: (t) => formatDecimal(t.perGame.tov) },
-    { key: "pace", label: "PACE", format: (t) => formatDecimal(t.advanced.pace) },
-    { key: "offRtg", label: "ORtg", format: (t) => formatDecimal(t.advanced.offRtg) },
+    { key: "pts", label: "PTS", value: (t) => t.perGame.pts, format: (t) => formatDecimal(t.perGame.pts), higherIsBetter: true },
+    { key: "reb", label: "REB", value: (t) => t.perGame.reb, format: (t) => formatDecimal(t.perGame.reb), higherIsBetter: true },
+    { key: "ast", label: "AST", value: (t) => t.perGame.ast, format: (t) => formatDecimal(t.perGame.ast), higherIsBetter: true },
+    { key: "stl", label: "STL", value: (t) => t.perGame.stl, format: (t) => formatDecimal(t.perGame.stl), higherIsBetter: true },
+    { key: "blk", label: "BLK", value: (t) => t.perGame.blk, format: (t) => formatDecimal(t.perGame.blk), higherIsBetter: true },
+    { key: "tov", label: "TOV", value: (t) => t.perGame.tov, format: (t) => formatDecimal(t.perGame.tov), higherIsBetter: false },
+    { key: "fgPct", label: "FG%", value: (t) => t.shooting.fgPct, format: (t) => formatPct(t.shooting.fgPct), higherIsBetter: true },
+    { key: "tpPct", label: "3P%", value: (t) => t.shooting.tpPct, format: (t) => formatPct(t.shooting.tpPct), higherIsBetter: true },
+    { key: "pt2Pct", label: "2P%", value: (t) => t.shooting.pt2Pct, format: (t) => formatPct(t.shooting.pt2Pct), higherIsBetter: true },
+    { key: "ftPct", label: "FT%", value: (t) => t.shooting.ftPct, format: (t) => formatPct(t.shooting.ftPct), higherIsBetter: true },
+    { key: "efgPct", label: "eFG%", value: (t) => t.shooting.efgPct, format: (t) => formatPct(t.shooting.efgPct), higherIsBetter: true },
+    { key: "tsPct", label: "TS%", value: (t) => t.shooting.tsPct, format: (t) => formatPct(t.shooting.tsPct), higherIsBetter: true },
+    { key: "offRtg", label: "ORtg", value: (t) => t.advanced.offRtg, format: (t) => formatDecimal(t.advanced.offRtg), higherIsBetter: true },
+    { key: "netRtg", label: "NetRtg", value: (t) => t.advanced.netRtg, format: (t) => formatSigned(t.advanced.netRtg), higherIsBetter: true },
   ],
   [
-    { key: "netPts", label: "得失点", format: (t) => formatSigned(t.netPerGame.pts) },
-    { key: "fgPct", label: "FG%", format: (t) => formatPct(t.shooting.fgPct) },
-    { key: "tpPct", label: "3P%", format: (t) => formatPct(t.shooting.tpPct) },
-    { key: "pt2Pct", label: "2P%", format: (t) => formatPct(t.shooting.pt2Pct) },
-    { key: "ftPct", label: "FT%", format: (t) => formatPct(t.shooting.ftPct) },
-    { key: "efgPct", label: "eFG%", format: (t) => formatPct(t.shooting.efgPct) },
-    { key: "tsPct", label: "TS%", format: (t) => formatPct(t.shooting.tsPct) },
-    { key: "netRtg", label: "NetRtg", format: (t) => formatSigned(t.advanced.netRtg) },
-  ],
-  [
-    { key: "oppPts", label: "失点", format: (t) => formatDecimal(t.opponentPerGame.pts) },
-    { key: "oppReb", label: "oppリバウンド", format: (t) => formatDecimal(t.opponentPerGame.reb) },
-    { key: "oppAst", label: "oppアシスト", format: (t) => formatDecimal(t.opponentPerGame.ast) },
-    { key: "oppStl", label: "oppスティール", format: (t) => formatDecimal(t.opponentPerGame.stl) },
-    { key: "oppBlk", label: "oppブロック", format: (t) => formatDecimal(t.opponentPerGame.blk) },
-    { key: "oppTov", label: "oppターンオーバー", format: (t) => formatDecimal(t.opponentPerGame.tov) },
-    { key: "defRtg", label: "DRtg", format: (t) => formatDecimal(t.advanced.defRtg) },
-  ],
-  [
-    { key: "oppFgPct", label: "opp FG%", format: (t) => formatPct(t.opponentShooting.fgPct) },
-    { key: "oppTpPct", label: "opp 3P%", format: (t) => formatPct(t.opponentShooting.tpPct) },
-    { key: "oppPt2Pct", label: "opp 2P%", format: (t) => formatPct(t.opponentShooting.pt2Pct) },
-    { key: "oppFtPct", label: "opp FT%", format: (t) => formatPct(t.opponentShooting.ftPct) },
-    { key: "oppEfgPct", label: "opp eFG%", format: (t) => formatPct(t.opponentShooting.efgPct) },
-    { key: "oppTsPct", label: "opp TS%", format: (t) => formatPct(t.opponentShooting.tsPct) },
+    { key: "oppPts", label: "oppPTS", value: (t) => t.opponentPerGame.pts, format: (t) => formatDecimal(t.opponentPerGame.pts), higherIsBetter: false },
+    { key: "oppReb", label: "oppREB", value: (t) => t.opponentPerGame.reb, format: (t) => formatDecimal(t.opponentPerGame.reb), higherIsBetter: false },
+    { key: "oppAst", label: "oppAST", value: (t) => t.opponentPerGame.ast, format: (t) => formatDecimal(t.opponentPerGame.ast), higherIsBetter: false },
+    { key: "oppStl", label: "oppSTL", value: (t) => t.opponentPerGame.stl, format: (t) => formatDecimal(t.opponentPerGame.stl), higherIsBetter: false },
+    { key: "oppBlk", label: "oppBLK", value: (t) => t.opponentPerGame.blk, format: (t) => formatDecimal(t.opponentPerGame.blk), higherIsBetter: false },
+    { key: "oppTov", label: "oppTOV", value: (t) => t.opponentPerGame.tov, format: (t) => formatDecimal(t.opponentPerGame.tov), higherIsBetter: true },
+    { key: "oppFgPct", label: "opp FG%", value: (t) => t.opponentShooting.fgPct, format: (t) => formatPct(t.opponentShooting.fgPct), higherIsBetter: false },
+    { key: "oppTpPct", label: "opp 3P%", value: (t) => t.opponentShooting.tpPct, format: (t) => formatPct(t.opponentShooting.tpPct), higherIsBetter: false },
+    { key: "oppPt2Pct", label: "opp 2P%", value: (t) => t.opponentShooting.pt2Pct, format: (t) => formatPct(t.opponentShooting.pt2Pct), higherIsBetter: false },
+    { key: "oppFtPct", label: "opp FT%", value: (t) => t.opponentShooting.ftPct, format: (t) => formatPct(t.opponentShooting.ftPct), higherIsBetter: false },
+    { key: "oppEfgPct", label: "opp eFG%", value: (t) => t.opponentShooting.efgPct, format: (t) => formatPct(t.opponentShooting.efgPct), higherIsBetter: false },
+    { key: "oppTsPct", label: "opp TS%", value: (t) => t.opponentShooting.tsPct, format: (t) => formatPct(t.opponentShooting.tsPct), higherIsBetter: false },
+    { key: "defRtg", label: "DRtg", value: (t) => t.advanced.defRtg, format: (t) => formatDecimal(t.advanced.defRtg), higherIsBetter: false },
+    { key: "pace", label: "PACE", value: (t) => t.advanced.pace, format: (t) => formatDecimal(t.advanced.pace), higherIsBetter: true },
   ],
 ];
+
+interface TeamRankResult {
+  rank: number;
+  total: number;
+}
+
+/** リーグ全チーム中でのteamの順位を返す（1位=最良）。higherIsBetterがfalseの項目は昇順で評価する */
+function rankAmongTeams(team: TeamSummary, allTeams: TeamSummary[], def: TeamHeaderStatDef): TeamRankResult {
+  const total = allTeams.length;
+  const sorted = [...allTeams].sort((a, b) => (def.higherIsBetter ? def.value(b) - def.value(a) : def.value(a) - def.value(b)));
+  const rank = sorted.findIndex((t) => t.teamId === team.teamId) + 1;
+  return { rank, total };
+}
+
+function formatTeamRank({ rank, total }: TeamRankResult): string {
+  return `${rank}位/${total}チーム`;
+}
 
 type PlayerStatMode = "basic" | "advanced";
 
@@ -481,7 +497,12 @@ export function TeamDetailPage({ season }: { season: string }) {
       {TEAM_HEADER_STAT_ROWS.map((row, i) => (
         <div className="stat-grid" key={i}>
           {row.map((def) => (
-            <StatTile key={def.key} label={def.label} value={def.format(team)} />
+            <StatTile
+              key={def.key}
+              label={def.label}
+              value={def.format(team)}
+              rank={teams && teams.length > 0 ? formatTeamRank(rankAmongTeams(team, teams, def)) : undefined}
+            />
           ))}
         </div>
       ))}
@@ -842,11 +863,12 @@ function MaybeLink({ to, children }: { to?: string; children: ReactNode }) {
   );
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
+function StatTile({ label, value, rank }: { label: string; value: string; rank?: string }) {
   return (
     <div className="stat-tile">
       <div className="label">{label}</div>
       <div className="value">{value}</div>
+      {rank && <div className="rank">{rank}</div>}
     </div>
   );
 }
