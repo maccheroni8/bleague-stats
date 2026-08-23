@@ -24,6 +24,8 @@ import {
 import { astToTovRatio, formatAstToRatio, formatMinutesFromSeconds, sharePct } from "./boxscoreAggregate";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import type { GameType, PlayerGameLog, TeamGameLog } from "../../shared/types";
+import type { GameTeamInfo } from "./situational";
+import { teamShortName } from "../../shared/teamNames";
 
 export type SeasonDisplayMode = "total" | "perGame" | "per30";
 export type SeasonGameTypeFilter = GameType | "both";
@@ -210,7 +212,7 @@ export interface TeamSeasonRawTotals {
   opponentTov: number;
 }
 
-const EMPTY_TEAM_TOTALS: TeamSeasonRawTotals = {
+export const EMPTY_TEAM_TOTALS: TeamSeasonRawTotals = {
   pts: 0,
   fgm: 0,
   fga: 0,
@@ -347,6 +349,153 @@ export function buildSeasonBoxscoreCtx(
 ): SeasonBoxscoreCtx {
   return { raw, scaled: scaleTotals(raw, modeFactor(raw, mode)), team, seasonStartYear };
 }
+
+export function sumTeamSeasonTotals(a: TeamSeasonRawTotals, b: TeamSeasonRawTotals): TeamSeasonRawTotals {
+  return {
+    pts: a.pts + b.pts,
+    fgm: a.fgm + b.fgm,
+    fga: a.fga + b.fga,
+    tpm: a.tpm + b.tpm,
+    tpa: a.tpa + b.tpa,
+    ftm: a.ftm + b.ftm,
+    fta: a.fta + b.fta,
+    tov: a.tov + b.tov,
+    min: a.min + b.min,
+    ast: a.ast + b.ast,
+    oreb: a.oreb + b.oreb,
+    dreb: a.dreb + b.dreb,
+    stl: a.stl + b.stl,
+    blk: a.blk + b.blk,
+    pf: a.pf + b.pf,
+    poss: a.poss + b.poss,
+    opponentMin: a.opponentMin + b.opponentMin,
+    opponentPts: a.opponentPts + b.opponentPts,
+    opponentFgm: a.opponentFgm + b.opponentFgm,
+    opponentFga: a.opponentFga + b.opponentFga,
+    opponentFtm: a.opponentFtm + b.opponentFtm,
+    opponentFta: a.opponentFta + b.opponentFta,
+    opponentOreb: a.opponentOreb + b.opponentOreb,
+    opponentDreb: a.opponentDreb + b.opponentDreb,
+    opponentTov: a.opponentTov + b.opponentTov,
+  };
+}
+
+export interface TeamSplitRow {
+  key: string;
+  teamId: string | null;
+  /** チーム略称（teamShortName）。所属チームが解決できなかった場合は"-"、複数チームにまたがる
+   * 合計行は「複数チーム」 */
+  teamLabel: string;
+  ctx: SeasonBoxscoreCtx;
+  /** その行の元になった試合ログ（DD/TD等、ctxに含まれない値の算出に呼び出し側が使う） */
+  logs: PlayerGameLog[];
+  /** 複数チームにまたがる合計行かどうか。通算集計（総計行）はisCombinedがtrueの行、または
+   * 単一チームの行のみを対象にする（チーム別の内訳行を二重に足し込まないため） */
+  isCombined: boolean;
+}
+
+/**
+ * 試合ログを、試合ログから動的に導出した所属チーム（resolveOwnTeam）ごとに分割する
+ * （シーズン内移籍対応。個人詳細ページ「シーズン別成績」「シチュエーション別成績」・
+ * チーム詳細ページ「選手スタッツ」共通のロジック。DESIGN.md参照）。
+ * 1チームのみでプレーした場合は1行のみ、複数チームにまたがる場合はチーム別の行に加えて
+ * 「複数チーム」の合計行を返す。DNP（出場0分）の試合は所属チームの判定対象から除く
+ */
+export function buildTeamSplitRows(
+  keyPrefix: string,
+  logs: PlayerGameLog[],
+  ownTeamByScheduleKey: Map<string, GameTeamInfo>,
+  teamTotalsByTeamId: Map<string, TeamSeasonRawTotals>,
+  displayMode: SeasonDisplayMode,
+  seasonStartYear: number,
+): TeamSplitRow[] {
+  const played = logs.filter((g) => g.min > 0);
+  if (played.length === 0) return [];
+
+  const byTeam = new Map<string, { teamName: string; logs: PlayerGameLog[] }>();
+  for (const log of played) {
+    const own = ownTeamByScheduleKey.get(log.scheduleKey);
+    const id = own?.teamId ?? "unknown";
+    let entry = byTeam.get(id);
+    if (!entry) {
+      entry = { teamName: own?.teamName ?? "", logs: [] };
+      byTeam.set(id, entry);
+    }
+    entry.logs.push(log);
+  }
+  const teamIds = [...byTeam.keys()];
+  const buildCtx = (teamLogs: PlayerGameLog[], team: TeamSeasonRawTotals) =>
+    buildSeasonBoxscoreCtx(sumPlayerGameLogs(teamLogs), team, displayMode, seasonStartYear);
+  const labelFor = (id: string, teamName: string) => (id === "unknown" ? "-" : teamShortName(id, teamName));
+
+  if (teamIds.length === 1) {
+    const id = teamIds[0]!;
+    const entry = byTeam.get(id)!;
+    const team = teamTotalsByTeamId.get(id) ?? EMPTY_TEAM_TOTALS;
+    return [
+      {
+        key: `${keyPrefix}|${id}`,
+        teamId: id === "unknown" ? null : id,
+        teamLabel: labelFor(id, entry.teamName),
+        ctx: buildCtx(entry.logs, team),
+        logs: entry.logs,
+        isCombined: false,
+      },
+    ];
+  }
+
+  const rows: TeamSplitRow[] = teamIds.map((id) => {
+    const entry = byTeam.get(id)!;
+    const team = teamTotalsByTeamId.get(id) ?? EMPTY_TEAM_TOTALS;
+    return {
+      key: `${keyPrefix}|${id}`,
+      teamId: id === "unknown" ? null : id,
+      teamLabel: labelFor(id, entry.teamName),
+      ctx: buildCtx(entry.logs, team),
+      logs: entry.logs,
+      isCombined: false,
+    };
+  });
+  const combinedTeam = teamIds.reduce(
+    (acc, id) => sumTeamSeasonTotals(acc, teamTotalsByTeamId.get(id) ?? EMPTY_TEAM_TOTALS),
+    EMPTY_TEAM_TOTALS,
+  );
+  rows.push({
+    key: `${keyPrefix}|combined`,
+    teamId: null,
+    teamLabel: "複数チーム",
+    ctx: buildCtx(played, combinedTeam),
+    logs: played,
+    isCombined: true,
+  });
+  return rows;
+}
+
+/**
+ * ダブルダブル/トリプルダブル判定（scripts/aggregate.tsのprocessPlayers()・
+ * src/lib/boxscoreAggregate.tsのcomputeStatBadge()と同じ閾値: PTS/REB/AST/STL/BLKのうち
+ * 2桁到達部門数が2以上でDD、3以上でTD）。トリプルダブルはダブルダブルの条件も満たすため、
+ * aggregate.tsの季集計と同じくDD側にも計上する（バッジ表示のような排他処理はしない）
+ */
+export function countDoubleTripleDoubles(logs: PlayerGameLog[]): { dd: number; td: number } {
+  let dd = 0;
+  let td = 0;
+  for (const g of logs) {
+    const doubleDigitCount = [g.pts, g.reb, g.ast, g.stl, g.blk].filter((v) => v >= 10).length;
+    if (doubleDigitCount >= 2) dd += 1;
+    if (doubleDigitCount >= 3) td += 1;
+  }
+  return { dd, td };
+}
+
+export type SeasonBoxTabKey = "traditional" | "advanced" | "misc" | "scoring";
+
+export const SEASON_BOX_TABS: { key: SeasonBoxTabKey; label: string }[] = [
+  { key: "traditional", label: "トラディショナル" },
+  { key: "advanced", label: "アドバンスド" },
+  { key: "misc", label: "Misc" },
+  { key: "scoring", label: "スコアリング" },
+];
 
 function effTotalsOf(raw: PlayerSeasonRawTotals): EffTotals {
   return {
@@ -1033,3 +1182,10 @@ export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
     description: "MID2M / MID2A（2022-23シーズン以降のみ対応）",
   },
 ];
+
+export const SEASON_BOX_COLUMNS: Record<SeasonBoxTabKey, SeasonBoxscoreColumn[]> = {
+  traditional: SEASON_TRADITIONAL_COLUMNS,
+  advanced: SEASON_ADVANCED_COLUMNS,
+  misc: SEASON_MISC_COLUMNS,
+  scoring: SEASON_SCORING_COLUMNS,
+};

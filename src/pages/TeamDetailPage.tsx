@@ -13,6 +13,7 @@ import { SeasonLink as Link } from "../components/SeasonLink";
 import {
   fetchClubHonors,
   fetchGameSummaries,
+  fetchPlayerGameLogs,
   fetchPlayers,
   fetchSchedule,
   fetchSeasons,
@@ -31,16 +32,28 @@ import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
 import {
+  buildGameTeamsByScheduleKey,
   buildRecordsBeforeGame,
   computeTeamSituationalStats,
   filterGameLogs,
   isDefaultFilter,
+  resolveOwnTeam,
+  type GameTeamInfo,
   type SituationalFilter,
 } from "../lib/situational";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { safeDiv } from "../../shared/formulas";
 import { bleaguePlayerUrl } from "../lib/externalLinks";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
+import {
+  SEASON_BOX_COLUMNS,
+  SEASON_BOX_TABS,
+  buildTeamSplitRows,
+  countDoubleTripleDoubles,
+  sumTeamGameLogsFor,
+  type SeasonBoxTabKey,
+  type SeasonBoxscoreCtx,
+} from "../lib/playerSeasonBoxscore";
 
 // 出場時間がこれ未満のラインナップはサンプルが小さすぎてノイズが大きいため一覧から除外する
 // （実データ確認: 4試合時点で3分(180秒)基準だとチームあたり4〜14組が該当。DESIGN.md参照）
@@ -193,12 +206,13 @@ const HONOR_CATEGORY_LABELS: Record<ClubHonor["category"], string> = {
 };
 const HONOR_CATEGORY_ORDER: ClubHonor["category"][] = ["overall", "emperors_cup", "division", "international"];
 
-type DetailTab = "overview" | "schedule" | "stats";
+type DetailTab = "overview" | "schedule" | "stats" | "playerStats";
 
 const TAB_LABELS: Record<DetailTab, string> = {
   overview: "概要",
   schedule: "日程結果",
   stats: "スタッツ",
+  playerStats: "選手スタッツ",
 };
 
 interface SeasonRecord {
@@ -379,6 +393,66 @@ export function TeamDetailPage({ season }: { season: string }) {
         setSeasonHistoryLoading(false);
       });
   }, [tab, teamId, seasons]);
+
+  // 「選手スタッツ」タブ: そのシーズン、このチームで一度でもプレーした選手の一覧
+  // （シーズン内移籍選手も含む）。lineupsFile（在コート復元済みのラインナップ、既に
+  // このページで取得済み）に登場する全playerIdの和集合をロースター候補として使う
+  // （プレー時間ゼロなら在コート区間自体に一切登場しないため、「一度でもプレーした」の
+  // 判定として使える。DESIGN.md参照）。候補ごとに個人の試合ログを取得し、
+  // 個人詳細ページ「シーズン別成績」と同じbuildTeamSplitRowsでシーズン内移籍を
+  // チーム別に分割してから、このチームの行だけを採用する
+  const playerStatsFetchKeyRef = useRef<string | null>(null);
+  const [playerStatsRows, setPlayerStatsRows] = useState<TeamPlayerStatsRow[] | null>(null);
+  const [playerStatsLoading, setPlayerStatsLoading] = useState(false);
+
+  useEffect(() => {
+    if (tab !== "playerStats" || !teamId || !pbpSupported || !lineupsFile || !summaries || !gameLogs || !players) return;
+    const fetchKey = `${season}|${teamId}`;
+    if (playerStatsFetchKeyRef.current === fetchKey) return;
+    playerStatsFetchKeyRef.current = fetchKey;
+    setPlayerStatsLoading(true);
+    setPlayerStatsRows(null);
+    const candidateIds = [...new Set(lineupsFile.lineups.flatMap((l) => l.playerIds))];
+    const gameTeams = buildGameTeamsByScheduleKey(summaries);
+    const seasonStartYear = Number(season.split("-")[0]);
+    const playerById = new Map(players.map((p) => [p.playerId, p]));
+    Promise.all(
+      candidateIds.map(async (playerId) => {
+        try {
+          const logs = await fetchPlayerGameLogs(season, playerId);
+          const played = logs.filter((g) => g.min > 0);
+          const ownTeamByScheduleKey = new Map<string, GameTeamInfo>();
+          for (const log of played) {
+            const own = resolveOwnTeam(log, gameTeams);
+            if (own) ownTeamByScheduleKey.set(log.scheduleKey, own);
+          }
+          const scheduleKeys = new Set(
+            played.filter((g) => ownTeamByScheduleKey.get(g.scheduleKey)?.teamId === teamId).map((g) => g.scheduleKey),
+          );
+          if (scheduleKeys.size === 0) return null;
+          const teamTotals = sumTeamGameLogsFor(gameLogs, scheduleKeys);
+          const splitRows = buildTeamSplitRows(
+            playerId,
+            logs,
+            ownTeamByScheduleKey,
+            new Map([[teamId, teamTotals]]),
+            "perGame",
+            seasonStartYear,
+          );
+          const row = splitRows.find((r) => r.teamId === teamId);
+          const player = playerById.get(playerId);
+          if (!row || !player) return null;
+          return { player, ctx: row.ctx, ddtd: countDoubleTripleDoubles(row.logs) };
+        } catch {
+          return null;
+        }
+      }),
+    )
+      .then((results) => {
+        setPlayerStatsRows(results.filter((r): r is TeamPlayerStatsRow => r !== null));
+      })
+      .finally(() => setPlayerStatsLoading(false));
+  }, [tab, teamId, season, pbpSupported, lineupsFile, summaries, gameLogs, players]);
 
   if (teamsLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (teamsError) return <p className="error-message">{teamsError}</p>;
@@ -825,6 +899,17 @@ export function TeamDetailPage({ season }: { season: string }) {
           )}
         </>
       )}
+
+      {tab === "playerStats" &&
+        (coverageLoading ? (
+          <p className="loading">読み込み中...</p>
+        ) : !pbpSupported ? (
+          <p className="empty-message">このシーズンのデータには対応していません</p>
+        ) : playerStatsLoading || !playerStatsRows ? (
+          <p className="loading">読み込み中...</p>
+        ) : (
+          <TeamPlayerStatsTable rows={playerStatsRows} />
+        ))}
     </div>
   );
 }
@@ -873,5 +958,134 @@ function StatTile({ label, value, rank }: { label: string; value: string; rank?:
       <div className="value">{value}</div>
       {rank && <div className="rank">{rank}</div>}
     </div>
+  );
+}
+
+interface TeamPlayerStatsRow {
+  player: PlayerSummary;
+  ctx: SeasonBoxscoreCtx;
+  ddtd: { dd: number; td: number };
+}
+
+/**
+ * 「選手スタッツ」タブ: 選択中シーズンに一度でもこのチームでプレーした選手の一覧
+ * （シーズン内移籍選手は移籍前後どちらのチームでも、そのチーム在籍分のみのスタッツで表示する。
+ * 集計自体は個人詳細ページ「シーズン別成績」と同じbuildTeamSplitRowsを再利用し、対象チームの
+ * 行だけを抽出している。呼び出し元のfetch・行構築ロジック参照）。カテゴリタブ切り替え・
+ * 列ヘッダーソートは個人詳細ページのSeasonBreakdownTableと同じ方式を踏襲する
+ */
+function TeamPlayerStatsTable({ rows }: { rows: TeamPlayerStatsRow[] }) {
+  const [tab, setTab] = useState<SeasonBoxTabKey>("traditional");
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const columns = SEASON_BOX_COLUMNS[tab];
+
+  const rowSortValue = (r: TeamPlayerStatsRow, key: string): number | string => {
+    switch (key) {
+      case "player":
+        return r.player.name;
+      case "dd2":
+        return r.ddtd.dd;
+      case "td3":
+        return r.ddtd.td;
+      default: {
+        const col = columns.find((c) => c.key === key);
+        return col ? col.value(r.ctx, "perGame") : 0;
+      }
+    }
+  };
+
+  const sortedRows = useMemo(() => {
+    if (!sortKey) return rows;
+    const factor = sortDir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = rowSortValue(a, sortKey);
+      const bv = rowSortValue(b, sortKey);
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * factor;
+      return String(av).localeCompare(String(bv)) * factor;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, sortKey, sortDir, columns]);
+
+  const handleHeaderClick = (key: string) => {
+    if (key === sortKey) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+  const sortIndicator = (key: string) => (sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "");
+  const sortAria = (key: string) => (sortKey === key ? (sortDir === "asc" ? "ascending" : "descending") : undefined);
+
+  if (rows.length === 0) {
+    return <p className="empty-message">選手スタッツがありません</p>;
+  }
+
+  return (
+    <>
+      <div className="tab-bar">
+        {SEASON_BOX_TABS.map((t) => (
+          <button key={t.key} className={`tab-button${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)} type="button">
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="table-scroll">
+        <table className="stats-table">
+          <thead>
+            <tr>
+              <th className="align-left sortable-col" onClick={() => handleHeaderClick("player")} aria-sort={sortAria("player")}>
+                選手{sortIndicator("player")}
+              </th>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className="align-right sortable-col"
+                  title={col.description}
+                  onClick={() => handleHeaderClick(col.key)}
+                  aria-sort={sortAria(col.key)}
+                >
+                  {col.label}
+                  {sortIndicator(col.key)}
+                </th>
+              ))}
+              <th className="align-right sortable-col" onClick={() => handleHeaderClick("dd2")} aria-sort={sortAria("dd2")}>
+                DD2{sortIndicator("dd2")}
+              </th>
+              <th className="align-right sortable-col" onClick={() => handleHeaderClick("td3")} aria-sort={sortAria("td3")}>
+                TD3{sortIndicator("td3")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedRows.map((r) => (
+              <tr key={r.player.playerId}>
+                <td className="align-left">
+                  <Link to={`/players/${r.player.playerId}`} className="cell-link">
+                    <div className="player-cell">
+                      <PlayerPhoto playerId={r.player.playerId} size={32} className="player-cell-photo" />
+                      <div className="player-cell-info">
+                        <div className="player-cell-name">{r.player.name}</div>
+                        {playerProfileLine(r.player) && <div className="player-cell-profile">{playerProfileLine(r.player)}</div>}
+                      </div>
+                    </div>
+                  </Link>
+                  <ExternalLinkIcon href={bleaguePlayerUrl(r.player.playerId)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
+                </td>
+                {columns.map((col) => (
+                  <td key={col.key} className="align-right">
+                    {col.format(r.ctx, "perGame")}
+                  </td>
+                ))}
+                <td className="align-right">{r.ddtd.dd}</td>
+                <td className="align-right">{r.ddtd.td}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
