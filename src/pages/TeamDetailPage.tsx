@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useParams, Link as RouterLink } from "react-router-dom";
 import {
   PolarAngleAxis,
@@ -33,6 +33,7 @@ import type {
   PlayerGameLog,
   PlayerSummary,
   StoredGame,
+  TeamGameLog,
   TeamSummary,
   UpcomingGameEntry,
 } from "../../shared/types";
@@ -44,15 +45,21 @@ import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
 import {
+  buildBackToBackStatus,
   buildGameTeamsByScheduleKey,
   buildRecordsBeforeGame,
-  computeTeamSituationalStats,
   filterGameLogs,
   isDefaultFilter,
+  matchesDivision,
+  matchesMonth,
+  matchesNewYearHalf,
+  matchesOpponentWinRateTier,
   resolveOwnTeam,
   type GameTeamInfo,
   type SituationalFilter,
+  type TeamSituationalStats,
 } from "../lib/situational";
+import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { safeDiv } from "../../shared/formulas";
 import { bleaguePlayerUrl } from "../lib/externalLinks";
@@ -62,6 +69,7 @@ import {
   SEASON_BOX_PERIOD_OPTIONS,
   SEASON_BOX_TABS,
   SEASON_GAME_TYPE_LABELS,
+  buildTeamPeriodStats,
   buildTeamSplitRowsForPeriod,
   countDoubleTripleDoubles,
   filterByGameType,
@@ -207,6 +215,160 @@ function formatTeamRank({ rank, total }: TeamRankResult): string {
   return `${rank}位/${total}チーム`;
 }
 
+// 「スタッツ」タブの自チーム／opp／+/-トグル。ヘッダーの自チーム行/opp行の対比構造
+// （TEAM_HEADER_STAT_ROWS）と同じ考え方を、カウント/シューティング系11項目に絞って
+// 1つのトグルボタンで切り替えられるようにしたもの。PACE/ORtg/DRtg/NetRtgの4項目は
+// ヘッダー側と同様、自チーム視点の値のみを持つ既存の独立した概念のためトグルの対象外とし、
+// 常に固定表示する（DESIGN.md参照）
+type TeamPerspective = "own" | "opp" | "diff";
+
+const TEAM_PERSPECTIVE_LABELS: Record<TeamPerspective, string> = {
+  own: "自チーム",
+  opp: "opp",
+  diff: "+/-",
+};
+
+interface TeamPerspectiveStatDef {
+  key: string;
+  label: string;
+  own: (s: TeamSituationalStats) => number;
+  opp: (s: TeamSituationalStats) => number;
+  diff: (s: TeamSituationalStats) => number;
+  isPct: boolean;
+}
+
+const TEAM_PERSPECTIVE_STAT_DEFS: TeamPerspectiveStatDef[] = [
+  { key: "pts", label: "PTS", own: (s) => s.perGame.pts, opp: (s) => s.perGame.oppPts, diff: (s) => s.perGame.net, isPct: false },
+  {
+    key: "reb",
+    label: "REB",
+    own: (s) => s.perGame.reb,
+    opp: (s) => s.perGame.oppReb,
+    diff: (s) => s.perGame.reb - s.perGame.oppReb,
+    isPct: false,
+  },
+  {
+    key: "ast",
+    label: "AST",
+    own: (s) => s.perGame.ast,
+    opp: (s) => s.perGame.oppAst,
+    diff: (s) => s.perGame.ast - s.perGame.oppAst,
+    isPct: false,
+  },
+  {
+    key: "stl",
+    label: "STL",
+    own: (s) => s.perGame.stl,
+    opp: (s) => s.perGame.oppStl,
+    diff: (s) => s.perGame.stl - s.perGame.oppStl,
+    isPct: false,
+  },
+  {
+    key: "blk",
+    label: "BLK",
+    own: (s) => s.perGame.blk,
+    opp: (s) => s.perGame.oppBlk,
+    diff: (s) => s.perGame.blk - s.perGame.oppBlk,
+    isPct: false,
+  },
+  {
+    key: "tov",
+    label: "TOV",
+    own: (s) => s.perGame.tov,
+    opp: (s) => s.perGame.oppTov,
+    diff: (s) => s.perGame.tov - s.perGame.oppTov,
+    isPct: false,
+  },
+  {
+    key: "fgPct",
+    label: "FG%",
+    own: (s) => s.shooting.fgPct,
+    opp: (s) => s.shooting.oppFgPct,
+    diff: (s) => s.shooting.fgPct - s.shooting.oppFgPct,
+    isPct: true,
+  },
+  {
+    key: "tpPct",
+    label: "3P%",
+    own: (s) => s.shooting.tpPct,
+    opp: (s) => s.shooting.oppTpPct,
+    diff: (s) => s.shooting.tpPct - s.shooting.oppTpPct,
+    isPct: true,
+  },
+  {
+    key: "ftPct",
+    label: "FT%",
+    own: (s) => s.shooting.ftPct,
+    opp: (s) => s.shooting.oppFtPct,
+    diff: (s) => s.shooting.ftPct - s.shooting.oppFtPct,
+    isPct: true,
+  },
+  {
+    key: "efgPct",
+    label: "eFG%",
+    own: (s) => s.shooting.efgPct,
+    opp: (s) => s.shooting.oppEfgPct,
+    diff: (s) => s.shooting.efgPct - s.shooting.oppEfgPct,
+    isPct: true,
+  },
+  {
+    key: "tsPct",
+    label: "TS%",
+    own: (s) => s.shooting.tsPct,
+    opp: (s) => s.shooting.oppTsPct,
+    diff: (s) => s.shooting.tsPct - s.shooting.oppTsPct,
+    isPct: true,
+  },
+];
+
+function formatTeamPerspectiveValue(def: TeamPerspectiveStatDef, stats: TeamSituationalStats, mode: TeamPerspective): string {
+  const value = mode === "own" ? def.own(stats) : mode === "opp" ? def.opp(stats) : def.diff(stats);
+  if (mode === "diff") return def.isPct ? `${formatSigned(value * 100, 1)}%` : formatSigned(value);
+  return def.isPct ? formatPct(value) : formatDecimal(value);
+}
+
+/** フィルタ無し（シーズン全体・試合全体）の場合のみ、teams.jsonのシーズン集計値（0コストで参照可能）
+ * からTeamSituationalStats相当の形を直接組み立てる。それ以外（シチュエーション別フィルタ・
+ * Q別/前後半トグル）はTeamGameLog/生データベースの再集計（buildTeamPeriodStats）が必要になる */
+function teamSummaryToSituationalStats(team: TeamSummary): TeamSituationalStats {
+  return {
+    gamesPlayed: team.gamesPlayed,
+    perGame: {
+      pts: team.perGame.pts,
+      oppPts: team.opponentPerGame.pts,
+      net: team.netPerGame.pts,
+      reb: team.perGame.reb,
+      oppReb: team.opponentPerGame.reb,
+      ast: team.perGame.ast,
+      oppAst: team.opponentPerGame.ast,
+      stl: team.perGame.stl,
+      oppStl: team.opponentPerGame.stl,
+      blk: team.perGame.blk,
+      oppBlk: team.opponentPerGame.blk,
+      tov: team.perGame.tov,
+      oppTov: team.opponentPerGame.tov,
+    },
+    shooting: {
+      fgPct: team.shooting.fgPct,
+      oppFgPct: team.opponentShooting.fgPct,
+      tpPct: team.shooting.tpPct,
+      oppTpPct: team.opponentShooting.tpPct,
+      ftPct: team.shooting.ftPct,
+      oppFtPct: team.opponentShooting.ftPct,
+      efgPct: team.shooting.efgPct,
+      oppEfgPct: team.opponentShooting.efgPct,
+      tsPct: team.shooting.tsPct,
+      oppTsPct: team.opponentShooting.tsPct,
+    },
+    advanced: {
+      pace: team.advanced.pace,
+      offRtg: team.advanced.offRtg,
+      defRtg: team.advanced.defRtg,
+      netRtg: team.advanced.netRtg,
+    },
+  };
+}
+
 type PlayerStatMode = "basic" | "advanced";
 
 const PLAYER_STAT_MODE_LABELS: Record<PlayerStatMode, string> = {
@@ -348,6 +510,33 @@ function buildTeamScheduleRows(
   );
 }
 
+/**
+ * 「シチュエーション別成績」（チーム版）の1グループ（会場・地区・曜日・時期・月別・
+ * 対戦相手の強さ・連戦・外国籍人数）。個人詳細ページの同名セクションと違い、チームの
+ * TeamGameLogは既にそのチーム自身の試合ログ（シーズン内移籍のような「所属チームの動的解決」が
+ * 不要）なので、行はpredicateで絞ったTeamGameLog[]から直接buildTeamPeriodStatsを呼ぶだけでよい
+ */
+interface TeamSituationalRowDef {
+  key: string;
+  label: string;
+  predicate: (g: TeamGameLog) => boolean;
+}
+interface TeamSituationalGroupDef {
+  key: string;
+  label: string;
+  rows: TeamSituationalRowDef[];
+}
+interface TeamSituationalStatsRow {
+  key: string;
+  label: string;
+  stats: TeamSituationalStats;
+}
+interface TeamSituationalStatsGroup {
+  key: string;
+  label: string;
+  rows: TeamSituationalStatsRow[];
+}
+
 export function TeamDetailPage({ season }: { season: string }) {
   const { teamId } = useParams<{ teamId: string }>();
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
@@ -375,6 +564,54 @@ export function TeamDetailPage({ season }: { season: string }) {
 
   const [tab, setTab] = useState<DetailTab>("overview");
   const [playerStatMode, setPlayerStatMode] = useState<PlayerStatMode>("basic");
+
+  // 「スタッツ」タブ: 自チーム/opp/+/-トグル・Q別/前後半トグル（上部のstat-grid・
+  // シチュエーション別成績（チーム版）の両方で共有する。「試合」選択時は追加取得不要
+  // （既存のgameLogs/team.jsonのみで完結する）が、Q別/前後半選択時のみこのチームの
+  // 全試合（gameLogsのscheduleKey全件）の生データを遅延取得する
+  const [teamPerspective, setTeamPerspective] = useState<TeamPerspective>("own");
+  const [statsPeriod, setStatsPeriod] = useState<PeriodRangeValue>("all");
+  const statsPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === statsPeriod);
+  const statsRawGamesRequestedRef = useRef<Set<string>>(new Set());
+  const [statsRawGames, setStatsRawGames] = useState<Map<string, StoredGame>>(new Map());
+  const [statsRawGamesLoading, setStatsRawGamesLoading] = useState(false);
+  // 「シチュエーション別成績」（チーム版）専用のレギュラー/プレーオフ/合算トグル。
+  // 上部stat-gridのfilter.includePlayoffsとは独立（個人詳細ページの同名セクションと同じ設計）
+  const [situationalTeamGameType, setSituationalTeamGameType] = useState<SeasonGameTypeFilter>("regular");
+
+  useEffect(() => {
+    statsRawGamesRequestedRef.current = new Set();
+    setStatsRawGames(new Map());
+  }, [teamId, season]);
+
+  useEffect(() => {
+    if (tab !== "stats" || !statsPeriodOption || statsPeriodOption.periods === null || !gameLogs) return;
+    const needed = [
+      ...new Set(
+        gameLogs.filter((g) => g.min > 0 && !statsRawGamesRequestedRef.current.has(g.scheduleKey)).map((g) => g.scheduleKey),
+      ),
+    ];
+    if (needed.length === 0) return;
+    for (const k of needed) statsRawGamesRequestedRef.current.add(k);
+    setStatsRawGamesLoading(true);
+    Promise.all(
+      needed.map(async (scheduleKey) => {
+        try {
+          return [scheduleKey, await fetchGame(season, scheduleKey)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    )
+      .then((results) => {
+        setStatsRawGames((prev) => {
+          const next = new Map(prev);
+          for (const r of results) if (r) next.set(r[0], r[1]);
+          return next;
+        });
+      })
+      .finally(() => setStatsRawGamesLoading(false));
+  }, [tab, statsPeriodOption, gameLogs, season]);
 
   // careerLoading/careerDataをdeps配列に含めると自己キャンセルのループになるため
   // （PlayerDetailPageと同じ理由）、fetch開始済みかどうかはrefで管理する
@@ -548,7 +785,119 @@ export function TeamDetailPage({ season }: { season: string }) {
   const avgAge = averageOf(starters.flatMap((p) => (p.birthDate ? [calculateAge(p.birthDate)] : [])));
 
   const filteredLogs = gameLogs ? filterGameLogs(gameLogs, filter, opponentRecords) : [];
-  const situational = isDefaultFilter(filter) ? null : computeTeamSituationalStats(filteredLogs);
+  // 「試合」選択時・フィルタ無しの場合のみteams.jsonの既存集計を0コストで再利用する。
+  // それ以外（シチュエーション別フィルタ・Q別/前後半トグルのいずれかが有効）は
+  // buildTeamPeriodStatsでTeamGameLog/生データベースの再集計を行う（DESIGN.md参照）
+  const currentTeamStats: TeamSituationalStats | null =
+    isDefaultFilter(filter) && (!statsPeriodOption || statsPeriodOption.periods === null)
+      ? teamSummaryToSituationalStats(team)
+      : buildTeamPeriodStats(filteredLogs, statsPeriodOption, statsRawGames);
+
+  // 「シチュエーション別成績」（チーム版）: 会場・地区・曜日・時期・月別・対戦相手の強さ・連戦・
+  // 外国籍人数の8グループ。チームのTeamGameLogは既にそのチーム自身の試合ログのため、
+  // 個人詳細ページのようなシーズン内移籍の動的チーム解決（resolveOwnTeam等）は不要
+  const situationalTeamScopedLogs = gameLogs ? filterByGameType(gameLogs, situationalTeamGameType) : [];
+  const situationalTeamBackToBack = summaries ? buildBackToBackStatus(summaries) : undefined;
+  const situationalTeamMonthsWithData = new Set(
+    situationalTeamScopedLogs.filter((g) => g.min > 0).map((g) => Number(g.date.slice(5, 7))),
+  );
+  const situationalTeamGroupDefs: TeamSituationalGroupDef[] = [
+    {
+      key: "venue",
+      label: "会場",
+      rows: [
+        { key: "home", label: "ホーム", predicate: (g) => g.isHome },
+        { key: "away", label: "アウェイ", predicate: (g) => !g.isHome },
+      ],
+    },
+    {
+      key: "division",
+      label: "地区",
+      rows: [
+        { key: "east", label: "対東地区", predicate: (g) => matchesDivision(g, "east") },
+        { key: "west", label: "対西地区", predicate: (g) => matchesDivision(g, "west") },
+      ],
+    },
+    {
+      key: "weekday",
+      label: "曜日",
+      rows: [
+        { key: "weekday", label: "平日開催", predicate: (g) => isWeekdayGame(g.date) },
+        { key: "holiday", label: "休日開催", predicate: (g) => !isWeekdayGame(g.date) },
+      ],
+    },
+    {
+      key: "timing",
+      label: "時期",
+      rows: [
+        { key: "before", label: "年明け前", predicate: (g) => matchesNewYearHalf(g, "before") },
+        { key: "after", label: "年明け後", predicate: (g) => matchesNewYearHalf(g, "after") },
+      ],
+    },
+    {
+      key: "month",
+      label: "月別",
+      rows: Array.from({ length: 12 }, (_, i) => ((i + 8) % 12) + 1)
+        .filter((m) => situationalTeamMonthsWithData.has(m))
+        .map((m) => ({ key: `m${m}`, label: `${m}月`, predicate: (g: TeamGameLog) => matchesMonth(g, m) })),
+    },
+    {
+      key: "opponentStrength",
+      label: "対戦相手の強さ",
+      rows: opponentRecords
+        ? (
+            [
+              ["under50", "対5割未満"],
+              ["atLeast50", "対5割以上"],
+              ["atLeast60", "対6割以上"],
+            ] as const
+          ).map(([tier, label]) => ({
+            key: tier,
+            label,
+            predicate: (g: TeamGameLog) => matchesOpponentWinRateTier(g, tier, opponentRecords),
+          }))
+        : [],
+    },
+    {
+      key: "backToBack",
+      label: "連戦",
+      rows: situationalTeamBackToBack
+        ? (["GAME1", "GAME2"] as const).map((status) => ({
+            key: status,
+            label: status,
+            predicate: (g: TeamGameLog) => situationalTeamBackToBack.get(g.scheduleKey)?.get(team.teamId) === status,
+          }))
+        : [],
+    },
+    {
+      key: "foreignPlayerCount",
+      label: "自チーム外国籍人数",
+      rows: [0, 1, 2, 3].map((n) => ({
+        key: `own${n}`,
+        label: `${n}人`,
+        predicate: (g: TeamGameLog) => g.foreignPlayerCount === n,
+      })),
+    },
+    {
+      key: "opponentForeignPlayerCount",
+      label: "相手チーム外国籍人数",
+      rows: [0, 1, 2, 3].map((n) => ({
+        key: `opp${n}`,
+        label: `${n}人`,
+        predicate: (g: TeamGameLog) => g.opponentForeignPlayerCount === n,
+      })),
+    },
+  ];
+  const situationalTeamGroups: TeamSituationalStatsGroup[] = situationalTeamGroupDefs
+    .map((group) => ({
+      key: group.key,
+      label: group.label,
+      rows: group.rows.flatMap((row) => {
+        const stats = buildTeamPeriodStats(situationalTeamScopedLogs.filter(row.predicate), statsPeriodOption, statsRawGames);
+        return stats ? [{ key: row.key, label: row.label, stats }] : [];
+      }),
+    }))
+    .filter((group) => group.rows.length > 0);
 
   const playerNameById = new Map((players ?? []).map((p) => [p.playerId, p.name]));
   const topLineups = (lineupsFile?.lineups ?? [])
@@ -802,44 +1151,89 @@ export function TeamDetailPage({ season }: { season: string }) {
             opponentWinRateSupported={!!opponentRecords}
           />
 
-          {isDefaultFilter(filter) ? (
-            <div className="stat-grid">
-              <StatTile label="得点" value={formatDecimal(team.perGame.pts)} />
-              <StatTile label="失点" value={formatDecimal(team.opponentPerGame.pts)} />
-              <StatTile label="Net" value={formatSigned(team.netPerGame.pts)} />
-              <StatTile label="REB" value={formatDecimal(team.perGame.reb)} />
-              <StatTile label="AST" value={formatDecimal(team.perGame.ast)} />
-              <StatTile label="STL" value={formatDecimal(team.perGame.stl)} />
-              <StatTile label="BLK" value={formatDecimal(team.perGame.blk)} />
-              <StatTile label="TOV" value={formatDecimal(team.perGame.tov)} />
-              <StatTile label="FG%" value={formatPct(team.shooting.fgPct)} />
-              <StatTile label="3P%" value={formatPct(team.shooting.tpPct)} />
-              <StatTile label="FT%" value={formatPct(team.shooting.ftPct)} />
-              <StatTile label="eFG%" value={formatPct(team.shooting.efgPct)} />
-              <StatTile label="TS%" value={formatPct(team.shooting.tsPct)} />
-            </div>
-          ) : !situational ? (
+          <div className="mode-toggle">
+            {(["own", "opp", "diff"] as TeamPerspective[]).map((m) => (
+              <button key={m} className={teamPerspective === m ? "active" : ""} onClick={() => setTeamPerspective(m)} type="button">
+                {TEAM_PERSPECTIVE_LABELS[m]}
+              </button>
+            ))}
+          </div>
+          <PeriodRangeToggle options={SEASON_BOX_PERIOD_OPTIONS} value={statsPeriod} onChange={setStatsPeriod} />
+          {statsRawGamesLoading && statsPeriod !== "all" && <p className="loading">この期間の再集計中...</p>}
+
+          {!currentTeamStats ? (
             <p className="empty-message">該当する試合がありません</p>
           ) : (
             <div className="stat-grid">
-              <StatTile label="試合数" value={String(situational.gamesPlayed)} />
-              <StatTile label="得点" value={formatDecimal(situational.perGame.pts)} />
-              <StatTile label="失点" value={formatDecimal(situational.perGame.oppPts)} />
-              <StatTile label="Net" value={formatSigned(situational.perGame.net)} />
-              <StatTile label="REB" value={formatDecimal(situational.perGame.reb)} />
-              <StatTile label="AST" value={formatDecimal(situational.perGame.ast)} />
-              <StatTile label="STL" value={formatDecimal(situational.perGame.stl)} />
-              <StatTile label="BLK" value={formatDecimal(situational.perGame.blk)} />
-              <StatTile label="TOV" value={formatDecimal(situational.perGame.tov)} />
-              <StatTile label="FG%" value={formatPct(situational.shooting.fgPct)} />
-              <StatTile label="3P%" value={formatPct(situational.shooting.tpPct)} />
-              <StatTile label="FT%" value={formatPct(situational.shooting.ftPct)} />
-              <StatTile label="eFG%" value={formatPct(situational.shooting.efgPct)} />
-              <StatTile label="TS%" value={formatPct(situational.shooting.tsPct)} />
-              <StatTile label="PACE" value={formatDecimal(situational.advanced.pace)} />
-              <StatTile label="ORtg" value={formatDecimal(situational.advanced.offRtg)} />
-              <StatTile label="DRtg" value={formatDecimal(situational.advanced.defRtg)} />
-              <StatTile label="NetRtg" value={formatSigned(situational.advanced.netRtg)} />
+              <StatTile label="試合数" value={String(currentTeamStats.gamesPlayed)} />
+              {TEAM_PERSPECTIVE_STAT_DEFS.map((def) => (
+                <StatTile key={def.key} label={def.label} value={formatTeamPerspectiveValue(def, currentTeamStats, teamPerspective)} />
+              ))}
+              <StatTile label="PACE" value={formatDecimal(currentTeamStats.advanced.pace)} />
+              <StatTile label="ORtg" value={formatDecimal(currentTeamStats.advanced.offRtg)} />
+              <StatTile label="DRtg" value={formatDecimal(currentTeamStats.advanced.defRtg)} />
+              <StatTile label="NetRtg" value={formatSigned(currentTeamStats.advanced.netRtg)} />
+            </div>
+          )}
+
+          <h2>シチュエーション別成績</h2>
+          <div className="mode-toggle">
+            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
+              <button
+                key={g}
+                className={g === situationalTeamGameType ? "active" : ""}
+                onClick={() => setSituationalTeamGameType(g)}
+                type="button"
+              >
+                {SEASON_GAME_TYPE_LABELS[g]}
+              </button>
+            ))}
+          </div>
+          {situationalTeamGroups.length === 0 ? (
+            <p className="empty-message">該当する試合がありません</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="stats-table situational-groups-table">
+                <thead>
+                  <tr>
+                    <th className="align-left">区分</th>
+                    <th className="align-right">試合数</th>
+                    {TEAM_PERSPECTIVE_STAT_DEFS.map((def) => (
+                      <th key={def.key} className="align-right">
+                        {def.label}
+                      </th>
+                    ))}
+                    <th className="align-right">PACE</th>
+                    <th className="align-right">ORtg</th>
+                    <th className="align-right">DRtg</th>
+                    <th className="align-right">NetRtg</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {situationalTeamGroups.map((group) => (
+                    <Fragment key={group.key}>
+                      <tr className="situational-group-heading">
+                        <td colSpan={TEAM_PERSPECTIVE_STAT_DEFS.length + 6}>{group.label}</td>
+                      </tr>
+                      {group.rows.map((row) => (
+                        <tr key={row.key}>
+                          <td className="align-left">{row.label}</td>
+                          <td className="align-right">{row.stats.gamesPlayed}</td>
+                          {TEAM_PERSPECTIVE_STAT_DEFS.map((def) => (
+                            <td key={def.key} className="align-right">
+                              {formatTeamPerspectiveValue(def, row.stats, teamPerspective)}
+                            </td>
+                          ))}
+                          <td className="align-right">{formatDecimal(row.stats.advanced.pace)}</td>
+                          <td className="align-right">{formatDecimal(row.stats.advanced.offRtg)}</td>
+                          <td className="align-right">{formatDecimal(row.stats.advanced.defRtg)}</td>
+                          <td className="align-right">{formatSigned(row.stats.advanced.netRtg)}</td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 

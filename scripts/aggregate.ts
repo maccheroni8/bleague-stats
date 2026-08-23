@@ -1075,6 +1075,11 @@ function opponentGameLogStats(row: BoxscoreRow) {
     opponentOreb: row.RB_OFF,
     opponentDreb: row.RB_DEF,
     opponentTov: row.TO,
+    opponentTpm: row.PT3M,
+    opponentTpa: row.PT3A,
+    opponentAst: row.AS,
+    opponentStl: row.ST,
+    opponentBlk: row.BS,
   };
 }
 

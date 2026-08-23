@@ -4773,3 +4773,104 @@ Q別/前後半集計は選手の出場試合の生データ（PlayByPlays込み�
   でG=2・MIN 6:57・PTS 2.0となり、上記チーム詳細ページ側の値と完全一致することを確認した
   （複数の切り替えを組み合わせた場合の正しさを、独立した2つの実装経路の一致で裏付けた）
 - ブラウザのコンソールエラー無し
+
+---
+
+## 61. チーム詳細ページ「スタッツ」タブに自チーム/opp/+/-トグル・シチュエーション別成績
+（チーム版）を追加、両方にQ別/前後半トグルを適用（2026-08-23）
+
+### 61-1. 新規集計が必要だった部分
+
+「既存ロジックの再利用を優先」という方針で調査したところ、自チーム/opp/+/-トグルの
+「opp」表示に必要なAST/STL/BLK/3PM/3PAの相手チーム値が、`TeamGameLog`
+（`team-games/{teamId}.json`、永続化済みの試合ログ）に存在しないことが分かった
+（個人ORtg/DRtg用に53章で追加したopponentMin/Fgm/Fga/Ftm/Fta/Oreb/Dreb/Tovのみで、
+AST/STL/BLK/3PM/3PAは対象外だった）。シーズン集計（`teams.json`のopponentPerGame/
+opponentShooting）には既にこれらの値が存在するため、「試合」選択時・フィルタ無しの
+最も一般的なケースは新規集計無しで対応できたが、シチュエーション別フィルタ適用時
+（試合ログ単位の再集計が必要）は新規フィールドが無いと不可能だった。
+
+Q別/前後半選択時は生データのボックススコア行（`BoxscoreRow`）を直接パースする既存の
+`buildTeamTotalCounts`経由で相手チームのAST/STL/BLK/3PM/3PAも既に取得可能なため、
+Q別/前後半トグルを操作した場合に限れば新規集計は不要だった。しかし「試合」選択時は
+軽量な`TeamGameLog`ベースの経路（追加フェッチ無し）を維持したい（60-3章の設計判断を
+踏襲）ため、`TeamGameLog`・`scripts/aggregate.ts`の`opponentGameLogStats()`に
+`opponentTpm`/`opponentTpa`/`opponentAst`/`opponentStl`/`opponentBlk`の5フィールドを追加し、
+CLAUDE.mdの運用ルール通りB.PREMIER全11シーズン＋B.ONE（2025-26）を再集計した
+（DRtg用フィールドを追加した53章と全く同じパターン）。
+
+### 61-2. 自チーム/opp/+/-トグル
+
+`TeamSituationalStats`（`situational.ts`、49章で導入）にopp側のREB/AST/STL/BLK/TOV・
+シューティング5項目を追加し、`computeTeamSituationalStats()`が61-1のフィールドを使って
+算出するよう拡張した。PTS/REB/AST/STL/BLK/TOV/FG%/3P%/FT%/eFG%/TS%の11項目を
+`TeamPerspectiveStatDef`（own/opp/diffの3アクセサを持つ）として`TeamDetailPage.tsx`に定義し、
+1つのボタン（自チーム/opp/+/-）で表示中の値を切り替える。PACE/ORtg/DRtg/NetRtgの4項目は
+ヘッダーの`TEAM_HEADER_STAT_ROWS`と同様、自チーム視点のみを持つ独立した概念のため
+トグルの対象外とし常に固定表示する（ORtgをopp視点に切り替えるとDRtgと重複してしまうため）。
+
+「試合」選択時・フィルタ無し（`isDefaultFilter(filter)`）の場合のみ`teams.json`の既存集計
+（`team.perGame`/`opponentPerGame`/`shooting`/`opponentShooting`/`advanced`）を
+`teamSummaryToSituationalStats()`で変換して0コスト表示し、それ以外
+（シチュエーション別フィルタ適用中、またはQ別/前後半トグル選択中のいずれか）は
+新設の`buildTeamPeriodStats()`（`playerSeasonBoxscore.ts`）で再集計する。
+
+### 61-3. `buildTeamPeriodStats`（`playerSeasonBoxscore.ts`）
+
+`computeGamePeriodTotals`（60章、選手個人版）から自チーム/相手チームのBoxscoreCounts算出部分を
+`computeGameTeamPeriodTotals(game, isHome, option)`として切り出し（選手固有の
+`buildPlayerBoxscores`呼び出しを含まない分、個人版より軽量）、これを選手版・チーム版の
+両方から共通利用する形にリファクタした。
+
+`buildTeamPeriodStats(logs, option, gamesByScheduleKey)`は、「試合」選択時
+（option未指定またはperiods===null）は追加取得不要な`computeTeamSituationalStats()`
+（61-1で拡張済み、`TeamGameLog`ベース）にそのまま委譲し、Q別/前後半選択時のみ
+`computeGameTeamPeriodTotals`を試合単位で呼んでから合算する。POSSは6章・11章・53章と同じ
+「試合単位で確定させてから合算する」方針（非線形性回避）を踏襲した。
+
+### 61-4. シチュエーション別成績（チーム版）
+
+個人詳細ページ49章・50章・52章の全8グループ（会場・地区・曜日・時期・月別・対戦相手の強さ・
+連戦・外国籍人数）をチーム視点にそのまま読み替えて`TeamDetailPage.tsx`に実装した。
+`TeamGameLog`は既にそのチーム自身の試合ログのため、個人版のような「試合ログから動的に
+所属チームを解決する」処理（`resolveOwnTeam`、シーズン内移籍対応）が丸ごと不要になり、
+各行はpredicateで絞った`TeamGameLog[]`から直接`buildTeamPeriodStats`を呼ぶだけで完結する
+（個人版より単純な実装で済んだ）。「対戦相手の強さ」判定ロジック（`matchesOpponentWinRateTier`）・
+「連戦」判定（`buildBackToBackStatus`）・地区/曜日/月別/年明け判定はすべて既存の
+`situational.ts`の関数をそのまま再利用し、新規判定ロジックの追加は無い。
+
+表示列は個人版のような`SEASON_BOX_COLUMNS`カテゴリタブ（トラディショナル/アドバンスド等）は
+持たず、61-2の自チーム/opp/+/-トグル対象11項目＋固定4項目（PACE/ORtg/DRtg/NetRtg）を
+そのまま列として使う単一のテーブルにした（チーム集計にはダンク数・被アシスト内訳等の
+個人版カテゴリ列に相当するものが元々無いため）。レギュラー/プレーオフ/合算トグルは
+上部stat-grid側の`filter.includePlayoffs`とは独立した専用の`SeasonGameTypeFilter`
+（個人詳細ページの同名セクションと同じ設計）を持つ。自チーム/opp/+/-トグル・Q別/前後半
+トグルは上部stat-gridと共有する（1つのトグル操作でスタッツタブ全体が連動する設計）。
+
+### 61-5. 検証
+
+シーホース三河（teamId 728、2024-25シーズン）でブラウザ確認した:
+- 「自チーム」表示のPTS/REB/AST/STL/BLK/TOV/FG%/3P%/FT%/eFG%/TS%（試合数60・PTS81.7等）が
+  既存のヘッダータイル（自チーム行）と完全一致することを確認
+- 「opp」に切り替えるとPTS76.0・REB37.0・AST20.8・STL6.0・BLK2.5・TOV12.8・FG%42.6%等に変化し、
+  すべてヘッダーのoppタイル（oppPTS/oppREB/oppAST/oppSTL/oppBLK/oppTOV/opp FG%等）と
+  完全一致することを確認
+- 「+/-」に切り替えるとPTS+5.7（=81.7-76.0）等、自チームとoppの差分が符号付きで
+  正しく表示されることを確認
+- シチュエーション別成績（チーム版）で8グループ全てが表示され、会場（ホーム30試合/
+  アウェイ30試合）・自チーム外国籍人数（1人3試合・2人57試合、合計60試合と一致）等の
+  試合数の内訳が既存のフィルタピッカーと整合することを確認
+- Q別/前後半トグルを「1Q」に切り替えると、上部stat-grid・シチュエーション別成績（チーム版）
+  の両方が同時に約1/4の値へ変化することを確認（PTS81.7→21.1等）
+- シチュエーション別成績（チーム版）専用の「プレーオフのみ」トグルを切り替えると
+  当該テーブルのみプレーオフ2試合（会場は「アウェイ」のみ、地区は「対東地区」のみ等、
+  実際に0試合のグループ・行は非表示）に更新され、上部stat-grid（フィルタ無し・
+  「レギュラーシーズンのみ」のまま）は変化しないことを確認（2つのレギュラー/プレーオフ
+  トグルが独立して動作することの確認）。続けて上部stat-grid側を「レギュラー+ポストシーズン」に
+  切り替えると試合数60→62・1Q PTS21.1→21.0（プレーオフ2試合分のPTS18.0が混ざり僅かに低下）に
+  変化し、シチュエーション別成績側（プレーオフのみ・2試合のまま）は影響を受けないことを確認
+- 既存の「選手スタッツ」タブ（59章・60章）が今回の変更後も引き続き正しく動作することを確認
+  （回帰確認）
+
+型チェック（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。本番ビルド（`vite build`）成功。
+ブラウザのコンソールエラー無し。

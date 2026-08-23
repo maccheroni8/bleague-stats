@@ -676,6 +676,16 @@ export interface TeamGameLog {
   opponentOreb: number;
   opponentDreb: number;
   opponentTov: number;
+  /**
+   * チーム詳細ページ「スタッツ」タブのopp/+/-トグル・シチュエーション別成績（チーム版）用に
+   * 追加した相手チームのAST/STL/BLK/3PM/3PA（DESIGN.md参照。DRtg算出には不要だが、
+   * opp視点のシューティング内訳・カウント統計を試合ログ単位で表示するために必要）
+   */
+  opponentTpm: number;
+  opponentTpa: number;
+  opponentAst: number;
+  opponentStl: number;
+  opponentBlk: number;
 }
 
 // ---- data/{season}/standings-history.json の保存スキーマ（順位表ページ用） ----

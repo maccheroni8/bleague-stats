@@ -360,17 +360,27 @@ export interface TeamSituationalStats {
     oppPts: number;
     net: number;
     reb: number;
+    oppReb: number;
     ast: number;
+    oppAst: number;
     stl: number;
+    oppStl: number;
     blk: number;
+    oppBlk: number;
     tov: number;
+    oppTov: number;
   };
   shooting: {
     fgPct: number;
+    oppFgPct: number;
     tpPct: number;
+    oppTpPct: number;
     ftPct: number;
+    oppFtPct: number;
     efgPct: number;
+    oppEfgPct: number;
     tsPct: number;
+    oppTsPct: number;
   };
   advanced: {
     pace: number;
@@ -401,6 +411,17 @@ export function computeTeamSituationalStats(logs: TeamGameLog[]): TeamSituationa
       fta: acc.fta + g.fta,
       min: acc.min + g.min,
       poss: acc.poss + g.poss,
+      oppReb: acc.oppReb + g.opponentOreb + g.opponentDreb,
+      oppAst: acc.oppAst + g.opponentAst,
+      oppStl: acc.oppStl + g.opponentStl,
+      oppBlk: acc.oppBlk + g.opponentBlk,
+      oppTov: acc.oppTov + g.opponentTov,
+      oppFgm: acc.oppFgm + g.opponentFgm,
+      oppFga: acc.oppFga + g.opponentFga,
+      oppTpm: acc.oppTpm + g.opponentTpm,
+      oppTpa: acc.oppTpa + g.opponentTpa,
+      oppFtm: acc.oppFtm + g.opponentFtm,
+      oppFta: acc.oppFta + g.opponentFta,
     }),
     {
       teamScore: 0,
@@ -418,6 +439,17 @@ export function computeTeamSituationalStats(logs: TeamGameLog[]): TeamSituationa
       fta: 0,
       min: 0,
       poss: 0,
+      oppReb: 0,
+      oppAst: 0,
+      oppStl: 0,
+      oppBlk: 0,
+      oppTov: 0,
+      oppFgm: 0,
+      oppFga: 0,
+      oppTpm: 0,
+      oppTpa: 0,
+      oppFtm: 0,
+      oppFta: 0,
     },
   );
 
@@ -431,17 +463,27 @@ export function computeTeamSituationalStats(logs: TeamGameLog[]): TeamSituationa
       oppPts: totals.opponentScore / gp,
       net: (totals.teamScore - totals.opponentScore) / gp,
       reb: totals.reb / gp,
+      oppReb: totals.oppReb / gp,
       ast: totals.ast / gp,
+      oppAst: totals.oppAst / gp,
       stl: totals.stl / gp,
+      oppStl: totals.oppStl / gp,
       blk: totals.blk / gp,
+      oppBlk: totals.oppBlk / gp,
       tov: totals.tov / gp,
+      oppTov: totals.oppTov / gp,
     },
     shooting: {
       fgPct: safeDiv(totals.fgm, totals.fga),
+      oppFgPct: safeDiv(totals.oppFgm, totals.oppFga),
       tpPct: safeDiv(totals.tpm, totals.tpa),
+      oppTpPct: safeDiv(totals.oppTpm, totals.oppTpa),
       ftPct: safeDiv(totals.ftm, totals.fta),
+      oppFtPct: safeDiv(totals.oppFtm, totals.oppFta),
       efgPct: efgPct(totals.fgm, totals.tpm, totals.fga),
+      oppEfgPct: efgPct(totals.oppFgm, totals.oppTpm, totals.oppFga),
       tsPct: tsPct(totals.teamScore, totals.fga, totals.fta),
+      oppTsPct: tsPct(totals.opponentScore, totals.oppFga, totals.oppFta),
     },
     advanced: {
       pace: pace(totals.poss, totals.min),
