@@ -27,7 +27,15 @@ import {
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
-import type { Category, PlayerGameLog, PlayerSummary, ShotTypeBreakdown, TeamGameLog, YahooShotEvent } from "../../shared/types";
+import type {
+  Category,
+  PlayerGameLog,
+  PlayerSummary,
+  ShotTypeBreakdown,
+  StoredGame,
+  TeamGameLog,
+  YahooShotEvent,
+} from "../../shared/types";
 import { teamShortName } from "../../shared/teamNames";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { BOXSCORE_TABS, type BoxscoreColumn, type BoxscoreTabKey, COLUMNS_BY_TAB } from "../components/BoxscoreTable";
@@ -55,11 +63,15 @@ import { safeDiv, eff, efgPct, tsPct } from "../../shared/formulas";
 import {
   EMPTY_TEAM_TOTALS,
   SEASON_BOX_COLUMNS,
+  SEASON_BOX_PERIOD_OPTIONS,
   SEASON_BOX_TABS,
   SEASON_DISPLAY_MODE_LABELS,
   SEASON_GAME_TYPE_LABELS,
+  buildPeriodFilteredRawTotals,
   buildSeasonBoxscoreCtx,
   buildTeamSplitRows,
+  buildTeamSplitRowsForPeriod,
+  computeGamePeriodTotals,
   countDigits,
   countDoubleTripleDoubles,
   filterByGameType,
@@ -68,6 +80,7 @@ import {
   sumPlayerGameLogs,
   sumTeamGameLogsFor,
   sumTeamSeasonTotals,
+  type GamePeriodTotals,
   type SeasonBoxTabKey,
   type SeasonBoxscoreColumn,
   type SeasonBoxscoreCtx,
@@ -569,6 +582,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [gameTypeFilter, setGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
   // 「シーズン別成績」の平均/合計切り替え（従来は「平均」固定だったが、選べるようにする要望）
   const [seasonDisplayMode, setSeasonDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  // 「シーズン別成績」のQ別/前後半トグル。「試合」選択時は追加取得不要（既存のPlayerGameLog
+  // 永続集計をそのまま使う）だが、Q別/前後半選択時のみ、必要な試合の生データ（PlayByPlays込み）を
+  // 遅延取得する（periodRawGamesキャッシュは「シチュエーション別成績」のQ別トグルとも共有する。
+  // scheduleKeyはサイト全体で一意のため、シーズンをまたいだキャッシュ共有でも衝突しない）
+  const [seasonBreakdownPeriod, setSeasonBreakdownPeriod] = useState<PeriodRangeValue>("all");
+  const periodRawGamesRequestedRef = useRef<Set<string>>(new Set());
+  const [periodRawGames, setPeriodRawGames] = useState<Map<string, StoredGame>>(new Map());
+  const [periodRawGamesLoading, setPeriodRawGamesLoading] = useState(false);
 
   const [tab, setTab] = useState<DetailTab>("stats");
   const [careerData, setCareerData] = useState<CareerSeasonLogs[] | null>(null);
@@ -645,6 +666,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [situationalStatsGameType, setSituationalStatsGameType] = useState<SeasonGameTypeFilter>("regular");
   const [situationalStatsTab, setSituationalStatsTab] = useState<SeasonBoxTabKey>("traditional");
   const [situationalStatsDisplayMode, setSituationalStatsDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  // Q別/前後半トグル（periodRawGamesキャッシュ・fetchロジックは「シーズン別成績」と共有。上の
+  // seasonBreakdownPeriod参照）
+  const [situationalStatsPeriod, setSituationalStatsPeriod] = useState<PeriodRangeValue>("all");
   // 列ヘッダークリックソート。会場・地区・曜日等のグループ構造そのものを崩すと比較の意味が
   // 失われるため、グループの並び順・見出し行は維持したまま「各グループ内の行だけ」をソートする
   // （SeasonBreakdownTableと同じ「1回目クリックで降順、もう一度クリックで昇順」の方式。DESIGN.md参照）
@@ -692,6 +716,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
     setShootingTeamFilter(null);
     setShootingTeamShotTypes(null);
     shootingTeamShotTypesFetchStartedRef.current = false;
+    setSeasonBreakdownPeriod("all");
+    setSituationalStatsPeriod("all");
+    setPeriodRawGames(new Map());
+    periodRawGamesRequestedRef.current = new Set();
+    setPeriodRawGamesLoading(false);
     // 選手が変わった時だけリセットする（season変更では比較タブ・シチュエーション別成績・
     // シューティングの選択を維持したいため、依存配列にseasonは含めない。ここで参照するのは
     // リセット時点の最新値でよい）
@@ -920,6 +949,42 @@ export function PlayerDetailPage({ season }: { season: string }) {
     });
   }, [careerData, playerId]);
 
+  // 「シーズン別成績」のQ別/前後半トグル用: 選択中の期間が「試合」以外になったら、careerData
+  // 全シーズン分の出場試合の生データ（PlayByPlays込み）を遅延取得する。periodRawGamesRequestedRef
+  // で一度要求したscheduleKeyは再要求しない（シチュエーション別成績側のeffectとも共有）ため、
+  // 両セクションで同じ試合が必要でも二重取得は発生しない
+  useEffect(() => {
+    const option = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === seasonBreakdownPeriod);
+    if (!option || option.periods === null || !careerData) return;
+    const needed: { season: string; scheduleKey: string }[] = [];
+    for (const cd of careerData) {
+      for (const log of cd.logs) {
+        if (log.min <= 0 || periodRawGamesRequestedRef.current.has(log.scheduleKey)) continue;
+        needed.push({ season: cd.season, scheduleKey: log.scheduleKey });
+      }
+    }
+    if (needed.length === 0) return;
+    for (const n of needed) periodRawGamesRequestedRef.current.add(n.scheduleKey);
+    setPeriodRawGamesLoading(true);
+    Promise.all(
+      needed.map(async ({ season: s, scheduleKey }) => {
+        try {
+          return [scheduleKey, await fetchGame(s, scheduleKey)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    )
+      .then((results) => {
+        setPeriodRawGames((prev) => {
+          const next = new Map(prev);
+          for (const r of results) if (r) next.set(r[0], r[1]);
+          return next;
+        });
+      })
+      .finally(() => setPeriodRawGamesLoading(false));
+  }, [seasonBreakdownPeriod, careerData]);
+
   // 通算成績・キャリアハイ共通: DNP（出場0分）を除いた上で、選択中のレギュラー/プレーオフ/合算
   // トグルで絞り込む（既存のSeasonGameTypeFilter/filterByGameTypeをそのまま再利用）
   const playedFilteredLogs = (logs: PlayerGameLog[]) => filterByGameType(logs.filter((g) => g.min > 0), careerGameTypeFilter);
@@ -1100,6 +1165,39 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 早期returnの後で計算していたが、この節のフックが参照する必要があるため早期returnより前に
   // 前倒しした（player/playersには依存しないため安全）
   const situationalStatsLogs = careerData?.find((cd) => cd.season === situationalStatsSeason)?.logs;
+
+  // 「シチュエーション別成績」のQ別/前後半トグル用: 選択中シーズン（situationalStatsSeason）の
+  // 出場試合のみが対象（careerData全体ではなく、こちらは1シーズン分のみで済む）。上の
+  // 「シーズン別成績」用effectとperiodRawGames・periodRawGamesRequestedRefを共有する
+  // （scheduleKeyはサイト全体で一意のため衝突しない）
+  useEffect(() => {
+    const option = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === situationalStatsPeriod);
+    if (!option || option.periods === null || !situationalStatsLogs) return;
+    const needed = situationalStatsLogs
+      .filter((g) => g.min > 0 && !periodRawGamesRequestedRef.current.has(g.scheduleKey))
+      .map((g) => ({ season: situationalStatsSeason, scheduleKey: g.scheduleKey }));
+    if (needed.length === 0) return;
+    for (const n of needed) periodRawGamesRequestedRef.current.add(n.scheduleKey);
+    setPeriodRawGamesLoading(true);
+    Promise.all(
+      needed.map(async ({ season: s, scheduleKey }) => {
+        try {
+          return [scheduleKey, await fetchGame(s, scheduleKey)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    )
+      .then((results) => {
+        setPeriodRawGames((prev) => {
+          const next = new Map(prev);
+          for (const r of results) if (r) next.set(r[0], r[1]);
+          return next;
+        });
+      })
+      .finally(() => setPeriodRawGamesLoading(false));
+  }, [situationalStatsPeriod, situationalStatsLogs, situationalStatsSeason]);
+
   const situationalStatsGameTeams = useMemo(
     () => (situationalStatsSummaries ? buildGameTeamsByScheduleKey(situationalStatsSummaries) : new Map()),
     [situationalStatsSummaries],
@@ -1295,15 +1393,20 @@ export function PlayerDetailPage({ season }: { season: string }) {
     ? filterByGameType(situationalStatsLogs, situationalStatsGameType)
     : [];
 
+  const situationalStatsPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === situationalStatsPeriod);
+
   const buildSituationalStatsRows = (rowKey: string, rowLabel: string, matched: PlayerGameLog[]): SituationalStatsRow[] => {
     const seasonStartYear = Number(situationalStatsSeason.split("-")[0]);
-    return buildTeamSplitRows(
+    return buildTeamSplitRowsForPeriod(
       rowKey,
       matched,
       situationalStatsOwnTeamByScheduleKey,
       situationalStatsTeamTotalsByTeamId,
       situationalStatsDisplayMode,
       seasonStartYear,
+      player.playerId,
+      situationalStatsPeriodOption,
+      periodRawGames,
     ).map((r) => ({ key: r.key, label: rowLabel, teamLabel: r.teamLabel, ctx: r.ctx, isCombined: r.isCombined }));
   };
 
@@ -1598,11 +1701,22 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </button>
             ))}
           </div>
+          <PeriodRangeToggle
+            options={SEASON_BOX_PERIOD_OPTIONS}
+            value={seasonBreakdownPeriod}
+            onChange={setSeasonBreakdownPeriod}
+          />
+          {periodRawGamesLoading && seasonBreakdownPeriod !== "all" && (
+            <p className="loading">この期間の再集計中...</p>
+          )}
           <SeasonBreakdownTable
             careerData={careerData}
             gameTypeFilter={gameTypeFilter}
             teamData={careerTeamData}
             displayMode={seasonDisplayMode}
+            playerId={player.playerId}
+            period={seasonBreakdownPeriod}
+            gamesByScheduleKey={periodRawGames}
           />
 
           <h2>シチュエーション別成績</h2>
@@ -1640,6 +1754,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </button>
             ))}
           </div>
+          <PeriodRangeToggle
+            options={SEASON_BOX_PERIOD_OPTIONS}
+            value={situationalStatsPeriod}
+            onChange={setSituationalStatsPeriod}
+          />
+          {periodRawGamesLoading && situationalStatsPeriod !== "all" && (
+            <p className="loading">この期間の再集計中...</p>
+          )}
           <div className="tab-bar">
             {SEASON_BOX_TABS.map((t) => (
               <button
@@ -2135,11 +2257,17 @@ function SeasonBreakdownTable({
   gameTypeFilter,
   teamData,
   displayMode,
+  playerId,
+  period,
+  gamesByScheduleKey,
 }: {
   careerData: CareerSeasonLogs[] | null;
   gameTypeFilter: SeasonGameTypeFilter;
   teamData: Map<string, CareerSeasonTeamInfo> | null;
   displayMode: SeasonDisplayMode;
+  playerId: string;
+  period: PeriodRangeValue;
+  gamesByScheduleKey: Map<string, StoredGame>;
 }) {
   const [tab, setTab] = useState<SeasonBoxTabKey>("traditional");
   // 列ヘッダークリックソート（RankingsPage等のSortableTableと同じ「1回目クリックで降順、
@@ -2148,11 +2276,13 @@ function SeasonBreakdownTable({
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const playedFilteredLogs = (logs: PlayerGameLog[]) => filterByGameType(logs.filter((g) => g.min > 0), gameTypeFilter);
+  const periodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === period);
 
-  // シーズン内移籍対応: 所属チームごとにbuildTeamSplitRowsで分割する（1チームのみなら1行、
-  // 複数チームにまたがる場合はチーム別の行＋「複数チーム」の合計行）。通算（total）の集計対象は
-  // isCombinedがtrueの行、または単一チームの行のみ（countsTowardTotal）にし、チーム別の
-  // 内訳行を二重に足し込まないようにする
+  // シーズン内移籍対応: 所属チームごとにbuildTeamSplitRowsForPeriodで分割する（1チームのみなら
+  // 1行、複数チームにまたがる場合はチーム別の行＋「複数チーム」の合計行）。「試合」選択時は
+  // 追加取得不要の既存ロジックにそのまま委譲し、Q別/前後半選択時のみgamesByScheduleKeyの
+  // 生データから再集計する（DESIGN.md参照）。通算（total）の集計対象はisCombinedがtrueの行、
+  // または単一チームの行のみ（countsTowardTotal）にし、チーム別の内訳行を二重に足し込まないようにする
   const seasonRows = useMemo(() => {
     if (!careerData) return [];
     const rows: (TeamSplitRow & { season: string; ddtd: { dd: number; td: number }; countsTowardTotal: boolean })[] = [];
@@ -2161,13 +2291,16 @@ function SeasonBreakdownTable({
       if (played.length === 0) continue;
       const info = teamData?.get(cd.season);
       const seasonStartYear = Number(cd.season.split("-")[0]);
-      const splitRows = buildTeamSplitRows(
+      const splitRows = buildTeamSplitRowsForPeriod(
         cd.season,
         played,
         info?.ownTeamByScheduleKey ?? new Map(),
         info?.teamTotalsByTeamId ?? new Map(),
         displayMode,
         seasonStartYear,
+        playerId,
+        periodOption,
+        gamesByScheduleKey,
       );
       for (const row of splitRows) {
         rows.push({
@@ -2180,20 +2313,34 @@ function SeasonBreakdownTable({
     }
     return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [careerData, gameTypeFilter, teamData, displayMode]);
+  }, [careerData, gameTypeFilter, teamData, displayMode, playerId, periodOption, gamesByScheduleKey]);
 
   // 通算行のEFFは、複数シーズンの生カウント値を先に合算してから1回だけeff()を呼ぶと
   // 年度で異なる計算式（DESIGN.md参照）を誤って混在適用してしまうため、シーズンごとに
   // 正しい式で算出した合計EFFをここで合算してから、表示モードに応じた係数（modeFactor、
-  // 平均/合計とも同じ考え方）をかける（seasonTotalEff参照）
+  // 平均/合計とも同じ考え方）をかける（seasonTotalEff参照）。通算行のraw合計は、「試合」選択時は
+  // 既存のsumPlayerGameLogs（永続集計）、Q別/前後半選択時は全シーズンの出場試合の生データから
+  // 再集計したbuildPeriodFilteredRawTotalsを使う（seasonRows自体が既にどちらの方式でも
+  // 期間フィルタ反映済みのため、EFF合算部分はperiod分岐不要でそのまま動く）
   const total = useMemo(() => {
     if (!careerData || seasonRows.length === 0) return null;
     const allPlayed = careerData.flatMap((cd) => playedFilteredLogs(cd.logs));
-    const totalRaw = sumPlayerGameLogs(allPlayed);
-    if (totalRaw.gamesPlayed === 0) return null;
+    if (allPlayed.length === 0) return null;
     const totalRows = seasonRows.filter((r) => r.countsTowardTotal);
     const totalTeam = totalRows.reduce((acc, r) => sumTeamSeasonTotals(acc, r.ctx.team), EMPTY_TEAM_TOTALS);
     const latestSeasonStartYear = Math.max(...seasonRows.map((r) => r.ctx.seasonStartYear));
+
+    const totalRaw = !periodOption || periodOption.periods === null
+      ? sumPlayerGameLogs(allPlayed)
+      : buildPeriodFilteredRawTotals(
+          allPlayed
+            .map((log) => {
+              const game = gamesByScheduleKey.get(log.scheduleKey);
+              return game ? computeGamePeriodTotals(game, log.isHome, playerId, periodOption) : null;
+            })
+            .filter((c): c is GamePeriodTotals => c !== null),
+        ).raw;
+    if (totalRaw.gamesPlayed === 0) return null;
     const ctx = buildSeasonBoxscoreCtx(totalRaw, totalTeam, displayMode, latestSeasonStartYear);
     const totalEffSum = totalRows.reduce((sum, r) => sum + seasonTotalEff(r.ctx.raw, r.ctx.seasonStartYear), 0);
     return {
@@ -2202,7 +2349,7 @@ function SeasonBreakdownTable({
       effValue: totalEffSum * modeFactor(totalRaw, displayMode),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [careerData, gameTypeFilter, seasonRows, displayMode]);
+  }, [careerData, gameTypeFilter, seasonRows, displayMode, playerId, periodOption, gamesByScheduleKey]);
 
   const columns = SEASON_BOX_COLUMNS[tab];
 

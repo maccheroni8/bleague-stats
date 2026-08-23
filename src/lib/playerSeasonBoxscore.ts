@@ -21,9 +21,20 @@ import {
   type EffTotals,
   type OliverBoxStats,
 } from "../../shared/formulas";
-import { astToTovRatio, formatAstToRatio, formatMinutesFromSeconds, sharePct } from "./boxscoreAggregate";
+import {
+  astToTovRatio,
+  buildPlayerBoxscores,
+  buildTeamTotalCounts,
+  computeTeamRatings,
+  formatAstToRatio,
+  formatMinutesFromSeconds,
+  sharePct,
+  sumCountsList,
+  type BoxscoreCounts,
+} from "./boxscoreAggregate";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
-import type { GameType, PlayerGameLog, TeamGameLog } from "../../shared/types";
+import { buildPeriodRangeOptions, type PeriodRangeOption } from "./periodRange";
+import type { GameType, PlayerGameLog, StoredGame, TeamGameLog } from "../../shared/types";
 import type { GameTeamInfo } from "./situational";
 import { teamShortName } from "../../shared/teamNames";
 
@@ -1189,3 +1200,217 @@ export const SEASON_BOX_COLUMNS: Record<SeasonBoxTabKey, SeasonBoxscoreColumn[]>
   misc: SEASON_MISC_COLUMNS,
   scoring: SEASON_SCORING_COLUMNS,
 };
+
+// ここから「シーズン別成績」「シチュエーション別成績」「チーム詳細ページの選手スタッツ」の
+// Q別/前半/後半トグル用ロジック（DESIGN.md参照）。試合ごとにOTの有無が異なりうるため、
+// 試合詳細ページのbuildPeriodRangeOptions()と同じ考え方だがOTは対象外にした固定4ピリオド
+// （試合/1Q/2Q/3Q/4Q/前半/後半）に絞る。SEASON_SHOT_CHART_PERIOD_OPTIONS（PlayerDetailPage.tsx）
+// とは異なりOT分の吸収は行わない（ユーザー要求が「試合全体/各Q/前半/後半」のみのため）
+export const SEASON_BOX_PERIOD_OPTIONS: PeriodRangeOption[] = buildPeriodRangeOptions(4);
+
+export interface GamePeriodTotals {
+  player: BoxscoreCounts;
+  own: BoxscoreCounts;
+  opp: BoxscoreCounts;
+  poss: number;
+}
+
+/**
+ * 指定選手・指定期間範囲（試合/Q別/前後半）で、1試合分の生データから自身/自チーム/相手チームの
+ * BoxscoreCountsを組み立てる。試合詳細ページのボックススコア（buildPlayerBoxscores・
+ * buildTeamTotalCounts・computeTeamRatings）と全く同じロジックを1試合単位で呼ぶだけ。
+ * 選手がその試合のボックススコアに存在しない場合はnullを返す
+ */
+export function computeGamePeriodTotals(
+  game: StoredGame,
+  isHome: boolean,
+  playerId: string,
+  option: PeriodRangeOption | undefined,
+): GamePeriodTotals | null {
+  const ownRows = isHome ? game.raw.HomeBoxscores : game.raw.AwayBoxscores;
+  const oppRows = isHome ? game.raw.AwayBoxscores : game.raw.HomeBoxscores;
+  const own = buildTeamTotalCounts(ownRows, option);
+  const opp = buildTeamTotalCounts(oppRows, option);
+  const { poss } = computeTeamRatings(own, opp);
+  const players = buildPlayerBoxscores(ownRows, option, game.raw.PlayByPlays, []);
+  const player = players.find((p) => p.playerId === playerId);
+  if (!player) return null;
+  return { player: player.counts, own, opp, poss };
+}
+
+/**
+ * GamePeriodTotals（試合単位で確定させた値）の配列を合算し、PlayerSeasonRawTotals・
+ * TeamSeasonRawTotalsと同じ形の集計を作る（buildSeasonBoxscoreCtxにそのまま渡せる）。
+ * POSSはチームPOSSと同じく「試合単位で確定させてから合算する」方針（DESIGN.md 6章・11章参照）。
+ * 個人PACE用の在コート区間3項目（onCourtOwnPoss等）はQ別の在コート復元に明確な定義が無いため
+ * 対象外とし常に0にする（＝PACE列は「-」表示のまま）
+ */
+export function buildPeriodFilteredRawTotals(contributions: GamePeriodTotals[]): {
+  raw: PlayerSeasonRawTotals;
+  team: TeamSeasonRawTotals;
+} {
+  const gamesPlayed = contributions.length;
+  const playerSum = sumCountsList(contributions.map((c) => c.player));
+  const ownSum = sumCountsList(contributions.map((c) => c.own));
+  const oppSum = sumCountsList(contributions.map((c) => c.opp));
+  const possSum = contributions.reduce((sum, c) => sum + c.poss, 0);
+
+  const raw: PlayerSeasonRawTotals = {
+    ...EMPTY_RAW_TOTALS,
+    gamesPlayed,
+    min: playerSum.minSec / 60,
+    pts: playerSum.pts,
+    fgm: playerSum.pt2m + playerSum.pt3m,
+    fga: playerSum.pt2a + playerSum.pt3a,
+    tpm: playerSum.pt3m,
+    tpa: playerSum.pt3a,
+    ftm: playerSum.ftm,
+    fta: playerSum.fta,
+    oreb: playerSum.oreb,
+    dreb: playerSum.dreb,
+    reb: playerSum.treb,
+    ast: playerSum.ast,
+    tov: playerSum.tov,
+    stl: playerSum.stl,
+    blk: playerSum.blk,
+    pf: playerSum.foul,
+    foulsDrawn: playerSum.foulon,
+    blockedAgainst: playerSum.bson,
+    technicalFouls: playerSum.technicalFouls,
+    pt2in: playerSum.pt2in,
+    ptfb: playerSum.ptfb,
+    pt2nd: playerSum.pt2nd,
+    plusMinus: playerSum.plusMinus,
+    ptsOffTov: playerSum.ptsOffTov,
+    dunks: playerSum.dunks,
+    basketCounts: playerSum.basketCounts,
+    unsportsmanlikeFouls: playerSum.unsportsmanlikeFouls,
+    disqualifyingFouls: playerSum.disqualifyingFouls,
+    assisted2m: playerSum.assisted2m,
+    assisted3m: playerSum.assisted3m,
+    assistedFtm: playerSum.assistedFtm,
+    paint2m: playerSum.paint2m,
+    paint2a: playerSum.paint2a,
+    mid2m: playerSum.nonPaint2m,
+    mid2a: playerSum.nonPaint2a,
+  };
+
+  const team: TeamSeasonRawTotals = {
+    pts: ownSum.pts,
+    fgm: ownSum.pt2m + ownSum.pt3m,
+    fga: ownSum.pt2a + ownSum.pt3a,
+    tpm: ownSum.pt3m,
+    tpa: ownSum.pt3a,
+    ftm: ownSum.ftm,
+    fta: ownSum.fta,
+    tov: ownSum.tov,
+    min: ownSum.minSec / 60,
+    ast: ownSum.ast,
+    oreb: ownSum.oreb,
+    dreb: ownSum.dreb,
+    stl: ownSum.stl,
+    blk: ownSum.blk,
+    pf: ownSum.foul,
+    poss: possSum,
+    opponentMin: oppSum.minSec / 60,
+    opponentPts: oppSum.pts,
+    opponentFgm: oppSum.pt2m + oppSum.pt3m,
+    opponentFga: oppSum.pt2a + oppSum.pt3a,
+    opponentFtm: oppSum.ftm,
+    opponentFta: oppSum.fta,
+    opponentOreb: oppSum.oreb,
+    opponentDreb: oppSum.dreb,
+    opponentTov: oppSum.tov,
+  };
+
+  return { raw, team };
+}
+
+/**
+ * buildTeamSplitRowsのQ別/前後半対応版。「試合」（periods===null、またはoption未指定）選択時は
+ * 追加の生データ取得が不要な既存のbuildTeamSplitRows（PlayerGameLog永続集計ベース）にそのまま
+ * 委譲する。Q別/前後半選択時は、呼び出し側がPeriodRangeToggle操作時に事前フェッチした
+ * gamesByScheduleKey（scheduleKey→試合の生データ）を使い、試合単位でcomputeGamePeriodTotalsを
+ * 呼んでからbuildPeriodFilteredRawTotalsで合算する。gamesByScheduleKeyに未取得のscheduleKeyが
+ * あればその試合は除いて集計する（フェッチ完了を待つ間は部分的な値になるが、フェッチが進むたびに
+ * 呼び出し側の再レンダリングで値が更新される。ローディング表示は呼び出し側の責務）
+ */
+export function buildTeamSplitRowsForPeriod(
+  keyPrefix: string,
+  logs: PlayerGameLog[],
+  ownTeamByScheduleKey: Map<string, GameTeamInfo>,
+  teamTotalsByTeamId: Map<string, TeamSeasonRawTotals>,
+  displayMode: SeasonDisplayMode,
+  seasonStartYear: number,
+  playerId: string,
+  option: PeriodRangeOption | undefined,
+  gamesByScheduleKey: Map<string, StoredGame>,
+): TeamSplitRow[] {
+  if (!option || option.periods === null) {
+    return buildTeamSplitRows(keyPrefix, logs, ownTeamByScheduleKey, teamTotalsByTeamId, displayMode, seasonStartYear);
+  }
+
+  const played = logs.filter((g) => g.min > 0);
+  if (played.length === 0) return [];
+
+  const byTeam = new Map<string, { teamName: string; logs: PlayerGameLog[] }>();
+  for (const log of played) {
+    const own = ownTeamByScheduleKey.get(log.scheduleKey);
+    const id = own?.teamId ?? "unknown";
+    let entry = byTeam.get(id);
+    if (!entry) {
+      entry = { teamName: own?.teamName ?? "", logs: [] };
+      byTeam.set(id, entry);
+    }
+    entry.logs.push(log);
+  }
+  const teamIds = [...byTeam.keys()];
+  const labelFor = (id: string, teamName: string) => (id === "unknown" ? "-" : teamShortName(id, teamName));
+
+  const buildCtx = (teamLogs: PlayerGameLog[]): SeasonBoxscoreCtx => {
+    const contributions = teamLogs
+      .map((log) => {
+        const game = gamesByScheduleKey.get(log.scheduleKey);
+        return game ? computeGamePeriodTotals(game, log.isHome, playerId, option) : null;
+      })
+      .filter((c): c is GamePeriodTotals => c !== null);
+    const { raw, team } = buildPeriodFilteredRawTotals(contributions);
+    return buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear);
+  };
+
+  if (teamIds.length === 1) {
+    const id = teamIds[0]!;
+    const entry = byTeam.get(id)!;
+    return [
+      {
+        key: `${keyPrefix}|${id}`,
+        teamId: id === "unknown" ? null : id,
+        teamLabel: labelFor(id, entry.teamName),
+        ctx: buildCtx(entry.logs),
+        logs: entry.logs,
+        isCombined: false,
+      },
+    ];
+  }
+
+  const rows: TeamSplitRow[] = teamIds.map((id) => {
+    const entry = byTeam.get(id)!;
+    return {
+      key: `${keyPrefix}|${id}`,
+      teamId: id === "unknown" ? null : id,
+      teamLabel: labelFor(id, entry.teamName),
+      ctx: buildCtx(entry.logs),
+      logs: entry.logs,
+      isCombined: false,
+    };
+  });
+  rows.push({
+    key: `${keyPrefix}|combined`,
+    teamId: null,
+    teamLabel: "複数チーム",
+    ctx: buildCtx(played),
+    logs: played,
+    isCombined: true,
+  });
+  return rows;
+}
