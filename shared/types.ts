@@ -470,6 +470,12 @@ export interface TeamSummary {
    * Yahoo PBPデータが1試合も取得できていないシーズンではフィールド自体を省略する
    */
   forcedTurnovers?: TeamForcedTurnovers;
+  /**
+   * シュートタイプ別の成功/試投カウント（Yahoo!スポーツplay-by-play由来、レギュラーシーズンのみ・
+   * チーム全選手合算。PlayerSummary.shotTypesと同じ形・同じキー方針のチーム集計版。DESIGN.md参照）。
+   * Yahoo PBPデータが1試合も取得できていないシーズンではフィールド自体を省略する
+   */
+  shotTypes?: ShotTypeBreakdown;
 }
 
 /**

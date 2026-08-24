@@ -23,24 +23,27 @@ import {
   fetchTeamHistory,
   fetchTeamLineups,
   fetchTeams,
+  fetchYahooGamePbp,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { isPbpSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
+import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
   ClubHonor,
   GameSummary,
   GameType,
   PlayerGameLog,
   PlayerSummary,
+  ShotTypeBreakdown,
   StoredGame,
   TeamGameLog,
   TeamSummary,
   UpcomingGameEntry,
+  YahooGamePbp,
 } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
-import type { PeriodRangeValue } from "../lib/periodRange";
+import { periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
@@ -68,6 +71,7 @@ import {
   SEASON_BOX_COLUMNS,
   SEASON_BOX_PERIOD_OPTIONS,
   SEASON_BOX_TABS,
+  SEASON_DISPLAY_MODE_LABELS,
   SEASON_GAME_TYPE_LABELS,
   buildTeamPeriodStats,
   buildTeamSplitRowsForPeriod,
@@ -76,8 +80,24 @@ import {
   sumTeamGameLogsFor,
   type SeasonBoxTabKey,
   type SeasonBoxscoreCtx,
+  type SeasonDisplayMode,
   type SeasonGameTypeFilter,
 } from "../lib/playerSeasonBoxscore";
+import { ShotChartPanel } from "../components/ShotChart";
+import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
+import {
+  buildShotTypeBreakdownByTeam,
+  formatShotTypeCell,
+  scaleShotTypeCounts,
+  sortShotTypeKeys,
+  sumShotTypeCounts,
+} from "../lib/shotTypeBreakdown";
+
+// 「シューティング」セクションの平均/合計切り替え。個人詳細ページと同じ2択のみ
+const DISPLAY_MODE_TOGGLE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
+
+const TEAM_SHOOTING_SECTION_TOOLTIP =
+  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（チーム全選手合算、2023-24シーズン以降・レギュラーシーズンのみが既定。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意。上部のシチュエーション別フィルタ・Q別/前後半トグルと連動する（連動時はプレーオフも含まれうる）";
 
 // 出場時間がこれ未満のラインナップはサンプルが小さすぎてノイズが大きいため一覧から除外する
 // （実データ確認: 4試合時点で3分(180秒)基準だとチームあたり4〜14組が該当。DESIGN.md参照）
@@ -572,6 +592,10 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [teamPerspective, setTeamPerspective] = useState<TeamPerspective>("own");
   const [statsPeriod, setStatsPeriod] = useState<PeriodRangeValue>("all");
   const statsPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === statsPeriod);
+  // 「試合」選択時・フィルタ無し（isDefaultFilter）の場合のみteams.jsonのシーズン集計を0コストで
+  // 再利用できる。それ以外（シチュエーション別フィルタ・Q別/前後半トグルのいずれかが有効）は
+  // TeamGameLog/生データベースの再集計が必要（currentTeamStats・シューティングセクション共通で使う）
+  const needsTeamPeriodRecompute = !isDefaultFilter(filter) || (!!statsPeriodOption && statsPeriodOption.periods !== null);
   const statsRawGamesRequestedRef = useRef<Set<string>>(new Set());
   const [statsRawGames, setStatsRawGames] = useState<Map<string, StoredGame>>(new Map());
   const [statsRawGamesLoading, setStatsRawGamesLoading] = useState(false);
@@ -579,13 +603,32 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 上部stat-gridのfilter.includePlayoffsとは独立（個人詳細ページの同名セクションと同じ設計）
   const [situationalTeamGameType, setSituationalTeamGameType] = useState<SeasonGameTypeFilter>("regular");
 
+  // 「シューティング」セクションの平均/合計トグル
+  const [teamShootingDisplayMode, setTeamShootingDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  // 「シューティング」セクション用: Q別/前後半選択時・非デフォルトフィルタ選択時のみ、
+  // このチームの全試合のYahoo PBPを遅延取得する（既定の「試合」×フィルタ無しはteams.jsonの
+  // shotTypesを0コストで使うため取得不要。DESIGN.md参照）
+  const { supported: yahooPbpSupported } = useYahooPbpCoverage(season);
+  const teamYahooPbpRequestedRef = useRef<Set<string>>(new Set());
+  const [teamYahooPbp, setTeamYahooPbp] = useState<Map<string, YahooGamePbp>>(new Map());
+  const [teamYahooPbpLoading, setTeamYahooPbpLoading] = useState(false);
+
+  // 「ショットチャート」セクション: 個人詳細ページの季集計ショットチャートと同じく、
+  // 開いたときだけ生データ（PlayByPlays込み）を遅延取得する。取得自体はstatsRawGames
+  // （Q別/前後半トグルと共有するキャッシュ）を再利用する
+  const [teamShotChartExpanded, setTeamShotChartExpanded] = useState(false);
+
   useEffect(() => {
     statsRawGamesRequestedRef.current = new Set();
     setStatsRawGames(new Map());
+    teamYahooPbpRequestedRef.current = new Set();
+    setTeamYahooPbp(new Map());
+    setTeamShotChartExpanded(false);
   }, [teamId, season]);
 
   useEffect(() => {
-    if (tab !== "stats" || !statsPeriodOption || statsPeriodOption.periods === null || !gameLogs) return;
+    const needsRawGames = teamShotChartExpanded || (!!statsPeriodOption && statsPeriodOption.periods !== null);
+    if (tab !== "stats" || !needsRawGames || !gameLogs) return;
     const needed = [
       ...new Set(
         gameLogs.filter((g) => g.min > 0 && !statsRawGamesRequestedRef.current.has(g.scheduleKey)).map((g) => g.scheduleKey),
@@ -611,7 +654,36 @@ export function TeamDetailPage({ season }: { season: string }) {
         });
       })
       .finally(() => setStatsRawGamesLoading(false));
-  }, [tab, statsPeriodOption, gameLogs, season]);
+  }, [tab, statsPeriodOption, gameLogs, season, teamShotChartExpanded]);
+
+  useEffect(() => {
+    if (tab !== "stats" || !needsTeamPeriodRecompute || !yahooPbpSupported || !gameLogs) return;
+    const needed = [
+      ...new Set(
+        gameLogs.filter((g) => g.min > 0 && !teamYahooPbpRequestedRef.current.has(g.scheduleKey)).map((g) => g.scheduleKey),
+      ),
+    ];
+    if (needed.length === 0) return;
+    for (const k of needed) teamYahooPbpRequestedRef.current.add(k);
+    setTeamYahooPbpLoading(true);
+    Promise.all(
+      needed.map(async (scheduleKey) => {
+        try {
+          return [scheduleKey, await fetchYahooGamePbp(season, scheduleKey)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    )
+      .then((results) => {
+        setTeamYahooPbp((prev) => {
+          const next = new Map(prev);
+          for (const r of results) if (r && r[1]) next.set(r[0], r[1]);
+          return next;
+        });
+      })
+      .finally(() => setTeamYahooPbpLoading(false));
+  }, [tab, needsTeamPeriodRecompute, yahooPbpSupported, gameLogs, season]);
 
   // careerLoading/careerDataをdeps配列に含めると自己キャンセルのループになるため
   // （PlayerDetailPageと同じ理由）、fetch開始済みかどうかはrefで管理する
@@ -788,10 +860,40 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「試合」選択時・フィルタ無しの場合のみteams.jsonの既存集計を0コストで再利用する。
   // それ以外（シチュエーション別フィルタ・Q別/前後半トグルのいずれかが有効）は
   // buildTeamPeriodStatsでTeamGameLog/生データベースの再集計を行う（DESIGN.md参照）
-  const currentTeamStats: TeamSituationalStats | null =
-    isDefaultFilter(filter) && (!statsPeriodOption || statsPeriodOption.periods === null)
-      ? teamSummaryToSituationalStats(team)
-      : buildTeamPeriodStats(filteredLogs, statsPeriodOption, statsRawGames);
+  const currentTeamStats: TeamSituationalStats | null = !needsTeamPeriodRecompute
+    ? teamSummaryToSituationalStats(team)
+    : buildTeamPeriodStats(filteredLogs, statsPeriodOption, statsRawGames);
+
+  // 「シューティング」セクション: currentTeamStatsと同じ判定（needsTeamPeriodRecompute）で、
+  // 既定はteams.jsonのshotTypes（0コスト）、それ以外はYahoo PBPを試合ごとに合算し直す
+  const currentTeamShotTypes: ShotTypeBreakdown | undefined = !needsTeamPeriodRecompute
+    ? team.shotTypes
+    : buildShotTypeBreakdownByTeam(
+        filteredLogs
+          .filter((g) => g.min > 0)
+          .flatMap((g) => teamYahooPbp.get(g.scheduleKey)?.shots ?? [])
+          .filter((s) => s.teamId === team.teamId && periodInRange(statsPeriodOption, s.period)),
+      ).get(team.teamId);
+  const teamShootingGamesPlayed = currentTeamStats?.gamesPlayed ?? 0;
+  const teamShootingFactor =
+    teamShootingDisplayMode === "total" || teamShootingGamesPlayed <= 0 ? 1 : 1 / teamShootingGamesPlayed;
+  const teamShootingDigits = teamShootingDisplayMode === "total" ? 0 : 1;
+
+  // 「ショットチャート」セクション: 全選手のショットをteamId一致で合算する（個人詳細ページの
+  // シーズン集計ショットチャートと同じ生データ・同じbuildShotEvents()を再利用し、選手個別の
+  // フィルタを外しただけ）。上部のシチュエーション別フィルタ・Q別/前後半トグルに連動する
+  const teamShotEvents: ShotEvent[] = teamShotChartExpanded
+    ? filteredLogs
+        .filter((g) => g.min > 0)
+        .flatMap((g) => {
+          const game = statsRawGames.get(g.scheduleKey);
+          if (!game) return [];
+          return buildShotEvents(game.raw.PlayByPlays)
+            .filter((s) => s.teamId === team.teamId)
+            .filter((s) => periodInRange(statsPeriodOption, s.period));
+        })
+    : [];
+  const teamShotChartPlayerOptions = teamPlayers.map((p) => ({ PlayerID: p.playerId, PlayerNameJ: p.name }));
 
   // 「シチュエーション別成績」（チーム版）: 会場・地区・曜日・時期・月別・対戦相手の強さ・連戦・
   // 外国籍人数の8グループ。チームのTeamGameLogは既にそのチーム自身の試合ログのため、
@@ -1235,6 +1337,111 @@ export function TeamDetailPage({ season }: { season: string }) {
                 </tbody>
               </table>
             </div>
+          )}
+
+          <h2 title={TEAM_SHOOTING_SECTION_TOOLTIP}>シューティング</h2>
+          <div className="mode-toggle">
+            {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+              <button
+                key={m}
+                className={m === teamShootingDisplayMode ? "active" : ""}
+                onClick={() => setTeamShootingDisplayMode(m)}
+                type="button"
+              >
+                {SEASON_DISPLAY_MODE_LABELS[m]}
+              </button>
+            ))}
+          </div>
+          {needsTeamPeriodRecompute && teamYahooPbpLoading ? (
+            <p className="loading">読み込み中...</p>
+          ) : !currentTeamShotTypes ? (
+            <p className="empty-message">このシーズンのデータには対応していません</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="stats-table">
+                <thead>
+                  <tr>
+                    <th />
+                    {sortShotTypeKeys(Object.keys(currentTeamShotTypes)).map((key) => (
+                      <th key={key} className="align-right">
+                        {key}
+                      </th>
+                    ))}
+                    <th className="align-right">合計</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="align-left">2P</td>
+                    {sortShotTypeKeys(Object.keys(currentTeamShotTypes)).map((key) => (
+                      <td key={key} className="align-right">
+                        {formatShotTypeCell(scaleShotTypeCounts(currentTeamShotTypes[key]!.twoPoint, teamShootingFactor), teamShootingDigits)}
+                      </td>
+                    ))}
+                    <td className="align-right">
+                      {formatShotTypeCell(
+                        scaleShotTypeCounts(
+                          Object.values(currentTeamShotTypes).reduce(
+                            (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
+                            { made: 0, attempted: 0 },
+                          ),
+                          teamShootingFactor,
+                        ),
+                        teamShootingDigits,
+                      )}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="align-left">3P</td>
+                    {sortShotTypeKeys(Object.keys(currentTeamShotTypes)).map((key) => (
+                      <td key={key} className="align-right">
+                        {formatShotTypeCell(scaleShotTypeCounts(currentTeamShotTypes[key]!.threePoint, teamShootingFactor), teamShootingDigits)}
+                      </td>
+                    ))}
+                    <td className="align-right">
+                      {formatShotTypeCell(
+                        scaleShotTypeCounts(
+                          Object.values(currentTeamShotTypes).reduce(
+                            (acc, c) => sumShotTypeCounts(acc, c.threePoint),
+                            { made: 0, attempted: 0 },
+                          ),
+                          teamShootingFactor,
+                        ),
+                        teamShootingDigits,
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <h2
+            className={isShotChartSupported(coverage) ? "collapsible-heading" : undefined}
+            onClick={isShotChartSupported(coverage) ? () => setTeamShotChartExpanded((v) => !v) : undefined}
+          >
+            {isShotChartSupported(coverage) ? (teamShotChartExpanded ? "▼ " : "▶ ") : ""}
+            ショットチャート
+          </h2>
+          {!isShotChartSupported(coverage) ? (
+            <p className="empty-message">このシーズンのデータには対応していません</p>
+          ) : !teamShotChartExpanded ? null : statsRawGamesLoading ? (
+            <p className="loading">読み込み中...</p>
+          ) : (
+            <>
+              <div className="shot-chart-grid shot-chart-grid-single">
+                <ShotChartPanel
+                  teamName={team.teamName}
+                  players={teamShotChartPlayerOptions}
+                  shots={teamShotEvents}
+                  color={accentColor ?? "var(--accent)"}
+                  accentColor={accentColor}
+                />
+              </div>
+              <p className="page-subtitle">
+                チームの全選手が出場した各試合の生データ（GeniusAPI由来のショット座標）を合算したもの（2022-23シーズン以降のみ対応。DESIGN.md参照）。個別ショット/エリア別成功率の切り替え、選手セレクタでの個人絞り込みができる。上部のシチュエーション別フィルタ・Q別/前後半トグルに連動する
+              </p>
+            </>
           )}
 
           {(avgHeightCm != null || avgWeightKg != null || avgAge != null) && (

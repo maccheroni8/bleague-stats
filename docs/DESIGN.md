@@ -4874,3 +4874,111 @@ CLAUDE.mdの運用ルール通りB.PREMIER全11シーズン＋B.ONE（2025-26）
 
 型チェック（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。本番ビルド（`vite build`）成功。
 ブラウザのコンソールエラー無し。
+
+---
+
+## 62. チーム詳細ページ「スタッツ」タブにシューティング・ショットチャート（チーム集計版）を追加（2026-08-24）
+
+個人詳細ページの「シューティング」（38-4章）・季集計ショットチャート（36章・38章周辺で確立した
+`ShotChartPanel`）と同じ構成を、チーム全体（全選手合算）の集計として追加した（Phase TD）。
+両セクションとも、61章（Phase TC）で導入済みの「スタッツ」タブ上部のQ別/前後半トグル
+（`statsPeriod`）・シチュエーション別フィルタ（`filter`、プレーオフ内包トグルを含む）と連動する。
+
+### 62-1. 設計方針: 個人詳細ページとの構成上の違い
+
+個人詳細ページのショットチャートは、上部の「シーズン別成績」用の期間トグル
+（`seasonBreakdownPeriod`）とは別に、ショットチャート専用の期間トグル（`shotChartPeriod`、
+OTを独立バケットとして持つ`SEASON_SHOT_CHART_PERIOD_OPTIONS`）と専用のAND合成フィルタ
+（`ShotChartFilterPicker`/`ShotChartGameFilters`）を独立に持つ。
+
+一方、依頼の3番目の要件（「既存のQ別/前半後半トグル・レギュラー/プレーオフトグルと連動」）を
+文字通り満たすため、チーム版はこの独立トグルを新設せず、既に「スタッツ」タブ上部に表示されている
+`filter`（`SituationalFilterPicker`、会場・地区・月別・対戦相手の強さ等の単一選択フィルタ＋
+プレーオフ内包トグル）と`statsPeriod`（`SEASON_BOX_PERIOD_OPTIONS`、OTなしの試合/1Q〜4Q/前後半）を
+そのまま再利用する設計にした。シューティング・ショットチャートのどちらも専用のフィルタUIを
+持たず、上部のトグル操作がそのまま両セクションに反映される。これにより個人詳細ページの
+AND合成フィルタ（`ShotChartFilterPicker`）ほど複数条件を同時に組み合わせる自由度は無いが、
+Phase TC（61章）で「1つのトグル操作でスタッツタブ全体が連動する」という設計判断を既にしており、
+それとの一貫性を優先した（ユーザーには実装後の確認時にこの簡略化を明示する）。
+
+### 62-2. 新規集計: `TeamSummary.shotTypes`（チーム全選手合算のシュートタイプ内訳）
+
+「試合」選択時・フィルタ無し（デフォルト）の0コスト表示のために、`PlayerSummary.shotTypes`
+（38-4章）のチーム集計版を`teams.json`に追加した。`scripts/aggregate.ts`の
+`buildShotTypeBreakdownByPlayer`を`buildShotTypeBreakdowns`に置き換え、選手別・チーム別の内訳を
+Yahoo PBPファイルの1回の走査で同時に集計する（`accumulateShotType`ヘルパーに共通化。
+チーム別はshot.teamIdをキーにするだけで、shot.playerIdの解決失敗（`null`）を気にする必要が
+無い分、選手別より単純）。`TeamSummary.shotTypes?: ShotTypeBreakdown`として公開し、
+`PlayerSummary.shotTypes`と同じくレギュラーシーズンのみ・Yahoo PBPデータが1試合も
+取得できていないシーズンはフィールド自体を省略する。
+
+`src/lib/shotTypeBreakdown.ts`にも`buildShotTypeBreakdownByTeam()`（フロントエンドでQ別/前後半・
+シチュエーション別フィルタ選択時に再集計する用）を追加した。既存の`buildShotTypeBreakdownByPlayer()`
+と共通のプライベートヘルパー`buildShotTypeBreakdownBy(shots, keyFn)`に集約し、キー抽出関数
+（playerId取得 or teamId取得）だけを差し替える形にした。
+
+### 62-3. データ取得: 既定は0コスト、非デフォルト時のみ遅延取得
+
+`needsTeamPeriodRecompute`（`!isDefaultFilter(filter) || 期間選択あり`、61章の
+`currentTeamStats`の判定条件をそのまま切り出したもの）を、シューティングセクションの
+再集計要否の判定にも共用した。
+
+- **シューティング**: `needsTeamPeriodRecompute`がfalseなら`team.shotTypes`をそのまま使う
+  （0コスト）。trueの場合のみ、`useYahooPbpCoverage(season)`で対応シーズンか確認した上で、
+  このチームの全試合分のYahoo PBP（`fetchYahooGamePbp`）を遅延取得し、`filteredLogs`
+  （`filter`で絞り込み済み）のscheduleKey・`statsPeriodOption`の期間でショットを絞り込んでから
+  `buildShotTypeBreakdownByTeam()`で再集計する
+- **ショットチャート**: 個人詳細ページと同じく軽量な永続集計が存在しないため、常に生データ
+  （GeniusAPI `PlayByPlays`、X/Y座標込み）の遅延取得が必要。既存の`statsRawGames`
+  （Q別/前後半トグル用に61章で導入済みのキャッシュ）をショットチャート用にも共用し、
+  取得トリガーの条件に「ショットチャートが展開されている」を追加しただけで、新しいキャッシュ・
+  新しいuseEffectを増やさずに済んだ（個人詳細ページと同じ「開いたときだけ取得」の
+  折りたたみ式UIパターンを踏襲）
+
+### 62-4. ショットチャートの表示: `ShotChartPanel`の`players`propを軽量化
+
+`ShotChartPanel`（`src/components/ShotChart.tsx`）は元々選手セレクタ用に`players: BoxscoreRow[]`
+を要求していたが、実際に参照するのは`PlayerID`/`PlayerNameJ`の2フィールドのみだった。
+`src/lib/shotChart.ts`に`ShotChartPlayerOption`（`Pick<BoxscoreRow, "PlayerID" | "PlayerNameJ">`）を
+新設し、`playersWithShots()`・`ShotChartPanelProps.players`をこの軽量型に変更した。これにより
+チーム版は`players.json`（`PlayerSummary[]`）を`{PlayerID, PlayerNameJ}`に詰め替えるだけで
+渡せる（試合詳細ページの既存呼び出しはBoxscoreRow[]が構造的にこの型を満たすため無変更で動作）。
+
+ショット自体は個人版の`buildShotEvents(game.raw.PlayByPlays)`をそのまま呼び、
+`.filter(s => s.teamId === team.teamId)`で選手個人ではなくチーム全体に絞り込むだけで実現した
+（新しい集計ロジックは追加していない）。選手セレクタで個別選手に絞り込む機能は
+`ShotChartPanel`側に既に実装済みのため、チーム版でも無改造で使える。
+
+### 62-5. 検証
+
+`npm run aggregate`をCLAUDE.mdの運用ルール通りB.PREMIER全11シーズン・B.ONE（2025-26）で
+再実行した。差分は`teams.json`のうちYahoo PBPデータが実在する3シーズン
+（2023-24・2024-25・2025-26）のみに限定され（他シーズンは`shotTypesByTeam`が常に空Mapのため
+新フィールド自体が出力されず、デコード後バイト列が完全一致することを確認）、他の生成ファイル
+（`players.json`・`standings-history.json`等）は無変更だった。長崎ヴェルカ（2025-26シーズン）の
+`shotTypes`全項目の成功/試投合算値が、同チームの`totals.fgm`/`totals.fga`（1948/4066）と
+完全一致することを確認した。
+
+ブラウザで長崎ヴェルカ（2025-26シーズン）を確認した:
+- シューティング（既定・「試合」×フィルタ無し）: 3P合計「12.3/33.1 (37.3%)」がヘッダーの
+  3P%タイル（37.3%）と一致
+- ショットチャート展開時: 個別ショット表示のドット数が4066（＝FGA）、サマリー
+  「1948/4066 (47.9%)」がFGM/FGA・FG%タイルと一致。選手セレクタで「馬場 雄大」を選ぶと
+  「265/512 (51.8%)」に切り替わり、個人スタッツ表のFG%（51.8%）と一致。エリア別成功率表示で
+  12ゾーン全てに値が表示されることを確認
+- Q別トグル「1Q」: シューティング・ショットチャートとも同時に約1/4の値に変化
+  （ショットチャートのサマリーは「496/1049 (47.3%)」）することを確認
+- シチュエーション別フィルタ「ホーム」: 両セクションとも30試合分の値（ショットチャート
+  「970/2026 (47.9%)」）に絞り込まれ、シチュエーション別成績テーブルのホーム行FG%（47.9%）と
+  一致することを確認
+- 平均/合計トグル（シューティング専用）: 「合計」選択で各セルが生の合計値
+  （例: ジャンプショット2P「363/675」）に切り替わることを確認
+- 自チーム/opp/+/-トグルの切り替えはシューティング・ショットチャートに影響しない
+  （チーム自身の集計のみで opp視点を持たないため）ことを確認。コンソールエラー無し
+- データ対応範囲の境界（グレースフルデグラデーション）: 2022-23シーズン（ショットチャート対応・
+  Yahoo PBP非対応）でシューティングのみ「このシーズンのデータには対応していません」、
+  ショットチャートは通常通り動作することを確認。2019-20シーズン（どちらも非対応）で両方とも
+  非対応メッセージが表示され、ショットチャート見出しの▶/▼展開矢印自体が非表示になる
+  （クリック不可）ことを確認
+
+型チェック（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。本番ビルド（`vite build`）成功。

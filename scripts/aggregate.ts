@@ -63,6 +63,7 @@ import type {
   TeamGameLog,
   TeamLineupsFile,
   YahooGamePbp,
+  YahooShotEvent,
   YahooTurnoverEvent,
 } from "../shared/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
@@ -150,32 +151,44 @@ async function buildForcedTurnoversByTeam(season: string, games: StoredGame[]): 
   return byTeam;
 }
 
+/** buildShotTypeBreakdownsの内部ヘルパー。1本のショットをキー（playerIdまたはteamId）単位の内訳に加算する */
+function accumulateShotType(byKey: Map<string, ShotTypeBreakdown>, key: string, shot: YahooShotEvent): void {
+  const breakdown = byKey.get(key) ?? {};
+  const split = breakdown[shot.shotType] ?? {
+    twoPoint: { made: 0, attempted: 0 },
+    threePoint: { made: 0, attempted: 0 },
+  };
+  const counts = shot.shotValue === 3 ? split.threePoint : split.twoPoint;
+  counts.attempted += 1;
+  if (shot.made) counts.made += 1;
+  breakdown[shot.shotType] = split;
+  byKey.set(key, breakdown);
+}
+
 /**
- * シュートタイプ別の成功/試投カウントを選手ごとにシーズン集計する（Yahoo!スポーツplay-by-play
- * 由来、レギュラーシーズンのみ・取得済み試合のみ。DESIGN.md参照）。teams.jsonのforcedTurnovers
- * と同じく、B.ONE等（Yahoo PBPデータ自体が存在しない）ではcategory==="premier"の時のみ呼ぶ想定
+ * シュートタイプ別の成功/試投カウントを選手ごと・チームごとにシーズン集計する（Yahoo!スポーツ
+ * play-by-play由来、レギュラーシーズンのみ・取得済み試合のみ。DESIGN.md参照）。teams.jsonの
+ * forcedTurnoversと同じく、B.ONE等（Yahoo PBPデータ自体が存在しない）では
+ * category==="premier"の時のみ呼ぶ想定。チーム集計（byTeam）はplayer.jsonのshotTypesと同じ
+ * データを選手単位ではなくteamId単位で合算したもの（TeamSummary.shotTypes用）
  */
-async function buildShotTypeBreakdownByPlayer(season: string, games: StoredGame[]): Promise<Map<string, ShotTypeBreakdown>> {
+async function buildShotTypeBreakdowns(
+  season: string,
+  games: StoredGame[],
+): Promise<{ byPlayer: Map<string, ShotTypeBreakdown>; byTeam: Map<string, ShotTypeBreakdown> }> {
   const byPlayer = new Map<string, ShotTypeBreakdown>();
+  const byTeam = new Map<string, ShotTypeBreakdown>();
   const regularGames = games.filter((g) => classifyGameType(g.raw.Game.ConventionNameJ) === "regular");
   for (const game of regularGames) {
     const pbp = await readJson<YahooGamePbp>(path.join(DATA_DIR, season, "yahoo", `${game.scheduleKey}.json`));
     if (!pbp) continue;
     for (const shot of pbp.shots) {
-      if (!shot.playerId || !shot.shotType) continue;
-      const breakdown = byPlayer.get(shot.playerId) ?? {};
-      const split = breakdown[shot.shotType] ?? {
-        twoPoint: { made: 0, attempted: 0 },
-        threePoint: { made: 0, attempted: 0 },
-      };
-      const counts = shot.shotValue === 3 ? split.threePoint : split.twoPoint;
-      counts.attempted += 1;
-      if (shot.made) counts.made += 1;
-      breakdown[shot.shotType] = split;
-      byPlayer.set(shot.playerId, breakdown);
+      if (!shot.shotType) continue;
+      accumulateShotType(byTeam, shot.teamId, shot);
+      if (shot.playerId) accumulateShotType(byPlayer, shot.playerId, shot);
     }
   }
-  return byPlayer;
+  return { byPlayer, byTeam };
 }
 
 /**
@@ -716,9 +729,12 @@ export async function aggregateSeason(season: string, category: Category = "prem
   // 存在しないため、premierカテゴリのみ計算する
   const forcedTurnoversByTeam =
     category === "premier" ? await buildForcedTurnoversByTeam(season, games) : new Map<string, TeamForcedTurnovers>();
-  // シュートタイプ別の成功/試投カウント（Yahoo!スポーツplay-by-play由来。DESIGN.md参照）
-  const shotTypesByPlayer =
-    category === "premier" ? await buildShotTypeBreakdownByPlayer(season, games) : new Map<string, ShotTypeBreakdown>();
+  // シュートタイプ別の成功/試投カウント（Yahoo!スポーツplay-by-play由来。選手別・チーム別を
+  // 1回の走査で同時に集計する。DESIGN.md参照）
+  const { byPlayer: shotTypesByPlayer, byTeam: shotTypesByTeam } =
+    category === "premier"
+      ? await buildShotTypeBreakdowns(season, games)
+      : { byPlayer: new Map<string, ShotTypeBreakdown>(), byTeam: new Map<string, ShotTypeBreakdown>() };
 
   // PER（Hollinger方式、NBA/Basketball-Reference流。DESIGN.md参照）。
   // リーグ全体の合計値（自チーム視点のteams.totalsを全チーム分足し合わせたもの。相手チーム視点の
@@ -845,6 +861,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
           ]),
         ),
         forcedTurnovers: forcedTurnoversByTeam.get(t.teamId),
+        shotTypes: shotTypesByTeam.get(t.teamId),
       };
     })
     .sort((a, b) => b.wins - a.wins);

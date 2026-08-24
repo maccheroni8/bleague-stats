@@ -34,12 +34,16 @@ export function sortShotTypeKeys(keys: string[]): string[] {
   });
 }
 
-/** 選手ごとのシュートタイプ別（2P/3P別）成功/試投カウントを1試合分のYahooShotEvent[]から組み立てる */
-export function buildShotTypeBreakdownByPlayer(shots: YahooShotEvent[]): Map<string, ShotTypeBreakdown> {
-  const byPlayer = new Map<string, ShotTypeBreakdown>();
+/** 指定したキー（playerIdまたはteamId）単位でシュートタイプ別（2P/3P別）成功/試投カウントを組み立てる */
+function buildShotTypeBreakdownBy(
+  shots: YahooShotEvent[],
+  keyFn: (shot: YahooShotEvent) => string | null,
+): Map<string, ShotTypeBreakdown> {
+  const byKey = new Map<string, ShotTypeBreakdown>();
   for (const shot of shots) {
-    if (!shot.playerId || !shot.shotType) continue;
-    const breakdown = byPlayer.get(shot.playerId) ?? {};
+    const key = keyFn(shot);
+    if (!key || !shot.shotType) continue;
+    const breakdown = byKey.get(key) ?? {};
     const split = breakdown[shot.shotType] ?? {
       twoPoint: { made: 0, attempted: 0 },
       threePoint: { made: 0, attempted: 0 },
@@ -48,9 +52,19 @@ export function buildShotTypeBreakdownByPlayer(shots: YahooShotEvent[]): Map<str
     counts.attempted += 1;
     if (shot.made) counts.made += 1;
     breakdown[shot.shotType] = split;
-    byPlayer.set(shot.playerId, breakdown);
+    byKey.set(key, breakdown);
   }
-  return byPlayer;
+  return byKey;
+}
+
+/** 選手ごとのシュートタイプ別（2P/3P別）成功/試投カウントを1試合分のYahooShotEvent[]から組み立てる */
+export function buildShotTypeBreakdownByPlayer(shots: YahooShotEvent[]): Map<string, ShotTypeBreakdown> {
+  return buildShotTypeBreakdownBy(shots, (s) => s.playerId);
+}
+
+/** チーム全選手合算版。TeamDetailPageの「シューティング」セクション用（DESIGN.md参照） */
+export function buildShotTypeBreakdownByTeam(shots: YahooShotEvent[]): Map<string, ShotTypeBreakdown> {
+  return buildShotTypeBreakdownBy(shots, (s) => s.teamId);
 }
 
 export function sumShotTypeCounts(a: ShotTypeCounts, b: ShotTypeCounts): ShotTypeCounts {

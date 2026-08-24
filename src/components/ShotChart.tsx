@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import type { BoxscoreRow } from "../../shared/types";
-import { BASKET_X_M, BASKET_Y_M, buildZoneStats, playersWithShots, type ShotEvent } from "../lib/shotChart";
+import { BASKET_X_M, BASKET_Y_M, buildZoneStats, playersWithShots, type ShotChartPlayerOption, type ShotEvent } from "../lib/shotChart";
 
 // FIBAハーフコートの概略図（1unit = 10cm）。実寸に近づけた簡易図で、正確な公式図面ではない
 const COURT_WIDTH = 150; // 15m（サイドライン間）
@@ -134,7 +133,7 @@ function ZoneHeatmap({ shots }: { shots: ShotEvent[] }) {
 
 interface ShotChartPanelProps {
   teamName: string;
-  players: BoxscoreRow[];
+  players: ShotChartPlayerOption[];
   shots: ShotEvent[];
   /** ショット点（成功=塗りつぶし・失敗=枠線）の色。通常はチームカラー */
   color: string;

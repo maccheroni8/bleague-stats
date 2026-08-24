@@ -61,8 +61,12 @@ export function buildShotEvents(events: PlayByPlayEvent[]): ShotEvent[] {
   return shots;
 }
 
+/** ショットチャートの選手セレクタ用の最小限の選手情報（PlayerID/PlayerNameJのみ参照する）。
+ * BoxscoreRowはこの形を満たすため、試合詳細ページは従来通りBoxscoreRow[]をそのまま渡せる */
+export type ShotChartPlayerOption = Pick<BoxscoreRow, "PlayerID" | "PlayerNameJ">;
+
 /** ショットチャートの選手セレクタ用に、実際にショットを打った選手だけをボックススコア順で抽出する */
-export function playersWithShots(players: BoxscoreRow[], shots: ShotEvent[]): BoxscoreRow[] {
+export function playersWithShots<T extends ShotChartPlayerOption>(players: T[], shots: ShotEvent[]): T[] {
   const idsWithShots = new Set(shots.map((s) => s.playerId));
   return players.filter((p) => idsWithShots.has(p.PlayerID));
 }
