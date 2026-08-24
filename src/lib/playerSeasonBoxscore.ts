@@ -1285,6 +1285,10 @@ export function buildTeamGameBoxTotals(
     assistedFtm: ownMisc.assistedFtm,
     liveTov: ownMisc.liveTov,
     deadTov: ownMisc.deadTov,
+    paint2m: ownMisc.paint2m,
+    paint2a: ownMisc.paint2a,
+    nonPaint2m: ownMisc.nonPaint2m,
+    nonPaint2a: ownMisc.nonPaint2a,
     technicalFouls: ownMisc.technicalFouls + countTeamGeneratedTechnicalFouls(game.raw.PlayByPlays, ownTeamId, option),
   };
   const opp: BoxscoreCounts = {
@@ -1298,6 +1302,10 @@ export function buildTeamGameBoxTotals(
     assistedFtm: oppMisc.assistedFtm,
     liveTov: oppMisc.liveTov,
     deadTov: oppMisc.deadTov,
+    paint2m: oppMisc.paint2m,
+    paint2a: oppMisc.paint2a,
+    nonPaint2m: oppMisc.nonPaint2m,
+    nonPaint2a: oppMisc.nonPaint2a,
     technicalFouls: oppMisc.technicalFouls + countTeamGeneratedTechnicalFouls(game.raw.PlayByPlays, oppTeamId, option),
   };
 

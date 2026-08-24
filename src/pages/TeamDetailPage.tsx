@@ -1708,8 +1708,29 @@ export function TeamDetailPage({ season }: { season: string }) {
 // この関数側で整形する。%系（列ラベルに"%"を含む）は分子分母が同じ係数で相殺されないため
 // ポイント差（±X.X%）、それ以外は原則整数（要件3: 1試合分のカウント系スタッツは
 // 小数ではなく整数で表示する。SeasonBoxscoreColumnのcountDigits（合計モード=0桁）と同じ考え方）。
-// AST/TOV・PPSのみ元々小数表示の比率のため、そのまま桁数を保つ
-const DECIMAL_DIFF_DIGITS: Record<string, number> = { asttov: 1, pps: 2 };
+// AST/TOV・PPS・Rtg系(PACE/ORtg/DRtg/NetRtg)は元々小数表示の指標のため、そのまま桁数を保つ
+const DECIMAL_DIFF_DIGITS: Record<string, number> = { asttov: 1, pps: 2, pace: 1, ortg: 1, drtg: 1, netrtg: 1 };
+
+// col.value()の値スケールが列ごとに異なる: FG%/2P%/3P%/FT%/eFG%/TS%/PAINT2%/MID2%はsafeDiv()
+// ベースで0〜1（format側でformatPctが×100する）だが、USG%/TOV%/AST%/LIVE%/DEAD%と
+// スコアリングタブの%-share系（%PTS等）はsharePct()/tovPct()等が既に0〜100スケールを返す
+// （format側はformatPct100でそのまま%表記にする）。後者を診断表示用のformatColumnDiffで
+// 誤って再度×100すると桁違いの値になるため、0〜100スケールの列だけこの集合で判定して
+// 二重乗算を避ける
+const PCT_ALREADY_0_TO_100: ReadonlySet<string> = new Set([
+  "usg",
+  "tovpct",
+  "astpct",
+  "livetovpct",
+  "deadtovpct",
+  "pctpts",
+  "pctfgm",
+  "pctfga",
+  "pct3pm",
+  "pct3pa",
+  "pctftm",
+  "pctfta",
+]);
 
 function formatColumnDiff(col: BoxscoreColumn, own: BoxscoreCounts, ownCtx: ColumnCtx, opp: BoxscoreCounts, oppCtx: ColumnCtx): string {
   if (!col.value) return "-";
@@ -1717,7 +1738,10 @@ function formatColumnDiff(col: BoxscoreColumn, own: BoxscoreCounts, ownCtx: Colu
   const oppValue = col.value(opp, oppCtx);
   if (ownValue === undefined || oppValue === undefined) return "-";
   const diff = ownValue - oppValue;
-  if (col.label.includes("%")) return `${formatSigned(diff * 100, 1)}%`;
+  if (col.label.includes("%")) {
+    const diffPct = PCT_ALREADY_0_TO_100.has(col.key) ? diff : diff * 100;
+    return `${formatSigned(diffPct, 1)}%`;
+  }
   if (col.key === "min") {
     const sign = diff > 0 ? "+" : diff < 0 ? "-" : "";
     return `${sign}${Math.floor(Math.abs(diff) / 60)}:${String(Math.abs(diff) % 60).padStart(2, "0")}`;

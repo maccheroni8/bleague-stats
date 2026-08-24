@@ -407,44 +407,46 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
   {
     key: "paint2m",
     label: "PAINT2M",
-    format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? String(c.paint2m) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? c.paint2m : undefined),
+    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? String(c.paint2m) : "-"),
+    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? c.paint2m : undefined),
     description: "ペイント内2Pシュートの成功数（ショットチャート座標から判定。2022-23シーズン以降のみ）",
   },
   {
     key: "paint2a",
     label: "PAINT2A",
-    format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? String(c.paint2a) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? c.paint2a : undefined),
+    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? String(c.paint2a) : "-"),
+    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? c.paint2a : undefined),
     description: "ペイント内2Pシュートの試投数（ショットチャート座標から判定。2022-23シーズン以降のみ）",
   },
   {
     key: "paint2pct",
     label: "PAINT2%",
-    format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? formatPct(safeDiv(c.paint2m, c.paint2a)) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? safeDiv(c.paint2m, c.paint2a) : undefined),
+    format: (c, ctx) =>
+      (ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? formatPct(safeDiv(c.paint2m, c.paint2a)) : "-",
+    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? safeDiv(c.paint2m, c.paint2a) : undefined),
     description: "PAINT2M / PAINT2A",
   },
   {
     key: "mid2m",
     label: "MID2M",
-    format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? String(c.nonPaint2m) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? c.nonPaint2m : undefined),
+    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? String(c.nonPaint2m) : "-"),
+    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? c.nonPaint2m : undefined),
     description: "ペイント外2Pシュート（ミッドレンジ）の成功数（ショットチャート座標から判定。2022-23シーズン以降のみ）",
   },
   {
     key: "mid2a",
     label: "MID2A",
-    format: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? String(c.nonPaint2a) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? c.nonPaint2a : undefined),
+    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? String(c.nonPaint2a) : "-"),
+    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? c.nonPaint2a : undefined),
     description: "ペイント外2Pシュート（ミッドレンジ）の試投数（ショットチャート座標から判定。2022-23シーズン以降のみ）",
   },
   {
     key: "mid2pct",
     label: "MID2%",
     format: (c, ctx) =>
-      ctx.isPlayerRow && ctx.shotChartSupported ? formatPct(safeDiv(c.nonPaint2m, c.nonPaint2a)) : "-",
-    value: (c, ctx) => (ctx.isPlayerRow && ctx.shotChartSupported ? safeDiv(c.nonPaint2m, c.nonPaint2a) : undefined),
+      (ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? formatPct(safeDiv(c.nonPaint2m, c.nonPaint2a)) : "-",
+    value: (c, ctx) =>
+      (ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? safeDiv(c.nonPaint2m, c.nonPaint2a) : undefined,
     description: "MID2M / MID2A",
   },
 ];
@@ -642,6 +644,11 @@ function BoxscoreTeamPanel({
     // DESIGN.md参照）
     liveTov: miscTeamTotals.liveTov,
     deadTov: miscTeamTotals.deadTov,
+    // ペイント内外2P分割（PAINT2M等）も同様、選手ごとの値を合算してチーム合計行に反映する
+    paint2m: miscTeamTotals.paint2m,
+    paint2a: miscTeamTotals.paint2a,
+    nonPaint2m: miscTeamTotals.nonPaint2m,
+    nonPaint2a: miscTeamTotals.nonPaint2a,
     // テクニカルファウル数は選手個人分（miscTeamTotals、ActionCD1=24の合算）＋HC/ベンチ分
     // （ActionCD1=20/21、選手に紐付かないためplayers側の合算には含まれない）の合計がチーム全体の
     // 正しい値になる（DESIGN.md 2-2章参照）

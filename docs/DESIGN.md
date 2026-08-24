@@ -5220,3 +5220,74 @@ HTTP/1.1の同時接続数制限（ブラウザあたり6本程度）による�
 比較のいずれからも、個人利用の静的サイトとして許容範囲内と判断し、64-1章で採用した
 「日程結果タブを開いている間は常に生データを取得する」設計をそのまま維持することにした
 （63章の0コスト経路への巻き戻しは行わない）。
+
+---
+
+## 65. 「日程結果」タブの+/-表示・スコアリングタブ「-」表示の不具合修正（2026-08-24）
+
+64章実装後のユーザー確認で4点の不具合が見つかり、調査の上で修正した。
+
+### 65-1. Rtg系（PACE/ORtg/DRtg/NetRtg）の+/-列が整数丸めになっていた
+
+`formatColumnDiff`（`TeamDetailPage.tsx`）は列ラベルに"%"を含まず`DECIMAL_DIFF_DIGITS`にも
+無い列を`formatSigned(Math.round(diff), 0)`で整数表示するフォールバックに落としており、
+PACE/ORtg/DRtg/NetRtgはこのフォールバックに該当していたため、元々小数第1位表示の指標にも
+かかわらず整数に丸められていた。`DECIMAL_DIFF_DIGITS`に`pace`/`ortg`/`drtg`/`netrtg`を
+1桁で追加し解消した。
+
+### 65-2. TOV%/AST%/LIVE%/DEAD%の+/-が桁違いの値になっていた（原因: 列ごとのスケール混同）
+
+`formatColumnDiff`は「列ラベルに"%"を含む列は`col.value()`が0〜1スケール」という前提で
+一律`diff * 100`していたが、実際には`BoxscoreColumn`の`%`系列には2種類のスケールが混在していた:
+- FG%/2P%/3P%/FT%/eFG%/TS%/PAINT2%/MID2%: `safeDiv()`ベースで0〜1（`formatPct`が表示時に
+  ×100する）
+- USG%/TOV%/AST%/LIVE%/DEAD%とスコアリングタブの%-share系（%PTS/%FGM等）:
+  `sharePct()`/`tovPct()`/`usagePct()`が既に0〜100を返す（`formatPct100`は追加の×100をしない）
+
+後者に一律`diff * 100`を適用していたため、例えば8.3%と14.9%の差（-6.53）が誤って
+-653.2%と表示されていた。0〜100スケールの列キー集合`PCT_ALREADY_0_TO_100`を新設し、
+該当列は`diff`をそのまま、それ以外は`diff * 100`とする分岐に修正した。
+
+### 65-3. FG%/3P%等との整合性
+
+調査の結果、FG%/3P%等（0〜1スケール）自体の実装に問題は無く、`formatColumnDiff`側の
+一律`×100`だけが誤りだった。65-2の修正はこの「正しく動いていた方」に合わせる形で、
+0〜100スケール列だけ例外扱いにする方針にした。
+
+### 65-4. スコアリングタブが全項目「-」表示になっていた
+
+2つの原因が重なっていた:
+1. **データ欠落**: `buildTeamGameBoxTotals`（`playerSeasonBoxscore.ts`）が、選手ごとに
+   正しく算出済みの`paint2m`/`paint2a`/`nonPaint2m`/`nonPaint2a`（`buildPlayerBoxscores`→
+   `sumCountsList`で合算済み、F4・被アシスト等と同じ経由）を`own`/`opp`にコピーしておらず、
+   常に0のまま（`buildTeamTotalCounts`はCategory=3行にこのフィールドが無いため0で初期化する）
+   だった
+2. **表示ゲート**: `BoxscoreTable.tsx`のScoringタブ列定義（PAINT2M/PAINT2A/PAINT2%/MID2M/
+   MID2A/MID2%）が`ctx.isPlayerRow`のみをチェックしており、チーム合計行（`isTeamTotalRow`）は
+   データがあっても強制的に「-」になる設計だった（%PTS等の個人シェア系スタッツと同じ扱いに
+   なっていたが、ペイント内外の分割自体はチーム単位でも意味を持つ指標のため、選手行専用に
+   限定する理由が無かった）
+
+対応: `buildTeamGameBoxTotals`のown/opp構築に4フィールドのコピーを追加し、該当6列の表示
+ゲートを`ctx.isPlayerRow || ctx.isTeamTotalRow`に拡張した（%PTS等の個人シェア系は
+「チームは常に自分自身の100%」という定義上の理由でチーム視点に意味が無いため、
+`ctx.isPlayerRow`のみのまま維持した）。
+
+**波及確認**: 試合詳細ページの`BoxscoreTeamPanel`（`BoxscoreTable.tsx`）の「チーム合計」行も
+同じ設計（`buildTeamTotalCounts`のみでpaint2m等を持たない）を共有しており、列定義のゲートを
+共通で変更したため同様に影響する。従来「-」だったチーム合計行のPAINT2M等が実数値になるのは
+仕様改善であり、`BoxscoreTeamPanel`側の`teamTotal`構築にも同じ4フィールドのコピーを追加して
+0表示（誤った値）にならないようにした。63章時点のDESIGN.md記載（「チーム合計行は試合詳細
+ページの「チーム合計」行と同様「-」表示になる」）はこの修正により古い記述になった。
+
+### 65-5. 検証
+
+千葉ジェッツ（2024-25シーズン）の「日程結果」タブで、アドバンスドタブの+/-列（PACE/ORtg/
+DRtg/NetRtgが小数表示に）・Miscタブの+/-列（AST%が-13.6%、LIVE%/DEAD%が+38.5%/-38.5%と
+符号が逆で絶対値が一致する妥当な値に）・スコアリングタブの自チーム視点（PAINT2M/PAINT2A/
+PAINT2%/MID2M/MID2A/MID2%が実数値、%PTS等は引き続き「-」）をブラウザで確認した。
+PAINT2M+MID2Mの合計がトラディショナルタブの2PM列と一致すること（例: 18+2=20）も確認した。
+試合詳細ページ（ScheduleKey=504728、2025-26シーズン、仙台89ERS）の「チーム合計」行でも
+PAINT2M=27等が選手個別値の合計と一致することを確認した（27=2+8+8+1+5+0+1+0+2+0+0）。
+型チェック（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。ブラウザのコンソール
+エラー無し。
