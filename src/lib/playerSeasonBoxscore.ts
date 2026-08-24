@@ -25,9 +25,11 @@ import {
 } from "../../shared/formulas";
 import {
   astToTovRatio,
+  buildPlayTypeCounts,
   buildPlayerBoxscores,
   buildTeamTotalCounts,
   computeTeamRatings,
+  countTeamGeneratedTechnicalFouls,
   formatAstToRatio,
   formatMinutesFromSeconds,
   sharePct,
@@ -36,9 +38,10 @@ import {
 } from "./boxscoreAggregate";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { buildPeriodRangeOptions, type PeriodRangeOption } from "./periodRange";
-import type { GameType, PlayerGameLog, StoredGame, TeamGameLog } from "../../shared/types";
+import type { GameType, PlayerGameLog, StoredGame, TeamGameLog, YahooTurnoverEvent } from "../../shared/types";
 import { computeTeamSituationalStats, type GameTeamInfo, type TeamSituationalStats } from "./situational";
 import { teamShortName } from "../../shared/teamNames";
+import type { ColumnCtx } from "../components/BoxscoreTable";
 
 export type SeasonDisplayMode = "total" | "perGame" | "per30";
 export type SeasonGameTypeFilter = GameType | "both";
@@ -1234,6 +1237,97 @@ export function computeGameTeamPeriodTotals(
   const opp = buildTeamTotalCounts(oppRows, option);
   const { poss } = computeTeamRatings(own, opp);
   return { own, opp, poss };
+}
+
+export interface TeamGameBoxTotals {
+  own: BoxscoreCounts;
+  opp: BoxscoreCounts;
+  ownCtx: ColumnCtx;
+  oppCtx: ColumnCtx;
+}
+
+/**
+ * チーム詳細ページ「日程結果」タブのトラディショナル/アドバンスド/Misc/スコアリング
+ * カテゴリタブ用。試合詳細ページのBoxscoreTeamPanel（src/components/BoxscoreTable.tsx）が
+ * 1試合内で「チーム合計」行を組み立てている処理（buildTeamTotalCounts＋F4・被アシスト・
+ * ライブ/デッドTOV・テクニカルファウルを選手ごとの値から合算する処理）を、自チーム・
+ * 相手チーム双方について行い、そのままCOLUMNS_BY_TAB（同ファイルからexport済み）に渡せる
+ * ColumnCtxまで組み立てる。Misc/Scoringタブの被タグ集計・座標ベースのゾーン分割を含む
+ * BoxscoreCounts全項目が必要なため、computeGameTeamPeriodTotalsと異なりQ別/前後半の
+ * 選択に関わらず常に生データ（StoredGame・Yahoo PBP）が必要（DESIGN.md参照）
+ */
+export function buildTeamGameBoxTotals(
+  game: StoredGame,
+  isHome: boolean,
+  option: PeriodRangeOption | undefined,
+  yahooTurnovers: YahooTurnoverEvent[],
+  shotChartSupported: boolean,
+  yahooPbpSupported: boolean,
+): TeamGameBoxTotals {
+  const ownRows = isHome ? game.raw.HomeBoxscores : game.raw.AwayBoxscores;
+  const oppRows = isHome ? game.raw.AwayBoxscores : game.raw.HomeBoxscores;
+  const ownSide = isHome ? "home" : "away";
+  const oppSide = isHome ? "away" : "home";
+
+  const ownMisc = sumCountsList(buildPlayerBoxscores(ownRows, option, game.raw.PlayByPlays, yahooTurnovers).map((p) => p.counts));
+  const oppMisc = sumCountsList(buildPlayerBoxscores(oppRows, option, game.raw.PlayByPlays, yahooTurnovers).map((p) => p.counts));
+  const ownTeamId = ownRows.find((r) => r.TeamID)?.TeamID ?? null;
+  const oppTeamId = oppRows.find((r) => r.TeamID)?.TeamID ?? null;
+
+  const own: BoxscoreCounts = {
+    ...buildTeamTotalCounts(ownRows, option),
+    dunks: ownMisc.dunks,
+    basketCounts: ownMisc.basketCounts,
+    unsportsmanlikeFouls: ownMisc.unsportsmanlikeFouls,
+    disqualifyingFouls: ownMisc.disqualifyingFouls,
+    assisted2m: ownMisc.assisted2m,
+    assisted3m: ownMisc.assisted3m,
+    assistedFtm: ownMisc.assistedFtm,
+    liveTov: ownMisc.liveTov,
+    deadTov: ownMisc.deadTov,
+    technicalFouls: ownMisc.technicalFouls + countTeamGeneratedTechnicalFouls(game.raw.PlayByPlays, ownTeamId, option),
+  };
+  const opp: BoxscoreCounts = {
+    ...buildTeamTotalCounts(oppRows, option),
+    dunks: oppMisc.dunks,
+    basketCounts: oppMisc.basketCounts,
+    unsportsmanlikeFouls: oppMisc.unsportsmanlikeFouls,
+    disqualifyingFouls: oppMisc.disqualifyingFouls,
+    assisted2m: oppMisc.assisted2m,
+    assisted3m: oppMisc.assisted3m,
+    assistedFtm: oppMisc.assistedFtm,
+    liveTov: oppMisc.liveTov,
+    deadTov: oppMisc.deadTov,
+    technicalFouls: oppMisc.technicalFouls + countTeamGeneratedTechnicalFouls(game.raw.PlayByPlays, oppTeamId, option),
+  };
+
+  const ownPlayType = buildPlayTypeCounts(game.raw.Summaries, ownSide, option);
+  const oppPlayType = buildPlayTypeCounts(game.raw.Summaries, oppSide, option);
+  const ownRatings = computeTeamRatings(own, opp);
+  const oppRatings = computeTeamRatings(opp, own);
+
+  return {
+    own,
+    opp,
+    ownCtx: {
+      own,
+      ownPlayType,
+      ratings: ownRatings,
+      isPlayerRow: false,
+      isTeamTotalRow: true,
+      shotChartSupported,
+      yahooPbpSupported,
+    },
+    oppCtx: {
+      own: opp,
+      ownPlayType: oppPlayType,
+      ratings: oppRatings,
+      isPlayerRow: false,
+      isTeamTotalRow: true,
+      shotChartSupported,
+      yahooPbpSupported,
+    },
+  };
 }
 
 export interface GamePeriodTotals {

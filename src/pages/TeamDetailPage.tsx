@@ -73,6 +73,7 @@ import {
   SEASON_BOX_TABS,
   SEASON_DISPLAY_MODE_LABELS,
   SEASON_GAME_TYPE_LABELS,
+  buildTeamGameBoxTotals,
   buildTeamPeriodStats,
   buildTeamSplitRowsForPeriod,
   countDoubleTripleDoubles,
@@ -82,7 +83,10 @@ import {
   type SeasonBoxscoreCtx,
   type SeasonDisplayMode,
   type SeasonGameTypeFilter,
+  type TeamGameBoxTotals,
 } from "../lib/playerSeasonBoxscore";
+import { BOXSCORE_TABS, COLUMNS_BY_TAB, type BoxscoreColumn, type BoxscoreTabKey, type ColumnCtx } from "../components/BoxscoreTable";
+import type { BoxscoreCounts } from "../lib/boxscoreAggregate";
 import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
 import {
@@ -618,6 +622,20 @@ export function TeamDetailPage({ season }: { season: string }) {
   // （Q別/前後半トグルと共有するキャッシュ）を再利用する
   const [teamShotChartExpanded, setTeamShotChartExpanded] = useState(false);
 
+  // 「日程結果」タブ: 自チーム/opp/+/-トグル・レギュラー/プレーオフ/合算トグル・Q別/前後半トグル・
+  // トラディショナル/アドバンスド/Misc/スコアリングのカテゴリタブ（試合詳細ページのボックススコアと
+  // 全く同じCOLUMNS_BY_TAB/ColumnCtxをbuildTeamGameBoxTotals経由で再利用する。DESIGN.md参照）。
+  // 「選手スタッツ」タブ（60章）と同様、このタブ専用の独立したトグル状態を持つ（「スタッツ」タブの
+  // filter/statsPeriodとは連動しない）。ゲーム種別トグルの既定は「合算」にし、既存の日程結果タブの
+  // 見た目（予定を含む全試合表示）を変えないようにしている点が他のトグルと異なる。
+  // Misc/スコアリングタブのPBPタグ集計・座標ゾーン分割はQ別/前後半に関わらず生データが必要なため、
+  // このタブが開いている間は常にstatsRawGames/teamYahooPbpを取得する（0コストの高速経路は無い）
+  const [scheduleTeamPerspective, setScheduleTeamPerspective] = useState<TeamPerspective>("own");
+  const [scheduleGameType, setScheduleGameType] = useState<SeasonGameTypeFilter>("both");
+  const [schedulePeriod, setSchedulePeriod] = useState<PeriodRangeValue>("all");
+  const schedulePeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === schedulePeriod);
+  const [scheduleBoxTab, setScheduleBoxTab] = useState<BoxscoreTabKey>("traditional");
+
   useEffect(() => {
     statsRawGamesRequestedRef.current = new Set();
     setStatsRawGames(new Map());
@@ -627,8 +645,9 @@ export function TeamDetailPage({ season }: { season: string }) {
   }, [teamId, season]);
 
   useEffect(() => {
-    const needsRawGames = teamShotChartExpanded || (!!statsPeriodOption && statsPeriodOption.periods !== null);
-    if (tab !== "stats" || !needsRawGames || !gameLogs) return;
+    const needsRawGames =
+      teamShotChartExpanded || tab === "schedule" || (!!statsPeriodOption && statsPeriodOption.periods !== null);
+    if ((tab !== "stats" && tab !== "schedule") || !needsRawGames || !gameLogs) return;
     const needed = [
       ...new Set(
         gameLogs.filter((g) => g.min > 0 && !statsRawGamesRequestedRef.current.has(g.scheduleKey)).map((g) => g.scheduleKey),
@@ -657,7 +676,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   }, [tab, statsPeriodOption, gameLogs, season, teamShotChartExpanded]);
 
   useEffect(() => {
-    if (tab !== "stats" || !needsTeamPeriodRecompute || !yahooPbpSupported || !gameLogs) return;
+    if ((tab !== "stats" && tab !== "schedule") || !yahooPbpSupported || !gameLogs) return;
+    if (tab === "stats" && !needsTeamPeriodRecompute) return;
     const needed = [
       ...new Set(
         gameLogs.filter((g) => g.min > 0 && !teamYahooPbpRequestedRef.current.has(g.scheduleKey)).map((g) => g.scheduleKey),
@@ -1015,6 +1035,19 @@ export function TeamDetailPage({ season }: { season: string }) {
     summaries && teamId
       ? buildTeamScheduleRows(summaries, schedule?.upcomingGames ?? [], teamId, team.teamName)
       : [];
+  // 「日程結果」タブのレギュラー/プレーオフ/合算トグル用: scheduleKey→TeamGameLogの引き当て
+  // （未消化・進行中の試合はTeamGameLogが存在しないため「合算」選択時以外は自然に除外される）
+  const gameLogsByScheduleKey = new Map((gameLogs ?? []).map((g) => [g.scheduleKey, g]));
+  const scheduleFilteredRows =
+    scheduleGameType === "both"
+      ? scheduleRows
+      : scheduleRows.filter((row) => gameLogsByScheduleKey.get(row.scheduleKey)?.gameType === scheduleGameType);
+  // 「日程結果」タブのカテゴリタブ用の列定義。試合詳細ページのボックススコアと完全に同じ配列
+  const scheduleBoxColumns = COLUMNS_BY_TAB[scheduleBoxTab];
+  const scheduleShotChartSupported = isShotChartSupported(coverage);
+  // Misc/スコアリングタブのPBPタグ集計にはYahoo PBPも必要。season対応でも該当試合の取得が
+  // 終わっていない間は誤って「0件」と表示しないよう、読み込み中はテーブル全体を「読み込み中」にする
+  const scheduleDataLoading = statsRawGamesLoading || (yahooPbpSupported && teamYahooPbpLoading);
 
   const radarData = teams && teams.length > 1 ? buildRadarData(team, teams) : [];
   const playerColumns = buildPlayerColumns(playerStatMode);
@@ -1226,23 +1259,94 @@ export function TeamDetailPage({ season }: { season: string }) {
         ) : scheduleRows.length === 0 ? (
           <p className="empty-message">日程データがありません</p>
         ) : (
-          <div className="table-scroll">
-            <table className="sortable-table schedule-table">
-              <thead>
-                <tr>
-                  <th className="align-left">日付</th>
-                  <th className="align-left">対戦相手</th>
-                  <th className="align-right">結果</th>
-                  <th className="align-left">会場</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scheduleRows.map((row) => (
-                  <TeamScheduleRowView key={row.scheduleKey} row={row} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="mode-toggle">
+              {(["own", "opp", "diff"] as TeamPerspective[]).map((m) => (
+                <button
+                  key={m}
+                  className={scheduleTeamPerspective === m ? "active" : ""}
+                  onClick={() => setScheduleTeamPerspective(m)}
+                  type="button"
+                >
+                  {TEAM_PERSPECTIVE_LABELS[m]}
+                </button>
+              ))}
+            </div>
+            <div className="mode-toggle">
+              {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
+                <button
+                  key={g}
+                  className={g === scheduleGameType ? "active" : ""}
+                  onClick={() => setScheduleGameType(g)}
+                  type="button"
+                >
+                  {SEASON_GAME_TYPE_LABELS[g]}
+                </button>
+              ))}
+            </div>
+            <PeriodRangeToggle options={SEASON_BOX_PERIOD_OPTIONS} value={schedulePeriod} onChange={setSchedulePeriod} />
+            <div className="tab-bar">
+              {BOXSCORE_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  className={`tab-button${scheduleBoxTab === t.key ? " active" : ""}`}
+                  onClick={() => setScheduleBoxTab(t.key)}
+                  type="button"
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            {scheduleDataLoading && <p className="loading">読み込み中...</p>}
+            {scheduleFilteredRows.length === 0 ? (
+              <p className="empty-message">該当する試合がありません</p>
+            ) : (
+              <div className="table-scroll">
+                <table className="sortable-table schedule-table">
+                  <thead>
+                    <tr>
+                      <th className="align-left">日付</th>
+                      <th className="align-left">対戦相手</th>
+                      <th className="align-right">結果</th>
+                      {scheduleBoxColumns.map((col) => (
+                        <th key={col.key} className="align-right" title={col.description}>
+                          {col.label}
+                        </th>
+                      ))}
+                      <th className="align-left">会場</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduleFilteredRows.map((row) => {
+                      const game = statsRawGames.get(row.scheduleKey);
+                      const boxTotals = game
+                        ? buildTeamGameBoxTotals(
+                            game,
+                            row.isHome,
+                            schedulePeriodOption,
+                            teamYahooPbp.get(row.scheduleKey)?.turnovers ?? [],
+                            scheduleShotChartSupported,
+                            yahooPbpSupported,
+                          )
+                        : null;
+                      return (
+                        <TeamScheduleRowView
+                          key={row.scheduleKey}
+                          row={row}
+                          perspective={scheduleTeamPerspective}
+                          columns={scheduleBoxColumns}
+                          boxTotals={boxTotals}
+                        />
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="page-subtitle">
+              各列は試合詳細ページのボックススコアと同じ算出ロジック（自チーム/opp/+/-切り替え可）。上部のレギュラー/プレーオフ・Q別/前後半トグルと連動する。未消化・進行中の試合は「-」表示になる
+            </p>
+          </>
         ))}
 
       {tab === "stats" && (
@@ -1599,7 +1703,40 @@ export function TeamDetailPage({ season }: { season: string }) {
   );
 }
 
-function TeamScheduleRowView({ row }: { row: TeamScheduleRow }) {
+// 「日程結果」タブの+/-（差分）表示用。BoxscoreColumnはformat(単一のBoxscoreCounts)のみを
+// 持ち差分表示を想定していないため、col.value(own/opp双方の生数値)から差分を求めて
+// この関数側で整形する。%系（列ラベルに"%"を含む）は分子分母が同じ係数で相殺されないため
+// ポイント差（±X.X%）、それ以外は原則整数（要件3: 1試合分のカウント系スタッツは
+// 小数ではなく整数で表示する。SeasonBoxscoreColumnのcountDigits（合計モード=0桁）と同じ考え方）。
+// AST/TOV・PPSのみ元々小数表示の比率のため、そのまま桁数を保つ
+const DECIMAL_DIFF_DIGITS: Record<string, number> = { asttov: 1, pps: 2 };
+
+function formatColumnDiff(col: BoxscoreColumn, own: BoxscoreCounts, ownCtx: ColumnCtx, opp: BoxscoreCounts, oppCtx: ColumnCtx): string {
+  if (!col.value) return "-";
+  const ownValue = col.value(own, ownCtx);
+  const oppValue = col.value(opp, oppCtx);
+  if (ownValue === undefined || oppValue === undefined) return "-";
+  const diff = ownValue - oppValue;
+  if (col.label.includes("%")) return `${formatSigned(diff * 100, 1)}%`;
+  if (col.key === "min") {
+    const sign = diff > 0 ? "+" : diff < 0 ? "-" : "";
+    return `${sign}${Math.floor(Math.abs(diff) / 60)}:${String(Math.abs(diff) % 60).padStart(2, "0")}`;
+  }
+  const digits = DECIMAL_DIFF_DIGITS[col.key];
+  return digits !== undefined ? formatSigned(diff, digits) : formatSigned(Math.round(diff), 0);
+}
+
+function TeamScheduleRowView({
+  row,
+  perspective,
+  columns,
+  boxTotals,
+}: {
+  row: TeamScheduleRow;
+  perspective: TeamPerspective;
+  columns: BoxscoreColumn[];
+  boxTotals: TeamGameBoxTotals | null;
+}) {
   const linkTo = row.status === "upcoming" ? undefined : `/games/${row.scheduleKey}`;
   return (
     <tr className={`schedule-row status-${row.status}`}>
@@ -1621,6 +1758,17 @@ function TeamScheduleRowView({ row }: { row: TeamScheduleRow }) {
           {row.status === "upcoming" && <span className="upcoming-badge">予定</span>}
         </MaybeLink>
       </td>
+      {columns.map((col) => (
+        <td key={col.key} className="align-right">
+          {!boxTotals
+            ? "-"
+            : perspective === "own"
+              ? col.format(boxTotals.own, boxTotals.ownCtx)
+              : perspective === "opp"
+                ? col.format(boxTotals.opp, boxTotals.oppCtx)
+                : formatColumnDiff(col, boxTotals.own, boxTotals.ownCtx, boxTotals.opp, boxTotals.oppCtx)}
+        </td>
+      ))}
       <td className="align-left">{row.venue ?? "-"}</td>
     </tr>
   );
