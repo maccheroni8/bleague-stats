@@ -36,6 +36,7 @@ import {
   type PlayerOnCourtRatings,
 } from "../shared/onCourt.ts";
 import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
+import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../shared/playTypePoints.ts";
 import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
 import { buildShotEvents, paintSplitForShot } from "../shared/shotChart.ts";
 import { teamDivision } from "./lib/divisions.ts";
@@ -703,6 +704,12 @@ export async function aggregateSeason(season: string, category: Category = "prem
     // DQFOUL・AST2M/AST3M/ASTFTM・PAINT2M/PAINT2A・MID2M/MID2Aを実数値表示するための追加集計。
     // いずれも試合単位の単純な合算値のため、ここで1回だけ計算しPlayerGameLogに永続化する
     const ptsOffTovByPlayer = computePointsOffTurnovers(game.raw.PlayByPlays).byPlayer;
+    // PT2IN/PTFB/PT2ND（row.PT2IN等の生フィールド）は「シュート成功本数」でありSummaries公式
+    // フィールド（得点）とスケールが異なるため、ptsOffTovと同じPBPタグ集計方式で得点を算出する
+    // （shared/playTypePoints.ts参照）
+    const pitpByPlayer = computePointsInPaint(game.raw.PlayByPlays).byPlayer;
+    const fbpsByPlayer = computeFastbreakPoints(game.raw.PlayByPlays).byPlayer;
+    const secondChanceByPlayer = computeSecondChancePoints(game.raw.PlayByPlays).byPlayer;
     const assistedScoringByPlayer = computeAssistedScoring(game.raw.PlayByPlays).byScorer;
     const miscEventsByPlayer = buildMiscEventCounts(game.raw.PlayByPlays);
     const paintSplitByPlayer =
@@ -715,6 +722,9 @@ export async function aggregateSeason(season: string, category: Category = "prem
       technicalFouls.byPlayer,
       foreignPlayerCounts,
       ptsOffTovByPlayer,
+      pitpByPlayer,
+      fbpsByPlayer,
+      secondChanceByPlayer,
       assistedScoringByPlayer,
       miscEventsByPlayer,
       paintSplitByPlayer,
@@ -949,6 +959,9 @@ function processPlayers(
   technicalFoulsByPlayer: Map<string, number>,
   foreignPlayerCounts: Map<string, number>,
   ptsOffTovByPlayer: Map<string, number>,
+  pitpByPlayer: Map<string, number>,
+  fbpsByPlayer: Map<string, number>,
+  secondChanceByPlayer: Map<string, number>,
   assistedScoringByPlayer: Map<string, AssistedScoringCounts>,
   miscEventsByPlayer: Map<string, MiscEventCounts>,
   paintSplitByPlayer: Map<string, PaintSplitCounts>,
@@ -1031,9 +1044,9 @@ function processPlayers(
       foulsDrawn: row.FOULON,
       blockedAgainst: row.BSON,
       technicalFouls: technicalFoulsByPlayer.get(row.PlayerID) ?? 0,
-      pt2in: row.PT2IN,
-      ptfb: row.PTFB,
-      pt2nd: row.PT2ND,
+      pt2in: pitpByPlayer.get(row.PlayerID) ?? 0,
+      ptfb: fbpsByPlayer.get(row.PlayerID) ?? 0,
+      pt2nd: secondChanceByPlayer.get(row.PlayerID) ?? 0,
       foreignPlayerCount: foreignPlayerCounts.get(isHome ? game.homeTeam.id : game.awayTeam.id),
       opponentForeignPlayerCount: foreignPlayerCounts.get(opponent.id),
       ptsOffTov: ptsOffTovByPlayer.get(row.PlayerID) ?? 0,

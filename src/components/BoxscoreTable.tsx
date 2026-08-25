@@ -280,14 +280,38 @@ function usagePctOf(c: BoxscoreCounts, ctx: ColumnCtx): number {
 const MISC_COLUMNS: BoxscoreColumn[] = [
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec, description: desc("min", "出場時間") },
   { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts, description: desc("pts", "得点") },
-  { key: "pitp", label: "PITP", format: (c) => String(c.pt2in), value: (c) => c.pt2in, description: "ペイント内での得点（Points in the Paint）" },
-  { key: "fbps", label: "FBPS", format: (c) => String(c.ptfb), value: (c) => c.ptfb, description: "ファストブレイクによる得点（Fastbreak Points）" },
-  { key: "2ndpts", label: "2ND PTS", format: (c) => String(c.pt2nd), value: (c) => c.pt2nd, description: "セカンドチャンス（オフェンスリバウンド後）による得点" },
+  {
+    key: "pitp",
+    label: "PITP",
+    // 選手行のc.pt2inはPBPタグ集計による得点（shared/playTypePoints.ts）で既に正しいが、
+    // チーム合計行（buildTeamTotalCounts()経由）はこの上書きを経由せずBoxscoreRowの生フィールド
+    // （シュート成功本数、スケールが異なる）のままのため、PTSOFFTOと同じくSummaries由来の
+    // 公式得点値（ctx.ownPlayType）を使う（DESIGN.md参照）
+    format: (c, ctx) => (ctx.isTeamTotalRow ? String(ctx.ownPlayType.pt2in) : String(c.pt2in)),
+    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ownPlayType.pt2in : c.pt2in),
+    description: "ペイント内での得点（Points in the Paint）",
+  },
+  {
+    key: "fbps",
+    label: "FBPS",
+    format: (c, ctx) => (ctx.isTeamTotalRow ? String(ctx.ownPlayType.fb) : String(c.ptfb)),
+    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ownPlayType.fb : c.ptfb),
+    description: "ファストブレイクによる得点（Fastbreak Points）",
+  },
+  {
+    key: "2ndpts",
+    label: "2ND PTS",
+    format: (c, ctx) => (ctx.isTeamTotalRow ? String(ctx.ownPlayType.pt2nd) : String(c.pt2nd)),
+    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ownPlayType.pt2nd : c.pt2nd),
+    description: "セカンドチャンス（オフェンスリバウンド後）による得点",
+  },
   {
     key: "ptsofftov",
     label: "PTSOFFTO",
     format: (c, ctx) => (ctx.isTeamTotalRow ? String(ctx.ownPlayType.pft) : String(c.ptsOffTov)),
-    value: (c) => c.ptsOffTov,
+    // valueもformatと同じ分岐にする（teamTotal.ptsOffTovは常に0のため、分岐が無いと
+    // チーム合計行の+/-列・ハイライト判定がPITP等と同様に誤った値になる）
+    value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ownPlayType.pft : c.ptsOffTov),
     description: "ターンオーバーからの得点（Points From Turnover）",
   },
   { key: "dunk", label: "DUNK", format: (c) => String(c.dunks), value: (c) => c.dunks, description: "ダンク成功数" },

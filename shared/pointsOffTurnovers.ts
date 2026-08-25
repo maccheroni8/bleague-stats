@@ -38,7 +38,7 @@ const POINTS_OFF_TURNOVER_TAG = "ポインツオフターンオーバ";
 const MADE_FG_CODES = new Set([1, 3, 4]);
 const MADE_FT_CODE = 7;
 
-function pointsForMadeShot(actionCd1: number): number {
+export function pointsForMadeShot(actionCd1: number): number {
   if (actionCd1 === 1) return 3;
   if (actionCd1 === 3 || actionCd1 === 4) return 2;
   if (actionCd1 === MADE_FT_CODE) return 1;

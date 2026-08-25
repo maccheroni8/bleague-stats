@@ -575,11 +575,14 @@ export interface PlayerGameLog {
   blockedAgainst: number;
   /** テクニカルファウル数（ActionCD1=24）。EFF計算の追加減点補正に使う */
   technicalFouls: number;
-  /** ペイント内得点（PT2IN）。ボックススコアMiscタブのPITP列に対応 */
+  /**
+   * ペイント内得点（PITP）。PlayByPlaysのPlayTextタグ集計による得点（shared/playTypePoints.ts）。
+   * BoxscoreRow.PT2IN（シュート成功本数、スケールが異なる）はそのまま使わない
+   */
   pt2in: number;
-  /** ファストブレイク得点（PTFB）。ボックススコアMiscタブのFBPS列に対応 */
+  /** ファストブレイク得点（FBPS）。pt2inと同じPBPタグ集計方式（shared/playTypePoints.ts） */
   ptfb: number;
-  /** セカンドチャンス得点（PT2ND）。ボックススコアMiscタブの2ND PTS列に対応 */
+  /** セカンドチャンス得点（2ND PTS）。pt2inと同じPBPタグ集計方式（shared/playTypePoints.ts） */
   pt2nd: number;
   /**
    * この試合、自チームが最も長い時間コートに置いていた外国籍選手（外国籍/帰化選手/

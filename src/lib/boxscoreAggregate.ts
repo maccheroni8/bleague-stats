@@ -17,6 +17,7 @@ import {
   type OliverBoxStats,
 } from "../../shared/formulas";
 import { computePointsOffTurnovers } from "../../shared/pointsOffTurnovers";
+import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../../shared/playTypePoints";
 import { computeAssistedScoring, type AssistedScoringCounts, type AssistPair } from "../../shared/assistedScoring";
 import { buildShotEvents, paintSplitForShot, type ShotEvent } from "./shotChart";
 
@@ -43,8 +44,18 @@ export interface BoxscoreCounts {
   plusMinus: number;
   /** 2022-23シーズン以降のみ存在するフィールドのため、値0と未収録を区別するためのフラグ */
   hasPlusMinus: boolean;
+  /**
+   * PITP（ペイント内での得点）。sumCounts()はBoxscoreRow.PT2IN（生フィールド、実体は
+   * 「シュート成功本数」でありスケールが得点と異なる）をそのまま加算するが、
+   * buildPlayerBoxscores()がPlayByPlaysのPlayTextタグ（"インサイドペイント"）から
+   * 算出した正しい得点値で事後的に上書きする（shared/playTypePoints.ts）。チーム合計行
+   * （buildTeamTotalCounts()経由）はこの上書きを経由しないためBoxscoreRowの生フィールド値
+   * （本数）のままで、表示側がSummaries由来のPlayTypeCountsを別途使う（BoxscoreTable.tsx参照）
+   */
   pt2in: number;
+  /** 2ND PTS（セカンドチャンスによる得点）。pt2inと同じ上書きパターン（shared/playTypePoints.ts） */
   pt2nd: number;
+  /** FBPS（ファストブレイクによる得点）。pt2inと同じ上書きパターン（shared/playTypePoints.ts） */
   ptfb: number;
   /**
    * ターンオーバーからの得点（PTSOFFTO）。他のフィールドと異なりBoxscoreRowには個人単位の
@@ -475,6 +486,9 @@ export function buildPlayerBoxscores(
   // periodInRange()でそのまま絞り込める（rowsInPeriodRangeのPeriodCategoryベースの絞り込みとは別経路）
   const periodFilteredPbp = playByPlays.filter((e) => periodInRange(option, e.Period));
   const { byPlayer: ptsOffTovByPlayer } = computePointsOffTurnovers(periodFilteredPbp);
+  const { byPlayer: pitpByPlayer } = computePointsInPaint(periodFilteredPbp);
+  const { byPlayer: fbpsByPlayer } = computeFastbreakPoints(periodFilteredPbp);
+  const { byPlayer: secondChanceByPlayer } = computeSecondChancePoints(periodFilteredPbp);
   // buildShotEvents()はX/Y未収録の行を自然に除外するため、2022-23シーズンより前は
   // 常に空配列になり、以降の集計もpaint2m等が常に0のままになる（呼び出し側でshotChartSupportedを
   // 見て「-」表示にケアする）
@@ -501,6 +515,11 @@ export function buildPlayerBoxscores(
       counts: {
         ...sumCounts(periodRows),
         ptsOffTov: ptsOffTovByPlayer.get(meta.PlayerID) ?? 0,
+        // PT2IN/PTFB/PT2ND（sumCounts()の値、BoxscoreRowの生フィールド由来）は「得点」ではなく
+        // 「シュート成功本数」のため、PBPタグ集計（得点）で上書きする（ptsOffTovと同じパターン）
+        pt2in: pitpByPlayer.get(meta.PlayerID) ?? 0,
+        ptfb: fbpsByPlayer.get(meta.PlayerID) ?? 0,
+        pt2nd: secondChanceByPlayer.get(meta.PlayerID) ?? 0,
         ...paintSplit,
         ...miscEvents,
         ...assistedScoring,
