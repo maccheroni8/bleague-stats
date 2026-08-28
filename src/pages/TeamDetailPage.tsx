@@ -407,13 +407,14 @@ const HONOR_CATEGORY_LABELS: Record<ClubHonor["category"], string> = {
 };
 const HONOR_CATEGORY_ORDER: ClubHonor["category"][] = ["overall", "emperors_cup", "division", "international"];
 
-type DetailTab = "overview" | "playerStats" | "schedule" | "career" | "stats";
+type DetailTab = "overview" | "playerStats" | "schedule" | "career" | "clubRecord" | "stats";
 
 const TAB_LABELS: Record<DetailTab, string> = {
   overview: "概要",
   playerStats: "選手スタッツ",
   schedule: "日程結果",
   career: "通算成績",
+  clubRecord: "クラブレコード",
   stats: "スタッツ",
 };
 
@@ -709,6 +710,102 @@ const CAREER_TOTAL_DEFS: CareerTotalDef[] = [
   { key: "homeAttendance", label: "ホーム来場者数", value: (t) => t.homeAttendance },
 ];
 
+/**
+ * 「クラブレコード」タブ（Phase TG）: 個人詳細ページのキャリアハイ/ワースト（CareerHighGame/
+ * CAREER_HIGH_STATS）と同じ方式をチーム版に転用したもの。1試合単位の最高/最低記録を扱う
+ */
+type TeamRecordGame = TeamGameLog & { season: string };
+
+interface TeamRecordDef {
+  key: string;
+  label: string;
+  value: (g: TeamRecordGame) => number;
+  format?: (v: number) => string;
+  /**
+   * %系の指標は、個人版と同様に低試投数での極端な値がワースト記録として意味を持ちにくいため
+   * 除外する。デフォルトはtrue
+   */
+  worstEligible?: boolean;
+  /** 対象試合の絞り込み（未指定なら全試合）。ホーム来場者数はホーム開催かつ計測済みの試合のみ対象にする */
+  filter?: (g: TeamRecordGame) => boolean;
+}
+
+const TEAM_RECORD_STATS: TeamRecordDef[] = [
+  { key: "pts", label: "得点", value: (g) => g.teamScore },
+  { key: "oppPts", label: "失点", value: (g) => g.opponentScore },
+  { key: "fgm", label: "FG成功数", value: (g) => g.fgm },
+  { key: "fga", label: "FG試投数", value: (g) => g.fga },
+  { key: "fgPct", label: "FG成功率", value: (g) => safeDiv(g.fgm, g.fga), format: formatPct, worstEligible: false },
+  { key: "twoPm", label: "2P成功数", value: (g) => g.fgm - g.tpm },
+  { key: "twoPa", label: "2P試投数", value: (g) => g.fga - g.tpa },
+  {
+    key: "twoPct",
+    label: "2P成功率",
+    value: (g) => safeDiv(g.fgm - g.tpm, g.fga - g.tpa),
+    format: formatPct,
+    worstEligible: false,
+  },
+  { key: "tpm", label: "3P成功数", value: (g) => g.tpm },
+  { key: "tpa", label: "3P試投数", value: (g) => g.tpa },
+  { key: "tpPct", label: "3P成功率", value: (g) => safeDiv(g.tpm, g.tpa), format: formatPct, worstEligible: false },
+  { key: "ftm", label: "フリースロー成功数", value: (g) => g.ftm },
+  { key: "fta", label: "フリースロー試投数", value: (g) => g.fta },
+  {
+    key: "ftPct",
+    label: "フリースロー成功率",
+    value: (g) => safeDiv(g.ftm, g.fta),
+    format: formatPct,
+    worstEligible: false,
+  },
+  { key: "oreb", label: "オフェンスリバウンド", value: (g) => g.oreb },
+  { key: "dreb", label: "ディフェンスリバウンド", value: (g) => g.dreb },
+  { key: "reb", label: "トータルリバウンド", value: (g) => g.reb },
+  { key: "ast", label: "アシスト", value: (g) => g.ast },
+  { key: "tov", label: "ターンオーバー", value: (g) => g.tov },
+  { key: "stl", label: "スティール", value: (g) => g.stl },
+  { key: "blk", label: "ブロックショット", value: (g) => g.blk },
+  { key: "pf", label: "ファウル", value: (g) => g.pf },
+  { key: "fbps", label: "ファストブレイクポイント", value: (g) => g.fb },
+  { key: "pitp", label: "ペイント内得点", value: (g) => g.pt2in },
+  { key: "ptsOffTov", label: "ポイントオフターンオーバー", value: (g) => g.pft },
+  { key: "secondChancePts", label: "セカンドチャンスポイント", value: (g) => g.pt2nd },
+  { key: "foulsDrawn", label: "ファウルドローン", value: (g) => g.foulsDrawn },
+  { key: "dunks", label: "ダンク", value: (g) => g.dunks },
+  {
+    key: "attendance",
+    label: "ホーム来場者数",
+    value: (g) => g.attendance ?? 0,
+    filter: (g) => g.isHome && g.attendance !== undefined,
+  },
+];
+
+/** 同じ記録値の試合が複数ある場合、新しい順（日付降順）に並べる（個人版と同じ方式） */
+function sortTeamRecordGamesByDateDesc(games: TeamRecordGame[]): TeamRecordGame[] {
+  return [...games].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+}
+
+/** シーズン単位の特殊集計（最多勝利数・最多連勝）の1シーズン分 */
+interface TeamSeasonSpecialAggregate {
+  season: string;
+  wins: number;
+  streak: number;
+}
+
+/** シーズン単位の値から最高値のシーズン（代表）と、同値タイの他シーズン一覧を求める */
+function bestTeamSeasonRecord(
+  aggregates: TeamSeasonSpecialAggregate[],
+  pick: (a: TeamSeasonSpecialAggregate) => number,
+): { value: number; season: string; otherSeasons: string[] } | null {
+  if (aggregates.length === 0) return null;
+  const best = Math.max(...aggregates.map(pick));
+  const matches = aggregates
+    .filter((a) => pick(a) === best)
+    .map((a) => a.season)
+    .sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+  const [season, ...otherSeasons] = matches;
+  return { value: best, season: season!, otherSeasons };
+}
+
 export function TeamDetailPage({ season }: { season: string }) {
   const { teamId } = useParams<{ teamId: string }>();
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
@@ -746,7 +843,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [careerGameTypeFilter, setCareerGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
 
   useEffect(() => {
-    if (tab !== "career" || !teamId || !seasons || careerFetchStartedRef.current) return;
+    if ((tab !== "career" && tab !== "clubRecord") || !teamId || !seasons || careerFetchStartedRef.current) return;
     careerFetchStartedRef.current = true;
     setCareerLoading(true);
     setCareerError(null);
@@ -771,6 +868,80 @@ export function TeamDetailPage({ season }: { season: string }) {
   );
   const careerTotals = useMemo(() => buildTeamCareerTotals(careerFilteredLogs), [careerFilteredLogs]);
   const careerLongestWinStreak = useMemo(() => longestWinStreak(careerFilteredLogs), [careerFilteredLogs]);
+
+  // 「クラブレコード」タブ（Phase TG）: 「通算成績」タブと同じcareerData・careerGameTypeFilter
+  // を共有する（個人詳細ページのキャリアハイ/通算成績タブが1つのトグルを共有するのと同じ方針）
+  const [expandedClubRecordTieCards, setExpandedClubRecordTieCards] = useState<Set<string>>(new Set());
+  const toggleClubRecordTieCard = (key: string) => {
+    setExpandedClubRecordTieCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const clubRecordAllGames = useMemo<TeamRecordGame[]>(() => {
+    if (!careerData) return [];
+    return filterByGameType(
+      careerData.flatMap((cd) => cd.logs.map((g) => ({ ...g, season: cd.season }))),
+      careerGameTypeFilter,
+    );
+  }, [careerData, careerGameTypeFilter]);
+
+  const clubRecords = useMemo(() => {
+    return TEAM_RECORD_STATS.map((def) => {
+      const pool = def.filter ? clubRecordAllGames.filter(def.filter) : clubRecordAllGames;
+      let bestValue: number | null = null;
+      for (const g of pool) {
+        const v = def.value(g);
+        if (bestValue === null || v > bestValue) bestValue = v;
+      }
+      if (bestValue === null) return null;
+      const matches = sortTeamRecordGamesByDateDesc(pool.filter((g) => def.value(g) === bestValue));
+      const [game, ...otherGames] = matches;
+      return { ...def, game, otherGames, display: def.format ? def.format(bestValue) : String(bestValue) };
+    }).filter((r): r is TeamRecordDef & { game: TeamRecordGame; otherGames: TeamRecordGame[]; display: string } => r !== null);
+  }, [clubRecordAllGames]);
+
+  const clubWorsts = useMemo(() => {
+    return TEAM_RECORD_STATS.filter((def) => def.worstEligible !== false)
+      .map((def) => {
+        const pool = def.filter ? clubRecordAllGames.filter(def.filter) : clubRecordAllGames;
+        let worstValue: number | null = null;
+        for (const g of pool) {
+          const v = def.value(g);
+          if (worstValue === null || v < worstValue) worstValue = v;
+        }
+        if (worstValue === null) return null;
+        const matches = sortTeamRecordGamesByDateDesc(pool.filter((g) => def.value(g) === worstValue));
+        const [game, ...otherGames] = matches;
+        return { ...def, game, otherGames, display: def.format ? def.format(worstValue) : String(worstValue) };
+      })
+      .filter((r): r is TeamRecordDef & { game: TeamRecordGame; otherGames: TeamRecordGame[]; display: string } => r !== null);
+  }, [clubRecordAllGames]);
+
+  // シーズン単位の特殊集計（最多勝利数・最多連勝）。既存のlongestWinStreak()をシーズンごとの
+  // 試合ログに絞って呼ぶだけで「シーズン内」の記録になる（シーズンをまたいだ通算成績タブの
+  // 最多連勝＝careerLongestWinStreakとは別の値）
+  const clubSeasonAggregates = useMemo<TeamSeasonSpecialAggregate[]>(() => {
+    if (!careerData) return [];
+    return careerData
+      .map((cd) => {
+        const filtered = filterByGameType(cd.logs, careerGameTypeFilter);
+        return { season: cd.season, wins: filtered.filter((g) => g.win).length, streak: longestWinStreak(filtered), games: filtered.length };
+      })
+      .filter((s) => s.games > 0);
+  }, [careerData, careerGameTypeFilter]);
+
+  const mostWinsSeasonRecord = useMemo(
+    () => bestTeamSeasonRecord(clubSeasonAggregates, (a) => a.wins),
+    [clubSeasonAggregates],
+  );
+  const longestStreakSeasonRecord = useMemo(
+    () => bestTeamSeasonRecord(clubSeasonAggregates, (a) => a.streak),
+    [clubSeasonAggregates],
+  );
 
   // 「スタッツ」タブ: 自チーム/opp/+/-トグル・Q別/前後半トグル（上部のstat-grid・
   // シチュエーション別成績（チーム版）の両方で共有する。「試合」選択時は追加取得不要
@@ -1568,6 +1739,97 @@ export function TeamDetailPage({ season }: { season: string }) {
         </>
       )}
 
+      {tab === "clubRecord" && (
+        <>
+          <div className="mode-toggle">
+            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
+              <button
+                key={g}
+                className={g === careerGameTypeFilter ? "active" : ""}
+                onClick={() => setCareerGameTypeFilter(g)}
+                type="button"
+              >
+                {SEASON_GAME_TYPE_LABELS[g]}
+              </button>
+            ))}
+          </div>
+          {careerLoading && !careerData ? (
+            <p className="loading">読み込み中...</p>
+          ) : careerError ? (
+            <p className="error-message">{careerError}</p>
+          ) : !careerData || careerData.length === 0 ? (
+            <p className="empty-message">クラブレコードのデータがありません</p>
+          ) : (
+            <>
+              <h3 className="career-highs-subheading">シーズン記録</h3>
+              <div className="career-highs-grid">
+                {mostWinsSeasonRecord && (
+                  <SeasonRecordCard
+                    teamId={teamId ?? ""}
+                    tieKey="season:wins"
+                    label="最多勝利数（1シーズン）"
+                    display={`${mostWinsSeasonRecord.value}勝`}
+                    season={mostWinsSeasonRecord.season}
+                    otherSeasons={mostWinsSeasonRecord.otherSeasons}
+                    expandedKeys={expandedClubRecordTieCards}
+                    onToggle={toggleClubRecordTieCard}
+                  />
+                )}
+                {longestStreakSeasonRecord && (
+                  <SeasonRecordCard
+                    teamId={teamId ?? ""}
+                    tieKey="season:streak"
+                    label="最多連勝（シーズン内）"
+                    display={`${longestStreakSeasonRecord.value}連勝`}
+                    season={longestStreakSeasonRecord.season}
+                    otherSeasons={longestStreakSeasonRecord.otherSeasons}
+                    expandedKeys={expandedClubRecordTieCards}
+                    onToggle={toggleClubRecordTieCard}
+                  />
+                )}
+              </div>
+
+              <h3 className="career-highs-subheading">クラブレコード</h3>
+              <div className="career-highs-grid">
+                {clubRecords.map((r) => (
+                  <ClubRecordCard
+                    key={r.key}
+                    tieKey={`high:${r.key}`}
+                    label={r.label}
+                    display={r.display}
+                    game={r.game}
+                    otherGames={r.otherGames}
+                    expandedKeys={expandedClubRecordTieCards}
+                    onToggle={toggleClubRecordTieCard}
+                  />
+                ))}
+              </div>
+
+              <h3 className="career-highs-subheading">クラブワースト</h3>
+              <div className="career-highs-grid">
+                {clubWorsts.map((r) => (
+                  <ClubRecordCard
+                    key={r.key}
+                    tieKey={`worst:${r.key}`}
+                    label={r.label}
+                    display={r.display}
+                    game={r.game}
+                    otherGames={r.otherGames}
+                    expandedKeys={expandedClubRecordTieCards}
+                    onToggle={toggleClubRecordTieCard}
+                  />
+                ))}
+              </div>
+              <p className="page-subtitle">
+                {careerData[0]?.season}〜{careerData[careerData.length - 1]?.season}シーズンの中での1試合の最高/最低記録
+                （PITP/FBPS/2ND PTS/PTSOFFTOはPBPタグ集計による得点ベースの値。ホーム来場者数はホーム開催試合のみが対象）。
+                %系の指標は低試投数での極端な値を避けるため、クラブワーストの対象外
+              </p>
+            </>
+          )}
+        </>
+      )}
+
       {tab === "stats" && (
         <>
           <SituationalFilterPicker
@@ -2032,6 +2294,112 @@ function StatTile({ label, value, rank }: { label: string; value: string; rank?:
       <div className="label">{label}</div>
       <div className="value">{value}</div>
       {rank && <div className="rank">{rank}</div>}
+    </div>
+  );
+}
+
+/**
+ * 「クラブレコード」タブの1試合記録カード。個人詳細ページのCareerHighCardと同じ方式
+ * （同値タイの試合が複数ある場合、代表試合〔最新〕を主表示にし、残りを「他◯試合」で展開する）
+ */
+function ClubRecordCard({
+  tieKey,
+  label,
+  display,
+  game,
+  otherGames,
+  expandedKeys,
+  onToggle,
+}: {
+  tieKey: string;
+  label: string;
+  display: string;
+  game: TeamRecordGame;
+  otherGames: TeamRecordGame[];
+  expandedKeys: Set<string>;
+  onToggle: (key: string) => void;
+}) {
+  const expanded = expandedKeys.has(tieKey);
+  return (
+    <div className="career-high-card">
+      <div className="career-high-label">{label}</div>
+      <div className="career-high-value">{display}</div>
+      <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}`} className="career-high-game-link">
+        {game.date}　{game.isHome ? "vs" : "@"}
+        {game.opponentTeamName}
+      </RouterLink>
+      {otherGames.length > 0 && (
+        <>
+          <button type="button" className="career-high-others-toggle" onClick={() => onToggle(tieKey)}>
+            {expanded ? "閉じる" : `他${otherGames.length}試合`}
+          </button>
+          {expanded && (
+            <ul className="career-high-others-list">
+              {otherGames.map((g) => (
+                <li key={g.scheduleKey}>
+                  <RouterLink to={`/games/${g.scheduleKey}?season=${g.season}`} className="career-high-game-link">
+                    {g.date}　{g.isHome ? "vs" : "@"}
+                    {g.opponentTeamName}
+                  </RouterLink>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 「クラブレコード」タブのシーズン単位記録カード（最多勝利数・最多連勝）。ClubRecordCardと同じ
+ * タイ表示方式だが、試合ではなくシーズン単位（同値タイの他シーズンを展開）で扱う
+ */
+function SeasonRecordCard({
+  teamId,
+  tieKey,
+  label,
+  display,
+  season,
+  otherSeasons,
+  expandedKeys,
+  onToggle,
+}: {
+  teamId: string;
+  tieKey: string;
+  label: string;
+  display: string;
+  season: string;
+  otherSeasons: string[];
+  expandedKeys: Set<string>;
+  onToggle: (key: string) => void;
+}) {
+  const expanded = expandedKeys.has(tieKey);
+  return (
+    <div className="career-high-card">
+      <div className="career-high-label">{label}</div>
+      <div className="career-high-value">{display}</div>
+      <RouterLink to={`/teams/${teamId}?season=${season}`} className="career-high-game-link">
+        {season}シーズン
+      </RouterLink>
+      {otherSeasons.length > 0 && (
+        <>
+          <button type="button" className="career-high-others-toggle" onClick={() => onToggle(tieKey)}>
+            {expanded ? "閉じる" : `他${otherSeasons.length}シーズン`}
+          </button>
+          {expanded && (
+            <ul className="career-high-others-list">
+              {otherSeasons.map((s) => (
+                <li key={s}>
+                  <RouterLink to={`/teams/${teamId}?season=${s}`} className="career-high-game-link">
+                    {s}シーズン
+                  </RouterLink>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
     </div>
   );
 }
