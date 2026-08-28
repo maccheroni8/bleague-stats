@@ -407,12 +407,13 @@ const HONOR_CATEGORY_LABELS: Record<ClubHonor["category"], string> = {
 };
 const HONOR_CATEGORY_ORDER: ClubHonor["category"][] = ["overall", "emperors_cup", "division", "international"];
 
-type DetailTab = "overview" | "playerStats" | "schedule" | "stats";
+type DetailTab = "overview" | "playerStats" | "schedule" | "career" | "stats";
 
 const TAB_LABELS: Record<DetailTab, string> = {
   overview: "概要",
   playerStats: "選手スタッツ",
   schedule: "日程結果",
+  career: "通算成績",
   stats: "スタッツ",
 };
 
@@ -560,6 +561,154 @@ interface TeamSituationalStatsGroup {
   rows: TeamSituationalStatsRow[];
 }
 
+/**
+ * 「通算成績」タブ（Phase TF）: 全シーズン合算の単一の合計値（平均ではない）。
+ * PlayerDetailPage.tsxのCareerCountTotals（45章）と同じ考え方をチーム版に転用したもの
+ */
+interface TeamCareerTotals {
+  wins: number;
+  games: number;
+  pts: number;
+  oppPts: number;
+  fgm: number;
+  fga: number;
+  twoPm: number;
+  twoPa: number;
+  tpm: number;
+  tpa: number;
+  ftm: number;
+  fta: number;
+  oreb: number;
+  dreb: number;
+  reb: number;
+  ast: number;
+  tov: number;
+  stl: number;
+  blk: number;
+  pf: number;
+  fbps: number;
+  pitp: number;
+  ptsOffTov: number;
+  secondChancePts: number;
+  foulsDrawn: number;
+  dunks: number;
+  homeAttendance: number;
+}
+
+function buildTeamCareerTotals(logs: TeamGameLog[]): TeamCareerTotals {
+  const totals: TeamCareerTotals = {
+    wins: 0,
+    games: 0,
+    pts: 0,
+    oppPts: 0,
+    fgm: 0,
+    fga: 0,
+    twoPm: 0,
+    twoPa: 0,
+    tpm: 0,
+    tpa: 0,
+    ftm: 0,
+    fta: 0,
+    oreb: 0,
+    dreb: 0,
+    reb: 0,
+    ast: 0,
+    tov: 0,
+    stl: 0,
+    blk: 0,
+    pf: 0,
+    fbps: 0,
+    pitp: 0,
+    ptsOffTov: 0,
+    secondChancePts: 0,
+    foulsDrawn: 0,
+    dunks: 0,
+    homeAttendance: 0,
+  };
+  for (const g of logs) {
+    totals.wins += g.win ? 1 : 0;
+    totals.games += 1;
+    totals.pts += g.teamScore;
+    totals.oppPts += g.opponentScore;
+    totals.fgm += g.fgm;
+    totals.fga += g.fga;
+    totals.twoPm += g.fgm - g.tpm;
+    totals.twoPa += g.fga - g.tpa;
+    totals.tpm += g.tpm;
+    totals.tpa += g.tpa;
+    totals.ftm += g.ftm;
+    totals.fta += g.fta;
+    totals.oreb += g.oreb;
+    totals.dreb += g.dreb;
+    totals.reb += g.reb;
+    totals.ast += g.ast;
+    totals.tov += g.tov;
+    totals.stl += g.stl;
+    totals.blk += g.blk;
+    totals.pf += g.pf;
+    totals.fbps += g.fb;
+    totals.pitp += g.pt2in;
+    totals.ptsOffTov += g.pft;
+    totals.secondChancePts += g.pt2nd;
+    totals.foulsDrawn += g.foulsDrawn;
+    totals.dunks += g.dunks;
+    if (g.isHome && g.attendance !== undefined) totals.homeAttendance += g.attendance;
+  }
+  return totals;
+}
+
+/** そのチームの全試合を日付順に走査し、最長の連続勝利記録を求める（ユーザー指定通り） */
+function longestWinStreak(logs: TeamGameLog[]): number {
+  const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
+  let max = 0;
+  let current = 0;
+  for (const g of sorted) {
+    if (g.win) {
+      current += 1;
+      if (current > max) max = current;
+    } else {
+      current = 0;
+    }
+  }
+  return max;
+}
+
+interface CareerTotalDef {
+  key: string;
+  label: string;
+  value: (t: TeamCareerTotals) => number;
+}
+
+const CAREER_TOTAL_DEFS: CareerTotalDef[] = [
+  { key: "wins", label: "勝利数", value: (t) => t.wins },
+  { key: "games", label: "試合数", value: (t) => t.games },
+  { key: "pts", label: "得点", value: (t) => t.pts },
+  { key: "oppPts", label: "失点", value: (t) => t.oppPts },
+  { key: "fgm", label: "FG成功数", value: (t) => t.fgm },
+  { key: "fga", label: "FG試投数", value: (t) => t.fga },
+  { key: "twoPm", label: "2P成功数", value: (t) => t.twoPm },
+  { key: "twoPa", label: "2P試投数", value: (t) => t.twoPa },
+  { key: "tpm", label: "3P成功数", value: (t) => t.tpm },
+  { key: "tpa", label: "3P試投数", value: (t) => t.tpa },
+  { key: "ftm", label: "フリースロー成功数", value: (t) => t.ftm },
+  { key: "fta", label: "フリースロー試投数", value: (t) => t.fta },
+  { key: "oreb", label: "オフェンスリバウンド", value: (t) => t.oreb },
+  { key: "dreb", label: "ディフェンスリバウンド", value: (t) => t.dreb },
+  { key: "reb", label: "トータルリバウンド", value: (t) => t.reb },
+  { key: "ast", label: "アシスト", value: (t) => t.ast },
+  { key: "tov", label: "ターンオーバー", value: (t) => t.tov },
+  { key: "stl", label: "スティール", value: (t) => t.stl },
+  { key: "blk", label: "ブロックショット", value: (t) => t.blk },
+  { key: "pf", label: "ファウル", value: (t) => t.pf },
+  { key: "fbps", label: "ファストブレイクポイント", value: (t) => t.fbps },
+  { key: "pitp", label: "ペイント内得点", value: (t) => t.pitp },
+  { key: "ptsOffTov", label: "ポイントオフターンオーバー", value: (t) => t.ptsOffTov },
+  { key: "secondChancePts", label: "セカンドチャンスポイント", value: (t) => t.secondChancePts },
+  { key: "foulsDrawn", label: "ファウルドローン", value: (t) => t.foulsDrawn },
+  { key: "dunks", label: "ダンク", value: (t) => t.dunks },
+  { key: "homeAttendance", label: "ホーム来場者数", value: (t) => t.homeAttendance },
+];
+
 export function TeamDetailPage({ season }: { season: string }) {
   const { teamId } = useParams<{ teamId: string }>();
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
@@ -587,6 +736,41 @@ export function TeamDetailPage({ season }: { season: string }) {
 
   const [tab, setTab] = useState<DetailTab>("overview");
   const [playerStatMode, setPlayerStatMode] = useState<PlayerStatMode>("basic");
+
+  // 「通算成績」タブ（Phase TF）: 個人詳細ページのcareerDataと同じパターンで、このチームが
+  // 存在する全シーズン分のTeamGameLogをタブを開いたときだけ遅延取得する
+  const [careerData, setCareerData] = useState<{ season: string; logs: TeamGameLog[] }[] | null>(null);
+  const [careerLoading, setCareerLoading] = useState(false);
+  const [careerError, setCareerError] = useState<string | null>(null);
+  const careerFetchStartedRef = useRef(false);
+  const [careerGameTypeFilter, setCareerGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
+
+  useEffect(() => {
+    if (tab !== "career" || !teamId || !seasons || careerFetchStartedRef.current) return;
+    careerFetchStartedRef.current = true;
+    setCareerLoading(true);
+    setCareerError(null);
+    Promise.all(
+      seasons.map(async (s) => {
+        try {
+          const logs = await fetchTeamGameLogs(s.season, teamId);
+          return { season: s.season, logs };
+        } catch {
+          return { season: s.season, logs: [] as TeamGameLog[] };
+        }
+      }),
+    )
+      .then((results) => setCareerData(results.filter((r) => r.logs.length > 0)))
+      .catch(() => setCareerError("通算成績の取得に失敗しました"))
+      .finally(() => setCareerLoading(false));
+  }, [tab, teamId, seasons]);
+
+  const careerFilteredLogs = useMemo(
+    () => (careerData ? filterByGameType(careerData.flatMap((cd) => cd.logs), careerGameTypeFilter) : []),
+    [careerData, careerGameTypeFilter],
+  );
+  const careerTotals = useMemo(() => buildTeamCareerTotals(careerFilteredLogs), [careerFilteredLogs]);
+  const careerLongestWinStreak = useMemo(() => longestWinStreak(careerFilteredLogs), [careerFilteredLogs]);
 
   // 「スタッツ」タブ: 自チーム/opp/+/-トグル・Q別/前後半トグル（上部のstat-grid・
   // シチュエーション別成績（チーム版）の両方で共有する。「試合」選択時は追加取得不要
@@ -1346,6 +1530,43 @@ export function TeamDetailPage({ season }: { season: string }) {
             </p>
           </>
         ))}
+
+      {tab === "career" && (
+        <>
+          <div className="mode-toggle">
+            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
+              <button
+                key={g}
+                className={g === careerGameTypeFilter ? "active" : ""}
+                onClick={() => setCareerGameTypeFilter(g)}
+                type="button"
+              >
+                {SEASON_GAME_TYPE_LABELS[g]}
+              </button>
+            ))}
+          </div>
+          {careerLoading && !careerData ? (
+            <p className="loading">読み込み中...</p>
+          ) : careerError ? (
+            <p className="error-message">{careerError}</p>
+          ) : !careerData || careerData.length === 0 ? (
+            <p className="empty-message">通算成績のデータがありません</p>
+          ) : (
+            <>
+              <div className="stat-grid">
+                {CAREER_TOTAL_DEFS.map((def) => (
+                  <StatTile key={def.key} label={def.label} value={def.value(careerTotals).toLocaleString()} />
+                ))}
+                <StatTile label="最多連勝" value={`${careerLongestWinStreak}連勝`} />
+              </div>
+              <p className="page-subtitle">
+                {careerData[0]?.season}〜{careerData[careerData.length - 1]?.season}シーズンの合計値（PITP/FBPS/2ND
+                PTS/PTSOFFTOはPBPタグ集計による得点ベースの値。ホーム来場者数はホーム開催試合のみの合計）
+              </p>
+            </>
+          )}
+        </>
+      )}
 
       {tab === "stats" && (
         <>

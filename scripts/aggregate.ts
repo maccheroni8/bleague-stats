@@ -381,6 +381,20 @@ function buildMiscEventCounts(playByPlays: PlayByPlayEvent[]): Map<string, MiscE
   return byPlayer;
 }
 
+/**
+ * ダンク数をチーム単位で集計する（buildMiscEventCounts()の選手単位版と同じ判定条件、
+ * TeamID単位にしただけ。チーム詳細ページ「通算成績」タブ用。DESIGN.md参照）
+ */
+function countTeamDunks(playByPlays: PlayByPlayEvent[]): Map<string, number> {
+  const byTeam = new Map<string, number>();
+  for (const ev of playByPlays) {
+    if (ev.ActionCD1 === DUNK_ACTION_CD1 && ev.PlayText.includes("ダンク") && ev.TeamID) {
+      byTeam.set(ev.TeamID, (byTeam.get(ev.TeamID) ?? 0) + 1);
+    }
+  }
+  return byTeam;
+}
+
 interface PaintSplitCounts {
   paint2m: number;
   paint2a: number;
@@ -703,13 +717,20 @@ export async function aggregateSeason(season: string, category: Category = "prem
     // シーズン集計ボックススコア（playerSeasonBoxscore.ts）でPTSOFFTO・DUNK・AND1・UFOUL・
     // DQFOUL・AST2M/AST3M/ASTFTM・PAINT2M/PAINT2A・MID2M/MID2Aを実数値表示するための追加集計。
     // いずれも試合単位の単純な合算値のため、ここで1回だけ計算しPlayerGameLogに永続化する
-    const ptsOffTovByPlayer = computePointsOffTurnovers(game.raw.PlayByPlays).byPlayer;
+    const ptsOffTov = computePointsOffTurnovers(game.raw.PlayByPlays);
     // PT2IN/PTFB/PT2ND（row.PT2IN等の生フィールド）は「シュート成功本数」でありSummaries公式
     // フィールド（得点）とスケールが異なるため、ptsOffTovと同じPBPタグ集計方式で得点を算出する
     // （shared/playTypePoints.ts参照）
-    const pitpByPlayer = computePointsInPaint(game.raw.PlayByPlays).byPlayer;
-    const fbpsByPlayer = computeFastbreakPoints(game.raw.PlayByPlays).byPlayer;
-    const secondChanceByPlayer = computeSecondChancePoints(game.raw.PlayByPlays).byPlayer;
+    const pitp = computePointsInPaint(game.raw.PlayByPlays);
+    const fbps = computeFastbreakPoints(game.raw.PlayByPlays);
+    const secondChance = computeSecondChancePoints(game.raw.PlayByPlays);
+    const ptsOffTovByPlayer = ptsOffTov.byPlayer;
+    const pitpByPlayer = pitp.byPlayer;
+    const fbpsByPlayer = fbps.byPlayer;
+    const secondChanceByPlayer = secondChance.byPlayer;
+    // チーム詳細ページ「通算成績」タブ（Phase TF）の単純合計値用。個人単位と同じPBPタグ集計の
+    // byTeam側をそのまま使う（Summaries由来のPlayTypeCountsと完全一致することは66章で検証済み）
+    const teamDunks = countTeamDunks(game.raw.PlayByPlays);
     const assistedScoringByPlayer = computeAssistedScoring(game.raw.PlayByPlays).byScorer;
     const miscEventsByPlayer = buildMiscEventCounts(game.raw.PlayByPlays);
     const paintSplitByPlayer =
@@ -730,7 +751,19 @@ export async function aggregateSeason(season: string, category: Category = "prem
       paintSplitByPlayer,
       onCourtRatingsByPlayer,
     );
-    processTeams(game, gameType, teams, ensureTeam, technicalFouls.byTeam, foreignPlayerCounts);
+    processTeams(
+      game,
+      gameType,
+      teams,
+      ensureTeam,
+      technicalFouls.byTeam,
+      foreignPlayerCounts,
+      pitp.byTeam,
+      fbps.byTeam,
+      ptsOffTov.byTeam,
+      secondChance.byTeam,
+      teamDunks,
+    );
     processLineups(game, teamLineups, onCourt);
   }
 
@@ -1086,6 +1119,7 @@ function teamGameLogStats(row: BoxscoreRow, poss: number) {
     tpa: row.PT3A,
     ftm: row.FTM,
     fta: row.FTA,
+    foulsDrawn: row.FOULON,
     poss,
   };
 }
@@ -1120,6 +1154,11 @@ function processTeams(
   ensureTeam: (teamId: string, teamName: string) => TeamAccumulator,
   technicalFoulsByTeam: Map<string, number>,
   foreignPlayerCounts: Map<string, number>,
+  pitpByTeam: Map<string, number>,
+  fbpsByTeam: Map<string, number>,
+  ptsOffTovByTeam: Map<string, number>,
+  secondChanceByTeam: Map<string, number>,
+  dunksByTeam: Map<string, number>,
 ): void {
   const homeRow = pickTeamRow(game.raw.HomeBoxscores, 3)[0];
   const awayRow = pickTeamRow(game.raw.AwayBoxscores, 3)[0];
@@ -1162,6 +1201,8 @@ function processTeams(
     }
   }
 
+  const attendance = game.raw.Game.Attendance ?? undefined;
+
   home.gameLogs.push({
     scheduleKey: game.scheduleKey,
     date: game.date,
@@ -1176,6 +1217,12 @@ function processTeams(
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     ...teamGameLogStats(homeRow, gamePoss),
     ...opponentGameLogStats(awayRow),
+    pt2in: pitpByTeam.get(game.homeTeam.id) ?? 0,
+    fb: fbpsByTeam.get(game.homeTeam.id) ?? 0,
+    pt2nd: secondChanceByTeam.get(game.homeTeam.id) ?? 0,
+    pft: ptsOffTovByTeam.get(game.homeTeam.id) ?? 0,
+    dunks: dunksByTeam.get(game.homeTeam.id) ?? 0,
+    attendance,
   });
   away.gameLogs.push({
     scheduleKey: game.scheduleKey,
@@ -1191,6 +1238,12 @@ function processTeams(
     gameType,
     ...teamGameLogStats(awayRow, gamePoss),
     ...opponentGameLogStats(homeRow),
+    pt2in: pitpByTeam.get(game.awayTeam.id) ?? 0,
+    fb: fbpsByTeam.get(game.awayTeam.id) ?? 0,
+    pt2nd: secondChanceByTeam.get(game.awayTeam.id) ?? 0,
+    pft: ptsOffTovByTeam.get(game.awayTeam.id) ?? 0,
+    dunks: dunksByTeam.get(game.awayTeam.id) ?? 0,
+    attendance,
   });
 }
 

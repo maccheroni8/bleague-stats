@@ -695,6 +695,23 @@ export interface TeamGameLog {
   opponentAst: number;
   opponentStl: number;
   opponentBlk: number;
+  /**
+   * プレータイプ内訳（PlayByPlaysのPlayTextタグ集計、shared/playTypePoints.ts参照）。
+   * チーム詳細ページ「通算成績」タブの単純合計値用。命名はBoxscoreCounts.PlayTypeCountsと
+   * 揃えている（pt2in=PITP, fb=FBPS, pt2nd=2ND PTS）
+   */
+  pt2in: number;
+  fb: number;
+  pt2nd: number;
+  /** Points Off Turnovers（PTSOFFTO、shared/pointsOffTurnovers.ts） */
+  pft: number;
+  /** 被ファウル数（FOULON） */
+  foulsDrawn: number;
+  /** ダンク数（PlayByPlaysのPlayTextタグ集計、ActionCD1=4かつ"ダンク"を含むイベントをTeamID単位で集計） */
+  dunks: number;
+  /** その試合の来場者数（Game.Attendance）。ホーム/アウェイいずれの側の試合ログにも同じ値を持たせ、
+   * 「ホーム来場者数」集計時はisHomeでフィルタしてから合算する。未計測の試合は省略 */
+  attendance?: number;
 }
 
 // ---- data/{season}/standings-history.json の保存スキーマ（順位表ページ用） ----

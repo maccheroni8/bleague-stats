@@ -5393,3 +5393,94 @@ legacyスクレイパー（`scripts/lib/legacyGameDetail.ts`、`game_detail`ペ�
 
 型チェック（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。本番ビルド（`vite build`）
 成功。ブラウザのコンソールエラー無し。
+
+---
+
+## 67. チーム詳細ページ「通算成績」タブ（Phase TF、2026-08-28）
+
+56-5章で予告していたPhase TF（チーム詳細ページの通算成績・複数シーズン合算）を実装した。
+個人詳細ページ「通算成績」タブ（45章）と同じ「全シーズン合算の単純な合計値」という設計を
+チーム版に転用し、あわせて最多連勝記録を追加した。
+
+### 67-1. 新規に必要だったTeamGameLogフィールド
+
+単純合計の対象項目のうち、PITP/FBPS/2ND PTS/PTSOFFTO（プレータイプ内訳）・FD（被ファウル数）・
+ダンク数・来場者数は`TeamGameLog`（`team-games/{teamId}.json`）に存在しなかったため追加した。
+
+- **PITP/FBPS/2ND PTS/PTSOFFTO**: 66章で実装済みのPBPタグ集計（`shared/playTypePoints.ts`の
+  `computePointsInPaint`/`computeFastbreakPoints`/`computeSecondChancePoints`、
+  `shared/pointsOffTurnovers.ts`の`computePointsOffTurnovers`）が、個人単位の`byPlayer`に加えて
+  チーム単位の`byTeam`も同時に返す設計だったため、`scripts/aggregate.ts`側で試合ごとに1回
+  計算する際、既存の`byPlayer`取り出しに加えて`byTeam`も併せて保持するよう変更するだけで済んだ
+  （新しい集計ロジックの追加は不要）。フィールド名は`src/lib/boxscoreAggregate.ts`の
+  `PlayTypeCounts`型（`pt2in`/`fb`/`pt2nd`/`pft`）に合わせた
+- **FD（被ファウル数）**: 個人・チームシーズン集計で既に使っている`row.FOULON`
+  （`BoxscoreRow`のCategory=3チーム行）をそのまま`teamGameLogStats()`に追加するだけ
+- **ダンク数**: チーム単位のPBPタグ集計が存在しなかったため、`buildMiscEventCounts()`
+  （選手単位、15-6章）と同じ判定条件（`ActionCD1=4`かつPlayTextに"ダンク"を含む）を
+  `TeamID`単位に変えた`countTeamDunks()`を新設した
+- **来場者数**: `Game.Attendance`（56章でgames-summary.json用に既に転記済み）を
+  `TeamGameLog`にもそのまま持たせる。ホーム/アウェイどちらの側の試合ログにも同じ値を
+  持たせておき、「ホーム来場者数」集計時にフロントエンド側で`isHome`によりフィルタしてから
+  合算する設計にした（試合単位では単一の値のため、格納時点でホーム/アウェイを区別する
+  必要が無く、集計側の関心事として素直に分離できる）
+
+### 67-2. 単純合計の実装
+
+`src/pages/TeamDetailPage.tsx`に個人詳細ページの`careerData`と同じ遅延フェッチパターン
+（「通算成績」タブを開いたときだけ、そのチームが存在する全シーズン分の`TeamGameLog`を
+`fetchTeamGameLogs()`で並行取得。取得失敗（そのシーズンにチームが存在しない）はcatchして
+空配列にし、結果からフィルタして除外する）を実装した。取得結果を
+`filterByGameType()`（既存、レギュラー/プレーオフ/合算の3値）で絞り込んでから、
+新設の`buildTeamCareerTotals()`で26項目（勝利数・試合数・得点・失点・FG/2P/3P/FT成功数・
+試投数・OREB/DREB/REB・AST/TOV/STL/BLK/PF・FBPS/PITP/PTSOFFTO/2ND PTS・FD・ダンク・
+ホーム来場者数）を単純合算する。表示は既存の`StatTile`/`.stat-grid`をそのまま再利用した
+（個人詳細ページと同じ「合計値タイル」の見た目に統一）。
+
+### 67-3. 最多連勝
+
+`longestWinStreak(logs)`が、レギュラー/プレーオフ/合算トグルで絞り込んだ後の全試合ログを
+日付（同日なら念のためscheduleKeyでも）昇順にソートし、`win`フラグの連続回数の最大値を
+求める単純な1パス走査。バックエンドの追加集計は不要（フロントエンドの`TeamGameLog.win`/
+`date`のみで完結する）。
+
+### 67-4. 全シーズン再集計
+
+CLAUDE.mdの運用ルール通り、B.PREMIER全11シーズン（2016-17〜2026-27。2026-27は0試合の
+ためno-op）・B.ONE（2025-26）を`npm run aggregate`で再集計した。差分は`team-games/*.json.gz`
+（226ファイル、新規6フィールドの追加分そのもの）にのみ生じた。それ以外の再生成ファイル
+（`player-games/*.json.gz`・`lineups/*.json.gz`・`players.json`・`teams.json`・
+`standings-history.json`・`head-to-head.json`・`games-summary.json`等）は、デコード後の
+内容が旧版と完全一致することを確認した上でコミット対象から除外した（gzip再圧縮のみに
+伴う非決定的なバイト差分。既知の挙動で今回の変更が原因ではない。19章・53章等と同じ
+確認手順）。
+
+### 67-5. 検証
+
+**独立集計との突合**（千葉ジェッツ・TeamID 704、宇都宮ブレックス・TeamID 703の2チームで実施）:
+`team-games/*.json.gz`をNode.jsで直接読み合算した独立計算値と、ブラウザ表示値（レギュラー/
+プレーオフ/合算の3パターンすべて）が26項目＋最多連勝の全てで完全一致することを確認した
+（千葉ジェッツ・レギュラーのみ: 勝利数418・試合数558・得点47,565・ホーム来場者数1,550,783・
+最多連勝24等。宇都宮ブレックス・レギュラーのみ: 勝利数423・試合数572・ホーム来場者数
+1,063,544・最多連勝21、合算: 勝利数448・試合数610・最多連勝21、プレーオフのみ: 勝利数25・
+試合数38・最多連勝6）。宇都宮ブレックスは栃木ブレックスからの改称（2-8章）をまたぐ
+teamIdだが、`teamId`ベースの集計のため改称の影響を受けず正しく通算されることも確認できた。
+
+**PITP/FBPS/2ND PTS/PTSOFFTOの個別確認**（ユーザー指定により重点確認）:
+`TeamGameLog`に格納された値ではなく、**生データ（`games/{scheduleKey}.json`）の
+`Summaries`配列の`PeriodCategory=18`行**（`HomeTeamPT2IN`等の公式フィールド、66章で
+確認済みのSummaries直接参照）から独立に再計算し、突合した。千葉ジェッツ2024-25シーズン・
+レギュラーシーズン60試合全件で、PITP(2,054)・FBPS(635)・PTSOFFTO(791)・2ND PTS(641)の
+4項目とも**完全一致**を確認し、66章で修正した「個人単位のPBPタグ集計（得点ベース）」が
+チーム単位の通算値にも正しく反映されていることを裏付けた。
+
+**来場者数の個別確認**（ユーザー指定により重点確認）: `TeamGameLog.attendance`が
+`games-summary.json`の`attendance`フィールド（56章でGame.Attendanceから転記済み）と
+全試合で完全一致すること、および「ホーム来場者数」がホーム開催試合のみの合算値と
+一致することを、千葉ジェッツ2024-25シーズン全65試合ログで確認した（不一致0件）。
+
+**UI動作確認**: レギュラー/プレーオフ/合算トグルの切り替えで数値が連動して再計算される
+ことをブラウザで確認した（切り替え直後は React の再レンダリングが完了するまでの
+わずかなラグがあるが、実際のアプリ操作では問題にならない範囲）。型チェック
+（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。本番ビルド（`vite build`）成功。
+ブラウザのコンソールエラー無し。
