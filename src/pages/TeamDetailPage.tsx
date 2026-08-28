@@ -39,6 +39,7 @@ import type {
   TeamSummary,
   UpcomingGameEntry,
   YahooGamePbp,
+  YahooTurnoverEvent,
 } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
@@ -72,6 +73,7 @@ import {
   SEASON_DISPLAY_MODE_LABELS,
   SEASON_GAME_TYPE_LABELS,
   buildTeamGameBoxTotals,
+  buildTeamMultiGameBoxTotals,
   buildTeamPeriodStats,
   buildTeamSplitRowsForPeriod,
   countDoubleTripleDoubles,
@@ -95,6 +97,7 @@ import {
   sortShotTypeKeys,
   sumShotTypeCounts,
 } from "../lib/shotTypeBreakdown";
+import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "./ComparePage";
 
 // 「シューティング」セクションの平均/合計切り替え。個人詳細ページと同じ2択のみ
 const DISPLAY_MODE_TOGGLE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
@@ -407,7 +410,7 @@ const HONOR_CATEGORY_LABELS: Record<ClubHonor["category"], string> = {
 };
 const HONOR_CATEGORY_ORDER: ClubHonor["category"][] = ["overall", "emperors_cup", "division", "international"];
 
-type DetailTab = "overview" | "playerStats" | "schedule" | "career" | "clubRecord" | "stats";
+type DetailTab = "overview" | "playerStats" | "schedule" | "career" | "clubRecord" | "stats" | "compare";
 
 const TAB_LABELS: Record<DetailTab, string> = {
   overview: "概要",
@@ -416,6 +419,7 @@ const TAB_LABELS: Record<DetailTab, string> = {
   career: "通算成績",
   clubRecord: "クラブレコード",
   stats: "スタッツ",
+  compare: "比較",
 };
 
 interface SeasonRecord {
@@ -806,6 +810,107 @@ function bestTeamSeasonRecord(
   return { value: best, season: season!, otherSeasons };
 }
 
+/**
+ * 「比較」タブ（Phase TH）: 個人詳細ページの比較タブ（describeSituationalFilter）と同じ
+ * ラベル生成ロジック。チーム版はシーズン前半戦/後半戦フィルタに対応していない
+ * （TeamDetailPage.tsxのSituationalFilterPickerがどこもseasonHalfBoundaryを渡していないため、
+ * dateRangeは常に「期間指定」/日付範囲表記になる）
+ */
+function describeTeamSituationalFilter(filter: SituationalFilter): string {
+  let base: string;
+  switch (filter.kind) {
+    case "all":
+      base = "シーズン全体";
+      break;
+    case "recent":
+      base = `直近${filter.n}試合`;
+      break;
+    case "result":
+      base = filter.win ? "勝った試合" : "負けた試合";
+      break;
+    case "dateRange":
+      base = !filter.start && !filter.end ? "期間指定" : `${filter.start || "…"}〜${filter.end || "…"}`;
+      break;
+    case "homeAway":
+      base = filter.home ? "ホーム" : "アウェイ";
+      break;
+    case "division":
+      base = filter.division === "east" ? "対東地区" : "対西地区";
+      break;
+    case "month":
+      base = `${filter.month}月`;
+      break;
+    case "newYear":
+      base = filter.half === "before" ? "年明け前" : "年明け後";
+      break;
+    case "weekday":
+      base = "平日開催";
+      break;
+    case "opponentWinRate":
+      base = filter.tier === "under50" ? "対5割未満" : filter.tier === "atLeast50" ? "対5割以上" : "対6割以上";
+      break;
+  }
+  return filter.includePlayoffs ? `${base}・PO込み` : base;
+}
+
+interface TeamCompareSlotState {
+  season: string;
+  filter: SituationalFilter;
+}
+
+function defaultTeamCompareSlots(season: string): [TeamCompareSlotState, TeamCompareSlotState] {
+  return [
+    { season, filter: { kind: "all" } },
+    { season: "", filter: { kind: "all" } },
+  ];
+}
+
+interface TeamCompareColumnData {
+  key: string;
+  label: string;
+  boxTotals: TeamGameBoxTotals;
+}
+
+/**
+ * 「日程結果」タブと同じCOLUMNS_BY_TAB（試合詳細ページのボックススコア列定義）を、
+ * 自チーム/opp/+/-トグルに応じたComparisonStatDefへ変換する。formatColumnDiffは
+ * 「日程結果」タブの+/-表示用にDESIGN.md 65章で整備済みのものをそのまま再利用する
+ */
+/**
+ * BoxscoreColumn.format（例: `String(c.pts)`）は1試合分の整数カウント前提で書かれているため、
+ * buildTeamMultiGameBoxTotalsが返す1試合あたり平均値（小数）をそのまま渡すと、内部の複合計算
+ * （例: FGM列のc.pt2m+c.pt3m）で浮動小数点誤差が乗り小数点以下が延々と表示されることがある
+ * （例: "31.200000000000003"）。col.formatの出力が単純な数値文字列（%表記・MM:SS・"-"等では
+ * ない）の場合のみ小数第1位に丸め直す。丸め自体はbuildTeamMultiGameBoxTotals側では行わず
+ * （%系列の分子分母を丸め前の生の値で計算させ、ポイント差を防ぐため）、ここでの文字列レベルの
+ * 後処理のみで対応する
+ */
+function cleanNumericString(s: string): string {
+  const n = Number(s);
+  return Number.isFinite(n) ? n.toFixed(1) : s;
+}
+
+function teamCompareDefs(tabKey: BoxscoreTabKey, perspective: TeamPerspective): ComparisonStatDef<TeamCompareColumnData>[] {
+  return COLUMNS_BY_TAB[tabKey].map((col) => ({
+    key: col.key,
+    label: col.label,
+    value: (r) => {
+      if (perspective === "own") return col.value?.(r.boxTotals.own, r.boxTotals.ownCtx) ?? 0;
+      if (perspective === "opp") return col.value?.(r.boxTotals.opp, r.boxTotals.oppCtx) ?? 0;
+      const ownValue = col.value?.(r.boxTotals.own, r.boxTotals.ownCtx);
+      const oppValue = col.value?.(r.boxTotals.opp, r.boxTotals.oppCtx);
+      return ownValue !== undefined && oppValue !== undefined ? ownValue - oppValue : 0;
+    },
+    format: (r) =>
+      perspective === "own"
+        ? cleanNumericString(col.format(r.boxTotals.own, r.boxTotals.ownCtx))
+        : perspective === "opp"
+          ? cleanNumericString(col.format(r.boxTotals.opp, r.boxTotals.oppCtx))
+          : formatColumnDiff(col, r.boxTotals.own, r.boxTotals.ownCtx, r.boxTotals.opp, r.boxTotals.oppCtx),
+    higherIsBetter: col.higherIsBetter,
+  }));
+}
+
 export function TeamDetailPage({ season }: { season: string }) {
   const { teamId } = useParams<{ teamId: string }>();
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
@@ -843,7 +948,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [careerGameTypeFilter, setCareerGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
 
   useEffect(() => {
-    if ((tab !== "career" && tab !== "clubRecord") || !teamId || !seasons || careerFetchStartedRef.current) return;
+    if ((tab !== "career" && tab !== "clubRecord" && tab !== "compare") || !teamId || !seasons || careerFetchStartedRef.current) return;
     careerFetchStartedRef.current = true;
     setCareerLoading(true);
     setCareerError(null);
@@ -942,6 +1047,164 @@ export function TeamDetailPage({ season }: { season: string }) {
     () => bestTeamSeasonRecord(clubSeasonAggregates, (a) => a.streak),
     [clubSeasonAggregates],
   );
+
+  // 「比較」タブ（Phase TH）: 個人詳細ページの比較タブと同じ構成をチーム版に転用したもの。
+  // careerData（通算成績/クラブレコードタブと共有、全シーズン分のTeamGameLog）から
+  // スロットごとに選んだシーズンの試合ログを取り出し、シチュエーション別フィルタで絞り込む。
+  // 自チーム/opp/+/-トグル・トラディショナル/アドバンスド/Misc/スコアリングのカテゴリタブは
+  // 「日程結果」タブと同じCOLUMNS_BY_TAB/buildTeamGameBoxTotals系を再利用する
+  const [compareSlots, setCompareSlots] = useState<[TeamCompareSlotState, TeamCompareSlotState]>(() =>
+    defaultTeamCompareSlots(season),
+  );
+  useEffect(() => {
+    setCompareSlots(defaultTeamCompareSlots(season));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamId]);
+  const [comparePerspective, setComparePerspective] = useState<TeamPerspective>("own");
+  const [compareGameType, setCompareGameType] = useState<SeasonGameTypeFilter>("regular");
+  const [compareTab, setCompareTab] = useState<BoxscoreTabKey>("traditional");
+
+  // 各スロットの「対勝率別」フィルタ用（対戦相手のその試合時点までの勝率が必要）。
+  // スロットごとに異なるシーズンを選べるため、個人詳細ページの比較タブと同様、
+  // 配列化せず2つ個別にuseJsonDataを呼ぶ。「比較」タブを開いている間だけ取得する
+  const { data: compareSummaries0 } = useJsonData(
+    () => (tab === "compare" && compareSlots[0].season ? fetchGameSummaries(compareSlots[0].season) : Promise.resolve(null)),
+    [tab, compareSlots[0].season],
+  );
+  const { data: compareSummaries1 } = useJsonData(
+    () => (tab === "compare" && compareSlots[1].season ? fetchGameSummaries(compareSlots[1].season) : Promise.resolve(null)),
+    [tab, compareSlots[1].season],
+  );
+  const compareOpponentRecords = [
+    useMemo(() => (compareSummaries0 ? buildRecordsBeforeGame(compareSummaries0) : undefined), [compareSummaries0]),
+    useMemo(() => (compareSummaries1 ? buildRecordsBeforeGame(compareSummaries1) : undefined), [compareSummaries1]),
+  ];
+
+  // トラディショナル/アドバンスド/Misc/スコアリングの全列（PTSOFFTO・DUNK・被アシスト内訳・
+  // ライブ/デッドTOV・ペイント内外分割等）を出すには、シーズン集計済みのTeamGameLogだけでは
+  // 足りず生データ（StoredGame）・Yahoo PBPが必要（「日程結果」タブ・DESIGN.md 64章と同じ理由）。
+  // スロットが選んだシーズン単位でまとめて取得し（situational filterでの絞り込みは
+  // クライアント側で行うため、フィルタを変えるたびの再取得は発生しない）、scheduleKeyで
+  // 一意なので両スロットのキャッシュを共有する
+  const compareRawGamesRequestedRef = useRef<Set<string>>(new Set());
+  const [compareRawGames, setCompareRawGames] = useState<Map<string, StoredGame>>(new Map());
+  const [compareRawGamesLoading, setCompareRawGamesLoading] = useState(false);
+  const compareYahooPbpRequestedRef = useRef<Set<string>>(new Set());
+  const [compareYahooPbp, setCompareYahooPbp] = useState<Map<string, YahooGamePbp>>(new Map());
+  const [compareYahooPbpLoading, setCompareYahooPbpLoading] = useState(false);
+
+  useEffect(() => {
+    compareRawGamesRequestedRef.current = new Set();
+    setCompareRawGames(new Map());
+    compareYahooPbpRequestedRef.current = new Set();
+    setCompareYahooPbp(new Map());
+  }, [teamId]);
+
+  useEffect(() => {
+    if (tab !== "compare" || !careerData) return;
+    const pairs: { season: string; scheduleKey: string }[] = [];
+    for (const slot of compareSlots) {
+      if (!slot.season) continue;
+      const logs = careerData.find((cd) => cd.season === slot.season)?.logs ?? [];
+      for (const g of logs) {
+        if (g.min > 0 && !compareRawGamesRequestedRef.current.has(g.scheduleKey)) {
+          pairs.push({ season: slot.season, scheduleKey: g.scheduleKey });
+        }
+      }
+    }
+    const needed = [...new Map(pairs.map((p) => [p.scheduleKey, p])).values()];
+    if (needed.length === 0) return;
+    for (const p of needed) compareRawGamesRequestedRef.current.add(p.scheduleKey);
+    setCompareRawGamesLoading(true);
+    Promise.all(
+      needed.map(async ({ season: s, scheduleKey }) => {
+        try {
+          return [scheduleKey, await fetchGame(s, scheduleKey)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    )
+      .then((results) => {
+        setCompareRawGames((prev) => {
+          const next = new Map(prev);
+          for (const r of results) if (r) next.set(r[0], r[1]);
+          return next;
+        });
+      })
+      .finally(() => setCompareRawGamesLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, careerData, compareSlots[0].season, compareSlots[1].season]);
+
+  useEffect(() => {
+    if (tab !== "compare" || !careerData || !seasons) return;
+    const pairs: { season: string; scheduleKey: string }[] = [];
+    for (const slot of compareSlots) {
+      if (!slot.season) continue;
+      if (!(seasons.find((s) => s.season === slot.season)?.yahooPbp ?? false)) continue;
+      const logs = careerData.find((cd) => cd.season === slot.season)?.logs ?? [];
+      for (const g of logs) {
+        if (g.min > 0 && !compareYahooPbpRequestedRef.current.has(g.scheduleKey)) {
+          pairs.push({ season: slot.season, scheduleKey: g.scheduleKey });
+        }
+      }
+    }
+    const needed = [...new Map(pairs.map((p) => [p.scheduleKey, p])).values()];
+    if (needed.length === 0) return;
+    for (const p of needed) compareYahooPbpRequestedRef.current.add(p.scheduleKey);
+    setCompareYahooPbpLoading(true);
+    Promise.all(
+      needed.map(async ({ season: s, scheduleKey }) => {
+        try {
+          return [scheduleKey, await fetchYahooGamePbp(s, scheduleKey)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    )
+      .then((results) => {
+        setCompareYahooPbp((prev) => {
+          const next = new Map(prev);
+          for (const r of results) if (r && r[1]) next.set(r[0], r[1]);
+          return next;
+        });
+      })
+      .finally(() => setCompareYahooPbpLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, careerData, seasons, compareSlots[0].season, compareSlots[1].season]);
+
+  const compareDataLoading = compareRawGamesLoading || compareYahooPbpLoading;
+
+  const compareRows: ComparisonRow<TeamCompareColumnData>[] = useMemo(() => {
+    return ([0, 1] as const)
+      .map((i): ComparisonRow<TeamCompareColumnData> | null => {
+        const slot = compareSlots[i];
+        if (!slot.season || !careerData) return null;
+        const logs = careerData.find((cd) => cd.season === slot.season)?.logs;
+        if (!logs) return null;
+        const gameTypeScoped = filterByGameType(logs, compareGameType);
+        const filtered = filterGameLogs(gameTypeScoped, { ...slot.filter, includePlayoffs: true }, compareOpponentRecords[i]);
+        const entries = filtered
+          .map((g) => {
+            const game = compareRawGames.get(g.scheduleKey);
+            return game ? { game, isHome: g.isHome } : null;
+          })
+          .filter((e): e is { game: StoredGame; isHome: boolean } => e !== null);
+        if (entries.length === 0) return null;
+        const shotChartSupported = seasons?.find((s) => s.season === slot.season)?.coverage === "full";
+        const yahooPbpSupported = seasons?.find((s) => s.season === slot.season)?.yahooPbp ?? false;
+        const yahooTurnoversByScheduleKey = new Map(
+          entries.map(({ game }) => [game.scheduleKey, compareYahooPbp.get(game.scheduleKey)?.turnovers ?? []]),
+        );
+        const boxTotals = buildTeamMultiGameBoxTotals(entries, yahooTurnoversByScheduleKey, shotChartSupported, yahooPbpSupported);
+        if (!boxTotals) return null;
+        return {
+          item: { key: `slot${i}`, label: describeTeamSituationalFilter(slot.filter), boxTotals },
+          season: slot.season,
+        };
+      })
+      .filter((r): r is ComparisonRow<TeamCompareColumnData> => r !== null);
+  }, [compareSlots, careerData, compareGameType, compareOpponentRecords, compareRawGames, compareYahooPbp, seasons]);
 
   // 「スタッツ」タブ: 自チーム/opp/+/-トグル・Q別/前後半トグル（上部のstat-grid・
   // シチュエーション別成績（チーム版）の両方で共有する。「試合」選択時は追加取得不要
@@ -2179,6 +2442,105 @@ export function TeamDetailPage({ season }: { season: string }) {
             periodLoading={playerStatsRawGamesLoading}
           />
         ))}
+
+      {tab === "compare" && (
+        <>
+          <div className="player-compare-slots">
+            {([0, 1] as const).map((i) => {
+              const slot = compareSlots[i];
+              return (
+                <div className="player-compare-slot" key={i}>
+                  <select
+                    value={slot.season}
+                    onChange={(e) => {
+                      const nextSeason = e.target.value;
+                      setCompareSlots((prev) => {
+                        const next: [TeamCompareSlotState, TeamCompareSlotState] = [...prev];
+                        next[i] = { season: nextSeason, filter: { kind: "all" } };
+                        return next;
+                      });
+                    }}
+                  >
+                    <option value="">未選択</option>
+                    {[...(careerData ?? [])]
+                      .map((cd) => cd.season)
+                      .reverse()
+                      .map((s) => (
+                        <option key={s} value={s}>
+                          {s}シーズン
+                        </option>
+                      ))}
+                  </select>
+                  {slot.season ? (
+                    <SituationalFilterPicker
+                      filter={slot.filter}
+                      onChange={(f) =>
+                        setCompareSlots((prev) => {
+                          const next: [TeamCompareSlotState, TeamCompareSlotState] = [...prev];
+                          next[i] = { ...next[i], filter: f };
+                          return next;
+                        })
+                      }
+                      opponentWinRateSupported={!!compareOpponentRecords[i]}
+                      hideGameTypeToggle
+                    />
+                  ) : (
+                    <p className="compare-slot-note">シーズンを選択してください</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="mode-toggle">
+            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
+              <button key={g} className={g === compareGameType ? "active" : ""} onClick={() => setCompareGameType(g)} type="button">
+                {SEASON_GAME_TYPE_LABELS[g]}
+              </button>
+            ))}
+          </div>
+          <div className="mode-toggle">
+            {(["own", "opp", "diff"] as TeamPerspective[]).map((m) => (
+              <button
+                key={m}
+                className={comparePerspective === m ? "active" : ""}
+                onClick={() => setComparePerspective(m)}
+                type="button"
+              >
+                {TEAM_PERSPECTIVE_LABELS[m]}
+              </button>
+            ))}
+          </div>
+          <div className="tab-bar">
+            {BOXSCORE_TABS.map((t) => (
+              <button
+                key={t.key}
+                className={`tab-button${compareTab === t.key ? " active" : ""}`}
+                onClick={() => setCompareTab(t.key)}
+                type="button"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {compareDataLoading && <p className="loading">データ取得中...</p>}
+          {careerLoading && !careerData ? (
+            <p className="loading">読み込み中...</p>
+          ) : careerError ? (
+            <p className="error-message">{careerError}</p>
+          ) : (
+            <ComparisonTable
+              rows={compareRows}
+              defs={teamCompareDefs(compareTab, comparePerspective)}
+              rowKey={(r) => r.key}
+              name={(r) => r.label}
+              linkTo={() => `/teams/${teamId}`}
+            />
+          )}
+          <p className="page-subtitle">
+            各列は「日程結果」タブと同じボックススコア列定義（自チーム/opp/+/-切り替え可）を、選択中のシチュエーション別フィルタで絞り込んだ試合の1試合あたり平均値として算出する
+          </p>
+        </>
+      )}
     </div>
   );
 }

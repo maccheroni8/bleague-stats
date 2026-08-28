@@ -256,6 +256,33 @@ export function rowsInPeriodRange<T extends { PeriodCategory: number }>(
   return rows.filter((r) => periods.includes(r.PeriodCategory));
 }
 
+/**
+ * BoxscoreCountsの全数値フィールドをfactor倍する（チーム詳細ページ「比較」タブ用。複数試合分の
+ * 合計値を1/試合数倍して「1試合あたり平均」に変換する）。型駆動（typeof value === "number"のみ
+ * 対象）で全フィールドを機械的に処理するため、フィールド追加時に個別対応が要らない。
+ * hasPlusMinus（真偽値）はそのまま、offRtg/defRtg/netRtg/onCourtPace（未定義ならそのまま）は
+ * 個人ORtg/DRtg等のレート指標で乗算しても意味を持たないためスケール対象外にする。
+ *
+ * minSecのみ整数秒に丸める（formatMinutesFromSeconds()がMM:SS表記のために整数の秒を前提と
+ * しているため、小数のままだと秒の部分がそのまま小数表示されてしまう）。それ以外のフィールドは
+ * あえて丸めない: %系列はsafeDiv()で分子分母を毎回計算し直すため丸めていない生の値のほうが
+ * 正確（先に丸めるとポイント差が生じる）。表示時の小数第1位までの整形は呼び出し側
+ * （TeamDetailPage.tsxのteamCompareDefs）が担当する
+ */
+export function scaleCounts(counts: BoxscoreCounts, factor: number): BoxscoreCounts {
+  const RATE_FIELDS = new Set(["offRtg", "defRtg", "netRtg", "onCourtPace"]);
+  const result = { ...counts };
+  for (const key of Object.keys(result) as (keyof BoxscoreCounts)[]) {
+    if (RATE_FIELDS.has(key)) continue;
+    const value = result[key];
+    if (typeof value === "number") {
+      const scaled = value * factor;
+      (result[key] as number) = key === "minSec" ? Math.round(scaled) : scaled;
+    }
+  }
+  return result;
+}
+
 /** 複数選手の集計済みBoxscoreCountsを合算する（スタメン合計・ベンチ合計等の内訳集計用） */
 export function sumCountsList(list: BoxscoreCounts[]): BoxscoreCounts {
   return list.reduce(

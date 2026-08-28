@@ -32,9 +32,11 @@ import {
   countTeamGeneratedTechnicalFouls,
   formatAstToRatio,
   formatMinutesFromSeconds,
+  scaleCounts,
   sharePct,
   sumCountsList,
   type BoxscoreCounts,
+  type PlayTypeCounts,
 } from "./boxscoreAggregate";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { buildPeriodRangeOptions, type PeriodRangeOption } from "./periodRange";
@@ -1330,6 +1332,87 @@ export function buildTeamGameBoxTotals(
       own: opp,
       ownPlayType: oppPlayType,
       ratings: oppRatings,
+      isPlayerRow: false,
+      isTeamTotalRow: true,
+      shotChartSupported,
+      yahooPbpSupported,
+    },
+  };
+}
+
+function sumPlayType(list: PlayTypeCounts[]): PlayTypeCounts {
+  return list.reduce(
+    (acc, p) => ({ pft: acc.pft + p.pft, fb: acc.fb + p.fb, pt2nd: acc.pt2nd + p.pt2nd, pt2in: acc.pt2in + p.pt2in }),
+    { pft: 0, fb: 0, pt2nd: 0, pt2in: 0 },
+  );
+}
+
+function scalePlayType(p: PlayTypeCounts, factor: number): PlayTypeCounts {
+  return { pft: p.pft * factor, fb: p.fb * factor, pt2nd: p.pt2nd * factor, pt2in: p.pt2in * factor };
+}
+
+/**
+ * チーム詳細ページ「比較」タブ用。buildTeamGameBoxTotals（1試合分）を複数試合分呼び、
+ * own/opp双方のBoxscoreCounts・プレータイプ内訳を合算した上で「1試合あたり平均」に変換して
+ * COLUMNS_BY_TABにそのまま渡せるColumnCtxを組み立てる。合計値のまま比較するとスロットごとの
+ * 試合数の違いで比較しづらくなるため、個人詳細ページの比較タブ（seasonBoxCompareDefs、常に
+ * 「平均」固定）と同じ方針にした。POSSは6章・11章・53章・buildTeamPeriodStatsと同じ
+ * 「試合単位で確定させてから合算する」方針（非線形性回避）を踏襲し、PACE/ORtg/DRtg/NetRtgは
+ * 合算後のPOSS・PTSから再計算する（比率のため合算値・平均値のどちらから計算しても同じ結果になる。
+ * computeTeamRatingsを平均化後のBoxscoreCountsに再適用すると比率項の非線形性で誤差が出るため
+ * 使わない）
+ */
+export function buildTeamMultiGameBoxTotals(
+  entries: { game: StoredGame; isHome: boolean }[],
+  yahooTurnoversByScheduleKey: Map<string, YahooTurnoverEvent[]>,
+  shotChartSupported: boolean,
+  yahooPbpSupported: boolean,
+): TeamGameBoxTotals | null {
+  if (entries.length === 0) return null;
+  const perGame = entries.map(({ game, isHome }) =>
+    buildTeamGameBoxTotals(
+      game,
+      isHome,
+      undefined,
+      yahooTurnoversByScheduleKey.get(game.scheduleKey) ?? [],
+      shotChartSupported,
+      yahooPbpSupported,
+    ),
+  );
+  const gamesPlayed = perGame.length;
+  const ownSum = sumCountsList(perGame.map((g) => g.own));
+  const oppSum = sumCountsList(perGame.map((g) => g.opp));
+  const possSum = perGame.reduce((sum, g) => sum + (g.ownCtx.ratings?.poss ?? 0), 0);
+  const ownPlayTypeSum = sumPlayType(perGame.map((g) => g.ownCtx.ownPlayType));
+  const oppPlayTypeSum = sumPlayType(perGame.map((g) => g.oppCtx.ownPlayType));
+
+  const ownOffRtg = offensiveRating(ownSum.pts, possSum);
+  const ownDefRtg = offensiveRating(oppSum.pts, possSum);
+  const ownPace = pace(possSum, ownSum.minSec / 60);
+
+  const factor = 1 / gamesPlayed;
+  const own = scaleCounts(ownSum, factor);
+  const opp = scaleCounts(oppSum, factor);
+  const ownPlayType = scalePlayType(ownPlayTypeSum, factor);
+  const oppPlayType = scalePlayType(oppPlayTypeSum, factor);
+  const possPerGame = possSum * factor;
+
+  return {
+    own,
+    opp,
+    ownCtx: {
+      own,
+      ownPlayType,
+      ratings: { poss: possPerGame, pace: ownPace, offRtg: ownOffRtg, defRtg: ownDefRtg, netRtg: ownOffRtg - ownDefRtg },
+      isPlayerRow: false,
+      isTeamTotalRow: true,
+      shotChartSupported,
+      yahooPbpSupported,
+    },
+    oppCtx: {
+      own: opp,
+      ownPlayType: oppPlayType,
+      ratings: { poss: possPerGame, pace: ownPace, offRtg: ownDefRtg, defRtg: ownOffRtg, netRtg: ownDefRtg - ownOffRtg },
       isPlayerRow: false,
       isTeamTotalRow: true,
       shotChartSupported,
