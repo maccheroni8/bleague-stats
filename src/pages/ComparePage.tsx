@@ -6,7 +6,6 @@ import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs"
 import type { PlayerSummary, TeamSummary } from "../../shared/types";
 import { ExportImageButton } from "../components/ExportImageButton";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
-import { bleaguePlayerUrl } from "../lib/externalLinks";
 
 type Mode = "team" | "player";
 const SLOT_COUNT = 3;
@@ -306,7 +305,6 @@ export function ComparePage({ season }: { season: string }) {
               rowKey={(p) => p.playerId}
               name={(p) => p.name}
               linkTo={(p) => `/players/${p.playerId}`}
-              externalLinkTo={(p) => bleaguePlayerUrl(p.playerId)}
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
             />
           </div>

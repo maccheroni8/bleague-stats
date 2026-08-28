@@ -1923,6 +1923,41 @@ table.compare-table td.compare-best {
   margin-bottom: 32px;
 }
 
+.situational-groups-legend {
+  margin: 12px 0 24px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--muted) 4%, transparent);
+}
+
+.situational-groups-legend h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.situational-groups-legend dl {
+  margin: 0;
+}
+
+.situational-groups-legend dt {
+  font-weight: 700;
+  font-size: 12.5px;
+  margin-top: 8px;
+}
+
+.situational-groups-legend dt:first-child {
+  margin-top: 0;
+}
+
+.situational-groups-legend dd {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .glossary-section h2 {
   margin: 0 0 12px;
 }

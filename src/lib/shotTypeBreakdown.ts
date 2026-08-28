@@ -23,6 +23,29 @@ export const SHOT_TYPE_DISPLAY_ORDER = [
   "アリウープ",
 ];
 
+/**
+ * 表示用の英語ラベル（DESIGN.md参照。日本語表記は長くテーブル列見出しとして冗長なため、
+ * 表示時のみ英語に変換する。集計・データのキー自体はYahoo表記の原文のまま変更しない）。
+ * 未知のシュートタイプ（新規語彙）は原文のままフォールバック表示する
+ */
+const SHOT_TYPE_LABELS: Record<string, string> = {
+  ジャンプショット: "Jump Shot",
+  プルアップジャンプショット: "Pull-Up",
+  ドライビングレイアップ: "Driving Layup",
+  レイアップ: "Layup",
+  ステップバックジャンプショット: "Step Back",
+  フローティングジャンプショット: "Floater",
+  フェイドアウェイ: "Fadeaway",
+  フックショット: "Hook Shot",
+  ターンアラウンドジャンプショット: "Turnaround",
+  ダンク: "Dunk",
+  アリウープ: "Alley-Oop",
+};
+
+export function shotTypeLabel(key: string): string {
+  return SHOT_TYPE_LABELS[key] ?? key;
+}
+
 export function sortShotTypeKeys(keys: string[]): string[] {
   return [...keys].sort((a, b) => {
     const ia = SHOT_TYPE_DISPLAY_ORDER.indexOf(a);

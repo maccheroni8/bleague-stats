@@ -5,7 +5,6 @@ import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
 import { ExportImageButton } from "../components/ExportImageButton";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
-import { bleaguePlayerUrl } from "../lib/externalLinks";
 
 type Mode = "team" | "player";
 type NationalityFilter = "all" | "jp" | "intl";
@@ -165,7 +164,6 @@ export function RankingsPage({ season }: { season: string }) {
                 name={(p) => p.name}
                 subLabel={(p) => p.teamName}
                 linkTo={(p) => `/players/${p.playerId}`}
-                externalLinkTo={(p) => bleaguePlayerUrl(p.playerId)}
                 teamColor={(p) => teamColors?.[p.teamId]?.primary}
               />
             )}

@@ -12,16 +12,14 @@ import { SubstitutionBarChart, type SubstitutionRow } from "../components/Substi
 import { ShotChartPanel } from "../components/ShotChart";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
-import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
-import { bleaguePlayerUrl } from "../lib/externalLinks";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
-import { BoxscoreTable } from "../components/BoxscoreTable";
+import { BOXSCORE_TABS, BoxscoreTable, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
 import { buildShotEvents } from "../lib/shotChart";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { computeOnCourtRatings, reconstructOnCourt, substitutionModelForSeason, type PlayerOnCourtRatings } from "../../shared/onCourt";
 import { playTimeToSeconds } from "../lib/boxscoreAggregate";
-import { buildShotTypeBreakdownByPlayer, formatShotTypeCell, sortShotTypeKeys, sumShotTypeCounts } from "../lib/shotTypeBreakdown";
+import { buildShotTypeBreakdownByPlayer, formatShotTypeCell, shotTypeLabel, sortShotTypeKeys, sumShotTypeCounts } from "../lib/shotTypeBreakdown";
 
 function periodLabel(index: number, total: number): string {
   if (index < 4) return `${index + 1}Q`;
@@ -214,6 +212,11 @@ export function GameDetailPage({ season }: { season: string }) {
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const [shotPeriodRange, setShotPeriodRange] = useState<PeriodRangeValue>("all");
   const [showExtendedLeaders, setShowExtendedLeaders] = useState(true);
+  // ボックススコアのカテゴリタブに「シューティング」を5つ目の選択肢として統合したもの
+  // （DESIGN.md参照）。トラディショナル/アドバンスド/Misc/スコアリングはBoxscoreTable本体へ
+  // 制御を委譲し、シューティング選択時はBoxscoreTableの代わりに既存のシュートタイプ内訳
+  // テーブル（横スライド形式のUIはそのまま）を表示する
+  const [boxscoreTab, setBoxscoreTab] = useState<BoxscoreTabKey | "shooting">("traditional");
 
   if (loading || coverageLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
@@ -442,22 +445,61 @@ export function GameDetailPage({ season }: { season: string }) {
       </section>
 
       <h2>ボックススコア</h2>
-      <BoxscoreTable
-        homeTeamName={game.homeTeam.name}
-        awayTeamName={game.awayTeam.name}
-        homeRows={game.raw.HomeBoxscores}
-        awayRows={game.raw.AwayBoxscores}
-        summaries={game.raw.Summaries}
-        playByPlays={game.raw.PlayByPlays}
-        yahooTurnovers={yahooPbp?.turnovers ?? []}
-        yahooPbpSupported={yahooPbpAvailable}
-        periods={periods}
-        classificationById={classificationById}
-        shotChartSupported={shotChartSupported}
-        onCourtRatings={onCourtRatings}
-        homeColor={homeColor}
-        awayColor={awayColor}
-      />
+      <div className="mode-toggle boxscore-category-tabs">
+        {BOXSCORE_TABS.map((tab) => (
+          <button key={tab.key} className={tab.key === boxscoreTab ? "active" : ""} onClick={() => setBoxscoreTab(tab.key)}>
+            {tab.label}
+          </button>
+        ))}
+        <button className={boxscoreTab === "shooting" ? "active" : ""} onClick={() => setBoxscoreTab("shooting")}>
+          シューティング
+        </button>
+      </div>
+      {boxscoreTab === "shooting" ? (
+        !yahooPbpAvailable ? (
+          <p className="empty-message">このシーズンのデータには対応していません</p>
+        ) : (
+          <>
+            <ShootingBreakdownTable
+              teamName={game.homeTeam.name}
+              players={homePlayers}
+              breakdownByPlayer={shotTypeBreakdownByPlayer}
+              shotTypeKeys={shotTypeKeys}
+              accentColor={homeColor}
+            />
+            <ShootingBreakdownTable
+              teamName={game.awayTeam.name}
+              players={awayPlayers}
+              breakdownByPlayer={shotTypeBreakdownByPlayer}
+              shotTypeKeys={shotTypeKeys}
+              accentColor={awayColor}
+            />
+            <p className="page-subtitle">
+              Yahoo!スポーツplay-by-play由来のシュートタイプ内訳（2023-24シーズン以降。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意
+            </p>
+          </>
+        )
+      ) : (
+        <BoxscoreTable
+          homeTeamName={game.homeTeam.name}
+          awayTeamName={game.awayTeam.name}
+          homeRows={game.raw.HomeBoxscores}
+          awayRows={game.raw.AwayBoxscores}
+          summaries={game.raw.Summaries}
+          playByPlays={game.raw.PlayByPlays}
+          yahooTurnovers={yahooPbp?.turnovers ?? []}
+          yahooPbpSupported={yahooPbpAvailable}
+          periods={periods}
+          classificationById={classificationById}
+          shotChartSupported={shotChartSupported}
+          onCourtRatings={onCourtRatings}
+          homeColor={homeColor}
+          awayColor={awayColor}
+          activeTab={boxscoreTab}
+          onTabChange={setBoxscoreTab}
+          hideTabBar
+        />
+      )}
 
       <h2>ゲームリーダー</h2>
       <div className="game-leaders">
@@ -513,31 +555,6 @@ export function GameDetailPage({ season }: { season: string }) {
         </>
       ) : (
         <p className="empty-message">このシーズンのデータには対応していません</p>
-      )}
-
-      <h2>シューティング</h2>
-      {!yahooPbpAvailable ? (
-        <p className="empty-message">このシーズンのデータには対応していません</p>
-      ) : (
-        <>
-          <ShootingBreakdownTable
-            teamName={game.homeTeam.name}
-            players={homePlayers}
-            breakdownByPlayer={shotTypeBreakdownByPlayer}
-            shotTypeKeys={shotTypeKeys}
-            accentColor={homeColor}
-          />
-          <ShootingBreakdownTable
-            teamName={game.awayTeam.name}
-            players={awayPlayers}
-            breakdownByPlayer={shotTypeBreakdownByPlayer}
-            shotTypeKeys={shotTypeKeys}
-            accentColor={awayColor}
-          />
-          <p className="page-subtitle">
-            Yahoo!スポーツplay-by-play由来のシュートタイプ内訳（2023-24シーズン以降。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意
-          </p>
-        </>
       )}
     </div>
   );
@@ -597,7 +614,7 @@ function ShootingBreakdownTable({
               <tr>
                 <th className="align-left" rowSpan={2}>選手</th>
                 {shotTypeKeys.map((key) => (
-                  <th key={key} colSpan={2}>{key}</th>
+                  <th key={key} colSpan={2}>{shotTypeLabel(key)}</th>
                 ))}
                 <th colSpan={2}>合計</th>
               </tr>
@@ -659,7 +676,6 @@ function LeaderTop3Row({ label, rows }: { label: string; rows: LeaderDisplayRow[
               {row.player.PlayerNameJ}
               {row.otherCount > 0 && <span className="leader-top3-others"> 他{row.otherCount}人</span>}
             </Link>
-            <ExternalLinkIcon href={bleaguePlayerUrl(row.player.PlayerID)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
             <span className="leader-top3-value">{row.value}</span>
           </div>
         ))}
@@ -719,7 +735,6 @@ function LeaderMatchupPlayer({ leader }: { leader: GameLeaderResult | undefined 
           {otherCount > 0 && <span className="leader-matchup-player-others"> 他{otherCount}人</span>}
         </span>
       </Link>
-      <ExternalLinkIcon href={bleaguePlayerUrl(player.PlayerID)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
     </div>
   );
 }

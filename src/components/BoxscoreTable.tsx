@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { SeasonLink as Link } from "./SeasonLink";
-import { ExternalLinkIcon } from "./ExternalLinkIcon";
-import { bleaguePlayerUrl } from "../lib/externalLinks";
 import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
@@ -500,6 +498,15 @@ interface BoxscoreTableProps {
   onCourtRatings: Record<string, PlayerOnCourtRatings>;
   homeColor?: string;
   awayColor?: string;
+  /**
+   * カテゴリタブを外部（呼び出し側）から制御する場合に指定する（試合詳細ページが
+   * 「シューティング」を5つ目のカテゴリとして同じタブバーに統合するために使う。DESIGN.md参照）。
+   * 未指定なら従来通りコンポーネント内部のstateでタブを管理する
+   */
+  activeTab?: BoxscoreTabKey;
+  onTabChange?: (tab: BoxscoreTabKey) => void;
+  /** trueならコンポーネント内蔵のカテゴリタブバーを描画しない（呼び出し側が統合タブバーを持つ場合） */
+  hideTabBar?: boolean;
 }
 
 export function BoxscoreTable({
@@ -517,9 +524,15 @@ export function BoxscoreTable({
   onCourtRatings,
   homeColor,
   awayColor,
+  activeTab: controlledActiveTab,
+  onTabChange,
+  hideTabBar,
 }: BoxscoreTableProps) {
-  const [activeTab, setActiveTab] = useState<BoxscoreTabKey>("traditional");
+  const [internalActiveTab, setInternalActiveTab] = useState<BoxscoreTabKey>("traditional");
   const [periodRange, setPeriodRange] = useState<PeriodRangeValue>("all");
+
+  const activeTab = controlledActiveTab ?? internalActiveTab;
+  const setActiveTab = onTabChange ?? setInternalActiveTab;
 
   const periodOptions = buildPeriodRangeOptions(periods);
   const selectedOption = periodOptions.find((o) => o.value === periodRange);
@@ -528,13 +541,15 @@ export function BoxscoreTable({
   return (
     <>
       <div className="boxscore-controls">
-        <div className="mode-toggle boxscore-category-tabs">
-          {BOXSCORE_TABS.map((tab) => (
-            <button key={tab.key} className={tab.key === activeTab ? "active" : ""} onClick={() => setActiveTab(tab.key)}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {!hideTabBar && (
+          <div className="mode-toggle boxscore-category-tabs">
+            {BOXSCORE_TABS.map((tab) => (
+              <button key={tab.key} className={tab.key === activeTab ? "active" : ""} onClick={() => setActiveTab(tab.key)}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
         <PeriodRangeToggle options={periodOptions} value={periodRange} onChange={setPeriodRange} />
       </div>
       <BoxscoreTeamPanel
@@ -866,16 +881,13 @@ function BoxscoreGroup({
       </tr>
       {ordered.map((p) => (
         <tr key={p.playerId} className={p.dnp ? "dnp-row" : undefined}>
-          <td className={`align-left${p.playerId ? " has-external-link" : ""}`}>
+          <td className="align-left">
             {p.playerId ? (
               <Link to={`/players/${p.playerId}`} className="cell-link">
                 {p.nameJ}
               </Link>
             ) : (
               p.nameJ
-            )}
-            {p.playerId && (
-              <ExternalLinkIcon href={bleaguePlayerUrl(p.playerId)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
             )}
             {showStatBadges && p.statBadge && (
               <span className={`stat-badge stat-badge-${p.statBadge.toLowerCase()}`}>{p.statBadge}</span>

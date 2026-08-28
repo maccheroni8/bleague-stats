@@ -3,7 +3,6 @@ import { useJsonData } from "../lib/useJsonData";
 import type { PlayerSummary } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { formatDecimal, formatPct } from "../lib/format";
-import { bleaguePlayerUrl } from "../lib/externalLinks";
 
 const columns: Column<PlayerSummary>[] = [
   { key: "name", label: "選手", sortValue: (p) => p.name, align: "left" },
@@ -39,7 +38,6 @@ export function PlayersListPage({ season }: { season: string }) {
           rowKey={(p) => p.playerId}
           defaultSortKey="pts"
           linkTo={(p) => `/players/${p.playerId}`}
-          externalLinkTo={(p) => bleaguePlayerUrl(p.playerId)}
         />
       </div>
     </div>

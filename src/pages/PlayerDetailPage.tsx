@@ -50,6 +50,7 @@ import {
   buildShotTypeBreakdownByPlayer,
   formatShotTypeCell,
   scaleShotTypeCounts,
+  shotTypeLabel,
   sortShotTypeKeys,
   sumShotTypeCounts,
 } from "../lib/shotTypeBreakdown";
@@ -208,6 +209,7 @@ const TILE_STAT_DEFS: PlayerStatDef[] = [
   { key: "ftPct", label: "FT%", value: (p) => p.shooting.ftPct, format: (p) => formatPct(p.shooting.ftPct), higherIsBetter: true },
   { key: "efgPct", label: "eFG%", value: (p) => p.shooting.efgPct, format: (p) => formatPct(p.shooting.efgPct), higherIsBetter: true },
   { key: "tsPct", label: "TS%", value: (p) => p.shooting.tsPct, format: (p) => formatPct(p.shooting.tsPct), higherIsBetter: true },
+  { key: "eff", label: "EFF", value: (p) => p.advanced.eff, format: (p) => formatDecimal(p.advanced.eff), higherIsBetter: true },
   {
     key: "doubleDoubles",
     label: "DD2",
@@ -224,9 +226,9 @@ const TILE_STAT_DEFS: PlayerStatDef[] = [
   },
 ];
 
-// レーダーチャート用の10項目（MIN/PTS/REB/AST/STL/BLK/TOV/3P%/2P%/FT%）。TILE_STAT_DEFSの
+// レーダーチャート用の12項目（MIN/PTS/REB/AST/STL/BLK/TOV/3P%/2P%/FT%/EFF/eFG%）。TILE_STAT_DEFSの
 // 定義済みaccessorをそのまま流用し、二重定義を避ける
-const RADAR_STAT_KEYS = ["min", "pts", "reb", "ast", "stl", "blk", "tov", "tpPct", "pt2Pct", "ftPct"];
+const RADAR_STAT_KEYS = ["min", "pts", "reb", "ast", "stl", "blk", "tov", "tpPct", "pt2Pct", "ftPct", "eff", "efgPct"];
 const RADAR_STAT_DEFS = TILE_STAT_DEFS.filter((d) => RADAR_STAT_KEYS.includes(d.key));
 
 interface RankResult {
@@ -1834,6 +1836,38 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </table>
             </div>
           )}
+          <div className="situational-groups-legend">
+            <h3>各グループの説明</h3>
+            <dl>
+              <dt>会場</dt>
+              <dd>ホーム開催／アウェイ開催の試合を分けて集計します。</dd>
+              <dt>地区</dt>
+              <dd>
+                対戦相手の所属地区（東地区／西地区）別の成績です。地区マスタは2026-27シーズン基準のため、
+                当時その地区に属していなかったクラブとの対戦は集計対象外になります。
+              </dd>
+              <dt>曜日</dt>
+              <dd>平日開催／休日開催（土日・祝日）の試合を分けて集計します。</dd>
+              <dt>時期</dt>
+              <dd>年明け（1月）を境に、シーズン前半・後半の試合を分けて集計します。</dd>
+              <dt>月別</dt>
+              <dd>開催月ごとの成績です。試合が無い月は表示されません。</dd>
+              <dt>対戦相手の強さ</dt>
+              <dd>
+                その試合に入る時点での対戦相手の勝率（対5割未満／対5割以上／対6割以上）別の成績です。
+                相手の消化試合数が5試合未満の対戦は、勝率が極端な値になりやすいため集計から除外しています。
+              </dd>
+              <dt>連戦</dt>
+              <dd>中1日以内の間隔で連続して試合を行った場合の、1試合目（GAME1）／2試合目以降（GAME2）別の成績です。</dd>
+              <dt>自チーム外国籍人数</dt>
+              <dd>
+                その試合で自チームが最も長くコートに立たせていた、外国籍・帰化選手・アジア特別枠選手の
+                同時出場人数（0〜3人）別の成績です。
+              </dd>
+              <dt>相手チーム外国籍人数</dt>
+              <dd>上記を相手チーム視点で見た成績です。</dd>
+            </dl>
+          </div>
 
           <h2 title={SHOOTING_SECTION_TOOLTIP}>シューティング</h2>
           <div className="mode-toggle">
@@ -1887,7 +1921,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     <th />
                     {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => (
                       <th key={key} className="align-right">
-                        {key}
+                        {shotTypeLabel(key)}
                       </th>
                     ))}
                     <th className="align-right">合計</th>

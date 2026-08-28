@@ -65,8 +65,6 @@ import {
 import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { safeDiv } from "../../shared/formulas";
-import { bleaguePlayerUrl } from "../lib/externalLinks";
-import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import {
   SEASON_BOX_COLUMNS,
   SEASON_BOX_PERIOD_OPTIONS,
@@ -93,6 +91,7 @@ import {
   buildShotTypeBreakdownByTeam,
   formatShotTypeCell,
   scaleShotTypeCounts,
+  shotTypeLabel,
   sortShotTypeKeys,
   sumShotTypeCounts,
 } from "../lib/shotTypeBreakdown";
@@ -1241,7 +1240,6 @@ export function TeamDetailPage({ season }: { season: string }) {
                           <PlayerPhoto playerId={p.playerId} size={28} className="team-leader-photo" />
                           <span className="team-leader-name">{p.name}</span>
                         </Link>
-                        <ExternalLinkIcon href={bleaguePlayerUrl(p.playerId)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                         <span className="team-leader-value">{def.format(p)}</span>
                       </div>
                     ))}
@@ -1468,7 +1466,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <th />
                     {sortShotTypeKeys(Object.keys(currentTeamShotTypes)).map((key) => (
                       <th key={key} className="align-right">
-                        {key}
+                        {shotTypeLabel(key)}
                       </th>
                     ))}
                     <th className="align-right">合計</th>
@@ -1583,7 +1581,6 @@ export function TeamDetailPage({ season }: { season: string }) {
                   rowKey={(p) => p.playerId}
                   defaultSortKey={playerStatMode === "basic" ? "pts" : "ftRate"}
                   linkTo={(p) => `/players/${p.playerId}`}
-                  externalLinkTo={(p) => bleaguePlayerUrl(p.playerId)}
                 />
               </div>
             </>
@@ -1959,7 +1956,6 @@ function TeamPlayerStatsTable({
                           </div>
                         </div>
                       </Link>
-                      <ExternalLinkIcon href={bleaguePlayerUrl(r.player.playerId)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                     </td>
                     {columns.map((col) => (
                       <td key={col.key} className="align-right">
