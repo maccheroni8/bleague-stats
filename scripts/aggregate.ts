@@ -1177,6 +1177,8 @@ function opponentGameLogStats(row: BoxscoreRow) {
     opponentAst: row.AS,
     opponentStl: row.ST,
     opponentBlk: row.BS,
+    opponentPf: row.FOUL,
+    opponentFoulsDrawn: row.FOULON,
   };
 }
 
@@ -1255,6 +1257,11 @@ function processTeams(
     pt2nd: secondChanceByTeam.get(game.homeTeam.id) ?? 0,
     pft: ptsOffTovByTeam.get(game.homeTeam.id) ?? 0,
     dunks: dunksByTeam.get(game.homeTeam.id) ?? 0,
+    opponentPt2in: pitpByTeam.get(game.awayTeam.id) ?? 0,
+    opponentFb: fbpsByTeam.get(game.awayTeam.id) ?? 0,
+    opponentPt2nd: secondChanceByTeam.get(game.awayTeam.id) ?? 0,
+    opponentPft: ptsOffTovByTeam.get(game.awayTeam.id) ?? 0,
+    opponentDunks: dunksByTeam.get(game.awayTeam.id) ?? 0,
     attendance,
   });
   away.gameLogs.push({
@@ -1276,6 +1283,11 @@ function processTeams(
     pt2nd: secondChanceByTeam.get(game.awayTeam.id) ?? 0,
     pft: ptsOffTovByTeam.get(game.awayTeam.id) ?? 0,
     dunks: dunksByTeam.get(game.awayTeam.id) ?? 0,
+    opponentPt2in: pitpByTeam.get(game.homeTeam.id) ?? 0,
+    opponentFb: fbpsByTeam.get(game.homeTeam.id) ?? 0,
+    opponentPt2nd: secondChanceByTeam.get(game.homeTeam.id) ?? 0,
+    opponentPft: ptsOffTovByTeam.get(game.homeTeam.id) ?? 0,
+    opponentDunks: dunksByTeam.get(game.homeTeam.id) ?? 0,
     attendance,
   });
 }

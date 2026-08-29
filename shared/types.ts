@@ -719,6 +719,9 @@ export interface TeamGameLog {
   opponentAst: number;
   opponentStl: number;
   opponentBlk: number;
+  /** クラブレコード「被記録」（Phase H8）用の相手チームのファウル数・被ファウル数 */
+  opponentPf: number;
+  opponentFoulsDrawn: number;
   /**
    * プレータイプ内訳（PlayByPlaysのPlayTextタグ集計、shared/playTypePoints.ts参照）。
    * チーム詳細ページ「通算成績」タブの単純合計値用。命名はBoxscoreCounts.PlayTypeCountsと
@@ -736,6 +739,13 @@ export interface TeamGameLog {
   /** その試合の来場者数（Game.Attendance）。ホーム/アウェイいずれの側の試合ログにも同じ値を持たせ、
    * 「ホーム来場者数」集計時はisHomeでフィルタしてから合算する。未計測の試合は省略 */
   attendance?: number;
+  /** クラブレコード「被記録」（Phase H8）用の相手チームのプレータイプ内訳・ダンク数。
+   * 同じ試合のpitpByTeam等から対戦相手側のteamIdを引くだけで求まる（新規のPBP走査は不要） */
+  opponentPt2in: number;
+  opponentFb: number;
+  opponentPt2nd: number;
+  opponentPft: number;
+  opponentDunks: number;
 }
 
 // ---- data/{season}/standings-history.json の保存スキーマ（順位表ページ用） ----

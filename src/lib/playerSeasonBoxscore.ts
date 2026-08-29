@@ -1356,7 +1356,9 @@ function scalePlayType(p: PlayTypeCounts, factor: number): PlayTypeCounts {
  * 計算しても同じ結果になる。computeTeamRatingsを平均化後のBoxscoreCountsに再適用すると比率項の
  * 非線形性で誤差が出るため使わない）。optionを渡すとQ別/前後半に絞り込んでから合算する
  * （「比較」タブは元々期間トグルを持たないため常にundefinedで呼ぶ。「チームスタッツ」タブの
- * Q別/前後半トグルはこの引数で対応する）
+ * Q別/前後半トグルはこの引数で対応する）。modeを"total"にすると1試合あたり平均への変換
+ * （factor = 1/gamesPlayed）を行わず、合計値のまま返す（PACE/ORtg/DRtg/NetRtgは比率のため
+ * どちらのmodeでも同じ値になる）
  */
 export function buildTeamMultiGameBoxTotals(
   entries: { game: StoredGame; isHome: boolean }[],
@@ -1364,6 +1366,7 @@ export function buildTeamMultiGameBoxTotals(
   shotChartSupported: boolean,
   yahooPbpSupported: boolean,
   option?: PeriodRangeOption,
+  mode: SeasonDisplayMode = "perGame",
 ): TeamGameBoxTotals | null {
   if (entries.length === 0) return null;
   const perGame = entries.map(({ game, isHome }) =>
@@ -1387,7 +1390,7 @@ export function buildTeamMultiGameBoxTotals(
   const ownDefRtg = offensiveRating(oppSum.pts, possSum);
   const ownPace = pace(possSum, ownSum.minSec / 60);
 
-  const factor = 1 / gamesPlayed;
+  const factor = mode === "total" ? 1 : 1 / gamesPlayed;
   const own = scaleCounts(ownSum, factor);
   const opp = scaleCounts(oppSum, factor);
   const ownPlayType = scalePlayType(ownPlayTypeSum, factor);

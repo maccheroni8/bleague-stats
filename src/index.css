@@ -211,12 +211,6 @@ h2 {
   min-width: 240px;
 }
 
-.team-record-line {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0 0 16px;
-}
-
 .team-header-radar {
   flex: 1 1 320px;
   min-width: 280px;
@@ -702,6 +696,14 @@ table.sortable-table td.row-accent-cell {
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 12px;
   margin-bottom: 24px;
+}
+
+/* チーム詳細ページヘッダーの4グループタイル（各グループ最大9項目）。1グループが2段に
+   折り返さず収まるよう、通常のstat-gridより列の最小幅を詰めている */
+.team-header-stat-grid {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .stat-tile {

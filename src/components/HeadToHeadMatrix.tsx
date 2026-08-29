@@ -82,9 +82,7 @@ export function HeadToHeadMatrix({ rows, teamColors }: Props) {
                     <td key={col.teamId} className={`h2h-cell ${cellClass(rec)}`}>
                       {rec ? (
                         <>
-                          <div className="h2h-record">
-                            {rec.wins} - {rec.losses}
-                          </div>
+                          <div className="h2h-record">{formatRecord(rec.wins, rec.losses)}</div>
                           <div className="h2h-diff">{formatSigned(rec.pointDiff, 0)}</div>
                         </>
                       ) : (

@@ -63,8 +63,8 @@ async function loadCareerDataByTeam(): Promise<Map<string, TeamSeasonLogs[]>> {
   return byTeam;
 }
 
-function buildRankTable(entries: { teamId: string; value: number }[]): Record<string, LeagueTeamRankEntry> {
-  const sorted = [...entries].sort((a, b) => b.value - a.value || Number(a.teamId) - Number(b.teamId));
+function buildRankTable(entries: { teamId: string; value: number }[], lowerIsBetter = false): Record<string, LeagueTeamRankEntry> {
+  const sorted = [...entries].sort((a, b) => (lowerIsBetter ? a.value - b.value : b.value - a.value) || Number(a.teamId) - Number(b.teamId));
   const totalTeams = sorted.length;
   const table: Record<string, LeagueTeamRankEntry> = {};
   sorted.forEach((e, i) => {
@@ -114,7 +114,8 @@ async function main() {
         for (const def of TEAM_RECORD_STATS) {
           const pool = def.filter ? filtered.filter(def.filter) : filtered;
           if (pool.length === 0) continue;
-          const best = Math.max(...pool.map(def.value));
+          const values = pool.map(def.value);
+          const best = def.lowerIsBetter ? Math.min(...values) : Math.max(...values);
           const arr = recordCollected.get(def.key) ?? [];
           arr.push({ teamId, value: best });
           recordCollected.set(def.key, arr);
@@ -138,7 +139,10 @@ async function main() {
     }
 
     for (const [key, entries] of careerCollected) career[gameType][key] = buildRankTable(entries);
-    for (const [key, entries] of recordCollected) clubRecord[gameType][key] = buildRankTable(entries);
+    for (const [key, entries] of recordCollected) {
+      const lowerIsBetter = TEAM_RECORD_STATS.find((def) => def.key === key)?.lowerIsBetter ?? false;
+      clubRecord[gameType][key] = buildRankTable(entries, lowerIsBetter);
+    }
     seasonSpecial[gameType].wins = buildRankTable(winsCollected);
     seasonSpecial[gameType].streak = buildRankTable(streakCollected);
 

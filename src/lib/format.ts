@@ -23,7 +23,7 @@ export function formatSigned(value: number, digits = 1): string {
 }
 
 export function formatRecord(wins: number, losses: number): string {
-  return `${wins}-${losses}`;
+  return `${wins}勝${losses}敗`;
 }
 
 const WEEKDAY_JA = ["日", "月", "火", "水", "木", "金", "土"];

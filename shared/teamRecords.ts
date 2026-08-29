@@ -172,11 +172,16 @@ export interface TeamRecordValueDef {
   worstEligible?: boolean;
   /** 対象試合の絞り込み（未指定なら全試合）。ホーム来場者数はホーム開催かつ計測済みの試合のみ対象にする */
   filter?: (g: TeamGameLog) => boolean;
+  /**
+   * 「少ない方が良い」項目（失点・ターンオーバー・ファウル）はtrue。クラブレコード（最高記録）は
+   * 最小値、クラブワーストは最大値になる（デフォルトはfalse＝最大値がレコード・最小値がワースト）
+   */
+  lowerIsBetter?: boolean;
 }
 
 export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
   { key: "pts", label: "得点", value: (g) => g.teamScore },
-  { key: "oppPts", label: "失点", value: (g) => g.opponentScore },
+  { key: "oppPts", label: "失点", value: (g) => g.opponentScore, lowerIsBetter: true },
   { key: "fgm", label: "FG成功数", value: (g) => g.fgm },
   { key: "fga", label: "FG試投数", value: (g) => g.fga },
   { key: "fgPct", label: "FG成功率", value: (g) => safeDiv(g.fgm, g.fga), worstEligible: false },
@@ -203,10 +208,10 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
   { key: "dreb", label: "ディフェンスリバウンド", value: (g) => g.dreb },
   { key: "reb", label: "トータルリバウンド", value: (g) => g.reb },
   { key: "ast", label: "アシスト", value: (g) => g.ast },
-  { key: "tov", label: "ターンオーバー", value: (g) => g.tov },
+  { key: "tov", label: "ターンオーバー", value: (g) => g.tov, lowerIsBetter: true },
   { key: "stl", label: "スティール", value: (g) => g.stl },
   { key: "blk", label: "ブロックショット", value: (g) => g.blk },
-  { key: "pf", label: "ファウル", value: (g) => g.pf },
+  { key: "pf", label: "ファウル", value: (g) => g.pf, lowerIsBetter: true },
   { key: "fbps", label: "ファストブレイクポイント", value: (g) => g.fb },
   { key: "pitp", label: "ペイント内得点", value: (g) => g.pt2in },
   { key: "ptsOffTov", label: "ポイントオフターンオーバー", value: (g) => g.pft },
@@ -219,6 +224,54 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
     value: (g) => g.attendance ?? 0,
     filter: (g) => g.isHome && g.attendance !== undefined,
   },
+];
+
+/**
+ * 「被記録」（Phase H8）: TEAM_RECORD_STATSと同じ項目リストを、対戦相手がそのチーム相手に
+ * 記録した値（TeamGameLogのopponent*フィールド）に適用したもの。「得点」は「対戦相手が
+ * この試合で挙げた得点」を意味する（クラブレコードの「失点」と同じ値だが、視点が異なる
+ * ため独立した項目として残す）。ホーム来場者数はチーム・対戦相手どちらの視点でも同じ値の
+ * 会場指標であり「相手が記録した」という概念に馴染まないため対象外にした（28項目）
+ */
+export const TEAM_AGAINST_RECORD_STATS: TeamRecordValueDef[] = [
+  { key: "pts", label: "得点", value: (g) => g.opponentScore },
+  { key: "oppPts", label: "失点", value: (g) => g.teamScore },
+  { key: "fgm", label: "FG成功数", value: (g) => g.opponentFgm },
+  { key: "fga", label: "FG試投数", value: (g) => g.opponentFga },
+  { key: "fgPct", label: "FG成功率", value: (g) => safeDiv(g.opponentFgm, g.opponentFga), worstEligible: false },
+  { key: "twoPm", label: "2P成功数", value: (g) => g.opponentFgm - g.opponentTpm },
+  { key: "twoPa", label: "2P試投数", value: (g) => g.opponentFga - g.opponentTpa },
+  {
+    key: "twoPct",
+    label: "2P成功率",
+    value: (g) => safeDiv(g.opponentFgm - g.opponentTpm, g.opponentFga - g.opponentTpa),
+    worstEligible: false,
+  },
+  { key: "tpm", label: "3P成功数", value: (g) => g.opponentTpm },
+  { key: "tpa", label: "3P試投数", value: (g) => g.opponentTpa },
+  { key: "tpPct", label: "3P成功率", value: (g) => safeDiv(g.opponentTpm, g.opponentTpa), worstEligible: false },
+  { key: "ftm", label: "フリースロー成功数", value: (g) => g.opponentFtm },
+  { key: "fta", label: "フリースロー試投数", value: (g) => g.opponentFta },
+  {
+    key: "ftPct",
+    label: "フリースロー成功率",
+    value: (g) => safeDiv(g.opponentFtm, g.opponentFta),
+    worstEligible: false,
+  },
+  { key: "oreb", label: "オフェンスリバウンド", value: (g) => g.opponentOreb },
+  { key: "dreb", label: "ディフェンスリバウンド", value: (g) => g.opponentDreb },
+  { key: "reb", label: "トータルリバウンド", value: (g) => g.opponentOreb + g.opponentDreb },
+  { key: "ast", label: "アシスト", value: (g) => g.opponentAst },
+  { key: "tov", label: "ターンオーバー", value: (g) => g.opponentTov },
+  { key: "stl", label: "スティール", value: (g) => g.opponentStl },
+  { key: "blk", label: "ブロックショット", value: (g) => g.opponentBlk },
+  { key: "pf", label: "ファウル", value: (g) => g.opponentPf },
+  { key: "fbps", label: "ファストブレイクポイント", value: (g) => g.opponentFb },
+  { key: "pitp", label: "ペイント内得点", value: (g) => g.opponentPt2in },
+  { key: "ptsOffTov", label: "ポイントオフターンオーバー", value: (g) => g.opponentPft },
+  { key: "secondChancePts", label: "セカンドチャンスポイント", value: (g) => g.opponentPt2nd },
+  { key: "foulsDrawn", label: "ファウルドローン", value: (g) => g.opponentFoulsDrawn },
+  { key: "dunks", label: "ダンク", value: (g) => g.opponentDunks },
 ];
 
 /** シーズン単位の値から最高値のシーズン（代表）と、同値タイの他シーズン一覧を求める */

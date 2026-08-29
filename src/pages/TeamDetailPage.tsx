@@ -75,6 +75,7 @@ import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { safeDiv } from "../../shared/formulas";
 import {
   CAREER_TOTAL_DEFS,
+  TEAM_AGAINST_RECORD_STATS as TEAM_AGAINST_RECORD_VALUE_DEFS,
   TEAM_RECORD_STATS as TEAM_RECORD_VALUE_DEFS,
   bestTeamSeasonRecord,
   buildTeamCareerTotals,
@@ -176,7 +177,7 @@ const RADAR_STAT_DEFS: RadarStatDef[] = [
     key: "ftRate",
     label: "FTR",
     value: (t) => t.shooting.ftRate,
-    format: (t) => formatDecimal(t.shooting.ftRate, 3),
+    format: (t) => formatPct(t.shooting.ftRate),
     higherIsBetter: true,
   },
   {
@@ -241,9 +242,9 @@ interface TeamHeaderStatDef {
   higherIsBetter: boolean;
 }
 
-// ヘッダーのスタッツタイル（2段×14列）。上段=自チーム、下段=相手（opp）で、
-// 同じ列位置が対になるよう配置する（NetRtgの真下だけはoppNetRtgではなくPACEを配置）。
-// シーズン合計（フィルタなし）固定で表示し、各タイルにリーグ内順位を併記する
+// ヘッダーのスタッツタイル（4グループ: 自チーム・カウント系/自チーム・レート系/
+// opp・カウント系/opp・レート系）。シーズン合計（フィルタなし）固定で表示し、各タイルに
+// リーグ内順位を併記する
 const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
   [
     { key: "pts", label: "PTS", value: (t) => t.perGame.pts, format: (t) => formatDecimal(t.perGame.pts), higherIsBetter: true },
@@ -252,15 +253,18 @@ const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
     { key: "stl", label: "STL", value: (t) => t.perGame.stl, format: (t) => formatDecimal(t.perGame.stl), higherIsBetter: true },
     { key: "blk", label: "BLK", value: (t) => t.perGame.blk, format: (t) => formatDecimal(t.perGame.blk), higherIsBetter: true },
     { key: "tov", label: "TOV", value: (t) => t.perGame.tov, format: (t) => formatDecimal(t.perGame.tov), higherIsBetter: false },
+    { key: "offRtg", label: "ORtg", value: (t) => t.advanced.offRtg, format: (t) => formatDecimal(t.advanced.offRtg), higherIsBetter: true },
+    { key: "netRtg", label: "NETRtg", value: (t) => t.advanced.netRtg, format: (t) => formatSigned(t.advanced.netRtg), higherIsBetter: true },
+    { key: "pace", label: "PACE", value: (t) => t.advanced.pace, format: (t) => formatDecimal(t.advanced.pace), higherIsBetter: true },
+  ],
+  [
     { key: "fgPct", label: "FG%", value: (t) => t.shooting.fgPct, format: (t) => formatPct(t.shooting.fgPct), higherIsBetter: true },
     { key: "tpPct", label: "3P%", value: (t) => t.shooting.tpPct, format: (t) => formatPct(t.shooting.tpPct), higherIsBetter: true },
     { key: "pt2Pct", label: "2P%", value: (t) => t.shooting.pt2Pct, format: (t) => formatPct(t.shooting.pt2Pct), higherIsBetter: true },
     { key: "ftPct", label: "FT%", value: (t) => t.shooting.ftPct, format: (t) => formatPct(t.shooting.ftPct), higherIsBetter: true },
-    { key: "efgPct", label: "eFG%", value: (t) => t.shooting.efgPct, format: (t) => formatPct(t.shooting.efgPct), higherIsBetter: true },
     { key: "tsPct", label: "TS%", value: (t) => t.shooting.tsPct, format: (t) => formatPct(t.shooting.tsPct), higherIsBetter: true },
-    { key: "offRtg", label: "ORtg", value: (t) => t.advanced.offRtg, format: (t) => formatDecimal(t.advanced.offRtg), higherIsBetter: true },
-    { key: "netRtg", label: "NetRtg", value: (t) => t.advanced.netRtg, format: (t) => formatSigned(t.advanced.netRtg), higherIsBetter: true },
-    { key: "ftr", label: "FTR", value: (t) => t.shooting.ftRate, format: (t) => formatDecimal(t.shooting.ftRate, 3), higherIsBetter: true },
+    { key: "efgPct", label: "eFG%", value: (t) => t.shooting.efgPct, format: (t) => formatPct(t.shooting.efgPct), higherIsBetter: true },
+    { key: "ftr", label: "FTR", value: (t) => t.shooting.ftRate, format: (t) => formatPct(t.shooting.ftRate), higherIsBetter: true },
     { key: "tovPct", label: "TOV%", value: (t) => t.advanced.tovPct, format: (t) => formatPct100(t.advanced.tovPct), higherIsBetter: false },
     { key: "orbPct", label: "OR%", value: (t) => t.advanced.orbPct, format: (t) => formatPct100(t.advanced.orbPct), higherIsBetter: true },
   ],
@@ -271,19 +275,20 @@ const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
     { key: "oppStl", label: "oppSTL", value: (t) => t.opponentPerGame.stl, format: (t) => formatDecimal(t.opponentPerGame.stl), higherIsBetter: false },
     { key: "oppBlk", label: "oppBLK", value: (t) => t.opponentPerGame.blk, format: (t) => formatDecimal(t.opponentPerGame.blk), higherIsBetter: false },
     { key: "oppTov", label: "oppTOV", value: (t) => t.opponentPerGame.tov, format: (t) => formatDecimal(t.opponentPerGame.tov), higherIsBetter: true },
+    { key: "defRtg", label: "DRtg", value: (t) => t.advanced.defRtg, format: (t) => formatDecimal(t.advanced.defRtg), higherIsBetter: false },
+  ],
+  [
     { key: "oppFgPct", label: "opp FG%", value: (t) => t.opponentShooting.fgPct, format: (t) => formatPct(t.opponentShooting.fgPct), higherIsBetter: false },
     { key: "oppTpPct", label: "opp 3P%", value: (t) => t.opponentShooting.tpPct, format: (t) => formatPct(t.opponentShooting.tpPct), higherIsBetter: false },
     { key: "oppPt2Pct", label: "opp 2P%", value: (t) => t.opponentShooting.pt2Pct, format: (t) => formatPct(t.opponentShooting.pt2Pct), higherIsBetter: false },
     { key: "oppFtPct", label: "opp FT%", value: (t) => t.opponentShooting.ftPct, format: (t) => formatPct(t.opponentShooting.ftPct), higherIsBetter: false },
-    { key: "oppEfgPct", label: "opp eFG%", value: (t) => t.opponentShooting.efgPct, format: (t) => formatPct(t.opponentShooting.efgPct), higherIsBetter: false },
     { key: "oppTsPct", label: "opp TS%", value: (t) => t.opponentShooting.tsPct, format: (t) => formatPct(t.opponentShooting.tsPct), higherIsBetter: false },
-    { key: "defRtg", label: "DRtg", value: (t) => t.advanced.defRtg, format: (t) => formatDecimal(t.advanced.defRtg), higherIsBetter: false },
-    { key: "pace", label: "PACE", value: (t) => t.advanced.pace, format: (t) => formatDecimal(t.advanced.pace), higherIsBetter: true },
+    { key: "oppEfgPct", label: "opp eFG%", value: (t) => t.opponentShooting.efgPct, format: (t) => formatPct(t.opponentShooting.efgPct), higherIsBetter: false },
     {
       key: "oppFtr",
       label: "opp FTR",
       value: (t) => t.opponentShooting.ftRate,
-      format: (t) => formatDecimal(t.opponentShooting.ftRate, 3),
+      format: (t) => formatPct(t.opponentShooting.ftRate),
       higherIsBetter: false,
     },
     {
@@ -467,7 +472,7 @@ const TEAM_SEASON_TRADITIONAL_COLUMNS: TeamSeasonBoxColumn[] = [
 const TEAM_SEASON_ADVANCED_COLUMNS: TeamSeasonBoxColumn[] = [
   { key: "g", label: "G", format: (r) => String(r.team.gamesPlayed) },
   { key: "tovpct", label: "TOV%", format: (r) => formatPct100(r.team.advanced.tovPct) },
-  { key: "ftr", label: "FTR", format: (r) => formatDecimal(r.team.shooting.ftRate, 3) },
+  { key: "ftr", label: "FTR", format: (r) => formatPct(r.team.shooting.ftRate) },
   { key: "orbpct", label: "OR%", format: (r) => formatPct100(r.team.advanced.orbPct) },
   { key: "efg", label: "eFG%", format: (r) => formatPct(r.team.shooting.efgPct) },
   { key: "ts", label: "TS%", format: (r) => formatPct(r.team.shooting.tsPct) },
@@ -860,6 +865,7 @@ interface TeamRecordDef {
   format?: (v: number) => string;
   worstEligible?: boolean;
   filter?: (g: TeamRecordGame) => boolean;
+  lowerIsBetter?: boolean;
 }
 
 const TEAM_RECORD_PCT_FORMATS: Partial<Record<string, (v: number) => string>> = {
@@ -870,6 +876,12 @@ const TEAM_RECORD_PCT_FORMATS: Partial<Record<string, (v: number) => string>> = 
 };
 
 const TEAM_RECORD_STATS: TeamRecordDef[] = TEAM_RECORD_VALUE_DEFS.map((d) => ({
+  ...d,
+  format: TEAM_RECORD_PCT_FORMATS[d.key],
+}));
+
+/** 「被記録」（Phase H8）: TEAM_RECORD_STATSと同じ%フォーマットのマージだけを行う */
+const TEAM_AGAINST_RECORD_STATS: TeamRecordDef[] = TEAM_AGAINST_RECORD_VALUE_DEFS.map((d) => ({
   ...d,
   format: TEAM_RECORD_PCT_FORMATS[d.key],
 }));
@@ -1099,7 +1111,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       let bestValue: number | null = null;
       for (const g of pool) {
         const v = def.value(g);
-        if (bestValue === null || v > bestValue) bestValue = v;
+        if (bestValue === null || (def.lowerIsBetter ? v < bestValue : v > bestValue)) bestValue = v;
       }
       if (bestValue === null) return null;
       const matches = sortTeamRecordGamesByDateDesc(pool.filter((g) => def.value(g) === bestValue));
@@ -1115,7 +1127,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         let worstValue: number | null = null;
         for (const g of pool) {
           const v = def.value(g);
-          if (worstValue === null || v < worstValue) worstValue = v;
+          if (worstValue === null || (def.lowerIsBetter ? v > worstValue : v < worstValue)) worstValue = v;
         }
         if (worstValue === null) return null;
         const matches = sortTeamRecordGamesByDateDesc(pool.filter((g) => def.value(g) === worstValue));
@@ -1123,6 +1135,23 @@ export function TeamDetailPage({ season }: { season: string }) {
         return { ...def, game, otherGames, display: def.format ? def.format(worstValue) : String(worstValue) };
       })
       .filter((r): r is TeamRecordDef & { game: TeamRecordGame; otherGames: TeamRecordGame[]; display: string } => r !== null);
+  }, [clubRecordAllGames]);
+
+  // 「被記録」（Phase H8）: 「対戦相手の多かった試合」＝TEAM_AGAINST_RECORD_STATS（TeamGameLogの
+  // opponent*フィールド）についても最大値を求める。clubRecordsと同じロジックだが対象defsが異なる
+  const clubAgainstRecords = useMemo(() => {
+    return TEAM_AGAINST_RECORD_STATS.map((def) => {
+      const pool = def.filter ? clubRecordAllGames.filter(def.filter) : clubRecordAllGames;
+      let bestValue: number | null = null;
+      for (const g of pool) {
+        const v = def.value(g);
+        if (bestValue === null || v > bestValue) bestValue = v;
+      }
+      if (bestValue === null) return null;
+      const matches = sortTeamRecordGamesByDateDesc(pool.filter((g) => def.value(g) === bestValue));
+      const [game, ...otherGames] = matches;
+      return { ...def, game, otherGames, display: def.format ? def.format(bestValue) : String(bestValue) };
+    }).filter((r): r is TeamRecordDef & { game: TeamRecordGame; otherGames: TeamRecordGame[]; display: string } => r !== null);
   }, [clubRecordAllGames]);
 
   // シーズン単位の特殊集計（最多勝利数・最多連勝）。既存のlongestWinStreak()をシーズンごとの
@@ -1348,6 +1377,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   const statsRawGamesRequestedRef = useRef<Set<string>>(new Set());
   const [statsRawGames, setStatsRawGames] = useState<Map<string, StoredGame>>(new Map());
   const [statsRawGamesLoading, setStatsRawGamesLoading] = useState(false);
+  // 「チーム内リーダー」（概要タブ、Phase H3②）専用のチーム全体/日本人選手限定トグル
+  const [teamLeadersJpOnly, setTeamLeadersJpOnly] = useState(false);
   // 「シチュエーション別成績」（チーム版）専用のレギュラー/プレーオフ/合算トグル。
   // 上部集計表のteamStatsGameTypeとは独立（個人詳細ページの同名セクションと同じ設計）
   const [situationalTeamGameType, setSituationalTeamGameType] = useState<SeasonGameTypeFilter>("regular");
@@ -1357,6 +1388,10 @@ export function TeamDetailPage({ season }: { season: string }) {
 
   // 「シューティング」セクションの平均/合計トグル
   const [teamShootingDisplayMode, setTeamShootingDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  // 「当該シーズンのスタッツ」（上部集計表）・「シチュエーション別成績」（チーム版）の
+  // 平均/合計トグル。それぞれ独立した状態を持つ（他のトグル群と同じ設計）
+  const [teamStatsDisplayMode, setTeamStatsDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  const [situationalTeamDisplayMode, setSituationalTeamDisplayMode] = useState<SeasonDisplayMode>("perGame");
   // 「シューティング」セクション用: Q別/前後半選択時・非デフォルトフィルタ選択時のみ、
   // このチームの全試合のYahoo PBPを遅延取得する（既定の「試合」×フィルタ無しはteams.jsonの
   // shotTypesを0コストで使うため取得不要。DESIGN.md参照）
@@ -1513,6 +1548,12 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [playerStatsCandidates, setPlayerStatsCandidates] = useState<PlayerStatsCandidate[] | null>(null);
   const [playerStatsCandidatesLoading, setPlayerStatsCandidatesLoading] = useState(false);
   const [playerStatsGameType, setPlayerStatsGameType] = useState<SeasonGameTypeFilter>("regular");
+  // 「選手スタッツ」タブの平均/合計トグル。ctx.scaledがbuildTeamSplitRowsForPeriod呼び出し時の
+  // modeで確定するため、render時にcol.format(ctx, mode)へ渡すだけでは反映されない
+  // （SeasonBoxscoreCtx.scaledは構築時に1回だけ計算される）。playerStatsRowsのuseMemo側で
+  // このstateを使ってctxを再構築する必要があるため、TeamPlayerStatsTable内のローカルstateでは
+  // なく親コンポーネントで持つ
+  const [playerStatsDisplayMode, setPlayerStatsDisplayMode] = useState<SeasonDisplayMode>("perGame");
   // Q別/前後半トグル（既存のbuildPeriodRangeOptionsをOT無しで固定した共通オプション）。
   // 「試合」選択時は追加取得不要（既存のTeamGameLog/PlayerGameLog永続集計をそのまま使う）だが、
   // Q別/前後半選択時のみ、必要な試合の生データ（PlayByPlays込み）を遅延取得する
@@ -1609,7 +1650,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         gameTypeFilteredLogs,
         c.ownTeamByScheduleKey,
         new Map([[teamId, teamTotals]]),
-        "perGame",
+        playerStatsDisplayMode,
         seasonStartYear,
         c.playerId,
         playerStatsPeriodOption,
@@ -1621,7 +1662,17 @@ export function TeamDetailPage({ season }: { season: string }) {
       rows.push({ player, ctx: row.ctx, ddtd: countDoubleTripleDoubles(row.logs) });
     }
     return rows;
-  }, [playerStatsCandidates, players, gameLogs, teamId, season, playerStatsGameType, playerStatsPeriodOption, playerStatsRawGames]);
+  }, [
+    playerStatsCandidates,
+    players,
+    gameLogs,
+    teamId,
+    season,
+    playerStatsGameType,
+    playerStatsDisplayMode,
+    playerStatsPeriodOption,
+    playerStatsRawGames,
+  ]);
 
   // 「スタメン平均」見出しに追記する、当該シーズン（レギュラーシーズンのみ、avgHeightCm等と
   // 同じ基準）で実際に起用されたスタメン5人の組み合わせ種類数。playerStatsCandidates
@@ -1650,6 +1701,7 @@ export function TeamDetailPage({ season }: { season: string }) {
 
   const accentColor = teamColors?.[team.teamId]?.primary;
   const teamPlayers = (players ?? []).filter((p) => p.teamId === teamId);
+  const teamLeadersPool = teamLeadersJpOnly ? teamPlayers.filter((p) => p.classification === "日本人") : teamPlayers;
 
   // 「スタメン選手」は現状このアプリに現在の先発5人という概念が無いため、シーズン中に
   // 1度でも先発出場した選手（gamesStarted > 0）を近似として使う
@@ -1685,6 +1737,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     teamStatsShotChartSupported,
     yahooPbpSupported,
     statsPeriodOption,
+    teamStatsDisplayMode,
   );
 
   // 「シューティング」セクション: 「試合」選択時・フィルタ無し・レギュラーシーズンのみの場合だけ
@@ -1875,6 +1928,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           teamStatsShotChartSupported,
           yahooPbpSupported,
           statsPeriodOption,
+          situationalTeamDisplayMode,
         );
         return boxTotals ? [{ key: row.key, label: row.label, gamesPlayed: matched.length, boxTotals }] : [];
       }),
@@ -1923,14 +1977,13 @@ export function TeamDetailPage({ season }: { season: string }) {
         <div>
           <h1>{team.teamName}</h1>
           <p className="page-subtitle">
-            {season}シーズン・{formatRecord(team.wins, team.losses)}
+            {season}シーズン・{recordLine}
           </p>
         </div>
       </div>
 
       <div className="team-header-columns">
         <div className="team-header-info">
-          <p className="team-record-line">{recordLine}</p>
           {honors.length > 0 && (
             <div className="honors-groups">
               {HONOR_CATEGORY_ORDER.map((category) => {
@@ -1989,7 +2042,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       </div>
 
       {TEAM_HEADER_STAT_ROWS.map((row, i) => (
-        <div className="stat-grid" key={i}>
+        <div className="stat-grid team-header-stat-grid" key={i}>
           {row.map((def) => (
             <StatTile
               key={def.key}
@@ -2091,14 +2144,30 @@ export function TeamDetailPage({ season }: { season: string }) {
           )}
 
           <h2>チーム内リーダー</h2>
-          {teamPlayers.length === 0 ? (
+          <div className="mode-toggle">
+            <button
+              className={teamLeadersJpOnly ? "" : "active"}
+              onClick={() => setTeamLeadersJpOnly(false)}
+              type="button"
+            >
+              チーム全体
+            </button>
+            <button
+              className={teamLeadersJpOnly ? "active" : ""}
+              onClick={() => setTeamLeadersJpOnly(true)}
+              type="button"
+            >
+              日本人選手限定
+            </button>
+          </div>
+          {teamLeadersPool.length === 0 ? (
             <p className="empty-message">選手データがありません</p>
           ) : (
             <div className="leaders-grid">
               {TEAM_INTERNAL_LEADER_STAT_KEYS.map((key) => {
                 const def = PLAYER_STAT_DEFS.find((d) => d.key === key);
                 if (!def) return null;
-                const top = [...teamPlayers].sort((a, b) => def.value(b) - def.value(a)).slice(0, TEAM_LEADERS_TOP_N);
+                const top = [...teamLeadersPool].sort((a, b) => def.value(b) - def.value(a)).slice(0, TEAM_LEADERS_TOP_N);
                 const leader = top[0];
                 if (!leader) return null;
                 return (
@@ -2457,11 +2526,28 @@ export function TeamDetailPage({ season }: { season: string }) {
                   />
                 ))}
               </div>
+
+              <h3 className="career-highs-subheading">被記録</h3>
+              <div className="career-highs-grid">
+                {clubAgainstRecords.map((r) => (
+                  <ClubRecordCard
+                    key={r.key}
+                    tieKey={`against:${r.key}`}
+                    label={r.label}
+                    display={r.display}
+                    game={r.game}
+                    otherGames={r.otherGames}
+                    expandedKeys={expandedClubRecordTieCards}
+                    onToggle={toggleClubRecordTieCard}
+                  />
+                ))}
+              </div>
               <p className="page-subtitle">
                 {careerData[0]?.season}〜{careerData[careerData.length - 1]?.season}シーズンの中での1試合の最高/最低記録
                 （PITP/FBPS/2ND PTS/PTSOFFTOはPBPタグ集計による得点ベースの値。ホーム来場者数はホーム開催試合のみが対象）。
                 %系の指標は低試投数での極端な値を避けるため、クラブワーストの対象外。項目名の下の順位は過去在籍した
-                全クラブ横断（Phase H7）。クラブワーストは順位算出の対象外
+                全クラブ横断（Phase H7）。クラブワーストは順位算出の対象外。「被記録」は対戦相手がこのチーム相手に
+                記録した最多値（来場者数を除く28項目。歴代順位の算出対象外）
               </p>
             </>
           )}
@@ -2487,6 +2573,18 @@ export function TeamDetailPage({ season }: { season: string }) {
             {(["own", "opp", "diff"] as TeamPerspective[]).map((m) => (
               <button key={m} className={teamPerspective === m ? "active" : ""} onClick={() => setTeamPerspective(m)} type="button">
                 {TEAM_PERSPECTIVE_LABELS[m]}
+              </button>
+            ))}
+          </div>
+          <div className="mode-toggle">
+            {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+              <button
+                key={m}
+                className={m === teamStatsDisplayMode ? "active" : ""}
+                onClick={() => setTeamStatsDisplayMode(m)}
+                type="button"
+              >
+                {SEASON_DISPLAY_MODE_LABELS[m]}
               </button>
             ))}
           </div>
@@ -2542,9 +2640,6 @@ export function TeamDetailPage({ season }: { season: string }) {
               </table>
             </div>
           )}
-          <p className="page-subtitle">
-            選択中のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・Q別/前後半で絞り込んだ試合の1試合あたり平均（「日程結果」タブと同じボックススコア列定義）
-          </p>
 
           <h2>シチュエーション別成績</h2>
           <div className="mode-toggle">
@@ -2556,6 +2651,18 @@ export function TeamDetailPage({ season }: { season: string }) {
                 type="button"
               >
                 {SEASON_GAME_TYPE_LABELS[g]}
+              </button>
+            ))}
+          </div>
+          <div className="mode-toggle">
+            {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+              <button
+                key={m}
+                className={m === situationalTeamDisplayMode ? "active" : ""}
+                onClick={() => setSituationalTeamDisplayMode(m)}
+                type="button"
+              >
+                {SEASON_DISPLAY_MODE_LABELS[m]}
               </button>
             ))}
           </div>
@@ -2770,9 +2877,6 @@ export function TeamDetailPage({ season }: { season: string }) {
                   </tbody>
                 </table>
               </div>
-              <p className="page-subtitle">
-                Yahoo!スポーツplay-by-play由来の指標（2023-24シーズン以降。DESIGN.md参照）。「相手から奪った」＝自チームのディフェンス成果（相手に強制したターンオーバー）、「自チームが記録」＝自チームのオフェンス課題（相手に強制されたターンオーバー）。いずれも種類別カウント（レギュラーシーズンのみ）
-              </p>
             </>
           )}
         </>
@@ -2791,6 +2895,8 @@ export function TeamDetailPage({ season }: { season: string }) {
               rows={playerStatsRows}
               gameType={playerStatsGameType}
               onGameTypeChange={setPlayerStatsGameType}
+              displayMode={playerStatsDisplayMode}
+              onDisplayModeChange={setPlayerStatsDisplayMode}
               period={playerStatsPeriod}
               onPeriodChange={setPlayerStatsPeriod}
               periodLoading={playerStatsRawGamesLoading}
@@ -3222,6 +3328,8 @@ function TeamPlayerStatsTable({
   rows,
   gameType,
   onGameTypeChange,
+  displayMode,
+  onDisplayModeChange,
   period,
   onPeriodChange,
   periodLoading,
@@ -3229,6 +3337,8 @@ function TeamPlayerStatsTable({
   rows: TeamPlayerStatsRow[];
   gameType: SeasonGameTypeFilter;
   onGameTypeChange: (g: SeasonGameTypeFilter) => void;
+  displayMode: SeasonDisplayMode;
+  onDisplayModeChange: (m: SeasonDisplayMode) => void;
   period: PeriodRangeValue;
   onPeriodChange: (p: PeriodRangeValue) => void;
   periodLoading: boolean;
@@ -3249,7 +3359,7 @@ function TeamPlayerStatsTable({
         return r.ddtd.td;
       default: {
         const col = columns.find((c) => c.key === key);
-        return col ? col.value(r.ctx, "perGame") : 0;
+        return col ? col.value(r.ctx, displayMode) : 0;
       }
     }
   };
@@ -3264,7 +3374,7 @@ function TeamPlayerStatsTable({
       return String(av).localeCompare(String(bv)) * factor;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sortKey, sortDir, columns]);
+  }, [rows, sortKey, sortDir, columns, displayMode]);
 
   const handleHeaderClick = (key: string) => {
     if (key === sortKey) {
@@ -3283,6 +3393,13 @@ function TeamPlayerStatsTable({
         {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
           <button key={g} className={g === gameType ? "active" : ""} onClick={() => onGameTypeChange(g)} type="button">
             {SEASON_GAME_TYPE_LABELS[g]}
+          </button>
+        ))}
+      </div>
+      <div className="mode-toggle">
+        {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+          <button key={m} className={m === displayMode ? "active" : ""} onClick={() => onDisplayModeChange(m)} type="button">
+            {SEASON_DISPLAY_MODE_LABELS[m]}
           </button>
         ))}
       </div>
@@ -3342,7 +3459,7 @@ function TeamPlayerStatsTable({
                     </td>
                     {columns.map((col) => (
                       <td key={col.key} className="align-right">
-                        {col.format(r.ctx, "perGame")}
+                        {col.format(r.ctx, displayMode)}
                       </td>
                     ))}
                     <td className="align-right">{r.ddtd.dd}</td>
