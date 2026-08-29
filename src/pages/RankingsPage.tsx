@@ -7,7 +7,10 @@ import { ExportImageButton } from "../components/ExportImageButton";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 
 type Mode = "team" | "player";
-type NationalityFilter = "all" | "jp" | "intl";
+/** 選手の登録区分（日本人/外国籍/帰化選手/アジア特別枠）による絞り込み。2026-08-29、
+ * nationality（生の国籍値、日本/日本以外の2値）ベースだったフィルタをclassification
+ * （4区分）ベースに変更した（DESIGN.md参照） */
+type ClassificationFilter = "all" | "jp" | "intl" | "naturalized" | "asianQuota";
 
 interface RankedListProps<T> {
   rows: T[];
@@ -67,7 +70,7 @@ export function RankingsPage({ season }: { season: string }) {
   const exportRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<Mode>("team");
   const [statKey, setStatKey] = useState("pts");
-  const [nationalityFilter, setNationalityFilter] = useState<NationalityFilter>("all");
+  const [classificationFilter, setClassificationFilter] = useState<ClassificationFilter>("all");
 
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
   const {
@@ -87,14 +90,20 @@ export function RankingsPage({ season }: { season: string }) {
   const selectMode = (next: Mode) => {
     setMode(next);
     setStatKey("pts");
-    setNationalityFilter("all");
+    setClassificationFilter("all");
+  };
+
+  const CLASSIFICATION_BY_FILTER: Record<Exclude<ClassificationFilter, "all">, string> = {
+    jp: "日本人",
+    intl: "外国籍",
+    naturalized: "帰化選手",
+    asianQuota: "アジア特別枠",
   };
 
   const filteredPlayers = (players ?? [])
     .filter((p) => {
-      if (nationalityFilter === "all") return true;
-      if (!p.nationality) return false;
-      return nationalityFilter === "jp" ? p.nationality === "日本" : p.nationality !== "日本";
+      if (classificationFilter === "all") return true;
+      return p.classification === CLASSIFICATION_BY_FILTER[classificationFilter];
     })
     // ランキングという「多数の中から上位を選ぶ」文脈でのみ、極端に出場時間が短い選手を除外する
     // （個人詳細・比較ページでは適用しない。statDefs.tsのminMinutesForRankingコメント参照）
@@ -116,14 +125,26 @@ export function RankingsPage({ season }: { season: string }) {
 
       {mode === "player" && (
         <div className="mode-toggle">
-          <button className={nationalityFilter === "all" ? "active" : ""} onClick={() => setNationalityFilter("all")}>
+          <button className={classificationFilter === "all" ? "active" : ""} onClick={() => setClassificationFilter("all")}>
             すべて
           </button>
-          <button className={nationalityFilter === "jp" ? "active" : ""} onClick={() => setNationalityFilter("jp")}>
+          <button className={classificationFilter === "jp" ? "active" : ""} onClick={() => setClassificationFilter("jp")}>
             日本人選手
           </button>
-          <button className={nationalityFilter === "intl" ? "active" : ""} onClick={() => setNationalityFilter("intl")}>
+          <button className={classificationFilter === "intl" ? "active" : ""} onClick={() => setClassificationFilter("intl")}>
             外国籍選手
+          </button>
+          <button
+            className={classificationFilter === "naturalized" ? "active" : ""}
+            onClick={() => setClassificationFilter("naturalized")}
+          >
+            帰化選手
+          </button>
+          <button
+            className={classificationFilter === "asianQuota" ? "active" : ""}
+            onClick={() => setClassificationFilter("asianQuota")}
+          >
+            アジア特別枠
           </button>
         </div>
       )}
