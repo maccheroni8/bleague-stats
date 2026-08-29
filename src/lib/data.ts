@@ -15,6 +15,7 @@
 import type {
   Category,
   ClubHonorsFile,
+  DivisionHistoryFile,
   GameSummary,
   HeadToHeadTeamRow,
   PlayerAwardsFile,
@@ -158,6 +159,13 @@ export function fetchPlayerAwards(): Promise<PlayerAwardsFile> {
 
 export function fetchClubHonors(): Promise<ClubHonorsFile> {
   return fetchJson<ClubHonorsFile>(`${dataBase}/club-honors.json`);
+}
+
+/** シーズン対応版の地区マスタ（Record<Category, Record<Season, Record<TeamID, Division>>>）。
+ * scrape-division-history.tsがbleague.jp/standings/から全シーズン分機械的に取得したもの。
+ * teamDivisionForSeason()と組み合わせて使う（DESIGN.md参照） */
+export function fetchDivisionHistory(): Promise<DivisionHistoryFile> {
+  return fetchJson<DivisionHistoryFile>(`${dataBase}/division-history.json`);
 }
 
 export function fetchSchedule(season: string): Promise<ScheduleFile> {

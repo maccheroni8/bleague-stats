@@ -10,8 +10,8 @@
 //   （比率項を含む式をシーズン合計値に再適用すると非線形性で誤差が出るため。POSS配線時と同じ方針）
 
 import { efgPct, offensiveRating, pace, safeDiv, tsPct } from "../../shared/formulas";
-import type { GameSummary, PlayerGameLog, TeamGameLog } from "../../shared/types";
-import { teamDivision } from "../../scripts/lib/divisions";
+import type { Category, DivisionHistoryFile, GameSummary, PlayerGameLog, TeamGameLog } from "../../shared/types";
+import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import { isWeekdayGame } from "./japaneseHolidays";
 
 export type SituationalFilterKind =
@@ -218,9 +218,19 @@ export function buildBackToBackStatus(games: GameSummary[]): Map<string, Map<str
   return result;
 }
 
-/** 対戦相手の地区が一致するか（scripts/lib/divisions.tsの東西マスタを使用） */
-export function matchesDivision<T extends { opponentTeamId: string }>(g: T, division: "east" | "west"): boolean {
-  return teamDivision(g.opponentTeamId) === division;
+/**
+ * 対戦相手の地区が一致するか（data/division-history.json、シーズン対応版マスタを使用。
+ * DESIGN.md参照。2026-08-29、2026-27シーズン基準の単一スナップショットだった旧実装から
+ * シーズン対応版に置き換えた）。historyが未取得（undefined）の場合は判定不能として常にfalse
+ */
+export function matchesDivision<T extends { opponentTeamId: string }>(
+  g: T,
+  division: "east" | "west",
+  history: DivisionHistoryFile | null | undefined,
+  season: string,
+  category: Category = "premier",
+): boolean {
+  return teamDivisionForSeason(history, g.opponentTeamId, season, category) === division;
 }
 
 /** 開催月（1〜12）が一致するか */
@@ -292,10 +302,12 @@ export function matchesShotChartGameFilters<
   filters: ShotChartGameFilters,
   opponentRecords?: Map<string, Map<string, RecordBeforeGame>>,
   ownTeamByScheduleKey?: Map<string, GameTeamInfo>,
+  divisionHistory?: DivisionHistoryFile | null,
+  season?: string,
 ): boolean {
   if (filters.homeAway === "home" && !g.isHome) return false;
   if (filters.homeAway === "away" && g.isHome) return false;
-  if (filters.division && !matchesDivision(g, filters.division)) return false;
+  if (filters.division && (!season || !matchesDivision(g, filters.division, divisionHistory, season))) return false;
   if (filters.weekday && !isWeekdayGame(g.date)) return false;
   if (filters.newYear && !matchesNewYearHalf(g, filters.newYear)) return false;
   if (filters.opponentWinRate && !matchesOpponentWinRateTier(g, filters.opponentWinRate, opponentRecords)) return false;
@@ -312,7 +324,10 @@ export function matchesShotChartGameFilters<
  * season集計と同じ基準。含めるとcomputePlayerSituationalStats等のgamesPlayedが
  * 実際の出場試合数より多くカウントされてしまう）。
  * opponentRecordsは「対勝率別」フィルタでのみ使う（buildRecordsBeforeGame()の結果。
- * 未指定の場合、このkindを選んでいても該当試合0件として扱う）
+ * 未指定の場合、このkindを選んでいても該当試合0件として扱う）。
+ * divisionHistory・seasonは「地区」フィルタでのみ使う（data/division-history.json、
+ * シーズン対応版マスタ。fetchDivisionHistory()の結果とその試合ログのシーズンを渡す。
+ * seasonが未指定の場合、このkindを選んでいても該当試合0件として扱う）
  */
 export function filterGameLogs<
   T extends {
@@ -324,7 +339,13 @@ export function filterGameLogs<
     opponentTeamId: string;
     scheduleKey: string;
   },
->(logs: T[], filter: SituationalFilter, opponentRecords?: Map<string, Map<string, RecordBeforeGame>>): T[] {
+>(
+  logs: T[],
+  filter: SituationalFilter,
+  opponentRecords?: Map<string, Map<string, RecordBeforeGame>>,
+  divisionHistory?: DivisionHistoryFile | null,
+  season?: string,
+): T[] {
   const played = logs.filter((g) => g.min > 0);
   const scoped = filter.includePlayoffs ? played : played.filter((g) => g.gameType === "regular");
   switch (filter.kind) {
@@ -341,7 +362,7 @@ export function filterGameLogs<
     case "homeAway":
       return scoped.filter((g) => g.isHome === filter.home);
     case "division":
-      return scoped.filter((g) => matchesDivision(g, filter.division));
+      return season ? scoped.filter((g) => matchesDivision(g, filter.division, divisionHistory, season)) : [];
     case "month":
       return scoped.filter((g) => matchesMonth(g, filter.month));
     case "newYear":

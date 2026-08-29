@@ -17,6 +17,17 @@ export type Division = "east" | "west" | "north" | "central" | "south";
 export type Category = "premier" | "one";
 
 /**
+ * 地区マスタのシーズン対応版（`Record<Category, Record<Season, Record<TeamID, Division>>>`）。
+ * scripts/lib/divisions.tsの`TEAM_DIVISIONS`/`ONE_TEAM_DIVISIONS`は「2026-27シーズン基準の
+ * 単一スナップショット」で過去シーズンのクラブ入れ替え・地区再編（東西2地区⇔東中西3地区の
+ * 変動を含む）を反映できないという既知の制約があった（DESIGN.md 11章・14-9章）。
+ * `data/division-history.json`（`scripts/scrape-division-history.ts`が
+ * `bleague.jp/standings/?year={年}&tab={1|2}`から機械的に取得）がこの制約を解消する
+ * シーズン別マスタで、この型はそのファイルの構造を表す
+ */
+export type DivisionHistoryFile = Record<Category, Record<string, Record<string, Division>>>;
+
+/**
  * レギュラーシーズン戦とプレーオフ（チャンピオンシップ）戦の区別。ConventionNameJから
  * scripts/lib/gameType.tsのclassifyGameType()で判定する（オールスター等はisExhibitionGame()で
  * 事前に除外済みの前提。2026-08-16、選手個人スタッツが60試合超になる集計バグの修正で導入）。

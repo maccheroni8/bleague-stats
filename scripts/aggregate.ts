@@ -40,7 +40,7 @@ import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
 import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../shared/playTypePoints.ts";
 import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
 import { buildShotEvents, paintSplitForShot } from "../shared/shotChart.ts";
-import { teamDivision } from "./lib/divisions.ts";
+import { teamDivisionForSeason } from "./lib/divisions.ts";
 import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { classifyGameType } from "./lib/gameType.ts";
@@ -48,6 +48,7 @@ import type {
   BoxscoreRow,
   Category,
   Division,
+  DivisionHistoryFile,
   GameSummary,
   GameType,
   HeadToHeadRecord,
@@ -646,6 +647,13 @@ function gamePossession(homeRow: BoxscoreRow, awayRow: BoxscoreRow): number {
 
 export async function aggregateSeason(season: string, category: Category = "premier"): Promise<void> {
   const seasonDir = seasonDirName(season, category);
+  // シーズン対応版地区マスタ（data/division-history.json、scrape-division-history.tsが
+  // bleague.jp/standings/から全シーズン分機械的に取得したもの）。standings-history.json・
+  // head-to-head.jsonの地区別集計で使う（teamDivisionForSeason()参照）
+  const divisionHistory = (await readJson<DivisionHistoryFile>(path.join(DATA_DIR, "division-history.json"))) ?? {
+    premier: {},
+    one: {},
+  };
   const rawGames = await readAllGames(season, category);
   const allGames = rawGames.filter((g) => g.gameEndedFlg);
   const games = allGames.filter((g) => !isExhibitionGame(g.raw.Game.ConventionNameJ));
@@ -920,10 +928,10 @@ export async function aggregateSeason(season: string, category: Category = "prem
 
   // 順位表・星取り表はプレーオフの結果に左右されないよう、レギュラーシーズンの試合のみで作る
   const regularGames = games.filter((g) => classifyGameType(g.raw.Game.ConventionNameJ) === "regular");
-  const standingsHistory = buildStandingsHistory(regularGames, category);
+  const standingsHistory = buildStandingsHistory(regularGames, category, divisionHistory, season);
   await writeJson(path.join(DATA_DIR, seasonDir, "standings-history.json"), standingsHistory);
 
-  const headToHead = buildHeadToHead(teams, category);
+  const headToHead = buildHeadToHead(teams, category, divisionHistory, season);
   await writeJson(path.join(DATA_DIR, seasonDir, "head-to-head.json"), headToHead);
 
   for (const [teamId, lineupMap] of teamLineups) {
@@ -1285,7 +1293,12 @@ interface StandingsAccumulator {
  * 同率の順位付けは勝率降順→得失点差降順のシンプルな方法（DESIGN.md参照。公式タイブレーク
  * ルールが判明次第見直す）。
  */
-function buildStandingsHistory(games: StoredGame[], category: Category): StandingsSnapshot[] {
+function buildStandingsHistory(
+  games: StoredGame[],
+  category: Category,
+  divisionHistory: DivisionHistoryFile,
+  season: string,
+): StandingsSnapshot[] {
   const sorted = [...games].sort(
     (a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey),
   );
@@ -1344,7 +1357,7 @@ function buildStandingsHistory(games: StoredGame[], category: Category): Standin
       gamesBehind: leader ? (leader.wins - t.wins + (t.losses - leader.losses)) / 2 : 0,
     }));
 
-    history.push({ date, teams: attachDivisionRanks(teams, category) });
+    history.push({ date, teams: attachDivisionRanks(teams, category, divisionHistory, season) });
   }
 
   return history;
@@ -1353,15 +1366,18 @@ function buildStandingsHistory(games: StoredGame[], category: Category): Standin
 /**
  * 全体ランキング済みのteamsに、地区（東/西）ごとの順位・地区首位とのゲーム差を付与する。
  * タイブレークは全体順位と同じ勝率降順→得失点差降順を地区内で適用する（DESIGN.md参照）。
- * divisions.tsのマスタに無いチーム（過去シーズンの地区再編前後のチーム等）はdivision系が未定義のまま
+ * divisionHistory（data/division-history.json、シーズン対応版マスタ）にそのシーズンのデータが
+ * 無いチーム（未取得の未来シーズン等）はdivision系が未定義のまま
  */
 function attachDivisionRanks(
   teams: Omit<StandingsTeamSnapshot, "division" | "divisionRank" | "divisionGamesBehind">[],
   category: Category,
+  divisionHistory: DivisionHistoryFile,
+  season: string,
 ): StandingsTeamSnapshot[] {
   const withDivision: StandingsTeamSnapshot[] = teams.map((t) => ({
     ...t,
-    division: teamDivision(t.teamId, category),
+    division: teamDivisionForSeason(divisionHistory, t.teamId, season, category),
   }));
 
   const byDivision = new Map<Division, StandingsTeamSnapshot[]>();
@@ -1390,13 +1406,18 @@ function attachDivisionRanks(
  * 対戦していない相手はvsに含めない（フロントエンドでダッシュ/空欄表示にする）。
  *
  * ⚠️ vsEast/vsWestはB.PREMIERの東西2地区専用のフィールドのまま（B.ONEの5地区
- * （北/東/中/西/南）には未対応）。B.ONEでcategoryを渡してもteamDivision()自体は正しい
- * 地区値（north/east/central/west/south）を返すが、この関数が集計するのはdivision==="east"/
- * "west"の2つのみのため、B.ONEの北/中/南地区との対戦成績はvsEast/vsWestに含まれず
- * 事実上欠落する（vs自体・overallには影響なし）。フロントエンドでB.ONEの地区別集計を
+ * （北/東/中/西/南）には未対応）。B.ONEでcategoryを渡してもteamDivisionForSeason()自体は
+ * 正しい地区値（north/east/central/west/south）を返すが、この関数が集計するのは
+ * division==="east"/"west"の2つのみのため、B.ONEの北/中/南地区との対戦成績はvsEast/vsWestに
+ * 含まれず事実上欠落する（vs自体・overallには影響なし）。フロントエンドでB.ONEの地区別集計を
  * 表示する段になったら、5地区対応の汎用的な集計に拡張すること
  */
-function buildHeadToHead(teams: Map<string, TeamAccumulator>, category: Category): HeadToHeadTeamRow[] {
+function buildHeadToHead(
+  teams: Map<string, TeamAccumulator>,
+  category: Category,
+  divisionHistory: DivisionHistoryFile,
+  season: string,
+): HeadToHeadTeamRow[] {
   const withPct = (wins: number, losses: number) => ({ wins, losses, winPct: safeDiv(wins, wins + losses) });
 
   const rows = [...teams.values()].map((team) => {
@@ -1418,7 +1439,7 @@ function buildHeadToHead(teams: Map<string, TeamAccumulator>, category: Category
     let westWins = 0;
     let westLosses = 0;
     for (const [opponentTeamId, rec] of vs) {
-      const division = teamDivision(opponentTeamId, category);
+      const division = teamDivisionForSeason(divisionHistory, opponentTeamId, season, category);
       if (division === "east") {
         eastWins += rec.wins;
         eastLosses += rec.losses;
@@ -1431,7 +1452,7 @@ function buildHeadToHead(teams: Map<string, TeamAccumulator>, category: Category
     return {
       teamId: team.teamId,
       teamName: team.teamName,
-      division: teamDivision(team.teamId, category),
+      division: teamDivisionForSeason(divisionHistory, team.teamId, season, category),
       vs: Object.fromEntries(vs),
       overall: withPct(team.wins, team.losses),
       vsEast: withPct(eastWins, eastLosses),

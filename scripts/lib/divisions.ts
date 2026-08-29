@@ -1,10 +1,20 @@
-// B.PREMIER全26クラブの東地区/西地区マスタ。
+// B.PREMIER全26クラブの東地区/西地区マスタ（2026-27シーズン基準のスナップショット）。
 // GeniusAPIのレスポンス（Game/BoxscoreRow等）には地区情報が含まれていないため確認済み。
 // bleague.jp/standings/ の2026-27シーズン表示（東地区13クラブ・西地区13クラブの見出し区切り）を
-// 実ブラウザで確認して作成（2026-08-13時点）。地区分けは固定情報の想定だが、シーズンによる
-// クラブ入れ替え・再編があれば要更新。TeamIDはbleague.jp/club_detail/?TeamID=... のIDと同一。
+// 実ブラウザで確認して作成（2026-08-13時点）。
+//
+// ⚠️ **このファイル下部の`TEAM_DIVISIONS`/`ONE_TEAM_DIVISIONS`は2026-27シーズン基準の単一
+// スナップショットで、過去シーズンの地区再編（東西2地区⇔東中西3地区の変動、クラブ入れ替え）を
+// 反映できない**という制約があった（実例: 2025-26シーズンの千葉ジェッツ「対西地区」集計が、
+// 2026-27にB.ONEへ降格したファイティングイーグルス名古屋・越谷アルファーズとの対戦を
+// 未分類のまま除外してしまっていた）。この制約は`teamDivisionForSeason()`＋
+// `data/division-history.json`（`scripts/scrape-division-history.ts`が
+// `bleague.jp/standings/?year={年}&tab={1|2}`から全シーズン分機械的に取得したもの）で解消済み。
+// **実際の地区判定には`teamDivisionForSeason()`を使うこと**。以下の`TEAM_DIVISIONS`/
+// `ONE_TEAM_DIVISIONS`は2026-27シーズンの妥当性チェック（`scrape-division-history.ts`が
+// 新規取得結果と突き合わせる）用の基準値としてのみ残している（2026-08-29）。
 
-import type { Category, Division } from "../../shared/types.ts";
+import type { Category, Division, DivisionHistoryFile } from "../../shared/types.ts";
 
 export const TEAM_DIVISIONS: Record<string, Division> = {
   "702": "east", // レバンガ北海道
@@ -46,11 +56,8 @@ export const TEAM_DIVISIONS: Record<string, Division> = {
  * ⚠️ **2025-26シーズン以前の旧B2にはそのまま適用できない**（2026-08-17判明、DESIGN.md 14-7章）:
  * 旧B2（2025-26シーズン）は東地区/西地区/ワイルドカードの**14クラブ制**で、2026-27シーズンの
  * B.ONE（25クラブ・5地区制）とは全く別の構造だった（`bleague.jp/standings/?year=2025&tab=2`で
- * 実機確認済み）。B.PREMIERの`TEAM_DIVISIONS`が抱える「過去シーズンには適用できない」という
- * 既知の制約（本ファイル冒頭のコメント参照）と同種の限定であり、このマスタに無いクラブは
- * `teamDivision()`が`undefined`を返す設計で自然に無効化される（過去シーズンの地区別集計
- * （順位表の地区タブ・星取り表の地区別成績）は現状非対応。バックフィル時に別途シーズンごとの
- * マスタ整備が必要）
+ * 実機確認済み）。この制約は`teamDivisionForSeason()`＋`data/division-history.json`で
+ * 解消済み（2026-08-29。本ファイル冒頭のコメント参照）
  */
 export const ONE_TEAM_DIVISIONS: Record<string, Division> = {
   "708": "north", // 青森ワッツ
@@ -84,8 +91,20 @@ export const ONE_TEAM_DIVISIONS: Record<string, Division> = {
   "725": "south", // 鹿児島レブナイズ
 };
 
-export function teamDivision(teamId: string, category: Category = "premier"): Division | undefined {
-  return category === "one" ? ONE_TEAM_DIVISIONS[teamId] : TEAM_DIVISIONS[teamId];
+/**
+ * シーズン対応版の地区判定（2026-08-29追加）。`history`（`data/division-history.json`の内容、
+ * バックエンドは`readJson()`・フロントエンドは`fetchDivisionHistory()`で読み込んだものを渡す）
+ * から、指定シーズン・カテゴリでのそのチームの地区を引く。`history`にそのシーズンのデータが
+ * 無い場合（未取得・チームが当該シーズンに存在しない等）は`undefined`を返す設計で、既存の
+ * 「地区マスタに無いチームは地区系の集計・表示から自然に除外される」という挙動をそのまま踏襲する
+ */
+export function teamDivisionForSeason(
+  history: DivisionHistoryFile | null | undefined,
+  teamId: string,
+  season: string,
+  category: Category = "premier",
+): Division | undefined {
+  return history?.[category]?.[season]?.[teamId];
 }
 
 /**

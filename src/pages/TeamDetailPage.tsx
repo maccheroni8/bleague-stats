@@ -12,6 +12,7 @@ import {
 import { SeasonLink as Link } from "../components/SeasonLink";
 import {
   fetchClubHonors,
+  fetchDivisionHistory,
   fetchGame,
   fetchGameSummaries,
   fetchPlayerGameLogs,
@@ -30,6 +31,7 @@ import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
   ClubHonor,
+  DivisionHistoryFile,
   GameSummary,
   GameType,
   PlayerGameLog,
@@ -705,6 +707,8 @@ function buildSituationalRecordGroups(
   teamId: string,
   backToBack: Map<string, Map<string, BackToBackGame>> | undefined,
   opponentRecords: Map<string, Map<string, RecordBeforeGame>> | undefined,
+  divisionHistory: DivisionHistoryFile | null | undefined,
+  season: string,
 ): SituationalRecordGroupDef[] {
   const monthsWithData = new Set(logs.map((g) => Number(g.date.slice(5, 7))));
   return [
@@ -720,8 +724,8 @@ function buildSituationalRecordGroups(
       key: "division",
       label: "地区",
       rows: [
-        { key: "east", label: "対東地区", predicate: (g) => matchesDivision(g, "east") },
-        { key: "west", label: "対西地区", predicate: (g) => matchesDivision(g, "west") },
+        { key: "east", label: "対東地区", predicate: (g) => matchesDivision(g, "east", divisionHistory, season) },
+        { key: "west", label: "対西地区", predicate: (g) => matchesDivision(g, "west", divisionHistory, season) },
       ],
     },
     {
@@ -1360,6 +1364,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const { data: teamHistory } = useJsonData(() => fetchTeamHistory(), []);
   const { data: clubHonors } = useJsonData(() => fetchClubHonors(), []);
+  const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
   const { data: summaries, loading: summariesLoading } = useJsonData(() => fetchGameSummaries(season), [season]);
   const { data: schedule, loading: scheduleLoading } = useJsonData(() => fetchSchedule(season), [season]);
@@ -1637,7 +1642,13 @@ export function TeamDetailPage({ season }: { season: string }) {
         const logs = careerData.find((cd) => cd.season === slot.season)?.logs;
         if (!logs) return null;
         const gameTypeScoped = filterByGameType(logs, compareGameType);
-        const filtered = filterGameLogs(gameTypeScoped, { ...slot.filter, includePlayoffs: true }, compareOpponentRecords[i]);
+        const filtered = filterGameLogs(
+          gameTypeScoped,
+          { ...slot.filter, includePlayoffs: true },
+          compareOpponentRecords[i],
+          divisionHistory,
+          slot.season,
+        );
         const entries = filtered
           .map((g) => {
             const game = compareRawGames.get(g.scheduleKey);
@@ -1962,7 +1973,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const avgWeightKg = averageOf(starters.flatMap((p) => (p.weightKg != null ? [p.weightKg] : [])));
   const avgAge = averageOf(starters.flatMap((p) => (p.birthDate ? [calculateAge(p.birthDate)] : [])));
 
-  const filteredLogs = gameLogs ? filterGameLogs(gameLogs, filter, opponentRecords) : [];
+  const filteredLogs = gameLogs ? filterGameLogs(gameLogs, filter, opponentRecords, divisionHistory, season) : [];
   // 「試合」選択時・フィルタ無しの場合のみteams.jsonの既存集計を0コストで再利用する。
   // それ以外（シチュエーション別フィルタ・Q別/前後半トグルのいずれかが有効）は
   // buildTeamPeriodStatsでTeamGameLog/生データベースの再集計を行う（DESIGN.md参照）
@@ -2008,7 +2019,14 @@ export function TeamDetailPage({ season }: { season: string }) {
   const situationalRecordScopedLogs = gameLogs ? filterByGameType(gameLogs, situationalRecordGameType) : [];
   const situationalRecordBackToBack = summaries ? buildBackToBackStatus(summaries) : undefined;
   const situationalRecordGroupDefs = teamId
-    ? buildSituationalRecordGroups(situationalRecordScopedLogs, teamId, situationalRecordBackToBack, opponentRecords)
+    ? buildSituationalRecordGroups(
+        situationalRecordScopedLogs,
+        teamId,
+        situationalRecordBackToBack,
+        opponentRecords,
+        divisionHistory,
+        season,
+      )
     : [];
   const situationalRecordRawGamesReady =
     situationalRecordScopedLogs.length > 0 && situationalRecordScopedLogs.every((g) => statsRawGames.has(g.scheduleKey));
@@ -2059,8 +2077,8 @@ export function TeamDetailPage({ season }: { season: string }) {
       key: "division",
       label: "地区",
       rows: [
-        { key: "east", label: "対東地区", predicate: (g) => matchesDivision(g, "east") },
-        { key: "west", label: "対西地区", predicate: (g) => matchesDivision(g, "west") },
+        { key: "east", label: "対東地区", predicate: (g) => matchesDivision(g, "east", divisionHistory, season) },
+        { key: "west", label: "対西地区", predicate: (g) => matchesDivision(g, "west", divisionHistory, season) },
       ],
     },
     {

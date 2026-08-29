@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import {
+  fetchDivisionHistory,
   fetchGame,
   fetchGameSummaries,
   fetchPlayerGameLogs,
@@ -29,6 +30,7 @@ import { useJsonData } from "../lib/useJsonData";
 import { isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
   Category,
+  DivisionHistoryFile,
   PlayerGameLog,
   PlayerSummary,
   ShotTypeBreakdown,
@@ -577,6 +579,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
   const { data: playerHistory } = useJsonData(() => fetchPlayerHistory(), []);
   const { data: playerAwards } = useJsonData(() => fetchPlayerAwards(), []);
+  const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
   const { coverage } = useSeasonCoverage(season);
   const shotChartSupported = isShotChartSupported(coverage);
   const { supported: yahooSeasonSupported } = useYahooPbpCoverage(season);
@@ -819,7 +822,16 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const filteredSeasonShotEvents = useMemo(() => {
     if (!seasonShotGameData) return [];
     return seasonShotGameData
-      .filter(({ log }) => matchesShotChartGameFilters(log, shotChartFilters, shotChartOpponentRecords, shotChartOwnTeamByScheduleKey))
+      .filter(({ log }) =>
+        matchesShotChartGameFilters(
+          log,
+          shotChartFilters,
+          shotChartOpponentRecords,
+          shotChartOwnTeamByScheduleKey,
+          divisionHistory,
+          season,
+        ),
+      )
       .flatMap(({ shots }) => shots.filter((s) => periodInRange(shotChartPeriodOption, s.period)));
   }, [seasonShotGameData, shotChartFilters, shotChartOpponentRecords, shotChartOwnTeamByScheduleKey, shotChartPeriodOption]);
 
@@ -1343,7 +1355,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
       const logs = careerData.find((cd) => cd.season === slot.season)?.logs;
       if (!logs) return null;
       const gameTypeScoped = filterByGameType(logs, compareGameType);
-      const filtered = filterGameLogs(gameTypeScoped, { ...slot.filter, includePlayoffs: true }, compareOpponentRecords[i]);
+      const filtered = filterGameLogs(
+        gameTypeScoped,
+        { ...slot.filter, includePlayoffs: true },
+        compareOpponentRecords[i],
+        divisionHistory,
+        slot.season,
+      );
       if (filtered.length === 0) return null;
       const teamInfo = careerTeamData?.get(slot.season);
       const seasonStartYear = Number(slot.season.split("-")[0]);
@@ -1429,8 +1447,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
       key: "division",
       label: "地区",
       rows: [
-        { key: "east", label: "対東地区", predicate: (g) => matchesDivision(g, "east") },
-        { key: "west", label: "対西地区", predicate: (g) => matchesDivision(g, "west") },
+        { key: "east", label: "対東地区", predicate: (g) => matchesDivision(g, "east", divisionHistory, situationalStatsSeason) },
+        { key: "west", label: "対西地区", predicate: (g) => matchesDivision(g, "west", divisionHistory, situationalStatsSeason) },
       ],
     },
     {
@@ -1842,10 +1860,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <dt>会場</dt>
               <dd>ホーム開催／アウェイ開催の試合を分けて集計します。</dd>
               <dt>地区</dt>
-              <dd>
-                対戦相手の所属地区（東地区／西地区）別の成績です。地区マスタは2026-27シーズン基準のため、
-                当時その地区に属していなかったクラブとの対戦は集計対象外になります。
-              </dd>
+              <dd>対戦相手の所属地区（東地区／西地区）別の成績です。シーズンごとの実際の地区分けを反映しています。</dd>
               <dt>曜日</dt>
               <dd>平日開催／休日開催（土日・祝日）の試合を分けて集計します。</dd>
               <dt>時期</dt>
