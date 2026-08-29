@@ -727,6 +727,12 @@ table.sortable-table td.row-accent-cell {
   margin-bottom: 8px;
 }
 
+/* 個人詳細ページヘッダーのスタッツタイル（18項目）。PC表示（.app-shellのmax-width 1100px
+   いっぱいの幅）で1列あたりの最小幅を詰め、9列×2段にきれいに収まるようにしている */
+.player-header-stat-grid {
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+}
+
 .stat-tile {
   border: 1px solid var(--border);
   border-radius: 8px;

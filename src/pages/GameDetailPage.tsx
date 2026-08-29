@@ -475,7 +475,7 @@ export function GameDetailPage({ season }: { season: string }) {
               accentColor={awayColor}
             />
             <p className="page-subtitle">
-              Yahoo!スポーツplay-by-play由来のシュートタイプ内訳（2023-24シーズン以降。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意
+              Yahoo!スポーツplay-by-play由来のシュートタイプ内訳（2023-24シーズン以降。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意
             </p>
           </>
         )
@@ -508,7 +508,7 @@ export function GameDetailPage({ season }: { season: string }) {
       </div>
       <div className="leader-matchup-toggle">
         <button onClick={() => setShowExtendedLeaders((v) => !v)}>
-          その後リーダー
+          {showExtendedLeaders ? "隠す" : "詳細"}
         </button>
       </div>
       {showExtendedLeaders && (

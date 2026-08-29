@@ -212,6 +212,7 @@ const TILE_STAT_DEFS: PlayerStatDef[] = [
   { key: "efgPct", label: "eFG%", value: (p) => p.shooting.efgPct, format: (p) => formatPct(p.shooting.efgPct), higherIsBetter: true },
   { key: "tsPct", label: "TS%", value: (p) => p.shooting.tsPct, format: (p) => formatPct(p.shooting.tsPct), higherIsBetter: true },
   { key: "eff", label: "EFF", value: (p) => p.advanced.eff, format: (p) => formatDecimal(p.advanced.eff), higherIsBetter: true },
+  { key: "per", label: "PER", value: (p) => p.advanced.per, format: (p) => formatDecimal(p.advanced.per), higherIsBetter: true },
   {
     key: "doubleDoubles",
     label: "DD2",
@@ -560,7 +561,7 @@ const SEASON_SHOT_CHART_PERIOD_OPTIONS: PeriodRangeOption[] = [
 ];
 
 const SHOOTING_SECTION_TOOLTIP =
-  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（シーズン合計、2023-24シーズン以降・レギュラーシーズンのみ。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意。既定は全チーム合算表示。同一シーズンに複数チームでプレーした場合のみチーム別ボタンが表示され、選択したチームの試合のみで再集計する";
+  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（シーズン合計、2023-24シーズン以降・レギュラーシーズンのみ。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意。既定は全チーム合算表示。同一シーズンに複数チームでプレーした場合のみチーム別ボタンが表示され、選択したチームの試合のみで再集計する";
 
 export function PlayerDetailPage({ season }: { season: string }) {
   const { playerId } = useParams<{ playerId: string }>();
@@ -674,6 +675,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // Q別/前後半トグル（periodRawGamesキャッシュ・fetchロジックは「シーズン別成績」と共有。上の
   // seasonBreakdownPeriod参照）
   const [situationalStatsPeriod, setSituationalStatsPeriod] = useState<PeriodRangeValue>("all");
+  // 「各グループの説明」はデフォルト非表示。「説明」ボタンで開閉する
+  const [situationalGroupsLegendExpanded, setSituationalGroupsLegendExpanded] = useState(false);
   // 列ヘッダークリックソート。会場・地区・曜日等のグループ構造そのものを崩すと比較の意味が
   // 失われるため、グループの並び順・見出し行は維持したまま「各グループ内の行だけ」をソートする
   // （SeasonBreakdownTableと同じ「1回目クリックで降順、もう一度クリックで昇順」の方式。DESIGN.md参照）
@@ -1672,7 +1675,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         </div>
       </div>
 
-      <div className="stat-grid">
+      <div className="stat-grid player-header-stat-grid">
         {TILE_STAT_DEFS.map((def) => (
           <StatTile
             key={def.key}
@@ -1850,7 +1853,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
             </div>
           )}
           <div className="situational-groups-legend">
-            <h3>各グループの説明</h3>
+            <h3
+              className="collapsible-heading"
+              onClick={() => setSituationalGroupsLegendExpanded((v) => !v)}
+            >
+              {situationalGroupsLegendExpanded ? "▼ " : "▶ "}
+              説明
+            </h3>
+            {situationalGroupsLegendExpanded && (
             <dl>
               <dt>会場</dt>
               <dd>ホーム開催／アウェイ開催の試合を分けて集計します。</dd>
@@ -1877,6 +1887,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <dt>相手チーム外国籍人数</dt>
               <dd>上記を相手チーム視点で見た成績です。</dd>
             </dl>
+            )}
           </div>
 
           <h2 title={SHOOTING_SECTION_TOOLTIP}>シューティング</h2>

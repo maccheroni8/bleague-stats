@@ -119,7 +119,7 @@ import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "./C
 const DISPLAY_MODE_TOGGLE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
 
 const TEAM_SHOOTING_SECTION_TOOLTIP =
-  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（チーム全選手合算、2023-24シーズン以降・レギュラーシーズンのみが既定。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「ジャンプショット」に一括りになっている点に注意。上部のシチュエーション別フィルタ・Q別/前後半トグルと連動する（連動時はプレーオフも含まれうる）";
+  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（チーム全選手合算、2023-24シーズン以降・レギュラーシーズンのみが既定。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意。上部のシチュエーション別フィルタ・Q別/前後半トグルと連動する（連動時はプレーオフも含まれうる）";
 
 // 出場時間がこれ未満のラインナップはサンプルが小さすぎてノイズが大きいため一覧から除外する
 // （実データ確認: 4試合時点で3分(180秒)基準だとチームあたり4〜14組が該当。DESIGN.md参照）
