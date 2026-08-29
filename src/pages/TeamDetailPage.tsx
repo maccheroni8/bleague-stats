@@ -423,8 +423,15 @@ function sumTeamSeasonMisc(logs: TeamGameLog[]): TeamSeasonMiscTotals {
 interface TeamSeasonBoxColumn {
   key: string;
   label: string;
-  format: (r: SeasonRecord, misc: TeamSeasonMiscTotals) => string;
+  format: (r: SeasonRecord, misc: TeamSeasonMiscTotals, mode: SeasonDisplayMode) => string;
   description?: string;
+}
+
+// カウント系の値（1シーズン合計値total・1試合平均perGameのペア）を、平均/合計トグルの
+// 選択に応じてformatDecimalで整形する。合計モードは他の箇所（シューティング等）の既存の
+// 「合計モードは整数表示」という慣例に揃え、桁数を0にする
+function formatTeamSeasonCount(total: number, gamesPlayed: number, mode: SeasonDisplayMode): string {
+  return mode === "total" ? formatDecimal(total, 0) : formatDecimal(safeDiv(total, gamesPlayed));
 }
 
 // 「シーズン別成績」の4カテゴリタブ（Phase H3①）。既存のSEASON_BOX_COLUMNS（選手向け、
@@ -435,38 +442,78 @@ interface TeamSeasonBoxColumn {
 // 試合単位のPlayByPlaysからのみ算出できチーム単位のシーズン集計としては永続化していないため
 // 今回は列自体を設けていない（DESIGN.md参照、既知の制約）。スコアリングタブは%-share
 // （個人の数値／チームの数値）という概念がチーム自身の行には適用できないため、代わりに
-// 「得点の内訳構成比」（PITP/FBPS/2ND PTS/PTSOFFTOがチーム総得点に占める割合）を表示する
+// 「得点の内訳構成比」（PITP/FBPS/2ND PTS/PTSOFFTOがチーム総得点に占める割合）を表示する。
+// 平均/合計トグル: カウント系の列（MIN〜+/-）は選択に応じて値を切り替え、%系・比率系
+// （FG%等、AST/TOV、POSS以外のアドバンスド指標、スコアリングタブ全項目）は総量に対する比率・
+// 100ポゼッションあたり等の正規化済み指標のため両モードで同じ値のまま変化しない
 const TEAM_SEASON_TRADITIONAL_COLUMNS: TeamSeasonBoxColumn[] = [
   { key: "g", label: "G", format: (r) => String(r.team.gamesPlayed) },
-  { key: "min", label: "MIN", format: (r) => formatMinutesFromSeconds(Math.round(r.team.perGame.min * 60)) },
-  { key: "pts", label: "PTS", format: (r) => formatDecimal(r.team.perGame.pts) },
-  { key: "fgm", label: "FGM", format: (r) => formatDecimal(safeDiv(r.team.totals.fgm, r.team.gamesPlayed)) },
-  { key: "fga", label: "FGA", format: (r) => formatDecimal(safeDiv(r.team.totals.fga, r.team.gamesPlayed)) },
+  {
+    key: "min",
+    label: "MIN",
+    format: (r, _m, mode) =>
+      formatMinutesFromSeconds(Math.round((mode === "total" ? r.team.totals.min : r.team.perGame.min) * 60)),
+  },
+  { key: "pts", label: "PTS", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.pts, r.team.gamesPlayed, mode) },
+  { key: "fgm", label: "FGM", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.fgm, r.team.gamesPlayed, mode) },
+  { key: "fga", label: "FGA", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.fga, r.team.gamesPlayed, mode) },
   { key: "fgpct", label: "FG%", format: (r) => formatPct(r.team.shooting.fgPct) },
-  { key: "2pm", label: "2PM", format: (r) => formatDecimal(safeDiv(r.team.totals.fgm - r.team.totals.tpm, r.team.gamesPlayed)) },
-  { key: "2pa", label: "2PA", format: (r) => formatDecimal(safeDiv(r.team.totals.fga - r.team.totals.tpa, r.team.gamesPlayed)) },
+  {
+    key: "2pm",
+    label: "2PM",
+    format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.fgm - r.team.totals.tpm, r.team.gamesPlayed, mode),
+  },
+  {
+    key: "2pa",
+    label: "2PA",
+    format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.fga - r.team.totals.tpa, r.team.gamesPlayed, mode),
+  },
   { key: "2ppct", label: "2P%", format: (r) => formatPct(r.team.shooting.pt2Pct) },
-  { key: "3pm", label: "3PM", format: (r) => formatDecimal(safeDiv(r.team.totals.tpm, r.team.gamesPlayed)) },
-  { key: "3pa", label: "3PA", format: (r) => formatDecimal(safeDiv(r.team.totals.tpa, r.team.gamesPlayed)) },
+  { key: "3pm", label: "3PM", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.tpm, r.team.gamesPlayed, mode) },
+  { key: "3pa", label: "3PA", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.tpa, r.team.gamesPlayed, mode) },
   { key: "3ppct", label: "3P%", format: (r) => formatPct(r.team.shooting.tpPct) },
-  { key: "ftm", label: "FTM", format: (r) => formatDecimal(safeDiv(r.team.totals.ftm, r.team.gamesPlayed)) },
-  { key: "fta", label: "FTA", format: (r) => formatDecimal(safeDiv(r.team.totals.fta, r.team.gamesPlayed)) },
+  { key: "ftm", label: "FTM", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.ftm, r.team.gamesPlayed, mode) },
+  { key: "fta", label: "FTA", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.fta, r.team.gamesPlayed, mode) },
   { key: "ftpct", label: "FT%", format: (r) => formatPct(r.team.shooting.ftPct) },
   { key: "efg", label: "eFG%", format: (r) => formatPct(r.team.shooting.efgPct) },
   { key: "ts", label: "TS%", format: (r) => formatPct(r.team.shooting.tsPct) },
-  { key: "or", label: "OR", format: (r) => formatDecimal(r.team.perGame.oreb) },
-  { key: "dr", label: "DR", format: (r) => formatDecimal(r.team.perGame.dreb) },
-  { key: "tr", label: "TR", format: (r) => formatDecimal(r.team.perGame.reb) },
-  { key: "ast", label: "AST", format: (r) => formatDecimal(r.team.perGame.ast) },
-  { key: "tov", label: "TOV", format: (r) => formatDecimal(r.team.perGame.tov) },
+  { key: "or", label: "OR", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.oreb, r.team.gamesPlayed, mode) },
+  { key: "dr", label: "DR", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.dreb, r.team.gamesPlayed, mode) },
+  { key: "tr", label: "TR", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.reb, r.team.gamesPlayed, mode) },
+  { key: "ast", label: "AST", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.ast, r.team.gamesPlayed, mode) },
+  { key: "tov", label: "TOV", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.tov, r.team.gamesPlayed, mode) },
   { key: "asttov", label: "AST/TOV", format: (r) => formatAstToRatio(r.team.totals.ast, r.team.totals.tov) },
-  { key: "stl", label: "STL", format: (r) => formatDecimal(r.team.perGame.stl) },
-  { key: "blk", label: "BLK", format: (r) => formatDecimal(r.team.perGame.blk) },
-  { key: "bsr", label: "BSR", format: (r) => formatDecimal(safeDiv(r.team.totals.blockedAgainst, r.team.gamesPlayed)) },
-  { key: "f", label: "F", format: (r) => formatDecimal(r.team.perGame.pf) },
-  { key: "fd", label: "FD", format: (r) => formatDecimal(safeDiv(r.team.totals.foulsDrawn, r.team.gamesPlayed)) },
-  { key: "eff", label: "EFF", format: (r) => formatDecimal(r.team.advanced.eff) },
-  { key: "plusminus", label: "+/-", format: (r) => formatSigned(r.team.netPerGame.pts) },
+  { key: "stl", label: "STL", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.stl, r.team.gamesPlayed, mode) },
+  { key: "blk", label: "BLK", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.blk, r.team.gamesPlayed, mode) },
+  {
+    key: "bsr",
+    label: "BSR",
+    format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.blockedAgainst, r.team.gamesPlayed, mode),
+  },
+  { key: "f", label: "F", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.pf, r.team.gamesPlayed, mode) },
+  {
+    key: "fd",
+    label: "FD",
+    format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.foulsDrawn, r.team.gamesPlayed, mode),
+  },
+  {
+    key: "eff",
+    label: "EFF",
+    format: (r, _m, mode) =>
+      formatDecimal(
+        mode === "total" ? r.team.advanced.eff * r.team.gamesPlayed : r.team.advanced.eff,
+        mode === "total" ? 0 : 1,
+      ),
+  },
+  {
+    key: "plusminus",
+    label: "+/-",
+    format: (r, _m, mode) =>
+      formatSigned(
+        mode === "total" ? r.team.netPerGame.pts * r.team.gamesPlayed : r.team.netPerGame.pts,
+        mode === "total" ? 0 : 1,
+      ),
+  },
 ];
 
 const TEAM_SEASON_ADVANCED_COLUMNS: TeamSeasonBoxColumn[] = [
@@ -477,7 +524,14 @@ const TEAM_SEASON_ADVANCED_COLUMNS: TeamSeasonBoxColumn[] = [
   { key: "efg", label: "eFG%", format: (r) => formatPct(r.team.shooting.efgPct) },
   { key: "ts", label: "TS%", format: (r) => formatPct(r.team.shooting.tsPct) },
   { key: "pps", label: "PPS", format: (r) => formatDecimal(safeDiv(r.team.totals.pts, r.team.totals.fga), 2) },
-  { key: "poss", label: "POSS", format: (r) => formatDecimal(safeDiv(r.team.advanced.poss, r.team.gamesPlayed)) },
+  {
+    key: "poss",
+    label: "POSS",
+    format: (r, _m, mode) =>
+      mode === "total"
+        ? formatDecimal(r.team.advanced.poss, 0)
+        : formatDecimal(safeDiv(r.team.advanced.poss, r.team.gamesPlayed)),
+  },
   { key: "pace", label: "PACE", format: (r) => formatDecimal(r.team.advanced.pace) },
   { key: "ortg", label: "ORtg", format: (r) => formatDecimal(r.team.advanced.offRtg) },
   { key: "drtg", label: "DRtg", format: (r) => formatDecimal(r.team.advanced.defRtg) },
@@ -486,11 +540,11 @@ const TEAM_SEASON_ADVANCED_COLUMNS: TeamSeasonBoxColumn[] = [
 
 const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
   { key: "g", label: "G", format: (r) => String(r.team.gamesPlayed) },
-  { key: "pitp", label: "PITP", format: (r, m) => formatDecimal(safeDiv(m.pt2in, r.team.gamesPlayed)) },
-  { key: "fbps", label: "FBPS", format: (r, m) => formatDecimal(safeDiv(m.fb, r.team.gamesPlayed)) },
-  { key: "2ndpts", label: "2ND PTS", format: (r, m) => formatDecimal(safeDiv(m.pt2nd, r.team.gamesPlayed)) },
-  { key: "ptsofftov", label: "PTSOFFTO", format: (r, m) => formatDecimal(safeDiv(m.pft, r.team.gamesPlayed)) },
-  { key: "dunk", label: "DUNK", format: (r, m) => formatDecimal(safeDiv(m.dunks, r.team.gamesPlayed)) },
+  { key: "pitp", label: "PITP", format: (r, m, mode) => formatTeamSeasonCount(m.pt2in, r.team.gamesPlayed, mode) },
+  { key: "fbps", label: "FBPS", format: (r, m, mode) => formatTeamSeasonCount(m.fb, r.team.gamesPlayed, mode) },
+  { key: "2ndpts", label: "2ND PTS", format: (r, m, mode) => formatTeamSeasonCount(m.pt2nd, r.team.gamesPlayed, mode) },
+  { key: "ptsofftov", label: "PTSOFFTO", format: (r, m, mode) => formatTeamSeasonCount(m.pft, r.team.gamesPlayed, mode) },
+  { key: "dunk", label: "DUNK", format: (r, m, mode) => formatTeamSeasonCount(m.dunks, r.team.gamesPlayed, mode) },
 ];
 
 const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
@@ -1386,6 +1440,9 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 他のシチュエーション別セクションと同じく独立した状態を持つ
   const [situationalRecordGameType, setSituationalRecordGameType] = useState<SeasonGameTypeFilter>("regular");
 
+  // 「シーズン別成績」（概要タブ）の平均/合計トグル。個人詳細ページのSeasonBreakdownTableと
+  // 同じ仕組み（TeamSeasonBoxColumn.formatにmodeを渡す）を再利用する
+  const [seasonBoxDisplayMode, setSeasonBoxDisplayMode] = useState<SeasonDisplayMode>("perGame");
   // 「シューティング」セクションの平均/合計トグル
   const [teamShootingDisplayMode, setTeamShootingDisplayMode] = useState<SeasonDisplayMode>("perGame");
   // 「当該シーズンのスタッツ」（上部集計表）・「シチュエーション別成績」（チーム版）の
@@ -2083,17 +2140,31 @@ export function TeamDetailPage({ season }: { season: string }) {
               ))}
             </p>
           )}
-          <div className="tab-bar">
-            {SEASON_BOX_TABS.map((t) => (
-              <button
-                key={t.key}
-                className={`tab-button${seasonBoxTab === t.key ? " active" : ""}`}
-                onClick={() => setSeasonBoxTab(t.key)}
-                type="button"
-              >
-                {t.label}
-              </button>
-            ))}
+          <div className="tab-bar-with-toggle">
+            <div className="tab-bar">
+              {SEASON_BOX_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  className={`tab-button${seasonBoxTab === t.key ? " active" : ""}`}
+                  onClick={() => setSeasonBoxTab(t.key)}
+                  type="button"
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="mode-toggle">
+              {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+                <button
+                  key={m}
+                  className={m === seasonBoxDisplayMode ? "active" : ""}
+                  onClick={() => setSeasonBoxDisplayMode(m)}
+                  type="button"
+                >
+                  {SEASON_DISPLAY_MODE_LABELS[m]}
+                </button>
+              ))}
+            </div>
           </div>
           {seasonHistoryLoading || careerLoading ? (
             <p className="loading">読み込み中...</p>
@@ -2110,7 +2181,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <th className="align-right">勝敗</th>
                     <th className="align-right">勝率</th>
                     {TEAM_SEASON_BOX_COLUMNS[seasonBoxTab].map((c) => (
-                      <th className="align-right" key={c.key}>
+                      <th className="align-right" key={c.key} title={c.description}>
                         {c.label}
                       </th>
                     ))}
@@ -2132,7 +2203,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                         <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
                         {TEAM_SEASON_BOX_COLUMNS[seasonBoxTab].map((c) => (
                           <td className="align-right" key={c.key}>
-                            {c.format(r, misc)}
+                            {c.format(r, misc, seasonBoxDisplayMode)}
                           </td>
                         ))}
                       </tr>
@@ -2576,31 +2647,33 @@ export function TeamDetailPage({ season }: { season: string }) {
               </button>
             ))}
           </div>
-          <div className="mode-toggle">
-            {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
-              <button
-                key={m}
-                className={m === teamStatsDisplayMode ? "active" : ""}
-                onClick={() => setTeamStatsDisplayMode(m)}
-                type="button"
-              >
-                {SEASON_DISPLAY_MODE_LABELS[m]}
-              </button>
-            ))}
-          </div>
           <PeriodRangeToggle options={SEASON_BOX_PERIOD_OPTIONS} value={statsPeriod} onChange={setStatsPeriod} />
           {statsRawGamesLoading && <p className="loading">読み込み中...</p>}
-          <div className="tab-bar">
-            {BOXSCORE_TABS.map((t) => (
-              <button
-                key={t.key}
-                className={`tab-button${teamStatsBoxTab === t.key ? " active" : ""}`}
-                onClick={() => setTeamStatsBoxTab(t.key)}
-                type="button"
-              >
-                {t.label}
-              </button>
-            ))}
+          <div className="tab-bar-with-toggle">
+            <div className="tab-bar">
+              {BOXSCORE_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  className={`tab-button${teamStatsBoxTab === t.key ? " active" : ""}`}
+                  onClick={() => setTeamStatsBoxTab(t.key)}
+                  type="button"
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="mode-toggle">
+              {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+                <button
+                  key={m}
+                  className={m === teamStatsDisplayMode ? "active" : ""}
+                  onClick={() => setTeamStatsDisplayMode(m)}
+                  type="button"
+                >
+                  {SEASON_DISPLAY_MODE_LABELS[m]}
+                </button>
+              ))}
+            </div>
           </div>
           {!teamStatsBoxTotals ? (
             <p className="empty-message">該当する試合がありません</p>
@@ -2654,29 +2727,31 @@ export function TeamDetailPage({ season }: { season: string }) {
               </button>
             ))}
           </div>
-          <div className="mode-toggle">
-            {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
-              <button
-                key={m}
-                className={m === situationalTeamDisplayMode ? "active" : ""}
-                onClick={() => setSituationalTeamDisplayMode(m)}
-                type="button"
-              >
-                {SEASON_DISPLAY_MODE_LABELS[m]}
-              </button>
-            ))}
-          </div>
-          <div className="tab-bar">
-            {BOXSCORE_TABS.map((t) => (
-              <button
-                key={t.key}
-                className={`tab-button${situationalTeamBoxTab === t.key ? " active" : ""}`}
-                onClick={() => setSituationalTeamBoxTab(t.key)}
-                type="button"
-              >
-                {t.label}
-              </button>
-            ))}
+          <div className="tab-bar-with-toggle">
+            <div className="tab-bar">
+              {BOXSCORE_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  className={`tab-button${situationalTeamBoxTab === t.key ? " active" : ""}`}
+                  onClick={() => setSituationalTeamBoxTab(t.key)}
+                  type="button"
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="mode-toggle">
+              {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+                <button
+                  key={m}
+                  className={m === situationalTeamDisplayMode ? "active" : ""}
+                  onClick={() => setSituationalTeamDisplayMode(m)}
+                  type="button"
+                >
+                  {SEASON_DISPLAY_MODE_LABELS[m]}
+                </button>
+              ))}
+            </div>
           </div>
           {situationalTeamGroups.length === 0 ? (
             <p className="empty-message">該当する試合がありません</p>
@@ -3396,25 +3471,27 @@ function TeamPlayerStatsTable({
           </button>
         ))}
       </div>
-      <div className="mode-toggle">
-        {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
-          <button key={m} className={m === displayMode ? "active" : ""} onClick={() => onDisplayModeChange(m)} type="button">
-            {SEASON_DISPLAY_MODE_LABELS[m]}
-          </button>
-        ))}
-      </div>
       <PeriodRangeToggle options={SEASON_BOX_PERIOD_OPTIONS} value={period} onChange={onPeriodChange} />
       {periodLoading && <p className="loading">この期間の再集計中...</p>}
       {rows.length === 0 ? (
         <p className="empty-message">選手スタッツがありません</p>
       ) : (
         <>
-          <div className="tab-bar">
-            {SEASON_BOX_TABS.map((t) => (
-              <button key={t.key} className={`tab-button${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)} type="button">
-                {t.label}
-              </button>
-            ))}
+          <div className="tab-bar-with-toggle">
+            <div className="tab-bar">
+              {SEASON_BOX_TABS.map((t) => (
+                <button key={t.key} className={`tab-button${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)} type="button">
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="mode-toggle">
+              {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+                <button key={m} className={m === displayMode ? "active" : ""} onClick={() => onDisplayModeChange(m)} type="button">
+                  {SEASON_DISPLAY_MODE_LABELS[m]}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="table-scroll">
             <table className="stats-table">

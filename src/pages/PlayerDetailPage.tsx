@@ -1710,16 +1710,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 {SEASON_GAME_TYPE_LABELS[g]}
               </button>
             ))}
-            {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
-              <button
-                key={m}
-                className={m === seasonDisplayMode ? "active" : ""}
-                onClick={() => setSeasonDisplayMode(m)}
-                type="button"
-              >
-                {SEASON_DISPLAY_MODE_LABELS[m]}
-              </button>
-            ))}
           </div>
           <PeriodRangeToggle
             options={SEASON_BOX_PERIOD_OPTIONS}
@@ -1734,6 +1724,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             gameTypeFilter={gameTypeFilter}
             teamData={careerTeamData}
             displayMode={seasonDisplayMode}
+            onDisplayModeChange={setSeasonDisplayMode}
             playerId={player.playerId}
             period={seasonBreakdownPeriod}
             gamesByScheduleKey={periodRawGames}
@@ -1763,16 +1754,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 {SEASON_GAME_TYPE_LABELS[g]}
               </button>
             ))}
-            {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
-              <button
-                key={m}
-                className={m === situationalStatsDisplayMode ? "active" : ""}
-                onClick={() => setSituationalStatsDisplayMode(m)}
-                type="button"
-              >
-                {SEASON_DISPLAY_MODE_LABELS[m]}
-              </button>
-            ))}
           </div>
           <PeriodRangeToggle
             options={SEASON_BOX_PERIOD_OPTIONS}
@@ -1782,17 +1763,31 @@ export function PlayerDetailPage({ season }: { season: string }) {
           {periodRawGamesLoading && situationalStatsPeriod !== "all" && (
             <p className="loading">この期間の再集計中...</p>
           )}
-          <div className="tab-bar">
-            {SEASON_BOX_TABS.map((t) => (
-              <button
-                key={t.key}
-                className={`tab-button${situationalStatsTab === t.key ? " active" : ""}`}
-                onClick={() => setSituationalStatsTab(t.key)}
-                type="button"
-              >
-                {t.label}
-              </button>
-            ))}
+          <div className="tab-bar-with-toggle">
+            <div className="tab-bar">
+              {SEASON_BOX_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  className={`tab-button${situationalStatsTab === t.key ? " active" : ""}`}
+                  onClick={() => setSituationalStatsTab(t.key)}
+                  type="button"
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="mode-toggle">
+              {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+                <button
+                  key={m}
+                  className={m === situationalStatsDisplayMode ? "active" : ""}
+                  onClick={() => setSituationalStatsDisplayMode(m)}
+                  type="button"
+                >
+                  {SEASON_DISPLAY_MODE_LABELS[m]}
+                </button>
+              ))}
+            </div>
           </div>
           {!careerData ? (
             <p className="loading">読み込み中...</p>
@@ -2306,6 +2301,7 @@ function SeasonBreakdownTable({
   gameTypeFilter,
   teamData,
   displayMode,
+  onDisplayModeChange,
   playerId,
   period,
   gamesByScheduleKey,
@@ -2314,6 +2310,7 @@ function SeasonBreakdownTable({
   gameTypeFilter: SeasonGameTypeFilter;
   teamData: Map<string, CareerSeasonTeamInfo> | null;
   displayMode: SeasonDisplayMode;
+  onDisplayModeChange: (m: SeasonDisplayMode) => void;
   playerId: string;
   period: PeriodRangeValue;
   gamesByScheduleKey: Map<string, StoredGame>;
@@ -2448,12 +2445,21 @@ function SeasonBreakdownTable({
 
   return (
     <>
-      <div className="tab-bar">
-        {SEASON_BOX_TABS.map((t) => (
-          <button key={t.key} className={`tab-button${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)} type="button">
-            {t.label}
-          </button>
-        ))}
+      <div className="tab-bar-with-toggle">
+        <div className="tab-bar">
+          {SEASON_BOX_TABS.map((t) => (
+            <button key={t.key} className={`tab-button${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)} type="button">
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="mode-toggle">
+          {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+            <button key={m} className={m === displayMode ? "active" : ""} onClick={() => onDisplayModeChange(m)} type="button">
+              {SEASON_DISPLAY_MODE_LABELS[m]}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="table-scroll">
         <table className="stats-table">

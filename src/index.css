@@ -416,6 +416,27 @@ h2 {
   margin-bottom: 20px;
 }
 
+/* カテゴリタブ（トラディショナル/アドバンスド/Misc/スコアリング）と平均/合計切り替えを
+   同じ行に配置し、切り替えボタンをタブの右揃えにするための共通レイアウト */
+.tab-bar-with-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.tab-bar-with-toggle .tab-bar {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.tab-bar-with-toggle .mode-toggle {
+  margin-bottom: 0;
+}
+
 .tab-button {
   padding: 9px 18px;
   border: none;
