@@ -1796,6 +1796,25 @@ export function TeamDetailPage({ season }: { season: string }) {
     return rows;
   }, [playerStatsCandidates, players, gameLogs, teamId, season, playerStatsGameType, playerStatsPeriodOption, playerStatsRawGames]);
 
+  // 「スタメン平均」見出しに追記する、当該シーズン（レギュラーシーズンのみ、avgHeightCm等と
+  // 同じ基準）で実際に起用されたスタメン5人の組み合わせ種類数。playerStatsCandidates
+  // （「選手スタッツ」タブ用に既に取得済みのPlayerGameLog、isStarterを持つ）から
+  // scheduleKeyごとのスタメン集合を組み立て、正規化キーの種類数を数える
+  const startingLineupComboCount = useMemo(() => {
+    if (!playerStatsCandidates || !teamId) return null;
+    const startersByGame = new Map<string, Set<string>>();
+    for (const c of playerStatsCandidates) {
+      for (const log of c.logs) {
+        if (!log.isStarter || log.gameType !== "regular") continue;
+        if (c.ownTeamByScheduleKey.get(log.scheduleKey)?.teamId !== teamId) continue;
+        if (!startersByGame.has(log.scheduleKey)) startersByGame.set(log.scheduleKey, new Set());
+        startersByGame.get(log.scheduleKey)!.add(c.playerId);
+      }
+    }
+    const combos = new Set([...startersByGame.values()].map((ids) => [...ids].sort().join(",")));
+    return combos.size;
+  }, [playerStatsCandidates, teamId]);
+
   if (teamsLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (teamsError) return <p className="error-message">{teamsError}</p>;
 
@@ -2869,62 +2888,6 @@ export function TeamDetailPage({ season }: { season: string }) {
             </>
           )}
 
-          {(avgHeightCm != null || avgWeightKg != null || avgAge != null) && (
-            <>
-              <h2>スタメン平均（先発出場経験のある選手）</h2>
-              <div className="stat-grid">
-                <StatTile label="平均身長" value={avgHeightCm != null ? `${formatDecimal(avgHeightCm)}cm` : "-"} />
-                <StatTile label="平均体重" value={avgWeightKg != null ? `${formatDecimal(avgWeightKg)}kg` : "-"} />
-                <StatTile label="平均年齢" value={avgAge != null ? `${formatDecimal(avgAge)}歳` : "-"} />
-              </div>
-            </>
-          )}
-
-          <h2>よく使われるラインナップ</h2>
-          {coverageLoading ? (
-            <p className="loading">読み込み中...</p>
-          ) : !pbpSupported ? (
-            <p className="empty-message">このシーズンのデータには対応していません</p>
-          ) : topLineups.length === 0 ? (
-            <p className="empty-message">
-              {(lineupsFile?.lineups.length ?? 0) === 0
-                ? "ラインナップデータがありません"
-                : `出場時間${MIN_LINEUP_SECONDS}秒以上の組み合わせがまだありません（試合数が増えると表示されます）`}
-            </p>
-          ) : (
-            <>
-              <div className="table-scroll">
-                <table className="sortable-table">
-                  <thead>
-                    <tr>
-                      <th className="align-left">5人の組み合わせ</th>
-                      <th className="align-right">試合数</th>
-                      <th className="align-right">出場時間</th>
-                      <th className="align-right">得失点差</th>
-                      <th className="align-right">Net Rating（推定）</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topLineups.map((l) => (
-                      <tr key={l.lineupKey}>
-                        <td className="align-left">{l.playerIds.map((id) => playerNameById.get(id) ?? id).join(" / ")}</td>
-                        <td className="align-right">{l.gamesPlayed}</td>
-                        <td className="align-right">{formatDecimal(l.secondsPlayed / 60)}分</td>
-                        <td className="align-right">{formatSigned(l.netPoints, 0)}</td>
-                        <td className="align-right">{formatSigned(l.estimatedNetRtg)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="page-subtitle">
-                出場時間{MIN_LINEUP_SECONDS}秒未満の組み合わせは除外・上位{MAX_LINEUP_ROWS}組まで表示。Net
-                Ratingはスティント単位の実ポゼッション数が無いため、チームのシーズン平均ペースから推定した参考値。
-                試合数がまだ少ないため、いずれの数値もサンプルサイズが小さい点に留意
-              </p>
-            </>
-          )}
-
           <h2>相手に強制したターンオーバー（種類別）</h2>
           {!team.forcedTurnovers ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
@@ -2973,23 +2936,93 @@ export function TeamDetailPage({ season }: { season: string }) {
         </>
       )}
 
-      {tab === "playerStats" &&
-        (coverageLoading ? (
-          <p className="loading">読み込み中...</p>
-        ) : !pbpSupported ? (
-          <p className="empty-message">このシーズンのデータには対応していません</p>
-        ) : playerStatsCandidatesLoading || !playerStatsRows ? (
-          <p className="loading">読み込み中...</p>
-        ) : (
-          <TeamPlayerStatsTable
-            rows={playerStatsRows}
-            gameType={playerStatsGameType}
-            onGameTypeChange={setPlayerStatsGameType}
-            period={playerStatsPeriod}
-            onPeriodChange={setPlayerStatsPeriod}
-            periodLoading={playerStatsRawGamesLoading}
-          />
-        ))}
+      {tab === "playerStats" && (
+        <>
+          {coverageLoading ? (
+            <p className="loading">読み込み中...</p>
+          ) : !pbpSupported ? (
+            <p className="empty-message">このシーズンのデータには対応していません</p>
+          ) : playerStatsCandidatesLoading || !playerStatsRows ? (
+            <p className="loading">読み込み中...</p>
+          ) : (
+            <TeamPlayerStatsTable
+              rows={playerStatsRows}
+              gameType={playerStatsGameType}
+              onGameTypeChange={setPlayerStatsGameType}
+              period={playerStatsPeriod}
+              onPeriodChange={setPlayerStatsPeriod}
+              periodLoading={playerStatsRawGamesLoading}
+            />
+          )}
+
+          {(avgHeightCm != null || avgWeightKg != null || avgAge != null) && (
+            <>
+              <h2>
+                スタメン平均（先発出場経験のある選手
+                {startingLineupComboCount != null && `・今シーズン${startingLineupComboCount}通りの組み合わせを起用`}）
+              </h2>
+              <div className="stat-grid">
+                <StatTile label="平均身長" value={avgHeightCm != null ? `${formatDecimal(avgHeightCm)}cm` : "-"} />
+                <StatTile label="平均体重" value={avgWeightKg != null ? `${formatDecimal(avgWeightKg)}kg` : "-"} />
+                <StatTile label="平均年齢" value={avgAge != null ? `${formatDecimal(avgAge)}歳` : "-"} />
+              </div>
+            </>
+          )}
+
+          <h2>よく使われるラインナップ</h2>
+          {coverageLoading ? (
+            <p className="loading">読み込み中...</p>
+          ) : !pbpSupported ? (
+            <p className="empty-message">このシーズンのデータには対応していません</p>
+          ) : topLineups.length === 0 ? (
+            <p className="empty-message">
+              {(lineupsFile?.lineups.length ?? 0) === 0
+                ? "ラインナップデータがありません"
+                : `出場時間${MIN_LINEUP_SECONDS}秒以上の組み合わせがまだありません（試合数が増えると表示されます）`}
+            </p>
+          ) : (
+            <>
+              <div className="table-scroll">
+                <table className="sortable-table">
+                  <thead>
+                    <tr>
+                      <th className="align-left">5人の組み合わせ</th>
+                      <th className="align-right">試合数</th>
+                      <th className="align-right">出場時間</th>
+                      <th className="align-right">得点</th>
+                      <th className="align-right">失点</th>
+                      <th className="align-right">得失点</th>
+                      <th className="align-right">ORtg（推定）</th>
+                      <th className="align-right">DRtg（推定）</th>
+                      <th className="align-right">NetRtg（推定）</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topLineups.map((l) => (
+                      <tr key={l.lineupKey}>
+                        <td className="align-left">{l.playerIds.map((id) => playerNameById.get(id) ?? id).join(" / ")}</td>
+                        <td className="align-right">{l.gamesPlayed}</td>
+                        <td className="align-right">{formatDecimal(l.secondsPlayed / 60)}分</td>
+                        <td className="align-right">{l.ownPoints}</td>
+                        <td className="align-right">{l.oppPoints}</td>
+                        <td className="align-right">{formatSigned(l.netPoints, 0)}</td>
+                        <td className="align-right">{formatDecimal(l.estimatedOffRtg)}</td>
+                        <td className="align-right">{formatDecimal(l.estimatedDefRtg)}</td>
+                        <td className="align-right">{formatSigned(l.estimatedNetRtg)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="page-subtitle">
+                出場時間{MIN_LINEUP_SECONDS}秒未満の組み合わせは除外・上位{MAX_LINEUP_ROWS}組まで表示。ORtg/DRtg/Net
+                Ratingはスティント単位の実ポゼッション数が無いため、チームのシーズン平均ペースから推定した参考値。
+                試合数がまだ少ないため、いずれの数値もサンプルサイズが小さい点に留意
+              </p>
+            </>
+          )}
+        </>
+      )}
 
       {tab === "compare" && (
         <>

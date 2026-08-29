@@ -116,6 +116,10 @@ export interface LineupStint {
   endSec: number;
   /** このスティント中のチーム純得失点（自チーム得点 − 相手チーム得点） */
   netPoints: number;
+  /** このスティント中の自チーム得点（Phase H5、得点/失点/ORtg/DRtg表示用） */
+  ownPoints: number;
+  /** このスティント中の相手チーム得点（同上） */
+  oppPoints: number;
 }
 
 export interface OnCourtReconstruction {
@@ -415,9 +419,9 @@ export function reconstructOnCourt(
   // 同時に積算する。tie-break不要（配列の元の並び順を信頼する）という結論は個人+/-の
   // 検証で確立済みなので、そのロジックをそのまま流用する（ズレる余地がない）
   const lineupStints: LineupStint[] = [];
-  const currentStint: Record<string, { start: number; net: number }> = {
-    [homeTeamId]: { start: 0, net: 0 },
-    [awayTeamId]: { start: 0, net: 0 },
+  const currentStint: Record<string, { start: number; net: number; own: number; opp: number }> = {
+    [homeTeamId]: { start: 0, net: 0, own: 0, opp: 0 },
+    [awayTeamId]: { start: 0, net: 0, own: 0, opp: 0 },
   };
 
   const events = buildRelevantEvents(playByPlays, warnings, substitutionModel);
@@ -436,7 +440,9 @@ export function reconstructOnCourt(
         addIntervalScore(pid, "oppPts", event.points);
       }
       currentStint[event.teamId]!.net += event.points;
+      currentStint[event.teamId]!.own += event.points;
       currentStint[opponentTeamId]!.net -= event.points;
+      currentStint[opponentTeamId]!.opp += event.points;
       i += 1;
       continue;
     }
@@ -520,10 +526,12 @@ export function reconstructOnCourt(
         startSec: stint.start,
         endSec: t,
         netPoints: stint.net,
+        ownPoints: stint.own,
+        oppPoints: stint.opp,
       });
     }
     if (lineupAfterBatch !== lineupBeforeBatch) {
-      currentStint[teamId] = { start: t, net: 0 };
+      currentStint[teamId] = { start: t, net: 0, own: 0, opp: 0 };
     }
     i = j;
   }
@@ -540,6 +548,8 @@ export function reconstructOnCourt(
         startSec: stint.start,
         endSec: gameEnd,
         netPoints: stint.net,
+        ownPoints: stint.own,
+        oppPoints: stint.opp,
       });
     }
     for (const [playerId, start] of openStart[teamId]!.entries()) {

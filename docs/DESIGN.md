@@ -6378,3 +6378,84 @@ state・`SortableTable`/`Column`のimportも合わせて削除した。
 
 型チェック（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。本番ビルド（`vite build`）
 成功。ブラウザのコンソールエラー無し。
+
+---
+
+## 78. 「スタメン平均」「よく使われるラインナップ」を「選手スタッツ」タブへ移設（Phase H5、2026-08-29）
+
+Phase H4で「チームスタッツ」タブに残っていた「スタメン平均」「よく使われるラインナップ」の
+2セクションを「選手スタッツ」タブへ移動し、あわせて内容を拡張した。
+
+### 78-1. セクションの移動
+
+`avgHeightCm`/`avgWeightKg`/`avgAge`（`starters`＝`team.players`のうち`gamesStarted > 0`から
+算出）・`lineupsFile`/`topLineups`はいずれもタブに依存しないページ本体のトップレベル計算
+（`tab === "teamStats"`の条件分岐の外）だったため、`{tab === "playerStats" && (...)}`の
+JSX側に丸ごと移すだけで済み、フェッチ・計算ロジック自体の変更は不要だった。
+
+### 78-2. スタメン組み合わせ種類数の追記
+
+「選手スタッツ」タブが既に取得済みの`playerStatsCandidates`（ロースター候補ごとの
+`PlayerGameLog[]`＋`ownTeamByScheduleKey`、59章）を再利用した。各`PlayerGameLog`が持つ
+`isStarter`フラグを使い、`log.gameType === "regular"`（avgHeightCm等と同じ「レギュラー
+シーズンのみ」基準に揃える）かつ`ownTeamByScheduleKey.get(scheduleKey)?.teamId === teamId`の
+試合について、scheduleKeyごとにスタメン5人のplayerId集合を組み立て、正規化キー
+（`shared/onCourt.ts`の`lineupKey`と同じ「ソートして","結合」方式）の種類数を数える
+新規useMemo（`startingLineupComboCount`）を追加した。新規のHTTPリクエストは発生しない。
+見出しは「スタメン平均（先発出場経験のある選手・今シーズン◯通りの組み合わせを起用）」とし、
+既存の説明（先発出場経験のある選手が対象）を保持したまま追記する形にした。
+
+### 78-3. よく使われるラインナップへの得点/失点/ORtg/DRtg追加
+
+既存の`LineupAggregate`（`data/{season}/lineups/{teamId}.json`）は`netPoints`
+（自チーム−相手チームの純得失点）と、チームのシーズン平均ペースから推定した`estimatedNetRtg`
+のみを持ち、自チーム・相手チームそれぞれの得点や、ORtg/DRtgに相当する値は保持していなかった。
+バックエンドの集計ロジック（`shared/onCourt.ts`のラインナップスティント積算・
+`scripts/aggregate.ts`の`processLineups`）を拡張する必要があった。
+
+- `shared/onCourt.ts`: `LineupStint`に`ownPoints`/`oppPoints`を追加。ラインナップスティントの
+  積算（`currentStint`）に個人+/-の得点内訳（20-3章で導入済みの`ownPts`/`oppPts`と同じ
+  「得点イベントのたびに加算」パターン）をそのまま適用し、`net`と並行して`own`/`opp`も
+  積算するだけで済んだ（イベント順・スティント区切りロジック自体は無変更）
+- `scripts/aggregate.ts`: `LineupAccumulator`・`LineupAggregate`出力に`ownPoints`/`oppPoints`を
+  追加。既存の`estimatedNetRtg`（`100 × netPoints / 推定ポゼッション数`）と全く同じ推定
+  ポゼッション数（チームのシーズン平均「POSS / MIN(5人合計分)」からスティント時間分を按分）を
+  使って、`estimatedOffRtg`（`100 × ownPoints / 推定ポゼッション数`）・`estimatedDefRtg`
+  （同、oppPoints）を追加算出する（`estimatedNetRtg = estimatedOffRtg − estimatedDefRtg`が
+  常に成立する設計）
+- `shared/types.ts`の`LineupAggregate`に上記4フィールドを追加
+- `src/pages/TeamDetailPage.tsx`: テーブル列を依頼順（5人の組み合わせ／試合数／出場時間／
+  得点／失点／得失点／ORtg（推定）／DRtg（推定）／NetRtg（推定））に構成し直した。得点・失点は
+  シーズン通算の生の値（`l.ownPoints`/`l.oppPoints`）をそのまま表示（既存の得失点差と同じく
+  加工しない）、ORtg/DRtgは既存のNetRtg（推定）と同じ`formatDecimal`で表示する
+
+### 78-4. 全シーズン再集計（CLAUDE.mdの運用ルール通り）
+
+`shared/onCourt.ts`・`scripts/aggregate.ts`のロジック変更に伴い、B.PREMIER全11シーズン
+（2016-17〜2026-27。2026-27は0試合のためno-op）・B.ONE（2025-26）を`npm run aggregate`で
+再集計した。差分は`data/{season}/lineups/*.json.gz`（226ファイル、新規4フィールド追加分）に
+のみ生じ、それ以外の生成ファイル（`player-games/*.json.gz`・`team-games/*.json.gz`・
+`games-summary.json`・`teams.json`・`players.json`・`standings-history.json`・
+`head-to-head.json`・`data/seasons.json`等）は、デコード後の内容が旧版と完全一致することを
+確認した上でコミット対象から除外した（gzip再圧縮のみに伴う非決定的なバイト差分。既知の挙動で
+今回の変更が原因ではない。19章・53章・67章等と同じ確認手順）。
+
+### 78-5. 検証
+
+千葉ジェッツ（2025-26シーズン）・栃木ブレックス（2016-17シーズン、legacy取得・legacy選手交代
+モデル）の両方でブラウザ確認した:
+- 「チームスタッツ」タブから「スタメン平均」「よく使われるラインナップ」が削除され、
+  シューティングセクションの直後で終わっていることを確認
+- 「選手スタッツ」タブの個人スタッツ表の直後に「スタメン平均（先発出場経験のある選手・
+  今シーズン18通りの組み合わせを起用）」（千葉ジェッツ）「スタメン平均（先発出場経験のある
+  選手・今シーズン6通りの組み合わせを起用）」（栃木ブレックス）が表示されることを確認
+- 「よく使われるラインナップ」の列が依頼順（5人の組み合わせ／試合数／出場時間／得点／失点／
+  得失点／ORtg（推定）／DRtg（推定）／NetRtg（推定））で表示され、各行で
+  得点−失点＝得失点（例: 千葉ジェッツ1位ラインナップ 673−583＝+90）、
+  ORtg−DRtg≈NetRtg（丸め誤差の範囲で一致。例: 123.0−106.6≈+16.5）が成立していることを確認
+- レガシー取得の2016-17シーズン（legacy選手交代モデル）でも新しい得点/失点/ORtg/DRtg列が
+  正しく表示され、内部整合性（得点−失点＝得失点）が成立することを確認し、20-3章のown/oppPts
+  トラッキングと同じロジックがラインナップスティントにも問題無く適用できることを裏付けた
+
+型チェック（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。本番ビルド（`vite build`）
+成功。ブラウザのコンソールエラー無し。

@@ -807,6 +807,10 @@ export interface LineupAggregate {
   secondsPlayed: number;
   /** シーズン通算の純得失点（この5人が同時に出場していた時間帯のチーム得失点差の合計） */
   netPoints: number;
+  /** シーズン通算の自チーム得点（この5人が同時に出場していた時間帯。Phase H5で追加） */
+  ownPoints: number;
+  /** シーズン通算の相手チーム得点（同上） */
+  oppPoints: number;
   /** この組み合わせが出場した試合数（延べではなく試合単位のユニーク数） */
   gamesPlayed: number;
   /**
@@ -816,6 +820,10 @@ export interface LineupAggregate {
    * スタッツと同様の位置づけ）
    */
   estimatedNetRtg: number;
+  /** 推定Offensive Rating（100ポゼッションあたり自チーム得点）。estimatedNetRtgと同じ推定ポゼッションを使う */
+  estimatedOffRtg: number;
+  /** 推定Defensive Rating（100ポゼッションあたり相手チーム得点）。同上 */
+  estimatedDefRtg: number;
 }
 
 export interface TeamLineupsFile {

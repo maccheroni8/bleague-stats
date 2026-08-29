@@ -618,6 +618,8 @@ interface LineupAccumulator {
   playerIds: string[];
   secondsPlayed: number;
   netPoints: number;
+  ownPoints: number;
+  oppPoints: number;
   games: Set<string>;
 }
 
@@ -948,8 +950,12 @@ export async function aggregateSeason(season: string, category: Category = "prem
           playerIds: acc.playerIds,
           secondsPlayed: acc.secondsPlayed,
           netPoints: acc.netPoints,
+          ownPoints: acc.ownPoints,
+          oppPoints: acc.oppPoints,
           gamesPlayed: acc.games.size,
           estimatedNetRtg: safeDiv(100 * acc.netPoints, estimatedPoss),
+          estimatedOffRtg: safeDiv(100 * acc.ownPoints, estimatedPoss),
+          estimatedDefRtg: safeDiv(100 * acc.oppPoints, estimatedPoss),
         };
       })
       .sort((a, b) => b.secondsPlayed - a.secondsPlayed);
@@ -987,11 +993,13 @@ function processLineups(
     }
     let acc = lineupMap.get(stint.lineupKey);
     if (!acc) {
-      acc = { playerIds: stint.playerIds, secondsPlayed: 0, netPoints: 0, games: new Set() };
+      acc = { playerIds: stint.playerIds, secondsPlayed: 0, netPoints: 0, ownPoints: 0, oppPoints: 0, games: new Set() };
       lineupMap.set(stint.lineupKey, acc);
     }
     acc.secondsPlayed += stint.endSec - stint.startSec;
     acc.netPoints += stint.netPoints;
+    acc.ownPoints += stint.ownPoints;
+    acc.oppPoints += stint.oppPoints;
     acc.games.add(game.scheduleKey);
   }
 }
