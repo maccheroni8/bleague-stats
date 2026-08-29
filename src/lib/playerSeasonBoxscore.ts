@@ -55,8 +55,8 @@ export const SEASON_DISPLAY_MODE_LABELS: Record<SeasonDisplayMode, string> = {
 };
 
 export const SEASON_GAME_TYPE_LABELS: Record<SeasonGameTypeFilter, string> = {
-  regular: "レギュラーシーズンのみ",
-  playoff: "プレーオフのみ",
+  regular: "レギュラーシーズン",
+  playoff: "プレーオフ",
   both: "合算",
 };
 

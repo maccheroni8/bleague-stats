@@ -18,6 +18,7 @@ import {
   fetchPlayers,
   fetchSchedule,
   fetchSeasons,
+  fetchStandingsHistory,
   fetchTeamColors,
   fetchTeamGameLogs,
   fetchTeamHistory,
@@ -34,6 +35,7 @@ import type {
   PlayerGameLog,
   PlayerSummary,
   ShotTypeBreakdown,
+  StandingsSnapshot,
   StoredGame,
   TeamGameLog,
   TeamSummary,
@@ -47,7 +49,7 @@ import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
-import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
+import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import {
   buildBackToBackStatus,
   buildGameTeamsByScheduleKey,
@@ -122,20 +124,50 @@ interface RadarStatDef {
   higherIsBetter: boolean;
 }
 
-// ヘッダーのレーダーチャート用の8項目。多すぎると見づらいため主要項目のみに絞る。
-// Phase TA時点では項目が未定のため、既存の「他クラブ比較」用に組んでいたこの配列を
-// そのまま流用している（差し替えは配列の中身を変えるだけで済む）
+// ヘッダーのレーダーチャート用の16項目（0時の位置から時計回り: 得点/リバウンド/アシスト/
+// スティール/ブロック/2P%/3P%/FT%/失点/eFG%/TOV%/FTR/OR%/ORtg/DRtg/NETRtg）
 const RADAR_STAT_DEFS: RadarStatDef[] = [
-  { key: "pts", label: "PTS", value: (t) => t.perGame.pts, format: (t) => formatDecimal(t.perGame.pts), higherIsBetter: true },
-  { key: "reb", label: "REB", value: (t) => t.perGame.reb, format: (t) => formatDecimal(t.perGame.reb), higherIsBetter: true },
-  { key: "ast", label: "AST", value: (t) => t.perGame.ast, format: (t) => formatDecimal(t.perGame.ast), higherIsBetter: true },
-  { key: "stl", label: "STL", value: (t) => t.perGame.stl, format: (t) => formatDecimal(t.perGame.stl), higherIsBetter: true },
-  { key: "blk", label: "BLK", value: (t) => t.perGame.blk, format: (t) => formatDecimal(t.perGame.blk), higherIsBetter: true },
+  { key: "pts", label: "得点", value: (t) => t.perGame.pts, format: (t) => formatDecimal(t.perGame.pts), higherIsBetter: true },
+  { key: "reb", label: "リバウンド", value: (t) => t.perGame.reb, format: (t) => formatDecimal(t.perGame.reb), higherIsBetter: true },
+  { key: "ast", label: "アシスト", value: (t) => t.perGame.ast, format: (t) => formatDecimal(t.perGame.ast), higherIsBetter: true },
+  { key: "stl", label: "スティール", value: (t) => t.perGame.stl, format: (t) => formatDecimal(t.perGame.stl), higherIsBetter: true },
+  { key: "blk", label: "ブロック", value: (t) => t.perGame.blk, format: (t) => formatDecimal(t.perGame.blk), higherIsBetter: true },
+  { key: "pt2Pct", label: "2P%", value: (t) => t.shooting.pt2Pct, format: (t) => formatPct(t.shooting.pt2Pct), higherIsBetter: true },
+  { key: "tpPct", label: "3P%", value: (t) => t.shooting.tpPct, format: (t) => formatPct(t.shooting.tpPct), higherIsBetter: true },
+  { key: "ftPct", label: "FT%", value: (t) => t.shooting.ftPct, format: (t) => formatPct(t.shooting.ftPct), higherIsBetter: true },
+  {
+    key: "oppPts",
+    label: "失点",
+    value: (t) => t.opponentPerGame.pts,
+    format: (t) => formatDecimal(t.opponentPerGame.pts),
+    higherIsBetter: false,
+  },
   {
     key: "efgPct",
     label: "eFG%",
     value: (t) => t.shooting.efgPct,
     format: (t) => formatPct(t.shooting.efgPct),
+    higherIsBetter: true,
+  },
+  {
+    key: "tovPct",
+    label: "TOV%",
+    value: (t) => t.advanced.tovPct,
+    format: (t) => formatPct100(t.advanced.tovPct),
+    higherIsBetter: false,
+  },
+  {
+    key: "ftRate",
+    label: "FTR",
+    value: (t) => t.shooting.ftRate,
+    format: (t) => formatDecimal(t.shooting.ftRate, 3),
+    higherIsBetter: true,
+  },
+  {
+    key: "orbPct",
+    label: "OR%",
+    value: (t) => t.advanced.orbPct,
+    format: (t) => formatPct100(t.advanced.orbPct),
     higherIsBetter: true,
   },
   {
@@ -151,6 +183,13 @@ const RADAR_STAT_DEFS: RadarStatDef[] = [
     value: (t) => t.advanced.defRtg,
     format: (t) => formatDecimal(t.advanced.defRtg),
     higherIsBetter: false,
+  },
+  {
+    key: "netRtg",
+    label: "NETRtg",
+    value: (t) => t.advanced.netRtg,
+    format: (t) => formatSigned(t.advanced.netRtg),
+    higherIsBetter: true,
   },
 ];
 
@@ -205,6 +244,9 @@ const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
     { key: "tsPct", label: "TS%", value: (t) => t.shooting.tsPct, format: (t) => formatPct(t.shooting.tsPct), higherIsBetter: true },
     { key: "offRtg", label: "ORtg", value: (t) => t.advanced.offRtg, format: (t) => formatDecimal(t.advanced.offRtg), higherIsBetter: true },
     { key: "netRtg", label: "NetRtg", value: (t) => t.advanced.netRtg, format: (t) => formatSigned(t.advanced.netRtg), higherIsBetter: true },
+    { key: "ftr", label: "FTR", value: (t) => t.shooting.ftRate, format: (t) => formatDecimal(t.shooting.ftRate, 3), higherIsBetter: true },
+    { key: "tovPct", label: "TOV%", value: (t) => t.advanced.tovPct, format: (t) => formatPct100(t.advanced.tovPct), higherIsBetter: false },
+    { key: "orbPct", label: "OR%", value: (t) => t.advanced.orbPct, format: (t) => formatPct100(t.advanced.orbPct), higherIsBetter: true },
   ],
   [
     { key: "oppPts", label: "oppPTS", value: (t) => t.opponentPerGame.pts, format: (t) => formatDecimal(t.opponentPerGame.pts), higherIsBetter: false },
@@ -221,6 +263,27 @@ const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
     { key: "oppTsPct", label: "opp TS%", value: (t) => t.opponentShooting.tsPct, format: (t) => formatPct(t.opponentShooting.tsPct), higherIsBetter: false },
     { key: "defRtg", label: "DRtg", value: (t) => t.advanced.defRtg, format: (t) => formatDecimal(t.advanced.defRtg), higherIsBetter: false },
     { key: "pace", label: "PACE", value: (t) => t.advanced.pace, format: (t) => formatDecimal(t.advanced.pace), higherIsBetter: true },
+    {
+      key: "oppFtr",
+      label: "opp FTR",
+      value: (t) => t.opponentShooting.ftRate,
+      format: (t) => formatDecimal(t.opponentShooting.ftRate, 3),
+      higherIsBetter: false,
+    },
+    {
+      key: "oppTovPct",
+      label: "opp TOV%",
+      value: (t) => t.advanced.opponentTovPct,
+      format: (t) => formatPct100(t.advanced.opponentTovPct),
+      higherIsBetter: true,
+    },
+    {
+      key: "oppOrbPct",
+      label: "opp OR%",
+      value: (t) => t.advanced.opponentOrbPct,
+      format: (t) => formatPct100(t.advanced.opponentOrbPct),
+      higherIsBetter: false,
+    },
   ],
 ];
 
@@ -239,6 +302,32 @@ function rankAmongTeams(team: TeamSummary, allTeams: TeamSummary[], def: TeamHea
 
 function formatTeamRank({ rank, total }: TeamRankResult): string {
   return `${rank}位/${total}チーム`;
+}
+
+const DIVISION_LABELS: Record<string, string> = {
+  east: "東地区",
+  west: "西地区",
+  north: "北地区",
+  central: "中地区",
+  south: "南地区",
+};
+
+// ヘッダーの試合数/勝敗/勝率+順位の1行表示（例:「60試合45勝15敗.750 東地区1位 全体2位」）。
+// 地区順位・全体順位は既存のstandings-history.json（順位表ページと同じデータ源）から引く
+function buildTeamRecordLine(team: TeamSummary, standingsHistory: StandingsSnapshot[] | null | undefined): string {
+  const winPct = safeDiv(team.wins, team.wins + team.losses);
+  let line = `${team.gamesPlayed}試合${team.wins}勝${team.losses}敗${formatWinPct(winPct)}`;
+
+  const latest = standingsHistory && standingsHistory.length > 0 ? standingsHistory[standingsHistory.length - 1] : undefined;
+  const entry = latest?.teams.find((t) => t.teamId === team.teamId);
+  if (entry) {
+    if (entry.division && entry.divisionRank) {
+      const divisionLabel = DIVISION_LABELS[entry.division] ?? entry.division;
+      line += ` ${divisionLabel}${entry.divisionRank}位`;
+    }
+    line += ` 全体${entry.rank}位`;
+  }
+  return line;
 }
 
 // 「スタッツ」タブの自チーム／opp／+/-トグル。ヘッダーの自チーム行/opp行の対比構造
@@ -929,6 +1018,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
   const { data: summaries, loading: summariesLoading } = useJsonData(() => fetchGameSummaries(season), [season]);
   const { data: schedule, loading: scheduleLoading } = useJsonData(() => fetchSchedule(season), [season]);
+  // ヘッダーの地区順位・全体順位表示用（既存の順位表ページと同じstandings-history.jsonを再利用）
+  const { data: standingsHistory } = useJsonData(() => fetchStandingsHistory(season), [season]);
   // シチュエーション別フィルタの「対勝率別」用（対戦相手のその試合時点までの勝率が必要）
   const opponentRecords = useMemo(() => (summaries ? buildRecordsBeforeGame(summaries) : undefined), [summaries]);
 
@@ -1644,6 +1735,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     .slice(0, MAX_LINEUP_ROWS);
 
   const winPct = safeDiv(team.wins, team.wins + team.losses);
+  const recordLine = buildTeamRecordLine(team, standingsHistory);
 
   const nameHistory = teamHistory?.find((h) => h.teamId === team.teamId)?.names ?? [];
   const honors = clubHonors?.[team.teamId] ?? [];
@@ -1687,11 +1779,7 @@ export function TeamDetailPage({ season }: { season: string }) {
 
       <div className="team-header-columns">
         <div className="team-header-info">
-          <div className="stat-grid">
-            <StatTile label="試合数" value={String(team.gamesPlayed)} />
-            <StatTile label="勝敗" value={formatRecord(team.wins, team.losses)} />
-            <StatTile label="勝率" value={formatPct(winPct)} />
-          </div>
+          <p className="team-record-line">{recordLine}</p>
           {honors.length > 0 && (
             <div className="honors-groups">
               {HONOR_CATEGORY_ORDER.map((category) => {
@@ -1825,7 +1913,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <td className="align-left">{r.teamName}</td>
                       <td className="align-right">{r.team.gamesPlayed}</td>
                       <td className="align-right">{formatRecord(r.team.wins, r.team.losses)}</td>
-                      <td className="align-right">{formatPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
+                      <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
                       <td className="align-right">{formatDecimal(r.team.perGame.pts)}</td>
                       <td className="align-right">{formatDecimal(r.team.opponentPerGame.pts)}</td>
                       <td className="align-right">{formatSigned(r.team.netPerGame.pts)}</td>

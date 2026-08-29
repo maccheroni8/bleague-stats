@@ -1,6 +1,6 @@
 import { SeasonLink as Link } from "./SeasonLink";
 import type { HeadToHeadRecord, HeadToHeadSummary, HeadToHeadTeamRow, TeamColors } from "../../shared/types";
-import { formatPct, formatRecord, formatSigned } from "../lib/format";
+import { formatRecord, formatSigned, formatWinPct } from "../lib/format";
 
 interface Props {
   rows: HeadToHeadTeamRow[];
@@ -22,7 +22,7 @@ function SummaryCell({ summary }: { summary: HeadToHeadSummary }) {
       ) : (
         <>
           <div className="h2h-record">{formatRecord(summary.wins, summary.losses)}</div>
-          <div className="h2h-diff">{formatPct(summary.winPct)}</div>
+          <div className="h2h-diff">{formatWinPct(summary.winPct)}</div>
         </>
       )}
     </td>

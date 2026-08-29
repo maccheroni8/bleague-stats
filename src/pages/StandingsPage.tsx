@@ -4,7 +4,7 @@ import { useJsonData } from "../lib/useJsonData";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart } from "../components/StandingsLineChart";
 import { HeadToHeadMatrix } from "../components/HeadToHeadMatrix";
-import { formatDecimal, formatPct, formatRecord, formatSigned } from "../lib/format";
+import { formatDecimal, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import type { StandingsSnapshot, StandingsTeamSnapshot } from "../../shared/types";
 
 type View = "standings" | "h2h";
@@ -23,7 +23,7 @@ const divisionStandingsColumns: Column<StandingsTeamSnapshot>[] = [
     sortValue: (t) => t.wins - t.losses,
     render: (t) => formatRecord(t.wins, t.losses),
   },
-  { key: "winPct", label: "勝率", sortValue: (t) => t.winPct, format: (t) => formatPct(t.winPct) },
+  { key: "winPct", label: "勝率", sortValue: (t) => t.winPct, format: (t) => formatWinPct(t.winPct) },
   {
     key: "divisionGamesBehind",
     label: "GB",

@@ -211,6 +211,12 @@ h2 {
   min-width: 240px;
 }
 
+.team-record-line {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
 .team-header-radar {
   flex: 1 1 320px;
   min-width: 280px;

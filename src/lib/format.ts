@@ -11,6 +11,12 @@ export function formatPct100(value: number, digits = 1): string {
   return `${value.toFixed(digits)}%`;
 }
 
+/** 勝率専用のピリオド3桁表記（例: 0.75 -> ".750"、1 -> "1.000"）。先頭の"0"のみ省略する */
+export function formatWinPct(value: number, digits = 3): string {
+  const fixed = value.toFixed(digits);
+  return fixed.startsWith("0.") ? fixed.slice(1) : fixed;
+}
+
 export function formatSigned(value: number, digits = 1): string {
   const rounded = value.toFixed(digits);
   return value > 0 ? `+${rounded}` : rounded;

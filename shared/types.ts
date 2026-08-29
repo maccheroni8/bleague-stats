@@ -398,6 +398,12 @@ export interface TeamAdvancedStats {
   netRtg: number;
   /** オフェンスリバウンド率。公式に定義がないためNBA流を採用（DESIGN.md 6章） */
   orbPct: number;
+  /** 相手チームのオフェンスリバウンド率。orbPctの相手チーム版 */
+  opponentOrbPct: number;
+  /** ターンオーバー率（Four Factors）。公式に定義がないためNBA流を採用（DESIGN.md 6章） */
+  tovPct: number;
+  /** 相手チームのターンオーバー率（＝相手に強制したターンオーバー率）。tovPctの相手チーム版 */
+  opponentTovPct: number;
   /**
    * ベンチ得点（1試合あたり平均）。GeniusAPIに直接の該当フィールドが無いため、
    * ボックススコア個人行の StartingFlg!==1（先発以外）の選手のPoint合計から導出した
