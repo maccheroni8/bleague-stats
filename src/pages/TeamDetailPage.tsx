@@ -1615,6 +1615,12 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「試合」選択時は追加取得不要（既存のTeamGameLog/PlayerGameLog永続集計をそのまま使う）だが、
   // Q別/前後半選択時のみ、必要な試合の生データ（PlayByPlays込み）を遅延取得する
   const [playerStatsPeriod, setPlayerStatsPeriod] = useState<PeriodRangeValue>("all");
+  // シチュエーション別フィルタ（シーズン全体/直近N試合/勝敗別/期間指定/ホーム・アウェイ/
+  // 対東西地区/月別/年明け前後/平日開催/対勝率別）。既存のSituationalFilterPickerをそのまま
+  // 再利用し、選手一覧の全選手に一括で適用する（個別選手ごとの選択ではない）。レギュラー/
+  // プレーオフ/合算は既存のplayerStatsGameType（3値トグル）に一本化するため、
+  // filterGameLogsへは常にincludePlayoffs: trueを渡す（比較タブ・43章と同じパターン）
+  const [playerStatsFilter, setPlayerStatsFilter] = useState<SituationalFilter>({ kind: "all" });
   const playerStatsRawGamesRequestedRef = useRef<Set<string>>(new Set());
   const [playerStatsRawGames, setPlayerStatsRawGames] = useState<Map<string, StoredGame>>(new Map());
   const [playerStatsRawGamesLoading, setPlayerStatsRawGamesLoading] = useState(false);
@@ -1695,8 +1701,15 @@ export function TeamDetailPage({ season }: { season: string }) {
     const rows: TeamPlayerStatsRow[] = [];
     for (const c of playerStatsCandidates) {
       const gameTypeFilteredLogs = filterByGameType(c.logs, playerStatsGameType);
+      const situationalFilteredLogs = filterGameLogs(
+        gameTypeFilteredLogs,
+        { ...playerStatsFilter, includePlayoffs: true },
+        opponentRecords,
+        divisionHistory,
+        season,
+      );
       const scheduleKeys = new Set(
-        gameTypeFilteredLogs
+        situationalFilteredLogs
           .filter((g) => g.min > 0 && c.ownTeamByScheduleKey.get(g.scheduleKey)?.teamId === teamId)
           .map((g) => g.scheduleKey),
       );
@@ -1704,7 +1717,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       const teamTotals = sumTeamGameLogsFor(gameLogs, scheduleKeys);
       const splitRows = buildTeamSplitRowsForPeriod(
         c.playerId,
-        gameTypeFilteredLogs,
+        situationalFilteredLogs,
         c.ownTeamByScheduleKey,
         new Map([[teamId, teamTotals]]),
         playerStatsDisplayMode,
@@ -1726,6 +1739,9 @@ export function TeamDetailPage({ season }: { season: string }) {
     teamId,
     season,
     playerStatsGameType,
+    playerStatsFilter,
+    opponentRecords,
+    divisionHistory,
     playerStatsDisplayMode,
     playerStatsPeriodOption,
     playerStatsRawGames,
@@ -2963,19 +2979,29 @@ export function TeamDetailPage({ season }: { season: string }) {
             <p className="loading">読み込み中...</p>
           ) : !pbpSupported ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
-          ) : playerStatsCandidatesLoading || !playerStatsRows ? (
-            <p className="loading">読み込み中...</p>
           ) : (
-            <TeamPlayerStatsTable
-              rows={playerStatsRows}
-              gameType={playerStatsGameType}
-              onGameTypeChange={setPlayerStatsGameType}
-              displayMode={playerStatsDisplayMode}
-              onDisplayModeChange={setPlayerStatsDisplayMode}
-              period={playerStatsPeriod}
-              onPeriodChange={setPlayerStatsPeriod}
-              periodLoading={playerStatsRawGamesLoading}
-            />
+            <>
+              <SituationalFilterPicker
+                filter={playerStatsFilter}
+                onChange={setPlayerStatsFilter}
+                opponentWinRateSupported={!!opponentRecords}
+                hideGameTypeToggle
+              />
+              {playerStatsCandidatesLoading || !playerStatsRows ? (
+                <p className="loading">読み込み中...</p>
+              ) : (
+                <TeamPlayerStatsTable
+                  rows={playerStatsRows}
+                  gameType={playerStatsGameType}
+                  onGameTypeChange={setPlayerStatsGameType}
+                  displayMode={playerStatsDisplayMode}
+                  onDisplayModeChange={setPlayerStatsDisplayMode}
+                  period={playerStatsPeriod}
+                  onPeriodChange={setPlayerStatsPeriod}
+                  periodLoading={playerStatsRawGamesLoading}
+                />
+              )}
+            </>
           )}
 
           {(avgHeightCm != null || avgWeightKg != null || avgAge != null) && (
