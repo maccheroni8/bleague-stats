@@ -483,10 +483,17 @@ export interface TeamSummary {
   /** 相手チームがこのチームとの試合で記録したシュート成功率（＝被シュート成功率）。DESIGN.md参照 */
   opponentShooting: ShootingStats;
   /**
-   * 相手に強制したターンオーバーの種類別カウント（Yahoo!スポーツplay-by-play由来。DESIGN.md参照）。
+   * 相手に強制したターンオーバーの種類別カウント（＝相手から奪ったもの。自チームのディフェンスの
+   * 成果。Yahoo!スポーツplay-by-play由来。DESIGN.md参照）。
    * Yahoo PBPデータが1試合も取得できていないシーズンではフィールド自体を省略する
    */
   forcedTurnovers?: TeamForcedTurnovers;
+  /**
+   * 自チームが犯したターンオーバーの種類別カウント（＝相手に強制されたもの。自チームのオフェンス面の
+   * 課題。forcedTurnoversと表裏の関係で、同じTeamForcedTurnovers型・同じ集計元（Phase H6）。
+   * Yahoo PBPデータが1試合も取得できていないシーズンではフィールド自体を省略する
+   */
+  turnoversCommitted?: TeamForcedTurnovers;
   /**
    * シュートタイプ別の成功/試投カウント（Yahoo!スポーツplay-by-play由来、レギュラーシーズンのみ・
    * チーム全選手合算。PlayerSummary.shotTypesと同じ形・同じキー方針のチーム集計版。DESIGN.md参照）。

@@ -122,13 +122,20 @@ function classifyForcedTurnover(to: YahooTurnoverEvent): keyof Omit<TeamForcedTu
 
 /**
  * シーズン中の各試合について、取得済みのYahoo PBPデータ（data/{season}/yahoo/{scheduleKey}.json）
- * があれば読み込み、相手チームに強制したターンオーバーの種類別カウントをチーム単位で積算する。
- * B.ONE等ではYahoo PBPデータ自体が存在しないため、呼び出し側でcategory==="premier"の時のみ
- * 呼ぶ想定（未取得試合は静かにスキップし、gamesWithDataで実際にカバーできた試合数を残す）
+ * があれば読み込み、チーム単位でターンオーバーの種類別カウントを両方向で積算する
+ * （Phase H6）。B.ONE等ではYahoo PBPデータ自体が存在しないため、呼び出し側で
+ * category==="premier"の時のみ呼ぶ想定（未取得試合は静かにスキップし、gamesWithDataで
+ * 実際にカバーできた試合数を残す）
+ * - forced: 相手に強制した＝相手から奪ったターンオーバー（自チームのディフェンス成果）
+ * - committed: 自チームが犯した＝相手に強制されたターンオーバー（自チームのオフェンス課題）
  */
-async function buildForcedTurnoversByTeam(season: string, games: StoredGame[]): Promise<Map<string, TeamForcedTurnovers>> {
-  const byTeam = new Map<string, TeamForcedTurnovers>();
-  const ensure = (teamId: string): TeamForcedTurnovers => {
+async function buildForcedTurnoversByTeam(
+  season: string,
+  games: StoredGame[],
+): Promise<{ forced: Map<string, TeamForcedTurnovers>; committed: Map<string, TeamForcedTurnovers> }> {
+  const forced = new Map<string, TeamForcedTurnovers>();
+  const committed = new Map<string, TeamForcedTurnovers>();
+  const ensure = (byTeam: Map<string, TeamForcedTurnovers>, teamId: string): TeamForcedTurnovers => {
     let t = byTeam.get(teamId);
     if (!t) {
       t = emptyForcedTurnovers();
@@ -142,16 +149,19 @@ async function buildForcedTurnoversByTeam(season: string, games: StoredGame[]): 
   for (const game of regularGames) {
     const pbp = await readJson<YahooGamePbp>(path.join(DATA_DIR, season, "yahoo", `${game.scheduleKey}.json`));
     if (!pbp) continue;
-    ensure(game.homeTeam.id).gamesWithData += 1;
-    ensure(game.awayTeam.id).gamesWithData += 1;
+    for (const byTeam of [forced, committed]) {
+      ensure(byTeam, game.homeTeam.id).gamesWithData += 1;
+      ensure(byTeam, game.awayTeam.id).gamesWithData += 1;
+    }
     for (const to of pbp.turnovers) {
       // toの主体（teamId）はターンオーバーを犯した側＝相手にとっての「強制した」側は対戦相手の方
       const forcingTeamId = to.teamId === game.homeTeam.id ? game.awayTeam.id : game.homeTeam.id;
       const bucket = classifyForcedTurnover(to);
-      ensure(forcingTeamId)[bucket] += 1;
+      ensure(forced, forcingTeamId)[bucket] += 1;
+      ensure(committed, to.teamId)[bucket] += 1;
     }
   }
-  return byTeam;
+  return { forced, committed };
 }
 
 /** buildShotTypeBreakdownsの内部ヘルパー。1本のショットをキー（playerIdまたはteamId）単位の内訳に加算する */
@@ -778,11 +788,13 @@ export async function aggregateSeason(season: string, category: Category = "prem
     processLineups(game, teamLineups, onCourt);
   }
 
-  // 相手に強制したターンオーバーの種類別カウント（Yahoo!スポーツplay-by-play由来、
-  // 2023-24シーズン以降・取得済み試合のみ。DESIGN.md参照）。B.ONE等ではYahoo PBPデータ自体が
-  // 存在しないため、premierカテゴリのみ計算する
-  const forcedTurnoversByTeam =
-    category === "premier" ? await buildForcedTurnoversByTeam(season, games) : new Map<string, TeamForcedTurnovers>();
+  // ターンオーバーの種類別カウント（相手に強制した／自チームが犯した、の両方向。Yahoo!スポーツ
+  // play-by-play由来、2023-24シーズン以降・取得済み試合のみ。DESIGN.md参照）。B.ONE等では
+  // Yahoo PBPデータ自体が存在しないため、premierカテゴリのみ計算する
+  const { forced: forcedTurnoversByTeam, committed: turnoversCommittedByTeam } =
+    category === "premier"
+      ? await buildForcedTurnoversByTeam(season, games)
+      : { forced: new Map<string, TeamForcedTurnovers>(), committed: new Map<string, TeamForcedTurnovers>() };
   // シュートタイプ別の成功/試投カウント（Yahoo!スポーツplay-by-play由来。選手別・チーム別を
   // 1回の走査で同時に集計する。DESIGN.md参照）
   const { byPlayer: shotTypesByPlayer, byTeam: shotTypesByTeam } =
@@ -918,6 +930,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
           ]),
         ),
         forcedTurnovers: forcedTurnoversByTeam.get(t.teamId),
+        turnoversCommitted: turnoversCommittedByTeam.get(t.teamId),
         shotTypes: shotTypesByTeam.get(t.teamId),
       };
     })

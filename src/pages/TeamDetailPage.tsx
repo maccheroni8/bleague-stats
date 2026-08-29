@@ -2888,8 +2888,8 @@ export function TeamDetailPage({ season }: { season: string }) {
             </>
           )}
 
-          <h2>相手に強制したターンオーバー（種類別）</h2>
-          {!team.forcedTurnovers ? (
+          <h2>ターンオーバー強制/被強制（種類別）</h2>
+          {!team.forcedTurnovers || !team.turnoversCommitted ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : (
             <>
@@ -2897,39 +2897,43 @@ export function TeamDetailPage({ season }: { season: string }) {
                 <table className="sortable-table">
                   <thead>
                     <tr>
-                      <th className="align-right" title="シュートファウル以外の相手オフェンスファウルを誘発した回数">オフェンスファウル強制</th>
-                      <th className="align-right" title="相手の24秒バイオレーションを誘発した回数">24秒バイオレーション強制</th>
-                      <th className="align-right" title="相手のバックコートバイオレーションを誘発した回数">バックコート強制</th>
-                      <th className="align-right" title="相手の5秒バイオレーションを誘発した回数">5秒バイオレーション強制</th>
-                      <th className="align-right" title="トラベリング・ダブルドリブル・3秒/8秒バイオレーション・アウトオブバウンズ等、上記以外のデッドボールターンオーバーを誘発した回数">その他デッドボール</th>
-                      <th className="align-right" title="スティール由来（バッドパス・ボールハンドリングロスト）のライブボールターンオーバー数。参考値">ライブボール（参考）</th>
+                      <th className="align-left">区分</th>
+                      <th className="align-right" title="シュートファウル以外のオフェンスファウルによるターンオーバー">オフェンスファウル</th>
+                      <th className="align-right" title="24秒バイオレーションによるターンオーバー">24秒バイオレーション</th>
+                      <th className="align-right" title="バックコートバイオレーションによるターンオーバー">バックコート</th>
+                      <th className="align-right" title="5秒バイオレーションによるターンオーバー">5秒バイオレーション</th>
+                      <th className="align-right" title="トラベリング・ダブルドリブル・3秒/8秒バイオレーション・アウトオブバウンズ等、上記以外のデッドボールターンオーバー">その他デッドボール</th>
+                      <th className="align-right" title="スティール由来（バッドパス・ボールハンドリングロスト）のライブボールターンオーバー。参考値">ライブボール（参考）</th>
                       <th className="align-right">合計</th>
                       <th className="align-right" title="Yahoo!スポーツplay-by-playが実際に取得できた試合数（分母の目安）">データあり試合数</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="align-right">{team.forcedTurnovers.offensiveFoul}</td>
-                      <td className="align-right">{team.forcedTurnovers.violation24sec}</td>
-                      <td className="align-right">{team.forcedTurnovers.backcourtViolation}</td>
-                      <td className="align-right">{team.forcedTurnovers.violation5sec}</td>
-                      <td className="align-right">{team.forcedTurnovers.otherDead}</td>
-                      <td className="align-right">{team.forcedTurnovers.live}</td>
-                      <td className="align-right">
-                        {team.forcedTurnovers.offensiveFoul +
-                          team.forcedTurnovers.violation24sec +
-                          team.forcedTurnovers.backcourtViolation +
-                          team.forcedTurnovers.violation5sec +
-                          team.forcedTurnovers.otherDead +
-                          team.forcedTurnovers.live}
-                      </td>
-                      <td className="align-right">{team.forcedTurnovers.gamesWithData}</td>
-                    </tr>
+                    {(
+                      [
+                        { label: "相手から奪った（自チームが強制）", data: team.forcedTurnovers },
+                        { label: "自チームが記録（相手に強制された）", data: team.turnoversCommitted },
+                      ] as const
+                    ).map(({ label, data }) => (
+                      <tr key={label}>
+                        <td className="align-left">{label}</td>
+                        <td className="align-right">{data.offensiveFoul}</td>
+                        <td className="align-right">{data.violation24sec}</td>
+                        <td className="align-right">{data.backcourtViolation}</td>
+                        <td className="align-right">{data.violation5sec}</td>
+                        <td className="align-right">{data.otherDead}</td>
+                        <td className="align-right">{data.live}</td>
+                        <td className="align-right">
+                          {data.offensiveFoul + data.violation24sec + data.backcourtViolation + data.violation5sec + data.otherDead + data.live}
+                        </td>
+                        <td className="align-right">{data.gamesWithData}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
               <p className="page-subtitle">
-                Yahoo!スポーツplay-by-play由来のディフェンス指標（2023-24シーズン以降。DESIGN.md参照）。相手が犯したターンオーバーの種類別カウント（レギュラーシーズンのみ）
+                Yahoo!スポーツplay-by-play由来の指標（2023-24シーズン以降。DESIGN.md参照）。「相手から奪った」＝自チームのディフェンス成果（相手に強制したターンオーバー）、「自チームが記録」＝自チームのオフェンス課題（相手に強制されたターンオーバー）。いずれも種類別カウント（レギュラーシーズンのみ）
               </p>
             </>
           )}
