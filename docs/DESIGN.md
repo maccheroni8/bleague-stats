@@ -6524,3 +6524,127 @@ e4007d72（シューティングのシュートタイプ表記をカタカナか
 
 型チェック（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。本番ビルド（`vite build`）
 成功。ブラウザのコンソールエラー無し。
+
+---
+
+## 80. 通算成績・クラブレコードの歴代クラブ横断順位（Phase H7、2026-08-29）
+
+チーム詳細ページ「通算成績」（Phase TF、67章）・「クラブレコード」（Phase TG、68章）タブの
+各項目に、リーグ全クラブ（過去に降格・改称したクラブも含む）中の順位を追加した。事前の見積もり
+（先行チャットで実施済み）通り、`data/{season}/team-games/{teamId}.json.gz`を全シーズン・
+全クラブ横断で1回集計するバックエンドバッチで対応できる規模だった。
+
+### 80-1. 二重管理の解消（TEAM_RECORD_STATS等のshared/移設）
+
+`TeamDetailPage.tsx`にのみ存在していた値関数（`buildTeamCareerTotals`/`longestWinStreak`/
+`CAREER_TOTAL_DEFS`/`TEAM_RECORD_STATS`/`bestTeamSeasonRecord`）を、バックエンドの歴代クラブ
+横断集計スクリプトからも同じ定義を参照できるよう`shared/teamRecords.ts`に移設した。
+`TEAM_RECORD_STATS`（クラブレコード29項目）は表示用の`format`（%表記等）フィールドのみ
+フロントエンド側の関心事として切り離し、shared側は`value`/`filter`/`worstEligible`のみを持つ
+`TeamRecordValueDef`とした。`TeamDetailPage.tsx`側でこれを`format`とマージした配列を
+組み立てることで、既存の`clubRecords`/`clubWorsts`/`ClubRecordCard`等の呼び出し側は無改造で
+動作する。
+
+同様に、レギュラー/プレーオフ/合算フィルタ（`SeasonGameTypeFilter`/`SEASON_GAME_TYPE_LABELS`/
+`filterByGameType`、元は`src/lib/playerSeasonBoxscore.ts`にのみ存在）も、バックエンドの
+gameType別集計に必要なため`shared/gameType.ts`に移設した。`playerSeasonBoxscore.ts`側は
+後方互換のため再エクスポートするのみとし、既存の3つの呼び出し元（`SituationalFilterPicker.tsx`・
+`PlayerDetailPage.tsx`・`TeamDetailPage.tsx`）は無変更で動作する。
+
+### 80-2. `scripts/aggregate-league-rankings.ts`（新規）
+
+ユーザー確認済みの4つの設計方針をそのまま反映した:
+
+1. **対象クラブ範囲**: 過去在籍した全クラブを含める。`data/{season}/team-games/`配下の
+   全`.json.gz`ファイル名（teamId）を全シーズン横断で集めるだけで実現できる（teamIdは
+   クラブ改称をまたいで不変、2-8章）。実データで30クラブ（現行26クラブ＋新潟アルビレックスBB
+   〔695、2016-17〜2022-23〕・信州ブレイブウォリアーズ〔716、一時的に不在期間あり〕・
+   西宮ストークス〔718、2017-18のみB1在籍、現神戸ストークスと同一teamId〕・
+   ライジングゼファー福岡〔753、2018-19〕）が対象になった
+2. **レギュラー/プレーオフ/合算**: 3パターン全て算出する
+3. **更新頻度**: `npm run aggregate`の日次サイクルには含めない、手動実行のバッチ
+   （`npm run aggregate:league-rankings`）
+4. **クラブレコード29項目の範囲**: `TEAM_RECORD_STATS`（1試合単位の最高値）に加え、
+   最多勝利数・最多連勝（シーズン単位、`bestTeamSeasonRecord`と同じ「シーズンごとに絞って
+   から最大値を取る」ロジック）も対象に含める
+
+**オールスター等の擬似チームIDの除外**: 実データ調査で、`team-games/{teamId}.json`の
+`teamId`の中に、B.LEAGUE ASIA ALL-STARS・RISING STARS・U18 WEST/EAST等の1回限りの
+オールスター/エキシビション対戦カード専用の擬似チームが混入していることを発見した
+（2025-26シーズンだけで4件）。これらは`gameType`が常に未分類（`null`）という特徴で
+判別でき（通常のB.PREMIERクラブは常に`regular`/`playoff`のいずれか）、
+`gameType===regular/playoffの試合が1件も無いteamId`を除外する1行のフィルタで
+対処した。既存の`aggregate.ts`側のバグではなく、`processTeams()`の既知の副産物
+（今回のスコープ外として温存）。
+
+**ランキングデータ構造**（`shared/types.ts`の`LeagueTeamRankingsFile`）: `[gameType]
+[statKey][teamId] → {value, rank, totalTeams}`という3階層のルックアップ構造にした。
+`totalTeams`（そのgameType・項目でランキング対象になったクラブ数）をエントリ自体に
+持たせることで、フロントエンド側は`rankings.career[gameType][key][teamId]`を引くだけで
+「◯位/◯チーム」表示に必要な情報が揃う（該当試合が無いクラブ・その項目のfilter条件を
+満たす試合が無いクラブは、エントリ自体を作らず自然に除外する設計）。同値タイは
+teamId昇順で決定的にタイブレークする（複数クラブが同順位を共有する「1224方式」ではなく、
+既存の`rankAmongTeams()`/`rankAmong()`と同じ「並び順で連番を振る」方式に揃えた）。
+`data/league-team-rankings.json`という季非依存の単一ファイル（`club-honors.json`等と
+同じ配置パターン）として保存する。
+
+**「最多連勝」の2つの異なる指標に注意**: 実装中に気づいた点として、「通算成績」タブの
+「最多連勝」（`careerLongestWinStreak`、シーズンをまたいだ連続勝利も1つの連勝として
+数える、`longestWinStreak()`をシーズン横断でフラット化した全試合ログに適用）と、
+「クラブレコード」タブの「最多連勝（シーズン内）」（`longestStreakSeasonRecord`、
+シーズンごとに区切ってから各シーズンの最大値を取る、`bestTeamSeasonRecord`ベース）は
+**別の指標**である。ユーザー指示の「最多勝利数・最多連勝（`bestTeamSeasonRecord`）」は
+後者（クラブレコードタブのシーズン単位記録）のみを指しているため、`seasonSpecial`
+ランキングは後者にのみ対応させ、「通算成績」タブの「最多連勝」タイルには順位を
+付けていない（誤って前者に付けようとして一度実装しかけたが、指標の不一致に気づき
+撤回した。ページ上の注記にもこの区別を明記した）。
+
+### 80-3. フロントエンド反映
+
+`TeamDetailPage.tsx`に`fetchLeagueTeamRankings()`（`data.ts`、`fetchClubHonors()`等と
+同じ季非依存の単一ファイル取得パターン）を追加し、`careerRank(statKey)`/
+`clubRecordRank(statKey)`/`seasonSpecialRank("wins"|"streak")`という3つのlookupヘルパーを
+用意した。いずれも`leagueRankings?.[category][careerGameTypeFilter]?.[statKey]?.[teamId]`を
+引くだけで、「通算成績」「クラブレコード」タブが共有する`careerGameTypeFilter`
+（レギュラー/プレーオフ/合算トグル）と自動的に連動する。
+
+- 「通算成績」タブ: 既存の`StatTile`コンポーネントが元々持っていた`rank?: string`
+  プロパティ（57章、チームヘッダーのリーグ内順位表示用）をそのまま流用し、
+  `CAREER_TOTAL_DEFS`の27項目それぞれに順位を追加した
+- 「クラブレコード」タブ: `ClubRecordCard`・`SeasonRecordCard`（既存コンポーネント）に
+  `rank?: string`プロパティを新設し、値がある場合のみ`.career-high-rank`
+  （`.stat-tile .rank`と同じスタイルの新規CSSクラス）で表示する。クラブレコード29項目・
+  シーズン記録2項目（最多勝利数・最多連勝）に順位を追加した。**クラブワーストには
+  順位を追加していない**（歴代順位算出の対象外というユーザー指定通り）
+- `league-team-rankings.json`が未生成・取得失敗の場合（`useJsonData`がエラーを投げて
+  `data`が`null`のまま）でも、`rank`が`undefined`になり順位バッジが表示されないだけで
+  ページ全体は壊れない（クラブ非対称データの既存の扱い〔56章、獲得タイトル無しのクラブで
+  見出しごと非表示にする方針〕と同じグレースフルデグラデーション）
+
+### 80-4. 検証
+
+`npm run aggregate:league-rankings`を実行し、対象クラブ数（オールスター等の擬似チームを
+除く）30・レギュラー/プレーオフ/合算それぞれの対象クラブ数（30/19/30）をログで確認した。
+生成された`data/league-team-rankings.json`をNode.jsで独立に読み、千葉ジェッツ（704）の
+レギュラーシーズンクラブレコード「得点130」が1位/30チーム、最多勝利数53勝（2022-23）が
+1位/30チーム、最多連勝24連勝（2022-23）が1位/30チームであることを確認した
+（68-3章で先に手動検証済みの値と完全一致）。
+
+ブラウザで3クラブを確認した:
+- **千葉ジェッツ**（704）: 「通算成績」タブで勝利数420(2位/30)・得点47,807(1位/30)等、
+  「クラブレコード」タブで得点130(1位/30)・最多勝利数53勝(1位/30)・最多連勝24連勝(1位/30)
+  が表示され、独立集計と一致することを確認した
+- **栃木ブレックス〈改称前〉/宇都宮ブレックス**（703、2-8章の改称クラブ）: `?season=2016-17`
+  （栃木ブレックス表記の頃）で「通算成績」タブを開き、勝利数425(1位/30)が独立集計
+  （Python decode-compareで425/rank1を確認済み）と一致することを確認した。改称後の
+  現行名「宇都宮ブレックス」ではなく過去シーズンの表示名で見ても、teamId単位で
+  通算・全シーズンが正しく合算されていることの裏付けになった。「クラブレコード」タブでも
+  最多勝利数51勝(2位/30、2023-24シーズン)・最多連勝21連勝(3位/30、同シーズン)を確認した
+- **新潟アルビレックスBB**（695、2022-23シーズンを最後にB.PREMIERから降格済み）:
+  `?season=2020-21`で「通算成績」タブを開き、勝利数149(20位/30)が独立集計と一致することを
+  確認した。「クラブレコード」タブでも最多勝利数45勝(10位/30、2018-19シーズン)・
+  最多連勝10連勝(13位/30、同シーズン)を確認し、現行のB.PREMIER26クラブに含まれない
+  降格済みクラブも過去在籍した全クラブ横断の順位付けに正しく参加していることを確認した
+
+型チェック（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。本番ビルド（`vite build`）
+成功。ブラウザのコンソールエラー無し。

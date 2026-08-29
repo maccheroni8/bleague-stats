@@ -40,13 +40,12 @@ import {
 } from "./boxscoreAggregate";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { buildPeriodRangeOptions, type PeriodRangeOption } from "./periodRange";
-import type { GameType, PlayerGameLog, StoredGame, TeamGameLog, YahooTurnoverEvent } from "../../shared/types";
+import type { PlayerGameLog, StoredGame, TeamGameLog, YahooTurnoverEvent } from "../../shared/types";
 import type { GameTeamInfo } from "./situational";
 import { teamShortName } from "../../shared/teamNames";
 import type { ColumnCtx } from "../components/BoxscoreTable";
 
 export type SeasonDisplayMode = "total" | "perGame" | "per30";
-export type SeasonGameTypeFilter = GameType | "both";
 
 export const SEASON_DISPLAY_MODE_LABELS: Record<SeasonDisplayMode, string> = {
   perGame: "平均",
@@ -54,16 +53,12 @@ export const SEASON_DISPLAY_MODE_LABELS: Record<SeasonDisplayMode, string> = {
   per30: "30分換算",
 };
 
-export const SEASON_GAME_TYPE_LABELS: Record<SeasonGameTypeFilter, string> = {
-  regular: "レギュラーシーズン",
-  playoff: "プレーオフ",
-  both: "合算",
-};
-
-export function filterByGameType<T extends { gameType: GameType }>(logs: T[], filter: SeasonGameTypeFilter): T[] {
-  if (filter === "both") return logs;
-  return logs.filter((g) => g.gameType === filter);
-}
+// レギュラー/プレーオフ/合算フィルタはPhase H7（2026-08-29）でshared/gameType.tsに移設した
+// （バックエンドの歴代クラブ横断集計スクリプトからも同じ定義を参照するため）。既存の
+// import元（SituationalFilterPicker.tsx・PlayerDetailPage.tsx・TeamDetailPage.tsx）を
+// 変更せずに済むよう、ここで再エクスポートしている
+export { filterByGameType, SEASON_GAME_TYPE_LABELS } from "../../shared/gameType";
+export type { SeasonGameTypeFilter } from "../../shared/gameType";
 
 export interface PlayerSeasonRawTotals {
   gamesPlayed: number;

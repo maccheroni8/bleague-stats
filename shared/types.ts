@@ -1128,3 +1128,43 @@ export interface YahooGamePbp {
   shots: YahooShotEvent[];
   turnovers: YahooTurnoverEvent[];
 }
+
+// ---- data/league-team-rankings.json（Phase H7、2026-08-29） ----
+//
+// data/{season}/team-games/配下の全シーズン・全クラブ（過去に降格・改称したクラブも含む。
+// teamIdはクラブ改称をまたいで不変なので、同一teamIdの全シーズン分を素直に合算・比較すれば
+// よい。2-8章参照）を横断して、通算成績（shared/teamRecords.tsのCAREER_TOTAL_DEFS）・
+// クラブレコード（同TEAM_RECORD_STATS）・シーズン単位の特殊記録（最多勝利数・最多連勝）
+// それぞれについて全クラブ中の順位を算出したもの。対象はB.PREMIERのみ（既存の「通算成績」
+// 「クラブレコード」タブと同じスコープ）。npm run aggregateの日次サイクルには含めず、
+// scripts/aggregate-league-rankings.tsを手動実行するバッチ処理で随時再生成する運用とする
+// （ユーザー指定）。
+
+/** レギュラーシーズンのみ/プレーオフのみ/合算。src/lib/gameType.tsのSeasonGameTypeFilterと同じ3値
+ * （shared/types.tsは他のshared/*.tsに依存しない方針のため、型エイリアスは重複定義している） */
+export type LeagueRankingGameType = "regular" | "playoff" | "both";
+
+export interface LeagueTeamRankEntry {
+  value: number;
+  /** リーグ全クラブ中の順位（1位が最高値）。同値の場合はteamId昇順で決定的にタイブレークする
+   * （複数クラブが同順位を共有する「1224方式」ではなく、既存のrankAmongTeams()/rankAmong()と
+   * 同じ「並び順で連番を振る」方式に揃えている） */
+  rank: number;
+  /** その項目・そのgameTypeでランキング対象になったクラブの総数（該当試合が1件も無いクラブ・
+   * その項目のfilter条件を満たす試合が1件も無いクラブは対象外）。formatTeamRank()と同じ
+   * 「◯位/◯チーム」表示にそのまま使える */
+  totalTeams: number;
+}
+
+/** [statKey][teamId] のルックアップ */
+export type LeagueTeamRankingStatTable = Record<string, Record<string, LeagueTeamRankEntry>>;
+
+export interface LeagueTeamRankingsFile {
+  generatedAt: string;
+  /** CAREER_TOTAL_DEFSの各key */
+  career: Record<LeagueRankingGameType, LeagueTeamRankingStatTable>;
+  /** TEAM_RECORD_STATSの各key（1試合単位の最高値） */
+  clubRecord: Record<LeagueRankingGameType, LeagueTeamRankingStatTable>;
+  /** シーズン単位の特殊記録（1シーズンの最多勝利数・最多連勝の最高値） */
+  seasonSpecial: Record<LeagueRankingGameType, Record<"wins" | "streak", Record<string, LeagueTeamRankEntry>>>;
+}

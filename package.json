@@ -19,6 +19,7 @@
     "scrape:yahoo-pbp": "node --experimental-strip-types scripts/scrape-yahoo-pbp.ts",
     "backfill:legacy-photos": "node --experimental-strip-types scripts/backfill-legacy-player-photos.ts",
     "aggregate": "node --experimental-strip-types scripts/aggregate.ts",
+    "aggregate:league-rankings": "node --experimental-strip-types scripts/aggregate-league-rankings.ts",
     "print:current-season": "node --experimental-strip-types scripts/print-current-season.ts",
     "validate:oncourt": "node --experimental-strip-types scripts/validate-oncourt.ts",
     "validate:points-off-turnovers": "node --experimental-strip-types scripts/validate-points-off-turnovers.ts",

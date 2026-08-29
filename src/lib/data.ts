@@ -18,6 +18,7 @@ import type {
   DivisionHistoryFile,
   GameSummary,
   HeadToHeadTeamRow,
+  LeagueTeamRankingsFile,
   PlayerAwardsFile,
   PlayerGameLog,
   PlayerHistoryEntry,
@@ -166,6 +167,12 @@ export function fetchClubHonors(): Promise<ClubHonorsFile> {
  * teamDivisionForSeason()と組み合わせて使う（DESIGN.md参照） */
 export function fetchDivisionHistory(): Promise<DivisionHistoryFile> {
   return fetchJson<DivisionHistoryFile>(`${dataBase}/division-history.json`);
+}
+
+/** 通算成績・クラブレコードの歴代クラブ横断順位（Phase H7）。scripts/aggregate-league-rankings.tsが
+ * 手動実行のバッチ処理で生成する、シーズン非依存の単一ファイル */
+export function fetchLeagueTeamRankings(): Promise<LeagueTeamRankingsFile> {
+  return fetchJson<LeagueTeamRankingsFile>(`${dataBase}/league-team-rankings.json`);
 }
 
 export function fetchSchedule(season: string): Promise<ScheduleFile> {
