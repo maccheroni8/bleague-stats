@@ -38,8 +38,11 @@ const MIN_REQUEST_INTERVAL_MS = 2500;
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
 const throttledFetch = createThrottledFetch(MIN_REQUEST_INTERVAL_MS, USER_AGENT);
 
-// B.LEAGUEのシーズンは10月開幕・5月終了（DESIGN.md 1章）
-const SEASON_MONTHS = ["10", "11", "12", "01", "02", "03", "04", "05"];
+// B.LEAGUEのシーズンは主に10月開幕・5月終了だが、開幕戦が9月に前倒しされる年や
+// ファイナルが6月にずれ込む年があるため、安全マージンを持たせて9月〜6月を走査する
+// （DESIGN.md 1章・68章。2020-21ファイナルGAME3が6/1、2016-17開幕戦が9/22等の実例で
+// 10〜5月固定では欠落することが2回判明したため、2026-08-29に固定範囲を拡張した）
+const SEASON_MONTHS = ["09", "10", "11", "12", "01", "02", "03", "04", "05", "06"];
 
 /**
  * カテゴリ別のデフォルトevent番号（DESIGN.md 14章）。

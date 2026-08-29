@@ -1,4 +1,6 @@
-// scripts/lib/season.tsと同じロジック（JST基準、10月開幕・5月終了、6〜9月は直前シーズン扱い）。
+// scripts/lib/season.tsと同じロジック（JST基準、主に10月開幕・5月終了だが開幕戦が9月に
+// 前倒しされる年もあるため9月をシーズン開始月として扱う。オフシーズンの7〜8月は
+// 直前シーズン扱い）。
 // フロントエンドはNode向けtsconfigと解決方式が異なるためscripts/を直接importせず複製している。
 
 export function currentSeason(date: Date = new Date()): string {
@@ -6,6 +8,6 @@ export function currentSeason(date: Date = new Date()): string {
   const [yearStr, monthStr] = jst.split("-") as [string, string];
   const year = Number(yearStr);
   const month = Number(monthStr);
-  const seasonStartYear = month >= 10 ? year : year - 1;
+  const seasonStartYear = month >= 9 ? year : year - 1;
   return `${seasonStartYear}-${String(seasonStartYear + 1).slice(-2)}`;
 }
