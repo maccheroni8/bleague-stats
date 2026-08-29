@@ -41,7 +41,7 @@ import {
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { buildPeriodRangeOptions, type PeriodRangeOption } from "./periodRange";
 import type { GameType, PlayerGameLog, StoredGame, TeamGameLog, YahooTurnoverEvent } from "../../shared/types";
-import { computeTeamSituationalStats, type GameTeamInfo, type TeamSituationalStats } from "./situational";
+import type { GameTeamInfo } from "./situational";
 import { teamShortName } from "../../shared/teamNames";
 import type { ColumnCtx } from "../components/BoxscoreTable";
 
@@ -1224,9 +1224,8 @@ export interface GameTeamPeriodTotals {
 /**
  * 指定期間範囲（試合/Q別/前後半）で、1試合分の生データから自チーム/相手チームの
  * BoxscoreCountsを組み立てる（試合詳細ページのボックススコアと同じbuildTeamTotalCounts・
- * computeTeamRatingsを呼ぶだけ）。computeGamePeriodTotals（選手個人版）と
- * buildTeamPeriodStats（チーム詳細ページ「スタッツ」タブのopp/+/-トグル・シチュエーション別
- * 成績（チーム版）用）の共通部分をここに切り出した
+ * computeTeamRatingsを呼ぶだけ）。computeGamePeriodTotals（選手個人版）用の共通部分を
+ * ここに切り出した
  */
 export function computeGameTeamPeriodTotals(
   game: StoredGame,
@@ -1352,28 +1351,31 @@ function scalePlayType(p: PlayTypeCounts, factor: number): PlayTypeCounts {
 }
 
 /**
- * チーム詳細ページ「比較」タブ用。buildTeamGameBoxTotals（1試合分）を複数試合分呼び、
- * own/opp双方のBoxscoreCounts・プレータイプ内訳を合算した上で「1試合あたり平均」に変換して
- * COLUMNS_BY_TABにそのまま渡せるColumnCtxを組み立てる。合計値のまま比較するとスロットごとの
- * 試合数の違いで比較しづらくなるため、個人詳細ページの比較タブ（seasonBoxCompareDefs、常に
- * 「平均」固定）と同じ方針にした。POSSは6章・11章・53章・buildTeamPeriodStatsと同じ
- * 「試合単位で確定させてから合算する」方針（非線形性回避）を踏襲し、PACE/ORtg/DRtg/NetRtgは
- * 合算後のPOSS・PTSから再計算する（比率のため合算値・平均値のどちらから計算しても同じ結果になる。
- * computeTeamRatingsを平均化後のBoxscoreCountsに再適用すると比率項の非線形性で誤差が出るため
- * 使わない）
+ * チーム詳細ページ「比較」タブ・「チームスタッツ」タブ（Phase H4）用。buildTeamGameBoxTotals
+ * （1試合分）を複数試合分呼び、own/opp双方のBoxscoreCounts・プレータイプ内訳を合算した上で
+ * 「1試合あたり平均」に変換してCOLUMNS_BY_TABにそのまま渡せるColumnCtxを組み立てる。合計値の
+ * まま比較するとスロットごとの試合数の違いで比較しづらくなるため、個人詳細ページの比較タブ
+ * （seasonBoxCompareDefs、常に「平均」固定）と同じ方針にした。POSSは6章・11章・53章と同じ
+ * 「試合単位で確定させてから合算する」方針（非線形性回避）を踏襲し、
+ * PACE/ORtg/DRtg/NetRtgは合算後のPOSS・PTSから再計算する（比率のため合算値・平均値のどちらから
+ * 計算しても同じ結果になる。computeTeamRatingsを平均化後のBoxscoreCountsに再適用すると比率項の
+ * 非線形性で誤差が出るため使わない）。optionを渡すとQ別/前後半に絞り込んでから合算する
+ * （「比較」タブは元々期間トグルを持たないため常にundefinedで呼ぶ。「チームスタッツ」タブの
+ * Q別/前後半トグルはこの引数で対応する）
  */
 export function buildTeamMultiGameBoxTotals(
   entries: { game: StoredGame; isHome: boolean }[],
   yahooTurnoversByScheduleKey: Map<string, YahooTurnoverEvent[]>,
   shotChartSupported: boolean,
   yahooPbpSupported: boolean,
+  option?: PeriodRangeOption,
 ): TeamGameBoxTotals | null {
   if (entries.length === 0) return null;
   const perGame = entries.map(({ game, isHome }) =>
     buildTeamGameBoxTotals(
       game,
       isHome,
-      undefined,
+      option,
       yahooTurnoversByScheduleKey.get(game.scheduleKey) ?? [],
       shotChartSupported,
       yahooPbpSupported,
@@ -1446,79 +1448,6 @@ export function computeGamePeriodTotals(
   const player = players.find((p) => p.playerId === playerId);
   if (!player) return null;
   return { player: player.counts, own, opp, poss };
-}
-
-/**
- * チーム詳細ページ「スタッツ」タブの自チーム/opp/+/-トグル・シチュエーション別成績（チーム版）用。
- * 「試合」選択時（option未指定またはperiods===null）は追加の生データ取得が不要な
- * computeTeamSituationalStats（永続化済みTeamGameLogベース、DESIGN.md 53章でopp内訳を拡張済み）に
- * そのまま委譲する。Q別/前後半選択時のみ、呼び出し側が事前フェッチしたgamesByScheduleKeyから
- * 試合単位でcomputeGameTeamPeriodTotalsを呼び、POSSは試合単位で確定させてから合算する方針
- * （DESIGN.md 6章・11章・53章と同じ非線形性回避）を踏襲する。生データ未取得の試合は除外される
- */
-export function buildTeamPeriodStats(
-  logs: TeamGameLog[],
-  option: PeriodRangeOption | undefined,
-  gamesByScheduleKey: Map<string, StoredGame>,
-): TeamSituationalStats | null {
-  const played = logs.filter((g) => g.min > 0);
-  if (played.length === 0) return null;
-  if (!option || option.periods === null) {
-    return computeTeamSituationalStats(played);
-  }
-
-  const contributions = played
-    .map((log) => {
-      const game = gamesByScheduleKey.get(log.scheduleKey);
-      return game ? computeGameTeamPeriodTotals(game, log.isHome, option) : null;
-    })
-    .filter((c): c is GameTeamPeriodTotals => c !== null);
-  if (contributions.length === 0) return null;
-
-  const gamesPlayed = contributions.length;
-  const own = sumCountsList(contributions.map((c) => c.own));
-  const opp = sumCountsList(contributions.map((c) => c.opp));
-  const possSum = contributions.reduce((sum, c) => sum + c.poss, 0);
-
-  const offRtg = offensiveRating(own.pts, possSum);
-  const defRtg = offensiveRating(opp.pts, possSum);
-
-  return {
-    gamesPlayed,
-    perGame: {
-      pts: own.pts / gamesPlayed,
-      oppPts: opp.pts / gamesPlayed,
-      net: (own.pts - opp.pts) / gamesPlayed,
-      reb: own.treb / gamesPlayed,
-      oppReb: opp.treb / gamesPlayed,
-      ast: own.ast / gamesPlayed,
-      oppAst: opp.ast / gamesPlayed,
-      stl: own.stl / gamesPlayed,
-      oppStl: opp.stl / gamesPlayed,
-      blk: own.blk / gamesPlayed,
-      oppBlk: opp.blk / gamesPlayed,
-      tov: own.tov / gamesPlayed,
-      oppTov: opp.tov / gamesPlayed,
-    },
-    shooting: {
-      fgPct: safeDiv(own.pt2m + own.pt3m, own.pt2a + own.pt3a),
-      oppFgPct: safeDiv(opp.pt2m + opp.pt3m, opp.pt2a + opp.pt3a),
-      tpPct: safeDiv(own.pt3m, own.pt3a),
-      oppTpPct: safeDiv(opp.pt3m, opp.pt3a),
-      ftPct: safeDiv(own.ftm, own.fta),
-      oppFtPct: safeDiv(opp.ftm, opp.fta),
-      efgPct: efgPct(own.pt2m + own.pt3m, own.pt3m, own.pt2a + own.pt3a),
-      oppEfgPct: efgPct(opp.pt2m + opp.pt3m, opp.pt3m, opp.pt2a + opp.pt3a),
-      tsPct: tsPct(own.pts, own.pt2a + own.pt3a, own.fta),
-      oppTsPct: tsPct(opp.pts, opp.pt2a + opp.pt3a, opp.fta),
-    },
-    advanced: {
-      pace: pace(possSum, own.minSec / 60),
-      offRtg,
-      defRtg,
-      netRtg: offRtg - defRtg,
-    },
-  };
 }
 
 /**
