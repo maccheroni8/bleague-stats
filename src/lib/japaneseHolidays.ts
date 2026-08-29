@@ -127,6 +127,12 @@ export function isJapaneseHoliday(dateStr: string): boolean {
   return holidaysForYear(year).has(dateStr);
 }
 
+/** 水曜開催かどうかを判定する（シチュエーション別勝敗「水曜開催」区分用。DESIGN.md参照） */
+export function isWednesdayGame(dateStr: string): boolean {
+  const [y, m, d] = ymd(dateStr);
+  return new Date(utc(y, m, d)).getUTCDay() === 3;
+}
+
 /** 土日祝のいずれでもない（平日開催）かどうかを判定する */
 export function isWeekdayGame(dateStr: string): boolean {
   const [y, m, d] = ymd(dateStr);
