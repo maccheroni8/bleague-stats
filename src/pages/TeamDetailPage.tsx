@@ -1465,6 +1465,11 @@ export function TeamDetailPage({ season }: { season: string }) {
   // quarterScores（試合の生データ）が必要なため、ショットチャートと同じ折りたたみ式にし、
   // 展開したときだけstatsRawGamesを取得する（DESIGN.md参照。初回表示時の通信を抑える）
   const [situationalRecordRawExpanded, setSituationalRecordRawExpanded] = useState(false);
+  // 「シチュエーション別勝敗」（概要タブ）「シチュエーション別成績」（チームスタッツタブ）の
+  // 各グループの説明文。個人詳細ページの同名セクションと同じ「デフォルト非表示・▶説明ボタンで
+  // 開閉」の仕組みをそのまま踏襲する
+  const [situationalRecordLegendExpanded, setSituationalRecordLegendExpanded] = useState(false);
+  const [situationalTeamLegendExpanded, setSituationalTeamLegendExpanded] = useState(false);
 
   // 「日程結果」タブ: 自チーム/opp/+/-トグル・レギュラー/プレーオフ/合算トグル・Q別/前後半トグル・
   // トラディショナル/アドバンスド/Misc/スコアリングのカテゴリタブ（試合詳細ページのボックススコアと
@@ -2386,6 +2391,51 @@ export function TeamDetailPage({ season }: { season: string }) {
               </p>
             </>
           )}
+
+          <div className="situational-groups-legend">
+            <h3
+              className="collapsible-heading"
+              onClick={() => setSituationalRecordLegendExpanded((v) => !v)}
+            >
+              {situationalRecordLegendExpanded ? "▼ " : "▶ "}
+              説明
+            </h3>
+            {situationalRecordLegendExpanded && (
+            <dl>
+              <dt>会場</dt>
+              <dd>ホーム開催／アウェイ開催の試合を分けて集計します。</dd>
+              <dt>地区</dt>
+              <dd>対戦相手の所属地区（東地区／西地区）別の成績です。シーズンごとの実際の地区分けを反映しています。</dd>
+              <dt>曜日</dt>
+              <dd>水曜開催の試合のみを集計します。</dd>
+              <dt>月別</dt>
+              <dd>開催月ごとの成績です。試合が無い月は表示されません。</dd>
+              <dt>対戦相手の強さ</dt>
+              <dd>
+                その試合に入る時点での対戦相手の勝率（対5割未満／対5割以上／対6割以上）別の成績です。
+                相手の消化試合数が5試合未満の対戦は、勝率が極端な値になりやすいため集計から除外しています。
+              </dd>
+              <dt>連戦</dt>
+              <dd>中1日以内の間隔で連続して試合を行った場合の、1試合目（GAME1）／2試合目以降（GAME2）別の成績です。</dd>
+              <dt>自チーム外国籍人数</dt>
+              <dd>
+                その試合で自チームが最も長くコートに立たせていた、外国籍・帰化選手・アジア特別枠選手の
+                同時出場人数（0〜3人）別の成績です。
+              </dd>
+              <dt>得点/失点</dt>
+              <dd>自チームの得点・相手チームの得点（失点）がそれぞれ80点/100点を超えたかどうかで分けた成績です。</dd>
+              <dt>点差決着</dt>
+              <dd>
+                最終的な得失点差が10点差／20点差以上だったか、僅差（1ポゼッション差＝3点差以内／
+                2ポゼッション差＝6点差以内）だったかで分けた成績です。
+              </dd>
+              <dt>延長</dt>
+              <dd>延長（OT）にもつれた試合と、レギュレーション（4Q）で決着した試合を分けた成績です。</dd>
+              <dt>Q1終了時点／前半終了時点／3Q終了時点</dt>
+              <dd>各チェックポイント時点でリード・同点・ビハインドのいずれだったかで分けた成績です。</dd>
+            </dl>
+            )}
+          </div>
         </>
       )}
 
@@ -2818,6 +2868,44 @@ export function TeamDetailPage({ season }: { season: string }) {
               </table>
             </div>
           )}
+
+          <div className="situational-groups-legend">
+            <h3
+              className="collapsible-heading"
+              onClick={() => setSituationalTeamLegendExpanded((v) => !v)}
+            >
+              {situationalTeamLegendExpanded ? "▼ " : "▶ "}
+              説明
+            </h3>
+            {situationalTeamLegendExpanded && (
+            <dl>
+              <dt>会場</dt>
+              <dd>ホーム開催／アウェイ開催の試合を分けて集計します。</dd>
+              <dt>地区</dt>
+              <dd>対戦相手の所属地区（東地区／西地区）別の成績です。シーズンごとの実際の地区分けを反映しています。</dd>
+              <dt>曜日</dt>
+              <dd>平日開催／休日開催（土日・祝日）の試合を分けて集計します。</dd>
+              <dt>時期</dt>
+              <dd>年明け（1月）を境に、シーズン前半・後半の試合を分けて集計します。</dd>
+              <dt>月別</dt>
+              <dd>開催月ごとの成績です。試合が無い月は表示されません。</dd>
+              <dt>対戦相手の強さ</dt>
+              <dd>
+                その試合に入る時点での対戦相手の勝率（対5割未満／対5割以上／対6割以上）別の成績です。
+                相手の消化試合数が5試合未満の対戦は、勝率が極端な値になりやすいため集計から除外しています。
+              </dd>
+              <dt>連戦</dt>
+              <dd>中1日以内の間隔で連続して試合を行った場合の、1試合目（GAME1）／2試合目以降（GAME2）別の成績です。</dd>
+              <dt>自チーム外国籍人数</dt>
+              <dd>
+                その試合で自チームが最も長くコートに立たせていた、外国籍・帰化選手・アジア特別枠選手の
+                同時出場人数（0〜3人）別の成績です。
+              </dd>
+              <dt>相手チーム外国籍人数</dt>
+              <dd>上記を相手チーム視点で見た成績です。</dd>
+            </dl>
+            )}
+          </div>
 
           <h2 title={TEAM_SHOOTING_SECTION_TOOLTIP}>シューティング</h2>
           <div className="mode-toggle">
