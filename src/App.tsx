@@ -6,8 +6,7 @@ import { currentSeason } from "./lib/season";
 import { fetchSeasons } from "./lib/data";
 import { useJsonData } from "./lib/useJsonData";
 import { HomePage } from "./pages/HomePage";
-import { TeamsListPage } from "./pages/TeamsListPage";
-import { AllTeamsStatsPage } from "./pages/AllTeamsStatsPage";
+import { TeamsListPage, TeamsStatsRedirect } from "./pages/TeamsListPage";
 import { TeamDetailPage } from "./pages/TeamDetailPage";
 import { PlayersListPage } from "./pages/PlayersListPage";
 import { PlayerDetailPage } from "./pages/PlayerDetailPage";
@@ -82,9 +81,6 @@ function AppShell() {
           <SeasonNavLink to="/teams" className={({ isActive }) => (isActive ? "active" : "")}>
             チーム
           </SeasonNavLink>
-          <SeasonNavLink to="/teams/stats" className={({ isActive }) => (isActive ? "active" : "")}>
-            全チームスタッツ
-          </SeasonNavLink>
           <SeasonNavLink to="/players" className={({ isActive }) => (isActive ? "active" : "")}>
             個人
           </SeasonNavLink>
@@ -109,7 +105,7 @@ function AppShell() {
         <Routes>
           <Route path="/" element={<HomePage season={season} />} />
           <Route path="/teams" element={<TeamsListPage season={season} />} />
-          <Route path="/teams/stats" element={<AllTeamsStatsPage season={season} />} />
+          <Route path="/teams/stats" element={<TeamsStatsRedirect />} />
           <Route path="/teams/:teamId" element={<TeamDetailPage season={season} />} />
           <Route path="/players" element={<PlayersListPage season={season} />} />
           <Route path="/players/:playerId" element={<PlayerDetailPage season={season} />} />
