@@ -50,19 +50,20 @@ import { formatShotTypeCell, shotTypeLabel, sortShotTypeKeys, sumShotTypeCounts 
 import { CAREER_TOTAL_DEFS, TEAM_RECORD_STATS, currentStreak, type TeamStreak } from "../../shared/teamRecords";
 import { ONE_TEAM_DIVISIONS, TEAM_DIVISIONS, TEAM_NAMES } from "../../scripts/lib/divisions";
 
-type TeamsPageTab = "list" | "stats" | "records" | "champions" | "power";
+type TeamsPageTab = "stats" | "records" | "champions" | "power";
 
-// 「チーム」ページのタブ構成。「一覧」は元々あったチーム一覧（ロゴ＋シーズン成績の表）、
-// 「全チームスタッツ」は旧/teams/statsページを移設したもの、「歴代記録」は
-// data/league-team-rankings.json（Phase H7）を使った過去在籍全クラブ横断のランキング、
-// 「歴代王者」はdata/club-honors.jsonを使ったシーズン軸の年間王者年表、「パワーランキング」は
-// 現行26クラブを対象に直近5/10試合の成績・現在の連勝/連敗で順位付けする。タブ切り替え自体は
-// URLに同期しない（TeamDetailPage.tsxのタブと同じ、プレーンなuseStateのパターンを踏襲）が、
-// 旧/teams/statsへのリンクから遷移してきた場合のみ、Navigateのstateで初期タブを
-// 「全チームスタッツ」に指定する（下記TeamsStatsRedirect参照）
+// 「チーム」ページのタブ構成。「全チームスタッツ」は元々の「一覧」（ロゴ＋シーズン成績の表）を
+// 統合したもの（各行の先頭にロゴ・試合数・勝敗・勝率を置き、その後ろにトラディショナル/
+// アドバンスド/Misc/スコアリングの項目を続ける、チーム詳細ページ「シーズン別成績」と同じ
+// 載せ方）。「歴代記録」はdata/league-team-rankings.json（Phase H7）を使った過去在籍全クラブ
+// 横断のランキング、「歴代王者」はdata/club-honors.jsonを使ったシーズン軸の年間王者年表、
+// 「パワーランキング」は現行26クラブを対象に直近5/10試合の成績・現在の連勝/連敗で順位付けする。
+// タブ切り替え自体はURLに同期しない（TeamDetailPage.tsxのタブと同じ、プレーンなuseStateの
+// パターンを踏襲）が、旧/teams/statsへのリンクから遷移してきた場合のみ、Navigateのstateで
+// 初期タブを「全チームスタッツ」に指定する（下記TeamsStatsRedirect参照）
 export function TeamsListPage({ season }: { season: string }) {
   const location = useLocation();
-  const initialTab = (location.state as { tab?: TeamsPageTab } | null)?.tab ?? "list";
+  const initialTab = (location.state as { tab?: TeamsPageTab } | null)?.tab ?? "stats";
   const [tab, setTab] = useState<TeamsPageTab>(initialTab);
 
   return (
@@ -70,13 +71,6 @@ export function TeamsListPage({ season }: { season: string }) {
       <h1>チーム</h1>
       <p className="page-subtitle">{season}シーズン</p>
       <div className="tab-bar">
-        <button
-          className={`tab-button${tab === "list" ? " active" : ""}`}
-          onClick={() => setTab("list")}
-          type="button"
-        >
-          一覧
-        </button>
         <button
           className={`tab-button${tab === "stats" ? " active" : ""}`}
           onClick={() => setTab("stats")}
@@ -106,9 +100,7 @@ export function TeamsListPage({ season }: { season: string }) {
           パワーランキング
         </button>
       </div>
-      {tab === "list" ? (
-        <TeamsOverviewTab season={season} />
-      ) : tab === "stats" ? (
+      {tab === "stats" ? (
         <AllTeamsStatsTab season={season} />
       ) : tab === "records" ? (
         <LeagueRecordsTab />
@@ -129,73 +121,35 @@ export function TeamsStatsRedirect() {
   return <Navigate to={`/teams${location.search}`} replace state={{ tab: "stats" satisfies TeamsPageTab }} />;
 }
 
-const overviewColumns: Column<TeamSummary>[] = [
-  {
-    key: "teamName",
-    label: "チーム",
-    sortValue: (t) => t.teamName,
-    align: "left",
-    render: (t) => (
-      <span className="team-name-cell">
-        <TeamLogo teamId={t.teamId} size={20} />
-        {t.teamName}
-      </span>
-    ),
-  },
-  {
-    key: "record",
-    label: "勝敗",
-    sortValue: (t) => t.wins - t.losses,
-    render: (t) => formatRecord(t.wins, t.losses),
-  },
-  { key: "pts", label: "得点", sortValue: (t) => t.perGame.pts, format: (t) => formatDecimal(t.perGame.pts) },
-  {
-    key: "oppPts",
-    label: "失点",
-    sortValue: (t) => t.opponentPerGame.pts,
-    format: (t) => formatDecimal(t.opponentPerGame.pts),
-  },
-  { key: "net", label: "Net", sortValue: (t) => t.netPerGame.pts, format: (t) => formatSigned(t.netPerGame.pts) },
-  { key: "reb", label: "REB", sortValue: (t) => t.perGame.reb, format: (t) => formatDecimal(t.perGame.reb) },
-  { key: "ast", label: "AST", sortValue: (t) => t.perGame.ast, format: (t) => formatDecimal(t.perGame.ast) },
-  { key: "stl", label: "STL", sortValue: (t) => t.perGame.stl, format: (t) => formatDecimal(t.perGame.stl) },
-  { key: "blk", label: "BLK", sortValue: (t) => t.perGame.blk, format: (t) => formatDecimal(t.perGame.blk) },
-  { key: "tov", label: "TOV", sortValue: (t) => t.perGame.tov, format: (t) => formatDecimal(t.perGame.tov) },
-  { key: "fgPct", label: "FG%", sortValue: (t) => t.shooting.fgPct, format: (t) => formatPct(t.shooting.fgPct) },
-  { key: "tpPct", label: "3P%", sortValue: (t) => t.shooting.tpPct, format: (t) => formatPct(t.shooting.tpPct) },
-  { key: "ftPct", label: "FT%", sortValue: (t) => t.shooting.ftPct, format: (t) => formatPct(t.shooting.ftPct) },
-];
-
-function TeamsOverviewTab({ season }: { season: string }) {
-  const { data, loading, error } = useJsonData(() => fetchTeams(season), [season]);
-
-  if (loading) return <p className="loading">読み込み中...</p>;
-  if (error) return <p className="error-message">{error}</p>;
-  if (!data || data.length === 0) return <p className="empty-message">データがありません</p>;
-
-  return (
-    <div className="table-scroll">
-      <SortableTable
-        columns={overviewColumns}
-        rows={data}
-        rowKey={(t) => t.teamId}
-        defaultSortKey="pts"
-        linkTo={(t) => `/teams/${t.teamId}`}
-      />
-    </div>
-  );
-}
-
-// 全26チーム分の「チームスタッツ」一覧タブ。チーム詳細ページ「チームスタッツ」タブと同じ
-// 項目（トラディショナル/アドバンスド/Misc/スコアリング、平均/合計、レギュラー/プレーオフ/合算）
-// を全チーム横並びの表に展開する。ただし詳細ページのタブは試合の生データ（PlayByPlays込み）を
-// 使って正確な値を出しているのに対し、26チーム分を毎回その方式で再集計すると通信量が
-// 26倍近くに膨らみ実用的でないため、こちらはteam-games/{teamId}.json（TeamGameLog、既に
-// 集計済みの軽量な試合ログ）だけで完結する項目に絞っている。BSR（被ブロック）・EFF（貢献度）・
+// 全26チーム分の「チームスタッツ」一覧タブ。元の「一覧」タブを統合し（各行の先頭にロゴ・
+// 試合数・勝敗・勝率を置く、チーム詳細ページ「シーズン別成績」と同じ載せ方）、チーム詳細
+// ページ「チームスタッツ」タブと同じ項目（トラディショナル/アドバンスド/Misc/スコアリング、
+// 平均/合計、レギュラー/プレーオフ/合算、自チーム/opp/+/-）を全チーム横並びの表に展開する。
+// ただし詳細ページのタブは試合の生データ（PlayByPlays込み）を使って正確な値を出しているのに
+// 対し、26チーム分を毎回その方式で再集計すると通信量が26倍近くに膨らみ実用的でないため、
+// こちらはteam-games/{teamId}.json（TeamGameLog、既に集計済みの軽量な試合ログ。相手チームの
+// カウント統計も含む）だけで完結する項目に絞っている。BSR（被ブロック）・EFF（貢献度）・
 // AND1・UFOUL/DQFOUL・被アシスト内訳・LIVETOV/DEADTOV・ペイント内外分割等、生データが無いと
-// 算出できない項目はこの一覧には含めていない（DESIGN.md参照、既知の制約）
+// 算出できない項目はこの一覧には含めていない（DESIGN.md参照、既知の制約）。自チーム/opp/+/-
+// トグルはチーム詳細ページ「チームスタッツ」タブと同じ3値の切り替えUIを再利用しつつ、値は
+// この軽量な試合ログ（相手チームのカウント統計は既に持っている）から own-opp/own/oppを
+// 計算する形にした（生データベースのbuildTeamMultiGameBoxTotalsを26チーム分呼ぶのは
+// 上記と同じ理由で採用しない）
 const BOX_TABS = BOXSCORE_TABS;
 const DISPLAY_MODE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
+
+// チーム詳細ページのTeamPerspective/TEAM_PERSPECTIVE_LABELSと同じ型・ラベル（ページローカルの
+// 小さな型のため、TeamDetailPage.tsxと同様にこちらでも複製する）
+type TeamPerspective = "own" | "opp" | "diff";
+const TEAM_PERSPECTIVE_LABELS: Record<TeamPerspective, string> = {
+  own: "自チーム",
+  opp: "opp",
+  diff: "+/-",
+};
+
+function perspectiveValue(own: number, opp: number, perspective: TeamPerspective): number {
+  return perspective === "own" ? own : perspective === "opp" ? opp : own - opp;
+}
 
 interface TeamTotals {
   pts: number;
@@ -236,6 +190,11 @@ interface TeamTotals {
   pt2nd: number;
   pft: number;
   dunks: number;
+  oppPt2in: number;
+  oppFb: number;
+  oppPt2nd: number;
+  oppPft: number;
+  oppDunks: number;
 }
 
 const EMPTY_TOTALS: TeamTotals = {
@@ -277,6 +236,11 @@ const EMPTY_TOTALS: TeamTotals = {
   pt2nd: 0,
   pft: 0,
   dunks: 0,
+  oppPt2in: 0,
+  oppFb: 0,
+  oppPt2nd: 0,
+  oppPft: 0,
+  oppDunks: 0,
 };
 
 function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
@@ -320,6 +284,11 @@ function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
       pt2nd: acc.pt2nd + g.pt2nd,
       pft: acc.pft + g.pft,
       dunks: acc.dunks + g.dunks,
+      oppPt2in: acc.oppPt2in + g.opponentPt2in,
+      oppFb: acc.oppFb + g.opponentFb,
+      oppPt2nd: acc.oppPt2nd + g.opponentPt2nd,
+      oppPft: acc.oppPft + g.opponentPft,
+      oppDunks: acc.oppDunks + g.opponentDunks,
     }),
     { ...EMPTY_TOTALS },
   );
@@ -328,6 +297,8 @@ function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
 interface AllTeamsRow {
   team: TeamSummary;
   gamesPlayed: number;
+  wins: number;
+  losses: number;
   totals: TeamTotals;
 }
 
@@ -355,131 +326,249 @@ const gamesColumn: Column<AllTeamsRow> = {
   format: (r) => String(r.gamesPlayed),
 };
 
+const recordColumn: Column<AllTeamsRow> = {
+  key: "record",
+  label: "勝敗",
+  sortValue: (r) => r.wins - r.losses,
+  format: (r) => formatRecord(r.wins, r.losses),
+};
+
+const winPctColumn: Column<AllTeamsRow> = {
+  key: "winPct",
+  label: "勝率",
+  sortValue: (r) => safeDiv(r.wins, r.wins + r.losses),
+  format: (r) => formatWinPct(safeDiv(r.wins, r.wins + r.losses)),
+};
+
+// 各行の先頭にロゴ・試合数・勝敗・勝率を置く（チーム詳細ページ「シーズン別成績」と同じ載せ方）
+const LEADING_COLUMNS: Column<AllTeamsRow>[] = [teamColumn, gamesColumn, recordColumn, winPctColumn];
+
+// カウント系（試合数で割る/割らないをmodeが決める）。own/oppそれぞれのpickerを渡し、
+// 自チーム/opp/+/-トグルに応じた値を返す。signed=trueの列（+/-等）は自チーム/opp表示も
+// 符号付きにする
 function countColumn(
   key: string,
   label: string,
-  pick: (t: TeamTotals) => number,
+  pickOwn: (t: TeamTotals) => number,
+  pickOpp: (t: TeamTotals) => number,
   mode: SeasonDisplayMode,
-  digits = 1,
+  perspective: TeamPerspective,
+  opts: { digits?: number; signed?: boolean } = {},
 ): Column<AllTeamsRow> {
+  const { digits = 1, signed = false } = opts;
+  const valueFor = (r: AllTeamsRow) =>
+    perspectiveValue(
+      scaledValue(pickOwn(r.totals), r.gamesPlayed, mode),
+      scaledValue(pickOpp(r.totals), r.gamesPlayed, mode),
+      perspective,
+    );
   return {
     key,
     label,
-    sortValue: (r) => scaledValue(pick(r.totals), r.gamesPlayed, mode),
-    format: (r) => formatDecimal(scaledValue(pick(r.totals), r.gamesPlayed, mode), mode === "total" ? 0 : digits),
+    sortValue: valueFor,
+    format: (r) => {
+      const v = valueFor(r);
+      const d = mode === "total" ? 0 : digits;
+      return signed || perspective === "diff" ? formatSigned(v, d) : formatDecimal(v, d);
+    },
   };
 }
 
+// 比率系（mode非依存）。own/oppそれぞれの計算式を渡す
 function numberColumn(
   key: string,
   label: string,
-  calc: (t: TeamTotals) => number,
+  calcOwn: (t: TeamTotals) => number,
+  calcOpp: (t: TeamTotals) => number,
+  perspective: TeamPerspective,
   format: (v: number) => string,
+  diffFormat: (v: number) => string,
 ): Column<AllTeamsRow> {
-  return { key, label, sortValue: (r) => calc(r.totals), format: (r) => format(calc(r.totals)) };
+  const valueFor = (r: AllTeamsRow) => perspectiveValue(calcOwn(r.totals), calcOpp(r.totals), perspective);
+  return {
+    key,
+    label,
+    sortValue: valueFor,
+    format: (r) => {
+      const v = valueFor(r);
+      return perspective === "diff" ? diffFormat(v) : format(v);
+    },
+  };
 }
 
-function pctColumn(key: string, label: string, calc: (t: TeamTotals) => number): Column<AllTeamsRow> {
-  return numberColumn(key, label, calc, (v) => formatPct(v));
+function pctColumn(
+  key: string,
+  label: string,
+  calcOwn: (t: TeamTotals) => number,
+  calcOpp: (t: TeamTotals) => number,
+  perspective: TeamPerspective,
+): Column<AllTeamsRow> {
+  return numberColumn(key, label, calcOwn, calcOpp, perspective, (v) => formatPct(v), (v) => `${formatSigned(v * 100, 1)}%`);
 }
 
-function pct100Column(key: string, label: string, calc: (t: TeamTotals) => number): Column<AllTeamsRow> {
-  return numberColumn(key, label, calc, (v) => formatPct100(v));
+function pct100Column(
+  key: string,
+  label: string,
+  calcOwn: (t: TeamTotals) => number,
+  calcOpp: (t: TeamTotals) => number,
+  perspective: TeamPerspective,
+): Column<AllTeamsRow> {
+  return numberColumn(key, label, calcOwn, calcOpp, perspective, (v) => formatPct100(v), (v) => `${formatSigned(v, 1)}%`);
 }
 
-function buildTraditionalColumns(mode: SeasonDisplayMode): Column<AllTeamsRow>[] {
+function decimalColumn(
+  key: string,
+  label: string,
+  calcOwn: (t: TeamTotals) => number,
+  calcOpp: (t: TeamTotals) => number,
+  perspective: TeamPerspective,
+  digits = 1,
+): Column<AllTeamsRow> {
+  return numberColumn(key, label, calcOwn, calcOpp, perspective, (v) => formatDecimal(v, digits), (v) => formatSigned(v, digits));
+}
+
+function signedColumn(
+  key: string,
+  label: string,
+  calcOwn: (t: TeamTotals) => number,
+  calcOpp: (t: TeamTotals) => number,
+  perspective: TeamPerspective,
+  digits = 1,
+): Column<AllTeamsRow> {
+  return numberColumn(key, label, calcOwn, calcOpp, perspective, (v) => formatSigned(v, digits), (v) => formatSigned(v, digits));
+}
+
+function buildTraditionalColumns(mode: SeasonDisplayMode, perspective: TeamPerspective): Column<AllTeamsRow>[] {
   return [
-    teamColumn,
-    gamesColumn,
+    ...LEADING_COLUMNS,
     {
       key: "min",
       label: "MIN",
       sortValue: (r) => scaledValue(r.totals.min, r.gamesPlayed, mode),
       format: (r) => formatMinutesFromSeconds(Math.round(scaledValue(r.totals.min, r.gamesPlayed, mode) * 60)),
     },
-    countColumn("pts", "PTS", (t) => t.pts, mode),
-    countColumn("fgm", "FGM", (t) => t.fgm, mode),
-    countColumn("fga", "FGA", (t) => t.fga, mode),
-    pctColumn("fgpct", "FG%", (t) => safeDiv(t.fgm, t.fga)),
-    countColumn("2pm", "2PM", (t) => t.fgm - t.tpm, mode),
-    countColumn("2pa", "2PA", (t) => t.fga - t.tpa, mode),
-    pctColumn("2ppct", "2P%", (t) => safeDiv(t.fgm - t.tpm, t.fga - t.tpa)),
-    countColumn("3pm", "3PM", (t) => t.tpm, mode),
-    countColumn("3pa", "3PA", (t) => t.tpa, mode),
-    pctColumn("3ppct", "3P%", (t) => safeDiv(t.tpm, t.tpa)),
-    countColumn("ftm", "FTM", (t) => t.ftm, mode),
-    countColumn("fta", "FTA", (t) => t.fta, mode),
-    pctColumn("ftpct", "FT%", (t) => safeDiv(t.ftm, t.fta)),
-    pctColumn("efg", "eFG%", (t) => efgPct(t.fgm, t.tpm, t.fga)),
-    numberColumn("ts", "TS%", (t) => tsPct(t.pts, t.fga, t.fta), (v) => formatPct(v)),
-    countColumn("or", "OR", (t) => t.oreb, mode),
-    countColumn("dr", "DR", (t) => t.dreb, mode),
-    countColumn("tr", "TR", (t) => t.reb, mode),
-    countColumn("ast", "AST", (t) => t.ast, mode),
-    countColumn("tov", "TOV", (t) => t.tov, mode),
-    numberColumn("asttov", "AST/TOV", (t) => safeDiv(t.ast, t.tov), (v) => v.toFixed(1)),
-    countColumn("stl", "STL", (t) => t.stl, mode),
-    countColumn("blk", "BLK", (t) => t.blk, mode),
-    countColumn("f", "F", (t) => t.pf, mode),
-    countColumn("fd", "FD", (t) => t.fd, mode),
-    {
-      key: "plusminus",
-      label: "+/-",
-      sortValue: (r) => scaledValue(r.totals.pts - r.totals.oppPts, r.gamesPlayed, mode),
-      format: (r) =>
-        formatSigned(scaledValue(r.totals.pts - r.totals.oppPts, r.gamesPlayed, mode), mode === "total" ? 0 : 1),
-    },
+    countColumn("pts", "PTS", (t) => t.pts, (t) => t.oppPts, mode, perspective),
+    countColumn("fgm", "FGM", (t) => t.fgm, (t) => t.oppFgm, mode, perspective),
+    countColumn("fga", "FGA", (t) => t.fga, (t) => t.oppFga, mode, perspective),
+    pctColumn("fgpct", "FG%", (t) => safeDiv(t.fgm, t.fga), (t) => safeDiv(t.oppFgm, t.oppFga), perspective),
+    countColumn("2pm", "2PM", (t) => t.fgm - t.tpm, (t) => t.oppFgm - t.oppTpm, mode, perspective),
+    countColumn("2pa", "2PA", (t) => t.fga - t.tpa, (t) => t.oppFga - t.oppTpa, mode, perspective),
+    pctColumn(
+      "2ppct",
+      "2P%",
+      (t) => safeDiv(t.fgm - t.tpm, t.fga - t.tpa),
+      (t) => safeDiv(t.oppFgm - t.oppTpm, t.oppFga - t.oppTpa),
+      perspective,
+    ),
+    countColumn("3pm", "3PM", (t) => t.tpm, (t) => t.oppTpm, mode, perspective),
+    countColumn("3pa", "3PA", (t) => t.tpa, (t) => t.oppTpa, mode, perspective),
+    pctColumn("3ppct", "3P%", (t) => safeDiv(t.tpm, t.tpa), (t) => safeDiv(t.oppTpm, t.oppTpa), perspective),
+    countColumn("ftm", "FTM", (t) => t.ftm, (t) => t.oppFtm, mode, perspective),
+    countColumn("fta", "FTA", (t) => t.fta, (t) => t.oppFta, mode, perspective),
+    pctColumn("ftpct", "FT%", (t) => safeDiv(t.ftm, t.fta), (t) => safeDiv(t.oppFtm, t.oppFta), perspective),
+    pctColumn(
+      "efg",
+      "eFG%",
+      (t) => efgPct(t.fgm, t.tpm, t.fga),
+      (t) => efgPct(t.oppFgm, t.oppTpm, t.oppFga),
+      perspective,
+    ),
+    pctColumn(
+      "ts",
+      "TS%",
+      (t) => tsPct(t.pts, t.fga, t.fta),
+      (t) => tsPct(t.oppPts, t.oppFga, t.oppFta),
+      perspective,
+    ),
+    countColumn("or", "OR", (t) => t.oreb, (t) => t.oppOreb, mode, perspective),
+    countColumn("dr", "DR", (t) => t.dreb, (t) => t.oppDreb, mode, perspective),
+    countColumn("tr", "TR", (t) => t.reb, (t) => t.oppOreb + t.oppDreb, mode, perspective),
+    countColumn("ast", "AST", (t) => t.ast, (t) => t.oppAst, mode, perspective),
+    countColumn("tov", "TOV", (t) => t.tov, (t) => t.oppTov, mode, perspective),
+    decimalColumn("asttov", "AST/TOV", (t) => safeDiv(t.ast, t.tov), (t) => safeDiv(t.oppAst, t.oppTov), perspective),
+    countColumn("stl", "STL", (t) => t.stl, (t) => t.oppStl, mode, perspective),
+    countColumn("blk", "BLK", (t) => t.blk, (t) => t.oppBlk, mode, perspective),
+    countColumn("f", "F", (t) => t.pf, (t) => t.oppPf, mode, perspective),
+    countColumn("fd", "FD", (t) => t.fd, (t) => t.oppFd, mode, perspective),
+    countColumn("plusminus", "+/-", (t) => t.pts - t.oppPts, (t) => t.oppPts - t.pts, mode, perspective, { signed: true }),
   ];
 }
 
-function buildAdvancedColumns(mode: SeasonDisplayMode): Column<AllTeamsRow>[] {
+function buildAdvancedColumns(mode: SeasonDisplayMode, perspective: TeamPerspective): Column<AllTeamsRow>[] {
   return [
-    teamColumn,
-    gamesColumn,
-    pct100Column("tovpct", "TOV%", (t) => tovPct(t.tov, t.fga, t.fta)),
-    numberColumn("ftr", "FTR", (t) => ftRate(t.fta, t.fga), (v) => formatDecimal(v, 3)),
-    pct100Column("orbpct", "OR%", (t) => orbPct(t.oreb, t.oppDreb)),
-    pctColumn("efg", "eFG%", (t) => efgPct(t.fgm, t.tpm, t.fga)),
-    numberColumn("ts", "TS%", (t) => tsPct(t.pts, t.fga, t.fta), (v) => formatPct(v)),
-    numberColumn("pps", "PPS", (t) => safeDiv(t.pts, t.fga), (v) => formatDecimal(v, 2)),
+    ...LEADING_COLUMNS,
+    pct100Column("tovpct", "TOV%", (t) => tovPct(t.tov, t.fga, t.fta), (t) => tovPct(t.oppTov, t.oppFga, t.oppFta), perspective),
+    decimalColumn("ftr", "FTR", (t) => ftRate(t.fta, t.fga), (t) => ftRate(t.oppFta, t.oppFga), perspective, 3),
+    pct100Column("orbpct", "OR%", (t) => orbPct(t.oreb, t.oppDreb), (t) => orbPct(t.oppOreb, t.dreb), perspective),
+    pctColumn(
+      "efg",
+      "eFG%",
+      (t) => efgPct(t.fgm, t.tpm, t.fga),
+      (t) => efgPct(t.oppFgm, t.oppTpm, t.oppFga),
+      perspective,
+    ),
+    pctColumn(
+      "ts",
+      "TS%",
+      (t) => tsPct(t.pts, t.fga, t.fta),
+      (t) => tsPct(t.oppPts, t.oppFga, t.oppFta),
+      perspective,
+    ),
+    decimalColumn("pps", "PPS", (t) => safeDiv(t.pts, t.fga), (t) => safeDiv(t.oppPts, t.oppFga), perspective, 2),
     {
       key: "poss",
       label: "POSS",
       sortValue: (r) => scaledValue(r.totals.poss, r.gamesPlayed, mode),
       format: (r) => formatDecimal(scaledValue(r.totals.poss, r.gamesPlayed, mode), mode === "total" ? 0 : 1),
     },
-    numberColumn("pace", "PACE", (t) => pace(t.poss, t.min), (v) => formatDecimal(v)),
-    numberColumn("ortg", "ORtg", (t) => offensiveRating(t.pts, t.poss), (v) => formatDecimal(v)),
-    numberColumn("drtg", "DRtg", (t) => offensiveRating(t.oppPts, t.poss), (v) => formatDecimal(v)),
-    numberColumn(
+    {
+      key: "pace",
+      label: "PACE",
+      sortValue: (r) => pace(r.totals.poss, r.totals.min),
+      format: (r) => formatDecimal(pace(r.totals.poss, r.totals.min)),
+    },
+    decimalColumn("ortg", "ORtg", (t) => offensiveRating(t.pts, t.poss), (t) => offensiveRating(t.oppPts, t.poss), perspective),
+    decimalColumn("drtg", "DRtg", (t) => offensiveRating(t.oppPts, t.poss), (t) => offensiveRating(t.pts, t.poss), perspective),
+    signedColumn(
       "netrtg",
       "NetRtg",
       (t) => offensiveRating(t.pts, t.poss) - offensiveRating(t.oppPts, t.poss),
-      (v) => formatSigned(v),
+      (t) => offensiveRating(t.oppPts, t.poss) - offensiveRating(t.pts, t.poss),
+      perspective,
     ),
   ];
 }
 
-function buildMiscColumns(mode: SeasonDisplayMode): Column<AllTeamsRow>[] {
+function buildMiscColumns(mode: SeasonDisplayMode, perspective: TeamPerspective): Column<AllTeamsRow>[] {
   return [
-    teamColumn,
-    gamesColumn,
-    countColumn("pitp", "PITP", (t) => t.pt2in, mode),
-    countColumn("fbps", "FBPS", (t) => t.fb, mode),
-    countColumn("2ndpts", "2ND PTS", (t) => t.pt2nd, mode),
-    countColumn("ptsofftov", "PTSOFFTO", (t) => t.pft, mode),
-    countColumn("dunk", "DUNK", (t) => t.dunks, mode),
+    ...LEADING_COLUMNS,
+    countColumn("pitp", "PITP", (t) => t.pt2in, (t) => t.oppPt2in, mode, perspective),
+    countColumn("fbps", "FBPS", (t) => t.fb, (t) => t.oppFb, mode, perspective),
+    countColumn("2ndpts", "2ND PTS", (t) => t.pt2nd, (t) => t.oppPt2nd, mode, perspective),
+    countColumn("ptsofftov", "PTSOFFTO", (t) => t.pft, (t) => t.oppPft, mode, perspective),
+    countColumn("dunk", "DUNK", (t) => t.dunks, (t) => t.oppDunks, mode, perspective),
   ];
 }
 
-function buildScoringColumns(): Column<AllTeamsRow>[] {
+function buildScoringColumns(perspective: TeamPerspective): Column<AllTeamsRow>[] {
   return [
-    teamColumn,
-    gamesColumn,
-    pct100Column("pitppct", "PITP%", (t) => safeDiv(100 * t.pt2in, t.pts)),
-    pct100Column("fbppct", "FBP%", (t) => safeDiv(100 * t.fb, t.pts)),
-    pct100Column("2ndptspct", "2ND PTS%", (t) => safeDiv(100 * t.pt2nd, t.pts)),
-    pct100Column("ptsofftovpct", "PTSOFFTO%", (t) => safeDiv(100 * t.pft, t.pts)),
+    ...LEADING_COLUMNS,
+    pct100Column("pitppct", "PITP%", (t) => safeDiv(100 * t.pt2in, t.pts), (t) => safeDiv(100 * t.oppPt2in, t.oppPts), perspective),
+    pct100Column("fbppct", "FBP%", (t) => safeDiv(100 * t.fb, t.pts), (t) => safeDiv(100 * t.oppFb, t.oppPts), perspective),
+    pct100Column(
+      "2ndptspct",
+      "2ND PTS%",
+      (t) => safeDiv(100 * t.pt2nd, t.pts),
+      (t) => safeDiv(100 * t.oppPt2nd, t.oppPts),
+      perspective,
+    ),
+    pct100Column(
+      "ptsofftovpct",
+      "PTSOFFTO%",
+      (t) => safeDiv(100 * t.pft, t.pts),
+      (t) => safeDiv(100 * t.oppPft, t.oppPts),
+      perspective,
+    ),
   ];
 }
 
@@ -574,6 +663,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
   const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
   const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
+  const [teamPerspective, setTeamPerspective] = useState<TeamPerspective>("own");
   const [turnoverPerspective, setTurnoverPerspective] = useState<"forced" | "committed">("forced");
 
   const opponentRecords = useMemo<Map<string, Map<string, RecordBeforeGame>> | undefined>(
@@ -587,22 +677,23 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       const logs = gameLogsByTeam.get(team.teamId) ?? [];
       const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season);
       const scoped = filterByGameType(situational, gameType);
-      return { team, gamesPlayed: scoped.length, totals: sumTeamGameLogs(scoped) };
+      const wins = scoped.filter((g) => g.win).length;
+      return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: sumTeamGameLogs(scoped) };
     });
   }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season]);
 
   const columns = useMemo(() => {
     switch (boxTab) {
       case "traditional":
-        return buildTraditionalColumns(displayMode);
+        return buildTraditionalColumns(displayMode, teamPerspective);
       case "advanced":
-        return buildAdvancedColumns(displayMode);
+        return buildAdvancedColumns(displayMode, teamPerspective);
       case "misc":
-        return buildMiscColumns(displayMode);
+        return buildMiscColumns(displayMode, teamPerspective);
       case "scoring":
-        return buildScoringColumns();
+        return buildScoringColumns(teamPerspective);
     }
-  }, [boxTab, displayMode]);
+  }, [boxTab, displayMode, teamPerspective]);
 
   const shootingRows: ShootingRow[] = (teams ?? []).filter((t) => t.shotTypes).map((team) => ({ team }));
   const shotTypeKeys = sortShotTypeKeys([...new Set(shootingRows.flatMap((r) => Object.keys(r.team.shotTypes ?? {})))]);
@@ -677,6 +768,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           </button>
         ))}
       </div>
+      <div className="mode-toggle">
+        {(["own", "opp", "diff"] as TeamPerspective[]).map((p) => (
+          <button key={p} className={p === teamPerspective ? "active" : ""} onClick={() => setTeamPerspective(p)} type="button">
+            {TEAM_PERSPECTIVE_LABELS[p]}
+          </button>
+        ))}
+      </div>
       <div className="tab-bar-with-toggle">
         <div className="tab-bar">
           {BOX_TABS.map((t) => (
@@ -704,7 +802,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       ) : (
         <div className="table-scroll">
           <SortableTable
-            key={boxTab}
+            key={`${boxTab}-${teamPerspective}`}
             columns={columns}
             rows={rows}
             rowKey={(r) => r.team.teamId}
@@ -983,7 +1081,7 @@ function LeagueRecordsTab() {
                         <TeamLogo teamId={r.teamId} size={20} />
                         <span className="rank-name-cell">
                           <span className="rank-name">{leagueTeamDisplayName(r.teamId)}</span>
-                          <span className="rank-sublabel">現在: {leagueTeamCurrentCategoryLabel(r.teamId)}</span>
+                          <span className="rank-sublabel">{leagueTeamCurrentCategoryLabel(r.teamId)}</span>
                         </span>
                       </span>
                     </TeamNavLink>
@@ -1075,12 +1173,20 @@ function ChampionsTab() {
     () => seasonsDesc.filter((s) => championsBySeason.has(s)),
     [seasonsDesc, championsBySeason],
   );
+  // 地区優勝の各項目にそのシーズンの成績（勝敗・勝率）を併記するため、年間王者の対象シーズンに
+  // 加えて地区優勝の対象シーズンもteams.jsonの取得対象に含める
+  const neededSeasons = useMemo(
+    () => [
+      ...new Set([...championSeasons, ...otherHonors.filter((h) => h.category === "division").map((h) => h.season)]),
+    ],
+    [championSeasons, otherHonors],
+  );
 
   const [teamsBySeason, setTeamsBySeason] = useState<Map<string, TeamSummary[]> | null>(null);
   const [teamsLoading, setTeamsLoading] = useState(true);
 
   useEffect(() => {
-    if (championSeasons.length === 0) {
+    if (neededSeasons.length === 0) {
       setTeamsBySeason(new Map());
       setTeamsLoading(false);
       return;
@@ -1088,7 +1194,7 @@ function ChampionsTab() {
     let cancelled = false;
     setTeamsLoading(true);
     Promise.all(
-      championSeasons.map(async (s): Promise<readonly [string, TeamSummary[]]> => {
+      neededSeasons.map(async (s): Promise<readonly [string, TeamSummary[]]> => {
         try {
           return [s, await fetchTeams(s)] as const;
         } catch {
@@ -1105,7 +1211,7 @@ function ChampionsTab() {
     return () => {
       cancelled = true;
     };
-  }, [championSeasons]);
+  }, [neededSeasons]);
 
   if (seasonsLoading || honorsLoading) return <p className="loading">読み込み中...</p>;
   if (seasonsError) return <p className="error-message">{seasonsError}</p>;
@@ -1205,17 +1311,26 @@ function ChampionsTab() {
               <div className="honors-group" key={category}>
                 <h3>{OTHER_HONOR_CATEGORY_LABELS[category]}</h3>
                 <ul>
-                  {items.map((h, i) => (
-                    <li key={`${h.teamId}-${h.season}-${h.competition}-${i}`} className="honor-item">
-                      <span className="honor-season">{h.season}</span>
-                      <TeamNavLink teamId={h.teamId} divisionHistory={divisionHistory} className="honor-team-link">
-                        {leagueTeamDisplayName(h.teamId)}
-                      </TeamNavLink>
-                      {"　"}
-                      {h.competition}
-                      {h.note && <span className="honor-note">（{h.note}）</span>}
-                    </li>
-                  ))}
+                  {items.map((h, i) => {
+                    const team =
+                      category === "division" ? teamsBySeason?.get(h.season)?.find((t) => t.teamId === h.teamId) : undefined;
+                    return (
+                      <li key={`${h.teamId}-${h.season}-${h.competition}-${i}`} className="honor-item">
+                        <span className="honor-season">{h.season}</span>
+                        <TeamNavLink teamId={h.teamId} divisionHistory={divisionHistory} className="honor-team-link">
+                          {leagueTeamDisplayName(h.teamId)}
+                        </TeamNavLink>
+                        {team && (
+                          <span className="honor-note">
+                            （{formatRecord(team.wins, team.losses)} {formatWinPct(safeDiv(team.wins, team.wins + team.losses))}）
+                          </span>
+                        )}
+                        {"　"}
+                        {h.competition}
+                        {h.note && <span className="honor-note">（{h.note}）</span>}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             );
