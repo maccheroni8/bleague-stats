@@ -422,6 +422,29 @@ interface TeamSeasonMiscTotals {
   oppPt2nd: number;
   oppPft: number;
   oppDunks: number;
+  // Misc/スコアリングタブ拡張（2026-08-29）。TeamGameLogの同名フィールドをそのまま合算する
+  technicalFouls: number;
+  basketCounts: number;
+  unsportsmanlikeFouls: number;
+  disqualifyingFouls: number;
+  assisted2m: number;
+  assisted3m: number;
+  assistedFtm: number;
+  paint2m: number;
+  paint2a: number;
+  mid2m: number;
+  mid2a: number;
+  oppTechnicalFouls: number;
+  oppBasketCounts: number;
+  oppUnsportsmanlikeFouls: number;
+  oppDisqualifyingFouls: number;
+  oppAssisted2m: number;
+  oppAssisted3m: number;
+  oppAssistedFtm: number;
+  oppPaint2m: number;
+  oppPaint2a: number;
+  oppMid2m: number;
+  oppMid2a: number;
 }
 
 const EMPTY_TEAM_SEASON_MISC: TeamSeasonMiscTotals = {
@@ -450,6 +473,28 @@ const EMPTY_TEAM_SEASON_MISC: TeamSeasonMiscTotals = {
   oppPt2nd: 0,
   oppPft: 0,
   oppDunks: 0,
+  technicalFouls: 0,
+  basketCounts: 0,
+  unsportsmanlikeFouls: 0,
+  disqualifyingFouls: 0,
+  assisted2m: 0,
+  assisted3m: 0,
+  assistedFtm: 0,
+  paint2m: 0,
+  paint2a: 0,
+  mid2m: 0,
+  mid2a: 0,
+  oppTechnicalFouls: 0,
+  oppBasketCounts: 0,
+  oppUnsportsmanlikeFouls: 0,
+  oppDisqualifyingFouls: 0,
+  oppAssisted2m: 0,
+  oppAssisted3m: 0,
+  oppAssistedFtm: 0,
+  oppPaint2m: 0,
+  oppPaint2a: 0,
+  oppMid2m: 0,
+  oppMid2a: 0,
 };
 
 function sumTeamSeasonMisc(logs: TeamGameLog[]): TeamSeasonMiscTotals {
@@ -482,6 +527,28 @@ function sumTeamSeasonMisc(logs: TeamGameLog[]): TeamSeasonMiscTotals {
         oppPt2nd: acc.oppPt2nd + g.opponentPt2nd,
         oppPft: acc.oppPft + g.opponentPft,
         oppDunks: acc.oppDunks + g.opponentDunks,
+        technicalFouls: acc.technicalFouls + g.technicalFouls,
+        basketCounts: acc.basketCounts + g.basketCounts,
+        unsportsmanlikeFouls: acc.unsportsmanlikeFouls + g.unsportsmanlikeFouls,
+        disqualifyingFouls: acc.disqualifyingFouls + g.disqualifyingFouls,
+        assisted2m: acc.assisted2m + g.assisted2m,
+        assisted3m: acc.assisted3m + g.assisted3m,
+        assistedFtm: acc.assistedFtm + g.assistedFtm,
+        paint2m: acc.paint2m + g.paint2m,
+        paint2a: acc.paint2a + g.paint2a,
+        mid2m: acc.mid2m + g.mid2m,
+        mid2a: acc.mid2a + g.mid2a,
+        oppTechnicalFouls: acc.oppTechnicalFouls + g.opponentTechnicalFouls,
+        oppBasketCounts: acc.oppBasketCounts + g.opponentBasketCounts,
+        oppUnsportsmanlikeFouls: acc.oppUnsportsmanlikeFouls + g.opponentUnsportsmanlikeFouls,
+        oppDisqualifyingFouls: acc.oppDisqualifyingFouls + g.opponentDisqualifyingFouls,
+        oppAssisted2m: acc.oppAssisted2m + g.opponentAssisted2m,
+        oppAssisted3m: acc.oppAssisted3m + g.opponentAssisted3m,
+        oppAssistedFtm: acc.oppAssistedFtm + g.opponentAssistedFtm,
+        oppPaint2m: acc.oppPaint2m + g.opponentPaint2m,
+        oppPaint2a: acc.oppPaint2a + g.opponentPaint2a,
+        oppMid2m: acc.oppMid2m + g.opponentMid2m,
+        oppMid2a: acc.oppMid2a + g.opponentMid2a,
       }),
       { ...EMPTY_TEAM_SEASON_MISC },
     );
@@ -553,15 +620,29 @@ function formatTeamSeasonSigned(ownVal: number, oppVal: number, perspective: Tea
   return formatTeamSeasonRatioPerspective(ownVal, oppVal, perspective, (v) => formatSigned(v, digits), (v) => formatSigned(v, digits));
 }
 
+/** ショットチャート座標（X/Y/AreaCD）が存在するシーズンかどうか（2022-23シーズン以降のみ、
+ * playerSeasonBoxscore.tsのMIN_SHOT_CHART_SEASON_START_YEARと同じ閾値）。「シーズン別成績」の
+ * 各行は`r.season`（文字列）を持つだけで、他タブのようにuseSeasonCoverage()の結果を都度
+ * 参照できないため、開始年の数値比較で簡易判定する */
+const TEAM_SEASON_MIN_SHOT_CHART_YEAR = 2022;
+function seasonRecordSupportsShotChart(season: string): boolean {
+  return Number(season.split("-")[0]) >= TEAM_SEASON_MIN_SHOT_CHART_YEAR;
+}
+
 // 「シーズン別成績」の4カテゴリタブ（Phase H3①）。既存のSEASON_BOX_COLUMNS（選手向け、
 // PlayerGameLog由来）とは別に、チーム向けの列定義をここで新設する。トラディショナル/
 // アドバンスドはTeamSummary（seasonHistory、既に取得済みのシーズン集計）だけで完結する
 // （新規バックエンド集計は不要）。MiscはTeamGameLog（careerData）側のPITP/FBPS/2ND PTS/
-// PTSOFFTO/DUNKを再利用する。AND1/UFOUL/DQFOUL・被アシスト内訳・LIVETOV/DEADTOVは
-// 試合単位のPlayByPlaysからのみ算出できチーム単位のシーズン集計としては永続化していないため
-// 今回は列自体を設けていない（DESIGN.md参照、既知の制約）。スコアリングタブは%-share
-// （個人の数値／チームの数値）という概念がチーム自身の行には適用できないため、代わりに
-// 「得点の内訳構成比」（PITP/FBPS/2ND PTS/PTSOFFTOがチーム総得点に占める割合）を表示する。
+// PTSOFFTO/DUNKに加え、2026-08-29にTF/UFOUL/DQFOUL/AND1・被アシスト内訳（AST2M/AST3M/
+// ASTFTM/AST%）もTeamGameLogへ追加集計した（DESIGN.md参照。以前は「試合単位のPlayByPlaysから
+// のみ算出できチーム単位のシーズン集計としては永続化していない」という制約があったが解消済み）。
+// LIVETOV/DEADTOVのみ、Yahoo!スポーツPBP由来でチーム単位の永続化対象に含めていないため
+// 引き続き列を設けていない。スコアリングタブは%-share（個人の数値／チームの数値）という概念が
+// チーム自身の行には適用できないため、「得点の内訳構成比」（PITP/FBPS/2ND PTS/PTSOFFTOが
+// チーム総得点に占める割合）に加え、2026-08-29に「シュート選択構成比」（%3PM/%3PA/%PAINT2M/
+// %PAINT2A/%MID2M/%MID2A、いずれもチーム自身の全FGAに占める割合）を追加した。
+// %PAINT2M/%PAINT2A/%MID2M/%MID2Aのみショットチャート座標由来のため2022-23シーズン以降限定
+// （seasonRecordSupportsShotChart()、それ以前は「-」）。
 // 平均/合計トグル: カウント系の列（MIN〜+/-）は選択に応じて値を切り替え、%系・比率系
 // （FG%等、AST/TOV、POSS以外のアドバンスド指標、スコアリングタブ全項目）は総量に対する比率・
 // 100ポゼッションあたり等の正規化済み指標のため両モードで同じ値のまま変化しない。
@@ -827,6 +908,53 @@ const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "DUNK",
     format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.dunks, m.oppDunks, r.team.gamesPlayed, mode, p),
   },
+  {
+    key: "tf",
+    label: "TF",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.technicalFouls, m.oppTechnicalFouls, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "ufoul",
+    label: "UFOUL",
+    format: (r, m, mode, p) =>
+      formatTeamSeasonCountPerspective(m.unsportsmanlikeFouls, m.oppUnsportsmanlikeFouls, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "dqfoul",
+    label: "DQFOUL",
+    format: (r, m, mode, p) =>
+      formatTeamSeasonCountPerspective(m.disqualifyingFouls, m.oppDisqualifyingFouls, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "and1",
+    label: "AND1",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.basketCounts, m.oppBasketCounts, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "ast2m",
+    label: "AST2M",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assisted2m, m.oppAssisted2m, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "ast3m",
+    label: "AST3M",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assisted3m, m.oppAssisted3m, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "astftm",
+    label: "ASTFTM",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assistedFtm, m.oppAssistedFtm, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "astpct",
+    label: "AST%",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonPct100(
+        safeDiv(100 * (m.assisted2m * 2 + m.assisted3m * 3 + m.assistedFtm), r.team.totals.pts),
+        safeDiv(100 * (m.oppAssisted2m * 2 + m.oppAssisted3m * 3 + m.oppAssistedFtm), m.oppPts),
+        p,
+      ),
+  },
 ];
 
 const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
@@ -854,6 +982,52 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "PTSOFFTO%",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(safeDiv(100 * m.pft, r.team.totals.pts), safeDiv(100 * m.oppPft, m.oppPts), p),
+  },
+  // ここから下は「自チーム/相手チームの全FGAに対する割合」（シュート選択構成比）。
+  // 上記PITP%等（総得点に対する割合）とは分母が異なる別系統の指標
+  {
+    key: "pct3pm",
+    label: "%3PM",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonPct100(safeDiv(100 * r.team.totals.tpm, r.team.totals.fga), safeDiv(100 * m.oppTpm, m.oppFga), p),
+  },
+  {
+    key: "pct3pa",
+    label: "%3PA",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonPct100(safeDiv(100 * r.team.totals.tpa, r.team.totals.fga), safeDiv(100 * m.oppTpa, m.oppFga), p),
+  },
+  {
+    key: "pctpaint2m",
+    label: "%PAINT2M",
+    format: (r, m, _mode, p) =>
+      seasonRecordSupportsShotChart(r.season)
+        ? formatTeamSeasonPct100(safeDiv(100 * m.paint2m, r.team.totals.fga), safeDiv(100 * m.oppPaint2m, m.oppFga), p)
+        : "-",
+  },
+  {
+    key: "pctpaint2a",
+    label: "%PAINT2A",
+    format: (r, m, _mode, p) =>
+      seasonRecordSupportsShotChart(r.season)
+        ? formatTeamSeasonPct100(safeDiv(100 * m.paint2a, r.team.totals.fga), safeDiv(100 * m.oppPaint2a, m.oppFga), p)
+        : "-",
+  },
+  {
+    key: "pctmid2m",
+    label: "%MID2M",
+    format: (r, m, _mode, p) =>
+      seasonRecordSupportsShotChart(r.season)
+        ? formatTeamSeasonPct100(safeDiv(100 * m.mid2m, r.team.totals.fga), safeDiv(100 * m.oppMid2m, m.oppFga), p)
+        : "-",
+  },
+  {
+    key: "pctmid2a",
+    label: "%MID2A",
+    format: (r, m, _mode, p) =>
+      seasonRecordSupportsShotChart(r.season)
+        ? formatTeamSeasonPct100(safeDiv(100 * m.mid2a, r.team.totals.fga), safeDiv(100 * m.oppMid2a, m.oppFga), p)
+        : "-",
   },
 ];
 

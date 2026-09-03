@@ -367,44 +367,38 @@ const DISQUALIFYING_FOUL_ACTION_CD1 = 26;
 
 /**
  * ダンク数・アンドワン（バスケットカウント）・アンスポーツマンファウル・ディスクォリファイング
- * ファウルを選手単位で集計する（src/lib/boxscoreAggregate.tsのbuildMiscEventCounts()と同じ
- * ロジック。DESIGN.md 15-6章参照。試合単位のPlayByPlaysから毎回集計する必要があるため
- * バックエンド側にも同じロジックを移植した）
+ * ファウルを選手単位・チーム単位の両方で集計する（src/lib/boxscoreAggregate.tsの
+ * buildMiscEventCounts()と同じロジック。DESIGN.md 15-6章参照。試合単位のPlayByPlaysから
+ * 毎回集計する必要があるためバックエンド側にも同じロジックを移植した）。
+ * チーム単位（byTeam）は2026-08-29、チーム版Miscタブ拡張のために追加した
+ * （従来は個別関数countTeamDunks()でダンク数のみチーム集計していたが、同じPBPを二重に
+ * 走査する無駄を避けるためこの関数に統合した）
  */
-function buildMiscEventCounts(playByPlays: PlayByPlayEvent[]): Map<string, MiscEventCounts> {
+function buildMiscEventCounts(playByPlays: PlayByPlayEvent[]): { byPlayer: Map<string, MiscEventCounts>; byTeam: Map<string, MiscEventCounts> } {
   const byPlayer = new Map<string, MiscEventCounts>();
-  const bump = (playerId: string | null, key: keyof MiscEventCounts) => {
-    if (!playerId) return;
-    const entry = byPlayer.get(playerId) ?? { ...ZERO_MISC_EVENTS };
+  const byTeam = new Map<string, MiscEventCounts>();
+  const bump = (target: Map<string, MiscEventCounts>, id: string | null, key: keyof MiscEventCounts) => {
+    if (!id) return;
+    const entry = target.get(id) ?? { ...ZERO_MISC_EVENTS };
     entry[key] += 1;
-    byPlayer.set(playerId, entry);
+    target.set(id, entry);
   };
   for (const ev of playByPlays) {
+    let key: keyof MiscEventCounts | null = null;
     if (ev.ActionCD1 === DUNK_ACTION_CD1 && ev.PlayText.includes("ダンク")) {
-      bump(ev.PlayerID1, "dunks");
+      key = "dunks";
     } else if (ev.ActionCD1 === BASKET_COUNT_ACTION_CD1) {
-      bump(ev.PlayerID1, "basketCounts");
+      key = "basketCounts";
     } else if (ev.ActionCD1 === UNSPORTSMANLIKE_FOUL_ACTION_CD1) {
-      bump(ev.PlayerID1, "unsportsmanlikeFouls");
+      key = "unsportsmanlikeFouls";
     } else if (ev.ActionCD1 === DISQUALIFYING_FOUL_ACTION_CD1) {
-      bump(ev.PlayerID1, "disqualifyingFouls");
+      key = "disqualifyingFouls";
     }
+    if (!key) continue;
+    bump(byPlayer, ev.PlayerID1, key);
+    bump(byTeam, ev.TeamID, key);
   }
-  return byPlayer;
-}
-
-/**
- * ダンク数をチーム単位で集計する（buildMiscEventCounts()の選手単位版と同じ判定条件、
- * TeamID単位にしただけ。チーム詳細ページ「通算成績」タブ用。DESIGN.md参照）
- */
-function countTeamDunks(playByPlays: PlayByPlayEvent[]): Map<string, number> {
-  const byTeam = new Map<string, number>();
-  for (const ev of playByPlays) {
-    if (ev.ActionCD1 === DUNK_ACTION_CD1 && ev.PlayText.includes("ダンク") && ev.TeamID) {
-      byTeam.set(ev.TeamID, (byTeam.get(ev.TeamID) ?? 0) + 1);
-    }
-  }
-  return byTeam;
+  return { byPlayer, byTeam };
 }
 
 interface PaintSplitCounts {
@@ -417,27 +411,39 @@ interface PaintSplitCounts {
 const ZERO_PAINT_SPLIT: PaintSplitCounts = { paint2m: 0, paint2a: 0, mid2m: 0, mid2a: 0 };
 
 /**
- * ショットチャートと同じX/Y座標ベースのゾーン分類（shared/shotChart.ts）で、選手ごとの
- * ペイント内外2P内訳を求める（src/lib/boxscoreAggregate.tsのbuildPaintSplitByPlayer()と同じ
- * ロジック）。呼び出し側でseasonCoverage()==="full"（2022-23シーズン以降）のみ呼ぶこと
+ * ショットチャートと同じX/Y座標ベースのゾーン分類（shared/shotChart.ts）で、選手ごと・
+ * チームごとのペイント内外2P内訳を求める（src/lib/boxscoreAggregate.tsのbuildPaintSplitByPlayer()と
+ * 同じロジック。チーム単位byTeamは2026-08-29、チーム版スコアリングタブ拡張のために追加）。
+ * 呼び出し側でseasonCoverage()==="full"（2022-23シーズン以降）のみ呼ぶこと
  * （それ以前はX/Y自体が存在せずbuildShotEvents()が常に空配列を返す）
  */
-function buildPaintSplitByPlayer(playByPlays: PlayByPlayEvent[]): Map<string, PaintSplitCounts> {
+function buildPaintSplitByPlayer(playByPlays: PlayByPlayEvent[]): { byPlayer: Map<string, PaintSplitCounts>; byTeam: Map<string, PaintSplitCounts> } {
   const byPlayer = new Map<string, PaintSplitCounts>();
+  const byTeam = new Map<string, PaintSplitCounts>();
   for (const shot of buildShotEvents(playByPlays)) {
     const split = paintSplitForShot(shot);
     if (!split) continue;
     const entry = byPlayer.get(shot.playerId) ?? { ...ZERO_PAINT_SPLIT };
+    const teamEntry = shot.teamId ? (byTeam.get(shot.teamId) ?? { ...ZERO_PAINT_SPLIT }) : null;
     if (split === "paint") {
       entry.paint2a += 1;
-      if (shot.made) entry.paint2m += 1;
+      if (teamEntry) teamEntry.paint2a += 1;
+      if (shot.made) {
+        entry.paint2m += 1;
+        if (teamEntry) teamEntry.paint2m += 1;
+      }
     } else {
       entry.mid2a += 1;
-      if (shot.made) entry.mid2m += 1;
+      if (teamEntry) teamEntry.mid2a += 1;
+      if (shot.made) {
+        entry.mid2m += 1;
+        if (teamEntry) teamEntry.mid2m += 1;
+      }
     }
     byPlayer.set(shot.playerId, entry);
+    if (teamEntry && shot.teamId) byTeam.set(shot.teamId, teamEntry);
   }
-  return byPlayer;
+  return { byPlayer, byTeam };
 }
 
 /**
@@ -749,13 +755,12 @@ export async function aggregateSeason(season: string, category: Category = "prem
     const pitpByPlayer = pitp.byPlayer;
     const fbpsByPlayer = fbps.byPlayer;
     const secondChanceByPlayer = secondChance.byPlayer;
-    // チーム詳細ページ「通算成績」タブ（Phase TF）の単純合計値用。個人単位と同じPBPタグ集計の
-    // byTeam側をそのまま使う（Summaries由来のPlayTypeCountsと完全一致することは66章で検証済み）
-    const teamDunks = countTeamDunks(game.raw.PlayByPlays);
-    const assistedScoringByPlayer = computeAssistedScoring(game.raw.PlayByPlays).byScorer;
-    const miscEventsByPlayer = buildMiscEventCounts(game.raw.PlayByPlays);
-    const paintSplitByPlayer =
-      seasonCoverage(game.season) === "full" ? buildPaintSplitByPlayer(game.raw.PlayByPlays) : new Map<string, PaintSplitCounts>();
+    const assistedScoring = computeAssistedScoring(game.raw.PlayByPlays);
+    const miscEvents = buildMiscEventCounts(game.raw.PlayByPlays);
+    const paintSplit =
+      seasonCoverage(game.season) === "full"
+        ? buildPaintSplitByPlayer(game.raw.PlayByPlays)
+        : { byPlayer: new Map<string, PaintSplitCounts>(), byTeam: new Map<string, PaintSplitCounts>() };
     processPlayers(
       game,
       gameType,
@@ -767,9 +772,9 @@ export async function aggregateSeason(season: string, category: Category = "prem
       pitpByPlayer,
       fbpsByPlayer,
       secondChanceByPlayer,
-      assistedScoringByPlayer,
-      miscEventsByPlayer,
-      paintSplitByPlayer,
+      assistedScoring.byScorer,
+      miscEvents.byPlayer,
+      paintSplit.byPlayer,
       onCourtRatingsByPlayer,
     );
     processTeams(
@@ -783,7 +788,9 @@ export async function aggregateSeason(season: string, category: Category = "prem
       fbps.byTeam,
       ptsOffTov.byTeam,
       secondChance.byTeam,
-      teamDunks,
+      miscEvents.byTeam,
+      assistedScoring.byTeam,
+      paintSplit.byTeam,
     );
     processLineups(game, teamLineups, onCourt);
   }
@@ -1182,6 +1189,50 @@ function opponentGameLogStats(row: BoxscoreRow) {
   };
 }
 
+/**
+ * Misc/スコアリングタブ拡張（2026-08-29）用の追加フィールドを、自チーム・相手チーム分まとめて
+ * 組み立てる（home/away両方のgameLogs.push()で使う共通ヘルパー。DESIGN.md参照）
+ */
+function teamMiscExtraGameLogStats(
+  ownId: string,
+  opponentId: string,
+  technicalFoulsByTeam: Map<string, number>,
+  miscEventsByTeam: Map<string, MiscEventCounts>,
+  assistedScoringByTeam: Map<string, AssistedScoringCounts>,
+  paintSplitByTeam: Map<string, PaintSplitCounts>,
+) {
+  const ownMisc = miscEventsByTeam.get(ownId);
+  const oppMisc = miscEventsByTeam.get(opponentId);
+  const ownAssisted = assistedScoringByTeam.get(ownId);
+  const oppAssisted = assistedScoringByTeam.get(opponentId);
+  const ownPaint = paintSplitByTeam.get(ownId);
+  const oppPaint = paintSplitByTeam.get(opponentId);
+  return {
+    technicalFouls: technicalFoulsByTeam.get(ownId) ?? 0,
+    basketCounts: ownMisc?.basketCounts ?? 0,
+    unsportsmanlikeFouls: ownMisc?.unsportsmanlikeFouls ?? 0,
+    disqualifyingFouls: ownMisc?.disqualifyingFouls ?? 0,
+    assisted2m: ownAssisted?.assisted2m ?? 0,
+    assisted3m: ownAssisted?.assisted3m ?? 0,
+    assistedFtm: ownAssisted?.assistedFtm ?? 0,
+    paint2m: ownPaint?.paint2m ?? 0,
+    paint2a: ownPaint?.paint2a ?? 0,
+    mid2m: ownPaint?.mid2m ?? 0,
+    mid2a: ownPaint?.mid2a ?? 0,
+    opponentTechnicalFouls: technicalFoulsByTeam.get(opponentId) ?? 0,
+    opponentBasketCounts: oppMisc?.basketCounts ?? 0,
+    opponentUnsportsmanlikeFouls: oppMisc?.unsportsmanlikeFouls ?? 0,
+    opponentDisqualifyingFouls: oppMisc?.disqualifyingFouls ?? 0,
+    opponentAssisted2m: oppAssisted?.assisted2m ?? 0,
+    opponentAssisted3m: oppAssisted?.assisted3m ?? 0,
+    opponentAssistedFtm: oppAssisted?.assistedFtm ?? 0,
+    opponentPaint2m: oppPaint?.paint2m ?? 0,
+    opponentPaint2a: oppPaint?.paint2a ?? 0,
+    opponentMid2m: oppPaint?.mid2m ?? 0,
+    opponentMid2a: oppPaint?.mid2a ?? 0,
+  };
+}
+
 function processTeams(
   game: StoredGame,
   gameType: GameType,
@@ -1193,7 +1244,9 @@ function processTeams(
   fbpsByTeam: Map<string, number>,
   ptsOffTovByTeam: Map<string, number>,
   secondChanceByTeam: Map<string, number>,
-  dunksByTeam: Map<string, number>,
+  miscEventsByTeam: Map<string, MiscEventCounts>,
+  assistedScoringByTeam: Map<string, AssistedScoringCounts>,
+  paintSplitByTeam: Map<string, PaintSplitCounts>,
 ): void {
   const homeRow = pickTeamRow(game.raw.HomeBoxscores, 3)[0];
   const awayRow = pickTeamRow(game.raw.AwayBoxscores, 3)[0];
@@ -1256,12 +1309,20 @@ function processTeams(
     fb: fbpsByTeam.get(game.homeTeam.id) ?? 0,
     pt2nd: secondChanceByTeam.get(game.homeTeam.id) ?? 0,
     pft: ptsOffTovByTeam.get(game.homeTeam.id) ?? 0,
-    dunks: dunksByTeam.get(game.homeTeam.id) ?? 0,
+    dunks: miscEventsByTeam.get(game.homeTeam.id)?.dunks ?? 0,
     opponentPt2in: pitpByTeam.get(game.awayTeam.id) ?? 0,
     opponentFb: fbpsByTeam.get(game.awayTeam.id) ?? 0,
     opponentPt2nd: secondChanceByTeam.get(game.awayTeam.id) ?? 0,
     opponentPft: ptsOffTovByTeam.get(game.awayTeam.id) ?? 0,
-    opponentDunks: dunksByTeam.get(game.awayTeam.id) ?? 0,
+    opponentDunks: miscEventsByTeam.get(game.awayTeam.id)?.dunks ?? 0,
+    ...teamMiscExtraGameLogStats(
+      game.homeTeam.id,
+      game.awayTeam.id,
+      technicalFoulsByTeam,
+      miscEventsByTeam,
+      assistedScoringByTeam,
+      paintSplitByTeam,
+    ),
     attendance,
   });
   away.gameLogs.push({
@@ -1282,12 +1343,20 @@ function processTeams(
     fb: fbpsByTeam.get(game.awayTeam.id) ?? 0,
     pt2nd: secondChanceByTeam.get(game.awayTeam.id) ?? 0,
     pft: ptsOffTovByTeam.get(game.awayTeam.id) ?? 0,
-    dunks: dunksByTeam.get(game.awayTeam.id) ?? 0,
+    dunks: miscEventsByTeam.get(game.awayTeam.id)?.dunks ?? 0,
     opponentPt2in: pitpByTeam.get(game.homeTeam.id) ?? 0,
     opponentFb: fbpsByTeam.get(game.homeTeam.id) ?? 0,
     opponentPt2nd: secondChanceByTeam.get(game.homeTeam.id) ?? 0,
     opponentPft: ptsOffTovByTeam.get(game.homeTeam.id) ?? 0,
-    opponentDunks: dunksByTeam.get(game.homeTeam.id) ?? 0,
+    opponentDunks: miscEventsByTeam.get(game.homeTeam.id)?.dunks ?? 0,
+    ...teamMiscExtraGameLogStats(
+      game.awayTeam.id,
+      game.homeTeam.id,
+      technicalFoulsByTeam,
+      miscEventsByTeam,
+      assistedScoringByTeam,
+      paintSplitByTeam,
+    ),
     attendance,
   });
 }

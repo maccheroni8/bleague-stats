@@ -746,6 +746,38 @@ export interface TeamGameLog {
   opponentPt2nd: number;
   opponentPft: number;
   opponentDunks: number;
+  /**
+   * Misc/スコアリングタブ拡張（2026-08-29）用。個人版PlayerGameLogの同名フィールドと同じ
+   * PBPタグ集計（shared/assistedScoring.ts・aggregate.tsのbuildMiscEventCounts）を
+   * チーム単位で集計したもの。technicalFoulsはHC/ベンチテクニカルも含むチーム帰属分
+   * （ActionCD1=20/21/24の合計。countTechnicalFoulsのbyTeam）
+   */
+  technicalFouls: number;
+  basketCounts: number;
+  unsportsmanlikeFouls: number;
+  disqualifyingFouls: number;
+  assisted2m: number;
+  assisted3m: number;
+  assistedFtm: number;
+  /**
+   * ペイント内外2P内訳（ショットチャート座標由来、buildPaintSplitByPlayerのbyTeam）。
+   * 2022-23シーズン以降のみ、それ以前は常に0（個人版PlayerGameLog.paint2m等と同じ制約）
+   */
+  paint2m: number;
+  paint2a: number;
+  mid2m: number;
+  mid2a: number;
+  opponentTechnicalFouls: number;
+  opponentBasketCounts: number;
+  opponentUnsportsmanlikeFouls: number;
+  opponentDisqualifyingFouls: number;
+  opponentAssisted2m: number;
+  opponentAssisted3m: number;
+  opponentAssistedFtm: number;
+  opponentPaint2m: number;
+  opponentPaint2a: number;
+  opponentMid2m: number;
+  opponentMid2a: number;
 }
 
 // ---- data/{season}/standings-history.json の保存スキーマ（順位表ページ用） ----
@@ -1171,10 +1203,22 @@ export type LeagueTeamRankingStatTable = Record<string, Record<string, LeagueTea
 
 export interface LeagueTeamRankingsFile {
   generatedAt: string;
-  /** CAREER_TOTAL_DEFSの各key */
+  /** CAREER_TOTAL_DEFSの各key（ホーム/アウェイ問わず全試合が対象＝「トータル」） */
   career: Record<LeagueRankingGameType, LeagueTeamRankingStatTable>;
-  /** TEAM_RECORD_STATSの各key（1試合単位の最高値） */
+  /** TEAM_RECORD_STATSの各key（1試合単位の最高値、トータル） */
   clubRecord: Record<LeagueRankingGameType, LeagueTeamRankingStatTable>;
-  /** シーズン単位の特殊記録（1シーズンの最多勝利数・最多連勝の最高値） */
+  /** シーズン単位の特殊記録（1シーズンの最多勝利数・最多連勝の最高値、トータル） */
   seasonSpecial: Record<LeagueRankingGameType, Record<"wins" | "streak", Record<string, LeagueTeamRankEntry>>>;
+  /**
+   * ホーム/アウェイ限定版（2026-08-29、「歴代記録」タブのホーム/アウェイ/トータル切り替え用に追加）。
+   * 対象試合をisHomeで絞り込んだ上で、career/clubRecord/seasonSpecialと全く同じロジックで
+   * 算出したもの（形はcareer/clubRecord/seasonSpecialと同一）。「トータル」表示は上記の
+   * 既存フィールドをそのまま使う（このホーム/アウェイ限定版とは別に重複保存しない）
+   */
+  careerHome: Record<LeagueRankingGameType, LeagueTeamRankingStatTable>;
+  careerAway: Record<LeagueRankingGameType, LeagueTeamRankingStatTable>;
+  clubRecordHome: Record<LeagueRankingGameType, LeagueTeamRankingStatTable>;
+  clubRecordAway: Record<LeagueRankingGameType, LeagueTeamRankingStatTable>;
+  seasonSpecialHome: Record<LeagueRankingGameType, Record<"wins" | "streak", Record<string, LeagueTeamRankEntry>>>;
+  seasonSpecialAway: Record<LeagueRankingGameType, Record<"wins" | "streak", Record<string, LeagueTeamRankEntry>>>;
 }

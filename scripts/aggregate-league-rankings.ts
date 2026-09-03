@@ -73,21 +73,22 @@ function buildRankTable(entries: { teamId: string; value: number }[], lowerIsBet
   return table;
 }
 
-async function main() {
-  const careerDataByTeam = await loadCareerDataByTeam();
-  console.log(`対象クラブ数（オールスター等の擬似チームを除く）: ${careerDataByTeam.size}`);
+interface CategoryRankings {
+  career: Record<LeagueRankingGameType, Record<string, Record<string, LeagueTeamRankEntry>>>;
+  clubRecord: Record<LeagueRankingGameType, Record<string, Record<string, LeagueTeamRankEntry>>>;
+  seasonSpecial: Record<LeagueRankingGameType, Record<"wins" | "streak", Record<string, LeagueTeamRankEntry>>>;
+}
 
-  const career: Record<LeagueRankingGameType, Record<string, Record<string, LeagueTeamRankEntry>>> = {
-    regular: {},
-    playoff: {},
-    both: {},
-  };
-  const clubRecord: Record<LeagueRankingGameType, Record<string, Record<string, LeagueTeamRankEntry>>> = {
-    regular: {},
-    playoff: {},
-    both: {},
-  };
-  const seasonSpecial: Record<LeagueRankingGameType, Record<"wins" | "streak", Record<string, LeagueTeamRankEntry>>> = {
+/**
+ * career/clubRecord/seasonSpecial（レギュラー/プレーオフ/合算×各項目）を、渡されたteamId別
+ * 試合ログ（既にホーム/アウェイ等の絞り込みが済んでいる想定）から算出する。
+ * 「歴代記録」タブのホーム/アウェイ/トータル切り替え（2026-08-29）用に、venue絞り込み前の
+ * 入力を渡すだけで同じロジックを3回（トータル・ホーム・アウェイ）再利用できるよう関数化した
+ */
+function computeCategoryRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>): CategoryRankings {
+  const career: CategoryRankings["career"] = { regular: {}, playoff: {}, both: {} };
+  const clubRecord: CategoryRankings["clubRecord"] = { regular: {}, playoff: {}, both: {} };
+  const seasonSpecial: CategoryRankings["seasonSpecial"] = {
     regular: { wins: {}, streak: {} },
     playoff: { wins: {}, streak: {} },
     both: { wins: {}, streak: {} },
@@ -145,19 +146,58 @@ async function main() {
     }
     seasonSpecial[gameType].wins = buildRankTable(winsCollected);
     seasonSpecial[gameType].streak = buildRankTable(streakCollected);
+  }
 
+  return { career, clubRecord, seasonSpecial };
+}
+
+/** careerDataByTeamの各チームの試合ログを、指定venue（ホーム/アウェイ）のみに絞り込む。
+ * venue===nullはそのまま（トータル、絞り込みなし） */
+function filterCareerDataByVenue(
+  careerDataByTeam: Map<string, TeamSeasonLogs[]>,
+  venue: "home" | "away" | null,
+): Map<string, TeamSeasonLogs[]> {
+  if (venue === null) return careerDataByTeam;
+  const isHome = venue === "home";
+  return new Map(
+    [...careerDataByTeam].map(([teamId, seasons]) => [
+      teamId,
+      seasons.map((s) => ({ season: s.season, logs: s.logs.filter((g) => g.isHome === isHome) })),
+    ]),
+  );
+}
+
+async function main() {
+  const careerDataByTeam = await loadCareerDataByTeam();
+  console.log(`対象クラブ数（オールスター等の擬似チームを除く）: ${careerDataByTeam.size}`);
+
+  const total = computeCategoryRankings(careerDataByTeam);
+  const home = computeCategoryRankings(filterCareerDataByVenue(careerDataByTeam, "home"));
+  const away = computeCategoryRankings(filterCareerDataByVenue(careerDataByTeam, "away"));
+
+  for (const [label, r] of [
+    ["total", total],
+    ["home", home],
+    ["away", away],
+  ] as const) {
     console.log(
-      `[${gameType}] career対象クラブ数(wins基準)=${Object.keys(career[gameType].wins ?? {}).length} / ` +
-        `clubRecord対象クラブ数(pts基準)=${Object.keys(clubRecord[gameType].pts ?? {}).length} / ` +
-        `seasonSpecial対象クラブ数(wins基準)=${Object.keys(seasonSpecial[gameType].wins).length}`,
+      `[${label}] career対象クラブ数(wins基準/regular)=${Object.keys(r.career.regular.wins ?? {}).length} / ` +
+        `clubRecord対象クラブ数(pts基準/regular)=${Object.keys(r.clubRecord.regular.pts ?? {}).length} / ` +
+        `seasonSpecial対象クラブ数(wins基準/regular)=${Object.keys(r.seasonSpecial.regular.wins).length}`,
     );
   }
 
   const file: LeagueTeamRankingsFile = {
     generatedAt: new Date().toISOString(),
-    career,
-    clubRecord,
-    seasonSpecial,
+    career: total.career,
+    clubRecord: total.clubRecord,
+    seasonSpecial: total.seasonSpecial,
+    careerHome: home.career,
+    careerAway: away.career,
+    clubRecordHome: home.clubRecord,
+    clubRecordAway: away.clubRecord,
+    seasonSpecialHome: home.seasonSpecial,
+    seasonSpecialAway: away.seasonSpecial,
   };
 
   await writeJson(path.join(DATA_DIR, "league-team-rankings.json"), file);

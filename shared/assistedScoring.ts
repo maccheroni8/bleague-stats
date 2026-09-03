@@ -51,6 +51,12 @@ export interface AssistedScoringResult {
   byScorer: Map<string, AssistedScoringCounts>;
   /** "assisterId:scorerId" -> ペア単位の集計（将来のペアランキングUI用。今回はUI未実装） */
   pairs: Map<string, AssistPair>;
+  /**
+   * 得点したチームのteamId -> 被アシスト内訳（byScorerのチーム集計版。2026-08-29、
+   * チーム版Miscタブ拡張用に追加）。マッチした得点イベントのTeamID（=assistEventのTeamID、
+   * 判定条件上必ず一致する）で集計するだけで、新規のPBP走査は発生しない
+   */
+  byTeam: Map<string, AssistedScoringCounts>;
 }
 
 function scoreKindFor(actionCd1: number): keyof AssistedScoringCounts | null {
@@ -63,6 +69,7 @@ function scoreKindFor(actionCd1: number): keyof AssistedScoringCounts | null {
 export function computeAssistedScoring(playByPlays: PlayByPlayEvent[]): AssistedScoringResult {
   const byScorer = new Map<string, AssistedScoringCounts>();
   const pairs = new Map<string, AssistPair>();
+  const byTeam = new Map<string, AssistedScoringCounts>();
 
   for (let i = 0; i < playByPlays.length; i++) {
     const assistEvent = playByPlays[i];
@@ -86,6 +93,12 @@ export function computeAssistedScoring(playByPlays: PlayByPlayEvent[]): Assisted
           const pairEntry = pairs.get(pairKey) ?? { assisterId, scorerId, count: 0 };
           pairEntry.count += 1;
           pairs.set(pairKey, pairEntry);
+
+          if (assistEvent.TeamID) {
+            const teamEntry = byTeam.get(assistEvent.TeamID) ?? { ...ZERO_ASSISTED };
+            teamEntry[kind] += 1;
+            byTeam.set(assistEvent.TeamID, teamEntry);
+          }
         }
         break;
       }
@@ -95,5 +108,5 @@ export function computeAssistedScoring(playByPlays: PlayByPlayEvent[]): Assisted
     }
   }
 
-  return { byScorer, pairs };
+  return { byScorer, pairs, byTeam };
 }

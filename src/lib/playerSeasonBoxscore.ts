@@ -1194,6 +1194,55 @@ export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
     value: (c) => shotChartValue(c, safeDiv(c.raw.mid2m, c.raw.mid2a)),
     description: "MID2M / MID2A（2022-23シーズン以降のみ対応）",
   },
+  // ここから下は「自分自身の全FGAに占める割合」（シュート選択構成比）。上記%3PM/%3PA
+  // （チーム総数に占めるシェア）とは分母が異なる別指標のため、ラベルを明確に区別している
+  // （2026-08-29追加。ユーザー確認済み: 既存%3PM/%3PAはチーム内シェアのまま維持する）
+  {
+    key: "pct3pmown",
+    label: "3PM/FGA",
+    format: (c) => formatPct100(safeDiv(100 * c.raw.tpm, c.raw.fga)),
+    value: (c) => safeDiv(100 * c.raw.tpm, c.raw.fga),
+    description: "自分の3PM / 自分の全FGA。シュート試投に占める3PMの割合",
+  },
+  {
+    key: "pct3paown",
+    label: "3PA/FGA",
+    format: (c) => formatPct100(safeDiv(100 * c.raw.tpa, c.raw.fga)),
+    value: (c) => safeDiv(100 * c.raw.tpa, c.raw.fga),
+    description: "自分の3PA / 自分の全FGA。シュート試投に占める3PAの割合",
+  },
+  {
+    key: "pctpaint2mown",
+    label: "PAINT2M/FGA",
+    format: (c) =>
+      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatPct100(safeDiv(100 * c.raw.paint2m, c.raw.fga)) : NA,
+    value: (c) => shotChartValue(c, safeDiv(100 * c.raw.paint2m, c.raw.fga)),
+    description: "自分のPAINT2M / 自分の全FGA（2022-23シーズン以降のみ対応）",
+  },
+  {
+    key: "pctpaint2aown",
+    label: "PAINT2A/FGA",
+    format: (c) =>
+      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatPct100(safeDiv(100 * c.raw.paint2a, c.raw.fga)) : NA,
+    value: (c) => shotChartValue(c, safeDiv(100 * c.raw.paint2a, c.raw.fga)),
+    description: "自分のPAINT2A / 自分の全FGA（2022-23シーズン以降のみ対応）",
+  },
+  {
+    key: "pctmid2mown",
+    label: "MID2M/FGA",
+    format: (c) =>
+      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatPct100(safeDiv(100 * c.raw.mid2m, c.raw.fga)) : NA,
+    value: (c) => shotChartValue(c, safeDiv(100 * c.raw.mid2m, c.raw.fga)),
+    description: "自分のMID2M / 自分の全FGA（2022-23シーズン以降のみ対応）",
+  },
+  {
+    key: "pctmid2aown",
+    label: "MID2A/FGA",
+    format: (c) =>
+      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatPct100(safeDiv(100 * c.raw.mid2a, c.raw.fga)) : NA,
+    value: (c) => shotChartValue(c, safeDiv(100 * c.raw.mid2a, c.raw.fga)),
+    description: "自分のMID2A / 自分の全FGA（2022-23シーズン以降のみ対応）",
+  },
 ];
 
 export const SEASON_BOX_COLUMNS: Record<SeasonBoxTabKey, SeasonBoxscoreColumn[]> = {

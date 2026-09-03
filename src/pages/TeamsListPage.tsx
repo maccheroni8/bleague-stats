@@ -11,7 +11,7 @@ import {
   fetchTeams,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { useYahooPbpCoverage } from "../lib/useSeasonCoverage";
+import { isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
   ClubHonor,
   ClubHonorsFile,
@@ -196,6 +196,29 @@ interface TeamTotals {
   oppPt2nd: number;
   oppPft: number;
   oppDunks: number;
+  // Misc/スコアリングタブ拡張（2026-08-29）
+  technicalFouls: number;
+  basketCounts: number;
+  unsportsmanlikeFouls: number;
+  disqualifyingFouls: number;
+  assisted2m: number;
+  assisted3m: number;
+  assistedFtm: number;
+  paint2m: number;
+  paint2a: number;
+  mid2m: number;
+  mid2a: number;
+  oppTechnicalFouls: number;
+  oppBasketCounts: number;
+  oppUnsportsmanlikeFouls: number;
+  oppDisqualifyingFouls: number;
+  oppAssisted2m: number;
+  oppAssisted3m: number;
+  oppAssistedFtm: number;
+  oppPaint2m: number;
+  oppPaint2a: number;
+  oppMid2m: number;
+  oppMid2a: number;
 }
 
 const EMPTY_TOTALS: TeamTotals = {
@@ -242,6 +265,28 @@ const EMPTY_TOTALS: TeamTotals = {
   oppPt2nd: 0,
   oppPft: 0,
   oppDunks: 0,
+  technicalFouls: 0,
+  basketCounts: 0,
+  unsportsmanlikeFouls: 0,
+  disqualifyingFouls: 0,
+  assisted2m: 0,
+  assisted3m: 0,
+  assistedFtm: 0,
+  paint2m: 0,
+  paint2a: 0,
+  mid2m: 0,
+  mid2a: 0,
+  oppTechnicalFouls: 0,
+  oppBasketCounts: 0,
+  oppUnsportsmanlikeFouls: 0,
+  oppDisqualifyingFouls: 0,
+  oppAssisted2m: 0,
+  oppAssisted3m: 0,
+  oppAssistedFtm: 0,
+  oppPaint2m: 0,
+  oppPaint2a: 0,
+  oppMid2m: 0,
+  oppMid2a: 0,
 };
 
 function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
@@ -290,6 +335,28 @@ function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
       oppPt2nd: acc.oppPt2nd + g.opponentPt2nd,
       oppPft: acc.oppPft + g.opponentPft,
       oppDunks: acc.oppDunks + g.opponentDunks,
+      technicalFouls: acc.technicalFouls + g.technicalFouls,
+      basketCounts: acc.basketCounts + g.basketCounts,
+      unsportsmanlikeFouls: acc.unsportsmanlikeFouls + g.unsportsmanlikeFouls,
+      disqualifyingFouls: acc.disqualifyingFouls + g.disqualifyingFouls,
+      assisted2m: acc.assisted2m + g.assisted2m,
+      assisted3m: acc.assisted3m + g.assisted3m,
+      assistedFtm: acc.assistedFtm + g.assistedFtm,
+      paint2m: acc.paint2m + g.paint2m,
+      paint2a: acc.paint2a + g.paint2a,
+      mid2m: acc.mid2m + g.mid2m,
+      mid2a: acc.mid2a + g.mid2a,
+      oppTechnicalFouls: acc.oppTechnicalFouls + g.opponentTechnicalFouls,
+      oppBasketCounts: acc.oppBasketCounts + g.opponentBasketCounts,
+      oppUnsportsmanlikeFouls: acc.oppUnsportsmanlikeFouls + g.opponentUnsportsmanlikeFouls,
+      oppDisqualifyingFouls: acc.oppDisqualifyingFouls + g.opponentDisqualifyingFouls,
+      oppAssisted2m: acc.oppAssisted2m + g.opponentAssisted2m,
+      oppAssisted3m: acc.oppAssisted3m + g.opponentAssisted3m,
+      oppAssistedFtm: acc.oppAssistedFtm + g.opponentAssistedFtm,
+      oppPaint2m: acc.oppPaint2m + g.opponentPaint2m,
+      oppPaint2a: acc.oppPaint2a + g.opponentPaint2a,
+      oppMid2m: acc.oppMid2m + g.opponentMid2m,
+      oppMid2a: acc.oppMid2a + g.opponentMid2a,
     }),
     { ...EMPTY_TOTALS },
   );
@@ -548,10 +615,31 @@ function buildMiscColumns(mode: SeasonDisplayMode, perspective: TeamPerspective)
     countColumn("2ndpts", "2ND PTS", (t) => t.pt2nd, (t) => t.oppPt2nd, mode, perspective),
     countColumn("ptsofftov", "PTSOFFTO", (t) => t.pft, (t) => t.oppPft, mode, perspective),
     countColumn("dunk", "DUNK", (t) => t.dunks, (t) => t.oppDunks, mode, perspective),
+    countColumn("tf", "TF", (t) => t.technicalFouls, (t) => t.oppTechnicalFouls, mode, perspective),
+    countColumn("ufoul", "UFOUL", (t) => t.unsportsmanlikeFouls, (t) => t.oppUnsportsmanlikeFouls, mode, perspective),
+    countColumn("dqfoul", "DQFOUL", (t) => t.disqualifyingFouls, (t) => t.oppDisqualifyingFouls, mode, perspective),
+    countColumn("and1", "AND1", (t) => t.basketCounts, (t) => t.oppBasketCounts, mode, perspective),
+    countColumn("ast2m", "AST2M", (t) => t.assisted2m, (t) => t.oppAssisted2m, mode, perspective),
+    countColumn("ast3m", "AST3M", (t) => t.assisted3m, (t) => t.oppAssisted3m, mode, perspective),
+    countColumn("astftm", "ASTFTM", (t) => t.assistedFtm, (t) => t.oppAssistedFtm, mode, perspective),
+    pct100Column(
+      "astpct",
+      "AST%",
+      (t) => safeDiv(100 * (t.assisted2m * 2 + t.assisted3m * 3 + t.assistedFtm), t.pts),
+      (t) => safeDiv(100 * (t.oppAssisted2m * 2 + t.oppAssisted3m * 3 + t.oppAssistedFtm), t.oppPts),
+      perspective,
+    ),
   ];
 }
 
-function buildScoringColumns(perspective: TeamPerspective): Column<AllTeamsRow>[] {
+/** ショットチャート座標が無いシーズン向けの「-」固定列（%PAINT2M等）。DESIGN.md参照 */
+function unavailableColumn(key: string, label: string): Column<AllTeamsRow> {
+  return { key, label, sortValue: () => 0, format: () => "-" };
+}
+
+// %PAINT2M/%PAINT2A/%MID2M/%MID2Aはショットチャート座標（X/Y/AreaCD）由来のため
+// 2022-23シーズン以降のみ対応（paintSupported、呼び出し元でseasonから判定）
+function buildScoringColumns(perspective: TeamPerspective, paintSupported: boolean): Column<AllTeamsRow>[] {
   return [
     ...LEADING_COLUMNS,
     pct100Column("pitppct", "PITP%", (t) => safeDiv(100 * t.pt2in, t.pts), (t) => safeDiv(100 * t.oppPt2in, t.oppPts), perspective),
@@ -570,6 +658,46 @@ function buildScoringColumns(perspective: TeamPerspective): Column<AllTeamsRow>[
       (t) => safeDiv(100 * t.oppPft, t.oppPts),
       perspective,
     ),
+    // ここから下は「自チーム/相手チームの全FGAに対する割合」（シュート選択構成比）。
+    // 上記PITP%等（総得点に対する割合）とは分母が異なる別系統の指標
+    pct100Column("pct3pm", "%3PM", (t) => safeDiv(100 * t.tpm, t.fga), (t) => safeDiv(100 * t.oppTpm, t.oppFga), perspective),
+    pct100Column("pct3pa", "%3PA", (t) => safeDiv(100 * t.tpa, t.fga), (t) => safeDiv(100 * t.oppTpa, t.oppFga), perspective),
+    paintSupported
+      ? pct100Column(
+          "pctpaint2m",
+          "%PAINT2M",
+          (t) => safeDiv(100 * t.paint2m, t.fga),
+          (t) => safeDiv(100 * t.oppPaint2m, t.oppFga),
+          perspective,
+        )
+      : unavailableColumn("pctpaint2m", "%PAINT2M"),
+    paintSupported
+      ? pct100Column(
+          "pctpaint2a",
+          "%PAINT2A",
+          (t) => safeDiv(100 * t.paint2a, t.fga),
+          (t) => safeDiv(100 * t.oppPaint2a, t.oppFga),
+          perspective,
+        )
+      : unavailableColumn("pctpaint2a", "%PAINT2A"),
+    paintSupported
+      ? pct100Column(
+          "pctmid2m",
+          "%MID2M",
+          (t) => safeDiv(100 * t.mid2m, t.fga),
+          (t) => safeDiv(100 * t.oppMid2m, t.oppFga),
+          perspective,
+        )
+      : unavailableColumn("pctmid2m", "%MID2M"),
+    paintSupported
+      ? pct100Column(
+          "pctmid2a",
+          "%MID2A",
+          (t) => safeDiv(100 * t.mid2a, t.fga),
+          (t) => safeDiv(100 * t.oppMid2a, t.oppFga),
+          perspective,
+        )
+      : unavailableColumn("pctmid2a", "%MID2A"),
   ];
 }
 
@@ -593,9 +721,26 @@ function combinedShotTypeCounts(team: TeamSummary, key: string): ShotTypeCounts 
   return sumShotTypeCounts(split.twoPoint, split.threePoint);
 }
 
-function shotTypePct(team: TeamSummary, key: string): number {
+/** シューティング（シュートタイプ別）表の並び替え基準。DESIGN.md参照
+ * （2026-08-29、成功率のみだったソートを成功数・試投数にも対応させた） */
+type ShootingSortBasis = "made" | "attempted" | "pct";
+const SHOOTING_SORT_BASIS_LABELS: Record<ShootingSortBasis, string> = {
+  made: "成功数",
+  attempted: "試投数",
+  pct: "成功率",
+};
+
+function shotTypeSortValue(team: TeamSummary, key: string, basis: ShootingSortBasis): number {
   const counts = combinedShotTypeCounts(team, key);
-  return counts && counts.attempted > 0 ? counts.made / counts.attempted : -1;
+  if (!counts) return -1;
+  switch (basis) {
+    case "made":
+      return counts.made;
+    case "attempted":
+      return counts.attempted;
+    case "pct":
+      return counts.attempted > 0 ? counts.made / counts.attempted : -1;
+  }
 }
 
 interface TurnoverRow {
@@ -610,6 +755,8 @@ function turnoverTotal(data: TeamForcedTurnovers): number {
 function AllTeamsStatsTab({ season }: { season: string }) {
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
   const { supported: yahooPbpSupported } = useYahooPbpCoverage(season);
+  const { coverage } = useSeasonCoverage(season);
+  const paintSupported = isShotChartSupported(coverage);
 
   const [gameLogsByTeam, setGameLogsByTeam] = useState<Map<string, TeamGameLog[]> | null>(null);
   const [gameLogsLoading, setGameLogsLoading] = useState(true);
@@ -666,6 +813,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const [filter, setFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
   const [teamPerspective, setTeamPerspective] = useState<TeamPerspective>("own");
   const [turnoverPerspective, setTurnoverPerspective] = useState<"forced" | "committed">("forced");
+  const [shootingSortBasis, setShootingSortBasis] = useState<ShootingSortBasis>("pct");
 
   const opponentRecords = useMemo<Map<string, Map<string, RecordBeforeGame>> | undefined>(
     () => (summaries ? buildRecordsBeforeGame(summaries) : undefined),
@@ -692,9 +840,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       case "misc":
         return buildMiscColumns(displayMode, teamPerspective);
       case "scoring":
-        return buildScoringColumns(teamPerspective);
+        return buildScoringColumns(teamPerspective, paintSupported);
     }
-  }, [boxTab, displayMode, teamPerspective]);
+  }, [boxTab, displayMode, teamPerspective, paintSupported]);
 
   const shootingRows: ShootingRow[] = (teams ?? []).filter((t) => t.shotTypes).map((team) => ({ team }));
   const shotTypeKeys = sortShotTypeKeys([...new Set(shootingRows.flatMap((r) => Object.keys(r.team.shotTypes ?? {})))]);
@@ -715,7 +863,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       (key): Column<ShootingRow> => ({
         key,
         label: shotTypeLabel(key),
-        sortValue: (r) => shotTypePct(r.team, key),
+        sortValue: (r) => shotTypeSortValue(r.team, key, shootingSortBasis),
         format: (r) => formatShotTypeCell(combinedShotTypeCounts(r.team, key)),
       }),
     ),
@@ -813,7 +961,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         </div>
       )}
       <p className="page-subtitle">
-        team-games/{"{teamId}"}.json（試合ログ）から選択中の条件で再集計した値。BSR（被ブロック）・EFF（貢献度）・AND1・UFOUL/DQFOUL・被アシスト内訳・LIVETOV/DEADTOV・ペイント内外分割は、26チーム分を試合の生データから再集計すると通信量が大きくなりすぎるため、この一覧には含めていない（チーム詳細ページの「チームスタッツ」タブでは1チーム分に限り表示している）
+        team-games/{"{teamId}"}.json（試合ログ）から選択中の条件で再集計した値。BSR（被ブロック）・EFF（貢献度）・LIVETOV/DEADTOVは、26チーム分を試合の生データから再集計すると通信量が大きくなりすぎるため、この一覧には含めていない（チーム詳細ページの「チームスタッツ」タブでは1チーム分に限り表示している）
       </p>
 
       <h2>シューティング（シュートタイプ別）</h2>
@@ -821,6 +969,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         <p className="empty-message">このシーズンのデータには対応していません</p>
       ) : (
         <>
+          <div className="mode-toggle">
+            {(Object.keys(SHOOTING_SORT_BASIS_LABELS) as ShootingSortBasis[]).map((b) => (
+              <button key={b} className={b === shootingSortBasis ? "active" : ""} onClick={() => setShootingSortBasis(b)} type="button">
+                {SHOOTING_SORT_BASIS_LABELS[b]}
+              </button>
+            ))}
+          </div>
           <div className="table-scroll">
             <SortableTable
               columns={shootingColumns}
@@ -918,17 +1073,32 @@ function formatLeagueRecordValue(category: RecordsCategory, statKey: string, val
   return value.toLocaleString();
 }
 
+// 「歴代記録」タブのホーム/アウェイ/トータル切り替え（2026-08-29）。トータルは既存の
+// career/clubRecord/seasonSpecial、ホーム/アウェイはaggregate-league-rankings.tsが別途
+// 算出済みのcareerHome/careerAway等（scripts参照）を参照するだけで、フロントエンド側の
+// 追加集計は不要
+type LeagueVenue = "total" | "home" | "away";
+const LEAGUE_VENUE_LABELS: Record<LeagueVenue, string> = { total: "トータル", home: "ホーム", away: "アウェイ" };
+
 function leagueEntriesFor(
   rankings: LeagueTeamRankingsFile | null,
   category: RecordsCategory,
+  venue: LeagueVenue,
   gameType: SeasonGameTypeFilter,
   statKey: string,
 ): Record<string, LeagueTeamRankEntry> | undefined {
   if (!rankings) return undefined;
   if (category === "seasonSpecial") {
-    return statKey === "wins" || statKey === "streak" ? rankings.seasonSpecial[gameType][statKey] : undefined;
+    if (statKey !== "wins" && statKey !== "streak") return undefined;
+    const table = venue === "total" ? rankings.seasonSpecial : venue === "home" ? rankings.seasonSpecialHome : rankings.seasonSpecialAway;
+    return table[gameType][statKey];
   }
-  return rankings[category][gameType][statKey];
+  if (category === "career") {
+    const table = venue === "total" ? rankings.career : venue === "home" ? rankings.careerHome : rankings.careerAway;
+    return table[gameType][statKey];
+  }
+  const table = venue === "total" ? rankings.clubRecord : venue === "home" ? rankings.clubRecordHome : rankings.clubRecordAway;
+  return table[gameType][statKey];
 }
 
 // TEAM_NAMES（scripts/lib/divisions.ts）は現行B.PREMIER26クラブのみを収録している
@@ -1008,6 +1178,7 @@ function LeagueRecordsTab() {
   const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
 
   const [category, setCategory] = useState<RecordsCategory>("career");
+  const [venue, setVenue] = useState<LeagueVenue>("total");
   const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
   const [statKey, setStatKey] = useState("wins");
 
@@ -1022,7 +1193,7 @@ function LeagueRecordsTab() {
   if (rankingsError) return <p className="error-message">{rankingsError}</p>;
   if (!rankings) return <p className="empty-message">データがありません</p>;
 
-  const entries = leagueEntriesFor(rankings, category, gameType, statKey);
+  const entries = leagueEntriesFor(rankings, category, venue, gameType, statKey);
   const rows: LeagueRecordRow[] = entries
     ? Object.entries(entries)
         .map(([teamId, entry]) => ({ teamId, entry }))
@@ -1046,6 +1217,13 @@ function LeagueRecordsTab() {
         ))}
       </div>
       <div className="mode-toggle">
+        {(Object.keys(LEAGUE_VENUE_LABELS) as LeagueVenue[]).map((v) => (
+          <button key={v} className={v === venue ? "active" : ""} onClick={() => setVenue(v)} type="button">
+            {LEAGUE_VENUE_LABELS[v]}
+          </button>
+        ))}
+      </div>
+      <div className="mode-toggle">
         {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
           <button key={g} className={g === gameType ? "active" : ""} onClick={() => setGameType(g)} type="button">
             {SEASON_GAME_TYPE_LABELS[g]}
@@ -1061,7 +1239,7 @@ function LeagueRecordsTab() {
       </div>
 
       {rows.length === 0 ? (
-        <p className="empty-message">このレギュラー/プレーオフ区分・項目では該当クラブがありません</p>
+        <p className="empty-message">この条件（ホーム/アウェイ/トータル・レギュラー/プレーオフ区分・項目）では該当クラブがありません</p>
       ) : (
         <div className="table-scroll">
           <table className="sortable-table rankings-table">
