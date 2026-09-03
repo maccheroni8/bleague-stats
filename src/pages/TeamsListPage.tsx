@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import {
   fetchDivisionHistory,
   fetchGameSummaries,
+  fetchLeagueTeamRankings,
   fetchTeamGameLogs,
   fetchTeams,
 } from "../lib/data";
@@ -11,6 +12,8 @@ import { useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
   DivisionHistoryFile,
   GameSummary,
+  LeagueTeamRankEntry,
+  LeagueTeamRankingsFile,
   ShotTypeCounts,
   TeamForcedTurnovers,
   TeamGameLog,
@@ -18,6 +21,7 @@ import type {
 } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { TeamLogo } from "../components/TeamLogo";
+import { SeasonLink } from "../components/SeasonLink";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import {
   buildRecordsBeforeGame,
@@ -37,14 +41,17 @@ import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned } fr
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
 import { formatShotTypeCell, shotTypeLabel, sortShotTypeKeys, sumShotTypeCounts } from "../lib/shotTypeBreakdown";
+import { CAREER_TOTAL_DEFS, TEAM_RECORD_STATS } from "../../shared/teamRecords";
+import { ONE_TEAM_DIVISIONS, TEAM_DIVISIONS, TEAM_NAMES } from "../../scripts/lib/divisions";
 
-type TeamsPageTab = "list" | "stats";
+type TeamsPageTab = "list" | "stats" | "records";
 
 // 「チーム」ページのタブ構成。「一覧」は元々あったチーム一覧（ロゴ＋シーズン成績の表）、
-// 「全チームスタッツ」は旧/teams/statsページを移設したもの。タブ切り替え自体はURLに
-// 同期しない（TeamDetailPage.tsxのタブと同じ、プレーンなuseStateのパターンを踏襲）が、
-// 旧/teams/statsへのリンクから遷移してきた場合のみ、Navigateのstateで初期タブを
-// 「全チームスタッツ」に指定する（下記TeamsStatsRedirect参照）
+// 「全チームスタッツ」は旧/teams/statsページを移設したもの、「歴代記録」は
+// data/league-team-rankings.json（Phase H7）を使った過去在籍全クラブ横断のランキング。
+// タブ切り替え自体はURLに同期しない（TeamDetailPage.tsxのタブと同じ、プレーンなuseStateの
+// パターンを踏襲）が、旧/teams/statsへのリンクから遷移してきた場合のみ、Navigateのstateで
+// 初期タブを「全チームスタッツ」に指定する（下記TeamsStatsRedirect参照）
 export function TeamsListPage({ season }: { season: string }) {
   const location = useLocation();
   const initialTab = (location.state as { tab?: TeamsPageTab } | null)?.tab ?? "list";
@@ -69,8 +76,21 @@ export function TeamsListPage({ season }: { season: string }) {
         >
           全チームスタッツ
         </button>
+        <button
+          className={`tab-button${tab === "records" ? " active" : ""}`}
+          onClick={() => setTab("records")}
+          type="button"
+        >
+          歴代記録
+        </button>
       </div>
-      {tab === "list" ? <TeamsOverviewTab season={season} /> : <AllTeamsStatsTab season={season} />}
+      {tab === "list" ? (
+        <TeamsOverviewTab season={season} />
+      ) : tab === "stats" ? (
+        <AllTeamsStatsTab season={season} />
+      ) : (
+        <LeagueRecordsTab />
+      )}
     </div>
   );
 }
@@ -724,6 +744,217 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           </div>
           <p className="page-subtitle">レギュラーシーズン・シーズン合計のみ（上部の切り替えとは連動しない）</p>
         </>
+      )}
+    </div>
+  );
+}
+
+// 「歴代記録」タブ。data/league-team-rankings.json（Phase H7）を使い、過去在籍した全30クラブ
+// 横断で通算成績（CAREER_TOTAL_DEFS・27項目）・クラブレコード（TEAM_RECORD_STATS・29項目）・
+// シーズン記録（最多勝利数・最多連勝・2項目）それぞれのランキングを表示する。順位・対象クラブ数は
+// JSON側で既に算出済みのため、フロントエンドは項目・レギュラー/プレーオフ/合算を選んで該当の
+// [statKey][teamId]テーブルをrank昇順に並べ替えるだけでよい
+type RecordsCategory = "career" | "clubRecord" | "seasonSpecial";
+
+const RECORDS_CATEGORY_LABELS: Record<RecordsCategory, string> = {
+  career: "通算成績",
+  clubRecord: "クラブレコード",
+  seasonSpecial: "シーズン記録",
+};
+
+interface RecordsStatOption {
+  key: string;
+  label: string;
+}
+
+const SEASON_SPECIAL_STAT_OPTIONS: RecordsStatOption[] = [
+  { key: "wins", label: "最多勝利数（1シーズン）" },
+  { key: "streak", label: "最多連勝（シーズン内）" },
+];
+
+function recordsStatOptions(category: RecordsCategory): RecordsStatOption[] {
+  switch (category) {
+    case "career":
+      return CAREER_TOTAL_DEFS.map((d) => ({ key: d.key, label: d.label }));
+    case "clubRecord":
+      return TEAM_RECORD_STATS.map((d) => ({ key: d.key, label: d.label }));
+    case "seasonSpecial":
+      return SEASON_SPECIAL_STAT_OPTIONS;
+  }
+}
+
+// クラブレコードの%系4項目（TeamDetailPage.tsxのTEAM_RECORD_PCT_FORMATSと同じ対象）のみ%表記、
+// それ以外は桁区切り数値。通算成績は常に桁区切り数値、シーズン記録は「◯勝」「◯連勝」表記にする
+const CLUB_RECORD_PCT_KEYS = new Set(["fgPct", "twoPct", "tpPct", "ftPct"]);
+
+function formatLeagueRecordValue(category: RecordsCategory, statKey: string, value: number): string {
+  if (category === "clubRecord" && CLUB_RECORD_PCT_KEYS.has(statKey)) return formatPct(value);
+  if (category === "seasonSpecial") return statKey === "wins" ? `${value}勝` : `${value}連勝`;
+  return value.toLocaleString();
+}
+
+function leagueEntriesFor(
+  rankings: LeagueTeamRankingsFile | null,
+  category: RecordsCategory,
+  gameType: SeasonGameTypeFilter,
+  statKey: string,
+): Record<string, LeagueTeamRankEntry> | undefined {
+  if (!rankings) return undefined;
+  if (category === "seasonSpecial") {
+    return statKey === "wins" || statKey === "streak" ? rankings.seasonSpecial[gameType][statKey] : undefined;
+  }
+  return rankings[category][gameType][statKey];
+}
+
+// TEAM_NAMES（scripts/lib/divisions.ts）は現行B.PREMIER26クラブのみを収録している
+// （その出典・用途が26クラブに固定されているため）。過去在籍のみで現在はB.ONEに所属する
+// 4クラブ（新潟・FE名古屋・越谷・ライジングゼファー福岡）の名称はここで補う
+const EXTRA_TEAM_NAMES: Record<string, string> = {
+  "695": "新潟アルビレックスBB",
+  "717": "ファイティングイーグルス名古屋",
+  "745": "越谷アルファーズ",
+  "753": "ライジングゼファー福岡",
+};
+
+function leagueTeamDisplayName(teamId: string): string {
+  return TEAM_NAMES[teamId] ?? EXTRA_TEAM_NAMES[teamId] ?? teamId;
+}
+
+// 現在の所属カテゴリ（要件3: 降格済み・退会済みクラブと現行クラブを区別する注記）。
+// TEAM_DIVISIONS/ONE_TEAM_DIVISIONSはいずれも2026-27シーズン基準の現行クラブ一覧
+function leagueTeamCurrentCategoryLabel(teamId: string): string {
+  if (teamId in TEAM_DIVISIONS) return "B.PREMIER";
+  if (teamId in ONE_TEAM_DIVISIONS) return "B.ONE";
+  return "対象外";
+}
+
+// 現行B.PREMIERクラブでないチーム（B.ONEへ降格済み等）は、現在選択中のシーズンに向けて
+// リンクしても対象シーズンにそのクラブが存在せず「チームが見つかりませんでした」になってしまう
+// （23章で確立された挙動）。そのため、そのクラブが最後にB.PREMIERに在籍していたシーズンを
+// division-history.jsonから求め、明示的な?season=付きでリンクする
+function lastPremierSeasonFor(divisionHistory: DivisionHistoryFile | null | undefined, teamId: string): string | undefined {
+  if (!divisionHistory) return undefined;
+  const seasons = Object.keys(divisionHistory.premier).filter(
+    (s) => divisionHistory.premier[s]?.[teamId] !== undefined,
+  );
+  return seasons.sort().at(-1);
+}
+
+interface LeagueRecordRow {
+  teamId: string;
+  entry: LeagueTeamRankEntry;
+}
+
+function LeagueRecordsTab() {
+  const {
+    data: rankings,
+    loading: rankingsLoading,
+    error: rankingsError,
+  } = useJsonData(() => fetchLeagueTeamRankings(), []);
+  const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
+
+  const [category, setCategory] = useState<RecordsCategory>("career");
+  const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
+  const [statKey, setStatKey] = useState("wins");
+
+  const statOptions = recordsStatOptions(category);
+
+  const selectCategory = (next: RecordsCategory) => {
+    setCategory(next);
+    setStatKey(recordsStatOptions(next)[0]!.key);
+  };
+
+  if (rankingsLoading) return <p className="loading">読み込み中...</p>;
+  if (rankingsError) return <p className="error-message">{rankingsError}</p>;
+  if (!rankings) return <p className="empty-message">データがありません</p>;
+
+  const entries = leagueEntriesFor(rankings, category, gameType, statKey);
+  const rows: LeagueRecordRow[] = entries
+    ? Object.entries(entries)
+        .map(([teamId, entry]) => ({ teamId, entry }))
+        .sort((a, b) => a.entry.rank - b.entry.rank)
+    : [];
+  const totalTeams = Object.keys(rankings.career.regular.wins ?? {}).length;
+  const activeLabel = statOptions.find((d) => d.key === statKey)?.label ?? statKey;
+
+  return (
+    <div>
+      <p className="page-subtitle">
+        過去在籍した全{totalTeams}クラブ横断のランキング（{rankings.generatedAt.slice(0, 10)}
+        時点。手動バッチで随時更新）。チーム名の下は現在の所属カテゴリ
+      </p>
+
+      <div className="mode-toggle">
+        {(Object.keys(RECORDS_CATEGORY_LABELS) as RecordsCategory[]).map((c) => (
+          <button key={c} className={c === category ? "active" : ""} onClick={() => selectCategory(c)} type="button">
+            {RECORDS_CATEGORY_LABELS[c]}
+          </button>
+        ))}
+      </div>
+      <div className="mode-toggle">
+        {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
+          <button key={g} className={g === gameType ? "active" : ""} onClick={() => setGameType(g)} type="button">
+            {SEASON_GAME_TYPE_LABELS[g]}
+          </button>
+        ))}
+      </div>
+      <div className="stat-picker">
+        {statOptions.map((d) => (
+          <button key={d.key} className={d.key === statKey ? "active" : ""} onClick={() => setStatKey(d.key)} type="button">
+            {d.label}
+          </button>
+        ))}
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="empty-message">このレギュラー/プレーオフ区分・項目では該当クラブがありません</p>
+      ) : (
+        <div className="table-scroll">
+          <table className="sortable-table rankings-table">
+            <thead>
+              <tr>
+                <th className="align-right">#</th>
+                <th className="align-left">チーム</th>
+                <th className="align-right">{activeLabel}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const isCurrentPremier = r.teamId in TEAM_DIVISIONS;
+                const lastSeason = isCurrentPremier ? undefined : lastPremierSeasonFor(divisionHistory, r.teamId);
+                const nameCell = (
+                  <span className="team-name-cell">
+                    <TeamLogo teamId={r.teamId} size={20} />
+                    <span className="rank-name-cell">
+                      <span className="rank-name">{leagueTeamDisplayName(r.teamId)}</span>
+                      <span className="rank-sublabel">現在: {leagueTeamCurrentCategoryLabel(r.teamId)}</span>
+                    </span>
+                  </span>
+                );
+                return (
+                  <tr key={r.teamId}>
+                    <td className="align-right rank-cell">{r.entry.rank}</td>
+                    <td className="align-left">
+                      {isCurrentPremier ? (
+                        <SeasonLink to={`/teams/${r.teamId}`} className="cell-link">
+                          {nameCell}
+                        </SeasonLink>
+                      ) : (
+                        <Link
+                          to={lastSeason ? `/teams/${r.teamId}?season=${lastSeason}` : `/teams/${r.teamId}`}
+                          className="cell-link"
+                        >
+                          {nameCell}
+                        </Link>
+                      )}
+                    </td>
+                    <td className="align-right rank-value">{formatLeagueRecordValue(category, statKey, r.entry.value)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
