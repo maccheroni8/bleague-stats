@@ -50,14 +50,15 @@ import { formatShotTypeCell, shotTypeLabel, sortShotTypeKeys, sumShotTypeCounts 
 import { CAREER_TOTAL_DEFS, TEAM_RECORD_STATS, currentStreak, type TeamStreak } from "../../shared/teamRecords";
 import { ONE_TEAM_DIVISIONS, TEAM_DIVISIONS, TEAM_NAMES } from "../../scripts/lib/divisions";
 
-type TeamsPageTab = "stats" | "records" | "champions" | "power";
+type TeamsPageTab = "stats" | "records" | "champions" | "recent";
 
 // 「チーム」ページのタブ構成。「全チームスタッツ」は元々の「一覧」（ロゴ＋シーズン成績の表）を
 // 統合したもの（各行の先頭にロゴ・試合数・勝敗・勝率を置き、その後ろにトラディショナル/
 // アドバンスド/Misc/スコアリングの項目を続ける、チーム詳細ページ「シーズン別成績」と同じ
 // 載せ方）。「歴代記録」はdata/league-team-rankings.json（Phase H7）を使った過去在籍全クラブ
 // 横断のランキング、「歴代王者」はdata/club-honors.jsonを使ったシーズン軸の年間王者年表、
-// 「パワーランキング」は現行26クラブを対象に直近5/10試合の成績・現在の連勝/連敗で順位付けする。
+// 「直近成績」は現行26クラブを対象に直近5/10試合の成績・ORtg/DRtg/NetRtg・現在の連勝/連敗で
+// 順位付けする。
 // タブ切り替え自体はURLに同期しない（TeamDetailPage.tsxのタブと同じ、プレーンなuseStateの
 // パターンを踏襲）が、旧/teams/statsへのリンクから遷移してきた場合のみ、Navigateのstateで
 // 初期タブを「全チームスタッツ」に指定する（下記TeamsStatsRedirect参照）
@@ -93,11 +94,11 @@ export function TeamsListPage({ season }: { season: string }) {
           歴代王者
         </button>
         <button
-          className={`tab-button${tab === "power" ? " active" : ""}`}
-          onClick={() => setTab("power")}
+          className={`tab-button${tab === "recent" ? " active" : ""}`}
+          onClick={() => setTab("recent")}
           type="button"
         >
-          パワーランキング
+          直近成績
         </button>
       </div>
       {tab === "stats" ? (
@@ -107,7 +108,7 @@ export function TeamsListPage({ season }: { season: string }) {
       ) : tab === "champions" ? (
         <ChampionsTab />
       ) : (
-        <PowerRankingTab season={season} />
+        <RecentFormTab season={season} />
       )}
     </div>
   );
@@ -1341,21 +1342,33 @@ function ChampionsTab() {
   );
 }
 
-// 「パワーランキング」タブ。現行26クラブ（過去在籍クラブは対象外、fetchTeams(season)が
+// 「直近成績」タブ。現行26クラブ（過去在籍クラブは対象外、fetchTeams(season)が
 // そのまま現行クラブのみを返すため追加のフィルタは不要）を対象に、直近5試合/直近10試合の
 // 成績（situational.tsの「直近N試合」フィルタ＝{kind:"recent",n}をそのまま再利用。
 // レギュラーシーズン・プレーオフを合算して「直近」を数える）でランキング表示する。
-// 現在の連勝/連敗はshared/teamRecords.tsのcurrentStreak()（longestWinStreak()と同じ
-// ロジックを「シーズン最長」ではなく「末尾から遡った現在進行中の記録」に応用したもの）で、
-// 直近N試合の絞り込みとは独立にそのチームの今シーズン全試合から算出する
-const POWER_RANKING_RECENT_N_OPTIONS = [5, 10] as const;
-type PowerRankingRecentN = (typeof POWER_RANKING_RECENT_N_OPTIONS)[number];
+// ORtg/DRtg/NetRtgは、既存のチーム集計（teams.jsonのadvanced、6章のPOSS方式）と同じ
+// 「試合単位で確定済みのPOSS値をそのまま合算してから式を1回だけ適用する」方針を、直近N試合
+// の範囲に絞り込んだ上で再利用する（AllTeamsStatsTabのbuildAdvancedColumnsと同じ考え方）。
+// 対戦相手の加重平均勝率は算出方法未確定のため未実装（別途対応）。現在の連勝/連敗は
+// shared/teamRecords.tsのcurrentStreak()（longestWinStreak()と同じロジックを「シーズン最長」
+// ではなく「末尾から遡った現在進行中の記録」に応用したもの）で、直近N試合の絞り込みとは
+// 独立にそのチームの今シーズン全試合から算出する
+const RECENT_FORM_N_OPTIONS = [5, 10] as const;
+type RecentFormRecentN = (typeof RECENT_FORM_N_OPTIONS)[number];
 
-interface PowerRankingRow {
+interface RecentFormRow {
   team: TeamSummary;
   gamesPlayed: number;
   wins: number;
   losses: number;
+  ptsAvg: number;
+  oppPtsAvg: number;
+  netAvg: number;
+  ortg: number;
+  drtg: number;
+  netrtg: number;
+  /** 対戦相手のその試合時点までの勝率の単純平均。算出対象の試合が1件も無ければundefined */
+  oppWinPctAvg: number | undefined;
   streak: TeamStreak | null;
 }
 
@@ -1364,12 +1377,13 @@ function formatTeamStreak(streak: TeamStreak | null): string {
   return streak.type === "win" ? `${streak.count}連勝` : `${streak.count}連敗`;
 }
 
-function PowerRankingTab({ season }: { season: string }) {
+function RecentFormTab({ season }: { season: string }) {
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
 
   const [gameLogsByTeam, setGameLogsByTeam] = useState<Map<string, TeamGameLog[]> | null>(null);
   const [gameLogsLoading, setGameLogsLoading] = useState(true);
-  const [recentN, setRecentN] = useState<PowerRankingRecentN>(5);
+  const [summaries, setSummaries] = useState<GameSummary[] | null>(null);
+  const [recentN, setRecentN] = useState<RecentFormRecentN>(5);
 
   useEffect(() => {
     if (!teams) return;
@@ -1396,17 +1410,69 @@ function PowerRankingTab({ season }: { season: string }) {
     };
   }, [teams, season]);
 
-  const rows: PowerRankingRow[] = useMemo(() => {
+  // 「対戦相手の加重平均勝率」用。既存のbuildRecordsBeforeGame()（対勝率別フィルタ・48章と
+  // 同じロジック）をそのまま再利用し、各対戦相手のその試合時点までの勝敗数を求める
+  useEffect(() => {
+    let cancelled = false;
+    setSummaries(null);
+    fetchGameSummaries(season)
+      .then((s) => {
+        if (!cancelled) setSummaries(s);
+      })
+      .catch(() => {
+        // 対戦相手の加重平均勝率が算出できなくなるだけなので、失敗しても他の項目は継続する
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [season]);
+
+  const opponentRecords = useMemo<Map<string, Map<string, RecordBeforeGame>> | undefined>(
+    () => (summaries ? buildRecordsBeforeGame(summaries) : undefined),
+    [summaries],
+  );
+
+  const rows: RecentFormRow[] = useMemo(() => {
     if (!teams || !gameLogsByTeam) return [];
     return teams.map((team) => {
       const logs = gameLogsByTeam.get(team.teamId) ?? [];
       const recentLogs = filterGameLogs(logs, { kind: "recent", n: recentN, includePlayoffs: true });
       const wins = recentLogs.filter((g) => g.win).length;
-      return { team, gamesPlayed: recentLogs.length, wins, losses: recentLogs.length - wins, streak: currentStreak(logs) };
+      const gamesPlayed = recentLogs.length;
+      const ptsSum = recentLogs.reduce((s, g) => s + g.teamScore, 0);
+      const oppPtsSum = recentLogs.reduce((s, g) => s + g.opponentScore, 0);
+      const possSum = recentLogs.reduce((s, g) => s + g.poss, 0);
+      const ptsAvg = safeDiv(ptsSum, gamesPlayed);
+      const oppPtsAvg = safeDiv(oppPtsSum, gamesPlayed);
+      const ortg = offensiveRating(ptsSum, possSum);
+      const drtg = offensiveRating(oppPtsSum, possSum);
+      // 各対戦相手の「その試合時点までの」勝率を求め、単純平均する。対戦相手の消化試合数が
+      // 0（記録が無い、または未消化）の試合は対象外にする（48-5章の対勝率別フィルタと同様、
+      // 0試合を勝率0扱いにすると不当に低く出てしまうため）
+      const oppWinPcts = recentLogs.flatMap((g) => {
+        const rec = opponentRecords?.get(g.scheduleKey)?.get(g.opponentTeamId);
+        if (!rec || rec.wins + rec.losses === 0) return [];
+        return [safeDiv(rec.wins, rec.wins + rec.losses)];
+      });
+      const oppWinPctAvg = oppWinPcts.length > 0 ? safeDiv(oppWinPcts.reduce((s, v) => s + v, 0), oppWinPcts.length) : undefined;
+      return {
+        team,
+        gamesPlayed,
+        wins,
+        losses: gamesPlayed - wins,
+        ptsAvg,
+        oppPtsAvg,
+        netAvg: ptsAvg - oppPtsAvg,
+        ortg,
+        drtg,
+        netrtg: ortg - drtg,
+        oppWinPctAvg,
+        streak: currentStreak(logs),
+      };
     });
-  }, [teams, gameLogsByTeam, recentN]);
+  }, [teams, gameLogsByTeam, opponentRecords, recentN]);
 
-  const columns: Column<PowerRankingRow>[] = [
+  const columns: Column<RecentFormRow>[] = [
     {
       key: "team",
       label: "チーム",
@@ -1432,6 +1498,18 @@ function PowerRankingTab({ season }: { season: string }) {
       sortValue: (r) => safeDiv(r.wins, r.wins + r.losses),
       format: (r) => formatWinPct(safeDiv(r.wins, r.wins + r.losses)),
     },
+    { key: "pts", label: "平均得点", sortValue: (r) => r.ptsAvg, format: (r) => formatDecimal(r.ptsAvg) },
+    { key: "oppPts", label: "平均失点", sortValue: (r) => r.oppPtsAvg, format: (r) => formatDecimal(r.oppPtsAvg) },
+    { key: "net", label: "平均得失点", sortValue: (r) => r.netAvg, format: (r) => formatSigned(r.netAvg) },
+    { key: "ortg", label: "ORtg", sortValue: (r) => r.ortg, format: (r) => formatDecimal(r.ortg) },
+    { key: "drtg", label: "DRtg", sortValue: (r) => r.drtg, format: (r) => formatDecimal(r.drtg) },
+    { key: "netrtg", label: "NETRtg", sortValue: (r) => r.netrtg, format: (r) => formatSigned(r.netrtg) },
+    {
+      key: "oppWinPct",
+      label: "対戦相手の加重平均勝率",
+      sortValue: (r) => r.oppWinPctAvg ?? -1,
+      format: (r) => (r.oppWinPctAvg !== undefined ? formatWinPct(r.oppWinPctAvg) : "-"),
+    },
     {
       key: "streak",
       label: "連勝/連敗",
@@ -1448,11 +1526,13 @@ function PowerRankingTab({ season }: { season: string }) {
     <div>
       <p className="page-subtitle">
         現行{teams.length}クラブの直近{recentN}試合の成績によるランキング（レギュラーシーズン・
-        プレーオフ合算）。連勝/連敗は直近{recentN}試合の絞り込みとは独立に、今シーズンの
+        プレーオフ合算）。ORtg/DRtg/NETRtgは直近{recentN}試合の合算値から算出。対戦相手の加重平均
+        勝率は、直近{recentN}試合の各対戦相手のその試合時点までの勝率を単純平均したもの（対戦相手が
+        未消化の試合は対象外）。連勝/連敗は直近{recentN}試合の絞り込みとは独立に、今シーズンの
         全試合を通して現在何連勝/連敗中かを示す
       </p>
       <div className="mode-toggle">
-        {POWER_RANKING_RECENT_N_OPTIONS.map((n) => (
+        {RECENT_FORM_N_OPTIONS.map((n) => (
           <button key={n} className={n === recentN ? "active" : ""} onClick={() => setRecentN(n)} type="button">
             直近{n}試合
           </button>
