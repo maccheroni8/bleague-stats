@@ -432,54 +432,44 @@ interface CompareSlotState {
 
 function defaultCompareSlots(season: string): [CompareSlotState, CompareSlotState] {
   return [
-    { season, filter: { kind: "all" } },
-    { season: "", filter: { kind: "all" } },
+    { season, filter: { range: { kind: "all" } } },
+    { season: "", filter: { range: { kind: "all" } } },
   ];
 }
 
 /**
  * シチュエーション別フィルタの選択内容を、比較表の列見出しに出す短い日本語ラベルに変換する。
  * 前半戦/後半戦は内部的には「期間指定」（dateRange）として保持されている（situational.ts参照）ため、
- * 境界日と一致するかどうかで判定し直す（SituationalFilterPickerのactive判定と同じロジック）
+ * 境界日と一致するかどうかで判定し直す（SituationalFilterPickerのactive判定と同じロジック）。
+ * 2026-08-29、複数選択（AND条件）対応に伴い、range＋AND条件の各軸で同時に選択されている全ての
+ * 部分を「・」区切りで列挙する形に変更した（1つも選択が無ければ「シーズン全体」）
  */
 function describeSituationalFilter(filter: SituationalFilter, boundary: SeasonHalfBoundary | null): string {
-  let base: string;
-  switch (filter.kind) {
+  const parts: string[] = [];
+  switch (filter.range.kind) {
     case "all":
-      base = "シーズン全体";
       break;
     case "recent":
-      base = `直近${filter.n}試合`;
-      break;
-    case "result":
-      base = filter.win ? "勝った試合" : "負けた試合";
+      parts.push(`直近${filter.range.n}試合`);
       break;
     case "dateRange":
-      if (boundary && filter.start === "" && filter.end === boundary.firstHalfEnd) base = "前半戦";
-      else if (boundary && filter.start === boundary.secondHalfStart && filter.end === "") base = "後半戦";
-      else if (!filter.start && !filter.end) base = "期間指定";
-      else base = `${filter.start || "…"}〜${filter.end || "…"}`;
-      break;
-    case "homeAway":
-      base = filter.home ? "ホーム" : "アウェイ";
-      break;
-    case "division":
-      base = filter.division === "east" ? "対東地区" : "対西地区";
-      break;
-    case "month":
-      base = `${filter.month}月`;
-      break;
-    case "newYear":
-      base = filter.half === "before" ? "年明け前" : "年明け後";
-      break;
-    case "weekday":
-      base = "平日開催";
-      break;
-    case "opponentWinRate":
-      base = filter.tier === "under50" ? "対5割未満" : filter.tier === "atLeast50" ? "対5割以上" : "対6割以上";
+      if (boundary && filter.range.start === "" && filter.range.end === boundary.firstHalfEnd) parts.push("前半戦");
+      else if (boundary && filter.range.start === boundary.secondHalfStart && filter.range.end === "") parts.push("後半戦");
+      else if (!filter.range.start && !filter.range.end) parts.push("期間指定");
+      else parts.push(`${filter.range.start || "…"}〜${filter.range.end || "…"}`);
       break;
   }
-  return filter.includePlayoffs ? `${base}・PO込み` : base;
+  if (filter.result) parts.push(filter.result === "win" ? "勝った試合" : "負けた試合");
+  if (filter.homeAway) parts.push(filter.homeAway === "home" ? "ホーム" : "アウェイ");
+  if (filter.division) parts.push(filter.division === "east" ? "対東地区" : "対西地区");
+  if (filter.month !== undefined) parts.push(`${filter.month}月`);
+  if (filter.newYear) parts.push(filter.newYear === "before" ? "年明け前" : "年明け後");
+  if (filter.weekday) parts.push("平日開催");
+  if (filter.opponentWinRate) {
+    parts.push(filter.opponentWinRate === "under50" ? "対5割未満" : filter.opponentWinRate === "atLeast50" ? "対5割以上" : "対6割以上");
+  }
+  if (filter.includePlayoffs) parts.push("PO込み");
+  return parts.length > 0 ? parts.join("・") : "シーズン全体";
 }
 
 interface CompareColumnData {
@@ -2224,7 +2214,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                       const nextSeason = e.target.value;
                       setCompareSlots((prev) => {
                         const next: [CompareSlotState, CompareSlotState] = [...prev];
-                        next[i] = { season: nextSeason, filter: { kind: "all" } };
+                        next[i] = { season: nextSeason, filter: { range: { kind: "all" } } };
                         return next;
                       });
                     }}

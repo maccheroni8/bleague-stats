@@ -14,35 +14,53 @@ import type { Category, DivisionHistoryFile, GameSummary, PlayerGameLog, TeamGam
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import { isWeekdayGame } from "./japaneseHolidays";
 
-export type SituationalFilterKind =
+/**
+ * 「試合の範囲」を決める軸。互いに排他（同時に2つは選べない）。前半戦/後半戦は
+ * dateRangeの特殊値（境界日と一致するstart/end）として表現する（SituationalFilterPickerの
+ * active判定・describeSituationalFilter参照）
+ */
+export type SituationalRange =
   | { kind: "all" }
   | { kind: "recent"; n: number }
-  | { kind: "result"; win: boolean }
-  | { kind: "dateRange"; start: string; end: string }
-  | { kind: "homeAway"; home: boolean }
+  | { kind: "dateRange"; start: string; end: string };
+
+/**
+ * 2026-08-29、SituationalFilterPickerの複数選択（AND条件）対応に伴い追加。rangeとは独立に
+ * ON/OFFでき、選択した軸すべてがANDで絞り込まれる（ショットチャート専用フィルタ
+ * ShotChartGameFiltersと全く同じ考え方・同じ判定ロジックを共有する。DESIGN.md参照）
+ */
+export interface SituationalAndFilters {
+  result?: "win" | "loss";
+  homeAway?: "home" | "away";
   /** 対戦相手の地区（scripts/lib/divisions.tsの東西マスタを使用。DESIGN.md参照） */
-  | { kind: "division"; division: "east" | "west" }
+  division?: "east" | "west";
   /** 1〜12（開催月） */
-  | { kind: "month"; month: number }
+  month?: number;
   /** 年明け（1月）を境にした前後半。B.LEAGUEのシーズンは10月開幕〜翌年5,6月終幕のため、
    * 7〜12月を「年明け前」、1〜6月を「年明け後」とする */
-  | { kind: "newYear"; half: "before" | "after" }
+  newYear?: "before" | "after";
   /** 土日祝を除く曜日に開催された試合 */
-  | { kind: "weekday" }
+  weekday?: boolean;
   /**
    * 対戦相手の「その試合時点までの」レギュラーシーズン勝率による絞り込み。3段階は独立した
    * 閾値ボタン（5割以上と6割以上は重複しうる）。相手の消化試合数がMIN_GAMES_FOR_OPPONENT_WIN_RATE
    * 未満の対戦はどの区分にも該当しない扱いにする（シーズン序盤の1〜数試合だけの勝率は
    * 0%/100%に振れやすく、対戦相手として意味のある強さの指標にならないため。DESIGN.md参照）
    */
-  | { kind: "opponentWinRate"; tier: "under50" | "atLeast50" | "atLeast60" };
+  opponentWinRate?: "under50" | "atLeast50" | "atLeast60";
+}
 
 /**
- * kind（直近N試合・勝敗別・期間指定）とは独立した軸として、プレーオフを合算するかどうかを持つ。
- * デフォルト（未指定/false）はレギュラーシーズンのみ。teams.json/players.jsonの season 集計と
+ * range（直近N試合・期間指定等、互いに排他）と、それとは独立にAND合成できる
+ * SituationalAndFilters（勝敗・会場・地区・月別・年明け前後・平日開催・対勝率別）を組み合わせた
+ * シチュエーション別フィルタ。includePlayoffsはさらに独立した軸として、プレーオフを合算するかどうかを
+ * 持つ。デフォルト（未指定/false）はレギュラーシーズンのみ。teams.json/players.jsonの season 集計と
  * 同じ既定に揃える（2026-08-16、選手個人スタッツが60試合超になる集計バグの修正で導入）
  */
-export type SituationalFilter = SituationalFilterKind & { includePlayoffs?: boolean };
+export type SituationalFilter = SituationalAndFilters & {
+  range: SituationalRange;
+  includePlayoffs?: boolean;
+};
 
 export const RECENT_N_OPTIONS = [5, 10, 20] as const;
 
@@ -75,7 +93,17 @@ export function computeSeasonHalfBoundary(games: GameSummary[]): SeasonHalfBound
 }
 
 export function isDefaultFilter(filter: SituationalFilter): boolean {
-  return filter.kind === "all" && !filter.includePlayoffs;
+  return (
+    filter.range.kind === "all" &&
+    !filter.includePlayoffs &&
+    !filter.result &&
+    !filter.homeAway &&
+    !filter.division &&
+    filter.month === undefined &&
+    !filter.newYear &&
+    !filter.weekday &&
+    !filter.opponentWinRate
+  );
 }
 
 export interface GameTeamInfo {
@@ -269,21 +297,44 @@ export function matchesOpponentWinRateTier<T extends { scheduleKey: string; oppo
 }
 
 /**
- * ショットチャート用の複数選択フィルタ（AND合成）。既存のシチュエーション別フィルタは
- * 「1つだけ選べる」単一選択（SituationalFilter）だが、こちらは各軸を独立にON/OFFでき、
- * 選択した軸すべてをANDで絞り込む（例:「対5割未満」×「ホーム」の組み合わせ）。
- * 各軸のON/OFF判定自体は、既存のmatchesDivision/matchesNewYearHalf/
- * matchesOpponentWinRateTier/matchesMonth/isWeekdayGameをそのまま再利用する
- * （新しい判定ロジックは追加しない。DESIGN.md参照）
+ * SituationalAndFilters（勝敗・会場・地区・月別・年明け前後・平日開催・対勝率別）を全てAND合成で
+ * 判定する共通マッチャー。SituationalFilterPicker（filterGameLogs経由）・ShotChartFilterPicker
+ * （matchesShotChartGameFilters経由）の両方から呼ばれる、複数選択フィルタの唯一の判定ロジック
+ * （2026-08-29、SituationalFilterPicker側もこの判定を共有する形に統合した。DESIGN.md参照）
  */
-export interface ShotChartGameFilters {
-  homeAway?: "home" | "away";
-  division?: "east" | "west";
-  weekday?: boolean;
-  newYear?: "before" | "after";
-  opponentWinRate?: "under50" | "atLeast50" | "atLeast60";
-  result?: "win" | "loss";
-  month?: number;
+export function matchesSituationalAndFilters<
+  T extends {
+    date: string;
+    win: boolean;
+    isHome: boolean;
+    opponentTeamId: string;
+    scheduleKey: string;
+  },
+>(
+  g: T,
+  filters: SituationalAndFilters,
+  opponentRecords?: Map<string, Map<string, RecordBeforeGame>>,
+  divisionHistory?: DivisionHistoryFile | null,
+  season?: string,
+): boolean {
+  if (filters.result === "win" && !g.win) return false;
+  if (filters.result === "loss" && g.win) return false;
+  if (filters.homeAway === "home" && !g.isHome) return false;
+  if (filters.homeAway === "away" && g.isHome) return false;
+  if (filters.division && (!season || !matchesDivision(g, filters.division, divisionHistory, season))) return false;
+  if (filters.month !== undefined && !matchesMonth(g, filters.month)) return false;
+  if (filters.newYear && !matchesNewYearHalf(g, filters.newYear)) return false;
+  if (filters.weekday && !isWeekdayGame(g.date)) return false;
+  if (filters.opponentWinRate && !matchesOpponentWinRateTier(g, filters.opponentWinRate, opponentRecords)) return false;
+  return true;
+}
+
+/**
+ * ショットチャート用の複数選択フィルタ（AND合成）。軸のON/OFF判定自体は
+ * matchesSituationalAndFilters()にそのまま委譲し（SituationalFilterPickerと共通）、
+ * ショットチャート固有の「シーズン内移籍時のチーム別絞り込み（ownTeamId）」だけをここで追加する
+ */
+export interface ShotChartGameFilters extends SituationalAndFilters {
   /** シーズン内移籍対応: 試合ログから動的に導出した所属チーム（resolveOwnTeam参照）で絞り込む。
    * 未選択（undefined）なら全チーム合算（従来通り） */
   ownTeamId?: string;
@@ -305,17 +356,21 @@ export function matchesShotChartGameFilters<
   divisionHistory?: DivisionHistoryFile | null,
   season?: string,
 ): boolean {
-  if (filters.homeAway === "home" && !g.isHome) return false;
-  if (filters.homeAway === "away" && g.isHome) return false;
-  if (filters.division && (!season || !matchesDivision(g, filters.division, divisionHistory, season))) return false;
-  if (filters.weekday && !isWeekdayGame(g.date)) return false;
-  if (filters.newYear && !matchesNewYearHalf(g, filters.newYear)) return false;
-  if (filters.opponentWinRate && !matchesOpponentWinRateTier(g, filters.opponentWinRate, opponentRecords)) return false;
-  if (filters.result === "win" && !g.win) return false;
-  if (filters.result === "loss" && g.win) return false;
-  if (filters.month !== undefined && !matchesMonth(g, filters.month)) return false;
+  if (!matchesSituationalAndFilters(g, filters, opponentRecords, divisionHistory, season)) return false;
   if (filters.ownTeamId && ownTeamByScheduleKey?.get(g.scheduleKey)?.teamId !== filters.ownTeamId) return false;
   return true;
+}
+
+/** filter.rangeによる「試合の範囲」の絞り込み（前半戦/後半戦を含む3種、互いに排他） */
+function applySituationalRange<T extends { date: string }>(games: T[], range: SituationalRange): T[] {
+  switch (range.kind) {
+    case "all":
+      return games;
+    case "recent":
+      return games.slice(Math.max(0, games.length - range.n));
+    case "dateRange":
+      return games.filter((g) => (!range.start || g.date >= range.start) && (!range.end || g.date <= range.end));
+  }
 }
 
 /**
@@ -323,11 +378,14 @@ export function matchesShotChartGameFilters<
  * DNP（出場0分）の試合は「出場した試合」の集計対象から除く（players.json/teams.jsonの
  * season集計と同じ基準。含めるとcomputePlayerSituationalStats等のgamesPlayedが
  * 実際の出場試合数より多くカウントされてしまう）。
+ * filter.rangeで「試合の範囲」を絞り込んだ後、matchesSituationalAndFilters()でAND条件の
+ * 各軸（勝敗・会場・地区・月別・年明け前後・平日開催・対勝率別）を絞り込む
+ * （2026-08-29、複数選択対応。DESIGN.md参照）。
  * opponentRecordsは「対勝率別」フィルタでのみ使う（buildRecordsBeforeGame()の結果。
- * 未指定の場合、このkindを選んでいても該当試合0件として扱う）。
+ * 未指定の場合、この軸を選んでいても該当試合0件として扱う）。
  * divisionHistory・seasonは「地区」フィルタでのみ使う（data/division-history.json、
  * シーズン対応版マスタ。fetchDivisionHistory()の結果とその試合ログのシーズンを渡す。
- * seasonが未指定の場合、このkindを選んでいても該当試合0件として扱う）
+ * seasonが未指定の場合、この軸を選んでいても該当試合0件として扱う）
  */
 export function filterGameLogs<
   T extends {
@@ -348,30 +406,8 @@ export function filterGameLogs<
 ): T[] {
   const played = logs.filter((g) => g.min > 0);
   const scoped = filter.includePlayoffs ? played : played.filter((g) => g.gameType === "regular");
-  switch (filter.kind) {
-    case "all":
-      return scoped;
-    case "recent":
-      return scoped.slice(Math.max(0, scoped.length - filter.n));
-    case "result":
-      return scoped.filter((g) => g.win === filter.win);
-    case "dateRange":
-      return scoped.filter(
-        (g) => (!filter.start || g.date >= filter.start) && (!filter.end || g.date <= filter.end),
-      );
-    case "homeAway":
-      return scoped.filter((g) => g.isHome === filter.home);
-    case "division":
-      return season ? scoped.filter((g) => matchesDivision(g, filter.division, divisionHistory, season)) : [];
-    case "month":
-      return scoped.filter((g) => matchesMonth(g, filter.month));
-    case "newYear":
-      return scoped.filter((g) => matchesNewYearHalf(g, filter.half));
-    case "weekday":
-      return scoped.filter((g) => isWeekdayGame(g.date));
-    case "opponentWinRate":
-      return scoped.filter((g) => matchesOpponentWinRateTier(g, filter.tier, opponentRecords));
-  }
+  const ranged = applySituationalRange(scoped, filter.range);
+  return ranged.filter((g) => matchesSituationalAndFilters(g, filter, opponentRecords, divisionHistory, season));
 }
 
 export interface TeamSituationalStats {

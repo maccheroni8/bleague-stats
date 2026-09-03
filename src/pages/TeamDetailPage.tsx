@@ -1257,43 +1257,33 @@ function formatLeagueRank(entry: LeagueTeamRankEntry | undefined): string | unde
  * 「比較」タブ（Phase TH）: 個人詳細ページの比較タブ（describeSituationalFilter）と同じ
  * ラベル生成ロジック。チーム版はシーズン前半戦/後半戦フィルタに対応していない
  * （TeamDetailPage.tsxのSituationalFilterPickerがどこもseasonHalfBoundaryを渡していないため、
- * dateRangeは常に「期間指定」/日付範囲表記になる）
+ * dateRangeは常に「期間指定」/日付範囲表記になる）。2026-08-29、複数選択（AND条件）対応に伴い、
+ * range＋AND条件の各軸で同時に選択されている全ての部分を「・」区切りで列挙する形に変更した
+ * （1つも選択が無ければ「シーズン全体」）
  */
 function describeTeamSituationalFilter(filter: SituationalFilter): string {
-  let base: string;
-  switch (filter.kind) {
+  const parts: string[] = [];
+  switch (filter.range.kind) {
     case "all":
-      base = "シーズン全体";
       break;
     case "recent":
-      base = `直近${filter.n}試合`;
-      break;
-    case "result":
-      base = filter.win ? "勝った試合" : "負けた試合";
+      parts.push(`直近${filter.range.n}試合`);
       break;
     case "dateRange":
-      base = !filter.start && !filter.end ? "期間指定" : `${filter.start || "…"}〜${filter.end || "…"}`;
-      break;
-    case "homeAway":
-      base = filter.home ? "ホーム" : "アウェイ";
-      break;
-    case "division":
-      base = filter.division === "east" ? "対東地区" : "対西地区";
-      break;
-    case "month":
-      base = `${filter.month}月`;
-      break;
-    case "newYear":
-      base = filter.half === "before" ? "年明け前" : "年明け後";
-      break;
-    case "weekday":
-      base = "平日開催";
-      break;
-    case "opponentWinRate":
-      base = filter.tier === "under50" ? "対5割未満" : filter.tier === "atLeast50" ? "対5割以上" : "対6割以上";
+      parts.push(!filter.range.start && !filter.range.end ? "期間指定" : `${filter.range.start || "…"}〜${filter.range.end || "…"}`);
       break;
   }
-  return filter.includePlayoffs ? `${base}・PO込み` : base;
+  if (filter.result) parts.push(filter.result === "win" ? "勝った試合" : "負けた試合");
+  if (filter.homeAway) parts.push(filter.homeAway === "home" ? "ホーム" : "アウェイ");
+  if (filter.division) parts.push(filter.division === "east" ? "対東地区" : "対西地区");
+  if (filter.month !== undefined) parts.push(`${filter.month}月`);
+  if (filter.newYear) parts.push(filter.newYear === "before" ? "年明け前" : "年明け後");
+  if (filter.weekday) parts.push("平日開催");
+  if (filter.opponentWinRate) {
+    parts.push(filter.opponentWinRate === "under50" ? "対5割未満" : filter.opponentWinRate === "atLeast50" ? "対5割以上" : "対6割以上");
+  }
+  if (filter.includePlayoffs) parts.push("PO込み");
+  return parts.length > 0 ? parts.join("・") : "シーズン全体";
 }
 
 interface TeamCompareSlotState {
@@ -1303,8 +1293,8 @@ interface TeamCompareSlotState {
 
 function defaultTeamCompareSlots(season: string): [TeamCompareSlotState, TeamCompareSlotState] {
   return [
-    { season, filter: { kind: "all" } },
-    { season: "", filter: { kind: "all" } },
+    { season, filter: { range: { kind: "all" } } },
+    { season: "", filter: { range: { kind: "all" } } },
   ];
 }
 
@@ -1382,7 +1372,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // シチュエーション別フィルタの「対勝率別」用（対戦相手のその試合時点までの勝率が必要）
   const opponentRecords = useMemo(() => (summaries ? buildRecordsBeforeGame(summaries) : undefined), [summaries]);
 
-  const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
+  const [filter, setFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   const pbpSupported = isPbpSupported(coverage);
 
@@ -1930,7 +1920,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 再利用し、選手一覧の全選手に一括で適用する（個別選手ごとの選択ではない）。レギュラー/
   // プレーオフ/合算は既存のplayerStatsGameType（3値トグル）に一本化するため、
   // filterGameLogsへは常にincludePlayoffs: trueを渡す（比較タブ・43章と同じパターン）
-  const [playerStatsFilter, setPlayerStatsFilter] = useState<SituationalFilter>({ kind: "all" });
+  const [playerStatsFilter, setPlayerStatsFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
   const playerStatsRawGamesRequestedRef = useRef<Set<string>>(new Set());
   const [playerStatsRawGames, setPlayerStatsRawGames] = useState<Map<string, StoredGame>>(new Map());
   const [playerStatsRawGamesLoading, setPlayerStatsRawGamesLoading] = useState(false);
@@ -3491,7 +3481,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       const nextSeason = e.target.value;
                       setCompareSlots((prev) => {
                         const next: [TeamCompareSlotState, TeamCompareSlotState] = [...prev];
-                        next[i] = { season: nextSeason, filter: { kind: "all" } };
+                        next[i] = { season: nextSeason, filter: { range: { kind: "all" } } };
                         return next;
                       });
                     }}

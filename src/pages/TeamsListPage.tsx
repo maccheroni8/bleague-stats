@@ -663,7 +663,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const [boxTab, setBoxTab] = useState<BoxscoreTabKey>("traditional");
   const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
   const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
-  const [filter, setFilter] = useState<SituationalFilter>({ kind: "all" });
+  const [filter, setFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
   const [teamPerspective, setTeamPerspective] = useState<TeamPerspective>("own");
   const [turnoverPerspective, setTurnoverPerspective] = useState<"forced" | "committed">("forced");
 
@@ -1436,7 +1436,7 @@ function RecentFormTab({ season }: { season: string }) {
     if (!teams || !gameLogsByTeam) return [];
     return teams.map((team) => {
       const logs = gameLogsByTeam.get(team.teamId) ?? [];
-      const recentLogs = filterGameLogs(logs, { kind: "recent", n: recentN, includePlayoffs: true });
+      const recentLogs = filterGameLogs(logs, { range: { kind: "recent", n: recentN }, includePlayoffs: true });
       const wins = recentLogs.filter((g) => g.win).length;
       const gamesPlayed = recentLogs.length;
       const ptsSum = recentLogs.reduce((s, g) => s + g.teamScore, 0);
