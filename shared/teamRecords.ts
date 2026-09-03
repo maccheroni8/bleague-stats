@@ -274,6 +274,28 @@ export const TEAM_AGAINST_RECORD_STATS: TeamRecordValueDef[] = [
   { key: "dunks", label: "ダンク", value: (g) => g.opponentDunks },
 ];
 
+export interface TeamStreak {
+  type: "win" | "loss";
+  count: number;
+}
+
+/**
+ * 「パワーランキング」タブ用。longestWinStreak()がシーズン全体を通した最長連勝を求めるのに
+ * 対し、こちらは試合ログ（日付順ソート未保証でも内部でソートする）の末尾から遡って
+ * 「現在何連勝/連敗中か」を検出する。試合が1件も無ければnull
+ */
+export function currentStreak(logs: TeamGameLog[]): TeamStreak | null {
+  if (logs.length === 0) return null;
+  const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
+  const last = sorted[sorted.length - 1]!;
+  let count = 0;
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    if (sorted[i]!.win !== last.win) break;
+    count += 1;
+  }
+  return { type: last.win ? "win" : "loss", count };
+}
+
 /** シーズン単位の値から最高値のシーズン（代表）と、同値タイの他シーズン一覧を求める */
 export interface TeamSeasonSpecialAggregate {
   season: string;
