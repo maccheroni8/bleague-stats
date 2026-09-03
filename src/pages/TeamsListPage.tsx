@@ -1,19 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import {
+  fetchClubHonors,
   fetchDivisionHistory,
   fetchGameSummaries,
   fetchLeagueTeamRankings,
+  fetchSeasonRules,
+  fetchSeasons,
   fetchTeamGameLogs,
   fetchTeams,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
+  ClubHonor,
+  ClubHonorsFile,
   DivisionHistoryFile,
   GameSummary,
   LeagueTeamRankEntry,
   LeagueTeamRankingsFile,
+  SeasonRules,
   ShotTypeCounts,
   TeamForcedTurnovers,
   TeamGameLog,
@@ -37,21 +43,22 @@ import {
   type SeasonGameTypeFilter,
 } from "../lib/playerSeasonBoxscore";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
-import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned } from "../lib/format";
+import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
 import { formatShotTypeCell, shotTypeLabel, sortShotTypeKeys, sumShotTypeCounts } from "../lib/shotTypeBreakdown";
 import { CAREER_TOTAL_DEFS, TEAM_RECORD_STATS } from "../../shared/teamRecords";
 import { ONE_TEAM_DIVISIONS, TEAM_DIVISIONS, TEAM_NAMES } from "../../scripts/lib/divisions";
 
-type TeamsPageTab = "list" | "stats" | "records";
+type TeamsPageTab = "list" | "stats" | "records" | "champions";
 
 // 「チーム」ページのタブ構成。「一覧」は元々あったチーム一覧（ロゴ＋シーズン成績の表）、
 // 「全チームスタッツ」は旧/teams/statsページを移設したもの、「歴代記録」は
-// data/league-team-rankings.json（Phase H7）を使った過去在籍全クラブ横断のランキング。
-// タブ切り替え自体はURLに同期しない（TeamDetailPage.tsxのタブと同じ、プレーンなuseStateの
-// パターンを踏襲）が、旧/teams/statsへのリンクから遷移してきた場合のみ、Navigateのstateで
-// 初期タブを「全チームスタッツ」に指定する（下記TeamsStatsRedirect参照）
+// data/league-team-rankings.json（Phase H7）を使った過去在籍全クラブ横断のランキング、
+// 「歴代王者」はdata/club-honors.jsonを使ったシーズン軸の年間王者年表。タブ切り替え自体は
+// URLに同期しない（TeamDetailPage.tsxのタブと同じ、プレーンなuseStateのパターンを踏襲）が、
+// 旧/teams/statsへのリンクから遷移してきた場合のみ、Navigateのstateで初期タブを
+// 「全チームスタッツ」に指定する（下記TeamsStatsRedirect参照）
 export function TeamsListPage({ season }: { season: string }) {
   const location = useLocation();
   const initialTab = (location.state as { tab?: TeamsPageTab } | null)?.tab ?? "list";
@@ -83,13 +90,22 @@ export function TeamsListPage({ season }: { season: string }) {
         >
           歴代記録
         </button>
+        <button
+          className={`tab-button${tab === "champions" ? " active" : ""}`}
+          onClick={() => setTab("champions")}
+          type="button"
+        >
+          歴代王者
+        </button>
       </div>
       {tab === "list" ? (
         <TeamsOverviewTab season={season} />
       ) : tab === "stats" ? (
         <AllTeamsStatsTab season={season} />
-      ) : (
+      ) : tab === "records" ? (
         <LeagueRecordsTab />
+      ) : (
+        <ChampionsTab />
       )}
     </div>
   );
@@ -840,6 +856,35 @@ function lastPremierSeasonFor(divisionHistory: DivisionHistoryFile | null | unde
   return seasons.sort().at(-1);
 }
 
+// 上記lastPremierSeasonForの結果に応じて、現行B.PREMIERクラブはSeasonLink（現在の?season=を
+// 引き継ぐ）、それ以外は明示的な?season=付きのLinkでチーム詳細ページへ遷移する共通リンク。
+// 「歴代記録」タブと「歴代王者」タブの両方から使う
+function TeamNavLink({
+  teamId,
+  divisionHistory,
+  className,
+  children,
+}: {
+  teamId: string;
+  divisionHistory: DivisionHistoryFile | null | undefined;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (teamId in TEAM_DIVISIONS) {
+    return (
+      <SeasonLink to={`/teams/${teamId}`} className={className}>
+        {children}
+      </SeasonLink>
+    );
+  }
+  const lastSeason = lastPremierSeasonFor(divisionHistory, teamId);
+  return (
+    <Link to={lastSeason ? `/teams/${teamId}?season=${lastSeason}` : `/teams/${teamId}`} className={className}>
+      {children}
+    </Link>
+  );
+}
+
 interface LeagueRecordRow {
   teamId: string;
   entry: LeagueTeamRankEntry;
@@ -919,41 +964,252 @@ function LeagueRecordsTab() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => {
-                const isCurrentPremier = r.teamId in TEAM_DIVISIONS;
-                const lastSeason = isCurrentPremier ? undefined : lastPremierSeasonFor(divisionHistory, r.teamId);
-                const nameCell = (
-                  <span className="team-name-cell">
-                    <TeamLogo teamId={r.teamId} size={20} />
-                    <span className="rank-name-cell">
-                      <span className="rank-name">{leagueTeamDisplayName(r.teamId)}</span>
-                      <span className="rank-sublabel">現在: {leagueTeamCurrentCategoryLabel(r.teamId)}</span>
-                    </span>
-                  </span>
-                );
+              {rows.map((r) => (
+                <tr key={r.teamId}>
+                  <td className="align-right rank-cell">{r.entry.rank}</td>
+                  <td className="align-left">
+                    <TeamNavLink teamId={r.teamId} divisionHistory={divisionHistory} className="cell-link">
+                      <span className="team-name-cell">
+                        <TeamLogo teamId={r.teamId} size={20} />
+                        <span className="rank-name-cell">
+                          <span className="rank-name">{leagueTeamDisplayName(r.teamId)}</span>
+                          <span className="rank-sublabel">現在: {leagueTeamCurrentCategoryLabel(r.teamId)}</span>
+                        </span>
+                      </span>
+                    </TeamNavLink>
+                  </td>
+                  <td className="align-right rank-value">{formatLeagueRecordValue(category, statKey, r.entry.value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 「歴代王者」タブ。data/club-honors.json（category="overall"）をシーズン軸の年表として表示する。
+// 各シーズンの優勝チームには、そのシーズンのteams.json（通算成績）とdata/season-rules.json
+// （オンザコートルールの変遷。eraLabelがDESIGN.md記載の4区分＝2016-17〜2017-18・2018-19〜
+// 2019-20・2020-21〜2025-26・2026-27〜をそのまま表す）を併記する。地区優勝・天皇杯・国際大会は
+// 別セクションとしてまとめて表示する（要件4で許容されている構成。国際大会の一部実績は
+// "2019"のような暦年表記のシーズン値を持ち、B.LEAGUEシーズン軸の年表とは単位が異なるため、
+// 無理に季キーへ正規化せず素直に別リストで示す）
+const OTHER_HONOR_CATEGORY_LABELS: Record<Exclude<ClubHonor["category"], "overall">, string> = {
+  emperors_cup: "天皇杯",
+  division: "地区優勝",
+  international: "国際大会",
+};
+const OTHER_HONOR_CATEGORY_ORDER: Exclude<ClubHonor["category"], "overall">[] = [
+  "emperors_cup",
+  "division",
+  "international",
+];
+
+interface ChampionEntry {
+  teamId: string;
+  note?: string;
+}
+
+function championsBySeasonFrom(clubHonors: ClubHonorsFile): Map<string, ChampionEntry> {
+  const map = new Map<string, ChampionEntry>();
+  for (const [teamId, honors] of Object.entries(clubHonors)) {
+    for (const h of honors) {
+      if (h.category === "overall") map.set(h.season, { teamId, note: h.note });
+    }
+  }
+  return map;
+}
+
+interface OtherHonorRow extends ClubHonor {
+  teamId: string;
+}
+
+function otherHonorsFrom(clubHonors: ClubHonorsFile): OtherHonorRow[] {
+  const rows: OtherHonorRow[] = [];
+  for (const [teamId, honors] of Object.entries(clubHonors)) {
+    for (const h of honors) {
+      if (h.category !== "overall") rows.push({ ...h, teamId });
+    }
+  }
+  return rows.sort((a, b) => (a.season < b.season ? 1 : a.season > b.season ? -1 : 0));
+}
+
+function ChampionsTab() {
+  const {
+    data: seasons,
+    loading: seasonsLoading,
+    error: seasonsError,
+  } = useJsonData(() => fetchSeasons(), []);
+  const {
+    data: clubHonors,
+    loading: honorsLoading,
+    error: honorsError,
+  } = useJsonData(() => fetchClubHonors(), []);
+  const { data: seasonRules } = useJsonData(() => fetchSeasonRules(), []);
+  const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
+
+  const championsBySeason = useMemo(
+    () => (clubHonors ? championsBySeasonFrom(clubHonors) : new Map<string, ChampionEntry>()),
+    [clubHonors],
+  );
+  const otherHonors = useMemo(() => (clubHonors ? otherHonorsFrom(clubHonors) : []), [clubHonors]);
+
+  // 新しいシーズンを上に表示する
+  const seasonsDesc = useMemo(
+    () => (seasons ? [...seasons].map((s) => s.season).sort().reverse() : []),
+    [seasons],
+  );
+  const championSeasons = useMemo(
+    () => seasonsDesc.filter((s) => championsBySeason.has(s)),
+    [seasonsDesc, championsBySeason],
+  );
+
+  const [teamsBySeason, setTeamsBySeason] = useState<Map<string, TeamSummary[]> | null>(null);
+  const [teamsLoading, setTeamsLoading] = useState(true);
+
+  useEffect(() => {
+    if (championSeasons.length === 0) {
+      setTeamsBySeason(new Map());
+      setTeamsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setTeamsLoading(true);
+    Promise.all(
+      championSeasons.map(async (s): Promise<readonly [string, TeamSummary[]]> => {
+        try {
+          return [s, await fetchTeams(s)] as const;
+        } catch {
+          return [s, []] as const;
+        }
+      }),
+    )
+      .then((results) => {
+        if (!cancelled) setTeamsBySeason(new Map(results));
+      })
+      .finally(() => {
+        if (!cancelled) setTeamsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [championSeasons]);
+
+  if (seasonsLoading || honorsLoading) return <p className="loading">読み込み中...</p>;
+  if (seasonsError) return <p className="error-message">{seasonsError}</p>;
+  if (honorsError) return <p className="error-message">{honorsError}</p>;
+  if (!seasons || !clubHonors) return <p className="empty-message">データがありません</p>;
+
+  return (
+    <div>
+      <p className="page-subtitle">
+        シーズン別の年間王者（Bリーグチャンピオンシップ優勝）年表。チーム名クリックでチーム詳細ページへ遷移できる
+      </p>
+
+      {teamsLoading && !teamsBySeason ? (
+        <p className="loading">読み込み中...</p>
+      ) : (
+        <div className="table-scroll">
+          <table className="sortable-table champions-table">
+            <thead>
+              <tr>
+                <th className="align-left">シーズン</th>
+                <th className="align-left">優勝チーム</th>
+                <th className="align-right">成績</th>
+                <th className="align-right">PTS</th>
+                <th className="align-right">REB</th>
+                <th className="align-right">AST</th>
+                <th className="align-right">FG%</th>
+                <th className="align-right">3P%</th>
+                <th className="align-left">オンザコートルール</th>
+              </tr>
+            </thead>
+            <tbody>
+              {seasonsDesc.map((season) => {
+                const champion = championsBySeason.get(season);
+                const team = champion
+                  ? teamsBySeason?.get(season)?.find((t) => t.teamId === champion.teamId)
+                  : undefined;
+                const rule = seasonRules?.find((r) => r.season === season);
                 return (
-                  <tr key={r.teamId}>
-                    <td className="align-right rank-cell">{r.entry.rank}</td>
-                    <td className="align-left">
-                      {isCurrentPremier ? (
-                        <SeasonLink to={`/teams/${r.teamId}`} className="cell-link">
-                          {nameCell}
-                        </SeasonLink>
-                      ) : (
-                        <Link
-                          to={lastSeason ? `/teams/${r.teamId}?season=${lastSeason}` : `/teams/${r.teamId}`}
-                          className="cell-link"
-                        >
-                          {nameCell}
-                        </Link>
-                      )}
-                    </td>
-                    <td className="align-right rank-value">{formatLeagueRecordValue(category, statKey, r.entry.value)}</td>
+                  <tr key={season}>
+                    <td className="align-left">{season}</td>
+                    {champion && team ? (
+                      <>
+                        <td className="align-left">
+                          <TeamNavLink teamId={champion.teamId} divisionHistory={divisionHistory} className="cell-link">
+                            <span className="team-name-cell">
+                              <TeamLogo teamId={champion.teamId} size={20} />
+                              {leagueTeamDisplayName(champion.teamId)}
+                            </span>
+                          </TeamNavLink>
+                          {champion.note && <span className="honor-note">（{champion.note}）</span>}
+                        </td>
+                        <td className="align-right">
+                          {formatRecord(team.wins, team.losses)}（
+                          {formatWinPct(safeDiv(team.wins, team.wins + team.losses))}）
+                        </td>
+                        <td className="align-right">{formatDecimal(team.perGame.pts)}</td>
+                        <td className="align-right">{formatDecimal(team.perGame.reb)}</td>
+                        <td className="align-right">{formatDecimal(team.perGame.ast)}</td>
+                        <td className="align-right">{formatPct(team.shooting.fgPct)}</td>
+                        <td className="align-right">{formatPct(team.shooting.tpPct)}</td>
+                      </>
+                    ) : champion ? (
+                      <td className="align-left" colSpan={7}>
+                        <span className="team-name-cell">
+                          <TeamLogo teamId={champion.teamId} size={20} />
+                          {leagueTeamDisplayName(champion.teamId)}
+                        </span>
+                        <span className="honor-note">（成績データ取得中/未対応）</span>
+                      </td>
+                    ) : (
+                      <td className="align-left" colSpan={7}>
+                        <span className="rank-sublabel">
+                          {season === "2019-20"
+                            ? "優勝チームなし（新型コロナウイルスの影響でチャンピオンシップ中止）"
+                            : "優勝チームなし"}
+                        </span>
+                      </td>
+                    )}
+                    <td className="align-left">{rule?.eraLabel ?? "-"}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      <h2>地区優勝・天皇杯・国際大会</h2>
+      {otherHonors.length === 0 ? (
+        <p className="empty-message">記録がありません</p>
+      ) : (
+        <div className="honors-groups">
+          {OTHER_HONOR_CATEGORY_ORDER.map((category) => {
+            const items = otherHonors.filter((h) => h.category === category);
+            if (items.length === 0) return null;
+            return (
+              <div className="honors-group" key={category}>
+                <h3>{OTHER_HONOR_CATEGORY_LABELS[category]}</h3>
+                <ul>
+                  {items.map((h, i) => (
+                    <li key={`${h.teamId}-${h.season}-${h.competition}-${i}`} className="honor-item">
+                      <span className="honor-season">{h.season}</span>
+                      <TeamNavLink teamId={h.teamId} divisionHistory={divisionHistory} className="honor-team-link">
+                        {leagueTeamDisplayName(h.teamId)}
+                      </TeamNavLink>
+                      {"　"}
+                      {h.competition}
+                      {h.note && <span className="honor-note">（{h.note}）</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

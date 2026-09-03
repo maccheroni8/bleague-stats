@@ -258,6 +258,19 @@ h2 {
   font-size: 12px;
 }
 
+/* 「歴代王者」タブの地区優勝/天皇杯/国際大会リストで使う、複数チームを横断するインラインの
+   チーム名リンク（honor-itemは1行の中で季ラベル・チーム名・大会名・注記を並べるため、
+   .cell-link のようなdisplay:blockではなくインラインのまま下線のみで示す） */
+.honor-team-link {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.honor-team-link:hover {
+  text-decoration: underline;
+}
+
 .radar-section {
   display: flex;
   flex-wrap: wrap;

@@ -25,6 +25,7 @@ import type {
   PlayerSummary,
   ScheduleFile,
   SeasonEntry,
+  SeasonRules,
   StandingsSnapshot,
   StoredGame,
   TeamColors,
@@ -160,6 +161,12 @@ export function fetchPlayerAwards(): Promise<PlayerAwardsFile> {
 
 export function fetchClubHonors(): Promise<ClubHonorsFile> {
   return fetchJson<ClubHonorsFile>(`${dataBase}/club-honors.json`);
+}
+
+/** レギュレーション（外国籍/帰化選手/アジア特別枠選手のオンザコートルール等）の変遷、
+ * シーズン非依存の単一ファイル（DESIGN.md 2-7章参照） */
+export function fetchSeasonRules(): Promise<SeasonRules[]> {
+  return fetchJson<SeasonRules[]>(`${dataBase}/season-rules.json`);
 }
 
 /** シーズン対応版の地区マスタ（Record<Category, Record<Season, Record<TeamID, Division>>>）。
