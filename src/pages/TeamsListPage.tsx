@@ -499,7 +499,7 @@ function buildAdvancedColumns(mode: SeasonDisplayMode, perspective: TeamPerspect
   return [
     ...LEADING_COLUMNS,
     pct100Column("tovpct", "TOV%", (t) => tovPct(t.tov, t.fga, t.fta), (t) => tovPct(t.oppTov, t.oppFga, t.oppFta), perspective),
-    decimalColumn("ftr", "FTR", (t) => ftRate(t.fta, t.fga), (t) => ftRate(t.oppFta, t.oppFga), perspective, 3),
+    pctColumn("ftr", "FTR", (t) => ftRate(t.fta, t.fga), (t) => ftRate(t.oppFta, t.oppFga), perspective),
     pct100Column("orbpct", "OR%", (t) => orbPct(t.oreb, t.oppDreb), (t) => orbPct(t.oppOreb, t.dreb), perspective),
     pctColumn(
       "efg",

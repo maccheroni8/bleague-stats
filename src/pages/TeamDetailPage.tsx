@@ -101,7 +101,7 @@ import {
   type TeamGameBoxTotals,
 } from "../lib/playerSeasonBoxscore";
 import { BOXSCORE_TABS, COLUMNS_BY_TAB, type BoxscoreColumn, type BoxscoreTabKey, type ColumnCtx } from "../components/BoxscoreTable";
-import { formatAstToRatio, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
+import { astToTovRatio, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import type { BoxscoreCounts } from "../lib/boxscoreAggregate";
 import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
@@ -390,9 +390,10 @@ interface SeasonRecord {
 }
 
 /**
- * 「シーズン別成績」Miscタブ用（Phase H3①）。PITP/FBPS/2ND PTS/PTSOFFTO/DUNKは
- * TeamSummary（teams.json）には存在せず、TeamGameLog（careerData）側にのみ持っている
- * フィールドのため、シーズンごとにレギュラーシーズンの試合だけを合算して用意する
+ * 「シーズン別成績」Miscタブ用（Phase H3①）のPITP/FBPS/2ND PTS/PTSOFFTO/DUNKに加え、
+ * 自チーム/opp/+/-トグル（Phase H8-2）用の相手チーム生カウントも持つ。TeamSummaryは
+ * opponentPerGame（平均のみ）・opponentShooting（%のみ）しか持たず、FGM/FGA/PF/FD等の
+ * 生カウントを公開していないため、TeamGameLog（careerData）側から都度合算する
  * （teams.jsonの他の集計と同じくレギュラーシーズンのみに揃える）
  */
 interface TeamSeasonMiscTotals {
@@ -401,9 +402,55 @@ interface TeamSeasonMiscTotals {
   pt2nd: number;
   pft: number;
   dunks: number;
+  oppPts: number;
+  oppFgm: number;
+  oppFga: number;
+  oppTpm: number;
+  oppTpa: number;
+  oppFtm: number;
+  oppFta: number;
+  oppOreb: number;
+  oppDreb: number;
+  oppAst: number;
+  oppStl: number;
+  oppBlk: number;
+  oppTov: number;
+  oppPf: number;
+  oppFoulsDrawn: number;
+  oppPt2in: number;
+  oppFb: number;
+  oppPt2nd: number;
+  oppPft: number;
+  oppDunks: number;
 }
 
-const EMPTY_TEAM_SEASON_MISC: TeamSeasonMiscTotals = { pt2in: 0, fb: 0, pt2nd: 0, pft: 0, dunks: 0 };
+const EMPTY_TEAM_SEASON_MISC: TeamSeasonMiscTotals = {
+  pt2in: 0,
+  fb: 0,
+  pt2nd: 0,
+  pft: 0,
+  dunks: 0,
+  oppPts: 0,
+  oppFgm: 0,
+  oppFga: 0,
+  oppTpm: 0,
+  oppTpa: 0,
+  oppFtm: 0,
+  oppFta: 0,
+  oppOreb: 0,
+  oppDreb: 0,
+  oppAst: 0,
+  oppStl: 0,
+  oppBlk: 0,
+  oppTov: 0,
+  oppPf: 0,
+  oppFoulsDrawn: 0,
+  oppPt2in: 0,
+  oppFb: 0,
+  oppPt2nd: 0,
+  oppPft: 0,
+  oppDunks: 0,
+};
 
 function sumTeamSeasonMisc(logs: TeamGameLog[]): TeamSeasonMiscTotals {
   return logs
@@ -415,6 +462,26 @@ function sumTeamSeasonMisc(logs: TeamGameLog[]): TeamSeasonMiscTotals {
         pt2nd: acc.pt2nd + g.pt2nd,
         pft: acc.pft + g.pft,
         dunks: acc.dunks + g.dunks,
+        oppPts: acc.oppPts + g.opponentScore,
+        oppFgm: acc.oppFgm + g.opponentFgm,
+        oppFga: acc.oppFga + g.opponentFga,
+        oppTpm: acc.oppTpm + g.opponentTpm,
+        oppTpa: acc.oppTpa + g.opponentTpa,
+        oppFtm: acc.oppFtm + g.opponentFtm,
+        oppFta: acc.oppFta + g.opponentFta,
+        oppOreb: acc.oppOreb + g.opponentOreb,
+        oppDreb: acc.oppDreb + g.opponentDreb,
+        oppAst: acc.oppAst + g.opponentAst,
+        oppStl: acc.oppStl + g.opponentStl,
+        oppBlk: acc.oppBlk + g.opponentBlk,
+        oppTov: acc.oppTov + g.opponentTov,
+        oppPf: acc.oppPf + g.opponentPf,
+        oppFoulsDrawn: acc.oppFoulsDrawn + g.opponentFoulsDrawn,
+        oppPt2in: acc.oppPt2in + g.opponentPt2in,
+        oppFb: acc.oppFb + g.opponentFb,
+        oppPt2nd: acc.oppPt2nd + g.opponentPt2nd,
+        oppPft: acc.oppPft + g.opponentPft,
+        oppDunks: acc.oppDunks + g.opponentDunks,
       }),
       { ...EMPTY_TEAM_SEASON_MISC },
     );
@@ -423,7 +490,7 @@ function sumTeamSeasonMisc(logs: TeamGameLog[]): TeamSeasonMiscTotals {
 interface TeamSeasonBoxColumn {
   key: string;
   label: string;
-  format: (r: SeasonRecord, misc: TeamSeasonMiscTotals, mode: SeasonDisplayMode) => string;
+  format: (r: SeasonRecord, misc: TeamSeasonMiscTotals, mode: SeasonDisplayMode, perspective: TeamPerspective) => string;
   description?: string;
 }
 
@@ -432,6 +499,58 @@ interface TeamSeasonBoxColumn {
 // 「合計モードは整数表示」という慣例に揃え、桁数を0にする
 function formatTeamSeasonCount(total: number, gamesPlayed: number, mode: SeasonDisplayMode): string {
   return mode === "total" ? formatDecimal(total, 0) : formatDecimal(safeDiv(total, gamesPlayed));
+}
+
+// 自チーム/opp/+/-トグル（Phase H8-2）。own/oppの値ペアを受け取り、選択中のperspectiveに
+// 応じた値を返す（own-opp=+/-）。「チームスタッツ」「日程結果」タブのTeamPerspective/
+// perspectiveValue（own/opp/diff）と同じ考え方
+function teamSeasonPerspectiveValue(own: number, opp: number, perspective: TeamPerspective): number {
+  return perspective === "own" ? own : perspective === "opp" ? opp : own - opp;
+}
+
+// カウント系own/opp/+/-（平均/合計トグルにも従う）
+function formatTeamSeasonCountPerspective(
+  ownTotal: number,
+  oppTotal: number,
+  gamesPlayed: number,
+  mode: SeasonDisplayMode,
+  perspective: TeamPerspective,
+  opts: { digits?: number; signed?: boolean } = {},
+): string {
+  const { digits = 1, signed = false } = opts;
+  const ownScaled = mode === "total" ? ownTotal : safeDiv(ownTotal, gamesPlayed);
+  const oppScaled = mode === "total" ? oppTotal : safeDiv(oppTotal, gamesPlayed);
+  const v = teamSeasonPerspectiveValue(ownScaled, oppScaled, perspective);
+  const d = mode === "total" ? 0 : digits;
+  return signed || perspective === "diff" ? formatSigned(v, d) : formatDecimal(v, d);
+}
+
+// 比率系own/opp/+/-（mode非依存）
+function formatTeamSeasonRatioPerspective(
+  ownVal: number,
+  oppVal: number,
+  perspective: TeamPerspective,
+  format: (v: number) => string,
+  diffFormat: (v: number) => string,
+): string {
+  const v = teamSeasonPerspectiveValue(ownVal, oppVal, perspective);
+  return perspective === "diff" ? diffFormat(v) : format(v);
+}
+
+function formatTeamSeasonPct(ownVal: number, oppVal: number, perspective: TeamPerspective): string {
+  return formatTeamSeasonRatioPerspective(ownVal, oppVal, perspective, (v) => formatPct(v), (v) => `${formatSigned(v * 100, 1)}%`);
+}
+
+function formatTeamSeasonPct100(ownVal: number, oppVal: number, perspective: TeamPerspective): string {
+  return formatTeamSeasonRatioPerspective(ownVal, oppVal, perspective, (v) => formatPct100(v), (v) => `${formatSigned(v, 1)}%`);
+}
+
+function formatTeamSeasonDecimal(ownVal: number, oppVal: number, perspective: TeamPerspective, digits = 1): string {
+  return formatTeamSeasonRatioPerspective(ownVal, oppVal, perspective, (v) => formatDecimal(v, digits), (v) => formatSigned(v, digits));
+}
+
+function formatTeamSeasonSigned(ownVal: number, oppVal: number, perspective: TeamPerspective, digits = 1): string {
+  return formatTeamSeasonRatioPerspective(ownVal, oppVal, perspective, (v) => formatSigned(v, digits), (v) => formatSigned(v, digits));
 }
 
 // 「シーズン別成績」の4カテゴリタブ（Phase H3①）。既存のSEASON_BOX_COLUMNS（選手向け、
@@ -445,7 +564,12 @@ function formatTeamSeasonCount(total: number, gamesPlayed: number, mode: SeasonD
 // 「得点の内訳構成比」（PITP/FBPS/2ND PTS/PTSOFFTOがチーム総得点に占める割合）を表示する。
 // 平均/合計トグル: カウント系の列（MIN〜+/-）は選択に応じて値を切り替え、%系・比率系
 // （FG%等、AST/TOV、POSS以外のアドバンスド指標、スコアリングタブ全項目）は総量に対する比率・
-// 100ポゼッションあたり等の正規化済み指標のため両モードで同じ値のまま変化しない
+// 100ポゼッションあたり等の正規化済み指標のため両モードで同じ値のまま変化しない。
+// 自チーム/opp/+/-トグル（Phase H8-2）: G・MIN・POSS・PACEは両チーム共通の値（試合数・
+// 試合時間・ポゼッション・ペースはどちらのチーム視点でも同一）のためトグルの影響を受けない。
+// EFFはBリーグ公式式にテクニカルファウルの重み付け（TF項）が必要だが、相手チームの
+// テクニカルファウル数はTeamGameLogに永続化していないため正確な相手視点の値を算出できない。
+// 近似式を黙って採用しないという方針（CLAUDE.md）に従い、EFFのみ自チームの値のまま固定する
 const TEAM_SEASON_TRADITIONAL_COLUMNS: TeamSeasonBoxColumn[] = [
   { key: "g", label: "G", format: (r) => String(r.team.gamesPlayed) },
   {
@@ -454,47 +578,147 @@ const TEAM_SEASON_TRADITIONAL_COLUMNS: TeamSeasonBoxColumn[] = [
     format: (r, _m, mode) =>
       formatMinutesFromSeconds(Math.round((mode === "total" ? r.team.totals.min : r.team.perGame.min) * 60)),
   },
-  { key: "pts", label: "PTS", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.pts, r.team.gamesPlayed, mode) },
-  { key: "fgm", label: "FGM", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.fgm, r.team.gamesPlayed, mode) },
-  { key: "fga", label: "FGA", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.fga, r.team.gamesPlayed, mode) },
-  { key: "fgpct", label: "FG%", format: (r) => formatPct(r.team.shooting.fgPct) },
+  {
+    key: "pts",
+    label: "PTS",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.pts, m.oppPts, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "fgm",
+    label: "FGM",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.fgm, m.oppFgm, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "fga",
+    label: "FGA",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.fga, m.oppFga, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "fgpct",
+    label: "FG%",
+    format: (r, _m, _mode, p) => formatTeamSeasonPct(r.team.shooting.fgPct, r.team.opponentShooting.fgPct, p),
+  },
   {
     key: "2pm",
     label: "2PM",
-    format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.fgm - r.team.totals.tpm, r.team.gamesPlayed, mode),
+    format: (r, m, mode, p) =>
+      formatTeamSeasonCountPerspective(r.team.totals.fgm - r.team.totals.tpm, m.oppFgm - m.oppTpm, r.team.gamesPlayed, mode, p),
   },
   {
     key: "2pa",
     label: "2PA",
-    format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.fga - r.team.totals.tpa, r.team.gamesPlayed, mode),
+    format: (r, m, mode, p) =>
+      formatTeamSeasonCountPerspective(r.team.totals.fga - r.team.totals.tpa, m.oppFga - m.oppTpa, r.team.gamesPlayed, mode, p),
   },
-  { key: "2ppct", label: "2P%", format: (r) => formatPct(r.team.shooting.pt2Pct) },
-  { key: "3pm", label: "3PM", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.tpm, r.team.gamesPlayed, mode) },
-  { key: "3pa", label: "3PA", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.tpa, r.team.gamesPlayed, mode) },
-  { key: "3ppct", label: "3P%", format: (r) => formatPct(r.team.shooting.tpPct) },
-  { key: "ftm", label: "FTM", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.ftm, r.team.gamesPlayed, mode) },
-  { key: "fta", label: "FTA", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.fta, r.team.gamesPlayed, mode) },
-  { key: "ftpct", label: "FT%", format: (r) => formatPct(r.team.shooting.ftPct) },
-  { key: "efg", label: "eFG%", format: (r) => formatPct(r.team.shooting.efgPct) },
-  { key: "ts", label: "TS%", format: (r) => formatPct(r.team.shooting.tsPct) },
-  { key: "or", label: "OR", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.oreb, r.team.gamesPlayed, mode) },
-  { key: "dr", label: "DR", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.dreb, r.team.gamesPlayed, mode) },
-  { key: "tr", label: "TR", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.reb, r.team.gamesPlayed, mode) },
-  { key: "ast", label: "AST", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.ast, r.team.gamesPlayed, mode) },
-  { key: "tov", label: "TOV", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.tov, r.team.gamesPlayed, mode) },
-  { key: "asttov", label: "AST/TOV", format: (r) => formatAstToRatio(r.team.totals.ast, r.team.totals.tov) },
-  { key: "stl", label: "STL", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.stl, r.team.gamesPlayed, mode) },
-  { key: "blk", label: "BLK", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.blk, r.team.gamesPlayed, mode) },
+  {
+    key: "2ppct",
+    label: "2P%",
+    format: (r, _m, _mode, p) => formatTeamSeasonPct(r.team.shooting.pt2Pct, r.team.opponentShooting.pt2Pct, p),
+  },
+  {
+    key: "3pm",
+    label: "3PM",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.tpm, m.oppTpm, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "3pa",
+    label: "3PA",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.tpa, m.oppTpa, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "3ppct",
+    label: "3P%",
+    format: (r, _m, _mode, p) => formatTeamSeasonPct(r.team.shooting.tpPct, r.team.opponentShooting.tpPct, p),
+  },
+  {
+    key: "ftm",
+    label: "FTM",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.ftm, m.oppFtm, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "fta",
+    label: "FTA",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.fta, m.oppFta, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "ftpct",
+    label: "FT%",
+    format: (r, _m, _mode, p) => formatTeamSeasonPct(r.team.shooting.ftPct, r.team.opponentShooting.ftPct, p),
+  },
+  {
+    key: "efg",
+    label: "eFG%",
+    format: (r, _m, _mode, p) => formatTeamSeasonPct(r.team.shooting.efgPct, r.team.opponentShooting.efgPct, p),
+  },
+  {
+    key: "ts",
+    label: "TS%",
+    format: (r, _m, _mode, p) => formatTeamSeasonPct(r.team.shooting.tsPct, r.team.opponentShooting.tsPct, p),
+  },
+  {
+    key: "or",
+    label: "OR",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.oreb, m.oppOreb, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "dr",
+    label: "DR",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.dreb, m.oppDreb, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "tr",
+    label: "TR",
+    format: (r, m, mode, p) =>
+      formatTeamSeasonCountPerspective(r.team.totals.reb, m.oppOreb + m.oppDreb, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "ast",
+    label: "AST",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.ast, m.oppAst, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "tov",
+    label: "TOV",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.tov, m.oppTov, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "asttov",
+    label: "AST/TOV",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonDecimal(
+        astToTovRatio(r.team.totals.ast, r.team.totals.tov),
+        astToTovRatio(m.oppAst, m.oppTov),
+        p,
+      ),
+  },
+  {
+    key: "stl",
+    label: "STL",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.stl, m.oppStl, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "blk",
+    label: "BLK",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.blk, m.oppBlk, r.team.gamesPlayed, mode, p),
+  },
   {
     key: "bsr",
     label: "BSR",
-    format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.blockedAgainst, r.team.gamesPlayed, mode),
+    // opp視点のBSR（相手チームの被ブロック数）＝自チームのブロック数（totals.blk）。
+    // TeamGameLogに「相手の被ブロック数」という専用フィールドは無いが、自チームが
+    // ブロックした本数＝相手からすれば被ブロックされた本数という表裏の関係で導出できる
+    format: (r, _m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.blockedAgainst, r.team.totals.blk, r.team.gamesPlayed, mode, p),
   },
-  { key: "f", label: "F", format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.pf, r.team.gamesPlayed, mode) },
+  {
+    key: "f",
+    label: "F",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.pf, m.oppPf, r.team.gamesPlayed, mode, p),
+  },
   {
     key: "fd",
     label: "FD",
-    format: (r, _m, mode) => formatTeamSeasonCount(r.team.totals.foulsDrawn, r.team.gamesPlayed, mode),
+    format: (r, m, mode, p) =>
+      formatTeamSeasonCountPerspective(r.team.totals.foulsDrawn, m.oppFoulsDrawn, r.team.gamesPlayed, mode, p),
   },
   {
     key: "eff",
@@ -508,22 +732,46 @@ const TEAM_SEASON_TRADITIONAL_COLUMNS: TeamSeasonBoxColumn[] = [
   {
     key: "plusminus",
     label: "+/-",
-    format: (r, _m, mode) =>
-      formatSigned(
-        mode === "total" ? r.team.netPerGame.pts * r.team.gamesPlayed : r.team.netPerGame.pts,
-        mode === "total" ? 0 : 1,
-      ),
+    format: (r, _m, mode, p) => {
+      const ownTotal = r.team.netPerGame.pts * r.team.gamesPlayed;
+      return formatTeamSeasonCountPerspective(ownTotal, -ownTotal, r.team.gamesPlayed, mode, p, { signed: true });
+    },
   },
 ];
 
 const TEAM_SEASON_ADVANCED_COLUMNS: TeamSeasonBoxColumn[] = [
   { key: "g", label: "G", format: (r) => String(r.team.gamesPlayed) },
-  { key: "tovpct", label: "TOV%", format: (r) => formatPct100(r.team.advanced.tovPct) },
-  { key: "ftr", label: "FTR", format: (r) => formatPct(r.team.shooting.ftRate) },
-  { key: "orbpct", label: "OR%", format: (r) => formatPct100(r.team.advanced.orbPct) },
-  { key: "efg", label: "eFG%", format: (r) => formatPct(r.team.shooting.efgPct) },
-  { key: "ts", label: "TS%", format: (r) => formatPct(r.team.shooting.tsPct) },
-  { key: "pps", label: "PPS", format: (r) => formatDecimal(safeDiv(r.team.totals.pts, r.team.totals.fga), 2) },
+  {
+    key: "tovpct",
+    label: "TOV%",
+    format: (r, _m, _mode, p) => formatTeamSeasonPct100(r.team.advanced.tovPct, r.team.advanced.opponentTovPct, p),
+  },
+  {
+    key: "ftr",
+    label: "FTR",
+    format: (r, _m, _mode, p) => formatTeamSeasonPct(r.team.shooting.ftRate, r.team.opponentShooting.ftRate, p),
+  },
+  {
+    key: "orbpct",
+    label: "OR%",
+    format: (r, _m, _mode, p) => formatTeamSeasonPct100(r.team.advanced.orbPct, r.team.advanced.opponentOrbPct, p),
+  },
+  {
+    key: "efg",
+    label: "eFG%",
+    format: (r, _m, _mode, p) => formatTeamSeasonPct(r.team.shooting.efgPct, r.team.opponentShooting.efgPct, p),
+  },
+  {
+    key: "ts",
+    label: "TS%",
+    format: (r, _m, _mode, p) => formatTeamSeasonPct(r.team.shooting.tsPct, r.team.opponentShooting.tsPct, p),
+  },
+  {
+    key: "pps",
+    label: "PPS",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonDecimal(safeDiv(r.team.totals.pts, r.team.totals.fga), safeDiv(m.oppPts, m.oppFga), p, 2),
+  },
   {
     key: "poss",
     label: "POSS",
@@ -533,26 +781,80 @@ const TEAM_SEASON_ADVANCED_COLUMNS: TeamSeasonBoxColumn[] = [
         : formatDecimal(safeDiv(r.team.advanced.poss, r.team.gamesPlayed)),
   },
   { key: "pace", label: "PACE", format: (r) => formatDecimal(r.team.advanced.pace) },
-  { key: "ortg", label: "ORtg", format: (r) => formatDecimal(r.team.advanced.offRtg) },
-  { key: "drtg", label: "DRtg", format: (r) => formatDecimal(r.team.advanced.defRtg) },
-  { key: "netrtg", label: "NetRtg", format: (r) => formatSigned(r.team.advanced.netRtg) },
+  {
+    key: "ortg",
+    label: "ORtg",
+    // opp視点のORtg＝自チームのDRtg（同じPOSSを分母にした「相手の得点効率」という意味で、
+    // 「チームスタッツ」「日程結果」タブのopp視点ORtg/DRtg入れ替えと同じ考え方）
+    format: (r, _m, _mode, p) => formatTeamSeasonDecimal(r.team.advanced.offRtg, r.team.advanced.defRtg, p),
+  },
+  {
+    key: "drtg",
+    label: "DRtg",
+    format: (r, _m, _mode, p) => formatTeamSeasonDecimal(r.team.advanced.defRtg, r.team.advanced.offRtg, p),
+  },
+  {
+    key: "netrtg",
+    label: "NetRtg",
+    format: (r, _m, _mode, p) => formatTeamSeasonSigned(r.team.advanced.netRtg, -r.team.advanced.netRtg, p),
+  },
 ];
 
 const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
   { key: "g", label: "G", format: (r) => String(r.team.gamesPlayed) },
-  { key: "pitp", label: "PITP", format: (r, m, mode) => formatTeamSeasonCount(m.pt2in, r.team.gamesPlayed, mode) },
-  { key: "fbps", label: "FBPS", format: (r, m, mode) => formatTeamSeasonCount(m.fb, r.team.gamesPlayed, mode) },
-  { key: "2ndpts", label: "2ND PTS", format: (r, m, mode) => formatTeamSeasonCount(m.pt2nd, r.team.gamesPlayed, mode) },
-  { key: "ptsofftov", label: "PTSOFFTO", format: (r, m, mode) => formatTeamSeasonCount(m.pft, r.team.gamesPlayed, mode) },
-  { key: "dunk", label: "DUNK", format: (r, m, mode) => formatTeamSeasonCount(m.dunks, r.team.gamesPlayed, mode) },
+  {
+    key: "pitp",
+    label: "PITP",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.pt2in, m.oppPt2in, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "fbps",
+    label: "FBPS",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.fb, m.oppFb, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "2ndpts",
+    label: "2ND PTS",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.pt2nd, m.oppPt2nd, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "ptsofftov",
+    label: "PTSOFFTO",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.pft, m.oppPft, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "dunk",
+    label: "DUNK",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.dunks, m.oppDunks, r.team.gamesPlayed, mode, p),
+  },
 ];
 
 const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   { key: "g", label: "G", format: (r) => String(r.team.gamesPlayed) },
-  { key: "pitppct", label: "PITP%", format: (r, m) => formatPct100(safeDiv(100 * m.pt2in, r.team.totals.pts)) },
-  { key: "fbppct", label: "FBP%", format: (r, m) => formatPct100(safeDiv(100 * m.fb, r.team.totals.pts)) },
-  { key: "2ndptspct", label: "2ND PTS%", format: (r, m) => formatPct100(safeDiv(100 * m.pt2nd, r.team.totals.pts)) },
-  { key: "ptsofftovpct", label: "PTSOFFTO%", format: (r, m) => formatPct100(safeDiv(100 * m.pft, r.team.totals.pts)) },
+  {
+    key: "pitppct",
+    label: "PITP%",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonPct100(safeDiv(100 * m.pt2in, r.team.totals.pts), safeDiv(100 * m.oppPt2in, m.oppPts), p),
+  },
+  {
+    key: "fbppct",
+    label: "FBP%",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonPct100(safeDiv(100 * m.fb, r.team.totals.pts), safeDiv(100 * m.oppFb, m.oppPts), p),
+  },
+  {
+    key: "2ndptspct",
+    label: "2ND PTS%",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonPct100(safeDiv(100 * m.pt2nd, r.team.totals.pts), safeDiv(100 * m.oppPt2nd, m.oppPts), p),
+  },
+  {
+    key: "ptsofftovpct",
+    label: "PTSOFFTO%",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonPct100(safeDiv(100 * m.pft, r.team.totals.pts), safeDiv(100 * m.oppPft, m.oppPts), p),
+  },
 ];
 
 const TEAM_SEASON_BOX_COLUMNS: Record<SeasonBoxTabKey, TeamSeasonBoxColumn[]> = {
@@ -1443,6 +1745,9 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「シーズン別成績」（概要タブ）の平均/合計トグル。個人詳細ページのSeasonBreakdownTableと
   // 同じ仕組み（TeamSeasonBoxColumn.formatにmodeを渡す）を再利用する
   const [seasonBoxDisplayMode, setSeasonBoxDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  // 「シーズン別成績」の自チーム/opp/+/-トグル（Phase H8-2）。「チームスタッツ」「日程結果」
+  // タブと同じTeamPerspective型・同じ3値切り替えの仕組みを再利用する
+  const [seasonBoxPerspective, setSeasonBoxPerspective] = useState<TeamPerspective>("own");
   // 「シューティング」セクションの平均/合計トグル
   const [teamShootingDisplayMode, setTeamShootingDisplayMode] = useState<SeasonDisplayMode>("perGame");
   // 「当該シーズンのスタッツ」（上部集計表）・「シチュエーション別成績」（チーム版）の
@@ -2161,6 +2466,18 @@ export function TeamDetailPage({ season }: { season: string }) {
               ))}
             </p>
           )}
+          <div className="mode-toggle">
+            {(["own", "opp", "diff"] as TeamPerspective[]).map((p) => (
+              <button
+                key={p}
+                className={p === seasonBoxPerspective ? "active" : ""}
+                onClick={() => setSeasonBoxPerspective(p)}
+                type="button"
+              >
+                {TEAM_PERSPECTIVE_LABELS[p]}
+              </button>
+            ))}
+          </div>
           <div className="tab-bar-with-toggle">
             <div className="tab-bar">
               {SEASON_BOX_TABS.map((t) => (
@@ -2224,7 +2541,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                         <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
                         {TEAM_SEASON_BOX_COLUMNS[seasonBoxTab].map((c) => (
                           <td className="align-right" key={c.key}>
-                            {c.format(r, misc, seasonBoxDisplayMode)}
+                            {c.format(r, misc, seasonBoxDisplayMode, seasonBoxPerspective)}
                           </td>
                         ))}
                       </tr>
