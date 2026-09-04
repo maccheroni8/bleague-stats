@@ -1478,7 +1478,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
         ])
       : [];
   const situationalStatsShotColumns: Column<SituationalStatsRow>[] =
-    situationalStatsTab === "shooting" ? shotTypeEntityColumns<SituationalStatsRow>(situationalStatsShotTypeKeys, (r) => r.breakdown) : [];
+    situationalStatsTab === "shooting"
+      ? shotTypeEntityColumns<SituationalStatsRow>(
+          situationalStatsShotTypeKeys,
+          (r) => r.breakdown,
+          situationalStatsDisplayMode === "total" ? "total" : "perGame",
+          (r) => r.ctx.raw.gamesPlayed,
+        )
+      : [];
 
   const situationalStatsRowSortValue = (row: SituationalStatsRow, key: string): number | string => {
     switch (key) {
@@ -2318,6 +2325,7 @@ function SeasonBreakdownTable({
     return buildShotTypeBreakdown(totalRows.flatMap((r) => r.logs.flatMap((l) => careerShots.get(l.scheduleKey) ?? [])));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, seasonRows, careerShots]);
+  const seasonTotalShotGamesPlayed = seasonRows.filter((r) => r.countsTowardTotal).reduce((sum, r) => sum + r.ctx.raw.gamesPlayed, 0);
   const seasonShotTypeKeys = useMemo(
     () =>
       sortShotTypeKeys([
@@ -2325,7 +2333,12 @@ function SeasonBreakdownTable({
       ]),
     [seasonShotBreakdownByKey, seasonTotalShotBreakdown],
   );
-  const seasonShotColumns = shotTypeEntityColumns<{ breakdown?: ShotTypeBreakdown }>(seasonShotTypeKeys, (r) => r.breakdown);
+  const seasonShotColumns = shotTypeEntityColumns<{ breakdown?: ShotTypeBreakdown; gamesPlayed?: number }>(
+    seasonShotTypeKeys,
+    (r) => r.breakdown,
+    displayMode === "total" ? "total" : "perGame",
+    (r) => r.gamesPlayed ?? 0,
+  );
 
   const seasonRowSortValue = (r: (typeof seasonRows)[number], key: string): number | string => {
     switch (key) {
@@ -2340,7 +2353,7 @@ function SeasonBreakdownTable({
       default: {
         if (tab === "shooting") {
           const col = seasonShotColumns.find((c) => c.key === key);
-          return col ? col.sortValue({ breakdown: seasonShotBreakdownByKey.get(r.key) }) : 0;
+          return col ? col.sortValue({ breakdown: seasonShotBreakdownByKey.get(r.key), gamesPlayed: r.ctx.raw.gamesPlayed }) : 0;
         }
         const col = columns.find((c) => c.key === key);
         return col ? col.value(r.ctx, displayMode) : 0;
@@ -2460,7 +2473,7 @@ function SeasonBreakdownTable({
                 {tab === "shooting"
                   ? seasonShotColumns.map((col) => (
                       <td key={col.key} className="align-right">
-                        {col.format!({ breakdown: seasonShotBreakdownByKey.get(r.key) })}
+                        {col.format!({ breakdown: seasonShotBreakdownByKey.get(r.key), gamesPlayed: r.ctx.raw.gamesPlayed })}
                       </td>
                     ))
                   : columns.map((col) => (
@@ -2479,7 +2492,7 @@ function SeasonBreakdownTable({
                 {tab === "shooting"
                   ? seasonShotColumns.map((col) => (
                       <td key={col.key} className="align-right">
-                        {col.format!({ breakdown: seasonTotalShotBreakdown })}
+                        {col.format!({ breakdown: seasonTotalShotBreakdown, gamesPlayed: seasonTotalShotGamesPlayed })}
                       </td>
                     ))
                   : columns.map((col) => (

@@ -2656,8 +2656,11 @@ export function TeamDetailPage({ season }: { season: string }) {
     situationalTeamBoxTab === "shooting"
       ? sortShotTypeKeys([...new Set([...situationalTeamShotBreakdownByRowKey.values()].flatMap((b) => Object.keys(b)))])
       : [];
-  const situationalTeamShotColumns = shotTypeEntityColumns<TeamSituationalStatsRow>(situationalTeamShotTypeKeys, (r) =>
-    situationalTeamShotBreakdownByRowKey.get(r.key),
+  const situationalTeamShotColumns = shotTypeEntityColumns<TeamSituationalStatsRow>(
+    situationalTeamShotTypeKeys,
+    (r) => situationalTeamShotBreakdownByRowKey.get(r.key),
+    situationalTeamDisplayMode === "total" ? "total" : "perGame",
+    (r) => r.gamesPlayed,
   );
 
   const playerNameById = new Map((players ?? []).map((p) => [p.playerId, p.name]));
@@ -4164,7 +4167,12 @@ function TeamPlayerStatsTable({
     tab === "shooting"
       ? sortShotTypeKeys([...new Set([...shotBreakdownByPlayerId.values()].flatMap((b) => Object.keys(b)))])
       : [];
-  const shotColumns = shotTypeEntityColumns<TeamPlayerStatsRow>(shotTypeKeys, (r) => shotBreakdownByPlayerId.get(r.player.playerId));
+  const shotColumns = shotTypeEntityColumns<TeamPlayerStatsRow>(
+    shotTypeKeys,
+    (r) => shotBreakdownByPlayerId.get(r.player.playerId),
+    displayMode === "total" ? "total" : "perGame",
+    (r) => r.ctx.raw.gamesPlayed,
+  );
 
   const rowSortValue = (r: TeamPlayerStatsRow, key: string): number | string => {
     switch (key) {

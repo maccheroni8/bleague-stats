@@ -145,13 +145,26 @@ export function shotTypePctValue(counts: { made: number; attempted: number } | u
  * 「行=任意のエンティティ（チーム・シーズン・シチュエーション区分・選手等）、列=シュートタイプ×
  * 2P/3P×成功数/試投数/成功率」という一覧表示用のSortableTable列を、シュートタイプキー一覧と
  * 行からShotTypeBreakdownを取り出す関数だけで組み立てる（全チームスタッツページで最初に実装した
- * パターンの汎用版。DESIGN.md参照）
+ * パターンの汎用版。DESIGN.md参照）。
+ *
+ * `mode`が"perGame"の場合、成功数・試投数を`getGames`が返す試合数で割った平均値を表示する
+ * （成功率は分子分母とも同じ係数で割るため元々不変）。`getGames`が未指定、または対象行の
+ * 試合数が0以下の場合は「データ無し」として扱う（"-"表示）。
  */
 export function shotTypeEntityColumns<T>(
   shotTypeKeys: string[],
   getBreakdown: (row: T) => ShotTypeBreakdown | undefined,
+  mode: "total" | "perGame" = "total",
+  getGames?: (row: T) => number,
 ): Column<T>[] {
-  const at = (row: T, key: string, split: "twoPoint" | "threePoint") => getBreakdown(row)?.[key]?.[split];
+  const at = (row: T, key: string, split: "twoPoint" | "threePoint"): ShotTypeCounts | undefined => {
+    const counts = getBreakdown(row)?.[key]?.[split];
+    if (!counts) return undefined;
+    if (mode !== "perGame") return counts;
+    const games = getGames?.(row) ?? 0;
+    return games > 0 ? scaleShotTypeCounts(counts, 1 / games) : undefined;
+  };
+  const digits = mode === "perGame" ? 1 : 0;
   return shotTypeKeys.flatMap((key): Column<T>[] => {
     const label = shotTypeLabel(key);
     return [
@@ -159,13 +172,13 @@ export function shotTypeEntityColumns<T>(
         key: `${key}_2pm`,
         label: `${label} 2PM`,
         sortValue: (r) => at(r, key, "twoPoint")?.made ?? -1,
-        format: (r) => formatShotTypeMade(at(r, key, "twoPoint")),
+        format: (r) => formatShotTypeMade(at(r, key, "twoPoint"), digits),
       },
       {
         key: `${key}_2pa`,
         label: `${label} 2PA`,
         sortValue: (r) => at(r, key, "twoPoint")?.attempted ?? -1,
-        format: (r) => formatShotTypeAttempted(at(r, key, "twoPoint")),
+        format: (r) => formatShotTypeAttempted(at(r, key, "twoPoint"), digits),
       },
       {
         key: `${key}_2ppct`,
@@ -177,13 +190,13 @@ export function shotTypeEntityColumns<T>(
         key: `${key}_3pm`,
         label: `${label} 3PM`,
         sortValue: (r) => at(r, key, "threePoint")?.made ?? -1,
-        format: (r) => formatShotTypeMade(at(r, key, "threePoint")),
+        format: (r) => formatShotTypeMade(at(r, key, "threePoint"), digits),
       },
       {
         key: `${key}_3pa`,
         label: `${label} 3PA`,
         sortValue: (r) => at(r, key, "threePoint")?.attempted ?? -1,
-        format: (r) => formatShotTypeAttempted(at(r, key, "threePoint")),
+        format: (r) => formatShotTypeAttempted(at(r, key, "threePoint"), digits),
       },
       {
         key: `${key}_3ppct`,

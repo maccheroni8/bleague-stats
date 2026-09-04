@@ -832,7 +832,12 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         </span>
       ),
     },
-    ...shotTypeEntityColumns<ShootingRow>(shotTypeKeys, (r) => r.team.shotTypes),
+    ...shotTypeEntityColumns<ShootingRow>(
+      shotTypeKeys,
+      (r) => r.team.shotTypes,
+      displayMode === "total" ? "total" : "perGame",
+      (r) => r.team.gamesPlayed,
+    ),
   ];
 
   const turnoverRows: TurnoverRow[] = (teams ?? []).flatMap((team) => {

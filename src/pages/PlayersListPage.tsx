@@ -604,7 +604,12 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const shootingColumns: Column<PlayerRow>[] = [
     nameColumn,
     teamColumn,
-    ...shotTypeEntityColumns<PlayerRow>(shotTypeKeys, (r) => r.player.shotTypes),
+    ...shotTypeEntityColumns<PlayerRow>(
+      shotTypeKeys,
+      (r) => r.player.shotTypes,
+      displayMode === "total" ? "total" : "perGame",
+      (r) => r.player.gamesPlayed,
+    ),
   ];
 
   const columns =
