@@ -1076,8 +1076,8 @@ export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
     key: "astpct",
     label: "AST%",
     format: (c) =>
-      formatPct100(safeDiv(c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm, c.raw.pts)),
-    value: (c) => safeDiv(c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm, c.raw.pts),
+      formatPct100(safeDiv(100 * (c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm), c.raw.pts)),
+    value: (c) => safeDiv(100 * (c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm), c.raw.pts),
     description: "(アシストされた2Mx2 + 3Mx3 + FTMx1) / PTS。得点のうちアシストが付いた割合",
   },
 ];

@@ -24,6 +24,13 @@ interface SortableTableProps<T> {
   externalLinkTo?: (row: T) => string | undefined;
   /** 指定時、各行の先頭セルに左端の縦線としてチームカラー等のアクセントを付ける */
   rowAccentColor?: (row: T) => string | undefined;
+  /**
+   * 指定時、rowsを全件ソートした後、先頭からこの件数だけを描画する（「もっと見る」等の
+   * 段階的な表示件数拡大と組み合わせるためのページネーション用。ソート自体は常にrows全体を
+   * 対象に行うため、limitを使っても列ヘッダークリックでの並び替えは常に全件に対して正しく
+   * 機能する。未指定時は従来通りrows全件を描画する）
+   */
+  limit?: number;
 }
 
 export function SortableTable<T>({
@@ -35,6 +42,7 @@ export function SortableTable<T>({
   linkTo,
   externalLinkTo,
   rowAccentColor,
+  limit,
 }: SortableTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
@@ -50,6 +58,8 @@ export function SortableTable<T>({
       return String(av).localeCompare(String(bv)) * factor;
     });
   }, [rows, columns, sortKey, sortDir]);
+
+  const visibleRows = limit !== undefined ? sortedRows.slice(0, limit) : sortedRows;
 
   const handleHeaderClick = (key: string) => {
     if (key === sortKey) {
@@ -78,7 +88,7 @@ export function SortableTable<T>({
         </tr>
       </thead>
       <tbody>
-        {sortedRows.map((row) => {
+        {visibleRows.map((row) => {
           const accent = rowAccentColor?.(row);
           return (
             <tr key={rowKey(row)}>
