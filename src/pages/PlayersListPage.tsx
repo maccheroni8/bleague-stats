@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  fetchGameSummaries,
   fetchLeaguePlayerRankings,
   fetchPlayerAwards,
   fetchPlayerGameLogs,
@@ -11,6 +12,7 @@ import {
 import { useJsonData } from "../lib/useJsonData";
 import { useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
+  GameSummary,
   LeaguePlayerRankEntry,
   LeaguePlayerRankingsFile,
   PlayerAwardsFile,
@@ -22,8 +24,9 @@ import { SortableTable, type Column } from "../components/SortableTable";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
 import { astToTovRatio, formatAstToRatio, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
-import { safeDiv, tovPct } from "../../shared/formulas";
+import { efgPct, eff, safeDiv, tovPct, tsPct } from "../../shared/formulas";
 import { teamShortName } from "../../shared/teamNames";
+import { buildRecordsBeforeGame, filterGameLogs, type RecordBeforeGame } from "../lib/situational";
 import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { SEASON_GAME_TYPE_LABELS, type SeasonGameTypeFilter } from "../../shared/gameType";
@@ -43,15 +46,17 @@ import {
 // 「個人」ページ。「全選手スタッツ」タブ（チーム版の「全チームスタッツ」と同じ考え方）・
 // 「歴代記録」タブ（チーム版の「歴代記録」から通算成績部分のみ、ユーザー依頼2026-09-04）・
 // 「歴代アワード」タブ（data/player-awards.json、チーム版の「歴代王者」と同じ発想のシーズン軸
-// 年表、ユーザー依頼2026-09-04）の3タブ構成。「歴代記録」のクラブレコード相当（1試合単位の
+// 年表、ユーザー依頼2026-09-04）・「直近成績」タブ（チーム版の「直近成績」と同じ考え方、
+// ユーザー依頼2026-09-05）の4タブ構成。「歴代記録」のクラブレコード相当（1試合単位の
 // 最高記録）は今回対象外（別途RankingsページのTaskとして進める予定）。
 
-type PlayersOuterTab = "stats" | "records" | "awards";
+type PlayersOuterTab = "stats" | "records" | "awards" | "recent";
 
 const OUTER_TAB_LABELS: Record<PlayersOuterTab, string> = {
   stats: "全選手スタッツ",
   records: "歴代記録",
   awards: "歴代アワード",
+  recent: "直近成績",
 };
 
 export function PlayersListPage({ season }: { season: string }) {
@@ -71,8 +76,10 @@ export function PlayersListPage({ season }: { season: string }) {
         <AllPlayersStatsTab season={season} />
       ) : tab === "records" ? (
         <LeaguePlayerRecordsTab />
-      ) : (
+      ) : tab === "awards" ? (
         <PlayerAwardsTimelineTab />
+      ) : (
+        <PlayerRecentFormTab season={season} />
       )}
     </div>
   );
@@ -845,5 +852,261 @@ function AwardEntryRow({
         </span>
       </Link>
     </li>
+  );
+}
+
+// 「直近成績」タブ。チーム版RecentFormTab（TeamsListPage.tsx）と同じ考え方で、直近5試合/
+// 直近10試合の成績を軸にした選手ランキングを表示する（ユーザー依頼2026-09-05）。対象は
+// このシーズンのplayers.jsonに登場する全選手（移籍選手も直近所属チームでそのまま扱う、
+// 既存の「全選手スタッツ」タブと同じ前提）。表示項目はチーム版の構成（得点/失点/勝率/
+// レーティング等）を選手向けに読み替え、基本スタッツ（PTS/REB/AST/STL/BLK/TOV）・シュート
+// 効率（FG%/3P%/FT%/eFG%/TS%）・EFF（貢献度）・+/-・対戦相手の加重平均勝率を対象にした（要件2）。
+//
+// データソース: 全選手分のPlayerGameLogを一括取得し（既存のMisc/スコアリングタブと同じ方式、
+// タブを開いたときに1回だけ取得する）、situational.tsのfilterGameLogs({range:{kind:"recent",
+// n}, includePlayoffs:true})でその選手の直近N試合に絞り込む。EFFはshared/formulas.tsのeff()を、
+// 絞り込んだ直近N試合分のEffTotals合計値に対して1回だけ適用する（シーズン集計・チーム版
+// ORtg/DRtgと同じ「合計してから式を1回適用する」方針、非線形性を避けるため）。対戦相手の
+// 加重平均勝率は、チーム版と全く同じbuildRecordsBeforeGame()（48章）をそのまま再利用する
+// （対戦相手はチーム単位のため、選手のopponentTeamIdでそのまま引ける）。
+//
+// 要件4: 出場機会が極端に少ない選手（直近5試合中1試合のみ出場等）が上位に出やすい問題への
+// 対処として、直近N試合中の出場試合数がN/2未満（切り上げ。N=5→3試合未満、N=10→5試合未満）の
+// 選手はランキング対象から除外する。既存のPER・シュート成功率のランキング足切り
+// （statDefs.tsのminMinutesForRanking・MIN_GAMES_PLAYED_RATIO_FOR_RANKING）と同じ考え方を、
+// 「直近N試合」という短い窓に合わせて適用したもの
+const RECENT_FORM_N_OPTIONS = [5, 10] as const;
+type PlayerRecentFormRecentN = (typeof RECENT_FORM_N_OPTIONS)[number];
+const MIN_GAMES_FOR_PLAYER_RECENT_FORM: Record<PlayerRecentFormRecentN, number> = { 5: 3, 10: 5 };
+
+interface PlayerRecentFormRow {
+  player: PlayerSummary;
+  gamesPlayed: number;
+  minAvg: number;
+  ptsAvg: number;
+  rebAvg: number;
+  astAvg: number;
+  stlAvg: number;
+  blkAvg: number;
+  tovAvg: number;
+  fgPct: number;
+  tpPct: number;
+  ftPct: number;
+  efgPctValue: number;
+  tsPctValue: number;
+  effValue: number;
+  plusMinusAvg: number;
+  /** 対戦相手のその試合時点までの勝率の単純平均。算出対象の試合が1件も無ければundefined */
+  oppWinPctAvg: number | undefined;
+}
+
+function PlayerRecentFormTab({ season }: { season: string }) {
+  const { data: players, loading: playersLoading, error: playersError } = useJsonData(() => fetchPlayers(season), [season]);
+
+  const [gameLogs, setGameLogs] = useState<Map<string, PlayerGameLog[]> | null>(null);
+  const [gameLogsLoading, setGameLogsLoading] = useState(true);
+  const [summaries, setSummaries] = useState<GameSummary[] | null>(null);
+  const [recentN, setRecentN] = useState<PlayerRecentFormRecentN>(5);
+
+  useEffect(() => {
+    if (!players) return;
+    let cancelled = false;
+    setGameLogsLoading(true);
+    setGameLogs(null);
+    Promise.all(
+      players.map(async (p): Promise<readonly [string, PlayerGameLog[]]> => {
+        try {
+          return [p.playerId, await fetchPlayerGameLogs(season, p.playerId)] as const;
+        } catch {
+          return [p.playerId, [] as PlayerGameLog[]] as const;
+        }
+      }),
+    )
+      .then((results) => {
+        if (!cancelled) setGameLogs(new Map(results));
+      })
+      .finally(() => {
+        if (!cancelled) setGameLogsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [players, season]);
+
+  // 「対戦相手の加重平均勝率」用。チーム版RecentFormTabと同じbuildRecordsBeforeGame()（48章の
+  // 対勝率別フィルタと同じロジック）をそのまま再利用し、各対戦相手のその試合時点までの
+  // 勝敗数を求める
+  useEffect(() => {
+    let cancelled = false;
+    setSummaries(null);
+    fetchGameSummaries(season)
+      .then((s) => {
+        if (!cancelled) setSummaries(s);
+      })
+      .catch(() => {
+        // 対戦相手の加重平均勝率が算出できなくなるだけなので、失敗しても他の項目は継続する
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [season]);
+
+  const opponentRecords = useMemo<Map<string, Map<string, RecordBeforeGame>> | undefined>(
+    () => (summaries ? buildRecordsBeforeGame(summaries) : undefined),
+    [summaries],
+  );
+
+  const seasonStartYear = Number(season.split("-")[0]);
+  const minGames = MIN_GAMES_FOR_PLAYER_RECENT_FORM[recentN];
+
+  const rows: PlayerRecentFormRow[] = useMemo(() => {
+    if (!players || !gameLogs) return [];
+    return players
+      .map((player): PlayerRecentFormRow => {
+        const logs = gameLogs.get(player.playerId) ?? [];
+        const recentLogs = filterGameLogs(logs, { range: { kind: "recent", n: recentN }, includePlayoffs: true });
+        const gamesPlayed = recentLogs.length;
+        const sum = (pick: (g: PlayerGameLog) => number) => recentLogs.reduce((s, g) => s + pick(g), 0);
+        const ptsSum = sum((g) => g.pts);
+        const fgmSum = sum((g) => g.fgm);
+        const fgaSum = sum((g) => g.fga);
+        const tpmSum = sum((g) => g.tpm);
+        const tpaSum = sum((g) => g.tpa);
+        const ftmSum = sum((g) => g.ftm);
+        const ftaSum = sum((g) => g.fta);
+        const effValue = eff(
+          seasonStartYear,
+          {
+            pts: ptsSum,
+            ast: sum((g) => g.ast),
+            blk: sum((g) => g.blk),
+            stl: sum((g) => g.stl),
+            reb: sum((g) => g.reb),
+            tov: sum((g) => g.tov),
+            pf: sum((g) => g.pf),
+            fgm: fgmSum,
+            fga: fgaSum,
+            ftm: ftmSum,
+            fta: ftaSum,
+            foulsDrawn: sum((g) => g.foulsDrawn),
+            blockedAgainst: sum((g) => g.blockedAgainst),
+            technicalFouls: sum((g) => g.technicalFouls),
+          },
+          gamesPlayed,
+        );
+        const oppWinPcts = recentLogs.flatMap((g) => {
+          const rec = opponentRecords?.get(g.scheduleKey)?.get(g.opponentTeamId);
+          if (!rec || rec.wins + rec.losses === 0) return [];
+          return [safeDiv(rec.wins, rec.wins + rec.losses)];
+        });
+        const oppWinPctAvg =
+          oppWinPcts.length > 0 ? safeDiv(oppWinPcts.reduce((s, v) => s + v, 0), oppWinPcts.length) : undefined;
+        return {
+          player,
+          gamesPlayed,
+          minAvg: safeDiv(sum((g) => g.min), gamesPlayed),
+          ptsAvg: safeDiv(ptsSum, gamesPlayed),
+          rebAvg: safeDiv(sum((g) => g.reb), gamesPlayed),
+          astAvg: safeDiv(sum((g) => g.ast), gamesPlayed),
+          stlAvg: safeDiv(sum((g) => g.stl), gamesPlayed),
+          blkAvg: safeDiv(sum((g) => g.blk), gamesPlayed),
+          tovAvg: safeDiv(sum((g) => g.tov), gamesPlayed),
+          fgPct: safeDiv(fgmSum, fgaSum),
+          tpPct: safeDiv(tpmSum, tpaSum),
+          ftPct: safeDiv(ftmSum, ftaSum),
+          efgPctValue: efgPct(fgmSum, tpmSum, fgaSum),
+          tsPctValue: tsPct(ptsSum, fgaSum, ftaSum),
+          effValue,
+          plusMinusAvg: safeDiv(sum((g) => g.plusMinus), gamesPlayed),
+          oppWinPctAvg,
+        };
+      })
+      .filter((r) => r.gamesPlayed >= minGames);
+  }, [players, gameLogs, recentN, opponentRecords, seasonStartYear, minGames]);
+
+  const columns: Column<PlayerRecentFormRow>[] = [
+    {
+      key: "name",
+      label: "選手",
+      align: "left",
+      sortValue: (r) => r.player.name,
+      render: (r) => (
+        <span className="player-cell">
+          <PlayerPhoto playerId={r.player.playerId} size={32} className="player-cell-photo" />
+          <span className="player-cell-name">{r.player.name}</span>
+        </span>
+      ),
+    },
+    {
+      key: "team",
+      label: "チーム",
+      align: "left",
+      sortValue: (r) => teamShortName(r.player.teamId, r.player.teamName),
+      format: (r) => teamShortName(r.player.teamId, r.player.teamName),
+    },
+    { key: "g", label: "G", sortValue: (r) => r.gamesPlayed, format: (r) => String(r.gamesPlayed) },
+    {
+      key: "min",
+      label: "MIN",
+      sortValue: (r) => r.minAvg,
+      format: (r) => formatMinutesFromSeconds(Math.round(r.minAvg * 60)),
+    },
+    { key: "pts", label: "PTS", sortValue: (r) => r.ptsAvg, format: (r) => formatDecimal(r.ptsAvg) },
+    { key: "reb", label: "REB", sortValue: (r) => r.rebAvg, format: (r) => formatDecimal(r.rebAvg) },
+    { key: "ast", label: "AST", sortValue: (r) => r.astAvg, format: (r) => formatDecimal(r.astAvg) },
+    { key: "stl", label: "STL", sortValue: (r) => r.stlAvg, format: (r) => formatDecimal(r.stlAvg) },
+    { key: "blk", label: "BLK", sortValue: (r) => r.blkAvg, format: (r) => formatDecimal(r.blkAvg) },
+    { key: "tov", label: "TOV", sortValue: (r) => r.tovAvg, format: (r) => formatDecimal(r.tovAvg) },
+    { key: "fgpct", label: "FG%", sortValue: (r) => r.fgPct, format: (r) => formatPct(r.fgPct) },
+    { key: "3ppct", label: "3P%", sortValue: (r) => r.tpPct, format: (r) => formatPct(r.tpPct) },
+    { key: "ftpct", label: "FT%", sortValue: (r) => r.ftPct, format: (r) => formatPct(r.ftPct) },
+    { key: "efgpct", label: "eFG%", sortValue: (r) => r.efgPctValue, format: (r) => formatPct(r.efgPctValue) },
+    { key: "tspct", label: "TS%", sortValue: (r) => r.tsPctValue, format: (r) => formatPct(r.tsPctValue) },
+    { key: "eff", label: "EFF", sortValue: (r) => r.effValue, format: (r) => formatDecimal(r.effValue) },
+    { key: "plusMinus", label: "+/-", sortValue: (r) => r.plusMinusAvg, format: (r) => formatSigned(r.plusMinusAvg) },
+    {
+      key: "oppWinPct",
+      label: "対戦相手の加重平均勝率",
+      sortValue: (r) => r.oppWinPctAvg ?? -1,
+      format: (r) => (r.oppWinPctAvg !== undefined ? formatPct(r.oppWinPctAvg) : "-"),
+    },
+  ];
+
+  if (playersLoading) return <p className="loading">読み込み中...</p>;
+  if (playersError) return <p className="error-message">{playersError}</p>;
+  if (!players || players.length === 0) return <p className="empty-message">データがありません</p>;
+
+  return (
+    <div>
+      <p className="page-subtitle">
+        {season}シーズン、直近{recentN}試合中{minGames}試合以上出場した選手による成績ランキング
+        （レギュラーシーズン・プレーオフ合算）。出場試合数が少なすぎる選手は数値が振れやすいため
+        対象外にしています。EFFは直近{recentN}試合の合計値から算出。対戦相手の加重平均勝率は、
+        直近{recentN}試合の各対戦相手のその試合時点までの勝率を単純平均したもの（対戦相手が
+        未消化の試合は対象外）
+      </p>
+      <div className="mode-toggle">
+        {RECENT_FORM_N_OPTIONS.map((n) => (
+          <button key={n} className={n === recentN ? "active" : ""} onClick={() => setRecentN(n)} type="button">
+            直近{n}試合
+          </button>
+        ))}
+      </div>
+      {gameLogsLoading || !gameLogs ? (
+        <p className="loading">読み込み中...</p>
+      ) : rows.length === 0 ? (
+        <p className="empty-message">この条件では該当選手がいません</p>
+      ) : (
+        <div className="table-scroll">
+          <SortableTable
+            columns={columns}
+            rows={rows}
+            rowKey={(r) => r.player.playerId}
+            defaultSortKey="pts"
+            linkTo={(r) => `/players/${r.player.playerId}`}
+          />
+        </div>
+      )}
+    </div>
   );
 }
