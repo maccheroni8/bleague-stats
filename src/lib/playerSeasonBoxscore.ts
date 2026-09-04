@@ -90,6 +90,8 @@ export interface PlayerSeasonRawTotals {
   basketCounts: number;
   unsportsmanlikeFouls: number;
   disqualifyingFouls: number;
+  offensiveFoulsCommitted: number;
+  chargesDrawn: number;
   assisted2m: number;
   assisted3m: number;
   assistedFtm: number;
@@ -134,6 +136,8 @@ const EMPTY_RAW_TOTALS: PlayerSeasonRawTotals = {
   basketCounts: 0,
   unsportsmanlikeFouls: 0,
   disqualifyingFouls: 0,
+  offensiveFoulsCommitted: 0,
+  chargesDrawn: 0,
   assisted2m: 0,
   assisted3m: 0,
   assistedFtm: 0,
@@ -180,6 +184,8 @@ export function sumPlayerGameLogs(logs: PlayerGameLog[]): PlayerSeasonRawTotals 
       basketCounts: acc.basketCounts + g.basketCounts,
       unsportsmanlikeFouls: acc.unsportsmanlikeFouls + g.unsportsmanlikeFouls,
       disqualifyingFouls: acc.disqualifyingFouls + g.disqualifyingFouls,
+      offensiveFoulsCommitted: acc.offensiveFoulsCommitted + g.offensiveFoulsCommitted,
+      chargesDrawn: acc.chargesDrawn + g.chargesDrawn,
       assisted2m: acc.assisted2m + g.assisted2m,
       assisted3m: acc.assisted3m + g.assisted3m,
       assistedFtm: acc.assistedFtm + g.assistedFtm,
@@ -331,6 +337,8 @@ function scaleTotals(raw: PlayerSeasonRawTotals, factor: number): PlayerSeasonRa
     basketCounts: raw.basketCounts * factor,
     unsportsmanlikeFouls: raw.unsportsmanlikeFouls * factor,
     disqualifyingFouls: raw.disqualifyingFouls * factor,
+    offensiveFoulsCommitted: raw.offensiveFoulsCommitted * factor,
+    chargesDrawn: raw.chargesDrawn * factor,
     assisted2m: raw.assisted2m * factor,
     assisted3m: raw.assisted3m * factor,
     assistedFtm: raw.assistedFtm * factor,
@@ -1044,6 +1052,20 @@ export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
     description: "ディスクォリファイングファウル数",
   },
   {
+    key: "offfoul",
+    label: "OFF FOUL",
+    format: (c, mode) => formatDecimal(c.scaled.offensiveFoulsCommitted, countDigits(mode)),
+    value: (c) => c.scaled.offensiveFoulsCommitted,
+    description: "オフェンスファウルを犯した回数",
+  },
+  {
+    key: "charge",
+    label: "CHARGE",
+    format: (c, mode) => formatDecimal(c.scaled.chargesDrawn, countDigits(mode)),
+    value: (c) => c.scaled.chargesDrawn,
+    description: "チャージ（相手のオフェンスファウル）を取った回数",
+  },
+  {
     key: "tf",
     label: "TF",
     format: (c, mode) => formatDecimal(c.scaled.technicalFouls, countDigits(mode)),
@@ -1325,6 +1347,8 @@ export function buildTeamGameBoxTotals(
     basketCounts: ownMisc.basketCounts,
     unsportsmanlikeFouls: ownMisc.unsportsmanlikeFouls,
     disqualifyingFouls: ownMisc.disqualifyingFouls,
+    offensiveFoulsCommitted: ownMisc.offensiveFoulsCommitted,
+    chargesDrawn: ownMisc.chargesDrawn,
     assisted2m: ownMisc.assisted2m,
     assisted3m: ownMisc.assisted3m,
     assistedFtm: ownMisc.assistedFtm,
@@ -1342,6 +1366,8 @@ export function buildTeamGameBoxTotals(
     basketCounts: oppMisc.basketCounts,
     unsportsmanlikeFouls: oppMisc.unsportsmanlikeFouls,
     disqualifyingFouls: oppMisc.disqualifyingFouls,
+    offensiveFoulsCommitted: oppMisc.offensiveFoulsCommitted,
+    chargesDrawn: oppMisc.chargesDrawn,
     assisted2m: oppMisc.assisted2m,
     assisted3m: oppMisc.assisted3m,
     assistedFtm: oppMisc.assistedFtm,
@@ -1545,6 +1571,8 @@ export function buildPeriodFilteredRawTotals(contributions: GamePeriodTotals[]):
     basketCounts: playerSum.basketCounts,
     unsportsmanlikeFouls: playerSum.unsportsmanlikeFouls,
     disqualifyingFouls: playerSum.disqualifyingFouls,
+    offensiveFoulsCommitted: playerSum.offensiveFoulsCommitted,
+    chargesDrawn: playerSum.chargesDrawn,
     assisted2m: playerSum.assisted2m,
     assisted3m: playerSum.assisted3m,
     assistedFtm: playerSum.assistedFtm,

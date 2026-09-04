@@ -95,13 +95,23 @@ function seasonHasYahooPbp(season: string): boolean {
 }
 
 function emptyForcedTurnovers(): TeamForcedTurnovers {
-  return { gamesWithData: 0, offensiveFoul: 0, violation24sec: 0, backcourtViolation: 0, violation5sec: 0, otherDead: 0, live: 0 };
+  return {
+    gamesWithData: 0,
+    offensiveFoul: 0,
+    violation24sec: 0,
+    backcourtViolation: 0,
+    violation5sec: 0,
+    violation8sec: 0,
+    otherDead: 0,
+    live: 0,
+  };
 }
 
 /**
  * Yahoo!スポーツplay-by-playのターンオーバーイベントを、相手に強制した種類別カウントの
  * バケットに分類する（scripts/lib/yahooPbp.tsのLIVE/DEAD_TURNOVER_SUBTYPESと同じ語彙、
- * TeamForcedTurnoversの4主要種別＋その他デッド/ライブに集約する。DESIGN.md参照）
+ * TeamForcedTurnoversの5主要種別＋その他デッド/ライブに集約する。DESIGN.md参照。
+ * 8秒バイオレーションは全2,274試合中265試合・288件確認済みで、実在するタグ）
  */
 function classifyForcedTurnover(to: YahooTurnoverEvent): keyof Omit<TeamForcedTurnovers, "gamesWithData"> {
   if (to.ballType === "live") return "live";
@@ -115,6 +125,8 @@ function classifyForcedTurnover(to: YahooTurnoverEvent): keyof Omit<TeamForcedTu
     case "5秒バイオレーション":
     case "5秒チームバイオレーション":
       return "violation5sec";
+    case "8秒バイオレーション":
+      return "violation8sec";
     default:
       return "otherDead";
   }
@@ -399,6 +411,48 @@ function buildMiscEventCounts(playByPlays: PlayByPlayEvent[]): { byPlayer: Map<s
     bump(byTeam, ev.TeamID, key);
   }
   return { byPlayer, byTeam };
+}
+
+interface OffensiveFoulCounts {
+  offensiveFoulsCommitted: number;
+  chargesDrawn: number;
+}
+
+const ZERO_OFFENSIVE_FOUL_COUNTS: OffensiveFoulCounts = { offensiveFoulsCommitted: 0, chargesDrawn: 0 };
+
+const OFFENSIVE_FOUL_ACTION_CD1 = 23;
+const FOUL_DRAWN_ACTION_CD1 = 15;
+const MAX_CHARGE_PAIRING_FORWARD_STEPS = 3;
+
+/**
+ * オフェンスファウルを犯した回数・チャージを取った回数を選手単位で集計する
+ * （src/lib/boxscoreAggregate.tsのbuildOffensiveFoulCounts()と同じロジック。
+ * ActionCD1=23〔オフェンスファウル〕の直後・配列内3件以内に出現する相手チームの
+ * ActionCD1=15〔ファウルドローン〕とペアリングし、その相手選手をチャージを取った選手とする）
+ */
+function buildOffensiveFoulCounts(playByPlays: PlayByPlayEvent[]): Map<string, OffensiveFoulCounts> {
+  const byPlayer = new Map<string, OffensiveFoulCounts>();
+  const bump = (playerId: string | null, key: keyof OffensiveFoulCounts) => {
+    if (!playerId) return;
+    const entry = byPlayer.get(playerId) ?? { ...ZERO_OFFENSIVE_FOUL_COUNTS };
+    entry[key] += 1;
+    byPlayer.set(playerId, entry);
+  };
+  for (let i = 0; i < playByPlays.length; i++) {
+    const foulEvent = playByPlays[i];
+    if (!foulEvent || foulEvent.ActionCD1 !== OFFENSIVE_FOUL_ACTION_CD1) continue;
+    bump(foulEvent.PlayerID1, "offensiveFoulsCommitted");
+    for (let j = i + 1; j < playByPlays.length && j <= i + MAX_CHARGE_PAIRING_FORWARD_STEPS; j++) {
+      const candidate = playByPlays[j];
+      if (!candidate) continue;
+      if (candidate.ActionCD1 !== FOUL_DRAWN_ACTION_CD1) continue;
+      if (candidate.TeamID && candidate.TeamID !== foulEvent.TeamID) {
+        bump(candidate.PlayerID1, "chargesDrawn");
+      }
+      break;
+    }
+  }
+  return byPlayer;
 }
 
 interface PaintSplitCounts {
@@ -757,6 +811,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
     const secondChanceByPlayer = secondChance.byPlayer;
     const assistedScoring = computeAssistedScoring(game.raw.PlayByPlays);
     const miscEvents = buildMiscEventCounts(game.raw.PlayByPlays);
+    const offensiveFoulCountsByPlayer = buildOffensiveFoulCounts(game.raw.PlayByPlays);
     const paintSplit =
       seasonCoverage(game.season) === "full"
         ? buildPaintSplitByPlayer(game.raw.PlayByPlays)
@@ -776,6 +831,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       miscEvents.byPlayer,
       paintSplit.byPlayer,
       onCourtRatingsByPlayer,
+      offensiveFoulCountsByPlayer,
     );
     processTeams(
       game,
@@ -1039,6 +1095,7 @@ function processPlayers(
   miscEventsByPlayer: Map<string, MiscEventCounts>,
   paintSplitByPlayer: Map<string, PaintSplitCounts>,
   onCourtRatingsByPlayer: Record<string, PlayerOnCourtRatings>,
+  offensiveFoulCountsByPlayer: Map<string, OffensiveFoulCounts>,
 ): void {
   const rows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
   for (const row of pickTeamRow(rows, 1)) {
@@ -1127,6 +1184,8 @@ function processPlayers(
       basketCounts: miscEventsByPlayer.get(row.PlayerID)?.basketCounts ?? 0,
       unsportsmanlikeFouls: miscEventsByPlayer.get(row.PlayerID)?.unsportsmanlikeFouls ?? 0,
       disqualifyingFouls: miscEventsByPlayer.get(row.PlayerID)?.disqualifyingFouls ?? 0,
+      offensiveFoulsCommitted: offensiveFoulCountsByPlayer.get(row.PlayerID)?.offensiveFoulsCommitted ?? 0,
+      chargesDrawn: offensiveFoulCountsByPlayer.get(row.PlayerID)?.chargesDrawn ?? 0,
       assisted2m: assistedScoringByPlayer.get(row.PlayerID)?.assisted2m ?? 0,
       assisted3m: assistedScoringByPlayer.get(row.PlayerID)?.assisted3m ?? 0,
       assistedFtm: assistedScoringByPlayer.get(row.PlayerID)?.assistedFtm ?? 0,

@@ -720,7 +720,15 @@ interface TurnoverRow {
 }
 
 function turnoverTotal(data: TeamForcedTurnovers): number {
-  return data.offensiveFoul + data.violation24sec + data.backcourtViolation + data.violation5sec + data.otherDead + data.live;
+  return (
+    data.offensiveFoul +
+    data.violation24sec +
+    data.backcourtViolation +
+    data.violation5sec +
+    data.violation8sec +
+    data.otherDead +
+    data.live
+  );
 }
 
 function AllTeamsStatsTab({ season }: { season: string }) {
@@ -861,6 +869,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     { key: "violation24sec", label: "24秒バイオレーション", sortValue: (r) => r.data.violation24sec, format: (r) => String(r.data.violation24sec) },
     { key: "backcourtViolation", label: "バックコート", sortValue: (r) => r.data.backcourtViolation, format: (r) => String(r.data.backcourtViolation) },
     { key: "violation5sec", label: "5秒バイオレーション", sortValue: (r) => r.data.violation5sec, format: (r) => String(r.data.violation5sec) },
+    { key: "violation8sec", label: "8秒バイオレーション", sortValue: (r) => r.data.violation8sec, format: (r) => String(r.data.violation8sec) },
     { key: "otherDead", label: "その他デッドボール", sortValue: (r) => r.data.otherDead, format: (r) => String(r.data.otherDead) },
     { key: "live", label: "ライブボール（参考）", sortValue: (r) => r.data.live, format: (r) => String(r.data.live) },
     { key: "total", label: "合計", sortValue: (r) => turnoverTotal(r.data), format: (r) => String(turnoverTotal(r.data)) },

@@ -102,6 +102,14 @@ export interface BoxscoreCounts {
   unsportsmanlikeFouls: number;
   disqualifyingFouls: number;
   /**
+   * オフェンスファウルを犯した回数（ActionCD1=23）・チャージを取った回数
+   * （相手のActionCD1=23の直後にペアになるActionCD1=15〔ファウルドローン〕、
+   * 通常のシューティングファウルに伴うファウルドローンとは区別する）。
+   * dunks等と同様sumCounts()では常に0のままで、buildPlayerBoxscores()が事後的に上書きする
+   */
+  offensiveFoulsCommitted: number;
+  chargesDrawn: number;
+  /**
    * アシストからの得点（得点者視点の被アシスト内訳。shared/assistedScoring.ts参照）。
    * アシストイベント自体にはどの得点に紐づくか示すタグが無いため、PlayByPlays配列内の
    * 構造的な隣接パターン（DESIGN.md該当章の調査で確認済み）からペアリングして算出する。
@@ -164,6 +172,8 @@ const ZERO_COUNTS: BoxscoreCounts = {
   basketCounts: 0,
   unsportsmanlikeFouls: 0,
   disqualifyingFouls: 0,
+  offensiveFoulsCommitted: 0,
+  chargesDrawn: 0,
   assisted2m: 0,
   assisted3m: 0,
   assistedFtm: 0,
@@ -235,6 +245,8 @@ export function sumCounts(rows: BoxscoreRow[]): BoxscoreCounts {
       basketCounts: acc.basketCounts,
       unsportsmanlikeFouls: acc.unsportsmanlikeFouls,
       disqualifyingFouls: acc.disqualifyingFouls,
+      offensiveFoulsCommitted: acc.offensiveFoulsCommitted,
+      chargesDrawn: acc.chargesDrawn,
       assisted2m: acc.assisted2m,
       assisted3m: acc.assisted3m,
       assistedFtm: acc.assistedFtm,
@@ -320,6 +332,8 @@ export function sumCountsList(list: BoxscoreCounts[]): BoxscoreCounts {
       basketCounts: acc.basketCounts + c.basketCounts,
       unsportsmanlikeFouls: acc.unsportsmanlikeFouls + c.unsportsmanlikeFouls,
       disqualifyingFouls: acc.disqualifyingFouls + c.disqualifyingFouls,
+      offensiveFoulsCommitted: acc.offensiveFoulsCommitted + c.offensiveFoulsCommitted,
+      chargesDrawn: acc.chargesDrawn + c.chargesDrawn,
       assisted2m: acc.assisted2m + c.assisted2m,
       assisted3m: acc.assisted3m + c.assisted3m,
       assistedFtm: acc.assistedFtm + c.assistedFtm,
@@ -413,6 +427,51 @@ function buildMiscEventCounts(events: PlayByPlayEvent[]): Map<string, MiscEventC
       bump(ev.PlayerID1, "disqualifyingFouls");
     } else if (ev.ActionCD1 === TECHNICAL_FOUL_ACTION_CD1) {
       bump(ev.PlayerID1, "technicalFouls");
+    }
+  }
+  return byPlayer;
+}
+
+interface OffensiveFoulCounts {
+  offensiveFoulsCommitted: number;
+  chargesDrawn: number;
+}
+
+const ZERO_OFFENSIVE_FOUL_COUNTS: OffensiveFoulCounts = { offensiveFoulsCommitted: 0, chargesDrawn: 0 };
+
+/** オフェンスファウル（DESIGN.md 2-2章）。直後にペアになるファウルドローン（15）が
+ * チャージを取った守備側選手を示す（相手チームの選手のみを対象とし、通常のシューティング
+ * ファウルに伴うファウルドローンと混同しないよう、23の直後N件以内に限定して探索する） */
+const OFFENSIVE_FOUL_ACTION_CD1 = 23;
+const FOUL_DRAWN_ACTION_CD1 = 15;
+const MAX_CHARGE_PAIRING_FORWARD_STEPS = 3;
+
+/**
+ * オフェンスファウルを犯した回数・チャージを取った回数を選手ごとに集計する。
+ * ActionCD1=23（オフェンスファウル）の直後（配列内で3件以内）に出現する、相手チームの
+ * ActionCD1=15（ファウルドローン）とペアリングし、その相手選手をチャージを取った選手とする
+ * （assistedScoring.tsの隣接イベントペアリングと同じ発想。ただし前方スキャン・相手チーム限定）
+ */
+function buildOffensiveFoulCounts(events: PlayByPlayEvent[]): Map<string, OffensiveFoulCounts> {
+  const byPlayer = new Map<string, OffensiveFoulCounts>();
+  const bump = (playerId: string | null, key: keyof OffensiveFoulCounts) => {
+    if (!playerId) return;
+    const entry = byPlayer.get(playerId) ?? { ...ZERO_OFFENSIVE_FOUL_COUNTS };
+    entry[key] += 1;
+    byPlayer.set(playerId, entry);
+  };
+  for (let i = 0; i < events.length; i++) {
+    const foulEvent = events[i];
+    if (!foulEvent || foulEvent.ActionCD1 !== OFFENSIVE_FOUL_ACTION_CD1) continue;
+    bump(foulEvent.PlayerID1, "offensiveFoulsCommitted");
+    for (let j = i + 1; j < events.length && j <= i + MAX_CHARGE_PAIRING_FORWARD_STEPS; j++) {
+      const candidate = events[j];
+      if (!candidate) continue;
+      if (candidate.ActionCD1 !== FOUL_DRAWN_ACTION_CD1) continue;
+      if (candidate.TeamID && candidate.TeamID !== foulEvent.TeamID) {
+        bump(candidate.PlayerID1, "chargesDrawn");
+      }
+      break;
     }
   }
   return byPlayer;
@@ -521,6 +580,7 @@ export function buildPlayerBoxscores(
   // 見て「-」表示にケアする）
   const paintSplitByPlayer = buildPaintSplitByPlayer(buildShotEvents(periodFilteredPbp));
   const miscEventsByPlayer = buildMiscEventCounts(periodFilteredPbp);
+  const offensiveFoulCountsByPlayer = buildOffensiveFoulCounts(periodFilteredPbp);
   const assistedScoringByPlayer = computeAssistedScoring(periodFilteredPbp).byScorer;
   // YahooTurnoverEventはbleague.jp本体のPlayByPlaysとは別データ源・別のPeriod体系（periodRange.ts
   // のperiodInRangeはPeriod番号の数値だけを見るため、そのまま流用できる）
@@ -530,6 +590,7 @@ export function buildPlayerBoxscores(
     const periodRows = rowsInPeriodRange(rowsByPlayer.get(meta.PlayerID) ?? [], option);
     const paintSplit = paintSplitByPlayer.get(meta.PlayerID) ?? ZERO_PAINT_SPLIT;
     const miscEvents = miscEventsByPlayer.get(meta.PlayerID) ?? ZERO_MISC_EVENTS;
+    const offensiveFoulCounts = offensiveFoulCountsByPlayer.get(meta.PlayerID) ?? ZERO_OFFENSIVE_FOUL_COUNTS;
     const assistedScoring = assistedScoringByPlayer.get(meta.PlayerID) ?? ZERO_ASSISTED_SCORING;
     const yahooTov = yahooTovByPlayer.get(meta.PlayerID) ?? ZERO_YAHOO_TOV;
     return {
@@ -549,6 +610,7 @@ export function buildPlayerBoxscores(
         pt2nd: secondChanceByPlayer.get(meta.PlayerID) ?? 0,
         ...paintSplit,
         ...miscEvents,
+        ...offensiveFoulCounts,
         ...assistedScoring,
         ...yahooTov,
       },

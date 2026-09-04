@@ -325,6 +325,10 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
     higherIsBetter: false,
     description: "テクニカルファウル数（選手行は個人のテクニカルのみ。チーム合計行・TEAM/COACHES行はHC/ベンチテクニカルも含む）",
   },
+  // オフェンスファウルを犯した回数・チャージを取った回数（守備側視点。ActionCD1=23の直後に
+  // ペアになるActionCD1=15〔ファウルドローン〕から相手選手を特定する。boxscoreAggregate.ts参照）
+  { key: "offfoul", label: "OFF FOUL", format: (c) => String(c.offensiveFoulsCommitted), value: (c) => c.offensiveFoulsCommitted, higherIsBetter: false, description: "オフェンスファウルを犯した回数" },
+  { key: "charge", label: "CHARGE", format: (c) => String(c.chargesDrawn), value: (c) => c.chargesDrawn, description: "チャージ（相手のオフェンスファウル）を取った回数" },
   // アシストからの得点（得点者視点。shared/assistedScoring.ts参照）。FTAST含め
   // PlayByPlays配列内の構造的な隣接パターンから求めた「被アシスト」内訳
   { key: "ast2m", label: "AST2M", format: (c) => String(c.assisted2m), value: (c) => c.assisted2m, description: "アシストされた2P成功数" },
@@ -676,6 +680,8 @@ function BoxscoreTeamPanel({
     basketCounts: miscTeamTotals.basketCounts,
     unsportsmanlikeFouls: miscTeamTotals.unsportsmanlikeFouls,
     disqualifyingFouls: miscTeamTotals.disqualifyingFouls,
+    offensiveFoulsCommitted: miscTeamTotals.offensiveFoulsCommitted,
+    chargesDrawn: miscTeamTotals.chargesDrawn,
     assisted2m: miscTeamTotals.assisted2m,
     assisted3m: miscTeamTotals.assisted3m,
     assistedFtm: miscTeamTotals.assistedFtm,

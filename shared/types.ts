@@ -516,6 +516,9 @@ export interface TeamForcedTurnovers {
   violation24sec: number;
   backcourtViolation: number;
   violation5sec: number;
+  /** 8秒バイオレーション（バックコートバイオレーション。DESIGN.md参照。従来はotherDeadに
+   * 埋没していたが独立項目にした） */
+  violation8sec: number;
   otherDead: number;
   live: number;
 }
@@ -630,6 +633,11 @@ export interface PlayerGameLog {
   unsportsmanlikeFouls: number;
   /** ディスクォリファイングファウル数 */
   disqualifyingFouls: number;
+  /** オフェンスファウルを犯した回数（ActionCD1=23） */
+  offensiveFoulsCommitted: number;
+  /** チャージ（相手のオフェンスファウル）を取った回数。ActionCD1=23の直後にペアになる
+   * 相手チームのActionCD1=15（ファウルドローン）から算出。boxscoreAggregate.ts参照 */
+  chargesDrawn: number;
   /** アシストされた2P成功数。shared/assistedScoring.ts参照 */
   assisted2m: number;
   /** アシストされた3P成功数 */

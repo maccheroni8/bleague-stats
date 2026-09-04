@@ -231,9 +231,12 @@ function ForcedTurnoversTable({ forced, committed }: { forced: TeamForcedTurnove
             <th className="align-right" title="5秒バイオレーションによるターンオーバー">
               5秒バイオレーション
             </th>
+            <th className="align-right" title="8秒バイオレーションによるターンオーバー">
+              8秒バイオレーション
+            </th>
             <th
               className="align-right"
-              title="トラベリング・ダブルドリブル・3秒/8秒バイオレーション・アウトオブバウンズ等、上記以外のデッドボールターンオーバー"
+              title="トラベリング・ダブルドリブル・3秒バイオレーション・アウトオブバウンズ等、上記以外のデッドボールターンオーバー"
             >
               その他デッドボール
             </th>
@@ -259,10 +262,17 @@ function ForcedTurnoversTable({ forced, committed }: { forced: TeamForcedTurnove
               <td className="align-right">{data.violation24sec}</td>
               <td className="align-right">{data.backcourtViolation}</td>
               <td className="align-right">{data.violation5sec}</td>
+              <td className="align-right">{data.violation8sec}</td>
               <td className="align-right">{data.otherDead}</td>
               <td className="align-right">{data.live}</td>
               <td className="align-right">
-                {data.offensiveFoul + data.violation24sec + data.backcourtViolation + data.violation5sec + data.otherDead + data.live}
+                {data.offensiveFoul +
+                  data.violation24sec +
+                  data.backcourtViolation +
+                  data.violation5sec +
+                  data.violation8sec +
+                  data.otherDead +
+                  data.live}
               </td>
               <td className="align-right">{data.gamesWithData}</td>
             </tr>
