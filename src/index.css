@@ -1623,6 +1623,12 @@ table.boxscore-table .boxscore-summary-grand-total td {
   margin-bottom: 16px;
 }
 
+.filter-block h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
 .mode-toggle button,
 .stat-picker button {
   padding: 6px 14px;

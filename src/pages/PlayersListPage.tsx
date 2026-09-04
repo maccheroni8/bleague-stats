@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  fetchDivisionHistory,
   fetchGameSummaries,
   fetchLeaguePlayerRankings,
   fetchPlayerAwards,
   fetchPlayerGameLogs,
   fetchPlayers,
   fetchPlayersMaster,
+  fetchTeamGameLogs,
   fetchTeams,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
+  DivisionHistoryFile,
   GameSummary,
   LeaguePlayerRankEntry,
   LeaguePlayerRankingsFile,
@@ -19,24 +22,29 @@ import type {
   PlayerGameLog,
   PlayerMasterEntry,
   PlayerSummary,
+  TeamGameLog,
 } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
+import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
 import { astToTovRatio, formatAstToRatio, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { efgPct, eff, safeDiv, tovPct, tsPct } from "../../shared/formulas";
 import { teamShortName } from "../../shared/teamNames";
-import { buildRecordsBeforeGame, filterGameLogs, type RecordBeforeGame } from "../lib/situational";
+import { buildRecordsBeforeGame, filterGameLogs, isDefaultFilter, type RecordBeforeGame, type SituationalFilter } from "../lib/situational";
 import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { SEASON_GAME_TYPE_LABELS, type SeasonGameTypeFilter } from "../../shared/gameType";
 import {
   buildSeasonBoxscoreCtx,
   EMPTY_TEAM_TOTALS,
+  SEASON_ADVANCED_COLUMNS,
   SEASON_BOX_TABS,
   SEASON_MISC_COLUMNS,
   SEASON_SCORING_COLUMNS,
+  SEASON_TRADITIONAL_COLUMNS,
   sumPlayerGameLogs,
+  sumTeamGameLogsFor,
   type SeasonBoxTabKey,
   type SeasonBoxscoreColumn,
   type SeasonBoxscoreCtx,
@@ -146,6 +154,28 @@ const teamColumn: Column<PlayerRow> = {
   format: (r) => teamShortName(r.player.teamId, r.player.teamName),
 };
 
+const classificationColumn: Column<PlayerRow> = {
+  key: "classification",
+  label: "登録区分",
+  align: "left",
+  sortValue: (r) => r.player.classification ?? "",
+  format: (r) => r.player.classification ?? "-",
+};
+
+const heightColumn: Column<PlayerRow> = {
+  key: "height",
+  label: "身長",
+  sortValue: (r) => r.player.heightCm ?? -1,
+  format: (r) => (r.player.heightCm !== undefined ? `${r.player.heightCm}cm` : "-"),
+};
+
+const weightColumn: Column<PlayerRow> = {
+  key: "weight",
+  label: "体重",
+  sortValue: (r) => r.player.weightKg ?? -1,
+  format: (r) => (r.player.weightKg !== undefined ? `${r.player.weightKg}kg` : "-"),
+};
+
 const gamesColumn: Column<PlayerRow> = {
   key: "g",
   label: "G",
@@ -167,7 +197,29 @@ const ptsColumn: Column<PlayerRow> = {
   format: (r) => formatDecimal(r.player.perGame.pts),
 };
 
-const LEADING_COLUMNS: Column<PlayerRow>[] = [nameColumn, teamColumn, gamesColumn];
+const LEADING_COLUMNS: Column<PlayerRow>[] = [nameColumn, teamColumn, classificationColumn, heightColumn, weightColumn, gamesColumn];
+
+// シチュエーション別フィルタ選択時（ctxベースの列に切り替わる）用の先頭列。G/MIN/PTSは
+// SEASON_*_COLUMNS自体が既に含んでいるため、ここではプロフィール系の列のみ持つ
+const LEADING_COLUMNS_MINIMAL: Column<PlayerRow>[] = [nameColumn, teamColumn, classificationColumn, heightColumn, weightColumn];
+
+/**
+ * playerSeasonBoxscore.tsのSeasonBoxscoreColumn（ctx.raw/ctx.scaledベース）を、この一覧の
+ * Column<PlayerRow>にそのまま変換する。個人詳細ページの「シーズン別成績」「シチュエーション別
+ * 成績」と同じ列定義を再利用することで、シチュエーション別フィルタ選択時も表示項目の意味が
+ * 揃う（DESIGN.md参照）
+ */
+function buildCtxColumns(cols: SeasonBoxscoreColumn[]): Column<PlayerRow>[] {
+  return [
+    ...LEADING_COLUMNS_MINIMAL,
+    ...cols.map((col) => ({
+      key: col.key,
+      label: col.label,
+      sortValue: (r: PlayerRow) => (r.ctx ? col.value(r.ctx, "perGame") : 0),
+      format: (r: PlayerRow) => (r.ctx ? col.format(r.ctx, "perGame") : "-"),
+    })),
+  ];
+}
 
 function countColumn(key: string, label: string, pick: (p: PlayerSummary) => number): Column<PlayerRow> {
   return { key, label, sortValue: (r) => pick(r.player), format: (r) => formatDecimal(pick(r.player)) };
@@ -267,20 +319,13 @@ const ADVANCED_COLUMNS: Column<PlayerRow>[] = [
   },
 ];
 
-// Misc/スコアリングは、シーズン別成績等と同じSeasonBoxscoreColumnをそのまま流用する
-// （先頭3列=G/MIN/PTSは既に上のminColumn/ptsColumn/gamesColumnで賄っているため除く）。
-// ctx未取得（player-games取得前）の間は "-" / 0 を返す
-function toRowColumns(cols: SeasonBoxscoreColumn[]): Column<PlayerRow>[] {
-  return cols.slice(3).map((col) => ({
-    key: col.key,
-    label: col.label,
-    sortValue: (r: PlayerRow) => (r.ctx ? col.value(r.ctx, "perGame") : 0),
-    format: (r: PlayerRow) => (r.ctx ? col.format(r.ctx, "perGame") : "-"),
-  }));
-}
-
-const MISC_COLUMNS: Column<PlayerRow>[] = [...LEADING_COLUMNS, minColumn, ptsColumn, ...toRowColumns(SEASON_MISC_COLUMNS)];
-const SCORING_COLUMNS: Column<PlayerRow>[] = [...LEADING_COLUMNS, minColumn, ptsColumn, ...toRowColumns(SEASON_SCORING_COLUMNS)];
+// Misc/スコアリング/シチュエーション別フィルタ選択時のトラディショナル・アドバンスドは、
+// いずれも個人詳細ページ「シーズン別成績」等と同じSeasonBoxscoreColumn（ctxベース）を
+// buildCtxColumns()でそのまま流用する。ctx未取得（player-games取得前）の間は "-" / 0 を返す
+const MISC_COLUMNS: Column<PlayerRow>[] = buildCtxColumns(SEASON_MISC_COLUMNS);
+const SCORING_COLUMNS: Column<PlayerRow>[] = buildCtxColumns(SEASON_SCORING_COLUMNS);
+const TRADITIONAL_FILTERED_COLUMNS: Column<PlayerRow>[] = buildCtxColumns(SEASON_TRADITIONAL_COLUMNS);
+const ADVANCED_FILTERED_COLUMNS: Column<PlayerRow>[] = buildCtxColumns(SEASON_ADVANCED_COLUMNS);
 
 const TAB_LABELS: { key: PlayersPageTab; label: string }[] = [
   ...SEASON_BOX_TABS,
@@ -343,35 +388,91 @@ function GamesPlayedRatioSlider({
   );
 }
 
+const CLASSIFICATION_OPTIONS: NonNullable<PlayerSummary["classification"]>[] = ["日本人", "外国籍", "帰化選手", "アジア特別枠"];
+const POSITION_OPTIONS = ["PG", "SG", "SF", "PF", "C"] as const;
+const DEFAULT_SITUATIONAL_FILTER: SituationalFilter = { range: { kind: "all" } };
+
+function toggleInSet<T>(set: Set<T>, value: T): Set<T> {
+  const next = new Set(set);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  return next;
+}
+
+function matchesClassificationFilter(p: PlayerSummary, selected: Set<NonNullable<PlayerSummary["classification"]>>): boolean {
+  return selected.size === 0 || (p.classification !== undefined && selected.has(p.classification));
+}
+
+function matchesTeamFilter(p: PlayerSummary, selected: Set<string>): boolean {
+  return selected.size === 0 || selected.has(p.teamId);
+}
+
+/** ポジションは「SG/SF」のような複数区分の併記がありうるため、"/"区切りのいずれかが
+ * 選択中の区分に含まれていれば一致とみなす */
+function matchesPositionFilter(p: PlayerSummary, selected: Set<string>): boolean {
+  if (selected.size === 0) return true;
+  if (!p.position) return false;
+  return p.position.split("/").some((token) => selected.has(token));
+}
+
 function AllPlayersStatsTab({ season }: { season: string }) {
   const { data: players, loading: playersLoading, error: playersError } = useJsonData(() => fetchPlayers(season), [season]);
   const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
   const { supported: yahooPbpSupported } = useYahooPbpCoverage(season);
+  // シチュエーション別フィルタ（地区・対勝率別）用。いずれもシーズン非依存/軽量なため
+  // タブの開閉に関わらず常に取得する（チーム詳細ページ・個人詳細ページと同じ方針）
+  const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
+  const { data: gameSummaries } = useJsonData(() => fetchGameSummaries(season), [season]);
+  const opponentRecords = useMemo(
+    () => (gameSummaries ? buildRecordsBeforeGame(gameSummaries) : undefined),
+    [gameSummaries],
+  );
 
   const [tab, setTab] = useState<PlayersPageTab>("traditional");
   const [minRatio, setMinRatio] = useState(DEFAULT_MIN_RATIO);
   const [maxRatio, setMaxRatio] = useState(DEFAULT_MAX_RATIO);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
+  const [classificationFilter, setClassificationFilter] = useState<Set<NonNullable<PlayerSummary["classification"]>>>(
+    () => new Set(),
+  );
+  const [teamFilter, setTeamFilter] = useState<Set<string>>(() => new Set());
+  const [positionFilter, setPositionFilter] = useState<Set<string>>(() => new Set());
+  const [situationalFilter, setSituationalFilter] = useState<SituationalFilter>(DEFAULT_SITUATIONAL_FILTER);
+  const filterActive = !isDefaultFilter(situationalFilter);
+
   const [gameLogs, setGameLogs] = useState<Map<string, PlayerGameLog[]> | null>(null);
   const [gameLogsLoading, setGameLogsLoading] = useState(false);
   const gameLogsFetchedForSeasonRef = useRef<string | null>(null);
+
+  // シチュエーション別フィルタ選択時のみ、USG%・ORtg/DRtg等に必要なチーム総計
+  // （sumTeamGameLogsFor、個人詳細ページ「シチュエーション別成績」と同じ方式）のため
+  // 全チーム分のTeamGameLogをまとめて取得する
+  const [teamGameLogsByTeam, setTeamGameLogsByTeam] = useState<Map<string, TeamGameLog[]> | null>(null);
+  const [teamGameLogsLoading, setTeamGameLogsLoading] = useState(false);
+  const teamGameLogsFetchedForSeasonRef = useRef<string | null>(null);
 
   useEffect(() => {
     setTab("traditional");
     setMinRatio(DEFAULT_MIN_RATIO);
     setMaxRatio(DEFAULT_MAX_RATIO);
     setVisibleCount(PAGE_SIZE);
+    setClassificationFilter(new Set());
+    setTeamFilter(new Set());
+    setPositionFilter(new Set());
+    setSituationalFilter(DEFAULT_SITUATIONAL_FILTER);
     setGameLogs(null);
     gameLogsFetchedForSeasonRef.current = null;
+    setTeamGameLogsByTeam(null);
+    teamGameLogsFetchedForSeasonRef.current = null;
   }, [season]);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [minRatio, maxRatio]);
+  }, [minRatio, maxRatio, classificationFilter, teamFilter, positionFilter]);
 
   useEffect(() => {
-    const needsLogs = tab === "misc" || tab === "scoring";
+    const needsLogs = tab === "misc" || tab === "scoring" || filterActive;
     if (!needsLogs || !players || gameLogsFetchedForSeasonRef.current === season) return;
     gameLogsFetchedForSeasonRef.current = season;
     let cancelled = false;
@@ -394,7 +495,32 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     return () => {
       cancelled = true;
     };
-  }, [tab, players, season]);
+  }, [tab, players, season, filterActive]);
+
+  useEffect(() => {
+    if (!filterActive || !teams || teamGameLogsFetchedForSeasonRef.current === season) return;
+    teamGameLogsFetchedForSeasonRef.current = season;
+    let cancelled = false;
+    setTeamGameLogsLoading(true);
+    Promise.all(
+      teams.map(async (t): Promise<readonly [string, TeamGameLog[]]> => {
+        try {
+          return [t.teamId, await fetchTeamGameLogs(season, t.teamId)] as const;
+        } catch {
+          return [t.teamId, [] as TeamGameLog[]] as const;
+        }
+      }),
+    )
+      .then((results) => {
+        if (!cancelled) setTeamGameLogsByTeam(new Map(results));
+      })
+      .finally(() => {
+        if (!cancelled) setTeamGameLogsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filterActive, teams, season]);
 
   const teamGamesById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t.gamesPlayed])), [teams]);
   const teamTotalsById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t.totals])), [teams]);
@@ -406,18 +532,32 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       const teamGames = teamGamesById.get(p.teamId);
       if (!teamGames) return false;
       const ratio = (100 * p.gamesPlayed) / teamGames;
-      return ratio >= minRatio && ratio <= maxRatio;
+      if (ratio < minRatio || ratio > maxRatio) return false;
+      if (!matchesClassificationFilter(p, classificationFilter)) return false;
+      if (!matchesTeamFilter(p, teamFilter)) return false;
+      if (!matchesPositionFilter(p, positionFilter)) return false;
+      return true;
     });
-  }, [players, teamGamesById, minRatio, maxRatio]);
+  }, [players, teamGamesById, minRatio, maxRatio, classificationFilter, teamFilter, positionFilter]);
 
   // limit（SortableTable側で全件ソートしてから先頭visibleCount件だけ描画する）と組み合わせる
   // ため、rowsは常にフィルタ後の全選手分を作る（もっと見るを押す前でも列ソートが正しく
-  // 全選手を対象に機能するようにするため）
+  // 全選手を対象に機能するようにするため）。シチュエーション別フィルタ選択時は、絞り込んだ
+  // 試合ログの合算値（+その試合に絞ったチーム総計、個人詳細ページ「シチュエーション別成績」と
+  // 同じsumTeamGameLogsFor方式）からctxを組み立てる
   const rows: PlayerRow[] = useMemo(
     () =>
       filteredPlayers.map((p) => {
         if (!gameLogs) return { player: p };
         const logs = gameLogs.get(p.playerId) ?? [];
+        if (filterActive) {
+          const filteredLogs = filterGameLogs(logs, situationalFilter, opponentRecords, divisionHistory, season);
+          const raw = sumPlayerGameLogs(filteredLogs);
+          const scheduleKeys = new Set(filteredLogs.map((g) => g.scheduleKey));
+          const teamLogs = teamGameLogsByTeam?.get(p.teamId) ?? [];
+          const team = sumTeamGameLogsFor(teamLogs, scheduleKeys);
+          return { player: p, ctx: buildSeasonBoxscoreCtx(raw, team, "perGame", seasonStartYear) };
+        }
         const raw = sumPlayerGameLogs(logs);
         const teamTotals = teamTotalsById.get(p.teamId);
         const team: TeamSeasonRawTotals = teamTotals
@@ -434,27 +574,51 @@ function AllPlayersStatsTab({ season }: { season: string }) {
           : EMPTY_TEAM_TOTALS;
         return { player: p, ctx: buildSeasonBoxscoreCtx(raw, team, "perGame", seasonStartYear) };
       }),
-    [filteredPlayers, gameLogs, teamTotalsById, seasonStartYear],
+    [
+      filteredPlayers,
+      gameLogs,
+      teamTotalsById,
+      seasonStartYear,
+      filterActive,
+      situationalFilter,
+      opponentRecords,
+      divisionHistory,
+      season,
+      teamGameLogsByTeam,
+    ],
   );
 
   const shootingRows = rows.filter((r) => r.player.shotTypes);
   const shotTypeKeys = sortShotTypeKeys([...new Set(shootingRows.flatMap((r) => Object.keys(r.player.shotTypes ?? {})))]);
-  const shootingColumns: Column<PlayerRow>[] = [nameColumn, teamColumn, ...shotTypeEntityColumns<PlayerRow>(shotTypeKeys, (r) => r.player.shotTypes)];
+  const shootingColumns: Column<PlayerRow>[] = [
+    nameColumn,
+    teamColumn,
+    classificationColumn,
+    heightColumn,
+    weightColumn,
+    ...shotTypeEntityColumns<PlayerRow>(shotTypeKeys, (r) => r.player.shotTypes),
+  ];
 
   const columns =
     tab === "shooting"
       ? shootingColumns
       : tab === "traditional"
-        ? TRADITIONAL_COLUMNS
+        ? filterActive
+          ? TRADITIONAL_FILTERED_COLUMNS
+          : TRADITIONAL_COLUMNS
         : tab === "advanced"
-          ? ADVANCED_COLUMNS
+          ? filterActive
+            ? ADVANCED_FILTERED_COLUMNS
+            : ADVANCED_COLUMNS
           : tab === "misc"
             ? MISC_COLUMNS
             : SCORING_COLUMNS;
 
   const tableRows = tab === "shooting" ? shootingRows : rows;
   const defaultSort = DEFAULT_SORT[tab];
-  const needsGameLogs = tab === "misc" || tab === "scoring";
+  const needsGameLogs = tab === "misc" || tab === "scoring" || filterActive;
+  const gameDataLoading = needsGameLogs && (gameLogsLoading || !gameLogs);
+  const teamDataLoading = filterActive && (teamGameLogsLoading || !teamGameLogsByTeam);
 
   if (playersLoading) return <p className="loading">読み込み中...</p>;
   if (playersError) return <p className="error-message">{playersError}</p>;
@@ -466,6 +630,57 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         {season}シーズン・全{players.length}選手
       </p>
 
+      <div className="filter-block">
+        <h3>国籍区分</h3>
+        <div className="mode-toggle">
+          {CLASSIFICATION_OPTIONS.map((c) => (
+            <button
+              key={c}
+              className={classificationFilter.has(c) ? "active" : ""}
+              onClick={() => setClassificationFilter((prev) => toggleInSet(prev, c))}
+              type="button"
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="filter-block">
+        <h3>ポジション</h3>
+        <div className="mode-toggle">
+          {POSITION_OPTIONS.map((pos) => (
+            <button
+              key={pos}
+              className={positionFilter.has(pos) ? "active" : ""}
+              onClick={() => setPositionFilter((prev) => toggleInSet(prev, pos))}
+              type="button"
+            >
+              {pos}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="filter-block">
+        <h3>クラブ</h3>
+        <div className="mode-toggle">
+          {(teams ?? [])
+            .slice()
+            .sort((a, b) => teamShortName(a.teamId, a.teamName).localeCompare(teamShortName(b.teamId, b.teamName), "ja"))
+            .map((t) => (
+              <button
+                key={t.teamId}
+                className={teamFilter.has(t.teamId) ? "active" : ""}
+                onClick={() => setTeamFilter((prev) => toggleInSet(prev, t.teamId))}
+                type="button"
+              >
+                {teamShortName(t.teamId, t.teamName)}
+              </button>
+            ))}
+        </div>
+      </div>
+
       <GamesPlayedRatioSlider
         min={minRatio}
         max={maxRatio}
@@ -474,6 +689,16 @@ function AllPlayersStatsTab({ season }: { season: string }) {
           setMaxRatio(mx);
         }}
       />
+
+      <div className="filter-block">
+        <h3>シチュエーション別フィルタ</h3>
+        <SituationalFilterPicker filter={situationalFilter} onChange={setSituationalFilter} opponentWinRateSupported={!!gameSummaries} />
+        {filterActive && (
+          <p className="page-subtitle">
+            シチュエーション別フィルタ選択中は、トラディショナル/アドバンスド/Misc/スコアリングの各タブとも選手ごとの試合ログを絞り込んで再集計した値を表示します（シューティングタブは対象外）
+          </p>
+        )}
+      </div>
 
       <div className="tab-bar">
         {TAB_LABELS.map((t) => (
@@ -485,7 +710,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
 
       {tab === "shooting" && !yahooPbpSupported ? (
         <p className="empty-message">このシーズンのデータには対応していません</p>
-      ) : needsGameLogs && (gameLogsLoading || !gameLogs) ? (
+      ) : gameDataLoading || teamDataLoading ? (
         <p className="loading">読み込み中...</p>
       ) : filteredPlayers.length === 0 ? (
         <p className="empty-message">条件に該当する選手がいません</p>
@@ -493,7 +718,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         <>
           <div className="table-scroll">
             <SortableTable
-              key={tab}
+              key={`${tab}|${tab === "traditional" || tab === "advanced" ? filterActive : false}`}
               columns={columns}
               rows={tableRows}
               rowKey={(r) => r.player.playerId}
@@ -509,7 +734,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
             </button>
           )}
           <p className="page-subtitle">
-            {Math.min(visibleCount, tableRows.length)}/{tableRows.length}人を表示中（初期表示は得点（PTS）降順）。列見出しクリックでの並び替えは常に全選手が対象です。Misc/スコアリングタブは選手ごとの試合ログをまとめて取得するため、初めて開いたときのみ読み込みに時間がかかります
+            {Math.min(visibleCount, tableRows.length)}/{tableRows.length}人を表示中（初期表示は得点（PTS）降順）。列見出しクリックでの並び替えは常に全選手が対象です。Misc/スコアリングタブ、またはシチュエーション別フィルタ選択中は選手ごとの試合ログをまとめて取得するため、初めて開いたときのみ読み込みに時間がかかります
           </p>
         </>
       )}
