@@ -625,6 +625,38 @@ table.stats-table tr.situational-group-heading td {
   border-radius: 8px;
 }
 
+/* 横スクロール時に一番左の列（項目名・チーム名・選手名等）を常に表示させる共通スタイル。
+   sortable-table（SortableTable共通コンポーネント経由の全ページ）・stats-table・
+   boxscore-table・quarter-tableの4系統に適用する（h2h-table＝星取り表は専用実装済みのため
+   対象外）。ヘッダーはthead内の最初の行の先頭セルのみを対象にする（試合詳細ページの
+   シューティング内訳表のように「選手」列がrowSpanで2行分を占有するケースで、2行目の
+   先頭セル＝実際には2列目に誤って固定してしまうのを避けるため） */
+table.sortable-table td:first-child,
+table.stats-table td:first-child,
+table.boxscore-table td:first-child,
+table.quarter-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg);
+}
+
+table.sortable-table thead tr:first-child th:first-child,
+table.stats-table thead tr:first-child th:first-child,
+table.boxscore-table thead tr:first-child th:first-child,
+table.quarter-table thead tr:first-child th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
+/* tbody tr:hoverは<tr>に背景色を付けて透過セル越しに見せる仕組みのため、不透明な背景を
+   敷いた固定セルだけホバー色が乗らず浮いて見えてしまう。固定セルにも明示的に同じ色を適用する */
+table.sortable-table tbody tr:hover td:first-child,
+table.stats-table tbody tr:hover td:first-child {
+  background: var(--row-hover);
+}
+
 table.sortable-table {
   border-collapse: collapse;
   width: 100%;
