@@ -18,6 +18,7 @@ import type {
   DivisionHistoryFile,
   GameSummary,
   HeadToHeadTeamRow,
+  LeaguePlayerRankingsFile,
   LeagueTeamRankingsFile,
   PlayerAwardsFile,
   PlayerGameLog,
@@ -180,6 +181,13 @@ export function fetchDivisionHistory(): Promise<DivisionHistoryFile> {
  * 手動実行のバッチ処理で生成する、シーズン非依存の単一ファイル */
 export function fetchLeagueTeamRankings(): Promise<LeagueTeamRankingsFile> {
   return fetchJson<LeagueTeamRankingsFile>(`${dataBase}/league-team-rankings.json`);
+}
+
+/** 通算成績の歴代選手横断順位（個人版「歴代記録」タブ）。
+ * scripts/aggregate-league-player-rankings.tsが手動実行のバッチ処理で生成する、
+ * シーズン非依存の単一ファイル */
+export function fetchLeaguePlayerRankings(): Promise<LeaguePlayerRankingsFile> {
+  return fetchJson<LeaguePlayerRankingsFile>(`${dataBase}/league-player-rankings.json`);
 }
 
 export function fetchSchedule(season: string): Promise<ScheduleFile> {

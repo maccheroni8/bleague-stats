@@ -1222,3 +1222,45 @@ export interface LeagueTeamRankingsFile {
   seasonSpecialHome: Record<LeagueRankingGameType, Record<"wins" | "streak", Record<string, LeagueTeamRankEntry>>>;
   seasonSpecialAway: Record<LeagueRankingGameType, Record<"wins" | "streak", Record<string, LeagueTeamRankEntry>>>;
 }
+
+// ---- data/league-player-rankings.json の保存スキーマ（個人版「歴代記録」タブ、通算成績のみ。
+// scripts/aggregate-league-player-rankings.tsが生成する。LeagueTeamRankingsFileのplayerId版。
+// チーム版と異なり、クラブレコード相当（1試合単位の最高記録）・シーズン単位の特殊記録は
+// 対象外（ユーザー指定、2026-09-04。別途Rankingsページの機能として検討予定） ----
+
+export interface LeaguePlayerRankEntry {
+  value: number;
+  /** リーグ全選手中の順位（1位が最高値）。同値の場合はplayerId昇順で決定的にタイブレークする */
+  rank: number;
+  /** その項目・そのgameTypeでランキング対象になった選手の総数（出場記録が無い選手は対象外） */
+  totalPlayers: number;
+}
+
+/** [statKey][playerId] のルックアップ */
+export type LeaguePlayerRankingStatTable = Record<string, Record<string, LeaguePlayerRankEntry>>;
+
+/**
+ * ランキング行の表示に使う選手の付随情報（値本体とは別に1つだけ保持し、statKeyごとに
+ * 重複させない）。name/teamId/teamNameは、その選手が試合ログを持つ最新シーズンの
+ * players.json（PlayerSummary）から取得した値（登録名変更・移籍を最新の状態で反映するため。
+ * players-master.jsonの「最後に確認できたクラブ」より、実際の出場記録に基づく方が正確）。
+ * latestSeasonは個人詳細ページへのリンクに使う（現在のデフォルトシーズンにその選手の
+ * 出場記録が無い＝引退済み等の場合に備え、実在するシーズンを明示的に指定するため）
+ */
+export interface LeaguePlayerInfo {
+  name: string;
+  teamId: string;
+  teamName: string;
+  latestSeason: string;
+}
+
+export interface LeaguePlayerRankingsFile {
+  generatedAt: string;
+  players: Record<string, LeaguePlayerInfo>;
+  /** PLAYER_CAREER_TOTAL_DEFSの各key（ホーム/アウェイ問わず全試合が対象＝「トータル」） */
+  career: Record<LeagueRankingGameType, LeaguePlayerRankingStatTable>;
+  /** ホーム/アウェイ限定版（チーム版と同じ考え方、「歴代記録」タブのホーム/アウェイ/トータル
+   * 切り替え用）。対象試合をisHomeで絞り込んだ上で、careerと全く同じロジックで算出したもの */
+  careerHome: Record<LeagueRankingGameType, LeaguePlayerRankingStatTable>;
+  careerAway: Record<LeagueRankingGameType, LeaguePlayerRankingStatTable>;
+}

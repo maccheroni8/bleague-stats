@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fetchPlayerGameLogs, fetchPlayers, fetchTeams } from "../lib/data";
+import { Link } from "react-router-dom";
+import { fetchLeaguePlayerRankings, fetchPlayerGameLogs, fetchPlayers, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { useYahooPbpCoverage } from "../lib/useSeasonCoverage";
-import type { PlayerGameLog, PlayerSummary } from "../../shared/types";
+import type { LeaguePlayerRankEntry, LeaguePlayerRankingsFile, PlayerGameLog, PlayerSummary } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
@@ -10,6 +11,8 @@ import { astToTovRatio, formatAstToRatio, formatMinutesFromSeconds } from "../li
 import { safeDiv, tovPct } from "../../shared/formulas";
 import { teamShortName } from "../../shared/teamNames";
 import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
+import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
+import { SEASON_GAME_TYPE_LABELS, type SeasonGameTypeFilter } from "../../shared/gameType";
 import {
   buildSeasonBoxscoreCtx,
   EMPTY_TEAM_TOTALS,
@@ -23,8 +26,38 @@ import {
   type TeamSeasonRawTotals,
 } from "../lib/playerSeasonBoxscore";
 
-// 「個人」ページを、チーム版の「全チームスタッツ」（TeamsListPage.tsx）と同じ考え方で
-// 「全選手スタッツ一覧」に統合したもの（ユーザー依頼、2026-09-04）。
+// 「個人」ページ。「全選手スタッツ」タブ（チーム版の「全チームスタッツ」と同じ考え方）と
+// 「歴代記録」タブ（チーム版の「歴代記録」から通算成績部分のみ、ユーザー依頼2026-09-04）の
+// 2タブ構成。「歴代記録」のクラブレコード相当（1試合単位の最高記録）は今回対象外
+// （別途RankingsページのTaskとして進める予定）。
+
+type PlayersOuterTab = "stats" | "records";
+
+const OUTER_TAB_LABELS: Record<PlayersOuterTab, string> = {
+  stats: "全選手スタッツ",
+  records: "歴代記録",
+};
+
+export function PlayersListPage({ season }: { season: string }) {
+  const [tab, setTab] = useState<PlayersOuterTab>("stats");
+
+  return (
+    <div>
+      <h1>個人スタッツ</h1>
+      <div className="tab-bar">
+        {(Object.keys(OUTER_TAB_LABELS) as PlayersOuterTab[]).map((t) => (
+          <button key={t} className={`tab-button${tab === t ? " active" : ""}`} onClick={() => setTab(t)} type="button">
+            {OUTER_TAB_LABELS[t]}
+          </button>
+        ))}
+      </div>
+      {tab === "stats" ? <AllPlayersStatsTab season={season} /> : <LeaguePlayerRecordsTab />}
+    </div>
+  );
+}
+
+// 「全選手スタッツ」タブ。チーム版の「全チームスタッツ」（TeamsListPage.tsx）と同じ考え方で
+// 「個人」ページを統合したもの（ユーザー依頼、2026-09-04）。
 //
 // チーム版との違い（依頼で明示されたスコープ）:
 // - カテゴリタブはトラディショナル/アドバンスド/Misc/スコアリング/シューティングの5つ
@@ -281,7 +314,7 @@ function GamesPlayedRatioSlider({
   );
 }
 
-export function PlayersListPage({ season }: { season: string }) {
+function AllPlayersStatsTab({ season }: { season: string }) {
   const { data: players, loading: playersLoading, error: playersError } = useJsonData(() => fetchPlayers(season), [season]);
   const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
   const { supported: yahooPbpSupported } = useYahooPbpCoverage(season);
@@ -400,7 +433,6 @@ export function PlayersListPage({ season }: { season: string }) {
 
   return (
     <div>
-      <h1>個人スタッツ</h1>
       <p className="page-subtitle">
         {season}シーズン・全{players.length}選手
       </p>
@@ -451,6 +483,130 @@ export function PlayersListPage({ season }: { season: string }) {
             {Math.min(visibleCount, tableRows.length)}/{tableRows.length}人を表示中（初期表示は得点（PTS）降順）。列見出しクリックでの並び替えは常に全選手が対象です。Misc/スコアリングタブは選手ごとの試合ログをまとめて取得するため、初めて開いたときのみ読み込みに時間がかかります
           </p>
         </>
+      )}
+    </div>
+  );
+}
+
+// 「歴代記録」タブ。data/league-player-rankings.json（scripts/aggregate-league-player-rankings.ts、
+// 手動実行のバッチ処理）を使い、過去在籍した全選手横断で通算成績（PLAYER_CAREER_TOTAL_DEFS）の
+// ランキングを表示する。チーム版のLeagueRecordsTabと同じ構成（ホーム/アウェイ/トータル・
+// レギュラー/プレーオフ/合算の切り替え＋項目ピッカー）だが、通算成績のみでカテゴリ切り替えは
+// 無い（クラブレコード相当は今回のスコープ外、ユーザー指定）。順位・対象選手数はJSON側で
+// 既に算出済みのため、フロントエンドは項目・ホーム/アウェイ/トータル・レギュラー/プレーオフ/
+// 合算を選んで該当の[gameType][statKey][playerId]テーブルをrank昇順に並べ替えるだけでよい
+type LeagueVenue = "total" | "home" | "away";
+const LEAGUE_VENUE_LABELS: Record<LeagueVenue, string> = { total: "トータル", home: "ホーム", away: "アウェイ" };
+
+function leagueTableFor(rankings: LeaguePlayerRankingsFile, venue: LeagueVenue, gameType: SeasonGameTypeFilter, statKey: string) {
+  const table = venue === "total" ? rankings.career : venue === "home" ? rankings.careerHome : rankings.careerAway;
+  return table[gameType][statKey];
+}
+
+/** minMinutes（出場時間）はformatMinutesFromSecondsで、plusMinus（プラスマイナス）は符号付きで、
+ * それ以外は桁区切り整数で表示する */
+function formatLeaguePlayerRecordValue(statKey: string, value: number): string {
+  if (statKey === "minMinutes") return formatMinutesFromSeconds(Math.round(value * 60));
+  if (statKey === "plusMinus") return formatSigned(value, 0);
+  return Math.round(value).toLocaleString();
+}
+
+interface LeaguePlayerRecordRow {
+  playerId: string;
+  entry: LeaguePlayerRankEntry;
+}
+
+function LeaguePlayerRecordsTab() {
+  const {
+    data: rankings,
+    loading: rankingsLoading,
+    error: rankingsError,
+  } = useJsonData(() => fetchLeaguePlayerRankings(), []);
+
+  const [venue, setVenue] = useState<LeagueVenue>("total");
+  const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
+  const [statKey, setStatKey] = useState("pts");
+
+  if (rankingsLoading) return <p className="loading">読み込み中...</p>;
+  if (rankingsError) return <p className="error-message">{rankingsError}</p>;
+  if (!rankings) return <p className="empty-message">データがありません</p>;
+
+  const entries = leagueTableFor(rankings, venue, gameType, statKey);
+  const rows: LeaguePlayerRecordRow[] = entries
+    ? Object.entries(entries)
+        .map(([playerId, entry]) => ({ playerId, entry }))
+        .sort((a, b) => a.entry.rank - b.entry.rank)
+    : [];
+  const totalPlayers = Object.keys(rankings.career.regular.pts ?? {}).length;
+  const activeLabel = PLAYER_CAREER_TOTAL_DEFS.find((d) => d.key === statKey)?.label ?? statKey;
+
+  return (
+    <div>
+      <p className="page-subtitle">
+        過去在籍した全{totalPlayers}選手横断のランキング（{rankings.generatedAt.slice(0, 10)}
+        時点。手動バッチで随時更新）。1試合単位の最高記録（クラブレコード相当）は対象外です
+      </p>
+
+      <div className="mode-toggle">
+        {(Object.keys(LEAGUE_VENUE_LABELS) as LeagueVenue[]).map((v) => (
+          <button key={v} className={v === venue ? "active" : ""} onClick={() => setVenue(v)} type="button">
+            {LEAGUE_VENUE_LABELS[v]}
+          </button>
+        ))}
+      </div>
+      <div className="mode-toggle">
+        {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
+          <button key={g} className={g === gameType ? "active" : ""} onClick={() => setGameType(g)} type="button">
+            {SEASON_GAME_TYPE_LABELS[g]}
+          </button>
+        ))}
+      </div>
+      <div className="stat-picker">
+        {PLAYER_CAREER_TOTAL_DEFS.map((d) => (
+          <button key={d.key} className={d.key === statKey ? "active" : ""} onClick={() => setStatKey(d.key)} type="button">
+            {d.label}
+          </button>
+        ))}
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="empty-message">この条件（ホーム/アウェイ/トータル・レギュラー/プレーオフ区分・項目）では該当選手がいません</p>
+      ) : (
+        <div className="table-scroll">
+          <table className="sortable-table rankings-table">
+            <thead>
+              <tr>
+                <th className="align-right">#</th>
+                <th className="align-left">選手</th>
+                <th className="align-right">{activeLabel}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const info = rankings.players[r.playerId];
+                return (
+                  <tr key={r.playerId}>
+                    <td className="align-right rank-cell">{r.entry.rank}</td>
+                    <td className="align-left">
+                      <Link to={`/players/${r.playerId}?season=${info?.latestSeason ?? ""}`} className="cell-link">
+                        <span className="player-cell">
+                          <PlayerPhoto playerId={r.playerId} size={32} className="player-cell-photo" />
+                          <span className="rank-name-cell">
+                            <span className="rank-name">{info?.name ?? r.playerId}</span>
+                            <span className="rank-sublabel">
+                              {info ? teamShortName(info.teamId, info.teamName) : ""}・{info?.latestSeason}シーズンまで在籍確認
+                            </span>
+                          </span>
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="align-right rank-value">{formatLeaguePlayerRecordValue(statKey, r.entry.value)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
