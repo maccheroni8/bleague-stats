@@ -107,7 +107,9 @@ import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
 import {
   buildShotTypeBreakdownByTeam,
-  formatShotTypeCell,
+  formatShotTypeAttempted,
+  formatShotTypeMade,
+  formatShotTypePct,
   scaleShotTypeCounts,
   shotTypeLabel,
   sortShotTypeKeys,
@@ -3410,55 +3412,85 @@ export function TeamDetailPage({ season }: { season: string }) {
               <table className="stats-table">
                 <thead>
                   <tr>
-                    <th />
+                    <th rowSpan={2} />
                     {sortShotTypeKeys(Object.keys(currentTeamShotTypes)).map((key) => (
-                      <th key={key} className="align-right">
+                      <th key={key} colSpan={3}>
                         {shotTypeLabel(key)}
                       </th>
                     ))}
-                    <th className="align-right">合計</th>
+                    <th colSpan={3}>合計</th>
+                  </tr>
+                  <tr>
+                    {sortShotTypeKeys(Object.keys(currentTeamShotTypes)).map((key) => (
+                      <Fragment key={key}>
+                        <th className="align-right">M</th>
+                        <th className="align-right">A</th>
+                        <th className="align-right">%</th>
+                      </Fragment>
+                    ))}
+                    <th className="align-right">M</th>
+                    <th className="align-right">A</th>
+                    <th className="align-right">%</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td className="align-left">2P</td>
-                    {sortShotTypeKeys(Object.keys(currentTeamShotTypes)).map((key) => (
-                      <td key={key} className="align-right">
-                        {formatShotTypeCell(scaleShotTypeCounts(currentTeamShotTypes[key]!.twoPoint, teamShootingFactor), teamShootingDigits)}
-                      </td>
-                    ))}
-                    <td className="align-right">
-                      {formatShotTypeCell(
-                        scaleShotTypeCounts(
-                          Object.values(currentTeamShotTypes).reduce(
-                            (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
-                            { made: 0, attempted: 0 },
-                          ),
-                          teamShootingFactor,
+                    {sortShotTypeKeys(Object.keys(currentTeamShotTypes)).map((key) => {
+                      const c = scaleShotTypeCounts(currentTeamShotTypes[key]!.twoPoint, teamShootingFactor);
+                      return (
+                        <Fragment key={key}>
+                          <td className="align-right">{formatShotTypeMade(c, teamShootingDigits)}</td>
+                          <td className="align-right">{formatShotTypeAttempted(c, teamShootingDigits)}</td>
+                          <td className="align-right">{formatShotTypePct(c)}</td>
+                        </Fragment>
+                      );
+                    })}
+                    {(() => {
+                      const total = scaleShotTypeCounts(
+                        Object.values(currentTeamShotTypes).reduce(
+                          (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
+                          { made: 0, attempted: 0 },
                         ),
-                        teamShootingDigits,
-                      )}
-                    </td>
+                        teamShootingFactor,
+                      );
+                      return (
+                        <>
+                          <td className="align-right">{formatShotTypeMade(total, teamShootingDigits)}</td>
+                          <td className="align-right">{formatShotTypeAttempted(total, teamShootingDigits)}</td>
+                          <td className="align-right">{formatShotTypePct(total)}</td>
+                        </>
+                      );
+                    })()}
                   </tr>
                   <tr>
                     <td className="align-left">3P</td>
-                    {sortShotTypeKeys(Object.keys(currentTeamShotTypes)).map((key) => (
-                      <td key={key} className="align-right">
-                        {formatShotTypeCell(scaleShotTypeCounts(currentTeamShotTypes[key]!.threePoint, teamShootingFactor), teamShootingDigits)}
-                      </td>
-                    ))}
-                    <td className="align-right">
-                      {formatShotTypeCell(
-                        scaleShotTypeCounts(
-                          Object.values(currentTeamShotTypes).reduce(
-                            (acc, c) => sumShotTypeCounts(acc, c.threePoint),
-                            { made: 0, attempted: 0 },
-                          ),
-                          teamShootingFactor,
+                    {sortShotTypeKeys(Object.keys(currentTeamShotTypes)).map((key) => {
+                      const c = scaleShotTypeCounts(currentTeamShotTypes[key]!.threePoint, teamShootingFactor);
+                      return (
+                        <Fragment key={key}>
+                          <td className="align-right">{formatShotTypeMade(c, teamShootingDigits)}</td>
+                          <td className="align-right">{formatShotTypeAttempted(c, teamShootingDigits)}</td>
+                          <td className="align-right">{formatShotTypePct(c)}</td>
+                        </Fragment>
+                      );
+                    })}
+                    {(() => {
+                      const total = scaleShotTypeCounts(
+                        Object.values(currentTeamShotTypes).reduce(
+                          (acc, c) => sumShotTypeCounts(acc, c.threePoint),
+                          { made: 0, attempted: 0 },
                         ),
-                        teamShootingDigits,
-                      )}
-                    </td>
+                        teamShootingFactor,
+                      );
+                      return (
+                        <>
+                          <td className="align-right">{formatShotTypeMade(total, teamShootingDigits)}</td>
+                          <td className="align-right">{formatShotTypeAttempted(total, teamShootingDigits)}</td>
+                          <td className="align-right">{formatShotTypePct(total)}</td>
+                        </>
+                      );
+                    })()}
                   </tr>
                 </tbody>
               </table>

@@ -50,7 +50,9 @@ import { formatDecimal, formatPct, formatSigned } from "../lib/format";
 import { formatMinutesFromSeconds, astToTovRatio } from "../lib/boxscoreAggregate";
 import {
   buildShotTypeBreakdownByPlayer,
-  formatShotTypeCell,
+  formatShotTypeAttempted,
+  formatShotTypeMade,
+  formatShotTypePct,
   scaleShotTypeCounts,
   shotTypeLabel,
   sortShotTypeKeys,
@@ -1929,55 +1931,85 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <table className="stats-table">
                 <thead>
                   <tr>
-                    <th />
+                    <th rowSpan={2} />
                     {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => (
-                      <th key={key} className="align-right">
+                      <th key={key} colSpan={3}>
                         {shotTypeLabel(key)}
                       </th>
                     ))}
-                    <th className="align-right">合計</th>
+                    <th colSpan={3}>合計</th>
+                  </tr>
+                  <tr>
+                    {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => (
+                      <Fragment key={key}>
+                        <th className="align-right">M</th>
+                        <th className="align-right">A</th>
+                        <th className="align-right">%</th>
+                      </Fragment>
+                    ))}
+                    <th className="align-right">M</th>
+                    <th className="align-right">A</th>
+                    <th className="align-right">%</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td className="align-left">2P</td>
-                    {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => (
-                      <td key={key} className="align-right">
-                        {formatShotTypeCell(scaleShotTypeCounts(shootingActiveShotTypes[key]!.twoPoint, shootingFactor), shootingDigits)}
-                      </td>
-                    ))}
-                    <td className="align-right">
-                      {formatShotTypeCell(
-                        scaleShotTypeCounts(
-                          Object.values(shootingActiveShotTypes).reduce(
-                            (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
-                            { made: 0, attempted: 0 },
-                          ),
-                          shootingFactor,
+                    {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => {
+                      const c = scaleShotTypeCounts(shootingActiveShotTypes[key]!.twoPoint, shootingFactor);
+                      return (
+                        <Fragment key={key}>
+                          <td className="align-right">{formatShotTypeMade(c, shootingDigits)}</td>
+                          <td className="align-right">{formatShotTypeAttempted(c, shootingDigits)}</td>
+                          <td className="align-right">{formatShotTypePct(c)}</td>
+                        </Fragment>
+                      );
+                    })}
+                    {(() => {
+                      const total = scaleShotTypeCounts(
+                        Object.values(shootingActiveShotTypes).reduce(
+                          (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
+                          { made: 0, attempted: 0 },
                         ),
-                        shootingDigits,
-                      )}
-                    </td>
+                        shootingFactor,
+                      );
+                      return (
+                        <>
+                          <td className="align-right">{formatShotTypeMade(total, shootingDigits)}</td>
+                          <td className="align-right">{formatShotTypeAttempted(total, shootingDigits)}</td>
+                          <td className="align-right">{formatShotTypePct(total)}</td>
+                        </>
+                      );
+                    })()}
                   </tr>
                   <tr>
                     <td className="align-left">3P</td>
-                    {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => (
-                      <td key={key} className="align-right">
-                        {formatShotTypeCell(scaleShotTypeCounts(shootingActiveShotTypes[key]!.threePoint, shootingFactor), shootingDigits)}
-                      </td>
-                    ))}
-                    <td className="align-right">
-                      {formatShotTypeCell(
-                        scaleShotTypeCounts(
-                          Object.values(shootingActiveShotTypes).reduce(
-                            (acc, c) => sumShotTypeCounts(acc, c.threePoint),
-                            { made: 0, attempted: 0 },
-                          ),
-                          shootingFactor,
+                    {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => {
+                      const c = scaleShotTypeCounts(shootingActiveShotTypes[key]!.threePoint, shootingFactor);
+                      return (
+                        <Fragment key={key}>
+                          <td className="align-right">{formatShotTypeMade(c, shootingDigits)}</td>
+                          <td className="align-right">{formatShotTypeAttempted(c, shootingDigits)}</td>
+                          <td className="align-right">{formatShotTypePct(c)}</td>
+                        </Fragment>
+                      );
+                    })}
+                    {(() => {
+                      const total = scaleShotTypeCounts(
+                        Object.values(shootingActiveShotTypes).reduce(
+                          (acc, c) => sumShotTypeCounts(acc, c.threePoint),
+                          { made: 0, attempted: 0 },
                         ),
-                        shootingDigits,
-                      )}
-                    </td>
+                        shootingFactor,
+                      );
+                      return (
+                        <>
+                          <td className="align-right">{formatShotTypeMade(total, shootingDigits)}</td>
+                          <td className="align-right">{formatShotTypeAttempted(total, shootingDigits)}</td>
+                          <td className="align-right">{formatShotTypePct(total)}</td>
+                        </>
+                      );
+                    })()}
                   </tr>
                 </tbody>
               </table>

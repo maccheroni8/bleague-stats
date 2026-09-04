@@ -46,7 +46,14 @@ import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable"
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
-import { formatShotTypeCell, shotTypeLabel, sortShotTypeKeys, sumShotTypeCounts } from "../lib/shotTypeBreakdown";
+import {
+  formatShotTypeAttempted,
+  formatShotTypeMade,
+  formatShotTypePct,
+  shotTypeLabel,
+  shotTypePctValue,
+  sortShotTypeKeys,
+} from "../lib/shotTypeBreakdown";
 import { CAREER_TOTAL_DEFS, TEAM_RECORD_STATS, currentStreak, type TeamStreak } from "../../shared/teamRecords";
 import { ONE_TEAM_DIVISIONS, TEAM_DIVISIONS, TEAM_NAMES } from "../../scripts/lib/divisions";
 
@@ -708,39 +715,15 @@ const DEFAULT_SORT_KEY: Record<BoxscoreTabKey, string> = {
   scoring: "pitppct",
 };
 
-// 「シューティング（シュートタイプ別）」一覧用の行。TeamSummary.shotTypesをそのまま使う
-// （2P/3Pを合算した1セルにまとめる。1チーム分の詳細ページのような2P/3P別の内訳表示は
-// 列数が倍増し26チーム分の一覧としては見づらくなるため、こちらは合算のみ表示する）
+// 「シューティング（シュートタイプ別）」一覧用の行。TeamSummary.shotTypesをそのまま使う。
+// 各シュートタイプを2P/3P別・成功数/試投数/成功率の6列に分けて表示する
+// （個人詳細ページ・チーム詳細ページの内訳表示、ボックススコアのFG/2P/3P/FT分離と同じパターン）
 interface ShootingRow {
   team: TeamSummary;
 }
 
-function combinedShotTypeCounts(team: TeamSummary, key: string): ShotTypeCounts | undefined {
-  const split = team.shotTypes?.[key];
-  if (!split) return undefined;
-  return sumShotTypeCounts(split.twoPoint, split.threePoint);
-}
-
-/** シューティング（シュートタイプ別）表の並び替え基準。DESIGN.md参照
- * （2026-08-29、成功率のみだったソートを成功数・試投数にも対応させた） */
-type ShootingSortBasis = "made" | "attempted" | "pct";
-const SHOOTING_SORT_BASIS_LABELS: Record<ShootingSortBasis, string> = {
-  made: "成功数",
-  attempted: "試投数",
-  pct: "成功率",
-};
-
-function shotTypeSortValue(team: TeamSummary, key: string, basis: ShootingSortBasis): number {
-  const counts = combinedShotTypeCounts(team, key);
-  if (!counts) return -1;
-  switch (basis) {
-    case "made":
-      return counts.made;
-    case "attempted":
-      return counts.attempted;
-    case "pct":
-      return counts.attempted > 0 ? counts.made / counts.attempted : -1;
-  }
+function shotTypeCounts(team: TeamSummary, key: string, split: "twoPoint" | "threePoint"): ShotTypeCounts | undefined {
+  return team.shotTypes?.[key]?.[split];
 }
 
 interface TurnoverRow {
@@ -813,7 +796,6 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const [filter, setFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
   const [teamPerspective, setTeamPerspective] = useState<TeamPerspective>("own");
   const [turnoverPerspective, setTurnoverPerspective] = useState<"forced" | "committed">("forced");
-  const [shootingSortBasis, setShootingSortBasis] = useState<ShootingSortBasis>("pct");
 
   const opponentRecords = useMemo<Map<string, Map<string, RecordBeforeGame>> | undefined>(
     () => (summaries ? buildRecordsBeforeGame(summaries) : undefined),
@@ -859,14 +841,47 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         </span>
       ),
     },
-    ...shotTypeKeys.map(
-      (key): Column<ShootingRow> => ({
-        key,
-        label: shotTypeLabel(key),
-        sortValue: (r) => shotTypeSortValue(r.team, key, shootingSortBasis),
-        format: (r) => formatShotTypeCell(combinedShotTypeCounts(r.team, key)),
-      }),
-    ),
+    ...shotTypeKeys.flatMap((key): Column<ShootingRow>[] => {
+      const label = shotTypeLabel(key);
+      return [
+        {
+          key: `${key}_2pm`,
+          label: `${label} 2PM`,
+          sortValue: (r) => shotTypeCounts(r.team, key, "twoPoint")?.made ?? -1,
+          format: (r) => formatShotTypeMade(shotTypeCounts(r.team, key, "twoPoint")),
+        },
+        {
+          key: `${key}_2pa`,
+          label: `${label} 2PA`,
+          sortValue: (r) => shotTypeCounts(r.team, key, "twoPoint")?.attempted ?? -1,
+          format: (r) => formatShotTypeAttempted(shotTypeCounts(r.team, key, "twoPoint")),
+        },
+        {
+          key: `${key}_2ppct`,
+          label: `${label} 2P%`,
+          sortValue: (r) => shotTypePctValue(shotTypeCounts(r.team, key, "twoPoint")),
+          format: (r) => formatShotTypePct(shotTypeCounts(r.team, key, "twoPoint")),
+        },
+        {
+          key: `${key}_3pm`,
+          label: `${label} 3PM`,
+          sortValue: (r) => shotTypeCounts(r.team, key, "threePoint")?.made ?? -1,
+          format: (r) => formatShotTypeMade(shotTypeCounts(r.team, key, "threePoint")),
+        },
+        {
+          key: `${key}_3pa`,
+          label: `${label} 3PA`,
+          sortValue: (r) => shotTypeCounts(r.team, key, "threePoint")?.attempted ?? -1,
+          format: (r) => formatShotTypeAttempted(shotTypeCounts(r.team, key, "threePoint")),
+        },
+        {
+          key: `${key}_3ppct`,
+          label: `${label} 3P%`,
+          sortValue: (r) => shotTypePctValue(shotTypeCounts(r.team, key, "threePoint")),
+          format: (r) => formatShotTypePct(shotTypeCounts(r.team, key, "threePoint")),
+        },
+      ];
+    }),
   ];
 
   const turnoverRows: TurnoverRow[] = (teams ?? []).flatMap((team) => {
@@ -969,13 +984,6 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         <p className="empty-message">このシーズンのデータには対応していません</p>
       ) : (
         <>
-          <div className="mode-toggle">
-            {(Object.keys(SHOOTING_SORT_BASIS_LABELS) as ShootingSortBasis[]).map((b) => (
-              <button key={b} className={b === shootingSortBasis ? "active" : ""} onClick={() => setShootingSortBasis(b)} type="button">
-                {SHOOTING_SORT_BASIS_LABELS[b]}
-              </button>
-            ))}
-          </div>
           <div className="table-scroll">
             <SortableTable
               columns={shootingColumns}
@@ -987,7 +995,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             />
           </div>
           <p className="page-subtitle">
-            レギュラーシーズン・シーズン平均のみ（上部の切り替えとは連動しない）。2P/3Pを合算した成功/試投/成功率を表示する
+            レギュラーシーズン・シーズン平均のみ（上部の切り替えとは連動しない）。シュートタイプ×2P/3P別に成功数（M）・試投数（A）・成功率（%）の3列に分けて表示する。列見出しクリックで並び替え
           </p>
         </>
       )}

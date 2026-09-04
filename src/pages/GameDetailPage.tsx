@@ -19,7 +19,15 @@ import { buildShotEvents } from "../lib/shotChart";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { computeOnCourtRatings, reconstructOnCourt, substitutionModelForSeason, type PlayerOnCourtRatings } from "../../shared/onCourt";
 import { playTimeToSeconds } from "../lib/boxscoreAggregate";
-import { buildShotTypeBreakdownByPlayer, formatShotTypeCell, shotTypeLabel, sortShotTypeKeys, sumShotTypeCounts } from "../lib/shotTypeBreakdown";
+import {
+  buildShotTypeBreakdownByPlayer,
+  formatShotTypeAttempted,
+  formatShotTypeMade,
+  formatShotTypePct,
+  shotTypeLabel,
+  sortShotTypeKeys,
+  sumShotTypeCounts,
+} from "../lib/shotTypeBreakdown";
 
 function periodLabel(index: number, total: number): string {
   if (index < 4) return `${index + 1}Q`;
@@ -591,12 +599,20 @@ function ShootingBreakdownTable({
           <td className="align-left">{p.PlayerNameJ}</td>
           {shotTypeKeys.map((key) => (
             <Fragment key={key}>
-              <td className="align-right">{formatShotTypeCell(breakdown[key]?.twoPoint)}</td>
-              <td className="align-right">{formatShotTypeCell(breakdown[key]?.threePoint)}</td>
+              <td className="align-right">{formatShotTypeMade(breakdown[key]?.twoPoint)}</td>
+              <td className="align-right">{formatShotTypeAttempted(breakdown[key]?.twoPoint)}</td>
+              <td className="align-right">{formatShotTypePct(breakdown[key]?.twoPoint)}</td>
+              <td className="align-right">{formatShotTypeMade(breakdown[key]?.threePoint)}</td>
+              <td className="align-right">{formatShotTypeAttempted(breakdown[key]?.threePoint)}</td>
+              <td className="align-right">{formatShotTypePct(breakdown[key]?.threePoint)}</td>
             </Fragment>
           ))}
-          <td className="align-right">{formatShotTypeCell(totalTwo)}</td>
-          <td className="align-right">{formatShotTypeCell(totalThree)}</td>
+          <td className="align-right">{formatShotTypeMade(totalTwo)}</td>
+          <td className="align-right">{formatShotTypeAttempted(totalTwo)}</td>
+          <td className="align-right">{formatShotTypePct(totalTwo)}</td>
+          <td className="align-right">{formatShotTypeMade(totalThree)}</td>
+          <td className="align-right">{formatShotTypeAttempted(totalThree)}</td>
+          <td className="align-right">{formatShotTypePct(totalThree)}</td>
         </tr>
       );
     });
@@ -614,19 +630,27 @@ function ShootingBreakdownTable({
               <tr>
                 <th className="align-left" rowSpan={2}>選手</th>
                 {shotTypeKeys.map((key) => (
-                  <th key={key} colSpan={2}>{shotTypeLabel(key)}</th>
+                  <th key={key} colSpan={6}>{shotTypeLabel(key)}</th>
                 ))}
-                <th colSpan={2}>合計</th>
+                <th colSpan={6}>合計</th>
               </tr>
               <tr>
                 {shotTypeKeys.map((key) => (
                   <Fragment key={key}>
-                    <th className="align-right">2P</th>
-                    <th className="align-right">3P</th>
+                    <th className="align-right">2PM</th>
+                    <th className="align-right">2PA</th>
+                    <th className="align-right">2P%</th>
+                    <th className="align-right">3PM</th>
+                    <th className="align-right">3PA</th>
+                    <th className="align-right">3P%</th>
                   </Fragment>
                 ))}
-                <th className="align-right">2P</th>
-                <th className="align-right">3P</th>
+                <th className="align-right">2PM</th>
+                <th className="align-right">2PA</th>
+                <th className="align-right">2P%</th>
+                <th className="align-right">3PM</th>
+                <th className="align-right">3PA</th>
+                <th className="align-right">3P%</th>
               </tr>
             </thead>
             <tbody>

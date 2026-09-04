@@ -112,8 +112,24 @@ export function scaleShotTypeCounts(counts: ShotTypeCounts, factor: number): Sho
   return { made: counts.made * factor, attempted: counts.attempted * factor };
 }
 
-export function formatShotTypeCell(counts: { made: number; attempted: number } | undefined, digits = 0): string {
+/** 成功数・試投数・成功率を独立した列に分けて表示する（ボックススコアのFG/2P/3P/FT分離と同じパターン）。
+ * 試投数0（該当シュートタイプの試投が無い）の場合は3列とも"-"にする */
+export function formatShotTypeMade(counts: { made: number; attempted: number } | undefined, digits = 0): string {
   if (!counts || counts.attempted === 0) return "-";
-  const pct = (100 * counts.made) / counts.attempted;
-  return `${counts.made.toFixed(digits)}/${counts.attempted.toFixed(digits)} (${pct.toFixed(1)}%)`;
+  return counts.made.toFixed(digits);
+}
+
+export function formatShotTypeAttempted(counts: { made: number; attempted: number } | undefined, digits = 0): string {
+  if (!counts || counts.attempted === 0) return "-";
+  return counts.attempted.toFixed(digits);
+}
+
+export function formatShotTypePct(counts: { made: number; attempted: number } | undefined): string {
+  if (!counts || counts.attempted === 0) return "-";
+  return `${((100 * counts.made) / counts.attempted).toFixed(1)}%`;
+}
+
+export function shotTypePctValue(counts: { made: number; attempted: number } | undefined): number {
+  if (!counts || counts.attempted === 0) return -1;
+  return counts.made / counts.attempted;
 }
