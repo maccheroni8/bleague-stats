@@ -44,7 +44,7 @@ export function HeadToHeadMatrix({ rows, teamColors }: Props) {
                   className="h2h-col-header"
                   style={accent ? { borderTopColor: accent } : undefined}
                 >
-                  <span>{col.teamName}</span>
+                  <Link to={`/teams/${col.teamId}`}>{col.teamName}</Link>
                 </th>
               );
             })}

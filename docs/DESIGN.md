@@ -6735,3 +6735,51 @@ CLAUDE.mdの運用ルール通り、`scripts/aggregate.ts`のロジック変更�
 再集計した。差分は`player-games/*.json.gz`（新規2フィールド追加分、全シーズン・
 ほぼ全選手）と、Yahoo PBPデータが実在する3シーズン（2023-24・2024-25・2025-26）の
 `teams.json`（`violation8sec`フィールド追加分）に生じた。
+
+---
+
+## 82. チーム名/選手名リンクの見落とし横断修正（2026-09-04）
+
+ユーザー報告により、個人詳細ページ「シーズン別成績」（`SeasonBreakdownTable`）「シチュエーション
+別成績」（シーズン内移籍選手のチーム別内訳表示、`TeamSplitRow.teamLabel`）のチーム名セルが
+クリックしてもチーム詳細ページへ遷移しない不具合が見つかった。原因は、これらの表を組み立てる
+`buildTeamSplitRowsForPeriod`/`buildTeamSplitRows`は`TeamSplitRow.teamId`を返しているにも
+かかわらず、呼び出し側（`PlayerDetailPage.tsx`）が独自の行型（`SituationalStatsRow`、
+`.map()`での詰め替え）に変換する際に`teamId`を落としており、`teamLabel`をプレーンテキストで
+表示するしかなかったため。`SituationalStatsRow`に`teamId: string | null`を追加し、両方の
+テーブルで`teamId`が非nullの場合のみ`RouterLink`（react-router-dom、既存の`SeasonLink`は
+現在のURLの`?season=`を強制上書きするため、行ごとに異なりうるシーズン（`シーズン別成績`は
+`r.season`、`シチュエーション別成績`は独立したシーズン選択`situationalStatsSeason`）を明示的に
+指定できる素の`RouterLink`を使う必要があった）で`/teams/{teamId}?season={season}`へリンクする
+ように修正した。「複数チーム」合計行・所属チーム未解決行（`teamId===null`）は元々リンク不要な
+プレースホルダーのため、この条件分岐で自動的にリンク対象外になる。
+
+**横断確認で追加発見した3件の見落とし**（同様の不具合が無いか、という依頼に基づく全ページ調査）:
+1. `src/components/HeadToHeadMatrix.tsx`（星取り表）: 列ヘッダー（`<span>{col.teamName}</span>`）が
+   プレーンテキストで、同じ表の行ヘッダー（`<Link to={\`/teams/${row.teamId}\`}>`）だけリンクに
+   なっていた。列ヘッダーも同じ`Link`（`SeasonLink`）でラップした
+2. `src/pages/GameDetailPage.tsx`「Q別得点」「累積スコア」の2テーブル: `game.homeTeam.name`/
+   `game.awayTeam.name`がプレーンテキストで、真上のスコアボードでは同じチーム名が
+   `/teams/{id}`にリンクされていた。計4箇所（各テーブルのホーム/アウェイ行）を同じ`Link`
+   （`SeasonLink`）でラップした
+3. `src/pages/GameDetailPage.tsx`「シューティング」タブ（`ShootingBreakdownTable`、
+   ボックススコアのカテゴリタブの1つ）: `p.PlayerNameJ`がプレーンテキストで、同ページの
+   ゲームリーダー・ボックススコア本体の選手名は全て`/players/{playerId}`にリンクされていた。
+   `RouterLink`（`SeasonLink`と同じ`Link`エイリアス）で`cell-link`クラス付きでラップした
+
+いずれも「同じテーブル内・同じページ内の類似セルは既にリンクになっているのに、その1箇所だけ
+プレーンテキストのまま」という共通パターンの見落としだった。`SortableTable`ベースの一覧
+（全選手/全チームスタッツ等）は行全体が1つの`linkTo`先を持つ設計のため、チーム名セルが
+プレーンテキストなのは意図通り（同じ行の別セルに別リンク先を持たせられないため）と判断し、
+対象外とした。
+
+**検証**: モッチ ラミン選手（playerId 30405、2024-25シーズン、三河→佐賀移籍）で、
+「シーズン別成績」「シチュエーション別成績」両方のチーム名セルが正しいteamId・season
+（`#/teams/728?season=2024-25`＝三河、`#/teams/1638?season=2024-25`＝佐賀）にリンクされ、
+「複数チーム」行・「通算」行はリンク無しのままであることを確認した。実際にクリックして
+チーム詳細ページへ遷移することも確認した。星取り表（2024-25シーズン）で列ヘッダーが
+行ヘッダーと同じ形式でチーム詳細ページにリンクされることを確認した。試合詳細ページ
+（ScheduleKey=504728、2025-26シーズン）で、Q別得点・累積スコアの両テーブルのチーム名が
+スコアボードと同じ`/teams/{id}`にリンクされ、シューティングタブの選手名が
+`/players/{playerId}`にリンクされることを確認した。型チェック（`tsconfig.json`・
+`tsconfig.scripts.json`とも）通過。ブラウザのコンソールエラー無し。

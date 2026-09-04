@@ -360,7 +360,9 @@ export function GameDetailPage({ season }: { season: string }) {
               </thead>
               <tbody>
                 <tr>
-                  <td className="align-left">{game.homeTeam.name}</td>
+                  <td className="align-left">
+                    <Link to={`/teams/${game.homeTeam.id}`}>{game.homeTeam.name}</Link>
+                  </td>
                   {game.quarterScores.home.map((s, i) => (
                     <td key={i}>{s}</td>
                   ))}
@@ -369,7 +371,9 @@ export function GameDetailPage({ season }: { season: string }) {
                   </td>
                 </tr>
                 <tr>
-                  <td className="align-left">{game.awayTeam.name}</td>
+                  <td className="align-left">
+                    <Link to={`/teams/${game.awayTeam.id}`}>{game.awayTeam.name}</Link>
+                  </td>
                   {game.quarterScores.away.map((s, i) => (
                     <td key={i}>{s}</td>
                   ))}
@@ -396,13 +400,17 @@ export function GameDetailPage({ season }: { season: string }) {
               </thead>
               <tbody>
                 <tr>
-                  <td className="align-left">{game.homeTeam.name}</td>
+                  <td className="align-left">
+                    <Link to={`/teams/${game.homeTeam.id}`}>{game.homeTeam.name}</Link>
+                  </td>
                   {homeCum.map((s, i) => (
                     <td key={i}>{s}</td>
                   ))}
                 </tr>
                 <tr>
-                  <td className="align-left">{game.awayTeam.name}</td>
+                  <td className="align-left">
+                    <Link to={`/teams/${game.awayTeam.id}`}>{game.awayTeam.name}</Link>
+                  </td>
                   {awayCum.map((s, i) => (
                     <td key={i}>{s}</td>
                   ))}
@@ -596,7 +604,11 @@ function ShootingBreakdownTable({
       }, EMPTY_SHOT_TYPE_COUNTS);
       return (
         <tr key={p.PlayerID}>
-          <td className="align-left">{p.PlayerNameJ}</td>
+          <td className="align-left">
+            <Link to={`/players/${p.PlayerID}`} className="cell-link">
+              {p.PlayerNameJ}
+            </Link>
+          </td>
           {shotTypeKeys.map((key) => (
             <Fragment key={key}>
               <td className="align-right">{formatShotTypeMade(breakdown[key]?.twoPoint)}</td>

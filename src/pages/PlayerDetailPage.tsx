@@ -492,6 +492,8 @@ interface SituationalStatsRow {
   /** シーズン内移籍対応: 試合ログから動的に導出した所属チーム（略称）。1チームのみなら
    * そのチーム名、複数チームにまたがる場合は「複数チーム」（buildTeamSplitRows参照） */
   teamLabel: string;
+  /** teamLabelのリンク先（チーム詳細ページ）用。「複数チーム」合計行・未解決行はnull */
+  teamId: string | null;
   ctx: SeasonBoxscoreCtx;
   isCombined: boolean;
   /** シューティングタブ用: この行に属する試合ログ（scheduleKey列挙のみに使う） */
@@ -1351,7 +1353,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       player.playerId,
       situationalStatsPeriodOption,
       periodRawGames,
-    ).map((r) => ({ key: r.key, label: rowLabel, teamLabel: r.teamLabel, ctx: r.ctx, isCombined: r.isCombined, logs: r.logs }));
+    ).map((r) => ({ key: r.key, label: rowLabel, teamLabel: r.teamLabel, teamId: r.teamId, ctx: r.ctx, isCombined: r.isCombined, logs: r.logs }));
   };
 
   const situationalStatsMonthsWithData = new Set(
@@ -1817,7 +1819,15 @@ export function PlayerDetailPage({ season }: { season: string }) {
                       {group.rows.map((row) => (
                         <tr key={row.key} className={row.isCombined ? "season-team-total-row" : undefined}>
                           <td className="align-left">{row.label}</td>
-                          <td className="align-left">{row.teamLabel}</td>
+                          <td className="align-left">
+                            {row.teamId ? (
+                              <RouterLink to={`/teams/${row.teamId}?season=${situationalStatsSeason}`} className="cell-link">
+                                {row.teamLabel}
+                              </RouterLink>
+                            ) : (
+                              row.teamLabel
+                            )}
+                          </td>
                           {situationalStatsTab === "shooting"
                             ? situationalStatsShotColumns.map((col) => (
                                 <td key={col.key} className="align-right">
@@ -2469,7 +2479,15 @@ function SeasonBreakdownTable({
             {sortedSeasonRows.map((r) => (
               <tr key={r.key} className={r.isCombined ? "season-team-total-row" : undefined}>
                 <td className="align-left">{r.season}</td>
-                <td className="align-left">{r.teamLabel}</td>
+                <td className="align-left">
+                  {r.teamId ? (
+                    <RouterLink to={`/teams/${r.teamId}?season=${r.season}`} className="cell-link">
+                      {r.teamLabel}
+                    </RouterLink>
+                  ) : (
+                    r.teamLabel
+                  )}
+                </td>
                 {tab === "shooting"
                   ? seasonShotColumns.map((col) => (
                       <td key={col.key} className="align-right">
