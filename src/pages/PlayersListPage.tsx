@@ -40,6 +40,7 @@ import {
   EMPTY_TEAM_TOTALS,
   SEASON_ADVANCED_COLUMNS,
   SEASON_BOX_TABS,
+  SEASON_DISPLAY_MODE_LABELS,
   SEASON_MISC_COLUMNS,
   SEASON_SCORING_COLUMNS,
   SEASON_TRADITIONAL_COLUMNS,
@@ -48,6 +49,7 @@ import {
   type SeasonBoxTabKey,
   type SeasonBoxscoreColumn,
   type SeasonBoxscoreCtx,
+  type SeasonDisplayMode,
   type TeamSeasonRawTotals,
 } from "../lib/playerSeasonBoxscore";
 
@@ -129,8 +131,15 @@ interface PlayerRow {
   ctx?: SeasonBoxscoreCtx;
 }
 
-function pgAvg(total: number, games: number): number {
-  return safeDiv(total, games);
+// チーム版「全チームスタッツ」（TeamsListPage.tsx）と同じ仕組みの平均/合計トグル
+// （ユーザー依頼、2026-09-04）。ctxベースの列（buildCtxColumns経由）は
+// playerSeasonBoxscore.tsのSeasonDisplayMode/col.value(ctx, mode)がそのまま対応しているため、
+// このmodeをそのまま渡すだけでよい。fast path（PlayerSummary直接参照）側はscaledValue()で
+// 生の合計値を試合数で割るかどうかを切り替える
+const DISPLAY_MODE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
+
+function scaledValue(total: number, games: number, mode: SeasonDisplayMode): number {
+  return mode === "total" ? total : safeDiv(total, games);
 }
 
 const nameColumn: Column<PlayerRow> = {
@@ -161,19 +170,23 @@ const gamesColumn: Column<PlayerRow> = {
   format: (r) => String(r.player.gamesPlayed),
 };
 
-const minColumn: Column<PlayerRow> = {
-  key: "min",
-  label: "MIN",
-  sortValue: (r) => r.player.perGame.min,
-  format: (r) => formatMinutesFromSeconds(Math.round(r.player.perGame.min * 60)),
-};
+function buildMinColumn(mode: SeasonDisplayMode): Column<PlayerRow> {
+  return {
+    key: "min",
+    label: "MIN",
+    sortValue: (r) => scaledValue(r.player.totals.min, r.player.gamesPlayed, mode),
+    format: (r) => formatMinutesFromSeconds(Math.round(scaledValue(r.player.totals.min, r.player.gamesPlayed, mode) * 60)),
+  };
+}
 
-const ptsColumn: Column<PlayerRow> = {
-  key: "pts",
-  label: "PTS",
-  sortValue: (r) => r.player.perGame.pts,
-  format: (r) => formatDecimal(r.player.perGame.pts),
-};
+function buildPtsColumn(mode: SeasonDisplayMode): Column<PlayerRow> {
+  return {
+    key: "pts",
+    label: "PTS",
+    sortValue: (r) => scaledValue(r.player.totals.pts, r.player.gamesPlayed, mode),
+    format: (r) => formatDecimal(scaledValue(r.player.totals.pts, r.player.gamesPlayed, mode), mode === "total" ? 0 : 1),
+  };
+}
 
 // 登録区分・身長・体重は絞り込みフィルタとしては使うが、一覧の列としては全カテゴリタブとも
 // 表示しない（ユーザー依頼、2026-09-04）
@@ -187,26 +200,44 @@ const LEADING_COLUMNS_MINIMAL: Column<PlayerRow>[] = [nameColumn, teamColumn];
  * playerSeasonBoxscore.tsのSeasonBoxscoreColumn（ctx.raw/ctx.scaledベース）を、この一覧の
  * Column<PlayerRow>にそのまま変換する。個人詳細ページの「シーズン別成績」「シチュエーション別
  * 成績」と同じ列定義を再利用することで、シチュエーション別フィルタ選択時も表示項目の意味が
- * 揃う（DESIGN.md参照）
+ * 揃う（DESIGN.md参照）。modeはSeasonBoxscoreColumn.value/format自体が既に対応済みの
+ * SeasonDisplayMode（total/perGame/per30）をそのまま渡すだけでよい
  */
-function buildCtxColumns(cols: SeasonBoxscoreColumn[]): Column<PlayerRow>[] {
+function buildCtxColumns(cols: SeasonBoxscoreColumn[], mode: SeasonDisplayMode): Column<PlayerRow>[] {
   return [
     ...LEADING_COLUMNS_MINIMAL,
     ...cols.map((col) => ({
       key: col.key,
       label: col.label,
-      sortValue: (r: PlayerRow) => (r.ctx ? col.value(r.ctx, "perGame") : 0),
-      format: (r: PlayerRow) => (r.ctx ? col.format(r.ctx, "perGame") : "-"),
+      sortValue: (r: PlayerRow) => (r.ctx ? col.value(r.ctx, mode) : 0),
+      format: (r: PlayerRow) => (r.ctx ? col.format(r.ctx, mode) : "-"),
     })),
   ];
 }
 
-function countColumn(key: string, label: string, pick: (p: PlayerSummary) => number): Column<PlayerRow> {
-  return { key, label, sortValue: (r) => pick(r.player), format: (r) => formatDecimal(pick(r.player)) };
+// カウント系（絞り込み後の生合計値を渡し、mode（平均/合計）に応じてscaledValue()で
+// 試合数で割るかどうかを切り替える。チーム版「全チームスタッツ」のcountColumnと同じ方式）
+function countColumn(key: string, label: string, pickTotal: (p: PlayerSummary) => number, mode: SeasonDisplayMode): Column<PlayerRow> {
+  return {
+    key,
+    label,
+    sortValue: (r) => scaledValue(pickTotal(r.player), r.player.gamesPlayed, mode),
+    format: (r) => formatDecimal(scaledValue(pickTotal(r.player), r.player.gamesPlayed, mode), mode === "total" ? 0 : 1),
+  };
 }
 
 function pctColumn(key: string, label: string, pick: (p: PlayerSummary) => number): Column<PlayerRow> {
   return { key, label, sortValue: (r) => pick(r.player), format: (r) => formatPct(pick(r.player)) };
+}
+
+/** modeに関わらず値が変わらない列（率・比率系）はcountColumnを使わずそのまま返す */
+function plusMinusColumn(mode: SeasonDisplayMode): Column<PlayerRow> {
+  return {
+    key: "plusminus",
+    label: "+/-",
+    sortValue: (r) => scaledValue(r.player.totals.plusMinus, r.player.gamesPlayed, mode),
+    format: (r) => formatSigned(scaledValue(r.player.totals.plusMinus, r.player.gamesPlayed, mode), mode === "total" ? 0 : 1),
+  };
 }
 
 // トラディショナル/アドバンスドはPlayerSummaryのみで完結する（追加の通信なし）。
@@ -215,97 +246,94 @@ function pctColumn(key: string, label: string, pick: (p: PlayerSummary) => numbe
 // （シーズン平均）をそのまま使う。ORtg/DRtg/NetRtg/PACE/POSSは、リーグ全選手分を正確に出すには
 // 選手ごとのplayer-gamesとチームごとのteam-games（相手チーム分含む）が必要で通信量が
 // 大きくなりすぎるため、advanced.ppp（個人ORtg/100、季集計済みの正確な値）から求まるORtgのみ
-// 含め、DRtg/NetRtg/PACE/POSSはこの一覧には含めていない
-const TRADITIONAL_COLUMNS: Column<PlayerRow>[] = [
-  ...LEADING_COLUMNS,
-  minColumn,
-  ptsColumn,
-  countColumn("fgm", "FGM", (p) => pgAvg(p.totals.fgm, p.gamesPlayed)),
-  countColumn("fga", "FGA", (p) => pgAvg(p.totals.fga, p.gamesPlayed)),
-  pctColumn("fgpct", "FG%", (p) => p.shooting.fgPct),
-  countColumn("2pm", "2PM", (p) => pgAvg(p.totals.fgm - p.totals.tpm, p.gamesPlayed)),
-  countColumn("2pa", "2PA", (p) => pgAvg(p.totals.fga - p.totals.tpa, p.gamesPlayed)),
-  pctColumn("2ppct", "2P%", (p) => p.shooting.pt2Pct),
-  countColumn("3pm", "3PM", (p) => pgAvg(p.totals.tpm, p.gamesPlayed)),
-  countColumn("3pa", "3PA", (p) => pgAvg(p.totals.tpa, p.gamesPlayed)),
-  pctColumn("3ppct", "3P%", (p) => p.shooting.tpPct),
-  countColumn("ftm", "FTM", (p) => pgAvg(p.totals.ftm, p.gamesPlayed)),
-  countColumn("fta", "FTA", (p) => pgAvg(p.totals.fta, p.gamesPlayed)),
-  pctColumn("ftpct", "FT%", (p) => p.shooting.ftPct),
-  pctColumn("efg", "eFG%", (p) => p.shooting.efgPct),
-  pctColumn("ts", "TS%", (p) => p.shooting.tsPct),
-  countColumn("or", "OR", (p) => p.perGame.oreb),
-  countColumn("dr", "DR", (p) => p.perGame.dreb),
-  countColumn("tr", "TR", (p) => p.perGame.reb),
-  countColumn("ast", "AST", (p) => p.perGame.ast),
-  countColumn("tov", "TOV", (p) => p.perGame.tov),
-  {
-    key: "asttov",
-    label: "AST/TOV",
-    sortValue: (r) => astToTovRatio(r.player.totals.ast, r.player.totals.tov),
-    format: (r) => formatAstToRatio(r.player.totals.ast, r.player.totals.tov),
-  },
-  countColumn("stl", "STL", (p) => p.perGame.stl),
-  countColumn("blk", "BLK", (p) => p.perGame.blk),
-  countColumn("bsr", "BSR", (p) => pgAvg(p.totals.blockedAgainst, p.gamesPlayed)),
-  countColumn("f", "F", (p) => p.perGame.pf),
-  countColumn("fd", "FD", (p) => pgAvg(p.totals.foulsDrawn, p.gamesPlayed)),
-  countColumn("eff", "EFF", (p) => p.advanced.eff),
-  {
-    key: "plusminus",
-    label: "+/-",
-    sortValue: (r) => r.player.perGame.plusMinus,
-    format: (r) => formatSigned(r.player.perGame.plusMinus),
-  },
-];
+// 含め、DRtg/NetRtg/PACE/POSSはこの一覧には含めていない。平均/合計トグル（DISPLAY_MODE_OPTIONS）
+// はカウント系の列のみ対象（率・比率・レート系の列はmodeに関わらず同じ値のまま）
+function buildTraditionalColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
+  return [
+    ...LEADING_COLUMNS,
+    buildMinColumn(mode),
+    buildPtsColumn(mode),
+    countColumn("fgm", "FGM", (p) => p.totals.fgm, mode),
+    countColumn("fga", "FGA", (p) => p.totals.fga, mode),
+    pctColumn("fgpct", "FG%", (p) => p.shooting.fgPct),
+    countColumn("2pm", "2PM", (p) => p.totals.fgm - p.totals.tpm, mode),
+    countColumn("2pa", "2PA", (p) => p.totals.fga - p.totals.tpa, mode),
+    pctColumn("2ppct", "2P%", (p) => p.shooting.pt2Pct),
+    countColumn("3pm", "3PM", (p) => p.totals.tpm, mode),
+    countColumn("3pa", "3PA", (p) => p.totals.tpa, mode),
+    pctColumn("3ppct", "3P%", (p) => p.shooting.tpPct),
+    countColumn("ftm", "FTM", (p) => p.totals.ftm, mode),
+    countColumn("fta", "FTA", (p) => p.totals.fta, mode),
+    pctColumn("ftpct", "FT%", (p) => p.shooting.ftPct),
+    pctColumn("efg", "eFG%", (p) => p.shooting.efgPct),
+    pctColumn("ts", "TS%", (p) => p.shooting.tsPct),
+    countColumn("or", "OR", (p) => p.totals.oreb, mode),
+    countColumn("dr", "DR", (p) => p.totals.dreb, mode),
+    countColumn("tr", "TR", (p) => p.totals.reb, mode),
+    countColumn("ast", "AST", (p) => p.totals.ast, mode),
+    countColumn("tov", "TOV", (p) => p.totals.tov, mode),
+    {
+      key: "asttov",
+      label: "AST/TOV",
+      sortValue: (r) => astToTovRatio(r.player.totals.ast, r.player.totals.tov),
+      format: (r) => formatAstToRatio(r.player.totals.ast, r.player.totals.tov),
+    },
+    countColumn("stl", "STL", (p) => p.totals.stl, mode),
+    countColumn("blk", "BLK", (p) => p.totals.blk, mode),
+    countColumn("bsr", "BSR", (p) => p.totals.blockedAgainst, mode),
+    countColumn("f", "F", (p) => p.totals.pf, mode),
+    countColumn("fd", "FD", (p) => p.totals.foulsDrawn, mode),
+    // EFFはeff()の式自体が線形（試合数で割るだけ）のため、p.advanced.eff（1試合あたり）に
+    // gamesPlayedを掛け戻した値をcountColumnに渡せば、mode="total"でシーズン合計EFFに、
+    // mode="perGame"で元のeff()の値に正しく一致する
+    countColumn("eff", "EFF", (p) => p.advanced.eff * p.gamesPlayed, mode),
+    plusMinusColumn(mode),
+  ];
+}
 
-const ADVANCED_COLUMNS: Column<PlayerRow>[] = [
-  ...LEADING_COLUMNS,
-  minColumn,
-  ptsColumn,
-  {
-    key: "usg",
-    label: "USG%",
-    sortValue: (r) => r.player.advanced.usagePct,
-    format: (r) => formatPct100(r.player.advanced.usagePct),
-  },
-  {
-    key: "tovpct",
-    label: "TOV%",
-    sortValue: (r) => tovPct(r.player.totals.tov, r.player.totals.fga, r.player.totals.fta),
-    format: (r) => formatPct100(tovPct(r.player.totals.tov, r.player.totals.fga, r.player.totals.fta)),
-  },
-  pctColumn("efg", "eFG%", (p) => p.shooting.efgPct),
-  pctColumn("ts", "TS%", (p) => p.shooting.tsPct),
-  pctColumn("ftr", "FTR", (p) => p.shooting.ftRate),
-  {
-    key: "pps",
-    label: "PPS",
-    sortValue: (r) => safeDiv(r.player.totals.pts, r.player.totals.fga),
-    format: (r) => formatDecimal(safeDiv(r.player.totals.pts, r.player.totals.fga), 2),
-  },
-  countColumn("per", "PER", (p) => p.advanced.per),
-  {
-    key: "ortg",
-    label: "ORtg",
-    sortValue: (r) => (r.player.advanced.ppp !== undefined ? r.player.advanced.ppp * 100 : 0),
-    format: (r) => (r.player.advanced.ppp !== undefined ? formatDecimal(r.player.advanced.ppp * 100) : "-"),
-  },
-  {
-    key: "plusminus",
-    label: "+/-",
-    sortValue: (r) => r.player.perGame.plusMinus,
-    format: (r) => formatSigned(r.player.perGame.plusMinus),
-  },
-];
-
-// Misc/スコアリング/シチュエーション別フィルタ選択時のトラディショナル・アドバンスドは、
-// いずれも個人詳細ページ「シーズン別成績」等と同じSeasonBoxscoreColumn（ctxベース）を
-// buildCtxColumns()でそのまま流用する。ctx未取得（player-games取得前）の間は "-" / 0 を返す
-const MISC_COLUMNS: Column<PlayerRow>[] = buildCtxColumns(SEASON_MISC_COLUMNS);
-const SCORING_COLUMNS: Column<PlayerRow>[] = buildCtxColumns(SEASON_SCORING_COLUMNS);
-const TRADITIONAL_FILTERED_COLUMNS: Column<PlayerRow>[] = buildCtxColumns(SEASON_TRADITIONAL_COLUMNS);
-const ADVANCED_FILTERED_COLUMNS: Column<PlayerRow>[] = buildCtxColumns(SEASON_ADVANCED_COLUMNS);
+function buildAdvancedColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
+  return [
+    ...LEADING_COLUMNS,
+    buildMinColumn(mode),
+    buildPtsColumn(mode),
+    {
+      key: "usg",
+      label: "USG%",
+      sortValue: (r) => r.player.advanced.usagePct,
+      format: (r) => formatPct100(r.player.advanced.usagePct),
+    },
+    {
+      key: "tovpct",
+      label: "TOV%",
+      sortValue: (r) => tovPct(r.player.totals.tov, r.player.totals.fga, r.player.totals.fta),
+      format: (r) => formatPct100(tovPct(r.player.totals.tov, r.player.totals.fga, r.player.totals.fta)),
+    },
+    pctColumn("efg", "eFG%", (p) => p.shooting.efgPct),
+    pctColumn("ts", "TS%", (p) => p.shooting.tsPct),
+    pctColumn("ftr", "FTR", (p) => p.shooting.ftRate),
+    {
+      key: "pps",
+      label: "PPS",
+      sortValue: (r) => safeDiv(r.player.totals.pts, r.player.totals.fga),
+      format: (r) => formatDecimal(safeDiv(r.player.totals.pts, r.player.totals.fga), 2),
+    },
+    // PERはリーグ全体を出場時間で加重平均して正規化したレート指標のため、mode（平均/合計）に
+    // 関わらず値は変わらない
+    {
+      key: "per",
+      label: "PER",
+      sortValue: (r) => r.player.advanced.per,
+      format: (r) => formatDecimal(r.player.advanced.per),
+    },
+    {
+      key: "ortg",
+      label: "ORtg",
+      sortValue: (r) => (r.player.advanced.ppp !== undefined ? r.player.advanced.ppp * 100 : 0),
+      format: (r) => (r.player.advanced.ppp !== undefined ? formatDecimal(r.player.advanced.ppp * 100) : "-"),
+    },
+    plusMinusColumn(mode),
+  ];
+}
 
 const TAB_LABELS: { key: PlayersPageTab; label: string }[] = [
   ...SEASON_BOX_TABS,
@@ -409,6 +437,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   );
 
   const [tab, setTab] = useState<PlayersPageTab>("traditional");
+  const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
   const [minRatio, setMinRatio] = useState(DEFAULT_MIN_RATIO);
   const [maxRatio, setMaxRatio] = useState(DEFAULT_MAX_RATIO);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -434,6 +463,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
 
   useEffect(() => {
     setTab("traditional");
+    setDisplayMode("perGame");
     setMinRatio(DEFAULT_MIN_RATIO);
     setMaxRatio(DEFAULT_MAX_RATIO);
     setVisibleCount(PAGE_SIZE);
@@ -536,7 +566,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
           const scheduleKeys = new Set(filteredLogs.map((g) => g.scheduleKey));
           const teamLogs = teamGameLogsByTeam?.get(p.teamId) ?? [];
           const team = sumTeamGameLogsFor(teamLogs, scheduleKeys);
-          return { player: p, ctx: buildSeasonBoxscoreCtx(raw, team, "perGame", seasonStartYear) };
+          return { player: p, ctx: buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear) };
         }
         const raw = sumPlayerGameLogs(logs);
         const teamTotals = teamTotalsById.get(p.teamId);
@@ -552,7 +582,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
               fta: teamTotals.fta,
             }
           : EMPTY_TEAM_TOTALS;
-        return { player: p, ctx: buildSeasonBoxscoreCtx(raw, team, "perGame", seasonStartYear) };
+        return { player: p, ctx: buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear) };
       }),
     [
       filteredPlayers,
@@ -565,6 +595,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       divisionHistory,
       season,
       teamGameLogsByTeam,
+      displayMode,
     ],
   );
 
@@ -581,15 +612,15 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       ? shootingColumns
       : tab === "traditional"
         ? filterActive
-          ? TRADITIONAL_FILTERED_COLUMNS
-          : TRADITIONAL_COLUMNS
+          ? buildCtxColumns(SEASON_TRADITIONAL_COLUMNS, displayMode)
+          : buildTraditionalColumns(displayMode)
         : tab === "advanced"
           ? filterActive
-            ? ADVANCED_FILTERED_COLUMNS
-            : ADVANCED_COLUMNS
+            ? buildCtxColumns(SEASON_ADVANCED_COLUMNS, displayMode)
+            : buildAdvancedColumns(displayMode)
           : tab === "misc"
-            ? MISC_COLUMNS
-            : SCORING_COLUMNS;
+            ? buildCtxColumns(SEASON_MISC_COLUMNS, displayMode)
+            : buildCtxColumns(SEASON_SCORING_COLUMNS, displayMode);
 
   const tableRows = tab === "shooting" ? shootingRows : rows;
   const defaultSort = DEFAULT_SORT[tab];
@@ -677,12 +708,21 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         )}
       </div>
 
-      <div className="tab-bar">
-        {TAB_LABELS.map((t) => (
-          <button key={t.key} className={`tab-button${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)} type="button">
-            {t.label}
-          </button>
-        ))}
+      <div className="tab-bar-with-toggle">
+        <div className="tab-bar">
+          {TAB_LABELS.map((t) => (
+            <button key={t.key} className={`tab-button${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)} type="button">
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="mode-toggle">
+          {DISPLAY_MODE_OPTIONS.map((m) => (
+            <button key={m} className={m === displayMode ? "active" : ""} onClick={() => setDisplayMode(m)} type="button">
+              {SEASON_DISPLAY_MODE_LABELS[m]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === "shooting" && !yahooPbpSupported ? (
