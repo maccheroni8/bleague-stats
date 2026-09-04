@@ -20,7 +20,6 @@ import type {
   LeagueTeamRankEntry,
   LeagueTeamRankingsFile,
   SeasonRules,
-  ShotTypeCounts,
   TeamForcedTurnovers,
   TeamGameLog,
   TeamSummary,
@@ -46,14 +45,7 @@ import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable"
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
-import {
-  formatShotTypeAttempted,
-  formatShotTypeMade,
-  formatShotTypePct,
-  shotTypeLabel,
-  shotTypePctValue,
-  sortShotTypeKeys,
-} from "../lib/shotTypeBreakdown";
+import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { CAREER_TOTAL_DEFS, TEAM_RECORD_STATS, currentStreak, type TeamStreak } from "../../shared/teamRecords";
 import { ONE_TEAM_DIVISIONS, TEAM_DIVISIONS, TEAM_NAMES } from "../../scripts/lib/divisions";
 
@@ -722,10 +714,6 @@ interface ShootingRow {
   team: TeamSummary;
 }
 
-function shotTypeCounts(team: TeamSummary, key: string, split: "twoPoint" | "threePoint"): ShotTypeCounts | undefined {
-  return team.shotTypes?.[key]?.[split];
-}
-
 interface TurnoverRow {
   team: TeamSummary;
   data: TeamForcedTurnovers;
@@ -790,7 +778,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     };
   }, [season]);
 
-  const [boxTab, setBoxTab] = useState<BoxscoreTabKey>("traditional");
+  const [boxTab, setBoxTab] = useState<BoxscoreTabKey | "shooting" | "forcedTurnovers">("traditional");
   const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
   const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
   const [filter, setFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
@@ -823,6 +811,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         return buildMiscColumns(displayMode, teamPerspective);
       case "scoring":
         return buildScoringColumns(teamPerspective, paintSupported);
+      case "shooting":
+      case "forcedTurnovers":
+        return [];
     }
   }, [boxTab, displayMode, teamPerspective, paintSupported]);
 
@@ -841,47 +832,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         </span>
       ),
     },
-    ...shotTypeKeys.flatMap((key): Column<ShootingRow>[] => {
-      const label = shotTypeLabel(key);
-      return [
-        {
-          key: `${key}_2pm`,
-          label: `${label} 2PM`,
-          sortValue: (r) => shotTypeCounts(r.team, key, "twoPoint")?.made ?? -1,
-          format: (r) => formatShotTypeMade(shotTypeCounts(r.team, key, "twoPoint")),
-        },
-        {
-          key: `${key}_2pa`,
-          label: `${label} 2PA`,
-          sortValue: (r) => shotTypeCounts(r.team, key, "twoPoint")?.attempted ?? -1,
-          format: (r) => formatShotTypeAttempted(shotTypeCounts(r.team, key, "twoPoint")),
-        },
-        {
-          key: `${key}_2ppct`,
-          label: `${label} 2P%`,
-          sortValue: (r) => shotTypePctValue(shotTypeCounts(r.team, key, "twoPoint")),
-          format: (r) => formatShotTypePct(shotTypeCounts(r.team, key, "twoPoint")),
-        },
-        {
-          key: `${key}_3pm`,
-          label: `${label} 3PM`,
-          sortValue: (r) => shotTypeCounts(r.team, key, "threePoint")?.made ?? -1,
-          format: (r) => formatShotTypeMade(shotTypeCounts(r.team, key, "threePoint")),
-        },
-        {
-          key: `${key}_3pa`,
-          label: `${label} 3PA`,
-          sortValue: (r) => shotTypeCounts(r.team, key, "threePoint")?.attempted ?? -1,
-          format: (r) => formatShotTypeAttempted(shotTypeCounts(r.team, key, "threePoint")),
-        },
-        {
-          key: `${key}_3ppct`,
-          label: `${label} 3P%`,
-          sortValue: (r) => shotTypePctValue(shotTypeCounts(r.team, key, "threePoint")),
-          format: (r) => formatShotTypePct(shotTypeCounts(r.team, key, "threePoint")),
-        },
-      ];
-    }),
+    ...shotTypeEntityColumns<ShootingRow>(shotTypeKeys, (r) => r.team.shotTypes),
   ];
 
   const turnoverRows: TurnoverRow[] = (teams ?? []).flatMap((team) => {
@@ -951,6 +902,20 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               {t.label}
             </button>
           ))}
+          <button
+            className={`tab-button${boxTab === "shooting" ? " active" : ""}`}
+            onClick={() => setBoxTab("shooting")}
+            type="button"
+          >
+            シューティング
+          </button>
+          <button
+            className={`tab-button${boxTab === "forcedTurnovers" ? " active" : ""}`}
+            onClick={() => setBoxTab("forcedTurnovers")}
+            type="button"
+          >
+            強制ターンオーバー
+          </button>
         </div>
         <div className="mode-toggle">
           {DISPLAY_MODE_OPTIONS.map((m) => (
@@ -961,76 +926,78 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         </div>
       </div>
 
-      {gameLogsLoading || !gameLogsByTeam ? (
+      {boxTab === "shooting" ? (
+        !yahooPbpSupported ? (
+          <p className="empty-message">このシーズンのデータには対応していません</p>
+        ) : (
+          <>
+            <div className="table-scroll">
+              <SortableTable
+                columns={shootingColumns}
+                rows={shootingRows}
+                rowKey={(r) => r.team.teamId}
+                defaultSortKey="team"
+                defaultSortDir="asc"
+                linkTo={(r) => `/teams/${r.team.teamId}`}
+              />
+            </div>
+            <p className="page-subtitle">
+              レギュラーシーズン・シーズン平均のみ（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。シュートタイプ×2P/3P別に成功数（M）・試投数（A）・成功率（%）の3列に分けて表示する。列見出しクリックで並び替え
+            </p>
+          </>
+        )
+      ) : boxTab === "forcedTurnovers" ? (
+        !yahooPbpSupported ? (
+          <p className="empty-message">このシーズンのデータには対応していません</p>
+        ) : (
+          <>
+            <div className="mode-toggle">
+              <button
+                className={turnoverPerspective === "forced" ? "active" : ""}
+                onClick={() => setTurnoverPerspective("forced")}
+                type="button"
+              >
+                相手から奪った（自チームが強制）
+              </button>
+              <button
+                className={turnoverPerspective === "committed" ? "active" : ""}
+                onClick={() => setTurnoverPerspective("committed")}
+                type="button"
+              >
+                自チームが記録（相手に強制された）
+              </button>
+            </div>
+            <div className="table-scroll">
+              <SortableTable
+                columns={turnoverColumns}
+                rows={turnoverRows}
+                rowKey={(r) => r.team.teamId}
+                defaultSortKey="total"
+                linkTo={(r) => `/teams/${r.team.teamId}`}
+              />
+            </div>
+            <p className="page-subtitle">
+              レギュラーシーズン・シーズン合計のみ（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）
+            </p>
+          </>
+        )
+      ) : gameLogsLoading || !gameLogsByTeam ? (
         <p className="loading">読み込み中...</p>
-      ) : (
-        <div className="table-scroll">
-          <SortableTable
-            key={`${boxTab}-${teamPerspective}`}
-            columns={columns}
-            rows={rows}
-            rowKey={(r) => r.team.teamId}
-            defaultSortKey={DEFAULT_SORT_KEY[boxTab]}
-            linkTo={(r) => `/teams/${r.team.teamId}`}
-          />
-        </div>
-      )}
-      <p className="page-subtitle">
-        team-games/{"{teamId}"}.json（試合ログ）から選択中の条件で再集計した値。BSR（被ブロック）・EFF（貢献度）・LIVETOV/DEADTOVは、26チーム分を試合の生データから再集計すると通信量が大きくなりすぎるため、この一覧には含めていない（チーム詳細ページの「チームスタッツ」タブでは1チーム分に限り表示している）
-      </p>
-
-      <h2>シューティング（シュートタイプ別）</h2>
-      {!yahooPbpSupported ? (
-        <p className="empty-message">このシーズンのデータには対応していません</p>
       ) : (
         <>
           <div className="table-scroll">
             <SortableTable
-              columns={shootingColumns}
-              rows={shootingRows}
+              key={`${boxTab}-${teamPerspective}`}
+              columns={columns}
+              rows={rows}
               rowKey={(r) => r.team.teamId}
-              defaultSortKey="team"
-              defaultSortDir="asc"
+              defaultSortKey={DEFAULT_SORT_KEY[boxTab]}
               linkTo={(r) => `/teams/${r.team.teamId}`}
             />
           </div>
           <p className="page-subtitle">
-            レギュラーシーズン・シーズン平均のみ（上部の切り替えとは連動しない）。シュートタイプ×2P/3P別に成功数（M）・試投数（A）・成功率（%）の3列に分けて表示する。列見出しクリックで並び替え
+            team-games/{"{teamId}"}.json（試合ログ）から選択中の条件で再集計した値。BSR（被ブロック）・EFF（貢献度）・LIVETOV/DEADTOVは、26チーム分を試合の生データから再集計すると通信量が大きくなりすぎるため、この一覧には含めていない（チーム詳細ページの「チームスタッツ」タブでは1チーム分に限り表示している）
           </p>
-        </>
-      )}
-
-      <h2>ターンオーバー強制/被強制（種類別）</h2>
-      {!yahooPbpSupported ? (
-        <p className="empty-message">このシーズンのデータには対応していません</p>
-      ) : (
-        <>
-          <div className="mode-toggle">
-            <button
-              className={turnoverPerspective === "forced" ? "active" : ""}
-              onClick={() => setTurnoverPerspective("forced")}
-              type="button"
-            >
-              相手から奪った（自チームが強制）
-            </button>
-            <button
-              className={turnoverPerspective === "committed" ? "active" : ""}
-              onClick={() => setTurnoverPerspective("committed")}
-              type="button"
-            >
-              自チームが記録（相手に強制された）
-            </button>
-          </div>
-          <div className="table-scroll">
-            <SortableTable
-              columns={turnoverColumns}
-              rows={turnoverRows}
-              rowKey={(r) => r.team.teamId}
-              defaultSortKey="total"
-              linkTo={(r) => `/teams/${r.team.teamId}`}
-            />
-          </div>
-          <p className="page-subtitle">レギュラーシーズン・シーズン合計のみ（上部の切り替えとは連動しない）</p>
         </>
       )}
     </div>

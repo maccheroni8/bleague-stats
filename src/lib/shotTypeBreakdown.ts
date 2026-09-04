@@ -4,6 +4,7 @@
 // （buildShotTypeBreakdownByPlayer）と同じ「Yahoo表記の原文をそのままキーにする」方針を踏襲する。
 
 import type { ShotTypeBreakdown, ShotTypeCounts, YahooShotEvent } from "../../shared/types";
+import type { Column } from "../components/SortableTable";
 
 /**
  * 実データでの出現頻度順（DESIGN.md参照。当初は2024-25シーズン全737試合・95,484本のみで
@@ -103,6 +104,12 @@ export function buildShotTypeBreakdownByTeam(shots: YahooShotEvent[]): Map<strin
   return buildShotTypeBreakdownBy(shots, (s) => s.teamId);
 }
 
+/** キー分けせず渡された全ショットを1つのShotTypeBreakdownに合算する（既に対象を絞り込み済みの
+ * ショット配列、例: 特定シーズン・特定行に属する試合群のショットをまとめる用途） */
+export function buildShotTypeBreakdown(shots: YahooShotEvent[]): ShotTypeBreakdown {
+  return buildShotTypeBreakdownBy(shots, () => "all").get("all") ?? {};
+}
+
 export function sumShotTypeCounts(a: ShotTypeCounts, b: ShotTypeCounts): ShotTypeCounts {
   return { made: a.made + b.made, attempted: a.attempted + b.attempted };
 }
@@ -132,4 +139,58 @@ export function formatShotTypePct(counts: { made: number; attempted: number } | 
 export function shotTypePctValue(counts: { made: number; attempted: number } | undefined): number {
   if (!counts || counts.attempted === 0) return -1;
   return counts.made / counts.attempted;
+}
+
+/**
+ * 「行=任意のエンティティ（チーム・シーズン・シチュエーション区分・選手等）、列=シュートタイプ×
+ * 2P/3P×成功数/試投数/成功率」という一覧表示用のSortableTable列を、シュートタイプキー一覧と
+ * 行からShotTypeBreakdownを取り出す関数だけで組み立てる（全チームスタッツページで最初に実装した
+ * パターンの汎用版。DESIGN.md参照）
+ */
+export function shotTypeEntityColumns<T>(
+  shotTypeKeys: string[],
+  getBreakdown: (row: T) => ShotTypeBreakdown | undefined,
+): Column<T>[] {
+  const at = (row: T, key: string, split: "twoPoint" | "threePoint") => getBreakdown(row)?.[key]?.[split];
+  return shotTypeKeys.flatMap((key): Column<T>[] => {
+    const label = shotTypeLabel(key);
+    return [
+      {
+        key: `${key}_2pm`,
+        label: `${label} 2PM`,
+        sortValue: (r) => at(r, key, "twoPoint")?.made ?? -1,
+        format: (r) => formatShotTypeMade(at(r, key, "twoPoint")),
+      },
+      {
+        key: `${key}_2pa`,
+        label: `${label} 2PA`,
+        sortValue: (r) => at(r, key, "twoPoint")?.attempted ?? -1,
+        format: (r) => formatShotTypeAttempted(at(r, key, "twoPoint")),
+      },
+      {
+        key: `${key}_2ppct`,
+        label: `${label} 2P%`,
+        sortValue: (r) => shotTypePctValue(at(r, key, "twoPoint")),
+        format: (r) => formatShotTypePct(at(r, key, "twoPoint")),
+      },
+      {
+        key: `${key}_3pm`,
+        label: `${label} 3PM`,
+        sortValue: (r) => at(r, key, "threePoint")?.made ?? -1,
+        format: (r) => formatShotTypeMade(at(r, key, "threePoint")),
+      },
+      {
+        key: `${key}_3pa`,
+        label: `${label} 3PA`,
+        sortValue: (r) => at(r, key, "threePoint")?.attempted ?? -1,
+        format: (r) => formatShotTypeAttempted(at(r, key, "threePoint")),
+      },
+      {
+        key: `${key}_3ppct`,
+        label: `${label} 3P%`,
+        sortValue: (r) => shotTypePctValue(at(r, key, "threePoint")),
+        format: (r) => formatShotTypePct(at(r, key, "threePoint")),
+      },
+    ];
+  });
 }

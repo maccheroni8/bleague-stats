@@ -48,16 +48,7 @@ import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { bleaguePlayerUrl } from "../lib/externalLinks";
 import { formatDecimal, formatPct, formatSigned } from "../lib/format";
 import { formatMinutesFromSeconds, astToTovRatio } from "../lib/boxscoreAggregate";
-import {
-  buildShotTypeBreakdownByPlayer,
-  formatShotTypeAttempted,
-  formatShotTypeMade,
-  formatShotTypePct,
-  scaleShotTypeCounts,
-  shotTypeLabel,
-  sortShotTypeKeys,
-  sumShotTypeCounts,
-} from "../lib/shotTypeBreakdown";
+import { buildShotTypeBreakdown, shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
 import { ShotChartFilterPicker } from "../components/ShotChartFilterPicker";
@@ -503,6 +494,10 @@ interface SituationalStatsRow {
   teamLabel: string;
   ctx: SeasonBoxscoreCtx;
   isCombined: boolean;
+  /** シューティングタブ用: この行に属する試合ログ（scheduleKey列挙のみに使う） */
+  logs: PlayerGameLog[];
+  /** シューティングタブ選択時のみ、この行に属する試合のショットから組み立てる */
+  breakdown?: ShotTypeBreakdown;
 }
 interface SituationalStatsGroup {
   key: string;
@@ -552,8 +547,8 @@ const SEASON_SHOT_CHART_PERIOD_OPTIONS: PeriodRangeOption[] = [
   { value: "h2", label: "後半", periods: [3, 4, 5, 6, 7, 8, 9] },
 ];
 
-const SHOOTING_SECTION_TOOLTIP =
-  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（シーズン合計、2023-24シーズン以降・レギュラーシーズンのみ。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意。既定は全チーム合算表示。同一シーズンに複数チームでプレーした場合のみチーム別ボタンが表示され、選択したチームの試合のみで再集計する";
+const SHOOTING_TAB_TOOLTIP =
+  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（2023-24シーズン以降のみ。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意";
 
 export function PlayerDetailPage({ season }: { season: string }) {
   const { playerId } = useParams<{ playerId: string }>();
@@ -662,7 +657,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 独立させている）。デフォルトは現在選択中のシーズン
   const [situationalStatsSeason, setSituationalStatsSeason] = useState(season);
   const [situationalStatsGameType, setSituationalStatsGameType] = useState<SeasonGameTypeFilter>("regular");
-  const [situationalStatsTab, setSituationalStatsTab] = useState<SeasonBoxTabKey>("traditional");
+  const [situationalStatsTab, setSituationalStatsTab] = useState<SeasonBoxTabKey | "shooting">("traditional");
   const [situationalStatsDisplayMode, setSituationalStatsDisplayMode] = useState<SeasonDisplayMode>("perGame");
   // Q別/前後半トグル（periodRawGamesキャッシュ・fetchロジックは「シーズン別成績」と共有。上の
   // seasonBreakdownPeriod参照）
@@ -675,18 +670,17 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [situationalStatsSortKey, setSituationalStatsSortKey] = useState<string | null>(null);
   const [situationalStatsSortDir, setSituationalStatsSortDir] = useState<"asc" | "desc">("desc");
 
-  // 「シューティング」セクション: シチュエーション別成績と同様、ページ本体の現在シーズンとは
-  // 独立したシーズン選択を持つ。既定の「合算」表示はplayers.jsonのシーズン集計
-  // （shotTypes、Yahoo PBP由来）をそのまま使う（軽量）。シーズン内移籍でチームが複数に
-  // 分かれる場合のみ、チーム別ボタンを選んだ時点で該当シーズンの各試合のYahoo PBPを
-  // 遅延取得し、選手個人のシュートを所属チームごとに再集計する（shootingTeamShotTypes）。
-  // デフォルトは現在選択中のシーズン
-  const [shootingSeason, setShootingSeason] = useState(season);
-  const [shootingDisplayMode, setShootingDisplayMode] = useState<SeasonDisplayMode>("perGame");
-  const [shootingTeamFilter, setShootingTeamFilter] = useState<string | null>(null);
-  const [shootingTeamShotTypes, setShootingTeamShotTypes] = useState<Map<string, ShotTypeBreakdown> | null>(null);
-  const [shootingTeamShotTypesLoading, setShootingTeamShotTypesLoading] = useState(false);
-  const shootingTeamShotTypesFetchStartedRef = useRef(false);
+  // 「シューティング」タブ: 従来の独立セクション（自前のシーズン選択・チーム別ボタンを持つ）を
+  // 廃止し、「シーズン別成績」「シチュエーション別成績」それぞれのカテゴリタブ（トラディショナル/
+  // アドバンスド/Misc/スコアリング）に5つ目の選択肢として統合した（試合詳細ページのシューティング
+  // タブ統合パターンを踏襲。DESIGN.md参照）。「シーズン別成績」はSeasonBreakdownTable内部の
+  // タブ状態をactiveTab/onTabChangeで親（このコンポーネント）に持ち上げ、どちらかで
+  // シューティングタブが選ばれたら、この選手のYahoo PBP対応シーズン分の出場試合のショットを
+  // 遅延取得する（両セクションで共有。scheduleKeyごとにキャッシュするため二重取得しない）
+  const [seasonBreakdownTab, setSeasonBreakdownTab] = useState<SeasonBoxTabKey | "shooting">("traditional");
+  const [careerShots, setCareerShots] = useState<Map<string, YahooShotEvent[]>>(new Map());
+  const [careerShotsLoading, setCareerShotsLoading] = useState(false);
+  const careerShotsFetchStartedRef = useRef(false);
 
   // careerLoading/careerDataをdeps配列に含めると、setCareerLoading(true)自体がeffectを
   // 再発火させcleanupで直前のfetchをcancelしてしまう（自己キャンセルのループ）。
@@ -712,10 +706,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
     setShotChartPeriod("all");
     setCompareSlots(defaultCompareSlots(season));
     setSituationalStatsSeason(season);
-    setShootingSeason(season);
-    setShootingTeamFilter(null);
-    setShootingTeamShotTypes(null);
-    shootingTeamShotTypesFetchStartedRef.current = false;
+    setSeasonBreakdownTab("traditional");
+    setCareerShots(new Map());
+    careerShotsFetchStartedRef.current = false;
     setSeasonBreakdownPeriod("all");
     setSituationalStatsPeriod("all");
     setPeriodRawGames(new Map());
@@ -726,14 +719,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
     // リセット時点の最新値でよい）
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerId]);
-
-  // シューティングのシーズン選択（shootingSeason）が変わったら、チーム別選択・遅延取得済みの
-  // チーム別シュートタイプをリセットする（シーズンが変わればチーム構成も変わるため）
-  useEffect(() => {
-    setShootingTeamFilter(null);
-    setShootingTeamShotTypes(null);
-    shootingTeamShotTypesFetchStartedRef.current = false;
-  }, [shootingSeason]);
 
   // シーズン切り替え時も試合ログボックススコアを再取得する必要がある（careerは全シーズン
   // 横断のため season 変更の影響を受けないが、こちらは選択中シーズンのgameLogsに依存する）
@@ -994,6 +979,37 @@ export function PlayerDetailPage({ season }: { season: string }) {
       .finally(() => setPeriodRawGamesLoading(false));
   }, [seasonBreakdownPeriod, careerData]);
 
+  // 「シーズン別成績」「シチュエーション別成績」いずれかでシューティングタブが選ばれたら、
+  // Yahoo PBP対応シーズン（data/seasons.jsonのyahooPbpフラグ）の出場試合分だけ、この選手の
+  // ショットを遅延取得する（両セクションで共有。scheduleKeyごとにキャッシュするため二重取得しない）
+  useEffect(() => {
+    const needed = seasonBreakdownTab === "shooting" || situationalStatsTab === "shooting";
+    if (!needed || careerShotsFetchStartedRef.current || !careerData || !seasons || !playerId) return;
+    careerShotsFetchStartedRef.current = true;
+    setCareerShotsLoading(true);
+    const yahooSeasons = new Set(seasons.filter((s) => s.yahooPbp).map((s) => s.season));
+    const targets: { season: string; scheduleKey: string }[] = [];
+    for (const cd of careerData) {
+      if (!yahooSeasons.has(cd.season)) continue;
+      for (const log of cd.logs) {
+        if (log.min <= 0) continue;
+        targets.push({ season: cd.season, scheduleKey: log.scheduleKey });
+      }
+    }
+    Promise.all(
+      targets.map(async ({ season: s, scheduleKey }) => {
+        try {
+          const pbp = await fetchYahooGamePbp(s, scheduleKey);
+          return [scheduleKey, pbp?.shots.filter((sh) => sh.playerId === playerId) ?? []] as const;
+        } catch {
+          return [scheduleKey, [] as YahooShotEvent[]] as const;
+        }
+      }),
+    )
+      .then((results) => setCareerShots(new Map(results)))
+      .finally(() => setCareerShotsLoading(false));
+  }, [seasonBreakdownTab, situationalStatsTab, careerData, seasons, playerId]);
+
   // 通算成績・キャリアハイ共通: DNP（出場0分）を除いた上で、選択中のレギュラー/プレーオフ/合算
   // トグルで絞り込む（既存のSeasonGameTypeFilter/filterByGameTypeをそのまま再利用）
   const playedFilteredLogs = (logs: PlayerGameLog[]) => filterByGameType(logs.filter((g) => g.min > 0), careerGameTypeFilter);
@@ -1246,93 +1262,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [situationalStatsTeamGameLogsByTeam, situationalStatsLogs, situationalStatsOwnTeamByScheduleKey, situationalStatsTeamIds.join("|")]);
-  // 「シューティング」セクション用データ。選択したシーズンのplayers.jsonからこの選手の
-  // shotTypesだけを取り出す
-  const { data: shootingPlayers } = useJsonData(
-    () => (tab === "stats" ? fetchPlayers(shootingSeason) : Promise.resolve(null)),
-    [tab, shootingSeason],
-  );
-  const shootingPlayer = shootingPlayers?.find((p) => p.playerId === playerId);
-
-  // シーズン内移籍対応: 所属チームを試合ログから動的に導出する（resolveOwnTeam参照）。
-  // レギュラーシーズンのみを対象にする（players.jsonのshotTypes集計自体がレギュラーシーズン
-  // 限定のため、「合算」表示との整合を保つ。DESIGN.md参照）
-  const { data: shootingSummaries } = useJsonData(
-    () => (tab === "stats" ? fetchGameSummaries(shootingSeason) : Promise.resolve(null)),
-    [tab, shootingSeason],
-  );
-  const shootingGameTeams = useMemo(
-    () => (shootingSummaries ? buildGameTeamsByScheduleKey(shootingSummaries) : new Map()),
-    [shootingSummaries],
-  );
-  const shootingOwnTeamByScheduleKey = useMemo(() => {
-    const map = new Map<string, GameTeamInfo>();
-    const logs = careerData?.find((cd) => cd.season === shootingSeason)?.logs ?? [];
-    for (const log of logs) {
-      if (log.min <= 0 || log.gameType !== "regular") continue;
-      const own = resolveOwnTeam(log, shootingGameTeams);
-      if (own) map.set(log.scheduleKey, own);
-    }
-    return map;
-  }, [careerData, shootingSeason, shootingGameTeams]);
-  const shootingTeamOptions = useMemo(() => {
-    const byId = new Map<string, string>();
-    for (const t of shootingOwnTeamByScheduleKey.values()) byId.set(t.teamId, t.teamName);
-    return [...byId.entries()].map(([teamId, teamName]) => ({ teamId, label: teamShortName(teamId, teamName) }));
-  }, [shootingOwnTeamByScheduleKey]);
-
-  // チーム別ボタンが選ばれた時だけ、該当シーズンの各試合のYahoo PBPを遅延取得し、選手個人の
-  // シュートを所属チームごとに再集計する（「合算」表示はplayers.jsonの季集計をそのまま使うため
-  // この重い取得は発生しない。1チームのみのシーズンではチーム別ボタン自体を表示しないため、
-  // この取得は複数チームに在籍したシーズンでのみ発生する。DESIGN.md参照）
-  useEffect(() => {
-    if (
-      tab !== "stats" ||
-      shootingTeamFilter === null ||
-      !playerId ||
-      shootingTeamShotTypesFetchStartedRef.current ||
-      shootingOwnTeamByScheduleKey.size === 0
-    )
-      return;
-    shootingTeamShotTypesFetchStartedRef.current = true;
-    setShootingTeamShotTypesLoading(true);
-    const scheduleKeys = [...shootingOwnTeamByScheduleKey.keys()];
-    Promise.all(
-      scheduleKeys.map(async (scheduleKey) => {
-        try {
-          const pbp = await fetchYahooGamePbp(shootingSeason, scheduleKey);
-          return { scheduleKey, shots: pbp?.shots.filter((s) => s.playerId === playerId) ?? [] };
-        } catch {
-          return { scheduleKey, shots: [] as YahooShotEvent[] };
-        }
-      }),
-    )
-      .then((results) => {
-        const shotsByTeam = new Map<string, YahooShotEvent[]>();
-        for (const { scheduleKey, shots } of results) {
-          const teamId = shootingOwnTeamByScheduleKey.get(scheduleKey)?.teamId;
-          if (!teamId) continue;
-          const list = shotsByTeam.get(teamId) ?? [];
-          list.push(...shots);
-          shotsByTeam.set(teamId, list);
-        }
-        const byTeam = new Map<string, ShotTypeBreakdown>();
-        for (const [teamId, shots] of shotsByTeam) {
-          byTeam.set(teamId, buildShotTypeBreakdownByPlayer(shots).get(playerId) ?? {});
-        }
-        setShootingTeamShotTypes(byTeam);
-      })
-      .finally(() => setShootingTeamShotTypesLoading(false));
-  }, [tab, shootingTeamFilter, playerId, shootingSeason, shootingOwnTeamByScheduleKey]);
-
-  const shootingActiveShotTypes = shootingTeamFilter === null ? shootingPlayer?.shotTypes : shootingTeamShotTypes?.get(shootingTeamFilter);
-  const shootingActiveGamesPlayed =
-    shootingTeamFilter === null
-      ? (shootingPlayer?.gamesPlayed ?? 0)
-      : [...shootingOwnTeamByScheduleKey.values()].filter((t) => t.teamId === shootingTeamFilter).length;
-  // 平均モードは合計を試合数で割るだけ（成功率は分子分母とも同じ係数のため不変）
-  const shootingFactor = shootingDisplayMode === "total" || shootingActiveGamesPlayed <= 0 ? 1 : 1 / shootingActiveGamesPlayed;
-  const shootingDigits = shootingDisplayMode === "total" ? 0 : 1;
 
   const situationalStatsBackToBack = useMemo(
     () => (situationalStatsSummaries ? buildBackToBackStatus(situationalStatsSummaries) : undefined),
@@ -1422,7 +1351,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       player.playerId,
       situationalStatsPeriodOption,
       periodRawGames,
-    ).map((r) => ({ key: r.key, label: rowLabel, teamLabel: r.teamLabel, ctx: r.ctx, isCombined: r.isCombined }));
+    ).map((r) => ({ key: r.key, label: rowLabel, teamLabel: r.teamLabel, ctx: r.ctx, isCombined: r.isCombined, logs: r.logs }));
   };
 
   const situationalStatsMonthsWithData = new Set(
@@ -1524,6 +1453,33 @@ export function PlayerDetailPage({ season }: { season: string }) {
     },
   ];
 
+  // シューティングタブ選択時のみ、グループ横断で各行のショット内訳（breakdown）を組み立てる。
+  // 列（シュートタイプ×2P/3P×M/A/%）はグループ横断の全行に出現するシュートタイプの和集合から作る
+  // （TeamsListPage・shotTypeEntityColumnsと同じ「エンティティ1行=1エンティティ」パターン）
+  const situationalStatsRawGroups = situationalStatsGroupDefs
+    .map((group) => ({
+      key: group.key,
+      label: group.label,
+      rows: group.rows.flatMap((row) => buildSituationalStatsRows(row.key, row.label, situationalStatsScopedLogs.filter(row.predicate))),
+    }))
+    .filter((group) => group.rows.length > 0);
+
+  if (situationalStatsTab === "shooting") {
+    for (const group of situationalStatsRawGroups) {
+      for (const row of group.rows) {
+        row.breakdown = buildShotTypeBreakdown(row.logs.flatMap((l) => careerShots.get(l.scheduleKey) ?? []));
+      }
+    }
+  }
+  const situationalStatsShotTypeKeys =
+    situationalStatsTab === "shooting"
+      ? sortShotTypeKeys([
+          ...new Set(situationalStatsRawGroups.flatMap((g) => g.rows.flatMap((r) => Object.keys(r.breakdown ?? {})))),
+        ])
+      : [];
+  const situationalStatsShotColumns: Column<SituationalStatsRow>[] =
+    situationalStatsTab === "shooting" ? shotTypeEntityColumns<SituationalStatsRow>(situationalStatsShotTypeKeys, (r) => r.breakdown) : [];
+
   const situationalStatsRowSortValue = (row: SituationalStatsRow, key: string): number | string => {
     switch (key) {
       case "label":
@@ -1531,6 +1487,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
       case "team":
         return row.teamLabel;
       default: {
+        if (situationalStatsTab === "shooting") {
+          const col = situationalStatsShotColumns.find((c) => c.key === key);
+          return col ? col.sortValue(row) : 0;
+        }
         const col = SEASON_BOX_COLUMNS[situationalStatsTab].find((c) => c.key === key);
         return col ? col.value(row.ctx, situationalStatsDisplayMode) : 0;
       }
@@ -1559,15 +1519,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const situationalStatsSortAria = (key: string) =>
     situationalStatsSortKey === key ? (situationalStatsSortDir === "asc" ? "ascending" : "descending") : undefined;
 
-  const situationalStatsGroups: SituationalStatsGroup[] = situationalStatsGroupDefs
-    .map((group) => ({
-      key: group.key,
-      label: group.label,
-      rows: sortSituationalStatsRows(
-        group.rows.flatMap((row) => buildSituationalStatsRows(row.key, row.label, situationalStatsScopedLogs.filter(row.predicate))),
-      ),
-    }))
-    .filter((group) => group.rows.length > 0);
+  const situationalStatsGroups: SituationalStatsGroup[] = situationalStatsRawGroups.map((group) => ({
+    ...group,
+    rows: sortSituationalStatsRows(group.rows),
+  }));
 
   return (
     <div>
@@ -1723,6 +1678,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
             playerId={player.playerId}
             period={seasonBreakdownPeriod}
             gamesByScheduleKey={periodRawGames}
+            activeTab={seasonBreakdownTab}
+            onTabChange={setSeasonBreakdownTab}
+            careerShots={careerShots}
+            careerShotsLoading={careerShotsLoading}
           />
 
           <h2>シチュエーション別成績</h2>
@@ -1770,6 +1729,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   {t.label}
                 </button>
               ))}
+              <button
+                className={`tab-button${situationalStatsTab === "shooting" ? " active" : ""}`}
+                onClick={() => setSituationalStatsTab("shooting")}
+                title={SHOOTING_TAB_TOOLTIP}
+                type="button"
+              >
+                シューティング
+              </button>
             </div>
             <div className="mode-toggle">
               {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
@@ -1786,8 +1753,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
           </div>
           {!careerData ? (
             <p className="loading">読み込み中...</p>
+          ) : situationalStatsTab === "shooting" && careerShotsLoading ? (
+            <p className="loading">読み込み中...</p>
           ) : situationalStatsGroups.length === 0 ? (
             <p className="empty-message">該当する試合がありません</p>
+          ) : situationalStatsTab === "shooting" && situationalStatsShotTypeKeys.length === 0 ? (
+            <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : (
             <div className="table-scroll">
               <table className="stats-table situational-groups-table">
@@ -1807,35 +1778,50 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     >
                       チーム{situationalStatsSortIndicator("team")}
                     </th>
-                    {SEASON_BOX_COLUMNS[situationalStatsTab].map((col) => (
-                      <th
-                        key={col.key}
-                        className="align-right sortable-col"
-                        title={col.description}
-                        onClick={() => handleSituationalStatsHeaderClick(col.key)}
-                        aria-sort={situationalStatsSortAria(col.key)}
-                      >
-                        {col.label}
-                        {situationalStatsSortIndicator(col.key)}
-                      </th>
-                    ))}
+                    {(situationalStatsTab === "shooting" ? situationalStatsShotColumns : SEASON_BOX_COLUMNS[situationalStatsTab]).map(
+                      (col) => (
+                        <th
+                          key={col.key}
+                          className="align-right sortable-col"
+                          title={"description" in col ? col.description : undefined}
+                          onClick={() => handleSituationalStatsHeaderClick(col.key)}
+                          aria-sort={situationalStatsSortAria(col.key)}
+                        >
+                          {col.label}
+                          {situationalStatsSortIndicator(col.key)}
+                        </th>
+                      ),
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {situationalStatsGroups.map((group) => (
                     <Fragment key={group.key}>
                       <tr className="situational-group-heading">
-                        <td colSpan={SEASON_BOX_COLUMNS[situationalStatsTab].length + 2}>{group.label}</td>
+                        <td
+                          colSpan={
+                            (situationalStatsTab === "shooting" ? situationalStatsShotColumns : SEASON_BOX_COLUMNS[situationalStatsTab])
+                              .length + 2
+                          }
+                        >
+                          {group.label}
+                        </td>
                       </tr>
                       {group.rows.map((row) => (
                         <tr key={row.key} className={row.isCombined ? "season-team-total-row" : undefined}>
                           <td className="align-left">{row.label}</td>
                           <td className="align-left">{row.teamLabel}</td>
-                          {SEASON_BOX_COLUMNS[situationalStatsTab].map((col) => (
-                            <td key={col.key} className="align-right">
-                              {col.format(row.ctx, situationalStatsDisplayMode)}
-                            </td>
-                          ))}
+                          {situationalStatsTab === "shooting"
+                            ? situationalStatsShotColumns.map((col) => (
+                                <td key={col.key} className="align-right">
+                                  {col.format!(row)}
+                                </td>
+                              ))
+                            : SEASON_BOX_COLUMNS[situationalStatsTab].map((col) => (
+                                <td key={col.key} className="align-right">
+                                  {col.format(row.ctx, situationalStatsDisplayMode)}
+                                </td>
+                              ))}
                         </tr>
                       ))}
                     </Fragment>
@@ -1881,140 +1867,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
             </dl>
             )}
           </div>
-
-          <h2 title={SHOOTING_SECTION_TOOLTIP}>シューティング</h2>
-          <div className="mode-toggle">
-            <select value={shootingSeason} onChange={(e) => setShootingSeason(e.target.value)}>
-              {[...(careerData ?? [])]
-                .map((cd) => cd.season)
-                .reverse()
-                .map((s) => (
-                  <option key={s} value={s}>
-                    {s}シーズン
-                  </option>
-                ))}
-            </select>
-            {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
-              <button
-                key={m}
-                className={m === shootingDisplayMode ? "active" : ""}
-                onClick={() => setShootingDisplayMode(m)}
-                type="button"
-              >
-                {SEASON_DISPLAY_MODE_LABELS[m]}
-              </button>
-            ))}
-          </div>
-          {shootingTeamOptions.length > 1 && (
-            <div className="mode-toggle">
-              <button className={shootingTeamFilter === null ? "active" : ""} onClick={() => setShootingTeamFilter(null)} type="button">
-                合算
-              </button>
-              {shootingTeamOptions.map((t) => (
-                <button
-                  key={t.teamId}
-                  className={shootingTeamFilter === t.teamId ? "active" : ""}
-                  onClick={() => setShootingTeamFilter(t.teamId)}
-                  type="button"
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          )}
-          {shootingTeamFilter !== null && shootingTeamShotTypesLoading ? (
-            <p className="loading">読み込み中...</p>
-          ) : !shootingActiveShotTypes ? (
-            <p className="empty-message">このシーズンのデータには対応していません</p>
-          ) : (
-            <div className="table-scroll">
-              <table className="stats-table">
-                <thead>
-                  <tr>
-                    <th rowSpan={2} />
-                    {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => (
-                      <th key={key} colSpan={3}>
-                        {shotTypeLabel(key)}
-                      </th>
-                    ))}
-                    <th colSpan={3}>合計</th>
-                  </tr>
-                  <tr>
-                    {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => (
-                      <Fragment key={key}>
-                        <th className="align-right">M</th>
-                        <th className="align-right">A</th>
-                        <th className="align-right">%</th>
-                      </Fragment>
-                    ))}
-                    <th className="align-right">M</th>
-                    <th className="align-right">A</th>
-                    <th className="align-right">%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="align-left">2P</td>
-                    {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => {
-                      const c = scaleShotTypeCounts(shootingActiveShotTypes[key]!.twoPoint, shootingFactor);
-                      return (
-                        <Fragment key={key}>
-                          <td className="align-right">{formatShotTypeMade(c, shootingDigits)}</td>
-                          <td className="align-right">{formatShotTypeAttempted(c, shootingDigits)}</td>
-                          <td className="align-right">{formatShotTypePct(c)}</td>
-                        </Fragment>
-                      );
-                    })}
-                    {(() => {
-                      const total = scaleShotTypeCounts(
-                        Object.values(shootingActiveShotTypes).reduce(
-                          (acc, c) => sumShotTypeCounts(acc, c.twoPoint),
-                          { made: 0, attempted: 0 },
-                        ),
-                        shootingFactor,
-                      );
-                      return (
-                        <>
-                          <td className="align-right">{formatShotTypeMade(total, shootingDigits)}</td>
-                          <td className="align-right">{formatShotTypeAttempted(total, shootingDigits)}</td>
-                          <td className="align-right">{formatShotTypePct(total)}</td>
-                        </>
-                      );
-                    })()}
-                  </tr>
-                  <tr>
-                    <td className="align-left">3P</td>
-                    {sortShotTypeKeys(Object.keys(shootingActiveShotTypes)).map((key) => {
-                      const c = scaleShotTypeCounts(shootingActiveShotTypes[key]!.threePoint, shootingFactor);
-                      return (
-                        <Fragment key={key}>
-                          <td className="align-right">{formatShotTypeMade(c, shootingDigits)}</td>
-                          <td className="align-right">{formatShotTypeAttempted(c, shootingDigits)}</td>
-                          <td className="align-right">{formatShotTypePct(c)}</td>
-                        </Fragment>
-                      );
-                    })}
-                    {(() => {
-                      const total = scaleShotTypeCounts(
-                        Object.values(shootingActiveShotTypes).reduce(
-                          (acc, c) => sumShotTypeCounts(acc, c.threePoint),
-                          { made: 0, attempted: 0 },
-                        ),
-                        shootingFactor,
-                      );
-                      return (
-                        <>
-                          <td className="align-right">{formatShotTypeMade(total, shootingDigits)}</td>
-                          <td className="align-right">{formatShotTypeAttempted(total, shootingDigits)}</td>
-                          <td className="align-right">{formatShotTypePct(total)}</td>
-                        </>
-                      );
-                    })()}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
 
           <h2
             className={shotChartSupported ? "collapsible-heading" : undefined}
@@ -2338,6 +2190,10 @@ function SeasonBreakdownTable({
   playerId,
   period,
   gamesByScheduleKey,
+  activeTab: controlledActiveTab,
+  onTabChange,
+  careerShots,
+  careerShotsLoading,
 }: {
   careerData: CareerSeasonLogs[] | null;
   gameTypeFilter: SeasonGameTypeFilter;
@@ -2347,8 +2203,20 @@ function SeasonBreakdownTable({
   playerId: string;
   period: PeriodRangeValue;
   gamesByScheduleKey: Map<string, StoredGame>;
+  /**
+   * カテゴリタブ（シューティングを含む）を外部から制御する場合に指定する（試合詳細ページの
+   * BoxscoreTable.tsxのactiveTab/onTabChangeと同じパターン。DESIGN.md参照）。未指定なら
+   * コンポーネント内部のstateでタブを管理する
+   */
+  activeTab?: SeasonBoxTabKey | "shooting";
+  onTabChange?: (tab: SeasonBoxTabKey | "shooting") => void;
+  /** シューティングタブ用: scheduleKeyごとのこの選手のショット（Yahoo PBP対応シーズンのみ） */
+  careerShots: Map<string, YahooShotEvent[]>;
+  careerShotsLoading: boolean;
 }) {
-  const [tab, setTab] = useState<SeasonBoxTabKey>("traditional");
+  const [internalTab, setInternalTab] = useState<SeasonBoxTabKey | "shooting">("traditional");
+  const tab = controlledActiveTab ?? internalTab;
+  const setTab = onTabChange ?? setInternalTab;
   // 列ヘッダークリックソート（RankingsPage等のSortableTableと同じ「1回目クリックで降順、
   // もう一度クリックで昇順」の切り替え方式を踏襲。DESIGN.md参照）。未選択（null）時は
   // 元の並び順（シーズン降順）のまま。「通算」行は常に最下部に固定し、ソート対象に含めない
@@ -2430,7 +2298,34 @@ function SeasonBreakdownTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [careerData, gameTypeFilter, seasonRows, displayMode, playerId, periodOption, gamesByScheduleKey]);
 
-  const columns = SEASON_BOX_COLUMNS[tab];
+  const columns = tab === "shooting" ? [] : SEASON_BOX_COLUMNS[tab];
+
+  // シューティングタブ: 各行（シーズン・チーム別内訳）に属する試合ログのscheduleKeyから
+  // careerShotsを引いてShotTypeBreakdownを組み立てる。列（シュートタイプ×2P/3P×M/A/%）は
+  // 全行（通算行込み）を横断したシュートタイプの和集合から作る
+  const seasonShotBreakdownByKey = useMemo(() => {
+    if (tab !== "shooting") return new Map<string, ShotTypeBreakdown>();
+    const map = new Map<string, ShotTypeBreakdown>();
+    for (const r of seasonRows) {
+      map.set(r.key, buildShotTypeBreakdown(r.logs.flatMap((l) => careerShots.get(l.scheduleKey) ?? [])));
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, seasonRows, careerShots]);
+  const seasonTotalShotBreakdown = useMemo(() => {
+    if (tab !== "shooting") return {};
+    const totalRows = seasonRows.filter((r) => r.countsTowardTotal);
+    return buildShotTypeBreakdown(totalRows.flatMap((r) => r.logs.flatMap((l) => careerShots.get(l.scheduleKey) ?? [])));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, seasonRows, careerShots]);
+  const seasonShotTypeKeys = useMemo(
+    () =>
+      sortShotTypeKeys([
+        ...new Set([...seasonShotBreakdownByKey.values(), seasonTotalShotBreakdown].flatMap((b) => Object.keys(b))),
+      ]),
+    [seasonShotBreakdownByKey, seasonTotalShotBreakdown],
+  );
+  const seasonShotColumns = shotTypeEntityColumns<{ breakdown?: ShotTypeBreakdown }>(seasonShotTypeKeys, (r) => r.breakdown);
 
   const seasonRowSortValue = (r: (typeof seasonRows)[number], key: string): number | string => {
     switch (key) {
@@ -2443,6 +2338,10 @@ function SeasonBreakdownTable({
       case "td3":
         return r.ddtd.td;
       default: {
+        if (tab === "shooting") {
+          const col = seasonShotColumns.find((c) => c.key === key);
+          return col ? col.sortValue({ breakdown: seasonShotBreakdownByKey.get(r.key) }) : 0;
+        }
         const col = columns.find((c) => c.key === key);
         return col ? col.value(r.ctx, displayMode) : 0;
       }
@@ -2459,7 +2358,7 @@ function SeasonBreakdownTable({
       return String(av).localeCompare(String(bv)) * factor;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seasonRows, sortKey, sortDir, columns, displayMode]);
+  }, [seasonRows, sortKey, sortDir, columns, displayMode, tab, seasonShotColumns, seasonShotBreakdownByKey]);
 
   const handleHeaderClick = (key: string) => {
     if (key === sortKey) {
@@ -2476,24 +2375,53 @@ function SeasonBreakdownTable({
     return <p className="empty-message">通算成績がありません</p>;
   }
 
+  const tabBar = (
+    <div className="tab-bar-with-toggle">
+      <div className="tab-bar">
+        {SEASON_BOX_TABS.map((t) => (
+          <button key={t.key} className={`tab-button${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)} type="button">
+            {t.label}
+          </button>
+        ))}
+        <button
+          className={`tab-button${tab === "shooting" ? " active" : ""}`}
+          onClick={() => setTab("shooting")}
+          title={SHOOTING_TAB_TOOLTIP}
+          type="button"
+        >
+          シューティング
+        </button>
+      </div>
+      <div className="mode-toggle">
+        {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
+          <button key={m} className={m === displayMode ? "active" : ""} onClick={() => onDisplayModeChange(m)} type="button">
+            {SEASON_DISPLAY_MODE_LABELS[m]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (tab === "shooting" && careerShotsLoading) {
+    return (
+      <>
+        {tabBar}
+        <p className="loading">読み込み中...</p>
+      </>
+    );
+  }
+  if (tab === "shooting" && seasonShotTypeKeys.length === 0) {
+    return (
+      <>
+        {tabBar}
+        <p className="empty-message">このシーズンのデータには対応していません</p>
+      </>
+    );
+  }
+
   return (
     <>
-      <div className="tab-bar-with-toggle">
-        <div className="tab-bar">
-          {SEASON_BOX_TABS.map((t) => (
-            <button key={t.key} className={`tab-button${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)} type="button">
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="mode-toggle">
-          {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
-            <button key={m} className={m === displayMode ? "active" : ""} onClick={() => onDisplayModeChange(m)} type="button">
-              {SEASON_DISPLAY_MODE_LABELS[m]}
-            </button>
-          ))}
-        </div>
-      </div>
+      {tabBar}
       <div className="table-scroll">
         <table className="stats-table">
           <thead>
@@ -2504,11 +2432,11 @@ function SeasonBreakdownTable({
               <th className="align-left sortable-col" onClick={() => handleHeaderClick("team")} aria-sort={sortAria("team")}>
                 チーム{sortIndicator("team")}
               </th>
-              {columns.map((col) => (
+              {(tab === "shooting" ? seasonShotColumns : columns).map((col) => (
                 <th
                   key={col.key}
                   className="align-right sortable-col"
-                  title={col.description}
+                  title={"description" in col ? col.description : undefined}
                   onClick={() => handleHeaderClick(col.key)}
                   aria-sort={sortAria(col.key)}
                 >
@@ -2529,11 +2457,17 @@ function SeasonBreakdownTable({
               <tr key={r.key} className={r.isCombined ? "season-team-total-row" : undefined}>
                 <td className="align-left">{r.season}</td>
                 <td className="align-left">{r.teamLabel}</td>
-                {columns.map((col) => (
-                  <td key={col.key} className="align-right">
-                    {col.format(r.ctx, displayMode)}
-                  </td>
-                ))}
+                {tab === "shooting"
+                  ? seasonShotColumns.map((col) => (
+                      <td key={col.key} className="align-right">
+                        {col.format!({ breakdown: seasonShotBreakdownByKey.get(r.key) })}
+                      </td>
+                    ))
+                  : columns.map((col) => (
+                      <td key={col.key} className="align-right">
+                        {col.format(r.ctx, displayMode)}
+                      </td>
+                    ))}
                 <td className="align-right">{r.ddtd.dd}</td>
                 <td className="align-right">{r.ddtd.td}</td>
               </tr>
@@ -2542,13 +2476,19 @@ function SeasonBreakdownTable({
               <tr className="career-total-row">
                 <td className="align-left">通算</td>
                 <td className="align-left" />
-                {columns.map((col) => (
-                  <td key={col.key} className="align-right">
-                    {col.key === "eff"
-                      ? formatDecimal(total.effValue, countDigits(displayMode))
-                      : col.format(total.ctx, displayMode)}
-                  </td>
-                ))}
+                {tab === "shooting"
+                  ? seasonShotColumns.map((col) => (
+                      <td key={col.key} className="align-right">
+                        {col.format!({ breakdown: seasonTotalShotBreakdown })}
+                      </td>
+                    ))
+                  : columns.map((col) => (
+                      <td key={col.key} className="align-right">
+                        {col.key === "eff"
+                          ? formatDecimal(total.effValue, countDigits(displayMode))
+                          : col.format(total.ctx, displayMode)}
+                      </td>
+                    ))}
                 <td className="align-right">{total.ddtd.dd}</td>
                 <td className="align-right">{total.ddtd.td}</td>
               </tr>
