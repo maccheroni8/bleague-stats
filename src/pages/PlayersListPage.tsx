@@ -154,28 +154,6 @@ const teamColumn: Column<PlayerRow> = {
   format: (r) => teamShortName(r.player.teamId, r.player.teamName),
 };
 
-const classificationColumn: Column<PlayerRow> = {
-  key: "classification",
-  label: "登録区分",
-  align: "left",
-  sortValue: (r) => r.player.classification ?? "",
-  format: (r) => r.player.classification ?? "-",
-};
-
-const heightColumn: Column<PlayerRow> = {
-  key: "height",
-  label: "身長",
-  sortValue: (r) => r.player.heightCm ?? -1,
-  format: (r) => (r.player.heightCm !== undefined ? `${r.player.heightCm}cm` : "-"),
-};
-
-const weightColumn: Column<PlayerRow> = {
-  key: "weight",
-  label: "体重",
-  sortValue: (r) => r.player.weightKg ?? -1,
-  format: (r) => (r.player.weightKg !== undefined ? `${r.player.weightKg}kg` : "-"),
-};
-
 const gamesColumn: Column<PlayerRow> = {
   key: "g",
   label: "G",
@@ -197,11 +175,13 @@ const ptsColumn: Column<PlayerRow> = {
   format: (r) => formatDecimal(r.player.perGame.pts),
 };
 
-const LEADING_COLUMNS: Column<PlayerRow>[] = [nameColumn, teamColumn, classificationColumn, heightColumn, weightColumn, gamesColumn];
+// 登録区分・身長・体重は絞り込みフィルタとしては使うが、一覧の列としては全カテゴリタブとも
+// 表示しない（ユーザー依頼、2026-09-04）
+const LEADING_COLUMNS: Column<PlayerRow>[] = [nameColumn, teamColumn, gamesColumn];
 
 // シチュエーション別フィルタ選択時（ctxベースの列に切り替わる）用の先頭列。G/MIN/PTSは
-// SEASON_*_COLUMNS自体が既に含んでいるため、ここではプロフィール系の列のみ持つ
-const LEADING_COLUMNS_MINIMAL: Column<PlayerRow>[] = [nameColumn, teamColumn, classificationColumn, heightColumn, weightColumn];
+// SEASON_*_COLUMNS自体が既に含んでいるため、ここでは選手名・チームのみ持つ
+const LEADING_COLUMNS_MINIMAL: Column<PlayerRow>[] = [nameColumn, teamColumn];
 
 /**
  * playerSeasonBoxscore.tsのSeasonBoxscoreColumn（ctx.raw/ctx.scaledベース）を、この一覧の
@@ -593,9 +573,6 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const shootingColumns: Column<PlayerRow>[] = [
     nameColumn,
     teamColumn,
-    classificationColumn,
-    heightColumn,
-    weightColumn,
     ...shotTypeEntityColumns<PlayerRow>(shotTypeKeys, (r) => r.player.shotTypes),
   ];
 
