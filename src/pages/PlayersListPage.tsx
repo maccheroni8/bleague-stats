@@ -1,9 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchLeaguePlayerRankings, fetchPlayerGameLogs, fetchPlayers, fetchTeams } from "../lib/data";
+import {
+  fetchLeaguePlayerRankings,
+  fetchPlayerAwards,
+  fetchPlayerGameLogs,
+  fetchPlayers,
+  fetchPlayersMaster,
+  fetchTeams,
+} from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { useYahooPbpCoverage } from "../lib/useSeasonCoverage";
-import type { LeaguePlayerRankEntry, LeaguePlayerRankingsFile, PlayerGameLog, PlayerSummary } from "../../shared/types";
+import type {
+  LeaguePlayerRankEntry,
+  LeaguePlayerRankingsFile,
+  PlayerAwardsFile,
+  PlayerGameLog,
+  PlayerMasterEntry,
+  PlayerSummary,
+} from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
@@ -26,16 +40,18 @@ import {
   type TeamSeasonRawTotals,
 } from "../lib/playerSeasonBoxscore";
 
-// 「個人」ページ。「全選手スタッツ」タブ（チーム版の「全チームスタッツ」と同じ考え方）と
-// 「歴代記録」タブ（チーム版の「歴代記録」から通算成績部分のみ、ユーザー依頼2026-09-04）の
-// 2タブ構成。「歴代記録」のクラブレコード相当（1試合単位の最高記録）は今回対象外
-// （別途RankingsページのTaskとして進める予定）。
+// 「個人」ページ。「全選手スタッツ」タブ（チーム版の「全チームスタッツ」と同じ考え方）・
+// 「歴代記録」タブ（チーム版の「歴代記録」から通算成績部分のみ、ユーザー依頼2026-09-04）・
+// 「歴代アワード」タブ（data/player-awards.json、チーム版の「歴代王者」と同じ発想のシーズン軸
+// 年表、ユーザー依頼2026-09-04）の3タブ構成。「歴代記録」のクラブレコード相当（1試合単位の
+// 最高記録）は今回対象外（別途RankingsページのTaskとして進める予定）。
 
-type PlayersOuterTab = "stats" | "records";
+type PlayersOuterTab = "stats" | "records" | "awards";
 
 const OUTER_TAB_LABELS: Record<PlayersOuterTab, string> = {
   stats: "全選手スタッツ",
   records: "歴代記録",
+  awards: "歴代アワード",
 };
 
 export function PlayersListPage({ season }: { season: string }) {
@@ -51,7 +67,13 @@ export function PlayersListPage({ season }: { season: string }) {
           </button>
         ))}
       </div>
-      {tab === "stats" ? <AllPlayersStatsTab season={season} /> : <LeaguePlayerRecordsTab />}
+      {tab === "stats" ? (
+        <AllPlayersStatsTab season={season} />
+      ) : tab === "records" ? (
+        <LeaguePlayerRecordsTab />
+      ) : (
+        <PlayerAwardsTimelineTab />
+      )}
     </div>
   );
 }
@@ -609,5 +631,219 @@ function LeaguePlayerRecordsTab() {
         </div>
       )}
     </div>
+  );
+}
+
+// 「歴代アワード」タブ。data/player-awards.json（PlayerAwardsFile、シーズン非依存のRecord<
+// playerId, PlayerAwardEntry[]>）を、チーム版の「歴代王者」タブ（ChampionsTab）と同じ発想で
+// シーズン軸の年表として表示する（ユーザー依頼2026-09-04）。取得済みの全区分
+// （MVP・ベストファイブ・新人賞・各部門王等）が対象。
+//
+// 部門別表彰（得点王等）は末尾に"(B1)"のような`category`を持ち、年間表彰（MVP・ベストファイブ・
+// 新人賞等）は`category`を持たない、という既存データの性質（44-2章）をそのままグループ分けの
+// 判定に使う（要件2: 年間表彰と部門別表彰を分ける）。
+//
+// PlayerAwardEntryにはplayerIdとseason・賞名・categoryしか無く、選手名・所属チームは
+// 含まれていないため、その受賞シーズンのplayers.json（PlayerSummary、B.PREMIER=B1のみ）から
+// 解決する（players-master.jsonは「最近確認できた」所属のスナップショットのため、受賞シーズン
+// 時点の所属とズレうる。歴代記録タブと同じ理由でシーズン別のplayers.jsonを優先する）。
+// ただし部門別表彰にはB2区分（例:「得点王(B2)」）も含まれ、その受賞者はB.PREMIER側の
+// players.jsonには登場しない（B.ONEのシーズン別バックフィルは2025-26のみ、DESIGN.md参照）。
+// この場合のみ、季非依存のplayers-master.jsonから名前・チームをフォールバック解決する
+// （「最近確認できた」値のため、受賞当時と異なるチーム名になりうる点は許容する）。個人詳細ページへの
+// リンクは、歴代記録タブのlatestSeason方式とは異なり、その受賞シーズン自体をそのまま
+// `?season=`に付ける（要件1。B.PREMIER受賞者はそのシーズンのplayers.jsonに選手が存在するため、
+// 引退・移籍済み選手でも「選手が見つかりませんでした」を確実に回避できる）。
+// ⚠️ 既知の制約: B2区分の受賞者はPlayerDetailPage側が常にcategory="premier"のplayers.jsonしか
+// 参照しないため（サイト全体の既存の仕様、B.ONEの個人詳細ページ自体が未対応）、リンク自体は
+// 生成されるが遷移先は「選手が見つかりませんでした」になる。今回のタブ固有の不具合ではなく、
+// B.ONEバックフィルが2025-26シーズンのみ（DESIGN.md 14章）という既存のスコープ制約のため対応外
+const ANNUAL_AWARD_ORDER = [
+  "レギュラーシーズン最優秀選手賞",
+  "レギュラーシーズンベストファイブ",
+  "最優秀新人賞",
+  "新人賞ベストファイブ",
+];
+const STAT_AWARD_ORDER = ["得点王", "リバウンド王", "アシスト王", "スティール王", "ブロック王", "ベスト3P成功率賞", "ベストFT成功率賞"];
+
+interface AwardTimelineEntry {
+  playerId: string;
+  name: string;
+  category?: string;
+}
+
+function awardsBySeasonFrom(awards: PlayerAwardsFile): Map<string, AwardTimelineEntry[]> {
+  const map = new Map<string, AwardTimelineEntry[]>();
+  for (const [playerId, entries] of Object.entries(awards)) {
+    for (const e of entries) {
+      const arr = map.get(e.season) ?? [];
+      arr.push({ playerId, name: e.name, category: e.category });
+      map.set(e.season, arr);
+    }
+  }
+  return map;
+}
+
+function awardSortIndex(order: string[], name: string): number {
+  const idx = order.indexOf(name);
+  return idx === -1 ? order.length : idx;
+}
+
+function awardLabel(name: string, category: string | undefined): string {
+  return category ? `${name}(${category})` : name;
+}
+
+function PlayerAwardsTimelineTab() {
+  const { data: awards, loading: awardsLoading, error: awardsError } = useJsonData(() => fetchPlayerAwards(), []);
+  const { data: playersMaster } = useJsonData(() => fetchPlayersMaster(), []);
+  const playersMasterById = useMemo(
+    () => new Map((playersMaster ?? []).map((p) => [p.playerId, p])),
+    [playersMaster],
+  );
+
+  const awardsBySeason = useMemo(
+    () => (awards ? awardsBySeasonFrom(awards) : new Map<string, AwardTimelineEntry[]>()),
+    [awards],
+  );
+  const seasonsDesc = useMemo(() => [...awardsBySeason.keys()].sort().reverse(), [awardsBySeason]);
+
+  const [playersBySeason, setPlayersBySeason] = useState<Map<string, PlayerSummary[]> | null>(null);
+  const [playersLoading, setPlayersLoading] = useState(true);
+
+  useEffect(() => {
+    if (seasonsDesc.length === 0) {
+      setPlayersBySeason(new Map());
+      setPlayersLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setPlayersLoading(true);
+    Promise.all(
+      seasonsDesc.map(async (s): Promise<readonly [string, PlayerSummary[]]> => {
+        try {
+          return [s, await fetchPlayers(s)] as const;
+        } catch {
+          return [s, []] as const;
+        }
+      }),
+    )
+      .then((results) => {
+        if (!cancelled) setPlayersBySeason(new Map(results));
+      })
+      .finally(() => {
+        if (!cancelled) setPlayersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [seasonsDesc]);
+
+  if (awardsLoading) return <p className="loading">読み込み中...</p>;
+  if (awardsError) return <p className="error-message">{awardsError}</p>;
+  if (!awards) return <p className="empty-message">データがありません</p>;
+
+  return (
+    <div>
+      <p className="page-subtitle">
+        シーズン別の個人受賞歴年表（MVP・ベストファイブ・新人賞・各部門王等、取得済みの全区分）。選手名クリックで受賞シーズン時点の個人詳細ページへ遷移できる
+      </p>
+
+      {playersLoading && !playersBySeason ? (
+        <p className="loading">読み込み中...</p>
+      ) : seasonsDesc.length === 0 ? (
+        <p className="empty-message">受賞データがありません</p>
+      ) : (
+        <div className="award-timeline">
+          {seasonsDesc.map((season) => {
+            const entries = awardsBySeason.get(season) ?? [];
+            const annual = entries
+              .filter((e) => e.category === undefined)
+              .sort((a, b) => awardSortIndex(ANNUAL_AWARD_ORDER, a.name) - awardSortIndex(ANNUAL_AWARD_ORDER, b.name));
+            const stat = entries
+              .filter((e) => e.category !== undefined)
+              .sort((a, b) => {
+                const byName = awardSortIndex(STAT_AWARD_ORDER, a.name) - awardSortIndex(STAT_AWARD_ORDER, b.name);
+                return byName !== 0 ? byName : (a.category ?? "").localeCompare(b.category ?? "");
+              });
+            const playerLookup = new Map((playersBySeason?.get(season) ?? []).map((p) => [p.playerId, p]));
+
+            return (
+              <div className="award-season-block" key={season}>
+                <h2 className="award-season-heading">{season}</h2>
+                <div className="award-season-groups">
+                  {annual.length > 0 && (
+                    <div className="honors-group award-group">
+                      <h3>年間表彰</h3>
+                      <ul>
+                        {annual.map((e, i) => (
+                          <AwardEntryRow
+                            key={`${e.playerId}-${e.name}-${i}`}
+                            entry={e}
+                            season={season}
+                            player={playerLookup.get(e.playerId)}
+                            master={playersMasterById.get(e.playerId)}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {stat.length > 0 && (
+                    <div className="honors-group award-group">
+                      <h3>部門別表彰</h3>
+                      <ul>
+                        {stat.map((e, i) => (
+                          <AwardEntryRow
+                            key={`${e.playerId}-${e.name}-${e.category}-${i}`}
+                            entry={e}
+                            season={season}
+                            player={playerLookup.get(e.playerId)}
+                            master={playersMasterById.get(e.playerId)}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AwardEntryRow({
+  entry,
+  season,
+  player,
+  master,
+}: {
+  entry: AwardTimelineEntry;
+  season: string;
+  player: PlayerSummary | undefined;
+  master: PlayerMasterEntry | undefined;
+}) {
+  const name = player?.name ?? master?.name ?? entry.playerId;
+  const team = player
+    ? teamShortName(player.teamId, player.teamName)
+    : master
+      ? teamShortName(master.teamId, master.teamName)
+      : undefined;
+  return (
+    <li className="award-entry">
+      <Link to={`/players/${entry.playerId}?season=${season}`} className="cell-link">
+        <span className="player-cell">
+          <PlayerPhoto playerId={entry.playerId} size={32} className="player-cell-photo" />
+          <span className="rank-name-cell">
+            <span className="rank-name">{name}</span>
+            <span className="rank-sublabel">
+              {awardLabel(entry.name, entry.category)}
+              {team ? `・${team}` : ""}
+            </span>
+          </span>
+        </span>
+      </Link>
+    </li>
   );
 }

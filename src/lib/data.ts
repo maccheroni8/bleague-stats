@@ -23,6 +23,7 @@ import type {
   PlayerAwardsFile,
   PlayerGameLog,
   PlayerHistoryEntry,
+  PlayerMasterEntry,
   PlayerSummary,
   ScheduleFile,
   SeasonEntry,
@@ -158,6 +159,13 @@ export function fetchPlayerHistory(): Promise<PlayerHistoryEntry[]> {
 
 export function fetchPlayerAwards(): Promise<PlayerAwardsFile> {
   return fetchJson<PlayerAwardsFile>(`${dataBase}/player-awards.json`);
+}
+
+/** 選手プロフィール共通マスタ（シーズン非依存、DESIGN.md 5章・11章・51章参照）。B.ONE
+ * （旧B2）の選手はB.PREMIER側のシーズン別players.jsonに登場しないため、「歴代アワード」タブが
+ * 部門別表彰（B2区分）の選手名を解決するフォールバック用途で使う */
+export function fetchPlayersMaster(): Promise<PlayerMasterEntry[]> {
+  return fetchJson<PlayerMasterEntry[]>(`${dataBase}/players-master.json`);
 }
 
 export function fetchClubHonors(): Promise<ClubHonorsFile> {

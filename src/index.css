@@ -271,6 +271,38 @@ h2 {
   text-decoration: underline;
 }
 
+.award-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.award-season-heading {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.award-season-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.award-group {
+  flex: 1 1 320px;
+  min-width: 260px;
+}
+
+.award-entry {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.award-entry:last-child {
+  border-bottom: none;
+}
+
 .radar-section {
   display: flex;
   flex-wrap: wrap;
