@@ -451,10 +451,18 @@ function CalendarGameChip({ row }: { row: ScheduleRow }) {
   const linkTo = row.status === "upcoming" ? undefined : `/games/${row.scheduleKey}`;
   const scoreLabel = row.status === "final" ? ` ${row.homeScore}-${row.awayScore}` : "";
   const title = `${row.homeTeamName}${scoreLabel} vs ${row.awayTeamName}`;
+  const middle =
+    row.status === "final" ? (
+      <span className="calendar-game-chip-score">
+        {row.homeScore}-{row.awayScore}
+      </span>
+    ) : (
+      <span className="calendar-game-chip-vs">-</span>
+    );
   const content = (
     <span className={`calendar-game-chip status-${row.status}`} title={title}>
       {row.homeTeamId ? <TeamLogo teamId={row.homeTeamId} size={16} /> : <span className="calendar-game-chip-noimg" />}
-      <span className="calendar-game-chip-vs">-</span>
+      {middle}
       {row.awayTeamId ? <TeamLogo teamId={row.awayTeamId} size={16} /> : <span className="calendar-game-chip-noimg" />}
     </span>
   );
