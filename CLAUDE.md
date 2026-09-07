@@ -30,3 +30,8 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。詳細設計は
   実行しないこと。`scrape-roster.ts`は指定した年の現在の全クラブロースターを
   `players-master.json`に無条件反映する実装のため、過去年を指定すると現役選手の
   所属チームが過去の値に後退してしまう（設計書70-5章の事故事例を参照）
+- 【未対応タスク】PlayersListPage.tsx・TeamsListPage.tsx・GameDetailPage.tsx・
+  SchedulePage.tsxに、PlayerDetailPage.tsx/TeamDetailPage.tsx/RankingsPage.tsxで
+  実装済みのページ状態保持（usePageState、ブラウザバック時にフィルタ・タブ選択が維持
+  される仕組み）を未適用。同じ理由（フィルタ項目が多い）で価値があるため、着手する際は
+  pageStateCache.tsの既存パターンをそのまま流用する

@@ -10,6 +10,11 @@ export interface Column<T> {
   format?: (row: T) => string;
   render?: (row: T) => ReactNode;
   align?: "left" | "right";
+  /** falseならDRtg等のように値が小さいほど良い列（未指定はtrue扱い）。BoxscoreColumn・
+   * StatDef等、コードベース内の他のColumn的な型と同じ規約。SortableTable自体は
+   * クリックでの昇順/降順切り替えのみでこの値を消費しないが、単一方向にランキングする
+   * 呼び出し側（RankingsPage.tsx等）が向きの判定に利用する */
+  higherIsBetter?: boolean;
 }
 
 interface SortableTableProps<T> {

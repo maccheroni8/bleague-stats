@@ -10,6 +10,7 @@ import {
   Tooltip as RechartsTooltip,
 } from "recharts";
 import { SeasonLink as Link } from "../components/SeasonLink";
+import { usePageState, useSkipFirstEffectRun } from "../lib/pageStateCache";
 import {
   fetchClubHonors,
   fetchDivisionHistory,
@@ -1679,6 +1680,10 @@ function teamCompareDefs(tabKey: BoxscoreTabKey, perspective: TeamPerspective): 
 
 export function TeamDetailPage({ season }: { season: string }) {
   const { teamId } = useParams<{ teamId: string }>();
+  // ブラウザバック等で本コンポーネントが一度アンマウント・再マウントされても、直前の
+  // フィルタ条件を復元するためのキャッシュキー（src/lib/pageStateCache.ts参照。
+  // 個人詳細ページと同じ仕組み）
+  const pk = (field: string) => `team:${teamId}:${field}`;
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
   const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season), [season]);
   const { data: gameLogs, loading: gameLogsLoading } = useJsonData(
@@ -1705,16 +1710,16 @@ export function TeamDetailPage({ season }: { season: string }) {
   // シチュエーション別フィルタの「対勝率別」用（対戦相手のその試合時点までの勝率が必要）
   const opponentRecords = useMemo(() => (summaries ? buildRecordsBeforeGame(summaries) : undefined), [summaries]);
 
-  const [filter, setFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
+  const [filter, setFilter] = usePageState<SituationalFilter>(pk("filter"), { range: { kind: "all" } });
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   const pbpSupported = isPbpSupported(coverage);
 
-  const [tab, setTab] = useState<DetailTab>("overview");
+  const [tab, setTab] = usePageState<DetailTab>(pk("tab"), "overview");
   // 「シーズン別成績」のカテゴリ切り替え（Phase H3①）。トラディショナル/アドバンスド/Misc/
   // スコアリングの4タブは既存の選手スタッツ/日程結果タブと同じSEASON_BOX_TABS/SeasonBoxTabKeyを
   // 再利用するが、列自体はTeamSummary（seasonHistory）＋TeamGameLog（careerData、Misc用）から
   // 直接組み立てる専用の列定義（TEAM_SEASON_*_COLUMNS）を使う（DESIGN.md参照）
-  const [seasonBoxTab, setSeasonBoxTab] = useState<SeasonBoxTabKey>("traditional");
+  const [seasonBoxTab, setSeasonBoxTab] = usePageState<SeasonBoxTabKey>(pk("seasonBoxTab"), "traditional");
 
   // 「通算成績」タブ（Phase TF）: 個人詳細ページのcareerDataと同じパターンで、このチームが
   // 存在する全シーズン分のTeamGameLogをタブを開いたときだけ遅延取得する
@@ -1722,7 +1727,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerError, setCareerError] = useState<string | null>(null);
   const careerFetchStartedRef = useRef(false);
-  const [careerGameTypeFilter, setCareerGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
+  const [careerGameTypeFilter, setCareerGameTypeFilter] = usePageState<SeasonGameTypeFilter>(pk("careerGameTypeFilter"), "regular");
 
   useEffect(() => {
     if (
@@ -1766,7 +1771,7 @@ export function TeamDetailPage({ season }: { season: string }) {
 
   // 「クラブレコード」タブ（Phase TG）: 「通算成績」タブと同じcareerData・careerGameTypeFilter
   // を共有する（個人詳細ページのキャリアハイ/通算成績タブが1つのトグルを共有するのと同じ方針）
-  const [expandedClubRecordTieCards, setExpandedClubRecordTieCards] = useState<Set<string>>(new Set());
+  const [expandedClubRecordTieCards, setExpandedClubRecordTieCards] = usePageState<Set<string>>(pk("expandedClubRecordTieCards"), new Set());
   const toggleClubRecordTieCard = (key: string) => {
     setExpandedClubRecordTieCards((prev) => {
       const next = new Set(prev);
@@ -1870,16 +1875,21 @@ export function TeamDetailPage({ season }: { season: string }) {
   // スロットごとに選んだシーズンの試合ログを取り出し、シチュエーション別フィルタで絞り込む。
   // 自チーム/opp/+/-トグル・トラディショナル/アドバンスド/Misc/スコアリングのカテゴリタブは
   // 「日程結果」タブと同じCOLUMNS_BY_TAB/buildTeamGameBoxTotals系を再利用する
-  const [compareSlots, setCompareSlots] = useState<[TeamCompareSlotState, TeamCompareSlotState]>(() =>
+  const [compareSlots, setCompareSlots] = usePageState<[TeamCompareSlotState, TeamCompareSlotState]>(pk("compareSlots"), () =>
     defaultTeamCompareSlots(season),
   );
+  // usePageStateで復元した直後の値を、このチームの初回マウント時に上書きしてしまわないよう
+  // スキップする（src/lib/pageStateCache.ts参照）。実際にチームが変わった2回目以降の発火では
+  // 通常通りリセットする
+  const skipFirstCompareSlotsReset = useSkipFirstEffectRun(teamId);
   useEffect(() => {
+    if (skipFirstCompareSlotsReset()) return;
     setCompareSlots(defaultTeamCompareSlots(season));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId]);
-  const [comparePerspective, setComparePerspective] = useState<TeamPerspective>("own");
-  const [compareGameType, setCompareGameType] = useState<SeasonGameTypeFilter>("regular");
-  const [compareTab, setCompareTab] = useState<BoxscoreTabKey>("traditional");
+  const [comparePerspective, setComparePerspective] = usePageState<TeamPerspective>(pk("comparePerspective"), "own");
+  const [compareGameType, setCompareGameType] = usePageState<SeasonGameTypeFilter>(pk("compareGameType"), "regular");
+  const [compareTab, setCompareTab] = usePageState<BoxscoreTabKey>(pk("compareTab"), "traditional");
 
   // 各スロットの「対勝率別」フィルタ用（対戦相手のその試合時点までの勝率が必要）。
   // スロットごとに異なるシーズンを選べるため、個人詳細ページの比較タブと同様、
@@ -2033,23 +2043,23 @@ export function TeamDetailPage({ season }: { season: string }) {
   // カテゴリタブ集計表・シチュエーション別成績（チーム版）の両方で共有する）。「試合」選択時は
   // 追加取得不要（既存のgameLogs/team.jsonのみで完結する）が、Q別/前後半選択時のみこのチームの
   // 全試合（gameLogsのscheduleKey全件）の生データを遅延取得する
-  const [teamPerspective, setTeamPerspective] = useState<TeamPerspective>("own");
-  const [statsPeriod, setStatsPeriod] = useState<PeriodRangeValue>("all");
+  const [teamPerspective, setTeamPerspective] = usePageState<TeamPerspective>(pk("teamPerspective"), "own");
+  const [statsPeriod, setStatsPeriod] = usePageState<PeriodRangeValue>(pk("statsPeriod"), "all");
   const statsPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === statsPeriod);
   // トラディショナル/アドバンスド/Misc/スコアリングのカテゴリタブ（「日程結果」「比較」タブと
   // 同じCOLUMNS_BY_TAB/BoxscoreTabKeyを再利用。Phase H4③でタイル形式表示から置き換えた）。
   // 上部集計表とシチュエーション別成績（チーム版）で別々のタブ選択状態を持つ（PlayerDetailPage
   // の「シーズン別成績」「シチュエーション別成績」が独立したタブ状態を持つのと同じ設計）
-  const [teamStatsBoxTab, setTeamStatsBoxTab] = useState<BoxscoreTabKey | "shooting" | "forcedTurnovers">("traditional");
-  const [situationalTeamBoxTab, setSituationalTeamBoxTab] = useState<BoxscoreTabKey | "shooting">("traditional");
+  const [teamStatsBoxTab, setTeamStatsBoxTab] = usePageState<BoxscoreTabKey | "shooting" | "forcedTurnovers">(pk("teamStatsBoxTab"), "traditional");
+  const [situationalTeamBoxTab, setSituationalTeamBoxTab] = usePageState<BoxscoreTabKey | "shooting">(pk("situationalTeamBoxTab"), "traditional");
   // 「選手スタッツ」タブのカテゴリタブ（シューティングを含む）。シューティングタブ選択時のみ
   // teamYahooPbpの遅延取得をトリガーする必要があるため、親（このコンポーネント）で状態を持つ
   // （BoxscoreTable.tsxのactiveTab/onTabChangeと同じパターン。DESIGN.md参照）
-  const [playerStatsBoxTab, setPlayerStatsBoxTab] = useState<SeasonBoxTabKey | "shooting">("traditional");
+  const [playerStatsBoxTab, setPlayerStatsBoxTab] = usePageState<SeasonBoxTabKey | "shooting">(pk("playerStatsBoxTab"), "traditional");
   // 上部集計表専用のレギュラー/プレーオフ/合算トグル（Phase H4②）。SituationalFilterPickerの
   // 組み込みトグルはhideGameTypeToggleで隠し、filterには常にincludePlayoffs: trueを渡した上で
   // filterByGameTypeで絞り込む（個人・チーム双方の「比較」タブと同じ設計）
-  const [teamStatsGameType, setTeamStatsGameType] = useState<SeasonGameTypeFilter>("regular");
+  const [teamStatsGameType, setTeamStatsGameType] = usePageState<SeasonGameTypeFilter>(pk("teamStatsGameType"), "regular");
   // 「試合」選択時・フィルタ無し（isDefaultFilter）・レギュラーシーズンのみの場合のみteams.jsonの
   // シーズン集計を0コストで再利用できる。それ以外（シチュエーション別フィルタ・Q別/前後半トグル・
   // プレーオフ/合算選択のいずれかが有効）はTeamGameLog/生データベースの再集計が必要
@@ -2061,24 +2071,24 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [statsRawGames, setStatsRawGames] = useState<Map<string, StoredGame>>(new Map());
   const [statsRawGamesLoading, setStatsRawGamesLoading] = useState(false);
   // 「チーム内リーダー」（概要タブ、Phase H3②）専用のチーム全体/日本人選手限定トグル
-  const [teamLeadersJpOnly, setTeamLeadersJpOnly] = useState(false);
+  const [teamLeadersJpOnly, setTeamLeadersJpOnly] = usePageState(pk("teamLeadersJpOnly"), false);
   // 「シチュエーション別成績」（チーム版）専用のレギュラー/プレーオフ/合算トグル。
   // 上部集計表のteamStatsGameTypeとは独立（個人詳細ページの同名セクションと同じ設計）
-  const [situationalTeamGameType, setSituationalTeamGameType] = useState<SeasonGameTypeFilter>("regular");
+  const [situationalTeamGameType, setSituationalTeamGameType] = usePageState<SeasonGameTypeFilter>(pk("situationalTeamGameType"), "regular");
   // 「シチュエーション別勝敗」（概要タブ、Phase H3③）専用のレギュラー/プレーオフ/合算トグル。
   // 他のシチュエーション別セクションと同じく独立した状態を持つ
-  const [situationalRecordGameType, setSituationalRecordGameType] = useState<SeasonGameTypeFilter>("regular");
+  const [situationalRecordGameType, setSituationalRecordGameType] = usePageState<SeasonGameTypeFilter>(pk("situationalRecordGameType"), "regular");
 
   // 「シーズン別成績」（概要タブ）の平均/合計トグル。個人詳細ページのSeasonBreakdownTableと
   // 同じ仕組み（TeamSeasonBoxColumn.formatにmodeを渡す）を再利用する
-  const [seasonBoxDisplayMode, setSeasonBoxDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  const [seasonBoxDisplayMode, setSeasonBoxDisplayMode] = usePageState<SeasonDisplayMode>(pk("seasonBoxDisplayMode"), "perGame");
   // 「シーズン別成績」の自チーム/opp/+/-トグル（Phase H8-2）。「チームスタッツ」「日程結果」
   // タブと同じTeamPerspective型・同じ3値切り替えの仕組みを再利用する
-  const [seasonBoxPerspective, setSeasonBoxPerspective] = useState<TeamPerspective>("own");
+  const [seasonBoxPerspective, setSeasonBoxPerspective] = usePageState<TeamPerspective>(pk("seasonBoxPerspective"), "own");
   // 「当該シーズンのスタッツ」（上部集計表）・「シチュエーション別成績」（チーム版）の
   // 平均/合計トグル。それぞれ独立した状態を持つ（他のトグル群と同じ設計）
-  const [teamStatsDisplayMode, setTeamStatsDisplayMode] = useState<SeasonDisplayMode>("perGame");
-  const [situationalTeamDisplayMode, setSituationalTeamDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  const [teamStatsDisplayMode, setTeamStatsDisplayMode] = usePageState<SeasonDisplayMode>(pk("teamStatsDisplayMode"), "perGame");
+  const [situationalTeamDisplayMode, setSituationalTeamDisplayMode] = usePageState<SeasonDisplayMode>(pk("situationalTeamDisplayMode"), "perGame");
   // 「シューティング」セクション用: Q別/前後半選択時・非デフォルトフィルタ選択時のみ、
   // このチームの全試合のYahoo PBPを遅延取得する（既定の「試合」×フィルタ無しはteams.jsonの
   // shotTypesを0コストで使うため取得不要。DESIGN.md参照）
@@ -2090,16 +2100,16 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「ショットチャート」セクション: 個人詳細ページの季集計ショットチャートと同じく、
   // 開いたときだけ生データ（PlayByPlays込み）を遅延取得する。取得自体はstatsRawGames
   // （Q別/前後半トグルと共有するキャッシュ）を再利用する
-  const [teamShotChartExpanded, setTeamShotChartExpanded] = useState(false);
+  const [teamShotChartExpanded, setTeamShotChartExpanded] = usePageState(pk("teamShotChartExpanded"), false);
   // 「シチュエーション別勝敗」（概要タブ）の延長・Q1/前半/3Q終了時点のリード状況は
   // quarterScores（試合の生データ）が必要なため、ショットチャートと同じ折りたたみ式にし、
   // 展開したときだけstatsRawGamesを取得する（DESIGN.md参照。初回表示時の通信を抑える）
-  const [situationalRecordRawExpanded, setSituationalRecordRawExpanded] = useState(false);
+  const [situationalRecordRawExpanded, setSituationalRecordRawExpanded] = usePageState(pk("situationalRecordRawExpanded"), false);
   // 「シチュエーション別勝敗」（概要タブ）「シチュエーション別成績」（チームスタッツタブ）の
   // 各グループの説明文。個人詳細ページの同名セクションと同じ「デフォルト非表示・▶説明ボタンで
   // 開閉」の仕組みをそのまま踏襲する
-  const [situationalRecordLegendExpanded, setSituationalRecordLegendExpanded] = useState(false);
-  const [situationalTeamLegendExpanded, setSituationalTeamLegendExpanded] = useState(false);
+  const [situationalRecordLegendExpanded, setSituationalRecordLegendExpanded] = usePageState(pk("situationalRecordLegendExpanded"), false);
+  const [situationalTeamLegendExpanded, setSituationalTeamLegendExpanded] = usePageState(pk("situationalTeamLegendExpanded"), false);
 
   // 「日程結果」タブ: 自チーム/opp/+/-トグル・レギュラー/プレーオフ/合算トグル・Q別/前後半トグル・
   // トラディショナル/アドバンスド/Misc/スコアリングのカテゴリタブ（試合詳細ページのボックススコアと
@@ -2109,11 +2119,11 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 見た目（予定を含む全試合表示）を変えないようにしている点が他のトグルと異なる。
   // Misc/スコアリングタブのPBPタグ集計・座標ゾーン分割はQ別/前後半に関わらず生データが必要なため、
   // このタブが開いている間は常にstatsRawGames/teamYahooPbpを取得する（0コストの高速経路は無い）
-  const [scheduleTeamPerspective, setScheduleTeamPerspective] = useState<TeamPerspective>("own");
-  const [scheduleGameType, setScheduleGameType] = useState<SeasonGameTypeFilter>("both");
-  const [schedulePeriod, setSchedulePeriod] = useState<PeriodRangeValue>("all");
+  const [scheduleTeamPerspective, setScheduleTeamPerspective] = usePageState<TeamPerspective>(pk("scheduleTeamPerspective"), "own");
+  const [scheduleGameType, setScheduleGameType] = usePageState<SeasonGameTypeFilter>(pk("scheduleGameType"), "both");
+  const [schedulePeriod, setSchedulePeriod] = usePageState<PeriodRangeValue>(pk("schedulePeriod"), "all");
   const schedulePeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === schedulePeriod);
-  const [scheduleBoxTab, setScheduleBoxTab] = useState<BoxscoreTabKey>("traditional");
+  const [scheduleBoxTab, setScheduleBoxTab] = usePageState<BoxscoreTabKey>(pk("scheduleBoxTab"), "traditional");
 
   useEffect(() => {
     statsRawGamesRequestedRef.current = new Set();
@@ -2241,23 +2251,23 @@ export function TeamDetailPage({ season }: { season: string }) {
   const playerStatsCandidatesFetchKeyRef = useRef<string | null>(null);
   const [playerStatsCandidates, setPlayerStatsCandidates] = useState<PlayerStatsCandidate[] | null>(null);
   const [playerStatsCandidatesLoading, setPlayerStatsCandidatesLoading] = useState(false);
-  const [playerStatsGameType, setPlayerStatsGameType] = useState<SeasonGameTypeFilter>("regular");
+  const [playerStatsGameType, setPlayerStatsGameType] = usePageState<SeasonGameTypeFilter>(pk("playerStatsGameType"), "regular");
   // 「選手スタッツ」タブの平均/合計トグル。ctx.scaledがbuildTeamSplitRowsForPeriod呼び出し時の
   // modeで確定するため、render時にcol.format(ctx, mode)へ渡すだけでは反映されない
   // （SeasonBoxscoreCtx.scaledは構築時に1回だけ計算される）。playerStatsRowsのuseMemo側で
   // このstateを使ってctxを再構築する必要があるため、TeamPlayerStatsTable内のローカルstateでは
   // なく親コンポーネントで持つ
-  const [playerStatsDisplayMode, setPlayerStatsDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  const [playerStatsDisplayMode, setPlayerStatsDisplayMode] = usePageState<SeasonDisplayMode>(pk("playerStatsDisplayMode"), "perGame");
   // Q別/前後半トグル（既存のbuildPeriodRangeOptionsをOT無しで固定した共通オプション）。
   // 「試合」選択時は追加取得不要（既存のTeamGameLog/PlayerGameLog永続集計をそのまま使う）だが、
   // Q別/前後半選択時のみ、必要な試合の生データ（PlayByPlays込み）を遅延取得する
-  const [playerStatsPeriod, setPlayerStatsPeriod] = useState<PeriodRangeValue>("all");
+  const [playerStatsPeriod, setPlayerStatsPeriod] = usePageState<PeriodRangeValue>(pk("playerStatsPeriod"), "all");
   // シチュエーション別フィルタ（シーズン全体/直近N試合/勝敗別/期間指定/ホーム・アウェイ/
   // 対東西地区/月別/年明け前後/平日開催/対勝率別）。既存のSituationalFilterPickerをそのまま
   // 再利用し、選手一覧の全選手に一括で適用する（個別選手ごとの選択ではない）。レギュラー/
   // プレーオフ/合算は既存のplayerStatsGameType（3値トグル）に一本化するため、
   // filterGameLogsへは常にincludePlayoffs: trueを渡す（比較タブ・43章と同じパターン）
-  const [playerStatsFilter, setPlayerStatsFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
+  const [playerStatsFilter, setPlayerStatsFilter] = usePageState<SituationalFilter>(pk("playerStatsFilter"), { range: { kind: "all" } });
   const playerStatsRawGamesRequestedRef = useRef<Set<string>>(new Set());
   const [playerStatsRawGames, setPlayerStatsRawGames] = useState<Map<string, StoredGame>>(new Map());
   const [playerStatsRawGamesLoading, setPlayerStatsRawGamesLoading] = useState(false);

@@ -11,6 +11,7 @@ import {
   Tooltip as RechartsTooltip,
 } from "recharts";
 import { SeasonLink as Link } from "../components/SeasonLink";
+import { usePageState, useSkipFirstEffectRun } from "../lib/pageStateCache";
 import {
   fetchDivisionHistory,
   fetchGame,
@@ -574,19 +575,29 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const shotChartSupported = isShotChartSupported(coverage);
   const { supported: yahooSeasonSupported } = useYahooPbpCoverage(season);
 
-  const [gameTypeFilter, setGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
+  // ブラウザバック等で本コンポーネントが一度アンマウント・再マウントされても、直前の
+  // フィルタ条件を復元するためのキャッシュキー（src/lib/pageStateCache.ts参照）。
+  // playerId単位でキャッシュするため、season切り替えでは維持されたまま
+  // （既存の[season]依存effectがリセットする一部項目を除く）、別の選手ページに遷移すれば
+  // 既存の[playerId]依存effectが従来通り既定値にリセットする
+  const pk = (field: string) => `player:${playerId}:${field}`;
+
+  const [gameTypeFilter, setGameTypeFilter] = usePageState<SeasonGameTypeFilter>(pk("gameTypeFilter"), "regular");
   // 「シーズン別成績」の平均/合計切り替え（従来は「平均」固定だったが、選べるようにする要望）
-  const [seasonDisplayMode, setSeasonDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  const [seasonDisplayMode, setSeasonDisplayMode] = usePageState<SeasonDisplayMode>(pk("seasonDisplayMode"), "perGame");
   // 「シーズン別成績」のQ別/前後半トグル。「試合」選択時は追加取得不要（既存のPlayerGameLog
   // 永続集計をそのまま使う）だが、Q別/前後半選択時のみ、必要な試合の生データ（PlayByPlays込み）を
   // 遅延取得する（periodRawGamesキャッシュは「シチュエーション別成績」のQ別トグルとも共有する。
   // scheduleKeyはサイト全体で一意のため、シーズンをまたいだキャッシュ共有でも衝突しない）
-  const [seasonBreakdownPeriod, setSeasonBreakdownPeriod] = useState<PeriodRangeValue>("all");
+  const [seasonBreakdownPeriod, setSeasonBreakdownPeriod] = usePageState<PeriodRangeValue>(
+    pk("seasonBreakdownPeriod"),
+    "all",
+  );
   const periodRawGamesRequestedRef = useRef<Set<string>>(new Set());
   const [periodRawGames, setPeriodRawGames] = useState<Map<string, StoredGame>>(new Map());
   const [periodRawGamesLoading, setPeriodRawGamesLoading] = useState(false);
 
-  const [tab, setTab] = useState<DetailTab>("stats");
+  const [tab, setTab] = usePageState<DetailTab>(pk("tab"), "stats");
   const [careerData, setCareerData] = useState<CareerSeasonLogs[] | null>(null);
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerError, setCareerError] = useState<string | null>(null);
@@ -596,10 +607,16 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [careerTeamData, setCareerTeamData] = useState<Map<string, CareerSeasonTeamInfo> | null>(null);
   const careerTeamDataFetchStartedRef = useRef(false);
   // 通算成績・キャリアハイ両タブで共有するレギュラー/プレーオフ/合算トグル（既存のgameType軸を再利用）
-  const [careerGameTypeFilter, setCareerGameTypeFilter] = useState<SeasonGameTypeFilter>("regular");
+  const [careerGameTypeFilter, setCareerGameTypeFilter] = usePageState<SeasonGameTypeFilter>(
+    pk("careerGameTypeFilter"),
+    "regular",
+  );
   // キャリアハイ/ワーストで同値の試合が複数ある場合の「他◯試合」展開状態。
   // "high:${key}" / "worst:${key}" のプレフィックス付きキーで管理する（highs/worstsで同じdef.keyを使うため）
-  const [expandedCareerTieCards, setExpandedCareerTieCards] = useState<Set<string>>(new Set());
+  const [expandedCareerTieCards, setExpandedCareerTieCards] = usePageState<Set<string>>(
+    pk("expandedCareerTieCards"),
+    () => new Set(),
+  );
   const toggleCareerTieCard = (key: string) => {
     setExpandedCareerTieCards((prev) => {
       const next = new Set(prev);
@@ -613,7 +630,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // （比較・シーズン別成績等、他タブ全部が参照する共有state）はB.PREMIER専用のまま変更しない。
   // B.ONE選択時だけ別途careerDataOneを遅延取得する（B.ONEは現状data/seasons.json相当の
   // 季一覧が無いため、ONE_CATEGORY_SEASONS（既知の取得済みシーズン一覧）を直接ループする）
-  const [careerCategory, setCareerCategory] = useState<Category>("premier");
+  const [careerCategory, setCareerCategory] = usePageState<Category>(pk("careerCategory"), "premier");
   const [careerDataOne, setCareerDataOne] = useState<CareerSeasonLogs[] | null>(null);
   const [careerOneLoading, setCareerOneLoading] = useState(false);
   const careerOneFetchStartedRef = useRef(false);
@@ -621,7 +638,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 試合ログタブのボックススコア形式表示（試合詳細ページと同じトラディショナル/アドバンスド/
   // Misc/スコアリング切り替え）。各試合の生データ（PlayByPlays込み）を選手の出場試合数分
   // フェッチする必要があるため、タブを開いたときだけ遅延取得する（careerと同じ方針）
-  const [gameBoxTab, setGameBoxTab] = useState<BoxscoreTabKey>("traditional");
+  const [gameBoxTab, setGameBoxTab] = usePageState<BoxscoreTabKey>(pk("gameBoxTab"), "traditional");
   const [gameBoxRows, setGameBoxRows] = useState<PlayerGameBoxscoreRow[] | null>(null);
   const [gameBoxLoading, setGameBoxLoading] = useState(false);
   const gameBoxFetchStartedRef = useRef(false);
@@ -630,7 +647,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // フェッチする必要があるため、試合ログタブと同じ方針で「ユーザーが表示を求めたときだけ」
   // 遅延取得する（「スタッツ」タブはデフォルトタブのため、ここだけ自動取得にすると
   // ページを開くたびに毎回重い取得が走ってしまう）
-  const [seasonShotChartExpanded, setSeasonShotChartExpanded] = useState(false);
+  const [seasonShotChartExpanded, setSeasonShotChartExpanded] = usePageState(pk("seasonShotChartExpanded"), false);
   const [seasonShotGameData, setSeasonShotGameData] = useState<{ log: PlayerGameLog; shots: ShotEvent[] }[] | null>(
     null,
   );
@@ -638,39 +655,60 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const seasonShotChartFetchStartedRef = useRef(false);
   // ショットチャート専用の複数選択フィルタ（対勝率別・地区別・会場・時期・曜日・月別をAND合成）と
   // Q別/前後半（試合ごとのPeriod番号ベース、試合詳細ページと同じPeriodRangeToggleを再利用）
-  const [shotChartFilters, setShotChartFilters] = useState<ShotChartGameFilters>({});
-  const [shotChartPeriod, setShotChartPeriod] = useState<PeriodRangeValue>("all");
+  const [shotChartFilters, setShotChartFilters] = usePageState<ShotChartGameFilters>(pk("shotChartFilters"), () => ({}));
+  const [shotChartPeriod, setShotChartPeriod] = usePageState<PeriodRangeValue>(pk("shotChartPeriod"), "all");
 
   // 比較タブ: 2スロット分の{シーズン, シチュエーション別フィルタ}。スロット1は現在選択中の
   // シーズン・シーズン全体、スロット2は未選択（ユーザーが選ぶ）がデフォルト
-  const [compareSlots, setCompareSlots] = useState<[CompareSlotState, CompareSlotState]>(() =>
+  const [compareSlots, setCompareSlots] = usePageState<[CompareSlotState, CompareSlotState]>(pk("compareSlots"), () =>
     defaultCompareSlots(season),
   );
   // 比較タブ: トラディショナル/アドバンスド/Misc/スコアリングのカテゴリ切り替え（既存の
   // SEASON_BOX_TABS/SEASON_BOX_COLUMNSを再利用）と、レギュラー/プレーオフ/合算トグル
   // （既存のSeasonGameTypeFilter軸を再利用）。両スロット共通の1セットのみ持つ（各スロットの
   // シチュエーション別フィルタ自体はスロットごとに独立のまま）
-  const [compareTab, setCompareTab] = useState<SeasonBoxTabKey>("traditional");
-  const [compareGameType, setCompareGameType] = useState<SeasonGameTypeFilter>("regular");
+  const [compareTab, setCompareTab] = usePageState<SeasonBoxTabKey>(pk("compareTab"), "traditional");
+  const [compareGameType, setCompareGameType] = usePageState<SeasonGameTypeFilter>(pk("compareGameType"), "regular");
 
   // 「スタッツ」タブの「シチュエーション別成績」セクション: 独立したシーズン選択・
   // レギュラー/プレーオフ/合算トグル・ボックススコアのカテゴリタブを持つ
   // （ページ本体の現在シーズンとは別のシーズンを選べるため、上のシーズン成績/シーズン別成績とは
   // 独立させている）。デフォルトは現在選択中のシーズン
-  const [situationalStatsSeason, setSituationalStatsSeason] = useState(season);
-  const [situationalStatsGameType, setSituationalStatsGameType] = useState<SeasonGameTypeFilter>("regular");
-  const [situationalStatsTab, setSituationalStatsTab] = useState<SeasonBoxTabKey | "shooting">("traditional");
-  const [situationalStatsDisplayMode, setSituationalStatsDisplayMode] = useState<SeasonDisplayMode>("perGame");
+  const [situationalStatsSeason, setSituationalStatsSeason] = usePageState(pk("situationalStatsSeason"), () => season);
+  const [situationalStatsGameType, setSituationalStatsGameType] = usePageState<SeasonGameTypeFilter>(
+    pk("situationalStatsGameType"),
+    "regular",
+  );
+  const [situationalStatsTab, setSituationalStatsTab] = usePageState<SeasonBoxTabKey | "shooting">(
+    pk("situationalStatsTab"),
+    "traditional",
+  );
+  const [situationalStatsDisplayMode, setSituationalStatsDisplayMode] = usePageState<SeasonDisplayMode>(
+    pk("situationalStatsDisplayMode"),
+    "perGame",
+  );
   // Q別/前後半トグル（periodRawGamesキャッシュ・fetchロジックは「シーズン別成績」と共有。上の
   // seasonBreakdownPeriod参照）
-  const [situationalStatsPeriod, setSituationalStatsPeriod] = useState<PeriodRangeValue>("all");
+  const [situationalStatsPeriod, setSituationalStatsPeriod] = usePageState<PeriodRangeValue>(
+    pk("situationalStatsPeriod"),
+    "all",
+  );
   // 「各グループの説明」はデフォルト非表示。「説明」ボタンで開閉する
-  const [situationalGroupsLegendExpanded, setSituationalGroupsLegendExpanded] = useState(false);
+  const [situationalGroupsLegendExpanded, setSituationalGroupsLegendExpanded] = usePageState(
+    pk("situationalGroupsLegendExpanded"),
+    false,
+  );
   // 列ヘッダークリックソート。会場・地区・曜日等のグループ構造そのものを崩すと比較の意味が
   // 失われるため、グループの並び順・見出し行は維持したまま「各グループ内の行だけ」をソートする
   // （SeasonBreakdownTableと同じ「1回目クリックで降順、もう一度クリックで昇順」の方式。DESIGN.md参照）
-  const [situationalStatsSortKey, setSituationalStatsSortKey] = useState<string | null>(null);
-  const [situationalStatsSortDir, setSituationalStatsSortDir] = useState<"asc" | "desc">("desc");
+  const [situationalStatsSortKey, setSituationalStatsSortKey] = usePageState<string | null>(
+    pk("situationalStatsSortKey"),
+    null,
+  );
+  const [situationalStatsSortDir, setSituationalStatsSortDir] = usePageState<"asc" | "desc">(
+    pk("situationalStatsSortDir"),
+    "desc",
+  );
 
   // 「シューティング」タブ: 従来の独立セクション（自前のシーズン選択・チーム別ボタンを持つ）を
   // 廃止し、「シーズン別成績」「シチュエーション別成績」それぞれのカテゴリタブ（トラディショナル/
@@ -679,7 +717,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // タブ状態をactiveTab/onTabChangeで親（このコンポーネント）に持ち上げ、どちらかで
   // シューティングタブが選ばれたら、この選手のYahoo PBP対応シーズン分の出場試合のショットを
   // 遅延取得する（両セクションで共有。scheduleKeyごとにキャッシュするため二重取得しない）
-  const [seasonBreakdownTab, setSeasonBreakdownTab] = useState<SeasonBoxTabKey | "shooting">("traditional");
+  const [seasonBreakdownTab, setSeasonBreakdownTab] = usePageState<SeasonBoxTabKey | "shooting">(
+    pk("seasonBreakdownTab"),
+    "traditional",
+  );
   const [careerShots, setCareerShots] = useState<Map<string, YahooShotEvent[]>>(new Map());
   const [careerShotsLoading, setCareerShotsLoading] = useState(false);
   const careerShotsFetchStartedRef = useRef(false);
@@ -689,7 +730,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // そのためfetch開始済みかどうかはstateではなくrefで管理する
   const careerFetchStartedRef = useRef(false);
 
+  // usePageStateで復元した直後の値を、この選手の初回マウント時に上書きしてしまわないよう
+  // スキップする（src/lib/pageStateCache.ts参照）。実際に選手が変わった2回目以降の発火では
+  // 通常通りリセットする
+  const skipFirstPlayerReset = useSkipFirstEffectRun(playerId);
   useEffect(() => {
+    if (skipFirstPlayerReset()) return;
     setTab("stats");
     setCareerData(null);
     setCareerError(null);
@@ -723,8 +769,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
   }, [playerId]);
 
   // シーズン切り替え時も試合ログボックススコアを再取得する必要がある（careerは全シーズン
-  // 横断のため season 変更の影響を受けないが、こちらは選択中シーズンのgameLogsに依存する）
+  // 横断のため season 変更の影響を受けないが、こちらは選択中シーズンのgameLogsに依存する）。
+  // こちらも初回マウント時はusePageStateで復元した値を上書きしないようスキップする
+  const skipFirstSeasonReset = useSkipFirstEffectRun(season);
   useEffect(() => {
+    if (skipFirstSeasonReset()) return;
     setGameBoxRows(null);
     gameBoxFetchStartedRef.current = false;
     setSeasonShotChartExpanded(false);
@@ -2236,9 +2285,11 @@ function SeasonBreakdownTable({
   const setTab = onTabChange ?? setInternalTab;
   // 列ヘッダークリックソート（RankingsPage等のSortableTableと同じ「1回目クリックで降順、
   // もう一度クリックで昇順」の切り替え方式を踏襲。DESIGN.md参照）。未選択（null）時は
-  // 元の並び順（シーズン降順）のまま。「通算」行は常に最下部に固定し、ソート対象に含めない
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  // 元の並び順（シーズン降順）のまま。「通算」行は常に最下部に固定し、ソート対象に含めない。
+  // ブラウザバックでの再マウント後も維持されるよう、playerId単位でキャッシュする
+  // （src/lib/pageStateCache.ts参照）
+  const [sortKey, setSortKey] = usePageState<string | null>(`player:${playerId}:seasonBreakdownSortKey`, null);
+  const [sortDir, setSortDir] = usePageState<"asc" | "desc">(`player:${playerId}:seasonBreakdownSortDir`, "desc");
   const playedFilteredLogs = (logs: PlayerGameLog[]) => filterByGameType(logs.filter((g) => g.min > 0), gameTypeFilter);
   const periodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === period);
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
+import { usePageState } from "../lib/pageStateCache";
 import { fetchPlayerGameLogs, fetchPlayers, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
@@ -53,6 +54,9 @@ interface RankableStat<T> {
   label: string;
   value: (row: T) => number;
   format: (row: T) => string;
+  /** falseならDRtg・opp PTS等のように値が小さいほど良い項目（未指定はtrue扱い）。
+   * teamStatsColumns.tsのColumn.higherIsBetterをそのまま引き継ぐ */
+  higherIsBetter?: boolean;
 }
 
 interface RankedListProps<T> {
@@ -71,9 +75,31 @@ interface RankedListProps<T> {
   limit?: number;
 }
 
+/** defの向き（higherIsBetter）から導く、そのdefにとって「正しい」既定のソート方向 */
+function defaultSortDir<T>(def: RankableStat<T>): "asc" | "desc" {
+  return def.higherIsBetter === false ? "asc" : "desc";
+}
+
 function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo, externalLinkTo, teamColor, avatar, limit }: RankedListProps<T>) {
-  const sorted = [...rows].sort((a, b) => def.value(b) - def.value(a));
+  // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
+  // ソート方向は「値の大小」ではなく「良い/悪い」の向き（def.higherIsBetter）を基準にした
+  // asc/descで管理し、既定値は常にBatch 2で確立した「良い方が#1に来る」向きにする。
+  // 項目（def.key）や向き（def.higherIsBetter、自チーム/opp/+/-トグルで変わりうる）が変わったら
+  // 手動での反転状態をリセットし、常に新しい項目の「正しい既定順」から始める
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(() => defaultSortDir(def));
+  const prevIdentityRef = useRef(`${def.key}:${def.higherIsBetter}`);
+  useEffect(() => {
+    const identity = `${def.key}:${def.higherIsBetter}`;
+    if (prevIdentityRef.current !== identity) {
+      prevIdentityRef.current = identity;
+      setSortDir(defaultSortDir(def));
+    }
+  }, [def]);
+
+  const factor = sortDir === "asc" ? 1 : -1;
+  const sorted = [...rows].sort((a, b) => (def.value(a) - def.value(b)) * factor);
   const limited = limit !== undefined ? sorted.slice(0, limit) : sorted;
+  const toggleSortDir = () => setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
   return (
     <div className="table-scroll">
       <table className="sortable-table rankings-table">
@@ -81,7 +107,14 @@ function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo, externalLink
           <tr>
             <th className="align-right">#</th>
             <th className="align-left">名前</th>
-            <th className="align-right">{def.label}</th>
+            <th
+              className="align-right"
+              onClick={toggleSortDir}
+              aria-sort={sortDir === "asc" ? "ascending" : "descending"}
+            >
+              {def.label}
+              {sortDir === "asc" ? " ▲" : " ▼"}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -158,12 +191,15 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams);
   const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season);
 
-  const [category, setCategory] = useState<BoxscoreTabKey>("traditional");
-  const [statKey, setStatKey] = useState(DEFAULT_SORT_KEY.traditional);
-  const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
-  const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
-  const [perspective, setPerspective] = useState<TeamPerspective>("own");
-  const [filter, setFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
+  // ブラウザバック等でページが一度アンマウント・再マウントされても、直前のフィルタ条件を
+  // 復元する（src/lib/pageStateCache.ts参照。個人・チーム詳細ページと同じ仕組み。
+  // RankingsPageはteamId/playerIdのような動的パラメータを持たないため固定キーを使う）
+  const [category, setCategory] = usePageState<BoxscoreTabKey>("rankings:team:category", "traditional");
+  const [statKey, setStatKey] = usePageState("rankings:team:statKey", DEFAULT_SORT_KEY.traditional);
+  const [displayMode, setDisplayMode] = usePageState<SeasonDisplayMode>("rankings:team:displayMode", "perGame");
+  const [gameType, setGameType] = usePageState<SeasonGameTypeFilter>("rankings:team:gameType", "regular");
+  const [perspective, setPerspective] = usePageState<TeamPerspective>("rankings:team:perspective", "own");
+  const [filter, setFilter] = usePageState<SituationalFilter>("rankings:team:filter", { range: { kind: "all" } });
 
   const selectCategory = (next: BoxscoreTabKey) => {
     setCategory(next);
@@ -191,6 +227,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     label: selectedColumn.label,
     value: (row) => Number(selectedColumn.sortValue(row)),
     format: (row) => (selectedColumn.format ? selectedColumn.format(row) : String(selectedColumn.sortValue(row))),
+    higherIsBetter: selectedColumn.higherIsBetter,
   };
 
   if (teamsLoading) return <p className="loading">読み込み中...</p>;
@@ -362,14 +399,21 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const { data: players, loading: playersLoading, error: playersError } = useJsonData(() => fetchPlayers(season), [season]);
   const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
 
-  const [statKey, setStatKey] = useState("pts");
-  const [gamesRatio, setGamesRatio] = useState(MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
-  const [extraThreshold, setExtraThreshold] = useState(EXTRA_ELIGIBILITY_RULES.pts?.defaultValue ?? 0);
-  const [selectedClassifications, setSelectedClassifications] = useState<Set<NonNullable<PlayerSummary["classification"]>>>(
-    () => new Set(),
+  // ブラウザバック等でページが一度アンマウント・再マウントされても、直前のフィルタ条件を
+  // 復元する（src/lib/pageStateCache.ts参照）
+  const [statKey, setStatKey] = usePageState("rankings:player:statKey", "pts");
+  const [gamesRatio, setGamesRatio] = usePageState("rankings:player:gamesRatio", MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
+  const [extraThreshold, setExtraThreshold] = usePageState(
+    "rankings:player:extraThreshold",
+    EXTRA_ELIGIBILITY_RULES.pts?.defaultValue ?? 0,
   );
-  const [filter, setFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
+  const [selectedClassifications, setSelectedClassifications] = usePageState<
+    Set<NonNullable<PlayerSummary["classification"]>>
+  >("rankings:player:selectedClassifications", () => new Set());
+  const [filter, setFilter] = usePageState<SituationalFilter>("rankings:player:filter", { range: { kind: "all" } });
   const filterActive = !isDefaultFilter(filter);
+  const [gameType, setGameType] = usePageState<SeasonGameTypeFilter>("rankings:player:gameType", "regular");
+  const gameTypeActive = gameType !== "regular";
 
   const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season);
 
@@ -397,11 +441,14 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     setGameLogsByPlayer(null);
   }, [season]);
 
-  // シチュエーション別フィルタが選択されている間だけ、対象選手（掲載基準・国籍区分フィルタ通過後）分の
-  // PlayerGameLogを取得する（PlayersListPage.tsxの「全選手スタッツ」タブと同じ遅延取得方針）。
-  // 出場率スライダー等で対象選手が増えても、既に取得済みの選手は再取得せず差分だけ追加する
+  // シチュエーション別フィルタ、またはレギュラー/プレーオフ/合算トグルが既定値（レギュラー
+  // シーズンのみ・フィルタなし）以外に切り替えられている間だけ、対象選手（掲載基準・国籍区分
+  // フィルタ通過後）分のPlayerGameLogを取得する（PlayersListPage.tsxの「全選手スタッツ」タブと
+  // 同じ遅延取得方針）。出場率スライダー等で対象選手が増えても、既に取得済みの選手は再取得せず
+  // 差分だけ追加する
+  const needsGameLogRecompute = filterActive || gameTypeActive;
   useEffect(() => {
-    if (!filterActive || !covered || eligible.length === 0) return;
+    if (!needsGameLogRecompute || !covered || eligible.length === 0) return;
     const missing = eligible.filter((p) => !fetchedPlayerIdsRef.current.has(p.playerId));
     if (missing.length === 0) return;
     let cancelled = false;
@@ -430,18 +477,19 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     return () => {
       cancelled = true;
     };
-  }, [filterActive, covered, eligible, season]);
+  }, [needsGameLogRecompute, covered, eligible, season]);
 
   const situationalByPlayer = useMemo<Map<string, PlayerSituationalStats | null> | null>(() => {
-    if (!filterActive || !covered || !gameLogsByPlayer) return null;
+    if (!needsGameLogRecompute || !covered || !gameLogsByPlayer) return null;
     const map = new Map<string, PlayerSituationalStats | null>();
     for (const p of eligible) {
       const logs = gameLogsByPlayer.get(p.playerId) ?? [];
-      const filtered = filterGameLogs(logs, filter, opponentRecords, divisionHistory, season);
-      map.set(p.playerId, computePlayerSituationalStats(filtered));
+      const filtered = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season);
+      const scoped = filterByGameType(filtered, gameType);
+      map.set(p.playerId, computePlayerSituationalStats(scoped));
     }
     return map;
-  }, [filterActive, covered, gameLogsByPlayer, eligible, filter, opponentRecords, divisionHistory, season]);
+  }, [needsGameLogRecompute, covered, gameLogsByPlayer, eligible, filter, gameType, opponentRecords, divisionHistory, season]);
 
   const rows: PlayerSummary[] = useMemo(() => {
     if (!situationalByPlayer) return eligible;
@@ -455,6 +503,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const rankDef: RankableStat<PlayerSummary> = {
     key: statDef.key,
     label: statDef.label,
+    higherIsBetter: statDef.higherIsBetter,
     value: (p) => {
       if (situationalByPlayer && accessor) {
         const s = situationalByPlayer.get(p.playerId);
@@ -472,7 +521,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   };
 
   const extraRule = EXTRA_ELIGIBILITY_RULES[statKey];
-  const waitingForGameLogs = filterActive && covered && (gameLogsLoading || !situationalByPlayer);
+  const waitingForGameLogs = needsGameLogRecompute && covered && (gameLogsLoading || !situationalByPlayer);
 
   if (playersLoading) return <p className="loading">読み込み中...</p>;
   if (playersError) return <p className="error-message">{playersError}</p>;
@@ -503,7 +552,19 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         </div>
       </div>
 
-      <SituationalFilterPicker filter={filter} onChange={setFilter} opponentWinRateSupported={!!opponentRecords} />
+      <SituationalFilterPicker
+        filter={filter}
+        onChange={setFilter}
+        opponentWinRateSupported={!!opponentRecords}
+        hideGameTypeToggle
+      />
+      <div className="mode-toggle">
+        {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
+          <button key={g} className={g === gameType ? "active" : ""} onClick={() => setGameType(g)} type="button">
+            {SEASON_GAME_TYPE_LABELS[g]}
+          </button>
+        ))}
+      </div>
 
       <div className="stat-picker">
         {playerDefs.map((d) => (
@@ -536,9 +597,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           />
         )}
         <p className="page-subtitle">対象{eligible.length}名中、上位{PLAYER_RANK_TOP_N}名を表示</p>
-        {filterActive && !covered && (
+        {needsGameLogRecompute && !covered && (
           <p className="page-subtitle">
-            「{statDef.label}」はシチュエーション別フィルタの対象外のため、シーズン合計の値をそのまま表示しています
+            「{statDef.label}」はシチュエーション別フィルタ・レギュラー/プレーオフ選択の対象外のため、シーズン合計（レギュラーシーズン）の値をそのまま表示しています
           </p>
         )}
       </div>
@@ -554,7 +615,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               def={rankDef}
               rowKey={(p) => p.playerId}
               name={(p) => p.name}
-              subLabel={(p) => p.teamName}
+              subLabel={(p) => [p.teamName, p.position, p.classification].filter(Boolean).join("・")}
               linkTo={(p) => `/players/${p.playerId}`}
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={28} className="player-cell-photo" />}
@@ -568,7 +629,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 }
 
 export function RankingsPage({ season }: { season: string }) {
-  const [mode, setMode] = useState<Mode>("team");
+  const [mode, setMode] = usePageState<Mode>("rankings:mode", "team");
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
 
   return (

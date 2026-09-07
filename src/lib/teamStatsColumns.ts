@@ -29,6 +29,20 @@ export function perspectiveValue(own: number, opp: number, perspective: TeamPers
   return perspective === "own" ? own : perspective === "opp" ? opp : own - opp;
 }
 
+/**
+ * 「自チームにとってこの項目は値が大きいほど良いか」（ownHigherIsBetter、例: PTS=true・
+ * TOV=false）を、選択中の視点（自チーム/opp/+/-）に応じた実際の向きに変換する。
+ * - own/diff: そのままownHigherIsBetterを使う（+/-は自チーム視点の差分のため、
+ *   同じ向きで良い/悪いが決まる）
+ * - opp: 向きを反転する（相手が同じ項目を多く記録するのは、通常こちらにとって逆の
+ *   意味になるため。例: 相手PTSは低いほど良い＝反転してfalse。ownHigherIsBetterが
+ *   falseのTOV等は、相手TOV＝相手に強制したターンオーバーとなり反転してtrue、という
+ *   DRtg/oppTOVで既に使われている「低い方が良い」判定の一般化）
+ */
+function higherIsBetterForPerspective(ownHigherIsBetter: boolean, perspective: TeamPerspective): boolean {
+  return perspective === "opp" ? !ownHigherIsBetter : ownHigherIsBetter;
+}
+
 export interface TeamTotals {
   pts: number;
   oppPts: number;
@@ -261,9 +275,9 @@ function countColumn(
   pickOpp: (t: TeamTotals) => number,
   mode: SeasonDisplayMode,
   perspective: TeamPerspective,
-  opts: { digits?: number; signed?: boolean } = {},
+  opts: { digits?: number; signed?: boolean; higherIsBetter?: boolean } = {},
 ): Column<AllTeamsRow> {
-  const { digits = 1, signed = false } = opts;
+  const { digits = 1, signed = false, higherIsBetter: ownHigherIsBetter = true } = opts;
   const valueFor = (r: AllTeamsRow) =>
     perspectiveValue(
       scaledValue(pickOwn(r.totals), r.gamesPlayed, mode),
@@ -279,6 +293,7 @@ function countColumn(
       const d = mode === "total" ? 0 : digits;
       return signed || perspective === "diff" ? formatSigned(v, d) : formatDecimal(v, d);
     },
+    higherIsBetter: higherIsBetterForPerspective(ownHigherIsBetter, perspective),
   };
 }
 
@@ -291,6 +306,7 @@ function numberColumn(
   perspective: TeamPerspective,
   format: (v: number) => string,
   diffFormat: (v: number) => string,
+  ownHigherIsBetter = true,
 ): Column<AllTeamsRow> {
   const valueFor = (r: AllTeamsRow) => perspectiveValue(calcOwn(r.totals), calcOpp(r.totals), perspective);
   return {
@@ -301,6 +317,7 @@ function numberColumn(
       const v = valueFor(r);
       return perspective === "diff" ? diffFormat(v) : format(v);
     },
+    higherIsBetter: higherIsBetterForPerspective(ownHigherIsBetter, perspective),
   };
 }
 
@@ -310,8 +327,18 @@ function pctColumn(
   calcOwn: (t: TeamTotals) => number,
   calcOpp: (t: TeamTotals) => number,
   perspective: TeamPerspective,
+  ownHigherIsBetter = true,
 ): Column<AllTeamsRow> {
-  return numberColumn(key, label, calcOwn, calcOpp, perspective, (v) => formatPct(v), (v) => `${formatSigned(v * 100, 1)}%`);
+  return numberColumn(
+    key,
+    label,
+    calcOwn,
+    calcOpp,
+    perspective,
+    (v) => formatPct(v),
+    (v) => `${formatSigned(v * 100, 1)}%`,
+    ownHigherIsBetter,
+  );
 }
 
 function pct100Column(
@@ -320,8 +347,18 @@ function pct100Column(
   calcOwn: (t: TeamTotals) => number,
   calcOpp: (t: TeamTotals) => number,
   perspective: TeamPerspective,
+  ownHigherIsBetter = true,
 ): Column<AllTeamsRow> {
-  return numberColumn(key, label, calcOwn, calcOpp, perspective, (v) => formatPct100(v), (v) => `${formatSigned(v, 1)}%`);
+  return numberColumn(
+    key,
+    label,
+    calcOwn,
+    calcOpp,
+    perspective,
+    (v) => formatPct100(v),
+    (v) => `${formatSigned(v, 1)}%`,
+    ownHigherIsBetter,
+  );
 }
 
 function decimalColumn(
@@ -331,8 +368,18 @@ function decimalColumn(
   calcOpp: (t: TeamTotals) => number,
   perspective: TeamPerspective,
   digits = 1,
+  ownHigherIsBetter = true,
 ): Column<AllTeamsRow> {
-  return numberColumn(key, label, calcOwn, calcOpp, perspective, (v) => formatDecimal(v, digits), (v) => formatSigned(v, digits));
+  return numberColumn(
+    key,
+    label,
+    calcOwn,
+    calcOpp,
+    perspective,
+    (v) => formatDecimal(v, digits),
+    (v) => formatSigned(v, digits),
+    ownHigherIsBetter,
+  );
 }
 
 function signedColumn(
@@ -396,11 +443,11 @@ export function buildTraditionalColumns(mode: SeasonDisplayMode, perspective: Te
     countColumn("dr", "DR", (t) => t.dreb, (t) => t.oppDreb, mode, perspective),
     countColumn("tr", "TR", (t) => t.reb, (t) => t.oppOreb + t.oppDreb, mode, perspective),
     countColumn("ast", "AST", (t) => t.ast, (t) => t.oppAst, mode, perspective),
-    countColumn("tov", "TOV", (t) => t.tov, (t) => t.oppTov, mode, perspective),
+    countColumn("tov", "TOV", (t) => t.tov, (t) => t.oppTov, mode, perspective, { higherIsBetter: false }),
     decimalColumn("asttov", "AST/TOV", (t) => safeDiv(t.ast, t.tov), (t) => safeDiv(t.oppAst, t.oppTov), perspective),
     countColumn("stl", "STL", (t) => t.stl, (t) => t.oppStl, mode, perspective),
     countColumn("blk", "BLK", (t) => t.blk, (t) => t.oppBlk, mode, perspective),
-    countColumn("f", "F", (t) => t.pf, (t) => t.oppPf, mode, perspective),
+    countColumn("f", "F", (t) => t.pf, (t) => t.oppPf, mode, perspective, { higherIsBetter: false }),
     countColumn("fd", "FD", (t) => t.fd, (t) => t.oppFd, mode, perspective),
     countColumn("plusminus", "+/-", (t) => t.pts - t.oppPts, (t) => t.oppPts - t.pts, mode, perspective, { signed: true }),
   ];
@@ -408,7 +455,14 @@ export function buildTraditionalColumns(mode: SeasonDisplayMode, perspective: Te
 
 export function buildAdvancedColumns(mode: SeasonDisplayMode, perspective: TeamPerspective): Column<AllTeamsRow>[] {
   return [
-    pct100Column("tovpct", "TOV%", (t) => tovPct(t.tov, t.fga, t.fta), (t) => tovPct(t.oppTov, t.oppFga, t.oppFta), perspective),
+    pct100Column(
+      "tovpct",
+      "TOV%",
+      (t) => tovPct(t.tov, t.fga, t.fta),
+      (t) => tovPct(t.oppTov, t.oppFga, t.oppFta),
+      perspective,
+      false,
+    ),
     pctColumn("ftr", "FTR", (t) => ftRate(t.fta, t.fga), (t) => ftRate(t.oppFta, t.oppFga), perspective),
     pct100Column("orbpct", "OR%", (t) => orbPct(t.oreb, t.oppDreb), (t) => orbPct(t.oppOreb, t.dreb), perspective),
     pctColumn(
@@ -438,8 +492,16 @@ export function buildAdvancedColumns(mode: SeasonDisplayMode, perspective: TeamP
       sortValue: (r) => pace(r.totals.poss, r.totals.min),
       format: (r) => formatDecimal(pace(r.totals.poss, r.totals.min)),
     },
-    decimalColumn("ortg", "ORtg", (t) => offensiveRating(t.pts, t.poss), (t) => offensiveRating(t.oppPts, t.poss), perspective),
-    decimalColumn("drtg", "DRtg", (t) => offensiveRating(t.oppPts, t.poss), (t) => offensiveRating(t.pts, t.poss), perspective),
+    decimalColumn("ortg", "ORtg", (t) => offensiveRating(t.pts, t.poss), (t) => offensiveRating(t.oppPts, t.poss), perspective, 1),
+    decimalColumn(
+      "drtg",
+      "DRtg",
+      (t) => offensiveRating(t.oppPts, t.poss),
+      (t) => offensiveRating(t.pts, t.poss),
+      perspective,
+      1,
+      false,
+    ),
     signedColumn(
       "netrtg",
       "NetRtg",
@@ -457,9 +519,13 @@ export function buildMiscColumns(mode: SeasonDisplayMode, perspective: TeamPersp
     countColumn("2ndpts", "2ND PTS", (t) => t.pt2nd, (t) => t.oppPt2nd, mode, perspective),
     countColumn("ptsofftov", "PTSOFFTO", (t) => t.pft, (t) => t.oppPft, mode, perspective),
     countColumn("dunk", "DUNK", (t) => t.dunks, (t) => t.oppDunks, mode, perspective),
-    countColumn("tf", "TF", (t) => t.technicalFouls, (t) => t.oppTechnicalFouls, mode, perspective),
-    countColumn("ufoul", "UFOUL", (t) => t.unsportsmanlikeFouls, (t) => t.oppUnsportsmanlikeFouls, mode, perspective),
-    countColumn("dqfoul", "DQFOUL", (t) => t.disqualifyingFouls, (t) => t.oppDisqualifyingFouls, mode, perspective),
+    countColumn("tf", "TF", (t) => t.technicalFouls, (t) => t.oppTechnicalFouls, mode, perspective, { higherIsBetter: false }),
+    countColumn("ufoul", "UFOUL", (t) => t.unsportsmanlikeFouls, (t) => t.oppUnsportsmanlikeFouls, mode, perspective, {
+      higherIsBetter: false,
+    }),
+    countColumn("dqfoul", "DQFOUL", (t) => t.disqualifyingFouls, (t) => t.oppDisqualifyingFouls, mode, perspective, {
+      higherIsBetter: false,
+    }),
     countColumn("and1", "AND1", (t) => t.basketCounts, (t) => t.oppBasketCounts, mode, perspective),
     countColumn("ast2m", "AST2M", (t) => t.assisted2m, (t) => t.oppAssisted2m, mode, perspective),
     countColumn("ast3m", "AST3M", (t) => t.assisted3m, (t) => t.oppAssisted3m, mode, perspective),
