@@ -62,6 +62,8 @@ export type { SeasonGameTypeFilter } from "../../shared/gameType";
 
 export interface PlayerSeasonRawTotals {
   gamesPlayed: number;
+  /** スタメン出場試合数（PlayerGameLog.isStarter/ボックススコアのStartingFlgが真の試合数）*/
+  gamesStarted: number;
   min: number;
   pts: number;
   fgm: number;
@@ -108,6 +110,7 @@ export interface PlayerSeasonRawTotals {
 
 const EMPTY_RAW_TOTALS: PlayerSeasonRawTotals = {
   gamesPlayed: 0,
+  gamesStarted: 0,
   min: 0,
   pts: 0,
   fgm: 0,
@@ -156,6 +159,7 @@ export function sumPlayerGameLogs(logs: PlayerGameLog[]): PlayerSeasonRawTotals 
   return played.reduce<PlayerSeasonRawTotals>(
     (acc, g) => ({
       gamesPlayed: acc.gamesPlayed + 1,
+      gamesStarted: acc.gamesStarted + (g.isStarter ? 1 : 0),
       min: acc.min + g.min,
       pts: acc.pts + g.pts,
       fgm: acc.fgm + g.fgm,
@@ -309,6 +313,7 @@ export function modeFactor(raw: PlayerSeasonRawTotals, mode: SeasonDisplayMode):
 function scaleTotals(raw: PlayerSeasonRawTotals, factor: number): PlayerSeasonRawTotals {
   return {
     gamesPlayed: raw.gamesPlayed,
+    gamesStarted: raw.gamesStarted,
     min: raw.min * factor,
     pts: raw.pts * factor,
     fgm: raw.fgm * factor,
@@ -674,6 +679,7 @@ export interface SeasonBoxscoreColumn {
 
 export const SEASON_TRADITIONAL_COLUMNS: SeasonBoxscoreColumn[] = [
   { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), value: (c) => c.raw.gamesPlayed, description: "試合数" },
+  { key: "gs", label: "GS", format: (c) => String(c.raw.gamesStarted), value: (c) => c.raw.gamesStarted, description: "スタメン出場試合数" },
   {
     key: "min",
     label: "MIN",
@@ -878,6 +884,7 @@ export const SEASON_TRADITIONAL_COLUMNS: SeasonBoxscoreColumn[] = [
 
 export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
   { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), value: (c) => c.raw.gamesPlayed, description: "試合数" },
+  { key: "gs", label: "GS", format: (c) => String(c.raw.gamesStarted), value: (c) => c.raw.gamesStarted, description: "スタメン出場試合数" },
   {
     key: "min",
     label: "MIN",
@@ -987,6 +994,7 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
 
 export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
   { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), value: (c) => c.raw.gamesPlayed, description: "試合数" },
+  { key: "gs", label: "GS", format: (c) => String(c.raw.gamesStarted), value: (c) => c.raw.gamesStarted, description: "スタメン出場試合数" },
   {
     key: "min",
     label: "MIN",
@@ -1111,6 +1119,7 @@ function shotChartValue(c: SeasonBoxscoreCtx, raw: number): number {
 
 export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
   { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), value: (c) => c.raw.gamesPlayed, description: "試合数" },
+  { key: "gs", label: "GS", format: (c) => String(c.raw.gamesStarted), value: (c) => c.raw.gamesStarted, description: "スタメン出場試合数" },
   {
     key: "min",
     label: "MIN",
@@ -1501,6 +1510,9 @@ export interface GamePeriodTotals {
   own: BoxscoreCounts;
   opp: BoxscoreCounts;
   poss: number;
+  /** その試合でスタメン出場だったか（期間範囲の選択に関わらず試合全体で決まる値。29章・
+   * 60-4章のDD/TD判定と同じ「常に試合全体で判定する」方針） */
+  isStarter: boolean;
 }
 
 /**
@@ -1520,7 +1532,7 @@ export function computeGamePeriodTotals(
   const players = buildPlayerBoxscores(ownRows, option, game.raw.PlayByPlays, []);
   const player = players.find((p) => p.playerId === playerId);
   if (!player) return null;
-  return { player: player.counts, own, opp, poss };
+  return { player: player.counts, own, opp, poss, isStarter: player.startingFlg === 1 };
 }
 
 /**
@@ -1535,6 +1547,7 @@ export function buildPeriodFilteredRawTotals(contributions: GamePeriodTotals[]):
   team: TeamSeasonRawTotals;
 } {
   const gamesPlayed = contributions.length;
+  const gamesStarted = contributions.filter((c) => c.isStarter).length;
   const playerSum = sumCountsList(contributions.map((c) => c.player));
   const ownSum = sumCountsList(contributions.map((c) => c.own));
   const oppSum = sumCountsList(contributions.map((c) => c.opp));
@@ -1543,6 +1556,7 @@ export function buildPeriodFilteredRawTotals(contributions: GamePeriodTotals[]):
   const raw: PlayerSeasonRawTotals = {
     ...EMPTY_RAW_TOTALS,
     gamesPlayed,
+    gamesStarted,
     min: playerSum.minSec / 60,
     pts: playerSum.pts,
     fgm: playerSum.pt2m + playerSum.pt3m,

@@ -171,6 +171,13 @@ const gamesColumn: Column<PlayerRow> = {
   format: (r) => String(r.player.gamesPlayed),
 };
 
+const gamesStartedColumn: Column<PlayerRow> = {
+  key: "gs",
+  label: "GS",
+  sortValue: (r) => r.player.gamesStarted,
+  format: (r) => String(r.player.gamesStarted),
+};
+
 function buildMinColumn(mode: SeasonDisplayMode): Column<PlayerRow> {
   return {
     key: "min",
@@ -191,7 +198,7 @@ function buildPtsColumn(mode: SeasonDisplayMode): Column<PlayerRow> {
 
 // 登録区分・身長・体重は絞り込みフィルタとしては使うが、一覧の列としては全カテゴリタブとも
 // 表示しない（ユーザー依頼、2026-09-04）
-const LEADING_COLUMNS: Column<PlayerRow>[] = [nameColumn, teamColumn, gamesColumn];
+const LEADING_COLUMNS: Column<PlayerRow>[] = [nameColumn, teamColumn, gamesColumn, gamesStartedColumn];
 
 // シチュエーション別フィルタ選択時（ctxベースの列に切り替わる）用の先頭列。G/MIN/PTSは
 // SEASON_*_COLUMNS自体が既に含んでいるため、ここでは選手名・チームのみ持つ
@@ -1118,6 +1125,7 @@ const MIN_GAMES_FOR_PLAYER_RECENT_FORM: Record<PlayerRecentFormRecentN, number> 
 interface PlayerRecentFormRow {
   player: PlayerSummary;
   gamesPlayed: number;
+  gamesStarted: number;
   minAvg: number;
   ptsAvg: number;
   rebAvg: number;
@@ -1240,6 +1248,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
         return {
           player,
           gamesPlayed,
+          gamesStarted: recentLogs.filter((g) => g.isStarter).length,
           minAvg: safeDiv(sum((g) => g.min), gamesPlayed),
           ptsAvg: safeDiv(ptsSum, gamesPlayed),
           rebAvg: safeDiv(sum((g) => g.reb), gamesPlayed),
@@ -1281,6 +1290,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
       format: (r) => teamShortName(r.player.teamId, r.player.teamName),
     },
     { key: "g", label: "G", sortValue: (r) => r.gamesPlayed, format: (r) => String(r.gamesPlayed) },
+    { key: "gs", label: "GS", sortValue: (r) => r.gamesStarted, format: (r) => String(r.gamesStarted) },
     {
       key: "min",
       label: "MIN",

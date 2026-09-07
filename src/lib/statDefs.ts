@@ -5,6 +5,7 @@
 import type { PlayerSummary, TeamSummary } from "../../shared/types";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { safeDiv } from "../../shared/formulas";
+import { formatMinutesFromSeconds } from "./boxscoreAggregate";
 
 export type StatSource = "official" | "nba" | "custom";
 
@@ -352,7 +353,7 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     key: "min",
     label: "MIN",
     value: (p) => p.perGame.min,
-    format: (p) => formatDecimal(p.perGame.min),
+    format: (p) => formatMinutesFromSeconds(Math.round(p.perGame.min * 60)),
     formulaText: "出場時間（ボックススコア）",
     source: "official",
     officialAbbr: "MIN",

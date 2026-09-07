@@ -537,6 +537,7 @@ function rawTotalsFromPlayerSummary(p: PlayerSummary): PlayerSeasonRawTotals {
   const t = p.totals;
   return {
     gamesPlayed: t.gamesPlayed,
+    gamesStarted: t.gamesStarted,
     min: t.min,
     pts: t.pts,
     fgm: t.fgm,
