@@ -74,6 +74,7 @@ import {
 } from "../lib/situational";
 import { isWednesdayGame, isWeekdayGame } from "../lib/japaneseHolidays";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
+import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { safeDiv } from "../../shared/formulas";
 import {
   CAREER_TOTAL_DEFS,
@@ -286,7 +287,8 @@ function ForcedTurnoversTable({ forced, committed }: { forced: TeamForcedTurnove
 
 // 「チーム内リーダー」（Phase H3②）。ホーム画面の「シーズンスタッツリーダー」個人モードと
 // 同じ構成（各項目トップ5・1位のみ写真付き）・同じ12項目をチームの選手のみに絞って表示する。
-// 表示条件（ランキング掲載基準）は後日設定するとのことのため、今回は基準なし（全選手対象）
+// 掲載基準はランキングページ選手版と同じ出場率85%以上＋3P%等の試投数基準
+// （src/lib/playerRankingEligibility.ts、2026-09にホーム画面リーダーと合わせて適用）
 const TEAM_INTERNAL_LEADER_STAT_KEYS = ["pts", "reb", "ast", "blk", "stl", "fgPct", "tpPct", "twoPct", "ftPct", "min", "efgPct", "per"];
 const TEAM_LEADERS_TOP_N = 5;
 
@@ -2941,7 +2943,15 @@ export function TeamDetailPage({ season }: { season: string }) {
               {TEAM_INTERNAL_LEADER_STAT_KEYS.map((key) => {
                 const def = PLAYER_STAT_DEFS.find((d) => d.key === key);
                 if (!def) return null;
-                const top = [...teamLeadersPool].sort((a, b) => def.value(b) - def.value(a)).slice(0, TEAM_LEADERS_TOP_N);
+                const extraThreshold = EXTRA_ELIGIBILITY_RULES[key]?.defaultValue ?? 0;
+                const eligiblePool = filterEligiblePlayers(
+                  teamLeadersPool,
+                  teams ?? [],
+                  MIN_GAMES_PLAYED_RATIO_FOR_RANKING,
+                  key,
+                  extraThreshold,
+                );
+                const top = [...eligiblePool].sort((a, b) => def.value(b) - def.value(a)).slice(0, TEAM_LEADERS_TOP_N);
                 const leader = top[0];
                 if (!leader) return null;
                 return (

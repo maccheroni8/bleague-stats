@@ -2,7 +2,8 @@ import { useState } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGameSummaries, fetchPlayers, fetchStandingsHistory, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, filterPlayersByGamesPlayedRatio, type StatDef } from "../lib/statDefs";
+import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
+import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDateHeading } from "../lib/format";
@@ -44,39 +45,15 @@ function recentFinishedGames(summaries: GameSummary[]): GameSummary[] {
     .slice(0, RECENT_GAMES_COUNT);
 }
 
-// ⚠️ 暫定対応（2026-08-17、応急処置）: シュート系%スタッツは試投数が極端に少ないと
-// （例: シーズン通算1本だけ試投して成功＝100%）異常値がリーダーの1位に出てしまう。
-// ランキングページ本体には2026-09にスライダーで調整できる正式な掲載基準
-// （src/lib/playerRankingEligibility.ts）が実装されたが、ホーム画面のリーダー表示は
-// スライダーUIを持たない簡易な一覧のため、この定数によるその場しのぎの足切りをそのまま
-// 使い続けている（ランキングページ本体（RankingsPage.tsx）には一切適用しない）
-const HOME_MIN_ATTEMPTS_TEMP = 5;
-
-/** 上記の暫定対応: statKeyに応じた「試投数」を返す（対象外のスタッツはnull） */
-function attemptsForStatTemp(p: PlayerSummary, statKey: string): number | null {
-  switch (statKey) {
-    case "fgPct":
-    case "efgPct":
-      return p.totals.fga;
-    case "tpPct":
-      return p.totals.tpa;
-    case "twoPct":
-      return p.totals.fga - p.totals.tpa;
-    case "ftPct":
-      return p.totals.fta;
-    default:
-      return null;
-  }
-}
-
 /** DRtg・失点のようにhigherIsBetter=falseの項目は昇順（数値が小さい方が上位）でソートする */
 function compareByStat<T>(def: StatDef<T>, a: T, b: T): number {
   return def.higherIsBetter === false ? def.value(a) - def.value(b) : def.value(b) - def.value(a);
 }
 
 /**
- * ランキングページ選手版と同じ85%出場ルール（PERのみ適用。statDefs.tsのminMinutesForRankingは
- * 廃止されたため、filterPlayersByGamesPlayedRatioに統合した。2026-09）を適用してから上位N人を返す
+ * ランキングページ選手版と同じ掲載基準（出場率85%以上＋3P%等の試投数基準、
+ * src/lib/playerRankingEligibility.ts）を適用してから上位N人を返す（2026-09、全項目に適用）。
+ * 閾値はスライダーを持たないため、EXTRA_ELIGIBILITY_RULESのdefaultValueをそのまま使う
  */
 function topPlayersForStat(
   players: PlayerSummary[],
@@ -84,14 +61,9 @@ function topPlayersForStat(
   def: StatDef<PlayerSummary>,
   count: number,
 ): PlayerSummary[] {
-  const pool = def.key === "per" ? filterPlayersByGamesPlayedRatio(players, teams) : players;
-  return [...pool]
-    .filter((p) => {
-      const attempts = attemptsForStatTemp(p, def.key);
-      return attempts === null || attempts >= HOME_MIN_ATTEMPTS_TEMP;
-    })
-    .sort((a, b) => compareByStat(def, a, b))
-    .slice(0, count);
+  const extraThreshold = EXTRA_ELIGIBILITY_RULES[def.key]?.defaultValue ?? 0;
+  const pool = filterEligiblePlayers(players, teams, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, def.key, extraThreshold);
+  return [...pool].sort((a, b) => compareByStat(def, a, b)).slice(0, count);
 }
 
 function topTeamsForStat(teams: TeamSummary[], def: StatDef<TeamSummary>, count: number): TeamSummary[] {
