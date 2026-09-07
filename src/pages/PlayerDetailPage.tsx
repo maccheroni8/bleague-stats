@@ -47,7 +47,7 @@ import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { bleaguePlayerUrl } from "../lib/externalLinks";
-import { formatDecimal, formatPct, formatSigned } from "../lib/format";
+import { formatDecimal, formatPct, formatSigned, formatWinPct } from "../lib/format";
 import { formatMinutesFromSeconds, astToTovRatio } from "../lib/boxscoreAggregate";
 import { buildShotTypeBreakdown, shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { ShotChartPanel } from "../components/ShotChart";
@@ -90,6 +90,7 @@ import {
   buildBackToBackStatus,
   buildGameTeamsByScheduleKey,
   buildRecordsBeforeGame,
+  computeOpponentWinPctAvg,
   computePlayerSituationalStats,
   computeSeasonHalfBoundary,
   filterGameLogs,
@@ -499,6 +500,9 @@ interface SituationalStatsRow {
   isCombined: boolean;
   /** シューティングタブ用: この行に属する試合ログ（scheduleKey列挙のみに使う） */
   logs: PlayerGameLog[];
+  /** この行に属する試合の、対戦相手の「その試合時点までの」勝率の単純平均（相手の強さの目安）。
+   * buildRecordsBeforeGame()の結果が無い、または算出対象の試合が0件ならundefined */
+  oppWinPctAvg: number | undefined;
   /** シューティングタブ選択時のみ、この行に属する試合のショットから組み立てる */
   breakdown?: ShotTypeBreakdown;
 }
@@ -1402,14 +1406,45 @@ export function PlayerDetailPage({ season }: { season: string }) {
       player.playerId,
       situationalStatsPeriodOption,
       periodRawGames,
-    ).map((r) => ({ key: r.key, label: rowLabel, teamLabel: r.teamLabel, teamId: r.teamId, ctx: r.ctx, isCombined: r.isCombined, logs: r.logs }));
+    ).map((r) => ({
+      key: r.key,
+      label: rowLabel,
+      teamLabel: r.teamLabel,
+      teamId: r.teamId,
+      ctx: r.ctx,
+      isCombined: r.isCombined,
+      logs: r.logs,
+      oppWinPctAvg: computeOpponentWinPctAvg(r.logs, situationalStatsOpponentRecords),
+    }));
   };
 
   const situationalStatsMonthsWithData = new Set(
     situationalStatsScopedLogs.filter((g) => g.min > 0).map((g) => Number(g.date.slice(5, 7))),
   );
 
+  const situationalStatsPlayedLogs = situationalStatsScopedLogs.filter((g) => g.min > 0);
+  const situationalStatsRecentKeys = new Map(
+    [5, 10].map((n) => [n, new Set(situationalStatsPlayedLogs.slice(-n).map((g) => g.scheduleKey))] as const),
+  );
+
   const situationalStatsGroupDefs: SituationalStatsGroupDef[] = [
+    {
+      key: "result",
+      label: "勝敗",
+      rows: [
+        { key: "win", label: "勝った試合", predicate: (g) => g.win },
+        { key: "loss", label: "負けた試合", predicate: (g) => !g.win },
+      ],
+    },
+    {
+      key: "recent",
+      label: "直近試合",
+      rows: [5, 10].map((n) => ({
+        key: `recent${n}`,
+        label: `直近${n}試合`,
+        predicate: (g: PlayerGameLog) => situationalStatsRecentKeys.get(n)?.has(g.scheduleKey) ?? false,
+      })),
+    },
     {
       key: "venue",
       label: "会場",
@@ -1544,6 +1579,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
         return row.label;
       case "team":
         return row.teamLabel;
+      case "oppWinPct":
+        return row.oppWinPctAvg ?? -1;
       default: {
         if (situationalStatsTab === "shooting") {
           const col = situationalStatsShotColumns.find((c) => c.key === key);
@@ -1836,6 +1873,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     >
                       チーム{situationalStatsSortIndicator("team")}
                     </th>
+                    <th
+                      className="align-right sortable-col"
+                      title="対戦相手の「その試合時点までの」勝率の単純平均。相手の強さの目安"
+                      onClick={() => handleSituationalStatsHeaderClick("oppWinPct")}
+                      aria-sort={situationalStatsSortAria("oppWinPct")}
+                    >
+                      対戦相手勝率{situationalStatsSortIndicator("oppWinPct")}
+                    </th>
                     {(situationalStatsTab === "shooting" ? situationalStatsShotColumns : SEASON_BOX_COLUMNS[situationalStatsTab]).map(
                       (col) => (
                         <th
@@ -1859,7 +1904,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                         <td
                           colSpan={
                             (situationalStatsTab === "shooting" ? situationalStatsShotColumns : SEASON_BOX_COLUMNS[situationalStatsTab])
-                              .length + 2
+                              .length + 3
                           }
                         >
                           {group.label}
@@ -1876,6 +1921,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
                             ) : (
                               row.teamLabel
                             )}
+                          </td>
+                          <td className="align-right">
+                            {row.oppWinPctAvg !== undefined ? formatWinPct(row.oppWinPctAvg) : "-"}
                           </td>
                           {situationalStatsTab === "shooting"
                             ? situationalStatsShotColumns.map((col) => (
@@ -1906,6 +1954,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
             </h3>
             {situationalGroupsLegendExpanded && (
             <dl>
+              <dt>勝敗</dt>
+              <dd>勝った試合／負けた試合を分けて集計します。</dd>
+              <dt>直近試合</dt>
+              <dd>選択中のシーズン・レギュラー/プレーオフ絞り込みの範囲内で、直近5試合／直近10試合を分けて集計します。</dd>
               <dt>会場</dt>
               <dd>ホーム開催／アウェイ開催の試合を分けて集計します。</dd>
               <dt>地区</dt>
@@ -1930,6 +1982,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </dd>
               <dt>相手チーム外国籍人数</dt>
               <dd>上記を相手チーム視点で見た成績です。</dd>
+              <dt>対戦相手勝率</dt>
+              <dd>
+                その行に属する各試合について、対戦相手の「その試合時点までの」勝率を求め単純平均した値です
+                （対戦相手の強さの目安。対勝率別フィルタと同じbuildRecordsBeforeGame()を再利用）。
+              </dd>
             </dl>
             )}
           </div>

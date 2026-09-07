@@ -187,6 +187,25 @@ export function buildRecordsBeforeGame(games: GameSummary[]): Map<string, Map<st
   return result;
 }
 
+/**
+ * 対戦相手の「その試合時点までの」勝率の単純平均（＝加重平均勝率。48-5章で「直近成績」タブに
+ * 導入した算出方式をそのまま切り出した共通ヘルパー。PlayersListPage/TeamsListPageの
+ * 「直近成績」タブ・個人/チーム詳細ページの「シチュエーション別成績」いずれからも同じ
+ * buildRecordsBeforeGame()の結果を再利用する）。消化試合数が0の対戦（シーズン序盤の初戦等）は
+ * 除外する。算出対象の試合が1件も無ければundefined（表示側は「-」にする）
+ */
+export function computeOpponentWinPctAvg<T extends { scheduleKey: string; opponentTeamId: string }>(
+  games: T[],
+  opponentRecords: Map<string, Map<string, RecordBeforeGame>> | undefined,
+): number | undefined {
+  const oppWinPcts = games.flatMap((g) => {
+    const rec = opponentRecords?.get(g.scheduleKey)?.get(g.opponentTeamId);
+    if (!rec || rec.wins + rec.losses === 0) return [];
+    return [safeDiv(rec.wins, rec.wins + rec.losses)];
+  });
+  return oppWinPcts.length > 0 ? safeDiv(oppWinPcts.reduce((s, v) => s + v, 0), oppWinPcts.length) : undefined;
+}
+
 export type BackToBackGame = "GAME1" | "GAME2";
 
 function daysBetweenDates(d1: string, d2: string): number {

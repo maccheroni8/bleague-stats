@@ -30,6 +30,7 @@ import { SeasonLink } from "../components/SeasonLink";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import {
   buildRecordsBeforeGame,
+  computeOpponentWinPctAvg,
   filterGameLogs,
   type RecordBeforeGame,
   type SituationalFilter,
@@ -997,15 +998,7 @@ function RecentFormTab({ season }: { season: string }) {
       const oppPtsAvg = safeDiv(oppPtsSum, gamesPlayed);
       const ortg = offensiveRating(ptsSum, possSum);
       const drtg = offensiveRating(oppPtsSum, possSum);
-      // 各対戦相手の「その試合時点までの」勝率を求め、単純平均する。対戦相手の消化試合数が
-      // 0（記録が無い、または未消化）の試合は対象外にする（48-5章の対勝率別フィルタと同様、
-      // 0試合を勝率0扱いにすると不当に低く出てしまうため）
-      const oppWinPcts = recentLogs.flatMap((g) => {
-        const rec = opponentRecords?.get(g.scheduleKey)?.get(g.opponentTeamId);
-        if (!rec || rec.wins + rec.losses === 0) return [];
-        return [safeDiv(rec.wins, rec.wins + rec.losses)];
-      });
-      const oppWinPctAvg = oppWinPcts.length > 0 ? safeDiv(oppWinPcts.reduce((s, v) => s + v, 0), oppWinPcts.length) : undefined;
+      const oppWinPctAvg = computeOpponentWinPctAvg(recentLogs, opponentRecords);
       return {
         team,
         gamesPlayed,

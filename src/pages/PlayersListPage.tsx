@@ -31,7 +31,14 @@ import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/for
 import { astToTovRatio, formatAstToRatio, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { efgPct, eff, safeDiv, tovPct, tsPct } from "../../shared/formulas";
 import { teamShortName } from "../../shared/teamNames";
-import { buildRecordsBeforeGame, filterGameLogs, isDefaultFilter, type RecordBeforeGame, type SituationalFilter } from "../lib/situational";
+import {
+  buildRecordsBeforeGame,
+  computeOpponentWinPctAvg,
+  filterGameLogs,
+  isDefaultFilter,
+  type RecordBeforeGame,
+  type SituationalFilter,
+} from "../lib/situational";
 import { CLASSIFICATION_OPTIONS, matchesClassificationFilter, toggleInSet } from "../lib/classificationFilter";
 import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
@@ -1238,13 +1245,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
           },
           gamesPlayed,
         );
-        const oppWinPcts = recentLogs.flatMap((g) => {
-          const rec = opponentRecords?.get(g.scheduleKey)?.get(g.opponentTeamId);
-          if (!rec || rec.wins + rec.losses === 0) return [];
-          return [safeDiv(rec.wins, rec.wins + rec.losses)];
-        });
-        const oppWinPctAvg =
-          oppWinPcts.length > 0 ? safeDiv(oppWinPcts.reduce((s, v) => s + v, 0), oppWinPcts.length) : undefined;
+        const oppWinPctAvg = computeOpponentWinPctAvg(recentLogs, opponentRecords);
         return {
           player,
           gamesPlayed,

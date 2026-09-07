@@ -60,6 +60,7 @@ import {
   buildBackToBackStatus,
   buildGameTeamsByScheduleKey,
   buildRecordsBeforeGame,
+  computeOpponentWinPctAvg,
   filterGameLogs,
   isDefaultFilter,
   matchesDivision,
@@ -1529,6 +1530,9 @@ interface TeamSituationalStatsRow {
   boxTotals: TeamGameBoxTotals;
   /** シューティングタブ用: この行に属する試合のscheduleKey一覧 */
   scheduleKeys: string[];
+  /** この行に属する試合の、対戦相手の「その試合時点までの」勝率の単純平均（相手の強さの目安）。
+   * buildRecordsBeforeGame()の結果が無い、または算出対象の試合が0件ならundefined */
+  oppWinPctAvg: number | undefined;
 }
 interface TeamSituationalStatsGroup {
   key: string;
@@ -2547,7 +2551,28 @@ export function TeamDetailPage({ season }: { season: string }) {
   const situationalTeamMonthsWithData = new Set(
     situationalTeamScopedLogs.filter((g) => g.min > 0).map((g) => Number(g.date.slice(5, 7))),
   );
+  const situationalTeamPlayedLogs = situationalTeamScopedLogs.filter((g) => g.min > 0);
+  const situationalTeamRecentKeys = new Map(
+    [5, 10].map((n) => [n, new Set(situationalTeamPlayedLogs.slice(-n).map((g) => g.scheduleKey))] as const),
+  );
   const situationalTeamGroupDefs: TeamSituationalGroupDef[] = [
+    {
+      key: "result",
+      label: "勝敗",
+      rows: [
+        { key: "win", label: "勝った試合", predicate: (g) => g.win },
+        { key: "loss", label: "負けた試合", predicate: (g) => !g.win },
+      ],
+    },
+    {
+      key: "recent",
+      label: "直近試合",
+      rows: [5, 10].map((n) => ({
+        key: `recent${n}`,
+        label: `直近${n}試合`,
+        predicate: (g: TeamGameLog) => situationalTeamRecentKeys.get(n)?.has(g.scheduleKey) ?? false,
+      })),
+    },
     {
       key: "venue",
       label: "会場",
@@ -2655,7 +2680,16 @@ export function TeamDetailPage({ season }: { season: string }) {
           situationalTeamDisplayMode,
         );
         return boxTotals
-          ? [{ key: row.key, label: row.label, gamesPlayed: matched.length, boxTotals, scheduleKeys: matched.map((g) => g.scheduleKey) }]
+          ? [
+              {
+                key: row.key,
+                label: row.label,
+                gamesPlayed: matched.length,
+                boxTotals,
+                scheduleKeys: matched.map((g) => g.scheduleKey),
+                oppWinPctAvg: computeOpponentWinPctAvg(matched, opponentRecords),
+              },
+            ]
           : [];
       }),
     }))
@@ -3561,6 +3595,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                   <tr>
                     <th className="align-left">区分</th>
                     <th className="align-right">試合数</th>
+                    <th className="align-right" title="対戦相手の「その試合時点までの」勝率の単純平均。相手の強さの目安">
+                      対戦相手勝率
+                    </th>
                     {(situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : COLUMNS_BY_TAB[situationalTeamBoxTab]).map(
                       (col) => (
                         <th key={col.key} className="align-right" title={"description" in col ? col.description : undefined}>
@@ -3577,7 +3614,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                         <td
                           colSpan={
                             (situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : COLUMNS_BY_TAB[situationalTeamBoxTab])
-                              .length + 2
+                              .length + 3
                           }
                         >
                           {group.label}
@@ -3587,6 +3624,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                         <tr key={row.key}>
                           <td className="align-left">{row.label}</td>
                           <td className="align-right">{row.gamesPlayed}</td>
+                          <td className="align-right">
+                            {row.oppWinPctAvg !== undefined ? formatWinPct(row.oppWinPctAvg) : "-"}
+                          </td>
                           {situationalTeamBoxTab === "shooting"
                             ? situationalTeamShotColumns.map((col) => (
                                 <td key={col.key} className="align-right">
@@ -3627,6 +3667,10 @@ export function TeamDetailPage({ season }: { season: string }) {
             </h3>
             {situationalTeamLegendExpanded && (
             <dl>
+              <dt>勝敗</dt>
+              <dd>勝った試合／負けた試合を分けて集計します。</dd>
+              <dt>直近試合</dt>
+              <dd>選択中のシーズン・レギュラー/プレーオフ絞り込みの範囲内で、直近5試合／直近10試合を分けて集計します。</dd>
               <dt>会場</dt>
               <dd>ホーム開催／アウェイ開催の試合を分けて集計します。</dd>
               <dt>地区</dt>
@@ -3651,6 +3695,11 @@ export function TeamDetailPage({ season }: { season: string }) {
               </dd>
               <dt>相手チーム外国籍人数</dt>
               <dd>上記を相手チーム視点で見た成績です。</dd>
+              <dt>対戦相手勝率</dt>
+              <dd>
+                その行に属する各試合について、対戦相手の「その試合時点までの」勝率を求め単純平均した値です
+                （対戦相手の強さの目安。対勝率別フィルタと同じbuildRecordsBeforeGame()を再利用）。
+              </dd>
             </dl>
             )}
           </div>
