@@ -565,6 +565,8 @@ export interface PlayerSituationalStats {
   };
   shooting: {
     fgPct: number;
+    /** 2P%。(FGM-3PM)/(FGA-3PA)。2026-09、ランキングページの選手版から利用するため追加 */
+    twoPct: number;
     tpPct: number;
     ftPct: number;
     efgPct: number;
@@ -610,6 +612,7 @@ export function computePlayerSituationalStats(logs: PlayerGameLog[]): PlayerSitu
     },
     shooting: {
       fgPct: safeDiv(totals.fgm, totals.fga),
+      twoPct: safeDiv(totals.fgm - totals.tpm, totals.fga - totals.tpa),
       tpPct: safeDiv(totals.tpm, totals.tpa),
       ftPct: safeDiv(totals.ftm, totals.fta),
       efgPct: efgPct(totals.fgm, totals.tpm, totals.fga),

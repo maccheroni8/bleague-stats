@@ -2,7 +2,7 @@ import { useState } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGameSummaries, fetchPlayers, fetchStandingsHistory, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
+import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, filterPlayersByGamesPlayedRatio, type StatDef } from "../lib/statDefs";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDateHeading } from "../lib/format";
@@ -46,10 +46,10 @@ function recentFinishedGames(summaries: GameSummary[]): GameSummary[] {
 
 // ⚠️ 暫定対応（2026-08-17、応急処置）: シュート系%スタッツは試投数が極端に少ないと
 // （例: シーズン通算1本だけ試投して成功＝100%）異常値がリーダーの1位に出てしまう。
-// ランキングページ全体の掲載基準（複数段階の閾値切り替え等）は別途設計を相談する前提のため、
-// 正式な仕組み（statDefs.tsのminMinutesForRankingのような一般化）は入れず、ホーム画面の
-// リーダー表示だけをその場しのぎで足切りする。ランキングページ本体（RankingsPage.tsx）には
-// 一切適用しない。正式な設計が決まったら、この定数・関数ごと置き換える想定
+// ランキングページ本体には2026-09にスライダーで調整できる正式な掲載基準
+// （src/lib/playerRankingEligibility.ts）が実装されたが、ホーム画面のリーダー表示は
+// スライダーUIを持たない簡易な一覧のため、この定数によるその場しのぎの足切りをそのまま
+// 使い続けている（ランキングページ本体（RankingsPage.tsx）には一切適用しない）
 const HOME_MIN_ATTEMPTS_TEMP = 5;
 
 /** 上記の暫定対応: statKeyに応じた「試投数」を返す（対象外のスタッツはnull） */
@@ -74,10 +74,18 @@ function compareByStat<T>(def: StatDef<T>, a: T, b: T): number {
   return def.higherIsBetter === false ? def.value(a) - def.value(b) : def.value(b) - def.value(a);
 }
 
-/** ランキングページと同じ最低出場時間フィルタ（PERのみ設定される）を適用してから上位N人を返す */
-function topPlayersForStat(players: PlayerSummary[], def: StatDef<PlayerSummary>, count: number): PlayerSummary[] {
-  return [...players]
-    .filter((p) => p.totals.min >= (def.minMinutesForRanking ?? 0))
+/**
+ * ランキングページ選手版と同じ85%出場ルール（PERのみ適用。statDefs.tsのminMinutesForRankingは
+ * 廃止されたため、filterPlayersByGamesPlayedRatioに統合した。2026-09）を適用してから上位N人を返す
+ */
+function topPlayersForStat(
+  players: PlayerSummary[],
+  teams: TeamSummary[],
+  def: StatDef<PlayerSummary>,
+  count: number,
+): PlayerSummary[] {
+  const pool = def.key === "per" ? filterPlayersByGamesPlayedRatio(players, teams) : players;
+  return [...pool]
     .filter((p) => {
       const attempts = attemptsForStatTemp(p, def.key);
       return attempts === null || attempts >= HOME_MIN_ATTEMPTS_TEMP;
@@ -190,7 +198,7 @@ export function HomePage({ season }: { season: string }) {
               {LEADER_STAT_KEYS.map((key) => {
                 const def = PLAYER_STAT_DEFS.find((d) => d.key === key);
                 if (!def) return null;
-                const top = topPlayersForStat(players, def, LEADER_TOP_N);
+                const top = topPlayersForStat(players, teams ?? [], def, LEADER_TOP_N);
                 const leader = top[0];
                 if (!leader) return null;
                 return (

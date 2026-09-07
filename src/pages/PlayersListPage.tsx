@@ -32,6 +32,7 @@ import { astToTovRatio, formatAstToRatio, formatMinutesFromSeconds } from "../li
 import { efgPct, eff, safeDiv, tovPct, tsPct } from "../../shared/formulas";
 import { teamShortName } from "../../shared/teamNames";
 import { buildRecordsBeforeGame, filterGameLogs, isDefaultFilter, type RecordBeforeGame, type SituationalFilter } from "../lib/situational";
+import { CLASSIFICATION_OPTIONS, matchesClassificationFilter, toggleInSet } from "../lib/classificationFilter";
 import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { SEASON_GAME_TYPE_LABELS, type SeasonGameTypeFilter } from "../../shared/gameType";
@@ -396,20 +397,8 @@ function GamesPlayedRatioSlider({
   );
 }
 
-const CLASSIFICATION_OPTIONS: NonNullable<PlayerSummary["classification"]>[] = ["日本人", "外国籍", "帰化選手", "アジア特別枠"];
 const POSITION_OPTIONS = ["PG", "SG", "SF", "PF", "C"] as const;
 const DEFAULT_SITUATIONAL_FILTER: SituationalFilter = { range: { kind: "all" } };
-
-function toggleInSet<T>(set: Set<T>, value: T): Set<T> {
-  const next = new Set(set);
-  if (next.has(value)) next.delete(value);
-  else next.add(value);
-  return next;
-}
-
-function matchesClassificationFilter(p: PlayerSummary, selected: Set<NonNullable<PlayerSummary["classification"]>>): boolean {
-  return selected.size === 0 || (p.classification !== undefined && selected.has(p.classification));
-}
 
 function matchesTeamFilter(p: PlayerSummary, selected: Set<string>): boolean {
   return selected.size === 0 || selected.has(p.teamId);
@@ -1119,9 +1108,9 @@ function AwardEntryRow({
 //
 // 要件4: 出場機会が極端に少ない選手（直近5試合中1試合のみ出場等）が上位に出やすい問題への
 // 対処として、直近N試合中の出場試合数がN/2未満（切り上げ。N=5→3試合未満、N=10→5試合未満）の
-// 選手はランキング対象から除外する。既存のPER・シュート成功率のランキング足切り
-// （statDefs.tsのminMinutesForRanking・MIN_GAMES_PLAYED_RATIO_FOR_RANKING）と同じ考え方を、
-// 「直近N試合」という短い窓に合わせて適用したもの
+// 選手はランキング対象から除外する。ランキングページ本体の掲載基準
+// （statDefs.tsのMIN_GAMES_PLAYED_RATIO_FOR_RANKING）と同じ「出場が少ない選手を除いてから
+// 比較する」考え方を、「直近N試合」という短い窓に合わせて適用したもの
 const RECENT_FORM_N_OPTIONS = [5, 10] as const;
 type PlayerRecentFormRecentN = (typeof RECENT_FORM_N_OPTIONS)[number];
 const MIN_GAMES_FOR_PLAYER_RECENT_FORM: Record<PlayerRecentFormRecentN, number> = { 5: 3, 10: 5 };
