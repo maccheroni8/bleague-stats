@@ -9,6 +9,7 @@ import type { GameSummary, GameType, TeamColors, UpcomingGameEntry } from "../..
 
 type ScheduleStatus = "final" | "live" | "upcoming";
 type ScheduleView = "list" | "calendar";
+type ScheduleStatusFilter = "all" | "upcoming" | "finished";
 
 interface ScheduleRow {
   scheduleKey: string;
@@ -150,13 +151,17 @@ export function SchedulePage({ season }: { season: string }) {
   const [view, setView] = useState<ScheduleView>("list");
   // null = 全チーム選択（絞り込みなし）。個別に外したチームだけをSetで管理する
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string> | null>(null);
+  const [teamFilterExpanded, setTeamFilterExpanded] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState<string | null>(null);
+  // リスト表示のみに適用する試合ステータスの絞り込み（カレンダー表示は月単位のため対象外）
+  const [statusFilter, setStatusFilter] = useState<ScheduleStatusFilter>("all");
 
-  // シーズンが変わったらチームフィルタ・カレンダー月の選択状態をリセットする（前シーズンの
-  // チーム構成・月範囲は引き継がない）
+  // シーズンが変わったらチームフィルタ・カレンダー月・ステータス絞り込みの選択状態をリセットする
+  // （前シーズンのチーム構成・月範囲・絞り込み条件は引き継がない）
   useEffect(() => {
     setSelectedTeamIds(null);
     setCalendarMonth(null);
+    setStatusFilter("all");
   }, [season]);
 
   const teamIdByName = useMemo(() => new Map((teams ?? []).map((t) => [t.teamName, t.teamId])), [teams]);
@@ -181,17 +186,25 @@ export function SchedulePage({ season }: { season: string }) {
     );
   }, [rows, selectedTeamIds]);
 
-  const groups = useMemo(() => groupByDate(filteredRows), [filteredRows]);
+  // ステータス絞り込みはリスト表示のみに適用する（カレンダー表示はfilteredRowsをそのまま使う）。
+  // 進行中（live）の試合はまだ結果が確定していないため「今後の試合」側に含める
+  const listRows = useMemo(() => {
+    if (statusFilter === "all") return filteredRows;
+    if (statusFilter === "upcoming") return filteredRows.filter((r) => r.status === "upcoming" || r.status === "live");
+    return filteredRows.filter((r) => r.status === "final");
+  }, [filteredRows, statusFilter]);
 
-  const months = useMemo(() => [...new Set(filteredRows.map((r) => monthKeyOf(r.date)))].sort(), [filteredRows]);
+  const groups = useMemo(() => groupByDate(listRows), [listRows]);
+
+  const months = useMemo(() => [...new Set(listRows.map((r) => monthKeyOf(r.date)))].sort(), [listRows]);
   const firstDateOfMonth = useMemo(() => {
     const map = new Map<string, string>();
-    for (const row of filteredRows) {
+    for (const row of listRows) {
       const mk = monthKeyOf(row.date);
       if (!map.has(mk)) map.set(mk, row.date);
     }
     return map;
-  }, [filteredRows]);
+  }, [listRows]);
 
   const defaultMonth = useMemo(() => defaultCalendarMonth(rows), [rows]);
   const effectiveMonth = calendarMonth ?? defaultMonth;
@@ -236,18 +249,47 @@ export function SchedulePage({ season }: { season: string }) {
         </div>
       </div>
 
+      {view === "list" && (
+        <div className="schedule-toolbar">
+          <div className="mode-toggle">
+            <button type="button" className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}>
+              すべて
+            </button>
+            <button
+              type="button"
+              className={statusFilter === "upcoming" ? "active" : ""}
+              onClick={() => setStatusFilter("upcoming")}
+            >
+              今後の試合
+            </button>
+            <button
+              type="button"
+              className={statusFilter === "finished" ? "active" : ""}
+              onClick={() => setStatusFilter("finished")}
+            >
+              終了した試合
+            </button>
+          </div>
+        </div>
+      )}
+
       <TeamFilterBlock
         options={teamOptions}
         selected={selectedTeamIds}
+        expanded={teamFilterExpanded}
+        onToggleExpanded={() => setTeamFilterExpanded((v) => !v)}
         onToggle={toggleTeam}
         onSelectAll={() => setSelectedTeamIds(null)}
         onSelectNone={() => setSelectedTeamIds(new Set())}
       />
 
-      {filteredRows.length === 0 ? (
-        <p className="empty-message">選択したチームの試合がありません</p>
-      ) : view === "list" ? (
-        <>
+      {view === "list" ? (
+        listRows.length === 0 ? (
+          <p className="empty-message">
+            {filteredRows.length === 0 ? "選択したチームの試合がありません" : "該当する試合がありません"}
+          </p>
+        ) : (
+          <>
           <div className="schedule-jump-controls">
             <label>
               日付でジャンプ: <input type="date" value={jumpDate} onChange={(e) => handleDateJump(e.target.value)} />
@@ -289,7 +331,10 @@ export function SchedulePage({ season }: { season: string }) {
               </div>
             </section>
           ))}
-        </>
+          </>
+        )
+      ) : filteredRows.length === 0 ? (
+        <p className="empty-message">選択したチームの試合がありません</p>
       ) : (
         <CalendarView
           rows={filteredRows}
@@ -305,40 +350,54 @@ export function SchedulePage({ season }: { season: string }) {
 function TeamFilterBlock({
   options,
   selected,
+  expanded,
+  onToggleExpanded,
   onToggle,
   onSelectAll,
   onSelectNone,
 }: {
   options: { teamId: string; teamName: string }[];
   selected: Set<string> | null;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onToggle: (teamId: string) => void;
   onSelectAll: () => void;
   onSelectNone: () => void;
 }) {
   if (options.length === 0) return null;
+  const selectedCount = selected === null ? options.length : selected.size;
+  const hasActiveFilter = selected !== null && selected.size < options.length;
   return (
     <div className="filter-block schedule-team-filter">
-      <h3>チームで絞り込み</h3>
-      <div className="schedule-team-filter-actions">
-        <button type="button" onClick={onSelectAll}>
-          すべて選択
-        </button>
-        <button type="button" onClick={onSelectNone}>
-          すべて解除
-        </button>
-      </div>
-      <div className="schedule-team-filter-grid">
-        {options.map((t) => {
-          const checked = selected === null || selected.has(t.teamId);
-          return (
-            <label key={t.teamId} className="schedule-team-filter-item">
-              <input type="checkbox" checked={checked} onChange={() => onToggle(t.teamId)} />
-              <TeamLogo teamId={t.teamId} size={18} />
-              {teamShortName(t.teamId, t.teamName)}
-            </label>
-          );
-        })}
-      </div>
+      <h3 className="collapsible-heading" onClick={onToggleExpanded}>
+        {expanded ? "▼ " : "▶ "}
+        チームで絞り込み
+        {hasActiveFilter && `（${selectedCount}/${options.length}チーム選択中）`}
+      </h3>
+      {expanded && (
+        <>
+          <div className="schedule-team-filter-actions">
+            <button type="button" onClick={onSelectAll}>
+              すべて選択
+            </button>
+            <button type="button" onClick={onSelectNone}>
+              すべて解除
+            </button>
+          </div>
+          <div className="schedule-team-filter-grid">
+            {options.map((t) => {
+              const checked = selected === null || selected.has(t.teamId);
+              return (
+                <label key={t.teamId} className="schedule-team-filter-item">
+                  <input type="checkbox" checked={checked} onChange={() => onToggle(t.teamId)} />
+                  <TeamLogo teamId={t.teamId} size={18} />
+                  {teamShortName(t.teamId, t.teamName)}
+                </label>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
