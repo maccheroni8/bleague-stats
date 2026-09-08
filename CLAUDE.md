@@ -35,3 +35,17 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。詳細設計は
   実装済みのページ状態保持（usePageState、ブラウザバック時にフィルタ・タブ選択が維持
   される仕組み）を未適用。同じ理由（フィルタ項目が多い）で価値があるため、着手する際は
   pageStateCache.tsの既存パターンをそのまま流用する
+- 【未対応タスク・要調査】`scripts/lib/legacyGameDetail.ts`の`legacyPeriodScores()`が、
+  一部のlegacy取得試合（2016-17〜2019-20シーズン）で`Game.MaxPeriod`を実際は延長戦なのに
+  `4`のまま誤って報告するケースがある（DESIGN.md 84-3章、Phase H9で発見）。この誤報告により
+  `reconstructOnCourt`が終盤のラインナップスティントを正規時間終了時刻で打ち切ってしまい、
+  結果的に`endSec < startSec`という負の区間長のスティントが発生する（2016-17シーズン557試合中
+  42件で確認済み）。Phase H9では新機能側にだけ対症療法（負の区間長のスティントをスキップ）を
+  入れて回避したが、根本原因（`Game.MaxPeriod`がどういう条件で誤報告されるか）は未調査のまま。
+  **既存の「よく使われるラインナップ」機能（`scripts/aggregate.ts`の`processLineups`、
+  `acc.secondsPlayed += stint.endSec - stint.startSec`）にも同種のガードが無く、同じ負の
+  区間長により出場時間・純得失点・Net Rating（推定）が一部のlegacyシーズンOT試合で
+  わずかに不正確になっている可能性が高い**。着手する際は、まず該当ScheduleKey
+  （2016-17シーズンの例: 297, 360, 401等）の生データで`Game.MaxPeriod`の実際の値を確認し、
+  legacyデータでのOT検出をより信頼できる方法（PlayByPlaysの実際の経過時間範囲、
+  `HomeTeamScore05`以降の非ゼロ判定等）に置き換えることを検討する

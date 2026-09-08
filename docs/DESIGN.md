@@ -6866,3 +6866,110 @@ CLAUDE.mdの運用ルール通りB.PREMIER全11シーズン（2016-17〜2026-27�
 （39名がbleague.jpの`e=全選手`一覧に掲載されていない）によりclassification未定義の選手が
 どちらにも計上されないためで、想定通りの挙動（バグではない）と判断した。型チェック
 （`tsconfig.json`・`tsconfig.scripts.json`とも）通過。ブラウザのコンソールエラー無し。
+
+---
+
+## 84. オンザコート人数（外国籍選手同時出場人数）別出場時間の可視化（Phase H9、2026-09-04）
+
+52章で実装した「外国籍選手同時出場人数別フィルタ」（試合単位の代表バケット値のみ）とは別に、
+チームごとに0/1/2/3人以上の在コート時間シェアを100%積み上げ棒グラフで一覧できる機能を追加した。
+
+### 84-1. スコープの確認（配置先）
+
+依頼文は「チーム詳細ページ（または全チームスタッツ）」と両論併記だったが、「各チームが1本の
+棒になり」という要件はそのままだと複数チームを並べる前提の可視化であり、単一チームしか
+持たないチーム詳細ページには構造的に馴染まない（1チームだけの棒グラフには意味がない）。
+83-1章の「スコープの確認」と異なりこの点は文言から機械的に導けたため、改めてユーザーに
+確認せず「全チームスタッツ」タブ（`TeamsListPage.tsx`）への配置と判断した。
+
+### 84-2. バックエンド集計
+
+52章の`computeForeignPlayerCounts()`（試合単位で最も長い時間を占めたバケットを代表値として
+選ぶだけの実装）を土台に、まず`onCourt.lineupStints`をバケット別在コート秒数のMapへ変換する
+`computeForeignPlayerCourtSeconds()`を切り出した（既存の代表値選定ロジックはこのMapを受け取る
+形に変更しただけで、選定アルゴリズム自体は無変更）。この中間結果をシーズンを通じて
+チームごとに積算し（0/1/2/3人以上の4バケット、3人を超える組み合わせは3人以上に合算）、
+`TeamSummary.foreignPlayerCourtSeconds: [number, number, number, number]`として新規公開した
+（レギュラーシーズンのみ集計、既存の`benchPoints`等と同じ方針）。
+
+### 84-3. 発見・修正した既存バグ: legacy取得のOT試合で在コート区間が負の長さになるケース
+
+実装中、2016-17シーズンのteams.json.gzを検算していたところ、京都ハンナリーズ・
+レバンガ北海道の`foreignPlayerCourtSeconds[0]`が負の値（-212, -456）になっている不具合を
+発見した。`shared/onCourt.ts`の`reconstructOnCourt`・`scripts/aggregate.ts`単体には手を
+入れておらず、2016-17シーズン全体（557試合）を独立に`reconstructOnCourt`へ通して調査した
+ところ、**42件のラインナップスティントで`endSec < startSec`（負の区間長）**が発生している
+ことを突き止めた。全件で`endSec`がちょうど`totalGameSeconds(4)`（延長無しの正規時間終了、
+2400秒）に固定されている一方、`startSec`はそれより大きい値になっていた。
+
+原因は`scripts/lib/legacyGameDetail.ts`の`legacyPeriodScores()`（2-7章で「legacyデータでは
+`Game.MaxPeriod`が実際のピリオド数を正しく反映している」という前提で実装済み）が、
+一部の延長戦試合で`Game.MaxPeriod`を`4`のまま誤って報告するケースがあり、
+`scripts/aggregate.ts`の呼び出し元がこれを試合の総ピリオド数として`reconstructOnCourt`の
+`gameEnd`算出に使ってしまうため、実際には延長で試合が続いているのに正規時間終了時刻で
+最後のスティントを打ち切ってしまう、というものだった（2-7章の「4試合のみのサンプル検証」に
+基づく前提が、557試合全体では必ずしも成立しないケースがあったことが今回判明した）。
+
+この負の区間長は、既存の「よく使われるラインナップ」（`processLineups`の
+`acc.secondsPlayed += stint.endSec - stint.startSec`）にも同様に影響しうる別件のバグだが、
+深追いはせず、本機能の集計にのみ悪影響が出ないよう`computeForeignPlayerCourtSeconds()`で
+`duration <= 0`のスティントを丸ごとスキップする対症療法を入れた。
+
+**副次的な発見: この修正が既存の`foreignPlayerCount`代表値も是正した**。負の区間長を
+持つスティントは、対症療法を入れる前は該当バケットの合計時間を負に押し下げていたため、
+巻き添えでそのバケットが「代表値（最長時間）」として選ばれなくなる、という形で
+52章の既存フィールド（`TeamGameLog.foreignPlayerCount`/`opponentForeignPlayerCount`・
+`PlayerGameLog.foreignPlayerCount`/`opponentForeignPlayerCount`）の値も一部の試合で
+誤っていたことが分かった。今回の対症療法により、影響を受けていた2016-17〜2019-20の
+legacyシーズン・B.ONE 2025-26シーズン（後者も同種の负区间长が別原因で発生していた）の
+該当試合について、この代表値が正しい値に是正された。
+
+### 84-4. 全シーズン再集計・差分の検証
+
+CLAUDE.mdの運用ルール通りB.PREMIER全11シーズン（2016-17〜2026-27。2026-27は0試合の
+ためno-op）・B.ONE（2025-26）を`npm run aggregate`で再集計した。差分の内訳をPythonで
+decode-compareして機械的に検証した:
+- `teams.json.gz`（全11ファイル）: 新規`foreignPlayerCourtSeconds`フィールドの追加分のみで、
+  他のフィールドに差分が無いことを確認した
+- `player-games/*.json.gz`・`team-games/*.json.gz`（2016-17〜2019-20・B.ONE 2025-26の
+  計380ファイル）: 84-3章の是正により変化した`foreignPlayerCount`/
+  `opponentForeignPlayerCount`フィールドのみに差分が限定されることを確認した
+  （他の全フィールドが一致することを機械的に検証）
+- それ以外の生成ファイル（`players.json`・`standings-history.json`・`head-to-head.json`・
+  `lineups/`・`games-summary.json`等）はgit差分に一切現れなかった
+
+なお、`legacyPeriodScores()`の根本原因（`Game.MaxPeriod`がOT試合で誤って`4`になる条件の
+特定）自体は本フェーズのスコープ外として深追いせず、`processLineups`側の同種の潜在バグとの
+対応も含め、別セッションでの調査・修正をユーザーに提案した（`spawn_task`で提起済み）。
+
+### 84-5. フロントエンド実装
+
+`src/components/ForeignPlayerCourtTimeChart.tsx`を新設し、`TeamsListPage.tsx`の
+「全チームスタッツ」タブに既存の「シューティング」「強制ターンオーバー」と同じ並びで
+「オンザコート人数」ボタン・セクションを追加した（77章で確立済みの「専用タブとして
+既存のトグル群〔シチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-〕
+とは独立させる」パターンを踏襲）。
+
+`recharts`の`BarChart`（`layout="vertical"`、4本の`<Bar>`を`stackId`で積み上げ）を使い、
+チームごとに`foreignPlayerCourtSeconds`をシェア（%）に変換して表示する。3人以上の割合が
+多い順にソートし、ツールチップには各バケットの割合・実際の在コート時間
+（`formatMinutesFromSeconds`）・捕捉できた合計出場時間を表示する。classification不明の
+選手を含むラインナップは集計対象外（51章の「推測しない」方針）のため、注記でその旨を
+明示した。
+
+実装中、`XAxis`の`tickFormatter`が浮動小数点誤差により`"100.00000000000001%"`と表示される
+不具合を発見し、`Math.round()`で丸めて解消した。
+
+### 84-6. 検証
+
+型チェック（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。DOM/SVG属性を直接検証する
+方式（このセッションでは`get_page_text`・`javascript_tool`によるSVG要素の属性読み取りが
+スクリーンショットより安定して機能した。ブラウザペインが人間の画面に表示されていない
+状態だと、`ResponsiveContainer`のレイアウト計測が走らずSVG自体が描画されないことがある
+ため、スクリーンショットでの目視確認ではなく、SVGの`<path>`要素の`x`/`y`/`width`/`fill`
+属性を直接読み取る方式で検証した）で、千葉ジェッツ（2025-26シーズン）の4バケット割合
+（0人1.0%・1人7.1%・2人79.6%・3人以上12.3%）が、`teams.json.gz`を独立にNode.jsで
+decode・計算した値と完全一致することを確認した。26チーム全ての凡例・Y軸ラベル・
+X軸目盛り（0%/30%/60%/100%、丸め修正後）が正しく表示されることも確認した。
+2016-17シーズン（legacy取得）でもエラー無く動作し、84-3章の修正により負の値が
+解消されていることを確認した。コンソールエラー無し（既知の非同期HMR再接続ログを除く）。

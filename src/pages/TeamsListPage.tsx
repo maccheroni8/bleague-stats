@@ -43,6 +43,7 @@ import {
   type SeasonGameTypeFilter,
 } from "../lib/playerSeasonBoxscore";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
+import { ForeignPlayerCourtTimeChart } from "../components/ForeignPlayerCourtTimeChart";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
@@ -221,7 +222,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams);
   const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season);
 
-  const [boxTab, setBoxTab] = useState<BoxscoreTabKey | "shooting" | "forcedTurnovers">("traditional");
+  const [boxTab, setBoxTab] = useState<BoxscoreTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers">(
+    "traditional",
+  );
   const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
   const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
   const [filter, setFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
@@ -251,6 +254,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         return [...LEADING_COLUMNS, ...buildScoringColumns(teamPerspective, paintSupported)];
       case "shooting":
       case "forcedTurnovers":
+      case "foreignPlayers":
         return [];
     }
   }, [boxTab, displayMode, teamPerspective, paintSupported]);
@@ -360,6 +364,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           >
             強制ターンオーバー
           </button>
+          <button
+            className={`tab-button${boxTab === "foreignPlayers" ? " active" : ""}`}
+            onClick={() => setBoxTab("foreignPlayers")}
+            type="button"
+          >
+            オンザコート人数
+          </button>
         </div>
         <div className="mode-toggle">
           {DISPLAY_MODE_OPTIONS.map((m) => (
@@ -425,6 +436,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             </p>
           </>
         )
+      ) : boxTab === "foreignPlayers" ? (
+        <>
+          <ForeignPlayerCourtTimeChart teams={teams ?? []} />
+          <p className="page-subtitle">
+            レギュラーシーズン・シーズン合計の在コート時間ベース（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。国籍区分（classification）が不明な選手を含むラインナップは集計から除外されるため、チームによっては捕捉できた合計出場時間が実際の総出場時間より短くなる場合があります
+          </p>
+        </>
       ) : gameLogsLoading || !gameLogsByTeam ? (
         <p className="loading">読み込み中...</p>
       ) : (

@@ -517,22 +517,31 @@ function buildPaintSplitByPlayer(playByPlays: PlayByPlayEvent[]): { byPlayer: Ma
 }
 
 /**
- * 外国籍選手（外国籍/帰化選手/アジア特別枠の合算）同時出場人数の試合単位代表値
- * （DESIGN.md参照）。onCourt.lineupStints（reconstructOnCourtの戻り値、既に計算済みの
- * ものを再利用しPBP再走査は行わない）を、5人組のうち非日本人の人数でバケット分けし、
- * チームごとに最も長い時間を占めたバケットをその試合の代表値とする（チーム全体の出場時間
- * ベース。特定選手の出場時間には限定しない）。
+ * 外国籍選手（外国籍/帰化選手/アジア特別枠の合算）同時出場人数別に、試合単位でチームごとの
+ * 在コート秒数をバケット分けする（DESIGN.md参照）。onCourt.lineupStints
+ * （reconstructOnCourtの戻り値、既に計算済みのものを再利用しPBP再走査は行わない）を、
+ * 5人組のうち非日本人の人数（バケットキー。0〜5、上限クランプはしない）でバケット分けし、
+ * チーム全体の在コート秒数として積算する（特定選手の出場時間には限定しない）。
  * classificationが不明（players-master.jsonに存在しない選手を含む）な5人組は、
  * どのバケットにも計上せず丸ごと除外する（推測しない方針。DESIGN.md 51章参照）。
- * 対象チームの全スティントが不明だった場合、そのチームはMapに含まれない
- * （呼び出し側は`.get(teamId)`がundefinedになることで「代表値なし」を扱う）
+ * 対象チームの全スティントが不明だった場合、そのチームはMapに含まれない。
+ * ⚠️ 一部のlegacy取得試合（2016-17〜2019-20シーズン）でOTを`legacyPeriodScores()`が
+ * 正しく検出できず（`Game.MaxPeriod`がOT試合でも4のまま報告されるケースを確認）、
+ * `reconstructOnCourt`が終盤のスティントを`gameEnd`（レギュレーション終了時刻）で
+ * 打ち切ってしまい、結果的に`endSec < startSec`という負の区間長を持つスティントが
+ * 稀に発生することを確認した（既存のlineups集計・よく使われるラインナップにも
+ * 影響しうる別件のバグ。ここでは深追いせず、本集計にだけ悪影響が出ないよう
+ * 負の区間長を持つスティントは丸ごとスキップする）
  */
-function computeForeignPlayerCounts(
+function computeForeignPlayerCourtSeconds(
   onCourt: OnCourtReconstruction,
   masterById: Map<string, PlayerMasterEntry>,
-): Map<string, number> {
+): Map<string, Map<number, number>> {
   const secondsByTeamBucket = new Map<string, Map<number, number>>();
   for (const stint of onCourt.lineupStints) {
+    const duration = stint.endSec - stint.startSec;
+    if (duration <= 0) continue;
+
     let foreignCount = 0;
     let hasUnknown = false;
     for (const playerId of stint.playerIds) {
@@ -550,10 +559,18 @@ function computeForeignPlayerCounts(
       bucketSeconds = new Map();
       secondsByTeamBucket.set(stint.teamId, bucketSeconds);
     }
-    const duration = stint.endSec - stint.startSec;
     bucketSeconds.set(foreignCount, (bucketSeconds.get(foreignCount) ?? 0) + duration);
   }
+  return secondsByTeamBucket;
+}
 
+/**
+ * 外国籍選手同時出場人数の試合単位代表値（DESIGN.md参照）。
+ * computeForeignPlayerCourtSeconds()の結果から、チームごとに最も長い時間を占めた
+ * バケットをその試合の代表値とする（呼び出し側は`.get(teamId)`がundefinedになることで
+ * 「代表値なし」を扱う）
+ */
+function computeForeignPlayerCounts(secondsByTeamBucket: Map<string, Map<number, number>>): Map<string, number> {
   const result = new Map<string, number>();
   for (const [teamId, bucketSeconds] of secondsByTeamBucket) {
     let bestBucket = 0;
@@ -729,6 +746,8 @@ interface TeamAccumulator {
   totals: StatTotals;
   opponentTotals: StatTotals;
   gameLogs: TeamGameLog[];
+  /** 自チーム外国籍選手同時出場人数別（0/1/2/3人以上）の在コート秒数の合算（Phase H9） */
+  foreignPlayerCourtSeconds: [number, number, number, number];
 }
 
 interface LineupAccumulator {
@@ -815,6 +834,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         totals: emptyTotals(),
         opponentTotals: emptyTotals(),
         gameLogs: [],
+        foreignPlayerCourtSeconds: [0, 0, 0, 0],
       };
       teams.set(teamId, team);
     }
@@ -837,7 +857,10 @@ export async function aggregateSeason(season: string, category: Category = "prem
           )
         : null;
     const technicalFouls = countTechnicalFouls(game.raw.PlayByPlays);
-    const foreignPlayerCounts = onCourt ? computeForeignPlayerCounts(onCourt, masterById) : new Map<string, number>();
+    const foreignPlayerCourtSeconds = onCourt
+      ? computeForeignPlayerCourtSeconds(onCourt, masterById)
+      : new Map<string, Map<number, number>>();
+    const foreignPlayerCounts = computeForeignPlayerCounts(foreignPlayerCourtSeconds);
     // 個人PACE用の在コート区間ポゼッション（DESIGN.md参照）。既存のPACE表示ポリシー
     // （17-4章）と同じくcoverage==="full"（2022-23シーズン以降）のみ算出する
     const onCourtRatingsByPlayer: Record<string, PlayerOnCourtRatings> =
@@ -887,6 +910,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       ensureTeam,
       technicalFouls.byTeam,
       foreignPlayerCounts,
+      foreignPlayerCourtSeconds,
       pitp.byTeam,
       fbps.byTeam,
       ptsOffTov.byTeam,
@@ -1052,6 +1076,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         forcedTurnovers: forcedTurnoversByTeam.get(t.teamId),
         turnoversCommitted: turnoversCommittedByTeam.get(t.teamId),
         shotTypes: shotTypesByTeam.get(t.teamId),
+        foreignPlayerCourtSeconds: t.foreignPlayerCourtSeconds,
       };
     })
     .sort((a, b) => b.wins - a.wins);
@@ -1356,6 +1381,7 @@ function processTeams(
   ensureTeam: (teamId: string, teamName: string) => TeamAccumulator,
   technicalFoulsByTeam: Map<string, number>,
   foreignPlayerCounts: Map<string, number>,
+  foreignPlayerCourtSeconds: Map<string, Map<number, number>>,
   pitpByTeam: Map<string, number>,
   fbpsByTeam: Map<string, number>,
   ptsOffTovByTeam: Map<string, number>,
@@ -1419,6 +1445,24 @@ function processTeams(
     home.opponentTotals.internationalPoints += awayClassification.international;
     away.opponentTotals.japanesePoints += homeClassification.japanese;
     away.opponentTotals.internationalPoints += homeClassification.international;
+
+    // 自チーム外国籍選手同時出場人数別の在コート秒数（Phase H9、DESIGN.md参照）。
+    // バケットは0〜5（非日本人の人数）で出てくるが、3人を超える組み合わせは
+    // 「3人以上」バケットにまとめる
+    const homeForeignBuckets = foreignPlayerCourtSeconds.get(game.homeTeam.id);
+    if (homeForeignBuckets) {
+      for (const [bucket, seconds] of homeForeignBuckets) {
+        const clamped = Math.min(bucket, 3);
+        home.foreignPlayerCourtSeconds[clamped] = home.foreignPlayerCourtSeconds[clamped]! + seconds;
+      }
+    }
+    const awayForeignBuckets = foreignPlayerCourtSeconds.get(game.awayTeam.id);
+    if (awayForeignBuckets) {
+      for (const [bucket, seconds] of awayForeignBuckets) {
+        const clamped = Math.min(bucket, 3);
+        away.foreignPlayerCourtSeconds[clamped] = away.foreignPlayerCourtSeconds[clamped]! + seconds;
+      }
+    }
 
     if (homeWin) {
       home.wins += 1;
