@@ -32,7 +32,7 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -68,7 +68,12 @@ jobs:
       - name: Scrape boxscores (new games + watching re-checks)
         run: node --experimental-strip-types scripts/scrape-boxscore.ts --season ${{ steps.season.outputs.season }}
 
+      # 名簿取得はbleague.jp側の一時的なエラーや、新規選手が多い日の処理時間超過で
+      # 失敗しうるが、それによって試合結果の集計・commitまで止めないよう
+      # 失敗/タイムアウトしても後続ステップは必ず実行する
       - name: Scrape roster (players master, incremental)
+        timeout-minutes: 25
+        continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-roster.ts --season ${{ steps.season.outputs.season }}
 
       - name: Aggregate teams/players
