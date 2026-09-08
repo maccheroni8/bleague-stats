@@ -79,6 +79,8 @@ jobs:
       - name: Aggregate teams/players
         run: node --experimental-strip-types scripts/aggregate.ts --season ${{ steps.season.outputs.season }}
 
+      # ジョブが長時間(最大90分)かかるため、実行中に他のコミットがmainにpushされていることがある。
+      # そのままpushすると非fast-forwardで弾かれるので、rebaseしてから再試行する
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
@@ -88,5 +90,6 @@ jobs:
             echo "変更なし。コミットをスキップします"
           else
             git commit -m "chore: update ${{ steps.season.outputs.season }} stats ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            git pull --rebase origin main
             git push
           fi
