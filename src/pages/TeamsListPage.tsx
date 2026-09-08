@@ -44,6 +44,7 @@ import {
 } from "../lib/playerSeasonBoxscore";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import { ForeignPlayerCourtTimeChart } from "../components/ForeignPlayerCourtTimeChart";
+import { ScoringCompositionChart, TeamFgPctBars } from "../components/ScoringCompositionChart";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
@@ -222,9 +223,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams);
   const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season);
 
-  const [boxTab, setBoxTab] = useState<BoxscoreTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers">(
-    "traditional",
-  );
+  const [boxTab, setBoxTab] = useState<
+    BoxscoreTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition"
+  >("traditional");
   const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
   const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
   const [filter, setFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
@@ -255,6 +256,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       case "shooting":
       case "forcedTurnovers":
       case "foreignPlayers":
+      case "scoringComposition":
         return [];
     }
   }, [boxTab, displayMode, teamPerspective, paintSupported]);
@@ -371,6 +373,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           >
             オンザコート人数
           </button>
+          <button
+            className={`tab-button${boxTab === "scoringComposition" ? " active" : ""}`}
+            onClick={() => setBoxTab("scoringComposition")}
+            type="button"
+          >
+            得点構成
+          </button>
         </div>
         <div className="mode-toggle">
           {DISPLAY_MODE_OPTIONS.map((m) => (
@@ -441,6 +450,18 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           <ForeignPlayerCourtTimeChart teams={teams ?? []} />
           <p className="page-subtitle">
             レギュラーシーズン・シーズン合計の在コート時間ベース（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。国籍区分（classification）が不明な選手を含むラインナップは集計から除外されるため、チームによっては捕捉できた合計出場時間が実際の総出場時間より短くなる場合があります
+          </p>
+        </>
+      ) : boxTab === "scoringComposition" ? (
+        <>
+          <h3>FG% / opp FG%</h3>
+          <TeamFgPctBars teams={teams ?? []} />
+          <h3>得点構成（総得点に占める割合）</h3>
+          <ScoringCompositionChart teams={teams ?? []} mode="own" />
+          <h3>失点構成（このチームが奪われた得点の割合）</h3>
+          <ScoringCompositionChart teams={teams ?? []} mode="opponent" />
+          <p className="page-subtitle">
+            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。得点構成のペイント内得点はPlayByPlaysのタグ集計（全シーズン対応）、ミッドレンジ得点は「2P得点−ペイント内得点」として算出しているため、ショットチャート座標のseason制約は受けない
           </p>
         </>
       ) : gameLogsLoading || !gameLogsByTeam ? (

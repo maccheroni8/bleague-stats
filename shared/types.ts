@@ -443,6 +443,23 @@ export interface TeamAdvancedStats {
   opponentJapanesePointsPerGame: number;
   /** 相手チームの外国籍+帰化+アジア特別枠選手の得点（1試合あたり平均） */
   opponentInternationalPointsPerGame: number;
+  /**
+   * 得点構成（Phase H10）: 総得点に占める3P/ペイント内/ミッドレンジ/フリースローそれぞれの
+   * 得点の割合（%、0〜100。4つの合計は常に100になる）。シーズン合計値の比率
+   * （benchPointsSharePct等と同じ、1試合ごとの比率の平均ではない）。ペイント内得点は
+   * shared/playTypePoints.tsのPBPタグ集計（全シーズン対応）、ミッドレンジ得点は
+   * 「2P得点−ペイント内得点」として導出する（ショットチャート座標には依存しないため
+   * season制約が無い）
+   */
+  threePointPointsSharePct: number;
+  paintPointsSharePct: number;
+  midRangePointsSharePct: number;
+  ftPointsSharePct: number;
+  /** 失点構成（相手チームがこのチームから奪った得点の内訳）。threePointPointsSharePct等の相手チーム版 */
+  opponentThreePointPointsSharePct: number;
+  opponentPaintPointsSharePct: number;
+  opponentMidRangePointsSharePct: number;
+  opponentFtPointsSharePct: number;
 }
 
 export interface PlayerAdvancedStats {

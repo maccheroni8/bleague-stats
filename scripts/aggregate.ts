@@ -311,6 +311,14 @@ interface StatTotals {
   /** 外国籍+帰化+アジア特別枠選手の得点（Phase H8）。japanesePointsと対になる集計 */
   internationalPoints: number;
   /**
+   * ペイント内での得点（Phase H10、得点構成の可視化用）。shared/playTypePoints.tsの
+   * computePointsInPaint()（得点イベントのPlayTextタグ集計方式、全シーズン対応・ショット
+   * チャート座標に依存しない）を試合単位でシーズン合計する。個人集計では常に0のまま。
+   * ミッドレンジ得点はこの値と2P得点（(fgm-tpm)*2）の差分として導出するため、
+   * 別途フィールドは持たない
+   */
+  paintPoints: number;
+  /**
    * ダブルダブル/トリプルダブル数（PTS/REB/AST/STL/BLKの2桁到達部門数が2以上でDD、3以上でTD。
    * src/lib/boxscoreAggregate.tsのcomputeStatBadge()と同じ閾値をprocessPlayers()内で適用する。
    * チーム集計では意味を持たない値になる（チーム合計は常にほぼ全項目が2桁）ため、
@@ -350,6 +358,7 @@ function emptyTotals(): StatTotals {
     starterPoints: 0,
     japanesePoints: 0,
     internationalPoints: 0,
+    paintPoints: 0,
     doubleDoubles: 0,
     tripleDoubles: 0,
   };
@@ -1037,6 +1046,19 @@ export async function aggregateSeason(season: string, category: Category = "prem
       const poss = t.totals.poss;
       const offRtg = offensiveRating(t.totals.pts, poss);
       const defRtg = offensiveRating(t.opponentTotals.pts, poss);
+      // 得点構成（Phase H10）: 3P/ペイント内/ミッドレンジ/FTの得点をシーズン合計値から算出する。
+      // ミッドレンジ得点 = 2P得点(自チームtotals基準) − ペイント内得点。3項目の合計は
+      // 常に2P得点に一致し、3P・FTと合わせるとtotals.ptsに一致する（内部整合性はDESIGN.md参照）
+      const ownThreePoints = t.totals.tpm * 3;
+      const ownTwoPoints = (t.totals.fgm - t.totals.tpm) * 2;
+      const ownFtPoints = t.totals.ftm;
+      const ownPaintPoints = t.totals.paintPoints;
+      const ownMidRangePoints = ownTwoPoints - ownPaintPoints;
+      const oppThreePoints = t.opponentTotals.tpm * 3;
+      const oppTwoPoints = (t.opponentTotals.fgm - t.opponentTotals.tpm) * 2;
+      const oppFtPoints = t.opponentTotals.ftm;
+      const oppPaintPoints = t.opponentTotals.paintPoints;
+      const oppMidRangePoints = oppTwoPoints - oppPaintPoints;
       return {
         teamId: t.teamId,
         teamName: t.teamName,
@@ -1064,6 +1086,14 @@ export async function aggregateSeason(season: string, category: Category = "prem
           internationalPointsPerGame: safeDiv(t.totals.internationalPoints, ownStats.gamesPlayed),
           opponentJapanesePointsPerGame: safeDiv(t.opponentTotals.japanesePoints, ownStats.gamesPlayed),
           opponentInternationalPointsPerGame: safeDiv(t.opponentTotals.internationalPoints, ownStats.gamesPlayed),
+          threePointPointsSharePct: safeDiv(100 * ownThreePoints, t.totals.pts),
+          paintPointsSharePct: safeDiv(100 * ownPaintPoints, t.totals.pts),
+          midRangePointsSharePct: safeDiv(100 * ownMidRangePoints, t.totals.pts),
+          ftPointsSharePct: safeDiv(100 * ownFtPoints, t.totals.pts),
+          opponentThreePointPointsSharePct: safeDiv(100 * oppThreePoints, t.opponentTotals.pts),
+          opponentPaintPointsSharePct: safeDiv(100 * oppPaintPoints, t.opponentTotals.pts),
+          opponentMidRangePointsSharePct: safeDiv(100 * oppMidRangePoints, t.opponentTotals.pts),
+          opponentFtPointsSharePct: safeDiv(100 * oppFtPoints, t.opponentTotals.pts),
         },
         opponentPerGame: oppStats.perGame,
         opponentShooting: oppStats.shooting,
@@ -1445,6 +1475,15 @@ function processTeams(
     home.opponentTotals.internationalPoints += awayClassification.international;
     away.opponentTotals.japanesePoints += homeClassification.japanese;
     away.opponentTotals.internationalPoints += homeClassification.international;
+
+    // ペイント内得点（Phase H10、得点構成の可視化用）。既存のpitpByTeam（PBPタグ集計）を
+    // シーズン合計する。個人単位のPITP（processPlayers側）とは独立した集計
+    const homePitpForSeason = pitpByTeam.get(game.homeTeam.id) ?? 0;
+    const awayPitpForSeason = pitpByTeam.get(game.awayTeam.id) ?? 0;
+    home.totals.paintPoints += homePitpForSeason;
+    away.totals.paintPoints += awayPitpForSeason;
+    home.opponentTotals.paintPoints += awayPitpForSeason;
+    away.opponentTotals.paintPoints += homePitpForSeason;
 
     // 自チーム外国籍選手同時出場人数別の在コート秒数（Phase H9、DESIGN.md参照）。
     // バケットは0〜5（非日本人の人数）で出てくるが、3人を超える組み合わせは

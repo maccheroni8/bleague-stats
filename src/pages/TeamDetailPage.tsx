@@ -10,6 +10,7 @@ import {
   Tooltip as RechartsTooltip,
 } from "recharts";
 import { SeasonLink as Link } from "../components/SeasonLink";
+import { OpposedBarRow } from "../components/OpposedBar";
 import { usePageState, useSkipFirstEffectRun } from "../lib/pageStateCache";
 import {
   fetchClubHonors,
@@ -282,6 +283,72 @@ function ForcedTurnoversTable({ forced, committed }: { forced: TeamForcedTurnove
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * 得点構成/失点構成（Phase H10）。既存のキースタッツセクション（試合詳細ページ、
+ * src/components/KeyStatsSection.tsx）と同じOpposedBarRowで、自チーム/相手チームを
+ * 対向バー表示する。FG%は既存のshooting.fgPct/opponentShooting.fgPctをそのまま使い、
+ * 3P/ペイント内/ミッドレンジ/FTの得点構成比はshared/playTypePoints.tsのPBPタグ集計を
+ * 元にしたシーズン合計値の比率（advanced.*SharePct、DESIGN.md参照）。「得点構成」の
+ * 4項目は自チーム視点で総得点に占める割合、「失点構成」は相手チームがこのチームから
+ * 奪った得点の内訳（=このチームの失点の内訳）を表す
+ */
+function ScoringCompositionSection({ team, ownColor, oppColor }: { team: TeamSummary; ownColor: string; oppColor: string }) {
+  const pct1 = (v: number) => formatPct100(v);
+  return (
+    <div className="key-stats-card">
+      <h3>得点構成 / 失点構成</h3>
+      <p className="page-subtitle">
+        レギュラーシーズン・シーズン合計ベース。得点構成は自チームの総得点、失点構成は相手チームがこのチームから奪った総得点（＝このチームの失点）に占める各カテゴリの割合
+      </p>
+      <OpposedBarRow
+        label="FG%"
+        homeValue={team.shooting.fgPct * 100}
+        awayValue={team.opponentShooting.fgPct * 100}
+        homeColor={ownColor}
+        awayColor={oppColor}
+        format={pct1}
+        scale="fixed100"
+      />
+      <OpposedBarRow
+        label="3P点"
+        homeValue={team.advanced.threePointPointsSharePct}
+        awayValue={team.advanced.opponentThreePointPointsSharePct}
+        homeColor={ownColor}
+        awayColor={oppColor}
+        format={pct1}
+        scale="fixed100"
+      />
+      <OpposedBarRow
+        label="ペイント内"
+        homeValue={team.advanced.paintPointsSharePct}
+        awayValue={team.advanced.opponentPaintPointsSharePct}
+        homeColor={ownColor}
+        awayColor={oppColor}
+        format={pct1}
+        scale="fixed100"
+      />
+      <OpposedBarRow
+        label="ミッドレンジ"
+        homeValue={team.advanced.midRangePointsSharePct}
+        awayValue={team.advanced.opponentMidRangePointsSharePct}
+        homeColor={ownColor}
+        awayColor={oppColor}
+        format={pct1}
+        scale="fixed100"
+      />
+      <OpposedBarRow
+        label="FT"
+        homeValue={team.advanced.ftPointsSharePct}
+        awayValue={team.advanced.opponentFtPointsSharePct}
+        homeColor={ownColor}
+        awayColor={oppColor}
+        format={pct1}
+        scale="fixed100"
+      />
     </div>
   );
 }
@@ -2135,7 +2202,10 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 同じCOLUMNS_BY_TAB/BoxscoreTabKeyを再利用。Phase H4③でタイル形式表示から置き換えた）。
   // 上部集計表とシチュエーション別成績（チーム版）で別々のタブ選択状態を持つ（PlayerDetailPage
   // の「シーズン別成績」「シチュエーション別成績」が独立したタブ状態を持つのと同じ設計）
-  const [teamStatsBoxTab, setTeamStatsBoxTab] = usePageState<BoxscoreTabKey | "shooting" | "forcedTurnovers">(pk("teamStatsBoxTab"), "traditional");
+  const [teamStatsBoxTab, setTeamStatsBoxTab] = usePageState<BoxscoreTabKey | "shooting" | "forcedTurnovers" | "scoringComposition">(
+    pk("teamStatsBoxTab"),
+    "traditional",
+  );
   const [situationalTeamBoxTab, setSituationalTeamBoxTab] = usePageState<BoxscoreTabKey | "shooting">(pk("situationalTeamBoxTab"), "traditional");
   // 「選手スタッツ」タブのカテゴリタブ（シューティングを含む）。シューティングタブ選択時のみ
   // teamYahooPbpの遅延取得をトリガーする必要があるため、親（このコンポーネント）で状態を持つ
@@ -3547,6 +3617,13 @@ export function TeamDetailPage({ season }: { season: string }) {
               >
                 強制ターンオーバー
               </button>
+              <button
+                className={`tab-button${teamStatsBoxTab === "scoringComposition" ? " active" : ""}`}
+                onClick={() => setTeamStatsBoxTab("scoringComposition")}
+                type="button"
+              >
+                得点構成
+              </button>
             </div>
             <div className="mode-toggle">
               {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
@@ -3575,6 +3652,8 @@ export function TeamDetailPage({ season }: { season: string }) {
             ) : (
               <ForcedTurnoversTable forced={team.forcedTurnovers} committed={team.turnoversCommitted} />
             )
+          ) : teamStatsBoxTab === "scoringComposition" ? (
+            <ScoringCompositionSection team={team} ownColor={accentColor ?? "var(--accent)"} oppColor="var(--muted)" />
           ) : !teamStatsBoxTotals ? (
             <p className="empty-message">該当する試合がありません</p>
           ) : (
