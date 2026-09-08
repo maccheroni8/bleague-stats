@@ -50,9 +50,18 @@ const throttledFetch = createThrottledFetch(MIN_REQUEST_INTERVAL_MS, USER_AGENT)
 
 const MASTER_PATH = path.join(DATA_DIR, "players-master.json");
 
-async function fetchHtml(url: string): Promise<string> {
+const RETRYABLE_ATTEMPTS = 3;
+
+// bleague.jp側の一時的な502/503が稀に発生するため、5xxのみ間隔を空けてリトライする
+// （4xxはリクエスト自体の問題なので即座にエラーにする）
+async function fetchHtml(url: string, attempt = 1): Promise<string> {
   const res = await throttledFetch(url);
   if (!res.ok) {
+    if (res.status >= 500 && attempt < RETRYABLE_ATTEMPTS) {
+      console.warn(`[roster] GET ${url} が${res.status}（${attempt}回目）。5秒後にリトライします`);
+      await new Promise((resolve) => setTimeout(resolve, 5000 * attempt));
+      return fetchHtml(url, attempt + 1);
+    }
     throw new Error(`GET ${url} failed: ${res.status}`);
   }
   return res.text();
