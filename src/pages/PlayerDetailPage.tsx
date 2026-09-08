@@ -13,6 +13,7 @@ import {
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { usePageState, useSkipFirstEffectRun } from "../lib/pageStateCache";
 import {
+  fetchClubHonors,
   fetchDivisionHistory,
   fetchGame,
   fetchGameSummaries,
@@ -574,6 +575,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
   const { data: playerHistory } = useJsonData(() => fetchPlayerHistory(), []);
   const { data: playerAwards } = useJsonData(() => fetchPlayerAwards(), []);
+  // 優勝回数（Group F）: club-honors.jsonの年間優勝（category==="overall"）と、
+  // careerTeamData（下記、試合ログから動的に導出した「そのシーズンに実際に所属していた
+  // チーム」）を突き合わせて算出する
+  const { data: clubHonors } = useJsonData(() => fetchClubHonors(), []);
   const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
   const { coverage } = useSeasonCoverage(season);
   const shotChartSupported = isShotChartSupported(coverage);
@@ -1373,6 +1378,24 @@ export function PlayerDetailPage({ season }: { season: string }) {
     b.season.localeCompare(a.season),
   );
 
+  // 優勝回数（Group F）: careerTeamData（試合ログから動的導出した「シーズン×実際に所属していた
+  // チーム」、シーズン内移籍にも対応済み。上のcareerTeamData取得effect参照）と、
+  // club-honors.jsonの年間優勝（category==="overall"）を突き合わせる。careerTeamData/clubHonors
+  // が未取得の間は空のまま（読み込み完了後に自動的に反映される）
+  const championshipSeasons: { season: string; teamId: string; teamName: string }[] = [];
+  if (careerTeamData && clubHonors) {
+    for (const [season, info] of careerTeamData) {
+      for (const teamId of info.teamTotalsByTeamId.keys()) {
+        const won = (clubHonors[teamId] ?? []).some((h) => h.category === "overall" && h.season === season);
+        if (!won) continue;
+        const teamName = [...info.ownTeamByScheduleKey.values()].find((t) => t.teamId === teamId)?.teamName ?? teamId;
+        championshipSeasons.push({ season, teamId, teamName });
+        break;
+      }
+    }
+  }
+  championshipSeasons.sort((a, b) => b.season.localeCompare(a.season));
+
   // レーダーチャートのパーセンタイル算出対象は、所属チーム試合数の85%以上に出場した選手のみに
   // 絞り込む（出場が少なく数値が振れやすい選手を母集団から除くため。DESIGN.md参照）。
   // ただし閲覧中の選手自身は、この条件を満たさなくても常にプロット対象に含める
@@ -1679,6 +1702,18 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   <li key={i}>
                     {a.season} {a.name}
                     {a.category ? `(${a.category})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {championshipSeasons.length > 0 && (
+            <div className="player-awards">
+              <div className="player-awards-title">優勝回数（{championshipSeasons.length}回）</div>
+              <ul className="player-awards-list">
+                {championshipSeasons.map((c) => (
+                  <li key={c.season}>
+                    {c.season} {c.teamName}優勝
                   </li>
                 ))}
               </ul>
