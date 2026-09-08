@@ -403,9 +403,10 @@ interface TeamHeaderStatDef {
   higherIsBetter: boolean;
 }
 
-// ヘッダーのスタッツタイル（4グループ: 自チーム・カウント系/自チーム・レート系/
-// opp・カウント系/opp・レート系）。シーズン合計（フィルタなし）固定で表示し、各タイルに
-// リーグ内順位を併記する
+// ヘッダーのスタッツタイル（Phase H8で4段9列に並べ替え。1〜2段目が自チーム、3〜4段目が
+// 相手＝opp。5〜6段目はベンチ/スタメン得点比率・国籍区分別得点の追加項目で、9列に揃えず
+// 自チーム分5項目・opp分3項目のみ並べる）。シーズン合計（フィルタなし）固定で表示し、
+// 各タイルにリーグ内順位を併記する
 const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
   [
     { key: "pts", label: "PTS", value: (t) => t.perGame.pts, format: (t) => formatDecimal(t.perGame.pts), higherIsBetter: true },
@@ -414,9 +415,15 @@ const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
     { key: "stl", label: "STL", value: (t) => t.perGame.stl, format: (t) => formatDecimal(t.perGame.stl), higherIsBetter: true },
     { key: "blk", label: "BLK", value: (t) => t.perGame.blk, format: (t) => formatDecimal(t.perGame.blk), higherIsBetter: true },
     { key: "tov", label: "TOV", value: (t) => t.perGame.tov, format: (t) => formatDecimal(t.perGame.tov), higherIsBetter: false },
+    {
+      key: "benchPts",
+      label: "BENCH PTS",
+      value: (t) => t.advanced.benchPointsPerGame,
+      format: (t) => formatDecimal(t.advanced.benchPointsPerGame),
+      higherIsBetter: true,
+    },
     { key: "offRtg", label: "ORtg", value: (t) => t.advanced.offRtg, format: (t) => formatDecimal(t.advanced.offRtg), higherIsBetter: true },
     { key: "netRtg", label: "NETRtg", value: (t) => t.advanced.netRtg, format: (t) => formatSigned(t.advanced.netRtg), higherIsBetter: true },
-    { key: "pace", label: "PACE", value: (t) => t.advanced.pace, format: (t) => formatDecimal(t.advanced.pace), higherIsBetter: true },
   ],
   [
     { key: "fgPct", label: "FG%", value: (t) => t.shooting.fgPct, format: (t) => formatPct(t.shooting.fgPct), higherIsBetter: true },
@@ -436,7 +443,15 @@ const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
     { key: "oppStl", label: "oppSTL", value: (t) => t.opponentPerGame.stl, format: (t) => formatDecimal(t.opponentPerGame.stl), higherIsBetter: false },
     { key: "oppBlk", label: "oppBLK", value: (t) => t.opponentPerGame.blk, format: (t) => formatDecimal(t.opponentPerGame.blk), higherIsBetter: false },
     { key: "oppTov", label: "oppTOV", value: (t) => t.opponentPerGame.tov, format: (t) => formatDecimal(t.opponentPerGame.tov), higherIsBetter: true },
+    {
+      key: "oppBenchPts",
+      label: "oppBENCH PTS",
+      value: (t) => t.advanced.opponentBenchPointsPerGame,
+      format: (t) => formatDecimal(t.advanced.opponentBenchPointsPerGame),
+      higherIsBetter: false,
+    },
     { key: "defRtg", label: "DRtg", value: (t) => t.advanced.defRtg, format: (t) => formatDecimal(t.advanced.defRtg), higherIsBetter: false },
+    { key: "pace", label: "PACE", value: (t) => t.advanced.pace, format: (t) => formatDecimal(t.advanced.pace), higherIsBetter: true },
   ],
   [
     { key: "oppFgPct", label: "opp FG%", value: (t) => t.opponentShooting.fgPct, format: (t) => formatPct(t.opponentShooting.fgPct), higherIsBetter: false },
@@ -464,6 +479,70 @@ const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
       label: "opp OR%",
       value: (t) => t.advanced.opponentOrbPct,
       format: (t) => formatPct100(t.advanced.opponentOrbPct),
+      higherIsBetter: false,
+    },
+  ],
+  // 5段目: 自チームの追加項目（スタメン得点、総得点に占めるベンチ/スタメン得点の割合、
+  // 国籍区分別得点）。9列に揃えず必要な項目だけを並べる
+  [
+    {
+      key: "starterPts",
+      label: "STARTER PTS",
+      value: (t) => t.advanced.starterPointsPerGame,
+      format: (t) => formatDecimal(t.advanced.starterPointsPerGame),
+      higherIsBetter: true,
+    },
+    {
+      key: "benchPtsShare",
+      label: "%BENCH PTS",
+      value: (t) => t.advanced.benchPointsSharePct,
+      format: (t) => formatPct100(t.advanced.benchPointsSharePct),
+      higherIsBetter: true,
+    },
+    {
+      key: "starterPtsShare",
+      label: "%STARTER PTS",
+      value: (t) => t.advanced.starterPointsSharePct,
+      format: (t) => formatPct100(t.advanced.starterPointsSharePct),
+      higherIsBetter: true,
+    },
+    {
+      key: "japanesePts",
+      label: "日本人PTS",
+      value: (t) => t.advanced.japanesePointsPerGame,
+      format: (t) => formatDecimal(t.advanced.japanesePointsPerGame),
+      higherIsBetter: true,
+    },
+    {
+      key: "internationalPts",
+      label: "外国籍等PTS",
+      value: (t) => t.advanced.internationalPointsPerGame,
+      format: (t) => formatDecimal(t.advanced.internationalPointsPerGame),
+      higherIsBetter: true,
+    },
+  ],
+  // 6段目: 相手（opp）の追加項目。%BENCH PTS・%STARTER PTSは自チームの得点構成比のみを
+  // 意味のある指標として扱い、opp版は設けない
+  [
+    {
+      key: "oppStarterPts",
+      label: "oppSTARTER PTS",
+      value: (t) => t.advanced.opponentStarterPointsPerGame,
+      format: (t) => formatDecimal(t.advanced.opponentStarterPointsPerGame),
+      higherIsBetter: false,
+    },
+    {
+      key: "oppJapanesePts",
+      label: "opp日本人PTS",
+      value: (t) => t.advanced.opponentJapanesePointsPerGame,
+      format: (t) => formatDecimal(t.advanced.opponentJapanesePointsPerGame),
+      higherIsBetter: false,
+    },
+    {
+      key: "oppInternationalPts",
+      label: "opp外国籍等PTS",
+      value: (t) => t.advanced.opponentInternationalPointsPerGame,
+      format: (t) => formatDecimal(t.advanced.opponentInternationalPointsPerGame),
       higherIsBetter: false,
     },
   ],

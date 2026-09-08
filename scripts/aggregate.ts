@@ -298,6 +298,19 @@ interface StatTotals {
    */
   benchPoints: number;
   /**
+   * スタメン得点（DESIGN.md 12章のBENCH PTSと対の指標、Phase H8）。benchPointsForGame()と
+   * 同じ試合単位個人行から、先発（StartingFlg===1）のPointを合計する。個人集計では常に0のまま
+   */
+  starterPoints: number;
+  /**
+   * 日本人選手の得点（Phase H8）。既存のボックススコア「内訳集計」（日本人選手合計/
+   * 外国籍+帰化+アジア特別枠合計、BoxscoreTable.tsx）と同じ選手マスタclassification突合を
+   * 試合単位で適用しシーズン合計する。個人集計では常に0のまま
+   */
+  japanesePoints: number;
+  /** 外国籍+帰化+アジア特別枠選手の得点（Phase H8）。japanesePointsと対になる集計 */
+  internationalPoints: number;
+  /**
    * ダブルダブル/トリプルダブル数（PTS/REB/AST/STL/BLKの2桁到達部門数が2以上でDD、3以上でTD。
    * src/lib/boxscoreAggregate.tsのcomputeStatBadge()と同じ閾値をprocessPlayers()内で適用する。
    * チーム集計では意味を持たない値になる（チーム合計は常にほぼ全項目が2桁）ため、
@@ -334,6 +347,9 @@ function emptyTotals(): StatTotals {
     teamNetSum: 0,
     technicalFouls: 0,
     benchPoints: 0,
+    starterPoints: 0,
+    japanesePoints: 0,
+    internationalPoints: 0,
     doubleDoubles: 0,
     tripleDoubles: 0,
   };
@@ -563,6 +579,37 @@ function benchPointsForGame(rows: BoxscoreRow[], teamId: string): number {
   return rows
     .filter((r) => r.Category === 1 && r.PeriodCategory === 18 && r.TeamID === teamId && r.StartingFlg !== 1)
     .reduce((sum, r) => sum + r.Point, 0);
+}
+
+/** スタメン得点（Phase H8）。benchPointsForGame()の先発版 */
+function starterPointsForGame(rows: BoxscoreRow[], teamId: string): number {
+  return rows
+    .filter((r) => r.Category === 1 && r.PeriodCategory === 18 && r.TeamID === teamId && r.StartingFlg === 1)
+    .reduce((sum, r) => sum + r.Point, 0);
+}
+
+/**
+ * 国籍区分別得点（Phase H8）。BoxscoreTable.tsxの「内訳集計」（日本人選手合計/外国籍+帰化+
+ * アジア特別枠合計）と同じclassification突合を試合単位で行う。classification未定義の選手は
+ * どちらにも計上しない（51章で確立した「推測しない」方針を踏襲）
+ */
+function classificationPointsForGame(
+  rows: BoxscoreRow[],
+  teamId: string,
+  masterById: Map<string, PlayerMasterEntry>,
+): { japanese: number; international: number } {
+  let japanese = 0;
+  let international = 0;
+  for (const r of rows) {
+    if (r.Category !== 1 || r.PeriodCategory !== 18 || r.TeamID !== teamId) continue;
+    const classification = masterById.get(r.PlayerID)?.classification;
+    if (classification === "日本人") {
+      japanese += r.Point;
+    } else if (classification === "外国籍" || classification === "帰化選手" || classification === "アジア特別枠") {
+      international += r.Point;
+    }
+  }
+  return { japanese, international };
 }
 
 function addBoxscoreRow(
@@ -847,6 +894,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       miscEvents.byTeam,
       assistedScoring.byTeam,
       paintSplit.byTeam,
+      masterById,
     );
     processLineups(game, teamLineups, onCourt);
   }
@@ -983,6 +1031,15 @@ export async function aggregateSeason(season: string, category: Category = "prem
           tovPct: tovPct(t.totals.tov, t.totals.fga, t.totals.fta),
           opponentTovPct: tovPct(t.opponentTotals.tov, t.opponentTotals.fga, t.opponentTotals.fta),
           benchPointsPerGame: safeDiv(t.totals.benchPoints, ownStats.gamesPlayed),
+          opponentBenchPointsPerGame: safeDiv(t.opponentTotals.benchPoints, ownStats.gamesPlayed),
+          starterPointsPerGame: safeDiv(t.totals.starterPoints, ownStats.gamesPlayed),
+          opponentStarterPointsPerGame: safeDiv(t.opponentTotals.starterPoints, ownStats.gamesPlayed),
+          benchPointsSharePct: safeDiv(100 * t.totals.benchPoints, t.totals.pts),
+          starterPointsSharePct: safeDiv(100 * t.totals.starterPoints, t.totals.pts),
+          japanesePointsPerGame: safeDiv(t.totals.japanesePoints, ownStats.gamesPlayed),
+          internationalPointsPerGame: safeDiv(t.totals.internationalPoints, ownStats.gamesPlayed),
+          opponentJapanesePointsPerGame: safeDiv(t.opponentTotals.japanesePoints, ownStats.gamesPlayed),
+          opponentInternationalPointsPerGame: safeDiv(t.opponentTotals.internationalPoints, ownStats.gamesPlayed),
         },
         opponentPerGame: oppStats.perGame,
         opponentShooting: oppStats.shooting,
@@ -1306,6 +1363,7 @@ function processTeams(
   miscEventsByTeam: Map<string, MiscEventCounts>,
   assistedScoringByTeam: Map<string, AssistedScoringCounts>,
   paintSplitByTeam: Map<string, PaintSplitCounts>,
+  masterById: Map<string, PlayerMasterEntry>,
 ): void {
   const homeRow = pickTeamRow(game.raw.HomeBoxscores, 3)[0];
   const awayRow = pickTeamRow(game.raw.AwayBoxscores, 3)[0];
@@ -1334,10 +1392,33 @@ function processTeams(
     addBoxscoreRow(away.totals, awayRow, true, 0, undefined, gamePoss, awayTechnicalFouls);
     addBoxscoreRow(away.opponentTotals, homeRow, true, 0, undefined, gamePoss, homeTechnicalFouls);
 
-    // ベンチ得点はaddBoxscoreRow経由のチーム行集計とは別に、個人行から直接算出する
+    // ベンチ得点・スタメン得点・国籍区分別得点はaddBoxscoreRow経由のチーム行集計とは別に、
+    // 個人行から直接算出する（Phase H8。opponentTotals側にも相手チームの視点で加算する）
     const individualRows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
-    home.totals.benchPoints += benchPointsForGame(individualRows, game.homeTeam.id);
-    away.totals.benchPoints += benchPointsForGame(individualRows, game.awayTeam.id);
+    const homeBench = benchPointsForGame(individualRows, game.homeTeam.id);
+    const awayBench = benchPointsForGame(individualRows, game.awayTeam.id);
+    home.totals.benchPoints += homeBench;
+    away.totals.benchPoints += awayBench;
+    home.opponentTotals.benchPoints += awayBench;
+    away.opponentTotals.benchPoints += homeBench;
+
+    const homeStarter = starterPointsForGame(individualRows, game.homeTeam.id);
+    const awayStarter = starterPointsForGame(individualRows, game.awayTeam.id);
+    home.totals.starterPoints += homeStarter;
+    away.totals.starterPoints += awayStarter;
+    home.opponentTotals.starterPoints += awayStarter;
+    away.opponentTotals.starterPoints += homeStarter;
+
+    const homeClassification = classificationPointsForGame(individualRows, game.homeTeam.id, masterById);
+    const awayClassification = classificationPointsForGame(individualRows, game.awayTeam.id, masterById);
+    home.totals.japanesePoints += homeClassification.japanese;
+    home.totals.internationalPoints += homeClassification.international;
+    away.totals.japanesePoints += awayClassification.japanese;
+    away.totals.internationalPoints += awayClassification.international;
+    home.opponentTotals.japanesePoints += awayClassification.japanese;
+    home.opponentTotals.internationalPoints += awayClassification.international;
+    away.opponentTotals.japanesePoints += homeClassification.japanese;
+    away.opponentTotals.internationalPoints += homeClassification.international;
 
     if (homeWin) {
       home.wins += 1;

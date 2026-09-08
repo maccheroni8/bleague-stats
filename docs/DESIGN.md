@@ -6783,3 +6783,86 @@ CLAUDE.mdの運用ルール通り、`scripts/aggregate.ts`のロジック変更�
 スコアボードと同じ`/teams/{id}`にリンクされ、シューティングタブの選手名が
 `/players/{playerId}`にリンクされることを確認した。型チェック（`tsconfig.json`・
 `tsconfig.scripts.json`とも）通過。ブラウザのコンソールエラー無し。
+
+---
+
+## 83. チーム詳細ページヘッダーのスタッツタイル並べ替え・新規項目追加（Phase H8、2026-09-04）
+
+57章で確定した2段×14列のヘッダースタッツタイル構成を、指定順の4段×9列に並べ替えた上で、
+ベンチ/スタメン得点・その得点構成比・国籍区分別得点の新規項目を追加した。
+
+### 83-1. スコープの確認
+
+依頼文「チーム詳細ページ・全チームスタッツのスタッツタイル」について、`TeamsListPage.tsx`の
+「全チームスタッツ」タブ（77章でチーム詳細ページと同じCOLUMNS_BY_TAB形式の**表**に再構成済み）
+にはそもそも「スタッツタイル」が存在しないことを確認した上でユーザーに確認し、対象は
+`TeamDetailPage.tsx`のヘッダースタッツタイル（`TEAM_HEADER_STAT_ROWS`）のみと確定した。
+
+### 83-2. 4段×9列への並べ替え
+
+既存の2段×14列（自チーム/oppそれぞれレート系・カウント系混在）を、依頼指定の4段×9列
+（1〜2段目が自チーム、3〜4段目がopp。PACEは3段目末尾に配置し、NetRtgの真下という57章の
+旧配置とは変わった）にそのまま並べ替えた。既存フィールド（`shooting`/`opponentShooting`/
+`advanced`の各値）のみで完結する列がほとんどで、新規バックエンド集計が必要だったのは
+BENCH PTS/oppBENCH PTSのみ（既存の`advanced.benchPointsPerGame`は自チーム分しか無く、
+opp版が存在しなかったため）。
+
+### 83-3. 新規バックエンド集計（ベンチ/スタメン得点・国籍区分別得点）
+
+56章で実装済みの`benchPointsForGame()`（試合単位個人行から`StartingFlg!==1`のPoint合計を
+求める）と同じパターンで、以下3種を追加した（`scripts/aggregate.ts`）:
+
+- `starterPointsForGame()`: `benchPointsForGame()`の先発版（`StartingFlg===1`）
+- `classificationPointsForGame()`: `BoxscoreTable.tsx`の「内訳集計」（日本人選手合計/
+  外国籍+帰化+アジア特別枠合計）と同じ`classification`突合を試合単位で行い、日本人/
+  外国籍等それぞれのPoint合計を返す。classification未定義の選手はどちらにも計上しない
+  （51章で確立した「推測しない」方針を踏襲）
+
+**opp版も同時に算出**: 従来の`benchPoints`は`processTeams()`内で`home.totals.benchPoints`
+（自チーム分）のみに加算していたが、同じ試合単位の値を`home.opponentTotals.benchPoints`
+（away視点で見た相手チームの値）にも加算するよう変更した。`starterPoints`・
+`japanesePoints`・`internationalPoints`も同じ二重加算パターンで実装した
+（`StatTotals`に3フィールド追加、`opponentTotals`も同じ型のため個別のopp用フィールドは
+不要）。`processTeams()`のシグネチャに`masterById`（classification突合用、`aggregateSeason()`
+内で既に読み込み済み）を追加しただけで、新規のファイルI/O・ネットワークアクセスは発生しない。
+
+**シェア（%）はシーズン合計値の比率**: `benchPointsSharePct`/`starterPointsSharePct`は
+「1試合ごとの割合の平均」ではなく「シーズン合計ベンチ得点／シーズン合計得点」で算出する
+（6章の非線形性の教訓と同じ理由。1試合あたりの値を先に平均してから比率を取ると分母構成が
+試合ごとに異なり歪む）。
+
+`shared/types.ts`の`TeamAdvancedStats`に9フィールド追加
+（`opponentBenchPointsPerGame`/`starterPointsPerGame`/`opponentStarterPointsPerGame`/
+`benchPointsSharePct`/`starterPointsSharePct`/`japanesePointsPerGame`/
+`internationalPointsPerGame`/`opponentJapanesePointsPerGame`/
+`opponentInternationalPointsPerGame`）。
+
+### 83-4. 新規タイルの配置（5〜6段目）
+
+4段×9列の枠外の追加項目として、5段目（自チーム、5項目: STARTER PTS／%BENCH PTS／
+%STARTER PTS／日本人PTS／外国籍等PTS）・6段目（opp、3項目: oppSTARTER PTS／opp日本人PTS／
+opp外国籍等PTS）を追加した。`%BENCH PTS`/`%STARTER PTS`は自チームの得点構成比という性質上
+opp版を設けていない（依頼文で該当2項目のみ「自チーム・opp」の但し書きが無かったことに基づく
+判断）。`.stat-grid`は行ごとに独立した`grid-template-columns: repeat(auto-fill, ...)`のため、
+9列に満たない行があっても既存の57章の非対称行（旧3段目7項目・4段目8項目）と同様に問題なく
+描画される。
+
+### 83-5. 全シーズン再集計・検証
+
+CLAUDE.mdの運用ルール通りB.PREMIER全11シーズン（2016-17〜2026-27。2026-27は0試合の
+ためno-op）・B.ONE（2025-26）を`npm run aggregate`で再集計した。差分は`teams.json`
+（新規9フィールド追加分）と`players.json`（`StatTotals`共有型に追加した
+`starterPoints`/`japanesePoints`/`internationalPoints`が個人集計側にも常に0で出現する。
+既存の`benchPoints: 0`と同じ既知のパターンで実害無し）に生じた。
+
+千葉ジェッツ（2025-26シーズン）で内部整合性を確認した: `benchPointsPerGame`(27.8)+
+`starterPointsPerGame`(56.5)=84.3=`perGame.pts`と一致、`benchPointsSharePct`(32.9%)は
+1667(シーズン合計benchPoints)/5060(シーズン合計pts)×100と一致、`japanesePointsPerGame`
+(41.6)+`internationalPointsPerGame`(42.8)=84.3で全選手classification判定済み
+（不一致0）であることを確認した。ブラウザで4段×9列＋5〜6段目の新規タイルが依頼順で表示され、
+各タイルにリーグ内順位が併記されることを確認した。栃木ブレックス（2016-17シーズン、legacy
+取得）でも同様に表示され、日本人PTS(67.7)+外国籍等PTS(10.8)=78.5がPTS(80.5)よりわずかに
+少ないケースを確認したが、これは51章で既知の2016-17シーズン特有のロースール一覧欠落
+（39名がbleague.jpの`e=全選手`一覧に掲載されていない）によりclassification未定義の選手が
+どちらにも計上されないためで、想定通りの挙動（バグではない）と判断した。型チェック
+（`tsconfig.json`・`tsconfig.scripts.json`とも）通過。ブラウザのコンソールエラー無し。

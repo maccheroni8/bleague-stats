@@ -421,6 +421,28 @@ export interface TeamAdvancedStats {
    * 独自集計（DESIGN.md 12章）
    */
   benchPointsPerGame: number;
+  /** 相手チームのベンチ得点（1試合あたり平均）。benchPointsPerGameの相手チーム版 */
+  opponentBenchPointsPerGame: number;
+  /** スタメン得点（1試合あたり平均）。ボックススコア個人行のStartingFlg===1の選手のPoint合計から導出 */
+  starterPointsPerGame: number;
+  /** 相手チームのスタメン得点（1試合あたり平均）。starterPointsPerGameの相手チーム版 */
+  opponentStarterPointsPerGame: number;
+  /** 総得点に占めるベンチ得点の割合（%、0〜100）。シーズン合計値の比率（1試合ごとの比率の平均ではない） */
+  benchPointsSharePct: number;
+  /** 総得点に占めるスタメン得点の割合（%、0〜100） */
+  starterPointsSharePct: number;
+  /**
+   * 日本人選手の得点（1試合あたり平均）。既存のボックススコア「内訳集計」（日本人選手合計/
+   * 外国籍+帰化+アジア特別枠合計）と同じ選手マスタのclassification突合をシーズン集計に
+   * 適用した値（DESIGN.md参照）。classification未定義の選手はどちらにも計上しない
+   */
+  japanesePointsPerGame: number;
+  /** 外国籍+帰化+アジア特別枠選手の得点（1試合あたり平均） */
+  internationalPointsPerGame: number;
+  /** 相手チームの日本人選手の得点（1試合あたり平均） */
+  opponentJapanesePointsPerGame: number;
+  /** 相手チームの外国籍+帰化+アジア特別枠選手の得点（1試合あたり平均） */
+  opponentInternationalPointsPerGame: number;
 }
 
 export interface PlayerAdvancedStats {
