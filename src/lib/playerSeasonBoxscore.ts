@@ -40,7 +40,7 @@ import {
 } from "./boxscoreAggregate";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { buildPeriodRangeOptions, type PeriodRangeOption } from "./periodRange";
-import type { PlayerGameLog, StoredGame, TeamGameLog, YahooTurnoverEvent } from "../../shared/types";
+import type { BoxscoreRow, PlayerGameLog, PlayerMasterEntry, StoredGame, TeamGameLog, YahooTurnoverEvent } from "../../shared/types";
 import type { GameTeamInfo } from "./situational";
 import { teamShortName } from "../../shared/teamNames";
 import type { ColumnCtx } from "../components/BoxscoreTable";
@@ -1503,6 +1503,81 @@ export function buildTeamMultiGameBoxTotals(
       yahooPbpSupported,
     },
   };
+}
+
+export interface TeamPointsBreakdown {
+  bench: number;
+  starter: number;
+  japanese: number;
+  international: number;
+}
+
+const EMPTY_TEAM_POINTS_BREAKDOWN: TeamPointsBreakdown = { bench: 0, starter: 0, japanese: 0, international: 0 };
+
+/**
+ * ベンチ/スタメン得点・国籍区分別得点（Phase H8のヘッダースタッツタイルと同じ考え方、
+ * scripts/aggregate.tsのbenchPointsForGame/starterPointsForGame/classificationPointsForGameと
+ * 同じ判定ロジック: Category=1・PeriodCategory=18の個人行のみを対象に、StartingFlgとPlayerID→
+ * classification突合で仕分ける）を1試合分の生ボックススコア行から算出する
+ */
+function rawTeamPointsBreakdown(rows: BoxscoreRow[], masterById: Map<string, PlayerMasterEntry>): TeamPointsBreakdown {
+  let bench = 0;
+  let starter = 0;
+  let japanese = 0;
+  let international = 0;
+  for (const r of rows) {
+    if (r.Category !== 1 || r.PeriodCategory !== 18) continue;
+    if (r.StartingFlg === 1) starter += r.Point;
+    else bench += r.Point;
+    const classification = masterById.get(r.PlayerID)?.classification;
+    if (classification === "日本人") japanese += r.Point;
+    else if (classification === "外国籍" || classification === "帰化選手" || classification === "アジア特別枠") international += r.Point;
+  }
+  return { bench, starter, japanese, international };
+}
+
+function addTeamPointsBreakdown(a: TeamPointsBreakdown, b: TeamPointsBreakdown): TeamPointsBreakdown {
+  return {
+    bench: a.bench + b.bench,
+    starter: a.starter + b.starter,
+    japanese: a.japanese + b.japanese,
+    international: a.international + b.international,
+  };
+}
+
+function scaleTeamPointsBreakdown(b: TeamPointsBreakdown, factor: number): TeamPointsBreakdown {
+  return { bench: b.bench * factor, starter: b.starter * factor, japanese: b.japanese * factor, international: b.international * factor };
+}
+
+export interface TeamPointsBreakdownResult {
+  own: TeamPointsBreakdown;
+  opp: TeamPointsBreakdown;
+  gamesPlayed: number;
+}
+
+/**
+ * 「当該シーズン成績」（チームスタッツタブ上部集計表）・「シチュエーション別成績」（チーム版）の
+ * Misc/スコアリングタブ用。COLUMNS_BY_TAB（試合詳細ページ等と共有の列定義）自体は変更せず、
+ * この結果を呼び出し側で追加の列として描画する。複数試合分をmode（平均/合計）に応じて
+ * 1試合あたり平均または合計へ変換する（buildTeamMultiGameBoxTotalsと同じ設計）
+ */
+export function buildTeamPointsBreakdown(
+  entries: { game: StoredGame; isHome: boolean }[],
+  masterById: Map<string, PlayerMasterEntry>,
+  mode: SeasonDisplayMode,
+): TeamPointsBreakdownResult | null {
+  if (entries.length === 0) return null;
+  const gamesPlayed = entries.length;
+  const factor = mode === "total" ? 1 : 1 / gamesPlayed;
+  let ownSum = EMPTY_TEAM_POINTS_BREAKDOWN;
+  let oppSum = EMPTY_TEAM_POINTS_BREAKDOWN;
+  for (const { game, isHome } of entries) {
+    const ownRows = isHome ? game.raw.HomeBoxscores : game.raw.AwayBoxscores;
+    const oppRows = isHome ? game.raw.AwayBoxscores : game.raw.HomeBoxscores;
+    ownSum = addTeamPointsBreakdown(ownSum, rawTeamPointsBreakdown(ownRows, masterById));
+    oppSum = addTeamPointsBreakdown(oppSum, rawTeamPointsBreakdown(oppRows, masterById));
+  }
+  return { own: scaleTeamPointsBreakdown(ownSum, factor), opp: scaleTeamPointsBreakdown(oppSum, factor), gamesPlayed };
 }
 
 export interface GamePeriodTotals {

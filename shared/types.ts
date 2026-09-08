@@ -795,6 +795,14 @@ export interface TeamGameLog {
   /** その試合の来場者数（Game.Attendance）。ホーム/アウェイいずれの側の試合ログにも同じ値を持たせ、
    * 「ホーム来場者数」集計時はisHomeでフィルタしてから合算する。未計測の試合は省略 */
   attendance?: number;
+  /**
+   * ベンチ得点・スタメン得点（Batch 2、クラブレコード用）。benchPointsForGame/
+   * starterPointsForGame（Phase H8のヘッダータイル用に既に存在する関数）と同じ判定
+   * （Category=1・PeriodCategory=18の個人行をStartingFlgで仕分けてPoint合計する）を、
+   * レギュラー/プレーオフを問わず全試合について算出する
+   */
+  benchPoints: number;
+  starterPoints: number;
   /** クラブレコード「被記録」（Phase H8）用の相手チームのプレータイプ内訳・ダンク数。
    * 同じ試合のpitpByTeam等から対戦相手側のteamIdを引くだけで求まる（新規のPBP走査は不要） */
   opponentPt2in: number;

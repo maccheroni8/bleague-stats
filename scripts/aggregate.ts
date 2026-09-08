@@ -1438,6 +1438,15 @@ function processTeams(
   // teams.jsonのシーズン集計（totals・wins/losses）はレギュラーシーズンのみ加算する。
   // プレーオフの試合もgameLogsには残すため、フロントエンドのシチュエーション別フィルタでは
   // 合算参照できる
+  // ベンチ得点・スタメン得点（Batch 2、クラブレコード用にレギュラー/プレーオフ問わず必要なため
+  // gameTypeゲートの外で算出する。国籍区分別得点（classificationPointsForGame）はシーズン
+  // 集計専用でgameLogsには持たせないため、このゲートの内側のまま据え置く）
+  const individualRows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
+  const homeBench = benchPointsForGame(individualRows, game.homeTeam.id);
+  const awayBench = benchPointsForGame(individualRows, game.awayTeam.id);
+  const homeStarter = starterPointsForGame(individualRows, game.homeTeam.id);
+  const awayStarter = starterPointsForGame(individualRows, game.awayTeam.id);
+
   if (gameType === "regular") {
     // opponentTotalsもgamesPlayedを数える（perGame算出の分母は「自チームの試合数」と一致させる必要がある）。
     // teamNetForGame（オンコート/オフコート算出用）は個人集計専用なのでチーム集計では常に0を渡す
@@ -1450,16 +1459,11 @@ function processTeams(
 
     // ベンチ得点・スタメン得点・国籍区分別得点はaddBoxscoreRow経由のチーム行集計とは別に、
     // 個人行から直接算出する（Phase H8。opponentTotals側にも相手チームの視点で加算する）
-    const individualRows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
-    const homeBench = benchPointsForGame(individualRows, game.homeTeam.id);
-    const awayBench = benchPointsForGame(individualRows, game.awayTeam.id);
     home.totals.benchPoints += homeBench;
     away.totals.benchPoints += awayBench;
     home.opponentTotals.benchPoints += awayBench;
     away.opponentTotals.benchPoints += homeBench;
 
-    const homeStarter = starterPointsForGame(individualRows, game.homeTeam.id);
-    const awayStarter = starterPointsForGame(individualRows, game.awayTeam.id);
     home.totals.starterPoints += homeStarter;
     away.totals.starterPoints += awayStarter;
     home.opponentTotals.starterPoints += awayStarter;
@@ -1547,6 +1551,8 @@ function processTeams(
       paintSplitByTeam,
     ),
     attendance,
+    benchPoints: homeBench,
+    starterPoints: homeStarter,
   });
   away.gameLogs.push({
     scheduleKey: game.scheduleKey,
@@ -1581,6 +1587,8 @@ function processTeams(
       paintSplitByTeam,
     ),
     attendance,
+    benchPoints: awayBench,
+    starterPoints: awayStarter,
   });
 }
 

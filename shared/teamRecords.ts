@@ -218,6 +218,8 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
   { key: "secondChancePts", label: "セカンドチャンスポイント", value: (g) => g.pt2nd },
   { key: "foulsDrawn", label: "ファウルドローン", value: (g) => g.foulsDrawn },
   { key: "dunks", label: "ダンク", value: (g) => g.dunks },
+  { key: "benchPoints", label: "ベンチ得点", value: (g) => g.benchPoints },
+  { key: "starterPoints", label: "スタメン得点", value: (g) => g.starterPoints },
   {
     key: "attendance",
     label: "ホーム来場者数",

@@ -20,6 +20,7 @@ import {
   fetchLeagueTeamRankings,
   fetchPlayerGameLogs,
   fetchPlayers,
+  fetchPlayersMaster,
   fetchSchedule,
   fetchSeasons,
   fetchStandingsHistory,
@@ -40,6 +41,7 @@ import type {
   LeagueTeamRankEntry,
   LeagueTeamRankingsFile,
   PlayerGameLog,
+  PlayerMasterEntry,
   PlayerSummary,
   ShotTypeBreakdown,
   StandingsSnapshot,
@@ -95,6 +97,7 @@ import {
   SEASON_GAME_TYPE_LABELS,
   buildTeamGameBoxTotals,
   buildTeamMultiGameBoxTotals,
+  buildTeamPointsBreakdown,
   buildTeamSplitRowsForPeriod,
   countDoubleTripleDoubles,
   filterByGameType,
@@ -104,6 +107,8 @@ import {
   type SeasonDisplayMode,
   type SeasonGameTypeFilter,
   type TeamGameBoxTotals,
+  type TeamPointsBreakdown,
+  type TeamPointsBreakdownResult,
 } from "../lib/playerSeasonBoxscore";
 import { BOXSCORE_TABS, COLUMNS_BY_TAB, type BoxscoreColumn, type BoxscoreTabKey, type ColumnCtx } from "../components/BoxscoreTable";
 import { astToTovRatio, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
@@ -471,9 +476,9 @@ interface TeamHeaderStatDef {
 }
 
 // ヘッダーのスタッツタイル（Phase H8で4段9列に並べ替え。1〜2段目が自チーム、3〜4段目が
-// 相手＝opp。5〜6段目はベンチ/スタメン得点比率・国籍区分別得点の追加項目で、9列に揃えず
-// 自チーム分5項目・opp分3項目のみ並べる）。シーズン合計（フィルタなし）固定で表示し、
-// 各タイルにリーグ内順位を併記する
+// 相手＝opp）。シーズン合計（フィルタなし）固定で表示し、各タイルにリーグ内順位を併記する。
+// スタメン/ベンチ得点比率・国籍区分別得点はBatch 1でタイルから削除し、「シーズン別成績」
+// 「当該シーズン成績」「シチュエーション別成績」の列に移設した（DESIGN.md参照）
 const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
   [
     { key: "pts", label: "PTS", value: (t) => t.perGame.pts, format: (t) => formatDecimal(t.perGame.pts), higherIsBetter: true },
@@ -546,70 +551,6 @@ const TEAM_HEADER_STAT_ROWS: TeamHeaderStatDef[][] = [
       label: "opp OR%",
       value: (t) => t.advanced.opponentOrbPct,
       format: (t) => formatPct100(t.advanced.opponentOrbPct),
-      higherIsBetter: false,
-    },
-  ],
-  // 5段目: 自チームの追加項目（スタメン得点、総得点に占めるベンチ/スタメン得点の割合、
-  // 国籍区分別得点）。9列に揃えず必要な項目だけを並べる
-  [
-    {
-      key: "starterPts",
-      label: "STARTER PTS",
-      value: (t) => t.advanced.starterPointsPerGame,
-      format: (t) => formatDecimal(t.advanced.starterPointsPerGame),
-      higherIsBetter: true,
-    },
-    {
-      key: "benchPtsShare",
-      label: "%BENCH PTS",
-      value: (t) => t.advanced.benchPointsSharePct,
-      format: (t) => formatPct100(t.advanced.benchPointsSharePct),
-      higherIsBetter: true,
-    },
-    {
-      key: "starterPtsShare",
-      label: "%STARTER PTS",
-      value: (t) => t.advanced.starterPointsSharePct,
-      format: (t) => formatPct100(t.advanced.starterPointsSharePct),
-      higherIsBetter: true,
-    },
-    {
-      key: "japanesePts",
-      label: "日本人PTS",
-      value: (t) => t.advanced.japanesePointsPerGame,
-      format: (t) => formatDecimal(t.advanced.japanesePointsPerGame),
-      higherIsBetter: true,
-    },
-    {
-      key: "internationalPts",
-      label: "外国籍等PTS",
-      value: (t) => t.advanced.internationalPointsPerGame,
-      format: (t) => formatDecimal(t.advanced.internationalPointsPerGame),
-      higherIsBetter: true,
-    },
-  ],
-  // 6段目: 相手（opp）の追加項目。%BENCH PTS・%STARTER PTSは自チームの得点構成比のみを
-  // 意味のある指標として扱い、opp版は設けない
-  [
-    {
-      key: "oppStarterPts",
-      label: "oppSTARTER PTS",
-      value: (t) => t.advanced.opponentStarterPointsPerGame,
-      format: (t) => formatDecimal(t.advanced.opponentStarterPointsPerGame),
-      higherIsBetter: false,
-    },
-    {
-      key: "oppJapanesePts",
-      label: "opp日本人PTS",
-      value: (t) => t.advanced.opponentJapanesePointsPerGame,
-      format: (t) => formatDecimal(t.advanced.opponentJapanesePointsPerGame),
-      higherIsBetter: false,
-    },
-    {
-      key: "oppInternationalPts",
-      label: "opp外国籍等PTS",
-      value: (t) => t.advanced.opponentInternationalPointsPerGame,
-      format: (t) => formatDecimal(t.advanced.opponentInternationalPointsPerGame),
       higherIsBetter: false,
     },
   ],
@@ -1215,6 +1156,57 @@ const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "DUNK",
     format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.dunks, m.oppDunks, r.team.gamesPlayed, mode, p),
   },
+  // ベンチ/スタメン得点・国籍区分別得点（Batch 1でヘッダータイルから移設）。r.team.advancedに
+  // 既にシーズン平均値が集計済みのため、+/-列と同じ「perGame×gamesPlayedで合計値を復元する」
+  // 方式でmode（平均/合計）・perspective（own/opp/diff）に対応する
+  {
+    key: "benchPts",
+    label: "BENCH PTS",
+    format: (r, _m, mode, p) =>
+      formatTeamSeasonCountPerspective(
+        r.team.advanced.benchPointsPerGame * r.team.gamesPlayed,
+        r.team.advanced.opponentBenchPointsPerGame * r.team.gamesPlayed,
+        r.team.gamesPlayed,
+        mode,
+        p,
+      ),
+  },
+  {
+    key: "starterPts",
+    label: "STARTER PTS",
+    format: (r, _m, mode, p) =>
+      formatTeamSeasonCountPerspective(
+        r.team.advanced.starterPointsPerGame * r.team.gamesPlayed,
+        r.team.advanced.opponentStarterPointsPerGame * r.team.gamesPlayed,
+        r.team.gamesPlayed,
+        mode,
+        p,
+      ),
+  },
+  {
+    key: "japanesePts",
+    label: "日本人PTS",
+    format: (r, _m, mode, p) =>
+      formatTeamSeasonCountPerspective(
+        r.team.advanced.japanesePointsPerGame * r.team.gamesPlayed,
+        r.team.advanced.opponentJapanesePointsPerGame * r.team.gamesPlayed,
+        r.team.gamesPlayed,
+        mode,
+        p,
+      ),
+  },
+  {
+    key: "internationalPts",
+    label: "外国籍等PTS",
+    format: (r, _m, mode, p) =>
+      formatTeamSeasonCountPerspective(
+        r.team.advanced.internationalPointsPerGame * r.team.gamesPlayed,
+        r.team.advanced.opponentInternationalPointsPerGame * r.team.gamesPlayed,
+        r.team.gamesPlayed,
+        mode,
+        p,
+      ),
+  },
   {
     key: "tf",
     label: "TF",
@@ -1289,6 +1281,19 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "PTSOFFTO%",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(safeDiv(100 * m.pft, r.team.totals.pts), safeDiv(100 * m.oppPft, m.oppPts), p),
+  },
+  // %BENCH PTS・%STARTER PTSは自チームの得点構成比のみを意味のある指標として扱い、
+  // EFF列（TEAM_SEASON_TRADITIONAL_COLUMNS）と同じくperspectiveの選択に関わらず常に
+  // 自チームの値を表示する（opp/diff版は設けない。Batch 1でヘッダータイルから移設）
+  {
+    key: "benchptspct",
+    label: "%BENCH PTS",
+    format: (r) => formatPct100(r.team.advanced.benchPointsSharePct),
+  },
+  {
+    key: "starterptspct",
+    label: "%STARTER PTS",
+    format: (r) => formatPct100(r.team.advanced.starterPointsSharePct),
   },
   // ここから下は「自チーム/相手チームの全FGAに対する割合」（シュート選択構成比）。
   // 上記PITP%等（総得点に対する割合）とは分母が異なる別系統の指標
@@ -1679,6 +1684,9 @@ interface TeamSituationalStatsRow {
   /** この行に属する試合の、対戦相手の「その試合時点までの」勝率の単純平均（相手の強さの目安）。
    * buildRecordsBeforeGame()の結果が無い、または算出対象の試合が0件ならundefined */
   oppWinPctAvg: number | undefined;
+  /** ベンチ/スタメン得点・国籍区分別得点（Batch 1、Miscタブ末尾に列として表示）。boxTotalsと
+   * 同じ試合集合から算出する */
+  points: TeamPointsBreakdownResult | null;
 }
 interface TeamSituationalStatsGroup {
   key: string;
@@ -1784,6 +1792,53 @@ function defaultTeamCompareSlots(season: string): [TeamCompareSlotState, TeamCom
   ];
 }
 
+/**
+ * 「当該シーズン成績」（チームスタッツタブ上部集計表）・「シチュエーション別成績」（チーム版）の
+ * Misc/スコアリングタブ末尾に追加するベンチ/スタメン得点・国籍区分別得点の列（Batch 1）。
+ * COLUMNS_BY_TAB自体（試合詳細ページ等と共有）は変更せず、この2箇所でだけ手動で追加描画する
+ */
+interface TeamPointsExtraColumn {
+  key: string;
+  label: string;
+  value: (b: TeamPointsBreakdown) => number;
+}
+
+const TEAM_POINTS_MISC_COLUMNS: TeamPointsExtraColumn[] = [
+  { key: "benchPts", label: "BENCH PTS", value: (b) => b.bench },
+  { key: "starterPts", label: "STARTER PTS", value: (b) => b.starter },
+  { key: "japanesePts", label: "日本人PTS", value: (b) => b.japanese },
+  { key: "internationalPts", label: "外国籍等PTS", value: (b) => b.international },
+];
+
+// %BENCH PTS・%STARTER PTSは自チームの得点構成比のみを意味のある指標として扱い、
+// ヘッダータイル時代・「シーズン別成績」と同じくown/opp/diffの切り替え対象外にする
+const TEAM_POINTS_SHARE_COLUMNS: TeamPointsExtraColumn[] = [
+  { key: "benchPtsShare", label: "%BENCH PTS", value: (b) => safeDiv(100 * b.bench, b.bench + b.starter) },
+  { key: "starterPtsShare", label: "%STARTER PTS", value: (b) => safeDiv(100 * b.starter, b.bench + b.starter) },
+];
+
+function teamPointsExtraColumnsForTab(tab: BoxscoreTabKey | "shooting" | "forcedTurnovers" | "scoringComposition"): TeamPointsExtraColumn[] {
+  return tab === "misc" ? TEAM_POINTS_MISC_COLUMNS : tab === "scoring" ? TEAM_POINTS_SHARE_COLUMNS : [];
+}
+
+function formatTeamPointsCount(
+  result: TeamPointsBreakdownResult | null,
+  col: TeamPointsExtraColumn,
+  perspective: TeamPerspective,
+  mode: SeasonDisplayMode,
+): string {
+  if (!result) return "-";
+  const digits = mode === "total" ? 0 : 1;
+  const ownVal = col.value(result.own);
+  const oppVal = col.value(result.opp);
+  return perspective === "own" ? formatDecimal(ownVal, digits) : perspective === "opp" ? formatDecimal(oppVal, digits) : formatSigned(ownVal - oppVal, digits);
+}
+
+// %BENCH PTS・%STARTER PTSは常に自チームの値を表示する（EFF列・「シーズン別成績」と同じ扱い）
+function formatTeamPointsSharePct(result: TeamPointsBreakdownResult | null, col: TeamPointsExtraColumn): string {
+  return result ? formatPct100(col.value(result.own)) : "-";
+}
+
 interface TeamCompareColumnData {
   key: string;
   label: string;
@@ -1850,6 +1905,10 @@ export function TeamDetailPage({ season }: { season: string }) {
   const { data: teamHistory } = useJsonData(() => fetchTeamHistory(), []);
   const { data: clubHonors } = useJsonData(() => fetchClubHonors(), []);
   const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
+  // 「当該シーズン成績」「シチュエーション別成績」のBENCH PTS等（Batch 1）の国籍区分別集計用。
+  // 季非依存の単一ファイルのため、クラブ・シーズンを問わず1回だけ取得する
+  const { data: playersMaster } = useJsonData(() => fetchPlayersMaster(), []);
+  const masterById = useMemo(() => new Map((playersMaster ?? []).map((p) => [p.playerId, p])), [playersMaster]);
   // 通算成績・クラブレコードの歴代クラブ横断順位（Phase H7）。scripts/aggregate-league-rankings.tsが
   // 手動実行のバッチ処理で生成する単一ファイルのため、ファイルが未生成でもfetchJsonが
   // エラーを投げるだけでページ全体は壊れない（leagueRankingsがnullのまま＝順位バッジ非表示になる）
@@ -2614,6 +2673,10 @@ export function TeamDetailPage({ season }: { season: string }) {
     statsPeriodOption,
     teamStatsDisplayMode,
   );
+  // ベンチ/スタメン得点・国籍区分別得点（Batch 1）。Q別/前後半の概念が無い全試合固定の値
+  // （benchPointsForGame等と同じPeriodCategory=18の個人行のみを対象にするため）のため、
+  // statsPeriodOptionは渡さない
+  const teamStatsPoints = buildTeamPointsBreakdown(teamStatsEntries, masterById, teamStatsDisplayMode);
 
   // 「シューティング」セクション: 「試合」選択時・フィルタ無し・レギュラーシーズンのみの場合だけ
   // teams.jsonのshotTypes（0コスト）、それ以外はYahoo PBPを試合ごとに合算し直す
@@ -2837,6 +2900,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 boxTotals,
                 scheduleKeys: matched.map((g) => g.scheduleKey),
                 oppWinPctAvg: computeOpponentWinPctAvg(matched, opponentRecords),
+                points: buildTeamPointsBreakdown(entries, masterById, situationalTeamDisplayMode),
               },
             ]
           : [];
@@ -2867,6 +2931,8 @@ export function TeamDetailPage({ season }: { season: string }) {
     situationalTeamDisplayMode === "total" ? "total" : "perGame",
     (r) => r.gamesPlayed,
   );
+  // ベンチ/スタメン得点・国籍区分別得点（Batch 1）。Misc/スコアリングタブのみ末尾に追加する
+  const situationalTeamPointsColumns = teamPointsExtraColumnsForTab(situationalTeamBoxTab);
 
   const playerNameById = new Map((players ?? []).map((p) => [p.playerId, p.name]));
   const topLineups = (lineupsFile?.lineups ?? [])
@@ -3667,6 +3733,11 @@ export function TeamDetailPage({ season }: { season: string }) {
                         {col.label}
                       </th>
                     ))}
+                    {teamPointsExtraColumnsForTab(teamStatsBoxTab).map((col) => (
+                      <th key={col.key} className="align-right">
+                        {col.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -3685,6 +3756,13 @@ export function TeamDetailPage({ season }: { season: string }) {
                                 teamStatsBoxTotals.opp,
                                 teamStatsBoxTotals.oppCtx,
                               )}
+                      </td>
+                    ))}
+                    {teamPointsExtraColumnsForTab(teamStatsBoxTab).map((col) => (
+                      <td key={col.key} className="align-right">
+                        {teamStatsBoxTab === "scoring"
+                          ? formatTeamPointsSharePct(teamStatsPoints, col)
+                          : formatTeamPointsCount(teamStatsPoints, col, teamPerspective, teamStatsDisplayMode)}
                       </td>
                     ))}
                   </tr>
@@ -3763,6 +3841,11 @@ export function TeamDetailPage({ season }: { season: string }) {
                         </th>
                       ),
                     )}
+                    {situationalTeamPointsColumns.map((col) => (
+                      <th key={col.key} className="align-right">
+                        {col.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -3772,7 +3855,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                         <td
                           colSpan={
                             (situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : COLUMNS_BY_TAB[situationalTeamBoxTab])
-                              .length + 3
+                              .length +
+                            situationalTeamPointsColumns.length +
+                            3
                           }
                         >
                           {group.label}
@@ -3806,6 +3891,13 @@ export function TeamDetailPage({ season }: { season: string }) {
                                         )}
                                 </td>
                               ))}
+                          {situationalTeamPointsColumns.map((col) => (
+                            <td key={col.key} className="align-right">
+                              {situationalTeamBoxTab === "scoring"
+                                ? formatTeamPointsSharePct(row.points, col)
+                                : formatTeamPointsCount(row.points, col, teamPerspective, situationalTeamDisplayMode)}
+                            </td>
+                          ))}
                         </tr>
                       ))}
                     </Fragment>
