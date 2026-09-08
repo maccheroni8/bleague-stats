@@ -6,9 +6,10 @@ import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs"
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
-import { formatDateHeading } from "../lib/format";
+import { SortableTable, type Column } from "../components/SortableTable";
+import { formatDateHeading, formatSigned, formatWinPct } from "../lib/format";
 import { teamShortName } from "../../shared/teamNames";
-import type { GameSummary, PlayerSummary, StandingsTeamSnapshot, TeamSummary } from "../../shared/types";
+import type { Division, GameSummary, PlayerSummary, StandingsTeamSnapshot, TeamSummary } from "../../shared/types";
 
 type LeaderMode = "player" | "team";
 
@@ -70,6 +71,60 @@ function topTeamsForStat(teams: TeamSummary[], def: StatDef<TeamSummary>, count:
   return [...teams].sort((a, b) => compareByStat(def, a, b)).slice(0, count);
 }
 
+// 地区数は可変（東西2地区制のシーズンもあれば、過去の東・中・西3地区制のシーズンもある。
+// DESIGN.md参照）。表示順は固定のこの並びとし、latestSnapshotに実際に存在する地区だけを表示する
+const DIVISION_ORDER: Division[] = ["east", "central", "west", "north", "south"];
+const DIVISION_LABELS: Record<Division, string> = {
+  east: "東地区",
+  west: "西地区",
+  central: "中地区",
+  north: "北地区",
+  south: "南地区",
+};
+
+function groupByDivision(teams: StandingsTeamSnapshot[]): { division: Division; teams: StandingsTeamSnapshot[] }[] {
+  const byDivision = new Map<Division, StandingsTeamSnapshot[]>();
+  for (const t of teams) {
+    if (!t.division) continue;
+    const list = byDivision.get(t.division) ?? [];
+    list.push(t);
+    byDivision.set(t.division, list);
+  }
+  for (const list of byDivision.values()) {
+    list.sort((a, b) => (a.divisionRank ?? 0) - (b.divisionRank ?? 0));
+  }
+  return DIVISION_ORDER.filter((d) => byDivision.has(d)).map((division) => ({
+    division,
+    teams: byDivision.get(division)!,
+  }));
+}
+
+const standingsColumns: Column<StandingsTeamSnapshot>[] = [
+  {
+    key: "divisionRank",
+    label: "順位",
+    sortValue: (t) => t.divisionRank ?? 0,
+    format: (t) => String(t.divisionRank ?? "-"),
+  },
+  {
+    key: "logo",
+    label: "",
+    sortValue: () => 0,
+    render: (t) => <TeamLogo teamId={t.teamId} size={24} />,
+  },
+  { key: "teamName", label: "チーム", sortValue: (t) => t.teamName, align: "left" },
+  { key: "games", label: "試合数", sortValue: (t) => t.wins + t.losses },
+  { key: "wins", label: "勝", sortValue: (t) => t.wins },
+  { key: "losses", label: "負", sortValue: (t) => t.losses },
+  { key: "winPct", label: "勝率", sortValue: (t) => t.winPct, format: (t) => formatWinPct(t.winPct) },
+  {
+    key: "pointDiff",
+    label: "得失点",
+    sortValue: (t) => t.pointDiff,
+    format: (t) => formatSigned(t.pointDiff, 0),
+  },
+];
+
 export function HomePage({ season }: { season: string }) {
   const [leaderMode, setLeaderMode] = useState<LeaderMode>("player");
   const {
@@ -96,8 +151,7 @@ export function HomePage({ season }: { season: string }) {
 
   const recentGames = games ? recentFinishedGames(games) : [];
   const latestSnapshot = history && history.length > 0 ? history[history.length - 1]! : null;
-  const eastTeams = latestSnapshot?.teams.filter((t) => t.division === "east") ?? [];
-  const westTeams = latestSnapshot?.teams.filter((t) => t.division === "west") ?? [];
+  const divisionGroups = latestSnapshot ? groupByDivision(latestSnapshot.teams) : [];
 
   return (
     <div>
@@ -246,7 +300,7 @@ export function HomePage({ season }: { season: string }) {
 
       <section className="home-section">
         <div className="home-section-head">
-          <h2>チーム一覧</h2>
+          <h2>順位表</h2>
           <Link to="/standings" className="home-section-more">
             順位表を見る →
           </Link>
@@ -255,12 +309,26 @@ export function HomePage({ season }: { season: string }) {
           <p className="loading">読み込み中...</p>
         ) : standingsError ? (
           <p className="error-message">{standingsError}</p>
-        ) : !latestSnapshot ? (
+        ) : !latestSnapshot || divisionGroups.length === 0 ? (
           <p className="empty-message">チームデータがありません</p>
         ) : (
-          <div className="team-logo-section">
-            <TeamLogoGroup title="東地区" teams={eastTeams} />
-            <TeamLogoGroup title="西地区" teams={westTeams} />
+          <div className="home-standings-grid">
+            {divisionGroups.map(({ division, teams }) => (
+              <div key={division}>
+                <h3>{DIVISION_LABELS[division]}</h3>
+                <div className="table-scroll">
+                  <SortableTable
+                    columns={standingsColumns}
+                    rows={teams}
+                    rowKey={(t) => t.teamId}
+                    defaultSortKey="divisionRank"
+                    defaultSortDir="asc"
+                    linkTo={(t) => `/teams/${t.teamId}`}
+                    rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>
@@ -284,24 +352,6 @@ function RecentGameTeamRow({
       <TeamLogo teamId={teamId} size={28} />
       <span className="recent-game-team-name">{teamShortName(teamId, teamName)}</span>
       <span className="recent-game-score">{score}</span>
-    </div>
-  );
-}
-
-function TeamLogoGroup({ title, teams }: { title: string; teams: StandingsTeamSnapshot[] }) {
-  return (
-    <div className="team-logo-group">
-      <h3 className="team-logo-group-title">
-        {title}
-        <span className="team-logo-group-count">{teams.length}</span>
-      </h3>
-      <div className="team-logo-grid">
-        {teams.map((t) => (
-          <Link key={t.teamId} to={`/teams/${t.teamId}`} className="team-logo-card">
-            <TeamLogo teamId={t.teamId} size={48} />
-          </Link>
-        ))}
-      </div>
     </div>
   );
 }

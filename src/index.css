@@ -2728,48 +2728,17 @@ td.schedule-team-cell.align-right .cell-link {
   font-weight: 600;
 }
 
-.team-logo-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* ホーム画面の順位表セクション。地区数が可変（東西2地区制／東・中・西3地区制）なため
+   auto-fitで列数を自動調整する（.standings-gridの固定2列とは異なる） */
+.home-standings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
 }
 
-.team-logo-group {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 14px;
-}
-
-.team-logo-group-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 10px;
-  padding-left: 10px;
-  border-left: 3px solid var(--accent);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.team-logo-group-count {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.team-logo-grid {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-}
-
-.team-logo-card {
-  display: flex;
-  flex: 0 0 auto;
-  color: inherit;
-  text-decoration: none;
+.home-standings-grid h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
 }
 
 /* 出場試合率の範囲スライダー（全選手スタッツ一覧）。下限・上限を2本のtype=rangeを
