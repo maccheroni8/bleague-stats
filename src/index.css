@@ -1085,6 +1085,9 @@ table.quarter-table th {
 
 .leader-matchup-toggle {
   margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .leader-matchup-toggle button {
@@ -1543,6 +1546,21 @@ table.boxscore-table td {
   font-variant-numeric: tabular-nums;
 }
 
+/* トラディショナル以外のカテゴリタブ（アドバンスド/Misc/スコアリング/シューティング）向け。
+   列数が多く1px詰めの余白だと項目名が詰まって読みにくいため、余白を広げて自然な幅で
+   描画する（width:100%を外し、必要ならtable-scroll側のoverflow-x:autoでPC表示でも
+   横スクロールできるようにする）。トラディショナルタブは以前収まるよう調整済みのため
+   このクラスを付けず現状のまま維持する */
+table.boxscore-table.boxscore-table-wide {
+  width: auto;
+  min-width: 100%;
+}
+
+table.boxscore-table.boxscore-table-wide th,
+table.boxscore-table.boxscore-table-wide td {
+  padding: 4px 6px;
+}
+
 table.boxscore-table th {
   background: var(--header-bg);
   color: var(--muted);
@@ -1578,13 +1596,6 @@ table.boxscore-table .boxscore-summary-row td {
   font-weight: 700;
   background: var(--row-hover);
   border-top: 1px solid var(--border);
-}
-
-table.boxscore-table .row-note {
-  margin-left: 4px;
-  color: var(--muted);
-  font-weight: 400;
-  cursor: help;
 }
 
 .stat-badge {

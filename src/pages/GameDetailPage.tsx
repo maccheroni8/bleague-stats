@@ -5,7 +5,7 @@ import { fetchGame, fetchPlayers, fetchTeamColors, fetchYahooGamePbp } from "../
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import { formatPct } from "../lib/format";
-import type { BoxscoreRow, ShotTypeBreakdown } from "../../shared/types";
+import type { BoxscoreRow, PlayByPlayEvent, ShotTypeBreakdown } from "../../shared/types";
 import { KeyStatsSection } from "../components/KeyStatsSection";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
@@ -15,9 +15,11 @@ import { PlayerPhoto } from "../components/PlayerPhoto";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { BOXSCORE_TABS, BoxscoreTable, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
-import { buildShotEvents } from "../lib/shotChart";
+import { buildShotEvents, paintSplitForShot, type ShotEvent } from "../lib/shotChart";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { computeOnCourtRatings, reconstructOnCourt, substitutionModelForSeason, type PlayerOnCourtRatings } from "../../shared/onCourt";
+import { computePointsInPaint } from "../../shared/playTypePoints";
+import { CompositionPieChart, type PieSegmentInput } from "../components/CompositionPieChart";
 import { playTimeToSeconds } from "../lib/boxscoreAggregate";
 import {
   buildShotTypeBreakdownByPlayer,
@@ -125,6 +127,69 @@ function safeDiv(a: number, b: number): number {
   return b === 0 ? 0 : a / b;
 }
 
+// FG試投構成・得点構成の円グラフで使う配色（TeamDetailPageの得点構成/失点構成セクションと
+// 同じ配色パターン。3P=青・IP(ペイント内)=赤・OP(ペイント外)=黄、PTS構成のみFT=緑を追加）
+const GAME_COMPOSITION_PIE_COLORS = {
+  threeP: "#5b9bd5",
+  paint: "#e06666",
+  midRange: "#f6c453",
+  ft: "#93c47d",
+};
+
+/**
+ * FG試投割合の円グラフ用データ（1試合分）。3P試投・ペイント内試投・ペイント外(ミッドレンジ)
+ * 試投の3分割が基本形だが、ペイント内外の分割はショットチャート座標（X/Y/AreaCD）由来のため
+ * 2022-23シーズン以降のみ取得できる（TeamDetailPageの同名関数と同じ制約）。それ以前の
+ * シーズンは2P/3Pの2分割にフォールバックする
+ */
+function buildGameFgaCompositionSegments(
+  total: BoxscoreRow | undefined,
+  shots: ShotEvent[],
+  shotChartSupported: boolean,
+): PieSegmentInput[] {
+  if (!total) return [];
+  const tpa = total.PT3A;
+  const fga = total.PT2A + total.PT3A;
+  const twoA = Math.max(0, fga - tpa);
+  if (!shotChartSupported) {
+    return [
+      { key: "3p", label: "3P", color: GAME_COMPOSITION_PIE_COLORS.threeP, value: tpa },
+      { key: "2p", label: "2P", color: GAME_COMPOSITION_PIE_COLORS.paint, value: twoA },
+    ];
+  }
+  const paintA = shots.filter((s) => paintSplitForShot(s) === "paint").length;
+  const midA = Math.max(0, twoA - paintA);
+  return [
+    { key: "3p", label: "3P", color: GAME_COMPOSITION_PIE_COLORS.threeP, value: tpa },
+    { key: "ip", label: "IP", color: GAME_COMPOSITION_PIE_COLORS.paint, value: paintA },
+    { key: "op", label: "OP", color: GAME_COMPOSITION_PIE_COLORS.midRange, value: midA },
+  ];
+}
+
+/**
+ * 得点割合の円グラフ用データ（1試合分）。3P点・ペイント内(IP)点・ペイント外(OP・ミッドレンジ)点・
+ * FT点の4分割。ペイント内得点はPBPタグ集計（shared/playTypePoints.ts）ベースのため
+ * ショットチャート座標に依存せず全シーズン算出できる（TeamDetailPageの同名関数と同じ考え方）
+ */
+function buildGamePtsCompositionSegments(
+  total: BoxscoreRow | undefined,
+  teamId: string | undefined,
+  paintPointsByTeam: Map<string, number>,
+): PieSegmentInput[] {
+  if (!total) return [];
+  const threeP = total.PT3M * 3;
+  const ft = total.FTM;
+  const twoP = total.PT2M * 2;
+  const paint = teamId ? (paintPointsByTeam.get(teamId) ?? 0) : 0;
+  const midRange = Math.max(0, twoP - paint);
+  return [
+    { key: "3p", label: "3P", color: GAME_COMPOSITION_PIE_COLORS.threeP, value: threeP },
+    { key: "ip", label: "IP", color: GAME_COMPOSITION_PIE_COLORS.paint, value: paint },
+    { key: "op", label: "OP", color: GAME_COMPOSITION_PIE_COLORS.midRange, value: midRange },
+    { key: "ft", label: "FT", color: GAME_COMPOSITION_PIE_COLORS.ft, value: ft },
+  ];
+}
+
 /** ゲームリーダー拡張セクション（PTS/OREB/DREB/TREB/AST/STL/BLK/TO/2P%/3P%/FT%）の項目定義 */
 interface GameLeaderStatDef {
   key: string;
@@ -220,6 +285,7 @@ export function GameDetailPage({ season }: { season: string }) {
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const [shotPeriodRange, setShotPeriodRange] = useState<PeriodRangeValue>("all");
   const [showExtendedLeaders, setShowExtendedLeaders] = useState(true);
+  const [leaderDisplayMode, setLeaderDisplayMode] = useState<"all" | "japanese">("all");
   // ボックススコアのカテゴリタブに「シューティング」を5つ目の選択肢として統合したもの
   // （DESIGN.md参照）。トラディショナル/アドバンスド/Misc/スコアリングはBoxscoreTable本体へ
   // 制御を委譲し、シューティング選択時はBoxscoreTableの代わりに既存のシュートタイプ内訳
@@ -526,13 +592,24 @@ export function GameDetailPage({ season }: { season: string }) {
         <button onClick={() => setShowExtendedLeaders((v) => !v)}>
           {showExtendedLeaders ? "隠す" : "詳細"}
         </button>
+        <button onClick={() => setLeaderDisplayMode((v) => (v === "all" ? "japanese" : "all"))}>
+          {leaderDisplayMode === "all" ? "全選手" : "日本人"}
+        </button>
       </div>
       {showExtendedLeaders && (
         <GameLeadersMatchup
           homeTeamName={game.homeTeam.name}
           awayTeamName={game.awayTeam.name}
-          homeRows={homePlayers}
-          awayRows={awayPlayers}
+          homeRows={
+            leaderDisplayMode === "japanese"
+              ? homePlayers.filter((r) => classificationById.get(r.PlayerID) === "日本人")
+              : homePlayers
+          }
+          awayRows={
+            leaderDisplayMode === "japanese"
+              ? awayPlayers.filter((r) => classificationById.get(r.PlayerID) === "日本人")
+              : awayPlayers
+          }
         />
       )}
 
@@ -545,6 +622,21 @@ export function GameDetailPage({ season }: { season: string }) {
           gameSummary={gameSummary}
           homeColor={homeColor}
           awayColor={awayColor}
+        />
+      )}
+
+      {homeTotal && awayTotal && (
+        <GameCompositionSection
+          homeTeamName={game.homeTeam.name}
+          awayTeamName={game.awayTeam.name}
+          homeTotal={homeTotal}
+          awayTotal={awayTotal}
+          homeTeamId={game.homeTeam.id}
+          awayTeamId={game.awayTeam.id}
+          homeShots={homeShots}
+          awayShots={awayShots}
+          playByPlays={game.raw.PlayByPlays}
+          shotChartSupported={shotChartSupported}
         />
       )}
 
@@ -573,6 +665,62 @@ export function GameDetailPage({ season }: { season: string }) {
         <p className="empty-message">このシーズンのデータには対応していません</p>
       )}
     </div>
+  );
+}
+
+/**
+ * FG試投構成・得点構成の円グラフセクション（1試合分。DESIGN.md Batch 4参照）。
+ * TeamDetailPageの得点構成/失点構成セクション（シーズン集計）と同じCompositionPieChart
+ * をそのまま再利用し、1試合分の生データに対応させたもの
+ */
+function GameCompositionSection({
+  homeTeamName,
+  awayTeamName,
+  homeTotal,
+  awayTotal,
+  homeTeamId,
+  awayTeamId,
+  homeShots,
+  awayShots,
+  playByPlays,
+  shotChartSupported,
+}: {
+  homeTeamName: string;
+  awayTeamName: string;
+  homeTotal: BoxscoreRow;
+  awayTotal: BoxscoreRow;
+  homeTeamId: string;
+  awayTeamId: string;
+  homeShots: ShotEvent[];
+  awayShots: ShotEvent[];
+  playByPlays: PlayByPlayEvent[];
+  shotChartSupported: boolean;
+}) {
+  const paintPointsByTeam = computePointsInPaint(playByPlays).byTeam;
+  const homeFga = buildGameFgaCompositionSegments(homeTotal, homeShots, shotChartSupported);
+  const awayFga = buildGameFgaCompositionSegments(awayTotal, awayShots, shotChartSupported);
+  const homePts = buildGamePtsCompositionSegments(homeTotal, homeTeamId, paintPointsByTeam);
+  const awayPts = buildGamePtsCompositionSegments(awayTotal, awayTeamId, paintPointsByTeam);
+
+  return (
+    <section className="key-stats-card">
+      <h3>シュート試投構成 / 得点構成</h3>
+      {!shotChartSupported && (
+        <p className="page-subtitle">
+          このシーズンはペイント内外の分割データが無いため、FG試投構成は2P/3Pの2分割で表示します
+        </p>
+      )}
+      <h4 className="composition-pie-group-title">FG試投構成</h4>
+      <div className="composition-pie-row">
+        <CompositionPieChart title={`${homeTeamName} FG試投割合`} segments={homeFga} valueDigits={0} />
+        <CompositionPieChart title={`${awayTeamName} FG試投割合`} segments={awayFga} valueDigits={0} />
+      </div>
+      <h4 className="composition-pie-group-title">得点構成</h4>
+      <div className="composition-pie-row">
+        <CompositionPieChart title={`${homeTeamName} 得点割合`} segments={homePts} valueDigits={0} />
+        <CompositionPieChart title={`${awayTeamName} 得点割合`} segments={awayPts} valueDigits={0} />
+      </div>
+    </section>
   );
 }
 
@@ -637,7 +785,7 @@ function ShootingBreakdownTable({
         <p className="empty-message">この試合のデータがありません</p>
       ) : (
         <div className="table-scroll">
-          <table className="boxscore-table">
+          <table className="boxscore-table boxscore-table-wide">
             <thead>
               <tr>
                 <th className="align-left" rowSpan={2}>選手</th>

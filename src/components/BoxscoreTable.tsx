@@ -572,6 +572,7 @@ export function BoxscoreTable({
         onCourtRatings={onCourtRatings}
         accentColor={homeColor}
         showStatBadges={activeTab === "traditional"}
+        wideScrollable={activeTab !== "traditional"}
       />
       <BoxscoreTeamPanel
         teamName={awayTeamName}
@@ -589,6 +590,7 @@ export function BoxscoreTable({
         onCourtRatings={onCourtRatings}
         accentColor={awayColor}
         showStatBadges={activeTab === "traditional"}
+        wideScrollable={activeTab !== "traditional"}
       />
     </>
   );
@@ -634,6 +636,7 @@ function BoxscoreTeamPanel({
   onCourtRatings,
   accentColor,
   showStatBadges,
+  wideScrollable,
 }: {
   teamName: string;
   ownRows: BoxscoreRow[];
@@ -651,7 +654,13 @@ function BoxscoreTeamPanel({
   accentColor?: string;
   /** ダブルダブル/トリプルダブルバッジをトラディショナルタブでのみ表示する */
   showStatBadges: boolean;
+  /**
+   * trueの場合、列幅を圧縮せず自然な幅のままPC表示でも横スクロールさせる
+   * （トラディショナル以外のカテゴリタブ向け。DESIGN.md参照）
+   */
+  wideScrollable: boolean;
 }) {
+  const tableClassName = wideScrollable ? "boxscore-table boxscore-table-wide" : "boxscore-table";
   let teamTotal = buildTeamTotalCounts(ownRows, periodOption);
   const oppTeamTotal = buildTeamTotalCounts(oppRows, periodOption);
   const coaches = buildTeamCoachesCounts(ownRows, periodOption, playByPlays);
@@ -749,7 +758,7 @@ function BoxscoreTeamPanel({
       <div className="boxscore-section" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
         <h3>{teamName}</h3>
         <div className="table-scroll">
-          <table className="boxscore-table">
+          <table className={tableClassName}>
             <thead>
               <tr>
                 <th className="align-left">選手</th>
@@ -797,7 +806,7 @@ function BoxscoreTeamPanel({
       <div className="boxscore-summary-section">
         <h4>内訳集計</h4>
         <div className="table-scroll">
-          <table className="boxscore-table">
+          <table className={tableClassName}>
             <thead>
               <tr>
                 <th className="align-left"> </th>
@@ -935,13 +944,8 @@ function BoxscoreDataRow({
 }) {
   return (
     <tr className={className}>
-      <td className="align-left">
+      <td className="align-left" title={note}>
         {label}
-        {note && (
-          <span className="row-note" title={note}>
-            ※
-          </span>
-        )}
       </td>
       {columns.map((col) => (
         <td key={col.key}>{col.format(counts, ctx)}</td>
