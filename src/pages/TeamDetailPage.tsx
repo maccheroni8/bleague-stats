@@ -1295,6 +1295,32 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "%STARTER PTS",
     format: (r) => formatPct100(r.team.advanced.starterPointsSharePct),
   },
+  // Batch 3（2026-09-08）: 得点傾向の%系（総得点に対する割合）。own/opp/diffに対応する
+  // シーズン合計値ベースの構成比（Phase H10・85章で追加済みのteam.advanced.*SharePct、
+  // PBPタグ集計方式のためショットチャート座標に依存せず全シーズン対応）
+  {
+    key: "pct3p",
+    label: "%3P",
+    format: (r, _m, _mode, p) =>
+      formatTeamSeasonPct100(r.team.advanced.threePointPointsSharePct, r.team.advanced.opponentThreePointPointsSharePct, p),
+  },
+  {
+    key: "pctpinp",
+    label: "%PinP",
+    format: (r, _m, _mode, p) =>
+      formatTeamSeasonPct100(r.team.advanced.paintPointsSharePct, r.team.advanced.opponentPaintPointsSharePct, p),
+  },
+  {
+    key: "pctpoutp",
+    label: "%PoutP",
+    format: (r, _m, _mode, p) =>
+      formatTeamSeasonPct100(r.team.advanced.midRangePointsSharePct, r.team.advanced.opponentMidRangePointsSharePct, p),
+  },
+  {
+    key: "pctft",
+    label: "%FT",
+    format: (r, _m, _mode, p) => formatTeamSeasonPct100(r.team.advanced.ftPointsSharePct, r.team.advanced.opponentFtPointsSharePct, p),
+  },
   // ここから下は「自チーム/相手チームの全FGAに対する割合」（シュート選択構成比）。
   // 上記PITP%等（総得点に対する割合）とは分母が異なる別系統の指標
   {
@@ -1308,6 +1334,28 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "%3PA",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(safeDiv(100 * r.team.totals.tpa, r.team.totals.fga), safeDiv(100 * m.oppTpa, m.oppFga), p),
+  },
+  // Batch 3（2026-09-08）: %IPA（ペイント内試投割合）・%OPA（ペイント外試投割合）。
+  // ペイント内試投数（m.paint2a）自体がショットチャート座標由来のため2022-23シーズン以降限定
+  {
+    key: "pctipa",
+    label: "%IPA",
+    format: (r, m, _mode, p) =>
+      seasonRecordSupportsShotChart(r.season)
+        ? formatTeamSeasonPct100(safeDiv(100 * m.paint2a, r.team.totals.fga), safeDiv(100 * m.oppPaint2a, m.oppFga), p)
+        : "-",
+  },
+  {
+    key: "pctopa",
+    label: "%OPA",
+    format: (r, m, _mode, p) =>
+      seasonRecordSupportsShotChart(r.season)
+        ? formatTeamSeasonPct100(
+            safeDiv(100 * (r.team.totals.fga - m.paint2a), r.team.totals.fga),
+            safeDiv(100 * (m.oppFga - m.oppPaint2a), m.oppFga),
+            p,
+          )
+        : "-",
   },
   {
     key: "pctpaint2m",
