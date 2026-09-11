@@ -773,20 +773,6 @@ export const SEASON_TRADITIONAL_COLUMNS: SeasonBoxscoreColumn[] = [
     description: "FTM / FTA",
   },
   {
-    key: "efg",
-    label: "eFG%",
-    format: (c) => formatPct(efgPct(c.raw.fgm, c.raw.tpm, c.raw.fga)),
-    value: (c) => efgPct(c.raw.fgm, c.raw.tpm, c.raw.fga),
-    description: "(FGM + 0.5×3PM) / FGA",
-  },
-  {
-    key: "ts",
-    label: "TS%",
-    format: (c) => formatPct(tsPct(c.raw.pts, c.raw.fga, c.raw.fta)),
-    value: (c) => tsPct(c.raw.pts, c.raw.fga, c.raw.fta),
-    description: "PTS / (2 × (FGA + 0.44×FTA))",
-  },
-  {
     key: "or",
     label: "OR",
     format: (c, mode) => formatDecimal(c.scaled.oreb, countDigits(mode)),
@@ -982,13 +968,6 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
       return off !== undefined && def !== undefined ? off - def : 0;
     },
     description: "ORtg − DRtg",
-  },
-  {
-    key: "plusminus",
-    label: "+/-",
-    format: (c, mode) => formatSigned(c.scaled.plusMinus, countDigits(mode)),
-    value: (c) => c.scaled.plusMinus,
-    description: "プラスマイナス",
   },
 ];
 

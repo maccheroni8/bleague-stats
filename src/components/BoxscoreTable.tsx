@@ -125,20 +125,6 @@ const TRADITIONAL_COLUMNS: BoxscoreColumn[] = [
     value: (c) => safeDiv(c.ftm, c.fta),
     description: desc("ftPct", "FTM / FTA"),
   },
-  {
-    key: "efg",
-    label: "eFG%",
-    format: (c) => formatPct(efgPct(c.pt2m + c.pt3m, c.pt3m, c.pt2a + c.pt3a)),
-    value: (c) => efgPct(c.pt2m + c.pt3m, c.pt3m, c.pt2a + c.pt3a),
-    description: desc("efgPct", "(FGM + 0.5×3PM) / FGA"),
-  },
-  {
-    key: "ts",
-    label: "TS%",
-    format: (c) => formatPct(tsPct(c.pts, c.pt2a + c.pt3a, c.fta)),
-    value: (c) => tsPct(c.pts, c.pt2a + c.pt3a, c.fta),
-    description: "PTS / (2 × (FGA + 0.44×FTA))",
-  },
   { key: "or", label: "OR", format: (c) => String(c.oreb), value: (c) => c.oreb, description: "オフェンスリバウンド" },
   { key: "dr", label: "DR", format: (c) => String(c.dreb), value: (c) => c.dreb, description: "ディフェンスリバウンド" },
   { key: "tr", label: "TR", format: (c) => String(c.treb), value: (c) => c.treb, description: desc("reb", "OREB + DREB") },
@@ -163,7 +149,6 @@ const TRADITIONAL_COLUMNS: BoxscoreColumn[] = [
 const ADVANCED_COLUMNS: BoxscoreColumn[] = [
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec, description: desc("min", "出場時間") },
   { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts, description: desc("pts", "得点") },
-  { key: "eff", label: "EFF", format: (c) => String(c.eff), value: (c) => c.eff, description: desc("eff", "Bリーグ公式の総合貢献度指標") },
   {
     key: "usg",
     label: "USG%",
@@ -265,7 +250,6 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
     value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.netRtg : ctx.isPlayerRow ? c.netRtg : undefined),
     description: desc("netRtg", "ORtg − DRtg"),
   },
-  plusMinusCol,
 ];
 
 function usagePctOf(c: BoxscoreCounts, ctx: ColumnCtx): number {

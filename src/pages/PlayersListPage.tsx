@@ -280,8 +280,6 @@ function buildTraditionalColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
     countColumn("ftm", "FTM", (p) => p.totals.ftm, mode),
     countColumn("fta", "FTA", (p) => p.totals.fta, mode),
     pctColumn("ftpct", "FT%", (p) => p.shooting.ftPct),
-    pctColumn("efg", "eFG%", (p) => p.shooting.efgPct),
-    pctColumn("ts", "TS%", (p) => p.shooting.tsPct),
     countColumn("or", "OR", (p) => p.totals.oreb, mode),
     countColumn("dr", "DR", (p) => p.totals.dreb, mode),
     countColumn("tr", "TR", (p) => p.totals.reb, mode),
@@ -346,7 +344,6 @@ function buildAdvancedColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
       sortValue: (r) => (r.player.advanced.ppp !== undefined ? r.player.advanced.ppp * 100 : 0),
       format: (r) => (r.player.advanced.ppp !== undefined ? formatDecimal(r.player.advanced.ppp * 100) : "-"),
     },
-    plusMinusColumn(mode),
   ];
 }
 

@@ -49,3 +49,14 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。詳細設計は
   （2016-17シーズンの例: 297, 360, 401等）の生データで`Game.MaxPeriod`の実際の値を確認し、
   legacyデータでのOT検出をより信頼できる方法（PlayByPlaysの実際の経過時間範囲、
   `HomeTeamScore05`以降の非ゼロ判定等）に置き換えることを検討する
+- 【対応済み】トラディショナル/アドバンスド/Misc/スコアリング/シューティングの5カテゴリタブ間の
+  重複項目を棚卸しし整理した。EFF・+/-はアドバンスドから削除しトラディショナルに残す、
+  eFG%・TS%はトラディショナルから削除しアドバンスドに残す、という方針で統一。棚卸しの過程で、
+  列定義が単一の共通箇所ではなく7系統（`BoxscoreTable.tsx`のCOLUMNS_BY_TAB、
+  `playerSeasonBoxscore.ts`のSEASON_BOX_COLUMNS、`PlayersListPage.tsx`独自のローカル定義、
+  `TeamDetailPage.tsx`のTEAM_SEASON_*_COLUMNS、`teamStatsColumns.ts`のbuild*Columns）に
+  分散していることが判明し、今回はその全箇所に反映した
+- 【将来の検討課題】5カテゴリタブ（トラディショナル/アドバンスド/Misc/スコアリング/
+  シューティング）の列定義が7系統に分散している（シューティングのみ`shotTypeEntityColumns`
+  として共通化済み）。今回の重複解消は7箇所全てに反映したが、今後同じタブ構成に変更を
+  加えるたびに同じ手間が発生する。将来的には7系統を段階的に共通化することを検討したい

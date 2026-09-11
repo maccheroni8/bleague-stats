@@ -1014,16 +1014,6 @@ const TEAM_SEASON_TRADITIONAL_COLUMNS: TeamSeasonBoxColumn[] = [
     format: (r, _m, _mode, p) => formatTeamSeasonPct(r.team.shooting.ftPct, r.team.opponentShooting.ftPct, p),
   },
   {
-    key: "efg",
-    label: "eFG%",
-    format: (r, _m, _mode, p) => formatTeamSeasonPct(r.team.shooting.efgPct, r.team.opponentShooting.efgPct, p),
-  },
-  {
-    key: "ts",
-    label: "TS%",
-    format: (r, _m, _mode, p) => formatTeamSeasonPct(r.team.shooting.tsPct, r.team.opponentShooting.tsPct, p),
-  },
-  {
     key: "or",
     label: "OR",
     format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.oreb, m.oppOreb, r.team.gamesPlayed, mode, p),
