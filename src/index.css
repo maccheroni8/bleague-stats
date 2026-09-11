@@ -2545,9 +2545,9 @@ td.schedule-team-cell.align-right .cell-link {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
   font-size: 10px;
-  padding: 1px 3px;
+  padding: 2px 4px;
   border-radius: 4px;
   background: var(--header-bg);
 }
@@ -2567,9 +2567,9 @@ td.schedule-team-cell.align-right .cell-link {
 }
 
 .calendar-game-chip-noimg {
-  width: 16px;
-  height: 16px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
   background: var(--border);
   flex-shrink: 0;
 }

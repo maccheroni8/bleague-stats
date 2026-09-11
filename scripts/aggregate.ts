@@ -57,6 +57,7 @@ import type {
   PlayByPlayEvent,
   PlayerGameLog,
   PlayerMasterEntry,
+  ScheduleFile,
   SeasonEntry,
   StandingsSnapshot,
   StandingsTeamSnapshot,
@@ -85,6 +86,18 @@ function seasonHasGames(season: string): boolean {
   const dir = gamesDir(season);
   if (!existsSync(dir)) return false;
   return readdirSync(dir).some((f) => f.endsWith(".json.gz"));
+}
+
+/**
+ * 開幕前でも、scrape-schedule.tsが先行収集した日程（schedule.jsonのscheduleKeys/
+ * upcomingGames）が1件以上あるか。日程ページでシーズン選択できるようにするため、
+ * seasonHasGames()がfalseの開幕前シーズンでもこちらがtrueならseasonsFileに含める
+ * （hasCompletedGames: falseとして。DESIGN.md参照）
+ */
+async function seasonHasSchedule(season: string): Promise<boolean> {
+  const file = await readJson<ScheduleFile>(path.join(DATA_DIR, seasonDirName(season), "schedule.json"));
+  if (!file) return false;
+  return file.scheduleKeys.length > 0 || file.upcomingGames.length > 0;
 }
 
 /** data/{season}/yahoo/配下に実際に取得済みのYahoo PBPファイルが1件以上あるか（DESIGN.md参照） */
@@ -217,21 +230,30 @@ async function buildShotTypeBreakdowns(
 }
 
 /**
- * data/配下に存在する、かつ実際の試合データがあるシーズンディレクトリを走査して
- * data/seasons.jsonを再生成する。どのシーズンをaggregateしても全シーズン分を書き直す
- * （冪等）ため、専用の実行手順は不要。
+ * data/配下に存在する、かつ実際の試合データ（または開幕前の先行収集済み日程）がある
+ * シーズンディレクトリを走査してdata/seasons.jsonを再生成する。どのシーズンをaggregateしても
+ * 全シーズン分を書き直す（冪等）ため、専用の実行手順は不要。
+ *
+ * 確定済み試合が1件も無い開幕前シーズンも、schedule.jsonに日程が先行登録されていれば
+ * （scrape-schedule.tsの仕様。DESIGN.md参照）含める（日程ページでシーズン選択できるように
+ * するため）。ただし`hasCompletedGames: false`として区別し、src/App.tsxの「?season=未指定時の
+ * デフォルトシーズン」解決はこのフラグがtrueの最新シーズンを使う（23章のバグの再発防止）。
  */
 async function regenerateSeasonsFile(): Promise<void> {
   const entries = await readdir(DATA_DIR, { withFileTypes: true });
-  const seasons = entries
+  const candidates = entries
     .filter((e) => e.isDirectory() && SEASON_DIR_PATTERN.test(e.name))
     .map((e) => e.name)
-    .filter((season) => seasonHasGames(season))
     .sort();
+  const seasons: string[] = [];
+  for (const season of candidates) {
+    if (seasonHasGames(season) || (await seasonHasSchedule(season))) seasons.push(season);
+  }
   const seasonsFile: SeasonEntry[] = seasons.map((season) => ({
     season,
     coverage: seasonCoverage(season),
     yahooPbp: seasonHasYahooPbp(season),
+    hasCompletedGames: seasonHasGames(season),
   }));
   await writeJson(path.join(DATA_DIR, "seasons.json"), seasonsFile);
 }

@@ -35,7 +35,10 @@ function AppShell() {
   //    日付ベースの機械的判定（currentSeason()）にフォールバックする
   // これにより、新シーズン開幕〜初回集計完了までの間は直前の完結シーズンがデフォルトのままになり、
   // 初めてそのシーズンのデータが集計されseasons.jsonに載った瞬間に自動でそちらへ切り替わる
-  const latestSeason = seasons && seasons.length > 0 ? seasons[seasons.length - 1]!.season : null;
+  // seasons.jsonには開幕前（確定済み試合0件、日程のみ先行登録）のシーズンも選択肢として
+  // 含まれうる（hasCompletedGames: false）ため、末尾要素ではなくhasCompletedGamesがtrueの
+  // 最新シーズンを使う（23章の「未開幕シーズンが最新シーズンに誤って解決される」バグの再発防止）
+  const latestSeason = seasons ? [...seasons].reverse().find((s) => s.hasCompletedGames)?.season ?? null : null;
   const season = explicitSeason ?? latestSeason ?? currentSeason();
 
   // ?season=が無いURL（素のルートアクセス・外部リンク・ブックマーク等）で解決したフォールバック値を

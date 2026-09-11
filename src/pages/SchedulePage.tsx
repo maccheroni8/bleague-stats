@@ -520,9 +520,9 @@ function CalendarGameChip({ row }: { row: ScheduleRow }) {
     );
   const content = (
     <span className={`calendar-game-chip status-${row.status}`} title={title}>
-      {row.homeTeamId ? <TeamLogo teamId={row.homeTeamId} size={16} /> : <span className="calendar-game-chip-noimg" />}
+      {row.homeTeamId ? <TeamLogo teamId={row.homeTeamId} size={32} /> : <span className="calendar-game-chip-noimg" />}
       {middle}
-      {row.awayTeamId ? <TeamLogo teamId={row.awayTeamId} size={16} /> : <span className="calendar-game-chip-noimg" />}
+      {row.awayTeamId ? <TeamLogo teamId={row.awayTeamId} size={32} /> : <span className="calendar-game-chip-noimg" />}
     </span>
   );
   return linkTo ? (

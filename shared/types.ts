@@ -972,6 +972,15 @@ export interface SeasonEntry {
    * スクレイピング済みかどうかを見る（未取得のうちはUIから機能を隠すため）
    */
   yahooPbp: boolean;
+  /**
+   * 確定済みの試合データ（games/配下）が1件以上あるか。開幕前のシーズンは日程
+   * （schedule.jsonのupcomingGames）だけが先行して存在しうるため、このフラグがfalseでも
+   * seasonsFileに載ることがある（日程ページ等でシーズン選択できるようにするため。
+   * DESIGN.md参照）。src/App.tsxの「?season=未指定時のデフォルトシーズン」解決は、
+   * 末尾要素ではなくこのフラグがtrueの最新シーズンを使う（23章の「未開幕シーズンが
+   * 最新シーズンに誤って解決される」バグの再発防止）
+   */
+  hasCompletedGames: boolean;
 }
 
 export type SeasonsFile = SeasonEntry[];
