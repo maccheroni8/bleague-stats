@@ -38,6 +38,7 @@ import type {
   ShotTypeBreakdown,
   StoredGame,
   TeamGameLog,
+  TeamSummary,
   YahooShotEvent,
 } from "../../shared/types";
 import { teamShortName } from "../../shared/teamNames";
@@ -57,6 +58,7 @@ import { ShotChartFilterPicker } from "../components/ShotChartFilterPicker";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { periodInRange, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
+import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { safeDiv, eff, efgPct, tsPct } from "../../shared/formulas";
 import {
   EMPTY_TEAM_TOTALS,
@@ -245,6 +247,40 @@ function rankAmong(player: PlayerSummary, allPlayers: PlayerSummary[], def: Play
 
 function formatRank({ rank, total }: RankResult): string {
   return `${rank}位/${total}人`;
+}
+
+interface TileRankResult extends RankResult {
+  /** false: 選手本人がランキングページと同じ掲載基準（85%出場率等）を満たしていない。
+   * その場合rank/totalは「基準を満たす選手たちの中にplayerの値を仮に含めた場合の順位」を表す */
+  isEligible: boolean;
+}
+
+// TILE_STAT_DEFSのkeyとplayerRankingEligibility.tsのEXTRA_ELIGIBILITY_RULESのkeyが異なる
+// 唯一の項目（2P%）だけ変換する。他はfgPct/tpPct/ftPct等そのまま一致する
+const TILE_KEY_TO_ELIGIBILITY_KEY: Record<string, string> = { pt2Pct: "twoPct" };
+
+/**
+ * ランキングページ（RankingsPage）と同じ掲載基準（所属チーム試合数の85%以上出場、および
+ * 3P%・FT%・FG%・2P%については追加の試投/成功数基準）を満たす選手の中でのplayerの順位を返す。
+ * playerが基準を満たしていない場合は「除外」ではなく、基準を満たす選手たちの中にplayerの値を
+ * 仮に含めた場合の順位を返し、isEligible=falseで示す（呼び出し側は「◯位相当」表示に使う）
+ */
+function rankAmongEligible(
+  player: PlayerSummary,
+  allPlayers: PlayerSummary[],
+  teams: Pick<TeamSummary, "teamId" | "gamesPlayed">[],
+  def: PlayerStatDef,
+): TileRankResult {
+  const ruleKey = TILE_KEY_TO_ELIGIBILITY_KEY[def.key] ?? def.key;
+  const extraThreshold = EXTRA_ELIGIBILITY_RULES[ruleKey]?.defaultValue ?? 0;
+  const eligiblePlayers = filterEligiblePlayers(allPlayers, teams, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, ruleKey, extraThreshold);
+  const isEligible = eligiblePlayers.some((p) => p.playerId === player.playerId);
+  const pool = isEligible ? eligiblePlayers : [...eligiblePlayers, player];
+  return { ...rankAmong(player, pool, def), isEligible };
+}
+
+function formatTileRank({ rank, total, isEligible }: TileRankResult): string {
+  return isEligible ? `${rank}位/${total}人` : `${rank}位相当/${total}人`;
 }
 
 interface RadarDataPoint {
@@ -1758,7 +1794,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             key={def.key}
             label={def.label}
             value={def.format(player)}
-            rank={players && players.length > 0 ? formatRank(rankAmong(player, players, def)) : undefined}
+            rank={players && players.length > 0 ? formatTileRank(rankAmongEligible(player, players, teams ?? [], def)) : undefined}
           />
         ))}
       </div>
