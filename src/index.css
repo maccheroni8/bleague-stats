@@ -1272,6 +1272,50 @@ table.quarter-table th {
   padding: 14px 0;
 }
 
+.composition-pie-group-title {
+  margin: 16px 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.composition-pie-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  padding: 8px 0 16px;
+}
+
+.composition-pie-chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 220px;
+}
+
+.composition-pie-chart h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.composition-pie-chart-canvas {
+  flex-shrink: 0;
+}
+
+.composition-pie-outer-label {
+  font-size: 11px;
+  fill: var(--muted);
+  font-weight: 600;
+}
+
+.composition-pie-value-label {
+  font-size: 13px;
+  fill: #1a1a1a;
+  font-weight: 800;
+}
+
 .opposed-bar-label {
   min-width: 92px;
   text-align: center;

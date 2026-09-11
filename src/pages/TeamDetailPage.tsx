@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { OpposedBarRow } from "../components/OpposedBar";
+import { CompositionPieChart, type PieSegmentInput } from "../components/CompositionPieChart";
 import { usePageState, useSkipFirstEffectRun } from "../lib/pageStateCache";
 import {
   fetchClubHonors,
@@ -292,68 +293,102 @@ function ForcedTurnoversTable({ forced, committed }: { forced: TeamForcedTurnove
   );
 }
 
+// 得点構成の円グラフで使う配色（添付画像のFG試投割合の円グラフと同じ配色パターン。
+// 3P=青・IP(ペイント内)=赤・OP(ペイント外)=黄、PTS構成のみFT=緑を追加）
+const COMPOSITION_PIE_COLORS = {
+  threeP: "#5b9bd5",
+  paint: "#e06666",
+  midRange: "#f6c453",
+  ft: "#93c47d",
+};
+
 /**
- * 得点構成/失点構成（Phase H10）。既存のキースタッツセクション（試合詳細ページ、
- * src/components/KeyStatsSection.tsx）と同じOpposedBarRowで、自チーム/相手チームを
- * 対向バー表示する。FG%は既存のshooting.fgPct/opponentShooting.fgPctをそのまま使い、
- * 3P/ペイント内/ミッドレンジ/FTの得点構成比はshared/playTypePoints.tsのPBPタグ集計を
- * 元にしたシーズン合計値の比率（advanced.*SharePct、DESIGN.md参照）。「得点構成」の
- * 4項目は自チーム視点で総得点に占める割合、「失点構成」は相手チームがこのチームから
- * 奪った得点の内訳（=このチームの失点の内訳）を表す
+ * FG試投割合の円グラフ用データ（自チーム/相手チーム）。3P試投・ペイント内試投・
+ * ペイント外(ミッドレンジ)試投の3分割が基本形だが、paint2a（ペイント内試投数）は
+ * ショットチャート座標由来のため2022-23シーズン以降のみ取得できる（DESIGN.md Batch3・
+ * %IPA/%OPA参照）。それ以前のシーズン（shotChartSupported=false）は、ペイント内外を
+ * 合算した2P／3Pの2分割にフォールバックする（完全非表示ではなく取得可能な粒度まで表示する、
+ * Batch 4-2）。試投数ベースのため1試合あたり平均値をラベルに表示する
  */
-function ScoringCompositionSection({ team, ownColor, oppColor }: { team: TeamSummary; ownColor: string; oppColor: string }) {
-  const pct1 = (v: number) => formatPct100(v);
+function buildFgaCompositionSegments(logs: TeamGameLog[], perspective: "own" | "opp", shotChartSupported: boolean): PieSegmentInput[] {
+  const games = logs.length || 1;
+  const tpa = logs.reduce((s, g) => s + (perspective === "own" ? g.tpa : g.opponentTpa), 0);
+  const fga = logs.reduce((s, g) => s + (perspective === "own" ? g.fga : g.opponentFga), 0);
+  const twoA = Math.max(0, fga - tpa);
+  if (!shotChartSupported) {
+    return [
+      { key: "3p", label: "3P", color: COMPOSITION_PIE_COLORS.threeP, value: tpa / games },
+      { key: "2p", label: "2P", color: COMPOSITION_PIE_COLORS.paint, value: twoA / games },
+    ];
+  }
+  const paintA = logs.reduce((s, g) => s + (perspective === "own" ? g.paint2a : g.opponentPaint2a), 0);
+  const midA = Math.max(0, twoA - paintA);
+  return [
+    { key: "3p", label: "3P", color: COMPOSITION_PIE_COLORS.threeP, value: tpa / games },
+    { key: "ip", label: "IP", color: COMPOSITION_PIE_COLORS.paint, value: paintA / games },
+    { key: "op", label: "OP", color: COMPOSITION_PIE_COLORS.midRange, value: midA / games },
+  ];
+}
+
+/**
+ * 得点割合の円グラフ用データ（自チーム/相手チーム）。3P点・ペイント内(IP)点・
+ * ペイント外(OP・ミッドレンジ)点・FT点の4分割。既存のteam.advanced.*SharePct
+ * （Phase H10、PBPタグ集計ベースの構成比・全シーズン対応）をそのまま使い、
+ * 1試合あたり平均得点＝perGame.pts × シェア比率でラベル用の実数値を逆算する
+ */
+function buildPtsCompositionSegments(team: TeamSummary, perspective: "own" | "opp"): PieSegmentInput[] {
+  const totalPerGame = perspective === "own" ? team.perGame.pts : team.opponentPerGame.pts;
+  const shares =
+    perspective === "own"
+      ? {
+          threeP: team.advanced.threePointPointsSharePct,
+          paint: team.advanced.paintPointsSharePct,
+          midRange: team.advanced.midRangePointsSharePct,
+          ft: team.advanced.ftPointsSharePct,
+        }
+      : {
+          threeP: team.advanced.opponentThreePointPointsSharePct,
+          paint: team.advanced.opponentPaintPointsSharePct,
+          midRange: team.advanced.opponentMidRangePointsSharePct,
+          ft: team.advanced.opponentFtPointsSharePct,
+        };
+  return [
+    { key: "3p", label: "3P", color: COMPOSITION_PIE_COLORS.threeP, value: (shares.threeP / 100) * totalPerGame },
+    { key: "ip", label: "IP", color: COMPOSITION_PIE_COLORS.paint, value: (shares.paint / 100) * totalPerGame },
+    { key: "op", label: "OP", color: COMPOSITION_PIE_COLORS.midRange, value: (shares.midRange / 100) * totalPerGame },
+    { key: "ft", label: "FT", color: COMPOSITION_PIE_COLORS.ft, value: (shares.ft / 100) * totalPerGame },
+  ];
+}
+
+/**
+ * 得点構成/失点構成（Batch 4、2026-09-08）。対向バーから円グラフ形式に作り直した
+ * （添付画像＝FG試投割合の円グラフと同じ形式）。FG試投構成（3P/IP/OP）・得点構成
+ * （3P/IP/OP/FT）それぞれ自チーム・相手チームの円グラフを横に並べて表示する
+ */
+function ScoringCompositionSection({ team, gameLogs, shotChartSupported }: { team: TeamSummary; gameLogs: TeamGameLog[]; shotChartSupported: boolean }) {
+  const regularLogs = useMemo(() => gameLogs.filter((g) => g.gameType === "regular"), [gameLogs]);
+  const ownFga = useMemo(() => buildFgaCompositionSegments(regularLogs, "own", shotChartSupported), [regularLogs, shotChartSupported]);
+  const oppFga = useMemo(() => buildFgaCompositionSegments(regularLogs, "opp", shotChartSupported), [regularLogs, shotChartSupported]);
+  const ownPts = useMemo(() => buildPtsCompositionSegments(team, "own"), [team]);
+  const oppPts = useMemo(() => buildPtsCompositionSegments(team, "opp"), [team]);
+
   return (
     <div className="key-stats-card">
       <h3>得点構成 / 失点構成</h3>
       <p className="page-subtitle">
-        レギュラーシーズン・シーズン合計ベース。得点構成は自チームの総得点、失点構成は相手チームがこのチームから奪った総得点（＝このチームの失点）に占める各カテゴリの割合
+        レギュラーシーズンベース。FG試投割合は1試合あたり平均試投数、得点割合は1試合あたり平均得点。各セグメントに割合(%)と実数値を表示
+        {!shotChartSupported && "（このシーズンはペイント内外の分割データが無いため2P/3Pの2分割で表示）"}
       </p>
-      <OpposedBarRow
-        label="FG%"
-        homeValue={team.shooting.fgPct * 100}
-        awayValue={team.opponentShooting.fgPct * 100}
-        homeColor={ownColor}
-        awayColor={oppColor}
-        format={pct1}
-        scale="fixed100"
-      />
-      <OpposedBarRow
-        label="3P点"
-        homeValue={team.advanced.threePointPointsSharePct}
-        awayValue={team.advanced.opponentThreePointPointsSharePct}
-        homeColor={ownColor}
-        awayColor={oppColor}
-        format={pct1}
-        scale="fixed100"
-      />
-      <OpposedBarRow
-        label="ペイント内"
-        homeValue={team.advanced.paintPointsSharePct}
-        awayValue={team.advanced.opponentPaintPointsSharePct}
-        homeColor={ownColor}
-        awayColor={oppColor}
-        format={pct1}
-        scale="fixed100"
-      />
-      <OpposedBarRow
-        label="ミッドレンジ"
-        homeValue={team.advanced.midRangePointsSharePct}
-        awayValue={team.advanced.opponentMidRangePointsSharePct}
-        homeColor={ownColor}
-        awayColor={oppColor}
-        format={pct1}
-        scale="fixed100"
-      />
-      <OpposedBarRow
-        label="FT"
-        homeValue={team.advanced.ftPointsSharePct}
-        awayValue={team.advanced.opponentFtPointsSharePct}
-        homeColor={ownColor}
-        awayColor={oppColor}
-        format={pct1}
-        scale="fixed100"
-      />
+      <h4 className="composition-pie-group-title">シュート試投構成</h4>
+      <div className="composition-pie-row">
+        <CompositionPieChart title="FG 試投割合" segments={ownFga} />
+        <CompositionPieChart title="opp FG 試投割合" segments={oppFga} />
+      </div>
+      <h4 className="composition-pie-group-title">得点構成</h4>
+      <div className="composition-pie-row">
+        <CompositionPieChart title="得点割合" segments={ownPts} />
+        <CompositionPieChart title="opp 得点割合" segments={oppPts} />
+      </div>
     </div>
   );
 }
@@ -1865,7 +1900,7 @@ const TEAM_POINTS_SHARE_COLUMNS: TeamPointsExtraColumn[] = [
   { key: "starterPtsShare", label: "%STARTER PTS", value: (b) => safeDiv(100 * b.starter, b.bench + b.starter) },
 ];
 
-function teamPointsExtraColumnsForTab(tab: BoxscoreTabKey | "shooting" | "forcedTurnovers" | "scoringComposition"): TeamPointsExtraColumn[] {
+function teamPointsExtraColumnsForTab(tab: BoxscoreTabKey | "shooting" | "forcedTurnovers"): TeamPointsExtraColumn[] {
   return tab === "misc" ? TEAM_POINTS_MISC_COLUMNS : tab === "scoring" ? TEAM_POINTS_SHARE_COLUMNS : [];
 }
 
@@ -2309,7 +2344,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 同じCOLUMNS_BY_TAB/BoxscoreTabKeyを再利用。Phase H4③でタイル形式表示から置き換えた）。
   // 上部集計表とシチュエーション別成績（チーム版）で別々のタブ選択状態を持つ（PlayerDetailPage
   // の「シーズン別成績」「シチュエーション別成績」が独立したタブ状態を持つのと同じ設計）
-  const [teamStatsBoxTab, setTeamStatsBoxTab] = usePageState<BoxscoreTabKey | "shooting" | "forcedTurnovers" | "scoringComposition">(
+  const [teamStatsBoxTab, setTeamStatsBoxTab] = usePageState<BoxscoreTabKey | "shooting" | "forcedTurnovers">(
     pk("teamStatsBoxTab"),
     "traditional",
   );
@@ -3731,13 +3766,6 @@ export function TeamDetailPage({ season }: { season: string }) {
               >
                 強制ターンオーバー
               </button>
-              <button
-                className={`tab-button${teamStatsBoxTab === "scoringComposition" ? " active" : ""}`}
-                onClick={() => setTeamStatsBoxTab("scoringComposition")}
-                type="button"
-              >
-                得点構成
-              </button>
             </div>
             <div className="mode-toggle">
               {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
@@ -3766,8 +3794,6 @@ export function TeamDetailPage({ season }: { season: string }) {
             ) : (
               <ForcedTurnoversTable forced={team.forcedTurnovers} committed={team.turnoversCommitted} />
             )
-          ) : teamStatsBoxTab === "scoringComposition" ? (
-            <ScoringCompositionSection team={team} ownColor={accentColor ?? "var(--accent)"} oppColor="var(--muted)" />
           ) : !teamStatsBoxTotals ? (
             <p className="empty-message">該当する試合がありません</p>
           ) : (
@@ -3818,6 +3844,8 @@ export function TeamDetailPage({ season }: { season: string }) {
               </table>
             </div>
           )}
+
+          <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} shotChartSupported={isShotChartSupported(coverage)} />
 
           <h2>シチュエーション別成績</h2>
           <div className="mode-toggle">
