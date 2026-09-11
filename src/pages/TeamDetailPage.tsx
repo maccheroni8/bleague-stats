@@ -112,8 +112,9 @@ import {
   type TeamPointsBreakdownResult,
 } from "../lib/playerSeasonBoxscore";
 import { BOXSCORE_TABS, COLUMNS_BY_TAB, type BoxscoreColumn, type BoxscoreTabKey, type ColumnCtx } from "../components/BoxscoreTable";
-import { astToTovRatio, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
+import { astToTovRatio, buildAssistPairs, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import type { BoxscoreCounts } from "../lib/boxscoreAggregate";
+import type { AssistPair } from "../../shared/assistedScoring";
 import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
 import {
@@ -139,7 +140,10 @@ const TEAM_SHOOTING_TAB_TOOLTIP =
 // 出場時間がこれ未満のラインナップはサンプルが小さすぎてノイズが大きいため一覧から除外する
 // （実データ確認: 4試合時点で3分(180秒)基準だとチームあたり4〜14組が該当。DESIGN.md参照）
 const MIN_LINEUP_SECONDS = 180;
-const MAX_LINEUP_ROWS = 10;
+// 上位20組を初期表示とし、それ以下は「全パターン表示」ボタンで展開する（DESIGN.md参照）
+const MAX_LINEUP_ROWS = 20;
+// アシストペア分析（チーム版）も同じ上位20件・展開方式を踏襲する
+const MAX_ASSIST_PAIR_ROWS = 20;
 
 /**
  * 単一スコープ（1チーム・現在のフィルタ条件）のシュートタイプ内訳を、2P/3P行×シュートタイプ列
@@ -2398,6 +2402,9 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 開いたときだけ生データ（PlayByPlays込み）を遅延取得する。取得自体はstatsRawGames
   // （Q別/前後半トグルと共有するキャッシュ）を再利用する
   const [teamShotChartExpanded, setTeamShotChartExpanded] = usePageState(pk("teamShotChartExpanded"), false);
+  // 「よく使われるラインナップ」「アシストペア分析」の上位◯件表示/全パターン表示トグル（Batch 1・2）
+  const [lineupsExpanded, setLineupsExpanded] = usePageState(pk("lineupsExpanded"), false);
+  const [assistPairsExpanded, setAssistPairsExpanded] = usePageState(pk("assistPairsExpanded"), false);
   // 「シチュエーション別勝敗」（概要タブ）の延長・Q1/前半/3Q終了時点のリード状況は
   // quarterScores（試合の生データ）が必要なため、ショットチャートと同じ折りたたみ式にし、
   // 展開したときだけstatsRawGamesを取得する（DESIGN.md参照。初回表示時の通信を抑える）
@@ -2436,13 +2443,17 @@ export function TeamDetailPage({ season }: { season: string }) {
     // quarterScores（試合の生データ）が無いと判定できないため、他タブと同じstatsRawGamesを
     // このタブでも取得する。ショットチャートと同じ折りたたみ式にしてあり、展開したときだけ
     // 取得する（DESIGN.md参照。初回表示時に自動で通信が走らないようにする判断）
+    // 「選手スタッツ」タブの「アシストペア分析」（Batch 1）は選手個人ではなくチーム全体の
+    // PlayByPlaysを必要とするため、日程結果/チームスタッツと同じstatsRawGamesをこのタブでも
+    // 常時取得する（64-1章で確立済みの「Misc系の正確性を優先し0コスト経路は設けない」方針を踏襲）
     const needsRawGames =
       teamShotChartExpanded ||
       tab === "schedule" ||
       tab === "teamStats" ||
+      tab === "playerStats" ||
       (tab === "overview" && situationalRecordRawExpanded) ||
       (!!statsPeriodOption && statsPeriodOption.periods !== null);
-    if ((tab !== "teamStats" && tab !== "schedule" && tab !== "overview") || !needsRawGames || !gameLogs) return;
+    if ((tab !== "teamStats" && tab !== "schedule" && tab !== "overview" && tab !== "playerStats") || !needsRawGames || !gameLogs) return;
     const needed = [
       ...new Set(
         gameLogs.filter((g) => g.min > 0 && !statsRawGamesRequestedRef.current.has(g.scheduleKey)).map((g) => g.scheduleKey),
@@ -2709,6 +2720,30 @@ export function TeamDetailPage({ season }: { season: string }) {
     const combos = new Set([...startersByGame.values()].map((ids) => [...ids].sort().join(",")));
     return combos.size;
   }, [playerStatsCandidates, teamId]);
+
+  // アシストペア分析（チーム版、Batch 1）: レギュラーシーズンの取得済み生データ（statsRawGames）
+  // からPlayByPlaysを集め、buildAssistPairs()（18章）をチーム全試合分合算する
+  const teamAssistPairs = useMemo((): AssistPair[] => {
+    if (!teamId || !gameLogs) return [];
+    const merged = new Map<string, AssistPair>();
+    for (const g of gameLogs) {
+      if (g.gameType !== "regular") continue;
+      const game = statsRawGames.get(g.scheduleKey);
+      if (!game) continue;
+      for (const pair of buildAssistPairs(game.raw.PlayByPlays, undefined)) {
+        const existing = merged.get(`${pair.assisterId}:${pair.scorerId}`);
+        if (existing) {
+          existing.count += pair.count;
+          existing.assisted2m += pair.assisted2m;
+          existing.assisted3m += pair.assisted3m;
+          existing.assistedFtm += pair.assistedFtm;
+        } else {
+          merged.set(`${pair.assisterId}:${pair.scorerId}`, { ...pair });
+        }
+      }
+    }
+    return [...merged.values()].sort((a, b) => b.count - a.count);
+  }, [teamId, gameLogs, statsRawGames]);
 
   if (teamsLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (teamsError) return <p className="error-message">{teamsError}</p>;
@@ -3018,9 +3053,14 @@ export function TeamDetailPage({ season }: { season: string }) {
   const situationalTeamPointsColumns = teamPointsExtraColumnsForTab(situationalTeamBoxTab);
 
   const playerNameById = new Map((players ?? []).map((p) => [p.playerId, p.name]));
-  const topLineups = (lineupsFile?.lineups ?? [])
-    .filter((l) => l.secondsPlayed >= MIN_LINEUP_SECONDS)
-    .slice(0, MAX_LINEUP_ROWS);
+  const eligibleLineups = (lineupsFile?.lineups ?? []).filter((l) => l.secondsPlayed >= MIN_LINEUP_SECONDS);
+  const topLineups = eligibleLineups.slice(0, MAX_LINEUP_ROWS);
+  const displayedLineups = lineupsExpanded ? eligibleLineups : topLineups;
+
+  const topAssistPairs = teamAssistPairs.slice(0, MAX_ASSIST_PAIR_ROWS);
+  const displayedAssistPairs = assistPairsExpanded ? teamAssistPairs : topAssistPairs;
+  const assistPairsDataReady =
+    !!gameLogs && gameLogs.filter((g) => g.gameType === "regular" && g.min > 0).every((g) => statsRawGames.has(g.scheduleKey));
 
   const winPct = safeDiv(team.wins, team.wins + team.losses);
   const recordLine = buildTeamRecordLine(team, standingsHistory);
@@ -3901,7 +3941,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           ) : situationalTeamBoxTab === "shooting" && situationalTeamShotTypeKeys.length === 0 ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : (
-            <div className="table-scroll">
+            <div className="table-scroll situational-groups-scroll">
               <table className="stats-table situational-groups-table">
                 <thead>
                   <tr>
@@ -4139,7 +4179,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {topLineups.map((l) => (
+                    {displayedLineups.map((l) => (
                       <tr key={l.lineupKey}>
                         <td className="align-left">{l.playerIds.map((id) => playerNameById.get(id) ?? id).join(" / ")}</td>
                         <td className="align-right">{l.gamesPlayed}</td>
@@ -4155,10 +4195,77 @@ export function TeamDetailPage({ season }: { season: string }) {
                   </tbody>
                 </table>
               </div>
+              {eligibleLineups.length > MAX_LINEUP_ROWS && (
+                <button className="load-more-button" type="button" onClick={() => setLineupsExpanded((v) => !v)}>
+                  {lineupsExpanded ? `上位${MAX_LINEUP_ROWS}組のみ表示` : `全パターン表示（全${eligibleLineups.length}組）`}
+                </button>
+              )}
               <p className="page-subtitle">
-                出場時間{MIN_LINEUP_SECONDS}秒未満の組み合わせは除外・上位{MAX_LINEUP_ROWS}組まで表示。ORtg/DRtg/Net
+                出場時間{MIN_LINEUP_SECONDS}秒未満の組み合わせは除外。ORtg/DRtg/Net
                 Ratingはスティント単位の実ポゼッション数が無いため、チームのシーズン平均ペースから推定した参考値。
                 試合数がまだ少ないため、いずれの数値もサンプルサイズが小さい点に留意
+              </p>
+            </>
+          )}
+
+          <h2>アシスト経由の得点パターン</h2>
+          {coverageLoading ? (
+            <p className="loading">読み込み中...</p>
+          ) : !pbpSupported ? (
+            <p className="empty-message">このシーズンのデータには対応していません</p>
+          ) : !assistPairsDataReady ? (
+            <p className="loading">読み込み中...</p>
+          ) : teamAssistPairs.length === 0 ? (
+            <p className="empty-message">アシスト経由の得点パターンがありません</p>
+          ) : (
+            <>
+              <div className="table-scroll">
+                <table className="sortable-table">
+                  <thead>
+                    <tr>
+                      <th className="align-left">アシスト元選手</th>
+                      <th className="align-left">得点選手</th>
+                      <th className="align-right">アシスト回数</th>
+                      <th className="align-right">アシスト経由得点数</th>
+                      <th className="align-right">2P成功数</th>
+                      <th className="align-right">2P割合</th>
+                      <th className="align-right">3P成功数</th>
+                      <th className="align-right">3P割合</th>
+                      <th className="align-right">FT成功数</th>
+                      <th className="align-right">FT割合</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedAssistPairs.map((p) => {
+                      const points = p.assisted2m * 2 + p.assisted3m * 3 + p.assistedFtm;
+                      return (
+                        <tr key={`${p.assisterId}:${p.scorerId}`}>
+                          <td className="align-left">{playerNameById.get(p.assisterId) ?? p.assisterId}</td>
+                          <td className="align-left">{playerNameById.get(p.scorerId) ?? p.scorerId}</td>
+                          <td className="align-right">{p.count}</td>
+                          <td className="align-right">{points}</td>
+                          <td className="align-right">{p.assisted2m}</td>
+                          <td className="align-right">{formatPct100((100 * p.assisted2m) / p.count)}</td>
+                          <td className="align-right">{p.assisted3m}</td>
+                          <td className="align-right">{formatPct100((100 * p.assisted3m) / p.count)}</td>
+                          <td className="align-right">{p.assistedFtm}</td>
+                          <td className="align-right">{formatPct100((100 * p.assistedFtm) / p.count)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {teamAssistPairs.length > MAX_ASSIST_PAIR_ROWS && (
+                <button className="load-more-button" type="button" onClick={() => setAssistPairsExpanded((v) => !v)}>
+                  {assistPairsExpanded
+                    ? `上位${MAX_ASSIST_PAIR_ROWS}パターンのみ表示`
+                    : `全パターン表示（全${teamAssistPairs.length}パターン）`}
+                </button>
+              )}
+              <p className="page-subtitle">
+                レギュラーシーズンの全試合のPlayByPlaysから、アシスト元選手→得点選手のペア単位で集計（18章参照）。
+                割合はそのペアのアシスト回数に対する2P/3P/FTそれぞれの成功数の割合
               </p>
             </>
           )}

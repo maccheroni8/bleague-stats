@@ -39,10 +39,10 @@ export interface AssistedScoringCounts {
 
 const ZERO_ASSISTED: AssistedScoringCounts = { assisted2m: 0, assisted3m: 0, assistedFtm: 0 };
 
-export interface AssistPair {
+export interface AssistPair extends AssistedScoringCounts {
   assisterId: string;
   scorerId: string;
-  /** このペアで成立したアシスト付き得点の回数（2P/3P/FT合算） */
+  /** このペアで成立したアシスト付き得点の回数（2P/3P/FT合算。assisted2m+assisted3m+assistedFtmと一致） */
   count: number;
 }
 
@@ -90,8 +90,9 @@ export function computeAssistedScoring(playByPlays: PlayByPlayEvent[]): Assisted
           byScorer.set(scorerId, scorerEntry);
 
           const pairKey = `${assisterId}:${scorerId}`;
-          const pairEntry = pairs.get(pairKey) ?? { assisterId, scorerId, count: 0 };
+          const pairEntry = pairs.get(pairKey) ?? { assisterId, scorerId, count: 0, ...ZERO_ASSISTED };
           pairEntry.count += 1;
+          pairEntry[kind] += 1;
           pairs.set(pairKey, pairEntry);
 
           if (assistEvent.TeamID) {

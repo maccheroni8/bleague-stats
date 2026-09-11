@@ -50,7 +50,10 @@ import { PlayerPhoto } from "../components/PlayerPhoto";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { bleaguePlayerUrl } from "../lib/externalLinks";
 import { formatDecimal, formatPct, formatSigned, formatWinPct } from "../lib/format";
-import { formatMinutesFromSeconds, astToTovRatio } from "../lib/boxscoreAggregate";
+import { formatMinutesFromSeconds, astToTovRatio, buildAssistPairs } from "../lib/boxscoreAggregate";
+import type { AssistPair } from "../../shared/assistedScoring";
+import { reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
+import { computeGameOnOffSplit, mergeOnOffSplits, type OnOffBucket, type OnOffSplit } from "../lib/onCourtSplit";
 import { buildShotTypeBreakdown, shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
@@ -231,6 +234,17 @@ const TILE_STAT_DEFS: PlayerStatDef[] = [
 // 定義済みaccessorをそのまま流用し、二重定義を避ける
 const RADAR_STAT_KEYS = ["min", "pts", "reb", "ast", "stl", "blk", "tov", "tpPct", "pt2Pct", "ftPct", "eff", "efgPct"];
 const RADAR_STAT_DEFS = TILE_STAT_DEFS.filter((d) => RADAR_STAT_KEYS.includes(d.key));
+
+// 「アシストの関係性」（Batch 3）の上位表示件数。それ以下は「全パターン表示」ボタンで展開する
+const MAX_ASSIST_RELATIONSHIP_ROWS = 5;
+
+// 「オンコート/オフコート比較」（Batch 4）: ポゼッションあたり得点(×100)としてORtg/DRtgを算出する
+function onOffOffRtg(b: OnOffBucket): number {
+  return safeDiv(b.ownPts, b.ownPoss) * 100;
+}
+function onOffDefRtg(b: OnOffBucket): number {
+  return safeDiv(b.oppPts, b.oppPoss) * 100;
+}
 
 interface RankResult {
   rank: number;
@@ -743,6 +757,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
     pk("situationalGroupsLegendExpanded"),
     false,
   );
+  // 「アシストの関係性」（Batch 3）の上位5パターン/全パターン表示トグル
+  const [assistGivenExpanded, setAssistGivenExpanded] = usePageState(pk("assistGivenExpanded"), false);
+  const [assistReceivedExpanded, setAssistReceivedExpanded] = usePageState(pk("assistReceivedExpanded"), false);
   // 列ヘッダークリックソート。会場・地区・曜日等のグループ構造そのものを崩すと比較の意味が
   // 失われるため、グループの並び順・見出し行は維持したまま「各グループ内の行だけ」をソートする
   // （SeasonBreakdownTableと同じ「1回目クリックで降順、もう一度クリックで昇順」の方式。DESIGN.md参照）
@@ -1281,6 +1298,17 @@ export function PlayerDetailPage({ season }: { season: string }) {
     () => (situationalStatsSummaries ? buildRecordsBeforeGame(situationalStatsSummaries) : undefined),
     [situationalStatsSummaries],
   );
+  // 「アシストの関係性」（Batch 3）の相手選手名解決用。ページ本体のseason（自身のヘッダー用）とは
+  // 独立にsituationalStatsSeasonのplayers.jsonを取得する（他選手の在籍シーズンが自身のページの
+  // シーズンと異なりうるため）
+  const { data: situationalStatsPlayers } = useJsonData(
+    () => (tab === "stats" ? fetchPlayers(situationalStatsSeason) : Promise.resolve(null)),
+    [tab, situationalStatsSeason],
+  );
+  const situationalStatsPlayerNameById = useMemo(
+    () => new Map((situationalStatsPlayers ?? []).map((p) => [p.playerId, p.name])),
+    [situationalStatsPlayers],
+  );
   // 選手の所属チームはシーズン内移籍で複数に分かれうるため、players.jsonの単一teamIdには頼らず
   // 試合ログから動的に導出する（resolveOwnTeam参照）。situationalStatsLogsは本来この下の
   // 早期returnの後で計算していたが、この節のフックが参照する必要があるため早期returnより前に
@@ -1292,8 +1320,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 「シーズン別成績」用effectとperiodRawGames・periodRawGamesRequestedRefを共有する
   // （scheduleKeyはサイト全体で一意のため衝突しない）
   useEffect(() => {
+    // 「アシストの関係性」（Batch 3）はPlayByPlaysが常に必要なため、「スタッツ」タブが
+    // 開いている間はQ別/前後半トグルの選択に関わらず取得する（チーム詳細ページの
+    // 「選手スタッツ」タブと同じ「Misc系の正確性を優先し0コスト経路は設けない」方針）
     const option = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === situationalStatsPeriod);
-    if (!option || option.periods === null || !situationalStatsLogs) return;
+    const needsRawGames = tab === "stats" || (!!option && option.periods !== null);
+    if (!needsRawGames || !situationalStatsLogs) return;
     const needed = situationalStatsLogs
       .filter((g) => g.min > 0 && !periodRawGamesRequestedRef.current.has(g.scheduleKey))
       .map((g) => ({ season: situationalStatsSeason, scheduleKey: g.scheduleKey }));
@@ -1317,7 +1349,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         });
       })
       .finally(() => setPeriodRawGamesLoading(false));
-  }, [situationalStatsPeriod, situationalStatsLogs, situationalStatsSeason]);
+  }, [situationalStatsPeriod, situationalStatsLogs, situationalStatsSeason, tab]);
 
   const situationalStatsGameTeams = useMemo(
     () => (situationalStatsSummaries ? buildGameTeamsByScheduleKey(situationalStatsSummaries) : new Map()),
@@ -1363,6 +1395,118 @@ export function PlayerDetailPage({ season }: { season: string }) {
     () => (situationalStatsSummaries ? buildBackToBackStatus(situationalStatsSummaries) : undefined),
     [situationalStatsSummaries],
   );
+
+  // アシストの関係性（Batch 3）: 「誰へのアシストが多いか」「誰からのアシストで得点が多いか」を、
+  // シチュエーション別成績と同じ絞り込み（レギュラー/プレーオフ/合算・Q別/前後半）で集計する。
+  // buildAssistPairs()（18章）を試合ごとに呼び、assisterId/scorerIdがこの選手のペアだけ拾い出す
+  const situationalStatsAssistPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === situationalStatsPeriod);
+  const assistRelationships = useMemo(() => {
+    if (!playerId || !situationalStatsLogs) return null;
+    const scopedLogs = filterByGameType(situationalStatsLogs, situationalStatsGameType).filter((g) => g.min > 0);
+    const given = new Map<string, AssistPair>();
+    const received = new Map<string, AssistPair>();
+    let ownMade2m = 0;
+    let ownMade3m = 0;
+    let ownMadeFtm = 0;
+    let readyCount = 0;
+    for (const g of scopedLogs) {
+      const game = periodRawGames.get(g.scheduleKey);
+      if (!game) continue;
+      readyCount++;
+      for (const pair of buildAssistPairs(game.raw.PlayByPlays, situationalStatsAssistPeriodOption)) {
+        if (pair.assisterId === playerId) {
+          const entry = given.get(pair.scorerId) ?? {
+            assisterId: playerId,
+            scorerId: pair.scorerId,
+            count: 0,
+            assisted2m: 0,
+            assisted3m: 0,
+            assistedFtm: 0,
+          };
+          entry.count += pair.count;
+          entry.assisted2m += pair.assisted2m;
+          entry.assisted3m += pair.assisted3m;
+          entry.assistedFtm += pair.assistedFtm;
+          given.set(pair.scorerId, entry);
+        }
+        if (pair.scorerId === playerId) {
+          const entry = received.get(pair.assisterId) ?? {
+            assisterId: pair.assisterId,
+            scorerId: playerId,
+            count: 0,
+            assisted2m: 0,
+            assisted3m: 0,
+            assistedFtm: 0,
+          };
+          entry.count += pair.count;
+          entry.assisted2m += pair.assisted2m;
+          entry.assisted3m += pair.assisted3m;
+          entry.assistedFtm += pair.assistedFtm;
+          received.set(pair.assisterId, entry);
+        }
+      }
+      for (const e of game.raw.PlayByPlays) {
+        if (e.PlayerID1 !== playerId || !periodInRange(situationalStatsAssistPeriodOption, e.Period)) continue;
+        if (e.ActionCD1 === 3 || e.ActionCD1 === 4) ownMade2m++;
+        else if (e.ActionCD1 === 1) ownMade3m++;
+        else if (e.ActionCD1 === 7) ownMadeFtm++;
+      }
+    }
+    const receivedList = [...received.values()].sort((a, b) => b.count - a.count);
+    const assisted2mSum = receivedList.reduce((s, r) => s + r.assisted2m, 0);
+    const assisted3mSum = receivedList.reduce((s, r) => s + r.assisted3m, 0);
+    const assistedFtmSum = receivedList.reduce((s, r) => s + r.assistedFtm, 0);
+    const unassisted = {
+      assisted2m: Math.max(0, ownMade2m - assisted2mSum),
+      assisted3m: Math.max(0, ownMade3m - assisted3mSum),
+      assistedFtm: Math.max(0, ownMadeFtm - assistedFtmSum),
+    };
+    return {
+      given: [...given.values()].sort((a, b) => b.count - a.count),
+      received: receivedList,
+      unassisted,
+      dataReady: readyCount === scopedLogs.length,
+    };
+  }, [playerId, situationalStatsLogs, situationalStatsGameType, periodRawGames, situationalStatsAssistPeriodOption]);
+
+  // オンコート/オフコート比較（Batch 4）: reconstructOnCourt()の在コート区間と、
+  // 「よく使われるラインナップ」（78章）と同じポゼッション推定ロジックを再利用し、選手が
+  // オンコート/オフコートだった時間帯それぞれの自チーム・相手チームのORtg/DRtg・シュート
+  // 成功率を集計する。この選手が出場した試合のみを対象にする（既存の個人オンコート/
+  // オフコート純得失点＝advanced.onCourtNet/offCourtNetと同じ「出場試合内で完結させる」方針）
+  const onOffSplit = useMemo((): { merged: OnOffSplit; dataReady: boolean } | null => {
+    if (!playerId || !situationalStatsLogs) return null;
+    const scopedLogs = filterByGameType(situationalStatsLogs, situationalStatsGameType).filter((g) => g.min > 0);
+    const substitutionModel = substitutionModelForSeason(situationalStatsSeason);
+    const splits: OnOffSplit[] = [];
+    let readyCount = 0;
+    for (const g of scopedLogs) {
+      const game = periodRawGames.get(g.scheduleKey);
+      if (!game) continue;
+      readyCount++;
+      const ownTeamId = situationalStatsOwnTeamByScheduleKey.get(g.scheduleKey)?.teamId;
+      if (!ownTeamId || game.raw.PlayByPlays.length === 0) continue;
+      const onCourt = reconstructOnCourt(
+        game.raw.PlayByPlays,
+        game.raw.HomeBoxscores,
+        game.raw.AwayBoxscores,
+        game.homeTeam.id,
+        game.awayTeam.id,
+        game.quarterScores.home.length,
+        substitutionModel,
+      );
+      const playerIntervals = onCourt.intervals.filter((iv) => iv.playerId === playerId && iv.teamId === ownTeamId);
+      splits.push(computeGameOnOffSplit(game, ownTeamId, playerIntervals));
+    }
+    return { merged: mergeOnOffSplits(splits), dataReady: readyCount === scopedLogs.length };
+  }, [
+    playerId,
+    situationalStatsLogs,
+    situationalStatsGameType,
+    situationalStatsSeason,
+    situationalStatsOwnTeamByScheduleKey,
+    periodRawGames,
+  ]);
 
   // 各スロットのctxを組み立てる。レギュラー/プレーオフ/合算はcompareGameType（共有トグル）で
   // 先に絞り込んでから、スロットごとのシチュエーション別フィルタ（kindのみ。includePlayoffsは
@@ -1926,7 +2070,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           ) : situationalStatsTab === "shooting" && situationalStatsShotTypeKeys.length === 0 ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : (
-            <div className="table-scroll">
+            <div className="table-scroll situational-groups-scroll">
               <table className="stats-table situational-groups-table">
                 <thead>
                   <tr>
@@ -2061,6 +2205,217 @@ export function PlayerDetailPage({ season }: { season: string }) {
             </dl>
             )}
           </div>
+
+          <h2>アシストの関係性</h2>
+          {!assistRelationships ? (
+            <p className="loading">読み込み中...</p>
+          ) : !assistRelationships.dataReady ? (
+            <p className="loading">読み込み中...</p>
+          ) : (
+            <>
+              <h3>誰へのアシストが多いか</h3>
+              {assistRelationships.given.length === 0 ? (
+                <p className="empty-message">アシストの記録がありません</p>
+              ) : (
+                <>
+                  <div className="table-scroll">
+                    <table className="sortable-table">
+                      <thead>
+                        <tr>
+                          <th className="align-left">得点選手</th>
+                          <th className="align-right">アシスト回数</th>
+                          <th className="align-right">アシスト経由得点数</th>
+                          <th className="align-right">2P成功数</th>
+                          <th className="align-right">3P成功数</th>
+                          <th className="align-right">FT成功数</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(assistGivenExpanded
+                          ? assistRelationships.given
+                          : assistRelationships.given.slice(0, MAX_ASSIST_RELATIONSHIP_ROWS)
+                        ).map((p) => (
+                          <tr key={p.scorerId}>
+                            <td className="align-left">{situationalStatsPlayerNameById.get(p.scorerId) ?? p.scorerId}</td>
+                            <td className="align-right">{p.count}</td>
+                            <td className="align-right">{p.assisted2m * 2 + p.assisted3m * 3 + p.assistedFtm}</td>
+                            <td className="align-right">{p.assisted2m}</td>
+                            <td className="align-right">{p.assisted3m}</td>
+                            <td className="align-right">{p.assistedFtm}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {assistRelationships.given.length > MAX_ASSIST_RELATIONSHIP_ROWS && (
+                    <button className="load-more-button" type="button" onClick={() => setAssistGivenExpanded((v) => !v)}>
+                      {assistGivenExpanded
+                        ? `上位${MAX_ASSIST_RELATIONSHIP_ROWS}パターンのみ表示`
+                        : `全パターン表示（全${assistRelationships.given.length}パターン）`}
+                    </button>
+                  )}
+                </>
+              )}
+
+              <h3>誰からのアシストで得点が多いか</h3>
+              {(() => {
+                const unassistedCount =
+                  assistRelationships.unassisted.assisted2m +
+                  assistRelationships.unassisted.assisted3m +
+                  assistRelationships.unassisted.assistedFtm;
+                const unassistedPoints =
+                  assistRelationships.unassisted.assisted2m * 2 +
+                  assistRelationships.unassisted.assisted3m * 3 +
+                  assistRelationships.unassisted.assistedFtm;
+                return (
+                  <p className="page-subtitle">
+                    アシスト無しの得点: {unassistedCount}回（{unassistedPoints}点。内訳 2P
+                    {assistRelationships.unassisted.assisted2m}／3P{assistRelationships.unassisted.assisted3m}／FT
+                    {assistRelationships.unassisted.assistedFtm}）
+                  </p>
+                );
+              })()}
+              {assistRelationships.received.length === 0 ? (
+                <p className="empty-message">アシストされた得点の記録がありません</p>
+              ) : (
+                <>
+                  <div className="table-scroll">
+                    <table className="sortable-table">
+                      <thead>
+                        <tr>
+                          <th className="align-left">アシスト元選手</th>
+                          <th className="align-right">アシスト回数</th>
+                          <th className="align-right">アシスト経由得点数</th>
+                          <th className="align-right">2P成功数</th>
+                          <th className="align-right">3P成功数</th>
+                          <th className="align-right">FT成功数</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(assistReceivedExpanded
+                          ? assistRelationships.received
+                          : assistRelationships.received.slice(0, MAX_ASSIST_RELATIONSHIP_ROWS)
+                        ).map((p) => (
+                          <tr key={p.assisterId}>
+                            <td className="align-left">{situationalStatsPlayerNameById.get(p.assisterId) ?? p.assisterId}</td>
+                            <td className="align-right">{p.count}</td>
+                            <td className="align-right">{p.assisted2m * 2 + p.assisted3m * 3 + p.assistedFtm}</td>
+                            <td className="align-right">{p.assisted2m}</td>
+                            <td className="align-right">{p.assisted3m}</td>
+                            <td className="align-right">{p.assistedFtm}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {assistRelationships.received.length > MAX_ASSIST_RELATIONSHIP_ROWS && (
+                    <button className="load-more-button" type="button" onClick={() => setAssistReceivedExpanded((v) => !v)}>
+                      {assistReceivedExpanded
+                        ? `上位${MAX_ASSIST_RELATIONSHIP_ROWS}パターンのみ表示`
+                        : `全パターン表示（全${assistRelationships.received.length}パターン）`}
+                    </button>
+                  )}
+                </>
+              )}
+              <p className="page-subtitle">
+                選択中のシーズン・レギュラー/プレーオフ/合算・Q別/前後半の絞り込みに連動します（18章のbuildAssistPairs()を再利用）。
+              </p>
+            </>
+          )}
+
+          <h2>オンコート/オフコート比較</h2>
+          {!onOffSplit ? (
+            <p className="loading">読み込み中...</p>
+          ) : !onOffSplit.dataReady ? (
+            <p className="loading">読み込み中...</p>
+          ) : onOffSplit.merged.on.seconds === 0 ? (
+            <p className="empty-message">出場記録がありません</p>
+          ) : (
+            (() => {
+              const { on, off } = onOffSplit.merged;
+              const rows: { label: string; onValue: number; offValue: number; isPct: boolean }[] = [
+                { label: "ORtg", onValue: onOffOffRtg(on), offValue: onOffOffRtg(off), isPct: false },
+                { label: "DRtg", onValue: onOffDefRtg(on), offValue: onOffDefRtg(off), isPct: false },
+                { label: "NetRtg", onValue: onOffOffRtg(on) - onOffDefRtg(on), offValue: onOffOffRtg(off) - onOffDefRtg(off), isPct: false },
+                {
+                  label: "自チームFG%",
+                  onValue: safeDiv(on.ownShooting.fgm, on.ownShooting.fga),
+                  offValue: safeDiv(off.ownShooting.fgm, off.ownShooting.fga),
+                  isPct: true,
+                },
+                {
+                  label: "自チーム3P%",
+                  onValue: safeDiv(on.ownShooting.tpm, on.ownShooting.tpa),
+                  offValue: safeDiv(off.ownShooting.tpm, off.ownShooting.tpa),
+                  isPct: true,
+                },
+                {
+                  label: "自チームFT%",
+                  onValue: safeDiv(on.ownShooting.ftm, on.ownShooting.fta),
+                  offValue: safeDiv(off.ownShooting.ftm, off.ownShooting.fta),
+                  isPct: true,
+                },
+                {
+                  label: "相手チームFG%",
+                  onValue: safeDiv(on.oppShooting.fgm, on.oppShooting.fga),
+                  offValue: safeDiv(off.oppShooting.fgm, off.oppShooting.fga),
+                  isPct: true,
+                },
+                {
+                  label: "相手チーム3P%",
+                  onValue: safeDiv(on.oppShooting.tpm, on.oppShooting.tpa),
+                  offValue: safeDiv(off.oppShooting.tpm, off.oppShooting.tpa),
+                  isPct: true,
+                },
+                {
+                  label: "相手チームFT%",
+                  onValue: safeDiv(on.oppShooting.ftm, on.oppShooting.fta),
+                  offValue: safeDiv(off.oppShooting.ftm, off.oppShooting.fta),
+                  isPct: true,
+                },
+              ];
+              return (
+                <>
+                  <p className="page-subtitle">
+                    オンコート {formatMinutesFromSeconds(Math.round(on.seconds))} ／ オフコート{" "}
+                    {formatMinutesFromSeconds(Math.round(off.seconds))}
+                  </p>
+                  <div className="table-scroll">
+                    <table className="sortable-table">
+                      <thead>
+                        <tr>
+                          <th className="align-left">指標</th>
+                          <th className="align-right">オンコート</th>
+                          <th className="align-right">オフコート</th>
+                          <th className="align-right">差分（オン-オフ）</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((row) => (
+                          <tr key={row.label}>
+                            <td className="align-left">{row.label}</td>
+                            <td className="align-right">{row.isPct ? formatPct(row.onValue) : formatDecimal(row.onValue)}</td>
+                            <td className="align-right">{row.isPct ? formatPct(row.offValue) : formatDecimal(row.offValue)}</td>
+                            <td className="align-right">
+                              {row.isPct
+                                ? `${formatSigned((row.onValue - row.offValue) * 100, 1)}pt`
+                                : formatSigned(row.onValue - row.offValue, 1)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="page-subtitle">
+                    この選手が出場した試合のみを対象に、コート上にいた時間帯（オンコート）といなかった時間帯（オフコート）で
+                    チーム/相手チームの成績を分けて集計しています。ORtg/DRtgは「よく使われるラインナップ」と同じ推定
+                    ポゼッション数（buildPossessionStartEvents）ベースの参考値です。選択中のシーズン・レギュラー/
+                    プレーオフ/合算の絞り込みに連動します（Q別/前後半には対応していません）。
+                  </p>
+                </>
+              );
+            })()
+          )}
 
           <h2
             className={shotChartSupported ? "collapsible-heading" : undefined}

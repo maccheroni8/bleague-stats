@@ -689,6 +689,32 @@ table.stats-table tbody tr:hover td:first-child {
   background: var(--row-hover);
 }
 
+/* シチュエーション別成績（個人詳細ページ・チーム詳細ページ）は行数が多くなりやすいため、
+   下にスクロールしても項目名の見出し行が追随するようにする（Batch 5）。
+   .table-scrollは横スクロール用にoverflow-x:autoを持つが、CSSの仕様上これを設定すると
+   overflow-yも（実際にはみ出さなくても）自動的にautoへ強制され、position: stickyの
+   基準がページ全体ではなくこの.table-scroll自身になってしまう（ページをスクロールしても
+   .table-scroll自体はスクロールされないため、そのままではヘッダーが追随しない）。
+   このラッパーにだけ高さの上限と縦スクロールを与え、.table-scroll自身が実際に
+   スクロールする独立した領域にすることで、position: stickyが正しく機能するようにする。
+   左端列の横スクロール固定（上のルール）と組み合わさるため、左上の角セルはtop/left両方が
+   効くよう明示的にz-indexを一段高くする */
+.situational-groups-scroll {
+  max-height: 640px;
+  overflow-y: auto;
+}
+
+table.situational-groups-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--header-bg);
+}
+
+table.situational-groups-table thead tr:first-child th:first-child {
+  z-index: 4;
+}
+
 table.sortable-table {
   border-collapse: collapse;
   width: 100%;

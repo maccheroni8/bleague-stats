@@ -326,7 +326,7 @@ export interface PossessionStartEvent {
  *   その開始を示す明示的なトリガーイベントが無いため区切りとしてカウントされない
  *   （1ピリオドあたり最大1回、両チーム合わせて1試合あたり4〜5回程度の過少カウント）
  */
-function buildPossessionStartEvents(
+export function buildPossessionStartEvents(
   playByPlays: PlayByPlayEvent[],
   homeTeamId: string,
   awayTeamId: string,
@@ -376,6 +376,29 @@ function buildPossessionStartEvents(
     starts.push({ teamId: opponentOf(teamId), elapsedSec });
   }
   return starts;
+}
+
+export interface ScoreEvent {
+  /** 得点したチーム */
+  teamId: string;
+  points: number;
+  elapsedSec: number;
+}
+
+/**
+ * PlayByPlaysから得点イベントだけを抽出する（POINTS_BY_ACTION_CD1、公式サイトの
+ * pointsHashTableと同じ対応。src/lib/leadTracker.tsのSCORING_ACTION_CODESと同種だが、
+ * こちらはオンコート/オフコート比較（個人詳細ページ）のように任意の時間区間へ得点イベントを
+ * 振り分けたい呼び出し元向けに、チームID・得点・経過秒だけを持つ軽量な形で公開する
+ */
+export function buildScoreEvents(playByPlays: PlayByPlayEvent[]): ScoreEvent[] {
+  const events: ScoreEvent[] = [];
+  for (const ev of playByPlays) {
+    const points = POINTS_BY_ACTION_CD1[ev.ActionCD1];
+    if (points === undefined || !ev.TeamID) continue;
+    events.push({ teamId: ev.TeamID, points, elapsedSec: elapsedSeconds(ev.Period, ev.RestTime) });
+  }
+  return events;
 }
 
 export function reconstructOnCourt(
