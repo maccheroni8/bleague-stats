@@ -238,6 +238,10 @@ const RADAR_STAT_DEFS = TILE_STAT_DEFS.filter((d) => RADAR_STAT_KEYS.includes(d.
 // 「アシストの関係性」（Batch 3）の上位表示件数。それ以下は「全パターン表示」ボタンで展開する
 const MAX_ASSIST_RELATIONSHIP_ROWS = 5;
 
+// 「誰からのアシストで得点が多いか」テーブルで、アシスト無しの得点を他の選手と同じ行形式で
+// 統合表示するためのassisterId用センチネル値
+const UNASSISTED_SENTINEL = "__unassisted__";
+
 // 「オンコート/オフコート比較」（Batch 4）: ポゼッションあたり得点(×100)としてORtg/DRtgを算出する
 function onOffOffRtg(b: OnOffBucket): number {
   return safeDiv(b.ownPts, b.ownPoss) * 100;
@@ -1452,7 +1456,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         else if (e.ActionCD1 === 7) ownMadeFtm++;
       }
     }
-    const receivedList = [...received.values()].sort((a, b) => b.count - a.count);
+    const receivedList = [...received.values()];
     const assisted2mSum = receivedList.reduce((s, r) => s + r.assisted2m, 0);
     const assisted3mSum = receivedList.reduce((s, r) => s + r.assisted3m, 0);
     const assistedFtmSum = receivedList.reduce((s, r) => s + r.assistedFtm, 0);
@@ -1461,10 +1465,21 @@ export function PlayerDetailPage({ season }: { season: string }) {
       assisted3m: Math.max(0, ownMade3m - assisted3mSum),
       assistedFtm: Math.max(0, ownMadeFtm - assistedFtmSum),
     };
+    const unassistedCount = unassisted.assisted2m + unassisted.assisted3m + unassisted.assistedFtm;
+    if (unassistedCount > 0) {
+      receivedList.push({
+        assisterId: UNASSISTED_SENTINEL,
+        scorerId: playerId,
+        count: unassistedCount,
+        assisted2m: unassisted.assisted2m,
+        assisted3m: unassisted.assisted3m,
+        assistedFtm: unassisted.assistedFtm,
+      });
+    }
+    receivedList.sort((a, b) => b.count - a.count);
     return {
       given: [...given.values()].sort((a, b) => b.count - a.count),
       received: receivedList,
-      unassisted,
       dataReady: readyCount === scopedLogs.length,
     };
   }, [playerId, situationalStatsLogs, situationalStatsGameType, periodRawGames, situationalStatsAssistPeriodOption]);
@@ -2258,23 +2273,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
               )}
 
               <h3>誰からのアシストで得点が多いか</h3>
-              {(() => {
-                const unassistedCount =
-                  assistRelationships.unassisted.assisted2m +
-                  assistRelationships.unassisted.assisted3m +
-                  assistRelationships.unassisted.assistedFtm;
-                const unassistedPoints =
-                  assistRelationships.unassisted.assisted2m * 2 +
-                  assistRelationships.unassisted.assisted3m * 3 +
-                  assistRelationships.unassisted.assistedFtm;
-                return (
-                  <p className="page-subtitle">
-                    アシスト無しの得点: {unassistedCount}回（{unassistedPoints}点。内訳 2P
-                    {assistRelationships.unassisted.assisted2m}／3P{assistRelationships.unassisted.assisted3m}／FT
-                    {assistRelationships.unassisted.assistedFtm}）
-                  </p>
-                );
-              })()}
               {assistRelationships.received.length === 0 ? (
                 <p className="empty-message">アシストされた得点の記録がありません</p>
               ) : (
@@ -2297,7 +2295,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
                           : assistRelationships.received.slice(0, MAX_ASSIST_RELATIONSHIP_ROWS)
                         ).map((p) => (
                           <tr key={p.assisterId}>
-                            <td className="align-left">{situationalStatsPlayerNameById.get(p.assisterId) ?? p.assisterId}</td>
+                            <td className="align-left">
+                              {p.assisterId === UNASSISTED_SENTINEL
+                                ? "アシストなし"
+                                : (situationalStatsPlayerNameById.get(p.assisterId) ?? p.assisterId)}
+                            </td>
                             <td className="align-right">{p.count}</td>
                             <td className="align-right">{p.assisted2m * 2 + p.assisted3m * 3 + p.assistedFtm}</td>
                             <td className="align-right">{p.assisted2m}</td>
