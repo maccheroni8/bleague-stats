@@ -10,7 +10,7 @@
 //   （比率項を含む式をシーズン合計値に再適用すると非線形性で誤差が出るため。POSS配線時と同じ方針）
 
 import { efgPct, offensiveRating, pace, safeDiv, tsPct } from "../../shared/formulas";
-import type { Category, DivisionHistoryFile, GameSummary, PlayerGameLog, TeamGameLog } from "../../shared/types";
+import type { Category, Division, DivisionHistoryFile, GameSummary, PlayerGameLog, TeamGameLog } from "../../shared/types";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import { isWeekdayGame } from "./japaneseHolidays";
 
@@ -265,6 +265,40 @@ export function buildBackToBackStatus(games: GameSummary[]): Map<string, Map<str
   return result;
 }
 
+export type BiweekStatus = "before" | "after";
+
+/** 「バイウィーク」判定の間隔基準（日）。個別チームの試合間隔ではなく、リーグ全体で試合が
+ * 1つも行われない期間（オールスターウィーク・FIBAウィンドウ等）を検出する基準。
+ * B.LEAGUEの通常の試合間隔より明確に長い、10日以上の空白期間を「バイウィーク」とみなす
+ * （条件別順位表タブ、2026-09。連戦GAME1/GAME2判定buildBackToBackStatusとは異なり、
+ * 対象は特定のチームの試合間隔ではなくリーグ全体の試合実施日） */
+export const BIWEEK_GAP_DAYS = 10;
+
+/**
+ * リーグ全体（games-summary.json、gameEndedFlgの試合のみ、レギュラー/プレーオフとも対象）で
+ * 試合が実施された日をすべて集め、連続する試合実施日の間隔がBIWEEK_GAP_DAYS以上空いている
+ * 箇所を「バイウィーク」とみなす。その空白期間の直前の試合実施日に行われた全試合を
+ * 「バイウィーク前」、直後の試合実施日に行われた全試合を「バイウィーク明け」とする
+ * （buildBackToBackStatusと異なり特定のチームに紐づかないため、戻り値もMap<scheduleKey,
+ * BiweekStatus>とチーム軸を持たない）
+ */
+export function buildBiweekStatus(games: GameSummary[]): Map<string, BiweekStatus> {
+  const played = games.filter((g) => g.gameEndedFlg);
+  const dates = [...new Set(played.map((g) => g.date))].sort();
+
+  const result = new Map<string, BiweekStatus>();
+  for (let i = 0; i < dates.length - 1; i++) {
+    const d1 = dates[i]!;
+    const d2 = dates[i + 1]!;
+    if (daysBetweenDates(d1, d2) < BIWEEK_GAP_DAYS) continue;
+    for (const g of played) {
+      if (g.date === d1) result.set(g.scheduleKey, "before");
+      if (g.date === d2) result.set(g.scheduleKey, "after");
+    }
+  }
+  return result;
+}
+
 /**
  * 対戦相手の地区が一致するか（data/division-history.json、シーズン対応版マスタを使用。
  * DESIGN.md参照。2026-08-29、2026-27シーズン基準の単一スナップショットだった旧実装から
@@ -272,7 +306,7 @@ export function buildBackToBackStatus(games: GameSummary[]): Map<string, Map<str
  */
 export function matchesDivision<T extends { opponentTeamId: string }>(
   g: T,
-  division: "east" | "west",
+  division: Division,
   history: DivisionHistoryFile | null | undefined,
   season: string,
   category: Category = "premier",

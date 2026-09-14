@@ -2218,6 +2218,13 @@ table.glossary-table td {
   margin-bottom: 16px;
 }
 
+.condition-group-label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 4px;
+}
+
 .situational-filter .mode-toggle select {
   padding: 5px 10px;
   border-radius: 6px;

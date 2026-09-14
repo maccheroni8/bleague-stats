@@ -6,6 +6,7 @@ import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart } from "../components/StandingsLineChart";
 import { HeadToHeadMatrix } from "../components/HeadToHeadMatrix";
 import { TeamFilterBlock } from "../components/TeamFilterBlock";
+import { ConditionalStandingsTable } from "../components/ConditionalStandingsTable";
 import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak, type TeamStreak } from "../../shared/teamRecords";
@@ -212,7 +213,7 @@ export function StandingsPage({ season }: { season: string }) {
   }, [season]);
 
   const latest = history && history.length > 0 ? history[history.length - 1]! : null;
-  const { gameLogsByTeam } = useAllTeamGameLogs(season, latest?.teams ?? null);
+  const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, latest?.teams ?? null);
 
   if (loading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
@@ -331,7 +332,16 @@ export function StandingsPage({ season }: { season: string }) {
           </>
         ))}
 
-      {tab === "conditional" && <p className="empty-message">この機能は準備中です。</p>}
+      {tab === "conditional" && (
+        <ConditionalStandingsTable
+          season={season}
+          teams={teams}
+          gameLogsByTeam={gameLogsByTeam}
+          gameLogsLoading={gameLogsLoading}
+          upcomingGames={schedule?.upcomingGames ?? []}
+          teamColors={teamColors ?? undefined}
+        />
+      )}
 
       {tab === "rankTrend" && <StandingsLineChart title="順位推移" data={rankData} teams={teams} reversed height={360} />}
 
