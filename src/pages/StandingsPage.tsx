@@ -21,14 +21,15 @@ import type {
   UpcomingGameEntry,
 } from "../../shared/types";
 
-type StandingsTab = "standings" | "h2h" | "conditional" | "rankTrend" | "recordTrend";
+type StandingsTab = "standings" | "h2h" | "conditional" | "rankTrend" | "winsTrend" | "gamesAboveTrend";
 
 const TAB_LABELS: Record<StandingsTab, string> = {
   standings: "順位表",
   h2h: "星取り表",
   conditional: "条件別順位表",
   rankTrend: "順位推移",
-  recordTrend: "勝ち星推移・貯金推移",
+  winsTrend: "勝ち星推移",
+  gamesAboveTrend: "貯金推移",
 };
 
 interface WinLossRecord {
@@ -208,6 +209,18 @@ const overallStandingsColumns: Column<StandingsRow>[] = divisionStandingsColumns
   (c) => c.key !== "divisionRank",
 );
 
+// 「全チームの全体順位表」用の列。地区順位が地区を跨いだ一覧の中でも区別できるよう、
+// 地区名の頭文字を併記する（例:「東1」「中5」）
+const allStandingsColumns: Column<StandingsRow>[] = divisionStandingsColumns.map((c) =>
+  c.key === "divisionRank"
+    ? {
+        ...c,
+        format: (t: StandingsRow) =>
+          t.division && t.divisionRank ? `${DIVISION_LABELS[t.division][0]}${t.divisionRank}` : String(t.divisionRank ?? "-"),
+      }
+    : c,
+);
+
 /**
  * historyを日付ごとの{date, teamId: 値}行に変換する。
  * revealCountを指定した場合（アニメーション再生中）、それ以降のインデックスの行は
@@ -300,7 +313,7 @@ export function StandingsPage({ season }: { season: string }) {
       setAnimFrame(null);
       return;
     }
-    const timer = setTimeout(() => setAnimFrame((f) => (f ?? 0) + 1), 90);
+    const timer = setTimeout(() => setAnimFrame((f) => (f ?? 0) + 1), 180);
     return () => clearTimeout(timer);
   }, [isAnimating, animFrame, history]);
 
@@ -432,7 +445,7 @@ export function StandingsPage({ season }: { season: string }) {
               {overallStandingsExpanded && (
                 <div className="table-scroll">
                   <SortableTable
-                    columns={divisionStandingsColumns}
+                    columns={allStandingsColumns}
                     rows={allStandingsRows}
                     rowKey={(t) => t.teamId}
                     defaultSortKey="rank"
@@ -501,7 +514,7 @@ export function StandingsPage({ season }: { season: string }) {
               data={rankData}
               teams={teams}
               reversed
-              height={360}
+              height={720}
               teamColors={teamColors ?? undefined}
               isAnimating={isAnimating}
             />
@@ -514,7 +527,7 @@ export function StandingsPage({ season }: { season: string }) {
                   data={divisionRankData}
                   teams={g.teams}
                   reversed
-                  height={320}
+                  height={640}
                   teamColors={teamColors ?? undefined}
                   isAnimating={isAnimating}
                 />
@@ -525,7 +538,7 @@ export function StandingsPage({ season }: { season: string }) {
                   data={wildcardRankData}
                   teams={wildcardTeams}
                   reversed
-                  height={320}
+                  height={640}
                   teamColors={teamColors ?? undefined}
                   isAnimating={isAnimating}
                 />
@@ -535,7 +548,7 @@ export function StandingsPage({ season }: { season: string }) {
         </div>
       )}
 
-      {tab === "recordTrend" && (
+      {tab === "winsTrend" && (
         <div>
           <div className="mode-toggle">
             <button type="button" className={isAnimating ? "active" : ""} onClick={playAnimation} disabled={isAnimating}>
@@ -543,71 +556,80 @@ export function StandingsPage({ season }: { season: string }) {
             </button>
           </div>
           {divisionGroups.length === 0 ? (
-            <div className="standings-grid">
-              <StandingsLineChart
-                title="勝ち星推移"
-                data={winsData}
-                teams={teams}
-                height={280}
-                teamColors={teamColors ?? undefined}
-                isAnimating={isAnimating}
-              />
-              <StandingsLineChart
-                title="貯金推移"
-                data={gamesAboveData}
-                teams={teams}
-                height={280}
-                teamColors={teamColors ?? undefined}
-                isAnimating={isAnimating}
-              />
-            </div>
+            <StandingsLineChart
+              title="勝ち星推移"
+              data={winsData}
+              teams={teams}
+              height={560}
+              teamColors={teamColors ?? undefined}
+              isAnimating={isAnimating}
+            />
           ) : (
             <div className="standings-stack">
               {divisionGroups.map((g) => (
-                <div key={g.division}>
-                  <h2>{DIVISION_LABELS[g.division]}</h2>
-                  <div className="standings-grid">
-                    <StandingsLineChart
-                      title="勝ち星推移"
-                      data={winsData}
-                      teams={g.teams}
-                      height={260}
-                      teamColors={teamColors ?? undefined}
-                      isAnimating={isAnimating}
-                    />
-                    <StandingsLineChart
-                      title="貯金推移"
-                      data={gamesAboveData}
-                      teams={g.teams}
-                      height={260}
-                      teamColors={teamColors ?? undefined}
-                      isAnimating={isAnimating}
-                    />
-                  </div>
-                </div>
+                <StandingsLineChart
+                  key={g.division}
+                  title={`${DIVISION_LABELS[g.division]}勝ち星推移`}
+                  data={winsData}
+                  teams={g.teams}
+                  height={520}
+                  teamColors={teamColors ?? undefined}
+                  isAnimating={isAnimating}
+                />
               ))}
               {wildcardTeams.length > 0 && (
-                <div>
-                  <h2>ワイルドカード</h2>
-                  <div className="standings-grid">
-                    <StandingsLineChart
-                      title="勝ち星推移"
-                      data={winsData}
-                      teams={wildcardTeams}
-                      height={260}
-                      teamColors={teamColors ?? undefined}
-                      isAnimating={isAnimating}
-                    />
-                    <StandingsLineChart
-                      title="貯金推移"
-                      data={gamesAboveData}
-                      teams={wildcardTeams}
-                      height={260}
-                      teamColors={teamColors ?? undefined}
-                      isAnimating={isAnimating}
-                    />
-                  </div>
-                </div>
+                <StandingsLineChart
+                  title="ワイルドカード勝ち星推移"
+                  data={winsData}
+                  teams={wildcardTeams}
+                  height={520}
+                  teamColors={teamColors ?? undefined}
+                  isAnimating={isAnimating}
+                />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "gamesAboveTrend" && (
+        <div>
+          <div className="mode-toggle">
+            <button type="button" className={isAnimating ? "active" : ""} onClick={playAnimation} disabled={isAnimating}>
+              {isAnimating ? "再生中..." : "▶ アニメーション再生"}
+            </button>
+          </div>
+          {divisionGroups.length === 0 ? (
+            <StandingsLineChart
+              title="貯金推移"
+              data={gamesAboveData}
+              teams={teams}
+              height={560}
+              teamColors={teamColors ?? undefined}
+              isAnimating={isAnimating}
+            />
+          ) : (
+            <div className="standings-stack">
+              {divisionGroups.map((g) => (
+                <StandingsLineChart
+                  key={g.division}
+                  title={`${DIVISION_LABELS[g.division]}貯金推移`}
+                  data={gamesAboveData}
+                  teams={g.teams}
+                  height={520}
+                  teamColors={teamColors ?? undefined}
+                  isAnimating={isAnimating}
+                />
+              ))}
+              {wildcardTeams.length > 0 && (
+                <StandingsLineChart
+                  title="ワイルドカード貯金推移"
+                  data={gamesAboveData}
+                  teams={wildcardTeams}
+                  height={520}
+                  teamColors={teamColors ?? undefined}
+                  isAnimating={isAnimating}
+                />
               )}
             </div>
           )}

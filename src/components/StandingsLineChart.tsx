@@ -106,7 +106,7 @@ export function StandingsLineChart({
                         cy={cy}
                         r={4}
                         fill={color}
-                        style={isAnimating ? { transition: "cx 90ms linear, cy 90ms linear" } : undefined}
+                        style={isAnimating ? { transition: "cx 180ms linear, cy 180ms linear" } : undefined}
                       />
                     );
                   }
@@ -119,7 +119,7 @@ export function StandingsLineChart({
                       width={LOGO_SIZE}
                       height={LOGO_SIZE}
                       onError={() => markLogoFailed(t.teamId)}
-                      style={isAnimating ? { transition: "x 90ms linear, y 90ms linear" } : undefined}
+                      style={isAnimating ? { transition: "x 180ms linear, y 180ms linear" } : undefined}
                     />
                   );
                 }}
