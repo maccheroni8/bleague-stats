@@ -856,8 +856,8 @@ export interface StandingsTeamSnapshot {
   pointsAgainst: number;
   pointDiff: number;
   /**
-   * 勝率降順・同率は得失点差降順のシンプルな方法（DESIGN.md参照）。
-   * 公式のタイブレークルール（直接対決等）が判明次第見直す
+   * 勝率降順→直接対決降順→得失点差降順の暫定ルール（DESIGN.md参照）。
+   * 公式のタイブレークルールが判明次第見直す
    */
   rank: number;
   /** 首位とのゲーム差 */

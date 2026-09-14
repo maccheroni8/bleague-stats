@@ -281,6 +281,11 @@ export interface TeamStreak {
   count: number;
 }
 
+export function formatTeamStreak(streak: TeamStreak | null): string {
+  if (!streak || streak.count === 0) return "-";
+  return streak.type === "win" ? `${streak.count}連勝` : `${streak.count}連敗`;
+}
+
 /**
  * 「パワーランキング」タブ用。longestWinStreak()がシーズン全体を通した最長連勝を求めるのに
  * 対し、こちらは試合ログ（日付順ソート未保証でも内部でソートする）の末尾から遡って

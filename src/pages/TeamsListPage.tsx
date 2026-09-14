@@ -49,7 +49,13 @@ import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, for
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
 import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
-import { CAREER_TOTAL_DEFS, TEAM_RECORD_STATS, currentStreak, type TeamStreak } from "../../shared/teamRecords";
+import {
+  CAREER_TOTAL_DEFS,
+  TEAM_RECORD_STATS,
+  currentStreak,
+  formatTeamStreak,
+  type TeamStreak,
+} from "../../shared/teamRecords";
 import { ONE_TEAM_DIVISIONS, TEAM_DIVISIONS, TEAM_NAMES } from "../../scripts/lib/divisions";
 import {
   buildAdvancedColumns,
@@ -1006,11 +1012,6 @@ interface RecentFormRow {
   /** 対戦相手のその試合時点までの勝率の単純平均。算出対象の試合が1件も無ければundefined */
   oppWinPctAvg: number | undefined;
   streak: TeamStreak | null;
-}
-
-function formatTeamStreak(streak: TeamStreak | null): string {
-  if (!streak || streak.count === 0) return "-";
-  return streak.type === "win" ? `${streak.count}連勝` : `${streak.count}連敗`;
 }
 
 function RecentFormTab({ season }: { season: string }) {

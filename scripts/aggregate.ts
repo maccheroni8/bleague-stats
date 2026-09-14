@@ -1643,10 +1643,107 @@ interface StandingsAccumulator {
   pointsAgainst: number;
 }
 
+interface HeadToHeadTally {
+  wins: number;
+  losses: number;
+}
+
+/** チームID→対戦相手ID→直接対決成績。シーズンを日付順に走査しながら累積する */
+type HeadToHeadTable = Map<string, Map<string, HeadToHeadTally>>;
+
+function recordHeadToHeadResult(table: HeadToHeadTable, teamId: string, opponentId: string, win: boolean): void {
+  let byOpponent = table.get(teamId);
+  if (!byOpponent) {
+    byOpponent = new Map();
+    table.set(teamId, byOpponent);
+  }
+  let tally = byOpponent.get(opponentId);
+  if (!tally) {
+    tally = { wins: 0, losses: 0 };
+    byOpponent.set(opponentId, tally);
+  }
+  if (win) tally.wins += 1;
+  else tally.losses += 1;
+}
+
+interface StandingsCompareEntry {
+  teamId: string;
+  winPct: number;
+  pointDiff: number;
+}
+
+/**
+ * 順位表（全体・地区内とも）が共有するタイブレーク判定（暫定ルール、DESIGN.md参照）。
+ * 勝率降順 → 直接対決（同率チーム間のみの相互戦績）降順 → 得失点差（シーズン通算）降順。
+ * 3チーム以上が同率で、かつ直接対決が循環して決着しない場合（例: A>B>C>Aの三すくみ）は、
+ * その時点で得失点差にフォールバックする。全体順位・地区内順位のどちらも必ずこの関数を
+ * 経由させることで、公式ルールが判明した際にここを1箇所差し替えれば両方に反映される。
+ */
+function rankStandingsTeams<T extends StandingsCompareEntry>(teams: T[], headToHead: HeadToHeadTable): T[] {
+  const byWinPctDesc = [...teams].sort((a, b) => b.winPct - a.winPct);
+  const result: T[] = [];
+  let i = 0;
+  while (i < byWinPctDesc.length) {
+    let j = i + 1;
+    while (j < byWinPctDesc.length && byWinPctDesc[j]!.winPct === byWinPctDesc[i]!.winPct) {
+      j += 1;
+    }
+    result.push(...resolveTiedGroupByHeadToHead(byWinPctDesc.slice(i, j), headToHead));
+    i = j;
+  }
+  return result;
+}
+
+/**
+ * 勝率が同率のグループ内だけの相互対戦成績（ミニリーグ）で順位付けする。
+ *
+ * グループ内の全ペアが最低1試合ずつ対戦済み（総当たりが揃っている）場合のみ直接対決を
+ * 適用する。シーズン序盤等で一部のペアがまだ対戦していない場合、その未対戦チームを
+ * 「0勝」として最下位に押しやってしまう（未対戦と0%勝率を混同する）のを避けるため、
+ * 総当たりが揃っていなければグループ全体を得失点差で決める。総当たりが揃っている場合
+ * （3チーム以上の循環決着＝三すくみを含む）でも、グループ内対戦の勝率が並んだ時点で
+ * 得失点差にフォールバックする。
+ */
+function resolveTiedGroupByHeadToHead<T extends StandingsCompareEntry>(
+  group: T[],
+  headToHead: HeadToHeadTable,
+): T[] {
+  if (group.length <= 1) return group;
+
+  const hasPlayedEveryOther = group.every((team) => {
+    const opponents = headToHead.get(team.teamId);
+    return group.every((other) => {
+      if (other.teamId === team.teamId) return true;
+      const tally = opponents?.get(other.teamId);
+      return !!tally && tally.wins + tally.losses > 0;
+    });
+  });
+  if (!hasPlayedEveryOther) {
+    return [...group].sort((a, b) => b.pointDiff - a.pointDiff);
+  }
+
+  const idsInGroup = new Set(group.map((t) => t.teamId));
+  const subWinPct = new Map<string, number>();
+  for (const team of group) {
+    let wins = 0;
+    let losses = 0;
+    for (const [opponentId, tally] of headToHead.get(team.teamId) ?? []) {
+      if (!idsInGroup.has(opponentId)) continue;
+      wins += tally.wins;
+      losses += tally.losses;
+    }
+    subWinPct.set(team.teamId, safeDiv(wins, wins + losses));
+  }
+  return [...group].sort(
+    (a, b) => subWinPct.get(b.teamId)! - subWinPct.get(a.teamId)! || b.pointDiff - a.pointDiff,
+  );
+}
+
 /**
  * シーズン全試合を日付順に走査し、日付ごとの各チームの累積成績スナップショットを作る。
- * 同率の順位付けは勝率降順→得失点差降順のシンプルな方法（DESIGN.md参照。公式タイブレーク
- * ルールが判明次第見直す）。
+ * 同率の順位付けは`rankStandingsTeams()`（勝率→直接対決→得失点差の暫定ルール）に集約
+ * してある。公式タイブレークルールが判明したら、その関数を差し替えれば全体順位・地区内
+ * 順位の両方に反映される。
  */
 function buildStandingsHistory(
   games: StoredGame[],
@@ -1658,6 +1755,7 @@ function buildStandingsHistory(
     (a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey),
   );
   const accumulators = new Map<string, StandingsAccumulator>();
+  const headToHead: HeadToHeadTable = new Map();
 
   const ensure = (teamId: string, teamName: string): StandingsAccumulator => {
     let acc = accumulators.get(teamId);
@@ -1682,28 +1780,30 @@ function buildStandingsHistory(
       home.pointsAgainst += game.awayScore;
       away.pointsFor += game.awayScore;
       away.pointsAgainst += game.homeScore;
-      if (game.homeScore > game.awayScore) {
+      const homeWin = game.homeScore > game.awayScore;
+      if (homeWin) {
         home.wins += 1;
         away.losses += 1;
       } else {
         away.wins += 1;
         home.losses += 1;
       }
+      recordHeadToHeadResult(headToHead, home.teamId, away.teamId, homeWin);
+      recordHeadToHeadResult(headToHead, away.teamId, home.teamId, !homeWin);
       i += 1;
     }
 
-    const ranked = [...accumulators.values()]
-      .map((t) => ({
-        teamId: t.teamId,
-        teamName: t.teamName,
-        wins: t.wins,
-        losses: t.losses,
-        winPct: safeDiv(t.wins, t.wins + t.losses),
-        pointsFor: t.pointsFor,
-        pointsAgainst: t.pointsAgainst,
-        pointDiff: t.pointsFor - t.pointsAgainst,
-      }))
-      .sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
+    const withStats = [...accumulators.values()].map((t) => ({
+      teamId: t.teamId,
+      teamName: t.teamName,
+      wins: t.wins,
+      losses: t.losses,
+      winPct: safeDiv(t.wins, t.wins + t.losses),
+      pointsFor: t.pointsFor,
+      pointsAgainst: t.pointsAgainst,
+      pointDiff: t.pointsFor - t.pointsAgainst,
+    }));
+    const ranked = rankStandingsTeams(withStats, headToHead);
 
     const leader = ranked[0];
     const teams = ranked.map((t, idx) => ({
@@ -1712,7 +1812,7 @@ function buildStandingsHistory(
       gamesBehind: leader ? (leader.wins - t.wins + (t.losses - leader.losses)) / 2 : 0,
     }));
 
-    history.push({ date, teams: attachDivisionRanks(teams, category, divisionHistory, season) });
+    history.push({ date, teams: attachDivisionRanks(teams, category, divisionHistory, season, headToHead) });
   }
 
   return history;
@@ -1720,15 +1820,16 @@ function buildStandingsHistory(
 
 /**
  * 全体ランキング済みのteamsに、地区（東/西）ごとの順位・地区首位とのゲーム差を付与する。
- * タイブレークは全体順位と同じ勝率降順→得失点差降順を地区内で適用する（DESIGN.md参照）。
- * divisionHistory（data/division-history.json、シーズン対応版マスタ）にそのシーズンのデータが
- * 無いチーム（未取得の未来シーズン等）はdivision系が未定義のまま
+ * タイブレークは全体順位と全く同じ`rankStandingsTeams()`を地区内メンバーだけに適用する
+ * （DESIGN.md参照）。divisionHistory（data/division-history.json、シーズン対応版マスタ）に
+ * そのシーズンのデータが無いチーム（未取得の未来シーズン等）はdivision系が未定義のまま
  */
 function attachDivisionRanks(
   teams: Omit<StandingsTeamSnapshot, "division" | "divisionRank" | "divisionGamesBehind">[],
   category: Category,
   divisionHistory: DivisionHistoryFile,
   season: string,
+  headToHead: HeadToHeadTable,
 ): StandingsTeamSnapshot[] {
   const withDivision: StandingsTeamSnapshot[] = teams.map((t) => ({
     ...t,
@@ -1744,9 +1845,9 @@ function attachDivisionRanks(
   }
 
   for (const list of byDivision.values()) {
-    list.sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff);
-    const divLeader = list[0]!;
-    list.forEach((t, idx) => {
+    const ranked = rankStandingsTeams(list, headToHead);
+    const divLeader = ranked[0]!;
+    ranked.forEach((t, idx) => {
       t.divisionRank = idx + 1;
       t.divisionGamesBehind = (divLeader.wins - t.wins + (t.losses - divLeader.losses)) / 2;
     });
