@@ -1646,12 +1646,21 @@ interface StandingsAccumulator {
 interface HeadToHeadTally {
   wins: number;
   losses: number;
+  pointsFor: number;
+  pointsAgainst: number;
 }
 
 /** チームID→対戦相手ID→直接対決成績。シーズンを日付順に走査しながら累積する */
 type HeadToHeadTable = Map<string, Map<string, HeadToHeadTally>>;
 
-function recordHeadToHeadResult(table: HeadToHeadTable, teamId: string, opponentId: string, win: boolean): void {
+function recordHeadToHeadResult(
+  table: HeadToHeadTable,
+  teamId: string,
+  opponentId: string,
+  win: boolean,
+  pointsFor: number,
+  pointsAgainst: number,
+): void {
   let byOpponent = table.get(teamId);
   if (!byOpponent) {
     byOpponent = new Map();
@@ -1659,25 +1668,31 @@ function recordHeadToHeadResult(table: HeadToHeadTable, teamId: string, opponent
   }
   let tally = byOpponent.get(opponentId);
   if (!tally) {
-    tally = { wins: 0, losses: 0 };
+    tally = { wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0 };
     byOpponent.set(opponentId, tally);
   }
   if (win) tally.wins += 1;
   else tally.losses += 1;
+  tally.pointsFor += pointsFor;
+  tally.pointsAgainst += pointsAgainst;
 }
 
 interface StandingsCompareEntry {
   teamId: string;
   winPct: number;
   pointDiff: number;
+  pointsFor: number;
+  wins: number;
+  losses: number;
 }
 
 /**
- * 順位表（全体・地区内とも）が共有するタイブレーク判定（暫定ルール、DESIGN.md参照）。
- * 勝率降順 → 直接対決（同率チーム間のみの相互戦績）降順 → 得失点差（シーズン通算）降順。
- * 3チーム以上が同率で、かつ直接対決が循環して決着しない場合（例: A>B>C>Aの三すくみ）は、
- * その時点で得失点差にフォールバックする。全体順位・地区内順位のどちらも必ずこの関数を
- * 経由させることで、公式ルールが判明した際にここを1箇所差し替えれば両方に反映される。
+ * 順位表（全体・地区内とも）が共有するタイブレーク判定。公式ルール（DESIGN.md参照）:
+ * ①勝率 → ②直接対決の勝率 → ③直接対決の得失点差 → ④直接対決の1試合平均得点 →
+ * ⑤シーズン全体の得失点差 → ⑥シーズン全体の1試合平均得点 → ⑦抽選。
+ * ⑦のみ実装不可のため、teamId昇順の決定論的な順序で代用する（`resolveTiedGroupByHeadToHead`
+ * 参照）。全体順位・地区内順位のどちらも必ずこの関数を経由させるため、この1箇所を直せば
+ * 両方に反映される。
  */
 function rankStandingsTeams<T extends StandingsCompareEntry>(teams: T[], headToHead: HeadToHeadTable): T[] {
   const byWinPctDesc = [...teams].sort((a, b) => b.winPct - a.winPct);
@@ -1695,14 +1710,17 @@ function rankStandingsTeams<T extends StandingsCompareEntry>(teams: T[], headToH
 }
 
 /**
- * 勝率が同率のグループ内だけの相互対戦成績（ミニリーグ）で順位付けする。
+ * 勝率が同率のグループを、公式タイブレーク順（DESIGN.md参照）で並べ替える:
+ * ②直接対決の勝率 → ③直接対決の得失点差 → ④直接対決の1試合平均得点 →
+ * ⑤シーズン全体の得失点差 → ⑥シーズン全体の1試合平均得点 → ⑦抽選（実装不可のため
+ * teamId昇順で代用する）。
  *
- * グループ内の全ペアが最低1試合ずつ対戦済み（総当たりが揃っている）場合のみ直接対決を
- * 適用する。シーズン序盤等で一部のペアがまだ対戦していない場合、その未対戦チームを
- * 「0勝」として最下位に押しやってしまう（未対戦と0%勝率を混同する）のを避けるため、
- * 総当たりが揃っていなければグループ全体を得失点差で決める。総当たりが揃っている場合
- * （3チーム以上の循環決着＝三すくみを含む）でも、グループ内対戦の勝率が並んだ時点で
- * 得失点差にフォールバックする。
+ * 直接対決（②③④）は、グループ内の全ペアが最低1試合ずつ対戦済み（総当たりが揃っている）
+ * 場合のみ適用する。シーズン序盤等で一部のペアがまだ対戦していない場合、その未対戦チームを
+ * 「0勝（最下位）」として扱ってしまう（未対戦と0%勝率を混同する）のを避けるため、総当たりが
+ * 揃っていなければ②③④は全チーム同値（＝比較をスキップ）扱いとし、⑤以降にそのままフォール
+ * バックする。総当たりが揃っている場合（3チーム以上の循環決着＝三すくみを含む）でも、②③④が
+ * 全て並んだ時点で⑤以降にフォールバックする。
  */
 function resolveTiedGroupByHeadToHead<T extends StandingsCompareEntry>(
   group: T[],
@@ -1710,6 +1728,7 @@ function resolveTiedGroupByHeadToHead<T extends StandingsCompareEntry>(
 ): T[] {
   if (group.length <= 1) return group;
 
+  const idsInGroup = new Set(group.map((t) => t.teamId));
   const hasPlayedEveryOther = group.every((team) => {
     const opponents = headToHead.get(team.teamId);
     return group.every((other) => {
@@ -1718,32 +1737,50 @@ function resolveTiedGroupByHeadToHead<T extends StandingsCompareEntry>(
       return !!tally && tally.wins + tally.losses > 0;
     });
   });
-  if (!hasPlayedEveryOther) {
-    return [...group].sort((a, b) => b.pointDiff - a.pointDiff);
+
+  // ②直接対決の勝率・③直接対決の得失点差・④直接対決の1試合平均得点
+  // （総当たりが揃っていない場合は空のままにし、比較時は全チーム0扱い＝実質スキップされる）
+  const h2hWinPct = new Map<string, number>();
+  const h2hPointDiff = new Map<string, number>();
+  const h2hAvgPoints = new Map<string, number>();
+  if (hasPlayedEveryOther) {
+    for (const team of group) {
+      let wins = 0;
+      let losses = 0;
+      let pointsFor = 0;
+      let pointsAgainst = 0;
+      for (const [opponentId, tally] of headToHead.get(team.teamId) ?? []) {
+        if (!idsInGroup.has(opponentId)) continue;
+        wins += tally.wins;
+        losses += tally.losses;
+        pointsFor += tally.pointsFor;
+        pointsAgainst += tally.pointsAgainst;
+      }
+      h2hWinPct.set(team.teamId, safeDiv(wins, wins + losses));
+      h2hPointDiff.set(team.teamId, pointsFor - pointsAgainst);
+      h2hAvgPoints.set(team.teamId, safeDiv(pointsFor, wins + losses));
+    }
   }
 
-  const idsInGroup = new Set(group.map((t) => t.teamId));
-  const subWinPct = new Map<string, number>();
-  for (const team of group) {
-    let wins = 0;
-    let losses = 0;
-    for (const [opponentId, tally] of headToHead.get(team.teamId) ?? []) {
-      if (!idsInGroup.has(opponentId)) continue;
-      wins += tally.wins;
-      losses += tally.losses;
-    }
-    subWinPct.set(team.teamId, safeDiv(wins, wins + losses));
-  }
+  // ⑥シーズン全体の1試合平均得点（⑤のシーズン全体得失点差は既存のpointDiffをそのまま使う）
+  const seasonAvgPoints = new Map(group.map((t) => [t.teamId, safeDiv(t.pointsFor, t.wins + t.losses)]));
+
   return [...group].sort(
-    (a, b) => subWinPct.get(b.teamId)! - subWinPct.get(a.teamId)! || b.pointDiff - a.pointDiff,
+    (a, b) =>
+      (h2hWinPct.get(b.teamId) ?? 0) - (h2hWinPct.get(a.teamId) ?? 0) ||
+      (h2hPointDiff.get(b.teamId) ?? 0) - (h2hPointDiff.get(a.teamId) ?? 0) ||
+      (h2hAvgPoints.get(b.teamId) ?? 0) - (h2hAvgPoints.get(a.teamId) ?? 0) ||
+      b.pointDiff - a.pointDiff ||
+      (seasonAvgPoints.get(b.teamId) ?? 0) - (seasonAvgPoints.get(a.teamId) ?? 0) ||
+      // ⑦抽選は実装不可のため、teamId昇順の決定論的な順序で代用する
+      a.teamId.localeCompare(b.teamId),
   );
 }
 
 /**
  * シーズン全試合を日付順に走査し、日付ごとの各チームの累積成績スナップショットを作る。
- * 同率の順位付けは`rankStandingsTeams()`（勝率→直接対決→得失点差の暫定ルール）に集約
- * してある。公式タイブレークルールが判明したら、その関数を差し替えれば全体順位・地区内
- * 順位の両方に反映される。
+ * 同率の順位付けは`rankStandingsTeams()`（公式タイブレークルール、DESIGN.md参照）に
+ * 集約してある。全体順位・地区内順位のどちらもこの1関数を経由する。
  */
 function buildStandingsHistory(
   games: StoredGame[],
@@ -1788,8 +1825,8 @@ function buildStandingsHistory(
         away.wins += 1;
         home.losses += 1;
       }
-      recordHeadToHeadResult(headToHead, home.teamId, away.teamId, homeWin);
-      recordHeadToHeadResult(headToHead, away.teamId, home.teamId, !homeWin);
+      recordHeadToHeadResult(headToHead, home.teamId, away.teamId, homeWin, game.homeScore, game.awayScore);
+      recordHeadToHeadResult(headToHead, away.teamId, home.teamId, !homeWin, game.awayScore, game.homeScore);
       i += 1;
     }
 

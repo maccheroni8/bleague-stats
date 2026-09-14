@@ -856,8 +856,9 @@ export interface StandingsTeamSnapshot {
   pointsAgainst: number;
   pointDiff: number;
   /**
-   * 勝率降順→直接対決降順→得失点差降順の暫定ルール（DESIGN.md参照）。
-   * 公式のタイブレークルールが判明次第見直す
+   * 公式タイブレークルール（DESIGN.md参照）: 勝率→直接対決の勝率→直接対決の得失点差→
+   * 直接対決の1試合平均得点→シーズン全体の得失点差→シーズン全体の1試合平均得点→抽選
+   * （抽選のみ実装不可のためteamId昇順で代用。scripts/aggregate.tsのrankStandingsTeams()参照）
    */
   rank: number;
   /** 首位とのゲーム差 */
