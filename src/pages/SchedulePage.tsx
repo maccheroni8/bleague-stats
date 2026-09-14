@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { TeamLogo } from "../components/TeamLogo";
+import { TeamFilterBlock } from "../components/TeamFilterBlock";
 import { fetchGameSummaries, fetchSchedule, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { formatDateHeading } from "../lib/format";
@@ -342,61 +343,6 @@ export function SchedulePage({ season }: { season: string }) {
           onPrevMonth={() => setCalendarMonth(addMonthsToKey(effectiveMonth, -1))}
           onNextMonth={() => setCalendarMonth(addMonthsToKey(effectiveMonth, 1))}
         />
-      )}
-    </div>
-  );
-}
-
-function TeamFilterBlock({
-  options,
-  selected,
-  expanded,
-  onToggleExpanded,
-  onToggle,
-  onSelectAll,
-  onSelectNone,
-}: {
-  options: { teamId: string; teamName: string }[];
-  selected: Set<string> | null;
-  expanded: boolean;
-  onToggleExpanded: () => void;
-  onToggle: (teamId: string) => void;
-  onSelectAll: () => void;
-  onSelectNone: () => void;
-}) {
-  if (options.length === 0) return null;
-  const selectedCount = selected === null ? options.length : selected.size;
-  const hasActiveFilter = selected !== null && selected.size < options.length;
-  return (
-    <div className="filter-block schedule-team-filter">
-      <h3 className="collapsible-heading" onClick={onToggleExpanded}>
-        {expanded ? "▼ " : "▶ "}
-        チームで絞り込み
-        {hasActiveFilter && `（${selectedCount}/${options.length}チーム選択中）`}
-      </h3>
-      {expanded && (
-        <>
-          <div className="schedule-team-filter-actions">
-            <button type="button" onClick={onSelectAll}>
-              すべて選択
-            </button>
-            <button type="button" onClick={onSelectNone}>
-              すべて解除
-            </button>
-          </div>
-          <div className="schedule-team-filter-grid">
-            {options.map((t) => {
-              const checked = selected === null || selected.has(t.teamId);
-              return (
-                <label key={t.teamId} className="schedule-team-filter-item">
-                  <input type="checkbox" checked={checked} onChange={() => onToggle(t.teamId)} />
-                  <TeamLogo teamId={t.teamId} size={18} />
-                  {teamShortName(t.teamId, t.teamName)}
-                </label>
-              );
-            })}
-          </div>
-        </>
       )}
     </div>
   );

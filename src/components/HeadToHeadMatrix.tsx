@@ -1,10 +1,14 @@
 import { SeasonLink as Link } from "./SeasonLink";
+import { TeamLogo } from "./TeamLogo";
 import type { HeadToHeadRecord, HeadToHeadSummary, HeadToHeadTeamRow, TeamColors } from "../../shared/types";
 import { formatRecord, formatSigned, formatWinPct } from "../lib/format";
+import { teamShortName } from "../../shared/teamNames";
 
 interface Props {
   rows: HeadToHeadTeamRow[];
   teamColors?: Record<string, TeamColors>;
+  /** teamId -> 対戦相手teamId -> 残り対戦試合数（schedule.jsonのupcomingGamesから算出、チーム名でのマッチングのため多少の誤差を許容） */
+  remainingGames?: Map<string, Map<string, number>>;
 }
 
 function cellClass(rec: HeadToHeadRecord | undefined): string {
@@ -29,7 +33,7 @@ function SummaryCell({ summary }: { summary: HeadToHeadSummary }) {
   );
 }
 
-export function HeadToHeadMatrix({ rows, teamColors }: Props) {
+export function HeadToHeadMatrix({ rows, teamColors, remainingGames }: Props) {
   return (
     <div className="table-scroll h2h-scroll">
       <table className="h2h-table">
@@ -44,7 +48,9 @@ export function HeadToHeadMatrix({ rows, teamColors }: Props) {
                   className="h2h-col-header"
                   style={accent ? { borderTopColor: accent } : undefined}
                 >
-                  <Link to={`/teams/${col.teamId}`}>{col.teamName}</Link>
+                  <Link to={`/teams/${col.teamId}`} title={col.teamName}>
+                    <TeamLogo teamId={col.teamId} size={22} />
+                  </Link>
                 </th>
               );
             })}
@@ -71,23 +77,32 @@ export function HeadToHeadMatrix({ rows, teamColors }: Props) {
             return (
               <tr key={row.teamId}>
                 <th className="h2h-row-header" style={accent ? { borderLeftColor: accent } : undefined}>
-                  <Link to={`/teams/${row.teamId}`}>{row.teamName}</Link>
+                  <Link to={`/teams/${row.teamId}`} title={row.teamName}>
+                    {teamShortName(row.teamId, row.teamName)}
+                  </Link>
                 </th>
                 {rows.map((col) => {
                   if (col.teamId === row.teamId) {
                     return <td key={col.teamId} className="h2h-cell h2h-self" />;
                   }
                   const rec = row.vs[col.teamId];
+                  const remaining = remainingGames?.get(row.teamId)?.get(col.teamId) ?? 0;
+                  if (!rec && remaining === 0) {
+                    return (
+                      <td key={col.teamId} className="h2h-cell">
+                        -
+                      </td>
+                    );
+                  }
                   return (
                     <td key={col.teamId} className={`h2h-cell ${cellClass(rec)}`}>
-                      {rec ? (
-                        <>
-                          <div className="h2h-record">{formatRecord(rec.wins, rec.losses)}</div>
-                          <div className="h2h-diff">{formatSigned(rec.pointDiff, 0)}</div>
-                        </>
-                      ) : (
-                        "-"
+                      {rec && (
+                        <div className="h2h-record">
+                          {remaining > 0 ? `${rec.wins}-${rec.losses}` : formatRecord(rec.wins, rec.losses)}
+                        </div>
                       )}
+                      {rec && <div className="h2h-diff">{formatSigned(rec.pointDiff, 0)}</div>}
+                      {remaining > 0 && <div className="h2h-remaining">残り{remaining}</div>}
                     </td>
                   );
                 })}

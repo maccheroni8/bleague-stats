@@ -1,14 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchHeadToHead, fetchSchedule, fetchStandingsHistory, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart } from "../components/StandingsLineChart";
 import { HeadToHeadMatrix } from "../components/HeadToHeadMatrix";
+import { TeamFilterBlock } from "../components/TeamFilterBlock";
 import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak, type TeamStreak } from "../../shared/teamRecords";
-import type { StandingsSnapshot, StandingsTeamSnapshot, TeamGameLog, UpcomingGameEntry } from "../../shared/types";
+import { teamShortName } from "../../shared/teamNames";
+import type {
+  HeadToHeadTeamRow,
+  StandingsSnapshot,
+  StandingsTeamSnapshot,
+  TeamGameLog,
+  UpcomingGameEntry,
+} from "../../shared/types";
 
 type StandingsTab = "standings" | "h2h" | "conditional" | "rankTrend" | "recordTrend";
 
@@ -47,6 +55,33 @@ function countUpcomingGamesByTeamName(upcomingGames: UpcomingGameEntry[]): Map<s
     counts.set(g.awayTeamName, (counts.get(g.awayTeamName) ?? 0) + 1);
   }
   return counts;
+}
+
+/**
+ * schedule.jsonのupcomingGames（チーム名のみ）を、headToHead.jsonのteamNameで名寄せして
+ * teamId同士の残り対戦試合数マップを組み立てる（星取り表タブの「残り対戦試合数」用）
+ */
+function buildH2hRemainingGames(
+  upcomingGames: UpcomingGameEntry[],
+  teamIdByName: Map<string, string>,
+): Map<string, Map<string, number>> {
+  const result = new Map<string, Map<string, number>>();
+  const bump = (a: string, b: string) => {
+    let byOpponent = result.get(a);
+    if (!byOpponent) {
+      byOpponent = new Map();
+      result.set(a, byOpponent);
+    }
+    byOpponent.set(b, (byOpponent.get(b) ?? 0) + 1);
+  };
+  for (const g of upcomingGames) {
+    const homeId = teamIdByName.get(g.homeTeamName);
+    const awayId = teamIdByName.get(g.awayTeamName);
+    if (!homeId || !awayId) continue;
+    bump(homeId, awayId);
+    bump(awayId, homeId);
+  }
+  return result;
 }
 
 function regularSeasonLogs(logs: TeamGameLog[]): TeamGameLog[] {
@@ -167,6 +202,15 @@ export function StandingsPage({ season }: { season: string }) {
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const { data: schedule } = useJsonData(() => fetchSchedule(season), [season]);
 
+  // null = 全チーム選択（絞り込みなし）。個別に外したチームだけをSetで管理する（SchedulePageと同じパターン）
+  const [h2hSelectedTeamIds, setH2hSelectedTeamIds] = useState<Set<string> | null>(null);
+  const [h2hFilterExpanded, setH2hFilterExpanded] = useState(false);
+
+  // シーズンが変わったらチームフィルタの選択状態をリセットする（前シーズンのチーム構成は引き継がない）
+  useEffect(() => {
+    setH2hSelectedTeamIds(null);
+  }, [season]);
+
   const latest = history && history.length > 0 ? history[history.length - 1]! : null;
   const { gameLogsByTeam } = useAllTeamGameLogs(season, latest?.teams ?? null);
 
@@ -184,6 +228,28 @@ export function StandingsPage({ season }: { season: string }) {
     );
   const eastRows = teams.filter((t) => t.division === "east").map(rowFor);
   const westRows = teams.filter((t) => t.division === "west").map(rowFor);
+
+  const h2hTeamIdByName = headToHead ? new Map(headToHead.map((r) => [r.teamName, r.teamId])) : null;
+  const h2hRemainingGames =
+    headToHead && schedule && h2hTeamIdByName
+      ? buildH2hRemainingGames(schedule.upcomingGames, h2hTeamIdByName)
+      : undefined;
+  const h2hTeamOptions: { teamId: string; teamName: string }[] = headToHead
+    ? [...headToHead]
+        .map((r: HeadToHeadTeamRow) => ({ teamId: r.teamId, teamName: r.teamName }))
+        .sort((a, b) => teamShortName(a.teamId, a.teamName).localeCompare(teamShortName(b.teamId, b.teamName), "ja"))
+    : [];
+  const filteredHeadToHead =
+    headToHead && h2hSelectedTeamIds ? headToHead.filter((r) => h2hSelectedTeamIds.has(r.teamId)) : headToHead;
+  const toggleH2hTeam = (teamId: string) => {
+    setH2hSelectedTeamIds((prev) => {
+      const base = prev ?? new Set(h2hTeamOptions.map((t) => t.teamId));
+      const next = new Set(base);
+      if (next.has(teamId)) next.delete(teamId);
+      else next.add(teamId);
+      return next;
+    });
+  };
 
   const rankData = reshape(history, (t) => t.rank);
   const winsData = reshape(history, (t) => t.wins);
@@ -243,7 +309,26 @@ export function StandingsPage({ season }: { season: string }) {
         ) : !headToHead || headToHead.length === 0 ? (
           <p className="empty-message">データがありません</p>
         ) : (
-          <HeadToHeadMatrix rows={headToHead} teamColors={teamColors ?? undefined} />
+          <>
+            <TeamFilterBlock
+              options={h2hTeamOptions}
+              selected={h2hSelectedTeamIds}
+              expanded={h2hFilterExpanded}
+              onToggleExpanded={() => setH2hFilterExpanded((v) => !v)}
+              onToggle={toggleH2hTeam}
+              onSelectAll={() => setH2hSelectedTeamIds(null)}
+              onSelectNone={() => setH2hSelectedTeamIds(new Set())}
+            />
+            {!filteredHeadToHead || filteredHeadToHead.length === 0 ? (
+              <p className="empty-message">選択したチームがありません</p>
+            ) : (
+              <HeadToHeadMatrix
+                rows={filteredHeadToHead}
+                teamColors={teamColors ?? undefined}
+                remainingGames={h2hRemainingGames}
+              />
+            )}
+          </>
         ))}
 
       {tab === "conditional" && <p className="empty-message">この機能は準備中です。</p>}
