@@ -1904,6 +1904,15 @@ table.compare-table td.compare-best {
   gap: 16px;
 }
 
+/* 順位表タブ本体: 地区テーブルを横並びではなく上下（縦）に並べる。
+   東西だけでなく中地区（3地区制シーズン）も含めて可変数の地区を並べるため、
+   固定2列のstandings-gridとは別クラスにしている */
+.standings-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
 .lead-tracker-chart {
   border: 1px solid var(--border);
   border-radius: 8px;

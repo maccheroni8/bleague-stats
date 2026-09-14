@@ -185,6 +185,11 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
   },
 ];
 
+// 地区データが無いシーズン用のフォールバック列（「地区順位」列を除いたもの）
+const overallStandingsColumns: Column<StandingsRow>[] = divisionStandingsColumns.filter(
+  (c) => c.key !== "divisionRank",
+);
+
 function reshape(history: StandingsSnapshot[], metric: (t: StandingsTeamSnapshot) => number) {
   return history.map((snapshot) => {
     const row: Record<string, number | string> = { date: snapshot.date };
@@ -275,20 +280,26 @@ export function StandingsPage({ season }: { season: string }) {
 
   const visibleHistory = animFrame !== null ? history.slice(0, animFrame) : history;
   const teams = latest.teams;
-  const upcomingCountByTeamName = schedule ? countUpcomingGamesByTeamName(schedule.upcomingGames) : null;
+  // schedule.upcomingGamesは古いschedule.jsonスナップショット（スクレイパーにこのフィールドを
+  // 追加する前に取得されたもの）には存在しないことがあるため、undefinedの可能性を必ず考慮する
+  const upcomingCountByTeamName = schedule ? countUpcomingGamesByTeamName(schedule.upcomingGames ?? []) : null;
   const rowFor = (t: StandingsTeamSnapshot) =>
     buildStandingsRow(
       t,
       gameLogsByTeam?.get(t.teamId),
       upcomingCountByTeamName ? (upcomingCountByTeamName.get(t.teamName) ?? 0) : undefined,
     );
-  const eastRows = teams.filter((t) => t.division === "east").map(rowFor);
-  const westRows = teams.filter((t) => t.division === "west").map(rowFor);
+  const divisionStandingsGroups = groupByDivision(teams).map((g) => ({
+    division: g.division,
+    rows: g.teams.map(rowFor),
+  }));
+  const overallStandingsRows =
+    divisionStandingsGroups.length === 0 ? [...teams].sort((a, b) => a.rank - b.rank).map(rowFor) : [];
 
   const h2hTeamIdByName = headToHead ? new Map(headToHead.map((r) => [r.teamName, r.teamId])) : null;
   const h2hRemainingGames =
     headToHead && schedule && h2hTeamIdByName
-      ? buildH2hRemainingGames(schedule.upcomingGames, h2hTeamIdByName)
+      ? buildH2hRemainingGames(schedule.upcomingGames ?? [], h2hTeamIdByName)
       : undefined;
   const h2hTeamOptions: { teamId: string; teamName: string }[] = headToHead
     ? [...headToHead]
@@ -331,35 +342,39 @@ export function StandingsPage({ season }: { season: string }) {
       </div>
 
       {tab === "standings" && (
-        <div className="standings-grid">
-          <div>
-            <h2>東地区</h2>
-            <div className="table-scroll">
-              <SortableTable
-                columns={divisionStandingsColumns}
-                rows={eastRows}
-                rowKey={(t) => t.teamId}
-                defaultSortKey="divisionRank"
-                defaultSortDir="asc"
-                linkTo={(t) => `/teams/${t.teamId}`}
-                rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
-              />
-            </div>
-          </div>
-          <div>
-            <h2>西地区</h2>
-            <div className="table-scroll">
-              <SortableTable
-                columns={divisionStandingsColumns}
-                rows={westRows}
-                rowKey={(t) => t.teamId}
-                defaultSortKey="divisionRank"
-                defaultSortDir="asc"
-                linkTo={(t) => `/teams/${t.teamId}`}
-                rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
-              />
-            </div>
-          </div>
+        <div className="standings-stack">
+          {divisionStandingsGroups.length > 0
+            ? divisionStandingsGroups.map((g) => (
+                <div key={g.division}>
+                  <h2>{DIVISION_LABELS[g.division]}</h2>
+                  <div className="table-scroll">
+                    <SortableTable
+                      columns={divisionStandingsColumns}
+                      rows={g.rows}
+                      rowKey={(t) => t.teamId}
+                      defaultSortKey="divisionRank"
+                      defaultSortDir="asc"
+                      linkTo={(t) => `/teams/${t.teamId}`}
+                      rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                    />
+                  </div>
+                </div>
+              ))
+            : (
+                <div>
+                  <div className="table-scroll">
+                    <SortableTable
+                      columns={overallStandingsColumns}
+                      rows={overallStandingsRows}
+                      rowKey={(t) => t.teamId}
+                      defaultSortKey="rank"
+                      defaultSortDir="asc"
+                      linkTo={(t) => `/teams/${t.teamId}`}
+                      rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                    />
+                  </div>
+                </div>
+              )}
         </div>
       )}
 
