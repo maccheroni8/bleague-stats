@@ -1,4 +1,6 @@
+import { useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { teamLogoUrl } from "../lib/data";
 
 export interface ChartTeam {
   teamId: string;
@@ -20,12 +22,36 @@ function teamColor(index: number, total: number): string {
   return `hsl(${hue}, 65%, 55%)`;
 }
 
+const LOGO_SIZE = 20;
+
 export function StandingsLineChart({ title, data, teams, reversed = false, height = 320 }: StandingsLineChartProps) {
+  // アニメーション再生中はdataが徐々に伸びていくため、折れ線の末端（=最新地点）の位置は
+  // dataの長さそのものではなく「そのチームの値が定義済みの最後のindex」から都度求める
+  // （ワイルドカードグラフ等、チームによって値が欠ける日があるため）
+  const lastValidIndexByTeam = useMemo(() => {
+    const result = new Map<string, number>();
+    for (const t of teams) {
+      for (let i = data.length - 1; i >= 0; i--) {
+        const v = data[i]![t.teamId];
+        if (v !== undefined && v !== null && !Number.isNaN(v as number)) {
+          result.set(t.teamId, i);
+          break;
+        }
+      }
+    }
+    return result;
+  }, [data, teams]);
+
+  const [failedLogos, setFailedLogos] = useState<Set<string>>(new Set());
+  const markLogoFailed = (teamId: string) => {
+    setFailedLogos((prev) => (prev.has(teamId) ? prev : new Set(prev).add(teamId)));
+  };
+
   return (
     <div className="standings-chart">
       <h3>{title}</h3>
       <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+        <LineChart data={data} margin={{ top: 8, right: 24, bottom: 8, left: 0 }}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
           <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} minTickGap={24} />
           <YAxis
@@ -41,18 +67,42 @@ export function StandingsLineChart({ title, data, teams, reversed = false, heigh
             labelStyle={{ color: "var(--fg)" }}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          {teams.map((t, i) => (
-            <Line
-              key={t.teamId}
-              type="monotone"
-              dataKey={t.teamId}
-              name={t.teamName}
-              stroke={teamColor(i, teams.length)}
-              dot={false}
-              strokeWidth={2}
-              connectNulls
-            />
-          ))}
+          {teams.map((t, i) => {
+            const color = teamColor(i, teams.length);
+            const lastIndex = lastValidIndexByTeam.get(t.teamId);
+            return (
+              <Line
+                key={t.teamId}
+                type="monotone"
+                dataKey={t.teamId}
+                name={t.teamName}
+                stroke={color}
+                dot={(props: any) => {
+                  const { cx, cy, index } = props;
+                  if (index !== lastIndex || cx === undefined || cy === undefined) {
+                    return <circle key={`${t.teamId}-dot-${index}`} cx={cx} cy={cy} r={0} fill="none" />;
+                  }
+                  if (failedLogos.has(t.teamId)) {
+                    return <circle key={`${t.teamId}-dot-${index}`} cx={cx} cy={cy} r={4} fill={color} />;
+                  }
+                  return (
+                    <image
+                      key={`${t.teamId}-logo`}
+                      href={teamLogoUrl(t.teamId)}
+                      x={cx - LOGO_SIZE / 2}
+                      y={cy - LOGO_SIZE / 2}
+                      width={LOGO_SIZE}
+                      height={LOGO_SIZE}
+                      onError={() => markLogoFailed(t.teamId)}
+                    />
+                  );
+                }}
+                strokeWidth={2}
+                connectNulls
+                isAnimationActive={false}
+              />
+            );
+          })}
         </LineChart>
       </ResponsiveContainer>
     </div>

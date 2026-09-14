@@ -9,7 +9,8 @@ import { PlayerPhoto } from "../components/PlayerPhoto";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { formatDateHeading, formatSigned, formatWinPct } from "../lib/format";
 import { teamShortName } from "../../shared/teamNames";
-import type { Division, GameSummary, PlayerSummary, StandingsTeamSnapshot, TeamSummary } from "../../shared/types";
+import { DIVISION_LABELS, groupByDivision } from "../lib/divisionGroups";
+import type { GameSummary, PlayerSummary, StandingsTeamSnapshot, TeamSummary } from "../../shared/types";
 
 type LeaderMode = "player" | "team";
 
@@ -69,34 +70,6 @@ function topPlayersForStat(
 
 function topTeamsForStat(teams: TeamSummary[], def: StatDef<TeamSummary>, count: number): TeamSummary[] {
   return [...teams].sort((a, b) => compareByStat(def, a, b)).slice(0, count);
-}
-
-// 地区数は可変（東西2地区制のシーズンもあれば、過去の東・中・西3地区制のシーズンもある。
-// DESIGN.md参照）。表示順は固定のこの並びとし、latestSnapshotに実際に存在する地区だけを表示する
-const DIVISION_ORDER: Division[] = ["east", "central", "west", "north", "south"];
-const DIVISION_LABELS: Record<Division, string> = {
-  east: "東地区",
-  west: "西地区",
-  central: "中地区",
-  north: "北地区",
-  south: "南地区",
-};
-
-function groupByDivision(teams: StandingsTeamSnapshot[]): { division: Division; teams: StandingsTeamSnapshot[] }[] {
-  const byDivision = new Map<Division, StandingsTeamSnapshot[]>();
-  for (const t of teams) {
-    if (!t.division) continue;
-    const list = byDivision.get(t.division) ?? [];
-    list.push(t);
-    byDivision.set(t.division, list);
-  }
-  for (const list of byDivision.values()) {
-    list.sort((a, b) => (a.divisionRank ?? 0) - (b.divisionRank ?? 0));
-  }
-  return DIVISION_ORDER.filter((d) => byDivision.has(d)).map((division) => ({
-    division,
-    teams: byDivision.get(division)!,
-  }));
 }
 
 const standingsColumns: Column<StandingsTeamSnapshot>[] = [

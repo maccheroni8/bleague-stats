@@ -11,6 +11,7 @@ import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } fr
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak, type TeamStreak } from "../../shared/teamRecords";
 import { teamShortName } from "../../shared/teamNames";
+import { DIVISION_LABELS, groupByDivision } from "../lib/divisionGroups";
 import type {
   HeadToHeadTeamRow,
   StandingsSnapshot,
@@ -192,6 +193,33 @@ function reshape(history: StandingsSnapshot[], metric: (t: StandingsTeamSnapshot
   });
 }
 
+/**
+ * ワイルドカード争いのチーム群（地区上位3位以内に入っていないチーム）を求める。
+ * ConditionalStandingsTable.tsxのcomputePlayoffQualifiedTeamIds()と同じく、東西2地区制
+ * （東西2地区が既知）のシーズンのみ対象とする（プレーオフ進出条件が他の地区数では未確認のため）
+ */
+function computeWildcardPoolTeamIds(teams: StandingsTeamSnapshot[]): Set<string> | null {
+  const divisions = new Set(teams.map((t) => t.division).filter((d): d is "east" | "west" => !!d));
+  if (divisions.size !== 2 || !divisions.has("east") || !divisions.has("west")) return null;
+  return new Set(teams.filter((t) => (t.divisionRank ?? 99) > 3).map((t) => t.teamId));
+}
+
+/**
+ * ワイルドカード争いの「相対順位」推移を求める。日付ごとに、poolTeamIds内のチームだけを
+ * 全体順位(rank)昇順に並べ直し、その順位（1始まり）を割り当てる。プールに属さない日は
+ * その日の値を持たない（=グラフ上は前後の点をそのまま繋ぐ、StandingsLineChartのconnectNulls）
+ */
+function reshapeWildcardRank(history: StandingsSnapshot[], poolTeamIds: Set<string>) {
+  return history.map((snapshot) => {
+    const row: Record<string, number | string> = { date: snapshot.date };
+    const poolTeamsAtDate = snapshot.teams.filter((t) => poolTeamIds.has(t.teamId)).sort((a, b) => a.rank - b.rank);
+    poolTeamsAtDate.forEach((t, i) => {
+      row[t.teamId] = i + 1;
+    });
+    return row;
+  });
+}
+
 export function StandingsPage({ season }: { season: string }) {
   const [tab, setTab] = useState<StandingsTab>("standings");
   const { data: history, loading, error } = useJsonData(() => fetchStandingsHistory(season), [season]);
@@ -212,6 +240,32 @@ export function StandingsPage({ season }: { season: string }) {
     setH2hSelectedTeamIds(null);
   }, [season]);
 
+  // 順位推移・勝ち星推移タブの「アニメーション再生」。animFrame===nullなら通常表示（全期間分）、
+  // 非nullならhistoryの先頭からanimFrame件だけを各グラフに渡す
+  const [animFrame, setAnimFrame] = useState<number | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    setAnimFrame(null);
+    setIsAnimating(false);
+  }, [season]);
+
+  useEffect(() => {
+    if (!isAnimating || animFrame === null || !history) return;
+    if (animFrame >= history.length) {
+      setIsAnimating(false);
+      setAnimFrame(null);
+      return;
+    }
+    const timer = setTimeout(() => setAnimFrame((f) => (f ?? 0) + 1), 90);
+    return () => clearTimeout(timer);
+  }, [isAnimating, animFrame, history]);
+
+  const playAnimation = () => {
+    setAnimFrame(1);
+    setIsAnimating(true);
+  };
+
   const latest = history && history.length > 0 ? history[history.length - 1]! : null;
   const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, latest?.teams ?? null);
 
@@ -219,6 +273,7 @@ export function StandingsPage({ season }: { season: string }) {
   if (error) return <p className="error-message">{error}</p>;
   if (!history || history.length === 0 || !latest) return <p className="empty-message">データがありません</p>;
 
+  const visibleHistory = animFrame !== null ? history.slice(0, animFrame) : history;
   const teams = latest.teams;
   const upcomingCountByTeamName = schedule ? countUpcomingGamesByTeamName(schedule.upcomingGames) : null;
   const rowFor = (t: StandingsTeamSnapshot) =>
@@ -252,9 +307,15 @@ export function StandingsPage({ season }: { season: string }) {
     });
   };
 
-  const rankData = reshape(history, (t) => t.rank);
-  const winsData = reshape(history, (t) => t.wins);
-  const gamesAboveData = reshape(history, (t) => t.wins - t.losses);
+  const rankData = reshape(visibleHistory, (t) => t.rank);
+  const winsData = reshape(visibleHistory, (t) => t.wins);
+  const gamesAboveData = reshape(visibleHistory, (t) => t.wins - t.losses);
+  const divisionRankData = reshape(visibleHistory, (t) => t.divisionRank ?? NaN);
+
+  const divisionGroups = groupByDivision(teams);
+  const wildcardPoolIds = computeWildcardPoolTeamIds(teams);
+  const wildcardTeams = wildcardPoolIds ? teams.filter((t) => wildcardPoolIds.has(t.teamId)) : [];
+  const wildcardRankData = wildcardPoolIds ? reshapeWildcardRank(visibleHistory, wildcardPoolIds) : [];
 
   return (
     <div>
@@ -343,12 +404,75 @@ export function StandingsPage({ season }: { season: string }) {
         />
       )}
 
-      {tab === "rankTrend" && <StandingsLineChart title="順位推移" data={rankData} teams={teams} reversed height={360} />}
+      {tab === "rankTrend" && (
+        <div>
+          <div className="mode-toggle">
+            <button type="button" className={isAnimating ? "active" : ""} onClick={playAnimation} disabled={isAnimating}>
+              {isAnimating ? "再生中..." : "▶ アニメーション再生"}
+            </button>
+          </div>
+          {divisionGroups.length === 0 ? (
+            <StandingsLineChart title="順位推移" data={rankData} teams={teams} reversed height={360} />
+          ) : (
+            <div className="standings-grid">
+              {divisionGroups.map((g) => (
+                <StandingsLineChart
+                  key={g.division}
+                  title={`${DIVISION_LABELS[g.division]}順位推移`}
+                  data={divisionRankData}
+                  teams={g.teams}
+                  reversed
+                  height={320}
+                />
+              ))}
+              {wildcardTeams.length > 0 && (
+                <StandingsLineChart
+                  title="ワイルドカード順位推移"
+                  data={wildcardRankData}
+                  teams={wildcardTeams}
+                  reversed
+                  height={320}
+                />
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {tab === "recordTrend" && (
-        <div className="standings-grid">
-          <StandingsLineChart title="勝ち星推移" data={winsData} teams={teams} height={280} />
-          <StandingsLineChart title="貯金推移" data={gamesAboveData} teams={teams} height={280} />
+        <div>
+          <div className="mode-toggle">
+            <button type="button" className={isAnimating ? "active" : ""} onClick={playAnimation} disabled={isAnimating}>
+              {isAnimating ? "再生中..." : "▶ アニメーション再生"}
+            </button>
+          </div>
+          {divisionGroups.length === 0 ? (
+            <div className="standings-grid">
+              <StandingsLineChart title="勝ち星推移" data={winsData} teams={teams} height={280} />
+              <StandingsLineChart title="貯金推移" data={gamesAboveData} teams={teams} height={280} />
+            </div>
+          ) : (
+            <>
+              {divisionGroups.map((g) => (
+                <div key={g.division}>
+                  <h2>{DIVISION_LABELS[g.division]}</h2>
+                  <div className="standings-grid">
+                    <StandingsLineChart title="勝ち星推移" data={winsData} teams={g.teams} height={260} />
+                    <StandingsLineChart title="貯金推移" data={gamesAboveData} teams={g.teams} height={260} />
+                  </div>
+                </div>
+              ))}
+              {wildcardTeams.length > 0 && (
+                <div>
+                  <h2>ワイルドカード</h2>
+                  <div className="standings-grid">
+                    <StandingsLineChart title="勝ち星推移" data={winsData} teams={wildcardTeams} height={260} />
+                    <StandingsLineChart title="貯金推移" data={gamesAboveData} teams={wildcardTeams} height={260} />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

@@ -1730,6 +1730,12 @@ table.boxscore-table .boxscore-summary-grand-total td {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
+.mode-toggle button:disabled,
+.stat-picker button:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
 .period-range-toggle {
   margin-bottom: 12px;
 }
