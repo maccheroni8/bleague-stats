@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { teamLogoUrl } from "../lib/data";
+import { teamShortName } from "../../shared/teamNames";
 import type { TeamColors } from "../../shared/types";
 
 export interface ChartTeam {
@@ -18,6 +19,9 @@ interface StandingsLineChartProps {
   /** 指定時、折れ線の色にチームカラー（primary）を使う。未取得のチーム（過去在籍のみの
    * クラブ等、data/team-colors.jsonに無いチーム）は従来通りインデックス由来の虹色にフォールバックする */
   teamColors?: Record<string, TeamColors>;
+  /** アニメーション再生中: 末端のロゴ（フォールバック時は円）がCSSトランジションで
+   * 前の位置から新しい位置へ滑らかに移動するようにする（再生中以外は瞬時に位置更新する） */
+  isAnimating?: boolean;
 }
 
 /** チーム数に応じて均等に色相を割り振る簡易パレット。teamColorsに無いチーム用のフォールバック */
@@ -35,6 +39,7 @@ export function StandingsLineChart({
   reversed = false,
   height = 320,
   teamColors,
+  isAnimating = false,
 }: StandingsLineChartProps) {
   // アニメーション再生中はdataが徐々に伸びていくため、折れ線の末端（=最新地点）の位置は
   // dataの長さそのものではなく「そのチームの値が定義済みの最後のindex」から都度求める
@@ -86,7 +91,7 @@ export function StandingsLineChart({
                 key={t.teamId}
                 type="monotone"
                 dataKey={t.teamId}
-                name={t.teamName}
+                name={teamShortName(t.teamId, t.teamName)}
                 stroke={color}
                 dot={(props: any) => {
                   const { cx, cy, index } = props;
@@ -94,7 +99,16 @@ export function StandingsLineChart({
                     return <circle key={`${t.teamId}-dot-${index}`} cx={cx} cy={cy} r={0} fill="none" />;
                   }
                   if (failedLogos.has(t.teamId)) {
-                    return <circle key={`${t.teamId}-dot-${index}`} cx={cx} cy={cy} r={4} fill={color} />;
+                    return (
+                      <circle
+                        key={`${t.teamId}-dot-${index}`}
+                        cx={cx}
+                        cy={cy}
+                        r={4}
+                        fill={color}
+                        style={isAnimating ? { transition: "cx 90ms linear, cy 90ms linear" } : undefined}
+                      />
+                    );
                   }
                   return (
                     <image
@@ -105,6 +119,7 @@ export function StandingsLineChart({
                       width={LOGO_SIZE}
                       height={LOGO_SIZE}
                       onError={() => markLogoFailed(t.teamId)}
+                      style={isAnimating ? { transition: "x 90ms linear, y 90ms linear" } : undefined}
                     />
                   );
                 }}

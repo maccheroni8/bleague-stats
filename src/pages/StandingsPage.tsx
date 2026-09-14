@@ -4,6 +4,7 @@ import { useJsonData } from "../lib/useJsonData";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart } from "../components/StandingsLineChart";
+import { TeamLogo } from "../components/TeamLogo";
 import { HeadToHeadMatrix } from "../components/HeadToHeadMatrix";
 import { TeamFilterBlock } from "../components/TeamFilterBlock";
 import { ConditionalStandingsTable } from "../components/ConditionalStandingsTable";
@@ -39,7 +40,8 @@ interface WinLossRecord {
 interface StandingsRow extends StandingsTeamSnapshot {
   homeRecord: WinLossRecord | null;
   awayRecord: WinLossRecord | null;
-  last5: WinLossRecord | null;
+  /** 直近5試合の時系列順（古い→新しい）のW/L文字列（例: "WWLWW"）。データ未取得ならnull */
+  last5: string | null;
   streak: TeamStreak | null;
   /** 消化済み試合数 / (消化済み+未消化) の割合（0〜1）。schedule.json未取得ならnull */
   completionRate: number | null;
@@ -99,6 +101,11 @@ function recordFrom(logs: TeamGameLog[]): WinLossRecord {
   return { wins, losses: logs.length - wins };
 }
 
+/** 時系列順（古い→新しい）のW/L文字列を組み立てる（例: "WWLWW"） */
+function recordSequence(logs: TeamGameLog[]): string {
+  return logs.map((l) => (l.win ? "W" : "L")).join("");
+}
+
 /** ホーム/アウェー成績・直近5試合・連勝連敗は、いずれも順位表本体と同じくレギュラーシーズンのみを対象にする */
 function buildStandingsRow(
   team: StandingsTeamSnapshot,
@@ -115,7 +122,7 @@ function buildStandingsRow(
     ...team,
     homeRecord: recordFrom(regular.filter((l) => l.isHome)),
     awayRecord: recordFrom(regular.filter((l) => !l.isHome)),
-    last5: recordFrom(sortedByDate(regular).slice(-5)),
+    last5: recordSequence(sortedByDate(regular).slice(-5)),
     streak: currentStreak(regular),
     completionRate,
   };
@@ -133,7 +140,18 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
     format: (t) => String(t.divisionRank ?? "-"),
   },
   { key: "rank", label: "全体順位", sortValue: (t) => t.rank, format: (t) => String(t.rank) },
-  { key: "teamName", label: "チーム", sortValue: (t) => t.teamName, align: "left" },
+  {
+    key: "teamName",
+    label: "チーム",
+    align: "left",
+    sortValue: (t) => t.teamName,
+    render: (t) => (
+      <span className="team-name-cell">
+        <TeamLogo teamId={t.teamId} size={20} />
+        {t.teamName}
+      </span>
+    ),
+  },
   {
     key: "record",
     label: "勝敗",
@@ -168,8 +186,8 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
   {
     key: "last5",
     label: "直近5試合",
-    sortValue: (t) => (t.last5 ? t.last5.wins - t.last5.losses : 0),
-    format: (t) => formatOptionalRecord(t.last5),
+    sortValue: (t) => (t.last5 ? [...t.last5].filter((c) => c === "W").length : 0),
+    format: (t) => t.last5 ?? "-",
   },
   {
     key: "streak",
@@ -190,9 +208,24 @@ const overallStandingsColumns: Column<StandingsRow>[] = divisionStandingsColumns
   (c) => c.key !== "divisionRank",
 );
 
-function reshape(history: StandingsSnapshot[], metric: (t: StandingsTeamSnapshot) => number) {
-  return history.map((snapshot) => {
+/**
+ * historyを日付ごとの{date, teamId: 値}行に変換する。
+ * revealCountを指定した場合（アニメーション再生中）、それ以降のインデックスの行は
+ * dateだけを持たせチーム値を一切設定しない。これにより、X軸のドメイン（日付範囲）は
+ * historyの全期間で固定されたままになり、まだ明かされていない区間はチーム値が
+ * undefinedのまま（=末端のロゴがXAxisの実際の日付位置を左から右へ移動していくように
+ * 見える）。revealCountを渡さない場合は全期間分の値をそのまま設定する
+ * （X軸ドメインが表示データに応じて可変だった旧実装では、末端の点が常にプロット領域の
+ * 右端に固定表示されてしまい、アニメーション中もロゴが移動して見えない不具合があった）
+ */
+function reshape(
+  history: StandingsSnapshot[],
+  metric: (t: StandingsTeamSnapshot) => number,
+  revealCount?: number,
+) {
+  return history.map((snapshot, i) => {
     const row: Record<string, number | string> = { date: snapshot.date };
+    if (revealCount !== undefined && i >= revealCount) return row;
     for (const t of snapshot.teams) row[t.teamId] = metric(t);
     return row;
   });
@@ -212,14 +245,16 @@ function computeWildcardPoolTeamIds(teams: StandingsTeamSnapshot[]): Set<string>
 /**
  * ワイルドカード争いの「相対順位」推移を求める。日付ごとに、poolTeamIds内のチームだけを
  * 全体順位(rank)昇順に並べ直し、その順位（1始まり）を割り当てる。プールに属さない日は
- * その日の値を持たない（=グラフ上は前後の点をそのまま繋ぐ、StandingsLineChartのconnectNulls）
+ * その日の値を持たない（=グラフ上は前後の点をそのまま繋ぐ、StandingsLineChartのconnectNulls）。
+ * revealCountの意味・目的はreshape()と同じ（アニメーション中もX軸ドメインを固定するため）
  */
-function reshapeWildcardRank(history: StandingsSnapshot[], poolTeamIds: Set<string>) {
-  return history.map((snapshot) => {
+function reshapeWildcardRank(history: StandingsSnapshot[], poolTeamIds: Set<string>, revealCount?: number) {
+  return history.map((snapshot, i) => {
     const row: Record<string, number | string> = { date: snapshot.date };
+    if (revealCount !== undefined && i >= revealCount) return row;
     const poolTeamsAtDate = snapshot.teams.filter((t) => poolTeamIds.has(t.teamId)).sort((a, b) => a.rank - b.rank);
-    poolTeamsAtDate.forEach((t, i) => {
-      row[t.teamId] = i + 1;
+    poolTeamsAtDate.forEach((t, idx) => {
+      row[t.teamId] = idx + 1;
     });
     return row;
   });
@@ -239,6 +274,9 @@ export function StandingsPage({ season }: { season: string }) {
   // null = 全チーム選択（絞り込みなし）。個別に外したチームだけをSetで管理する（SchedulePageと同じパターン）
   const [h2hSelectedTeamIds, setH2hSelectedTeamIds] = useState<Set<string> | null>(null);
   const [h2hFilterExpanded, setH2hFilterExpanded] = useState(false);
+
+  // 「順位表」タブの「全チームの全体順位表」（地区を跨いだ順位表）。デフォルト非表示
+  const [overallStandingsExpanded, setOverallStandingsExpanded] = useState(false);
 
   // シーズンが変わったらチームフィルタの選択状態をリセットする（前シーズンのチーム構成は引き継がない）
   useEffect(() => {
@@ -278,7 +316,6 @@ export function StandingsPage({ season }: { season: string }) {
   if (error) return <p className="error-message">{error}</p>;
   if (!history || history.length === 0 || !latest) return <p className="empty-message">データがありません</p>;
 
-  const visibleHistory = animFrame !== null ? history.slice(0, animFrame) : history;
   const teams = latest.teams;
   // schedule.upcomingGamesは古いschedule.jsonスナップショット（スクレイパーにこのフィールドを
   // 追加する前に取得されたもの）には存在しないことがあるため、undefinedの可能性を必ず考慮する
@@ -293,8 +330,9 @@ export function StandingsPage({ season }: { season: string }) {
     division: g.division,
     rows: g.teams.map(rowFor),
   }));
-  const overallStandingsRows =
-    divisionStandingsGroups.length === 0 ? [...teams].sort((a, b) => a.rank - b.rank).map(rowFor) : [];
+  // 地区を跨いだ全チーム一覧（地区データが無いシーズンのフォールバック表示、および
+  // 「全チームの全体順位表」セクションの両方で使う）
+  const allStandingsRows = [...teams].sort((a, b) => a.rank - b.rank).map(rowFor);
 
   const h2hTeamIdByName = headToHead ? new Map(headToHead.map((r) => [r.teamName, r.teamId])) : null;
   const h2hRemainingGames =
@@ -318,15 +356,19 @@ export function StandingsPage({ season }: { season: string }) {
     });
   };
 
-  const rankData = reshape(visibleHistory, (t) => t.rank);
-  const winsData = reshape(visibleHistory, (t) => t.wins);
-  const gamesAboveData = reshape(visibleHistory, (t) => t.wins - t.losses);
-  const divisionRankData = reshape(visibleHistory, (t) => t.divisionRank ?? NaN);
+  // revealCount===undefined（animFrame===null）なら全期間を表示する。
+  // アニメーション再生中はhistory全体を渡しつつrevealCountで区切ることで、
+  // X軸ドメイン（日付範囲）を固定したまま値だけを段階的に明かす（詳細はreshape()参照）
+  const revealCount = animFrame ?? undefined;
+  const rankData = reshape(history, (t) => t.rank, revealCount);
+  const winsData = reshape(history, (t) => t.wins, revealCount);
+  const gamesAboveData = reshape(history, (t) => t.wins - t.losses, revealCount);
+  const divisionRankData = reshape(history, (t) => t.divisionRank ?? NaN, revealCount);
 
   const divisionGroups = groupByDivision(teams);
   const wildcardPoolIds = computeWildcardPoolTeamIds(teams);
   const wildcardTeams = wildcardPoolIds ? teams.filter((t) => wildcardPoolIds.has(t.teamId)) : [];
-  const wildcardRankData = wildcardPoolIds ? reshapeWildcardRank(visibleHistory, wildcardPoolIds) : [];
+  const wildcardRankData = wildcardPoolIds ? reshapeWildcardRank(history, wildcardPoolIds, revealCount) : [];
 
   return (
     <div>
@@ -342,39 +384,66 @@ export function StandingsPage({ season }: { season: string }) {
       </div>
 
       {tab === "standings" && (
-        <div className="standings-stack">
-          {divisionStandingsGroups.length > 0
-            ? divisionStandingsGroups.map((g) => (
-                <div key={g.division}>
-                  <h2>{DIVISION_LABELS[g.division]}</h2>
-                  <div className="table-scroll">
-                    <SortableTable
-                      columns={divisionStandingsColumns}
-                      rows={g.rows}
-                      rowKey={(t) => t.teamId}
-                      defaultSortKey="divisionRank"
-                      defaultSortDir="asc"
-                      linkTo={(t) => `/teams/${t.teamId}`}
-                      rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
-                    />
+        <div>
+          <div className="standings-stack">
+            {divisionStandingsGroups.length > 0
+              ? divisionStandingsGroups.map((g) => (
+                  <div key={g.division}>
+                    <h2>{DIVISION_LABELS[g.division]}</h2>
+                    <div className="table-scroll">
+                      <SortableTable
+                        columns={divisionStandingsColumns}
+                        rows={g.rows}
+                        rowKey={(t) => t.teamId}
+                        defaultSortKey="divisionRank"
+                        defaultSortDir="asc"
+                        linkTo={(t) => `/teams/${t.teamId}`}
+                        rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                      />
+                    </div>
                   </div>
-                </div>
-              ))
-            : (
-                <div>
-                  <div className="table-scroll">
-                    <SortableTable
-                      columns={overallStandingsColumns}
-                      rows={overallStandingsRows}
-                      rowKey={(t) => t.teamId}
-                      defaultSortKey="rank"
-                      defaultSortDir="asc"
-                      linkTo={(t) => `/teams/${t.teamId}`}
-                      rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
-                    />
+                ))
+              : (
+                  <div>
+                    <div className="table-scroll">
+                      <SortableTable
+                        columns={overallStandingsColumns}
+                        rows={allStandingsRows}
+                        rowKey={(t) => t.teamId}
+                        defaultSortKey="rank"
+                        defaultSortDir="asc"
+                        linkTo={(t) => `/teams/${t.teamId}`}
+                        rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                      />
+                    </div>
                   </div>
+                )}
+          </div>
+
+          {divisionStandingsGroups.length > 0 && (
+            <>
+              <h2
+                className="collapsible-heading"
+                onClick={() => setOverallStandingsExpanded((v) => !v)}
+              >
+                {overallStandingsExpanded ? "▼ " : "▶ "}
+                全チームの全体順位表
+              </h2>
+              {overallStandingsExpanded && (
+                <div className="table-scroll">
+                  <SortableTable
+                    columns={divisionStandingsColumns}
+                    rows={allStandingsRows}
+                    rowKey={(t) => t.teamId}
+                    defaultSortKey="rank"
+                    defaultSortDir="asc"
+                    linkTo={(t) => `/teams/${t.teamId}`}
+                    rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                  />
                 </div>
               )}
+            </>
+          )}
         </div>
       )}
 
@@ -434,9 +503,10 @@ export function StandingsPage({ season }: { season: string }) {
               reversed
               height={360}
               teamColors={teamColors ?? undefined}
+              isAnimating={isAnimating}
             />
           ) : (
-            <div className="standings-grid">
+            <div className="standings-stack">
               {divisionGroups.map((g) => (
                 <StandingsLineChart
                   key={g.division}
@@ -446,6 +516,7 @@ export function StandingsPage({ season }: { season: string }) {
                   reversed
                   height={320}
                   teamColors={teamColors ?? undefined}
+                  isAnimating={isAnimating}
                 />
               ))}
               {wildcardTeams.length > 0 && (
@@ -456,6 +527,7 @@ export function StandingsPage({ season }: { season: string }) {
                   reversed
                   height={320}
                   teamColors={teamColors ?? undefined}
+                  isAnimating={isAnimating}
                 />
               )}
             </div>
@@ -472,11 +544,25 @@ export function StandingsPage({ season }: { season: string }) {
           </div>
           {divisionGroups.length === 0 ? (
             <div className="standings-grid">
-              <StandingsLineChart title="勝ち星推移" data={winsData} teams={teams} height={280} teamColors={teamColors ?? undefined} />
-              <StandingsLineChart title="貯金推移" data={gamesAboveData} teams={teams} height={280} teamColors={teamColors ?? undefined} />
+              <StandingsLineChart
+                title="勝ち星推移"
+                data={winsData}
+                teams={teams}
+                height={280}
+                teamColors={teamColors ?? undefined}
+                isAnimating={isAnimating}
+              />
+              <StandingsLineChart
+                title="貯金推移"
+                data={gamesAboveData}
+                teams={teams}
+                height={280}
+                teamColors={teamColors ?? undefined}
+                isAnimating={isAnimating}
+              />
             </div>
           ) : (
-            <>
+            <div className="standings-stack">
               {divisionGroups.map((g) => (
                 <div key={g.division}>
                   <h2>{DIVISION_LABELS[g.division]}</h2>
@@ -487,6 +573,7 @@ export function StandingsPage({ season }: { season: string }) {
                       teams={g.teams}
                       height={260}
                       teamColors={teamColors ?? undefined}
+                      isAnimating={isAnimating}
                     />
                     <StandingsLineChart
                       title="貯金推移"
@@ -494,6 +581,7 @@ export function StandingsPage({ season }: { season: string }) {
                       teams={g.teams}
                       height={260}
                       teamColors={teamColors ?? undefined}
+                      isAnimating={isAnimating}
                     />
                   </div>
                 </div>
@@ -508,6 +596,7 @@ export function StandingsPage({ season }: { season: string }) {
                       teams={wildcardTeams}
                       height={260}
                       teamColors={teamColors ?? undefined}
+                      isAnimating={isAnimating}
                     />
                     <StandingsLineChart
                       title="貯金推移"
@@ -515,11 +604,12 @@ export function StandingsPage({ season }: { season: string }) {
                       teams={wildcardTeams}
                       height={260}
                       teamColors={teamColors ?? undefined}
+                      isAnimating={isAnimating}
                     />
                   </div>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
       )}
