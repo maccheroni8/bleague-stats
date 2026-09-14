@@ -265,8 +265,6 @@ export function buildBackToBackStatus(games: GameSummary[]): Map<string, Map<str
   return result;
 }
 
-export type BiweekStatus = "before" | "after";
-
 /** 「バイウィーク」判定の間隔基準（日）。個別チームの試合間隔ではなく、リーグ全体で試合が
  * 1つも行われない期間（オールスターウィーク・FIBAウィンドウ等）を検出する基準。
  * B.LEAGUEの通常の試合間隔より明確に長い、10日以上の空白期間を「バイウィーク」とみなす
@@ -302,23 +300,54 @@ export function findBiweekGaps(games: GameSummary[]): BiweekGap[] {
   return gaps;
 }
 
-/**
- * その空白期間の直前の試合実施日に行われた全試合を「バイウィーク前」、直後の試合実施日に
- * 行われた全試合を「バイウィーク明け」とする（buildBackToBackStatusと異なり特定のチームに
- * 紐づかないため、戻り値もMap<scheduleKey, BiweekStatus>とチーム軸を持たない）
- */
-export function buildBiweekStatus(games: GameSummary[]): Map<string, BiweekStatus> {
-  const played = games.filter((g) => g.gameEndedFlg);
-  const gaps = findBiweekGaps(games);
+export interface BiweekPeriod {
+  /** 表示用ラベル（例:「開幕〜11月バイウィーク前」「11月バイウィーク以降〜2月バイウィーク前」） */
+  label: string;
+  /** この区間に含まれる最初の日付（含む）。nullはシーズン開幕から（下限なし） */
+  start: string | null;
+  /** この区間に含まれる最後の日付（含む）。nullはシーズン終了まで（上限なし） */
+  end: string | null;
+}
 
-  const result = new Map<string, BiweekStatus>();
-  for (const gap of gaps) {
-    for (const g of played) {
-      if (g.date === gap.before) result.set(g.scheduleKey, "before");
-      if (g.date === gap.after) result.set(g.scheduleKey, "after");
-    }
+/** 日付文字列（YYYY-MM-DD）から月（1〜12）を取り出す */
+function monthOf(date: string): number {
+  return Number(date.slice(5, 7));
+}
+
+/**
+ * リーグ全体のバイウィーク（findBiweekGaps、10日以上の試合空白期間）で区切った、シーズンを
+ * 通した連続区間の一覧を返す。検出されたギャップの数がNなら、ギャップとギャップの間・
+ * シーズン開幕直後・シーズン最終盤を合わせてN+1区間になる（例: ギャップ2件＝「開幕〜
+ * 1つ目のバイウィーク前」「1つ目のバイウィーク明け〜2つ目のバイウィーク前」「2つ目の
+ * バイウィーク明け〜」の3区間）。単純な「バイウィーク前/明け」の2分割
+ * （旧buildBiweekStatus）とは異なり、シーズン全体をこの区間のいずれか1つに必ず分類する
+ * 網羅的なパーティションになる。ギャップが1件も検出できないシーズンは空配列を返す
+ * （区分自体を作らない。条件別順位表タブ参照）
+ */
+export function buildBiweekPeriods(games: GameSummary[]): BiweekPeriod[] {
+  const gaps = findBiweekGaps(games);
+  if (gaps.length === 0) return [];
+
+  const periods: BiweekPeriod[] = [];
+  for (let i = 0; i <= gaps.length; i++) {
+    const start = i === 0 ? null : gaps[i - 1]!.after;
+    const end = i === gaps.length ? null : gaps[i]!.before;
+    const label =
+      i === 0
+        ? `開幕〜${monthOf(gaps[0]!.before)}月バイウィーク前`
+        : i === gaps.length
+          ? `${monthOf(gaps[i - 1]!.after)}月バイウィーク以降〜`
+          : `${monthOf(gaps[i - 1]!.after)}月バイウィーク以降〜${monthOf(gaps[i]!.before)}月バイウィーク前`;
+    periods.push({ label, start, end });
   }
-  return result;
+  return periods;
+}
+
+/** その試合の日付が、指定したバイウィーク区間（buildBiweekPeriods）に含まれるか */
+export function matchesBiweekPeriod<T extends { date: string }>(g: T, period: BiweekPeriod): boolean {
+  if (period.start !== null && g.date < period.start) return false;
+  if (period.end !== null && g.date > period.end) return false;
+  return true;
 }
 
 /**

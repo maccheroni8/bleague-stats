@@ -7,17 +7,19 @@ import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak } from "../../shared/teamRecords";
 import { teamShortName } from "../../shared/teamNames";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
+import { DIVISION_LABELS } from "../lib/divisionGroups";
 import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { useLeagueSituationalContext } from "../lib/teamRankingData";
 import {
   buildBackToBackStatus,
-  buildBiweekStatus,
+  buildBiweekPeriods,
+  matchesBiweekPeriod,
   matchesDivision,
   matchesMonth,
   matchesNewYearHalf,
   matchesOpponentWinRateTier,
   type BackToBackGame,
-  type BiweekStatus,
+  type BiweekPeriod,
   type RecordBeforeGame,
 } from "../lib/situational";
 import type {
@@ -34,8 +36,9 @@ import type {
  * 異なり、こちらは「この条件だけで見た順位表」を1つずつ切り替えて見る用途のため、常に
  * どれか1つ（または条件なし="all"）だけがアクティブになる。既存のsituational.tsのマッチャー
  * （matchesDivision・matchesMonth・matchesNewYearHalf・matchesOpponentWinRateTier・
- * buildBackToBackStatus・buildBiweekStatus）をそのまま再利用し、このファイルでは
- * 「どの条件が選ばれているか」の型と、それをTeamGameLog[]へ適用するロジックだけを持つ。
+ * buildBackToBackStatus・buildBiweekPeriods/matchesBiweekPeriod）をそのまま再利用し、
+ * このファイルでは「どの条件が選ばれているか」の型と、それをTeamGameLog[]へ適用する
+ * ロジックだけを持つ。
  */
 export type ConditionalCondition =
   | { kind: "all" }
@@ -46,7 +49,10 @@ export type ConditionalCondition =
   | { kind: "month"; value: number }
   | { kind: "opponentWinRate"; tier: "under50" | "atLeast50" | "atLeast60" }
   | { kind: "backToBack"; value: BackToBackGame }
-  | { kind: "biweek"; value: BiweekStatus }
+  // シーズンをバイウィーク（10日以上の試合空白期間）で区切った区間の1つ。区間自体は
+  // シーズン・カテゴリごとに動的に検出されるため、区間の内容（ラベル・日付範囲）を
+  // 条件の値として直接持たせる（buildBiweekPeriods参照）
+  | { kind: "biweekPeriod"; index: number; period: BiweekPeriod }
   | { kind: "recent"; n: number }
   | { kind: "gamePhase"; value: "early" | "mid" | "late" }
   | { kind: "margin"; points: number };
@@ -54,13 +60,49 @@ export type ConditionalCondition =
 /** 「序盤戦/中盤戦/終盤戦20試合」の窓の大きさ（固定） */
 const GAME_PHASE_WINDOW = 20;
 
+/**
+ * 現在選択中の条件を、表の上のタイトル（「{ラベル} 順位表」）用に1行で表す。各ボタンの
+ * 表示文言（conditionGroupsのoption.label）と揃えている
+ */
+function describeCondition(condition: ConditionalCondition): string {
+  switch (condition.kind) {
+    case "all":
+      return "シーズン全体";
+    case "newYear":
+      return condition.half === "before" ? "年明け前" : "年明け後";
+    case "homeAway":
+      return condition.value === "home" ? "ホーム" : "アウェイ";
+    case "division":
+      return `対${DIVISION_LABELS[condition.value]}`;
+    case "weekday":
+      return condition.value ? "平日開催" : "休日開催";
+    case "month":
+      return `${condition.value}月`;
+    case "opponentWinRate":
+      return condition.tier === "under50" ? "対5割未満" : condition.tier === "atLeast50" ? "対5割以上" : "対6割以上";
+    case "backToBack":
+      return condition.value === "GAME1" ? "連戦時GAME1" : "連戦時GAME2";
+    case "biweekPeriod":
+      return condition.period.label;
+    case "recent":
+      return `直近${condition.n}試合`;
+    case "gamePhase":
+      return condition.value === "early"
+        ? `序盤戦${GAME_PHASE_WINDOW}試合`
+        : condition.value === "late"
+          ? `終盤戦${GAME_PHASE_WINDOW}試合`
+          : `中盤戦${GAME_PHASE_WINDOW}試合`;
+    case "margin":
+      return condition.points === 3 ? "1POS差（3点差）決着試合" : "2POS差（6点差）決着試合";
+  }
+}
+
 interface ConditionContext {
   teamId: string;
   season: string;
   opponentRecords?: Map<string, Map<string, RecordBeforeGame>>;
   divisionHistory?: DivisionHistoryFile | null;
   backToBackStatus?: Map<string, Map<string, BackToBackGame>>;
-  biweekStatus?: Map<string, BiweekStatus>;
 }
 
 /** 日付昇順ソート済みのTeamGameLog[]に、選択中の条件を1つ適用する */
@@ -86,8 +128,8 @@ function applyConditionalCondition(
       return logs.filter((g) => matchesOpponentWinRateTier(g, condition.tier, ctx.opponentRecords));
     case "backToBack":
       return logs.filter((g) => ctx.backToBackStatus?.get(g.scheduleKey)?.get(ctx.teamId) === condition.value);
-    case "biweek":
-      return logs.filter((g) => ctx.biweekStatus?.get(g.scheduleKey) === condition.value);
+    case "biweekPeriod":
+      return logs.filter((g) => matchesBiweekPeriod(g, condition.period));
     case "recent":
       return logs.slice(Math.max(0, logs.length - condition.n));
     case "gamePhase": {
@@ -151,6 +193,8 @@ function computeRemainingCount(
         const month = Number(g.date.slice(5, 7));
         return condition.half === "before" ? month >= 7 : month <= 6;
       }).length;
+    case "biweekPeriod":
+      return myGames.filter((g) => matchesBiweekPeriod(g, condition.period)).length;
     default:
       return null;
   }
@@ -219,7 +263,10 @@ export function ConditionalStandingsTable({
 }) {
   const { summaries, divisionHistory, opponentRecords } = useLeagueSituationalContext(season);
   const backToBackStatus = useMemo(() => (summaries ? buildBackToBackStatus(summaries) : undefined), [summaries]);
-  const biweekStatus = useMemo(() => (summaries ? buildBiweekStatus(summaries) : undefined), [summaries]);
+  // シーズンをバイウィークで区切った区間一覧（例: 「開幕〜11月バイウィーク前」「11月
+  // バイウィーク以降〜2月バイウィーク前」「2月バイウィーク以降〜」）。区間数はシーズンごとに
+  // 検出されたギャップの数に応じて動的に変わる（buildBiweekPeriods参照）
+  const biweekPeriods = useMemo(() => (summaries ? buildBiweekPeriods(summaries) : []), [summaries]);
 
   const [condition, setCondition] = useState<ConditionalCondition>({ kind: "all" });
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string> | null>(null);
@@ -291,11 +338,12 @@ export function ConditionalStandingsTable({
       ],
     },
     {
-      label: "バイウィーク（リーグ全体で10日以上試合が無い期間の前後）",
-      options: [
-        { key: "biweek-before", label: "バイウィーク前", condition: { kind: "biweek", value: "before" } },
-        { key: "biweek-after", label: "バイウィーク明け", condition: { kind: "biweek", value: "after" } },
-      ],
+      label: "バイウィーク（リーグ全体で10日以上試合が無い期間で区切った区間）",
+      options: biweekPeriods.map((period, index) => ({
+        key: `biweek-${index}`,
+        label: period.label,
+        condition: { kind: "biweekPeriod", index, period } as ConditionalCondition,
+      })),
     },
     {
       label: "直近の試合数",
@@ -338,7 +386,6 @@ export function ConditionalStandingsTable({
         opponentRecords,
         divisionHistory,
         backToBackStatus,
-        biweekStatus,
       });
       const wins = filtered.filter((g) => g.win).length;
       const losses = filtered.length - wins;
@@ -370,7 +417,6 @@ export function ConditionalStandingsTable({
     opponentRecords,
     divisionHistory,
     backToBackStatus,
-    biweekStatus,
     upcomingGames,
     teamIdByName,
     selectedTeamIds,
@@ -494,6 +540,7 @@ export function ConditionalStandingsTable({
         heading="特定のチームで絞り込み"
       />
 
+      <h2>{describeCondition(condition)} 順位表</h2>
       {rows.length === 0 ? (
         <p className="empty-message">選択したチームがありません</p>
       ) : (
