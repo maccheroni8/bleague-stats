@@ -78,6 +78,9 @@ export function StandingsLineChart({
             // まで軸が伸びてしまう。順位は1〜チーム数の範囲に収まることが自明なため、domainを
             // 明示的に指定して実データの範囲ちょうどに固定する
             domain={reversed ? [1, Math.max(teams.length, 1)] : undefined}
+            // domainを固定しても、目盛りの間隔自体はrechartsが自動生成するため（例: 1, 4, 7,
+            // 10, 13のように間引かれる）、1位から最下位までの全順位を目盛りとして明示的に指定する
+            ticks={reversed ? Array.from({ length: teams.length }, (_, i) => i + 1) : undefined}
             tick={{ fontSize: 11 }}
             tickLine={false}
             axisLine={false}
