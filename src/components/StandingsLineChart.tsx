@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { teamLogoUrl } from "../lib/data";
+import type { TeamColors } from "../../shared/types";
 
 export interface ChartTeam {
   teamId: string;
@@ -14,17 +15,27 @@ interface StandingsLineChartProps {
   /** 順位グラフ用: 1位を上に、数値が大きいほど下に表示する */
   reversed?: boolean;
   height?: number;
+  /** 指定時、折れ線の色にチームカラー（primary）を使う。未取得のチーム（過去在籍のみの
+   * クラブ等、data/team-colors.jsonに無いチーム）は従来通りインデックス由来の虹色にフォールバックする */
+  teamColors?: Record<string, TeamColors>;
 }
 
-/** チーム数に応じて均等に色相を割り振る。チーム数が変わっても破綻しない簡易パレット */
-function teamColor(index: number, total: number): string {
+/** チーム数に応じて均等に色相を割り振る簡易パレット。teamColorsに無いチーム用のフォールバック */
+function fallbackColor(index: number, total: number): string {
   const hue = Math.round((index * 360) / Math.max(total, 1));
   return `hsl(${hue}, 65%, 55%)`;
 }
 
 const LOGO_SIZE = 20;
 
-export function StandingsLineChart({ title, data, teams, reversed = false, height = 320 }: StandingsLineChartProps) {
+export function StandingsLineChart({
+  title,
+  data,
+  teams,
+  reversed = false,
+  height = 320,
+  teamColors,
+}: StandingsLineChartProps) {
   // アニメーション再生中はdataが徐々に伸びていくため、折れ線の末端（=最新地点）の位置は
   // dataの長さそのものではなく「そのチームの値が定義済みの最後のindex」から都度求める
   // （ワイルドカードグラフ等、チームによって値が欠ける日があるため）
@@ -68,7 +79,7 @@ export function StandingsLineChart({ title, data, teams, reversed = false, heigh
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           {teams.map((t, i) => {
-            const color = teamColor(i, teams.length);
+            const color = teamColors?.[t.teamId]?.primary ?? fallbackColor(i, teams.length);
             const lastIndex = lastValidIndexByTeam.get(t.teamId);
             return (
               <Line

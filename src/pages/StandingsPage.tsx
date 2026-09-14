@@ -412,7 +412,14 @@ export function StandingsPage({ season }: { season: string }) {
             </button>
           </div>
           {divisionGroups.length === 0 ? (
-            <StandingsLineChart title="順位推移" data={rankData} teams={teams} reversed height={360} />
+            <StandingsLineChart
+              title="順位推移"
+              data={rankData}
+              teams={teams}
+              reversed
+              height={360}
+              teamColors={teamColors ?? undefined}
+            />
           ) : (
             <div className="standings-grid">
               {divisionGroups.map((g) => (
@@ -423,6 +430,7 @@ export function StandingsPage({ season }: { season: string }) {
                   teams={g.teams}
                   reversed
                   height={320}
+                  teamColors={teamColors ?? undefined}
                 />
               ))}
               {wildcardTeams.length > 0 && (
@@ -432,6 +440,7 @@ export function StandingsPage({ season }: { season: string }) {
                   teams={wildcardTeams}
                   reversed
                   height={320}
+                  teamColors={teamColors ?? undefined}
                 />
               )}
             </div>
@@ -448,8 +457,8 @@ export function StandingsPage({ season }: { season: string }) {
           </div>
           {divisionGroups.length === 0 ? (
             <div className="standings-grid">
-              <StandingsLineChart title="勝ち星推移" data={winsData} teams={teams} height={280} />
-              <StandingsLineChart title="貯金推移" data={gamesAboveData} teams={teams} height={280} />
+              <StandingsLineChart title="勝ち星推移" data={winsData} teams={teams} height={280} teamColors={teamColors ?? undefined} />
+              <StandingsLineChart title="貯金推移" data={gamesAboveData} teams={teams} height={280} teamColors={teamColors ?? undefined} />
             </div>
           ) : (
             <>
@@ -457,8 +466,20 @@ export function StandingsPage({ season }: { season: string }) {
                 <div key={g.division}>
                   <h2>{DIVISION_LABELS[g.division]}</h2>
                   <div className="standings-grid">
-                    <StandingsLineChart title="勝ち星推移" data={winsData} teams={g.teams} height={260} />
-                    <StandingsLineChart title="貯金推移" data={gamesAboveData} teams={g.teams} height={260} />
+                    <StandingsLineChart
+                      title="勝ち星推移"
+                      data={winsData}
+                      teams={g.teams}
+                      height={260}
+                      teamColors={teamColors ?? undefined}
+                    />
+                    <StandingsLineChart
+                      title="貯金推移"
+                      data={gamesAboveData}
+                      teams={g.teams}
+                      height={260}
+                      teamColors={teamColors ?? undefined}
+                    />
                   </div>
                 </div>
               ))}
@@ -466,8 +487,20 @@ export function StandingsPage({ season }: { season: string }) {
                 <div>
                   <h2>ワイルドカード</h2>
                   <div className="standings-grid">
-                    <StandingsLineChart title="勝ち星推移" data={winsData} teams={wildcardTeams} height={260} />
-                    <StandingsLineChart title="貯金推移" data={gamesAboveData} teams={wildcardTeams} height={260} />
+                    <StandingsLineChart
+                      title="勝ち星推移"
+                      data={winsData}
+                      teams={wildcardTeams}
+                      height={260}
+                      teamColors={teamColors ?? undefined}
+                    />
+                    <StandingsLineChart
+                      title="貯金推移"
+                      data={gamesAboveData}
+                      teams={wildcardTeams}
+                      height={260}
+                      teamColors={teamColors ?? undefined}
+                    />
                   </div>
                 </div>
               )}
