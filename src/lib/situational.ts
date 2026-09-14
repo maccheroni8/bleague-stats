@@ -274,29 +274,63 @@ export type BiweekStatus = "before" | "after";
  * 対象は特定のチームの試合間隔ではなくリーグ全体の試合実施日） */
 export const BIWEEK_GAP_DAYS = 10;
 
+export interface BiweekGap {
+  /** ギャップ直前の最終試合実施日 */
+  before: string;
+  /** ギャップ明けの最初の試合実施日 */
+  after: string;
+}
+
 /**
  * リーグ全体（games-summary.json、gameEndedFlgの試合のみ、レギュラー/プレーオフとも対象）で
  * 試合が実施された日をすべて集め、連続する試合実施日の間隔がBIWEEK_GAP_DAYS以上空いている
- * 箇所を「バイウィーク」とみなす。その空白期間の直前の試合実施日に行われた全試合を
- * 「バイウィーク前」、直後の試合実施日に行われた全試合を「バイウィーク明け」とする
- * （buildBackToBackStatusと異なり特定のチームに紐づかないため、戻り値もMap<scheduleKey,
- * BiweekStatus>とチーム軸を持たない）
+ * 箇所（＝バイウィーク）を、シーズンを通した日付順に全て検出する。1シーズンに複数回
+ * （オールスターウィーク・年末年始・FIBAウィンドウ等）検出されることが多い
+ * （順位表ページのワイルドカードグラフの表示開始基準としても使用。DESIGN.md参照）
  */
-export function buildBiweekStatus(games: GameSummary[]): Map<string, BiweekStatus> {
+export function findBiweekGaps(games: GameSummary[]): BiweekGap[] {
   const played = games.filter((g) => g.gameEndedFlg);
   const dates = [...new Set(played.map((g) => g.date))].sort();
 
-  const result = new Map<string, BiweekStatus>();
+  const gaps: BiweekGap[] = [];
   for (let i = 0; i < dates.length - 1; i++) {
     const d1 = dates[i]!;
     const d2 = dates[i + 1]!;
     if (daysBetweenDates(d1, d2) < BIWEEK_GAP_DAYS) continue;
+    gaps.push({ before: d1, after: d2 });
+  }
+  return gaps;
+}
+
+/**
+ * その空白期間の直前の試合実施日に行われた全試合を「バイウィーク前」、直後の試合実施日に
+ * 行われた全試合を「バイウィーク明け」とする（buildBackToBackStatusと異なり特定のチームに
+ * 紐づかないため、戻り値もMap<scheduleKey, BiweekStatus>とチーム軸を持たない）
+ */
+export function buildBiweekStatus(games: GameSummary[]): Map<string, BiweekStatus> {
+  const played = games.filter((g) => g.gameEndedFlg);
+  const gaps = findBiweekGaps(games);
+
+  const result = new Map<string, BiweekStatus>();
+  for (const gap of gaps) {
     for (const g of played) {
-      if (g.date === d1) result.set(g.scheduleKey, "before");
-      if (g.date === d2) result.set(g.scheduleKey, "after");
+      if (g.date === gap.before) result.set(g.scheduleKey, "before");
+      if (g.date === gap.after) result.set(g.scheduleKey, "after");
     }
   }
   return result;
+}
+
+/**
+ * 検出された全バイウィークギャップのうち、直前の試合実施日（before）が2月であるものを返す
+ * （順位表ページのワイルドカードグラフの表示開始基準用）。B.PREMIER全10シーズン
+ * （2016-17〜2025-26）を検証した結果、いずれのシーズンも例外なくちょうど1件見つかることを
+ * 確認済み（DESIGN.md参照）。万一見つからない場合はnullを返し、呼び出し側で
+ * グレースフルデグラデーションする
+ */
+export function findFebruaryBiweekGap(games: GameSummary[]): BiweekGap | null {
+  const gaps = findBiweekGaps(games);
+  return gaps.find((g) => Number(g.before.slice(5, 7)) === 2) ?? null;
 }
 
 /**

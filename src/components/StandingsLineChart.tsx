@@ -22,6 +22,16 @@ interface StandingsLineChartProps {
   /** アニメーション再生中: 末端のロゴ（フォールバック時は円）がCSSトランジションで
    * 前の位置から新しい位置へ滑らかに移動するようにする（再生中以外は瞬時に位置更新する） */
   isAnimating?: boolean;
+  /** trueなら値が欠けている区間（undefined）の前後を直線で結ぶ（従来の挙動）。falseにすると
+   * 値が欠けている区間で線が途切れる（例: ワイルドカードグラフで、あるチームが地区3位以内に
+   * 浮上している期間はプール対象外になり値を持たないため、その区間だけ線を途切れさせたい場合） */
+  connectGaps?: boolean;
+  /** 順位グラフ（reversed）のY軸domain上限を明示的に上書きする。未指定時はteams.length
+   * （凡例に載るチーム数）を使うが、ワイルドカードグラフ（動的な出入り対応）のように
+   * 「1日あたりの最大順位（プールの延べ人数、日によって変動しない固定値）」が
+   * 「凡例に載る延べチーム数」（出入りにより1日あたりの人数より多くなりうる）と一致しない
+   * 場合に、呼び出し側から正しい上限を渡すために使う */
+  rankDomainMax?: number;
 }
 
 /** チーム数に応じて均等に色相を割り振る簡易パレット。teamColorsに無いチーム用のフォールバック */
@@ -30,7 +40,7 @@ function fallbackColor(index: number, total: number): string {
   return `hsl(${hue}, 65%, 55%)`;
 }
 
-const LOGO_SIZE = 20;
+const LOGO_SIZE = 40;
 
 export function StandingsLineChart({
   title,
@@ -40,7 +50,10 @@ export function StandingsLineChart({
   height = 320,
   teamColors,
   isAnimating = false,
+  connectGaps = true,
+  rankDomainMax,
 }: StandingsLineChartProps) {
+  const rankMax = Math.max(rankDomainMax ?? teams.length, 1);
   // アニメーション再生中はdataが徐々に伸びていくため、折れ線の末端（=最新地点）の位置は
   // dataの長さそのものではなく「そのチームの値が定義済みの最後のindex」から都度求める
   // （ワイルドカードグラフ等、チームによって値が欠ける日があるため）
@@ -77,10 +90,10 @@ export function StandingsLineChart({
             // 任せると、実際のチーム数を超えた「きりのいい」上限（例: 13チームなのに16位まで）
             // まで軸が伸びてしまう。順位は1〜チーム数の範囲に収まることが自明なため、domainを
             // 明示的に指定して実データの範囲ちょうどに固定する
-            domain={reversed ? [1, Math.max(teams.length, 1)] : undefined}
+            domain={reversed ? [1, rankMax] : undefined}
             // domainを固定しても、目盛りの間隔自体はrechartsが自動生成するため（例: 1, 4, 7,
             // 10, 13のように間引かれる）、1位から最下位までの全順位を目盛りとして明示的に指定する
-            ticks={reversed ? Array.from({ length: teams.length }, (_, i) => i + 1) : undefined}
+            ticks={reversed ? Array.from({ length: rankMax }, (_, i) => i + 1) : undefined}
             tick={{ fontSize: 11 }}
             tickLine={false}
             axisLine={false}
@@ -132,7 +145,7 @@ export function StandingsLineChart({
                   );
                 }}
                 strokeWidth={2}
-                connectNulls
+                connectNulls={connectGaps}
                 isAnimationActive={false}
               />
             );

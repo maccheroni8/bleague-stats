@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { fetchHeadToHead, fetchSchedule, fetchStandingsHistory, fetchTeamColors } from "../lib/data";
+import { fetchGameSummaries, fetchHeadToHead, fetchSchedule, fetchStandingsHistory, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
 import { SortableTable, type Column } from "../components/SortableTable";
-import { StandingsLineChart } from "../components/StandingsLineChart";
+import { StandingsLineChart, type ChartTeam } from "../components/StandingsLineChart";
 import { TeamLogo } from "../components/TeamLogo";
 import { HeadToHeadMatrix } from "../components/HeadToHeadMatrix";
 import { TeamFilterBlock } from "../components/TeamFilterBlock";
@@ -13,6 +13,7 @@ import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak, type TeamStreak } from "../../shared/teamRecords";
 import { teamShortName } from "../../shared/teamNames";
 import { DIVISION_LABELS, groupByDivision } from "../lib/divisionGroups";
+import { findFebruaryBiweekGap } from "../lib/situational";
 import type {
   HeadToHeadTeamRow,
   StandingsSnapshot,
@@ -244,31 +245,70 @@ function reshape(
   });
 }
 
-/**
- * ワイルドカード争いのチーム群（地区上位3位以内に入っていないチーム）を求める。
- * ConditionalStandingsTable.tsxのcomputePlayoffQualifiedTeamIds()と同じく、東西2地区制
- * （東西2地区が既知）のシーズンのみ対象とする（プレーオフ進出条件が他の地区数では未確認のため）
- */
-function computeWildcardPoolTeamIds(teams: StandingsTeamSnapshot[]): Set<string> | null {
-  const divisions = new Set(teams.map((t) => t.division).filter((d): d is "east" | "west" => !!d));
-  if (divisions.size !== 2 || !divisions.has("east") || !divisions.has("west")) return null;
-  return new Set(teams.filter((t) => (t.divisionRank ?? 99) > 3).map((t) => t.teamId));
+/** そのチームが日付snapshotの時点で「地区3位以内」に入っておらず、ワイルドカード争いの
+ * 対象と言えるかどうか（地区上位3位以内に入っていないチーム）。東西2地区制のシーズンのみ
+ * 意味を持つ（ConditionalStandingsTable.tsxのcomputePlayoffQualifiedTeamIds()と同じ考え方） */
+function isInWildcardPool(t: StandingsTeamSnapshot): boolean {
+  return (t.division === "east" || t.division === "west") && (t.divisionRank ?? 99) > 3;
 }
 
 /**
- * ワイルドカード争いの「相対順位」推移を求める。日付ごとに、poolTeamIds内のチームだけを
- * 全体順位(rank)昇順に並べ直し、その順位（1始まり）を割り当てる。プールに属さない日は
- * その日の値を持たない（=グラフ上は前後の点をそのまま繋ぐ、StandingsLineChartのconnectNulls）。
- * revealCountの意味・目的はreshape()と同じ（アニメーション中もX軸ドメインを固定するため）
+ * このシーズンが東西2地区制（ワイルドカードグラフの対象）かどうか。
+ * プレーオフ進出条件が他の地区数では未確認のため、東西2地区が既知のシーズンのみ対象とする
  */
-function reshapeWildcardRank(history: StandingsSnapshot[], poolTeamIds: Set<string>, revealCount?: number) {
+function isWildcardApplicable(teams: StandingsTeamSnapshot[]): boolean {
+  const divisions = new Set(teams.map((t) => t.division).filter((d): d is "east" | "west" => !!d));
+  return divisions.size === 2 && divisions.has("east") && divisions.has("west");
+}
+
+/** 表示範囲内（historyは既に2月のバイウィーク以降に絞り込み済み）のどこかの日付で、
+ * 一度でもワイルドカード争いの対象（地区4位以下）だったチームを全て集める
+ * （＝そのチームのLineを描画するかどうかの判定に使う。動的な出入りを反映するため、
+ * シーズン最終順位ではなく表示範囲内での実際の在籍状況を基準にする） */
+function collectWildcardTeams(history: StandingsSnapshot[]): ChartTeam[] {
+  const byId = new Map<string, string>();
+  for (const snapshot of history) {
+    for (const t of snapshot.teams) {
+      if (isInWildcardPool(t)) byId.set(t.teamId, t.teamName);
+    }
+  }
+  return [...byId].map(([teamId, teamName]) => ({ teamId, teamName }));
+}
+
+/**
+ * ワイルドカード争いの「相対順位」推移を求める。日付ごとに、その時点で実際に地区4位以下
+ * だったチームだけを全体順位(rank)昇順に並べ直し、その順位（1始まり）を割り当てる。
+ * 地区3位以内に浮上した日はその日の値を持たない（=StandingsLineChartのconnectGaps={false}と
+ * 組み合わせて、グラフ上でその期間だけ線が途切れる。静的な最終順位ベースの固定メンバーでは
+ * なく、日々の実際の在籍状況を動的に反映する）。revealCountの意味・目的はreshape()と同じ
+ * （アニメーション中もX軸ドメインを固定するため）
+ */
+function reshapeWildcardRank(history: StandingsSnapshot[], revealCount?: number) {
   return history.map((snapshot, i) => {
     const row: Record<string, number | string> = { date: snapshot.date };
     if (revealCount !== undefined && i >= revealCount) return row;
-    const poolTeamsAtDate = snapshot.teams.filter((t) => poolTeamIds.has(t.teamId)).sort((a, b) => a.rank - b.rank);
+    const poolTeamsAtDate = snapshot.teams.filter(isInWildcardPool).sort((a, b) => a.rank - b.rank);
     poolTeamsAtDate.forEach((t, idx) => {
       row[t.teamId] = idx + 1;
     });
+    return row;
+  });
+}
+
+/** 勝ち星推移・貯金推移のワイルドカードグラフ用。reshape()と同じだが、各日付時点で実際に
+ * 地区4位以下だったチームの値のみを設定する（地区3位以内だった日は値を持たせず、
+ * reshapeWildcardRankと同様に線を途切れさせる） */
+function reshapeWildcardMetric(
+  history: StandingsSnapshot[],
+  metric: (t: StandingsTeamSnapshot) => number,
+  revealCount?: number,
+) {
+  return history.map((snapshot, i) => {
+    const row: Record<string, number | string> = { date: snapshot.date };
+    if (revealCount !== undefined && i >= revealCount) return row;
+    for (const t of snapshot.teams) {
+      if (isInWildcardPool(t)) row[t.teamId] = metric(t);
+    }
     return row;
   });
 }
@@ -283,6 +323,8 @@ export function StandingsPage({ season }: { season: string }) {
   } = useJsonData(() => fetchHeadToHead(season), [season]);
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const { data: schedule } = useJsonData(() => fetchSchedule(season), [season]);
+  // ワイルドカードグラフの表示開始基準（2月のバイウィーク明け）算出用
+  const { data: gameSummaries } = useJsonData(() => fetchGameSummaries(season), [season]);
 
   // null = 全チーム選択（絞り込みなし）。個別に外したチームだけをSetで管理する（SchedulePageと同じパターン）
   const [h2hSelectedTeamIds, setH2hSelectedTeamIds] = useState<Set<string> | null>(null);
@@ -379,9 +421,43 @@ export function StandingsPage({ season }: { season: string }) {
   const divisionRankData = reshape(history, (t) => t.divisionRank ?? NaN, revealCount);
 
   const divisionGroups = groupByDivision(teams);
-  const wildcardPoolIds = computeWildcardPoolTeamIds(teams);
-  const wildcardTeams = wildcardPoolIds ? teams.filter((t) => wildcardPoolIds.has(t.teamId)) : [];
-  const wildcardRankData = wildcardPoolIds ? reshapeWildcardRank(history, wildcardPoolIds, revealCount) : [];
+
+  // ワイルドカードグラフは、シーズン最終順位ベースの固定メンバーではなく、各日付時点で
+  // 実際に地区4位以下だったチームを動的に描画する（地区3位以内に浮上した期間は線が途切れる）。
+  // 表示範囲は「2月のバイウィーク明け」以降に限定する（それ以前はワイルドカード争いとして
+  // 参照する意味が薄い序盤の順位変動が多く、ノイズになるため）。2月のバイウィークが
+  // 検出できない場合（gameSummaries未取得時を含む）は、安全側に倒してグラフ自体を
+  // 表示しない（誤った全期間表示をしないため。DESIGN.md参照）
+  const wildcardApplicable = isWildcardApplicable(teams);
+  const februaryBiweekGap =
+    wildcardApplicable && gameSummaries ? findFebruaryBiweekGap(gameSummaries) : null;
+  const wildcardCutoffDate = februaryBiweekGap?.after ?? null;
+  const wildcardCutoffIndex = wildcardCutoffDate
+    ? (() => {
+        const idx = history.findIndex((s) => s.date >= wildcardCutoffDate);
+        return idx === -1 ? history.length : idx;
+      })()
+    : null;
+  const wildcardHistory = wildcardCutoffIndex !== null ? history.slice(wildcardCutoffIndex) : [];
+  const wildcardTeams: ChartTeam[] = collectWildcardTeams(wildcardHistory);
+  // wildcardHistoryは全期間historyの後半部分の切り出しのため、revealCount（history全体での
+  // フレーム番号）をこの切り出し分だけ前倒しして、アニメーションの進行と時系列を合わせる
+  const wildcardRevealCount =
+    revealCount === undefined || wildcardCutoffIndex === null
+      ? revealCount
+      : Math.max(0, revealCount - wildcardCutoffIndex);
+  const wildcardRankData = reshapeWildcardRank(wildcardHistory, wildcardRevealCount);
+  const wildcardWinsData = reshapeWildcardMetric(wildcardHistory, (t) => t.wins, wildcardRevealCount);
+  const wildcardGamesAboveData = reshapeWildcardMetric(
+    wildcardHistory,
+    (t) => t.wins - t.losses,
+    wildcardRevealCount,
+  );
+  // ワイルドカードプールの1日あたりの人数（東西各3位以内=6チームを除いた残り）は、
+  // シーズンを通じて常に一定（total - 6）。動的な出入りにより凡例に載る延べチーム数
+  // （wildcardTeams.length）はこれより多くなりうるため、順位グラフのY軸上限には
+  // 延べチーム数ではなくこちらを使う（StandingsLineChartのrankDomainMax参照）
+  const wildcardRankDomainMax = teams.length - 6;
 
   return (
     <div>
@@ -541,6 +617,8 @@ export function StandingsPage({ season }: { season: string }) {
                   height={640}
                   teamColors={teamColors ?? undefined}
                   isAnimating={isAnimating}
+                  connectGaps={false}
+                  rankDomainMax={wildcardRankDomainMax}
                 />
               )}
             </div>
@@ -580,11 +658,12 @@ export function StandingsPage({ season }: { season: string }) {
               {wildcardTeams.length > 0 && (
                 <StandingsLineChart
                   title="ワイルドカード勝ち星推移"
-                  data={winsData}
+                  data={wildcardWinsData}
                   teams={wildcardTeams}
                   height={520}
                   teamColors={teamColors ?? undefined}
                   isAnimating={isAnimating}
+                  connectGaps={false}
                 />
               )}
             </div>
@@ -624,11 +703,12 @@ export function StandingsPage({ season }: { season: string }) {
               {wildcardTeams.length > 0 && (
                 <StandingsLineChart
                   title="ワイルドカード貯金推移"
-                  data={gamesAboveData}
+                  data={wildcardGamesAboveData}
                   teams={wildcardTeams}
                   height={520}
                   teamColors={teamColors ?? undefined}
                   isAnimating={isAnimating}
+                  connectGaps={false}
                 />
               )}
             </div>
