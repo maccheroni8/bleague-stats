@@ -459,6 +459,24 @@ export function StandingsPage({ season }: { season: string }) {
   // 延べチーム数ではなくこちらを使う（StandingsLineChartのrankDomainMax参照）
   const wildcardRankDomainMax = teams.length - 6;
 
+  // ワイルドカード順位表（「順位表」タブ）: 最新スナップショット時点で地区4位以下の
+  // チームを、既存のタイブレークロジック（rankStandingsTeams、全体順位rankに反映済み）の
+  // 順序のまま抽出する。rankは全チーム間の一貫した全順序のため、その部分集合を
+  // rank昇順に並べれば「プール内だけで見たタイブレーク順」と同じ結果になる
+  // （プール内相対順位を1から振り直す必要はない）。
+  // 表示可否の判定はワイルドカードグラフと同じ基準（2月のバイウィーク明け以降）を流用する:
+  // - 進行中のシーズンでバイウィーク前: 非表示（案内メッセージ）
+  // - 進行中のシーズンでバイウィーク後、または既に終了したシーズン: 最新スナップショットを表示
+  //   （終了済みシーズンは最新スナップショット＝最終日のため、この基準だけで両ケースを扱える）
+  const wildcardStandingsEligible =
+    wildcardApplicable && wildcardCutoffDate !== null && latest.date >= wildcardCutoffDate;
+  const wildcardStandingsRows = wildcardStandingsEligible
+    ? [...teams]
+        .filter(isInWildcardPool)
+        .sort((a, b) => a.rank - b.rank)
+        .map(rowFor)
+    : [];
+
   return (
     <div>
       <h1>順位表</h1>
@@ -508,6 +526,27 @@ export function StandingsPage({ season }: { season: string }) {
                   </div>
                 )}
           </div>
+
+          {wildcardApplicable && (
+            <>
+              <h2>ワイルドカード順位表</h2>
+              {wildcardStandingsEligible ? (
+                <div className="table-scroll">
+                  <SortableTable
+                    columns={divisionStandingsColumns}
+                    rows={wildcardStandingsRows}
+                    rowKey={(t) => t.teamId}
+                    defaultSortKey="rank"
+                    defaultSortDir="asc"
+                    linkTo={(t) => `/teams/${t.teamId}`}
+                    rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
+                  />
+                </div>
+              ) : (
+                <p className="empty-message">シーズン終盤（2月のバイウィーク明け以降）に表示されます。</p>
+              )}
+            </>
+          )}
 
           {divisionStandingsGroups.length > 0 && (
             <>
