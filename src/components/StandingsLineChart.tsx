@@ -73,6 +73,11 @@ export function StandingsLineChart({
           <YAxis
             reversed={reversed}
             allowDecimals={!reversed}
+            // 順位グラフ（reversed）はrechartsの自動目盛り丸め（domain未指定時の[0, 'auto']）に
+            // 任せると、実際のチーム数を超えた「きりのいい」上限（例: 13チームなのに16位まで）
+            // まで軸が伸びてしまう。順位は1〜チーム数の範囲に収まることが自明なため、domainを
+            // 明示的に指定して実データの範囲ちょうどに固定する
+            domain={reversed ? [1, Math.max(teams.length, 1)] : undefined}
             tick={{ fontSize: 11 }}
             tickLine={false}
             axisLine={false}
