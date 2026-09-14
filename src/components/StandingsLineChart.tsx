@@ -42,6 +42,13 @@ function fallbackColor(index: number, total: number): string {
 
 const LOGO_SIZE = 40;
 
+// 末端ロゴが同値で重なった際、順位が下のチームを少しずつ左へずらして視認できるようにする
+// 1段あたりのオフセット量（px）。左方向を選んだ理由: 末端ロゴは常にグラフ右端（プロット領域の
+// 右端）に描画されるため、右へずらすと右余白を超えてはみ出す恐れがある。上下方向も、順位グラフの
+// 1位（プロット領域の最上端）付近では上余白を超える恐れがある。左方向ならプロット領域の内側に
+// 十分な余白があり、どの位置でもはみ出しにくい
+const TIE_OFFSET_STEP = 10;
+
 export function StandingsLineChart({
   title,
   data,
@@ -71,6 +78,39 @@ export function StandingsLineChart({
     return result;
   }, [data, teams]);
 
+  // 各チームの色を、teams配列の並び順（呼び出し側が渡す「現在の順位が良い順」）を単一の
+  // 情報源として決める。下でLineのSVG描画順（＝重なりの手前/奥）をteams配列と逆順に
+  // するため、色・Legendの表示順はこのMapを介して元の並び順のまま保つ
+  const colorByTeamId = useMemo(() => {
+    const m = new Map<string, string>();
+    teams.forEach((t, i) => m.set(t.teamId, teamColors?.[t.teamId]?.primary ?? fallbackColor(i, teams.length)));
+    return m;
+  }, [teams, teamColors]);
+
+  // 末端（＝lastValidIndexByTeamの位置）の日付・値がどちらも一致するチーム同士を「同着」として
+  // グループ化し、グループ内での段階（0, 1, 2...）を割り当てる。teams配列を順にスキャンする
+  // ため、各グループの0番目は必ず「現在の順位が最も良いチーム」になる。0番目はロゴ位置を
+  // ずらさずそのまま描画し、1番目以降は段階に応じて少しずつ左へオフセットする（同値のロゴ同士が
+  // 完全に重なって下のチームが一切見えなくなるのを防ぐ）
+  const tieOffsetByTeam = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const t of teams) {
+      const idx = lastValidIndexByTeam.get(t.teamId);
+      if (idx === undefined) continue;
+      const v = data[idx]![t.teamId];
+      if (v === undefined || v === null || Number.isNaN(v as number)) continue;
+      const key = `${idx}:${v}`;
+      const list = groups.get(key);
+      if (list) list.push(t.teamId);
+      else groups.set(key, [t.teamId]);
+    }
+    const offsets = new Map<string, number>();
+    for (const list of groups.values()) {
+      list.forEach((teamId, i) => offsets.set(teamId, i));
+    }
+    return offsets;
+  }, [teams, data, lastValidIndexByTeam]);
+
   const [failedLogos, setFailedLogos] = useState<Set<string>>(new Set());
   const markLogoFailed = (teamId: string) => {
     setFailedLogos((prev) => (prev.has(teamId) ? prev : new Set(prev).add(teamId)));
@@ -80,7 +120,10 @@ export function StandingsLineChart({
     <div className="standings-chart">
       <h3>{title}</h3>
       <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={data} margin={{ top: 8, right: 24, bottom: 8, left: 0 }}>
+        {/* topマージンはロゴ半径（LOGO_SIZE/2）分以上確保する。順位グラフの1位は
+            プロット領域の最上端ちょうどに位置するため、これが無いとロゴの上部がプロット領域の
+            外（＝見切れる位置）にはみ出してしまう */}
+        <LineChart data={data} margin={{ top: LOGO_SIZE / 2 + 8, right: 24, bottom: 8, left: 0 }}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
           <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} minTickGap={24} />
           <YAxis
@@ -103,10 +146,24 @@ export function StandingsLineChart({
             contentStyle={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--fg)" }}
             labelStyle={{ color: "var(--fg)" }}
           />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          {teams.map((t, i) => {
-            const color = teamColors?.[t.teamId]?.primary ?? fallbackColor(i, teams.length);
+          {/* Legendはteams配列（現在の順位が良い順）そのままの表示順にするため、明示的な
+              payloadを渡す（下のLine描画順とは独立させる） */}
+          <Legend
+            wrapperStyle={{ fontSize: 11 }}
+            payload={teams.map((t) => ({
+              value: teamShortName(t.teamId, t.teamName),
+              type: "line" as const,
+              color: colorByTeamId.get(t.teamId) ?? "var(--fg)",
+            }))}
+          />
+          {/* 末端ロゴの重なり順（同値の場合に順位が上のチームを手前に表示する）を制御するため、
+              teams配列を反転させてLineの描画順（＝SVG内の記述順＝重なりの手前/奥）を逆にする。
+              teams配列は常に「現在の順位が良い順」で渡される前提のため、これにより順位が良い
+              チームほど後から描画され、他のチームより手前（視覚的に上）に表示される */}
+          {[...teams].reverse().map((t) => {
+            const color = colorByTeamId.get(t.teamId) ?? "var(--fg)";
             const lastIndex = lastValidIndexByTeam.get(t.teamId);
+            const tieOffset = tieOffsetByTeam.get(t.teamId) ?? 0;
             return (
               <Line
                 key={t.teamId}
@@ -119,11 +176,12 @@ export function StandingsLineChart({
                   if (index !== lastIndex || cx === undefined || cy === undefined) {
                     return <circle key={`${t.teamId}-dot-${index}`} cx={cx} cy={cy} r={0} fill="none" />;
                   }
+                  const dotX = cx - tieOffset * TIE_OFFSET_STEP;
                   if (failedLogos.has(t.teamId)) {
                     return (
                       <circle
                         key={`${t.teamId}-dot-${index}`}
-                        cx={cx}
+                        cx={dotX}
                         cy={cy}
                         r={4}
                         fill={color}
@@ -135,7 +193,7 @@ export function StandingsLineChart({
                     <image
                       key={`${t.teamId}-logo`}
                       href={teamLogoUrl(t.teamId)}
-                      x={cx - LOGO_SIZE / 2}
+                      x={dotX - LOGO_SIZE / 2}
                       y={cy - LOGO_SIZE / 2}
                       width={LOGO_SIZE}
                       height={LOGO_SIZE}
