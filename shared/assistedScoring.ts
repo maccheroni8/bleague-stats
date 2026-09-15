@@ -15,9 +15,20 @@
 // 得点イベント側（マッチ対象）はActionCD1∈{1,3,4,7}（3P成功・2P成功（外/内）・FT成功）。
 // FT成功を含めているのは一見不自然だが（フリースロー自体はアシストされない）、実データ調査で
 // 「シュートファウルでフリースローに切り替わった際、パスを出した選手にアシストが記録され、
-// その"アシスト"イベントが1本目と2本目のフリースローの間に挿入される」という一貫したパターンを
-// 確認したため（B.LEAGUE公式の集計仕様とみられる。得点イベント側のPlayTextにも
-// 「シュートファウル」タグが付いており、シュート試投がファウルに置き換わった状況と整合する）。
+// その"アシスト"イベントが（複数本のフリースローのうち）最初に成功した1本の直後に挿入される」
+// という一貫したパターンを確認したため（B.LEAGUE公式の集計仕様とみられる。得点イベント側の
+// PlayTextにも「シュートファウル」タグが付いており、シュート試投がファウルに置き換わった状況と
+// 整合する）。
+//
+// 【2026-09-15追加】2本・3本のフリースローが絡むシュートファウルでは、公式データ上アシスト
+// イベントは1回しか記録されない（後方スキャンで直前の1本だけが拾われる）が、実データ調査で
+// 「同じ被ファウル選手が続けて成功させた2本目・3本目のフリースローも、同じ1回のアシストに
+// 起因する得点である」ことを確認した（例: 1本目成功→アシスト→2本目成功、1本目失敗→2本目成功
+// →アシスト→3本目成功）。そのため、後方スキャンでマッチした得点がFT成功だった場合に限り、
+// アシストイベントの直後からも前方スキャンを行い、同一選手・同一チーム・同一ピリオドで続く
+// フリースロー（管理系イベントは同様にスキップ）のうち成功したものを同じアシストへ追加で
+// 紐付ける。FG成功（3P/2P）へのアシストやアンドワンのボーナスFTはこの前方スキャンの対象外
+// （後方マッチがFT成功のときのみ発火するため、既存の後方スキャンの挙動には影響しない）。
 //
 // マッチに失敗したアシストイベント（全体の0.12%以下、既知のデータ品質問題に起因）は、
 // 得点との紐付け無しとして単純にスキップする（無理に処理しない）。
@@ -30,6 +41,9 @@ import type { PlayByPlayEvent } from "./types.ts";
 const MADE_SCORE_CODES = new Set([1, 3, 4, 7]);
 const SKIPPABLE_CODES = new Set([16, 22, 84, 85, 86, 87, 88]);
 const MAX_BACKWARD_STEPS = 8;
+const MAX_FORWARD_STEPS = 8;
+const FT_MADE_CD = 7;
+const FT_MISS_CD = 8;
 
 export interface AssistedScoringCounts {
   assisted2m: number;
@@ -71,6 +85,29 @@ export function computeAssistedScoring(playByPlays: PlayByPlayEvent[]): Assisted
   const pairs = new Map<string, AssistPair>();
   const byTeam = new Map<string, AssistedScoringCounts>();
 
+  const recordMatch = (
+    assisterId: string,
+    scorerId: string,
+    teamId: string | null,
+    kind: keyof AssistedScoringCounts,
+  ): void => {
+    const scorerEntry = byScorer.get(scorerId) ?? { ...ZERO_ASSISTED };
+    scorerEntry[kind] += 1;
+    byScorer.set(scorerId, scorerEntry);
+
+    const pairKey = `${assisterId}:${scorerId}`;
+    const pairEntry = pairs.get(pairKey) ?? { assisterId, scorerId, count: 0, ...ZERO_ASSISTED };
+    pairEntry.count += 1;
+    pairEntry[kind] += 1;
+    pairs.set(pairKey, pairEntry);
+
+    if (teamId) {
+      const teamEntry = byTeam.get(teamId) ?? { ...ZERO_ASSISTED };
+      teamEntry[kind] += 1;
+      byTeam.set(teamId, teamEntry);
+    }
+  };
+
   for (let i = 0; i < playByPlays.length; i++) {
     const assistEvent = playByPlays[i];
     if (!assistEvent || assistEvent.ActionCD1 !== 12 || !assistEvent.PlayerID1) continue;
@@ -85,20 +122,34 @@ export function computeAssistedScoring(playByPlays: PlayByPlayEvent[]): Assisted
       if (kind) {
         if (candidate.TeamID === assistEvent.TeamID && candidate.Period === assistEvent.Period && candidate.PlayerID1) {
           const scorerId = candidate.PlayerID1;
-          const scorerEntry = byScorer.get(scorerId) ?? { ...ZERO_ASSISTED };
-          scorerEntry[kind] += 1;
-          byScorer.set(scorerId, scorerEntry);
+          recordMatch(assisterId, scorerId, assistEvent.TeamID, kind);
 
-          const pairKey = `${assisterId}:${scorerId}`;
-          const pairEntry = pairs.get(pairKey) ?? { assisterId, scorerId, count: 0, ...ZERO_ASSISTED };
-          pairEntry.count += 1;
-          pairEntry[kind] += 1;
-          pairs.set(pairKey, pairEntry);
-
-          if (assistEvent.TeamID) {
-            const teamEntry = byTeam.get(assistEvent.TeamID) ?? { ...ZERO_ASSISTED };
-            teamEntry[kind] += 1;
-            byTeam.set(assistEvent.TeamID, teamEntry);
+          // シュートファウルで2本・3本のフリースローが絡む場合、成功した最初の1本の直後に
+          // アシストイベントが挿入され、後続のフリースローはアシストイベントより後ろに
+          // 位置するため後方スキャンでは拾えない。同一選手・同一チーム・同一ピリオドで続く
+          // フリースローを前方スキャンし、成功分を同じアシストへ追加で紐付ける
+          // （ファイル冒頭のコメント参照）。
+          if (kind === "assistedFtm") {
+            let k = i + 1;
+            let forwardSteps = 0;
+            while (k < playByPlays.length && forwardSteps < MAX_FORWARD_STEPS) {
+              const next = playByPlays[k];
+              if (!next) break;
+              if (next.ActionCD1 === FT_MADE_CD || next.ActionCD1 === FT_MISS_CD) {
+                const sameTrip =
+                  next.TeamID === assistEvent.TeamID && next.Period === assistEvent.Period && next.PlayerID1 === scorerId;
+                if (!sameTrip) break;
+                if (next.ActionCD1 === FT_MADE_CD) {
+                  recordMatch(assisterId, scorerId, assistEvent.TeamID, "assistedFtm");
+                }
+                k++;
+                forwardSteps++;
+                continue;
+              }
+              if (!SKIPPABLE_CODES.has(next.ActionCD1)) break;
+              k++;
+              forwardSteps++;
+            }
           }
         }
         break;
