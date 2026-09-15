@@ -1,5 +1,6 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
+import { teamShortName } from "../../shared/teamNames";
 import type { TeamSummary } from "../../shared/types";
 
 interface ForeignPlayerCourtTimeChartProps {
@@ -12,6 +13,7 @@ const BUCKET_COLORS = ["#c4c4c4", "#7cc4f7", "#1f78c1", "#0b3d7a"] as const;
 interface ChartRow {
   teamId: string;
   teamName: string;
+  teamShort: string;
   totalSeconds: number;
   seconds: [number, number, number, number];
   pct: [number, number, number, number];
@@ -35,6 +37,7 @@ export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeCha
       return {
         teamId: t.teamId,
         teamName: t.teamName,
+        teamShort: teamShortName(t.teamId, t.teamName),
         totalSeconds: total,
         seconds,
         pct,
@@ -67,8 +70,8 @@ export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeCha
           />
           <YAxis
             type="category"
-            dataKey="teamName"
-            width={92}
+            dataKey="teamShort"
+            width={64}
             tick={{ fontSize: 11 }}
             tickLine={false}
             axisLine={false}
@@ -97,7 +100,7 @@ function ForeignCountTooltip({ active, payload }: { active?: boolean; payload?: 
   const row = payload[0]!.payload;
   return (
     <div className="foreign-count-tooltip">
-      <div className="foreign-count-tooltip-team">{row.teamName}</div>
+      <div className="foreign-count-tooltip-team">{row.teamShort}</div>
       {BUCKET_LABELS.map((label, i) => (
         <div key={label} className="foreign-count-tooltip-row">
           <span className="foreign-count-tooltip-swatch" style={{ background: BUCKET_COLORS[i] }} />
