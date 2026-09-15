@@ -114,6 +114,7 @@ import {
 } from "../lib/situational";
 import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "./ComparePage";
+import { computeTopRecordEntries, type TopRecordEntry } from "../lib/topRecords";
 
 /** 試合詳細ページのボックススコア列定義（BoxscoreColumn）を、試合ログテーブル用のColumnに変換する */
 function toGameLogColumns(tabKey: BoxscoreTabKey): Column<PlayerGameBoxscoreRow>[] {
@@ -394,6 +395,12 @@ interface CareerHighDef {
    * 一覧からは除外する（DESIGN.md参照。ユーザー確認済み）。デフォルトはtrue
    */
   worstEligible?: boolean;
+  /**
+   * キャリアハイのトップ10展開（Batch 3、2026-09-16）の対象にするか。%系の指標は
+   * 低試投数の1試合で極端な値（1/1=100%等）が上位に来やすく、トップ◯の一覧としても
+   * 意味を持ちにくいため対象から除外する。デフォルトはtrue
+   */
+  topNEligible?: boolean;
 }
 
 function effTotalsOfGame(g: PlayerGameLog) {
@@ -426,7 +433,7 @@ const CAREER_HIGH_STATS: CareerHighDef[] = [
   { key: "pts", label: "PTS", value: (g) => g.pts },
   { key: "fgm", label: "FGM", value: (g) => g.fgm },
   { key: "fga", label: "FGA", value: (g) => g.fga },
-  { key: "fgPct", label: "FG%", value: (g) => safeDiv(g.fgm, g.fga), format: formatPct, worstEligible: false },
+  { key: "fgPct", label: "FG%", value: (g) => safeDiv(g.fgm, g.fga), format: formatPct, worstEligible: false, topNEligible: false },
   { key: "2pm", label: "2PM", value: (g) => g.fgm - g.tpm },
   { key: "2pa", label: "2PA", value: (g) => g.fga - g.tpa },
   {
@@ -435,19 +442,21 @@ const CAREER_HIGH_STATS: CareerHighDef[] = [
     value: (g) => safeDiv(g.fgm - g.tpm, g.fga - g.tpa),
     format: formatPct,
     worstEligible: false,
+    topNEligible: false,
   },
   { key: "tpm", label: "3PM", value: (g) => g.tpm },
   { key: "tpa", label: "3PA", value: (g) => g.tpa },
-  { key: "tpPct", label: "3P%", value: (g) => safeDiv(g.tpm, g.tpa), format: formatPct, worstEligible: false },
+  { key: "tpPct", label: "3P%", value: (g) => safeDiv(g.tpm, g.tpa), format: formatPct, worstEligible: false, topNEligible: false },
   { key: "ftm", label: "FTM", value: (g) => g.ftm },
   { key: "fta", label: "FTA", value: (g) => g.fta },
-  { key: "ftPct", label: "FT%", value: (g) => safeDiv(g.ftm, g.fta), format: formatPct, worstEligible: false },
+  { key: "ftPct", label: "FT%", value: (g) => safeDiv(g.ftm, g.fta), format: formatPct, worstEligible: false, topNEligible: false },
   {
     key: "efgPct",
     label: "eFG%",
     value: (g) => efgPct(g.fgm, g.tpm, g.fga),
     format: formatPct,
     worstEligible: false,
+    topNEligible: false,
   },
   {
     key: "tsPct",
@@ -455,6 +464,7 @@ const CAREER_HIGH_STATS: CareerHighDef[] = [
     value: (g) => tsPct(g.pts, g.fga, g.fta),
     format: formatPct,
     worstEligible: false,
+    topNEligible: false,
   },
   { key: "oreb", label: "OR", value: (g) => g.oreb },
   { key: "dreb", label: "DR", value: (g) => g.dreb },
@@ -697,6 +707,22 @@ export function PlayerDetailPage({ season }: { season: string }) {
   );
   const toggleCareerTieCard = (key: string) => {
     setExpandedCareerTieCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  // キャリアハイの項目名クリックで展開するトップ10（Batch 3、2026-09-16）の開閉状態。
+  // 既存の「他◯試合」展開（expandedCareerTieCards、同値タイの他試合展開）とは別の動線のため
+  // 独立したSetで管理する
+  const [expandedTopNCareerCards, setExpandedTopNCareerCards] = usePageState<Set<string>>(
+    pk("expandedTopNCareerCards"),
+    () => new Set(),
+  );
+  const toggleTopNCareerCard = (key: string) => {
+    setExpandedTopNCareerCards((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -1258,8 +1284,18 @@ export function PlayerDetailPage({ season }: { season: string }) {
       if (bestValue === null) return null;
       const matches = sortGamesByDateDesc(allGames.filter((g) => def.value(g) === bestValue));
       const [game, ...otherGames] = matches;
-      return { ...def, game, otherGames, display: def.format ? def.format(bestValue) : String(bestValue) };
-    }).filter((r): r is CareerHighDef & { game: CareerHighGame; otherGames: CareerHighGame[]; display: string } => r !== null);
+      const topEntries = def.topNEligible === false ? [] : computeTopRecordEntries(allGames, def.value, false);
+      return { ...def, game, otherGames, topEntries, display: def.format ? def.format(bestValue) : String(bestValue) };
+    }).filter(
+      (
+        r,
+      ): r is CareerHighDef & {
+        game: CareerHighGame;
+        otherGames: CareerHighGame[];
+        topEntries: TopRecordEntry<CareerHighGame>[];
+        display: string;
+      } => r !== null,
+    );
   }, [careerCountTotalsSource, careerGameTypeFilter]);
 
   // 「キャリアワースト」: %系の指標・AST/TOV（worstEligible: false）を除いた項目について、
@@ -2651,6 +2687,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     otherGames={h.otherGames}
                     expandedKeys={expandedCareerTieCards}
                     onToggle={toggleCareerTieCard}
+                    topEntries={h.topEntries}
+                    format={h.format}
+                    topNExpandedKeys={expandedTopNCareerCards}
+                    onToggleTopN={toggleTopNCareerCard}
                   />
                 ))}
                 {careerTotal && (
@@ -3138,7 +3178,9 @@ function StatTile({ label, value, rank }: { label: string; value: string; rank?:
 
 /**
  * キャリアハイ/ワーストの1項目カード。同値の試合が複数ある場合、代表試合（最新）を主表示にし、
- * 残りは「他◯試合」ボタンで展開できるようにする（日付・対戦カードの一覧、各試合は試合詳細へリンク）
+ * 残りは「他◯試合」ボタンで展開できるようにする（日付・対戦カードの一覧、各試合は試合詳細へリンク）。
+ * `topEntries`が渡された場合（現状はキャリアハイのみ、Batch 3・2026-09-16）、項目名自体を
+ * クリックするとトップ10（同値タイの末尾は全員含む）が別途展開できる。デフォルトは非表示
  */
 function CareerHighCard({
   tieKey,
@@ -3148,6 +3190,10 @@ function CareerHighCard({
   otherGames,
   expandedKeys,
   onToggle,
+  topEntries = [],
+  format,
+  topNExpandedKeys,
+  onToggleTopN,
 }: {
   tieKey: string;
   label: string;
@@ -3156,11 +3202,28 @@ function CareerHighCard({
   otherGames: CareerHighGame[];
   expandedKeys: Set<string>;
   onToggle: (key: string) => void;
+  topEntries?: TopRecordEntry<CareerHighGame>[];
+  format?: (v: number) => string;
+  topNExpandedKeys?: Set<string>;
+  onToggleTopN?: (key: string) => void;
 }) {
   const expanded = expandedKeys.has(tieKey);
+  const topNExpanded = topNExpandedKeys?.has(tieKey) ?? false;
+  const topNAvailable = topEntries.length > 1 && !!onToggleTopN;
   return (
     <div className="career-high-card">
-      <div className="career-high-label">{label}</div>
+      {topNAvailable ? (
+        <button
+          type="button"
+          className="career-high-label career-high-label-clickable"
+          onClick={() => onToggleTopN(tieKey)}
+        >
+          {label}
+          {topNExpanded ? " ▲" : " ▼"}
+        </button>
+      ) : (
+        <div className="career-high-label">{label}</div>
+      )}
       <div className="career-high-value">{display}</div>
       <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}`} className="career-high-game-link">
         {game.date}　{game.isHome ? "vs" : "@"}
@@ -3184,6 +3247,24 @@ function CareerHighCard({
             </ul>
           )}
         </>
+      )}
+      {topNAvailable && topNExpanded && (
+        <table className="career-top-n-table">
+          <tbody>
+            {topEntries.map((e) => (
+              <tr key={`${e.rank}-${e.game.scheduleKey}`}>
+                <td>{e.rank}</td>
+                <td>{format ? format(e.value) : String(e.value)}</td>
+                <td>
+                  <RouterLink to={`/games/${e.game.scheduleKey}?season=${e.game.season}`} className="career-high-game-link">
+                    {e.game.date}　{e.game.isHome ? "vs" : "@"}
+                    {e.game.opponentTeamName}
+                  </RouterLink>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

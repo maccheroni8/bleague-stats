@@ -651,6 +651,60 @@ table.stats-table tr.situational-group-heading td {
   gap: 4px;
 }
 
+/* トップ10展開（キャリアハイ/クラブレコード、Batch 3）の項目名クリック用。既存の
+   .career-high-labelと同じ見た目のまま、ボタンとしてのデフォルトスタイルだけをリセットする */
+.career-high-label-clickable {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0;
+  margin-bottom: 4px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.career-high-label-clickable:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+
+.career-top-n-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+  font-size: 12px;
+}
+
+.career-top-n-table td {
+  padding: 2px 4px 2px 0;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.career-top-n-table td:first-child {
+  padding-left: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.career-top-n-table td:nth-child(2) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+.career-top-n-table td:last-child {
+  width: 100%;
+  white-space: normal;
+}
+
+.career-top-n-table .career-high-game-link {
+  display: inline;
+}
+
 .table-scroll {
   overflow-x: auto;
   border: 1px solid var(--border);

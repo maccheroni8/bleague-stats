@@ -130,6 +130,7 @@ import {
   sumShotTypeCounts,
 } from "../lib/shotTypeBreakdown";
 import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "./ComparePage";
+import { computeTopRecordEntries, type TopRecordEntry } from "../lib/topRecords";
 
 // 「シューティング」セクションの平均/合計切り替え。個人詳細ページと同じ2択のみ
 const DISPLAY_MODE_TOGGLE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
@@ -1886,6 +1887,7 @@ interface TeamRecordDef {
   worstEligible?: boolean;
   filter?: (g: TeamRecordGame) => boolean;
   lowerIsBetter?: boolean;
+  topNEligible?: boolean;
 }
 
 const TEAM_RECORD_PCT_FORMATS: Partial<Record<string, (v: number) => string>> = {
@@ -2197,6 +2199,21 @@ export function TeamDetailPage({ season }: { season: string }) {
     });
   };
 
+  // クラブレコードの項目名クリックで展開するトップ10（Batch 3、2026-09-16）の開閉状態。
+  // 既存の「他◯試合」展開（expandedClubRecordTieCards、同値タイの他試合展開）とは別の動線
+  const [expandedTopNRecordCards, setExpandedTopNRecordCards] = usePageState<Set<string>>(
+    pk("expandedTopNRecordCards"),
+    () => new Set(),
+  );
+  const toggleTopNRecordCard = (key: string) => {
+    setExpandedTopNRecordCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   const clubRecordAllGames = useMemo<TeamRecordGame[]>(() => {
     if (!careerData) return [];
     return filterByGameType(
@@ -2216,8 +2233,19 @@ export function TeamDetailPage({ season }: { season: string }) {
       if (bestValue === null) return null;
       const matches = sortTeamRecordGamesByDateDesc(pool.filter((g) => def.value(g) === bestValue));
       const [game, ...otherGames] = matches;
-      return { ...def, game, otherGames, display: def.format ? def.format(bestValue) : String(bestValue) };
-    }).filter((r): r is TeamRecordDef & { game: TeamRecordGame; otherGames: TeamRecordGame[]; display: string } => r !== null);
+      const topEntries =
+        def.topNEligible === false ? [] : computeTopRecordEntries(pool, def.value, def.lowerIsBetter ?? false);
+      return { ...def, game, otherGames, topEntries, display: def.format ? def.format(bestValue) : String(bestValue) };
+    }).filter(
+      (
+        r,
+      ): r is TeamRecordDef & {
+        game: TeamRecordGame;
+        otherGames: TeamRecordGame[];
+        topEntries: TopRecordEntry<TeamRecordGame>[];
+        display: string;
+      } => r !== null,
+    );
   }, [clubRecordAllGames]);
 
   const clubWorsts = useMemo(() => {
@@ -3850,6 +3878,10 @@ export function TeamDetailPage({ season }: { season: string }) {
                     rank={formatLeagueRank(clubRecordRank(r.key))}
                     expandedKeys={expandedClubRecordTieCards}
                     onToggle={toggleClubRecordTieCard}
+                    topEntries={r.topEntries}
+                    format={r.format}
+                    topNExpandedKeys={expandedTopNRecordCards}
+                    onToggleTopN={toggleTopNRecordCard}
                   />
                 ))}
               </div>
@@ -4637,7 +4669,9 @@ function StatTile({ label, value, rank }: { label: string; value: string; rank?:
 
 /**
  * 「クラブレコード」タブの1試合記録カード。個人詳細ページのCareerHighCardと同じ方式
- * （同値タイの試合が複数ある場合、代表試合〔最新〕を主表示にし、残りを「他◯試合」で展開する）
+ * （同値タイの試合が複数ある場合、代表試合〔最新〕を主表示にし、残りを「他◯試合」で展開する）。
+ * `topEntries`が渡された場合（現状はクラブレコードのみ、Batch 3・2026-09-16）、項目名自体を
+ * クリックするとトップ10（同値タイの末尾は全員含む）が別途展開できる。デフォルトは非表示
  */
 function ClubRecordCard({
   tieKey,
@@ -4648,6 +4682,10 @@ function ClubRecordCard({
   rank,
   expandedKeys,
   onToggle,
+  topEntries = [],
+  format,
+  topNExpandedKeys,
+  onToggleTopN,
 }: {
   tieKey: string;
   label: string;
@@ -4659,11 +4697,28 @@ function ClubRecordCard({
   rank?: string;
   expandedKeys: Set<string>;
   onToggle: (key: string) => void;
+  topEntries?: TopRecordEntry<TeamRecordGame>[];
+  format?: (v: number) => string;
+  topNExpandedKeys?: Set<string>;
+  onToggleTopN?: (key: string) => void;
 }) {
   const expanded = expandedKeys.has(tieKey);
+  const topNExpanded = topNExpandedKeys?.has(tieKey) ?? false;
+  const topNAvailable = topEntries.length > 1 && !!onToggleTopN;
   return (
     <div className="career-high-card">
-      <div className="career-high-label">{label}</div>
+      {topNAvailable ? (
+        <button
+          type="button"
+          className="career-high-label career-high-label-clickable"
+          onClick={() => onToggleTopN(tieKey)}
+        >
+          {label}
+          {topNExpanded ? " ▲" : " ▼"}
+        </button>
+      ) : (
+        <div className="career-high-label">{label}</div>
+      )}
       <div className="career-high-value">{display}</div>
       {rank && <div className="career-high-rank">{rank}</div>}
       <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}`} className="career-high-game-link">
@@ -4688,6 +4743,24 @@ function ClubRecordCard({
             </ul>
           )}
         </>
+      )}
+      {topNAvailable && topNExpanded && (
+        <table className="career-top-n-table">
+          <tbody>
+            {topEntries.map((e) => (
+              <tr key={`${e.rank}-${e.game.scheduleKey}`}>
+                <td>{e.rank}</td>
+                <td>{format ? format(e.value) : String(e.value)}</td>
+                <td>
+                  <RouterLink to={`/games/${e.game.scheduleKey}?season=${e.game.season}`} className="career-high-game-link">
+                    {e.game.date}　{e.game.isHome ? "vs" : "@"}
+                    {e.game.opponentTeamName}
+                  </RouterLink>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
