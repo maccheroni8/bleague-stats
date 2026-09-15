@@ -2712,7 +2712,12 @@ export function TeamDetailPage({ season }: { season: string }) {
   }, [playerStatsCandidates, teamId]);
 
   // アシストペア分析（チーム版、Batch 1）: レギュラーシーズンの取得済み生データ（statsRawGames）
-  // からPlayByPlaysを集め、buildAssistPairs()（18章）をチーム全試合分合算する
+  // からPlayByPlaysを集め、buildAssistPairs()（18章）をチーム全試合分合算する。
+  // buildAssistPairsは試合全体（両チーム分）のペアを返すため、g.isHomeから該当試合の
+  // 自チーム側Boxscore（HomeBoxscores/AwayBoxscores）を特定し、assisterId・scorerIdが
+  // 両方ともそのPlayerID集合に含まれるペアだけを採用する（相手チーム内のアシスト連鎖が
+  // 混入しないようにするための修正。アシストは常にチームメイト間で成立するため、
+  // 片方だけがこのチームというケースは無い）
   const teamAssistPairs = useMemo((): AssistPair[] => {
     if (!teamId || !gameLogs) return [];
     const merged = new Map<string, AssistPair>();
@@ -2720,7 +2725,10 @@ export function TeamDetailPage({ season }: { season: string }) {
       if (g.gameType !== "regular") continue;
       const game = statsRawGames.get(g.scheduleKey);
       if (!game) continue;
+      const ownBoxscores = g.isHome ? game.raw.HomeBoxscores : game.raw.AwayBoxscores;
+      const ownPlayerIds = new Set(ownBoxscores.map((r) => r.PlayerID));
       for (const pair of buildAssistPairs(game.raw.PlayByPlays, undefined)) {
+        if (!ownPlayerIds.has(pair.assisterId) || !ownPlayerIds.has(pair.scorerId)) continue;
         const existing = merged.get(`${pair.assisterId}:${pair.scorerId}`);
         if (existing) {
           existing.count += pair.count;
