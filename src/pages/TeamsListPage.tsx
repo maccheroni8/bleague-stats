@@ -44,7 +44,7 @@ import {
 } from "../lib/playerSeasonBoxscore";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import { ForeignPlayerCourtTimeChart } from "../components/ForeignPlayerCourtTimeChart";
-import { ScoringCompositionChart, TeamFgPctBars } from "../components/ScoringCompositionChart";
+import { ScoringCompositionChart } from "../components/ScoringCompositionChart";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
@@ -460,14 +460,12 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         </>
       ) : boxTab === "scoringComposition" ? (
         <>
-          <h3>FG% / opp FG%</h3>
-          <TeamFgPctBars teams={teams ?? []} />
           <h3>得点構成（総得点に占める割合）</h3>
           <ScoringCompositionChart teams={teams ?? []} mode="own" />
           <h3>失点構成（このチームが奪われた得点の割合）</h3>
           <ScoringCompositionChart teams={teams ?? []} mode="opponent" />
           <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。得点構成のペイント内得点はPlayByPlaysのタグ集計（全シーズン対応）、ミッドレンジ得点は「2P得点−ペイント内得点」として算出しているため、ショットチャート座標のseason制約は受けない
+            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。得点構成のペイント内得点はPlayByPlaysのタグ集計（全シーズン対応）、ミッドレンジ得点は「2P得点−ペイント内得点」として算出しているため、ショットチャート座標のseason制約は受けない。各セグメントの数値は割合(%)と1試合あたり平均得点。見出しボタンでカテゴリ別の並び替えができる（デフォルトは平均得点が多い順）
           </p>
         </>
       ) : gameLogsLoading || !gameLogsByTeam ? (
