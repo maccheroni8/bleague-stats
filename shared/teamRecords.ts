@@ -39,6 +39,11 @@ export interface TeamCareerTotals {
   foulsDrawn: number;
   dunks: number;
   homeAttendance: number;
+  /** 国籍区分別得点（日本人/外国籍/帰化選手/アジア特別枠の4分割、Batch 5） */
+  japanesePoints: number;
+  foreignPoints: number;
+  naturalizedPoints: number;
+  asianQuotaPoints: number;
 }
 
 export function buildTeamCareerTotals(logs: TeamGameLog[]): TeamCareerTotals {
@@ -70,6 +75,10 @@ export function buildTeamCareerTotals(logs: TeamGameLog[]): TeamCareerTotals {
     foulsDrawn: 0,
     dunks: 0,
     homeAttendance: 0,
+    japanesePoints: 0,
+    foreignPoints: 0,
+    naturalizedPoints: 0,
+    asianQuotaPoints: 0,
   };
   for (const g of logs) {
     totals.wins += g.win ? 1 : 0;
@@ -99,6 +108,10 @@ export function buildTeamCareerTotals(logs: TeamGameLog[]): TeamCareerTotals {
     totals.foulsDrawn += g.foulsDrawn;
     totals.dunks += g.dunks;
     if (g.isHome && g.attendance !== undefined) totals.homeAttendance += g.attendance;
+    totals.japanesePoints += g.japanesePoints;
+    totals.foreignPoints += g.foreignPoints;
+    totals.naturalizedPoints += g.naturalizedPoints;
+    totals.asianQuotaPoints += g.asianQuotaPoints;
   }
   return totals;
 }
@@ -153,6 +166,10 @@ export const CAREER_TOTAL_DEFS: CareerTotalDef[] = [
   { key: "foulsDrawn", label: "ファウルドローン", value: (t) => t.foulsDrawn },
   { key: "dunks", label: "ダンク", value: (t) => t.dunks },
   { key: "homeAttendance", label: "ホーム来場者数", value: (t) => t.homeAttendance },
+  { key: "japanesePoints", label: "日本人得点", value: (t) => t.japanesePoints },
+  { key: "foreignPoints", label: "外国籍得点", value: (t) => t.foreignPoints },
+  { key: "naturalizedPoints", label: "帰化選手得点", value: (t) => t.naturalizedPoints },
+  { key: "asianQuotaPoints", label: "アジア特別枠得点", value: (t) => t.asianQuotaPoints },
 ];
 
 /**
@@ -226,6 +243,10 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
     value: (g) => g.attendance ?? 0,
     filter: (g) => g.isHome && g.attendance !== undefined,
   },
+  { key: "japanesePoints", label: "日本人得点", value: (g) => g.japanesePoints },
+  { key: "foreignPoints", label: "外国籍得点", value: (g) => g.foreignPoints },
+  { key: "naturalizedPoints", label: "帰化選手得点", value: (g) => g.naturalizedPoints },
+  { key: "asianQuotaPoints", label: "アジア特別枠得点", value: (g) => g.asianQuotaPoints },
 ];
 
 /**

@@ -444,6 +444,25 @@ export interface TeamAdvancedStats {
   /** 相手チームの外国籍+帰化+アジア特別枠選手の得点（1試合あたり平均） */
   opponentInternationalPointsPerGame: number;
   /**
+   * 外国籍選手のみの得点（1試合あたり平均、帰化選手・アジア特別枠を含まない3分割版）。
+   * internationalPointsPerGame（外国籍+帰化+アジア特別枠の2分割版）とは別集計
+   */
+  foreignPointsPerGame: number;
+  /** 帰化選手+アジア特別枠選手の得点（1試合あたり平均） */
+  naturalizedOrAsianPointsPerGame: number;
+  /** 相手チームの外国籍選手のみの得点（1試合あたり平均） */
+  opponentForeignPointsPerGame: number;
+  /** 相手チームの帰化選手+アジア特別枠選手の得点（1試合あたり平均） */
+  opponentNaturalizedOrAsianPointsPerGame: number;
+  /** 総得点に占める日本人/外国籍/帰化+アジア特別枠それぞれの得点の割合（%、0〜100。シーズン合計値の比率） */
+  japanesePointsSharePct: number;
+  foreignPointsSharePct: number;
+  naturalizedOrAsianPointsSharePct: number;
+  /** 失点（相手チームの得点）に占める日本人/外国籍/帰化+アジア特別枠それぞれの割合（%、0〜100） */
+  opponentJapanesePointsSharePct: number;
+  opponentForeignPointsSharePct: number;
+  opponentNaturalizedOrAsianPointsSharePct: number;
+  /**
    * 得点構成（Phase H10）: 総得点に占める3P/ペイント内/ミッドレンジ/フリースローそれぞれの
    * 得点の割合（%、0〜100。4つの合計は常に100になる）。シーズン合計値の比率
    * （benchPointsSharePct等と同じ、1試合ごとの比率の平均ではない）。ペイント内得点は
@@ -803,6 +822,25 @@ export interface TeamGameLog {
    */
   benchPoints: number;
   starterPoints: number;
+  /**
+   * 国籍区分別得点（日本人/外国籍/帰化orアジア特別枠の3分割、Batch 2）。benchPoints/
+   * starterPointsと同じくレギュラー/プレーオフを問わず全試合について算出し、
+   * 全チームスタッツ「スコアリング」タブ等でのシチュエーション別フィルタ再集計に使う
+   */
+  japanesePoints: number;
+  foreignPoints: number;
+  naturalizedOrAsianPoints: number;
+  opponentJapanesePoints: number;
+  opponentForeignPoints: number;
+  opponentNaturalizedOrAsianPoints: number;
+  /**
+   * 帰化選手/アジア特別枠を独立に分けた4分割版（Batch 5、通算成績/クラブレコード用）。
+   * naturalizedOrAsianPoints（3分割版、既存）= naturalizedPoints + asianQuotaPoints
+   */
+  naturalizedPoints: number;
+  asianQuotaPoints: number;
+  opponentNaturalizedPoints: number;
+  opponentAsianQuotaPoints: number;
   /** クラブレコード「被記録」（Phase H8）用の相手チームのプレータイプ内訳・ダンク数。
    * 同じ試合のpitpByTeam等から対戦相手側のteamIdを引くだけで求まる（新規のPBP走査は不要） */
   opponentPt2in: number;
@@ -1295,6 +1333,29 @@ export interface LeagueTeamRankingsFile {
   clubRecordAway: Record<LeagueRankingGameType, LeagueTeamRankingStatTable>;
   seasonSpecialHome: Record<LeagueRankingGameType, Record<"wins" | "streak", Record<string, LeagueTeamRankEntry>>>;
   seasonSpecialAway: Record<LeagueRankingGameType, Record<"wins" | "streak", Record<string, LeagueTeamRankEntry>>>;
+  /**
+   * 「B.PREMIER（旧B1）レコード」タブ用（Batch 5）。上記career/clubRecord/seasonSpecialは
+   * 「各クラブの自己ベスト値でクラブ間を順位付けする」（クラブ数上限＝最大30行）のに対し、
+   * こちらは「リーグ史上の個々の試合・シーズンの記録」をチーム横断でトップ20化したもの
+   * （同一クラブが複数回登場しうる）。競技順位方式（同値は同順位、次の順位は飛ばす）で
+   * 20位までを含む（20位タイが複数あれば20位超の行数になりうる）。対象はTEAM_RECORD_STATS・
+   * 最多勝利数/最多連勝の35項目のみ（通算成績は対象外、ホーム/アウェイ限定版も対象外）
+   */
+  clubRecordTop20: Record<LeagueRankingGameType, Record<string, LeagueRecordEntry[]>>;
+  seasonSpecialTop20: Record<LeagueRankingGameType, Record<"wins" | "streak", LeagueRecordEntry[]>>;
+}
+
+/** LeagueTeamRankingsFile.clubRecordTop20/seasonSpecialTop20の1行。クラブレコード系は
+ * 対象試合のscheduleKey/date/opponentTeamId/isHomeを持ち、シーズン記録系は持たない（season単位のため） */
+export interface LeagueRecordEntry {
+  rank: number;
+  value: number;
+  teamId: string;
+  season: string;
+  scheduleKey?: string;
+  date?: string;
+  opponentTeamId?: string;
+  isHome?: boolean;
 }
 
 // ---- data/league-player-rankings.json の保存スキーマ（個人版「歴代記録」タブ、通算成績のみ。

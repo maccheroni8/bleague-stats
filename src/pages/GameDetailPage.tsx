@@ -5,7 +5,7 @@ import { fetchGame, fetchPlayers, fetchTeamColors, fetchYahooGamePbp } from "../
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import { formatPct } from "../lib/format";
-import type { BoxscoreRow, PlayByPlayEvent, ShotTypeBreakdown } from "../../shared/types";
+import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, ShotTypeBreakdown } from "../../shared/types";
 import { KeyStatsSection } from "../components/KeyStatsSection";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
@@ -188,6 +188,44 @@ function buildGamePtsCompositionSegments(
     { key: "op", label: "OP", color: GAME_COMPOSITION_PIE_COLORS.midRange, value: midRange },
     { key: "ft", label: "FT", color: GAME_COMPOSITION_PIE_COLORS.ft, value: ft },
   ];
+}
+
+// 国籍区分別得点構成の円グラフ配色（3分割: 日本人/外国籍/帰化orアジア特別枠）
+const CLASSIFICATION_PIE_COLORS = {
+  japanese: "#5b9bd5",
+  foreign: "#e06666",
+  naturalizedOrAsian: "#93c47d",
+};
+
+/**
+ * 国籍区分別得点割合の円グラフ用データ（1試合分）。日本人/外国籍/帰化選手orアジア特別枠の
+ * 3分割。既存のボックススコア「内訳集計」（日本人選手合計/外国籍+帰化+アジア特別枠合計の
+ * 2分割）とは異なる区分のため専用に集計する。classification未定義の選手の得点はどの
+ * セグメントにも計上しない（Batch 1、既存の「参考値」注記と同じ方針。DESIGN.md参照）
+ */
+function buildGameClassificationPtsSegments(
+  rows: BoxscoreRow[],
+  classificationById: Map<string, PlayerSummary["classification"]>,
+): { segments: PieSegmentInput[]; unclassifiedPlayedCount: number } {
+  let japanese = 0;
+  let foreign = 0;
+  let naturalizedOrAsian = 0;
+  let unclassifiedPlayedCount = 0;
+  for (const r of rows) {
+    const c = classificationById.get(r.PlayerID);
+    if (c === "日本人") japanese += r.Point;
+    else if (c === "外国籍") foreign += r.Point;
+    else if (c === "帰化選手" || c === "アジア特別枠") naturalizedOrAsian += r.Point;
+    else if (r.PlayTime !== "DNP") unclassifiedPlayedCount += 1;
+  }
+  return {
+    segments: [
+      { key: "jp", label: "日本人", color: CLASSIFICATION_PIE_COLORS.japanese, value: japanese },
+      { key: "foreign", label: "外国籍", color: CLASSIFICATION_PIE_COLORS.foreign, value: foreign },
+      { key: "naturalizedOrAsian", label: "帰化/アジア", color: CLASSIFICATION_PIE_COLORS.naturalizedOrAsian, value: naturalizedOrAsian },
+    ],
+    unclassifiedPlayedCount,
+  };
 }
 
 /** ゲームリーダー拡張セクション（PTS/OREB/DREB/TREB/AST/STL/BLK/TO/2P%/3P%/FT%）の項目定義 */
@@ -633,10 +671,13 @@ export function GameDetailPage({ season }: { season: string }) {
           awayTotal={awayTotal}
           homeTeamId={game.homeTeam.id}
           awayTeamId={game.awayTeam.id}
+          homePlayers={homePlayers}
+          awayPlayers={awayPlayers}
           homeShots={homeShots}
           awayShots={awayShots}
           playByPlays={game.raw.PlayByPlays}
           shotChartSupported={shotChartSupported}
+          classificationById={classificationById}
         />
       )}
 
@@ -680,10 +721,13 @@ function GameCompositionSection({
   awayTotal,
   homeTeamId,
   awayTeamId,
+  homePlayers,
+  awayPlayers,
   homeShots,
   awayShots,
   playByPlays,
   shotChartSupported,
+  classificationById,
 }: {
   homeTeamName: string;
   awayTeamName: string;
@@ -691,16 +735,22 @@ function GameCompositionSection({
   awayTotal: BoxscoreRow;
   homeTeamId: string;
   awayTeamId: string;
+  homePlayers: BoxscoreRow[];
+  awayPlayers: BoxscoreRow[];
   homeShots: ShotEvent[];
   awayShots: ShotEvent[];
   playByPlays: PlayByPlayEvent[];
   shotChartSupported: boolean;
+  classificationById: Map<string, PlayerSummary["classification"]>;
 }) {
   const paintPointsByTeam = computePointsInPaint(playByPlays).byTeam;
   const homeFga = buildGameFgaCompositionSegments(homeTotal, homeShots, shotChartSupported);
   const awayFga = buildGameFgaCompositionSegments(awayTotal, awayShots, shotChartSupported);
   const homePts = buildGamePtsCompositionSegments(homeTotal, homeTeamId, paintPointsByTeam);
   const awayPts = buildGamePtsCompositionSegments(awayTotal, awayTeamId, paintPointsByTeam);
+  const homeClassificationPts = buildGameClassificationPtsSegments(homePlayers, classificationById);
+  const awayClassificationPts = buildGameClassificationPtsSegments(awayPlayers, classificationById);
+  const classificationUnclassifiedCount = homeClassificationPts.unclassifiedPlayedCount + awayClassificationPts.unclassifiedPlayedCount;
 
   return (
     <section className="key-stats-card">
@@ -719,6 +769,14 @@ function GameCompositionSection({
       <div className="composition-pie-row">
         <CompositionPieChart title={`${homeTeamName} 得点割合`} segments={homePts} valueDigits={0} />
         <CompositionPieChart title={`${awayTeamName} 得点割合`} segments={awayPts} valueDigits={0} />
+      </div>
+      <h4 className="composition-pie-group-title">得点構成（国籍区分）</h4>
+      <p className="page-subtitle">
+        ※現在の登録情報に基づく参考値{classificationUnclassifiedCount > 0 && `／${classificationUnclassifiedCount}名分のデータ欠落あり`}
+      </p>
+      <div className="composition-pie-row">
+        <CompositionPieChart title={`${homeTeamName} 得点割合`} segments={homeClassificationPts.segments} valueDigits={0} />
+        <CompositionPieChart title={`${awayTeamName} 得点割合`} segments={awayClassificationPts.segments} valueDigits={0} />
       </div>
     </section>
   );

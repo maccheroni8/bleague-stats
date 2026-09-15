@@ -18,7 +18,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readJson, writeJson } from "./lib/storage.ts";
 import { filterByGameType } from "../shared/gameType.ts";
 import { CAREER_TOTAL_DEFS, TEAM_RECORD_STATS, buildTeamCareerTotals, longestWinStreak } from "../shared/teamRecords.ts";
-import type { LeagueRankingGameType, LeagueTeamRankEntry, LeagueTeamRankingsFile, TeamGameLog } from "../shared/types.ts";
+import type { LeagueRankingGameType, LeagueRecordEntry, LeagueTeamRankEntry, LeagueTeamRankingsFile, TeamGameLog } from "../shared/types.ts";
 
 const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
 const GAME_TYPES: LeagueRankingGameType[] = ["regular", "playoff", "both"];
@@ -151,6 +151,112 @@ function computeCategoryRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>
   return { career, clubRecord, seasonSpecial };
 }
 
+const TOP_N = 20;
+
+type TeamGameLogWithSeason = TeamGameLog & { season: string };
+
+interface RawRecordCandidate {
+  value: number;
+  teamId: string;
+  season: string;
+  scheduleKey?: string;
+  date?: string;
+  opponentTeamId?: string;
+  isHome?: boolean;
+}
+
+/**
+ * 「B.PREMIER（旧B1）レコード」用（Batch 5）。競技順位方式（同値は同順位、次の順位は
+ * その分飛ばす）で上位20位までを返す（20位タイが複数あれば20位超の行数になりうる）。
+ * 同値のタイブレークはteamId昇順→日付/シーズン昇順で決定的にする（既存のbuildRankTable()の
+ * 「同値はteamId昇順」という方針を踏襲）
+ */
+function rankTopEntries(candidates: RawRecordCandidate[], lowerIsBetter: boolean): LeagueRecordEntry[] {
+  const sorted = [...candidates].sort((a, b) => {
+    const diff = lowerIsBetter ? a.value - b.value : b.value - a.value;
+    if (diff !== 0) return diff;
+    const teamDiff = Number(a.teamId) - Number(b.teamId);
+    if (teamDiff !== 0) return teamDiff;
+    return (a.date ?? a.season).localeCompare(b.date ?? b.season);
+  });
+  const result: LeagueRecordEntry[] = [];
+  let rank = 0;
+  let prevValue: number | null = null;
+  for (let i = 0; i < sorted.length; i++) {
+    const c = sorted[i]!;
+    if (prevValue === null || c.value !== prevValue) {
+      rank = i + 1;
+      prevValue = c.value;
+    }
+    if (rank > TOP_N) break;
+    result.push({ rank, ...c });
+  }
+  return result;
+}
+
+/**
+ * 「B.PREMIER（旧B1）レコード」タブ用（Batch 5）。career/clubRecord/seasonSpecial
+ * （既存、各クラブの自己ベスト値でクラブ間を順位付け・クラブ数上限）とは異なり、
+ * こちらは個々の試合・シーズンの記録をチーム横断でそのままトップ20化する
+ * （同一クラブが複数回登場しうる）。対象はTEAM_RECORD_STATS・最多勝利数/最多連勝のみ
+ * （通算成績・ホーム/アウェイ限定版は対象外、ユーザー指定）
+ */
+function computeTopRecords(careerDataByTeam: Map<string, TeamSeasonLogs[]>): {
+  clubRecordTop20: LeagueTeamRankingsFile["clubRecordTop20"];
+  seasonSpecialTop20: LeagueTeamRankingsFile["seasonSpecialTop20"];
+} {
+  const clubRecordTop20: LeagueTeamRankingsFile["clubRecordTop20"] = { regular: {}, playoff: {}, both: {} };
+  const seasonSpecialTop20: LeagueTeamRankingsFile["seasonSpecialTop20"] = {
+    regular: { wins: [], streak: [] },
+    playoff: { wins: [], streak: [] },
+    both: { wins: [], streak: [] },
+  };
+
+  for (const gameType of GAME_TYPES) {
+    const recordCandidates = new Map<string, RawRecordCandidate[]>();
+    const winsCandidates: RawRecordCandidate[] = [];
+    const streakCandidates: RawRecordCandidate[] = [];
+
+    for (const [teamId, seasons] of careerDataByTeam) {
+      const flat: TeamGameLogWithSeason[] = seasons.flatMap((s) => s.logs.map((g) => ({ ...g, season: s.season })));
+      const filtered = filterByGameType(flat, gameType) as TeamGameLogWithSeason[];
+
+      for (const def of TEAM_RECORD_STATS) {
+        const pool = def.filter ? filtered.filter(def.filter) : filtered;
+        for (const g of pool) {
+          const arr = recordCandidates.get(def.key) ?? [];
+          arr.push({
+            value: def.value(g),
+            teamId,
+            season: g.season,
+            scheduleKey: g.scheduleKey,
+            date: g.date,
+            opponentTeamId: g.opponentTeamId,
+            isHome: g.isHome,
+          });
+          recordCandidates.set(def.key, arr);
+        }
+      }
+
+      for (const s of seasons) {
+        const f = filterByGameType(s.logs, gameType);
+        if (f.length === 0) continue;
+        winsCandidates.push({ value: f.filter((g) => g.win).length, teamId, season: s.season });
+        streakCandidates.push({ value: longestWinStreak(f), teamId, season: s.season });
+      }
+    }
+
+    for (const def of TEAM_RECORD_STATS) {
+      const candidates = recordCandidates.get(def.key) ?? [];
+      clubRecordTop20[gameType][def.key] = rankTopEntries(candidates, def.lowerIsBetter ?? false);
+    }
+    seasonSpecialTop20[gameType].wins = rankTopEntries(winsCandidates, false);
+    seasonSpecialTop20[gameType].streak = rankTopEntries(streakCandidates, false);
+  }
+
+  return { clubRecordTop20, seasonSpecialTop20 };
+}
+
 /** careerDataByTeamの各チームの試合ログを、指定venue（ホーム/アウェイ）のみに絞り込む。
  * venue===nullはそのまま（トータル、絞り込みなし） */
 function filterCareerDataByVenue(
@@ -174,6 +280,11 @@ async function main() {
   const total = computeCategoryRankings(careerDataByTeam);
   const home = computeCategoryRankings(filterCareerDataByVenue(careerDataByTeam, "home"));
   const away = computeCategoryRankings(filterCareerDataByVenue(careerDataByTeam, "away"));
+  const { clubRecordTop20, seasonSpecialTop20 } = computeTopRecords(careerDataByTeam);
+  console.log(
+    `[B.PREMIERレコード] 得点トップ20件数(regular)=${clubRecordTop20.regular.pts?.length ?? 0} / ` +
+      `最多勝利数トップ20件数(regular)=${seasonSpecialTop20.regular.wins.length}`,
+  );
 
   for (const [label, r] of [
     ["total", total],
@@ -198,6 +309,8 @@ async function main() {
     clubRecordAway: away.clubRecord,
     seasonSpecialHome: home.seasonSpecial,
     seasonSpecialAway: away.seasonSpecial,
+    clubRecordTop20,
+    seasonSpecialTop20,
   };
 
   await writeJson(path.join(DATA_DIR, "league-team-rankings.json"), file);

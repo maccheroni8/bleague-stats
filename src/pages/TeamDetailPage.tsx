@@ -364,6 +364,30 @@ function buildPtsCompositionSegments(team: TeamSummary, perspective: "own" | "op
   ];
 }
 
+// 国籍区分別得点構成の円グラフ配色（3分割: 日本人/外国籍/帰化orアジア特別枠）
+const CLASSIFICATION_PIE_COLORS = {
+  japanese: "#5b9bd5",
+  foreign: "#e06666",
+  naturalizedOrAsian: "#93c47d",
+};
+
+/**
+ * 国籍区分別得点割合の円グラフ用データ（自チーム/相手チーム）。日本人/外国籍/帰化選手or
+ * アジア特別枠の3分割。既存のteam.advanced.japanesePointsPerGame等（Phase H8、2分割版）とは
+ * 別集計のBatch 1新規フィールド（foreignPointsPerGame/naturalizedOrAsianPointsPerGame）を使う
+ */
+function buildClassificationPtsCompositionSegments(team: TeamSummary, perspective: "own" | "opp"): PieSegmentInput[] {
+  const japanese = perspective === "own" ? team.advanced.japanesePointsPerGame : team.advanced.opponentJapanesePointsPerGame;
+  const foreign = perspective === "own" ? team.advanced.foreignPointsPerGame : team.advanced.opponentForeignPointsPerGame;
+  const naturalizedOrAsian =
+    perspective === "own" ? team.advanced.naturalizedOrAsianPointsPerGame : team.advanced.opponentNaturalizedOrAsianPointsPerGame;
+  return [
+    { key: "jp", label: "日本人", color: CLASSIFICATION_PIE_COLORS.japanese, value: japanese },
+    { key: "foreign", label: "外国籍", color: CLASSIFICATION_PIE_COLORS.foreign, value: foreign },
+    { key: "naturalizedOrAsian", label: "帰化/アジア", color: CLASSIFICATION_PIE_COLORS.naturalizedOrAsian, value: naturalizedOrAsian },
+  ];
+}
+
 /**
  * 得点構成/失点構成（Batch 4、2026-09-08）。対向バーから円グラフ形式に作り直した
  * （添付画像＝FG試投割合の円グラフと同じ形式）。FG試投構成（3P/IP/OP）・得点構成
@@ -375,6 +399,8 @@ function ScoringCompositionSection({ team, gameLogs, shotChartSupported }: { tea
   const oppFga = useMemo(() => buildFgaCompositionSegments(regularLogs, "opp", shotChartSupported), [regularLogs, shotChartSupported]);
   const ownPts = useMemo(() => buildPtsCompositionSegments(team, "own"), [team]);
   const oppPts = useMemo(() => buildPtsCompositionSegments(team, "opp"), [team]);
+  const ownClassificationPts = useMemo(() => buildClassificationPtsCompositionSegments(team, "own"), [team]);
+  const oppClassificationPts = useMemo(() => buildClassificationPtsCompositionSegments(team, "opp"), [team]);
 
   return (
     <div className="key-stats-card">
@@ -392,6 +418,12 @@ function ScoringCompositionSection({ team, gameLogs, shotChartSupported }: { tea
       <div className="composition-pie-row">
         <CompositionPieChart title="得点割合" segments={ownPts} />
         <CompositionPieChart title="opp 得点割合" segments={oppPts} />
+      </div>
+      <h4 className="composition-pie-group-title">得点構成（国籍区分）</h4>
+      <p className="page-subtitle">※現在の登録情報に基づく参考値</p>
+      <div className="composition-pie-row">
+        <CompositionPieChart title="得点割合" segments={ownClassificationPts} />
+        <CompositionPieChart title="opp 得点割合" segments={oppClassificationPts} />
       </div>
     </div>
   );
@@ -1350,6 +1382,67 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "%FT",
     format: (r, _m, _mode, p) => formatTeamSeasonPct100(r.team.advanced.ftPointsSharePct, r.team.advanced.opponentFtPointsSharePct, p),
   },
+  // Batch 2（2026-09-16）: 国籍区分別得点（日本人/外国籍/帰化orアジア特別枠の3分割）。
+  // Batch 1で追加したteam.advanced.foreignPointsPerGame等（3分割版）をそのまま使う。
+  // 既存のjapanesePointsPerGame/internationalPointsPerGame（2分割版、Misc列）とは別集計
+  {
+    key: "japanesePts3",
+    label: "日本人PTS",
+    format: (r, _m, mode, p) =>
+      formatTeamSeasonCountPerspective(
+        r.team.advanced.japanesePointsPerGame * r.team.gamesPlayed,
+        r.team.advanced.opponentJapanesePointsPerGame * r.team.gamesPlayed,
+        r.team.gamesPlayed,
+        mode,
+        p,
+      ),
+  },
+  {
+    key: "foreignPts3",
+    label: "外国籍PTS",
+    format: (r, _m, mode, p) =>
+      formatTeamSeasonCountPerspective(
+        r.team.advanced.foreignPointsPerGame * r.team.gamesPlayed,
+        r.team.advanced.opponentForeignPointsPerGame * r.team.gamesPlayed,
+        r.team.gamesPlayed,
+        mode,
+        p,
+      ),
+  },
+  {
+    key: "naturalizedOrAsianPts3",
+    label: "帰化/アジアPTS",
+    format: (r, _m, mode, p) =>
+      formatTeamSeasonCountPerspective(
+        r.team.advanced.naturalizedOrAsianPointsPerGame * r.team.gamesPlayed,
+        r.team.advanced.opponentNaturalizedOrAsianPointsPerGame * r.team.gamesPlayed,
+        r.team.gamesPlayed,
+        mode,
+        p,
+      ),
+  },
+  {
+    key: "pctjapanese3",
+    label: "%日本人PTS",
+    format: (r, _m, _mode, p) =>
+      formatTeamSeasonPct100(r.team.advanced.japanesePointsSharePct, r.team.advanced.opponentJapanesePointsSharePct, p),
+  },
+  {
+    key: "pctforeign3",
+    label: "%外国籍PTS",
+    format: (r, _m, _mode, p) =>
+      formatTeamSeasonPct100(r.team.advanced.foreignPointsSharePct, r.team.advanced.opponentForeignPointsSharePct, p),
+  },
+  {
+    key: "pctnaturalizedOrAsian3",
+    label: "%帰化/アジアPTS",
+    format: (r, _m, _mode, p) =>
+      formatTeamSeasonPct100(
+        r.team.advanced.naturalizedOrAsianPointsSharePct,
+        r.team.advanced.opponentNaturalizedOrAsianPointsSharePct,
+        p,
+      ),
+  },
   // ここから下は「自チーム/相手チームの全FGAに対する割合」（シュート選択構成比）。
   // 上記PITP%等（総得点に対する割合）とは分母が異なる別系統の指標
   {
@@ -1871,27 +1964,52 @@ function defaultTeamCompareSlots(season: string): [TeamCompareSlotState, TeamCom
 
 /**
  * 「当該シーズン成績」（チームスタッツタブ上部集計表）・「シチュエーション別成績」（チーム版）の
- * Misc/スコアリングタブ末尾に追加するベンチ/スタメン得点・国籍区分別得点の列（Batch 1）。
- * COLUMNS_BY_TAB自体（試合詳細ページ等と共有）は変更せず、この2箇所でだけ手動で追加描画する
+ * Misc/スコアリングタブ末尾に追加するベンチ/スタメン得点・国籍区分別得点の列（Batch 1・2）。
+ * COLUMNS_BY_TAB自体（試合詳細ページ等と共有）は変更せず、この2箇所でだけ手動で追加描画する。
+ * kind: "count"は自チーム/opp/+/-トグルに従う実数値、"sharePct"は常に自チームの値のみ%表示する
+ * （%BENCH PTS等と同じ既存方針。Batch 2で追加した国籍区分別%列もこの方針を踏襲）
  */
 interface TeamPointsExtraColumn {
   key: string;
   label: string;
   value: (b: TeamPointsBreakdown) => number;
+  kind: "count" | "sharePct";
 }
 
 const TEAM_POINTS_MISC_COLUMNS: TeamPointsExtraColumn[] = [
-  { key: "benchPts", label: "BENCH PTS", value: (b) => b.bench },
-  { key: "starterPts", label: "STARTER PTS", value: (b) => b.starter },
-  { key: "japanesePts", label: "日本人PTS", value: (b) => b.japanese },
-  { key: "internationalPts", label: "外国籍等PTS", value: (b) => b.international },
+  { key: "benchPts", label: "BENCH PTS", value: (b) => b.bench, kind: "count" },
+  { key: "starterPts", label: "STARTER PTS", value: (b) => b.starter, kind: "count" },
+  { key: "japanesePts", label: "日本人PTS", value: (b) => b.japanese, kind: "count" },
+  { key: "internationalPts", label: "外国籍等PTS", value: (b) => b.international, kind: "count" },
 ];
 
 // %BENCH PTS・%STARTER PTSは自チームの得点構成比のみを意味のある指標として扱い、
-// ヘッダータイル時代・「シーズン別成績」と同じくown/opp/diffの切り替え対象外にする
+// ヘッダータイル時代・「シーズン別成績」と同じくown/opp/diffの切り替え対象外にする。
+// Batch 2: 国籍区分別得点（日本人/外国籍/帰化orアジア特別枠の3分割）を実数値＋割合(%)で追加
 const TEAM_POINTS_SHARE_COLUMNS: TeamPointsExtraColumn[] = [
-  { key: "benchPtsShare", label: "%BENCH PTS", value: (b) => safeDiv(100 * b.bench, b.bench + b.starter) },
-  { key: "starterPtsShare", label: "%STARTER PTS", value: (b) => safeDiv(100 * b.starter, b.bench + b.starter) },
+  { key: "benchPtsShare", label: "%BENCH PTS", value: (b) => safeDiv(100 * b.bench, b.bench + b.starter), kind: "sharePct" },
+  { key: "starterPtsShare", label: "%STARTER PTS", value: (b) => safeDiv(100 * b.starter, b.bench + b.starter), kind: "sharePct" },
+  { key: "japanesePts3", label: "日本人PTS", value: (b) => b.japanese, kind: "count" },
+  { key: "foreignPts3", label: "外国籍PTS", value: (b) => b.foreign, kind: "count" },
+  { key: "naturalizedOrAsianPts3", label: "帰化/アジアPTS", value: (b) => b.naturalizedOrAsian, kind: "count" },
+  {
+    key: "japanesePtsShare3",
+    label: "%日本人PTS",
+    value: (b) => safeDiv(100 * b.japanese, b.bench + b.starter),
+    kind: "sharePct",
+  },
+  {
+    key: "foreignPtsShare3",
+    label: "%外国籍PTS",
+    value: (b) => safeDiv(100 * b.foreign, b.bench + b.starter),
+    kind: "sharePct",
+  },
+  {
+    key: "naturalizedOrAsianPtsShare3",
+    label: "%帰化/アジアPTS",
+    value: (b) => safeDiv(100 * b.naturalizedOrAsian, b.bench + b.starter),
+    kind: "sharePct",
+  },
 ];
 
 function teamPointsExtraColumnsForTab(tab: BoxscoreTabKey | "shooting" | "forcedTurnovers"): TeamPointsExtraColumn[] {
@@ -1911,9 +2029,19 @@ function formatTeamPointsCount(
   return perspective === "own" ? formatDecimal(ownVal, digits) : perspective === "opp" ? formatDecimal(oppVal, digits) : formatSigned(ownVal - oppVal, digits);
 }
 
-// %BENCH PTS・%STARTER PTSは常に自チームの値を表示する（EFF列・「シーズン別成績」と同じ扱い）
+// %BENCH PTS・%STARTER PTS・国籍区分別%は常に自チームの値を表示する（EFF列・「シーズン別成績」と同じ扱い）
 function formatTeamPointsSharePct(result: TeamPointsBreakdownResult | null, col: TeamPointsExtraColumn): string {
   return result ? formatPct100(col.value(result.own)) : "-";
+}
+
+// Scoring/Miscタブの追加列を、列ごとのkindに応じてcount/sharePctいずれかの表示関数へ振り分ける
+function formatTeamPointsExtraColumn(
+  result: TeamPointsBreakdownResult | null,
+  col: TeamPointsExtraColumn,
+  perspective: TeamPerspective,
+  mode: SeasonDisplayMode,
+): string {
+  return col.kind === "sharePct" ? formatTeamPointsSharePct(result, col) : formatTeamPointsCount(result, col, perspective, mode);
 }
 
 interface TeamCompareColumnData {
@@ -3888,9 +4016,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     ))}
                     {teamPointsExtraColumnsForTab(teamStatsBoxTab).map((col) => (
                       <td key={col.key} className="align-right">
-                        {teamStatsBoxTab === "scoring"
-                          ? formatTeamPointsSharePct(teamStatsPoints, col)
-                          : formatTeamPointsCount(teamStatsPoints, col, teamPerspective, teamStatsDisplayMode)}
+                        {formatTeamPointsExtraColumn(teamStatsPoints, col, teamPerspective, teamStatsDisplayMode)}
                       </td>
                     ))}
                   </tr>
@@ -4023,9 +4149,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                               ))}
                           {situationalTeamPointsColumns.map((col) => (
                             <td key={col.key} className="align-right">
-                              {situationalTeamBoxTab === "scoring"
-                                ? formatTeamPointsSharePct(row.points, col)
-                                : formatTeamPointsCount(row.points, col, teamPerspective, situationalTeamDisplayMode)}
+                              {formatTeamPointsExtraColumn(row.points, col, teamPerspective, situationalTeamDisplayMode)}
                             </td>
                           ))}
                         </tr>

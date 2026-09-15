@@ -217,7 +217,7 @@ function buildTeamCategoryColumns(
     case "misc":
       return buildMiscColumns(mode, perspective);
     case "scoring":
-      return buildScoringColumns(perspective, paintSupported);
+      return buildScoringColumns(mode, perspective, paintSupported);
   }
 }
 

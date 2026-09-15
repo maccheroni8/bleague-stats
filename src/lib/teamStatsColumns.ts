@@ -110,6 +110,13 @@ export interface TeamTotals {
   oppPaint2a: number;
   oppMid2m: number;
   oppMid2a: number;
+  /** 国籍区分別得点（日本人/外国籍/帰化orアジア特別枠の3分割、Batch 2）。TeamGameLog由来 */
+  japanesePoints: number;
+  foreignPoints: number;
+  naturalizedOrAsianPoints: number;
+  oppJapanesePoints: number;
+  oppForeignPoints: number;
+  oppNaturalizedOrAsianPoints: number;
 }
 
 export const EMPTY_TOTALS: TeamTotals = {
@@ -178,6 +185,12 @@ export const EMPTY_TOTALS: TeamTotals = {
   oppPaint2a: 0,
   oppMid2m: 0,
   oppMid2a: 0,
+  japanesePoints: 0,
+  foreignPoints: 0,
+  naturalizedOrAsianPoints: 0,
+  oppJapanesePoints: 0,
+  oppForeignPoints: 0,
+  oppNaturalizedOrAsianPoints: 0,
 };
 
 export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
@@ -248,6 +261,12 @@ export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
       oppPaint2a: acc.oppPaint2a + g.opponentPaint2a,
       oppMid2m: acc.oppMid2m + g.opponentMid2m,
       oppMid2a: acc.oppMid2a + g.opponentMid2a,
+      japanesePoints: acc.japanesePoints + g.japanesePoints,
+      foreignPoints: acc.foreignPoints + g.foreignPoints,
+      naturalizedOrAsianPoints: acc.naturalizedOrAsianPoints + g.naturalizedOrAsianPoints,
+      oppJapanesePoints: acc.oppJapanesePoints + g.opponentJapanesePoints,
+      oppForeignPoints: acc.oppForeignPoints + g.opponentForeignPoints,
+      oppNaturalizedOrAsianPoints: acc.oppNaturalizedOrAsianPoints + g.opponentNaturalizedOrAsianPoints,
     }),
     { ...EMPTY_TOTALS },
   );
@@ -527,8 +546,9 @@ export function buildMiscColumns(mode: SeasonDisplayMode, perspective: TeamPersp
 }
 
 // %PAINT2M/%PAINT2A/%MID2M/%MID2Aはショットチャート座標（X/Y/AreaCD）由来のため
-// 2022-23シーズン以降のみ対応（paintSupported、呼び出し元でseasonから判定）
-export function buildScoringColumns(perspective: TeamPerspective, paintSupported: boolean): Column<AllTeamsRow>[] {
+// 2022-23シーズン以降のみ対応（paintSupported、呼び出し元でseasonから判定）。
+// modeは国籍区分別得点（Batch 2）の実数値列（countColumn）にのみ必要
+export function buildScoringColumns(mode: SeasonDisplayMode, perspective: TeamPerspective, paintSupported: boolean): Column<AllTeamsRow>[] {
   return [
     pct100Column("pitppct", "PITP%", (t) => safeDiv(100 * t.pt2in, t.pts), (t) => safeDiv(100 * t.oppPt2in, t.oppPts), perspective),
     pct100Column("fbppct", "FBP%", (t) => safeDiv(100 * t.fb, t.pts), (t) => safeDiv(100 * t.oppFb, t.oppPts), perspective),
@@ -544,6 +564,39 @@ export function buildScoringColumns(perspective: TeamPerspective, paintSupported
       "PTSOFFTO%",
       (t) => safeDiv(100 * t.pft, t.pts),
       (t) => safeDiv(100 * t.oppPft, t.oppPts),
+      perspective,
+    ),
+    // 国籍区分別得点（日本人/外国籍/帰化orアジア特別枠の3分割、Batch 2）。実数値＋総得点に
+    // 占める割合(%)を追加する
+    countColumn("japanesePts3", "日本人PTS", (t) => t.japanesePoints, (t) => t.oppJapanesePoints, mode, perspective),
+    countColumn("foreignPts3", "外国籍PTS", (t) => t.foreignPoints, (t) => t.oppForeignPoints, mode, perspective),
+    countColumn(
+      "naturalizedOrAsianPts3",
+      "帰化/アジアPTS",
+      (t) => t.naturalizedOrAsianPoints,
+      (t) => t.oppNaturalizedOrAsianPoints,
+      mode,
+      perspective,
+    ),
+    pct100Column(
+      "pctjapanese3",
+      "%日本人PTS",
+      (t) => safeDiv(100 * t.japanesePoints, t.pts),
+      (t) => safeDiv(100 * t.oppJapanesePoints, t.oppPts),
+      perspective,
+    ),
+    pct100Column(
+      "pctforeign3",
+      "%外国籍PTS",
+      (t) => safeDiv(100 * t.foreignPoints, t.pts),
+      (t) => safeDiv(100 * t.oppForeignPoints, t.oppPts),
+      perspective,
+    ),
+    pct100Column(
+      "pctnaturalizedOrAsian3",
+      "%帰化/アジアPTS",
+      (t) => safeDiv(100 * t.naturalizedOrAsianPoints, t.pts),
+      (t) => safeDiv(100 * t.oppNaturalizedOrAsianPoints, t.oppPts),
       perspective,
     ),
     // ここから下は「自チーム/相手チームの全FGAに対する割合」（シュート選択構成比）。

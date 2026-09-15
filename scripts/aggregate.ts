@@ -333,6 +333,13 @@ interface StatTotals {
   /** 外国籍+帰化+アジア特別枠選手の得点（Phase H8）。japanesePointsと対になる集計 */
   internationalPoints: number;
   /**
+   * 外国籍選手のみの得点（Batch 1）。internationalPointsは外国籍+帰化+アジア特別枠を
+   * 合算した2分割版だが、これは帰化選手・アジア特別枠を含まない3分割版
+   */
+  foreignPoints: number;
+  /** 帰化選手+アジア特別枠選手の得点（Batch 1）。foreignPointsと対になる集計 */
+  naturalizedOrAsianPoints: number;
+  /**
    * ペイント内での得点（Phase H10、得点構成の可視化用）。shared/playTypePoints.tsの
    * computePointsInPaint()（得点イベントのPlayTextタグ集計方式、全シーズン対応・ショット
    * チャート座標に依存しない）を試合単位でシーズン合計する。個人集計では常に0のまま。
@@ -380,6 +387,8 @@ function emptyTotals(): StatTotals {
     starterPoints: 0,
     japanesePoints: 0,
     internationalPoints: 0,
+    foreignPoints: 0,
+    naturalizedOrAsianPoints: 0,
     paintPoints: 0,
     doubleDoubles: 0,
     tripleDoubles: 0,
@@ -637,27 +646,34 @@ function starterPointsForGame(rows: BoxscoreRow[], teamId: string): number {
 }
 
 /**
- * 国籍区分別得点（Phase H8）。BoxscoreTable.tsxの「内訳集計」（日本人選手合計/外国籍+帰化+
- * アジア特別枠合計）と同じclassification突合を試合単位で行う。classification未定義の選手は
- * どちらにも計上しない（51章で確立した「推測しない」方針を踏襲）
+ * 国籍区分別得点（Phase H8。Batch 1で外国籍/帰化orアジア特別枠の3分割、Batch 5で
+ * 帰化選手/アジア特別枠を分離した4分割に拡張）。BoxscoreTable.tsxの「内訳集計」と同じ
+ * classification突合を試合単位で行う。classification未定義の選手はいずれにも計上しない
+ * （51章で確立した「推測しない」方針を踏襲）
  */
 function classificationPointsForGame(
   rows: BoxscoreRow[],
   teamId: string,
   masterById: Map<string, PlayerMasterEntry>,
-): { japanese: number; international: number } {
+): { japanese: number; foreign: number; naturalized: number; asianQuota: number } {
   let japanese = 0;
-  let international = 0;
+  let foreign = 0;
+  let naturalized = 0;
+  let asianQuota = 0;
   for (const r of rows) {
     if (r.Category !== 1 || r.PeriodCategory !== 18 || r.TeamID !== teamId) continue;
     const classification = masterById.get(r.PlayerID)?.classification;
     if (classification === "日本人") {
       japanese += r.Point;
-    } else if (classification === "外国籍" || classification === "帰化選手" || classification === "アジア特別枠") {
-      international += r.Point;
+    } else if (classification === "外国籍") {
+      foreign += r.Point;
+    } else if (classification === "帰化選手") {
+      naturalized += r.Point;
+    } else if (classification === "アジア特別枠") {
+      asianQuota += r.Point;
     }
   }
-  return { japanese, international };
+  return { japanese, foreign, naturalized, asianQuota };
 }
 
 function addBoxscoreRow(
@@ -1108,6 +1124,16 @@ export async function aggregateSeason(season: string, category: Category = "prem
           internationalPointsPerGame: safeDiv(t.totals.internationalPoints, ownStats.gamesPlayed),
           opponentJapanesePointsPerGame: safeDiv(t.opponentTotals.japanesePoints, ownStats.gamesPlayed),
           opponentInternationalPointsPerGame: safeDiv(t.opponentTotals.internationalPoints, ownStats.gamesPlayed),
+          foreignPointsPerGame: safeDiv(t.totals.foreignPoints, ownStats.gamesPlayed),
+          naturalizedOrAsianPointsPerGame: safeDiv(t.totals.naturalizedOrAsianPoints, ownStats.gamesPlayed),
+          opponentForeignPointsPerGame: safeDiv(t.opponentTotals.foreignPoints, ownStats.gamesPlayed),
+          opponentNaturalizedOrAsianPointsPerGame: safeDiv(t.opponentTotals.naturalizedOrAsianPoints, ownStats.gamesPlayed),
+          japanesePointsSharePct: safeDiv(100 * t.totals.japanesePoints, t.totals.pts),
+          foreignPointsSharePct: safeDiv(100 * t.totals.foreignPoints, t.totals.pts),
+          naturalizedOrAsianPointsSharePct: safeDiv(100 * t.totals.naturalizedOrAsianPoints, t.totals.pts),
+          opponentJapanesePointsSharePct: safeDiv(100 * t.opponentTotals.japanesePoints, t.opponentTotals.pts),
+          opponentForeignPointsSharePct: safeDiv(100 * t.opponentTotals.foreignPoints, t.opponentTotals.pts),
+          opponentNaturalizedOrAsianPointsSharePct: safeDiv(100 * t.opponentTotals.naturalizedOrAsianPoints, t.opponentTotals.pts),
           threePointPointsSharePct: safeDiv(100 * ownThreePoints, t.totals.pts),
           paintPointsSharePct: safeDiv(100 * ownPaintPoints, t.totals.pts),
           midRangePointsSharePct: safeDiv(100 * ownMidRangePoints, t.totals.pts),
@@ -1460,14 +1486,16 @@ function processTeams(
   // teams.jsonのシーズン集計（totals・wins/losses）はレギュラーシーズンのみ加算する。
   // プレーオフの試合もgameLogsには残すため、フロントエンドのシチュエーション別フィルタでは
   // 合算参照できる
-  // ベンチ得点・スタメン得点（Batch 2、クラブレコード用にレギュラー/プレーオフ問わず必要なため
-  // gameTypeゲートの外で算出する。国籍区分別得点（classificationPointsForGame）はシーズン
-  // 集計専用でgameLogsには持たせないため、このゲートの内側のまま据え置く）
+  // ベンチ得点・スタメン得点・国籍区分別得点（Batch 1・2、全チームスタッツ「スコアリング」
+  // タブ等のシチュエーション別フィルタ再集計用にレギュラー/プレーオフ問わず必要なため
+  // gameTypeゲートの外で算出する）
   const individualRows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
   const homeBench = benchPointsForGame(individualRows, game.homeTeam.id);
   const awayBench = benchPointsForGame(individualRows, game.awayTeam.id);
   const homeStarter = starterPointsForGame(individualRows, game.homeTeam.id);
   const awayStarter = starterPointsForGame(individualRows, game.awayTeam.id);
+  const homeClassification = classificationPointsForGame(individualRows, game.homeTeam.id, masterById);
+  const awayClassification = classificationPointsForGame(individualRows, game.awayTeam.id, masterById);
 
   if (gameType === "regular") {
     // opponentTotalsもgamesPlayedを数える（perGame算出の分母は「自チームの試合数」と一致させる必要がある）。
@@ -1491,16 +1519,26 @@ function processTeams(
     home.opponentTotals.starterPoints += awayStarter;
     away.opponentTotals.starterPoints += homeStarter;
 
-    const homeClassification = classificationPointsForGame(individualRows, game.homeTeam.id, masterById);
-    const awayClassification = classificationPointsForGame(individualRows, game.awayTeam.id, masterById);
+    const homeNaturalizedOrAsian = homeClassification.naturalized + homeClassification.asianQuota;
+    const awayNaturalizedOrAsian = awayClassification.naturalized + awayClassification.asianQuota;
+    const homeInternational = homeClassification.foreign + homeNaturalizedOrAsian;
+    const awayInternational = awayClassification.foreign + awayNaturalizedOrAsian;
     home.totals.japanesePoints += homeClassification.japanese;
-    home.totals.internationalPoints += homeClassification.international;
+    home.totals.internationalPoints += homeInternational;
+    home.totals.foreignPoints += homeClassification.foreign;
+    home.totals.naturalizedOrAsianPoints += homeNaturalizedOrAsian;
     away.totals.japanesePoints += awayClassification.japanese;
-    away.totals.internationalPoints += awayClassification.international;
+    away.totals.internationalPoints += awayInternational;
+    away.totals.foreignPoints += awayClassification.foreign;
+    away.totals.naturalizedOrAsianPoints += awayNaturalizedOrAsian;
     home.opponentTotals.japanesePoints += awayClassification.japanese;
-    home.opponentTotals.internationalPoints += awayClassification.international;
+    home.opponentTotals.internationalPoints += awayInternational;
+    home.opponentTotals.foreignPoints += awayClassification.foreign;
+    home.opponentTotals.naturalizedOrAsianPoints += awayNaturalizedOrAsian;
     away.opponentTotals.japanesePoints += homeClassification.japanese;
-    away.opponentTotals.internationalPoints += homeClassification.international;
+    away.opponentTotals.internationalPoints += homeInternational;
+    away.opponentTotals.foreignPoints += homeClassification.foreign;
+    away.opponentTotals.naturalizedOrAsianPoints += homeNaturalizedOrAsian;
 
     // ペイント内得点（Phase H10、得点構成の可視化用）。既存のpitpByTeam（PBPタグ集計）を
     // シーズン合計する。個人単位のPITP（processPlayers側）とは独立した集計
@@ -1575,6 +1613,16 @@ function processTeams(
     attendance,
     benchPoints: homeBench,
     starterPoints: homeStarter,
+    japanesePoints: homeClassification.japanese,
+    foreignPoints: homeClassification.foreign,
+    naturalizedPoints: homeClassification.naturalized,
+    asianQuotaPoints: homeClassification.asianQuota,
+    naturalizedOrAsianPoints: homeClassification.naturalized + homeClassification.asianQuota,
+    opponentJapanesePoints: awayClassification.japanese,
+    opponentForeignPoints: awayClassification.foreign,
+    opponentNaturalizedPoints: awayClassification.naturalized,
+    opponentAsianQuotaPoints: awayClassification.asianQuota,
+    opponentNaturalizedOrAsianPoints: awayClassification.naturalized + awayClassification.asianQuota,
   });
   away.gameLogs.push({
     scheduleKey: game.scheduleKey,
@@ -1611,6 +1659,16 @@ function processTeams(
     attendance,
     benchPoints: awayBench,
     starterPoints: awayStarter,
+    japanesePoints: awayClassification.japanese,
+    foreignPoints: awayClassification.foreign,
+    naturalizedPoints: awayClassification.naturalized,
+    asianQuotaPoints: awayClassification.asianQuota,
+    naturalizedOrAsianPoints: awayClassification.naturalized + awayClassification.asianQuota,
+    opponentJapanesePoints: homeClassification.japanese,
+    opponentForeignPoints: homeClassification.foreign,
+    opponentNaturalizedPoints: homeClassification.naturalized,
+    opponentAsianQuotaPoints: homeClassification.asianQuota,
+    opponentNaturalizedOrAsianPoints: homeClassification.naturalized + homeClassification.asianQuota,
   });
 }
 
