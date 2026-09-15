@@ -49,7 +49,7 @@ import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { bleaguePlayerUrl } from "../lib/externalLinks";
-import { formatDecimal, formatPct, formatSigned, formatWinPct } from "../lib/format";
+import { formatDecimal, formatPct, formatPct100, formatSigned, formatWinPct } from "../lib/format";
 import { formatMinutesFromSeconds, astToTovRatio, buildAssistPairs } from "../lib/boxscoreAggregate";
 import type { AssistPair } from "../../shared/assistedScoring";
 import { reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
@@ -241,6 +241,21 @@ const MAX_ASSIST_RELATIONSHIP_ROWS = 5;
 // 「誰からのアシストで得点が多いか」テーブルで、アシスト無しの得点を他の選手と同じ行形式で
 // 統合表示するためのassisterId用センチネル値
 const UNASSISTED_SENTINEL = "__unassisted__";
+
+// 「誰へのアシストが多いか」の各行に追加する割合(%): そのペアのアシスト回数が、
+// 受け手（得点選手）がその期間内に受けた全アシスト回数に対して占める割合
+interface GivenAssistRow extends AssistPair {
+  /** 受け手の全アシスト被数に対する割合。受け手側の合計が0件（データ上あり得ないが念のため）ならnull */
+  sharePct: number | null;
+}
+
+// 「誰からのアシストで得点が多いか」の各行に追加する割合(%): 回数・得点それぞれについて、
+// 受け手（この選手自身）の全アシスト被数・全アシスト経由得点に対する割合。
+// 「アシストなし」行（UNASSISTED_SENTINEL）はアシスト経由の値ではないためnull（表示は「-」）
+interface ReceivedAssistRow extends AssistPair {
+  countSharePct: number | null;
+  pointsSharePct: number | null;
+}
 
 // 「オンコート/オフコート比較」（Batch 4）: ポゼッションあたり得点(×100)としてORtg/DRtgを算出する
 function onOffOffRtg(b: OnOffBucket): number {
@@ -1409,6 +1424,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
     const scopedLogs = filterByGameType(situationalStatsLogs, situationalStatsGameType).filter((g) => g.min > 0);
     const given = new Map<string, AssistPair>();
     const received = new Map<string, AssistPair>();
+    // 得点選手（scorerId）ごとの全アシスト被数・被得点。X（playerId）以外からのアシストも
+    // 含めて全ペアから積算する（「誰へ」テーブルの割合の分母＝受け手の全アシストに使う）
+    const scorerTotals = new Map<string, { count: number; points: number }>();
     let ownMade2m = 0;
     let ownMade3m = 0;
     let ownMadeFtm = 0;
@@ -1418,6 +1436,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
       if (!game) continue;
       readyCount++;
       for (const pair of buildAssistPairs(game.raw.PlayByPlays, situationalStatsAssistPeriodOption)) {
+        const points = pair.assisted2m * 2 + pair.assisted3m * 3 + pair.assistedFtm;
+        const totals = scorerTotals.get(pair.scorerId) ?? { count: 0, points: 0 };
+        totals.count += pair.count;
+        totals.points += points;
+        scorerTotals.set(pair.scorerId, totals);
         if (pair.assisterId === playerId) {
           const entry = given.get(pair.scorerId) ?? {
             assisterId: playerId,
@@ -1456,10 +1479,27 @@ export function PlayerDetailPage({ season }: { season: string }) {
         else if (e.ActionCD1 === 7) ownMadeFtm++;
       }
     }
-    const receivedList = [...received.values()];
-    const assisted2mSum = receivedList.reduce((s, r) => s + r.assisted2m, 0);
-    const assisted3mSum = receivedList.reduce((s, r) => s + r.assisted3m, 0);
-    const assistedFtmSum = receivedList.reduce((s, r) => s + r.assistedFtm, 0);
+    const givenList: GivenAssistRow[] = [...given.values()]
+      .map((entry) => {
+        const total = scorerTotals.get(entry.scorerId)?.count ?? 0;
+        return { ...entry, sharePct: total > 0 ? (100 * entry.count) / total : null };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    const receivedRaw = [...received.values()];
+    const assisted2mSum = receivedRaw.reduce((s, r) => s + r.assisted2m, 0);
+    const assisted3mSum = receivedRaw.reduce((s, r) => s + r.assisted3m, 0);
+    const assistedFtmSum = receivedRaw.reduce((s, r) => s + r.assistedFtm, 0);
+    const ownReceivedCountTotal = assisted2mSum + assisted3mSum + assistedFtmSum;
+    const ownReceivedPointsTotal = assisted2mSum * 2 + assisted3mSum * 3 + assistedFtmSum;
+    const receivedList: ReceivedAssistRow[] = receivedRaw.map((entry) => {
+      const points = entry.assisted2m * 2 + entry.assisted3m * 3 + entry.assistedFtm;
+      return {
+        ...entry,
+        countSharePct: ownReceivedCountTotal > 0 ? (100 * entry.count) / ownReceivedCountTotal : null,
+        pointsSharePct: ownReceivedPointsTotal > 0 ? (100 * points) / ownReceivedPointsTotal : null,
+      };
+    });
     const unassisted = {
       assisted2m: Math.max(0, ownMade2m - assisted2mSum),
       assisted3m: Math.max(0, ownMade3m - assisted3mSum),
@@ -1474,11 +1514,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
         assisted2m: unassisted.assisted2m,
         assisted3m: unassisted.assisted3m,
         assistedFtm: unassisted.assistedFtm,
+        countSharePct: null,
+        pointsSharePct: null,
       });
     }
     receivedList.sort((a, b) => b.count - a.count);
     return {
-      given: [...given.values()].sort((a, b) => b.count - a.count),
+      given: givenList,
       received: receivedList,
       dataReady: readyCount === scopedLogs.length,
     };
@@ -2239,6 +2281,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                         <tr>
                           <th className="align-left">得点選手</th>
                           <th className="align-right">アシスト回数</th>
+                          <th className="align-right">占める割合</th>
                           <th className="align-right">アシスト経由得点数</th>
                           <th className="align-right">2P成功数</th>
                           <th className="align-right">3P成功数</th>
@@ -2253,6 +2296,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                           <tr key={p.scorerId}>
                             <td className="align-left">{situationalStatsPlayerNameById.get(p.scorerId) ?? p.scorerId}</td>
                             <td className="align-right">{p.count}</td>
+                            <td className="align-right">{p.sharePct != null ? formatPct100(p.sharePct) : "-"}</td>
                             <td className="align-right">{p.assisted2m * 2 + p.assisted3m * 3 + p.assistedFtm}</td>
                             <td className="align-right">{p.assisted2m}</td>
                             <td className="align-right">{p.assisted3m}</td>
@@ -2283,7 +2327,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
                         <tr>
                           <th className="align-left">アシスト元選手</th>
                           <th className="align-right">アシスト回数</th>
+                          <th className="align-right">回数割合</th>
                           <th className="align-right">アシスト経由得点数</th>
+                          <th className="align-right">得点割合</th>
                           <th className="align-right">2P成功数</th>
                           <th className="align-right">3P成功数</th>
                           <th className="align-right">FT成功数</th>
@@ -2301,7 +2347,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
                                 : (situationalStatsPlayerNameById.get(p.assisterId) ?? p.assisterId)}
                             </td>
                             <td className="align-right">{p.count}</td>
+                            <td className="align-right">{p.countSharePct != null ? formatPct100(p.countSharePct) : "-"}</td>
                             <td className="align-right">{p.assisted2m * 2 + p.assisted3m * 3 + p.assistedFtm}</td>
+                            <td className="align-right">{p.pointsSharePct != null ? formatPct100(p.pointsSharePct) : "-"}</td>
                             <td className="align-right">{p.assisted2m}</td>
                             <td className="align-right">{p.assisted3m}</td>
                             <td className="align-right">{p.assistedFtm}</td>
@@ -2321,6 +2369,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
               )}
               <p className="page-subtitle">
                 選択中のシーズン・レギュラー/プレーオフ/合算・Q別/前後半の絞り込みに連動します（18章のbuildAssistPairs()を再利用）。
+                「占める割合」は得点選手が受けた全アシスト回数のうち、その配給元からの割合。
+                「回数割合」「得点割合」はこの選手が受けた全アシスト回数・全アシスト経由得点のうち、その配給元からの割合（「アシストなし」行は対象外）。
               </p>
             </>
           )}

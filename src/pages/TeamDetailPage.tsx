@@ -2743,6 +2743,22 @@ export function TeamDetailPage({ season }: { season: string }) {
     return [...merged.values()].sort((a, b) => b.count - a.count);
   }, [teamId, gameLogs, statsRawGames]);
 
+  // 得点選手（scorerId）ごとの全アシスト被数・被得点（Batch 1）。teamAssistPairs自体を
+  // scorerId単位で合算するだけで求まる（アシストは常にチームメイト間で成立するため、
+  // teamAssistPairsに含まれる特定scorerIdの行を全て合算すれば、そのscorerIdの選手が
+  // 受けた全アシストの合計になる）
+  const teamAssistScorerTotals = useMemo(() => {
+    const totals = new Map<string, { count: number; points: number }>();
+    for (const p of teamAssistPairs) {
+      const points = p.assisted2m * 2 + p.assisted3m * 3 + p.assistedFtm;
+      const entry = totals.get(p.scorerId) ?? { count: 0, points: 0 };
+      entry.count += p.count;
+      entry.points += points;
+      totals.set(p.scorerId, entry);
+    }
+    return totals;
+  }, [teamAssistPairs]);
+
   if (teamsLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (teamsError) return <p className="error-message">{teamsError}</p>;
 
@@ -4224,7 +4240,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <th className="align-left">アシスト元選手</th>
                       <th className="align-left">得点選手</th>
                       <th className="align-right">アシスト回数</th>
+                      <th className="align-right">回数割合</th>
                       <th className="align-right">アシスト経由得点数</th>
+                      <th className="align-right">得点割合</th>
                       <th className="align-right">2P成功数</th>
                       <th className="align-right">2P割合</th>
                       <th className="align-right">3P成功数</th>
@@ -4236,12 +4254,17 @@ export function TeamDetailPage({ season }: { season: string }) {
                   <tbody>
                     {displayedAssistPairs.map((p) => {
                       const points = p.assisted2m * 2 + p.assisted3m * 3 + p.assistedFtm;
+                      const scorerTotal = teamAssistScorerTotals.get(p.scorerId);
+                      const countSharePct = scorerTotal && scorerTotal.count > 0 ? (100 * p.count) / scorerTotal.count : null;
+                      const pointsSharePct = scorerTotal && scorerTotal.points > 0 ? (100 * points) / scorerTotal.points : null;
                       return (
                         <tr key={`${p.assisterId}:${p.scorerId}`}>
                           <td className="align-left">{playerNameById.get(p.assisterId) ?? p.assisterId}</td>
                           <td className="align-left">{playerNameById.get(p.scorerId) ?? p.scorerId}</td>
                           <td className="align-right">{p.count}</td>
+                          <td className="align-right">{countSharePct != null ? formatPct100(countSharePct) : "-"}</td>
                           <td className="align-right">{points}</td>
+                          <td className="align-right">{pointsSharePct != null ? formatPct100(pointsSharePct) : "-"}</td>
                           <td className="align-right">{p.assisted2m}</td>
                           <td className="align-right">{formatPct100((100 * p.assisted2m) / p.count)}</td>
                           <td className="align-right">{p.assisted3m}</td>
@@ -4263,7 +4286,8 @@ export function TeamDetailPage({ season }: { season: string }) {
               )}
               <p className="page-subtitle">
                 レギュラーシーズンの全試合のPlayByPlaysから、アシスト元選手→得点選手のペア単位で集計（18章参照）。
-                割合はそのペアのアシスト回数に対する2P/3P/FTそれぞれの成功数の割合
+                「2P割合」「3P割合」「FT割合」はそのペアのアシスト回数に対する2P/3P/FTそれぞれの成功数の割合。
+                「回数割合」「得点割合」は、得点選手が受けた全アシスト回数・全アシスト経由得点のうち、そのアシスト元選手からの割合
               </p>
             </>
           )}
