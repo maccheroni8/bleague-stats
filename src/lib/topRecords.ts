@@ -9,6 +9,13 @@
 
 export const TOP_RECORD_N = 10;
 
+/**
+ * ワースト方向の展開件数（2026-09-16）。TOV/F/UFOUL等「高い方が悪い」項目
+ * （lowerIsBetter: true）は、ワースト側だけトップ10ではなくトップ5にする
+ * （ユーザー指定）。ベスト方向・それ以外の項目のワースト方向はTOP_RECORD_Nのまま
+ */
+export const TOP_RECORD_WORST_BAD_N = 5;
+
 export interface TopRecordEntry<T> {
   /** 競技方式の順位（同値は同じ順位を共有し、次の順位が飛ぶ。例: 1,2,2,4） */
   rank: number;

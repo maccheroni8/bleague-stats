@@ -195,10 +195,11 @@ export interface TeamRecordValueDef {
    */
   lowerIsBetter?: boolean;
   /**
-   * トップ10展開（Batch 3、2026-09-16）の対象にするか。%系の指標は低試投数の1試合で
-   * 極端な値（1/1=100%等）が上位に来やすくクラブワースト同様トップ◯としても意味を持ちにくいため、
-   * ベスト方向も含めて対象から除外する（worstEligibleはワースト方向のみの除外のため、
-   * こちらは独立したフラグ）。デフォルトはtrue
+   * トップ10展開（Batch 3、2026-09-16）の対象にするか。デフォルトはtrue。%系の指標は
+   * 当初、低試投数の1試合で極端な値が上位に来やすいという理由でfalseにしていたが、
+   * 低試投数対策は別途検討する前提で2026-09-16に撤回し、現在この値をfalseにしている
+   * 項目は無い（worstEligibleはワースト方向のみの除外のためこちらとは独立したフラグ。
+   * 将来的な絞り込みの再導入に備えてフィールド自体は残している）
    */
   topNEligible?: boolean;
 }
@@ -208,7 +209,7 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
   { key: "oppPts", label: "失点", value: (g) => g.opponentScore, lowerIsBetter: true },
   { key: "fgm", label: "FG成功数", value: (g) => g.fgm },
   { key: "fga", label: "FG試投数", value: (g) => g.fga },
-  { key: "fgPct", label: "FG成功率", value: (g) => safeDiv(g.fgm, g.fga), worstEligible: false, topNEligible: false },
+  { key: "fgPct", label: "FG成功率", value: (g) => safeDiv(g.fgm, g.fga), worstEligible: false },
   { key: "twoPm", label: "2P成功数", value: (g) => g.fgm - g.tpm },
   { key: "twoPa", label: "2P試投数", value: (g) => g.fga - g.tpa },
   {
@@ -216,11 +217,10 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
     label: "2P成功率",
     value: (g) => safeDiv(g.fgm - g.tpm, g.fga - g.tpa),
     worstEligible: false,
-    topNEligible: false,
   },
   { key: "tpm", label: "3P成功数", value: (g) => g.tpm },
   { key: "tpa", label: "3P試投数", value: (g) => g.tpa },
-  { key: "tpPct", label: "3P成功率", value: (g) => safeDiv(g.tpm, g.tpa), worstEligible: false, topNEligible: false },
+  { key: "tpPct", label: "3P成功率", value: (g) => safeDiv(g.tpm, g.tpa), worstEligible: false },
   { key: "ftm", label: "フリースロー成功数", value: (g) => g.ftm },
   { key: "fta", label: "フリースロー試投数", value: (g) => g.fta },
   {
@@ -228,7 +228,6 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
     label: "フリースロー成功率",
     value: (g) => safeDiv(g.ftm, g.fta),
     worstEligible: false,
-    topNEligible: false,
   },
   { key: "oreb", label: "オフェンスリバウンド", value: (g) => g.oreb },
   { key: "dreb", label: "ディフェンスリバウンド", value: (g) => g.dreb },

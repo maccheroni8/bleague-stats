@@ -130,7 +130,7 @@ import {
   sumShotTypeCounts,
 } from "../lib/shotTypeBreakdown";
 import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "./ComparePage";
-import { computeTopRecordEntries, type TopRecordEntry } from "../lib/topRecords";
+import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
 // 「シューティング」セクションの平均/合計切り替え。個人詳細ページと同じ2択のみ
 const DISPLAY_MODE_TOGGLE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
@@ -2248,6 +2248,9 @@ export function TeamDetailPage({ season }: { season: string }) {
     );
   }, [clubRecordAllGames]);
 
+  // クラブワーストのトップ◯展開（Batch 3拡張、2026-09-16）: oppPts/TOV/PF
+  // （lowerIsBetter: true、「多い方が悪い」項目）はワースト方向がMAXになるため、
+  // 展開件数もトップ10ではなくトップ5にする（ユーザー指定）
   const clubWorsts = useMemo(() => {
     return TEAM_RECORD_STATS.filter((def) => def.worstEligible !== false)
       .map((def) => {
@@ -2260,13 +2263,29 @@ export function TeamDetailPage({ season }: { season: string }) {
         if (worstValue === null) return null;
         const matches = sortTeamRecordGamesByDateDesc(pool.filter((g) => def.value(g) === worstValue));
         const [game, ...otherGames] = matches;
-        return { ...def, game, otherGames, display: def.format ? def.format(worstValue) : String(worstValue) };
+        const topEntries = computeTopRecordEntries(
+          pool,
+          def.value,
+          !(def.lowerIsBetter ?? false),
+          def.lowerIsBetter ? TOP_RECORD_WORST_BAD_N : undefined,
+        );
+        return { ...def, game, otherGames, topEntries, display: def.format ? def.format(worstValue) : String(worstValue) };
       })
-      .filter((r): r is TeamRecordDef & { game: TeamRecordGame; otherGames: TeamRecordGame[]; display: string } => r !== null);
+      .filter(
+        (
+          r,
+        ): r is TeamRecordDef & {
+          game: TeamRecordGame;
+          otherGames: TeamRecordGame[];
+          topEntries: TopRecordEntry<TeamRecordGame>[];
+          display: string;
+        } => r !== null,
+      );
   }, [clubRecordAllGames]);
 
   // 「被記録」（Phase H8）: 「対戦相手の多かった試合」＝TEAM_AGAINST_RECORD_STATS（TeamGameLogの
-  // opponent*フィールド）についても最大値を求める。clubRecordsと同じロジックだが対象defsが異なる
+  // opponent*フィールド）についても最大値を求める。clubRecordsと同じロジックだが対象defsが異なる。
+  // トップ◯展開（Batch 3拡張、2026-09-16）も同じベスト方向（MAX）でトップ10まで対象にする
   const clubAgainstRecords = useMemo(() => {
     return TEAM_AGAINST_RECORD_STATS.map((def) => {
       const pool = def.filter ? clubRecordAllGames.filter(def.filter) : clubRecordAllGames;
@@ -2278,8 +2297,18 @@ export function TeamDetailPage({ season }: { season: string }) {
       if (bestValue === null) return null;
       const matches = sortTeamRecordGamesByDateDesc(pool.filter((g) => def.value(g) === bestValue));
       const [game, ...otherGames] = matches;
-      return { ...def, game, otherGames, display: def.format ? def.format(bestValue) : String(bestValue) };
-    }).filter((r): r is TeamRecordDef & { game: TeamRecordGame; otherGames: TeamRecordGame[]; display: string } => r !== null);
+      const topEntries = def.topNEligible === false ? [] : computeTopRecordEntries(pool, def.value, false);
+      return { ...def, game, otherGames, topEntries, display: def.format ? def.format(bestValue) : String(bestValue) };
+    }).filter(
+      (
+        r,
+      ): r is TeamRecordDef & {
+        game: TeamRecordGame;
+        otherGames: TeamRecordGame[];
+        topEntries: TopRecordEntry<TeamRecordGame>[];
+        display: string;
+      } => r !== null,
+    );
   }, [clubRecordAllGames]);
 
   // シーズン単位の特殊集計（最多勝利数・最多連勝）。既存のlongestWinStreak()をシーズンごとの
@@ -3898,6 +3927,10 @@ export function TeamDetailPage({ season }: { season: string }) {
                     otherGames={r.otherGames}
                     expandedKeys={expandedClubRecordTieCards}
                     onToggle={toggleClubRecordTieCard}
+                    topEntries={r.topEntries}
+                    format={r.format}
+                    topNExpandedKeys={expandedTopNRecordCards}
+                    onToggleTopN={toggleTopNRecordCard}
                   />
                 ))}
               </div>
@@ -3914,15 +3947,20 @@ export function TeamDetailPage({ season }: { season: string }) {
                     otherGames={r.otherGames}
                     expandedKeys={expandedClubRecordTieCards}
                     onToggle={toggleClubRecordTieCard}
+                    topEntries={r.topEntries}
+                    format={r.format}
+                    topNExpandedKeys={expandedTopNRecordCards}
+                    onToggleTopN={toggleTopNRecordCard}
                   />
                 ))}
               </div>
               <p className="page-subtitle">
                 {careerData[0]?.season}〜{careerData[careerData.length - 1]?.season}シーズンの中での1試合の最高/最低記録
                 （PITP/FBPS/2ND PTS/PTSOFFTOはPBPタグ集計による得点ベースの値。ホーム来場者数はホーム開催試合のみが対象）。
-                %系の指標は低試投数での極端な値を避けるため、クラブワーストの対象外。項目名の下の順位は過去在籍した
-                全クラブ横断（Phase H7）。クラブワーストは順位算出の対象外。「被記録」は対戦相手がこのチーム相手に
-                記録した最多値（来場者数を除く28項目。歴代順位の算出対象外）
+                %系の指標はクラブワーストの対象外。項目名クリックでトップ10（TOV・失点・ファウル等「多い方が悪い」
+                項目はワースト側のみトップ5）を展開できます。項目名の下の順位は過去在籍した全クラブ横断（Phase H7）。
+                クラブワーストは順位算出の対象外。「被記録」は対戦相手がこのチーム相手に記録した最多値
+                （来場者数を除く28項目。歴代順位の算出対象外）
               </p>
             </>
           )}
@@ -4670,8 +4708,10 @@ function StatTile({ label, value, rank }: { label: string; value: string; rank?:
 /**
  * 「クラブレコード」タブの1試合記録カード。個人詳細ページのCareerHighCardと同じ方式
  * （同値タイの試合が複数ある場合、代表試合〔最新〕を主表示にし、残りを「他◯試合」で展開する）。
- * `topEntries`が渡された場合（現状はクラブレコードのみ、Batch 3・2026-09-16）、項目名自体を
- * クリックするとトップ10（同値タイの末尾は全員含む）が別途展開できる。デフォルトは非表示
+ * `topEntries`が渡された場合（クラブレコード・クラブワースト・被記録の全て、Batch 3・
+ * 2026-09-16にクラブレコード以外へも拡大）、項目名自体をクリックするとトップ◯（同値タイの
+ * 末尾は全員含む。件数は呼び出し側が決める。TOV・失点等「多い方が悪い」項目のワースト側は
+ * トップ5、それ以外はトップ10）が別途展開できる。デフォルトは非表示
  */
 function ClubRecordCard({
   tieKey,

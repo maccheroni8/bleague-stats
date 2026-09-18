@@ -114,7 +114,7 @@ import {
 } from "../lib/situational";
 import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "./ComparePage";
-import { computeTopRecordEntries, type TopRecordEntry } from "../lib/topRecords";
+import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
 /** 試合詳細ページのボックススコア列定義（BoxscoreColumn）を、試合ログテーブル用のColumnに変換する */
 function toGameLogColumns(tabKey: BoxscoreTabKey): Column<PlayerGameBoxscoreRow>[] {
@@ -396,11 +396,17 @@ interface CareerHighDef {
    */
   worstEligible?: boolean;
   /**
-   * キャリアハイのトップ10展開（Batch 3、2026-09-16）の対象にするか。%系の指標は
-   * 低試投数の1試合で極端な値（1/1=100%等）が上位に来やすく、トップ◯の一覧としても
-   * 意味を持ちにくいため対象から除外する。デフォルトはtrue
+   * キャリアハイのトップ10展開（Batch 3、2026-09-16）の対象にするか。デフォルトはtrue。
+   * 現在この値をfalseにしている項目は無い（%系の低試投数対策は別途検討する前提で撤回した。
+   * shared/teamRecords.tsのTeamRecordValueDef.topNEligibleと同じ経緯）
    */
   topNEligible?: boolean;
+  /**
+   * 「少ない方が良い」項目（TOV・F・UFOUL・TF）はtrue。キャリアハイ（最高記録）は最小値、
+   * キャリアワーストは最大値になる（デフォルトはfalse＝最大値がハイ・最小値がワースト）。
+   * shared/teamRecords.tsのTeamRecordValueDef.lowerIsBetterと同じ考え方（2026-09-16追加）
+   */
+  lowerIsBetter?: boolean;
 }
 
 function effTotalsOfGame(g: PlayerGameLog) {
@@ -433,7 +439,7 @@ const CAREER_HIGH_STATS: CareerHighDef[] = [
   { key: "pts", label: "PTS", value: (g) => g.pts },
   { key: "fgm", label: "FGM", value: (g) => g.fgm },
   { key: "fga", label: "FGA", value: (g) => g.fga },
-  { key: "fgPct", label: "FG%", value: (g) => safeDiv(g.fgm, g.fga), format: formatPct, worstEligible: false, topNEligible: false },
+  { key: "fgPct", label: "FG%", value: (g) => safeDiv(g.fgm, g.fga), format: formatPct, worstEligible: false },
   { key: "2pm", label: "2PM", value: (g) => g.fgm - g.tpm },
   { key: "2pa", label: "2PA", value: (g) => g.fga - g.tpa },
   {
@@ -442,21 +448,19 @@ const CAREER_HIGH_STATS: CareerHighDef[] = [
     value: (g) => safeDiv(g.fgm - g.tpm, g.fga - g.tpa),
     format: formatPct,
     worstEligible: false,
-    topNEligible: false,
   },
   { key: "tpm", label: "3PM", value: (g) => g.tpm },
   { key: "tpa", label: "3PA", value: (g) => g.tpa },
-  { key: "tpPct", label: "3P%", value: (g) => safeDiv(g.tpm, g.tpa), format: formatPct, worstEligible: false, topNEligible: false },
+  { key: "tpPct", label: "3P%", value: (g) => safeDiv(g.tpm, g.tpa), format: formatPct, worstEligible: false },
   { key: "ftm", label: "FTM", value: (g) => g.ftm },
   { key: "fta", label: "FTA", value: (g) => g.fta },
-  { key: "ftPct", label: "FT%", value: (g) => safeDiv(g.ftm, g.fta), format: formatPct, worstEligible: false, topNEligible: false },
+  { key: "ftPct", label: "FT%", value: (g) => safeDiv(g.ftm, g.fta), format: formatPct, worstEligible: false },
   {
     key: "efgPct",
     label: "eFG%",
     value: (g) => efgPct(g.fgm, g.tpm, g.fga),
     format: formatPct,
     worstEligible: false,
-    topNEligible: false,
   },
   {
     key: "tsPct",
@@ -464,13 +468,12 @@ const CAREER_HIGH_STATS: CareerHighDef[] = [
     value: (g) => tsPct(g.pts, g.fga, g.fta),
     format: formatPct,
     worstEligible: false,
-    topNEligible: false,
   },
   { key: "oreb", label: "OR", value: (g) => g.oreb },
   { key: "dreb", label: "DR", value: (g) => g.dreb },
   { key: "reb", label: "TR", value: (g) => g.reb },
   { key: "ast", label: "AST", value: (g) => g.ast },
-  { key: "tov", label: "TOV", value: (g) => g.tov },
+  { key: "tov", label: "TOV", value: (g) => g.tov, lowerIsBetter: true },
   {
     key: "astTov",
     label: "AST/TOV",
@@ -481,7 +484,7 @@ const CAREER_HIGH_STATS: CareerHighDef[] = [
   { key: "stl", label: "STL", value: (g) => g.stl },
   { key: "blk", label: "BLK", value: (g) => g.blk },
   { key: "blockedAgainst", label: "BSR", value: (g) => g.blockedAgainst },
-  { key: "pf", label: "F", value: (g) => g.pf },
+  { key: "pf", label: "F", value: (g) => g.pf, lowerIsBetter: true },
   { key: "foulsDrawn", label: "FD", value: (g) => g.foulsDrawn },
   {
     key: "eff",
@@ -496,8 +499,8 @@ const CAREER_HIGH_STATS: CareerHighDef[] = [
   { key: "ptsOffTov", label: "PTSOFFTO", value: (g) => g.ptsOffTov },
   { key: "dunks", label: "DUNK", value: (g) => g.dunks },
   { key: "basketCounts", label: "AND1", value: (g) => g.basketCounts },
-  { key: "unsportsmanlikeFouls", label: "UFOUL", value: (g) => g.unsportsmanlikeFouls },
-  { key: "technicalFouls", label: "TF", value: (g) => g.technicalFouls },
+  { key: "unsportsmanlikeFouls", label: "UFOUL", value: (g) => g.unsportsmanlikeFouls, lowerIsBetter: true },
+  { key: "technicalFouls", label: "TF", value: (g) => g.technicalFouls, lowerIsBetter: true },
 ];
 
 interface CompareSlotState {
@@ -1279,12 +1282,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
       let bestValue: number | null = null;
       for (const g of allGames) {
         const v = def.value(g);
-        if (bestValue === null || v > bestValue) bestValue = v;
+        if (bestValue === null || (def.lowerIsBetter ? v < bestValue : v > bestValue)) bestValue = v;
       }
       if (bestValue === null) return null;
       const matches = sortGamesByDateDesc(allGames.filter((g) => def.value(g) === bestValue));
       const [game, ...otherGames] = matches;
-      const topEntries = def.topNEligible === false ? [] : computeTopRecordEntries(allGames, def.value, false);
+      const topEntries =
+        def.topNEligible === false ? [] : computeTopRecordEntries(allGames, def.value, def.lowerIsBetter ?? false);
       return { ...def, game, otherGames, topEntries, display: def.format ? def.format(bestValue) : String(bestValue) };
     }).filter(
       (
@@ -1299,7 +1303,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
   }, [careerCountTotalsSource, careerGameTypeFilter]);
 
   // 「キャリアワースト」: %系の指標・AST/TOV（worstEligible: false）を除いた項目について、
-  // 同じ試合ログ集合から最小値を求める（キャリアハイと対になる一覧。DESIGN.md参照）
+  // 同じ試合ログ集合から最小値を求める（キャリアハイと対になる一覧。DESIGN.md参照）。
+  // TOV/F/UFOUL/TF（lowerIsBetter: true）は「多い方が悪い」項目のため、方向を反転して
+  // 最大値を求める（2026-09-16、クラブワーストと揃えた）。トップ◯展開（Batch 3拡張）も
+  // 同じ反転した方向で計算し、lowerIsBetter項目のみ件数をトップ5にする
   const careerWorsts = useMemo(() => {
     if (!careerCountTotalsSource) return [];
     const allGames = careerCountTotalsSource.flatMap((cd) =>
@@ -1310,14 +1317,29 @@ export function PlayerDetailPage({ season }: { season: string }) {
         let worstValue: number | null = null;
         for (const g of allGames) {
           const v = def.value(g);
-          if (worstValue === null || v < worstValue) worstValue = v;
+          if (worstValue === null || (def.lowerIsBetter ? v > worstValue : v < worstValue)) worstValue = v;
         }
         if (worstValue === null) return null;
         const matches = sortGamesByDateDesc(allGames.filter((g) => def.value(g) === worstValue));
         const [game, ...otherGames] = matches;
-        return { ...def, game, otherGames, display: def.format ? def.format(worstValue) : String(worstValue) };
+        const topEntries = computeTopRecordEntries(
+          allGames,
+          def.value,
+          !(def.lowerIsBetter ?? false),
+          def.lowerIsBetter ? TOP_RECORD_WORST_BAD_N : undefined,
+        );
+        return { ...def, game, otherGames, topEntries, display: def.format ? def.format(worstValue) : String(worstValue) };
       })
-      .filter((r): r is CareerHighDef & { game: CareerHighGame; otherGames: CareerHighGame[]; display: string } => r !== null);
+      .filter(
+        (
+          r,
+        ): r is CareerHighDef & {
+          game: CareerHighGame;
+          otherGames: CareerHighGame[];
+          topEntries: TopRecordEntry<CareerHighGame>[];
+          display: string;
+        } => r !== null,
+      );
   }, [careerCountTotalsSource, careerGameTypeFilter]);
 
   // 比較タブ: 各スロットの「前半戦/後半戦」ボタン用に、スロットで選ばれたシーズンの試合日程を
@@ -2718,6 +2740,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     otherGames={h.otherGames}
                     expandedKeys={expandedCareerTieCards}
                     onToggle={toggleCareerTieCard}
+                    topEntries={h.topEntries}
+                    format={h.format}
+                    topNExpandedKeys={expandedTopNCareerCards}
+                    onToggleTopN={toggleTopNCareerCard}
                   />
                 ))}
               </div>
@@ -3179,8 +3205,10 @@ function StatTile({ label, value, rank }: { label: string; value: string; rank?:
 /**
  * キャリアハイ/ワーストの1項目カード。同値の試合が複数ある場合、代表試合（最新）を主表示にし、
  * 残りは「他◯試合」ボタンで展開できるようにする（日付・対戦カードの一覧、各試合は試合詳細へリンク）。
- * `topEntries`が渡された場合（現状はキャリアハイのみ、Batch 3・2026-09-16）、項目名自体を
- * クリックするとトップ10（同値タイの末尾は全員含む）が別途展開できる。デフォルトは非表示
+ * `topEntries`が渡された場合（キャリアハイ・キャリアワースト双方、Batch 3・2026-09-16に
+ * ワーストへも拡大）、項目名自体をクリックするとトップ◯（同値タイの末尾は全員含む。件数は
+ * 呼び出し側が決める。TOV等「多い方が悪い」項目のワースト側はトップ5、それ以外はトップ10）
+ * が別途展開できる。デフォルトは非表示
  */
 function CareerHighCard({
   tieKey,
