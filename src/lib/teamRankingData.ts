@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { fetchDivisionHistory, fetchGameSummaries, fetchTeamGameLogs } from "./data";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { fetchDivisionHistory, fetchGame, fetchGameSummaries, fetchTeamGameLogs } from "./data";
 import { buildRecordsBeforeGame, type RecordBeforeGame } from "./situational";
-import type { DivisionHistoryFile, GameSummary, TeamGameLog } from "../../shared/types";
+import type { DivisionHistoryFile, GameSummary, StoredGame, TeamGameLog } from "../../shared/types";
 
 /**
  * 26チーム分（または指定したチーム一覧分）のteam-games/{teamId}.jsonを並行取得する。
@@ -81,4 +81,64 @@ export function useLeagueSituationalContext(season: string): {
   );
 
   return { summaries, divisionHistory, opponentRecords };
+}
+
+/**
+ * ランキングページのQ別/前後半トグル用。指定したscheduleKey一覧の生データ（StoredGame、
+ * PlayByPlays込み）を取得し、ページ内でキャッシュする（「使うまで取得しない」方針。
+ * DESIGN.md参照）。requestedScheduleKeysが空配列（＝トグルが「試合」のまま）の間は
+ * 何も取得しない。一度取得したscheduleKeyはseasonが変わらない限り再取得しない
+ * （フィルタ・カテゴリ切替でrequestedScheduleKeysの中身が変わっても、既に取得済みの
+ * キーは飛ばして差分だけ追加取得する）
+ */
+export function useLeagueRawGames(
+  season: string,
+  requestedScheduleKeys: string[],
+): { gamesByScheduleKey: Map<string, StoredGame>; loading: boolean } {
+  const [gamesByScheduleKey, setGamesByScheduleKey] = useState<Map<string, StoredGame>>(new Map());
+  const [loading, setLoading] = useState(false);
+  const fetchedRef = useRef<Set<string>>(new Set());
+  const seasonRef = useRef(season);
+
+  useEffect(() => {
+    if (seasonRef.current === season) return;
+    seasonRef.current = season;
+    fetchedRef.current = new Set();
+    setGamesByScheduleKey(new Map());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [season]);
+
+  useEffect(() => {
+    const missing = requestedScheduleKeys.filter((k) => !fetchedRef.current.has(k));
+    if (missing.length === 0) return;
+    for (const k of missing) fetchedRef.current.add(k);
+    let cancelled = false;
+    setLoading(true);
+    Promise.all(
+      missing.map(async (scheduleKey): Promise<readonly [string, StoredGame] | null> => {
+        try {
+          return [scheduleKey, await fetchGame(season, scheduleKey)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    )
+      .then((results) => {
+        if (cancelled) return;
+        setGamesByScheduleKey((prev) => {
+          const next = new Map(prev);
+          for (const r of results) if (r) next.set(r[0], r[1]);
+          return next;
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedScheduleKeys.join("|"), season]);
+
+  return { gamesByScheduleKey, loading };
 }

@@ -1,7 +1,8 @@
 import type { Column } from "../components/SortableTable";
 import type { BoxscoreTabKey } from "../components/BoxscoreTable";
-import type { TeamGameLog } from "../../shared/types";
-import type { SeasonDisplayMode } from "./playerSeasonBoxscore";
+import type { StoredGame, TeamGameLog } from "../../shared/types";
+import { buildTeamGameBoxTotals, type SeasonDisplayMode } from "./playerSeasonBoxscore";
+import type { PeriodRangeOption } from "./periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { formatMinutesFromSeconds } from "./boxscoreAggregate";
 import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
@@ -270,6 +271,97 @@ export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
     }),
     { ...EMPTY_TOTALS },
   );
+}
+
+/**
+ * ランキングページ・「チームスタッツ」タブ等のQ別/前後半トグル用。sumTeamGameLogs
+ * （TeamGameLogの永続集計、試合全体固定）の期間限定版で、生データ（StoredGame）から
+ * buildTeamGameBoxTotals（「日程結果」タブ・「比較」タブと同じ1試合単位のロジック）を
+ * 呼んで合算する。プレータイプ内訳（PITP/FBPS/2ND PTS/PTSOFFTO）はSummaries由来の
+ * ownPlayType/oppPlayTypeを使う（65章・66章で確立済みの「チーム合計はSummaries値を使う」
+ * 方針をそのまま踏襲）。国籍区分別得点（japanesePoints等）はTeamGameLogにのみ永続化された
+ * シーズン集計値で試合単位では算出できないため、常に0のまま返す（呼び出し側が
+ * buildScoringColumns()にclassificationSupported=falseを渡し、該当列を「-」表示にする）。
+ * Yahoo PBP由来のLIVETOV/DEADTOVはTeamTotalsに含まれないフィールドのため、Yahoo!スポーツ
+ * データの取得自体が不要（yahooTurnoversは常に空配列で渡す）
+ */
+export function sumTeamGameBoxTotalsForPeriod(
+  entries: { game: StoredGame; isHome: boolean }[],
+  option: PeriodRangeOption,
+): TeamTotals {
+  return entries.reduce<TeamTotals>((acc, { game, isHome }) => {
+    const { own, opp, ownCtx, oppCtx } = buildTeamGameBoxTotals(game, isHome, option, [], true, true);
+    const ownPlayType = ownCtx.ownPlayType;
+    const oppPlayType = oppCtx.ownPlayType;
+    return {
+      ...acc,
+      pts: acc.pts + own.pts,
+      oppPts: acc.oppPts + opp.pts,
+      fgm: acc.fgm + own.pt2m + own.pt3m,
+      fga: acc.fga + own.pt2a + own.pt3a,
+      tpm: acc.tpm + own.pt3m,
+      tpa: acc.tpa + own.pt3a,
+      ftm: acc.ftm + own.ftm,
+      fta: acc.fta + own.fta,
+      oreb: acc.oreb + own.oreb,
+      dreb: acc.dreb + own.dreb,
+      reb: acc.reb + own.treb,
+      ast: acc.ast + own.ast,
+      tov: acc.tov + own.tov,
+      stl: acc.stl + own.stl,
+      blk: acc.blk + own.blk,
+      pf: acc.pf + own.foul,
+      fd: acc.fd + own.foulon,
+      min: acc.min + own.minSec / 60,
+      poss: acc.poss + (ownCtx.ratings?.poss ?? 0),
+      oppFgm: acc.oppFgm + opp.pt2m + opp.pt3m,
+      oppFga: acc.oppFga + opp.pt2a + opp.pt3a,
+      oppTpm: acc.oppTpm + opp.pt3m,
+      oppTpa: acc.oppTpa + opp.pt3a,
+      oppFtm: acc.oppFtm + opp.ftm,
+      oppFta: acc.oppFta + opp.fta,
+      oppOreb: acc.oppOreb + opp.oreb,
+      oppDreb: acc.oppDreb + opp.dreb,
+      oppTov: acc.oppTov + opp.tov,
+      oppAst: acc.oppAst + opp.ast,
+      oppStl: acc.oppStl + opp.stl,
+      oppBlk: acc.oppBlk + opp.blk,
+      oppPf: acc.oppPf + opp.foul,
+      oppFd: acc.oppFd + opp.foulon,
+      pt2in: acc.pt2in + ownPlayType.pt2in,
+      fb: acc.fb + ownPlayType.fb,
+      pt2nd: acc.pt2nd + ownPlayType.pt2nd,
+      pft: acc.pft + ownPlayType.pft,
+      dunks: acc.dunks + own.dunks,
+      oppPt2in: acc.oppPt2in + oppPlayType.pt2in,
+      oppFb: acc.oppFb + oppPlayType.fb,
+      oppPt2nd: acc.oppPt2nd + oppPlayType.pt2nd,
+      oppPft: acc.oppPft + oppPlayType.pft,
+      oppDunks: acc.oppDunks + opp.dunks,
+      technicalFouls: acc.technicalFouls + own.technicalFouls,
+      basketCounts: acc.basketCounts + own.basketCounts,
+      unsportsmanlikeFouls: acc.unsportsmanlikeFouls + own.unsportsmanlikeFouls,
+      disqualifyingFouls: acc.disqualifyingFouls + own.disqualifyingFouls,
+      assisted2m: acc.assisted2m + own.assisted2m,
+      assisted3m: acc.assisted3m + own.assisted3m,
+      assistedFtm: acc.assistedFtm + own.assistedFtm,
+      paint2m: acc.paint2m + own.paint2m,
+      paint2a: acc.paint2a + own.paint2a,
+      mid2m: acc.mid2m + own.nonPaint2m,
+      mid2a: acc.mid2a + own.nonPaint2a,
+      oppTechnicalFouls: acc.oppTechnicalFouls + opp.technicalFouls,
+      oppBasketCounts: acc.oppBasketCounts + opp.basketCounts,
+      oppUnsportsmanlikeFouls: acc.oppUnsportsmanlikeFouls + opp.unsportsmanlikeFouls,
+      oppDisqualifyingFouls: acc.oppDisqualifyingFouls + opp.disqualifyingFouls,
+      oppAssisted2m: acc.oppAssisted2m + opp.assisted2m,
+      oppAssisted3m: acc.oppAssisted3m + opp.assisted3m,
+      oppAssistedFtm: acc.oppAssistedFtm + opp.assistedFtm,
+      oppPaint2m: acc.oppPaint2m + opp.paint2m,
+      oppPaint2a: acc.oppPaint2a + opp.paint2a,
+      oppMid2m: acc.oppMid2m + opp.nonPaint2m,
+      oppMid2a: acc.oppMid2a + opp.nonPaint2a,
+    };
+  }, { ...EMPTY_TOTALS });
 }
 
 export interface AllTeamsRow {
@@ -547,8 +639,16 @@ export function buildMiscColumns(mode: SeasonDisplayMode, perspective: TeamPersp
 
 // %PAINT2M/%PAINT2A/%MID2M/%MID2Aはショットチャート座標（X/Y/AreaCD）由来のため
 // 2022-23シーズン以降のみ対応（paintSupported、呼び出し元でseasonから判定）。
-// modeは国籍区分別得点（Batch 2）の実数値列（countColumn）にのみ必要
-export function buildScoringColumns(mode: SeasonDisplayMode, perspective: TeamPerspective, paintSupported: boolean): Column<AllTeamsRow>[] {
+// modeは国籍区分別得点（Batch 2）の実数値列（countColumn）にのみ必要。
+// classificationSupportedは国籍区分別得点（TeamGameLogにのみ永続化されたシーズン集計値）が
+// 算出可能かどうか。Q別/前後半トグル選択時（sumTeamGameBoxTotalsForPeriod経由）は試合単位では
+// 算出できないためfalseを渡す（DESIGN.md参照。既定はtrueで既存呼び出し元は無変更のまま動作する）
+export function buildScoringColumns(
+  mode: SeasonDisplayMode,
+  perspective: TeamPerspective,
+  paintSupported: boolean,
+  classificationSupported = true,
+): Column<AllTeamsRow>[] {
   return [
     pct100Column("pitppct", "PITP%", (t) => safeDiv(100 * t.pt2in, t.pts), (t) => safeDiv(100 * t.oppPt2in, t.oppPts), perspective),
     pct100Column("fbppct", "FBP%", (t) => safeDiv(100 * t.fb, t.pts), (t) => safeDiv(100 * t.oppFb, t.oppPts), perspective),
@@ -568,37 +668,49 @@ export function buildScoringColumns(mode: SeasonDisplayMode, perspective: TeamPe
     ),
     // 国籍区分別得点（日本人/外国籍/帰化orアジア特別枠の3分割、Batch 2）。実数値＋総得点に
     // 占める割合(%)を追加する
-    countColumn("japanesePts3", "日本人PTS", (t) => t.japanesePoints, (t) => t.oppJapanesePoints, mode, perspective),
-    countColumn("foreignPts3", "外国籍PTS", (t) => t.foreignPoints, (t) => t.oppForeignPoints, mode, perspective),
-    countColumn(
-      "naturalizedOrAsianPts3",
-      "帰化/アジアPTS",
-      (t) => t.naturalizedOrAsianPoints,
-      (t) => t.oppNaturalizedOrAsianPoints,
-      mode,
-      perspective,
-    ),
-    pct100Column(
-      "pctjapanese3",
-      "%日本人PTS",
-      (t) => safeDiv(100 * t.japanesePoints, t.pts),
-      (t) => safeDiv(100 * t.oppJapanesePoints, t.oppPts),
-      perspective,
-    ),
-    pct100Column(
-      "pctforeign3",
-      "%外国籍PTS",
-      (t) => safeDiv(100 * t.foreignPoints, t.pts),
-      (t) => safeDiv(100 * t.oppForeignPoints, t.oppPts),
-      perspective,
-    ),
-    pct100Column(
-      "pctnaturalizedOrAsian3",
-      "%帰化/アジアPTS",
-      (t) => safeDiv(100 * t.naturalizedOrAsianPoints, t.pts),
-      (t) => safeDiv(100 * t.oppNaturalizedOrAsianPoints, t.oppPts),
-      perspective,
-    ),
+    classificationSupported
+      ? countColumn("japanesePts3", "日本人PTS", (t) => t.japanesePoints, (t) => t.oppJapanesePoints, mode, perspective)
+      : unavailableColumn("japanesePts3", "日本人PTS"),
+    classificationSupported
+      ? countColumn("foreignPts3", "外国籍PTS", (t) => t.foreignPoints, (t) => t.oppForeignPoints, mode, perspective)
+      : unavailableColumn("foreignPts3", "外国籍PTS"),
+    classificationSupported
+      ? countColumn(
+          "naturalizedOrAsianPts3",
+          "帰化/アジアPTS",
+          (t) => t.naturalizedOrAsianPoints,
+          (t) => t.oppNaturalizedOrAsianPoints,
+          mode,
+          perspective,
+        )
+      : unavailableColumn("naturalizedOrAsianPts3", "帰化/アジアPTS"),
+    classificationSupported
+      ? pct100Column(
+          "pctjapanese3",
+          "%日本人PTS",
+          (t) => safeDiv(100 * t.japanesePoints, t.pts),
+          (t) => safeDiv(100 * t.oppJapanesePoints, t.oppPts),
+          perspective,
+        )
+      : unavailableColumn("pctjapanese3", "%日本人PTS"),
+    classificationSupported
+      ? pct100Column(
+          "pctforeign3",
+          "%外国籍PTS",
+          (t) => safeDiv(100 * t.foreignPoints, t.pts),
+          (t) => safeDiv(100 * t.oppForeignPoints, t.oppPts),
+          perspective,
+        )
+      : unavailableColumn("pctforeign3", "%外国籍PTS"),
+    classificationSupported
+      ? pct100Column(
+          "pctnaturalizedOrAsian3",
+          "%帰化/アジアPTS",
+          (t) => safeDiv(100 * t.naturalizedOrAsianPoints, t.pts),
+          (t) => safeDiv(100 * t.oppNaturalizedOrAsianPoints, t.oppPts),
+          perspective,
+        )
+      : unavailableColumn("pctnaturalizedOrAsian3", "%帰化/アジアPTS"),
     // ここから下は「自チーム/相手チームの全FGAに対する割合」（シュート選択構成比）。
     // 上記PITP%等（総得点に対する割合）とは分母が異なる別系統の指標
     pct100Column("pct3pm", "%3PM", (t) => safeDiv(100 * t.tpm, t.fga), (t) => safeDiv(100 * t.oppTpm, t.oppFga), perspective),

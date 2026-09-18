@@ -440,6 +440,9 @@ export function GameDetailPage({ season }: { season: string }) {
           {game.raw.Game.Attendance != null && (
             <div className="scoreboard-attendance">来場者数 {game.raw.Game.Attendance.toLocaleString()}人</div>
           )}
+          {game.raw.Game.StadiumNameJ && (
+            <div className="scoreboard-venue">{game.raw.Game.StadiumNameJ}</div>
+          )}
         </div>
         <div className="scoreboard-team" style={awayColor ? { borderTopColor: awayColor } : undefined}>
           <TeamLogo teamId={game.awayTeam.id} size={44} className="scoreboard-logo" />

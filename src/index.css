@@ -1045,6 +1045,11 @@ table.sortable-table td.row-accent-cell {
   font-size: 11px;
 }
 
+.scoreboard-venue {
+  margin-top: 2px;
+  font-size: 11px;
+}
+
 table.quarter-table {
   border-collapse: collapse;
   width: 100%;

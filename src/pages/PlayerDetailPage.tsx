@@ -33,6 +33,7 @@ import { isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "..
 import type {
   Category,
   DivisionHistoryFile,
+  GameType,
   PlayerGameLog,
   PlayerSummary,
   ShotTypeBreakdown,
@@ -116,34 +117,71 @@ import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "./ComparePage";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
+/**
+ * 「試合ログ」タブの1行。ボックススコアが取れた試合（box）と、個人スタッツが無い試合
+ * （missing。DNPとして0記録されている場合・box score行自体が存在しない場合の両方を含む）を
+ * 区別する。missing行は日付・対戦相手・チームの勝敗のみを表示し、スタッツ列は全て「-」にする
+ * （所属チームの全試合を対象にする、DESIGN.md参照）
+ */
+type GameLogTableRow =
+  | { kind: "box"; box: PlayerGameBoxscoreRow }
+  | {
+      kind: "missing";
+      scheduleKey: string;
+      date: string;
+      opponentTeamName: string;
+      isHome: boolean;
+      win: boolean;
+      gameType: GameType;
+    };
+
+function gameLogRowInfo(r: GameLogTableRow) {
+  return r.kind === "box"
+    ? {
+        scheduleKey: r.box.gameLog.scheduleKey,
+        date: r.box.gameLog.date,
+        opponentTeamName: r.box.gameLog.opponentTeamName,
+        isHome: r.box.gameLog.isHome,
+        win: r.box.gameLog.win,
+        gameType: r.box.gameLog.gameType,
+      }
+    : r;
+}
+
 /** 試合詳細ページのボックススコア列定義（BoxscoreColumn）を、試合ログテーブル用のColumnに変換する */
-function toGameLogColumns(tabKey: BoxscoreTabKey): Column<PlayerGameBoxscoreRow>[] {
-  const fixed: Column<PlayerGameBoxscoreRow>[] = [
-    { key: "date", label: "日付", sortValue: (r) => r.gameLog.date, align: "left" },
+function toGameLogColumns(tabKey: BoxscoreTabKey): Column<GameLogTableRow>[] {
+  const fixed: Column<GameLogTableRow>[] = [
+    { key: "date", label: "日付", sortValue: (r) => gameLogRowInfo(r).date, align: "left" },
     {
       key: "opponent",
       label: "対戦相手",
-      sortValue: (r) => r.gameLog.opponentTeamName,
+      sortValue: (r) => gameLogRowInfo(r).opponentTeamName,
       align: "left",
-      render: (r) => (
-        <>
-          {r.gameLog.isHome ? "vs" : "@"} {r.gameLog.opponentTeamName}
-          {r.gameLog.gameType === "playoff" && <span className="playoff-badge">PO</span>}
-        </>
-      ),
+      render: (r) => {
+        const info = gameLogRowInfo(r);
+        return (
+          <>
+            {info.isHome ? "vs" : "@"} {info.opponentTeamName}
+            {info.gameType === "playoff" && <span className="playoff-badge">PO</span>}
+          </>
+        );
+      },
     },
     {
       key: "result",
       label: "結果",
-      sortValue: (r) => (r.gameLog.win ? 1 : 0),
-      render: (r) => <span className={`result-badge ${r.gameLog.win ? "win" : "loss"}`}>{r.gameLog.win ? "W" : "L"}</span>,
+      sortValue: (r) => (gameLogRowInfo(r).win ? 1 : 0),
+      render: (r) => {
+        const win = gameLogRowInfo(r).win;
+        return <span className={`result-badge ${win ? "win" : "loss"}`}>{win ? "W" : "L"}</span>;
+      },
     },
   ];
-  const statColumns: Column<PlayerGameBoxscoreRow>[] = COLUMNS_BY_TAB[tabKey].map((col: BoxscoreColumn) => ({
+  const statColumns: Column<GameLogTableRow>[] = COLUMNS_BY_TAB[tabKey].map((col: BoxscoreColumn) => ({
     key: col.key,
     label: col.label,
-    sortValue: (r) => col.value?.(r.counts, r.ctx) ?? col.format(r.counts, r.ctx),
-    format: (r) => col.format(r.counts, r.ctx),
+    sortValue: (r) => (r.kind === "box" ? (col.value?.(r.box.counts, r.box.ctx) ?? col.format(r.box.counts, r.box.ctx)) : -Infinity),
+    format: (r) => (r.kind === "box" ? col.format(r.box.counts, r.box.ctx) : "-"),
   }));
   return [...fixed, ...statColumns];
 }
@@ -980,18 +1018,22 @@ export function PlayerDetailPage({ season }: { season: string }) {
     if (tab !== "gamelog" || !playerId || !gameLogs || gameBoxFetchStartedRef.current) return;
     gameBoxFetchStartedRef.current = true;
     setGameBoxLoading(true);
+    // DNP（出場0分）の試合はスタッツが全て0のため、生データ取得の必要が無い（下のgameLogTableRowsで
+    // 「-」表示のmissing行として扱う）。出場した試合のみボックススコアを取得する
     Promise.all(
-      gameLogs.map(async (log) => {
-        try {
-          const [game, yahooPbp] = await Promise.all([
-            fetchGame(season, log.scheduleKey),
-            yahooSeasonSupported ? fetchYahooGamePbp(season, log.scheduleKey) : Promise.resolve(null),
-          ]);
-          return buildPlayerGameBoxscoreRow(game, log, playerId, yahooPbp, shotChartSupported);
-        } catch {
-          return null;
-        }
-      }),
+      gameLogs
+        .filter((log) => log.min > 0)
+        .map(async (log) => {
+          try {
+            const [game, yahooPbp] = await Promise.all([
+              fetchGame(season, log.scheduleKey),
+              yahooSeasonSupported ? fetchYahooGamePbp(season, log.scheduleKey) : Promise.resolve(null),
+            ]);
+            return buildPlayerGameBoxscoreRow(game, log, playerId, yahooPbp, shotChartSupported);
+          } catch {
+            return null;
+          }
+        }),
     )
       .then((results) => {
         setGameBoxRows(results.filter((r): r is PlayerGameBoxscoreRow => r !== null));
@@ -1000,6 +1042,95 @@ export function PlayerDetailPage({ season }: { season: string }) {
         setGameBoxLoading(false);
       });
   }, [tab, playerId, season, gameLogs, yahooSeasonSupported, shotChartSupported]);
+
+  // 「試合ログ」タブのDNP試合表示: 出場していない試合も、日付・対戦カード・チームの勝敗が
+  // 分かる形で一覧に含める（既存の「シーズン別成績」「シチュエーション別成績」と同じ
+  // resolveOwnTeamベースの所属チーム判定を流用し、その選手の所属チームの全試合を対象にする）。
+  // gameLogs自体に既に記録されている試合（min===0のDNPを含む）はそのまま使えるが、
+  // box score行自体が存在しない試合（生データにこの選手の行が無い）はgameLogsに現れないため、
+  // 所属チームの試合結果一覧（fetchTeamGameLogs）と突き合わせて補完する
+  const { data: gameLogGameSummaries } = useJsonData(
+    () => (tab === "gamelog" ? fetchGameSummaries(season) : Promise.resolve(null)),
+    [tab, season],
+  );
+  const gameLogGameTeams = useMemo(
+    () => (gameLogGameSummaries ? buildGameTeamsByScheduleKey(gameLogGameSummaries) : new Map()),
+    [gameLogGameSummaries],
+  );
+  // シーズン内移籍対応: DNPとして記録済みの試合も含め、gameLogsの全エントリから所属チームを
+  // 解決する（buildTeamSplitRows等は出場試合のみを対象にするが、ここではチームごとの在籍期間
+  // （最初/最後に確認できた試合日）をなるべく正確に見積もるため、DNP記録も判定材料に使う）
+  const gameLogOwnTeamByScheduleKey = useMemo(() => {
+    const map = new Map<string, GameTeamInfo>();
+    for (const log of gameLogs ?? []) {
+      const own = resolveOwnTeam(log, gameLogGameTeams);
+      if (own) map.set(log.scheduleKey, own);
+    }
+    return map;
+  }, [gameLogs, gameLogGameTeams]);
+  // チームごとの在籍期間（既知の試合日の最小〜最大）。移籍選手で他チームの全試合を
+  // 誤って「欠場」扱いしないよう、この期間内の試合のみ補完対象にする
+  const gameLogTeamDateRangeById = useMemo(() => {
+    const map = new Map<string, { min: string; max: string }>();
+    for (const log of gameLogs ?? []) {
+      const own = gameLogOwnTeamByScheduleKey.get(log.scheduleKey);
+      if (!own) continue;
+      const range = map.get(own.teamId);
+      if (!range) {
+        map.set(own.teamId, { min: log.date, max: log.date });
+      } else {
+        if (log.date < range.min) range.min = log.date;
+        if (log.date > range.max) range.max = log.date;
+      }
+    }
+    return map;
+  }, [gameLogs, gameLogOwnTeamByScheduleKey]);
+  const gameLogTeamIds = [...new Set([...gameLogOwnTeamByScheduleKey.values()].map((t) => t.teamId))];
+  const { data: gameLogTeamGameLogsByTeam, loading: gameLogTeamGameLogsLoading } = useJsonData(
+    () =>
+      tab === "gamelog" && gameLogTeamIds.length > 0
+        ? Promise.all(gameLogTeamIds.map(async (teamId) => [teamId, await fetchTeamGameLogs(season, teamId)] as const)).then(
+            (entries) => new Map(entries),
+          )
+        : Promise.resolve(new Map<string, TeamGameLog[]>()),
+    [tab, season, gameLogTeamIds.join("|")],
+  );
+  const gameLogTableRows: GameLogTableRow[] = useMemo(() => {
+    if (!gameLogs) return [];
+    const rows: GameLogTableRow[] = (gameBoxRows ?? []).map((box) => ({ kind: "box", box }));
+    const known = new Set(gameLogs.map((l) => l.scheduleKey));
+    for (const log of gameLogs) {
+      if (log.min > 0) continue;
+      rows.push({
+        kind: "missing",
+        scheduleKey: log.scheduleKey,
+        date: log.date,
+        opponentTeamName: log.opponentTeamName,
+        isHome: log.isHome,
+        win: log.win,
+        gameType: log.gameType,
+      });
+    }
+    if (gameLogTeamGameLogsByTeam) {
+      for (const [teamId, teamLogs] of gameLogTeamGameLogsByTeam) {
+        const range = gameLogTeamDateRangeById.get(teamId);
+        for (const t of teamLogs) {
+          if (known.has(t.scheduleKey)) continue;
+          if (range && (t.date < range.min || t.date > range.max)) continue;
+          rows.push({
+            kind: "missing",
+            scheduleKey: t.scheduleKey,
+            date: t.date,
+            opponentTeamName: t.opponentTeamName,
+            isHome: t.isHome,
+            win: t.win,
+            gameType: t.gameType,
+          });
+        }
+      }
+    }
+    return rows;
+  }, [gameLogs, gameBoxRows, gameLogTeamGameLogsByTeam, gameLogTeamDateRangeById]);
 
   useEffect(() => {
     if (
@@ -2588,17 +2719,17 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 </button>
               ))}
             </div>
-            {gameBoxLoading || !gameBoxRows ? (
+            {gameBoxLoading || !gameBoxRows || gameLogTeamGameLogsLoading ? (
               <p className="loading">読み込み中...</p>
             ) : (
               <div className="table-scroll">
                 <SortableTable
                   key={gameBoxTab}
                   columns={toGameLogColumns(gameBoxTab)}
-                  rows={gameBoxRows}
-                  rowKey={(r) => r.gameLog.scheduleKey}
+                  rows={gameLogTableRows}
+                  rowKey={(r) => gameLogRowInfo(r).scheduleKey}
                   defaultSortKey="date"
-                  linkTo={(r) => `/games/${r.gameLog.scheduleKey}`}
+                  linkTo={(r) => `/games/${gameLogRowInfo(r).scheduleKey}`}
                 />
               </div>
             )}
