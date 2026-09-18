@@ -1487,12 +1487,10 @@ export function buildTeamMultiGameBoxTotals(
 export interface TeamPointsBreakdown {
   bench: number;
   starter: number;
+  /** 日本人選手の得点。internationalと合わせて登録区分の2分割になる（src/lib/classificationFilter.ts参照） */
   japanese: number;
+  /** 外国籍・帰化・アジア特別枠選手の得点 */
   international: number;
-  /** 外国籍選手のみの得点（Batch 2、帰化選手・アジア特別枠を含まない3分割版）。internationalとは別集計 */
-  foreign: number;
-  /** 帰化選手+アジア特別枠選手の得点（Batch 2）。foreignと対になる集計 */
-  naturalizedOrAsian: number;
 }
 
 const EMPTY_TEAM_POINTS_BREAKDOWN: TeamPointsBreakdown = {
@@ -1500,8 +1498,6 @@ const EMPTY_TEAM_POINTS_BREAKDOWN: TeamPointsBreakdown = {
   starter: 0,
   japanese: 0,
   international: 0,
-  foreign: 0,
-  naturalizedOrAsian: 0,
 };
 
 /**
@@ -1514,18 +1510,16 @@ function rawTeamPointsBreakdown(rows: BoxscoreRow[], masterById: Map<string, Pla
   let bench = 0;
   let starter = 0;
   let japanese = 0;
-  let foreign = 0;
-  let naturalizedOrAsian = 0;
+  let international = 0;
   for (const r of rows) {
     if (r.Category !== 1 || r.PeriodCategory !== 18) continue;
     if (r.StartingFlg === 1) starter += r.Point;
     else bench += r.Point;
     const classification = masterById.get(r.PlayerID)?.classification;
     if (classification === "日本人") japanese += r.Point;
-    else if (classification === "外国籍") foreign += r.Point;
-    else if (classification === "帰化選手" || classification === "アジア特別枠") naturalizedOrAsian += r.Point;
+    else if (classification !== undefined) international += r.Point;
   }
-  return { bench, starter, japanese, international: foreign + naturalizedOrAsian, foreign, naturalizedOrAsian };
+  return { bench, starter, japanese, international };
 }
 
 function addTeamPointsBreakdown(a: TeamPointsBreakdown, b: TeamPointsBreakdown): TeamPointsBreakdown {
@@ -1534,8 +1528,6 @@ function addTeamPointsBreakdown(a: TeamPointsBreakdown, b: TeamPointsBreakdown):
     starter: a.starter + b.starter,
     japanese: a.japanese + b.japanese,
     international: a.international + b.international,
-    foreign: a.foreign + b.foreign,
-    naturalizedOrAsian: a.naturalizedOrAsian + b.naturalizedOrAsian,
   };
 }
 
@@ -1545,8 +1537,6 @@ function scaleTeamPointsBreakdown(b: TeamPointsBreakdown, factor: number): TeamP
     starter: b.starter * factor,
     japanese: b.japanese * factor,
     international: b.international * factor,
-    foreign: b.foreign * factor,
-    naturalizedOrAsian: b.naturalizedOrAsian * factor,
   };
 }
 

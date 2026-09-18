@@ -5,6 +5,7 @@ import { fetchGame, fetchPlayers, fetchTeamColors, fetchYahooGamePbp } from "../
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import { formatPct } from "../lib/format";
+import { classificationGroup } from "../lib/classificationFilter";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, ShotTypeBreakdown } from "../../shared/types";
 import { KeyStatsSection } from "../components/KeyStatsSection";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
@@ -190,39 +191,35 @@ function buildGamePtsCompositionSegments(
   ];
 }
 
-// 国籍区分別得点構成の円グラフ配色（3分割: 日本人/外国籍/帰化orアジア特別枠）
+// 登録区分別得点構成の円グラフ配色（2分割: 日本人/外国籍・帰化・アジア）
 const CLASSIFICATION_PIE_COLORS = {
   japanese: "#5b9bd5",
-  foreign: "#e06666",
-  naturalizedOrAsian: "#93c47d",
+  international: "#e06666",
 };
 
 /**
- * 国籍区分別得点割合の円グラフ用データ（1試合分）。日本人/外国籍/帰化選手orアジア特別枠の
- * 3分割。既存のボックススコア「内訳集計」（日本人選手合計/外国籍+帰化+アジア特別枠合計の
- * 2分割）とは異なる区分のため専用に集計する。classification未定義の選手の得点はどの
- * セグメントにも計上しない（Batch 1、既存の「参考値」注記と同じ方針。DESIGN.md参照）
+ * 登録区分別得点割合の円グラフ用データ（1試合分）。日本人/外国籍・帰化・アジアの2分割
+ * （src/lib/classificationFilter.ts参照）。既存のボックススコア「内訳集計」（日本人選手合計/
+ * 外国籍・帰化・アジア合計）と同じ区分だが、円グラフ用に専用に集計する。classification未定義の
+ * 選手の得点はどのセグメントにも計上しない（既存の「参考値」注記と同じ方針。DESIGN.md参照）
  */
 function buildGameClassificationPtsSegments(
   rows: BoxscoreRow[],
   classificationById: Map<string, PlayerSummary["classification"]>,
 ): { segments: PieSegmentInput[]; unclassifiedPlayedCount: number } {
   let japanese = 0;
-  let foreign = 0;
-  let naturalizedOrAsian = 0;
+  let international = 0;
   let unclassifiedPlayedCount = 0;
   for (const r of rows) {
-    const c = classificationById.get(r.PlayerID);
-    if (c === "日本人") japanese += r.Point;
-    else if (c === "外国籍") foreign += r.Point;
-    else if (c === "帰化選手" || c === "アジア特別枠") naturalizedOrAsian += r.Point;
+    const group = classificationGroup(classificationById.get(r.PlayerID));
+    if (group === "日本人") japanese += r.Point;
+    else if (group === "外国籍・帰化・アジア") international += r.Point;
     else if (r.PlayTime !== "DNP") unclassifiedPlayedCount += 1;
   }
   return {
     segments: [
       { key: "jp", label: "日本人", color: CLASSIFICATION_PIE_COLORS.japanese, value: japanese },
-      { key: "foreign", label: "外国籍", color: CLASSIFICATION_PIE_COLORS.foreign, value: foreign },
-      { key: "naturalizedOrAsian", label: "帰化/アジア", color: CLASSIFICATION_PIE_COLORS.naturalizedOrAsian, value: naturalizedOrAsian },
+      { key: "international", label: "外国籍・帰化・アジア", color: CLASSIFICATION_PIE_COLORS.international, value: international },
     ],
     unclassifiedPlayedCount,
   };

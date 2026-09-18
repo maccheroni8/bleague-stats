@@ -52,7 +52,12 @@ import {
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns } from "../lib/shotTypeBreakdown";
 import { useAllTeamGameLogs, useLeagueRawGames, useLeagueSituationalContext } from "../lib/teamRankingData";
 import { isShotChartSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
-import { CLASSIFICATION_OPTIONS, matchesClassificationFilter, toggleInSet } from "../lib/classificationFilter";
+import {
+  CLASSIFICATION_GROUP_OPTIONS,
+  classificationGroup,
+  matchesClassificationGroupFilter,
+  type ClassificationGroupFilter,
+} from "../lib/classificationFilter";
 import {
   EXTRA_ELIGIBILITY_RULES,
   MIN_GAMES_PLAYED_RATIO_FOR_RANKING,
@@ -761,9 +766,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     "rankings:player:extraThreshold",
     EXTRA_ELIGIBILITY_RULES.pts?.defaultValue ?? 0,
   );
-  const [selectedClassifications, setSelectedClassifications] = usePageState<
-    Set<NonNullable<PlayerSummary["classification"]>>
-  >("rankings:player:selectedClassifications", () => new Set());
+  const [selectedClassification, setSelectedClassification] = usePageState<ClassificationGroupFilter>(
+    "rankings:player:classificationGroup",
+    "all",
+  );
   const [filter, setFilter] = usePageState<SituationalFilter>("rankings:player:filter", { range: { kind: "all" } });
   const filterActive = !isDefaultFilter(filter);
   const [gameType, setGameType] = usePageState<SeasonGameTypeFilter>("rankings:player:gameType", "regular");
@@ -795,10 +801,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const eligible: PlayerSummary[] = useMemo(() => {
     if (!players || !teams) return [];
     const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold).filter((p) =>
-      matchesClassificationFilter(p, selectedClassifications),
+      matchesClassificationGroupFilter(p, selectedClassification),
     );
     return category === "shooting" ? base.filter((p) => !!p.shotTypes) : base;
-  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassifications, category]);
+  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassification, category]);
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {
@@ -979,17 +985,17 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         <h3>登録区分</h3>
         <div className="mode-toggle">
           <button
-            className={selectedClassifications.size === 0 ? "active" : ""}
-            onClick={() => setSelectedClassifications(new Set())}
+            className={selectedClassification === "all" ? "active" : ""}
+            onClick={() => setSelectedClassification("all")}
             type="button"
           >
             全選手
           </button>
-          {CLASSIFICATION_OPTIONS.map((c) => (
+          {CLASSIFICATION_GROUP_OPTIONS.map((c) => (
             <button
               key={c}
-              className={selectedClassifications.has(c) ? "active" : ""}
-              onClick={() => setSelectedClassifications((prev) => toggleInSet(prev, c))}
+              className={selectedClassification === c ? "active" : ""}
+              onClick={() => setSelectedClassification(c)}
               type="button"
             >
               {c}
@@ -1091,7 +1097,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               def={rankDef}
               rowKey={(p) => p.playerId}
               name={(p) => p.name}
-              subLabel={(p) => [p.teamName, p.position, p.classification].filter(Boolean).join("・")}
+              subLabel={(p) => [p.teamName, p.position, classificationGroup(p.classification)].filter(Boolean).join("・")}
               linkTo={(p) => `/players/${p.playerId}`}
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={28} className="player-cell-photo" />}

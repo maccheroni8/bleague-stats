@@ -469,12 +469,12 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           <p className="page-subtitle">
             レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。得点構成のペイント内得点はPlayByPlaysのタグ集計（全シーズン対応）、ミッドレンジ得点は「2P得点−ペイント内得点」として算出しているため、ショットチャート座標のseason制約は受けない。各セグメントの数値は割合(%)と1試合あたり平均得点。見出しボタンでカテゴリ別の並び替えができる（デフォルトは平均得点が多い順）
           </p>
-          <h3>得点構成（国籍区分）</h3>
+          <h3>得点構成（登録区分）</h3>
           <ClassificationCompositionChart teams={teams ?? []} mode="own" />
-          <h3>失点構成（国籍区分）</h3>
+          <h3>失点構成（登録区分）</h3>
           <ClassificationCompositionChart teams={teams ?? []} mode="opponent" />
           <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。classification未定義の選手の得点はいずれのセグメントにも計上しないため、3セグメントの合計が総得点に満たない場合があります
+            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。classification未定義の選手の得点はいずれのセグメントにも計上しないため、2セグメントの合計が総得点に満たない場合があります
           </p>
         </>
       ) : gameLogsLoading || !gameLogsByTeam ? (

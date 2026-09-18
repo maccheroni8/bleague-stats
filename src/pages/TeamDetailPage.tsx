@@ -365,27 +365,26 @@ function buildPtsCompositionSegments(team: TeamSummary, perspective: "own" | "op
   ];
 }
 
-// 国籍区分別得点構成の円グラフ配色（3分割: 日本人/外国籍/帰化orアジア特別枠）
+// 登録区分別得点構成の円グラフ配色（2分割: 日本人/外国籍・帰化・アジア）
 const CLASSIFICATION_PIE_COLORS = {
   japanese: "#5b9bd5",
-  foreign: "#e06666",
-  naturalizedOrAsian: "#93c47d",
+  international: "#e06666",
 };
 
 /**
- * 国籍区分別得点割合の円グラフ用データ（自チーム/相手チーム）。日本人/外国籍/帰化選手or
- * アジア特別枠の3分割。既存のteam.advanced.japanesePointsPerGame等（Phase H8、2分割版）とは
- * 別集計のBatch 1新規フィールド（foreignPointsPerGame/naturalizedOrAsianPointsPerGame）を使う
+ * 登録区分別得点割合の円グラフ用データ（自チーム/相手チーム）。日本人/外国籍・帰化・アジアの
+ * 2分割（src/lib/classificationFilter.ts参照）。team.advanced.japanesePointsPerGame等
+ * （internationalはforeignPointsPerGame+naturalizedOrAsianPointsPerGameを合算して導出）を使う
  */
 function buildClassificationPtsCompositionSegments(team: TeamSummary, perspective: "own" | "opp"): PieSegmentInput[] {
   const japanese = perspective === "own" ? team.advanced.japanesePointsPerGame : team.advanced.opponentJapanesePointsPerGame;
-  const foreign = perspective === "own" ? team.advanced.foreignPointsPerGame : team.advanced.opponentForeignPointsPerGame;
-  const naturalizedOrAsian =
-    perspective === "own" ? team.advanced.naturalizedOrAsianPointsPerGame : team.advanced.opponentNaturalizedOrAsianPointsPerGame;
+  const international =
+    perspective === "own"
+      ? team.advanced.foreignPointsPerGame + team.advanced.naturalizedOrAsianPointsPerGame
+      : team.advanced.opponentForeignPointsPerGame + team.advanced.opponentNaturalizedOrAsianPointsPerGame;
   return [
     { key: "jp", label: "日本人", color: CLASSIFICATION_PIE_COLORS.japanese, value: japanese },
-    { key: "foreign", label: "外国籍", color: CLASSIFICATION_PIE_COLORS.foreign, value: foreign },
-    { key: "naturalizedOrAsian", label: "帰化/アジア", color: CLASSIFICATION_PIE_COLORS.naturalizedOrAsian, value: naturalizedOrAsian },
+    { key: "international", label: "外国籍・帰化・アジア", color: CLASSIFICATION_PIE_COLORS.international, value: international },
   ];
 }
 
@@ -1383,9 +1382,8 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "%FT",
     format: (r, _m, _mode, p) => formatTeamSeasonPct100(r.team.advanced.ftPointsSharePct, r.team.advanced.opponentFtPointsSharePct, p),
   },
-  // Batch 2（2026-09-16）: 国籍区分別得点（日本人/外国籍/帰化orアジア特別枠の3分割）。
-  // Batch 1で追加したteam.advanced.foreignPointsPerGame等（3分割版）をそのまま使う。
-  // 既存のjapanesePointsPerGame/internationalPointsPerGame（2分割版、Misc列）とは別集計
+  // 登録区分別得点（日本人/外国籍・帰化・アジアの2分割）。team.advanced.foreignPointsPerGame等
+  // （旧3分割版の内部フィールド）を合算して2区分に統一する（src/lib/classificationFilter.ts参照）
   {
     key: "japanesePts3",
     label: "日本人PTS",
@@ -1399,24 +1397,13 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
       ),
   },
   {
-    key: "foreignPts3",
-    label: "外国籍PTS",
+    key: "internationalPts3",
+    label: "外国籍・帰化・アジアPTS",
     format: (r, _m, mode, p) =>
       formatTeamSeasonCountPerspective(
-        r.team.advanced.foreignPointsPerGame * r.team.gamesPlayed,
-        r.team.advanced.opponentForeignPointsPerGame * r.team.gamesPlayed,
-        r.team.gamesPlayed,
-        mode,
-        p,
-      ),
-  },
-  {
-    key: "naturalizedOrAsianPts3",
-    label: "帰化/アジアPTS",
-    format: (r, _m, mode, p) =>
-      formatTeamSeasonCountPerspective(
-        r.team.advanced.naturalizedOrAsianPointsPerGame * r.team.gamesPlayed,
-        r.team.advanced.opponentNaturalizedOrAsianPointsPerGame * r.team.gamesPlayed,
+        (r.team.advanced.foreignPointsPerGame + r.team.advanced.naturalizedOrAsianPointsPerGame) * r.team.gamesPlayed,
+        (r.team.advanced.opponentForeignPointsPerGame + r.team.advanced.opponentNaturalizedOrAsianPointsPerGame) *
+          r.team.gamesPlayed,
         r.team.gamesPlayed,
         mode,
         p,
@@ -1429,18 +1416,12 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
       formatTeamSeasonPct100(r.team.advanced.japanesePointsSharePct, r.team.advanced.opponentJapanesePointsSharePct, p),
   },
   {
-    key: "pctforeign3",
-    label: "%外国籍PTS",
-    format: (r, _m, _mode, p) =>
-      formatTeamSeasonPct100(r.team.advanced.foreignPointsSharePct, r.team.advanced.opponentForeignPointsSharePct, p),
-  },
-  {
-    key: "pctnaturalizedOrAsian3",
-    label: "%帰化/アジアPTS",
+    key: "pctinternational3",
+    label: "%外国籍・帰化・アジアPTS",
     format: (r, _m, _mode, p) =>
       formatTeamSeasonPct100(
-        r.team.advanced.naturalizedOrAsianPointsSharePct,
-        r.team.advanced.opponentNaturalizedOrAsianPointsSharePct,
+        r.team.advanced.foreignPointsSharePct + r.team.advanced.naturalizedOrAsianPointsSharePct,
+        r.team.advanced.opponentForeignPointsSharePct + r.team.advanced.opponentNaturalizedOrAsianPointsSharePct,
         p,
       ),
   },
@@ -1987,13 +1968,12 @@ const TEAM_POINTS_MISC_COLUMNS: TeamPointsExtraColumn[] = [
 
 // %BENCH PTS・%STARTER PTSは自チームの得点構成比のみを意味のある指標として扱い、
 // ヘッダータイル時代・「シーズン別成績」と同じくown/opp/diffの切り替え対象外にする。
-// Batch 2: 国籍区分別得点（日本人/外国籍/帰化orアジア特別枠の3分割）を実数値＋割合(%)で追加
+// 登録区分別得点（日本人/外国籍・帰化・アジアの2分割）を実数値＋割合(%)で追加
 const TEAM_POINTS_SHARE_COLUMNS: TeamPointsExtraColumn[] = [
   { key: "benchPtsShare", label: "%BENCH PTS", value: (b) => safeDiv(100 * b.bench, b.bench + b.starter), kind: "sharePct" },
   { key: "starterPtsShare", label: "%STARTER PTS", value: (b) => safeDiv(100 * b.starter, b.bench + b.starter), kind: "sharePct" },
   { key: "japanesePts3", label: "日本人PTS", value: (b) => b.japanese, kind: "count" },
-  { key: "foreignPts3", label: "外国籍PTS", value: (b) => b.foreign, kind: "count" },
-  { key: "naturalizedOrAsianPts3", label: "帰化/アジアPTS", value: (b) => b.naturalizedOrAsian, kind: "count" },
+  { key: "internationalPts3", label: "外国籍・帰化・アジアPTS", value: (b) => b.international, kind: "count" },
   {
     key: "japanesePtsShare3",
     label: "%日本人PTS",
@@ -2001,15 +1981,9 @@ const TEAM_POINTS_SHARE_COLUMNS: TeamPointsExtraColumn[] = [
     kind: "sharePct",
   },
   {
-    key: "foreignPtsShare3",
-    label: "%外国籍PTS",
-    value: (b) => safeDiv(100 * b.foreign, b.bench + b.starter),
-    kind: "sharePct",
-  },
-  {
-    key: "naturalizedOrAsianPtsShare3",
-    label: "%帰化/アジアPTS",
-    value: (b) => safeDiv(100 * b.naturalizedOrAsian, b.bench + b.starter),
+    key: "internationalPtsShare3",
+    label: "%外国籍・帰化・アジアPTS",
+    value: (b) => safeDiv(100 * b.international, b.bench + b.starter),
     kind: "sharePct",
   },
 ];

@@ -114,6 +114,7 @@ import {
   type SituationalFilter,
 } from "../lib/situational";
 import { isWeekdayGame } from "../lib/japaneseHolidays";
+import { classificationGroup } from "../lib/classificationFilter";
 import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "./ComparePage";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
@@ -2109,7 +2110,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
         <div className="player-header-profile">
           <div className="player-profile-grid">
             {player.position && <ProfileItem label="ポジション" value={player.position} />}
-            {player.classification && <ProfileItem label="登録区分" value={player.classification} />}
+            {player.classification && (
+              <ProfileItem label="登録区分" value={classificationGroup(player.classification) ?? player.classification} />
+            )}
             {player.nationality && <ProfileItem label="国籍" value={player.nationality} />}
             {player.heightCm && <ProfileItem label="身長" value={`${player.heightCm}cm`} />}
             {player.weightKg && <ProfileItem label="体重" value={`${player.weightKg}kg`} />}

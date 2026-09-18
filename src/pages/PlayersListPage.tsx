@@ -39,7 +39,12 @@ import {
   type RecordBeforeGame,
   type SituationalFilter,
 } from "../lib/situational";
-import { CLASSIFICATION_OPTIONS, matchesClassificationFilter, toggleInSet } from "../lib/classificationFilter";
+import {
+  CLASSIFICATION_GROUP_OPTIONS,
+  matchesClassificationGroupFilter,
+  toggleInSet,
+  type ClassificationGroupFilter,
+} from "../lib/classificationFilter";
 import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { SEASON_GAME_TYPE_LABELS, type SeasonGameTypeFilter } from "../../shared/gameType";
@@ -442,9 +447,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const [maxRatio, setMaxRatio] = useState(DEFAULT_MAX_RATIO);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const [classificationFilter, setClassificationFilter] = useState<Set<NonNullable<PlayerSummary["classification"]>>>(
-    () => new Set(),
-  );
+  const [classificationFilter, setClassificationFilter] = useState<ClassificationGroupFilter>("all");
   const [teamFilter, setTeamFilter] = useState<Set<string>>(() => new Set());
   const [positionFilter, setPositionFilter] = useState<Set<string>>(() => new Set());
   const [situationalFilter, setSituationalFilter] = useState<SituationalFilter>(DEFAULT_SITUATIONAL_FILTER);
@@ -467,7 +470,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     setMinRatio(DEFAULT_MIN_RATIO);
     setMaxRatio(DEFAULT_MAX_RATIO);
     setVisibleCount(PAGE_SIZE);
-    setClassificationFilter(new Set());
+    setClassificationFilter("all");
     setTeamFilter(new Set());
     setPositionFilter(new Set());
     setSituationalFilter(DEFAULT_SITUATIONAL_FILTER);
@@ -543,7 +546,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       if (!teamGames) return false;
       const ratio = (100 * p.gamesPlayed) / teamGames;
       if (ratio < minRatio || ratio > maxRatio) return false;
-      if (!matchesClassificationFilter(p, classificationFilter)) return false;
+      if (!matchesClassificationGroupFilter(p, classificationFilter)) return false;
       if (!matchesTeamFilter(p, teamFilter)) return false;
       if (!matchesPositionFilter(p, positionFilter)) return false;
       return true;
@@ -646,11 +649,18 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       <div className="filter-block">
         <h3>国籍区分</h3>
         <div className="mode-toggle">
-          {CLASSIFICATION_OPTIONS.map((c) => (
+          <button
+            className={classificationFilter === "all" ? "active" : ""}
+            onClick={() => setClassificationFilter("all")}
+            type="button"
+          >
+            全選手
+          </button>
+          {CLASSIFICATION_GROUP_OPTIONS.map((c) => (
             <button
               key={c}
-              className={classificationFilter.has(c) ? "active" : ""}
-              onClick={() => setClassificationFilter((prev) => toggleInSet(prev, c))}
+              className={classificationFilter === c ? "active" : ""}
+              onClick={() => setClassificationFilter(c)}
               type="button"
             >
               {c}

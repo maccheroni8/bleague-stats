@@ -6,6 +6,7 @@ import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/for
 import { efgPct, safeDiv, tovPct, tsPct, usagePct } from "../../shared/formulas";
 import type { PlayerOnCourtRatings } from "../../shared/onCourt";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow, YahooTurnoverEvent } from "../../shared/types";
+import { classificationGroup } from "../lib/classificationFilter";
 import {
   astToTovRatio,
   buildPlayTypeCounts,
@@ -696,11 +697,10 @@ function BoxscoreTeamPanel({
 
   const starters = players.filter((p) => p.startingFlg === 1);
   const bench = players.filter((p) => p.startingFlg !== 1);
-  const japanese = players.filter((p) => classificationById.get(p.playerId) === "日本人");
-  const international = players.filter((p) => {
-    const c = classificationById.get(p.playerId);
-    return c === "外国籍" || c === "帰化選手" || c === "アジア特別枠";
-  });
+  const japanese = players.filter((p) => classificationGroup(classificationById.get(p.playerId)) === "日本人");
+  const international = players.filter(
+    (p) => classificationGroup(classificationById.get(p.playerId)) === "外国籍・帰化・アジア",
+  );
   const unclassifiedPlayedCount = players.filter((p) => !p.dnp && classificationById.get(p.playerId) === undefined).length;
   const classificationNote =
     "※現在の登録情報に基づく参考値" + (unclassifiedPlayedCount > 0 ? `／${unclassifiedPlayedCount}名分のデータ欠落あり` : "");
@@ -833,7 +833,7 @@ function BoxscoreTeamPanel({
                 note={classificationNote}
               />
               <BoxscoreDataRow
-                label="外国籍+帰化+アジア特別枠合計"
+                label="外国籍・帰化・アジア合計"
                 counts={withoutPlusMinus(sumCountsList(international.map((p) => p.counts)))}
                 columns={columns}
                 ctx={nonPlayerCtx}

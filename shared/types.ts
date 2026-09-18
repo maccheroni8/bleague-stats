@@ -607,6 +607,12 @@ export interface PlayerSummary {
    */
   position?: string;
   nationality?: string;
+  /**
+   * 4値のまま保持しているが、シーズン非依存の設計（保有枠ルールによる年度ごとの区分変化を
+   * 表現できない）のため、UI・集計・表示では「日本人 vs 外国籍・帰化・アジア」の2区分に
+   * 統一している（src/lib/classificationFilter.ts参照）。帰化選手/アジア特別枠の値自体は
+   * playerClassificationOverrides.tsが「日本人と誤判定されるのを防ぐ」目的で個別に維持する
+   */
   classification?: "日本人" | "外国籍" | "帰化選手" | "アジア特別枠";
   heightCm?: number;
   weightKg?: number;
@@ -1152,8 +1158,10 @@ export interface PlayerMasterEntry {
   /** 「リーグ登録国籍」欄の値をそのまま保持（例: "日本", "フィリピン"）。DESIGN.md 11章参照 */
   nationality?: string;
   /**
-   * 日本人/外国籍/帰化選手/アジア特別枠。bleague.jp上に明示的なラベルが存在しないため
-   * 自動判定は未実装（2026-08時点）。判定基準が決まり次第、別途ロジックを追加する
+   * 日本人/外国籍/帰化選手/アジア特別枠（4値、scrape-roster.tsのderiveClassification()＋
+   * playerClassificationOverrides.tsで判定済み）。4値のまま保持しているが、シーズン非依存の
+   * 設計のためUI・集計・表示では「日本人 vs 外国籍・帰化・アジア」の2区分に統一している
+   * （src/lib/classificationFilter.ts参照）
    */
   classification?: "日本人" | "外国籍" | "帰化選手" | "アジア特別枠";
   heightCm?: number;

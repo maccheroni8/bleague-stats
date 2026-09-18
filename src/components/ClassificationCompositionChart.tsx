@@ -3,22 +3,21 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { teamShortName } from "../../shared/teamNames";
 import type { TeamSummary } from "../../shared/types";
 
-// 表示順: 日本人/外国籍/帰化orアジア特別枠。配色は各カテゴリに固定で割り当てる
-const CATEGORY_LABELS = ["日本人", "外国籍", "帰化/アジア"] as const;
-const CATEGORY_COLORS = ["#5b9bd5", "#e06666", "#93c47d"] as const;
-type CategoryIndex = 0 | 1 | 2;
+// 表示順: 日本人/外国籍・帰化・アジア。配色は各カテゴリに固定で割り当てる
+const CATEGORY_LABELS = ["日本人", "外国籍・帰化・アジア"] as const;
+const CATEGORY_COLORS = ["#5b9bd5", "#e06666"] as const;
+type CategoryIndex = 0 | 1;
 
-type SortKey = "total" | "cat0" | "cat1" | "cat2";
+type SortKey = "total" | "cat0" | "cat1";
 
 interface CompositionRow {
   teamId: string;
   teamShort: string;
   total: number;
-  pct: [number, number, number];
-  value: [number, number, number];
+  pct: [number, number];
+  value: [number, number];
   pct0: number;
   pct1: number;
-  pct2: number;
 }
 
 function sortValueOf(row: CompositionRow, key: SortKey): number {
@@ -28,12 +27,11 @@ function sortValueOf(row: CompositionRow, key: SortKey): number {
 }
 
 /**
- * 得点構成/失点構成（国籍区分別、Batch 4）。全26チームを一度に比較する必要があるため、
- * 既存のScoringCompositionChart（Phase H10・Batch 2、3P/FT/ミッドレンジ/ペイント内の4区分）と
- * 同じ100%積み上げ棒グラフ（recharts BarChart、1チーム1本）の構成を、日本人/外国籍/
- * 帰化orアジア特別枠の3区分に置き換えて実装したもの。Batch 1・2で追加済みの
- * team.advanced.japanesePointsPerGame等（3分割版、classification未定義の選手の得点は
- * どのセグメントにも計上しないため、3セグメントの合計が総得点に満たないことがある）を使う
+ * 得点構成/失点構成（登録区分別）。全26チームを一度に比較する必要があるため、
+ * 既存のScoringCompositionChart（Phase H10、3P/FT/ミッドレンジ/ペイント内の4区分）と
+ * 同じ100%積み上げ棒グラフ（recharts BarChart、1チーム1本）の構成を、日本人/
+ * 外国籍・帰化・アジアの2区分に置き換えて実装したもの。classification未定義の選手の
+ * 得点はどちらのセグメントにも計上しないため、2セグメントの合計が総得点に満たないことがある
  */
 export function ClassificationCompositionChart({ teams, mode }: { teams: TeamSummary[]; mode: "own" | "opponent" }) {
   const [sortKey, setSortKey] = useState<SortKey>("total");
@@ -42,15 +40,14 @@ export function ClassificationCompositionChart({ teams, mode }: { teams: TeamSum
   const rows: CompositionRow[] = useMemo(() => {
     return teams.map((t) => {
       const totalPerGame = mode === "own" ? t.perGame.pts : t.opponentPerGame.pts;
-      const pct: [number, number, number] =
+      const pct: [number, number] =
         mode === "own"
-          ? [t.advanced.japanesePointsSharePct, t.advanced.foreignPointsSharePct, t.advanced.naturalizedOrAsianPointsSharePct]
+          ? [t.advanced.japanesePointsSharePct, t.advanced.foreignPointsSharePct + t.advanced.naturalizedOrAsianPointsSharePct]
           : [
               t.advanced.opponentJapanesePointsSharePct,
-              t.advanced.opponentForeignPointsSharePct,
-              t.advanced.opponentNaturalizedOrAsianPointsSharePct,
+              t.advanced.opponentForeignPointsSharePct + t.advanced.opponentNaturalizedOrAsianPointsSharePct,
             ];
-      const value = pct.map((p) => (p / 100) * totalPerGame) as [number, number, number];
+      const value = pct.map((p) => (p / 100) * totalPerGame) as [number, number];
       return {
         teamId: t.teamId,
         teamShort: teamShortName(t.teamId, t.teamName),
@@ -59,7 +56,6 @@ export function ClassificationCompositionChart({ teams, mode }: { teams: TeamSum
         value,
         pct0: pct[0],
         pct1: pct[1],
-        pct2: pct[2],
       };
     });
   }, [teams, mode]);
