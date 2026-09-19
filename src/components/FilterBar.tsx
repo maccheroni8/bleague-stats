@@ -1,5 +1,5 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { axisValueLabel, isAxisChipped, type FilterAxis } from "../lib/filterAxes";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { axisValueLabel, isAxisChipped, type FilterAxis, type FilterMultiAxis } from "../lib/filterAxes";
 import { usePageState } from "../lib/pageStateCache";
 
 interface FilterBarProps {
@@ -13,16 +13,31 @@ interface FilterBarProps {
    * 「すべてクリア」で全軸を既定値に戻す処理。軸ごとのonChangeを続けて呼ぶと、同じSituationalFilter
    * を別々に更新する呼び出しが互いを上書きしてしまうため、ページ側でまとめて既定値に戻す
    */
-  onClearAll: () => void;
+  onClearAll?: () => void;
+  /**
+   * 簡易モード: 軸が2〜3個だけのタブ（歴代記録・直近成績）用。ラベル付きドロップダウンだけを並べ、
+   * 詳細フィルタ・チップ・「すべてクリア」は出さない
+   */
+  simple?: boolean;
 }
 
-/** ボタンを押すとポップオーバー（axis.content）を開く軸。外側クリック・Escで閉じる */
-function FilterPopoverControl({ axis, id }: { axis: Extract<FilterAxis, { kind: "popover" }>; id: string }) {
+/** ボタン（summary表示）を押すとポップオーバー（children）を開く共通部品。外側クリック・Escで閉じる */
+function PopoverShell({
+  id,
+  summary,
+  disabledReason,
+  children,
+}: {
+  id: string;
+  summary: string;
+  disabledReason?: string;
+  children: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [alignRight, setAlignRight] = useState(false);
-  const disabled = !!axis.disabledReason;
+  const disabled = !!disabledReason;
 
   // パネルが画面の右端からはみ出す位置（右側の列の軸）では、ボタンの右端に揃えて開く
   useLayoutEffect(() => {
@@ -55,17 +70,60 @@ function FilterPopoverControl({ axis, id }: { axis: Extract<FilterAxis, { kind: 
         className="filter-popover-button"
         aria-expanded={open && !disabled}
         disabled={disabled}
-        title={axis.disabledReason}
+        title={disabled ? disabledReason : summary}
         onClick={() => setOpen((v) => !v)}
       >
-        <span>{axis.summary}</span>
+        <span>{summary}</span>
         <span aria-hidden="true">▾</span>
       </button>
       {open && !disabled && (
         <div ref={panelRef} className={`filter-popover-panel${alignRight ? " align-right" : ""}`}>
-          {axis.content}
+          {children}
         </div>
       )}
+    </div>
+  );
+}
+
+/** 複数選択の中身: 検索・プリセット・チェックボックス一覧・全解除 */
+function MultiSelectContent({ axis }: { axis: FilterMultiAxis }) {
+  const [query, setQuery] = useState("");
+  const selected = new Set(axis.selected);
+  const visible = query ? axis.options.filter((o) => o.label.includes(query)) : axis.options;
+  const toggle = (value: string) => {
+    axis.onChangeSelected(selected.has(value) ? axis.selected.filter((v) => v !== value) : [...axis.selected, value]);
+  };
+  return (
+    <div className="filter-multi">
+      {axis.searchable && (
+        <input
+          type="search"
+          className="filter-multi-search"
+          placeholder="検索"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label={`${axis.label}を検索`}
+        />
+      )}
+      <div className="filter-multi-actions">
+        {axis.presets?.map((p) => (
+          <button key={p.label} type="button" onClick={() => axis.onChangeSelected(p.values)}>
+            {p.label}
+          </button>
+        ))}
+        <button type="button" onClick={() => axis.onChangeSelected([])} disabled={axis.selected.length === 0}>
+          すべて解除
+        </button>
+      </div>
+      <div className="filter-multi-list">
+        {visible.map((o) => (
+          <label key={o.value} className="filter-multi-item">
+            <input type="checkbox" checked={selected.has(o.value)} onChange={() => toggle(o.value)} />
+            {o.label}
+          </label>
+        ))}
+        {visible.length === 0 && <span className="filter-multi-empty">該当なし</span>}
+      </div>
     </div>
   );
 }
@@ -78,7 +136,13 @@ function FilterField({ axis }: { axis: FilterAxis }) {
     <div className={`filter-field${changed ? " changed" : ""}${disabled ? " disabled" : ""}`}>
       <label htmlFor={id}>{axis.label}</label>
       {axis.kind === "popover" ? (
-        <FilterPopoverControl axis={axis} id={id} />
+        <PopoverShell id={id} summary={axis.summary} disabledReason={axis.disabledReason}>
+          {axis.content}
+        </PopoverShell>
+      ) : axis.kind === "multi" ? (
+        <PopoverShell id={id} summary={axis.summary} disabledReason={axis.disabledReason}>
+          <MultiSelectContent axis={axis} />
+        </PopoverShell>
       ) : axis.kind === "select" ? (
         <select id={id} value={axis.value} disabled={disabled} title={axis.disabledReason} onChange={(e) => axis.onChange(e.target.value)}>
           {axis.options.map((o) => (
@@ -99,12 +163,12 @@ function FilterField({ axis }: { axis: FilterAxis }) {
  * 「詳細フィルタ」に折りたたみ、既定値から変更した軸だけをチップ（×で解除）として出す。
  * 表・画像出力（.export-target）の外に置く。画像に写る「選択中の条件」は ConditionTitle が担う
  */
-export function FilterBar({ axes, stateKey, onClearAll }: FilterBarProps) {
+export function FilterBar({ axes, stateKey, onClearAll, simple = false }: FilterBarProps) {
   const [advancedOpen, setAdvancedOpen] = usePageState<boolean>(`${stateKey}:advancedOpen`, false);
   const panelId = useId();
   const primary = axes.filter((a) => a.tier === "primary");
-  const advanced = axes.filter((a) => a.tier === "advanced");
-  const chips = axes.filter(isAxisChipped);
+  const advanced = simple ? [] : axes.filter((a) => a.tier === "advanced");
+  const chips = simple ? [] : axes.filter(isAxisChipped);
   const advancedChangedCount = advanced.filter(isAxisChipped).length;
   const disabledReasons = [
     ...new Set(axes.filter((a) => a.disabledReason && !a.quietDisabled).map((a) => a.disabledReason as string)),
@@ -162,9 +226,11 @@ export function FilterBar({ axes, stateKey, onClearAll }: FilterBarProps) {
               </span>
             </button>
           ))}
-          <button type="button" className="filter-chips-clear" onClick={onClearAll}>
-            すべてクリア
-          </button>
+          {onClearAll && (
+            <button type="button" className="filter-chips-clear" onClick={onClearAll}>
+              すべてクリア
+            </button>
+          )}
         </div>
       )}
     </div>

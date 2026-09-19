@@ -18,6 +18,7 @@ import {
   classificationAxis,
   displayModeAxis,
   gameTypeAxis,
+  multiSelectAxis,
   periodAxis,
   perspectiveAxis,
   situationalAxes,
@@ -64,6 +65,8 @@ import { isShotChartSupported, useSeasonCoverage } from "../lib/useSeasonCoverag
 import {
   classificationGroup,
   matchesClassificationGroupFilter,
+  matchesPositionFilter,
+  POSITION_OPTIONS,
   type ClassificationGroupFilter,
 } from "../lib/classificationFilter";
 import {
@@ -78,6 +81,7 @@ import {
   composeLabels,
   displayModeLabels,
   eligibilityLabels,
+  multiSelectLabels,
   gameTypeLabels,
   perspectiveLabels,
   periodLabels,
@@ -877,6 +881,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     "rankings:player:classificationGroup",
     "all",
   );
+  // ポジション（複数選択、未選択＝全ポジション。"SG/SF"表記の選手はどちらかが選択中なら該当）
+  const [positions, setPositions] = usePageState<string[]>("rankings:player:positions", []);
   const [filter, setFilter] = usePageState<SituationalFilter>("rankings:player:filter", { range: { kind: "all" } });
   const filterActive = !isDefaultFilter(filter);
   const [gameType, setGameType] = usePageState<SeasonGameTypeFilter>("rankings:player:gameType", "regular");
@@ -907,11 +913,12 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 
   const eligible: PlayerSummary[] = useMemo(() => {
     if (!players || !teams) return [];
-    const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold).filter((p) =>
-      matchesClassificationGroupFilter(p, selectedClassification),
+    const positionSet = new Set(positions);
+    const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold).filter(
+      (p) => matchesClassificationGroupFilter(p, selectedClassification) && matchesPositionFilter(p, positionSet),
     );
     return category === "shooting" ? base.filter((p) => !!p.shotTypes) : base;
-  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassification, category]);
+  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassification, positions, category]);
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {
@@ -1123,6 +1130,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     composeLabels(
       playerCategoryLabel,
       classificationLabels(selectedClassification),
+      multiSelectLabels("ポジション", POSITION_OPTIONS.filter((pos) => positions.includes(pos)), "全ポジション"),
       playerScopeLabels,
       eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
       `上位${PLAYER_RANK_TOP_N}名`,
@@ -1179,6 +1187,14 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   };
   const playerFilterAxes: FilterAxis[] = [
     classificationAxis(selectedClassification, setSelectedClassification),
+    multiSelectAxis({
+      id: "position",
+      label: "ポジション",
+      options: POSITION_OPTIONS.map((pos) => ({ value: pos, label: pos })),
+      selected: positions,
+      onChangeSelected: setPositions,
+      allLabel: "全ポジション",
+    }),
     gameTypeAxis(gameType, setGameType, { disabledReason: playerFilterDisabledReason }),
     periodAxis(period, setPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: playerFilterDisabledReason }),
     ...situationalAxes(filter, setFilter, {
@@ -1189,6 +1205,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   ];
   const clearPlayerFilters = () => {
     setSelectedClassification("all");
+    setPositions([]);
     setGameType("regular");
     setPeriod("all");
     setFilter({ range: { kind: "all" } });

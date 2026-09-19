@@ -33,7 +33,9 @@ import { ConditionTitle } from "../components/ConditionTitle";
 import {
   displayModeAxis,
   gameTypeAxis,
+  leagueVenueAxis,
   perspectiveAxis,
+  simpleSelectAxis,
   situationalAxes,
   type FilterAxis,
 } from "../lib/filterAxes";
@@ -42,7 +44,6 @@ import {
   composeLabels,
   displayModeLabels,
   gameTypeLabels,
-  LEAGUE_VENUE_LABELS,
   leagueVenueLabels,
   perspectiveLabels,
   SEASON_TOTAL_ONLY_LABELS,
@@ -57,7 +58,6 @@ import {
   type SituationalFilter,
 } from "../lib/situational";
 import {
-  SEASON_GAME_TYPE_LABELS,
   filterByGameType,
   type SeasonDisplayMode,
   type SeasonGameTypeFilter,
@@ -760,29 +760,25 @@ function LeagueRecordsTab() {
           "。「B.PREMIER（旧B1）レコード」はクラブ単位の自己ベストではなく、リーグ史上の個々の試合・シーズンをそのまま順位付けしたもの（同一クラブが複数回登場しうる）。ホーム/アウェイ限定版は対象外"}
       </p>
 
-      <div className="mode-toggle">
-        {(Object.keys(RECORDS_CATEGORY_LABELS) as RecordsCategory[]).map((c) => (
-          <button key={c} className={c === category ? "active" : ""} onClick={() => selectCategory(c)} type="button">
-            {RECORDS_CATEGORY_LABELS[c]}
-          </button>
-        ))}
-      </div>
-      {!isPremierRecord && (
-        <div className="mode-toggle">
-          {(Object.keys(LEAGUE_VENUE_LABELS) as LeagueVenue[]).map((v) => (
-            <button key={v} className={v === venue ? "active" : ""} onClick={() => setVenue(v)} type="button">
-              {LEAGUE_VENUE_LABELS[v]}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="mode-toggle">
-        {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
-          <button key={g} className={g === gameType ? "active" : ""} onClick={() => setGameType(g)} type="button">
-            {SEASON_GAME_TYPE_LABELS[g]}
-          </button>
-        ))}
-      </div>
+      <FilterBar
+        simple
+        stateKey="teams:records"
+        axes={[
+          simpleSelectAxis({
+            id: "recordsCategory",
+            label: "カテゴリ",
+            options: (Object.keys(RECORDS_CATEGORY_LABELS) as RecordsCategory[]).map((c) => ({
+              value: c,
+              label: RECORDS_CATEGORY_LABELS[c],
+            })),
+            value: category,
+            onChange: (v) => selectCategory(v as RecordsCategory),
+          }),
+          // B.PREMIERレコードは会場別の集計が無い（ホーム/アウェイ限定版は対象外）ため会場の軸自体を出さない
+          ...(isPremierRecord ? [] : [leagueVenueAxis(venue, setVenue)]),
+          gameTypeAxis(gameType, setGameType),
+        ]}
+      />
       <div className="stat-picker">
         {statOptions.map((d) => (
           <button key={d.key} className={d.key === statKey ? "active" : ""} onClick={() => setStatKey(d.key)} type="button">
@@ -1258,13 +1254,19 @@ function RecentFormTab({ season }: { season: string }) {
         未消化の試合は対象外）。連勝/連敗は直近{recentN}試合の絞り込みとは独立に、今シーズンの
         全試合を通して現在何連勝/連敗中かを示す
       </p>
-      <div className="mode-toggle">
-        {RECENT_FORM_N_OPTIONS.map((n) => (
-          <button key={n} className={n === recentN ? "active" : ""} onClick={() => setRecentN(n)} type="button">
-            直近{n}試合
-          </button>
-        ))}
-      </div>
+      <FilterBar
+        simple
+        stateKey="teams:recent"
+        axes={[
+          simpleSelectAxis({
+            id: "recentN",
+            label: "対象期間",
+            options: RECENT_FORM_N_OPTIONS.map((n) => ({ value: String(n), label: `直近${n}試合` })),
+            value: String(recentN),
+            onChange: (v) => setRecentN(Number(v) as (typeof RECENT_FORM_N_OPTIONS)[number]),
+          }),
+        ]}
+      />
       <ConditionTitle
         title={`${season}シーズン チーム直近成績`}
         conditions={composeLabels(`直近${recentN}試合`, gameTypeLabels("both"))}

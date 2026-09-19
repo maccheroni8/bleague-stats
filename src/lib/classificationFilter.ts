@@ -41,3 +41,13 @@ export function toggleInSet<T>(set: Set<T>, value: T): Set<T> {
   else next.add(value);
   return next;
 }
+
+export const POSITION_OPTIONS = ["PG", "SG", "SF", "PF", "C"] as const;
+
+/** ポジションは「SG/SF」のような複数区分の併記がありうるため、"/"区切りのいずれかが
+ * 選択中の区分に含まれていれば一致とみなす（複数選択はOR）。未選択は絞り込みなし */
+export function matchesPositionFilter(p: PlayerSummary, selected: ReadonlySet<string>): boolean {
+  if (selected.size === 0) return true;
+  if (!p.position) return false;
+  return p.position.split("/").some((token) => selected.has(token));
+}

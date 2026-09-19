@@ -10,7 +10,7 @@
 // - 軸はtier（primary=常時表示 / advanced=「詳細フィルタ」に折りたたむ）を持つ
 
 import type { ReactNode } from "react";
-import { periodLabels } from "./conditionLabels";
+import { LEAGUE_VENUE_LABELS, periodLabels, type LeagueVenue } from "./conditionLabels";
 import { CLASSIFICATION_GROUP_OPTIONS, type ClassificationGroupFilter } from "./classificationFilter";
 import type { PeriodRangeOption, PeriodRangeValue } from "./periodRange";
 import {
@@ -78,7 +78,74 @@ export interface FilterPopoverAxis extends FilterAxisBase {
   content: ReactNode;
 }
 
-export type FilterAxis = FilterSelectAxis | FilterDateAxis | FilterPopoverAxis;
+/**
+ * 複数選択（ポジション・クラブ・対象クラブ等）。ボタンを押すとチェックボックスのポップオーバーが開く。
+ * 未選択＝絞り込みなし（既定値）。値（value）は選択をソートして","で結んだ文字列で、チップの表示判定に使う
+ * （チップの×は onChange("") ＝全解除）
+ */
+export interface FilterMultiAxis extends FilterAxisBase {
+  kind: "multi";
+  options: FilterAxisOption[];
+  selected: string[];
+  onChangeSelected: (values: string[]) => void;
+  /** 未選択のときボタンに出す文言（例: 全ポジション） */
+  allLabel: string;
+  /** 一括選択のプリセット（例: 東地区のクラブ全部） */
+  presets?: { label: string; values: string[] }[];
+  /** trueのとき、選択肢を絞り込む検索欄を出す（選択肢が多いクラブ用） */
+  searchable?: boolean;
+  /** ボタン・チップに出す選択内容（未選択は allLabel） */
+  summary: string;
+}
+
+export type FilterAxis = FilterSelectAxis | FilterDateAxis | FilterPopoverAxis | FilterMultiAxis;
+
+const MULTI_SHOWN_LABELS = 3;
+
+/** 複数選択の要約。3件までは「、」で並べ、それ以上は「他N」に省略する（multiSelectLabels と同じ考え方） */
+function summarizeMulti(labels: string[], allLabel: string): string {
+  if (labels.length === 0) return allLabel;
+  if (labels.length <= MULTI_SHOWN_LABELS) return labels.join("、");
+  return `${labels.slice(0, MULTI_SHOWN_LABELS).join("、")} 他${labels.length - MULTI_SHOWN_LABELS}`;
+}
+
+export function multiSelectAxis(input: {
+  id: string;
+  label: string;
+  tier?: "primary" | "advanced";
+  options: FilterAxisOption[];
+  selected: string[];
+  onChangeSelected: (values: string[]) => void;
+  allLabel: string;
+  presets?: { label: string; values: string[] }[];
+  searchable?: boolean;
+  disabledReason?: string;
+}): FilterAxis {
+  const selectedSet = new Set(input.selected);
+  // 選択順ではなく選択肢の並び順で要約する（ボタン・チップの表示が選択の順序に左右されない）
+  const summary = summarizeMulti(
+    input.options.filter((o) => selectedSet.has(o.value)).map((o) => o.label),
+    input.allLabel,
+  );
+  return {
+    kind: "multi",
+    id: input.id,
+    label: input.label,
+    tier: input.tier ?? "primary",
+    options: input.options,
+    selected: input.selected,
+    onChangeSelected: input.onChangeSelected,
+    allLabel: input.allLabel,
+    presets: input.presets,
+    searchable: input.searchable,
+    summary,
+    value: [...input.selected].sort().join(","),
+    defaultValue: "",
+    onChange: (v) => input.onChangeSelected(v === "" ? [] : v.split(",")),
+    disabledReason: input.disabledReason,
+    chipValue: summary,
+  };
+}
 
 export const FILTER_ALL_LABEL = "すべて";
 
@@ -90,7 +157,7 @@ function optionsFromLabels<K extends string>(labels: Record<K, string>, keys: K[
 export function axisValueLabel(axis: FilterAxis): string {
   if (axis.chipValue !== undefined) return axis.chipValue;
   if (axis.kind === "date") return axis.value;
-  if (axis.kind === "popover") return axis.summary;
+  if (axis.kind === "popover" || axis.kind === "multi") return axis.summary;
   return axis.options.find((o) => o.value === axis.value)?.label ?? axis.value;
 }
 
@@ -198,6 +265,42 @@ export function classificationAxis(
     onChange: (v) => onChange(v as ClassificationGroupFilter),
     disabledReason: opts.disabledReason,
   };
+}
+
+/** 汎用の単一選択軸（カテゴリ・直近N試合など、ページ固有の選択肢用） */
+export function simpleSelectAxis(input: {
+  id: string;
+  label: string;
+  options: FilterAxisOption[];
+  value: string;
+  defaultValue?: string;
+  onChange: (v: string) => void;
+  tier?: "primary" | "advanced";
+  disabledReason?: string;
+}): FilterAxis {
+  return {
+    kind: "select",
+    id: input.id,
+    label: input.label,
+    tier: input.tier ?? "primary",
+    options: input.options,
+    value: input.value,
+    defaultValue: input.defaultValue ?? input.options[0]?.value ?? "",
+    onChange: input.onChange,
+    disabledReason: input.disabledReason,
+  };
+}
+
+/** 歴代記録の会場: トータル/ホーム/アウェイ（既定はトータル） */
+export function leagueVenueAxis(value: LeagueVenue, onChange: (v: LeagueVenue) => void): FilterAxis {
+  return simpleSelectAxis({
+    id: "leagueVenue",
+    label: "会場",
+    options: (Object.keys(LEAGUE_VENUE_LABELS) as LeagueVenue[]).map((v) => ({ value: v, label: LEAGUE_VENUE_LABELS[v] })),
+    value,
+    defaultValue: "total",
+    onChange: (v) => onChange(v as LeagueVenue),
+  });
 }
 
 export interface SituationalAxesContext {

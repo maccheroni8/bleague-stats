@@ -25,7 +25,18 @@ import type {
   TeamGameLog,
 } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
-import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
+import { FilterBar } from "../components/FilterBar";
+import {
+  classificationAxis,
+  displayModeAxis,
+  gameTypeAxis,
+  leagueVenueAxis,
+  multiSelectAxis,
+  simpleSelectAxis,
+  situationalAxes,
+  type FilterAxis,
+} from "../lib/filterAxes";
+import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import {
@@ -34,8 +45,6 @@ import {
   displayModeLabels,
   gamesPlayedRatioRangeLabels,
   gameTypeLabels,
-  includePlayoffsGameTypeLabels,
-  LEAGUE_VENUE_LABELS,
   leagueVenueLabels,
   multiSelectLabels,
   SEASON_TOTAL_ONLY_LABELS,
@@ -56,20 +65,19 @@ import {
   type SituationalFilter,
 } from "../lib/situational";
 import {
-  CLASSIFICATION_GROUP_OPTIONS,
   matchesClassificationGroupFilter,
-  toggleInSet,
+  matchesPositionFilter,
+  POSITION_OPTIONS,
   type ClassificationGroupFilter,
 } from "../lib/classificationFilter";
 import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
-import { SEASON_GAME_TYPE_LABELS, type SeasonGameTypeFilter } from "../../shared/gameType";
+import { filterByGameType, type SeasonGameTypeFilter } from "../../shared/gameType";
 import {
   buildSeasonBoxscoreCtx,
   EMPTY_TEAM_TOTALS,
   SEASON_ADVANCED_COLUMNS,
   SEASON_BOX_TABS,
-  SEASON_DISPLAY_MODE_LABELS,
   SEASON_MISC_COLUMNS,
   SEASON_SCORING_COLUMNS,
   SEASON_TRADITIONAL_COLUMNS,
@@ -165,7 +173,6 @@ interface PlayerRow {
 // playerSeasonBoxscore.tsのSeasonDisplayMode/col.value(ctx, mode)がそのまま対応しているため、
 // このmodeをそのまま渡すだけでよい。fast path（PlayerSummary直接参照）側はscaledValue()で
 // 生の合計値を試合数で割るかどうかを切り替える
-const DISPLAY_MODE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
 
 function scaledValue(total: number, games: number, mode: SeasonDisplayMode): number {
   return mode === "total" ? total : safeDiv(total, games);
@@ -282,7 +289,7 @@ function plusMinusColumn(mode: SeasonDisplayMode): Column<PlayerRow> {
 // （シーズン平均）をそのまま使う。ORtg/DRtg/NetRtg/PACE/POSSは、リーグ全選手分を正確に出すには
 // 選手ごとのplayer-gamesとチームごとのteam-games（相手チーム分含む）が必要で通信量が
 // 大きくなりすぎるため、advanced.ppp（個人ORtg/100、季集計済みの正確な値）から求まるORtgのみ
-// 含め、DRtg/NetRtg/PACE/POSSはこの一覧には含めていない。平均/合計トグル（DISPLAY_MODE_OPTIONS）
+// 含め、DRtg/NetRtg/PACE/POSSはこの一覧には含めていない。平均/合計トグル
 // はカウント系の列のみ対象（率・比率・レート系の列はmodeに関わらず同じ値のまま）
 function buildTraditionalColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
   return [
@@ -429,19 +436,10 @@ function GamesPlayedRatioSlider({
   );
 }
 
-const POSITION_OPTIONS = ["PG", "SG", "SF", "PF", "C"] as const;
 const DEFAULT_SITUATIONAL_FILTER: SituationalFilter = { range: { kind: "all" } };
 
 function matchesTeamFilter(p: PlayerSummary, selected: Set<string>): boolean {
   return selected.size === 0 || selected.has(p.teamId);
-}
-
-/** ポジションは「SG/SF」のような複数区分の併記がありうるため、"/"区切りのいずれかが
- * 選択中の区分に含まれていれば一致とみなす */
-function matchesPositionFilter(p: PlayerSummary, selected: Set<string>): boolean {
-  if (selected.size === 0) return true;
-  if (!p.position) return false;
-  return p.position.split("/").some((token) => selected.has(token));
 }
 
 function AllPlayersStatsTab({ season }: { season: string }) {
@@ -467,7 +465,10 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const [teamFilter, setTeamFilter] = useState<Set<string>>(() => new Set());
   const [positionFilter, setPositionFilter] = useState<Set<string>>(() => new Set());
   const [situationalFilter, setSituationalFilter] = useState<SituationalFilter>(DEFAULT_SITUATIONAL_FILTER);
-  const filterActive = !isDefaultFilter(situationalFilter);
+  // 試合種別（レギュラー/プレーオフ/合算）。従来はシチュエーション別フィルタ内の2値（レギュラーのみ/
+  // +プレーオフ）だったが、他ページと同じ3値に揃えた（DESIGN.md 105章）
+  const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
+  const filterActive = !isDefaultFilter(situationalFilter) || gameType !== "regular";
 
   const [gameLogs, setGameLogs] = useState<Map<string, PlayerGameLog[]> | null>(null);
   const [gameLogsLoading, setGameLogsLoading] = useState(false);
@@ -490,6 +491,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     setTeamFilter(new Set());
     setPositionFilter(new Set());
     setSituationalFilter(DEFAULT_SITUATIONAL_FILTER);
+    setGameType("regular");
     setGameLogs(null);
     gameLogsFetchedForSeasonRef.current = null;
     setTeamGameLogsByTeam(null);
@@ -580,14 +582,20 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         if (!gameLogs) return { player: p };
         const logs = gameLogs.get(p.playerId) ?? [];
         if (filterActive) {
-          const filteredLogs = filterGameLogs(logs, situationalFilter, opponentRecords, divisionHistory, season);
+          // 試合種別は filterGameLogs のあとに3値で絞り込む（includePlayoffs は常に true で全試合を通す）
+          const filteredLogs = filterByGameType(
+            filterGameLogs(logs, { ...situationalFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season),
+            gameType,
+          );
           const raw = sumPlayerGameLogs(filteredLogs);
           const scheduleKeys = new Set(filteredLogs.map((g) => g.scheduleKey));
           const teamLogs = teamGameLogsByTeam?.get(p.teamId) ?? [];
           const team = sumTeamGameLogsFor(teamLogs, scheduleKeys);
           return { player: p, ctx: buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear) };
         }
-        const raw = sumPlayerGameLogs(logs);
+        // 絞り込みなし（試合種別＝レギュラー）の経路。チーム総計（teams.json）がレギュラーのみのため、
+        // 選手側の試合ログもレギュラーに揃える（Misc/スコアリングタブはこの経路）
+        const raw = sumPlayerGameLogs(filterByGameType(logs, "regular"));
         const teamTotals = teamTotalsById.get(p.teamId);
         const team: TeamSeasonRawTotals = teamTotals
           ? {
@@ -610,6 +618,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       seasonStartYear,
       filterActive,
       situationalFilter,
+      gameType,
       opponentRecords,
       divisionHistory,
       season,
@@ -680,75 +689,43 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         : composeLabels(
             displayModeLabels(displayMode),
             filterAxisLabels,
-            includePlayoffsGameTypeLabels(situationalFilter.includePlayoffs),
+            gameTypeLabels(gameType),
             situationalFilterLabels(situationalFilter),
           ),
   };
 
-  return (
-    <div>
-      <p className="page-subtitle">
-        {season}シーズン・全{players.length}選手
-      </p>
-
-      <div className="filter-block">
-        <h3>国籍区分</h3>
-        <div className="mode-toggle">
-          <button
-            className={classificationFilter === "all" ? "active" : ""}
-            onClick={() => setClassificationFilter("all")}
-            type="button"
-          >
-            全選手
-          </button>
-          {CLASSIFICATION_GROUP_OPTIONS.map((c) => (
-            <button
-              key={c}
-              className={classificationFilter === c ? "active" : ""}
-              onClick={() => setClassificationFilter(c)}
-              type="button"
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="filter-block">
-        <h3>ポジション</h3>
-        <div className="mode-toggle">
-          {POSITION_OPTIONS.map((pos) => (
-            <button
-              key={pos}
-              className={positionFilter.has(pos) ? "active" : ""}
-              onClick={() => setPositionFilter((prev) => toggleInSet(prev, pos))}
-              type="button"
-            >
-              {pos}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="filter-block">
-        <h3>クラブ</h3>
-        <div className="mode-toggle">
-          {(teams ?? [])
-            .slice()
-            .sort((a, b) => teamShortName(a.teamId, a.teamName).localeCompare(teamShortName(b.teamId, b.teamName), "ja"))
-            .map((t) => (
-              <button
-                key={t.teamId}
-                className={teamFilter.has(t.teamId) ? "active" : ""}
-                onClick={() => setTeamFilter((prev) => toggleInSet(prev, t.teamId))}
-                type="button"
-              >
-                {teamShortName(t.teamId, t.teamName)}
-              </button>
-            ))}
-        </div>
-      </div>
-
+  // フィルタバー（DESIGN.md 105章）。シューティングタブは表示（平均/合計）と選手の絞り込み
+  // （登録区分・ポジション・クラブ・出場試合率）だけが有効で、試合種別・S軸は対象外（シーズン通算値のみ）
+  const shootingReason =
+    tab === "shooting"
+      ? "このタブはシーズン通算値のみ対応です（表示の平均/合計と、登録区分・ポジション・クラブ・出場試合率の絞り込みだけ連動します）。"
+      : undefined;
+  const clubOptions = (teams ?? [])
+    .slice()
+    .sort((a, b) => teamShortName(a.teamId, a.teamName).localeCompare(teamShortName(b.teamId, b.teamName), "ja"))
+    .map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) }));
+  const DIVISION_PRESET_LABELS = { east: "東地区", central: "中地区", west: "西地区" } as const;
+  const clubPresets = (Object.keys(DIVISION_PRESET_LABELS) as (keyof typeof DIVISION_PRESET_LABELS)[])
+    .map((d) => ({
+      label: DIVISION_PRESET_LABELS[d],
+      values: (teams ?? []).filter((t) => teamDivisionForSeason(divisionHistory, t.teamId, season) === d).map((t) => t.teamId),
+    }))
+    .filter((p) => p.values.length > 0);
+  const ratioDefault = `${DEFAULT_MIN_RATIO}|${DEFAULT_MAX_RATIO}`;
+  const ratioAxis: FilterAxis = {
+    kind: "popover",
+    id: "gamesRatio",
+    label: "出場試合率",
+    tier: "advanced",
+    value: `${minRatio}|${maxRatio}`,
+    defaultValue: ratioDefault,
+    onChange: () => {
+      setMinRatio(DEFAULT_MIN_RATIO);
+      setMaxRatio(DEFAULT_MAX_RATIO);
+    },
+    summary: `${minRatio}%〜${maxRatio}%`,
+    chipValue: `${minRatio}%〜${maxRatio}%`,
+    content: (
       <GamesPlayedRatioSlider
         min={minRatio}
         max={maxRatio}
@@ -757,32 +734,66 @@ function AllPlayersStatsTab({ season }: { season: string }) {
           setMaxRatio(mx);
         }}
       />
+    ),
+  };
+  const filterAxes: FilterAxis[] = [
+    classificationAxis(classificationFilter, setClassificationFilter),
+    multiSelectAxis({
+      id: "position",
+      label: "ポジション",
+      options: POSITION_OPTIONS.map((pos) => ({ value: pos, label: pos })),
+      selected: [...positionFilter],
+      onChangeSelected: (v) => setPositionFilter(new Set(v)),
+      allLabel: "全ポジション",
+    }),
+    multiSelectAxis({
+      id: "club",
+      label: "クラブ",
+      options: clubOptions,
+      selected: [...teamFilter],
+      onChangeSelected: (v) => setTeamFilter(new Set(v)),
+      allLabel: "全クラブ",
+      presets: clubPresets,
+      searchable: true,
+    }),
+    gameTypeAxis(gameType, setGameType, { disabledReason: shootingReason }),
+    displayModeAxis(displayMode, setDisplayMode),
+    ...situationalAxes(situationalFilter, setSituationalFilter, {
+      opponentWinRateSupported: !!gameSummaries,
+      disabledReason: shootingReason,
+    }),
+    ratioAxis,
+  ];
+  const clearAllFilters = () => {
+    setClassificationFilter("all");
+    setPositionFilter(new Set());
+    setTeamFilter(new Set());
+    setMinRatio(DEFAULT_MIN_RATIO);
+    setMaxRatio(DEFAULT_MAX_RATIO);
+    setGameType("regular");
+    setDisplayMode("perGame");
+    setSituationalFilter(DEFAULT_SITUATIONAL_FILTER);
+  };
 
-      <div className="filter-block">
-        <h3>シチュエーション別フィルタ</h3>
-        <SituationalFilterPicker filter={situationalFilter} onChange={setSituationalFilter} opponentWinRateSupported={!!gameSummaries} />
-        {filterActive && (
-          <p className="page-subtitle">
-            シチュエーション別フィルタ選択中は、トラディショナル/アドバンスド/Misc/スコアリングの各タブとも選手ごとの試合ログを絞り込んで再集計した値を表示します（シューティングタブは対象外）
-          </p>
-        )}
-      </div>
+  return (
+    <div>
+      <p className="page-subtitle">
+        {season}シーズン・全{players.length}選手
+      </p>
 
-      <div className="tab-bar-with-toggle">
-        <div className="tab-bar">
-          {TAB_LABELS.map((t) => (
-            <button key={t.key} className={`tab-button${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)} type="button">
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="mode-toggle">
-          {DISPLAY_MODE_OPTIONS.map((m) => (
-            <button key={m} className={m === displayMode ? "active" : ""} onClick={() => setDisplayMode(m)} type="button">
-              {SEASON_DISPLAY_MODE_LABELS[m]}
-            </button>
-          ))}
-        </div>
+      <FilterBar axes={filterAxes} stateKey="players:stats" onClearAll={clearAllFilters} />
+      {filterActive && tab !== "shooting" && (
+        <p className="page-subtitle">
+          試合種別・シチュエーション別フィルタの選択中は、トラディショナル/アドバンスド/Misc/スコアリングの各タブとも選手ごとの試合ログを絞り込んで再集計した値を表示します（シューティングタブは対象外）
+        </p>
+      )}
+
+      <div className="tab-bar">
+        {TAB_LABELS.map((t) => (
+          <button key={t.key} className={`tab-button${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)} type="button">
+            {t.label}
+          </button>
+        ))}
       </div>
 
       <ConditionTitle title={statsTitle.title} conditions={statsTitle.conditions} />
@@ -879,20 +890,11 @@ function LeaguePlayerRecordsTab() {
         時点。手動バッチで随時更新）。1試合単位の最高記録（クラブレコード相当）は対象外です
       </p>
 
-      <div className="mode-toggle">
-        {(Object.keys(LEAGUE_VENUE_LABELS) as LeagueVenue[]).map((v) => (
-          <button key={v} className={v === venue ? "active" : ""} onClick={() => setVenue(v)} type="button">
-            {LEAGUE_VENUE_LABELS[v]}
-          </button>
-        ))}
-      </div>
-      <div className="mode-toggle">
-        {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
-          <button key={g} className={g === gameType ? "active" : ""} onClick={() => setGameType(g)} type="button">
-            {SEASON_GAME_TYPE_LABELS[g]}
-          </button>
-        ))}
-      </div>
+      <FilterBar
+        simple
+        stateKey="players:records"
+        axes={[leagueVenueAxis(venue, setVenue), gameTypeAxis(gameType, setGameType)]}
+      />
       <div className="stat-picker">
         {PLAYER_CAREER_TOTAL_DEFS.map((d) => (
           <button key={d.key} className={d.key === statKey ? "active" : ""} onClick={() => setStatKey(d.key)} type="button">
@@ -1390,13 +1392,19 @@ function PlayerRecentFormTab({ season }: { season: string }) {
         直近{recentN}試合の各対戦相手のその試合時点までの勝率を単純平均したもの（対戦相手が
         未消化の試合は対象外）
       </p>
-      <div className="mode-toggle">
-        {RECENT_FORM_N_OPTIONS.map((n) => (
-          <button key={n} className={n === recentN ? "active" : ""} onClick={() => setRecentN(n)} type="button">
-            直近{n}試合
-          </button>
-        ))}
-      </div>
+      <FilterBar
+        simple
+        stateKey="players:recent"
+        axes={[
+          simpleSelectAxis({
+            id: "recentN",
+            label: "対象期間",
+            options: RECENT_FORM_N_OPTIONS.map((n) => ({ value: String(n), label: `直近${n}試合` })),
+            value: String(recentN),
+            onChange: (v) => setRecentN(Number(v) as (typeof RECENT_FORM_N_OPTIONS)[number]),
+          }),
+        ]}
+      />
       <ConditionTitle
         title={`${season}シーズン 個人直近成績`}
         conditions={composeLabels(`直近${recentN}試合`, gameTypeLabels("both"), `直近${recentN}試合中${minGames}試合以上出場`)}
