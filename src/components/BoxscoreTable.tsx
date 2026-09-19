@@ -496,6 +496,12 @@ interface BoxscoreTableProps {
   onTabChange?: (tab: BoxscoreTabKey) => void;
   /** trueならコンポーネント内蔵のカテゴリタブバーを描画しない（呼び出し側が統合タブバーを持つ場合） */
   hideTabBar?: boolean;
+  /**
+   * Q別/前後半の選択を外部（呼び出し側）から制御する場合に指定する（試合詳細ページが見出しの
+   * 「選択中の条件」に反映するため。DESIGN.md 99章）。未指定なら従来通りコンポーネント内部のstate
+   */
+  periodRange?: PeriodRangeValue;
+  onPeriodRangeChange?: (value: PeriodRangeValue) => void;
 }
 
 export function BoxscoreTable({
@@ -516,9 +522,13 @@ export function BoxscoreTable({
   activeTab: controlledActiveTab,
   onTabChange,
   hideTabBar,
+  periodRange: controlledPeriodRange,
+  onPeriodRangeChange,
 }: BoxscoreTableProps) {
   const [internalActiveTab, setInternalActiveTab] = useState<BoxscoreTabKey>("traditional");
-  const [periodRange, setPeriodRange] = useState<PeriodRangeValue>("all");
+  const [internalPeriodRange, setInternalPeriodRange] = useState<PeriodRangeValue>("all");
+  const periodRange = controlledPeriodRange ?? internalPeriodRange;
+  const setPeriodRange = onPeriodRangeChange ?? setInternalPeriodRange;
 
   const activeTab = controlledActiveTab ?? internalActiveTab;
   const setActiveTab = onTabChange ?? setInternalActiveTab;

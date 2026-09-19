@@ -6,6 +6,13 @@ import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs"
 import type { PlayerSummary, TeamSummary } from "../../shared/types";
 import { ExportImageButton } from "../components/ExportImageButton";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
+import { ConditionTitle } from "../components/ConditionTitle";
+import {
+  buildExportFilename,
+  composeLabels,
+  gameTypeLabels,
+  SITUATIONAL_DEFAULT_LABEL,
+} from "../lib/conditionLabels";
 
 type Mode = "team" | "player";
 const SLOT_COUNT = 3;
@@ -133,6 +140,23 @@ export function ComparisonTable<T>({ rows, defs, rowKey, name, linkTo, externalL
   );
 }
 
+/**
+ * 比較表・画像出力の直上に出すタイトルと画像ファイル名。スロットごとの選択内容（名前・シーズン）を
+ * タイトルに、この画面で固定になっている条件を条件行に出す。この画面の値はteams.json/players.json
+ * のシーズン集計（レギュラーシーズン・シーズン全体）そのままで、シチュエーション別フィルタ・
+ * レギュラー/プレーオフ切替・カテゴリタブは持たない（それらを持つ比較は選手/チーム詳細ページの
+ * 「比較」タブ）。固定の条件も、画像だけ見て分かるよう明示する
+ */
+function buildCompareTitle(kind: "チーム" | "個人", entries: { name: string; season: string }[]) {
+  const slotLabels = entries.map((e) => `${e.name}（${e.season}）`);
+  const conditions = composeLabels(gameTypeLabels("regular"), SITUATIONAL_DEFAULT_LABEL, "シーズン集計値");
+  return {
+    title: entries.length > 0 ? `${kind}比較：${slotLabels.join(" vs ")}` : `${kind}比較`,
+    conditions,
+    filename: buildExportFilename(["比較", kind, ...slotLabels, ...conditions]),
+  };
+}
+
 export function ComparePage({ season }: { season: string }) {
   const exportRef = useRef<HTMLDivElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -204,6 +228,15 @@ export function ComparePage({ season }: { season: string }) {
 
   const reversedSeasons = [...(seasons ?? [])].reverse();
 
+  const teamCompareTitle = buildCompareTitle(
+    "チーム",
+    selectedTeams.map((r) => ({ name: r.item.teamName, season: r.season })),
+  );
+  const playerCompareTitle = buildCompareTitle(
+    "個人",
+    selectedPlayers.map((r) => ({ name: r.item.name, season: r.season })),
+  );
+
   return (
     <div>
       <h1>比較</h1>
@@ -254,8 +287,11 @@ export function ComparePage({ season }: { season: string }) {
               );
             })}
           </div>
-          <ExportImageButton targetRef={exportRef} filename="compare-teams.png" />
+          <ExportImageButton targetRef={exportRef} filename={teamCompareTitle.filename} />
           <div ref={exportRef} className="export-target">
+            {selectedTeams.length > 0 && (
+              <ConditionTitle title={teamCompareTitle.title} conditions={teamCompareTitle.conditions} />
+            )}
             <ComparisonTable
               rows={selectedTeams}
               defs={TEAM_STAT_DEFS}
@@ -297,8 +333,11 @@ export function ComparePage({ season }: { season: string }) {
               );
             })}
           </div>
-          <ExportImageButton targetRef={exportRef} filename="compare-players.png" />
+          <ExportImageButton targetRef={exportRef} filename={playerCompareTitle.filename} />
           <div ref={exportRef} className="export-target">
+            {selectedPlayers.length > 0 && (
+              <ConditionTitle title={playerCompareTitle.title} conditions={playerCompareTitle.conditions} />
+            )}
             <ComparisonTable
               rows={selectedPlayers}
               defs={PLAYER_STAT_DEFS.filter((d) => !d.hiddenFromPicker)}

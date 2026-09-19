@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { TeamLogo } from "../components/TeamLogo";
 import { TeamFilterBlock } from "../components/TeamFilterBlock";
+import { ConditionTitle } from "../components/ConditionTitle";
+import { composeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { fetchGameSummaries, fetchSchedule, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { formatDateHeading } from "../lib/format";
@@ -234,6 +236,25 @@ export function SchedulePage({ season }: { season: string }) {
     });
   };
 
+  // 表示中の日程に効いている条件（Batch 5、DESIGN.md 99章）。ステータス絞り込みはリスト表示のみ、
+  // 表示月はカレンダー表示のみに効く。日程には確定済み・予定・進行中の全試合（レギュラー+プレーオフ）が入る
+  const scheduleClubLabels =
+    selectedTeamIds === null
+      ? multiSelectLabels("対象クラブ", [], "全クラブ")
+      : selectedTeamIds.size === 0
+        ? ["対象クラブ: なし"]
+        : multiSelectLabels(
+            "対象クラブ",
+            teamOptions.filter((t) => selectedTeamIds.has(t.teamId)).map((t) => teamShortName(t.teamId, t.teamName)),
+            "全クラブ",
+          );
+  const scheduleConditions = composeLabels(
+    view === "list" ? "リスト表示" : "カレンダー表示",
+    view === "list" ? { all: "全試合", upcoming: "今後の試合", finished: "終了した試合" }[statusFilter] : formatMonthLabel(effectiveMonth),
+    "レギュラー+プレーオフ",
+    scheduleClubLabels,
+  );
+
   return (
     <div>
       <h1>日程</h1>
@@ -283,6 +304,8 @@ export function SchedulePage({ season }: { season: string }) {
         onSelectAll={() => setSelectedTeamIds(null)}
         onSelectNone={() => setSelectedTeamIds(new Set())}
       />
+
+      <ConditionTitle title={`${season}シーズン 日程`} conditions={scheduleConditions} />
 
       {view === "list" ? (
         listRows.length === 0 ? (

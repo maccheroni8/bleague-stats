@@ -5,6 +5,7 @@ import { fetchPlayerGameLogs, fetchPlayers, fetchTeamColors, fetchTeams } from "
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { ExportImageButton } from "../components/ExportImageButton";
+import { ConditionTitle } from "../components/ConditionTitle";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
@@ -64,6 +65,19 @@ import {
   filterEligiblePlayers,
 } from "../lib/playerRankingEligibility";
 import { formatDecimal } from "../lib/format";
+import {
+  buildExportFilename,
+  classificationLabels,
+  composeLabels,
+  displayModeLabels,
+  eligibilityLabels,
+  gameTypeLabels,
+  perspectiveLabels,
+  periodLabels,
+  SEASON_TOTAL_ONLY_LABELS,
+  SITUATIONAL_DEFAULT_LABEL,
+  situationalFilterLabels,
+} from "../lib/conditionLabels";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import type { PeriodRangeValue } from "../lib/periodRange";
 import type { PlayerGameLog, PlayerSummary, TeamColors, TeamForcedTurnovers, TeamGameLog, TeamSummary } from "../../shared/types";
@@ -105,6 +119,24 @@ const TURNOVER_DIRECTION_LABELS: Record<TurnoverDirection, string> = {
   forced: "奪った（自チームが強制）",
   committed: "記録した（相手に強制された）",
 };
+
+/**
+ * ランキングの表・画像出力の直上に出すタイトルと、画像ファイル名。選択中の全軸を条件ラベルとして
+ * 持ち、タイトル表示とファイル名を同じラベル配列から作る（src/lib/conditionLabels.ts参照）
+ */
+interface RankingTitleInfo {
+  title: string;
+  conditions: string[];
+  filename: string;
+}
+
+function makeRankingTitle(kind: "チーム" | "個人", season: string, statLabel: string, conditions: string[]): RankingTitleInfo {
+  return {
+    title: `${season}シーズン ${kind}ランキング：${statLabel}`,
+    conditions,
+    filename: buildExportFilename([`${kind}ランキング`, season, statLabel, ...conditions]),
+  };
+}
 
 /**
  * RankedListが実際に使う最小限の形（key/label/value/format）。statDefs.tsのStatDef<T>は
@@ -388,6 +420,36 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
 
   const isBoxscore = isBoxscoreCategory(category);
 
+  // 表・画像出力に出すタイトル。カテゴリごとに実際に効いている軸だけを並べる
+  // （シューティング・強制ターンオーバーはシーズン通算値のみで、シチュエーション別フィルタ・
+  // レギュラー/プレーオフ・自チーム/opp・Q別/前後半は対象外。その旨をラベルで明示する）
+  const boxscoreCategoryLabel = BOXSCORE_TABS.find((t) => t.key === category)?.label ?? category;
+  const teamBoxscoreTitle = makeRankingTitle(
+    "チーム",
+    season,
+    teamDef?.label ?? "",
+    composeLabels(
+      boxscoreCategoryLabel,
+      displayModeLabels(displayMode),
+      gameTypeLabels(gameType),
+      perspectiveLabels(perspective),
+      situationalFilterLabels(filter),
+      periodLabels(periodOption),
+    ),
+  );
+  const teamShootingTitle = makeRankingTitle(
+    "チーム",
+    season,
+    shootingDef?.label ?? "",
+    composeLabels("シューティング", displayModeLabels(displayMode), SEASON_TOTAL_ONLY_LABELS),
+  );
+  const teamForcedTurnoverTitle = makeRankingTitle(
+    "チーム",
+    season,
+    forcedTurnoverDef.label,
+    composeLabels("強制ターンオーバー", TURNOVER_DIRECTION_LABELS[turnoverDirection], SEASON_TOTAL_ONLY_LABELS),
+  );
+
   return (
     <>
       {isBoxscore ? (
@@ -496,8 +558,9 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
           <p className="empty-message">このシーズンのデータには対応していません</p>
         ) : (
           <>
-            <ExportImageButton targetRef={exportRef} filename={`ranking-team-shooting-${shootingDef.key}-${displayMode}.png`} />
+            <ExportImageButton targetRef={exportRef} filename={teamShootingTitle.filename} />
             <div ref={exportRef} className="export-target">
+              <ConditionTitle title={teamShootingTitle.title} conditions={teamShootingTitle.conditions} />
               <RankedList
                 rows={teamsWithShotTypes}
                 def={shootingDef}
@@ -515,11 +578,9 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
           <p className="empty-message">このシーズンのデータには対応していません</p>
         ) : (
           <>
-            <ExportImageButton
-              targetRef={exportRef}
-              filename={`ranking-team-forcedTurnovers-${forcedTurnoverDef.key}-${turnoverDirection}.png`}
-            />
+            <ExportImageButton targetRef={exportRef} filename={teamForcedTurnoverTitle.filename} />
             <div ref={exportRef} className="export-target">
+              <ConditionTitle title={teamForcedTurnoverTitle.title} conditions={teamForcedTurnoverTitle.conditions} />
               <RankedList
                 rows={teamsWithForcedTurnovers}
                 def={forcedTurnoverDef}
@@ -536,11 +597,9 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         <p className="loading">読み込み中...</p>
       ) : (
         <>
-          <ExportImageButton
-            targetRef={exportRef}
-            filename={`ranking-team-${category}-${teamDef.key}-${perspective}-${displayMode}-${gameType}-${period}.png`}
-          />
+          <ExportImageButton targetRef={exportRef} filename={teamBoxscoreTitle.filename} />
           <div ref={exportRef} className="export-target">
+            <ConditionTitle title={teamBoxscoreTitle.title} conditions={teamBoxscoreTitle.conditions} />
             <RankedList
               rows={rows}
               def={teamDef}
@@ -979,6 +1038,33 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   if (playersError) return <p className="error-message">{playersError}</p>;
   if (!players || players.length === 0) return <p className="empty-message">データがありません</p>;
 
+  // 表・画像出力に出すタイトル。EFF/PER/PPPはシチュエーション・G・Q別の対象外（シーズン合計値を
+  // そのまま表示している。上の注記と同じ条件）ため、いずれかの絞り込みが有効なときは実際の値の
+  // 範囲（レギュラーシーズン・シーズン全体・試合全体）を出し、対象外である旨を添える
+  const filterIgnoredForItem =
+    category !== "shooting" &&
+    ["eff", "per", "ppp"].includes(selectedItem.key) &&
+    (filterActive || gameTypeActive || periodActive);
+  const playerCategoryLabel = category === "shooting" ? "シューティング" : (SEASON_BOX_TABS.find((t) => t.key === category)?.label ?? category);
+  const playerScopeLabels =
+    category === "shooting"
+      ? SEASON_TOTAL_ONLY_LABELS
+      : filterIgnoredForItem
+        ? composeLabels(gameTypeLabels("regular"), SITUATIONAL_DEFAULT_LABEL, "試合全体", "※この項目はフィルタ対象外")
+        : composeLabels(gameTypeLabels(gameType), situationalFilterLabels(filter), periodLabels(periodOption));
+  const playerTitle = makeRankingTitle(
+    "個人",
+    season,
+    selectedItem.label,
+    composeLabels(
+      playerCategoryLabel,
+      classificationLabels(selectedClassification),
+      playerScopeLabels,
+      eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
+      `上位${PLAYER_RANK_TOP_N}名`,
+    ),
+  );
+
   return (
     <>
       <div className="filter-block">
@@ -1090,8 +1176,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         <p className="loading">読み込み中...</p>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={`ranking-player-${category}-${selectedItem.key}-${period}.png`} />
+          <ExportImageButton targetRef={exportRef} filename={playerTitle.filename} />
           <div ref={exportRef} className="export-target">
+            <ConditionTitle title={playerTitle.title} conditions={playerTitle.conditions} />
             <RankedList
               rows={rows}
               def={rankDef}

@@ -77,6 +77,18 @@ import {
   type RecordBeforeGame,
   type SituationalFilter,
 } from "../lib/situational";
+import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
+import {
+  classificationLabels,
+  composeLabels,
+  displayModeLabels,
+  gameTypeLabels,
+  joinLabels,
+  perspectiveLabels,
+  periodLabels,
+  SEASON_TOTAL_ONLY_LABELS,
+  situationalFilterLabels,
+} from "../lib/conditionLabels";
 import { isWednesdayGame, isWeekdayGame } from "../lib/japaneseHolidays";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
@@ -701,6 +713,13 @@ const TAB_LABELS: Record<DetailTab, string> = {
   clubRecord: "クラブレコード",
   compare: "比較",
 };
+
+/** タイトルに出すカテゴリ名（BOXSCORE_TABS＋シューティング・強制ターンオーバー） */
+function teamBoxCategoryLabel(key: string): string {
+  if (key === "shooting") return "シューティング";
+  if (key === "forcedTurnovers") return "強制ターンオーバー";
+  return BOXSCORE_TABS.find((t) => t.key === key)?.label ?? key;
+}
 
 interface SeasonRecord {
   season: string;
@@ -1909,28 +1928,7 @@ function formatLeagueRank(entry: LeagueTeamRankEntry | undefined): string | unde
  * （1つも選択が無ければ「シーズン全体」）
  */
 function describeTeamSituationalFilter(filter: SituationalFilter): string {
-  const parts: string[] = [];
-  switch (filter.range.kind) {
-    case "all":
-      break;
-    case "recent":
-      parts.push(`直近${filter.range.n}試合`);
-      break;
-    case "dateRange":
-      parts.push(!filter.range.start && !filter.range.end ? "期間指定" : `${filter.range.start || "…"}〜${filter.range.end || "…"}`);
-      break;
-  }
-  if (filter.result) parts.push(filter.result === "win" ? "勝った試合" : "負けた試合");
-  if (filter.homeAway) parts.push(filter.homeAway === "home" ? "ホーム" : "アウェイ");
-  if (filter.division) parts.push(filter.division === "east" ? "対東地区" : "対西地区");
-  if (filter.month !== undefined) parts.push(`${filter.month}月`);
-  if (filter.newYear) parts.push(filter.newYear === "before" ? "年明け前" : "年明け後");
-  if (filter.weekday) parts.push("平日開催");
-  if (filter.opponentWinRate) {
-    parts.push(filter.opponentWinRate === "under50" ? "対5割未満" : filter.opponentWinRate === "atLeast50" ? "対5割以上" : "対6割以上");
-  }
-  if (filter.includePlayoffs) parts.push("PO込み");
-  return parts.length > 0 ? parts.join("・") : "シーズン全体";
+  return joinLabels(situationalFilterLabels(filter, { includePlayoffs: true }));
 }
 
 interface TeamCompareSlotState {
@@ -3259,6 +3257,95 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 終わっていない間は誤って「0件」と表示しないよう、読み込み中はテーブル全体を「読み込み中」にする
   const scheduleDataLoading = statsRawGamesLoading || (yahooPbpSupported && teamYahooPbpLoading);
 
+  // 各タブの表・セクションに出す「選択中の条件」（Batch 3、DESIGN.md 97章）。
+  // 軸ごとのラベル関数（src/lib/conditionLabels.ts）を、セクションごとに実際に効いている軸だけ並べて合成する。
+  // 効かない軸（シーズン通算値のみのセクション等）は固定ラベルで明示する
+  const seasonLabel = `${season}シーズン`;
+  const seasonBoxConditions = composeLabels(
+    teamBoxCategoryLabel(seasonBoxTab),
+    displayModeLabels(seasonBoxDisplayMode),
+    perspectiveLabels(seasonBoxPerspective),
+    gameTypeLabels("regular"),
+  );
+  const teamLeadersConditions = composeLabels(
+    seasonLabel,
+    classificationLabels(teamLeadersJpOnly ? "日本人" : "all"),
+    gameTypeLabels("regular"),
+    `出場率${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}%以上`,
+  );
+  const situationalRecordConditions = composeLabels(seasonLabel, gameTypeLabels(situationalRecordGameType));
+  const teamStatsTitle = {
+    title: `${seasonLabel} チームスタッツ：${teamBoxCategoryLabel(teamStatsBoxTab)}`,
+    conditions:
+      teamStatsBoxTab === "forcedTurnovers"
+        ? composeLabels(SEASON_TOTAL_ONLY_LABELS)
+        : teamStatsBoxTab === "shooting"
+          ? composeLabels(
+              displayModeLabels(teamStatsDisplayMode),
+              gameTypeLabels(teamStatsGameType),
+              situationalFilterLabels(filter),
+              periodLabels(statsPeriodOption),
+            )
+          : composeLabels(
+              displayModeLabels(teamStatsDisplayMode),
+              gameTypeLabels(teamStatsGameType),
+              perspectiveLabels(teamPerspective),
+              situationalFilterLabels(filter),
+              periodLabels(statsPeriodOption),
+            ),
+  };
+  // 「シチュエーション別成績」: 行がシチュエーション自体のため、S軸は持たない。V・Pは上のチームスタッツ主表と共有
+  const situationalTeamConditions = composeLabels(
+    seasonLabel,
+    teamBoxCategoryLabel(situationalTeamBoxTab),
+    displayModeLabels(situationalTeamDisplayMode),
+    gameTypeLabels(situationalTeamGameType),
+    situationalTeamBoxTab !== "shooting" && perspectiveLabels(teamPerspective),
+    periodLabels(statsPeriodOption),
+  );
+  const teamShotChartConditions = composeLabels(
+    seasonLabel,
+    gameTypeLabels(teamStatsGameType),
+    situationalFilterLabels(filter),
+    periodLabels(statsPeriodOption),
+  );
+  // シューティングタブは試合単位のシュートを集計するだけでQ別/前後半に対応していないため、
+  // Q別/前後半が選ばれているときはその旨を明示する（試合全体のときは通常どおりP軸を出す）
+  const playerStatsTitle = {
+    title: `${seasonLabel} 選手スタッツ：${teamBoxCategoryLabel(playerStatsBoxTab)}`,
+    conditions: composeLabels(
+      displayModeLabels(playerStatsDisplayMode),
+      gameTypeLabels(playerStatsGameType),
+      situationalFilterLabels(playerStatsFilter),
+      playerStatsBoxTab === "shooting" && playerStatsPeriodOption?.periods
+        ? "※シューティングはQ別/前後半の対象外"
+        : periodLabels(playerStatsPeriodOption),
+    ),
+  };
+  const scheduleTitle = {
+    title: `${seasonLabel} 日程結果：${teamBoxCategoryLabel(scheduleBoxTab)}`,
+    conditions: composeLabels(
+      perspectiveLabels(scheduleTeamPerspective),
+      gameTypeLabels(scheduleGameType),
+      periodLabels(schedulePeriodOption),
+    ),
+  };
+  const careerRangeLabel =
+    careerData && careerData.length > 0 ? `${careerData[0]!.season}〜${careerData[careerData.length - 1]!.season}シーズン` : null;
+  const careerConditions = composeLabels(careerRangeLabel, gameTypeLabels(careerGameTypeFilter));
+  // 「比較」タブ: 各スロットの選択内容（シーズン・シチュエーション）をタイトルに、共通の軸（カテゴリ・V・G）を条件行に出す
+  const compareSlotDescriptions = compareSlots
+    .filter((slot) => slot.season)
+    .map((slot) => `${slot.season}（${joinLabels(situationalFilterLabels(slot.filter))}）`);
+  const compareTitle = {
+    title: `${team.teamName} 比較：${compareSlotDescriptions.join(" vs ")}`,
+    conditions: composeLabels(
+      teamBoxCategoryLabel(compareTab),
+      perspectiveLabels(comparePerspective),
+      gameTypeLabels(compareGameType),
+    ),
+  };
+
   const radarData = teams && teams.length > 1 ? buildRadarData(team, teams) : [];
 
   return (
@@ -3359,7 +3446,7 @@ export function TeamDetailPage({ season }: { season: string }) {
 
       {tab === "overview" && (
         <>
-          <h2>シーズン別成績</h2>
+          <ConditionTitle section title="シーズン別成績" conditions={seasonBoxConditions} />
           {nameHistory.length > 1 && (
             <p className="page-subtitle">
               名称変更履歴:{" "}
@@ -3464,7 +3551,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             </div>
           )}
 
-          <h2>チーム内リーダー</h2>
+          <ConditionTitle section title="チーム内リーダー" conditions={teamLeadersConditions} />
           <div className="mode-toggle">
             <button
               className={teamLeadersJpOnly ? "" : "active"}
@@ -3528,7 +3615,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             </div>
           )}
 
-          <h2>シチュエーション別勝敗</h2>
+          <ConditionTitle section title="シチュエーション別勝敗" conditions={situationalRecordConditions} />
           <div className="mode-toggle">
             {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
               <button
@@ -3586,6 +3673,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             {situationalRecordRawExpanded ? "▼ " : "▶ "}
             延長・Q別リード状況
           </h3>
+          {situationalRecordRawExpanded && <ConditionLine conditions={situationalRecordConditions} />}
           {!situationalRecordRawExpanded ? null : statsRawGamesLoading || !situationalRecordRawGamesReady ? (
             <p className="loading">読み込み中...</p>
           ) : situationalRecordRawGroups.length === 0 ? (
@@ -3720,6 +3808,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 </button>
               ))}
             </div>
+            <ConditionTitle title={scheduleTitle.title} conditions={scheduleTitle.conditions} />
             {scheduleDataLoading && <p className="loading">読み込み中...</p>}
             {scheduleFilteredRows.length === 0 ? (
               <p className="empty-message">該当する試合がありません</p>
@@ -3794,6 +3883,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             <p className="empty-message">通算成績のデータがありません</p>
           ) : (
             <>
+              <ConditionTitle title="通算成績" conditions={careerConditions} />
               <div className="stat-grid">
                 {CAREER_TOTAL_DEFS.map((def) => (
                   <StatTile
@@ -3838,6 +3928,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             <p className="empty-message">クラブレコードのデータがありません</p>
           ) : (
             <>
+              <ConditionTitle title="クラブレコード" conditions={careerConditions} />
               <h3 className="career-highs-subheading">シーズン記録</h3>
               <div className="career-highs-grid">
                 {mostWinsSeasonRecord && (
@@ -4006,6 +4097,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               ))}
             </div>
           </div>
+          <ConditionTitle title={teamStatsTitle.title} conditions={teamStatsTitle.conditions} />
           {teamStatsBoxTab === "shooting" ? (
             needsTeamPeriodRecompute && teamYahooPbpLoading ? (
               <p className="loading">読み込み中...</p>
@@ -4071,7 +4163,7 @@ export function TeamDetailPage({ season }: { season: string }) {
 
           <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} shotChartSupported={isShotChartSupported(coverage)} />
 
-          <h2>シチュエーション別成績</h2>
+          <ConditionTitle section title="シチュエーション別成績" conditions={situationalTeamConditions} />
           <div className="mode-toggle">
             {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
               <button
@@ -4259,6 +4351,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             {isShotChartSupported(coverage) ? (teamShotChartExpanded ? "▼ " : "▶ ") : ""}
             ショットチャート
           </h2>
+          {isShotChartSupported(coverage) && teamShotChartExpanded && <ConditionLine conditions={teamShotChartConditions} />}
           {!isShotChartSupported(coverage) ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : !teamShotChartExpanded ? null : statsRawGamesLoading ? (
@@ -4300,6 +4393,8 @@ export function TeamDetailPage({ season }: { season: string }) {
               {playerStatsCandidatesLoading || !playerStatsRows ? (
                 <p className="loading">読み込み中...</p>
               ) : (
+                <>
+                <ConditionTitle title={playerStatsTitle.title} conditions={playerStatsTitle.conditions} />
                 <TeamPlayerStatsTable
                   rows={playerStatsRows}
                   gameType={playerStatsGameType}
@@ -4314,6 +4409,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   teamYahooPbp={teamYahooPbp}
                   teamYahooPbpLoading={teamYahooPbpLoading}
                 />
+                </>
               )}
             </>
           )}
@@ -4332,7 +4428,11 @@ export function TeamDetailPage({ season }: { season: string }) {
             </>
           )}
 
-          <h2>よく使われるラインナップ</h2>
+          <ConditionTitle
+            section
+            title="よく使われるラインナップ"
+            conditions={composeLabels(seasonLabel, gameTypeLabels("both"), `出場時間${MIN_LINEUP_SECONDS}秒以上`)}
+          />
           {coverageLoading ? (
             <p className="loading">読み込み中...</p>
           ) : !pbpSupported ? (
@@ -4390,7 +4490,11 @@ export function TeamDetailPage({ season }: { season: string }) {
             </>
           )}
 
-          <h2>アシスト経由の得点パターン</h2>
+          <ConditionTitle
+            section
+            title="アシスト経由の得点パターン"
+            conditions={composeLabels(seasonLabel, gameTypeLabels("regular"), periodLabels(undefined))}
+          />
           {coverageLoading ? (
             <p className="loading">読み込み中...</p>
           ) : !pbpSupported ? (
@@ -4541,6 +4645,9 @@ export function TeamDetailPage({ season }: { season: string }) {
               </button>
             ))}
           </div>
+          {compareSlotDescriptions.length > 0 && (
+            <ConditionTitle title={compareTitle.title} conditions={compareTitle.conditions} />
+          )}
           {compareDataLoading && <p className="loading">データ取得中...</p>}
           {careerLoading && !careerData ? (
             <p className="loading">読み込み中...</p>

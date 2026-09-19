@@ -3,6 +3,7 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import { teamLogoUrl } from "../lib/data";
 import { teamShortName } from "../../shared/teamNames";
 import type { TeamColors } from "../../shared/types";
+import { ConditionLine } from "./ConditionTitle";
 
 export interface ChartTeam {
   teamId: string;
@@ -32,6 +33,8 @@ interface StandingsLineChartProps {
    * 「凡例に載る延べチーム数」（出入りにより1日あたりの人数より多くなりうる）と一致しない
    * 場合に、呼び出し側から正しい上限を渡すために使う */
   rankDomainMax?: number;
+  /** タイトル直下に添える「選択中の条件」（シーズン・対象期間等。src/lib/conditionLabels.ts参照）。未指定なら出さない */
+  conditions?: string[];
 }
 
 /** チーム数に応じて均等に色相を割り振る簡易パレット。teamColorsに無いチーム用のフォールバック */
@@ -59,6 +62,7 @@ export function StandingsLineChart({
   isAnimating = false,
   connectGaps = true,
   rankDomainMax,
+  conditions,
 }: StandingsLineChartProps) {
   const rankMax = Math.max(rankDomainMax ?? teams.length, 1);
   // アニメーション再生中はdataが徐々に伸びていくため、折れ線の末端（=最新地点）の位置は
@@ -119,6 +123,7 @@ export function StandingsLineChart({
   return (
     <div className="standings-chart">
       <h3>{title}</h3>
+      {conditions && <ConditionLine conditions={conditions} />}
       <ResponsiveContainer width="100%" height={height}>
         {/* topマージンはロゴ半径（LOGO_SIZE/2）分以上確保する。順位グラフの1位は
             プロット領域の最上端ちょうどに位置するため、これが無いとロゴの上部がプロット領域の

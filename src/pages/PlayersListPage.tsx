@@ -26,6 +26,21 @@ import type {
 } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
+import { ConditionTitle } from "../components/ConditionTitle";
+import {
+  classificationLabels,
+  composeLabels,
+  displayModeLabels,
+  gamesPlayedRatioRangeLabels,
+  gameTypeLabels,
+  includePlayoffsGameTypeLabels,
+  LEAGUE_VENUE_LABELS,
+  leagueVenueLabels,
+  multiSelectLabels,
+  SEASON_TOTAL_ONLY_LABELS,
+  situationalFilterLabels,
+  type LeagueVenue,
+} from "../lib/conditionLabels";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
 import { astToTovRatio, formatAstToRatio, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
@@ -640,6 +655,35 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   if (playersError) return <p className="error-message">{playersError}</p>;
   if (!players || players.length === 0) return <p className="empty-message">データがありません</p>;
 
+  // 主表の見出し。絞り込みの軸（登録区分・ポジション・クラブ・出場試合率）は全タブ共通。
+  // シチュエーション別フィルタとG（レギュラー/プレーオフ）はシューティングタブでは対象外
+  // （シーズン通算値のみ）
+  const filterAxisLabels = composeLabels(
+    classificationLabels(classificationFilter),
+    multiSelectLabels("ポジション", [...positionFilter], "全ポジション"),
+    multiSelectLabels(
+      "クラブ",
+      [...teamFilter].map((id) => {
+        const t = (teams ?? []).find((x) => x.teamId === id);
+        return t ? teamShortName(t.teamId, t.teamName) : id;
+      }),
+      "全クラブ",
+    ),
+    gamesPlayedRatioRangeLabels(minRatio, maxRatio),
+  );
+  const statsTitle = {
+    title: `${season}シーズン 全選手スタッツ：${TAB_LABELS.find((t) => t.key === tab)?.label ?? tab}`,
+    conditions:
+      tab === "shooting"
+        ? composeLabels(displayModeLabels(displayMode), filterAxisLabels, SEASON_TOTAL_ONLY_LABELS)
+        : composeLabels(
+            displayModeLabels(displayMode),
+            filterAxisLabels,
+            includePlayoffsGameTypeLabels(situationalFilter.includePlayoffs),
+            situationalFilterLabels(situationalFilter),
+          ),
+  };
+
   return (
     <div>
       <p className="page-subtitle">
@@ -740,6 +784,8 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         </div>
       </div>
 
+      <ConditionTitle title={statsTitle.title} conditions={statsTitle.conditions} />
+
       {tab === "shooting" && !yahooPbpSupported ? (
         <p className="empty-message">このシーズンのデータには対応していません</p>
       ) : gameDataLoading || teamDataLoading ? (
@@ -781,8 +827,6 @@ function AllPlayersStatsTab({ season }: { season: string }) {
 // 無い（クラブレコード相当は今回のスコープ外、ユーザー指定）。順位・対象選手数はJSON側で
 // 既に算出済みのため、フロントエンドは項目・ホーム/アウェイ/トータル・レギュラー/プレーオフ/
 // 合算を選んで該当の[gameType][statKey][playerId]テーブルをrank昇順に並べ替えるだけでよい
-type LeagueVenue = "total" | "home" | "away";
-const LEAGUE_VENUE_LABELS: Record<LeagueVenue, string> = { total: "トータル", home: "ホーム", away: "アウェイ" };
 
 function leagueTableFor(rankings: LeaguePlayerRankingsFile, venue: LeagueVenue, gameType: SeasonGameTypeFilter, statKey: string) {
   const table = venue === "total" ? rankings.career : venue === "home" ? rankings.careerHome : rankings.careerAway;
@@ -854,6 +898,11 @@ function LeaguePlayerRecordsTab() {
           </button>
         ))}
       </div>
+
+      <ConditionTitle
+        title={`歴代記録 通算成績：${activeLabel}`}
+        conditions={composeLabels(leagueVenueLabels(venue), gameTypeLabels(gameType))}
+      />
 
       {rows.length === 0 ? (
         <p className="empty-message">この条件（ホーム/アウェイ/トータル・レギュラー/プレーオフ区分・項目）では該当選手がいません</p>
@@ -1346,6 +1395,10 @@ function PlayerRecentFormTab({ season }: { season: string }) {
           </button>
         ))}
       </div>
+      <ConditionTitle
+        title={`${season}シーズン 個人直近成績`}
+        conditions={composeLabels(`直近${recentN}試合`, gameTypeLabels("both"), `直近${recentN}試合中${minGames}試合以上出場`)}
+      />
       {gameLogsLoading || !gameLogs ? (
         <p className="loading">読み込み中...</p>
       ) : rows.length === 0 ? (

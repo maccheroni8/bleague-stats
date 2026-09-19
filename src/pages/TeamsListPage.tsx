@@ -29,6 +29,18 @@ import { SortableTable, type Column } from "../components/SortableTable";
 import { TeamLogo } from "../components/TeamLogo";
 import { SeasonLink } from "../components/SeasonLink";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
+import { ConditionTitle } from "../components/ConditionTitle";
+import {
+  composeLabels,
+  displayModeLabels,
+  gameTypeLabels,
+  LEAGUE_VENUE_LABELS,
+  leagueVenueLabels,
+  perspectiveLabels,
+  SEASON_TOTAL_ONLY_LABELS,
+  situationalFilterLabels,
+  type LeagueVenue,
+} from "../lib/conditionLabels";
 import {
   buildRecordsBeforeGame,
   computeOpponentWinPctAvg,
@@ -159,6 +171,21 @@ export function TeamsStatsRedirect() {
 // 計算する形にした（生データベースのbuildTeamMultiGameBoxTotalsを26チーム分呼ぶのは
 // 上記と同じ理由で採用しない）
 const BOX_TABS = BOXSCORE_TABS;
+
+/** 「全チームスタッツ」タブの各カテゴリ（BOXSCORE_TABS＋専用ビュー）の表示名。タイトルに使う */
+const TEAMS_STATS_CATEGORY_LABELS: Record<string, string> = {
+  ...Object.fromEntries(BOXSCORE_TABS.map((t) => [t.key, t.label])),
+  shooting: "シューティング",
+  forcedTurnovers: "強制ターンオーバー",
+  foreignPlayers: "オンザコート人数",
+  scoringComposition: "得点構成",
+};
+
+/** 強制ターンオーバーの視点トグル（ボタン表示とタイトルで共通） */
+const TURNOVER_PERSPECTIVE_LABELS: Record<"forced" | "committed", string> = {
+  forced: "相手から奪った（自チームが強制）",
+  committed: "自チームが記録（相手に強制された）",
+};
 const DISPLAY_MODE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
 
 const teamColumn: Column<AllTeamsRow> = {
@@ -324,6 +351,27 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   if (teamsError) return <p className="error-message">{teamsError}</p>;
   if (!teams || teams.length === 0) return <p className="empty-message">データがありません</p>;
 
+  // 主表の見出し。カテゴリごとに実際に効いている軸だけを条件として並べる（シューティング以降の
+  // 専用ビューはシーズン通算値のみで、S・G・Vは対象外。その旨を固定ラベルで明示する）
+  const statsTitle = {
+    title: `${season}シーズン 全チームスタッツ：${TEAMS_STATS_CATEGORY_LABELS[boxTab]}`,
+    conditions:
+      boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring"
+        ? composeLabels(
+            displayModeLabels(displayMode),
+            gameTypeLabels(gameType),
+            perspectiveLabels(teamPerspective),
+            situationalFilterLabels(filter),
+          )
+        : boxTab === "shooting"
+          ? composeLabels(displayModeLabels(displayMode), SEASON_TOTAL_ONLY_LABELS)
+          : boxTab === "forcedTurnovers"
+            ? composeLabels(TURNOVER_PERSPECTIVE_LABELS[turnoverPerspective], SEASON_TOTAL_ONLY_LABELS)
+            : boxTab === "foreignPlayers"
+              ? composeLabels(SEASON_TOTAL_ONLY_LABELS, "在コート時間ベース")
+              : composeLabels(SEASON_TOTAL_ONLY_LABELS),
+  };
+
   return (
     <div>
       <p className="page-subtitle">全{teams.length}チーム</p>
@@ -398,6 +446,8 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         </div>
       </div>
 
+      <ConditionTitle title={statsTitle.title} conditions={statsTitle.conditions} />
+
       {boxTab === "shooting" ? (
         !yahooPbpSupported ? (
           <p className="empty-message">このシーズンのデータには対応していません</p>
@@ -414,7 +464,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               />
             </div>
             <p className="page-subtitle">
-              レギュラーシーズン・シーズン平均のみ（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。シュートタイプ×2P/3P別に成功数（M）・試投数（A）・成功率（%）の3列に分けて表示する。列見出しクリックで並び替え
+              レギュラーシーズンのみ（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない。平均/合計のみ連動する）。シュートタイプ×2P/3P別に成功数（M）・試投数（A）・成功率（%）の3列に分けて表示する。列見出しクリックで並び替え
             </p>
           </>
         )
@@ -429,14 +479,14 @@ function AllTeamsStatsTab({ season }: { season: string }) {
                 onClick={() => setTurnoverPerspective("forced")}
                 type="button"
               >
-                相手から奪った（自チームが強制）
+                {TURNOVER_PERSPECTIVE_LABELS.forced}
               </button>
               <button
                 className={turnoverPerspective === "committed" ? "active" : ""}
                 onClick={() => setTurnoverPerspective("committed")}
                 type="button"
               >
-                自チームが記録（相手に強制された）
+                {TURNOVER_PERSPECTIVE_LABELS.committed}
               </button>
             </div>
             <div className="table-scroll">
@@ -558,8 +608,6 @@ function formatLeagueRecordValue(category: RecordsCategory, statKey: string, val
 // career/clubRecord/seasonSpecial、ホーム/アウェイはaggregate-league-rankings.tsが別途
 // 算出済みのcareerHome/careerAway等（scripts参照）を参照するだけで、フロントエンド側の
 // 追加集計は不要
-type LeagueVenue = "total" | "home" | "away";
-const LEAGUE_VENUE_LABELS: Record<LeagueVenue, string> = { total: "トータル", home: "ホーム", away: "アウェイ" };
 
 function leagueEntriesFor(
   rankings: LeagueTeamRankingsFile | null,
@@ -736,6 +784,11 @@ function LeagueRecordsTab() {
           </button>
         ))}
       </div>
+
+      <ConditionTitle
+        title={`歴代記録 ${RECORDS_CATEGORY_LABELS[category]}：${activeLabel}`}
+        conditions={composeLabels(!isPremierRecord && leagueVenueLabels(venue), gameTypeLabels(gameType))}
+      />
 
       {isPremierRecord ? (
         premierRows.length === 0 ? (
@@ -1206,6 +1259,10 @@ function RecentFormTab({ season }: { season: string }) {
           </button>
         ))}
       </div>
+      <ConditionTitle
+        title={`${season}シーズン チーム直近成績`}
+        conditions={composeLabels(`直近${recentN}試合`, gameTypeLabels("both"))}
+      />
       {gameLogsLoading || !gameLogsByTeam ? (
         <p className="loading">読み込み中...</p>
       ) : (

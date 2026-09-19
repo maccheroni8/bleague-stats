@@ -1945,6 +1945,34 @@ table.compare-table td.compare-best {
   padding: 4px;
 }
 
+/* 表・画像出力の直上に置く「タイトル＋選択中の条件」（ConditionTitle.tsx）。
+ * 画像出力の対象（.export-target）の内側に置くため、余白は上下とも小さめにしている */
+.condition-title {
+  margin: 4px 0 10px;
+}
+
+.condition-title h2 {
+  margin: 0 0 2px;
+  font-size: 16px;
+}
+
+.condition-title-conditions {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* 従来の<h2>の置き換えとして使うとき（ConditionTitleのsection指定）: <h2>と同じ上余白 */
+.condition-title-section {
+  margin-top: 32px;
+}
+
+/* 既存の見出しの直下に条件だけを添える行（ConditionLine） */
+.condition-line {
+  margin-bottom: 8px;
+}
+
 .standings-chart {
   border: 1px solid var(--border);
   border-radius: 8px;

@@ -14,6 +14,8 @@ import { ShotChartPanel } from "../components/ShotChart";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
+import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
+import { composeLabels, periodLabels } from "../lib/conditionLabels";
 import { BOXSCORE_TABS, BoxscoreTable, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
 import { buildShotEvents, paintSplitForShot, type ShotEvent } from "../lib/shotChart";
@@ -326,6 +328,8 @@ export function GameDetailPage({ season }: { season: string }) {
   // 制御を委譲し、シューティング選択時はBoxscoreTableの代わりに既存のシュートタイプ内訳
   // テーブル（横スライド形式のUIはそのまま）を表示する
   const [boxscoreTab, setBoxscoreTab] = useState<BoxscoreTabKey | "shooting">("traditional");
+  // Q別/前後半トグルの選択（BoxscoreTable内蔵のトグルをここから制御し、見出しの条件行に反映する）
+  const [boxscorePeriodRange, setBoxscorePeriodRange] = useState<PeriodRangeValue>("all");
 
   if (loading || coverageLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
@@ -359,6 +363,17 @@ export function GameDetailPage({ season }: { season: string }) {
   const selectedShotPeriodOption = shotPeriodOptions.find((o) => o.value === shotPeriodRange);
   const shotPeriodHomeShots = homeShots.filter((s) => periodInRange(selectedShotPeriodOption, s.period));
   const shotPeriodAwayShots = awayShots.filter((s) => periodInRange(selectedShotPeriodOption, s.period));
+
+  // ボックススコア見出しの「選択中の条件」（Batch 5、DESIGN.md 99章）。1試合のページのため、
+  // 選択軸はカテゴリとQ別/前後半のみ。シューティングタブはYahoo PBPのシュート単位の集計で、
+  // Q別/前後半の選択（BoxscoreTable側のトグル）には連動しないため、その旨を明示する
+  const boxscoreCategoryLabel =
+    boxscoreTab === "shooting" ? "シューティング" : (BOXSCORE_TABS.find((t) => t.key === boxscoreTab)?.label ?? boxscoreTab);
+  const boxscoreConditions = composeLabels(
+    boxscoreTab === "shooting"
+      ? "試合全体（Q別/前後半は対象外）"
+      : periodLabels(buildPeriodRangeOptions(periods).find((o) => o.value === boxscorePeriodRange)),
+  );
 
   const scoreTimeline = buildScoreTimeline(
     game.raw.PlayByPlays,
@@ -564,7 +579,7 @@ export function GameDetailPage({ season }: { season: string }) {
         )}
       </section>
 
-      <h2>ボックススコア</h2>
+      <ConditionTitle section title={`ボックススコア：${boxscoreCategoryLabel}`} conditions={boxscoreConditions} />
       <div className="mode-toggle boxscore-category-tabs">
         {BOXSCORE_TABS.map((tab) => (
           <button key={tab.key} className={tab.key === boxscoreTab ? "active" : ""} onClick={() => setBoxscoreTab(tab.key)}>
@@ -618,10 +633,12 @@ export function GameDetailPage({ season }: { season: string }) {
           activeTab={boxscoreTab}
           onTabChange={setBoxscoreTab}
           hideTabBar
+          periodRange={boxscorePeriodRange}
+          onPeriodRangeChange={setBoxscorePeriodRange}
         />
       )}
 
-      <h2>ゲームリーダー</h2>
+      <ConditionTitle section title="ゲームリーダー" conditions={composeLabels("試合全体", "全選手")} />
       <div className="game-leaders">
         <GameLeadersTeam teamName={game.homeTeam.name} rows={homePlayers} accentColor={homeColor} />
         <GameLeadersTeam teamName={game.awayTeam.name} rows={awayPlayers} accentColor={awayColor} />
@@ -634,6 +651,11 @@ export function GameDetailPage({ season }: { season: string }) {
           {leaderDisplayMode === "all" ? "全選手" : "日本人"}
         </button>
       </div>
+      {showExtendedLeaders && (
+        <ConditionLine
+          conditions={composeLabels("詳細比較", "試合全体", leaderDisplayMode === "japanese" ? "日本人" : "全選手")}
+        />
+      )}
       {showExtendedLeaders && (
         <GameLeadersMatchup
           homeTeamName={game.homeTeam.name}
@@ -681,7 +703,7 @@ export function GameDetailPage({ season }: { season: string }) {
         />
       )}
 
-      <h2>ショットチャート</h2>
+      <ConditionTitle section title="ショットチャート" conditions={composeLabels(periodLabels(selectedShotPeriodOption))} />
       {shotChartSupported ? (
         <>
           <PeriodRangeToggle options={shotPeriodOptions} value={shotPeriodRange} onChange={setShotPeriodRange} />

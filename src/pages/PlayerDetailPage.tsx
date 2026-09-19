@@ -113,6 +113,16 @@ import {
   type ShotChartGameFilters,
   type SituationalFilter,
 } from "../lib/situational";
+import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
+import {
+  composeLabels,
+  displayModeLabels,
+  gameTypeLabels,
+  joinLabels,
+  periodLabels,
+  shotChartGameFilterLabels,
+  situationalFilterLabels,
+} from "../lib/conditionLabels";
 import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { classificationGroup } from "../lib/classificationFilter";
 import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "./ComparePage";
@@ -562,31 +572,7 @@ function defaultCompareSlots(season: string): [CompareSlotState, CompareSlotStat
  * 部分を「・」区切りで列挙する形に変更した（1つも選択が無ければ「シーズン全体」）
  */
 function describeSituationalFilter(filter: SituationalFilter, boundary: SeasonHalfBoundary | null): string {
-  const parts: string[] = [];
-  switch (filter.range.kind) {
-    case "all":
-      break;
-    case "recent":
-      parts.push(`直近${filter.range.n}試合`);
-      break;
-    case "dateRange":
-      if (boundary && filter.range.start === "" && filter.range.end === boundary.firstHalfEnd) parts.push("前半戦");
-      else if (boundary && filter.range.start === boundary.secondHalfStart && filter.range.end === "") parts.push("後半戦");
-      else if (!filter.range.start && !filter.range.end) parts.push("期間指定");
-      else parts.push(`${filter.range.start || "…"}〜${filter.range.end || "…"}`);
-      break;
-  }
-  if (filter.result) parts.push(filter.result === "win" ? "勝った試合" : "負けた試合");
-  if (filter.homeAway) parts.push(filter.homeAway === "home" ? "ホーム" : "アウェイ");
-  if (filter.division) parts.push(filter.division === "east" ? "対東地区" : "対西地区");
-  if (filter.month !== undefined) parts.push(`${filter.month}月`);
-  if (filter.newYear) parts.push(filter.newYear === "before" ? "年明け前" : "年明け後");
-  if (filter.weekday) parts.push("平日開催");
-  if (filter.opponentWinRate) {
-    parts.push(filter.opponentWinRate === "under50" ? "対5割未満" : filter.opponentWinRate === "atLeast50" ? "対5割以上" : "対6割以上");
-  }
-  if (filter.includePlayoffs) parts.push("PO込み");
-  return parts.length > 0 ? parts.join("・") : "シーズン全体";
+  return joinLabels(situationalFilterLabels(filter, { boundary, includePlayoffs: true }));
 }
 
 interface CompareColumnData {
@@ -2069,6 +2055,88 @@ export function PlayerDetailPage({ season }: { season: string }) {
     rows: sortSituationalStatsRows(group.rows),
   }));
 
+  // 各セクションに出す「選択中の条件」（Batch 4、DESIGN.md 98章）。ラベルは、そのセクションの
+  // useMemo/useEffectが実際に参照しているステートから作る（タイトルと実際の絞り込みを食い違わせない）。
+  // 「スタッツ」タブ内でも、セクションごとに従うトグルが違う（離れたトグルに連動するセクションがある）:
+  //   シーズン別成績 → gameTypeFilter/seasonBreakdownPeriod/seasonDisplayMode/seasonBreakdownTab
+  //   シチュエーション別成績・アシスト・オンコート → situationalStatsSeason/GameType（アシストのみPも）
+  //   ショットチャート → gameTypeFilter（シーズン別成績と共通）・ページのseason・shotChartFilters/shotChartPeriod
+  const seasonBoxCategoryLabel = (key: SeasonBoxTabKey | "shooting"): string =>
+    key === "shooting" ? "シューティング" : (SEASON_BOX_TABS.find((t) => t.key === key)?.label ?? key);
+  // シューティングタブはシュート単位の集計のためQ別/前後半に対応していない（試合全体のときは通常どおりP軸を出す）
+  const shootingPeriodNote = "※シューティングはQ別/前後半の対象外";
+  const seasonBreakdownConditions = composeLabels(
+    seasonBoxCategoryLabel(seasonBreakdownTab),
+    displayModeLabels(seasonDisplayMode),
+    gameTypeLabels(gameTypeFilter),
+    seasonBreakdownTab === "shooting" && seasonBreakdownPeriod !== "all"
+      ? shootingPeriodNote
+      : periodLabels(SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === seasonBreakdownPeriod)),
+  );
+  const situationalSeasonLabel = `${situationalStatsSeason}シーズン`;
+  const situationalStatsConditions = composeLabels(
+    situationalSeasonLabel,
+    seasonBoxCategoryLabel(situationalStatsTab),
+    displayModeLabels(situationalStatsDisplayMode),
+    gameTypeLabels(situationalStatsGameType),
+    situationalStatsTab === "shooting" && situationalStatsPeriod !== "all"
+      ? shootingPeriodNote
+      : periodLabels(situationalStatsPeriodOption),
+  );
+  const assistConditions = composeLabels(
+    situationalSeasonLabel,
+    gameTypeLabels(situationalStatsGameType),
+    periodLabels(situationalStatsAssistPeriodOption),
+  );
+  // オンコート/オフコート比較はQ別/前後半に対応していない（onOffSplitはsituationalStatsPeriodを参照しない）ため、
+  // トグルの選択に関わらず常に試合全体で、その旨を明示する
+  const onOffConditions = composeLabels(
+    situationalSeasonLabel,
+    gameTypeLabels(situationalStatsGameType),
+    "試合全体（Q別/前後半は対象外）",
+  );
+  const shotChartOwnTeamName = shotChartFilters.ownTeamId
+    ? shotChartTeamOptions.find((t) => t.teamId === shotChartFilters.ownTeamId)?.label
+    : undefined;
+  const shotChartConditions = composeLabels(
+    `${season}シーズン`,
+    gameTypeLabels(gameTypeFilter),
+    shotChartGameFilterLabels(shotChartFilters, shotChartOwnTeamName),
+    periodLabels(shotChartPeriodOption),
+  );
+  const careerRangeSeasons = (careerCategory === "one" ? careerDataOne : careerData)?.map((cd) => cd.season) ?? [];
+  const careerRangeLabel =
+    careerRangeSeasons.length === 0
+      ? null
+      : careerRangeSeasons[0] === careerRangeSeasons[careerRangeSeasons.length - 1]
+        ? `${careerRangeSeasons[0]}シーズン`
+        : `${careerRangeSeasons[0]}〜${careerRangeSeasons[careerRangeSeasons.length - 1]}シーズン`;
+  const careerBaseConditions = composeLabels(
+    CAREER_CATEGORY_LABELS[careerCategory],
+    careerRangeLabel,
+    gameTypeLabels(careerGameTypeFilter),
+  );
+  const careerConditions = composeLabels(careerBaseConditions, displayModeLabels("total"));
+  // 試合ログはシーズン内の全試合（レギュラー+プレーオフ）を1試合ずつ並べる表で、G・Pのトグルは無い
+  const gameLogTitle = {
+    title: `${season}シーズン 試合ログ：${BOXSCORE_TABS.find((t) => t.key === gameBoxTab)?.label ?? gameBoxTab}`,
+    conditions: composeLabels("レギュラー+プレーオフ", "試合全体"),
+  };
+  // 「比較」タブ: スロットごとのシーズン・シチュエーションをタイトルに、共通の軸（カテゴリ・平均・G）を条件行に出す。
+  // ロジック上、ComparisonTableは常に平均（perGame）・試合全体で組み立てている（seasonBoxCompareDefs/compareRows）
+  const compareSlotDescriptions = compareSlots
+    .map((slot, i) => (slot.season ? `${slot.season}（${describeSituationalFilter(slot.filter, compareBoundaries[i]!)}）` : null))
+    .filter((d): d is string => d !== null);
+  const compareTitle = {
+    title: `${player.name} 比較：${compareSlotDescriptions.join(" vs ")}`,
+    conditions: composeLabels(
+      seasonBoxCategoryLabel(compareTab),
+      displayModeLabels("perGame"),
+      gameTypeLabels(compareGameType),
+      "試合全体",
+    ),
+  };
+
   return (
     <div>
       <Link to="/players" className="back-link">
@@ -2207,7 +2275,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
       {tab === "stats" && (
         <>
-          <h2>シーズン別成績</h2>
+          <ConditionTitle section title="シーズン別成績" conditions={seasonBreakdownConditions} />
           <div className="mode-toggle">
             {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
               <button
@@ -2243,7 +2311,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             careerShotsLoading={careerShotsLoading}
           />
 
-          <h2>シチュエーション別成績</h2>
+          <ConditionTitle section title="シチュエーション別成績" conditions={situationalStatsConditions} />
           <div className="mode-toggle">
             <select value={situationalStatsSeason} onChange={(e) => setSituationalStatsSeason(e.target.value)}>
               {[...(careerData ?? [])]
@@ -2455,7 +2523,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             )}
           </div>
 
-          <h2>アシストの関係性</h2>
+          <ConditionTitle section title="アシストの関係性" conditions={assistConditions} />
           {!assistRelationships ? (
             <p className="loading">読み込み中...</p>
           ) : !assistRelationships.dataReady ? (
@@ -2567,7 +2635,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             </>
           )}
 
-          <h2>オンコート/オフコート比較</h2>
+          <ConditionTitle section title="オンコート/オフコート比較" conditions={onOffConditions} />
           {!onOffSplit ? (
             <p className="loading">読み込み中...</p>
           ) : !onOffSplit.dataReady ? (
@@ -2668,6 +2736,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             {shotChartSupported ? (seasonShotChartExpanded ? "▼ " : "▶ ") : ""}
             ショットチャート
           </h2>
+          {shotChartSupported && seasonShotChartExpanded && <ConditionLine conditions={shotChartConditions} />}
           {!shotChartSupported ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : !seasonShotChartExpanded ? null : seasonShotChartLoading || !seasonShotGameData ? (
@@ -2710,6 +2779,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           <p className="empty-message">試合ログがありません</p>
         ) : (
           <>
+            <ConditionTitle title={gameLogTitle.title} conditions={gameLogTitle.conditions} />
             <div className="tab-bar">
               {BOXSCORE_TABS.map((t) => (
                 <button
@@ -2763,6 +2833,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </button>
             ))}
           </div>
+          <ConditionTitle title="通算成績" conditions={careerConditions} />
           {(careerCategory === "one" ? careerOneLoading : careerLoading) ? (
             <p className="loading">読み込み中...</p>
           ) : careerCategory === "premier" && careerError ? (
@@ -2821,6 +2892,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </button>
             ))}
           </div>
+          <ConditionTitle title="キャリアハイ・ワースト" conditions={careerBaseConditions} />
           {(careerCategory === "one" ? careerOneLoading : careerLoading) ? (
             <p className="loading">読み込み中...</p>
           ) : careerCategory === "premier" && careerError ? (
@@ -2954,6 +3026,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </button>
             ))}
           </div>
+          {compareSlotDescriptions.length > 0 && (
+            <ConditionTitle title={compareTitle.title} conditions={compareTitle.conditions} />
+          )}
           {careerLoading ? (
             <p className="loading">読み込み中...</p>
           ) : careerError ? (

@@ -8,6 +8,8 @@ import { TeamLogo } from "../components/TeamLogo";
 import { HeadToHeadMatrix } from "../components/HeadToHeadMatrix";
 import { TeamFilterBlock } from "../components/TeamFilterBlock";
 import { ConditionalStandingsTable } from "../components/ConditionalStandingsTable";
+import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
+import { composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak, type TeamStreak } from "../../shared/teamRecords";
@@ -477,6 +479,33 @@ export function StandingsPage({ season }: { season: string }) {
         .map(rowFor)
     : [];
 
+  // 各表・グラフに出す「選択中の条件」（Batch 5、DESIGN.md 99章）。順位・星取り・推移はいずれも
+  // レギュラーシーズンの試合のみが対象（standings-history.json / head-to-head.jsonの元データ）
+  const seasonLabel = `${season}シーズン`;
+  const asOfLabel = `${latest.date}時点`;
+  const standingsConditions = composeLabels(seasonLabel, asOfLabel, gameTypeLabels("regular"));
+  // アニメーション再生中は、その時点までに表示済みの最終日を対象期間の終端にする
+  const revealedLastDate =
+    revealCount !== undefined ? history[Math.min(revealCount, history.length) - 1]?.date : undefined;
+  const trendEndLabel = revealedLastDate ? `${revealedLastDate}（再生中）` : latest.date;
+  const trendConditions = composeLabels(seasonLabel, gameTypeLabels("regular"), `開幕〜${trendEndLabel}`);
+  const wildcardTrendConditions = composeLabels(
+    seasonLabel,
+    gameTypeLabels("regular"),
+    wildcardCutoffDate ? `${wildcardCutoffDate}〜${trendEndLabel}（2月バイウィーク明け以降）` : null,
+    "地区4位以下（日ごとに入れ替わり）",
+  );
+  const h2hClubLabels = !h2hSelectedTeamIds
+    ? multiSelectLabels("対象クラブ", [], "全クラブ")
+    : h2hSelectedTeamIds.size === 0
+      ? ["対象クラブ: なし"]
+      : multiSelectLabels(
+          "対象クラブ",
+          h2hTeamOptions.filter((t) => h2hSelectedTeamIds.has(t.teamId)).map((t) => teamShortName(t.teamId, t.teamName)),
+          "全クラブ",
+        );
+  const h2hConditions = composeLabels(gameTypeLabels("regular"), asOfLabel, h2hClubLabels);
+
   return (
     <div>
       <h1>順位表</h1>
@@ -496,7 +525,11 @@ export function StandingsPage({ season }: { season: string }) {
             {divisionStandingsGroups.length > 0
               ? divisionStandingsGroups.map((g) => (
                   <div key={g.division}>
-                    <h2>{DIVISION_LABELS[g.division]}</h2>
+                    <ConditionTitle
+                      section
+                      title={`${DIVISION_LABELS[g.division]} 順位表`}
+                      conditions={composeLabels(standingsConditions, "地区内順位")}
+                    />
                     <div className="table-scroll">
                       <SortableTable
                         columns={divisionStandingsColumns}
@@ -512,6 +545,7 @@ export function StandingsPage({ season }: { season: string }) {
                 ))
               : (
                   <div>
+                    <ConditionTitle section title={`${seasonLabel} 順位表`} conditions={standingsConditions} />
                     <div className="table-scroll">
                       <SortableTable
                         columns={overallStandingsColumns}
@@ -529,7 +563,11 @@ export function StandingsPage({ season }: { season: string }) {
 
           {wildcardApplicable && (
             <>
-              <h2>ワイルドカード順位表</h2>
+              <ConditionTitle
+                section
+                title="ワイルドカード順位表"
+                conditions={composeLabels(standingsConditions, "地区4位以下", "全体順位順")}
+              />
               {wildcardStandingsEligible ? (
                 <div className="table-scroll">
                   <SortableTable
@@ -557,6 +595,7 @@ export function StandingsPage({ season }: { season: string }) {
                 {overallStandingsExpanded ? "▼ " : "▶ "}
                 全チームの全体順位表
               </h2>
+              {overallStandingsExpanded && <ConditionLine conditions={composeLabels(standingsConditions, "全クラブ")} />}
               {overallStandingsExpanded && (
                 <div className="table-scroll">
                   <SortableTable
@@ -596,11 +635,14 @@ export function StandingsPage({ season }: { season: string }) {
             {!filteredHeadToHead || filteredHeadToHead.length === 0 ? (
               <p className="empty-message">選択したチームがありません</p>
             ) : (
+              <>
+              <ConditionTitle title={`${seasonLabel} 星取り表`} conditions={h2hConditions} />
               <HeadToHeadMatrix
                 rows={filteredHeadToHead}
                 teamColors={teamColors ?? undefined}
                 remainingGames={h2hRemainingGames}
               />
+              </>
             )}
           </>
         ))}
@@ -632,6 +674,7 @@ export function StandingsPage({ season }: { season: string }) {
               height={720}
               teamColors={teamColors ?? undefined}
               isAnimating={isAnimating}
+              conditions={trendConditions}
             />
           ) : (
             <div className="standings-stack">
@@ -645,6 +688,7 @@ export function StandingsPage({ season }: { season: string }) {
                   height={640}
                   teamColors={teamColors ?? undefined}
                   isAnimating={isAnimating}
+                  conditions={trendConditions}
                 />
               ))}
               {wildcardTeams.length > 0 && (
@@ -658,6 +702,7 @@ export function StandingsPage({ season }: { season: string }) {
                   isAnimating={isAnimating}
                   connectGaps={false}
                   rankDomainMax={wildcardRankDomainMax}
+                  conditions={wildcardTrendConditions}
                 />
               )}
             </div>
@@ -680,6 +725,7 @@ export function StandingsPage({ season }: { season: string }) {
               height={560}
               teamColors={teamColors ?? undefined}
               isAnimating={isAnimating}
+              conditions={trendConditions}
             />
           ) : (
             <div className="standings-stack">
@@ -692,6 +738,7 @@ export function StandingsPage({ season }: { season: string }) {
                   height={520}
                   teamColors={teamColors ?? undefined}
                   isAnimating={isAnimating}
+                  conditions={trendConditions}
                 />
               ))}
               {wildcardTeams.length > 0 && (
@@ -703,6 +750,7 @@ export function StandingsPage({ season }: { season: string }) {
                   teamColors={teamColors ?? undefined}
                   isAnimating={isAnimating}
                   connectGaps={false}
+                  conditions={wildcardTrendConditions}
                 />
               )}
             </div>
@@ -725,6 +773,7 @@ export function StandingsPage({ season }: { season: string }) {
               height={560}
               teamColors={teamColors ?? undefined}
               isAnimating={isAnimating}
+              conditions={trendConditions}
             />
           ) : (
             <div className="standings-stack">
@@ -737,6 +786,7 @@ export function StandingsPage({ season }: { season: string }) {
                   height={520}
                   teamColors={teamColors ?? undefined}
                   isAnimating={isAnimating}
+                  conditions={trendConditions}
                 />
               ))}
               {wildcardTeams.length > 0 && (
@@ -748,6 +798,7 @@ export function StandingsPage({ season }: { season: string }) {
                   teamColors={teamColors ?? undefined}
                   isAnimating={isAnimating}
                   connectGaps={false}
+                  conditions={wildcardTrendConditions}
                 />
               )}
             </div>

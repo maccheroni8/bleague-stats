@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { SortableTable, type Column } from "./SortableTable";
 import { TeamLogo } from "./TeamLogo";
 import { TeamFilterBlock } from "./TeamFilterBlock";
+import { ConditionLine } from "./ConditionTitle";
+import { composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatSigned, formatWinPct } from "../lib/format";
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak } from "../../shared/teamRecords";
@@ -541,6 +543,22 @@ export function ConditionalStandingsTable({
       />
 
       <h2>{describeCondition(condition)} 順位表</h2>
+      {/* 見出しは条件（単一軸）のみ。シーズン・対象試合・チーム絞り込みは条件行で補う（Batch 5、DESIGN.md 99章） */}
+      <ConditionLine
+        conditions={composeLabels(
+          `${season}シーズン`,
+          gameTypeLabels("regular"),
+          selectedTeamIds === null
+            ? multiSelectLabels("対象クラブ", [], "全クラブ")
+            : selectedTeamIds.size === 0
+              ? "対象クラブ: なし"
+              : multiSelectLabels(
+                  "対象クラブ",
+                  teamOptions.filter((t) => selectedTeamIds.has(t.teamId)).map((t) => teamShortName(t.teamId, t.teamName)),
+                  "全クラブ",
+                ),
+        )}
+      />
       {rows.length === 0 ? (
         <p className="empty-message">選択したチームがありません</p>
       ) : (

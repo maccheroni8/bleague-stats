@@ -5,6 +5,8 @@ import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { TeamLogo } from "../components/TeamLogo";
+import { ConditionLine } from "../components/ConditionTitle";
+import { composeLabels, displayModeLabels, eligibilityLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { formatDateHeading, formatSigned, formatWinPct } from "../lib/format";
@@ -132,6 +134,34 @@ export function HomePage({ season }: { season: string }) {
   const latestSnapshot = history && history.length > 0 ? history[history.length - 1]! : null;
   const divisionGroups = latestSnapshot ? groupByDivision(latestSnapshot.teams) : [];
 
+  // 各セクションに出す「選択中の条件」（Batch 5、DESIGN.md 99章）。ホームには絞り込みトグルが無く、
+  // 個人/チームの切り替えだけが表示内容を変える。掲載基準等の固定条件も明示する
+  const recentGamesConditions = composeLabels(`直近${RECENT_GAMES_COUNT}試合`, "終了した試合", "レギュラー+プレーオフ");
+  const leaderConditions =
+    leaderMode === "player"
+      ? composeLabels(
+          `${season}シーズン`,
+          "個人",
+          gameTypeLabels("regular"),
+          displayModeLabels("perGame"),
+          eligibilityLabels({ gamesRatio: MIN_GAMES_PLAYED_RATIO_FOR_RANKING }),
+          "項目により試投数等の追加基準あり",
+          `上位${LEADER_TOP_N}名`,
+        )
+      : composeLabels(
+          `${season}シーズン`,
+          "チーム",
+          gameTypeLabels("regular"),
+          displayModeLabels("perGame"),
+          `上位${LEADER_TOP_N}チーム`,
+        );
+  const standingsConditions = composeLabels(
+    `${season}シーズン`,
+    latestSnapshot ? `${latestSnapshot.date}時点` : null,
+    gameTypeLabels("regular"),
+    "地区内順位",
+  );
+
   return (
     <div>
       <h1>B.LEAGUE Stats</h1>
@@ -144,6 +174,7 @@ export function HomePage({ season }: { season: string }) {
             日程を見る →
           </Link>
         </div>
+        <ConditionLine conditions={recentGamesConditions} />
         {gamesLoading ? (
           <p className="loading">読み込み中...</p>
         ) : gamesError ? (
@@ -183,6 +214,7 @@ export function HomePage({ season }: { season: string }) {
             ランキングを見る →
           </Link>
         </div>
+        <ConditionLine conditions={leaderConditions} />
         <div className="mode-toggle">
           <button className={leaderMode === "player" ? "active" : ""} onClick={() => setLeaderMode("player")}>
             個人
@@ -284,6 +316,7 @@ export function HomePage({ season }: { season: string }) {
             順位表を見る →
           </Link>
         </div>
+        <ConditionLine conditions={standingsConditions} />
         {standingsLoading ? (
           <p className="loading">読み込み中...</p>
         ) : standingsError ? (
