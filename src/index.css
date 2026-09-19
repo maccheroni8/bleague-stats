@@ -3049,3 +3049,37 @@ td.schedule-team-cell.align-right .cell-link {
 .load-more-button:hover {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
+
+.compare-slot-selects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.compare-slot-selects select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  min-width: 140px;
+  max-width: 100%;
+}
+
+.compare-slot-status {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+
+.compare-slot-status.status-error {
+  color: var(--accent);
+}
+
+table.compare-table th .compare-condition-tag {
+  max-width: 200px;
+  margin-left: auto;
+  white-space: normal;
+}

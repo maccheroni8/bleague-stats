@@ -126,7 +126,8 @@ import {
 } from "../lib/conditionLabels";
 import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { classificationGroup } from "../lib/classificationFilter";
-import { ComparisonTable, type ComparisonRow, type ComparisonStatDef } from "./ComparePage";
+import { ComparisonTable, type ComparisonRow } from "./ComparePage";
+import { seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
 /**
@@ -576,12 +577,6 @@ function describeSituationalFilter(filter: SituationalFilter, boundary: SeasonHa
   return joinLabels(situationalFilterLabels(filter, { boundary, includePlayoffs: true }));
 }
 
-interface CompareColumnData {
-  key: string;
-  label: string;
-  ctx: SeasonBoxscoreCtx;
-}
-
 /**
  * 「シチュエーション別成績」の1グループ（会場・地区・曜日・時期・月別・対戦相手の強さ、等）。
  * 将来項目7（外国籍選手同時出場人数別）・項目8（連戦GAME1/GAME2）を追加する際は、この配列に
@@ -619,19 +614,6 @@ interface SituationalStatsGroup {
   key: string;
   label: string;
   rows: SituationalStatsRow[];
-}
-
-// 比較タブ: 「シーズン別成績」等と同じSEASON_BOX_COLUMNS（トラディショナル/アドバンスド/
-// Misc/スコアリング）をそのままComparisonStatDefに変換する。表示は常に「平均」固定
-// （合計だとスロットごとの試合数の違いで比較しづらくなるため。シチュエーション別成績と同じ方針）
-function seasonBoxCompareDefs(tabKey: SeasonBoxTabKey): ComparisonStatDef<CompareColumnData>[] {
-  return SEASON_BOX_COLUMNS[tabKey].map((col) => ({
-    key: col.key,
-    label: col.label,
-    value: (r) => col.value(r.ctx, "perGame"),
-    format: (r) => col.format(r.ctx, "perGame"),
-    higherIsBetter: col.higherIsBetter,
-  }));
 }
 
 function formatBirthDate(date: string): string {
