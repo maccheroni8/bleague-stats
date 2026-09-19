@@ -59,6 +59,7 @@ import type {
   PlayerMasterEntry,
   ScheduleFile,
   SeasonEntry,
+  SeasonPositionsFile,
   StandingsSnapshot,
   StandingsTeamSnapshot,
   ShotTypeBreakdown,
@@ -865,6 +866,12 @@ export async function aggregateSeason(season: string, category: Category = "prem
   // 選手マスタ（シーズン非依存。scrape-roster.tsが生成）。未生成でも集計自体は動く
   const playersMaster = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
   const masterById = new Map(playersMaster.map((p) => [p.playerId, p]));
+  // 当時のポジション（scrape-season-rosters.tsが構築。season→playerId→position）。B.PREMIERで
+  // このシーズンのキーがあれば、マスタ（現在値1つ）ではなくこちらだけを使う。当時の一覧で空欄
+  // だった選手はマスタの現在値で補完せず未定義のままにする。シーズンのキー自体が無い
+  // （未アーカイブの進行中シーズン）場合、およびB.ONE等のB.PREMIER以外はマスタにフォールバックする
+  const seasonPositionsFile = (await readJson<SeasonPositionsFile>(path.join(DATA_DIR, "season-positions.json"))) ?? {};
+  const seasonPositions = category === "premier" ? seasonPositionsFile[season] : undefined;
 
   const players = new Map<string, PlayerAccumulator>();
   const teams = new Map<string, TeamAccumulator>();
@@ -1046,7 +1053,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         name: p.name,
         teamId: p.teamId,
         teamName: p.teamName,
-        position: master?.position,
+        position: seasonPositions ? seasonPositions[p.playerId] : master?.position,
         nationality: master?.nationality,
         classification: master?.classification,
         heightCm: master?.heightCm,

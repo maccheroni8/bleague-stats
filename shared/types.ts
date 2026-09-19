@@ -603,7 +603,11 @@ export interface PlayerSummary {
   advanced: PlayerAdvancedStats;
   /**
    * data/players-master.json（scrape-roster.ts）から突合した選手属性。マスタに未登録の選手
-   * （新加入直後でまだスクレイプできていない等）は全フィールド未定義になりうる
+   * （新加入直後でまだスクレイプできていない等）は全フィールド未定義になりうる。
+   * ただしpositionだけはシーズン依存: B.PREMIERでdata/season-positions.jsonにそのシーズンの
+   * キーがあれば、マスタの現在値ではなく当時のポジション（一覧で空欄だった選手は未定義）を使う。
+   * heightCm/weightKgは公式サイトに当時の記録が無いため、マスタの現在値を全シーズンに適用している
+   * （DESIGN.md 101章）
    */
   position?: string;
   nationality?: string;
@@ -1153,7 +1157,8 @@ export interface PlayerMasterEntry {
    */
   teamId: string;
   teamName: string;
-  /** bleague.jp表記そのまま（例: "SG/SF"）。複数ポジション兼任時はスラッシュ区切り */
+  /** bleague.jp表記そのまま（例: "SG/SF"）。複数ポジション兼任時はスラッシュ区切り。個人ページ由来の
+   * 「現在の」ポジション1つ。過去シーズンの当時のポジションはseason-positions.json（SeasonPositionsFile）が持つ */
   position?: string;
   /** 「リーグ登録国籍」欄の値をそのまま保持（例: "日本", "フィリピン"）。DESIGN.md 11章参照 */
   nationality?: string;
@@ -1209,6 +1214,18 @@ export interface SeasonRosterEntry {
 
 /** キーは "2016-17" 形式のシーズン文字列 */
 export type SeasonRostersFile = Record<string, SeasonRosterEntry[]>;
+
+// ---- data/season-positions.json の保存スキーマ（season→playerId→ポジション）。
+// season-rosters.jsonと同じ巡回（roster/?year=...&e=全選手、scrape-season-rosters.ts）で、
+// 一覧ページに載っている「そのシーズン当時の」ポジションを記録する。players-master.jsonの
+// positionは選手ごとに現在値1つ（個人ページ由来）でシーズン依存を表現できないため、
+// aggregate.tsは（B.PREMIERで）このファイルにシーズンのキーがあればマスタではなくこちらを使う。
+// 一覧のポジション欄が空だった選手はplayerIdを持たない（＝当時のポジション不明。マスタの現在値で
+// 補完しない）。ファイルにシーズンのキー自体が無い（＝未アーカイブの進行中シーズン）場合のみ、
+// aggregate.tsがマスタの現在値にフォールバックする。DESIGN.md参照 ----
+
+/** キーは "2016-17" 形式のシーズン文字列 → playerId → "SG/SF" 形式のポジション */
+export type SeasonPositionsFile = Record<string, Record<string, string>>;
 
 // ---- data/{season}/yahoo/{scheduleKey}.json の保存スキーマ（Yahoo!スポーツplay-by-playテキスト。
 // scripts/scrape-yahoo-pbp.ts参照。bleague.jp本体データとは独立した追加データ源で、対応シーズンは

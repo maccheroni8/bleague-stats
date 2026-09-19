@@ -14,6 +14,12 @@
 //   https://www.bleague.jp/api/v1/club/?data_format=json&
 //     name=getTeamsByYearAndEventAndDistrict&year={year}&event=2&district=0
 //
+// あわせて、同じ一覧ページに載っている「その年の」ポジション（playerInfo-player-position）を
+// data/season-positions.json（season→playerId→position）に記録する。players-master.jsonの
+// positionは個人ページ由来の現在値1つで、過去シーズンの選手ページに当時ではなく現在の
+// ポジションが出てしまうため（DESIGN.md参照）。追加リクエストは無い（既に取得している一覧の
+// パース結果を使うだけ）。
+//
 // 使い方: node --experimental-strip-types scripts/scrape-season-rosters.ts
 //   [--from 2016] [--to 2025]   （デフォルト: 2016〜2025 = 2016-17〜2025-26の10シーズン。
 //   2026-27は開幕前でロースター発表が進行中のため対象外。既存の週次scrape-roster.tsが
@@ -24,7 +30,7 @@ import { createThrottledFetch } from "./lib/throttle.ts";
 import { DATA_DIR, readJson, seasonFromYear, writeJson } from "./lib/storage.ts";
 import { deriveClassification, fetchPlayerPage, parseRosterList } from "./scrape-roster.ts";
 import { isMainModule } from "./lib/isMain.ts";
-import type { PlayerMasterEntry, SeasonRosterEntry, SeasonRostersFile } from "../shared/types.ts";
+import type { PlayerMasterEntry, SeasonPositionsFile, SeasonRosterEntry, SeasonRostersFile } from "../shared/types.ts";
 
 const MIN_REQUEST_INTERVAL_MS = 2500;
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
@@ -32,6 +38,7 @@ const throttledFetch = createThrottledFetch(MIN_REQUEST_INTERVAL_MS, USER_AGENT)
 
 const MASTER_PATH = path.join(DATA_DIR, "players-master.json");
 const SEASON_ROSTERS_PATH = path.join(DATA_DIR, "season-rosters.json");
+const SEASON_POSITIONS_PATH = path.join(DATA_DIR, "season-positions.json");
 
 interface ClubInfo {
   teamId: string;
@@ -61,6 +68,7 @@ async function main(): Promise<void> {
   const toYear = toIdx !== -1 ? Number(args[toIdx + 1]) : 2025;
 
   const seasonRosters: SeasonRostersFile = (await readJson<SeasonRostersFile>(SEASON_ROSTERS_PATH)) ?? {};
+  const seasonPositions: SeasonPositionsFile = (await readJson<SeasonPositionsFile>(SEASON_POSITIONS_PATH)) ?? {};
   const master = (await readJson<PlayerMasterEntry[]>(MASTER_PATH)) ?? [];
   const byId = new Map(master.map((p) => [p.playerId, p]));
   const knownIds = new Set(byId.keys());
@@ -74,19 +82,24 @@ async function main(): Promise<void> {
     const clubs = await fetchClubsForYear(year);
     console.log(`[season-rosters] ${season}: ${clubs.length}クラブ`);
     const entries: SeasonRosterEntry[] = [];
+    // 期中移籍で複数クラブの一覧に載る選手は、最初に見つかった非空のポジションを採用する
+    const positions: Record<string, string> = {};
 
     for (const club of clubs) {
       const items = await fetchClubRosterAllTime(year, club.teamId);
       entries.push({ teamId: club.teamId, teamName: club.teamName, playerIds: items.map((i) => i.playerId) });
       for (const item of items) {
+        if (item.position && !positions[item.playerId]) positions[item.playerId] = item.position;
         if (!knownIds.has(item.playerId)) {
           discovered.set(item.playerId, { name: item.name, season, teamId: club.teamId, teamName: club.teamName });
         }
       }
     }
     seasonRosters[season] = entries;
+    seasonPositions[season] = positions;
     // 長時間走る一括処理のため、シーズン単位で都度保存する（中断しても取れた分は残る）
     await writeJson(SEASON_ROSTERS_PATH, seasonRosters);
+    await writeJson(SEASON_POSITIONS_PATH, seasonPositions);
   }
 
   const totalUniquePlayers = new Set(Object.values(seasonRosters).flat().flatMap((e) => e.playerIds)).size;
