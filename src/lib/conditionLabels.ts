@@ -59,16 +59,19 @@ export function situationalFilterLabels(filter: SituationalFilter, options: Situ
   return parts.length > 0 ? parts : [SITUATIONAL_DEFAULT_LABEL];
 }
 
+const DIVISION_FILTER_LABELS = { east: "対東地区", west: "対西地区", same: "対同地区", other: "対他地区" } as const;
+
 /** AND合成の各軸（勝敗・会場・地区・月別・年明け前後・平日開催・対勝率別）。SituationalFilterと
  * ShotChartGameFiltersが共有する（situational.tsのmatchesSituationalAndFiltersと同じ軸） */
 function situationalAndFilterParts(filter: SituationalAndFilters): string[] {
   const parts: string[] = [];
   if (filter.result) parts.push(filter.result === "win" ? "勝った試合" : "負けた試合");
   if (filter.homeAway) parts.push(filter.homeAway === "home" ? "ホーム" : "アウェイ");
-  if (filter.division) parts.push(filter.division === "east" ? "対東地区" : "対西地区");
-  if (filter.month !== undefined) parts.push(`${filter.month}月`);
+  if (filter.division) parts.push(DIVISION_FILTER_LABELS[filter.division]);
+  if (filter.months?.length) parts.push([...filter.months].sort((a, b) => a - b).map((m) => `${m}月`).join("・"));
   if (filter.newYear) parts.push(filter.newYear === "before" ? "年明け前" : "年明け後");
   if (filter.weekday) parts.push("平日開催");
+  if (filter.weekend) parts.push("土日開催");
   if (filter.opponentWinRate) {
     parts.push(filter.opponentWinRate === "under50" ? "対5割未満" : filter.opponentWinRate === "atLeast50" ? "対5割以上" : "対6割以上");
   }

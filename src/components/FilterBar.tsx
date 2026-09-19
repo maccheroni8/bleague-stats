@@ -179,7 +179,10 @@ export function FilterBar({ axes, stateKey, onClearAll, simple = false }: Filter
 
   return (
     <div className={`filter-bar${allDisabled ? " all-disabled" : ""}`}>
-      <div className="filter-bar-grid">
+      <div
+        className="filter-bar-grid filter-bar-primary"
+        style={{ "--filter-cols": primary.length } as React.CSSProperties}
+      >
         {primary.map((a) => (
           <FilterField key={a.id} axis={a} />
         ))}

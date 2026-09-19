@@ -343,7 +343,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     if (!teams || !gameLogsByTeam) return map;
     for (const team of teams) {
       const logs = gameLogsByTeam.get(team.teamId) ?? [];
-      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season);
+      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => team.teamId);
       map.set(team.teamId, filterByGameType(situational, gameType));
     }
     return map;
@@ -490,6 +490,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     periodAxis(period, setPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: teamFilterDisabledReason }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
+      ownTeamDivisionSupported: !!divisionHistory,
       disabledReason: teamFilterDisabledReason,
     }),
   ];
@@ -894,7 +895,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const periodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === period) ?? SEASON_BOX_PERIOD_OPTIONS[0]!;
   const periodActive = periodOption.periods !== null;
 
-  const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season);
+  const { divisionHistory, opponentRecords, playerOwnTeamOf } = useLeagueSituationalContext(season);
 
   const [gameLogsByPlayer, setGameLogsByPlayer] = useState<Map<string, PlayerGameLog[]> | null>(null);
   const [gameLogsLoading, setGameLogsLoading] = useState(false);
@@ -972,7 +973,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     if (!gameLogsByTeam) return null;
     const map = new Map<string, TeamSeasonRawTotals>();
     for (const [teamId, logs] of gameLogsByTeam) {
-      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season);
+      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => teamId);
       const scoped = filterByGameType(situational, gameType);
       map.set(teamId, sumTeamGameLogsFor(scoped, new Set(scoped.map((g) => g.scheduleKey))));
     }
@@ -987,12 +988,12 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     const keys = new Set<string>();
     for (const p of eligible) {
       const logs = gameLogsByPlayer.get(p.playerId) ?? [];
-      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season);
+      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
       const scoped = filterByGameType(situational, gameType);
       for (const g of scoped) keys.add(g.scheduleKey);
     }
     return [...keys];
-  }, [periodActive, gameLogsByPlayer, eligible, filter, gameType, opponentRecords, divisionHistory, season]);
+  }, [periodActive, gameLogsByPlayer, eligible, filter, gameType, opponentRecords, divisionHistory, season, playerOwnTeamOf]);
   const { gamesByScheduleKey, loading: rawGamesLoading } = useLeagueRawGames(season, requestedScheduleKeys);
   const periodDataReady = !periodActive || requestedScheduleKeys.every((k) => gamesByScheduleKey.has(k));
 
@@ -1007,7 +1008,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         // Q別/前後半: 試合単位で生データから組み立てる（team総計もこの選手が出場した試合の
         // 期間限定値。個人詳細ページのQ別/前後半トグルと同じ設計、DESIGN.md参照）
         const logs = gameLogsByPlayer!.get(p.playerId) ?? [];
-        const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season);
+        const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
         const scoped = filterByGameType(situational, gameType);
         const contributions: GamePeriodTotals[] = [];
         for (const log of scoped) {
@@ -1023,7 +1024,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       const team = teamTotalsByTeamId.get(p.teamId) ?? EMPTY_TEAM_TOTALS;
       if (needsGameLogRecompute) {
         const logs = gameLogsByPlayer!.get(p.playerId) ?? [];
-        const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season);
+        const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
         const scoped = filterByGameType(situational, gameType);
         map.set(p.playerId, buildSeasonBoxscoreCtx(sumPlayerGameLogs(scoped), team, "perGame", seasonStartYear));
       } else {
@@ -1041,6 +1042,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     opponentRecords,
     divisionHistory,
     season,
+    playerOwnTeamOf,
     seasonStartYear,
     periodActive,
     periodDataReady,
@@ -1199,6 +1201,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     periodAxis(period, setPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: playerFilterDisabledReason }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
+      ownTeamDivisionSupported: !!divisionHistory,
       disabledReason: playerFilterDisabledReason,
     }),
     eligibilityAxis,

@@ -12,7 +12,7 @@
 import { efgPct, offensiveRating, pace, safeDiv, tsPct } from "../../shared/formulas";
 import type { Category, Division, DivisionHistoryFile, GameSummary, PlayerGameLog, TeamGameLog } from "../../shared/types";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
-import { isWeekdayGame } from "./japaneseHolidays";
+import { isWeekdayGame, isWeekendGame } from "./japaneseHolidays";
 
 /**
  * 「試合の範囲」を決める軸。互いに排他（同時に2つは選べない）。前半戦/後半戦は
@@ -32,15 +32,23 @@ export type SituationalRange =
 export interface SituationalAndFilters {
   result?: "win" | "loss";
   homeAway?: "home" | "away";
-  /** 対戦相手の地区（scripts/lib/divisions.tsの東西マスタを使用。DESIGN.md参照） */
-  division?: "east" | "west";
-  /** 1〜12（開催月） */
-  month?: number;
+  /**
+   * 対戦相手の地区（scripts/lib/divisions.tsの東西マスタを使用。DESIGN.md参照）。
+   * "same" = 自チームと同じ地区の相手、"other" = 自チームと異なる地区の相手（3地区制シーズンでは
+   * 所属地区以外の2地区をまとめる）。same/otherは自チームの地区が必要なため、呼び出し側が
+   * OwnTeamResolverを渡さないと該当試合0件になる
+   */
+  division?: "east" | "west" | "same" | "other";
+  /** 1〜12（開催月）の複数選択。選んだ月のいずれかに該当すればよい（OR）。空配列・未指定は絞り込みなし */
+  months?: number[];
   /** 年明け（1月）を境にした前後半。B.LEAGUEのシーズンは10月開幕〜翌年5,6月終幕のため、
    * 7〜12月を「年明け前」、1〜6月を「年明け後」とする */
   newYear?: "before" | "after";
   /** 土日祝を除く曜日に開催された試合 */
   weekday?: boolean;
+  /** 土曜・日曜に開催された試合（祝日は含めない。平日の祝日開催は平日・土日のどちらにも入らない）。
+   * weekdayとは排他（UI側で片方を選ぶともう片方を外す） */
+  weekend?: boolean;
   /**
    * 対戦相手の「その試合時点までの」レギュラーシーズン勝率による絞り込み。3段階は独立した
    * 閾値ボタン（5割以上と6割以上は重複しうる）。相手の消化試合数がMIN_GAMES_FOR_OPPONENT_WIN_RATE
@@ -99,9 +107,10 @@ export function isDefaultFilter(filter: SituationalFilter): boolean {
     !filter.result &&
     !filter.homeAway &&
     !filter.division &&
-    filter.month === undefined &&
+    !filter.months?.length &&
     !filter.newYear &&
     !filter.weekday &&
+    !filter.weekend &&
     !filter.opponentWinRate
   );
 }
@@ -138,6 +147,14 @@ export function resolveOwnTeam(
   const entry = gameTeams.get(log.scheduleKey);
   if (!entry) return null;
   return log.isHome ? entry.home : entry.away;
+}
+
+/** 選手の試合ログ用のOwnTeamResolver。games-summary由来のマップから試合ごとの自チームを引く */
+export function ownTeamResolverFromGames(
+  gameTeams: Map<string, { home: GameTeamInfo; away: GameTeamInfo }> | undefined,
+): OwnTeamResolver | undefined {
+  if (!gameTeams) return undefined;
+  return (g) => resolveOwnTeam(g, gameTeams)?.teamId;
 }
 
 /** 対戦相手のその試合時点までの勝率で絞り込む際、これ未満の消化試合数は対象外にする（DESIGN.md参照） */
@@ -363,18 +380,33 @@ export function findFebruaryBiweekGap(games: GameSummary[]): BiweekGap | null {
 }
 
 /**
+ * 自チームのteamIdを試合ログから解決する関数。チームの試合ログなら常にそのチーム、選手の試合ログなら
+ * scheduleKeyとisHomeからresolveOwnTeam()で引く（シーズン内移籍で試合ごとに所属チームが変わりうる）
+ */
+export type OwnTeamResolver = (g: { scheduleKey: string; isHome: boolean }) => string | undefined;
+
+/**
  * 対戦相手の地区が一致するか（data/division-history.json、シーズン対応版マスタを使用。
  * DESIGN.md参照。2026-08-29、2026-27シーズン基準の単一スナップショットだった旧実装から
- * シーズン対応版に置き換えた）。historyが未取得（undefined）の場合は判定不能として常にfalse
+ * シーズン対応版に置き換えた）。historyが未取得（undefined）の場合は判定不能として常にfalse。
+ * "same"/"other"は自チームの地区との比較で、自チームか相手のどちらかの地区が不明なら
+ * どちらにも該当しない（判定不能を「他地区」に含めない）
  */
-export function matchesDivision<T extends { opponentTeamId: string }>(
+export function matchesDivision<T extends { opponentTeamId: string; scheduleKey?: string; isHome?: boolean }>(
   g: T,
-  division: Division,
+  division: "east" | "west" | "same" | "other" | Division,
   history: DivisionHistoryFile | null | undefined,
   season: string,
   category: Category = "premier",
+  ownTeamOf?: OwnTeamResolver,
 ): boolean {
-  return teamDivisionForSeason(history, g.opponentTeamId, season, category) === division;
+  const opponent = teamDivisionForSeason(history, g.opponentTeamId, season, category);
+  if (division !== "same" && division !== "other") return opponent === division;
+  const ownTeamId = ownTeamOf?.({ scheduleKey: g.scheduleKey ?? "", isHome: g.isHome ?? false });
+  if (!ownTeamId) return false;
+  const own = teamDivisionForSeason(history, ownTeamId, season, category);
+  if (!own || !opponent) return false;
+  return division === "same" ? own === opponent : own !== opponent;
 }
 
 /** 開催月（1〜12）が一致するか */
@@ -432,15 +464,17 @@ export function matchesSituationalAndFilters<
   opponentRecords?: Map<string, Map<string, RecordBeforeGame>>,
   divisionHistory?: DivisionHistoryFile | null,
   season?: string,
+  ownTeamOf?: OwnTeamResolver,
 ): boolean {
   if (filters.result === "win" && !g.win) return false;
   if (filters.result === "loss" && g.win) return false;
   if (filters.homeAway === "home" && !g.isHome) return false;
   if (filters.homeAway === "away" && g.isHome) return false;
-  if (filters.division && (!season || !matchesDivision(g, filters.division, divisionHistory, season))) return false;
-  if (filters.month !== undefined && !matchesMonth(g, filters.month)) return false;
+  if (filters.division && (!season || !matchesDivision(g, filters.division, divisionHistory, season, "premier", ownTeamOf))) return false;
+  if (filters.months?.length && !filters.months.some((m) => matchesMonth(g, m))) return false;
   if (filters.newYear && !matchesNewYearHalf(g, filters.newYear)) return false;
   if (filters.weekday && !isWeekdayGame(g.date)) return false;
+  if (filters.weekend && !isWeekendGame(g.date)) return false;
   if (filters.opponentWinRate && !matchesOpponentWinRateTier(g, filters.opponentWinRate, opponentRecords)) return false;
   return true;
 }
@@ -519,11 +553,12 @@ export function filterGameLogs<
   opponentRecords?: Map<string, Map<string, RecordBeforeGame>>,
   divisionHistory?: DivisionHistoryFile | null,
   season?: string,
+  ownTeamOf?: OwnTeamResolver,
 ): T[] {
   const played = logs.filter((g) => g.min > 0);
   const scoped = filter.includePlayoffs ? played : played.filter((g) => g.gameType === "regular");
   const ranged = applySituationalRange(scoped, filter.range);
-  return ranged.filter((g) => matchesSituationalAndFilters(g, filter, opponentRecords, divisionHistory, season));
+  return ranged.filter((g) => matchesSituationalAndFilters(g, filter, opponentRecords, divisionHistory, season, ownTeamOf));
 }
 
 export interface TeamSituationalStats {

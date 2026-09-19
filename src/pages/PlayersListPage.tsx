@@ -57,7 +57,9 @@ import { astToTovRatio, formatAstToRatio, formatMinutesFromSeconds } from "../li
 import { efgPct, eff, safeDiv, tovPct, tsPct } from "../../shared/formulas";
 import { teamShortName } from "../../shared/teamNames";
 import {
+  buildGameTeamsByScheduleKey,
   buildRecordsBeforeGame,
+  ownTeamResolverFromGames,
   computeOpponentWinPctAvg,
   filterGameLogs,
   isDefaultFilter,
@@ -454,6 +456,11 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     () => (gameSummaries ? buildRecordsBeforeGame(gameSummaries) : undefined),
     [gameSummaries],
   );
+  // 対戦地区の「同地区/他地区」用。試合ごとの自チーム（シーズン内移籍対応）を日程から引く
+  const ownTeamOf = useMemo(
+    () => ownTeamResolverFromGames(gameSummaries ? buildGameTeamsByScheduleKey(gameSummaries) : undefined),
+    [gameSummaries],
+  );
 
   const [tab, setTab] = useState<PlayersPageTab>("traditional");
   const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
@@ -584,7 +591,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         if (filterActive) {
           // 試合種別は filterGameLogs のあとに3値で絞り込む（includePlayoffs は常に true で全試合を通す）
           const filteredLogs = filterByGameType(
-            filterGameLogs(logs, { ...situationalFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season),
+            filterGameLogs(logs, { ...situationalFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, ownTeamOf),
             gameType,
           );
           const raw = sumPlayerGameLogs(filteredLogs);
@@ -620,6 +627,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       situationalFilter,
       gameType,
       opponentRecords,
+      ownTeamOf,
       divisionHistory,
       season,
       teamGameLogsByTeam,
@@ -760,6 +768,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     displayModeAxis(displayMode, setDisplayMode),
     ...situationalAxes(situationalFilter, setSituationalFilter, {
       opponentWinRateSupported: !!gameSummaries,
+      ownTeamDivisionSupported: !!divisionHistory && !!gameSummaries,
       disabledReason: shootingReason,
     }),
     ratioAxis,

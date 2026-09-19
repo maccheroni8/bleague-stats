@@ -308,6 +308,11 @@ export interface SituationalAxesContext {
   boundary?: SeasonHalfBoundary | null;
   /** 「対戦相手の勝率」の表示可否（対戦相手の勝率算出にシーズン全体の試合日程が必要なため） */
   opponentWinRateSupported?: boolean;
+  /**
+   * 「対戦地区」の同地区・他地区の表示可否。自チームの地区を試合ごとに引く必要があるため、
+   * 呼び出し側がfilterGameLogsにOwnTeamResolverを渡せるページだけtrueにする
+   */
+  ownTeamDivisionSupported?: boolean;
   /** S軸すべてが今のタブで効かないときの理由 */
   disabledReason?: string;
 }
@@ -353,7 +358,7 @@ export function situationalAxes(
   onChange: (filter: SituationalFilter) => void,
   ctx: SituationalAxesContext = {},
 ): FilterAxis[] {
-  const { boundary = null, opponentWinRateSupported = false, disabledReason } = ctx;
+  const { boundary = null, opponentWinRateSupported = false, ownTeamDivisionSupported = false, disabledReason } = ctx;
   const rangeValue = rangeValueOf(filter, boundary);
   const dateRange = filter.range.kind === "dateRange" ? filter.range : null;
   const dateDisabledReason = disabledReason ?? (dateRange ? undefined : "対象期間で「期間指定」を選ぶと入力できます");
@@ -418,22 +423,32 @@ export function situationalAxes(
     andAxis("s.division", "対戦地区", "advanced", filter.division ?? "", [
       { value: "east", label: "対東地区" },
       { value: "west", label: "対西地区" },
-    ], (f, v) => ({ ...f, division: v === "" ? undefined : (v as "east" | "west") })),
-    andAxis(
-      "s.month",
-      "月",
-      "advanced",
-      filter.month !== undefined ? String(filter.month) : "",
-      Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` })),
-      (f, v) => ({ ...f, month: v === "" ? undefined : Number(v) }),
-    ),
+      ...(ownTeamDivisionSupported
+        ? [
+            { value: "same", label: "同地区" },
+            { value: "other", label: "他地区" },
+          ]
+        : []),
+    ], (f, v) => ({ ...f, division: v === "" ? undefined : (v as NonNullable<SituationalFilter["division"]>) })),
+    multiSelectAxis({
+      id: "s.month",
+      label: "月",
+      tier: "advanced",
+      options: Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` })),
+      selected: (filter.months ?? []).map(String),
+      onChangeSelected: (values) =>
+        onChange({ ...filter, months: values.length === 0 ? undefined : values.map(Number).sort((a, b) => a - b) }),
+      allLabel: FILTER_ALL_LABEL,
+      disabledReason,
+    }),
     andAxis("s.newYear", "年明け前後", "advanced", filter.newYear ?? "", [
       { value: "before", label: "年明け前" },
       { value: "after", label: "年明け後" },
     ], (f, v) => ({ ...f, newYear: v === "" ? undefined : (v as "before" | "after") })),
-    andAxis("s.weekday", "曜日", "advanced", filter.weekday ? "weekday" : "", [
+    andAxis("s.weekday", "曜日", "advanced", filter.weekday ? "weekday" : filter.weekend ? "weekend" : "", [
       { value: "weekday", label: "平日開催のみ" },
-    ], (f, v) => ({ ...f, weekday: v === "" ? undefined : true })),
+      { value: "weekend", label: "土日開催" },
+    ], (f, v) => ({ ...f, weekday: v === "weekday" ? true : undefined, weekend: v === "weekend" ? true : undefined })),
   ];
 
   if (opponentWinRateSupported) {

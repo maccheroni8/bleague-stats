@@ -56,10 +56,10 @@ export function ShotChartFilterPicker({ filters, onChange, opponentWinRateSuppor
       </div>
       <div className="mode-toggle">
         <select
-          value={filters.month !== undefined ? String(filters.month) : ""}
+          value={filters.months?.length === 1 ? String(filters.months[0]) : ""}
           onChange={(e) => {
             const value = e.target.value;
-            onChange({ ...filters, month: value === "" ? undefined : Number(value) });
+            onChange({ ...filters, months: value === "" ? undefined : [Number(value)] });
           }}
         >
           <option value="">月別</option>

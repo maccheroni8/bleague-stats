@@ -140,3 +140,10 @@ export function isWeekdayGame(dateStr: string): boolean {
   if (dow === 0 || dow === 6) return false;
   return !isJapaneseHoliday(dateStr);
 }
+
+/** 土曜・日曜のいずれかに開催されたか（祝日は含めない。「土日開催」区分用） */
+export function isWeekendGame(dateStr: string): boolean {
+  const [y, m, d] = ymd(dateStr);
+  const dow = new Date(utc(y, m, d)).getUTCDay();
+  return dow === 0 || dow === 6;
+}

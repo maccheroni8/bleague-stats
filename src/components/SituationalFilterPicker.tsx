@@ -127,10 +127,10 @@ export function SituationalFilterPicker({
       </div>
       <div className="mode-toggle">
         <select
-          value={filter.month !== undefined ? String(filter.month) : ""}
+          value={filter.months?.length === 1 ? String(filter.months[0]) : ""}
           onChange={(e) => {
             const value = e.target.value;
-            onChange({ ...filter, month: value === "" ? undefined : Number(value) });
+            onChange({ ...filter, months: value === "" ? undefined : [Number(value)] });
           }}
         >
           <option value="">月別</option>

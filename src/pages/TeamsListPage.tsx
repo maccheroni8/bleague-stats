@@ -276,7 +276,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     if (!teams || !gameLogsByTeam) return [];
     return teams.map((team) => {
       const logs = gameLogsByTeam.get(team.teamId) ?? [];
-      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season);
+      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => team.teamId);
       const scoped = filterByGameType(situational, gameType);
       const wins = scoped.filter((g) => g.win).length;
       return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: sumTeamGameLogs(scoped) };
@@ -372,6 +372,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: displayDisabledReason }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
+      ownTeamDivisionSupported: !!divisionHistory,
       disabledReason: filterDisabledReason,
     }),
   ];

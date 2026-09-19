@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchDivisionHistory, fetchGame, fetchGameSummaries, fetchTeamGameLogs } from "./data";
-import { buildRecordsBeforeGame, type RecordBeforeGame } from "./situational";
+import {
+  buildGameTeamsByScheduleKey,
+  buildRecordsBeforeGame,
+  ownTeamResolverFromGames,
+  type OwnTeamResolver,
+  type RecordBeforeGame,
+} from "./situational";
 import type { DivisionHistoryFile, GameSummary, StoredGame, TeamGameLog } from "../../shared/types";
 
 /**
@@ -52,6 +58,8 @@ export function useLeagueSituationalContext(season: string): {
   summaries: GameSummary[] | null;
   divisionHistory: DivisionHistoryFile | null;
   opponentRecords: Map<string, Map<string, RecordBeforeGame>> | undefined;
+  /** 選手の試合ログから試合ごとの自チームを引く（対戦地区の「同地区/他地区」用）。日程未取得ならundefined */
+  playerOwnTeamOf: OwnTeamResolver | undefined;
 } {
   const [summaries, setSummaries] = useState<GameSummary[] | null>(null);
   const [divisionHistory, setDivisionHistory] = useState<DivisionHistoryFile | null>(null);
@@ -80,7 +88,12 @@ export function useLeagueSituationalContext(season: string): {
     [summaries],
   );
 
-  return { summaries, divisionHistory, opponentRecords };
+  const playerOwnTeamOf = useMemo(
+    () => ownTeamResolverFromGames(summaries ? buildGameTeamsByScheduleKey(summaries) : undefined),
+    [summaries],
+  );
+
+  return { summaries, divisionHistory, opponentRecords, playerOwnTeamOf };
 }
 
 /**
