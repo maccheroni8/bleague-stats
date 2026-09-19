@@ -15,6 +15,7 @@ import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
+import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { composeLabels, periodLabels } from "../lib/conditionLabels";
 import { BOXSCORE_TABS, BoxscoreTable, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
@@ -637,6 +638,7 @@ export function GameDetailPage({ season }: { season: string }) {
           onPeriodRangeChange={setBoxscorePeriodRange}
         />
       )}
+      {boxscoreTab === "misc" && <RuleChangeFootnote seasons={[game.season]} />}
 
       <ConditionTitle section title="ゲームリーダー" conditions={composeLabels("試合全体", "全選手")} />
       <div className="game-leaders">

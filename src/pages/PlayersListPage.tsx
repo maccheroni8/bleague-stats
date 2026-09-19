@@ -27,6 +27,7 @@ import type {
 import { SortableTable, type Column } from "../components/SortableTable";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { ConditionTitle } from "../components/ConditionTitle";
+import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import {
   classificationLabels,
   composeLabels,
@@ -811,6 +812,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
               もっと見る（あと{tableRows.length - visibleCount}人）
             </button>
           )}
+          {tab === "misc" && <RuleChangeFootnote seasons={[season]} />}
           <p className="page-subtitle">
             {Math.min(visibleCount, tableRows.length)}/{tableRows.length}人を表示中（初期表示は得点（PTS）降順）。列見出しクリックでの並び替えは常に全選手が対象です。Misc/スコアリングタブ、またはシチュエーション別フィルタ選択中は選手ごとの試合ログをまとめて取得するため、初めて開いたときのみ読み込みに時間がかかります
           </p>

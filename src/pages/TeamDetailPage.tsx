@@ -78,6 +78,7 @@ import {
   type SituationalFilter,
 } from "../lib/situational";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
+import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import {
   classificationLabels,
   composeLabels,
@@ -3508,6 +3509,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           ) : !seasonHistory || seasonHistory.length === 0 ? (
             <p className="empty-message">シーズン別成績がありません</p>
           ) : (
+            <>
             <div className="table-scroll">
               <table className="stats-table">
                 <thead>
@@ -3549,6 +3551,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                 </tbody>
               </table>
             </div>
+            {seasonBoxTab === "misc" && <RuleChangeFootnote seasons={seasonHistory.map((r) => r.season)} />}
+            </>
           )}
 
           <ConditionTitle section title="チーム内リーダー" conditions={teamLeadersConditions} />
@@ -3855,6 +3859,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 </table>
               </div>
             )}
+            {scheduleBoxTab === "misc" && scheduleFilteredRows.length > 0 && <RuleChangeFootnote seasons={[season]} />}
             <p className="page-subtitle">
               各列は試合詳細ページのボックススコアと同じ算出ロジック（自チーム/opp/+/-切り替え可）。上部のレギュラー/プレーオフ・Q別/前後半トグルと連動する。未消化・進行中の試合は「-」表示になる
             </p>
@@ -4160,6 +4165,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               </table>
             </div>
           )}
+          {teamStatsBoxTab === "misc" && teamStatsBoxTotals && <RuleChangeFootnote seasons={[season]} />}
 
           <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} shotChartSupported={isShotChartSupported(coverage)} />
 
@@ -4296,6 +4302,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               </table>
             </div>
           )}
+          {situationalTeamBoxTab === "misc" && situationalTeamGroups.length > 0 && <RuleChangeFootnote seasons={[season]} />}
 
           <div className="situational-groups-legend">
             <h3
@@ -4409,6 +4416,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   teamYahooPbp={teamYahooPbp}
                   teamYahooPbpLoading={teamYahooPbpLoading}
                 />
+                {playerStatsBoxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
                 </>
               )}
             </>
@@ -4661,6 +4669,9 @@ export function TeamDetailPage({ season }: { season: string }) {
               name={(r) => r.label}
               linkTo={() => `/teams/${teamId}`}
             />
+          )}
+          {compareTab === "misc" && (
+            <RuleChangeFootnote seasons={compareSlots.map((slot) => slot.season).filter((s): s is string => !!s)} />
           )}
           <p className="page-subtitle">
             各列は「日程結果」タブと同じボックススコア列定義（自チーム/opp/+/-切り替え可）を、選択中のシチュエーション別フィルタで絞り込んだ試合の1試合あたり平均値として算出する

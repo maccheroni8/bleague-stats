@@ -79,6 +79,15 @@ jobs:
       - name: Aggregate teams/players
         run: node --experimental-strip-types scripts/aggregate.ts --season ${{ steps.season.outputs.season }}
 
+      # 新競技規則(DESIGN.md 16章)の検知。公式データが新表記（ディスラプティブ/フレグラント、
+      # カテゴリ1/2）やActionCD1の変更に移行したことにコミット前後で気づくための警報。
+      # 異常時はここで失敗させず（データ更新のcommit&pushを止めないため）、最終ステップで
+      # ジョブを失敗ステータスにして通知する
+      - name: Check rule-change signals
+        id: rule_change_check
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/check-rule-change.ts --season ${{ steps.season.outputs.season }}
+
       # ジョブが長時間(最大90分)かかるため、実行中に他のコミットがmainにpushされていることがある。
       # そのままpushすると非fast-forwardで弾かれるので、rebaseしてから再試行する
       - name: Commit and push if changed
@@ -93,3 +102,11 @@ jobs:
             git pull --rebase origin main
             git push
           fi
+
+      # 検知結果（詳細はCheck rule-change signalsステップのログ・ジョブのSummary）をジョブの失敗として通知する。
+      # データ更新のcommit&pushは上のステップで完了済み
+      - name: Fail if rule-change signals detected
+        if: ${{ steps.rule_change_check.outcome == 'failure' }}
+        run: |
+          echo "::error::新競技規則に関する異常を検知しました（DESIGN.md 16章）。Check rule-change signalsステップのログを確認してください"
+          exit 1

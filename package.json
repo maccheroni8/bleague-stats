@@ -23,6 +23,7 @@
     "aggregate:league-player-rankings": "node --experimental-strip-types scripts/aggregate-league-player-rankings.ts",
     "print:current-season": "node --experimental-strip-types scripts/print-current-season.ts",
     "validate:oncourt": "node --experimental-strip-types scripts/validate-oncourt.ts",
+    "check:rule-change": "node --experimental-strip-types scripts/check-rule-change.ts",
     "validate:points-off-turnovers": "node --experimental-strip-types scripts/validate-points-off-turnovers.ts",
     "typecheck": "tsc -p tsconfig.scripts.json --noEmit && tsc -p tsconfig.json --noEmit"
   },

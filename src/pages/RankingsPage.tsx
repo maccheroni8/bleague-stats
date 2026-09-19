@@ -6,6 +6,8 @@ import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { ExportImageButton } from "../components/ExportImageButton";
 import { ConditionTitle } from "../components/ConditionTitle";
+import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
+import { isRuleChangeStatKey } from "../lib/ruleChange";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
@@ -609,6 +611,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
               teamColor={(r) => teamColors?.[r.team.teamId]?.primary}
               avatar={(r) => <TeamLogo teamId={r.team.teamId} size={22} />}
             />
+            {category === "misc" && isRuleChangeStatKey(teamDef.key) && <RuleChangeFootnote seasons={[season]} />}
           </div>
         </>
       )}
@@ -1190,6 +1193,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={28} className="player-cell-photo" />}
               limit={PLAYER_RANK_TOP_N}
             />
+            {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
           </div>
         </>
       )}

@@ -1968,6 +1968,14 @@ table.compare-table td.compare-best {
   margin-top: 32px;
 }
 
+/* 新競技規則の脚注（RuleChangeFootnote.tsx）。表の直下に置く */
+.rule-change-footnote {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 /* 既存の見出しの直下に条件だけを添える行（ConditionLine） */
 .condition-line {
   margin-bottom: 8px;

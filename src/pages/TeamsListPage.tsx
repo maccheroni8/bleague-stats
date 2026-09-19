@@ -30,6 +30,7 @@ import { TeamLogo } from "../components/TeamLogo";
 import { SeasonLink } from "../components/SeasonLink";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { ConditionTitle } from "../components/ConditionTitle";
+import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import {
   composeLabels,
   displayModeLabels,
@@ -541,6 +542,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               linkTo={(r) => `/teams/${r.team.teamId}`}
             />
           </div>
+          {boxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
           <p className="page-subtitle">
             team-games/{"{teamId}"}.json（試合ログ）から選択中の条件で再集計した値。BSR（被ブロック）・EFF（貢献度）・LIVETOV/DEADTOVは、26チーム分を試合の生データから再集計すると通信量が大きくなりすぎるため、この一覧には含めていない（チーム詳細ページの「チームスタッツ」タブでは1チーム分に限り表示している）
           </p>

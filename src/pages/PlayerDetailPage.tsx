@@ -114,6 +114,7 @@ import {
   type SituationalFilter,
 } from "../lib/situational";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
+import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import {
   composeLabels,
   displayModeLabels,
@@ -2310,6 +2311,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             careerShots={careerShots}
             careerShotsLoading={careerShotsLoading}
           />
+          {seasonBreakdownTab === "misc" && <RuleChangeFootnote seasons={(careerData ?? []).map((cd) => cd.season)} />}
 
           <ConditionTitle section title="シチュエーション別成績" conditions={situationalStatsConditions} />
           <div className="mode-toggle">
@@ -2475,6 +2477,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 </tbody>
               </table>
             </div>
+          )}
+          {situationalStatsTab === "misc" && situationalStatsGroups.length > 0 && (
+            <RuleChangeFootnote seasons={[situationalStatsSeason]} />
           )}
           <div className="situational-groups-legend">
             <h3
@@ -2806,6 +2811,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 />
               </div>
             )}
+            {gameBoxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
           </>
         ))}
 
@@ -2870,6 +2876,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <StatTile label="UFOUL" value={formatDecimal(careerCountTotals.unsportsmanlikeFouls, 0)} />
             </div>
           )}
+          {careerCountTotals && <RuleChangeFootnote seasons={(careerCountTotalsSource ?? []).map((cd) => cd.season)} />}
         </>
       )}
 
@@ -2953,6 +2960,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   />
                 ))}
               </div>
+              <RuleChangeFootnote seasons={careerCountTotalsSource.map((cd) => cd.season)} />
             </>
           )}
         </>
@@ -3041,6 +3049,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
               name={(r) => r.label}
               linkTo={() => `/players/${player.playerId}`}
             />
+          )}
+          {compareTab === "misc" && (
+            <RuleChangeFootnote seasons={compareSlots.map((slot) => slot.season).filter((s): s is string => !!s)} />
           )}
         </>
       )}
