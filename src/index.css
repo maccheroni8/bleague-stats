@@ -1835,6 +1835,28 @@ table.boxscore-table .boxscore-summary-grand-total td {
   font-variant-numeric: tabular-nums;
 }
 
+/* スマホ幅: 名前列（サブラベル込み）を折り返し可にし、余白を詰めて、身長・体重・ランキング値の
+   列が横スクロール無しで収まるようにする（個人ランキングに身長・体重列を足した際、表が枠幅を
+   大きく超えてランキング値が画面外に出たため） */
+@media (max-width: 640px) {
+  table.rankings-table th,
+  table.rankings-table td {
+    padding: 8px 6px;
+  }
+
+  .rankings-table td.align-left {
+    white-space: normal;
+  }
+
+  .rankings-table .rank-cell {
+    width: 28px;
+  }
+
+  .rankings-table .rank-sublabel {
+    white-space: normal;
+  }
+}
+
 .compare-slots {
   display: flex;
   flex-wrap: wrap;

@@ -128,6 +128,7 @@ import {
 import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { classificationGroup } from "../lib/classificationFilter";
 import { ComparisonTable, type ComparisonRow } from "./ComparePage";
+import { HeightWeightNote } from "../components/HeightWeightNote";
 import { seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
@@ -2176,6 +2177,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               />
             )}
           </div>
+          {(player.heightCm || player.weightKg) && <HeightWeightNote season={season} />}
           {playerAwardList.length > 0 && (
             <div className="player-awards">
               <div className="player-awards-title">個人賞受賞歴</div>

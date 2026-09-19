@@ -79,6 +79,7 @@ import {
 } from "../lib/situational";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
+import { HeightWeightNote } from "../components/HeightWeightNote";
 import {
   classificationLabels,
   composeLabels,
@@ -4371,6 +4372,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   teamYahooPbp={teamYahooPbp}
                   teamYahooPbpLoading={teamYahooPbpLoading}
                 />
+                {playerStatsRows.length > 0 && <HeightWeightNote season={season} />}
                 {playerStatsBoxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
                 </>
               )}
@@ -4388,6 +4390,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 <StatTile label="平均体重" value={avgWeightKg != null ? `${formatDecimal(avgWeightKg)}kg` : "-"} />
                 <StatTile label="平均年齢" value={avgAge != null ? `${formatDecimal(avgAge)}歳` : "-"} />
               </div>
+              {(avgHeightCm != null || avgWeightKg != null) && <HeightWeightNote season={season} />}
             </>
           )}
 

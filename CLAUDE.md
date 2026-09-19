@@ -82,3 +82,6 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。詳細設計は
   `playerClassificationOverrides.ts`（帰化選手/アジア特別枠の手動上書きリスト）は、今後は
   「日本人と誤判定されるのを防ぐ」目的のみで維持する（ファジーカス選手のようにnationalityが
   「日本」表記になる帰化選手を、正しく「外国籍・帰化・アジア」側に分類するため）
+- シーズン終了後は、`scrape-season-rosters.ts --from YYYY --to YYYY`を再実行して`season-positions.json`を
+  アーカイブする必要がある（デフォルトの`--to`のままだと、終了したシーズンでも現在値が表示され続ける）。
+  再実行後は該当シーズンを`npm run aggregate`で再集計すること（DESIGN.md 101章）

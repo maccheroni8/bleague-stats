@@ -82,6 +82,7 @@ import {
 } from "../lib/conditionLabels";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import type { PeriodRangeValue } from "../lib/periodRange";
+import { HeightWeightNote } from "../components/HeightWeightNote";
 import type { PlayerGameLog, PlayerSummary, TeamColors, TeamForcedTurnovers, TeamGameLog, TeamSummary } from "../../shared/types";
 
 type Mode = "team" | "player";
@@ -170,6 +171,9 @@ interface RankedListProps<T> {
   avatar?: (row: T) => ReactNode;
   /** 指定時、ソート後の上位この件数だけを表示する（未指定は全件） */
   limit?: number;
+  /** 指定時、名前列とランキング対象の値の列の間に表示専用の列を追加する（選手モードの身長・体重等。
+   * ソート対象は常にdef側のみ） */
+  extraColumns?: { key: string; label: string; render: (row: T) => string }[];
 }
 
 /** defの向き（higherIsBetter）から導く、そのdefにとって「正しい」既定のソート方向 */
@@ -177,7 +181,19 @@ function defaultSortDir<T>(def: RankableStat<T>): "asc" | "desc" {
   return def.higherIsBetter === false ? "asc" : "desc";
 }
 
-function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo, externalLinkTo, teamColor, avatar, limit }: RankedListProps<T>) {
+function RankedList<T>({
+  rows,
+  def,
+  rowKey,
+  name,
+  subLabel,
+  linkTo,
+  externalLinkTo,
+  teamColor,
+  avatar,
+  limit,
+  extraColumns,
+}: RankedListProps<T>) {
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
   // ソート方向は「値の大小」ではなく「良い/悪い」の向き（def.higherIsBetter）を基準にした
   // asc/descで管理し、既定値は常にBatch 2で確立した「良い方が#1に来る」向きにする。
@@ -204,6 +220,11 @@ function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo, externalLink
           <tr>
             <th className="align-right">#</th>
             <th className="align-left">名前</th>
+            {extraColumns?.map((col) => (
+              <th key={col.key} className="align-right">
+                {col.label}
+              </th>
+            ))}
             <th
               className="align-right"
               onClick={toggleSortDir}
@@ -239,6 +260,11 @@ function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo, externalLink
                     <ExternalLinkIcon href={externalLinkTo(row)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
                 </td>
+                {extraColumns?.map((col) => (
+                  <td key={col.key} className="align-right">
+                    {col.render(row)}
+                  </td>
+                ))}
                 <td className="align-right rank-value">{def.format(row)}</td>
               </tr>
             );
@@ -629,6 +655,14 @@ const BOX_KEY_TO_EXTRA_RULE_KEY: Record<string, string> = {
   "3ppct": "tpPct",
   ftpct: "ftPct",
 };
+/** 個人ランキングの身長・体重列。値はplayers-master.json由来でシーズン非依存（現在の値を全シーズンに
+ * 一律適用、DESIGN.md参照）のため、過去シーズンでも当時ではなく現在の身長・体重が表示される。
+ * 終了済みシーズンでは表の直下にその旨の脚注（HeightWeightNote）を出す */
+const PLAYER_PROFILE_COLUMNS: { key: string; label: string; render: (p: PlayerSummary) => string }[] = [
+  { key: "heightCm", label: "身長", render: (p) => (p.heightCm != null ? `${p.heightCm}cm` : "-") },
+  { key: "weightKg", label: "体重", render: (p) => (p.weightKg != null ? `${p.weightKg}kg` : "-") },
+];
+
 function extraRuleKey(statKey: string): string {
   return BOX_KEY_TO_EXTRA_RULE_KEY[statKey] ?? statKey;
 }
@@ -1192,7 +1226,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={28} className="player-cell-photo" />}
               limit={PLAYER_RANK_TOP_N}
+              extraColumns={PLAYER_PROFILE_COLUMNS}
             />
+            <HeightWeightNote season={season} />
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
           </div>
         </>
