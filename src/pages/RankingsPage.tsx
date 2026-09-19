@@ -83,6 +83,7 @@ import {
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import type { PeriodRangeValue } from "../lib/periodRange";
 import { HeightWeightNote } from "../components/HeightWeightNote";
+import { ageBaseDate, ageForSeason, formatBaseDateLabel, todayBaseDateLabel } from "../lib/age";
 import type { PlayerGameLog, PlayerSummary, TeamColors, TeamForcedTurnovers, TeamGameLog, TeamSummary } from "../../shared/types";
 
 type Mode = "team" | "player";
@@ -171,9 +172,6 @@ interface RankedListProps<T> {
   avatar?: (row: T) => ReactNode;
   /** 指定時、ソート後の上位この件数だけを表示する（未指定は全件） */
   limit?: number;
-  /** 指定時、名前列とランキング対象の値の列の間に表示専用の列を追加する（選手モードの身長・体重等。
-   * ソート対象は常にdef側のみ） */
-  extraColumns?: { key: string; label: string; render: (row: T) => string }[];
 }
 
 /** defの向き（higherIsBetter）から導く、そのdefにとって「正しい」既定のソート方向 */
@@ -181,19 +179,7 @@ function defaultSortDir<T>(def: RankableStat<T>): "asc" | "desc" {
   return def.higherIsBetter === false ? "asc" : "desc";
 }
 
-function RankedList<T>({
-  rows,
-  def,
-  rowKey,
-  name,
-  subLabel,
-  linkTo,
-  externalLinkTo,
-  teamColor,
-  avatar,
-  limit,
-  extraColumns,
-}: RankedListProps<T>) {
+function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo, externalLinkTo, teamColor, avatar, limit }: RankedListProps<T>) {
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
   // ソート方向は「値の大小」ではなく「良い/悪い」の向き（def.higherIsBetter）を基準にした
   // asc/descで管理し、既定値は常にBatch 2で確立した「良い方が#1に来る」向きにする。
@@ -220,11 +206,6 @@ function RankedList<T>({
           <tr>
             <th className="align-right">#</th>
             <th className="align-left">名前</th>
-            {extraColumns?.map((col) => (
-              <th key={col.key} className="align-right">
-                {col.label}
-              </th>
-            ))}
             <th
               className="align-right"
               onClick={toggleSortDir}
@@ -260,11 +241,6 @@ function RankedList<T>({
                     <ExternalLinkIcon href={externalLinkTo(row)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
                 </td>
-                {extraColumns?.map((col) => (
-                  <td key={col.key} className="align-right">
-                    {col.render(row)}
-                  </td>
-                ))}
                 <td className="align-right rank-value">{def.format(row)}</td>
               </tr>
             );
@@ -655,14 +631,6 @@ const BOX_KEY_TO_EXTRA_RULE_KEY: Record<string, string> = {
   "3ppct": "tpPct",
   ftpct: "ftPct",
 };
-/** 個人ランキングの身長・体重列。値はplayers-master.json由来でシーズン非依存（現在の値を全シーズンに
- * 一律適用、DESIGN.md参照）のため、過去シーズンでも当時ではなく現在の身長・体重が表示される。
- * 終了済みシーズンでは表の直下にその旨の脚注（HeightWeightNote）を出す */
-const PLAYER_PROFILE_COLUMNS: { key: string; label: string; render: (p: PlayerSummary) => string }[] = [
-  { key: "heightCm", label: "身長", render: (p) => (p.heightCm != null ? `${p.heightCm}cm` : "-") },
-  { key: "weightKg", label: "体重", render: (p) => (p.weightKg != null ? `${p.weightKg}kg` : "-") },
-];
-
 function extraRuleKey(statKey: string): string {
   return BOX_KEY_TO_EXTRA_RULE_KEY[statKey] ?? statKey;
 }
@@ -781,10 +749,47 @@ const EXTRA_ADVANCED_PLAYER_ITEMS: PlayerRankItem[] = PLAYER_STAT_DEFS.filter((d
   }),
 );
 
+/**
+ * 「プロフィール」カテゴリの項目（身長・体重・年齢）。値はPlayerSummaryのみで完結し（ctx不要）、
+ * シチュエーション別フィルタ・レギュラー/プレーオフ・Q別/前後半の対象外。値が無い選手（マスタ未登録・
+ * 生年月日欠損）は0扱いで下位に並べず、ランキングから除外する（rowsのuseMemo参照）。
+ * 身長・体重はplayers-master.json由来の現在値を全シーズンに適用しており当時の記録ではない
+ * （DESIGN.md 101章。終了済みシーズンはHeightWeightNoteで断る）。年齢はageForSeason()
+ * （終了済みシーズンは開幕時点、進行中は今日。DESIGN.md 102章）
+ */
+function buildProfileItems(season: string): PlayerRankItem[] {
+  return [
+    {
+      key: "height",
+      label: "身長",
+      value: (p) => p.heightCm ?? 0,
+      format: (p) => (p.heightCm != null ? `${p.heightCm}cm` : "-"),
+    },
+    {
+      key: "weight",
+      label: "体重",
+      value: (p) => p.weightKg ?? 0,
+      format: (p) => (p.weightKg != null ? `${p.weightKg}kg` : "-"),
+    },
+    {
+      key: "age",
+      label: "年齢",
+      value: (p) => (p.birthDate ? ageForSeason(p.birthDate, season) : 0),
+      format: (p) => (p.birthDate ? `${ageForSeason(p.birthDate, season)}歳` : "-"),
+    },
+  ];
+}
+
+function profileItemHasValue(p: PlayerSummary, statKey: string): boolean {
+  if (statKey === "weight") return p.weightKg != null;
+  if (statKey === "age") return !!p.birthDate;
+  return p.heightCm != null;
+}
+
 /** 選手ランキングのカテゴリ。チーム版・チーム詳細ページ「選手スタッツ」タブと同じ
  * トラディショナル/アドバンスド/Misc/スコアリング（SeasonBoxTabKey）に、シューティングを
  * 追加したもの */
-type PlayerRankCategory = SeasonBoxTabKey | "shooting";
+type PlayerRankCategory = SeasonBoxTabKey | "shooting" | "profile";
 
 /** 出場率スライダー・追加基準スライダーで共通利用する単一ハンドルの範囲スライダー
  * （PlayersListPage.tsxのGamesPlayedRatioSlider＝2本のtype="range"を重ねる下限/上限指定と
@@ -885,7 +890,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 
   const selectCategory = (next: PlayerRankCategory) => {
     setCategory(next);
-    const nextKey = next === "shooting" ? `${SHOT_TYPE_DISPLAY_ORDER[0]}_2pm` : "pts";
+    const nextKey = next === "shooting" ? `${SHOT_TYPE_DISPLAY_ORDER[0]}_2pm` : next === "profile" ? "height" : "pts";
     setStatKey(nextKey);
     setExtraThreshold(EXTRA_ELIGIBILITY_RULES[extraRuleKey(nextKey)]?.defaultValue ?? 0);
   };
@@ -914,7 +919,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   // 対象選手（掲載基準・国籍区分フィルタ通過後）分のPlayerGameLogを取得する
   // （PlayersListPage.tsxの「全選手スタッツ」タブと同じ遅延取得方針）。出場率スライダー等で
   // 対象選手が増えても、既に取得済みの選手は再取得せず差分だけ追加する
-  const needsGameLogRecompute = filterActive || gameTypeActive || category === "misc" || category === "scoring" || periodActive;
+  const needsGameLogRecompute =
+    (filterActive || gameTypeActive || category === "misc" || category === "scoring" || periodActive) && category !== "profile";
   useEffect(() => {
     if (!needsGameLogRecompute || eligible.length === 0) return;
     const missing = eligible.filter((p) => !fetchedPlayerIdsRef.current.has(p.playerId));
@@ -1033,9 +1039,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   // （旧situationalByPlayerが null を返していたときと同じ扱い）。シューティングカテゴリは
   // 常にシーズン集計（掲載基準通過者全員）をそのまま表示する
   const rows: PlayerSummary[] = useMemo(() => {
+    if (category === "profile") return eligible.filter((p) => profileItemHasValue(p, statKey));
     if (category === "shooting" || !ctxByPlayer) return eligible;
     return eligible.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.gamesPlayed ?? 0) > 0);
-  }, [eligible, ctxByPlayer, category]);
+  }, [eligible, ctxByPlayer, category, statKey]);
 
   const shootingColumns = useMemo(
     () => shotTypeEntityColumns(SHOT_TYPE_DISPLAY_ORDER, (p: PlayerSummary) => p.shotTypes, "perGame", (p) => p.gamesPlayed),
@@ -1051,9 +1058,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         format: (p: PlayerSummary) => (c.format ? c.format(p) : String(c.sortValue(p))),
       }));
     }
+    if (category === "profile") return buildProfileItems(season);
     const items = SEASON_BOX_COLUMNS_BY_TAB[category].map(boxColumnItem);
     return category === "advanced" ? [...items, ...EXTRA_ADVANCED_PLAYER_ITEMS] : items;
-  }, [category, shootingColumns]);
+  }, [category, shootingColumns, season]);
 
   const selectedItem = currentItems.find((i) => i.key === statKey) ?? currentItems[0]!;
   const rankDef: RankableStat<PlayerSummary> = {
@@ -1063,6 +1071,16 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     value: (p) => selectedItem.value(p, ctxByPlayer?.get(p.playerId) ?? null),
     format: (p) => selectedItem.format(p, ctxByPlayer?.get(p.playerId) ?? null),
   };
+
+  // 「プロフィール」カテゴリの基準日ラベル（表・画像出力に出す）。年齢はageForSeason()の基準日
+  // （終了済みシーズンは開幕時点、進行中は今日）。身長・体重はマスタの現在値のため常に今日
+  // （終了済みシーズンでは、当時の記録ではない旨をHeightWeightNoteで別途断る）
+  const profileBaseDateLabel =
+    category === "profile"
+      ? selectedItem.key === "age"
+        ? formatBaseDateLabel(ageBaseDate(season))
+        : todayBaseDateLabel()
+      : null;
 
   const extraRule = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)];
   const waitingForGameLogs =
@@ -1082,13 +1100,16 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     category !== "shooting" &&
     ["eff", "per", "ppp"].includes(selectedItem.key) &&
     (filterActive || gameTypeActive || periodActive);
-  const playerCategoryLabel = category === "shooting" ? "シューティング" : (SEASON_BOX_TABS.find((t) => t.key === category)?.label ?? category);
+  const playerCategoryLabel =
+    category === "shooting" ? "シューティング" : category === "profile" ? "プロフィール" : (SEASON_BOX_TABS.find((t) => t.key === category)?.label ?? category);
   const playerScopeLabels =
     category === "shooting"
       ? SEASON_TOTAL_ONLY_LABELS
-      : filterIgnoredForItem
-        ? composeLabels(gameTypeLabels("regular"), SITUATIONAL_DEFAULT_LABEL, "試合全体", "※この項目はフィルタ対象外")
-        : composeLabels(gameTypeLabels(gameType), situationalFilterLabels(filter), periodLabels(periodOption));
+      : category === "profile"
+        ? gameTypeLabels("regular")
+        : filterIgnoredForItem
+          ? composeLabels(gameTypeLabels("regular"), SITUATIONAL_DEFAULT_LABEL, "試合全体", "※この項目はフィルタ対象外")
+          : composeLabels(gameTypeLabels(gameType), situationalFilterLabels(filter), periodLabels(periodOption));
   const playerTitle = makeRankingTitle(
     "個人",
     season,
@@ -1132,6 +1153,11 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           このカテゴリはレギュラーシーズンの通算集計値のみに対応しています（シチュエーション別フィルタ・
           レギュラー/プレーオフ切替は適用されません。2023-24シーズン以降のみ対応）
         </p>
+      ) : category === "profile" ? (
+        <p className="page-subtitle">
+          このカテゴリはシチュエーション別フィルタ・レギュラー/プレーオフ切替・Q別/前後半の対象外です
+          （掲載基準の出場率のみ適用されます）
+        </p>
       ) : (
         <>
           <SituationalFilterPicker
@@ -1168,6 +1194,13 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           type="button"
         >
           シューティング
+        </button>
+        <button
+          className={`tab-button${category === "profile" ? " active" : ""}`}
+          onClick={() => selectCategory("profile")}
+          type="button"
+        >
+          プロフィール
         </button>
       </div>
 
@@ -1216,6 +1249,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           <ExportImageButton targetRef={exportRef} filename={playerTitle.filename} />
           <div ref={exportRef} className="export-target">
             <ConditionTitle title={playerTitle.title} conditions={playerTitle.conditions} />
+            {profileBaseDateLabel && <p className="rule-change-footnote ranking-base-date">{profileBaseDateLabel}</p>}
             <RankedList
               rows={rows}
               def={rankDef}
@@ -1226,9 +1260,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={28} className="player-cell-photo" />}
               limit={PLAYER_RANK_TOP_N}
-              extraColumns={PLAYER_PROFILE_COLUMNS}
             />
-            <HeightWeightNote season={season} />
+            {category === "profile" && selectedItem.key !== "age" && <HeightWeightNote season={season} />}
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
           </div>
         </>

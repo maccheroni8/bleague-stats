@@ -15,11 +15,36 @@ function ageAsOf(birthDate: string, year: number, month: number, day: number): n
   return age;
 }
 
+interface BaseDate {
+  year: number;
+  month: number;
+  day: number;
+}
+
+function todayBaseDate(): BaseDate {
+  const today = new Date();
+  return { year: today.getFullYear(), month: today.getMonth() + 1, day: today.getDate() };
+}
+
+/** seasonを表示しているときの年齢の基準日（終了済みシーズンは開幕時点、それ以外は今日） */
+export function ageBaseDate(season: string): BaseDate {
+  if (isPastSeason(season)) {
+    return { year: Number(season.split("-")[0]), month: SEASON_START_MONTH, day: SEASON_START_DAY };
+  }
+  return todayBaseDate();
+}
+
 /** seasonを表示しているときの年齢（終了済みシーズンは開幕時点、それ以外は今日） */
 export function ageForSeason(birthDate: string, season: string): number {
-  if (isPastSeason(season)) {
-    return ageAsOf(birthDate, Number(season.split("-")[0]), SEASON_START_MONTH, SEASON_START_DAY);
-  }
-  const today = new Date();
-  return ageAsOf(birthDate, today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const b = ageBaseDate(season);
+  return ageAsOf(birthDate, b.year, b.month, b.day);
+}
+
+/** 「2026/09/19 現在」形式の基準日ラベル。年齢はageBaseDate(season)、身長・体重（現在値）は今日 */
+export function formatBaseDateLabel(b: BaseDate): string {
+  return `${b.year}/${String(b.month).padStart(2, "0")}/${String(b.day).padStart(2, "0")} 現在`;
+}
+
+export function todayBaseDateLabel(): string {
+  return formatBaseDateLabel(todayBaseDate());
 }
