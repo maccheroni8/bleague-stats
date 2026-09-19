@@ -84,6 +84,7 @@ import {
   sumPlayerGameLogs,
   sumTeamGameLogsFor,
   sumTeamSeasonTotals,
+  sumTeamTotalsForLogs,
   type GamePeriodTotals,
   type SeasonBoxTabKey,
   type SeasonBoxscoreColumn,
@@ -403,6 +404,9 @@ interface CareerSeasonLogs {
 interface CareerSeasonTeamInfo {
   ownTeamByScheduleKey: Map<string, GameTeamInfo>;
   teamTotalsByTeamId: Map<string, TeamSeasonRawTotals>;
+  /** チーム総計の元になった試合ログ。絞り込み（シチュエーション別・レギュラー/プレーオフ）後の
+   * 試合だけに分母を揃える再集計に使う（sumTeamTotalsForLogs） */
+  teamLogsByTeamId: Map<string, TeamGameLog[]>;
 }
 
 /** 「通算成績」タブ: 全シーズン合算の単一の合計値（平均ではない） */
@@ -1182,6 +1186,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           }
           const teamIds = [...new Set([...ownTeamByScheduleKey.values()].map((t) => t.teamId))];
           const teamTotalsByTeamId = new Map<string, TeamSeasonRawTotals>();
+          const teamLogsByTeamId = new Map<string, TeamGameLog[]>();
           await Promise.all(
             teamIds.map(async (teamId) => {
               try {
@@ -1190,12 +1195,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   playedLogs.filter((g) => ownTeamByScheduleKey.get(g.scheduleKey)?.teamId === teamId).map((g) => g.scheduleKey),
                 );
                 teamTotalsByTeamId.set(teamId, sumTeamGameLogsFor(teamLogs, scheduleKeys));
+                teamLogsByTeamId.set(teamId, teamLogs);
               } catch {
                 // 取得失敗時はこのteamIdの分だけ空欄（呼び出し側でEMPTY_TEAM_TOTALSにフォールバック）
               }
             }),
           );
-          return [cd.season, { ownTeamByScheduleKey, teamTotalsByTeamId }] as const;
+          return [cd.season, { ownTeamByScheduleKey, teamTotalsByTeamId, teamLogsByTeamId }] as const;
         } catch {
           return null;
         }
@@ -1554,21 +1560,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
         : Promise.resolve(new Map<string, TeamGameLog[]>()),
     [tab, situationalStatsSeason, situationalStatsTeamIds.join("|")],
   );
-  const situationalStatsTeamTotalsByTeamId = useMemo(() => {
-    const map = new Map<string, TeamSeasonRawTotals>();
-    for (const teamId of situationalStatsTeamIds) {
-      const teamLogs = situationalStatsTeamGameLogsByTeam?.get(teamId) ?? [];
-      const scheduleKeys = new Set(
-        (situationalStatsLogs ?? [])
-          .filter((g) => g.min > 0 && situationalStatsOwnTeamByScheduleKey.get(g.scheduleKey)?.teamId === teamId)
-          .map((g) => g.scheduleKey),
-      );
-      map.set(teamId, sumTeamGameLogsFor(teamLogs, scheduleKeys));
-    }
-    return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [situationalStatsTeamGameLogsByTeam, situationalStatsLogs, situationalStatsOwnTeamByScheduleKey, situationalStatsTeamIds.join("|")]);
-
   const situationalStatsBackToBack = useMemo(
     () => (situationalStatsSummaries ? buildBackToBackStatus(situationalStatsSummaries) : undefined),
     [situationalStatsSummaries],
@@ -1745,11 +1736,16 @@ export function PlayerDetailPage({ season }: { season: string }) {
       if (filtered.length === 0) return null;
       const teamInfo = careerTeamData?.get(slot.season);
       const seasonStartYear = Number(slot.season.split("-")[0]);
+      // USG%・%-shareの分母は、絞り込み後の試合（かつそのチームの試合）だけに限定する
+      // （usePlayerCompareSlotと同じ。シーズン全体のチーム総計だと分子と食い違う）
+      const slotTeamTotals = teamInfo
+        ? sumTeamTotalsForLogs(filtered, teamInfo.ownTeamByScheduleKey, teamInfo.teamLogsByTeamId)
+        : new Map<string, TeamSeasonRawTotals>();
       const splitRows = buildTeamSplitRows(
         `slot${i}`,
         filtered,
         teamInfo?.ownTeamByScheduleKey ?? new Map(),
-        teamInfo?.teamTotalsByTeamId ?? new Map(),
+        slotTeamTotals,
         "perGame",
         seasonStartYear,
       );
@@ -1815,11 +1811,17 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
   const buildSituationalStatsRows = (rowKey: string, rowLabel: string, matched: PlayerGameLog[]): SituationalStatsRow[] => {
     const seasonStartYear = Number(situationalStatsSeason.split("-")[0]);
+    // USG%・%-shareの分母は、この行のmatched（絞り込み後）の試合だけに限定する（行ごとに再集計）
+    const rowTeamTotals = sumTeamTotalsForLogs(
+      matched,
+      situationalStatsOwnTeamByScheduleKey,
+      situationalStatsTeamGameLogsByTeam ?? new Map<string, TeamGameLog[]>(),
+    );
     return buildTeamSplitRowsForPeriod(
       rowKey,
       matched,
       situationalStatsOwnTeamByScheduleKey,
-      situationalStatsTeamTotalsByTeamId,
+      rowTeamTotals,
       situationalStatsDisplayMode,
       seasonStartYear,
       player.playerId,
@@ -3113,7 +3115,8 @@ function SeasonBreakdownTable({
         cd.season,
         played,
         info?.ownTeamByScheduleKey ?? new Map(),
-        info?.teamTotalsByTeamId ?? new Map(),
+        // USG%・%-shareの分母は、レギュラー/プレーオフ絞り込み後の試合だけに限定する
+        info ? sumTeamTotalsForLogs(played, info.ownTeamByScheduleKey, info.teamLogsByTeamId) : new Map(),
         displayMode,
         seasonStartYear,
         playerId,

@@ -421,6 +421,27 @@ export interface TeamSplitRow {
 }
 
 /**
+ * USG%・%-shareの分母となるチーム総計を、渡された試合ログ（絞り込み後）に出場した試合だけに限定して
+ * チームごとに合算する。分子（絞り込み後の個人値）と分母のチーム値を同じ試合集合に揃えるための
+ * 共通処理で、シチュエーション別フィルタ・レギュラー/プレーオフ絞り込みの適用後に呼ぶ。
+ * teamLogsByTeamIdに無いチーム、または該当試合が1件も無いチームはMapに含めない
+ * （buildTeamSplitRows側でEMPTY_TEAM_TOTALSにフォールバックする）
+ */
+export function sumTeamTotalsForLogs(
+  logs: PlayerGameLog[],
+  ownTeamByScheduleKey: Map<string, GameTeamInfo>,
+  teamLogsByTeamId: Map<string, TeamGameLog[]>,
+): Map<string, TeamSeasonRawTotals> {
+  const played = logs.filter((g) => g.min > 0);
+  const totals = new Map<string, TeamSeasonRawTotals>();
+  for (const [teamId, teamLogs] of teamLogsByTeamId) {
+    const keys = new Set(played.filter((g) => ownTeamByScheduleKey.get(g.scheduleKey)?.teamId === teamId).map((g) => g.scheduleKey));
+    if (keys.size > 0) totals.set(teamId, sumTeamGameLogsFor(teamLogs, keys));
+  }
+  return totals;
+}
+
+/**
  * 試合ログを、試合ログから動的に導出した所属チーム（resolveOwnTeam）ごとに分割する
  * （シーズン内移籍対応。個人詳細ページ「シーズン別成績」「シチュエーション別成績」・
  * チーム詳細ページ「選手スタッツ」共通のロジック。DESIGN.md参照）。

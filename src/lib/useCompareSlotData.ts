@@ -26,10 +26,9 @@ import {
   buildTeamMultiGameBoxTotals,
   buildTeamSplitRows,
   filterByGameType,
-  sumTeamGameLogsFor,
+  sumTeamTotalsForLogs,
   type SeasonGameTypeFilter,
   type TeamGameBoxTotals,
-  type TeamSeasonRawTotals,
 } from "./playerSeasonBoxscore";
 import {
   buildGameTeamsByScheduleKey,
@@ -299,11 +298,7 @@ export function usePlayerCompareSlot({
     // 詳細ページの「比較」タブはシーズン全体のチーム総計をそのまま使うため、シチュエーション別フィルタで
     // 絞ったときに分子（絞り込み後の個人値）と分母（シーズン全体のチーム値）が食い違う（DESIGN.md 100章）
     const played = filtered.filter((g) => g.min > 0);
-    const teamTotals = new Map<string, TeamSeasonRawTotals>();
-    for (const [teamId, teamLogs] of base.teamLogsByTeamId) {
-      const keys = new Set(played.filter((g) => base.ownTeamByScheduleKey.get(g.scheduleKey)?.teamId === teamId).map((g) => g.scheduleKey));
-      if (keys.size > 0) teamTotals.set(teamId, sumTeamGameLogsFor(teamLogs, keys));
-    }
+    const teamTotals = sumTeamTotalsForLogs(filtered, base.ownTeamByScheduleKey, base.teamLogsByTeamId);
     const seasonStartYear = Number(season.split("-")[0]);
     const rows = buildTeamSplitRows("slot", filtered, base.ownTeamByScheduleKey, teamTotals, "perGame", seasonStartYear);
     const combined = rows[rows.length - 1];
