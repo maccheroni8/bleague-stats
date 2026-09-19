@@ -47,6 +47,9 @@ import { SortableTable, type Column } from "../components/SortableTable";
 import { BOXSCORE_TABS, type BoxscoreColumn, type BoxscoreTabKey, COLUMNS_BY_TAB } from "../components/BoxscoreTable";
 import { buildPlayerGameBoxscoreRow, type PlayerGameBoxscoreRow } from "../lib/playerGameBoxscore";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
+import { CompareSlotFilter } from "../components/CompareSlotFilter";
+import { FilterBar } from "../components/FilterBar";
+import { gameTypeAxis } from "../lib/filterAxes";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { bleaguePlayerUrl } from "../lib/externalLinks";
@@ -1720,15 +1723,16 @@ export function PlayerDetailPage({ season }: { season: string }) {
       const logs = careerData.find((cd) => cd.season === slot.season)?.logs;
       if (!logs) return null;
       const gameTypeScoped = filterByGameType(logs, compareGameType);
+      const teamInfo = careerTeamData?.get(slot.season);
       const filtered = filterGameLogs(
         gameTypeScoped,
         { ...slot.filter, includePlayoffs: true },
         compareOpponentRecords[i],
         divisionHistory,
         slot.season,
+        (g) => teamInfo?.ownTeamByScheduleKey.get(g.scheduleKey)?.teamId,
       );
       if (filtered.length === 0) return null;
-      const teamInfo = careerTeamData?.get(slot.season);
       const seasonStartYear = Number(slot.season.split("-")[0]);
       // USG%・%-shareの分母は、絞り込み後の試合（かつそのチームの試合）だけに限定する
       // （usePlayerCompareSlotと同じ。シーズン全体のチーム総計だと分子と食い違う）
@@ -2950,57 +2954,44 @@ export function PlayerDetailPage({ season }: { season: string }) {
           <div className="player-compare-slots">
             {([0, 1] as const).map((i) => {
               const slot = compareSlots[i];
+              const updateSlot = (patch: Partial<CompareSlotState>) =>
+                setCompareSlots((prev) => {
+                  const next: [CompareSlotState, CompareSlotState] = [...prev];
+                  next[i] = { ...next[i], ...patch };
+                  return next;
+                });
               return (
                 <div className="player-compare-slot" key={i}>
-                  <select
-                    value={slot.season}
-                    onChange={(e) => {
-                      const nextSeason = e.target.value;
-                      setCompareSlots((prev) => {
-                        const next: [CompareSlotState, CompareSlotState] = [...prev];
-                        next[i] = { season: nextSeason, filter: { range: { kind: "all" } } };
-                        return next;
-                      });
-                    }}
-                  >
-                    <option value="">未選択</option>
-                    {[...(careerData ?? [])]
-                      .map((cd) => cd.season)
-                      .reverse()
-                      .map((s) => (
-                        <option key={s} value={s}>
-                          {s}シーズン
-                        </option>
-                      ))}
-                  </select>
-                  {slot.season ? (
-                    <SituationalFilterPicker
-                      filter={slot.filter}
-                      onChange={(f) =>
-                        setCompareSlots((prev) => {
-                          const next: [CompareSlotState, CompareSlotState] = [...prev];
-                          next[i] = { ...next[i], filter: f };
-                          return next;
-                        })
-                      }
-                      seasonHalfBoundary={compareBoundaries[i]}
-                      opponentWinRateSupported={!!compareOpponentRecords[i]}
-                      hideGameTypeToggle
-                    />
-                  ) : (
-                    <p className="compare-slot-note">シーズンを選択してください</p>
-                  )}
+                  <CompareSlotFilter
+                    stateKey={pk(`compareSlot${i}`)}
+                    selects={[
+                      {
+                        id: "season",
+                        label: "シーズン",
+                        value: slot.season,
+                        options: [
+                          { value: "", label: "未選択" },
+                          ...[...(careerData ?? [])]
+                            .map((cd) => cd.season)
+                            .reverse()
+                            .map((s) => ({ value: s, label: `${s}シーズン` })),
+                        ],
+                        onChange: (nextSeason) => updateSlot({ season: nextSeason, filter: { range: { kind: "all" } } }),
+                      },
+                    ]}
+                    enabled={!!slot.season}
+                    disabledNote="シーズンを選択してください"
+                    filter={slot.filter}
+                    onFilter={(f) => updateSlot({ filter: f })}
+                    boundary={compareBoundaries[i]}
+                    opponentWinRateSupported={!!compareOpponentRecords[i]}
+                    ownTeamDivisionSupported={!!divisionHistory && !!careerTeamData?.get(slot.season)}
+                  />
                 </div>
               );
             })}
           </div>
-          <div className="mode-toggle">
-            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
-              <button key={g} className={g === compareGameType ? "active" : ""} onClick={() => setCompareGameType(g)} type="button">
-                {SEASON_GAME_TYPE_LABELS[g]}
-              </button>
-            ))}
-          </div>
+          <FilterBar simple stateKey={pk("compareCommon")} axes={[gameTypeAxis(compareGameType, setCompareGameType)]} />
           <div className="tab-bar">
             {SEASON_BOX_TABS.map((t) => (
               <button

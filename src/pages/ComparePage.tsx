@@ -7,7 +7,9 @@ import { ExportImageButton } from "../components/ExportImageButton";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
-import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
+import { CompareSlotFilter } from "../components/CompareSlotFilter";
+import { FilterBar } from "../components/FilterBar";
+import { perspectiveAxis } from "../lib/filterAxes";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import {
   buildExportFilename,
@@ -99,6 +101,13 @@ function parseFilterParam(raw: string | null): SituationalFilter {
     if (kind !== "all" && kind !== "recent" && kind !== "dateRange") return DEFAULT_FILTER;
     const { includePlayoffs: _ignored, ...rest } = parsed;
     void _ignored;
+    // 月が単月（month: n）だった時代に共有されたURLの互換: 複数選択（months）に読み替える
+    const legacyMonth = (rest as { month?: unknown }).month;
+    if (typeof legacyMonth === "number" && !rest.months?.length) {
+      const { month: _legacy, ...others } = rest as SituationalFilter & { month?: number };
+      void _legacy;
+      return { ...others, months: [legacyMonth] };
+    }
     return rest;
   } catch {
     return DEFAULT_FILTER;
@@ -246,12 +255,16 @@ interface EntityOption {
 
 interface SlotCardProps {
   slot: SlotValue;
+  /** 「詳細フィルタ」の開閉状態のキー（スロットごとに一意） */
+  stateKey: string;
+  /** 対象selectのラベル（チーム/選手） */
+  entityLabel: string;
   seasonOptions: SeasonEntry[];
   entityOptions: EntityOption[];
   entityLoaded: boolean;
   /** 選択中のエンティティがそのシーズンに実在するか（falseなら何も取得されない） */
   entityValid: boolean;
-  data: Pick<TeamSlotData, "status" | "error" | "boundary" | "opponentWinRateSupported" | "gamesCount" | "pendingGames">;
+  data: Pick<TeamSlotData, "status" | "error" | "boundary" | "opponentWinRateSupported" | "ownTeamDivisionSupported" | "gamesCount" | "pendingGames">;
   onSeason: (season: string) => void;
   onEntity: (id: string) => void;
   onFilter: (filter: SituationalFilter) => void;
@@ -267,6 +280,8 @@ const STATUS_TEXT: Partial<Record<SlotStatus, (d: SlotCardProps["data"]) => stri
 
 function CompareSlotCard({
   slot,
+  stateKey,
+  entityLabel,
   seasonOptions,
   entityOptions,
   entityLoaded,
@@ -280,45 +295,35 @@ function CompareSlotCard({
   const statusText = data.status === "error" ? (data.error ?? "取得に失敗しました") : STATUS_TEXT[data.status]?.(data);
   return (
     <div className="player-compare-slot">
-      <div className="compare-slot-selects">
-        <select value={slot.season} onChange={(e) => onSeason(e.target.value)}>
-          {seasonOptions.map((s) => (
-            <option key={s.season} value={s.season}>
-              {s.season}シーズン
-            </option>
-          ))}
-        </select>
-        <select value={entityValid ? slot.id : ""} onChange={(e) => onEntity(e.target.value)}>
-          <option value="">未選択</option>
-          {entityOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      <CompareSlotFilter
+        stateKey={stateKey}
+        selects={[
+          {
+            id: "season",
+            label: "シーズン",
+            value: slot.season,
+            options: seasonOptions.map((s) => ({ value: s.season, label: `${s.season}シーズン` })),
+            onChange: onSeason,
+          },
+          {
+            id: "entity",
+            label: entityLabel,
+            value: entityValid ? slot.id : "",
+            options: [{ value: "", label: "未選択" }, ...entityOptions],
+            onChange: onEntity,
+          },
+        ]}
+        enabled={entityValid}
+        disabledNote="選択すると、このスロットのデータだけを取得します"
+        filter={slot.filter}
+        onFilter={onFilter}
+        gameType={{ value: slot.gameType, onChange: onGameType }}
+        boundary={data.boundary}
+        opponentWinRateSupported={data.opponentWinRateSupported}
+        ownTeamDivisionSupported={data.ownTeamDivisionSupported}
+      />
       {entityLoaded && entityOptions.length === 0 && <p className="compare-slot-note">このシーズンのデータがありません</p>}
-      {entityValid ? (
-        <>
-          <div className="mode-toggle">
-            {GAME_TYPE_KEYS.map((g) => (
-              <button key={g} className={g === slot.gameType ? "active" : ""} onClick={() => onGameType(g)} type="button">
-                {SEASON_GAME_TYPE_LABELS[g]}
-              </button>
-            ))}
-          </div>
-          <SituationalFilterPicker
-            filter={slot.filter}
-            onChange={onFilter}
-            seasonHalfBoundary={data.boundary}
-            opponentWinRateSupported={data.opponentWinRateSupported}
-            hideGameTypeToggle
-          />
-          {statusText && <p className={`compare-slot-status status-${data.status}`}>{statusText}</p>}
-        </>
-      ) : (
-        <p className="compare-slot-note">選択すると、このスロットのデータだけを取得します</p>
-      )}
+      {entityValid && statusText && <p className={`compare-slot-status status-${data.status}`}>{statusText}</p>}
     </div>
   );
 }
@@ -407,6 +412,8 @@ function TeamCompareView({
           <CompareSlotCard
             key={i}
             slot={slots[i]!}
+            stateKey={`compare:team:slot${i}`}
+            entityLabel="チーム"
             seasonOptions={seasonOptions}
             entityOptions={(lists[i] ?? []).map((t) => ({ value: t.teamId, label: t.teamName }))}
             entityLoaded={lists[i] !== null && lists[i] !== undefined}
@@ -499,6 +506,8 @@ function PlayerCompareView({
           <CompareSlotCard
             key={i}
             slot={slots[i]!}
+            stateKey={`compare:player:slot${i}`}
+            entityLabel="選手"
             seasonOptions={seasonOptions}
             entityOptions={(lists[i] ?? []).map((p) => ({ value: p.playerId, label: `${p.name}（${p.teamName}）` }))}
             entityLoaded={lists[i] !== null && lists[i] !== undefined}
@@ -637,13 +646,11 @@ export function ComparePage({ season }: { season: string }) {
         </button>
       </div>
       {mode === "team" && (
-        <div className="mode-toggle">
-          {PERSPECTIVE_KEYS.map((m) => (
-            <button key={m} className={m === perspective ? "active" : ""} onClick={() => setOrDelete("v", m, "own")} type="button">
-              {TEAM_PERSPECTIVE_LABELS[m]}
-            </button>
-          ))}
-        </div>
+        <FilterBar
+          simple
+          stateKey="compare:common"
+          axes={[perspectiveAxis(perspective, (v) => setOrDelete("v", v, "own"))]}
+        />
       )}
       <div className="tab-bar">
         {BOXSCORE_TABS.map((t) => (

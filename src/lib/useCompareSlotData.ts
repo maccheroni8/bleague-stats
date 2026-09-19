@@ -62,6 +62,8 @@ interface SlotDataCommon {
   boundary: SeasonHalfBoundary | null;
   /** 「対勝率別」ボタンの表示可否 */
   opponentWinRateSupported: boolean;
+  /** 「対戦地区」の同地区・他地区の表示可否（自チームの地区を試合ごとに引けるか） */
+  ownTeamDivisionSupported: boolean;
   /** 絞り込み後の試合数 */
   gamesCount: number;
   /** 取得待ちの試合数（チーム版のfetching中のみ0より大きい） */
@@ -186,8 +188,9 @@ export function useTeamCompareSlot({
       opponentRecords,
       divisionHistory,
       season,
+      () => teamId,
     );
-  }, [base, gameType, filter, opponentRecords, divisionHistory, season]);
+  }, [base, gameType, filter, opponentRecords, divisionHistory, season, teamId]);
 
   const seasonEntry = seasons?.find((s) => s.season === season);
   const shotChartSupported = seasonEntry?.coverage === "full";
@@ -220,6 +223,7 @@ export function useTeamCompareSlot({
     error: active ? error : null,
     boundary,
     opponentWinRateSupported: !!opponentRecords,
+    ownTeamDivisionSupported: !!divisionHistory,
     gamesCount: filtered.length,
     pendingGames: pending,
     boxTotals,
@@ -289,6 +293,7 @@ export function usePlayerCompareSlot({
       opponentRecords,
       divisionHistory,
       season,
+      (g) => base.ownTeamByScheduleKey.get(g.scheduleKey)?.teamId,
     );
   }, [base, gameType, filter, opponentRecords, divisionHistory, season]);
 
@@ -321,6 +326,7 @@ export function usePlayerCompareSlot({
     error: active ? error : null,
     boundary,
     opponentWinRateSupported: !!opponentRecords,
+    ownTeamDivisionSupported: !!divisionHistory && !!base,
     gamesCount: filtered.filter((g) => g.min > 0).length,
     pendingGames: 0,
     ctx: result?.ctx ?? null,

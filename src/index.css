@@ -3438,6 +3438,29 @@ table.compare-table th .compare-condition-tag {
   }
 }
 
+/* 比較スロットなど幅の狭い枠: 常時表示も詳細もラベル付きの2列で折り返す */
+.filter-bar.compact {
+  margin-bottom: 0;
+}
+
+.filter-bar.compact .filter-bar-primary,
+.filter-bar.compact .filter-bar-advanced .filter-bar-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.filter-bar.compact .filter-popover-panel {
+  min-width: 220px;
+}
+
+.filter-bar.compact .filter-multi {
+  min-width: 200px;
+}
+
+.player-compare-slot .filter-bar.compact .filter-bar-advanced {
+  padding: 8px;
+}
+
 /* スマホ幅では7列だと値が読めないため、常時表示の軸も2列に折り返す（横1列を維持するのは561px以上） */
 @media (max-width: 560px) {
   .filter-bar-primary {

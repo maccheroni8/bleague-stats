@@ -55,6 +55,9 @@ import type {
   YahooTurnoverEvent,
 } from "../../shared/types";
 import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
+import { CompareSlotFilter } from "../components/CompareSlotFilter";
+import { FilterBar } from "../components/FilterBar";
+import { gameTypeAxis, perspectiveAxis } from "../lib/filterAxes";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { TeamLogo } from "../components/TeamLogo";
@@ -2419,6 +2422,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           compareOpponentRecords[i],
           divisionHistory,
           slot.season,
+          () => teamId,
         );
         const entries = filtered
           .map((g) => {
@@ -2440,7 +2444,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         };
       })
       .filter((r): r is ComparisonRow<TeamCompareColumnData> => r !== null);
-  }, [compareSlots, careerData, compareGameType, compareOpponentRecords, compareRawGames, compareYahooPbp, seasons]);
+  }, [compareSlots, careerData, compareGameType, compareOpponentRecords, compareRawGames, compareYahooPbp, seasons, teamId, divisionHistory]);
 
   // 「チームスタッツ」タブ（Phase H4）: 自チーム/opp/+/-トグル・Q別/前後半トグル（上部の
   // カテゴリタブ集計表・シチュエーション別成績（チーム版）の両方で共有する）。「試合」選択時は
@@ -4554,68 +4558,50 @@ export function TeamDetailPage({ season }: { season: string }) {
           <div className="player-compare-slots">
             {([0, 1] as const).map((i) => {
               const slot = compareSlots[i];
+              const updateSlot = (patch: Partial<TeamCompareSlotState>) =>
+                setCompareSlots((prev) => {
+                  const next: [TeamCompareSlotState, TeamCompareSlotState] = [...prev];
+                  next[i] = { ...next[i], ...patch };
+                  return next;
+                });
               return (
                 <div className="player-compare-slot" key={i}>
-                  <select
-                    value={slot.season}
-                    onChange={(e) => {
-                      const nextSeason = e.target.value;
-                      setCompareSlots((prev) => {
-                        const next: [TeamCompareSlotState, TeamCompareSlotState] = [...prev];
-                        next[i] = { season: nextSeason, filter: { range: { kind: "all" } } };
-                        return next;
-                      });
-                    }}
-                  >
-                    <option value="">未選択</option>
-                    {[...(careerData ?? [])]
-                      .map((cd) => cd.season)
-                      .reverse()
-                      .map((s) => (
-                        <option key={s} value={s}>
-                          {s}シーズン
-                        </option>
-                      ))}
-                  </select>
-                  {slot.season ? (
-                    <SituationalFilterPicker
-                      filter={slot.filter}
-                      onChange={(f) =>
-                        setCompareSlots((prev) => {
-                          const next: [TeamCompareSlotState, TeamCompareSlotState] = [...prev];
-                          next[i] = { ...next[i], filter: f };
-                          return next;
-                        })
-                      }
-                      opponentWinRateSupported={!!compareOpponentRecords[i]}
-                      hideGameTypeToggle
-                    />
-                  ) : (
-                    <p className="compare-slot-note">シーズンを選択してください</p>
-                  )}
+                  <CompareSlotFilter
+                    stateKey={pk(`compareSlot${i}`)}
+                    selects={[
+                      {
+                        id: "season",
+                        label: "シーズン",
+                        value: slot.season,
+                        options: [
+                          { value: "", label: "未選択" },
+                          ...[...(careerData ?? [])]
+                            .map((cd) => cd.season)
+                            .reverse()
+                            .map((s) => ({ value: s, label: `${s}シーズン` })),
+                        ],
+                        onChange: (nextSeason) => updateSlot({ season: nextSeason, filter: { range: { kind: "all" } } }),
+                      },
+                    ]}
+                    enabled={!!slot.season}
+                    disabledNote="シーズンを選択してください"
+                    filter={slot.filter}
+                    onFilter={(f) => updateSlot({ filter: f })}
+                    opponentWinRateSupported={!!compareOpponentRecords[i]}
+                    ownTeamDivisionSupported={!!divisionHistory}
+                  />
                 </div>
               );
             })}
           </div>
-          <div className="mode-toggle">
-            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
-              <button key={g} className={g === compareGameType ? "active" : ""} onClick={() => setCompareGameType(g)} type="button">
-                {SEASON_GAME_TYPE_LABELS[g]}
-              </button>
-            ))}
-          </div>
-          <div className="mode-toggle">
-            {(["own", "opp", "diff"] as TeamPerspective[]).map((m) => (
-              <button
-                key={m}
-                className={comparePerspective === m ? "active" : ""}
-                onClick={() => setComparePerspective(m)}
-                type="button"
-              >
-                {TEAM_PERSPECTIVE_LABELS[m]}
-              </button>
-            ))}
-          </div>
+          <FilterBar
+            simple
+            stateKey={pk("compareCommon")}
+            axes={[
+              gameTypeAxis(compareGameType, setCompareGameType),
+              perspectiveAxis(comparePerspective, setComparePerspective),
+            ]}
+          />
           <div className="tab-bar">
             {BOXSCORE_TABS.map((t) => (
               <button
