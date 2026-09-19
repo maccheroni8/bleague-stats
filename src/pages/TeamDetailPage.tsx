@@ -80,6 +80,7 @@ import {
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { HeightWeightNote } from "../components/HeightWeightNote";
+import { ageForSeason } from "../lib/age";
 import {
   classificationLabels,
   composeLabels,
@@ -1773,14 +1774,6 @@ function averageOf(values: number[]): number | null {
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
-function calculateAge(birthDate: string, asOf: Date = new Date()): number {
-  const [y, m, d] = birthDate.split("-").map(Number) as [number, number, number];
-  let age = asOf.getFullYear() - y;
-  const hadBirthdayThisYear = asOf.getMonth() + 1 > m || (asOf.getMonth() + 1 === m && asOf.getDate() >= d);
-  if (!hadBirthdayThisYear) age -= 1;
-  return age;
-}
-
 /** 選手名セル: サムネイル写真＋名前＋簡易プロフィール（ポジション・身長・体重）をまとめて表示する */
 function playerProfileLine(p: PlayerSummary): string | null {
   const parts: string[] = [];
@@ -2050,7 +2043,15 @@ export function TeamDetailPage({ season }: { season: string }) {
   // エラーを投げるだけでページ全体は壊れない（leagueRankingsがnullのまま＝順位バッジ非表示になる）
   const { data: leagueRankings } = useJsonData(() => fetchLeagueTeamRankings(), []);
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
-  const { data: summaries, loading: summariesLoading } = useJsonData(() => fetchGameSummaries(season), [season]);
+  // GameSummary自体にはseasonが無いため、どのシーズンの取得結果かをここで付けておく。useJsonDataは
+  // 依存（season）が変わっても新しい取得が終わるまで古いdataを保持するため、その間に走る副作用が
+  // 旧シーズンのsummariesを新シーズンのものと取り違えないよう、副作用側でsummariesSeasonを照合する
+  const { data: summariesTagged, loading: summariesLoading } = useJsonData(
+    () => fetchGameSummaries(season).then((list) => ({ season, list })),
+    [season],
+  );
+  const summaries = summariesTagged?.list ?? null;
+  const summariesSeason = summariesTagged?.season;
   const { data: schedule, loading: scheduleLoading } = useJsonData(() => fetchSchedule(season), [season]);
   // ヘッダーの地区順位・全体順位表示用（既存の順位表ページと同じstandings-history.jsonを再利用）
   const { data: standingsHistory } = useJsonData(() => fetchStandingsHistory(season), [season]);
@@ -2685,8 +2686,21 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [playerStatsRawGamesLoading, setPlayerStatsRawGamesLoading] = useState(false);
   const playerStatsPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === playerStatsPeriod);
 
+  // 切り替え直後、新しいデータの取得完了を待つ間に前のシーズン・チームの候補を出し続けないよう破棄する。
+  // fetchKeyも消しておく（消さないと、別タブにいる間に A→B→A と戻った場合に「取得済み」と
+  // 誤判定して候補がnullのまま残る）。取得中だった前の結果は下の.thenでキー照合して捨てる
+  useEffect(() => {
+    playerStatsCandidatesFetchKeyRef.current = null;
+    setPlayerStatsCandidates(null);
+  }, [season, teamId]);
+
   useEffect(() => {
     if (tab !== "playerStats" || !teamId || !pbpSupported || !lineupsFile || !summaries) return;
+    // season/teamIdの切り替え直後は、lineupsFile・summariesがまだ前のシーズン・チームのままの間に
+    // この副作用が走る。その状態で候補選手を確定するとfetchKeyが新しい値で固定され、新しいデータが
+    // 届いても再取得されず「選手スタッツがありません」のままになるため、両方が現在の
+    // season/teamIdのものに揃うまで待つ（DESIGN.md 103章）
+    if (lineupsFile.season !== season || lineupsFile.teamId !== teamId || summariesSeason !== season) return;
     const fetchKey = `${season}|${teamId}`;
     if (playerStatsCandidatesFetchKeyRef.current === fetchKey) return;
     playerStatsCandidatesFetchKeyRef.current = fetchKey;
@@ -2715,10 +2729,13 @@ export function TeamDetailPage({ season }: { season: string }) {
       }),
     )
       .then((results) => {
+        if (playerStatsCandidatesFetchKeyRef.current !== fetchKey) return;
         setPlayerStatsCandidates(results.filter((r): r is PlayerStatsCandidate => r !== null));
       })
-      .finally(() => setPlayerStatsCandidatesLoading(false));
-  }, [tab, teamId, season, pbpSupported, lineupsFile, summaries]);
+      .finally(() => {
+        if (playerStatsCandidatesFetchKeyRef.current === fetchKey) setPlayerStatsCandidatesLoading(false);
+      });
+  }, [tab, teamId, season, pbpSupported, lineupsFile, summaries, summariesSeason]);
 
   // Q別/前後半選択時のみ、このチームに関係する試合（候補選手の誰かがこのチーム所属として
   // 出場した試合）の生データを遅延取得する。同じチームの選手はほぼ同じ試合群を共有するため、
@@ -2888,7 +2905,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const starters = teamPlayers.filter((p) => p.gamesStarted > 0);
   const avgHeightCm = averageOf(starters.flatMap((p) => (p.heightCm != null ? [p.heightCm] : [])));
   const avgWeightKg = averageOf(starters.flatMap((p) => (p.weightKg != null ? [p.weightKg] : [])));
-  const avgAge = averageOf(starters.flatMap((p) => (p.birthDate ? [calculateAge(p.birthDate)] : [])));
+  const avgAge = averageOf(starters.flatMap((p) => (p.birthDate ? [ageForSeason(p.birthDate, season)] : [])));
 
   // Phase H4②: レギュラー/プレーオフ/合算はSituationalFilterPickerの組み込みトグル（binary）
   // ではなく専用のteamStatsGameTypeで管理する。filterには常にincludePlayoffs: trueを渡して

@@ -129,6 +129,7 @@ import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { classificationGroup } from "../lib/classificationFilter";
 import { ComparisonTable, type ComparisonRow } from "./ComparePage";
 import { HeightWeightNote } from "../components/HeightWeightNote";
+import { ageForSeason } from "../lib/age";
 import { seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
@@ -626,14 +627,6 @@ function formatBirthDate(date: string): string {
   return `${y}年${m}月${d}日`;
 }
 
-function calcAge(birthDate: string): number {
-  const [y, m, d] = birthDate.split("-").map(Number) as [number, number, number];
-  const today = new Date();
-  let age = today.getFullYear() - y;
-  const beforeBirthdayThisYear = today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d);
-  if (beforeBirthdayThisYear) age -= 1;
-  return age;
-}
 
 // シーズン集計ショットチャートのQ別/前後半トグル用の固定オプション。試合詳細ページの
 // buildPeriodRangeOptions()は1試合のOT数に応じて動的に組み立てるが、シーズン合計では
@@ -2173,7 +2166,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             {player.birthDate && (
               <ProfileItem
                 label="生年月日"
-                value={`${formatBirthDate(player.birthDate)}（${calcAge(player.birthDate)}歳）`}
+                value={`${formatBirthDate(player.birthDate)}（${ageForSeason(player.birthDate, season)}歳）`}
               />
             )}
           </div>
