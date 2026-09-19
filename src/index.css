@@ -1967,6 +1967,27 @@ table.compare-table td.compare-best {
   padding: 4px;
 }
 
+/* 個人ランキング: 保存画像の幅を内容に合わせる（表が全幅に伸びて、名前と値の間が広がりすぎるのを防ぐ）。
+ * 条件行が長いときは折り返して、それ以上は幅を広げない */
+.export-target-compact {
+  width: fit-content;
+  max-width: 100%;
+  min-width: 360px;
+}
+
+.export-target-compact .condition-title-conditions {
+  max-width: 34em;
+}
+
+.rankings-table-compact .rank-name-with-logo {
+  gap: 12px;
+}
+
+.rankings-table-compact td.rank-value,
+.rankings-table-compact th:last-child {
+  padding-left: 32px;
+}
+
 /* 表・画像出力の直上に置く「タイトル＋選択中の条件」（ConditionTitle.tsx）。
  * 画像出力の対象（.export-target）の内側に置くため、余白は上下とも小さめにしている */
 .condition-title {
@@ -1986,6 +2007,10 @@ table.compare-table td.compare-best {
 }
 
 /* 従来の<h2>の置き換えとして使うとき（ConditionTitleのsection指定）: <h2>と同じ上余白 */
+.condition-label {
+  white-space: nowrap;
+}
+
 .condition-title-section {
   margin-top: 32px;
 }
@@ -3104,4 +3129,238 @@ table.compare-table th .compare-condition-tag {
   max-width: 200px;
   margin-left: auto;
   white-space: normal;
+}
+
+/* フィルタバー（FilterBar.tsx、DESIGN.md 105章）。ラベル付きドロップダウンを並べ、低頻度の軸は
+   「詳細フィルタ」に折りたたみ、既定値から変更した軸だけをチップで出す。色は既存の変数のみ使う */
+.filter-bar {
+  margin-bottom: 16px;
+}
+
+.filter-bar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px 16px;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.filter-field label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.filter-field select,
+.filter-field input[type="date"] {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.filter-popover {
+  position: relative;
+}
+
+.filter-popover-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.filter-field.changed .filter-popover-button {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+  font-weight: 700;
+}
+
+.filter-popover-button > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-popover-button:disabled {
+  border-style: dashed;
+  background: var(--header-bg);
+  color: var(--muted);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.filter-popover-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: 280px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.filter-popover-panel.align-right {
+  left: auto;
+  right: 0;
+}
+
+.filter-field.changed select,
+.filter-field.changed input[type="date"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+  font-weight: 700;
+}
+
+.filter-field.disabled label {
+  opacity: 0.6;
+}
+
+.filter-field select:disabled,
+.filter-field input:disabled {
+  border-style: dashed;
+  background: var(--header-bg);
+  color: var(--muted);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* すべての軸が対象外のタブ: バー全体を薄くする（詳細フィルタの開閉リンクは操作可のまま） */
+.filter-bar.all-disabled .filter-bar-grid,
+.filter-bar.all-disabled .filter-bar-advanced {
+  opacity: 0.55;
+}
+
+.filter-bar-advanced-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.filter-advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.filter-bar-advanced {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--header-bg);
+}
+
+.filter-bar-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.filter-bar-note::before {
+  content: "ⓘ ";
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.filter-chips-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.filter-chip-x {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.filter-chips-clear {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .filter-bar-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .filter-chip,
+  .filter-chips-label,
+  .filter-chips-clear {
+    flex: none;
+    white-space: nowrap;
+  }
 }

@@ -28,8 +28,15 @@ import type {
 import { SortableTable, type Column } from "../components/SortableTable";
 import { TeamLogo } from "../components/TeamLogo";
 import { SeasonLink } from "../components/SeasonLink";
-import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
+import { FilterBar } from "../components/FilterBar";
 import { ConditionTitle } from "../components/ConditionTitle";
+import {
+  displayModeAxis,
+  gameTypeAxis,
+  perspectiveAxis,
+  situationalAxes,
+  type FilterAxis,
+} from "../lib/filterAxes";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import {
   composeLabels,
@@ -50,7 +57,6 @@ import {
   type SituationalFilter,
 } from "../lib/situational";
 import {
-  SEASON_DISPLAY_MODE_LABELS,
   SEASON_GAME_TYPE_LABELS,
   filterByGameType,
   type SeasonDisplayMode,
@@ -79,7 +85,6 @@ import {
   buildTraditionalColumns,
   DEFAULT_SORT_KEY,
   sumTeamGameLogs,
-  TEAM_PERSPECTIVE_LABELS,
   type AllTeamsRow,
   type TeamPerspective,
 } from "../lib/teamStatsColumns";
@@ -187,7 +192,6 @@ const TURNOVER_PERSPECTIVE_LABELS: Record<"forced" | "committed", string> = {
   forced: "相手から奪った（自チームが強制）",
   committed: "自チームが記録（相手に強制された）",
 };
-const DISPLAY_MODE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
 
 const teamColumn: Column<AllTeamsRow> = {
   key: "team",
@@ -352,6 +356,32 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   if (teamsError) return <p className="error-message">{teamsError}</p>;
   if (!teams || teams.length === 0) return <p className="empty-message">データがありません</p>;
 
+  // フィルタバー（DESIGN.md 105章）。カテゴリによって効かない軸は操作不可にして理由を出す。
+  // 通常4カテゴリ=全軸が有効、シューティング=表示（平均/合計）のみ有効、それ以外の専用ビュー=すべて対象外
+  const isMainCategory = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
+  const seasonTotalOnlyReason = "このタブはシーズン通算値のみ対応のため、上の絞り込みは連動しません。";
+  const filterDisabledReason = isMainCategory
+    ? undefined
+    : boxTab === "shooting"
+      ? "このタブはシーズン通算値のみ対応です（表示の平均/合計だけ連動します）。"
+      : seasonTotalOnlyReason;
+  const displayDisabledReason = isMainCategory || boxTab === "shooting" ? undefined : seasonTotalOnlyReason;
+  const filterAxes: FilterAxis[] = [
+    gameTypeAxis(gameType, setGameType, { disabledReason: filterDisabledReason }),
+    perspectiveAxis(teamPerspective, setTeamPerspective, { disabledReason: filterDisabledReason }),
+    displayModeAxis(displayMode, setDisplayMode, { disabledReason: displayDisabledReason }),
+    ...situationalAxes(filter, setFilter, {
+      opponentWinRateSupported: !!opponentRecords,
+      disabledReason: filterDisabledReason,
+    }),
+  ];
+  const clearAllFilters = () => {
+    setGameType("regular");
+    setTeamPerspective("own");
+    setDisplayMode("perGame");
+    setFilter({ range: { kind: "all" } });
+  };
+
   // 主表の見出し。カテゴリごとに実際に効いている軸だけを条件として並べる（シューティング以降の
   // 専用ビューはシーズン通算値のみで、S・G・Vは対象外。その旨を固定ラベルで明示する）
   const statsTitle = {
@@ -377,27 +407,8 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     <div>
       <p className="page-subtitle">全{teams.length}チーム</p>
 
-      <SituationalFilterPicker
-        filter={filter}
-        onChange={setFilter}
-        opponentWinRateSupported={!!opponentRecords}
-        hideGameTypeToggle
-      />
-      <div className="mode-toggle">
-        {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
-          <button key={g} className={g === gameType ? "active" : ""} onClick={() => setGameType(g)} type="button">
-            {SEASON_GAME_TYPE_LABELS[g]}
-          </button>
-        ))}
-      </div>
-      <div className="mode-toggle">
-        {(["own", "opp", "diff"] as TeamPerspective[]).map((p) => (
-          <button key={p} className={p === teamPerspective ? "active" : ""} onClick={() => setTeamPerspective(p)} type="button">
-            {TEAM_PERSPECTIVE_LABELS[p]}
-          </button>
-        ))}
-      </div>
-      <div className="tab-bar-with-toggle">
+      <FilterBar axes={filterAxes} stateKey="teams:stats" onClearAll={clearAllFilters} />
+      <div>
         <div className="tab-bar">
           {BOX_TABS.map((t) => (
             <button
@@ -437,13 +448,6 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           >
             得点構成
           </button>
-        </div>
-        <div className="mode-toggle">
-          {DISPLAY_MODE_OPTIONS.map((m) => (
-            <button key={m} className={m === displayMode ? "active" : ""} onClick={() => setDisplayMode(m)} type="button">
-              {SEASON_DISPLAY_MODE_LABELS[m]}
-            </button>
-          ))}
         </div>
       </div>
 

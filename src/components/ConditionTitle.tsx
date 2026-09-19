@@ -1,4 +1,5 @@
-import { joinLabels } from "../lib/conditionLabels";
+import { Fragment } from "react";
+import { joinLabels, LABEL_SEPARATOR } from "../lib/conditionLabels";
 
 /**
  * 表・画像出力の直上に置く「タイトル＋選択中の条件」表示。画像出力（export-target）の内側に
@@ -20,7 +21,17 @@ export function ConditionTitle({
   return (
     <div className={`condition-title${section ? " condition-title-section" : ""}`}>
       <h2>{title}</h2>
-      {conditions.length > 0 && <p className="condition-title-conditions">{joinLabels(conditions)}</p>}
+      {conditions.length > 0 && (
+        // 幅が足りず折り返すときは、条件ラベルの区切り（・）でだけ折り返す（「試合全/体」のような単語の途中で切らない）
+        <p className="condition-title-conditions">
+          {conditions.map((label, i) => (
+            <Fragment key={`${i}:${label}`}>
+              {i > 0 && LABEL_SEPARATOR}
+              <span className="condition-label">{label}</span>
+            </Fragment>
+          ))}
+        </p>
+      )}
     </div>
   );
 }

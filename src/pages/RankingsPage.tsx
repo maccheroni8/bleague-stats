@@ -13,14 +13,21 @@ import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import type { Column } from "../components/SortableTable";
-import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
+import { FilterBar } from "../components/FilterBar";
+import {
+  classificationAxis,
+  displayModeAxis,
+  gameTypeAxis,
+  periodAxis,
+  perspectiveAxis,
+  situationalAxes,
+  type FilterAxis,
+} from "../lib/filterAxes";
 import { filterGameLogs, isDefaultFilter, type SituationalFilter } from "../lib/situational";
 import {
   SEASON_ADVANCED_COLUMNS,
   SEASON_BOX_PERIOD_OPTIONS,
   SEASON_BOX_TABS,
-  SEASON_DISPLAY_MODE_LABELS,
-  SEASON_GAME_TYPE_LABELS,
   SEASON_MISC_COLUMNS,
   SEASON_SCORING_COLUMNS,
   SEASON_TRADITIONAL_COLUMNS,
@@ -48,7 +55,6 @@ import {
   DEFAULT_SORT_KEY,
   sumTeamGameBoxTotalsForPeriod,
   sumTeamGameLogs,
-  TEAM_PERSPECTIVE_LABELS,
   type AllTeamsRow,
   type TeamPerspective,
 } from "../lib/teamStatsColumns";
@@ -56,7 +62,6 @@ import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns } from "../lib/shotTypeB
 import { useAllTeamGameLogs, useLeagueRawGames, useLeagueSituationalContext } from "../lib/teamRankingData";
 import { isShotChartSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import {
-  CLASSIFICATION_GROUP_OPTIONS,
   classificationGroup,
   matchesClassificationGroupFilter,
   type ClassificationGroupFilter,
@@ -80,7 +85,6 @@ import {
   SITUATIONAL_DEFAULT_LABEL,
   situationalFilterLabels,
 } from "../lib/conditionLabels";
-import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import type { PeriodRangeValue } from "../lib/periodRange";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { ageBaseDate, ageForSeason, formatBaseDateLabel, todayBaseDateLabel } from "../lib/age";
@@ -172,6 +176,8 @@ interface RankedListProps<T> {
   avatar?: (row: T) => ReactNode;
   /** 指定時、ソート後の上位この件数だけを表示する（未指定は全件） */
   limit?: number;
+  /** trueのとき、表を内容幅に詰める（名前と値の間が広がりすぎないように。親の.export-target-compactと併用） */
+  compact?: boolean;
 }
 
 /** defの向き（higherIsBetter）から導く、そのdefにとって「正しい」既定のソート方向 */
@@ -179,7 +185,19 @@ function defaultSortDir<T>(def: RankableStat<T>): "asc" | "desc" {
   return def.higherIsBetter === false ? "asc" : "desc";
 }
 
-function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo, externalLinkTo, teamColor, avatar, limit }: RankedListProps<T>) {
+function RankedList<T>({
+  rows,
+  def,
+  rowKey,
+  name,
+  subLabel,
+  linkTo,
+  externalLinkTo,
+  teamColor,
+  avatar,
+  limit,
+  compact,
+}: RankedListProps<T>) {
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
   // ソート方向は「値の大小」ではなく「良い/悪い」の向き（def.higherIsBetter）を基準にした
   // asc/descで管理し、既定値は常にBatch 2で確立した「良い方が#1に来る」向きにする。
@@ -201,7 +219,7 @@ function RankedList<T>({ rows, def, rowKey, name, subLabel, linkTo, externalLink
   const toggleSortDir = () => setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
   return (
     <div className="table-scroll">
-      <table className="sortable-table rankings-table">
+      <table className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}`}>
         <thead>
           <tr>
             <th className="align-right">#</th>
@@ -270,8 +288,6 @@ function buildTeamCategoryColumns(
   }
 }
 
-const DISPLAY_MODE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
-const TEAM_PERSPECTIVE_OPTIONS: TeamPerspective[] = ["own", "opp", "diff"];
 
 /**
  * ランキングページのチーム版。チーム詳細ページ「チームスタッツ」タブ・「チーム」ページ
@@ -454,38 +470,36 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     composeLabels("強制ターンオーバー", TURNOVER_DIRECTION_LABELS[turnoverDirection], SEASON_TOTAL_ONLY_LABELS),
   );
 
+  // フィルタバー（DESIGN.md 105章）。シューティングは表示（平均/合計）のみ、強制ターンオーバーは
+  // すべて対象外（シーズン通算値のみ。方向の切替はタブ右のトグルに残す）
+  const isTeamShooting = category === "shooting";
+  const teamFilterDisabledReason = isBoxscore
+    ? undefined
+    : isTeamShooting
+      ? "このカテゴリはレギュラーシーズンの通算集計値のみ対応です（表示の平均/合計だけ連動します。2023-24シーズン以降のみ対応）。"
+      : "このカテゴリはレギュラーシーズンの通算集計値のみ対応で、上の絞り込みは連動しません（2023-24シーズン以降のみ対応）。";
+  const teamDisplayDisabledReason = isBoxscore || isTeamShooting ? undefined : teamFilterDisabledReason;
+  const teamFilterAxes: FilterAxis[] = [
+    gameTypeAxis(gameType, setGameType, { disabledReason: teamFilterDisabledReason }),
+    perspectiveAxis(perspective, setPerspective, { disabledReason: teamFilterDisabledReason }),
+    displayModeAxis(displayMode, setDisplayMode, { disabledReason: teamDisplayDisabledReason }),
+    periodAxis(period, setPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: teamFilterDisabledReason }),
+    ...situationalAxes(filter, setFilter, {
+      opponentWinRateSupported: !!opponentRecords,
+      disabledReason: teamFilterDisabledReason,
+    }),
+  ];
+  const clearTeamFilters = () => {
+    setGameType("regular");
+    setPerspective("own");
+    setDisplayMode("perGame");
+    setPeriod("all");
+    setFilter({ range: { kind: "all" } });
+  };
+
   return (
     <>
-      {isBoxscore ? (
-        <>
-          <SituationalFilterPicker
-            filter={filter}
-            onChange={setFilter}
-            opponentWinRateSupported={!!opponentRecords}
-            hideGameTypeToggle
-          />
-          <div className="mode-toggle">
-            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
-              <button key={g} className={g === gameType ? "active" : ""} onClick={() => setGameType(g)} type="button">
-                {SEASON_GAME_TYPE_LABELS[g]}
-              </button>
-            ))}
-          </div>
-          <div className="mode-toggle">
-            {TEAM_PERSPECTIVE_OPTIONS.map((p) => (
-              <button key={p} className={p === perspective ? "active" : ""} onClick={() => setPerspective(p)} type="button">
-                {TEAM_PERSPECTIVE_LABELS[p]}
-              </button>
-            ))}
-          </div>
-          <PeriodRangeToggle options={SEASON_BOX_PERIOD_OPTIONS} value={period} onChange={setPeriod} />
-        </>
-      ) : (
-        <p className="page-subtitle">
-          このカテゴリはレギュラーシーズンの通算集計値のみに対応しています（シチュエーション別フィルタ・
-          レギュラー/プレーオフ切替・自チーム/opp切替は適用されません。2023-24シーズン以降のみ対応）
-        </p>
-      )}
+      <FilterBar axes={teamFilterAxes} stateKey="rankings:team" onClearAll={clearTeamFilters} />
       <div className="tab-bar-with-toggle">
         <div className="tab-bar">
           {BOXSCORE_TABS.map((t) => (
@@ -526,15 +540,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
               </button>
             ))}
           </div>
-        ) : (
-          <div className="mode-toggle">
-            {DISPLAY_MODE_OPTIONS.map((m) => (
-              <button key={m} className={m === displayMode ? "active" : ""} onClick={() => setDisplayMode(m)} type="button">
-                {SEASON_DISPLAY_MODE_LABELS[m]}
-              </button>
-            ))}
-          </div>
-        )}
+        ) : null}
       </div>
 
       <div className="stat-picker">
@@ -1123,59 +1129,75 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     ),
   );
 
+  // フィルタバー（DESIGN.md 105章）。掲載基準（出場率＋項目固有の追加基準）はスライダーを
+  // ポップオーバーに入れた軸として置く。シューティング・プロフィールは試合種別・S軸・Q別/前後半が対象外
+  const playerFilterDisabledReason =
+    category === "shooting"
+      ? "このカテゴリはレギュラーシーズンの通算集計値のみ対応です（登録区分・掲載基準のみ連動します。2023-24シーズン以降のみ対応）。"
+      : category === "profile"
+        ? "このカテゴリは試合種別・シチュエーション別フィルタ・Q別/前後半の対象外です（登録区分・掲載基準の出場率のみ適用されます）。"
+        : undefined;
+  const eligibilityDefaultExtra = extraRule?.defaultValue ?? 0;
+  const eligibilitySummary = eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }).join("・");
+  const eligibilityAxis: FilterAxis = {
+    kind: "popover",
+    id: "eligibility",
+    label: "掲載基準",
+    tier: "primary",
+    value: `${Math.round(gamesRatio * 100)}|${extraRule ? extraThreshold : ""}`,
+    defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}|${extraRule ? eligibilityDefaultExtra : ""}`,
+    onChange: () => {
+      setGamesRatio(MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
+      setExtraThreshold(eligibilityDefaultExtra);
+    },
+    summary: eligibilitySummary,
+    chipValue: eligibilitySummary,
+    content: (
+      <>
+        <EligibilitySlider
+          label="出場率"
+          value={Math.round(gamesRatio * 100)}
+          min={0}
+          max={100}
+          step={1}
+          format={(v) => `${v}%`}
+          onChange={(v) => setGamesRatio(v / 100)}
+        />
+        {extraRule && (
+          <EligibilitySlider
+            label={extraRule.label}
+            value={extraThreshold}
+            min={extraRule.min}
+            max={extraRule.max}
+            step={extraRule.step}
+            format={(v) => `${v.toFixed(1)}${extraRule.unit}`}
+            onChange={setExtraThreshold}
+          />
+        )}
+      </>
+    ),
+  };
+  const playerFilterAxes: FilterAxis[] = [
+    classificationAxis(selectedClassification, setSelectedClassification),
+    gameTypeAxis(gameType, setGameType, { disabledReason: playerFilterDisabledReason }),
+    periodAxis(period, setPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: playerFilterDisabledReason }),
+    ...situationalAxes(filter, setFilter, {
+      opponentWinRateSupported: !!opponentRecords,
+      disabledReason: playerFilterDisabledReason,
+    }),
+    eligibilityAxis,
+  ];
+  const clearPlayerFilters = () => {
+    setSelectedClassification("all");
+    setGameType("regular");
+    setPeriod("all");
+    setFilter({ range: { kind: "all" } });
+    eligibilityAxis.onChange("");
+  };
+
   return (
     <>
-      <div className="filter-block">
-        <h3>登録区分</h3>
-        <div className="mode-toggle">
-          <button
-            className={selectedClassification === "all" ? "active" : ""}
-            onClick={() => setSelectedClassification("all")}
-            type="button"
-          >
-            全選手
-          </button>
-          {CLASSIFICATION_GROUP_OPTIONS.map((c) => (
-            <button
-              key={c}
-              className={selectedClassification === c ? "active" : ""}
-              onClick={() => setSelectedClassification(c)}
-              type="button"
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {category === "shooting" ? (
-        <p className="page-subtitle">
-          このカテゴリはレギュラーシーズンの通算集計値のみに対応しています（シチュエーション別フィルタ・
-          レギュラー/プレーオフ切替は適用されません。2023-24シーズン以降のみ対応）
-        </p>
-      ) : category === "profile" ? (
-        <p className="page-subtitle">
-          このカテゴリはシチュエーション別フィルタ・レギュラー/プレーオフ切替・Q別/前後半の対象外です
-          （掲載基準の出場率のみ適用されます）
-        </p>
-      ) : (
-        <>
-          <SituationalFilterPicker
-            filter={filter}
-            onChange={setFilter}
-            opponentWinRateSupported={!!opponentRecords}
-            hideGameTypeToggle
-          />
-          <div className="mode-toggle">
-            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
-              <button key={g} className={g === gameType ? "active" : ""} onClick={() => setGameType(g)} type="button">
-                {SEASON_GAME_TYPE_LABELS[g]}
-              </button>
-            ))}
-          </div>
-          <PeriodRangeToggle options={SEASON_BOX_PERIOD_OPTIONS} value={period} onChange={setPeriod} />
-        </>
-      )}
+      <FilterBar axes={playerFilterAxes} stateKey="rankings:player" onClearAll={clearPlayerFilters} />
 
       <div className="tab-bar">
         {SEASON_BOX_TABS.map((t) => (
@@ -1213,27 +1235,6 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       </div>
 
       <div className="filter-block">
-        <h3>掲載基準</h3>
-        <EligibilitySlider
-          label="出場率"
-          value={Math.round(gamesRatio * 100)}
-          min={0}
-          max={100}
-          step={1}
-          format={(v) => `${v}%`}
-          onChange={(v) => setGamesRatio(v / 100)}
-        />
-        {extraRule && (
-          <EligibilitySlider
-            label={extraRule.label}
-            value={extraThreshold}
-            min={extraRule.min}
-            max={extraRule.max}
-            step={extraRule.step}
-            format={(v) => `${v.toFixed(1)}${extraRule.unit}`}
-            onChange={setExtraThreshold}
-          />
-        )}
         <p className="page-subtitle">対象{eligible.length}名中、上位{PLAYER_RANK_TOP_N}名を表示</p>
         {(needsGameLogRecompute || periodActive) && ["eff", "per", "ppp"].includes(selectedItem.key) && (
           <p className="page-subtitle">
@@ -1247,7 +1248,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       ) : (
         <>
           <ExportImageButton targetRef={exportRef} filename={playerTitle.filename} />
-          <div ref={exportRef} className="export-target">
+          <div ref={exportRef} className="export-target export-target-compact">
             <ConditionTitle title={playerTitle.title} conditions={playerTitle.conditions} />
             {profileBaseDateLabel && <p className="rule-change-footnote ranking-base-date">{profileBaseDateLabel}</p>}
             <RankedList
@@ -1258,8 +1259,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               subLabel={(p) => [p.teamName, p.position, classificationGroup(p.classification)].filter(Boolean).join("・")}
               linkTo={(p) => `/players/${p.playerId}`}
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
-              avatar={(p) => <PlayerPhoto playerId={p.playerId} size={28} className="player-cell-photo" />}
+              avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" />}
               limit={PLAYER_RANK_TOP_N}
+              compact
             />
             {category === "profile" && selectedItem.key !== "age" && <HeightWeightNote season={season} />}
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
