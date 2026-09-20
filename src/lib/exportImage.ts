@@ -10,10 +10,12 @@ export const EXPORT_ACCOUNT_NAME = "@dthiro1208";
  * 画像出力の対象（.export-target）を使う全ページに1か所で反映される。ConditionTitle（表の直上のタイトル）とは別物
  */
 export async function exportElementAsImage(el: HTMLElement, filename: string): Promise<void> {
-  const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  // 背景色は「今画面に適用されている配色」の --bg から取る。OSの prefers-color-scheme で決めると、
+  // OSがダークでサイトを手動でライトにしている（逆も）ときに、背景と文字の配色が食い違って読めなくなる
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
   const savedDateLabel = todayBaseDateLabel();
   const canvas = await html2canvas(el, {
-    backgroundColor: isDark ? "#15171a" : "#ffffff",
+    backgroundColor: bg || "#ffffff",
     scale: 2,
     onclone: (doc, clonedEl) => {
       const footer = doc.createElement("div");
