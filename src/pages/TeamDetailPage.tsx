@@ -1917,7 +1917,7 @@ function formatLeagueRank(entry: LeagueTeamRankEntry | undefined): string | unde
 /**
  * 「比較」タブ（Phase TH）: 個人詳細ページの比較タブ（describeSituationalFilter）と同じ
  * ラベル生成ロジック。チーム版はシーズン前半戦/後半戦フィルタに対応していない
- * （TeamDetailPage.tsxのSituationalFilterPickerがどこもseasonHalfBoundaryを渡していないため、
+ * （チーム詳細の比較スロットがseasonHalfBoundaryを渡していないため、
  * dateRangeは常に「期間指定」/日付範囲表記になる）。2026-08-29、複数選択（AND条件）対応に伴い、
  * range＋AND条件の各軸で同時に選択されている全ての部分を「・」区切りで列挙する形に変更した
  * （1つも選択が無ければ「シーズン全体」）
@@ -2908,7 +2908,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const avgWeightKg = averageOf(starters.flatMap((p) => (p.weightKg != null ? [p.weightKg] : [])));
   const avgAge = averageOf(starters.flatMap((p) => (p.birthDate ? [ageForSeason(p.birthDate, season)] : [])));
 
-  // Phase H4②: レギュラー/プレーオフ/合算は旧SituationalFilterPickerの組み込みトグル（binary）
+  // Phase H4②: レギュラー/プレーオフ/合算は旧フィルタUI（削除済みのSituationalFilterPicker）の組み込みトグル（binary）
   // ではなく専用のteamStatsGameTypeで管理する。filterには常にincludePlayoffs: trueを渡して
   // 「地区/月別等の絞り込みだけ適用した全試合」を得た上で、filterByGameTypeで最終的な
   // レギュラー/プレーオフ/合算の絞り込みを行う（個人・チーム双方の「比較」タブと同じ設計）

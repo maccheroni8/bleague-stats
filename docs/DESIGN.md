@@ -8653,3 +8653,13 @@ B1〜B6 は互いに独立。B0 の見た目確認後に方向性を確定して
   今後 `ExportImageButton` を設置する箇所にも自動で反映される
 - 確認（開発サーバー）: 生成された画像を取り出して、チームランキング・個人ランキング・チーム比較・選手比較の4経路で左下・右下の表示を確認。
   利用者確認が必要（未確認）: 実際のダウンロード画像、ライトテーマの色、シューティング／強制ターンオーバー（ランキングの別経路）の出力
+
+### 105-16. B7: 旧部品の削除と総括（2026-09-20）
+- **削除**: `SituationalFilterPicker.tsx`・`ShotChartFilterPicker.tsx`・`TeamFilterBlock.tsx`（コメント以外の参照ゼロを確認）。
+  未使用CSS 15ルール（`.situational-filter`・`.condition-group-label`・`.date-range-inputs`・`.schedule-team-filter*`・`.compare-slot-selects`・
+  `.filter-block h3`・`.player-compare-slot .situational-filter` 等）。型チェック・`vite build` 通過、主要9画面でコンソールエラーなし
+- **残したもの**: `PeriodRangeToggle`（試合詳細のQ別/前後半トグルとボックススコア表が使用。試合単位のページなので現状維持とした）。
+  `mode-toggle`・`collapsible-heading` は他で使用中。フィルタUIと無関係な未使用クラス（`radar-*`・`oncourt-card`・`recent-games-table`・`stat-badge-*`）は今回の範囲外
+- **総括（フィルタUI刷新 B0〜B7）**: フィルタは全ページ `FilterBar`（`lib/filterAxes.ts` の軸定義）に統一。主要軸は常時表示（ラベル付きドロップダウン）、
+  低頻度の軸は「詳細フィルタ」、既定値から変えた軸だけが解除可能なチップ。条件タイトル（ConditionTitle）は画像・記録用として存続。
+  新しいページ／軸を足すときは、軸を `filterAxes.ts` のヘルパーで定義して `FilterBar` に渡す（専用のボタン群を作らない）

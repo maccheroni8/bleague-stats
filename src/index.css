@@ -1764,12 +1764,6 @@ table.boxscore-table .boxscore-summary-grand-total td {
   margin-bottom: 16px;
 }
 
-.filter-block h3 {
-  margin: 0 0 8px;
-  font-size: 14px;
-  color: var(--muted);
-}
-
 .mode-toggle button,
 .stat-picker button {
   padding: 6px 14px;
@@ -1913,10 +1907,6 @@ table.boxscore-table .boxscore-summary-grand-total td {
   color: var(--fg);
   font-size: 13px;
   margin-bottom: 8px;
-}
-
-.player-compare-slot .situational-filter {
-  margin-bottom: 0;
 }
 
 table.compare-table th a {
@@ -2385,42 +2375,6 @@ table.glossary-table td {
   color: var(--muted);
 }
 
-.situational-filter {
-  margin-bottom: 16px;
-}
-
-.condition-group-label {
-  display: block;
-  font-size: 12px;
-  color: var(--muted);
-  margin: 0 0 4px;
-}
-
-.situational-filter .mode-toggle select {
-  padding: 5px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--fg);
-  font-size: 13px;
-}
-
-.date-range-inputs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.date-range-inputs input[type="date"] {
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--fg);
-  font-size: 13px;
-}
-
 .h2h-scroll {
   overflow-x: auto;
   border: 1px solid var(--border);
@@ -2653,49 +2607,6 @@ td.schedule-team-cell.align-right .cell-link {
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 16px;
-}
-
-.schedule-team-filter {
-  margin-bottom: 20px;
-}
-
-.schedule-team-filter-actions {
-  display: flex;
-  gap: 14px;
-  margin-bottom: 8px;
-}
-
-.schedule-team-filter-actions button {
-  background: none;
-  border: none;
-  color: var(--accent);
-  cursor: pointer;
-  padding: 0;
-  font-size: 12px;
-  text-decoration: underline;
-}
-
-.schedule-team-filter-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 6px 12px;
-  max-height: 220px;
-  overflow-y: auto;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-.schedule-team-filter-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.schedule-team-filter-item input {
-  cursor: pointer;
 }
 
 .schedule-jump-controls {
@@ -3140,24 +3051,6 @@ td.schedule-team-cell.align-right .cell-link {
 
 .load-more-button:hover {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-.compare-slot-selects {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.compare-slot-selects select {
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--fg);
-  font-size: 13px;
-  min-width: 140px;
-  max-width: 100%;
 }
 
 .compare-slot-status {

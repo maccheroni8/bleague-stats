@@ -55,7 +55,7 @@ export const SEASON_DISPLAY_MODE_LABELS: Record<SeasonDisplayMode, string> = {
 
 // レギュラー/プレーオフ/合算フィルタはPhase H7（2026-08-29）でshared/gameType.tsに移設した
 // （バックエンドの歴代クラブ横断集計スクリプトからも同じ定義を参照するため）。既存の
-// import元（SituationalFilterPicker.tsx・PlayerDetailPage.tsx・TeamDetailPage.tsx）を
+// import元（PlayerDetailPage.tsx・TeamDetailPage.tsx等）を
 // 変更せずに済むよう、ここで再エクスポートしている
 export { filterByGameType, SEASON_GAME_TYPE_LABELS } from "../../shared/gameType";
 export type { SeasonGameTypeFilter } from "../../shared/gameType";
