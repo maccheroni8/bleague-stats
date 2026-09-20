@@ -1756,16 +1756,14 @@ table.boxscore-table .boxscore-summary-grand-total td {
   text-decoration: none;
 }
 
-.mode-toggle,
-.stat-picker {
+.mode-toggle {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 16px;
 }
 
-.mode-toggle button,
-.stat-picker button {
+.mode-toggle button {
   padding: 6px 14px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -1776,15 +1774,13 @@ table.boxscore-table .boxscore-summary-grand-total td {
   cursor: pointer;
 }
 
-.mode-toggle button.active,
-.stat-picker button.active {
+.mode-toggle button.active {
   color: var(--accent);
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-.mode-toggle button:disabled,
-.stat-picker button:disabled {
+.mode-toggle button:disabled {
   opacity: 0.7;
   cursor: default;
 }

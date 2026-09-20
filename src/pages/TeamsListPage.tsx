@@ -37,6 +37,7 @@ import {
   perspectiveAxis,
   simpleSelectAxis,
   situationalAxes,
+  statItemAxis,
   type FilterAxis,
 } from "../lib/filterAxes";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
@@ -780,13 +781,7 @@ function LeagueRecordsTab() {
           gameTypeAxis(gameType, setGameType),
         ]}
       />
-      <div className="stat-picker">
-        {statOptions.map((d) => (
-          <button key={d.key} className={d.key === statKey ? "active" : ""} onClick={() => setStatKey(d.key)} type="button">
-            {d.label}
-          </button>
-        ))}
-      </div>
+      <FilterBar axes={[statItemAxis(statOptions, statKey, setStatKey)]} stateKey="teams:records:stat" simple wide />
 
       <ConditionTitle
         title={`歴代記録 ${RECORDS_CATEGORY_LABELS[category]}：${activeLabel}`}

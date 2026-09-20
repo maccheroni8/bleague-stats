@@ -34,6 +34,7 @@ import {
   multiSelectAxis,
   simpleSelectAxis,
   situationalAxes,
+  statItemAxis,
   type FilterAxis,
 } from "../lib/filterAxes";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
@@ -904,13 +905,7 @@ function LeaguePlayerRecordsTab() {
         stateKey="players:records"
         axes={[leagueVenueAxis(venue, setVenue), gameTypeAxis(gameType, setGameType)]}
       />
-      <div className="stat-picker">
-        {PLAYER_CAREER_TOTAL_DEFS.map((d) => (
-          <button key={d.key} className={d.key === statKey ? "active" : ""} onClick={() => setStatKey(d.key)} type="button">
-            {d.label}
-          </button>
-        ))}
-      </div>
+      <FilterBar axes={[statItemAxis(PLAYER_CAREER_TOTAL_DEFS, statKey, setStatKey)]} stateKey="players:records:stat" simple wide />
 
       <ConditionTitle
         title={`歴代記録 通算成績：${activeLabel}`}
