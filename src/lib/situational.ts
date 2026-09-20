@@ -506,7 +506,11 @@ export function matchesShotChartGameFilters<
   divisionHistory?: DivisionHistoryFile | null,
   season?: string,
 ): boolean {
-  if (!matchesSituationalAndFilters(g, filters, opponentRecords, divisionHistory, season)) return false;
+  // 同地区/他地区の判定に使う自チームは、シーズン内移籍対応で導出済みの所属チーム（ownTeamByScheduleKey）から引く
+  const ownTeamOf: OwnTeamResolver | undefined = ownTeamByScheduleKey
+    ? (log) => ownTeamByScheduleKey.get(log.scheduleKey)?.teamId
+    : undefined;
+  if (!matchesSituationalAndFilters(g, filters, opponentRecords, divisionHistory, season, ownTeamOf)) return false;
   if (filters.ownTeamId && ownTeamByScheduleKey?.get(g.scheduleKey)?.teamId !== filters.ownTeamId) return false;
   return true;
 }

@@ -16,6 +16,7 @@ import type { PeriodRangeOption, PeriodRangeValue } from "./periodRange";
 import {
   RECENT_N_OPTIONS,
   type SeasonHalfBoundary,
+  type SituationalAndFilters,
   type SituationalFilter,
 } from "./situational";
 import {
@@ -349,6 +350,84 @@ function rangeFromValue(
   return { kind: "dateRange", start: dates.start, end: dates.end };
 }
 
+/** 会場・勝敗・対戦地区・月・年明け前後・曜日・対戦相手の勝率（AND合成の軸）。SituationalFilter のほか、
+ * ショットチャートの ShotChartGameFilters も同じ軸定義から作る（範囲・期間指定の軸は含まない） */
+export function situationalAndAxes<T extends SituationalAndFilters>(
+  filter: T,
+  onChange: (filter: T) => void,
+  ctx: { opponentWinRateSupported?: boolean; ownTeamDivisionSupported?: boolean; disabledReason?: string } = {},
+): FilterAxis[] {
+  const { opponentWinRateSupported = false, ownTeamDivisionSupported = false, disabledReason } = ctx;
+  const andAxis = (
+    id: string,
+    label: string,
+    tier: "primary" | "advanced",
+    value: string,
+    options: FilterAxisOption[],
+    set: (next: T, v: string) => T,
+  ): FilterAxis => ({
+    kind: "select",
+    id,
+    label,
+    tier,
+    options: [{ value: "", label: FILTER_ALL_LABEL }, ...options],
+    value,
+    defaultValue: "",
+    onChange: (v) => onChange(set(filter, v)),
+    disabledReason,
+  });
+
+  const axes: FilterAxis[] = [
+    andAxis("s.homeAway", "会場", "primary", filter.homeAway ?? "", [
+      { value: "home", label: "ホーム" },
+      { value: "away", label: "アウェイ" },
+    ], (f, v) => ({ ...f, homeAway: v === "" ? undefined : (v as "home" | "away") })),
+    andAxis("s.result", "勝敗", "advanced", filter.result ?? "", [
+      { value: "win", label: "勝った試合" },
+      { value: "loss", label: "負けた試合" },
+    ], (f, v) => ({ ...f, result: v === "" ? undefined : (v as "win" | "loss") })),
+    andAxis("s.division", "対戦地区", "advanced", filter.division ?? "", [
+      { value: "east", label: "対東地区" },
+      { value: "west", label: "対西地区" },
+      ...(ownTeamDivisionSupported
+        ? [
+            { value: "same", label: "同地区" },
+            { value: "other", label: "他地区" },
+          ]
+        : []),
+    ], (f, v) => ({ ...f, division: v === "" ? undefined : (v as NonNullable<SituationalAndFilters["division"]>) })),
+    multiSelectAxis({
+      id: "s.month",
+      label: "月",
+      tier: "advanced",
+      options: Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` })),
+      selected: (filter.months ?? []).map(String),
+      onChangeSelected: (values) =>
+        onChange({ ...filter, months: values.length === 0 ? undefined : values.map(Number).sort((a, b) => a - b) }),
+      allLabel: FILTER_ALL_LABEL,
+      disabledReason,
+    }),
+    andAxis("s.newYear", "年明け前後", "advanced", filter.newYear ?? "", [
+      { value: "before", label: "年明け前" },
+      { value: "after", label: "年明け後" },
+    ], (f, v) => ({ ...f, newYear: v === "" ? undefined : (v as "before" | "after") })),
+    andAxis("s.weekday", "曜日", "advanced", filter.weekday ? "weekday" : filter.weekend ? "weekend" : "", [
+      { value: "weekday", label: "平日開催のみ" },
+      { value: "weekend", label: "土日開催" },
+    ], (f, v) => ({ ...f, weekday: v === "weekday" ? true : undefined, weekend: v === "weekend" ? true : undefined })),
+  ];
+  if (opponentWinRateSupported) {
+    axes.push(
+      andAxis("s.opponentWinRate", "対戦相手の勝率", "advanced", filter.opponentWinRate ?? "", [
+        { value: "under50", label: "5割未満" },
+        { value: "atLeast50", label: "5割以上" },
+        { value: "atLeast60", label: "6割以上" },
+      ], (f, v) => ({ ...f, opponentWinRate: v === "" ? undefined : (v as "under50" | "atLeast50" | "atLeast60") })),
+    );
+  }
+  return axes;
+}
+
 /**
  * SituationalFilter（range＋AND合成の各軸）を軸の配列に展開する。SituationalFilterPickerの
  * 代わりに使う。対象期間・会場を常時表示、それ以外（勝敗・対戦地区・月・年明け前後・曜日・
@@ -377,26 +456,6 @@ export function situationalAxes(
     { value: RANGE_CUSTOM, label: "期間指定" },
   ];
 
-  /** AND合成の1軸（"" = 未指定）を作る。setは値を受けてfilterの該当フィールドだけ差し替える */
-  const andAxis = (
-    id: string,
-    label: string,
-    tier: "primary" | "advanced",
-    value: string,
-    options: FilterAxisOption[],
-    set: (next: SituationalFilter, v: string) => SituationalFilter,
-  ): FilterAxis => ({
-    kind: "select",
-    id,
-    label,
-    tier,
-    options: [{ value: "", label: FILTER_ALL_LABEL }, ...options],
-    value,
-    defaultValue: "",
-    onChange: (v) => onChange(set(filter, v)),
-    disabledReason,
-  });
-
   const axes: FilterAxis[] = [
     {
       kind: "select",
@@ -414,54 +473,8 @@ export function situationalAxes(
           ? `${dateRange.start || "…"}〜${dateRange.end || "…"}`
           : undefined,
     },
-    andAxis("s.homeAway", "会場", "primary", filter.homeAway ?? "", [
-      { value: "home", label: "ホーム" },
-      { value: "away", label: "アウェイ" },
-    ], (f, v) => ({ ...f, homeAway: v === "" ? undefined : (v as "home" | "away") })),
-    andAxis("s.result", "勝敗", "advanced", filter.result ?? "", [
-      { value: "win", label: "勝った試合" },
-      { value: "loss", label: "負けた試合" },
-    ], (f, v) => ({ ...f, result: v === "" ? undefined : (v as "win" | "loss") })),
-    andAxis("s.division", "対戦地区", "advanced", filter.division ?? "", [
-      { value: "east", label: "対東地区" },
-      { value: "west", label: "対西地区" },
-      ...(ownTeamDivisionSupported
-        ? [
-            { value: "same", label: "同地区" },
-            { value: "other", label: "他地区" },
-          ]
-        : []),
-    ], (f, v) => ({ ...f, division: v === "" ? undefined : (v as NonNullable<SituationalFilter["division"]>) })),
-    multiSelectAxis({
-      id: "s.month",
-      label: "月",
-      tier: "advanced",
-      options: Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` })),
-      selected: (filter.months ?? []).map(String),
-      onChangeSelected: (values) =>
-        onChange({ ...filter, months: values.length === 0 ? undefined : values.map(Number).sort((a, b) => a - b) }),
-      allLabel: FILTER_ALL_LABEL,
-      disabledReason,
-    }),
-    andAxis("s.newYear", "年明け前後", "advanced", filter.newYear ?? "", [
-      { value: "before", label: "年明け前" },
-      { value: "after", label: "年明け後" },
-    ], (f, v) => ({ ...f, newYear: v === "" ? undefined : (v as "before" | "after") })),
-    andAxis("s.weekday", "曜日", "advanced", filter.weekday ? "weekday" : filter.weekend ? "weekend" : "", [
-      { value: "weekday", label: "平日開催のみ" },
-      { value: "weekend", label: "土日開催" },
-    ], (f, v) => ({ ...f, weekday: v === "weekday" ? true : undefined, weekend: v === "weekend" ? true : undefined })),
+    ...situationalAndAxes(filter, onChange, { opponentWinRateSupported, ownTeamDivisionSupported, disabledReason }),
   ];
-
-  if (opponentWinRateSupported) {
-    axes.push(
-      andAxis("s.opponentWinRate", "対戦相手の勝率", "advanced", filter.opponentWinRate ?? "", [
-        { value: "under50", label: "5割未満" },
-        { value: "atLeast50", label: "5割以上" },
-        { value: "atLeast60", label: "6割以上" },
-      ], (f, v) => ({ ...f, opponentWinRate: v === "" ? undefined : (v as "under50" | "atLeast50" | "atLeast60") })),
-    );
-  }
 
   const dateAxis = (id: string, label: string, key: "start" | "end"): FilterAxis => ({
     kind: "date",

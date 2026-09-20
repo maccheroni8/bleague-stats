@@ -48,7 +48,14 @@ import { BOXSCORE_TABS, type BoxscoreColumn, type BoxscoreTabKey, COLUMNS_BY_TAB
 import { buildPlayerGameBoxscoreRow, type PlayerGameBoxscoreRow } from "../lib/playerGameBoxscore";
 import { CompareSlotFilter } from "../components/CompareSlotFilter";
 import { FilterBar } from "../components/FilterBar";
-import { gameTypeAxis } from "../lib/filterAxes";
+import {
+  displayModeAxis,
+  gameTypeAxis,
+  periodAxis,
+  simpleSelectAxis,
+  situationalAndAxes,
+  type FilterAxis,
+} from "../lib/filterAxes";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { bleaguePlayerUrl } from "../lib/externalLinks";
@@ -60,8 +67,6 @@ import { computeGameOnOffSplit, mergeOnOffSplits, type OnOffBucket, type OnOffSp
 import { buildShotTypeBreakdown, shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
-import { ShotChartFilterPicker } from "../components/ShotChartFilterPicker";
-import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { periodInRange, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
@@ -71,8 +76,6 @@ import {
   SEASON_BOX_COLUMNS,
   SEASON_BOX_PERIOD_OPTIONS,
   SEASON_BOX_TABS,
-  SEASON_DISPLAY_MODE_LABELS,
-  SEASON_GAME_TYPE_LABELS,
   buildPeriodFilteredRawTotals,
   buildSeasonBoxscoreCtx,
   buildTeamSplitRows,
@@ -213,10 +216,6 @@ const TAB_LABELS: Record<DetailTab, string> = {
   highs: "キャリアハイ",
   compare: "比較",
 };
-
-// 「シーズン別成績」「シチュエーション別成績」の平均/合計切り替え。SeasonDisplayModeには
-// 「30分換算」も含まれるが、ここでは依頼通り平均/合計の2択のみボタン化する
-const DISPLAY_MODE_TOGGLE_OPTIONS: SeasonDisplayMode[] = ["perGame", "total"];
 
 // 「通算成績」タブのカテゴリ選択。B.NEXTは未実装のためスコープ外、カテゴリ横断の
 // 「全カテゴリ合計」もB.ONEのデータが1シーズン分しか無く中途半端な合計になるため実装しない
@@ -769,7 +768,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [seasonShotChartLoading, setSeasonShotChartLoading] = useState(false);
   const seasonShotChartFetchStartedRef = useRef(false);
   // ショットチャート専用の複数選択フィルタ（対勝率別・地区別・会場・時期・曜日・月別をAND合成）と
-  // Q別/前後半（試合ごとのPeriod番号ベース、試合詳細ページと同じPeriodRangeToggleを再利用）
+  // Q別/前後半（試合ごとのPeriod番号ベース、FilterBarのQ別/前後半（periodAxis）で選ぶ）
   const [shotChartFilters, setShotChartFilters] = usePageState<ShotChartGameFilters>(pk("shotChartFilters"), () => ({}));
   const [shotChartPeriod, setShotChartPeriod] = usePageState<PeriodRangeValue>(pk("shotChartPeriod"), "all");
 
@@ -948,7 +947,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     [shotChartGameSummaries],
   );
   // シーズン内移籍対応: 所属チームを試合ログから動的に導出する（resolveOwnTeam参照）。
-  // 複数チームでプレーしたシーズンのみShotChartFilterPickerにチーム別ボタンが表示される
+  // 複数チームでプレーしたシーズンのみショットチャートのフィルタバーにチーム別の選択が表示される
   const shotChartGameTeams = useMemo(
     () => (shotChartGameSummaries ? buildGameTeamsByScheduleKey(shotChartGameSummaries) : new Map()),
     [shotChartGameSummaries],
@@ -2086,6 +2085,45 @@ export function PlayerDetailPage({ season }: { season: string }) {
     shotChartGameFilterLabels(shotChartFilters, shotChartOwnTeamName),
     periodLabels(shotChartPeriodOption),
   );
+  // フィルタバー（DESIGN.md 105章 B5）。ショットチャートは AND 条件の軸（対象期間の range は元々無い）を
+  // 共通の軸定義から作り、勝敗を主要軸に上げる。チームは移籍で複数チームに所属したシーズンだけ出す
+  const shotChartFilterAxes: FilterAxis[] = [
+    ...(shotChartTeamOptions.length > 1
+      ? [
+          simpleSelectAxis({
+            id: "shotChartTeam",
+            label: "チーム",
+            options: [
+              { value: "", label: "全チーム合算" },
+              ...shotChartTeamOptions.map((t) => ({ value: t.teamId, label: t.label })),
+            ],
+            value: shotChartFilters.ownTeamId ?? "",
+            defaultValue: "",
+            onChange: (v) => setShotChartFilters({ ...shotChartFilters, ownTeamId: v || undefined }),
+          }),
+        ]
+      : []),
+    ...situationalAndAxes(shotChartFilters, setShotChartFilters, {
+      opponentWinRateSupported: !!shotChartGameSummaries,
+      ownTeamDivisionSupported: !!divisionHistory && !!shotChartGameSummaries,
+    }).map((a): FilterAxis => (a.id === "s.result" ? { ...a, tier: "primary" } : a)),
+    periodAxis(shotChartPeriod, setShotChartPeriod, SEASON_SHOT_CHART_PERIOD_OPTIONS),
+  ];
+  const clearShotChartFilters = () => {
+    setShotChartFilters({});
+    setShotChartPeriod("all");
+  };
+  // 通算成績・キャリアハイ（2タブで同じ状態を共有）
+  const careerFilterAxes: FilterAxis[] = [
+    simpleSelectAxis({
+      id: "careerCategory",
+      label: "カテゴリ",
+      options: CAREER_CATEGORY_OPTIONS.map((c) => ({ value: c, label: CAREER_CATEGORY_LABELS[c] })),
+      value: careerCategory,
+      onChange: (v) => setCareerCategory(v as Category),
+    }),
+    gameTypeAxis(careerGameTypeFilter, setCareerGameTypeFilter),
+  ];
   const careerRangeSeasons = (careerCategory === "one" ? careerDataOne : careerData)?.map((cd) => cd.season) ?? [];
   const careerRangeLabel =
     careerRangeSeasons.length === 0
@@ -2259,22 +2297,16 @@ export function PlayerDetailPage({ season }: { season: string }) {
       {tab === "stats" && (
         <>
           <ConditionTitle section title="シーズン別成績" conditions={seasonBreakdownConditions} />
-          <div className="mode-toggle">
-            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
-              <button
-                key={g}
-                className={g === gameTypeFilter ? "active" : ""}
-                onClick={() => setGameTypeFilter(g)}
-                type="button"
-              >
-                {SEASON_GAME_TYPE_LABELS[g]}
-              </button>
-            ))}
-          </div>
-          <PeriodRangeToggle
-            options={SEASON_BOX_PERIOD_OPTIONS}
-            value={seasonBreakdownPeriod}
-            onChange={setSeasonBreakdownPeriod}
+          <FilterBar
+            simple
+            stateKey={pk("seasonBreakdownFilter")}
+            axes={[
+              gameTypeAxis(gameTypeFilter, setGameTypeFilter),
+              periodAxis(seasonBreakdownPeriod, setSeasonBreakdownPeriod, SEASON_BOX_PERIOD_OPTIONS, {
+                disabledReason: seasonBreakdownTab === "shooting" ? "シューティングはQ別/前後半の対象外です。" : undefined,
+              }),
+              displayModeAxis(seasonDisplayMode, setSeasonDisplayMode),
+            ]}
           />
           {periodRawGamesLoading && seasonBreakdownPeriod !== "all" && (
             <p className="loading">この期間の再集計中...</p>
@@ -2284,7 +2316,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
             gameTypeFilter={gameTypeFilter}
             teamData={careerTeamData}
             displayMode={seasonDisplayMode}
-            onDisplayModeChange={setSeasonDisplayMode}
             playerId={player.playerId}
             period={seasonBreakdownPeriod}
             gamesByScheduleKey={periodRawGames}
@@ -2296,71 +2327,51 @@ export function PlayerDetailPage({ season }: { season: string }) {
           {seasonBreakdownTab === "misc" && <RuleChangeFootnote seasons={(careerData ?? []).map((cd) => cd.season)} />}
 
           <ConditionTitle section title="シチュエーション別成績" conditions={situationalStatsConditions} />
-          <div className="mode-toggle">
-            <select value={situationalStatsSeason} onChange={(e) => setSituationalStatsSeason(e.target.value)}>
-              {[...(careerData ?? [])]
-                .map((cd) => cd.season)
-                .reverse()
-                .map((s) => (
-                  <option key={s} value={s}>
-                    {s}シーズン
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div className="mode-toggle">
-            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
-              <button
-                key={g}
-                className={g === situationalStatsGameType ? "active" : ""}
-                onClick={() => setSituationalStatsGameType(g)}
-                type="button"
-              >
-                {SEASON_GAME_TYPE_LABELS[g]}
-              </button>
-            ))}
-          </div>
-          <PeriodRangeToggle
-            options={SEASON_BOX_PERIOD_OPTIONS}
-            value={situationalStatsPeriod}
-            onChange={setSituationalStatsPeriod}
+          <FilterBar
+            simple
+            stateKey={pk("situationalStatsFilter")}
+            axes={[
+              simpleSelectAxis({
+                id: "situationalStatsSeason",
+                label: "シーズン",
+                options: [...(careerData ?? [])]
+                  .map((cd) => cd.season)
+                  .reverse()
+                  .map((sn) => ({ value: sn, label: `${sn}シーズン` })),
+                value: situationalStatsSeason,
+                // どのシーズンも既定値扱い（対象を選ぶ軸で、変更強調の対象にしない）
+                defaultValue: situationalStatsSeason,
+                onChange: setSituationalStatsSeason,
+              }),
+              gameTypeAxis(situationalStatsGameType, setSituationalStatsGameType),
+              periodAxis(situationalStatsPeriod, setSituationalStatsPeriod, SEASON_BOX_PERIOD_OPTIONS, {
+                disabledReason: situationalStatsTab === "shooting" ? "シューティングはQ別/前後半の対象外です。" : undefined,
+              }),
+              displayModeAxis(situationalStatsDisplayMode, setSituationalStatsDisplayMode),
+            ]}
           />
           {periodRawGamesLoading && situationalStatsPeriod !== "all" && (
             <p className="loading">この期間の再集計中...</p>
           )}
-          <div className="tab-bar-with-toggle">
-            <div className="tab-bar">
-              {SEASON_BOX_TABS.map((t) => (
-                <button
-                  key={t.key}
-                  className={`tab-button${situationalStatsTab === t.key ? " active" : ""}`}
-                  onClick={() => setSituationalStatsTab(t.key)}
-                  type="button"
-                >
-                  {t.label}
-                </button>
-              ))}
+          <div className="tab-bar">
+            {SEASON_BOX_TABS.map((t) => (
               <button
-                className={`tab-button${situationalStatsTab === "shooting" ? " active" : ""}`}
-                onClick={() => setSituationalStatsTab("shooting")}
-                title={SHOOTING_TAB_TOOLTIP}
+                key={t.key}
+                className={`tab-button${situationalStatsTab === t.key ? " active" : ""}`}
+                onClick={() => setSituationalStatsTab(t.key)}
                 type="button"
               >
-                シューティング
+                {t.label}
               </button>
-            </div>
-            <div className="mode-toggle">
-              {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
-                <button
-                  key={m}
-                  className={m === situationalStatsDisplayMode ? "active" : ""}
-                  onClick={() => setSituationalStatsDisplayMode(m)}
-                  type="button"
-                >
-                  {SEASON_DISPLAY_MODE_LABELS[m]}
-                </button>
-              ))}
-            </div>
+            ))}
+            <button
+              className={`tab-button${situationalStatsTab === "shooting" ? " active" : ""}`}
+              onClick={() => setSituationalStatsTab("shooting")}
+              title={SHOOTING_TAB_TOOLTIP}
+              type="button"
+            >
+              シューティング
+            </button>
           </div>
           {!careerData ? (
             <p className="loading">読み込み中...</p>
@@ -2730,17 +2741,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             <p className="loading">読み込み中...</p>
           ) : (
             <>
-              <ShotChartFilterPicker
-                filters={shotChartFilters}
-                onChange={setShotChartFilters}
-                opponentWinRateSupported={!!shotChartGameSummaries}
-                teamOptions={shotChartTeamOptions}
-              />
-              <PeriodRangeToggle
-                options={SEASON_SHOT_CHART_PERIOD_OPTIONS}
-                value={shotChartPeriod}
-                onChange={setShotChartPeriod}
-              />
+              <FilterBar axes={shotChartFilterAxes} stateKey={pk("shotChartFilter")} onClearAll={clearShotChartFilters} />
               <div className="shot-chart-grid shot-chart-grid-single">
                 <ShotChartPanel
                   teamName={player.name}
@@ -2799,28 +2800,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
       {tab === "career" && (
         <>
-          <div className="mode-toggle">
-            {CAREER_CATEGORY_OPTIONS.map((c) => (
-              <button
-                key={c}
-                className={c === careerCategory ? "active" : ""}
-                onClick={() => setCareerCategory(c)}
-                type="button"
-              >
-                {CAREER_CATEGORY_LABELS[c]}
-              </button>
-            ))}
-            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
-              <button
-                key={g}
-                className={g === careerGameTypeFilter ? "active" : ""}
-                onClick={() => setCareerGameTypeFilter(g)}
-                type="button"
-              >
-                {SEASON_GAME_TYPE_LABELS[g]}
-              </button>
-            ))}
-          </div>
+          <FilterBar simple stateKey={pk("careerFilter")} axes={careerFilterAxes} />
           <ConditionTitle title="通算成績" conditions={careerConditions} />
           {(careerCategory === "one" ? careerOneLoading : careerLoading) ? (
             <p className="loading">読み込み中...</p>
@@ -2864,23 +2844,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
       {tab === "highs" && (
         <>
-          <div className="mode-toggle">
-            {CAREER_CATEGORY_OPTIONS.map((c) => (
-              <button key={c} className={c === careerCategory ? "active" : ""} onClick={() => setCareerCategory(c)} type="button">
-                {CAREER_CATEGORY_LABELS[c]}
-              </button>
-            ))}
-            {(Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]).map((g) => (
-              <button
-                key={g}
-                className={g === careerGameTypeFilter ? "active" : ""}
-                onClick={() => setCareerGameTypeFilter(g)}
-                type="button"
-              >
-                {SEASON_GAME_TYPE_LABELS[g]}
-              </button>
-            ))}
-          </div>
+          <FilterBar simple stateKey={pk("careerFilter")} axes={careerFilterAxes} />
           <ConditionTitle title="キャリアハイ・ワースト" conditions={careerBaseConditions} />
           {(careerCategory === "one" ? careerOneLoading : careerLoading) ? (
             <p className="loading">読み込み中...</p>
@@ -3042,7 +3006,6 @@ function SeasonBreakdownTable({
   gameTypeFilter,
   teamData,
   displayMode,
-  onDisplayModeChange,
   playerId,
   period,
   gamesByScheduleKey,
@@ -3054,8 +3017,8 @@ function SeasonBreakdownTable({
   careerData: CareerSeasonLogs[] | null;
   gameTypeFilter: SeasonGameTypeFilter;
   teamData: Map<string, CareerSeasonTeamInfo> | null;
+  /** 試合種別・Q別/前後半・表示は親のFilterBarで選ぶ（表示モードは読むだけ） */
   displayMode: SeasonDisplayMode;
-  onDisplayModeChange: (m: SeasonDisplayMode) => void;
   playerId: string;
   period: PeriodRangeValue;
   gamesByScheduleKey: Map<string, StoredGame>;
@@ -3256,13 +3219,6 @@ function SeasonBreakdownTable({
         >
           シューティング
         </button>
-      </div>
-      <div className="mode-toggle">
-        {DISPLAY_MODE_TOGGLE_OPTIONS.map((m) => (
-          <button key={m} className={m === displayMode ? "active" : ""} onClick={() => onDisplayModeChange(m)} type="button">
-            {SEASON_DISPLAY_MODE_LABELS[m]}
-          </button>
-        ))}
       </div>
     </div>
   );
