@@ -574,7 +574,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         ) : (
           <>
             <ExportImageButton targetRef={exportRef} filename={teamShootingTitle.filename} />
-            <div ref={exportRef} className="export-target">
+            <div ref={exportRef} className="export-target export-target-compact">
               <ConditionTitle title={teamShootingTitle.title} conditions={teamShootingTitle.conditions} />
               <RankedList
                 rows={teamsWithShotTypes}
@@ -583,7 +583,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
                 name={(t) => t.teamName}
                 linkTo={(t) => `/teams/${t.teamId}`}
                 teamColor={(t) => teamColors?.[t.teamId]?.primary}
-                avatar={(t) => <TeamLogo teamId={t.teamId} size={22} />}
+                avatar={(t) => <TeamLogo teamId={t.teamId} size={48} />}
+                compact
               />
             </div>
           </>
@@ -594,7 +595,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         ) : (
           <>
             <ExportImageButton targetRef={exportRef} filename={teamForcedTurnoverTitle.filename} />
-            <div ref={exportRef} className="export-target">
+            <div ref={exportRef} className="export-target export-target-compact">
               <ConditionTitle title={teamForcedTurnoverTitle.title} conditions={teamForcedTurnoverTitle.conditions} />
               <RankedList
                 rows={teamsWithForcedTurnovers}
@@ -603,7 +604,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
                 name={(t) => t.teamName}
                 linkTo={(t) => `/teams/${t.teamId}`}
                 teamColor={(t) => teamColors?.[t.teamId]?.primary}
-                avatar={(t) => <TeamLogo teamId={t.teamId} size={22} />}
+                avatar={(t) => <TeamLogo teamId={t.teamId} size={48} />}
+                compact
               />
             </div>
           </>
@@ -613,7 +615,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
       ) : (
         <>
           <ExportImageButton targetRef={exportRef} filename={teamBoxscoreTitle.filename} />
-          <div ref={exportRef} className="export-target">
+          <div ref={exportRef} className="export-target export-target-compact">
             <ConditionTitle title={teamBoxscoreTitle.title} conditions={teamBoxscoreTitle.conditions} />
             <RankedList
               rows={rows}
@@ -622,7 +624,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
               name={(r) => r.team.teamName}
               linkTo={(r) => `/teams/${r.team.teamId}`}
               teamColor={(r) => teamColors?.[r.team.teamId]?.primary}
-              avatar={(r) => <TeamLogo teamId={r.team.teamId} size={22} />}
+              avatar={(r) => <TeamLogo teamId={r.team.teamId} size={48} />}
+              compact
             />
             {category === "misc" && isRuleChangeStatKey(teamDef.key) && <RuleChangeFootnote seasons={[season]} />}
           </div>

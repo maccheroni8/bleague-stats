@@ -2571,6 +2571,30 @@ table.schedule-table th {
   cursor: default;
 }
 
+/* 日付ごとに別の表なので、列幅を内容任せにすると日付間でホーム/結果/アウェイ/会場の縦の並びがずれる。
+ * 列幅を固定して全日付で揃える（狭い画面では表側の横スクロールに任せる）。
+ * 会場列は、全シーズンの試合の会場名（games-summary の venue、169種）で最長の
+ * 「キッコーマン アリーナ（流山市民総合体育館）」（22文字）に合わせた固定幅（全角1文字=1em換算で22em＋セル余白24px）。
+ * 結果列だけを幅指定なしにして、画面が広いときの余りを受ける */
+table.schedule-table {
+  table-layout: fixed;
+  min-width: calc(280px + 280px + 88px + 22em + 24px);
+}
+
+col.schedule-col-home,
+col.schedule-col-away {
+  width: 280px;
+}
+
+col.schedule-col-venue {
+  width: calc(22em + 24px);
+}
+
+table.schedule-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 table.schedule-table td.align-left {
   text-align: left;
 }
@@ -2596,6 +2620,13 @@ table.schedule-table td.align-center {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+
+.schedule-team-cell .schedule-team-chip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 td.schedule-team-cell.align-right .cell-link {

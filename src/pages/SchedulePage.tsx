@@ -319,6 +319,12 @@ export function SchedulePage({ season }: { season: string }) {
               <h2>{formatDateHeading(date)}</h2>
               <div className="table-scroll">
                 <table className="sortable-table schedule-table">
+                  <colgroup>
+                    <col className="schedule-col-home" />
+                    <col className="schedule-col-result" />
+                    <col className="schedule-col-away" />
+                    <col className="schedule-col-venue" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th className="align-left">ホーム</th>
@@ -393,7 +399,7 @@ function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: R
           {row.awayTeamId && <TeamLogo teamId={row.awayTeamId} size={24} />}
         </MaybeLink>
       </td>
-      <td className="align-left">{row.venue ?? "-"}</td>
+      <td className="align-left schedule-venue-cell">{row.venue ?? "-"}</td>
     </tr>
   );
 }
