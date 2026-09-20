@@ -324,6 +324,30 @@ export function simpleSelectAxis(input: {
   };
 }
 
+/**
+ * ランキングの「スタッツ項目」選択（PTS/REB/AST等）。カテゴリタブごとに項目が変わるので、呼び出し側が
+ * 現在のカテゴリの項目を渡す。value が項目に無いとき（カテゴリ切替直後など）は先頭を選択中として扱う。
+ * 「絞り込み」ではなく表示項目の選択なので、simple のバーに単独で置いてチップには出さない（chip: false）
+ */
+export function statItemAxis(
+  items: { key: string; label: string; group?: string }[],
+  value: string,
+  onChange: (key: string) => void,
+): FilterAxis {
+  const selected = items.some((i) => i.key === value) ? value : (items[0]?.key ?? "");
+  return {
+    ...simpleSelectAxis({
+      id: "statItem",
+      label: "スタッツ項目",
+      options: items.map((i) => ({ value: i.key, label: i.label, group: i.group })),
+      value: selected,
+      defaultValue: selected,
+      onChange,
+    }),
+    chip: false,
+  };
+}
+
 /** 歴代記録の会場: トータル/ホーム/アウェイ（既定はトータル） */
 export function leagueVenueAxis(value: LeagueVenue, onChange: (v: LeagueVenue) => void): FilterAxis {
   return simpleSelectAxis({

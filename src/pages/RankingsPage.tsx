@@ -22,6 +22,7 @@ import {
   periodAxis,
   perspectiveAxis,
   situationalAxes,
+  statItemAxis,
   type FilterAxis,
 } from "../lib/filterAxes";
 import { filterGameLogs, isDefaultFilter, type SituationalFilter } from "../lib/situational";
@@ -59,7 +60,7 @@ import {
   type AllTeamsRow,
   type TeamPerspective,
 } from "../lib/teamStatsColumns";
-import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns } from "../lib/shotTypeBreakdown";
+import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns, shotTypeLabel } from "../lib/shotTypeBreakdown";
 import { useAllTeamGameLogs, useLeagueRawGames, useLeagueSituationalContext } from "../lib/teamRankingData";
 import { isShotChartSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import {
@@ -182,6 +183,15 @@ interface RankedListProps<T> {
   limit?: number;
   /** trueのとき、表を内容幅に詰める（名前と値の間が広がりすぎないように。親の.export-target-compactと併用） */
   compact?: boolean;
+}
+
+/** シューティングの項目（キー「{シュート種別}_2pm」等）を、シュート種別ごとのグループにする（項目数が多いため） */
+function shootingStatItems(columns: { key: string; label: string }[]): { key: string; label: string; group: string }[] {
+  return columns.map((c) => ({
+    key: c.key,
+    label: c.label,
+    group: shotTypeLabel(c.key.replace(/_(2pm|2pa|2ppct|3pm|3pa|3ppct)$/, "")),
+  }));
 }
 
 /** defの向き（higherIsBetter）から導く、そのdefにとって「正しい」既定のソート方向 */
@@ -548,25 +558,22 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         ) : null}
       </div>
 
-      <div className="stat-picker">
-        {category === "shooting"
-          ? shootingColumns.map((c) => (
-              <button key={c.key} className={c.key === statKey ? "active" : ""} onClick={() => setStatKey(c.key)} type="button">
-                {c.label}
-              </button>
-            ))
-          : category === "forcedTurnovers"
-            ? FORCED_TURNOVER_ITEMS.map((i) => (
-                <button key={i.key} className={i.key === statKey ? "active" : ""} onClick={() => setStatKey(i.key)} type="button">
-                  {i.label}
-                </button>
-              ))
-            : columns.map((c) => (
-                <button key={c.key} className={c.key === statKey ? "active" : ""} onClick={() => setStatKey(c.key)} type="button">
-                  {c.label}
-                </button>
-              ))}
-      </div>
+      <FilterBar
+        axes={[
+          statItemAxis(
+            category === "shooting"
+              ? shootingStatItems(shootingColumns)
+              : category === "forcedTurnovers"
+                ? FORCED_TURNOVER_ITEMS
+                : columns,
+            statKey,
+            setStatKey,
+          ),
+        ]}
+        stateKey="rankings:team:stat"
+        simple
+        wide
+      />
 
       {category === "shooting" ? (
         !shootingDef ? (
@@ -1249,13 +1256,18 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         </button>
       </div>
 
-      <div className="stat-picker">
-        {currentItems.map((i) => (
-          <button key={i.key} className={i.key === statKey ? "active" : ""} onClick={() => selectStat(i.key)} type="button">
-            {i.label}
-          </button>
-        ))}
-      </div>
+      <FilterBar
+        axes={[
+          statItemAxis(
+            category === "shooting" ? shootingStatItems(currentItems) : currentItems,
+            statKey,
+            selectStat,
+          ),
+        ]}
+        stateKey="rankings:player:stat"
+        simple
+        wide
+      />
 
       <div className="filter-block">
         <p className="page-subtitle">対象{eligible.length}名中、上位{PLAYER_RANK_TOP_N}名を表示</p>

@@ -3376,6 +3376,11 @@ table.compare-table th .compare-condition-tag {
   }
 }
 
+/* 1軸だけで選択肢の文言が長いバー（ランキングの「スタッツ項目」）: 1列の幅を広げる */
+.filter-bar.wide .filter-bar-primary {
+  grid-template-columns: minmax(0, 320px);
+}
+
 /* 比較スロットなど幅の狭い枠: 常時表示も詳細もラベル付きの2列で折り返す */
 .filter-bar.compact {
   margin-bottom: 0;

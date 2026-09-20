@@ -24,6 +24,11 @@ interface FilterBarProps {
    * ページ幅いっぱいのバーだけで、3分割したスロットでは1列にすると値が読めない
    */
   compact?: boolean;
+  /**
+   * 1軸だけで選択肢の文言が長いバー（ランキングの「スタッツ項目」）用: 1列の幅を広げる。
+   * 通常のバーは1列を最大200pxに抑えて横1列に収めている
+   */
+  wide?: boolean;
 }
 
 /** ボタン（summary表示）を押すとポップオーバー（children）を開く共通部品。外側クリック・Escで閉じる */
@@ -196,7 +201,7 @@ function FilterField({ axis }: { axis: FilterAxis }) {
  * 「詳細フィルタ」に折りたたみ、既定値から変更した軸だけをチップ（×で解除）として出す。
  * 表・画像出力（.export-target）の外に置く。画像に写る「選択中の条件」は ConditionTitle が担う
  */
-export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact = false }: FilterBarProps) {
+export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact = false, wide = false }: FilterBarProps) {
   const [advancedOpen, setAdvancedOpen] = usePageState<boolean>(`${stateKey}:advancedOpen`, false);
   const panelId = useId();
   const primary = axes.filter((a) => a.tier === "primary");
@@ -211,7 +216,7 @@ export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact 
   const allDisabled = axes.length > 0 && axes.every((a) => a.disabledReason);
 
   return (
-    <div className={`filter-bar${allDisabled ? " all-disabled" : ""}${compact ? " compact" : ""}`}>
+    <div className={`filter-bar${allDisabled ? " all-disabled" : ""}${compact ? " compact" : ""}${wide ? " wide" : ""}`}>
       <div
         className="filter-bar-grid filter-bar-primary"
         style={{ "--filter-cols": primary.length } as React.CSSProperties}
