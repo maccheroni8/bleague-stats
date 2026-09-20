@@ -169,6 +169,8 @@ export function isAxisChipped(axis: FilterAxis): boolean {
 interface SimpleAxisOptions {
   tier?: "primary" | "advanced";
   disabledReason?: string;
+  /** 既定値がページ固有のとき（日程結果の試合種別は「合算」が既定）。チップ・変更強調の基準になる */
+  defaultValue?: string;
 }
 
 /** G軸: レギュラーシーズン/プレーオフ/合算 */
@@ -184,7 +186,7 @@ export function gameTypeAxis(
     tier: opts.tier ?? "primary",
     options: optionsFromLabels(SEASON_GAME_TYPE_LABELS, Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]),
     value,
-    defaultValue: "regular",
+    defaultValue: opts.defaultValue ?? "regular",
     onChange: (v) => onChange(v as SeasonGameTypeFilter),
     disabledReason: opts.disabledReason,
   };

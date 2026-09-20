@@ -46,7 +46,6 @@ import { teamShortName } from "../../shared/teamNames";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { BOXSCORE_TABS, type BoxscoreColumn, type BoxscoreTabKey, COLUMNS_BY_TAB } from "../components/BoxscoreTable";
 import { buildPlayerGameBoxscoreRow, type PlayerGameBoxscoreRow } from "../lib/playerGameBoxscore";
-import { SituationalFilterPicker } from "../components/SituationalFilterPicker";
 import { CompareSlotFilter } from "../components/CompareSlotFilter";
 import { FilterBar } from "../components/FilterBar";
 import { gameTypeAxis } from "../lib/filterAxes";
