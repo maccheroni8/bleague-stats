@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { axisValueLabel, isAxisChipped, type FilterAxis, type FilterMultiAxis } from "../lib/filterAxes";
+import { axisValueLabel, isAxisChipped, type FilterAxis, type FilterAxisOption, type FilterMultiAxis } from "../lib/filterAxes";
 import { usePageState } from "../lib/pageStateCache";
 
 interface FilterBarProps {
@@ -133,6 +133,22 @@ function MultiSelectContent({ axis }: { axis: FilterMultiAxis }) {
   );
 }
 
+/** select の選択肢を、group なし（先頭）→ group ごとの順にまとめる。group を持つ選択肢が無ければ1かたまり */
+function selectOptionGroups(options: FilterAxisOption[]): { label: string | null; options: FilterAxisOption[] }[] {
+  const groups: { label: string | null; options: FilterAxisOption[] }[] = [];
+  for (const o of options) {
+    const label = o.group ?? null;
+    let g = groups.find((x) => x.label === label);
+    if (!g) {
+      g = { label, options: [] };
+      if (label === null) groups.unshift(g);
+      else groups.push(g);
+    }
+    g.options.push(o);
+  }
+  return groups;
+}
+
 function FilterField({ axis }: { axis: FilterAxis }) {
   const id = useId();
   const changed = isAxisChipped(axis);
@@ -150,11 +166,23 @@ function FilterField({ axis }: { axis: FilterAxis }) {
         </PopoverShell>
       ) : axis.kind === "select" ? (
         <select id={id} value={axis.value} disabled={disabled} title={axis.disabledReason} onChange={(e) => axis.onChange(e.target.value)}>
-          {axis.options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
+          {selectOptionGroups(axis.options).map((g) =>
+            g.label === null ? (
+              g.options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))
+            ) : (
+              <optgroup key={g.label} label={g.label}>
+                {g.options.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </optgroup>
+            ),
+          )}
         </select>
       ) : (
         <input id={id} type="date" value={axis.value} disabled={disabled} title={axis.disabledReason} onChange={(e) => axis.onChange(e.target.value)} />

@@ -10,6 +10,7 @@
 // - 軸はtier（primary=常時表示 / advanced=「詳細フィルタ」に折りたたむ）を持つ
 
 import type { ReactNode } from "react";
+import { teamShortName } from "../../shared/teamNames";
 import { LEAGUE_VENUE_LABELS, periodLabels, type LeagueVenue } from "./conditionLabels";
 import { CLASSIFICATION_GROUP_OPTIONS, type ClassificationGroupFilter } from "./classificationFilter";
 import type { PeriodRangeOption, PeriodRangeValue } from "./periodRange";
@@ -30,6 +31,9 @@ import { TEAM_PERSPECTIVE_LABELS, type TeamPerspective } from "./teamStatsColumn
 export interface FilterAxisOption {
   value: string;
   label: string;
+  /** 指定すると select 内で `<optgroup>` にまとめる（条件別順位表の条件のように選択肢が多い軸用）。
+   * groupを持たない選択肢は先頭にグループなしで並ぶ */
+  group?: string;
 }
 
 interface FilterAxisBase {
@@ -149,6 +153,32 @@ export function multiSelectAxis(input: {
 }
 
 export const FILTER_ALL_LABEL = "すべて";
+
+/**
+ * クラブの複数選択（順位表の星取り・条件別順位表・日程）。選択状態は「null＝全クラブ」の Set で持つページ側に合わせ、
+ * 何も選ばなければ全クラブ（他の複数選択軸と同じ）。プリセットは東/中/西地区・プレーオフ進出圏など
+ */
+export function teamMultiAxis(input: {
+  id?: string;
+  label?: string;
+  options: { teamId: string; teamName: string }[];
+  selected: Set<string> | null;
+  onChange: (next: Set<string> | null) => void;
+  presets?: { label: string; teamIds: string[] }[];
+  tier?: "primary" | "advanced";
+}): FilterAxis {
+  return multiSelectAxis({
+    id: input.id ?? "teams",
+    label: input.label ?? "対象クラブ",
+    tier: input.tier,
+    options: input.options.map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) })),
+    selected: input.selected ? [...input.selected] : [],
+    onChangeSelected: (values) => input.onChange(values.length === 0 ? null : new Set(values)),
+    allLabel: "全クラブ",
+    presets: input.presets?.map((p) => ({ label: p.label, values: p.teamIds })),
+    searchable: true,
+  });
+}
 
 function optionsFromLabels<K extends string>(labels: Record<K, string>, keys: K[]): FilterAxisOption[] {
   return keys.map((k) => ({ value: k, label: labels[k] }));

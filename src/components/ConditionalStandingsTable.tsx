@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { SortableTable, type Column } from "./SortableTable";
 import { TeamLogo } from "./TeamLogo";
-import { TeamFilterBlock } from "./TeamFilterBlock";
+import { FilterBar } from "./FilterBar";
+import { simpleSelectAxis, teamMultiAxis, type FilterAxis, type FilterAxisOption } from "../lib/filterAxes";
 import { ConditionLine } from "./ConditionTitle";
 import { composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatSigned, formatWinPct } from "../lib/format";
@@ -272,7 +273,6 @@ export function ConditionalStandingsTable({
 
   const [condition, setCondition] = useState<ConditionalCondition>({ kind: "all" });
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string> | null>(null);
-  const [filterExpanded, setFilterExpanded] = useState(false);
 
   // シーズンが変わったら条件・チーム絞り込みをリセットする（前シーズンの選択を引き継がない）
   useEffect(() => {
@@ -371,9 +371,50 @@ export function ConditionalStandingsTable({
     },
   ];
 
+  // フィルタバー（DESIGN.md 105章 B6）。条件は排他の単一選択なので、グループ付きの1つのドロップダウンにする
+  // （選ぶと「条件」のチップが1つだけ出る）。月別も同じドロップダウンの1グループにまとめた
   const conditionKeyOf = (c: ConditionalCondition) => JSON.stringify(c);
-  const isConditionActive = (c: ConditionalCondition) => conditionKeyOf(c) === conditionKeyOf(condition);
-  const activateCondition = (c: ConditionalCondition) => setCondition(isConditionActive(c) ? { kind: "all" } : c);
+  const conditionOptions: FilterAxisOption[] = [
+    { value: "all", label: "条件なし（シーズン全体）" },
+    ...conditionGroups.flatMap((g) => g.options.map((o) => ({ value: o.key, label: o.label, group: g.label }))),
+    ...Array.from({ length: 12 }, (_, i) => ({ value: `month-${i + 1}`, label: `${i + 1}月`, group: "月別" })),
+  ];
+  const conditionByKey = new Map<string, ConditionalCondition>([
+    ...conditionGroups.flatMap((g) => g.options.map((o) => [o.key, o.condition] as const)),
+    ...Array.from({ length: 12 }, (_, i) => [`month-${i + 1}`, { kind: "month", value: i + 1 } as ConditionalCondition] as const),
+  ]);
+  const activeConditionKey =
+    condition.kind === "all"
+      ? "all"
+      : condition.kind === "month"
+        ? `month-${condition.value}`
+        : (conditionGroups.flatMap((g) => g.options).find((o) => conditionKeyOf(o.condition) === conditionKeyOf(condition))?.key ?? "all");
+  const divisionTeamIds = (division: Division) => teams.filter((t) => t.division === division).map((t) => t.teamId);
+  const filterAxes: FilterAxis[] = [
+    simpleSelectAxis({
+      id: "condition",
+      label: "条件",
+      options: conditionOptions,
+      value: activeConditionKey,
+      defaultValue: "all",
+      onChange: (key) => setCondition(conditionByKey.get(key) ?? { kind: "all" }),
+    }),
+    teamMultiAxis({
+      options: teamOptions,
+      selected: selectedTeamIds,
+      onChange: setSelectedTeamIds,
+      presets: [
+        { label: "東地区", teamIds: divisionTeamIds("east") },
+        ...(hasCentralDivision ? [{ label: "中地区", teamIds: divisionTeamIds("central") }] : []),
+        { label: "西地区", teamIds: divisionTeamIds("west") },
+        ...(playoffQualifiedIds ? [{ label: "プレーオフ進出圏（現時点）", teamIds: [...playoffQualifiedIds] }] : []),
+      ],
+    }),
+  ];
+  const clearFilters = () => {
+    setCondition({ kind: "all" });
+    setSelectedTeamIds(null);
+  };
 
   const rows: ConditionalRow[] = useMemo(() => {
     if (!gameLogsByTeam) return [];
@@ -459,88 +500,7 @@ export function ConditionalStandingsTable({
 
   return (
     <div>
-      <div className="mode-toggle">
-        <button className={condition.kind === "all" ? "active" : ""} onClick={() => setCondition({ kind: "all" })}>
-          条件なし（シーズン全体）
-        </button>
-      </div>
-      {conditionGroups.map((group) => (
-        <div key={group.label}>
-          <span className="condition-group-label">{group.label}</span>
-          <div className="mode-toggle">
-            {group.options.map((o) => (
-              <button
-                key={o.key}
-                className={isConditionActive(o.condition) ? "active" : ""}
-                onClick={() => activateCondition(o.condition)}
-                type="button"
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-      <div>
-        <span className="condition-group-label">月別</span>
-        <div className="mode-toggle">
-          <select
-            value={condition.kind === "month" ? String(condition.value) : ""}
-            onChange={(e) => {
-              const value = e.target.value;
-              setCondition(value === "" ? { kind: "all" } : { kind: "month", value: Number(value) });
-            }}
-          >
-            <option value="">選択してください</option>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <option key={m} value={m}>
-                {m}月
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <span className="condition-group-label">チームの絞り込み</span>
-      <div className="mode-toggle">
-        <button className={selectedTeamIds === null ? "active" : ""} onClick={() => setSelectedTeamIds(null)}>
-          全チーム
-        </button>
-        <button onClick={() => setSelectedTeamIds(new Set(teams.filter((t) => t.division === "east").map((t) => t.teamId)))}>
-          東地区
-        </button>
-        {hasCentralDivision && (
-          <button
-            onClick={() => setSelectedTeamIds(new Set(teams.filter((t) => t.division === "central").map((t) => t.teamId)))}
-          >
-            中地区
-          </button>
-        )}
-        <button onClick={() => setSelectedTeamIds(new Set(teams.filter((t) => t.division === "west").map((t) => t.teamId)))}>
-          西地区
-        </button>
-        {playoffQualifiedIds && (
-          <button onClick={() => setSelectedTeamIds(new Set(playoffQualifiedIds))}>プレーオフ進出圏（現時点）</button>
-        )}
-      </div>
-      <TeamFilterBlock
-        options={teamOptions}
-        selected={selectedTeamIds}
-        expanded={filterExpanded}
-        onToggleExpanded={() => setFilterExpanded((v) => !v)}
-        onToggle={(teamId) => {
-          setSelectedTeamIds((prev) => {
-            const base = prev ?? new Set(teamOptions.map((t) => t.teamId));
-            const next = new Set(base);
-            if (next.has(teamId)) next.delete(teamId);
-            else next.add(teamId);
-            return next;
-          });
-        }}
-        onSelectAll={() => setSelectedTeamIds(null)}
-        onSelectNone={() => setSelectedTeamIds(new Set())}
-        heading="特定のチームで絞り込み"
-      />
+      <FilterBar axes={filterAxes} stateKey="standings:conditional" onClearAll={clearFilters} />
 
       <h2>{describeCondition(condition)} 順位表</h2>
       {/* 見出しは条件（単一軸）のみ。シーズン・対象試合・チーム絞り込みは条件行で補う（Batch 5、DESIGN.md 99章） */}

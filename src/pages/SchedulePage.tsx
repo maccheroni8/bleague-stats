@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { TeamLogo } from "../components/TeamLogo";
-import { TeamFilterBlock } from "../components/TeamFilterBlock";
+import { FilterBar } from "../components/FilterBar";
+import { simpleSelectAxis, teamMultiAxis, type FilterAxis } from "../lib/filterAxes";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { composeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { fetchGameSummaries, fetchSchedule, fetchTeamColors, fetchTeams } from "../lib/data";
@@ -154,7 +155,6 @@ export function SchedulePage({ season }: { season: string }) {
   const [view, setView] = useState<ScheduleView>("list");
   // null = 全チーム選択（絞り込みなし）。個別に外したチームだけをSetで管理する
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string> | null>(null);
-  const [teamFilterExpanded, setTeamFilterExpanded] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState<string | null>(null);
   // リスト表示のみに適用する試合ステータスの絞り込み（カレンダー表示は月単位のため対象外）
   const [statusFilter, setStatusFilter] = useState<ScheduleStatusFilter>("all");
@@ -180,7 +180,6 @@ export function SchedulePage({ season }: { season: string }) {
         .sort((a, b) => teamShortName(a.teamId, a.teamName).localeCompare(teamShortName(b.teamId, b.teamName), "ja")),
     [teams],
   );
-  const allTeamIds = useMemo(() => new Set(teamOptions.map((t) => t.teamId)), [teamOptions]);
 
   const filteredRows = useMemo(() => {
     if (selectedTeamIds === null) return rows;
@@ -226,16 +225,6 @@ export function SchedulePage({ season }: { season: string }) {
     if (date) document.getElementById(date)?.scrollIntoView({ behavior: "auto", block: "start" });
   };
 
-  const toggleTeam = (teamId: string) => {
-    setSelectedTeamIds((prev) => {
-      const base = prev ?? new Set(allTeamIds);
-      const next = new Set(base);
-      if (next.has(teamId)) next.delete(teamId);
-      else next.add(teamId);
-      return next;
-    });
-  };
-
   // 表示中の日程に効いている条件（Batch 5、DESIGN.md 99章）。ステータス絞り込みはリスト表示のみ、
   // 表示月はカレンダー表示のみに効く。日程には確定済み・予定・進行中の全試合（レギュラー+プレーオフ）が入る
   const scheduleClubLabels =
@@ -255,6 +244,30 @@ export function SchedulePage({ season }: { season: string }) {
     scheduleClubLabels,
   );
 
+  // フィルタバー（DESIGN.md 105章 B6）。リスト/カレンダーの切替は表示切替のまま。ステータスはリスト表示のみに効く
+  const filterAxes: FilterAxis[] = [
+    ...(view === "list"
+      ? [
+          simpleSelectAxis({
+            id: "status",
+            label: "ステータス",
+            options: [
+              { value: "all", label: "すべて" },
+              { value: "upcoming", label: "今後の試合" },
+              { value: "finished", label: "終了した試合" },
+            ],
+            value: statusFilter,
+            onChange: (v) => setStatusFilter(v as ScheduleStatusFilter),
+          }),
+        ]
+      : []),
+    teamMultiAxis({ options: teamOptions, selected: selectedTeamIds, onChange: setSelectedTeamIds }),
+  ];
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setSelectedTeamIds(null);
+  };
+
   return (
     <div>
       <h1>日程</h1>
@@ -271,46 +284,14 @@ export function SchedulePage({ season }: { season: string }) {
         </div>
       </div>
 
-      {view === "list" && (
-        <div className="schedule-toolbar">
-          <div className="mode-toggle">
-            <button type="button" className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}>
-              すべて
-            </button>
-            <button
-              type="button"
-              className={statusFilter === "upcoming" ? "active" : ""}
-              onClick={() => setStatusFilter("upcoming")}
-            >
-              今後の試合
-            </button>
-            <button
-              type="button"
-              className={statusFilter === "finished" ? "active" : ""}
-              onClick={() => setStatusFilter("finished")}
-            >
-              終了した試合
-            </button>
-          </div>
-        </div>
-      )}
-
-      <TeamFilterBlock
-        options={teamOptions}
-        selected={selectedTeamIds}
-        expanded={teamFilterExpanded}
-        onToggleExpanded={() => setTeamFilterExpanded((v) => !v)}
-        onToggle={toggleTeam}
-        onSelectAll={() => setSelectedTeamIds(null)}
-        onSelectNone={() => setSelectedTeamIds(new Set())}
-      />
+      <FilterBar axes={filterAxes} stateKey="schedule" onClearAll={clearFilters} />
 
       <ConditionTitle title={`${season}シーズン 日程`} conditions={scheduleConditions} />
 
       {view === "list" ? (
         listRows.length === 0 ? (
           <p className="empty-message">
-            {filteredRows.length === 0 ? "選択したチームの試合がありません" : "該当する試合がありません"}
+            {filteredRows.length === 0 ? "選択したクラブの試合がありません" : "該当する試合がありません"}
           </p>
         ) : (
           <>

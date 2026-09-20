@@ -6,7 +6,8 @@ import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart, type ChartTeam } from "../components/StandingsLineChart";
 import { TeamLogo } from "../components/TeamLogo";
 import { HeadToHeadMatrix } from "../components/HeadToHeadMatrix";
-import { TeamFilterBlock } from "../components/TeamFilterBlock";
+import { FilterBar } from "../components/FilterBar";
+import { teamMultiAxis } from "../lib/filterAxes";
 import { ConditionalStandingsTable } from "../components/ConditionalStandingsTable";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
@@ -330,7 +331,6 @@ export function StandingsPage({ season }: { season: string }) {
 
   // null = 全チーム選択（絞り込みなし）。個別に外したチームだけをSetで管理する（SchedulePageと同じパターン）
   const [h2hSelectedTeamIds, setH2hSelectedTeamIds] = useState<Set<string> | null>(null);
-  const [h2hFilterExpanded, setH2hFilterExpanded] = useState(false);
 
   // 「順位表」タブの「全チームの全体順位表」（地区を跨いだ順位表）。デフォルト非表示
   const [overallStandingsExpanded, setOverallStandingsExpanded] = useState(false);
@@ -403,16 +403,6 @@ export function StandingsPage({ season }: { season: string }) {
     : [];
   const filteredHeadToHead =
     headToHead && h2hSelectedTeamIds ? headToHead.filter((r) => h2hSelectedTeamIds.has(r.teamId)) : headToHead;
-  const toggleH2hTeam = (teamId: string) => {
-    setH2hSelectedTeamIds((prev) => {
-      const base = prev ?? new Set(h2hTeamOptions.map((t) => t.teamId));
-      const next = new Set(base);
-      if (next.has(teamId)) next.delete(teamId);
-      else next.add(teamId);
-      return next;
-    });
-  };
-
   // revealCount===undefined（animFrame===null）なら全期間を表示する。
   // アニメーション再生中はhistory全体を渡しつつrevealCountで区切ることで、
   // X軸ドメイン（日付範囲）を固定したまま値だけを段階的に明かす（詳細はreshape()参照）
@@ -623,14 +613,10 @@ export function StandingsPage({ season }: { season: string }) {
           <p className="empty-message">データがありません</p>
         ) : (
           <>
-            <TeamFilterBlock
-              options={h2hTeamOptions}
-              selected={h2hSelectedTeamIds}
-              expanded={h2hFilterExpanded}
-              onToggleExpanded={() => setH2hFilterExpanded((v) => !v)}
-              onToggle={toggleH2hTeam}
-              onSelectAll={() => setH2hSelectedTeamIds(null)}
-              onSelectNone={() => setH2hSelectedTeamIds(new Set())}
+            <FilterBar
+              axes={[teamMultiAxis({ options: h2hTeamOptions, selected: h2hSelectedTeamIds, onChange: setH2hSelectedTeamIds })]}
+              stateKey="standings:h2h"
+              onClearAll={() => setH2hSelectedTeamIds(null)}
             />
             {!filteredHeadToHead || filteredHeadToHead.length === 0 ? (
               <p className="empty-message">選択したチームがありません</p>
