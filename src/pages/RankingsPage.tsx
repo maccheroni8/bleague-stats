@@ -1312,7 +1312,7 @@ export function RankingsPage({ season }: { season: string }) {
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
 
   return (
-    <div>
+    <div data-design="v2">
       <h1>ランキング</h1>
       <p className="page-subtitle">{season}シーズン</p>
 
@@ -1325,11 +1325,14 @@ export function RankingsPage({ season }: { season: string }) {
         </button>
       </div>
 
-      {mode === "team" ? (
-        <TeamRankingSection season={season} teamColors={teamColors ?? undefined} />
-      ) : (
-        <PlayerRankingSection season={season} teamColors={teamColors ?? undefined} />
-      )}
+      {/* カテゴリのタブを「ページの主タブ」ではなく従のタブとして扱うため、ルート直下に置かない（v2のCSSは > .tab-bar だけを主タブにする） */}
+      <div>
+        {mode === "team" ? (
+          <TeamRankingSection season={season} teamColors={teamColors ?? undefined} />
+        ) : (
+          <PlayerRankingSection season={season} teamColors={teamColors ?? undefined} />
+        )}
+      </div>
     </div>
   );
 }

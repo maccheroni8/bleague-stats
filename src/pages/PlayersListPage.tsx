@@ -113,7 +113,7 @@ export function PlayersListPage({ season }: { season: string }) {
   const [tab, setTab] = useState<PlayersOuterTab>("stats");
 
   return (
-    <div>
+    <div data-design="v2">
       <h1>個人スタッツ</h1>
       <div className="tab-bar">
         {(Object.keys(OUTER_TAB_LABELS) as PlayersOuterTab[]).map((t) => (

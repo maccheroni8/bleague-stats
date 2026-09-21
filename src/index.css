@@ -359,6 +359,7 @@ h2 {
   min-width: 0;
 }
 
+
 .player-cell-name {
   font-weight: 600;
   white-space: nowrap;
@@ -3849,4 +3850,40 @@ table.compare-table th .compare-condition-tag {
   [data-design="v2"] .leaders-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* --------------------------------------------------------------------------
+ * 個人一覧（PlayersListPage）・ランキング（RankingsPage）。どちらもルートに data-design="v2" を付け、
+ * チーム一覧のパイロットと同じ規則（見出し・ナビ・タブの2段階・フィルタ・表・フォーカスリング）が効く。
+ * ここでは両ページ固有の部品だけを足す。新しいCSS変数は増やさない。
+ * -------------------------------------------------------------------------- */
+
+/* 「画像として保存」「もっと見る」ボタン: 角を3pxに揃え、ホバーは薄塗りではなく行ホバーと同じ灰色 */
+[data-design="v2"] .export-image-button,
+[data-design="v2"] .load-more-button {
+  border-radius: 3px;
+  transition: background-color 0.1s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+[data-design="v2"] .export-image-button:hover:not(:disabled) {
+  background: var(--row-hover);
+}
+
+/* 選手写真・受賞カード: 角を4px（他の部品と同じ小さい半径）に。チームロゴは中身なので触らない */
+[data-design="v2"] .player-photo {
+  border-radius: 4px;
+}
+
+[data-design="v2"] .honors-group {
+  border-radius: 4px;
+}
+
+/* ランキング表: 順位は数字幅を揃え、表題（ConditionTitle）は他ページの見出しと同じ太さ */
+[data-design="v2"] .rankings-table .rank-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+[data-design="v2"] .condition-title h2 {
+  font-weight: 800;
+  letter-spacing: 0.01em;
 }
