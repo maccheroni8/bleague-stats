@@ -429,7 +429,7 @@ export function GameDetailPage({ season }: { season: string }) {
   const awayCum = cumulativeScores(game.quarterScores.away);
 
   return (
-    <div className="game-detail-page">
+    <div className="game-detail-page" data-design="v2">
       <Link to="/teams" className="back-link">
         ← チーム一覧に戻る
       </Link>

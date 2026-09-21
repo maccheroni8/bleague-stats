@@ -3892,3 +3892,404 @@ table.compare-table th .compare-condition-tag {
   font-weight: 800;
   letter-spacing: 0.01em;
 }
+
+/* --------------------------------------------------------------------------
+ * 試合詳細（GameDetailPage のルートの data-design="v2"）。チーム一覧・ホーム・個人一覧・ランキングと同じ
+ * デザイン言語（グレー階調・機能色1色・小さい半径・tabular-nums・フォーカスリング・表の見出し）を適用する。
+ * ホーム/アウェイのチームカラー（カード左端・スコアボード上端）は機能的な識別なので残す。新しいCSS変数なし。
+ * -------------------------------------------------------------------------- */
+
+/* --- 見出し: 従来は全大文字・薄い色の13px（日本語には効かず英語のカテゴリ名だけ大文字になっていた）。
+       他ページの見出し（ホーム15px/800）に揃え、大文字化をやめて文字色・太字にする --- */
+[data-design="v2"].game-detail-page h2,
+[data-design="v2"].game-detail-page .condition-title h2 {
+  margin: 28px 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--fg);
+}
+
+[data-design="v2"].game-detail-page .gd-card h2 {
+  margin: 0 0 10px;
+}
+
+[data-design="v2"].game-detail-page .condition-title {
+  margin: 0 0 8px;
+}
+
+[data-design="v2"].game-detail-page .condition-title h2 {
+  margin: 0 0 2px;
+}
+
+[data-design="v2"].game-detail-page .condition-title-section {
+  margin-top: 32px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+[data-design="v2"] .back-link {
+  transition: color 0.12s ease;
+}
+
+/* --- スコアボード: 点数は大きく tabular-nums、チーム名は文字色。試合情報は小さく字間を開けた補助表示 --- */
+[data-design="v2"] .scoreboard-team {
+  border-top-width: 3px;
+}
+
+[data-design="v2"] .scoreboard-team a {
+  transition: color 0.12s ease;
+}
+
+[data-design="v2"] .scoreboard-team a:hover,
+[data-design="v2"] .scoreboard-date:hover {
+  color: var(--accent);
+}
+
+[data-design="v2"] .scoreboard-score {
+  font-size: 40px;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+[data-design="v2"] .scoreboard-vs {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+[data-design="v2"] .scoreboard-date {
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+}
+
+[data-design="v2"] .scoreboard-date:hover {
+  text-decoration-color: var(--accent);
+}
+
+/* --- カード: 角4px。Q別得点・累積スコアの表は他ページの表と同じ見出し（11px・字間・文字色の罫線）、チーム名リンクは青下線をやめる --- */
+[data-design="v2"] .gd-card {
+  border-radius: 4px;
+}
+
+[data-design="v2"] table.quarter-table th {
+  padding: 8px 10px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--fg);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+[data-design="v2"] table.quarter-table td a {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+[data-design="v2"] table.quarter-table td a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* --- ボックススコア: 見出し行は文字色の罫線1本・背景は地の色。角4px。列幅を保つため字間は開けない --- */
+[data-design="v2"] .boxscore-section {
+  border-radius: 4px;
+}
+
+[data-design="v2"] .boxscore-section h3,
+[data-design="v2"] .game-leaders-team h3,
+[data-design="v2"] .shot-chart-header h3,
+[data-design="v2"] .key-stats-card h3 {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+[data-design="v2"] table.boxscore-table th {
+  background: var(--bg);
+  border-bottom: 1px solid var(--fg);
+  font-weight: 600;
+}
+
+[data-design="v2"] table.boxscore-table .boxscore-group-row td {
+  background: var(--header-bg);
+}
+
+[data-design="v2"] table.boxscore-table tbody tr {
+  transition: background-color 0.1s ease;
+}
+
+[data-design="v2"] table.boxscore-table tbody tr:hover td {
+  background: var(--row-hover);
+}
+
+/* 合計行の薄塗り（機能色の混色）はやめ、灰色の地＋上の罫線を文字色にして示す */
+[data-design="v2"] table.boxscore-table .boxscore-summary-grand-total td {
+  background: var(--row-hover);
+  border-top: 1px solid var(--fg);
+}
+
+/* ダブルダブル/トリプルダブルのバッジ: 色の薄塗りをやめ、枠線のみ（色は従来の意味を保つ） */
+[data-design="v2"] .stat-badge {
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: none;
+  padding: 0 4px;
+}
+
+/* カテゴリのタブ（Traditional〜Shooting）: ボタンの並びをやめ、他ページのカテゴリタブと同じ下線式に */
+[data-design="v2"] .boxscore-category-tabs {
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+}
+
+[data-design="v2"] .boxscore-category-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+[data-design="v2"] .boxscore-category-tabs button {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 7px 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  margin-bottom: -1px;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+[data-design="v2"] .boxscore-category-tabs button:hover {
+  color: var(--fg);
+}
+
+[data-design="v2"] .boxscore-category-tabs button.active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+  font-weight: 700;
+}
+
+[data-design="v2"] table.quarter-table th.align-left,
+[data-design="v2"] table.quarter-table td.align-left {
+  text-align: left;
+}
+
+/* --- ゲームリーダー: カードの角4px（左端のチームカラーは残す）。1位の数値は tabular-nums、切替ボタンは丸薬をやめ角3px --- */
+[data-design="v2"] .game-leaders-team,
+[data-design="v2"] .shot-chart-panel,
+[data-design="v2"] .leader-matchup,
+[data-design="v2"] .key-stats-card {
+  border-radius: 4px;
+}
+
+[data-design="v2"] .leader-top3-label {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+[data-design="v2"] .leader-top3-value,
+[data-design="v2"] .leader-matchup-value {
+  font-variant-numeric: tabular-nums;
+}
+
+[data-design="v2"] .leader-top3-name,
+[data-design="v2"] .leader-matchup-player-link {
+  transition: color 0.12s ease;
+}
+
+[data-design="v2"] .leader-top3-name:hover,
+[data-design="v2"] .leader-matchup-player-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+[data-design="v2"] .leader-matchup-toggle button {
+  border-radius: 3px;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+
+[data-design="v2"] .leader-matchup-header {
+  border-bottom-color: var(--fg);
+}
+
+[data-design="v2"] .leader-matchup-label {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+/* --- Key Stats・円グラフ: カードの角4px。左右対決バー・値のバッジは丸薬をやめ小さい半径に --- */
+[data-design="v2"] .opposed-bar-track,
+[data-design="v2"] .opposed-bar-fill {
+  border-radius: 2px;
+}
+
+[data-design="v2"] .opposed-bar-value {
+  border-radius: 3px;
+  border-width: 1px;
+}
+
+[data-design="v2"] .opposed-bar-label,
+[data-design="v2"] .shooting-donut-label {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+[data-design="v2"] .shooting-donut-value {
+  font-variant-numeric: tabular-nums;
+}
+
+[data-design="v2"] .composition-pie-group-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+[data-design="v2"] .composition-pie-chart h4 {
+  font-weight: 800;
+}
+
+/* --- ショットチャート: パネルの角4px、チーム切替のセレクト・期間ボタンは他ページのフィルタと同じ小さい半径 --- */
+[data-design="v2"] .shot-chart-header select {
+  border-radius: 3px;
+  transition: border-color 0.12s ease;
+}
+
+[data-design="v2"] .shot-chart-header select:hover {
+  border-color: var(--muted);
+}
+
+/* --- Lead Tracker・出場交代のグラフ枠とツールチップ: 角4px／3px --- */
+[data-design="v2"] .lead-tracker-chart,
+[data-design="v2"] .substitution-chart {
+  border-radius: 4px;
+}
+
+[data-design="v2"] .lead-tracker-tooltip {
+  border-radius: 3px;
+}
+
+[data-design="v2"] .sub-bar-tooltip {
+  border-radius: 3px;
+}
+
+[data-design="v2"] .sub-bar-team-name {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+[data-design="v2"] .sub-bar-label {
+  transition: color 0.12s ease;
+}
+
+[data-design="v2"] .lead-tracker-legend,
+[data-design="v2"] .foreign-count-legend {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- スマホ幅: 従来から、Q別得点・累積スコアの2列グリッドが表の最小幅に押されてページ全体が横にはみ出していた
+       （v2適用前から621px幅で再現）。列を縮められるようにし、狭い画面では1列に積む --- */
+[data-design="v2"] .quarter-tables-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+[data-design="v2"] .game-leaders,
+[data-design="v2"] .shot-chart-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+@media (max-width: 720px) {
+  [data-design="v2"] .quarter-tables-grid,
+  [data-design="v2"] .game-leaders,
+  [data-design="v2"] .shot-chart-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  /* Q別得点・累積スコア: カードの余白と表のセル余白を詰めて、5〜6列が横スクロール無しで収まるようにする */
+  [data-design="v2"] .gd-card {
+    padding: 12px;
+  }
+
+  [data-design="v2"] table.quarter-table th,
+  [data-design="v2"] table.quarter-table td {
+    padding: 8px 4px;
+    letter-spacing: 0;
+  }
+
+  /* スコアボード: 2チーム＋中央の試合情報が375pxに収まるよう、最小幅と間隔を縮める */
+  [data-design="v2"] .scoreboard {
+    gap: 12px;
+  }
+
+  [data-design="v2"] .scoreboard-team {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  [data-design="v2"] .scoreboard-score {
+    font-size: 34px;
+  }
+
+  [data-design="v2"] .scoreboard {
+    align-items: flex-start;
+  }
+
+  [data-design="v2"] .scoreboard-team a {
+    font-size: 13px;
+  }
+
+  [data-design="v2"] .scoreboard-vs {
+    padding-top: 12px;
+    flex: 0 0 96px;
+  }
+
+  /* ゲームリーダー詳細比較: 左右の選手が長い名前で行を押し広げないよう、列を縮められるようにして名前は折り返す */
+  [data-design="v2"] .leader-matchup {
+    padding: 4px 12px;
+  }
+
+  [data-design="v2"] .leader-matchup-header,
+  [data-design="v2"] .leader-matchup-row {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  [data-design="v2"] .leader-matchup-side {
+    gap: 6px;
+  }
+
+  [data-design="v2"] .leader-matchup-player,
+  [data-design="v2"] .leader-matchup-player-link {
+    min-width: 0;
+  }
+
+  [data-design="v2"] .leader-matchup-player-name {
+    white-space: normal;
+    overflow-wrap: break-word;
+    font-size: 12px;
+  }
+
+  [data-design="v2"] .leader-matchup-value {
+    font-size: 16px;
+  }
+
+  [data-design="v2"] .leader-matchup-label {
+    min-width: 36px;
+  }
+
+  /* 375pxでは写真を出すと名前が1文字幅まで潰れるため、詳細比較の写真だけ隠す（名前・数値は残す） */
+  [data-design="v2"] .player-photo.leader-matchup-player-photo {
+    display: none;
+  }
+}
