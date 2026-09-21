@@ -145,7 +145,7 @@ export function PlayersListPage({ season }: { season: string }) {
 // - 選手名の左に写真、チーム名は略称表記
 // - 出場試合率（所属チームの試合数に対する出場試合数の割合）で絞り込む範囲スライダーを
 //   設置し、デフォルトは60%以上
-// - 初期表示はPTS降順の上位100人。「もっと見る」で表示人数を増やす。列ヘッダークリックでの
+// - 初期表示はPTS降順の上位50人（PAGE_SIZE）。「もっと見る」で同じ人数ずつ表示人数を増やす。列ヘッダークリックでの
 //   ソートは常にフィルタ後の全選手が対象（SortableTable.tsxのlimitプロパティ、2026-09-04追加。
 //   全選手を先にソートしてから先頭N件だけ描画する設計にしたため、「もっと見る」を押さなくても
 //   正しい全選手中の順位で並び替えられる）
@@ -188,7 +188,7 @@ const nameColumn: Column<PlayerRow> = {
   sortValue: (r) => r.player.name,
   render: (r) => (
     <span className="player-cell">
-      <PlayerPhoto playerId={r.player.playerId} size={32} className="player-cell-photo" />
+      <PlayerPhoto playerId={r.player.playerId} size={44} className="player-cell-photo player-cell-photo-lg" />
       <span className="player-cell-name">{r.player.name}</span>
     </span>
   ),
@@ -391,7 +391,7 @@ const DEFAULT_SORT: Record<PlayersPageTab, { key: string; dir: "asc" | "desc" }>
   shooting: { key: "name", dir: "asc" },
 };
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 50;
 const DEFAULT_MIN_RATIO = 60;
 const DEFAULT_MAX_RATIO = 100;
 
@@ -834,9 +834,6 @@ function AllPlayersStatsTab({ season }: { season: string }) {
             </button>
           )}
           {tab === "misc" && <RuleChangeFootnote seasons={[season]} />}
-          <p className="page-subtitle">
-            {Math.min(visibleCount, tableRows.length)}/{tableRows.length}人を表示中（初期表示は得点（PTS）降順）。列見出しクリックでの並び替えは常に全選手が対象です。Misc/スコアリングタブ、またはシチュエーション別フィルタ選択中は選手ごとの試合ログをまとめて取得するため、初めて開いたときのみ読み込みに時間がかかります
-          </p>
         </>
       )}
     </div>
@@ -1342,7 +1339,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
       sortValue: (r) => r.player.name,
       render: (r) => (
         <span className="player-cell">
-          <PlayerPhoto playerId={r.player.playerId} size={32} className="player-cell-photo" />
+          <PlayerPhoto playerId={r.player.playerId} size={44} className="player-cell-photo player-cell-photo-lg" />
           <span className="player-cell-name">{r.player.name}</span>
         </span>
       ),
