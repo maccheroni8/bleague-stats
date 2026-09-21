@@ -2948,6 +2948,56 @@ td.schedule-team-cell.align-right .cell-link {
   font-size: 14px;
 }
 
+/* 3地区制などで各地区の表が狭くなり横スクロールが出るとき、順位・ロゴ・チーム名の3列
+   （＝「順位＋チーム名」。ロゴはチーム名の一部として一緒に動かす）を左に固定し、
+   それ以降の成績列だけを流す。共通の左端列固定（table.sortable-table td:first-child）は
+   1列目しか固定できないため、この表だけ2・3列目も固定する。2列目以降の固定位置は
+   直前の列の幅の合計になるので、順位列とロゴ列の幅を固定値にして位置を確定させる
+   （チーム名列は3列目なので幅が可変でも影響しない） */
+.home-standings-table table.sortable-table th:nth-child(-n + 3),
+.home-standings-table table.sortable-table td:nth-child(-n + 3) {
+  position: sticky;
+  background: var(--bg);
+  box-sizing: border-box;
+}
+
+.home-standings-table table.sortable-table td:nth-child(-n + 3) {
+  z-index: 1;
+}
+
+.home-standings-table table.sortable-table th:nth-child(-n + 3) {
+  z-index: 2;
+}
+
+.home-standings-table table.sortable-table th:nth-child(1),
+.home-standings-table table.sortable-table td:nth-child(1) {
+  left: 0;
+  width: 56px;
+  min-width: 56px;
+  max-width: 56px;
+}
+
+.home-standings-table table.sortable-table th:nth-child(2),
+.home-standings-table table.sortable-table td:nth-child(2) {
+  left: 56px;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.home-standings-table table.sortable-table th:nth-child(3),
+.home-standings-table table.sortable-table td:nth-child(3) {
+  left: 92px;
+  /* 固定列と流れる列の境目が分かるよう右端に細い線を引く（スクロールしていない時も出るが邪魔にならない細さ） */
+  box-shadow: 1px 0 0 var(--border);
+}
+
+.home-standings-table table.sortable-table tbody tr:hover td:nth-child(-n + 3) {
+  background: var(--row-hover);
+}
+
 /* 出場試合率の範囲スライダー（全選手スタッツ一覧）。下限・上限を2本のtype=rangeを
    重ねて実現する（トラック自体はpointer-events:none、つまみだけauto にして
    互いの操作を邪魔しないようにする定番の実装パターン） */

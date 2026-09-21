@@ -328,7 +328,7 @@ export function HomePage({ season }: { season: string }) {
             {divisionGroups.map(({ division, teams }) => (
               <div key={division}>
                 <h3>{DIVISION_LABELS[division]}</h3>
-                <div className="table-scroll">
+                <div className="table-scroll home-standings-table">
                   <SortableTable
                     columns={standingsColumns}
                     rows={teams}
