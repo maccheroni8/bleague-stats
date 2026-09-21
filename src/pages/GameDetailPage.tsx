@@ -14,6 +14,7 @@ import { SubstitutionBarChart, type SubstitutionRow } from "../components/Substi
 import { ShotChartPanel } from "../components/ShotChart";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
+import { MobileCollapse } from "../components/MobileCollapse";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
@@ -709,23 +710,25 @@ export function GameDetailPage({ season }: { season: string }) {
       <ConditionTitle section title="ショットチャート" conditions={composeLabels(periodLabels(selectedShotPeriodOption))} />
       {shotChartSupported ? (
         <>
-          <PeriodRangeToggle options={shotPeriodOptions} value={shotPeriodRange} onChange={setShotPeriodRange} />
-          <div className="shot-chart-grid">
-            <ShotChartPanel
-              teamName={game.homeTeam.name}
-              players={homePlayers}
-              shots={shotPeriodHomeShots}
-              color={homeColor ?? "var(--accent)"}
-              accentColor={homeColor}
-            />
-            <ShotChartPanel
-              teamName={game.awayTeam.name}
-              players={awayPlayers}
-              shots={shotPeriodAwayShots}
-              color={awayColor ?? "var(--muted)"}
-              accentColor={awayColor}
-            />
-          </div>
+          <MobileCollapse label="ショットチャート">
+            <PeriodRangeToggle options={shotPeriodOptions} value={shotPeriodRange} onChange={setShotPeriodRange} />
+            <div className="shot-chart-grid">
+              <ShotChartPanel
+                teamName={game.homeTeam.name}
+                players={homePlayers}
+                shots={shotPeriodHomeShots}
+                color={homeColor ?? "var(--accent)"}
+                accentColor={homeColor}
+              />
+              <ShotChartPanel
+                teamName={game.awayTeam.name}
+                players={awayPlayers}
+                shots={shotPeriodAwayShots}
+                color={awayColor ?? "var(--muted)"}
+                accentColor={awayColor}
+              />
+            </div>
+          </MobileCollapse>
         </>
       ) : (
         <p className="empty-message">このシーズンのデータには対応していません</p>
@@ -785,24 +788,26 @@ function GameCompositionSection({
           このシーズンはペイント内外の分割データが無いため、FG試投構成は2P/3Pの2分割で表示します
         </p>
       )}
-      <h4 className="composition-pie-group-title">FG試投構成</h4>
-      <div className="composition-pie-row">
-        <CompositionPieChart title={`${homeTeamName} FG試投割合`} segments={homeFga} valueDigits={0} />
-        <CompositionPieChart title={`${awayTeamName} FG試投割合`} segments={awayFga} valueDigits={0} />
-      </div>
-      <h4 className="composition-pie-group-title">得点構成</h4>
-      <div className="composition-pie-row">
-        <CompositionPieChart title={`${homeTeamName} 得点割合`} segments={homePts} valueDigits={0} />
-        <CompositionPieChart title={`${awayTeamName} 得点割合`} segments={awayPts} valueDigits={0} />
-      </div>
-      <h4 className="composition-pie-group-title">得点構成（国籍区分）</h4>
-      <p className="page-subtitle">
-        ※現在の登録情報に基づく参考値{classificationUnclassifiedCount > 0 && `／${classificationUnclassifiedCount}名分のデータ欠落あり`}
-      </p>
-      <div className="composition-pie-row">
-        <CompositionPieChart title={`${homeTeamName} 得点割合`} segments={homeClassificationPts.segments} valueDigits={0} />
-        <CompositionPieChart title={`${awayTeamName} 得点割合`} segments={awayClassificationPts.segments} valueDigits={0} />
-      </div>
+      <MobileCollapse label="円グラフ">
+        <h4 className="composition-pie-group-title">FG試投構成</h4>
+        <div className="composition-pie-row">
+          <CompositionPieChart title={`${homeTeamName} FG試投割合`} segments={homeFga} valueDigits={0} />
+          <CompositionPieChart title={`${awayTeamName} FG試投割合`} segments={awayFga} valueDigits={0} />
+        </div>
+        <h4 className="composition-pie-group-title">得点構成</h4>
+        <div className="composition-pie-row">
+          <CompositionPieChart title={`${homeTeamName} 得点割合`} segments={homePts} valueDigits={0} />
+          <CompositionPieChart title={`${awayTeamName} 得点割合`} segments={awayPts} valueDigits={0} />
+        </div>
+        <h4 className="composition-pie-group-title">得点構成（国籍区分）</h4>
+        <p className="page-subtitle">
+          ※現在の登録情報に基づく参考値{classificationUnclassifiedCount > 0 && `／${classificationUnclassifiedCount}名分のデータ欠落あり`}
+        </p>
+        <div className="composition-pie-row">
+          <CompositionPieChart title={`${homeTeamName} 得点割合`} segments={homeClassificationPts.segments} valueDigits={0} />
+          <CompositionPieChart title={`${awayTeamName} 得点割合`} segments={awayClassificationPts.segments} valueDigits={0} />
+        </div>
+      </MobileCollapse>
     </section>
   );
 }
@@ -932,7 +937,7 @@ function LeaderTop3Row({ label, rows }: { label: string; rows: LeaderDisplayRow[
     <div className="leader-top3-row">
       <span className="leader-top3-label">{label}</span>
       {top1 ? (
-        <PlayerPhoto playerId={top1.player.PlayerID} size={48} className="leader-top3-photo" />
+        <PlayerPhoto playerId={top1.player.PlayerID} size={60} className="leader-top3-photo" />
       ) : (
         <div className="leader-top3-photo-placeholder" />
       )}

@@ -4293,3 +4293,69 @@ table.compare-table th .compare-condition-tag {
     display: none;
   }
 }
+
+/* --- ゲームリーダーの写真拡大（行の高さは不変）: 写真を48→60pxにし、上下の余白差をマイナスマージンで打ち消して
+       行の高さの基準（48px）を保つ。行は選手名の3行分（約64px）で高さが決まるため、写真が大きくなっても行は伸びない --- */
+.player-photo.leader-top3-photo {
+  margin: -6px 0;
+}
+
+.leader-top3-photo-placeholder {
+  width: 60px;
+}
+
+/* --- 円グラフ・ショットチャートをスマホ幅で隠したときの展開ボタン（MobileCollapse.tsx） --- */
+.mobile-collapse-toggle {
+  display: block;
+  width: 100%;
+  margin: 4px 0 16px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.1s ease;
+}
+
+.mobile-collapse-toggle:hover {
+  border-color: var(--muted);
+  background: var(--row-hover);
+}
+
+@media (max-width: 560px) {
+  /* Lead Tracker: 375pxでは横に潰れて読めないため、出場交代バー（.substitution-chart）と同じく枠内で横スクロールにする。
+     グラフの幅は560px以上を保つ（凡例・注記も一緒に流れる） */
+  .lead-tracker-chart {
+    overflow-x: auto;
+  }
+
+  /* RechartsのResponsiveContainerはインラインで min-width:0 を付けるため、!important で上書きする */
+  .lead-tracker-chart > .recharts-responsive-container {
+    min-width: 560px !important;
+  }
+
+  /* ボックススコアの期間選択（試合/1Q〜4Q/前半/後半）: 折り返さず横1列に収める。
+     余白を詰めて7個が375pxに収まるようにし、延長（OT）で個数が増えたときは枠内で横スクロールにする */
+  [data-design="v2"] .period-range-toggle {
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 3px;
+    margin: -3px -3px 13px;
+  }
+
+  [data-design="v2"] .period-range-toggle::-webkit-scrollbar {
+    display: none;
+  }
+
+  [data-design="v2"] .period-range-toggle button {
+    flex: 1 0 auto;
+    padding: 6px 9px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
