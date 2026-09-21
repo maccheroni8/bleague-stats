@@ -94,6 +94,7 @@ import {
   classificationLabels,
   composeLabels,
   displayModeLabels,
+  eligibilityLabels,
   gameTypeLabels,
   joinLabels,
   perspectiveLabels,
@@ -151,6 +152,8 @@ import {
 } from "../lib/shotTypeBreakdown";
 import { ComparisonTable, type ComparisonRow } from "./ComparePage";
 import { MobileCollapse } from "../components/MobileCollapse";
+import { EligibilitySlider } from "../components/EligibilitySlider";
+import { StickyHeaderScroll } from "../components/StickyHeaderScroll";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { teamShortName } from "../../shared/teamNames";
 import { cleanNumericString, formatColumnDiff, teamCompareDefs, type TeamCompareColumnData } from "../lib/compareShared";
@@ -2506,6 +2509,9 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [statsRawGamesLoading, setStatsRawGamesLoading] = useState(false);
   // 「チーム内リーダー」（概要タブ、Phase H3②）専用のチーム全体/日本人選手限定トグル
   const [teamLeadersJpOnly, setTeamLeadersJpOnly] = usePageState(pk("teamLeadersJpOnly"), false);
+  // 「チーム内リーダー」の掲載基準（出場率）。ランキングページの掲載基準スライダーと同じ部品・同じ既定値（85%）。
+  // 3P%等の追加基準（試投/成功数）は項目ごとの既定値のまま（スライダーは出場率のみ）
+  const [teamLeadersGamesRatio, setTeamLeadersGamesRatio] = usePageState(pk("teamLeadersGamesRatio"), MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
   // 「シチュエーション別成績」（チーム版）専用のレギュラー/プレーオフ/合算トグル。
   // ショットチャートのteamShotChartGameTypeとは独立（個人詳細ページの同名セクションと同じ設計）
   const [situationalTeamGameType, setSituationalTeamGameType] = usePageState<SeasonGameTypeFilter>(pk("situationalTeamGameType"), "regular");
@@ -3234,9 +3240,33 @@ export function TeamDetailPage({ season }: { season: string }) {
     seasonLabel,
     classificationLabels(teamLeadersJpOnly ? "日本人" : "all"),
     gameTypeLabels("regular"),
-    `出場率${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}%以上`,
+    ...eligibilityLabels({ gamesRatio: teamLeadersGamesRatio }),
   );
   const situationalRecordConditions = composeLabels(seasonLabel, gameTypeLabels(situationalRecordGameType));
+  // 「チーム内リーダー」の掲載基準（出場率）。ランキングページと同じ popover＋EligibilitySlider
+  const teamLeadersEligibilitySummary = eligibilityLabels({ gamesRatio: teamLeadersGamesRatio }).join("・");
+  const teamLeadersEligibilityAxis: FilterAxis = {
+    kind: "popover",
+    id: "teamLeadersEligibility",
+    label: "掲載基準",
+    tier: "primary",
+    value: String(Math.round(teamLeadersGamesRatio * 100)),
+    defaultValue: String(Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)),
+    onChange: () => setTeamLeadersGamesRatio(MIN_GAMES_PLAYED_RATIO_FOR_RANKING),
+    summary: teamLeadersEligibilitySummary,
+    chipValue: teamLeadersEligibilitySummary,
+    content: (
+      <EligibilitySlider
+        label="出場率"
+        value={Math.round(teamLeadersGamesRatio * 100)}
+        min={0}
+        max={100}
+        step={1}
+        format={(v) => `${v}%`}
+        onChange={(v) => setTeamLeadersGamesRatio(v / 100)}
+      />
+    ),
+  };
   // 「シチュエーション別成績」: 行がシチュエーション自体のため、S軸（詳細フィルタ）は持たない
   const situationalTeamConditions = composeLabels(
     seasonLabel,
@@ -3440,6 +3470,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 value: teamLeadersJpOnly ? "jp" : "all",
                 onChange: (v) => setTeamLeadersJpOnly(v === "jp"),
               }),
+              teamLeadersEligibilityAxis,
             ]}
           />
           {teamLeadersPool.length === 0 ? (
@@ -3454,7 +3485,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 const eligiblePool = filterEligiblePlayers(
                   teamLeadersPool,
                   teams ?? [],
-                  MIN_GAMES_PLAYED_RATIO_FOR_RANKING,
+                  teamLeadersGamesRatio,
                   key,
                   extraThreshold,
                 );
@@ -4044,8 +4075,8 @@ export function TeamDetailPage({ season }: { season: string }) {
           ) : situationalTeamBoxTab === "shooting" && situationalTeamShotTypeKeys.length === 0 ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : (
-            <div className="table-scroll situational-groups-scroll">
-              <table className="stats-table situational-groups-table">
+            <StickyHeaderScroll>
+              <table className="stats-table">
                 <thead>
                   <tr>
                     <th className="align-left">区分</th>
@@ -4079,7 +4110,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                             3
                           }
                         >
-                          {group.label}
+                          <span className="sticky-group-label">{group.label}</span>
                         </td>
                       </tr>
                       {group.rows.map((row) => (
@@ -4121,7 +4152,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </StickyHeaderScroll>
           )}
           {situationalTeamBoxTab === "misc" && situationalTeamGroups.length > 0 && <RuleChangeFootnote seasons={[season]} />}
 

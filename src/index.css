@@ -4625,3 +4625,75 @@ table.compare-table th .compare-condition-tag {
   color: var(--muted);
   font-size: 12px;
 }
+
+/* --------------------------------------------------------------------------
+ * 縦長・横広の表の見出し追随（StickyHeaderScroll.tsx。チーム詳細のシチュエーション別成績）。
+ * 従来の max-height＋内部スクロール（.situational-groups-scroll。個人詳細が引き続き使う）をやめ、ページ全体のスクロールで
+ * 見出し行が画面上端に追随する。本体の横スクロールバーは隠し、表の直下に置いた同期スクロールバーを画面下端に貼り付ける
+ * -------------------------------------------------------------------------- */
+.sticky-header-scroll-body {
+  scrollbar-width: none;
+}
+
+.sticky-header-scroll-body::-webkit-scrollbar {
+  display: none;
+}
+
+/* 表の直下に置く同期スクロールバー。表が画面内にある間は画面下端に貼り付き、表の末尾で元の位置に落ち着く。
+   OSの「常に表示」設定でなくても見えるよう、バーとつまみを自前で描く */
+.sticky-header-scroll-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  display: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 14px;
+  margin-top: 4px;
+  background: var(--bg);
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) var(--border);
+}
+
+.sticky-header-scroll-bar::-webkit-scrollbar {
+  height: 10px;
+}
+
+.sticky-header-scroll-bar::-webkit-scrollbar-track {
+  background: var(--border);
+  border-radius: 5px;
+}
+
+.sticky-header-scroll-bar::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 5px;
+}
+
+.sticky-header-scroll-spacer {
+  height: 1px;
+}
+
+/* 見出し行の複製。画面上端に固定し、横位置は本体の scrollLeft に同期（JS）。枠は表と同じ（上端では角を落とし枠線の下辺だけ残す） */
+.sticky-header-scroll-clone {
+  position: fixed;
+  top: 0;
+  z-index: 5;
+  display: none;
+  overflow: hidden;
+  border-top: 0;
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.sticky-header-scroll-clone table {
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+/* グループ見出し行（勝敗・会場など）は全列にまたがる1セルなので、横スクロールすると文字ごと流れて消える。
+   文字だけを左端（セルの余白ぶん内側）に貼り付ける */
+.sticky-group-label {
+  position: sticky;
+  left: 12px;
+}
