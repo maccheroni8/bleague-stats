@@ -3661,3 +3661,142 @@ table.compare-table th .compare-condition-tag {
 [data-design="v2"] table.sortable-table tbody tr {
   transition: background-color 0.1s ease;
 }
+
+/* --------------------------------------------------------------------------
+ * ホーム（HomePage のルートの data-design="v2"）。チーム一覧のパイロットと同じデザイン言語を
+ * 直近の試合結果・スタッツリーダー・順位表に適用する。上のブロックの見出し・ナビ・表・フォーカスリング・
+ * モード切替（.mode-toggle）の規則はそのまま効く。新しいCSS変数は増やさない。
+ * -------------------------------------------------------------------------- */
+
+/* セクション: 見出しを小さく詰め、右の「…を見る」リンクは矢印をやめて下線で示す */
+[data-design="v2"] .home-section {
+  margin-bottom: 36px;
+}
+
+[data-design="v2"] .home-section-head {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+[data-design="v2"] .home-section-head h2 {
+  margin: 28px 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+[data-design="v2"] .home-section-more {
+  font-size: 12px;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+  transition: color 0.12s ease, text-decoration-color 0.12s ease;
+}
+
+[data-design="v2"] .home-section-more:hover {
+  text-decoration-color: var(--fg);
+}
+
+/* 個人/チーム切替: 有効な側は薄塗りをやめ、機能色の枠と文字だけで示す */
+[data-design="v2"] .mode-toggle button.active {
+  background: none;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 直近の試合結果: 小さい半径・罫線・状態変化の動き。日付と点数は等幅の数字幅。
+   フォーカスリングが横スクロールの枠で切れないよう、枠の内側に余白を持たせる */
+[data-design="v2"] .recent-games-grid {
+  margin: 0 -3px;
+  padding: 3px 3px 6px;
+}
+
+[data-design="v2"] .recent-game-card {
+  border-radius: 4px;
+  transition: background-color 0.1s ease, border-color 0.12s ease;
+}
+
+[data-design="v2"] .recent-game-card:hover {
+  border-color: var(--muted);
+}
+
+[data-design="v2"] .recent-game-date {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+[data-design="v2"] .recent-game-score {
+  font-size: 15px;
+}
+
+[data-design="v2"] .playoff-badge {
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: none;
+}
+
+/* スタッツリーダー: カードの見出しは表の見出しと同じ小さい字間つき、1位の数字を主役に。
+   ホバーは機能色ではなく名前の下線（機能色はソート・現在地・フォーカスのために取っておく） */
+[data-design="v2"] .leader-card {
+  border-radius: 4px;
+}
+
+[data-design="v2"] .leader-stat-label {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+[data-design="v2"] .leader-photo {
+  border-radius: 4px;
+}
+
+[data-design="v2"] .leader-top1:hover,
+[data-design="v2"] .leader-rest-item-link:hover {
+  color: inherit;
+}
+
+[data-design="v2"] .leader-top1 .leader-name,
+[data-design="v2"] .leader-rest-name {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.12s ease;
+}
+
+[data-design="v2"] .leader-top1:hover .leader-name,
+[data-design="v2"] .leader-rest-item-link:hover .leader-rest-name,
+[data-design="v2"] .leader-rest-item:hover .leader-rest-name {
+  text-decoration-color: var(--fg);
+}
+
+[data-design="v2"] .leader-rest-rank {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 順位表: 地区の見出しを小さく太く。表は上の表スタイル（見出し11px・文字色の罫線・ソート列だけ機能色）がそのまま効く */
+[data-design="v2"] .home-standings-grid h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+/* リーダーカードは3列固定＋選手名が折り返さない指定のため、狭い画面で列が最小幅まで広がりページごと横にはみ出していた
+ * （v2適用前からの不具合）。列の最小幅を0にして、幅に応じて3→2→1列にする */
+[data-design="v2"] .leaders-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  [data-design="v2"] .leaders-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  [data-design="v2"] .leaders-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

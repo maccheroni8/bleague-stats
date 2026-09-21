@@ -163,7 +163,7 @@ export function HomePage({ season }: { season: string }) {
   );
 
   return (
-    <div>
+    <div data-design="v2">
       <h1>B.LEAGUE Stats</h1>
       <p className="page-subtitle">{season}シーズン</p>
 
@@ -171,7 +171,7 @@ export function HomePage({ season }: { season: string }) {
         <div className="home-section-head">
           <h2>直近の試合結果</h2>
           <Link to="/schedule" className="home-section-more">
-            日程を見る →
+            日程を見る
           </Link>
         </div>
         <ConditionLine conditions={recentGamesConditions} />
@@ -211,7 +211,7 @@ export function HomePage({ season }: { season: string }) {
         <div className="home-section-head">
           <h2>シーズンスタッツリーダー</h2>
           <Link to="/rankings" className="home-section-more">
-            ランキングを見る →
+            ランキングを見る
           </Link>
         </div>
         <ConditionLine conditions={leaderConditions} />
@@ -313,7 +313,7 @@ export function HomePage({ season }: { season: string }) {
         <div className="home-section-head">
           <h2>順位表</h2>
           <Link to="/standings" className="home-section-more">
-            順位表を見る →
+            順位表を見る
           </Link>
         </div>
         <ConditionLine conditions={standingsConditions} />
