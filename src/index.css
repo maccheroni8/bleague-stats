@@ -4608,3 +4608,20 @@ table.compare-table th .compare-condition-tag {
   overflow: visible;
   text-overflow: clip;
 }
+
+/* 概要タブ先頭のスタッツタイル（9×4）の下: 次のブロック（絞り込み）との間を空ける */
+[data-design="v2"] .team-header-stat-grid + :not(.team-header-stat-grid) {
+  margin-top: 28px;
+}
+
+/* シーズン別成績のシューティング/Forced TOV: 1シーズンが2行（2P/3P・奪った/記録）になるため、
+   2行目はシーズン表記を薄く（固定列にシーズンを残すため、行ごとに表記は繰り返す）。データ非対応のシーズンは補足文を薄く出す */
+[data-design="v2"] table.stats-table tr.season-row-cont td:first-child {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+[data-design="v2"] table.stats-table td.season-unsupported-cell {
+  color: var(--muted);
+  font-size: 12px;
+}

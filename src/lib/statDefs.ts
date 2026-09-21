@@ -507,3 +507,11 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     hiddenFromPicker: true,
   },
 ];
+
+/**
+ * スタッツリーダー（ホーム・チーム詳細のチーム内リーダー）のカード見出し。得点だけ他のカテゴリ略称
+ * （REB・AST等）に揃えて「PTS」にする（StatDefのlabelは用語集・ランキング等で共通のため「得点」のまま）
+ */
+export function leaderStatLabel(def: { key: string; label: string }): string {
+  return def.key === "pts" ? "PTS" : def.label;
+}

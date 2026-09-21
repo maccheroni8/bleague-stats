@@ -76,7 +76,6 @@ import {
   buildRecordsBeforeGame,
   computeOpponentWinPctAvg,
   filterGameLogs,
-  isDefaultFilter,
   matchesDivision,
   matchesMonth,
   matchesNewYearHalf,
@@ -99,11 +98,10 @@ import {
   joinLabels,
   perspectiveLabels,
   periodLabels,
-  SEASON_TOTAL_ONLY_LABELS,
   situationalFilterLabels,
 } from "../lib/conditionLabels";
 import { isWednesdayGame, isWeekdayGame } from "../lib/japaneseHolidays";
-import { PLAYER_STAT_DEFS } from "../lib/statDefs";
+import { leaderStatLabel, PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { safeDiv } from "../../shared/formulas";
 import {
@@ -142,7 +140,6 @@ import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
 import {
   buildShotTypeBreakdown,
-  buildShotTypeBreakdownByTeam,
   formatShotTypeAttempted,
   formatShotTypeMade,
   formatShotTypePct,
@@ -153,7 +150,9 @@ import {
   sumShotTypeCounts,
 } from "../lib/shotTypeBreakdown";
 import { ComparisonTable, type ComparisonRow } from "./ComparePage";
+import { MobileCollapse } from "../components/MobileCollapse";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
+import { teamShortName } from "../../shared/teamNames";
 import { cleanNumericString, formatColumnDiff, teamCompareDefs, type TeamCompareColumnData } from "../lib/compareShared";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
@@ -168,27 +167,118 @@ const MAX_LINEUP_ROWS = 20;
 // アシストペア分析（チーム版）も同じ上位20件・展開方式を踏襲する
 const MAX_ASSIST_PAIR_ROWS = 20;
 
+/** 強制ターンオーバー表の列（種類別。「シーズン別成績」のForced TOVタブ用） */
+const FORCED_TURNOVER_COLUMNS: { key: string; label: string; title?: string; value: (d: TeamForcedTurnovers) => number }[] = [
+  {
+    key: "offensiveFoul",
+    label: "オフェンスファウル",
+    title: "シュートファウル以外のオフェンスファウルによるターンオーバー",
+    value: (d) => d.offensiveFoul,
+  },
+  { key: "violation24sec", label: "24秒バイオレーション", title: "24秒バイオレーションによるターンオーバー", value: (d) => d.violation24sec },
+  { key: "backcourt", label: "バックコート", title: "バックコートバイオレーションによるターンオーバー", value: (d) => d.backcourtViolation },
+  { key: "violation5sec", label: "5秒バイオレーション", title: "5秒バイオレーションによるターンオーバー", value: (d) => d.violation5sec },
+  { key: "violation8sec", label: "8秒バイオレーション", title: "8秒バイオレーションによるターンオーバー", value: (d) => d.violation8sec },
+  {
+    key: "otherDead",
+    label: "その他デッドボール",
+    title: "トラベリング・ダブルドリブル・3秒バイオレーション・アウトオブバウンズ等、上記以外のデッドボールターンオーバー",
+    value: (d) => d.otherDead,
+  },
+  {
+    key: "live",
+    label: "ライブボール（参考）",
+    title: "スティール由来（バッドパス・ボールハンドリングロスト）のライブボールターンオーバー。参考値",
+    value: (d) => d.live,
+  },
+  {
+    key: "total",
+    label: "合計",
+    value: (d) => d.offensiveFoul + d.violation24sec + d.backcourtViolation + d.violation5sec + d.violation8sec + d.otherDead + d.live,
+  },
+  {
+    key: "gamesWithData",
+    label: "データあり試合数",
+    title: "Yahoo!スポーツplay-by-playが実際に取得できた試合数（分母の目安）",
+    value: (d) => d.gamesWithData,
+  },
+];
+
+const FORCED_TURNOVER_ROW_LABELS = {
+  forced: "相手から奪った（自チームが強制）",
+  committed: "自チームが記録（相手に強制された）",
+} as const;
+
 /**
- * 単一スコープ（1チーム・現在のフィルタ条件）のシュートタイプ内訳を、2P/3P行×シュートタイプ列
- * （M/A/%の3列）で表示する。「チームスタッツ」タブのシューティングタブ用（元は独立セクション
- * だったものをカテゴリタブの1つとして統合。DESIGN.md参照）
+ * 「シーズン別成績」の強制ターンオーバータブ。シーズンごとに「相手から奪った」「自チームが記録」の2行。
+ * teams.json のシーズン別集計（Yahoo PBP由来）は2023-24シーズン以降のみのため、それ以前は非対応の行を出す
+ * （値が出るシーズンの制約をそのまま見せる）。平均/合計トグルは効かない（種類別の合計件数のみ）
  */
-function TeamShotTypeTransposedTable({
-  breakdown,
-  factor,
-  digits,
-}: {
-  breakdown: ShotTypeBreakdown;
-  factor: number;
-  digits: number;
-}) {
-  const keys = sortShotTypeKeys(Object.keys(breakdown));
+function TeamSeasonForcedTurnoversTable({ rows }: { rows: SeasonRecord[] }) {
   return (
     <div className="table-scroll">
       <table className="stats-table">
         <thead>
           <tr>
-            <th rowSpan={2} />
+            <th className="align-left">シーズン</th>
+            <th className="align-left">区分</th>
+            {FORCED_TURNOVER_COLUMNS.map((col) => (
+              <th key={col.key} className="align-right" title={col.title}>
+                {col.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const { forcedTurnovers: forced, turnoversCommitted: committed } = r.team;
+            if (!forced || !committed) {
+              return (
+                <tr key={r.season}>
+                  <td className="align-left">{r.season}</td>
+                  <td className="align-left season-unsupported-cell" colSpan={FORCED_TURNOVER_COLUMNS.length + 1}>
+                    このシーズンのデータには対応していません（2023-24シーズン以降のみ）
+                  </td>
+                </tr>
+              );
+            }
+            return (["forced", "committed"] as const).map((kind) => (
+              <tr key={`${r.season}-${kind}`} className={kind === "committed" ? "season-row-cont" : undefined}>
+                <td className="align-left">{r.season}</td>
+                <td className="align-left">{FORCED_TURNOVER_ROW_LABELS[kind]}</td>
+                {FORCED_TURNOVER_COLUMNS.map((col) => (
+                  <td key={col.key} className="align-right">
+                    {col.value(kind === "forced" ? forced : committed)}
+                  </td>
+                ))}
+              </tr>
+            ));
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * 「シーズン別成績」のシューティングタブ。シーズンごとに2P/3Pの2行（シュートタイプ別のM/A/%）。
+ * シュートタイプ別の集計はYahoo PBP由来で2023-24シーズン以降のみのため、それ以前は非対応の行を出す。
+ * 列は全シーズンに現れたシュートタイプの和集合。平均/合計トグルはシーズンの試合数で割る/割らない
+ */
+function TeamSeasonShotTypeTable({ rows, displayMode }: { rows: SeasonRecord[]; displayMode: SeasonDisplayMode }) {
+  const keys = sortShotTypeKeys([...new Set(rows.flatMap((r) => Object.keys(r.team.shotTypes ?? {})))]);
+  const digits = displayMode === "total" ? 0 : 1;
+  return (
+    <div className="table-scroll">
+      <table className="stats-table">
+        <thead>
+          <tr>
+            <th rowSpan={2} className="align-left">
+              シーズン
+            </th>
+            <th rowSpan={2} className="align-left">
+              区分
+            </th>
             {keys.map((key) => (
               <th key={key} colSpan={3}>
                 {shotTypeLabel(key)}
@@ -197,123 +287,65 @@ function TeamShotTypeTransposedTable({
             <th colSpan={3}>合計</th>
           </tr>
           <tr>
-            {keys.map((key) => (
+            {[...keys, "total"].map((key) => (
               <Fragment key={key}>
                 <th className="align-right">M</th>
                 <th className="align-right">A</th>
                 <th className="align-right">%</th>
               </Fragment>
             ))}
-            <th className="align-right">M</th>
-            <th className="align-right">A</th>
-            <th className="align-right">%</th>
           </tr>
         </thead>
         <tbody>
-          {(["twoPoint", "threePoint"] as const).map((split) => (
-            <tr key={split}>
-              <td className="align-left">{split === "twoPoint" ? "2P" : "3P"}</td>
-              {keys.map((key) => {
-                const c = scaleShotTypeCounts(breakdown[key]![split], factor);
-                return (
-                  <Fragment key={key}>
-                    <td className="align-right">{formatShotTypeMade(c, digits)}</td>
-                    <td className="align-right">{formatShotTypeAttempted(c, digits)}</td>
-                    <td className="align-right">{formatShotTypePct(c)}</td>
-                  </Fragment>
-                );
-              })}
-              {(() => {
-                const total = scaleShotTypeCounts(
-                  Object.values(breakdown).reduce((acc, c) => sumShotTypeCounts(acc, c[split]), { made: 0, attempted: 0 }),
-                  factor,
-                );
-                return (
-                  <>
-                    <td className="align-right">{formatShotTypeMade(total, digits)}</td>
-                    <td className="align-right">{formatShotTypeAttempted(total, digits)}</td>
-                    <td className="align-right">{formatShotTypePct(total)}</td>
-                  </>
-                );
-              })()}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/**
- * ターンオーバー強制/被強制（種類別）を「相手から奪った」「自チームが記録」の2行で表示する。
- * 「チームスタッツ」タブの強制ターンオーバータブ用（元は独立セクションだったものをカテゴリタブの
- * 1つとして統合。DESIGN.md参照）
- */
-function ForcedTurnoversTable({ forced, committed }: { forced: TeamForcedTurnovers; committed: TeamForcedTurnovers }) {
-  return (
-    <div className="table-scroll">
-      <table className="sortable-table">
-        <thead>
-          <tr>
-            <th className="align-left">区分</th>
-            <th className="align-right" title="シュートファウル以外のオフェンスファウルによるターンオーバー">
-              オフェンスファウル
-            </th>
-            <th className="align-right" title="24秒バイオレーションによるターンオーバー">
-              24秒バイオレーション
-            </th>
-            <th className="align-right" title="バックコートバイオレーションによるターンオーバー">
-              バックコート
-            </th>
-            <th className="align-right" title="5秒バイオレーションによるターンオーバー">
-              5秒バイオレーション
-            </th>
-            <th className="align-right" title="8秒バイオレーションによるターンオーバー">
-              8秒バイオレーション
-            </th>
-            <th
-              className="align-right"
-              title="トラベリング・ダブルドリブル・3秒バイオレーション・アウトオブバウンズ等、上記以外のデッドボールターンオーバー"
-            >
-              その他デッドボール
-            </th>
-            <th className="align-right" title="スティール由来（バッドパス・ボールハンドリングロスト）のライブボールターンオーバー。参考値">
-              ライブボール（参考）
-            </th>
-            <th className="align-right">合計</th>
-            <th className="align-right" title="Yahoo!スポーツplay-by-playが実際に取得できた試合数（分母の目安）">
-              データあり試合数
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {(
-            [
-              { label: "相手から奪った（自チームが強制）", data: forced },
-              { label: "自チームが記録（相手に強制された）", data: committed },
-            ] as const
-          ).map(({ label, data }) => (
-            <tr key={label}>
-              <td className="align-left">{label}</td>
-              <td className="align-right">{data.offensiveFoul}</td>
-              <td className="align-right">{data.violation24sec}</td>
-              <td className="align-right">{data.backcourtViolation}</td>
-              <td className="align-right">{data.violation5sec}</td>
-              <td className="align-right">{data.violation8sec}</td>
-              <td className="align-right">{data.otherDead}</td>
-              <td className="align-right">{data.live}</td>
-              <td className="align-right">
-                {data.offensiveFoul +
-                  data.violation24sec +
-                  data.backcourtViolation +
-                  data.violation5sec +
-                  data.violation8sec +
-                  data.otherDead +
-                  data.live}
-              </td>
-              <td className="align-right">{data.gamesWithData}</td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const breakdown = r.team.shotTypes;
+            if (!breakdown) {
+              return (
+                <tr key={r.season}>
+                  <td className="align-left">{r.season}</td>
+                  <td className="align-left season-unsupported-cell" colSpan={1 + (keys.length + 1) * 3}>
+                    このシーズンのデータには対応していません（2023-24シーズン以降のみ）
+                  </td>
+                </tr>
+              );
+            }
+            const factor = displayMode === "total" || r.team.gamesPlayed <= 0 ? 1 : 1 / r.team.gamesPlayed;
+            return (["twoPoint", "threePoint"] as const).map((split) => {
+              const total = scaleShotTypeCounts(
+                Object.values(breakdown).reduce((acc, c) => sumShotTypeCounts(acc, c[split]), { made: 0, attempted: 0 }),
+                factor,
+              );
+              return (
+                <tr key={`${r.season}-${split}`} className={split === "threePoint" ? "season-row-cont" : undefined}>
+                  <td className="align-left">{r.season}</td>
+                  <td className="align-left">{split === "twoPoint" ? "2P" : "3P"}</td>
+                  {keys.map((key) => {
+                    const counts = breakdown[key];
+                    if (!counts) {
+                      return (
+                        <Fragment key={key}>
+                          <td className="align-right">-</td>
+                          <td className="align-right">-</td>
+                          <td className="align-right">-</td>
+                        </Fragment>
+                      );
+                    }
+                    const c = scaleShotTypeCounts(counts[split], factor);
+                    return (
+                      <Fragment key={key}>
+                        <td className="align-right">{formatShotTypeMade(c, digits)}</td>
+                        <td className="align-right">{formatShotTypeAttempted(c, digits)}</td>
+                        <td className="align-right">{formatShotTypePct(c)}</td>
+                      </Fragment>
+                    );
+                  })}
+                  <td className="align-right">{formatShotTypeMade(total, digits)}</td>
+                  <td className="align-right">{formatShotTypeAttempted(total, digits)}</td>
+                  <td className="align-right">{formatShotTypePct(total)}</td>
+                </tr>
+              );
+            });
+          })}
         </tbody>
       </table>
     </div>
@@ -457,6 +489,8 @@ function ScoringCompositionSection({ team, gameLogs, shotChartSupported }: { tea
 // （src/lib/playerRankingEligibility.ts、2026-09にホーム画面リーダーと合わせて適用）
 const TEAM_INTERNAL_LEADER_STAT_KEYS = ["pts", "reb", "ast", "blk", "stl", "fgPct", "tpPct", "twoPct", "ftPct", "min", "efgPct", "per"];
 const TEAM_LEADERS_TOP_N = 5;
+// スマホ幅で既定表示するリーダー項目数（TEAM_INTERNAL_LEADER_STAT_KEYSの先頭＝PTS/REB/AST）
+const TEAM_LEADERS_MOBILE_DEFAULT_COUNT = 3;
 
 interface RadarStatDef {
   key: string;
@@ -2062,7 +2096,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   // シチュエーション別フィルタの「対勝率別」用（対戦相手のその試合時点までの勝率が必要）
   const opponentRecords = useMemo(() => (summaries ? buildRecordsBeforeGame(summaries) : undefined), [summaries]);
 
-  const [filter, setFilter] = usePageState<SituationalFilter>(pk("filter"), { range: { kind: "all" } });
+  // 「ショットチャート」専用の詳細フィルタ（試合種別・Q別/前後半とともに、シチュエーション別成績とは独立して持つ）
+  const [teamShotChartFilter, setTeamShotChartFilter] = usePageState<SituationalFilter>(pk("teamShotChartFilter"), { range: { kind: "all" } });
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   const pbpSupported = isPbpSupported(coverage);
 
@@ -2071,7 +2106,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // スコアリングの4タブは既存の選手スタッツ/日程結果タブと同じSEASON_BOX_TABS/SeasonBoxTabKeyを
   // 再利用するが、列自体はTeamSummary（seasonHistory）＋TeamGameLog（careerData、Misc用）から
   // 直接組み立てる専用の列定義（TEAM_SEASON_*_COLUMNS）を使う（DESIGN.md参照）
-  const [seasonBoxTab, setSeasonBoxTab] = usePageState<SeasonBoxTabKey>(pk("seasonBoxTab"), "traditional");
+  const [seasonBoxTab, setSeasonBoxTab] = usePageState<SeasonBoxTabKey | "shooting" | "forcedTurnovers">(pk("seasonBoxTab"), "traditional");
 
   // 「通算成績」タブ（Phase TF）: 個人詳細ページのcareerDataと同じパターンで、このチームが
   // 存在する全シーズン分のTeamGameLogをタブを開いたときだけ遅延取得する
@@ -2083,7 +2118,7 @@ export function TeamDetailPage({ season }: { season: string }) {
 
   useEffect(() => {
     if (
-      (tab !== "overview" && tab !== "career" && tab !== "clubRecord" && tab !== "compare") ||
+      (tab !== "teamStats" && tab !== "career" && tab !== "clubRecord" && tab !== "compare") ||
       !teamId ||
       !seasons ||
       careerFetchStartedRef.current
@@ -2108,7 +2143,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   }, [tab, teamId, seasons]);
 
   // 「シーズン別成績」Miscタブ用（Phase H3①）。シーズンごとにレギュラーシーズンの
-  // TeamGameLogだけを合算する（careerDataは既に「概要」タブでも取得済みのため追加取得なし）
+  // TeamGameLogだけを合算する（careerDataは「チームスタッツ」タブで通算成績等と同じものを取得済みのため追加取得なし）
   const teamSeasonMiscBySeason = useMemo(
     () => new Map((careerData ?? []).map((cd) => [cd.season, sumTeamSeasonMisc(cd.logs)])),
     [careerData],
@@ -2447,44 +2482,32 @@ export function TeamDetailPage({ season }: { season: string }) {
       .filter((r): r is ComparisonRow<TeamCompareColumnData> => r !== null);
   }, [compareSlots, careerData, compareGameType, compareOpponentRecords, compareRawGames, compareYahooPbp, seasons, teamId, divisionHistory]);
 
-  // 「チームスタッツ」タブ（Phase H4）: 自チーム/opp/+/-トグル・Q別/前後半トグル（上部の
-  // カテゴリタブ集計表・シチュエーション別成績（チーム版）の両方で共有する）。「試合」選択時は
-  // 追加取得不要（既存のgameLogs/team.jsonのみで完結する）が、Q別/前後半選択時のみこのチームの
-  // 全試合（gameLogsのscheduleKey全件）の生データを遅延取得する
-  const [teamPerspective, setTeamPerspective] = usePageState<TeamPerspective>(pk("teamPerspective"), "own");
-  const [statsPeriod, setStatsPeriod] = usePageState<PeriodRangeValue>(pk("statsPeriod"), "all");
-  const statsPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === statsPeriod);
-  // トラディショナル/アドバンスド/Misc/スコアリングのカテゴリタブ（「日程結果」「比較」タブと
-  // 同じCOLUMNS_BY_TAB/BoxscoreTabKeyを再利用。Phase H4③でタイル形式表示から置き換えた）。
-  // 上部集計表とシチュエーション別成績（チーム版）で別々のタブ選択状態を持つ（PlayerDetailPage
-  // の「シーズン別成績」「シチュエーション別成績」が独立したタブ状態を持つのと同じ設計）
-  const [teamStatsBoxTab, setTeamStatsBoxTab] = usePageState<BoxscoreTabKey | "shooting" | "forcedTurnovers">(
-    pk("teamStatsBoxTab"),
-    "traditional",
-  );
+  // 「チームスタッツ」タブの「シチュエーション別成績」（チーム版）専用の自チーム/opp/+/-トグル・Q別/前後半トグル。
+  // 「ショットチャート」のQ別/前後半（teamShotChartPeriod）とは独立して持つ（旧・概要タブの選択シーズン集計表と
+  // 共有していた絞り込みは、集計表を削除した際にそれぞれ専用の状態へ分けた。DESIGN.md 118章）。
+  // 「試合」選択時は追加取得不要だが、Q別/前後半選択時のみ生データを遅延取得する
+  const [situationalTeamPerspective, setSituationalTeamPerspective] = usePageState<TeamPerspective>(pk("situationalTeamPerspective"), "own");
+  const [situationalTeamPeriod, setSituationalTeamPeriod] = usePageState<PeriodRangeValue>(pk("situationalTeamPeriod"), "all");
+  const situationalTeamPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === situationalTeamPeriod);
+  // 「ショットチャート」専用のQ別/前後半
+  const [teamShotChartPeriod, setTeamShotChartPeriod] = usePageState<PeriodRangeValue>(pk("teamShotChartPeriod"), "all");
+  const teamShotChartPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === teamShotChartPeriod);
   const [situationalTeamBoxTab, setSituationalTeamBoxTab] = usePageState<BoxscoreTabKey | "shooting">(pk("situationalTeamBoxTab"), "traditional");
   // 「選手スタッツ」タブのカテゴリタブ（シューティングを含む）。シューティングタブ選択時のみ
   // teamYahooPbpの遅延取得をトリガーする必要があるため、親（このコンポーネント）で状態を持つ
   // （BoxscoreTable.tsxのactiveTab/onTabChangeと同じパターン。DESIGN.md参照）
   const [playerStatsBoxTab, setPlayerStatsBoxTab] = usePageState<SeasonBoxTabKey | "shooting">(pk("playerStatsBoxTab"), "traditional");
-  // 上部集計表専用のレギュラー/プレーオフ/合算トグル（Phase H4②）。FilterBarの
-  // 試合種別は専用のteamStatsGameTypeで持ち、filterには常にincludePlayoffs: trueを渡した上で
+  // 「ショットチャート」専用のレギュラー/プレーオフ/合算トグル（Phase H4②）。FilterBarの
+  // 試合種別は専用のteamShotChartGameTypeで持ち、詳細フィルタには常にincludePlayoffs: trueを渡した上で
   // filterByGameTypeで絞り込む（個人・チーム双方の「比較」タブと同じ設計）
-  const [teamStatsGameType, setTeamStatsGameType] = usePageState<SeasonGameTypeFilter>(pk("teamStatsGameType"), "regular");
-  // 「試合」選択時・フィルタ無し（isDefaultFilter）・レギュラーシーズンのみの場合のみteams.jsonの
-  // シーズン集計を0コストで再利用できる。それ以外（シチュエーション別フィルタ・Q別/前後半トグル・
-  // プレーオフ/合算選択のいずれかが有効）はTeamGameLog/生データベースの再集計が必要
-  // （シューティングセクションで使う。上部集計表自体は常に生データベースの
-  // buildTeamMultiGameBoxTotalsを使うため対象外）
-  const needsTeamPeriodRecompute =
-    !isDefaultFilter(filter) || teamStatsGameType !== "regular" || (!!statsPeriodOption && statsPeriodOption.periods !== null);
+  const [teamShotChartGameType, setTeamShotChartGameType] = usePageState<SeasonGameTypeFilter>(pk("teamShotChartGameType"), "regular");
   const statsRawGamesRequestedRef = useRef<Set<string>>(new Set());
   const [statsRawGames, setStatsRawGames] = useState<Map<string, StoredGame>>(new Map());
   const [statsRawGamesLoading, setStatsRawGamesLoading] = useState(false);
   // 「チーム内リーダー」（概要タブ、Phase H3②）専用のチーム全体/日本人選手限定トグル
   const [teamLeadersJpOnly, setTeamLeadersJpOnly] = usePageState(pk("teamLeadersJpOnly"), false);
   // 「シチュエーション別成績」（チーム版）専用のレギュラー/プレーオフ/合算トグル。
-  // 上部集計表のteamStatsGameTypeとは独立（個人詳細ページの同名セクションと同じ設計）
+  // ショットチャートのteamShotChartGameTypeとは独立（個人詳細ページの同名セクションと同じ設計）
   const [situationalTeamGameType, setSituationalTeamGameType] = usePageState<SeasonGameTypeFilter>(pk("situationalTeamGameType"), "regular");
   // 「シチュエーション別勝敗」（概要タブ、Phase H3③）専用のレギュラー/プレーオフ/合算トグル。
   // 他のシチュエーション別セクションと同じく独立した状態を持つ
@@ -2496,9 +2519,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「シーズン別成績」の自チーム/opp/+/-トグル（Phase H8-2）。「チームスタッツ」「日程結果」
   // タブと同じTeamPerspective型・同じ3値切り替えの仕組みを再利用する
   const [seasonBoxPerspective, setSeasonBoxPerspective] = usePageState<TeamPerspective>(pk("seasonBoxPerspective"), "own");
-  // 「当該シーズンのスタッツ」（上部集計表）・「シチュエーション別成績」（チーム版）の
-  // 平均/合計トグル。それぞれ独立した状態を持つ（他のトグル群と同じ設計）
-  const [teamStatsDisplayMode, setTeamStatsDisplayMode] = usePageState<SeasonDisplayMode>(pk("teamStatsDisplayMode"), "perGame");
+  // 「シチュエーション別成績」（チーム版）の平均/合計トグル
   const [situationalTeamDisplayMode, setSituationalTeamDisplayMode] = usePageState<SeasonDisplayMode>(pk("situationalTeamDisplayMode"), "perGame");
   // 「シューティング」セクション用: Q別/前後半選択時・非デフォルトフィルタ選択時のみ、
   // このチームの全試合のYahoo PBPを遅延取得する（既定の「試合」×フィルタ無しはteams.jsonの
@@ -2561,8 +2582,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       tab === "schedule" ||
       tab === "teamStats" ||
       tab === "playerStats" ||
-      (tab === "overview" && situationalRecordRawExpanded) ||
-      (!!statsPeriodOption && statsPeriodOption.periods !== null);
+      (tab === "overview" && situationalRecordRawExpanded);
     if ((tab !== "teamStats" && tab !== "schedule" && tab !== "overview" && tab !== "playerStats") || !needsRawGames || !gameLogs) return;
     const needed = [
       ...new Set(
@@ -2589,10 +2609,10 @@ export function TeamDetailPage({ season }: { season: string }) {
         });
       })
       .finally(() => setStatsRawGamesLoading(false));
-  }, [tab, statsPeriodOption, gameLogs, season, teamShotChartExpanded, situationalRecordRawExpanded]);
+  }, [tab, gameLogs, season, teamShotChartExpanded, situationalRecordRawExpanded]);
 
   useEffect(() => {
-    // 「チームスタッツ」タブは上部集計表・シチュエーション別成績（チーム版）ともMiscタブの
+    // 「チームスタッツ」タブ（シチュエーション別成績）はMiscタブの
     // LIVETOV/DEADTOV等でYahoo PBPが常に必要なため、「日程結果」タブと同じく無条件で取得する
     // （0コストの高速経路は無い。DESIGN.md参照）。「選手スタッツ」タブはシューティングタブを
     // 選んだ時だけ遅延取得する（既存のロースター候補取得と同じ「必要になってから取る」方針）
@@ -2637,7 +2657,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   }, [teamId]);
 
   useEffect(() => {
-    if (tab !== "overview" || !teamId || !seasons || seasonHistoryFetchStartedRef.current) return;
+    if (tab !== "teamStats" || !teamId || !seasons || seasonHistoryFetchStartedRef.current) return;
     seasonHistoryFetchStartedRef.current = true;
     setSeasonHistoryLoading(true);
     Promise.all(
@@ -2913,60 +2933,21 @@ export function TeamDetailPage({ season }: { season: string }) {
   const avgWeightKg = averageOf(starters.flatMap((p) => (p.weightKg != null ? [p.weightKg] : [])));
   const avgAge = averageOf(starters.flatMap((p) => (p.birthDate ? [ageForSeason(p.birthDate, season)] : [])));
 
-  // Phase H4②: レギュラー/プレーオフ/合算は旧フィルタUI（削除済みのSituationalFilterPicker）の組み込みトグル（binary）
-  // ではなく専用のteamStatsGameTypeで管理する。filterには常にincludePlayoffs: trueを渡して
-  // 「地区/月別等の絞り込みだけ適用した全試合」を得た上で、filterByGameTypeで最終的な
-  // レギュラー/プレーオフ/合算の絞り込みを行う（個人・チーム双方の「比較」タブと同じ設計）
+  // Phase H4②: 「ショットチャート」のレギュラー/プレーオフ/合算は専用のteamShotChartGameTypeで管理する。
+  // 詳細フィルタには常にincludePlayoffs: trueを渡して「地区/月別等の絞り込みだけ適用した全試合」を得た上で、
+  // filterByGameTypeで最終的なレギュラー/プレーオフ/合算の絞り込みを行う（個人・チーム双方の「比較」タブと同じ設計）
   const filteredLogs = gameLogs
     ? filterByGameType(
-        filterGameLogs(gameLogs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => teamId),
-        teamStatsGameType,
+        filterGameLogs(gameLogs, { ...teamShotChartFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => teamId),
+        teamShotChartGameType,
       )
     : [];
   const teamStatsShotChartSupported = isShotChartSupported(coverage);
   const yahooTurnoversByScheduleKey = new Map([...teamYahooPbp].map(([k, v]) => [k, v.turnovers] as const));
-  // 上部集計表（Phase H4③）: 「日程結果」「比較」タブと同じbuildTeamMultiGameBoxTotalsで、
-  // 選択中のフィルタ・ゲーム種別・Q別/前後半に絞り込んだ全試合を1試合あたり平均に集計する。
-  // Misc/スコアリングタブの正確性を優先し、Phase TE（64-1章）と同じく0コスト経路は設けない
-  const teamStatsEntries = filteredLogs
-    .map((g) => {
-      const game = statsRawGames.get(g.scheduleKey);
-      return game ? { game, isHome: g.isHome } : null;
-    })
-    .filter((e): e is { game: StoredGame; isHome: boolean } => e !== null);
-  const teamStatsBoxTotals = buildTeamMultiGameBoxTotals(
-    teamStatsEntries,
-    yahooTurnoversByScheduleKey,
-    teamStatsShotChartSupported,
-    yahooPbpSupported,
-    statsPeriodOption,
-    teamStatsDisplayMode,
-  );
-  // ベンチ/スタメン得点・国籍区分別得点（Batch 1）。Q別/前後半の概念が無い全試合固定の値
-  // （benchPointsForGame等と同じPeriodCategory=18の個人行のみを対象にするため）のため、
-  // statsPeriodOptionは渡さない
-  const teamStatsPoints = buildTeamPointsBreakdown(teamStatsEntries, masterById, teamStatsDisplayMode);
-
-  // 「シューティング」セクション: 「試合」選択時・フィルタ無し・レギュラーシーズンのみの場合だけ
-  // teams.jsonのshotTypes（0コスト）、それ以外はYahoo PBPを試合ごとに合算し直す
-  const currentTeamShotTypes: ShotTypeBreakdown | undefined = !needsTeamPeriodRecompute
-    ? team.shotTypes
-    : buildShotTypeBreakdownByTeam(
-        filteredLogs
-          .filter((g) => g.min > 0)
-          .flatMap((g) => teamYahooPbp.get(g.scheduleKey)?.shots ?? [])
-          .filter((s) => s.teamId === team.teamId && periodInRange(statsPeriodOption, s.period)),
-      ).get(team.teamId);
-  const teamShootingGamesPlayed = !needsTeamPeriodRecompute ? team.gamesPlayed : filteredLogs.length;
-  // シューティングタブ統合後は「チームスタッツ」タブ共通の平均/合計トグル（teamStatsDisplayMode）に
-  // 揃える（独立していた旧teamShootingDisplayModeは廃止。DESIGN.md参照）
-  const teamShootingFactor =
-    teamStatsDisplayMode === "total" || teamShootingGamesPlayed <= 0 ? 1 : 1 / teamShootingGamesPlayed;
-  const teamShootingDigits = teamStatsDisplayMode === "total" ? 0 : 1;
 
   // 「ショットチャート」セクション: 全選手のショットをteamId一致で合算する（個人詳細ページの
   // シーズン集計ショットチャートと同じ生データ・同じbuildShotEvents()を再利用し、選手個別の
-  // フィルタを外しただけ）。上部のシチュエーション別フィルタ・Q別/前後半トグルに連動する
+  // フィルタを外しただけ）。ショットチャート専用の絞り込み（試合種別・Q別/前後半・詳細フィルタ）に連動する
   const teamShotEvents: ShotEvent[] = teamShotChartExpanded
     ? filteredLogs
         .filter((g) => g.min > 0)
@@ -2975,7 +2956,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           if (!game) return [];
           return buildShotEvents(game.raw.PlayByPlays)
             .filter((s) => s.teamId === team.teamId)
-            .filter((s) => periodInRange(statsPeriodOption, s.period));
+            .filter((s) => periodInRange(teamShotChartPeriodOption, s.period));
         })
     : [];
   const teamShotChartPlayerOptions = teamPlayers.map((p) => ({ PlayerID: p.playerId, PlayerNameJ: p.name }));
@@ -3157,7 +3138,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           yahooTurnoversByScheduleKey,
           teamStatsShotChartSupported,
           yahooPbpSupported,
-          statsPeriodOption,
+          situationalTeamPeriodOption,
           situationalTeamDisplayMode,
         );
         return boxTotals
@@ -3185,7 +3166,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       for (const row of group.rows) {
         const shots = row.scheduleKeys
           .flatMap((sk) => teamYahooPbp.get(sk)?.shots ?? [])
-          .filter((s) => s.teamId === team.teamId && periodInRange(statsPeriodOption, s.period));
+          .filter((s) => s.teamId === team.teamId && periodInRange(situationalTeamPeriodOption, s.period));
         situationalTeamShotBreakdownByRowKey.set(row.key, buildShotTypeBreakdown(shots));
       }
     }
@@ -3241,10 +3222,12 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 軸ごとのラベル関数（src/lib/conditionLabels.ts）を、セクションごとに実際に効いている軸だけ並べて合成する。
   // 効かない軸（シーズン通算値のみのセクション等）は固定ラベルで明示する
   const seasonLabel = `${season}シーズン`;
+  // 「シーズン別成績」は新しいシーズンから順に表示する（seasons.json由来の並びは古い順）
+  const seasonHistoryDesc = seasonHistory ? [...seasonHistory].sort((a, b) => b.season.localeCompare(a.season)) : null;
   const seasonBoxConditions = composeLabels(
     teamBoxCategoryLabel(seasonBoxTab),
-    displayModeLabels(seasonBoxDisplayMode),
-    perspectiveLabels(seasonBoxPerspective),
+    seasonBoxTab !== "forcedTurnovers" && displayModeLabels(seasonBoxDisplayMode),
+    seasonBoxTab !== "shooting" && seasonBoxTab !== "forcedTurnovers" && perspectiveLabels(seasonBoxPerspective),
     gameTypeLabels("regular"),
   );
   const teamLeadersConditions = composeLabels(
@@ -3254,60 +3237,28 @@ export function TeamDetailPage({ season }: { season: string }) {
     `出場率${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}%以上`,
   );
   const situationalRecordConditions = composeLabels(seasonLabel, gameTypeLabels(situationalRecordGameType));
-  const teamStatsTitle = {
-    title: `${seasonLabel} チームスタッツ：${teamBoxCategoryLabel(teamStatsBoxTab)}`,
-    conditions:
-      teamStatsBoxTab === "forcedTurnovers"
-        ? composeLabels(SEASON_TOTAL_ONLY_LABELS)
-        : teamStatsBoxTab === "shooting"
-          ? composeLabels(
-              displayModeLabels(teamStatsDisplayMode),
-              gameTypeLabels(teamStatsGameType),
-              situationalFilterLabels(filter),
-              periodLabels(statsPeriodOption),
-            )
-          : composeLabels(
-              displayModeLabels(teamStatsDisplayMode),
-              gameTypeLabels(teamStatsGameType),
-              perspectiveLabels(teamPerspective),
-              situationalFilterLabels(filter),
-              periodLabels(statsPeriodOption),
-            ),
-  };
-  // 「シチュエーション別成績」: 行がシチュエーション自体のため、S軸は持たない。V・Pは上のチームスタッツ主表と共有
+  // 「シチュエーション別成績」: 行がシチュエーション自体のため、S軸（詳細フィルタ）は持たない
   const situationalTeamConditions = composeLabels(
     seasonLabel,
     teamBoxCategoryLabel(situationalTeamBoxTab),
     displayModeLabels(situationalTeamDisplayMode),
     gameTypeLabels(situationalTeamGameType),
-    situationalTeamBoxTab !== "shooting" && perspectiveLabels(teamPerspective),
-    periodLabels(statsPeriodOption),
+    situationalTeamBoxTab !== "shooting" && perspectiveLabels(situationalTeamPerspective),
+    periodLabels(situationalTeamPeriodOption),
   );
-  // フィルタバー（DESIGN.md 105章 B4）。チームスタッツ・選手スタッツの絞り込みを1つのバーに集約する
-  const teamStatsShooting = teamStatsBoxTab === "shooting";
-  const teamStatsSeasonOnlyReason =
-    teamStatsBoxTab === "forcedTurnovers"
-      ? `${CATEGORY_LABELS.forcedTurnovers}はシーズン通算値のみ対応で、上の絞り込みは連動しません。`
-      : undefined;
-  const teamStatsFilterAxes: FilterAxis[] = [
-    gameTypeAxis(teamStatsGameType, setTeamStatsGameType, { disabledReason: teamStatsSeasonOnlyReason }),
-    perspectiveAxis(teamPerspective, setTeamPerspective, {
-      disabledReason: teamStatsSeasonOnlyReason ?? (teamStatsShooting ? `${CATEGORY_LABELS.shooting}は自チームの値のみです。` : undefined),
-    }),
-    displayModeAxis(teamStatsDisplayMode, setTeamStatsDisplayMode, { disabledReason: teamStatsSeasonOnlyReason }),
-    periodAxis(statsPeriod, setStatsPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: teamStatsSeasonOnlyReason }),
-    ...situationalAxes(filter, setFilter, {
+  // フィルタバー（DESIGN.md 105章 B4）。ショットチャート専用の絞り込み（旧・チームスタッツの共有バーから独立させた。118章）
+  const teamShotChartFilterAxes: FilterAxis[] = [
+    gameTypeAxis(teamShotChartGameType, setTeamShotChartGameType),
+    periodAxis(teamShotChartPeriod, setTeamShotChartPeriod, SEASON_BOX_PERIOD_OPTIONS),
+    ...situationalAxes(teamShotChartFilter, setTeamShotChartFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
-      disabledReason: teamStatsSeasonOnlyReason,
     }),
   ];
-  const clearTeamStatsFilters = () => {
-    setTeamStatsGameType("regular");
-    setTeamPerspective("own");
-    setTeamStatsDisplayMode("perGame");
-    setStatsPeriod("all");
-    setFilter({ range: { kind: "all" } });
+  const clearTeamShotChartFilters = () => {
+    setTeamShotChartGameType("regular");
+    setTeamShotChartPeriod("all");
+    setTeamShotChartFilter({ range: { kind: "all" } });
   };
   const playerStatsShooting = playerStatsBoxTab === "shooting";
   const playerStatsFilterAxes: FilterAxis[] = [
@@ -3329,9 +3280,9 @@ export function TeamDetailPage({ season }: { season: string }) {
   };
   const teamShotChartConditions = composeLabels(
     seasonLabel,
-    gameTypeLabels(teamStatsGameType),
-    situationalFilterLabels(filter),
-    periodLabels(statsPeriodOption),
+    gameTypeLabels(teamShotChartGameType),
+    situationalFilterLabels(teamShotChartFilter),
+    periodLabels(teamShotChartPeriodOption),
   );
   // シューティングタブは試合単位のシュートを集計するだけでQ別/前後半に対応していないため、
   // Q別/前後半が選ばれているときはその旨を明示する（試合全体のときは通常どおりP軸を出す）
@@ -3447,19 +3398,6 @@ export function TeamDetailPage({ season }: { season: string }) {
         </div>
       </div>
 
-      {TEAM_HEADER_STAT_ROWS.map((row, i) => (
-        <div className="stat-grid team-header-stat-grid" key={i}>
-          {row.map((def) => (
-            <StatTile
-              key={def.key}
-              label={def.label}
-              value={def.format(team)}
-              rank={teams && teams.length > 0 ? formatTeamRank(rankAmongTeams(team, teams, def)) : undefined}
-            />
-          ))}
-        </div>
-      ))}
-
       <div className="tab-bar">
         {(Object.keys(TAB_LABELS) as DetailTab[]).map((t) => (
           <button key={t} className={`tab-button${tab === t ? " active" : ""}`} onClick={() => setTab(t)} type="button">
@@ -3470,95 +3408,22 @@ export function TeamDetailPage({ season }: { season: string }) {
 
       {tab === "overview" && (
         <div className="team-tab-panel">
-          <ConditionTitle section title="シーズン別成績" conditions={seasonBoxConditions} />
-          {nameHistory.length > 1 && (
-            <p className="page-subtitle">
-              名称変更履歴:{" "}
-              {nameHistory.map((n, i) => (
-                <span key={n.name}>
-                  {i > 0 && " → "}
-                  {n.name}
-                  {n.fromSeason || n.toSeason ? (
-                    <>
-                      （{n.fromSeason ?? ""}
-                      {n.fromSeason && n.toSeason ? "〜" : ""}
-                      {n.toSeason ?? (n.fromSeason ? "〜" : "")}）
-                    </>
-                  ) : null}
-                </span>
+          {TEAM_HEADER_STAT_ROWS.map((row, i) => (
+            <div className="stat-grid team-header-stat-grid" key={i}>
+              {row.map((def) => (
+                <StatTile
+                  key={def.key}
+                  label={def.label}
+                  value={def.format(team)}
+                  rank={teams && teams.length > 0 ? formatTeamRank(rankAmongTeams(team, teams, def)) : undefined}
+                />
               ))}
-            </p>
-          )}
-          <FilterBar
-            simple
-            stateKey={pk("seasonBoxFilter")}
-            axes={[
-              perspectiveAxis(seasonBoxPerspective, setSeasonBoxPerspective),
-              displayModeAxis(seasonBoxDisplayMode, setSeasonBoxDisplayMode),
-            ]}
-          />
-          <div className="tab-bar">
-            {SEASON_BOX_TABS.map((t) => (
-              <button
-                key={t.key}
-                className={`tab-button${seasonBoxTab === t.key ? " active" : ""}`}
-                onClick={() => setSeasonBoxTab(t.key)}
-                type="button"
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          {seasonHistoryLoading || careerLoading ? (
-            <p className="loading">読み込み中...</p>
-          ) : !seasonHistory || seasonHistory.length === 0 ? (
-            <p className="empty-message">シーズン別成績がありません</p>
-          ) : (
-            <>
-            <div className="table-scroll">
-              <table className="stats-table">
-                <thead>
-                  <tr>
-                    <th className="align-left">シーズン</th>
-                    <th className="align-left">チーム名</th>
-                    <th className="align-right">試合数</th>
-                    <th className="align-right">勝敗</th>
-                    <th className="align-right">勝率</th>
-                    {TEAM_SEASON_BOX_COLUMNS[seasonBoxTab].map((c) => (
-                      <th className="align-right" key={c.key} title={c.description}>
-                        {c.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {seasonHistory.map((r) => {
-                    const misc = teamSeasonMiscBySeason.get(r.season) ?? EMPTY_TEAM_SEASON_MISC;
-                    return (
-                      <tr key={r.season}>
-                        <td className="align-left">
-                          <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
-                            {r.season}
-                          </RouterLink>
-                        </td>
-                        <td className="align-left">{r.teamName}</td>
-                        <td className="align-right">{r.team.gamesPlayed}</td>
-                        <td className="align-right">{formatRecord(r.team.wins, r.team.losses)}</td>
-                        <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
-                        {TEAM_SEASON_BOX_COLUMNS[seasonBoxTab].map((c) => (
-                          <td className="align-right" key={c.key}>
-                            {c.format(r, misc, seasonBoxDisplayMode, seasonBoxPerspective)}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
             </div>
-            {seasonBoxTab === "misc" && <RuleChangeFootnote seasons={seasonHistory.map((r) => r.season)} />}
-            </>
-          )}
+          ))}
+
+          <MobileCollapse label="円グラフ">
+            <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} shotChartSupported={isShotChartSupported(coverage)} />
+          </MobileCollapse>
 
           <ConditionTitle section title="チーム内リーダー" conditions={teamLeadersConditions} />
           <FilterBar
@@ -3581,7 +3446,8 @@ export function TeamDetailPage({ season }: { season: string }) {
             <p className="empty-message">選手データがありません</p>
           ) : (
             <div className="leaders-grid">
-              {TEAM_INTERNAL_LEADER_STAT_KEYS.map((key) => {
+              {(() => {
+                const cards = TEAM_INTERNAL_LEADER_STAT_KEYS.map((key) => {
                 const def = PLAYER_STAT_DEFS.find((d) => d.key === key);
                 if (!def) return null;
                 const extraThreshold = EXTRA_ELIGIBILITY_RULES[key]?.defaultValue ?? 0;
@@ -3597,7 +3463,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 if (!leader) return null;
                 return (
                   <div key={key} className="leader-card">
-                    <div className="leader-stat-label">{def.label}</div>
+                    <div className="leader-stat-label">{leaderStatLabel(def)}</div>
                     <Link to={`/players/${leader.playerId}`} className="leader-top1">
                       <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" />
                       <div className="leader-info">
@@ -3620,7 +3486,15 @@ export function TeamDetailPage({ season }: { season: string }) {
                     )}
                   </div>
                 );
-              })}
+                });
+                // スマホ幅では PTS/REB/AST の3項目だけを既定で出し、残りはボタンで展開する（広い画面は全項目）
+                return (
+                  <>
+                    {cards.slice(0, TEAM_LEADERS_MOBILE_DEFAULT_COUNT)}
+                    <MobileCollapse label="その他の項目">{cards.slice(TEAM_LEADERS_MOBILE_DEFAULT_COUNT)}</MobileCollapse>
+                  </>
+                );
+              })()}
             </div>
           )}
 
@@ -4007,112 +3881,142 @@ export function TeamDetailPage({ season }: { season: string }) {
 
       {tab === "teamStats" && (
         <div className="team-tab-panel">
-          <FilterBar axes={teamStatsFilterAxes} stateKey={pk("teamStatsFilter")} onClearAll={clearTeamStatsFilters} />
-          {statsRawGamesLoading && <p className="loading">読み込み中...</p>}
+          <ConditionTitle section title="シーズン別成績" conditions={seasonBoxConditions} />
+          {nameHistory.length > 1 && (
+            <p className="page-subtitle">
+              名称変更履歴:{" "}
+              {nameHistory.map((n, i) => (
+                <span key={n.name}>
+                  {i > 0 && " → "}
+                  {n.name}
+                  {n.fromSeason || n.toSeason ? (
+                    <>
+                      （{n.fromSeason ?? ""}
+                      {n.fromSeason && n.toSeason ? "〜" : ""}
+                      {n.toSeason ?? (n.fromSeason ? "〜" : "")}）
+                    </>
+                  ) : null}
+                </span>
+              ))}
+            </p>
+          )}
+          <FilterBar
+            simple
+            stateKey={pk("seasonBoxFilter")}
+            axes={[
+              perspectiveAxis(seasonBoxPerspective, setSeasonBoxPerspective, {
+                disabledReason:
+                  seasonBoxTab === "shooting"
+                    ? `${CATEGORY_LABELS.shooting}は自チームの値のみです。`
+                    : seasonBoxTab === "forcedTurnovers"
+                      ? `${CATEGORY_LABELS.forcedTurnovers}は種類別の通算件数のみで、視点は連動しません。`
+                      : undefined,
+              }),
+              displayModeAxis(seasonBoxDisplayMode, setSeasonBoxDisplayMode, {
+                disabledReason:
+                  seasonBoxTab === "forcedTurnovers"
+                    ? `${CATEGORY_LABELS.forcedTurnovers}は種類別の通算件数のみで、平均/合計は連動しません。`
+                    : undefined,
+              }),
+            ]}
+          />
           <div className="tab-bar">
-            {BOXSCORE_TABS.map((t) => (
+            {SEASON_BOX_TABS.map((t) => (
               <button
                 key={t.key}
-                className={`tab-button${teamStatsBoxTab === t.key ? " active" : ""}`}
-                onClick={() => setTeamStatsBoxTab(t.key)}
+                className={`tab-button${seasonBoxTab === t.key ? " active" : ""}`}
+                onClick={() => setSeasonBoxTab(t.key)}
                 type="button"
               >
                 {t.label}
               </button>
             ))}
             <button
-              className={`tab-button${teamStatsBoxTab === "shooting" ? " active" : ""}`}
-              onClick={() => setTeamStatsBoxTab("shooting")}
+              className={`tab-button${seasonBoxTab === "shooting" ? " active" : ""}`}
+              onClick={() => setSeasonBoxTab("shooting")}
               title={TEAM_SHOOTING_TAB_TOOLTIP}
               type="button"
             >
               {CATEGORY_LABELS.shooting}
             </button>
             <button
-              className={`tab-button${teamStatsBoxTab === "forcedTurnovers" ? " active" : ""}`}
-              onClick={() => setTeamStatsBoxTab("forcedTurnovers")}
+              className={`tab-button${seasonBoxTab === "forcedTurnovers" ? " active" : ""}`}
+              onClick={() => setSeasonBoxTab("forcedTurnovers")}
               type="button"
             >
               {CATEGORY_LABELS.forcedTurnovers}
             </button>
           </div>
-          <ConditionTitle title={teamStatsTitle.title} conditions={teamStatsTitle.conditions} />
-          {teamStatsBoxTab === "shooting" ? (
-            needsTeamPeriodRecompute && teamYahooPbpLoading ? (
-              <p className="loading">読み込み中...</p>
-            ) : !currentTeamShotTypes ? (
-              <p className="empty-message">このシーズンのデータには対応していません</p>
-            ) : (
-              <TeamShotTypeTransposedTable breakdown={currentTeamShotTypes} factor={teamShootingFactor} digits={teamShootingDigits} />
-            )
-          ) : teamStatsBoxTab === "forcedTurnovers" ? (
-            !team.forcedTurnovers || !team.turnoversCommitted ? (
-              <p className="empty-message">このシーズンのデータには対応していません</p>
-            ) : (
-              <ForcedTurnoversTable forced={team.forcedTurnovers} committed={team.turnoversCommitted} />
-            )
-          ) : !teamStatsBoxTotals ? (
-            <p className="empty-message">該当する試合がありません</p>
+          {seasonHistoryLoading || careerLoading ? (
+            <p className="loading">読み込み中...</p>
+          ) : !seasonHistoryDesc || seasonHistoryDesc.length === 0 ? (
+            <p className="empty-message">シーズン別成績がありません</p>
+          ) : seasonBoxTab === "shooting" ? (
+            <TeamSeasonShotTypeTable rows={seasonHistoryDesc} displayMode={seasonBoxDisplayMode} />
+          ) : seasonBoxTab === "forcedTurnovers" ? (
+            <TeamSeasonForcedTurnoversTable rows={seasonHistoryDesc} />
           ) : (
+            <>
             <div className="table-scroll">
               <table className="stats-table">
                 <thead>
                   <tr>
+                    <th className="align-left">シーズン</th>
+                    <th className="align-left">チーム名</th>
                     <th className="align-right">試合数</th>
-                    {COLUMNS_BY_TAB[teamStatsBoxTab].map((col) => (
-                      <th key={col.key} className="align-right" title={col.description}>
-                        {col.label}
-                      </th>
-                    ))}
-                    {teamPointsExtraColumnsForTab(teamStatsBoxTab).map((col) => (
-                      <th key={col.key} className="align-right">
-                        {col.label}
+                    <th className="align-right">勝敗</th>
+                    <th className="align-right">勝率</th>
+                    {TEAM_SEASON_BOX_COLUMNS[seasonBoxTab].map((c) => (
+                      <th className="align-right" key={c.key} title={c.description}>
+                        {c.label}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td className="align-right">{teamStatsEntries.length}</td>
-                    {COLUMNS_BY_TAB[teamStatsBoxTab].map((col) => (
-                      <td key={col.key} className="align-right">
-                        {teamPerspective === "own"
-                          ? cleanNumericString(col.format(teamStatsBoxTotals.own, teamStatsBoxTotals.ownCtx))
-                          : teamPerspective === "opp"
-                            ? cleanNumericString(col.format(teamStatsBoxTotals.opp, teamStatsBoxTotals.oppCtx))
-                            : formatColumnDiff(
-                                col,
-                                teamStatsBoxTotals.own,
-                                teamStatsBoxTotals.ownCtx,
-                                teamStatsBoxTotals.opp,
-                                teamStatsBoxTotals.oppCtx,
-                              )}
-                      </td>
-                    ))}
-                    {teamPointsExtraColumnsForTab(teamStatsBoxTab).map((col) => (
-                      <td key={col.key} className="align-right">
-                        {formatTeamPointsExtraColumn(teamStatsPoints, col, teamPerspective, teamStatsDisplayMode)}
-                      </td>
-                    ))}
-                  </tr>
+                  {seasonHistoryDesc.map((r) => {
+                    const misc = teamSeasonMiscBySeason.get(r.season) ?? EMPTY_TEAM_SEASON_MISC;
+                    return (
+                      <tr key={r.season}>
+                        <td className="align-left">
+                          <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
+                            {r.season}
+                          </RouterLink>
+                        </td>
+                        <td className="align-left">{r.teamName}</td>
+                        <td className="align-right">{r.team.gamesPlayed}</td>
+                        <td className="align-right">{formatRecord(r.team.wins, r.team.losses)}</td>
+                        <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
+                        {TEAM_SEASON_BOX_COLUMNS[seasonBoxTab].map((c) => (
+                          <td className="align-right" key={c.key}>
+                            {c.format(r, misc, seasonBoxDisplayMode, seasonBoxPerspective)}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+            {seasonBoxTab === "misc" && <RuleChangeFootnote seasons={seasonHistoryDesc.map((r) => r.season)} />}
+            </>
           )}
-          {teamStatsBoxTab === "misc" && teamStatsBoxTotals && <RuleChangeFootnote seasons={[season]} />}
-
-          <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} shotChartSupported={isShotChartSupported(coverage)} />
 
           <ConditionTitle section title="シチュエーション別成績" conditions={situationalTeamConditions} />
+          {statsRawGamesLoading && <p className="loading">読み込み中...</p>}
           <FilterBar
             simple
             stateKey={pk("situationalTeamFilter")}
             axes={[
               gameTypeAxis(situationalTeamGameType, setSituationalTeamGameType),
+              perspectiveAxis(situationalTeamPerspective, setSituationalTeamPerspective, {
+                disabledReason:
+                  situationalTeamBoxTab === "shooting" ? `${CATEGORY_LABELS.shooting}は自チームの値のみです。` : undefined,
+              }),
               displayModeAxis(situationalTeamDisplayMode, setSituationalTeamDisplayMode),
+              periodAxis(situationalTeamPeriod, setSituationalTeamPeriod, SEASON_BOX_PERIOD_OPTIONS),
             ]}
           />
-          <p className="filter-bar-note">視点・Q別/前後半は上のチームスタッツの絞り込みと共通です。</p>
           <div className="tab-bar">
             {BOXSCORE_TABS.map((t) => (
               <button
@@ -4193,9 +4097,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                               ))
                             : COLUMNS_BY_TAB[situationalTeamBoxTab].map((col) => (
                                 <td key={col.key} className="align-right">
-                                  {teamPerspective === "own"
+                                  {situationalTeamPerspective === "own"
                                     ? cleanNumericString(col.format(row.boxTotals.own, row.boxTotals.ownCtx))
-                                    : teamPerspective === "opp"
+                                    : situationalTeamPerspective === "opp"
                                       ? cleanNumericString(col.format(row.boxTotals.opp, row.boxTotals.oppCtx))
                                       : formatColumnDiff(
                                           col,
@@ -4208,7 +4112,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                               ))}
                           {situationalTeamPointsColumns.map((col) => (
                             <td key={col.key} className="align-right">
-                              {formatTeamPointsExtraColumn(row.points, col, teamPerspective, situationalTeamDisplayMode)}
+                              {formatTeamPointsExtraColumn(row.points, col, situationalTeamPerspective, situationalTeamDisplayMode)}
                             </td>
                           ))}
                         </tr>
@@ -4276,6 +4180,9 @@ export function TeamDetailPage({ season }: { season: string }) {
             ショットチャート
           </h2>
           {isShotChartSupported(coverage) && teamShotChartExpanded && <ConditionLine conditions={teamShotChartConditions} />}
+          {isShotChartSupported(coverage) && teamShotChartExpanded && (
+            <FilterBar axes={teamShotChartFilterAxes} stateKey={pk("teamShotChartFilterBar")} onClearAll={clearTeamShotChartFilters} />
+          )}
           {!isShotChartSupported(coverage) ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : !teamShotChartExpanded ? null : statsRawGamesLoading ? (
@@ -4285,6 +4192,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               <div className="shot-chart-grid shot-chart-grid-single">
                 <ShotChartPanel
                   teamName={team.teamName}
+                  shortName={teamShortName(team.teamId, team.teamName)}
                   players={teamShotChartPlayerOptions}
                   shots={teamShotEvents}
                   color={accentColor ?? "var(--accent)"}
@@ -4292,7 +4200,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 />
               </div>
               <p className="page-subtitle">
-                チームの全選手が出場した各試合の生データ（GeniusAPI由来のショット座標）を合算したもの（2022-23シーズン以降のみ対応。DESIGN.md参照）。個別ショット/エリア別成功率の切り替え、選手セレクタでの個人絞り込みができる。上部のシチュエーション別フィルタ・Q別/前後半トグルに連動する
+                チームの全選手が出場した各試合の生データ（GeniusAPI由来のショット座標）を合算したもの（2022-23シーズン以降のみ対応。DESIGN.md参照）。個別ショット/エリア別成功率の切り替え、選手セレクタでの個人絞り込みができる。上の絞り込み（試合種別・Q別/前後半・詳細フィルタ）に連動する
               </p>
             </>
           )}

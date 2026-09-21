@@ -2,7 +2,7 @@ import { useState } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGameSummaries, fetchPlayers, fetchStandingsHistory, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
+import { leaderStatLabel, PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { TeamLogo } from "../components/TeamLogo";
 import { ConditionLine } from "../components/ConditionTitle";
@@ -240,7 +240,7 @@ export function HomePage({ season }: { season: string }) {
                 if (!leader) return null;
                 return (
                   <div key={key} className="leader-card">
-                    <div className="leader-stat-label">{def.label}</div>
+                    <div className="leader-stat-label">{leaderStatLabel(def)}</div>
                     <Link to={`/players/${leader.playerId}`} className="leader-top1">
                       <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" />
                       <div className="leader-info">
@@ -283,7 +283,7 @@ export function HomePage({ season }: { season: string }) {
               if (!leader) return null;
               return (
                 <div key={key} className="leader-card">
-                  <div className="leader-stat-label">{def.label}</div>
+                  <div className="leader-stat-label">{leaderStatLabel(def)}</div>
                   <Link to={`/teams/${leader.teamId}`} className="leader-top1">
                     <TeamLogo teamId={leader.teamId} size={56} className="leader-photo" />
                     <div className="leader-info">
