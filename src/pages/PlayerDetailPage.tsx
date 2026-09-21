@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { usePageState, useSkipFirstEffectRun } from "../lib/pageStateCache";
+import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import {
   fetchClubHonors,
   fetchDivisionHistory,
@@ -2043,9 +2044,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
   //   シチュエーション別成績・アシスト・オンコート → situationalStatsSeason/GameType（アシストのみPも）
   //   ショットチャート → gameTypeFilter（シーズン別成績と共通）・ページのseason・shotChartFilters/shotChartPeriod
   const seasonBoxCategoryLabel = (key: SeasonBoxTabKey | "shooting"): string =>
-    key === "shooting" ? "シューティング" : (SEASON_BOX_TABS.find((t) => t.key === key)?.label ?? key);
+    key === "shooting" ? CATEGORY_LABELS.shooting : (SEASON_BOX_TABS.find((t) => t.key === key)?.label ?? key);
   // シューティングタブはシュート単位の集計のためQ別/前後半に対応していない（試合全体のときは通常どおりP軸を出す）
-  const shootingPeriodNote = "※シューティングはQ別/前後半の対象外";
+  const shootingPeriodNote = `※${CATEGORY_LABELS.shooting}はQ別/前後半の対象外`;
   const seasonBreakdownConditions = composeLabels(
     seasonBoxCategoryLabel(seasonBreakdownTab),
     displayModeLabels(seasonDisplayMode),
@@ -2303,7 +2304,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             axes={[
               gameTypeAxis(gameTypeFilter, setGameTypeFilter),
               periodAxis(seasonBreakdownPeriod, setSeasonBreakdownPeriod, SEASON_BOX_PERIOD_OPTIONS, {
-                disabledReason: seasonBreakdownTab === "shooting" ? "シューティングはQ別/前後半の対象外です。" : undefined,
+                disabledReason: seasonBreakdownTab === "shooting" ? `${CATEGORY_LABELS.shooting}はQ別/前後半の対象外です。` : undefined,
               }),
               displayModeAxis(seasonDisplayMode, setSeasonDisplayMode),
             ]}
@@ -2345,7 +2346,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               }),
               gameTypeAxis(situationalStatsGameType, setSituationalStatsGameType),
               periodAxis(situationalStatsPeriod, setSituationalStatsPeriod, SEASON_BOX_PERIOD_OPTIONS, {
-                disabledReason: situationalStatsTab === "shooting" ? "シューティングはQ別/前後半の対象外です。" : undefined,
+                disabledReason: situationalStatsTab === "shooting" ? `${CATEGORY_LABELS.shooting}はQ別/前後半の対象外です。` : undefined,
               }),
               displayModeAxis(situationalStatsDisplayMode, setSituationalStatsDisplayMode),
             ]}
@@ -2370,7 +2371,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               title={SHOOTING_TAB_TOOLTIP}
               type="button"
             >
-              シューティング
+              {CATEGORY_LABELS.shooting}
             </button>
           </div>
           {!careerData ? (
@@ -3217,7 +3218,7 @@ function SeasonBreakdownTable({
           title={SHOOTING_TAB_TOOLTIP}
           type="button"
         >
-          シューティング
+          {CATEGORY_LABELS.shooting}
         </button>
       </div>
     </div>

@@ -13,6 +13,7 @@ import { SeasonLink as Link } from "../components/SeasonLink";
 import { OpposedBarRow } from "../components/OpposedBar";
 import { CompositionPieChart, type PieSegmentInput } from "../components/CompositionPieChart";
 import { usePageState, useSkipFirstEffectRun } from "../lib/pageStateCache";
+import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import {
   fetchClubHonors,
   fetchDivisionHistory,
@@ -719,8 +720,8 @@ const TAB_LABELS: Record<DetailTab, string> = {
 
 /** タイトルに出すカテゴリ名（BOXSCORE_TABS＋シューティング・強制ターンオーバー） */
 function teamBoxCategoryLabel(key: string): string {
-  if (key === "shooting") return "シューティング";
-  if (key === "forcedTurnovers") return "強制ターンオーバー";
+  if (key === "shooting") return CATEGORY_LABELS.shooting;
+  if (key === "forcedTurnovers") return CATEGORY_LABELS.forcedTurnovers;
   return BOXSCORE_TABS.find((t) => t.key === key)?.label ?? key;
 }
 
@@ -3282,12 +3283,12 @@ export function TeamDetailPage({ season }: { season: string }) {
   const teamStatsShooting = teamStatsBoxTab === "shooting";
   const teamStatsSeasonOnlyReason =
     teamStatsBoxTab === "forcedTurnovers"
-      ? "強制ターンオーバーはシーズン通算値のみ対応で、上の絞り込みは連動しません。"
+      ? `${CATEGORY_LABELS.forcedTurnovers}はシーズン通算値のみ対応で、上の絞り込みは連動しません。`
       : undefined;
   const teamStatsFilterAxes: FilterAxis[] = [
     gameTypeAxis(teamStatsGameType, setTeamStatsGameType, { disabledReason: teamStatsSeasonOnlyReason }),
     perspectiveAxis(teamPerspective, setTeamPerspective, {
-      disabledReason: teamStatsSeasonOnlyReason ?? (teamStatsShooting ? "シューティングは自チームの値のみです。" : undefined),
+      disabledReason: teamStatsSeasonOnlyReason ?? (teamStatsShooting ? `${CATEGORY_LABELS.shooting}は自チームの値のみです。` : undefined),
     }),
     displayModeAxis(teamStatsDisplayMode, setTeamStatsDisplayMode, { disabledReason: teamStatsSeasonOnlyReason }),
     periodAxis(statsPeriod, setStatsPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: teamStatsSeasonOnlyReason }),
@@ -3309,7 +3310,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     gameTypeAxis(playerStatsGameType, setPlayerStatsGameType),
     displayModeAxis(playerStatsDisplayMode, setPlayerStatsDisplayMode),
     periodAxis(playerStatsPeriod, setPlayerStatsPeriod, SEASON_BOX_PERIOD_OPTIONS, {
-      disabledReason: playerStatsShooting ? "シューティングはQ別/前後半の対象外です。" : undefined,
+      disabledReason: playerStatsShooting ? `${CATEGORY_LABELS.shooting}はQ別/前後半の対象外です。` : undefined,
     }),
     ...situationalAxes(playerStatsFilter, setPlayerStatsFilter, {
       opponentWinRateSupported: !!opponentRecords,
@@ -3337,7 +3338,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       gameTypeLabels(playerStatsGameType),
       situationalFilterLabels(playerStatsFilter),
       playerStatsBoxTab === "shooting" && playerStatsPeriodOption?.periods
-        ? "※シューティングはQ別/前後半の対象外"
+        ? `※${CATEGORY_LABELS.shooting}はQ別/前後半の対象外`
         : periodLabels(playerStatsPeriodOption),
     ),
   };
@@ -4021,14 +4022,14 @@ export function TeamDetailPage({ season }: { season: string }) {
               title={TEAM_SHOOTING_TAB_TOOLTIP}
               type="button"
             >
-              シューティング
+              {CATEGORY_LABELS.shooting}
             </button>
             <button
               className={`tab-button${teamStatsBoxTab === "forcedTurnovers" ? " active" : ""}`}
               onClick={() => setTeamStatsBoxTab("forcedTurnovers")}
               type="button"
             >
-              強制ターンオーバー
+              {CATEGORY_LABELS.forcedTurnovers}
             </button>
           </div>
           <ConditionTitle title={teamStatsTitle.title} conditions={teamStatsTitle.conditions} />
@@ -4125,7 +4126,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               title={TEAM_SHOOTING_TAB_TOOLTIP}
               type="button"
             >
-              シューティング
+              {CATEGORY_LABELS.shooting}
             </button>
           </div>
           {situationalTeamBoxTab === "shooting" && teamYahooPbpLoading ? (
@@ -4925,7 +4926,7 @@ function TeamPlayerStatsTable({
               title={TEAM_SHOOTING_TAB_TOOLTIP}
               type="button"
             >
-              シューティング
+              {CATEGORY_LABELS.shooting}
             </button>
           </div>
           {tab === "shooting" && teamYahooPbpLoading ? (

@@ -12,6 +12,7 @@ import {
   fetchTeams,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
+import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
   DivisionHistoryFile,
@@ -380,7 +381,7 @@ function buildAdvancedColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
 
 const TAB_LABELS: { key: PlayersPageTab; label: string }[] = [
   ...SEASON_BOX_TABS,
-  { key: "shooting", label: "シューティング" },
+  { key: "shooting", label: CATEGORY_LABELS.shooting },
 ];
 
 const DEFAULT_SORT: Record<PlayersPageTab, { key: string; dir: "asc" | "desc" }> = {
@@ -794,7 +795,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       <FilterBar axes={filterAxes} stateKey="players:stats" onClearAll={clearAllFilters} />
       {filterActive && tab !== "shooting" && (
         <p className="page-subtitle">
-          試合種別・シチュエーション別フィルタの選択中は、トラディショナル/アドバンスド/Misc/スコアリングの各タブとも選手ごとの試合ログを絞り込んで再集計した値を表示します（シューティングタブは対象外）
+          試合種別・シチュエーション別フィルタの選択中は、{CATEGORY_LABELS.traditional}/{CATEGORY_LABELS.advanced}/{CATEGORY_LABELS.misc}/{CATEGORY_LABELS.scoring}の各タブとも選手ごとの試合ログを絞り込んで再集計した値を表示します（{CATEGORY_LABELS.shooting}タブは対象外）
         </p>
       )}
 

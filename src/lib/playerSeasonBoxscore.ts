@@ -23,6 +23,7 @@ import {
   type EffTotals,
   type OliverBoxStats,
 } from "../../shared/formulas";
+import { BOX_CATEGORY_TABS, type BoxCategoryKey } from "./categoryLabels";
 import {
   astToTovRatio,
   buildPlayTypeCounts,
@@ -535,14 +536,10 @@ export function countDoubleTripleDoubles(logs: PlayerGameLog[]): { dd: number; t
   return { dd, td };
 }
 
-export type SeasonBoxTabKey = "traditional" | "advanced" | "misc" | "scoring";
+export type SeasonBoxTabKey = BoxCategoryKey;
 
-export const SEASON_BOX_TABS: { key: SeasonBoxTabKey; label: string }[] = [
-  { key: "traditional", label: "トラディショナル" },
-  { key: "advanced", label: "アドバンスド" },
-  { key: "misc", label: "Misc" },
-  { key: "scoring", label: "スコアリング" },
-];
+// 表示名は lib/categoryLabels.ts の一元定義（BOXSCORE_TABSと同じ配列）
+export const SEASON_BOX_TABS: { key: SeasonBoxTabKey; label: string }[] = BOX_CATEGORY_TABS;
 
 function effTotalsOf(raw: PlayerSeasonRawTotals): EffTotals {
   return {

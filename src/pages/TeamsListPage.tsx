@@ -11,6 +11,7 @@ import {
   fetchTeams,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
+import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
   ClubHonor,
@@ -180,13 +181,7 @@ export function TeamsStatsRedirect() {
 const BOX_TABS = BOXSCORE_TABS;
 
 /** 「全チームスタッツ」タブの各カテゴリ（BOXSCORE_TABS＋専用ビュー）の表示名。タイトルに使う */
-const TEAMS_STATS_CATEGORY_LABELS: Record<string, string> = {
-  ...Object.fromEntries(BOXSCORE_TABS.map((t) => [t.key, t.label])),
-  shooting: "シューティング",
-  forcedTurnovers: "強制ターンオーバー",
-  foreignPlayers: "オンザコート人数",
-  scoringComposition: "得点構成",
-};
+const TEAMS_STATS_CATEGORY_LABELS: Record<string, string> = CATEGORY_LABELS;
 
 /** 強制ターンオーバーの視点トグル（ボタン表示とタイトルで共通） */
 const TURNOVER_PERSPECTIVE_LABELS: Record<"forced" | "committed", string> = {
@@ -427,28 +422,28 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             onClick={() => setBoxTab("shooting")}
             type="button"
           >
-            シューティング
+            {CATEGORY_LABELS.shooting}
           </button>
           <button
             className={`tab-button${boxTab === "forcedTurnovers" ? " active" : ""}`}
             onClick={() => setBoxTab("forcedTurnovers")}
             type="button"
           >
-            強制ターンオーバー
+            {CATEGORY_LABELS.forcedTurnovers}
           </button>
           <button
             className={`tab-button${boxTab === "foreignPlayers" ? " active" : ""}`}
             onClick={() => setBoxTab("foreignPlayers")}
             type="button"
           >
-            オンザコート人数
+            {CATEGORY_LABELS.foreignPlayers}
           </button>
           <button
             className={`tab-button${boxTab === "scoringComposition" ? " active" : ""}`}
             onClick={() => setBoxTab("scoringComposition")}
             type="button"
           >
-            得点構成
+            {CATEGORY_LABELS.scoringComposition}
           </button>
         </div>
       </div>

@@ -8774,3 +8774,19 @@ B1〜B6 は互いに独立。B0 の見た目確認後に方向性を確定して
 - **初期表示 100→50人**: `PAGE_SIZE` を100→50。「もっと見る」の仕組みは同じで、押すたびに増える人数も50になる（`PAGE_SIZE` を共用）。50→100は確認済み
 - **下部の注記を削除**: 「N/M人を表示中（初期表示は…）」以降の長い注記の `<p>` を削除（Misc の新ルール脚注 `RuleChangeFootnote` は別物なので残す）。
   なお注記にあった「Misc/スコアリング等の初回のみ読み込みに時間がかかる」という案内も一緒に無くなった
+
+### 111. カテゴリタブの英語表記統一（2026-09-21）
+- **表記**: Traditional／Advanced／Misc／Scoring／Shooting／Forced TOV（旧・強制ターンオーバー）／On-Court Foreign（旧・オンザコート人数）／
+  Scoring %（旧・得点構成）／Profile（旧・プロフィール。ランキング個人のみ）。ユーザー確定
+- **一元化**: `src/lib/categoryLabels.ts` を新設し、`CATEGORY_LABELS`（全9カテゴリの表示名）と `BOX_CATEGORY_TABS`（ボックススコア系4カテゴリ）を唯一の定義にした。
+  従来の重複定義 `BOXSCORE_TABS`（BoxscoreTable.tsx）と `SEASON_BOX_TABS`（playerSeasonBoxscore.ts）は、同じ `BOX_CATEGORY_TABS` を指す別名として残した
+  （約40か所の参照側を変えないため。型 `BoxscoreTabKey`／`SeasonBoxTabKey` も同じ `BoxCategoryKey` の別名）
+- **直書きの解消**: TeamsListPage（タブ4・`TEAMS_STATS_CATEGORY_LABELS`）／RankingsPage（チーム・個人のタブ、タイトル判定、`composeLabels`）／
+  TeamDetailPage（タブ・`teamBoxCategoryLabel`）／PlayerDetailPage／PlayersListPage／GameDetailPage を `CATEGORY_LABELS` 参照に置換。
+  「Shootingは対象外」等の案内文中のタブ名（disabledReason・※注記・個人一覧の注記）も同じ定義から出す。ソースに旧日本語名の直書きは残っていない（コメントを除く）
+- **対象外（日本語のまま）**: 円グラフの見出し「得点構成／失点構成（…）」（試合詳細・チーム詳細・チーム一覧）。タブ名（Scoring %）とは別物
+- **波及**: ConditionTitle の表題・条件行、ランキング画像のタイトルと**保存ファイル名**（例: `チームランキング_2025-26_合計_Forced_TOV_…png`）も英語表記になる。
+  状態保存・URL はキー（`traditional` 等）で持つため影響なし。試合詳細の見出し（`.game-detail-page h2`）は従来から全大文字表示のため「SHOOTING」と出る
+- 確認（開発サーバー）: ランキング（チーム6・個人6）／チーム一覧8／個人一覧5／比較4／チーム詳細（チームスタッツ・選手スタッツ・日程結果・比較）／
+  個人詳細（スタッツ・試合ログ・比較）／試合詳細のタブ表記、表題への反映、ランキング画像（Forced TOV）の表題。利用者確認が必要（未確認）: 実機、
+  画像の実ダウンロード（ファイル名）、スマホ幅での折り返し、個人詳細「通算成績」等タブ以外の箇所に旧名が残っていないか

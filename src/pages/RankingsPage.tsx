@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { usePageState } from "../lib/pageStateCache";
+import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { fetchPlayerGameLogs, fetchPlayers, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
@@ -475,13 +476,13 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     "チーム",
     season,
     shootingDef?.label ?? "",
-    composeLabels("シューティング", displayModeLabels(displayMode), SEASON_TOTAL_ONLY_LABELS),
+    composeLabels(CATEGORY_LABELS.shooting, displayModeLabels(displayMode), SEASON_TOTAL_ONLY_LABELS),
   );
   const teamForcedTurnoverTitle = makeRankingTitle(
     "チーム",
     season,
     forcedTurnoverDef.label,
-    composeLabels("強制ターンオーバー", TURNOVER_DIRECTION_LABELS[turnoverDirection], SEASON_TOTAL_ONLY_LABELS),
+    composeLabels(CATEGORY_LABELS.forcedTurnovers, TURNOVER_DIRECTION_LABELS[turnoverDirection], SEASON_TOTAL_ONLY_LABELS),
   );
 
   // フィルタバー（DESIGN.md 105章）。シューティングは表示（平均/合計）のみ、強制ターンオーバーは
@@ -532,14 +533,14 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
             onClick={() => selectCategory("shooting")}
             type="button"
           >
-            シューティング
+            {CATEGORY_LABELS.shooting}
           </button>
           <button
             className={`tab-button${category === "forcedTurnovers" ? " active" : ""}`}
             onClick={() => selectCategory("forcedTurnovers")}
             type="button"
           >
-            強制ターンオーバー
+            {CATEGORY_LABELS.forcedTurnovers}
           </button>
         </div>
         {category === "forcedTurnovers" ? (
@@ -1126,7 +1127,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     ["eff", "per", "ppp"].includes(selectedItem.key) &&
     (filterActive || gameTypeActive || periodActive);
   const playerCategoryLabel =
-    category === "shooting" ? "シューティング" : category === "profile" ? "プロフィール" : (SEASON_BOX_TABS.find((t) => t.key === category)?.label ?? category);
+    category === "shooting" ? CATEGORY_LABELS.shooting : category === "profile" ? CATEGORY_LABELS.profile : (SEASON_BOX_TABS.find((t) => t.key === category)?.label ?? category);
   const playerScopeLabels =
     category === "shooting"
       ? SEASON_TOTAL_ONLY_LABELS
@@ -1245,14 +1246,14 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           onClick={() => selectCategory("shooting")}
           type="button"
         >
-          シューティング
+          {CATEGORY_LABELS.shooting}
         </button>
         <button
           className={`tab-button${category === "profile" ? " active" : ""}`}
           onClick={() => selectCategory("profile")}
           type="button"
         >
-          プロフィール
+          {CATEGORY_LABELS.profile}
         </button>
       </div>
 

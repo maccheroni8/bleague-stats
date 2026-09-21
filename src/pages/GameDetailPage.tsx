@@ -2,6 +2,7 @@ import { Fragment, useState } from "react";
 import { useParams } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGame, fetchPlayers, fetchTeamColors, fetchYahooGamePbp } from "../lib/data";
+import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import { formatPct } from "../lib/format";
@@ -369,7 +370,7 @@ export function GameDetailPage({ season }: { season: string }) {
   // 選択軸はカテゴリとQ別/前後半のみ。シューティングタブはYahoo PBPのシュート単位の集計で、
   // Q別/前後半の選択（BoxscoreTable側のトグル）には連動しないため、その旨を明示する
   const boxscoreCategoryLabel =
-    boxscoreTab === "shooting" ? "シューティング" : (BOXSCORE_TABS.find((t) => t.key === boxscoreTab)?.label ?? boxscoreTab);
+    boxscoreTab === "shooting" ? CATEGORY_LABELS.shooting : (BOXSCORE_TABS.find((t) => t.key === boxscoreTab)?.label ?? boxscoreTab);
   const boxscoreConditions = composeLabels(
     boxscoreTab === "shooting"
       ? "試合全体（Q別/前後半は対象外）"
@@ -588,7 +589,7 @@ export function GameDetailPage({ season }: { season: string }) {
           </button>
         ))}
         <button className={boxscoreTab === "shooting" ? "active" : ""} onClick={() => setBoxscoreTab("shooting")}>
-          シューティング
+          {CATEGORY_LABELS.shooting}
         </button>
       </div>
       {boxscoreTab === "shooting" ? (

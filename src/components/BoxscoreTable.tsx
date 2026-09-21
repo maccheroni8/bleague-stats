@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BOX_CATEGORY_TABS, type BoxCategoryKey } from "../lib/categoryLabels";
 import { SeasonLink as Link } from "./SeasonLink";
 import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
@@ -36,14 +37,10 @@ for (const def of [...TEAM_STAT_DEFS, ...PLAYER_STAT_DEFS]) {
   if (!STAT_FORMULA_BY_KEY.has(def.key)) STAT_FORMULA_BY_KEY.set(def.key, def.formulaText);
 }
 
-export type BoxscoreTabKey = "traditional" | "advanced" | "misc" | "scoring";
+export type BoxscoreTabKey = BoxCategoryKey;
 
-export const BOXSCORE_TABS: { key: BoxscoreTabKey; label: string }[] = [
-  { key: "traditional", label: "トラディショナル" },
-  { key: "advanced", label: "アドバンスド" },
-  { key: "misc", label: "Misc" },
-  { key: "scoring", label: "スコアリング" },
-];
+// 表示名は lib/categoryLabels.ts の一元定義（SEASON_BOX_TABSと同じ配列）
+export const BOXSCORE_TABS: { key: BoxscoreTabKey; label: string }[] = BOX_CATEGORY_TABS;
 
 export interface ColumnCtx {
   /** %-share・USG%の分母に使うチーム合計（選択中の期間範囲） */
