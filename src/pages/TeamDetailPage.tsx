@@ -153,6 +153,7 @@ import {
   sumShotTypeCounts,
 } from "../lib/shotTypeBreakdown";
 import { ComparisonTable, type ComparisonRow } from "./ComparePage";
+import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { cleanNumericString, formatColumnDiff, teamCompareDefs, type TeamCompareColumnData } from "../lib/compareShared";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
@@ -1761,6 +1762,8 @@ interface TeamScheduleRow {
   scheduleKey: string;
   date: string;
   opponentName: string;
+  /** 略称表示（スマホ幅）に使う。未消化の試合（UpcomingGameEntry）はチーム名しか持たないため未設定 */
+  opponentTeamId?: string;
   isHome: boolean;
   status: "final" | "live" | "upcoming";
   teamScore?: number;
@@ -1798,6 +1801,7 @@ function buildTeamScheduleRows(
         scheduleKey: g.scheduleKey,
         date: g.date,
         opponentName: isHome ? g.awayTeamName : g.homeTeamName,
+        opponentTeamId: isHome ? g.awayTeamId : g.homeTeamId,
         isHome,
         status: g.gameEndedFlg ? "final" : "live",
         teamScore: isHome ? g.homeScore : g.awayScore,
@@ -3369,7 +3373,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const radarData = teams && teams.length > 1 ? buildRadarData(team, teams) : [];
 
   return (
-    <div>
+    <div className="team-detail-page" data-design="v2">
       <Link to="/teams" className="back-link">
         ← チーム一覧に戻る
       </Link>
@@ -3465,7 +3469,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       </div>
 
       {tab === "overview" && (
-        <>
+        <div className="team-tab-panel">
           <ConditionTitle section title="シーズン別成績" conditions={seasonBoxConditions} />
           {nameHistory.length > 1 && (
             <p className="page-subtitle">
@@ -3759,7 +3763,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             </dl>
             )}
           </div>
-        </>
+        </div>
       )}
 
       {tab === "schedule" &&
@@ -3768,7 +3772,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         ) : scheduleRows.length === 0 ? (
           <p className="empty-message">日程データがありません</p>
         ) : (
-          <>
+          <div className="team-tab-panel">
             <FilterBar
               simple
               stateKey={pk("scheduleFilter")}
@@ -3841,11 +3845,11 @@ export function TeamDetailPage({ season }: { season: string }) {
             <p className="page-subtitle">
               各列は試合詳細ページのボックススコアと同じ算出ロジック（自チーム/opp/+/-切り替え可）。上部のレギュラー/プレーオフ・Q別/前後半トグルと連動する。未消化・進行中の試合は「-」表示になる
             </p>
-          </>
+          </div>
         ))}
 
       {tab === "career" && (
-        <>
+        <div className="team-tab-panel">
           <FilterBar
             simple
             stateKey={pk("careerFilter")}
@@ -3879,11 +3883,11 @@ export function TeamDetailPage({ season }: { season: string }) {
               </p>
             </>
           )}
-        </>
+        </div>
       )}
 
       {tab === "clubRecord" && (
-        <>
+        <div className="team-tab-panel">
           <FilterBar
             simple
             stateKey={pk("careerFilter")}
@@ -3998,11 +4002,11 @@ export function TeamDetailPage({ season }: { season: string }) {
               </p>
             </>
           )}
-        </>
+        </div>
       )}
 
       {tab === "teamStats" && (
-        <>
+        <div className="team-tab-panel">
           <FilterBar axes={teamStatsFilterAxes} stateKey={pk("teamStatsFilter")} onClearAll={clearTeamStatsFilters} />
           {statsRawGamesLoading && <p className="loading">読み込み中...</p>}
           <div className="tab-bar">
@@ -4293,11 +4297,11 @@ export function TeamDetailPage({ season }: { season: string }) {
             </>
           )}
 
-        </>
+        </div>
       )}
 
       {tab === "playerStats" && (
-        <>
+        <div className="team-tab-panel">
           {coverageLoading ? (
             <p className="loading">読み込み中...</p>
           ) : !pbpSupported ? (
@@ -4476,11 +4480,11 @@ export function TeamDetailPage({ season }: { season: string }) {
               </p>
             </>
           )}
-        </>
+        </div>
       )}
 
       {tab === "compare" && (
-        <>
+        <div className="team-tab-panel">
           <div className="player-compare-slots">
             {([0, 1] as const).map((i) => {
               const slot = compareSlots[i];
@@ -4563,7 +4567,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           <p className="page-subtitle">
             各列は「日程結果」タブと同じボックススコア列定義（自チーム/opp/+/-切り替え可）を、選択中のシチュエーション別フィルタで絞り込んだ試合の1試合あたり平均値として算出する
           </p>
-        </>
+        </div>
       )}
     </div>
   );
@@ -4586,7 +4590,8 @@ function TeamScheduleRowView({
       <td className="align-left">{linkTo ? <Link to={linkTo} className="cell-link">{row.date}</Link> : row.date}</td>
       <td className="align-left">
         <MaybeLink to={linkTo}>
-          {row.isHome ? "vs" : "@"} {row.opponentName}
+          {row.isHome ? "vs" : "@"}{" "}
+          {row.opponentTeamId ? <ResponsiveTeamName teamId={row.opponentTeamId} name={row.opponentName} /> : row.opponentName}
           {row.gameType === "playoff" && <span className="playoff-badge">PO</span>}
         </MaybeLink>
       </td>
@@ -4695,7 +4700,7 @@ function ClubRecordCard({
       {rank && <div className="career-high-rank">{rank}</div>}
       <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}`} className="career-high-game-link">
         {game.date}　{game.isHome ? "vs" : "@"}
-        {game.opponentTeamName}
+        <ResponsiveTeamName teamId={game.opponentTeamId} name={game.opponentTeamName} always />
       </RouterLink>
       {otherGames.length > 0 && (
         <>
@@ -4708,7 +4713,7 @@ function ClubRecordCard({
                 <li key={g.scheduleKey}>
                   <RouterLink to={`/games/${g.scheduleKey}?season=${g.season}`} className="career-high-game-link">
                     {g.date}　{g.isHome ? "vs" : "@"}
-                    {g.opponentTeamName}
+                    <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always />
                   </RouterLink>
                 </li>
               ))}
@@ -4726,7 +4731,7 @@ function ClubRecordCard({
                 <td>
                   <RouterLink to={`/games/${e.game.scheduleKey}?season=${e.game.season}`} className="career-high-game-link">
                     {e.game.date}　{e.game.isHome ? "vs" : "@"}
-                    {e.game.opponentTeamName}
+                    <ResponsiveTeamName teamId={e.game.opponentTeamId} name={e.game.opponentTeamName} always />
                   </RouterLink>
                 </td>
               </tr>

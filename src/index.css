@@ -4359,3 +4359,252 @@ table.compare-table th .compare-condition-tag {
     white-space: nowrap;
   }
 }
+
+/* --------------------------------------------------------------------------
+ * チーム詳細（TeamDetailPage のルートの data-design="v2"）。チーム一覧・ホーム・個人一覧・ランキング・試合詳細と
+ * 同じデザイン言語（グレー階調・機能色1色・小さい半径・tabular-nums・フォーカスリング・表の見出し）を適用する。
+ * チームカラー（ヘッダー上端・レーダーの塗り）は機能的な識別なので残す。タブの中身は .team-tab-panel で包み、
+ * ルート直下の .tab-bar（主タブ）とカテゴリのタブ（従）を上のタブ規則で区別できるようにしている。新しいCSS変数なし。
+ * -------------------------------------------------------------------------- */
+
+/* --- ヘッダー: 上端のチームカラー線は細く、チーム名は他ページのページ見出し（26px/800）に揃える --- */
+[data-design="v2"] .team-detail-header {
+  border-top-width: 3px;
+  margin-bottom: 24px;
+}
+
+[data-design="v2"] .team-detail-header h1 {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+[data-design="v2"] .team-detail-header .page-subtitle {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- 受賞カード・スタッツタイル: 角4px。見出し・ラベルは表の見出しと同じ小さい字間つき --- */
+[data-design="v2"].team-detail-page .honors-group h3 {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+[data-design="v2"] .stat-tile,
+[data-design="v2"] .career-high-card {
+  border-radius: 4px;
+}
+
+[data-design="v2"] .stat-tile {
+  padding: 10px;
+}
+
+[data-design="v2"] .stat-tile .label {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* 「25位/26チーム」が「チー/ム」で折れて、タイルごとに高さが揃わなくなっていた（v2適用前からの表示崩れ） */
+[data-design="v2"] .stat-tile .rank {
+  white-space: nowrap;
+}
+
+/* --- 見出し: 試合詳細と同じ（15px/800・文字色）。ConditionTitle のセクション見出しは上に罫線1本で区切る --- */
+[data-design="v2"].team-detail-page h2 {
+  margin: 28px 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--fg);
+}
+
+[data-design="v2"].team-detail-page .condition-title {
+  margin: 0 0 8px;
+}
+
+[data-design="v2"].team-detail-page .condition-title h2 {
+  margin: 0 0 2px;
+}
+
+[data-design="v2"].team-detail-page .condition-title-section {
+  margin-top: 32px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+[data-design="v2"].team-detail-page .team-tab-panel > .condition-title-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* --- 表（stats-table。シーズン別・通算・シチュエーション別など）: 見出し行は地の色＋文字色の罫線1本。
+       列名は eFG% など大小文字が意味を持つため、他の表と違い大文字化と字間は付けない --- */
+[data-design="v2"] table.stats-table th {
+  padding: 9px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--fg);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+[data-design="v2"] table.stats-table th.sortable-col:hover {
+  color: var(--fg);
+}
+
+[data-design="v2"] table.stats-table td:first-child {
+  font-weight: 600;
+}
+
+[data-design="v2"] table.stats-table tbody tr {
+  transition: background-color 0.1s ease;
+}
+
+/* 通算の合計行: 機能色の薄塗りをやめ、灰色の地＋上の罫線を文字色にして示す（固定セルにも同じ地を敷く） */
+[data-design="v2"] table.stats-table tr.career-total-row,
+[data-design="v2"] table.stats-table tr.career-total-row td:first-child {
+  background: var(--row-hover);
+}
+
+[data-design="v2"] table.stats-table tr.career-total-row td {
+  border-top: 1px solid var(--fg);
+}
+
+/* シチュエーション別: 縦スクロール時に追随する見出し行も同じ地の色（不透明のまま） */
+[data-design="v2"] table.situational-groups-table thead th {
+  background: var(--bg);
+}
+
+[data-design="v2"] table.stats-table tr.situational-group-heading td {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+/* --- スマホ幅: ロゴの横に置いたチーム名・成績行が語の途中（「ダイヤモンドド／ルフィンズ」「西／地区」）で折れていた。
+       文節単位で折り返し（word-break: auto-phrase）、字を少し小さくして2行に収める --- */
+[data-design="v2"] .team-detail-header > div {
+  min-width: 0;
+}
+
+[data-design="v2"] .team-detail-header h1,
+[data-design="v2"] .team-detail-header .page-subtitle {
+  word-break: auto-phrase;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+@media (max-width: 560px) {
+  [data-design="v2"] .team-detail-header {
+    gap: 12px;
+  }
+
+  /* 最長のチーム名（15文字: 名古屋ダイヤモンドドルフィンズ／ファイティングイーグルス名古屋）が375px幅で1行に収まる大きさ */
+  [data-design="v2"] .team-detail-header h1 {
+    font-size: clamp(16px, 4.6vw, 20px);
+  }
+
+  [data-design="v2"] .team-detail-header .page-subtitle {
+    font-size: 12px;
+  }
+}
+
+/* --- 各タブの残りの部品: カード・比較スロット・説明カードの角を4px、バッジは薄塗り（色の混色）をやめ枠線のみ。
+       勝敗の色（緑＝勝ち／機能色＝負け）は従来の意味のまま。キャリアハイの「他N件」リンクは機能色ではなく下線で示す --- */
+[data-design="v2"] .player-compare-slot,
+[data-design="v2"] .situational-groups-legend {
+  border-radius: 4px;
+}
+
+[data-design="v2"] .situational-groups-legend {
+  background: var(--row-hover);
+}
+
+[data-design="v2"] .situational-groups-legend h3 {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+[data-design="v2"] .player-compare-slot > select {
+  border-radius: 3px;
+  transition: border-color 0.12s ease;
+}
+
+[data-design="v2"] .player-compare-slot > select:hover {
+  border-color: var(--muted);
+}
+
+[data-design="v2"] .result-badge,
+[data-design="v2"] .live-badge,
+[data-design="v2"] .upcoming-badge {
+  padding: 0 6px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: none;
+}
+
+[data-design="v2"] .career-high-others-toggle {
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+  transition: color 0.12s ease, text-decoration-color 0.12s ease;
+}
+
+[data-design="v2"] .career-high-others-toggle:hover {
+  color: var(--fg);
+  text-decoration-color: var(--fg);
+}
+
+[data-design="v2"] .career-high-label {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+[data-design="v2"] .career-high-game-link {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: color 0.12s ease, text-decoration-color 0.12s ease;
+}
+
+[data-design="v2"] .career-high-game-link:hover {
+  text-decoration-color: var(--fg);
+}
+
+[data-design="v2"] .schedule-team-chip {
+  border-left-width: 3px;
+}
+
+[data-design="v2"] table.schedule-table td .cell-link,
+[data-design="v2"] table.stats-table td .cell-link {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.12s ease;
+}
+
+[data-design="v2"] table.schedule-table td .cell-link:hover,
+[data-design="v2"] table.stats-table td .cell-link:hover {
+  text-decoration-color: var(--fg);
+}
+
+/* 日程結果タブの表: 日程ページ用の列幅固定（table-layout: fixed。会場列の固定幅つき）が、列が30近いこの表にも
+   効いてしまい、全列が34pxの均等幅になって日付・対戦相手が切れていた（v2適用前からの不具合）。
+   こちらは列数・列名が可変なので内容幅に任せ、狭い画面では表側の横スクロールにする */
+.team-tab-panel table.schedule-table {
+  table-layout: auto;
+  min-width: 0;
+}
+
+.team-tab-panel table.schedule-table td {
+  overflow: visible;
+  text-overflow: clip;
+}
