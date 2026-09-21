@@ -109,7 +109,7 @@ export function TeamsListPage({ season }: { season: string }) {
   const [tab, setTab] = useState<TeamsPageTab>(initialTab);
 
   return (
-    <div>
+    <div data-design="v2">
       <h1>チーム</h1>
       <p className="page-subtitle">{season}シーズン</p>
       <div className="tab-bar">

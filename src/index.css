@@ -3435,3 +3435,229 @@ table.compare-table th .compare-condition-tag {
     white-space: nowrap;
   }
 }
+
+/* ==========================================================================
+ * デザイン見直し パイロット（チーム一覧ページ。TeamsListPage のルートの data-design="v2"）
+ * 方向性: 計器盤・仕様書（Industrial × Swiss）。グレー階調＋機能色1色（--accent）、角を落とさない小さな半径、
+ * 罫線で面を分ける、動きは状態変化のみ（数値のフォントは元のシステムフォントのまま）。
+ * 新しいCSS変数は増やさず、既存変数の値と使い方だけを見直す。ダーク/ライト（<html data-theme>）とチームカラー
+ * （行の左線・ロゴはインラインstyle）はそのまま効く。
+ * 他ページへ展開するときは、このブロックの `.app-shell:has([data-design="v2"])` と `[data-design="v2"]` の
+ * スコープを外して全体に適用する。
+ * ========================================================================== */
+
+/* --- 変数の見直し（値だけ。ダークは面の差を出す。ライトは既存値のまま） --- */
+:root[data-theme="dark"] .app-shell:has([data-design="v2"]) {
+  --border: #2b2e33;
+  --header-bg: #1a1d21;
+  --row-hover: #1e2226;
+}
+
+/* --- ヘッダー・全体ナビ: ピル背景をやめ、下線で現在地を示す（全体ナビの下線は文字色、機能色はページ内のタブ用に取っておく） --- */
+.app-shell:has([data-design="v2"]) .app-header {
+  padding: 14px 0 0;
+  margin-bottom: 28px;
+  border-bottom: 0;
+  gap: 10px 14px;
+}
+
+.app-shell:has([data-design="v2"]) .app-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.app-shell:has([data-design="v2"]) .season-select,
+.app-shell:has([data-design="v2"]) .theme-toggle {
+  border-radius: 3px;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+
+.app-shell:has([data-design="v2"]) .season-select:hover,
+.app-shell:has([data-design="v2"]) .theme-toggle:hover {
+  border-color: var(--muted);
+}
+
+.app-shell:has([data-design="v2"]) .app-nav {
+  gap: 0;
+  margin-top: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-shell:has([data-design="v2"]) .app-nav a {
+  padding: 10px 14px;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.app-shell:has([data-design="v2"]) .app-nav a:hover {
+  color: var(--fg);
+}
+
+.app-shell:has([data-design="v2"]) .app-nav a.active {
+  color: var(--fg);
+  background: none;
+  border-bottom-color: var(--fg);
+}
+
+/* --- フォーカス表示（従来は未定義）と、動きを減らす設定への配慮 --- */
+.app-shell:has([data-design="v2"]) a:focus-visible,
+.app-shell:has([data-design="v2"]) button:focus-visible,
+.app-shell:has([data-design="v2"]) select:focus-visible,
+.app-shell:has([data-design="v2"]) input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell:has([data-design="v2"]) * {
+    transition: none !important;
+  }
+}
+
+/* --- ページ見出し: 大きく詰め、サブタイトルを同じ行のベースラインに置く --- */
+[data-design="v2"] > h1 {
+  display: inline-block;
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+[data-design="v2"] > h1 + .page-subtitle {
+  display: inline-block;
+  margin: 0 0 20px 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- タブ: 2段の階層をはっきり分ける。ページのタブ（主）は大きく機能色の下線、カテゴリのタブ（従）は小さく細い下線 --- */
+[data-design="v2"] .tab-bar {
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+
+[data-design="v2"] .tab-button {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+[data-design="v2"] .tab-button.active {
+  font-weight: 700;
+}
+
+/* 狭い画面ではタブを縦に折らず、1行のまま横スクロールにする */
+[data-design="v2"] .tab-bar {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+[data-design="v2"] .tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+[data-design="v2"] .tab-button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+[data-design="v2"] > .tab-bar .tab-button {
+  padding: 10px 20px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+[data-design="v2"] > .tab-bar .tab-button.active {
+  border-bottom-width: 3px;
+}
+
+@media (max-width: 560px) {
+  [data-design="v2"] > .tab-bar .tab-button {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+}
+
+/* --- フィルタバー: ラベルは小さく詰め、入力は角の小さい枠。変更中の軸は枠色と太字だけで示す（背景の色付けはやめる） --- */
+[data-design="v2"] .filter-field label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+[data-design="v2"] .filter-field select,
+[data-design="v2"] .filter-field input[type="date"],
+[data-design="v2"] .filter-popover-button {
+  height: 34px;
+  border-radius: 3px;
+  transition: border-color 0.12s ease;
+}
+
+[data-design="v2"] .filter-field select:hover,
+[data-design="v2"] .filter-popover-button:hover {
+  border-color: var(--muted);
+}
+
+[data-design="v2"] .filter-field.changed .filter-popover-button {
+  background: var(--bg);
+}
+
+[data-design="v2"] .filter-chip,
+[data-design="v2"] .mode-toggle button {
+  border-radius: 3px;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+
+[data-design="v2"] .filter-badge {
+  border-radius: 3px;
+}
+
+[data-design="v2"] .filter-bar-advanced {
+  border-radius: 4px;
+}
+
+/* --- 表: 見出しは小さく細字・字間を開け、下に文字色の罫線1本。現在のソート列だけ機能色。数値のフォントは元のまま（13px）。行に状態変化の動きを付ける --- */
+[data-design="v2"] .table-scroll {
+  border-radius: 4px;
+}
+
+[data-design="v2"] table.sortable-table th {
+  padding: 9px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--fg);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color 0.12s ease;
+}
+
+[data-design="v2"] table.sortable-table th:hover {
+  color: var(--fg);
+}
+
+[data-design="v2"] table.sortable-table th[aria-sort] {
+  color: var(--accent);
+}
+
+[data-design="v2"] table.sortable-table td {
+  padding: 8px 12px;
+}
+
+[data-design="v2"] table.sortable-table td.align-right {
+  font-size: 13px;
+}
+
+[data-design="v2"] table.sortable-table td:first-child {
+  font-weight: 600;
+}
+
+[data-design="v2"] table.sortable-table tbody tr {
+  transition: background-color 0.1s ease;
+}
