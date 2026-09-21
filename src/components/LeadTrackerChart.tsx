@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { useMediaQuery } from "../lib/useMediaQuery";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { PeriodBoundary, ScorePoint, TimeoutMark } from "../lib/leadTracker";
 
@@ -9,6 +10,9 @@ interface LeadTrackerChartProps {
   totalSeconds: number;
   homeTeamName: string;
   awayTeamName: string;
+  /** スマホ幅（560px以下）では「◯◯リード」等の固定の接尾語つきの表記が折り返すため、これを渡すとフルの名前の代わりに使う（略称） */
+  homeShortName?: string;
+  awayShortName?: string;
   /** data/team-colors.json由来のチームカラー。未指定時は既存のvar(--accent)/var(--muted)にフォールバックする */
   homeColor?: string;
   awayColor?: string;
@@ -25,12 +29,17 @@ export function LeadTrackerChart({
   timeouts,
   periodBoundaries,
   totalSeconds,
-  homeTeamName,
-  awayTeamName,
+  homeTeamName: homeFullName,
+  awayTeamName: awayFullName,
+  homeShortName,
+  awayShortName,
   homeColor,
   awayColor,
   height = 280,
 }: LeadTrackerChartProps) {
+  const narrow = useMediaQuery("(max-width: 560px)");
+  const homeTeamName = narrow && homeShortName ? homeShortName : homeFullName;
+  const awayTeamName = narrow && awayShortName ? awayShortName : awayFullName;
   const maxAbsDiff = points.reduce((max, p) => Math.max(max, Math.abs(p.diff)), 0);
   const halfRange = Math.max(5, Math.ceil((maxAbsDiff + 2) / 5) * 5);
 

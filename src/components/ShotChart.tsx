@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useMediaQuery } from "../lib/useMediaQuery";
 import { BASKET_X_M, BASKET_Y_M, buildZoneStats, playersWithShots, type ShotChartPlayerOption, type ShotEvent } from "../lib/shotChart";
 
 // FIBAハーフコートの概略図（1unit = 10cm）。実寸に近づけた簡易図で、正確な公式図面ではない
@@ -133,6 +134,8 @@ function ZoneHeatmap({ shots }: { shots: ShotEvent[] }) {
 
 interface ShotChartPanelProps {
   teamName: string;
+  /** スマホ幅（560px以下）で見出しが2行に折り返さないよう、代わりに出す略称（省略時は常にteamName） */
+  shortName?: string;
   players: ShotChartPlayerOption[];
   shots: ShotEvent[];
   /** ショット点（成功=塗りつぶし・失敗=枠線）の色。通常はチームカラー */
@@ -144,7 +147,8 @@ interface ShotChartPanelProps {
   showPlayerSelector?: boolean;
 }
 
-export function ShotChartPanel({ teamName, players, shots, color, accentColor, showPlayerSelector = true }: ShotChartPanelProps) {
+export function ShotChartPanel({ teamName, shortName, players, shots, color, accentColor, showPlayerSelector = true }: ShotChartPanelProps) {
+  const narrow = useMediaQuery("(max-width: 560px)");
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
   const [viewMode, setViewMode] = useState<"dots" | "zones">("dots");
   const selectablePlayers = useMemo(() => playersWithShots(players, shots), [players, shots]);
@@ -153,7 +157,7 @@ export function ShotChartPanel({ teamName, players, shots, color, accentColor, s
   return (
     <div className="shot-chart-panel" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
       <div className="shot-chart-header">
-        <h3>{teamName}</h3>
+        <h3>{narrow && shortName ? shortName : teamName}</h3>
         {showPlayerSelector && (
           <select value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)}>
             <option value="">チーム全体</option>

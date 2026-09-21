@@ -15,6 +15,8 @@ import { ShotChartPanel } from "../components/ShotChart";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { MobileCollapse } from "../components/MobileCollapse";
+import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
+import { useMediaQuery } from "../lib/useMediaQuery";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
@@ -25,6 +27,7 @@ import { buildShotEvents, paintSplitForShot, type ShotEvent } from "../lib/shotC
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { computeOnCourtRatings, reconstructOnCourt, substitutionModelForSeason, type PlayerOnCourtRatings } from "../../shared/onCourt";
 import { computePointsInPaint } from "../../shared/playTypePoints";
+import { teamShortName } from "../../shared/teamNames";
 import { CompositionPieChart, type PieSegmentInput } from "../components/CompositionPieChart";
 import { playTimeToSeconds } from "../lib/boxscoreAggregate";
 import {
@@ -483,7 +486,9 @@ export function GameDetailPage({ season }: { season: string }) {
               <tbody>
                 <tr>
                   <td className="align-left">
-                    <Link to={`/teams/${game.homeTeam.id}`}>{game.homeTeam.name}</Link>
+                    <Link to={`/teams/${game.homeTeam.id}`}>
+                      <ResponsiveTeamName teamId={game.homeTeam.id} name={game.homeTeam.name} />
+                    </Link>
                   </td>
                   {game.quarterScores.home.map((s, i) => (
                     <td key={i}>{s}</td>
@@ -494,7 +499,9 @@ export function GameDetailPage({ season }: { season: string }) {
                 </tr>
                 <tr>
                   <td className="align-left">
-                    <Link to={`/teams/${game.awayTeam.id}`}>{game.awayTeam.name}</Link>
+                    <Link to={`/teams/${game.awayTeam.id}`}>
+                      <ResponsiveTeamName teamId={game.awayTeam.id} name={game.awayTeam.name} />
+                    </Link>
                   </td>
                   {game.quarterScores.away.map((s, i) => (
                     <td key={i}>{s}</td>
@@ -523,7 +530,9 @@ export function GameDetailPage({ season }: { season: string }) {
               <tbody>
                 <tr>
                   <td className="align-left">
-                    <Link to={`/teams/${game.homeTeam.id}`}>{game.homeTeam.name}</Link>
+                    <Link to={`/teams/${game.homeTeam.id}`}>
+                      <ResponsiveTeamName teamId={game.homeTeam.id} name={game.homeTeam.name} />
+                    </Link>
                   </td>
                   {homeCum.map((s, i) => (
                     <td key={i}>{s}</td>
@@ -531,7 +540,9 @@ export function GameDetailPage({ season }: { season: string }) {
                 </tr>
                 <tr>
                   <td className="align-left">
-                    <Link to={`/teams/${game.awayTeam.id}`}>{game.awayTeam.name}</Link>
+                    <Link to={`/teams/${game.awayTeam.id}`}>
+                      <ResponsiveTeamName teamId={game.awayTeam.id} name={game.awayTeam.name} />
+                    </Link>
                   </td>
                   {awayCum.map((s, i) => (
                     <td key={i}>{s}</td>
@@ -553,6 +564,8 @@ export function GameDetailPage({ season }: { season: string }) {
             totalSeconds={totalGameSeconds(periods)}
             homeTeamName={game.homeTeam.name}
             awayTeamName={game.awayTeam.name}
+            homeShortName={teamShortName(game.homeTeam.id, game.homeTeam.name)}
+            awayShortName={teamShortName(game.awayTeam.id, game.awayTeam.name)}
             homeColor={homeColor}
             awayColor={awayColor}
           />
@@ -567,6 +580,8 @@ export function GameDetailPage({ season }: { season: string }) {
           <SubstitutionBarChart
             homeTeamName={game.homeTeam.name}
             awayTeamName={game.awayTeam.name}
+            homeShortName={teamShortName(game.homeTeam.id, game.homeTeam.name)}
+            awayShortName={teamShortName(game.awayTeam.id, game.awayTeam.name)}
             homeStarters={homeStarters}
             homeBench={homeBench}
             awayStarters={awayStarters}
@@ -664,6 +679,8 @@ export function GameDetailPage({ season }: { season: string }) {
         <GameLeadersMatchup
           homeTeamName={game.homeTeam.name}
           awayTeamName={game.awayTeam.name}
+          homeTeamId={game.homeTeam.id}
+          awayTeamId={game.awayTeam.id}
           homeRows={
             leaderDisplayMode === "japanese"
               ? homePlayers.filter((r) => classificationById.get(r.PlayerID) === "日本人")
@@ -715,6 +732,7 @@ export function GameDetailPage({ season }: { season: string }) {
             <div className="shot-chart-grid">
               <ShotChartPanel
                 teamName={game.homeTeam.name}
+                shortName={teamShortName(game.homeTeam.id, game.homeTeam.name)}
                 players={homePlayers}
                 shots={shotPeriodHomeShots}
                 color={homeColor ?? "var(--accent)"}
@@ -722,6 +740,7 @@ export function GameDetailPage({ season }: { season: string }) {
               />
               <ShotChartPanel
                 teamName={game.awayTeam.name}
+                shortName={teamShortName(game.awayTeam.id, game.awayTeam.name)}
                 players={awayPlayers}
                 shots={shotPeriodAwayShots}
                 color={awayColor ?? "var(--muted)"}
@@ -771,6 +790,10 @@ function GameCompositionSection({
   shotChartSupported: boolean;
   classificationById: Map<string, PlayerSummary["classification"]>;
 }) {
+  // 円グラフの表題「◯◯ 得点割合」等は固定の接尾語がつくため、スマホ幅（560px以下）では略称にして折り返しを避ける
+  const narrow = useMediaQuery("(max-width: 560px)");
+  const homePieName = narrow ? teamShortName(homeTeamId, homeTeamName) : homeTeamName;
+  const awayPieName = narrow ? teamShortName(awayTeamId, awayTeamName) : awayTeamName;
   const paintPointsByTeam = computePointsInPaint(playByPlays).byTeam;
   const homeFga = buildGameFgaCompositionSegments(homeTotal, homeShots, shotChartSupported);
   const awayFga = buildGameFgaCompositionSegments(awayTotal, awayShots, shotChartSupported);
@@ -791,21 +814,21 @@ function GameCompositionSection({
       <MobileCollapse label="円グラフ">
         <h4 className="composition-pie-group-title">FG試投構成</h4>
         <div className="composition-pie-row">
-          <CompositionPieChart title={`${homeTeamName} FG試投割合`} segments={homeFga} valueDigits={0} />
-          <CompositionPieChart title={`${awayTeamName} FG試投割合`} segments={awayFga} valueDigits={0} />
+          <CompositionPieChart title={`${homePieName} FG試投割合`} segments={homeFga} valueDigits={0} />
+          <CompositionPieChart title={`${awayPieName} FG試投割合`} segments={awayFga} valueDigits={0} />
         </div>
         <h4 className="composition-pie-group-title">得点構成</h4>
         <div className="composition-pie-row">
-          <CompositionPieChart title={`${homeTeamName} 得点割合`} segments={homePts} valueDigits={0} />
-          <CompositionPieChart title={`${awayTeamName} 得点割合`} segments={awayPts} valueDigits={0} />
+          <CompositionPieChart title={`${homePieName} 得点割合`} segments={homePts} valueDigits={0} />
+          <CompositionPieChart title={`${awayPieName} 得点割合`} segments={awayPts} valueDigits={0} />
         </div>
         <h4 className="composition-pie-group-title">得点構成（国籍区分）</h4>
         <p className="page-subtitle">
           ※現在の登録情報に基づく参考値{classificationUnclassifiedCount > 0 && `／${classificationUnclassifiedCount}名分のデータ欠落あり`}
         </p>
         <div className="composition-pie-row">
-          <CompositionPieChart title={`${homeTeamName} 得点割合`} segments={homeClassificationPts.segments} valueDigits={0} />
-          <CompositionPieChart title={`${awayTeamName} 得点割合`} segments={awayClassificationPts.segments} valueDigits={0} />
+          <CompositionPieChart title={`${homePieName} 得点割合`} segments={homeClassificationPts.segments} valueDigits={0} />
+          <CompositionPieChart title={`${awayPieName} 得点割合`} segments={awayClassificationPts.segments} valueDigits={0} />
         </div>
       </MobileCollapse>
     </section>
@@ -959,20 +982,28 @@ function LeaderTop3Row({ label, rows }: { label: string; rows: LeaderDisplayRow[
 function GameLeadersMatchup({
   homeTeamName,
   awayTeamName,
+  homeTeamId,
+  awayTeamId,
   homeRows,
   awayRows,
 }: {
   homeTeamName: string;
   awayTeamName: string;
+  homeTeamId: string;
+  awayTeamId: string;
   homeRows: BoxscoreRow[];
   awayRows: BoxscoreRow[];
 }) {
   return (
     <div className="leader-matchup">
       <div className="leader-matchup-header">
-        <span className="leader-matchup-header-team leader-matchup-header-team-home">{homeTeamName}</span>
+        <span className="leader-matchup-header-team leader-matchup-header-team-home">
+          <ResponsiveTeamName teamId={homeTeamId} name={homeTeamName} />
+        </span>
         <span />
-        <span className="leader-matchup-header-team leader-matchup-header-team-away">{awayTeamName}</span>
+        <span className="leader-matchup-header-team leader-matchup-header-team-away">
+          <ResponsiveTeamName teamId={awayTeamId} name={awayTeamName} />
+        </span>
       </div>
       {GAME_LEADER_STAT_DEFS.map((def) => {
         const homeLeader = gameLeaderPlayer(homeRows, def);

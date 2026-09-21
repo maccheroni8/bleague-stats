@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMediaQuery } from "../lib/useMediaQuery";
 import { createPortal } from "react-dom";
 import { periodDurationSeconds, type PeriodBoundary, type TimeoutMark } from "../lib/leadTracker";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
@@ -34,6 +35,9 @@ interface TeamSubstitutionBlockProps {
 interface SubstitutionBarChartProps {
   homeTeamName: string;
   awayTeamName: string;
+  /** スマホ幅（560px以下）で下の注記「タイムアウト（◯◯色/…）」だけに使う略称（チーム見出しはフルの名前のまま） */
+  homeShortName?: string;
+  awayShortName?: string;
   homeStarters: SubstitutionRow[];
   homeBench: SubstitutionRow[];
   awayStarters: SubstitutionRow[];
@@ -102,6 +106,8 @@ function segmentTooltipLines(iv: SubstitutionInterval, periodBoundaries: PeriodB
 export function SubstitutionBarChart({
   homeTeamName,
   awayTeamName,
+  homeShortName,
+  awayShortName,
   homeStarters,
   homeBench,
   awayStarters,
@@ -112,6 +118,7 @@ export function SubstitutionBarChart({
   awayColor,
   timeouts = [],
 }: SubstitutionBarChartProps) {
+  const narrow = useMediaQuery("(max-width: 560px)");
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   const handleSegmentHover = (e: React.MouseEvent<HTMLElement>, lines: string[]) => {
@@ -151,7 +158,7 @@ export function SubstitutionBarChart({
       />
       {timeouts.length > 0 && (
         <p className="sub-bar-note">
-          点線: タイムアウト（{homeTeamName}色/{awayTeamName}色。オフィシャルタイムアウトは基準色）
+          点線: タイムアウト（{narrow && homeShortName ? homeShortName : homeTeamName}色/{narrow && awayShortName ? awayShortName : awayTeamName}色。オフィシャルタイムアウトは基準色）
         </p>
       )}
       {tooltip &&
