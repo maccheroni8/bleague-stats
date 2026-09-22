@@ -118,18 +118,18 @@ export interface ZoneDef {
 }
 
 export const ZONE_DEFS: ZoneDef[] = [
-  { id: "restricted", label: "リストリクテッドエリア", rInner: 0, rOuter: RESTRICTED_R, thetaStart: -90, thetaEnd: 90 },
-  { id: "paint", label: "ペイント", rInner: RESTRICTED_R, rOuter: PAINT_R, thetaStart: -WING_MAX_ANGLE, thetaEnd: WING_MAX_ANGLE },
-  { id: "shortCornerLeft", label: "ショートコーナー（左）", rInner: RESTRICTED_R, rOuter: ARC_R, thetaStart: -90, thetaEnd: -WING_MAX_ANGLE },
-  { id: "shortCornerRight", label: "ショートコーナー（右）", rInner: RESTRICTED_R, rOuter: ARC_R, thetaStart: WING_MAX_ANGLE, thetaEnd: 90 },
-  { id: "midLeft", label: "ミッドレンジ（左）", rInner: PAINT_R, rOuter: ARC_R, thetaStart: -WING_MAX_ANGLE, thetaEnd: -CENTER_HALF_ANGLE },
-  { id: "midCenter", label: "ミッドレンジ（中央）", rInner: PAINT_R, rOuter: ARC_R, thetaStart: -CENTER_HALF_ANGLE, thetaEnd: CENTER_HALF_ANGLE },
-  { id: "midRight", label: "ミッドレンジ（右）", rInner: PAINT_R, rOuter: ARC_R, thetaStart: CENTER_HALF_ANGLE, thetaEnd: WING_MAX_ANGLE },
-  { id: "corner3Left", label: "コーナー3（左）", rInner: ARC_R, rOuter: OUTER_R, thetaStart: -90, thetaEnd: -WING_MAX_ANGLE },
-  { id: "corner3Right", label: "コーナー3（右）", rInner: ARC_R, rOuter: OUTER_R, thetaStart: WING_MAX_ANGLE, thetaEnd: 90 },
-  { id: "wing3Left", label: "ウイング3（左）", rInner: ARC_R, rOuter: OUTER_R, thetaStart: -WING_MAX_ANGLE, thetaEnd: -CENTER_HALF_ANGLE },
-  { id: "wing3Center", label: "トップ3（中央）", rInner: ARC_R, rOuter: OUTER_R, thetaStart: -CENTER_HALF_ANGLE, thetaEnd: CENTER_HALF_ANGLE },
-  { id: "wing3Right", label: "ウイング3（右）", rInner: ARC_R, rOuter: OUTER_R, thetaStart: CENTER_HALF_ANGLE, thetaEnd: WING_MAX_ANGLE },
+  { id: "restricted", label: "Restricted Area", rInner: 0, rOuter: RESTRICTED_R, thetaStart: -90, thetaEnd: 90 },
+  { id: "paint", label: "Paint", rInner: RESTRICTED_R, rOuter: PAINT_R, thetaStart: -WING_MAX_ANGLE, thetaEnd: WING_MAX_ANGLE },
+  { id: "shortCornerLeft", label: "Short Corner (L)", rInner: RESTRICTED_R, rOuter: ARC_R, thetaStart: -90, thetaEnd: -WING_MAX_ANGLE },
+  { id: "shortCornerRight", label: "Short Corner (R)", rInner: RESTRICTED_R, rOuter: ARC_R, thetaStart: WING_MAX_ANGLE, thetaEnd: 90 },
+  { id: "midLeft", label: "Mid-range (L)", rInner: PAINT_R, rOuter: ARC_R, thetaStart: -WING_MAX_ANGLE, thetaEnd: -CENTER_HALF_ANGLE },
+  { id: "midCenter", label: "Mid-range (C)", rInner: PAINT_R, rOuter: ARC_R, thetaStart: -CENTER_HALF_ANGLE, thetaEnd: CENTER_HALF_ANGLE },
+  { id: "midRight", label: "Mid-range (R)", rInner: PAINT_R, rOuter: ARC_R, thetaStart: CENTER_HALF_ANGLE, thetaEnd: WING_MAX_ANGLE },
+  { id: "corner3Left", label: "Corner 3 (L)", rInner: ARC_R, rOuter: OUTER_R, thetaStart: -90, thetaEnd: -WING_MAX_ANGLE },
+  { id: "corner3Right", label: "Corner 3 (R)", rInner: ARC_R, rOuter: OUTER_R, thetaStart: WING_MAX_ANGLE, thetaEnd: 90 },
+  { id: "wing3Left", label: "Wing 3 (L)", rInner: ARC_R, rOuter: OUTER_R, thetaStart: -WING_MAX_ANGLE, thetaEnd: -CENTER_HALF_ANGLE },
+  { id: "wing3Center", label: "Top 3", rInner: ARC_R, rOuter: OUTER_R, thetaStart: -CENTER_HALF_ANGLE, thetaEnd: CENTER_HALF_ANGLE },
+  { id: "wing3Right", label: "Wing 3 (R)", rInner: ARC_R, rOuter: OUTER_R, thetaStart: CENTER_HALF_ANGLE, thetaEnd: WING_MAX_ANGLE },
 ];
 
 /** ショット座標（0〜100正規化済み）からバスケット中心を基準にした距離r(m)・角度θ(度)を求める */

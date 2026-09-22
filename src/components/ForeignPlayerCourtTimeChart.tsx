@@ -7,7 +7,7 @@ interface ForeignPlayerCourtTimeChartProps {
   teams: TeamSummary[];
 }
 
-const BUCKET_LABELS = ["0人", "1人", "2人", "3人以上"] as const;
+const BUCKET_LABELS = ["0", "1", "2", "3+"] as const;
 const BUCKET_COLORS = ["#c4c4c4", "#7cc4f7", "#1f78c1", "#0b3d7a"] as const;
 
 interface ChartRow {

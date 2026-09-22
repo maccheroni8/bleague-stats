@@ -387,8 +387,8 @@ function buildFgaCompositionSegments(logs: TeamGameLog[], perspective: "own" | "
   const midA = Math.max(0, twoA - paintA);
   return [
     { key: "3p", label: "3P", color: COMPOSITION_PIE_COLORS.threeP, value: tpa / games },
-    { key: "ip", label: "IP", color: COMPOSITION_PIE_COLORS.paint, value: paintA / games },
-    { key: "op", label: "OP", color: COMPOSITION_PIE_COLORS.midRange, value: midA / games },
+    { key: "ip", label: "Paint", color: COMPOSITION_PIE_COLORS.paint, value: paintA / games },
+    { key: "op", label: "Mid-range", color: COMPOSITION_PIE_COLORS.midRange, value: midA / games },
   ];
 }
 
@@ -416,8 +416,8 @@ function buildPtsCompositionSegments(team: TeamSummary, perspective: "own" | "op
         };
   return [
     { key: "3p", label: "3P", color: COMPOSITION_PIE_COLORS.threeP, value: (shares.threeP / 100) * totalPerGame },
-    { key: "ip", label: "IP", color: COMPOSITION_PIE_COLORS.paint, value: (shares.paint / 100) * totalPerGame },
-    { key: "op", label: "OP", color: COMPOSITION_PIE_COLORS.midRange, value: (shares.midRange / 100) * totalPerGame },
+    { key: "ip", label: "Paint", color: COMPOSITION_PIE_COLORS.paint, value: (shares.paint / 100) * totalPerGame },
+    { key: "op", label: "Mid-range", color: COMPOSITION_PIE_COLORS.midRange, value: (shares.midRange / 100) * totalPerGame },
     { key: "ft", label: "FT", color: COMPOSITION_PIE_COLORS.ft, value: (shares.ft / 100) * totalPerGame },
   ];
 }
@@ -507,17 +507,17 @@ interface RadarStatDef {
 // ヘッダーのレーダーチャート用の16項目（0時の位置から時計回り: 得点/リバウンド/アシスト/
 // スティール/ブロック/2P%/3P%/FT%/失点/eFG%/TOV%/FTR/OR%/ORtg/DRtg/NETRtg）
 const RADAR_STAT_DEFS: RadarStatDef[] = [
-  { key: "pts", label: "得点", value: (t) => t.perGame.pts, format: (t) => formatDecimal(t.perGame.pts), higherIsBetter: true },
-  { key: "reb", label: "リバウンド", value: (t) => t.perGame.reb, format: (t) => formatDecimal(t.perGame.reb), higherIsBetter: true },
-  { key: "ast", label: "アシスト", value: (t) => t.perGame.ast, format: (t) => formatDecimal(t.perGame.ast), higherIsBetter: true },
-  { key: "stl", label: "スティール", value: (t) => t.perGame.stl, format: (t) => formatDecimal(t.perGame.stl), higherIsBetter: true },
-  { key: "blk", label: "ブロック", value: (t) => t.perGame.blk, format: (t) => formatDecimal(t.perGame.blk), higherIsBetter: true },
+  { key: "pts", label: "PTS", value: (t) => t.perGame.pts, format: (t) => formatDecimal(t.perGame.pts), higherIsBetter: true },
+  { key: "reb", label: "REB", value: (t) => t.perGame.reb, format: (t) => formatDecimal(t.perGame.reb), higherIsBetter: true },
+  { key: "ast", label: "AST", value: (t) => t.perGame.ast, format: (t) => formatDecimal(t.perGame.ast), higherIsBetter: true },
+  { key: "stl", label: "STL", value: (t) => t.perGame.stl, format: (t) => formatDecimal(t.perGame.stl), higherIsBetter: true },
+  { key: "blk", label: "BLK", value: (t) => t.perGame.blk, format: (t) => formatDecimal(t.perGame.blk), higherIsBetter: true },
   { key: "pt2Pct", label: "2P%", value: (t) => t.shooting.pt2Pct, format: (t) => formatPct(t.shooting.pt2Pct), higherIsBetter: true },
   { key: "tpPct", label: "3P%", value: (t) => t.shooting.tpPct, format: (t) => formatPct(t.shooting.tpPct), higherIsBetter: true },
   { key: "ftPct", label: "FT%", value: (t) => t.shooting.ftPct, format: (t) => formatPct(t.shooting.ftPct), higherIsBetter: true },
   {
     key: "oppPts",
-    label: "失点",
+    label: "oppPTS",
     value: (t) => t.opponentPerGame.pts,
     format: (t) => formatDecimal(t.opponentPerGame.pts),
     higherIsBetter: false,
@@ -1307,7 +1307,7 @@ const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
   },
   {
     key: "japanesePts",
-    label: "日本人PTS",
+    label: "Japanese PTS",
     format: (r, _m, mode, p) =>
       formatTeamSeasonCountPerspective(
         r.team.advanced.japanesePointsPerGame * r.team.gamesPlayed,
@@ -1319,7 +1319,8 @@ const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
   },
   {
     key: "internationalPts",
-    label: "外国籍等PTS",
+    label: "Foreign PTS",
+    description: "外国籍・帰化選手・アジア特別枠選手の得点",
     format: (r, _m, mode, p) =>
       formatTeamSeasonCountPerspective(
         r.team.advanced.internationalPointsPerGame * r.team.gamesPlayed,
@@ -1447,7 +1448,7 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   // （旧3分割版の内部フィールド）を合算して2区分に統一する（src/lib/classificationFilter.ts参照）
   {
     key: "japanesePts3",
-    label: "日本人PTS",
+    label: "Japanese PTS",
     format: (r, _m, mode, p) =>
       formatTeamSeasonCountPerspective(
         r.team.advanced.japanesePointsPerGame * r.team.gamesPlayed,
@@ -1459,7 +1460,8 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   },
   {
     key: "internationalPts3",
-    label: "外国籍・帰化・アジアPTS",
+    label: "Foreign PTS",
+    description: "外国籍・帰化選手・アジア特別枠選手の得点",
     format: (r, _m, mode, p) =>
       formatTeamSeasonCountPerspective(
         (r.team.advanced.foreignPointsPerGame + r.team.advanced.naturalizedOrAsianPointsPerGame) * r.team.gamesPlayed,
@@ -1472,13 +1474,14 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   },
   {
     key: "pctjapanese3",
-    label: "%日本人PTS",
+    label: "%Japanese PTS",
     format: (r, _m, _mode, p) =>
       formatTeamSeasonPct100(r.team.advanced.japanesePointsSharePct, r.team.advanced.opponentJapanesePointsSharePct, p),
   },
   {
     key: "pctinternational3",
-    label: "%外国籍・帰化・アジアPTS",
+    label: "%Foreign PTS",
+    description: "総得点に占める、外国籍・帰化選手・アジア特別枠選手の得点の割合",
     format: (r, _m, _mode, p) =>
       formatTeamSeasonPct100(
         r.team.advanced.foreignPointsSharePct + r.team.advanced.naturalizedOrAsianPointsSharePct,
@@ -1997,8 +2000,8 @@ interface TeamPointsExtraColumn {
 const TEAM_POINTS_MISC_COLUMNS: TeamPointsExtraColumn[] = [
   { key: "benchPts", label: "BENCH PTS", value: (b) => b.bench, kind: "count" },
   { key: "starterPts", label: "STARTER PTS", value: (b) => b.starter, kind: "count" },
-  { key: "japanesePts", label: "日本人PTS", value: (b) => b.japanese, kind: "count" },
-  { key: "internationalPts", label: "外国籍等PTS", value: (b) => b.international, kind: "count" },
+  { key: "japanesePts", label: "Japanese PTS", value: (b) => b.japanese, kind: "count" },
+  { key: "internationalPts", label: "Foreign PTS", value: (b) => b.international, kind: "count" },
 ];
 
 // %BENCH PTS・%STARTER PTSは自チームの得点構成比のみを意味のある指標として扱い、
@@ -2007,17 +2010,17 @@ const TEAM_POINTS_MISC_COLUMNS: TeamPointsExtraColumn[] = [
 const TEAM_POINTS_SHARE_COLUMNS: TeamPointsExtraColumn[] = [
   { key: "benchPtsShare", label: "%BENCH PTS", value: (b) => safeDiv(100 * b.bench, b.bench + b.starter), kind: "sharePct" },
   { key: "starterPtsShare", label: "%STARTER PTS", value: (b) => safeDiv(100 * b.starter, b.bench + b.starter), kind: "sharePct" },
-  { key: "japanesePts3", label: "日本人PTS", value: (b) => b.japanese, kind: "count" },
-  { key: "internationalPts3", label: "外国籍・帰化・アジアPTS", value: (b) => b.international, kind: "count" },
+  { key: "japanesePts3", label: "Japanese PTS", value: (b) => b.japanese, kind: "count" },
+  { key: "internationalPts3", label: "Foreign PTS", value: (b) => b.international, kind: "count" },
   {
     key: "japanesePtsShare3",
-    label: "%日本人PTS",
+    label: "%Japanese PTS",
     value: (b) => safeDiv(100 * b.japanese, b.bench + b.starter),
     kind: "sharePct",
   },
   {
     key: "internationalPtsShare3",
-    label: "%外国籍・帰化・アジアPTS",
+    label: "%Foreign PTS",
     value: (b) => safeDiv(100 * b.international, b.bench + b.starter),
     kind: "sharePct",
   },

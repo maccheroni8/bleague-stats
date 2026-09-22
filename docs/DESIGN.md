@@ -8969,3 +8969,29 @@ B1〜B6 は互いに独立。B0 の見た目確認後に方向性を確定して
   3P%等の追加基準（試投/成功数）は項目ごとの既定値のまま（スライダーは出場率のみ）。状態は `teamLeadersGamesRatio`（ページ状態に保存）
 - 確認（開発サーバー、名古屋D 2025-26）: 既定85%で対象7名、0%で12名、60%で9名、100%で4名（全試合出場の選手のみ）と変化し、条件表記・ボタン表記も追随。ランキング（個人）の「出場率85%以上」スライダーも従来どおり。
   利用者確認が必要（未確認）: 実機（スライダーのタッチ操作）、他チーム、他シーズン
+
+### 122. データチャート・スコアリング列のスタッツ項目を英語表記に統一（2026-09-21）
+- **方針**（ユーザー確定）: 円グラフのIP/OPは「Paint」「Mid-range」に変更。表側の `%IPA` 等の略語は対象外。Scoringタブの登録区分別の列名も英語化し、一貫して「Japanese / Foreign」で命名する。
+  円グラフのタイトル（「得点割合」等）と見出し（「得点構成」等）は111章の方針どおり日本語のまま
+- **123章で修正**: 円グラフの国籍区分ラベル（日本人/外国籍・帰化・アジア）はJapanese/Foreignへの変更を取り消し、日本語に戻した（下記123章）。Scoringタブの列名（Japanese PTS等）はこの章のまま英語で維持
+- **反映箇所**:
+  - 円グラフ（チーム詳細・試合詳細）: IP→Paint、OP→Mid-range、日本人→Japanese、外国籍・帰化・アジア→Foreign
+  - チーム詳細ヘッダーのレーダー: 得点・リバウンド・アシスト・スティール・ブロック・失点 → PTS・REB・AST・STL・BLK・oppPTS（ヘッダーのタイルと同じ表記）
+  - チーム一覧の Scoring %（`ScoringCompositionChart`）: ミッドレンジ→Mid-range、ペイント内→Paint、ボタン・ツールチップの「平均得点」→ Avg PTS、「○点」→ ○ pts。登録区分の棒グラフ（`ClassificationCompositionChart`）も 日本人/外国籍・帰化・アジア → Japanese/Foreign と同様
+  - チーム一覧の On-Court Foreign（`ForeignPlayerCourtTimeChart`）: 0人/1人/2人/3人以上 → 0/1/2/3+
+  - ショットチャート（`ShotChart.tsx`・`shotChart.ts`）: チーム全体→All players、個別ショット→Shots、エリア別成功率→Zones、成功/失敗→Made/Missed（凡例・ドットのツールチップとも）、
+    12ゾーン名（ホバー時）→ Restricted Area / Paint / Short Corner (L/R) / Mid-range (L/C/R) / Corner 3 (L/R) / Wing 3 (L/R) / Top 3
+  - Scoringタブの列名（チーム詳細のシーズン別成績・シチュエーション別成績、チーム一覧・ランキングのチーム版などで共通の `teamStatsColumns.ts` とチーム詳細の列定義）:
+    日本人PTS→Japanese PTS、外国籍・帰化・アジアPTS／外国籍等PTS→Foreign PTS、%日本人PTS→%Japanese PTS、%外国籍…→%Foreign PTS。
+    「Foreign」が外国籍・帰化選手・アジア特別枠選手を含むことは、チーム詳細のシーズン別成績の列のツールチップ（`description`）で示す
+- **対象外にしたもの**: Lead Tracker・出場交代バーの凡例（チーム名と組み合わさる文言）、キースタッツの小見出し（シュート%・ボリューム系・プレータイプ内訳）、円グラフのタイトル・見出し、
+  説明文・注記の散文（「ペイント内得点は…」等）、チーム一覧の別表の列名（平均得点・平均失点等）、通算成績・クラブレコードのタイル（日本人得点・外国籍・帰化・アジア得点。タイル全体が日本語の表記のため）、
+  On-Courtチャートのツールチップ「捕捉できた合計出場時間」、`外国籍人数`（シチュエーション別成績の区分名）
+- 確認（開発サーバー）: 1200pxライトで、チーム詳細の概要（レーダー16項目すべて英語・円グラフのラベル18個に日本語なし）、チームスタッツタブのSeason/Situational ScoringのJapanese/Foreign 4列、
+  チーム一覧のScoringタブ・Scoring %（ボタン・凡例）・On-Court Foreign（凡例0/1/2/3+）、試合詳細の円グラフ・ショットチャート（Shots/Zones/Made/Missed・ゾーンのツールチップ）。375pxライトで円グラフ（Japanese/Foreign）を確認、ページ幅375px。
+  利用者確認が必要（未確認）: 実機、ダーク表示、チーム一覧のScoring %・On-Court Foreignのツールチップ、ランキング（チーム版）のScoringタブ、画像出力の見出し
+
+### 123. 円グラフの国籍区分ラベルを日本語に戻す（Scoring列名は英語のまま。2026-09-23）
+- 122章でJapanese/Foreignにした円グラフの国籍区分ラベル（チーム詳細「得点構成（国籍区分）」・試合詳細の同セクション。`buildClassificationPtsCompositionSegments`のsegment定義）を、日本人/外国籍・帰化・アジアに戻した。
+  対象は円グラフの2箇所（`TeamDetailPage.tsx`・`GameDetailPage.tsx`各1箇所）のみで、Scoringタブの列名（Japanese PTS/Foreign PTS/%Japanese PTS/%Foreign PTS。`teamStatsColumns.ts`・`TeamDetailPage.tsx`の列定義）と、円グラフのIP/OP→Paint/Mid-range、ショットチャート等122章の他の変更は維持する
+- 確認（開発サーバー、1200pxライト）: チーム詳細「得点構成（国籍区分）」の円グラフラベルが日本人/外国籍・帰化・アジア（4ラベルとも）、試合詳細の同セクションも同様。チームスタッツタブのScoring列（Japanese PTS/Foreign PTS/%Japanese PTS/%Foreign PTS）が英語のまま

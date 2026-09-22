@@ -160,7 +160,7 @@ export function ShotChartPanel({ teamName, shortName, players, shots, color, acc
         <h3>{narrow && shortName ? shortName : teamName}</h3>
         {showPlayerSelector && (
           <select value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)}>
-            <option value="">チーム全体</option>
+            <option value="">All players</option>
             {selectablePlayers.map((p) => (
               <option key={p.PlayerID} value={p.PlayerID}>
                 {p.PlayerNameJ}
@@ -172,21 +172,21 @@ export function ShotChartPanel({ teamName, shortName, players, shots, color, acc
       <div className="shot-chart-controls">
         <div className="mode-toggle">
           <button className={viewMode === "dots" ? "active" : ""} onClick={() => setViewMode("dots")}>
-            個別ショット
+            Shots
           </button>
           <button className={viewMode === "zones" ? "active" : ""} onClick={() => setViewMode("zones")}>
-            エリア別成功率
+            Zones
           </button>
         </div>
         {viewMode === "dots" && (
           <div className="shot-chart-legend">
             <span className="shot-chart-legend-item">
               <span className="shot-dot-sample shot-made" style={{ borderColor: color, background: color }} />
-              成功
+              Made
             </span>
             <span className="shot-chart-legend-item">
               <span className="shot-dot-sample shot-missed" style={{ borderColor: color }} />
-              失敗
+              Missed
             </span>
           </div>
         )}
@@ -206,7 +206,7 @@ export function ShotChartPanel({ teamName, shortName, players, shots, color, acc
               fill={s.made ? color : "none"}
             >
               <title>
-                {s.playerName} {s.isThree ? "3P" : "2P"} {s.made ? "成功" : "失敗"}
+                {s.playerName} {s.isThree ? "3P" : "2P"} {s.made ? "Made" : "Missed"}
               </title>
             </circle>
           ))

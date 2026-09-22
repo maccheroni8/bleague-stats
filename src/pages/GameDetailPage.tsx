@@ -170,8 +170,8 @@ function buildGameFgaCompositionSegments(
   const midA = Math.max(0, twoA - paintA);
   return [
     { key: "3p", label: "3P", color: GAME_COMPOSITION_PIE_COLORS.threeP, value: tpa },
-    { key: "ip", label: "IP", color: GAME_COMPOSITION_PIE_COLORS.paint, value: paintA },
-    { key: "op", label: "OP", color: GAME_COMPOSITION_PIE_COLORS.midRange, value: midA },
+    { key: "ip", label: "Paint", color: GAME_COMPOSITION_PIE_COLORS.paint, value: paintA },
+    { key: "op", label: "Mid-range", color: GAME_COMPOSITION_PIE_COLORS.midRange, value: midA },
   ];
 }
 
@@ -193,8 +193,8 @@ function buildGamePtsCompositionSegments(
   const midRange = Math.max(0, twoP - paint);
   return [
     { key: "3p", label: "3P", color: GAME_COMPOSITION_PIE_COLORS.threeP, value: threeP },
-    { key: "ip", label: "IP", color: GAME_COMPOSITION_PIE_COLORS.paint, value: paint },
-    { key: "op", label: "OP", color: GAME_COMPOSITION_PIE_COLORS.midRange, value: midRange },
+    { key: "ip", label: "Paint", color: GAME_COMPOSITION_PIE_COLORS.paint, value: paint },
+    { key: "op", label: "Mid-range", color: GAME_COMPOSITION_PIE_COLORS.midRange, value: midRange },
     { key: "ft", label: "FT", color: GAME_COMPOSITION_PIE_COLORS.ft, value: ft },
   ];
 }

@@ -4,7 +4,7 @@ import { teamShortName } from "../../shared/teamNames";
 import type { TeamSummary } from "../../shared/types";
 
 // 表示順: 日本人/外国籍・帰化・アジア。配色は各カテゴリに固定で割り当てる
-const CATEGORY_LABELS = ["日本人", "外国籍・帰化・アジア"] as const;
+const CATEGORY_LABELS = ["Japanese", "Foreign"] as const;
 const CATEGORY_COLORS = ["#5b9bd5", "#e06666"] as const;
 type CategoryIndex = 0 | 1;
 
@@ -86,7 +86,7 @@ export function ClassificationCompositionChart({ teams, mode }: { teams: TeamSum
       <p className="page-subtitle">※現在の登録情報に基づく参考値</p>
       <div className="mode-toggle">
         <button type="button" className={sortKey === "total" ? "active" : ""} onClick={() => handleSortClick("total")}>
-          平均得点{indicator("total")}
+          Avg PTS{indicator("total")}
         </button>
         {CATEGORY_LABELS.map((label, i) => {
           const key = `cat${i}` as SortKey;
@@ -186,10 +186,10 @@ function CompositionTooltip({ active, payload }: { active?: boolean; payload?: {
       {CATEGORY_LABELS.map((label, i) => (
         <div key={label} className="foreign-count-tooltip-row">
           <span className="foreign-count-tooltip-swatch" style={{ background: CATEGORY_COLORS[i] }} />
-          {label}: {row.pct[i]!.toFixed(1)}%（{row.value[i]!.toFixed(1)}点）
+          {label}: {row.pct[i]!.toFixed(1)}%（{row.value[i]!.toFixed(1)} pts）
         </div>
       ))}
-      <div className="foreign-count-tooltip-total">平均得点: {row.total.toFixed(1)}点</div>
+      <div className="foreign-count-tooltip-total">Avg PTS: {row.total.toFixed(1)}</div>
     </div>
   );
 }
