@@ -10,7 +10,9 @@ name: Update B.LEAGUE Stats
 #   以内のwatching試合の再チェック（8-1章のスタッツ修正対応）・名簿取得・新競技規則検知の
 #   検知ステップはこちらだけで行う
 # - workflow_dispatch: 手動実行用。full_schedule=true でシーズン全体のスケジュールをフル収集する
-#   （8-2章: シーズン開幕時・日程変更が疑われるときに使う。フル収集は自動実行には含めない）
+#   （8-2章: シーズン開幕時・日程変更が疑われるときに使う。フル収集は自動実行には含めない）。
+#   既定（deep_recheck=false）では頻繁チェックと同じくcheck-pending-games.tsの判定を経る
+#   （動作確認用）。deep_recheck=trueを指定すると深夜のディープrecheckと同じ扱いになる
 
 on:
   schedule:
@@ -24,6 +26,11 @@ on:
         default: ""
       full_schedule:
         description: "シーズン全体のスケジュールをフル収集する（初回・日程変更時のみ推奨）"
+        required: false
+        default: false
+        type: boolean
+      deep_recheck:
+        description: "深夜のディープrecheck（14日間の再チェック・名簿取得・新競技規則検知）として実行する"
         required: false
         default: false
         type: boolean
@@ -66,13 +73,16 @@ jobs:
           echo "season=$SEASON" >> "$GITHUB_OUTPUT"
           echo "対象シーズン: $SEASON"
 
-      # 深夜cron（0 18 * * *）またはworkflow_dispatchなら常に本処理を行う。頻繁チェック
-      # （30分おき）だけ、後続のcheck-pending-gamesステップの判定を挟む
+      # 深夜cron（0 18 * * *）、またはworkflow_dispatchでdeep_recheck=trueのときだけ
+      # 「常に本処理を行う」深夜モードにする。それ以外（頻繁チェック・既定のworkflow_dispatch）は
+      # 後続のcheck-pending-gamesステップの判定を挟む（手動実行でも早期終了経路を確認できるように）
       - name: Determine run mode
         id: mode
         run: |
           NIGHTLY="false"
-          if [ "${{ github.event.schedule }}" = "0 18 * * *" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event.schedule }}" = "0 18 * * *" ]; then
+            NIGHTLY="true"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.deep_recheck }}" = "true" ]; then
             NIGHTLY="true"
           fi
           echo "nightly=$NIGHTLY" >> "$GITHUB_OUTPUT"
