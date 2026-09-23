@@ -3,6 +3,7 @@ import { useMediaQuery } from "../lib/useMediaQuery";
 import { createPortal } from "react-dom";
 import { periodDurationSeconds, type PeriodBoundary, type TimeoutMark } from "../lib/leadTracker";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
+import { formatSigned } from "../lib/format";
 import type { CourtInterval } from "../../shared/foreignOnCourt";
 
 export interface SubstitutionInterval {
@@ -93,12 +94,17 @@ function formatElapsedTime(sec: number, periodBoundaries: PeriodBoundary[]): str
   return `${current.label} 残り${m}:${String(s).padStart(2, "0")}`;
 }
 
+/** 「自チーム得点-相手得点 (得失点差)」。差は自チーム基準で、上回れば+、下回れば-、同点は0 */
+function formatPointsWithDiff(own: number, opp: number): string {
+  return `${own}-${opp} (${formatSigned(own - opp, 0)})`;
+}
+
 /** 複数行（IN時刻・OUT時刻・出場時間・得失点）を行の配列で返す。呼び出し側が1行ずつ描画する */
 function segmentTooltipLines(iv: SubstitutionInterval, periodBoundaries: PeriodBoundary[]): string[] {
   const inTime = formatElapsedTime(iv.startSec, periodBoundaries);
   const outTime = formatElapsedTime(iv.endSec, periodBoundaries);
   const duration = formatMinutesFromSeconds(iv.endSec - iv.startSec);
-  return [`IN: ${inTime}`, `OUT: ${outTime}`, `出場時間: ${duration}`, `得失点: ${iv.ownPts}-${iv.oppPts}`];
+  return [`IN: ${inTime}`, `OUT: ${outTime}`, `出場時間: ${duration}`, `得失点: ${formatPointsWithDiff(iv.ownPts, iv.oppPts)}`];
 }
 
 /** オンザコート4の枠のツールチップ（選手の区間と同じ書式。得失点は区間中のチーム全体） */
@@ -108,7 +114,7 @@ function fourTooltipLines(iv: CourtInterval, periodBoundaries: PeriodBoundary[])
     `IN: ${formatElapsedTime(iv.startSec, periodBoundaries)}`,
     `OUT: ${formatElapsedTime(iv.endSec, periodBoundaries)}`,
     `出場時間: ${formatMinutesFromSeconds(iv.endSec - iv.startSec)}`,
-    `得失点: ${iv.ownPoints}-${iv.oppPoints}`,
+    `得失点: ${formatPointsWithDiff(iv.ownPoints, iv.oppPoints)}`,
   ];
 }
 
