@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { SeasonLink as Link } from "./SeasonLink";
 import { ExternalLinkIcon } from "./ExternalLinkIcon";
 
@@ -29,6 +29,8 @@ interface SortableTableProps<T> {
   externalLinkTo?: (row: T) => string | undefined;
   /** 指定時、各行の先頭セルに左端の縦線としてチームカラー等のアクセントを付ける */
   rowAccentColor?: (row: T) => string | undefined;
+  /** 指定時、その行の全セルの背景をこの色の薄い色（color-mix）にして強調する */
+  rowHighlightColor?: (row: T) => string | undefined;
   /**
    * 指定時、rowsを全件ソートした後、先頭からこの件数だけを描画する（「もっと見る」等の
    * 段階的な表示件数拡大と組み合わせるためのページネーション用。ソート自体は常にrows全体を
@@ -47,6 +49,7 @@ export function SortableTable<T>({
   linkTo,
   externalLinkTo,
   rowAccentColor,
+  rowHighlightColor,
   limit,
 }: SortableTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
@@ -95,8 +98,13 @@ export function SortableTable<T>({
       <tbody>
         {visibleRows.map((row) => {
           const accent = rowAccentColor?.(row);
+          const highlight = rowHighlightColor?.(row);
           return (
-            <tr key={rowKey(row)}>
+            <tr
+              key={rowKey(row)}
+              className={highlight ? "row-highlight" : undefined}
+              style={highlight ? ({ "--row-highlight-color": highlight } as CSSProperties) : undefined}
+            >
               {columns.map((col, i) => {
                 const content: ReactNode = col.render
                   ? col.render(row)

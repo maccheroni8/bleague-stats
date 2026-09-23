@@ -20,7 +20,7 @@ import { useMediaQuery } from "../lib/useMediaQuery";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { GameLineupTable } from "../components/GameLineupTable";
 import { buildSurnameMap } from "../lib/playerSurname";
-import { buildGameLineups } from "../lib/gameLineups";
+import { buildGameLineups, type GameLineupRow } from "../lib/gameLineups";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { composeLabels, periodLabels } from "../lib/conditionLabels";
@@ -35,7 +35,7 @@ import {
   type LineupStint,
   type PlayerOnCourtRatings,
 } from "../../shared/onCourt";
-import { foreignOnCourtIntervals, type CourtInterval } from "../../shared/foreignOnCourt";
+import { foreignCountInLineup, foreignOnCourtIntervals, type CourtInterval } from "../../shared/foreignOnCourt";
 import { computePointsInPaint } from "../../shared/playTypePoints";
 import { teamShortName } from "../../shared/teamNames";
 import { CompositionPieChart, type PieSegmentInput } from "../components/CompositionPieChart";
@@ -463,6 +463,9 @@ export function GameDetailPage({ season }: { season: string }) {
   const awayLineups = buildGameLineups(lineupStints, game.awayTeam.id, selectedLineupPeriodOption, periodBoundaries);
   const lineupPlayerNames = new Map([...homePlayers, ...awayPlayers].map((r) => [r.PlayerID, r.PlayerNameJ] as const));
   const lineupPlayerOrder = new Map([...homePlayers, ...awayPlayers].map((r, i) => [r.PlayerID, i] as const));
+  // オンザコート4の5人組（出場交代の枠と同じ判定。shared/foreignOnCourt.ts）
+  const isForeignFourLineup = (row: GameLineupRow) =>
+    (foreignCountInLineup(row.playerIds, (id) => classificationById.get(id)) ?? -1) >= 4;
   const lineupPlayerSurnames = buildSurnameMap(
     [homePlayers, awayPlayers].map((rows) => rows.map((r) => ({ id: r.PlayerID, name: r.PlayerNameJ }))),
   );
@@ -705,6 +708,7 @@ export function GameDetailPage({ season }: { season: string }) {
               playerNames={lineupPlayerNames}
               playerSurnames={lineupPlayerSurnames}
               color={homeColor}
+              isForeignFour={isForeignFourLineup}
             />
             <GameLineupTable
               teamName={game.awayTeam.name}
@@ -713,10 +717,12 @@ export function GameDetailPage({ season }: { season: string }) {
               playerNames={lineupPlayerNames}
               playerSurnames={lineupPlayerSurnames}
               color={awayColor}
+              isForeignFour={isForeignFourLineup}
             />
           </div>
           <p className="page-subtitle">
             同じ5人が同時にコートにいた時間帯ごとの成績。得点・失点はその5人の在コート中に両チームが記録した得点です。
+            チームカラーの背景・左端の線は、オンザコート4（外国籍・帰化・アジア特別枠の選手が4人）の組み合わせです。
             Q別/前後半では、Qをまたいで出場した組み合わせの出場時間・得点をQごとに分けて集計します。
           </p>
         </>

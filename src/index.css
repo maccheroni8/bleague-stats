@@ -817,6 +817,17 @@ table.sortable-table td.row-accent-cell {
   padding-left: 9px;
 }
 
+/* 行の強調（SortableTableのrowHighlightColor。試合詳細のラインナップ別成績のオンザコート4等）。
+   先頭セルは横スクロール用に不透明な背景（var(--bg)）で固定しているため、trではなく全セルに
+   チームカラーを背景と混ぜた不透明色を敷く */
+table.sortable-table tbody tr.row-highlight td {
+  background: color-mix(in srgb, var(--row-highlight-color) 22%, var(--bg));
+}
+
+table.sortable-table tbody tr.row-highlight:hover td {
+  background: color-mix(in srgb, var(--row-highlight-color) 32%, var(--bg));
+}
+
 .cell-link {
   color: inherit;
   text-decoration: none;

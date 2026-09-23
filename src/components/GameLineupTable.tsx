@@ -18,10 +18,20 @@ interface GameLineupTableProps {
   /** スマホ幅（560px以下）で使う名字のみの表記（lib/playerSurname.ts） */
   playerSurnames: Map<string, string>;
   color?: string;
+  /** オンザコート4（日本人以外が4人）の5人組か。該当行は左端の線と背景をチームカラーにする */
+  isForeignFour?: (row: GameLineupRow) => boolean;
 }
 
 /** 試合詳細ページのラインナップ別成績（1チーム分）。既定は出場時間の長い順 */
-export function GameLineupTable({ teamName, rows, playerOrder, playerNames, playerSurnames, color }: GameLineupTableProps) {
+export function GameLineupTable({
+  teamName,
+  rows,
+  playerOrder,
+  playerNames,
+  playerSurnames,
+  color,
+  isForeignFour,
+}: GameLineupTableProps) {
   const narrow = useMediaQuery("(max-width: 560px)");
   const [expanded, setExpanded] = useState(false);
   const names = narrow ? playerSurnames : playerNames;
@@ -55,7 +65,8 @@ export function GameLineupTable({ teamName, rows, playerOrder, playerNames, play
               rows={displayedRows}
               rowKey={(r) => r.lineupKey}
               defaultSortKey="seconds"
-              rowAccentColor={() => color}
+              rowAccentColor={(r) => (isForeignFour?.(r) ? (color ?? "var(--accent)") : "transparent")}
+              rowHighlightColor={(r) => (isForeignFour?.(r) ? (color ?? "var(--accent)") : undefined)}
             />
           </div>
           {rows.length > MAX_GAME_LINEUP_ROWS && (
