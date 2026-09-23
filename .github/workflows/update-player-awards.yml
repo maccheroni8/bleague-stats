@@ -39,13 +39,34 @@ jobs:
         run: node --experimental-strip-types scripts/scrape-player-awards.ts
 
       - name: Commit and push if changed
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/player-awards.json.gz
           if git diff --staged --quiet; then
             echo "変更なし。コミットをスキップします"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "chore: update player awards ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
             git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # deploy.yml（workflow_runトリガー）が「データに変更があった実行か」を判定するための
+      # シグナル（update-stats.ymlと同じ仕組み、2026-09-23導入）
+      - name: Save deploy signal
+        if: always()
+        run: |
+          mkdir -p /tmp/deploy-signal
+          CHANGED="${{ steps.commit.outputs.changed }}"
+          if [ -z "$CHANGED" ]; then CHANGED="false"; fi
+          echo "$CHANGED" > /tmp/deploy-signal/deploy-changed.txt
+
+      - name: Upload deploy signal artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-signal
+          path: /tmp/deploy-signal/deploy-changed.txt
+          retention-days: 1

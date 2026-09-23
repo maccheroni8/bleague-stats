@@ -302,6 +302,8 @@ export interface UpcomingGameEntry {
   homeTeamName: string;
   awayTeamName: string;
   venue?: string;
+  /** JST基準のHH:MM（ティップオフ時刻。game_detailページのclass="time"から取得。2026-09-23導入） */
+  tipoffTime?: string;
 }
 
 export interface ScheduleFile {

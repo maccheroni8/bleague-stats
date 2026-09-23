@@ -1092,6 +1092,75 @@ jobs:
   14日以上経過している試合は最初から`status: "final"`として取り込んでよい。8-3章の
   圧縮方針もこのタイミングで適用する）
 
+### 8-5. 日程データに基づく更新タイミングへの変更（2026-09-23）
+
+2026-27シーズン開幕戦（2026-09-22、アルバルク東京vs琉球ゴールデンキングス）のデータが
+翌朝の日次cron（当時は毎日JST3時の1日1回のみ）まで反映されなかった件をきっかけに、
+「試合終了から反映まで最大1日待たされる」という運用上の遅延を解消するため、更新
+タイミングを日程データ（ティップオフ時刻）に基づく方式に変更した。
+
+**取得側**: `scripts/lib/upcomingGame.ts`の`fetchUpcomingGameEntry()`が元々取得している
+`game_detail`ページのHTMLに、ティップオフ時刻（`<p class="time">19:05 TIP OFF</p>`形式。
+試合終了後も同じ値が残ることを実機確認済み）が同梱されていることを確認し、追加の
+リクエストなしで`UpcomingGameEntry.tipoffTime`（JST基準のHH:MM）として`schedule.json`の
+`upcomingGames`に保存するようにした。2026-09-23導入前に解決済みだった既存エントリ
+（tipoffTime未設定）は、`scrape-schedule.ts`の`resolveUpcomingGames()`側で
+「tipoffTimeが無ければ再取得する」よう変更し、次回のスケジュール取得時に自動的に
+補完される（自己修復的な設計。導入直後の1回は該当試合数分の追加リクエストが発生する）。
+
+**頻繁チェック（30分おき）と深夜のディープrecheckへの分離**:
+- `update-stats.yml`のcronを、30分おき（`7,37 * * * *`。毎時00分は他ワークフローとの
+  負荷集中を避けるため外した）の頻繁チェックと、従来通り毎日JST3時（`0 18 * * *`）の
+  ディープrecheckの2本立てにした（同一ワークフロー内の別cronエントリのため、
+  `github.event.schedule`で分岐する。既存の`concurrency: group: update-stats`が
+  そのまま両者を直列化するため、requirement「同じconcurrencyグループにする」は
+  ワークフローを分けずに自動的に満たされる）
+- 頻繁チェックは、起動直後に`scripts/check-pending-games.ts`
+  （bleague.jpへは一切アクセスせず、前回コミット済みの`schedule.json`だけを見る）で
+  「`upcomingGames`のうち、ティップオフ時刻+3時間を過ぎていてまだ生データが無い試合が
+  あるか」を判定し、無ければ即座にジョブを終了する（`tipoffTime`未解決のエントリは
+  安全側に倒して「対象あり」として扱う）。対象があれば、直近14日分の日程軽量チェック→
+  `scrape-boxscore.ts --new-only`（新着試合のみ処理し、`status: "watching"`の
+  再チェック対象はスキップする新設フラグ）→集計再計算→commit&push、という軽量な
+  パイプラインだけを実行する
+- 深夜のディープrecheckは、上記の判定を経ずに常に本処理へ進み、既存通りの
+  `scrape-boxscore.ts`（`--new-only`無し。8-1章の14日間watching再チェックを含む）・
+  名簿取得（`scrape-roster.ts`）・新競技規則検知（`check-rule-change.ts`）を実行する
+  （14日間の再チェック・名簿取得・規則検知はいずれも1日1回で十分という判断）
+
+**デプロイ側（`deploy.yml`）**: 頻繁チェックが「対象試合なし」で即終了した実行や、
+他の理由でデータに変更が無かった実行でも、`workflow_run`イベント自体は`success`で
+完了するため、従来の「元ジョブが成功していればデプロイする」という判定だけでは
+無意味な再デプロイが30分おきに走りかねない。これを防ぐため、`update-stats.yml`・
+`update-player-awards.yml`の両方に、commitの有無（`git diff --staged --quiet`の結果）を
+`deploy-changed.txt`として`actions/upload-artifact`でジョブ終了時に必ず（`if: always()`）
+アップロードするステップを追加した。`deploy.yml`側は`build`/`deploy`ジョブの前段に
+`check`ジョブを新設し、`workflow_run`経由のときは`actions/download-artifact`
+（`run-id: ${{ github.event.workflow_run.id }}`で元ジョブのartifactを取得）でこの
+シグナルを読み、`true`のときだけ`should_deploy=true`を出力する。`build`ジョブは
+`needs: check`＋`if: needs.check.outputs.should_deploy == 'true'`で実際にデータが
+変わった場合のみ動くようにし、`deploy`ジョブは`needs: build`のため`build`が
+スキップされれば自動的にスキップされる（`push`・`workflow_dispatch`トリガーは
+この判定の対象外で常にデプロイする）。
+
+**動作確認**: `fetchUpcomingGameEntry()`を実際のScheduleKey（506379・506380・506385）で
+呼び出し、`tipoffTime`が正しく抽出されること（いずれも"19:05"）を確認した。
+`check-pending-games.ts`の判定ロジックは、実在の2026-27シーズンデータ（全780件が
+tipoffTime未解決のため`should_run=true`になること）と、一時的なテスト用season
+ディレクトリに合成した2パターン（ティップオフ+3時間がまだ先の試合のみ→`should_run=false`、
+ティップオフ+3時間を過ぎた試合を含む→`should_run=true`で該当試合のみ抽出）の両方で
+確認した（テスト用ディレクトリは確認後に削除済み）。型チェック（`tsconfig.json`・
+`tsconfig.scripts.json`とも）通過。YAML構文は`js-yaml`で3ファイルとも解析可能なことを
+確認した（actionlint等の専用リンタは実行環境に無いため未実施）。
+
+⚠️ **未確認（実運用でのみ検証可能）**: 次の試合日に実際に何時間で反映されるか（頻繁
+チェックの初回実行時は`tipoffTime`未解決エントリの一括再取得＝約780件×2.5秒
+（約32分）が走るため、導入直後の1回だけ通常より時間がかかる見込み）、
+`actions/download-artifact`のクロスワークフロー参照が実際のGitHub Actions環境で
+問題なく動作するか、`deploy.yml`の3ジョブ構成（`check`→`build`→`deploy`）が
+実際にPagesへのデプロイまで正しく完走するか。いずれもワークフロー実行環境
+そのものが必要なため、ローカルでは検証できていない。
+
 ---
 
 ## 9. ディレクトリ構成案（実装反映版）

@@ -17,6 +17,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read # workflow_run元のジョブが残したartifact（deploy-signal）をダウンロードするため
 
 # Pagesへのデプロイは同時に1つだけ。実行中でも新しいpushを待たせず、進行中のものは
 # 完了させてから最新のpushで上書きする（deploy-pagesの一般的な運用）
@@ -25,10 +26,47 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    # workflow_run経由のときは、元のジョブが失敗していたらデプロイしない（データ更新自体が
-    # 失敗した状態で古いデータのまま再デプロイしても意味が無いため）。push/workflow_dispatchは対象外
+  # workflow_run経由のときに実際にデプロイすべきかを判定する。判定材料は2つ:
+  # 1. 元のジョブが失敗していないか（データ更新自体が失敗した状態で古いデータのまま
+  #    再デプロイしても意味が無いため）
+  # 2. 実際にデータ（data/配下）へのcommitがあったか（2026-09-23追加。30分おきの頻繁チェックが
+  #    「対象試合なし」で即終了した実行や、他に変更が無かった実行では、workflow_run自体は
+  #    successで完了するがデプロイする意味が無いため。update-stats.yml/update-player-awards.yml
+  #    が残す deploy-signal artifact（deploy-changed.txt に true/false）を見る）
+  # push/workflow_dispatchはこの判定の対象外（常にデプロイする）
+  check:
+    runs-on: ubuntu-latest
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      should_deploy: ${{ steps.decide.outputs.should_deploy }}
+    steps:
+      - name: Download deploy signal artifact (workflow_run only)
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: deploy-signal
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: deploy-signal
+
+      - name: Decide whether to deploy
+        id: decide
+        run: |
+          if [ "${{ github.event_name }}" != "workflow_run" ]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -f deploy-signal/deploy-changed.txt ] && [ "$(cat deploy-signal/deploy-changed.txt)" = "true" ]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::データに変更が無かった実行のため、デプロイをスキップします"
+          fi
+
+  build:
+    needs: check
+    if: needs.check.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -1,14 +1,21 @@
 name: Update B.LEAGUE Stats
 
-# DESIGN.md 8章の自動更新フロー。
-# - 日次cron: 直近14日分のスケジュール軽量チェック + 新規/再チェック対象のボックススコア取得
-#             + 集計再計算 + commit&push（8-1, 8-2章）
+# DESIGN.md 8章の自動更新フロー（2026-09-23改訂: 日程データに基づく更新タイミングに変更）。
+# - 頻繁チェック（30分おき。毎時07分・37分、毎時00分は避けて負荷を分散）:
+#   schedule.json（前回までにコミット済みのデータ）だけを見て、「ティップオフ+3時間を過ぎて
+#   いてまだボックススコアを取得していない試合」があるときだけ本処理（直近14日分の日程軽量
+#   チェック＋新着試合のボックススコア取得＋集計再計算＋commit&push）に進む。無ければ
+#   bleague.jpへ一切アクセスせず即終了する（check-pending-games.ts）
+# - 深夜（毎日JST3時）のディープrecheck: 上記の判定を経ずに毎回本処理を実行する。直近14日
+#   以内のwatching試合の再チェック（8-1章のスタッツ修正対応）・名簿取得・新競技規則検知の
+#   検知ステップはこちらだけで行う
 # - workflow_dispatch: 手動実行用。full_schedule=true でシーズン全体のスケジュールをフル収集する
-#   （8-2章: シーズン開幕時・日程変更が疑われるときに使う。フル収集は日次cronに含めない）
+#   （8-2章: シーズン開幕時・日程変更が疑われるときに使う。フル収集は自動実行には含めない）
 
 on:
   schedule:
-    - cron: "0 18 * * *" # 毎日JST3時（UTC18時）
+    - cron: "7,37 * * * *" # 30分おき（毎時07分・37分）: 頻繁チェック
+    - cron: "0 18 * * *" # 毎日JST3時（UTC18時）: 深夜のディープrecheck
   workflow_dispatch:
     inputs:
       season:
@@ -21,7 +28,9 @@ on:
         default: false
         type: boolean
 
-# 二重実行によるコミット競合・並列スクレイピングを防ぐ（DESIGN.md 2章: 並列アクセスしない）
+# 二重実行によるコミット競合・並列スクレイピングを防ぐ（DESIGN.md 2章: 並列アクセスしない）。
+# 頻繁チェックと深夜のディープrecheckは同じワークフロー内の別cronのため、自動的に同じ
+# グループで直列化される
 concurrency:
   group: update-stats
   cancel-in-progress: false
@@ -57,51 +66,114 @@ jobs:
           echo "season=$SEASON" >> "$GITHUB_OUTPUT"
           echo "対象シーズン: $SEASON"
 
+      # 深夜cron（0 18 * * *）またはworkflow_dispatchなら常に本処理を行う。頻繁チェック
+      # （30分おき）だけ、後続のcheck-pending-gamesステップの判定を挟む
+      - name: Determine run mode
+        id: mode
+        run: |
+          NIGHTLY="false"
+          if [ "${{ github.event.schedule }}" = "0 18 * * *" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            NIGHTLY="true"
+          fi
+          echo "nightly=$NIGHTLY" >> "$GITHUB_OUTPUT"
+          echo "深夜ディープrecheck: $NIGHTLY"
+
+      # 頻繁チェックのみ: bleague.jpへアクセスする前に、ローカルのschedule.jsonだけで
+      # 「本処理が必要な試合があるか」を判定する（DESIGN.md 8章）
+      - name: Check for games needing processing
+        id: check
+        if: steps.mode.outputs.nightly != 'true'
+        run: node --experimental-strip-types scripts/check-pending-games.ts --season ${{ steps.season.outputs.season }}
+
+      - name: Determine whether to proceed
+        id: proceed
+        run: |
+          if [ "${{ steps.mode.outputs.nightly }}" = "true" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=${{ steps.check.outputs.should_run }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Scrape schedule (full)
-        if: ${{ github.event.inputs.full_schedule == 'true' }}
+        if: ${{ steps.proceed.outputs.run == 'true' && github.event.inputs.full_schedule == 'true' }}
         run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }}
 
       - name: Scrape schedule (recent 14 days)
-        if: ${{ github.event.inputs.full_schedule != 'true' }}
+        if: ${{ steps.proceed.outputs.run == 'true' && github.event.inputs.full_schedule != 'true' }}
         run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }} --recent 14
 
+      # 頻繁チェック（30分おき）は新着試合のボックススコア取得のみ行う。既存のwatching試合の
+      # 再チェックは深夜のディープrecheckに限定する（DESIGN.md 8-1章）
+      - name: Scrape boxscores (new games only)
+        if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly != 'true' }}
+        run: node --experimental-strip-types scripts/scrape-boxscore.ts --season ${{ steps.season.outputs.season }} --new-only
+
       - name: Scrape boxscores (new games + watching re-checks)
+        if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
         run: node --experimental-strip-types scripts/scrape-boxscore.ts --season ${{ steps.season.outputs.season }}
 
       # 名簿取得はbleague.jp側の一時的なエラーや、新規選手が多い日の処理時間超過で
       # 失敗しうるが、それによって試合結果の集計・commitまで止めないよう
-      # 失敗/タイムアウトしても後続ステップは必ず実行する
+      # 失敗/タイムアウトしても後続ステップは必ず実行する。深夜のディープrecheckでのみ実行する
       - name: Scrape roster (players master, incremental)
+        if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
         timeout-minutes: 25
         continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-roster.ts --season ${{ steps.season.outputs.season }}
 
       - name: Aggregate teams/players
+        if: steps.proceed.outputs.run == 'true'
         run: node --experimental-strip-types scripts/aggregate.ts --season ${{ steps.season.outputs.season }}
 
       # 新競技規則(DESIGN.md 16章)の検知。公式データが新表記（ディスラプティブ/フレグラント、
       # カテゴリ1/2）やActionCD1の変更に移行したことにコミット前後で気づくための警報。
       # 異常時はここで失敗させず（データ更新のcommit&pushを止めないため）、最終ステップで
-      # ジョブを失敗ステータスにして通知する
+      # ジョブを失敗ステータスにして通知する。深夜のディープrecheckでのみ実行する
       - name: Check rule-change signals
         id: rule_change_check
+        if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
         continue-on-error: true
         run: node --experimental-strip-types scripts/check-rule-change.ts --season ${{ steps.season.outputs.season }}
 
       # ジョブが長時間(最大90分)かかるため、実行中に他のコミットがmainにpushされていることがある。
       # そのままpushすると非fast-forwardで弾かれるので、rebaseしてから再試行する
       - name: Commit and push if changed
+        id: commit
+        if: steps.proceed.outputs.run == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
           if git diff --staged --quiet; then
             echo "変更なし。コミットをスキップします"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "chore: update ${{ steps.season.outputs.season }} stats ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
             git pull --rebase origin main
             git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # deploy.yml（workflow_runトリガー）が「データに変更があった実行か」を判定するための
+      # シグナルをartifactとして残す（頻繁チェックの即終了ケースを含め、commitステップが
+      # 走らなかった場合はfalse扱いにする）。workflow_run経由ではjob outputを直接参照できない
+      # ため、artifact経由で受け渡す
+      - name: Save deploy signal
+        if: always()
+        run: |
+          mkdir -p /tmp/deploy-signal
+          CHANGED="${{ steps.commit.outputs.changed }}"
+          if [ -z "$CHANGED" ]; then CHANGED="false"; fi
+          echo "$CHANGED" > /tmp/deploy-signal/deploy-changed.txt
+          echo "deploy-changed: $CHANGED"
+
+      - name: Upload deploy signal artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-signal
+          path: /tmp/deploy-signal/deploy-changed.txt
+          retention-days: 1
 
       # 検知結果（詳細はCheck rule-change signalsステップのログ・ジョブのSummary）をジョブの失敗として通知する。
       # データ更新のcommit&pushは上のステップで完了済み

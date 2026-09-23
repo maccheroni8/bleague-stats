@@ -13,6 +13,9 @@
 //   npm run scrape:boxscore -- --season 2025-26                  # そのシーズンのschedule.jsonから
 //                                                                   未取得試合＋再チェック対象(watching)をまとめて処理
 //   npm run scrape:boxscore -- --season 2025-26 --category one   # B.ONE分（保存先はdata/{season}/one/games/）
+//   npm run scrape:boxscore -- --season 2025-26 --new-only        # 新着試合のみ処理し、
+//                                                                   watching再チェック対象はスキップする
+//                                                                   （8-1章: 30分おきの頻繁チェック向け）
 
 import path from "node:path";
 import { fetchLatestGameContext, getPeriodScores, parseAspNetDate } from "./lib/geniusApi.ts";
@@ -131,10 +134,20 @@ async function loadScheduleKeys(season: string, category: Category): Promise<str
   return schedule.scheduleKeys;
 }
 
-/** シーズン一括モード: 未取得試合 + status=watchingの再チェック対象をまとめて処理する */
-export async function runForSeason(season: string, category: Category = "premier"): Promise<void> {
+/**
+ * シーズン一括モード: 未取得試合 + status=watchingの再チェック対象をまとめて処理する。
+ * newOnly=trueのときは、まだ生データが無い（未取得の）試合のみを対象にし、既存の
+ * status=watching試合の再チェックはスキップする（DESIGN.md 8章の更新、2026-09-23:
+ * 30分おきの頻繁チェックは新着試合の取得のみ行い、14日間の再チェックは深夜の
+ * 日次実行に限定する）
+ */
+export async function runForSeason(
+  season: string,
+  category: Category = "premier",
+  options: { newOnly?: boolean } = {},
+): Promise<void> {
   const scheduleKeys = await loadScheduleKeys(season, category);
-  console.log(`[${season}] schedule.json から ${scheduleKeys.length} 試合を確認`);
+  console.log(`[${season}] schedule.json から ${scheduleKeys.length} 試合を確認${options.newOnly ? "（新着試合のみ）" : ""}`);
 
   for (const scheduleKey of scheduleKeys) {
     const filePath = gameFilePath(season, scheduleKey, category);
@@ -142,6 +155,11 @@ export async function runForSeason(season: string, category: Category = "premier
 
     // 既に final の試合はスキップ（8章: 再チェック終了後はスクレイピング量を抑える）
     if (existing?.meta.status === "final") {
+      continue;
+    }
+
+    // 新着試合のみモードでは、既存データがある（＝watching再チェック対象の）試合をスキップする
+    if (options.newOnly && existing) {
       continue;
     }
 
@@ -178,7 +196,8 @@ async function main(): Promise<void> {
   if (seasonFlagIndex !== -1) {
     const season = args[seasonFlagIndex + 1];
     if (!season) throw new Error("--season の後にシーズン(例: 2025-26)を指定してください");
-    await runForSeason(season, category);
+    const newOnly = args.includes("--new-only");
+    await runForSeason(season, category, { newOnly });
     return;
   }
 

@@ -158,7 +158,9 @@ async function resolveUpcomingGames(
   for (const key of scheduleKeys) {
     if (withBoxscore.has(key)) continue;
     const existing = cached.get(key);
-    if (existing) {
+    // tipoffTime未解決（2026-09-23導入前に取得済みのエントリ等）は再取得して補完する。
+    // 解決済み（tipoffTimeあり）なら再取得せず使い回す
+    if (existing?.tipoffTime) {
       result.push(existing);
       continue;
     }

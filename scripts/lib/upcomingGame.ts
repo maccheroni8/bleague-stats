@@ -19,6 +19,9 @@ const DATE_PATTERN = /class="font-blg">(\d{4})\.(\d{2})\.(\d{2})<\/span>/;
 const HOME_TEAM_PATTERN = /team-wrap home"[\s\S]*?class="for-pc">([^<]+)<\/p>/;
 const AWAY_TEAM_PATTERN = /team-wrap away"[\s\S]*?class="for-pc">([^<]+)<\/p>/;
 const VENUE_PATTERN = /<p class="place">([^<]+)<\/p>/;
+// ティップオフ時刻（例: <p class="time">19:05 TIP OFF</p>）。試合終了後も同じ値が残るため、
+// 開催予定・開催済みいずれのタイミングで取得しても正しい予定時刻が取れる（2026-09-23実機確認）
+const TIME_PATTERN = /<p class="time">(\d{2}):(\d{2})\s*TIP OFF<\/p>/;
 
 /**
  * ScheduleKeyから開催予定情報を取得する。ページが無い/解析できない場合はnullを返す
@@ -36,11 +39,13 @@ export async function fetchUpcomingGameEntry(scheduleKey: string): Promise<Upcom
   if (!dateMatch || !homeMatch || !awayMatch) return null;
 
   const venueMatch = html.match(VENUE_PATTERN);
+  const timeMatch = html.match(TIME_PATTERN);
   return {
     scheduleKey,
     date: `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`,
     homeTeamName: homeMatch[1]!.trim(),
     awayTeamName: awayMatch[1]!.trim(),
     venue: venueMatch?.[1]?.trim(),
+    tipoffTime: timeMatch ? `${timeMatch[1]}:${timeMatch[2]}` : undefined,
   };
 }
