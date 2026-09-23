@@ -33,7 +33,11 @@ interface ChartRow {
 export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeChartProps) {
   const rows: ChartRow[] = teams
     .map((t) => {
-      const seconds = t.foreignPlayerCourtSeconds;
+      // 区分数の変更（2026-09-23に4区分→5区分）の直後は、ブラウザのHTTPキャッシュに残った
+      // 旧形式のteams.json（4要素）が新しいコードに渡ることがある。要素が足りない・フィールド
+      // 自体が無い場合も0秒として扱い、ツールチップのtoFixed等で落ちないようにする
+      const raw = t.foreignPlayerCourtSeconds as readonly number[] | undefined;
+      const seconds = BUCKET_LABELS.map((_, i) => raw?.[i] ?? 0) as [number, number, number, number, number];
       const total = seconds.reduce((a, b) => a + b, 0);
       const pct = seconds.map((s) => (total > 0 ? (100 * s) / total : 0)) as [number, number, number, number, number];
       return {
