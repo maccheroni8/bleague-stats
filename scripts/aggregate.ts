@@ -1748,7 +1748,8 @@ interface StandingsCompareEntry {
  * 順位表（全体・地区内とも）が共有するタイブレーク判定。公式ルール（DESIGN.md参照）:
  * ①勝率 → ②直接対決の勝率 → ③直接対決の得失点差 → ④直接対決の1試合平均得点 →
  * ⑤シーズン全体の得失点差 → ⑥シーズン全体の1試合平均得点 → ⑦抽選。
- * ⑦のみ実装不可のため、teamId昇順の決定論的な順序で代用する（`resolveTiedGroupByHeadToHead`
+ * ⑦のみ実装不可のため、teamId昇順の決定論的な順序で代用する。3クラブ以上の同率は、優劣が
+ * ついたクラブを確定させて残りを②から判定し直す再帰方式（`resolveTiedGroupByHeadToHead`
  * 参照）。全体順位・地区内順位のどちらも必ずこの関数を経由させるため、この1箇所を直せば
  * 両方に反映される。
  */
@@ -1768,17 +1769,21 @@ function rankStandingsTeams<T extends StandingsCompareEntry>(teams: T[], headToH
 }
 
 /**
- * 勝率が同率のグループを、公式タイブレーク順（DESIGN.md参照）で並べ替える:
- * ②直接対決の勝率 → ③直接対決の得失点差 → ④直接対決の1試合平均得点 →
- * ⑤シーズン全体の得失点差 → ⑥シーズン全体の1試合平均得点 → ⑦抽選（実装不可のため
+ * 勝率が同率のグループを、公式タイブレーク（2026-27 B.PREMIERリーグ戦フォーマット、
+ * bleague.jp/regulation/?tab=1。DESIGN.md参照）で並べ替える:
+ * (1)当該クラブ間の直接対決の勝率 → (2)当該クラブ間の得失点差 → (3)当該クラブ間の1試合平均得点 →
+ * (4)シーズン全体の得失点差 → (5)シーズン全体の1試合平均得点 → (6)抽選（実装不可のため
  * teamId昇順で代用する）。
  *
- * 直接対決（②③④）は、グループ内の全ペアが最低1試合ずつ対戦済み（総当たりが揃っている）
- * 場合のみ適用する。シーズン序盤等で一部のペアがまだ対戦していない場合、その未対戦チームを
- * 「0勝（最下位）」として扱ってしまう（未対戦と0%勝率を混同する）のを避けるため、総当たりが
- * 揃っていなければ②③④は全チーム同値（＝比較をスキップ）扱いとし、⑤以降にそのままフォール
- * バックする。総当たりが揃っている場合（3チーム以上の循環決着＝三すくみを含む）でも、②③④が
- * 全て並んだ時点で⑤以降にフォールバックする。
+ * 3クラブ以上が同率の場合は公式ルールどおり再帰的に決める: ある基準で一部のクラブと他のクラブの
+ * 間に優劣がついたら、その優劣関係を確定させ、優劣がつかなかったクラブ同士（部分グループ）で
+ * **(1)から**改めて判定し直す（直接対決の成績も、その部分グループ内の対戦だけで数え直す）。
+ *
+ * 直接対決（(1)〜(3)）は、判定対象のグループ内の全ペアが最低1試合ずつ対戦済み（総当たりが
+ * 揃っている）場合のみ適用する。シーズン序盤等で一部のペアがまだ対戦していない場合、その
+ * 未対戦チームを「0勝（最下位）」として扱ってしまう（未対戦と0%勝率を混同する）のを避けるため、
+ * 総当たりが揃っていなければ(1)〜(3)をスキップして(4)以降で判定する（本サイト独自の扱い。
+ * 公式ルールは全日程終了後の最終順位を前提としている）。
  */
 function resolveTiedGroupByHeadToHead<T extends StandingsCompareEntry>(
   group: T[],
@@ -1796,11 +1801,8 @@ function resolveTiedGroupByHeadToHead<T extends StandingsCompareEntry>(
     });
   });
 
-  // ②直接対決の勝率・③直接対決の得失点差・④直接対決の1試合平均得点
-  // （総当たりが揃っていない場合は空のままにし、比較時は全チーム0扱い＝実質スキップされる）
-  const h2hWinPct = new Map<string, number>();
-  const h2hPointDiff = new Map<string, number>();
-  const h2hAvgPoints = new Map<string, number>();
+  // (1)〜(3)は、このグループ内の対戦だけを集計する（再帰で部分グループになったら数え直す）
+  const h2h = new Map<string, { winPct: number; pointDiff: number; avgPoints: number }>();
   if (hasPlayedEveryOther) {
     for (const team of group) {
       let wins = 0;
@@ -1814,25 +1816,49 @@ function resolveTiedGroupByHeadToHead<T extends StandingsCompareEntry>(
         pointsFor += tally.pointsFor;
         pointsAgainst += tally.pointsAgainst;
       }
-      h2hWinPct.set(team.teamId, safeDiv(wins, wins + losses));
-      h2hPointDiff.set(team.teamId, pointsFor - pointsAgainst);
-      h2hAvgPoints.set(team.teamId, safeDiv(pointsFor, wins + losses));
+      h2h.set(team.teamId, {
+        winPct: safeDiv(wins, wins + losses),
+        pointDiff: pointsFor - pointsAgainst,
+        avgPoints: safeDiv(pointsFor, wins + losses),
+      });
     }
   }
 
-  // ⑥シーズン全体の1試合平均得点（⑤のシーズン全体得失点差は既存のpointDiffをそのまま使う）
-  const seasonAvgPoints = new Map(group.map((t) => [t.teamId, safeDiv(t.pointsFor, t.wins + t.losses)]));
+  const criteria: ((t: T) => number)[] = [
+    ...(hasPlayedEveryOther
+      ? [
+          (t: T) => h2h.get(t.teamId)!.winPct,
+          (t: T) => h2h.get(t.teamId)!.pointDiff,
+          (t: T) => h2h.get(t.teamId)!.avgPoints,
+        ]
+      : []),
+    (t: T) => t.pointDiff,
+    (t: T) => safeDiv(t.pointsFor, t.wins + t.losses),
+  ];
 
-  return [...group].sort(
-    (a, b) =>
-      (h2hWinPct.get(b.teamId) ?? 0) - (h2hWinPct.get(a.teamId) ?? 0) ||
-      (h2hPointDiff.get(b.teamId) ?? 0) - (h2hPointDiff.get(a.teamId) ?? 0) ||
-      (h2hAvgPoints.get(b.teamId) ?? 0) - (h2hAvgPoints.get(a.teamId) ?? 0) ||
-      b.pointDiff - a.pointDiff ||
-      (seasonAvgPoints.get(b.teamId) ?? 0) - (seasonAvgPoints.get(a.teamId) ?? 0) ||
-      // ⑦抽選は実装不可のため、teamId昇順の決定論的な順序で代用する
-      a.teamId.localeCompare(b.teamId),
-  );
+  for (const criterion of criteria) {
+    const partitions = partitionByValueDesc(group, criterion);
+    if (partitions.length > 1) {
+      // 優劣がついた。各部分グループ（同値のクラブ同士）は(1)から判定し直す
+      return partitions.flatMap((sub) => resolveTiedGroupByHeadToHead(sub, headToHead));
+    }
+  }
+
+  // (6)抽選は実装不可のため、teamId昇順の決定論的な順序で代用する
+  return [...group].sort((a, b) => a.teamId.localeCompare(b.teamId));
+}
+
+/** 値の降順に、同値（浮動小数点の誤差は許容）のチーム同士をまとめたグループの配列にする */
+function partitionByValueDesc<T>(items: T[], valueOf: (item: T) => number): T[][] {
+  const EPSILON = 1e-9;
+  const sorted = [...items].sort((a, b) => valueOf(b) - valueOf(a));
+  const groups: T[][] = [];
+  for (const item of sorted) {
+    const last = groups[groups.length - 1];
+    if (last && Math.abs(valueOf(last[0]!) - valueOf(item)) < EPSILON) last.push(item);
+    else groups.push([item]);
+  }
+  return groups;
 }
 
 /**
