@@ -32,6 +32,7 @@ import {
 import type { Category, GeniusContext, ScheduleFile, StoredGame, StoredGameMeta } from "../shared/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import { isDue } from "./lib/pendingGames.ts";
+import { applyPlayerIdCorrections } from "./lib/playerIdCorrections.ts";
 
 const WATCHING_PERIOD_DAYS = 14;
 
@@ -73,7 +74,9 @@ export async function scrapeAndSaveGame(
   if (!result) {
     return { outcome: "no-data", scheduleKey: key };
   }
-  const { latestId, context, isLegacy } = result;
+  const { latestId, isLegacy } = result;
+  // bleague.jp側で選手IDが誤って記録されている試合は、保存前に訂正する（playerIdCorrections.ts）
+  const context = applyPlayerIdCorrections(key, result.context);
   const { Game } = context;
 
   if (!Game.BoxscoreExistsFlg && !Game.GameEndedFlg) {
