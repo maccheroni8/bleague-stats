@@ -125,7 +125,12 @@ jobs:
       # 名簿取得はbleague.jp側の一時的なエラーや、新規選手が多い日の処理時間超過で
       # 失敗しうるが、それによって試合結果の集計・commitまで止めないよう
       # 失敗/タイムアウトしても後続ステップは必ず実行する。深夜のディープrecheckでのみ実行する
+      # 選手マスタは写真取得より先に保存される（scrape-roster.ts）。写真は時間予算（15分）を超えた分を
+      # 次回に回すため通常は時間内に終わるが、それでも失敗・時間切れした場合は後続の集計・コミットを
+      # 止めないようcontinue-on-errorにしたうえで、末尾の「Fail if roster scan failed」でジョブを失敗にする
+      # （continue-on-errorのステップは一覧上「success」に見えてしまい、時間切れに気付けなかったため。DESIGN.md 125章）
       - name: Scrape roster (players master, incremental)
+        id: roster
         if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
         timeout-minutes: 25
         continue-on-error: true
@@ -185,10 +190,18 @@ jobs:
           path: /tmp/deploy-signal/deploy-changed.txt
           retention-days: 1
 
+      # ロースター取得の失敗・時間切れをジョブの失敗として通知する（データのcommit&pushは上のステップで完了済み）
+      - name: Fail if roster scan failed
+        if: ${{ always() && steps.roster.outcome == 'failure' }}
+        run: |
+          echo "::error title=Roster scan failed::Scrape roster ステップが失敗または時間切れになりました。選手マスタは写真取得前に保存されますが、ログで保存完了の行が出ているか確認してください"
+          exit 1
+
       # 検知結果（詳細はCheck rule-change signalsステップのログ・ジョブのSummary）をジョブの失敗として通知する。
       # データ更新のcommit&pushは上のステップで完了済み
       - name: Fail if rule-change signals detected
-        if: ${{ steps.rule_change_check.outcome == 'failure' }}
+        # always(): 直前のロースター失敗ステップでジョブが失敗扱いになっても、こちらの通知は出す
+        if: ${{ always() && steps.rule_change_check.outcome == 'failure' }}
         run: |
           echo "::error::新競技規則に関する異常を検知しました（DESIGN.md 16章）。Check rule-change signalsステップのログを確認してください"
           exit 1

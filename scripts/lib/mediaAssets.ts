@@ -28,7 +28,7 @@ const PHOTO_TARGET_BYTES = 20 * 1024;
 const PHOTO_SIZE = 240;
 
 /** "2026-27" → "2025-26" */
-function previousSeason(season: string): string {
+export function previousSeason(season: string): string {
   const startYear = Number(season.split("-")[0]);
   return `${startYear - 1}-${String(startYear).slice(-2)}`;
 }
@@ -88,6 +88,27 @@ async function toCompactWebp(buf: Buffer): Promise<Buffer> {
   return out;
 }
 
+/** 選手写真の元画像URL（バージョンプレフィックスなし。photoPathは"{TeamID}/{シーズン}"） */
+export function playerPhotoUrl(photoPath: string, playerId: string): string {
+  return `${IMG_HOST}/files/user/roster/${photoPath}/${playerId}_03.png`;
+}
+
+/** 指定URLの写真を取得・変換して保存する（既存ファイルがあっても上書き）。取得できなければfalse */
+export async function downloadPlayerPhotoFromUrl(
+  playerId: string,
+  url: string,
+  throttledFetch: (url: string) => Promise<Response>,
+): Promise<boolean> {
+  const buf = await fetchBinary(throttledFetch, url);
+  if (!buf) return false;
+  await writeBinaryFile(path.join(PHOTOS_DIR, `${playerId}.webp`), await toCompactWebp(buf));
+  return true;
+}
+
+export function hasPlayerPhoto(playerId: string): boolean {
+  return fileExists(path.join(PHOTOS_DIR, `${playerId}.webp`));
+}
+
 /**
  * 1選手分の写真をダウンロードする。既に保存済みならスキップする（force指定時は除く）。
  * 現在シーズンのパスが404の場合（開幕前でまだ公開されていない等）は1つ前のシーズンへフォールバックする。
@@ -105,13 +126,7 @@ export async function downloadPlayerPhoto(
 
   const seasonsToTry = [season, previousSeason(season)];
   for (const s of seasonsToTry) {
-    const url = `${IMG_HOST}/files/user/roster/${teamId}/${s}/${playerId}_03.png`;
-    const buf = await fetchBinary(throttledFetch, url);
-    if (buf) {
-      const webp = await toCompactWebp(buf);
-      await writeBinaryFile(destPath, webp);
-      return true;
-    }
+    if (await downloadPlayerPhotoFromUrl(playerId, playerPhotoUrl(`${teamId}/${s}`, playerId), throttledFetch)) return true;
   }
   return false;
 }

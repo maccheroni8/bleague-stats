@@ -24,7 +24,14 @@
 // 更新方針（DESIGN.md 8章）: 一覧ページは毎回26クラブ分取得してteamId/teamName/positionを
 // 更新する（軽量・移籍を検知できる）。個人ページは「まだマスタに無い新規選手」だけ追加取得する
 // （身長体重等の属性は変化しないため、既知選手を毎回取り直す必要が無い＝日次cronでも軽量に保てる）。
-// --force を付けると全選手の個人ページを強制的に取り直す。
+// --force を付けると全選手の個人ページと写真を強制的に取り直す。
+//
+// 実行順（DESIGN.md 125章）: ロゴ → クラブ一覧 → 新規選手の個人ページ → 選手マスタを保存 → 写真。
+// 写真取得は時間がかかるため、選手マスタ（新加入選手の登録区分・国籍等）を先に保存し、写真の成否や
+// 時間切れに左右されないようにする。写真は現行ロースター（クラブ一覧に載っている選手）だけを対象に、
+// 一覧ページの写真URLのバージョン番号（v=...）を data/player-photos-manifest.json に記録し、
+// 未保存・番号の変化（移籍・新シーズン写真の公開）があった選手だけ取り直す。時間予算
+// （PHOTO_TIME_BUDGET_MS）を超えた分は次回に回す。
 //
 // 注意: 初回実行時は在籍中の全選手（300名超）の個人ページを新規取得するため、
 // 2〜3秒間隔のレート制限により15〜20分程度かかる。日次cronに組み込む前に、
@@ -40,7 +47,14 @@ import { createThrottledFetch } from "./lib/throttle.ts";
 import { DATA_DIR, readJson, writeJson } from "./lib/storage.ts";
 import { TEAM_NAMES } from "./lib/divisions.ts";
 import { CLASSIFICATION_OVERRIDES } from "./lib/playerClassificationOverrides.ts";
-import { downloadPlayerPhoto, downloadTeamLogos } from "./lib/mediaAssets.ts";
+import {
+  downloadPlayerPhoto,
+  downloadPlayerPhotoFromUrl,
+  downloadTeamLogos,
+  hasPlayerPhoto,
+  playerPhotoUrl,
+  previousSeason,
+} from "./lib/mediaAssets.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import type { PlayerAwardEntry, PlayerMasterEntry } from "../shared/types.ts";
 
@@ -49,6 +63,11 @@ const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
 const throttledFetch = createThrottledFetch(MIN_REQUEST_INTERVAL_MS, USER_AGENT);
 
 const MASTER_PATH = path.join(DATA_DIR, "players-master.json");
+const PHOTO_MANIFEST_PATH = path.join(DATA_DIR, "player-photos-manifest.json");
+
+// 写真取得に使う時間の上限。ワークフローのステップ上限（25分）から、ロゴ（約2.5分）・クラブ一覧
+// （約1分）・新規選手の個人ページの時間を引いて余裕を残した値。超えた分は次回の実行に回す
+const PHOTO_TIME_BUDGET_MS = 15 * 60 * 1000;
 
 const RETRYABLE_ATTEMPTS = 3;
 
@@ -71,6 +90,12 @@ export interface RosterListItem {
   playerId: string;
   name: string;
   position?: string;
+  /**
+   * 一覧ページの選手写真URL（data-src）から取り出した、写真のパス（"{TeamID}/{シーズン}"）と
+   * バージョン番号（"v=1789593249/"の数字部分）。bleague.jp側で写真が未公開の選手は
+   * バージョンが空文字（"v=/"）になる（2026-09-23に実際の取得結果（200/404）と一致することを確認済み）
+   */
+  photo?: { path: string; version: string };
 }
 
 export function parseRosterList(html: string): RosterListItem[] {
@@ -84,7 +109,14 @@ export function parseRosterList(html: string): RosterListItem[] {
     const positionText = $(el).find(".playerInfo-player-position").text().replace(/\s+/g, " ").trim();
     // 例: "ポジション：PF #5" → "PF" / "ポジション：SG/SF #21" → "SG/SF"
     const positionMatch = /ポジション[：:]\s*([A-Z/]+)/.exec(positionText);
-    items.push({ playerId: idMatch[1]!, name, position: positionMatch?.[1] });
+    const photoSrc = $(el).find("img[data-src*='/files/user/roster/']").attr("data-src") ?? "";
+    const photoMatch = /\/v=(\d*)\/files\/user\/roster\/(\d+\/[0-9-]+)\//.exec(photoSrc);
+    items.push({
+      playerId: idMatch[1]!,
+      name,
+      position: positionMatch?.[1],
+      photo: photoMatch ? { path: photoMatch[2]!, version: photoMatch[1]! } : undefined,
+    });
   });
   return items;
 }
@@ -170,10 +202,20 @@ export async function fetchPlayerPage(playerId: string): Promise<PlayerPage> {
   return { detail: parsePlayerDetail(html), awards: parseAwardHistory(html) };
 }
 
+/** 現行ロースター（今回のクラブ一覧に載っていた選手）1人分。写真の同期に使う */
+export interface CurrentRosterPlayer {
+  playerId: string;
+  name: string;
+  teamId: string;
+  /** 前回のマスタ上の所属（移籍を検知した場合のみ）。写真未公開時のフォールバックに使う */
+  previousTeamId?: string;
+  photo?: { path: string; version: string };
+}
+
 export async function scrapeRosterMaster(
   season: string,
   options: { force?: boolean } = {},
-): Promise<PlayerMasterEntry[]> {
+): Promise<{ master: PlayerMasterEntry[]; currentRoster: CurrentRosterPlayer[] }> {
   const year = Number(season.split("-")[0]);
   const existing = (await readJson<PlayerMasterEntry[]>(MASTER_PATH)) ?? [];
   const byId = new Map(existing.map((p) => [p.playerId, p]));
@@ -183,6 +225,7 @@ export async function scrapeRosterMaster(
 
   let newCount = 0;
   let movedCount = 0;
+  const currentRoster: CurrentRosterPlayer[] = [];
 
   for (const [teamId, teamName] of Object.entries(TEAM_NAMES)) {
     const items = await fetchClubRoster(year, teamId);
@@ -190,40 +233,40 @@ export async function scrapeRosterMaster(
 
     for (const item of items) {
       const entry = byId.get(item.playerId);
+      let previousTeamId: string | undefined;
       if (!entry) {
         byId.set(item.playerId, { playerId: item.playerId, name: item.name, teamId, teamName, position: item.position });
         newCount += 1;
       } else {
-        if (entry.teamId !== teamId) movedCount += 1;
+        if (entry.teamId !== teamId) {
+          movedCount += 1;
+          previousTeamId = entry.teamId;
+        }
         entry.name = item.name;
         entry.teamId = teamId;
         entry.teamName = teamName;
         entry.position = item.position ?? entry.position;
       }
+      currentRoster.push({ playerId: item.playerId, name: item.name, teamId, previousTeamId, photo: item.photo });
     }
   }
-
-  // 選手写真: 既に保存済みならdownloadPlayerPhoto内でスキップされるため、新規選手のみ実質取得される
-  let photoCount = 0;
-  for (const entry of byId.values()) {
-    const saved = await downloadPlayerPhoto(entry.teamId, entry.playerId, season, throttledFetch, {
-      force: options.force,
-    });
-    if (saved) photoCount += 1;
-  }
-  if (photoCount > 0) console.log(`[photo] ${photoCount}名分の写真を新規保存`);
 
   // birthDateが未取得＝個人ページ未取得の判定に使う（既存選手の属性は変化しないため再取得しない）
   const targets = [...byId.values()].filter((p) => options.force || !p.birthDate);
   console.log(`[roster] 個人ページ取得対象: ${targets.length}名（新規${newCount}名／移籍検知${movedCount}件）`);
 
   for (const entry of targets) {
-    const { detail } = await fetchPlayerPage(entry.playerId);
-    entry.position = detail.position ?? entry.position;
-    entry.nationality = detail.nationality ?? entry.nationality;
-    entry.heightCm = detail.heightCm ?? entry.heightCm;
-    entry.weightKg = detail.weightKg ?? entry.weightKg;
-    entry.birthDate = detail.birthDate ?? entry.birthDate;
+    // 1人の個人ページの失敗で全体（選手マスタの保存）が止まらないよう、失敗は警告にとどめて次回に回す
+    try {
+      const { detail } = await fetchPlayerPage(entry.playerId);
+      entry.position = detail.position ?? entry.position;
+      entry.nationality = detail.nationality ?? entry.nationality;
+      entry.heightCm = detail.heightCm ?? entry.heightCm;
+      entry.weightKg = detail.weightKg ?? entry.weightKg;
+      entry.birthDate = detail.birthDate ?? entry.birthDate;
+    } catch (err) {
+      console.warn(`[roster] ${entry.name}（${entry.playerId}）の個人ページ取得に失敗。次回再試行: ${String(err)}`);
+    }
   }
 
   // classificationはネットワーク取得不要（nationality + 手動上書きから算出）なので、
@@ -232,7 +275,89 @@ export async function scrapeRosterMaster(
     entry.classification = deriveClassification(entry);
   }
 
-  return [...byId.values()].sort((a, b) => a.playerId.localeCompare(b.playerId));
+  return {
+    master: [...byId.values()].sort((a, b) => a.playerId.localeCompare(b.playerId)),
+    currentRoster,
+  };
+}
+
+/** data/player-photos-manifest.json の1件。保存済み写真の取得元（一覧ページ上のパスとバージョン） */
+interface PhotoManifestEntry {
+  path: string;
+  version: string;
+  fetchedAt: string;
+}
+
+/**
+ * 現行ロースターの選手写真を同期する。一覧ページに公開済みの写真（バージョン番号あり）がある選手は、
+ * 未保存・記録なし・パスかバージョンの変化があれば取り直す。未公開（バージョン空）の選手は、写真が
+ * 1枚も無い場合だけ前シーズン等へのフォールバックで仮の写真を取る（記録は残さないため、公開後に
+ * 番号が付いた時点で取り直される）。未保存 → 移籍 → その他の順に処理し、時間予算を超えたら次回に回す
+ */
+export async function syncRosterPhotos(
+  currentRoster: CurrentRosterPlayer[],
+  season: string,
+  options: { force?: boolean; budgetMs?: number } = {},
+): Promise<void> {
+  const manifest = (await readJson<Record<string, PhotoManifestEntry>>(PHOTO_MANIFEST_PATH)) ?? {};
+  const budgetMs = options.budgetMs ?? PHOTO_TIME_BUDGET_MS;
+  const startedAt = Date.now();
+
+  const needsFetch = (p: CurrentRosterPlayer): boolean => {
+    if (!p.photo) return !hasPlayerPhoto(p.playerId);
+    if (p.photo.version === "") return !hasPlayerPhoto(p.playerId);
+    const recorded = manifest[p.playerId];
+    return (
+      options.force === true ||
+      !hasPlayerPhoto(p.playerId) ||
+      recorded?.path !== p.photo.path ||
+      recorded?.version !== p.photo.version
+    );
+  };
+  const priority = (p: CurrentRosterPlayer): number => (!hasPlayerPhoto(p.playerId) ? 0 : p.previousTeamId ? 1 : 2);
+  const queue = currentRoster.filter(needsFetch).sort((a, b) => priority(a) - priority(b));
+  const pendingPublication = currentRoster.filter((p) => p.photo?.version === "").length;
+  console.log(
+    `[photo] 現行ロースター${currentRoster.length}名中、取得対象${queue.length}名（公式で写真未公開${pendingPublication}名）`,
+  );
+
+  let saved = 0;
+  let failed = 0;
+  let processed = 0;
+  for (const p of queue) {
+    if (Date.now() - startedAt > budgetMs) {
+      console.warn(`[photo] 時間予算（${Math.round(budgetMs / 60000)}分）に達したため、残り${queue.length - processed}名は次回に回します`);
+      break;
+    }
+    processed += 1;
+    const published = p.photo && p.photo.version !== "";
+    let ok: boolean;
+    if (published) {
+      ok = await downloadPlayerPhotoFromUrl(p.playerId, playerPhotoUrl(p.photo!.path, p.playerId), throttledFetch);
+      if (ok) manifest[p.playerId] = { path: p.photo!.path, version: p.photo!.version, fetchedAt: new Date().toISOString() };
+    } else {
+      // 未公開: 現所属の今季→前季、移籍選手は前所属の前季の順に試す（仮の写真。記録は残さない）
+      ok = await downloadPlayerPhoto(p.teamId, p.playerId, season, throttledFetch);
+      if (!ok && p.previousTeamId) {
+        ok = await downloadPlayerPhotoFromUrl(
+          p.playerId,
+          playerPhotoUrl(`${p.previousTeamId}/${previousSeason(season)}`, p.playerId),
+          throttledFetch,
+        );
+      }
+    }
+    if (ok) {
+      saved += 1;
+      console.log(`[photo] 保存: ${p.name}（${p.playerId}、${published ? `${p.photo!.path} v=${p.photo!.version}` : "未公開のため仮の写真"}）`);
+    } else {
+      failed += 1;
+      console.warn(`[photo] 取得できず: ${p.name}（${p.playerId}）`);
+    }
+    // 途中で打ち切られても取得済みの分が無駄にならないよう、こまめに記録を保存する
+    if (saved > 0 && saved % 20 === 0) await writeJson(PHOTO_MANIFEST_PATH, manifest);
+  }
+  await writeJson(PHOTO_MANIFEST_PATH, manifest);
+  console.log(`[photo] 保存${saved}名／取得できず${failed}名／次回に回した${queue.length - processed}名`);
 }
 
 export function deriveClassification(entry: PlayerMasterEntry): PlayerMasterEntry["classification"] {
@@ -253,9 +378,12 @@ async function main(): Promise<void> {
   }
   const force = args.includes("--force");
 
-  const master = await scrapeRosterMaster(season, { force });
+  const { master, currentRoster } = await scrapeRosterMaster(season, { force });
+  // 写真より先に選手マスタを保存する（写真の失敗・時間切れで新加入選手の登録区分等が失われないように）
   await writeJson(MASTER_PATH, master);
   console.log(`保存完了: ${MASTER_PATH}（${master.length}名）`);
+
+  await syncRosterPhotos(currentRoster, season, { force });
 }
 
 if (isMainModule(import.meta.url)) {
