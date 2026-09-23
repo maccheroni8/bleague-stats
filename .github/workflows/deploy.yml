@@ -1,8 +1,16 @@
 name: Deploy to GitHub Pages
 
+# 2026-09-23判明: update-stats.yml / update-player-awards.yml のpushは既定のGITHUB_TOKENで
+# 行われており、GitHub Actionsの仕様上「GITHUB_TOKENによるpushは他のワークフローのpushイベントを
+# 発火させない」（無限ループ防止の組み込み制限）。そのため、これまでbotの日次データ更新コミットは
+# 一度も自動デプロイを発火させたことが無かった（人間の手動commitがたまたま後続することで隠れていた）。
+# workflow_runトリガーはpushイベントとは独立にGitHub自身が発火するため、この制限を受けない。
 on:
   push:
     branches: [main]
+  workflow_run:
+    workflows: ["Update B.LEAGUE Stats", "Update Player Awards"]
+    types: [completed]
   workflow_dispatch: {}
 
 permissions:
@@ -18,10 +26,15 @@ concurrency:
 
 jobs:
   build:
+    # workflow_run経由のときは、元のジョブが失敗していたらデプロイしない（データ更新自体が
+    # 失敗した状態で古いデータのまま再デプロイしても意味が無いため）。push/workflow_dispatchは対象外
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
