@@ -1062,15 +1062,19 @@ export interface SeasonRules {
   foreignPlayerRule: ForeignPlayerRule;
   /** アジア特別枠制度が存在するか（2020-21シーズン導入） */
   hasAsiaSpecialQuota: boolean;
-  /** オンザコート人数制限が撤廃されているか（B.PREMIER 2026-27シーズン〜） */
+  /**
+   * オンザコート人数制限が撤廃されているか。2026-09-24時点で撤廃されたシーズンは無い
+   * （B.PREMIER 2026-27も「外国籍3名＋帰化/アジア特別枠1名」の制限あり。当初は二次情報で
+   * 2026-27から撤廃と記録していたが、公式フォーマット発表で訂正した）
+   */
   onTheCourtFree: boolean;
   /** 東西地区制が存在するか（B.PREMIER 2026-27シーズン〜。scripts/lib/divisions.ts参照） */
   hasDivisionSystem: boolean;
   /**
-   * 情報の裏取り状況。official-pdf=公式PDF本文で直接確認、secondary-source=第三者記事等の
-   * 二次情報のみで公式一次情報は未確認、unverified=未確認
+   * 情報の裏取り状況。official-pdf=公式PDF本文で直接確認、official-web=公式サイトのページ本文で
+   * 直接確認、secondary-source=第三者記事等の二次情報のみで公式一次情報は未確認、unverified=未確認
    */
-  sourceConfidence: "official-pdf" | "secondary-source" | "unverified";
+  sourceConfidence: "official-pdf" | "official-web" | "secondary-source" | "unverified";
   sourceNotes?: string;
 }
 
