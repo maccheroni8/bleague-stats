@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
-import { fetchGameSummaries, fetchHeadToHead, fetchSchedule, fetchStandingsHistory, fetchTeamColors } from "../lib/data";
+import {
+  fetchGameSummaries,
+  fetchHeadToHead,
+  fetchPlayoffRace,
+  fetchSchedule,
+  fetchStandingsHistory,
+  fetchTeamColors,
+} from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart, type ChartTeam } from "../components/StandingsLineChart";
 import { TeamLogo } from "../components/TeamLogo";
+import { CrownIcon } from "../components/CrownIcon";
 import { HeadToHeadMatrix } from "../components/HeadToHeadMatrix";
 import { FilterBar } from "../components/FilterBar";
 import { teamMultiAxis } from "../lib/filterAxes";
@@ -19,6 +27,8 @@ import { DIVISION_LABELS, groupByDivision } from "../lib/divisionGroups";
 import { findFebruaryBiweekGap } from "../lib/situational";
 import type {
   HeadToHeadTeamRow,
+  PlayoffRaceFile,
+  PlayoffRaceTeam,
   StandingsSnapshot,
   StandingsTeamSnapshot,
   TeamGameLog,
@@ -50,6 +60,8 @@ interface StandingsRow extends StandingsTeamSnapshot {
   streak: TeamStreak | null;
   /** 消化済み試合数 / (消化済み+未消化) の割合（0〜1）。schedule.json未取得ならnull */
   completionRate: number | null;
+  /** マジックナンバー・進出/敗退・年間優勝（playoff-race.json）。未生成のシーズンはnull */
+  race: PlayoffRaceTeam | null;
 }
 
 /**
@@ -116,11 +128,12 @@ function buildStandingsRow(
   team: StandingsTeamSnapshot,
   logs: TeamGameLog[] | undefined,
   upcomingCount: number | undefined,
+  race: PlayoffRaceTeam | null,
 ): StandingsRow {
   const gamesPlayed = team.wins + team.losses;
   const completionRate = upcomingCount === undefined ? null : safeDiv(gamesPlayed, gamesPlayed + upcomingCount);
   if (!logs) {
-    return { ...team, homeRecord: null, awayRecord: null, last5: null, streak: null, completionRate };
+    return { ...team, homeRecord: null, awayRecord: null, last5: null, streak: null, completionRate, race };
   }
   const regular = regularSeasonLogs(logs);
   return {
@@ -130,12 +143,107 @@ function buildStandingsRow(
     last5: recordSequence(sortedByDate(regular).slice(-5)),
     streak: currentStreak(regular),
     completionRate,
+    race,
   };
 }
 
 function formatOptionalRecord(record: WinLossRecord | null): string {
   return record ? formatRecord(record.wins, record.losses) : "-";
 }
+
+/**
+ * 順位表のチーム名の後ろに付けるマーク（DESIGN.md参照）。王冠=年間優勝、★=地区2位以上確定
+ * （準々決勝のホームコートアドバンテージ獲得）、☆=プレーオフ進出確定、ー=敗退確定。★は☆を含むため
+ * 両方は付けない
+ */
+function RaceMarks({ race }: { race: PlayoffRaceTeam | null }) {
+  if (!race) return null;
+  const mark = race.clinchedDivisionTop2 ? "★" : race.clinchedPlayoffs ? "☆" : race.eliminatedPlayoffs ? "ー" : null;
+  if (!mark && !race.champion) return null;
+  return (
+    <span className="race-marks">
+      {race.champion && <CrownIcon />}
+      {mark && <span className={`race-mark${mark === "ー" ? " race-mark-out" : ""}`}>{mark}</span>}
+    </span>
+  );
+}
+
+function RaceLegend({ race }: { race: PlayoffRaceFile }) {
+  return (
+    <p className="race-legend">
+      <span className="race-legend-item">
+        <CrownIcon /> 年間優勝
+      </span>
+      {race.format === "premier-2026" && (
+        <>
+          <span className="race-legend-item">★ 地区2位以上確定（準々決勝ホーム開催）</span>
+          <span className="race-legend-item">☆ プレーオフ進出確定</span>
+          <span className="race-legend-item">ー 敗退確定</span>
+        </>
+      )}
+    </p>
+  );
+}
+
+/** マジックナンバーの表示: 0=確定、null=可能性消滅 */
+function formatMagic(m: number | null | undefined): string {
+  if (m === undefined) return "-";
+  if (m === null) return "消滅";
+  return m === 0 ? "確定" : String(m);
+}
+
+interface MagicRow {
+  teamId: string;
+  teamName: string;
+  /** まだ試合をしていないクラブは順位表スナップショットに無いためnull */
+  divisionRank: number | null;
+  wins: number;
+  losses: number;
+  race: PlayoffRaceTeam;
+}
+
+const magicColumns: Column<MagicRow>[] = [
+  {
+    key: "divisionRank",
+    label: "地区順位",
+    // 未試合のクラブ（順位なし）は末尾に並べる
+    sortValue: (r) => r.divisionRank ?? 99,
+    format: (r) => (r.divisionRank === null ? "-" : String(r.divisionRank)),
+  },
+  {
+    key: "teamName",
+    label: "チーム",
+    align: "left",
+    sortValue: (r) => r.teamName,
+    render: (r) => (
+      <span className="team-name-cell">
+        <TeamLogo teamId={r.teamId} size={20} />
+        {r.teamName}
+        <RaceMarks race={r.race} />
+      </span>
+    ),
+  },
+  { key: "record", label: "勝敗", sortValue: (r) => r.wins - r.losses, render: (r) => formatRecord(r.wins, r.losses) },
+  { key: "remaining", label: "残り", sortValue: (r) => r.race.remaining, format: (r) => String(r.race.remaining) },
+  {
+    key: "magicDivisionFirst",
+    label: "地区1位",
+    sortValue: (r) => r.race.magicDivisionFirst ?? 999,
+    format: (r) => formatMagic(r.race.magicDivisionFirst),
+  },
+  {
+    key: "magicDivisionTop3",
+    label: "地区3位以内",
+    sortValue: (r) => r.race.magicDivisionTop3 ?? 999,
+    format: (r) => formatMagic(r.race.magicDivisionTop3),
+  },
+  {
+    key: "playoffs",
+    label: "プレーオフ",
+    sortValue: (r) => (r.race.clinchedPlayoffs ? 0 : r.race.eliminatedPlayoffs ? 2 : 1),
+    format: (r) => (r.race.clinchedPlayoffs ? "進出確定" : r.race.eliminatedPlayoffs ? "敗退" : "-"),
+  },
+];
 
 const divisionStandingsColumns: Column<StandingsRow>[] = [
   {
@@ -154,6 +262,7 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
       <span className="team-name-cell">
         <TeamLogo teamId={t.teamId} size={20} />
         {t.teamName}
+        <RaceMarks race={t.race} />
       </span>
     ),
   },
@@ -328,6 +437,7 @@ export function StandingsPage({ season }: { season: string }) {
   const { data: schedule } = useJsonData(() => fetchSchedule(season), [season]);
   // ワイルドカードグラフの表示開始基準（2月のバイウィーク明け）算出用
   const { data: gameSummaries } = useJsonData(() => fetchGameSummaries(season), [season]);
+  const { data: playoffRace } = useJsonData(() => fetchPlayoffRace(season), [season]);
 
   // null = 全チーム選択（絞り込みなし）。個別に外したチームだけをSetで管理する（SchedulePageと同じパターン）
   const [h2hSelectedTeamIds, setH2hSelectedTeamIds] = useState<Set<string> | null>(null);
@@ -377,12 +487,33 @@ export function StandingsPage({ season }: { season: string }) {
   // schedule.upcomingGamesは古いschedule.jsonスナップショット（スクレイパーにこのフィールドを
   // 追加する前に取得されたもの）には存在しないことがあるため、undefinedの可能性を必ず考慮する
   const upcomingCountByTeamName = schedule ? countUpcomingGamesByTeamName(schedule.upcomingGames ?? []) : null;
+  const raceById = new Map((playoffRace?.teams ?? []).map((r) => [r.teamId, r]));
   const rowFor = (t: StandingsTeamSnapshot) =>
     buildStandingsRow(
       t,
       gameLogsByTeam?.get(t.teamId),
       upcomingCountByTeamName ? (upcomingCountByTeamName.get(t.teamName) ?? 0) : undefined,
+      raceById.get(t.teamId) ?? null,
     );
+  // マジックナンバー表（2026-27〜のB.PREMIERフォーマットのみ。判定を出せない場合は理由を表示）
+  // 順位表スナップショットには試合をしたクラブしか載らないため、playoff-race.json側の全クラブを並べる
+  const standingById = new Map(teams.map((t) => [t.teamId, t]));
+  const magicGroups =
+    playoffRace?.format === "premier-2026" && !playoffRace.unavailableReason
+      ? (["east", "west"] as const).map((division) => ({
+          division,
+          rows: playoffRace.teams
+            .filter((r) => r.division === division)
+            .map((r) => ({
+              teamId: r.teamId,
+              teamName: standingById.get(r.teamId)?.teamName ?? r.teamName ?? r.teamId,
+              divisionRank: standingById.get(r.teamId)?.divisionRank ?? null,
+              wins: r.wins,
+              losses: r.losses,
+              race: r,
+            })),
+        }))
+      : [];
   const divisionStandingsGroups = groupByDivision(teams).map((g) => ({
     division: g.division,
     rows: g.teams.map(rowFor),
@@ -550,6 +681,46 @@ export function StandingsPage({ season }: { season: string }) {
                   </div>
                 )}
           </div>
+
+          {playoffRace && <RaceLegend race={playoffRace} />}
+
+          {playoffRace?.format === "premier-2026" && (
+            <>
+              <ConditionTitle
+                section
+                title="マジックナンバー"
+                conditions={composeLabels(standingsConditions, "残り全勝/全敗で比較する安全側の判定")}
+              />
+              {playoffRace.unavailableReason ? (
+                <p className="empty-message">現在は計算できません（{playoffRace.unavailableReason}）</p>
+              ) : (
+                <div className="standings-stack">
+                  {magicGroups.map((g) => (
+                    <div key={g.division}>
+                      <h3>{DIVISION_LABELS[g.division]}</h3>
+                      <div className="table-scroll">
+                        <SortableTable
+                          columns={magicColumns}
+                          rows={g.rows}
+                          rowKey={(r) => r.teamId}
+                          defaultSortKey="divisionRank"
+                          defaultSortDir="asc"
+                          linkTo={(r) => `/teams/${r.teamId}`}
+                          rowAccentColor={(r) => teamColors?.[r.teamId]?.primary}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="page-subtitle">
+                マジックナンバーは、自チームの勝利1つ・相手の敗戦1つごとに1減ります（地区1位は地区内で最も勝ち数を伸ばしうる相手、
+                地区3位以内はその3番目の相手が基準）。ライバル同士の直接対決や同率時のタイブレークは考慮せず、同率は不利側に数える
+                安全側の判定のため、確定・敗退の表示が実際に決まる時点より遅れることがあります。プレーオフはワイルドカード
+                （各地区の上位3クラブを除いた20クラブの上位2）を含む進出確定・敗退のみ表示します
+              </p>
+            </>
+          )}
 
           {wildcardApplicable && (
             <>

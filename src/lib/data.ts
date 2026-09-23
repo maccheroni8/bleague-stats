@@ -25,6 +25,7 @@ import type {
   PlayerHistoryEntry,
   PlayerMasterEntry,
   PlayerSummary,
+  PlayoffRaceFile,
   ScheduleFile,
   SeasonEntry,
   SeasonRules,
@@ -106,6 +107,18 @@ export function fetchTeamGameLogs(season: string, teamId: string): Promise<TeamG
 
 export function fetchStandingsHistory(season: string): Promise<StandingsSnapshot[]> {
   return fetchJson<StandingsSnapshot[]>(`${dataBase}/${season}/standings-history.json`);
+}
+
+/**
+ * マジックナンバー・進出/敗退・年間優勝（data/{season}/playoff-race.json）。導入前に集計された
+ * シーズン等でファイルが無い場合はnull（マークを出さないだけで、順位表自体は表示できるようにする）
+ */
+export async function fetchPlayoffRace(season: string): Promise<PlayoffRaceFile | null> {
+  try {
+    return await fetchJson<PlayoffRaceFile>(`${dataBase}/${season}/playoff-race.json`);
+  } catch {
+    return null;
+  }
 }
 
 export function fetchHeadToHead(season: string): Promise<HeadToHeadTeamRow[]> {

@@ -41,7 +41,8 @@ import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
 import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../shared/playTypePoints.ts";
 import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
 import { buildShotEvents, paintSplitForShot } from "../shared/shotChart.ts";
-import { teamDivisionForSeason } from "./lib/divisions.ts";
+import { TEAM_NAMES, teamDivisionForSeason } from "./lib/divisions.ts";
+import { computePremierRace, premierChampion, type RaceTeamInput } from "./lib/playoffRace.ts";
 import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { classifyGameType } from "./lib/gameType.ts";
@@ -58,6 +59,7 @@ import type {
   PlayByPlayEvent,
   PlayerGameLog,
   PlayerMasterEntry,
+  PlayoffRaceFile,
   ScheduleFile,
   SeasonEntry,
   SeasonPositionsFile,
@@ -1171,6 +1173,12 @@ export async function aggregateSeason(season: string, category: Category = "prem
   const headToHead = buildHeadToHead(teams, category, divisionHistory, season);
   await writeJson(path.join(DATA_DIR, seasonDir, "head-to-head.json"), headToHead);
 
+  // マジックナンバー・進出/敗退・年間優勝（B.PREMIERのみ。scripts/lib/playoffRace.ts、DESIGN.md参照）
+  if (category === "premier") {
+    const playoffRace = await buildPlayoffRace(season, seasonDir, games, standingsHistory, divisionHistory);
+    await writeJson(path.join(DATA_DIR, seasonDir, "playoff-race.json"), playoffRace);
+  }
+
   for (const [teamId, lineupMap] of teamLineups) {
     const team = teams.get(teamId);
     const teamPoss = team?.totals.poss ?? 0;
@@ -1742,6 +1750,137 @@ interface StandingsCompareEntry {
   pointsFor: number;
   wins: number;
   losses: number;
+}
+
+/** 2026-27〜のB.PREMIERフォーマット（東西2地区・各地区上位3＋ワイルドカード2、全チーム60試合） */
+const PREMIER_2026_FIRST_SEASON = "2026-27";
+const PREMIER_2026_GAMES_PER_TEAM = 60;
+
+/**
+ * data/{season}/playoff-race.jsonを作る。2026-27〜はマジックナンバーと進出/敗退判定、それ以前の
+ * シーズンは地区制・CS形式が毎年異なるため年間優勝のみ（club-honors.jsonのCS優勝から引く）
+ */
+async function buildPlayoffRace(
+  season: string,
+  seasonDir: string,
+  games: StoredGame[],
+  standingsHistory: StandingsSnapshot[],
+  divisionHistory: DivisionHistoryFile,
+): Promise<PlayoffRaceFile> {
+  const latest = standingsHistory.at(-1);
+  const asOf = latest?.date ?? null;
+
+  if (season < PREMIER_2026_FIRST_SEASON) {
+    const honors = (await readJson<Record<string, { competition: string; season: string }[]>>(
+      path.join(DATA_DIR, "club-honors.json"),
+    )) ?? {};
+    const championId = Object.entries(honors).find(([, list]) =>
+      list.some((h) => h.season === season && h.competition.includes("チャンピオンシップ優勝")),
+    )?.[0];
+    return {
+      season,
+      format: "legacy",
+      asOf,
+      teams: (latest?.teams ?? []).map((t) => ({
+        teamId: t.teamId,
+        teamName: t.teamName,
+        division: t.division,
+        wins: t.wins,
+        losses: t.losses,
+        remaining: 0,
+        ...(t.teamId === championId ? { champion: true } : {}),
+      })),
+    };
+  }
+
+  const seasonDivisions = divisionHistory.premier?.[season] ?? {};
+  const teamIds = Object.keys(seasonDivisions);
+  const standingById = new Map((latest?.teams ?? []).map((t) => [t.teamId, t]));
+
+  // 残り試合: 日程（upcomingGames）から、生データを取得済みの試合を除く。upcomingGamesは
+  // 日程取得のタイミングによって消化済みの試合が残っていることがある
+  const storedKeys = new Set(games.map((g) => g.scheduleKey));
+  const schedule = await readJson<ScheduleFile>(path.join(DATA_DIR, seasonDir, "schedule.json"));
+  const idByName = new Map<string, string>(Object.entries(TEAM_NAMES).map(([id, name]) => [name, id]));
+  for (const g of games) {
+    idByName.set(g.homeTeam.name, g.homeTeam.id);
+    idByName.set(g.awayTeam.name, g.awayTeam.id);
+  }
+  const remaining = new Map<string, number>();
+  const unknownNames = new Set<string>();
+  for (const g of schedule?.upcomingGames ?? []) {
+    if (storedKeys.has(g.scheduleKey)) continue;
+    for (const name of [g.homeTeamName, g.awayTeamName]) {
+      const id = idByName.get(name);
+      if (!id) unknownNames.add(name);
+      else remaining.set(id, (remaining.get(id) ?? 0) + 1);
+    }
+  }
+
+  const inputs: RaceTeamInput[] = teamIds.map((teamId) => {
+    const s = standingById.get(teamId);
+    return {
+      teamId,
+      teamName: s?.teamName ?? TEAM_NAMES[teamId],
+      division: seasonDivisions[teamId]!,
+      wins: s?.wins ?? 0,
+      losses: s?.losses ?? 0,
+      remaining: remaining.get(teamId) ?? 0,
+      divisionRank: s?.divisionRank,
+      overallRank: s?.rank,
+    };
+  });
+
+  // 日程が欠けていると残り試合を少なく見積もり、誤って確定を出してしまう。安全側に倒し、
+  // 全チームの「勝ち＋負け＋残り」が規定の試合数に一致しない場合は判定を出さない
+  let unavailableReason: string | undefined;
+  if (unknownNames.size > 0) {
+    unavailableReason = `日程のチーム名を特定できない: ${[...unknownNames].join("、")}`;
+  } else {
+    const mismatched = inputs.filter((t) => t.wins + t.losses + t.remaining !== PREMIER_2026_GAMES_PER_TEAM);
+    if (teamIds.length === 0) unavailableReason = "地区データが無い";
+    else if (mismatched.length > 0) {
+      unavailableReason =
+        `日程データが不完全（勝ち＋負け＋残りが${PREMIER_2026_GAMES_PER_TEAM}試合にならない: ` +
+        mismatched.map((t) => `${TEAM_NAMES[t.teamId] ?? t.teamId}=${t.wins + t.losses + t.remaining}`).join("、") +
+        "）";
+    }
+  }
+
+  const championId = premierChampion(
+    games
+      .filter((g) => classifyGameType(g.raw.Game.ConventionNameJ) === "playoff" && g.gameEndedFlg)
+      .map((g) => ({
+        date: g.date,
+        homeTeamId: g.homeTeam.id,
+        awayTeamId: g.awayTeam.id,
+        homeScore: g.homeScore,
+        awayScore: g.awayScore,
+      })),
+  );
+
+  if (unavailableReason) {
+    console.warn(`[${season}] playoff-race: 進出/敗退判定を出さない（${unavailableReason}）`);
+    return {
+      season,
+      format: "premier-2026",
+      asOf,
+      unavailableReason,
+      teams: inputs.map((t) => ({
+        teamId: t.teamId,
+        teamName: t.teamName,
+        division: t.division,
+        wins: t.wins,
+        losses: t.losses,
+        remaining: t.remaining,
+        ...(t.teamId === championId ? { champion: true } : {}),
+      })),
+    };
+  }
+
+  const race = computePremierRace(season, asOf, inputs);
+  for (const t of race.teams) if (t.teamId === championId) t.champion = true;
+  return race;
 }
 
 /**

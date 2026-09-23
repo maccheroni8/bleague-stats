@@ -181,6 +181,43 @@ h2 {
   gap: 8px;
 }
 
+/* 順位表のマーク（王冠=年間優勝・★地区2位以上・☆プレーオフ進出・ー敗退。StandingsPage） */
+.race-marks {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fg);
+}
+
+.race-mark {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.race-mark-out {
+  color: var(--muted);
+}
+
+.crown-icon {
+  color: #b8860b;
+  flex-shrink: 0;
+}
+
+.race-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 8px 0 16px;
+}
+
+.race-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .team-detail-header {
   display: flex;
   align-items: center;

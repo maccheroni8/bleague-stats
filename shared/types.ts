@@ -931,6 +931,59 @@ export interface StandingsSnapshot {
   teams: StandingsTeamSnapshot[];
 }
 
+/**
+ * data/{season}/playoff-race.json（マジックナンバー・進出/敗退/優勝マーク。DESIGN.md参照）。
+ * scripts/lib/playoffRace.tsが集計時に生成する。判定は安全側（残り全勝時の最大勝率・残り全敗時の
+ * 最低勝率の比較のみ。ライバル同士の直接対決や同率時のタイブレークは考慮せず、同率は常に
+ * 不利側に数える）のため、確定・敗退の表示が数学的に可能になる時点より遅れることはあっても、
+ * 誤って確定・敗退を表示することは無い
+ */
+export interface PlayoffRaceFile {
+  season: string;
+  /**
+   * premier-2026: 2026-27〜のB.PREMIERフォーマット（東西2地区・各地区上位3＋ワイルドカード2）。
+   * マジックナンバーと進出/敗退マークを計算する。legacy: それ以前のシーズン（地区制・CS形式が
+   * 毎年異なるため、年間優勝マークのみ）
+   */
+  format: "premier-2026" | "legacy";
+  /** 計算の基準にした最新の順位表の日付（試合が無ければnull） */
+  asOf: string | null;
+  /**
+   * 進出/敗退判定を出していない理由（日程データが不完全・チーム名を特定できない等）。
+   * 設定されているときはマジックナンバー・確定・敗退の各フィールドをすべて未設定にしている
+   */
+  unavailableReason?: string;
+  teams: PlayoffRaceTeam[];
+}
+
+export interface PlayoffRaceTeam {
+  teamId: string;
+  /** 表示用のクラブ名（まだ試合をしていないクラブは順位表スナップショットに載らないため、ここで持つ） */
+  teamName?: string;
+  division?: Division;
+  wins: number;
+  losses: number;
+  /** レギュラーシーズンの残り試合数 */
+  remaining: number;
+  /**
+   * 地区1位のマジックナンバー（自分の勝ち・相手の敗戦1つごとに1減る）。0以下は確定（0で表示）、
+   * 地区1位の可能性が無くなった場合はnull（eliminatedDivisionFirst=true）
+   */
+  magicDivisionFirst?: number | null;
+  /** 地区3位以内のマジックナンバー（定義はmagicDivisionFirstと同じ） */
+  magicDivisionTop3?: number | null;
+  eliminatedDivisionFirst?: boolean;
+  eliminatedDivisionTop3?: boolean;
+  /** 地区2位以上確定（準々決勝のホームコートアドバンテージ獲得）＝★ */
+  clinchedDivisionTop2?: boolean;
+  /** プレーオフ進出確定（地区3位以内またはワイルドカード）＝☆ */
+  clinchedPlayoffs?: boolean;
+  /** プレーオフ進出の可能性が無くなった＝ー */
+  eliminatedPlayoffs?: boolean;
+  /** 年間優勝＝王冠 */
+  champion?: boolean;
+}
+
 // ---- data/{season}/head-to-head.json の保存スキーマ（星取り表ページ用） ----
 
 /** 特定の対戦相手1チームとの通算成績（星取り表の1セル分） */
