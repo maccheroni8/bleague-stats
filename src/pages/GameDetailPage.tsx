@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useState, type CSSProperties } from "react";
 import { useParams } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGame, fetchPlayers, fetchTeamColors, fetchYahooGamePbp } from "../lib/data";
@@ -256,6 +256,11 @@ interface GameLeaderStatDef {
    * 多い方を優先する（例: 3P%は 3P% → 3P成功数 → プレータイム → EFF の順）
    */
   tieBreakValue?: (r: BoxscoreRow) => number;
+  /**
+   * 「少ない方が良い」項目（TO）はtrue。詳細比較で両チームのリーダーの値を比べるとき、少ない方を
+   * 良い方として強調する（shared/teamRecords.tsのTeamRecordValueDef.lowerIsBetterと同じ考え方）
+   */
+  lowerIsBetter?: boolean;
 }
 
 const GAME_LEADER_STAT_DEFS: GameLeaderStatDef[] = [
@@ -266,7 +271,7 @@ const GAME_LEADER_STAT_DEFS: GameLeaderStatDef[] = [
   { key: "ast", label: "AST", value: (r) => r.AS, format: (r) => String(r.AS) },
   { key: "stl", label: "STL", value: (r) => r.ST, format: (r) => String(r.ST) },
   { key: "blk", label: "BLK", value: (r) => r.BS, format: (r) => String(r.BS) },
-  { key: "to", label: "TO", value: (r) => r.TO, format: (r) => String(r.TO) },
+  { key: "to", label: "TO", value: (r) => r.TO, format: (r) => String(r.TO), lowerIsBetter: true },
   {
     key: "fg2pct",
     label: "2P%",
@@ -764,6 +769,8 @@ export function GameDetailPage({ season }: { season: string }) {
               ? awayPlayers.filter((r) => classificationById.get(r.PlayerID) === "日本人")
               : awayPlayers
           }
+          homeColor={homeColor}
+          awayColor={awayColor}
         />
       )}
 
@@ -1059,6 +1066,8 @@ function GameLeadersMatchup({
   awayTeamId,
   homeRows,
   awayRows,
+  homeColor,
+  awayColor,
 }: {
   homeTeamName: string;
   awayTeamName: string;
@@ -1066,7 +1075,15 @@ function GameLeadersMatchup({
   awayTeamId: string;
   homeRows: BoxscoreRow[];
   awayRows: BoxscoreRow[];
+  homeColor?: string;
+  awayColor?: string;
 }) {
+  // スマホ幅（560px以下）では名字のみ表記（ラインナップ別成績・出場交代と同じ判定。同チーム内の重複はフルネーム）
+  const narrow = useMediaQuery("(max-width: 560px)");
+  const surnames = buildSurnameMap(
+    [homeRows, awayRows].map((rows) => rows.map((r) => ({ id: r.PlayerID, name: r.PlayerNameJ }))),
+  );
+  const displayName = (r: BoxscoreRow) => (narrow ? (surnames.get(r.PlayerID) ?? r.PlayerNameJ) : r.PlayerNameJ);
   return (
     <div className="leader-matchup">
       <div className="leader-matchup-header">
@@ -1081,16 +1098,36 @@ function GameLeadersMatchup({
       {GAME_LEADER_STAT_DEFS.map((def) => {
         const homeLeader = gameLeaderPlayer(homeRows, def);
         const awayLeader = gameLeaderPlayer(awayRows, def);
+        // 良い方（数値が大きい方。lowerIsBetterの項目は少ない方。割合の項目は割合そのもの）の側の行端
+        // （ホームは左端、アウェイは右端）に、そのチームのチームカラーの縦線を付ける。同値・片方のみの場合は付けない
+        const homeValue = homeLeader ? def.value(homeLeader.player) : null;
+        const awayValue = awayLeader ? def.value(awayLeader.player) : null;
+        const better =
+          homeValue === null || awayValue === null || homeValue === awayValue
+            ? null
+            : (def.lowerIsBetter ? homeValue < awayValue : homeValue > awayValue)
+              ? "home"
+              : "away";
         return (
-          <div key={def.key} className="leader-matchup-row">
+          <div
+            key={def.key}
+            className={better ? `leader-matchup-row better-${better}` : "leader-matchup-row"}
+            style={
+              better
+                ? ({
+                    "--leader-team-color": better === "home" ? (homeColor ?? "var(--accent)") : (awayColor ?? "var(--muted)"),
+                  } as CSSProperties)
+                : undefined
+            }
+          >
             <div className="leader-matchup-side leader-matchup-side-home">
-              <LeaderMatchupPlayer leader={homeLeader} />
+              <LeaderMatchupPlayer leader={homeLeader} displayName={displayName} />
               <span className="leader-matchup-value">{homeLeader ? def.format(homeLeader.player) : "—"}</span>
             </div>
             <span className="leader-matchup-label">{def.label}</span>
             <div className="leader-matchup-side leader-matchup-side-away">
               <span className="leader-matchup-value">{awayLeader ? def.format(awayLeader.player) : "—"}</span>
-              <LeaderMatchupPlayer leader={awayLeader} />
+              <LeaderMatchupPlayer leader={awayLeader} displayName={displayName} />
             </div>
           </div>
         );
@@ -1099,7 +1136,13 @@ function GameLeadersMatchup({
   );
 }
 
-function LeaderMatchupPlayer({ leader }: { leader: GameLeaderResult | undefined }) {
+function LeaderMatchupPlayer({
+  leader,
+  displayName,
+}: {
+  leader: GameLeaderResult | undefined;
+  displayName: (r: BoxscoreRow) => string;
+}) {
   if (!leader) return <div className="leader-matchup-player" />;
   const { player, otherCount } = leader;
   return (
@@ -1107,7 +1150,7 @@ function LeaderMatchupPlayer({ leader }: { leader: GameLeaderResult | undefined 
       <Link to={`/players/${player.PlayerID}`} className="leader-matchup-player-link">
         <PlayerPhoto playerId={player.PlayerID} size={44} className="leader-matchup-player-photo" />
         <span className="leader-matchup-player-name">
-          {player.PlayerNameJ}
+          <span className="leader-matchup-player-name-text">{displayName(player)}</span>
           {otherCount > 0 && <span className="leader-matchup-player-others"> 他{otherCount}人</span>}
         </span>
       </Link>

@@ -1209,9 +1209,10 @@ table.quarter-table th {
 }
 
 .leader-matchup {
+  --leader-matchup-pad-x: 24px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 8px 24px;
+  padding: 8px var(--leader-matchup-pad-x);
   margin-bottom: 24px;
 }
 
@@ -1269,6 +1270,31 @@ table.quarter-table th {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* 詳細比較で良い方（数値が大きい方。TOは少ない方）の側の行端に、そのチームのチームカラーの縦線を付ける
+   （ホームは左端、アウェイは右端。--leader-team-colorは行で指定）。線はカードの左右の余白
+   （--leader-matchup-pad-x）の外側寄りに置き、行の高さいっぱいに引く */
+.leader-matchup-row {
+  position: relative;
+}
+
+.leader-matchup-row.better-home::before,
+.leader-matchup-row.better-away::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--leader-team-color);
+}
+
+.leader-matchup-row.better-home::before {
+  left: calc(-1 * var(--leader-matchup-pad-x));
+}
+
+.leader-matchup-row.better-away::after {
+  right: calc(-1 * var(--leader-matchup-pad-x));
 }
 
 .leader-matchup-player {
@@ -1756,6 +1782,12 @@ table.boxscore-table .boxscore-summary-grand-total td {
   margin: 4px 0 24px;
   padding-top: 10px;
   border-top: 1px dashed var(--border);
+}
+
+/* 内訳集計にもボックススコア本体（.boxscore-section）と同じ左端のチームカラーの線を付ける */
+.boxscore-summary-section.accented {
+  border-left: 4px solid var(--border);
+  padding-left: 12px;
 }
 
 .boxscore-summary-section h4 {
@@ -4387,7 +4419,8 @@ table.compare-table th .compare-condition-tag {
 
   /* ゲームリーダー詳細比較: 左右の選手が長い名前で行を押し広げないよう、列を縮められるようにして名前は折り返す */
   [data-design="v2"] .leader-matchup {
-    padding: 4px 12px;
+    --leader-matchup-pad-x: 12px;
+    padding: 4px var(--leader-matchup-pad-x);
   }
 
   [data-design="v2"] .leader-matchup-header,
@@ -4409,6 +4442,12 @@ table.compare-table th .compare-condition-tag {
     white-space: normal;
     overflow-wrap: break-word;
     font-size: 12px;
+  }
+
+  /* 名前は名字のみ表記（GameLeadersMatchup）。長い名字（例: エル ダーウィッチ）も省略・折り返しせずそのまま出す
+     （「他◯人」は折り返してよい） */
+  [data-design="v2"] .leader-matchup-player-name-text {
+    white-space: nowrap;
   }
 
   [data-design="v2"] .leader-matchup-value {

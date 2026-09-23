@@ -794,7 +794,10 @@ function BoxscoreTeamPanel({
         </div>
       </div>
 
-      <div className="boxscore-summary-section">
+      <div
+        className={accentColor ? "boxscore-summary-section accented" : "boxscore-summary-section"}
+        style={accentColor ? { borderLeftColor: accentColor } : undefined}
+      >
         <h4>内訳集計</h4>
         <div className="table-scroll">
           <table className={tableClassName}>
