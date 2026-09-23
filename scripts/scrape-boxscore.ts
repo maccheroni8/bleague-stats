@@ -31,6 +31,7 @@ import {
 } from "./lib/storage.ts";
 import type { Category, GeniusContext, ScheduleFile, StoredGame, StoredGameMeta } from "../shared/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
+import { isDue } from "./lib/pendingGames.ts";
 
 const WATCHING_PERIOD_DAYS = 14;
 
@@ -122,7 +123,7 @@ export async function scrapeAndSaveGame(
   return { outcome: "saved", scheduleKey: key, season, changed: isFirstScrape || rawChanged, status: meta.status };
 }
 
-async function loadScheduleKeys(season: string, category: Category): Promise<string[]> {
+async function loadSchedule(season: string, category: Category): Promise<ScheduleFile> {
   const schedulePath = path.join(DATA_DIR, seasonDirName(season, category), "schedule.json");
   const schedule = await readJson<ScheduleFile>(schedulePath);
   if (!schedule) {
@@ -131,23 +132,28 @@ async function loadScheduleKeys(season: string, category: Category): Promise<str
       `${schedulePath}.gz が見つかりません。先に npm run scrape:schedule -- --season ${season}${categoryFlag} を実行してください`,
     );
   }
-  return schedule.scheduleKeys;
+  return schedule;
 }
 
 /**
  * シーズン一括モード: 未取得試合 + status=watchingの再チェック対象をまとめて処理する。
- * newOnly=trueのときは、まだ生データが無い（未取得の）試合のみを対象にし、既存の
- * status=watching試合の再チェックはスキップする（DESIGN.md 8章の更新、2026-09-23:
- * 30分おきの頻繁チェックは新着試合の取得のみ行い、14日間の再チェックは深夜の
- * 日次実行に限定する）
+ * newOnly=trueのときは、まだ生データが無い（未取得の）試合のうち「ティップオフ+3時間を
+ * 過ぎた」試合（lib/pendingGames.ts）だけを対象にし、既存のstatus=watching試合の再チェックは
+ * スキップする（DESIGN.md 8-5章: 30分おきの頻繁チェック用。未開催の試合まで1件ずつ問い合わせると
+ * シーズン序盤は約780試合×2リクエストで1時間かかるため）。newOnly=false（深夜）は従来通り
+ * 全試合を対象にし、日程変更で開催日がずれた試合等の取りこぼしを拾う
  */
 export async function runForSeason(
   season: string,
   category: Category = "premier",
   options: { newOnly?: boolean } = {},
 ): Promise<void> {
-  const scheduleKeys = await loadScheduleKeys(season, category);
+  const schedule = await loadSchedule(season, category);
+  const scheduleKeys = schedule.scheduleKeys;
+  const upcomingByKey = new Map(schedule.upcomingGames.map((g) => [g.scheduleKey, g]));
+  const now = Date.now();
   console.log(`[${season}] schedule.json から ${scheduleKeys.length} 試合を確認${options.newOnly ? "（新着試合のみ）" : ""}`);
+  let notDueSkipped = 0;
 
   for (const scheduleKey of scheduleKeys) {
     const filePath = gameFilePath(season, scheduleKey, category);
@@ -158,13 +164,24 @@ export async function runForSeason(
       continue;
     }
 
-    // 新着試合のみモードでは、既存データがある（＝watching再チェック対象の）試合をスキップする
-    if (options.newOnly && existing) {
+    // 新着試合のみモードでは、既存データがある（＝watching再チェック対象の）試合をスキップする。
+    // ただし試合中に取得されて終了フラグが立っていない試合は取り直す
+    if (options.newOnly && existing?.gameEndedFlg) {
+      continue;
+    }
+
+    // 新着試合のみモードでは、まだティップオフ+3時間を過ぎていない開催予定の試合も問い合わせない
+    const upcoming = upcomingByKey.get(scheduleKey);
+    if (options.newOnly && !existing && upcoming && !isDue(upcoming, now)) {
+      notDueSkipped++;
       continue;
     }
 
     const result = await scrapeAndSaveGame(scheduleKey, category);
     logResult(result);
+  }
+  if (options.newOnly) {
+    console.log(`[${season}] ティップオフ+3時間前のためスキップ: ${notDueSkipped}試合`);
   }
 }
 

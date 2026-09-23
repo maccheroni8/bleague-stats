@@ -140,6 +140,12 @@ export async function scrapeRecentSchedule(
   return [...foundKeys].sort();
 }
 
+const TIPOFF_RETRY_WITHIN_DAYS = 14;
+
+function isWithinDays(jstDate: string, days: number): boolean {
+  return new Date(`${jstDate}T00:00:00+09:00`).getTime() - Date.now() <= days * 86_400_000;
+}
+
 /**
  * scheduleKeysのうち、生データ（games/）がまだ無い試合（開催予定）だけをgame_detailページから
  * 解決する。既に解決済み（existingUpcoming）なら再取得せず使い回し、生データが揃った試合は
@@ -158,9 +164,10 @@ async function resolveUpcomingGames(
   for (const key of scheduleKeys) {
     if (withBoxscore.has(key)) continue;
     const existing = cached.get(key);
-    // tipoffTime未解決（2026-09-23導入前に取得済みのエントリ等）は再取得して補完する。
-    // 解決済み（tipoffTimeあり）なら再取得せず使い回す
-    if (existing?.tipoffTime) {
+    // tipoffTime未解決のエントリは再取得して補完する。ただし公式サイトで「TIP OFF調整中」の
+    // 試合（シーズン後半の日程は時刻未定のまま公開される）を毎回問い合わせると数百件になるため、
+    // 再取得するのは試合日がTIPOFF_RETRY_WITHIN_DAYS日以内に迫ったものだけにする
+    if (existing && (existing.tipoffTime || !isWithinDays(existing.date, TIPOFF_RETRY_WITHIN_DAYS))) {
       result.push(existing);
       continue;
     }
