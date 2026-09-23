@@ -786,8 +786,8 @@ interface TeamAccumulator {
   totals: StatTotals;
   opponentTotals: StatTotals;
   gameLogs: TeamGameLog[];
-  /** 自チーム外国籍選手同時出場人数別（0/1/2/3人以上）の在コート秒数の合算（Phase H9） */
-  foreignPlayerCourtSeconds: [number, number, number, number];
+  /** 自チーム外国籍選手同時出場人数別（0/1/2/3/4人以上）の在コート秒数の合算（Phase H9） */
+  foreignPlayerCourtSeconds: [number, number, number, number, number];
 }
 
 interface LineupAccumulator {
@@ -880,7 +880,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         totals: emptyTotals(),
         opponentTotals: emptyTotals(),
         gameLogs: [],
-        foreignPlayerCourtSeconds: [0, 0, 0, 0],
+        foreignPlayerCourtSeconds: [0, 0, 0, 0, 0],
       };
       teams.set(teamId, team);
     }
@@ -1549,19 +1549,20 @@ function processTeams(
     away.opponentTotals.paintPoints += homePitpForSeason;
 
     // 自チーム外国籍選手同時出場人数別の在コート秒数（Phase H9、DESIGN.md参照）。
-    // バケットは0〜5（非日本人の人数）で出てくるが、3人を超える組み合わせは
-    // 「3人以上」バケットにまとめる
+    // バケットは0〜5（非日本人の人数）で出てくるが、4人を超える組み合わせは
+    // 「4人」バケットにまとめる（2026-09-23に「3人以上」から3人/4人に分割。5人はオールスター戦の
+    // アジアオールスターズでしか発生せず、オールスター戦は集計対象外のため実質的には4人ちょうど）
     const homeForeignBuckets = foreignPlayerCourtSeconds.get(game.homeTeam.id);
     if (homeForeignBuckets) {
       for (const [bucket, seconds] of homeForeignBuckets) {
-        const clamped = Math.min(bucket, 3);
+        const clamped = Math.min(bucket, 4);
         home.foreignPlayerCourtSeconds[clamped] = home.foreignPlayerCourtSeconds[clamped]! + seconds;
       }
     }
     const awayForeignBuckets = foreignPlayerCourtSeconds.get(game.awayTeam.id);
     if (awayForeignBuckets) {
       for (const [bucket, seconds] of awayForeignBuckets) {
-        const clamped = Math.min(bucket, 3);
+        const clamped = Math.min(bucket, 4);
         away.foreignPlayerCourtSeconds[clamped] = away.foreignPlayerCourtSeconds[clamped]! + seconds;
       }
     }

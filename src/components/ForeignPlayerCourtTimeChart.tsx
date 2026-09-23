@@ -7,20 +7,22 @@ interface ForeignPlayerCourtTimeChartProps {
   teams: TeamSummary[];
 }
 
-const BUCKET_LABELS = ["0", "1", "2", "3+"] as const;
-const BUCKET_COLORS = ["#c4c4c4", "#7cc4f7", "#1f78c1", "#0b3d7a"] as const;
+// 2026-09-23に「3+」を「3」「4」に分割（4人を超える組み合わせは集計側で4に合算済み）
+const BUCKET_LABELS = ["0", "1", "2", "3", "4"] as const;
+const BUCKET_COLORS = ["#c4c4c4", "#7cc4f7", "#1f78c1", "#0b3d7a", "#7b3fa0"] as const;
 
 interface ChartRow {
   teamId: string;
   teamName: string;
   teamShort: string;
   totalSeconds: number;
-  seconds: [number, number, number, number];
-  pct: [number, number, number, number];
+  seconds: [number, number, number, number, number];
+  pct: [number, number, number, number, number];
   pct0: number;
   pct1: number;
   pct2: number;
   pct3: number;
+  pct4: number;
 }
 
 /**
@@ -33,7 +35,7 @@ export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeCha
     .map((t) => {
       const seconds = t.foreignPlayerCourtSeconds;
       const total = seconds.reduce((a, b) => a + b, 0);
-      const pct = seconds.map((s) => (total > 0 ? (100 * s) / total : 0)) as [number, number, number, number];
+      const pct = seconds.map((s) => (total > 0 ? (100 * s) / total : 0)) as [number, number, number, number, number];
       return {
         teamId: t.teamId,
         teamName: t.teamName,
@@ -45,10 +47,11 @@ export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeCha
         pct1: pct[1],
         pct2: pct[2],
         pct3: pct[3],
+        pct4: pct[4],
       };
     })
     .filter((r) => r.totalSeconds > 0)
-    .sort((a, b) => b.pct3 - a.pct3 || b.pct2 - a.pct2);
+    .sort((a, b) => b.pct3 + b.pct4 - (a.pct3 + a.pct4) || b.pct2 - a.pct2);
 
   if (rows.length === 0) {
     return <p className="empty-message">このシーズンのデータには対応していません</p>;
@@ -81,6 +84,7 @@ export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeCha
           <Bar dataKey="pct1" name={BUCKET_LABELS[1]} stackId="foreign" fill={BUCKET_COLORS[1]} isAnimationActive={false} />
           <Bar dataKey="pct2" name={BUCKET_LABELS[2]} stackId="foreign" fill={BUCKET_COLORS[2]} isAnimationActive={false} />
           <Bar dataKey="pct3" name={BUCKET_LABELS[3]} stackId="foreign" fill={BUCKET_COLORS[3]} isAnimationActive={false} />
+          <Bar dataKey="pct4" name={BUCKET_LABELS[4]} stackId="foreign" fill={BUCKET_COLORS[4]} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
       <div className="foreign-count-legend">

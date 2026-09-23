@@ -562,13 +562,13 @@ export interface TeamSummary {
   shotTypes?: ShotTypeBreakdown;
   /**
    * 自チーム外国籍選手（外国籍+帰化選手+アジア特別枠の合算）同時出場人数別の在コート秒数
-   * （0人/1人/2人/3人以上の4区分の配列、DESIGN.md参照）。TeamGameLog.foreignPlayerCount
+   * （0人/1人/2人/3人/4人以上の5区分の配列、DESIGN.md参照。2026-09-23に3人以上を3人/4人に分割）。TeamGameLog.foreignPlayerCount
    * （試合単位の代表バケットのみ）とは別に、シーズン全体のラインナップスティント時間を
-   * そのまま積算した値。3人を超える組み合わせも3人以上のバケットに合算する。
+   * そのまま積算した値。4人を超える組み合わせも4人のバケットに合算する。
    * classificationが不明な選手を含むラインナップはどのバケットにも計上しない
    * （推測しない方針）。レギュラーシーズンのみ集計する
    */
-  foreignPlayerCourtSeconds: [number, number, number, number];
+  foreignPlayerCourtSeconds: [number, number, number, number, number];
 }
 
 /**
