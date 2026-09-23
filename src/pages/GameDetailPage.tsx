@@ -18,6 +18,9 @@ import { MobileCollapse } from "../components/MobileCollapse";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
+import { GameLineupTable } from "../components/GameLineupTable";
+import { buildSurnameMap } from "../lib/playerSurname";
+import { buildGameLineups } from "../lib/gameLineups";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { composeLabels, periodLabels } from "../lib/conditionLabels";
@@ -25,7 +28,14 @@ import { BOXSCORE_TABS, BoxscoreTable, type BoxscoreTabKey } from "../components
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
 import { buildShotEvents, paintSplitForShot, type ShotEvent } from "../lib/shotChart";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
-import { computeOnCourtRatings, reconstructOnCourt, substitutionModelForSeason, type PlayerOnCourtRatings } from "../../shared/onCourt";
+import {
+  computeOnCourtRatings,
+  reconstructOnCourt,
+  substitutionModelForSeason,
+  type LineupStint,
+  type PlayerOnCourtRatings,
+} from "../../shared/onCourt";
+import { foreignOnCourtIntervals, type CourtInterval } from "../../shared/foreignOnCourt";
 import { computePointsInPaint } from "../../shared/playTypePoints";
 import { teamShortName } from "../../shared/teamNames";
 import { CompositionPieChart, type PieSegmentInput } from "../components/CompositionPieChart";
@@ -336,6 +346,8 @@ export function GameDetailPage({ season }: { season: string }) {
   const [boxscoreTab, setBoxscoreTab] = useState<BoxscoreTabKey | "shooting">("traditional");
   // Q別/前後半トグルの選択（BoxscoreTable内蔵のトグルをここから制御し、見出しの条件行に反映する）
   const [boxscorePeriodRange, setBoxscorePeriodRange] = useState<PeriodRangeValue>("all");
+  // ラインナップ別成績のQ別/前後半（ボックススコアのトグルとは独立）
+  const [lineupPeriodRange, setLineupPeriodRange] = useState<PeriodRangeValue>("all");
 
   if (loading || coverageLoading || playersLoading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
@@ -397,6 +409,11 @@ export function GameDetailPage({ season }: { season: string }) {
   // 保証できないため、coverage==="full"（ショットチャートと同じ2022-23シーズン以降）のみ算出する
   // （DESIGN.md 17章参照）
   let onCourtRatings: Record<string, PlayerOnCourtRatings> = {};
+  // オンザコート4（日本人以外の選手が4人同時に在コート）の時間帯。在コート復元のラインナップ
+  // スティントを、On-Court Foreignチャート等と同じ判定（shared/foreignOnCourt.ts）で区間にする
+  let homeForeignFourIntervals: CourtInterval[] = [];
+  let awayForeignFourIntervals: CourtInterval[] = [];
+  let lineupStints: LineupStint[] = [];
 
   if (pbpSupported) {
     const onCourt = reconstructOnCourt(
@@ -411,16 +428,26 @@ export function GameDetailPage({ season }: { season: string }) {
     if (shotChartSupported) {
       onCourtRatings = computeOnCourtRatings(onCourt.intervals);
     }
+    lineupStints = onCourt.lineupStints;
+    const classify = (playerId: string) => classificationById.get(playerId);
+    homeForeignFourIntervals = foreignOnCourtIntervals(onCourt.lineupStints, game.homeTeam.id, classify, 4);
+    awayForeignFourIntervals = foreignOnCourtIntervals(onCourt.lineupStints, game.awayTeam.id, classify, 4);
     const intervalsByPlayer = new Map<string, SubstitutionRow["intervals"]>();
     for (const iv of onCourt.intervals) {
       const list = intervalsByPlayer.get(iv.playerId) ?? [];
       list.push({ startSec: iv.startSec, endSec: iv.endSec, ownPts: iv.ownPts, oppPts: iv.oppPts });
       intervalsByPlayer.set(iv.playerId, list);
     }
+    // 選手名は名字のみ（ラインナップ別成績のスマホ表示と同じ判定。同じチーム内で名字が重複する選手はフルネーム）
+    const substitutionSurnames = buildSurnameMap(
+      [homePlayers, awayPlayers].map((rows) => rows.map((r) => ({ id: r.PlayerID, name: r.PlayerNameJ }))),
+    );
     const toSubstitutionRows = (rows: BoxscoreRow[]): SubstitutionRow[] =>
       rows.map((r) => ({
         playerId: r.PlayerID,
-        name: r.PlayerNameJ,
+        name: substitutionSurnames.get(r.PlayerID) ?? r.PlayerNameJ,
+        fullName: r.PlayerNameJ,
+        playTime: r.PlayTime,
         intervals: (intervalsByPlayer.get(r.PlayerID) ?? []).sort((a, b) => a.startSec - b.startSec),
       }));
     homeStarters = toSubstitutionRows(homePlayers.filter((r) => r.StartingFlg === 1));
@@ -428,6 +455,17 @@ export function GameDetailPage({ season }: { season: string }) {
     awayStarters = toSubstitutionRows(awayPlayers.filter((r) => r.StartingFlg === 1));
     awayBench = toSubstitutionRows(awayPlayers.filter((r) => r.StartingFlg !== 1));
   }
+
+  // ラインナップ別成績（1試合単位。チーム詳細の「よく使われるラインナップ」と同じくlineupStintsを5人組ごとに積算）
+  const lineupPeriodOptions = buildPeriodRangeOptions(periods);
+  const selectedLineupPeriodOption = lineupPeriodOptions.find((o) => o.value === lineupPeriodRange);
+  const homeLineups = buildGameLineups(lineupStints, game.homeTeam.id, selectedLineupPeriodOption, periodBoundaries);
+  const awayLineups = buildGameLineups(lineupStints, game.awayTeam.id, selectedLineupPeriodOption, periodBoundaries);
+  const lineupPlayerNames = new Map([...homePlayers, ...awayPlayers].map((r) => [r.PlayerID, r.PlayerNameJ] as const));
+  const lineupPlayerOrder = new Map([...homePlayers, ...awayPlayers].map((r, i) => [r.PlayerID, i] as const));
+  const lineupPlayerSurnames = buildSurnameMap(
+    [homePlayers, awayPlayers].map((rows) => rows.map((r) => ({ id: r.PlayerID, name: r.PlayerNameJ }))),
+  );
 
   const homeCum = cumulativeScores(game.quarterScores.home);
   const awayCum = cumulativeScores(game.quarterScores.away);
@@ -555,27 +593,7 @@ export function GameDetailPage({ season }: { season: string }) {
       </div>
 
       <section className="gd-card">
-        <h2>Lead Tracker</h2>
-        {pbpSupported ? (
-          <LeadTrackerChart
-            points={scoreTimeline}
-            timeouts={timeoutMarks}
-            periodBoundaries={periodBoundaries}
-            totalSeconds={totalGameSeconds(periods)}
-            homeTeamName={game.homeTeam.name}
-            awayTeamName={game.awayTeam.name}
-            homeShortName={teamShortName(game.homeTeam.id, game.homeTeam.name)}
-            awayShortName={teamShortName(game.awayTeam.id, game.awayTeam.name)}
-            homeColor={homeColor}
-            awayColor={awayColor}
-          />
-        ) : (
-          <p className="empty-message">このシーズンのデータには対応していません</p>
-        )}
-      </section>
-
-      <section className="gd-card">
-        <h2>出場交代</h2>
+        <h2>出場交代・Lead Tracker</h2>
         {pbpSupported ? (
           <SubstitutionBarChart
             homeTeamName={game.homeTeam.name}
@@ -591,6 +609,24 @@ export function GameDetailPage({ season }: { season: string }) {
             homeColor={homeColor}
             awayColor={awayColor}
             timeouts={timeoutMarks}
+            homeForeignFourIntervals={homeForeignFourIntervals}
+            awayForeignFourIntervals={awayForeignFourIntervals}
+            leadTracker={
+              <LeadTrackerChart
+                embedded
+                height={220}
+                points={scoreTimeline}
+                timeouts={timeoutMarks}
+                periodBoundaries={periodBoundaries}
+                totalSeconds={totalGameSeconds(periods)}
+                homeTeamName={game.homeTeam.name}
+                awayTeamName={game.awayTeam.name}
+                homeShortName={teamShortName(game.homeTeam.id, game.homeTeam.name)}
+                awayShortName={teamShortName(game.awayTeam.id, game.awayTeam.name)}
+                homeColor={homeColor}
+                awayColor={awayColor}
+              />
+            }
           />
         ) : (
           <p className="empty-message">このシーズンのデータには対応していません</p>
@@ -656,6 +692,37 @@ export function GameDetailPage({ season }: { season: string }) {
         />
       )}
       {boxscoreTab === "misc" && <RuleChangeFootnote seasons={[game.season]} />}
+
+      <ConditionTitle section title="ラインナップ別成績" conditions={composeLabels(periodLabels(selectedLineupPeriodOption))} />
+      {pbpSupported ? (
+        <>
+          <PeriodRangeToggle options={lineupPeriodOptions} value={lineupPeriodRange} onChange={setLineupPeriodRange} />
+          <div className="game-lineups">
+            <GameLineupTable
+              teamName={game.homeTeam.name}
+              rows={homeLineups}
+              playerOrder={lineupPlayerOrder}
+              playerNames={lineupPlayerNames}
+              playerSurnames={lineupPlayerSurnames}
+              color={homeColor}
+            />
+            <GameLineupTable
+              teamName={game.awayTeam.name}
+              rows={awayLineups}
+              playerOrder={lineupPlayerOrder}
+              playerNames={lineupPlayerNames}
+              playerSurnames={lineupPlayerSurnames}
+              color={awayColor}
+            />
+          </div>
+          <p className="page-subtitle">
+            同じ5人が同時にコートにいた時間帯ごとの成績。得点・失点はその5人の在コート中に両チームが記録した得点です。
+            Q別/前後半では、Qをまたいで出場した組み合わせの出場時間・得点をQごとに分けて集計します。
+          </p>
+        </>
+      ) : (
+        <p className="empty-message">このシーズンのデータには対応していません</p>
+      )}
 
       <ConditionTitle section title="ゲームリーダー" conditions={composeLabels("試合全体", "全選手")} />
       <div className="game-leaders">

@@ -17,6 +17,13 @@ interface LeadTrackerChartProps {
   homeColor?: string;
   awayColor?: string;
   height?: number;
+  /**
+   * 出場交代バーの下に組み込むとき（SubstitutionBarChartのleadTracker）に指定する。枠・余白を持たず、
+   * Y軸の幅を出場交代バーの選手名欄の幅（embeddedYAxisWidth）に合わせ、左右の余白を0にして
+   * プロット領域の横位置を出場交代バーのトラックと一致させる。注記は出場交代バー側にまとめる
+   */
+  embedded?: boolean;
+  embeddedYAxisWidth?: number;
 }
 
 function formatRestTime(period: number, restTime: string, boundaries: PeriodBoundary[]): string {
@@ -36,6 +43,8 @@ export function LeadTrackerChart({
   homeColor,
   awayColor,
   height = 280,
+  embedded = false,
+  embeddedYAxisWidth = 150,
 }: LeadTrackerChartProps) {
   const narrow = useMediaQuery("(max-width: 560px)");
   const homeTeamName = narrow && homeShortName ? homeShortName : homeFullName;
@@ -58,7 +67,7 @@ export function LeadTrackerChart({
     dataMaxDiff <= 0 ? 0 : dataMinDiff >= 0 ? 1 : dataMaxDiff / (dataMaxDiff - dataMinDiff);
 
   return (
-    <div className="lead-tracker-chart">
+    <div className={embedded ? "lead-tracker-chart embedded" : "lead-tracker-chart"}>
       <div className="lead-tracker-legend">
         <span
           className="lead-tracker-legend-item home"
@@ -74,7 +83,10 @@ export function LeadTrackerChart({
         </span>
       </div>
       <ResponsiveContainer width="100%" height={height}>
-        <AreaChart data={points} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+        <AreaChart
+          data={points}
+          margin={embedded ? { top: 8, right: 0, bottom: 0, left: 0 } : { top: 8, right: 16, bottom: 8, left: 0 }}
+        >
           <defs>
             <linearGradient id="leadTrackerGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset={zeroOffset} stopColor={homeStroke} stopOpacity={0.9} />
@@ -97,7 +109,7 @@ export function LeadTrackerChart({
             tick={{ fontSize: 11 }}
             tickLine={false}
             axisLine={false}
-            width={32}
+            width={embedded ? embeddedYAxisWidth : 32}
           />
           <Tooltip content={<LeadTrackerTooltip boundaries={periodBoundaries} homeTeamName={homeTeamName} awayTeamName={awayTeamName} />} />
           <ReferenceLine y={0} stroke="var(--fg)" strokeOpacity={0.5} />
@@ -138,9 +150,11 @@ export function LeadTrackerChart({
           />
         </AreaChart>
       </ResponsiveContainer>
-      <p className="lead-tracker-note">
-        点線: タイムアウト（{homeTeamName}色/{awayTeamName}色。オフィシャルタイムアウトは白/黒）
-      </p>
+      {!embedded && (
+        <p className="lead-tracker-note">
+          点線: タイムアウト（{homeTeamName}色/{awayTeamName}色。オフィシャルタイムアウトは白/黒）
+        </p>
+      )}
     </div>
   );
 }

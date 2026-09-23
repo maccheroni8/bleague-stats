@@ -36,6 +36,7 @@ import {
   type OnCourtReconstruction,
   type PlayerOnCourtRatings,
 } from "../shared/onCourt.ts";
+import { foreignCountInLineup } from "../shared/foreignOnCourt.ts";
 import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
 import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../shared/playTypePoints.ts";
 import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
@@ -583,17 +584,8 @@ function computeForeignPlayerCourtSeconds(
     const duration = stint.endSec - stint.startSec;
     if (duration <= 0) continue;
 
-    let foreignCount = 0;
-    let hasUnknown = false;
-    for (const playerId of stint.playerIds) {
-      const classification = masterById.get(playerId)?.classification;
-      if (classification === undefined) {
-        hasUnknown = true;
-        break;
-      }
-      if (classification !== "日本人") foreignCount += 1;
-    }
-    if (hasUnknown) continue;
+    const foreignCount = foreignCountInLineup(stint.playerIds, (id) => masterById.get(id)?.classification);
+    if (foreignCount === null) continue;
 
     let bucketSeconds = secondsByTeamBucket.get(stint.teamId);
     if (!bucketSeconds) {

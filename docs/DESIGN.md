@@ -9073,3 +9073,15 @@ B1〜B6 は互いに独立。B0 の見た目確認後に方向性を確定して
 - 122章でJapanese/Foreignにした円グラフの国籍区分ラベル（チーム詳細「得点構成（国籍区分）」・試合詳細の同セクション。`buildClassificationPtsCompositionSegments`のsegment定義）を、日本人/外国籍・帰化・アジアに戻した。
   対象は円グラフの2箇所（`TeamDetailPage.tsx`・`GameDetailPage.tsx`各1箇所）のみで、Scoringタブの列名（Japanese PTS/Foreign PTS/%Japanese PTS/%Foreign PTS。`teamStatsColumns.ts`・`TeamDetailPage.tsx`の列定義）と、円グラフのIP/OP→Paint/Mid-range、ショットチャート等122章の他の変更は維持する
 - 確認（開発サーバー、1200pxライト）: チーム詳細「得点構成（国籍区分）」の円グラフラベルが日本人/外国籍・帰化・アジア（4ラベルとも）、試合詳細の同セクションも同様。チームスタッツタブのScoring列（Japanese PTS/Foreign PTS/%Japanese PTS/%Foreign PTS）が英語のまま
+
+### 124. 試合詳細: 出場交代とLead Trackerの統合、オンザコート4の枠、ラインナップ別成績（2026-09-23）
+- **出場交代・Lead Tracker**: 別セクションだった出場交代バーとLead Trackerを1セクションに統合し、ホーム出場交代 → Lead Tracker → アウェイ出場交代の順に並べた。
+  Lead TrackerはLeadTrackerChartの`embedded`表示（枠・左右余白なし、Y軸幅＝出場交代バーの名前欄＋出場時間欄の150px）で`SubstitutionBarChart`の`leadTracker`に渡し、両者のプロット領域の左右端をピクセル単位で一致させる（5試合・スマホ375px横スクロール時で実測一致）。色はチームカラー、タイムアウトの点線は従来どおり
+- **出場交代の表示**: 選手名は名字のみ（`src/lib/playerSurname.ts`。中黒を含む名前は末尾、スペース区切りは先頭。同チーム内で名字が重複する場合はフルネーム。title属性でフルネーム）。名前とバーの間にボックススコアの出場時間（PlayTime）を表示し、DNPはこの列に出す（バー位置には出さない）
+- **オンザコート4の枠**: 日本人以外（外国籍・帰化・アジア特別枠）の選手が4人同時に在コートの時間帯を、チームの選手行全体を囲むチームカラーの枠（3px、背景色の縁取り付き）で示す。
+  判定は`shared/foreignOnCourt.ts`に切り出し、`scripts/aggregate.ts`のcomputeForeignPlayerCourtSecondsと共有（純粋なリファクタで、2024-25・2016-17の再集計で出力がバイト一致することを確認済みのため全シーズン再集計は不要）。
+  枠線上（辺の周辺のみ。内側は選手区間のツールチップを優先）にカーソルを当てると、IN/OUT/出場時間/得失点を表示。登録区分は現在の登録情報に基づく（94章と同じ制約）
+- **ラインナップ別成績**: ボックススコアとゲームリーダーの間に新設。reconstructOnCourtの`lineupStints`を5人組ごとに積算（`src/lib/gameLineups.ts`）し、試合/1Q〜4Q/前半/後半（PeriodRangeToggle）で絞り込める。
+  Qをまたぐスティントは出場時間をピリオド境界で切り、得点は`LineupStint.pointsByPeriod`（得点イベントのPeriodで振り分け、`shared/onCourt.ts`に追加。既存値は不変）で分ける。
+  既定は出場時間の長い順、上位10パターン表示＋「全パターン表示」ボタン、スマホ幅は名字表記。
+  検証: 2025-26全試合でQ別合計＝試合全体、チーム・Q単位の得点が公式Q別得点と99.6%一致（不一致は在コートが5人に復元できない瞬間。シーズン版ラインナップと同じ既存制約。2016-17はOTの既知不具合の影響あり）

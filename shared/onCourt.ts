@@ -120,6 +120,12 @@ export interface LineupStint {
   ownPoints: number;
   /** このスティント中の相手チーム得点（同上） */
   oppPoints: number;
+  /**
+   * ownPoints/oppPointsのピリオド別内訳（キーはPeriod）。スティントはQの切れ目をまたぎうるため、
+   * 試合詳細ページのラインナップ別成績をQ別/前後半で絞り込むときに使う（得点はイベントのPeriodで
+   * 振り分ける。出場時間はstartSec/endSecをピリオド境界で切れば求まるので持たない）
+   */
+  pointsByPeriod: Record<number, { own: number; opp: number }>;
 }
 
 export interface OnCourtReconstruction {
@@ -442,9 +448,17 @@ export function reconstructOnCourt(
   // 同時に積算する。tie-break不要（配列の元の並び順を信頼する）という結論は個人+/-の
   // 検証で確立済みなので、そのロジックをそのまま流用する（ズレる余地がない）
   const lineupStints: LineupStint[] = [];
-  const currentStint: Record<string, { start: number; net: number; own: number; opp: number }> = {
-    [homeTeamId]: { start: 0, net: 0, own: 0, opp: 0 },
-    [awayTeamId]: { start: 0, net: 0, own: 0, opp: 0 },
+  type StintAcc = { start: number; net: number; own: number; opp: number; byPeriod: Record<number, { own: number; opp: number }> };
+  const newStint = (start: number): StintAcc => ({ start, net: 0, own: 0, opp: 0, byPeriod: {} });
+  const currentStint: Record<string, StintAcc> = {
+    [homeTeamId]: newStint(0),
+    [awayTeamId]: newStint(0),
+  };
+  const addStintPeriodPoints = (teamId: string, period: number, key: "own" | "opp", points: number) => {
+    const byPeriod = currentStint[teamId]!.byPeriod;
+    const acc = byPeriod[period] ?? { own: 0, opp: 0 };
+    acc[key] += points;
+    byPeriod[period] = acc;
   };
 
   const events = buildRelevantEvents(playByPlays, warnings, substitutionModel);
@@ -466,6 +480,8 @@ export function reconstructOnCourt(
       currentStint[event.teamId]!.own += event.points;
       currentStint[opponentTeamId]!.net -= event.points;
       currentStint[opponentTeamId]!.opp += event.points;
+      addStintPeriodPoints(event.teamId, event.period, "own", event.points);
+      addStintPeriodPoints(opponentTeamId, event.period, "opp", event.points);
       i += 1;
       continue;
     }
@@ -551,10 +567,11 @@ export function reconstructOnCourt(
         netPoints: stint.net,
         ownPoints: stint.own,
         oppPoints: stint.opp,
+        pointsByPeriod: stint.byPeriod,
       });
     }
     if (lineupAfterBatch !== lineupBeforeBatch) {
-      currentStint[teamId] = { start: t, net: 0, own: 0, opp: 0 };
+      currentStint[teamId] = newStint(t);
     }
     i = j;
   }
@@ -573,6 +590,7 @@ export function reconstructOnCourt(
         netPoints: stint.net,
         ownPoints: stint.own,
         oppPoints: stint.opp,
+        pointsByPeriod: stint.byPeriod,
       });
     }
     for (const [playerId, start] of openStart[teamId]!.entries()) {

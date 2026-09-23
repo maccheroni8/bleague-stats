@@ -2211,14 +2211,32 @@ table.compare-table td.compare-best {
   margin-bottom: 2px;
 }
 
+/* 選手名欄（106px）＋出場時間欄（44px）＝150px。Lead TrackerのY軸幅（GameDetailPageのembeddedYAxisWidth）・
+   オンザコート4の枠の左端・Lead Trackerの凡例の左余白（いずれも150px）と揃える */
 .sub-bar-label {
-  width: 130px;
+  width: 106px;
   flex-shrink: 0;
-  padding-right: 8px;
+  padding-right: 4px;
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sub-bar-min {
+  width: 44px;
+  flex-shrink: 0;
+  padding-right: 8px;
+  font-size: 11px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sub-bar-min.dnp,
+.sub-bar-header .sub-bar-min {
+  font-size: 10px;
+  color: var(--muted);
 }
 
 .sub-bar-track {
@@ -2276,17 +2294,119 @@ table.compare-table td.compare-best {
   color: var(--muted);
 }
 
-.sub-bar-dnp {
-  position: relative;
-  font-size: 10px;
-  color: var(--muted);
-}
-
 .sub-bar-axis-label {
   position: absolute;
   top: 0;
   font-size: 10px;
   color: var(--muted);
+}
+
+/* オンザコート4（日本人以外の選手が4人同時に在コート）の時間帯を、チームの選手行全体を囲む枠で示す。
+   左端は選手名欄＋出場時間欄（150px）の右から始まるトラック領域に合わせる */
+.sub-bar-rows {
+  position: relative;
+}
+
+.sub-bar-four-layer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 150px;
+  right: 0;
+  pointer-events: none;
+}
+
+/* 枠線の色はチームカラー（style.borderColor）。同じ色の選手バーと接しても区切りが見えるよう、
+   枠線の内外に背景色の細い縁を付ける */
+.sub-bar-four-box {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  border: 3px solid var(--fg);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--bg), inset 0 0 0 1px var(--bg);
+}
+
+/* 枠線上のホバー判定（枠の内側は選手の区間のホバーを妨げないよう、辺の周辺だけ拾う） */
+.sub-bar-four-edge {
+  position: absolute;
+  pointer-events: auto;
+  cursor: help;
+}
+
+.sub-bar-four-edge.top,
+.sub-bar-four-edge.bottom {
+  left: -6px;
+  right: -6px;
+  height: 9px;
+}
+
+.sub-bar-four-edge.top {
+  top: -6px;
+}
+
+.sub-bar-four-edge.bottom {
+  bottom: -6px;
+}
+
+.sub-bar-four-edge.left,
+.sub-bar-four-edge.right {
+  top: -6px;
+  bottom: -6px;
+  width: 9px;
+}
+
+.sub-bar-four-edge.left {
+  left: -6px;
+}
+
+.sub-bar-four-edge.right {
+  right: -6px;
+}
+
+.sub-bar-legend-four {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border: 3px solid var(--fg);
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* 出場交代バーの下に組み込むLead Tracker。選手行と同じ最小幅にし、Y軸の幅を選手名欄＋出場時間欄と同じ150pxに
+   する（LeadTrackerChartのembedded）ことで、プロット領域の左右端をバーのトラックと一致させる */
+.sub-bar-lead {
+  min-width: 480px;
+  margin-top: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.lead-tracker-chart.embedded {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.lead-tracker-chart.embedded .lead-tracker-legend {
+  padding-left: 150px;
+}
+
+/* 試合詳細ページのラインナップ別成績（ホーム・アウェイの2表を縦に並べる） */
+.game-lineups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.game-lineup-team-name {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .glossary-section {
@@ -4335,6 +4455,16 @@ table.compare-table th .compare-condition-tag {
   /* RechartsのResponsiveContainerはインラインで min-width:0 を付けるため、!important で上書きする */
   .lead-tracker-chart > .recharts-responsive-container {
     min-width: 560px !important;
+  }
+
+  /* 出場交代バーに組み込んだLead Trackerは、外側の.substitution-chartの横スクロールに任せ、
+     選手行と同じ幅（min-width: 480px）を保つ */
+  .lead-tracker-chart.embedded {
+    overflow: visible;
+  }
+
+  .lead-tracker-chart.embedded > .recharts-responsive-container {
+    min-width: 0 !important;
   }
 
   /* ボックススコアの期間選択（試合/1Q〜4Q/前半/後半）: 折り返さず横1列に収める。

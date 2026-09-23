@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { createPortal } from "react-dom";
 import { periodDurationSeconds, type PeriodBoundary, type TimeoutMark } from "../lib/leadTracker";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
+import type { CourtInterval } from "../../shared/foreignOnCourt";
 
 export interface SubstitutionInterval {
   startSec: number;
@@ -14,7 +15,11 @@ export interface SubstitutionInterval {
 
 export interface SubstitutionRow {
   playerId: string;
+  /** 表示名（名字のみ。lib/playerSurname.ts）。フルネームはfullNameでツールチップ（title）に出す */
   name: string;
+  fullName?: string;
+  /** ボックススコアの出場時間（"MM:SS"または"DNP"）。名前とバーの間の列に表示する */
+  playTime?: string;
   intervals: SubstitutionInterval[];
 }
 
@@ -28,6 +33,7 @@ interface TeamSubstitutionBlockProps {
   timeouts: TimeoutMark[];
   homeColor?: string;
   awayColor?: string;
+  foreignFourIntervals: CourtInterval[];
   onSegmentHover: (e: React.MouseEvent<HTMLElement>, lines: string[]) => void;
   onSegmentLeave: () => void;
 }
@@ -49,6 +55,17 @@ interface SubstitutionBarChartProps {
   awayColor?: string;
   /** Lead Trackerと同じタイムアウトマーク（buildTimeoutMarks()の結果をそのまま渡す） */
   timeouts?: TimeoutMark[];
+  /**
+   * オンザコート4（日本人以外の選手が4人同時に在コート）の時間帯。チームごとの選手行全体を
+   * 枠で囲んで示す（shared/foreignOnCourt.ts）
+   */
+  homeForeignFourIntervals?: CourtInterval[];
+  awayForeignFourIntervals?: CourtInterval[];
+  /**
+   * ホームとアウェイの選手行の間に、同じ時間軸で描く要素（LeadTrackerChartのembedded表示）。
+   * 選手行と同じ横幅（min-width含む）のブロックに入れるため、横スクロール時も一緒に動く
+   */
+  leadTracker?: ReactNode;
 }
 
 interface TooltipState {
@@ -84,15 +101,24 @@ function segmentTooltipLines(iv: SubstitutionInterval, periodBoundaries: PeriodB
   return [`IN: ${inTime}`, `OUT: ${outTime}`, `出場時間: ${duration}`, `得失点: ${iv.ownPts}-${iv.oppPts}`];
 }
 
+/** オンザコート4の枠のツールチップ（選手の区間と同じ書式。得失点は区間中のチーム全体） */
+function fourTooltipLines(iv: CourtInterval, periodBoundaries: PeriodBoundary[]): string[] {
+  return [
+    "オンザコート4",
+    `IN: ${formatElapsedTime(iv.startSec, periodBoundaries)}`,
+    `OUT: ${formatElapsedTime(iv.endSec, periodBoundaries)}`,
+    `出場時間: ${formatMinutesFromSeconds(iv.endSec - iv.startSec)}`,
+    `得失点: ${iv.ownPoints}-${iv.oppPoints}`,
+  ];
+}
+
 /**
  * Lead Trackerと同じperiodBoundaries/totalSecondsを受け取り、選手ごとの在コート区間を
  * 横棒（ガントチャート的な）表示で描く。rechartsではなくCSS(flex + 絶対配置)で組んでいる
  * （選手1人が複数区間を持ちうるため、rechartsのBar系コンポーネントでは表現しづらい。DESIGN.md参照）。
  *
- * Lead Trackerと完全にピクセル単位で揃っているわけではない（Lead Trackerのプロット領域は
- * rechartsのYAxis幅で決まり、こちらは選手名ラベル分の固定幅ガター(130px)を使うため左端の
- * 開始位置が微妙にズレる）が、時間軸のドメイン(0〜totalSeconds)と各Qの区切り線・ラベルは
- * 完全に同じものを使っているため、見比べれば十分に対応関係がわかる。
+ * 選手名欄＋出場時間欄の固定幅ガター（150px）と、組み込むLead Trackerのembedded表示のY軸幅を
+ * 同じにしているため、両者のプロット領域の左右端はピクセル単位で一致する。
  *
  * 区間セグメントのツールチップは、ネイティブのtitle属性ではなく自前描画（React state +
  * document.bodyへのportal）で実装している。ネイティブtitleはブラウザ側のツールチップ
@@ -117,6 +143,9 @@ export function SubstitutionBarChart({
   homeColor,
   awayColor,
   timeouts = [],
+  homeForeignFourIntervals = [],
+  awayForeignFourIntervals = [],
+  leadTracker,
 }: SubstitutionBarChartProps) {
   const narrow = useMediaQuery("(max-width: 560px)");
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -140,9 +169,11 @@ export function SubstitutionBarChart({
         timeouts={timeouts}
         homeColor={homeColor}
         awayColor={awayColor}
+        foreignFourIntervals={homeForeignFourIntervals}
         onSegmentHover={handleSegmentHover}
         onSegmentLeave={handleSegmentLeave}
       />
+      {leadTracker && <div className="sub-bar-lead">{leadTracker}</div>}
       <TeamSubstitutionBlock
         teamName={awayTeamName}
         starters={awayStarters}
@@ -153,12 +184,24 @@ export function SubstitutionBarChart({
         timeouts={timeouts}
         homeColor={homeColor}
         awayColor={awayColor}
+        foreignFourIntervals={awayForeignFourIntervals}
         onSegmentHover={handleSegmentHover}
         onSegmentLeave={handleSegmentLeave}
       />
       {timeouts.length > 0 && (
         <p className="sub-bar-note">
           点線: タイムアウト（{narrow && homeShortName ? homeShortName : homeTeamName}色/{narrow && awayShortName ? awayShortName : awayTeamName}色。オフィシャルタイムアウトは基準色）
+        </p>
+      )}
+      {(homeForeignFourIntervals.length > 0 || awayForeignFourIntervals.length > 0) && (
+        <p className="sub-bar-note">
+          {homeForeignFourIntervals.length > 0 && (
+            <span className="sub-bar-legend-four" style={{ borderColor: homeColor ?? "var(--accent)" }} />
+          )}
+          {awayForeignFourIntervals.length > 0 && (
+            <span className="sub-bar-legend-four" style={{ borderColor: awayColor ?? "var(--muted)" }} />
+          )}
+          枠: オンザコート4（外国籍・帰化・アジア特別枠の選手が4人同時に出場している時間帯。枠線にカーソルを当てると詳細を表示）
         </p>
       )}
       {tooltip &&
@@ -184,6 +227,7 @@ function TimeAxisHeader({
   return (
     <div className="sub-bar-row sub-bar-header">
       <div className="sub-bar-label" />
+      <div className="sub-bar-min">出場</div>
       <div className="sub-bar-track">
         {periodBoundaries.map((b) => (
           <span key={b.period} className="sub-bar-axis-label" style={{ left: `${pct(b.startSec, totalSeconds)}%` }}>
@@ -205,6 +249,7 @@ function TeamSubstitutionBlock({
   timeouts,
   homeColor,
   awayColor,
+  foreignFourIntervals,
   onSegmentHover,
   onSegmentLeave,
 }: TeamSubstitutionBlockProps) {
@@ -221,47 +266,74 @@ function TeamSubstitutionBlock({
   return (
     <div className="sub-bar-team">
       <h4 className="sub-bar-team-name">{teamName}</h4>
-      {rows.map((row) => (
-        <div className="sub-bar-row" key={row.playerId}>
-          <div className="sub-bar-label" title={row.name}>
-            {row.isStarter ? `*${row.name}` : row.name}
-          </div>
-          <div className="sub-bar-track">
-            {periodBoundaries
-              .filter((b) => b.startSec > 0)
-              .map((b) => (
-                <div key={b.period} className="sub-bar-gridline" style={{ left: `${pct(b.startSec, totalSeconds)}%` }} />
-              ))}
-            {timeouts.map((t, i) => (
-              <div
-                key={`timeout-${i}`}
-                className="sub-bar-timeout-line"
-                style={{
-                  left: `${pct(t.elapsedSec, totalSeconds)}%`,
-                  borderColor: t.homeAway === 1 ? (homeColor ?? "var(--accent)") : t.homeAway === 2 ? (awayColor ?? "var(--muted)") : "var(--fg)",
-                }}
-              />
-            ))}
-            {row.intervals.length === 0 ? (
-              <span className="sub-bar-dnp">DNP</span>
-            ) : (
-              row.intervals.map((iv, i) => (
+      <div className="sub-bar-rows">
+        {rows.map((row) => (
+          <div className="sub-bar-row" key={row.playerId}>
+            <div className="sub-bar-label" title={row.fullName ?? row.name}>
+              {row.isStarter ? `*${row.name}` : row.name}
+            </div>
+            {/* DNPは出場時間の列に表示する（バーの位置には出さない） */}
+            <div className={row.intervals.length === 0 || row.playTime === "DNP" ? "sub-bar-min dnp" : "sub-bar-min"}>
+              {row.intervals.length === 0 ? "DNP" : (row.playTime ?? "")}
+            </div>
+            <div className="sub-bar-track">
+              {periodBoundaries
+                .filter((b) => b.startSec > 0)
+                .map((b) => (
+                  <div key={b.period} className="sub-bar-gridline" style={{ left: `${pct(b.startSec, totalSeconds)}%` }} />
+                ))}
+              {timeouts.map((t, i) => (
                 <div
-                  key={i}
-                  className="sub-bar-segment"
-                  onMouseEnter={(e) => onSegmentHover(e, segmentTooltipLines(iv, periodBoundaries))}
-                  onMouseLeave={onSegmentLeave}
+                  key={`timeout-${i}`}
+                  className="sub-bar-timeout-line"
                   style={{
-                    left: `${pct(iv.startSec, totalSeconds)}%`,
-                    width: `${pct(iv.endSec - iv.startSec, totalSeconds)}%`,
-                    background: color,
+                    left: `${pct(t.elapsedSec, totalSeconds)}%`,
+                    borderColor: t.homeAway === 1 ? (homeColor ?? "var(--accent)") : t.homeAway === 2 ? (awayColor ?? "var(--muted)") : "var(--fg)",
                   }}
                 />
-              ))
-            )}
+              ))}
+              {row.intervals.map((iv, i) => (
+                  <div
+                    key={i}
+                    className="sub-bar-segment"
+                    onMouseEnter={(e) => onSegmentHover(e, segmentTooltipLines(iv, periodBoundaries))}
+                    onMouseLeave={onSegmentLeave}
+                    style={{
+                      left: `${pct(iv.startSec, totalSeconds)}%`,
+                      width: `${pct(iv.endSec - iv.startSec, totalSeconds)}%`,
+                      background: color,
+                    }}
+                  />
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+        {foreignFourIntervals.length > 0 && (
+          <div className="sub-bar-four-layer">
+            {foreignFourIntervals.map((iv, i) => (
+              // 枠の内側は選手の区間のツールチップを優先し、枠線の上（上下左右の辺）でだけ枠のツールチップを出す
+              <div
+                key={i}
+                className="sub-bar-four-box"
+                style={{
+                  left: `${pct(iv.startSec, totalSeconds)}%`,
+                  width: `${pct(iv.endSec - iv.startSec, totalSeconds)}%`,
+                  borderColor: color,
+                }}
+              >
+                {(["top", "bottom", "left", "right"] as const).map((edge) => (
+                  <div
+                    key={edge}
+                    className={`sub-bar-four-edge ${edge}`}
+                    onMouseEnter={(e) => onSegmentHover(e, fourTooltipLines(iv, periodBoundaries))}
+                    onMouseLeave={onSegmentLeave}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
