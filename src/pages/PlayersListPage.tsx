@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { postseasonLabel } from "../../shared/gameType";
 import { Link } from "react-router-dom";
 import {
   fetchDivisionHistory,
@@ -699,7 +700,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         : composeLabels(
             displayModeLabels(displayMode),
             filterAxisLabels,
-            gameTypeLabels(gameType),
+            gameTypeLabels(gameType, season),
             situationalFilterLabels(situationalFilter),
           ),
   };
@@ -766,7 +767,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       presets: clubPresets,
       searchable: true,
     }),
-    gameTypeAxis(gameType, setGameType, { disabledReason: shootingReason }),
+    gameTypeAxis(gameType, setGameType, season, { disabledReason: shootingReason }),
     displayModeAxis(displayMode, setDisplayMode),
     ...situationalAxes(situationalFilter, setSituationalFilter, {
       opponentWinRateSupported: !!gameSummaries,
@@ -901,17 +902,17 @@ function LeaguePlayerRecordsTab() {
       <FilterBar
         simple
         stateKey="players:records"
-        axes={[leagueVenueAxis(venue, setVenue), gameTypeAxis(gameType, setGameType)]}
+        axes={[leagueVenueAxis(venue, setVenue), gameTypeAxis(gameType, setGameType, null)]}
       />
       <FilterBar axes={[statItemAxis(PLAYER_CAREER_TOTAL_DEFS, statKey, setStatKey)]} stateKey="players:records:stat" simple wide />
 
       <ConditionTitle
         title={`歴代記録 通算成績：${activeLabel}`}
-        conditions={composeLabels(leagueVenueLabels(venue), gameTypeLabels(gameType))}
+        conditions={composeLabels(leagueVenueLabels(venue), gameTypeLabels(gameType, null))}
       />
 
       {rows.length === 0 ? (
-        <p className="empty-message">この条件（ホーム/アウェイ/トータル・レギュラー/プレーオフ区分・項目）では該当選手がいません</p>
+        <p className="empty-message">この条件（ホーム/アウェイ/トータル・レギュラー/{postseasonLabel(null)}区分・項目）では該当選手がいません</p>
       ) : (
         <div className="table-scroll">
           <table className="sortable-table rankings-table">
@@ -1389,7 +1390,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
     <div>
       <p className="page-subtitle">
         {season}シーズン、直近{recentN}試合中{minGames}試合以上出場した選手による成績ランキング
-        （レギュラーシーズン・プレーオフ合算）。出場試合数が少なすぎる選手は数値が振れやすいため
+        （レギュラーシーズン・{postseasonLabel(season)}合算）。出場試合数が少なすぎる選手は数値が振れやすいため
         対象外にしています。EFFは直近{recentN}試合の合計値から算出。対戦相手の加重平均勝率は、
         直近{recentN}試合の各対戦相手のその試合時点までの勝率を単純平均したもの（対戦相手が
         未消化の試合は対象外）
@@ -1409,7 +1410,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
       />
       <ConditionTitle
         title={`${season}シーズン 個人直近成績`}
-        conditions={composeLabels(`直近${recentN}試合`, gameTypeLabels("both"), `直近${recentN}試合中${minGames}試合以上出場`)}
+        conditions={composeLabels(`直近${recentN}試合`, gameTypeLabels("both", season), `直近${recentN}試合中${minGames}試合以上出場`)}
       />
       {gameLogsLoading || !gameLogs ? (
         <p className="loading">読み込み中...</p>

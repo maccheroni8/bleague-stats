@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { postseasonLabel } from "../../shared/gameType";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGameSummaries, fetchPlayers, fetchStandingsHistory, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
@@ -136,13 +137,13 @@ export function HomePage({ season }: { season: string }) {
 
   // 各セクションに出す「選択中の条件」（Batch 5、DESIGN.md 99章）。ホームには絞り込みトグルが無く、
   // 個人/チームの切り替えだけが表示内容を変える。掲載基準等の固定条件も明示する
-  const recentGamesConditions = composeLabels(`直近${RECENT_GAMES_COUNT}試合`, "終了した試合", "レギュラー+プレーオフ");
+  const recentGamesConditions = composeLabels(`直近${RECENT_GAMES_COUNT}試合`, "終了した試合", `レギュラー+${postseasonLabel(season)}`);
   const leaderConditions =
     leaderMode === "player"
       ? composeLabels(
           `${season}シーズン`,
           "個人",
-          gameTypeLabels("regular"),
+          gameTypeLabels("regular", null),
           displayModeLabels("perGame"),
           eligibilityLabels({ gamesRatio: MIN_GAMES_PLAYED_RATIO_FOR_RANKING }),
           "項目により試投数等の追加基準あり",
@@ -151,14 +152,14 @@ export function HomePage({ season }: { season: string }) {
       : composeLabels(
           `${season}シーズン`,
           "チーム",
-          gameTypeLabels("regular"),
+          gameTypeLabels("regular", null),
           displayModeLabels("perGame"),
           `上位${LEADER_TOP_N}チーム`,
         );
   const standingsConditions = composeLabels(
     `${season}シーズン`,
     latestSnapshot ? `${latestSnapshot.date}時点` : null,
-    gameTypeLabels("regular"),
+    gameTypeLabels("regular", null),
     "地区内順位",
   );
 

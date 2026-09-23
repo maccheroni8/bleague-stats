@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { postseasonLabel } from "../../shared/gameType";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { TeamLogo } from "../components/TeamLogo";
 import { FilterBar } from "../components/FilterBar";
@@ -240,7 +241,7 @@ export function SchedulePage({ season }: { season: string }) {
   const scheduleConditions = composeLabels(
     view === "list" ? "リスト表示" : "カレンダー表示",
     view === "list" ? { all: "全試合", upcoming: "今後の試合", finished: "終了した試合" }[statusFilter] : formatMonthLabel(effectiveMonth),
-    "レギュラー+プレーオフ",
+    `レギュラー+${postseasonLabel(season)}`,
     scheduleClubLabels,
   );
 

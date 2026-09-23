@@ -27,7 +27,12 @@ interface CompareSlotFilterProps {
   filter: SituationalFilter;
   onFilter: (filter: SituationalFilter) => void;
   /** 試合種別をスロットごとに持つ場合のみ渡す（ComparePage。詳細ページの比較タブはバー上部の共通の試合種別を使う） */
-  gameType?: { value: SeasonGameTypeFilter; onChange: (gameType: SeasonGameTypeFilter) => void };
+  gameType?: {
+    value: SeasonGameTypeFilter;
+    onChange: (gameType: SeasonGameTypeFilter) => void;
+    /** スロットのシーズン（ポストシーズンの表示名「CS」/「プレーオフ」の切り替えに使う） */
+    season: string | null;
+  };
   boundary?: SeasonHalfBoundary | null;
   opponentWinRateSupported?: boolean;
   ownTeamDivisionSupported?: boolean;
@@ -65,7 +70,7 @@ export function CompareSlotFilter({
 
   const axes: FilterAxis[] = [...selectAxes];
   if (enabled) {
-    if (gameType) axes.push(gameTypeAxis(gameType.value, gameType.onChange));
+    if (gameType) axes.push(gameTypeAxis(gameType.value, gameType.onChange, gameType.season));
     axes.push(
       // 会場はスロットでは詳細フィルタ側に置く（スロットの幅では主要軸を絞るため）
       ...situationalAxes(filter, onFilter, { boundary, opponentWinRateSupported, ownTeamDivisionSupported }).map(

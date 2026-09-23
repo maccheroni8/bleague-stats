@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { postseasonLabel } from "../../shared/gameType";
 import { SortableTable, type Column } from "./SortableTable";
 import { TeamLogo } from "./TeamLogo";
 import { FilterBar } from "./FilterBar";
@@ -407,7 +408,7 @@ export function ConditionalStandingsTable({
         { label: "東地区", teamIds: divisionTeamIds("east") },
         ...(hasCentralDivision ? [{ label: "中地区", teamIds: divisionTeamIds("central") }] : []),
         { label: "西地区", teamIds: divisionTeamIds("west") },
-        ...(playoffQualifiedIds ? [{ label: "プレーオフ進出圏（現時点）", teamIds: [...playoffQualifiedIds] }] : []),
+        ...(playoffQualifiedIds ? [{ label: `${postseasonLabel(season)}進出圏（現時点）`, teamIds: [...playoffQualifiedIds] }] : []),
       ],
     }),
   ];
@@ -507,7 +508,7 @@ export function ConditionalStandingsTable({
       <ConditionLine
         conditions={composeLabels(
           `${season}シーズン`,
-          gameTypeLabels("regular"),
+          gameTypeLabels("regular", null),
           selectedTeamIds === null
             ? multiSelectLabels("対象クラブ", [], "全クラブ")
             : selectedTeamIds.size === 0
@@ -540,7 +541,7 @@ export function ConditionalStandingsTable({
         残り試合数は、日程が既に確定していて未来の情報だけで判定できる条件（会場・地区・曜日・
         月別・年明け前後）でのみ表示され、それ以外の条件では「-」になります。
         {playoffQualifiedIds === null &&
-          "「プレーオフ進出圏」ボタンは、東西2地区制（各地区上位3＋ワイルドカード上位2、計8チーム）が確認できているシーズンのみ表示されます。"}
+          `「${postseasonLabel(season)}進出圏」ボタンは、東西2地区制（各地区上位3＋ワイルドカード上位2、計8チーム）が確認できているシーズンのみ表示されます。`}
       </p>
     </div>
   );

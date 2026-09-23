@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { postseasonLabel } from "../../shared/gameType";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import {
   fetchClubHonors,
@@ -363,7 +364,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       : seasonTotalOnlyReason;
   const displayDisabledReason = isMainCategory || boxTab === "shooting" ? undefined : seasonTotalOnlyReason;
   const filterAxes: FilterAxis[] = [
-    gameTypeAxis(gameType, setGameType, { disabledReason: filterDisabledReason }),
+    gameTypeAxis(gameType, setGameType, season, { disabledReason: filterDisabledReason }),
     perspectiveAxis(teamPerspective, setTeamPerspective, { disabledReason: filterDisabledReason }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: displayDisabledReason }),
     ...situationalAxes(filter, setFilter, {
@@ -387,7 +388,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring"
         ? composeLabels(
             displayModeLabels(displayMode),
-            gameTypeLabels(gameType),
+            gameTypeLabels(gameType, season),
             perspectiveLabels(teamPerspective),
             situationalFilterLabels(filter),
           )
@@ -466,7 +467,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               />
             </div>
             <p className="page-subtitle">
-              レギュラーシーズンのみ（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない。平均/合計のみ連動する）。シュートタイプ×2P/3P別に成功数（M）・試投数（A）・成功率（%）の3列に分けて表示する。列見出しクリックで並び替え
+              レギュラーシーズンのみ（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しない。平均/合計のみ連動する）。シュートタイプ×2P/3P別に成功数（M）・試投数（A）・成功率（%）の3列に分けて表示する。列見出しクリックで並び替え
             </p>
           </>
         )
@@ -501,7 +502,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               />
             </div>
             <p className="page-subtitle">
-              レギュラーシーズン・シーズン合計のみ（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）
+              レギュラーシーズン・シーズン合計のみ（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しない）
             </p>
           </>
         )
@@ -509,7 +510,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         <>
           <ForeignPlayerCourtTimeChart teams={teams ?? []} />
           <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計の在コート時間ベース（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。国籍区分（classification）が不明な選手を含むラインナップは集計から除外されるため、チームによっては捕捉できた合計出場時間が実際の総出場時間より短くなる場合があります
+            レギュラーシーズン・シーズン合計の在コート時間ベース（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しない）。国籍区分（classification）が不明な選手を含むラインナップは集計から除外されるため、チームによっては捕捉できた合計出場時間が実際の総出場時間より短くなる場合があります
           </p>
         </>
       ) : boxTab === "scoringComposition" ? (
@@ -519,14 +520,14 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           <h3>失点構成（このチームが奪われた得点の割合）</h3>
           <ScoringCompositionChart teams={teams ?? []} mode="opponent" />
           <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。得点構成のペイント内得点はPlayByPlaysのタグ集計（全シーズン対応）、ミッドレンジ得点は「2P得点−ペイント内得点」として算出しているため、ショットチャート座標のseason制約は受けない。各セグメントの数値は割合(%)と1試合あたり平均得点。見出しボタンでカテゴリ別の並び替えができる（デフォルトは平均得点が多い順）
+            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しない）。得点構成のペイント内得点はPlayByPlaysのタグ集計（全シーズン対応）、ミッドレンジ得点は「2P得点−ペイント内得点」として算出しているため、ショットチャート座標のseason制約は受けない。各セグメントの数値は割合(%)と1試合あたり平均得点。見出しボタンでカテゴリ別の並び替えができる（デフォルトは平均得点が多い順）
           </p>
           <h3>得点構成（登録区分）</h3>
           <ClassificationCompositionChart teams={teams ?? []} mode="own" />
           <h3>失点構成（登録区分）</h3>
           <ClassificationCompositionChart teams={teams ?? []} mode="opponent" />
           <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/プレーオフ/合算・自チーム/opp/+/-とは連動しない）。classification未定義の選手の得点はいずれのセグメントにも計上しないため、2セグメントの合計が総得点に満たない場合があります
+            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しない）。classification未定義の選手の得点はいずれのセグメントにも計上しないため、2セグメントの合計が総得点に満たない場合があります
           </p>
         </>
       ) : gameLogsLoading || !gameLogsByTeam ? (
@@ -773,19 +774,19 @@ function LeagueRecordsTab() {
           }),
           // B.PREMIERレコードは会場別の集計が無い（ホーム/アウェイ限定版は対象外）ため会場の軸自体を出さない
           ...(isPremierRecord ? [] : [leagueVenueAxis(venue, setVenue)]),
-          gameTypeAxis(gameType, setGameType),
+          gameTypeAxis(gameType, setGameType, null),
         ]}
       />
       <FilterBar axes={[statItemAxis(statOptions, statKey, setStatKey)]} stateKey="teams:records:stat" simple wide />
 
       <ConditionTitle
         title={`歴代記録 ${RECORDS_CATEGORY_LABELS[category]}：${activeLabel}`}
-        conditions={composeLabels(!isPremierRecord && leagueVenueLabels(venue), gameTypeLabels(gameType))}
+        conditions={composeLabels(!isPremierRecord && leagueVenueLabels(venue), gameTypeLabels(gameType, null))}
       />
 
       {isPremierRecord ? (
         premierRows.length === 0 ? (
-          <p className="empty-message">この条件（レギュラー/プレーオフ区分・項目）では該当記録がありません</p>
+          <p className="empty-message">この条件（レギュラー/{postseasonLabel(null)}区分・項目）では該当記録がありません</p>
         ) : (
           <div className="table-scroll">
             <table className="sortable-table rankings-table">
@@ -833,7 +834,7 @@ function LeagueRecordsTab() {
           </div>
         )
       ) : rows.length === 0 ? (
-        <p className="empty-message">この条件（ホーム/アウェイ/トータル・レギュラー/プレーオフ区分・項目）では該当クラブがありません</p>
+        <p className="empty-message">この条件（ホーム/アウェイ/トータル・レギュラー/{postseasonLabel(null)}区分・項目）では該当クラブがありません</p>
       ) : (
         <div className="table-scroll">
           <table className="sortable-table rankings-table">
@@ -994,7 +995,7 @@ function ChampionsTab() {
   return (
     <div>
       <p className="page-subtitle">
-        シーズン別の年間王者（Bリーグチャンピオンシップ優勝）年表。チーム名クリックでチーム詳細ページへ遷移できる
+        シーズン別の年間王者（2025-26シーズンまではBリーグチャンピオンシップ〈CS〉、2026-27シーズンからはB.LEAGUE PREMIERプレーオフの優勝クラブ）年表。チーム名クリックでチーム詳細ページへ遷移できる
       </p>
 
       {teamsLoading && !teamsBySeason ? (
@@ -1240,7 +1241,7 @@ function RecentFormTab({ season }: { season: string }) {
     <div>
       <p className="page-subtitle">
         現行{teams.length}クラブの直近{recentN}試合の成績によるランキング（レギュラーシーズン・
-        プレーオフ合算）。ORtg/DRtg/NETRtgは直近{recentN}試合の合算値から算出。対戦相手の加重平均
+        {postseasonLabel(season)}合算）。ORtg/DRtg/NETRtgは直近{recentN}試合の合算値から算出。対戦相手の加重平均
         勝率は、直近{recentN}試合の各対戦相手のその試合時点までの勝率を単純平均したもの（対戦相手が
         未消化の試合は対象外）。連勝/連敗は直近{recentN}試合の絞り込みとは独立に、今シーズンの
         全試合を通して現在何連勝/連敗中かを示す
@@ -1260,7 +1261,7 @@ function RecentFormTab({ season }: { season: string }) {
       />
       <ConditionTitle
         title={`${season}シーズン チーム直近成績`}
-        conditions={composeLabels(`直近${recentN}試合`, gameTypeLabels("both"))}
+        conditions={composeLabels(`直近${recentN}試合`, gameTypeLabels("both", season))}
       />
       {gameLogsLoading || !gameLogsByTeam ? (
         <p className="loading">読み込み中...</p>

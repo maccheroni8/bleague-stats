@@ -22,7 +22,8 @@ import {
 } from "./situational";
 import {
   SEASON_DISPLAY_MODE_LABELS,
-  SEASON_GAME_TYPE_LABELS,
+  SEASON_GAME_TYPE_KEYS,
+  seasonGameTypeLabels,
   type SeasonDisplayMode,
   type SeasonGameTypeFilter,
 } from "./playerSeasonBoxscore";
@@ -204,10 +205,15 @@ interface SimpleAxisOptions {
   defaultValue?: string;
 }
 
-/** G軸: レギュラーシーズン/プレーオフ/合算 */
+/**
+ * G軸: レギュラーシーズン/ポストシーズン/合算。ポストシーズンの表示名はシーズンで変わる
+ * （〜2025-26「CS」、2026-27〜「プレーオフ」）ため、seasonを必ず渡す。通算成績・歴代記録など
+ * 複数シーズンをまたぐ表示ではnullを渡し「ポストシーズン」と表示する（DESIGN.md 107章）
+ */
 export function gameTypeAxis(
   value: SeasonGameTypeFilter,
   onChange: (v: SeasonGameTypeFilter) => void,
+  season: string | null,
   opts: SimpleAxisOptions = {},
 ): FilterAxis {
   return {
@@ -215,7 +221,7 @@ export function gameTypeAxis(
     id: "gameType",
     label: "試合種別",
     tier: opts.tier ?? "primary",
-    options: optionsFromLabels(SEASON_GAME_TYPE_LABELS, Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[]),
+    options: optionsFromLabels(seasonGameTypeLabels(season), SEASON_GAME_TYPE_KEYS),
     value,
     defaultValue: opts.defaultValue ?? "regular",
     onChange: (v) => onChange(v as SeasonGameTypeFilter),

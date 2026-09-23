@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { postseasonLabel } from "../../shared/gameType";
 import { useParams, Link as RouterLink } from "react-router-dom";
 import {
   PolarAngleAxis,
@@ -3237,15 +3238,15 @@ export function TeamDetailPage({ season }: { season: string }) {
     teamBoxCategoryLabel(seasonBoxTab),
     seasonBoxTab !== "forcedTurnovers" && displayModeLabels(seasonBoxDisplayMode),
     seasonBoxTab !== "shooting" && seasonBoxTab !== "forcedTurnovers" && perspectiveLabels(seasonBoxPerspective),
-    gameTypeLabels("regular"),
+    gameTypeLabels("regular", null),
   );
   const teamLeadersConditions = composeLabels(
     seasonLabel,
     classificationLabels(teamLeadersJpOnly ? "日本人" : "all"),
-    gameTypeLabels("regular"),
+    gameTypeLabels("regular", null),
     ...eligibilityLabels({ gamesRatio: teamLeadersGamesRatio }),
   );
-  const situationalRecordConditions = composeLabels(seasonLabel, gameTypeLabels(situationalRecordGameType));
+  const situationalRecordConditions = composeLabels(seasonLabel, gameTypeLabels(situationalRecordGameType, season));
   // 「チーム内リーダー」の掲載基準（出場率）。ランキングページと同じ popover＋EligibilitySlider
   const teamLeadersEligibilitySummary = eligibilityLabels({ gamesRatio: teamLeadersGamesRatio }).join("・");
   const teamLeadersEligibilityAxis: FilterAxis = {
@@ -3275,13 +3276,13 @@ export function TeamDetailPage({ season }: { season: string }) {
     seasonLabel,
     teamBoxCategoryLabel(situationalTeamBoxTab),
     displayModeLabels(situationalTeamDisplayMode),
-    gameTypeLabels(situationalTeamGameType),
+    gameTypeLabels(situationalTeamGameType, season),
     situationalTeamBoxTab !== "shooting" && perspectiveLabels(situationalTeamPerspective),
     periodLabels(situationalTeamPeriodOption),
   );
   // フィルタバー（DESIGN.md 105章 B4）。ショットチャート専用の絞り込み（旧・チームスタッツの共有バーから独立させた。118章）
   const teamShotChartFilterAxes: FilterAxis[] = [
-    gameTypeAxis(teamShotChartGameType, setTeamShotChartGameType),
+    gameTypeAxis(teamShotChartGameType, setTeamShotChartGameType, season),
     periodAxis(teamShotChartPeriod, setTeamShotChartPeriod, SEASON_BOX_PERIOD_OPTIONS),
     ...situationalAxes(teamShotChartFilter, setTeamShotChartFilter, {
       opponentWinRateSupported: !!opponentRecords,
@@ -3295,7 +3296,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   };
   const playerStatsShooting = playerStatsBoxTab === "shooting";
   const playerStatsFilterAxes: FilterAxis[] = [
-    gameTypeAxis(playerStatsGameType, setPlayerStatsGameType),
+    gameTypeAxis(playerStatsGameType, setPlayerStatsGameType, season),
     displayModeAxis(playerStatsDisplayMode, setPlayerStatsDisplayMode),
     periodAxis(playerStatsPeriod, setPlayerStatsPeriod, SEASON_BOX_PERIOD_OPTIONS, {
       disabledReason: playerStatsShooting ? `${CATEGORY_LABELS.shooting}はQ別/前後半の対象外です。` : undefined,
@@ -3313,7 +3314,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   };
   const teamShotChartConditions = composeLabels(
     seasonLabel,
-    gameTypeLabels(teamShotChartGameType),
+    gameTypeLabels(teamShotChartGameType, season),
     situationalFilterLabels(teamShotChartFilter),
     periodLabels(teamShotChartPeriodOption),
   );
@@ -3323,7 +3324,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     title: `${seasonLabel} 選手スタッツ：${teamBoxCategoryLabel(playerStatsBoxTab)}`,
     conditions: composeLabels(
       displayModeLabels(playerStatsDisplayMode),
-      gameTypeLabels(playerStatsGameType),
+      gameTypeLabels(playerStatsGameType, season),
       situationalFilterLabels(playerStatsFilter),
       playerStatsBoxTab === "shooting" && playerStatsPeriodOption?.periods
         ? `※${CATEGORY_LABELS.shooting}はQ別/前後半の対象外`
@@ -3334,13 +3335,13 @@ export function TeamDetailPage({ season }: { season: string }) {
     title: `${seasonLabel} 日程結果：${teamBoxCategoryLabel(scheduleBoxTab)}`,
     conditions: composeLabels(
       perspectiveLabels(scheduleTeamPerspective),
-      gameTypeLabels(scheduleGameType),
+      gameTypeLabels(scheduleGameType, season),
       periodLabels(schedulePeriodOption),
     ),
   };
   const careerRangeLabel =
     careerData && careerData.length > 0 ? `${careerData[0]!.season}〜${careerData[careerData.length - 1]!.season}シーズン` : null;
-  const careerConditions = composeLabels(careerRangeLabel, gameTypeLabels(careerGameTypeFilter));
+  const careerConditions = composeLabels(careerRangeLabel, gameTypeLabels(careerGameTypeFilter, null));
   // 「比較」タブ: 各スロットの選択内容（シーズン・シチュエーション）をタイトルに、共通の軸（カテゴリ・V・G）を条件行に出す
   const compareSlotDescriptions = compareSlots
     .filter((slot) => slot.season)
@@ -3350,7 +3351,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     conditions: composeLabels(
       teamBoxCategoryLabel(compareTab),
       perspectiveLabels(comparePerspective),
-      gameTypeLabels(compareGameType),
+      gameTypeLabels(compareGameType, null),
     ),
   };
 
@@ -3536,7 +3537,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           <FilterBar
             simple
             stateKey={pk("situationalRecordFilter")}
-            axes={[gameTypeAxis(situationalRecordGameType, setSituationalRecordGameType)]}
+            axes={[gameTypeAxis(situationalRecordGameType, setSituationalRecordGameType, season)]}
           />
           {gameLogsLoading ? (
             <p className="loading">読み込み中...</p>
@@ -3686,7 +3687,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               stateKey={pk("scheduleFilter")}
               axes={[
                 perspectiveAxis(scheduleTeamPerspective, setScheduleTeamPerspective),
-                gameTypeAxis(scheduleGameType, setScheduleGameType, { defaultValue: "both" }),
+                gameTypeAxis(scheduleGameType, setScheduleGameType, season, { defaultValue: "both" }),
                 periodAxis(schedulePeriod, setSchedulePeriod, SEASON_BOX_PERIOD_OPTIONS),
               ]}
             />
@@ -3751,7 +3752,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             )}
             {scheduleBoxTab === "misc" && scheduleFilteredRows.length > 0 && <RuleChangeFootnote seasons={[season]} />}
             <p className="page-subtitle">
-              各列は試合詳細ページのボックススコアと同じ算出ロジック（自チーム/opp/+/-切り替え可）。上部のレギュラー/プレーオフ・Q別/前後半トグルと連動する。未消化・進行中の試合は「-」表示になる
+              各列は試合詳細ページのボックススコアと同じ算出ロジック（自チーム/opp/+/-切り替え可）。上部のレギュラー/{postseasonLabel(season)}・Q別/前後半トグルと連動する。未消化・進行中の試合は「-」表示になる
             </p>
           </div>
         ))}
@@ -3761,7 +3762,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           <FilterBar
             simple
             stateKey={pk("careerFilter")}
-            axes={[gameTypeAxis(careerGameTypeFilter, setCareerGameTypeFilter)]}
+            axes={[gameTypeAxis(careerGameTypeFilter, setCareerGameTypeFilter, null)]}
           />
           {careerLoading && !careerData ? (
             <p className="loading">読み込み中...</p>
@@ -3799,7 +3800,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           <FilterBar
             simple
             stateKey={pk("careerFilter")}
-            axes={[gameTypeAxis(careerGameTypeFilter, setCareerGameTypeFilter)]}
+            axes={[gameTypeAxis(careerGameTypeFilter, setCareerGameTypeFilter, null)]}
           />
           {careerLoading && !careerData ? (
             <p className="loading">読み込み中...</p>
@@ -4042,7 +4043,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             simple
             stateKey={pk("situationalTeamFilter")}
             axes={[
-              gameTypeAxis(situationalTeamGameType, setSituationalTeamGameType),
+              gameTypeAxis(situationalTeamGameType, setSituationalTeamGameType, season),
               perspectiveAxis(situationalTeamPerspective, setSituationalTeamPerspective, {
                 disabledReason:
                   situationalTeamBoxTab === "shooting" ? `${CATEGORY_LABELS.shooting}は自チームの値のみです。` : undefined,
@@ -4172,7 +4173,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               <dt>勝敗</dt>
               <dd>勝った試合／負けた試合を分けて集計します。</dd>
               <dt>直近試合</dt>
-              <dd>選択中のシーズン・レギュラー/プレーオフ絞り込みの範囲内で、直近5試合／直近10試合を分けて集計します。</dd>
+              <dd>選択中のシーズン・レギュラー/{postseasonLabel(season)}絞り込みの範囲内で、直近5試合／直近10試合を分けて集計します。</dd>
               <dt>会場</dt>
               <dd>ホーム開催／アウェイ開催の試合を分けて集計します。</dd>
               <dt>地区</dt>
@@ -4290,7 +4291,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           <ConditionTitle
             section
             title="よく使われるラインナップ"
-            conditions={composeLabels(seasonLabel, gameTypeLabels("both"), `出場時間${MIN_LINEUP_SECONDS}秒以上`)}
+            conditions={composeLabels(seasonLabel, gameTypeLabels("both", season), `出場時間${MIN_LINEUP_SECONDS}秒以上`)}
           />
           {coverageLoading ? (
             <p className="loading">読み込み中...</p>
@@ -4352,7 +4353,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           <ConditionTitle
             section
             title="アシスト経由の得点パターン"
-            conditions={composeLabels(seasonLabel, gameTypeLabels("regular"), periodLabels(undefined))}
+            conditions={composeLabels(seasonLabel, gameTypeLabels("regular", null), periodLabels(undefined))}
           />
           {coverageLoading ? (
             <p className="loading">読み込み中...</p>
@@ -4470,7 +4471,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             simple
             stateKey={pk("compareCommon")}
             axes={[
-              gameTypeAxis(compareGameType, setCompareGameType),
+              gameTypeAxis(compareGameType, setCompareGameType, null),
               perspectiveAxis(comparePerspective, setComparePerspective),
             ]}
           />

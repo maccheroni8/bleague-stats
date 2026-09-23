@@ -18,7 +18,8 @@ import type { PeriodRangeOption } from "./periodRange";
 import type { SeasonHalfBoundary, ShotChartGameFilters, SituationalAndFilters, SituationalFilter } from "./situational";
 import {
   SEASON_DISPLAY_MODE_LABELS,
-  SEASON_GAME_TYPE_LABELS,
+  postseasonLabel,
+  seasonGameTypeLabels,
   type SeasonDisplayMode,
   type SeasonGameTypeFilter,
 } from "./playerSeasonBoxscore";
@@ -89,11 +90,13 @@ export function shotChartGameFilterLabels(filters: ShotChartGameFilters, ownTeam
 }
 
 /**
- * G軸: レギュラーシーズン/プレーオフ/合算。トグルのボタン表示は「合算」だが、タイトルでは
- * 何と何の合算か分かるよう「レギュラー+プレーオフ」と表記する
+ * G軸: レギュラーシーズン/ポストシーズン/合算。トグルのボタン表示は「合算」だが、タイトルでは
+ * 何と何の合算か分かるよう「レギュラー+CS」「レギュラー+プレーオフ」のように表記する。
+ * ポストシーズンの名称はシーズンで変わるため、season（複数シーズンをまたぐ表示ではnull＝
+ * 「ポストシーズン」）を必ず渡す（DESIGN.md 107章）
  */
-export function gameTypeLabels(gameType: SeasonGameTypeFilter): string[] {
-  return [gameType === "both" ? "レギュラー+プレーオフ" : SEASON_GAME_TYPE_LABELS[gameType]];
+export function gameTypeLabels(gameType: SeasonGameTypeFilter, season: string | null): string[] {
+  return [gameType === "both" ? `レギュラー+${postseasonLabel(season)}` : seasonGameTypeLabels(season)[gameType]];
 }
 
 /**
@@ -142,15 +145,15 @@ export function eligibilityLabels({ gamesRatio, extra, extraThreshold }: Eligibi
  * シーズン通算値（レギュラーシーズンのみ）しか使えないカテゴリ（シューティング・強制ターンオーバー等）で
  * 固定になる、G軸と「S・V・P等は対象外」の明示ラベル
  */
-export const SEASON_TOTAL_ONLY_LABELS: string[] = [...gameTypeLabels("regular"), "シーズン通算値"];
+export const SEASON_TOTAL_ONLY_LABELS: string[] = [...gameTypeLabels("regular", null), "シーズン通算値"];
 
 /**
  * G軸（SituationalFilterのincludePlayoffsトグルで表現するページ用）。SituationalFilterPickerの
  * 末尾トグル（レギュラーシーズンのみ/レギュラー+ポストシーズン）に対応する。3値トグル
  * （SeasonGameTypeFilter）を別に持つページはgameTypeLabels()を使う
  */
-export function includePlayoffsGameTypeLabels(includePlayoffs: boolean | undefined): string[] {
-  return [includePlayoffs ? "レギュラー+プレーオフ" : "レギュラーシーズン"];
+export function includePlayoffsGameTypeLabels(includePlayoffs: boolean | undefined, season: string | null): string[] {
+  return [includePlayoffs ? `レギュラー+${postseasonLabel(season)}` : "レギュラーシーズン"];
 }
 
 /**

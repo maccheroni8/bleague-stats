@@ -604,15 +604,15 @@ export function StandingsPage({ season }: { season: string }) {
   // レギュラーシーズンの試合のみが対象（standings-history.json / head-to-head.jsonの元データ）
   const seasonLabel = `${season}シーズン`;
   const asOfLabel = `${latest.date}時点`;
-  const standingsConditions = composeLabels(seasonLabel, asOfLabel, gameTypeLabels("regular"));
+  const standingsConditions = composeLabels(seasonLabel, asOfLabel, gameTypeLabels("regular", null));
   // アニメーション再生中は、その時点までに表示済みの最終日を対象期間の終端にする
   const revealedLastDate =
     revealCount !== undefined ? history[Math.min(revealCount, history.length) - 1]?.date : undefined;
   const trendEndLabel = revealedLastDate ? `${revealedLastDate}（再生中）` : latest.date;
-  const trendConditions = composeLabels(seasonLabel, gameTypeLabels("regular"), `開幕〜${trendEndLabel}`);
+  const trendConditions = composeLabels(seasonLabel, gameTypeLabels("regular", null), `開幕〜${trendEndLabel}`);
   const wildcardTrendConditions = composeLabels(
     seasonLabel,
-    gameTypeLabels("regular"),
+    gameTypeLabels("regular", null),
     wildcardCutoffDate ? `${wildcardCutoffDate}〜${trendEndLabel}（2月バイウィーク明け以降）` : null,
     "地区4位以下（日ごとに入れ替わり）",
   );
@@ -625,7 +625,7 @@ export function StandingsPage({ season }: { season: string }) {
           h2hTeamOptions.filter((t) => h2hSelectedTeamIds.has(t.teamId)).map((t) => teamShortName(t.teamId, t.teamName)),
           "全クラブ",
         );
-  const h2hConditions = composeLabels(gameTypeLabels("regular"), asOfLabel, h2hClubLabels);
+  const h2hConditions = composeLabels(gameTypeLabels("regular", null), asOfLabel, h2hClubLabels);
 
   return (
     <div>

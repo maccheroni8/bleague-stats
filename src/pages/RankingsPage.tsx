@@ -1,4 +1,5 @@
 import { EligibilitySlider } from "../components/EligibilitySlider";
+import { postseasonLabel } from "../../shared/gameType";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { usePageState } from "../lib/pageStateCache";
@@ -467,7 +468,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     composeLabels(
       boxscoreCategoryLabel,
       displayModeLabels(displayMode),
-      gameTypeLabels(gameType),
+      gameTypeLabels(gameType, season),
       perspectiveLabels(perspective),
       situationalFilterLabels(filter),
       periodLabels(periodOption),
@@ -496,7 +497,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
       : "このカテゴリはレギュラーシーズンの通算集計値のみ対応で、上の絞り込みは連動しません（2023-24シーズン以降のみ対応）。";
   const teamDisplayDisabledReason = isBoxscore || isTeamShooting ? undefined : teamFilterDisabledReason;
   const teamFilterAxes: FilterAxis[] = [
-    gameTypeAxis(gameType, setGameType, { disabledReason: teamFilterDisabledReason }),
+    gameTypeAxis(gameType, setGameType, season, { disabledReason: teamFilterDisabledReason }),
     perspectiveAxis(perspective, setPerspective, { disabledReason: teamFilterDisabledReason }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: teamDisplayDisabledReason }),
     periodAxis(period, setPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: teamFilterDisabledReason }),
@@ -1088,10 +1089,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     category === "shooting"
       ? SEASON_TOTAL_ONLY_LABELS
       : category === "profile"
-        ? gameTypeLabels("regular")
+        ? gameTypeLabels("regular", null)
         : filterIgnoredForItem
-          ? composeLabels(gameTypeLabels("regular"), SITUATIONAL_DEFAULT_LABEL, "試合全体", "※この項目はフィルタ対象外")
-          : composeLabels(gameTypeLabels(gameType), situationalFilterLabels(filter), periodLabels(periodOption));
+          ? composeLabels(gameTypeLabels("regular", null), SITUATIONAL_DEFAULT_LABEL, "試合全体", "※この項目はフィルタ対象外")
+          : composeLabels(gameTypeLabels(gameType, season), situationalFilterLabels(filter), periodLabels(periodOption));
   const playerTitle = makeRankingTitle(
     "個人",
     season,
@@ -1164,7 +1165,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       onChangeSelected: setPositions,
       allLabel: "全ポジション",
     }),
-    gameTypeAxis(gameType, setGameType, { disabledReason: playerFilterDisabledReason }),
+    gameTypeAxis(gameType, setGameType, season, { disabledReason: playerFilterDisabledReason }),
     periodAxis(period, setPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: playerFilterDisabledReason }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
@@ -1230,7 +1231,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         <p className="page-subtitle">対象{eligible.length}名中、上位{PLAYER_RANK_TOP_N}名を表示</p>
         {(needsGameLogRecompute || periodActive) && ["eff", "per", "ppp"].includes(selectedItem.key) && (
           <p className="page-subtitle">
-            「{selectedItem.label}」はシチュエーション別フィルタ・レギュラー/プレーオフ選択・Q別/前後半トグルの対象外のため、シーズン合計の値をそのまま表示しています
+            「{selectedItem.label}」はシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}選択・Q別/前後半トグルの対象外のため、シーズン合計の値をそのまま表示しています
           </p>
         )}
       </div>

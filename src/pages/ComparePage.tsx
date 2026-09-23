@@ -26,7 +26,7 @@ import {
   type CompareColumnData,
   type TeamCompareColumnData,
 } from "../lib/compareShared";
-import { SEASON_GAME_TYPE_LABELS, type SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
+import { SEASON_GAME_TYPE_KEYS, type SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
 import type { SituationalFilter } from "../lib/situational";
 import { TEAM_PERSPECTIVE_LABELS, type TeamPerspective } from "../lib/teamStatsColumns";
 import {
@@ -126,7 +126,7 @@ function parseEnumParam<T extends string>(raw: string | null, allowed: readonly 
 }
 
 const CATEGORY_KEYS = BOXSCORE_TABS.map((t) => t.key);
-const GAME_TYPE_KEYS = Object.keys(SEASON_GAME_TYPE_LABELS) as SeasonGameTypeFilter[];
+const GAME_TYPE_KEYS = SEASON_GAME_TYPE_KEYS;
 const PERSPECTIVE_KEYS = Object.keys(TEAM_PERSPECTIVE_LABELS) as TeamPerspective[];
 
 /** スロットのフィルタは参照が変わるたびに集計をやり直す（60試合分の再計算）ため、URL上の文字列が
@@ -317,7 +317,7 @@ function CompareSlotCard({
         disabledNote="選択すると、このスロットのデータだけを取得します"
         filter={slot.filter}
         onFilter={onFilter}
-        gameType={{ value: slot.gameType, onChange: onGameType }}
+        gameType={{ value: slot.gameType, onChange: onGameType, season: slot.season || null }}
         boundary={data.boundary}
         opponentWinRateSupported={data.opponentWinRateSupported}
         ownTeamDivisionSupported={data.ownTeamDivisionSupported}
@@ -330,7 +330,7 @@ function CompareSlotCard({
 
 /** 比較表の列見出し・タイトルに出す、そのスロットの条件ラベル（シーズン以外の絞り込み部分） */
 function slotConditionLabel(slot: SlotValue, data: Pick<TeamSlotData, "boundary">): string {
-  return joinLabels(composeLabels(gameTypeLabels(slot.gameType), situationalFilterLabels(slot.filter, { boundary: data.boundary })));
+  return joinLabels(composeLabels(gameTypeLabels(slot.gameType, slot.season || null), situationalFilterLabels(slot.filter, { boundary: data.boundary })));
 }
 
 function categoryLabel(cat: BoxscoreTabKey): string {

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { postseasonLabel } from "../../shared/gameType";
 import { useParams } from "react-router-dom";
 import { Link as RouterLink } from "react-router-dom";
 import {
@@ -2050,7 +2051,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const seasonBreakdownConditions = composeLabels(
     seasonBoxCategoryLabel(seasonBreakdownTab),
     displayModeLabels(seasonDisplayMode),
-    gameTypeLabels(gameTypeFilter),
+    // シーズン別成績は複数シーズンをまたぐ表のため「ポストシーズン」表記（DESIGN.md 107章）
+    gameTypeLabels(gameTypeFilter, null),
     seasonBreakdownTab === "shooting" && seasonBreakdownPeriod !== "all"
       ? shootingPeriodNote
       : periodLabels(SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === seasonBreakdownPeriod)),
@@ -2060,21 +2062,21 @@ export function PlayerDetailPage({ season }: { season: string }) {
     situationalSeasonLabel,
     seasonBoxCategoryLabel(situationalStatsTab),
     displayModeLabels(situationalStatsDisplayMode),
-    gameTypeLabels(situationalStatsGameType),
+    gameTypeLabels(situationalStatsGameType, situationalStatsSeason),
     situationalStatsTab === "shooting" && situationalStatsPeriod !== "all"
       ? shootingPeriodNote
       : periodLabels(situationalStatsPeriodOption),
   );
   const assistConditions = composeLabels(
     situationalSeasonLabel,
-    gameTypeLabels(situationalStatsGameType),
+    gameTypeLabels(situationalStatsGameType, situationalStatsSeason),
     periodLabels(situationalStatsAssistPeriodOption),
   );
   // オンコート/オフコート比較はQ別/前後半に対応していない（onOffSplitはsituationalStatsPeriodを参照しない）ため、
   // トグルの選択に関わらず常に試合全体で、その旨を明示する
   const onOffConditions = composeLabels(
     situationalSeasonLabel,
-    gameTypeLabels(situationalStatsGameType),
+    gameTypeLabels(situationalStatsGameType, situationalStatsSeason),
     "試合全体（Q別/前後半は対象外）",
   );
   const shotChartOwnTeamName = shotChartFilters.ownTeamId
@@ -2082,7 +2084,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     : undefined;
   const shotChartConditions = composeLabels(
     `${season}シーズン`,
-    gameTypeLabels(gameTypeFilter),
+    gameTypeLabels(gameTypeFilter, season),
     shotChartGameFilterLabels(shotChartFilters, shotChartOwnTeamName),
     periodLabels(shotChartPeriodOption),
   );
@@ -2123,7 +2125,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       value: careerCategory,
       onChange: (v) => setCareerCategory(v as Category),
     }),
-    gameTypeAxis(careerGameTypeFilter, setCareerGameTypeFilter),
+    gameTypeAxis(careerGameTypeFilter, setCareerGameTypeFilter, null),
   ];
   const careerRangeSeasons = (careerCategory === "one" ? careerDataOne : careerData)?.map((cd) => cd.season) ?? [];
   const careerRangeLabel =
@@ -2135,13 +2137,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const careerBaseConditions = composeLabels(
     CAREER_CATEGORY_LABELS[careerCategory],
     careerRangeLabel,
-    gameTypeLabels(careerGameTypeFilter),
+    gameTypeLabels(careerGameTypeFilter, null),
   );
   const careerConditions = composeLabels(careerBaseConditions, displayModeLabels("total"));
   // 試合ログはシーズン内の全試合（レギュラー+プレーオフ）を1試合ずつ並べる表で、G・Pのトグルは無い
   const gameLogTitle = {
     title: `${season}シーズン 試合ログ：${BOXSCORE_TABS.find((t) => t.key === gameBoxTab)?.label ?? gameBoxTab}`,
-    conditions: composeLabels("レギュラー+プレーオフ", "試合全体"),
+    conditions: composeLabels(`レギュラー+${postseasonLabel(season)}`, "試合全体"),
   };
   // 「比較」タブ: スロットごとのシーズン・シチュエーションをタイトルに、共通の軸（カテゴリ・平均・G）を条件行に出す。
   // ロジック上、ComparisonTableは常に平均（perGame）・試合全体で組み立てている（seasonBoxCompareDefs/compareRows）
@@ -2153,7 +2155,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     conditions: composeLabels(
       seasonBoxCategoryLabel(compareTab),
       displayModeLabels("perGame"),
-      gameTypeLabels(compareGameType),
+      gameTypeLabels(compareGameType, null),
       "試合全体",
     ),
   };
@@ -2302,7 +2304,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             simple
             stateKey={pk("seasonBreakdownFilter")}
             axes={[
-              gameTypeAxis(gameTypeFilter, setGameTypeFilter),
+              gameTypeAxis(gameTypeFilter, setGameTypeFilter, null),
               periodAxis(seasonBreakdownPeriod, setSeasonBreakdownPeriod, SEASON_BOX_PERIOD_OPTIONS, {
                 disabledReason: seasonBreakdownTab === "shooting" ? `${CATEGORY_LABELS.shooting}はQ別/前後半の対象外です。` : undefined,
               }),
@@ -2344,7 +2346,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 defaultValue: situationalStatsSeason,
                 onChange: setSituationalStatsSeason,
               }),
-              gameTypeAxis(situationalStatsGameType, setSituationalStatsGameType),
+              gameTypeAxis(situationalStatsGameType, setSituationalStatsGameType, situationalStatsSeason),
               periodAxis(situationalStatsPeriod, setSituationalStatsPeriod, SEASON_BOX_PERIOD_OPTIONS, {
                 disabledReason: situationalStatsTab === "shooting" ? `${CATEGORY_LABELS.shooting}はQ別/前後半の対象外です。` : undefined,
               }),
@@ -2488,7 +2490,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <dt>勝敗</dt>
               <dd>勝った試合／負けた試合を分けて集計します。</dd>
               <dt>直近試合</dt>
-              <dd>選択中のシーズン・レギュラー/プレーオフ絞り込みの範囲内で、直近5試合／直近10試合を分けて集計します。</dd>
+              <dd>選択中のシーズン・レギュラー/{postseasonLabel(situationalStatsSeason)}絞り込みの範囲内で、直近5試合／直近10試合を分けて集計します。</dd>
               <dt>会場</dt>
               <dd>ホーム開催／アウェイ開催の試合を分けて集計します。</dd>
               <dt>地区</dt>
@@ -2627,7 +2629,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 </>
               )}
               <p className="page-subtitle">
-                選択中のシーズン・レギュラー/プレーオフ/合算・Q別/前後半の絞り込みに連動します（18章のbuildAssistPairs()を再利用）。
+                選択中のシーズン・レギュラー/{postseasonLabel(situationalStatsSeason)}/合算・Q別/前後半の絞り込みに連動します（18章のbuildAssistPairs()を再利用）。
                 「占める割合」は得点選手が受けた全アシスト回数のうち、その配給元からの割合。
                 「回数割合」「得点割合」はこの選手が受けた全アシスト回数・全アシスト経由得点のうち、その配給元からの割合（「アシストなし」行は対象外）。
               </p>
@@ -2721,7 +2723,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     この選手が出場した試合のみを対象に、コート上にいた時間帯（オンコート）といなかった時間帯（オフコート）で
                     チーム/相手チームの成績を分けて集計しています。ORtg/DRtgは「よく使われるラインナップ」と同じ推定
                     ポゼッション数（buildPossessionStartEvents）ベースの参考値です。選択中のシーズン・レギュラー/
-                    プレーオフ/合算の絞り込みに連動します（Q別/前後半には対応していません）。
+                    {postseasonLabel(situationalStatsSeason)}/合算の絞り込みに連動します（Q別/前後半には対応していません）。
                   </p>
                 </>
               );
@@ -2754,7 +2756,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 />
               </div>
               <p className="page-subtitle">
-                選手が出場した各試合の生データ（GeniusAPI由来のショット座標）をシーズン合計したもの。試合詳細ページのショットチャートと同じ形式で、個別ショット/エリア別成功率を切り替えられる（2022-23シーズン以降のみ対応。DESIGN.md参照）。上の「シーズン別成績」のレギュラー/プレーオフ/合算トグルに連動する。フィルタ・Q別トグルは複数選択でき、選択した条件をすべて満たす試合・ショットに絞り込む。既定は全チーム合算表示で、同一シーズンに複数チームでプレーした場合のみチーム別ボタンが表示される
+                選手が出場した各試合の生データ（GeniusAPI由来のショット座標）をシーズン合計したもの。試合詳細ページのショットチャートと同じ形式で、個別ショット/エリア別成功率を切り替えられる（2022-23シーズン以降のみ対応。DESIGN.md参照）。上の「シーズン別成績」のレギュラー/{postseasonLabel(null)}/合算トグルに連動する。フィルタ・Q別トグルは複数選択でき、選択した条件をすべて満たす試合・ショットに絞り込む。既定は全チーム合算表示で、同一シーズンに複数チームでプレーした場合のみチーム別ボタンが表示される
               </p>
             </>
           )}
@@ -2955,7 +2957,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               );
             })}
           </div>
-          <FilterBar simple stateKey={pk("compareCommon")} axes={[gameTypeAxis(compareGameType, setCompareGameType)]} />
+          <FilterBar simple stateKey={pk("compareCommon")} axes={[gameTypeAxis(compareGameType, setCompareGameType, null)]} />
           <div className="tab-bar">
             {SEASON_BOX_TABS.map((t) => (
               <button
