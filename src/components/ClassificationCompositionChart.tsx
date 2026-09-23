@@ -155,7 +155,7 @@ function SegmentLabel({
   catIndex: CategoryIndex;
   rows: CompositionRow[];
 }) {
-  if (x == null || y == null || width == null || height == null || index == null || width < 34) return null;
+  if (x == null || y == null || width == null || height == null || index == null || width < 46) return null;
   const row = rows[index];
   if (!row) return null;
   const pct = row.pct[catIndex];
@@ -172,7 +172,7 @@ function SegmentLabel({
       strokeWidth={2.5}
       paintOrder="stroke"
     >
-      {`${pct.toFixed(0)}% (${value.toFixed(1)})`}
+      {`${pct.toFixed(1)}% (${value.toFixed(1)})`}
     </text>
   );
 }

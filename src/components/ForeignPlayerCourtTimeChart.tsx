@@ -17,6 +17,8 @@ interface ChartRow {
   teamShort: string;
   totalSeconds: number;
   seconds: [number, number, number, number, number];
+  /** 1試合あたりの平均在コート秒数（レギュラーシーズンの試合数で割る。整数秒に丸め済み） */
+  secondsPerGame: [number, number, number, number, number];
   pct: [number, number, number, number, number];
   pct0: number;
   pct1: number;
@@ -40,12 +42,16 @@ export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeCha
       const seconds = BUCKET_LABELS.map((_, i) => raw?.[i] ?? 0) as [number, number, number, number, number];
       const total = seconds.reduce((a, b) => a + b, 0);
       const pct = seconds.map((s) => (total > 0 ? (100 * s) / total : 0)) as [number, number, number, number, number];
+      // foreignPlayerCourtSecondsはレギュラーシーズンのみの集計で、gamesPlayedもレギュラーシーズンの試合数
+      const games = t.gamesPlayed > 0 ? t.gamesPlayed : 0;
+      const secondsPerGame = seconds.map((s) => (games > 0 ? Math.round(s / games) : 0)) as [number, number, number, number, number];
       return {
         teamId: t.teamId,
         teamName: t.teamName,
         teamShort: teamShortName(t.teamId, t.teamName),
         totalSeconds: total,
         seconds,
+        secondsPerGame,
         pct,
         pct0: pct[0],
         pct1: pct[1],
@@ -84,11 +90,11 @@ export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeCha
             axisLine={false}
           />
           <Tooltip content={<ForeignCountTooltip />} cursor={{ fill: "var(--row-hover)" }} />
-          <Bar dataKey="pct0" name={BUCKET_LABELS[0]} stackId="foreign" fill={BUCKET_COLORS[0]} isAnimationActive={false} />
-          <Bar dataKey="pct1" name={BUCKET_LABELS[1]} stackId="foreign" fill={BUCKET_COLORS[1]} isAnimationActive={false} />
-          <Bar dataKey="pct2" name={BUCKET_LABELS[2]} stackId="foreign" fill={BUCKET_COLORS[2]} isAnimationActive={false} />
-          <Bar dataKey="pct3" name={BUCKET_LABELS[3]} stackId="foreign" fill={BUCKET_COLORS[3]} isAnimationActive={false} />
-          <Bar dataKey="pct4" name={BUCKET_LABELS[4]} stackId="foreign" fill={BUCKET_COLORS[4]} isAnimationActive={false} />
+          <Bar dataKey="pct0" name={BUCKET_LABELS[0]} stackId="foreign" fill={BUCKET_COLORS[0]} isAnimationActive={false} label={<SegmentLabel bucket={0} rows={rows} />} />
+          <Bar dataKey="pct1" name={BUCKET_LABELS[1]} stackId="foreign" fill={BUCKET_COLORS[1]} isAnimationActive={false} label={<SegmentLabel bucket={1} rows={rows} />} />
+          <Bar dataKey="pct2" name={BUCKET_LABELS[2]} stackId="foreign" fill={BUCKET_COLORS[2]} isAnimationActive={false} label={<SegmentLabel bucket={2} rows={rows} />} />
+          <Bar dataKey="pct3" name={BUCKET_LABELS[3]} stackId="foreign" fill={BUCKET_COLORS[3]} isAnimationActive={false} label={<SegmentLabel bucket={3} rows={rows} />} />
+          <Bar dataKey="pct4" name={BUCKET_LABELS[4]} stackId="foreign" fill={BUCKET_COLORS[4]} isAnimationActive={false} label={<SegmentLabel bucket={4} rows={rows} />} />
         </BarChart>
       </ResponsiveContainer>
       <div className="foreign-count-legend">
@@ -103,6 +109,45 @@ export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeCha
   );
 }
 
+/** 各セグメント上に割合(%)と1試合あたりの平均在コート時間（MIN）を表示する。ScoringCompositionChartの
+ * SegmentLabelと同じ見た目（白文字＋黒縁取り）で、幅が足りないセグメントは非表示にする（ツールチップで確認できる） */
+function SegmentLabel({
+  x,
+  y,
+  width,
+  height,
+  index,
+  bucket,
+  rows,
+}: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  index?: number;
+  bucket: number;
+  rows: ChartRow[];
+}) {
+  if (x == null || y == null || width == null || height == null || index == null || width < 62) return null;
+  const row = rows[index];
+  if (!row) return null;
+  return (
+    <text
+      x={x + width / 2}
+      y={y + height / 2}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={10}
+      fill="#fff"
+      stroke="#000"
+      strokeWidth={2.5}
+      paintOrder="stroke"
+    >
+      {`${row.pct[bucket]!.toFixed(1)}% (${formatMinutesFromSeconds(row.secondsPerGame[bucket]!)})`}
+    </text>
+  );
+}
+
 function ForeignCountTooltip({ active, payload }: { active?: boolean; payload?: { payload: ChartRow }[] }) {
   if (!active || !payload || payload.length === 0) return null;
   const row = payload[0]!.payload;
@@ -112,7 +157,7 @@ function ForeignCountTooltip({ active, payload }: { active?: boolean; payload?: 
       {BUCKET_LABELS.map((label, i) => (
         <div key={label} className="foreign-count-tooltip-row">
           <span className="foreign-count-tooltip-swatch" style={{ background: BUCKET_COLORS[i] }} />
-          {label}: {row.pct[i]!.toFixed(1)}%（{formatMinutesFromSeconds(row.seconds[i]!)}）
+          {label}: {row.pct[i]!.toFixed(1)}%（平均{formatMinutesFromSeconds(row.secondsPerGame[i]!)}／合計{formatMinutesFromSeconds(row.seconds[i]!)}）
         </div>
       ))}
       <div className="foreign-count-tooltip-total">捕捉できた合計出場時間: {formatMinutesFromSeconds(row.totalSeconds)}</div>
