@@ -92,8 +92,49 @@ export function cleanNumericString(s: string): string {
  * 「日程結果」タブと同じCOLUMNS_BY_TAB（試合詳細ページのボックススコア列定義）を、
  * 自チーム/opp/+/-トグルに応じたComparisonStatDefへ変換する（チーム版の比較表）
  */
+/**
+ * 比較の表で「良い方の値」を強調するときの向きの補正（DESIGN.md 134-4）。列定義（BoxscoreTable の COLUMNS_BY_TAB・
+ * SEASON_BOX_COLUMNS）はボックススコア等の他の表でも使うので変えず、比較の表だけで上書きする。
+ * - 少ないほど良い: UFOUL・DQFOUL・TF・OFF FOUL（個人の OFF FOUL は列定義に向きが無く「多いほど良い」扱いになっていた）
+ * - 強調しない: 試投数と、試投数に占める割合（多い・少ないに良し悪しが無い）
+ */
+const COMPARE_LOWER_IS_BETTER = new Set(["ufoul", "dqfoul", "tf", "offfoul"]);
+const COMPARE_NO_HIGHLIGHT = new Set([
+  "fga",
+  "2pa",
+  "3pa",
+  "fta",
+  "paint2a",
+  "mid2a",
+  "pctfga",
+  "pct3pa",
+  "pctfta",
+  "pct3paown",
+  "pctpaint2aown",
+  "pctmid2aown",
+]);
+/** チームの列定義で比較用の値（value）を持たない列の補い（無いと全員0扱いになり強調されない） */
+const TEAM_COMPARE_VALUE: Record<string, (c: BoxscoreCounts) => number> = {
+  ufoul: (c) => c.unsportsmanlikeFouls,
+  dqfoul: (c) => c.disqualifyingFouls,
+  tf: (c) => c.technicalFouls,
+};
+
+function compareHigherIsBetter(key: string, own: boolean | undefined): boolean {
+  return COMPARE_LOWER_IS_BETTER.has(key) ? false : (own ?? true);
+}
+
 export function teamCompareDefs(tabKey: BoxscoreTabKey, perspective: TeamPerspective): ComparisonStatDef<TeamCompareColumnData>[] {
-  return COLUMNS_BY_TAB[tabKey].map((col) => ({
+  return COLUMNS_BY_TAB[tabKey].map((raw) => {
+    const extraValue = TEAM_COMPARE_VALUE[raw.key];
+    const col: BoxscoreColumn = extraValue && !raw.value ? { ...raw, value: (c) => extraValue(c) } : raw;
+    return teamCompareDef(col, perspective);
+  });
+}
+
+function teamCompareDef(col: BoxscoreColumn, perspective: TeamPerspective): ComparisonStatDef<TeamCompareColumnData> {
+  const ownHigherIsBetter = compareHigherIsBetter(col.key, col.higherIsBetter);
+  return {
     key: col.key,
     label: col.label,
     value: (r) => {
@@ -109,8 +150,11 @@ export function teamCompareDefs(tabKey: BoxscoreTabKey, perspective: TeamPerspec
         : perspective === "opp"
           ? cleanNumericString(col.format(r.boxTotals.opp, r.boxTotals.oppCtx))
           : formatColumnDiff(col, r.boxTotals.own, r.boxTotals.ownCtx, r.boxTotals.opp, r.boxTotals.oppCtx),
-    higherIsBetter: col.higherIsBetter,
-  }));
+    // 相手チーム視点では向きを反転する（相手のPTSは少ない方が、相手のTOVは多い方が自チームにとって良い。
+    // チーム一覧・ランキングの視点切り替えと同じ考え方）
+    higherIsBetter: perspective === "opp" ? !ownHigherIsBetter : ownHigherIsBetter,
+    noHighlight: COMPARE_NO_HIGHLIGHT.has(col.key),
+  };
 }
 
 export interface CompareColumnData {
@@ -130,6 +174,7 @@ export function seasonBoxCompareDefs(tabKey: SeasonBoxTabKey): ComparisonStatDef
     label: col.label,
     value: (r) => col.value(r.ctx, "perGame"),
     format: (r) => col.format(r.ctx, "perGame"),
-    higherIsBetter: col.higherIsBetter,
+    higherIsBetter: compareHigherIsBetter(col.key, col.higherIsBetter),
+    noHighlight: COMPARE_NO_HIGHLIGHT.has(col.key),
   }));
 }

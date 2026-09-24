@@ -3008,6 +3008,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               rowKey={(r) => r.key}
               name={(r) => r.label}
               linkTo={() => `/players/${player.playerId}`}
+              teamColor={() => accentColor}
             />
           )}
           {compareTab === "misc" && (

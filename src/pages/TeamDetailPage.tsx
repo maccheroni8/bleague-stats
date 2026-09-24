@@ -4502,6 +4502,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               rowKey={(r) => r.key}
               name={(r) => r.label}
               linkTo={() => `/teams/${teamId}`}
+              teamColor={() => accentColor}
             />
           )}
           {compareTab === "misc" && (

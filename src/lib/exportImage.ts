@@ -18,6 +18,7 @@ export async function exportElementAsImage(el: HTMLElement, filename: string): P
     backgroundColor: bg || "#ffffff",
     scale: 2,
     onclone: (doc, clonedEl) => {
+      convertModernColors(clonedEl);
       const footer = doc.createElement("div");
       footer.className = "export-footer";
       const date = doc.createElement("span");
@@ -33,4 +34,31 @@ export async function exportElementAsImage(el: HTMLElement, filename: string): P
   a.href = url;
   a.download = filename;
   a.click();
+}
+
+/**
+ * html2canvas は color-mix() の計算結果（Chrome では "color(srgb 0.1 0.13 0.21)" 形式）を読めず、画像出力ごと失敗する
+ * （比較の表の良い方の値の塗り等。DESIGN.md 134-4）。複製側の要素だけ、その形式の色を rgb() に直して インライン指定する
+ */
+const COLOR_PROPS = ["background-color", "color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"] as const;
+
+function srgbToRgb(value: string): string | null {
+  const m = /^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)$/.exec(value.trim());
+  if (!m) return null;
+  const [r, g, b] = [m[1], m[2], m[3]].map((v) => Math.round(Number(v) * 255));
+  return m[4] !== undefined ? `rgba(${r}, ${g}, ${b}, ${m[4]})` : `rgb(${r}, ${g}, ${b})`;
+}
+
+function convertModernColors(root: HTMLElement): void {
+  const view = root.ownerDocument.defaultView;
+  if (!view) return;
+  for (const el of [root, ...root.querySelectorAll<HTMLElement>("*")]) {
+    const style = view.getComputedStyle(el);
+    for (const prop of COLOR_PROPS) {
+      const value = style.getPropertyValue(prop);
+      if (!value.startsWith("color(")) continue;
+      const rgb = srgbToRgb(value);
+      if (rgb) el.style.setProperty(prop, rgb);
+    }
+  }
 }

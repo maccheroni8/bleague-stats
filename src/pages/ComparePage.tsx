@@ -1,4 +1,4 @@
-import { useMemo, useRef, type ReactNode } from "react";
+import { useMemo, useRef, type CSSProperties, type ReactNode } from "react";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { surnameOf } from "../lib/playerSurname";
@@ -76,6 +76,8 @@ export interface ComparisonStatDef<T> {
   value: (row: T) => number;
   format: (row: T) => string;
   higherIsBetter?: boolean;
+  /** true のとき、良い方の値を強調しない（試投数など、多い・少ないに良し悪しが無い項目） */
+  noHighlight?: boolean;
 }
 
 // --- URLパラメータ ---
@@ -210,7 +212,9 @@ export function ComparisonTable<T>({
   const valueAlign = (i: number) =>
     !interleaved ? "align-right" : i === 0 ? "align-right" : i === rows.length - 1 ? "align-left" : "align-center";
   return (
-    <div className={`table-scroll compare-table-scroll${interleaved ? " compare-interleaved" : " compare-label-first"}`}>
+    <div
+      className={`table-scroll compare-table-scroll compare-count-${rows.length}${interleaved ? " compare-interleaved" : " compare-label-first"}`}
+    >
       <table className="sortable-table compare-table">
         <thead>
           <tr>
@@ -248,6 +252,15 @@ export function ComparisonTable<T>({
           {defs.map((def) => {
             const values = rows.map(({ item }) => def.value(item));
             const best = def.higherIsBetter === false ? Math.min(...values) : Math.max(...values);
+            // 良い方の値（DESIGN.md 134-4）: セルの地をその対象のチームカラーで薄く塗り（蛍光ペンの見た目）、数値を太字にする。
+            // 同値は表示している値（丸めた後）で判定し、最良の表示値を持つ対象すべてを塗る（3つの比較で2者が並べば2者とも）。
+            // 全員が同じ表示値の行（2つの比較の同値を含む）と、試投数など良し悪しの無い項目は塗らない
+            const formatted = rows.map(({ item }) => def.format(item));
+            const bestAt = values.findIndex((v) => v === best);
+            const bestText = bestAt === -1 ? null : formatted[bestAt];
+            const winners = bestText === null ? 0 : formatted.filter((f) => f === bestText).length;
+            const isBest = (i: number) =>
+              !def.noHighlight && rows.length > 1 && bestText !== null && winners < rows.length && formatted[i] === bestText;
             return (
               <tr key={def.key}>
                 {columns.map((col, ci) =>
@@ -258,9 +271,14 @@ export function ComparisonTable<T>({
                   ) : (
                     <td
                       key={rowKey(rows[col]!.item)}
-                      className={`${valueAlign(col)}${rows.length > 1 && values[col] === best ? " compare-best" : ""}`}
+                      className={`${valueAlign(col)}${isBest(col) ? " compare-best" : ""}`}
+                      style={
+                        isBest(col)
+                          ? ({ "--leader-team-color": teamColor?.(rows[col]!.item) ?? "var(--accent)" } as CSSProperties)
+                          : undefined
+                      }
                     >
-                      {def.format(rows[col]!.item)}
+                      {formatted[col]}
                     </td>
                   ),
                 )}
