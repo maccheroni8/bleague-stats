@@ -942,7 +942,12 @@ export function StandingsPage({ season }: { season: string }) {
                   />
                   <WinLossGrid
                     season={season}
-                    teams={g.rows.map((r) => ({ teamId: r.teamId, teamName: r.teamName }))}
+                    teams={g.rows.map((r) => ({
+                      teamId: r.teamId,
+                      teamName: r.teamName,
+                      // 地区順位（順位表の表示と同じ値）。地区の無いシーズンの全体表示では順位を出さない
+                      divisionRank: g.key === "all" ? undefined : r.unplayed ? null : (r.divisionRank ?? null),
+                    }))}
                     games={gameSummaries}
                     upcomingGames={schedule?.upcomingGames ?? []}
                     clinchEvents={playoffRace?.clinchEvents ?? []}

@@ -5149,7 +5149,8 @@ table.compare-table th .compare-condition-tag {
 
 /* --------------------------------------------------------------------------
  * 勝敗表（WinLossGrid。順位表ページの「勝敗表」タブ、DESIGN.md 132章）。1試合1マス（22px）で最大60列並ぶため、
- * どの幅でも表内の横スクロールにし、チーム名の列を固定する。10試合ごとに細い区切り線。ホームの試合はマスの地を灰色（--row-hover）。
+ * どの幅でも表内の横スクロールにし、チーム名の列を固定する。10試合ごとに細い区切り線。アウェイの試合はマスの地を薄い青（既存の青 #1565c0 と --bg の混色。
+ * ダークは地が暗いので混ぜる割合を上げる）。チーム名の左に地区順位。
  * 確定した試合は機能色（赤）の枠＋隅の記号（◎地区優勝・★準々決勝ホームコート・☆進出）。試合の無い日の確定は点線の枠
  * -------------------------------------------------------------------------- */
 .wl-grid-scroll {
@@ -5186,9 +5187,9 @@ table.wl-grid .wl-team-col {
   position: sticky;
   left: 0;
   z-index: 1;
-  width: 232px;
-  min-width: 232px;
-  max-width: 232px;
+  width: 256px;
+  min-width: 256px;
+  max-width: 256px;
   overflow: hidden;
   padding: 6px 10px 6px 9px;
   background: var(--bg);
@@ -5204,6 +5205,27 @@ table.wl-grid th.wl-team-col {
 table.wl-grid td.wl-team-col {
   border-left: 3px solid var(--border);
   font-weight: 600;
+}
+
+/* 地区順位: チーム名の左に固定幅・右揃え（2桁でも名前の開始位置が揃う） */
+.wl-rank {
+  display: inline-block;
+  width: 18px;
+  margin-right: 6px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  vertical-align: middle;
+}
+
+table.wl-grid th .wl-rank {
+  width: auto;
+  min-width: 18px;
+}
+
+table.wl-grid td.wl-team-col .wl-team-link {
+  max-width: calc(100% - 24px);
+  vertical-align: middle;
 }
 
 .wl-team-link {
@@ -5248,8 +5270,8 @@ table.wl-grid .wl-cell {
   height: 30px;
 }
 
-table.wl-grid .wl-home {
-  background: var(--row-hover);
+table.wl-grid .wl-away {
+  background: color-mix(in srgb, #1565c0 13%, var(--bg));
 }
 
 .wl-mark {
@@ -5308,11 +5330,11 @@ table.wl-grid tbody tr:hover td {
   background-color: var(--row-hover);
 }
 
-table.wl-grid tbody tr:hover td.wl-home {
-  background-color: color-mix(in srgb, var(--row-hover) 60%, var(--border));
+table.wl-grid tbody tr:hover td.wl-away {
+  background-color: color-mix(in srgb, #1565c0 20%, var(--bg));
 }
 
-/* 凡例: 表の見出しと同じ小さい字間つき。ホームの地・確定の枠の見本を小さい四角で示す */
+/* 凡例: 表の見出しと同じ小さい字間つき。アウェイの地・確定の枠の見本を小さい四角で示す */
 .wl-legend {
   display: flex;
   flex-wrap: wrap;
@@ -5339,8 +5361,28 @@ table.wl-grid tbody tr:hover td.wl-home {
 }
 
 .wl-legend-swatch {
-  background: var(--row-hover);
+  background: color-mix(in srgb, #1565c0 13%, var(--bg));
   border: 1px solid var(--border);
+}
+
+/* ダーク: 地が暗いので青の割合を上げる（13%では地との差がほぼ見えない） */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) table.wl-grid .wl-away,
+  :root:not([data-theme="light"]) .wl-legend-swatch {
+    background: color-mix(in srgb, #1565c0 32%, var(--bg));
+  }
+  :root:not([data-theme="light"]) table.wl-grid tbody tr:hover td.wl-away {
+    background-color: color-mix(in srgb, #1565c0 42%, var(--bg));
+  }
+}
+
+:root[data-theme="dark"] table.wl-grid .wl-away,
+:root[data-theme="dark"] .wl-legend-swatch {
+  background: color-mix(in srgb, #1565c0 32%, var(--bg));
+}
+
+:root[data-theme="dark"] table.wl-grid tbody tr:hover td.wl-away {
+  background-color: color-mix(in srgb, #1565c0 42%, var(--bg));
 }
 
 .wl-legend-frame {
@@ -5356,9 +5398,9 @@ table.wl-grid tbody tr:hover td.wl-home {
 /* スマホ幅: チーム名は略称（ResponsiveTeamName）になるので列を細くする */
 @media (max-width: 560px) {
   table.wl-grid .wl-team-col {
-    width: 104px;
-    min-width: 104px;
-    max-width: 104px;
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
     padding-right: 6px;
   }
 }

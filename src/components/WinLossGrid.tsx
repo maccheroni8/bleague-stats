@@ -8,7 +8,8 @@ import { ResponsiveTeamName } from "./ResponsiveTeamName";
 
 /**
  * 勝敗表（順位表ページのタブ。DESIGN.md 132章）。クラブごとにレギュラーシーズンの全試合を第1試合から順に○（勝ち）●（負け）で並べ、
- * 未消化は空欄。マスにカーソルで試合の詳細、クリックで試合詳細へ。ホームの試合はマスの地を灰色にする。
+ * 未消化は空欄。マスにカーソルで試合の詳細、クリックで試合詳細へ。アウェイの試合はマスの地を薄い青にする（中立地開催も
+ * 公式記録上のホーム／アウェイ＝games-summary の homeTeamId に従う）。チーム名の左に地区順位（順位表と同じ公式タイブレーク適用済みの値）。
  * 確定した試合（playoff-race.json の clinchEvents）は赤枠＋隅の記号（◎地区優勝・★準々決勝ホームコート・☆ポストシーズン進出）。
  * 試合の無い日に確定した場合は直前の試合に点線の枠。右端にホーム平均観客数・最大連勝・最大連敗・現在の連勝/連敗。
  */
@@ -16,6 +17,8 @@ import { ResponsiveTeamName } from "./ResponsiveTeamName";
 export interface WinLossGridTeam {
   teamId: string;
   teamName: string;
+  /** 地区順位。null は未試合（「-」）。地区の無い表示では渡さない（undefined＝順位の列なし） */
+  divisionRank?: number | null;
 }
 
 interface GameCell {
@@ -108,6 +111,7 @@ export function WinLossGrid({
   clinchEvents: ClinchEvent[];
   teamColors?: Record<string, { primary?: string }>;
 }) {
+  const showRank = teams.some((t) => t.divisionRank !== undefined);
   const cellsByTeam = new Map(teams.map((t) => [t.teamId, teamGames(t.teamId, games)]));
   const upcomingByName = new Map<string, number>();
   for (const g of upcomingGames) {
@@ -130,7 +134,10 @@ export function WinLossGrid({
       <table className="wl-grid">
         <thead>
           <tr>
-            <th className="wl-team-col">チーム</th>
+            <th className="wl-team-col">
+              {showRank && <span className="wl-rank">順位</span>}
+              チーム
+            </th>
             {Array.from({ length: slots }, (_, i) => (
               <th key={i} className={`wl-num${i > 0 && i % 10 === 0 ? " wl-sep" : ""}`}>
                 {i + 1}
@@ -151,6 +158,7 @@ export function WinLossGrid({
             return (
               <tr key={t.teamId}>
                 <td className="wl-team-col" style={accent ? { borderLeftColor: accent } : undefined}>
+                  {showRank && <span className="wl-rank">{t.divisionRank ?? "-"}</span>}
                   <Link to={`/teams/${t.teamId}`} className="wl-team-link">
                     <TeamLogo teamId={t.teamId} size={18} />
                     <span className="wl-team-name" title={t.teamName}>
@@ -183,7 +191,7 @@ export function WinLossGrid({
                   ].join("\n");
                   const className = [
                     "wl-cell",
-                    c.isHome ? "wl-home" : "",
+                    c.isHome ? "" : "wl-away",
                     events.length > 0 ? (dashed ? "wl-clinch wl-clinch-dashed" : "wl-clinch") : "",
                   ]
                     .filter(Boolean)
@@ -218,7 +226,7 @@ export function WinLossLegend({ season, clinchTypes }: { season: string; clinchT
       <span>● 負け</span>
       <span>
         <span className="wl-legend-swatch" aria-hidden="true" />
-        ホーム
+        アウェイ
       </span>
       {clinchTypes.length > 0 && (
         <>
