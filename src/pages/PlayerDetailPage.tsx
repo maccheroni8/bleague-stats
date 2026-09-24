@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { postseasonLabel } from "../../shared/gameType";
 import { useParams } from "react-router-dom";
 import { Link as RouterLink } from "react-router-dom";
@@ -59,6 +59,9 @@ import {
   type FilterAxis,
 } from "../lib/filterAxes";
 import { PlayerPhoto } from "../components/PlayerPhoto";
+import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
+import { useMediaQuery } from "../lib/useMediaQuery";
+import { buildSurnameMap } from "../lib/playerSurname";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { bleaguePlayerUrl } from "../lib/externalLinks";
 import { formatDecimal, formatPct, formatPct100, formatSigned, formatWinPct } from "../lib/format";
@@ -152,6 +155,7 @@ type GameLogTableRow =
       kind: "missing";
       scheduleKey: string;
       date: string;
+      opponentTeamId: string;
       opponentTeamName: string;
       isHome: boolean;
       win: boolean;
@@ -163,6 +167,7 @@ function gameLogRowInfo(r: GameLogTableRow) {
     ? {
         scheduleKey: r.box.gameLog.scheduleKey,
         date: r.box.gameLog.date,
+        opponentTeamId: r.box.gameLog.opponentTeamId,
         opponentTeamName: r.box.gameLog.opponentTeamName,
         isHome: r.box.gameLog.isHome,
         win: r.box.gameLog.win,
@@ -184,7 +189,7 @@ function toGameLogColumns(tabKey: BoxscoreTabKey): Column<GameLogTableRow>[] {
         const info = gameLogRowInfo(r);
         return (
           <>
-            {info.isHome ? "vs" : "@"} {info.opponentTeamName}
+            {info.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={info.opponentTeamId} name={info.opponentTeamName} />
             {info.gameType === "playoff" && <span className="playoff-badge">PO</span>}
           </>
         );
@@ -647,7 +652,7 @@ const SEASON_SHOT_CHART_PERIOD_OPTIONS: PeriodRangeOption[] = [
 ];
 
 const SHOOTING_TAB_TOOLTIP =
-  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（2023-24シーズン以降のみ。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意";
+  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（2023-24シーズン以降のみ）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意";
 
 export function PlayerDetailPage({ season }: { season: string }) {
   const { playerId } = useParams<{ playerId: string }>();
@@ -1076,6 +1081,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         kind: "missing",
         scheduleKey: log.scheduleKey,
         date: log.date,
+        opponentTeamId: log.opponentTeamId,
         opponentTeamName: log.opponentTeamName,
         isHome: log.isHome,
         win: log.win,
@@ -1092,6 +1098,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             kind: "missing",
             scheduleKey: t.scheduleKey,
             date: t.date,
+            opponentTeamId: t.opponentTeamId,
             opponentTeamName: t.opponentTeamName,
             isHome: t.isHome,
             win: t.win,
@@ -1490,6 +1497,16 @@ export function PlayerDetailPage({ season }: { season: string }) {
     () => new Map((situationalStatsPlayers ?? []).map((p) => [p.playerId, p.name])),
     [situationalStatsPlayers],
   );
+  // 「アシストの関係性」の選手名: スマホ幅（560px以下）は名字のみ（試合詳細・チーム詳細と同じ buildSurnameMap。
+  // 同じチームに同じ名字の選手がいる場合はフルネームのまま）
+  const narrow = useMediaQuery("(max-width: 560px)");
+  const assistSurnameById = useMemo(() => {
+    const byTeam = new Map<string, { id: string; name: string }[]>();
+    for (const p of situationalStatsPlayers ?? []) byTeam.set(p.teamId, [...(byTeam.get(p.teamId) ?? []), { id: p.playerId, name: p.name }]);
+    return buildSurnameMap([...byTeam.values()]);
+  }, [situationalStatsPlayers]);
+  const assistPlayerName = (playerId: string): string =>
+    (narrow ? assistSurnameById.get(playerId) : undefined) ?? situationalStatsPlayerNameById.get(playerId) ?? playerId;
   // 選手の所属チームはシーズン内移籍で複数に分かれうるため、players.jsonの単一teamIdには頼らず
   // 試合ログから動的に導出する（resolveOwnTeam参照）。situationalStatsLogsは本来この下の
   // 早期returnの後で計算していたが、この節のフックが参照する必要があるため早期returnより前に
@@ -1756,11 +1773,17 @@ export function PlayerDetailPage({ season }: { season: string }) {
     })
     .filter((r): r is ComparisonRow<CompareColumnData> => r !== null);
 
-  if (playersLoading) return <p className="loading">読み込み中...</p>;
-  if (playersError) return <p className="error-message">{playersError}</p>;
+  // 読み込み中・エラーの早期リターンも v2 の範囲に入れる（ページ見出し等の見た目を揃える）
+  const v2 = (node: ReactNode) => (
+    <div className="player-detail-page" data-design="v2">
+      {node}
+    </div>
+  );
+  if (playersLoading) return v2(<p className="loading">読み込み中...</p>);
+  if (playersError) return v2(<p className="error-message">{playersError}</p>);
 
   const player = players?.find((p) => p.playerId === playerId);
-  if (!player) return <p className="error-message">選手が見つかりませんでした</p>;
+  if (!player) return v2(<p className="error-message">選手が見つかりませんでした</p>);
 
   const accentColor = teamColors?.[player.teamId]?.primary;
   const nameHistory = playerHistory?.find((h) => h.playerId === player.playerId)?.names ?? [];
@@ -2161,7 +2184,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   };
 
   return (
-    <div>
+    <div className="player-detail-page" data-design="v2">
       <Link to="/players" className="back-link">
         ← 個人一覧に戻る
       </Link>
@@ -2298,7 +2321,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       </div>
 
       {tab === "stats" && (
-        <>
+        <div className="player-tab-panel">
           <ConditionTitle section title="シーズン別成績" conditions={seasonBreakdownConditions} />
           <FilterBar
             simple
@@ -2385,7 +2408,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           ) : situationalStatsTab === "shooting" && situationalStatsShotTypeKeys.length === 0 ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : (
-            <div className="table-scroll situational-groups-scroll">
+            <div className="table-scroll situational-groups-scroll player-sticky-2 player-sticky-situation">
               <table className="stats-table situational-groups-table">
                 <thead>
                   <tr>
@@ -2437,7 +2460,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
                               .length + 3
                           }
                         >
-                          {group.label}
+                          {/* 横スクロールしても区分の見出しが左に残るよう、チーム詳細と同じ固定ラベル */}
+                          <span className="sticky-group-label">{group.label}</span>
                         </td>
                       </tr>
                       {group.rows.map((row) => (
@@ -2518,7 +2542,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <dt>対戦相手勝率</dt>
               <dd>
                 その行に属する各試合について、対戦相手の「その試合時点までの」勝率を求め単純平均した値です
-                （対戦相手の強さの目安。対勝率別フィルタと同じbuildRecordsBeforeGame()を再利用）。
+                （対戦相手の強さの目安。「対戦相手の勝率」フィルタと同じ計算）。
               </dd>
             </dl>
             )}
@@ -2555,7 +2579,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                           : assistRelationships.given.slice(0, MAX_ASSIST_RELATIONSHIP_ROWS)
                         ).map((p) => (
                           <tr key={p.scorerId}>
-                            <td className="align-left">{situationalStatsPlayerNameById.get(p.scorerId) ?? p.scorerId}</td>
+                            <td className="align-left">{assistPlayerName(p.scorerId)}</td>
                             <td className="align-right">{p.count}</td>
                             <td className="align-right">{p.sharePct != null ? formatPct100(p.sharePct) : "-"}</td>
                             <td className="align-right">{p.assisted2m * 2 + p.assisted3m * 3 + p.assistedFtm}</td>
@@ -2605,7 +2629,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                             <td className="align-left">
                               {p.assisterId === UNASSISTED_SENTINEL
                                 ? "アシストなし"
-                                : (situationalStatsPlayerNameById.get(p.assisterId) ?? p.assisterId)}
+                                : assistPlayerName(p.assisterId)}
                             </td>
                             <td className="align-right">{p.count}</td>
                             <td className="align-right">{p.countSharePct != null ? formatPct100(p.countSharePct) : "-"}</td>
@@ -2629,7 +2653,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 </>
               )}
               <p className="page-subtitle">
-                選択中のシーズン・レギュラー/{postseasonLabel(situationalStatsSeason)}/合算・Q別/前後半の絞り込みに連動します（18章のbuildAssistPairs()を再利用）。
+                選択中のシーズン・レギュラー/{postseasonLabel(situationalStatsSeason)}/合算・Q別/前後半の絞り込みに連動します。
                 「占める割合」は得点選手が受けた全アシスト回数のうち、その配給元からの割合。
                 「回数割合」「得点割合」はこの選手が受けた全アシスト回数・全アシスト経由得点のうち、その配給元からの割合（「アシストなし」行は対象外）。
               </p>
@@ -2722,7 +2746,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   <p className="page-subtitle">
                     この選手が出場した試合のみを対象に、コート上にいた時間帯（オンコート）といなかった時間帯（オフコート）で
                     チーム/相手チームの成績を分けて集計しています。ORtg/DRtgは「よく使われるラインナップ」と同じ推定
-                    ポゼッション数（buildPossessionStartEvents）ベースの参考値です。選択中のシーズン・レギュラー/
+                    ポゼッション数に基づく参考値です。選択中のシーズン・レギュラー/
                     {postseasonLabel(situationalStatsSeason)}/合算の絞り込みに連動します（Q別/前後半には対応していません）。
                   </p>
                 </>
@@ -2756,11 +2780,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 />
               </div>
               <p className="page-subtitle">
-                選手が出場した各試合の生データ（GeniusAPI由来のショット座標）をシーズン合計したもの。試合詳細ページのショットチャートと同じ形式で、個別ショット/エリア別成功率を切り替えられる（2022-23シーズン以降のみ対応。DESIGN.md参照）。上の「シーズン別成績」のレギュラー/{postseasonLabel(null)}/合算トグルに連動する。フィルタ・Q別トグルは複数選択でき、選択した条件をすべて満たす試合・ショットに絞り込む。既定は全チーム合算表示で、同一シーズンに複数チームでプレーした場合のみチーム別ボタンが表示される
+                選手が出場した各試合のショット位置の記録をシーズン合計したもの。試合詳細ページのショットチャートと同じ形式で、個別ショット/エリア別成功率を切り替えられる（2022-23シーズン以降のみ対応）。上の「シーズン別成績」のレギュラー/{postseasonLabel(null)}/合算トグルに連動する。フィルタ・Q別トグルは複数選択でき、選択した条件をすべて満たす試合・ショットに絞り込む。既定は全チーム合算表示で、同一シーズンに複数チームでプレーした場合のみチーム別ボタンが表示される
               </p>
             </>
           )}
-        </>
+        </div>
       )}
 
       {tab === "gamelog" &&
@@ -2769,7 +2793,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         ) : !gameLogs || gameLogs.length === 0 ? (
           <p className="empty-message">試合ログがありません</p>
         ) : (
-          <>
+          <div className="player-tab-panel">
             <ConditionTitle title={gameLogTitle.title} conditions={gameLogTitle.conditions} />
             <div className="tab-bar">
               {BOXSCORE_TABS.map((t) => (
@@ -2786,7 +2810,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             {gameBoxLoading || !gameBoxRows || gameLogTeamGameLogsLoading ? (
               <p className="loading">読み込み中...</p>
             ) : (
-              <div className="table-scroll">
+              <div className="table-scroll player-sticky-2 player-sticky-gamelog">
                 <SortableTable
                   key={gameBoxTab}
                   columns={toGameLogColumns(gameBoxTab)}
@@ -2798,11 +2822,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </div>
             )}
             {gameBoxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
-          </>
+          </div>
         ))}
 
       {tab === "career" && (
-        <>
+        <div className="player-tab-panel">
           <FilterBar simple stateKey={pk("careerFilter")} axes={careerFilterAxes} />
           <ConditionTitle title="通算成績" conditions={careerConditions} />
           {(careerCategory === "one" ? careerOneLoading : careerLoading) ? (
@@ -2842,11 +2866,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
             </div>
           )}
           {careerCountTotals && <RuleChangeFootnote seasons={(careerCountTotalsSource ?? []).map((cd) => cd.season)} />}
-        </>
+        </div>
       )}
 
       {tab === "highs" && (
-        <>
+        <div className="player-tab-panel">
           <FilterBar simple stateKey={pk("careerFilter")} axes={careerFilterAxes} />
           <ConditionTitle title="キャリアハイ・ワースト" conditions={careerBaseConditions} />
           {(careerCategory === "one" ? careerOneLoading : careerLoading) ? (
@@ -2912,11 +2936,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <RuleChangeFootnote seasons={careerCountTotalsSource.map((cd) => cd.season)} />
             </>
           )}
-        </>
+        </div>
       )}
 
       {tab === "compare" && (
-        <>
+        <div className="player-tab-panel">
           <div className="player-compare-slots">
             {([0, 1] as const).map((i) => {
               const slot = compareSlots[i];
@@ -2989,7 +3013,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           {compareTab === "misc" && (
             <RuleChangeFootnote seasons={compareSlots.map((slot) => slot.season).filter((s): s is string => !!s)} />
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -3246,7 +3270,7 @@ function SeasonBreakdownTable({
   return (
     <>
       {tabBar}
-      <div className="table-scroll">
+      <div className="table-scroll player-sticky-2 player-sticky-season">
         <table className="stats-table">
           <thead>
             <tr>
@@ -3404,7 +3428,7 @@ function CareerHighCard({
       <div className="career-high-value">{display}</div>
       <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}`} className="career-high-game-link">
         {game.date}　{game.isHome ? "vs" : "@"}
-        {game.opponentTeamName}
+        <ResponsiveTeamName teamId={game.opponentTeamId} name={game.opponentTeamName} always />
       </RouterLink>
       {otherGames.length > 0 && (
         <>
@@ -3417,7 +3441,7 @@ function CareerHighCard({
                 <li key={g.scheduleKey}>
                   <RouterLink to={`/games/${g.scheduleKey}?season=${g.season}`} className="career-high-game-link">
                     {g.date}　{g.isHome ? "vs" : "@"}
-                    {g.opponentTeamName}
+                    <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always />
                   </RouterLink>
                 </li>
               ))}
@@ -3435,7 +3459,7 @@ function CareerHighCard({
                 <td>
                   <RouterLink to={`/games/${e.game.scheduleKey}?season=${e.game.season}`} className="career-high-game-link">
                     {e.game.date}　{e.game.isHome ? "vs" : "@"}
-                    {e.game.opponentTeamName}
+                    <ResponsiveTeamName teamId={e.game.opponentTeamId} name={e.game.opponentTeamName} always />
                   </RouterLink>
                 </td>
               </tr>

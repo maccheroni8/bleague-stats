@@ -320,7 +320,7 @@ function gameLeaderPlayer(rows: BoxscoreRow[], def: GameLeaderStatDef): GameLead
 export function GameDetailPage({ season }: { season: string }) {
   const { scheduleKey } = useParams<{ scheduleKey: string }>();
   const { data: game, loading, error } = useJsonData(
-    () => (scheduleKey ? fetchGame(season, scheduleKey) : Promise.reject(new Error("scheduleKeyがありません"))),
+    () => (scheduleKey ? fetchGame(season, scheduleKey) : Promise.reject(new Error("試合が指定されていません"))),
     [season, scheduleKey],
   );
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
@@ -672,7 +672,7 @@ export function GameDetailPage({ season }: { season: string }) {
               accentColor={awayColor}
             />
             <p className="page-subtitle">
-              Yahoo!スポーツplay-by-play由来のシュートタイプ内訳（2023-24シーズン以降。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意
+              Yahoo!スポーツplay-by-play由来のシュートタイプ内訳（2023-24シーズン以降）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意
             </p>
           </>
         )

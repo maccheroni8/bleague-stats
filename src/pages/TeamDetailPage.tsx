@@ -161,7 +161,7 @@ import { cleanNumericString, formatColumnDiff, teamCompareDefs, type TeamCompare
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
 const TEAM_SHOOTING_TAB_TOOLTIP =
-  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（チーム全選手合算、2023-24シーズン以降のみ。DESIGN.md参照）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意";
+  "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（チーム全選手合算、2023-24シーズン以降のみ）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意";
 
 // 出場時間がこれ未満のラインナップはサンプルが小さすぎてノイズが大きいため一覧から除外する
 // （実データ確認: 4試合時点で3分(180秒)基準だとチームあたり4〜14組が該当。DESIGN.md参照）
@@ -3623,7 +3623,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 </table>
               </div>
               <p className="page-subtitle">
-                試合の生データ（quarterScores）から判定しているため、展開時にこのチームの当該シーズン全試合を読み込む（DESIGN.md参照）
+                各試合のクォーター別得点から判定しているため、展開時にこのチームの当該シーズン全試合を読み込む
               </p>
             </>
           )}
@@ -3787,7 +3787,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               <p className="page-subtitle">
                 {careerData[0]?.season}〜{careerData[careerData.length - 1]?.season}シーズンの合計値（PITP/FBPS/2ND
                 PTS/PTSOFFTOはPBPタグ集計による得点ベースの値。ホーム来場者数はホーム開催試合のみの合計）。項目名の
-                下の順位は過去在籍した全クラブ横断（Phase H7、シーズンをまたいだ連勝は対象外。詳細はクラブレコード
+                下の順位は過去在籍した全クラブ横断（シーズンをまたいだ連勝は対象外。詳細はクラブレコード
                 タブの「最多連勝（シーズン内）」参照）
               </p>
             </>
@@ -3905,7 +3905,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 {careerData[0]?.season}〜{careerData[careerData.length - 1]?.season}シーズンの中での1試合の最高/最低記録
                 （PITP/FBPS/2ND PTS/PTSOFFTOはPBPタグ集計による得点ベースの値。ホーム来場者数はホーム開催試合のみが対象）。
                 %系の指標はクラブワーストの対象外。項目名クリックでトップ10（TOV・失点・ファウル等「多い方が悪い」
-                項目はワースト側のみトップ5）を展開できます。項目名の下の順位は過去在籍した全クラブ横断（Phase H7）。
+                項目はワースト側のみトップ5）を展開できます。項目名の下の順位は過去在籍した全クラブ横断。
                 クラブワーストは順位算出の対象外。「被記録」は対戦相手がこのチーム相手に記録した最多値
                 （来場者数を除く28項目。歴代順位の算出対象外）
               </p>
@@ -4201,7 +4201,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               <dt>対戦相手勝率</dt>
               <dd>
                 その行に属する各試合について、対戦相手の「その試合時点までの」勝率を求め単純平均した値です
-                （対戦相手の強さの目安。対勝率別フィルタと同じbuildRecordsBeforeGame()を再利用）。
+                （対戦相手の強さの目安。「対戦相手の勝率」フィルタと同じ計算）。
               </dd>
             </dl>
             )}
@@ -4235,7 +4235,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 />
               </div>
               <p className="page-subtitle">
-                チームの全選手が出場した各試合の生データ（GeniusAPI由来のショット座標）を合算したもの（2022-23シーズン以降のみ対応。DESIGN.md参照）。個別ショット/エリア別成功率の切り替え、選手セレクタでの個人絞り込みができる。上の絞り込み（試合種別・Q別/前後半・詳細フィルタ）に連動する
+                チームの全選手が出場した各試合のショット位置の記録を合算したもの（2022-23シーズン以降のみ対応）。個別ショット/エリア別成功率の切り替え、選手セレクタでの個人絞り込みができる。上の絞り込み（試合種別・Q別/前後半・詳細フィルタ）に連動する
               </p>
             </>
           )}
@@ -4417,7 +4417,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 </button>
               )}
               <p className="page-subtitle">
-                レギュラーシーズンの全試合のPlayByPlaysから、アシスト元選手→得点選手のペア単位で集計（18章参照）。
+                レギュラーシーズンの全試合のプレーバイプレー（試合経過の記録）から、アシスト元選手→得点選手のペア単位で集計。
                 「2P割合」「3P割合」「FT割合」はそのペアのアシスト回数に対する2P/3P/FTそれぞれの成功数の割合。
                 「回数割合」「得点割合」は、得点選手が受けた全アシスト回数・全アシスト経由得点のうち、そのアシスト元選手からの割合
               </p>

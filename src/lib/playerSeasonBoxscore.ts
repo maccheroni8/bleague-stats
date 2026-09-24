@@ -938,7 +938,7 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
     label: "POSS",
     format: () => NA,
     value: () => 0,
-    description: "個人POSSという概念は無いため非対応（チーム合計行専用の概念。DESIGN.md参照）",
+    description: "個人POSSという概念は無いため非対応（チーム合計行専用の概念）",
   },
   {
     key: "pace",
@@ -949,7 +949,7 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
     },
     value: (c) => seasonPace(c.raw) ?? 0,
     description:
-      "在コート区間ベース（試合ごとの推定ポゼッションをシーズン合計してから算出）。coverage=\"full\"のシーズン（2022-23以降）のみ対応",
+      "在コート区間ベース（試合ごとの推定ポゼッションをシーズン合計してから算出）。2022-23シーズン以降のみ対応",
   },
   {
     key: "ortg",
@@ -1026,7 +1026,7 @@ export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
     label: "PTSOFFTO",
     format: (c, mode) => formatDecimal(c.scaled.ptsOffTov, countDigits(mode)),
     value: (c) => c.scaled.ptsOffTov,
-    description: "ターンオーバーからの得点（PlayTextの公式判定タグ集計。2016-17シーズンはタグ自体が存在せず常に0）",
+    description: "ターンオーバーからの得点（プレーバイプレーの公式判定タグを集計。2016-17シーズンはタグ自体が存在せず常に0）",
   },
   {
     key: "dunk",

@@ -60,7 +60,7 @@ export function GlossaryPage() {
       <h1>スタッツ用語集</h1>
       <p className="page-subtitle">
         各項目の計算式とデータソース。Bリーグ公式の「スタッツ用語解説」に定義がある項目はその式を採用し、
-        公式に定義がない項目のみNBA/Basketball-Reference流で補っています（DESIGN.md 6章）
+        公式に定義がない項目のみNBA/Basketball-Reference流で補っています
       </p>
 
       {categories.map((category) => {

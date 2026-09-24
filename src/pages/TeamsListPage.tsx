@@ -520,7 +520,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           <h3>失点構成（このチームが奪われた得点の割合）</h3>
           <ScoringCompositionChart teams={teams ?? []} mode="opponent" />
           <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しない）。得点構成のペイント内得点はPlayByPlaysのタグ集計（全シーズン対応）、ミッドレンジ得点は「2P得点−ペイント内得点」として算出しているため、ショットチャート座標のseason制約は受けない。各セグメントの数値は割合(%)と1試合あたり平均得点。見出しボタンでカテゴリ別の並び替えができる（デフォルトは平均得点が多い順）
+            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しない）。得点構成のペイント内得点はプレーバイプレーのタグ集計（全シーズン対応）、ミッドレンジ得点は「2P得点−ペイント内得点」として算出しているため、ショットチャートの対応シーズン（2022-23以降）の制約は受けない。各セグメントの数値は割合(%)と1試合あたり平均得点。見出しボタンでカテゴリ別の並び替えができる（デフォルトは平均得点が多い順）
           </p>
           <h3>得点構成（登録区分）</h3>
           <ClassificationCompositionChart teams={teams ?? []} mode="own" />
@@ -546,7 +546,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           </div>
           {boxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
           <p className="page-subtitle">
-            team-games/{"{teamId}"}.json（試合ログ）から選択中の条件で再集計した値。BSR（被ブロック）・EFF（貢献度）・LIVETOV/DEADTOVは、26チーム分を試合の生データから再集計すると通信量が大きくなりすぎるため、この一覧には含めていない（チーム詳細ページの「チームスタッツ」タブでは1チーム分に限り表示している）
+            各チームの試合ログから選択中の条件で再集計した値。BSR（被ブロック）・EFF（貢献度）・LIVETOV/DEADTOVは、26チーム分を試合の生データから再集計すると通信量が大きくなりすぎるため、この一覧には含めていない（チーム詳細ページの「チームスタッツ」タブでは1チーム分に限り表示している）
           </p>
         </>
       )}

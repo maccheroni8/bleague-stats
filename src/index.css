@@ -4639,7 +4639,7 @@ table.compare-table th .compare-condition-tag {
 }
 
 /* --- 見出し: 試合詳細と同じ（15px/800・文字色）。ConditionTitle のセクション見出しは上に罫線1本で区切る --- */
-[data-design="v2"].team-detail-page h2 {
+[data-design="v2"]:is(.team-detail-page, .player-detail-page) h2 {
   margin: 28px 0 8px;
   font-size: 15px;
   font-weight: 800;
@@ -4647,21 +4647,21 @@ table.compare-table th .compare-condition-tag {
   color: var(--fg);
 }
 
-[data-design="v2"].team-detail-page .condition-title {
+[data-design="v2"]:is(.team-detail-page, .player-detail-page) .condition-title {
   margin: 0 0 8px;
 }
 
-[data-design="v2"].team-detail-page .condition-title h2 {
+[data-design="v2"]:is(.team-detail-page, .player-detail-page) .condition-title h2 {
   margin: 0 0 2px;
 }
 
-[data-design="v2"].team-detail-page .condition-title-section {
+[data-design="v2"]:is(.team-detail-page, .player-detail-page) .condition-title-section {
   margin-top: 32px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
 
-[data-design="v2"].team-detail-page .team-tab-panel > .condition-title-section:first-child {
+[data-design="v2"]:is(.team-detail-page, .player-detail-page) :is(.team-tab-panel, .player-tab-panel) > .condition-title-section:first-child {
   margin-top: 0;
   padding-top: 0;
   border-top: 0;
@@ -5363,4 +5363,192 @@ table.wl-grid tbody tr:hover td.wl-home {
     max-width: 104px;
     padding-right: 6px;
   }
+}
+
+/* ==========================================================================
+ * 個人詳細ページの v2（DESIGN.md 133章）。チーム詳細（115章）と同じ手順で、ルートに data-design="v2"、各タブの中身を
+ * .player-tab-panel で包む。見出し・表・タイル・タブ・ショットチャート等はチーム詳細・試合詳細の v2 規則がそのまま効く。
+ * ここではヘッダー（写真・プロフィール・受賞歴）と、横スクロールする表の2列固定を足す。新しいCSS変数なし。
+ * チームカラー（ヘッダー上端の線・レーダーとショットチャートの色）はデータの識別なので残す。
+ * -------------------------------------------------------------------------- */
+
+/* --- ヘッダー: 上端のチームカラー線は3px、選手名は他ページの見出しと同じ26px/800 --- */
+[data-design="v2"] .player-detail-title {
+  border-top-width: 3px;
+  padding-top: 14px;
+}
+
+[data-design="v2"] .player-detail-title h1 {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  word-break: auto-phrase;
+  overflow-wrap: anywhere;
+}
+
+[data-design="v2"] .player-detail-title .page-subtitle {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  word-break: auto-phrase;
+}
+
+[data-design="v2"] .player-header-photo .player-photo {
+  border-radius: 4px;
+}
+
+/* プロフィールの項目名・受賞歴の見出しは、表の見出しと同じ小さい字間つきの灰色 */
+[data-design="v2"] .profile-item .label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+[data-design="v2"] .profile-item .value {
+  font-variant-numeric: tabular-nums;
+}
+
+[data-design="v2"] .player-awards-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+[data-design="v2"] .player-awards-list {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- 小見出し（アシストの関係性の「誰へのアシストが多いか」・キャリアハイ/ワースト）: 13px/700・文字色 --- */
+[data-design="v2"].player-detail-page .player-tab-panel h3:not(.collapsible-heading),
+[data-design="v2"] .career-highs-subheading {
+  margin: 20px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+/* シーズン内移籍の「複数チーム」合計行: 斜体は残し、地の色は通算行（灰色）と揃える */
+[data-design="v2"] table.stats-table tr.season-team-total-row,
+[data-design="v2"] table.stats-table tr.season-team-total-row td:first-child {
+  background: var(--row-hover);
+}
+
+@media (max-width: 560px) {
+  [data-design="v2"] .player-header-columns {
+    gap: 16px;
+  }
+
+  /* 写真は280pxのまま幅いっぱいに並ぶと1画面を占めるため、スマホ幅では小さくしてプロフィールの横に置く */
+  [data-design="v2"] .player-header-photo .player-photo {
+    width: 112px !important;
+    height: 112px !important;
+  }
+
+  [data-design="v2"] .player-header-profile {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  [data-design="v2"] .player-header-radar {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  [data-design="v2"] .player-detail-title h1 {
+    font-size: 22px;
+  }
+
+  [data-design="v2"] .player-detail-title .page-subtitle {
+    font-size: 12px;
+  }
+}
+
+/* --- 横スクロールする表の2列固定: シーズン別成績（シーズン・チーム）、シチュエーション別成績（区分・チーム）、
+       試合ログ（日付・対戦相手）。1列目の固定は全体の既存規則、2列目の left は1列目の固定幅に合わせる。
+       境界線が固定セルと一緒に動くよう、順位表（130章）と同じく separate＋間隔0 にする --- */
+[data-design="v2"] .player-sticky-2 table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+[data-design="v2"] .player-sticky-2 :is(th, td):first-child:not([colspan]) {
+  box-sizing: border-box;
+}
+
+/* 1列目の固定幅（列ごとの最長の値が収まる幅）と、2列目の left を同じ値にそろえる */
+[data-design="v2"] .player-sticky-season :is(th, td):first-child:not([colspan]) {
+  width: 84px;
+  min-width: 84px;
+  max-width: 84px;
+}
+
+[data-design="v2"] .player-sticky-situation :is(th, td):first-child:not([colspan]) {
+  width: 116px;
+  min-width: 116px;
+  max-width: 116px;
+}
+
+[data-design="v2"] .player-sticky-gamelog :is(th, td):first-child:not([colspan]) {
+  width: 104px;
+  min-width: 104px;
+  max-width: 104px;
+}
+
+[data-design="v2"] .player-sticky-2 tbody td:nth-child(2),
+[data-design="v2"] .player-sticky-2 thead tr:first-child th:nth-child(2) {
+  position: sticky;
+  z-index: 1;
+  background: var(--bg);
+  box-shadow: 1px 0 0 var(--border);
+}
+
+[data-design="v2"] .player-sticky-season :is(tbody td, thead tr:first-child th):nth-child(2) {
+  left: 84px;
+}
+
+[data-design="v2"] .player-sticky-situation :is(tbody td, thead tr:first-child th):nth-child(2) {
+  left: 116px;
+}
+
+[data-design="v2"] .player-sticky-gamelog :is(tbody td, thead tr:first-child th):nth-child(2) {
+  left: 104px;
+}
+
+[data-design="v2"] .player-sticky-2 thead tr:first-child th:nth-child(2) {
+  z-index: 2;
+}
+
+[data-design="v2"] .player-sticky-2 tbody tr:hover td:nth-child(2) {
+  background: var(--row-hover);
+}
+
+[data-design="v2"] .player-sticky-2 tr:is(.career-total-row, .season-team-total-row) td:nth-child(2) {
+  background: var(--row-hover);
+}
+
+/* シチュエーション別は縦スクロールで見出し行が追随する（top固定）。左上の2セルは両方向に固定 */
+[data-design="v2"] .player-sticky-situation thead tr:first-child th:nth-child(-n + 2) {
+  z-index: 4;
+}
+
+/* 区分名（「自チーム外国籍人数 2人」等）は固定幅の中で折り返す */
+[data-design="v2"] .player-sticky-situation td:first-child {
+  white-space: normal;
+}
+
+/* シーズン別成績のカテゴリタブは .tab-bar-with-toggle の下線と v2 の .tab-bar の下線が二重になっていたため、内側の線を消す */
+[data-design="v2"].player-detail-page .tab-bar-with-toggle .tab-bar {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+
+/* ショットチャートの見出し（開閉できる h2）も、ConditionTitle のセクション見出しと同じく上に罫線1本で区切る */
+[data-design="v2"].player-detail-page .player-tab-panel > h2.collapsible-heading {
+  margin-top: 32px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
