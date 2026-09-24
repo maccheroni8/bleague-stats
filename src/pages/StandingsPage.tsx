@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   fetchGameSummaries,
   fetchHeadToHead,
@@ -13,6 +13,7 @@ import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart, type ChartTeam } from "../components/StandingsLineChart";
 import { TeamLogo } from "../components/TeamLogo";
 import { CrownIcon } from "../components/CrownIcon";
+import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { HeadToHeadMatrix } from "../components/HeadToHeadMatrix";
 import { FilterBar } from "../components/FilterBar";
 import { teamMultiAxis } from "../lib/filterAxes";
@@ -35,10 +36,11 @@ import type {
   UpcomingGameEntry,
 } from "../../shared/types";
 
-type StandingsTab = "standings" | "h2h" | "conditional" | "rankTrend" | "winsTrend" | "gamesAboveTrend";
+type StandingsTab = "standings" | "magic" | "h2h" | "conditional" | "rankTrend" | "winsTrend" | "gamesAboveTrend";
 
 const TAB_LABELS: Record<StandingsTab, string> = {
   standings: "順位表",
+  magic: "マジックナンバー",
   h2h: "星取り表",
   conditional: "条件別順位表",
   rankTrend: "順位推移",
@@ -52,7 +54,14 @@ interface WinLossRecord {
 }
 
 /** ホーム/アウェー成績・直近5試合・連勝連敗・試合消化率の元になる、地区別テーブル1行分の付加情報 */
-interface StandingsRow extends StandingsTeamSnapshot {
+/**
+ * 順位表の1チーム。unplayed=true は、開幕直後でまだ試合をしていないため順位表スナップショット
+ * （standings-history.json）に載っていないクラブを、playoff-race.json（scripts/lib/divisions.tsの地区割り）
+ * から0勝0敗で補ったもの（withUnplayedTeams参照）。順位は付けず「-」で表示する
+ */
+type StandingsTeam = StandingsTeamSnapshot & { unplayed?: boolean };
+
+interface StandingsRow extends StandingsTeam {
   homeRecord: WinLossRecord | null;
   awayRecord: WinLossRecord | null;
   /** 直近5試合の時系列順（古い→新しい）のW/L文字列（例: "WWLWW"）。データ未取得ならnull */
@@ -124,8 +133,50 @@ function recordSequence(logs: TeamGameLog[]): string {
 }
 
 /** ホーム/アウェー成績・直近5試合・連勝連敗は、いずれも順位表本体と同じくレギュラーシーズンのみを対象にする */
+/**
+ * まだ試合をしていないクラブを0勝0敗で順位表に加える（2026-27〜のB.PREMIERフォーマットのみ。それ以前の
+ * シーズンは最新スナップショットに全クラブが揃っている）。並べ方（DESIGN.md 130章）:
+ * - 試合をしたクラブの順位（公式タイブレーク適用済み）はそのまま。未試合のクラブはその後ろに並べ、順位は付けない
+ *   （勝率が定義できず、公式の順位付けの対象にならないため）
+ * - 未試合のクラブ同士はチーム名の五十音順
+ * - ゲーム差は、試合をしたクラブの首位との差（(首位の勝ち−負け)÷2）を示す。首位がいなければ付けない
+ */
+function withUnplayedTeams(teams: StandingsTeamSnapshot[], race: PlayoffRaceFile | null): StandingsTeam[] {
+  if (!race || race.format !== "premier-2026") return teams;
+  const played = new Set(teams.map((t) => t.teamId));
+  const missing = race.teams
+    .filter((r) => !played.has(r.teamId))
+    .sort((a, b) => (a.teamName ?? a.teamId).localeCompare(b.teamName ?? b.teamId, "ja"));
+  if (missing.length === 0) return teams;
+  const gamesAbove = (t: StandingsTeamSnapshot | undefined) => (t ? t.wins - t.losses : undefined);
+  const overallLeader = teams.find((t) => t.rank === 1);
+  const unplayed: StandingsTeam[] = missing.map((r, i) => {
+    const divisionLeader = teams.find((t) => t.division === r.division && t.divisionRank === 1);
+    const leaderAbove = gamesAbove(overallLeader);
+    const divisionLeaderAbove = gamesAbove(divisionLeader);
+    return {
+      teamId: r.teamId,
+      teamName: r.teamName ?? r.teamId,
+      wins: 0,
+      losses: 0,
+      winPct: 0,
+      pointsFor: 0,
+      pointsAgainst: 0,
+      pointDiff: 0,
+      // 並び順用の値（表示は「-」）。試合をしたクラブの後ろに来るよう大きな値にする
+      rank: 1000 + i,
+      gamesBehind: leaderAbove === undefined ? 0 : leaderAbove / 2,
+      division: r.division,
+      divisionRank: 1000 + i,
+      divisionGamesBehind: divisionLeaderAbove === undefined ? undefined : divisionLeaderAbove / 2,
+      unplayed: true,
+    };
+  });
+  return [...teams, ...unplayed];
+}
+
 function buildStandingsRow(
-  team: StandingsTeamSnapshot,
+  team: StandingsTeam,
   logs: TeamGameLog[] | undefined,
   upcomingCount: number | undefined,
   race: PlayoffRaceTeam | null,
@@ -218,7 +269,7 @@ const magicColumns: Column<MagicRow>[] = [
     render: (r) => (
       <span className="team-name-cell">
         <TeamLogo teamId={r.teamId} size={20} />
-        {r.teamName}
+        <ResponsiveTeamName teamId={r.teamId} name={r.teamName} />
         <RaceMarks race={r.race} />
       </span>
     ),
@@ -250,9 +301,9 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
     key: "divisionRank",
     label: "地区順位",
     sortValue: (t) => t.divisionRank ?? 0,
-    format: (t) => String(t.divisionRank ?? "-"),
+    format: (t) => (t.unplayed ? "-" : String(t.divisionRank ?? "-")),
   },
-  { key: "rank", label: "全体順位", sortValue: (t) => t.rank, format: (t) => String(t.rank) },
+  { key: "rank", label: "全体順位", sortValue: (t) => t.rank, format: (t) => (t.unplayed ? "-" : String(t.rank)) },
   {
     key: "teamName",
     label: "チーム",
@@ -261,7 +312,7 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
     render: (t) => (
       <span className="team-name-cell">
         <TeamLogo teamId={t.teamId} size={20} />
-        {t.teamName}
+        <ResponsiveTeamName teamId={t.teamId} name={t.teamName} />
         <RaceMarks race={t.race} />
       </span>
     ),
@@ -272,18 +323,31 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
     sortValue: (t) => t.wins - t.losses,
     render: (t) => formatRecord(t.wins, t.losses),
   },
-  { key: "winPct", label: "勝率", sortValue: (t) => t.winPct, format: (t) => formatWinPct(t.winPct) },
+  {
+    key: "winPct",
+    label: "勝率",
+    sortValue: (t) => (t.unplayed ? -1 : t.winPct),
+    format: (t) => (t.unplayed ? "-" : formatWinPct(t.winPct)),
+  },
   {
     key: "divisionGamesBehind",
     label: "GB",
     sortValue: (t) => t.divisionGamesBehind ?? 0,
-    format: (t) => (!t.divisionGamesBehind ? "-" : formatDecimal(t.divisionGamesBehind)),
+    // 首位（差0）は「-」。未試合のクラブは首位と同じ勝ち負け差でも「0.0」と数値で示す
+    format: (t) =>
+      t.unplayed
+        ? t.divisionGamesBehind === undefined
+          ? "-"
+          : formatDecimal(t.divisionGamesBehind)
+        : !t.divisionGamesBehind
+          ? "-"
+          : formatDecimal(t.divisionGamesBehind),
   },
   {
     key: "pointDiff",
     label: "得失点差",
     sortValue: (t) => t.pointDiff,
-    format: (t) => formatSigned(t.pointDiff, 0),
+    format: (t) => (t.unplayed ? "-" : formatSigned(t.pointDiff, 0)),
   },
   {
     key: "homeRecord",
@@ -329,7 +393,11 @@ const allStandingsColumns: Column<StandingsRow>[] = divisionStandingsColumns.map
     ? {
         ...c,
         format: (t: StandingsRow) =>
-          t.division && t.divisionRank ? `${DIVISION_LABELS[t.division][0]}${t.divisionRank}` : String(t.divisionRank ?? "-"),
+          t.unplayed
+            ? "-"
+            : t.division && t.divisionRank
+              ? `${DIVISION_LABELS[t.division][0]}${t.divisionRank}`
+              : String(t.divisionRank ?? "-"),
       }
     : c,
 );
@@ -479,16 +547,23 @@ export function StandingsPage({ season }: { season: string }) {
   const latest = history && history.length > 0 ? history[history.length - 1]! : null;
   const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, latest?.teams ?? null);
 
-  if (loading) return <p className="loading">読み込み中...</p>;
-  if (error) return <p className="error-message">{error}</p>;
-  if (!history || history.length === 0 || !latest) return <p className="empty-message">データがありません</p>;
+  // 読み込み中・エラー時もv2の範囲に入れ、ヘッダー・ナビの見た目が切り替わらないようにする
+  const v2 = (node: ReactNode) => (
+    <div data-design="v2" className="standings-page">
+      {node}
+    </div>
+  );
+  if (loading) return v2(<p className="loading">読み込み中...</p>);
+  if (error) return v2(<p className="error-message">{error}</p>);
+  if (!history || history.length === 0 || !latest) return v2(<p className="empty-message">データがありません</p>);
 
   const teams = latest.teams;
   // schedule.upcomingGamesは古いschedule.jsonスナップショット（スクレイパーにこのフィールドを
   // 追加する前に取得されたもの）には存在しないことがあるため、undefinedの可能性を必ず考慮する
   const upcomingCountByTeamName = schedule ? countUpcomingGamesByTeamName(schedule.upcomingGames ?? []) : null;
   const raceById = new Map((playoffRace?.teams ?? []).map((r) => [r.teamId, r]));
-  const rowFor = (t: StandingsTeamSnapshot) =>
+  const standingsTeams = withUnplayedTeams(teams, playoffRace ?? null);
+  const rowFor = (t: StandingsTeam) =>
     buildStandingsRow(
       t,
       gameLogsByTeam?.get(t.teamId),
@@ -511,16 +586,34 @@ export function StandingsPage({ season }: { season: string }) {
               wins: r.wins,
               losses: r.losses,
               race: r,
-            })),
+            }))
+            // 順位表と同じ並び: 試合をしたクラブは地区順位順、未試合のクラブはその後ろに五十音順
+            .sort((a, b) =>
+              a.divisionRank !== null && b.divisionRank !== null
+                ? a.divisionRank - b.divisionRank
+                : a.divisionRank !== null
+                  ? -1
+                  : b.divisionRank !== null
+                    ? 1
+                    : a.teamName.localeCompare(b.teamName, "ja"),
+            ),
         }))
       : [];
-  const divisionStandingsGroups = groupByDivision(teams).map((g) => ({
+  // マジックナンバーのタブは2026-27〜のB.PREMIERフォーマットのシーズンだけ出す。選択中のままシーズンを
+  // 切り替えて対象外になった場合は順位表タブを表示する
+  const magicAvailable = playoffRace?.format === "premier-2026";
+  const activeTab: StandingsTab = tab === "magic" && !magicAvailable ? "standings" : tab;
+  // 開幕直後（全クラブの平均消化試合数が10試合未満）は、数字の意味が薄いことを短く添える
+  const magicEarly =
+    magicAvailable &&
+    playoffRace.teams.reduce((sum, r) => sum + r.wins + r.losses, 0) / Math.max(1, playoffRace.teams.length) < 10;
+  const divisionStandingsGroups = groupByDivision(standingsTeams).map((g) => ({
     division: g.division,
     rows: g.teams.map(rowFor),
   }));
   // 地区を跨いだ全チーム一覧（地区データが無いシーズンのフォールバック表示、および
   // 「全チームの全体順位表」セクションの両方で使う）
-  const allStandingsRows = [...teams].sort((a, b) => a.rank - b.rank).map(rowFor);
+  const allStandingsRows = [...standingsTeams].sort((a, b) => a.rank - b.rank).map(rowFor);
 
   const h2hTeamIdByName = headToHead ? new Map(headToHead.map((r) => [r.teamName, r.teamId])) : null;
   const h2hRemainingGames =
@@ -628,19 +721,21 @@ export function StandingsPage({ season }: { season: string }) {
   const h2hConditions = composeLabels(gameTypeLabels("regular", null), asOfLabel, h2hClubLabels);
 
   return (
-    <div>
+    <div data-design="v2" className="standings-page">
       <h1>順位表</h1>
       <p className="page-subtitle">{season}シーズン・{latest.date}時点</p>
 
       <div className="tab-bar">
-        {(Object.keys(TAB_LABELS) as StandingsTab[]).map((t) => (
-          <button key={t} className={`tab-button${tab === t ? " active" : ""}`} onClick={() => setTab(t)} type="button">
-            {TAB_LABELS[t]}
-          </button>
-        ))}
+        {(Object.keys(TAB_LABELS) as StandingsTab[])
+          .filter((t) => t !== "magic" || magicAvailable)
+          .map((t) => (
+            <button key={t} className={`tab-button${activeTab === t ? " active" : ""}`} onClick={() => setTab(t)} type="button">
+              {TAB_LABELS[t]}
+            </button>
+          ))}
       </div>
 
-      {tab === "standings" && (
+      {activeTab === "standings" && (
         <div>
           <div className="standings-stack">
             {divisionStandingsGroups.length > 0
@@ -651,7 +746,7 @@ export function StandingsPage({ season }: { season: string }) {
                       title={`${DIVISION_LABELS[g.division]} 順位表`}
                       conditions={composeLabels(standingsConditions, "地区内順位")}
                     />
-                    <div className="table-scroll">
+                    <div className="table-scroll standings-sticky-3">
                       <SortableTable
                         columns={divisionStandingsColumns}
                         rows={g.rows}
@@ -667,7 +762,7 @@ export function StandingsPage({ season }: { season: string }) {
               : (
                   <div>
                     <ConditionTitle section title={`${seasonLabel} 順位表`} conditions={standingsConditions} />
-                    <div className="table-scroll">
+                    <div className="table-scroll standings-sticky-2">
                       <SortableTable
                         columns={overallStandingsColumns}
                         rows={allStandingsRows}
@@ -684,44 +779,6 @@ export function StandingsPage({ season }: { season: string }) {
 
           {playoffRace && <RaceLegend race={playoffRace} />}
 
-          {playoffRace?.format === "premier-2026" && (
-            <>
-              <ConditionTitle
-                section
-                title="マジックナンバー"
-                conditions={composeLabels(standingsConditions, "残り全勝/全敗で比較する安全側の判定")}
-              />
-              {playoffRace.unavailableReason ? (
-                <p className="empty-message">現在は計算できません（{playoffRace.unavailableReason}）</p>
-              ) : (
-                <div className="standings-stack">
-                  {magicGroups.map((g) => (
-                    <div key={g.division}>
-                      <h3>{DIVISION_LABELS[g.division]}</h3>
-                      <div className="table-scroll">
-                        <SortableTable
-                          columns={magicColumns}
-                          rows={g.rows}
-                          rowKey={(r) => r.teamId}
-                          defaultSortKey="divisionRank"
-                          defaultSortDir="asc"
-                          linkTo={(r) => `/teams/${r.teamId}`}
-                          rowAccentColor={(r) => teamColors?.[r.teamId]?.primary}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <p className="page-subtitle">
-                マジックナンバーは、自チームの勝利1つ・相手の敗戦1つごとに1減ります（地区1位は地区内で最も勝ち数を伸ばしうる相手、
-                地区3位以内はその3番目の相手が基準）。ライバル同士の直接対決や同率時のタイブレークは考慮せず、同率は不利側に数える
-                安全側の判定のため、確定・敗退の表示が実際に決まる時点より遅れることがあります。プレーオフはワイルドカード
-                （各地区の上位3クラブを除いた20クラブの上位2）を含む進出確定・敗退のみ表示します
-              </p>
-            </>
-          )}
-
           {wildcardApplicable && (
             <>
               <ConditionTitle
@@ -730,7 +787,7 @@ export function StandingsPage({ season }: { season: string }) {
                 conditions={composeLabels(standingsConditions, "地区4位以下", "全体順位順")}
               />
               {wildcardStandingsEligible ? (
-                <div className="table-scroll">
+                <div className="table-scroll standings-sticky-3">
                   <SortableTable
                     columns={divisionStandingsColumns}
                     rows={wildcardStandingsRows}
@@ -758,7 +815,7 @@ export function StandingsPage({ season }: { season: string }) {
               </h2>
               {overallStandingsExpanded && <ConditionLine conditions={composeLabels(standingsConditions, "全クラブ")} />}
               {overallStandingsExpanded && (
-                <div className="table-scroll">
+                <div className="table-scroll standings-sticky-3">
                   <SortableTable
                     columns={allStandingsColumns}
                     rows={allStandingsRows}
@@ -775,7 +832,49 @@ export function StandingsPage({ season }: { season: string }) {
         </div>
       )}
 
-      {tab === "h2h" &&
+      {activeTab === "magic" && magicAvailable && playoffRace && (
+        <div className="standings-tab-panel">
+          {magicEarly && (
+            <p className="standings-tab-note">
+              シーズン序盤のため、どのクラブも大きな数字になっています。残り試合が減るにつれて意味を持つ数字です。
+            </p>
+          )}
+          {playoffRace.unavailableReason ? (
+            <p className="empty-message">現在は計算できません（{playoffRace.unavailableReason}）</p>
+          ) : (
+            <div className="standings-stack">
+              {magicGroups.map((g) => (
+                <div key={g.division}>
+                  <ConditionTitle
+                    section
+                    title={`${DIVISION_LABELS[g.division]} マジックナンバー`}
+                    conditions={composeLabels(standingsConditions, "残り全勝/全敗で比較する安全側の判定")}
+                  />
+                  <div className="table-scroll standings-sticky-2">
+                    <SortableTable
+                      columns={magicColumns}
+                      rows={g.rows}
+                      rowKey={(r) => r.teamId}
+                      defaultSortKey="divisionRank"
+                      defaultSortDir="asc"
+                      linkTo={(r) => `/teams/${r.teamId}`}
+                      rowAccentColor={(r) => teamColors?.[r.teamId]?.primary}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="standings-tab-note">
+            マジックナンバーは、自チームの勝利1つ・相手の敗戦1つごとに1減ります（地区1位は地区内で最も勝ち数を伸ばしうる相手、
+            地区3位以内はその3番目の相手が基準）。ライバル同士の直接対決や同率時のタイブレークは考慮せず、同率は不利側に数える
+            安全側の判定のため、確定・敗退の表示が実際に決まる時点より遅れることがあります。プレーオフはワイルドカード
+            （各地区の上位3クラブを除いた20クラブの上位2）を含む進出確定・敗退のみ表示します
+          </p>
+        </div>
+      )}
+
+      {activeTab === "h2h" &&
         (h2hLoading ? (
           <p className="loading">読み込み中...</p>
         ) : h2hError ? (
@@ -804,7 +903,7 @@ export function StandingsPage({ season }: { season: string }) {
           </>
         ))}
 
-      {tab === "conditional" && (
+      {activeTab === "conditional" && (
         <ConditionalStandingsTable
           season={season}
           teams={teams}
@@ -815,7 +914,7 @@ export function StandingsPage({ season }: { season: string }) {
         />
       )}
 
-      {tab === "rankTrend" && (
+      {activeTab === "rankTrend" && (
         <div>
           <div className="mode-toggle">
             <button type="button" className={isAnimating ? "active" : ""} onClick={playAnimation} disabled={isAnimating}>
@@ -867,7 +966,7 @@ export function StandingsPage({ season }: { season: string }) {
         </div>
       )}
 
-      {tab === "winsTrend" && (
+      {activeTab === "winsTrend" && (
         <div>
           <div className="mode-toggle">
             <button type="button" className={isAnimating ? "active" : ""} onClick={playAnimation} disabled={isAnimating}>
@@ -915,7 +1014,7 @@ export function StandingsPage({ season }: { season: string }) {
         </div>
       )}
 
-      {tab === "gamesAboveTrend" && (
+      {activeTab === "gamesAboveTrend" && (
         <div>
           <div className="mode-toggle">
             <button type="button" className={isAnimating ? "active" : ""} onClick={playAnimation} disabled={isAnimating}>

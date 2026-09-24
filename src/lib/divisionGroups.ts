@@ -11,10 +11,10 @@ export const DIVISION_LABELS: Record<Division, string> = {
   south: "南地区",
 };
 
-export function groupByDivision(
-  teams: StandingsTeamSnapshot[],
-): { division: Division; teams: StandingsTeamSnapshot[] }[] {
-  const byDivision = new Map<Division, StandingsTeamSnapshot[]>();
+export function groupByDivision<T extends StandingsTeamSnapshot>(
+  teams: T[],
+): { division: Division; teams: T[] }[] {
+  const byDivision = new Map<Division, T[]>();
   for (const t of teams) {
     if (!t.division) continue;
     const list = byDivision.get(t.division) ?? [];
