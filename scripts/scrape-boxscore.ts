@@ -11,7 +11,8 @@
 // 使い方:
 //   npm run scrape:boxscore -- 505076 505118                     # ScheduleKeyを直接指定
 //   npm run scrape:boxscore -- --season 2025-26                  # そのシーズンのschedule.jsonから
-//                                                                   未取得試合＋再チェック対象(watching)をまとめて処理
+//                                                                   未取得試合（開催予定はティップオフ+3時間
+//                                                                   経過後のみ）＋再チェック対象(watching)をまとめて処理
 //   npm run scrape:boxscore -- --season 2025-26 --category one   # B.ONE分（保存先はdata/{season}/one/games/）
 //   npm run scrape:boxscore -- --season 2025-26 --new-only        # 新着試合のみ処理し、
 //                                                                   watching再チェック対象はスキップする
@@ -140,11 +141,14 @@ async function loadSchedule(season: string, category: Category): Promise<Schedul
 
 /**
  * シーズン一括モード: 未取得試合 + status=watchingの再チェック対象をまとめて処理する。
- * newOnly=trueのときは、まだ生データが無い（未取得の）試合のうち「ティップオフ+3時間を
- * 過ぎた」試合（lib/pendingGames.ts）だけを対象にし、既存のstatus=watching試合の再チェックは
- * スキップする（DESIGN.md 8-5章: 30分おきの頻繁チェック用。未開催の試合まで1件ずつ問い合わせると
- * シーズン序盤は約780試合×2リクエストで1時間かかるため）。newOnly=false（深夜）は従来通り
- * 全試合を対象にし、日程変更で開催日がずれた試合等の取りこぼしを拾う
+ * 未取得の試合のうち、schedule.jsonのupcomingGamesにあって「ティップオフ+3時間」をまだ過ぎて
+ * いない試合（lib/pendingGames.ts）は、どちらのモードでも問い合わせない（未開催の試合は必ず
+ * 「データなし」になるため。2026-09-24以前は深夜モードだけ全試合を問い合わせており、シーズン序盤は
+ * 約780試合分のbleague.jpアクセスが毎晩発生していた。DESIGN.md 8-7章）。開催日がずれた試合は、
+ * 深夜の日程取得（scrape-schedule.ts --verify-upcoming）がupcomingGamesの日付を更新することで拾う。
+ * upcomingGamesに無い未取得の試合（開催予定の解決に失敗した試合）は安全側に倒して問い合わせる。
+ * newOnly=trueのときは、既存のstatus=watching試合の再チェックもスキップする（DESIGN.md 8-5章:
+ * 30分おきの頻繁チェック用）
  */
 export async function runForSeason(
   season: string,
@@ -157,6 +161,7 @@ export async function runForSeason(
   const now = Date.now();
   console.log(`[${season}] schedule.json から ${scheduleKeys.length} 試合を確認${options.newOnly ? "（新着試合のみ）" : ""}`);
   let notDueSkipped = 0;
+  let queried = 0;
 
   for (const scheduleKey of scheduleKeys) {
     const filePath = gameFilePath(season, scheduleKey, category);
@@ -173,19 +178,18 @@ export async function runForSeason(
       continue;
     }
 
-    // 新着試合のみモードでは、まだティップオフ+3時間を過ぎていない開催予定の試合も問い合わせない
+    // まだティップオフ+3時間を過ぎていない開催予定の試合は問い合わせない（両モード共通）
     const upcoming = upcomingByKey.get(scheduleKey);
-    if (options.newOnly && !existing && upcoming && !isDue(upcoming, now)) {
+    if (!existing && upcoming && !isDue(upcoming, now)) {
       notDueSkipped++;
       continue;
     }
 
+    queried++;
     const result = await scrapeAndSaveGame(scheduleKey, category);
     logResult(result);
   }
-  if (options.newOnly) {
-    console.log(`[${season}] ティップオフ+3時間前のためスキップ: ${notDueSkipped}試合`);
-  }
+  console.log(`[${season}] 問い合わせ: ${queried}試合 ／ ティップオフ+3時間前のためスキップ: ${notDueSkipped}試合`);
 }
 
 function logResult(result: ScrapeResult): void {

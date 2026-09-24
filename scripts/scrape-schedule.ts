@@ -25,6 +25,7 @@
 //   npm run scrape:schedule -- --season 2025-26 [--events 2,3]                  # フル収集(B.PREMIER)
 //   npm run scrape:schedule -- --season 2025-26 --category one                  # フル収集(B.ONE)
 //   npm run scrape:schedule -- --season 2025-26 --recent 14                     # 直近14日の軽量チェック
+//   npm run scrape:schedule -- --season 2025-26 --recent 14 --verify-upcoming 14  # ＋今後14日の日程変更検知（深夜用）
 
 import path from "node:path";
 import { createThrottledFetch } from "./lib/throttle.ts";
@@ -140,6 +141,83 @@ export async function scrapeRecentSchedule(
   return [...foundKeys].sort();
 }
 
+export interface UpcomingWindowScan {
+  firstDay: string;
+  lastDay: string;
+  /** 走査範囲の各日の問い合わせで返ってきたScheduleKey */
+  keys: Set<string>;
+}
+
+/**
+ * 今日から先days日分の日付を問い合わせ、そこに載っている試合のScheduleKeyを集める（深夜のみ。
+ * DESIGN.md 8-7章）。日程JSONは試合の無い日を指定すると前後どちらかの開催日にスナップして返し
+ * （2026-09-24実機確認: 9/28〜30→9/27、10/1→10/2、10/5〜6→10/7。向きは一定しない）、カードにも
+ * 日付が無いため、ここからは個々の試合の開催日は判定しない。「範囲内に載っている」ことだけを使う
+ */
+export async function scanUpcomingWindow(
+  season: string,
+  days: number,
+  events: number[],
+  tab: number,
+  referenceDate: Date = new Date(),
+): Promise<UpcomingWindowScan | null> {
+  const seasonYear = Number(season.split("-")[0]);
+  const keys = new Set<string>();
+  const queriedDays: string[] = [];
+
+  for (let i = 0; i < days; i++) {
+    const target = new Date(referenceDate.getTime() + i * 86_400_000);
+    if (seasonStartYearForDate(target) !== seasonYear) continue;
+    const jst = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(target);
+    const [, monStr, dayStr] = jst.split("-") as [string, string, string];
+    queriedDays.push(jst);
+    for (const event of events) {
+      for (const key of await fetchDaySchedule(seasonYear, monStr, dayStr, event, tab)) keys.add(key);
+    }
+  }
+
+  if (queriedDays.length === 0) return null;
+  return { firstDay: queriedDays[0]!, lastDay: queriedDays.at(-1)!, keys };
+}
+
+/**
+ * game_detailページから開催予定（日付・ティップオフ時刻）を取り直すScheduleKeyを選ぶ。
+ * 生データ取得済みの試合は対象外。
+ * - 開催日が走査範囲の最終日以前（過去日を含む）の試合は全件: 直前の日付・時刻の変更と、
+ *   開催日を過ぎても生データが無い試合（延期の可能性）の新しい日付を拾う
+ * - 走査範囲に載っているのに、開催予定の日付が範囲より後の試合: 前倒しの可能性。範囲の終端付近では
+ *   スナップで範囲直後の開催日の試合も返るため空振りしうるが、数件の追加リクエストで済む
+ * - 走査範囲に載っているのに開催予定が未解決の試合
+ */
+export function selectUpcomingToRefresh(
+  scan: UpcomingWindowScan,
+  existingUpcoming: UpcomingGameEntry[],
+  withBoxscore: Set<string>,
+): { refresh: Set<string>; reasons: Record<string, number> } {
+  const cached = new Map(existingUpcoming.map((g) => [g.scheduleKey, g]));
+  const refresh = new Set<string>();
+  const reasons: Record<string, number> = {};
+  const mark = (key: string, reason: string) => {
+    if (refresh.has(key)) return;
+    refresh.add(key);
+    reasons[reason] = (reasons[reason] ?? 0) + 1;
+  };
+
+  for (const entry of existingUpcoming) {
+    if (withBoxscore.has(entry.scheduleKey)) continue;
+    if (entry.date < scan.firstDay) mark(entry.scheduleKey, "開催日を過ぎても未取得");
+    else if (entry.date <= scan.lastDay) mark(entry.scheduleKey, "範囲内");
+  }
+  for (const key of scan.keys) {
+    if (withBoxscore.has(key)) continue;
+    const entry = cached.get(key);
+    if (!entry) mark(key, "開催予定が未解決");
+    else if (entry.date > scan.lastDay) mark(key, "範囲より後の日付で範囲内に掲載");
+  }
+
+  return { refresh, reasons };
+}
+
 const TIPOFF_RETRY_WITHIN_DAYS = 14;
 
 function isWithinDays(jstDate: string, days: number): boolean {
@@ -156,6 +234,7 @@ async function resolveUpcomingGames(
   scheduleKeys: string[],
   existingUpcoming: UpcomingGameEntry[],
   category: Category,
+  forceRefresh: Set<string> = new Set(),
 ): Promise<UpcomingGameEntry[]> {
   const withBoxscore = await listStoredScheduleKeys(season, category);
   const cached = new Map(existingUpcoming.map((g) => [g.scheduleKey, g]));
@@ -167,16 +246,27 @@ async function resolveUpcomingGames(
     // tipoffTime未解決のエントリは再取得して補完する。ただし公式サイトで「TIP OFF調整中」の
     // 試合（シーズン後半の日程は時刻未定のまま公開される）を毎回問い合わせると数百件になるため、
     // 再取得するのは試合日がTIPOFF_RETRY_WITHIN_DAYS日以内に迫ったものだけにする
-    if (existing && (existing.tipoffTime || !isWithinDays(existing.date, TIPOFF_RETRY_WITHIN_DAYS))) {
+    const refresh = forceRefresh.has(key);
+    if (existing && !refresh && (existing.tipoffTime || !isWithinDays(existing.date, TIPOFF_RETRY_WITHIN_DAYS))) {
       result.push(existing);
       continue;
     }
     const entry = await fetchUpcomingGameEntry(key);
     if (entry) {
-      console.log(
-        `[${season}] 開催予定を解決: ScheduleKey=${key} ${entry.date} ${entry.homeTeamName} vs ${entry.awayTeamName}`,
-      );
+      if (!existing) {
+        console.log(
+          `[${season}] 開催予定を解決: ScheduleKey=${key} ${entry.date} ${entry.homeTeamName} vs ${entry.awayTeamName}`,
+        );
+      } else if (entry.date !== existing.date || entry.tipoffTime !== existing.tipoffTime) {
+        console.log(
+          `[${season}] 開催予定を更新: ScheduleKey=${key} ${existing.date} ${existing.tipoffTime ?? "時刻未定"} → ${entry.date} ${entry.tipoffTime ?? "時刻未定"}`,
+        );
+      }
       result.push(entry);
+    } else if (existing) {
+      // 取り直しに失敗したら既存の情報を残す（消すと頻繁チェックの判定対象から外れるため）
+      console.warn(`[${season}] 開催予定の再取得に失敗（既存の情報を維持）: ScheduleKey=${key}`);
+      result.push(existing);
     } else {
       console.warn(`[${season}] 開催予定の解決に失敗（次回再試行）: ScheduleKey=${key}`);
     }
@@ -191,7 +281,7 @@ async function main(): Promise<void> {
   const season = seasonIndex !== -1 ? args[seasonIndex + 1] : undefined;
   if (!season) {
     console.error(
-      "使い方: scrape-schedule.ts --season 2025-26 [--category one] [--events 2,3] [--recent 14]",
+      "使い方: scrape-schedule.ts --season 2025-26 [--category one] [--events 2,3] [--recent 14 [--verify-upcoming 14]]",
     );
     process.exitCode = 1;
     return;
@@ -212,9 +302,38 @@ async function main(): Promise<void> {
     const existingFile = await readJson<ScheduleFile>(outPath);
     const existingKeys = existingFile?.scheduleKeys ?? [];
     const recentKeys = await scrapeRecentSchedule(season, days, events, new Date(), tab);
-    const mergedKeys = [...new Set([...existingKeys, ...recentKeys])].sort();
+
+    // 深夜のみ: 今後N日分の日程も問い合わせ、開催予定の日付・時刻の変更を検知する（DESIGN.md 8-7章）
+    const verifyIndex = args.indexOf("--verify-upcoming");
+    let forceRefresh = new Set<string>();
+    let windowKeys: string[] = [];
+    if (verifyIndex !== -1) {
+      const verifyDays = Number(args[verifyIndex + 1] ?? "14");
+      const scan = await scanUpcomingWindow(season, verifyDays, events, tab);
+      if (scan) {
+        windowKeys = [...scan.keys];
+        const detected = selectUpcomingToRefresh(
+          scan,
+          existingFile?.upcomingGames ?? [],
+          await listStoredScheduleKeys(season, category),
+        );
+        forceRefresh = detected.refresh;
+        const summary = Object.entries(detected.reasons).map(([r, n]) => `${r}${n}件`).join("・") || "なし";
+        console.log(
+          `[${season}] 今後${verifyDays}日の日程確認（${scan.firstDay}〜${scan.lastDay}、掲載${scan.keys.size}試合）: 開催予定の取り直し対象 ${summary}`,
+        );
+      }
+    }
+
+    const mergedKeys = [...new Set([...existingKeys, ...recentKeys, ...windowKeys])].sort();
     const addedCount = mergedKeys.length - existingKeys.length;
-    const upcomingGames = await resolveUpcomingGames(season, mergedKeys, existingFile?.upcomingGames ?? [], category);
+    const upcomingGames = await resolveUpcomingGames(
+      season,
+      mergedKeys,
+      existingFile?.upcomingGames ?? [],
+      category,
+      forceRefresh,
+    );
 
     await writeJson(outPath, {
       season,

@@ -7,8 +7,8 @@ name: Update B.LEAGUE Stats
 #   チェック＋新着試合のボックススコア取得＋集計再計算＋commit&push）に進む。無ければ
 #   bleague.jpへ一切アクセスせず即終了する（check-pending-games.ts）
 # - 深夜（毎日JST3時）のディープrecheck: 上記の判定を経ずに毎回本処理を実行する。直近14日
-#   以内のwatching試合の再チェック（8-1章のスタッツ修正対応）・名簿取得・新競技規則検知の
-#   検知ステップはこちらだけで行う
+#   以内のwatching試合の再チェック（8-1章のスタッツ修正対応）・今後14日の日程変更検知（8-7章）・
+#   名簿取得・新競技規則検知の検知ステップはこちらだけで行う
 # - workflow_dispatch: 手動実行用。full_schedule=true でシーズン全体のスケジュールをフル収集する
 #   （8-2章: シーズン開幕時・日程変更が疑われるときに使う。フル収集は自動実行には含めない）。
 #   既定（deep_recheck=false）では頻繁チェックと同じくcheck-pending-games.tsの判定を経る
@@ -108,9 +108,12 @@ jobs:
         if: ${{ steps.proceed.outputs.run == 'true' && github.event.inputs.full_schedule == 'true' }}
         run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }}
 
+      # 深夜のディープrecheckだけ、今後14日分の日程も問い合わせて開催予定の日付・時刻の変更を
+      # 検知する（--verify-upcoming。DESIGN.md 8-7章）。ボックススコア取得は開催日を過ぎた試合しか
+      # 問い合わせないため、日程変更はここで拾う
       - name: Scrape schedule (recent 14 days)
         if: ${{ steps.proceed.outputs.run == 'true' && github.event.inputs.full_schedule != 'true' }}
-        run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }} --recent 14
+        run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }} --recent 14 ${{ steps.mode.outputs.nightly == 'true' && '--verify-upcoming 14' || '' }}
 
       # 頻繁チェック（30分おき）は新着試合のボックススコア取得のみ行う。既存のwatching試合の
       # 再チェックは深夜のディープrecheckに限定する（DESIGN.md 8-1章）
