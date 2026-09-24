@@ -666,36 +666,36 @@ export function buildScoringColumns(
     ),
     // 登録区分別得点（日本人/外国籍・帰化・アジアの2分割）。実数値＋総得点に占める割合(%)を追加する
     classificationSupported
-      ? countColumn("japanesePts3", "Japanese PTS", (t) => t.japanesePoints, (t) => t.oppJapanesePoints, mode, perspective)
-      : unavailableColumn("japanesePts3", "Japanese PTS"),
+      ? countColumn("japanesePts3", "日本人 PTS", (t) => t.japanesePoints, (t) => t.oppJapanesePoints, mode, perspective)
+      : unavailableColumn("japanesePts3", "日本人 PTS"),
     classificationSupported
       ? countColumn(
           "internationalPts3",
-          "Foreign PTS",
+          "外国籍・帰化・アジア PTS",
           (t) => t.internationalPoints,
           (t) => t.oppInternationalPoints,
           mode,
           perspective,
         )
-      : unavailableColumn("internationalPts3", "Foreign PTS"),
+      : unavailableColumn("internationalPts3", "外国籍・帰化・アジア PTS"),
     classificationSupported
       ? pct100Column(
           "pctjapanese3",
-          "%Japanese PTS",
+          "%日本人 PTS",
           (t) => safeDiv(100 * t.japanesePoints, t.pts),
           (t) => safeDiv(100 * t.oppJapanesePoints, t.oppPts),
           perspective,
         )
-      : unavailableColumn("pctjapanese3", "%Japanese PTS"),
+      : unavailableColumn("pctjapanese3", "%日本人 PTS"),
     classificationSupported
       ? pct100Column(
           "pctinternational3",
-          "%Foreign PTS",
+          "%外国籍・帰化・アジア PTS",
           (t) => safeDiv(100 * t.internationalPoints, t.pts),
           (t) => safeDiv(100 * t.oppInternationalPoints, t.oppPts),
           perspective,
         )
-      : unavailableColumn("pctinternational3", "%Foreign PTS"),
+      : unavailableColumn("pctinternational3", "%外国籍・帰化・アジア PTS"),
     // ここから下は「自チーム/相手チームの全FGAに対する割合」（シュート選択構成比）。
     // 上記PITP%等（総得点に対する割合）とは分母が異なる別系統の指標
     pct100Column("pct3pm", "%3PM", (t) => safeDiv(100 * t.tpm, t.fga), (t) => safeDiv(100 * t.oppTpm, t.oppFga), perspective),

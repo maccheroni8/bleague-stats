@@ -898,7 +898,7 @@ function GameCompositionSection({
           <CompositionPieChart title={`${homePieName} 得点割合`} segments={homePts} valueDigits={0} />
           <CompositionPieChart title={`${awayPieName} 得点割合`} segments={awayPts} valueDigits={0} />
         </div>
-        <h4 className="composition-pie-group-title">得点構成（国籍区分）</h4>
+        <h4 className="composition-pie-group-title">得点構成（登録区分）</h4>
         <p className="page-subtitle">
           ※現在の登録情報に基づく参考値{classificationUnclassifiedCount > 0 && `／${classificationUnclassifiedCount}名分のデータ欠落あり`}
         </p>

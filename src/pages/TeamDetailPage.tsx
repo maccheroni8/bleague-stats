@@ -474,7 +474,7 @@ function ScoringCompositionSection({ team, gameLogs, shotChartSupported }: { tea
         <CompositionPieChart title="得点割合" segments={ownPts} />
         <CompositionPieChart title="opp 得点割合" segments={oppPts} />
       </div>
-      <h4 className="composition-pie-group-title">得点構成（国籍区分）</h4>
+      <h4 className="composition-pie-group-title">得点構成（登録区分）</h4>
       <p className="page-subtitle">※現在の登録情報に基づく参考値</p>
       <div className="composition-pie-row">
         <CompositionPieChart title="得点割合" segments={ownClassificationPts} />
@@ -1304,7 +1304,7 @@ const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
   },
   {
     key: "japanesePts",
-    label: "Japanese PTS",
+    label: "日本人 PTS",
     format: (r, _m, mode, p) =>
       formatTeamSeasonCountPerspective(
         r.team.advanced.japanesePointsPerGame * r.team.gamesPlayed,
@@ -1316,7 +1316,7 @@ const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
   },
   {
     key: "internationalPts",
-    label: "Foreign PTS",
+    label: "外国籍・帰化・アジア PTS",
     format: (r, _m, mode, p) =>
       formatTeamSeasonCountPerspective(
         r.team.advanced.internationalPointsPerGame * r.team.gamesPlayed,
@@ -1444,7 +1444,7 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   // （旧3分割版の内部フィールド）を合算して2区分に統一する（src/lib/classificationFilter.ts参照）
   {
     key: "japanesePts3",
-    label: "Japanese PTS",
+    label: "日本人 PTS",
     format: (r, _m, mode, p) =>
       formatTeamSeasonCountPerspective(
         r.team.advanced.japanesePointsPerGame * r.team.gamesPlayed,
@@ -1456,7 +1456,7 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   },
   {
     key: "internationalPts3",
-    label: "Foreign PTS",
+    label: "外国籍・帰化・アジア PTS",
     format: (r, _m, mode, p) =>
       formatTeamSeasonCountPerspective(
         (r.team.advanced.foreignPointsPerGame + r.team.advanced.naturalizedOrAsianPointsPerGame) * r.team.gamesPlayed,
@@ -1469,13 +1469,13 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   },
   {
     key: "pctjapanese3",
-    label: "%Japanese PTS",
+    label: "%日本人 PTS",
     format: (r, _m, _mode, p) =>
       formatTeamSeasonPct100(r.team.advanced.japanesePointsSharePct, r.team.advanced.opponentJapanesePointsSharePct, p),
   },
   {
     key: "pctinternational3",
-    label: "%Foreign PTS",
+    label: "%外国籍・帰化・アジア PTS",
     format: (r, _m, _mode, p) =>
       formatTeamSeasonPct100(
         r.team.advanced.foreignPointsSharePct + r.team.advanced.naturalizedOrAsianPointsSharePct,
@@ -2014,8 +2014,8 @@ interface TeamPointsExtraColumn {
 const TEAM_POINTS_MISC_COLUMNS: TeamPointsExtraColumn[] = [
   { key: "benchPts", label: "BENCH PTS", value: (b) => b.bench, kind: "count" },
   { key: "starterPts", label: "STARTER PTS", value: (b) => b.starter, kind: "count" },
-  { key: "japanesePts", label: "Japanese PTS", value: (b) => b.japanese, kind: "count" },
-  { key: "internationalPts", label: "Foreign PTS", value: (b) => b.international, kind: "count" },
+  { key: "japanesePts", label: "日本人 PTS", value: (b) => b.japanese, kind: "count" },
+  { key: "internationalPts", label: "外国籍・帰化・アジア PTS", value: (b) => b.international, kind: "count" },
 ];
 
 // %BENCH PTS・%STARTER PTSは自チームの得点構成比のみを意味のある指標として扱い、
@@ -2024,17 +2024,17 @@ const TEAM_POINTS_MISC_COLUMNS: TeamPointsExtraColumn[] = [
 const TEAM_POINTS_SHARE_COLUMNS: TeamPointsExtraColumn[] = [
   { key: "benchPtsShare", label: "%BENCH PTS", value: (b) => safeDiv(100 * b.bench, b.bench + b.starter), kind: "sharePct" },
   { key: "starterPtsShare", label: "%STARTER PTS", value: (b) => safeDiv(100 * b.starter, b.bench + b.starter), kind: "sharePct" },
-  { key: "japanesePts3", label: "Japanese PTS", value: (b) => b.japanese, kind: "count" },
-  { key: "internationalPts3", label: "Foreign PTS", value: (b) => b.international, kind: "count" },
+  { key: "japanesePts3", label: "日本人 PTS", value: (b) => b.japanese, kind: "count" },
+  { key: "internationalPts3", label: "外国籍・帰化・アジア PTS", value: (b) => b.international, kind: "count" },
   {
     key: "japanesePtsShare3",
-    label: "%Japanese PTS",
+    label: "%日本人 PTS",
     value: (b) => safeDiv(100 * b.japanese, b.bench + b.starter),
     kind: "sharePct",
   },
   {
     key: "internationalPtsShare3",
-    label: "%Foreign PTS",
+    label: "%外国籍・帰化・アジア PTS",
     value: (b) => safeDiv(100 * b.international, b.bench + b.starter),
     kind: "sharePct",
   },
