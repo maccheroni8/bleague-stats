@@ -33,6 +33,8 @@ import {
   fetchTeamLineups,
   fetchTeams,
   fetchYahooGamePbp,
+  fetchPlayoffRace,
+  fetchSeasonRules,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
@@ -161,6 +163,9 @@ import { cleanNumericString, formatColumnDiff, teamCompareDefs, type TeamCompare
 import { CLASSIFICATION_COLORS } from "../lib/classificationFilter";
 import { statDescription } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
+import { TeamSeasonForeignChart, TeamSeasonScoringCharts } from "../components/TeamSeasonShareCharts";
+import { isRegularSeasonInProgress } from "../lib/shareCharts";
+import { currentSeason } from "../lib/season";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
 const TEAM_SHOOTING_TAB_TOOLTIP =
@@ -759,6 +764,8 @@ const TAB_LABELS: Record<DetailTab, string> = {
 function teamBoxCategoryLabel(key: string): string {
   if (key === "shooting") return CATEGORY_LABELS.shooting;
   if (key === "forcedTurnovers") return CATEGORY_LABELS.forcedTurnovers;
+  if (key === "foreignPlayers") return CATEGORY_LABELS.foreignPlayers;
+  if (key === "scoringComposition") return CATEGORY_LABELS.scoringComposition;
   return BOXSCORE_TABS.find((t) => t.key === key)?.label ?? key;
 }
 
@@ -2134,7 +2141,19 @@ export function TeamDetailPage({ season }: { season: string }) {
   // スコアリングの4タブは既存の選手スタッツ/日程結果タブと同じSEASON_BOX_TABS/SeasonBoxTabKeyを
   // 再利用するが、列自体はTeamSummary（seasonHistory）＋TeamGameLog（careerData、Misc用）から
   // 直接組み立てる専用の列定義（TEAM_SEASON_*_COLUMNS）を使う（DESIGN.md参照）
-  const [seasonBoxTab, setSeasonBoxTab] = usePageState<SeasonBoxTabKey | "shooting" | "forcedTurnovers">(pk("seasonBoxTab"), "traditional");
+  const [seasonBoxTab, setSeasonBoxTab] = usePageState<
+    SeasonBoxTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition"
+  >(pk("seasonBoxTab"), "traditional");
+  // On-Court Foreign・Scoring % のシーズン別推移（DESIGN.md 141章）: 規定の上限人数と、今のシーズンがレギュラーシーズンの途中か
+  const seasonShareTab = seasonBoxTab === "foreignPlayers" || seasonBoxTab === "scoringComposition";
+  const { data: seasonRulesForTrend } = useJsonData(
+    () => (seasonShareTab ? fetchSeasonRules() : Promise.resolve(null)),
+    [seasonShareTab],
+  );
+  const { data: currentRace } = useJsonData(
+    () => (seasonShareTab ? fetchPlayoffRace(currentSeason()).catch(() => null) : Promise.resolve(null)),
+    [seasonShareTab],
+  );
 
   // 「通算成績」タブ（Phase TF）: 個人詳細ページのcareerDataと同じパターンで、このチームが
   // 存在する全シーズン分のTeamGameLogをタブを開いたときだけ遅延取得する
@@ -3257,8 +3276,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   const seasonHistoryDesc = seasonHistory ? [...seasonHistory].sort((a, b) => b.season.localeCompare(a.season)) : null;
   const seasonBoxConditions = composeLabels(
     teamBoxCategoryLabel(seasonBoxTab),
-    seasonBoxTab !== "forcedTurnovers" && displayModeLabels(seasonBoxDisplayMode),
-    seasonBoxTab !== "shooting" && seasonBoxTab !== "forcedTurnovers" && perspectiveLabels(seasonBoxPerspective),
+    seasonBoxTab !== "forcedTurnovers" && !seasonShareTab && displayModeLabels(seasonBoxDisplayMode),
+    seasonBoxTab !== "shooting" && seasonBoxTab !== "forcedTurnovers" && !seasonShareTab && perspectiveLabels(seasonBoxPerspective),
     gameTypeLabels("regular", null),
   );
   const teamLeadersConditions = composeLabels(
@@ -3966,13 +3985,17 @@ export function TeamDetailPage({ season }: { season: string }) {
                     ? `${CATEGORY_LABELS.shooting}は自チームの値のみです。`
                     : seasonBoxTab === "forcedTurnovers"
                       ? `${CATEGORY_LABELS.forcedTurnovers}は種類別の通算件数のみで、視点は連動しません。`
-                      : undefined,
+                      : seasonShareTab
+                        ? `${teamBoxCategoryLabel(seasonBoxTab)}のグラフは自チームの値で、視点は連動しません。`
+                        : undefined,
               }),
               displayModeAxis(seasonBoxDisplayMode, setSeasonBoxDisplayMode, {
                 disabledReason:
                   seasonBoxTab === "forcedTurnovers"
                     ? `${CATEGORY_LABELS.forcedTurnovers}は種類別の通算件数のみで、平均/合計は連動しません。`
-                    : undefined,
+                    : seasonShareTab
+                      ? `${teamBoxCategoryLabel(seasonBoxTab)}のグラフは割合で、平均/合計は連動しません。`
+                      : undefined,
               }),
             ]}
           />
@@ -4002,6 +4025,20 @@ export function TeamDetailPage({ season }: { season: string }) {
             >
               {CATEGORY_LABELS.forcedTurnovers}
             </button>
+            <button
+              className={`tab-button${seasonBoxTab === "foreignPlayers" ? " active" : ""}`}
+              onClick={() => setSeasonBoxTab("foreignPlayers")}
+              type="button"
+            >
+              {CATEGORY_LABELS.foreignPlayers}
+            </button>
+            <button
+              className={`tab-button${seasonBoxTab === "scoringComposition" ? " active" : ""}`}
+              onClick={() => setSeasonBoxTab("scoringComposition")}
+              type="button"
+            >
+              {CATEGORY_LABELS.scoringComposition}
+            </button>
           </div>
           {seasonHistoryLoading || careerLoading ? (
             <p className="loading">読み込み中...</p>
@@ -4011,6 +4048,17 @@ export function TeamDetailPage({ season }: { season: string }) {
             <TeamSeasonShotTypeTable rows={seasonHistoryDesc} displayMode={seasonBoxDisplayMode} />
           ) : seasonBoxTab === "forcedTurnovers" ? (
             <TeamSeasonForcedTurnoversTable rows={seasonHistoryDesc} />
+          ) : seasonBoxTab === "foreignPlayers" ? (
+            <TeamSeasonForeignChart
+              rows={seasonHistoryDesc}
+              rules={seasonRulesForTrend ?? null}
+              inProgressSeason={isRegularSeasonInProgress(currentSeason(), currentSeason(), currentRace, team.teamId) ? currentSeason() : null}
+            />
+          ) : seasonBoxTab === "scoringComposition" ? (
+            <TeamSeasonScoringCharts
+              rows={seasonHistoryDesc}
+              inProgressSeason={isRegularSeasonInProgress(currentSeason(), currentSeason(), currentRace, team.teamId) ? currentSeason() : null}
+            />
           ) : (
             <>
             <div className="table-scroll">

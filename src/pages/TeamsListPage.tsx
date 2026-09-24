@@ -72,8 +72,12 @@ import {
   type ForeignCourtOrder,
 } from "../components/ForeignPlayerCourtTimeChart";
 import { usePageState } from "../lib/pageStateCache";
-import { ScoringCompositionChart } from "../components/ScoringCompositionChart";
-import { ClassificationCompositionChart } from "../components/ClassificationCompositionChart";
+import { SCORING_ORDER_LABELS, ScoringCompositionChart, type PointsShareOrder } from "../components/ScoringCompositionChart";
+import {
+  CLASSIFICATION_ORDER_LABELS,
+  ClassificationCompositionChart,
+  type ClassificationShareOrder,
+} from "../components/ClassificationCompositionChart";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
@@ -278,6 +282,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const [storedForeignOrder, setForeignOrder] = usePageState<ForeignCourtOrder>("teams:foreignOrder", "foreignDesc");
   // 選択肢の変更（2026-09-25）より前に保持した値（foreignAsc）が残っていても、初期値に戻して扱う
   const foreignOrder: ForeignCourtOrder = storedForeignOrder in FOREIGN_COURT_ORDER_LABELS ? storedForeignOrder : "foreignDesc";
+  // Scoring %（得点構成・得点構成（登録区分））の並び順（DESIGN.md 141章）。On-Court Foreign と同じく「並び順」の選択肢で選び、
+  // ブラウザバックで戻ったときも保持する。得点構成と失点構成は同じ並び順を使う（失点構成の「得点（失点）が多い順」は失点が多い順）
+  const [storedScoringOrder, setScoringOrder] = usePageState<PointsShareOrder>("teams:scoringOrder", "total");
+  const scoringOrder: PointsShareOrder = storedScoringOrder in SCORING_ORDER_LABELS ? storedScoringOrder : "total";
+  const [storedClassificationOrder, setClassificationOrder] = usePageState<ClassificationShareOrder>("teams:classificationOrder", "total");
+  const classificationOrder: ClassificationShareOrder =
+    storedClassificationOrder in CLASSIFICATION_ORDER_LABELS ? storedClassificationOrder : "total";
   // 並べ替えで規定上ありえない人数の区分を飛ばすため、シーズンごとのオンザコートの規定を読む
   const { data: foreignRules } = useJsonData(() => (boxTab === "foreignPlayers" ? fetchSeasonRules() : Promise.resolve(null)), [boxTab]);
 
@@ -552,19 +563,44 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         </>
       ) : boxTab === "scoringComposition" ? (
         <>
+          <FilterBar
+            simple
+            stateKey="teams:scoringOrder"
+            axes={[
+              simpleSelectAxis({
+                id: "scoringOrder",
+                label: "得点構成の並び順",
+                options: (Object.keys(SCORING_ORDER_LABELS) as PointsShareOrder[]).map((o) => ({ value: o, label: SCORING_ORDER_LABELS[o] })),
+                value: scoringOrder,
+                defaultValue: "total",
+                onChange: (v) => setScoringOrder(v as PointsShareOrder),
+              }),
+              simpleSelectAxis({
+                id: "classificationOrder",
+                label: "登録区分の並び順",
+                options: (Object.keys(CLASSIFICATION_ORDER_LABELS) as ClassificationShareOrder[]).map((o) => ({
+                  value: o,
+                  label: CLASSIFICATION_ORDER_LABELS[o],
+                })),
+                value: classificationOrder,
+                defaultValue: "total",
+                onChange: (v) => setClassificationOrder(v as ClassificationShareOrder),
+              }),
+            ]}
+          />
           <h3>得点構成（総得点に占める割合）</h3>
-          <ScoringCompositionChart teams={teams ?? []} mode="own" />
+          <ScoringCompositionChart teams={teams ?? []} mode="own" order={scoringOrder} />
           <h3>失点構成（このチームが奪われた得点の割合）</h3>
-          <ScoringCompositionChart teams={teams ?? []} mode="opponent" />
+          <ScoringCompositionChart teams={teams ?? []} mode="opponent" order={scoringOrder} />
           <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しない）。得点構成のペイント内得点はプレーバイプレーのタグ集計（全シーズン対応）、ミッドレンジ得点は「2P得点−ペイント内得点」として算出しているため、ショットチャートの対応シーズン（2022-23以降）の制約は受けない。各セグメントの数値は割合(%)と1試合あたり平均得点。見出しボタンでカテゴリ別の並び替えができる（デフォルトは平均得点が多い順）
+            レギュラーシーズン・シーズン合計の値です（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しません）。ペイント内の得点はプレーバイプレーの記録から、ミッドレンジの得点は「2Pの得点−ペイント内の得点」として出しているため、全シーズンで表示できます。棒の中の数値は割合(%)と1試合平均の得点、右端は1試合平均の得点（失点構成は失点）です
           </p>
           <h3>得点構成（登録区分）</h3>
-          <ClassificationCompositionChart teams={teams ?? []} mode="own" />
+          <ClassificationCompositionChart teams={teams ?? []} mode="own" order={classificationOrder} />
           <h3>失点構成（登録区分）</h3>
-          <ClassificationCompositionChart teams={teams ?? []} mode="opponent" />
+          <ClassificationCompositionChart teams={teams ?? []} mode="opponent" order={classificationOrder} />
           <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計ベース（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しない）。classification未定義の選手の得点はいずれのセグメントにも計上しないため、2セグメントの合計が総得点に満たない場合があります
+            レギュラーシーズン・シーズン合計の値です（上部のフィルタとは連動しません）。登録区分は現在の登録情報に基づく値です。登録区分が不明な選手の得点はどちらにも入れていないため、2つの合計が100%に満たない場合があります
           </p>
         </>
       ) : gameLogsLoading || !gameLogsByTeam ? (

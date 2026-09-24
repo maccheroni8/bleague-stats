@@ -5960,3 +5960,14 @@ table.compare-table td.compare-best {
     background-color: color-mix(in srgb, var(--leader-team-color) 42%, var(--bg));
   }
 }
+
+/* チーム詳細・個人詳細のシーズン別推移（On-Court Foreign・Scoring %。DESIGN.md 141章）: グラフの見出しと、失点構成を出すボタン */
+.share-trend-title {
+  margin: 16px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mobile-collapse-toggle.share-trend-toggle {
+  margin: 16px 0 0;
+}

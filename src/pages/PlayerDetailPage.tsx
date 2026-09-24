@@ -134,6 +134,7 @@ import {
   periodLabels,
   shotChartGameFilterLabels,
   situationalFilterLabels,
+  SEASON_TOTAL_ONLY_LABELS,
 } from "../lib/conditionLabels";
 import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { classificationGroup } from "../lib/classificationFilter";
@@ -142,6 +143,7 @@ import { HeightWeightNote } from "../components/HeightWeightNote";
 import { ageForSeason } from "../lib/age";
 import { seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
 import { statDescription } from "../lib/statDescriptions";
+import { PlayerSeasonScoringChart } from "../components/PlayerScoringShareCharts";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
 /**
@@ -845,7 +847,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // タブ状態をactiveTab/onTabChangeで親（このコンポーネント）に持ち上げ、どちらかで
   // シューティングタブが選ばれたら、この選手のYahoo PBP対応シーズン分の出場試合のショットを
   // 遅延取得する（両セクションで共有。scheduleKeyごとにキャッシュするため二重取得しない）
-  const [seasonBreakdownTab, setSeasonBreakdownTab] = usePageState<SeasonBoxTabKey | "shooting">(
+  const [seasonBreakdownTab, setSeasonBreakdownTab] = usePageState<SeasonBoxTabKey | "shooting" | "scoringComposition">(
     pk("seasonBreakdownTab"),
     "traditional",
   );
@@ -2071,11 +2073,19 @@ export function PlayerDetailPage({ season }: { season: string }) {
   //   シーズン別成績 → gameTypeFilter/seasonBreakdownPeriod/seasonDisplayMode/seasonBreakdownTab
   //   シチュエーション別成績・アシスト・オンコート → situationalStatsSeason/GameType（アシストのみPも）
   //   ショットチャート → gameTypeFilter（シーズン別成績と共通）・ページのseason・shotChartFilters/shotChartPeriod
-  const seasonBoxCategoryLabel = (key: SeasonBoxTabKey | "shooting"): string =>
-    key === "shooting" ? CATEGORY_LABELS.shooting : (SEASON_BOX_TABS.find((t) => t.key === key)?.label ?? key);
+  const seasonBoxCategoryLabel = (key: SeasonBoxTabKey | "shooting" | "scoringComposition"): string =>
+    key === "shooting"
+      ? CATEGORY_LABELS.shooting
+      : key === "scoringComposition"
+        ? CATEGORY_LABELS.scoringComposition
+        : (SEASON_BOX_TABS.find((t) => t.key === key)?.label ?? key);
   // シューティングタブはシュート単位の集計のためQ別/前後半に対応していない（試合全体のときは通常どおりP軸を出す）
   const shootingPeriodNote = `※${CATEGORY_LABELS.shooting}はQ別/前後半の対象外`;
-  const seasonBreakdownConditions = composeLabels(
+  const scoringShareReason = `${CATEGORY_LABELS.scoringComposition}のグラフはレギュラーシーズン・シーズン合計の割合で、この項目は連動しません。`;
+  const seasonBreakdownConditions =
+    seasonBreakdownTab === "scoringComposition"
+      ? composeLabels(seasonBoxCategoryLabel(seasonBreakdownTab), SEASON_TOTAL_ONLY_LABELS)
+      : composeLabels(
     seasonBoxCategoryLabel(seasonBreakdownTab),
     displayModeLabels(seasonDisplayMode),
     // シーズン別成績は複数シーズンをまたぐ表のため「ポストシーズン」表記（DESIGN.md 128章）
@@ -2331,11 +2341,20 @@ export function PlayerDetailPage({ season }: { season: string }) {
             simple
             stateKey={pk("seasonBreakdownFilter")}
             axes={[
-              gameTypeAxis(gameTypeFilter, setGameTypeFilter, null),
-              periodAxis(seasonBreakdownPeriod, setSeasonBreakdownPeriod, SEASON_BOX_PERIOD_OPTIONS, {
-                disabledReason: seasonBreakdownTab === "shooting" ? `${CATEGORY_LABELS.shooting}はQ別/前後半の対象外です。` : undefined,
+              gameTypeAxis(gameTypeFilter, setGameTypeFilter, null, {
+                disabledReason: seasonBreakdownTab === "scoringComposition" ? scoringShareReason : undefined,
               }),
-              displayModeAxis(seasonDisplayMode, setSeasonDisplayMode),
+              periodAxis(seasonBreakdownPeriod, setSeasonBreakdownPeriod, SEASON_BOX_PERIOD_OPTIONS, {
+                disabledReason:
+                  seasonBreakdownTab === "shooting"
+                    ? `${CATEGORY_LABELS.shooting}はQ別/前後半の対象外です。`
+                    : seasonBreakdownTab === "scoringComposition"
+                      ? scoringShareReason
+                      : undefined,
+              }),
+              displayModeAxis(seasonDisplayMode, setSeasonDisplayMode, {
+                disabledReason: seasonBreakdownTab === "scoringComposition" ? scoringShareReason : undefined,
+              }),
             ]}
           />
           {periodRawGamesLoading && seasonBreakdownPeriod !== "all" && (
@@ -3059,13 +3078,13 @@ function SeasonBreakdownTable({
    * BoxscoreTable.tsxのactiveTab/onTabChangeと同じパターン。DESIGN.md参照）。未指定なら
    * コンポーネント内部のstateでタブを管理する
    */
-  activeTab?: SeasonBoxTabKey | "shooting";
-  onTabChange?: (tab: SeasonBoxTabKey | "shooting") => void;
+  activeTab?: SeasonBoxTabKey | "shooting" | "scoringComposition";
+  onTabChange?: (tab: SeasonBoxTabKey | "shooting" | "scoringComposition") => void;
   /** シューティングタブ用: scheduleKeyごとのこの選手のショット（Yahoo PBP対応シーズンのみ） */
   careerShots: Map<string, YahooShotEvent[]>;
   careerShotsLoading: boolean;
 }) {
-  const [internalTab, setInternalTab] = useState<SeasonBoxTabKey | "shooting">("traditional");
+  const [internalTab, setInternalTab] = useState<SeasonBoxTabKey | "shooting" | "scoringComposition">("traditional");
   const tab = controlledActiveTab ?? internalTab;
   const setTab = onTabChange ?? setInternalTab;
   // 列ヘッダークリックソート（RankingsPage等のSortableTableと同じ「1回目クリックで降順、
@@ -3152,7 +3171,7 @@ function SeasonBreakdownTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [careerData, gameTypeFilter, seasonRows, displayMode, playerId, periodOption, gamesByScheduleKey]);
 
-  const columns = tab === "shooting" ? [] : SEASON_BOX_COLUMNS[tab];
+  const columns = tab === "shooting" || tab === "scoringComposition" ? [] : SEASON_BOX_COLUMNS[tab];
 
   // シューティングタブ: 各行（シーズン・チーム別内訳）に属する試合ログのscheduleKeyから
   // careerShotsを引いてShotTypeBreakdownを組み立てる。列（シュートタイプ×2P/3P×M/A/%）は
@@ -3251,9 +3270,30 @@ function SeasonBreakdownTable({
         >
           {CATEGORY_LABELS.shooting}
         </button>
+        <button
+          className={`tab-button${tab === "scoringComposition" ? " active" : ""}`}
+          onClick={() => setTab("scoringComposition")}
+          type="button"
+        >
+          {CATEGORY_LABELS.scoringComposition}
+        </button>
       </div>
     </div>
   );
+
+  // Scoring %（得点構成）のシーズン別推移（DESIGN.md 141章）。1行＝1シーズン、新しいシーズンが上、移籍したシーズンは1本
+  if (tab === "scoringComposition") {
+    return (
+      <>
+        {tabBar}
+        <PlayerSeasonScoringChart
+          seasons={[...careerData]
+            .sort((a, b) => b.season.localeCompare(a.season))
+            .map((cd) => ({ season: cd.season, logs: cd.logs, ownTeamByScheduleKey: teamData?.get(cd.season)?.ownTeamByScheduleKey }))}
+        />
+      </>
+    );
+  }
 
   if (tab === "shooting" && careerShotsLoading) {
     return (

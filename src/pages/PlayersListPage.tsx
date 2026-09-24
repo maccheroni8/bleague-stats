@@ -53,6 +53,7 @@ import {
   SEASON_TOTAL_ONLY_LABELS,
   situationalFilterLabels,
   type LeagueVenue,
+  eligibilityLabels,
 } from "../lib/conditionLabels";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
@@ -79,6 +80,10 @@ import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdow
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { filterByGameType, type SeasonGameTypeFilter } from "../../shared/gameType";
 import { statDescription } from "../lib/statDescriptions";
+import { PlayersScoringShareChart, playerLogsScoringShare, type PlayerShareListRow } from "../components/PlayerScoringShareCharts";
+import { SCORING_ORDER_LABELS, type PointsShareOrder } from "../components/ScoringCompositionChart";
+import { usePageState } from "../lib/pageStateCache";
+import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import {
   buildSeasonBoxscoreCtx,
   EMPTY_TEAM_TOTALS,
@@ -167,7 +172,7 @@ export function PlayersListPage({ season }: { season: string }) {
 //   一括取得済みのteams.jsonのシーズン合計値をそのまま使う（26チーム分のteam-games
 //   個別取得はしない）
 
-type PlayersPageTab = SeasonBoxTabKey | "shooting";
+type PlayersPageTab = SeasonBoxTabKey | "shooting" | "scoringComposition";
 
 interface PlayerRow {
   player: PlayerSummary;
@@ -384,6 +389,7 @@ function buildAdvancedColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
 const TAB_LABELS: { key: PlayersPageTab; label: string }[] = [
   ...SEASON_BOX_TABS,
   { key: "shooting", label: CATEGORY_LABELS.shooting },
+  { key: "scoringComposition", label: CATEGORY_LABELS.scoringComposition },
 ];
 
 const DEFAULT_SORT: Record<PlayersPageTab, { key: string; dir: "asc" | "desc" }> = {
@@ -392,9 +398,13 @@ const DEFAULT_SORT: Record<PlayersPageTab, { key: string; dir: "asc" | "desc" }>
   misc: { key: "pts", dir: "desc" },
   scoring: { key: "pts", dir: "desc" },
   shooting: { key: "name", dir: "asc" },
+  scoringComposition: { key: "pts", dir: "desc" },
 };
 
 const PAGE_SIZE = 50;
+/** Scoring %（得点構成）の対象の出場時間の下限（1試合平均・合計、分） */
+const SCORING_SHARE_MIN_MPG = 10;
+const SCORING_SHARE_MIN_TOTAL_MIN = 300;
 const DEFAULT_MIN_RATIO = 60;
 const DEFAULT_MAX_RATIO = 100;
 
@@ -514,7 +524,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   }, [minRatio, maxRatio, classificationFilter, teamFilter, positionFilter]);
 
   useEffect(() => {
-    const needsLogs = tab === "misc" || tab === "scoring" || filterActive;
+    const needsLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || filterActive;
     if (!needsLogs || !players || gameLogsFetchedForSeasonRef.current === season) return;
     gameLogsFetchedForSeasonRef.current = season;
     let cancelled = false;
@@ -581,6 +591,31 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       return true;
     });
   }, [players, teamGamesById, minRatio, maxRatio, classificationFilter, teamFilter, positionFilter]);
+
+  // Scoring %（得点構成、DESIGN.md 141章）の対象: 所属チームの試合数の85%以上に出場、かつ1試合平均10分以上、かつ合計300分以上
+  // （出場試合率のスライダーの代わりに固定。登録区分・ポジション・クラブの絞り込みは効く）。値はレギュラーシーズンの試合ログの合計
+  const [storedScoringOrder, setScoringOrder] = usePageState<PointsShareOrder>("players:scoringOrder", "total");
+  const scoringOrder: PointsShareOrder = storedScoringOrder in SCORING_ORDER_LABELS ? storedScoringOrder : "total";
+  const scoringShareRows: PlayerShareListRow[] = useMemo(() => {
+    if (tab !== "scoringComposition" || !players || !teams || !gameLogs) return [];
+    return filterPlayersByGamesPlayedRatio(players, teams)
+      .filter(
+        (p) =>
+          p.perGame.min >= SCORING_SHARE_MIN_MPG &&
+          p.totals.min >= SCORING_SHARE_MIN_TOTAL_MIN &&
+          matchesClassificationGroupFilter(p, classificationFilter) &&
+          matchesTeamFilter(p, teamFilter) &&
+          matchesPositionFilter(p, positionFilter),
+      )
+      .map((p) => ({
+        playerId: p.playerId,
+        name: p.name,
+        teamId: p.teamId,
+        teamName: p.teamName,
+        share: playerLogsScoringShare(gameLogs.get(p.playerId) ?? []),
+      }))
+      .filter((r) => r.share.perGame > 0);
+  }, [tab, players, teams, gameLogs, classificationFilter, teamFilter, positionFilter]);
 
   // limit（SortableTable側で全件ソートしてから先頭visibleCount件だけ描画する）と組み合わせる
   // ため、rowsは常にフィルタ後の全選手分を作る（もっと見るを押す前でも列ソートが正しく
@@ -669,7 +704,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
 
   const tableRows = tab === "shooting" ? shootingRows : rows;
   const defaultSort = DEFAULT_SORT[tab];
-  const needsGameLogs = tab === "misc" || tab === "scoring" || filterActive;
+  const needsGameLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || filterActive;
   const gameDataLoading = needsGameLogs && (gameLogsLoading || !gameLogs);
   const teamDataLoading = filterActive && (teamGameLogsLoading || !teamGameLogsByTeam);
 
@@ -696,7 +731,24 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const statsTitle = {
     title: `${season}シーズン 全選手スタッツ：${TAB_LABELS.find((t) => t.key === tab)?.label ?? tab}`,
     conditions:
-      tab === "shooting"
+      tab === "scoringComposition"
+        ? composeLabels(
+            classificationLabels(classificationFilter),
+            multiSelectLabels("ポジション", [...positionFilter], "全ポジション"),
+            multiSelectLabels(
+              "クラブ",
+              [...teamFilter].map((id) => {
+                const t = (teams ?? []).find((x) => x.teamId === id);
+                return t ? teamShortName(t.teamId, t.teamName) : id;
+              }),
+              "全クラブ",
+            ),
+            eligibilityLabels({ gamesRatio: 0.85 }),
+            `平均${SCORING_SHARE_MIN_MPG}分以上`,
+            `合計${SCORING_SHARE_MIN_TOTAL_MIN}分以上`,
+            SEASON_TOTAL_ONLY_LABELS,
+          )
+        : tab === "shooting"
         ? composeLabels(displayModeLabels(displayMode), filterAxisLabels, SEASON_TOTAL_ONLY_LABELS)
         : composeLabels(
             displayModeLabels(displayMode),
@@ -711,7 +763,9 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const shootingReason =
     tab === "shooting"
       ? "このタブはシーズン通算値のみ対応です（表示の平均/合計と、登録区分・ポジション・クラブ・出場試合率の絞り込みだけ連動します）。"
-      : undefined;
+      : tab === "scoringComposition"
+        ? `${CATEGORY_LABELS.scoringComposition}はレギュラーシーズン・シーズン合計の割合です（登録区分・ポジション・クラブの絞り込みだけ連動します）。`
+        : undefined;
   const clubOptions = (teams ?? [])
     .slice()
     .sort((a, b) => teamShortName(a.teamId, a.teamName).localeCompare(teamShortName(b.teamId, b.teamName), "ja"))
@@ -769,13 +823,18 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       searchable: true,
     }),
     gameTypeAxis(gameType, setGameType, season, { disabledReason: shootingReason }),
-    displayModeAxis(displayMode, setDisplayMode),
+    displayModeAxis(displayMode, setDisplayMode, { disabledReason: tab === "scoringComposition" ? shootingReason : undefined }),
     ...situationalAxes(situationalFilter, setSituationalFilter, {
       opponentWinRateSupported: !!gameSummaries,
       ownTeamDivisionSupported: !!divisionHistory && !!gameSummaries,
       disabledReason: shootingReason,
     }),
-    ratioAxis,
+    tab === "scoringComposition"
+      ? {
+          ...ratioAxis,
+          disabledReason: `${CATEGORY_LABELS.scoringComposition}の対象は、所属チームの試合数の85%以上に出場し、1試合平均10分以上・合計300分以上出場した選手に固定しています。`,
+        }
+      : ratioAxis,
   ];
   const clearAllFilters = () => {
     setClassificationFilter("all");
@@ -811,7 +870,41 @@ function AllPlayersStatsTab({ season }: { season: string }) {
 
       <ConditionTitle title={statsTitle.title} conditions={statsTitle.conditions} />
 
-      {tab === "shooting" && !yahooPbpSupported ? (
+      {tab === "scoringComposition" ? (
+        gameDataLoading ? (
+          <p className="loading">読み込み中...</p>
+        ) : (
+          <>
+            <FilterBar
+              simple
+              stateKey="players:scoringOrder"
+              axes={[
+                simpleSelectAxis({
+                  id: "scoringOrder",
+                  label: "並び順",
+                  options: (Object.keys(SCORING_ORDER_LABELS) as PointsShareOrder[]).map((o) => ({
+                    value: o,
+                    label: o === "total" ? "得点が多い順" : SCORING_ORDER_LABELS[o],
+                  })),
+                  value: scoringOrder,
+                  defaultValue: "total",
+                  onChange: (v) => setScoringOrder(v as PointsShareOrder),
+                }),
+              ]}
+            />
+            <PlayersScoringShareChart
+              rows={scoringShareRows}
+              order={scoringOrder}
+              visibleCount={visibleCount}
+              onMore={() => setVisibleCount((c) => c + PAGE_SIZE)}
+            />
+            <p className="page-subtitle">
+              レギュラーシーズン・シーズン合計の値です。対象は、所属チームの試合数の85%以上に出場し、1試合平均10分以上・合計300分以上出場した選手です（{scoringShareRows.length}人）。
+              棒の中の数値は割合(%)と1試合平均の得点、右端は1試合平均の得点です。ミッドレンジは「2Pの得点−ペイント内の得点」です
+            </p>
+          </>
+        )
+      ) : tab === "shooting" && !yahooPbpSupported ? (
         <p className="empty-message">このシーズンのデータには対応していません</p>
       ) : gameDataLoading || teamDataLoading ? (
         <p className="loading">読み込み中...</p>
