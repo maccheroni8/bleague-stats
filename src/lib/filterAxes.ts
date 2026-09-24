@@ -208,7 +208,7 @@ interface SimpleAxisOptions {
 /**
  * G軸: レギュラーシーズン/ポストシーズン/合算。ポストシーズンの表示名はシーズンで変わる
  * （〜2025-26「CS」、2026-27〜「プレーオフ」）ため、seasonを必ず渡す。通算成績・歴代記録など
- * 複数シーズンをまたぐ表示ではnullを渡し「ポストシーズン」と表示する（DESIGN.md 107章）
+ * 複数シーズンをまたぐ表示ではnullを渡し「ポストシーズン」と表示する（DESIGN.md 128章）
  */
 export function gameTypeAxis(
   value: SeasonGameTypeFilter,

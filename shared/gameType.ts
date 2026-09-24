@@ -12,7 +12,7 @@ export type SeasonGameTypeFilter = GameType | "both";
 const PLAYOFFS_NAME_FIRST_SEASON = "2026-27";
 
 /**
- * ポストシーズンの表示名（DESIGN.md 107章）。サイト全体の表記はここから取る。
+ * ポストシーズンの表示名（DESIGN.md 128章）。サイト全体の表記はここから取る。
  * - 2025-26シーズンまで: 「CS」（long指定時は「CS（チャンピオンシップ）」）
  * - 2026-27シーズンから: 「プレーオフ」（公式名称「B.LEAGUE PREMIER PLAYOFFS」に合わせる）
  * - season=null（通算成績・歴代記録など複数シーズンをまたぐ表示）: 「ポストシーズン」

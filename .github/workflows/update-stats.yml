@@ -129,7 +129,7 @@ jobs:
       # 頻繁チェック・深夜とも、ボックススコアが保存済みで試合終了済みなのにPBPが未取得の試合だけを
       # 取りに行く（1試合1リクエスト）。深夜は直近14日の試合のうち保存済みPBPが現在のボックススコアと
       # 合わないものも取り直す。スポーツナビ側の失敗でデータ更新全体を止めないようcontinue-on-error
-      # （DESIGN.md 108章）
+      # （DESIGN.md 129章）
       - name: Scrape Yahoo PBP (Sportsnavi)
         if: steps.proceed.outputs.run == 'true'
         timeout-minutes: 10

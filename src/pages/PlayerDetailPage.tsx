@@ -2051,7 +2051,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const seasonBreakdownConditions = composeLabels(
     seasonBoxCategoryLabel(seasonBreakdownTab),
     displayModeLabels(seasonDisplayMode),
-    // シーズン別成績は複数シーズンをまたぐ表のため「ポストシーズン」表記（DESIGN.md 107章）
+    // シーズン別成績は複数シーズンをまたぐ表のため「ポストシーズン」表記（DESIGN.md 128章）
     gameTypeLabels(gameTypeFilter, null),
     seasonBreakdownTab === "shooting" && seasonBreakdownPeriod !== "all"
       ? shootingPeriodNote

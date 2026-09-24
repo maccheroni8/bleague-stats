@@ -93,7 +93,7 @@ export function shotChartGameFilterLabels(filters: ShotChartGameFilters, ownTeam
  * G軸: レギュラーシーズン/ポストシーズン/合算。トグルのボタン表示は「合算」だが、タイトルでは
  * 何と何の合算か分かるよう「レギュラー+CS」「レギュラー+プレーオフ」のように表記する。
  * ポストシーズンの名称はシーズンで変わるため、season（複数シーズンをまたぐ表示ではnull＝
- * 「ポストシーズン」）を必ず渡す（DESIGN.md 107章）
+ * 「ポストシーズン」）を必ず渡す（DESIGN.md 128章）
  */
 export function gameTypeLabels(gameType: SeasonGameTypeFilter, season: string | null): string[] {
   return [gameType === "both" ? `レギュラー+${postseasonLabel(season)}` : seasonGameTypeLabels(season)[gameType]];
