@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { postseasonLabel } from "../../shared/gameType";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { TeamLogo } from "../components/TeamLogo";
+import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { FilterBar } from "../components/FilterBar";
 import { simpleSelectAxis, teamMultiAxis, type FilterAxis } from "../lib/filterAxes";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { composeLabels, multiSelectLabels } from "../lib/conditionLabels";
-import { fetchGameSummaries, fetchSchedule, fetchTeamColors, fetchTeams } from "../lib/data";
+import { fetchGameSummaries, fetchSchedule, fetchTeamColors, fetchTeamHistory, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { formatDateHeading } from "../lib/format";
 import { teamShortName } from "../../shared/teamNames";
@@ -168,7 +169,21 @@ export function SchedulePage({ season }: { season: string }) {
     setStatusFilter("all");
   }, [season]);
 
-  const teamIdByName = useMemo(() => new Map((teams ?? []).map((t) => [t.teamName, t.teamId])), [teams]);
+  // 開催前のシーズンは teams.json に試合をしたクラブしか無いため、前シーズンのクラブ一覧と改称の履歴（team-history.json）で
+  // 名前→TeamIDを補う（開催予定の試合にもロゴ・チームカラー・略称を出すため）
+  const prevSeason = `${Number(season.slice(0, 4)) - 1}-${season.slice(2, 4)}`;
+  const { data: prevTeams } = useJsonData(
+    () => (season > "2016-17" ? fetchTeams(prevSeason).catch(() => []) : Promise.resolve([])),
+    [season, prevSeason],
+  );
+  const { data: teamHistory } = useJsonData(() => fetchTeamHistory().catch(() => []), []);
+  const teamIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of prevTeams ?? []) map.set(t.teamName, t.teamId);
+    for (const h of teamHistory ?? []) for (const n of h.names) map.set(n.name, h.teamId);
+    for (const t of teams ?? []) map.set(t.teamName, t.teamId);
+    return map;
+  }, [teams, prevTeams, teamHistory]);
   const rows = useMemo(
     () => (summaries ? toRows(summaries, schedule?.upcomingGames ?? [], teamIdByName) : []),
     [summaries, schedule, teamIdByName],
@@ -212,9 +227,15 @@ export function SchedulePage({ season }: { season: string }) {
   const defaultMonth = useMemo(() => defaultCalendarMonth(rows), [rows]);
   const effectiveMonth = calendarMonth ?? defaultMonth;
 
-  if (summariesLoading || scheduleLoading) return <p className="loading">読み込み中...</p>;
-  if (error) return <p className="error-message">{error}</p>;
-  if (rows.length === 0) return <p className="empty-message">日程データがありません</p>;
+  // 読み込み中・エラーの早期リターンも v2 の範囲に入れる
+  const v2 = (node: ReactNode) => (
+    <div className="schedule-page" data-design="v2">
+      {node}
+    </div>
+  );
+  if (summariesLoading || scheduleLoading) return v2(<p className="loading">読み込み中...</p>);
+  if (error) return v2(<p className="error-message">{error}</p>);
+  if (rows.length === 0) return v2(<p className="empty-message">日程データがありません</p>);
 
   const handleDateJump = (value: string) => {
     setJumpDate(value);
@@ -270,7 +291,7 @@ export function SchedulePage({ season }: { season: string }) {
   };
 
   return (
-    <div>
+    <div className="schedule-page" data-design="v2">
       <h1>日程</h1>
       <p className="page-subtitle">{season}シーズン</p>
 
@@ -380,7 +401,7 @@ function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: R
         <MaybeLink to={linkTo}>
           {row.homeTeamId && <TeamLogo teamId={row.homeTeamId} size={24} />}
           <span className="schedule-team-chip" style={homeColor ? { borderLeftColor: homeColor } : undefined}>
-            {row.homeTeamName}
+            <ResponsiveTeamName teamId={row.homeTeamId ?? ""} name={row.homeTeamName} />
           </span>
         </MaybeLink>
       </td>
@@ -395,7 +416,7 @@ function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: R
       <td className="align-right schedule-team-cell">
         <MaybeLink to={linkTo}>
           <span className="schedule-team-chip" style={awayColor ? { borderLeftColor: awayColor } : undefined}>
-            {row.awayTeamName}
+            <ResponsiveTeamName teamId={row.awayTeamId ?? ""} name={row.awayTeamName} />
           </span>
           {row.awayTeamId && <TeamLogo teamId={row.awayTeamId} size={24} />}
         </MaybeLink>

@@ -1,4 +1,7 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, type ReactNode } from "react";
+import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
+import { useMediaQuery } from "../lib/useMediaQuery";
+import { surnameOf } from "../lib/playerSurname";
 import { Link, useSearchParams } from "react-router-dom";
 import { fetchDivisionHistory, fetchPlayers, fetchSeasons, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
@@ -170,7 +173,7 @@ interface ComparisonTableProps<T> {
   rows: ComparisonRow<T>[];
   defs: ComparisonStatDef<T>[];
   rowKey: (row: T) => string;
-  name: (row: T) => string;
+  name: (row: T) => ReactNode;
   linkTo: (row: T) => string;
   /** 指定時、名前の直後にBリーグ公式サイトへの外部リンクアイコンを表示する（選手比較のみ） */
   externalLinkTo?: (row: T) => string | undefined;
@@ -433,7 +436,7 @@ function TeamCompareView({
           rows={rows}
           defs={defs}
           rowKey={(r) => r.key}
-          name={(r) => r.label}
+          name={(r) => <ResponsiveTeamName teamId={r.teamId} name={r.label} />}
           linkTo={(r) => `/teams/${r.teamId}`}
           teamColor={(r) => teamColors?.[r.teamId]?.primary}
           subLabel={(r) => r.subLabel}
@@ -527,7 +530,7 @@ function PlayerCompareView({
           rows={rows}
           defs={defs}
           rowKey={(r) => r.key}
-          name={(r) => r.label}
+          name={(r) => <ResponsivePlayerName name={r.label} />}
           linkTo={(r) => `/players/${r.playerId}`}
           teamColor={(r) => (r.teamId ? teamColors?.[r.teamId]?.primary : undefined)}
           subLabel={(r) => r.subLabel}
@@ -630,7 +633,7 @@ export function ComparePage({ season }: { season: string }) {
   };
 
   return (
-    <div>
+    <div className="compare-page" data-design="v2">
       <h1>比較</h1>
       <p className="page-subtitle">
         最大3件まで選んで比較（項目ごとに異なるシーズン・条件も選択可能。選んだスロットの分だけデータを取得します）
@@ -685,4 +688,10 @@ export function ComparePage({ season }: { season: string }) {
       )}
     </div>
   );
+}
+
+/** 比較の表の列見出し（選手名）: スマホ幅（560px以下）は名字のみ（試合詳細・個人詳細と同じ）。フルネームは title に残す */
+function ResponsivePlayerName({ name }: { name: string }) {
+  const narrow = useMediaQuery("(max-width: 560px)");
+  return narrow ? <span title={name}>{surnameOf(name)}</span> : <>{name}</>;
 }

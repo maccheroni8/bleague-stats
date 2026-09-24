@@ -5552,3 +5552,176 @@ table.wl-grid tbody tr:hover td.wl-home {
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
+
+/* ==========================================================================
+ * 日程・比較ページの v2（DESIGN.md 134章）。ルートに data-design="v2"（.schedule-page / .compare-page）。
+ * ページ見出し・表示切り替え・フィルタバー・タブ・表・画像保存ボタンは既存の v2 規則がそのまま効く。
+ * ここでは日付見出し・ジャンプ欄・カレンダー・比較の表の見出しを足す。チームカラーの線（チーム名の左・比較の列の上端）は残す。
+ * 新しいCSS変数なし。
+ * -------------------------------------------------------------------------- */
+
+/* --- 日程: 日付ごとの見出しは他ページの h2 と同じ15px/800・数字は等幅 --- */
+[data-design="v2"].schedule-page .schedule-date-group {
+  margin-bottom: 24px;
+}
+
+[data-design="v2"].schedule-page .schedule-date-group h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ジャンプ欄: ラベルはフィルタバーの項目名と同じ小さい灰色、入力はフィルタバーと同じ角・高さ */
+[data-design="v2"] .schedule-jump-controls {
+  gap: 8px 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+[data-design="v2"] .schedule-jump-controls :is(input[type="date"], select) {
+  height: 34px;
+  margin-left: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  transition: border-color 0.12s ease;
+}
+
+[data-design="v2"] .schedule-jump-controls :is(input[type="date"], select):hover {
+  border-color: var(--muted);
+}
+
+[data-design="v2"] table.schedule-table td.align-center {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* --- カレンダー: 角4px、月送りボタンは表示切り替えと同じ枠 --- */
+[data-design="v2"] .calendar-header button {
+  border-radius: 3px;
+  transition: border-color 0.12s ease;
+}
+
+[data-design="v2"] .calendar-header button:hover {
+  border-color: var(--muted);
+}
+
+[data-design="v2"] .calendar-month-label {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-design="v2"] .calendar-weekday {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+[data-design="v2"] .calendar-cell,
+[data-design="v2"] .calendar-game-chip {
+  border-radius: 4px;
+}
+
+[data-design="v2"] .calendar-cell-date {
+  font-variant-numeric: tabular-nums;
+}
+
+[data-design="v2"] .calendar-game-chip-score {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- 比較: 説明文が長いため、見出しの横ではなく下に置く。列見出しの上端のチームカラー線は3pxのまま --- */
+[data-design="v2"].compare-page > h1 + .page-subtitle {
+  display: block;
+  margin: 4px 0 20px;
+}
+
+[data-design="v2"] table.compare-table thead th.align-right {
+  vertical-align: bottom;
+}
+
+[data-design="v2"] table.compare-table th a {
+  font-weight: 700;
+}
+
+[data-design="v2"] table.compare-table td.compare-best {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 560px) {
+  /* 日程リスト: チーム名は略称（ResponsiveTeamName）になるので、ホーム・結果・アウェイが375px幅に収まる列幅にし、
+     会場だけを表の横スクロールで見る */
+  [data-design="v2"] table.schedule-table {
+    min-width: calc(124px + 124px + 68px + 22em + 24px);
+  }
+
+  [data-design="v2"] col.schedule-col-home,
+  [data-design="v2"] col.schedule-col-away {
+    width: 124px;
+  }
+
+  [data-design="v2"] col.schedule-col-result {
+    width: 68px;
+  }
+
+  [data-design="v2"] table.schedule-table td,
+  [data-design="v2"] table.schedule-table th {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  [data-design="v2"] .schedule-team-cell .cell-link {
+    gap: 6px;
+  }
+
+  /* カレンダー: 7列を横スクロールなしで375px幅に収める。1試合は「スコア」の下に両チームのロゴを並べた縦長の札にする */
+  [data-design="v2"] .calendar-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 2px;
+    min-width: 0;
+  }
+
+  [data-design="v2"] .calendar-cell {
+    min-height: 64px;
+    padding: 2px;
+    gap: 2px;
+  }
+
+  [data-design="v2"] .calendar-cell-date {
+    font-size: 10px;
+    padding-left: 2px;
+  }
+
+  [data-design="v2"] .calendar-cell-games {
+    align-items: stretch;
+    gap: 2px;
+  }
+
+  [data-design="v2"] .calendar-game-chip {
+    flex-wrap: wrap;
+    gap: 1px 2px;
+    padding: 2px 1px;
+  }
+
+  [data-design="v2"] .calendar-game-chip :is(img, .team-logo, .calendar-game-chip-noimg) {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  [data-design="v2"] .calendar-game-chip :is(.calendar-game-chip-score, .calendar-game-chip-vs) {
+    order: -1;
+    flex-basis: 100%;
+    text-align: center;
+    font-size: 9px;
+    letter-spacing: -0.02em;
+  }
+}
