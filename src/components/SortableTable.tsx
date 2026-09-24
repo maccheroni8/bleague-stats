@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { SeasonLink as Link } from "./SeasonLink";
 import { ExternalLinkIcon } from "./ExternalLinkIcon";
+import { statDescription, type StatScope } from "../lib/statDescriptions";
 
 export interface Column<T> {
   key: string;
@@ -38,6 +39,8 @@ interface SortableTableProps<T> {
    * 機能する。未指定時は従来通りrows全件を描画する）
    */
   limit?: number;
+  /** 列見出しの説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */
+  statScope?: StatScope;
 }
 
 export function SortableTable<T>({
@@ -51,6 +54,7 @@ export function SortableTable<T>({
   rowAccentColor,
   rowHighlightColor,
   limit,
+  statScope = "player",
 }: SortableTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
@@ -86,6 +90,7 @@ export function SortableTable<T>({
             <th
               key={col.key}
               className={col.align === "left" ? "align-left" : "align-right"}
+              title={statDescription(col.label, statScope)}
               onClick={() => handleHeaderClick(col.key)}
               aria-sort={sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
             >

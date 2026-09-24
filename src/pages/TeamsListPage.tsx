@@ -96,6 +96,7 @@ import {
   type AllTeamsRow,
   type TeamPerspective,
 } from "../lib/teamStatsColumns";
+import { statDescription } from "../lib/statDescriptions";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "../lib/teamRankingData";
 
 type TeamsPageTab = "stats" | "records" | "champions" | "recent";
@@ -469,6 +470,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           <>
             <div className="table-scroll">
               <SortableTable
+                statScope="team"
                 columns={shootingColumns}
                 rows={shootingRows}
                 rowKey={(r) => r.team.teamId}
@@ -505,6 +507,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             </div>
             <div className="table-scroll">
               <SortableTable
+                statScope="team"
                 columns={turnoverColumns}
                 rows={turnoverRows}
                 rowKey={(r) => r.team.teamId}
@@ -570,6 +573,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         <>
           <div className="table-scroll">
             <SortableTable
+              statScope="team"
               key={`${boxTab}-${teamPerspective}`}
               columns={columns}
               rows={rows}
@@ -828,7 +832,7 @@ function LeagueRecordsTab() {
                 <tr>
                   <th className="align-right">#</th>
                   <th className="align-left">チーム</th>
-                  <th className="align-right">{activeLabel}</th>
+                  <th className="align-right" title={statDescription(activeLabel, "team")}>{activeLabel}</th>
                   <th className="align-left">シーズン</th>
                   <th className="align-left">試合</th>
                 </tr>
@@ -876,7 +880,7 @@ function LeagueRecordsTab() {
               <tr>
                 <th className="align-right">#</th>
                 <th className="align-left">チーム</th>
-                <th className="align-right">{activeLabel}</th>
+                <th className="align-right" title={statDescription(activeLabel, "team")}>{activeLabel}</th>
               </tr>
             </thead>
             <tbody>
@@ -1042,11 +1046,11 @@ function ChampionsTab() {
                 <th className="align-left">シーズン</th>
                 <th className="align-left">優勝チーム</th>
                 <th className="align-right">成績</th>
-                <th className="align-right">PTS</th>
-                <th className="align-right">REB</th>
-                <th className="align-right">AST</th>
-                <th className="align-right">FG%</th>
-                <th className="align-right">3P%</th>
+                <th className="align-right" title={statDescription("PTS", "team")}>PTS</th>
+                <th className="align-right" title={statDescription("REB", "team")}>REB</th>
+                <th className="align-right" title={statDescription("AST", "team")}>AST</th>
+                <th className="align-right" title={statDescription("FG%", "team")}>FG%</th>
+                <th className="align-right" title={statDescription("3P%", "team")}>3P%</th>
                 <th className="align-left">オンザコートルール</th>
               </tr>
             </thead>
@@ -1302,6 +1306,7 @@ function RecentFormTab({ season }: { season: string }) {
       ) : (
         <div className="table-scroll">
           <SortableTable
+            statScope="team"
             columns={columns}
             rows={rows}
             rowKey={(r) => r.team.teamId}

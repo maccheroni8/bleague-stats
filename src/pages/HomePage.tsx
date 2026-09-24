@@ -295,11 +295,13 @@ export function HomePage({ season }: { season: string }) {
                   {top.length > 1 && (
                     <div className="leader-rest-list">
                       {top.slice(1).map((t, i) => (
-                        <Link key={t.teamId} to={`/teams/${t.teamId}`} className="leader-rest-item">
-                          <span className="leader-rest-rank">{i + 2}</span>
-                          <span className="leader-rest-name">{t.teamName}</span>
+                        <div key={t.teamId} className="leader-rest-item">
+                          <Link to={`/teams/${t.teamId}`} className="leader-rest-item-link">
+                            <span className="leader-rest-rank">{i + 2}</span>
+                            <span className="leader-rest-name">{t.teamName}</span>
+                          </Link>
                           <span className="leader-rest-value">{def.format(t)}</span>
-                        </Link>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -331,6 +333,7 @@ export function HomePage({ season }: { season: string }) {
                 <h3>{DIVISION_LABELS[division]}</h3>
                 <div className="table-scroll home-standings-table">
                   <SortableTable
+                    statScope="team"
                     columns={standingsColumns}
                     rows={teams}
                     rowKey={(t) => t.teamId}

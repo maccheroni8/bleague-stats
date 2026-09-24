@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { teamShortName } from "../../shared/teamNames";
 import type { TeamSummary } from "../../shared/types";
+import { CLASSIFICATION_COLORS } from "../lib/classificationFilter";
 
 // 表示順: 日本人/外国籍・帰化・アジア。配色は各カテゴリに固定で割り当てる
 const CATEGORY_LABELS = ["Japanese", "Foreign"] as const;
-const CATEGORY_COLORS = ["#5b9bd5", "#e06666"] as const;
+const CATEGORY_COLORS = [CLASSIFICATION_COLORS.japanese, CLASSIFICATION_COLORS.international] as const;
 type CategoryIndex = 0 | 1;
 
 type SortKey = "total" | "cat0" | "cat1";

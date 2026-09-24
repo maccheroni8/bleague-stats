@@ -763,6 +763,7 @@ export function StandingsPage({ season }: { season: string }) {
                     />
                     <div className="table-scroll standings-sticky-3">
                       <SortableTable
+                        statScope="team"
                         columns={divisionStandingsColumns}
                         rows={g.rows}
                         rowKey={(t) => t.teamId}
@@ -779,6 +780,7 @@ export function StandingsPage({ season }: { season: string }) {
                     <ConditionTitle section title={`${seasonLabel} 順位表`} conditions={standingsConditions} />
                     <div className="table-scroll standings-sticky-2">
                       <SortableTable
+                        statScope="team"
                         columns={overallStandingsColumns}
                         rows={allStandingsRows}
                         rowKey={(t) => t.teamId}
@@ -809,6 +811,7 @@ export function StandingsPage({ season }: { season: string }) {
               {wildcardStandingsEligible ? (
                 <div className="table-scroll standings-sticky-3">
                   <SortableTable
+                    statScope="team"
                     columns={divisionStandingsColumns}
                     rows={wildcardStandingsRows}
                     rowKey={(t) => t.teamId}
@@ -837,6 +840,7 @@ export function StandingsPage({ season }: { season: string }) {
               {overallStandingsExpanded && (
                 <div className="table-scroll standings-sticky-3">
                   <SortableTable
+                    statScope="team"
                     columns={allStandingsColumns}
                     rows={allStandingsRows}
                     rowKey={(t) => t.teamId}
@@ -872,6 +876,7 @@ export function StandingsPage({ season }: { season: string }) {
                   />
                   <div className="table-scroll standings-sticky-2">
                     <SortableTable
+                      statScope="team"
                       columns={magicColumns}
                       rows={g.rows}
                       rowKey={(r) => r.teamId}

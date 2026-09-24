@@ -4,6 +4,7 @@ import { teamShortName } from "../../shared/teamNames";
 import { postseasonLabel } from "../../shared/gameType";
 import { formatDateHeading } from "../lib/format";
 import { TeamLogo } from "./TeamLogo";
+import { statDescription } from "../lib/statDescriptions";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
 
 /**
@@ -201,10 +202,10 @@ export function WinLossGrid({
                 {i + 1}
               </th>
             ))}
-            <th className="wl-stat wl-stat-first">ホーム平均観客</th>
-            <th className="wl-stat">最大連勝</th>
-            <th className="wl-stat">最大連敗</th>
-            <th className="wl-stat">現在</th>
+            <th className="wl-stat wl-stat-first" title={statDescription("ホーム平均観客", "team")}>ホーム平均観客</th>
+            <th className="wl-stat" title={statDescription("最大連勝", "team")}>最大連勝</th>
+            <th className="wl-stat" title={statDescription("最大連敗", "team")}>最大連敗</th>
+            <th className="wl-stat" title={statDescription("現在", "team")}>現在</th>
           </tr>
         </thead>
         <tbody>

@@ -37,7 +37,7 @@ export const SHOT_TYPE_DISPLAY_ORDER = [
  * 表示時のみ英語に変換する。集計・データのキー自体はYahoo表記の原文のまま変更しない）。
  * 未知のシュートタイプ（新規語彙）は原文のままフォールバック表示する
  */
-const SHOT_TYPE_LABELS: Record<string, string> = {
+export const SHOT_TYPE_LABELS: Record<string, string> = {
   ジャンプショット: "Jump Shot",
   プルアップジャンプショット: "Pull-Up",
   ドライビングレイアップ: "Driving Layup",

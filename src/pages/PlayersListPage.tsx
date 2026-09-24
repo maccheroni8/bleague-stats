@@ -78,6 +78,7 @@ import {
 import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { filterByGameType, type SeasonGameTypeFilter } from "../../shared/gameType";
+import { statDescription } from "../lib/statDescriptions";
 import {
   buildSeasonBoxscoreCtx,
   EMPTY_TEAM_TOTALS,
@@ -920,7 +921,7 @@ function LeaguePlayerRecordsTab() {
               <tr>
                 <th className="align-right">#</th>
                 <th className="align-left">選手</th>
-                <th className="align-right">{activeLabel}</th>
+                <th className="align-right" title={statDescription(activeLabel)}>{activeLabel}</th>
               </tr>
             </thead>
             <tbody>

@@ -158,6 +158,8 @@ import { StickyHeaderScroll } from "../components/StickyHeaderScroll";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { teamShortName } from "../../shared/teamNames";
 import { cleanNumericString, formatColumnDiff, teamCompareDefs, type TeamCompareColumnData } from "../lib/compareShared";
+import { CLASSIFICATION_COLORS } from "../lib/classificationFilter";
+import { statDescription } from "../lib/statDescriptions";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
 const TEAM_SHOOTING_TAB_TOOLTIP =
@@ -284,7 +286,7 @@ function TeamSeasonShotTypeTable({ rows, displayMode }: { rows: SeasonRecord[]; 
               区分
             </th>
             {keys.map((key) => (
-              <th key={key} colSpan={3}>
+              <th key={key} colSpan={3} title={statDescription(shotTypeLabel(key))}>
                 {shotTypeLabel(key)}
               </th>
             ))}
@@ -423,11 +425,6 @@ function buildPtsCompositionSegments(team: TeamSummary, perspective: "own" | "op
   ];
 }
 
-// 登録区分別得点構成の円グラフ配色（2分割: 日本人/外国籍・帰化・アジア）
-const CLASSIFICATION_PIE_COLORS = {
-  japanese: "#5b9bd5",
-  international: "#e06666",
-};
 
 /**
  * 登録区分別得点割合の円グラフ用データ（自チーム/相手チーム）。日本人/外国籍・帰化・アジアの
@@ -441,8 +438,8 @@ function buildClassificationPtsCompositionSegments(team: TeamSummary, perspectiv
       ? team.advanced.foreignPointsPerGame + team.advanced.naturalizedOrAsianPointsPerGame
       : team.advanced.opponentForeignPointsPerGame + team.advanced.opponentNaturalizedOrAsianPointsPerGame;
   return [
-    { key: "jp", label: "日本人", color: CLASSIFICATION_PIE_COLORS.japanese, value: japanese },
-    { key: "international", label: "外国籍・帰化・アジア", color: CLASSIFICATION_PIE_COLORS.international, value: international },
+    { key: "jp", label: "日本人", color: CLASSIFICATION_COLORS.japanese, value: japanese },
+    { key: "international", label: "外国籍・帰化・アジア", color: CLASSIFICATION_COLORS.international, value: international },
   ];
 }
 
@@ -939,7 +936,6 @@ interface TeamSeasonBoxColumn {
   key: string;
   label: string;
   format: (r: SeasonRecord, misc: TeamSeasonMiscTotals, mode: SeasonDisplayMode, perspective: TeamPerspective) => string;
-  description?: string;
 }
 
 // カウント系の値（1シーズン合計値total・1試合平均perGameのペア）を、平均/合計トグルの
@@ -1321,7 +1317,6 @@ const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
   {
     key: "internationalPts",
     label: "Foreign PTS",
-    description: "外国籍・帰化選手・アジア特別枠選手の得点",
     format: (r, _m, mode, p) =>
       formatTeamSeasonCountPerspective(
         r.team.advanced.internationalPointsPerGame * r.team.gamesPlayed,
@@ -1462,7 +1457,6 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   {
     key: "internationalPts3",
     label: "Foreign PTS",
-    description: "外国籍・帰化選手・アジア特別枠選手の得点",
     format: (r, _m, mode, p) =>
       formatTeamSeasonCountPerspective(
         (r.team.advanced.foreignPointsPerGame + r.team.advanced.naturalizedOrAsianPointsPerGame) * r.team.gamesPlayed,
@@ -1482,7 +1476,6 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   {
     key: "pctinternational3",
     label: "%Foreign PTS",
-    description: "総得点に占める、外国籍・帰化選手・アジア特別枠選手の得点の割合",
     format: (r, _m, _mode, p) =>
       formatTeamSeasonPct100(
         r.team.advanced.foreignPointsSharePct + r.team.advanced.naturalizedOrAsianPointsSharePct,
@@ -1503,6 +1496,26 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "%3PA",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(safeDiv(100 * r.team.totals.tpa, r.team.totals.fga), safeDiv(100 * m.oppTpa, m.oppFga), p),
+  },
+  {
+    key: "pct2pm",
+    label: "%2PM",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonPct100(
+        safeDiv(100 * (r.team.totals.fgm - r.team.totals.tpm), r.team.totals.fga),
+        safeDiv(100 * (m.oppFgm - m.oppTpm), m.oppFga),
+        p,
+      ),
+  },
+  {
+    key: "pct2pa",
+    label: "%2PA",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonPct100(
+        safeDiv(100 * (r.team.totals.fga - r.team.totals.tpa), r.team.totals.fga),
+        safeDiv(100 * (m.oppFga - m.oppTpa), m.oppFga),
+        p,
+      ),
   },
   // Batch 3（2026-09-08）: %IPA（ペイント内試投割合）・%OPA（ペイント外試投割合）。
   // ペイント内試投数（m.paint2a）自体がショットチャート座標由来のため2022-23シーズン以降限定
@@ -3549,9 +3562,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                 <thead>
                   <tr>
                     <th className="align-left">区分</th>
-                    <th className="align-right">試合数</th>
-                    <th className="align-right">勝敗</th>
-                    <th className="align-right">勝率</th>
+                    <th className="align-right" title={statDescription("試合数")}>試合数</th>
+                    <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
+                    <th className="align-right" title={statDescription("勝率")}>勝率</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3596,9 +3609,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                   <thead>
                     <tr>
                       <th className="align-left">区分</th>
-                      <th className="align-right">試合数</th>
-                      <th className="align-right">勝敗</th>
-                      <th className="align-right">勝率</th>
+                      <th className="align-right" title={statDescription("試合数")}>試合数</th>
+                      <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
+                      <th className="align-right" title={statDescription("勝率")}>勝率</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3716,7 +3729,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <th className="align-left">対戦相手</th>
                       <th className="align-right">結果</th>
                       {scheduleBoxColumns.map((col) => (
-                        <th key={col.key} className="align-right" title={col.description}>
+                        <th key={col.key} className="align-right" title={statDescription(col.label, "team")}>
                           {col.label}
                         </th>
                       ))}
@@ -3998,11 +4011,11 @@ export function TeamDetailPage({ season }: { season: string }) {
                   <tr>
                     <th className="align-left">シーズン</th>
                     <th className="align-left">チーム名</th>
-                    <th className="align-right">試合数</th>
-                    <th className="align-right">勝敗</th>
-                    <th className="align-right">勝率</th>
+                    <th className="align-right" title={statDescription("試合数")}>試合数</th>
+                    <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
+                    <th className="align-right" title={statDescription("勝率")}>勝率</th>
                     {TEAM_SEASON_BOX_COLUMNS[seasonBoxTab].map((c) => (
-                      <th className="align-right" key={c.key} title={c.description}>
+                      <th className="align-right" key={c.key} title={statDescription(c.label, "team")}>
                         {c.label}
                       </th>
                     ))}
@@ -4084,19 +4097,19 @@ export function TeamDetailPage({ season }: { season: string }) {
                 <thead>
                   <tr>
                     <th className="align-left">区分</th>
-                    <th className="align-right">試合数</th>
-                    <th className="align-right" title="対戦相手の「その試合時点までの」勝率の単純平均。相手の強さの目安">
+                    <th className="align-right" title={statDescription("試合数")}>試合数</th>
+                    <th className="align-right" title={statDescription("対戦相手勝率")}>
                       対戦相手勝率
                     </th>
                     {(situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : COLUMNS_BY_TAB[situationalTeamBoxTab]).map(
                       (col) => (
-                        <th key={col.key} className="align-right" title={"description" in col ? col.description : undefined}>
+                        <th key={col.key} className="align-right" title={statDescription(col.label, "team")}>
                           {col.label}
                         </th>
                       ),
                     )}
                     {situationalTeamPointsColumns.map((col) => (
-                      <th key={col.key} className="align-right">
+                      <th key={col.key} className="align-right" title={statDescription(col.label, "team")}>
                         {col.label}
                       </th>
                     ))}
@@ -4310,14 +4323,14 @@ export function TeamDetailPage({ season }: { season: string }) {
                   <thead>
                     <tr>
                       <th className="align-left">5人の組み合わせ</th>
-                      <th className="align-right">試合数</th>
-                      <th className="align-right">出場時間</th>
-                      <th className="align-right">得点</th>
-                      <th className="align-right">失点</th>
-                      <th className="align-right">得失点</th>
-                      <th className="align-right">ORtg（推定）</th>
-                      <th className="align-right">DRtg（推定）</th>
-                      <th className="align-right">NetRtg（推定）</th>
+                      <th className="align-right" title={statDescription("試合数")}>試合数</th>
+                      <th className="align-right" title={statDescription("出場時間")}>出場時間</th>
+                      <th className="align-right" title={statDescription("得点")}>得点</th>
+                      <th className="align-right" title={statDescription("失点")}>失点</th>
+                      <th className="align-right" title={statDescription("得失点")}>得失点</th>
+                      <th className="align-right" title={statDescription("ORtg（推定）")}>ORtg（推定）</th>
+                      <th className="align-right" title={statDescription("DRtg（推定）")}>DRtg（推定）</th>
+                      <th className="align-right" title={statDescription("NetRtg（推定）")}>NetRtg（推定）</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4371,16 +4384,16 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <tr>
                       <th className="align-left">アシスト元選手</th>
                       <th className="align-left">得点選手</th>
-                      <th className="align-right">アシスト回数</th>
-                      <th className="align-right">回数割合</th>
-                      <th className="align-right">アシスト経由得点数</th>
-                      <th className="align-right">得点割合</th>
-                      <th className="align-right">2P成功数</th>
-                      <th className="align-right">2P割合</th>
-                      <th className="align-right">3P成功数</th>
-                      <th className="align-right">3P割合</th>
-                      <th className="align-right">FT成功数</th>
-                      <th className="align-right">FT割合</th>
+                      <th className="align-right" title={statDescription("アシスト回数")}>アシスト回数</th>
+                      <th className="align-right" title={statDescription("回数割合")}>回数割合</th>
+                      <th className="align-right" title={statDescription("アシスト経由得点数")}>アシスト経由得点数</th>
+                      <th className="align-right" title={statDescription("得点割合")}>得点割合</th>
+                      <th className="align-right" title={statDescription("2P成功数")}>2P成功数</th>
+                      <th className="align-right" title={statDescription("2P割合")}>2P割合</th>
+                      <th className="align-right" title={statDescription("3P成功数")}>3P成功数</th>
+                      <th className="align-right" title={statDescription("3P割合")}>3P割合</th>
+                      <th className="align-right" title={statDescription("FT成功数")}>FT成功数</th>
+                      <th className="align-right" title={statDescription("FT割合")}>FT割合</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4497,6 +4510,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             <p className="error-message">{careerError}</p>
           ) : (
             <ComparisonTable
+              statScope="team"
               rows={compareRows}
               defs={teamCompareDefs(compareTab, comparePerspective)}
               rowKey={(r) => r.key}
@@ -4894,7 +4908,7 @@ function TeamPlayerStatsTable({
                       <th
                         key={col.key}
                         className="align-right sortable-col"
-                        title={"description" in col ? col.description : undefined}
+                        title={statDescription(col.label)}
                         onClick={() => handleHeaderClick(col.key)}
                         aria-sort={sortAria(col.key)}
                       >
@@ -4902,10 +4916,10 @@ function TeamPlayerStatsTable({
                         {sortIndicator(col.key)}
                       </th>
                     ))}
-                    <th className="align-right sortable-col" onClick={() => handleHeaderClick("dd2")} aria-sort={sortAria("dd2")}>
+                    <th className="align-right sortable-col" title={statDescription("DD2")} onClick={() => handleHeaderClick("dd2")} aria-sort={sortAria("dd2")}>
                       DD2{sortIndicator("dd2")}
                     </th>
-                    <th className="align-right sortable-col" onClick={() => handleHeaderClick("td3")} aria-sort={sortAria("td3")}>
+                    <th className="align-right sortable-col" title={statDescription("TD3")} onClick={() => handleHeaderClick("td3")} aria-sort={sortAria("td3")}>
                       TD3{sortIndicator("td3")}
                     </th>
                   </tr>

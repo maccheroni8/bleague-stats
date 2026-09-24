@@ -96,6 +96,7 @@ import {
 import type { PeriodRangeValue } from "../lib/periodRange";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { ageBaseDate, ageForSeason, formatBaseDateLabel, todayBaseDateLabel } from "../lib/age";
+import { statDescription, type StatScope } from "../lib/statDescriptions";
 import type { PlayerGameLog, PlayerSummary, TeamColors, TeamForcedTurnovers, TeamGameLog, TeamSummary } from "../../shared/types";
 
 type Mode = "team" | "player";
@@ -186,6 +187,8 @@ interface RankedListProps<T> {
   limit?: number;
   /** trueのとき、表を内容幅に詰める（名前と値の間が広がりすぎないように。親の.export-target-compactと併用） */
   compact?: boolean;
+  /** 項目名の説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */
+  statScope?: StatScope;
 }
 
 /** シューティングの項目（キー「{シュート種別}_2pm」等）を、シュート種別ごとのグループにする（項目数が多いため） */
@@ -214,6 +217,7 @@ function RankedList<T>({
   avatar,
   limit,
   compact,
+  statScope = "player",
 }: RankedListProps<T>) {
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
   // ソート方向は「値の大小」ではなく「良い/悪い」の向き（def.higherIsBetter）を基準にした
@@ -243,6 +247,7 @@ function RankedList<T>({
             <th className="align-left">名前</th>
             <th
               className="align-right"
+              title={statDescription(def.label, statScope)}
               onClick={toggleSortDir}
               aria-sort={sortDir === "asc" ? "ascending" : "descending"}
             >
@@ -584,9 +589,10 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         ) : (
           <>
             <ExportImageButton targetRef={exportRef} filename={teamShootingTitle.filename} />
-            <div ref={exportRef} className="export-target export-target-compact">
+            <div ref={exportRef} className="export-target export-target-compact export-target-rankings-team">
               <ConditionTitle title={teamShootingTitle.title} conditions={teamShootingTitle.conditions} />
               <RankedList
+                statScope="team"
                 rows={teamsWithShotTypes}
                 def={shootingDef}
                 rowKey={(t) => t.teamId}
@@ -605,9 +611,10 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         ) : (
           <>
             <ExportImageButton targetRef={exportRef} filename={teamForcedTurnoverTitle.filename} />
-            <div ref={exportRef} className="export-target export-target-compact">
+            <div ref={exportRef} className="export-target export-target-compact export-target-rankings-team">
               <ConditionTitle title={teamForcedTurnoverTitle.title} conditions={teamForcedTurnoverTitle.conditions} />
               <RankedList
+                statScope="team"
                 rows={teamsWithForcedTurnovers}
                 def={forcedTurnoverDef}
                 rowKey={(t) => t.teamId}
@@ -625,9 +632,10 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
       ) : (
         <>
           <ExportImageButton targetRef={exportRef} filename={teamBoxscoreTitle.filename} />
-          <div ref={exportRef} className="export-target export-target-compact">
+          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-team">
             <ConditionTitle title={teamBoxscoreTitle.title} conditions={teamBoxscoreTitle.conditions} />
             <RankedList
+                statScope="team"
               rows={rows}
               def={teamDef}
               rowKey={(r) => r.team.teamId}
@@ -1241,7 +1249,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       ) : (
         <>
           <ExportImageButton targetRef={exportRef} filename={playerTitle.filename} />
-          <div ref={exportRef} className="export-target export-target-compact">
+          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
             <ConditionTitle title={playerTitle.title} conditions={playerTitle.conditions} />
             {profileBaseDateLabel && <p className="rule-change-footnote ranking-base-date">{profileBaseDateLabel}</p>}
             <RankedList

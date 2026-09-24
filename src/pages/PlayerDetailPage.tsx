@@ -141,6 +141,7 @@ import { ComparisonTable, type ComparisonRow } from "./ComparePage";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { ageForSeason } from "../lib/age";
 import { seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
+import { statDescription } from "../lib/statDescriptions";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
 /**
@@ -2428,7 +2429,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     </th>
                     <th
                       className="align-right sortable-col"
-                      title="対戦相手の「その試合時点までの」勝率の単純平均。相手の強さの目安"
+                      title={statDescription("対戦相手勝率")}
                       onClick={() => handleSituationalStatsHeaderClick("oppWinPct")}
                       aria-sort={situationalStatsSortAria("oppWinPct")}
                     >
@@ -2439,7 +2440,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                         <th
                           key={col.key}
                           className="align-right sortable-col"
-                          title={"description" in col ? col.description : undefined}
+                          title={statDescription(col.label)}
                           onClick={() => handleSituationalStatsHeaderClick(col.key)}
                           aria-sort={situationalStatsSortAria(col.key)}
                         >
@@ -2565,12 +2566,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
                       <thead>
                         <tr>
                           <th className="align-left">得点選手</th>
-                          <th className="align-right">アシスト回数</th>
-                          <th className="align-right">占める割合</th>
-                          <th className="align-right">アシスト経由得点数</th>
-                          <th className="align-right">2P成功数</th>
-                          <th className="align-right">3P成功数</th>
-                          <th className="align-right">FT成功数</th>
+                          <th className="align-right" title={statDescription("アシスト回数")}>アシスト回数</th>
+                          <th className="align-right" title={statDescription("占める割合")}>占める割合</th>
+                          <th className="align-right" title={statDescription("アシスト経由得点数")}>アシスト経由得点数</th>
+                          <th className="align-right" title={statDescription("2P成功数")}>2P成功数</th>
+                          <th className="align-right" title={statDescription("3P成功数")}>3P成功数</th>
+                          <th className="align-right" title={statDescription("FT成功数")}>FT成功数</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2611,13 +2612,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
                       <thead>
                         <tr>
                           <th className="align-left">アシスト元選手</th>
-                          <th className="align-right">アシスト回数</th>
-                          <th className="align-right">回数割合</th>
-                          <th className="align-right">アシスト経由得点数</th>
-                          <th className="align-right">得点割合</th>
-                          <th className="align-right">2P成功数</th>
-                          <th className="align-right">3P成功数</th>
-                          <th className="align-right">FT成功数</th>
+                          <th className="align-right" title={statDescription("アシスト回数")}>アシスト回数</th>
+                          <th className="align-right" title={statDescription("回数割合")}>回数割合</th>
+                          <th className="align-right" title={statDescription("アシスト経由得点数")}>アシスト経由得点数</th>
+                          <th className="align-right" title={statDescription("得点割合")}>得点割合</th>
+                          <th className="align-right" title={statDescription("2P成功数")}>2P成功数</th>
+                          <th className="align-right" title={statDescription("3P成功数")}>3P成功数</th>
+                          <th className="align-right" title={statDescription("FT成功数")}>FT成功数</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2722,9 +2723,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
                       <thead>
                         <tr>
                           <th className="align-left">指標</th>
-                          <th className="align-right">オンコート</th>
-                          <th className="align-right">オフコート</th>
-                          <th className="align-right">差分（オン-オフ）</th>
+                          <th className="align-right" title={statDescription("オンコート")}>オンコート</th>
+                          <th className="align-right" title={statDescription("オフコート")}>オフコート</th>
+                          <th className="align-right" title={statDescription("差分（オン-オフ）")}>差分（オン-オフ）</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3285,7 +3286,7 @@ function SeasonBreakdownTable({
                 <th
                   key={col.key}
                   className="align-right sortable-col"
-                  title={"description" in col ? col.description : undefined}
+                  title={statDescription(col.label)}
                   onClick={() => handleHeaderClick(col.key)}
                   aria-sort={sortAria(col.key)}
                 >
@@ -3293,10 +3294,10 @@ function SeasonBreakdownTable({
                   {sortIndicator(col.key)}
                 </th>
               ))}
-              <th className="align-right sortable-col" onClick={() => handleHeaderClick("dd2")} aria-sort={sortAria("dd2")}>
+              <th className="align-right sortable-col" title={statDescription("DD2")} onClick={() => handleHeaderClick("dd2")} aria-sort={sortAria("dd2")}>
                 DD2{sortIndicator("dd2")}
               </th>
-              <th className="align-right sortable-col" onClick={() => handleHeaderClick("td3")} aria-sort={sortAria("td3")}>
+              <th className="align-right sortable-col" title={statDescription("TD3")} onClick={() => handleHeaderClick("td3")} aria-sort={sortAria("td3")}>
                 TD3{sortIndicator("td3")}
               </th>
             </tr>

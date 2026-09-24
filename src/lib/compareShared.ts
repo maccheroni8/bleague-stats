@@ -40,6 +40,8 @@ const PCT_ALREADY_0_TO_100: ReadonlySet<string> = new Set([
   "pctfga",
   "pct3pm",
   "pct3pa",
+  "pct2pm",
+  "pct2pa",
   "pctftm",
   "pctfta",
 ]);
@@ -108,6 +110,7 @@ const COMPARE_NO_HIGHLIGHT = new Set([
   "mid2a",
   "pctfga",
   "pct3pa",
+  "pct2pa",
   "pctfta",
   "pct3paown",
   "pctpaint2aown",

@@ -16,6 +16,15 @@ import type { PlayerSummary } from "../../shared/types";
  */
 export type ClassificationGroup = "日本人" | "外国籍・帰化・アジア";
 
+/**
+ * 登録区分の配色（日本人＝赤、外国籍・帰化・アジア＝青）。得点構成・失点構成（登録区分）の棒グラフ、チーム詳細・試合詳細の
+ * 登録区分別の円グラフは、すべてここから色を取る（DESIGN.md 136章）
+ */
+export const CLASSIFICATION_COLORS = {
+  japanese: "#e06666",
+  international: "#5b9bd5",
+} as const;
+
 export const CLASSIFICATION_GROUP_OPTIONS: ClassificationGroup[] = ["日本人", "外国籍・帰化・アジア"];
 
 export function classificationGroup(

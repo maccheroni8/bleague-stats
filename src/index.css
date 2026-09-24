@@ -2072,6 +2072,60 @@ table.compare-table th .compare-season-tag {
   padding-left: 32px;
 }
 
+/* ランキング: 項目を切り替えても列の幅が変わらないよう、保存範囲（表＋タイトル）の幅と各列の幅を固定する（DESIGN.md 136章）。
+ * 以前は保存範囲が内容幅（fit-content）で、(1) 値の列が項目名の長さ（「Alley-Oop Dunk 2P%」等）に合わせて広がる、
+ * (2) タイトルに項目名が入るため長い項目名で保存範囲ごと広がり、余りを名前の列が吸収する、(3) 個人は上位に入る選手の
+ * 所属・ポジション・区分の長さで名前の列が伸び縮みする、の3つで幅が変わっていた。
+ * 幅はチーム440px・個人560px（個人は確認したシーズン・項目の上位20名で所属・ポジション・区分が1行に収まる幅。クラブ名の長い選手は2行に
+ * 折り返すことがあるが、列の幅は変わらない）。狭い画面は画面幅に合わせ、
+ * 名前の列が残りを取る。値の列は104pxで、長い項目名は見出しの中で折り返す。タイトルは保存範囲の幅で折り返す */
+.export-target-compact.export-target-rankings-team {
+  width: 440px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.export-target-compact.export-target-rankings-player {
+  width: 560px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+table.rankings-table-compact {
+  table-layout: fixed;
+  width: 100%;
+}
+
+table.rankings-table-compact th:first-child {
+  width: 42px;
+}
+
+table.rankings-table-compact th:last-child {
+  width: 104px;
+  padding-left: 16px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+table.rankings-table-compact td.rank-value {
+  padding-left: 16px;
+}
+
+@media (max-width: 640px) {
+  table.rankings-table-compact th:first-child {
+    width: 34px;
+  }
+
+  table.rankings-table-compact th:last-child {
+    width: 88px;
+    padding-left: 6px;
+  }
+
+  table.rankings-table-compact td.rank-value {
+    padding-left: 6px;
+  }
+}
+
 /* 表・画像出力の直上に置く「タイトル＋選択中の条件」（ConditionTitle.tsx）。
  * 画像出力の対象（.export-target）の内側に置くため、余白は上下とも小さめにしている */
 .condition-title {
@@ -2621,6 +2675,8 @@ table.h2h-table td {
 
 .h2h-col-header a {
   display: inline-flex;
+  color: var(--fg);
+  text-decoration: none;
 }
 
 .h2h-row-header {

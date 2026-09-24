@@ -41,6 +41,7 @@ import {
 } from "../lib/useCompareSlotData";
 import type { DivisionHistoryFile } from "../../shared/types";
 import { useSeasonKeyedData } from "../lib/useSeasonKeyedData";
+import { statDescription, type StatScope } from "../lib/statDescriptions";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 
 type Mode = "team" | "player";
@@ -183,6 +184,8 @@ interface ComparisonTableProps<T> {
   /** 指定時、シーズンタグの下に補足（そのスロットのシチュエーション・試合数等）を表示する */
   subLabel?: (row: T) => string | undefined;
   emptyMessage?: string;
+  /** 項目名の説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */
+  statScope?: StatScope;
 }
 
 export function ComparisonTable<T>({
@@ -195,6 +198,7 @@ export function ComparisonTable<T>({
   teamColor,
   subLabel,
   emptyMessage = "比較する項目を選んでください",
+  statScope = "player",
 }: ComparisonTableProps<T>) {
   // 列の並び（DESIGN.md 134-2）: 広い画面は項目名を対象の間に挟み、どの値も項目名の隣に来るようにする
   // （2つ: A／項目／B、3つ: A／項目／B／項目／C）。スマホ幅（560px以下）と対象が1つのときは項目名を左端に1本だけ置き、
@@ -265,7 +269,11 @@ export function ComparisonTable<T>({
               <tr key={def.key}>
                 {columns.map((col, ci) =>
                   col === "label" ? (
-                    <td key={`label-${ci}`} className={`compare-label-col${interleaved ? " align-center" : " align-left"}`}>
+                    <td
+                      key={`label-${ci}`}
+                      className={`compare-label-col${interleaved ? " align-center" : " align-left"}`}
+                      title={statDescription(def.label, statScope)}
+                    >
                       {def.label}
                     </td>
                   ) : (
@@ -475,6 +483,7 @@ function TeamCompareView({
       <div ref={exportRef} className="export-target">
         {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} />}
         <ComparisonTable
+          statScope="team"
           rows={rows}
           defs={defs}
           rowKey={(r) => r.key}

@@ -6,7 +6,7 @@ import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import { formatPct } from "../lib/format";
-import { classificationGroup } from "../lib/classificationFilter";
+import { classificationGroup, CLASSIFICATION_COLORS } from "../lib/classificationFilter";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, ShotTypeBreakdown } from "../../shared/types";
 import { KeyStatsSection } from "../components/KeyStatsSection";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
@@ -40,6 +40,7 @@ import { computePointsInPaint } from "../../shared/playTypePoints";
 import { teamShortName } from "../../shared/teamNames";
 import { CompositionPieChart, type PieSegmentInput } from "../components/CompositionPieChart";
 import { playTimeToSeconds } from "../lib/boxscoreAggregate";
+import { statDescription } from "../lib/statDescriptions";
 import {
   buildShotTypeBreakdownByPlayer,
   formatShotTypeAttempted,
@@ -209,11 +210,6 @@ function buildGamePtsCompositionSegments(
   ];
 }
 
-// 登録区分別得点構成の円グラフ配色（2分割: 日本人/外国籍・帰化・アジア）
-const CLASSIFICATION_PIE_COLORS = {
-  japanese: "#5b9bd5",
-  international: "#e06666",
-};
 
 /**
  * 登録区分別得点割合の円グラフ用データ（1試合分）。日本人/外国籍・帰化・アジアの2分割
@@ -236,8 +232,8 @@ function buildGameClassificationPtsSegments(
   }
   return {
     segments: [
-      { key: "jp", label: "日本人", color: CLASSIFICATION_PIE_COLORS.japanese, value: japanese },
-      { key: "international", label: "外国籍・帰化・アジア", color: CLASSIFICATION_PIE_COLORS.international, value: international },
+      { key: "jp", label: "日本人", color: CLASSIFICATION_COLORS.japanese, value: japanese },
+      { key: "international", label: "外国籍・帰化・アジア", color: CLASSIFICATION_COLORS.international, value: international },
     ],
     unclassifiedPlayedCount,
   };
@@ -981,27 +977,29 @@ function ShootingBreakdownTable({
               <tr>
                 <th className="align-left" rowSpan={2}>選手</th>
                 {shotTypeKeys.map((key) => (
-                  <th key={key} colSpan={6}>{shotTypeLabel(key)}</th>
+                  <th key={key} colSpan={6} title={statDescription(shotTypeLabel(key))}>
+                    {shotTypeLabel(key)}
+                  </th>
                 ))}
                 <th colSpan={6}>合計</th>
               </tr>
               <tr>
                 {shotTypeKeys.map((key) => (
                   <Fragment key={key}>
-                    <th className="align-right">2PM</th>
-                    <th className="align-right">2PA</th>
-                    <th className="align-right">2P%</th>
-                    <th className="align-right">3PM</th>
-                    <th className="align-right">3PA</th>
-                    <th className="align-right">3P%</th>
+                    <th className="align-right" title={statDescription("2PM")}>2PM</th>
+                    <th className="align-right" title={statDescription("2PA")}>2PA</th>
+                    <th className="align-right" title={statDescription("2P%")}>2P%</th>
+                    <th className="align-right" title={statDescription("3PM")}>3PM</th>
+                    <th className="align-right" title={statDescription("3PA")}>3PA</th>
+                    <th className="align-right" title={statDescription("3P%")}>3P%</th>
                   </Fragment>
                 ))}
-                <th className="align-right">2PM</th>
-                <th className="align-right">2PA</th>
-                <th className="align-right">2P%</th>
-                <th className="align-right">3PM</th>
-                <th className="align-right">3PA</th>
-                <th className="align-right">3P%</th>
+                <th className="align-right" title={statDescription("2PM")}>2PM</th>
+                <th className="align-right" title={statDescription("2PA")}>2PA</th>
+                <th className="align-right" title={statDescription("2P%")}>2P%</th>
+                <th className="align-right" title={statDescription("3PM")}>3PM</th>
+                <th className="align-right" title={statDescription("3PA")}>3PA</th>
+                <th className="align-right" title={statDescription("3P%")}>3P%</th>
               </tr>
             </thead>
             <tbody>

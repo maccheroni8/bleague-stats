@@ -511,6 +511,7 @@ export function ConditionalStandingsTable({
       ) : (
         <div className="table-scroll">
           <SortableTable
+            statScope="team"
             columns={columns}
             rows={rows}
             rowKey={(r) => r.team.teamId}
