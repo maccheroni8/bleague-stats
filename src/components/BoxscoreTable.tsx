@@ -272,24 +272,12 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
   // ペアになるActionCD1=15〔ファウルドローン〕から相手選手を特定する。boxscoreAggregate.ts参照）
   { key: "offfoul", label: "OFF FOUL", format: (c) => String(c.offensiveFoulsCommitted), value: (c) => c.offensiveFoulsCommitted, higherIsBetter: false },
   { key: "charge", label: "CHARGE", format: (c) => String(c.chargesDrawn), value: (c) => c.chargesDrawn },
-  // アシストからの得点（得点者視点。shared/assistedScoring.ts参照）。FTAST含め
-  // PlayByPlays配列内の構造的な隣接パターンから求めた「被アシスト」内訳
-  { key: "ast2m", label: "AST2M", format: (c) => String(c.assisted2m), value: (c) => c.assisted2m },
-  { key: "ast3m", label: "AST3M", format: (c) => String(c.assisted3m), value: (c) => c.assisted3m },
-  { key: "astftm", label: "ASTFTM", format: (c) => String(c.assistedFtm), value: (c) => c.assistedFtm },
   // AST%（NBA式）はチームの行だけ（AST / FGM）。選手のAST%（在コート中のチームメイトのFGMが分母）は再集計が必要なため未対応（DESIGN.md 139章）
   {
     key: "astpct",
     label: "AST%",
     format: (c, ctx) => (ctx.isTeamTotalRow ? formatPct100(sharePct(c.ast, c.pt2m + c.pt3m)) : "-"),
     value: (c, ctx) => (ctx.isTeamTotalRow ? sharePct(c.ast, c.pt2m + c.pt3m) : undefined),
-  },
-  {
-    key: "pctptsasted",
-    label: "%PTS ASTED",
-    format: (c) =>
-      formatPct100(sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts)),
-    value: (c) => sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts),
   },
   // ターンオーバーのライブ/デッドボール内訳（Yahoo!スポーツplay-by-play由来、2023-24シーズン
   // 以降のみ。DESIGN.md参照）。未対応シーズン・未取得試合は「-」表示にする
@@ -379,6 +367,18 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
     label: "%FTA",
     format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.fta, ctx.own.fta)) : "-"),
     value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.fta, ctx.own.fta) : undefined),
+  },
+  // アシストからの得点（得点者視点。shared/assistedScoring.ts参照）。FTAST含め
+  // PlayByPlays配列内の構造的な隣接パターンから求めた「被アシスト」内訳
+  { key: "ast2m", label: "AST2M", format: (c) => String(c.assisted2m), value: (c) => c.assisted2m },
+  { key: "ast3m", label: "AST3M", format: (c) => String(c.assisted3m), value: (c) => c.assisted3m },
+  { key: "astftm", label: "ASTFTM", format: (c) => String(c.assistedFtm), value: (c) => c.assistedFtm },
+  {
+    key: "pctptsasted",
+    label: "%PTS ASTED",
+    format: (c) =>
+      formatPct100(sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts)),
+    value: (c) => sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts),
   },
   {
     key: "paint2m",

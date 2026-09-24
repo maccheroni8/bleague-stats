@@ -1027,31 +1027,6 @@ export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
     value: (c) => c.scaled.technicalFouls,
     higherIsBetter: false,
   },
-  {
-    key: "ast2m",
-    label: "AST2M",
-    format: (c, mode) => formatDecimal(c.scaled.assisted2m, countDigits(mode)),
-    value: (c) => c.scaled.assisted2m,
-  },
-  {
-    key: "ast3m",
-    label: "AST3M",
-    format: (c, mode) => formatDecimal(c.scaled.assisted3m, countDigits(mode)),
-    value: (c) => c.scaled.assisted3m,
-  },
-  {
-    key: "astftm",
-    label: "ASTFTM",
-    format: (c, mode) => formatDecimal(c.scaled.assistedFtm, countDigits(mode)),
-    value: (c) => c.scaled.assistedFtm,
-  },
-  {
-    key: "pctptsasted",
-    label: "%PTS ASTED",
-    format: (c) =>
-      formatPct100(safeDiv(100 * (c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm), c.raw.pts)),
-    value: (c) => safeDiv(100 * (c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm), c.raw.pts),
-  },
 ];
 
 /** ショットチャート非対応シーズン（"-"表示列）のvalueは一律0にする（PPP等と同じ既存方針） */
@@ -1122,6 +1097,32 @@ export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
     label: "%FTA",
     format: (c) => formatPct100(sharePct(c.raw.fta, c.team.fta)),
     value: (c) => sharePct(c.raw.fta, c.team.fta),
+  },
+  // アシストからの得点（得点者視点。shared/assistedScoring.ts参照）。得点の内訳のまとまりとしてMiscから移設（DESIGN.md 140章）
+  {
+    key: "ast2m",
+    label: "AST2M",
+    format: (c, mode) => formatDecimal(c.scaled.assisted2m, countDigits(mode)),
+    value: (c) => c.scaled.assisted2m,
+  },
+  {
+    key: "ast3m",
+    label: "AST3M",
+    format: (c, mode) => formatDecimal(c.scaled.assisted3m, countDigits(mode)),
+    value: (c) => c.scaled.assisted3m,
+  },
+  {
+    key: "astftm",
+    label: "ASTFTM",
+    format: (c, mode) => formatDecimal(c.scaled.assistedFtm, countDigits(mode)),
+    value: (c) => c.scaled.assistedFtm,
+  },
+  {
+    key: "pctptsasted",
+    label: "%PTS ASTED",
+    format: (c) =>
+      formatPct100(safeDiv(100 * (c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm), c.raw.pts)),
+    value: (c) => safeDiv(100 * (c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm), c.raw.pts),
   },
   {
     key: "paint2m",

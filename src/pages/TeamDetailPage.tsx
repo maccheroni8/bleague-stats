@@ -1350,35 +1350,10 @@ const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
     format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.basketCounts, m.oppBasketCounts, r.team.gamesPlayed, mode, p),
   },
   {
-    key: "ast2m",
-    label: "AST2M",
-    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assisted2m, m.oppAssisted2m, r.team.gamesPlayed, mode, p),
-  },
-  {
-    key: "ast3m",
-    label: "AST3M",
-    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assisted3m, m.oppAssisted3m, r.team.gamesPlayed, mode, p),
-  },
-  {
-    key: "astftm",
-    label: "ASTFTM",
-    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assistedFtm, m.oppAssistedFtm, r.team.gamesPlayed, mode, p),
-  },
-  {
     key: "astpct",
     label: "AST%",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(safeDiv(100 * r.team.totals.ast, r.team.totals.fgm), safeDiv(100 * m.oppAst, m.oppFgm), p),
-  },
-  {
-    key: "pctptsasted",
-    label: "%PTS ASTED",
-    format: (r, m, _mode, p) =>
-      formatTeamSeasonPct100(
-        safeDiv(100 * (m.assisted2m * 2 + m.assisted3m * 3 + m.assistedFtm), r.team.totals.pts),
-        safeDiv(100 * (m.oppAssisted2m * 2 + m.oppAssisted3m * 3 + m.oppAssistedFtm), m.oppPts),
-        p,
-      ),
   },
 ];
 
@@ -1407,6 +1382,32 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "PTSOFFTO%",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(safeDiv(100 * m.pft, r.team.totals.pts), safeDiv(100 * m.oppPft, m.oppPts), p),
+  },
+  // アシストからの得点（得点の内訳のまとまりとしてMiscから移設。DESIGN.md 140章）
+  {
+    key: "ast2m",
+    label: "AST2M",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assisted2m, m.oppAssisted2m, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "ast3m",
+    label: "AST3M",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assisted3m, m.oppAssisted3m, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "astftm",
+    label: "ASTFTM",
+    format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assistedFtm, m.oppAssistedFtm, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "pctptsasted",
+    label: "%PTS ASTED",
+    format: (r, m, _mode, p) =>
+      formatTeamSeasonPct100(
+        safeDiv(100 * (m.assisted2m * 2 + m.assisted3m * 3 + m.assistedFtm), r.team.totals.pts),
+        safeDiv(100 * (m.oppAssisted2m * 2 + m.oppAssisted3m * 3 + m.oppAssistedFtm), m.oppPts),
+        p,
+      ),
   },
   // %BENCH PTS・%STARTER PTSは自チームの得点構成比のみを意味のある指標として扱い、
   // EFF列（TEAM_SEASON_TRADITIONAL_COLUMNS）と同じくperspectiveの選択に関わらず常に

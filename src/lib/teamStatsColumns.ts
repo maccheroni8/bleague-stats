@@ -622,17 +622,7 @@ export function buildMiscColumns(mode: SeasonDisplayMode, perspective: TeamPersp
       higherIsBetter: false,
     }),
     countColumn("and1", "AND1", (t) => t.basketCounts, (t) => t.oppBasketCounts, mode, perspective),
-    countColumn("ast2m", "AST2M", (t) => t.assisted2m, (t) => t.oppAssisted2m, mode, perspective),
-    countColumn("ast3m", "AST3M", (t) => t.assisted3m, (t) => t.oppAssisted3m, mode, perspective),
-    countColumn("astftm", "ASTFTM", (t) => t.assistedFtm, (t) => t.oppAssistedFtm, mode, perspective),
     pct100Column("astpct", "AST%", (t) => safeDiv(100 * t.ast, t.fgm), (t) => safeDiv(100 * t.oppAst, t.oppFgm), perspective),
-    pct100Column(
-      "pctptsasted",
-      "%PTS ASTED",
-      (t) => safeDiv(100 * (t.assisted2m * 2 + t.assisted3m * 3 + t.assistedFtm), t.pts),
-      (t) => safeDiv(100 * (t.oppAssisted2m * 2 + t.oppAssisted3m * 3 + t.oppAssistedFtm), t.oppPts),
-      perspective,
-    ),
   ];
 }
 
@@ -663,6 +653,17 @@ export function buildScoringColumns(
       "PTSOFFTO%",
       (t) => safeDiv(100 * t.pft, t.pts),
       (t) => safeDiv(100 * t.oppPft, t.oppPts),
+      perspective,
+    ),
+    // アシストからの得点（得点の内訳のまとまりとしてMiscから移設。DESIGN.md 140章）
+    countColumn("ast2m", "AST2M", (t) => t.assisted2m, (t) => t.oppAssisted2m, mode, perspective),
+    countColumn("ast3m", "AST3M", (t) => t.assisted3m, (t) => t.oppAssisted3m, mode, perspective),
+    countColumn("astftm", "ASTFTM", (t) => t.assistedFtm, (t) => t.oppAssistedFtm, mode, perspective),
+    pct100Column(
+      "pctptsasted",
+      "%PTS ASTED",
+      (t) => safeDiv(100 * (t.assisted2m * 2 + t.assisted3m * 3 + t.assistedFtm), t.pts),
+      (t) => safeDiv(100 * (t.oppAssisted2m * 2 + t.oppAssisted3m * 3 + t.oppAssistedFtm), t.oppPts),
       perspective,
     ),
     // 登録区分別得点（日本人/外国籍・帰化・アジアの2分割）。実数値＋総得点に占める割合(%)を追加する
