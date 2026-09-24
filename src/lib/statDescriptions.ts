@@ -105,7 +105,12 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   "ORtg（推定）": "この5人が出場している間の、100ポゼッションあたりの得点（推定）",
   "DRtg（推定）": "この5人が出場している間の、100ポゼッションあたりの失点（推定）",
   "NetRtg（推定）": "ORtg（推定）－DRtg（推定）",
-  "AST%": "得点のうちアシストが付いた割合。(アシストされた2PM×2＋3PM×3＋FTM) / PTS",
+  "AST%": {
+    // 選手のAST%（在コート中のチームメイトのFGMのうち自分がアシストした割合）は未対応で表示していない（DESIGN.md 139章）
+    player: "チームのFGMのうちアシストが付いた割合。AST / FGM（チームの値）",
+    team: "FGMのうちアシストが付いた割合。AST / FGM",
+  },
+  "%PTS ASTED": "得点のうちアシストされた得点の割合。(アシストされた2PM×2＋3PM×3＋FTM) / PTS",
   FTR: "FTA / FGA",
   "OR%": "100 × OR / (OR＋相手DR)",
 

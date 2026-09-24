@@ -206,7 +206,10 @@ function toGameLogColumns(tabKey: BoxscoreTabKey): Column<GameLogTableRow>[] {
       },
     },
   ];
-  const statColumns: Column<GameLogTableRow>[] = COLUMNS_BY_TAB[tabKey].map((col: BoxscoreColumn) => ({
+  // AST%（NBA式）はチームの行だけの列なので、選手の試合ログには出さない（選手のAST%は未対応。DESIGN.md 139章）
+  const statColumns: Column<GameLogTableRow>[] = COLUMNS_BY_TAB[tabKey]
+    .filter((col) => col.key !== "astpct")
+    .map((col: BoxscoreColumn) => ({
     key: col.key,
     label: col.label,
     sortValue: (r) => (r.kind === "box" ? (col.value?.(r.box.counts, r.box.ctx) ?? col.format(r.box.counts, r.box.ctx)) : -Infinity),

@@ -1368,6 +1368,12 @@ const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
     key: "astpct",
     label: "AST%",
     format: (r, m, _mode, p) =>
+      formatTeamSeasonPct100(safeDiv(100 * r.team.totals.ast, r.team.totals.fgm), safeDiv(100 * m.oppAst, m.oppFgm), p),
+  },
+  {
+    key: "pctptsasted",
+    label: "%PTS ASTED",
+    format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(
         safeDiv(100 * (m.assisted2m * 2 + m.assisted3m * 3 + m.assistedFtm), r.team.totals.pts),
         safeDiv(100 * (m.oppAssisted2m * 2 + m.oppAssisted3m * 3 + m.oppAssistedFtm), m.oppPts),

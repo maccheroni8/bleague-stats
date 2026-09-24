@@ -277,9 +277,16 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
   { key: "ast2m", label: "AST2M", format: (c) => String(c.assisted2m), value: (c) => c.assisted2m },
   { key: "ast3m", label: "AST3M", format: (c) => String(c.assisted3m), value: (c) => c.assisted3m },
   { key: "astftm", label: "ASTFTM", format: (c) => String(c.assistedFtm), value: (c) => c.assistedFtm },
+  // AST%（NBA式）はチームの行だけ（AST / FGM）。選手のAST%（在コート中のチームメイトのFGMが分母）は再集計が必要なため未対応（DESIGN.md 139章）
   {
     key: "astpct",
     label: "AST%",
+    format: (c, ctx) => (ctx.isTeamTotalRow ? formatPct100(sharePct(c.ast, c.pt2m + c.pt3m)) : "-"),
+    value: (c, ctx) => (ctx.isTeamTotalRow ? sharePct(c.ast, c.pt2m + c.pt3m) : undefined),
+  },
+  {
+    key: "pctptsasted",
+    label: "%PTS ASTED",
     format: (c) =>
       formatPct100(sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts)),
     value: (c) => sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts),

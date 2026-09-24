@@ -33,6 +33,7 @@ const PCT_ALREADY_0_TO_100: ReadonlySet<string> = new Set([
   "usg",
   "tovpct",
   "astpct",
+  "pctptsasted",
   "livetovpct",
   "deadtovpct",
   "pctpts",

@@ -1046,8 +1046,8 @@ export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
     value: (c) => c.scaled.assistedFtm,
   },
   {
-    key: "astpct",
-    label: "AST%",
+    key: "pctptsasted",
+    label: "%PTS ASTED",
     format: (c) =>
       formatPct100(safeDiv(100 * (c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm), c.raw.pts)),
     value: (c) => safeDiv(100 * (c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm), c.raw.pts),

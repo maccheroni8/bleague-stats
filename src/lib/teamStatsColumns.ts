@@ -625,9 +625,10 @@ export function buildMiscColumns(mode: SeasonDisplayMode, perspective: TeamPersp
     countColumn("ast2m", "AST2M", (t) => t.assisted2m, (t) => t.oppAssisted2m, mode, perspective),
     countColumn("ast3m", "AST3M", (t) => t.assisted3m, (t) => t.oppAssisted3m, mode, perspective),
     countColumn("astftm", "ASTFTM", (t) => t.assistedFtm, (t) => t.oppAssistedFtm, mode, perspective),
+    pct100Column("astpct", "AST%", (t) => safeDiv(100 * t.ast, t.fgm), (t) => safeDiv(100 * t.oppAst, t.oppFgm), perspective),
     pct100Column(
-      "astpct",
-      "AST%",
+      "pctptsasted",
+      "%PTS ASTED",
       (t) => safeDiv(100 * (t.assisted2m * 2 + t.assisted3m * 3 + t.assistedFtm), t.pts),
       (t) => safeDiv(100 * (t.oppAssisted2m * 2 + t.oppAssisted3m * 3 + t.oppAssistedFtm), t.oppPts),
       perspective,
