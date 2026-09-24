@@ -125,6 +125,17 @@ jobs:
         if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
         run: node --experimental-strip-types scripts/scrape-boxscore.ts --season ${{ steps.season.outputs.season }}
 
+      # スポーツナビ（Yahoo!スポーツ）のplay-by-play（シュートタイプ別内訳・ターンオーバー種類別）。
+      # 頻繁チェック・深夜とも、ボックススコアが保存済みで試合終了済みなのにPBPが未取得の試合だけを
+      # 取りに行く（1試合1リクエスト）。深夜は直近14日の試合のうち保存済みPBPが現在のボックススコアと
+      # 合わないものも取り直す。スポーツナビ側の失敗でデータ更新全体を止めないようcontinue-on-error
+      # （DESIGN.md 108章）
+      - name: Scrape Yahoo PBP (Sportsnavi)
+        if: steps.proceed.outputs.run == 'true'
+        timeout-minutes: 10
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/scrape-yahoo-pbp.ts --season ${{ steps.season.outputs.season }} --incremental ${{ steps.mode.outputs.nightly == 'true' && '--recheck-recent' || '' }}
+
       # 名簿取得はbleague.jp側の一時的なエラーや、新規選手が多い日の処理時間超過で
       # 失敗しうるが、それによって試合結果の集計・commitまで止めないよう
       # 失敗/タイムアウトしても後続ステップは必ず実行する。深夜のディープrecheckでのみ実行する

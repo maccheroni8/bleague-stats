@@ -3076,7 +3076,8 @@ bleague.jp本体とは独立した追加データ源として、Yahoo!スポー�
 `scripts/lib/yahooPbp.ts`・`scripts/lib/yahooCoverage.ts`）。aggregate.ts・フロントエンドへの
 配線はまだ行っていない（検証段階）。
 
-- **URL**: `https://sports.yahoo.co.jp/basket/widget/ds/pc/b1/games/{ScheduleKey}/text_live.html`。
+- **URL**: `https://sports.yahoo.co.jp/basket/widget/ds/pc/b1/games/{ScheduleKey}/text_live.html`
+  （2026-27以降は`/pc/premier/games/`。108章）。
   ScheduleKeyはbleague.jpと完全に同一の体系（実機確認済み）。さらに各イベント行のDOMが
   `.ba-teamLogo--{TeamID}`というクラス名を持ち、このTeamIDもbleague.jpと同一のため、
   チーム名の文字列突き合わせなしにそのまま使える
@@ -9518,3 +9519,64 @@ B1〜B6 は互いに独立。B0 の見た目確認後に方向性を確定して
 獲得タイトル（`club-honors.json`の`competition`文字列「Bリーグチャンピオンシップ優勝」）は
 `scrape-club-honors.ts`が生成するデータの文言で、2026-27の優勝クラブが決まった時点で同スクリプトの
 対応（プレーオフ優勝の文言）が必要になる（未対応。2026-27の優勝決定前のため実害なし）。
+
+## 108. スポーツナビ（Yahoo PBP）の2026-27対応と自動取得への組み込み（2026-09-24）
+
+2026-27の試合で、ボックススコアの「Shooting」タブ（シュートタイプ別内訳。35章のYahoo!スポーツ
+play-by-play由来）が「このシーズンのデータには対応していません」のままだった。
+
+**調査結果**:
+1. **対応フラグ・シーズン範囲**: `yahooPbpCoverage()`は「開始年2023以上」の判定で、2026-27も
+   対象に含まれていた（2025-26までの固定ではない）。`seasons.json`の`yahooPbp: false`は、
+   `data/2026-27/yahoo/`にファイルが1件も無いこと（aggregate.tsの`seasonHasYahooPbp()`）の
+   結果で、原因ではなく症状。
+2. **スポーツナビ側のページとIDの対応**:
+   - 2026-27の試合（506381・506385・506389）は、従来のURL（`/basket/widget/ds/pc/b1/games/{key}/text_live.html`）
+     だとHTTP 500が返る。
+   - B.PREMIERのページ（`/basket/bleague/premier`）が読み込むウィジェットのパスから、
+     リーグ部分が`b1`→`premier`に変わったことが分かった。`/pc/premier/games/{key}/text_live.html`
+     なら3試合とも200で取得できた。
+   - IDは従来どおりbleague.jpのScheduleKeyと同一。HTMLの形式も同じで、既存パーサーで3試合とも
+     選手の未解決0件・警告0件、made FG得点とTO件数がボックススコアと全員一致した。
+   - 2025-26の試合は`b1`のURLのまま取得できる（2026-09-24確認）。
+3. **自動更新への組み込み**: 取得処理（`scrape-yahoo-pbp.ts`）は、30分チェックと深夜実行の
+   どちらにも含まれていなかった。2023-24〜2025-26は2026-08-21に手動で一括取得しただけで、
+   シーズン中の自動取得は元々無かった。
+
+**修正**:
+- **URLの切り替え**: `scripts/lib/yahooCoverage.ts`に`yahooWidgetLeaguePath(season)`を追加した。
+  開始年2026以上は`premier`、それ以前は`b1`を返す。
+- **`scrape-yahoo-pbp.ts`の取得対象の絞り込み**: 自前のボックススコアが保存済みで`gameEndedFlg=true`の
+  試合だけにした。
+  - 従来はschedule.jsonの全ScheduleKeyを回していた。2026-27に使うと未開催の約780試合に問い合わせてしまう。
+    また、試合中に取得すると途中経過のまま保存され、以後取り直されなかった。
+  - オールスター等の集計対象外の試合（`isExhibitionGame`）も問い合わせない。2025-26のU18・ASIA CROSS
+    TOURNAMENTの5試合はスポーツナビにPBPが無く500。
+- **`--incremental`**（自動更新用）: 未取得の終了試合だけを取りに行き、全シーズン用の検証レポート
+  （`_validation-report.json`）は書かない。対応範囲外のシーズンでも失敗扱いにしない。
+- **`--recheck-recent`**（深夜用）: 直近14日の試合のうち、保存済みPBPが現在のボックススコアと
+  合わないものを取り直す。
+  - 判定はmade FG得点・TO件数の選手別クロスチェックで、保存済みファイルと手元のボックススコアだけで行う
+    （スポーツナビへのアクセスは不一致の試合だけ）。
+  - 試合終了直後のテキスト速報が確定前だった場合や、公式記録が後から訂正された場合に備える。
+- **ワークフロー**: `update-stats.yml`のボックススコア取得の直後・集計の前に
+  「Scrape Yahoo PBP (Sportsnavi)」を追加した。
+  - 30分チェックの本処理と深夜の両方で動く（深夜のみ`--recheck-recent`付き）。
+  - `continue-on-error`・10分でタイムアウト。スポーツナビ側の障害でデータ更新全体を止めない。
+  - アクセス間隔は従来どおり2.5秒（`createThrottledFetch`）。
+
+**取得タイミングの判断**: ウィジェットはライブテキスト速報（`Cache-Control: public, max-age=60`）で、
+試合中から随時更新される。試合終了時点では揃っているとみなし、ボックススコアと同じ30分チェックで
+取り込む。万一、終了直後の取得が確定前だった場合は、その晩の`--recheck-recent`で取り直される
+（クロスチェックの不一致で検知）。bleague.jpより公開が遅れるケースは、2026-27の3試合では
+確認できていない（3試合とも試合翌日以降の取得で完全一致）。
+
+**アクセス量**: 30分チェックでは、新たに終了した試合1試合につき1リクエスト。深夜は、それまでに
+取れなかった試合（HTTPエラー等）と不一致の試合だけ。ローカル検証では2026-27の3試合で3リクエスト、
+再実行では0リクエスト、2025-26の再実行も0リクエストだった（オールスター等6試合は除外）。
+保存済みPBPを1件わざと壊した状態で`--recheck-recent`を実行すると、その1試合だけを取り直して
+一致に戻ることも確認した。
+
+**画面での確認（ローカル）**: 2026-27の3試合分を取得・集計すると`seasons.json`の2026-27が
+`yahooPbp: true`になり、開幕戦（506381）のボックススコア「Shooting」タブにシュートタイプ別の
+内訳が表示された。
