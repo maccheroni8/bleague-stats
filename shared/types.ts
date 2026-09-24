@@ -1136,6 +1136,12 @@ export interface SeasonRules {
   /** この期間区分の通称（例: "2016-17〜2017-18: クォーター別事前申請制"） */
   eraLabel: string;
   foreignPlayerRule: ForeignPlayerRule;
+  /**
+   * コート上に同時に出られる外国籍・帰化・アジア特別枠の選手の最大人数（On-Court Foreignの区分の上限。DESIGN.md 135章）。
+   * 2016-17〜2017-18は2（外国籍2名、または外国籍1名＋帰化）、2018-19〜2025-26は3（外国籍2名＋帰化/アジア特別枠1名）、
+   * 2026-27〜は4（外国籍3名＋帰化/アジア特別枠1名）。foreignPlayerRule.onCourt の説明文から読み取った値
+   */
+  maxForeignOnCourt: number;
   /** アジア特別枠制度が存在するか（2020-21シーズン導入） */
   hasAsiaSpecialQuota: boolean;
   /**

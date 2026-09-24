@@ -66,7 +66,12 @@ import {
   type SeasonGameTypeFilter,
 } from "../lib/playerSeasonBoxscore";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
-import { ForeignPlayerCourtTimeChart } from "../components/ForeignPlayerCourtTimeChart";
+import {
+  FOREIGN_COURT_ORDER_LABELS,
+  ForeignPlayerCourtTimeChart,
+  type ForeignCourtOrder,
+} from "../components/ForeignPlayerCourtTimeChart";
+import { usePageState } from "../lib/pageStateCache";
 import { ScoringCompositionChart } from "../components/ScoringCompositionChart";
 import { ClassificationCompositionChart } from "../components/ClassificationCompositionChart";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
@@ -268,6 +273,12 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const [filter, setFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
   const [teamPerspective, setTeamPerspective] = useState<TeamPerspective>("own");
   const [turnoverPerspective, setTurnoverPerspective] = useState<"forced" | "committed">("forced");
+  // On-Court Foreignの並び順（DESIGN.md 135章）。ブラウザバックで戻ったときも保持する（usePageState、シーズンをまたいで共通）
+  const [storedForeignOrder, setForeignOrder] = usePageState<ForeignCourtOrder>("teams:foreignOrder", "foreignDesc");
+  // 選択肢の変更（2026-09-25）より前に保持した値（foreignAsc）が残っていても、初期値に戻して扱う
+  const foreignOrder: ForeignCourtOrder = storedForeignOrder in FOREIGN_COURT_ORDER_LABELS ? storedForeignOrder : "foreignDesc";
+  // 並べ替えで規定上ありえない人数の区分を飛ばすため、シーズンごとのオンザコートの規定を読む
+  const { data: foreignRules } = useJsonData(() => (boxTab === "foreignPlayers" ? fetchSeasonRules() : Promise.resolve(null)), [boxTab]);
 
   const rows: AllTeamsRow[] = useMemo(() => {
     if (!teams || !gameLogsByTeam) return [];
@@ -508,9 +519,32 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         )
       ) : boxTab === "foreignPlayers" ? (
         <>
-          <ForeignPlayerCourtTimeChart teams={teams ?? []} />
+          <FilterBar
+            simple
+            stateKey="teams:foreignOrder"
+            axes={[
+              simpleSelectAxis({
+                id: "foreignOrder",
+                label: "並び順",
+                options: (Object.keys(FOREIGN_COURT_ORDER_LABELS) as ForeignCourtOrder[]).map((o) => ({
+                  value: o,
+                  label: FOREIGN_COURT_ORDER_LABELS[o],
+                })),
+                value: foreignOrder,
+                defaultValue: "foreignDesc",
+                onChange: (v) => setForeignOrder(v as ForeignCourtOrder),
+              }),
+            ]}
+          />
+          <ForeignPlayerCourtTimeChart
+            teams={teams ?? []}
+            order={foreignOrder}
+            maxOnCourt={foreignRules?.find((r) => r.season === season)?.maxForeignOnCourt}
+          />
           <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計の在コート時間ベース（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しない）。国籍区分（classification）が不明な選手を含むラインナップは集計から除外されるため、チームによっては捕捉できた合計出場時間が実際の総出場時間より短くなる場合があります
+            レギュラーシーズン・シーズン合計の在コート時間から集計しています（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しません）。
+            平均人数は、0〜4名それぞれの在コート時間の割合に人数を掛けて合計した値で、試合時間を通してコート上にいた外国籍・帰化・アジア特別枠の選手の平均人数です。
+            国籍区分が不明な選手を含むラインナップは集計から除外されるため、チームによっては集計できた合計時間が実際の総出場時間より短くなる場合があります
           </p>
         </>
       ) : boxTab === "scoringComposition" ? (

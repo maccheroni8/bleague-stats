@@ -1,10 +1,17 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
+import { useMediaQuery } from "../lib/useMediaQuery";
 import { teamShortName } from "../../shared/teamNames";
 import type { TeamSummary } from "../../shared/types";
 
 interface ForeignPlayerCourtTimeChartProps {
   teams: TeamSummary[];
+  order?: ForeignCourtOrder;
+  /**
+   * そのシーズンに同時に出られる外国籍・特別枠の最大人数（season-rules.json の maxForeignOnCourt）。これを超える人数の区分
+   * （規定上ありえない。公式記録の選手の取り違え等で生じる）は並べ替えの比較に使わない。グラフの表示はそのまま。未指定なら全区分を使う
+   */
+  maxOnCourt?: number;
 }
 
 // 2026-09-23に「3+」を「3」「4」に分割（4人を超える組み合わせは集計側で4に合算済み）
@@ -25,6 +32,9 @@ interface ChartRow {
   pct2: number;
   pct3: number;
   pct4: number;
+  /** 平均人数（Σ 人数×割合）。棒の右に出すラベル */
+  average: number;
+  averageLabel: string;
 }
 
 /**
@@ -32,7 +42,42 @@ interface ChartRow {
  * classificationが不明な選手を含むラインナップは除外される（合計時間が実際の出場時間より
  * 短くなりうる。DESIGN.md参照）。合計出場時間が0のチーム（データ欠落）は表示しない
  */
-export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeChartProps) {
+/**
+ * チームの並び順（全チームスタッツのOn-Court Foreign。DESIGN.md 135章）。比べる値は画面に出している割合（%、丸める前）。
+ * - foreignDesc: 外国籍が多い順。人数の多い区分の割合から順に比べる（4名→3名→2名→1名→0名。規定上ありえない人数の区分は飛ばす）（初期値）
+ * - averageDesc / averageAsc: 平均人数（Σ 人数×割合）が多い順 / 少ない順。同じなら外国籍が多い順
+ */
+export type ForeignCourtOrder = "foreignDesc" | "averageDesc" | "averageAsc";
+
+export const FOREIGN_COURT_ORDER_LABELS: Record<ForeignCourtOrder, string> = {
+  foreignDesc: "外国籍が多い順",
+  averageDesc: "平均人数が多い順",
+  averageAsc: "平均人数が少ない順",
+};
+
+function averageForeignCount(pct: readonly number[]): number {
+  return pct.reduce((sum, p, count) => sum + (count * p) / 100, 0);
+}
+
+function compareByBuckets(a: readonly number[], b: readonly number[], buckets: readonly number[]): number {
+  for (const i of buckets) {
+    const diff = b[i]! - a[i]!;
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+function compareRows(order: ForeignCourtOrder, a: ChartRow, b: ChartRow, buckets: readonly number[]): number {
+  const byForeign = compareByBuckets(a.pct, b.pct, buckets);
+  if (order === "averageDesc") return b.average - a.average || byForeign;
+  if (order === "averageAsc") return a.average - b.average || byForeign;
+  return byForeign;
+}
+
+export function ForeignPlayerCourtTimeChart({ teams, order = "foreignDesc", maxOnCourt }: ForeignPlayerCourtTimeChartProps) {
+  const narrow = useMediaQuery("(max-width: 560px)");
+  // 比べる区分: 人数の多い順（規定の上限を超える区分は除く）
+  const buckets = [4, 3, 2, 1, 0].filter((n) => maxOnCourt === undefined || n <= maxOnCourt);
   const rows: ChartRow[] = teams
     .map((t) => {
       // 区分数の変更（2026-09-23に4区分→5区分）の直後は、ブラウザのHTTPキャッシュに残った
@@ -58,10 +103,13 @@ export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeCha
         pct2: pct[2],
         pct3: pct[3],
         pct4: pct[4],
+        average: averageForeignCount(pct),
+        averageLabel: "",
       };
     })
     .filter((r) => r.totalSeconds > 0)
-    .sort((a, b) => b.pct3 + b.pct4 - (a.pct3 + a.pct4) || b.pct2 - a.pct2);
+    .sort((a, b) => compareRows(order, a, b, buckets) || a.teamId.localeCompare(b.teamId))
+    .map((r) => ({ ...r, averageLabel: `${narrow ? "" : "平均"}${r.average.toFixed(2)}人` }));
 
   if (rows.length === 0) {
     return <p className="empty-message">このシーズンのデータには対応していません</p>;
@@ -72,7 +120,7 @@ export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeCha
   return (
     <div className="foreign-count-chart">
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={rows} layout="vertical" margin={{ top: 8, right: 24, bottom: 8, left: 8 }}>
+        <BarChart data={rows} layout="vertical" margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
           <XAxis
             type="number"
@@ -89,12 +137,23 @@ export function ForeignPlayerCourtTimeChart({ teams }: ForeignPlayerCourtTimeCha
             tickLine={false}
             axisLine={false}
           />
+          {/* 棒の右端に平均人数（試行。DESIGN.md 135章）。並び順の設定に関係なく常に出す */}
+          <YAxis
+            yAxisId="average"
+            orientation="right"
+            type="category"
+            dataKey="averageLabel"
+            width={narrow ? 44 : 72}
+            tick={{ fontSize: 11, fill: "var(--fg)" }}
+            tickLine={false}
+            axisLine={false}
+          />
           <Tooltip content={<ForeignCountTooltip />} cursor={{ fill: "var(--row-hover)" }} />
-          <Bar dataKey="pct0" name={BUCKET_LABELS[0]} stackId="foreign" fill={BUCKET_COLORS[0]} isAnimationActive={false} label={<SegmentLabel bucket={0} rows={rows} />} />
-          <Bar dataKey="pct1" name={BUCKET_LABELS[1]} stackId="foreign" fill={BUCKET_COLORS[1]} isAnimationActive={false} label={<SegmentLabel bucket={1} rows={rows} />} />
-          <Bar dataKey="pct2" name={BUCKET_LABELS[2]} stackId="foreign" fill={BUCKET_COLORS[2]} isAnimationActive={false} label={<SegmentLabel bucket={2} rows={rows} />} />
-          <Bar dataKey="pct3" name={BUCKET_LABELS[3]} stackId="foreign" fill={BUCKET_COLORS[3]} isAnimationActive={false} label={<SegmentLabel bucket={3} rows={rows} />} />
-          <Bar dataKey="pct4" name={BUCKET_LABELS[4]} stackId="foreign" fill={BUCKET_COLORS[4]} isAnimationActive={false} label={<SegmentLabel bucket={4} rows={rows} />} />
+          <Bar dataKey="pct0" name={BUCKET_LABELS[0]} stackId="foreign" fill={BUCKET_COLORS[0]} isAnimationActive={false} label={<SegmentLabel bucket={0} rows={rows} narrow={narrow} />} />
+          <Bar dataKey="pct1" name={BUCKET_LABELS[1]} stackId="foreign" fill={BUCKET_COLORS[1]} isAnimationActive={false} label={<SegmentLabel bucket={1} rows={rows} narrow={narrow} />} />
+          <Bar dataKey="pct2" name={BUCKET_LABELS[2]} stackId="foreign" fill={BUCKET_COLORS[2]} isAnimationActive={false} label={<SegmentLabel bucket={2} rows={rows} narrow={narrow} />} />
+          <Bar dataKey="pct3" name={BUCKET_LABELS[3]} stackId="foreign" fill={BUCKET_COLORS[3]} isAnimationActive={false} label={<SegmentLabel bucket={3} rows={rows} narrow={narrow} />} />
+          <Bar dataKey="pct4" name={BUCKET_LABELS[4]} stackId="foreign" fill={BUCKET_COLORS[4]} isAnimationActive={false} label={<SegmentLabel bucket={4} rows={rows} narrow={narrow} />} />
         </BarChart>
       </ResponsiveContainer>
       <div className="foreign-count-legend">
@@ -119,6 +178,7 @@ function SegmentLabel({
   index,
   bucket,
   rows,
+  narrow = false,
 }: {
   x?: number;
   y?: number;
@@ -127,8 +187,10 @@ function SegmentLabel({
   index?: number;
   bucket: number;
   rows: ChartRow[];
+  /** スマホ幅（560px以下）: 割合だけ（例「35.8%」）を出し、それも収まらない狭い区分には出さない */
+  narrow?: boolean;
 }) {
-  if (x == null || y == null || width == null || height == null || index == null || width < 62) return null;
+  if (x == null || y == null || width == null || height == null || index == null || width < (narrow ? 34 : 62)) return null;
   const row = rows[index];
   if (!row) return null;
   return (
@@ -143,7 +205,9 @@ function SegmentLabel({
       strokeWidth={2.5}
       paintOrder="stroke"
     >
-      {`${row.pct[bucket]!.toFixed(1)}% (${formatMinutesFromSeconds(row.secondsPerGame[bucket]!)})`}
+      {narrow
+        ? `${row.pct[bucket]!.toFixed(1)}%`
+        : `${row.pct[bucket]!.toFixed(1)}% (${formatMinutesFromSeconds(row.secondsPerGame[bucket]!)})`}
     </text>
   );
 }
