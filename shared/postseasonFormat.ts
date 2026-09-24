@@ -7,7 +7,7 @@
 //
 // 裏取り（2026-09-24）: 公式の発表・要項で確認したシーズンに加え、全シーズンで「最終順位にこの形式を当てはめた8クラブ」と
 // 「実際にCS/プレーオフの試合をしたクラブ」が一致することを確認した（games-summary.json の gameType=playoff）。
-import type { StandingsTeamSnapshot } from "./types.ts";
+import type { ClinchType, StandingsTeamSnapshot } from "./types.ts";
 
 export interface PostseasonFormat {
   /** 各地区から自動で出場するクラブ数（地区○位以内） */
@@ -55,4 +55,19 @@ export function postseasonQualifiedTeamIds(teams: StandingsTeamSnapshot[], forma
     .sort((a, b) => a.rank - b.rank)
     .slice(0, format.wildcardSlots);
   return new Set([...divisionQualified, ...wildcard].map((t) => t.teamId));
+}
+
+/**
+ * 勝敗表の確定マーク（DESIGN.md 132章）を判定する種類。
+ * - 地区優勝（◎）: 全試合を消化したシーズン。2019-20（中止）と2020-21・2021-22（中止試合が多くクラブごとの試合数がばらつき、
+ *   過去の日付の判定に「後で中止になる試合」の情報が混ざる）は対象外
+ * - ポストシーズン進出（☆）: 出場形式を確認できていて、2地区制で判定を検証したシーズン（2025-26は各地区上位2＋WC4、2026-27〜は上位3＋WC2）
+ * - 準々決勝のホームコート（★）: 2026-27〜（地区1・2位がホーム。2025-26以前は準々決勝のホームの決まり方を確認できていない）
+ */
+export function clinchTypesForSeason(season: string): ClinchType[] {
+  const types: ClinchType[] = [];
+  if (!["2019-20", "2020-21", "2021-22"].includes(season)) types.push("division");
+  if (season >= "2026-27" || season === "2025-26") types.push("playoffs");
+  if (season >= "2026-27") types.push("homeCourt");
+  return types;
 }

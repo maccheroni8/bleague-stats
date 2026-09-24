@@ -954,6 +954,27 @@ export interface PlayoffRaceFile {
    */
   unavailableReason?: string;
   teams: PlayoffRaceTeam[];
+  /**
+   * 確定に切り替わった日と試合（勝敗表タブの赤枠。DESIGN.md 132章）。対象シーズン・種類は scripts/aggregate.ts の
+   * clinchTypesForSeason() で決まる。判定しないシーズン・日程データが不完全な場合は未設定
+   */
+  clinchEvents?: ClinchEvent[];
+}
+
+/** division=地区優勝（◎）、homeCourt=準々決勝のホームコート獲得（地区2位以上。★）、playoffs=ポストシーズン進出（☆） */
+export type ClinchType = "division" | "homeCourt" | "playoffs";
+
+export interface ClinchEvent {
+  teamId: string;
+  type: ClinchType;
+  /** 確定した日（JST。その日の全試合の結果で確定） */
+  date: string;
+  /** 枠を付ける試合。確定した日にそのクラブの試合があればその試合、無ければ直前の試合 */
+  scheduleKey: string | null;
+  /** 確定した日にそのクラブの試合があったか（false＝試合の無い日に他クラブの結果で確定。点線の枠） */
+  onGameDay: boolean;
+  /** レギュラーシーズン最終日に、同率を公式タイブレークで破って確定した */
+  byTiebreak?: boolean;
 }
 
 export interface PlayoffRaceTeam {
@@ -974,6 +995,8 @@ export interface PlayoffRaceTeam {
   magicDivisionTop3?: number | null;
   eliminatedDivisionFirst?: boolean;
   eliminatedDivisionTop3?: boolean;
+  /** 地区優勝確定（自地区で同率以上になりうるクラブが無い）＝◎（勝敗表の確定マーク） */
+  clinchedDivisionFirst?: boolean;
   /** 地区2位以上確定（準々決勝のホームコートアドバンテージ獲得）＝★ */
   clinchedDivisionTop2?: boolean;
   /** プレーオフ進出確定（地区3位以内またはワイルドカード）＝☆ */

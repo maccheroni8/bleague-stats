@@ -14,6 +14,7 @@ import { StandingsLineChart, type ChartTeam } from "../components/StandingsLineC
 import { TeamLogo } from "../components/TeamLogo";
 import { CrownIcon } from "../components/CrownIcon";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
+import { WinLossGrid, WinLossLegend } from "../components/WinLossGrid";
 import { HeadToHeadMatrix } from "../components/HeadToHeadMatrix";
 import { FilterBar } from "../components/FilterBar";
 import { teamMultiAxis } from "../lib/filterAxes";
@@ -24,7 +25,12 @@ import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } fr
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak, type TeamStreak } from "../../shared/teamRecords";
 import { teamShortName } from "../../shared/teamNames";
-import { isInWildcardPool, postseasonFormat, type PostseasonFormat } from "../../shared/postseasonFormat";
+import {
+  clinchTypesForSeason,
+  isInWildcardPool,
+  postseasonFormat,
+  type PostseasonFormat,
+} from "../../shared/postseasonFormat";
 import { DIVISION_LABELS, groupByDivision } from "../lib/divisionGroups";
 import { findFebruaryBiweekGap } from "../lib/situational";
 import type {
@@ -37,12 +43,21 @@ import type {
   UpcomingGameEntry,
 } from "../../shared/types";
 
-type StandingsTab = "standings" | "magic" | "h2h" | "conditional" | "rankTrend" | "winsTrend" | "gamesAboveTrend";
+type StandingsTab =
+  | "standings"
+  | "magic"
+  | "h2h"
+  | "winLoss"
+  | "conditional"
+  | "rankTrend"
+  | "winsTrend"
+  | "gamesAboveTrend";
 
 const TAB_LABELS: Record<StandingsTab, string> = {
   standings: "順位表",
   magic: "マジックナンバー",
   h2h: "星取り表",
+  winLoss: "勝敗表",
   conditional: "条件別順位表",
   rankTrend: "順位推移",
   winsTrend: "勝ち星推移",
@@ -906,6 +921,37 @@ export function StandingsPage({ season }: { season: string }) {
               </>
             )}
           </>
+        ))}
+
+      {activeTab === "winLoss" &&
+        (!gameSummaries ? (
+          <p className="loading">読み込み中...</p>
+        ) : (
+          <div className="standings-tab-panel">
+            <WinLossLegend season={season} clinchTypes={clinchTypesForSeason(season)} />
+            <div className="standings-stack">
+              {(divisionStandingsGroups.length > 0
+                ? divisionStandingsGroups.map((g) => ({ key: g.division, title: `${DIVISION_LABELS[g.division]} 勝敗表`, rows: g.rows }))
+                : [{ key: "all", title: `${seasonLabel} 勝敗表`, rows: allStandingsRows }]
+              ).map((g) => (
+                <div key={g.key}>
+                  <ConditionTitle
+                    section
+                    title={g.title}
+                    conditions={composeLabels(standingsConditions, "順位順", "第何試合かは日付順")}
+                  />
+                  <WinLossGrid
+                    season={season}
+                    teams={g.rows.map((r) => ({ teamId: r.teamId, teamName: r.teamName }))}
+                    games={gameSummaries}
+                    upcomingGames={schedule?.upcomingGames ?? []}
+                    clinchEvents={playoffRace?.clinchEvents ?? []}
+                    teamColors={teamColors ?? undefined}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         ))}
 
       {activeTab === "conditional" && (

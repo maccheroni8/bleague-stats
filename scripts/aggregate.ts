@@ -42,7 +42,8 @@ import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints
 import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
 import { buildShotEvents, paintSplitForShot } from "../shared/shotChart.ts";
 import { TEAM_NAMES, teamDivisionForSeason } from "./lib/divisions.ts";
-import { computePremierRace, premierChampion, type RaceTeamInput } from "./lib/playoffRace.ts";
+import { computeClinchEvents, computePremierRace, premierChampion, type RaceTeamInput } from "./lib/playoffRace.ts";
+import { clinchTypesForSeason, postseasonFormat } from "../shared/postseasonFormat.ts";
 import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { classifyGameType } from "./lib/gameType.ts";
@@ -1756,6 +1757,22 @@ interface StandingsCompareEntry {
 const PREMIER_2026_FIRST_SEASON = "2026-27";
 const PREMIER_2026_GAMES_PER_TEAM = 60;
 
+/** クラブごとのレギュラーシーズンの終了済み試合（日付順）。確定日を試合に対応付けるのに使う */
+function regularGamesByTeam(games: StoredGame[]): Map<string, { date: string; scheduleKey: string }[]> {
+  const byTeam = new Map<string, { date: string; scheduleKey: string }[]>();
+  for (const g of games) {
+    if (!g.gameEndedFlg || classifyGameType(g.raw.Game.ConventionNameJ) !== "regular") continue;
+    if (isExhibitionGame(g.raw.Game.ConventionNameJ)) continue;
+    for (const id of [g.homeTeam.id, g.awayTeam.id]) {
+      const list = byTeam.get(id) ?? [];
+      list.push({ date: g.date, scheduleKey: g.scheduleKey });
+      byTeam.set(id, list);
+    }
+  }
+  for (const list of byTeam.values()) list.sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
+  return byTeam;
+}
+
 /**
  * data/{season}/playoff-race.jsonを作る。2026-27〜はマジックナンバーと進出/敗退判定、それ以前の
  * シーズンは地区制・CS形式が毎年異なるため年間優勝のみ（club-honors.jsonのCS優勝から引く）
@@ -1777,10 +1794,27 @@ async function buildPlayoffRace(
     const championId = Object.entries(honors).find(([, list]) =>
       list.some((h) => h.season === season && h.competition.includes("チャンピオンシップ優勝")),
     )?.[0];
+    // 確定マーク: 終了済みのシーズンなので、総試合数は各クラブが実際に消化した数
+    const types = clinchTypesForSeason(season);
+    const format = postseasonFormat(season) ?? { divisionTop: 2, wildcardSlots: 2 };
+    const finalTeams = (latest?.teams ?? []).filter((t) => t.division);
+    const clinchEvents =
+      types.length > 0 && finalTeams.length === (latest?.teams.length ?? 0) && finalTeams.length > 0
+        ? computeClinchEvents({
+            snapshots: standingsHistory,
+            teams: finalTeams.map((t) => ({ teamId: t.teamId, division: t.division!, totalGames: t.wins + t.losses })),
+            gamesByTeam: regularGamesByTeam(games),
+            // ポストシーズン進出は出場形式を確認できたシーズンだけ（clinchTypesForSeason）
+            types: types.filter((type) => type !== "playoffs" || postseasonFormat(season) !== null),
+            format,
+            seasonComplete: true,
+          })
+        : undefined;
     return {
       season,
       format: "legacy",
       asOf,
+      ...(clinchEvents ? { clinchEvents } : {}),
       teams: (latest?.teams ?? []).map((t) => ({
         teamId: t.teamId,
         teamName: t.teamName,
@@ -1880,6 +1914,14 @@ async function buildPlayoffRace(
 
   const race = computePremierRace(season, asOf, inputs);
   for (const t of race.teams) if (t.teamId === championId) t.champion = true;
+  race.clinchEvents = computeClinchEvents({
+    snapshots: standingsHistory,
+    teams: inputs.map((t) => ({ teamId: t.teamId, division: t.division, totalGames: PREMIER_2026_GAMES_PER_TEAM })),
+    gamesByTeam: regularGamesByTeam(games),
+    types: clinchTypesForSeason(season),
+    format: postseasonFormat(season) ?? { divisionTop: 3, wildcardSlots: 2 },
+    seasonComplete: inputs.every((t) => t.remaining === 0),
+  });
   return race;
 }
 

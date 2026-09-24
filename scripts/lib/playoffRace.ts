@@ -13,7 +13,15 @@
 // そのため確定・敗退の表示が数学的に可能になる時点より遅れることはあっても、誤って確定・敗退を
 // 表示することは無い。
 
-import type { Division, PlayoffRaceFile, PlayoffRaceTeam } from "../../shared/types.ts";
+import type {
+  ClinchEvent,
+  ClinchType,
+  Division,
+  PlayoffRaceFile,
+  PlayoffRaceTeam,
+  StandingsSnapshot,
+} from "../../shared/types.ts";
+import type { PostseasonFormat } from "../../shared/postseasonFormat.ts";
 
 export interface RaceTeamInput {
   teamId: string;
@@ -31,8 +39,10 @@ export interface RaceTeamInput {
   overallRank?: number;
 }
 
-const DIVISION_TOP = 3;
-const WILDCARD_SLOTS = 2;
+/** 2026-27〜のB.PREMIERの出場形式（各地区上位3＋ワイルドカード2） */
+const PREMIER_FORMAT = { divisionTop: 3, wildcardSlots: 2 };
+/** 準々決勝のホームコート（出場順位1〜4位＝各地区の1・2位。プレーオフ試合実施要項 第2条・第3条） */
+const HOME_COURT_DIVISION_TOP = 2;
 
 function maxWinPct(t: RaceTeamInput): number {
   const games = t.wins + t.losses + t.remaining;
@@ -65,19 +75,33 @@ function magicNumber(self: RaceTeamInput, rivals: RaceTeamInput[], nth: number):
   return Math.max(0, target - self.wins + 1);
 }
 
-export function computePremierRace(season: string, asOf: string | null, inputs: RaceTeamInput[]): PlayoffRaceFile {
+/** 他地区ごとに「地区の自動出場枠を超えた分」を合計する（3地区制でも地区ごとに枠を引く） */
+function overflowAcrossDivisions(teams: RaceTeamInput[], pick: (t: RaceTeamInput) => boolean, divisionTop: number): number {
+  const byDivision = new Map<Division, number>();
+  for (const t of teams) if (pick(t)) byDivision.set(t.division, (byDivision.get(t.division) ?? 0) + 1);
+  let sum = 0;
+  for (const count of byDivision.values()) sum += Math.max(0, count - divisionTop);
+  return sum;
+}
+
+export function computePremierRace(
+  season: string,
+  asOf: string | null,
+  inputs: RaceTeamInput[],
+  format: Pick<PostseasonFormat, "divisionTop" | "wildcardSlots"> = PREMIER_FORMAT,
+): PlayoffRaceFile {
+  const DIVISION_TOP = format.divisionTop;
+  const WILDCARD_SLOTS = format.wildcardSlots;
   const seasonComplete =
     inputs.length > 0 && inputs.every((t) => t.remaining === 0 && t.divisionRank !== undefined && t.overallRank !== undefined);
-  if (seasonComplete) return { season, format: "premier-2026", asOf, teams: finalRace(inputs) };
+  if (seasonComplete) return { season, format: "premier-2026", asOf, teams: finalRace(inputs, format) };
 
   const teams: PlayoffRaceTeam[] = inputs.map((self) => {
     const ownRivals = inputs.filter((t) => t.teamId !== self.teamId && t.division === self.division);
     const otherDivision = inputs.filter((t) => t.division !== self.division);
 
     const ownThreats = ownRivals.filter((r) => canFinishAtOrAbove(r, self)).length;
-    const otherThreats = otherDivision.filter((r) => canFinishAtOrAbove(r, self)).length;
     const ownSurelyAbove = ownRivals.filter((r) => surelyFinishesAbove(r, self)).length;
-    const otherSurelyAbove = otherDivision.filter((r) => surelyFinishesAbove(r, self)).length;
 
     const eliminatedDivisionFirst = ownSurelyAbove >= 1;
     const eliminatedDivisionTop3 = ownSurelyAbove >= DIVISION_TOP;
@@ -86,13 +110,16 @@ export function computePremierRace(season: string, asOf: string | null, inputs: 
     // 1クラブ以下。上に来うる自地区のライバルが全員自分より上になった最悪の場合、そのうち地区上位3を
     // 超えた分と、他地区で上に来うるクラブのうち地区上位3を超えた分がワイルドカード候補として
     // 自分の上に来る
-    const wildcardThreatsWorstCase = Math.max(0, ownThreats - DIVISION_TOP) + Math.max(0, otherThreats - DIVISION_TOP);
+    const wildcardThreatsWorstCase =
+      Math.max(0, ownThreats - DIVISION_TOP) +
+      overflowAcrossDivisions(otherDivision, (r) => canFinishAtOrAbove(r, self), DIVISION_TOP);
     const clinchedPlayoffs = ownThreats <= DIVISION_TOP - 1 || wildcardThreatsWorstCase <= WILDCARD_SLOTS - 1;
 
     // 敗退確定: 自地区で必ず上に来るクラブが3以上（地区3位以内が消滅）かつ、必ず上に来るクラブの
     // うち各地区の上位3枠に収まりきらない分（＝必ず自分の上に来るワイルドカード候補）が2以上
     const surelyAboveWildcards =
-      Math.max(0, ownSurelyAbove - DIVISION_TOP) + Math.max(0, otherSurelyAbove - DIVISION_TOP);
+      Math.max(0, ownSurelyAbove - DIVISION_TOP) +
+      overflowAcrossDivisions(otherDivision, (r) => surelyFinishesAbove(r, self), DIVISION_TOP);
     const eliminatedPlayoffs = eliminatedDivisionTop3 && surelyAboveWildcards >= WILDCARD_SLOTS;
 
     return {
@@ -106,7 +133,9 @@ export function computePremierRace(season: string, asOf: string | null, inputs: 
       magicDivisionTop3: eliminatedDivisionTop3 ? null : magicNumber(self, ownRivals, DIVISION_TOP),
       eliminatedDivisionFirst,
       eliminatedDivisionTop3,
-      clinchedDivisionTop2: ownThreats <= 1,
+      // 地区優勝確定: 自地区で自分と同率以上になりうるクラブが無い（magicDivisionFirst が0になるのと同じ意味）
+      clinchedDivisionFirst: ownThreats === 0,
+      clinchedDivisionTop2: ownThreats <= HOME_COURT_DIVISION_TOP - 1,
       clinchedPlayoffs,
       eliminatedPlayoffs,
     };
@@ -118,7 +147,12 @@ export function computePremierRace(season: string, asOf: string | null, inputs: 
  * レギュラーシーズン終了後は、公式タイブレーク適用済みの最終順位で確定させる（残り試合が無いので
  * 勝率の比較だけでは同率のクラブの優劣がつかず、安全側の判定のままでは確定しないため）
  */
-function finalRace(inputs: RaceTeamInput[]): PlayoffRaceTeam[] {
+function finalRace(
+  inputs: RaceTeamInput[],
+  format: Pick<PostseasonFormat, "divisionTop" | "wildcardSlots"> = PREMIER_FORMAT,
+): PlayoffRaceTeam[] {
+  const DIVISION_TOP = format.divisionTop;
+  const WILDCARD_SLOTS = format.wildcardSlots;
   const divisionTop3 = new Set(inputs.filter((t) => t.divisionRank! <= DIVISION_TOP).map((t) => t.teamId));
   const wildcards = new Set(
     inputs
@@ -140,7 +174,8 @@ function finalRace(inputs: RaceTeamInput[]): PlayoffRaceTeam[] {
       magicDivisionTop3: t.divisionRank! <= DIVISION_TOP ? 0 : null,
       eliminatedDivisionFirst: t.divisionRank !== 1,
       eliminatedDivisionTop3: t.divisionRank! > DIVISION_TOP,
-      clinchedDivisionTop2: t.divisionRank! <= 2,
+      clinchedDivisionFirst: t.divisionRank === 1,
+      clinchedDivisionTop2: t.divisionRank! <= HOME_COURT_DIVISION_TOP,
       clinchedPlayoffs: inPlayoffs,
       eliminatedPlayoffs: !inPlayoffs,
     };
@@ -166,4 +201,96 @@ export function premierChampion(
   }
   for (const [teamId, count] of wins) if (count >= 3) return teamId;
   return undefined;
+}
+
+/**
+ * 日ごとの順位表（standings-history.json の各スナップショット）に判定を当て、「確定に切り替わった日」を求める
+ * （勝敗表タブの赤枠。DESIGN.md 132章）。
+ * - 残り試合は「そのクラブのシーズン総試合数 − その日までの消化数」。総試合数は、終了済みのシーズンなら実際に消化した数、
+ *   進行中のシーズンなら規定の試合数（呼び出し側が totalGames で渡す）
+ * - 判定は computePremierRace と同じ安全側（残り全勝・全敗の比較）。一度確定したら以後も確定のまま扱い、最初の日だけを記録する
+ * - 確定した日にそのクラブの試合があればその試合（onGameDay=true。勝ち負けを問わない）、無ければ直前の試合に付ける
+ * - レギュラーシーズンが終わっても勝率の比較だけでは確定しない同率のクラブは、公式の最終順位（タイブレーク適用済み）で
+ *   最終日に確定させる（byTiebreak=true）
+ */
+export function computeClinchEvents(params: {
+  snapshots: StandingsSnapshot[];
+  teams: { teamId: string; division: Division; totalGames: number }[];
+  /** クラブごとのレギュラーシーズンの試合（日付順）。確定日を試合に対応付けるのに使う */
+  gamesByTeam: Map<string, { date: string; scheduleKey: string }[]>;
+  /** 判定する確定の種類と、プレーオフ進出の判定に使う出場形式 */
+  types: ClinchType[];
+  format: Pick<PostseasonFormat, "divisionTop" | "wildcardSlots">;
+  seasonComplete: boolean;
+}): ClinchEvent[] {
+  const { snapshots, teams, gamesByTeam, types, format, seasonComplete } = params;
+  const firstDate = new Map<string, string>(); // `${teamId}:${type}` -> 確定日
+  const flag = (t: PlayoffRaceTeam, type: ClinchType): boolean =>
+    type === "division" ? !!t.clinchedDivisionFirst : type === "homeCourt" ? !!t.clinchedDivisionTop2 : !!t.clinchedPlayoffs;
+
+  for (const snapshot of snapshots) {
+    const byId = new Map(snapshot.teams.map((t) => [t.teamId, t]));
+    const inputs: RaceTeamInput[] = teams.map((team) => {
+      const s = byId.get(team.teamId);
+      const wins = s?.wins ?? 0;
+      const losses = s?.losses ?? 0;
+      // 途中の日は順位を渡さない（finalRace に入らないよう、最終日以外は勝率の比較だけで判定する）
+      return { teamId: team.teamId, division: team.division, wins, losses, remaining: Math.max(0, team.totalGames - wins - losses) };
+    });
+    const race = computePremierRace("", snapshot.date, inputs, format);
+    for (const t of race.teams) {
+      for (const type of types) {
+        const key = `${t.teamId}:${type}`;
+        if (!firstDate.has(key) && flag(t, type)) firstDate.set(key, snapshot.date);
+      }
+    }
+  }
+
+  // 最終日: 公式の最終順位で確定させる（同率で勝率の比較だけでは決まらないクラブ）
+  const tiebreakKeys = new Set<string>();
+  const last = snapshots.at(-1);
+  if (seasonComplete && last) {
+    const byId = new Map(last.teams.map((t) => [t.teamId, t]));
+    const inputs: RaceTeamInput[] = teams.map((team) => {
+      const s = byId.get(team.teamId);
+      return {
+        teamId: team.teamId,
+        division: team.division,
+        wins: s?.wins ?? 0,
+        losses: s?.losses ?? 0,
+        remaining: 0,
+        divisionRank: s?.divisionRank,
+        overallRank: s?.rank,
+      };
+    });
+    if (inputs.every((t) => t.divisionRank !== undefined && t.overallRank !== undefined)) {
+      for (const t of finalRace(inputs, format)) {
+        for (const type of types) {
+          const key = `${t.teamId}:${type}`;
+          if (!firstDate.has(key) && flag(t, type)) {
+            firstDate.set(key, last.date);
+            tiebreakKeys.add(key);
+          }
+        }
+      }
+    }
+  }
+
+  const events: ClinchEvent[] = [];
+  for (const [key, date] of firstDate) {
+    const [teamId, type] = key.split(":") as [string, ClinchType];
+    const games = gamesByTeam.get(teamId) ?? [];
+    const sameDay = games.find((g) => g.date === date);
+    const previous = [...games].reverse().find((g) => g.date < date);
+    const game = sameDay ?? previous ?? null;
+    events.push({
+      teamId,
+      type,
+      date,
+      scheduleKey: game?.scheduleKey ?? null,
+      onGameDay: !!sameDay,
+      ...(tiebreakKeys.has(key) ? { byTiebreak: true } : {}),
+    });
+  }
+  return events.sort((a, b) => a.date.localeCompare(b.date) || a.teamId.localeCompare(b.teamId));
 }
