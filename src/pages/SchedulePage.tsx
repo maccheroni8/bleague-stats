@@ -388,12 +388,13 @@ export function SchedulePage({ season }: { season: string }) {
 }
 
 function MaybeLink({ to, children }: { to?: string; children: ReactNode }) {
+  // 開催予定（リンクなし）でも、ロゴとチーム名の間隔などの並べ方はリンクと同じにする（schedule-cell-inner）
   return to ? (
     <Link to={to} className="cell-link">
       {children}
     </Link>
   ) : (
-    <>{children}</>
+    <span className="schedule-cell-inner">{children}</span>
   );
 }
 

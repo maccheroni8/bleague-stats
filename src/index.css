@@ -2784,7 +2784,7 @@ table.schedule-table td.align-center {
   padding-left: 6px;
 }
 
-.schedule-team-cell .cell-link {
+.schedule-team-cell :is(.cell-link, .schedule-cell-inner) {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2797,7 +2797,7 @@ table.schedule-table td.align-center {
   text-overflow: ellipsis;
 }
 
-td.schedule-team-cell.align-right .cell-link {
+td.schedule-team-cell.align-right :is(.cell-link, .schedule-cell-inner) {
   justify-content: flex-end;
 }
 
@@ -5677,7 +5677,7 @@ table.wl-grid tbody tr:hover td.wl-home {
     padding-right: 8px;
   }
 
-  [data-design="v2"] .schedule-team-cell .cell-link {
+  [data-design="v2"] .schedule-team-cell :is(.cell-link, .schedule-cell-inner) {
     gap: 6px;
   }
 
