@@ -194,22 +194,41 @@ export function ComparisonTable<T>({
   subLabel,
   emptyMessage = "比較する項目を選んでください",
 }: ComparisonTableProps<T>) {
+  // 列の並び（DESIGN.md 134-2）: 広い画面は項目名を対象の間に挟み、どの値も項目名の隣に来るようにする
+  // （2つ: A／項目／B、3つ: A／項目／B／項目／C）。スマホ幅（560px以下）と対象が1つのときは項目名を左端に1本だけ置き、
+  // 横スクロールしても見えるよう固定する。画像保存は画面の DOM をそのまま写すので、保存した画面の幅の並びで出力される
+  const narrow = useMediaQuery("(max-width: 560px)");
   if (rows.length === 0) {
     return <p className="empty-message">{emptyMessage}</p>;
   }
+  const interleaved = !narrow && rows.length > 1;
+  // 各列: 対象（index）か項目名（"label"）
+  const columns: (number | "label")[] = interleaved
+    ? rows.flatMap((_, i) => (i === 0 ? [0] : ["label" as const, i]))
+    : ["label", ...rows.map((_, i) => i)];
+  // 値の寄せ: 挟む形では項目名に近い側へ寄せる（左端の対象は右寄せ、右端は左寄せ、間は中央）
+  const valueAlign = (i: number) =>
+    !interleaved ? "align-right" : i === 0 ? "align-right" : i === rows.length - 1 ? "align-left" : "align-center";
   return (
-    <div className="table-scroll">
+    <div className={`table-scroll compare-table-scroll${interleaved ? " compare-interleaved" : " compare-label-first"}`}>
       <table className="sortable-table compare-table">
         <thead>
           <tr>
-            <th className="align-left">項目</th>
-            {rows.map(({ item, season }) => {
+            {columns.map((col, ci) => {
+              if (col === "label") {
+                return (
+                  <th key={`label-${ci}`} className={`compare-label-col${interleaved ? " align-center" : " align-left"}`}>
+                    項目
+                  </th>
+                );
+              }
+              const { item, season } = rows[col]!;
               const accent = teamColor?.(item);
               const sub = subLabel?.(item);
               return (
                 <th
                   key={rowKey(item)}
-                  className={`align-right${externalLinkTo?.(item) ? " has-external-link" : ""}`}
+                  className={`compare-entity-col ${valueAlign(col)}${externalLinkTo?.(item) ? " has-external-link" : ""}`}
                   style={accent ? { borderTopColor: accent } : undefined}
                 >
                   <Link to={`${linkTo(item)}?season=${season}`} className="cell-link">
@@ -231,15 +250,20 @@ export function ComparisonTable<T>({
             const best = def.higherIsBetter === false ? Math.min(...values) : Math.max(...values);
             return (
               <tr key={def.key}>
-                <td className="align-left">{def.label}</td>
-                {rows.map(({ item }, i) => (
-                  <td
-                    key={rowKey(item)}
-                    className={`align-right${rows.length > 1 && values[i] === best ? " compare-best" : ""}`}
-                  >
-                    {def.format(item)}
-                  </td>
-                ))}
+                {columns.map((col, ci) =>
+                  col === "label" ? (
+                    <td key={`label-${ci}`} className={`compare-label-col${interleaved ? " align-center" : " align-left"}`}>
+                      {def.label}
+                    </td>
+                  ) : (
+                    <td
+                      key={rowKey(rows[col]!.item)}
+                      className={`${valueAlign(col)}${rows.length > 1 && values[col] === best ? " compare-best" : ""}`}
+                    >
+                      {def.format(rows[col]!.item)}
+                    </td>
+                  ),
+                )}
               </tr>
             );
           })}

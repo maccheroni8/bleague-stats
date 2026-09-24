@@ -1996,7 +1996,7 @@ table.compare-table th a {
   text-decoration: none;
 }
 
-table.compare-table thead th.align-right {
+table.compare-table thead th.compare-entity-col {
   border-top: 3px solid var(--border);
 }
 
@@ -5645,7 +5645,7 @@ table.wl-grid tbody tr:hover td.wl-home {
   margin: 4px 0 20px;
 }
 
-[data-design="v2"] table.compare-table thead th.align-right {
+[data-design="v2"] table.compare-table thead th.compare-entity-col {
   vertical-align: bottom;
 }
 
@@ -5683,7 +5683,7 @@ table.wl-grid tbody tr:hover td.wl-home {
     gap: 6px;
   }
 
-  /* カレンダー: 7列を横スクロールなしで375px幅に収める。1試合は「スコア」の下に両チームのロゴを並べた縦長の札にする */
+  /* カレンダー: 7列を横スクロールなしで375px幅に収める。1試合は両チームのロゴの下にスコアを置いた縦長の札にする */
   [data-design="v2"] .calendar-grid {
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 2px;
@@ -5718,10 +5718,70 @@ table.wl-grid tbody tr:hover td.wl-home {
   }
 
   [data-design="v2"] .calendar-game-chip :is(.calendar-game-chip-score, .calendar-game-chip-vs) {
-    order: -1;
+    order: 1;
     flex-basis: 100%;
     text-align: center;
     font-size: 9px;
     letter-spacing: -0.02em;
   }
+}
+
+/* --- 比較の表（DESIGN.md 134-2）: 項目名の列（.compare-label-col）は灰色の小さめの字で、値と区別する。
+       広い画面（.compare-interleaved）は項目名を対象の間に挟むため、左端の列固定（全体の既存規則）を外す。
+       スマホ幅（.compare-label-first）は項目名を左端に1本置いて固定し、順位表と同じく separate＋間隔0 で境界線も一緒に固定する --- */
+table.compare-table .compare-label-col {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+table.compare-table th.align-center,
+table.compare-table td.align-center {
+  text-align: center;
+}
+
+table.compare-table th.align-left,
+table.compare-table td.align-left {
+  text-align: left;
+}
+
+.compare-interleaved table.compare-table td:first-child,
+.compare-interleaved table.compare-table thead tr:first-child th:first-child {
+  position: static;
+  background: transparent;
+}
+
+[data-design="v2"] .compare-interleaved table.compare-table td:first-child:not(.compare-best) {
+  font-weight: inherit;
+}
+
+/* 条件の補足（最大200px）は、列の寄せ（左・中央・右）に合わせて置く */
+table.compare-table th.align-left .compare-condition-tag {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+table.compare-table th.align-center .compare-condition-tag {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.compare-interleaved table.compare-table td.compare-label-col {
+  background: var(--row-hover);
+}
+
+.compare-label-first table.compare-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.compare-label-first table.compare-table td.compare-label-col,
+.compare-label-first table.compare-table th.compare-label-col {
+  box-shadow: 1px 0 0 var(--border);
+}
+
+[data-design="v2"] table.compare-table td:not(.compare-label-col) {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
