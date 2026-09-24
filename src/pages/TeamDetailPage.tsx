@@ -160,6 +160,7 @@ import { teamShortName } from "../../shared/teamNames";
 import { cleanNumericString, formatColumnDiff, teamCompareDefs, type TeamCompareColumnData } from "../lib/compareShared";
 import { CLASSIFICATION_COLORS } from "../lib/classificationFilter";
 import { statDescription } from "../lib/statDescriptions";
+import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 
 const TEAM_SHOOTING_TAB_TOOLTIP =
@@ -3730,7 +3731,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <th className="align-right">結果</th>
                       {scheduleBoxColumns.map((col) => (
                         <th key={col.key} className="align-right" title={statDescription(col.label, "team")}>
-                          {col.label}
+                          <StatHeaderLabel label={col.label} />
                         </th>
                       ))}
                       <th className="align-left">会場</th>
@@ -4016,7 +4017,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <th className="align-right" title={statDescription("勝率")}>勝率</th>
                     {TEAM_SEASON_BOX_COLUMNS[seasonBoxTab].map((c) => (
                       <th className="align-right" key={c.key} title={statDescription(c.label, "team")}>
-                        {c.label}
+                        <StatHeaderLabel label={c.label} />
                       </th>
                     ))}
                   </tr>
@@ -4104,13 +4105,13 @@ export function TeamDetailPage({ season }: { season: string }) {
                     {(situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : COLUMNS_BY_TAB[situationalTeamBoxTab]).map(
                       (col) => (
                         <th key={col.key} className="align-right" title={statDescription(col.label, "team")}>
-                          {col.label}
+                          <StatHeaderLabel label={col.label} />
                         </th>
                       ),
                     )}
                     {situationalTeamPointsColumns.map((col) => (
                       <th key={col.key} className="align-right" title={statDescription(col.label, "team")}>
-                        {col.label}
+                        <StatHeaderLabel label={col.label} />
                       </th>
                     ))}
                   </tr>

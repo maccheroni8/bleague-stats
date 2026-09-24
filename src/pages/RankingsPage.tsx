@@ -97,6 +97,7 @@ import type { PeriodRangeValue } from "../lib/periodRange";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { ageBaseDate, ageForSeason, formatBaseDateLabel, todayBaseDateLabel } from "../lib/age";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
+import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import type { PlayerGameLog, PlayerSummary, TeamColors, TeamForcedTurnovers, TeamGameLog, TeamSummary } from "../../shared/types";
 
 type Mode = "team" | "player";
@@ -251,7 +252,7 @@ function RankedList<T>({
               onClick={toggleSortDir}
               aria-sort={sortDir === "asc" ? "ascending" : "descending"}
             >
-              {def.label}
+              <StatHeaderLabel label={def.label} />
               {sortDir === "asc" ? " ▲" : " ▼"}
             </th>
           </tr>

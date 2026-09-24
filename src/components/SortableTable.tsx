@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { SeasonLink as Link } from "./SeasonLink";
 import { ExternalLinkIcon } from "./ExternalLinkIcon";
+import { StatHeaderLabel } from "./StatHeaderLabel";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
 
 export interface Column<T> {
@@ -94,7 +95,7 @@ export function SortableTable<T>({
               onClick={() => handleHeaderClick(col.key)}
               aria-sort={sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
             >
-              {col.label}
+              <StatHeaderLabel label={col.label} />
               {sortKey === col.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
             </th>
           ))}

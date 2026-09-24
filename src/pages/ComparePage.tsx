@@ -42,6 +42,7 @@ import {
 import type { DivisionHistoryFile } from "../../shared/types";
 import { useSeasonKeyedData } from "../lib/useSeasonKeyedData";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
+import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 
 type Mode = "team" | "player";
@@ -274,7 +275,7 @@ export function ComparisonTable<T>({
                       className={`compare-label-col${interleaved ? " align-center" : " align-left"}`}
                       title={statDescription(def.label, statScope)}
                     >
-                      {def.label}
+                      <StatHeaderLabel label={def.label} />
                     </td>
                   ) : (
                     <td

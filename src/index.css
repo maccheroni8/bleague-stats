@@ -2072,6 +2072,17 @@ table.compare-table th .compare-season-tag {
   padding-left: 32px;
 }
 
+/* 「・」を含む長い項目名（外国籍・帰化・アジア PTS 等）の見出し: 「・」の後ろでだけ折り返して列の幅を抑える（StatHeaderLabel.tsx。
+ * 見出しの nowrap を打ち消し、日本語の文字間では折り返さない。幅は9〜9.5em。「%外国籍・帰化・」が1行に入り、2行に収まる（下限が無いと表が画面幅に収まろうとして3行に縮む）） */
+.stat-header-wrap {
+  display: inline-block;
+  min-width: 9em;
+  max-width: 9.5em;
+  white-space: normal;
+  word-break: keep-all;
+  vertical-align: bottom;
+}
+
 /* ランキング: 項目を切り替えても列の幅が変わらないよう、保存範囲（表＋タイトル）の幅と各列の幅を固定する（DESIGN.md 136章）。
  * 以前は保存範囲が内容幅（fit-content）で、(1) 値の列が項目名の長さ（「Alley-Oop Dunk 2P%」等）に合わせて広がる、
  * (2) タイトルに項目名が入るため長い項目名で保存範囲ごと広がり、余りを名前の列が吸収する、(3) 個人は上位に入る選手の
@@ -2109,6 +2120,12 @@ table.rankings-table-compact th:last-child {
 
 table.rankings-table-compact td.rank-value {
   padding-left: 16px;
+}
+
+/* 値の列は幅が固定なので、「・」を含む長い項目名は列の幅の中で折り返す（stat-header-wrap の下限幅を外す） */
+table.rankings-table-compact th:last-child .stat-header-wrap {
+  min-width: 0;
+  max-width: 100%;
 }
 
 @media (max-width: 640px) {
