@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { postseasonLabel } from "../../shared/gameType";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { TeamLogo } from "../components/TeamLogo";
+import { usePageState, useSkipFirstEffectRun } from "../lib/pageStateCache";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { FilterBar } from "../components/FilterBar";
 import { simpleSelectAxis, teamMultiAxis, type FilterAxis } from "../lib/filterAxes";
@@ -154,16 +155,22 @@ export function SchedulePage({ season }: { season: string }) {
   const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const [jumpDate, setJumpDate] = useState("");
-  const [view, setView] = useState<ScheduleView>("list");
+  // 表示切り替え・クラブ絞り込み・カレンダーの月・ステータス絞り込みは、試合詳細などへ移動してブラウザバックで戻ったときに
+  // 直前の状態を復元する（usePageState。個人詳細・チーム詳細・ランキングと同じ仕組み。キーはシーズンごと）
+  const pk = (field: string) => `schedule:${season}:${field}`;
+  const [view, setView] = usePageState<ScheduleView>(pk("view"), "list");
   // null = 全チーム選択（絞り込みなし）。個別に外したチームだけをSetで管理する
-  const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string> | null>(null);
-  const [calendarMonth, setCalendarMonth] = useState<string | null>(null);
+  const [selectedTeamIds, setSelectedTeamIds] = usePageState<Set<string> | null>(pk("selectedTeamIds"), null);
+  const [calendarMonth, setCalendarMonth] = usePageState<string | null>(pk("calendarMonth"), null);
   // リスト表示のみに適用する試合ステータスの絞り込み（カレンダー表示は月単位のため対象外）
-  const [statusFilter, setStatusFilter] = useState<ScheduleStatusFilter>("all");
+  const [statusFilter, setStatusFilter] = usePageState<ScheduleStatusFilter>(pk("statusFilter"), "all");
 
   // シーズンが変わったらチームフィルタ・カレンダー月・ステータス絞り込みの選択状態をリセットする
-  // （前シーズンのチーム構成・月範囲・絞り込み条件は引き継がない）
+  // （前シーズンのチーム構成・月範囲・絞り込み条件は引き継がない）。初回マウント時は、usePageStateで復元した値を
+  // 上書きしないようスキップする（src/lib/pageStateCache.ts参照）
+  const skipFirstSeasonReset = useSkipFirstEffectRun(season);
   useEffect(() => {
+    if (skipFirstSeasonReset()) return;
     setSelectedTeamIds(null);
     setCalendarMonth(null);
     setStatusFilter("all");
