@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { postseasonLabel } from "../../shared/gameType";
+import { postseasonFormat, postseasonQualifiedTeamIds } from "../../shared/postseasonFormat";
 import { SortableTable, type Column } from "./SortableTable";
 import { TeamLogo } from "./TeamLogo";
 import { FilterBar } from "./FilterBar";
@@ -204,27 +205,6 @@ function computeRemainingCount(
   }
 }
 
-/**
- * 「各地区上位3クラブ＋ワイルドカード上位2クラブ、計8クラブ」というDESIGN.md記載のルールは
- * 2025-26/2026-27シーズン（東西2地区制）限定で確認済み（マジックナンバー等プレーオフ進出条件は
- * 他シーズンの正式ルール未確認のためDESIGN.md上もスコープ外）。そのため東西2地区制の
- * シーズンのみ算出し、それ以外（3地区制の旧シーズン等）はnull（プレーオフ進出チームでの
- * 絞り込みボタン自体を出さない）を返す。ワイルドカード2枠は、地区上位3位以内に入れなかった
- * チームの中から、そのシーズンの全体順位（rank。公式タイブレークルール適用済み）が良い順に
- * 2チームを選ぶという素直な解釈で算出する（DESIGN.mdにワイルドカードの決定方法自体の明記は
- * 無いため、この解釈が誤っていれば要修正）
- */
-function computePlayoffQualifiedTeamIds(teams: StandingsTeamSnapshot[]): Set<string> | null {
-  const divisions = new Set(teams.map((t) => t.division).filter((d): d is Division => !!d));
-  if (divisions.size !== 2 || !divisions.has("east") || !divisions.has("west")) return null;
-  const top3 = teams.filter((t) => (t.divisionRank ?? 99) <= 3);
-  const wildcard = teams
-    .filter((t) => (t.divisionRank ?? 99) > 3)
-    .sort((a, b) => a.rank - b.rank)
-    .slice(0, 2);
-  return new Set([...top3, ...wildcard].map((t) => t.teamId));
-}
-
 interface ConditionalRow {
   team: StandingsTeamSnapshot;
   rank: number;
@@ -282,7 +262,13 @@ export function ConditionalStandingsTable({
   }, [season]);
 
   const hasCentralDivision = teams.some((t) => t.division === "central");
-  const playoffQualifiedIds = useMemo(() => computePlayoffQualifiedTeamIds(teams), [teams]);
+  // シーズンごとの出場形式（各地区の上位○クラブ＋ワイルドカード○クラブ。shared/postseasonFormat.ts）で算出する。
+  // 形式の無いシーズン（CS中止の2019-20）と地区データの無いシーズンは null（進出圏のボタン自体を出さない）
+  const format = postseasonFormat(season);
+  const playoffQualifiedIds = useMemo(
+    () => (format && teams.some((t) => t.division) ? postseasonQualifiedTeamIds(teams, format) : null),
+    [teams, format],
+  );
 
   const teamIdByName = useMemo(() => new Map(teams.map((t) => [t.teamName, t.teamId])), [teams]);
   const teamOptions = useMemo(
@@ -540,8 +526,9 @@ export function ConditionalStandingsTable({
         ルールとは異なります）。連勝/連敗は選択中の条件に該当する試合だけを対象に算出しています。
         残り試合数は、日程が既に確定していて未来の情報だけで判定できる条件（会場・地区・曜日・
         月別・年明け前後）でのみ表示され、それ以外の条件では「-」になります。
-        {playoffQualifiedIds === null &&
-          `「${postseasonLabel(season)}進出圏」ボタンは、東西2地区制（各地区上位3＋ワイルドカード上位2、計8チーム）が確認できているシーズンのみ表示されます。`}
+        {format
+          ? `「${postseasonLabel(season)}進出圏」は、各地区の上位${format.divisionTop}クラブと、それ以外のクラブのうち全体順位上位${format.wildcardSlots}クラブ（ワイルドカード）の計8クラブです。`
+          : `このシーズンは${postseasonLabel(season)}が開催されなかったため、「${postseasonLabel(season)}進出圏」ボタンは表示されません。`}
       </p>
     </div>
   );
