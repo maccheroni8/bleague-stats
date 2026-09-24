@@ -48,6 +48,7 @@ import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { classifyGameType } from "./lib/gameType.ts";
 import type {
+  SeasonRules,
   BoxscoreRow,
   Category,
   Division,
@@ -578,9 +579,17 @@ function buildPaintSplitByPlayer(playByPlays: PlayByPlayEvent[]): { byPlayer: Ma
  * 影響しうる別件のバグ。ここでは深追いせず、本集計にだけ悪影響が出ないよう
  * 負の区間長を持つスティントは丸ごとスキップする）
  */
+/** 規定の最大人数を超えて除外した区間の件数・秒数（シーズンごとのログ用。DESIGN.md 84-7章） */
+interface ForeignOverLimitTally {
+  stints: number;
+  seconds: number;
+}
+
 function computeForeignPlayerCourtSeconds(
   onCourt: OnCourtReconstruction,
   masterById: Map<string, PlayerMasterEntry>,
+  maxOnCourt: number | undefined,
+  overLimit: ForeignOverLimitTally,
 ): Map<string, Map<number, number>> {
   const secondsByTeamBucket = new Map<string, Map<number, number>>();
   for (const stint of onCourt.lineupStints) {
@@ -589,6 +598,14 @@ function computeForeignPlayerCourtSeconds(
 
     const foreignCount = foreignCountInLineup(stint.playerIds, (id) => masterById.get(id)?.classification);
     if (foreignCount === null) continue;
+    // 規定の最大人数（season-rules.json の maxForeignOnCourt）を超える5人組は、公式記録の選手の取り違え等によるものと
+    // みなし、区分不明の5人組と同じくOn-Court Foreignの集計から丸ごと外す（数え直さない。2026-09-25、DESIGN.md 84-7章）。
+    // 選手の出場時間・ラインナップ・+/-等の他の集計は lineupStints をそのまま使うので影響しない
+    if (maxOnCourt !== undefined && foreignCount > maxOnCourt) {
+      overLimit.stints += 1;
+      overLimit.seconds += duration;
+      continue;
+    }
 
     let bucketSeconds = secondsByTeamBucket.get(stint.teamId);
     if (!bucketSeconds) {
@@ -835,6 +852,10 @@ export async function aggregateSeason(season: string, category: Category = "prem
     premier: {},
     one: {},
   };
+  // On-Court Foreignで規定上ありえない人数の区間を外すための、同時に出られる外国籍・特別枠の最大人数（DESIGN.md 84-7章・135章）
+  const seasonRules = (await readJson<SeasonRules[]>(path.join(DATA_DIR, "season-rules.json"))) ?? [];
+  const maxForeignOnCourt = seasonRules.find((r) => r.season === season)?.maxForeignOnCourt;
+  const foreignOverLimit: ForeignOverLimitTally = { stints: 0, seconds: 0 };
   const rawGames = await readAllGames(season, category);
   const allGames = rawGames.filter((g) => g.gameEndedFlg);
   const games = allGames.filter((g) => !isExhibitionGame(g.raw.Game.ConventionNameJ));
@@ -907,7 +928,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         : null;
     const technicalFouls = countTechnicalFouls(game.raw.PlayByPlays);
     const foreignPlayerCourtSeconds = onCourt
-      ? computeForeignPlayerCourtSeconds(onCourt, masterById)
+      ? computeForeignPlayerCourtSeconds(onCourt, masterById, maxForeignOnCourt, foreignOverLimit)
       : new Map<string, Map<number, number>>();
     const foreignPlayerCounts = computeForeignPlayerCounts(foreignPlayerCourtSeconds);
     // 個人PACE用の在コート区間ポゼッション（DESIGN.md参照）。既存のPACE表示ポリシー
@@ -970,6 +991,11 @@ export async function aggregateSeason(season: string, category: Category = "prem
       masterById,
     );
     processLineups(game, teamLineups, onCourt);
+  }
+  if (foreignOverLimit.stints > 0) {
+    console.log(
+      `[${season}] On-Court Foreign: 規定の最大人数（${maxForeignOnCourt}名）を超える5人組を除外 ${foreignOverLimit.stints}区間・${foreignOverLimit.seconds}秒`,
+    );
   }
 
   // ターンオーバーの種類別カウント（相手に強制した／自チームが犯した、の両方向。Yahoo!スポーツ
