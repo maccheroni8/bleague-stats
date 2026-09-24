@@ -11,7 +11,7 @@
 // 使い方:
 //   npm run scrape:boxscore -- 505076 505118                     # ScheduleKeyを直接指定
 //   npm run scrape:boxscore -- --season 2025-26                  # そのシーズンのschedule.jsonから
-//                                                                   未取得試合（開催予定はティップオフ+3時間
+//                                                                   未取得試合（開催予定はティップオフ+2時間
 //                                                                   経過後のみ）＋再チェック対象(watching)をまとめて処理
 //   npm run scrape:boxscore -- --season 2025-26 --category one   # B.ONE分（保存先はdata/{season}/one/games/）
 //   npm run scrape:boxscore -- --season 2025-26 --new-only        # 新着試合のみ処理し、
@@ -141,7 +141,7 @@ async function loadSchedule(season: string, category: Category): Promise<Schedul
 
 /**
  * シーズン一括モード: 未取得試合 + status=watchingの再チェック対象をまとめて処理する。
- * 未取得の試合のうち、schedule.jsonのupcomingGamesにあって「ティップオフ+3時間」をまだ過ぎて
+ * 未取得の試合のうち、schedule.jsonのupcomingGamesにあって「ティップオフ+2時間」をまだ過ぎて
  * いない試合（lib/pendingGames.ts）は、どちらのモードでも問い合わせない（未開催の試合は必ず
  * 「データなし」になるため。2026-09-24以前は深夜モードだけ全試合を問い合わせており、シーズン序盤は
  * 約780試合分のbleague.jpアクセスが毎晩発生していた。DESIGN.md 8-7章）。開催日がずれた試合は、
@@ -178,7 +178,7 @@ export async function runForSeason(
       continue;
     }
 
-    // まだティップオフ+3時間を過ぎていない開催予定の試合は問い合わせない（両モード共通）
+    // まだティップオフ+2時間を過ぎていない開催予定の試合は問い合わせない（両モード共通）
     const upcoming = upcomingByKey.get(scheduleKey);
     if (!existing && upcoming && !isDue(upcoming, now)) {
       notDueSkipped++;
@@ -189,7 +189,7 @@ export async function runForSeason(
     const result = await scrapeAndSaveGame(scheduleKey, category);
     logResult(result);
   }
-  console.log(`[${season}] 問い合わせ: ${queried}試合 ／ ティップオフ+3時間前のためスキップ: ${notDueSkipped}試合`);
+  console.log(`[${season}] 問い合わせ: ${queried}試合 ／ ティップオフ+2時間前のためスキップ: ${notDueSkipped}試合`);
 }
 
 function logResult(result: ScrapeResult): void {

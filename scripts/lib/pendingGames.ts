@@ -3,12 +3,16 @@
 // （頻繁チェックで実際に取得を試みる試合の絞り込み）で同じ基準を使う。
 import type { UpcomingGameEntry } from "../../shared/types.ts";
 
-export const TIPOFF_GRACE_HOURS = 3;
+// 試合は2時間〜2時間15分程度で終わるため、ティップオフ+2時間から問い合わせ始める（2026-09-25に3時間から短縮。DESIGN.md 8-8章）。
+// その時点でまだ試合中なら、途中経過を「watching」で保存し、次の実行（30分後）以降で終了を確認して確定する
+export const TIPOFF_GRACE_HOURS = 2;
 
-// 公式サイトで時刻が未定の試合等、tipoffTimeが取れない試合は「試合日の22:00開始」とみなす。
-// 「不明なら常に取得待ち」にすると、その試合の日付に関係なく30分ごとに本処理が走り続けるため。
-// 22:00はB.LEAGUEの試合開始として実質あり得ない遅さで、実際の試合終了後には確実に判定が通る
-export const FALLBACK_TIPOFF_TIME = "22:00";
+// 公式サイトで時刻が未定（TIP OFF調整中）の試合等、tipoffTimeが取れない試合は「試合日の13:00開始」とみなす
+// （2026-09-25に22:00から変更。DESIGN.md 8-8章）。22:00だとデーゲームが翌1:00まで取り込まれないため、
+// 最も早い試合開始に近い13:00にした。夕方以降の試合なら、15:00から試合が終わるまで1回の実行につき1件の
+// 空振りの問い合わせ（データなし）が出るが、時刻は深夜実行が今後14日分を取り直すので、当日まで未定のままの試合に限られる。
+// 「不明なら常に取得待ち」にしないのは、その試合の日付に関係なく30分ごとに本処理が走り続けるため
+export const FALLBACK_TIPOFF_TIME = "13:00";
 
 export function dueAtMs(entry: UpcomingGameEntry): number {
   const time = entry.tipoffTime ?? FALLBACK_TIPOFF_TIME;

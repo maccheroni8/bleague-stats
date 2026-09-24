@@ -2,9 +2,9 @@
 // ローカルのschedule.json（前回までのコミット済みデータ）だけで「本処理に進む必要があるか」を
 // 判定する（DESIGN.md 8-5章）。
 //
-// 判定基準: upcomingGames（生データ未取得の開催予定試合）のうち、「ティップオフ時刻 + 3時間」を
+// 判定基準: upcomingGames（生データ未取得の開催予定試合）のうち、「ティップオフ時刻 + 2時間」を
 // 過ぎている試合、または生データはあるが未終了（試合中に取得された）の試合が1件でもあれば
-// should_run=true。tipoffTime不明の試合は試合日の22:00開始とみなす（lib/pendingGames.ts）。
+// should_run=true。tipoffTime不明の試合は試合日の13:00開始とみなす（lib/pendingGames.ts）。
 //
 // GitHub Actionsのjob outputに should_run=true/false を書き込む（GITHUB_OUTPUT未設定時は
 // 標準出力のみ、ローカル動作確認用）。
