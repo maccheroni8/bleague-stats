@@ -952,6 +952,7 @@ export function StandingsPage({ season }: { season: string }) {
                     upcomingGames={schedule?.upcomingGames ?? []}
                     clinchEvents={playoffRace?.clinchEvents ?? []}
                     teamColors={teamColors ?? undefined}
+                    teamIdByName={new Map(standingsTeams.map((t) => [t.teamName, t.teamId]))}
                   />
                 </div>
               ))}

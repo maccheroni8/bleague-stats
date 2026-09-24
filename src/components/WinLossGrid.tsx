@@ -9,7 +9,8 @@ import { ResponsiveTeamName } from "./ResponsiveTeamName";
 /**
  * 勝敗表（順位表ページのタブ。DESIGN.md 132章）。クラブごとにレギュラーシーズンの全試合を第1試合から順に○（勝ち）●（負け）で並べ、
  * 未消化は空欄。マスにカーソルで試合の詳細、クリックで試合詳細へ。アウェイの試合はマスの地を薄い青にする（中立地開催も
- * 公式記録上のホーム／アウェイ＝games-summary の homeTeamId に従う）。チーム名の左に地区順位（順位表と同じ公式タイブレーク適用済みの値）。
+ * 公式記録上のホーム／アウェイ＝games-summary の homeTeamId に従う）。終了した試合の後ろに、試合中（途中経過で保存された試合）と
+ * 開催予定（schedule.json の upcomingGames。日付順）のマスを続け、ホーム／アウェイの地だけ付ける。連勝・観客数等の集計は終了した試合だけ。チーム名の左に地区順位（順位表と同じ公式タイブレーク適用済みの値）。
  * 確定した試合（playoff-race.json の clinchEvents）は赤枠＋隅の記号（◎地区優勝・★準々決勝ホームコート・☆ポストシーズン進出）。
  * 試合の無い日に確定した場合は直前の試合に点線の枠。右端にホーム平均観客数・最大連勝・最大連敗・現在の連勝/連敗。
  */
@@ -47,6 +48,63 @@ function shortDate(date: string): string {
   // "2026年3月15日（日）" -> "3/15（日）"
   const m = /^\d+年(\d+)月(\d+)日(（.）)$/.exec(formatDateHeading(date));
   return m ? `${m[1]}/${m[2]}${m[3]}` : date;
+}
+
+/** 終了していない試合のマス（試合中＝games-summary の gameEndedFlg=false、開催予定＝schedule.json の upcomingGames） */
+interface PendingCell {
+  kind: "live" | "upcoming";
+  scheduleKey: string;
+  date: string;
+  isHome: boolean;
+  opponentId?: string;
+  opponentName: string;
+  teamScore?: number;
+  opponentScore?: number;
+  tipoffTime?: string;
+  venue?: string;
+}
+
+function pendingGames(
+  team: WinLossGridTeam,
+  games: GameSummary[],
+  upcoming: UpcomingGameEntry[],
+  teamIdByName: Map<string, string> | undefined,
+): PendingCell[] {
+  const live: PendingCell[] = games
+    .filter((g) => g.gameType === "regular" && !g.gameEndedFlg && (g.homeTeamId === team.teamId || g.awayTeamId === team.teamId))
+    .map((g) => {
+      const isHome = g.homeTeamId === team.teamId;
+      return {
+        kind: "live",
+        scheduleKey: g.scheduleKey,
+        date: g.date,
+        isHome,
+        opponentId: isHome ? g.awayTeamId : g.homeTeamId,
+        opponentName: isHome ? g.awayTeamName : g.homeTeamName,
+        teamScore: isHome ? g.homeScore : g.awayScore,
+        opponentScore: isHome ? g.awayScore : g.homeScore,
+        venue: g.venue,
+      };
+    });
+  // 生データを取得済みの試合は upcomingGames から外れるが、日程の更新前に一時的に両方に載ることがあるので重複を除く
+  const summaryKeys = new Set(games.map((g) => g.scheduleKey));
+  const scheduled: PendingCell[] = upcoming
+    .filter((g) => !summaryKeys.has(g.scheduleKey) && (g.homeTeamName === team.teamName || g.awayTeamName === team.teamName))
+    .map((g) => {
+      const isHome = g.homeTeamName === team.teamName;
+      return {
+        kind: "upcoming",
+        scheduleKey: g.scheduleKey,
+        date: g.date,
+        isHome,
+        opponentId: teamIdByName?.get(isHome ? g.awayTeamName : g.homeTeamName),
+        opponentName: isHome ? g.awayTeamName : g.homeTeamName,
+        tipoffTime: g.tipoffTime,
+        venue: g.venue,
+      };
+    });
+  const byDate = (a: PendingCell, b: PendingCell) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey);
+  return [...live.sort(byDate), ...scheduled.sort(byDate)];
 }
 
 function teamGames(teamId: string, games: GameSummary[]): GameCell[] {
@@ -102,6 +160,7 @@ export function WinLossGrid({
   upcomingGames,
   clinchEvents,
   teamColors,
+  teamIdByName,
 }: {
   season: string;
   teams: WinLossGridTeam[];
@@ -110,17 +169,16 @@ export function WinLossGrid({
   upcomingGames: UpcomingGameEntry[];
   clinchEvents: ClinchEvent[];
   teamColors?: Record<string, { primary?: string }>;
+  /** 開催予定の試合（クラブ名しか持たない）の相手を略称で出すための、クラブ名→ID */
+  teamIdByName?: Map<string, string>;
 }) {
   const showRank = teams.some((t) => t.divisionRank !== undefined);
   const cellsByTeam = new Map(teams.map((t) => [t.teamId, teamGames(t.teamId, games)]));
-  const upcomingByName = new Map<string, number>();
-  for (const g of upcomingGames) {
-    for (const name of [g.homeTeamName, g.awayTeamName]) upcomingByName.set(name, (upcomingByName.get(name) ?? 0) + 1);
-  }
-  // 列数: シーズンの最大試合数（消化済み＋未消化）。2019-20（中止）等は実際に消化した最大数
+  const pendingByTeam = new Map(teams.map((t) => [t.teamId, pendingGames(t, games, upcomingGames, teamIdByName)]));
+  // 列数: シーズンの最大試合数（終了＋試合中＋開催予定）。2019-20（中止）等は実際に消化した最大数
   const slots = Math.max(
     1,
-    ...teams.map((t) => (cellsByTeam.get(t.teamId)?.length ?? 0) + (upcomingByName.get(t.teamName) ?? 0)),
+    ...teams.map((t) => (cellsByTeam.get(t.teamId)?.length ?? 0) + (pendingByTeam.get(t.teamId)?.length ?? 0)),
   );
   const eventsByKey = new Map<string, ClinchEvent[]>();
   for (const e of clinchEvents) {
@@ -152,6 +210,7 @@ export function WinLossGrid({
         <tbody>
           {teams.map((t) => {
             const cells = cellsByTeam.get(t.teamId) ?? [];
+            const pending = pendingByTeam.get(t.teamId) ?? [];
             const s = streaks(cells);
             const attendance = homeAttendance(t.teamId, games);
             const accent = teamColors?.[t.teamId]?.primary;
@@ -169,7 +228,25 @@ export function WinLossGrid({
                 {Array.from({ length: slots }, (_, i) => {
                   const c = cells[i];
                   const sep = i > 0 && i % 10 === 0 ? " wl-sep" : "";
-                  if (!c) return <td key={i} className={`wl-cell wl-empty${sep}`} />;
+                  if (!c) {
+                    const p = pending[i - cells.length];
+                    if (!p) return <td key={i} className={`wl-cell wl-empty${sep}`} />;
+                    const opponent = teamShortName(p.opponentId ?? "", p.opponentName);
+                    const head = `第${i + 1}試合 ${shortDate(p.date)} ${p.isHome ? "ホーム" : "アウェー"} vs ${opponent}`;
+                    const cls = `wl-cell ${p.kind === "live" ? "wl-live" : "wl-upcoming"}${p.isHome ? "" : " wl-away"}${sep}`;
+                    if (p.kind === "live") {
+                      const title = `${head}\n試合中 ${p.teamScore}-${p.opponentScore}（途中経過）${p.venue ? `（${p.venue}）` : ""}`;
+                      return (
+                        <td key={i} className={cls}>
+                          <Link to={`/games/${p.scheduleKey}`} className="wl-mark" title={title} aria-label={title}>
+                            <span className="wl-live-dot" aria-hidden="true" />
+                          </Link>
+                        </td>
+                      );
+                    }
+                    const title = `${head}\n開催予定${p.tipoffTime ? ` ${p.tipoffTime}` : ""}${p.venue ? `（${p.venue.replace(/^.+｜/, "")}）` : ""}`;
+                    return <td key={i} className={cls} title={title} aria-label={title} />;
+                  }
                   const events = (eventsByKey.get(`${t.teamId}:${c.scheduleKey}`) ?? []).sort(
                     (a, b) => CLINCH_ORDER.indexOf(a.type) - CLINCH_ORDER.indexOf(b.type),
                   );
@@ -226,7 +303,11 @@ export function WinLossLegend({ season, clinchTypes }: { season: string; clinchT
       <span>● 負け</span>
       <span>
         <span className="wl-legend-swatch" aria-hidden="true" />
-        アウェイ
+        アウェイ（未開催の試合も表示）
+      </span>
+      <span>
+        <span className="wl-live-dot" aria-hidden="true" />
+        試合中
       </span>
       {clinchTypes.length > 0 && (
         <>

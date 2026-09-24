@@ -5290,6 +5290,15 @@ table.wl-grid .wl-away {
   color: var(--accent);
 }
 
+/* 試合中（途中経過で保存された試合）: 機能色の小さな丸。●（負け、文字色・13px）と色と大きさで区別する */
+.wl-live-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
 /* 確定した試合: マスの内側に機能色の枠（隣のマスと重ならないよう inset）。試合の無い日の確定は点線 */
 table.wl-grid .wl-clinch {
   box-shadow: inset 0 0 0 2px var(--accent);
