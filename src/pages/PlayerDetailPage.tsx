@@ -15,7 +15,7 @@ import { SeasonLink as Link } from "../components/SeasonLink";
 import { usePageState, useSkipFirstEffectRun } from "../lib/pageStateCache";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import {
-  fetchClubHonors,
+  fetchPlayerCareers,
   fetchDivisionHistory,
   fetchGame,
   fetchGameSummaries,
@@ -677,10 +677,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
   const { data: playerHistory } = useJsonData(() => fetchPlayerHistory(), []);
   const { data: playerAwards } = useJsonData(() => fetchPlayerAwards(), []);
-  // 優勝回数（Group F）: club-honors.jsonの年間優勝（category==="overall"）と、
-  // careerTeamData（下記、試合ログから動的に導出した「そのシーズンに実際に所属していた
-  // チーム」）を突き合わせて算出する
-  const { data: clubHonors } = useJsonData(() => fetchClubHonors(), []);
+  // 優勝回数: レギュラーシーズン終了時に優勝チームに所属していたシーズン（data/player-careers.json。DESIGN.md 147章）
+  const { data: playerCareers } = useJsonData(() => fetchPlayerCareers(), []);
   const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
   const { coverage } = useSeasonCoverage(season);
   const shotChartSupported = isShotChartSupported(coverage);
@@ -1797,22 +1795,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
     b.season.localeCompare(a.season),
   );
 
-  // 優勝回数（Group F）: careerTeamData（試合ログから動的導出した「シーズン×実際に所属していた
-  // チーム」、シーズン内移籍にも対応済み。上のcareerTeamData取得effect参照）と、
-  // club-honors.jsonの年間優勝（category==="overall"）を突き合わせる。careerTeamData/clubHonors
-  // が未取得の間は空のまま（読み込み完了後に自動的に反映される）
-  const championshipSeasons: { season: string; teamId: string; teamName: string }[] = [];
-  if (careerTeamData && clubHonors) {
-    for (const [season, info] of careerTeamData) {
-      for (const teamId of info.teamTotalsByTeamId.keys()) {
-        const won = (clubHonors[teamId] ?? []).some((h) => h.category === "overall" && h.season === season);
-        if (!won) continue;
-        const teamName = [...info.ownTeamByScheduleKey.values()].find((t) => t.teamId === teamId)?.teamName ?? teamId;
-        championshipSeasons.push({ season, teamId, teamName });
-        break;
-      }
-    }
-  }
+  // 優勝回数: レギュラーシーズン終了時に優勝チームに所属していたシーズン（出場0試合を含む）。判定はランキングの Career と同じ
+  // （scripts/aggregate-player-careers.ts の championships。DESIGN.md 147章）
+  const championshipSeasons: { season: string; teamId: string; teamName: string }[] = [
+    ...(playerCareers?.championships[player.playerId] ?? []),
+  ];
   championshipSeasons.sort((a, b) => b.season.localeCompare(a.season));
 
   // レーダーチャートのパーセンタイル算出対象は、所属チーム試合数の85%以上に出場した選手のみに

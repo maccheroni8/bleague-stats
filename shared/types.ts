@@ -1583,9 +1583,9 @@ export interface PlayerCareerCounts {
   postseasons: number;
   /** ファイナルに出場したシーズン数 */
   finals: number;
-  /** 優勝したシーズン数（優勝チームでそのシーズンのファイナルに出場） */
+  /** 優勝したシーズン数（レギュラーシーズン終了時に優勝チームに所属。判定は scripts/aggregate-player-careers.ts・DESIGN.md 147章） */
   titles: number;
-  /** 地区優勝したシーズン数（地区1位のチームで、そのシーズンに1試合以上出場。移籍した選手は出場したチームごとに判定） */
+  /** 地区優勝したシーズン数（レギュラーシーズン終了時に地区1位のチームに所属。判定は優勝と同じ） */
   divisionTitles: number;
   /** 個人賞の受賞数（B1／B.PREMIER の賞。B2の賞は数えない） */
   awards: number;
@@ -1593,8 +1593,10 @@ export interface PlayerCareerCounts {
 
 export interface PlayerCareersFile {
   generatedAt: string;
-  /** season → playerId → そのシーズン終了時点までの累計。そのシーズンに出場した選手だけを持つ */
+  /** season → playerId → そのシーズン終了時点までの累計。そのシーズンに出場した選手だけを持つ（出場0試合で優勝チームに所属したシーズンも、累計には数える） */
   seasons: Record<string, Record<string, PlayerCareerCounts>>;
+  /** playerId → 優勝したシーズンとそのチーム（個人詳細の「優勝回数」用。古い順） */
+  championships: Record<string, { season: string; teamId: string; teamName: string }[]>;
 }
 
 // ---- data/season-profiles.json（Wayback Machine の当時の選手ページから読んだ身長・体重・ポジション。
