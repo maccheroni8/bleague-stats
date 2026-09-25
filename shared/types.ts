@@ -1568,3 +1568,31 @@ export interface LeaguePlayerRankingsFile {
   careerHome: Record<LeagueRankingGameType, LeaguePlayerRankingStatTable>;
   careerAway: Record<LeagueRankingGameType, LeaguePlayerRankingStatTable>;
 }
+
+// ---- data/player-careers.json（ランキング「キャリア」カテゴリ。scripts/aggregate-player-careers.ts。DESIGN.md 145章）----
+
+/** 選手のキャリアの回数（Bリーグ 2016-17 以降、B1／B.PREMIER の記録だけ。そのシーズンの終了時点までの累計） */
+export interface PlayerCareerCounts {
+  /** 出場したシーズン数（レギュラーシーズンかポストシーズンに1試合以上） */
+  seasons: number;
+  /** 出場したクラブの数（1試合以上出場したクラブ） */
+  clubs: number;
+  /** レギュラーシーズンの出場試合数 */
+  games: number;
+  /** ポストシーズンに出場したシーズン数 */
+  postseasons: number;
+  /** ファイナルに出場したシーズン数 */
+  finals: number;
+  /** 優勝したシーズン数（優勝チームでそのシーズンのファイナルに出場） */
+  titles: number;
+  /** 地区優勝したシーズン数（地区1位のチームで、そのシーズンに1試合以上出場。移籍した選手は出場したチームごとに判定） */
+  divisionTitles: number;
+  /** 個人賞の受賞数（B1／B.PREMIER の賞。B2の賞は数えない） */
+  awards: number;
+}
+
+export interface PlayerCareersFile {
+  generatedAt: string;
+  /** season → playerId → そのシーズン終了時点までの累計。そのシーズンに出場した選手だけを持つ */
+  seasons: Record<string, Record<string, PlayerCareerCounts>>;
+}

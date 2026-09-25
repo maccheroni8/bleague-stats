@@ -22,6 +22,7 @@ import type {
   LeaguePlayerRankingsFile,
   LeagueTeamRankingsFile,
   PlayerAwardsFile,
+  PlayerCareersFile,
   PlayerGameLog,
   PlayerHistoryEntry,
   PlayerMasterEntry,
@@ -182,6 +183,11 @@ export function fetchPlayerHistory(): Promise<PlayerHistoryEntry[]> {
 
 export function fetchPlayerAwards(): Promise<PlayerAwardsFile> {
   return fetchJson<PlayerAwardsFile>(`${dataBase}/player-awards.json`);
+}
+
+/** 選手のキャリアの回数（ランキングの個人「キャリア」カテゴリ。scripts/aggregate-player-careers.ts） */
+export function fetchPlayerCareers(): Promise<PlayerCareersFile> {
+  return fetchJson<PlayerCareersFile>(`${dataBase}/player-careers.json`);
 }
 
 /** 選手プロフィール共通マスタ（シーズン非依存、DESIGN.md 5章・11章・51章参照）。B.ONE

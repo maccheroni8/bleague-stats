@@ -21,6 +21,7 @@
     "aggregate": "node --experimental-strip-types scripts/aggregate.ts",
     "aggregate:league-rankings": "node --experimental-strip-types scripts/aggregate-league-rankings.ts",
     "aggregate:league-player-rankings": "node --experimental-strip-types scripts/aggregate-league-player-rankings.ts",
+    "aggregate:player-careers": "node --experimental-strip-types scripts/aggregate-player-careers.ts",
     "print:current-season": "node --experimental-strip-types scripts/print-current-season.ts",
     "validate:oncourt": "node --experimental-strip-types scripts/validate-oncourt.ts",
     "check:rule-change": "node --experimental-strip-types scripts/check-rule-change.ts",

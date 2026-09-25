@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { usePageState } from "../lib/pageStateCache";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
-import { fetchPlayerGameLogs, fetchPlayers, fetchTeamColors, fetchTeams } from "../lib/data";
+import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayers, fetchTeamColors, fetchTeams } from "../lib/data";
+import type { PlayerCareerCounts } from "../../shared/types";
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { ExportImageButton } from "../components/ExportImageButton";
@@ -190,6 +191,11 @@ interface RankedListProps<T> {
   compact?: boolean;
   /** 項目名の説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */
   statScope?: StatScope;
+  /**
+   * trueのとき、同じ値は同じ順位にし次の順位を飛ばす（1位・2位・2位・4位）。limit の境目で同じ順位が続く分は、
+   * 「同じ順位のほか◯人を表示」で広げる（回数のように同じ値が多い項目用。キャリアのカテゴリ）
+   */
+  tieRanks?: boolean;
 }
 
 /** シューティングの項目（キー「{シュート種別}_2pm」等）を、シュート種別ごとのグループにする（項目数が多いため） */
@@ -219,6 +225,7 @@ function RankedList<T>({
   limit,
   compact,
   statScope = "player",
+  tieRanks = false,
 }: RankedListProps<T>) {
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
   // ソート方向は「値の大小」ではなく「良い/悪い」の向き（def.higherIsBetter）を基準にした
@@ -226,18 +233,34 @@ function RankedList<T>({
   // 項目（def.key）や向き（def.higherIsBetter、自チーム/opp/+/-トグルで変わりうる）が変わったら
   // 手動での反転状態をリセットし、常に新しい項目の「正しい既定順」から始める
   const [sortDir, setSortDir] = useState<"asc" | "desc">(() => defaultSortDir(def));
+  const [tiesExpanded, setTiesExpanded] = useState(false);
   const prevIdentityRef = useRef(`${def.key}:${def.higherIsBetter}`);
   useEffect(() => {
     const identity = `${def.key}:${def.higherIsBetter}`;
     if (prevIdentityRef.current !== identity) {
       prevIdentityRef.current = identity;
       setSortDir(defaultSortDir(def));
+      setTiesExpanded(false);
     }
   }, [def]);
 
   const factor = sortDir === "asc" ? 1 : -1;
   const sorted = [...rows].sort((a, b) => (def.value(a) - def.value(b)) * factor);
-  const limited = limit !== undefined ? sorted.slice(0, limit) : sorted;
+  const ranks = sorted.map((row) => def.value(row));
+  const rankAt = (i: number): number => {
+    if (!tieRanks) return i + 1;
+    let j = i;
+    while (j > 0 && ranks[j - 1] === ranks[i]) j -= 1;
+    return j + 1;
+  };
+  // 同じ順位が境目をまたぐ分（limit より後ろで、limit 番目と同じ値の行）
+  let tieEnd = limit ?? sorted.length;
+  if (tieRanks && limit !== undefined && limit > 0) {
+    while (tieEnd < sorted.length && ranks[tieEnd] === ranks[limit - 1]) tieEnd += 1;
+  }
+  const hiddenTies = limit !== undefined ? Math.max(0, Math.min(tieEnd, sorted.length) - limit) : 0;
+  const shownCount = limit === undefined ? sorted.length : tiesExpanded ? tieEnd : limit;
+  const limited = sorted.slice(0, shownCount);
   const toggleSortDir = () => setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
   return (
     <div className="table-scroll">
@@ -266,7 +289,7 @@ function RankedList<T>({
                   className={`align-right rank-cell${accent ? " row-accent-cell" : ""}`}
                   style={accent ? { borderLeftColor: accent } : undefined}
                 >
-                  {i + 1}
+                  {rankAt(i)}
                 </td>
                 <td className={`align-left${externalLinkTo?.(row) ? " has-external-link" : ""}`}>
                   <Link to={linkTo(row)} className="cell-link">
@@ -288,6 +311,11 @@ function RankedList<T>({
           })}
         </tbody>
       </table>
+      {hiddenTies > 0 && (
+        <button className="load-more-button" type="button" onClick={() => setTiesExpanded((v) => !v)}>
+          {tiesExpanded ? `上位${limit}人だけを表示` : `同じ順位のほか${hiddenTies}人を表示`}
+        </button>
+      )}
     </div>
   );
 }
@@ -813,6 +841,33 @@ function buildProfileItems(season: string): PlayerRankItem[] {
   ];
 }
 
+/**
+ * 「キャリア」カテゴリの項目（DESIGN.md 145章）。値は data/player-careers.json の、選んだシーズンの終了時点までの累計
+ * （Bリーグ 2016-17 以降、B1／B.PREMIER の記録だけ）。0 の選手はランキングに並べない（rows の useMemo 参照）
+ */
+const CAREER_ITEM_DEFS: { key: keyof PlayerCareerCounts; label: string; unit: string }[] = [
+  { key: "titles", label: "リーグ優勝", unit: "回" },
+  { key: "divisionTitles", label: "地区優勝", unit: "回" },
+  { key: "finals", label: "ファイナル出場", unit: "回" },
+  { key: "postseasons", label: "ポストシーズン出場", unit: "回" },
+  { key: "awards", label: "個人賞", unit: "回" },
+  { key: "seasons", label: "在籍シーズン", unit: "シーズン" },
+  { key: "clubs", label: "所属クラブ", unit: "クラブ" },
+  { key: "games", label: "通算出場試合", unit: "試合" },
+];
+
+function buildCareerItems(careerOf: (p: PlayerSummary) => PlayerCareerCounts | undefined): PlayerRankItem[] {
+  return CAREER_ITEM_DEFS.map((d) => ({
+    key: d.key,
+    label: d.label,
+    value: (p) => careerOf(p)?.[d.key] ?? 0,
+    format: (p) => `${careerOf(p)?.[d.key] ?? 0}${d.unit}`,
+  }));
+}
+
+const CAREER_NOTE =
+  "回数はBリーグ（2016-17シーズン）以降、B1（B.PREMIER）の記録から数えた、このシーズン終了時点までの累計です（進行中のシーズンは現時点まで）。対象はこのシーズンに1試合以上出場した選手です";
+
 function profileItemHasValue(p: PlayerSummary, statKey: string): boolean {
   if (statKey === "weight") return p.weightKg != null;
   if (statKey === "age") return !!p.birthDate;
@@ -822,7 +877,7 @@ function profileItemHasValue(p: PlayerSummary, statKey: string): boolean {
 /** 選手ランキングのカテゴリ。チーム版・チーム詳細ページ「選手スタッツ」タブと同じ
  * トラディショナル/アドバンスド/Misc/スコアリング（SeasonBoxTabKey）に、シューティングを
  * 追加したもの */
-type PlayerRankCategory = SeasonBoxTabKey | "shooting" | "profile";
+type PlayerRankCategory = SeasonBoxTabKey | "shooting" | "profile" | "career";
 
 /**
  * ランキングページの選手版。掲載基準（所属チーム試合数の85%以上に出場、3P%/FT%/FG%/2P%は
@@ -880,7 +935,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 
   const selectCategory = (next: PlayerRankCategory) => {
     setCategory(next);
-    const nextKey = next === "shooting" ? `${SHOT_TYPE_DISPLAY_ORDER[0]}_2pm` : next === "profile" ? "height" : "pts";
+    const nextKey =
+      next === "shooting" ? `${SHOT_TYPE_DISPLAY_ORDER[0]}_2pm` : next === "profile" ? "height" : next === "career" ? "titles" : "pts";
     setStatKey(nextKey);
     setExtraThreshold(EXTRA_ELIGIBILITY_RULES[extraRuleKey(nextKey)]?.defaultValue ?? 0);
   };
@@ -889,14 +945,28 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     setExtraThreshold(EXTRA_ELIGIBILITY_RULES[extraRuleKey(next)]?.defaultValue ?? 0);
   };
 
+  // 「キャリア」カテゴリを開いたときだけ取得する
+  const { data: careers, loading: careersLoading } = useJsonData(
+    () => (category === "career" ? fetchPlayerCareers() : Promise.resolve(null)),
+    [category === "career"],
+  );
+  const careerBySeason = careers?.seasons[season];
+
   const eligible: PlayerSummary[] = useMemo(() => {
     if (!players || !teams) return [];
     const positionSet = new Set(positions);
+    // キャリア: 掲載基準（出場率）を使わず、このシーズンに1試合以上出場した選手全員
+    if (category === "career") {
+      return players.filter(
+        (p) =>
+          !!careerBySeason?.[p.playerId] && matchesClassificationGroupFilter(p, selectedClassification) && matchesPositionFilter(p, positionSet),
+      );
+    }
     const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold).filter(
       (p) => matchesClassificationGroupFilter(p, selectedClassification) && matchesPositionFilter(p, positionSet),
     );
     return category === "shooting" ? base.filter((p) => !!p.shotTypes) : base;
-  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassification, positions, category]);
+  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassification, positions, category, careerBySeason]);
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {
@@ -911,7 +981,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   // （PlayersListPage.tsxの「全選手スタッツ」タブと同じ遅延取得方針）。出場率スライダー等で
   // 対象選手が増えても、既に取得済みの選手は再取得せず差分だけ追加する
   const needsGameLogRecompute =
-    (filterActive || gameTypeActive || category === "misc" || category === "scoring" || periodActive) && category !== "profile";
+    (filterActive || gameTypeActive || category === "misc" || category === "scoring" || periodActive) &&
+    category !== "profile" &&
+    category !== "career";
   useEffect(() => {
     if (!needsGameLogRecompute || eligible.length === 0) return;
     const missing = eligible.filter((p) => !fetchedPlayerIdsRef.current.has(p.playerId));
@@ -1032,9 +1104,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   // 常にシーズン集計（掲載基準通過者全員）をそのまま表示する
   const rows: PlayerSummary[] = useMemo(() => {
     if (category === "profile") return eligible.filter((p) => profileItemHasValue(p, statKey));
+    if (category === "career") return eligible.filter((p) => (careerBySeason?.[p.playerId]?.[statKey as keyof PlayerCareerCounts] ?? 0) > 0);
     if (category === "shooting" || !ctxByPlayer) return eligible;
     return eligible.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.gamesPlayed ?? 0) > 0);
-  }, [eligible, ctxByPlayer, category, statKey]);
+  }, [eligible, ctxByPlayer, category, statKey, careerBySeason]);
 
   const shootingColumns = useMemo(
     () => shotTypeEntityColumns(SHOT_TYPE_DISPLAY_ORDER, (p: PlayerSummary) => p.shotTypes, "perGame", (p) => p.gamesPlayed),
@@ -1051,9 +1124,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       }));
     }
     if (category === "profile") return buildProfileItems(season);
+    if (category === "career") return buildCareerItems((p) => careerBySeason?.[p.playerId]);
     const items = SEASON_BOX_COLUMNS_BY_TAB[category].map(boxColumnItem);
     return category === "advanced" ? [...items, ...EXTRA_ADVANCED_PLAYER_ITEMS] : items;
-  }, [category, shootingColumns, season]);
+  }, [category, shootingColumns, season, careerBySeason]);
 
   const selectedItem = currentItems.find((i) => i.key === statKey) ?? currentItems[0]!;
   const rankDef: RankableStat<PlayerSummary> = {
@@ -1079,7 +1153,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     (needsGameLogRecompute && (gameLogsLoading || !gameLogsByPlayer)) ||
     !teamTotalsByTeamId ||
     !ctxByPlayer ||
-    (periodActive && (rawGamesLoading || !periodDataReady));
+    (periodActive && (rawGamesLoading || !periodDataReady)) ||
+    (category === "career" && (careersLoading || !careers));
 
   if (playersLoading) return <p className="loading">読み込み中...</p>;
   if (playersError) return <p className="error-message">{playersError}</p>;
@@ -1093,12 +1168,18 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     ["eff", "per", "ppp"].includes(selectedItem.key) &&
     (filterActive || gameTypeActive || periodActive);
   const playerCategoryLabel =
-    category === "shooting" ? CATEGORY_LABELS.shooting : category === "profile" ? CATEGORY_LABELS.profile : (SEASON_BOX_TABS.find((t) => t.key === category)?.label ?? category);
+    category === "shooting"
+      ? CATEGORY_LABELS.shooting
+      : category === "profile" || category === "career"
+        ? CATEGORY_LABELS[category]
+        : (SEASON_BOX_TABS.find((t) => t.key === category)?.label ?? category);
   const playerScopeLabels =
     category === "shooting"
       ? SEASON_TOTAL_ONLY_LABELS
       : category === "profile"
         ? gameTypeLabels("regular", null)
+        : category === "career"
+          ? ["Bリーグ（2016-17）以降の累計"]
         : filterIgnoredForItem
           ? composeLabels(gameTypeLabels("regular", null), SITUATIONAL_DEFAULT_LABEL, "試合全体", "※この項目はフィルタ対象外")
           : composeLabels(gameTypeLabels(gameType, season), situationalFilterLabels(filter), periodLabels(periodOption));
@@ -1111,7 +1192,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       classificationLabels(selectedClassification),
       multiSelectLabels("ポジション", POSITION_OPTIONS.filter((pos) => positions.includes(pos)), "全ポジション"),
       playerScopeLabels,
-      eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
+      category === "career" ? "このシーズンに出場した全選手" : eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
       `上位${PLAYER_RANK_TOP_N}名`,
     ),
   );
@@ -1123,6 +1204,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       ? "このカテゴリはレギュラーシーズンの通算集計値のみ対応です（登録区分・掲載基準のみ連動します。2023-24シーズン以降のみ対応）。"
       : category === "profile"
         ? "このカテゴリは試合種別・シチュエーション別フィルタ・Q別/前後半の対象外です（登録区分・掲載基準の出場率のみ適用されます）。"
+        : category === "career"
+          ? "このカテゴリは試合種別・シチュエーション別フィルタ・Q別/前後半の対象外です（登録区分・ポジションのみ適用されます）。"
         : undefined;
   const eligibilityDefaultExtra = extraRule?.defaultValue ?? 0;
   const eligibilitySummary = eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }).join("・");
@@ -1131,6 +1214,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     id: "eligibility",
     label: "掲載基準",
     tier: "primary",
+    disabledReason: category === "career" ? "このカテゴリは、このシーズンに1試合以上出場した選手全員が対象です（掲載基準は使いません）。" : undefined,
     value: `${Math.round(gamesRatio * 100)}|${extraRule ? extraThreshold : ""}`,
     defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}|${extraRule ? eligibilityDefaultExtra : ""}`,
     onChange: () => {
@@ -1221,6 +1305,13 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         >
           {CATEGORY_LABELS.profile}
         </button>
+        <button
+          className={`tab-button${category === "career" ? " active" : ""}`}
+          onClick={() => selectCategory("career")}
+          type="button"
+        >
+          {CATEGORY_LABELS.career}
+        </button>
       </div>
 
       <FilterBar
@@ -1264,8 +1355,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" />}
               limit={PLAYER_RANK_TOP_N}
               compact
+              tieRanks={category === "career"}
             />
             {category === "profile" && selectedItem.key !== "age" && <HeightWeightNote season={season} />}
+            {category === "career" && <p className="rule-change-footnote">※ {CAREER_NOTE}</p>}
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
           </div>
         </>
