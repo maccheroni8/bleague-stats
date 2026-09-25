@@ -13,6 +13,7 @@
 // 両方の環境に対応する
 
 import type {
+  PeriodAveragesFile,
   Category,
   ClubHonorsFile,
   DivisionHistoryFile,
@@ -116,6 +117,15 @@ export function fetchStandingsHistory(season: string): Promise<StandingsSnapshot
 export async function fetchPlayoffRace(season: string): Promise<PlayoffRaceFile | null> {
   try {
     return await fetchJson<PlayoffRaceFile>(`${dataBase}/${season}/playoff-race.json`);
+  } catch {
+    return null;
+  }
+}
+
+/** クォーター別・前後半別の1試合平均とリーグ内順位（data/{season}/period-averages.json、DESIGN.md 143章）。ファイルが無ければ null */
+export async function fetchPeriodAverages(season: string): Promise<PeriodAveragesFile | null> {
+  try {
+    return await fetchJson<PeriodAveragesFile>(`${dataBase}/${season}/period-averages.json`);
   } catch {
     return null;
   }

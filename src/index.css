@@ -6055,3 +6055,156 @@ table.compare-table td.compare-best {
 .mobile-collapse-toggle.share-trend-toggle {
   margin: 16px 0 0;
 }
+
+/* クォーター別レコード・クォーター別の1試合平均（チーム詳細「クラブレコード」「通算成績」。DESIGN.md 143章） */
+.period-records {
+  margin-bottom: 8px;
+}
+
+table.sortable-table.period-records-grid {
+  width: auto;
+  min-width: min(100%, 520px);
+}
+
+table.sortable-table.period-records-grid td {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.period-records-period {
+  font-weight: 700;
+}
+
+.period-records-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.period-records-cell:hover {
+  background: var(--row-hover);
+}
+
+.period-records-cell.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.period-records-value {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.period-records-date {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.period-records-top {
+  margin-top: 12px;
+}
+
+table.sortable-table.period-averages-table {
+  width: auto;
+  min-width: min(100%, 520px);
+}
+
+.period-averages-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.period-averages-rank {
+  display: block;
+  line-height: 1.2;
+}
+
+table.sortable-table.period-averages-table tbody tr.period-averages-total td {
+  border-top: 1px solid var(--border);
+  font-weight: 700;
+}
+
+@media (max-width: 560px) {
+  table.sortable-table.period-records-grid th,
+  table.sortable-table.period-records-grid td {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .period-records-cell {
+    padding: 3px 5px;
+  }
+
+  .period-records-value {
+    font-size: 14px;
+  }
+
+  .period-records-date {
+    font-size: 10px;
+  }
+}
+
+.period-records-grid-scroll,
+.period-records-top .table-scroll,
+.period-averages .table-scroll {
+  width: fit-content;
+  max-width: 100%;
+}
+
+table.sortable-table.period-records-top-table {
+  width: auto;
+}
+
+table.sortable-table.period-records-top-table th,
+table.sortable-table.period-records-top-table td {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+@media (max-width: 560px) {
+  table.sortable-table.period-records-grid {
+    min-width: 0;
+  }
+
+  table.sortable-table.period-records-top-table th,
+  table.sortable-table.period-records-top-table td {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+
+@media (max-width: 560px) {
+  table.sortable-table.period-averages-table {
+    min-width: 0;
+  }
+
+  table.sortable-table.period-averages-table th,
+  table.sortable-table.period-averages-table td {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+
+/* 歴代記録のクォーター別レコード（DESIGN.md 143章）: スマホ幅は短いチーム名を1行で出す */
+@media (max-width: 560px) {
+  table.sortable-table.period-league-table .rank-name {
+    white-space: nowrap;
+  }
+
+  table.sortable-table.period-league-table th,
+  table.sortable-table.period-league-table td {
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+}

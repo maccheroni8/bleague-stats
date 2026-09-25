@@ -159,6 +159,7 @@ import { EligibilitySlider } from "../components/EligibilitySlider";
 import { StickyHeaderScroll } from "../components/StickyHeaderScroll";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { teamShortName } from "../../shared/teamNames";
+import { ClubPeriodRecords, SeasonPeriodAverages } from "../components/TeamPeriodRecords";
 import { cleanNumericString, formatColumnDiff, teamCompareDefs, type TeamCompareColumnData } from "../lib/compareShared";
 import { CLASSIFICATION_COLORS } from "../lib/classificationFilter";
 import { statDescription } from "../lib/statDescriptions";
@@ -3830,6 +3831,19 @@ export function TeamDetailPage({ season }: { season: string }) {
                 下の順位は過去在籍した全クラブ横断（シーズンをまたいだ連勝は対象外。詳細はクラブレコード
                 タブの「最多連勝（シーズン内）」参照）
               </p>
+
+              <h3 className="career-highs-subheading">クォーター別・前後半別の1試合平均</h3>
+              <SeasonPeriodAverages
+                teamId={teamId ?? ""}
+                careerData={careerData}
+                gameType={careerGameTypeFilter}
+                leagueRankings={leagueRankings}
+                stateKey={pk("periodAverages")}
+              />
+              <p className="page-subtitle">
+                1Q〜4Q・前半（1Q＋2Q）・後半（3Q＋4Q）の、シーズンごとの1試合平均です。延長戦の得点は含めません。
+                数値の下はそのシーズンのリーグ内の順位（通算の行は過去在籍した全クラブの中での順位）です。
+              </p>
             </>
           )}
         </div>
@@ -3948,6 +3962,14 @@ export function TeamDetailPage({ season }: { season: string }) {
                 項目はワースト側のみトップ5）を展開できます。項目名の下の順位は過去在籍した全クラブ横断。
                 クラブワーストは順位算出の対象外。「被記録」は対戦相手がこのチーム相手に記録した最多値
                 （来場者数を除く28項目。歴代順位の算出対象外）
+              </p>
+
+              <h3 className="career-highs-subheading">クォーター別レコード</h3>
+              <ClubPeriodRecords games={clubRecordAllGames} stateKey={pk("periodRecords")} />
+              <p className="page-subtitle">
+                1Q〜4Q・前半（1Q＋2Q）・後半（3Q＋4Q）の1試合の記録です。延長戦の得点は含めません。
+                2016-17・2017-18のCSで行った前後半5分の試合は対象外です。
+                ※は公式のクォーター別スコアが欠けている試合で、プレーバイプレーの得点から出した値です。
               </p>
             </>
           )}

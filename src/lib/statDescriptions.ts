@@ -206,6 +206,20 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   "オフコート+/-": "ベンチにいる間の自チーム得点－相手チーム得点",
   身長: "身長（cm）",
 
+  // --- クォーター別・前後半別（延長戦は含めない） ---
+  区間: "1Q・2Q・3Q・4Q・前半（1Q＋2Q）・後半（3Q＋4Q）。延長戦の得点は含めない",
+  最多得点: "その区間で1試合に記録した得点の最多（延長戦は含めない）",
+  最少失点: "その区間で1試合に許した失点の最少（延長戦は含めない）",
+  最大得失点差: "その区間の得点－失点が最も大きかった試合（延長戦は含めない）",
+  最少得点: "その区間で1試合に記録した得点の最少（延長戦は含めない）",
+  最多失点: "その区間で1試合に許した失点の最多（延長戦は含めない）",
+  最大の点差負け: "その区間の得点－失点が最も小さかった（大きく負け越した）試合（延長戦は含めない）",
+  区間のスコア: "その区間の自チームの得点－相手の得点（延長戦は含めない）",
+  最終スコア: "試合の最終スコア（延長戦を含む）",
+  区間得点: "その区間の1試合平均の得点（延長戦は含めない）",
+  区間失点: "その区間の1試合平均の失点（延長戦は含めない）",
+  区間得失点: "その区間の1試合平均の得点－失点（延長戦は含めない）",
+
   // --- ラインナップ・オンザコート ---
   "5人の組み合わせ": "同時にコートにいた5人",
   OC: "オンザコート。コート上の5人のうち、外国籍・帰化・アジア特別枠の選手の人数（区分が分からない選手がいる組み合わせは「−」）",
@@ -224,6 +238,10 @@ const SHOT_TYPE_BY_LABEL = new Map(Object.entries(SHOT_TYPE_LABELS).map(([ja, en
 export function statDescription(label: string, scope: StatScope = "player"): string | undefined {
   const entry = STAT_DESCRIPTIONS[label];
   if (entry !== undefined) return typeof entry === "string" ? entry : entry[scope];
+  // 歴代記録のクォーター別レコードの項目（「1Q 最多得点」等）
+  const period = /^(1Q|2Q|3Q|4Q|前半|後半) (.+)$/.exec(label);
+  const periodEntry = period && STAT_DESCRIPTIONS[period[2]!];
+  if (period && typeof periodEntry === "string") return periodEntry.replace("その区間", period[1]!);
   // Shootingタブのシュート種別（「Jump Shot」「Jump Shot 2PM」等）
   const m = /^(.+?)(?: (2PM|2PA|2P%|3PM|3PA|3P%))?$/.exec(label);
   const shotType = m && SHOT_TYPE_BY_LABEL.get(m[1]!);

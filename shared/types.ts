@@ -757,6 +757,14 @@ export interface TeamGameLog {
   opponentScore: number;
   win: boolean;
   gameType: GameType;
+  /**
+   * 1Q〜4Qの自チーム・相手の得点（長さ4。延長戦は含めない。shared/periodPoints.ts、DESIGN.md 143章）。
+   * CSの前後半5分の特別な試合（2016-17・2017-18）は持たない。公式のスコアが欠けていて補えなかった区間は null
+   */
+  periodPoints?: (number | null)[];
+  opponentPeriodPoints?: (number | null)[];
+  /** periodPoints・opponentPeriodPoints のうち、公式のクォーター別スコアが欠けていてプレーバイプレーから補った区間（1始まり）。補っていない試合は持たない */
+  periodPointsFromPbp?: number[];
   /** チーム総プレイタイム（5人合計・分）。通常40分×5=200だがOT試合は変動する */
   min: number;
   oreb: number;
@@ -1413,9 +1421,8 @@ export type LeagueRankingGameType = "regular" | "playoff" | "both";
 
 export interface LeagueTeamRankEntry {
   value: number;
-  /** リーグ全クラブ中の順位（1位が最高値）。同値の場合はteamId昇順で決定的にタイブレークする
-   * （複数クラブが同順位を共有する「1224方式」ではなく、既存のrankAmongTeams()/rankAmong()と
-   * 同じ「並び順で連番を振る」方式に揃えている） */
+  /** リーグ全クラブ中の順位（1位が最高値）。同じ値は同じ順位で、次の順位はその分飛ばす（1位・2位・2位・4位。
+   * 2026-09-25に「同値もteamId昇順で連番」から変更。DESIGN.md 143-3） */
   rank: number;
   /** その項目・そのgameTypeでランキング対象になったクラブの総数（該当試合が1件も無いクラブ・
    * その項目のfilter条件を満たす試合が1件も無いクラブは対象外）。formatTeamRank()と同じ
@@ -1456,6 +1463,52 @@ export interface LeagueTeamRankingsFile {
    */
   clubRecordTop20: Record<LeagueRankingGameType, Record<string, LeagueRecordEntry[]>>;
   seasonSpecialTop20: Record<LeagueRankingGameType, Record<"wins" | "streak", LeagueRecordEntry[]>>;
+  /**
+   * クォーター別・前後半別（DESIGN.md 143章。延長戦は含めない）。キーは shared/teamPeriodRecords.ts の
+   * periodRecordStatKey（「q1:mostPts」等。記録側の最多得点・最少失点・最大得失点差のみ）。
+   * periodRecord は各クラブの自己ベストでの順位（同値の扱いは career 等と同じ teamId 昇順）と、その記録の試合（同じ値の試合が
+   * 複数あれば最も古い試合と、ほかの試合数）。periodRecordTop20 はリーグ史上の試合の上位20位（同値はすべて含む）。
+   * 追加前に生成したファイルには無いので省略可能
+   */
+  periodRecord?: Record<LeagueRankingGameType, Record<string, Record<string, LeaguePeriodClubBestEntry>>>;
+  periodRecordTop20?: Record<LeagueRankingGameType, Record<string, LeagueRecordEntry[]>>;
+  /** 通算の区間別1試合平均（キーは periodAverageStatKey、「q1:pts」等）の各クラブの順位。チーム詳細「通算成績」の通算の行に使う */
+  periodCareerAverage?: Record<LeagueRankingGameType, LeagueTeamRankingStatTable>;
+}
+
+/** LeagueTeamRankingsFile.periodRecord の1クラブ分。自己ベストの値・順位と、その記録の試合 */
+export interface LeaguePeriodClubBestEntry extends LeagueTeamRankEntry {
+  scheduleKey: string;
+  season: string;
+  date: string;
+  opponentTeamId: string;
+  isHome: boolean;
+  /** 区間の得点・失点 */
+  ownPoints: number;
+  oppPoints: number;
+  /** 同じ値を記録したほかの試合の数 */
+  otherGames: number;
+}
+
+// ---- data/{season}/period-averages.json の保存スキーマ（クォーター別・前後半別の1試合平均とリーグ順位。
+// scripts/aggregate.ts が毎回の集計で書き出す。DESIGN.md 143章） ----
+
+export interface PeriodAverageRankEntry {
+  games: number;
+  pts: number;
+  oppPts: number;
+  diff: number;
+  /** そのシーズン・その試合種別のリーグ内順位（同じ値は同じ順位）と対象チーム数 */
+  ptsRank: number;
+  oppPtsRank: number;
+  diffRank: number;
+  teams: number;
+}
+
+export interface PeriodAveragesFile {
+  season: string;
+  /** [試合種別][teamId][区間（q1〜q4・h1・h2）] */
+  byGameType: Record<LeagueRankingGameType, Record<string, Record<string, PeriodAverageRankEntry>>>;
 }
 
 /** LeagueTeamRankingsFile.clubRecordTop20/seasonSpecialTop20の1行。クラブレコード系は
@@ -1469,6 +1522,10 @@ export interface LeagueRecordEntry {
   date?: string;
   opponentTeamId?: string;
   isHome?: boolean;
+  /** クォーター別レコード（periodRecordTop20）のみ: 区間の得点・失点と、プレーバイプレーから補った値を含むか */
+  ownPoints?: number;
+  oppPoints?: number;
+  fromPbp?: boolean;
 }
 
 // ---- data/league-player-rankings.json の保存スキーマ（個人版「歴代記録」タブ、通算成績のみ。

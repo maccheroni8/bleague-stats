@@ -77,6 +77,8 @@ import type {
   YahooTurnoverEvent,
 } from "../shared/types.ts";
 import { isMainModule } from "./lib/isMain.ts";
+import { regulationPeriodScores } from "../shared/periodPoints.ts";
+import { buildPeriodAveragesFile } from "./lib/periodAverages.ts";
 
 const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
 
@@ -1192,6 +1194,10 @@ export async function aggregateSeason(season: string, category: Category = "prem
     await writeJson(path.join(DATA_DIR, seasonDir, "team-games", `${t.teamId}.json`), gameLogs);
   }
 
+  // クォーター別・前後半別の1試合平均とリーグ内順位（DESIGN.md 143章）
+  const periodAverages = buildPeriodAveragesFile(season, new Map([...teams.values()].map((t) => [t.teamId, t.gameLogs])));
+  await writeJson(path.join(DATA_DIR, seasonDir, "period-averages.json"), periodAverages);
+
   // 順位表・星取り表はプレーオフの結果に左右されないよう、レギュラーシーズンの試合のみで作る
   const regularGames = games.filter((g) => classifyGameType(g.raw.Game.ConventionNameJ) === "regular");
   const standingsHistory = buildStandingsHistory(regularGames, category, divisionHistory, season);
@@ -1613,6 +1619,23 @@ function processTeams(
 
   const attendance = game.raw.Game.Attendance ?? undefined;
 
+  // 1Q〜4Qの得点（クォーター別・前後半別の記録・平均用。延長は含めない。DESIGN.md 143章）
+  const periodScores = regulationPeriodScores(game);
+  const homePeriods = periodScores
+    ? {
+        periodPoints: periodScores.home,
+        opponentPeriodPoints: periodScores.away,
+        ...(periodScores.fromPbp.length > 0 ? { periodPointsFromPbp: periodScores.fromPbp } : {}),
+      }
+    : {};
+  const awayPeriods = periodScores
+    ? {
+        periodPoints: periodScores.away,
+        opponentPeriodPoints: periodScores.home,
+        ...(periodScores.fromPbp.length > 0 ? { periodPointsFromPbp: periodScores.fromPbp } : {}),
+      }
+    : {};
+
   home.gameLogs.push({
     scheduleKey: game.scheduleKey,
     date: game.date,
@@ -1623,6 +1646,7 @@ function processTeams(
     opponentScore: game.awayScore,
     win: homeWin,
     gameType,
+    ...homePeriods,
     foreignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     ...teamGameLogStats(homeRow, gamePoss),
@@ -1668,6 +1692,7 @@ function processTeams(
     teamScore: game.awayScore,
     opponentScore: game.homeScore,
     win: awayWin,
+    ...awayPeriods,
     foreignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     gameType,
