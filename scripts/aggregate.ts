@@ -45,6 +45,8 @@ import { TEAM_NAMES, teamDivisionForSeason } from "./lib/divisions.ts";
 import { computeClinchEvents, computePremierRace, premierChampion, type RaceTeamInput } from "./lib/playoffRace.ts";
 import { clinchTypesForSeason, postseasonFormat } from "../shared/postseasonFormat.ts";
 import { seasonCoverage } from "./lib/seasonCoverage.ts";
+import { currentSeason } from "./lib/season.ts";
+import { resolveSeasonProfile } from "../shared/seasonProfile.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { classifyGameType } from "./lib/gameType.ts";
 import type {
@@ -65,6 +67,7 @@ import type {
   ScheduleFile,
   SeasonEntry,
   SeasonPositionsFile,
+  SeasonProfilesFile,
   StandingsSnapshot,
   StandingsTeamSnapshot,
   ShotTypeBreakdown,
@@ -890,6 +893,9 @@ export async function aggregateSeason(season: string, category: Category = "prem
   // （未アーカイブの進行中シーズン）場合、およびB.ONE等のB.PREMIER以外はマスタにフォールバックする
   const seasonPositionsFile = (await readJson<SeasonPositionsFile>(path.join(DATA_DIR, "season-positions.json"))) ?? {};
   const seasonPositions = category === "premier" ? seasonPositionsFile[season] : undefined;
+  // 終了したシーズン（B.PREMIER）の身長・体重・ポジションは当時の値（Wayback の当時の選手ページ等）を使う（shared/seasonProfile.ts。DESIGN.md 148章）
+  const seasonProfilesFile = await readJson<SeasonProfilesFile>(path.join(DATA_DIR, "season-profiles.json"));
+  const useSeasonProfile = category === "premier" && season < currentSeason();
 
   const players = new Map<string, PlayerAccumulator>();
   const teams = new Map<string, TeamAccumulator>();
@@ -1071,16 +1077,20 @@ export async function aggregateSeason(season: string, category: Category = "prem
       const ppp = individualSeasonOffRtg !== undefined ? individualSeasonOffRtg / 100 : undefined;
       // 国籍・身長体重・生年月日・ポジションはplayers-master.jsonから突合（未登録選手は全て未定義のまま）
       const master = masterById.get(p.playerId);
+      const profile = useSeasonProfile
+        ? resolveSeasonProfile(p.playerId, season, { master, positions: seasonPositionsFile, profiles: seasonProfilesFile, past: true })
+        : { position: seasonPositions ? seasonPositions[p.playerId] : master?.position, heightCm: master?.heightCm, weightKg: master?.weightKg, fallback: undefined };
       return {
         playerId: p.playerId,
         name: p.name,
         teamId: p.teamId,
         teamName: p.teamName,
-        position: seasonPositions ? seasonPositions[p.playerId] : master?.position,
+        position: profile.position,
         nationality: master?.nationality,
         classification: master?.classification,
-        heightCm: master?.heightCm,
-        weightKg: master?.weightKg,
+        heightCm: profile.heightCm,
+        weightKg: profile.weightKg,
+        ...(profile.fallback ? { profileFallback: profile.fallback } : {}),
         birthDate: master?.birthDate,
         shotTypes: shotTypesByPlayer.get(p.playerId),
         ...statBlock,

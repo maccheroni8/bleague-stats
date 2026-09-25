@@ -69,7 +69,9 @@ const byGameOrder = (a: { date: string; scheduleKey: string }, b: { date: string
  * - 当時の選手一覧にそのチームで載っている: 出場記録が無ければ所属。あれば、そのシーズン最後に出場したチームがそのチームなら所属
  * - どの一覧にも載っていない: そのチームでポストシーズンに出場した、またはそのチームのレギュラーシーズン最後の2試合のどちらかに
  *   出場したときだけ所属
- * - 別のチームの一覧に載っている: 所属としない
+ * - 一覧のチームと、そのシーズン最後に出場したチームが違う: 一覧に載っていない選手と同じ扱い（2026-09-26。2017-18 のレーンは
+ *   一覧が島根だが、12月に A東京と契約してファイナルまで出場していた）
+ * - 別のチームの一覧に載っていて、最後に出場したのもそのチーム（または出場記録が無い）: 所属としない
  */
 function isMemberAtSeasonEnd(
   teamId: string,
@@ -77,11 +79,8 @@ function isMemberAtSeasonEnd(
   appearances: Appearance[],
   lastTwoRegularKeys: Set<string>,
 ): boolean {
-  if (listedTeamId !== undefined) {
-    if (listedTeamId !== teamId) return false;
-    if (appearances.length === 0) return true;
-    return [...appearances].sort(byGameOrder).at(-1)!.teamId === teamId;
-  }
+  const lastTeamId = [...appearances].sort(byGameOrder).at(-1)?.teamId;
+  if (listedTeamId !== undefined && (lastTeamId === undefined || lastTeamId === listedTeamId)) return listedTeamId === teamId;
   return appearances.some((a) => a.teamId === teamId && (a.gameType === "playoff" || lastTwoRegularKeys.has(a.scheduleKey)));
 }
 
@@ -165,6 +164,34 @@ async function main() {
       appearancesOf.set(playerId, apps);
     }
 
+    // --compare: 一覧のチームと最後に出場したチームが違う選手（優勝・地区優勝に関係しないチームを含む全員）
+    if (compare) {
+      const lastTwoOf = (teamId: string) =>
+        new Set(
+          summaries
+            .filter((g) => g.gameType === "regular" && (g.homeTeamId === teamId || g.awayTeamId === teamId))
+            .sort(byGameOrder)
+            .slice(-2)
+            .map((g) => g.scheduleKey),
+        );
+      for (const [id, apps] of appearancesOf) {
+        const listed = listedTeamOf.get(id);
+        const last = [...apps].sort(byGameOrder).at(-1)!;
+        if (listed === undefined || listed === last.teamId) continue;
+        const mine = apps.filter((a) => a.teamId === last.teamId);
+        const po = mine.filter((a) => a.gameType === "playoff").length;
+        const lastTwo = lastTwoOf(last.teamId);
+        const inLastTwo = mine.filter((a) => lastTwo.has(a.scheduleKey)).length;
+        const member = isMemberAtSeasonEnd(last.teamId, listed, apps, lastTwo);
+        const name = (t: string) => teamNameOf.get(t) ?? summaries.find((g) => g.homeTeamId === t)?.homeTeamName ?? t;
+        const title = last.teamId === champion ? "優勝" : divisionWinners.has(last.teamId) ? "地区優勝" : "";
+        console.log(
+          `MISMATCH ${season} ${nameOf.get(id) ?? id}: 一覧=${name(listed)} 最後=${name(last.teamId)}（${last.date}）${title ? `【${title}】` : ""} ` +
+            `最後のチームで${mine.length}試合・PS${po}・最後の2試合中${inLastTwo} → ${member ? `${name(last.teamId)}の所属` : "どこの所属にもしない"}`,
+        );
+      }
+    }
+
     // 優勝・地区優勝チームの、レギュラーシーズン終了時の所属選手
     const titleTeams = new Set([...(champion ? [champion] : []), ...divisionWinners]);
     const membersOf = new Map<string, Set<string>>();
@@ -184,7 +211,9 @@ async function main() {
           const apps = (appearancesOf.get(id) ?? []).filter((a) => a.teamId === teamId);
           const po = apps.filter((a) => a.gameType === "playoff").length;
           const inLastTwo = apps.filter((a) => lastTwo.has(a.scheduleKey)).length;
-          console.log(`+ ${label} ${nameOf.get(id) ?? id}: 一覧に無い。このチームで${apps.length}試合、ポストシーズン${po}試合、最後の2試合のうち${inLastTwo}試合に出場`);
+          const listedElsewhere = listedTeamOf.get(id);
+          const where = listedElsewhere ? `一覧は${teamNameOf.get(listedElsewhere) ?? listedElsewhere}だが最後の出場はこのチーム` : "一覧に無い";
+          console.log(`+ ${label} ${nameOf.get(id) ?? id}: ${where}。このチームで${apps.length}試合、ポストシーズン${po}試合、最後の2試合のうち${inLastTwo}試合に出場`);
         }
         for (const id of listed) if (!members.has(id)) {
           const last = [...(appearancesOf.get(id) ?? [])].sort(byGameOrder).at(-1);
