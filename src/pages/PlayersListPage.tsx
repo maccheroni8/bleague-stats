@@ -40,6 +40,7 @@ import {
   type FilterAxis,
 } from "../lib/filterAxes";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
+import { divisionPresets } from "../lib/divisionGroups";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import {
@@ -770,13 +771,10 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     .slice()
     .sort((a, b) => teamShortName(a.teamId, a.teamName).localeCompare(teamShortName(b.teamId, b.teamName), "ja"))
     .map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) }));
-  const DIVISION_PRESET_LABELS = { east: "東地区", central: "中地区", west: "西地区" } as const;
-  const clubPresets = (Object.keys(DIVISION_PRESET_LABELS) as (keyof typeof DIVISION_PRESET_LABELS)[])
-    .map((d) => ({
-      label: DIVISION_PRESET_LABELS[d],
-      values: (teams ?? []).filter((t) => teamDivisionForSeason(divisionHistory, t.teamId, season) === d).map((t) => t.teamId),
-    }))
-    .filter((p) => p.values.length > 0);
+  const clubPresets = divisionPresets(
+    (teams ?? []).map((t) => t.teamId),
+    (id) => teamDivisionForSeason(divisionHistory, id, season),
+  ).map((p) => ({ label: p.label, values: p.teamIds }));
   const ratioDefault = `${DEFAULT_MIN_RATIO}|${DEFAULT_MAX_RATIO}`;
   const ratioAxis: FilterAxis = {
     kind: "popover",

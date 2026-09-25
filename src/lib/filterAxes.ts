@@ -11,6 +11,8 @@
 
 import type { ReactNode } from "react";
 import { teamShortName } from "../../shared/teamNames";
+import type { Division } from "../../shared/types";
+import { divisionPresets } from "./divisionGroups";
 import { LEAGUE_VENUE_LABELS, periodLabels, type LeagueVenue } from "./conditionLabels";
 import { CLASSIFICATION_GROUP_OPTIONS, type ClassificationGroupFilter } from "./classificationFilter";
 import type { PeriodRangeOption, PeriodRangeValue } from "./periodRange";
@@ -96,7 +98,10 @@ export interface FilterMultiAxis extends FilterAxisBase {
   onChangeSelected: (values: string[]) => void;
   /** 未選択のときボタンに出す文言（例: 全ポジション） */
   allLabel: string;
-  /** 一括選択のプリセット（例: 東地区のクラブ全部） */
+  /**
+   * 一括選択のプリセット（例: 東地区のクラブ全部）。ボタンは「{label}を選択」で、押すとそのクラブを今の選択に加える。
+   * すべて選択済みのときは「{label}を解除」になり、押すとそのクラブだけを外す
+   */
   presets?: { label: string; values: string[] }[];
   /** trueのとき、選択肢を絞り込む検索欄を出す（選択肢が多いクラブ用） */
   searchable?: boolean;
@@ -166,8 +171,14 @@ export function teamMultiAxis(input: {
   selected: Set<string> | null;
   onChange: (next: Set<string> | null) => void;
   presets?: { label: string; teamIds: string[] }[];
+  /** そのシーズンの各クラブの地区。指定すると、選択肢の先頭に地区ごとの一括選択（divisionPresets）を置く */
+  divisionOf?: (teamId: string) => Division | null | undefined;
   tier?: "primary" | "advanced";
 }): FilterAxis {
+  const presets = [
+    ...(input.divisionOf ? divisionPresets(input.options.map((t) => t.teamId), input.divisionOf) : []),
+    ...(input.presets ?? []),
+  ];
   return multiSelectAxis({
     id: input.id ?? "teams",
     label: input.label ?? "対象クラブ",
@@ -176,7 +187,7 @@ export function teamMultiAxis(input: {
     selected: input.selected ? [...input.selected] : [],
     onChangeSelected: (values) => input.onChange(values.length === 0 ? null : new Set(values)),
     allLabel: "全クラブ",
-    presets: input.presets?.map((p) => ({ label: p.label, values: p.teamIds })),
+    presets: presets.map((p) => ({ label: p.label, values: p.teamIds })),
     searchable: true,
   });
 }

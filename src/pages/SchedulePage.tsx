@@ -8,7 +8,8 @@ import { FilterBar } from "../components/FilterBar";
 import { simpleSelectAxis, teamMultiAxis, type FilterAxis } from "../lib/filterAxes";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { composeLabels, multiSelectLabels } from "../lib/conditionLabels";
-import { fetchGameSummaries, fetchSchedule, fetchTeamColors, fetchTeamHistory, fetchTeams } from "../lib/data";
+import { fetchDivisionHistory, fetchGameSummaries, fetchSchedule, fetchTeamColors, fetchTeamHistory, fetchTeams } from "../lib/data";
+import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import { useJsonData } from "../lib/useJsonData";
 import { formatDateHeading } from "../lib/format";
 import { teamShortName } from "../../shared/teamNames";
@@ -184,6 +185,8 @@ export function SchedulePage({ season }: { season: string }) {
     [season, prevSeason],
   );
   const { data: teamHistory } = useJsonData(() => fetchTeamHistory().catch(() => []), []);
+  // クラブの複数選択の「◯地区を選択」ボタン用（そのシーズンの地区構成）
+  const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory().catch(() => null), []);
   const teamIdByName = useMemo(() => {
     const map = new Map<string, string>();
     for (const t of prevTeams ?? []) map.set(t.teamName, t.teamId);
@@ -290,7 +293,12 @@ export function SchedulePage({ season }: { season: string }) {
           }),
         ]
       : []),
-    teamMultiAxis({ options: teamOptions, selected: selectedTeamIds, onChange: setSelectedTeamIds }),
+    teamMultiAxis({
+      options: teamOptions,
+      selected: selectedTeamIds,
+      onChange: setSelectedTeamIds,
+      divisionOf: (id) => teamDivisionForSeason(divisionHistory, id, season),
+    }),
   ];
   const clearFilters = () => {
     setStatusFilter("all");

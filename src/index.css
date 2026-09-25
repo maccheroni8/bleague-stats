@@ -3618,6 +3618,11 @@ table.compare-table th .compare-condition-tag {
   cursor: pointer;
 }
 
+.filter-multi-actions button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .filter-multi-actions button:disabled {
   opacity: 0.5;
   cursor: default;

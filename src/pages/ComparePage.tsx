@@ -441,6 +441,7 @@ function TeamCompareView({
         teamId: team.teamId,
         season: slot.season,
         boxTotals: data.boxTotals,
+        gamesCount: data.gamesCount,
         subLabel: `${cond}（${data.gamesCount}試合）`,
       },
       season: slot.season,

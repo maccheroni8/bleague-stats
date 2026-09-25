@@ -2524,7 +2524,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         const boxTotals = buildTeamMultiGameBoxTotals(entries, yahooTurnoversByScheduleKey, shotChartSupported, yahooPbpSupported);
         if (!boxTotals) return null;
         return {
-          item: { key: `slot${i}`, label: describeTeamSituationalFilter(slot.filter), boxTotals },
+          item: { key: `slot${i}`, label: describeTeamSituationalFilter(slot.filter), boxTotals, gamesCount: entries.length },
           season: slot.season,
         };
       })

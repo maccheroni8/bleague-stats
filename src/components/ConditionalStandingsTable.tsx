@@ -376,7 +376,7 @@ export function ConditionalStandingsTable({
       : condition.kind === "month"
         ? `month-${condition.value}`
         : (conditionGroups.flatMap((g) => g.options).find((o) => conditionKeyOf(o.condition) === conditionKeyOf(condition))?.key ?? "all");
-  const divisionTeamIds = (division: Division) => teams.filter((t) => t.division === division).map((t) => t.teamId);
+  const divisionByTeamId = new Map(teams.map((t) => [t.teamId, t.division]));
   const filterAxes: FilterAxis[] = [
     simpleSelectAxis({
       id: "condition",
@@ -390,10 +390,8 @@ export function ConditionalStandingsTable({
       options: teamOptions,
       selected: selectedTeamIds,
       onChange: setSelectedTeamIds,
+      divisionOf: (id) => divisionByTeamId.get(id),
       presets: [
-        { label: "東地区", teamIds: divisionTeamIds("east") },
-        ...(hasCentralDivision ? [{ label: "中地区", teamIds: divisionTeamIds("central") }] : []),
-        { label: "西地区", teamIds: divisionTeamIds("west") },
         ...(playoffQualifiedIds ? [{ label: `${postseasonLabel(season)}進出圏（現時点）`, teamIds: [...playoffQualifiedIds] }] : []),
       ],
     }),

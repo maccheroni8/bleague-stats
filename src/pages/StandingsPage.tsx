@@ -623,6 +623,7 @@ export function StandingsPage({ season }: { season: string }) {
   }));
   // 地区を跨いだ全チーム一覧（地区データが無いシーズンのフォールバック表示、および
   // 「全チームの全体順位表」セクションの両方で使う）
+  const divisionByTeamId = new Map(standingsTeams.map((t) => [t.teamId, t.division]));
   const allStandingsRows = [...standingsTeams].sort((a, b) => a.rank - b.rank).map(rowFor);
 
   const h2hTeamIdByName = headToHead ? new Map(headToHead.map((r) => [r.teamName, r.teamId])) : null;
@@ -909,7 +910,14 @@ export function StandingsPage({ season }: { season: string }) {
         ) : (
           <>
             <FilterBar
-              axes={[teamMultiAxis({ options: h2hTeamOptions, selected: h2hSelectedTeamIds, onChange: setH2hSelectedTeamIds })]}
+              axes={[
+                teamMultiAxis({
+                  options: h2hTeamOptions,
+                  selected: h2hSelectedTeamIds,
+                  onChange: setH2hSelectedTeamIds,
+                  divisionOf: (id) => divisionByTeamId.get(id),
+                }),
+              ]}
               stateKey="standings:h2h"
               onClearAll={() => setH2hSelectedTeamIds(null)}
             />

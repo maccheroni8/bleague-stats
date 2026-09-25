@@ -116,11 +116,20 @@ function MultiSelectContent({ axis }: { axis: FilterMultiAxis }) {
         />
       )}
       <div className="filter-multi-actions">
-        {axis.presets?.map((p) => (
-          <button key={p.label} type="button" onClick={() => axis.onChangeSelected(p.values)}>
-            {p.label}
-          </button>
-        ))}
+        {axis.presets?.map((p) => {
+          // 今の選択に加える（他の地区等で選んでいたものは残す）。すべて選択済みなら、そのプリセットの分だけ外す
+          const allSelected = p.values.length > 0 && p.values.every((v) => selected.has(v));
+          const presetSet = new Set(p.values);
+          const next = allSelected
+            ? axis.selected.filter((v) => !presetSet.has(v))
+            : [...axis.selected, ...p.values.filter((v) => !selected.has(v))];
+          return (
+            <button key={p.label} type="button" onClick={() => axis.onChangeSelected(next)} aria-pressed={allSelected}>
+              {p.label}
+              {allSelected ? "を解除" : "を選択"}
+            </button>
+          );
+        })}
         <button type="button" onClick={() => axis.onChangeSelected([])} disabled={axis.selected.length === 0}>
           すべて解除
         </button>

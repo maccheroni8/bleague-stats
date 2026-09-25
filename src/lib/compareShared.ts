@@ -75,7 +75,22 @@ export interface TeamCompareColumnData {
   key: string;
   label: string;
   boxTotals: TeamGameBoxTotals;
+  /** 絞り込んだ試合数（先頭の「G」行） */
+  gamesCount: number;
 }
+
+/**
+ * チームの比較の先頭行「G」（絞り込んだ試合数）。自チーム/opp/+/-の切り替えに関わらず同じ値を出す。
+ * 多い・少ないに良し悪しが無いので強調しない（個人の比較は列定義に G・GS があるのでそのまま）
+ */
+const TEAM_GAMES_DEF: ComparisonStatDef<TeamCompareColumnData> = {
+  key: "g",
+  label: "G",
+  value: (r) => r.gamesCount,
+  format: (r) => String(r.gamesCount),
+  higherIsBetter: true,
+  noHighlight: true,
+};
 
 /**
  * BoxscoreColumn.format（例: `String(c.pts)`）は1試合分の整数カウント前提で書かれているため、
@@ -129,11 +144,12 @@ function compareHigherIsBetter(key: string, own: boolean | undefined): boolean {
 }
 
 export function teamCompareDefs(tabKey: BoxscoreTabKey, perspective: TeamPerspective): ComparisonStatDef<TeamCompareColumnData>[] {
-  return COLUMNS_BY_TAB[tabKey].map((raw) => {
+  const defs = COLUMNS_BY_TAB[tabKey].map((raw) => {
     const extraValue = TEAM_COMPARE_VALUE[raw.key];
     const col: BoxscoreColumn = extraValue && !raw.value ? { ...raw, value: (c) => extraValue(c) } : raw;
     return teamCompareDef(col, perspective);
   });
+  return [TEAM_GAMES_DEF, ...defs];
 }
 
 function teamCompareDef(col: BoxscoreColumn, perspective: TeamPerspective): ComparisonStatDef<TeamCompareColumnData> {

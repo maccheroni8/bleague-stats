@@ -29,3 +29,21 @@ export function groupByDivision<T extends StandingsTeamSnapshot>(
     teams: byDivision.get(division)!,
   }));
 }
+
+/**
+ * クラブの複数選択に置く「◯地区を選択」ボタン（DESIGN.md 144章）。選択肢のクラブを、そのシーズンの地区構成（divisionOf）で
+ * 地区ごとにまとめる。地区の数・名前はシーズンで変わる（東西2地区制・東中西3地区制）ので、選択肢に実際にいる地区だけを
+ * DIVISION_ORDER の順に返す。地区が分からないクラブはどのボタンにも入れない
+ */
+export function divisionPresets(
+  teamIds: string[],
+  divisionOf: (teamId: string) => Division | null | undefined,
+): { label: string; teamIds: string[] }[] {
+  const byDivision = new Map<Division, string[]>();
+  for (const id of teamIds) {
+    const d = divisionOf(id);
+    if (!d) continue;
+    byDivision.set(d, [...(byDivision.get(d) ?? []), id]);
+  }
+  return DIVISION_ORDER.filter((d) => byDivision.has(d)).map((d) => ({ label: DIVISION_LABELS[d], teamIds: byDivision.get(d)! }));
+}
