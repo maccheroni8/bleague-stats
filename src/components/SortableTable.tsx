@@ -33,6 +33,8 @@ interface SortableTableProps<T> {
   rowAccentColor?: (row: T) => string | undefined;
   /** 指定時、その行の全セルの背景をこの色の薄い色（color-mix）にして強調する */
   rowHighlightColor?: (row: T) => string | undefined;
+  /** rowHighlightColor の塗りの濃さ。"half" はその半分の濃さ（試合詳細のラインナップ別成績のオンザコート3等） */
+  rowHighlightStrength?: (row: T) => "full" | "half";
   /**
    * 指定時、rowsを全件ソートした後、先頭からこの件数だけを描画する（「もっと見る」等の
    * 段階的な表示件数拡大と組み合わせるためのページネーション用。ソート自体は常にrows全体を
@@ -54,6 +56,7 @@ export function SortableTable<T>({
   externalLinkTo,
   rowAccentColor,
   rowHighlightColor,
+  rowHighlightStrength,
   limit,
   statScope = "player",
 }: SortableTableProps<T>) {
@@ -108,7 +111,7 @@ export function SortableTable<T>({
           return (
             <tr
               key={rowKey(row)}
-              className={highlight ? "row-highlight" : undefined}
+              className={highlight ? (rowHighlightStrength?.(row) === "half" ? "row-highlight row-highlight-half" : "row-highlight") : undefined}
               style={highlight ? ({ "--row-highlight-color": highlight } as CSSProperties) : undefined}
             >
               {columns.map((col, i) => {

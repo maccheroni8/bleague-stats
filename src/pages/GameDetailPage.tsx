@@ -1,7 +1,7 @@
 import { Fragment, useState, type CSSProperties } from "react";
 import { useParams } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
-import { fetchGame, fetchPlayers, fetchTeamColors, fetchYahooGamePbp } from "../lib/data";
+import { fetchGame, fetchPlayers, fetchSeasonRules, fetchTeamColors, fetchYahooGamePbp } from "../lib/data";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
@@ -20,7 +20,7 @@ import { useMediaQuery } from "../lib/useMediaQuery";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { GameLineupTable } from "../components/GameLineupTable";
 import { buildSurnameMap } from "../lib/playerSurname";
-import { buildGameLineups, type GameLineupRow } from "../lib/gameLineups";
+import { buildGameLineups, rangeTotals, type GameLineupRow } from "../lib/gameLineups";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { composeLabels, periodLabels } from "../lib/conditionLabels";
@@ -337,6 +337,7 @@ export function GameDetailPage({ season }: { season: string }) {
   // （ロゴ・写真と同じくグレースフルデグラデーション。デフォルト色にフォールバックする）ため
   // ローディング/エラーで画面全体をブロックしない
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
+  const { data: seasonRules } = useJsonData(() => fetchSeasonRules().catch(() => null), []);
   const [shotPeriodRange, setShotPeriodRange] = useState<PeriodRangeValue>("all");
   const [showExtendedLeaders, setShowExtendedLeaders] = useState(true);
   const [leaderDisplayMode, setLeaderDisplayMode] = useState<"all" | "japanese">("all");
@@ -464,9 +465,11 @@ export function GameDetailPage({ season }: { season: string }) {
   const awayLineups = buildGameLineups(lineupStints, game.awayTeam.id, selectedLineupPeriodOption, periodBoundaries);
   const lineupPlayerNames = new Map([...homePlayers, ...awayPlayers].map((r) => [r.PlayerID, r.PlayerNameJ] as const));
   const lineupPlayerOrder = new Map([...homePlayers, ...awayPlayers].map((r, i) => [r.PlayerID, i] as const));
-  // オンザコート4の5人組（出場交代の枠と同じ判定。shared/foreignOnCourt.ts）
-  const isForeignFourLineup = (row: GameLineupRow) =>
-    (foreignCountInLineup(row.playerIds, (id) => classificationById.get(id)) ?? -1) >= 4;
+  // 5人組のオンザコート（外国籍・帰化・アジア特別枠の人数。出場交代の枠と同じ判定。shared/foreignOnCourt.ts）
+  const lineupForeignCount = (row: GameLineupRow) => foreignCountInLineup(row.playerIds, (id) => classificationById.get(id));
+  const maxForeignOnCourt = seasonRules?.find((r) => r.season === game.season)?.maxForeignOnCourt;
+  const homeLineupTotals = rangeTotals(selectedLineupPeriodOption, periodBoundaries, game.quarterScores.home, game.quarterScores.away);
+  const awayLineupTotals = rangeTotals(selectedLineupPeriodOption, periodBoundaries, game.quarterScores.away, game.quarterScores.home);
   const lineupPlayerSurnames = buildSurnameMap(
     [homePlayers, awayPlayers].map((rows) => rows.map((r) => ({ id: r.PlayerID, name: r.PlayerNameJ }))),
   );
@@ -709,7 +712,9 @@ export function GameDetailPage({ season }: { season: string }) {
               playerNames={lineupPlayerNames}
               playerSurnames={lineupPlayerSurnames}
               color={homeColor}
-              isForeignFour={isForeignFourLineup}
+              foreignCountOf={lineupForeignCount}
+              maxForeignOnCourt={maxForeignOnCourt}
+              totals={homeLineupTotals}
             />
             <GameLineupTable
               teamName={game.awayTeam.name}
@@ -718,12 +723,16 @@ export function GameDetailPage({ season }: { season: string }) {
               playerNames={lineupPlayerNames}
               playerSurnames={lineupPlayerSurnames}
               color={awayColor}
-              isForeignFour={isForeignFourLineup}
+              foreignCountOf={lineupForeignCount}
+              maxForeignOnCourt={maxForeignOnCourt}
+              totals={awayLineupTotals}
             />
           </div>
           <p className="page-subtitle">
             同じ5人が同時にコートにいた時間帯ごとの成績。得点・失点はその5人の在コート中に両チームが記録した得点です。
-            チームカラーの背景・左端の線は、オンザコート4（外国籍・帰化・アジア特別枠の選手が4人）の組み合わせです。
+            OCはオンザコート（5人のうち外国籍・帰化・アジア特別枠の選手の人数）で、4人の組み合わせはチームカラーの背景と左端の線、3人は薄い背景で示します。
+            各チームの上の表はOCの人数ごとの合計で、行を押すと下の一覧がその人数の組み合わせだけになります（もう一度押すと元に戻ります）。
+            区分が分からない選手がいた時間・そのシーズンの上限を超える人数になっていた時間・記録から5人を割り出せなかった時間は「集計外」にまとめ、合計は試合時間・試合の得点と一致します。
             Q別/前後半では、Qをまたいで出場した組み合わせの出場時間・得点をQごとに分けて集計します。
           </p>
         </>

@@ -854,15 +854,58 @@ table.sortable-table td.row-accent-cell {
   padding-left: 9px;
 }
 
-/* 行の強調（SortableTableのrowHighlightColor。試合詳細のラインナップ別成績のオンザコート4等）。
+/* 行の強調（SortableTableのrowHighlightColor。試合詳細のラインナップ別成績のオンザコート4・3等。DESIGN.md 142章）。
    先頭セルは横スクロール用に不透明な背景（var(--bg)）で固定しているため、trではなく全セルに
-   チームカラーを背景と混ぜた不透明色を敷く */
+   チームカラーを背景と混ぜた不透明色を敷く。濃さは比較の表の良い方の値（compare-best）と同じ ライト22%・ダーク42%。
+   row-highlight-half（オンザコート3）はその半分（ライト11%・ダーク21%）。ダーク表示は背景が暗く、同じ割合では紺などの濃い色が沈むので割合を上げる */
 table.sortable-table tbody tr.row-highlight td {
   background: color-mix(in srgb, var(--row-highlight-color) 22%, var(--bg));
 }
 
 table.sortable-table tbody tr.row-highlight:hover td {
   background: color-mix(in srgb, var(--row-highlight-color) 32%, var(--bg));
+}
+
+table.sortable-table tbody tr.row-highlight-half td {
+  background: color-mix(in srgb, var(--row-highlight-color) 11%, var(--bg));
+}
+
+table.sortable-table tbody tr.row-highlight-half:hover td {
+  background: color-mix(in srgb, var(--row-highlight-color) 18%, var(--bg));
+}
+
+:root[data-theme="dark"] table.sortable-table tbody tr.row-highlight td {
+  background: color-mix(in srgb, var(--row-highlight-color) 42%, var(--bg));
+}
+
+:root[data-theme="dark"] table.sortable-table tbody tr.row-highlight:hover td {
+  background: color-mix(in srgb, var(--row-highlight-color) 52%, var(--bg));
+}
+
+:root[data-theme="dark"] table.sortable-table tbody tr.row-highlight-half td {
+  background: color-mix(in srgb, var(--row-highlight-color) 21%, var(--bg));
+}
+
+:root[data-theme="dark"] table.sortable-table tbody tr.row-highlight-half:hover td {
+  background: color-mix(in srgb, var(--row-highlight-color) 30%, var(--bg));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) table.sortable-table tbody tr.row-highlight td {
+    background: color-mix(in srgb, var(--row-highlight-color) 42%, var(--bg));
+  }
+
+  :root:not([data-theme="light"]) table.sortable-table tbody tr.row-highlight:hover td {
+    background: color-mix(in srgb, var(--row-highlight-color) 52%, var(--bg));
+  }
+
+  :root:not([data-theme="light"]) table.sortable-table tbody tr.row-highlight-half td {
+    background: color-mix(in srgb, var(--row-highlight-color) 21%, var(--bg));
+  }
+
+  :root:not([data-theme="light"]) table.sortable-table tbody tr.row-highlight-half:hover td {
+    background: color-mix(in srgb, var(--row-highlight-color) 30%, var(--bg));
+  }
 }
 
 .cell-link {
@@ -2556,6 +2599,47 @@ table.rankings-table-compact th:last-child .stat-header-wrap {
   margin: 0 0 6px;
   font-size: 13px;
   font-weight: 800;
+}
+
+/* オンザコート別の合計（ラインナップ別成績の上。DESIGN.md 142章）: 行を押すと下の一覧をその人数に絞る */
+.game-oc-summary {
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 8px;
+}
+
+table.sortable-table.game-oc-summary-table {
+  width: auto;
+}
+
+table.sortable-table.game-oc-summary-table tbody tr.game-oc-row {
+  cursor: pointer;
+}
+
+table.sortable-table.game-oc-summary-table tbody tr.game-oc-row.is-selected td:first-child {
+  font-weight: 800;
+}
+
+table.sortable-table.game-oc-summary-table tbody tr.game-oc-total td {
+  border-top: 1px solid var(--border);
+  font-weight: 700;
+}
+
+.game-oc-filter-note {
+  margin: 4px 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.game-oc-filter-note button {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .glossary-section {
