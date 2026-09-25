@@ -104,25 +104,38 @@ jobs:
             echo "run=${{ steps.check.outputs.should_run }}" >> "$GITHUB_OUTPUT"
           fi
 
+      # 日程の取得が失敗しても（bleague.jp の一時的なエラー等）、手元の日程データ（前回の schedule.json）のまま
+      # ボックススコアの取得・集計・コミット・デプロイを続ける。末尾の「Fail if schedule scrape failed」でジョブを失敗にして通知する
+      # （選手名簿と同じ形。DESIGN.md 8-9）。問い合わせごとの5xx・通信の失敗は scripts/lib/throttle.ts で1回だけ再試行済み
       - name: Scrape schedule (full)
+        id: schedule_full
         if: ${{ steps.proceed.outputs.run == 'true' && github.event.inputs.full_schedule == 'true' }}
+        continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }}
 
       # 深夜のディープrecheckだけ、今後14日分の日程も問い合わせて開催予定の日付・時刻の変更を
       # 検知する（--verify-upcoming。DESIGN.md 8-7章）。ボックススコア取得は開催日を過ぎた試合しか
       # 問い合わせないため、日程変更はここで拾う
       - name: Scrape schedule (recent 14 days)
+        id: schedule_recent
         if: ${{ steps.proceed.outputs.run == 'true' && github.event.inputs.full_schedule != 'true' }}
+        continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }} --recent 14 ${{ steps.mode.outputs.nightly == 'true' && '--verify-upcoming 14' || '' }}
 
       # 頻繁チェック（30分おき）は新着試合のボックススコア取得のみ行う。既存のwatching試合の
       # 再チェックは深夜のディープrecheckに限定する（DESIGN.md 8-1章）
+      # ボックススコアは、ある試合で失敗してもほかの試合の取得を続け、最後に失敗した試合を一覧にして終了コード1で終わる。
+      # 取れた試合の集計・コミットは続けたいので continue-on-error にし、末尾の「Fail if boxscore scrape failed」で通知する（DESIGN.md 8-9）
       - name: Scrape boxscores (new games only)
+        id: boxscore_new
         if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly != 'true' }}
+        continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-boxscore.ts --season ${{ steps.season.outputs.season }} --new-only
 
       - name: Scrape boxscores (new games + watching re-checks)
+        id: boxscore_nightly
         if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
+        continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-boxscore.ts --season ${{ steps.season.outputs.season }}
 
       # スポーツナビ（Yahoo!スポーツ）のplay-by-play（シュートタイプ別内訳・ターンオーバー種類別）。
@@ -214,6 +227,19 @@ jobs:
           name: deploy-signal
           path: /tmp/deploy-signal/deploy-changed.txt
           retention-days: 1
+
+      # 日程・ボックススコアの取得の失敗をジョブの失敗として通知する（取れた分の集計・commit&pushは上のステップで完了済み。DESIGN.md 8-9）
+      - name: Fail if schedule scrape failed
+        if: ${{ always() && (steps.schedule_full.outcome == 'failure' || steps.schedule_recent.outcome == 'failure') }}
+        run: |
+          echo "::error title=Schedule scrape failed::日程の取得が失敗しました。手元の日程データのままボックススコアの取得・集計・コミットは続けています。ログで失敗した問い合わせを確認してください"
+          exit 1
+
+      - name: Fail if boxscore scrape failed
+        if: ${{ always() && (steps.boxscore_new.outcome == 'failure' || steps.boxscore_nightly.outcome == 'failure') }}
+        run: |
+          echo "::error title=Boxscore scrape failed::一部の試合のボックススコアの取得に失敗しました（ほかの試合は取得・集計・コミット済み。失敗した試合は次回の実行で取り直します）。ログの「取得に失敗した試合」を確認してください"
+          exit 1
 
       # ロースター取得の失敗・時間切れをジョブの失敗として通知する（データのcommit&pushは上のステップで完了済み）
       - name: Fail if roster scan failed

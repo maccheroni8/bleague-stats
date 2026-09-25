@@ -154,7 +154,7 @@ export async function runForSeason(
   season: string,
   category: Category = "premier",
   options: { newOnly?: boolean } = {},
-): Promise<void> {
+): Promise<{ failedKeys: string[] }> {
   const schedule = await loadSchedule(season, category);
   const scheduleKeys = schedule.scheduleKeys;
   const upcomingByKey = new Map(schedule.upcomingGames.map((g) => [g.scheduleKey, g]));
@@ -162,6 +162,9 @@ export async function runForSeason(
   console.log(`[${season}] schedule.json から ${scheduleKeys.length} 試合を確認${options.newOnly ? "（新着試合のみ）" : ""}`);
   let notDueSkipped = 0;
   let queried = 0;
+  // ある試合で問い合わせや保存に失敗しても、ほかの試合の取得は続ける（DESIGN.md 8-9）。失敗した試合は最後にまとめて報告し、
+  // 呼び出し元（main）は終了コードを1にする。ワークフロー側はこのステップを continue-on-error にして、集計・コミットは続ける
+  const failedKeys: string[] = [];
 
   for (const scheduleKey of scheduleKeys) {
     const filePath = gameFilePath(season, scheduleKey, category);
@@ -186,10 +189,19 @@ export async function runForSeason(
     }
 
     queried++;
-    const result = await scrapeAndSaveGame(scheduleKey, category);
-    logResult(result);
+    try {
+      const result = await scrapeAndSaveGame(scheduleKey, category);
+      logResult(result);
+    } catch (err) {
+      failedKeys.push(scheduleKey);
+      console.error(`  [${scheduleKey}] 取得に失敗（ほかの試合は続けます。次回の実行で取り直します）: ${(err as Error).message}`);
+    }
   }
   console.log(`[${season}] 問い合わせ: ${queried}試合 ／ ティップオフ+2時間前のためスキップ: ${notDueSkipped}試合`);
+  if (failedKeys.length > 0) {
+    console.error(`[${season}] 取得に失敗した試合: ${failedKeys.length}試合（${failedKeys.join(", ")}）`);
+  }
+  return { failedKeys };
 }
 
 function logResult(result: ScrapeResult): void {
@@ -221,7 +233,8 @@ async function main(): Promise<void> {
     const season = args[seasonFlagIndex + 1];
     if (!season) throw new Error("--season の後にシーズン(例: 2025-26)を指定してください");
     const newOnly = args.includes("--new-only");
-    await runForSeason(season, category, { newOnly });
+    const { failedKeys } = await runForSeason(season, category, { newOnly });
+    if (failedKeys.length > 0) process.exitCode = 1;
     return;
   }
 

@@ -37,7 +37,9 @@ import type { ScheduleFile, YahooGamePbp } from "../shared/types.ts";
 
 const MIN_REQUEST_INTERVAL_MS = 2500;
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
-const throttledFetch = createThrottledFetch(MIN_REQUEST_INTERVAL_MS, USER_AGENT);
+// スポーツナビは bleague.jp とは別の相手なので、待ち時間の上限・再試行（DESIGN.md 8-9）は入れず従来どおりにする
+// （このステップは continue-on-error で、失敗しても次回の実行で取り直す）
+const throttledFetch = createThrottledFetch(MIN_REQUEST_INTERVAL_MS, USER_AGENT, { timeoutMs: null, retryOnTransientError: false });
 
 function widgetUrl(season: string, scheduleKey: string): string {
   return `https://sports.yahoo.co.jp/basket/widget/ds/pc/${yahooWidgetLeaguePath(season)}/games/${scheduleKey}/text_live.html`;
