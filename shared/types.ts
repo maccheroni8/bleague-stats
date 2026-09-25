@@ -606,10 +606,8 @@ export interface PlayerSummary {
   /**
    * data/players-master.json（scrape-roster.ts）から突合した選手属性。マスタに未登録の選手
    * （新加入直後でまだスクレイプできていない等）は全フィールド未定義になりうる。
-   * ただしpositionだけはシーズン依存: B.PREMIERでdata/season-positions.jsonにそのシーズンの
-   * キーがあれば、マスタの現在値ではなく当時のポジション（一覧で空欄だった選手は未定義）を使う。
-   * heightCm/weightKgは公式サイトに当時の記録が無いため、マスタの現在値を全シーズンに適用している
-   * （DESIGN.md 101章）
+   * position・heightCm・weightKg は、終了したシーズン（B.PREMIER）では当時の値を使う（shared/seasonProfile.ts。DESIGN.md 148章）。
+   * 当時の値が無く近いシーズンの値・現在の値で補ったものは profileFallback に記録する
    */
   position?: string;
   nationality?: string;
@@ -622,6 +620,8 @@ export interface PlayerSummary {
   classification?: "日本人" | "外国籍" | "帰化選手" | "アジア特別枠";
   heightCm?: number;
   weightKg?: number;
+  /** 当時の値でないもの（position: near=近いシーズンの当時の値、current=現在の値。height・weight: current=現在の値）。無ければ当時の値 */
+  profileFallback?: ProfileFallback;
   birthDate?: string;
   /**
    * シュートタイプ別の成功/試投カウント（Yahoo!スポーツplay-by-play由来、レギュラーシーズンのみ。
@@ -1616,4 +1616,11 @@ export interface SeasonProfilesFile {
   generatedAt: string;
   /** season → playerId → 当時の値。そのシーズン中（10月〜翌5月）のスナップショットが無い選手は持たない */
   seasons: Record<string, Record<string, SeasonProfileEntry>>;
+}
+
+/** 選手の属性が当時の値でないとき、何で補ったか（shared/seasonProfile.ts。DESIGN.md 148章） */
+export interface ProfileFallback {
+  position?: "near" | "current";
+  height?: "current";
+  weight?: "current";
 }

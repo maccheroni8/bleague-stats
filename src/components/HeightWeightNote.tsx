@@ -1,11 +1,12 @@
 /**
- * 身長・体重はplayers-master.jsonの現在値1つを全シーズンに適用しており（公式サイトに当時の記録が
- * 無いため。DESIGN.md 101章）、終了済みシーズンでは当時の値ではない。その旨の脚注。
- * 身長・体重を表示する表・プロフィールの直下に置く（現在進行中・開幕前のシーズンでは何も出さない）
+ * 身長・体重・ポジションの注記（DESIGN.md 148章）。終了したシーズンは当時の値を使い、当時の値が見つからず補った値には「＊」を付ける。
+ * 注記は、そのシーズンに補った値の選手がいるときだけ出す（players はそのシーズンの players.json）。
+ * 身長・体重・ポジションを表示する表・プロフィールの直下に置く
  */
-import { HEIGHT_WEIGHT_CURRENT_NOTE, isPastSeason } from "../lib/season";
+import type { PlayerSummary } from "../../shared/types";
+import { PROFILE_FALLBACK_NOTE, seasonHasProfileFallback } from "../lib/profileMark";
 
-export function HeightWeightNote({ season }: { season: string }) {
-  if (!isPastSeason(season)) return null;
-  return <p className="rule-change-footnote">※ {HEIGHT_WEIGHT_CURRENT_NOTE}</p>;
+export function HeightWeightNote({ players }: { players: PlayerSummary[] | null | undefined }) {
+  if (!seasonHasProfileFallback(players)) return null;
+  return <p className="rule-change-footnote">※ {PROFILE_FALLBACK_NOTE}</p>;
 }

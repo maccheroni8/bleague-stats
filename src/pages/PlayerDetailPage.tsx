@@ -141,6 +141,7 @@ import { classificationGroup } from "../lib/classificationFilter";
 import { ComparisonTable, type ComparisonRow } from "./ComparePage";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageForSeason } from "../lib/age";
+import { heightText, positionText, weightText } from "../lib/profileMark";
 import { seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
 import { statDescription } from "../lib/statDescriptions";
 import { PlayerSeasonScoringChart } from "../components/PlayerScoringShareCharts";
@@ -2224,13 +2225,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
         <div className="player-header-profile">
           <div className="player-profile-grid">
-            {player.position && <ProfileItem label="ポジション" value={player.position} />}
+            {player.position && <ProfileItem label="ポジション" value={positionText(player)!} />}
             {player.classification && (
               <ProfileItem label="登録区分" value={classificationGroup(player.classification) ?? player.classification} />
             )}
             {player.nationality && <ProfileItem label="国籍" value={player.nationality} />}
-            {player.heightCm && <ProfileItem label="身長" value={`${player.heightCm}cm`} />}
-            {player.weightKg && <ProfileItem label="体重" value={`${player.weightKg}kg`} />}
+            {player.heightCm && <ProfileItem label="身長" value={heightText(player)!} />}
+            {player.weightKg && <ProfileItem label="体重" value={weightText(player)!} />}
             {player.birthDate && (
               <ProfileItem
                 label="生年月日"
@@ -2238,7 +2239,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               />
             )}
           </div>
-          {(player.heightCm || player.weightKg) && <HeightWeightNote season={season} />}
+          {(player.position || player.heightCm || player.weightKg) && <HeightWeightNote players={players} />}
           {player.birthDate && <p className="rule-change-footnote">※ {AGE_BASE_NOTE}</p>}
           {playerAwardList.length > 0 && (
             <div className="player-awards">

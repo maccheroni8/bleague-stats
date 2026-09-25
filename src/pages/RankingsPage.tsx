@@ -96,7 +96,8 @@ import {
 } from "../lib/conditionLabels";
 import type { PeriodRangeValue } from "../lib/periodRange";
 import { HeightWeightNote } from "../components/HeightWeightNote";
-import { AGE_BASE_NOTE, ageBaseDateLabel, ageForSeason, todayBaseDateLabel } from "../lib/age";
+import { AGE_BASE_NOTE, ageBaseDateLabel, ageForSeason } from "../lib/age";
+import { heightText, positionText, weightText } from "../lib/profileMark";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import type { PlayerGameLog, PlayerSummary, TeamColors, TeamForcedTurnovers, TeamGameLog, TeamSummary } from "../../shared/types";
@@ -810,8 +811,8 @@ const EXTRA_ADVANCED_PLAYER_ITEMS: PlayerRankItem[] = PLAYER_STAT_DEFS.filter((d
  * 「プロフィール」カテゴリの項目（身長・体重・年齢）。値はPlayerSummaryのみで完結し（ctx不要）、
  * シチュエーション別フィルタ・レギュラー/プレーオフ・Q別/前後半の対象外。値が無い選手（マスタ未登録・
  * 生年月日欠損）は0扱いで下位に並べず、ランキングから除外する（rowsのuseMemo参照）。
- * 身長・体重はplayers-master.json由来の現在値を全シーズンに適用しており当時の記録ではない
- * （DESIGN.md 101章。終了済みシーズンはHeightWeightNoteで断る）。年齢はageForSeason()
+ * 身長・体重はplayers.jsonの値
+ * （終了したシーズンは当時の値。補った値には＊。DESIGN.md 148章）。年齢はageForSeason()
  * （そのシーズンの1月15日時点。DESIGN.md 146章）
  */
 function buildProfileItems(season: string): PlayerRankItem[] {
@@ -820,13 +821,13 @@ function buildProfileItems(season: string): PlayerRankItem[] {
       key: "height",
       label: "身長",
       value: (p) => p.heightCm ?? 0,
-      format: (p) => (p.heightCm != null ? `${p.heightCm}cm` : "-"),
+      format: (p) => heightText(p) ?? "-",
     },
     {
       key: "weight",
       label: "体重",
       value: (p) => p.weightKg ?? 0,
-      format: (p) => (p.weightKg != null ? `${p.weightKg}kg` : "-"),
+      format: (p) => weightText(p) ?? "-",
     },
     {
       key: "age",
@@ -1134,15 +1135,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     format: (p) => selectedItem.format(p, ctxByPlayer?.get(p.playerId) ?? null),
   };
 
-  // 「プロフィール」カテゴリの基準日ラベル（表・画像出力に出す）。年齢はageForSeason()の基準日
-  // （そのシーズンの1月15日。DESIGN.md 146章）。身長・体重はマスタの現在値のため常に今日
-  // （終了済みシーズンでは、当時の記録ではない旨をHeightWeightNoteで別途断る）
-  const profileBaseDateLabel =
-    category === "profile"
-      ? selectedItem.key === "age"
-        ? ageBaseDateLabel(season)
-        : todayBaseDateLabel()
-      : null;
+  // 「プロフィール」カテゴリの年齢の基準日ラベル（表・画像出力に出す。そのシーズンの1月15日。DESIGN.md 146章）。
+  // 身長・体重は当時の値（補った値には＊。DESIGN.md 148章）なので基準日は出さない
+  const profileBaseDateLabel = category === "profile" && selectedItem.key === "age" ? ageBaseDateLabel(season) : null;
 
   const extraRule = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)];
   const waitingForGameLogs =
@@ -1345,14 +1340,14 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               def={rankDef}
               rowKey={(p) => p.playerId}
               name={(p) => p.name}
-              subLabel={(p) => [p.teamName, p.position, classificationGroup(p.classification)].filter(Boolean).join("・")}
+              subLabel={(p) => [p.teamName, positionText(p), classificationGroup(p.classification)].filter(Boolean).join("・")}
               linkTo={(p) => `/players/${p.playerId}`}
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" />}
               limit={PLAYER_RANK_TOP_N}
               compact
             />
-            {category === "profile" && selectedItem.key !== "age" && <HeightWeightNote season={season} />}
+            <HeightWeightNote players={players} />
             {category === "profile" && selectedItem.key === "age" && <p className="rule-change-footnote">※ {AGE_BASE_NOTE}</p>}
             {category === "career" && <p className="rule-change-footnote">※ {CAREER_NOTE}</p>}
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}

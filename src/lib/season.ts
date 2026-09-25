@@ -16,7 +16,6 @@ export function currentSeason(date: Date = new Date()): string {
  * 身長・体重はplayers-master.jsonの現在値1つを全シーズンに一律適用している（公式サイトに当時の
  * 記録が存在しないため。DESIGN.md参照）。終了済みのシーズンを表示するときに添える注記
  */
-export const HEIGHT_WEIGHT_CURRENT_NOTE = "現在の身長・体重を表示（当時の記録ではありません）";
 
 /** 現在進行中（または開幕前）のシーズンより前＝終了済みのシーズンか */
 export function isPastSeason(season: string): boolean {

@@ -93,6 +93,7 @@ import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageForSeason } from "../lib/age";
+import { heightText, positionText, weightText } from "../lib/profileMark";
 import {
   classificationLabels,
   composeLabels,
@@ -1851,9 +1852,12 @@ function averageOf(values: number[]): number | null {
 /** 選手名セル: サムネイル写真＋名前＋簡易プロフィール（ポジション・身長・体重）をまとめて表示する */
 function playerProfileLine(p: PlayerSummary): string | null {
   const parts: string[] = [];
-  if (p.position) parts.push(p.position);
-  if (p.heightCm != null) parts.push(`${p.heightCm}cm`);
-  if (p.weightKg != null) parts.push(`${p.weightKg}kg`);
+  const position = positionText(p);
+  const height = heightText(p);
+  const weight = weightText(p);
+  if (position) parts.push(position);
+  if (height) parts.push(height);
+  if (weight) parts.push(weight);
   return parts.length > 0 ? parts.join("・") : null;
 }
 
@@ -4358,7 +4362,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   teamYahooPbp={teamYahooPbp}
                   teamYahooPbpLoading={teamYahooPbpLoading}
                 />
-                {playerStatsRows.length > 0 && <HeightWeightNote season={season} />}
+                {playerStatsRows.length > 0 && <HeightWeightNote players={players} />}
                 {playerStatsBoxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
                 </>
               )}
@@ -4376,7 +4380,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 <StatTile label="平均体重" value={avgWeightKg != null ? `${formatDecimal(avgWeightKg)}kg` : "-"} />
                 <StatTile label="平均年齢" value={avgAge != null ? `${formatDecimal(avgAge)}歳` : "-"} />
               </div>
-              {(avgHeightCm != null || avgWeightKg != null) && <HeightWeightNote season={season} />}
+              {(avgHeightCm != null || avgWeightKg != null) && <HeightWeightNote players={players} />}
               {avgAge != null && <p className="rule-change-footnote">※ {AGE_BASE_NOTE}</p>}
             </>
           )}
