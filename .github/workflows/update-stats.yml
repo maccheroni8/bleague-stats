@@ -113,14 +113,16 @@ jobs:
         continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }}
 
-      # 深夜のディープrecheckだけ、今後14日分の日程も問い合わせて開催予定の日付・時刻の変更を
+      # 30分おきの実行は当日と前日の2日分だけ問い合わせる（2026-09-26から。それまでは毎回直近14日分＝28回。DESIGN.md 8-2・8-9）。
+      # 深夜のディープrecheckだけ、直近14日分と今後14日分の日程を問い合わせて、新しく載った試合と開催予定の日付・時刻の変更を
       # 検知する（--verify-upcoming。DESIGN.md 8-7章）。ボックススコア取得は開催日を過ぎた試合しか
-      # 問い合わせないため、日程変更はここで拾う
-      - name: Scrape schedule (recent 14 days)
+      # 問い合わせないため、日程変更はここで拾う。どちらも、直近の日付のページに載っているのに試合日が違う試合（延期で前倒し）は
+      # その場で開催予定を取り直す（DESIGN.md 8-9）
+      - name: Scrape schedule (recent days)
         id: schedule_recent
         if: ${{ steps.proceed.outputs.run == 'true' && github.event.inputs.full_schedule != 'true' }}
         continue-on-error: true
-        run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }} --recent 14 ${{ steps.mode.outputs.nightly == 'true' && '--verify-upcoming 14' || '' }}
+        run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }} --recent ${{ steps.mode.outputs.nightly == 'true' && '14 --verify-upcoming 14' || '2' }}
 
       # 頻繁チェック（30分おき）は新着試合のボックススコア取得のみ行う。既存のwatching試合の
       # 再チェックは深夜のディープrecheckに限定する（DESIGN.md 8-1章）

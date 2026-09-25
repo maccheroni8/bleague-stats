@@ -111,8 +111,9 @@ export async function scrapeSeasonSchedule(
 }
 
 /**
- * 直近days日分の日付だけ問い合わせる軽量版（DESIGN.md 8-2章）。日次cronはこちらを使う。
- * seasonに属さない日付（オフシーズンをまたぐ等）は自動的にスキップする。
+ * 直近days日分の日付だけ問い合わせる軽量版（DESIGN.md 8-2章）。30分おきの実行は当日と前日（days=2）、
+ * 深夜は直近14日分（days=14）。seasonに属さない日付（オフシーズンをまたぐ等）は自動的にスキップする。
+ * 返り値の queriedDays は実際に問い合わせた日付（JST、YYYY-MM-DD）
  */
 export async function scrapeRecentSchedule(
   season: string,
@@ -120,9 +121,10 @@ export async function scrapeRecentSchedule(
   events: number[] = DEFAULT_EVENTS_BY_CATEGORY.premier,
   referenceDate: Date = new Date(),
   tab: number = CATEGORY_TAB.premier,
-): Promise<string[]> {
+): Promise<{ keys: string[]; queriedDays: string[] }> {
   const seasonYear = Number(season.split("-")[0]);
   const foundKeys = new Set<string>();
+  const queriedDays: string[] = [];
 
   for (let i = 0; i < days; i++) {
     const target = new Date(referenceDate.getTime() - i * 86_400_000);
@@ -130,6 +132,7 @@ export async function scrapeRecentSchedule(
 
     const jst = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(target);
     const [, monStr, dayStr] = jst.split("-") as [string, string, string];
+    queriedDays.push(jst);
 
     for (const event of events) {
       for (const key of await fetchDaySchedule(seasonYear, monStr, dayStr, event, tab)) {
@@ -138,7 +141,31 @@ export async function scrapeRecentSchedule(
     }
   }
 
-  return [...foundKeys].sort();
+  return { keys: [...foundKeys].sort(), queriedDays };
+}
+
+/**
+ * 直近の日付のページに載っているのに、日程データ（upcomingGames）の試合日が問い合わせた日のどれでもない試合を選ぶ
+ * （延期で前倒しになった試合。DESIGN.md 8-9）。これらは game_detail ページから開催予定を取り直し、試合日と時刻をその場で直す。
+ * 日程JSONは試合の無い日を指定すると前後の開催日にスナップして返す（scanUpcomingWindow の注記）が、過去の開催日にスナップした
+ * 試合は生データ取得済みで対象外になり、未来にスナップするのは当日・前日とも試合が無い日（30分おきの実行は本処理に進まない）だけなので、
+ * 空振りの取り直しはほぼ起きない
+ */
+export function selectListedWithOtherDate(
+  listedKeys: string[],
+  queriedDays: string[],
+  existingUpcoming: UpcomingGameEntry[],
+  withBoxscore: Set<string>,
+): Set<string> {
+  const days = new Set(queriedDays);
+  const cached = new Map(existingUpcoming.map((g) => [g.scheduleKey, g]));
+  const refresh = new Set<string>();
+  for (const key of listedKeys) {
+    if (withBoxscore.has(key)) continue;
+    const entry = cached.get(key);
+    if (entry && !days.has(entry.date)) refresh.add(key);
+  }
+  return refresh;
 }
 
 export interface UpcomingWindowScan {
@@ -301,7 +328,8 @@ async function main(): Promise<void> {
     const days = Number(args[recentIndex + 1] ?? "14");
     const existingFile = await readJson<ScheduleFile>(outPath);
     const existingKeys = existingFile?.scheduleKeys ?? [];
-    const recentKeys = await scrapeRecentSchedule(season, days, events, new Date(), tab);
+    const recent = await scrapeRecentSchedule(season, days, events, new Date(), tab);
+    const recentKeys = recent.keys;
 
     // 深夜のみ: 今後N日分の日程も問い合わせ、開催予定の日付・時刻の変更を検知する（DESIGN.md 8-7章）
     const verifyIndex = args.indexOf("--verify-upcoming");
@@ -323,6 +351,20 @@ async function main(): Promise<void> {
           `[${season}] 今後${verifyDays}日の日程確認（${scan.firstDay}〜${scan.lastDay}、掲載${scan.keys.size}試合）: 開催予定の取り直し対象 ${summary}`,
         );
       }
+    }
+
+    // 直近の日付のページに載っているのに試合日が違う試合（延期で前倒し）は、その場で開催予定を取り直す（30分おき・深夜とも。DESIGN.md 8-9）
+    const listedWithOtherDate = selectListedWithOtherDate(
+      recentKeys,
+      recent.queriedDays,
+      existingFile?.upcomingGames ?? [],
+      await listStoredScheduleKeys(season, category),
+    );
+    if (listedWithOtherDate.size > 0) {
+      console.log(
+        `[${season}] 直近${days}日のページに載っているのに試合日が違う試合: ${listedWithOtherDate.size}件（開催予定を取り直します: ${[...listedWithOtherDate].join(", ")}）`,
+      );
+      for (const key of listedWithOtherDate) forceRefresh.add(key);
     }
 
     const mergedKeys = [...new Set([...existingKeys, ...recentKeys, ...windowKeys])].sort();
