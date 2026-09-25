@@ -209,13 +209,13 @@ export function fetchDivisionHistory(): Promise<DivisionHistoryFile> {
 }
 
 /** 通算成績・クラブレコードの歴代クラブ横断順位（Phase H7）。scripts/aggregate-league-rankings.tsが
- * 手動実行のバッチ処理で生成する、シーズン非依存の単一ファイル */
+ * 夜間実行で毎晩作り直す、シーズン非依存の単一ファイル（DESIGN.md 143-4） */
 export function fetchLeagueTeamRankings(): Promise<LeagueTeamRankingsFile> {
   return fetchJson<LeagueTeamRankingsFile>(`${dataBase}/league-team-rankings.json`);
 }
 
 /** 通算成績の歴代選手横断順位（個人版「歴代記録」タブ）。
- * scripts/aggregate-league-player-rankings.tsが手動実行のバッチ処理で生成する、
+ * scripts/aggregate-league-player-rankings.tsが夜間実行で毎晩作り直す、
  * シーズン非依存の単一ファイル */
 export function fetchLeaguePlayerRankings(): Promise<LeaguePlayerRankingsFile> {
   return fetchJson<LeaguePlayerRankingsFile>(`${dataBase}/league-player-rankings.json`);

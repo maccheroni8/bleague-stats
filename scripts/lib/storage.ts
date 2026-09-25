@@ -92,6 +92,18 @@ export async function writeJson(filePath: string, data: unknown): Promise<void> 
 }
 
 /**
+ * 前回のファイルと比べ、ignoreKeys（作った時刻等）以外の内容が同じなら書き換えない。書き換えたら true。
+ * 夜間実行の歴代記録バッチで、データに変化が無い日に余計なコミット・デプロイを起こさないために使う（DESIGN.md 143-4）
+ */
+export async function writeJsonIfChanged(filePath: string, data: Record<string, unknown>, ignoreKeys: string[] = ["generatedAt"]): Promise<boolean> {
+  const strip = (o: Record<string, unknown>) => JSON.stringify(Object.fromEntries(Object.entries(o).filter(([k]) => !ignoreKeys.includes(k))));
+  const existing = await readJsonGz<Record<string, unknown>>(filePath);
+  if (existing && strip(existing) === strip(data)) return false;
+  await writeJsonGz(filePath, data);
+  return true;
+}
+
+/**
  * バイナリファイル（ロゴ・選手写真等）をそのまま保存する。PNG/WebPは既に圧縮済みの
  * フォーマットなのでJSONと違いgzip化はしない
  */

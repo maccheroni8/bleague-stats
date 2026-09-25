@@ -6,8 +6,8 @@
 // 改称をまたいで不変（2-8章）なので、過去に降格・改称したクラブも含めteamId単位でそのまま
 // 合算・比較する。レギュラーシーズンのみ/プレーオフのみ/合算の3パターンを算出する。
 //
-// npm run aggregateの日次サイクルには含めない。シーズン終了後等に手動実行するバッチ処理
-// （ユーザー指定）。B.PREMIERのみが対象（既存の「通算成績」「クラブレコード」タブと同じ
+// 夜間実行（update-stats.yml のディープrecheck）で aggregate.ts のあとに毎晩実行する（2026-09-25から。それまでは手動実行。
+// 作った時刻以外が前回と同じならファイルを書き換えない。DESIGN.md 143-4）。手動でも npm run aggregate:league-rankings で実行できる。B.PREMIERのみが対象（既存の「通算成績」「クラブレコード」タブと同じ
 // スコープ。B.ONEは対象外）。
 //
 // 使い方:
@@ -15,7 +15,7 @@
 
 import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
-import { DATA_DIR, readJson, writeJson } from "./lib/storage.ts";
+import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { filterByGameType } from "../shared/gameType.ts";
 import { CAREER_TOTAL_DEFS, TEAM_RECORD_STATS, buildTeamCareerTotals, longestWinStreak } from "../shared/teamRecords.ts";
 import {
@@ -439,7 +439,12 @@ async function main() {
     periodCareerAverage,
   };
 
-  await writeJson(path.join(DATA_DIR, "league-team-rankings.json"), file);
+  // 作った時刻以外が前回と同じなら書き換えない（夜間実行で変化の無い日にコミット・デプロイを起こさない。DESIGN.md 143-4）
+  const changed = await writeJsonIfChanged(path.join(DATA_DIR, "league-team-rankings.json"), file as unknown as Record<string, unknown>);
+  if (!changed) {
+    console.log("\n内容に変化が無いため、data/league-team-rankings.jsonは書き換えませんでした");
+    return;
+  }
   console.log("\ndata/league-team-rankings.jsonに保存しました");
 }
 

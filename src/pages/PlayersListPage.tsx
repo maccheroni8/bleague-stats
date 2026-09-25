@@ -936,8 +936,13 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   );
 }
 
+/** 歴代記録のファイルを最後に書き換えた日（日本時間）。内容に変化が無い日は書き換えないので、最後に順位や値が変わった日になる */
+function formatRankingsUpdatedAt(iso: string): string {
+  return new Date(iso).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
+}
+
 // 「歴代記録」タブ。data/league-player-rankings.json（scripts/aggregate-league-player-rankings.ts、
-// 手動実行のバッチ処理）を使い、過去在籍した全選手横断で通算成績（PLAYER_CAREER_TOTAL_DEFS）の
+// 夜間実行で毎晩作り直す）を使い、過去在籍した全選手横断で通算成績（PLAYER_CAREER_TOTAL_DEFS）の
 // ランキングを表示する。チーム版のLeagueRecordsTabと同じ構成（ホーム/アウェイ/トータル・
 // レギュラー/プレーオフ/合算の切り替え＋項目ピッカー）だが、通算成績のみでカテゴリ切り替えは
 // 無い（クラブレコード相当は今回のスコープ外、ユーザー指定）。順位・対象選手数はJSON側で
@@ -981,7 +986,7 @@ function LeaguePlayerRecordsTab() {
   const rows: LeaguePlayerRecordRow[] = entries
     ? Object.entries(entries)
         .map(([playerId, entry]) => ({ playerId, entry }))
-        .sort((a, b) => a.entry.rank - b.entry.rank)
+        .sort((a, b) => a.entry.rank - b.entry.rank || Number(a.playerId) - Number(b.playerId))
     : [];
   const totalPlayers = Object.keys(rankings.career.regular.pts ?? {}).length;
   const activeLabel = PLAYER_CAREER_TOTAL_DEFS.find((d) => d.key === statKey)?.label ?? statKey;
@@ -989,8 +994,8 @@ function LeaguePlayerRecordsTab() {
   return (
     <div>
       <p className="page-subtitle">
-        過去在籍した全{totalPlayers}選手横断のランキング（{rankings.generatedAt.slice(0, 10)}
-        時点。手動バッチで随時更新）。1試合単位の最高記録（クラブレコード相当）は対象外です
+        過去在籍した全{totalPlayers}選手横断のランキング（毎日1回、前日までの試合結果を取り込んだあとに作り直します。最終更新
+        {" "}{formatRankingsUpdatedAt(rankings.generatedAt)}）。1試合単位の最高記録（クラブレコード相当）は対象外です
       </p>
 
       <FilterBar

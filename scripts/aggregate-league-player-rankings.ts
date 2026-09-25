@@ -8,15 +8,15 @@
 // クラブレコード相当（1試合単位の最高記録）・シーズン単位の特殊記録は対象外
 // （ユーザー指定、2026-09-04。別途Rankingsページの機能として検討予定）。
 //
-// npm run aggregateの日次サイクルには含めない。シーズン終了後等に手動実行するバッチ処理
-// （チーム版と同じ運用方針）。B.PREMIERのみが対象（B.ONEは対象外）。
+// チーム版と同じく、夜間実行（update-stats.yml のディープrecheck）で毎晩実行する（2026-09-25から。それまでは手動実行。
+// 作った時刻以外が前回と同じならファイルを書き換えない。DESIGN.md 143-4）。B.PREMIERのみが対象（B.ONEは対象外）。
 //
 // 使い方:
 //   npm run aggregate:league-player-rankings
 
 import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
-import { DATA_DIR, readJson, writeJson } from "./lib/storage.ts";
+import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { filterByGameType } from "../shared/gameType.ts";
 import { PLAYER_CAREER_TOTAL_DEFS, buildPlayerCareerTotals } from "../shared/playerRecords.ts";
 import type {
@@ -85,12 +85,18 @@ async function loadCareerData(): Promise<{
   return { byPlayer, info };
 }
 
+/**
+ * 選手間の順位。同じ値は同じ順位にし、次の順位はその分飛ばす（1位・2位・2位・4位。2026-09-25にユーザー指示で、
+ * それまでの「同じ値も playerId 昇順で連番」から変更。チーム版と同じ。DESIGN.md 143-3）。同じ値の中の並びは playerId 昇順
+ */
 function buildRankTable(entries: { playerId: string; value: number }[]): Record<string, LeaguePlayerRankEntry> {
   const sorted = [...entries].sort((a, b) => b.value - a.value || Number(a.playerId) - Number(b.playerId));
   const totalPlayers = sorted.length;
   const table: Record<string, LeaguePlayerRankEntry> = {};
+  let rank = 0;
   sorted.forEach((e, i) => {
-    table[e.playerId] = { value: e.value, rank: i + 1, totalPlayers };
+    if (i === 0 || e.value !== sorted[i - 1]!.value) rank = i + 1;
+    table[e.playerId] = { value: e.value, rank, totalPlayers };
   });
   return table;
 }
@@ -157,7 +163,12 @@ async function main() {
     careerAway,
   };
 
-  await writeJson(path.join(DATA_DIR, "league-player-rankings.json"), file);
+  // 作った時刻以外が前回と同じなら書き換えない（夜間実行で変化の無い日にコミット・デプロイを起こさない。DESIGN.md 143-4）
+  const changed = await writeJsonIfChanged(path.join(DATA_DIR, "league-player-rankings.json"), file as unknown as Record<string, unknown>);
+  if (!changed) {
+    console.log("\n内容に変化が無いため、data/league-player-rankings.jsonは書き換えませんでした");
+    return;
+  }
   console.log("\ndata/league-player-rankings.jsonに保存しました");
 }
 

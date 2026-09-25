@@ -154,6 +154,17 @@ jobs:
         if: steps.proceed.outputs.run == 'true'
         run: node --experimental-strip-types scripts/aggregate.ts --season ${{ steps.season.outputs.season }}
 
+      # 歴代記録の順位（チーム・個人。全シーズンの試合ログから作る。DESIGN.md 143-4）。深夜のディープrecheckでのみ実行し、
+      # 30分おきのチェックでは実行しない。作った時刻以外が前回と同じならファイルを書き換えないので、変化が無い日にコミット・デプロイは起きない。
+      # 失敗しても試合結果の集計・commitは止めず、末尾の「Fail if league rankings failed」でジョブを失敗にする
+      - name: Aggregate league rankings (all-time records)
+        id: league_rankings
+        if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
+        continue-on-error: true
+        run: |
+          node --experimental-strip-types scripts/aggregate-league-rankings.ts
+          node --experimental-strip-types scripts/aggregate-league-player-rankings.ts
+
       # 新競技規則(DESIGN.md 16章)の検知。公式データが新表記（ディスラプティブ/フレグラント、
       # カテゴリ1/2）やActionCD1の変更に移行したことにコミット前後で気づくための警報。
       # 異常時はここで失敗させず（データ更新のcommit&pushを止めないため）、最終ステップで
@@ -209,6 +220,13 @@ jobs:
         if: ${{ always() && steps.roster.outcome == 'failure' }}
         run: |
           echo "::error title=Roster scan failed::Scrape roster ステップが失敗または時間切れになりました。選手マスタは写真取得前に保存されますが、ログで保存完了の行が出ているか確認してください"
+          exit 1
+
+      # 歴代記録の順位の作成の失敗をジョブの失敗として通知する（データのcommit&pushは上のステップで完了済み）
+      - name: Fail if league rankings failed
+        if: ${{ always() && steps.league_rankings.outcome == 'failure' }}
+        run: |
+          echo "::error title=League rankings failed::Aggregate league rankings ステップが失敗しました。歴代記録の順位は前回のままです"
           exit 1
 
       # 検知結果（詳細はCheck rule-change signalsステップのログ・ジョブのSummary）をジョブの失敗として通知する。

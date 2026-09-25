@@ -1411,9 +1411,8 @@ export interface YahooGamePbp {
 // よい。2-8章参照）を横断して、通算成績（shared/teamRecords.tsのCAREER_TOTAL_DEFS）・
 // クラブレコード（同TEAM_RECORD_STATS）・シーズン単位の特殊記録（最多勝利数・最多連勝）
 // それぞれについて全クラブ中の順位を算出したもの。対象はB.PREMIERのみ（既存の「通算成績」
-// 「クラブレコード」タブと同じスコープ）。npm run aggregateの日次サイクルには含めず、
-// scripts/aggregate-league-rankings.tsを手動実行するバッチ処理で随時再生成する運用とする
-// （ユーザー指定）。
+// 「クラブレコード」タブと同じスコープ）。scripts/aggregate-league-rankings.ts を夜間実行で毎晩実行して作り直す
+// （2026-09-25から。それまでは手動実行。DESIGN.md 143-4）。
 
 /** レギュラーシーズンのみ/プレーオフのみ/合算。src/lib/gameType.tsのSeasonGameTypeFilterと同じ3値
  * （shared/types.tsは他のshared/*.tsに依存しない方針のため、型エイリアスは重複定義している） */
@@ -1535,7 +1534,7 @@ export interface LeagueRecordEntry {
 
 export interface LeaguePlayerRankEntry {
   value: number;
-  /** リーグ全選手中の順位（1位が最高値）。同値の場合はplayerId昇順で決定的にタイブレークする */
+  /** リーグ全選手中の順位（1位が最高値）。同じ値は同じ順位で、次の順位はその分飛ばす（1位・2位・2位・4位。DESIGN.md 143-3） */
   rank: number;
   /** その項目・そのgameTypeでランキング対象になった選手の総数（出場記録が無い選手は対象外） */
   totalPlayers: number;

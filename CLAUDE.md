@@ -19,6 +19,8 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   ポストシーズン名称）
 - 95章・99章: 選択中の条件のタイトル・画像ファイル名への反映
 - 105章: フィルタUI（NBA Stats型）。105-15・105-17 画像出力
+- 143章: クォーター別・前後半別の記録と1試合平均。143-3 順位の付け方（同じ値は同じ順位・次は飛ばす）、
+  143-4 歴代記録の順位のバッチ（`aggregate-league-rankings.ts`・`aggregate-league-player-rankings.ts`）を夜間実行で毎晩実行
 
 ## 作業の心得
 
@@ -69,6 +71,10 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   ポゼッションを数えて試合ログに保存し、選手の%系（%PTS・%FGM・%3PM等）・USG%・ラインナップの実ポゼッション・選手のAST%（NBA式、
   分子はFGMにつながったアシストのみ）・個人のOn-Court Foreign（本人を含む人数。除外ルールはチームと同じ処理の中で揃え、
   検算は「選手全員の秒数の合計＝チームの秒数×5」。設計書141章）をまとめて入れる。出場時間の比による近似式は使わない
+- 歴代記録の順位（`league-team-rankings.json`・`league-player-rankings.json`）は夜間実行で毎晩作り直す（内容が変わらない日は
+  書き換えない。設計書143-4）。バッチや `aggregate.ts` のロジックを変えて全シーズンを再集計したときは、夜間を待たずに
+  `npm run aggregate:league-rankings`・`npm run aggregate:league-player-rankings` も実行してからコミットする
+- 順位は「同じ値は同じ順位、次は飛ばす（1位・2位・2位・4位）」に揃えている（設計書143-3）。新しく順位を出すときもこの形にする
 - 5カテゴリタブ間で同じ項目は重複させない。EFF・+/-はトラディショナル、eFG%・TS%はアドバンスドに
   置く。列定義は7系統（`BoxscoreTable.tsx`のCOLUMNS_BY_TAB、`playerSeasonBoxscore.ts`の
   SEASON_BOX_COLUMNS、`PlayersListPage.tsx`のローカル定義、`TeamDetailPage.tsx`の

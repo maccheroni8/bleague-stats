@@ -743,6 +743,11 @@ const EXTRA_TEAM_NAMES: Record<string, string> = {
   "753": "ライジングゼファー福岡",
 };
 
+/** 歴代記録のファイルを最後に書き換えた日（日本時間）。内容に変化が無い日は書き換えないので、最後に順位や値が変わった日になる */
+function formatRankingsUpdatedAt(iso: string): string {
+  return new Date(iso).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
+}
+
 function leagueTeamDisplayName(teamId: string): string {
   return TEAM_NAMES[teamId] ?? EXTRA_TEAM_NAMES[teamId] ?? teamId;
 }
@@ -841,8 +846,8 @@ function LeagueRecordsTab() {
   return (
     <div>
       <p className="page-subtitle">
-        過去在籍した全{totalTeams}クラブ横断のランキング（{rankings.generatedAt.slice(0, 10)}
-        時点。手動バッチで随時更新）。チーム名の下は現在の所属カテゴリ
+        過去在籍した全{totalTeams}クラブ横断のランキング（毎日1回、前日までの試合結果を取り込んだあとに作り直します。最終更新
+        {" "}{formatRankingsUpdatedAt(rankings.generatedAt)}）。チーム名の下は現在の所属カテゴリ
         {isPremierRecord &&
           "。「B.PREMIER（旧B1）レコード」はクラブ単位の自己ベストではなく、リーグ史上の個々の試合・シーズンをそのまま順位付けしたもの（同一クラブが複数回登場しうる）。ホーム/アウェイ限定版は対象外"}
       </p>

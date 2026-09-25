@@ -697,11 +697,12 @@ interface TeamRankResult {
 }
 
 /** リーグ全チーム中でのteamの順位を返す（1位=最良）。higherIsBetterがfalseの項目は昇順で評価する */
+/** そのシーズンのリーグ内順位。同じ値は同じ順位にし、次の順位はその分飛ばす（1位・2位・2位・4位。歴代記録と同じ。DESIGN.md 143-3） */
 function rankAmongTeams(team: TeamSummary, allTeams: TeamSummary[], def: TeamHeaderStatDef): TeamRankResult {
   const total = allTeams.length;
-  const sorted = [...allTeams].sort((a, b) => (def.higherIsBetter ? def.value(b) - def.value(a) : def.value(a) - def.value(b)));
-  const rank = sorted.findIndex((t) => t.teamId === team.teamId) + 1;
-  return { rank, total };
+  const value = def.value(team);
+  const better = allTeams.filter((t) => (def.higherIsBetter ? def.value(t) > value : def.value(t) < value)).length;
+  return { rank: better + 1, total };
 }
 
 function formatTeamRank({ rank, total }: TeamRankResult): string {
@@ -2113,7 +2114,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const { data: playersMaster } = useJsonData(() => fetchPlayersMaster(), []);
   const masterById = useMemo(() => new Map((playersMaster ?? []).map((p) => [p.playerId, p])), [playersMaster]);
   // 通算成績・クラブレコードの歴代クラブ横断順位（Phase H7）。scripts/aggregate-league-rankings.tsが
-  // 手動実行のバッチ処理で生成する単一ファイルのため、ファイルが未生成でもfetchJsonが
+  // 夜間実行で作り直す単一ファイル。ファイルが未生成でもfetchJsonが
   // エラーを投げるだけでページ全体は壊れない（leagueRankingsがnullのまま＝順位バッジ非表示になる）
   const { data: leagueRankings } = useJsonData(() => fetchLeagueTeamRankings(), []);
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
