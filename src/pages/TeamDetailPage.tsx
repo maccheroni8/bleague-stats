@@ -92,7 +92,7 @@ import {
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { HeightWeightNote } from "../components/HeightWeightNote";
-import { ageForSeason } from "../lib/age";
+import { AGE_BASE_NOTE, ageForSeason } from "../lib/age";
 import {
   classificationLabels,
   composeLabels,
@@ -4377,6 +4377,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 <StatTile label="平均年齢" value={avgAge != null ? `${formatDecimal(avgAge)}歳` : "-"} />
               </div>
               {(avgHeightCm != null || avgWeightKg != null) && <HeightWeightNote season={season} />}
+              {avgAge != null && <p className="rule-change-footnote">※ {AGE_BASE_NOTE}</p>}
             </>
           )}
 

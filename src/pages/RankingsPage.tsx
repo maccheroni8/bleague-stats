@@ -96,7 +96,7 @@ import {
 } from "../lib/conditionLabels";
 import type { PeriodRangeValue } from "../lib/periodRange";
 import { HeightWeightNote } from "../components/HeightWeightNote";
-import { ageBaseDate, ageForSeason, formatBaseDateLabel, todayBaseDateLabel } from "../lib/age";
+import { AGE_BASE_NOTE, ageBaseDateLabel, ageForSeason, todayBaseDateLabel } from "../lib/age";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import type { PlayerGameLog, PlayerSummary, TeamColors, TeamForcedTurnovers, TeamGameLog, TeamSummary } from "../../shared/types";
@@ -191,11 +191,6 @@ interface RankedListProps<T> {
   compact?: boolean;
   /** 項目名の説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */
   statScope?: StatScope;
-  /**
-   * trueのとき、同じ値は同じ順位にし次の順位を飛ばす（1位・2位・2位・4位）。limit の境目で同じ順位が続く分は、
-   * 「同じ順位のほか◯人を表示」で広げる（回数のように同じ値が多い項目用。キャリアのカテゴリ）
-   */
-  tieRanks?: boolean;
 }
 
 /** シューティングの項目（キー「{シュート種別}_2pm」等）を、シュート種別ごとのグループにする（項目数が多いため） */
@@ -225,7 +220,6 @@ function RankedList<T>({
   limit,
   compact,
   statScope = "player",
-  tieRanks = false,
 }: RankedListProps<T>) {
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
   // ソート方向は「値の大小」ではなく「良い/悪い」の向き（def.higherIsBetter）を基準にした
@@ -246,16 +240,18 @@ function RankedList<T>({
 
   const factor = sortDir === "asc" ? 1 : -1;
   const sorted = [...rows].sort((a, b) => (def.value(a) - def.value(b)) * factor);
-  const ranks = sorted.map((row) => def.value(row));
+  // 順位（DESIGN.md 146章）: 同じ値は同じ順位にし、次の順位はその分飛ばす（1位・2位・2位・4位）。
+  // 同じかどうかは画面に表示している値（def.format。小数は丸めた後）で判定する。limit の境目で同じ順位が続く分は、
+  // 「同じ順位のほか◯人を表示」で広げる
+  const ranks = sorted.map((row) => def.format(row));
   const rankAt = (i: number): number => {
-    if (!tieRanks) return i + 1;
     let j = i;
     while (j > 0 && ranks[j - 1] === ranks[i]) j -= 1;
     return j + 1;
   };
   // 同じ順位が境目をまたぐ分（limit より後ろで、limit 番目と同じ値の行）
   let tieEnd = limit ?? sorted.length;
-  if (tieRanks && limit !== undefined && limit > 0) {
+  if (limit !== undefined && limit > 0) {
     while (tieEnd < sorted.length && ranks[tieEnd] === ranks[limit - 1]) tieEnd += 1;
   }
   const hiddenTies = limit !== undefined ? Math.max(0, Math.min(tieEnd, sorted.length) - limit) : 0;
@@ -313,7 +309,7 @@ function RankedList<T>({
       </table>
       {hiddenTies > 0 && (
         <button className="load-more-button" type="button" onClick={() => setTiesExpanded((v) => !v)}>
-          {tiesExpanded ? `上位${limit}人だけを表示` : `同じ順位のほか${hiddenTies}人を表示`}
+          {tiesExpanded ? `上位${limit}${statScope === "team" ? "チーム" : "人"}だけを表示` : `同じ順位のほか${hiddenTies}${statScope === "team" ? "チーム" : "人"}を表示`}
         </button>
       )}
     </div>
@@ -816,7 +812,7 @@ const EXTRA_ADVANCED_PLAYER_ITEMS: PlayerRankItem[] = PLAYER_STAT_DEFS.filter((d
  * 生年月日欠損）は0扱いで下位に並べず、ランキングから除外する（rowsのuseMemo参照）。
  * 身長・体重はplayers-master.json由来の現在値を全シーズンに適用しており当時の記録ではない
  * （DESIGN.md 101章。終了済みシーズンはHeightWeightNoteで断る）。年齢はageForSeason()
- * （終了済みシーズンは開幕時点、進行中は今日。DESIGN.md 102章）
+ * （そのシーズンの1月15日時点。DESIGN.md 146章）
  */
 function buildProfileItems(season: string): PlayerRankItem[] {
   return [
@@ -1139,12 +1135,12 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   };
 
   // 「プロフィール」カテゴリの基準日ラベル（表・画像出力に出す）。年齢はageForSeason()の基準日
-  // （終了済みシーズンは開幕時点、進行中は今日）。身長・体重はマスタの現在値のため常に今日
+  // （そのシーズンの1月15日。DESIGN.md 146章）。身長・体重はマスタの現在値のため常に今日
   // （終了済みシーズンでは、当時の記録ではない旨をHeightWeightNoteで別途断る）
   const profileBaseDateLabel =
     category === "profile"
       ? selectedItem.key === "age"
-        ? formatBaseDateLabel(ageBaseDate(season))
+        ? ageBaseDateLabel(season)
         : todayBaseDateLabel()
       : null;
 
@@ -1355,9 +1351,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" />}
               limit={PLAYER_RANK_TOP_N}
               compact
-              tieRanks={category === "career"}
             />
             {category === "profile" && selectedItem.key !== "age" && <HeightWeightNote season={season} />}
+            {category === "profile" && selectedItem.key === "age" && <p className="rule-change-footnote">※ {AGE_BASE_NOTE}</p>}
             {category === "career" && <p className="rule-change-footnote">※ {CAREER_NOTE}</p>}
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
           </div>

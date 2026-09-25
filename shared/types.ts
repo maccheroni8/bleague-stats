@@ -1596,3 +1596,22 @@ export interface PlayerCareersFile {
   /** season → playerId → そのシーズン終了時点までの累計。そのシーズンに出場した選手だけを持つ */
   seasons: Record<string, Record<string, PlayerCareerCounts>>;
 }
+
+// ---- data/season-profiles.json（Wayback Machine の当時の選手ページから読んだ身長・体重・ポジション。
+// scripts/scrape-wayback-profiles.ts。DESIGN.md 146章）----
+
+export interface SeasonProfileEntry {
+  /** 使ったスナップショットの時刻（Wayback の YYYYMMDDhhmmss） */
+  snapshot: string;
+  heightCm?: number;
+  weightKg?: number;
+  position?: string;
+  /** 取得・読み取りに失敗したとき */
+  error?: string;
+}
+
+export interface SeasonProfilesFile {
+  generatedAt: string;
+  /** season → playerId → 当時の値。そのシーズン中（10月〜翌5月）のスナップショットが無い選手は持たない */
+  seasons: Record<string, Record<string, SeasonProfileEntry>>;
+}

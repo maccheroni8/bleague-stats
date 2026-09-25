@@ -140,7 +140,7 @@ import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { classificationGroup } from "../lib/classificationFilter";
 import { ComparisonTable, type ComparisonRow } from "./ComparePage";
 import { HeightWeightNote } from "../components/HeightWeightNote";
-import { ageForSeason } from "../lib/age";
+import { AGE_BASE_NOTE, ageForSeason } from "../lib/age";
 import { seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
 import { statDescription } from "../lib/statDescriptions";
 import { PlayerSeasonScoringChart } from "../components/PlayerScoringShareCharts";
@@ -2252,6 +2252,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             )}
           </div>
           {(player.heightCm || player.weightKg) && <HeightWeightNote season={season} />}
+          {player.birthDate && <p className="rule-change-footnote">※ {AGE_BASE_NOTE}</p>}
           {playerAwardList.length > 0 && (
             <div className="player-awards">
               <div className="player-awards-title">個人賞受賞歴</div>
