@@ -6367,3 +6367,140 @@ table.sortable-table tbody tr:not(.pinned-row) + tr.pinned-row td {
   margin: 2px 0 0;
   line-height: 1.6;
 }
+
+/* スタッツの条件（StatConditionsEditor、DESIGN.md 162章）。詳細フィルタの一番下に幅いっぱいで置く。
+   1行＝項目・以上/以下・値・単位・削除。スマホ幅では項目を1段目、残りを2段目に折る */
+.stat-conditions {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.stat-conditions.disabled {
+  opacity: 0.55;
+}
+
+.stat-conditions-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.stat-conditions-title {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stat-conditions-match {
+  margin-bottom: 0;
+}
+
+.stat-conditions-match button {
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
+.stat-condition-row {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) 84px 96px max-content 32px;
+  justify-content: start;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.stat-condition-row select,
+.stat-condition-row input {
+  width: 100%;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.stat-condition-row input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-condition-row input.invalid {
+  border-color: var(--danger, #d33);
+}
+
+.stat-condition-unit {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-condition-remove {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stat-conditions-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+}
+
+.stat-conditions-add,
+.stat-conditions-clear {
+  padding: 4px 2px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stat-conditions-clear {
+  font-weight: 400;
+  text-decoration: underline;
+}
+
+.stat-conditions-add:disabled,
+.stat-conditions-clear:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+@media (max-width: 560px) {
+  .stat-condition-row {
+    grid-template-columns: 76px 84px minmax(0, 1fr) 32px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border);
+  }
+
+  .stat-condition-row .stat-condition-item {
+    grid-column: 1 / -1;
+  }
+
+  /* スマホで入力欄にフォーカスしたとき画面が拡大されないよう16px */
+  .stat-condition-row select,
+  .stat-condition-row input {
+    font-size: 16px;
+  }
+}
+
+/* 表のタイトルの下、スタッツの条件の行 */
+.condition-title-stat {
+  margin-top: 2px;
+}

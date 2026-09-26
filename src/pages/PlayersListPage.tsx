@@ -8,6 +8,7 @@ import {
   fetchGameSummaries,
   fetchLeaguePlayerRankings,
   fetchPlayerAwards,
+  fetchPlayerCareers,
   fetchPlayerGameLogs,
   fetchPlayers,
   fetchPlayersMaster,
@@ -15,7 +16,7 @@ import {
   fetchTeams,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { CATEGORY_LABELS } from "../lib/categoryLabels";
+import { BOX_CATEGORY_TABS, CATEGORY_LABELS, type BoxCategoryKey } from "../lib/categoryLabels";
 import { useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
   DivisionHistoryFile,
@@ -28,6 +29,7 @@ import type {
   PlayerSummary,
   TeamGameLog,
 } from "../../shared/types";
+import type { PlayerCareerCounts } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { FilterBar } from "../components/FilterBar";
 import {
@@ -100,6 +102,23 @@ import {
   type PlayerRecentFormRecentN,
 } from "../lib/tableThresholds";
 import { usePageState } from "../lib/pageStateCache";
+import { statConditionsBarExtra } from "../components/StatConditionsEditor";
+import {
+  activeStatConditionKeys,
+  buildStatConditionItems,
+  DEFAULT_STAT_CONDITIONS,
+  filterByStatConditions,
+  hasActiveStatConditions,
+  statConditionsTitle,
+  type StatConditionItemDef,
+  type StatConditionsState,
+} from "../lib/statConditions";
+import {
+  CAREER_CONDITION_KEY_PREFIX,
+  mapConditionDefs,
+  playerCareerConditionDefs,
+  playerProfileConditionDefs,
+} from "../lib/playerConditionItems";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import {
   buildSeasonBoxscoreCtx,
@@ -502,6 +521,99 @@ function matchesTeamFilter(p: PlayerSummary, selected: Set<string>): boolean {
   return selected.size === 0 || selected.has(p.teamId);
 }
 
+/**
+ * 個人一覧のスタッツの条件に選べる項目（DESIGN.md 162章）。今のタブに限らず、Traditional〜Scoring・Shooting・Profile・Career から選べる。
+ * Traditional〜Scoring は表と同じ列（絞り込みの有無で列の作り方が変わるのも表と同じ）。PER・PPP は表でもシーズン通算の値
+ */
+const SEASON_ONLY_KEYS = new Set(["per", "ppp"]);
+
+function playerListTabColumns(tab: BoxCategoryKey, mode: SeasonDisplayMode, filterActive: boolean): Column<PlayerRow>[] {
+  const cols =
+    tab === "traditional"
+      ? filterActive
+        ? buildCtxColumns(SEASON_TRADITIONAL_COLUMNS, mode)
+        : buildTraditionalColumns(mode)
+      : tab === "advanced"
+        ? filterActive
+          ? buildCtxColumns(SEASON_ADVANCED_COLUMNS, mode)
+          : buildAdvancedColumns(mode)
+        : tab === "misc"
+          ? buildCtxColumns(SEASON_MISC_COLUMNS, mode)
+          : buildCtxColumns(SEASON_SCORING_COLUMNS, mode);
+  return cols.filter((c) => c.key !== "name" && c.key !== "team");
+}
+
+/** Misc・Scoring のタブにしかない項目（選手の試合ログの読み込みが要る） */
+function playerListKeysNeedingLogs(filterActive: boolean): Set<string> {
+  const light = new Set(
+    (["traditional", "advanced"] as const).flatMap((t) => playerListTabColumns(t, "perGame", filterActive).map((c) => c.key)),
+  );
+  return new Set(
+    (["misc", "scoring"] as const).flatMap((t) => playerListTabColumns(t, "perGame", filterActive).map((c) => c.key)).filter((k) => !light.has(k)),
+  );
+}
+
+function buildPlayerListConditionDefs(opts: {
+  mode: SeasonDisplayMode;
+  filterActive: boolean;
+  shotTypeKeys: string[];
+  season: string;
+  careerOf: (p: PlayerSummary) => PlayerCareerCounts | undefined;
+}): StatConditionItemDef<PlayerRow>[] {
+  const { mode, filterActive, shotTypeKeys, season, careerOf } = opts;
+  const otherMode: SeasonDisplayMode = mode === "total" ? "perGame" : "total";
+  const text = (c: Column<PlayerRow>, r: PlayerRow) => (c.format ? c.format(r) : String(c.sortValue(r)));
+  const defs: StatConditionItemDef<PlayerRow>[] = [];
+  for (const tab of BOX_CATEGORY_TABS) {
+    const cols = playerListTabColumns(tab.key, mode, filterActive);
+    const others = playerListTabColumns(tab.key, otherMode, filterActive);
+    // 絞り込み中は表から消える PER・PPP 等（シーズン通算の値だけの列）も選べるようにする
+    const seasonCols =
+      filterActive && (tab.key === "traditional" || tab.key === "advanced")
+        ? playerListTabColumns(tab.key, mode, false).filter((c) => !cols.some((x) => x.key === c.key))
+        : [];
+    for (const c of cols) {
+      const other = others.find((o) => o.key === c.key);
+      defs.push({
+        key: c.key,
+        label: c.label,
+        group: tab.label,
+        display: (r) => text(c, r),
+        displayOther: other ? (r) => text(other, r) : undefined,
+        seasonTotal: SEASON_ONLY_KEYS.has(c.key),
+      });
+    }
+    for (const c of seasonCols) {
+      defs.push({ key: c.key, label: c.label, group: tab.label, display: (r) => text(c, r), seasonTotal: true });
+    }
+  }
+  const shootMode = mode === "total" ? "total" : "perGame";
+  const shooting = shotTypeEntityColumns<PlayerRow>(shotTypeKeys, (r) => r.player.shotTypes, shootMode, (r) => r.player.gamesPlayed);
+  const shootingOther = shotTypeEntityColumns<PlayerRow>(
+    shotTypeKeys,
+    (r) => r.player.shotTypes,
+    shootMode === "total" ? "perGame" : "total",
+    (r) => r.player.gamesPlayed,
+  );
+  shooting.forEach((c, i) => {
+    const other = shootingOther[i];
+    defs.push({
+      key: c.key,
+      label: c.label,
+      group: CATEGORY_LABELS.shooting,
+      display: (r) => text(c, r),
+      displayOther: other ? (r) => text(other, r) : undefined,
+      seasonTotal: true,
+    });
+  });
+  const pick = (r: PlayerRow) => r.player;
+  defs.push(
+    ...mapConditionDefs(playerProfileConditionDefs(season), pick),
+    ...mapConditionDefs(playerCareerConditionDefs(careerOf), pick),
+  );
+  return defs;
+}
+
 function AllPlayersStatsTab({ season }: { season: string }) {
   const { data: players, loading: playersLoading, error: playersError } = useJsonData(() => fetchPlayers(season), [season]);
   const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
@@ -534,6 +646,16 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   // +プレーオフ）だったが、他ページと同じ3値に揃えた（DESIGN.md 105章）
   const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
   const filterActive = !isDefaultFilter(situationalFilter) || gameType !== "regular";
+  // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する（シーズンを変えても残す）
+  const [statConditions, setStatConditions] = usePageState<StatConditionsState>("players:stats:statConditions", DEFAULT_STAT_CONDITIONS);
+  const conditionKeys = activeStatConditionKeys(statConditions);
+  // Misc・Scoringのタブにしかない項目は、選手の試合ログから出す（読み込みが要る）
+  const conditionNeedsLogs = conditionKeys.some((k) => playerListKeysNeedingLogs(filterActive).has(k));
+  const conditionNeedsCareers = conditionKeys.some((k) => k.startsWith(CAREER_CONDITION_KEY_PREFIX));
+  const { data: careers, loading: careersLoading } = useJsonData(
+    () => (conditionNeedsCareers ? fetchPlayerCareers() : Promise.resolve(null)),
+    [conditionNeedsCareers],
+  );
 
   const [gameLogs, setGameLogs] = useState<Map<string, PlayerGameLog[]> | null>(null);
   const [gameLogsLoading, setGameLogsLoading] = useState(false);
@@ -568,7 +690,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   }, [minRatio, maxRatio, classificationFilter, teamFilter, positionFilter]);
 
   useEffect(() => {
-    const needsLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || filterActive;
+    const needsLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || filterActive || conditionNeedsLogs;
     if (!needsLogs || !players || gameLogsFetchedForSeasonRef.current === season) return;
     gameLogsFetchedForSeasonRef.current = season;
     let cancelled = false;
@@ -591,7 +713,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     return () => {
       cancelled = true;
     };
-  }, [tab, players, season, filterActive]);
+  }, [tab, players, season, filterActive, conditionNeedsLogs]);
 
   useEffect(() => {
     if (!filterActive || !teams || teamGameLogsFetchedForSeasonRef.current === season) return;
@@ -726,7 +848,25 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     ],
   );
 
-  const shootingRows = rows.filter((r) => r.player.shotTypes);
+  // スタッツの条件の項目（今のタブに限らず全カテゴリ）と、条件で絞り込んだ行。判定は表と同じ表示の値で行う
+  const conditionItems = useMemo(() => {
+    const allShotTypeKeys = sortShotTypeKeys([...new Set((players ?? []).flatMap((p) => Object.keys(p.shotTypes ?? {})))]);
+    const defs = buildPlayerListConditionDefs({
+      mode: displayMode,
+      filterActive,
+      shotTypeKeys: allShotTypeKeys,
+      season,
+      careerOf: (p) => careers?.seasons[season]?.[p.playerId],
+    });
+    return buildStatConditionItems(defs, rows, displayMode);
+  }, [players, displayMode, filterActive, season, careers, rows]);
+  const conditionActive = tab !== "scoringComposition" && hasActiveStatConditions(statConditions, conditionItems);
+  const conditionedRows = useMemo(
+    () => (conditionActive ? filterByStatConditions(rows, statConditions, conditionItems) : rows),
+    [conditionActive, rows, statConditions, conditionItems],
+  );
+
+  const shootingRows = conditionedRows.filter((r) => r.player.shotTypes);
   const shotTypeKeys = sortShotTypeKeys([...new Set(shootingRows.flatMap((r) => Object.keys(r.player.shotTypes ?? {})))]);
   const shootingColumns: Column<PlayerRow>[] = [
     nameColumn,
@@ -754,10 +894,11 @@ function AllPlayersStatsTab({ season }: { season: string }) {
             ? buildCtxColumns(SEASON_MISC_COLUMNS, displayMode)
             : buildCtxColumns(SEASON_SCORING_COLUMNS, displayMode);
 
-  const tableRows = tab === "shooting" ? shootingRows : rows;
+  const tableRows = tab === "shooting" ? shootingRows : conditionedRows;
   const defaultSort = DEFAULT_SORT[tab];
-  const needsGameLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || filterActive;
+  const needsGameLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || filterActive || conditionNeedsLogs;
   const gameDataLoading = needsGameLogs && (gameLogsLoading || !gameLogs);
+  const careersDataLoading = conditionActive && conditionNeedsCareers && (careersLoading || !careers);
   const teamDataLoading = filterActive && (teamGameLogsLoading || !teamGameLogsByTeam);
 
   if (playersLoading) return <p className="loading">読み込み中...</p>;
@@ -894,6 +1035,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     setGameType("regular");
     setDisplayMode("perGame");
     setSituationalFilter(DEFAULT_SITUATIONAL_FILTER);
+    setStatConditions({ ...statConditions, conditions: [] });
   };
 
   return (
@@ -902,7 +1044,16 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         {season}シーズン・全{players.length}選手
       </p>
 
-      <FilterBar axes={filterAxes} stateKey="players:stats" onClearAll={clearAllFilters} />
+      <FilterBar
+        axes={filterAxes}
+        stateKey="players:stats"
+        onClearAll={clearAllFilters}
+        advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, {
+          defaultKey: "min",
+          disabledReason:
+            tab === "scoringComposition" ? `${CATEGORY_LABELS.scoringComposition}はグラフのため、スタッツの条件は表のタブでだけ効きます。` : undefined,
+        })}
+      />
       {filterActive && tab !== "shooting" && (
         <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全選手スタッツ" scope="試合種別・シチュエーション別の絞り込みの選択中は、試合ログから集計し直した値です（シューティングは対象外）。" />
       )}
@@ -915,7 +1066,11 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         ))}
       </div>
 
-      <ConditionTitle title={statsTitle.title} conditions={statsTitle.conditions} />
+      <ConditionTitle
+        title={statsTitle.title}
+        conditions={statsTitle.conditions}
+        statConditions={tab === "scoringComposition" ? undefined : statConditionsTitle(statConditions, conditionItems)}
+      />
 
       {tab === "scoringComposition" ? (
         gameDataLoading ? (
@@ -967,9 +1122,9 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         )
       ) : tab === "shooting" && !yahooPbpSupported ? (
         <p className="empty-message">このシーズンのデータには対応していません</p>
-      ) : gameDataLoading || teamDataLoading ? (
+      ) : gameDataLoading || teamDataLoading || careersDataLoading ? (
         <p className="loading">読み込み中...</p>
-      ) : filteredPlayers.length === 0 ? (
+      ) : filteredPlayers.length === 0 || (conditionActive && tableRows.length === 0) ? (
         <p className="empty-message">条件に該当する選手がいません</p>
       ) : (
         <>

@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
+import { statConditionsBarExtra } from "../components/StatConditionsEditor";
+import {
+  buildStatConditionItems,
+  DEFAULT_STAT_CONDITIONS,
+  filterByStatConditions,
+  hasActiveStatConditions,
+  statConditionsTitle,
+  type StatConditionsState,
+} from "../lib/statConditions";
+import { buildTeamConditionDefs } from "../lib/teamConditionItems";
 import { postseasonLabel } from "../../shared/gameType";
 import { PERIOD_KEYS, PERIOD_LABELS, PERIOD_RECORD_KINDS, periodRecordStatKey } from "../../shared/teamPeriodRecords";
 import { teamShortName } from "../../shared/teamNames";
@@ -93,7 +103,7 @@ import {
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
-import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
+import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import {
   CAREER_TOTAL_DEFS,
   TEAM_RECORD_STATS,
@@ -337,6 +347,52 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     };
   }, [rows]);
 
+  // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する。表のタブ（4カテゴリ・Shooting・Forced TOV）の行を絞り込む。
+  // Shooting・Forced TOV のタブでは上の絞り込みが効かないため、絞り込みの無いレギュラーシーズン全体の値で判定する
+  const [statConditions, setStatConditions] = usePageState<StatConditionsState>("teams:stats:statConditions", DEFAULT_STAT_CONDITIONS);
+  const mainTab = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
+  const conditionTab = mainTab || boxTab === "shooting" || boxTab === "forcedTurnovers";
+  const seasonRows: AllTeamsRow[] = useMemo(() => {
+    if (!teams || !gameLogsByTeam) return [];
+    return teams.map((team) => {
+      const logs = filterByGameType(gameLogsByTeam.get(team.teamId) ?? [], "regular");
+      const wins = logs.filter((g) => g.win).length;
+      return { team, gamesPlayed: logs.length, wins, losses: logs.length - wins, totals: sumTeamGameLogs(logs) };
+    });
+  }, [teams, gameLogsByTeam]);
+  const conditionRows = mainTab ? rows : seasonRows;
+  const teamById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t])), [teams]);
+  const conditionItems = useMemo(
+    () =>
+      buildStatConditionItems(
+        buildTeamConditionDefs({
+          mode: displayMode,
+          columnsFor: (tab, mode, p) =>
+            tab === "traditional"
+              ? buildTraditionalColumns(mode, p)
+              : tab === "advanced"
+                ? buildAdvancedColumns(mode, p)
+                : tab === "misc"
+                  ? buildMiscColumns(mode, p)
+                  : buildScoringColumns(mode, p, paintSupported),
+          sampleRows: conditionRows,
+          shotTypesOf: (r) => teamById.get(r.team.teamId)?.shotTypes,
+          shotGamesOf: (r) => teamById.get(r.team.teamId)?.gamesPlayed ?? 0,
+          shotTypeKeys: SHOT_TYPE_DISPLAY_ORDER,
+        }),
+        conditionRows,
+        displayMode,
+      ),
+    [displayMode, paintSupported, conditionRows, teamById],
+  );
+  const conditionActive = conditionTab && hasActiveStatConditions(statConditions, conditionItems);
+  const passingTeamIds = useMemo(
+    () =>
+      conditionActive ? new Set(filterByStatConditions(conditionRows, statConditions, conditionItems).map((r) => r.team.teamId)) : null,
+    [conditionActive, conditionRows, statConditions, conditionItems],
+  );
+  const passes = (teamId: string) => !passingTeamIds || passingTeamIds.has(teamId);
+
   const columns = useMemo(() => {
     switch (boxTab) {
       case "traditional":
@@ -355,7 +411,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     }
   }, [boxTab, displayMode, teamPerspective, paintSupported]);
 
-  const shootingRows: ShootingRow[] = (teams ?? []).filter((t) => t.shotTypes).map((team) => ({ team }));
+  const shootingRows: ShootingRow[] = (teams ?? []).filter((t) => t.shotTypes && passes(t.teamId)).map((team) => ({ team }));
   const shotTypeKeys = sortShotTypeKeys([...new Set(shootingRows.flatMap((r) => Object.keys(r.team.shotTypes ?? {})))]);
   const shootingColumns: Column<ShootingRow>[] = [
     {
@@ -380,7 +436,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
 
   const turnoverRows: TurnoverRow[] = (teams ?? []).flatMap((team) => {
     const data = turnoverPerspective === "forced" ? team.forcedTurnovers : team.turnoversCommitted;
-    return data ? [{ team, data }] : [];
+    return data && passes(team.teamId) ? [{ team, data }] : [];
   });
   // FG試投構成（Scoring %）。teams.json にペイント内外の試投数が無いため、各チームの試合ログのレギュラーシーズン分を合計する
   // （ペイント内外はプレーバイプレーの公式の区分）。リーグ平均は全チームの合計を延べ試合数で割る
@@ -469,6 +525,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     setTeamPerspective("own");
     setDisplayMode("perGame");
     setFilter({ range: { kind: "all" } });
+    setStatConditions({ ...statConditions, conditions: [] });
   };
 
   // 主表の見出し。カテゴリごとに実際に効いている軸だけを条件として並べる（シューティング以降の
@@ -496,7 +553,15 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     <div>
       <p className="page-subtitle">全{teams.length}チーム</p>
 
-      <FilterBar axes={filterAxes} stateKey="teams:stats" onClearAll={clearAllFilters} />
+      <FilterBar
+        axes={filterAxes}
+        stateKey="teams:stats"
+        onClearAll={clearAllFilters}
+        advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, {
+          defaultKey: "pts",
+          disabledReason: conditionTab ? undefined : "このタブはグラフのため、スタッツの条件は表のタブ（Traditional〜Forced TOV）でだけ効きます。",
+        })}
+      />
       <div>
         <div className="tab-bar">
           {BOX_TABS.map((t) => (
@@ -540,7 +605,11 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         </div>
       </div>
 
-      <ConditionTitle title={statsTitle.title} conditions={statsTitle.conditions} />
+      <ConditionTitle
+        title={statsTitle.title}
+        conditions={statsTitle.conditions}
+        statConditions={conditionTab ? statConditionsTitle(statConditions, conditionItems) : undefined}
+      />
 
       {boxTab === "shooting" ? (
         !yahooPbpSupported ? (
@@ -685,7 +754,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               statScope="team"
               key={`${boxTab}-${teamPerspective}`}
               columns={columns}
-              rows={rows}
+              rows={passingTeamIds ? rows.filter((r) => passes(r.team.teamId)) : rows}
               rowKey={(r) => r.team.teamId}
               defaultSortKey={DEFAULT_SORT_KEY[boxTab]}
               linkTo={(r) => `/teams/${r.team.teamId}`}

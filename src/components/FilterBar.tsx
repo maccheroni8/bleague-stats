@@ -29,6 +29,11 @@ interface FilterBarProps {
    * 通常のバーは1列を最大200pxに抑えて横1列に収めている
    */
   wide?: boolean;
+  /**
+   * 詳細フィルタの一番下に幅いっぱいで置く追加の欄（スタッツの条件。DESIGN.md 162章）と、その「適用中」のチップ。
+   * chip があるときは詳細フィルタのバッジの数にも数える
+   */
+  advancedExtra?: { content: ReactNode; chip?: { label: string; value: string; onClear: () => void } };
 }
 
 /** ボタン（summary表示）を押すとポップオーバー（children）を開く共通部品。外側クリック・Escで閉じる */
@@ -210,13 +215,16 @@ function FilterField({ axis }: { axis: FilterAxis }) {
  * 「詳細フィルタ」に折りたたみ、既定値から変更した軸だけをチップ（×で解除）として出す。
  * 表・画像出力（.export-target）の外に置く。画像に写る「選択中の条件」は ConditionTitle が担う
  */
-export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact = false, wide = false }: FilterBarProps) {
+export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact = false, wide = false, advancedExtra }: FilterBarProps) {
   const [advancedOpen, setAdvancedOpen] = usePageState<boolean>(`${stateKey}:advancedOpen`, false);
   const panelId = useId();
   const primary = axes.filter((a) => a.tier === "primary");
   const advanced = simple ? [] : axes.filter((a) => a.tier === "advanced");
   const chips = simple ? [] : axes.filter(isAxisChipped);
-  const advancedChangedCount = advanced.filter(isAxisChipped).length;
+  const extra = simple ? undefined : advancedExtra;
+  const extraChip = extra?.chip;
+  const advancedChangedCount = advanced.filter(isAxisChipped).length + (extraChip ? 1 : 0);
+  const hasAdvanced = advanced.length > 0 || !!extra;
   const disabledReasons = [
     ...new Set(axes.filter((a) => a.disabledReason && !a.quietDisabled).map((a) => a.disabledReason as string)),
   ];
@@ -235,7 +243,7 @@ export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact 
         ))}
       </div>
       {disabledReasons.length > 0 && <p className="filter-bar-note">{disabledReasons.join(" ")}</p>}
-      {advanced.length > 0 && (
+      {hasAdvanced && (
         <div className="filter-bar-advanced-row">
           <button
             type="button"
@@ -250,16 +258,19 @@ export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact 
           </button>
         </div>
       )}
-      {advanced.length > 0 && advancedOpen && (
+      {hasAdvanced && advancedOpen && (
         <div className="filter-bar-advanced" id={panelId}>
-          <div className="filter-bar-grid">
-            {advanced.map((a) => (
-              <FilterField key={a.id} axis={a} />
-            ))}
-          </div>
+          {advanced.length > 0 && (
+            <div className="filter-bar-grid">
+              {advanced.map((a) => (
+                <FilterField key={a.id} axis={a} />
+              ))}
+            </div>
+          )}
+          {extra?.content}
         </div>
       )}
-      {chips.length > 0 && (
+      {(chips.length > 0 || extraChip) && (
         <div className="filter-chips">
           <span className="filter-chips-label">適用中</span>
           {chips.map((a) => (
@@ -276,6 +287,19 @@ export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact 
               </span>
             </button>
           ))}
+          {extraChip && (
+            <button
+              type="button"
+              className="filter-chip"
+              aria-label={`${extraChip.label}: ${extraChip.value}を解除`}
+              onClick={extraChip.onClear}
+            >
+              <b>{extraChip.label}:</b> {extraChip.value}
+              <span className="filter-chip-x" aria-hidden="true">
+                ×
+              </span>
+            </button>
+          )}
           {onClearAll && (
             <button type="button" className="filter-chips-clear" onClick={onClearAll}>
               すべてクリア

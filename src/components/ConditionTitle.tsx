@@ -13,10 +13,16 @@ export function ConditionTitle({
   title,
   conditions,
   section = false,
+  statConditions,
 }: {
   title: string;
   conditions: string[];
   section?: boolean;
+  /**
+   * スタッツの条件（DESIGN.md 162章）。ほかの条件と同じ行につなぐと「または」がどこまで掛かるか読めないため、
+   * 条件の行の下に別の行で出す。joiner は「・」（すべて満たす）か「 または 」（どれかを満たす）
+   */
+  statConditions?: { labels: string[]; joiner: string };
 }) {
   return (
     <div className={`condition-title${section ? " condition-title-section" : ""}`}>
@@ -27,6 +33,16 @@ export function ConditionTitle({
           {conditions.map((label, i) => (
             <Fragment key={`${i}:${label}`}>
               {i > 0 && LABEL_SEPARATOR}
+              <span className="condition-label">{label}</span>
+            </Fragment>
+          ))}
+        </p>
+      )}
+      {statConditions && statConditions.labels.length > 0 && (
+        <p className="condition-title-conditions condition-title-stat">
+          {statConditions.labels.map((label, i) => (
+            <Fragment key={`${i}:${label}`}>
+              {i > 0 && statConditions.joiner}
               <span className="condition-label">{label}</span>
             </Fragment>
           ))}
