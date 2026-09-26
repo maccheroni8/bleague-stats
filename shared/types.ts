@@ -656,6 +656,9 @@ export interface PlayerGameLog {
   opponentTeamName: string;
   isHome: boolean;
   win: boolean;
+  /** 所属チームから見た試合中の最大リード・最大ビハインド（延長戦を含む。TeamGameLog と同じ。DESIGN.md 150章） */
+  maxLead?: number;
+  maxDeficit?: number;
   isStarter: boolean;
   min: number;
   pts: number;
@@ -757,6 +760,10 @@ export interface TeamGameLog {
   opponentScore: number;
   win: boolean;
   gameType: GameType;
+  /** 試合中の最大リード（一度もリードしなければ0。延長戦を含む。shared/gameMargins.ts・DESIGN.md 150章）。プレーバイプレーが無い試合は無し */
+  maxLead?: number;
+  /** 試合中の最大ビハインド（一度もビハインドが無ければ0。延長戦を含む） */
+  maxDeficit?: number;
   /**
    * 1Q〜4Qの自チーム・相手の得点（長さ4。延長戦は含めない。shared/periodPoints.ts、DESIGN.md 143章）。
    * CSの前後半5分の特別な試合（2016-17・2017-18）は持たない。公式のスコアが欠けていて補えなかった区間は null

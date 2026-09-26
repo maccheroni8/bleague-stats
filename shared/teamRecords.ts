@@ -254,6 +254,21 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
     label: "外国籍・帰化・アジア得点",
     value: (g) => g.foreignPoints + g.naturalizedOrAsianPoints,
   },
+  // 試合中の最大ビハインド・最大リード（延長戦を含む。shared/gameMargins.ts・DESIGN.md 150章）。ワーストは意味を持たないので出さない
+  {
+    key: "comebackWin",
+    label: "最大点差からの逆転勝利",
+    value: (g) => g.maxDeficit ?? 0,
+    filter: (g) => g.win && (g.maxDeficit ?? 0) > 0,
+    worstEligible: false,
+  },
+  {
+    key: "blownLeadLoss",
+    label: "最大点差からの逆転負け",
+    value: (g) => g.maxLead ?? 0,
+    filter: (g) => !g.win && (g.maxLead ?? 0) > 0,
+    worstEligible: false,
+  },
 ];
 
 /**

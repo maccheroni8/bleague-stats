@@ -17,7 +17,9 @@ import { LEAGUE_VENUE_LABELS, periodLabels, type LeagueVenue } from "./condition
 import { CLASSIFICATION_GROUP_OPTIONS, type ClassificationGroupFilter } from "./classificationFilter";
 import type { PeriodRangeOption, PeriodRangeValue } from "./periodRange";
 import {
+  MARGIN_CONDITION_LABELS,
   RECENT_N_OPTIONS,
+  type MarginCondition,
   type SeasonHalfBoundary,
   type SituationalAndFilters,
   type SituationalFilter,
@@ -487,6 +489,17 @@ export function situationalAndAxes<T extends SituationalAndFilters>(
       { value: "weekend", label: "土日開催" },
     ], (f, v) => ({ ...f, weekday: v === "weekday" ? true : undefined, weekend: v === "weekend" ? true : undefined })),
   ];
+  // 試合中の点差（DESIGN.md 150章）
+  axes.push(
+    andAxis(
+      "s.margin",
+      "点差",
+      "advanced",
+      filter.margin ?? "",
+      (Object.keys(MARGIN_CONDITION_LABELS) as MarginCondition[]).map((k) => ({ value: k, label: MARGIN_CONDITION_LABELS[k] })),
+      (f, v) => ({ ...f, margin: v === "" ? undefined : (v as MarginCondition) }),
+    ),
+  );
   if (opponentWinRateSupported) {
     axes.push(
       andAxis("s.opponentWinRate", "対戦相手の勝率", "advanced", filter.opponentWinRate ?? "", [

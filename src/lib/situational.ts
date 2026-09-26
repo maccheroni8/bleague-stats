@@ -56,6 +56,38 @@ export interface SituationalAndFilters {
    * 0%/100%に振れやすく、対戦相手として意味のある強さの指標にならないため。DESIGN.md参照）
    */
   opponentWinRate?: "under50" | "atLeast50" | "atLeast60";
+  /**
+   * 試合中の点差（試合ログの maxLead・maxDeficit。延長戦を含む。DESIGN.md 150章）。1つだけ選ぶ。同じ試合がリードとビハインドの
+   * 両方の条件を満たすことはある。値が無い試合（プレーバイプレーが無い試合）はどの条件にも該当しない
+   */
+  margin?: MarginCondition;
+}
+
+export type MarginCondition = "lead10" | "lead20" | "trail10" | "trail20" | "close";
+
+export const MARGIN_CONDITION_LABELS: Record<MarginCondition, string> = {
+  lead10: "10点以上リードした",
+  lead20: "20点以上リードした",
+  trail10: "10点以上ビハインドした",
+  trail20: "20点以上ビハインドした",
+  close: "一度も10点差が開かなかった",
+};
+
+/** 試合中の点差の条件に該当するか（close は両チームとも最大リードが9点以下） */
+export function matchesMargin(g: { maxLead?: number; maxDeficit?: number }, condition: MarginCondition): boolean {
+  if (g.maxLead === undefined || g.maxDeficit === undefined) return false;
+  switch (condition) {
+    case "lead10":
+      return g.maxLead >= 10;
+    case "lead20":
+      return g.maxLead >= 20;
+    case "trail10":
+      return g.maxDeficit >= 10;
+    case "trail20":
+      return g.maxDeficit >= 20;
+    case "close":
+      return g.maxLead <= 9 && g.maxDeficit <= 9;
+  }
 }
 
 /**
@@ -111,7 +143,8 @@ export function isDefaultFilter(filter: SituationalFilter): boolean {
     !filter.newYear &&
     !filter.weekday &&
     !filter.weekend &&
-    !filter.opponentWinRate
+    !filter.opponentWinRate &&
+    !filter.margin
   );
 }
 
@@ -457,6 +490,8 @@ export function matchesSituationalAndFilters<
     isHome: boolean;
     opponentTeamId: string;
     scheduleKey: string;
+    maxLead?: number;
+    maxDeficit?: number;
   },
 >(
   g: T,
@@ -476,6 +511,7 @@ export function matchesSituationalAndFilters<
   if (filters.weekday && !isWeekdayGame(g.date)) return false;
   if (filters.weekend && !isWeekendGame(g.date)) return false;
   if (filters.opponentWinRate && !matchesOpponentWinRateTier(g, filters.opponentWinRate, opponentRecords)) return false;
+  if (filters.margin && !matchesMargin(g, filters.margin)) return false;
   return true;
 }
 

@@ -15,7 +15,7 @@
 // P=Q別/前後半、D=平均/合計/30分換算、V=自チーム/opp/+/-
 
 import type { PeriodRangeOption } from "./periodRange";
-import type { SeasonHalfBoundary, ShotChartGameFilters, SituationalAndFilters, SituationalFilter } from "./situational";
+import { MARGIN_CONDITION_LABELS, type SeasonHalfBoundary, type ShotChartGameFilters, type SituationalAndFilters, type SituationalFilter } from "./situational";
 import {
   SEASON_DISPLAY_MODE_LABELS,
   postseasonLabel,
@@ -76,6 +76,7 @@ function situationalAndFilterParts(filter: SituationalAndFilters): string[] {
   if (filter.opponentWinRate) {
     parts.push(filter.opponentWinRate === "under50" ? "対5割未満" : filter.opponentWinRate === "atLeast50" ? "対5割以上" : "対6割以上");
   }
+  if (filter.margin) parts.push(MARGIN_CONDITION_LABELS[filter.margin]);
   return parts;
 }
 

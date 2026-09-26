@@ -48,6 +48,7 @@ import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import { currentSeason } from "./lib/season.ts";
 import { resolveSeasonProfile } from "../shared/seasonProfile.ts";
 import { sumTeamSeasonMisc } from "../shared/teamSeasonMisc.ts";
+import { gameMaxMargins } from "../shared/gameMargins.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { classifyGameType } from "./lib/gameType.ts";
 import type {
@@ -1419,6 +1420,8 @@ function processPlayers(
 
     const opponent = isHome ? game.awayTeam : game.homeTeam;
     const win = isHome ? game.homeScore > game.awayScore : game.awayScore > game.homeScore;
+    // 所属チームから見た最大リード・最大ビハインド（シチュエーション別の点差の条件用。DESIGN.md 150章）
+    const margins = gameMaxMargins(game);
     acc.gameLogs.push({
       scheduleKey: game.scheduleKey,
       date: game.date,
@@ -1426,6 +1429,9 @@ function processPlayers(
       opponentTeamName: opponent.name,
       isHome,
       win,
+      ...(margins
+        ? { maxLead: isHome ? margins.homeMaxLead : margins.awayMaxLead, maxDeficit: isHome ? margins.awayMaxLead : margins.homeMaxLead }
+        : {}),
       isStarter: row.StartingFlg === 1,
       min: parsePlayTime(row.PlayTime),
       pts: row.Point,
@@ -1710,6 +1716,11 @@ function processTeams(
       }
     : {};
 
+  // 最大リード・最大ビハインド（延長戦を含む。DESIGN.md 150章）
+  const margins = gameMaxMargins(game);
+  const homeMargins = margins ? { maxLead: margins.homeMaxLead, maxDeficit: margins.awayMaxLead } : {};
+  const awayMargins = margins ? { maxLead: margins.awayMaxLead, maxDeficit: margins.homeMaxLead } : {};
+
   home.gameLogs.push({
     scheduleKey: game.scheduleKey,
     date: game.date,
@@ -1721,6 +1732,7 @@ function processTeams(
     win: homeWin,
     gameType,
     ...homePeriods,
+    ...homeMargins,
     foreignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     ...teamGameLogStats(homeRow, gamePoss),
@@ -1767,6 +1779,7 @@ function processTeams(
     opponentScore: game.homeScore,
     win: awayWin,
     ...awayPeriods,
+    ...awayMargins,
     foreignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     gameType,

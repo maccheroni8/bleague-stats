@@ -123,6 +123,9 @@ import {
   type SeasonHalfBoundary,
   type ShotChartGameFilters,
   type SituationalFilter,
+  MARGIN_CONDITION_LABELS,
+  matchesMargin,
+  type MarginCondition,
 } from "../lib/situational";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
@@ -1871,6 +1874,16 @@ export function PlayerDetailPage({ season }: { season: string }) {
         { key: "win", label: "勝った試合", predicate: (g) => g.win },
         { key: "loss", label: "負けた試合", predicate: (g) => !g.win },
       ],
+    },
+    // 試合中の最大リード・最大ビハインド（延長戦を含む。DESIGN.md 150章）。同じ試合が複数の行に入ることがある
+    {
+      key: "inGameMargin",
+      label: "試合中の点差",
+      rows: (Object.keys(MARGIN_CONDITION_LABELS) as MarginCondition[]).map((c) => ({
+        key: c,
+        label: MARGIN_CONDITION_LABELS[c],
+        predicate: (g) => matchesMargin(g, c),
+      })),
     },
     {
       key: "recent",

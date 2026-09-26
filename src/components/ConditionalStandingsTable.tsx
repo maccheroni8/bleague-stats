@@ -26,6 +26,9 @@ import {
   type BackToBackGame,
   type BiweekPeriod,
   type RecordBeforeGame,
+  MARGIN_CONDITION_LABELS,
+  matchesMargin,
+  type MarginCondition,
 } from "../lib/situational";
 import type {
   Division,
@@ -60,7 +63,9 @@ export type ConditionalCondition =
   | { kind: "biweekPeriod"; index: number; period: BiweekPeriod }
   | { kind: "recent"; n: number }
   | { kind: "gamePhase"; value: "early" | "mid" | "late" }
-  | { kind: "margin"; points: number };
+  | { kind: "margin"; points: number }
+  // 試合中の最大リード・最大ビハインド（延長戦を含む。DESIGN.md 150章）
+  | { kind: "inGameMargin"; value: MarginCondition };
 
 /** 「序盤戦/中盤戦/終盤戦20試合」の窓の大きさ（固定） */
 const GAME_PHASE_WINDOW = 20;
@@ -99,6 +104,8 @@ function describeCondition(condition: ConditionalCondition): string {
           : `中盤戦${GAME_PHASE_WINDOW}試合`;
     case "margin":
       return condition.points === 3 ? "1POS差（3点差）決着試合" : "2POS差（6点差）決着試合";
+    case "inGameMargin":
+      return MARGIN_CONDITION_LABELS[condition.value];
   }
 }
 
@@ -146,6 +153,8 @@ function applyConditionalCondition(
     }
     case "margin":
       return logs.filter((g) => Math.abs(g.teamScore - g.opponentScore) <= condition.points);
+    case "inGameMargin":
+      return logs.filter((g) => matchesMargin(g, condition.value));
   }
 }
 
@@ -355,6 +364,14 @@ export function ConditionalStandingsTable({
         { key: "margin-1pos", label: "1POS差（3点差）決着試合", condition: { kind: "margin", points: 3 } },
         { key: "margin-2pos", label: "2POS差（6点差）決着試合", condition: { kind: "margin", points: 6 } },
       ],
+    },
+    {
+      label: "試合中の点差（延長戦を含む）",
+      options: (Object.keys(MARGIN_CONDITION_LABELS) as MarginCondition[]).map((c) => ({
+        key: `in-game-${c}`,
+        label: MARGIN_CONDITION_LABELS[c],
+        condition: { kind: "inGameMargin" as const, value: c },
+      })),
     },
   ];
 
