@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
+import { choiceNumberParam, clearUrlParams, enumParam, situationalParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
+import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERSPECTIVE_PARAM } from "../lib/urlFilterParams";
 import {
   buildStatConditionItems,
   DEFAULT_STAT_CONDITIONS,
   filterByStatConditions,
   hasActiveStatConditions,
   statConditionsTitle,
-  type StatConditionsState,
 } from "../lib/statConditions";
 import { buildTeamConditionDefs } from "../lib/teamConditionItems";
 import { postseasonLabel } from "../../shared/gameType";
@@ -84,7 +85,6 @@ import {
 } from "../lib/situational";
 import {
   filterByGameType,
-  type SeasonDisplayMode,
   type SeasonGameTypeFilter,
 } from "../lib/playerSeasonBoxscore";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
@@ -120,7 +120,6 @@ import {
   DEFAULT_SORT_KEY,
   sumTeamGameLogs,
   type AllTeamsRow,
-  type TeamPerspective,
 } from "../lib/teamStatsColumns";
 import { statDescription } from "../lib/statDescriptions";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "../lib/teamRankingData";
@@ -129,6 +128,21 @@ import { teamNameInSeason, useNarrow, useTeamLabel, useTeamText } from "../lib/t
 
 type TeamsPageTab = "stats" | "records" | "champions" | "recent";
 
+/**
+ * チーム一覧のURLのキー（DESIGN.md 163章）。view＝ページのタブ、tab＝全チームスタッツのカテゴリ、tov＝Forced TOV の向き、
+ * scope＝記録の範囲、cat・venue・stat＝歴代の記録のカテゴリ・会場・項目、n＝直近成績の試合数
+ */
+const TEAMS_VIEW_PARAM = enumParam<TeamsPageTab>("view", ["stats", "records", "champions", "recent"], "stats");
+type TeamsBoxTab = BoxscoreTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition";
+const TEAMS_BOX_TAB_PARAM = enumParam<TeamsBoxTab>(
+  "tab",
+  ["traditional", "advanced", "misc", "scoring", "shooting", "forcedTurnovers", "foreignPlayers", "scoringComposition"],
+  "traditional",
+  { traditional: "trad", advanced: "adv", shooting: "shoot", forcedTurnovers: "tov", foreignPlayers: "oc", scoringComposition: "share" },
+);
+const TURNOVER_PERSPECTIVE_PARAM = enumParam<"forced" | "committed">("tov", ["forced", "committed"], "forced");
+const DEFAULT_TEAMS_FILTER: SituationalFilter = { range: { kind: "all" } };
+
 // 「チーム」ページのタブ構成。「全チームスタッツ」は元々の「一覧」（ロゴ＋シーズン成績の表）を
 // 統合したもの（各行の先頭にロゴ・試合数・勝敗・勝率を置き、その後ろにトラディショナル/
 // アドバンスド/Misc/スコアリングの項目を続ける、チーム詳細ページ「シーズン別成績」と同じ
@@ -136,13 +150,16 @@ type TeamsPageTab = "stats" | "records" | "champions" | "recent";
 // 横断のランキング、「歴代王者」はdata/club-honors.jsonを使ったシーズン軸の年間王者年表、
 // 「直近成績」は現行26クラブを対象に直近5/10試合の成績・ORtg/DRtg/NetRtg・現在の連勝/連敗で
 // 順位付けする。
-// タブ切り替え自体はURLに同期しない（TeamDetailPage.tsxのタブと同じ、プレーンなuseStateの
-// パターンを踏襲）が、旧/teams/statsへのリンクから遷移してきた場合のみ、Navigateのstateで
-// 初期タブを「全チームスタッツ」に指定する（下記TeamsStatsRedirect参照）
+// タブはURLのクエリ（view）に持つ（DESIGN.md 163章）。旧/teams/statsへのリンクは既定のタブ（全チームスタッツ）の
+// /teams に送る（下記TeamsStatsRedirect参照）
 export function TeamsListPage({ season }: { season: string }) {
-  const location = useLocation();
-  const initialTab = (location.state as { tab?: TeamsPageTab } | null)?.tab ?? "stats";
-  const [tab, setTab] = useState<TeamsPageTab>(initialTab);
+  // ページのタブはURLのクエリ（view）に持つ（DESIGN.md 163章）。切り替えたら前のタブのフィルタのクエリは消す
+  const [tab, setTabParam] = useUrlState(TEAMS_VIEW_PARAM, "stats");
+  const setTab = (next: TeamsPageTab) => {
+    if (next === tab) return;
+    clearUrlParams();
+    setTabParam(next);
+  };
 
   return (
     <div data-design="v2">
@@ -196,7 +213,8 @@ export function TeamsListPage({ season }: { season: string }) {
 // 初期表示するよう指定する
 export function TeamsStatsRedirect() {
   const location = useLocation();
-  return <Navigate to={`/teams${location.search}`} replace state={{ tab: "stats" satisfies TeamsPageTab }} />;
+  // 「全チームスタッツ」はページの既定のタブ（URLの view なし）
+  return <Navigate to={`/teams${location.search}`} replace />;
 }
 
 // 全26チーム分の「チームスタッツ」一覧タブ。元の「一覧」タブを統合し（各行の先頭にロゴ・
@@ -297,14 +315,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const { data: leagueAverage } = useJsonData(() => fetchLeagueAverage(season).catch(() => null), [season]);
   const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season);
 
-  const [boxTab, setBoxTab] = useState<
-    BoxscoreTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition"
-  >("traditional");
-  const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
-  const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
-  const [filter, setFilter] = useState<SituationalFilter>({ range: { kind: "all" } });
-  const [teamPerspective, setTeamPerspective] = useState<TeamPerspective>("own");
-  const [turnoverPerspective, setTurnoverPerspective] = useState<"forced" | "committed">("forced");
+  // タブ・フィルタはURLのクエリに持つ（DESIGN.md 163章）。変えても履歴は増やさず、別のページから戻るとURLから元に戻る
+  const [boxTab, setBoxTab] = useUrlState(TEAMS_BOX_TAB_PARAM, "traditional");
+  const [displayMode, setDisplayMode] = useUrlState(DISPLAY_MODE_PARAM, "perGame");
+  const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
+  const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_TEAMS_FILTER);
+  const [teamPerspective, setTeamPerspective] = useUrlState(PERSPECTIVE_PARAM, "own");
+  const [turnoverPerspective, setTurnoverPerspective] = useUrlState(TURNOVER_PERSPECTIVE_PARAM, "forced");
   // On-Court Foreignの並び順（DESIGN.md 135章）。ブラウザバックで戻ったときも保持する（usePageState、シーズンをまたいで共通）
   const [storedForeignOrder, setForeignOrder] = usePageState<ForeignCourtOrder>("teams:foreignOrder", "foreignDesc");
   // 選択肢の変更（2026-09-25）より前に保持した値（foreignAsc）が残っていても、初期値に戻して扱う
@@ -349,7 +366,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
 
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する。表のタブ（4カテゴリ・Shooting・Forced TOV）の行を絞り込む。
   // Shooting・Forced TOV のタブでは上の絞り込みが効かないため、絞り込みの無いレギュラーシーズン全体の値で判定する
-  const [statConditions, setStatConditions] = usePageState<StatConditionsState>("teams:stats:statConditions", DEFAULT_STAT_CONDITIONS);
+  const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
   const mainTab = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
   const conditionTab = mainTab || boxTab === "shooting" || boxTab === "forcedTurnovers";
   const seasonRows: AllTeamsRow[] = useMemo(() => {
@@ -775,6 +792,14 @@ function AllTeamsStatsTab({ season }: { season: string }) {
 // JSON側で既に算出済みのため、フロントエンドは項目・レギュラー/プレーオフ/合算を選んで該当の
 // [statKey][teamId]テーブルをrank昇順に並べ替えるだけでよい
 type RecordsCategory = "career" | "clubRecord" | "seasonSpecial" | "premierRecord" | "periodRecord";
+const RECORDS_CATEGORY_PARAM = enumParam<RecordsCategory>(
+  "cat",
+  ["career", "clubRecord", "seasonSpecial", "premierRecord", "periodRecord"],
+  "career",
+  { clubRecord: "club", seasonSpecial: "special", premierRecord: "premier", periodRecord: "period" },
+);
+const TEAM_VENUE_PARAM = enumParam<LeagueVenue>("venue", ["total", "home", "away"], "total");
+const TEAM_RECORDS_STAT_PARAM = stringParam("stat", "wins", (v) => /^[\w%]+$/.test(v));
 
 const RECORDS_CATEGORY_LABELS: Record<RecordsCategory, string> = {
   career: "通算成績",
@@ -940,13 +965,14 @@ function TeamNavLink({
 }
 
 type RecordsScope = "allTime" | "season";
+const TEAM_RECORDS_SCOPE_PARAM = enumParam<RecordsScope>("scope", ["allTime", "season"], "allTime", { allTime: "all" });
 
 /**
  * 「記録」タブ（2026-09-27、旧「歴代記録」）。範囲「歴代」は今までの全シーズン横断の記録、「シーズン」は選んだシーズンの中の記録。
  * タブの内部のキー（records）と絞り込みの保存キー（teams:records）は旧名のまま変えていない
  */
 function RecordsTab({ season }: { season: string }) {
-  const [scope, setScope] = usePageState<RecordsScope>("teams:records:scope", "allTime");
+  const [scope, setScope] = useUrlState(TEAM_RECORDS_SCOPE_PARAM, "allTime");
   return (
     <div>
       <div className="mode-toggle records-scope-toggle">
@@ -994,10 +1020,10 @@ function LeagueRecordsTab() {
   } = useJsonData(() => fetchLeagueTeamRankings(), []);
   const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
 
-  const [category, setCategory] = useState<RecordsCategory>("career");
-  const [venue, setVenue] = useState<LeagueVenue>("total");
-  const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
-  const [statKey, setStatKey] = useState("wins");
+  const [category, setCategory] = useUrlState(RECORDS_CATEGORY_PARAM, "career");
+  const [venue, setVenue] = useUrlState(TEAM_VENUE_PARAM, "total");
+  const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
+  const [statKey, setStatKey] = useUrlState(TEAM_RECORDS_STAT_PARAM, "wins");
 
   const statOptions = recordsStatOptions(category);
 
@@ -1564,6 +1590,7 @@ function ChampionsTab() {
 // 独立にそのチームの今シーズン全試合から算出する
 const RECENT_FORM_N_OPTIONS = [5, 10] as const;
 type RecentFormRecentN = (typeof RECENT_FORM_N_OPTIONS)[number];
+const TEAM_RECENT_N_PARAM = choiceNumberParam<RecentFormRecentN>("n", RECENT_FORM_N_OPTIONS, 5);
 
 interface RecentFormRow {
   team: TeamSummary;
@@ -1584,7 +1611,7 @@ interface RecentFormRow {
 function RecentFormTab({ season }: { season: string }) {
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
 
-  const [recentN, setRecentN] = useState<RecentFormRecentN>(5);
+  const [recentN, setRecentN] = useUrlState(TEAM_RECENT_N_PARAM, 5);
 
   const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams);
   // 「対戦相手の加重平均勝率」用。既存のbuildRecordsBeforeGame()（対勝率別フィルタ・48章と

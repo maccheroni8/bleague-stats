@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { HashRouter, NavLink, Route, Routes, useSearchParams } from "react-router-dom";
+import { HashRouter, NavLink, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 import { SeasonLink, SeasonNavLink } from "./components/SeasonLink";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { currentSeason } from "./lib/season";
@@ -25,8 +25,12 @@ export default function App() {
   );
 }
 
+/** フィルタをURLに持つページ（DESIGN.md 163章） */
+const URL_FILTER_PAGES = ["/players", "/teams", "/rankings"];
+
 function AppShell() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const explicitSeason = searchParams.get("season");
   const { data: seasons, loading: seasonsLoading } = useJsonData(() => fetchSeasons(), []);
   // ?season=が無い場合のデフォルトシーズンの優先順位:
@@ -49,7 +53,15 @@ function AppShell() {
   // 実際には存在しない試合詳細URLへ辿り着きFailed to fetchになる不具合の一因になっていた）
   useEffect(() => {
     if (!explicitSeason && !seasonsLoading) {
-      setSearchParams({ season }, { replace: true });
+      // フィルタのクエリ（DESIGN.md 163章）が付いたURLでも、それを消さずに season だけ足す
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("season", season);
+          return next;
+        },
+        { replace: true },
+      );
     }
   }, [explicitSeason, seasonsLoading, season, setSearchParams]);
 
@@ -68,7 +80,15 @@ function AppShell() {
         <select
           className="season-select"
           value={season}
-          onChange={(e) => setSearchParams({ season: e.target.value })}
+          onChange={(e) =>
+            // 個人一覧・チーム一覧・ランキングでは、シーズンを変えてもフィルタのクエリはそのまま残す（DESIGN.md 163章）。
+            // ほかのページ（比較等）は従来どおり season だけにする
+            setSearchParams((prev) => {
+              const next = URL_FILTER_PAGES.includes(location.pathname) ? new URLSearchParams(prev) : new URLSearchParams();
+              next.set("season", e.target.value);
+              return next;
+            })
+          }
         >
           {[...(seasons ?? [])].reverse().map((s) => (
             <option key={s.season} value={s.season}>

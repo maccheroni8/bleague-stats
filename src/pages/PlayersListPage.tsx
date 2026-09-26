@@ -79,7 +79,6 @@ import {
   matchesClassificationGroupFilter,
   matchesPositionFilter,
   POSITION_OPTIONS,
-  type ClassificationGroupFilter,
 } from "../lib/classificationFilter";
 import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
@@ -102,6 +101,8 @@ import {
   type PlayerRecentFormRecentN,
 } from "../lib/tableThresholds";
 import { usePageState } from "../lib/pageStateCache";
+import { choiceNumberParam, clearUrlParams, enumParam, rangeParam, situationalParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
+import { CLASSIFICATION_PARAM, CLUB_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, POSITION_PARAM } from "../lib/urlFilterParams";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import {
   activeStatConditionKeys,
@@ -111,7 +112,6 @@ import {
   hasActiveStatConditions,
   statConditionsTitle,
   type StatConditionItemDef,
-  type StatConditionsState,
 } from "../lib/statConditions";
 import {
   CAREER_CONDITION_KEY_PREFIX,
@@ -161,7 +161,7 @@ const OUTER_TAB_LABELS: Record<PlayersOuterTab, string> = {
  * タブの内部のキー（records）は旧名のまま
  */
 function PlayerRecordsTab({ season }: { season: string }) {
-  const [scope, setScope] = usePageState<"allTime" | "season">("players:records:scope", "allTime");
+  const [scope, setScope] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
   return (
     <div>
       <div className="mode-toggle records-scope-toggle">
@@ -182,14 +182,23 @@ function PlayerRecordsTab({ season }: { season: string }) {
 }
 
 export function PlayersListPage({ season }: { season: string }) {
-  const [tab, setTab] = useState<PlayersOuterTab>("stats");
+  const [tab, setTab] = useUrlState(PLAYERS_VIEW_PARAM, "stats");
 
   return (
     <div data-design="v2">
       <h1>個人スタッツ</h1>
       <div className="tab-bar">
         {(Object.keys(OUTER_TAB_LABELS) as PlayersOuterTab[]).map((t) => (
-          <button key={t} className={`tab-button${tab === t ? " active" : ""}`} onClick={() => setTab(t)} type="button">
+          <button
+            key={t}
+            className={`tab-button${tab === t ? " active" : ""}`}
+            onClick={() => {
+              if (t === tab) return;
+              clearUrlParams();
+              setTab(t);
+            }}
+            type="button"
+          >
             {OUTER_TAB_LABELS[t]}
           </button>
         ))}
@@ -614,6 +623,25 @@ function buildPlayerListConditionDefs(opts: {
   return defs;
 }
 
+/**
+ * 個人一覧のURLのキー（DESIGN.md 163章）。view＝ページのタブ、tab＝全選手スタッツのカテゴリ、gp＝出場試合率、
+ * scope＝記録の範囲、venue・stat＝歴代の記録の会場・項目、n＝直近成績の試合数
+ */
+const RECORDS_SCOPE_PARAM = enumParam<"allTime" | "season">("scope", ["allTime", "season"], "allTime", { allTime: "all" });
+const VENUE_PARAM = enumParam<LeagueVenue>("venue", ["total", "home", "away"], "total");
+const PLAYER_RECORDS_STAT_PARAM = stringParam("stat", "pts", (v) => /^[\w%]+$/.test(v));
+const RECENT_N_PARAM = choiceNumberParam<PlayerRecentFormRecentN>("n", RECENT_FORM_N_OPTIONS, 5);
+const PLAYERS_VIEW_PARAM = enumParam<PlayersOuterTab>("view", ["stats", "records", "awards", "recent"], "stats");
+const PLAYERS_TAB_PARAM = enumParam<PlayersPageTab>(
+  "tab",
+  ["traditional", "advanced", "misc", "scoring", "shooting", "scoringComposition"],
+  "traditional",
+  { traditional: "trad", advanced: "adv", shooting: "shoot", scoringComposition: "share" },
+);
+const DEFAULT_RATIO_RANGE: [number, number] = [DEFAULT_MIN_RATIO, DEFAULT_MAX_RATIO];
+const GAMES_RATIO_PARAM = rangeParam("gp", DEFAULT_RATIO_RANGE, [0, 100]);
+const EMPTY_LIST: string[] = [];
+
 function AllPlayersStatsTab({ season }: { season: string }) {
   const { data: players, loading: playersLoading, error: playersError } = useJsonData(() => fetchPlayers(season), [season]);
   const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
@@ -632,22 +660,27 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     [gameSummaries],
   );
 
-  const [tab, setTab] = useState<PlayersPageTab>("traditional");
-  const [displayMode, setDisplayMode] = useState<SeasonDisplayMode>("perGame");
-  const [minRatio, setMinRatio] = useState(DEFAULT_MIN_RATIO);
-  const [maxRatio, setMaxRatio] = useState(DEFAULT_MAX_RATIO);
+  // タブ・フィルタはURLのクエリに持つ（DESIGN.md 163章）。変えても履歴は増やさず、別のページから戻るとURLから元に戻る。
+  // シーズンを変えても残す
+  const [tab, setTab] = useUrlState(PLAYERS_TAB_PARAM, "traditional");
+  const [displayMode, setDisplayMode] = useUrlState(DISPLAY_MODE_PARAM, "perGame");
+  const [ratioRange, setRatioRange] = useUrlState(GAMES_RATIO_PARAM, DEFAULT_RATIO_RANGE);
+  const [minRatio, maxRatio] = ratioRange;
+  const setRatio = (mn: number, mx: number) => setRatioRange([mn, mx]);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const [classificationFilter, setClassificationFilter] = useState<ClassificationGroupFilter>("all");
-  const [teamFilter, setTeamFilter] = useState<Set<string>>(() => new Set());
-  const [positionFilter, setPositionFilter] = useState<Set<string>>(() => new Set());
-  const [situationalFilter, setSituationalFilter] = useState<SituationalFilter>(DEFAULT_SITUATIONAL_FILTER);
+  const [classificationFilter, setClassificationFilter] = useUrlState(CLASSIFICATION_PARAM, "all");
+  const [clubList, setClubList] = useUrlState(CLUB_PARAM, EMPTY_LIST);
+  const [positionList, setPositionList] = useUrlState(POSITION_PARAM, EMPTY_LIST);
+  const teamFilter = useMemo(() => new Set(clubList), [clubList]);
+  const positionFilter = useMemo(() => new Set(positionList), [positionList]);
+  const [situationalFilter, setSituationalFilter] = useUrlState(situationalParam, DEFAULT_SITUATIONAL_FILTER);
   // 試合種別（レギュラー/プレーオフ/合算）。従来はシチュエーション別フィルタ内の2値（レギュラーのみ/
   // +プレーオフ）だったが、他ページと同じ3値に揃えた（DESIGN.md 105章）
-  const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
+  const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const filterActive = !isDefaultFilter(situationalFilter) || gameType !== "regular";
-  // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する（シーズンを変えても残す）
-  const [statConditions, setStatConditions] = usePageState<StatConditionsState>("players:stats:statConditions", DEFAULT_STAT_CONDITIONS);
+  // スタッツの条件（DESIGN.md 162章）
+  const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
   const conditionKeys = activeStatConditionKeys(statConditions);
   // Misc・Scoringのタブにしかない項目は、選手の試合ログから出す（読み込みが要る）
   const conditionNeedsLogs = conditionKeys.some((k) => playerListKeysNeedingLogs(filterActive).has(k));
@@ -668,17 +701,9 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const [teamGameLogsLoading, setTeamGameLogsLoading] = useState(false);
   const teamGameLogsFetchedForSeasonRef = useRef<string | null>(null);
 
+  // シーズンが変わったら読み込んだデータを捨てる（タブ・フィルタはURLに持ち、シーズンを変えても残す。DESIGN.md 163章）
   useEffect(() => {
-    setTab("traditional");
-    setDisplayMode("perGame");
-    setMinRatio(DEFAULT_MIN_RATIO);
-    setMaxRatio(DEFAULT_MAX_RATIO);
     setVisibleCount(PAGE_SIZE);
-    setClassificationFilter("all");
-    setTeamFilter(new Set());
-    setPositionFilter(new Set());
-    setSituationalFilter(DEFAULT_SITUATIONAL_FILTER);
-    setGameType("regular");
     setGameLogs(null);
     gameLogsFetchedForSeasonRef.current = null;
     setTeamGameLogsByTeam(null);
@@ -976,8 +1001,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     value: `${minRatio}|${maxRatio}`,
     defaultValue: ratioDefault,
     onChange: () => {
-      setMinRatio(DEFAULT_MIN_RATIO);
-      setMaxRatio(DEFAULT_MAX_RATIO);
+      setRatio(DEFAULT_MIN_RATIO, DEFAULT_MAX_RATIO);
     },
     summary: `${minRatio}%〜${maxRatio}%`,
     chipValue: `${minRatio}%〜${maxRatio}%`,
@@ -986,8 +1010,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         min={minRatio}
         max={maxRatio}
         onChange={(mn, mx) => {
-          setMinRatio(mn);
-          setMaxRatio(mx);
+          setRatio(mn, mx);
         }}
       />
     ),
@@ -999,7 +1022,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       label: "ポジション",
       options: POSITION_OPTIONS.map((pos) => ({ value: pos, label: pos })),
       selected: [...positionFilter],
-      onChangeSelected: (v) => setPositionFilter(new Set(v)),
+      onChangeSelected: (v) => setPositionList(v),
       allLabel: "全ポジション",
     }),
     multiSelectAxis({
@@ -1007,7 +1030,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       label: "クラブ",
       options: clubOptions,
       selected: [...teamFilter],
-      onChangeSelected: (v) => setTeamFilter(new Set(v)),
+      onChangeSelected: (v) => setClubList(v),
       allLabel: "全クラブ",
       presets: clubPresets,
       searchable: true,
@@ -1028,10 +1051,9 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   ];
   const clearAllFilters = () => {
     setClassificationFilter("all");
-    setPositionFilter(new Set());
-    setTeamFilter(new Set());
-    setMinRatio(DEFAULT_MIN_RATIO);
-    setMaxRatio(DEFAULT_MAX_RATIO);
+    setPositionList([]);
+    setClubList([]);
+    setRatio(DEFAULT_MIN_RATIO, DEFAULT_MAX_RATIO);
     setGameType("regular");
     setDisplayMode("perGame");
     setSituationalFilter(DEFAULT_SITUATIONAL_FILTER);
@@ -1192,9 +1214,9 @@ function LeaguePlayerRecordsTab() {
     error: rankingsError,
   } = useJsonData(() => fetchLeaguePlayerRankings(), []);
 
-  const [venue, setVenue] = useState<LeagueVenue>("total");
-  const [gameType, setGameType] = useState<SeasonGameTypeFilter>("regular");
-  const [statKey, setStatKey] = useState("pts");
+  const [venue, setVenue] = useUrlState(VENUE_PARAM, "total");
+  const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
+  const [statKey, setStatKey] = useUrlState(PLAYER_RECORDS_STAT_PARAM, "pts");
 
   if (rankingsLoading) return <p className="loading">読み込み中...</p>;
   if (rankingsError) return <p className="error-message">{rankingsError}</p>;
@@ -1541,7 +1563,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
   const [gameLogs, setGameLogs] = useState<Map<string, PlayerGameLog[]> | null>(null);
   const [gameLogsLoading, setGameLogsLoading] = useState(true);
   const [summaries, setSummaries] = useState<GameSummary[] | null>(null);
-  const [recentN, setRecentN] = useState<PlayerRecentFormRecentN>(5);
+  const [recentN, setRecentN] = useUrlState(RECENT_N_PARAM, 5);
 
   useEffect(() => {
     if (!players) return;

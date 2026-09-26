@@ -2,7 +2,6 @@ import { EligibilitySlider } from "../components/EligibilitySlider";
 import { postseasonLabel } from "../../shared/gameType";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
-import { usePageState } from "../lib/pageStateCache";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayers, fetchTeamColors, fetchTeams } from "../lib/data";
 import type { PlayerCareerCounts } from "../../shared/types";
@@ -71,7 +70,6 @@ import {
   matchesClassificationGroupFilter,
   matchesPositionFilter,
   POSITION_OPTIONS,
-  type ClassificationGroupFilter,
 } from "../lib/classificationFilter";
 import {
   EXTRA_ELIGIBILITY_RULES,
@@ -93,7 +91,6 @@ import {
   SITUATIONAL_DEFAULT_LABEL,
   situationalFilterLabels,
 } from "../lib/conditionLabels";
-import type { PeriodRangeValue } from "../lib/periodRange";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageBaseDateLabel, ageForSeason } from "../lib/age";
 import { heightText, positionText, weightText } from "../lib/profileMark";
@@ -110,9 +107,10 @@ import {
   hasActiveStatConditions,
   statConditionsTitle,
   type StatConditionItemDef,
-  type StatConditionsState,
 } from "../lib/statConditions";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
+import { clearUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
+import { CLASSIFICATION_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERIOD_PARAM, PERSPECTIVE_PARAM, POSITION_PARAM } from "../lib/urlFilterParams";
 import { buildTeamConditionDefs } from "../lib/teamConditionItems";
 import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS, playerCareerConditionDefs, playerProfileConditionDefs } from "../lib/playerConditionItems";
 
@@ -352,6 +350,51 @@ function buildTeamCategoryColumns(
 
 
 /**
+ * ランキングのURLのキー（DESIGN.md 163章）。m＝チーム/個人、cat＝カテゴリ、stat＝項目、tov＝Forced TOV の向き、
+ * elig＝掲載基準の出場率（%）、ex＝項目ごとの追加の基準。共通のキー（mode・gt・v・q・cls・pos・シチュエーション・スタッツの条件）は
+ * src/lib/urlFilterParams.ts・src/lib/urlState.ts
+ */
+const RANKING_MODE_PARAM = enumParam<Mode>("m", ["team", "player"], "team");
+const TEAM_CATEGORY_PARAM = enumParam<TeamRankingCategory>(
+  "cat",
+  ["traditional", "advanced", "misc", "scoring", "shooting", "forcedTurnovers"],
+  "traditional",
+  { traditional: "trad", advanced: "adv", shooting: "shoot", forcedTurnovers: "tov" },
+);
+const PLAYER_CATEGORY_PARAM = enumParam<PlayerRankCategory>(
+  "cat",
+  ["traditional", "advanced", "misc", "scoring", "shooting", "profile", "career"],
+  "traditional",
+  { traditional: "trad", advanced: "adv", shooting: "shoot" },
+);
+const TURNOVER_DIRECTION_PARAM = enumParam<TurnoverDirection>("tov", ["forced", "committed"], "forced");
+const DEFAULT_RANKING_FILTER: SituationalFilter = { range: { kind: "all" } };
+const EMPTY_POSITIONS: string[] = [];
+/** 項目のキーとして読める値か（シュートタイプの項目は日本語を含む） */
+function isStatKeyLike(v: string): boolean {
+  return v.length <= 64 && !/[\s,&=]/.test(v);
+}
+function teamDefaultStatKey(category: TeamRankingCategory): string {
+  if (category === "shooting") return `${SHOT_TYPE_DISPLAY_ORDER[0]}_2pm`;
+  if (category === "forcedTurnovers") return "total";
+  return DEFAULT_SORT_KEY[category];
+}
+function playerDefaultStatKey(category: PlayerRankCategory): string {
+  return category === "shooting" ? `${SHOT_TYPE_DISPLAY_ORDER[0]}_2pm` : category === "profile" ? "height" : category === "career" ? "titles" : "pts";
+}
+/** 掲載基準の出場率は、URLでは%の整数（elig=70）、中では割合（0.7） */
+const GAMES_RATIO_ELIG_PARAM: UrlCodec<number> = {
+  keys: ["elig"],
+  read: (p) => {
+    const v = Number(p.get("elig"));
+    return p.get("elig") !== null && Number.isFinite(v) && v >= 0 && v <= 100 ? v / 100 : undefined;
+  },
+  write: (p, v) => {
+    if (Math.round(v * 100) !== Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)) p.set("elig", String(Math.round(v * 100)));
+  },
+};
+
+/**
  * ランキングページのチーム版。チーム詳細ページ「チームスタッツ」タブ・「チーム」ページ
  * 「全チームスタッツ」タブと同じ項目（トラディショナル/アドバンスド/Misc/スコアリング、
  * シチュエーション別成績、自チーム/opp/+/-、平均/合計、レギュラー/プレーオフ/合算）を
@@ -373,26 +416,26 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   // ブラウザバック等でページが一度アンマウント・再マウントされても、直前のフィルタ条件を
   // 復元する（src/lib/pageStateCache.ts参照。個人・チーム詳細ページと同じ仕組み。
   // RankingsPageはteamId/playerIdのような動的パラメータを持たないため固定キーを使う）
-  const [category, setCategory] = usePageState<TeamRankingCategory>("rankings:team:category", "traditional");
-  const [statKey, setStatKey] = usePageState("rankings:team:statKey", DEFAULT_SORT_KEY.traditional);
-  const [displayMode, setDisplayMode] = usePageState<SeasonDisplayMode>("rankings:team:displayMode", "perGame");
-  const [gameType, setGameType] = usePageState<SeasonGameTypeFilter>("rankings:team:gameType", "regular");
-  const [perspective, setPerspective] = usePageState<TeamPerspective>("rankings:team:perspective", "own");
-  const [filter, setFilter] = usePageState<SituationalFilter>("rankings:team:filter", { range: { kind: "all" } });
-  const [turnoverDirection, setTurnoverDirection] = usePageState<TurnoverDirection>("rankings:team:turnoverDirection", "forced");
+  // カテゴリ・項目・フィルタはURLのクエリに持つ（DESIGN.md 163章）。変えても履歴は増やさず、別のページから戻るとURLから元に戻る
+  const [category, setCategory] = useUrlState(TEAM_CATEGORY_PARAM, "traditional");
+  const defaultTeamStat = teamDefaultStatKey(category);
+  const [statKey, setStatKey] = useUrlState(stringParam("stat", defaultTeamStat, isStatKeyLike), defaultTeamStat);
+  const [displayMode, setDisplayMode] = useUrlState(DISPLAY_MODE_PARAM, "perGame");
+  const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
+  const [perspective, setPerspective] = useUrlState(PERSPECTIVE_PARAM, "own");
+  const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_RANKING_FILTER);
+  const [turnoverDirection, setTurnoverDirection] = useUrlState(TURNOVER_DIRECTION_PARAM, "forced");
   // Q別/前後半トグル。「試合」（既定値）選択時は追加の生データ取得を発生させず、既存の
   // TeamGameLog永続集計（sumTeamGameLogs）をそのまま使う。Q別/前後半選択時のみ、対象チーム
   // 全員分の生データ（StoredGame）を一括取得する（useLeagueRawGames、DESIGN.md参照）
-  const [period, setPeriod] = usePageState<PeriodRangeValue>("rankings:team:period", "all");
+  const [period, setPeriod] = useUrlState(PERIOD_PARAM, "all");
   const periodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === period) ?? SEASON_BOX_PERIOD_OPTIONS[0]!;
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
-  const [statConditions, setStatConditions] = usePageState<StatConditionsState>("rankings:team:statConditions", DEFAULT_STAT_CONDITIONS);
+  const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
 
   const selectCategory = (next: TeamRankingCategory) => {
     setCategory(next);
-    if (next === "shooting") setStatKey(`${SHOT_TYPE_DISPLAY_ORDER[0]}_2pm`);
-    else if (next === "forcedTurnovers") setStatKey("total");
-    else setStatKey(DEFAULT_SORT_KEY[next]);
+    setStatKey(teamDefaultStatKey(next));
   };
 
   // シチュエーション別フィルタ・レギュラー/プレーオフ切替を適用した後の、チームごとの対象試合
@@ -1027,31 +1070,28 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 
   // ブラウザバック等でページが一度アンマウント・再マウントされても、直前のフィルタ条件を
   // 復元する（src/lib/pageStateCache.ts参照）
-  const [category, setCategory] = usePageState<PlayerRankCategory>("rankings:player:category", "traditional");
-  const [statKey, setStatKey] = usePageState("rankings:player:statKey", "pts");
-  const [gamesRatio, setGamesRatio] = usePageState("rankings:player:gamesRatio", MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
-  const [extraThreshold, setExtraThreshold] = usePageState(
-    "rankings:player:extraThreshold",
-    EXTRA_ELIGIBILITY_RULES.pts?.defaultValue ?? 0,
-  );
-  const [selectedClassification, setSelectedClassification] = usePageState<ClassificationGroupFilter>(
-    "rankings:player:classificationGroup",
-    "all",
-  );
+  // カテゴリ・項目・フィルタはURLのクエリに持つ（DESIGN.md 163章）。elig＝掲載基準の出場率（%）、ex＝項目ごとの追加の基準
+  const [category, setCategory] = useUrlState(PLAYER_CATEGORY_PARAM, "traditional");
+  const defaultPlayerStat = playerDefaultStatKey(category);
+  const [statKey, setStatKey] = useUrlState(stringParam("stat", defaultPlayerStat, isStatKeyLike), defaultPlayerStat);
+  const [gamesRatio, setGamesRatio] = useUrlState(GAMES_RATIO_ELIG_PARAM, MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
+  const defaultExtra = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)]?.defaultValue ?? 0;
+  const [extraThreshold, setExtraThreshold] = useUrlState(numberParam("ex", defaultExtra, { min: 0 }), defaultExtra);
+  const [selectedClassification, setSelectedClassification] = useUrlState(CLASSIFICATION_PARAM, "all");
   // ポジション（複数選択、未選択＝全ポジション。"SG/SF"表記の選手はどちらかが選択中なら該当）
-  const [positions, setPositions] = usePageState<string[]>("rankings:player:positions", []);
-  const [filter, setFilter] = usePageState<SituationalFilter>("rankings:player:filter", { range: { kind: "all" } });
+  const [positions, setPositions] = useUrlState(POSITION_PARAM, EMPTY_POSITIONS);
+  const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_RANKING_FILTER);
   const filterActive = !isDefaultFilter(filter);
-  const [gameType, setGameType] = usePageState<SeasonGameTypeFilter>("rankings:player:gameType", "regular");
+  const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const gameTypeActive = gameType !== "regular";
   // Q別/前後半トグル。「試合」（既定値）選択時は追加の生データ取得を発生させず、既存の
   // PlayerSummary/PlayerGameLogベースの経路をそのまま使う。Q別/前後半選択時のみ、対象選手
   // 全員分の生データ（StoredGame）を一括取得する（useLeagueRawGames、DESIGN.md参照）
-  const [period, setPeriod] = usePageState<PeriodRangeValue>("rankings:player:period", "all");
+  const [period, setPeriod] = useUrlState(PERIOD_PARAM, "all");
   const periodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === period) ?? SEASON_BOX_PERIOD_OPTIONS[0]!;
   const periodActive = periodOption.periods !== null;
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
-  const [statConditions, setStatConditions] = usePageState<StatConditionsState>("rankings:player:statConditions", DEFAULT_STAT_CONDITIONS);
+  const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
   const conditionKeys = activeStatConditionKeys(statConditions);
   const conditionNeedsLogs = conditionKeys.some((k) => PLAYER_CONDITION_KEYS_NEEDING_LOGS.has(k));
   const conditionNeedsCareers = conditionKeys.some((k) => k.startsWith(CAREER_CONDITION_KEY_PREFIX));
@@ -1064,8 +1104,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 
   const selectCategory = (next: PlayerRankCategory) => {
     setCategory(next);
-    const nextKey =
-      next === "shooting" ? `${SHOT_TYPE_DISPLAY_ORDER[0]}_2pm` : next === "profile" ? "height" : next === "career" ? "titles" : "pts";
+    const nextKey = playerDefaultStatKey(next);
     setStatKey(nextKey);
     setExtraThreshold(EXTRA_ELIGIBILITY_RULES[extraRuleKey(nextKey)]?.defaultValue ?? 0);
   };
@@ -1541,7 +1580,13 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 }
 
 export function RankingsPage({ season }: { season: string }) {
-  const [mode, setMode] = usePageState<Mode>("rankings:mode", "team");
+  // チーム/個人はURLのクエリ（m=player）に持つ。切り替えたら前の側のフィルタのクエリは消す（DESIGN.md 163章）
+  const [mode, setModeParam] = useUrlState(RANKING_MODE_PARAM, "team");
+  const setMode = (next: Mode) => {
+    if (next === mode) return;
+    clearUrlParams();
+    setModeParam(next);
+  };
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
 
   return (

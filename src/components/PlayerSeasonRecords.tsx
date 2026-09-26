@@ -1,7 +1,8 @@
 import { Link as RouterLink } from "react-router-dom";
+import { stringParam, useUrlState } from "../lib/urlState";
+import { GAME_TYPE_PARAM } from "../lib/urlFilterParams";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "./GlossaryNote";
-import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { PLAYER_GAME_RECORD_STATS, type PlayerGameRecordDef } from "../../shared/playerGameRecords";
 import type { PlayerGameRecordEntry } from "../../shared/types";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
@@ -128,8 +129,9 @@ function PlayerRecordCard({
 }
 
 export function PlayerSeasonRecords({ defaultSeason }: { defaultSeason: string }) {
-  const [season, setSeason] = usePageState<string>("players:records:season:season", defaultSeason);
-  const [gameType, setGameType] = usePageState<SeasonGameTypeFilter>("players:records:season:gameType", "regular");
+  // シーズン・試合種別はURLのクエリに持つ（rseason・gt。DESIGN.md 163章）
+  const [season, setSeason] = useUrlState(stringParam("rseason", defaultSeason, (v) => /^\d{4}-\d{2}$/.test(v)), defaultSeason);
+  const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [openKeys, setOpenKeys] = usePageState<Set<string>>("players:records:season:open", () => new Set());
   const [showAllKeys, setShowAllKeys] = usePageState<Set<string>>("players:records:season:showAll", () => new Set());
   const toggle = (setter: typeof setOpenKeys, key: string) =>

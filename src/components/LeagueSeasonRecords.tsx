@@ -1,8 +1,10 @@
 import { useMemo } from "react";
+import { enumParam, stringParam, useUrlState } from "../lib/urlState";
+import { GAME_TYPE_PARAM } from "../lib/urlFilterParams";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "./GlossaryNote";
 import { Link as RouterLink } from "react-router-dom";
-import { filterByGameType, type SeasonGameTypeFilter } from "../../shared/gameType";
+import { filterByGameType } from "../../shared/gameType";
 import { TEAM_RECORD_STATS, type TeamRecordValueDef } from "../../shared/teamRecords";
 import type { TeamGameLog } from "../../shared/types";
 import { formatPct } from "../lib/format";
@@ -128,10 +130,14 @@ function LeagueRecordCard({
   );
 }
 
+/** 記録／ワーストの切り替えのURLのキー（rmode=worst） */
+const RECORD_MODE_PARAM = enumParam<RecordMode>("rmode", ["record", "worst"], "record");
+
 export function LeagueSeasonRecords({ defaultSeason }: { defaultSeason: string }) {
-  const [season, setSeason] = usePageState<string>("teams:records:season:season", defaultSeason);
-  const [gameType, setGameType] = usePageState<SeasonGameTypeFilter>("teams:records:season:gameType", "regular");
-  const [mode, setMode] = usePageState<RecordMode>("teams:records:season:mode", "record");
+  // シーズン・試合種別はURLのクエリに持つ（rseason・gt。DESIGN.md 163章）
+  const [season, setSeason] = useUrlState(stringParam("rseason", defaultSeason, (v) => /^\d{4}-\d{2}$/.test(v)), defaultSeason);
+  const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
+  const [mode, setMode] = useUrlState(RECORD_MODE_PARAM, "record");
   // 開いているカード（上位10件）と、20件を超えた分を開いているカード
   const [openKeys, setOpenKeys] = usePageState<Set<string>>("teams:records:season:open", () => new Set());
   const [showAllKeys, setShowAllKeys] = usePageState<Set<string>>("teams:records:season:showAll", () => new Set());
