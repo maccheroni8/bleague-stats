@@ -158,14 +158,16 @@ export function fetchSeasons(): Promise<SeasonEntry[]> {
 // 空文字列がTeamColorsに紛れ込み、呼び出し側の`color ?? デフォルト色`という`??`パターンだけが
 // それをすり抜けさせてしまうバグがあった。空文字は`??`に対して有効な値として扱われるため
 // 自動抽出が公式サイトの実際のブランドカラーと大きくズレるチームは、TEAM_COLOR_OVERRIDES
-// （teamColorOverrides.ts）の値を自動抽出結果より優先する。上書き後の値も他のチームと同様に
+// （teamColorOverrides.ts）の値を自動抽出結果より優先する。上書き後の値も（skipLegibilityCheck を付けたものを除き）他のチームと同様に
 // 視認性チェックを通す（上書きだからといって無条件に採用しない）
 export async function fetchTeamColors(): Promise<Record<string, TeamColors>> {
   const raw = await fetchJson<Record<string, TeamColors>>(`${dataBase}/team-colors.json`);
   const sanitized: Record<string, TeamColors> = {};
   for (const [teamId, colors] of Object.entries(raw)) {
     const override = TEAM_COLOR_OVERRIDES[teamId];
-    const legiblePrimary = legibleAccentColor(override?.primary ?? colors.primary);
+    // 確認済みの公式色で、視認性チェックを通さないと決めたもの（teamColorOverrides.ts の skipLegibilityCheck）はそのまま使う
+    const legiblePrimary =
+      override?.skipLegibilityCheck && override.primary ? override.primary : legibleAccentColor(override?.primary ?? colors.primary);
     const legibleSecondary = legibleAccentColor(override?.secondary ?? colors.secondary);
     sanitized[teamId] = {
       primary: legiblePrimary ?? legibleSecondary ?? MONO_FALLBACK_COLOR,

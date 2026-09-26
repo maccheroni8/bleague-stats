@@ -19,7 +19,13 @@
 //   主役になっていたが、公式サイト（goldenkings.jp）はゴールド（#dbc073。footer/navの
 //   背景色として確認）が最も面積の大きい配色で、紺（#003f6b、自動抽出のprimaryとほぼ同値）は
 //   従属色という実態だった。primary/secondaryを入れ替える形で採用する
-export const TEAM_COLOR_OVERRIDES: Record<string, { primary?: string; secondary?: string }> = {
+//
+// - 横浜ビー・コルセアーズ（694）: 公式サイトのチームカラーの1番目「大海の深い紺色」#00263A（2026-09-26、ユーザー指定）。
+//   自動抽出は #001030（さらに濃い紺）で、視認性チェック（輝度35未満は不可）に通らず、secondary の金色（#c0a040）が
+//   チームカラーとして使われていた。#00263A も輝度約31でチェックに通らないため、確認済みの公式色として
+//   チェックを通さずに採用する（skipLegibilityCheck）。ダークテーマの背景に対しては見えにくい
+export const TEAM_COLOR_OVERRIDES: Record<string, { primary?: string; secondary?: string; skipLegibilityCheck?: boolean }> = {
   "720": { primary: "#003ca5" },
   "701": { primary: "#dbc073", secondary: "#003f6b" },
+  "694": { primary: "#00263A", skipLegibilityCheck: true },
 };
