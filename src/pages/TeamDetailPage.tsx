@@ -1265,18 +1265,33 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
         p,
       ),
   },
-  // %BENCH PTS・%STARTER PTSは自チームの得点構成比のみを意味のある指標として扱い、
-  // EFF列（TEAM_SEASON_TRADITIONAL_COLUMNS）と同じくperspectiveの選択に関わらず常に
-  // 自チームの値を表示する（opp/diff版は設けない。Batch 1でヘッダータイルから移設）
+  // %BENCH PTS・%STARTER PTS（Batch 1でヘッダータイルから移設）。2026-09-26、全チームスタッツ・ランキングに合わせて
+  // 自チーム/opp/+/- に切り替わるようにした（それまでは常に自チームの値。DESIGN.md 152章）
   {
     key: "benchptspct",
     label: "%BENCH PTS",
-    format: (r) => formatPct100(r.team.advanced.benchPointsSharePct),
+    format: (r, _m, _mode, p) =>
+      formatTeamSeasonPct100(
+        r.team.advanced.benchPointsSharePct,
+        safeDiv(
+          100 * r.team.advanced.opponentBenchPointsPerGame,
+          r.team.advanced.opponentBenchPointsPerGame + r.team.advanced.opponentStarterPointsPerGame,
+        ),
+        p,
+      ),
   },
   {
     key: "starterptspct",
     label: "%STARTER PTS",
-    format: (r) => formatPct100(r.team.advanced.starterPointsSharePct),
+    format: (r, _m, _mode, p) =>
+      formatTeamSeasonPct100(
+        r.team.advanced.starterPointsSharePct,
+        safeDiv(
+          100 * r.team.advanced.opponentStarterPointsPerGame,
+          r.team.advanced.opponentBenchPointsPerGame + r.team.advanced.opponentStarterPointsPerGame,
+        ),
+        p,
+      ),
   },
   // Batch 3（2026-09-08）: 得点傾向の%系（総得点に対する割合）。own/opp/diffに対応する
   // シーズン合計値ベースの構成比（Phase H10・85章で追加済みのteam.advanced.*SharePct、
@@ -1887,7 +1902,8 @@ interface TeamPointsExtraColumn {
   key: string;
   label: string;
   value: (b: TeamPointsBreakdown) => number;
-  kind: "count" | "sharePct";
+  /** sharePctPerspective: 自チーム/opp/+/- に切り替わる%（%BENCH PTS・%STARTER PTS。2026-09-26） */
+  kind: "count" | "sharePct" | "sharePctPerspective";
 }
 
 const TEAM_POINTS_MISC_COLUMNS: TeamPointsExtraColumn[] = [
@@ -1901,8 +1917,13 @@ const TEAM_POINTS_MISC_COLUMNS: TeamPointsExtraColumn[] = [
 // ヘッダータイル時代・「シーズン別成績」と同じくown/opp/diffの切り替え対象外にする。
 // 登録区分別得点（日本人/外国籍・帰化・アジアの2分割）を実数値＋割合(%)で追加
 const TEAM_POINTS_SHARE_COLUMNS: TeamPointsExtraColumn[] = [
-  { key: "benchPtsShare", label: "%BENCH PTS", value: (b) => safeDiv(100 * b.bench, b.bench + b.starter), kind: "sharePct" },
-  { key: "starterPtsShare", label: "%STARTER PTS", value: (b) => safeDiv(100 * b.starter, b.bench + b.starter), kind: "sharePct" },
+  { key: "benchPtsShare", label: "%BENCH PTS", value: (b) => safeDiv(100 * b.bench, b.bench + b.starter), kind: "sharePctPerspective" },
+  {
+    key: "starterPtsShare",
+    label: "%STARTER PTS",
+    value: (b) => safeDiv(100 * b.starter, b.bench + b.starter),
+    kind: "sharePctPerspective",
+  },
   { key: "japanesePts3", label: "日本人 PTS", value: (b) => b.japanese, kind: "count" },
   { key: "internationalPts3", label: "外国籍・帰化・アジア PTS", value: (b) => b.international, kind: "count" },
   {
@@ -1936,7 +1957,7 @@ function formatTeamPointsCount(
   return perspective === "own" ? formatDecimal(ownVal, digits) : perspective === "opp" ? formatDecimal(oppVal, digits) : formatSigned(ownVal - oppVal, digits);
 }
 
-// %BENCH PTS・%STARTER PTS・国籍区分別%は常に自チームの値を表示する（EFF列・「シーズン別成績」と同じ扱い）
+// 国籍区分別%は常に自チームの値を表示する（%BENCH PTS・%STARTER PTS は 2026-09-26 から自チーム/opp/+/- に切り替わる）
 function formatTeamPointsSharePct(result: TeamPointsBreakdownResult | null, col: TeamPointsExtraColumn): string {
   return result ? formatPct100(col.value(result.own)) : "-";
 }
@@ -1948,7 +1969,12 @@ function formatTeamPointsExtraColumn(
   perspective: TeamPerspective,
   mode: SeasonDisplayMode,
 ): string {
-  return col.kind === "sharePct" ? formatTeamPointsSharePct(result, col) : formatTeamPointsCount(result, col, perspective, mode);
+  if (col.kind === "sharePct") return formatTeamPointsSharePct(result, col);
+  if (col.kind === "sharePctPerspective") {
+    if (!result) return "-";
+    return formatTeamSeasonPct100(col.value(result.own), col.value(result.opp), perspective);
+  }
+  return formatTeamPointsCount(result, col, perspective, mode);
 }
 
 export function TeamDetailPage({ season }: { season: string }) {

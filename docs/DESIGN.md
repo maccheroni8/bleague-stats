@@ -10374,6 +10374,7 @@ B.PREMIER レコード（試合の上位20位）とクォーター別レコー�
   ヘッダーのレーダー（BENCH PTS・oppBENCH PTS）、試合詳細の Key Stats（ベンチ得点）、ホームのチームのリーダー（1試合平均）
 - 追加: 全チームスタッツ（チーム一覧）とランキング（チーム）の Misc 末尾に BENCH PTS・STARTER PTS、Scoring に %BENCH PTS・
   %STARTER PTS（`src/lib/teamStatsColumns.ts`）。どちらも自チーム/opp/+/- に対応（全チームスタッツは他の%列も opp に対応しているため）。
+  チーム詳細の %BENCH PTS・%STARTER PTS（当該シーズン成績・シーズン別成績・シチュエーション別成績）も、自チームのみから自チーム/opp/+/- に切り替わる形にそろえた
   Q別/前後半の表示では、国籍区分別得点と同じく「-」（TeamGameLog にだけある値のため）
 - opp の値のため、TeamGameLog に `opponentBenchPoints`・`opponentStarterPoints` を追加し、全シーズン（B.ONE 2025-26 を含む）を再集計
 - ホームのチームのリーダーの「失点」「ベンチポイント」を「opp PTS」「BENCH PTS」に（英語表記。見出しは大文字で出るため空白を入れて「OPP PTS」）
