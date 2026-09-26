@@ -39,6 +39,7 @@ import { SeasonLink } from "../components/SeasonLink";
 import { FilterBar } from "../components/FilterBar";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { LeagueSeasonRecords } from "../components/LeagueSeasonRecords";
+import { RecordValue } from "../components/RecordValue";
 import { TEAM_PCT_MIN_ATTEMPTS_NOTE } from "../lib/topRecords";
 import { FGA_ORDER_LABELS, FgaCompositionChart, type FgaChartTeam, type FgaShareOrder } from "../components/FgaCompositionChart";
 import { fgaShare } from "../lib/shareCharts";
@@ -909,6 +910,11 @@ function RecordsTab({ season }: { season: string }) {
   );
 }
 
+/** 成功率の記録に添える成功数／試投数（歴代の順位ファイルにあるときだけ） */
+function fractionOfEntry(e: { made?: number; attempted?: number }): readonly [number, number] | undefined {
+  return e.made !== undefined && e.attempted !== undefined ? [e.made, e.attempted] : undefined;
+}
+
 interface LeagueRecordRow {
   teamId: string;
   entry: LeagueTeamRankEntry;
@@ -954,7 +960,8 @@ function LeagueRecordsTab() {
   const rows: LeagueRecordRow[] = entries
     ? Object.entries(entries)
         .map(([teamId, entry]) => ({ teamId, entry }))
-        .sort((a, b) => a.entry.rank - b.entry.rank || Number(a.teamId) - Number(b.teamId))
+        // 同じ順位（成功率の同じ率）の中は、試投数の多い記録を上に（2026-09-27）
+        .sort((a, b) => a.entry.rank - b.entry.rank || (b.entry.attempted ?? 0) - (a.entry.attempted ?? 0) || Number(a.teamId) - Number(b.teamId))
     : [];
   const premierRows: LeagueRecordEntry[] = isPremierRecord ? premierRecordEntriesFor(rankings, gameType, statKey) : [];
   const totalTeams = Object.keys(rankings.career.regular.wins ?? {}).length;
@@ -966,7 +973,8 @@ function LeagueRecordsTab() {
       <p className="page-subtitle">
         過去在籍した全{totalTeams}クラブ横断のランキング（毎日1回、前日までの試合結果を取り込んだあとに作り直します。最終更新
         {" "}{formatRankingsUpdatedAt(rankings.generatedAt)}）。チーム名の下は現在の所属カテゴリ
-        {(category === "clubRecord" || isPremierRecord) && `。${TEAM_PCT_MIN_ATTEMPTS_NOTE.replace(/。$/, "")}`}
+        {(category === "clubRecord" || isPremierRecord) &&
+          `。${TEAM_PCT_MIN_ATTEMPTS_NOTE.replace(/。$/, "")}。成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます`}
         {isPremierRecord &&
           "。「B.PREMIER（旧B1）レコード」はクラブ単位の自己ベストではなく、リーグ史上の個々の試合・シーズンをそのまま順位付けしたもの（同一クラブが複数回登場しうる）。ホーム/アウェイ限定版は対象外"}
       </p>
@@ -1030,7 +1038,9 @@ function LeagueRecordsTab() {
                         </span>
                       </TeamNavLink>
                     </td>
-                    <td className="align-right rank-value">{formatLeagueRecordValue(valueCategory, statKey, r.value)}</td>
+                    <td className="align-right rank-value">
+                      <RecordValue text={formatLeagueRecordValue(valueCategory, statKey, r.value)} fraction={fractionOfEntry(r)} />
+                    </td>
                     {!narrow && <td className="align-left record-season">{r.season}</td>}
                     <td className="align-left">
                       {r.scheduleKey ? (
@@ -1082,7 +1092,9 @@ function LeagueRecordsTab() {
                       </span>
                     </TeamNavLink>
                   </td>
-                  <td className="align-right rank-value">{formatLeagueRecordValue(category, statKey, r.entry.value)}</td>
+                  <td className="align-right rank-value">
+                    <RecordValue text={formatLeagueRecordValue(category, statKey, r.entry.value)} fraction={fractionOfEntry(r.entry)} />
+                  </td>
                 </tr>
               ))}
             </tbody>

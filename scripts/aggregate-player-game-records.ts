@@ -50,16 +50,24 @@ async function loadSeasonGames(season: string): Promise<Game[]> {
   return games;
 }
 
-/** 上位N位（N位と同じ記録はすべて）。同じ記録の中は新しい試合から（チームのクラブレコードと同じ） */
+/**
+ * 上位N位（N位と同じ記録はすべて）。同じ記録の中は、成功率の項目は試投数の多い試合から、その後は新しい試合から
+ * （チームのクラブレコードと同じ。2026-09-27）
+ */
 function topEntries(
   games: Game[],
   value: (g: Game) => number,
+  fraction: ((g: Game) => readonly [number, number]) | undefined,
   summaryByKey: Map<string, GameSummary>,
   nameById: Map<string, string>,
 ): PlayerGameRecordEntry[] {
+  const attempts = (g: Game) => (fraction ? fraction(g)[1] : 0);
   const sorted = games
     .map((g) => ({ g, v: value(g) }))
-    .sort((a, b) => b.v - a.v || b.g.date.localeCompare(a.g.date) || a.g.playerId.localeCompare(b.g.playerId));
+    .sort(
+      (a, b) =>
+        b.v - a.v || attempts(b.g) - attempts(a.g) || b.g.date.localeCompare(a.g.date) || a.g.playerId.localeCompare(b.g.playerId),
+    );
   const out: PlayerGameRecordEntry[] = [];
   let rank = 0;
   for (let i = 0; i < sorted.length; i++) {
@@ -79,6 +87,7 @@ function topEntries(
       isHome: g.isHome,
       date: g.date,
       scheduleKey: g.scheduleKey,
+      ...(fraction ? { made: fraction(g)[0], attempted: fraction(g)[1] } : {}),
     });
   }
   return out;
@@ -97,7 +106,7 @@ async function buildSeason(season: string): Promise<boolean> {
     const scoped = filterByGameType(games, gameType);
     for (const def of PLAYER_GAME_RECORD_STATS) {
       const pool = def.filter ? scoped.filter(def.filter) : scoped;
-      const entries = topEntries(pool, def.value, summaryByKey, nameById);
+      const entries = topEntries(pool, def.value, def.fraction, summaryByKey, nameById);
       if (entries.length > 0) byGameType[gameType][def.key] = entries;
     }
   }

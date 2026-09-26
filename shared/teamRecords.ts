@@ -199,6 +199,8 @@ export interface TeamRecordValueDef {
    * 将来的な絞り込みの再導入に備えてフィールド自体は残している）
    */
   topNEligible?: boolean;
+  /** 成功率の項目: 成功数と試投数（表示で「100.0%（6/6）」と添え、同じ率の中は試投数の多い試合を上にする。2026-09-27） */
+  fraction?: (g: TeamGameLog) => readonly [number, number];
 }
 
 /**
@@ -215,7 +217,7 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
   { key: "oppPts", label: "失点", value: (g) => g.opponentScore, lowerIsBetter: true },
   { key: "fgm", label: "FG成功数", value: (g) => g.fgm },
   { key: "fga", label: "FG試投数", value: (g) => g.fga, worstEligible: false },
-  { key: "fgPct", label: "FG成功率", value: (g) => safeDiv(g.fgm, g.fga), worstEligible: false, filter: (g) => g.fga >= TEAM_PCT_MIN_ATTEMPTS.fgPct },
+  { key: "fgPct", label: "FG成功率", value: (g) => safeDiv(g.fgm, g.fga), worstEligible: false, filter: (g) => g.fga >= TEAM_PCT_MIN_ATTEMPTS.fgPct, fraction: (g) => [g.fgm, g.fga] },
   { key: "twoPm", label: "2P成功数", value: (g) => g.fgm - g.tpm },
   { key: "twoPa", label: "2P試投数", value: (g) => g.fga - g.tpa, worstEligible: false },
   {
@@ -224,10 +226,11 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
     value: (g) => safeDiv(g.fgm - g.tpm, g.fga - g.tpa),
     worstEligible: false,
     filter: (g) => g.fga - g.tpa >= TEAM_PCT_MIN_ATTEMPTS.twoPct,
+    fraction: (g) => [g.fgm - g.tpm, g.fga - g.tpa],
   },
   { key: "tpm", label: "3P成功数", value: (g) => g.tpm },
   { key: "tpa", label: "3P試投数", value: (g) => g.tpa, worstEligible: false },
-  { key: "tpPct", label: "3P成功率", value: (g) => safeDiv(g.tpm, g.tpa), worstEligible: false, filter: (g) => g.tpa >= TEAM_PCT_MIN_ATTEMPTS.tpPct },
+  { key: "tpPct", label: "3P成功率", value: (g) => safeDiv(g.tpm, g.tpa), worstEligible: false, filter: (g) => g.tpa >= TEAM_PCT_MIN_ATTEMPTS.tpPct, fraction: (g) => [g.tpm, g.tpa] },
   { key: "ftm", label: "フリースロー成功数", value: (g) => g.ftm },
   { key: "fta", label: "フリースロー試投数", value: (g) => g.fta, worstEligible: false },
   {
@@ -236,6 +239,7 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
     value: (g) => safeDiv(g.ftm, g.fta),
     worstEligible: false,
     filter: (g) => g.fta >= TEAM_PCT_MIN_ATTEMPTS.ftPct,
+    fraction: (g) => [g.ftm, g.fta],
   },
   { key: "oreb", label: "オフェンスリバウンド", value: (g) => g.oreb },
   { key: "dreb", label: "ディフェンスリバウンド", value: (g) => g.dreb },
@@ -301,6 +305,7 @@ export const TEAM_AGAINST_RECORD_STATS: TeamRecordValueDef[] = [
     value: (g) => safeDiv(g.opponentFgm, g.opponentFga),
     worstEligible: false,
     filter: (g) => g.opponentFga >= TEAM_PCT_MIN_ATTEMPTS.fgPct,
+    fraction: (g) => [g.opponentFgm, g.opponentFga],
   },
   { key: "twoPm", label: "2P成功数", value: (g) => g.opponentFgm - g.opponentTpm },
   { key: "twoPa", label: "2P試投数", value: (g) => g.opponentFga - g.opponentTpa },
@@ -310,6 +315,7 @@ export const TEAM_AGAINST_RECORD_STATS: TeamRecordValueDef[] = [
     value: (g) => safeDiv(g.opponentFgm - g.opponentTpm, g.opponentFga - g.opponentTpa),
     worstEligible: false,
     filter: (g) => g.opponentFga - g.opponentTpa >= TEAM_PCT_MIN_ATTEMPTS.twoPct,
+    fraction: (g) => [g.opponentFgm - g.opponentTpm, g.opponentFga - g.opponentTpa],
   },
   { key: "tpm", label: "3P成功数", value: (g) => g.opponentTpm },
   { key: "tpa", label: "3P試投数", value: (g) => g.opponentTpa },
@@ -319,6 +325,7 @@ export const TEAM_AGAINST_RECORD_STATS: TeamRecordValueDef[] = [
     value: (g) => safeDiv(g.opponentTpm, g.opponentTpa),
     worstEligible: false,
     filter: (g) => g.opponentTpa >= TEAM_PCT_MIN_ATTEMPTS.tpPct,
+    fraction: (g) => [g.opponentTpm, g.opponentTpa],
   },
   { key: "ftm", label: "フリースロー成功数", value: (g) => g.opponentFtm },
   { key: "fta", label: "フリースロー試投数", value: (g) => g.opponentFta },
@@ -328,6 +335,7 @@ export const TEAM_AGAINST_RECORD_STATS: TeamRecordValueDef[] = [
     value: (g) => safeDiv(g.opponentFtm, g.opponentFta),
     worstEligible: false,
     filter: (g) => g.opponentFta >= TEAM_PCT_MIN_ATTEMPTS.ftPct,
+    fraction: (g) => [g.opponentFtm, g.opponentFta],
   },
   { key: "oreb", label: "オフェンスリバウンド", value: (g) => g.opponentOreb },
   { key: "dreb", label: "ディフェンスリバウンド", value: (g) => g.opponentDreb },

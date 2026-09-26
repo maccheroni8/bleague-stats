@@ -8,8 +8,37 @@ import type { PlayerGameLog } from "./types.ts";
 
 export type PlayerRecordGame = PlayerGameLog & { season: string };
 
-/** 成功率の記録の最低試投数（選手）。1試合の試投数の分布から、100%の同率が数件に収まる値にした */
+/** 成功率の記録の最低試投数（選手・リーグ全体の記録）。1試合の試投数の分布から、100%の同率が数件に収まる値にした */
 export const PLAYER_PCT_MIN_ATTEMPTS = { fgPct: 10, twoPct: 8, tpPct: 6, ftPct: 10 } as const;
+
+/**
+ * 個人詳細のキャリアハイの最低試投数（2026-09-27、ユーザー確認）。1人の選手の記録なので、リーグ全体の記録より低くし、
+ * 出場の少ない選手や3Pを打たない選手でも「-」になりにくくした。eFG%・TS%はFGと同じ
+ */
+export const PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS = { fgPct: 5, twoPct: 4, tpPct: 3, ftPct: 4 } as const;
+
+type PctMinAttempts = { fgPct: number; twoPct: number; tpPct: number; ftPct: number };
+
+/** 成功率の項目の対象の試合（キーは PLAYER_GAME_RECORD_STATS と同じ。eFG%・TS% は FG と同じ） */
+export function playerPctFilters(min: PctMinAttempts): Map<string, (g: PlayerGameLog) => boolean> {
+  const fg = (g: PlayerGameLog) => g.fga >= min.fgPct;
+  return new Map<string, (g: PlayerGameLog) => boolean>([
+    ["fgPct", fg],
+    ["2pPct", (g) => g.fga - g.tpa >= min.twoPct],
+    ["tpPct", (g) => g.tpa >= min.tpPct],
+    ["ftPct", (g) => g.fta >= min.ftPct],
+    ["efgPct", fg],
+    ["tsPct", fg],
+  ]);
+}
+
+/** 成功率の項目の成功数と試投数（「100.0%（6/6）」の表示と、同じ率の中の並びに使う。eFG%・TS% は添えない） */
+export const PLAYER_PCT_FRACTIONS = new Map<string, (g: PlayerGameLog) => readonly [number, number]>([
+  ["fgPct", (g) => [g.fgm, g.fga]],
+  ["2pPct", (g) => [g.fgm - g.tpm, g.fga - g.tpa]],
+  ["tpPct", (g) => [g.tpm, g.tpa]],
+  ["ftPct", (g) => [g.ftm, g.fta]],
+]);
 
 export interface PlayerGameRecordDef {
   key: string;
@@ -17,6 +46,8 @@ export interface PlayerGameRecordDef {
   value: (g: PlayerRecordGame) => number;
   /** 対象の試合（未指定なら出場した全試合） */
   filter?: (g: PlayerRecordGame) => boolean;
+  /** 成功率の項目: 成功数と試投数 */
+  fraction?: (g: PlayerRecordGame) => readonly [number, number];
   /** 表示の形（画面側で使う） */
   kind?: "minutes" | "pct" | "ratio" | "signed" | "int";
 }
@@ -44,32 +75,31 @@ function effOfGame(g: PlayerRecordGame): number {
   );
 }
 
-const fgaMin = (g: PlayerRecordGame) => g.fga >= PLAYER_PCT_MIN_ATTEMPTS.fgPct;
+const LEAGUE_PCT_FILTERS = playerPctFilters(PLAYER_PCT_MIN_ATTEMPTS);
 
-export const PLAYER_GAME_RECORD_STATS: PlayerGameRecordDef[] = [
+const PLAYER_GAME_RECORD_STATS_BASE: PlayerGameRecordDef[] = [
   { key: "min", label: "MIN", value: (g) => g.min, kind: "minutes" },
   { key: "pts", label: "PTS", value: (g) => g.pts },
   { key: "fgm", label: "FGM", value: (g) => g.fgm },
   { key: "fga", label: "FGA", value: (g) => g.fga },
-  { key: "fgPct", label: "FG%", value: (g) => safeDiv(g.fgm, g.fga), filter: fgaMin, kind: "pct" },
+  { key: "fgPct", label: "FG%", value: (g) => safeDiv(g.fgm, g.fga), kind: "pct" },
   { key: "2pm", label: "2PM", value: (g) => g.fgm - g.tpm },
   { key: "2pa", label: "2PA", value: (g) => g.fga - g.tpa },
   {
     key: "2pPct",
     label: "2P%",
     value: (g) => safeDiv(g.fgm - g.tpm, g.fga - g.tpa),
-    filter: (g) => g.fga - g.tpa >= PLAYER_PCT_MIN_ATTEMPTS.twoPct,
     kind: "pct",
   },
   { key: "tpm", label: "3PM", value: (g) => g.tpm },
   { key: "tpa", label: "3PA", value: (g) => g.tpa },
-  { key: "tpPct", label: "3P%", value: (g) => safeDiv(g.tpm, g.tpa), filter: (g) => g.tpa >= PLAYER_PCT_MIN_ATTEMPTS.tpPct, kind: "pct" },
+  { key: "tpPct", label: "3P%", value: (g) => safeDiv(g.tpm, g.tpa), kind: "pct" },
   { key: "ftm", label: "FTM", value: (g) => g.ftm },
   { key: "fta", label: "FTA", value: (g) => g.fta },
-  { key: "ftPct", label: "FT%", value: (g) => safeDiv(g.ftm, g.fta), filter: (g) => g.fta >= PLAYER_PCT_MIN_ATTEMPTS.ftPct, kind: "pct" },
+  { key: "ftPct", label: "FT%", value: (g) => safeDiv(g.ftm, g.fta), kind: "pct" },
   // eFG%・TS% は FG% と同じ最低試投数（FGA）
-  { key: "efgPct", label: "eFG%", value: (g) => efgPct(g.fgm, g.tpm, g.fga), filter: fgaMin, kind: "pct" },
-  { key: "tsPct", label: "TS%", value: (g) => tsPct(g.pts, g.fga, g.fta), filter: fgaMin, kind: "pct" },
+  { key: "efgPct", label: "eFG%", value: (g) => efgPct(g.fgm, g.tpm, g.fga), kind: "pct" },
+  { key: "tsPct", label: "TS%", value: (g) => tsPct(g.pts, g.fga, g.fta), kind: "pct" },
   { key: "oreb", label: "OR", value: (g) => g.oreb },
   { key: "dreb", label: "DR", value: (g) => g.dreb },
   { key: "reb", label: "TR", value: (g) => g.reb },
@@ -89,6 +119,12 @@ export const PLAYER_GAME_RECORD_STATS: PlayerGameRecordDef[] = [
   { key: "dunks", label: "DUNK", value: (g) => g.dunks },
   { key: "basketCounts", label: "AND1", value: (g) => g.basketCounts },
 ];
+
+export const PLAYER_GAME_RECORD_STATS: PlayerGameRecordDef[] = PLAYER_GAME_RECORD_STATS_BASE.map((d) => ({
+  ...d,
+  filter: LEAGUE_PCT_FILTERS.get(d.key),
+  fraction: PLAYER_PCT_FRACTIONS.get(d.key),
+}));
 
 /** 上位何位まで書き出すか（同じ記録はすべて含むので、件数はこれより多くなることがある） */
 export const PLAYER_GAME_RECORD_TOP_N = 10;

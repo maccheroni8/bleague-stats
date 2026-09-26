@@ -148,8 +148,16 @@ import { heightText, positionText, weightText } from "../lib/profileMark";
 import { seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
 import { statDescription } from "../lib/statDescriptions";
 import { PlayerSeasonScoringChart } from "../components/PlayerScoringShareCharts";
-import { computeTopRecordEntries, PLAYER_PCT_MIN_ATTEMPTS_NOTE, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
-import { PLAYER_GAME_RECORD_STATS } from "../../shared/playerGameRecords";
+import {
+  attemptsFirst,
+  computeTopRecordEntries,
+  PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS_NOTE,
+  sortTiedGames,
+  TOP_RECORD_WORST_BAD_N,
+  type TopRecordEntry,
+} from "../lib/topRecords";
+import { RecordValue } from "../components/RecordValue";
+import { PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS, PLAYER_PCT_FRACTIONS, playerPctFilters } from "../../shared/playerGameRecords";
 
 /**
  * 「試合ログ」タブの1行。ボックススコアが取れた試合（box）と、個人スタッツが無い試合
@@ -471,8 +479,10 @@ interface CareerHighDef {
    * 一覧からは除外する（DESIGN.md参照。ユーザー確認済み）。デフォルトはtrue
    */
   worstEligible?: boolean;
-  /** 対象の試合。成功率は最低試投数を満たす試合だけ（選手一覧の記録と同じ。shared/playerGameRecords.ts。2026-09-27） */
+  /** 対象の試合。成功率はキャリアハイ用の最低試投数を満たす試合だけ（shared/playerGameRecords.ts。2026-09-27） */
   filter?: (g: CareerHighGame) => boolean;
+  /** 成功率の項目: 成功数と試投数（「100.0%（6/6）」と添え、同じ率の中は試投数の多い試合を上にする） */
+  fraction?: (g: CareerHighGame) => readonly [number, number];
   /**
    * キャリアハイのトップ10展開（Batch 3、2026-09-16）の対象にするか。デフォルトはtrue。
    * 現在この値をfalseにしている項目は無い（%系の低試投数対策は別途検討する前提で撤回した。
@@ -506,10 +516,8 @@ function effTotalsOfGame(g: PlayerGameLog) {
   };
 }
 
-/** 成功率の項目の最低試投数の条件（選手一覧の記録の項目定義から、同じキーのものを使う） */
-const PCT_MIN_ATTEMPTS_FILTERS = new Map(
-  PLAYER_GAME_RECORD_STATS.flatMap((d) => (d.filter ? [[d.key, d.filter] as const] : [])),
-);
+/** 成功率の項目の最低試投数の条件（キャリアハイ用の低めの基準。リーグ全体の記録とは別） */
+const PCT_MIN_ATTEMPTS_FILTERS = playerPctFilters(PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS);
 
 const CAREER_HIGH_STATS_BASE: CareerHighDef[] = [
   {
@@ -586,7 +594,11 @@ const CAREER_HIGH_STATS_BASE: CareerHighDef[] = [
   { key: "technicalFouls", label: "TF", value: (g) => g.technicalFouls, lowerIsBetter: true },
 ];
 
-const CAREER_HIGH_STATS: CareerHighDef[] = CAREER_HIGH_STATS_BASE.map((d) => ({ ...d, filter: PCT_MIN_ATTEMPTS_FILTERS.get(d.key) }));
+const CAREER_HIGH_STATS: CareerHighDef[] = CAREER_HIGH_STATS_BASE.map((d) => ({
+  ...d,
+  filter: PCT_MIN_ATTEMPTS_FILTERS.get(d.key),
+  fraction: PLAYER_PCT_FRACTIONS.get(d.key),
+}));
 
 interface CompareSlotState {
   season: string;
@@ -1419,10 +1431,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
         if (bestValue === null || (def.lowerIsBetter ? v < bestValue : v > bestValue)) bestValue = v;
       }
       if (bestValue === null) return null;
-      const matches = sortGamesByDateDesc(pool.filter((g) => def.value(g) === bestValue));
+      const matches = sortTiedGames(pool.filter((g) => def.value(g) === bestValue), def.fraction);
       const [game, ...otherGames] = matches;
       const topEntries =
-        def.topNEligible === false ? [] : computeTopRecordEntries(pool, def.value, def.lowerIsBetter ?? false);
+        def.topNEligible === false
+          ? []
+          : computeTopRecordEntries(pool, def.value, def.lowerIsBetter ?? false, undefined, attemptsFirst(def.fraction));
       return { ...def, game, otherGames, topEntries, display: def.format ? def.format(bestValue) : String(bestValue) };
     }).filter(
       (
@@ -2937,6 +2951,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     onToggle={toggleCareerTieCard}
                     topEntries={h.topEntries}
                     format={h.format}
+                    fraction={h.fraction}
                     topNExpandedKeys={expandedTopNCareerCards}
                     onToggleTopN={toggleTopNCareerCard}
                   />
@@ -2954,7 +2969,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   </>
                 )}
               </div>
-              <p className="page-subtitle">{PLAYER_PCT_MIN_ATTEMPTS_NOTE}基準を満たす試合が無い項目は「-」です。</p>
+              <p className="page-subtitle">
+                {PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS_NOTE}基準を満たす試合が無い項目は「-」です。成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます。
+              </p>
               <h3 className="career-highs-subheading">キャリアワースト</h3>
               <div className="career-highs-grid">
                 {careerWorsts.map((h) => (
@@ -3456,12 +3473,14 @@ function CareerHighCard({
   onToggle,
   topEntries = [],
   format,
+  fraction,
   topNExpandedKeys,
   onToggleTopN,
 }: {
   tieKey: string;
   label: string;
   display: string;
+  fraction?: (g: CareerHighGame) => readonly [number, number];
   /** 無いときは、成功率の最低試投数を満たす試合が1つも無い */
   game: CareerHighGame | undefined;
   otherGames: CareerHighGame[];
@@ -3489,7 +3508,9 @@ function CareerHighCard({
       ) : (
         <div className="career-high-label">{label}</div>
       )}
-      <div className="career-high-value">{display}</div>
+      <div className="career-high-value">
+        <RecordValue text={display} fraction={game && fraction ? fraction(game) : undefined} />
+      </div>
       {game ? (
         <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}`} className="career-high-game-link">
           {game.date}　{game.isHome ? "vs" : "@"}
@@ -3523,10 +3544,12 @@ function CareerHighCard({
             {topEntries.map((e) => (
               <tr key={`${e.rank}-${e.game.scheduleKey}`}>
                 <td>{e.rank}</td>
-                <td>{format ? format(e.value) : String(e.value)}</td>
+                <td>
+                  <RecordValue text={format ? format(e.value) : String(e.value)} fraction={fraction?.(e.game)} />
+                </td>
                 <td>
                   <RouterLink to={`/games/${e.game.scheduleKey}?season=${e.game.season}`} className="career-high-game-link">
-                    {e.game.date}　{e.game.isHome ? "vs" : "@"}
+                    <span className="record-date-nowrap">{e.game.date}</span>　{e.game.isHome ? "vs" : "@"}
                     <ResponsiveTeamName teamId={e.game.opponentTeamId} name={e.game.opponentTeamName} always />
                   </RouterLink>
                 </td>

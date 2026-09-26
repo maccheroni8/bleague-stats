@@ -1444,6 +1444,9 @@ export interface LeagueTeamRankEntry {
    * 画面でクラブ名をその記録のシーズンの名称にするため（2026-09-26）。通算成績には無い
    */
   seasons?: string[];
+  /** クラブレコードの成功率の項目のみ: その記録の試合の成功数と試投数（同じ率の試合が複数あれば試投数の多い試合。2026-09-27） */
+  made?: number;
+  attempted?: number;
 }
 
 /** [statKey][teamId] のルックアップ */
@@ -1538,6 +1541,9 @@ export interface LeagueRecordEntry {
   date?: string;
   opponentTeamId?: string;
   isHome?: boolean;
+  /** 成功率の項目のみ: 成功数と試投数（2026-09-27） */
+  made?: number;
+  attempted?: number;
   /** クォーター別レコード（periodRecordTop20）のみ: 区間の得点・失点と、プレーバイプレーから補った値を含むか */
   ownPoints?: number;
   oppPoints?: number;
@@ -1680,6 +1686,9 @@ export interface PlayerGameRecordEntry {
   isHome: boolean;
   date: string;
   scheduleKey: string;
+  /** 成功率の項目のみ: 成功数と試投数（「100.0%（6/6）」の表示用） */
+  made?: number;
+  attempted?: number;
 }
 
 export interface PlayerGameRecordsFile {

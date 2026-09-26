@@ -8,7 +8,8 @@ import { gameTypeAxis, simpleSelectAxis } from "../lib/filterAxes";
 import { fetchSeasons, fetchTeams } from "../lib/data";
 import { usePageState } from "../lib/pageStateCache";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
-import { computeTopRecordEntries, TEAM_PCT_MIN_ATTEMPTS_NOTE, type TopRecordEntry } from "../lib/topRecords";
+import { attemptsFirst, computeTopRecordEntries, TEAM_PCT_MIN_ATTEMPTS_NOTE, type TopRecordEntry } from "../lib/topRecords";
+import { RecordValue } from "./RecordValue";
 import { useJsonData } from "../lib/useJsonData";
 import { composeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { ConditionTitle } from "./ConditionTitle";
@@ -88,7 +89,9 @@ function LeagueRecordCard({
         {def.label}
         {open ? " ▲" : " ▼"}
       </button>
-      <div className="career-high-value">{formatValue(def.key, first.value)}</div>
+      <div className="career-high-value">
+        <RecordValue text={formatValue(def.key, first.value)} fraction={def.fraction?.(first.game)} />
+      </div>
       <GameLine g={first.game} />
       {ties > 1 && (
         <button type="button" className="career-high-others-toggle" onClick={onToggle}>
@@ -102,7 +105,9 @@ function LeagueRecordCard({
               {visible.map((e) => (
                 <tr key={`${e.game.scheduleKey}-${e.game.teamId}`}>
                   <td>{e.rank}</td>
-                  <td>{formatValue(def.key, e.value)}</td>
+                  <td>
+                    <RecordValue text={formatValue(def.key, e.value)} fraction={def.fraction?.(e.game)} />
+                  </td>
                   <td>
                     <GameLine g={e.game} />
                   </td>
@@ -153,7 +158,7 @@ export function LeagueSeasonRecords({ defaultSeason }: { defaultSeason: string }
       leagueRecordDefs(mode)
         .map((def) => {
           const pool = def.filter ? games.filter(def.filter) : games;
-          return { def, entries: computeTopRecordEntries(pool, def.value, lowerFirst(def, mode)) };
+          return { def, entries: computeTopRecordEntries(pool, def.value, lowerFirst(def, mode), undefined, attemptsFirst(def.fraction)) };
         })
         .filter((r) => r.entries.length > 0),
     [games, mode],
@@ -228,7 +233,7 @@ export function LeagueSeasonRecords({ defaultSeason }: { defaultSeason: string }
           </div>
           <p className="page-subtitle">
             そのシーズンの全クラブの試合の中での1試合の記録です。項目名を押すと上位10位（同じ記録はすべて）を表示します。
-            {mode === "record" && TEAM_PCT_MIN_ATTEMPTS_NOTE}
+            {mode === "record" && `${TEAM_PCT_MIN_ATTEMPTS_NOTE}成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます。`}
             {mode === "worst" && "成功率・試投数・ホーム来場者数・逆転の項目は、ワーストの対象外です。"}
             PITP/FBPS/2ND PTS/PTSOFFTOはプレーバイプレーのタグから数えた得点、ホーム来場者数はホーム開催の試合だけが対象です。
           </p>

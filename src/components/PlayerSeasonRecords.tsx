@@ -15,6 +15,7 @@ import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { ResponsivePlayerName } from "./ResponsivePlayerName";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
+import { RecordValue } from "./RecordValue";
 
 /**
  * 選手一覧「記録」タブの範囲「シーズン」: 選んだシーズン・試合区分の中の、選手の1試合の記録（DESIGN.md 159章）。
@@ -38,6 +39,10 @@ function formatValue(def: PlayerGameRecordDef, v: number): string {
     default:
       return Number.isInteger(v) ? String(v) : v.toFixed(0);
   }
+}
+
+function fractionOf(e: PlayerGameRecordEntry): readonly [number, number] | undefined {
+  return e.made !== undefined && e.attempted !== undefined ? [e.made, e.attempted] : undefined;
 }
 
 function EntryLine({ e, season }: { e: PlayerGameRecordEntry; season: string }) {
@@ -84,7 +89,9 @@ function PlayerRecordCard({
         {def.label}
         {open ? " ▲" : " ▼"}
       </button>
-      <div className="career-high-value">{formatValue(def, first.value)}</div>
+      <div className="career-high-value">
+        <RecordValue text={formatValue(def, first.value)} fraction={fractionOf(first)} />
+      </div>
       <EntryLine e={first} season={season} />
       {ties > 1 && (
         <button type="button" className="career-high-others-toggle" onClick={onToggle}>
@@ -98,7 +105,9 @@ function PlayerRecordCard({
               {visible.map((e) => (
                 <tr key={`${e.scheduleKey}-${e.playerId}`}>
                   <td>{e.rank}</td>
-                  <td>{formatValue(def, e.value)}</td>
+                  <td>
+                    <RecordValue text={formatValue(def, e.value)} fraction={fractionOf(e)} />
+                  </td>
                   <td>
                     <EntryLine e={e} season={season} />
                   </td>
@@ -190,7 +199,7 @@ export function PlayerSeasonRecords({ defaultSeason }: { defaultSeason: string }
           <p className="page-subtitle">
             そのシーズンの全選手の出場した試合の中での1試合の記録です。項目名を押すと上位10位（同じ記録はすべて）を表示します。
             項目は個人詳細のキャリアハイと同じですが、少ない方が良い項目（TOV・F・UFOUL・TF）は出していません。
-            {PLAYER_PCT_MIN_ATTEMPTS_NOTE}
+            {PLAYER_PCT_MIN_ATTEMPTS_NOTE}成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます。
             毎日1回、前日までの試合を取り込んだあとに作り直します。
           </p>
         </PlayerNamePool>

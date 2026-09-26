@@ -84,7 +84,7 @@ async function loadCareerDataByTeam(): Promise<Map<string, TeamSeasonLogs[]>> {
  * それまでの「同じ値も teamId 昇順で連番」から変更。DESIGN.md 143-3）。同じ値の中の並びは teamId 昇順で決定的にする
  */
 function buildRankTable(
-  entries: { teamId: string; value: number; seasons?: string[] }[],
+  entries: { teamId: string; value: number; seasons?: string[]; made?: number; attempted?: number }[],
   lowerIsBetter = false,
 ): Record<string, LeagueTeamRankEntry> {
   const sorted = [...entries].sort((a, b) => (lowerIsBetter ? a.value - b.value : b.value - a.value) || Number(a.teamId) - Number(b.teamId));
@@ -93,7 +93,13 @@ function buildRankTable(
   let rank = 0;
   sorted.forEach((e, i) => {
     if (i === 0 || e.value !== sorted[i - 1]!.value) rank = i + 1;
-    table[e.teamId] = { value: e.value, rank, totalTeams, ...(e.seasons ? { seasons: e.seasons } : {}) };
+    table[e.teamId] = {
+      value: e.value,
+      rank,
+      totalTeams,
+      ...(e.seasons ? { seasons: e.seasons } : {}),
+      ...(e.attempted !== undefined ? { made: e.made, attempted: e.attempted } : {}),
+    };
   });
   return table;
 }
@@ -125,7 +131,7 @@ function computeCategoryRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>
 
   for (const gameType of GAME_TYPES) {
     const careerCollected = new Map<string, { teamId: string; value: number }[]>();
-    const recordCollected = new Map<string, { teamId: string; value: number; seasons: string[] }[]>();
+    const recordCollected = new Map<string, { teamId: string; value: number; seasons: string[]; made?: number; attempted?: number }[]>();
     const winsCollected: { teamId: string; value: number; seasons: string[] }[] = [];
     const streakCollected: { teamId: string; value: number; seasons: string[] }[] = [];
 
@@ -148,9 +154,19 @@ function computeCategoryRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>
           if (pool.length === 0) continue;
           const values = pool.map(def.value);
           const best = def.lowerIsBetter ? Math.min(...values) : Math.max(...values);
-          const bestSeasons = uniqueSorted(pool.filter((g) => def.value(g) === best).map((g) => seasonOfLog.get(g)!));
+          const bestGames = pool.filter((g) => def.value(g) === best);
+          const bestSeasons = uniqueSorted(bestGames.map((g) => seasonOfLog.get(g)!));
+          // 成功率は、同じ率の試合のうち試投数の多い試合（同じなら新しい試合）の成功数／試投数を添える
+          const fractionGame = def.fraction
+            ? [...bestGames].sort((a, b) => def.fraction!(b)[1] - def.fraction!(a)[1] || b.date.localeCompare(a.date))[0]
+            : undefined;
           const arr = recordCollected.get(def.key) ?? [];
-          arr.push({ teamId, value: best, seasons: bestSeasons });
+          arr.push({
+            teamId,
+            value: best,
+            seasons: bestSeasons,
+            ...(def.fraction && fractionGame ? { made: def.fraction(fractionGame)[0], attempted: def.fraction(fractionGame)[1] } : {}),
+          });
           recordCollected.set(def.key, arr);
         }
       }
@@ -201,6 +217,8 @@ interface RawRecordCandidate {
   date?: string;
   opponentTeamId?: string;
   isHome?: boolean;
+  made?: number;
+  attempted?: number;
 }
 
 /**
@@ -213,6 +231,10 @@ function rankTopEntries(candidates: RawRecordCandidate[], lowerIsBetter: boolean
   const sorted = [...candidates].sort((a, b) => {
     const diff = lowerIsBetter ? a.value - b.value : b.value - a.value;
     if (diff !== 0) return diff;
+    // 成功率は、同じ率の中で試投数の多い試合を上に、同じなら新しい試合から（2026-09-27）
+    if (a.attempted !== undefined && b.attempted !== undefined) {
+      return b.attempted - a.attempted || (b.date ?? b.season).localeCompare(a.date ?? a.season) || Number(a.teamId) - Number(b.teamId);
+    }
     const teamDiff = Number(a.teamId) - Number(b.teamId);
     if (teamDiff !== 0) return teamDiff;
     return (a.date ?? a.season).localeCompare(b.date ?? b.season);
@@ -271,6 +293,7 @@ function computeTopRecords(careerDataByTeam: Map<string, TeamSeasonLogs[]>): {
             date: g.date,
             opponentTeamId: g.opponentTeamId,
             isHome: g.isHome,
+            ...(def.fraction ? { made: def.fraction(g)[0], attempted: def.fraction(g)[1] } : {}),
           });
           recordCandidates.set(def.key, arr);
         }

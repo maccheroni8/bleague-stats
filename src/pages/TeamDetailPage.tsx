@@ -175,7 +175,15 @@ import { TeamSeasonForeignChart, TeamSeasonScoringCharts } from "../components/T
 import { fgaShare, isRegularSeasonInProgress } from "../lib/shareCharts";
 import { sumTeamGameLogs } from "../lib/teamStatsColumns";
 import { currentSeason } from "../lib/season";
-import { computeTopRecordEntries, TEAM_PCT_MIN_ATTEMPTS_NOTE, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
+import {
+  attemptsFirst,
+  computeTopRecordEntries,
+  sortTiedGames,
+  TEAM_PCT_MIN_ATTEMPTS_NOTE,
+  TOP_RECORD_WORST_BAD_N,
+  type TopRecordEntry,
+} from "../lib/topRecords";
+import { RecordValue } from "../components/RecordValue";
 import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
 import { PlayerNamePool } from "../components/PlayerNamePool";
 import { usePlayerLabel } from "../lib/playerLabel";
@@ -1804,6 +1812,8 @@ interface TeamRecordDef {
   filter?: (g: TeamRecordGame) => boolean;
   lowerIsBetter?: boolean;
   topNEligible?: boolean;
+  /** 成功率の項目: 成功数と試投数（shared/teamRecords.ts） */
+  fraction?: (g: TeamRecordGame) => readonly [number, number];
 }
 
 const TEAM_RECORD_PCT_FORMATS: Partial<Record<string, (v: number) => string>> = {
@@ -2144,10 +2154,12 @@ export function TeamDetailPage({ season }: { season: string }) {
         if (bestValue === null || (def.lowerIsBetter ? v < bestValue : v > bestValue)) bestValue = v;
       }
       if (bestValue === null) return null;
-      const matches = sortTeamRecordGamesByDateDesc(pool.filter((g) => def.value(g) === bestValue));
+      const matches = sortTiedGames(pool.filter((g) => def.value(g) === bestValue), def.fraction);
       const [game, ...otherGames] = matches;
       const topEntries =
-        def.topNEligible === false ? [] : computeTopRecordEntries(pool, def.value, def.lowerIsBetter ?? false);
+        def.topNEligible === false
+          ? []
+          : computeTopRecordEntries(pool, def.value, def.lowerIsBetter ?? false, undefined, attemptsFirst(def.fraction));
       return { ...def, game, otherGames, topEntries, display: def.format ? def.format(bestValue) : String(bestValue) };
     }).filter(
       (
@@ -2174,7 +2186,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           if (worstValue === null || (def.lowerIsBetter ? v > worstValue : v < worstValue)) worstValue = v;
         }
         if (worstValue === null) return null;
-        const matches = sortTeamRecordGamesByDateDesc(pool.filter((g) => def.value(g) === worstValue));
+        const matches = sortTiedGames(pool.filter((g) => def.value(g) === worstValue), def.fraction);
         const [game, ...otherGames] = matches;
         const topEntries = computeTopRecordEntries(
           pool,
@@ -2208,9 +2220,10 @@ export function TeamDetailPage({ season }: { season: string }) {
         if (bestValue === null || v > bestValue) bestValue = v;
       }
       if (bestValue === null) return null;
-      const matches = sortTeamRecordGamesByDateDesc(pool.filter((g) => def.value(g) === bestValue));
+      const matches = sortTiedGames(pool.filter((g) => def.value(g) === bestValue), def.fraction);
       const [game, ...otherGames] = matches;
-      const topEntries = def.topNEligible === false ? [] : computeTopRecordEntries(pool, def.value, false);
+      const topEntries =
+        def.topNEligible === false ? [] : computeTopRecordEntries(pool, def.value, false, undefined, attemptsFirst(def.fraction));
       return { ...def, game, otherGames, topEntries, display: def.format ? def.format(bestValue) : String(bestValue) };
     }).filter(
       (
@@ -3856,6 +3869,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     onToggle={toggleClubRecordTieCard}
                     topEntries={r.topEntries}
                     format={r.format}
+                    fraction={r.fraction}
                     topNExpandedKeys={expandedTopNRecordCards}
                     onToggleTopN={toggleTopNRecordCard}
                   />
@@ -3876,6 +3890,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     onToggle={toggleClubRecordTieCard}
                     topEntries={r.topEntries}
                     format={r.format}
+                    fraction={r.fraction}
                     topNExpandedKeys={expandedTopNRecordCards}
                     onToggleTopN={toggleTopNRecordCard}
                   />
@@ -3896,6 +3911,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     onToggle={toggleClubRecordTieCard}
                     topEntries={r.topEntries}
                     format={r.format}
+                    fraction={r.fraction}
                     topNExpandedKeys={expandedTopNRecordCards}
                     onToggleTopN={toggleTopNRecordCard}
                   />
@@ -3904,7 +3920,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               <p className="page-subtitle">
                 {careerData[0]?.season}〜{careerData[careerData.length - 1]?.season}シーズンの中での1試合の最高/最低記録
                 （PITP/FBPS/2ND PTS/PTSOFFTOはPBPタグ集計による得点ベースの値。ホーム来場者数はホーム開催試合のみが対象）。
-                %系の指標・試投数・ホーム来場者数はクラブワーストの対象外。{TEAM_PCT_MIN_ATTEMPTS_NOTE}被記録の成功率は、相手の試投数で判定します。項目名クリックでトップ10（TOV・失点・ファウル等「多い方が悪い」
+                %系の指標・試投数・ホーム来場者数はクラブワーストの対象外。{TEAM_PCT_MIN_ATTEMPTS_NOTE}被記録の成功率は、相手の試投数で判定します。成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます。項目名クリックでトップ10（TOV・失点・ファウル等「多い方が悪い」
                 項目はワースト側のみトップ5）を展開できます。項目名の下の順位は過去在籍した全クラブ横断。
                 クラブワーストは順位算出の対象外。「被記録」は対戦相手がこのチーム相手に記録した最多値
                 （来場者数を除く28項目。歴代順位の算出対象外）
@@ -4668,6 +4684,7 @@ function ClubRecordCard({
   onToggle,
   topEntries = [],
   format,
+  fraction,
   topNExpandedKeys,
   onToggleTopN,
 }: {
@@ -4683,6 +4700,7 @@ function ClubRecordCard({
   onToggle: (key: string) => void;
   topEntries?: TopRecordEntry<TeamRecordGame>[];
   format?: (v: number) => string;
+  fraction?: (g: TeamRecordGame) => readonly [number, number];
   topNExpandedKeys?: Set<string>;
   onToggleTopN?: (key: string) => void;
 }) {
@@ -4703,7 +4721,9 @@ function ClubRecordCard({
       ) : (
         <div className="career-high-label">{label}</div>
       )}
-      <div className="career-high-value">{display}</div>
+      <div className="career-high-value">
+        <RecordValue text={display} fraction={fraction?.(game)} />
+      </div>
       {rank && <div className="career-high-rank">{rank}</div>}
       <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}`} className="career-high-game-link">
         {game.date}　{game.isHome ? "vs" : "@"}
@@ -4734,10 +4754,12 @@ function ClubRecordCard({
             {topEntries.map((e) => (
               <tr key={`${e.rank}-${e.game.scheduleKey}`}>
                 <td>{e.rank}</td>
-                <td>{format ? format(e.value) : String(e.value)}</td>
+                <td>
+                  <RecordValue text={format ? format(e.value) : String(e.value)} fraction={fraction?.(e.game)} />
+                </td>
                 <td>
                   <RouterLink to={`/games/${e.game.scheduleKey}?season=${e.game.season}`} className="career-high-game-link">
-                    {e.game.date}　{e.game.isHome ? "vs" : "@"}
+                    <span className="record-date-nowrap">{e.game.date}</span>　{e.game.isHome ? "vs" : "@"}
                     <ResponsiveTeamName teamId={e.game.opponentTeamId} name={e.game.opponentTeamName} always />
                   </RouterLink>
                 </td>

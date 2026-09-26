@@ -748,6 +748,35 @@ table.stats-table tr.situational-group-heading td {
   display: inline;
 }
 
+/* 成功率の記録に添える成功数／試投数。1つのかたまりで折り返す */
+.record-fraction {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* 狭いカードの中の上位の一覧では、成功数／試投数を率の下の行に回す（試合の欄の幅を残すため）。行いっぱいに広げたカードでは1行のまま */
+.career-high-card:not(.league-record-card-open) .career-top-n-table td:nth-child(2) .record-fraction {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.career-high-card:not(.league-record-card-open) .career-top-n-table td:nth-child(2):has(.record-fraction) {
+  white-space: normal;
+}
+
+/* 上位の一覧の日付は途中で折り返さない */
+.record-date-nowrap {
+  white-space: nowrap;
+}
+
+.career-high-value .record-fraction {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 2px;
+}
+
 /* チーム全体「記録」のシーズン: 記録を出したチーム（対戦相手と区別する） */
 .record-team {
   font-weight: 700;
