@@ -36,6 +36,8 @@ interface CompareSlotFilterProps {
   boundary?: SeasonHalfBoundary | null;
   opponentWinRateSupported?: boolean;
   ownTeamDivisionSupported?: boolean;
+  /** 指定時、シチュエーションの絞り込みを出さず、この注記を出す（リーグ平均はシーズン全体の値のため。DESIGN.md 149章） */
+  situationalDisabledNote?: string;
 }
 
 /**
@@ -55,6 +57,7 @@ export function CompareSlotFilter({
   boundary,
   opponentWinRateSupported,
   ownTeamDivisionSupported,
+  situationalDisabledNote,
 }: CompareSlotFilterProps) {
   const selectAxes: FilterAxis[] = selects.map((s) => ({
     kind: "select",
@@ -71,7 +74,7 @@ export function CompareSlotFilter({
   const axes: FilterAxis[] = [...selectAxes];
   if (enabled) {
     if (gameType) axes.push(gameTypeAxis(gameType.value, gameType.onChange, gameType.season));
-    axes.push(
+    if (!situationalDisabledNote) axes.push(
       // 会場はスロットでは詳細フィルタ側に置く（スロットの幅では主要軸を絞るため）
       ...situationalAxes(filter, onFilter, { boundary, opponentWinRateSupported, ownTeamDivisionSupported }).map(
         (a): FilterAxis => (a.id === "s.homeAway" ? { ...a, tier: "advanced" } : a),
@@ -88,6 +91,7 @@ export function CompareSlotFilter({
     <>
       <FilterBar axes={axes} stateKey={stateKey} onClearAll={clearAll} compact />
       {!enabled && <p className="compare-slot-note">{disabledNote}</p>}
+      {enabled && situationalDisabledNote && <p className="compare-slot-note">{situationalDisabledNote}</p>}
     </>
   );
 }

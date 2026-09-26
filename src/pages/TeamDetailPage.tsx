@@ -21,7 +21,7 @@ import {
   fetchDivisionHistory,
   fetchGame,
   fetchGameSummaries,
-  fetchLeagueAverage,
+  fetchLeagueCompare,
   fetchLeagueTeamRankings,
   fetchPlayerGameLogs,
   fetchPlayers,
@@ -38,7 +38,7 @@ import {
   fetchPlayoffRace,
   fetchSeasonRules,
 } from "../lib/data";
-import { LEAGUE_TEAM_NAME } from "../lib/leagueAverage";
+import { LEAGUE_COLOR, LEAGUE_SLOT_NOTE, LEAGUE_TEAM_NAME } from "../lib/leagueAverage";
 import { useJsonData } from "../lib/useJsonData";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
@@ -57,7 +57,6 @@ import type {
   TeamForcedTurnovers,
   TeamGameLog,
   TeamSummary,
-  LeagueAverageFile,
   UpcomingGameEntry,
   YahooGamePbp,
   YahooTurnoverEvent,
@@ -783,8 +782,6 @@ interface SeasonRecord {
   season: string;
   teamName: string;
   team: TeamSummary;
-  /** そのシーズンのリーグ平均（data/{season}/league-average.json。DESIGN.md 149章）。取れなければ無し */
-  league?: LeagueAverageFile;
 }
 
 
@@ -1864,6 +1861,8 @@ function describeTeamSituationalFilter(filter: SituationalFilter): string {
 interface TeamCompareSlotState {
   season: string;
   filter: SituationalFilter;
+  /** true のとき、このチームではなくリーグ平均（シーズン全体。シチュエーションの絞り込みは無し。DESIGN.md 149章） */
+  league?: boolean;
 }
 
 function defaultTeamCompareSlots(season: string): [TeamCompareSlotState, TeamCompareSlotState] {
@@ -2281,7 +2280,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     if (tab !== "compare" || !careerData) return;
     const pairs: { season: string; scheduleKey: string }[] = [];
     for (const slot of compareSlots) {
-      if (!slot.season) continue;
+      if (!slot.season || slot.league) continue;
       const logs = careerData.find((cd) => cd.season === slot.season)?.logs ?? [];
       for (const g of logs) {
         if (g.min > 0 && !compareRawGamesRequestedRef.current.has(g.scheduleKey)) {
@@ -2317,7 +2316,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     if (tab !== "compare" || !careerData || !seasons) return;
     const pairs: { season: string; scheduleKey: string }[] = [];
     for (const slot of compareSlots) {
-      if (!slot.season) continue;
+      if (!slot.season || slot.league) continue;
       if (!(seasons.find((s) => s.season === slot.season)?.yahooPbp ?? false)) continue;
       const logs = careerData.find((cd) => cd.season === slot.season)?.logs ?? [];
       for (const g of logs) {
@@ -2352,10 +2351,30 @@ export function TeamDetailPage({ season }: { season: string }) {
 
   const compareDataLoading = compareRawGamesLoading || compareYahooPbpLoading;
 
+  // 「リーグ平均」を選んだ枠のデータ（data/{season}/league-compare.json）。枠は2つで固定なので2つ呼ぶ
+  const compareLeague0 = useJsonData(
+    () => (tab === "compare" && compareSlots[0].league && compareSlots[0].season ? fetchLeagueCompare(compareSlots[0].season) : Promise.resolve(null)),
+    [tab, compareSlots[0].league, compareSlots[0].season],
+  );
+  const compareLeague1 = useJsonData(
+    () => (tab === "compare" && compareSlots[1].league && compareSlots[1].season ? fetchLeagueCompare(compareSlots[1].season) : Promise.resolve(null)),
+    [tab, compareSlots[1].league, compareSlots[1].season],
+  );
+  const compareLeagueFiles = [compareLeague0.data, compareLeague1.data] as const;
+
   const compareRows: ComparisonRow<TeamCompareColumnData>[] = useMemo(() => {
     return ([0, 1] as const)
       .map((i): ComparisonRow<TeamCompareColumnData> | null => {
         const slot = compareSlots[i];
+        if (slot.league) {
+          const file = compareLeagueFiles[i];
+          const totals = file && file.season === slot.season ? file.totals[compareGameType] : null;
+          if (!slot.season || !file || !totals) return null;
+          return {
+            item: { key: `slot${i}`, label: LEAGUE_TEAM_NAME, boxTotals: totals, gamesCount: file.games[compareGameType], isLeague: true },
+            season: slot.season,
+          };
+        }
         if (!slot.season || !careerData) return null;
         const logs = careerData.find((cd) => cd.season === slot.season)?.logs;
         if (!logs) return null;
@@ -2388,7 +2407,8 @@ export function TeamDetailPage({ season }: { season: string }) {
         };
       })
       .filter((r): r is ComparisonRow<TeamCompareColumnData> => r !== null);
-  }, [compareSlots, careerData, compareGameType, compareOpponentRecords, compareRawGames, compareYahooPbp, seasons, teamId, divisionHistory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compareSlots, careerData, compareGameType, compareOpponentRecords, compareRawGames, compareYahooPbp, seasons, teamId, divisionHistory, compareLeague0.data, compareLeague1.data]);
 
   // 「チームスタッツ」タブの「シチュエーション別成績」（チーム版）専用の自チーム/opp/+/-トグル・Q別/前後半トグル。
   // 「ショットチャート」のQ別/前後半（teamShotChartPeriod）とは独立して持つ（旧・概要タブの選択シーズン集計表と
@@ -2574,9 +2594,9 @@ export function TeamDetailPage({ season }: { season: string }) {
     Promise.all(
       seasons.map(async (s) => {
         try {
-          const [teamsOfSeason, league] = await Promise.all([fetchTeams(s.season), fetchLeagueAverage(s.season).catch(() => undefined)]);
+          const teamsOfSeason = await fetchTeams(s.season);
           const found = teamsOfSeason.find((t) => t.teamId === teamId);
-          return found ? { season: s.season, teamName: found.teamName, team: found, ...(league ? { league } : {}) } : null;
+          return found ? { season: s.season, teamName: found.teamName, team: found } : null;
         } catch {
           return null;
         }
@@ -3256,7 +3276,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「比較」タブ: 各スロットの選択内容（シーズン・シチュエーション）をタイトルに、共通の軸（カテゴリ・V・G）を条件行に出す
   const compareSlotDescriptions = compareSlots
     .filter((slot) => slot.season)
-    .map((slot) => `${slot.season}（${joinLabels(situationalFilterLabels(slot.filter))}）`);
+    .map((slot) => (slot.league ? `${LEAGUE_TEAM_NAME} ${slot.season}` : `${slot.season}（${joinLabels(situationalFilterLabels(slot.filter))}）`));
   const compareTitle = {
     title: `${team.teamName} 比較：${compareSlotDescriptions.join(" vs ")}`,
     conditions: composeLabels(
@@ -3972,12 +3992,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                 <tbody>
                   {seasonHistoryDesc.map((r) => {
                     const misc = teamSeasonMiscBySeason.get(r.season) ?? EMPTY_TEAM_SEASON_MISC;
-                    // リーグ平均の行（DESIGN.md 149章）。各シーズンの行の下に出す。自チームの視点のときだけ（opp・+/-では出さない）
-                    const leagueRecord: SeasonRecord | null =
-                      r.league && seasonBoxPerspective === "own" ? { season: r.season, teamName: LEAGUE_TEAM_NAME, team: r.league.team } : null;
                     return (
-                      <Fragment key={r.season}>
-                      <tr>
+                      <tr key={r.season}>
                         <td className="align-left">
                           <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
                             {r.season}
@@ -3993,22 +4009,6 @@ export function TeamDetailPage({ season }: { season: string }) {
                           </td>
                         ))}
                       </tr>
-                      {leagueRecord && r.league && (
-                        <tr className="pinned-row">
-                          <td className="align-left" />
-                          <td className="align-left">{LEAGUE_TEAM_NAME}</td>
-                          <td className="align-right">-</td>
-                          <td className="align-right">-</td>
-                          <td className="align-right">-</td>
-                          {TEAM_SEASON_BOX_COLUMNS[seasonBoxTab].map((c) => (
-                            <td className="align-right" key={c.key}>
-                              {/* 試合数はリーグ平均では出さない（延べ試合数をチーム数で割った値になるため） */}
-                              {c.label === "G" ? "-" : c.format(leagueRecord, r.league!.misc, seasonBoxDisplayMode, "own")}
-                            </td>
-                          ))}
-                        </tr>
-                      )}
-                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -4425,6 +4425,16 @@ export function TeamDetailPage({ season }: { season: string }) {
                     stateKey={pk(`compareSlot${i}`)}
                     selects={[
                       {
+                        id: "target",
+                        label: "対象",
+                        value: slot.league ? "league" : "team",
+                        options: [
+                          { value: "team", label: team.teamName },
+                          { value: "league", label: LEAGUE_TEAM_NAME },
+                        ],
+                        onChange: (v) => updateSlot({ league: v === "league", filter: { range: { kind: "all" } } }),
+                      },
+                      {
                         id: "season",
                         label: "シーズン",
                         value: slot.season,
@@ -4444,6 +4454,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     onFilter={(f) => updateSlot({ filter: f })}
                     opponentWinRateSupported={!!compareOpponentRecords[i]}
                     ownTeamDivisionSupported={!!divisionHistory}
+                    {...(slot.league ? { situationalDisabledNote: LEAGUE_SLOT_NOTE } : {})}
                   />
                 </div>
               );
@@ -4484,8 +4495,8 @@ export function TeamDetailPage({ season }: { season: string }) {
               defs={teamCompareDefs(compareTab, comparePerspective)}
               rowKey={(r) => r.key}
               name={(r) => r.label}
-              linkTo={() => `/teams/${teamId}`}
-              teamColor={() => accentColor}
+              linkTo={(r) => (r.isLeague ? undefined : `/teams/${teamId}`)}
+              teamColor={(r) => (r.isLeague ? LEAGUE_COLOR : accentColor)}
             />
           )}
           {compareTab === "misc" && (

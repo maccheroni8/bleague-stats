@@ -21,7 +21,8 @@ import type {
   TeamGameLog,
   YahooGamePbp,
 } from "../../shared/types";
-import { fetchGame, fetchGameSummaries, fetchPlayerGameLogs, fetchTeamGameLogs, fetchYahooGamePbp } from "./data";
+import { fetchGame, fetchGameSummaries, fetchLeagueCompare, fetchPlayerGameLogs, fetchTeamGameLogs, fetchYahooGamePbp } from "./data";
+import { LEAGUE_TEAM_ID } from "./leagueAverage";
 import {
   buildTeamMultiGameBoxTotals,
   buildTeamSplitRows,
@@ -164,9 +165,15 @@ export function useTeamCompareSlot({
   divisionHistory,
   seasons,
 }: CommonArgs & { teamId: string; seasons: SeasonEntry[] | null }): TeamSlotData {
+  // 「リーグ平均」（teamId が LEAGUE_TEAM_ID）: そのシーズン全体の値（data/{season}/league-compare.json）。シチュエーションの絞り込みは使わない
+  const isLeague = teamId === LEAGUE_TEAM_ID;
+  const league = useJsonData(
+    () => (active && isLeague ? fetchLeagueCompare(season).then((file) => ({ key: season, file })) : Promise.resolve(null)),
+    [active, isLeague, season],
+  );
   const { data, loading, error } = useJsonData(
     () =>
-      active
+      active && !isLeague
         ? Promise.all([fetchTeamGameLogs(season, teamId), fetchGameSummaries(season)]).then(([logs, summaries]) => ({
             key: `${season}|${teamId}`,
             logs,
@@ -209,6 +216,21 @@ export function useTeamCompareSlot({
     const yahooTurnovers = new Map(entries.map(({ game }) => [game.scheduleKey, yahoo.get(game.scheduleKey)?.turnovers ?? []]));
     return buildTeamMultiGameBoxTotals(entries, yahooTurnovers, shotChartSupported, yahooPbpSupported);
   }, [base, filtered, pending, games, yahoo, shotChartSupported, yahooPbpSupported]);
+
+  if (isLeague) {
+    const file = league.data && league.data.key === season && !league.loading ? league.data.file : null;
+    const totals = file ? file.totals[gameType] : null;
+    return {
+      status: !active ? "idle" : league.error ? "error" : !file ? "loading" : totals ? "ready" : "empty",
+      error: active ? league.error : null,
+      boundary: null,
+      opponentWinRateSupported: false,
+      ownTeamDivisionSupported: false,
+      gamesCount: file ? file.games[gameType] : 0,
+      pendingGames: 0,
+      boxTotals: totals,
+    };
+  }
 
   let status: SlotStatus;
   if (!active) status = "idle";

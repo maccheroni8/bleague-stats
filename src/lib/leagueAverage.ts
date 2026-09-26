@@ -4,6 +4,12 @@
 export const LEAGUE_TEAM_ID = "league";
 export const LEAGUE_TEAM_NAME = "リーグ平均";
 
+/** 比較でのリーグ平均の色（チームカラーの代わり。見出しの線・良い方の値の塗り）。灰色系（既存の --muted） */
+export const LEAGUE_COLOR = "var(--muted)";
+
+/** 比較の枠でリーグ平均を選んだときの注記 */
+export const LEAGUE_SLOT_NOTE = "リーグ平均はシーズン全体の値です（シチュエーションの絞り込みはありません）";
+
 /** 同じ形の数値のオブジェクトを足してから件数で割る */
 export function averageTotals<T extends object>(list: T[]): T {
   const sum: Record<string, number> = {};

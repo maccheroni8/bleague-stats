@@ -12,7 +12,7 @@ import { useMediaQuery } from "../lib/useMediaQuery";
  */
 const PCT_TICKS = [0, 25, 50, 75, 100];
 const GUIDE_TICKS = [25, 50, 75];
-/** 25・50・75% の点線を棒の上に出すか（採用するかはユーザー確認待ち。2026-09-26） */
+/** 25・50・75% の点線を棒の上に出す（2026-09-26 採用。On-Court Foreign・Scoring % の両方） */
 const SHOW_GUIDE_LINES = true;
 
 export interface ShareBarCategory {

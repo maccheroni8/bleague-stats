@@ -178,7 +178,8 @@ jobs:
         if: steps.proceed.outputs.run == 'true'
         run: node --experimental-strip-types scripts/aggregate.ts --season ${{ steps.season.outputs.season }}
 
-      # 歴代記録の順位（チーム・個人）と、ランキングのキャリアの回数（全シーズンの試合ログから作る。DESIGN.md 143-4・145章）。深夜のディープrecheckでのみ実行し、
+      # 歴代記録の順位（チーム・個人）と、ランキングのキャリアの回数（全シーズンの試合ログから作る。DESIGN.md 143-4・145章）、
+      # 比較で選べるリーグ平均（進行中のシーズンのみ。DESIGN.md 149章）。深夜のディープrecheckでのみ実行し、
       # 30分おきのチェックでは実行しない。作った時刻以外が前回と同じならファイルを書き換えないので、変化が無い日にコミット・デプロイは起きない。
       # 失敗しても試合結果の集計・commitは止めず、末尾の「Fail if league rankings failed」でジョブを失敗にする
       - name: Aggregate league rankings (all-time records)
@@ -189,6 +190,7 @@ jobs:
           node --experimental-strip-types scripts/aggregate-league-rankings.ts
           node --experimental-strip-types scripts/aggregate-league-player-rankings.ts
           node --experimental-strip-types scripts/aggregate-player-careers.ts
+          npm run aggregate:league-compare -- --season ${{ steps.season.outputs.season }}
 
       # 新競技規則(DESIGN.md 16章)の検知。公式データが新表記（ディスラプティブ/フレグラント、
       # カテゴリ1/2）やActionCD1の変更に移行したことにコミット前後で気づくための警報。

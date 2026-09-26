@@ -1,4 +1,5 @@
 import { useMemo, useRef, type CSSProperties, type ReactNode } from "react";
+import { LEAGUE_COLOR, LEAGUE_SLOT_NOTE, LEAGUE_TEAM_ID, LEAGUE_TEAM_NAME } from "../lib/leagueAverage";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { surnameOf } from "../lib/playerSurname";
@@ -178,7 +179,8 @@ interface ComparisonTableProps<T> {
   defs: ComparisonStatDef<T>[];
   rowKey: (row: T) => string;
   name: (row: T) => ReactNode;
-  linkTo: (row: T) => string;
+  /** 名前のリンク先。undefined ならリンクを付けない（リーグ平均） */
+  linkTo: (row: T) => string | undefined;
   /** 指定時、名前の直後にBリーグ公式サイトへの外部リンクアイコンを表示する（選手比較のみ） */
   externalLinkTo?: (row: T) => string | undefined;
   teamColor?: (row: T) => string | undefined;
@@ -240,9 +242,13 @@ export function ComparisonTable<T>({
                   className={`compare-entity-col ${valueAlign(col)}${externalLinkTo?.(item) ? " has-external-link" : ""}`}
                   style={accent ? { borderTopColor: accent } : undefined}
                 >
-                  <Link to={`${linkTo(item)}?season=${season}`} className="cell-link">
-                    {name(item)}
-                  </Link>
+                  {linkTo(item) ? (
+                    <Link to={`${linkTo(item)}?season=${season}`} className="cell-link">
+                      {name(item)}
+                    </Link>
+                  ) : (
+                    <span className="cell-link">{name(item)}</span>
+                  )}
                   {externalLinkTo?.(item) && (
                     <ExternalLinkIcon href={externalLinkTo(item)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
@@ -255,17 +261,20 @@ export function ComparisonTable<T>({
         </thead>
         <tbody>
           {defs.map((def) => {
-            const values = rows.map(({ item }) => def.value(item));
-            const best = def.higherIsBetter === false ? Math.min(...values) : Math.max(...values);
+            // 値を出さない対象（「-」。リーグ平均の +/- 等）は良い方の判定から外す
+            const formattedAll = rows.map(({ item }) => def.format(item));
+            const values = rows.map(({ item }) => def.value(item)).filter((_, i) => formattedAll[i] !== "-");
+            const best = values.length === 0 ? NaN : def.higherIsBetter === false ? Math.min(...values) : Math.max(...values);
             // 良い方の値（DESIGN.md 134-4）: セルの地をその対象のチームカラーで薄く塗り（蛍光ペンの見た目）、数値を太字にする。
             // 同値は表示している値（丸めた後）で判定し、最良の表示値を持つ対象すべてを塗る（3つの比較で2者が並べば2者とも）。
             // 全員が同じ表示値の行（2つの比較の同値を含む）と、試投数など良し悪しの無い項目は塗らない
-            const formatted = rows.map(({ item }) => def.format(item));
-            const bestAt = values.findIndex((v) => v === best);
+            const formatted = formattedAll;
+            const bestAt = rows.findIndex(({ item }, i) => formatted[i] !== "-" && def.value(item) === best);
             const bestText = bestAt === -1 ? null : formatted[bestAt];
+            const compared = formatted.filter((f) => f !== "-").length;
             const winners = bestText === null ? 0 : formatted.filter((f) => f === bestText).length;
             const isBest = (i: number) =>
-              !def.noHighlight && rows.length > 1 && bestText !== null && winners < rows.length && formatted[i] === bestText;
+              !def.noHighlight && compared > 1 && bestText !== null && winners < compared && formatted[i] === bestText;
             return (
               <tr key={def.key}>
                 {columns.map((col, ci) =>
@@ -375,6 +384,7 @@ function CompareSlotCard({
         boundary={data.boundary}
         opponentWinRateSupported={data.opponentWinRateSupported}
         ownTeamDivisionSupported={data.ownTeamDivisionSupported}
+        {...(slot.id === LEAGUE_TEAM_ID ? { situationalDisabledNote: LEAGUE_SLOT_NOTE } : {})}
       />
       {entityLoaded && entityOptions.length === 0 && <p className="compare-slot-note">このシーズンのデータがありません</p>}
       {entityValid && statusText && <p className={`compare-slot-status status-${data.status}`}>{statusText}</p>}
@@ -419,7 +429,8 @@ function TeamCompareView({
   const exportRef = useRef<HTMLDivElement>(null);
 
   const lists = slots.map((s) => teamsBySeason?.get(s.season) ?? null);
-  const valid = slots.map((s, i) => !!s.id && !!lists[i]?.some((t) => t.teamId === s.id));
+  // 「リーグ平均」（DESIGN.md 149章）もチームと同じ枠で選べる（シーズン・試合種別は選べる。シチュエーションの絞り込みは無し）
+  const valid = slots.map((s, i) => !!s.id && (s.id === LEAGUE_TEAM_ID ? !!lists[i] : !!lists[i]?.some((t) => t.teamId === s.id)));
   // スロットごとに独立して（そのスロットが選択されて初めて）取得する。3つのフックは固定数の呼び出し
   const slotData: TeamSlotData[] = [
     useTeamCompareSlot({ teamId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory, seasons }),
@@ -431,9 +442,10 @@ function TeamCompareView({
   const descriptions: string[] = [];
   slots.forEach((slot, i) => {
     const data = slotData[i]!;
-    const team = lists[i]?.find((t) => t.teamId === slot.id);
+    const isLeague = slot.id === LEAGUE_TEAM_ID;
+    const team = isLeague ? { teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME } : lists[i]?.find((t) => t.teamId === slot.id);
     if (!team || data.status !== "ready" || !data.boxTotals) return;
-    const cond = slotConditionLabel(slot, data);
+    const cond = isLeague ? joinLabels(gameTypeLabels(slot.gameType, slot.season || null)) : slotConditionLabel(slot, data);
     rows.push({
       item: {
         key: `slot${i}`,
@@ -442,6 +454,7 @@ function TeamCompareView({
         season: slot.season,
         boxTotals: data.boxTotals,
         gamesCount: data.gamesCount,
+        isLeague,
         subLabel: `${cond}（${data.gamesCount}試合）`,
       },
       season: slot.season,
@@ -470,7 +483,9 @@ function TeamCompareView({
             stateKey={`compare:team:slot${i}`}
             entityLabel="チーム"
             seasonOptions={seasonOptions}
-            entityOptions={(lists[i] ?? []).map((t) => ({ value: t.teamId, label: t.teamName }))}
+            entityOptions={
+              lists[i] ? [{ value: LEAGUE_TEAM_ID, label: LEAGUE_TEAM_NAME }, ...lists[i]!.map((t) => ({ value: t.teamId, label: t.teamName }))] : []
+            }
             entityLoaded={lists[i] !== null && lists[i] !== undefined}
             entityValid={valid[i]!}
             data={slotData[i]!}
@@ -489,9 +504,9 @@ function TeamCompareView({
           rows={rows}
           defs={defs}
           rowKey={(r) => r.key}
-          name={(r) => <ResponsiveTeamName teamId={r.teamId} name={r.label} />}
-          linkTo={(r) => `/teams/${r.teamId}`}
-          teamColor={(r) => teamColors?.[r.teamId]?.primary}
+          name={(r) => (r.isLeague ? r.label : <ResponsiveTeamName teamId={r.teamId} name={r.label} />)}
+          linkTo={(r) => (r.isLeague ? undefined : `/teams/${r.teamId}`)}
+          teamColor={(r) => (r.isLeague ? LEAGUE_COLOR : teamColors?.[r.teamId]?.primary)}
           subLabel={(r) => r.subLabel}
           emptyMessage={anyBusy ? "データ取得中..." : "比較するチームを選んでください"}
         />

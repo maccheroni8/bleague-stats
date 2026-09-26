@@ -75,6 +75,8 @@ export interface TeamCompareColumnData {
   key: string;
   label: string;
   boxTotals: TeamGameBoxTotals;
+  /** リーグ平均（DESIGN.md 149章）。opp は自チームと同じ値（リーグ全体の相手はリーグ全体）、+/- は出さない（「-」） */
+  isLeague?: boolean;
   /** 絞り込んだ試合数（先頭の「G」行） */
   gamesCount: number;
 }
@@ -87,7 +89,8 @@ const TEAM_GAMES_DEF: ComparisonStatDef<TeamCompareColumnData> = {
   key: "g",
   label: "G",
   value: (r) => r.gamesCount,
-  format: (r) => String(r.gamesCount),
+  // リーグ平均はシーズン全体の試合数（見出しに「（◯試合）」で出す）で、チームの試合数と並べると紛らわしいので「-」
+  format: (r) => (r.isLeague ? "-" : String(r.gamesCount)),
   higherIsBetter: true,
   noHighlight: true,
 };
@@ -165,7 +168,9 @@ function teamCompareDef(col: BoxscoreColumn, perspective: TeamPerspective): Comp
       return ownValue !== undefined && oppValue !== undefined ? ownValue - oppValue : 0;
     },
     format: (r) =>
-      perspective === "own"
+      perspective === "diff" && r.isLeague
+        ? "-"
+        : perspective === "own"
         ? cleanNumericString(col.format(r.boxTotals.own, r.boxTotals.ownCtx))
         : perspective === "opp"
           ? cleanNumericString(col.format(r.boxTotals.opp, r.boxTotals.oppCtx))
@@ -173,7 +178,8 @@ function teamCompareDef(col: BoxscoreColumn, perspective: TeamPerspective): Comp
     // 相手チーム視点では向きを反転する（相手のPTSは少ない方が、相手のTOVは多い方が自チームにとって良い。
     // チーム一覧・ランキングの視点切り替えと同じ考え方）
     higherIsBetter: perspective === "opp" ? !ownHigherIsBetter : ownHigherIsBetter,
-    noHighlight: COMPARE_NO_HIGHLIGHT.has(col.key),
+    // チームの比較では MIN（出場時間。試合時間なので延長戦の有無だけで変わる）も強調しない（G と同じ扱い。DESIGN.md 149章）
+    noHighlight: COMPARE_NO_HIGHLIGHT.has(col.key) || col.key === "min",
   };
 }
 
