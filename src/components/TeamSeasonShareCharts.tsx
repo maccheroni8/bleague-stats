@@ -2,6 +2,9 @@ import { useState } from "react";
 import type { SeasonRules, TeamSummary } from "../../shared/types";
 import {
   CLASSIFICATION_CATEGORIES,
+  FGA_CATEGORIES,
+  fgaDetails,
+  fgaRightLabel,
   FOREIGN_CATEGORIES,
   foreignAverageLabel,
   foreignDetails,
@@ -90,6 +93,32 @@ function pointsRows(
     });
 }
 
+/** FG試投構成のシーズン別推移。fgaBySeason はシーズンごとのレギュラーシーズンの自チーム・相手のFG試投構成 */
+function fgaRows(
+  rows: TeamSeasonShareRow[],
+  inProgressSeason: string | null,
+  fgaBySeason: Map<string, { own: PointsShare; opponent: PointsShare }>,
+  mode: "own" | "opponent",
+): ShareBarRow[] {
+  return rows.flatMap((r) => {
+    const s = fgaBySeason.get(r.season)?.[mode];
+    if (!s || s.perGame <= 0) return [];
+    const d = fgaDetails(s, mode === "own" ? "own" : "opp");
+    return [
+      {
+        key: r.season,
+        labelLines: r.season === inProgressSeason ? [r.season, IN_PROGRESS] : [r.season],
+        pct: s.pct,
+        details: d.details,
+        tooltipDetails: d.tooltipDetails,
+        rightLabel: fgaRightLabel(s.perGame),
+        tooltipTitle: r.season === inProgressSeason ? `${r.season}・${IN_PROGRESS}` : r.season,
+        tooltipFooter: d.footer,
+      },
+    ];
+  });
+}
+
 function PointsTrend({ title, rows, categories }: { title: string; rows: ShareBarRow[]; categories: ShareBarCategory[] }) {
   return (
     <>
@@ -99,7 +128,16 @@ function PointsTrend({ title, rows, categories }: { title: string; rows: ShareBa
   );
 }
 
-export function TeamSeasonScoringCharts({ rows, inProgressSeason }: { rows: TeamSeasonShareRow[]; inProgressSeason: string | null }) {
+export function TeamSeasonScoringCharts({
+  rows,
+  inProgressSeason,
+  fgaBySeason,
+}: {
+  rows: TeamSeasonShareRow[];
+  inProgressSeason: string | null;
+  /** FG試投構成（試合ログから求める。読み込み中は null） */
+  fgaBySeason: Map<string, { own: PointsShare; opponent: PointsShare }> | null;
+}) {
   // 失点構成は最初は隠し、ボタンで出す（得点構成・得点構成（登録区分）の2つを並べるのが主）
   const [showOpponent, setShowOpponent] = useState(false);
   return (
@@ -110,8 +148,13 @@ export function TeamSeasonScoringCharts({ rows, inProgressSeason }: { rows: Team
         rows={pointsRows(rows, inProgressSeason, (t) => teamClassificationShare(t, "own"), "pts")}
         categories={CLASSIFICATION_CATEGORIES}
       />
+      {fgaBySeason ? (
+        <PointsTrend title="FG試投構成" rows={fgaRows(rows, inProgressSeason, fgaBySeason, "own")} categories={FGA_CATEGORIES} />
+      ) : (
+        <p className="loading">読み込み中...</p>
+      )}
       <button type="button" className="mobile-collapse-toggle share-trend-toggle" aria-expanded={showOpponent} onClick={() => setShowOpponent((v) => !v)}>
-        {showOpponent ? "失点構成を隠す" : "失点構成を表示"}
+        {showOpponent ? "失点構成・opp FG試投構成を隠す" : "失点構成・opp FG試投構成を表示"}
       </button>
       {showOpponent && (
         <>
@@ -125,11 +168,15 @@ export function TeamSeasonScoringCharts({ rows, inProgressSeason }: { rows: Team
             rows={pointsRows(rows, inProgressSeason, (t) => teamClassificationShare(t, "opponent"), "opp")}
             categories={CLASSIFICATION_CATEGORIES}
           />
+          {fgaBySeason && (
+            <PointsTrend title="opp FG試投構成" rows={fgaRows(rows, inProgressSeason, fgaBySeason, "opponent")} categories={FGA_CATEGORIES} />
+          )}
         </>
       )}
       <p className="page-subtitle">
         レギュラーシーズン・シーズン合計の値です（上部の自チーム/opp/+/-・平均/合計とは連動しません）。棒の中の数値は割合(%)と1試合平均の得点、右端は1試合平均の得点（失点構成は失点）です。
-        ミッドレンジは「2Pの得点−ペイント内の得点」です。登録区分は現在の登録情報に基づく値です
+        ミッドレンジは「2Pの得点−ペイント内の得点」です。登録区分は現在の登録情報に基づく値です。
+        FG試投構成はFGAに占める3P・Mid-range・Paintの割合で、Paint・Mid-rangeはプレーバイプレーの公式の区分（ペイント内／ペイント外の2P）です。棒の中の数値は割合(%)と1試合平均の試投数、右端は1試合平均のFGAです
       </p>
     </>
   );

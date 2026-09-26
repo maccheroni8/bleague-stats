@@ -39,6 +39,8 @@ import { SeasonLink } from "../components/SeasonLink";
 import { FilterBar } from "../components/FilterBar";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { LeagueSeasonRecords } from "../components/LeagueSeasonRecords";
+import { FGA_ORDER_LABELS, FgaCompositionChart, type FgaChartTeam, type FgaShareOrder } from "../components/FgaCompositionChart";
+import { fgaShare } from "../lib/shareCharts";
 import {
   displayModeAxis,
   gameTypeAxis,
@@ -298,6 +300,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   // ブラウザバックで戻ったときも保持する。得点構成と失点構成は同じ並び順を使う（失点構成の「得点（失点）が多い順」は失点が多い順）
   const [storedScoringOrder, setScoringOrder] = usePageState<PointsShareOrder>("teams:scoringOrder", "total");
   const scoringOrder: PointsShareOrder = storedScoringOrder in SCORING_ORDER_LABELS ? storedScoringOrder : "total";
+  // FG試投構成の並び順（2026-09-27）。FG試投構成と opp FG試投構成は同じ並び順を使う
+  const [storedFgaOrder, setFgaOrder] = usePageState<FgaShareOrder>("teams:fgaOrder", "total");
+  const fgaOrder: FgaShareOrder = storedFgaOrder in FGA_ORDER_LABELS ? storedFgaOrder : "total";
   const [storedClassificationOrder, setClassificationOrder] = usePageState<ClassificationShareOrder>("teams:classificationOrder", "total");
   const classificationOrder: ClassificationShareOrder =
     storedClassificationOrder in CLASSIFICATION_ORDER_LABELS ? storedClassificationOrder : "total";
@@ -374,6 +379,31 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     const data = turnoverPerspective === "forced" ? team.forcedTurnovers : team.turnoversCommitted;
     return data ? [{ team, data }] : [];
   });
+  // FG試投構成（Scoring %）。teams.json にペイント内外の試投数が無いため、各チームの試合ログのレギュラーシーズン分を合計する
+  // （ペイント内外はプレーバイプレーの公式の区分）。リーグ平均は全チームの合計を延べ試合数で割る
+  const fgaTeams = useMemo(() => {
+    if (!teams || !gameLogsByTeam) return null;
+    const perTeam = teams.map((team) => {
+      const logs = filterByGameType(gameLogsByTeam.get(team.teamId) ?? [], "regular");
+      return { team, games: logs.length, totals: sumTeamGameLogs(logs) };
+    });
+    const build = (mode: "own" | "opponent"): FgaChartTeam[] => {
+      const pick = (games: number, t: ReturnType<typeof sumTeamGameLogs>) =>
+        mode === "own"
+          ? { games, tpa: t.tpa, mid2a: t.mid2a, paint2a: t.paint2a }
+          : { games, tpa: t.oppTpa, mid2a: t.oppMid2a, paint2a: t.oppPaint2a };
+      const list = perTeam.map((r) => ({ teamId: r.team.teamId, teamName: r.team.teamName, share: fgaShare(pick(r.games, r.totals)) }));
+      const league = perTeam.reduce(
+        (acc, r) => {
+          const v = pick(r.games, r.totals);
+          return { games: acc.games + v.games, tpa: acc.tpa + v.tpa, mid2a: acc.mid2a + v.mid2a, paint2a: acc.paint2a + v.paint2a };
+        },
+        { games: 0, tpa: 0, mid2a: 0, paint2a: 0 },
+      );
+      return league.games > 0 ? [...list, { teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME, share: fgaShare(league) }] : list;
+    };
+    return { own: build("own"), opponent: build("opponent") };
+  }, [teams, gameLogsByTeam]);
   // 棒グラフ（On-Court Foreign・Scoring %）は、リーグ平均の棒を並び順の中の該当する位置に入れる（DESIGN.md 149章）
   const withLeague = (list: TeamSummary[] | null | undefined): TeamSummary[] =>
     leagueAverage ? [...(list ?? []), { ...leagueAverage.team, teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME }] : (list ?? []);
@@ -613,6 +643,14 @@ function AllTeamsStatsTab({ season }: { season: string }) {
                 onChange: (v) => setScoringOrder(v as PointsShareOrder),
               }),
               simpleSelectAxis({
+                id: "fgaOrder",
+                label: "FG試投構成の並び順",
+                options: (Object.keys(FGA_ORDER_LABELS) as FgaShareOrder[]).map((o) => ({ value: o, label: FGA_ORDER_LABELS[o] })),
+                value: fgaOrder,
+                defaultValue: "total",
+                onChange: (v) => setFgaOrder(v as FgaShareOrder),
+              }),
+              simpleSelectAxis({
                 id: "classificationOrder",
                 label: "登録区分の並び順",
                 options: (Object.keys(CLASSIFICATION_ORDER_LABELS) as ClassificationShareOrder[]).map((o) => ({
@@ -631,6 +669,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           <ScoringCompositionChart teams={withLeague(teams)} mode="opponent" order={scoringOrder} />
           <p className="page-subtitle">
             レギュラーシーズン・シーズン合計の値です（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しません）。ペイント内の得点はプレーバイプレーの記録から、ミッドレンジの得点は「2Pの得点−ペイント内の得点」として出しているため、全シーズンで表示できます。棒の中の数値は割合(%)と1試合平均の得点、右端は1試合平均の得点（失点構成は失点）です
+          </p>
+          <h3>FG試投構成（FGAに占める割合）</h3>
+          {fgaTeams ? <FgaCompositionChart teams={fgaTeams.own} mode="own" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
+          <h3>opp FG試投構成（相手のFGAに占める割合）</h3>
+          {fgaTeams ? <FgaCompositionChart teams={fgaTeams.opponent} mode="opponent" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
+          <p className="page-subtitle">
+            レギュラーシーズン・シーズン合計の値です（上部のフィルタとは連動しません）。Paint・Mid-rangeはプレーバイプレーの公式の区分（ペイント内／ペイント外の2P）で、全シーズンで表示できます。棒の中の数値は割合(%)と1試合平均の試投数、右端は1試合平均のFGA（opp FG試投構成は相手のFGA）です
           </p>
           <h3>得点構成（登録区分）</h3>
           <ClassificationCompositionChart teams={withLeague(teams)} mode="own" order={classificationOrder} />

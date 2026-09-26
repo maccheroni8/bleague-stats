@@ -172,7 +172,8 @@ import { CLASSIFICATION_COLORS } from "../lib/classificationFilter";
 import { statDescription } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import { TeamSeasonForeignChart, TeamSeasonScoringCharts } from "../components/TeamSeasonShareCharts";
-import { isRegularSeasonInProgress } from "../lib/shareCharts";
+import { fgaShare, isRegularSeasonInProgress } from "../lib/shareCharts";
+import { sumTeamGameLogs } from "../lib/teamStatsColumns";
 import { currentSeason } from "../lib/season";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
 import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
@@ -2068,6 +2069,27 @@ export function TeamDetailPage({ season }: { season: string }) {
   // TeamGameLogだけを合算する（careerDataは「チームスタッツ」タブで通算成績等と同じものを取得済みのため追加取得なし）
   const teamSeasonMiscBySeason = useMemo(
     () => new Map((careerData ?? []).map((cd) => [cd.season, sumTeamSeasonMisc(cd.logs)])),
+    [careerData],
+  );
+
+  // Scoring % のシーズン別推移の FG試投構成（2026-09-27）。teams.json にペイント内外の試投数が無いため、レギュラーシーズンの試合ログを合計する
+  const teamSeasonFgaBySeason = useMemo(
+    () =>
+      careerData
+        ? new Map(
+            careerData.map((cd) => {
+              const logs = filterByGameType(cd.logs, "regular");
+              const t = sumTeamGameLogs(logs);
+              return [
+                cd.season,
+                {
+                  own: fgaShare({ games: logs.length, tpa: t.tpa, mid2a: t.mid2a, paint2a: t.paint2a }),
+                  opponent: fgaShare({ games: logs.length, tpa: t.oppTpa, mid2a: t.oppMid2a, paint2a: t.oppPaint2a }),
+                },
+              ] as const;
+            }),
+          )
+        : null,
     [careerData],
   );
 
@@ -4003,6 +4025,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           ) : seasonBoxTab === "scoringComposition" ? (
             <TeamSeasonScoringCharts
               rows={seasonHistoryDesc}
+              fgaBySeason={teamSeasonFgaBySeason}
               inProgressSeason={isRegularSeasonInProgress(currentSeason(), currentSeason(), currentRace, team.teamId) ? currentSeason() : null}
             />
           ) : (

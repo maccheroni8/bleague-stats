@@ -136,3 +136,35 @@ export function isRegularSeasonInProgress(
   if (season !== current || !race || race.teams.length === 0) return false;
   return teamId ? (race.teams.find((t) => t.teamId === teamId)?.remaining ?? 0) > 0 : race.teams.some((t) => t.remaining > 0);
 }
+
+// --- FG試投構成（3P・Mid-range・Paint。FGAに占める割合。2026-09-27） ---
+/** 色は得点構成の同じ区分と同じ */
+export const FGA_CATEGORIES: ShareBarCategory[] = [
+  { label: "3P", color: "#1f78c1" },
+  { label: "Mid-range", color: "#7cc4f7" },
+  { label: "Paint", color: "#0b3d7a" },
+];
+
+/**
+ * FG試投構成。3PA・ペイント外の2PA・ペイント内の2PA（ペイント内外はプレーバイプレーの公式の区分）の合計を渡す。
+ * 値は PointsShare と同じ形（perGame＝1試合平均のFGA、values＝区分ごとの1試合平均の試投数）
+ */
+export function fgaShare(t: { games: number; tpa: number; mid2a: number; paint2a: number }): PointsShare {
+  const parts = [t.tpa, t.mid2a, t.paint2a];
+  const total = parts.reduce((a, b) => a + b, 0);
+  const pct = parts.map((v) => (total > 0 ? (100 * v) / total : 0));
+  const games = t.games > 0 ? t.games : 1;
+  return { perGame: total / games, pct, values: parts.map((v) => v / games) };
+}
+
+export function fgaDetails(share: PointsShare, unit: "own" | "opp" = "own"): { details: string[]; tooltipDetails: string[]; footer: string } {
+  return {
+    details: share.values.map((v) => v.toFixed(1)),
+    tooltipDetails: share.values.map((v) => `（${v.toFixed(1)}本）`),
+    footer: `${unit === "own" ? "平均FGA" : "相手の平均FGA"}: ${share.perGame.toFixed(1)}`,
+  };
+}
+
+export function fgaRightLabel(perGame: number): { wide: string; narrow: string } {
+  return { wide: `${perGame.toFixed(1)}本`, narrow: perGame.toFixed(1) };
+}
