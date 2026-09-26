@@ -748,6 +748,18 @@ table.stats-table tr.situational-group-heading td {
   display: inline;
 }
 
+/* チーム全体「記録」のシーズン: 記録を出したチーム（対戦相手と区別する） */
+.record-team {
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.period-records-team {
+  display: block;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 /* チーム全体「記録」のシーズン: 開いたカードは行いっぱいに広げる */
 .league-record-card-open {
   grid-column: 1 / -1;

@@ -143,6 +143,7 @@ export function ClubPeriodRecords<G extends RecordGame>({
                             {formatRecordValue(k.key, best.value)}
                             {best.score.fromPbp && <span title={PBP_NOTE}>※</span>}
                           </span>
+                          {teamLabel && <span className="period-records-team">{teamLabel(best.game)}</span>}
                           <span className="period-records-date">{formatDate(best.game.date, narrow)}</span>
                           {ties > 1 && <span className="period-records-date">ほか{ties - 1}試合</span>}
                         </button>

@@ -3904,7 +3904,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               <p className="page-subtitle">
                 {careerData[0]?.season}〜{careerData[careerData.length - 1]?.season}シーズンの中での1試合の最高/最低記録
                 （PITP/FBPS/2ND PTS/PTSOFFTOはPBPタグ集計による得点ベースの値。ホーム来場者数はホーム開催試合のみが対象）。
-                %系の指標はクラブワーストの対象外。項目名クリックでトップ10（TOV・失点・ファウル等「多い方が悪い」
+                %系の指標・試投数・ホーム来場者数はクラブワーストの対象外。項目名クリックでトップ10（TOV・失点・ファウル等「多い方が悪い」
                 項目はワースト側のみトップ5）を展開できます。項目名の下の順位は過去在籍した全クラブ横断。
                 クラブワーストは順位算出の対象外。「被記録」は対戦相手がこのチーム相手に記録した最多値
                 （来場者数を除く28項目。歴代順位の算出対象外）

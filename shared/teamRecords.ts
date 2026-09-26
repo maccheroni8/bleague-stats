@@ -201,14 +201,15 @@ export interface TeamRecordValueDef {
   topNEligible?: boolean;
 }
 
+// 試投数とホーム来場者数は、少ないことが悪い記録とは言えないため、ワースト（クラブワースト・シーズンのワースト）に出さない（2026-09-27）
 export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
   { key: "pts", label: "得点", value: (g) => g.teamScore },
   { key: "oppPts", label: "失点", value: (g) => g.opponentScore, lowerIsBetter: true },
   { key: "fgm", label: "FG成功数", value: (g) => g.fgm },
-  { key: "fga", label: "FG試投数", value: (g) => g.fga },
+  { key: "fga", label: "FG試投数", value: (g) => g.fga, worstEligible: false },
   { key: "fgPct", label: "FG成功率", value: (g) => safeDiv(g.fgm, g.fga), worstEligible: false },
   { key: "twoPm", label: "2P成功数", value: (g) => g.fgm - g.tpm },
-  { key: "twoPa", label: "2P試投数", value: (g) => g.fga - g.tpa },
+  { key: "twoPa", label: "2P試投数", value: (g) => g.fga - g.tpa, worstEligible: false },
   {
     key: "twoPct",
     label: "2P成功率",
@@ -216,10 +217,10 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
     worstEligible: false,
   },
   { key: "tpm", label: "3P成功数", value: (g) => g.tpm },
-  { key: "tpa", label: "3P試投数", value: (g) => g.tpa },
+  { key: "tpa", label: "3P試投数", value: (g) => g.tpa, worstEligible: false },
   { key: "tpPct", label: "3P成功率", value: (g) => safeDiv(g.tpm, g.tpa), worstEligible: false },
   { key: "ftm", label: "フリースロー成功数", value: (g) => g.ftm },
-  { key: "fta", label: "フリースロー試投数", value: (g) => g.fta },
+  { key: "fta", label: "フリースロー試投数", value: (g) => g.fta, worstEligible: false },
   {
     key: "ftPct",
     label: "フリースロー成功率",
@@ -247,6 +248,7 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
     label: "ホーム来場者数",
     value: (g) => g.attendance ?? 0,
     filter: (g) => g.isHome && g.attendance !== undefined,
+    worstEligible: false,
   },
   { key: "japanesePoints", label: "日本人得点", value: (g) => g.japanesePoints },
   {

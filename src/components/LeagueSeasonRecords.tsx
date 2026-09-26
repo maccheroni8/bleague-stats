@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { filterByGameType, type SeasonGameTypeFilter } from "../../shared/gameType";
-import { teamShortName } from "../../shared/teamNames";
 import { TEAM_RECORD_STATS, type TeamRecordValueDef } from "../../shared/teamRecords";
 import type { TeamGameLog } from "../../shared/types";
 import { formatPct } from "../lib/format";
@@ -43,7 +42,7 @@ function lowerFirst(def: TeamRecordValueDef, mode: RecordMode): boolean {
   return mode === "record" ? lowerIsBetter : !lowerIsBetter;
 }
 
-/** 記録/ワーストで出す項目。ワーストは、成功率（試投の少ない試合で極端な値になる）と逆転（負け/勝ちの試合にしかない）を除く */
+/** 記録/ワーストで出す項目。ワーストは、成功率（試投の少ない試合で極端な値になる）・試投数とホーム来場者数（少ないことが悪いとは言えない）・逆転（負け/勝ちの試合にしかない）を除く */
 export function leagueRecordDefs(mode: RecordMode): TeamRecordValueDef[] {
   return mode === "record" ? TEAM_RECORD_STATS : TEAM_RECORD_STATS.filter((d) => d.worstEligible !== false);
 }
@@ -51,7 +50,13 @@ export function leagueRecordDefs(mode: RecordMode): TeamRecordValueDef[] {
 function GameLine({ g }: { g: LeagueRecordGame }) {
   return (
     <RouterLink to={`/games/${g.scheduleKey}?season=${g.season}`} className="career-high-game-link">
-      {g.date}　<ResponsiveTeamName teamId={g.teamId} name={g.teamName} always /> {g.isHome ? "vs" : "@"}{" "}
+      {g.date}
+      {"　"}
+      {/* 記録を出したチームは太字にして、対戦相手と区別する */}
+      <strong className="record-team">
+        <ResponsiveTeamName teamId={g.teamId} name={g.teamName} always />
+      </strong>{" "}
+      {g.isHome ? "vs" : "@"}{" "}
       <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always />
     </RouterLink>
   );
@@ -223,7 +228,7 @@ export function LeagueSeasonRecords({ defaultSeason }: { defaultSeason: string }
           </div>
           <p className="page-subtitle">
             そのシーズンの全クラブの試合の中での1試合の記録です。項目名を押すと上位10位（同じ記録はすべて）を表示します。
-            {mode === "worst" && "成功率と逆転の項目は、ワーストの対象外です。"}
+            {mode === "worst" && "成功率・試投数・ホーム来場者数・逆転の項目は、ワーストの対象外です。"}
             PITP/FBPS/2ND PTS/PTSOFFTOはプレーバイプレーのタグから数えた得点、ホーム来場者数はホーム開催の試合だけが対象です。
           </p>
 
@@ -232,7 +237,11 @@ export function LeagueSeasonRecords({ defaultSeason }: { defaultSeason: string }
             games={games}
             stateKey="teams:records:season:period"
             mode={mode}
-            teamLabel={(g) => teamShortName(g.teamId, g.teamName)}
+            teamLabel={(g) => (
+              <strong className="record-team">
+                <ResponsiveTeamName teamId={g.teamId} name={g.teamName} always />
+              </strong>
+            )}
           />
           <p className="page-subtitle">
             1Q〜4Q・前半（1Q＋2Q）・後半（3Q＋4Q）の1試合の記録です。延長戦の得点は含めません。
