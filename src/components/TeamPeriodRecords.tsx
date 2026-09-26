@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { teamShortName } from "../../shared/teamNames";
 import {
@@ -50,15 +51,28 @@ function opponentLabel(g: TeamGameLog): string {
 
 // --- クラブレコード: クォーター別レコード ---
 
-export function ClubPeriodRecords({ games, stateKey }: { games: RecordGame[]; stateKey: string }) {
-  const [mode, setMode] = usePageState<"record" | "worst">(`${stateKey}:mode`, "record");
+export function ClubPeriodRecords<G extends RecordGame>({
+  games,
+  stateKey,
+  mode: controlledMode,
+  teamLabel,
+}: {
+  games: G[];
+  stateKey: string;
+  /** 記録/ワーストを外から決める（チーム全体「記録」のシーズン。このときは切り替えのボタンを出さない） */
+  mode?: "record" | "worst";
+  /** 複数チームの試合を並べるとき、試合の欄に記録したチームを出す */
+  teamLabel?: (g: G) => ReactNode;
+}) {
+  const [ownMode, setMode] = usePageState<"record" | "worst">(`${stateKey}:mode`, "record");
+  const mode = controlledMode ?? ownMode;
   const [selected, setSelected] = usePageState<{ period: PeriodKey; kind: PeriodRecordKind } | null>(`${stateKey}:selected`, null);
   const [showAll, setShowAll] = usePageState(`${stateKey}:showAll`, false);
   const narrow = useMediaQuery("(max-width: 560px)");
   const kinds = PERIOD_RECORD_KINDS.filter((k) => k.mode === mode);
   const selectedKind = selected && kinds.some((k) => k.key === selected.kind) ? selected : null;
 
-  const ranked = new Map<string, RankedPeriodGame<RecordGame>[]>();
+  const ranked = new Map<string, RankedPeriodGame<G>[]>();
   for (const period of PERIOD_KEYS) for (const k of kinds) ranked.set(`${period}:${k.key}`, rankPeriodGames(games, period, k.key));
 
   const select = (period: PeriodKey, kind: PeriodRecordKind) => {
@@ -75,6 +89,7 @@ export function ClubPeriodRecords({ games, stateKey }: { games: RecordGame[]; st
 
   return (
     <div className="period-records">
+      {!controlledMode && (
       <div className="mode-toggle period-range-toggle">
         {(["record", "worst"] as const).map((m) => (
           <button
@@ -91,6 +106,7 @@ export function ClubPeriodRecords({ games, stateKey }: { games: RecordGame[]; st
           </button>
         ))}
       </div>
+      )}
       <div className="table-scroll period-records-grid-scroll">
         <table className="sortable-table period-records-grid">
           <thead>
@@ -163,7 +179,7 @@ export function ClubPeriodRecords({ games, stateKey }: { games: RecordGame[]; st
               </thead>
               <tbody>
                 {visibleRows.map((r) => (
-                  <tr key={r.game.scheduleKey}>
+                  <tr key={`${r.game.scheduleKey}-${r.game.isHome ? "h" : "a"}`}>
                     <td className="align-right rank-cell">{r.rank}</td>
                     <td className="align-right rank-value">
                       {formatRecordValue(selectedKind.kind, r.value)}
@@ -179,6 +195,7 @@ export function ClubPeriodRecords({ games, stateKey }: { games: RecordGame[]; st
                       <RouterLink to={`/games/${r.game.scheduleKey}?season=${r.game.season}`} className="cell-link">
                         {formatDate(r.game.date, narrow)}
                         {narrow ? <br /> : " "}
+                        {teamLabel && <>{teamLabel(r.game)} </>}
                         {opponentLabel(r.game)}
                       </RouterLink>
                     </td>

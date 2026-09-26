@@ -38,6 +38,7 @@ import { TeamLogo } from "../components/TeamLogo";
 import { SeasonLink } from "../components/SeasonLink";
 import { FilterBar } from "../components/FilterBar";
 import { ConditionTitle } from "../components/ConditionTitle";
+import { LeagueSeasonRecords } from "../components/LeagueSeasonRecords";
 import {
   displayModeAxis,
   gameTypeAxis,
@@ -145,7 +146,7 @@ export function TeamsListPage({ season }: { season: string }) {
           onClick={() => setTab("records")}
           type="button"
         >
-          歴代記録
+          記録
         </button>
         <button
           className={`tab-button${tab === "champions" ? " active" : ""}`}
@@ -165,7 +166,7 @@ export function TeamsListPage({ season }: { season: string }) {
       {tab === "stats" ? (
         <AllTeamsStatsTab season={season} />
       ) : tab === "records" ? (
-        <LeagueRecordsTab />
+        <RecordsTab season={season} />
       ) : tab === "champions" ? (
         <ChampionsTab />
       ) : (
@@ -675,7 +676,7 @@ type RecordsCategory = "career" | "clubRecord" | "seasonSpecial" | "premierRecor
 const RECORDS_CATEGORY_LABELS: Record<RecordsCategory, string> = {
   career: "通算成績",
   clubRecord: "クラブレコード",
-  seasonSpecial: "シーズン記録",
+  seasonSpecial: "1シーズン記録",
   premierRecord: "B.PREMIER（旧B1）レコード",
   periodRecord: "クォーター別レコード",
 };
@@ -832,6 +833,33 @@ function TeamNavLink({
     <Link to={lastSeason ? `/teams/${teamId}?season=${lastSeason}` : `/teams/${teamId}`} className={className}>
       {children}
     </Link>
+  );
+}
+
+type RecordsScope = "allTime" | "season";
+
+/**
+ * 「記録」タブ（2026-09-27、旧「歴代記録」）。範囲「歴代」は今までの全シーズン横断の記録、「シーズン」は選んだシーズンの中の記録。
+ * タブの内部のキー（records）と絞り込みの保存キー（teams:records）は旧名のまま変えていない
+ */
+function RecordsTab({ season }: { season: string }) {
+  const [scope, setScope] = usePageState<RecordsScope>("teams:records:scope", "allTime");
+  return (
+    <div>
+      <div className="mode-toggle records-scope-toggle">
+        {(
+          [
+            ["allTime", "歴代"],
+            ["season", "シーズン"],
+          ] as const
+        ).map(([key, label]) => (
+          <button key={key} type="button" className={scope === key ? "active" : ""} onClick={() => setScope(key)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {scope === "allTime" ? <LeagueRecordsTab /> : <LeagueSeasonRecords defaultSeason={season} />}
+    </div>
   );
 }
 

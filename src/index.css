@@ -748,6 +748,16 @@ table.stats-table tr.situational-group-heading td {
   display: inline;
 }
 
+/* チーム全体「記録」のシーズン: 開いたカードは行いっぱいに広げる */
+.league-record-card-open {
+  grid-column: 1 / -1;
+}
+
+.league-record-card-open .career-top-n-table {
+  width: auto;
+  min-width: 50%;
+}
+
 .table-scroll {
   overflow-x: auto;
   border: 1px solid var(--border);
