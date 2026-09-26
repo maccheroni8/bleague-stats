@@ -3065,6 +3065,27 @@ td.schedule-team-cell.align-right :is(.cell-link, .schedule-cell-inner) {
   opacity: 0.35;
 }
 
+/* 日程の「今日」ボタン（表示の切り替えボタンと同じ見た目。2026-09-26） */
+.schedule-today-button {
+  padding: 6px 14px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.schedule-toolbar .mode-toggle {
+  margin-bottom: 0;
+}
+
+.schedule-today-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* 今日の日付のマス（「今日」ボタンで移ったときの目印。2026-09-26） */
 .calendar-cell-today {
   border-color: var(--accent);
