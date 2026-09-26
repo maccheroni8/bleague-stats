@@ -15,5 +15,5 @@
     "rootDir": "."
   },
   "include": ["scripts/**/*.ts", "shared/**/*.ts"],
-  "exclude": ["node_modules", "dist", "data"]
+  "exclude": ["node_modules", "dist", "data", "scripts/aggregate-league-compare.ts"]
 }

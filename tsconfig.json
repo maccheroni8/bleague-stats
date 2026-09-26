@@ -15,5 +15,5 @@
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "shared"]
+  "include": ["src", "shared", "scripts/aggregate-league-compare.ts"]
 }

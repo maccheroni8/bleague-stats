@@ -18,7 +18,8 @@ import { DATA_DIR, readAllGames, readJson, writeJsonIfChanged } from "./lib/stor
 import { classifyGameType } from "./lib/gameType.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { buildTeamMultiGameBoxTotals } from "../src/lib/playerSeasonBoxscore";
-import type { LeagueCompareFile, SeasonEntry, StoredGame, YahooGamePbp, YahooTurnoverEvent } from "../shared/types.ts";
+import type { SeasonEntry, StoredGame, YahooGamePbp, YahooTurnoverEvent } from "../shared/types.ts";
+import type { LeagueCompareFile } from "../src/lib/leagueAverage";
 
 async function readYahooTurnovers(season: string, scheduleKey: string): Promise<YahooTurnoverEvent[]> {
   const file = path.join(DATA_DIR, season, "yahoo", `${scheduleKey}.json.gz`);

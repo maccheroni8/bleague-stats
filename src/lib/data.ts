@@ -24,7 +24,6 @@ import type {
   PlayerAwardsFile,
   PlayerCareersFile,
   LeagueAverageFile,
-  LeagueCompareFile,
   PlayerGameLog,
   PlayerHistoryEntry,
   PlayerMasterEntry,
@@ -44,6 +43,7 @@ import type {
 } from "../../shared/types";
 import { legibleAccentColor, MONO_FALLBACK_COLOR } from "./color";
 import { TEAM_COLOR_OVERRIDES } from "./teamColorOverrides";
+import type { LeagueCompareFile } from "./leagueAverage";
 
 const dataBase = `${import.meta.env.BASE_URL}data`;
 

@@ -1652,16 +1652,3 @@ export interface LeagueAverageFile {
   /** チーム詳細「シーズン別成績」の列用の合算（shared/teamSeasonMisc.ts）。チーム数で割った値 */
   misc: import("./teamSeasonMisc.ts").TeamSeasonMiscTotals;
 }
-
-/** data/{season}/league-compare.json: 比較で選べる「リーグ平均」（scripts/aggregate-league-compare.ts。DESIGN.md 149章） */
-export interface LeagueCompareFile {
-  season: string;
-  /** 試合数（1試合を1と数える） */
-  games: { regular: number; playoff: number; both: number };
-  /** チームの比較と同じ形の値（1チーム1試合あたり）。試合が無い区分は null */
-  totals: {
-    regular: import("../src/lib/playerSeasonBoxscore").TeamGameBoxTotals | null;
-    playoff: import("../src/lib/playerSeasonBoxscore").TeamGameBoxTotals | null;
-    both: import("../src/lib/playerSeasonBoxscore").TeamGameBoxTotals | null;
-  };
-}
