@@ -845,6 +845,12 @@ function LeagueRecordsTab() {
   const narrow = useNarrow();
   const { data: teamHistory } = useJsonData(() => fetchTeamHistory(), []);
   const seasonName = (teamId: string, season: string) => teamNameInSeason(teamHistory, teamId, season, leagueTeamDisplayName(teamId));
+  // クラブ単位の一覧（クラブレコード・シーズン記録）は、記録を出したシーズンの名称。同じ値が名称の違う複数のシーズンにあれば今の名称。
+  // 通算成績は今の名称（seasons が無い）
+  const clubRowName = (teamId: string, seasons: string[] | undefined) => {
+    const names = new Set((seasons ?? []).map((season) => seasonName(teamId, season)));
+    return names.size === 1 ? [...names][0]! : leagueTeamDisplayName(teamId);
+  };
   const {
     data: rankings,
     loading: rankingsLoading,
@@ -993,7 +999,7 @@ function LeagueRecordsTab() {
                         <TeamLogo teamId={r.teamId} size={20} />
                         <span className="rank-name-cell">
                           <span className="rank-name">
-                              <ResponsiveTeamName teamId={r.teamId} name={leagueTeamDisplayName(r.teamId)} />
+                              <ResponsiveTeamName teamId={r.teamId} name={clubRowName(r.teamId, r.entry.seasons)} />
                             </span>
                           {/* 今の所属リーグは、通算成績（クラブ単位）だけに出す。1試合・1シーズンの記録では当時のリーグと違うことがあるため */}
                           {category === "career" && <span className="rank-sublabel">{leagueTeamCurrentCategoryLabel(r.teamId)}</span>}

@@ -1434,6 +1434,11 @@ export interface LeagueTeamRankEntry {
    * その項目のfilter条件を満たす試合が1件も無いクラブは対象外）。formatTeamRank()と同じ
    * 「◯位/◯チーム」表示にそのまま使える */
   totalTeams: number;
+  /**
+   * クラブレコード・シーズン記録のみ: その値を出したシーズン（同じ値が複数シーズンにあればすべて、古い順）。
+   * 画面でクラブ名をその記録のシーズンの名称にするため（2026-09-26）。通算成績には無い
+   */
+  seasons?: string[];
 }
 
 /** [statKey][teamId] のルックアップ */

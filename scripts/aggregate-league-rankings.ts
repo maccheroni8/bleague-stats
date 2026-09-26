@@ -83,16 +83,23 @@ async function loadCareerDataByTeam(): Promise<Map<string, TeamSeasonLogs[]>> {
  * クラブ間の順位。同じ値は同じ順位にし、次の順位はその分飛ばす（1位・2位・2位・4位。2026-09-25にユーザー指示で、
  * それまでの「同じ値も teamId 昇順で連番」から変更。DESIGN.md 143-3）。同じ値の中の並びは teamId 昇順で決定的にする
  */
-function buildRankTable(entries: { teamId: string; value: number }[], lowerIsBetter = false): Record<string, LeagueTeamRankEntry> {
+function buildRankTable(
+  entries: { teamId: string; value: number; seasons?: string[] }[],
+  lowerIsBetter = false,
+): Record<string, LeagueTeamRankEntry> {
   const sorted = [...entries].sort((a, b) => (lowerIsBetter ? a.value - b.value : b.value - a.value) || Number(a.teamId) - Number(b.teamId));
   const totalTeams = sorted.length;
   const table: Record<string, LeagueTeamRankEntry> = {};
   let rank = 0;
   sorted.forEach((e, i) => {
     if (i === 0 || e.value !== sorted[i - 1]!.value) rank = i + 1;
-    table[e.teamId] = { value: e.value, rank, totalTeams };
+    table[e.teamId] = { value: e.value, rank, totalTeams, ...(e.seasons ? { seasons: e.seasons } : {}) };
   });
   return table;
+}
+
+function uniqueSorted(values: string[]): string[] {
+  return [...new Set(values)].sort();
 }
 
 interface CategoryRankings {
@@ -118,12 +125,14 @@ function computeCategoryRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>
 
   for (const gameType of GAME_TYPES) {
     const careerCollected = new Map<string, { teamId: string; value: number }[]>();
-    const recordCollected = new Map<string, { teamId: string; value: number }[]>();
-    const winsCollected: { teamId: string; value: number }[] = [];
-    const streakCollected: { teamId: string; value: number }[] = [];
+    const recordCollected = new Map<string, { teamId: string; value: number; seasons: string[] }[]>();
+    const winsCollected: { teamId: string; value: number; seasons: string[] }[] = [];
+    const streakCollected: { teamId: string; value: number; seasons: string[] }[] = [];
 
     for (const [teamId, seasons] of careerDataByTeam) {
       const flat = seasons.flatMap((s) => s.logs);
+      // 記録を出したシーズン（画面でクラブ名を当時の名称にするため。2026-09-26）
+      const seasonOfLog = new Map(seasons.flatMap((s) => s.logs.map((g) => [g, s.season] as const)));
       const filtered = filterByGameType(flat, gameType);
 
       if (filtered.length > 0) {
@@ -139,8 +148,9 @@ function computeCategoryRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>
           if (pool.length === 0) continue;
           const values = pool.map(def.value);
           const best = def.lowerIsBetter ? Math.min(...values) : Math.max(...values);
+          const bestSeasons = uniqueSorted(pool.filter((g) => def.value(g) === best).map((g) => seasonOfLog.get(g)!));
           const arr = recordCollected.get(def.key) ?? [];
-          arr.push({ teamId, value: best });
+          arr.push({ teamId, value: best, seasons: bestSeasons });
           recordCollected.set(def.key, arr);
         }
       }
@@ -152,12 +162,18 @@ function computeCategoryRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>
       const seasonAggregates = seasons
         .map((s) => {
           const f = filterByGameType(s.logs, gameType);
-          return { wins: f.filter((g) => g.win).length, streak: longestWinStreak(f), games: f.length };
+          return { season: s.season, wins: f.filter((g) => g.win).length, streak: longestWinStreak(f), games: f.length };
         })
         .filter((a) => a.games > 0);
       if (seasonAggregates.length > 0) {
-        winsCollected.push({ teamId, value: Math.max(...seasonAggregates.map((a) => a.wins)) });
-        streakCollected.push({ teamId, value: Math.max(...seasonAggregates.map((a) => a.streak)) });
+        const bestWins = Math.max(...seasonAggregates.map((a) => a.wins));
+        const bestStreak = Math.max(...seasonAggregates.map((a) => a.streak));
+        winsCollected.push({ teamId, value: bestWins, seasons: uniqueSorted(seasonAggregates.filter((a) => a.wins === bestWins).map((a) => a.season)) });
+        streakCollected.push({
+          teamId,
+          value: bestStreak,
+          seasons: uniqueSorted(seasonAggregates.filter((a) => a.streak === bestStreak).map((a) => a.season)),
+        });
       }
     }
 
