@@ -6351,3 +6351,19 @@ table.sortable-table tbody tr:not(.pinned-row) + tr.pinned-row td {
 .glossary-section[id] {
   scroll-margin-top: 16px;
 }
+
+.glossary-part-title {
+  margin: 40px 0 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.glossary-dl dt {
+  font-weight: 700;
+  margin-top: 10px;
+}
+
+.glossary-dl dd {
+  margin: 2px 0 0;
+  line-height: 1.6;
+}

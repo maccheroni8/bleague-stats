@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { GlossaryNote } from "./GlossaryNote";
 import { postseasonLabel } from "../../shared/gameType";
 import { postseasonFormat, postseasonQualifiedTeamIds } from "../../shared/postseasonFormat";
 import { SortableTable, type Column } from "./SortableTable";
@@ -538,15 +540,7 @@ export function ConditionalStandingsTable({
           />
         </div>
       )}
-      <p className="row-note">
-        順位は勝率降順→得失点差降順の簡易タイブレークで算出（「順位表」タブの公式タイブレーク
-        ルールとは異なります）。連勝/連敗は選択中の条件に該当する試合だけを対象に算出しています。
-        残り試合数は、日程が既に確定していて未来の情報だけで判定できる条件（会場・地区・曜日・
-        月別・年明け前後）でのみ表示され、それ以外の条件では「-」になります。
-        {format
-          ? `「${postseasonLabel(season)}進出圏」は、各地区の上位${format.divisionTop}クラブと、それ以外のクラブのうち全体順位上位${format.wildcardSlots}クラブ（ワイルドカード）の計8クラブです。`
-          : `このシーズンは${postseasonLabel(season)}が開催されなかったため、「${postseasonLabel(season)}進出圏」ボタンは表示されません。`}
-      </p>
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.conditionalStandings} label="条件別順位表（順位の付け方・残り試合数・進出圏）" />
     </div>
   );
 }

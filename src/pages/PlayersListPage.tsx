@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { GlossaryNote } from "../components/GlossaryNote";
 import { postseasonLabel } from "../../shared/gameType";
 import { Link } from "react-router-dom";
 import {
@@ -90,6 +92,13 @@ import {
 } from "../components/PlayerScoringShareCharts";
 import { FGA_ORDER_LABELS, type FgaShareOrder } from "../components/FgaCompositionChart";
 import { SCORING_ORDER_LABELS, type PointsShareOrder } from "../components/ScoringCompositionChart";
+import {
+  MIN_GAMES_FOR_PLAYER_RECENT_FORM,
+  RECENT_FORM_N_OPTIONS,
+  SCORING_SHARE_MIN_MPG,
+  SCORING_SHARE_MIN_TOTAL_MIN,
+  type PlayerRecentFormRecentN,
+} from "../lib/tableThresholds";
 import { usePageState } from "../lib/pageStateCache";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import {
@@ -440,9 +449,6 @@ const DEFAULT_SORT: Record<PlayersPageTab, { key: string; dir: "asc" | "desc" }>
 };
 
 const PAGE_SIZE = 50;
-/** Scoring %（得点構成）の対象の出場時間の下限（1試合平均・合計、分） */
-const SCORING_SHARE_MIN_MPG = 10;
-const SCORING_SHARE_MIN_TOTAL_MIN = 300;
 const DEFAULT_MIN_RATIO = 60;
 const DEFAULT_MAX_RATIO = 100;
 
@@ -898,9 +904,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
 
       <FilterBar axes={filterAxes} stateKey="players:stats" onClearAll={clearAllFilters} />
       {filterActive && tab !== "shooting" && (
-        <p className="page-subtitle">
-          試合種別・シチュエーション別フィルタの選択中は、{CATEGORY_LABELS.traditional}/{CATEGORY_LABELS.advanced}/{CATEGORY_LABELS.misc}/{CATEGORY_LABELS.scoring}の各タブとも選手ごとの試合ログを絞り込んで再集計した値を表示します（{CATEGORY_LABELS.shooting}タブは対象外）
-        </p>
+        <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全選手スタッツ" scope="試合種別・シチュエーション別の絞り込みの選択中は、試合ログから集計し直した値です（シューティングは対象外）。" />
       )}
 
       <div className="tab-bar">
@@ -950,10 +954,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
               visibleCount={visibleCount}
               onMore={() => setVisibleCount((c) => c + PAGE_SIZE)}
             />
-            <p className="page-subtitle">
-              レギュラーシーズン・シーズン合計の値です。対象は、所属チームの試合数の85%以上に出場し、1試合平均10分以上・合計300分以上出場した選手です（{scoringShareRows.length}人）。
-              棒の中の数値は割合(%)と1試合平均の得点、右端は1試合平均の得点です。ミッドレンジは「2Pの得点−ペイント内の得点」です
-            </p>
+            <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成" scope={`レギュラーシーズン・シーズン合計の値です（対象${scoringShareRows.length}人）。`} />
             <h3>FG試投構成（FGAに占める割合）</h3>
             <PlayersFgaShareChart
               rows={scoringShareRows}
@@ -961,9 +962,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
               visibleCount={fgaVisibleCount}
               onMore={() => setFgaVisibleCount((c) => c + PAGE_SIZE)}
             />
-            <p className="page-subtitle">
-              対象の選手は得点構成と同じです。Paint・Mid-rangeはプレーバイプレーの公式の区分（ペイント内／ペイント外の2P）です。棒の中の数値は割合(%)と1試合平均の試投数、右端は1試合平均のFGAです
-            </p>
+            <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="FG試投構成" scope="対象の選手は得点構成と同じです。" />
           </>
         )
       ) : tab === "shooting" && !yahooPbpSupported ? (
@@ -1358,9 +1357,6 @@ function AwardEntryRow({
 // 選手はランキング対象から除外する。ランキングページ本体の掲載基準
 // （statDefs.tsのMIN_GAMES_PLAYED_RATIO_FOR_RANKING）と同じ「出場が少ない選手を除いてから
 // 比較する」考え方を、「直近N試合」という短い窓に合わせて適用したもの
-const RECENT_FORM_N_OPTIONS = [5, 10] as const;
-type PlayerRecentFormRecentN = (typeof RECENT_FORM_N_OPTIONS)[number];
-const MIN_GAMES_FOR_PLAYER_RECENT_FORM: Record<PlayerRecentFormRecentN, number> = { 5: 3, 10: 5 };
 
 interface PlayerRecentFormRow {
   player: PlayerSummary;
@@ -1560,13 +1556,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
 
   return (
     <div>
-      <p className="page-subtitle">
-        {season}シーズン、直近{recentN}試合中{minGames}試合以上出場した選手による成績ランキング
-        （レギュラーシーズン・{postseasonLabel(season)}合算）。出場試合数が少なすぎる選手は数値が振れやすいため
-        対象外にしています。EFFは直近{recentN}試合の合計値から算出。対戦相手の加重平均勝率は、
-        直近{recentN}試合の各対戦相手のその試合時点までの勝率を単純平均したもの（対戦相手が
-        未消化の試合は対象外）
-      </p>
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.recentForm} label="直近成績" scope={`${season}シーズン、直近${recentN}試合中${minGames}試合以上出場した選手の成績です（レギュラーシーズン・${postseasonLabel(season)}合算）。`} />
       <FilterBar
         simple
         stateKey="players:recent"

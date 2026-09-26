@@ -1,4 +1,6 @@
 import { Fragment, useState, type CSSProperties } from "react";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { GlossaryNote } from "../components/GlossaryNote";
 import { useParams } from "react-router-dom";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGame, fetchPlayers, fetchSeasonRules, fetchTeamColors, fetchYahooGamePbp } from "../lib/data";
@@ -662,9 +664,7 @@ export function GameDetailPage({ season }: { season: string }) {
               shotTypeKeys={shotTypeKeys}
               accentColor={awayColor}
             />
-            <p className="page-subtitle">
-              Yahoo!スポーツplay-by-play由来のシュートタイプ内訳（2023-24シーズン以降）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意
-            </p>
+            <GlossaryNote anchor={GLOSSARY_ANCHORS.shotTypes} label="シュートタイプ" />
           </>
         )
       ) : (
@@ -720,9 +720,7 @@ export function GameDetailPage({ season }: { season: string }) {
               totals={awayLineupTotals}
             />
           </div>
-          <p className="page-subtitle">
-            <Link to="/glossary#game-lineups">ラインナップ別成績の見方（OC・集計外・色分け・行を押したときの動き）は用語集へ</Link>
-          </p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.gameLineups} label="ラインナップ別成績（OC・集計外・色分け・行を押したときの動き）" />
         </>
       ) : (
         <p className="empty-message">このシーズンのデータには対応していません</p>

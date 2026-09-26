@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { GlossaryNote } from "../components/GlossaryNote";
 import {
   fetchGameSummaries,
   fetchHeadToHead,
@@ -891,12 +893,7 @@ export function StandingsPage({ season }: { season: string }) {
               ))}
             </div>
           )}
-          <p className="standings-tab-note">
-            マジックナンバーは、自チームの勝利1つ・相手の敗戦1つごとに1減ります（地区1位は地区内で最も勝ち数を伸ばしうる相手、
-            地区3位以内はその3番目の相手が基準）。ライバル同士の直接対決や同率時のタイブレークは考慮せず、同率は不利側に数える
-            安全側の判定のため、確定・敗退の表示が実際に決まる時点より遅れることがあります。プレーオフはワイルドカード
-            （各地区の上位3クラブを除いた20クラブの上位2）を含む進出確定・敗退のみ表示します
-          </p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.magicNumber} label="マジックナンバー" />
         </div>
       )}
 

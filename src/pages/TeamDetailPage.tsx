@@ -1,4 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { GlossaryNote } from "../components/GlossaryNote";
 import { EMPTY_TEAM_SEASON_MISC, sumTeamSeasonMisc, type TeamSeasonMiscTotals } from "../../shared/teamSeasonMisc";
 import { postseasonLabel } from "../../shared/gameType";
 import { useParams, Link as RouterLink } from "react-router-dom";
@@ -76,6 +78,7 @@ import { periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
+import { MIN_LINEUP_SECONDS } from "../lib/tableThresholds";
 import {
   buildBackToBackStatus,
   buildGameTeamsByScheduleKey,
@@ -179,7 +182,6 @@ import {
   attemptsFirst,
   computeTopRecordEntries,
   sortTiedGames,
-  TEAM_PCT_MIN_ATTEMPTS_NOTE,
   TOP_RECORD_WORST_BAD_N,
   type TopRecordEntry,
 } from "../lib/topRecords";
@@ -192,9 +194,6 @@ import { useTeamLabel } from "../lib/teamLabel";
 const TEAM_SHOOTING_TAB_TOOLTIP =
   "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（チーム全選手合算、2023-24シーズン以降のみ）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意";
 
-// 出場時間がこれ未満のラインナップはサンプルが小さすぎてノイズが大きいため一覧から除外する
-// （実データ確認: 4試合時点で3分(180秒)基準だとチームあたり4〜14組が該当。DESIGN.md参照）
-const MIN_LINEUP_SECONDS = 180;
 // 上位20組を初期表示とし、それ以下は「全パターン表示」ボタンで展開する（DESIGN.md参照）
 const MAX_LINEUP_ROWS = 20;
 // アシストペア分析（チーム版）も同じ上位20件・展開方式を踏襲する
@@ -478,9 +477,7 @@ function ScoringCompositionSection({ team, gameLogs }: { team: TeamSummary; game
   return (
     <div className="key-stats-card">
       <h3>得点構成 / 失点構成</h3>
-      <p className="page-subtitle">
-        レギュラーシーズンベース。FG試投割合は1試合あたり平均試投数、得点割合は1試合あたり平均得点。各セグメントに割合(%)と実数値を表示
-      </p>
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成・FG試投構成" scope="レギュラーシーズンの値です。" />
       <h4 className="composition-pie-group-title">シュート試投構成</h4>
       <div className="composition-pie-row">
         <CompositionPieChart title="FG 試投割合" segments={ownFga} />
@@ -2524,8 +2521,6 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「シチュエーション別勝敗」（概要タブ）「シチュエーション別成績」（チームスタッツタブ）の
   // 各グループの説明文。個人詳細ページの同名セクションと同じ「デフォルト非表示・▶説明ボタンで
   // 開閉」の仕組みをそのまま踏襲する
-  const [situationalRecordLegendExpanded, setSituationalRecordLegendExpanded] = usePageState(pk("situationalRecordLegendExpanded"), false);
-  const [situationalTeamLegendExpanded, setSituationalTeamLegendExpanded] = usePageState(pk("situationalTeamLegendExpanded"), false);
 
   // 「日程結果」タブ: 自チーム/opp/+/-トグル・レギュラー/プレーオフ/合算トグル・Q別/前後半トグル・
   // トラディショナル/アドバンスド/Misc/スコアリングのカテゴリタブ（試合詳細ページのボックススコアと
@@ -3614,56 +3609,10 @@ export function TeamDetailPage({ season }: { season: string }) {
                   </tbody>
                 </table>
               </div>
-              <p className="page-subtitle">
-                各試合のクォーター別得点から判定しているため、展開時にこのチームの当該シーズン全試合を読み込む
-              </p>
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績の区分" />
             </>
           )}
 
-          <div className="situational-groups-legend">
-            <h3
-              className="collapsible-heading"
-              onClick={() => setSituationalRecordLegendExpanded((v) => !v)}
-            >
-              {situationalRecordLegendExpanded ? "▼ " : "▶ "}
-              説明
-            </h3>
-            {situationalRecordLegendExpanded && (
-            <dl>
-              <dt>会場</dt>
-              <dd>ホーム開催／アウェイ開催の試合を分けて集計します。</dd>
-              <dt>地区</dt>
-              <dd>対戦相手の所属地区（東地区／西地区）別の成績です。シーズンごとの実際の地区分けを反映しています。</dd>
-              <dt>曜日</dt>
-              <dd>水曜開催の試合のみを集計します。</dd>
-              <dt>月別</dt>
-              <dd>開催月ごとの成績です。試合が無い月は表示されません。</dd>
-              <dt>対戦相手の強さ</dt>
-              <dd>
-                その試合に入る時点での対戦相手の勝率（対5割未満／対5割以上／対6割以上）別の成績です。
-                相手の消化試合数が5試合未満の対戦は、勝率が極端な値になりやすいため集計から除外しています。
-              </dd>
-              <dt>連戦</dt>
-              <dd>中1日以内の間隔で連続して試合を行った場合の、1試合目（GAME1）／2試合目以降（GAME2）別の成績です。</dd>
-              <dt>自チーム外国籍人数</dt>
-              <dd>
-                その試合で自チームが最も長くコートに立たせていた、外国籍・帰化選手・アジア特別枠選手の
-                同時出場人数（0〜3人）別の成績です。
-              </dd>
-              <dt>得点/失点</dt>
-              <dd>自チームの得点・相手チームの得点（失点）がそれぞれ80点/100点を超えたかどうかで分けた成績です。</dd>
-              <dt>点差決着</dt>
-              <dd>
-                最終的な得失点差が10点差／20点差以上だったか、僅差（1ポゼッション差＝3点差以内／
-                2ポゼッション差＝6点差以内）だったかで分けた成績です。
-              </dd>
-              <dt>延長</dt>
-              <dd>延長（OT）にもつれた試合と、レギュレーション（4Q）で決着した試合を分けた成績です。</dd>
-              <dt>Q1終了時点／前半終了時点／3Q終了時点</dt>
-              <dd>各チェックポイント時点でリード・同点・ビハインドのいずれだったかで分けた成績です。</dd>
-            </dl>
-            )}
-          </div>
         </div>
       )}
 
@@ -3750,10 +3699,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               </div>
             )}
             {scheduleBoxTab === "misc" && scheduleFilteredRows.length > 0 && <RuleChangeFootnote seasons={[season]} />}
-            <p className="page-subtitle">
-              各列は試合詳細ページのボックススコアと同じ算出ロジック（自チーム/opp/+/-切り替え可）。上部のレギュラー/{postseasonLabel(season)}・Q別/前後半トグルと連動する。未消化・進行中の試合は「-」表示になる
-              {schedulePointsColumns.length > 0 && "。BENCH PTS・STARTER PTSは試合全体の値のため、Q別/前後半の表示では「-」になる"}
-            </p>
+            <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="日程結果の列" scope={`上部の自チーム/opp/+/-・レギュラー/${postseasonLabel(season)}・Q別/前後半と連動します。`} />
           </div>
         ))}
 
@@ -3784,12 +3730,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 ))}
                 <StatTile label="最多連勝" value={`${careerLongestWinStreak}連勝`} />
               </div>
-              <p className="page-subtitle">
-                {careerData[0]?.season}〜{careerData[careerData.length - 1]?.season}シーズンの合計値（PITP/FBPS/2ND
-                PTS/PTSOFFTOはPBPタグ集計による得点ベースの値。ホーム来場者数はホーム開催試合のみの合計）。項目名の
-                下の順位は過去在籍した全クラブ横断（シーズンをまたいだ連勝は対象外。詳細はクラブレコード
-                タブの「最多連勝（シーズン内）」参照）
-              </p>
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.records} label="通算成績" scope={`${careerData[0]?.season}〜${careerData[careerData.length - 1]?.season}シーズンの合計値です。`} />
 
               <h3 className="career-highs-subheading">クォーター別・前後半別の1試合平均</h3>
               <SeasonPeriodAverages
@@ -3799,10 +3740,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 leagueRankings={leagueRankings}
                 stateKey={pk("periodAverages")}
               />
-              <p className="page-subtitle">
-                1Q〜4Q・前半（1Q＋2Q）・後半（3Q＋4Q）の、シーズンごとの1試合平均です。延長戦の得点は含めません。
-                数値の下はそのシーズンのリーグ内の順位（通算の行は過去在籍した全クラブの中での順位）です。
-              </p>
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.periodRecords} label="クォーター別・前後半別の1試合平均" />
             </>
           )}
         </div>
@@ -3917,22 +3855,11 @@ export function TeamDetailPage({ season }: { season: string }) {
                   />
                 ))}
               </div>
-              <p className="page-subtitle">
-                {careerData[0]?.season}〜{careerData[careerData.length - 1]?.season}シーズンの中での1試合の最高/最低記録
-                （PITP/FBPS/2ND PTS/PTSOFFTOはPBPタグ集計による得点ベースの値。ホーム来場者数はホーム開催試合のみが対象）。
-                %系の指標・試投数・ホーム来場者数はクラブワーストの対象外。{TEAM_PCT_MIN_ATTEMPTS_NOTE}被記録の成功率は、相手の試投数で判定します。成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます。項目名クリックでトップ10（TOV・失点・ファウル等「多い方が悪い」
-                項目はワースト側のみトップ5）を展開できます。項目名の下の順位は過去在籍した全クラブ横断。
-                クラブワーストは順位算出の対象外。「被記録」は対戦相手がこのチーム相手に記録した最多値
-                （来場者数を除く28項目。歴代順位の算出対象外）
-              </p>
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.records} label="クラブレコード" scope={`${careerData[0]?.season}〜${careerData[careerData.length - 1]?.season}シーズンの中での1試合の最高／最低記録です。`} />
 
               <h3 className="career-highs-subheading">クォーター別レコード</h3>
               <ClubPeriodRecords games={clubRecordAllGames} stateKey={pk("periodRecords")} />
-              <p className="page-subtitle">
-                1Q〜4Q・前半（1Q＋2Q）・後半（3Q＋4Q）の1試合の記録です。延長戦の得点は含めません。
-                2016-17・2017-18のCSで行った前後半5分の試合は対象外です。
-                ※は公式のクォーター別スコアが欠けている試合で、プレーバイプレーの得点から出した値です。
-              </p>
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.periodRecords} label="クォーター別レコード" />
             </>
           )}
         </div>
@@ -4216,52 +4143,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           )}
           {situationalTeamBoxTab === "misc" && situationalTeamGroups.length > 0 && <RuleChangeFootnote seasons={[season]} />}
 
-          <div className="situational-groups-legend">
-            <h3
-              className="collapsible-heading"
-              onClick={() => setSituationalTeamLegendExpanded((v) => !v)}
-            >
-              {situationalTeamLegendExpanded ? "▼ " : "▶ "}
-              説明
-            </h3>
-            {situationalTeamLegendExpanded && (
-            <dl>
-              <dt>勝敗</dt>
-              <dd>勝った試合／負けた試合を分けて集計します。</dd>
-              <dt>直近試合</dt>
-              <dd>選択中のシーズン・レギュラー/{postseasonLabel(season)}絞り込みの範囲内で、直近5試合／直近10試合を分けて集計します。</dd>
-              <dt>会場</dt>
-              <dd>ホーム開催／アウェイ開催の試合を分けて集計します。</dd>
-              <dt>地区</dt>
-              <dd>対戦相手の所属地区（東地区／西地区）別の成績です。シーズンごとの実際の地区分けを反映しています。</dd>
-              <dt>曜日</dt>
-              <dd>平日開催／休日開催（土日・祝日）の試合を分けて集計します。</dd>
-              <dt>時期</dt>
-              <dd>年明け（1月）を境に、シーズン前半・後半の試合を分けて集計します。</dd>
-              <dt>月別</dt>
-              <dd>開催月ごとの成績です。試合が無い月は表示されません。</dd>
-              <dt>対戦相手の強さ</dt>
-              <dd>
-                その試合に入る時点での対戦相手の勝率（対5割未満／対5割以上／対6割以上）別の成績です。
-                相手の消化試合数が5試合未満の対戦は、勝率が極端な値になりやすいため集計から除外しています。
-              </dd>
-              <dt>連戦</dt>
-              <dd>中1日以内の間隔で連続して試合を行った場合の、1試合目（GAME1）／2試合目以降（GAME2）別の成績です。</dd>
-              <dt>自チーム外国籍人数</dt>
-              <dd>
-                その試合で自チームが最も長くコートに立たせていた、外国籍・帰化選手・アジア特別枠選手の
-                同時出場人数（0〜3人）別の成績です。
-              </dd>
-              <dt>相手チーム外国籍人数</dt>
-              <dd>上記を相手チーム視点で見た成績です。</dd>
-              <dt>対戦相手勝率</dt>
-              <dd>
-                その行に属する各試合について、対戦相手の「その試合時点までの」勝率を求め単純平均した値です
-                （対戦相手の強さの目安。「対戦相手の勝率」フィルタと同じ計算）。
-              </dd>
-            </dl>
-            )}
-          </div>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績の区分" />
 
           <h2
             className={isShotChartSupported(coverage) ? "collapsible-heading" : undefined}
@@ -4290,9 +4172,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   accentColor={accentColor}
                 />
               </div>
-              <p className="page-subtitle">
-                チームの全選手が出場した各試合のショット位置の記録を合算したもの（2022-23シーズン以降のみ対応）。個別ショット/エリア別成功率の切り替え、選手セレクタでの個人絞り込みができる。上の絞り込み（試合種別・Q別/前後半・詳細フィルタ）に連動する
-              </p>
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.shotChart} label="ショットチャート" scope="上の絞り込み（試合種別・Q別/前後半・詳細フィルタ）に連動します。" />
             </>
           )}
 
@@ -4399,11 +4279,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   {lineupsExpanded ? `上位${MAX_LINEUP_ROWS}組のみ表示` : `全パターン表示（全${eligibleLineups.length}組）`}
                 </button>
               )}
-              <p className="page-subtitle">
-                出場時間{MIN_LINEUP_SECONDS}秒未満の組み合わせは除外。ORtg/DRtg/Net
-                Ratingはスティント単位の実ポゼッション数が無いため、チームのシーズン平均ペースから推定した参考値。
-                試合数がまだ少ないため、いずれの数値もサンプルサイズが小さい点に留意
-              </p>
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.teamLineups} label="よく使われるラインナップ" />
             </>
           )}
 
@@ -4473,11 +4349,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     : `全パターン表示（全${teamAssistPairs.length}パターン）`}
                 </button>
               )}
-              <p className="page-subtitle">
-                レギュラーシーズンの全試合のプレーバイプレー（試合経過の記録）から、アシスト元選手→得点選手のペア単位で集計。
-                「2P割合」「3P割合」「FT割合」はそのペアのアシスト回数に対する2P/3P/FTそれぞれの成功数の割合。
-                「回数割合」「得点割合」は、得点選手が受けた全アシスト回数・全アシスト経由得点のうち、そのアシスト元選手からの割合
-              </p>
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.assists} label="アシストの組み合わせ" scope="レギュラーシーズンの値です。" />
             </>
           )}
         </div>
@@ -4577,9 +4449,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           {compareTab === "misc" && (
             <RuleChangeFootnote seasons={compareSlots.map((slot) => slot.season).filter((s): s is string => !!s)} />
           )}
-          <p className="page-subtitle">
-            各列は「日程結果」タブと同じボックススコア列定義（自チーム/opp/+/-切り替え可）を、選択中のシチュエーション別フィルタで絞り込んだ試合の1試合あたり平均値として算出する
-          </p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="比較の列" scope="選んだシチュエーション別の絞り込みで絞った試合の1試合平均です。" />
         </div>
       )}
     </div>

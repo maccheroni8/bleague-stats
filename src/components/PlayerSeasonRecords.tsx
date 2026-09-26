@@ -1,7 +1,8 @@
 import { Link as RouterLink } from "react-router-dom";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { GlossaryNote } from "./GlossaryNote";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { PLAYER_GAME_RECORD_STATS, type PlayerGameRecordDef } from "../../shared/playerGameRecords";
-import { PLAYER_PCT_MIN_ATTEMPTS_NOTE } from "../lib/topRecords";
 import type { PlayerGameRecordEntry } from "../../shared/types";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { composeLabels, gameTypeLabels } from "../lib/conditionLabels";
@@ -196,12 +197,7 @@ export function PlayerSeasonRecords({ defaultSeason }: { defaultSeason: string }
               />
             ))}
           </div>
-          <p className="page-subtitle">
-            そのシーズンの全選手の出場した試合の中での1試合の記録です。項目名を押すと上位10位（同じ記録はすべて）を表示します。
-            項目は個人詳細のキャリアハイと同じですが、少ない方が良い項目（TOV・F・UFOUL・TF）は出していません。
-            {PLAYER_PCT_MIN_ATTEMPTS_NOTE}成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます。
-            毎日1回、前日までの試合を取り込んだあとに作り直します。
-          </p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.records} label="記録" scope="そのシーズンの全選手の出場した試合の中での1試合の記録です。" />
         </PlayerNamePool>
       )}
     </div>

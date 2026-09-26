@@ -1,4 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { GlossaryNote } from "../components/GlossaryNote";
 import { postseasonLabel } from "../../shared/gameType";
 import { useParams } from "react-router-dom";
 import { Link as RouterLink } from "react-router-dom";
@@ -151,7 +153,6 @@ import { PlayerSeasonScoringChart } from "../components/PlayerScoringShareCharts
 import {
   attemptsFirst,
   computeTopRecordEntries,
-  PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS_NOTE,
   sortTiedGames,
   TOP_RECORD_WORST_BAD_N,
   type TopRecordEntry,
@@ -2706,11 +2707,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   )}
                 </>
               )}
-              <p className="page-subtitle">
-                選択中のシーズン・レギュラー/{postseasonLabel(situationalStatsSeason)}/合算・Q別/前後半の絞り込みに連動します。
-                「占める割合」は得点選手が受けた全アシスト回数のうち、その配給元からの割合。
-                「回数割合」「得点割合」はこの選手が受けた全アシスト回数・全アシスト経由得点のうち、その配給元からの割合（「アシストなし」行は対象外）。
-              </p>
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.assists} label="アシストの組み合わせ" scope={`選んだシーズン・レギュラー/${postseasonLabel(situationalStatsSeason)}/合算・Q別/前後半に連動します。`} />
             </>
           )}
 
@@ -2797,12 +2794,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                       </tbody>
                     </table>
                   </div>
-                  <p className="page-subtitle">
-                    この選手が出場した試合のみを対象に、コート上にいた時間帯（オンコート）といなかった時間帯（オフコート）で
-                    チーム/相手チームの成績を分けて集計しています。ORtg/DRtgは「よく使われるラインナップ」と同じ推定
-                    ポゼッション数に基づく参考値です。選択中のシーズン・レギュラー/
-                    {postseasonLabel(situationalStatsSeason)}/合算の絞り込みに連動します（Q別/前後半には対応していません）。
-                  </p>
+                  <GlossaryNote anchor={GLOSSARY_ANCHORS.onOff} label="オンコート／オフコート" scope={`選んだシーズン・レギュラー/${postseasonLabel(situationalStatsSeason)}/合算に連動します（Q別/前後半には対応していません）。`} />
                 </>
               );
             })()
@@ -2833,9 +2825,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   showPlayerSelector={false}
                 />
               </div>
-              <p className="page-subtitle">
-                選手が出場した各試合のショット位置の記録をシーズン合計したもの。試合詳細ページのショットチャートと同じ形式で、個別ショット/エリア別成功率を切り替えられる（2022-23シーズン以降のみ対応）。上の「シーズン別成績」のレギュラー/{postseasonLabel(null)}/合算トグルに連動する。フィルタ・Q別トグルは複数選択でき、選択した条件をすべて満たす試合・ショットに絞り込む。既定は全チーム合算表示で、同一シーズンに複数チームでプレーした場合のみチーム別ボタンが表示される
-              </p>
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.shotChart} label="ショットチャート" scope={`上の「シーズン別成績」のレギュラー/${postseasonLabel(null)}/合算に連動します。`} />
             </>
           )}
         </div>
@@ -2969,9 +2959,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   </>
                 )}
               </div>
-              <p className="page-subtitle">
-                {PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS_NOTE}基準を満たす試合が無い項目は「-」です。成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます。
-              </p>
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.records} label="キャリアハイ（成功率の最低試投数など）" />
               <h3 className="career-highs-subheading">キャリアワースト</h3>
               <div className="career-highs-grid">
                 {careerWorsts.map((h) => (

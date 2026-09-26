@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { GlossaryNote } from "./GlossaryNote";
 import type { SeasonRules, TeamSummary } from "../../shared/types";
 import {
   CLASSIFICATION_CATEGORIES,
@@ -61,10 +63,7 @@ export function TeamSeasonForeignChart({
   return (
     <>
       <ShareBarChart rows={chartRows} categories={FOREIGN_CATEGORIES} labelWidth={{ wide: 104, narrow: 92 }} />
-      <p className="page-subtitle">
-        レギュラーシーズン・シーズン合計の在コート時間から集計しています（上部の自チーム/opp/+/-・平均/合計とは連動しません）。各シーズンの見出しに、そのシーズンにコートに同時に出られる外国籍・帰化・アジア特別枠の選手の上限人数を添えています。
-        平均人数は、0〜4名それぞれの在コート時間の割合に人数を掛けて合計した値です。登録区分が不明な選手を含むラインナップと、規定上ありえない人数の区間（公式記録の誤りと見られるもの）は集計から除外しています
-      </p>
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.foreignCourt} label="在コート時間" scope="レギュラーシーズン・シーズン合計の値です（上部の自チーム/opp/+/-・平均/合計とは連動しません）。" />
     </>
   );
 }
@@ -173,11 +172,7 @@ export function TeamSeasonScoringCharts({
           )}
         </>
       )}
-      <p className="page-subtitle">
-        レギュラーシーズン・シーズン合計の値です（上部の自チーム/opp/+/-・平均/合計とは連動しません）。棒の中の数値は割合(%)と1試合平均の得点、右端は1試合平均の得点（失点構成は失点）です。
-        ミッドレンジは「2Pの得点−ペイント内の得点」です。登録区分は現在の登録情報に基づく値です。
-        FG試投構成はFGAに占める3P・Mid-range・Paintの割合で、Paint・Mid-rangeはプレーバイプレーの公式の区分（ペイント内／ペイント外の2P）です。棒の中の数値は割合(%)と1試合平均の試投数、右端は1試合平均のFGAです
-      </p>
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成・FG試投構成" scope="レギュラーシーズン・シーズン合計の値です（上部の自チーム/opp/+/-・平均/合計とは連動しません）。" />
     </>
   );
 }

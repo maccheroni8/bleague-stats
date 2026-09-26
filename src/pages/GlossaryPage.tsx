@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { GlossaryGuides } from "../components/GlossaryGuides";
 import {
   PLAYER_STAT_DEFS,
   STAT_CATEGORY_LABELS,
@@ -118,29 +119,6 @@ export function GlossaryPage() {
         </p>
       </section>
 
-      <section className="glossary-section" id="game-lineups">
-        <h2>ラインナップ別成績（試合詳細）</h2>
-        <h3>集計の対象</h3>
-        <p>
-          同じ5人が同時にコートにいた時間帯ごとの成績です。得点・失点は、その5人の在コート中に両チームが記録した得点です。
-        </p>
-        <h3>OC（オンザコート）と色分け</h3>
-        <p>
-          OCは、5人のうち外国籍・帰化・アジア特別枠の選手の人数です。4人の組み合わせはチームカラーの背景と左端の線、3人は薄い背景で示します。
-        </p>
-        <h3>OCの人数ごとの合計</h3>
-        <p>
-          各チームの上の表はOCの人数ごとの合計です。行を押すと、下の一覧がその人数の組み合わせだけになります（もう一度押すと元に戻ります）。
-        </p>
-        <h3>集計外</h3>
-        <p>
-          区分が分からない選手がいた時間・そのシーズンの上限を超える人数になっていた時間・記録から5人を割り出せなかった時間は「集計外」にまとめます。
-          集計外を含めた合計は、試合時間・試合の得点と一致します。
-        </p>
-        <h3>Q別・前後半</h3>
-        <p>Q別・前後半では、Qをまたいで出場した組み合わせの出場時間・得点をQごとに分けて集計します。</p>
-      </section>
-
       <section className="glossary-section">
         <h2>試合種別の表記</h2>
         <h3>CS・プレーオフ・ポストシーズン</h3>
@@ -150,6 +128,7 @@ export function GlossaryPage() {
           通算成績・歴代記録・シーズン別成績など複数シーズンをまたぐ表示では、両方を含む中立の表記として「ポストシーズン」を使います。
         </p>
       </section>
+      <GlossaryGuides />
     </div>
   );
 }

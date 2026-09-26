@@ -1,4 +1,6 @@
 import { useMemo, useRef, type CSSProperties, type ReactNode } from "react";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { GlossaryNote } from "../components/GlossaryNote";
 import { LEAGUE_COLOR, LEAGUE_SLOT_NOTE, LEAGUE_TEAM_ID, LEAGUE_TEAM_NAME } from "../lib/leagueAverage";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { useMediaQuery } from "../lib/useMediaQuery";
@@ -521,9 +523,7 @@ function TeamCompareView({
         />
       </div>
       {cat === "misc" && <RuleChangeFootnote seasons={rows.map((r) => r.season)} />}
-      <p className="page-subtitle">
-        各列は詳細ページの「日程結果」「比較」タブと同じボックススコア列定義を、スロットごとの条件で絞り込んだ試合の1試合あたり平均値として算出しています
-      </p>
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="比較の列" scope="スロットごとの条件で絞り込んだ試合の1試合平均です。" />
     </>
   );
 }
@@ -620,10 +620,7 @@ function PlayerCompareView({
         />
       </div>
       {cat === "misc" && <RuleChangeFootnote seasons={rows.map((r) => r.season)} />}
-      <p className="page-subtitle">
-        各列は個人詳細ページの「シーズン別成績」「比較」タブと同じ列定義を、スロットごとの条件で絞り込んだ試合の1試合あたり平均値として算出しています。
-        シーズン内に移籍した選手は所属チームを合算して集計します
-      </p>
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="比較の列" scope="スロットごとの条件で絞り込んだ試合の1試合平均です（移籍した選手は所属チームを合算）。" />
     </>
   );
 }

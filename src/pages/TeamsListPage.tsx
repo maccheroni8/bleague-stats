@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { GlossaryNote } from "../components/GlossaryNote";
 import { postseasonLabel } from "../../shared/gameType";
 import { PERIOD_KEYS, PERIOD_LABELS, PERIOD_RECORD_KINDS, periodRecordStatKey } from "../../shared/teamPeriodRecords";
 import { teamShortName } from "../../shared/teamNames";
@@ -40,7 +42,6 @@ import { FilterBar } from "../components/FilterBar";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { LeagueSeasonRecords } from "../components/LeagueSeasonRecords";
 import { RecordValue } from "../components/RecordValue";
-import { TEAM_PCT_MIN_ATTEMPTS_NOTE } from "../lib/topRecords";
 import { FGA_ORDER_LABELS, FgaCompositionChart, type FgaChartTeam, type FgaShareOrder } from "../components/FgaCompositionChart";
 import { fgaShare } from "../lib/shareCharts";
 import {
@@ -558,9 +559,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
                 pinnedRows={leagueAverage?.team.shotTypes ? [{ team: leagueAverage.team }] : undefined}
               />
             </div>
-            <p className="page-subtitle">
-              レギュラーシーズンのみ（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しない。平均/合計のみ連動する）。シュートタイプ×2P/3P別に成功数（M）・試投数（A）・成功率（%）の3列に分けて表示する。列見出しクリックで並び替え
-            </p>
+            <GlossaryNote anchor={GLOSSARY_ANCHORS.shotTypes} label="シュートタイプ" scope="レギュラーシーズンのみの値です（平均/合計だけ連動し、ほかの絞り込みとは連動しません）。" />
           </>
         )
       ) : boxTab === "forcedTurnovers" ? (
@@ -624,11 +623,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             order={foreignOrder}
             maxOnCourt={foreignRules?.find((r) => r.season === season)?.maxForeignOnCourt}
           />
-          <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計の在コート時間から集計しています（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しません）。
-            平均人数は、0〜4名それぞれの在コート時間の割合に人数を掛けて合計した値で、試合時間を通してコート上にいた外国籍・帰化・アジア特別枠の選手の平均人数です。
-            登録区分が不明な選手を含むラインナップと、規定上ありえない人数の区間（公式記録の誤りと見られるもの）は集計から除外しているため、チームによっては集計できた合計時間が実際の総出場時間より短くなる場合があります
-          </p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.foreignCourt} label="在コート時間" scope="レギュラーシーズン・シーズン合計の値です（上部の絞り込みとは連動しません）。" />
         </>
       ) : boxTab === "scoringComposition" ? (
         <>
@@ -669,23 +664,17 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           <ScoringCompositionChart teams={withLeague(teams)} mode="own" order={scoringOrder} />
           <h3>失点構成（このチームが奪われた得点の割合）</h3>
           <ScoringCompositionChart teams={withLeague(teams)} mode="opponent" order={scoringOrder} />
-          <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計の値です（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しません）。ペイント内の得点はプレーバイプレーの記録から、ミッドレンジの得点は「2Pの得点−ペイント内の得点」として出しているため、全シーズンで表示できます。棒の中の数値は割合(%)と1試合平均の得点、右端は1試合平均の得点（失点構成は失点）です
-          </p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成" scope="レギュラーシーズン・シーズン合計の値です（上部の絞り込みとは連動しません）。" />
           <h3>FG試投構成（FGAに占める割合）</h3>
           {fgaTeams ? <FgaCompositionChart teams={fgaTeams.own} mode="own" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
           <h3>opp FG試投構成（相手のFGAに占める割合）</h3>
           {fgaTeams ? <FgaCompositionChart teams={fgaTeams.opponent} mode="opponent" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
-          <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計の値です（上部のフィルタとは連動しません）。Paint・Mid-rangeはプレーバイプレーの公式の区分（ペイント内／ペイント外の2P）で、全シーズンで表示できます。棒の中の数値は割合(%)と1試合平均の試投数、右端は1試合平均のFGA（opp FG試投構成は相手のFGA）です
-          </p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="FG試投構成" scope="レギュラーシーズン・シーズン合計の値です（上部の絞り込みとは連動しません）。" />
           <h3>得点構成（登録区分）</h3>
           <ClassificationCompositionChart teams={withLeague(teams)} mode="own" order={classificationOrder} />
           <h3>失点構成（登録区分）</h3>
           <ClassificationCompositionChart teams={withLeague(teams)} mode="opponent" order={classificationOrder} />
-          <p className="page-subtitle">
-            レギュラーシーズン・シーズン合計の値です（上部のフィルタとは連動しません）。登録区分は現在の登録情報に基づく値です。登録区分が不明な選手の得点はどちらにも入れていないため、2つの合計が100%に満たない場合があります
-          </p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成（登録区分）" scope="レギュラーシーズン・シーズン合計の値です（上部の絞り込みとは連動しません）。" />
         </>
       ) : gameLogsLoading || !gameLogsByTeam ? (
         <p className="loading">読み込み中...</p>
@@ -704,9 +693,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             />
           </div>
           {boxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
-          <p className="page-subtitle">
-            各チームの試合ログから選択中の条件で再集計した値。BSR（被ブロック）・EFF（貢献度）・LIVETOV/DEADTOVは、26チーム分を試合の生データから再集計すると通信量が大きくなりすぎるため、この一覧には含めていない（チーム詳細ページの「チームスタッツ」タブでは1チーム分に限り表示している）
-          </p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全チームスタッツ" scope="各チームの試合ログから、選んだ条件で集計し直した値です。" />
         </>
       )}
     </div>
@@ -972,11 +959,8 @@ function LeagueRecordsTab() {
     <div>
       <p className="page-subtitle">
         過去在籍した全{totalTeams}クラブ横断のランキング（毎日1回、前日までの試合結果を取り込んだあとに作り直します。最終更新
-        {" "}{formatRankingsUpdatedAt(rankings.generatedAt)}）。チーム名の下は現在の所属カテゴリ
-        {(category === "clubRecord" || isPremierRecord) &&
-          `。${TEAM_PCT_MIN_ATTEMPTS_NOTE.replace(/。$/, "")}。成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます`}
-        {isPremierRecord &&
-          "。「B.PREMIER（旧B1）レコード」はクラブ単位の自己ベストではなく、リーグ史上の個々の試合・シーズンをそのまま順位付けしたもの（同一クラブが複数回登場しうる）。ホーム/アウェイ限定版は対象外"}
+        {" "}{formatRankingsUpdatedAt(rankings.generatedAt)}）。チーム名の下は現在の所属カテゴリです。{" "}
+        <SeasonLink to={`/glossary#${GLOSSARY_ANCHORS.records}`}>記録の見方（用語集）</SeasonLink>
       </p>
 
       <FilterBar
@@ -1243,12 +1227,7 @@ function PeriodRecordTables({
           {showAll ? `上位${PERIOD_TOP_COLLAPSED_ROWS}件のみ表示` : `ほか${hidden}試合（すべて表示）`}
         </button>
       )}
-      <p className="page-subtitle">
-        1Q〜4Q・前半（1Q＋2Q）・後半（3Q＋4Q）の1試合の記録です。延長戦の得点は含めません。2016-17・2017-18のCSで行った前後半5分の試合は対象外です。
-        「クラブごとの自己ベスト」は各クラブの最高記録で並べた順位（同じ記録の試合が複数あれば最も古い試合を表示）、
-        「リーグ史上の上位20位」は個々の試合をそのまま並べたもので、同じ記録はすべて含みます。※は公式のクォーター別スコアが欠けている試合で、
-        プレーバイプレーの得点から出した値です。
-      </p>
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.periodRecords} label="クォーター別レコード" />
     </>
   );
 }
@@ -1625,13 +1604,11 @@ function RecentFormTab({ season }: { season: string }) {
 
   return (
     <div>
-      <p className="page-subtitle">
-        現行{teams.length}クラブの直近{recentN}試合の成績によるランキング（レギュラーシーズン・
-        {postseasonLabel(season)}合算）。ORtg/DRtg/NETRtgは直近{recentN}試合の合算値から算出。対戦相手の加重平均
-        勝率は、直近{recentN}試合の各対戦相手のその試合時点までの勝率を単純平均したもの（対戦相手が
-        未消化の試合は対象外）。連勝/連敗は直近{recentN}試合の絞り込みとは独立に、今シーズンの
-        全試合を通して現在何連勝/連敗中かを示す
-      </p>
+      <GlossaryNote
+        anchor={GLOSSARY_ANCHORS.recentForm}
+        label="直近成績"
+        scope={`現行${teams.length}クラブの直近${recentN}試合の成績です（レギュラーシーズン・${postseasonLabel(season)}合算）。`}
+      />
       <FilterBar
         simple
         stateKey="teams:recent"

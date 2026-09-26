@@ -1,4 +1,6 @@
 import { teamShortName } from "../../shared/teamNames";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { GlossaryNote } from "./GlossaryNote";
 import type { PlayerGameLog } from "../../shared/types";
 import type { GameTeamInfo } from "../lib/situational";
 import { surnameOf } from "../lib/playerSurname";
@@ -231,11 +233,7 @@ export function PlayerSeasonScoringChart({
         rightWidth={{ wide: 52, narrow: 36 }}
         emptyMessage="レギュラーシーズンのFG試投がありません"
       />
-      <p className="page-subtitle">
-        レギュラーシーズン・シーズン合計の値です（上部の試合種別・Q別・平均/合計とは連動しません）。移籍したシーズンは1本にまとめ、見出しに所属チームを並べています。
-        得点構成の棒の中の数値は割合(%)と1試合平均の得点、右端は1試合平均の得点です。ミッドレンジは「2Pの得点−ペイント内の得点」です。
-        FG試投構成はFGAに占める3P・Mid-range・Paintの割合で、Paint・Mid-rangeはプレーバイプレーの公式の区分（ペイント内／ペイント外の2P）です。棒の中の数値は割合(%)と1試合平均の試投数、右端は1試合平均のFGAです
-      </p>
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成・FG試投構成" scope="レギュラーシーズン・シーズン合計の値です（上部の試合種別・Q別・平均/合計とは連動しません）。" />
     </>
   );
 }

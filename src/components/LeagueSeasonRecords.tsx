@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { GlossaryNote } from "./GlossaryNote";
 import { Link as RouterLink } from "react-router-dom";
 import { filterByGameType, type SeasonGameTypeFilter } from "../../shared/gameType";
 import { TEAM_RECORD_STATS, type TeamRecordValueDef } from "../../shared/teamRecords";
@@ -8,7 +10,7 @@ import { gameTypeAxis, simpleSelectAxis } from "../lib/filterAxes";
 import { fetchSeasons, fetchTeams } from "../lib/data";
 import { usePageState } from "../lib/pageStateCache";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
-import { attemptsFirst, computeTopRecordEntries, TEAM_PCT_MIN_ATTEMPTS_NOTE, type TopRecordEntry } from "../lib/topRecords";
+import { attemptsFirst, computeTopRecordEntries, type TopRecordEntry } from "../lib/topRecords";
 import { RecordValue } from "./RecordValue";
 import { useJsonData } from "../lib/useJsonData";
 import { composeLabels, gameTypeLabels } from "../lib/conditionLabels";
@@ -231,12 +233,7 @@ export function LeagueSeasonRecords({ defaultSeason }: { defaultSeason: string }
               />
             ))}
           </div>
-          <p className="page-subtitle">
-            そのシーズンの全クラブの試合の中での1試合の記録です。項目名を押すと上位10位（同じ記録はすべて）を表示します。
-            {mode === "record" && `${TEAM_PCT_MIN_ATTEMPTS_NOTE}成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます。`}
-            {mode === "worst" && "成功率・試投数・ホーム来場者数・逆転の項目は、ワーストの対象外です。"}
-            PITP/FBPS/2ND PTS/PTSOFFTOはプレーバイプレーのタグから数えた得点、ホーム来場者数はホーム開催の試合だけが対象です。
-          </p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.records} label="記録" scope="そのシーズンの全クラブの試合の中での1試合の記録です。" />
 
           <h3 className="career-highs-subheading">クォーター別レコード</h3>
           <ClubPeriodRecords
@@ -249,11 +246,8 @@ export function LeagueSeasonRecords({ defaultSeason }: { defaultSeason: string }
               </strong>
             )}
           />
-          <p className="page-subtitle">
-            1Q〜4Q・前半（1Q＋2Q）・後半（3Q＋4Q）の1試合の記録です。延長戦の得点は含めません。
-            ※は公式のクォーター別スコアが欠けている試合で、プレーバイプレーの得点から出した値です。
-          </p>
-          <p className="page-subtitle">試合結果を取り込むたびに、そのシーズンの記録も新しくなります。</p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.periodRecords} label="クォーター別レコード" />
+          
         </>
       )}
     </div>
