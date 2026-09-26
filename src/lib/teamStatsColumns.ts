@@ -120,6 +120,11 @@ export interface TeamTotals {
   internationalPoints: number;
   oppJapanesePoints: number;
   oppInternationalPoints: number;
+  /** ベンチ得点・スタメン得点（TeamGameLog由来。国籍区分別得点と同じく試合全体のみ。2026-09-26） */
+  benchPoints: number;
+  starterPoints: number;
+  oppBenchPoints: number;
+  oppStarterPoints: number;
 }
 
 export const EMPTY_TOTALS: TeamTotals = {
@@ -192,6 +197,10 @@ export const EMPTY_TOTALS: TeamTotals = {
   internationalPoints: 0,
   oppJapanesePoints: 0,
   oppInternationalPoints: 0,
+  benchPoints: 0,
+  starterPoints: 0,
+  oppBenchPoints: 0,
+  oppStarterPoints: 0,
 };
 
 export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
@@ -266,6 +275,10 @@ export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
       internationalPoints: acc.internationalPoints + g.foreignPoints + g.naturalizedOrAsianPoints,
       oppJapanesePoints: acc.oppJapanesePoints + g.opponentJapanesePoints,
       oppInternationalPoints: acc.oppInternationalPoints + g.opponentForeignPoints + g.opponentNaturalizedOrAsianPoints,
+      benchPoints: acc.benchPoints + g.benchPoints,
+      starterPoints: acc.starterPoints + g.starterPoints,
+      oppBenchPoints: acc.oppBenchPoints + (g.opponentBenchPoints ?? 0),
+      oppStarterPoints: acc.oppStarterPoints + (g.opponentStarterPoints ?? 0),
     }),
     { ...EMPTY_TOTALS },
   );
@@ -607,7 +620,11 @@ export function buildAdvancedColumns(mode: SeasonDisplayMode, perspective: TeamP
   ];
 }
 
-export function buildMiscColumns(mode: SeasonDisplayMode, perspective: TeamPerspective): Column<AllTeamsRow>[] {
+export function buildMiscColumns(
+  mode: SeasonDisplayMode,
+  perspective: TeamPerspective,
+  pointsBreakdownSupported = true,
+): Column<AllTeamsRow>[] {
   return [
     countColumn("pitp", "PITP", (t) => t.pt2in, (t) => t.oppPt2in, mode, perspective),
     countColumn("fbps", "FBPS", (t) => t.fb, (t) => t.oppFb, mode, perspective),
@@ -623,6 +640,14 @@ export function buildMiscColumns(mode: SeasonDisplayMode, perspective: TeamPersp
     }),
     countColumn("and1", "AND1", (t) => t.basketCounts, (t) => t.oppBasketCounts, mode, perspective),
     pct100Column("astpct", "AST%", (t) => safeDiv(100 * t.ast, t.fgm), (t) => safeDiv(100 * t.oppAst, t.oppFgm), perspective),
+    // ベンチ得点・スタメン得点（チーム詳細のシーズン別成績と同じくMiscの末尾。自チーム/opp/+/-に対応。2026-09-26）。
+    // TeamGameLogにだけある値のため、Q別/前後半の表示では「-」
+    pointsBreakdownSupported
+      ? countColumn("benchPts", "BENCH PTS", (t) => t.benchPoints, (t) => t.oppBenchPoints, mode, perspective)
+      : unavailableColumn("benchPts", "BENCH PTS"),
+    pointsBreakdownSupported
+      ? countColumn("starterPts", "STARTER PTS", (t) => t.starterPoints, (t) => t.oppStarterPoints, mode, perspective)
+      : unavailableColumn("starterPts", "STARTER PTS"),
   ];
 }
 
@@ -666,6 +691,25 @@ export function buildScoringColumns(
       (t) => safeDiv(100 * (t.oppAssisted2m * 2 + t.oppAssisted3m * 3 + t.oppAssistedFtm), t.oppPts),
       perspective,
     ),
+    // 総得点に占めるベンチ得点・スタメン得点の割合（チーム詳細のシーズン別成績と同じくScoring。2026-09-26）
+    classificationSupported
+      ? pct100Column(
+          "pctbenchpts",
+          "%BENCH PTS",
+          (t) => safeDiv(100 * t.benchPoints, t.benchPoints + t.starterPoints),
+          (t) => safeDiv(100 * t.oppBenchPoints, t.oppBenchPoints + t.oppStarterPoints),
+          perspective,
+        )
+      : unavailableColumn("pctbenchpts", "%BENCH PTS"),
+    classificationSupported
+      ? pct100Column(
+          "pctstarterpts",
+          "%STARTER PTS",
+          (t) => safeDiv(100 * t.starterPoints, t.benchPoints + t.starterPoints),
+          (t) => safeDiv(100 * t.oppStarterPoints, t.oppBenchPoints + t.oppStarterPoints),
+          perspective,
+        )
+      : unavailableColumn("pctstarterpts", "%STARTER PTS"),
     // 登録区分別得点（日本人/外国籍・帰化・アジアの2分割）。実数値＋総得点に占める割合(%)を追加する
     classificationSupported
       ? countColumn("japanesePts3", "日本人 PTS", (t) => t.japanesePoints, (t) => t.oppJapanesePoints, mode, perspective)

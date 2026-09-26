@@ -332,7 +332,7 @@ function buildTeamCategoryColumns(
     case "advanced":
       return buildAdvancedColumns(mode, perspective);
     case "misc":
-      return buildMiscColumns(mode, perspective);
+      return buildMiscColumns(mode, perspective, classificationSupported);
     case "scoring":
       return buildScoringColumns(mode, perspective, paintSupported, classificationSupported);
   }

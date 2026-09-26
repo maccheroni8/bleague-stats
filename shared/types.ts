@@ -849,6 +849,9 @@ export interface TeamGameLog {
    */
   benchPoints: number;
   starterPoints: number;
+  /** 相手チームのベンチ得点・スタメン得点（全チームスタッツ・ランキングの opp・+/- 用。2026-09-26） */
+  opponentBenchPoints: number;
+  opponentStarterPoints: number;
   /**
    * 国籍区分別得点（日本人/外国籍/帰化orアジア特別枠の3分割、Batch 2）。benchPoints/
    * starterPointsと同じくレギュラー/プレーオフを問わず全試合について算出し、

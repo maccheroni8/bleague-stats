@@ -97,7 +97,8 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
   },
   {
     key: "oppPts",
-    label: "失点",
+    // チーム詳細・全チームスタッツと同じ英語表記（2026-09-26）
+    label: "oppPTS",
     value: (t) => t.opponentPerGame.pts,
     format: (t) => formatDecimal(t.opponentPerGame.pts),
     higherIsBetter: false,
@@ -107,7 +108,7 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
   },
   {
     key: "benchPoints",
-    label: "ベンチポイント",
+    label: "BENCH PTS",
     value: (t) => t.advanced.benchPointsPerGame,
     format: (t) => formatDecimal(t.advanced.benchPointsPerGame),
     // GeniusAPIに直接の該当フィールドが無いため、ボックススコア個人行のStartingFlg!==1
