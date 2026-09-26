@@ -1599,12 +1599,15 @@ export interface PlayerCareersFile {
   championships: Record<string, { season: string; teamId: string; teamName: string }[]>;
 }
 
-// ---- data/season-profiles.json（Wayback Machine の当時の選手ページから読んだ身長・体重・ポジション。
-// scripts/scrape-wayback-profiles.ts。DESIGN.md 146章）----
+// ---- data/season-profiles.json（各シーズン当時の身長・体重・ポジション。DESIGN.md 146・148章）----
+// 2025-26 までは Wayback Machine の当時の選手ページから読んだ値（scripts/scrape-wayback-profiles.ts）、
+// 2026-27 以降は夜間実行でそのシーズンの1月15日の選手名簿の値を固定したもの（scripts/freeze-season-profiles.ts）
 
 export interface SeasonProfileEntry {
-  /** 使ったスナップショットの時刻（Wayback の YYYYMMDDhhmmss） */
-  snapshot: string;
+  /** Wayback の当時の選手ページから読んだとき: 使ったスナップショットの時刻（YYYYMMDDhhmmss） */
+  snapshot?: string;
+  /** 夜間実行で選手名簿の値を固定したとき: 固定した日（JST の YYYY-MM-DD。scripts/freeze-season-profiles.ts） */
+  frozenOn?: string;
   heightCm?: number;
   weightKg?: number;
   position?: string;
@@ -1614,7 +1617,7 @@ export interface SeasonProfileEntry {
 
 export interface SeasonProfilesFile {
   generatedAt: string;
-  /** season → playerId → 当時の値。そのシーズン中（10月〜翌5月）のスナップショットが無い選手は持たない */
+  /** season → playerId → 当時の値。当時の値が無い選手は持たない */
   seasons: Record<string, Record<string, SeasonProfileEntry>>;
 }
 
@@ -1623,4 +1626,11 @@ export interface ProfileFallback {
   position?: "near" | "current";
   height?: "current";
   weight?: "current";
+}
+
+/** data/current-roster.json: 今の選手名簿（bleague.jp の e=在籍中 の一覧。scripts/scrape-roster.ts が夜間実行で保存。DESIGN.md 148章） */
+export interface CurrentRosterFile {
+  generatedAt: string;
+  season: string;
+  players: { playerId: string; teamId: string }[];
 }

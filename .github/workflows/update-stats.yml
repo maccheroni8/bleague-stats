@@ -165,6 +165,15 @@ jobs:
         continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-roster.ts --season ${{ steps.season.outputs.season }}
 
+      # 進行中のシーズンの身長・体重・ポジションを、1月15日時点の選手名簿の値で固定する（1月15日より前は何もしない。
+      # 1月15日より後に初めて出場した選手は、出場後の最初の夜間実行で固定。固定済みは上書きしない。DESIGN.md 148章）。
+      # 直前の Scrape roster が保存した選手マスタ・今の選手名簿を読むので、その後・集計の前に置く。深夜のディープrecheckでのみ実行する
+      - name: Freeze season profiles (Jan 15)
+        id: freeze_profiles
+        if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/freeze-season-profiles.ts
+
       - name: Aggregate teams/players
         if: steps.proceed.outputs.run == 'true'
         run: node --experimental-strip-types scripts/aggregate.ts --season ${{ steps.season.outputs.season }}
@@ -245,6 +254,12 @@ jobs:
           exit 1
 
       # ロースター取得の失敗・時間切れをジョブの失敗として通知する（データのcommit&pushは上のステップで完了済み）
+      - name: Fail if season profile freeze failed
+        if: ${{ always() && steps.freeze_profiles.outcome == 'failure' }}
+        run: |
+          echo "::error title=Season profile freeze failed::Freeze season profiles ステップが失敗しました。身長・体重・ポジションの固定は次の夜間実行でやり直します"
+          exit 1
+
       - name: Fail if roster scan failed
         if: ${{ always() && steps.roster.outcome == 'failure' }}
         run: |

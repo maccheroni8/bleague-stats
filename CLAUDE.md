@@ -113,6 +113,9 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   `data/2024-25/team-games/2486.json.gz`・`696.json.gz`の取得が404になる（2026-09-24確認）。
   両チームとも2024-25の`teams.json`には含まれておらず、どの処理が問い合わせているかは未調査。
   表示への実害は無い
+- 各シーズンの身長・体重・ポジションは `data/season-profiles.json` の当時の値を使う（2025-26 までは Wayback から1回だけ取得、
+  2026-27 以降は夜間実行が1月15日時点の値で固定。固定済みは上書きしない）。Wayback の取得（`scrape-wayback-profiles.ts`）は再実行しない
+  （DESIGN.md 148章）
 - シーズン終了後は、`scrape-season-rosters.ts --from YYYY --to YYYY`を再実行して`season-positions.json`を
   アーカイブする必要がある（デフォルトの`--to`のままだと、終了したシーズンでも現在値が表示され続ける）。
   再実行後は該当シーズンを`npm run aggregate`で再集計すること（DESIGN.md 101章）

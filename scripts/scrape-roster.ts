@@ -44,7 +44,7 @@
 import path from "node:path";
 import { load } from "cheerio";
 import { createThrottledFetch } from "./lib/throttle.ts";
-import { DATA_DIR, readJson, writeJson } from "./lib/storage.ts";
+import { DATA_DIR, readJson, writeJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { TEAM_NAMES } from "./lib/divisions.ts";
 import { CLASSIFICATION_OVERRIDES } from "./lib/playerClassificationOverrides.ts";
 import {
@@ -56,7 +56,7 @@ import {
   previousSeason,
 } from "./lib/mediaAssets.ts";
 import { isMainModule } from "./lib/isMain.ts";
-import type { PlayerAwardEntry, PlayerMasterEntry } from "../shared/types.ts";
+import type { CurrentRosterFile, PlayerAwardEntry, PlayerMasterEntry } from "../shared/types.ts";
 
 const MIN_REQUEST_INTERVAL_MS = 2500;
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
@@ -382,6 +382,15 @@ async function main(): Promise<void> {
   // 写真より先に選手マスタを保存する（写真の失敗・時間切れで新加入選手の登録区分等が失われないように）
   await writeJson(MASTER_PATH, master);
   console.log(`保存完了: ${MASTER_PATH}（${master.length}名）`);
+  // 今の選手名簿（e=在籍中の一覧に載っている選手）。選手マスタの所属は退団後も最後のクラブのまま残るため、
+  // 「今在籍している選手」はこちらで判定する（1月15日の身長・体重の固定に使う。scripts/freeze-season-profiles.ts・DESIGN.md 148章）。
+  // 名簿に変化が無い日は書き換えない
+  const rosterFile: CurrentRosterFile = {
+    generatedAt: new Date().toISOString(),
+    season,
+    players: currentRoster.map((p) => ({ playerId: p.playerId, teamId: p.teamId })).sort((a, b) => a.playerId.localeCompare(b.playerId)),
+  };
+  await writeJsonIfChanged(path.join(DATA_DIR, "current-roster.json"), rosterFile as unknown as Record<string, unknown>);
 
   await syncRosterPhotos(currentRoster, season, { force });
 }

@@ -893,9 +893,11 @@ export async function aggregateSeason(season: string, category: Category = "prem
   // （未アーカイブの進行中シーズン）場合、およびB.ONE等のB.PREMIER以外はマスタにフォールバックする
   const seasonPositionsFile = (await readJson<SeasonPositionsFile>(path.join(DATA_DIR, "season-positions.json"))) ?? {};
   const seasonPositions = category === "premier" ? seasonPositionsFile[season] : undefined;
-  // 終了したシーズン（B.PREMIER）の身長・体重・ポジションは当時の値（Wayback の当時の選手ページ等）を使う（shared/seasonProfile.ts。DESIGN.md 148章）
+  // 身長・体重・ポジションは当時の値を使う（B.PREMIER。終了したシーズンは Wayback・固定した値、進行中のシーズンは1月15日以降に固定した値。
+  // shared/seasonProfile.ts。DESIGN.md 148章）
   const seasonProfilesFile = await readJson<SeasonProfilesFile>(path.join(DATA_DIR, "season-profiles.json"));
-  const useSeasonProfile = category === "premier" && season < currentSeason();
+  const useSeasonProfile = category === "premier";
+  const pastSeason = season < currentSeason();
 
   const players = new Map<string, PlayerAccumulator>();
   const teams = new Map<string, TeamAccumulator>();
@@ -1078,7 +1080,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       // 国籍・身長体重・生年月日・ポジションはplayers-master.jsonから突合（未登録選手は全て未定義のまま）
       const master = masterById.get(p.playerId);
       const profile = useSeasonProfile
-        ? resolveSeasonProfile(p.playerId, season, { master, positions: seasonPositionsFile, profiles: seasonProfilesFile, past: true })
+        ? resolveSeasonProfile(p.playerId, season, { master, positions: seasonPositionsFile, profiles: seasonProfilesFile, past: pastSeason })
         : { position: seasonPositions ? seasonPositions[p.playerId] : master?.position, heightCm: master?.heightCm, weightKg: master?.weightKg, fallback: undefined };
       return {
         playerId: p.playerId,
