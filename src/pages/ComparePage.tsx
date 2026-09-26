@@ -3,6 +3,7 @@ import { LEAGUE_COLOR, LEAGUE_SLOT_NOTE, LEAGUE_TEAM_ID, LEAGUE_TEAM_NAME } from
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { surnameOf } from "../lib/playerSurname";
+import { distinctTeamColors } from "../lib/teamColorPairs";
 import { Link, useSearchParams } from "react-router-dom";
 import { fetchDivisionHistory, fetchPlayers, fetchSeasons, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
@@ -475,6 +476,12 @@ function TeamCompareView({
   const anyBusy = slotData.some((d) => d.status === "loading" || d.status === "fetching");
   const defs = useMemo(() => teamCompareDefs(cat, perspective), [cat, perspective]);
 
+  // 並んだチームの色が近いときは、2つ目以降をサブカラーにする（同じチームの別シーズンも。src/lib/teamColorPairs.ts。DESIGN.md 156章）
+  const slotColors = distinctTeamColors(
+    rows.map((r) => (r.item.isLeague ? { primary: LEAGUE_COLOR } : (teamColors?.[r.item.teamId] ?? {}))),
+  );
+  const slotColorByKey = new Map(rows.map((r, i) => [r.item.key, slotColors[i]]));
+
   return (
     <>
       <div className="player-compare-slots">
@@ -508,7 +515,7 @@ function TeamCompareView({
           rowKey={(r) => r.key}
           name={(r) => (r.isLeague ? r.label : <ResponsiveTeamName teamId={r.teamId} name={r.label} />)}
           linkTo={(r) => (r.isLeague ? undefined : `/teams/${r.teamId}`)}
-          teamColor={(r) => (r.isLeague ? LEAGUE_COLOR : teamColors?.[r.teamId]?.primary)}
+          teamColor={(r) => slotColorByKey.get(r.key)}
           subLabel={(r) => r.subLabel}
           emptyMessage={anyBusy ? "データ取得中..." : "比較するチームを選んでください"}
         />
@@ -573,6 +580,10 @@ function PlayerCompareView({
   const anyBusy = slotData.some((d) => d.status === "loading");
   const defs = useMemo(() => seasonBoxCompareDefs(cat), [cat]);
 
+  // 選手の所属チームの色が近いとき（同じチームを含む）は、2つ目以降をサブカラーにする（DESIGN.md 156章）
+  const slotColors = distinctTeamColors(rows.map((r) => (r.item.teamId ? (teamColors?.[r.item.teamId] ?? {}) : {})));
+  const slotColorByKey = new Map(rows.map((r, i) => [r.item.key, slotColors[i]]));
+
   return (
     <>
       <div className="player-compare-slots">
@@ -603,7 +614,7 @@ function PlayerCompareView({
           rowKey={(r) => r.key}
           name={(r) => <ResponsivePlayerName name={r.label} />}
           linkTo={(r) => `/players/${r.playerId}`}
-          teamColor={(r) => (r.teamId ? teamColors?.[r.teamId]?.primary : undefined)}
+          teamColor={(r) => slotColorByKey.get(r.key)}
           subLabel={(r) => r.subLabel}
           emptyMessage={anyBusy ? "データ取得中..." : "比較する選手を選んでください"}
         />

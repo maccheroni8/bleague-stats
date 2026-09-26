@@ -28,6 +28,7 @@ import { composeLabels, periodLabels } from "../lib/conditionLabels";
 import { BOXSCORE_TABS, BoxscoreTable, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
 import { buildShotEvents } from "../lib/shotChart";
+import { distinctTeamColors } from "../lib/teamColorPairs";
 import { buildOfficialPaintSplit, type PaintSplitCounts } from "../../shared/paintSplit";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import {
@@ -345,8 +346,8 @@ export function GameDetailPage({ season }: { season: string }) {
   const pbpSupported = isPbpSupported(coverage);
   const shotChartSupported = isShotChartSupported(coverage);
   const classificationById = new Map((players ?? []).map((p) => [p.playerId, p.classification] as const));
-  const homeColor = teamColors?.[game.homeTeam.id]?.primary;
-  const awayColor = teamColors?.[game.awayTeam.id]?.primary;
+  // 両チームの色が近いときは、アウェイをサブカラーにする（src/lib/teamColorPairs.ts。DESIGN.md 156章）
+  const [homeColor, awayColor] = distinctTeamColors([teamColors?.[game.homeTeam.id] ?? {}, teamColors?.[game.awayTeam.id] ?? {}]);
 
   const homePlayers = playerRows(game.raw.HomeBoxscores);
   const awayPlayers = playerRows(game.raw.AwayBoxscores);

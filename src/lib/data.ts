@@ -42,7 +42,7 @@ import type {
   YahooGamePbp,
 } from "../../shared/types";
 import { legibleAccentColor, MONO_FALLBACK_COLOR } from "./color";
-import { TEAM_COLOR_OVERRIDES } from "./teamColorOverrides";
+import { TEAM_COLOR_OVERRIDES, TEAM_SUB_COLORS } from "./teamColorOverrides";
 import type { LeagueCompareFile } from "./leagueAverage";
 
 const dataBase = `${import.meta.env.BASE_URL}data`;
@@ -169,9 +169,11 @@ export async function fetchTeamColors(): Promise<Record<string, TeamColors>> {
     const legiblePrimary =
       override?.skipLegibilityCheck && override.primary ? override.primary : legibleAccentColor(override?.primary ?? colors.primary);
     const legibleSecondary = legibleAccentColor(override?.secondary ?? colors.secondary);
+    const sub = TEAM_SUB_COLORS[teamId];
     sanitized[teamId] = {
       primary: legiblePrimary ?? legibleSecondary ?? MONO_FALLBACK_COLOR,
       secondary: legibleSecondary ?? MONO_FALLBACK_COLOR,
+      sub: sub ? (sub.color === "mono" ? MONO_FALLBACK_COLOR : sub.color) : undefined,
     };
   }
   return sanitized;

@@ -525,6 +525,8 @@ export interface PlayerAdvancedStats {
 export interface TeamColors {
   primary?: string;
   secondary?: string;
+  /** 同じ画面の2チームの色が近いときに、アウェイ（比較では2つ目以降）に使う色（src/lib/teamColorOverrides.ts の TEAM_SUB_COLORS） */
+  sub?: string;
 }
 
 export interface TeamSummary {
