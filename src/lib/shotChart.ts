@@ -37,6 +37,14 @@ export interface ShotEvent {
   y: number;
   /** 発生したピリオド（1〜4=各Q、5以降=延長）。試合/Q別/前半後半の絞り込みに使う */
   period: number;
+  /** センターラインより後ろから打ったロングシュート（座標はセンターラインの位置に寄せてある。ゾーンの集計には入れない） */
+  longShot?: boolean;
+}
+
+/** ピリオドの残り時間（"m:ss"）を秒に */
+function restSeconds(rest: string | undefined): number {
+  const m = /^(\d+):(\d+)$/.exec(rest ?? "");
+  return m ? Number(m[1]) * 60 + Number(m[2]) : Number.POSITIVE_INFINITY;
 }
 
 export function buildShotEvents(events: PlayByPlayEvent[]): ShotEvent[] {
@@ -49,15 +57,34 @@ export function buildShotEvents(events: PlayByPlayEvent[]): ShotEvent[] {
     // 攻撃方向（Side）が無い行は座標から補う（2022-23 はほぼ全行で Side が無い。2026-09-26、DESIGN.md 155章）。
     // ショットは攻撃するバスケット側の半面から打たれるので、X が中央（50）より大きければ右のバスケット向き
     const mirror = ev.Side === "right" || (ev.Side !== "left" && ev.X > 50);
+    const isThree = THREE_POINT_ACTION_CODES.has(ev.ActionCD1);
+    let x = mirror ? 100 - ev.X : ev.X;
+    let y = mirror ? 100 - ev.Y : ev.Y;
+    let longShot = false;
+    // 半面（センターラインまで）の外に出る試投（2026-09-26、DESIGN.md 155-5）:
+    // - 2P は半面の外からは打てないので、攻撃方向の記録の誤りとみて反転する
+    // - 3P は、反対側のゴールからの距離が通常の3Pの範囲（3Pライン6.75m〜9.5m）で、ピリオドの残りが3秒より多ければ、攻撃方向の
+    //   記録の誤りとみて反転する。それ以外（ブザー間際に自陣から投げたロングシュート等）はセンターラインの位置に寄せて印を付ける
+    if (x > 50) {
+      const opp = toPolar(100 - x, 100 - y);
+      if (!isThree || (opp.r >= ARC_R && opp.r < OUTER_R && restSeconds(ev.RestTime) > 3)) {
+        x = 100 - x;
+        y = 100 - y;
+      } else {
+        longShot = true;
+        x = 50;
+      }
+    }
     shots.push({
       playerId: ev.PlayerID1,
       playerName: ev.PlayerNameJ1,
       teamId: ev.TeamID,
       made,
-      isThree: THREE_POINT_ACTION_CODES.has(ev.ActionCD1),
-      x: mirror ? 100 - ev.X : ev.X,
-      y: mirror ? 100 - ev.Y : ev.Y,
+      isThree,
+      x,
+      y: Math.min(100, Math.max(0, y)),
       period: ev.Period,
+      ...(longShot ? { longShot } : {}),
     });
   }
   return shots;
@@ -92,7 +119,10 @@ export const BASKET_Y_M = 7.5;
 const CENTER_HALF_ANGLE = 22; // |θ| <= 22度を「中央」とする
 const WING_MAX_ANGLE = 76; // 22〜76度を「ウイング」、76〜90度を「コーナー/ベースライン」とする
 const RESTRICTED_R = 1.25; // リストリクテッドエリア半径(m)、FIBA基準
-const PAINT_R = 3.6; // ペイント（非リストリクテッド）外縁(m)
+const PAINT_R = 3.6; // ミッドレンジのゾーンのラベル位置の内側の目安(m)。ペイントの判定には使わない（2026-09-26 から長方形）
+/** ペイント（制限区域）の長方形。FIBA: 幅4.9m・ベースラインから5.8m（フリースローラインの外側まで）。公式の「インサイドペイント」の区分と一致する */
+export const LANE_HALF_WIDTH_M = 2.45;
+export const LANE_LENGTH_M = 5.8;
 const ARC_R = 6.75; // FIBA 3Pライン半径(m)
 const OUTER_R = 9.5; // ゾーン描画上の3P外縁(m)。これを超えるヒーブ級はどのゾーンにも属さない
 
@@ -117,18 +147,26 @@ export interface ZoneDef {
   rOuter: number;
   thetaStart: number;
   thetaEnd: number;
+  /** "lane": ペイントの長方形そのもの（描画もこの形）。"outsideLane": 扇形のうちペイントの長方形の外側だけ（ミッドレンジ・ショートコーナー） */
+  shape?: "lane" | "outsideLane";
+  /** ラベルを置く半径（省略時は rInner と rOuter の中間） */
+  labelR?: number;
+  /** ラベルを置く角度（省略時は thetaStart と thetaEnd の中間） */
+  labelTheta?: number;
 }
 
 export const ZONE_DEFS: ZoneDef[] = [
-  { id: "restricted", label: "Restricted Area", rInner: 0, rOuter: RESTRICTED_R, thetaStart: -90, thetaEnd: 90 },
-  { id: "paint", label: "Paint", rInner: RESTRICTED_R, rOuter: PAINT_R, thetaStart: -WING_MAX_ANGLE, thetaEnd: WING_MAX_ANGLE },
-  { id: "shortCornerLeft", label: "Short Corner (L)", rInner: RESTRICTED_R, rOuter: ARC_R, thetaStart: -90, thetaEnd: -WING_MAX_ANGLE },
-  { id: "shortCornerRight", label: "Short Corner (R)", rInner: RESTRICTED_R, rOuter: ARC_R, thetaStart: WING_MAX_ANGLE, thetaEnd: 90 },
-  { id: "midLeft", label: "Mid-range (L)", rInner: PAINT_R, rOuter: ARC_R, thetaStart: -WING_MAX_ANGLE, thetaEnd: -CENTER_HALF_ANGLE },
-  { id: "midCenter", label: "Mid-range (C)", rInner: PAINT_R, rOuter: ARC_R, thetaStart: -CENTER_HALF_ANGLE, thetaEnd: CENTER_HALF_ANGLE },
-  { id: "midRight", label: "Mid-range (R)", rInner: PAINT_R, rOuter: ARC_R, thetaStart: CENTER_HALF_ANGLE, thetaEnd: WING_MAX_ANGLE },
-  { id: "corner3Left", label: "Corner 3 (L)", rInner: ARC_R, rOuter: OUTER_R, thetaStart: -90, thetaEnd: -WING_MAX_ANGLE },
-  { id: "corner3Right", label: "Corner 3 (R)", rInner: ARC_R, rOuter: OUTER_R, thetaStart: WING_MAX_ANGLE, thetaEnd: 90 },
+  // 角度の範囲は描画にも使う。リング周りは円全体、ベースライン沿いのゾーン（ショートコーナー・コーナー3）はリングの裏（±180度）まで
+  // （判定では角度を±90度に寄せるため、リングの中心よりベースライン側はこれらのゾーンに入る。描画もベースラインまで塗る。2026-09-26）
+  { id: "restricted", label: "Restricted Area", rInner: 0, rOuter: RESTRICTED_R, thetaStart: -180, thetaEnd: 180, labelR: 0 },
+  { id: "paint", label: "Paint", rInner: RESTRICTED_R, rOuter: LANE_LENGTH_M, thetaStart: -90, thetaEnd: 90, shape: "lane" },
+  { id: "shortCornerLeft", label: "Short Corner (L)", rInner: RESTRICTED_R, rOuter: ARC_R, thetaStart: -180, thetaEnd: -WING_MAX_ANGLE, shape: "outsideLane", labelR: 4.6, labelTheta: -83 },
+  { id: "shortCornerRight", label: "Short Corner (R)", rInner: RESTRICTED_R, rOuter: ARC_R, thetaStart: WING_MAX_ANGLE, thetaEnd: 180, shape: "outsideLane", labelR: 4.6, labelTheta: 83 },
+  { id: "midLeft", label: "Mid-range (L)", rInner: RESTRICTED_R, rOuter: ARC_R, thetaStart: -WING_MAX_ANGLE, thetaEnd: -CENTER_HALF_ANGLE, shape: "outsideLane", labelR: (PAINT_R + ARC_R) / 2 },
+  { id: "midCenter", label: "Mid-range (C)", rInner: RESTRICTED_R, rOuter: ARC_R, thetaStart: -CENTER_HALF_ANGLE, thetaEnd: CENTER_HALF_ANGLE, shape: "outsideLane", labelR: 6.0 },
+  { id: "midRight", label: "Mid-range (R)", rInner: RESTRICTED_R, rOuter: ARC_R, thetaStart: CENTER_HALF_ANGLE, thetaEnd: WING_MAX_ANGLE, shape: "outsideLane", labelR: (PAINT_R + ARC_R) / 2 },
+  { id: "corner3Left", label: "Corner 3 (L)", rInner: ARC_R, rOuter: OUTER_R, thetaStart: -180, thetaEnd: -WING_MAX_ANGLE, labelTheta: -83 },
+  { id: "corner3Right", label: "Corner 3 (R)", rInner: ARC_R, rOuter: OUTER_R, thetaStart: WING_MAX_ANGLE, thetaEnd: 180, labelTheta: 83 },
   { id: "wing3Left", label: "Wing 3 (L)", rInner: ARC_R, rOuter: OUTER_R, thetaStart: -WING_MAX_ANGLE, thetaEnd: -CENTER_HALF_ANGLE },
   { id: "wing3Center", label: "Top 3", rInner: ARC_R, rOuter: OUTER_R, thetaStart: -CENTER_HALF_ANGLE, thetaEnd: CENTER_HALF_ANGLE },
   { id: "wing3Right", label: "Wing 3 (R)", rInner: ARC_R, rOuter: OUTER_R, thetaStart: CENTER_HALF_ANGLE, thetaEnd: WING_MAX_ANGLE },
@@ -143,13 +181,25 @@ export function toPolar(x: number, y: number): { r: number; theta: number } {
   return { r, theta };
 }
 
+/** ショット座標（0〜100正規化済み）がペイントの長方形の中か */
+export function isInLane(x: number, y: number): boolean {
+  const xm = x * M_PER_X_UNIT;
+  const dy = y * M_PER_Y_UNIT - BASKET_Y_M;
+  return xm <= LANE_LENGTH_M && Math.abs(dy) <= LANE_HALF_WIDTH_M;
+}
+
 export function zoneForShot(shot: ShotEvent): ZoneId | null {
+  // センターラインより後ろからのロングシュートはどのゾーンにも入れない（ブザー間際の投げ込みが多く、3Pの成功率をゆがめるため）
+  if (shot.longShot) return null;
   const { r, theta: rawTheta } = toPolar(shot.x, shot.y);
   // リングから1.25m以内は角度を問わずリング周り。リングの中心よりベースライン側（角度が±90度を超える）のシュートも、
   // ベースライン沿い（±90度）として扱う（それまではどのゾーンにも入らず、FG試投構成でMid-rangeに数えられていた。2026-09-26）
   if (r < RESTRICTED_R) return "restricted";
+  // ペイントは実際の長方形（幅4.9m・ベースラインから5.8m）で判定する（2026-09-26。公式の区分と 99.9〜100% 一致）
+  if (isInLane(shot.x, shot.y)) return "paint";
   const theta = Math.max(-90, Math.min(89.999, rawTheta));
   for (const zone of ZONE_DEFS) {
+    if (zone.shape === "lane" || zone.id === "restricted") continue;
     if (r >= zone.rInner && r < zone.rOuter && theta >= zone.thetaStart && theta < zone.thetaEnd) {
       return zone.id;
     }

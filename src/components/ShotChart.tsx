@@ -1,6 +1,16 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useMediaQuery } from "../lib/useMediaQuery";
-import { BASKET_X_M, BASKET_Y_M, buildZoneStats, playersWithShots, type ShotChartPlayerOption, type ShotEvent } from "../lib/shotChart";
+import {
+  BASKET_X_M,
+  BASKET_Y_M,
+  buildZoneStats,
+  LANE_HALF_WIDTH_M,
+  LANE_LENGTH_M,
+  playersWithShots,
+  type ShotChartPlayerOption,
+  type ShotEvent,
+  type ZoneDef,
+} from "../lib/shotChart";
 
 // FIBAハーフコートの概略図（1unit = 10cm）。実寸に近づけた簡易図で、正確な公式図面ではない
 const COURT_WIDTH = 150; // 15m（サイドライン間）
@@ -24,6 +34,8 @@ const THREE_CORNER_Y = BASKET_Y + Math.sqrt(THREE_RADIUS ** 2 - (CENTER_X - THRE
 const X_SCALE = COURT_LENGTH / 50; // raw 0-50(=14m) -> 0-140
 const Y_SCALE = COURT_WIDTH / 100; // raw 0-100(=15m) -> 0-150
 const M_TO_UNIT = 10; // 1unit = 10cm
+/** センターラインより後ろからのロングシュートの印（ひし形）の大きさ */
+const LONG_SHOT_MARK_SIZE = 3;
 
 function HalfCourt() {
   return (
@@ -59,7 +71,7 @@ function polarToSvgPoint(r: number, thetaDeg: number): { x: number; y: number } 
 }
 
 /** 円弧をSVGのA(elliptical arc)コマンドの向き判定を避けるため、折れ線近似で描く */
-function arcPoints(r: number, thetaStart: number, thetaEnd: number, steps = 12): { x: number; y: number }[] {
+function arcPoints(r: number, thetaStart: number, thetaEnd: number, steps = Math.max(12, Math.ceil(Math.abs(thetaEnd - thetaStart) / 5))): { x: number; y: number }[] {
   const pts: { x: number; y: number }[] = [];
   for (let i = 0; i <= steps; i += 1) {
     const t = thetaStart + ((thetaEnd - thetaStart) * i) / steps;
@@ -99,22 +111,61 @@ function clampLabelPoint(point: { x: number; y: number }): { x: number; y: numbe
   };
 }
 
+/** ペイントの長方形（SVG座標）。ゾーンの判定（src/lib/shotChart.ts の isInLane）と同じ幅4.9m・ベースラインから5.8m */
+const LANE_RECT_PATH = (() => {
+  const x0 = (BASKET_Y_M - LANE_HALF_WIDTH_M) * M_TO_UNIT;
+  const x1 = (BASKET_Y_M + LANE_HALF_WIDTH_M) * M_TO_UNIT;
+  const y1 = LANE_LENGTH_M * M_TO_UNIT;
+  return `M ${x0} 0 L ${x1} 0 L ${x1} ${y1} L ${x0} ${y1} Z`;
+})();
+
+/** ゾーンの形。ペイントは長方形からリング周り（半円）を抜いた形、ミッドレンジ・ショートコーナーは扇形（長方形の外側だけ切り抜いて描く） */
+function zonePath(zone: ZoneDef): string {
+  // ペイントは長方形からリング周りの円を抜いた形（evenodd）
+  if (zone.shape === "lane") return `${LANE_RECT_PATH} ${sectorPath(0, 1.25, -180, 180)}`;
+  return sectorPath(zone.rInner, zone.rOuter, zone.thetaStart, zone.thetaEnd);
+}
+
+function zoneLabelPoint(zone: ZoneDef): { x: number; y: number } {
+  if (zone.shape === "lane") return polarToSvgPoint(3.3, 0);
+  return polarToSvgPoint(zone.labelR ?? (zone.rInner + zone.rOuter) / 2, zone.labelTheta ?? (zone.thetaStart + zone.thetaEnd) / 2);
+}
+
 function ZoneHeatmap({ shots }: { shots: ShotEvent[] }) {
   const zoneStats = useMemo(() => buildZoneStats(shots), [shots]);
+  // 1ページに複数のショットチャートが並ぶため、切り抜き（clipPath）の id は図ごとに変える
+  const clipId = `outside-lane-${useId().replace(/:/g, "")}`;
+  const zoneProps = (zone: ZoneDef) => ({
+    d: zonePath(zone),
+    fillRule: "evenodd" as const,
+    clipPath: zone.shape === "outsideLane" ? `url(#${clipId})` : undefined,
+  });
   return (
     <g>
+      <defs>
+        <clipPath id={clipId}>
+          <path d={`M 0 0 L ${COURT_WIDTH} 0 L ${COURT_WIDTH} ${COURT_LENGTH} L 0 ${COURT_LENGTH} Z ${LANE_RECT_PATH}`} clipRule="evenodd" />
+        </clipPath>
+      </defs>
       {zoneStats.map(({ zone, attempts, makes }) => {
-        const path = sectorPath(zone.rInner, zone.rOuter, zone.thetaStart, zone.thetaEnd);
+        const centroid = clampLabelPoint(zoneLabelPoint(zone));
         if (attempts === 0) {
-          return <path key={zone.id} d={path} className="zone-empty" />;
+          // 試投0本のゾーンも塗る（白く抜けると、どのゾーンにも入らない場所に見えるため）
+          return (
+            <g key={zone.id}>
+              <path {...zoneProps(zone)} className="zone-empty">
+                <title>{zone.label}: 0-0</title>
+              </path>
+              <text x={centroid.x} y={centroid.y + 1} className="zone-label-sub zone-label-empty">
+                0/0
+              </text>
+            </g>
+          );
         }
         const pct = makes / attempts;
-        const centroid = clampLabelPoint(
-          polarToSvgPoint((zone.rInner + zone.rOuter) / 2, (zone.thetaStart + zone.thetaEnd) / 2),
-        );
         return (
           <g key={zone.id}>
-            <path d={path} fill={zoneHeatColor(pct)} fillOpacity={ZONE_FILL_OPACITY} className="zone-fill">
+            <path {...zoneProps(zone)} fill={zoneHeatColor(pct)} fillOpacity={ZONE_FILL_OPACITY} className="zone-fill">
               <title>
                 {zone.label}: {makes}-{attempts} ({(pct * 100).toFixed(1)}%)
               </title>
@@ -153,6 +204,7 @@ export function ShotChartPanel({ teamName, shortName, players, shots, color, acc
   const [viewMode, setViewMode] = useState<"dots" | "zones">("dots");
   const selectablePlayers = useMemo(() => playersWithShots(players, shots), [players, shots]);
   const visibleShots = showPlayerSelector && selectedPlayerId ? shots.filter((s) => s.playerId === selectedPlayerId) : shots;
+  const longShotCount = visibleShots.filter((s) => s.longShot).length;
 
   return (
     <div className="shot-chart-panel" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
@@ -188,28 +240,60 @@ export function ShotChartPanel({ teamName, shortName, players, shots, color, acc
               <span className="shot-dot-sample shot-missed" style={{ borderColor: color }} />
               Missed
             </span>
+            {longShotCount > 0 && (
+              <span className="shot-chart-legend-item">
+                <span className="shot-long-sample" style={{ borderColor: color }} />
+                センターラインより後ろ
+              </span>
+            )}
           </div>
         )}
       </div>
       <p className="shot-chart-summary">{formatShotSummary(visibleShots)}</p>
+      {viewMode === "zones" && longShotCount > 0 && (
+        <p className="shot-chart-note">センターラインより後ろからのロングシュート{longShotCount}本は、ゾーンの集計に入れていません</p>
+      )}
       <svg viewBox={`0 0 ${COURT_WIDTH} ${COURT_LENGTH}`} className="shot-chart-svg">
         <HalfCourt />
         {viewMode === "dots" ? (
-          visibleShots.map((s, i) => (
-            <circle
-              key={i}
-              cx={s.y * Y_SCALE}
-              cy={s.x * X_SCALE}
-              r={2.4}
-              className={`shot-dot ${s.made ? "shot-made" : "shot-missed"}`}
-              stroke={color}
-              fill={s.made ? color : "none"}
-            >
+          visibleShots.map((s, i) => {
+            const title = (
               <title>
                 {s.playerName} {s.isThree ? "3P" : "2P"} {s.made ? "Made" : "Missed"}
+                {s.longShot ? "（センターラインより後ろからのロングシュート）" : ""}
               </title>
-            </circle>
-          ))
+            );
+            if (s.longShot) {
+              // センターラインより後ろからのロングシュートは、センターラインの位置にひし形で描く（2026-09-26）
+              const cx = s.y * Y_SCALE;
+              const cy = COURT_LENGTH - LONG_SHOT_MARK_SIZE;
+              const d = LONG_SHOT_MARK_SIZE;
+              return (
+                <path
+                  key={i}
+                  d={`M ${cx} ${cy - d} L ${cx + d} ${cy} L ${cx} ${cy + d} L ${cx - d} ${cy} Z`}
+                  className={`shot-dot shot-long ${s.made ? "shot-made" : "shot-missed"}`}
+                  stroke={color}
+                  fill={s.made ? color : "none"}
+                >
+                  {title}
+                </path>
+              );
+            }
+            return (
+              <circle
+                key={i}
+                cx={s.y * Y_SCALE}
+                cy={s.x * X_SCALE}
+                r={2.4}
+                className={`shot-dot ${s.made ? "shot-made" : "shot-missed"}`}
+                stroke={color}
+                fill={s.made ? color : "none"}
+              >
+                {title}
+              </circle>
+            );
+          })
         ) : (
           <ZoneHeatmap shots={visibleShots} />
         )}

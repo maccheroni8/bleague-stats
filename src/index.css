@@ -1692,6 +1692,22 @@ table.quarter-table th {
   background: transparent !important;
 }
 
+/* センターラインより後ろからのロングシュートの凡例（ひし形。2026-09-26） */
+.shot-long-sample {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid;
+  transform: rotate(45deg);
+  background: transparent;
+}
+
+.shot-chart-note {
+  margin: 0 0 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .zone-fill {
   stroke: var(--bg);
   stroke-width: 0.6;
@@ -1699,7 +1715,10 @@ table.quarter-table th {
 }
 
 .zone-empty {
-  fill: none;
+  fill: var(--border);
+  fill-opacity: 0.45;
+  stroke: var(--bg);
+  stroke-width: 0.6;
 }
 
 .zone-label {
@@ -1724,6 +1743,11 @@ table.quarter-table th {
   stroke: rgba(0, 0, 0, 0.55);
   stroke-width: 0.5px;
   pointer-events: none;
+}
+
+.zone-label-empty {
+  fill: var(--muted);
+  stroke: none;
 }
 
 .boxscore-section {
