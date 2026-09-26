@@ -1,3 +1,4 @@
+import { TEAM_PCT_MIN_ATTEMPTS } from "../../shared/teamRecords";
 /**
  * 個人詳細ページ「キャリアハイ」・チーム詳細ページ「クラブレコード」の項目名クリックで展開する
  * トップ10（同値タイの場合は末尾の順位を共有する全員を含める）を算出する共通ロジック。
@@ -52,3 +53,6 @@ export function computeTopRecordEntries<T extends { date: string }>(
   const cutoffRank = ranked[Math.min(n, ranked.length) - 1]!.rank;
   return ranked.filter((e) => e.rank <= cutoffRank);
 }
+
+/** チームの成功率の記録の最低試投数の注記（クラブレコード・歴代・シーズンの記録で共通） */
+export const TEAM_PCT_MIN_ATTEMPTS_NOTE = `成功率の記録は、試投数がFG ${TEAM_PCT_MIN_ATTEMPTS.fgPct}本・2P ${TEAM_PCT_MIN_ATTEMPTS.twoPct}本・3P ${TEAM_PCT_MIN_ATTEMPTS.tpPct}本・フリースロー ${TEAM_PCT_MIN_ATTEMPTS.ftPct}本以上の試合だけが対象です。`;

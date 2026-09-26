@@ -201,13 +201,21 @@ export interface TeamRecordValueDef {
   topNEligible?: boolean;
 }
 
+/**
+ * 成功率の記録の最低試投数（2026-09-27）。試投の少ない試合で極端な値（1/1＝100%等）が記録になるのを避ける。
+ * NBAの記録集が成功率の1試合記録に下限を付けているのにならい、チームの1試合の試投数の分布から決めた
+ * （FG・2Pは通常の試合をほぼ除かない値、3Pは下位約5%、FTは100%の同率が多くなりすぎない値）。
+ * クラブレコード・歴代・シーズンの記録、被記録（相手の試投数で判定）に共通
+ */
+export const TEAM_PCT_MIN_ATTEMPTS = { fgPct: 40, twoPct: 20, tpPct: 15, ftPct: 20 } as const;
+
 // 試投数とホーム来場者数は、少ないことが悪い記録とは言えないため、ワースト（クラブワースト・シーズンのワースト）に出さない（2026-09-27）
 export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
   { key: "pts", label: "得点", value: (g) => g.teamScore },
   { key: "oppPts", label: "失点", value: (g) => g.opponentScore, lowerIsBetter: true },
   { key: "fgm", label: "FG成功数", value: (g) => g.fgm },
   { key: "fga", label: "FG試投数", value: (g) => g.fga, worstEligible: false },
-  { key: "fgPct", label: "FG成功率", value: (g) => safeDiv(g.fgm, g.fga), worstEligible: false },
+  { key: "fgPct", label: "FG成功率", value: (g) => safeDiv(g.fgm, g.fga), worstEligible: false, filter: (g) => g.fga >= TEAM_PCT_MIN_ATTEMPTS.fgPct },
   { key: "twoPm", label: "2P成功数", value: (g) => g.fgm - g.tpm },
   { key: "twoPa", label: "2P試投数", value: (g) => g.fga - g.tpa, worstEligible: false },
   {
@@ -215,10 +223,11 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
     label: "2P成功率",
     value: (g) => safeDiv(g.fgm - g.tpm, g.fga - g.tpa),
     worstEligible: false,
+    filter: (g) => g.fga - g.tpa >= TEAM_PCT_MIN_ATTEMPTS.twoPct,
   },
   { key: "tpm", label: "3P成功数", value: (g) => g.tpm },
   { key: "tpa", label: "3P試投数", value: (g) => g.tpa, worstEligible: false },
-  { key: "tpPct", label: "3P成功率", value: (g) => safeDiv(g.tpm, g.tpa), worstEligible: false },
+  { key: "tpPct", label: "3P成功率", value: (g) => safeDiv(g.tpm, g.tpa), worstEligible: false, filter: (g) => g.tpa >= TEAM_PCT_MIN_ATTEMPTS.tpPct },
   { key: "ftm", label: "フリースロー成功数", value: (g) => g.ftm },
   { key: "fta", label: "フリースロー試投数", value: (g) => g.fta, worstEligible: false },
   {
@@ -226,6 +235,7 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
     label: "フリースロー成功率",
     value: (g) => safeDiv(g.ftm, g.fta),
     worstEligible: false,
+    filter: (g) => g.fta >= TEAM_PCT_MIN_ATTEMPTS.ftPct,
   },
   { key: "oreb", label: "オフェンスリバウンド", value: (g) => g.oreb },
   { key: "dreb", label: "ディフェンスリバウンド", value: (g) => g.dreb },
@@ -285,7 +295,13 @@ export const TEAM_AGAINST_RECORD_STATS: TeamRecordValueDef[] = [
   { key: "oppPts", label: "失点", value: (g) => g.teamScore },
   { key: "fgm", label: "FG成功数", value: (g) => g.opponentFgm },
   { key: "fga", label: "FG試投数", value: (g) => g.opponentFga },
-  { key: "fgPct", label: "FG成功率", value: (g) => safeDiv(g.opponentFgm, g.opponentFga), worstEligible: false },
+  {
+    key: "fgPct",
+    label: "FG成功率",
+    value: (g) => safeDiv(g.opponentFgm, g.opponentFga),
+    worstEligible: false,
+    filter: (g) => g.opponentFga >= TEAM_PCT_MIN_ATTEMPTS.fgPct,
+  },
   { key: "twoPm", label: "2P成功数", value: (g) => g.opponentFgm - g.opponentTpm },
   { key: "twoPa", label: "2P試投数", value: (g) => g.opponentFga - g.opponentTpa },
   {
@@ -293,10 +309,17 @@ export const TEAM_AGAINST_RECORD_STATS: TeamRecordValueDef[] = [
     label: "2P成功率",
     value: (g) => safeDiv(g.opponentFgm - g.opponentTpm, g.opponentFga - g.opponentTpa),
     worstEligible: false,
+    filter: (g) => g.opponentFga - g.opponentTpa >= TEAM_PCT_MIN_ATTEMPTS.twoPct,
   },
   { key: "tpm", label: "3P成功数", value: (g) => g.opponentTpm },
   { key: "tpa", label: "3P試投数", value: (g) => g.opponentTpa },
-  { key: "tpPct", label: "3P成功率", value: (g) => safeDiv(g.opponentTpm, g.opponentTpa), worstEligible: false },
+  {
+    key: "tpPct",
+    label: "3P成功率",
+    value: (g) => safeDiv(g.opponentTpm, g.opponentTpa),
+    worstEligible: false,
+    filter: (g) => g.opponentTpa >= TEAM_PCT_MIN_ATTEMPTS.tpPct,
+  },
   { key: "ftm", label: "フリースロー成功数", value: (g) => g.opponentFtm },
   { key: "fta", label: "フリースロー試投数", value: (g) => g.opponentFta },
   {
@@ -304,6 +327,7 @@ export const TEAM_AGAINST_RECORD_STATS: TeamRecordValueDef[] = [
     label: "フリースロー成功率",
     value: (g) => safeDiv(g.opponentFtm, g.opponentFta),
     worstEligible: false,
+    filter: (g) => g.opponentFta >= TEAM_PCT_MIN_ATTEMPTS.ftPct,
   },
   { key: "oreb", label: "オフェンスリバウンド", value: (g) => g.opponentOreb },
   { key: "dreb", label: "ディフェンスリバウンド", value: (g) => g.opponentDreb },

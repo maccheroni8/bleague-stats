@@ -8,7 +8,7 @@ import { gameTypeAxis, simpleSelectAxis } from "../lib/filterAxes";
 import { fetchSeasons, fetchTeams } from "../lib/data";
 import { usePageState } from "../lib/pageStateCache";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
-import { computeTopRecordEntries, type TopRecordEntry } from "../lib/topRecords";
+import { computeTopRecordEntries, TEAM_PCT_MIN_ATTEMPTS_NOTE, type TopRecordEntry } from "../lib/topRecords";
 import { useJsonData } from "../lib/useJsonData";
 import { composeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { ConditionTitle } from "./ConditionTitle";
@@ -228,6 +228,7 @@ export function LeagueSeasonRecords({ defaultSeason }: { defaultSeason: string }
           </div>
           <p className="page-subtitle">
             そのシーズンの全クラブの試合の中での1試合の記録です。項目名を押すと上位10位（同じ記録はすべて）を表示します。
+            {mode === "record" && TEAM_PCT_MIN_ATTEMPTS_NOTE}
             {mode === "worst" && "成功率・試投数・ホーム来場者数・逆転の項目は、ワーストの対象外です。"}
             PITP/FBPS/2ND PTS/PTSOFFTOはプレーバイプレーのタグから数えた得点、ホーム来場者数はホーム開催の試合だけが対象です。
           </p>

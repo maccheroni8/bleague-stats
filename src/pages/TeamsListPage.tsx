@@ -39,6 +39,7 @@ import { SeasonLink } from "../components/SeasonLink";
 import { FilterBar } from "../components/FilterBar";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { LeagueSeasonRecords } from "../components/LeagueSeasonRecords";
+import { TEAM_PCT_MIN_ATTEMPTS_NOTE } from "../lib/topRecords";
 import { FGA_ORDER_LABELS, FgaCompositionChart, type FgaChartTeam, type FgaShareOrder } from "../components/FgaCompositionChart";
 import { fgaShare } from "../lib/shareCharts";
 import {
@@ -965,6 +966,7 @@ function LeagueRecordsTab() {
       <p className="page-subtitle">
         過去在籍した全{totalTeams}クラブ横断のランキング（毎日1回、前日までの試合結果を取り込んだあとに作り直します。最終更新
         {" "}{formatRankingsUpdatedAt(rankings.generatedAt)}）。チーム名の下は現在の所属カテゴリ
+        {(category === "clubRecord" || isPremierRecord) && `。${TEAM_PCT_MIN_ATTEMPTS_NOTE.replace(/。$/, "")}`}
         {isPremierRecord &&
           "。「B.PREMIER（旧B1）レコード」はクラブ単位の自己ベストではなく、リーグ史上の個々の試合・シーズンをそのまま順位付けしたもの（同一クラブが複数回登場しうる）。ホーム/アウェイ限定版は対象外"}
       </p>
