@@ -523,7 +523,7 @@ function TeamCompareView({
         />
       </div>
       {cat === "misc" && <RuleChangeFootnote seasons={rows.map((r) => r.season)} />}
-      <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="比較の列" scope="スロットごとの条件で絞り込んだ試合の1試合平均です。" />
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="比較" scope="スロットごとの条件で絞り込んだ試合の1試合平均です。" />
     </>
   );
 }
@@ -620,7 +620,7 @@ function PlayerCompareView({
         />
       </div>
       {cat === "misc" && <RuleChangeFootnote seasons={rows.map((r) => r.season)} />}
-      <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="比較の列" scope="スロットごとの条件で絞り込んだ試合の1試合平均です（移籍した選手は所属チームを合算）。" />
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="比較" scope="スロットごとの条件で絞り込んだ試合の1試合平均です（移籍した選手は所属チームを合算）。" />
     </>
   );
 }

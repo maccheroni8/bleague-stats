@@ -1029,7 +1029,9 @@ function LeagueRecordsTab() {
       <p className="page-subtitle">
         過去在籍した全{totalTeams}クラブ横断のランキング（毎日1回、前日までの試合結果を取り込んだあとに作り直します。最終更新
         {" "}{formatRankingsUpdatedAt(rankings.generatedAt)}）。チーム名の下は現在の所属カテゴリです。{" "}
-        <SeasonLink to={`/glossary#${GLOSSARY_ANCHORS.records}`}>記録の見方（用語集）</SeasonLink>
+        <SeasonLink to={`/glossary#${GLOSSARY_ANCHORS.records}`} aria-label="記録の説明">
+          説明
+        </SeasonLink>
       </p>
 
       <FilterBar

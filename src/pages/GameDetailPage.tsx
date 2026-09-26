@@ -720,7 +720,7 @@ export function GameDetailPage({ season }: { season: string }) {
               totals={awayLineupTotals}
             />
           </div>
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.gameLineups} label="ラインナップ別成績（OC・集計外・色分け・行を押したときの動き）" />
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.gameLineups} label="ラインナップ別成績" />
         </>
       ) : (
         <p className="empty-message">このシーズンのデータには対応していません</p>

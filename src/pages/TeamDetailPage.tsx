@@ -3609,7 +3609,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   </tbody>
                 </table>
               </div>
-              <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績の区分" />
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績" />
             </>
           )}
 
@@ -3699,7 +3699,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               </div>
             )}
             {scheduleBoxTab === "misc" && scheduleFilteredRows.length > 0 && <RuleChangeFootnote seasons={[season]} />}
-            <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="日程結果の列" scope={`上部の自チーム/opp/+/-・レギュラー/${postseasonLabel(season)}・Q別/前後半と連動します。`} />
+            <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="日程結果" scope={`上部の自チーム/opp/+/-・レギュラー/${postseasonLabel(season)}・Q別/前後半と連動します。`} />
           </div>
         ))}
 
@@ -4143,7 +4143,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           )}
           {situationalTeamBoxTab === "misc" && situationalTeamGroups.length > 0 && <RuleChangeFootnote seasons={[season]} />}
 
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績の区分" />
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績" />
 
           <h2
             className={isShotChartSupported(coverage) ? "collapsible-heading" : undefined}
@@ -4449,7 +4449,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           {compareTab === "misc" && (
             <RuleChangeFootnote seasons={compareSlots.map((slot) => slot.season).filter((s): s is string => !!s)} />
           )}
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="比較の列" scope="選んだシチュエーション別の絞り込みで絞った試合の1試合平均です。" />
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="比較" scope="選んだシチュエーション別の絞り込みで絞った試合の1試合平均です。" />
         </div>
       )}
     </div>

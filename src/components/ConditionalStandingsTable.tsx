@@ -540,7 +540,7 @@ export function ConditionalStandingsTable({
           />
         </div>
       )}
-      <GlossaryNote anchor={GLOSSARY_ANCHORS.conditionalStandings} label="条件別順位表（順位の付け方・残り試合数・進出圏）" />
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.conditionalStandings} label="条件別順位表" />
     </div>
   );
 }

@@ -2959,7 +2959,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   </>
                 )}
               </div>
-              <GlossaryNote anchor={GLOSSARY_ANCHORS.records} label="キャリアハイ（成功率の最低試投数など）" />
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.records} label="キャリアハイ" />
               <h3 className="career-highs-subheading">キャリアワースト</h3>
               <div className="career-highs-grid">
                 {careerWorsts.map((h) => (
