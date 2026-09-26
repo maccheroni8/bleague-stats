@@ -6,10 +6,13 @@ import { Link, NavLink, useSearchParams, type LinkProps, type NavLinkProps } fro
 
 function withSeason(to: string, season: string | null): string {
   if (!season) return to;
-  const [path, query] = to.split("?");
+  // ページ内の位置（#以降。用語集の節へのリンク等）はクエリの後ろに付け直す
+  const hashIndex = to.indexOf("#");
+  const hash = hashIndex >= 0 ? to.slice(hashIndex) : "";
+  const [path, query] = (hashIndex >= 0 ? to.slice(0, hashIndex) : to).split("?");
   const params = new URLSearchParams(query);
   params.set("season", season);
-  return `${path}?${params.toString()}`;
+  return `${path}?${params.toString()}${hash}`;
 }
 
 export function SeasonLink({ to, ...rest }: LinkProps) {

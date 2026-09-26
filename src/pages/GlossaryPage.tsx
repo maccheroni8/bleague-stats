@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import {
   PLAYER_STAT_DEFS,
   STAT_CATEGORY_LABELS,
@@ -49,6 +51,12 @@ function groupByCategory(rows: GlossaryRow[]): Map<StatCategory, GlossaryRow[]> 
 }
 
 export function GlossaryPage() {
+  const { hash } = useLocation();
+  // 各ページの表の下のリンク（/glossary#節のid）から来たときは、その節まで送る
+  useEffect(() => {
+    if (!hash) return;
+    document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
+  }, [hash]);
   const grouped = groupByCategory(mergeStatDefs());
   const categories = [
     ...STAT_CATEGORY_ORDER,
@@ -108,6 +116,29 @@ export function GlossaryPage() {
           「自チームが記録」＝自チームのオフェンス課題（相手に強制されたターンオーバー）。いずれも種類別カウント（レギュラーシーズンのみ）。
           チーム詳細ページ「チームスタッツ」タブに掲載。
         </p>
+      </section>
+
+      <section className="glossary-section" id="game-lineups">
+        <h2>ラインナップ別成績（試合詳細）</h2>
+        <h3>集計の対象</h3>
+        <p>
+          同じ5人が同時にコートにいた時間帯ごとの成績です。得点・失点は、その5人の在コート中に両チームが記録した得点です。
+        </p>
+        <h3>OC（オンザコート）と色分け</h3>
+        <p>
+          OCは、5人のうち外国籍・帰化・アジア特別枠の選手の人数です。4人の組み合わせはチームカラーの背景と左端の線、3人は薄い背景で示します。
+        </p>
+        <h3>OCの人数ごとの合計</h3>
+        <p>
+          各チームの上の表はOCの人数ごとの合計です。行を押すと、下の一覧がその人数の組み合わせだけになります（もう一度押すと元に戻ります）。
+        </p>
+        <h3>集計外</h3>
+        <p>
+          区分が分からない選手がいた時間・そのシーズンの上限を超える人数になっていた時間・記録から5人を割り出せなかった時間は「集計外」にまとめます。
+          集計外を含めた合計は、試合時間・試合の得点と一致します。
+        </p>
+        <h3>Q別・前後半</h3>
+        <p>Q別・前後半では、Qをまたいで出場した組み合わせの出場時間・得点をQごとに分けて集計します。</p>
       </section>
 
       <section className="glossary-section">

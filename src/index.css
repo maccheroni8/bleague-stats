@@ -6346,3 +6346,8 @@ table.sortable-table tr.pinned-row:first-of-type td,
 table.sortable-table tbody tr:not(.pinned-row) + tr.pinned-row td {
   border-top: 2px solid var(--border);
 }
+
+/* 表の下のリンクから用語集の節へ飛んだとき、節の見出しが画面の上端に貼り付かないよう少し余白を残す */
+.glossary-section[id] {
+  scroll-margin-top: 16px;
+}
