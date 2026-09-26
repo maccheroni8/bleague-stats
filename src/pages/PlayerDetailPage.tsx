@@ -148,7 +148,8 @@ import { heightText, positionText, weightText } from "../lib/profileMark";
 import { seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
 import { statDescription } from "../lib/statDescriptions";
 import { PlayerSeasonScoringChart } from "../components/PlayerScoringShareCharts";
-import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
+import { computeTopRecordEntries, PLAYER_PCT_MIN_ATTEMPTS_NOTE, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
+import { PLAYER_GAME_RECORD_STATS } from "../../shared/playerGameRecords";
 
 /**
  * 「試合ログ」タブの1行。ボックススコアが取れた試合（box）と、個人スタッツが無い試合
@@ -470,6 +471,8 @@ interface CareerHighDef {
    * 一覧からは除外する（DESIGN.md参照。ユーザー確認済み）。デフォルトはtrue
    */
   worstEligible?: boolean;
+  /** 対象の試合。成功率は最低試投数を満たす試合だけ（選手一覧の記録と同じ。shared/playerGameRecords.ts。2026-09-27） */
+  filter?: (g: CareerHighGame) => boolean;
   /**
    * キャリアハイのトップ10展開（Batch 3、2026-09-16）の対象にするか。デフォルトはtrue。
    * 現在この値をfalseにしている項目は無い（%系の低試投数対策は別途検討する前提で撤回した。
@@ -503,7 +506,12 @@ function effTotalsOfGame(g: PlayerGameLog) {
   };
 }
 
-const CAREER_HIGH_STATS: CareerHighDef[] = [
+/** 成功率の項目の最低試投数の条件（選手一覧の記録の項目定義から、同じキーのものを使う） */
+const PCT_MIN_ATTEMPTS_FILTERS = new Map(
+  PLAYER_GAME_RECORD_STATS.flatMap((d) => (d.filter ? [[d.key, d.filter] as const] : [])),
+);
+
+const CAREER_HIGH_STATS_BASE: CareerHighDef[] = [
   {
     key: "min",
     label: "MIN",
@@ -577,6 +585,8 @@ const CAREER_HIGH_STATS: CareerHighDef[] = [
   { key: "unsportsmanlikeFouls", label: "UFOUL", value: (g) => g.unsportsmanlikeFouls, lowerIsBetter: true },
   { key: "technicalFouls", label: "TF", value: (g) => g.technicalFouls, lowerIsBetter: true },
 ];
+
+const CAREER_HIGH_STATS: CareerHighDef[] = CAREER_HIGH_STATS_BASE.map((d) => ({ ...d, filter: PCT_MIN_ATTEMPTS_FILTERS.get(d.key) }));
 
 interface CompareSlotState {
   season: string;
@@ -1398,22 +1408,27 @@ export function PlayerDetailPage({ season }: { season: string }) {
       playedFilteredLogs(cd.logs).map((g) => ({ ...g, season: cd.season })),
     );
     return CAREER_HIGH_STATS.map((def) => {
+      // 成功率は最低試投数を満たす試合だけ。満たす試合が1つも無ければ、カードは残して「-」にする
+      const pool = def.filter ? allGames.filter(def.filter) : allGames;
+      if (def.filter && pool.length === 0 && allGames.length > 0) {
+        return { ...def, game: undefined, otherGames: [], topEntries: [], display: "-" };
+      }
       let bestValue: number | null = null;
-      for (const g of allGames) {
+      for (const g of pool) {
         const v = def.value(g);
         if (bestValue === null || (def.lowerIsBetter ? v < bestValue : v > bestValue)) bestValue = v;
       }
       if (bestValue === null) return null;
-      const matches = sortGamesByDateDesc(allGames.filter((g) => def.value(g) === bestValue));
+      const matches = sortGamesByDateDesc(pool.filter((g) => def.value(g) === bestValue));
       const [game, ...otherGames] = matches;
       const topEntries =
-        def.topNEligible === false ? [] : computeTopRecordEntries(allGames, def.value, def.lowerIsBetter ?? false);
+        def.topNEligible === false ? [] : computeTopRecordEntries(pool, def.value, def.lowerIsBetter ?? false);
       return { ...def, game, otherGames, topEntries, display: def.format ? def.format(bestValue) : String(bestValue) };
     }).filter(
       (
         r,
       ): r is CareerHighDef & {
-        game: CareerHighGame;
+        game: CareerHighGame | undefined;
         otherGames: CareerHighGame[];
         topEntries: TopRecordEntry<CareerHighGame>[];
         display: string;
@@ -2939,6 +2954,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   </>
                 )}
               </div>
+              <p className="page-subtitle">{PLAYER_PCT_MIN_ATTEMPTS_NOTE}基準を満たす試合が無い項目は「-」です。</p>
               <h3 className="career-highs-subheading">キャリアワースト</h3>
               <div className="career-highs-grid">
                 {careerWorsts.map((h) => (
@@ -3446,7 +3462,8 @@ function CareerHighCard({
   tieKey: string;
   label: string;
   display: string;
-  game: CareerHighGame;
+  /** 無いときは、成功率の最低試投数を満たす試合が1つも無い */
+  game: CareerHighGame | undefined;
   otherGames: CareerHighGame[];
   expandedKeys: Set<string>;
   onToggle: (key: string) => void;
@@ -3473,10 +3490,14 @@ function CareerHighCard({
         <div className="career-high-label">{label}</div>
       )}
       <div className="career-high-value">{display}</div>
-      <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}`} className="career-high-game-link">
-        {game.date}　{game.isHome ? "vs" : "@"}
-        <ResponsiveTeamName teamId={game.opponentTeamId} name={game.opponentTeamName} always />
-      </RouterLink>
+      {game ? (
+        <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}`} className="career-high-game-link">
+          {game.date}　{game.isHome ? "vs" : "@"}
+          <ResponsiveTeamName teamId={game.opponentTeamId} name={game.opponentTeamName} always />
+        </RouterLink>
+      ) : (
+        <div className="career-high-game-link">基準を満たす試合なし</div>
+      )}
       {otherGames.length > 0 && (
         <>
           <button type="button" className="career-high-others-toggle" onClick={() => onToggle(tieKey)}>

@@ -1,6 +1,7 @@
 import { Link as RouterLink } from "react-router-dom";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
-import { PLAYER_GAME_RECORD_STATS, PLAYER_PCT_MIN_ATTEMPTS, type PlayerGameRecordDef } from "../../shared/playerGameRecords";
+import { PLAYER_GAME_RECORD_STATS, type PlayerGameRecordDef } from "../../shared/playerGameRecords";
+import { PLAYER_PCT_MIN_ATTEMPTS_NOTE } from "../lib/topRecords";
 import type { PlayerGameRecordEntry } from "../../shared/types";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { composeLabels, gameTypeLabels } from "../lib/conditionLabels";
@@ -142,7 +143,6 @@ export function PlayerSeasonRecords({ defaultSeason }: { defaultSeason: string }
     .map((s) => s.season)
     .sort((a, b) => b.localeCompare(a))
     .map((s) => ({ value: s, label: `${s}シーズン` }));
-  const m = PLAYER_PCT_MIN_ATTEMPTS;
 
   return (
     <div>
@@ -190,7 +190,7 @@ export function PlayerSeasonRecords({ defaultSeason }: { defaultSeason: string }
           <p className="page-subtitle">
             そのシーズンの全選手の出場した試合の中での1試合の記録です。項目名を押すと上位10位（同じ記録はすべて）を表示します。
             項目は個人詳細のキャリアハイと同じですが、少ない方が良い項目（TOV・F・UFOUL・TF）は出していません。
-            成功率の記録は、試投数がFG {m.fgPct}本・2P {m.twoPct}本・3P {m.tpPct}本・フリースロー {m.ftPct}本以上の試合だけが対象です（eFG%・TS%はFGと同じ）。
+            {PLAYER_PCT_MIN_ATTEMPTS_NOTE}
             毎日1回、前日までの試合を取り込んだあとに作り直します。
           </p>
         </PlayerNamePool>
