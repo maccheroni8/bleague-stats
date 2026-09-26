@@ -97,8 +97,8 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
   },
   {
     key: "oppPts",
-    // チーム詳細・全チームスタッツと同じ英語表記（2026-09-26）
-    label: "oppPTS",
+    // 英語表記（2026-09-26）。ホームのリーダーは見出しを大文字で出すため、「OPPPTS」とならないよう空白を入れる
+    label: "opp PTS",
     value: (t) => t.opponentPerGame.pts,
     format: (t) => formatDecimal(t.opponentPerGame.pts),
     higherIsBetter: false,
