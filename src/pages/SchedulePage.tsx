@@ -14,6 +14,8 @@ import { useJsonData } from "../lib/useJsonData";
 import { formatDateHeading } from "../lib/format";
 import { teamShortName } from "../../shared/teamNames";
 import type { GameSummary, GameType, TeamColors, UpcomingGameEntry } from "../../shared/types";
+import { useSearchParams } from "react-router-dom";
+import { currentSeason } from "../lib/season";
 
 type ScheduleStatus = "final" | "live" | "upcoming";
 type ScheduleView = "list" | "calendar";
@@ -99,8 +101,20 @@ function addMonthsToKey(monthKey: string, delta: number): string {
 }
 
 /** 開催予定日データが無いシーズンでも壊れないよう、フォールバックはJST基準の今日の月にする */
+/** 日本時間の今日（YYYY-MM-DD） */
+function todayJst(): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
+}
+
+/** 「今日」ボタンの行き先: 今日に試合があれば今日、無ければ次の試合日。今日より後に試合が無ければ最後の試合日 */
+function todayJumpTarget(rows: ScheduleRow[]): string | null {
+  const today = todayJst();
+  const dates = [...new Set(rows.map((r) => r.date))].sort();
+  return dates.find((d) => d >= today) ?? dates[dates.length - 1] ?? null;
+}
+
 function defaultCalendarMonth(rows: ScheduleRow[]): string {
-  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
+  const today = todayJst();
   if (rows.length === 0) return monthKeyOf(today);
   const dates = rows.map((r) => r.date).sort();
   const min = dates[0]!;
@@ -156,6 +170,10 @@ export function SchedulePage({ season }: { season: string }) {
   const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const [jumpDate, setJumpDate] = useState("");
+  const [, setSearchParams] = useSearchParams();
+  // 「今日」ボタン（2026-09-26）: 過去のシーズンを表示中なら今のシーズンに切り替え、データが読み込まれてから移る。
+  // 表示（リスト/カレンダー）はシーズンごとに記憶しているため、押したときの表示を持ち越す
+  const [pendingToday, setPendingToday] = useState<{ season: string; view: ScheduleView } | null>(null);
   // 表示切り替え・クラブ絞り込み・カレンダーの月・ステータス絞り込みは、試合詳細などへ移動してブラウザバックで戻ったときに
   // 直前の状態を復元する（usePageState。個人詳細・チーム詳細・ランキングと同じ仕組み。キーはシーズンごと）
   const pk = (field: string) => `schedule:${season}:${field}`;
@@ -237,6 +255,41 @@ export function SchedulePage({ season }: { season: string }) {
   const defaultMonth = useMemo(() => defaultCalendarMonth(rows), [rows]);
   const effectiveMonth = calendarMonth ?? defaultMonth;
 
+  const jumpToToday = (targetView: ScheduleView) => {
+    const target = todayJumpTarget(targetView === "list" ? listRows : filteredRows);
+    if (!target) return;
+    if (targetView === "list") {
+      setJumpDate(target);
+      requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ behavior: "auto", block: "start" }));
+    } else {
+      setCalendarMonth(monthKeyOf(target));
+      requestAnimationFrame(() =>
+        document.getElementById(`calendar-${target}`)?.scrollIntoView({ behavior: "auto", block: "center", inline: "center" }),
+      );
+    }
+  };
+  const handleToday = () => {
+    const now = currentSeason();
+    if (season === now) {
+      jumpToToday(view);
+      return;
+    }
+    setPendingToday({ season: now, view });
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("season", now);
+      return next;
+    });
+  };
+  const seasonDataReady = !summariesLoading && !scheduleLoading && schedule?.season === season;
+  useEffect(() => {
+    if (!pendingToday || pendingToday.season !== season || !seasonDataReady) return;
+    setPendingToday(null);
+    setView(pendingToday.view);
+    jumpToToday(pendingToday.view);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingToday, season, seasonDataReady]);
+
   // 読み込み中・エラーの早期リターンも v2 の範囲に入れる
   const v2 = (node: ReactNode) => (
     <div className="schedule-page" data-design="v2">
@@ -311,6 +364,9 @@ export function SchedulePage({ season }: { season: string }) {
       <p className="page-subtitle">{season}シーズン</p>
 
       <div className="schedule-toolbar">
+        <button type="button" className="schedule-today-button" onClick={handleToday}>
+          今日
+        </button>
         <div className="mode-toggle">
           <button type="button" className={view === "list" ? "active" : ""} onClick={() => setView("list")}>
             リスト表示
@@ -465,6 +521,7 @@ function CalendarView({
   }, [rows, month]);
 
   const weeks = useMemo(() => buildMonthGrid(month), [month]);
+  const today = todayJst();
 
   return (
     <div className="schedule-calendar">
@@ -485,7 +542,11 @@ function CalendarView({
             </div>
           ))}
           {weeks.flat().map((cell) => (
-            <div key={cell.date} className={`calendar-cell${cell.inMonth ? "" : " calendar-cell-outside"}`}>
+            <div
+              key={cell.date}
+              id={cell.inMonth ? `calendar-${cell.date}` : undefined}
+              className={`calendar-cell${cell.inMonth ? "" : " calendar-cell-outside"}${cell.date === today ? " calendar-cell-today" : ""}`}
+            >
               <div className="calendar-cell-date">{cell.day}</div>
               <div className="calendar-cell-games">
                 {(gamesByDate.get(cell.date) ?? []).map((row) => (
