@@ -103,6 +103,7 @@ import {
 } from "../lib/playerSeasonBoxscore";
 import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
 import { PlayerNamePool } from "../components/PlayerNamePool";
+import { PlayerSeasonRecords } from "../components/PlayerSeasonRecords";
 
 // 「個人」ページ。「全選手スタッツ」タブ（チーム版の「全チームスタッツ」と同じ考え方）・
 // 「歴代記録」タブ（チーム版の「歴代記録」から通算成績部分のみ、ユーザー依頼2026-09-04）・
@@ -115,10 +116,35 @@ type PlayersOuterTab = "stats" | "records" | "awards" | "recent";
 
 const OUTER_TAB_LABELS: Record<PlayersOuterTab, string> = {
   stats: "全選手スタッツ",
-  records: "歴代記録",
+  records: "記録",
   awards: "歴代アワード",
   recent: "直近成績",
 };
+
+/**
+ * 「記録」タブ（2026-09-27、旧「歴代記録」）。範囲「歴代」は通算成績の歴代順位、「シーズン」は選んだシーズンの選手の1試合の記録。
+ * タブの内部のキー（records）は旧名のまま
+ */
+function PlayerRecordsTab({ season }: { season: string }) {
+  const [scope, setScope] = usePageState<"allTime" | "season">("players:records:scope", "allTime");
+  return (
+    <div>
+      <div className="mode-toggle records-scope-toggle">
+        {(
+          [
+            ["allTime", "歴代"],
+            ["season", "シーズン"],
+          ] as const
+        ).map(([key, label]) => (
+          <button key={key} type="button" className={scope === key ? "active" : ""} onClick={() => setScope(key)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {scope === "allTime" ? <LeaguePlayerRecordsTab /> : <PlayerSeasonRecords defaultSeason={season} />}
+    </div>
+  );
+}
 
 export function PlayersListPage({ season }: { season: string }) {
   const [tab, setTab] = useState<PlayersOuterTab>("stats");
@@ -136,7 +162,7 @@ export function PlayersListPage({ season }: { season: string }) {
       {tab === "stats" ? (
         <AllPlayersStatsTab season={season} />
       ) : tab === "records" ? (
-        <LeaguePlayerRecordsTab />
+        <PlayerRecordsTab season={season} />
       ) : tab === "awards" ? (
         <PlayerAwardsTimelineTab />
       ) : (

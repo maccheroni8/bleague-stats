@@ -1662,3 +1662,29 @@ export interface LeagueAverageFile {
   /** チーム詳細「シーズン別成績」の列用の合算（shared/teamSeasonMisc.ts）。チーム数で割った値 */
   misc: import("./teamSeasonMisc.ts").TeamSeasonMiscTotals;
 }
+
+// ---- data/{season}/player-game-records.json（選手一覧「記録」タブの範囲「シーズン」。DESIGN.md 159章） ----
+
+/** そのシーズンの選手の1試合の記録の上位（同じ記録はすべて含む） */
+export interface PlayerGameRecordEntry {
+  /** 競技方式の順位（1, 2, 2, 4） */
+  rank: number;
+  value: number;
+  playerId: string;
+  playerName: string;
+  /** 記録した試合の所属チーム（その試合のチーム名） */
+  teamId: string;
+  teamName: string;
+  opponentTeamId: string;
+  opponentTeamName: string;
+  isHome: boolean;
+  date: string;
+  scheduleKey: string;
+}
+
+export interface PlayerGameRecordsFile {
+  generatedAt: string;
+  season: string;
+  /** 試合区分 → 項目キー（shared/playerGameRecords.ts の PLAYER_GAME_RECORD_STATS） → 上位 */
+  byGameType: Record<LeagueRankingGameType, Record<string, PlayerGameRecordEntry[]>>;
+}
