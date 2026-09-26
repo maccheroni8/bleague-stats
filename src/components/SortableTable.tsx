@@ -44,6 +44,11 @@ interface SortableTableProps<T> {
   limit?: number;
   /** 列見出しの説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */
   statScope?: StatScope;
+  /**
+   * 並べ替えの対象にせず、表の末尾に固定で出す行（リーグ平均。DESIGN.md 149章）。リンクは付けない。
+   * 列の format・render をそのまま使う
+   */
+  pinnedRows?: T[];
 }
 
 export function SortableTable<T>({
@@ -59,6 +64,7 @@ export function SortableTable<T>({
   rowHighlightStrength,
   limit,
   statScope = "player",
+  pinnedRows,
 }: SortableTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
@@ -140,6 +146,15 @@ export function SortableTable<T>({
             </tr>
           );
         })}
+        {pinnedRows?.map((row) => (
+          <tr key={`pinned-${rowKey(row)}`} className="pinned-row">
+            {columns.map((col) => (
+              <td key={col.key} className={col.align === "left" ? "align-left" : "align-right"}>
+                {col.render ? col.render(row) : (col.format?.(row) ?? String(col.sortValue(row)))}
+              </td>
+            ))}
+          </tr>
+        ))}
       </tbody>
     </table>
   );

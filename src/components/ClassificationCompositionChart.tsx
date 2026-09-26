@@ -1,4 +1,5 @@
 import { teamShortName } from "../../shared/teamNames";
+import { LEAGUE_TEAM_ID, LEAGUE_TEAM_NAME } from "../lib/leagueAverage";
 import type { TeamSummary } from "../../shared/types";
 import { CLASSIFICATION_CATEGORIES, pointsDetails, pointsRightLabel, teamClassificationShare } from "../lib/shareCharts";
 import { comparePointsShares, type PointsShareOrder } from "./ScoringCompositionChart";
@@ -30,10 +31,12 @@ export function ClassificationCompositionChart({
     .sort((a, b) => comparePointsShares(order, a.share, b.share) || a.team.teamId.localeCompare(b.team.teamId))
     .map(({ team, share }) => {
       const d = pointsDetails(share, mode === "own" ? "pts" : "opp");
-      const short = teamShortName(team.teamId, team.teamName);
+      const league = team.teamId === LEAGUE_TEAM_ID;
+      const short = league ? LEAGUE_TEAM_NAME : teamShortName(team.teamId, team.teamName);
       return {
         key: team.teamId,
         labelLines: [short],
+        variant: league ? ("league" as const) : undefined,
         pct: share.pct,
         details: d.details,
         tooltipDetails: d.tooltipDetails,

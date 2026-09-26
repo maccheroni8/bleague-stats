@@ -47,6 +47,7 @@ import { clinchTypesForSeason, postseasonFormat } from "../shared/postseasonForm
 import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import { currentSeason } from "./lib/season.ts";
 import { resolveSeasonProfile } from "../shared/seasonProfile.ts";
+import { sumTeamSeasonMisc } from "../shared/teamSeasonMisc.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { classifyGameType } from "./lib/gameType.ts";
 import type {
@@ -75,6 +76,8 @@ import type {
   TeamForcedTurnovers,
   TeamGameLog,
   TeamLineupsFile,
+  LeagueAverageFile,
+  TeamSummary,
   YahooGamePbp,
   YahooShotEvent,
   YahooTurnoverEvent,
@@ -803,6 +806,26 @@ interface PlayerAccumulator {
   gameLogs: PlayerGameLog[];
 }
 
+/** 同じ形の数値のオブジェクト（入れ子・配列を含む）を足す。片方にしか無いキーはそのまま残す（リーグ平均用） */
+function addNumbers<T>(a: T, b: T): T {
+  if (typeof a === "number" && typeof b === "number") return (a + b) as T;
+  if (Array.isArray(a) && Array.isArray(b)) return a.map((v, i) => addNumbers(v, b[i])) as T;
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const out: Record<string, unknown> = { ...(a as Record<string, unknown>) };
+    for (const [k, v] of Object.entries(b as Record<string, unknown>)) out[k] = k in out ? addNumbers(out[k], v) : v;
+    return out as T;
+  }
+  return a ?? b;
+}
+
+/** 数値のオブジェクト（入れ子・配列を含む）の数値をすべて factor 倍する（リーグ平均用） */
+function scaleNumbers<T>(v: T, factor: number): T {
+  if (typeof v === "number") return (v * factor) as T;
+  if (Array.isArray(v)) return v.map((x) => scaleNumbers(x, factor)) as T;
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, scaleNumbers(x, factor)])) as T;
+  return v;
+}
+
 interface TeamAccumulator {
   teamId: string;
   teamName: string;
@@ -1117,8 +1140,13 @@ export async function aggregateSeason(season: string, category: Category = "prem
     await writeJson(path.join(DATA_DIR, seasonDir, "player-games", `${p.playerId}.json`), gameLogs);
   }
 
-  const teamsJson = [...teams.values()]
-    .map((t) => {
+  // 1チーム分の teams.json の要素を作る。リーグ平均（league-average.json）も同じ作り方にする（DESIGN.md 149章）
+  const summarizeTeam = (
+    t: TeamAccumulator,
+    forcedTurnovers = forcedTurnoversByTeam.get(t.teamId),
+    turnoversCommitted = turnoversCommittedByTeam.get(t.teamId),
+    shotTypes = shotTypesByTeam.get(t.teamId),
+  ) => {
       const ownStats = buildStatBlock(t.totals, seasonStartYear);
       const oppStats = buildStatBlock(t.opponentTotals, seasonStartYear);
       // POSSはgamePossession()で試合単位で確定・合算済みの値（totals.poss）を使う。
@@ -1193,13 +1221,47 @@ export async function aggregateSeason(season: string, category: Category = "prem
             value - oppStats.perGame[key as keyof typeof oppStats.perGame],
           ]),
         ),
-        forcedTurnovers: forcedTurnoversByTeam.get(t.teamId),
-        turnoversCommitted: turnoversCommittedByTeam.get(t.teamId),
-        shotTypes: shotTypesByTeam.get(t.teamId),
+        forcedTurnovers,
+        turnoversCommitted,
+        shotTypes,
         foreignPlayerCourtSeconds: t.foreignPlayerCourtSeconds,
       };
-    })
-    .sort((a, b) => b.wins - a.wins);
+  };
+  const teamsJson = [...teams.values()].map((t) => summarizeTeam(t)).sort((a, b) => b.wins - a.wins);
+
+  // リーグ平均（DESIGN.md 149章。NBA準拠）: 全チームの合計から、1チームと同じ作り方で出す。割合は合計÷合計、1試合平均は合計÷試合数
+  // （試合数はチーム単位の延べ数）。カウント系はチーム数で割り、「合計」表示ではリーグの平均的な1チームの合計になるようにする
+  // （割合・1試合平均は、全体を同じ数で割っても変わらない）。レギュラーシーズンのみ（teams.json と同じ）
+  const leagueTeams = [...teams.values()].filter((t) => t.totals.gamesPlayed > 0);
+  if (leagueTeams.length > 0) {
+    const n = leagueTeams.length;
+    const avg = <T,>(values: (T | undefined)[]): T | undefined => {
+      const present = values.filter((v): v is T => v !== undefined);
+      return present.length === 0 ? undefined : scaleNumbers(present.reduce((a, b) => addNumbers(a, b)), 1 / n);
+    };
+    const leagueAcc: TeamAccumulator = {
+      teamId: "league",
+      teamName: "リーグ平均",
+      wins: leagueTeams.reduce((sum, t) => sum + t.wins, 0) / n,
+      losses: leagueTeams.reduce((sum, t) => sum + t.losses, 0) / n,
+      totals: avg(leagueTeams.map((t) => t.totals))!,
+      opponentTotals: avg(leagueTeams.map((t) => t.opponentTotals))!,
+      gameLogs: [],
+      foreignPlayerCourtSeconds: avg(leagueTeams.map((t) => t.foreignPlayerCourtSeconds))!,
+    };
+    const leagueFile: LeagueAverageFile = {
+      season,
+      teamsCount: n,
+      team: summarizeTeam(
+        leagueAcc,
+        avg(leagueTeams.map((t) => forcedTurnoversByTeam.get(t.teamId))),
+        avg(leagueTeams.map((t) => turnoversCommittedByTeam.get(t.teamId))),
+        avg(leagueTeams.map((t) => shotTypesByTeam.get(t.teamId))),
+      ) as unknown as TeamSummary,
+      misc: scaleNumbers(sumTeamSeasonMisc(leagueTeams.flatMap((t) => t.gameLogs)), 1 / n),
+    };
+    await writeJson(path.join(DATA_DIR, seasonDir, "league-average.json"), leagueFile);
+  }
 
   for (const t of teams.values()) {
     const gameLogs = [...t.gameLogs].sort((a, b) => a.date.localeCompare(b.date));

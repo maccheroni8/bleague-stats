@@ -1634,3 +1634,14 @@ export interface CurrentRosterFile {
   season: string;
   players: { playerId: string; teamId: string }[];
 }
+
+/** data/{season}/league-average.json: そのシーズンのリーグ平均（レギュラーシーズン。scripts/aggregate.ts。DESIGN.md 149章） */
+export interface LeagueAverageFile {
+  season: string;
+  /** 平均に使ったチーム数（1試合以上したチーム） */
+  teamsCount: number;
+  /** 1チームと同じ形。カウント系はチーム数で割った値（平均的な1チームの合計）。teamId は "league" */
+  team: TeamSummary;
+  /** チーム詳細「シーズン別成績」の列用の合算（shared/teamSeasonMisc.ts）。チーム数で割った値 */
+  misc: import("./teamSeasonMisc.ts").TeamSeasonMiscTotals;
+}

@@ -23,6 +23,7 @@ import type {
   LeagueTeamRankingsFile,
   PlayerAwardsFile,
   PlayerCareersFile,
+  LeagueAverageFile,
   PlayerGameLog,
   PlayerHistoryEntry,
   PlayerMasterEntry,
@@ -183,6 +184,11 @@ export function fetchPlayerHistory(): Promise<PlayerHistoryEntry[]> {
 
 export function fetchPlayerAwards(): Promise<PlayerAwardsFile> {
   return fetchJson<PlayerAwardsFile>(`${dataBase}/player-awards.json`);
+}
+
+/** そのシーズンのリーグ平均（data/{season}/league-average.json。DESIGN.md 149章） */
+export function fetchLeagueAverage(season: string): Promise<LeagueAverageFile> {
+  return fetchJson<LeagueAverageFile>(`${dataBase}/${season}/league-average.json`);
 }
 
 /** 選手のキャリアの回数（ランキングの個人「キャリア」カテゴリ。scripts/aggregate-player-careers.ts） */

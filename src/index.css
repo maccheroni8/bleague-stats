@@ -6213,3 +6213,15 @@ table.sortable-table.period-records-top-table td {
     padding-right: 5px;
   }
 }
+
+/* リーグ平均の行（並べ替えの対象外で末尾に固定。DESIGN.md 149章） */
+table.sortable-table tr.pinned-row td,
+table.stats-table tr.pinned-row td {
+  background: var(--header-bg);
+  color: var(--muted);
+}
+
+table.sortable-table tr.pinned-row:first-of-type td,
+table.sortable-table tbody tr:not(.pinned-row) + tr.pinned-row td {
+  border-top: 2px solid var(--border);
+}

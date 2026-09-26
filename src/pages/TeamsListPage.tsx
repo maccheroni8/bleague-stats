@@ -8,12 +8,14 @@ import {
   fetchClubHonors,
   fetchDivisionHistory,
   fetchGameSummaries,
+  fetchLeagueAverage,
   fetchLeagueTeamRankings,
   fetchSeasonRules,
   fetchSeasons,
   fetchTeamGameLogs,
   fetchTeams,
 } from "../lib/data";
+import { LEAGUE_TEAM_ID, LEAGUE_TEAM_NAME, averageTotals } from "../lib/leagueAverage";
 import { useJsonData } from "../lib/useJsonData";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
@@ -210,31 +212,32 @@ const teamColumn: Column<AllTeamsRow> = {
   sortValue: (r) => r.team.teamName,
   render: (r) => (
     <span className="team-name-cell">
-      <TeamLogo teamId={r.team.teamId} size={20} />
+      {r.team.teamId !== LEAGUE_TEAM_ID && <TeamLogo teamId={r.team.teamId} size={20} />}
       {r.team.teamName}
     </span>
   ),
 };
 
+// リーグ平均の行（DESIGN.md 149章）は試合数・勝敗・勝率を出さない
 const gamesColumn: Column<AllTeamsRow> = {
   key: "g",
   label: "G",
   sortValue: (r) => r.gamesPlayed,
-  format: (r) => String(r.gamesPlayed),
+  format: (r) => (r.team.teamId === LEAGUE_TEAM_ID ? "-" : String(r.gamesPlayed)),
 };
 
 const recordColumn: Column<AllTeamsRow> = {
   key: "record",
   label: "勝敗",
   sortValue: (r) => r.wins - r.losses,
-  format: (r) => formatRecord(r.wins, r.losses),
+  format: (r) => (r.team.teamId === LEAGUE_TEAM_ID ? "-" : formatRecord(r.wins, r.losses)),
 };
 
 const winPctColumn: Column<AllTeamsRow> = {
   key: "winPct",
   label: "勝率",
   sortValue: (r) => safeDiv(r.wins, r.wins + r.losses),
-  format: (r) => formatWinPct(safeDiv(r.wins, r.wins + r.losses)),
+  format: (r) => (r.team.teamId === LEAGUE_TEAM_ID ? "-" : formatWinPct(safeDiv(r.wins, r.wins + r.losses))),
 };
 
 // 各行の先頭にロゴ・試合数・勝敗・勝率を置く（チーム詳細ページ「シーズン別成績」と同じ載せ方）
@@ -271,6 +274,8 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const paintSupported = isShotChartSupported(coverage);
 
   const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams);
+  // リーグ平均（data/{season}/league-average.json。シュートタイプ・強制TOV・棒グラフで使う。DESIGN.md 149章）
+  const { data: leagueAverage } = useJsonData(() => fetchLeagueAverage(season).catch(() => null), [season]);
   const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season);
 
   const [boxTab, setBoxTab] = useState<
@@ -306,6 +311,20 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     });
   }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season]);
 
+  // リーグ平均の行（DESIGN.md 149章）。選択中の条件で絞った全チームの合計から出す（割合は合計÷合計、1試合平均は合計÷延べ試合数）。
+  // カウント系はチーム数で割り、「合計」表示では平均的な1チームの合計にする。自チームの視点のときだけ出す（opp・+/-では出さない）
+  const leagueRow: AllTeamsRow | null = useMemo(() => {
+    const played = rows.filter((r) => r.gamesPlayed > 0);
+    if (played.length === 0) return null;
+    return {
+      team: { teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME },
+      gamesPlayed: played.reduce((sum, r) => sum + r.gamesPlayed, 0) / played.length,
+      wins: 0,
+      losses: 0,
+      totals: averageTotals(played.map((r) => r.totals)),
+    };
+  }, [rows]);
+
   const columns = useMemo(() => {
     switch (boxTab) {
       case "traditional":
@@ -334,7 +353,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       sortValue: (r) => r.team.teamName,
       render: (r) => (
         <span className="team-name-cell">
-          <TeamLogo teamId={r.team.teamId} size={20} />
+          {r.team.teamId !== LEAGUE_TEAM_ID && <TeamLogo teamId={r.team.teamId} size={20} />}
           {r.team.teamName}
         </span>
       ),
@@ -351,6 +370,15 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     const data = turnoverPerspective === "forced" ? team.forcedTurnovers : team.turnoversCommitted;
     return data ? [{ team, data }] : [];
   });
+  // 棒グラフ（On-Court Foreign・Scoring %）は、リーグ平均の棒を並び順の中の該当する位置に入れる（DESIGN.md 149章）
+  const withLeague = (list: TeamSummary[] | null | undefined): TeamSummary[] =>
+    leagueAverage ? [...(list ?? []), { ...leagueAverage.team, teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME }] : (list ?? []);
+  const leagueTurnoverData = leagueAverage
+    ? turnoverPerspective === "forced"
+      ? leagueAverage.team.forcedTurnovers
+      : leagueAverage.team.turnoversCommitted
+    : undefined;
+  const leagueTurnoverRow: TurnoverRow | null = leagueAverage && leagueTurnoverData ? { team: leagueAverage.team, data: leagueTurnoverData } : null;
   const turnoverColumns: Column<TurnoverRow>[] = [
     {
       key: "team",
@@ -359,7 +387,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       sortValue: (r) => r.team.teamName,
       render: (r) => (
         <span className="team-name-cell">
-          <TeamLogo teamId={r.team.teamId} size={20} />
+          {r.team.teamId !== LEAGUE_TEAM_ID && <TeamLogo teamId={r.team.teamId} size={20} />}
           {r.team.teamName}
         </span>
       ),
@@ -491,6 +519,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
                 defaultSortKey="team"
                 defaultSortDir="asc"
                 linkTo={(r) => `/teams/${r.team.teamId}`}
+                pinnedRows={leagueAverage?.team.shotTypes ? [{ team: leagueAverage.team }] : undefined}
               />
             </div>
             <p className="page-subtitle">
@@ -527,6 +556,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
                 rowKey={(r) => r.team.teamId}
                 defaultSortKey="total"
                 linkTo={(r) => `/teams/${r.team.teamId}`}
+                pinnedRows={leagueTurnoverRow ? [leagueTurnoverRow] : undefined}
               />
             </div>
             <p className="page-subtitle">
@@ -554,7 +584,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             ]}
           />
           <ForeignPlayerCourtTimeChart
-            teams={teams ?? []}
+            teams={withLeague(teams)}
             order={foreignOrder}
             maxOnCourt={foreignRules?.find((r) => r.season === season)?.maxForeignOnCourt}
           />
@@ -592,16 +622,16 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             ]}
           />
           <h3>得点構成（総得点に占める割合）</h3>
-          <ScoringCompositionChart teams={teams ?? []} mode="own" order={scoringOrder} />
+          <ScoringCompositionChart teams={withLeague(teams)} mode="own" order={scoringOrder} />
           <h3>失点構成（このチームが奪われた得点の割合）</h3>
-          <ScoringCompositionChart teams={teams ?? []} mode="opponent" order={scoringOrder} />
+          <ScoringCompositionChart teams={withLeague(teams)} mode="opponent" order={scoringOrder} />
           <p className="page-subtitle">
             レギュラーシーズン・シーズン合計の値です（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しません）。ペイント内の得点はプレーバイプレーの記録から、ミッドレンジの得点は「2Pの得点−ペイント内の得点」として出しているため、全シーズンで表示できます。棒の中の数値は割合(%)と1試合平均の得点、右端は1試合平均の得点（失点構成は失点）です
           </p>
           <h3>得点構成（登録区分）</h3>
-          <ClassificationCompositionChart teams={teams ?? []} mode="own" order={classificationOrder} />
+          <ClassificationCompositionChart teams={withLeague(teams)} mode="own" order={classificationOrder} />
           <h3>失点構成（登録区分）</h3>
-          <ClassificationCompositionChart teams={teams ?? []} mode="opponent" order={classificationOrder} />
+          <ClassificationCompositionChart teams={withLeague(teams)} mode="opponent" order={classificationOrder} />
           <p className="page-subtitle">
             レギュラーシーズン・シーズン合計の値です（上部のフィルタとは連動しません）。登録区分は現在の登録情報に基づく値です。登録区分が不明な選手の得点はどちらにも入れていないため、2つの合計が100%に満たない場合があります
           </p>
@@ -619,6 +649,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               rowKey={(r) => r.team.teamId}
               defaultSortKey={DEFAULT_SORT_KEY[boxTab]}
               linkTo={(r) => `/teams/${r.team.teamId}`}
+              pinnedRows={leagueRow && teamPerspective === "own" ? [leagueRow] : undefined}
             />
           </div>
           {boxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
@@ -1436,7 +1467,7 @@ function RecentFormTab({ season }: { season: string }) {
       sortValue: (r) => r.team.teamName,
       render: (r) => (
         <span className="team-name-cell">
-          <TeamLogo teamId={r.team.teamId} size={20} />
+          {r.team.teamId !== LEAGUE_TEAM_ID && <TeamLogo teamId={r.team.teamId} size={20} />}
           {r.team.teamName}
         </span>
       ),

@@ -1,4 +1,5 @@
 import { teamShortName } from "../../shared/teamNames";
+import { LEAGUE_TEAM_ID, LEAGUE_TEAM_NAME } from "../lib/leagueAverage";
 import type { TeamSummary } from "../../shared/types";
 import { FOREIGN_CATEGORIES, foreignAverageLabel, foreignDetails, foreignShare, type ForeignShare } from "../lib/shareCharts";
 import { ShareBarChart, type ShareBarRow } from "./ShareBarChart";
@@ -55,10 +56,12 @@ export function ForeignPlayerCourtTimeChart({ teams, order = "foreignDesc", maxO
     .sort((a, b) => compareShares(order, a.share, b.share, buckets) || a.team.teamId.localeCompare(b.team.teamId))
     .map(({ team, share }) => {
       const d = foreignDetails(share);
-      const short = teamShortName(team.teamId, team.teamName);
+      const league = team.teamId === LEAGUE_TEAM_ID;
+      const short = league ? LEAGUE_TEAM_NAME : teamShortName(team.teamId, team.teamName);
       return {
         key: team.teamId,
         labelLines: [short],
+        variant: league ? ("league" as const) : undefined,
         pct: share.pct,
         details: d.details,
         tooltipDetails: d.tooltipDetails,

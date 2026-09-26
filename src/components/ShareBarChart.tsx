@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useMediaQuery } from "../lib/useMediaQuery";
 
 /**
@@ -10,6 +10,11 @@ import { useMediaQuery } from "../lib/useMediaQuery";
  * - 右端に行ごとの値（平均人数・1試合平均の得点等）を出せる
  * - 行の見出しは2行まで（シーズン＋規定の上限人数、シーズン＋所属チーム等）
  */
+const PCT_TICKS = [0, 25, 50, 75, 100];
+const GUIDE_TICKS = [25, 50, 75];
+/** 25・50・75% の点線を棒の上に出すか（採用するかはユーザー確認待ち。2026-09-26） */
+const SHOW_GUIDE_LINES = true;
+
 export interface ShareBarCategory {
   label: string;
   color: string;
@@ -19,6 +24,8 @@ export interface ShareBarRow {
   key: string;
   /** 行の見出し（1〜2行） */
   labelLines: string[];
+  /** "league": リーグ平均の行（棒を薄く・見出しを太字にして区別する。DESIGN.md 149章） */
+  variant?: "league";
   /** 区分ごとの割合（0〜100、categories と同じ順） */
   pct: number[];
   /** 広い画面で割合の後ろに括弧で添える内訳（1試合平均の得点・出場時間等）。区分ごと */
@@ -78,7 +85,15 @@ export function ShareBarChart({
       <ResponsiveContainer width="100%" height={height}>
         <BarChart data={data} layout="vertical" margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
-          <XAxis type="number" domain={[0, 100]} tickFormatter={(v: number) => `${Math.round(v)}%`} tick={{ fontSize: 11 }} tickLine={false} />
+          {/* 目盛りは 0・25・50・75・100% に固定（自動だと右端の値の列の幅によって 0・30・60・100% 等になる） */}
+          <XAxis
+            type="number"
+            domain={[0, 100]}
+            ticks={PCT_TICKS}
+            tickFormatter={(v: number) => `${Math.round(v)}%`}
+            tick={{ fontSize: 11 }}
+            tickLine={false}
+          />
           <YAxis
             type="category"
             dataKey="label"
@@ -111,8 +126,23 @@ export function ShareBarChart({
               fill={c.color}
               isAnimationActive={false}
               label={<SegmentLabel category={i} rows={rows} narrow={narrow} wideMin={wideMinSegment} />}
-            />
+            >
+              {rows.map((r) => (
+                <Cell
+                  key={r.key}
+                  fillOpacity={r.variant === "league" ? 0.45 : 1}
+                  stroke={r.variant === "league" ? "var(--fg)" : undefined}
+                  strokeDasharray={r.variant === "league" ? "3 2" : undefined}
+                  strokeWidth={r.variant === "league" ? 1 : 0}
+                />
+              ))}
+            </Bar>
           ))}
+          {/* 25・50・75% の点線（棒の上に重ねる） */}
+          {SHOW_GUIDE_LINES &&
+            GUIDE_TICKS.map((x) => (
+              <ReferenceLine key={x} x={x} stroke="var(--fg)" strokeOpacity={0.45} strokeDasharray="2 3" ifOverflow="visible" />
+            ))}
         </BarChart>
       </ResponsiveContainer>
       <div className="foreign-count-legend">
@@ -131,11 +161,21 @@ export function ShareBarChart({
 /** 行の見出し（1〜2行）。recharts の既定の見出しと同じ文字の大きさ・色 */
 function RowLabelTick({ x, y, payload, rowByKey }: { x?: number; y?: number; payload?: { value: string }; rowByKey: Map<string, ShareBarRow> }) {
   if (x == null || y == null || !payload) return null;
-  const lines = rowByKey.get(payload.value)?.labelLines ?? [payload.value];
+  const row = rowByKey.get(payload.value);
+  const lines = row?.labelLines ?? [payload.value];
   const lineHeight = 13;
   const firstDy = -((lines.length - 1) * lineHeight) / 2;
+  const league = row?.variant === "league";
   return (
-    <text x={x} y={y} textAnchor="end" dominantBaseline="central" fontSize={11} fill="#666">
+    <text
+      x={x}
+      y={y}
+      textAnchor="end"
+      dominantBaseline="central"
+      fontSize={11}
+      fill={league ? "var(--fg)" : "#666"}
+      fontWeight={league ? 700 : undefined}
+    >
       {lines.map((line, i) => (
         <tspan key={i} x={x} dy={i === 0 ? firstDy : lineHeight} fontSize={i === 0 ? 11 : 10}>
           {line}
