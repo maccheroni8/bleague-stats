@@ -66,7 +66,6 @@ import {
 } from "../lib/teamStatsColumns";
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns, shotTypeLabel } from "../lib/shotTypeBreakdown";
 import { useAllTeamGameLogs, useLeagueRawGames, useLeagueSituationalContext } from "../lib/teamRankingData";
-import { isShotChartSupported, useSeasonCoverage } from "../lib/useSeasonCoverage";
 import {
   classificationGroup,
   matchesClassificationGroupFilter,
@@ -352,8 +351,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const teamLabel = useTeamLabel();
   const exportRef = useRef<HTMLDivElement>(null);
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
-  const { coverage } = useSeasonCoverage(season);
-  const paintSupported = isShotChartSupported(coverage);
+  // ペイント内外の内訳は、プレーバイプレーの公式の区分で数えるため全シーズンで出る（2026-09-26。DESIGN.md 155章）
+  const paintSupported = true;
 
   const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams);
   const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season);

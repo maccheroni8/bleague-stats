@@ -386,26 +386,17 @@ const COMPOSITION_PIE_COLORS = {
 };
 
 /**
- * FG試投割合の円グラフ用データ（自チーム/相手チーム）。3P試投・ペイント内試投・
- * ペイント外(ミッドレンジ)試投の3分割が基本形だが、paint2a（ペイント内試投数）は
- * ショットチャート座標由来のため2022-23シーズン以降のみ取得できる（DESIGN.md Batch3・
- * %IPA/%OPA参照）。それ以前のシーズン（shotChartSupported=false）は、ペイント内外を
- * 合算した2P／3Pの2分割にフォールバックする（完全非表示ではなく取得可能な粒度まで表示する、
- * Batch 4-2）。試投数ベースのため1試合あたり平均値をラベルに表示する
+ * FG試投割合の円グラフ用データ（自チーム/相手チーム）。3P試投・ペイント内試投・ペイント外(ミッドレンジ)試投の3分割。
+ * paint2a・mid2a はプレーバイプレーの公式の区分（インサイドペイント／アウトサイドペイント）で数えた値（2026-09-26 から。
+ * 全シーズン。DESIGN.md 155章）。試投数ベースのため1試合あたり平均値をラベルに表示する
  */
-function buildFgaCompositionSegments(logs: TeamGameLog[], perspective: "own" | "opp", shotChartSupported: boolean): PieSegmentInput[] {
+function buildFgaCompositionSegments(logs: TeamGameLog[], perspective: "own" | "opp"): PieSegmentInput[] {
   const games = logs.length || 1;
-  const tpa = logs.reduce((s, g) => s + (perspective === "own" ? g.tpa : g.opponentTpa), 0);
-  const fga = logs.reduce((s, g) => s + (perspective === "own" ? g.fga : g.opponentFga), 0);
-  const twoA = Math.max(0, fga - tpa);
-  if (!shotChartSupported) {
-    return [
-      { key: "3p", label: "3P", color: COMPOSITION_PIE_COLORS.threeP, value: tpa / games },
-      { key: "2p", label: "2P", color: COMPOSITION_PIE_COLORS.paint, value: twoA / games },
-    ];
-  }
-  const paintA = logs.reduce((s, g) => s + (perspective === "own" ? g.paint2a : g.opponentPaint2a), 0);
-  const midA = Math.max(0, twoA - paintA);
+  const sum = (own: (g: TeamGameLog) => number, opp: (g: TeamGameLog) => number) =>
+    logs.reduce((s, g) => s + (perspective === "own" ? own(g) : opp(g)), 0);
+  const tpa = sum((g) => g.tpa, (g) => g.opponentTpa);
+  const paintA = sum((g) => g.paint2a, (g) => g.opponentPaint2a);
+  const midA = sum((g) => g.mid2a, (g) => g.opponentMid2a);
   return [
     { key: "3p", label: "3P", color: COMPOSITION_PIE_COLORS.threeP, value: tpa / games },
     { key: "ip", label: "Paint", color: COMPOSITION_PIE_COLORS.paint, value: paintA / games },
@@ -466,10 +457,10 @@ function buildClassificationPtsCompositionSegments(team: TeamSummary, perspectiv
  * （添付画像＝FG試投割合の円グラフと同じ形式）。FG試投構成（3P/IP/OP）・得点構成
  * （3P/IP/OP/FT）それぞれ自チーム・相手チームの円グラフを横に並べて表示する
  */
-function ScoringCompositionSection({ team, gameLogs, shotChartSupported }: { team: TeamSummary; gameLogs: TeamGameLog[]; shotChartSupported: boolean }) {
+function ScoringCompositionSection({ team, gameLogs }: { team: TeamSummary; gameLogs: TeamGameLog[] }) {
   const regularLogs = useMemo(() => gameLogs.filter((g) => g.gameType === "regular"), [gameLogs]);
-  const ownFga = useMemo(() => buildFgaCompositionSegments(regularLogs, "own", shotChartSupported), [regularLogs, shotChartSupported]);
-  const oppFga = useMemo(() => buildFgaCompositionSegments(regularLogs, "opp", shotChartSupported), [regularLogs, shotChartSupported]);
+  const ownFga = useMemo(() => buildFgaCompositionSegments(regularLogs, "own"), [regularLogs]);
+  const oppFga = useMemo(() => buildFgaCompositionSegments(regularLogs, "opp"), [regularLogs]);
   const ownPts = useMemo(() => buildPtsCompositionSegments(team, "own"), [team]);
   const oppPts = useMemo(() => buildPtsCompositionSegments(team, "opp"), [team]);
   const ownClassificationPts = useMemo(() => buildClassificationPtsCompositionSegments(team, "own"), [team]);
@@ -480,7 +471,6 @@ function ScoringCompositionSection({ team, gameLogs, shotChartSupported }: { tea
       <h3>得点構成 / 失点構成</h3>
       <p className="page-subtitle">
         レギュラーシーズンベース。FG試投割合は1試合あたり平均試投数、得点割合は1試合あたり平均得点。各セグメントに割合(%)と実数値を表示
-        {!shotChartSupported && "（このシーズンはペイント内外の分割データが無いため2P/3Pの2分割で表示）"}
       </p>
       <h4 className="composition-pie-group-title">シュート試投構成</h4>
       <div className="composition-pie-row">
@@ -854,15 +844,6 @@ function formatTeamSeasonSigned(ownVal: number, oppVal: number, perspective: Tea
   return formatTeamSeasonRatioPerspective(ownVal, oppVal, perspective, (v) => formatSigned(v, digits), (v) => formatSigned(v, digits));
 }
 
-/** ショットチャート座標（X/Y/AreaCD）が存在するシーズンかどうか（2022-23シーズン以降のみ、
- * playerSeasonBoxscore.tsのMIN_SHOT_CHART_SEASON_START_YEARと同じ閾値）。「シーズン別成績」の
- * 各行は`r.season`（文字列）を持つだけで、他タブのようにuseSeasonCoverage()の結果を都度
- * 参照できないため、開始年の数値比較で簡易判定する */
-const TEAM_SEASON_MIN_SHOT_CHART_YEAR = 2022;
-function seasonRecordSupportsShotChart(season: string): boolean {
-  return Number(season.split("-")[0]) >= TEAM_SEASON_MIN_SHOT_CHART_YEAR;
-}
-
 // 「シーズン別成績」の4カテゴリタブ（Phase H3①）。既存のSEASON_BOX_COLUMNS（選手向け、
 // PlayerGameLog由来）とは別に、チーム向けの列定義をここで新設する。トラディショナル/
 // アドバンスドはTeamSummary（seasonHistory、既に取得済みのシーズン集計）だけで完結する
@@ -875,8 +856,8 @@ function seasonRecordSupportsShotChart(season: string): boolean {
 // チーム自身の行には適用できないため、「得点の内訳構成比」（PITP/FBPS/2ND PTS/PTSOFFTOが
 // チーム総得点に占める割合）に加え、2026-08-29に「シュート選択構成比」（%3PM/%3PA/%PAINT2M/
 // %PAINT2A/%MID2M/%MID2A、いずれもチーム自身の全FGAに占める割合）を追加した。
-// %PAINT2M/%PAINT2A/%MID2M/%MID2Aのみショットチャート座標由来のため2022-23シーズン以降限定
-// （seasonRecordSupportsShotChart()、それ以前は「-」）。
+// %PAINT2M/%PAINT2A/%MID2M/%MID2Aは、2026-09-26 からプレーバイプレーの公式の区分で数えるため全シーズンで出る
+// （それまではショットチャート座標由来で2022-23シーズン以降限定だった。DESIGN.md 155章）。
 // 平均/合計トグル: カウント系の列（MIN〜+/-）は選択に応じて値を切り替え、%系・比率系
 // （FG%等、AST/TOV、POSS以外のアドバンスド指標、スコアリングタブ全項目）は総量に対する比率・
 // 100ポゼッションあたり等の正規化済み指標のため両モードで同じ値のまま変化しない。
@@ -1397,58 +1378,46 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
       ),
   },
   // Batch 3（2026-09-08）: %IPA（ペイント内試投割合）・%OPA（ペイント外試投割合）。
-  // ペイント内試投数（m.paint2a）自体がショットチャート座標由来のため2022-23シーズン以降限定
+  // ペイント内外の試投数は 2026-09-26 からプレーバイプレーの公式の区分で数える（全シーズン。DESIGN.md 155章）
   {
     key: "pctipa",
     label: "%IPA",
     format: (r, m, _mode, p) =>
-      seasonRecordSupportsShotChart(r.season)
-        ? formatTeamSeasonPct100(safeDiv(100 * m.paint2a, r.team.totals.fga), safeDiv(100 * m.oppPaint2a, m.oppFga), p)
-        : "-",
+      formatTeamSeasonPct100(safeDiv(100 * m.paint2a, r.team.totals.fga), safeDiv(100 * m.oppPaint2a, m.oppFga), p),
   },
   {
     key: "pctopa",
     label: "%OPA",
     format: (r, m, _mode, p) =>
-      seasonRecordSupportsShotChart(r.season)
-        ? formatTeamSeasonPct100(
-            safeDiv(100 * (r.team.totals.fga - m.paint2a), r.team.totals.fga),
-            safeDiv(100 * (m.oppFga - m.oppPaint2a), m.oppFga),
-            p,
-          )
-        : "-",
+      formatTeamSeasonPct100(
+        safeDiv(100 * (r.team.totals.fga - m.paint2a), r.team.totals.fga),
+        safeDiv(100 * (m.oppFga - m.oppPaint2a), m.oppFga),
+        p,
+      ),
   },
   {
     key: "pctpaint2m",
     label: "%PAINT2M",
     format: (r, m, _mode, p) =>
-      seasonRecordSupportsShotChart(r.season)
-        ? formatTeamSeasonPct100(safeDiv(100 * m.paint2m, r.team.totals.fga), safeDiv(100 * m.oppPaint2m, m.oppFga), p)
-        : "-",
+      formatTeamSeasonPct100(safeDiv(100 * m.paint2m, r.team.totals.fga), safeDiv(100 * m.oppPaint2m, m.oppFga), p),
   },
   {
     key: "pctpaint2a",
     label: "%PAINT2A",
     format: (r, m, _mode, p) =>
-      seasonRecordSupportsShotChart(r.season)
-        ? formatTeamSeasonPct100(safeDiv(100 * m.paint2a, r.team.totals.fga), safeDiv(100 * m.oppPaint2a, m.oppFga), p)
-        : "-",
+      formatTeamSeasonPct100(safeDiv(100 * m.paint2a, r.team.totals.fga), safeDiv(100 * m.oppPaint2a, m.oppFga), p),
   },
   {
     key: "pctmid2m",
     label: "%MID2M",
     format: (r, m, _mode, p) =>
-      seasonRecordSupportsShotChart(r.season)
-        ? formatTeamSeasonPct100(safeDiv(100 * m.mid2m, r.team.totals.fga), safeDiv(100 * m.oppMid2m, m.oppFga), p)
-        : "-",
+      formatTeamSeasonPct100(safeDiv(100 * m.mid2m, r.team.totals.fga), safeDiv(100 * m.oppMid2m, m.oppFga), p),
   },
   {
     key: "pctmid2a",
     label: "%MID2A",
     format: (r, m, _mode, p) =>
-      seasonRecordSupportsShotChart(r.season)
-        ? formatTeamSeasonPct100(safeDiv(100 * m.mid2a, r.team.totals.fga), safeDiv(100 * m.oppMid2a, m.oppFga), p)
-        : "-",
+      formatTeamSeasonPct100(safeDiv(100 * m.mid2a, r.team.totals.fga), safeDiv(100 * m.oppMid2a, m.oppFga), p),
   },
 ];
 
@@ -3421,7 +3390,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           ))}
 
           <MobileCollapse label="円グラフ">
-            <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} shotChartSupported={isShotChartSupported(coverage)} />
+            <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} />
           </MobileCollapse>
 
           <ConditionTitle section title="チーム内リーダー" conditions={teamLeadersConditions} />

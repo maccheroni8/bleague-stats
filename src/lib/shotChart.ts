@@ -46,7 +46,9 @@ export function buildShotEvents(events: PlayByPlayEvent[]): ShotEvent[] {
     const missed = MISSED_ACTION_CODES.has(ev.ActionCD1);
     if (!made && !missed) continue;
     if (ev.X === undefined || ev.Y === undefined || !ev.PlayerID1) continue;
-    const mirror = ev.Side === "right";
+    // 攻撃方向（Side）が無い行は座標から補う（2022-23 はほぼ全行で Side が無い。2026-09-26、DESIGN.md 155章）。
+    // ショットは攻撃するバスケット側の半面から打たれるので、X が中央（50）より大きければ右のバスケット向き
+    const mirror = ev.Side === "right" || (ev.Side !== "left" && ev.X > 50);
     shots.push({
       playerId: ev.PlayerID1,
       playerName: ev.PlayerNameJ1,
@@ -142,7 +144,11 @@ export function toPolar(x: number, y: number): { r: number; theta: number } {
 }
 
 export function zoneForShot(shot: ShotEvent): ZoneId | null {
-  const { r, theta } = toPolar(shot.x, shot.y);
+  const { r, theta: rawTheta } = toPolar(shot.x, shot.y);
+  // リングから1.25m以内は角度を問わずリング周り。リングの中心よりベースライン側（角度が±90度を超える）のシュートも、
+  // ベースライン沿い（±90度）として扱う（それまではどのゾーンにも入らず、FG試投構成でMid-rangeに数えられていた。2026-09-26）
+  if (r < RESTRICTED_R) return "restricted";
+  const theta = Math.max(-90, Math.min(89.999, rawTheta));
   for (const zone of ZONE_DEFS) {
     if (r >= zone.rInner && r < zone.rOuter && theta >= zone.thetaStart && theta < zone.thetaEnd) {
       return zone.id;

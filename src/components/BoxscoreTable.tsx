@@ -42,7 +42,7 @@ export interface ColumnCtx {
   ratings?: TeamRatings;
   isPlayerRow: boolean;
   isTeamTotalRow: boolean;
-  /** ペイント内外2P内訳の元になるX/Y/AreaCDが収録されているか（2022-23シーズン以降のみ。DESIGN.md参照） */
+  /** ショットチャートの座標（X/Y）が収録されているか（2022-23シーズン以降）。ペイント内外の列は 2026-09-26 から公式の区分で数えるため、この値を見ない */
   shotChartSupported: boolean;
   /** Yahoo!スポーツplay-by-play由来の列（LIVETOV/DEADTOV等）が算出可能か。DESIGN.md参照 */
   yahooPbpSupported: boolean;
@@ -381,44 +381,45 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
       formatPct100(sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts)),
     value: (c) => sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts),
   },
+  // ペイント内外の2P内訳（PAINT2M〜MID2%）は、プレーバイプレーの公式の区分で数える（全シーズン。DESIGN.md 155章）
   {
     key: "paint2m",
     label: "PAINT2M",
-    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? String(c.paint2m) : "-"),
-    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? c.paint2m : undefined),
+    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? String(c.paint2m) : "-"),
+    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? c.paint2m : undefined),
   },
   {
     key: "paint2a",
     label: "PAINT2A",
-    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? String(c.paint2a) : "-"),
-    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? c.paint2a : undefined),
+    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? String(c.paint2a) : "-"),
+    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? c.paint2a : undefined),
   },
   {
     key: "paint2pct",
     label: "PAINT2%",
     format: (c, ctx) =>
-      (ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? formatPct(safeDiv(c.paint2m, c.paint2a)) : "-",
-    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? safeDiv(c.paint2m, c.paint2a) : undefined),
+      (ctx.isPlayerRow || ctx.isTeamTotalRow) ? formatPct(safeDiv(c.paint2m, c.paint2a)) : "-",
+    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? safeDiv(c.paint2m, c.paint2a) : undefined),
   },
   {
     key: "mid2m",
     label: "MID2M",
-    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? String(c.nonPaint2m) : "-"),
-    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? c.nonPaint2m : undefined),
+    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? String(c.nonPaint2m) : "-"),
+    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? c.nonPaint2m : undefined),
   },
   {
     key: "mid2a",
     label: "MID2A",
-    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? String(c.nonPaint2a) : "-"),
-    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? c.nonPaint2a : undefined),
+    format: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? String(c.nonPaint2a) : "-"),
+    value: (c, ctx) => ((ctx.isPlayerRow || ctx.isTeamTotalRow) ? c.nonPaint2a : undefined),
   },
   {
     key: "mid2pct",
     label: "MID2%",
     format: (c, ctx) =>
-      (ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? formatPct(safeDiv(c.nonPaint2m, c.nonPaint2a)) : "-",
+      (ctx.isPlayerRow || ctx.isTeamTotalRow) ? formatPct(safeDiv(c.nonPaint2m, c.nonPaint2a)) : "-",
     value: (c, ctx) =>
-      (ctx.isPlayerRow || ctx.isTeamTotalRow) && ctx.shotChartSupported ? safeDiv(c.nonPaint2m, c.nonPaint2a) : undefined,
+      (ctx.isPlayerRow || ctx.isTeamTotalRow) ? safeDiv(c.nonPaint2m, c.nonPaint2a) : undefined,
   },
 ];
 

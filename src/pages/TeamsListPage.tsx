@@ -19,7 +19,7 @@ import {
 import { LEAGUE_TEAM_ID, LEAGUE_TEAM_NAME, averageTotals } from "../lib/leagueAverage";
 import { useJsonData } from "../lib/useJsonData";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
-import { isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
+import { useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
   ClubHonor,
   ClubHonorsFile,
@@ -273,8 +273,8 @@ function turnoverTotal(data: TeamForcedTurnovers): number {
 function AllTeamsStatsTab({ season }: { season: string }) {
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
   const { supported: yahooPbpSupported } = useYahooPbpCoverage(season);
-  const { coverage } = useSeasonCoverage(season);
-  const paintSupported = isShotChartSupported(coverage);
+  // ペイント内外の内訳は、プレーバイプレーの公式の区分で数えるため全シーズンで出る（2026-09-26。DESIGN.md 155章）
+  const paintSupported = true;
 
   const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams);
   // リーグ平均（data/{season}/league-average.json。シュートタイプ・強制TOV・棒グラフで使う。DESIGN.md 149章）

@@ -19,7 +19,7 @@ import {
 import { computePointsOffTurnovers } from "../../shared/pointsOffTurnovers";
 import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../../shared/playTypePoints";
 import { computeAssistedScoring, type AssistedScoringCounts, type AssistPair } from "../../shared/assistedScoring";
-import { buildShotEvents, paintSplitForShot, type ShotEvent } from "./shotChart";
+import { buildOfficialPaintSplit } from "../../shared/paintSplit";
 
 export interface BoxscoreCounts {
   minSec: number;
@@ -66,11 +66,9 @@ export interface BoxscoreCounts {
    */
   ptsOffTov: number;
   /**
-   * ペイント内／ペイント外の2Pシュート内訳（ショットチャートと同じゾーン分類を再利用）。
-   * ptsOffTovと同様にBoxscoreRowには個人単位のフィールドが無いため、sumCounts()では常に0のままで、
-   * buildPlayerBoxscores()がPlayByPlaysのX/Y/AreaCDから事後的に上書きする。X/Y自体が
-   * 2022-23シーズン以降のみ存在するため（shotChart.ts参照）、それより前のシーズンでは
-   * 常に0になる（呼び出し側でshotChartSupportedを見て「-」表示にケアする）
+   * ペイント内／ペイント外の2Pシュート内訳。ptsOffTovと同様にBoxscoreRowには個人単位のフィールドが無いため、
+   * sumCounts()では常に0のままで、buildPlayerBoxscores()がPlayByPlaysの公式の区分（インサイドペイント／
+   * アウトサイドペイント、shared/paintSplit.ts）から事後的に上書きする（2026-09-26 から。全シーズン）
    */
   paint2m: number;
   paint2a: number;
@@ -354,24 +352,6 @@ interface PaintSplitCounts {
 
 const ZERO_PAINT_SPLIT: PaintSplitCounts = { paint2m: 0, paint2a: 0, nonPaint2m: 0, nonPaint2a: 0 };
 
-/** ショットチャートと同じX/Y/AreaCDベースのゾーン分類で、選手ごとのペイント内外2P内訳を求める */
-function buildPaintSplitByPlayer(shots: ShotEvent[]): Map<string, PaintSplitCounts> {
-  const byPlayer = new Map<string, PaintSplitCounts>();
-  for (const shot of shots) {
-    const split = paintSplitForShot(shot);
-    if (!split) continue;
-    const entry = byPlayer.get(shot.playerId) ?? { ...ZERO_PAINT_SPLIT };
-    if (split === "paint") {
-      entry.paint2a += 1;
-      if (shot.made) entry.paint2m += 1;
-    } else {
-      entry.nonPaint2a += 1;
-      if (shot.made) entry.nonPaint2m += 1;
-    }
-    byPlayer.set(shot.playerId, entry);
-  }
-  return byPlayer;
-}
 
 interface MiscEventCounts {
   dunks: number;
@@ -575,10 +555,8 @@ export function buildPlayerBoxscores(
   const { byPlayer: pitpByPlayer } = computePointsInPaint(periodFilteredPbp);
   const { byPlayer: fbpsByPlayer } = computeFastbreakPoints(periodFilteredPbp);
   const { byPlayer: secondChanceByPlayer } = computeSecondChancePoints(periodFilteredPbp);
-  // buildShotEvents()はX/Y未収録の行を自然に除外するため、2022-23シーズンより前は
-  // 常に空配列になり、以降の集計もpaint2m等が常に0のままになる（呼び出し側でshotChartSupportedを
-  // 見て「-」表示にケアする）
-  const paintSplitByPlayer = buildPaintSplitByPlayer(buildShotEvents(periodFilteredPbp));
+  // ペイント内外の2P内訳は、プレーバイプレーの公式の区分で数える（shared/paintSplit.ts。全シーズン。2026-09-26）
+  const paintSplitByPlayer = buildOfficialPaintSplit(periodFilteredPbp).byPlayer;
   const miscEventsByPlayer = buildMiscEventCounts(periodFilteredPbp);
   const offensiveFoulCountsByPlayer = buildOffensiveFoulCounts(periodFilteredPbp);
   const assistedScoringByPlayer = computeAssistedScoring(periodFilteredPbp).byScorer;

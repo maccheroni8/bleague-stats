@@ -40,7 +40,7 @@ import { foreignCountInLineup } from "../shared/foreignOnCourt.ts";
 import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
 import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../shared/playTypePoints.ts";
 import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
-import { buildShotEvents, paintSplitForShot } from "../shared/shotChart.ts";
+import { buildOfficialPaintSplit, type PaintSplitCounts as OfficialPaintSplitCounts } from "../shared/paintSplit.ts";
 import { TEAM_NAMES, teamDivisionForSeason } from "./lib/divisions.ts";
 import { computeClinchEvents, computePremierRace, premierChampion, type RaceTeamInput } from "./lib/playoffRace.ts";
 import { clinchTypesForSeason, postseasonFormat } from "../shared/postseasonFormat.ts";
@@ -536,39 +536,16 @@ interface PaintSplitCounts {
 const ZERO_PAINT_SPLIT: PaintSplitCounts = { paint2m: 0, paint2a: 0, mid2m: 0, mid2a: 0 };
 
 /**
- * ショットチャートと同じX/Y座標ベースのゾーン分類（shared/shotChart.ts）で、選手ごと・
- * チームごとのペイント内外2P内訳を求める（src/lib/boxscoreAggregate.tsのbuildPaintSplitByPlayer()と
- * 同じロジック。チーム単位byTeamは2026-08-29、チーム版スコアリングタブ拡張のために追加）。
- * 呼び出し側でseasonCoverage()==="full"（2022-23シーズン以降）のみ呼ぶこと
- * （それ以前はX/Y自体が存在せずbuildShotEvents()が常に空配列を返す）
+ * 選手ごと・チームごとのペイント内外2P内訳（src/lib/boxscoreAggregate.ts と同じ）。2026-09-26 から、ショットチャートの座標ではなく
+ * プレーバイプレーの公式の区分（インサイドペイント／アウトサイドペイント、shared/paintSplit.ts）で数える。全シーズンで数えられる
  */
 function buildPaintSplitByPlayer(playByPlays: PlayByPlayEvent[]): { byPlayer: Map<string, PaintSplitCounts>; byTeam: Map<string, PaintSplitCounts> } {
-  const byPlayer = new Map<string, PaintSplitCounts>();
-  const byTeam = new Map<string, PaintSplitCounts>();
-  for (const shot of buildShotEvents(playByPlays)) {
-    const split = paintSplitForShot(shot);
-    if (!split) continue;
-    const entry = byPlayer.get(shot.playerId) ?? { ...ZERO_PAINT_SPLIT };
-    const teamEntry = shot.teamId ? (byTeam.get(shot.teamId) ?? { ...ZERO_PAINT_SPLIT }) : null;
-    if (split === "paint") {
-      entry.paint2a += 1;
-      if (teamEntry) teamEntry.paint2a += 1;
-      if (shot.made) {
-        entry.paint2m += 1;
-        if (teamEntry) teamEntry.paint2m += 1;
-      }
-    } else {
-      entry.mid2a += 1;
-      if (teamEntry) teamEntry.mid2a += 1;
-      if (shot.made) {
-        entry.mid2m += 1;
-        if (teamEntry) teamEntry.mid2m += 1;
-      }
-    }
-    byPlayer.set(shot.playerId, entry);
-    if (teamEntry && shot.teamId) byTeam.set(shot.teamId, teamEntry);
-  }
-  return { byPlayer, byTeam };
+  const official = buildOfficialPaintSplit(playByPlays);
+  const toMid = (c: OfficialPaintSplitCounts): PaintSplitCounts => ({ paint2m: c.paint2m, paint2a: c.paint2a, mid2m: c.nonPaint2m, mid2a: c.nonPaint2a });
+  return {
+    byPlayer: new Map([...official.byPlayer].map(([k, v]) => [k, toMid(v)])),
+    byTeam: new Map([...official.byTeam].map(([k, v]) => [k, toMid(v)])),
+  };
 }
 
 /**
@@ -986,10 +963,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
     const assistedScoring = computeAssistedScoring(game.raw.PlayByPlays);
     const miscEvents = buildMiscEventCounts(game.raw.PlayByPlays);
     const offensiveFoulCountsByPlayer = buildOffensiveFoulCounts(game.raw.PlayByPlays);
-    const paintSplit =
-      seasonCoverage(game.season) === "full"
-        ? buildPaintSplitByPlayer(game.raw.PlayByPlays)
-        : { byPlayer: new Map<string, PaintSplitCounts>(), byTeam: new Map<string, PaintSplitCounts>() };
+    const paintSplit = buildPaintSplitByPlayer(game.raw.PlayByPlays);
     processPlayers(
       game,
       gameType,

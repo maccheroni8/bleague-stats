@@ -679,9 +679,9 @@ export function countDigits(mode: SeasonDisplayMode): number {
 }
 
 const NA = "-";
-/** ショットチャート座標（X/Y/AreaCD）が存在する最初のシーズン開始年。scripts/lib/seasonCoverage.tsの
- * 判定基準（startYear >= 2022 で"full"）と一致させる */
-const MIN_SHOT_CHART_SEASON_START_YEAR = 2022;
+/** ペイント内外の2P内訳（PAINT2M〜MID2A）を出せる最初のシーズン開始年。2026-09-26 からプレーバイプレーの公式の区分で
+ * 数えるため全シーズン（B.LEAGUE 開幕の2016-17）。それまではショットチャート座標由来で2022 だった（DESIGN.md 155章） */
+const MIN_PAINT_SPLIT_SEASON_START_YEAR = 2016;
 
 export interface SeasonBoxscoreColumn {
   key: string;
@@ -1029,9 +1029,9 @@ export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
   },
 ];
 
-/** ショットチャート非対応シーズン（"-"表示列）のvalueは一律0にする（PPP等と同じ既存方針） */
+/** ペイント内外の内訳を出せないシーズン（"-"表示列）のvalueは一律0にする（PPP等と同じ既存方針） */
 function shotChartValue(c: SeasonBoxscoreCtx, raw: number): number {
-  return c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? raw : 0;
+  return c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? raw : 0;
 }
 
 export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
@@ -1128,42 +1128,42 @@ export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
     key: "paint2m",
     label: "PAINT2M",
     format: (c, mode) =>
-      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.paint2m, countDigits(mode)) : NA,
+      c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? formatDecimal(c.scaled.paint2m, countDigits(mode)) : NA,
     value: (c) => shotChartValue(c, c.scaled.paint2m),
   },
   {
     key: "paint2a",
     label: "PAINT2A",
     format: (c, mode) =>
-      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.paint2a, countDigits(mode)) : NA,
+      c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? formatDecimal(c.scaled.paint2a, countDigits(mode)) : NA,
     value: (c) => shotChartValue(c, c.scaled.paint2a),
   },
   {
     key: "paint2pct",
     label: "PAINT2%",
     format: (c) =>
-      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatPct(safeDiv(c.raw.paint2m, c.raw.paint2a)) : NA,
+      c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? formatPct(safeDiv(c.raw.paint2m, c.raw.paint2a)) : NA,
     value: (c) => shotChartValue(c, safeDiv(c.raw.paint2m, c.raw.paint2a)),
   },
   {
     key: "mid2m",
     label: "MID2M",
     format: (c, mode) =>
-      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.mid2m, countDigits(mode)) : NA,
+      c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? formatDecimal(c.scaled.mid2m, countDigits(mode)) : NA,
     value: (c) => shotChartValue(c, c.scaled.mid2m),
   },
   {
     key: "mid2a",
     label: "MID2A",
     format: (c, mode) =>
-      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatDecimal(c.scaled.mid2a, countDigits(mode)) : NA,
+      c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? formatDecimal(c.scaled.mid2a, countDigits(mode)) : NA,
     value: (c) => shotChartValue(c, c.scaled.mid2a),
   },
   {
     key: "mid2pct",
     label: "MID2%",
     format: (c) =>
-      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatPct(safeDiv(c.raw.mid2m, c.raw.mid2a)) : NA,
+      c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? formatPct(safeDiv(c.raw.mid2m, c.raw.mid2a)) : NA,
     value: (c) => shotChartValue(c, safeDiv(c.raw.mid2m, c.raw.mid2a)),
   },
   // ここから下は「自分自身の全FGAに占める割合」（シュート選択構成比）。上記%3PM/%3PA
@@ -1185,28 +1185,28 @@ export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
     key: "pctpaint2mown",
     label: "PAINT2M/FGA",
     format: (c) =>
-      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatPct100(safeDiv(100 * c.raw.paint2m, c.raw.fga)) : NA,
+      c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? formatPct100(safeDiv(100 * c.raw.paint2m, c.raw.fga)) : NA,
     value: (c) => shotChartValue(c, safeDiv(100 * c.raw.paint2m, c.raw.fga)),
   },
   {
     key: "pctpaint2aown",
     label: "PAINT2A/FGA",
     format: (c) =>
-      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatPct100(safeDiv(100 * c.raw.paint2a, c.raw.fga)) : NA,
+      c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? formatPct100(safeDiv(100 * c.raw.paint2a, c.raw.fga)) : NA,
     value: (c) => shotChartValue(c, safeDiv(100 * c.raw.paint2a, c.raw.fga)),
   },
   {
     key: "pctmid2mown",
     label: "MID2M/FGA",
     format: (c) =>
-      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatPct100(safeDiv(100 * c.raw.mid2m, c.raw.fga)) : NA,
+      c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? formatPct100(safeDiv(100 * c.raw.mid2m, c.raw.fga)) : NA,
     value: (c) => shotChartValue(c, safeDiv(100 * c.raw.mid2m, c.raw.fga)),
   },
   {
     key: "pctmid2aown",
     label: "MID2A/FGA",
     format: (c) =>
-      c.seasonStartYear >= MIN_SHOT_CHART_SEASON_START_YEAR ? formatPct100(safeDiv(100 * c.raw.mid2a, c.raw.fga)) : NA,
+      c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? formatPct100(safeDiv(100 * c.raw.mid2a, c.raw.fga)) : NA,
     value: (c) => shotChartValue(c, safeDiv(100 * c.raw.mid2a, c.raw.fga)),
   },
 ];

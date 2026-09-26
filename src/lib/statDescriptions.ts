@@ -10,7 +10,7 @@ export type StatScope = "player" | "team";
 
 type StatDescription = string | { player: string; team: string };
 
-const SHOT_CHART_NOTE = "ショットチャートの座標から判定。2022-23シーズン以降のみ";
+const PAINT_SPLIT_NOTE = "公式の記録の区分（インサイドペイント／アウトサイドペイント）で数える";
 
 export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   // --- 試合数・勝敗 ---
@@ -160,24 +160,24 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   },
   "%FTM": "個人のFTM ÷ その選手が出場した試合のチーム全体のFTM（その選手がベンチにいた時間のチームのFTMも分母に含む）",
   "%FTA": "個人のFTA ÷ その選手が出場した試合のチーム全体のFTA（その選手がベンチにいた時間のチームのFTAも分母に含む）",
-  PAINT2M: `ペイント内の2P成功数（${SHOT_CHART_NOTE}）`,
-  PAINT2A: `ペイント内の2P試投数（${SHOT_CHART_NOTE}）`,
-  "PAINT2%": `PAINT2M / PAINT2A（${SHOT_CHART_NOTE}）`,
-  MID2M: `ミッドレンジ（ペイント外）の2P成功数（${SHOT_CHART_NOTE}）`,
-  MID2A: `ミッドレンジ（ペイント外）の2P試投数（${SHOT_CHART_NOTE}）`,
-  "MID2%": `MID2M / MID2A（${SHOT_CHART_NOTE}）`,
-  "%PAINT2M": `PAINT2M / FGA（${SHOT_CHART_NOTE}）`,
-  "%PAINT2A": `PAINT2A / FGA（${SHOT_CHART_NOTE}）`,
-  "%MID2M": `MID2M / FGA（${SHOT_CHART_NOTE}）`,
-  "%MID2A": `MID2A / FGA（${SHOT_CHART_NOTE}）`,
-  "%IPA": `ペイント内の試投の割合。PAINT2A / FGA（${SHOT_CHART_NOTE}）`,
-  "%OPA": `ペイント外の試投の割合。(FGA－PAINT2A) / FGA（${SHOT_CHART_NOTE}）`,
+  PAINT2M: `ペイント内の2P成功数（${PAINT_SPLIT_NOTE}）`,
+  PAINT2A: `ペイント内の2P試投数（${PAINT_SPLIT_NOTE}）`,
+  "PAINT2%": `PAINT2M / PAINT2A（${PAINT_SPLIT_NOTE}）`,
+  MID2M: `ミッドレンジ（ペイント外）の2P成功数（${PAINT_SPLIT_NOTE}）`,
+  MID2A: `ミッドレンジ（ペイント外）の2P試投数（${PAINT_SPLIT_NOTE}）`,
+  "MID2%": `MID2M / MID2A（${PAINT_SPLIT_NOTE}）`,
+  "%PAINT2M": `PAINT2M / FGA（${PAINT_SPLIT_NOTE}）`,
+  "%PAINT2A": `PAINT2A / FGA（${PAINT_SPLIT_NOTE}）`,
+  "%MID2M": `MID2M / FGA（${PAINT_SPLIT_NOTE}）`,
+  "%MID2A": `MID2A / FGA（${PAINT_SPLIT_NOTE}）`,
+  "%IPA": `ペイント内の試投の割合。PAINT2A / FGA（${PAINT_SPLIT_NOTE}）`,
+  "%OPA": `ペイント外の試投の割合。(FGA－PAINT2A) / FGA（${PAINT_SPLIT_NOTE}）`,
   "3PM/FGA": "自分の3PM / 自分のFGA",
   "3PA/FGA": "自分の3PA / 自分のFGA",
-  "PAINT2M/FGA": `自分のPAINT2M / 自分のFGA（${SHOT_CHART_NOTE}）`,
-  "PAINT2A/FGA": `自分のPAINT2A / 自分のFGA（${SHOT_CHART_NOTE}）`,
-  "MID2M/FGA": `自分のMID2M / 自分のFGA（${SHOT_CHART_NOTE}）`,
-  "MID2A/FGA": `自分のMID2A / 自分のFGA（${SHOT_CHART_NOTE}）`,
+  "PAINT2M/FGA": `自分のPAINT2M / 自分のFGA（${PAINT_SPLIT_NOTE}）`,
+  "PAINT2A/FGA": `自分のPAINT2A / 自分のFGA（${PAINT_SPLIT_NOTE}）`,
+  "MID2M/FGA": `自分のMID2M / 自分のFGA（${PAINT_SPLIT_NOTE}）`,
+  "MID2A/FGA": `自分のMID2A / 自分のFGA（${PAINT_SPLIT_NOTE}）`,
   "日本人 PTS": "日本人選手の得点",
   "外国籍・帰化・アジア PTS": "外国籍・帰化・アジア特別枠の選手の得点",
   "%日本人 PTS": "総得点に占める日本人選手の得点の割合",
