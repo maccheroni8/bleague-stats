@@ -52,13 +52,6 @@ export function playerLogsFgaShare(logs: PlayerGameLog[]): PointsShare & { games
 
 // --- 選手一覧「Scoring %」: 選択したシーズンの選手（1行＝1選手） ---
 
-/** スマホ幅の行の見出しに使う名字。「ケリー・ブラックシアー・ジュニア」のように末尾が「ジュニア」の名前は、その前の要素にする */
-function chartSurname(name: string): string {
-  const parts = name.split("・");
-  if (parts.length > 2 && parts.at(-1) === "ジュニア") return parts.at(-2)!;
-  return surnameOf(name);
-}
-
 export interface PlayerShareListRow {
   playerId: string;
   name: string;
@@ -87,8 +80,8 @@ export function PlayersScoringShareChart({
     const team = teamShortName(r.teamId, r.teamName);
     return {
       key: r.playerId,
-      // スマホ幅は名字だけ（見出しの幅に収めるため）
-      labelLines: [narrow ? chartSurname(r.name) : r.name, team],
+      // スマホ幅は名字だけ（見出しの幅に収めるため。サイト全体と同じ出し方で、「〜・ジュニア」は「ジュニア」）
+      labelLines: [narrow ? surnameOf(r.name) : r.name, team],
       pct: r.share.pct,
       details: d.details,
       tooltipDetails: d.tooltipDetails,
@@ -136,7 +129,7 @@ export function PlayersFgaShareChart({
     const team = teamShortName(r.teamId, r.teamName);
     return {
       key: r.playerId,
-      labelLines: [narrow ? chartSurname(r.name) : r.name, team],
+      labelLines: [narrow ? surnameOf(r.name) : r.name, team],
       pct: r.fga.pct,
       details: d.details,
       tooltipDetails: d.tooltipDetails,
