@@ -81,7 +81,14 @@ import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdow
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { filterByGameType, type SeasonGameTypeFilter } from "../../shared/gameType";
 import { statDescription } from "../lib/statDescriptions";
-import { PlayersScoringShareChart, playerLogsScoringShare, type PlayerShareListRow } from "../components/PlayerScoringShareCharts";
+import {
+  PlayersFgaShareChart,
+  PlayersScoringShareChart,
+  playerLogsFgaShare,
+  playerLogsScoringShare,
+  type PlayerShareListRow,
+} from "../components/PlayerScoringShareCharts";
+import { FGA_ORDER_LABELS, type FgaShareOrder } from "../components/FgaCompositionChart";
 import { SCORING_ORDER_LABELS, type PointsShareOrder } from "../components/ScoringCompositionChart";
 import { usePageState } from "../lib/pageStateCache";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
@@ -627,6 +634,13 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   // （出場試合率のスライダーの代わりに固定。登録区分・ポジション・クラブの絞り込みは効く）。値はレギュラーシーズンの試合ログの合計
   const [storedScoringOrder, setScoringOrder] = usePageState<PointsShareOrder>("players:scoringOrder", "total");
   const scoringOrder: PointsShareOrder = storedScoringOrder in SCORING_ORDER_LABELS ? storedScoringOrder : "total";
+  // FG試投構成の並び順と「もっと見る」（2026-09-27）。対象の選手は得点構成と同じ
+  const [storedFgaOrder, setFgaOrder] = usePageState<FgaShareOrder>("players:fgaOrder", "total");
+  const fgaOrder: FgaShareOrder = storedFgaOrder in FGA_ORDER_LABELS ? storedFgaOrder : "total";
+  const [fgaVisibleCount, setFgaVisibleCount] = useState(PAGE_SIZE);
+  useEffect(() => {
+    setFgaVisibleCount(PAGE_SIZE);
+  }, [season, classificationFilter, teamFilter, positionFilter]);
   const scoringShareRows: PlayerShareListRow[] = useMemo(() => {
     if (tab !== "scoringComposition" || !players || !teams || !gameLogs) return [];
     return filterPlayersByGamesPlayedRatio(players, teams)
@@ -644,6 +658,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         teamId: p.teamId,
         teamName: p.teamName,
         share: playerLogsScoringShare(gameLogs.get(p.playerId) ?? []),
+        fga: playerLogsFgaShare(gameLogs.get(p.playerId) ?? []),
       }))
       .filter((r) => r.share.perGame > 0);
   }, [tab, players, teams, gameLogs, classificationFilter, teamFilter, positionFilter]);
@@ -909,7 +924,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
               axes={[
                 simpleSelectAxis({
                   id: "scoringOrder",
-                  label: "並び順",
+                  label: "得点構成の並び順",
                   options: (Object.keys(SCORING_ORDER_LABELS) as PointsShareOrder[]).map((o) => ({
                     value: o,
                     label: o === "total" ? "得点が多い順" : SCORING_ORDER_LABELS[o],
@@ -918,8 +933,17 @@ function AllPlayersStatsTab({ season }: { season: string }) {
                   defaultValue: "total",
                   onChange: (v) => setScoringOrder(v as PointsShareOrder),
                 }),
+                simpleSelectAxis({
+                  id: "fgaOrder",
+                  label: "FG試投構成の並び順",
+                  options: (Object.keys(FGA_ORDER_LABELS) as FgaShareOrder[]).map((o) => ({ value: o, label: FGA_ORDER_LABELS[o] })),
+                  value: fgaOrder,
+                  defaultValue: "total",
+                  onChange: (v) => setFgaOrder(v as FgaShareOrder),
+                }),
               ]}
             />
+            <h3>得点構成（総得点に占める割合）</h3>
             <PlayersScoringShareChart
               rows={scoringShareRows}
               order={scoringOrder}
@@ -929,6 +953,16 @@ function AllPlayersStatsTab({ season }: { season: string }) {
             <p className="page-subtitle">
               レギュラーシーズン・シーズン合計の値です。対象は、所属チームの試合数の85%以上に出場し、1試合平均10分以上・合計300分以上出場した選手です（{scoringShareRows.length}人）。
               棒の中の数値は割合(%)と1試合平均の得点、右端は1試合平均の得点です。ミッドレンジは「2Pの得点−ペイント内の得点」です
+            </p>
+            <h3>FG試投構成（FGAに占める割合）</h3>
+            <PlayersFgaShareChart
+              rows={scoringShareRows}
+              order={fgaOrder}
+              visibleCount={fgaVisibleCount}
+              onMore={() => setFgaVisibleCount((c) => c + PAGE_SIZE)}
+            />
+            <p className="page-subtitle">
+              対象の選手は得点構成と同じです。Paint・Mid-rangeはプレーバイプレーの公式の区分（ペイント内／ペイント外の2P）です。棒の中の数値は割合(%)と1試合平均の試投数、右端は1試合平均のFGAです
             </p>
           </>
         )

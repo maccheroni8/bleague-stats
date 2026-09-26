@@ -16,7 +16,7 @@ export const FGA_ORDER_LABELS: Record<FgaShareOrder, string> = {
   cat2: "Paintの割合が高い順",
 };
 
-function compareFgaShares(order: FgaShareOrder, a: PointsShare, b: PointsShare): number {
+export function compareFgaShares(order: FgaShareOrder, a: PointsShare, b: PointsShare): number {
   if (order === "total") return b.perGame - a.perGame;
   const i = Number(order.slice(3));
   return (b.pct[i] ?? 0) - (a.pct[i] ?? 0) || b.perGame - a.perGame;

@@ -4,6 +4,10 @@ import type { GameTeamInfo } from "../lib/situational";
 import { surnameOf } from "../lib/playerSurname";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import {
+  FGA_CATEGORIES,
+  fgaDetails,
+  fgaRightLabel,
+  fgaShare,
   isRegularSeasonInProgress,
   playerScoringShare,
   pointsDetails,
@@ -15,6 +19,7 @@ import { fetchPlayoffRace } from "../lib/data";
 import { currentSeason } from "../lib/season";
 import { useJsonData } from "../lib/useJsonData";
 import { comparePointsShares, type PointsShareOrder } from "./ScoringCompositionChart";
+import { compareFgaShares, type FgaShareOrder } from "./FgaCompositionChart";
 import { ShareBarChart, type ShareBarRow } from "./ShareBarChart";
 
 /**
@@ -37,6 +42,14 @@ export function playerLogsScoringShare(logs: PlayerGameLog[]): PointsShare & { g
   return { ...share, games: played.length };
 }
 
+/** レギュラーシーズンの出場試合の合計から FG試投構成（3P・Mid-range・Paint。ペイント内外はプレーバイプレーの公式の区分）を出す */
+export function playerLogsFgaShare(logs: PlayerGameLog[]): PointsShare & { games: number } {
+  const played = logs.filter((g) => g.gameType === "regular" && g.min > 0);
+  const sum = (f: (g: PlayerGameLog) => number) => played.reduce((a, g) => a + f(g), 0);
+  const share = fgaShare({ games: played.length, tpa: sum((g) => g.tpa), mid2a: sum((g) => g.mid2a), paint2a: sum((g) => g.paint2a) });
+  return { ...share, games: played.length };
+}
+
 // --- 選手一覧「Scoring %」: 選択したシーズンの選手（1行＝1選手） ---
 
 /** スマホ幅の行の見出しに使う名字。「ケリー・ブラックシアー・ジュニア」のように末尾が「ジュニア」の名前は、その前の要素にする */
@@ -52,6 +65,8 @@ export interface PlayerShareListRow {
   teamId: string;
   teamName: string;
   share: PointsShare;
+  /** FG試投構成 */
+  fga: PointsShare;
 }
 
 export function PlayersScoringShareChart({
@@ -102,6 +117,54 @@ export function PlayersScoringShareChart({
   );
 }
 
+/** 選手一覧 Scoring % の FG試投構成（1行＝1選手）。対象の選手は得点構成と同じ。右端は1試合平均のFGA */
+export function PlayersFgaShareChart({
+  rows,
+  order,
+  visibleCount,
+  onMore,
+}: {
+  rows: PlayerShareListRow[];
+  order: FgaShareOrder;
+  visibleCount: number;
+  onMore: () => void;
+}) {
+  const narrow = useMediaQuery("(max-width: 560px)");
+  const sorted = rows.filter((r) => r.fga.perGame > 0).sort((a, b) => compareFgaShares(order, a.fga, b.fga) || a.playerId.localeCompare(b.playerId));
+  const chartRows: ShareBarRow[] = sorted.slice(0, visibleCount).map((r) => {
+    const d = fgaDetails(r.fga);
+    const team = teamShortName(r.teamId, r.teamName);
+    return {
+      key: r.playerId,
+      labelLines: [narrow ? chartSurname(r.name) : r.name, team],
+      pct: r.fga.pct,
+      details: d.details,
+      tooltipDetails: d.tooltipDetails,
+      rightLabel: fgaRightLabel(r.fga.perGame),
+      tooltipTitle: `${r.name}（${team}）`,
+      tooltipFooter: d.footer,
+    };
+  });
+  const rest = sorted.length - visibleCount;
+  return (
+    <ShareBarChart
+      rows={chartRows}
+      categories={FGA_CATEGORIES}
+      wideMinSegment={46}
+      labelWidth={{ wide: 200, narrow: 90 }}
+      rightWidth={{ wide: 52, narrow: 36 }}
+      emptyMessage="条件に該当する選手がいません"
+      footer={
+        rest > 0 && (
+          <button className="load-more-button" type="button" onClick={onMore}>
+            もっと見る（あと{rest}人）
+          </button>
+        )
+      }
+    />
+  );
+}
+
 // --- 個人詳細: その選手のシーズン別推移（1行＝1シーズン） ---
 
 export function PlayerSeasonScoringChart({
@@ -115,6 +178,7 @@ export function PlayerSeasonScoringChart({
   const { data: race } = useJsonData(() => fetchPlayoffRace(current).catch(() => null), [current]);
   const inProgressSeason = isRegularSeasonInProgress(current, current, race) ? current : null;
   const rows: ShareBarRow[] = [];
+  const fgaRows: ShareBarRow[] = [];
   for (const s of seasons) {
     const share = playerLogsScoringShare(s.logs);
     if (share.games === 0 || share.perGame <= 0) continue;
@@ -139,6 +203,20 @@ export function PlayerSeasonScoringChart({
       tooltipTitle: `${s.season}${sub ? `（${sub}）` : ""}`,
       tooltipFooter: `${d.footer}（${share.games}試合）`,
     });
+    const fga = playerLogsFgaShare(s.logs);
+    if (fga.perGame > 0) {
+      const fd = fgaDetails(fga);
+      fgaRows.push({
+        key: s.season,
+        labelLines: sub ? [s.season, sub] : [s.season],
+        pct: fga.pct,
+        details: fd.details,
+        tooltipDetails: fd.tooltipDetails,
+        rightLabel: fgaRightLabel(fga.perGame),
+        tooltipTitle: `${s.season}${sub ? `（${sub}）` : ""}`,
+        tooltipFooter: `${fd.footer}（${fga.games}試合）`,
+      });
+    }
   }
   return (
     <>
@@ -151,9 +229,19 @@ export function PlayerSeasonScoringChart({
         rightWidth={{ wide: 52, narrow: 36 }}
         emptyMessage="レギュラーシーズンの得点がありません"
       />
+      <h4 className="share-trend-title">FG試投構成</h4>
+      <ShareBarChart
+        rows={fgaRows}
+        categories={FGA_CATEGORIES}
+        wideMinSegment={46}
+        labelWidth={{ wide: 112, narrow: 92 }}
+        rightWidth={{ wide: 52, narrow: 36 }}
+        emptyMessage="レギュラーシーズンのFG試投がありません"
+      />
       <p className="page-subtitle">
         レギュラーシーズン・シーズン合計の値です（上部の試合種別・Q別・平均/合計とは連動しません）。移籍したシーズンは1本にまとめ、見出しに所属チームを並べています。
-        棒の中の数値は割合(%)と1試合平均の得点、右端は1試合平均の得点です。ミッドレンジは「2Pの得点−ペイント内の得点」です
+        得点構成の棒の中の数値は割合(%)と1試合平均の得点、右端は1試合平均の得点です。ミッドレンジは「2Pの得点−ペイント内の得点」です。
+        FG試投構成はFGAに占める3P・Mid-range・Paintの割合で、Paint・Mid-rangeはプレーバイプレーの公式の区分（ペイント内／ペイント外の2P）です。棒の中の数値は割合(%)と1試合平均の試投数、右端は1試合平均のFGAです
       </p>
     </>
   );
