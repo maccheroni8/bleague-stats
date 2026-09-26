@@ -1913,6 +1913,19 @@ function teamPointsExtraColumnsForTab(tab: BoxscoreTabKey | "shooting" | "forced
   return tab === "misc" ? TEAM_POINTS_MISC_COLUMNS : tab === "scoring" ? TEAM_POINTS_SHARE_COLUMNS : [];
 }
 
+// 「日程結果」タブはベンチ得点・スタメン得点（とその%）だけを追加する（2026-09-26）
+const SCHEDULE_POINTS_COLUMN_KEYS: ReadonlySet<string> = new Set(["benchPts", "starterPts", "benchPtsShare", "starterPtsShare"]);
+
+/** 「日程結果」タブの1試合分のベンチ得点・スタメン得点。集計時に TeamGameLog へ入れた値を使う（国籍区分別はこのタブでは出さない） */
+function scheduleGamePointsBreakdown(log: TeamGameLog | undefined): TeamPointsBreakdownResult | null {
+  if (!log) return null;
+  return {
+    own: { bench: log.benchPoints, starter: log.starterPoints, japanese: 0, international: 0 },
+    opp: { bench: log.opponentBenchPoints, starter: log.opponentStarterPoints, japanese: 0, international: 0 },
+    gamesPlayed: 1,
+  };
+}
+
 function formatTeamPointsCount(
   result: TeamPointsBreakdownResult | null,
   col: TeamPointsExtraColumn,
@@ -3156,6 +3169,9 @@ export function TeamDetailPage({ season }: { season: string }) {
       : scheduleRows.filter((row) => gameLogsByScheduleKey.get(row.scheduleKey)?.gameType === scheduleGameType);
   // 「日程結果」タブのカテゴリタブ用の列定義。試合詳細ページのボックススコアと完全に同じ配列
   const scheduleBoxColumns = COLUMNS_BY_TAB[scheduleBoxTab];
+  // Misc・Scoringタブの末尾にベンチ得点・スタメン得点を足す（他の表と同じ置き場所）。TeamGameLogにだけある値のため、Q別/前後半の表示では「-」
+  const schedulePointsColumns = teamPointsExtraColumnsForTab(scheduleBoxTab).filter((c) => SCHEDULE_POINTS_COLUMN_KEYS.has(c.key));
+  const schedulePointsSupported = !schedulePeriodOption?.periods;
   const scheduleShotChartSupported = isShotChartSupported(coverage);
   // Misc/スコアリングタブのPBPタグ集計にはYahoo PBPも必要。season対応でも該当試合の取得が
   // 終わっていない間は誤って「0件」と表示しないよう、読み込み中はテーブル全体を「読み込み中」にする
@@ -3658,6 +3674,11 @@ export function TeamDetailPage({ season }: { season: string }) {
                           <StatHeaderLabel label={col.label} />
                         </th>
                       ))}
+                      {schedulePointsColumns.map((col) => (
+                        <th key={col.key} className="align-right" title={statDescription(col.label, "team")}>
+                          <StatHeaderLabel label={col.label} />
+                        </th>
+                      ))}
                       <th className="align-left">会場</th>
                     </tr>
                   </thead>
@@ -3681,6 +3702,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                           perspective={scheduleTeamPerspective}
                           columns={scheduleBoxColumns}
                           boxTotals={boxTotals}
+                          pointsColumns={schedulePointsColumns}
+                          points={schedulePointsSupported ? scheduleGamePointsBreakdown(gameLogsByScheduleKey.get(row.scheduleKey)) : null}
                         />
                       );
                     })}
@@ -3691,6 +3714,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             {scheduleBoxTab === "misc" && scheduleFilteredRows.length > 0 && <RuleChangeFootnote seasons={[season]} />}
             <p className="page-subtitle">
               各列は試合詳細ページのボックススコアと同じ算出ロジック（自チーム/opp/+/-切り替え可）。上部のレギュラー/{postseasonLabel(season)}・Q別/前後半トグルと連動する。未消化・進行中の試合は「-」表示になる
+              {schedulePointsColumns.length > 0 && "。BENCH PTS・STARTER PTSは試合全体の値のため、Q別/前後半の表示では「-」になる"}
             </p>
           </div>
         ))}
@@ -4526,11 +4550,15 @@ function TeamScheduleRowView({
   perspective,
   columns,
   boxTotals,
+  pointsColumns,
+  points,
 }: {
   row: TeamScheduleRow;
   perspective: TeamPerspective;
   columns: BoxscoreColumn[];
   boxTotals: TeamGameBoxTotals | null;
+  pointsColumns: TeamPointsExtraColumn[];
+  points: TeamPointsBreakdownResult | null;
 }) {
   const linkTo = row.status === "upcoming" ? undefined : `/games/${row.scheduleKey}`;
   return (
@@ -4563,6 +4591,11 @@ function TeamScheduleRowView({
               : perspective === "opp"
                 ? col.format(boxTotals.opp, boxTotals.oppCtx)
                 : formatColumnDiff(col, boxTotals.own, boxTotals.ownCtx, boxTotals.opp, boxTotals.oppCtx)}
+        </td>
+      ))}
+      {pointsColumns.map((col) => (
+        <td key={col.key} className="align-right">
+          {formatTeamPointsExtraColumn(points, col, perspective, "total")}
         </td>
       ))}
       <td className="align-left">{row.venue ?? "-"}</td>
