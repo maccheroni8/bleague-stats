@@ -24,6 +24,21 @@ const DEFAULT_RETRY_DELAY_MS = 10_000;
 /** ホストごとの直前の問い合わせ時刻と、直列にするための待ち行列（プロセス全体で共有） */
 const lastRequestAtByHost = new Map<string, number>();
 const queueByHost = new Map<string, Promise<unknown>>();
+/** ホストごとの実際の問い合わせ回数（再試行を含む。プロセス全体で共有。ログ用、2026-09-26） */
+const requestCountByHost = new Map<string, number>();
+
+/** このプロセスで行った問い合わせ回数（再試行を含む）。ホストごとと合計 */
+export function requestCounts(): { total: number; byHost: Record<string, number> } {
+  const byHost = Object.fromEntries(requestCountByHost);
+  return { total: Object.values(byHost).reduce((a, b) => a + b, 0), byHost };
+}
+
+/** ログに出す1行（例:「問い合わせ 4回（www.bleague.jp 4回）」） */
+export function formatRequestCounts(): string {
+  const { total, byHost } = requestCounts();
+  const parts = Object.entries(byHost).map(([host, n]) => `${host} ${n}回`);
+  return `問い合わせ ${total}回${parts.length > 0 ? `（${parts.join("・")}）` : ""}`;
+}
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -40,6 +55,7 @@ export function createThrottledFetch(minIntervalMs: number, userAgent: string, o
 
   const once = async (url: string, host: string): Promise<Response> => {
     await waitForSlot(host, minIntervalMs);
+    requestCountByHost.set(host, (requestCountByHost.get(host) ?? 0) + 1);
     return fetch(url, {
       headers: { "User-Agent": userAgent },
       ...(timeoutMs !== null ? { signal: AbortSignal.timeout(timeoutMs) } : {}),

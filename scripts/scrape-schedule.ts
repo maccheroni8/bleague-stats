@@ -28,7 +28,7 @@
 //   npm run scrape:schedule -- --season 2025-26 --recent 14 --verify-upcoming 14  # ＋今後14日の日程変更検知（深夜用）
 
 import path from "node:path";
-import { createThrottledFetch } from "./lib/throttle.ts";
+import { createThrottledFetch, formatRequestCounts } from "./lib/throttle.ts";
 import { DATA_DIR, listStoredScheduleKeys, readJson, seasonDirName, writeJson } from "./lib/storage.ts";
 import { seasonStartYearForDate } from "./lib/season.ts";
 import { isMainModule } from "./lib/isMain.ts";
@@ -402,8 +402,11 @@ async function main(): Promise<void> {
 }
 
 if (isMainModule(import.meta.url)) {
-  main().catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-  });
+  main()
+    .catch((err) => {
+      console.error(err);
+      process.exitCode = 1;
+    })
+    // 失敗したときも含めて、このステップの問い合わせ回数（再試行を含む）を1行出す（2026-09-26）
+    .finally(() => console.log(`[schedule] ${formatRequestCounts()}`));
 }
