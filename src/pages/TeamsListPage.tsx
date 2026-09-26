@@ -7,6 +7,7 @@ import { Link, Navigate, useLocation } from "react-router-dom";
 import {
   fetchClubHonors,
   fetchDivisionHistory,
+  fetchTeamHistory,
   fetchGameSummaries,
   fetchLeagueAverage,
   fetchLeagueTeamRankings,
@@ -108,8 +109,7 @@ import {
 import { statDescription } from "../lib/statDescriptions";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "../lib/teamRankingData";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
-import { useTeamText } from "../lib/teamLabel";
-import { useTeamLabel } from "../lib/teamLabel";
+import { teamNameInSeason, useNarrow, useTeamLabel, useTeamText } from "../lib/teamLabel";
 
 type TeamsPageTab = "stats" | "records" | "champions" | "recent";
 
@@ -842,6 +842,9 @@ interface LeagueRecordRow {
 
 function LeagueRecordsTab() {
   const teamLabel = useTeamLabel();
+  const narrow = useNarrow();
+  const { data: teamHistory } = useJsonData(() => fetchTeamHistory(), []);
+  const seasonName = (teamId: string, season: string) => teamNameInSeason(teamHistory, teamId, season, leagueTeamDisplayName(teamId));
   const {
     data: rankings,
     loading: rankingsLoading,
@@ -926,7 +929,7 @@ function LeagueRecordsTab() {
                   <th className="align-right">#</th>
                   <th className="align-left">チーム</th>
                   <th className="align-right rank-value-head" title={statDescription(activeLabel, "team")}>{activeLabel}</th>
-                  <th className="align-left">シーズン</th>
+                  {!narrow && <th className="align-left">シーズン</th>}
                   <th className="align-left">試合</th>
                 </tr>
               </thead>
@@ -940,22 +943,21 @@ function LeagueRecordsTab() {
                           <TeamLogo teamId={r.teamId} size={20} />
                           <span className="rank-name-cell">
                             <span className="rank-name">
-                              <ResponsiveTeamName teamId={r.teamId} name={leagueTeamDisplayName(r.teamId)} />
+                              <ResponsiveTeamName teamId={r.teamId} name={seasonName(r.teamId, r.season)} />
                             </span>
-                            <span className="rank-sublabel">{leagueTeamCurrentCategoryLabel(r.teamId)}</span>
                           </span>
                         </span>
                       </TeamNavLink>
                     </td>
                     <td className="align-right rank-value">{formatLeagueRecordValue(valueCategory, statKey, r.value)}</td>
-                    <td className="align-left record-season">{r.season}</td>
+                    {!narrow && <td className="align-left record-season">{r.season}</td>}
                     <td className="align-left">
                       {r.scheduleKey ? (
                         <Link to={`/games/${r.scheduleKey}?season=${r.season}`} className="cell-link">
                           <span className="record-date">{r.date}</span>
                           {r.opponentTeamId && (
                             <span className="record-opponent">
-                              {` ${r.isHome ? "vs" : "@"} ${teamLabel(r.opponentTeamId, leagueTeamDisplayName(r.opponentTeamId))}`}
+                              {` ${r.isHome ? "vs" : "@"} ${teamLabel(r.opponentTeamId, seasonName(r.opponentTeamId, r.season))}`}
                             </span>
                           )}
                         </Link>
@@ -993,7 +995,8 @@ function LeagueRecordsTab() {
                           <span className="rank-name">
                               <ResponsiveTeamName teamId={r.teamId} name={leagueTeamDisplayName(r.teamId)} />
                             </span>
-                          <span className="rank-sublabel">{leagueTeamCurrentCategoryLabel(r.teamId)}</span>
+                          {/* 今の所属リーグは、通算成績（クラブ単位）だけに出す。1試合・1シーズンの記録では当時のリーグと違うことがあるため */}
+                          {category === "career" && <span className="rank-sublabel">{leagueTeamCurrentCategoryLabel(r.teamId)}</span>}
                         </span>
                       </span>
                     </TeamNavLink>
@@ -1035,6 +1038,7 @@ function PeriodRecordTables({
   useEffect(() => setShowAll(false), [statKey, gameType]);
   // スマホ幅は短いチーム名・2桁の年・日付と相手の2行にして、表を画面幅に収める
   const narrow = useMediaQuery("(max-width: 560px)");
+  const { data: teamHistory } = useJsonData(() => fetchTeamHistory(), []);
   const clubBests = Object.entries(rankings.periodRecord?.[gameType]?.[statKey] ?? {})
     .map(([teamId, entry]) => ({ teamId, entry }))
     .sort((a, b) => a.entry.rank - b.entry.rank || a.entry.date.localeCompare(b.entry.date));
@@ -1043,24 +1047,26 @@ function PeriodRecordTables({
   const hidden = top.length - visibleTop.length;
   if (!rankings.periodRecord) return <p className="empty-message">データがありません</p>;
 
-  const teamCell = (teamId: string) => (
+  // チーム名は記録のシーズンの名称（スマホ幅は当時の略称）。今の所属リーグは当時のリーグと違うことがあるので出さない
+  const seasonName = (teamId: string, season: string) => teamNameInSeason(teamHistory, teamId, season, leagueTeamDisplayName(teamId));
+  const teamCell = (teamId: string, season: string) => (
     <TeamNavLink teamId={teamId} divisionHistory={divisionHistory} className="cell-link">
       <span className="team-name-cell">
         <TeamLogo teamId={teamId} size={20} />
         <span className="rank-name-cell">
-          <span className="rank-name">{narrow ? teamShortName(teamId, leagueTeamDisplayName(teamId)) : leagueTeamDisplayName(teamId)}</span>
-          {!narrow && <span className="rank-sublabel">{leagueTeamCurrentCategoryLabel(teamId)}</span>}
+          <span className="rank-name">{narrow ? teamShortName(teamId, seasonName(teamId, season)) : seasonName(teamId, season)}</span>
         </span>
       </span>
     </TeamNavLink>
   );
-  const opponentName = (teamId: string) => (narrow ? teamShortName(teamId, leagueTeamDisplayName(teamId)) : leagueTeamDisplayName(teamId));
+  const opponentName = (teamId: string, season: string) =>
+    narrow ? teamShortName(teamId, seasonName(teamId, season)) : seasonName(teamId, season);
   const gameLink = (e: { scheduleKey?: string; season: string; date?: string; isHome?: boolean; opponentTeamId?: string }) =>
     e.scheduleKey ? (
       <Link to={`/games/${e.scheduleKey}?season=${e.season}`} className="cell-link">
         {narrow ? e.date?.replace(/-/g, "/").slice(2) : e.date?.replace(/-/g, "/")}
         {narrow ? <br /> : " "}
-        {e.opponentTeamId && `${e.isHome ? "vs" : "@"} ${opponentName(e.opponentTeamId)}`}
+        {e.opponentTeamId && `${e.isHome ? "vs" : "@"} ${opponentName(e.opponentTeamId, e.season)}`}
       </Link>
     ) : (
       "-"
@@ -1088,7 +1094,7 @@ function PeriodRecordTables({
             {clubBests.map(({ teamId, entry }) => (
               <tr key={teamId}>
                 <td className="align-right rank-cell">{entry.rank}</td>
-                <td className="align-left">{teamCell(teamId)}</td>
+                <td className="align-left">{teamCell(teamId, entry.season)}</td>
                 <td className="align-right rank-value">{formatPeriodRecordValue(statKey, entry.value)}</td>
                 <td className="align-right">
                   {entry.ownPoints}-{entry.oppPoints}
@@ -1124,7 +1130,7 @@ function PeriodRecordTables({
             {visibleTop.map((r, i) => (
               <tr key={`${r.scheduleKey}-${r.teamId}-${i}`}>
                 <td className="align-right rank-cell">{r.rank}</td>
-                <td className="align-left">{teamCell(r.teamId)}</td>
+                <td className="align-left">{teamCell(r.teamId, r.season)}</td>
                 <td className="align-right rank-value">
                   {formatPeriodRecordValue(statKey, r.value)}
                   {r.fromPbp && <span title="公式のクォーター別スコアが欠けている試合のため、プレーバイプレーの得点から出した値">※</span>}
@@ -1203,6 +1209,9 @@ function otherHonorsFrom(clubHonors: ClubHonorsFile): OtherHonorRow[] {
 
 function ChampionsTab() {
   const teamText = useTeamText();
+  // 優勝・表彰のクラブ名は、そのシーズンの名称（スマホ幅は当時の略称）
+  const { data: teamHistory } = useJsonData(() => fetchTeamHistory(), []);
+  const seasonName = (teamId: string, season: string) => teamNameInSeason(teamHistory, teamId, season, leagueTeamDisplayName(teamId));
   const {
     data: seasons,
     loading: seasonsLoading,
@@ -1316,7 +1325,7 @@ function ChampionsTab() {
                           <TeamNavLink teamId={champion.teamId} divisionHistory={divisionHistory} className="cell-link">
                             <span className="team-name-cell">
                               <TeamLogo teamId={champion.teamId} size={20} />
-                              <ResponsiveTeamName teamId={champion.teamId} name={leagueTeamDisplayName(champion.teamId)} />
+                              <ResponsiveTeamName teamId={champion.teamId} name={seasonName(champion.teamId, season)} />
                             </span>
                           </TeamNavLink>
                           {champion.note && <span className="honor-note">（{teamText(champion.note)}）</span>}
@@ -1335,7 +1344,7 @@ function ChampionsTab() {
                       <td className="align-left" colSpan={7}>
                         <span className="team-name-cell">
                           <TeamLogo teamId={champion.teamId} size={20} />
-                          <ResponsiveTeamName teamId={champion.teamId} name={leagueTeamDisplayName(champion.teamId)} />
+                          <ResponsiveTeamName teamId={champion.teamId} name={seasonName(champion.teamId, season)} />
                         </span>
                         <span className="honor-note">（成績データ取得中/未対応）</span>
                       </td>
@@ -1376,7 +1385,7 @@ function ChampionsTab() {
                       <li key={`${h.teamId}-${h.season}-${h.competition}-${i}`} className="honor-item">
                         <span className="honor-season">{h.season}</span>
                         <TeamNavLink teamId={h.teamId} divisionHistory={divisionHistory} className="honor-team-link">
-                          <ResponsiveTeamName teamId={h.teamId} name={leagueTeamDisplayName(h.teamId)} />
+                          <ResponsiveTeamName teamId={h.teamId} name={seasonName(h.teamId, h.season)} />
                         </TeamNavLink>
                         {team && (
                           <span className="honor-note">

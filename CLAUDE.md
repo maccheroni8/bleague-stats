@@ -49,7 +49,8 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   （表・グラフのラベル・試合の一覧・記録の一覧・注記の文中・チームの選択肢を含む）。チーム名は `ResponsiveTeamName`
   か `src/lib/teamLabel.ts` の `useTeamLabel`・`useTeamText`（文中）、選手名は `ResponsivePlayerName` か `src/lib/playerLabel.ts` の
   `usePlayerLabel` を通す。同じ一覧の中で名字が重なる選手はフルネームのまま（一覧の名前を `among` か `PlayerNamePool` で渡す）。
-  旧名称のシーズン（栃木ブレックス・サンロッカーズ渋谷）は当時の略称（栃木・SR渋谷）。選手を選ぶ選択肢の選手名はフルネームのまま
+  旧名称のシーズン（栃木ブレックス・サンロッカーズ渋谷）は当時の略称（栃木・SR渋谷）。過去のシーズンの記録の行は、今の名称ではなく
+  そのシーズンの名称を出し（`teamNameInSeason`）、今の所属リーグは添えない。選手を選ぶ選択肢の選手名はフルネームのまま
   （設計書151章）
 - 表の列見出し・比較の項目名にカーソルを合わせたときの説明文は、`src/lib/statDescriptions.ts` の辞書1か所で定義する
   （列定義や各ページに説明文を書かない。項目を足したら辞書にも足す。設計書136章）
