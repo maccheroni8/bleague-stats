@@ -20,6 +20,7 @@ import { useMediaQuery } from "../lib/useMediaQuery";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { GameLineupTable } from "../components/GameLineupTable";
 import { buildSurnameMap } from "../lib/playerSurname";
+import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
 import { buildGameLineups, rangeTotals, type GameLineupRow } from "../lib/gameLineups";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
@@ -486,7 +487,9 @@ export function GameDetailPage({ season }: { season: string }) {
       <div className="scoreboard">
         <div className="scoreboard-team" style={homeColor ? { borderTopColor: homeColor } : undefined}>
           <TeamLogo teamId={game.homeTeam.id} size={44} className="scoreboard-logo" />
-          <Link to={`/teams/${game.homeTeam.id}`}>{game.homeTeam.name}</Link>
+          <Link to={`/teams/${game.homeTeam.id}`}>
+            <ResponsiveTeamName teamId={game.homeTeam.id} name={game.homeTeam.name} />
+          </Link>
           <div className="scoreboard-score">{game.homeScore}</div>
         </div>
         <div className="scoreboard-vs">
@@ -509,7 +512,9 @@ export function GameDetailPage({ season }: { season: string }) {
         </div>
         <div className="scoreboard-team" style={awayColor ? { borderTopColor: awayColor } : undefined}>
           <TeamLogo teamId={game.awayTeam.id} size={44} className="scoreboard-logo" />
-          <Link to={`/teams/${game.awayTeam.id}`}>{game.awayTeam.name}</Link>
+          <Link to={`/teams/${game.awayTeam.id}`}>
+            <ResponsiveTeamName teamId={game.awayTeam.id} name={game.awayTeam.name} />
+          </Link>
           <div className="scoreboard-score">{game.awayScore}</div>
         </div>
       </div>
@@ -950,7 +955,7 @@ function ShootingBreakdownTable({
         <tr key={p.PlayerID}>
           <td className="align-left">
             <Link to={`/players/${p.PlayerID}`} className="cell-link">
-              {p.PlayerNameJ}
+              <ResponsivePlayerName name={p.PlayerNameJ} among={players.map((x) => x.PlayerNameJ)} />
             </Link>
           </td>
           {shotTypeKeys.map((key) => (
@@ -1034,14 +1039,14 @@ function GameLeadersTeam({
   return (
     <div className="game-leaders-team" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
       <h3>{teamName}</h3>
-      <LeaderTop3Row label="PTS" rows={topRankedLeaderRows(rows, "Point")} />
-      <LeaderTop3Row label="REB" rows={topRankedLeaderRows(rows, "RB_TOT")} />
-      <LeaderTop3Row label="AST" rows={topRankedLeaderRows(rows, "AS")} />
+      <LeaderTop3Row label="PTS" rows={topRankedLeaderRows(rows, "Point")} teamNames={rows.map((r) => r.PlayerNameJ)} />
+      <LeaderTop3Row label="REB" rows={topRankedLeaderRows(rows, "RB_TOT")} teamNames={rows.map((r) => r.PlayerNameJ)} />
+      <LeaderTop3Row label="AST" rows={topRankedLeaderRows(rows, "AS")} teamNames={rows.map((r) => r.PlayerNameJ)} />
     </div>
   );
 }
 
-function LeaderTop3Row({ label, rows }: { label: string; rows: LeaderDisplayRow[] }) {
+function LeaderTop3Row({ label, rows, teamNames }: { label: string; rows: LeaderDisplayRow[]; teamNames: string[] }) {
   const top1 = rows[0];
   return (
     <div className="leader-top3-row">
@@ -1055,7 +1060,7 @@ function LeaderTop3Row({ label, rows }: { label: string; rows: LeaderDisplayRow[
         {rows.map((row) => (
           <div key={row.player.PlayerID} className={`leader-top3-item leader-top3-rank-${row.groupIndex + 1}`}>
             <Link to={`/players/${row.player.PlayerID}`} className="leader-top3-name">
-              {row.player.PlayerNameJ}
+              <ResponsivePlayerName name={row.player.PlayerNameJ} among={teamNames} />
               {row.otherCount > 0 && <span className="leader-top3-others"> 他{row.otherCount}人</span>}
             </Link>
             <span className="leader-top3-value">{row.value}</span>

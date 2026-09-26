@@ -45,7 +45,67 @@ export const TEAM_SHORT_NAMES: Record<string, string> = {
   "753": "福岡",
 };
 
-/** 略称が無いチーム（未知のTeamID）はフルネームにフォールバックする */
+/**
+ * 旧名称の略称（2026-09-26）。そのシーズンの名称で表示している箇所では、略称も当時の名称に合わせる
+ * （2016-17〜2018-19 の「栃木ブレックス」を「宇都宮」、2025-26 までの「サンロッカーズ渋谷」を「東京SR」としないため）
+ */
+const FORMER_NAME_SHORT_NAMES: Record<string, string> = {
+  栃木ブレックス: "栃木",
+  サンロッカーズ渋谷: "SR渋谷",
+};
+
+/**
+ * 正式名称→略称（文章の中のチーム名を置き換える shortenTeamNamesInText 用）。現在の名称・旧名称・過去在籍クラブの名称を含む
+ */
+const SHORT_NAME_BY_FULL_NAME: Record<string, string> = {
+  レバンガ北海道: "北海道",
+  仙台89ERS: "仙台",
+  秋田ノーザンハピネッツ: "秋田",
+  茨城ロボッツ: "茨城",
+  宇都宮ブレックス: "宇都宮",
+  群馬クレインサンダーズ: "群馬",
+  アルティーリ千葉: "A千葉",
+  千葉ジェッツ: "千葉J",
+  アルバルク東京: "A東京",
+  東京サンロッカーズ: "東京SR",
+  川崎ブレイブサンダース: "川崎",
+  "横浜ビー・コルセアーズ": "横浜BC",
+  富山グラウジーズ: "富山",
+  信州ブレイブウォリアーズ: "信州",
+  三遠ネオフェニックス: "三遠",
+  シーホース三河: "三河",
+  名古屋ダイヤモンドドルフィンズ: "名古屋D",
+  滋賀レイクス: "滋賀",
+  滋賀レイクスターズ: "滋賀",
+  京都ハンナリーズ: "京都",
+  大阪エヴェッサ: "大阪",
+  神戸ストークス: "神戸",
+  島根スサノオマジック: "島根",
+  広島ドラゴンフライズ: "広島",
+  佐賀バルーナーズ: "佐賀",
+  長崎ヴェルカ: "長崎",
+  琉球ゴールデンキングス: "琉球",
+  新潟アルビレックスBB: "新潟",
+  ファイティングイーグルス名古屋: "FE名古屋",
+  越谷アルファーズ: "越谷",
+  ライジングゼファー福岡: "福岡",
+  ...FORMER_NAME_SHORT_NAMES,
+};
+
+/**
+ * 略称。fallback（表示中の正式名称）が旧名称なら当時の略称を返す。略称が無いチーム（未知のTeamID）はフルネームにフォールバックする
+ */
 export function teamShortName(teamId: string, fallback: string): string {
-  return TEAM_SHORT_NAMES[teamId] ?? fallback;
+  return FORMER_NAME_SHORT_NAMES[fallback] ?? TEAM_SHORT_NAMES[teamId] ?? fallback;
+}
+
+const FULL_NAMES_LONGEST_FIRST = Object.keys(SHORT_NAME_BY_FULL_NAME).sort((a, b) => b.length - a.length);
+
+/** 文章の中の正式名称をすべて略称に置き換える（表彰の注記など、チーム名が文の一部になっている箇所用） */
+export function shortenTeamNamesInText(text: string): string {
+  let result = text;
+  for (const full of FULL_NAMES_LONGEST_FIRST) {
+    if (result.includes(full)) result = result.split(full).join(SHORT_NAME_BY_FULL_NAME[full]!);
+  }
+  return result;
 }

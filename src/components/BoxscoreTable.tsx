@@ -27,6 +27,7 @@ import {
   type TeamRatings,
 } from "../lib/boxscoreAggregate";
 import { statDescription } from "../lib/statDescriptions";
+import { usePlayerLabel } from "../lib/playerLabel";
 
 export type BoxscoreTabKey = BoxCategoryKey;
 
@@ -705,6 +706,8 @@ function BoxscoreTeamPanel({
   // ハイライトはスタメン・ベンチを跨いだチーム全体で見た「トップ値」（Bリーグ公式ボックススコアの
   // チームリーダー表示と同じ考え方）。DNPは0値で不当に最良値を取ってしまうため候補から除外する
   const bestByColumn = computeBestByColumn(players, columns, playerCtx);
+  // スマホ幅では名字だけ（同じチームで名字が重なる選手はフルネーム）
+  const playerLabel = usePlayerLabel(players.map((p) => p.nameJ));
 
   return (
     <>
@@ -728,6 +731,7 @@ function BoxscoreTeamPanel({
                 ctx={playerCtx}
                 bestByColumn={bestByColumn}
                 showStatBadges={showStatBadges}
+                playerLabel={playerLabel}
               />
               <BoxscoreGroup
                 title="ベンチ"
@@ -736,6 +740,7 @@ function BoxscoreTeamPanel({
                 ctx={playerCtx}
                 bestByColumn={bestByColumn}
                 showStatBadges={showStatBadges}
+                playerLabel={playerLabel}
               />
               <BoxscoreDataRow
                 label="TEAM / COACHES"
@@ -834,6 +839,7 @@ function BoxscoreGroup({
   ctx,
   bestByColumn,
   showStatBadges,
+  playerLabel,
 }: {
   title: string;
   players: PlayerBoxscore[];
@@ -841,6 +847,7 @@ function BoxscoreGroup({
   ctx: ColumnCtx;
   bestByColumn: Map<string, number>;
   showStatBadges: boolean;
+  playerLabel: (name: string) => string;
 }) {
   if (players.length === 0) return null;
   // DNPは各グループの下部にまとめる（出場した選手を先に見せる）。それ以外は元の並び順を保持する
@@ -854,11 +861,11 @@ function BoxscoreGroup({
         <tr key={p.playerId} className={p.dnp ? "dnp-row" : undefined}>
           <td className="align-left">
             {p.playerId ? (
-              <Link to={`/players/${p.playerId}`} className="cell-link">
-                {p.nameJ}
+              <Link to={`/players/${p.playerId}`} className="cell-link" title={p.nameJ}>
+                {playerLabel(p.nameJ)}
               </Link>
             ) : (
-              p.nameJ
+              playerLabel(p.nameJ)
             )}
             {showStatBadges && p.statBadge && (
               <span className={`stat-badge stat-badge-${p.statBadge.toLowerCase()}`}>{p.statBadge}</span>

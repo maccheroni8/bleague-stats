@@ -45,6 +45,7 @@ import { useSeasonKeyedData } from "../lib/useSeasonKeyedData";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
+import { useTeamLabel } from "../lib/teamLabel";
 
 type Mode = "team" | "player";
 // スロットは3つ固定（各ビューのフック呼び出しも3つ固定）
@@ -426,6 +427,7 @@ function TeamCompareView({
   teamsBySeason,
   onUpdateSlot,
 }: ViewCommonProps & { perspective: TeamPerspective; teamsBySeason: Map<string, TeamSummary[] | null> | null }) {
+  const teamLabel = useTeamLabel();
   const exportRef = useRef<HTMLDivElement>(null);
 
   const lists = slots.map((s) => teamsBySeason?.get(s.season) ?? null);
@@ -484,7 +486,7 @@ function TeamCompareView({
             entityLabel="チーム"
             seasonOptions={seasonOptions}
             entityOptions={
-              lists[i] ? [{ value: LEAGUE_TEAM_ID, label: LEAGUE_TEAM_NAME }, ...lists[i]!.map((t) => ({ value: t.teamId, label: t.teamName }))] : []
+              lists[i] ? [{ value: LEAGUE_TEAM_ID, label: LEAGUE_TEAM_NAME }, ...lists[i]!.map((t) => ({ value: t.teamId, label: teamLabel(t.teamId, t.teamName) }))] : []
             }
             entityLoaded={lists[i] !== null && lists[i] !== undefined}
             entityValid={valid[i]!}
@@ -532,6 +534,7 @@ function PlayerCompareView({
   playersBySeason,
   onUpdateSlot,
 }: ViewCommonProps & { playersBySeason: Map<string, PlayerSummary[] | null> | null }) {
+  const teamLabel = useTeamLabel();
   const exportRef = useRef<HTMLDivElement>(null);
 
   const lists = slots.map((s) => playersBySeason?.get(s.season) ?? null);
@@ -580,7 +583,7 @@ function PlayerCompareView({
             stateKey={`compare:player:slot${i}`}
             entityLabel="選手"
             seasonOptions={seasonOptions}
-            entityOptions={(lists[i] ?? []).map((p) => ({ value: p.playerId, label: `${p.name}（${p.teamName}）` }))}
+            entityOptions={(lists[i] ?? []).map((p) => ({ value: p.playerId, label: `${p.name}（${teamLabel(p.teamId, p.teamName)}）` }))}
             entityLoaded={lists[i] !== null && lists[i] !== undefined}
             entityValid={valid[i]!}
             data={slotData[i]!}

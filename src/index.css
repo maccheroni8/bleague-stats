@@ -1974,6 +1974,25 @@ table.boxscore-table .boxscore-summary-grand-total td {
   .rankings-table .rank-sublabel {
     white-space: normal;
   }
+
+  /* 歴代記録の値の列の見出し。「最大点差からの逆転勝利」のような長い項目名は、短くせずにスマホ幅でだけ折り返す
+     （1行のままだと列が広がり、チーム名の列が細くなって行が縦に長くなっていた） */
+  .rankings-table th.rank-value-head {
+    white-space: normal;
+    width: 5.5em;
+    min-width: 5.5em;
+  }
+
+  /* 歴代記録（B.PREMIERレコード）のシーズン・日付は途中で折り返さず、対戦相手を日付の下の行に出す */
+  .rankings-table td.record-season,
+  .rankings-table .record-date,
+  .rankings-table .record-opponent {
+    white-space: nowrap;
+  }
+
+  .rankings-table .record-opponent {
+    display: block;
+  }
 }
 
 .compare-slots {

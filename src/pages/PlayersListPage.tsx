@@ -101,6 +101,8 @@ import {
   type SeasonDisplayMode,
   type TeamSeasonRawTotals,
 } from "../lib/playerSeasonBoxscore";
+import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
+import { PlayerNamePool } from "../components/PlayerNamePool";
 
 // 「個人」ページ。「全選手スタッツ」タブ（チーム版の「全チームスタッツ」と同じ考え方）・
 // 「歴代記録」タブ（チーム版の「歴代記録」から通算成績部分のみ、ユーザー依頼2026-09-04）・
@@ -198,7 +200,9 @@ const nameColumn: Column<PlayerRow> = {
   render: (r) => (
     <span className="player-cell">
       <PlayerPhoto playerId={r.player.playerId} size={44} className="player-cell-photo player-cell-photo-lg" />
-      <span className="player-cell-name">{r.player.name}</span>
+      <span className="player-cell-name">
+        <ResponsivePlayerName name={r.player.name} />
+      </span>
     </span>
   ),
 };
@@ -910,6 +914,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         <p className="empty-message">条件に該当する選手がいません</p>
       ) : (
         <>
+          <PlayerNamePool names={tableRows.map((r) => r.player.name)}>
           <div className="table-scroll">
             <SortableTable
               key={`${tab}|${tab === "traditional" || tab === "advanced" ? filterActive : false}`}
@@ -922,6 +927,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
               limit={visibleCount}
             />
           </div>
+          </PlayerNamePool>
           {visibleCount < tableRows.length && (
             <button className="load-more-button" type="button" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
               もっと見る（あと{tableRows.length - visibleCount}人）
@@ -1011,6 +1017,7 @@ function LeaguePlayerRecordsTab() {
       {rows.length === 0 ? (
         <p className="empty-message">この条件（ホーム/アウェイ/トータル・レギュラー/{postseasonLabel(null)}区分・項目）では該当選手がいません</p>
       ) : (
+        <PlayerNamePool names={rows.map((r) => rankings.players[r.playerId]?.name ?? "")}>
         <div className="table-scroll">
           <table className="sortable-table rankings-table">
             <thead>
@@ -1031,7 +1038,7 @@ function LeaguePlayerRecordsTab() {
                         <span className="player-cell">
                           <PlayerPhoto playerId={r.playerId} size={32} className="player-cell-photo" />
                           <span className="rank-name-cell">
-                            <span className="rank-name">{info?.name ?? r.playerId}</span>
+                            <span className="rank-name">{info ? <ResponsivePlayerName name={info.name} /> : r.playerId}</span>
                             <span className="rank-sublabel">
                               {info ? teamShortName(info.teamId, info.teamName) : ""}・{info?.latestSeason}シーズンまで在籍確認
                             </span>
@@ -1046,6 +1053,7 @@ function LeaguePlayerRecordsTab() {
             </tbody>
           </table>
         </div>
+        </PlayerNamePool>
       )}
     </div>
   );
@@ -1184,8 +1192,10 @@ function PlayerAwardsTimelineTab() {
               });
             const playerLookup = new Map((playersBySeason?.get(season) ?? []).map((p) => [p.playerId, p]));
 
+            const seasonNames = entries.map((e) => playerLookup.get(e.playerId)?.name ?? playersMasterById.get(e.playerId)?.name ?? "");
             return (
-              <div className="award-season-block" key={season}>
+              <PlayerNamePool names={seasonNames} key={season}>
+              <div className="award-season-block">
                 <h2 className="award-season-heading">{season}</h2>
                 <div className="award-season-groups">
                   {annual.length > 0 && (
@@ -1222,6 +1232,7 @@ function PlayerAwardsTimelineTab() {
                   )}
                 </div>
               </div>
+              </PlayerNamePool>
             );
           })}
         </div>
@@ -1253,7 +1264,9 @@ function AwardEntryRow({
         <span className="player-cell">
           <PlayerPhoto playerId={entry.playerId} size={32} className="player-cell-photo" />
           <span className="rank-name-cell">
-            <span className="rank-name">{name}</span>
+            <span className="rank-name">
+              <ResponsivePlayerName name={name} />
+            </span>
             <span className="rank-sublabel">
               {awardLabel(entry.name, entry.category)}
               {team ? `・${team}` : ""}
@@ -1439,7 +1452,9 @@ function PlayerRecentFormTab({ season }: { season: string }) {
       render: (r) => (
         <span className="player-cell">
           <PlayerPhoto playerId={r.player.playerId} size={44} className="player-cell-photo player-cell-photo-lg" />
-          <span className="player-cell-name">{r.player.name}</span>
+          <span className="player-cell-name">
+        <ResponsivePlayerName name={r.player.name} />
+      </span>
         </span>
       ),
     },
@@ -1514,15 +1529,17 @@ function PlayerRecentFormTab({ season }: { season: string }) {
       ) : rows.length === 0 ? (
         <p className="empty-message">この条件では該当選手がいません</p>
       ) : (
-        <div className="table-scroll">
-          <SortableTable
-            columns={columns}
-            rows={rows}
-            rowKey={(r) => r.player.playerId}
-            defaultSortKey="pts"
-            linkTo={(r) => `/players/${r.player.playerId}`}
-          />
-        </div>
+        <PlayerNamePool names={rows.map((r) => r.player.name)}>
+          <div className="table-scroll">
+            <SortableTable
+              columns={columns}
+              rows={rows}
+              rowKey={(r) => r.player.playerId}
+              defaultSortKey="pts"
+              linkTo={(r) => `/players/${r.player.playerId}`}
+            />
+          </div>
+        </PlayerNamePool>
       )}
     </div>
   );

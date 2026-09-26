@@ -2273,7 +2273,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <ul className="player-awards-list">
                 {championshipSeasons.map((c) => (
                   <li key={c.season}>
-                    {c.season} {c.teamName}優勝
+                    {c.season} <ResponsiveTeamName teamId={c.teamId} name={c.teamName} />優勝
                   </li>
                 ))}
               </ul>

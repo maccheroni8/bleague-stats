@@ -38,6 +38,7 @@ import type {
   TeamGameLog,
   UpcomingGameEntry,
 } from "../../shared/types";
+import { ResponsiveTeamName } from "./ResponsiveTeamName";
 
 /**
  * 「条件別順位表」タブが扱う単一選択の条件。SituationalFilterPicker（AND合成の複数選択）とは
@@ -477,7 +478,7 @@ export function ConditionalStandingsTable({
       render: (r) => (
         <span className="team-name-cell">
           <TeamLogo teamId={r.team.teamId} size={20} />
-          {r.team.teamName}
+          <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
         </span>
       ),
     },

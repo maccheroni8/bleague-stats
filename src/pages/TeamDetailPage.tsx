@@ -175,6 +175,10 @@ import { TeamSeasonForeignChart, TeamSeasonScoringCharts } from "../components/T
 import { isRegularSeasonInProgress } from "../lib/shareCharts";
 import { currentSeason } from "../lib/season";
 import { computeTopRecordEntries, TOP_RECORD_WORST_BAD_N, type TopRecordEntry } from "../lib/topRecords";
+import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
+import { PlayerNamePool } from "../components/PlayerNamePool";
+import { usePlayerLabel } from "../lib/playerLabel";
+import { useTeamLabel } from "../lib/teamLabel";
 
 const TEAM_SHOOTING_TAB_TOOLTIP =
   "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（チーム全選手合算、2023-24シーズン以降のみ）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意";
@@ -1955,6 +1959,9 @@ export function TeamDetailPage({ season }: { season: string }) {
   const pk = (field: string) => `team:${teamId}:${field}`;
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
   const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season), [season]);
+  // スマホ幅では名字だけ（同じチームで名字が重なる選手はフルネーム）。表の中の ResponsivePlayerName は PlayerNamePool で同じ一覧を受け取る
+  const teamLabel = useTeamLabel();
+  const playerLabel = usePlayerLabel((players ?? []).filter((p) => p.teamId === teamId).map((p) => p.name));
   const { data: gameLogs, loading: gameLogsLoading } = useJsonData(
     () => (teamId ? fetchTeamGameLogs(season, teamId) : Promise.resolve([])),
     [season, teamId],
@@ -3289,6 +3296,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const radarData = teams && teams.length > 1 ? buildRadarData(team, teams) : [];
 
   return (
+    <PlayerNamePool names={teamPlayers.map((p) => p.name)}>
     <div className="team-detail-page" data-design="v2">
       <Link to="/teams" className="back-link">
         ← チーム一覧に戻る
@@ -3434,7 +3442,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" />
                       <div className="leader-info">
                         <div className="leader-value">{def.format(leader)}</div>
-                        <div className="leader-name">{leader.name}</div>
+                        <div className="leader-name">
+                          <ResponsivePlayerName name={leader.name} />
+                        </div>
                       </div>
                     </Link>
                     {top.length > 1 && (
@@ -3443,7 +3453,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                           <div key={p.playerId} className="leader-rest-item">
                             <Link to={`/players/${p.playerId}`} className="leader-rest-item-link">
                               <span className="leader-rest-rank">{i + 2}</span>
-                              <span className="leader-rest-name">{p.name}</span>
+                              <span className="leader-rest-name">
+                                <ResponsivePlayerName name={p.name} />
+                              </span>
                             </Link>
                             <span className="leader-rest-value">{def.format(p)}</span>
                           </div>
@@ -3999,7 +4011,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                             {r.season}
                           </RouterLink>
                         </td>
-                        <td className="align-left">{r.teamName}</td>
+                        <td className="align-left">
+                          <ResponsiveTeamName teamId={team.teamId} name={r.teamName} />
+                        </td>
                         <td className="align-right">{r.team.gamesPlayed}</td>
                         <td className="align-right">{formatRecord(r.team.wins, r.team.losses)}</td>
                         <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
@@ -4373,8 +4387,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                       const pointsSharePct = scorerTotal && scorerTotal.points > 0 ? (100 * points) / scorerTotal.points : null;
                       return (
                         <tr key={`${p.assisterId}:${p.scorerId}`}>
-                          <td className="align-left">{playerNameById.get(p.assisterId) ?? p.assisterId}</td>
-                          <td className="align-left">{playerNameById.get(p.scorerId) ?? p.scorerId}</td>
+                          <td className="align-left">{playerLabel(playerNameById.get(p.assisterId) ?? p.assisterId)}</td>
+                          <td className="align-left">{playerLabel(playerNameById.get(p.scorerId) ?? p.scorerId)}</td>
                           <td className="align-right">{p.count}</td>
                           <td className="align-right">{countSharePct != null ? formatPct100(countSharePct) : "-"}</td>
                           <td className="align-right">{points}</td>
@@ -4429,7 +4443,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                         label: "対象",
                         value: slot.league ? "league" : "team",
                         options: [
-                          { value: "team", label: team.teamName },
+                          { value: "team", label: teamLabel(team.teamId, team.teamName) },
                           { value: "league", label: LEAGUE_TEAM_NAME },
                         ],
                         onChange: (v) => updateSlot({ league: v === "league", filter: { range: { kind: "all" } } }),
@@ -4508,6 +4522,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         </div>
       )}
     </div>
+    </PlayerNamePool>
   );
 }
 
@@ -4912,7 +4927,9 @@ function TeamPlayerStatsTable({
                           <div className="player-cell">
                             <PlayerPhoto playerId={r.player.playerId} size={32} className="player-cell-photo" />
                             <div className="player-cell-info">
-                              <div className="player-cell-name">{r.player.name}</div>
+                              <div className="player-cell-name">
+                                <ResponsivePlayerName name={r.player.name} />
+                              </div>
                               {playerProfileLine(r.player) && <div className="player-cell-profile">{playerProfileLine(r.player)}</div>}
                             </div>
                           </div>

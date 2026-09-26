@@ -101,6 +101,8 @@ import { heightText, positionText, weightText } from "../lib/profileMark";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import type { PlayerGameLog, PlayerSummary, TeamColors, TeamForcedTurnovers, TeamGameLog, TeamSummary } from "../../shared/types";
+import { useTeamLabel } from "../lib/teamLabel";
+import { usePlayerLabel } from "../lib/playerLabel";
 
 type Mode = "team" | "player";
 
@@ -347,6 +349,7 @@ function buildTeamCategoryColumns(
  * 見せ方だけが「多数列の一覧表」か「1項目ずつのランキング」かで異なる
  */
 function TeamRankingSection({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
+  const teamLabel = useTeamLabel();
   const exportRef = useRef<HTMLDivElement>(null);
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
   const { coverage } = useSeasonCoverage(season);
@@ -622,7 +625,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
                 rows={teamsWithShotTypes}
                 def={shootingDef}
                 rowKey={(t) => t.teamId}
-                name={(t) => t.teamName}
+                name={(t) => teamLabel(t.teamId, t.teamName)}
                 linkTo={(t) => `/teams/${t.teamId}`}
                 teamColor={(t) => teamColors?.[t.teamId]?.primary}
                 avatar={(t) => <TeamLogo teamId={t.teamId} size={48} />}
@@ -644,7 +647,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
                 rows={teamsWithForcedTurnovers}
                 def={forcedTurnoverDef}
                 rowKey={(t) => t.teamId}
-                name={(t) => t.teamName}
+                name={(t) => teamLabel(t.teamId, t.teamName)}
                 linkTo={(t) => `/teams/${t.teamId}`}
                 teamColor={(t) => teamColors?.[t.teamId]?.primary}
                 avatar={(t) => <TeamLogo teamId={t.teamId} size={48} />}
@@ -665,7 +668,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
               rows={rows}
               def={teamDef}
               rowKey={(r) => r.team.teamId}
-              name={(r) => r.team.teamName}
+              name={(r) => teamLabel(r.team.teamId, r.team.teamName)}
               linkTo={(r) => `/teams/${r.team.teamId}`}
               teamColor={(r) => teamColors?.[r.team.teamId]?.primary}
               avatar={(r) => <TeamLogo teamId={r.team.teamId} size={48} />}
@@ -1105,6 +1108,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     if (category === "shooting" || !ctxByPlayer) return eligible;
     return eligible.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.gamesPlayed ?? 0) > 0);
   }, [eligible, ctxByPlayer, category, statKey, careerBySeason]);
+  // スマホ幅では名字だけ（同じ一覧で名字が重なる選手はフルネーム）
+  const playerLabel = usePlayerLabel(rows.map((p) => p.name));
+  const teamLabel = useTeamLabel();
 
   const shootingColumns = useMemo(
     () => shotTypeEntityColumns(SHOT_TYPE_DISPLAY_ORDER, (p: PlayerSummary) => p.shotTypes, "perGame", (p) => p.gamesPlayed),
@@ -1339,8 +1345,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               rows={rows}
               def={rankDef}
               rowKey={(p) => p.playerId}
-              name={(p) => p.name}
-              subLabel={(p) => [p.teamName, positionText(p), classificationGroup(p.classification)].filter(Boolean).join("・")}
+              name={(p) => playerLabel(p.name)}
+              subLabel={(p) => [teamLabel(p.teamId, p.teamName), positionText(p), classificationGroup(p.classification)].filter(Boolean).join("・")}
               linkTo={(p) => `/players/${p.playerId}`}
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" />}

@@ -12,6 +12,8 @@ import { PlayerPhoto } from "../components/PlayerPhoto";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { formatDateHeading, formatSigned, formatWinPct } from "../lib/format";
 import { teamShortName } from "../../shared/teamNames";
+import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
+import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
 import { DIVISION_LABELS, groupByDivision } from "../lib/divisionGroups";
 import type { GameSummary, PlayerSummary, StandingsTeamSnapshot, TeamSummary } from "../../shared/types";
 
@@ -246,8 +248,10 @@ export function HomePage({ season }: { season: string }) {
                       <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" />
                       <div className="leader-info">
                         <div className="leader-value">{def.format(leader)}</div>
-                        <div className="leader-name">{leader.name}</div>
-                        <div className="leader-team">{leader.teamName}</div>
+                        <div className="leader-name"><ResponsivePlayerName name={leader.name} among={top.map((x) => x.name)} /></div>
+                        <div className="leader-team">
+                          <ResponsiveTeamName teamId={leader.teamId} name={leader.teamName} />
+                        </div>
                       </div>
                     </Link>
                     {top.length > 1 && (
@@ -256,7 +260,7 @@ export function HomePage({ season }: { season: string }) {
                           <div key={p.playerId} className="leader-rest-item">
                             <Link to={`/players/${p.playerId}`} className="leader-rest-item-link">
                               <span className="leader-rest-rank">{i + 2}</span>
-                              <span className="leader-rest-name">{p.name}</span>
+                              <span className="leader-rest-name"><ResponsivePlayerName name={p.name} among={top.map((x) => x.name)} /></span>
                             </Link>
                             <span className="leader-rest-value">{def.format(p)}</span>
                           </div>
@@ -289,7 +293,9 @@ export function HomePage({ season }: { season: string }) {
                     <TeamLogo teamId={leader.teamId} size={56} className="leader-photo" />
                     <div className="leader-info">
                       <div className="leader-value">{def.format(leader)}</div>
-                      <div className="leader-name">{leader.teamName}</div>
+                      <div className="leader-name">
+                        <ResponsiveTeamName teamId={leader.teamId} name={leader.teamName} />
+                      </div>
                     </div>
                   </Link>
                   {top.length > 1 && (
@@ -298,7 +304,9 @@ export function HomePage({ season }: { season: string }) {
                         <div key={t.teamId} className="leader-rest-item">
                           <Link to={`/teams/${t.teamId}`} className="leader-rest-item-link">
                             <span className="leader-rest-rank">{i + 2}</span>
-                            <span className="leader-rest-name">{t.teamName}</span>
+                            <span className="leader-rest-name">
+                              <ResponsiveTeamName teamId={t.teamId} name={t.teamName} />
+                            </span>
                           </Link>
                           <span className="leader-rest-value">{def.format(t)}</span>
                         </div>
