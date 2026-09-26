@@ -3106,7 +3106,10 @@ export function TeamDetailPage({ season }: { season: string }) {
                 boxTotals,
                 scheduleKeys: matched.map((g) => g.scheduleKey),
                 oppWinPctAvg: computeOpponentWinPctAvg(matched, opponentRecords),
-                points: buildTeamPointsBreakdown(entries, masterById, situationalTeamDisplayMode),
+                // ベンチ・スタメン・登録区分別の得点は試合全体のボックススコアから数えるため、Q別/前後半の表示では「-」（他の表と同じ）
+                points: situationalTeamPeriodOption?.periods
+                  ? null
+                  : buildTeamPointsBreakdown(entries, masterById, situationalTeamDisplayMode),
               },
             ]
           : [];
