@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { postseasonFormat } from "../../shared/postseasonFormat";
-import { teamShortName } from "../../shared/teamNames";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { fetchDivisionHistory, fetchGameSummaries, fetchSchedule, fetchTeams } from "./data";
 import { useJsonData } from "./useJsonData";
@@ -14,7 +13,7 @@ import type { SituationalFilter } from "./situational";
  * - 月: そのシーズンに試合が1つも無い月
  * - 期間指定: 始まり・終わりのどちらかの日付が、そのシーズンの期間（最初の試合〜最後の試合。今後の日程を含む）の外
  * - 試合種別のポストシーズン・合算: ポストシーズンが開催されなかったシーズン
- * 外したときは、フィルタの近くに短く知らせる。登録区分・出場試合率・ポジション・スタッツの条件などはそのまま残す
+ * 外したことは知らせず、表のタイトルの下の行と「適用中」の表示で分かる形にする（165章）。登録区分・出場試合率・ポジション・スタッツの条件などはそのまま残す
  */
 
 export interface SeasonScope {
@@ -28,8 +27,6 @@ export interface SeasonScope {
   teamIds: Set<string> | null;
   postseasonHeld: boolean;
 }
-
-const DIVISION_LABELS: Record<string, string> = { east: "対東地区", west: "対西地区" };
 
 /** シーズンの期間・月・地区構成・在籍クラブを読む（読み込み中は null） */
 export function useSeasonScope(season: string): SeasonScope | null {
@@ -68,50 +65,48 @@ export interface SeasonScopedFilters {
   gameType?: SeasonGameTypeFilter;
 }
 
-/** そのシーズンで意味が変わるフィルタを外した結果と、知らせる文言。外すものが無ければ null */
-export function cleanupForSeason(input: SeasonScopedFilters, scope: SeasonScope): (SeasonScopedFilters & { notices: string[] }) | null {
-  const notices: string[] = [];
+/** そのシーズンで意味が変わるフィルタを外した結果。外すものが無ければ null */
+export function cleanupForSeason(input: SeasonScopedFilters, scope: SeasonScope): SeasonScopedFilters | null {
+  let changed = false;
   let filter = input.filter;
   let clubs = input.clubs;
   let gameType = input.gameType;
 
   if (clubs && scope.teamIds) {
-    const missing = clubs.filter((id) => !scope.teamIds!.has(id));
-    if (missing.length > 0) {
-      clubs = clubs.filter((id) => scope.teamIds!.has(id));
-      notices.push(`${missing.map((id) => teamShortName(id, id)).join("・")}はこのシーズンに在籍していないため、選択から外しました`);
+    const kept = clubs.filter((id) => scope.teamIds!.has(id));
+    if (kept.length < clubs.length) {
+      clubs = kept;
+      changed = true;
     }
   }
   if (filter.division && (filter.division === "east" || filter.division === "west") && scope.divisions && !scope.divisions.has(filter.division)) {
-    notices.push(`${DIVISION_LABELS[filter.division]}はこのシーズンの地区構成に無いため、選択から外しました`);
     filter = { ...filter, division: undefined };
+    changed = true;
   }
   if (filter.months?.length) {
-    const outside = filter.months.filter((m) => !scope.months.has(m));
-    if (outside.length > 0) {
-      const kept = filter.months.filter((m) => scope.months.has(m));
-      notices.push(`${outside.map((m) => `${m}月`).join("・")}はこのシーズンの期間外のため、選択から外しました`);
+    const kept = filter.months.filter((m) => scope.months.has(m));
+    if (kept.length < filter.months.length) {
       filter = { ...filter, months: kept.length > 0 ? kept : undefined };
+      changed = true;
     }
   }
   if (filter.range.kind === "dateRange") {
     const { start, end } = filter.range;
     const outside = (d: string) => d !== "" && (d < scope.start || d > scope.end);
     if (outside(start) || outside(end)) {
-      notices.push(`期間指定（${start || "…"}〜${end || "…"}）はこのシーズンの期間外のため、外しました`);
       filter = { ...filter, range: { kind: "all" } };
+      changed = true;
     }
   }
   if (gameType && gameType !== "regular" && !scope.postseasonHeld) {
-    notices.push("このシーズンはポストシーズンが開催されなかったため、試合種別をレギュラーシーズンに戻しました");
     gameType = "regular";
+    changed = true;
   }
-  return notices.length > 0 ? { filter, clubs, gameType, notices } : null;
+  return changed ? { filter, clubs, gameType } : null;
 }
 
 /**
- * ページで使うフック。シーズンが変わったとき（とページを開いたとき）に1回だけ確かめ、外したものがあれば知らせる文言を返す。
- * 知らせはシーズンを変えるか、×で閉じるまで出す
+ * ページで使うフック。シーズンが変わったとき（とページを開いたとき）に1回だけ確かめ、そのシーズンに無いものを外す
  */
 export function useSeasonFilterCleanup(opts: {
   season: string;
@@ -121,16 +116,11 @@ export function useSeasonFilterCleanup(opts: {
   setClubs?: Dispatch<SetStateAction<string[]>>;
   gameType?: SeasonGameTypeFilter;
   setGameType?: Dispatch<SetStateAction<SeasonGameTypeFilter>>;
-}): { notices: string[]; dismiss: () => void } {
+}): void {
   const scope = useSeasonScope(opts.season);
-  const [notices, setNotices] = useState<string[]>([]);
   const checkedSeasonRef = useRef<string | null>(null);
   const latest = useRef(opts);
   latest.current = opts;
-
-  useEffect(() => {
-    if (checkedSeasonRef.current !== opts.season) setNotices([]);
-  }, [opts.season]);
 
   useEffect(() => {
     if (!scope || scope.season !== opts.season || checkedSeasonRef.current === opts.season) return;
@@ -141,8 +131,6 @@ export function useSeasonFilterCleanup(opts: {
     if (result.filter !== o.filter) o.setFilter(result.filter);
     if (o.setClubs && result.clubs && result.clubs !== o.clubs) o.setClubs(result.clubs);
     if (o.setGameType && result.gameType && result.gameType !== o.gameType) o.setGameType(result.gameType);
-    setNotices(result.notices);
   }, [scope, opts.season]);
 
-  return { notices, dismiss: () => setNotices([]) };
 }

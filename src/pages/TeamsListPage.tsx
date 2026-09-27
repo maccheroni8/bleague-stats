@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { SeasonFilterNotice } from "../components/SeasonFilterNotice";
 import { useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
@@ -369,8 +368,8 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する。表のタブ（4カテゴリ・Shooting・Forced TOV）の行を絞り込む。
   // Shooting・Forced TOV のタブでは上の絞り込みが効かないため、絞り込みの無いレギュラーシーズン全体の値で判定する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
-  // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外して知らせる（DESIGN.md 164章）
-  const seasonCleanup = useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
+  // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
+  useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
   const mainTab = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
   const conditionTab = mainTab || boxTab === "shooting" || boxTab === "forcedTurnovers";
   const seasonRows: AllTeamsRow[] = useMemo(() => {
@@ -583,7 +582,6 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           disabledReason: conditionTab ? undefined : "このタブはグラフのため、スタッツの条件は表のタブ（Traditional〜Forced TOV）でだけ効きます。",
         })}
       />
-      <SeasonFilterNotice notices={seasonCleanup.notices} onDismiss={seasonCleanup.dismiss} />
       <div>
         <div className="tab-bar">
           {BOX_TABS.map((t) => (

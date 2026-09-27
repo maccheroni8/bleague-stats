@@ -1,5 +1,4 @@
 import { EligibilitySlider } from "../components/EligibilitySlider";
-import { SeasonFilterNotice } from "../components/SeasonFilterNotice";
 import { useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { postseasonLabel } from "../../shared/gameType";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -434,8 +433,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const periodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === period) ?? SEASON_BOX_PERIOD_OPTIONS[0]!;
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
-  // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外して知らせる（DESIGN.md 164章）
-  const seasonCleanup = useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
+  // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
+  useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
 
   const selectCategory = (next: TeamRankingCategory) => {
     setCategory(next);
@@ -659,7 +658,6 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         onClearAll={clearTeamFilters}
         advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, { defaultKey: "pts" })}
       />
-      <SeasonFilterNotice notices={seasonCleanup.notices} onDismiss={seasonCleanup.dismiss} />
       <div className="tab-bar-with-toggle">
         <div className="tab-bar">
           {BOXSCORE_TABS.map((t) => (
@@ -1097,8 +1095,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const periodActive = periodOption.periods !== null;
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
-  // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外して知らせる（DESIGN.md 164章）
-  const seasonCleanup = useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
+  // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
+  useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
   const conditionKeys = activeStatConditionKeys(statConditions);
   const conditionNeedsLogs = conditionKeys.some((k) => PLAYER_CONDITION_KEYS_NEEDING_LOGS.has(k));
   const conditionNeedsCareers = conditionKeys.some((k) => k.startsWith(CAREER_CONDITION_KEY_PREFIX));
@@ -1491,7 +1489,6 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         onClearAll={clearPlayerFilters}
         advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, { defaultKey: "min" })}
       />
-      <SeasonFilterNotice notices={seasonCleanup.notices} onDismiss={seasonCleanup.dismiss} />
 
       <div className="tab-bar">
         {SEASON_BOX_TABS.map((t) => (
