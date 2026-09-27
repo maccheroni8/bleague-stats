@@ -33,6 +33,9 @@ interface ScheduleRow {
   awayScore?: number;
   venue?: string;
   gameType?: GameType;
+  /** 開催予定の試合のティップオフ時刻（日本時間、例 "19:05"）。公式の日程に時刻が載っている試合だけ持つ。
+   *  取り込みの判定で使う仮の時刻（未定を13:00とみなすもの）は入れない */
+  tipoffTime?: string;
 }
 
 /**
@@ -67,6 +70,7 @@ function toRows(summaries: GameSummary[], upcoming: UpcomingGameEntry[], teamIdB
       awayTeamName: g.awayTeamName,
       status: "upcoming",
       venue: g.venue,
+      tipoffTime: g.tipoffTime,
     }));
   return [...finishedRows, ...upcomingRows].sort(
     (a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey),
@@ -481,7 +485,12 @@ function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: R
         <MaybeLink to={linkTo}>
           {row.status === "final" && `${row.homeScore}-${row.awayScore}`}
           {row.status === "live" && <span className="live-badge">進行中</span>}
-          {row.status === "upcoming" && <span className="upcoming-badge">予定</span>}
+          {row.status === "upcoming" &&
+            (row.tipoffTime ? (
+              <span className="schedule-tipoff">{row.tipoffTime}</span>
+            ) : (
+              <span className="upcoming-badge">予定</span>
+            ))}
           {row.gameType === "playoff" && <span className="playoff-badge">PO</span>}
         </MaybeLink>
       </td>
@@ -564,12 +573,16 @@ function CalendarView({
 function CalendarGameChip({ row }: { row: ScheduleRow }) {
   const linkTo = row.status === "upcoming" ? undefined : `/games/${row.scheduleKey}`;
   const scoreLabel = row.status === "final" ? ` ${row.homeScore}-${row.awayScore}` : "";
-  const title = `${row.homeTeamName}${scoreLabel} vs ${row.awayTeamName}`;
+  const tipoffLabel = row.status === "upcoming" && row.tipoffTime ? ` ${row.tipoffTime}` : "";
+  const title = `${row.homeTeamName}${scoreLabel} vs ${row.awayTeamName}${tipoffLabel}`;
+  // 開催予定でティップオフ時刻が分かる試合は、スコアの位置に時刻を出す（未定は従来どおり「-」）
   const middle =
     row.status === "final" ? (
       <span className="calendar-game-chip-score">
         {row.homeScore}-{row.awayScore}
       </span>
+    ) : row.status === "upcoming" && row.tipoffTime ? (
+      <span className="calendar-game-chip-time">{row.tipoffTime}</span>
     ) : (
       <span className="calendar-game-chip-vs">-</span>
     );

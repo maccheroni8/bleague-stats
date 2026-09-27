@@ -3211,6 +3211,19 @@ td.schedule-team-cell.align-right :is(.cell-link, .schedule-cell-inner) {
   white-space: nowrap;
 }
 
+/* 開催予定の試合のティップオフ時刻（日程のリスト・カレンダー。未定の試合は「予定」の札・「-」のまま）。
+   開催予定の行・札と同じ灰色で、終了した試合のスコアと見分けられるようにする */
+.schedule-tipoff,
+.calendar-game-chip-time {
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.schedule-tipoff {
+  font-size: 13px;
+}
+
 .calendar-game-chip-noimg {
   width: 32px;
   height: 32px;
@@ -6050,7 +6063,7 @@ table.wl-grid tbody tr:hover td.wl-away {
     height: 18px !important;
   }
 
-  [data-design="v2"] .calendar-game-chip :is(.calendar-game-chip-score, .calendar-game-chip-vs) {
+  [data-design="v2"] .calendar-game-chip :is(.calendar-game-chip-score, .calendar-game-chip-vs, .calendar-game-chip-time) {
     order: 1;
     flex-basis: 100%;
     text-align: center;
