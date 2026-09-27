@@ -50,7 +50,10 @@ const dataBase = `${import.meta.env.BASE_URL}data`;
 
 async function fetchJson<T>(url: string): Promise<T> {
   const gzUrl = `${url}.gz`;
-  const res = await fetch(gzUrl);
+  // ブラウザのキャッシュを使う前に、毎回サーバーへ新しいかを確かめる（変わっていなければ304で中身は送られない）。
+  // GitHub Pages は max-age=600 を返すため、確かめないとデプロイ直後の再読み込みで新しい画面が最大10分前のデータを
+  // 読むことがあった（CDNはURLの「?」以降を区別しないので、URLに印を付ける形は採らなかった。DESIGN.md 167章）
+  const res = await fetch(gzUrl, { cache: "no-cache" });
   if (!res.ok || !res.body) {
     throw new Error(`${gzUrl} の取得に失敗しました (status: ${res.status})`);
   }
