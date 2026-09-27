@@ -2244,6 +2244,50 @@ table.rankings-table-compact {
   width: 100%;
 }
 
+/* 保存する画像の中でだけ、ランキングの文字を大きくする（lib/exportImage.ts が複製側に .export-rendering を付ける。画面の表示は変わらない。
+ * DESIGN.md 170章）。スタッツの値は名前より一回り大きくする。文字が大きくなる分、保存範囲の幅も広げる */
+.export-rendering.export-target-rankings-player {
+  --export-rank-name: 18px;
+  --export-rank-sub: 13px;
+  --export-rank-value: 24px;
+  --export-rank-num: 17px;
+  --export-rank-width: 680px;
+}
+
+.export-rendering.export-target-rankings-team {
+  --export-rank-name: 16px;
+  --export-rank-sub: 12px;
+  --export-rank-value: 22px;
+  --export-rank-num: 15px;
+  --export-rank-width: 480px;
+}
+
+.export-rendering.export-target-compact:is(.export-target-rankings-team, .export-target-rankings-player) {
+  width: var(--export-rank-width);
+  max-width: none;
+}
+
+.export-rendering .rankings-table .rank-name {
+  font-size: var(--export-rank-name);
+}
+
+.export-rendering .rankings-table .rank-sublabel {
+  font-size: var(--export-rank-sub);
+}
+
+/* 値・順位の列は [data-design="v2"] table.sortable-table td.align-right（13px）より優先させるため .align-right まで付ける */
+.export-rendering .rankings-table td.rank-value.align-right {
+  font-size: var(--export-rank-value);
+}
+
+.export-rendering .rankings-table td.rank-cell.align-right {
+  font-size: var(--export-rank-num);
+}
+
+.export-rendering table.rankings-table-compact th:last-child {
+  width: 120px;
+}
+
 table.rankings-table-compact th:first-child {
   width: 42px;
 }
