@@ -241,8 +241,12 @@ const FILENAME_UNSAFE_CHARS: Record<string, string> = {
 const MAX_FILENAME_BODY_BYTES = 150;
 
 function sanitizeFilenamePart(part: string): string {
-  // 先に NFC にそろえる（濁点・半濁点が分かれた形のままだと、保存先や共有先で「ランキンク」のように落ちることがあるため）
-  return part.normalize("NFC").replace(/[/\\:*?"<>|]/g, (c) => FILENAME_UNSAFE_CHARS[c]!).replace(/\s+/g, "_");
+  // 先に NFC にそろえる（濁点・半濁点が分かれた形のままだと、保存先や共有先で「ランキンク」のように落ちることがあるため）。
+  // 「登録区分: 日本人」「ポジション: PG」のような見出し付きのラベルは、ファイル名では値だけにする（「登録区分：_日本人」にしない）
+  return part
+    .normalize("NFC")
+    .replace(/^[^:：]+:\s*/, "")
+    .replace(/[/\\:*?"<>|]/g, (c) => FILENAME_UNSAFE_CHARS[c]!).replace(/\s+/g, "_");
 }
 
 /** ラベル配列（タイトルと同じもの）から画像ファイル名を作る。長すぎる場合は末尾を切り詰める */

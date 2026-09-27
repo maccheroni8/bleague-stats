@@ -67,7 +67,6 @@ import {
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns, shotTypeLabel } from "../lib/shotTypeBreakdown";
 import { useAllTeamGameLogs, useLeagueRawGames, useLeagueSituationalContext } from "../lib/teamRankingData";
 import {
-  classificationGroup,
   matchesClassificationGroupFilter,
   matchesPositionFilter,
   POSITION_OPTIONS,
@@ -80,7 +79,6 @@ import {
 import { formatDecimal } from "../lib/format";
 import {
   buildExportFilename,
-  classificationLabels,
   composeLabels,
   displayModeLabels,
   eligibilityLabels,
@@ -321,6 +319,13 @@ function RankedList<T>({
           })}
         </tbody>
       </table>
+      {/* 保存する画像にはボタンを写さず、代わりに「20位タイ ほか1人」を出す（.export-rendering の中だけ表示。DESIGN.md 170章） */}
+      {hiddenTies > 0 && !tiesExpanded && limit !== undefined && (
+        <p className="export-only ranking-ties-note">
+          {rankAt(limit - 1)}位タイ ほか{hiddenTies}
+          {statScope === "team" ? "チーム" : "人"}
+        </p>
+      )}
       {hiddenTies > 0 && (
         <button className="load-more-button" type="button" onClick={() => setTiesExpanded((v) => !v)}>
           {tiesExpanded ? `上位${limit}${statScope === "team" ? "チーム" : "人"}だけを表示` : `同じ順位のほか${hiddenTies}${statScope === "team" ? "チーム" : "人"}を表示`}
@@ -1393,7 +1398,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     selectedItem.label,
     composeLabels(
       playerCategoryLabel,
-      classificationLabels(selectedClassification),
+      // 登録区分は選手名の下に書かないので、指定したときはタイトルの下の行に書く（「全選手」は書かない。DESIGN.md 170章）。
+      // 「外国籍・帰化・アジア」の「・」が条件の区切りと紛れないよう「登録区分: 」を付ける（ポジション・クラブと同じ形）
+      selectedClassification === "all" ? [] : [`登録区分: ${selectedClassification}`],
       multiSelectLabels("ポジション", POSITION_OPTIONS.filter((pos) => positions.includes(pos)), "全ポジション"),
       playerScopeLabels,
       category === "career" ? "このシーズンに出場した全選手" : eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
@@ -1566,12 +1573,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               def={rankDef}
               rowKey={(p) => p.playerId}
               name={(p) => playerLabel(p.name)}
-              // ポジションの「＊」（当時の値でない印）と注意書きは、身長・体重・年齢を並べる Profile でだけ出す（DESIGN.md 170章）
-              subLabel={(p) =>
-                [teamLabel(p.teamId, p.teamName), category === "profile" ? positionText(p) : p.position, classificationGroup(p.classification)]
-                  .filter(Boolean)
-                  .join("・")
-              }
+              // 選手名の下はチーム名とポジションだけ（登録区分はタイトルの下の行）。ポジションの「＊」（当時の値でない印）と注意書きは、
+              // 身長・体重・年齢を並べる Profile でだけ出す（DESIGN.md 170章）
+              subLabel={(p) => [teamLabel(p.teamId, p.teamName), category === "profile" ? positionText(p) : p.position].filter(Boolean).join("・")}
               linkTo={(p) => `/players/${p.playerId}`}
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" />}

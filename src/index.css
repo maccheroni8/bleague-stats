@@ -2288,6 +2288,32 @@ table.rankings-table-compact {
   width: 120px;
 }
 
+/* 保存する画像のランキングのタイトルは、名前（個人18px）より一回り大きくする */
+.export-rendering:is(.export-target-rankings-player, .export-target-rankings-team) .condition-title h2 {
+  font-size: 24px;
+}
+
+/* 画面では出さず、保存する画像の中でだけ出す要素（ランキングの「20位タイ ほか1人」等） */
+.export-only {
+  display: none;
+}
+
+.export-rendering .export-only {
+  display: block;
+}
+
+/* 保存する画像には、画面操作用のボタン（同じ順位のほか◯人を表示 等）を写さない */
+.export-rendering .load-more-button {
+  display: none;
+}
+
+.ranking-ties-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: right;
+}
+
 table.rankings-table-compact th:first-child {
   width: 42px;
 }
