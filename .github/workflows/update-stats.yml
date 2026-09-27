@@ -105,7 +105,7 @@ jobs:
           fi
 
       # 日程の取得が失敗しても（bleague.jp の一時的なエラー等）、手元の日程データ（前回の schedule.json）のまま
-      # ボックススコアの取得・集計・コミット・デプロイを続ける。末尾の「Fail if schedule scrape failed」でジョブを失敗にして通知する
+      # ボックススコアの取得・集計・コミット・デプロイを続ける（デプロイはジョブが失敗で終わっても、コミットがあれば deploy.yml が行う）。末尾の「Fail if schedule scrape failed」でジョブを失敗にして通知する
       # （選手名簿と同じ形。DESIGN.md 8-9）。問い合わせごとの5xx・通信の失敗は scripts/lib/throttle.ts で1回だけ再試行済み
       - name: Scrape schedule (full)
         id: schedule_full

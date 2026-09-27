@@ -27,8 +27,10 @@ concurrency:
 
 jobs:
   # workflow_run経由のときに実際にデプロイすべきかを判定する。判定材料は2つ:
-  # 1. 元のジョブが失敗していないか（データ更新自体が失敗した状態で古いデータのまま
-  #    再デプロイしても意味が無いため）
+  # 1. 元のジョブが成功か失敗で終わったか（キャンセル等は対象外）。失敗でも、日程・ボックススコア等の
+  #    取得の失敗は continue-on-error で集計・commitまで進め、末尾の「Fail if ...」でジョブを失敗にして
+  #    通知しているだけなので、commitがあれば反映する（2026-09-27、DESIGN.md 8-9）。commitより前で
+  #    失敗した回は deploy-signal が false（またはartifact無し）になり、下の2でスキップされる
   # 2. 実際にデータ（data/配下）へのcommitがあったか（2026-09-23追加。30分おきの頻繁チェックが
   #    「対象試合なし」で即終了した実行や、他に変更が無かった実行では、workflow_run自体は
   #    successで完了するがデプロイする意味が無いため。update-stats.yml/update-player-awards.yml
@@ -36,7 +38,7 @@ jobs:
   # push/workflow_dispatchはこの判定の対象外（常にデプロイする）
   check:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure' }}
     outputs:
       should_deploy: ${{ steps.decide.outputs.should_deploy }}
     steps:
