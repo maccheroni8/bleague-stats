@@ -24,7 +24,7 @@ import {
   type SeasonGameTypeFilter,
 } from "./playerSeasonBoxscore";
 import { TEAM_PERSPECTIVE_LABELS, type TeamPerspective } from "./teamStatsColumns";
-import { CLASSIFICATION_GROUP_OPTIONS, type ClassificationGroupFilter } from "./classificationFilter";
+import type { ClassificationGroupFilter } from "./classificationFilter";
 import { CATEGORY_LABELS } from "./categoryLabels";
 
 /** 何も絞り込んでいない状態のシチュエーション・ラベル（既存のdescribe系関数と同じ文言） */
@@ -123,9 +123,12 @@ export function perspectiveLabels(perspective: TeamPerspective): string[] {
   return [TEAM_PERSPECTIVE_LABELS[perspective]];
 }
 
-/** 登録区分フィルタ（全選手/日本人/外国籍・帰化・アジア） */
+/**
+ * 登録区分フィルタ（全選手/日本人/外国籍・帰化・アジア）。指定したときは「登録区分: 日本人」の形にする（「外国籍・帰化・アジア」の「・」が
+ * 条件の区切りと紛れないよう、ポジション・クラブと同じ見出し付き）。「全選手」はタイトルの下の行・ファイル名には出ない（visibleConditionLabels）
+ */
 export function classificationLabels(filter: ClassificationGroupFilter): string[] {
-  return [filter === "all" ? "全選手" : filter];
+  return [filter === "all" ? "全選手" : `登録区分: ${filter}`];
 }
 
 export interface EligibilityLabelInput {
@@ -195,7 +198,7 @@ export function composeLabels(...groups: (string[] | string | null | undefined |
 
 /**
  * タイトルの下の行・画像ファイル名に書かないラベル（DESIGN.md 170章）。初期値のままの項目（シーズン全体・試合全体・自チーム・全ポジション・
- * 全クラブ）と、カテゴリ名（Traditional 等。表の中身で分かる）は書かない。登録区分は指定したとき（日本人等）も書かない。
+ * 全クラブ・全選手）と、カテゴリ名（Traditional 等。表の中身で分かる）は書かない。登録区分は指定したときだけ「登録区分: 日本人」の形で書く。
  * 軸ごとのラベル関数は従来どおり全軸のラベルを返し、表示とファイル名の直前でここを通して除く（どの表も同じ扱いになるように）
  */
 const OMITTED_CONDITION_LABELS: ReadonlySet<string> = new Set([
@@ -205,7 +208,6 @@ const OMITTED_CONDITION_LABELS: ReadonlySet<string> = new Set([
   "全ポジション",
   "全クラブ",
   "全選手",
-  ...CLASSIFICATION_GROUP_OPTIONS,
   ...Object.values(CATEGORY_LABELS),
 ]);
 

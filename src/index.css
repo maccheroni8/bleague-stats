@@ -2247,9 +2247,9 @@ table.rankings-table-compact {
 /* 保存する画像の中でだけ、ランキングの文字を大きくする（lib/exportImage.ts が複製側に .export-rendering を付ける。画面の表示は変わらない。
  * DESIGN.md 170章）。スタッツの値は名前と同じ大きさにする。文字が大きくなる分、保存範囲の幅も広げる */
 .export-rendering.export-target-rankings-player {
-  --export-rank-name: 18px;
+  --export-rank-name: 20px;
   --export-rank-sub: 13px;
-  --export-rank-value: 18px;
+  --export-rank-value: 20px;
   --export-rank-num: 17px;
   --export-rank-width: 680px;
 }
@@ -2259,7 +2259,8 @@ table.rankings-table-compact {
   --export-rank-sub: 12px;
   --export-rank-value: 16px;
   --export-rank-num: 15px;
-  --export-rank-width: 480px;
+  /* タイトル（28px）の「2025-26シーズン チームランキング：PTS」が1行に収まる幅 */
+  --export-rank-width: 560px;
 }
 
 .export-rendering.export-target-compact:is(.export-target-rankings-team, .export-target-rankings-player) {
@@ -2288,9 +2289,9 @@ table.rankings-table-compact {
   width: 120px;
 }
 
-/* 保存する画像のランキングのタイトルは、名前（個人18px）より一回り大きくする */
+/* 保存する画像のランキングのタイトルは、名前（個人20px）より一回り大きくする */
 .export-rendering:is(.export-target-rankings-player, .export-target-rankings-team) .condition-title h2 {
-  font-size: 24px;
+  font-size: 28px;
 }
 
 /* 画面では出さず、保存する画像の中でだけ出す要素（ランキングの「20位タイ ほか1人」等） */

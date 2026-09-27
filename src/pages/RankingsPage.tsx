@@ -79,6 +79,7 @@ import {
 import { formatDecimal } from "../lib/format";
 import {
   buildExportFilename,
+  classificationLabels,
   composeLabels,
   displayModeLabels,
   eligibilityLabels,
@@ -1398,9 +1399,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     selectedItem.label,
     composeLabels(
       playerCategoryLabel,
-      // 登録区分は選手名の下に書かないので、指定したときはタイトルの下の行に書く（「全選手」は書かない。DESIGN.md 170章）。
-      // 「外国籍・帰化・アジア」の「・」が条件の区切りと紛れないよう「登録区分: 」を付ける（ポジション・クラブと同じ形）
-      selectedClassification === "all" ? [] : [`登録区分: ${selectedClassification}`],
+      // 登録区分は選手名の下に書かないので、指定したときはタイトルの下の行に書く（「全選手」は書かない。DESIGN.md 170章）
+      classificationLabels(selectedClassification),
       multiSelectLabels("ポジション", POSITION_OPTIONS.filter((pos) => positions.includes(pos)), "全ポジション"),
       playerScopeLabels,
       category === "career" ? "このシーズンに出場した全選手" : eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),

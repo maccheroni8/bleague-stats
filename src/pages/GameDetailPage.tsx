@@ -26,7 +26,7 @@ import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
 import { buildGameLineups, rangeTotals, type GameLineupRow } from "../lib/gameLineups";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
-import { composeLabels, periodLabels } from "../lib/conditionLabels";
+import { classificationLabels, composeLabels, periodLabels } from "../lib/conditionLabels";
 import { BOXSCORE_TABS, BoxscoreTable, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
 import { buildShotEvents } from "../lib/shotChart";
@@ -741,7 +741,7 @@ export function GameDetailPage({ season }: { season: string }) {
       </div>
       {showExtendedLeaders && (
         <ConditionLine
-          conditions={composeLabels("詳細比較", "試合全体", leaderDisplayMode === "japanese" ? "日本人" : "全選手")}
+          conditions={composeLabels("詳細比較", "試合全体", classificationLabels(leaderDisplayMode === "japanese" ? "日本人" : "all"))}
         />
       )}
       {showExtendedLeaders && (
