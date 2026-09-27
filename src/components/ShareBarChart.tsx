@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useMediaQuery } from "../lib/useMediaQuery";
 
@@ -127,10 +127,13 @@ export function ShareBarChart({
               isAnimationActive={false}
               label={<SegmentLabel category={i} rows={rows} narrow={narrow} wideMin={wideMinSegment} />}
             >
+              {/* リーグ平均の棒は、区分の色を薄めて点線の枠で囲む。薄め方はテーマで変える（ライトは背景の白へ、ダークは白へ寄せる。
+                  ダークで背景へ寄せると黒に沈んで中の数字が読みにくいため）。色は CSS（.share-bar-league）で付ける */}
               {rows.map((r) => (
                 <Cell
                   key={r.key}
-                  fillOpacity={r.variant === "league" ? 0.45 : 1}
+                  className={r.variant === "league" ? "share-bar-league" : undefined}
+                  style={r.variant === "league" ? ({ "--share-bar-color": c.color } as CSSProperties) : undefined}
                   stroke={r.variant === "league" ? "var(--fg)" : undefined}
                   strokeDasharray={r.variant === "league" ? "3 2" : undefined}
                   strokeWidth={r.variant === "league" ? 1 : 0}
@@ -158,7 +161,7 @@ export function ShareBarChart({
   );
 }
 
-/** 行の見出し（1〜2行）。recharts の既定の見出しと同じ文字の大きさ・色 */
+/** 行の見出し（1〜2行）。文字の大きさは recharts の既定と同じ、色は本文と同じ（右端の値と揃える） */
 function RowLabelTick({ x, y, payload, rowByKey }: { x?: number; y?: number; payload?: { value: string }; rowByKey: Map<string, ShareBarRow> }) {
   if (x == null || y == null || !payload) return null;
   const row = rowByKey.get(payload.value);
@@ -173,7 +176,7 @@ function RowLabelTick({ x, y, payload, rowByKey }: { x?: number; y?: number; pay
       textAnchor="end"
       dominantBaseline="central"
       fontSize={11}
-      fill={league ? "var(--fg)" : "#666"}
+      fill="var(--fg)"
       fontWeight={league ? 700 : undefined}
     >
       {lines.map((line, i) => (

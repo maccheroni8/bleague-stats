@@ -2410,6 +2410,22 @@ table.rankings-table-compact th:last-child .stat-header-wrap {
   color: var(--muted);
 }
 
+/* 割合の積み上げ棒グラフ（ShareBarChart）のリーグ平均の棒。ライトは区分の色を背景（白）へ45%に薄め（従来の不透明度0.45と同じ見た目）、
+   ダークは白へ寄せて明るくする（背景へ寄せると黒に沈み、中の数字が読みにくかった）。点線の枠と見出しの太字はテーマによらず同じ */
+.share-bar-league {
+  fill: color-mix(in srgb, var(--share-bar-color) 45%, var(--bg));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .share-bar-league {
+    fill: color-mix(in srgb, var(--share-bar-color) 55%, #ffffff);
+  }
+}
+
+:root[data-theme="dark"] .share-bar-league {
+  fill: color-mix(in srgb, var(--share-bar-color) 55%, #ffffff);
+}
+
 .foreign-count-chart {
   border: 1px solid var(--border);
   border-radius: 8px;
