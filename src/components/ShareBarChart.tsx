@@ -1,6 +1,9 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { fetchTeamColors } from "../lib/data";
+import { useJsonData } from "../lib/useJsonData";
+import type { TeamColors } from "../../shared/types";
 
 /**
  * 割合の100%積み上げ棒グラフ（1行＝1本の横棒）の共通部品（DESIGN.md 141章）。On-Court Foreign・得点構成・得点構成（登録区分）を、
@@ -8,7 +11,7 @@ import { useMediaQuery } from "../lib/useMediaQuery";
  * - 棒の中の文字: 広い画面は「割合 (内訳)」（幅 wideMinSegment 未満の区分は出さない。On-Court Foreign は62px、得点構成は46px）、スマホ幅（560px以下）は割合だけ（幅34px未満は出さない）。
  *   白文字＋黒縁取りで、背景色を問わず読めるようにする
  * - 右端に行ごとの値（平均人数・1試合平均の得点等）を出せる
- * - 行の見出しは2行まで（シーズン＋規定の上限人数、シーズン＋所属チーム等）
+ * - 行の見出しは2行まで（シーズン＋規定の上限人数、シーズン＋所属チーム等）。チームの行は、チーム名の下側に薄めのチームカラーの線を引く
  */
 const PCT_TICKS = [0, 25, 50, 75, 100];
 const GUIDE_TICKS = [25, 50, 75];
@@ -65,6 +68,8 @@ export function ShareBarChart({
   wideMinSegment?: number;
 }) {
   const narrow = useMediaQuery("(max-width: 560px)");
+  // 行の見出しのチーム名に、薄めのチームカラーで蛍光ペンの線を引く（行の key がチームIDのグラフだけ。DESIGN.md 169章）
+  const { data: teamColors } = useJsonData(() => fetchTeamColors().catch(() => ({})), []);
   if (rows.length === 0) return <p className="empty-message">{emptyMessage}</p>;
 
   const twoLines = rows.some((r) => r.labelLines.length > 1);
@@ -98,7 +103,7 @@ export function ShareBarChart({
             type="category"
             dataKey="label"
             width={narrow ? labelWidth.narrow : labelWidth.wide}
-            tick={<RowLabelTick rowByKey={rowByKey} />}
+            tick={<RowLabelTick rowByKey={rowByKey} teamColors={teamColors ?? undefined} />}
             tickLine={false}
             axisLine={false}
             interval={0}
@@ -162,15 +167,49 @@ export function ShareBarChart({
 }
 
 /** 行の見出し（1〜2行）。文字の大きさは recharts の既定と同じ、色は本文と同じ（右端の値と揃える） */
-function RowLabelTick({ x, y, payload, rowByKey }: { x?: number; y?: number; payload?: { value: string }; rowByKey: Map<string, ShareBarRow> }) {
+function RowLabelTick({
+  x,
+  y,
+  payload,
+  rowByKey,
+  teamColors,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value: string };
+  rowByKey: Map<string, ShareBarRow>;
+  teamColors?: Record<string, TeamColors>;
+}) {
+  const textRef = useRef<SVGTextElement>(null);
+  const [box, setBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  useLayoutEffect(() => {
+    const b = textRef.current?.getBBox();
+    if (b) setBox((prev) => (prev && prev.x === b.x && prev.width === b.width && prev.y === b.y ? prev : { x: b.x, y: b.y, width: b.width, height: b.height }));
+  });
   if (x == null || y == null || !payload) return null;
+  const marker = teamColors?.[payload.value]?.primary;
   const row = rowByKey.get(payload.value);
   const lines = row?.labelLines ?? [payload.value];
   const lineHeight = 13;
   const firstDy = -((lines.length - 1) * lineHeight) / 2;
   const league = row?.variant === "league";
   return (
+    <g>
+      {marker && box && (
+        // 蛍光ペン: 文字の下側1/5ほどにかかる帯（チームカラーを45%に薄める）。少し傾けて手で引いたように見せる。
+        // 位置は描いた文字の大きさ（getBBox）から決める。リーグ平均やシーズン・選手の行（key がチームIDでない）には引かない
+        <rect
+          x={box.x - 3}
+          y={box.y + box.height * 0.82}
+          width={box.width + 6}
+          height={box.height * 0.2}
+          rx={2}
+          fill={`color-mix(in srgb, ${marker} 45%, transparent)`}
+          transform={`rotate(-1.5 ${box.x + box.width / 2} ${box.y + box.height / 2})`}
+        />
+      )}
     <text
+      ref={textRef}
       x={x}
       y={y}
       textAnchor="end"
@@ -185,6 +224,7 @@ function RowLabelTick({ x, y, payload, rowByKey }: { x?: number; y?: number; pay
         </tspan>
       ))}
     </text>
+    </g>
   );
 }
 
