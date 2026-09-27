@@ -1688,6 +1688,8 @@ interface TeamScheduleRow {
   opponentScore?: number;
   venue?: string;
   gameType?: GameType;
+  /** 開催予定の試合のティップオフ時刻（日本時間。公式の日程に時刻が載っている試合だけ。DESIGN.md 166章） */
+  tipoffTime?: string;
 }
 
 function averageOf(values: number[]): number | null {
@@ -1742,6 +1744,7 @@ function buildTeamScheduleRows(
         isHome,
         status: "upcoming",
         venue: g.venue,
+        tipoffTime: g.tipoffTime,
       };
     });
   return [...finishedRows, ...upcomingRows].sort(
@@ -4491,7 +4494,12 @@ function TeamScheduleRowView({
             </span>
           )}
           {row.status === "live" && <span className="live-badge">進行中</span>}
-          {row.status === "upcoming" && <span className="upcoming-badge">予定</span>}
+          {row.status === "upcoming" &&
+            (row.tipoffTime ? (
+              <span className="schedule-tipoff">{row.tipoffTime}</span>
+            ) : (
+              <span className="upcoming-badge">予定</span>
+            ))}
         </MaybeLink>
       </td>
       {columns.map((col) => (

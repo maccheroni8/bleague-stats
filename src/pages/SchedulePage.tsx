@@ -33,8 +33,9 @@ interface ScheduleRow {
   awayScore?: number;
   venue?: string;
   gameType?: GameType;
-  /** 開催予定の試合のティップオフ時刻（日本時間、例 "19:05"）。公式の日程に時刻が載っている試合だけ持つ。
-   *  取り込みの判定で使う仮の時刻（未定を13:00とみなすもの）は入れない */
+  /** ティップオフ時刻（日本時間、例 "19:05"）。開催予定の試合は公式の日程に時刻が載っている試合だけ持つ
+   *  （取り込みの判定で使う仮の時刻＝未定を13:00とみなすもの、は入れない）。試合中・終了した試合は生データの時刻。
+   *  1日の中の並び順に使い、画面に出すのは開催予定の試合だけ */
   tipoffTime?: string;
 }
 
@@ -58,6 +59,7 @@ function toRows(summaries: GameSummary[], upcoming: UpcomingGameEntry[], teamIdB
     awayScore: g.awayScore,
     venue: g.venue,
     gameType: g.gameType,
+    tipoffTime: g.tipoffTime,
   }));
   const upcomingRows: ScheduleRow[] = upcoming
     .filter((g) => !summaryKeys.has(g.scheduleKey))
@@ -72,8 +74,12 @@ function toRows(summaries: GameSummary[], upcoming: UpcomingGameEntry[], teamIdB
       venue: g.venue,
       tipoffTime: g.tipoffTime,
     }));
+  // 1日の中はティップオフ時刻の早い順（試合中・終了した試合も同じ）。同じ時刻は従来どおりScheduleKey順、時刻の無い試合はその日の最後
   return [...finishedRows, ...upcomingRows].sort(
-    (a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey),
+    (a, b) =>
+      a.date.localeCompare(b.date) ||
+      (a.tipoffTime ?? "99:99").localeCompare(b.tipoffTime ?? "99:99") ||
+      a.scheduleKey.localeCompare(b.scheduleKey),
   );
 }
 
