@@ -1813,8 +1813,18 @@ function buildGameSummaries(games: StoredGame[]): GameSummary[] {
       gameType: classifyGameType(g.raw.Game.ConventionNameJ),
       venue: g.raw.Game.StadiumNameJ || undefined,
       attendance: g.raw.Game.Attendance ?? undefined,
+      tipoffTime: tipoffTimeJst(g.raw.Game.GameDateTime),
     }))
     .sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
+}
+
+/** Game.GameDateTime（"/Date(ミリ秒+0900)/" または Unix 秒の数値文字列）を日本時間の "HH:MM" にする。読めなければ undefined */
+function tipoffTimeJst(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const aspNet = /\/Date\((\d+)/.exec(value);
+  const ms = aspNet ? Number(aspNet[1]) : /^\d+$/.test(value) ? Number(value) * 1000 : NaN;
+  if (!Number.isFinite(ms)) return undefined;
+  return new Date(ms + 9 * 3600 * 1000).toISOString().slice(11, 16);
 }
 
 interface StandingsAccumulator {

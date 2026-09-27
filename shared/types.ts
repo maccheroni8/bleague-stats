@@ -335,6 +335,11 @@ export interface GameSummary {
    * Attendanceがnullの試合（データ欠損）はフィールド自体を省略する
    */
   attendance?: number;
+  /**
+   * ティップオフ時刻（日本時間の "HH:MM"）。生データの Game.GameDateTime から出す（2020-21以降は ASP.NET の Date 形式、
+   * それより前は Unix 秒の数値文字列）。読めない試合は省略する。日程ページで1日の中の試合を時刻順に並べるのに使う（DESIGN.md 166章）
+   */
+  tipoffTime?: string;
 }
 
 // ---- data/{season}/teams.json・players.json の保存スキーマ（aggregate.tsの集計結果） ----
