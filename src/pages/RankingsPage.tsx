@@ -1566,14 +1566,19 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               def={rankDef}
               rowKey={(p) => p.playerId}
               name={(p) => playerLabel(p.name)}
-              subLabel={(p) => [teamLabel(p.teamId, p.teamName), positionText(p), classificationGroup(p.classification)].filter(Boolean).join("・")}
+              // ポジションの「＊」（当時の値でない印）と注意書きは、身長・体重・年齢を並べる Profile でだけ出す（DESIGN.md 170章）
+              subLabel={(p) =>
+                [teamLabel(p.teamId, p.teamName), category === "profile" ? positionText(p) : p.position, classificationGroup(p.classification)]
+                  .filter(Boolean)
+                  .join("・")
+              }
               linkTo={(p) => `/players/${p.playerId}`}
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" />}
               limit={PLAYER_RANK_TOP_N}
               compact
             />
-            <HeightWeightNote players={players} />
+            {category === "profile" && <HeightWeightNote players={players} />}
             {category === "profile" && selectedItem.key === "age" && <p className="rule-change-footnote">※ {AGE_BASE_NOTE}</p>}
             {category === "career" && <p className="rule-change-footnote">※ {CAREER_NOTE}</p>}
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
