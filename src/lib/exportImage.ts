@@ -9,15 +9,24 @@ export const EXPORT_ACCOUNT_NAME = "@dthiro1208";
  * フッターを付ける。フッターは html2canvas が作る複製側にだけ追加するので、画面上の表示・DOMは変わらず、
  * 画像出力の対象（.export-target）を使う全ページに1か所で反映される。ConditionTitle（表の直上のタイトル）とは別物
  */
-export async function exportElementAsImage(el: HTMLElement, filename: string): Promise<void> {
+
+/** 保存する画像の描画の倍率。画面の1pxを何ピクセルで描くか（DESIGN.md 170章） */
+export const EXPORT_SCALE = 3;
+
+/**
+ * 画像出力の対象を canvas に描く。複製側のルートに .export-rendering を付けるので、保存する画像の中でだけ
+ * 文字を大きくする等のスタイルを index.css に書ける（画面の表示は変わらない）
+ */
+export async function renderExportCanvas(el: HTMLElement, scale = EXPORT_SCALE): Promise<HTMLCanvasElement> {
   // 背景色は「今画面に適用されている配色」の --bg から取る。OSの prefers-color-scheme で決めると、
   // OSがダークでサイトを手動でライトにしている（逆も）ときに、背景と文字の配色が食い違って読めなくなる
   const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
   const savedDateLabel = todayBaseDateLabel();
-  const canvas = await html2canvas(el, {
+  return html2canvas(el, {
     backgroundColor: bg || "#ffffff",
-    scale: 2,
+    scale,
     onclone: (doc, clonedEl) => {
+      clonedEl.classList.add("export-rendering");
       convertModernColors(clonedEl);
       const footer = doc.createElement("div");
       footer.className = "export-footer";
@@ -29,11 +38,19 @@ export async function exportElementAsImage(el: HTMLElement, filename: string): P
       clonedEl.appendChild(footer);
     },
   });
-  const url = canvas.toDataURL("image/png");
+}
+
+export async function exportElementAsImage(el: HTMLElement, filename: string): Promise<void> {
+  const canvas = await renderExportCanvas(el);
+  // 倍率を上げると data URL が大きくなるため、Blob の URL で保存する
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) return;
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 /**
