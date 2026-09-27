@@ -161,7 +161,7 @@ function pick<T extends string>(raw: string | null, values: readonly T[]): T | u
 
 /**
  * res（勝敗）・ven（会場）・div（対戦地区）・mon（月、カンマ区切り）・ny（年明け前後）・day（wkday／wkend）・
- * opw（対戦相手の勝率）・mg（点差）・rng（直近 r5、期間 2026-01-01~2026-02-28）
+ * opw（対戦相手の勝率）・mg（点差）・rng（直近 r5、期間 2026-01-01~2026-02-28、片側だけなら ~2026-01-15・2026-01-16~）
  */
 export const SITUATIONAL_KEYS = ["res", "ven", "div", "mon", "ny", "day", "opw", "mg", "rng"];
 
@@ -173,8 +173,11 @@ export const situationalParam: UrlCodec<SituationalFilter> = {
     if (rng) {
       const recent = /^r(\d+)$/.exec(rng);
       const dates = rng.split("~");
+      // 期間指定は片側だけ（「前半」＝〜境目、「後半」＝境目〜）や、選んだ直後で日付がまだ空（~）のこともある
+      const dateOrEmpty = (d: string) => d === "" || DATE_RE.test(d);
       if (recent) f.range = { kind: "recent", n: Number(recent[1]) };
-      else if (dates.length === 2 && DATE_RE.test(dates[0]!) && DATE_RE.test(dates[1]!)) f.range = { kind: "dateRange", start: dates[0]!, end: dates[1]! };
+      else if (dates.length === 2 && dateOrEmpty(dates[0]!) && dateOrEmpty(dates[1]!))
+        f.range = { kind: "dateRange", start: dates[0]!, end: dates[1]! };
     }
     const result = pick(p.get("res"), RESULT);
     if (result) f.result = result;

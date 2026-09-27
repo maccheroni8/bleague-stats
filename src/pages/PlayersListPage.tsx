@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { SeasonFilterNotice } from "../components/SeasonFilterNotice";
+import { useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { postseasonLabel } from "../../shared/gameType";
@@ -681,6 +683,16 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const filterActive = !isDefaultFilter(situationalFilter) || gameType !== "regular";
   // スタッツの条件（DESIGN.md 162章）
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+  // シーズンで意味が変わるフィルタ（クラブ・地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外して知らせる（DESIGN.md 164章）
+  const seasonCleanup = useSeasonFilterCleanup({
+    season,
+    filter: situationalFilter,
+    setFilter: setSituationalFilter,
+    clubs: clubList,
+    setClubs: setClubList,
+    gameType,
+    setGameType,
+  });
   const conditionKeys = activeStatConditionKeys(statConditions);
   // Misc・Scoringのタブにしかない項目は、選手の試合ログから出す（読み込みが要る）
   const conditionNeedsLogs = conditionKeys.some((k) => playerListKeysNeedingLogs(filterActive).has(k));
@@ -1076,6 +1088,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
             tab === "scoringComposition" ? `${CATEGORY_LABELS.scoringComposition}はグラフのため、スタッツの条件は表のタブでだけ効きます。` : undefined,
         })}
       />
+      <SeasonFilterNotice notices={seasonCleanup.notices} onDismiss={seasonCleanup.dismiss} />
       {filterActive && tab !== "shooting" && (
         <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全選手スタッツ" scope="試合種別・シチュエーション別の絞り込みの選択中は、試合ログから集計し直した値です（シューティングは対象外）。" />
       )}

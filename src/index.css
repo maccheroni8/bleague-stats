@@ -6505,3 +6505,37 @@ table.sortable-table tbody tr:not(.pinned-row) + tr.pinned-row td {
 .condition-title-stat {
   margin-top: 2px;
 }
+
+/* シーズンを変えたときに外したフィルタのお知らせ（SeasonFilterNotice、DESIGN.md 164章）。フィルタのすぐ下に置く */
+.season-filter-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: -6px 0 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  background: var(--header-bg);
+  font-size: 13px;
+}
+
+.season-filter-notice ul {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.season-filter-notice li + li {
+  margin-top: 2px;
+}
+
+.season-filter-notice button {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
