@@ -311,6 +311,12 @@ export interface ScheduleFile {
   generatedAt: string;
   scheduleKeys: string[];
   upcomingGames: UpcomingGameEntry[];
+  /**
+   * 公式の日程に載っていたティップオフ時刻（日本時間の "HH:MM"）を ScheduleKey ごとに残したもの。upcomingGames は生データを
+   * 取り込むと消えるが、こちらは取り込んだ後も消さない。日程ページで、試合中・終了した試合の games-summary に時刻が無いときの
+   * 並び順に使う（DESIGN.md 166章）。時刻が未定に戻った開催予定の試合は消す。古いファイルには無い
+   */
+  tipoffTimes?: Record<string, string>;
 }
 
 // ---- data/{season}/games-summary.json の保存スキーマ（日程ページ用。1試合1行、レギュラー+

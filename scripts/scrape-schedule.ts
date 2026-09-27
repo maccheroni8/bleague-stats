@@ -252,6 +252,22 @@ function isWithinDays(jstDate: string, days: number): boolean {
 }
 
 /**
+ * schedule.json の tipoffTimes（ScheduleKey→ティップオフ時刻）を更新する。開催予定の試合の時刻で上書きし、時刻が未定に戻った試合は消す。
+ * 開催予定から外れた（生データを取り込んだ）試合の時刻は残す。日程ページで1日の中の並びを試合の状態で変えないため（DESIGN.md 166章）
+ */
+export function mergeTipoffTimes(
+  existing: Record<string, string> | undefined,
+  upcomingGames: UpcomingGameEntry[],
+): Record<string, string> {
+  const merged: Record<string, string> = { ...(existing ?? {}) };
+  for (const g of upcomingGames) {
+    if (g.tipoffTime) merged[g.scheduleKey] = g.tipoffTime;
+    else delete merged[g.scheduleKey];
+  }
+  return Object.fromEntries(Object.entries(merged).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+/**
  * scheduleKeysのうち、生データ（games/）がまだ無い試合（開催予定）だけをgame_detailページから
  * 解決する。既に解決済み（existingUpcoming）なら再取得せず使い回し、生データが揃った試合は
  * 自然にこの一覧から外れる（日程ページはgames-summary.json側を見るようになる）
@@ -382,6 +398,7 @@ async function main(): Promise<void> {
       generatedAt: new Date().toISOString(),
       scheduleKeys: mergedKeys,
       upcomingGames,
+      tipoffTimes: mergeTipoffTimes(existingFile?.tipoffTimes, upcomingGames),
     });
     console.log(
       `[${season}] 直近${days}日の軽量チェック完了: 新規${addedCount}件（累計${mergedKeys.length}件） ／ 開催予定${upcomingGames.length}件`,
@@ -397,6 +414,7 @@ async function main(): Promise<void> {
     generatedAt: new Date().toISOString(),
     scheduleKeys,
     upcomingGames,
+    tipoffTimes: mergeTipoffTimes(existingFile?.tipoffTimes, upcomingGames),
   });
   console.log(`保存完了: ${outPath}（${scheduleKeys.length}試合／開催予定${upcomingGames.length}件）`);
 }

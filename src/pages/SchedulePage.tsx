@@ -35,8 +35,11 @@ interface ScheduleRow {
   gameType?: GameType;
   /** ティップオフ時刻（日本時間、例 "19:05"）。開催予定の試合は公式の日程に時刻が載っている試合だけ持つ
    *  （取り込みの判定で使う仮の時刻＝未定を13:00とみなすもの、は入れない）。試合中・終了した試合は生データの時刻。
-   *  1日の中の並び順に使い、画面に出すのは開催予定の試合だけ */
+   *  画面に出すのは開催予定の試合だけ */
   tipoffTime?: string;
+  /** 1日の中の並び順に使う時刻。試合の状態（予定・試合中・終了）で決め方を変えない:
+   *  試合ごとの時刻（games-summary の tipoffTime、開催予定は日程の時刻）→無ければ schedule.json の tipoffTimes（取り込み後も残す日程の時刻） */
+  sortTime?: string;
 }
 
 /**
@@ -45,7 +48,12 @@ interface ScheduleRow {
  * scrape-schedule.tsのresolveUpcomingGamesが自然に除外する）だが、念のためscheduleKeyで重複除去する。
  * upcomingGamesはteamIdを持たないため、teamIdByNameで補う（チームカラー適用に使う）
  */
-function toRows(summaries: GameSummary[], upcoming: UpcomingGameEntry[], teamIdByName: Map<string, string>): ScheduleRow[] {
+function toRows(
+  summaries: GameSummary[],
+  upcoming: UpcomingGameEntry[],
+  teamIdByName: Map<string, string>,
+  scheduleTipoffTimes: Record<string, string>,
+): ScheduleRow[] {
   const summaryKeys = new Set(summaries.map((g) => g.scheduleKey));
   const finishedRows: ScheduleRow[] = summaries.map((g) => ({
     scheduleKey: g.scheduleKey,
@@ -60,6 +68,7 @@ function toRows(summaries: GameSummary[], upcoming: UpcomingGameEntry[], teamIdB
     venue: g.venue,
     gameType: g.gameType,
     tipoffTime: g.tipoffTime,
+    sortTime: g.tipoffTime ?? scheduleTipoffTimes[g.scheduleKey],
   }));
   const upcomingRows: ScheduleRow[] = upcoming
     .filter((g) => !summaryKeys.has(g.scheduleKey))
@@ -73,12 +82,13 @@ function toRows(summaries: GameSummary[], upcoming: UpcomingGameEntry[], teamIdB
       status: "upcoming",
       venue: g.venue,
       tipoffTime: g.tipoffTime,
+      sortTime: g.tipoffTime ?? scheduleTipoffTimes[g.scheduleKey],
     }));
   // 1日の中はティップオフ時刻の早い順（試合中・終了した試合も同じ）。同じ時刻は従来どおりScheduleKey順、時刻の無い試合はその日の最後
   return [...finishedRows, ...upcomingRows].sort(
     (a, b) =>
       a.date.localeCompare(b.date) ||
-      (a.tipoffTime ?? "99:99").localeCompare(b.tipoffTime ?? "99:99") ||
+      (a.sortTime ?? "99:99").localeCompare(b.sortTime ?? "99:99") ||
       a.scheduleKey.localeCompare(b.scheduleKey),
   );
 }
@@ -223,7 +233,7 @@ export function SchedulePage({ season }: { season: string }) {
     return map;
   }, [teams, prevTeams, teamHistory]);
   const rows = useMemo(
-    () => (summaries ? toRows(summaries, schedule?.upcomingGames ?? [], teamIdByName) : []),
+    () => (summaries ? toRows(summaries, schedule?.upcomingGames ?? [], teamIdByName, schedule?.tipoffTimes ?? {}) : []),
     [summaries, schedule, teamIdByName],
   );
 
