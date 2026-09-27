@@ -24,7 +24,8 @@ import {
   type SeasonGameTypeFilter,
 } from "./playerSeasonBoxscore";
 import { TEAM_PERSPECTIVE_LABELS, type TeamPerspective } from "./teamStatsColumns";
-import type { ClassificationGroupFilter } from "./classificationFilter";
+import { CLASSIFICATION_GROUP_OPTIONS, type ClassificationGroupFilter } from "./classificationFilter";
+import { CATEGORY_LABELS } from "./categoryLabels";
 
 /** 何も絞り込んでいない状態のシチュエーション・ラベル（既存のdescribe系関数と同じ文言） */
 export const SITUATIONAL_DEFAULT_LABEL = "シーズン全体";
@@ -192,6 +193,27 @@ export function composeLabels(...groups: (string[] | string | null | undefined |
   return result;
 }
 
+/**
+ * タイトルの下の行・画像ファイル名に書かないラベル（DESIGN.md 170章）。初期値のままの項目（シーズン全体・試合全体・自チーム・全ポジション・
+ * 全クラブ）と、カテゴリ名（Traditional 等。表の中身で分かる）は書かない。登録区分は指定したとき（日本人等）も書かない。
+ * 軸ごとのラベル関数は従来どおり全軸のラベルを返し、表示とファイル名の直前でここを通して除く（どの表も同じ扱いになるように）
+ */
+const OMITTED_CONDITION_LABELS: ReadonlySet<string> = new Set([
+  SITUATIONAL_DEFAULT_LABEL,
+  "試合全体",
+  TEAM_PERSPECTIVE_LABELS.own,
+  "全ポジション",
+  "全クラブ",
+  "全選手",
+  ...CLASSIFICATION_GROUP_OPTIONS,
+  ...Object.values(CATEGORY_LABELS),
+]);
+
+/** タイトルの下の行・画像ファイル名に書くラベルだけを残す */
+export function visibleConditionLabels(labels: string[]): string[] {
+  return labels.filter((label) => !OMITTED_CONDITION_LABELS.has(label));
+}
+
 /** タイトルの条件行に出す区切り文字（既存のdescribeSituationalFilter等と同じ「・」） */
 export const LABEL_SEPARATOR = "・";
 
@@ -212,21 +234,26 @@ const FILENAME_UNSAFE_CHARS: Record<string, string> = {
   "|": "｜",
 };
 
-/** OS・ブラウザによるファイル名の長さ制限（255バイト前後）に余裕を持たせた、本体部分の最大バイト数 */
-const MAX_FILENAME_BODY_BYTES = 200;
+/**
+ * ファイル名の本体部分の最大バイト数。OSの上限（255バイト前後）に対し、保存先のフォルダ名の長さや、同名のときにOSが付ける「 (1)」、
+ * 共有先での扱いに余裕を持たせる（日本語で約50文字。DESIGN.md 170章。以前は200バイト）
+ */
+const MAX_FILENAME_BODY_BYTES = 150;
 
 function sanitizeFilenamePart(part: string): string {
-  return part.replace(/[/\\:*?"<>|]/g, (c) => FILENAME_UNSAFE_CHARS[c]!).replace(/\s+/g, "_");
+  // 先に NFC にそろえる（濁点・半濁点が分かれた形のままだと、保存先や共有先で「ランキンク」のように落ちることがあるため）
+  return part.normalize("NFC").replace(/[/\\:*?"<>|]/g, (c) => FILENAME_UNSAFE_CHARS[c]!).replace(/\s+/g, "_");
 }
 
 /** ラベル配列（タイトルと同じもの）から画像ファイル名を作る。長すぎる場合は末尾を切り詰める */
 export function buildExportFilename(parts: string[], ext = "png"): string {
   const encoder = new TextEncoder();
-  let body = parts.map(sanitizeFilenamePart).filter((p) => p.length > 0).join("_");
+  let body = visibleConditionLabels(parts)
+    .map(sanitizeFilenamePart).filter((p) => p.length > 0).join("_");
   if (encoder.encode(body).length > MAX_FILENAME_BODY_BYTES) {
     const chars = Array.from(body);
     while (chars.length > 0 && encoder.encode(chars.join("")).length > MAX_FILENAME_BODY_BYTES - 3) chars.pop();
     body = `${chars.join("")}...`;
   }
-  return `${body}.${ext}`;
+  return `${body}.${ext}`.normalize("NFC");
 }
