@@ -3867,6 +3867,19 @@ table.compare-table th .compare-condition-tag {
   cursor: pointer;
 }
 
+/* 複数選択の選択肢の見出し（ポジションの「ポジション（含む）」「登録どおり」等）。一覧の横幅いっぱいに1行で出す */
+.filter-multi-group {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.filter-multi-group:first-child {
+  margin-top: 0;
+}
+
 .filter-multi-empty {
   font-size: 12px;
   color: var(--muted);

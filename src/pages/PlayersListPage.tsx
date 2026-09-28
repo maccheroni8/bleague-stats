@@ -79,7 +79,8 @@ import {
 import {
   matchesClassificationGroupFilter,
   matchesPositionFilter,
-  POSITION_OPTIONS,
+  positionFilterOptions,
+  selectedPositionLabels,
 } from "../lib/classificationFilter";
 import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
@@ -675,6 +676,8 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const [positionList, setPositionList] = useUrlState(POSITION_PARAM, EMPTY_LIST);
   const teamFilter = useMemo(() => new Set(clubList), [clubList]);
   const positionFilter = useMemo(() => new Set(positionList), [positionList]);
+  // 選択肢: 上の段は「含む」の5つ、下の段は登録どおり（そのシーズンに実際にある「PGのみ」・PG/SG 等。DESIGN.md 171章）
+  const positionOptions = useMemo(() => positionFilterOptions(players, positionList), [players, positionList]);
   const [situationalFilter, setSituationalFilter] = useUrlState(situationalParam, DEFAULT_SITUATIONAL_FILTER);
   // 試合種別（レギュラー/プレーオフ/合算）。従来はシチュエーション別フィルタ内の2値（レギュラーのみ/
   // +プレーオフ）だったが、他ページと同じ3値に揃えた（DESIGN.md 105章）
@@ -946,7 +949,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   // （シーズン通算値のみ）
   const filterAxisLabels = composeLabels(
     classificationLabels(classificationFilter),
-    multiSelectLabels("ポジション", [...positionFilter], "全ポジション"),
+    multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positionList), "全ポジション"),
     multiSelectLabels(
       "クラブ",
       [...teamFilter].map((id) => {
@@ -963,7 +966,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       tab === "scoringComposition"
         ? composeLabels(
             classificationLabels(classificationFilter),
-            multiSelectLabels("ポジション", [...positionFilter], "全ポジション"),
+            multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positionList), "全ポジション"),
             multiSelectLabels(
               "クラブ",
               [...teamFilter].map((id) => {
@@ -1031,7 +1034,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     multiSelectAxis({
       id: "position",
       label: "ポジション",
-      options: POSITION_OPTIONS.map((pos) => ({ value: pos, label: pos })),
+      options: positionOptions,
       selected: [...positionFilter],
       onChangeSelected: (v) => setPositionList(v),
       allLabel: "全ポジション",

@@ -69,7 +69,8 @@ import { useAllTeamGameLogs, useLeagueRawGames, useLeagueSituationalContext } fr
 import {
   matchesClassificationGroupFilter,
   matchesPositionFilter,
-  POSITION_OPTIONS,
+  positionFilterOptions,
+  selectedPositionLabels,
 } from "../lib/classificationFilter";
 import {
   EXTRA_ELIGIBILITY_RULES,
@@ -1087,8 +1088,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const defaultExtra = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)]?.defaultValue ?? 0;
   const [extraThreshold, setExtraThreshold] = useUrlState(numberParam("ex", defaultExtra, { min: 0 }), defaultExtra);
   const [selectedClassification, setSelectedClassification] = useUrlState(CLASSIFICATION_PARAM, "all");
-  // ポジション（複数選択、未選択＝全ポジション。"SG/SF"表記の選手はどちらかが選択中なら該当）
+  // ポジション（複数選択、未選択＝全ポジション）。上の段は「含む」（"SG/SF"表記の選手はどちらかが選択中なら該当）、
+  // 下の段は登録どおり（「PGのみ」・PG/SG 等。DESIGN.md 171章）
   const [positions, setPositions] = useUrlState(POSITION_PARAM, EMPTY_POSITIONS);
+  const positionOptions = useMemo(() => positionFilterOptions(players, positions), [players, positions]);
   const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_RANKING_FILTER);
   const filterActive = !isDefaultFilter(filter);
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
@@ -1401,7 +1404,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       playerCategoryLabel,
       // 登録区分は選手名の下に書かないので、指定したときはタイトルの下の行に書く（「全選手」は書かない。DESIGN.md 170章）
       classificationLabels(selectedClassification),
-      multiSelectLabels("ポジション", POSITION_OPTIONS.filter((pos) => positions.includes(pos)), "全ポジション"),
+      multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positions), "全ポジション"),
       playerScopeLabels,
       category === "career" ? "このシーズンに出場した全選手" : eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
       `上位${PLAYER_RANK_TOP_N}名`,
@@ -1464,7 +1467,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     multiSelectAxis({
       id: "position",
       label: "ポジション",
-      options: POSITION_OPTIONS.map((pos) => ({ value: pos, label: pos })),
+      options: positionOptions,
       selected: positions,
       onChangeSelected: setPositions,
       allLabel: "全ポジション",

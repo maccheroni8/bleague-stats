@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { axisValueLabel, isAxisChipped, type FilterAxis, type FilterAxisOption, type FilterMultiAxis } from "../lib/filterAxes";
 import { usePageState } from "../lib/pageStateCache";
 
@@ -140,11 +140,15 @@ function MultiSelectContent({ axis }: { axis: FilterMultiAxis }) {
         </button>
       </div>
       <div className="filter-multi-list">
-        {visible.map((o) => (
-          <label key={o.value} className="filter-multi-item">
-            <input type="checkbox" checked={selected.has(o.value)} onChange={() => toggle(o.value)} />
-            {o.label}
-          </label>
+        {visible.map((o, i) => (
+          <Fragment key={o.value}>
+            {/* 選択肢が group を持つときは、group が変わるところに見出しを入れる（ポジションの「含む」「登録どおり」等） */}
+            {o.group && o.group !== visible[i - 1]?.group && <span className="filter-multi-group">{o.group}</span>}
+            <label className="filter-multi-item">
+              <input type="checkbox" checked={selected.has(o.value)} onChange={() => toggle(o.value)} />
+              {o.label}
+            </label>
+          </Fragment>
         ))}
         {visible.length === 0 && <span className="filter-multi-empty">該当なし</span>}
       </div>
