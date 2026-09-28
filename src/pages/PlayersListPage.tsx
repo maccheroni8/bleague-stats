@@ -676,7 +676,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const [positionList, setPositionList] = useUrlState(POSITION_PARAM, EMPTY_LIST);
   const teamFilter = useMemo(() => new Set(clubList), [clubList]);
   const positionFilter = useMemo(() => new Set(positionList), [positionList]);
-  // 選択肢: 上の段は「含む」の5つ、下の段は登録どおり（そのシーズンに実際にある「PGのみ」・PG/SG 等。DESIGN.md 171章）
+  // 選択肢: 登録どおり（そのシーズンに実際にある PG・PG/SG 等。DESIGN.md 171章）
   const positionOptions = useMemo(() => positionFilterOptions(players, positionList), [players, positionList]);
   const [situationalFilter, setSituationalFilter] = useUrlState(situationalParam, DEFAULT_SITUATIONAL_FILTER);
   // 試合種別（レギュラー/プレーオフ/合算）。従来はシチュエーション別フィルタ内の2値（レギュラーのみ/

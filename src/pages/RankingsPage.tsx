@@ -1088,8 +1088,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const defaultExtra = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)]?.defaultValue ?? 0;
   const [extraThreshold, setExtraThreshold] = useUrlState(numberParam("ex", defaultExtra, { min: 0 }), defaultExtra);
   const [selectedClassification, setSelectedClassification] = useUrlState(CLASSIFICATION_PARAM, "all");
-  // ポジション（複数選択、未選択＝全ポジション）。上の段は「含む」（"SG/SF"表記の選手はどちらかが選択中なら該当）、
-  // 下の段は登録どおり（「PGのみ」・PG/SG 等。DESIGN.md 171章）
+  // ポジション（複数選択、未選択＝全ポジション）。登録どおり（PG・PG/SG 等の完全一致）で、どれかに当てはまる選手（DESIGN.md 171章）
   const [positions, setPositions] = useUrlState(POSITION_PARAM, EMPTY_POSITIONS);
   const positionOptions = useMemo(() => positionFilterOptions(players, positions), [players, positions]);
   const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_RANKING_FILTER);
