@@ -1,5 +1,6 @@
 import { useSearchParams } from "react-router-dom";
 import { postseasonFormat } from "../../shared/postseasonFormat";
+import { AGE_BASE_NOTE } from "../lib/age";
 import { GLOSSARY_ANCHORS as A } from "../lib/glossaryAnchors";
 import {
   MIN_GAMES_FOR_PLAYER_RECENT_FORM,
@@ -329,6 +330,17 @@ export function GlossaryGuides() {
         </p>
         <h3>プレーオフ</h3>
         <p>ワイルドカード（各地区の上位3クラブを除いた20クラブの上位2）を含む、進出の確定・敗退だけを出します。</p>
+      </section>
+
+      <section className="glossary-section" id={A.profile}>
+        <h2>身長・体重・年齢</h2>
+        <h3>年齢</h3>
+        <p>{AGE_BASE_NOTE}です。個人詳細の年齢、チーム詳細の平均年齢、ランキングのProfile、スタッツの条件の年齢で同じです。</p>
+        <h3>身長・体重・ポジション</h3>
+        <p>
+          そのシーズンの当時の値です。進行中のシーズンは、1月15日時点の選手名簿の値で固定します（それまでは現在の値）。
+          ＊は当時の値が見つからず補った値です。
+        </p>
       </section>
     </>
   );

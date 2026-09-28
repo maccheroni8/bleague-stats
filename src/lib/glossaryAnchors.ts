@@ -19,6 +19,7 @@ export const GLOSSARY_ANCHORS = {
   recentForm: "recent-form",
   conditionalStandings: "conditional-standings",
   magicNumber: "magic-number",
+  profile: "profile",
 } as const;
 
 export type GlossaryAnchor = (typeof GLOSSARY_ANCHORS)[keyof typeof GLOSSARY_ANCHORS];

@@ -931,7 +931,7 @@ const EXTRA_ADVANCED_PLAYER_ITEMS: PlayerRankItem[] = PLAYER_STAT_DEFS.filter((d
  * 生年月日欠損）は0扱いで下位に並べず、ランキングから除外する（rowsのuseMemo参照）。
  * 身長・体重はplayers.jsonの値
  * （終了したシーズンは当時の値。補った値には＊。DESIGN.md 148章）。年齢はageForSeason()
- * （そのシーズンの1月15日時点。DESIGN.md 146章）
+ * （そのシーズンの6月30日か今日（日本時間）の早い方の時点。DESIGN.md 172章）
  */
 function buildProfileItems(season: string): PlayerRankItem[] {
   return [
@@ -1356,7 +1356,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     format: (p) => selectedItem.format(p, ctxByPlayer?.get(p.playerId) ?? null),
   };
 
-  // 「プロフィール」カテゴリの年齢の基準日ラベル（表・画像出力に出す。そのシーズンの1月15日。DESIGN.md 146章）。
+  // 「プロフィール」カテゴリの年齢の基準日ラベル（表・画像出力に出す。そのシーズンの6月30日か今日の早い方。DESIGN.md 172章）。
   // 身長・体重は当時の値（補った値には＊。DESIGN.md 148章）なので基準日は出さない
   const profileBaseDateLabel = category === "profile" && selectedItem.key === "age" ? ageBaseDateLabel(season) : null;
 
@@ -1585,7 +1585,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               compact
             />
             {category === "profile" && <HeightWeightNote players={players} />}
-            {category === "profile" && selectedItem.key === "age" && <p className="rule-change-footnote">※ {AGE_BASE_NOTE}</p>}
+            {/* 年齢の基準日の注意書きは、年齢を表示しているとき（Profile の年齢）と、スタッツの条件で年齢を使っているときだけ（DESIGN.md 172章） */}
+            {((category === "profile" && selectedItem.key === "age") || conditionKeys.includes("age")) && (
+              <p className="rule-change-footnote">※ {AGE_BASE_NOTE}</p>
+            )}
             {category === "career" && <p className="rule-change-footnote">※ {CAREER_NOTE}</p>}
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
           </div>

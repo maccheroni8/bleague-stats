@@ -1,14 +1,15 @@
 // 年齢は生年月日から動的に計算する（players.jsonのbirthDateは全シーズン共通の事実）。
-// 基準日はシーズンによらず「そのシーズンの1月15日」（シーズンの折り返し。2025-26なら2026/01/15）に統一する
-// （2026-09-26 ユーザー決定。DESIGN.md 146章。それまでは終了済みシーズンが開幕時点、進行中のシーズンが今日だった）。
-// 進行中のシーズンも、まだ来ていないそのシーズンの1月15日時点で数える
+// 基準日は「そのシーズンの6月30日（シーズンが終わる年）」と「今日（日本時間）」の早い方（2026-09-29 ユーザー決定。DESIGN.md 172章）。
+// 終わったシーズンは6月30日時点、進行中のシーズンは今日時点になる。年齢を出すすべての箇所（ランキングの Profile・チーム詳細の平均年齢・
+// 個人詳細の年齢・スタッツの条件の年齢）がここを使う。それまでは各シーズンの1月15日時点だった（146章）。
+// 身長・体重・ポジションを固定する1月15日（scripts/freeze-season-profiles.ts）とは別の話で、そちらは変えない
 
-/** 年齢の基準日の月日（シーズン終了年の1月15日） */
-const AGE_BASE_MONTH = 1;
-const AGE_BASE_DAY = 15;
+/** 年齢の基準日の月日（シーズンが終わる年の6月30日） */
+const AGE_BASE_MONTH = 6;
+const AGE_BASE_DAY = 30;
 
 /** 年齢を出す箇所に添える注記 */
-export const AGE_BASE_NOTE = "年齢は各シーズンの1月15日時点（シーズンの折り返し）";
+export const AGE_BASE_NOTE = "年齢は各シーズンの6月30日時点（進行中のシーズンは本日時点）";
 
 function ageAsOf(birthDate: string, year: number, month: number, day: number): number {
   const [y, m, d] = birthDate.split("-").map(Number) as [number, number, number];
@@ -28,12 +29,24 @@ function todayBaseDate(): BaseDate {
   return { year: today.getFullYear(), month: today.getMonth() + 1, day: today.getDate() };
 }
 
-/** seasonを表示しているときの年齢の基準日（そのシーズンの1月15日） */
-export function ageBaseDate(season: string): BaseDate {
-  return { year: Number(season.split("-")[0]) + 1, month: AGE_BASE_MONTH, day: AGE_BASE_DAY };
+/** 今日（日本時間）。見ている人の端末の時刻帯によらず、基準日の比較は日本時間で行う */
+function todayJstBaseDate(): BaseDate {
+  const jst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return { year: jst.getUTCFullYear(), month: jst.getUTCMonth() + 1, day: jst.getUTCDate() };
 }
 
-/** seasonを表示しているときの年齢（そのシーズンの1月15日時点） */
+function isBefore(a: BaseDate, b: BaseDate): boolean {
+  return a.year !== b.year ? a.year < b.year : a.month !== b.month ? a.month < b.month : a.day < b.day;
+}
+
+/** seasonを表示しているときの年齢の基準日（そのシーズンの6月30日と、今日（日本時間）の早い方） */
+export function ageBaseDate(season: string): BaseDate {
+  const seasonEnd = { year: Number(season.split("-")[0]) + 1, month: AGE_BASE_MONTH, day: AGE_BASE_DAY };
+  const today = todayJstBaseDate();
+  return isBefore(today, seasonEnd) ? today : seasonEnd;
+}
+
+/** seasonを表示しているときの年齢（ageBaseDate の時点） */
 export function ageForSeason(birthDate: string, season: string): number {
   const b = ageBaseDate(season);
   return ageAsOf(birthDate, b.year, b.month, b.day);
