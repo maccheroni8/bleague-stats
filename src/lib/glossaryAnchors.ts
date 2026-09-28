@@ -20,6 +20,7 @@ export const GLOSSARY_ANCHORS = {
   conditionalStandings: "conditional-standings",
   magicNumber: "magic-number",
   profile: "profile",
+  career: "career",
 } as const;
 
 export type GlossaryAnchor = (typeof GLOSSARY_ANCHORS)[keyof typeof GLOSSARY_ANCHORS];

@@ -1607,9 +1607,9 @@ export interface LeaguePlayerRankingsFile {
 
 /** 選手のキャリアの回数（Bリーグ 2016-17 以降、B1／B.PREMIER の記録だけ。そのシーズンの終了時点までの累計） */
 export interface PlayerCareerCounts {
-  /** 出場したシーズン数（レギュラーシーズンかポストシーズンに1試合以上） */
+  /** 在籍したシーズン数（名簿に載っているか、レギュラーシーズンかポストシーズンに1試合以上出場したシーズン。DESIGN.md 176章） */
   seasons: number;
-  /** 出場したクラブの数（1試合以上出場したクラブ） */
+  /** 所属したクラブの数（名簿に載っているか、1試合以上出場したクラブ。DESIGN.md 176章） */
   clubs: number;
   /** レギュラーシーズンの出場試合数 */
   games: number;

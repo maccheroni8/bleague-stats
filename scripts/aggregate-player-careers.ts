@@ -4,6 +4,8 @@
 // 出場試合数・ポストシーズン／ファイナル出場・優勝・地区優勝・個人賞）を持つ。対象は Bリーグ（2016-17）以降の
 // B1／B.PREMIER の記録だけ（B.ONE・B2 は持っていないため数えない）。
 //
+// - 在籍シーズン・所属クラブ: 名簿（終了したシーズンはシーズン別の選手一覧、進行中のシーズンは在籍中の一覧）に載っているか、
+//   1試合以上出場したシーズン・クラブ（登録ベース。DESIGN.md 176章）。通算出場試合・ポストシーズン／ファイナル出場は出場ベース
 // - 出場: 試合ログのうち出場時間がある試合（min > 0）。オールスター等は試合ログに含まれない
 // - 所属チーム（試合ごと）: 試合の要約（games-summary.json）のホーム/アウェイのうち、相手ではない方
 // - ファイナル: 試合データにラウンドの区別が無いため、「そのシーズンのポストシーズン最後の試合の2チームどうしの
@@ -30,6 +32,7 @@ import type {
   PlayerCareerCounts,
   PlayerCareersFile,
   PlayerGameLog,
+  CurrentRosterFile,
   PlayerMasterEntry,
   SeasonRostersFile,
 } from "../shared/types.ts";
@@ -110,6 +113,8 @@ async function main() {
   const awards = (await readJson<PlayerAwardsFile>(path.join(DATA_DIR, "player-awards.json"))) ?? {};
   const rosters = (await readJson<SeasonRostersFile>(path.join(DATA_DIR, "season-rosters.json"))) ?? {};
   const master = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
+  // 進行中のシーズンの名簿（公式の「在籍中」の一覧。夜間実行で保存）。在籍シーズン・所属クラブの数え方に使う（DESIGN.md 176章）
+  const currentRoster = await readJson<CurrentRosterFile>(path.join(DATA_DIR, "current-roster.json"));
   const nameOf = new Map(master.map((p) => [p.playerId, p.name]));
   const championBySeason = new Map<string, string>();
   const divisionWinnersBySeason = new Map<string, Set<string>>();
@@ -138,10 +143,22 @@ async function main() {
     const divisionWinners = divisionWinnersBySeason.get(season) ?? new Set<string>();
     const listedTeamOf = new Map<string, string>();
     const teamNameOf = new Map<string, string>();
+    // 名簿に載っているクラブ（在籍シーズン・所属クラブは「名簿に載っているか、出場した」で数える。DESIGN.md 176章）。
+    // 終了したシーズンはシーズン別の選手一覧、進行中のシーズンは在籍中の一覧
+    const rosterTeamsOf = new Map<string, Set<string>>();
+    const addRosterTeam = (id: string, teamId: string) => {
+      const set = rosterTeamsOf.get(id) ?? new Set<string>();
+      set.add(teamId);
+      rosterTeamsOf.set(id, set);
+    };
     for (const entry of rosters[season] ?? []) {
       teamNameOf.set(entry.teamId, entry.teamName);
-      for (const id of entry.playerIds) listedTeamOf.set(id, entry.teamId);
+      for (const id of entry.playerIds) {
+        listedTeamOf.set(id, entry.teamId);
+        addRosterTeam(id, entry.teamId);
+      }
     }
+    if (currentRoster?.season === season) for (const p of currentRoster.players) addRosterTeam(p.playerId, p.teamId);
 
     // 選手ごとの出場（所属チーム付き）
     const appearancesOf = new Map<string, Appearance[]>();
@@ -235,7 +252,12 @@ async function main() {
     for (const file of ["players.json", "registered-players.json"]) {
       for (const p of (await readJson<{ playerId: string }[]>(path.join(DATA_DIR, season, file))) ?? []) registeredIds.add(p.playerId);
     }
-    const playerIds = new Set([...appearancesOf.keys(), ...[...membersOf.values()].flatMap((m) => [...m]), ...registeredIds]);
+    const playerIds = new Set([
+      ...appearancesOf.keys(),
+      ...[...membersOf.values()].flatMap((m) => [...m]),
+      ...registeredIds,
+      ...rosterTeamsOf.keys(),
+    ]);
     for (const playerId of playerIds) {
       const r = running.get(playerId) ?? emptyRunning();
       running.set(playerId, r);
@@ -245,8 +267,11 @@ async function main() {
       }
       for (const teamId of divisionWinners) if (membersOf.get(teamId)?.has(playerId)) r.divisionTitles.add(season);
       const played = logsOf.get(playerId);
+      // 在籍シーズン・所属クラブ: 名簿に載っているか、1試合以上出場した（登録ベース。DESIGN.md 176章）
+      const rosterTeams = rosterTeamsOf.get(playerId);
+      if (played || rosterTeams) r.seasons.add(season);
+      for (const teamId of rosterTeams ?? []) r.clubs.add(teamId);
       if (played) {
-        r.seasons.add(season);
         for (const a of appearancesOf.get(playerId) ?? []) {
           r.clubs.add(a.teamId);
           if (a.gameType === "playoff") r.postseasons.add(season);
