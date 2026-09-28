@@ -81,6 +81,18 @@ export function fetchPlayers(season: string, category: Category = "premier"): Pr
 }
 
 /**
+ * そのシーズンに登録していたが players.json に居ない（試合に一度も名前が無い）選手（スタッツは0。scripts/aggregate.ts。DESIGN.md 173章）。
+ * ランキングの Profile の対象に加える。このファイルが無いシーズン（作る前のデータ）は空で返す
+ */
+export async function fetchRegisteredPlayers(season: string): Promise<PlayerSummary[]> {
+  try {
+    return await fetchJson<PlayerSummary[]>(`${dataBase}/${season}/registered-players.json`);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * B.ONE（旧B2）は現状2025-26シーズンのみバックフィル済み（DESIGN.md参照。過去シーズンの
  * 一括取得はまだ行っていない）。B.PREMIERのdata/seasons.jsonに相当する季一覧ファイルが
  * 無いため、既知の取得済みシーズンをここに列挙する。今後シーズンを追加取得した場合はここに

@@ -55,6 +55,7 @@ import type {
   SeasonRules,
   BoxscoreRow,
   Category,
+  CurrentRosterFile,
   Division,
   DivisionHistoryFile,
   GameSummary,
@@ -70,6 +71,7 @@ import type {
   SeasonEntry,
   SeasonPositionsFile,
   SeasonProfilesFile,
+  SeasonRostersFile,
   StandingsSnapshot,
   StandingsTeamSnapshot,
   ShotTypeBreakdown,
@@ -1293,11 +1295,52 @@ export async function aggregateSeason(season: string, category: Category = "prem
     await writeJson(path.join(DATA_DIR, seasonDir, "lineups", `${teamId}.json`), file);
   }
 
+  // ランキングの Profile（身長・体重・年齢）の対象に加える「そのシーズンに登録していたが players.json に居ない（試合に一度も名前が無い）選手」
+  // （DESIGN.md 173章）。終了したシーズンは当時の選手一覧（season-rosters.json）、進行中のシーズンは公式の「在籍中」の一覧
+  // （current-roster.json。夜間実行で保存）。身長・体重・ポジションは players.json と同じく当時の値。スタッツは0のまま
+  const registeredPlayersJson: typeof playersJson = [];
+  if (category === "premier") {
+    const registeredEntries: { playerId: string; teamId: string; teamName?: string }[] = [];
+    if (pastSeason) {
+      const seasonRosters = (await readJson<SeasonRostersFile>(path.join(DATA_DIR, "season-rosters.json"))) ?? {};
+      for (const t of seasonRosters[season] ?? []) for (const id of t.playerIds) registeredEntries.push({ playerId: id, teamId: t.teamId, teamName: t.teamName });
+    } else {
+      const roster = await readJson<CurrentRosterFile>(path.join(DATA_DIR, "current-roster.json"));
+      if (roster?.season === season) registeredEntries.push(...roster.players);
+    }
+    const emptyBlock = buildStatBlock(emptyTotals(), seasonStartYear);
+    const seen = new Set(playersJson.map((p) => p.playerId));
+    for (const e of registeredEntries) {
+      const master = masterById.get(e.playerId);
+      if (seen.has(e.playerId) || !master) continue;
+      seen.add(e.playerId);
+      const profile = resolveSeasonProfile(e.playerId, season, { master, positions: seasonPositionsFile, profiles: seasonProfilesFile, past: pastSeason });
+      registeredPlayersJson.push({
+        playerId: e.playerId,
+        name: master.name,
+        teamId: e.teamId,
+        teamName: e.teamName ?? teams.get(e.teamId)?.teamName ?? master.teamName,
+        position: profile.position,
+        nationality: master.nationality,
+        classification: master.classification,
+        heightCm: profile.heightCm,
+        weightKg: profile.weightKg,
+        ...(profile.fallback ? { profileFallback: profile.fallback } : {}),
+        birthDate: master.birthDate,
+        shotTypes: undefined,
+        ...emptyBlock,
+        advanced: { eff: 0, usagePct: 0, onCourtNet: 0, onCourtNetPerGame: 0, offCourtNet: 0, offCourtNetPerGame: 0, per: 0, ppp: undefined },
+      });
+    }
+    registeredPlayersJson.sort((a, b) => a.teamId.localeCompare(b.teamId) || a.playerId.localeCompare(b.playerId));
+    await writeJson(path.join(DATA_DIR, seasonDir, "registered-players.json"), registeredPlayersJson);
+  }
+
   await writeJson(path.join(DATA_DIR, seasonDir, "players.json"), playersJson);
   await writeJson(path.join(DATA_DIR, seasonDir, "teams.json"), teamsJson);
   await regenerateSeasonsFile();
   console.log(
-    `保存完了: players.json(${playersJson.length}名) / teams.json(${teamsJson.length}チーム) / ` +
+    `保存完了: players.json(${playersJson.length}名) / registered-players.json(${registeredPlayersJson.length}名) / teams.json(${teamsJson.length}チーム) / ` +
       `standings-history.json(${standingsHistory.length}日分) / head-to-head.json(${headToHead.length}チーム) / ` +
       `lineups/(${teamLineups.size}チーム) / games-summary.json(${gameSummaries.length}試合)`,
   );

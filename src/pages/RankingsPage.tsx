@@ -4,7 +4,7 @@ import { postseasonLabel } from "../../shared/gameType";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
-import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayers, fetchTeamColors, fetchTeams } from "../lib/data";
+import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayers, fetchRegisteredPlayers, fetchTeamColors, fetchTeams } from "../lib/data";
 import type { PlayerCareerCounts } from "../../shared/types";
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
@@ -193,7 +193,8 @@ interface RankedListProps<T> {
   rowKey: (row: T) => string;
   name: (row: T) => string;
   subLabel?: (row: T) => string;
-  linkTo: (row: T) => string;
+  /** undefined の行はリンクにしない（個人ページの無い、試合に一度も名前が無い登録選手。DESIGN.md 173章） */
+  linkTo: (row: T) => string | undefined;
   /** 指定時、名前の直後にBリーグ公式サイトへの外部リンクアイコンを表示する（選手モードのみ） */
   externalLinkTo?: (row: T) => string | undefined;
   teamColor?: (row: T) => string | undefined;
@@ -302,15 +303,25 @@ function RankedList<T>({
                   {rankAt(i)}
                 </td>
                 <td className={`align-left${externalLinkTo?.(row) ? " has-external-link" : ""}`}>
-                  <Link to={linkTo(row)} className="cell-link">
-                    <span className="rank-name-with-logo">
-                      {avatar?.(row)}
-                      <span className="rank-name-cell">
-                        <span className="rank-name">{name(row)}</span>
-                        {subLabel && <span className="rank-sublabel">{subLabel(row)}</span>}
+                  {(() => {
+                    const cell = (
+                      <span className="rank-name-with-logo">
+                        {avatar?.(row)}
+                        <span className="rank-name-cell">
+                          <span className="rank-name">{name(row)}</span>
+                          {subLabel && <span className="rank-sublabel">{subLabel(row)}</span>}
+                        </span>
                       </span>
-                    </span>
-                  </Link>
+                    );
+                    const to = linkTo(row);
+                    return to ? (
+                      <Link to={to} className="cell-link">
+                        {cell}
+                      </Link>
+                    ) : (
+                      cell
+                    );
+                  })()}
                   {externalLinkTo?.(row) && (
                     <ExternalLinkIcon href={externalLinkTo(row)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
@@ -1041,14 +1052,21 @@ function buildPlayerConditionDefs(
       seasonTotal: true,
     });
   });
-  defs.push(...playerProfileConditionDefs(season), ...playerCareerConditionDefs(careerOf));
-  return defs;
+  // 出場0試合の選手（Profile の対象に入る。DESIGN.md 173章）は、スタッツの項目を値なし（「-」）とし、条件に当てはまらない扱いにする
+  const noGames = (p: PlayerSummary) => p.gamesPlayed === 0;
+  const statDefs = defs.map((d) => ({
+    ...d,
+    display: (p: PlayerSummary) => (noGames(p) ? "-" : d.display(p)),
+    displayOther: d.displayOther ? (p: PlayerSummary) => (noGames(p) ? "-" : d.displayOther!(p)) : undefined,
+  }));
+  return [...statDefs, ...playerProfileConditionDefs(season), ...playerCareerConditionDefs(careerOf)];
 }
 
+// 公式の選手ページで身長・体重が載っていない選手は 0 で入っているので、0 も値なしとして並べない（DESIGN.md 173章）
 function profileItemHasValue(p: PlayerSummary, statKey: string): boolean {
-  if (statKey === "weight") return p.weightKg != null;
+  if (statKey === "weight") return !!p.weightKg;
   if (statKey === "age") return !!p.birthDate;
-  return p.heightCm != null;
+  return !!p.heightCm;
 }
 
 /** 選手ランキングのカテゴリ。チーム版・チーム詳細ページ「選手スタッツ」タブと同じ
@@ -1133,10 +1151,24 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     [careersNeeded],
   );
   const careerBySeason = careers?.seasons[season];
+  // Profile の対象に加える、試合に一度も名前が無い登録選手（DESIGN.md 173章）。Profile を開いたときだけ取得する
+  const profileSelected = category === "profile";
+  const { data: registeredPlayers, loading: registeredLoading } = useJsonData(
+    () => (profileSelected ? fetchRegisteredPlayers(season) : Promise.resolve(null)),
+    [profileSelected, season],
+  );
+
+  const registeredOnlyIds = useMemo(() => new Set((registeredPlayers ?? []).map((p) => p.playerId)), [registeredPlayers]);
 
   const eligible: PlayerSummary[] = useMemo(() => {
     if (!players || !teams) return [];
     const positionSet = new Set(positions);
+    // Profile: 掲載基準（出場率）を使わず、そのシーズンに登録していた選手全員（出場の有無を問わない。DESIGN.md 173章）
+    if (category === "profile") {
+      return [...players, ...(registeredPlayers ?? [])].filter(
+        (p) => matchesClassificationGroupFilter(p, selectedClassification) && matchesPositionFilter(p, positionSet),
+      );
+    }
     // キャリア: 掲載基準（出場率）を使わず、このシーズンに1試合以上出場した選手全員
     if (category === "career") {
       return players.filter(
@@ -1148,7 +1180,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       (p) => matchesClassificationGroupFilter(p, selectedClassification) && matchesPositionFilter(p, positionSet),
     );
     return category === "shooting" ? base.filter((p) => !!p.shotTypes) : base;
-  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassification, positions, category, careerBySeason]);
+  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassification, positions, category, careerBySeason, registeredPlayers]);
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {
@@ -1366,7 +1398,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     !teamTotalsByTeamId ||
     !ctxByPlayer ||
     (effPeriodActive && (rawGamesLoading || !periodDataReady)) ||
-    (careersNeeded && (careersLoading || !careers));
+    (careersNeeded && (careersLoading || !careers)) ||
+    (profileSelected && (registeredLoading || !registeredPlayers));
 
   if (playersLoading) return <p className="loading">読み込み中...</p>;
   if (playersError) return <p className="error-message">{playersError}</p>;
@@ -1389,7 +1422,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     category === "shooting"
       ? SEASON_TOTAL_ONLY_LABELS
       : category === "profile"
-        ? gameTypeLabels("regular", null)
+        ? []
         : category === "career"
           ? ["Bリーグ（2016-17）以降の累計"]
         : filterIgnoredForItem
@@ -1405,7 +1438,11 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       classificationLabels(selectedClassification),
       multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positions), "全ポジション"),
       playerScopeLabels,
-      category === "career" ? "このシーズンに出場した全選手" : eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
+      category === "career"
+        ? "このシーズンに出場した全選手"
+        : category === "profile"
+          ? "登録選手"
+          : eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
       `上位${PLAYER_RANK_TOP_N}名`,
     ),
   );
@@ -1416,7 +1453,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     category === "shooting"
       ? "このカテゴリはレギュラーシーズンの通算集計値のみ対応です（登録区分・掲載基準のみ連動します。2023-24シーズン以降のみ対応）。"
       : category === "profile"
-        ? "このカテゴリは試合種別・シチュエーション別フィルタ・Q別/前後半の対象外です（登録区分・掲載基準の出場率のみ適用されます）。"
+        ? "このカテゴリは試合種別・シチュエーション別フィルタ・Q別/前後半の対象外です（登録区分・ポジションのみ適用されます）。"
         : category === "career"
           ? "このカテゴリは試合種別・シチュエーション別フィルタ・Q別/前後半の対象外です（登録区分・ポジションのみ適用されます）。"
         : undefined;
@@ -1427,7 +1464,12 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     id: "eligibility",
     label: "掲載基準",
     tier: "primary",
-    disabledReason: category === "career" ? "このカテゴリは、このシーズンに1試合以上出場した選手全員が対象です（掲載基準は使いません）。" : undefined,
+    disabledReason:
+      category === "career"
+        ? "このカテゴリは、このシーズンに1試合以上出場した選手全員が対象です（掲載基準は使いません）。"
+        : category === "profile"
+          ? "このカテゴリは、このシーズンに登録していた選手全員が対象です（出場の有無を問わず、掲載基準は使いません）。"
+          : undefined,
     value: `${Math.round(gamesRatio * 100)}|${extraRule ? extraThreshold : ""}`,
     defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}|${extraRule ? eligibilityDefaultExtra : ""}`,
     onChange: () => {
@@ -1578,13 +1620,13 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               // 選手名の下はチーム名とポジションだけ（登録区分はタイトルの下の行）。ポジションの「＊」（当時の値でない印）と注意書きは、
               // 身長・体重・年齢を並べる Profile でだけ出す（DESIGN.md 170章）
               subLabel={(p) => [teamLabel(p.teamId, p.teamName), category === "profile" ? positionText(p) : p.position].filter(Boolean).join("・")}
-              linkTo={(p) => `/players/${p.playerId}`}
+              linkTo={(p) => (registeredOnlyIds.has(p.playerId) ? undefined : `/players/${p.playerId}`)}
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" />}
               limit={PLAYER_RANK_TOP_N}
               compact
             />
-            {category === "profile" && <HeightWeightNote players={players} />}
+            {category === "profile" && <HeightWeightNote players={eligible} />}
             {/* 年齢の基準日の注意書きは、年齢を表示しているとき（Profile の年齢）と、スタッツの条件で年齢を使っているときだけ（DESIGN.md 172章） */}
             {((category === "profile" && selectedItem.key === "age") || conditionKeys.includes("age")) && (
               <p className="rule-change-footnote">※ {AGE_BASE_NOTE}</p>
