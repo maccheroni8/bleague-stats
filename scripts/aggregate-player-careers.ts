@@ -1,6 +1,6 @@
 // data/player-careers.json（ランキングの個人「Career」カテゴリと、個人詳細の「優勝回数」）を生成する（DESIGN.md 145・147章）。
 //
-// 各シーズンに出場した選手について、そのシーズン終了時点までの累計の回数（在籍シーズン数・所属クラブ数・
+// 各シーズンに登録していた選手（出場の有無を問わない。DESIGN.md 175章）について、そのシーズン終了時点までの累計の回数（在籍シーズン数・所属クラブ数・
 // 出場試合数・ポストシーズン／ファイナル出場・優勝・地区優勝・個人賞）を持つ。対象は Bリーグ（2016-17）以降の
 // B1／B.PREMIER の記録だけ（B.ONE・B2 は持っていないため数えない）。
 //
@@ -229,7 +229,13 @@ async function main() {
     }
 
     const seasonOut: Record<string, PlayerCareerCounts> = {};
-    const playerIds = new Set([...appearancesOf.keys(), ...[...membersOf.values()].flatMap((m) => [...m])]);
+    // そのシーズンに登録していた選手（players.json と、名簿から足した registered-players.json。ランキングの Career の対象。DESIGN.md 175章）。
+    // 出場の無い選手も、そのシーズン終了時点までの累計を持たせる
+    const registeredIds = new Set<string>();
+    for (const file of ["players.json", "registered-players.json"]) {
+      for (const p of (await readJson<{ playerId: string }[]>(path.join(DATA_DIR, season, file))) ?? []) registeredIds.add(p.playerId);
+    }
+    const playerIds = new Set([...appearancesOf.keys(), ...[...membersOf.values()].flatMap((m) => [...m]), ...registeredIds]);
     for (const playerId of playerIds) {
       const r = running.get(playerId) ?? emptyRunning();
       running.set(playerId, r);
@@ -239,14 +245,17 @@ async function main() {
       }
       for (const teamId of divisionWinners) if (membersOf.get(teamId)?.has(playerId)) r.divisionTitles.add(season);
       const played = logsOf.get(playerId);
-      if (!played) continue; // 出場0試合: 優勝・地区優勝の累計にだけ数え、そのシーズンのランキングの対象にはしない
-      r.seasons.add(season);
-      for (const a of appearancesOf.get(playerId) ?? []) {
-        r.clubs.add(a.teamId);
-        if (a.gameType === "playoff") r.postseasons.add(season);
-        if (finals.has(a.scheduleKey)) r.finals.add(season);
+      if (played) {
+        r.seasons.add(season);
+        for (const a of appearancesOf.get(playerId) ?? []) {
+          r.clubs.add(a.teamId);
+          if (a.gameType === "playoff") r.postseasons.add(season);
+          if (finals.has(a.scheduleKey)) r.finals.add(season);
+        }
+        r.games += played.filter((g) => g.gameType === "regular").length;
       }
-      r.games += played.filter((g) => g.gameType === "regular").length;
+      // 出場0試合で登録もしていない（一覧に無いが優勝チームの所属と判定された等）選手は、累計にだけ数えてランキングの対象にはしない
+      if (!played && !registeredIds.has(playerId)) continue;
       seasonOut[playerId] = {
         seasons: r.seasons.size,
         clubs: r.clubs.size,

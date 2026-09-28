@@ -982,7 +982,7 @@ function buildCareerItems(careerOf: (p: PlayerSummary) => PlayerCareerCounts | u
 }
 
 const CAREER_NOTE =
-  "回数はBリーグ（2016-17シーズン）以降、B1（B.PREMIER）の記録から数えた、このシーズン終了時点までの累計です（進行中のシーズンは現時点まで）。対象はこのシーズンに1試合以上出場した選手です";
+  "回数はBリーグ（2016-17シーズン）以降、B1（B.PREMIER）の記録から数えた、このシーズン終了時点までの累計です（進行中のシーズンは現時点まで）。対象はこのシーズンに登録していた選手です（出場の有無は問いません）";
 
 /**
  * スタッツの条件に使うと、選手の試合ログの読み込みが要る項目（Misc・Scoringのカテゴリにだけある項目）。
@@ -1151,41 +1151,34 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     [careersNeeded],
   );
   const careerBySeason = careers?.seasons[season];
-  // Profile の対象に加える、試合に一度も名前が無い登録選手（DESIGN.md 173章）。Profile を開いたときだけ取得する
-  const profileSelected = category === "profile";
+  // Profile・Career の対象に加える、試合に一度も名前が無い登録選手（DESIGN.md 173・175章）。どちらかを開いたときだけ取得する
+  const registeredTarget = category === "profile" || category === "career";
   const { data: registeredPlayers, loading: registeredLoading } = useJsonData(
-    () => (profileSelected ? fetchRegisteredPlayers(season) : Promise.resolve(null)),
-    [profileSelected, season],
+    () => (registeredTarget ? fetchRegisteredPlayers(season) : Promise.resolve(null)),
+    [registeredTarget, season],
   );
 
   const registeredOnlyIds = useMemo(() => new Set((registeredPlayers ?? []).map((p) => p.playerId)), [registeredPlayers]);
   // 名簿から足した選手（このシーズンに個人ページが無い）の名前は、個人ページがある一番新しいシーズンへつなぐ（表示は待たない。DESIGN.md 174章）
   const { data: playerPageSeasons } = useJsonData(
-    () => (profileSelected ? fetchPlayerPageSeasons() : Promise.resolve(null)),
-    [profileSelected],
+    () => (registeredTarget ? fetchPlayerPageSeasons() : Promise.resolve(null)),
+    [registeredTarget],
   );
 
   const eligible: PlayerSummary[] = useMemo(() => {
     if (!players || !teams) return [];
     const positionSet = new Set(positions);
-    // Profile: 掲載基準（出場率）を使わず、そのシーズンに登録していた選手全員（出場の有無を問わない。DESIGN.md 173章）
-    if (category === "profile") {
+    // Profile・Career: 掲載基準（出場率）を使わず、そのシーズンに登録していた選手全員（出場の有無を問わない。DESIGN.md 173・175章）
+    if (registeredTarget) {
       return [...players, ...(registeredPlayers ?? [])].filter(
         (p) => matchesClassificationGroupFilter(p, selectedClassification) && matchesPositionFilter(p, positionSet),
-      );
-    }
-    // キャリア: 掲載基準（出場率）を使わず、このシーズンに1試合以上出場した選手全員
-    if (category === "career") {
-      return players.filter(
-        (p) =>
-          !!careerBySeason?.[p.playerId] && matchesClassificationGroupFilter(p, selectedClassification) && matchesPositionFilter(p, positionSet),
       );
     }
     const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold).filter(
       (p) => matchesClassificationGroupFilter(p, selectedClassification) && matchesPositionFilter(p, positionSet),
     );
     return category === "shooting" ? base.filter((p) => !!p.shotTypes) : base;
-  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassification, positions, category, careerBySeason, registeredPlayers]);
+  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassification, positions, category, registeredTarget, registeredPlayers]);
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {
@@ -1404,7 +1397,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     !ctxByPlayer ||
     (effPeriodActive && (rawGamesLoading || !periodDataReady)) ||
     (careersNeeded && (careersLoading || !careers)) ||
-    (profileSelected && (registeredLoading || !registeredPlayers));
+    (registeredTarget && (registeredLoading || !registeredPlayers));
 
   if (playersLoading) return <p className="loading">読み込み中...</p>;
   if (playersError) return <p className="error-message">{playersError}</p>;
@@ -1443,11 +1436,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       classificationLabels(selectedClassification),
       multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positions), "全ポジション"),
       playerScopeLabels,
-      category === "career"
-        ? "このシーズンに出場した全選手"
-        : category === "profile"
-          ? "登録選手"
-          : eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
+      registeredTarget ? "登録選手" : eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
       `上位${PLAYER_RANK_TOP_N}名`,
     ),
   );
@@ -1469,12 +1458,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     id: "eligibility",
     label: "掲載基準",
     tier: "primary",
-    disabledReason:
-      category === "career"
-        ? "このカテゴリは、このシーズンに1試合以上出場した選手全員が対象です（掲載基準は使いません）。"
-        : category === "profile"
-          ? "このカテゴリは、このシーズンに登録していた選手全員が対象です（出場の有無を問わず、掲載基準は使いません）。"
-          : undefined,
+    disabledReason: registeredTarget
+      ? "このカテゴリは、このシーズンに登録していた選手全員が対象です（出場の有無を問わず、掲載基準は使いません）。"
+      : undefined,
     value: `${Math.round(gamesRatio * 100)}|${extraRule ? extraThreshold : ""}`,
     defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}|${extraRule ? eligibilityDefaultExtra : ""}`,
     onChange: () => {

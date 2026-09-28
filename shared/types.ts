@@ -1627,7 +1627,7 @@ export interface PlayerCareerCounts {
 
 export interface PlayerCareersFile {
   generatedAt: string;
-  /** season → playerId → そのシーズン終了時点までの累計。そのシーズンに出場した選手だけを持つ（出場0試合で優勝チームに所属したシーズンも、累計には数える） */
+  /** season → playerId → そのシーズン終了時点までの累計。そのシーズンに登録していた選手（出場の有無を問わない。DESIGN.md 175章）を持つ（出場0試合で優勝チームに所属したシーズンも、累計には数える） */
   seasons: Record<string, Record<string, PlayerCareerCounts>>;
   /** playerId → 優勝したシーズンとそのチーム（個人詳細の「優勝回数」用。古い順） */
   championships: Record<string, { season: string; teamId: string; teamName: string }[]>;
