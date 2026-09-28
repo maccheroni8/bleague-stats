@@ -14,12 +14,13 @@ export function positionText(p: ProfileFields): string | undefined {
   return p.position ? `${p.position}${p.profileFallback?.position ? PROFILE_MARK : ""}` : undefined;
 }
 
+// 身長・体重の 0 は値なし（公式に載っていない選手。DESIGN.md 174章）。作り直す前のデータに 0 が残っていても出さない
 export function heightText(p: ProfileFields): string | undefined {
-  return p.heightCm != null ? `${p.heightCm}cm${p.profileFallback?.height ? PROFILE_MARK : ""}` : undefined;
+  return p.heightCm ? `${p.heightCm}cm${p.profileFallback?.height ? PROFILE_MARK : ""}` : undefined;
 }
 
 export function weightText(p: ProfileFields): string | undefined {
-  return p.weightKg != null ? `${p.weightKg}kg${p.profileFallback?.weight ? PROFILE_MARK : ""}` : undefined;
+  return p.weightKg ? `${p.weightKg}kg${p.profileFallback?.weight ? PROFILE_MARK : ""}` : undefined;
 }
 
 /** そのシーズンに、当時の値でない身長・体重・ポジションの選手がいるか */

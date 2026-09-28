@@ -1663,6 +1663,14 @@ export interface ProfileFallback {
 }
 
 /** data/current-roster.json: 今の選手名簿（bleague.jp の e=在籍中 の一覧。scripts/scrape-roster.ts が夜間実行で保存。DESIGN.md 148章） */
+/**
+ * data/player-page-seasons.json: 選手ごとの、個人ページがある（players.json に居る）一番新しいシーズン（B.PREMIER。scripts/aggregate.ts。DESIGN.md 174章）。
+ * ランキングの Profile で、名簿から足した選手（そのシーズンに個人ページが無い）の名前をつなぐ先に使う
+ */
+export interface PlayerPageSeasonsFile {
+  latestSeason: Record<string, string>;
+}
+
 export interface CurrentRosterFile {
   generatedAt: string;
   season: string;

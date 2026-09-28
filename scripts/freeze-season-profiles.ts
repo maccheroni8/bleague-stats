@@ -17,6 +17,7 @@ import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { currentSeason } from "./lib/season.ts";
+import { measureOrUndefined } from "../shared/seasonProfile.ts";
 import type { CurrentRosterFile, DivisionHistoryFile, PlayerMasterEntry, SeasonProfilesFile } from "../shared/types.ts";
 
 const OUT_PATH = path.join(DATA_DIR, "season-profiles.json");
@@ -62,8 +63,9 @@ async function main() {
     if (!m) continue;
     entries[playerId] = {
       frozenOn: today,
-      ...(m.heightCm !== undefined ? { heightCm: m.heightCm } : {}),
-      ...(m.weightKg !== undefined ? { weightKg: m.weightKg } : {}),
+      // 0（公式に載っていない）は固定しない（DESIGN.md 174章）
+      ...(measureOrUndefined(m.heightCm) !== undefined ? { heightCm: m.heightCm } : {}),
+      ...(measureOrUndefined(m.weightKg) !== undefined ? { weightKg: m.weightKg } : {}),
       ...(m.position ? { position: m.position } : {}),
     };
     added += 1;

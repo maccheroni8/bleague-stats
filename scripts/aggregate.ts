@@ -8,7 +8,7 @@
 import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { readdir } from "node:fs/promises";
-import { DATA_DIR, gamesDir, readAllGames, readJson, seasonDirName, writeJson } from "./lib/storage.ts";
+import { DATA_DIR, gamesDir, readAllGames, readJson, seasonDirName, writeJson, writeJsonIfChanged } from "./lib/storage.ts";
 import {
   eff,
   efgPct,
@@ -46,7 +46,7 @@ import { computeClinchEvents, computePremierRace, premierChampion, type RaceTeam
 import { clinchTypesForSeason, postseasonFormat } from "../shared/postseasonFormat.ts";
 import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import { currentSeason } from "./lib/season.ts";
-import { resolveSeasonProfile } from "../shared/seasonProfile.ts";
+import { measureOrUndefined, resolveSeasonProfile } from "../shared/seasonProfile.ts";
 import { sumTeamSeasonMisc } from "../shared/teamSeasonMisc.ts";
 import { gameMaxMargins } from "../shared/gameMargins.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
@@ -56,6 +56,7 @@ import type {
   BoxscoreRow,
   Category,
   CurrentRosterFile,
+  PlayerPageSeasonsFile,
   Division,
   DivisionHistoryFile,
   GameSummary,
@@ -256,6 +257,24 @@ async function buildShotTypeBreakdowns(
  * するため）。ただし`hasCompletedGames: false`として区別し、src/App.tsxの「?season=未指定時の
  * デフォルトシーズン」解決はこのフラグがtrueの最新シーズンを使う（23章のバグの再発防止）。
  */
+/**
+ * 選手ごとの、個人ページがある（players.json に居る）一番新しいシーズン（B.PREMIER。DESIGN.md 174章）。
+ * どのシーズンを集計しても全シーズンの players.json から作り直すので、進行中のシーズンで初めて出場した選手もすぐ反映される
+ */
+async function regeneratePlayerPageSeasonsFile(): Promise<void> {
+  const entries = await readdir(DATA_DIR, { withFileTypes: true });
+  const seasons = entries.filter((e) => e.isDirectory() && SEASON_DIR_PATTERN.test(e.name)).map((e) => e.name).sort();
+  const latestSeason: Record<string, string> = {};
+  for (const season of seasons) {
+    const players = await readJson<{ playerId: string }[]>(path.join(DATA_DIR, season, "players.json"));
+    for (const p of players ?? []) latestSeason[p.playerId] = season;
+  }
+  const file: PlayerPageSeasonsFile = {
+    latestSeason: Object.fromEntries(Object.entries(latestSeason).sort(([a], [b]) => a.localeCompare(b))),
+  };
+  await writeJsonIfChanged(path.join(DATA_DIR, "player-page-seasons.json"), file as unknown as Record<string, unknown>);
+}
+
 async function regenerateSeasonsFile(): Promise<void> {
   const entries = await readdir(DATA_DIR, { withFileTypes: true });
   const candidates = entries
@@ -1081,7 +1100,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       const master = masterById.get(p.playerId);
       const profile = useSeasonProfile
         ? resolveSeasonProfile(p.playerId, season, { master, positions: seasonPositionsFile, profiles: seasonProfilesFile, past: pastSeason })
-        : { position: seasonPositions ? seasonPositions[p.playerId] : master?.position, heightCm: master?.heightCm, weightKg: master?.weightKg, fallback: undefined };
+        : { position: seasonPositions ? seasonPositions[p.playerId] : master?.position, heightCm: measureOrUndefined(master?.heightCm), weightKg: measureOrUndefined(master?.weightKg), fallback: undefined };
       return {
         playerId: p.playerId,
         name: p.name,
@@ -1339,6 +1358,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
   await writeJson(path.join(DATA_DIR, seasonDir, "players.json"), playersJson);
   await writeJson(path.join(DATA_DIR, seasonDir, "teams.json"), teamsJson);
   await regenerateSeasonsFile();
+  if (category === "premier") await regeneratePlayerPageSeasonsFile();
   console.log(
     `保存完了: players.json(${playersJson.length}名) / registered-players.json(${registeredPlayersJson.length}名) / teams.json(${teamsJson.length}チーム) / ` +
       `standings-history.json(${standingsHistory.length}日分) / head-to-head.json(${headToHead.length}チーム) / ` +

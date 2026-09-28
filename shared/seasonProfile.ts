@@ -18,6 +18,13 @@ export interface ResolvedProfile {
 
 const seasonStartYear = (season: string) => Number(season.slice(0, 4));
 
+/**
+ * 身長・体重の値。公式の選手ページに載っていない選手は 0 で入っているので、0 以下は値なし（undefined）にする（DESIGN.md 174章）
+ */
+export function measureOrUndefined(v: number | undefined): number | undefined {
+  return v !== undefined && v > 0 ? v : undefined;
+}
+
 /** 当時のポジション（一覧 → Wayback）。無ければ undefined */
 function positionAt(playerId: string, season: string, positions: SeasonPositionsFile, profiles: SeasonProfilesFile | null): string | undefined {
   return positions[season]?.[playerId] ?? profiles?.seasons[season]?.[playerId]?.position;
@@ -34,13 +41,18 @@ export function resolveSeasonProfile(
     past: boolean;
   },
 ): ResolvedProfile {
-  const { master, positions, profiles, past } = opts;
+  const { positions, profiles, past } = opts;
+  const master = opts.master && {
+    ...opts.master,
+    heightCm: measureOrUndefined(opts.master.heightCm),
+    weightKg: measureOrUndefined(opts.master.weightKg),
+  };
   if (!past) {
     const frozen = profiles?.seasons[season]?.[playerId];
     return {
       position: positions[season] ? positions[season]![playerId] : (frozen?.position ?? master?.position),
-      heightCm: frozen?.heightCm ?? master?.heightCm,
-      weightKg: frozen?.weightKg ?? master?.weightKg,
+      heightCm: measureOrUndefined(frozen?.heightCm) ?? master?.heightCm,
+      weightKg: measureOrUndefined(frozen?.weightKg) ?? master?.weightKg,
     };
   }
   const fallback: ProfileFallback = {};
@@ -61,12 +73,12 @@ export function resolveSeasonProfile(
   }
 
   const then = profiles?.seasons[season]?.[playerId];
-  let heightCm = then?.heightCm;
+  let heightCm = measureOrUndefined(then?.heightCm);
   if (heightCm === undefined && master?.heightCm !== undefined) {
     heightCm = master.heightCm;
     fallback.height = "current";
   }
-  let weightKg = then?.weightKg;
+  let weightKg = measureOrUndefined(then?.weightKg);
   if (weightKg === undefined && master?.weightKg !== undefined) {
     weightKg = master.weightKg;
     fallback.weight = "current";

@@ -2908,8 +2908,9 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「スタメン選手」は現状このアプリに現在の先発5人という概念が無いため、シーズン中に
   // 1度でも先発出場した選手（gamesStarted > 0）を近似として使う
   const starters = teamPlayers.filter((p) => p.gamesStarted > 0);
-  const avgHeightCm = averageOf(starters.flatMap((p) => (p.heightCm != null ? [p.heightCm] : [])));
-  const avgWeightKg = averageOf(starters.flatMap((p) => (p.weightKg != null ? [p.weightKg] : [])));
+  // 身長・体重の 0 は値なしとして平均から外す（DESIGN.md 174章）
+  const avgHeightCm = averageOf(starters.flatMap((p) => (p.heightCm ? [p.heightCm] : [])));
+  const avgWeightKg = averageOf(starters.flatMap((p) => (p.weightKg ? [p.weightKg] : [])));
   const avgAge = averageOf(starters.flatMap((p) => (p.birthDate ? [ageForSeason(p.birthDate, season)] : [])));
 
   // Phase H4②: 「ショットチャート」のレギュラー/プレーオフ/合算は専用のteamShotChartGameTypeで管理する。

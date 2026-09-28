@@ -4,7 +4,7 @@ import { postseasonLabel } from "../../shared/gameType";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
-import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayers, fetchRegisteredPlayers, fetchTeamColors, fetchTeams } from "../lib/data";
+import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayerPageSeasons, fetchPlayers, fetchRegisteredPlayers, fetchTeamColors, fetchTeams } from "../lib/data";
 import type { PlayerCareerCounts } from "../../shared/types";
 import { useJsonData } from "../lib/useJsonData";
 import { PLAYER_STAT_DEFS } from "../lib/statDefs";
@@ -193,7 +193,7 @@ interface RankedListProps<T> {
   rowKey: (row: T) => string;
   name: (row: T) => string;
   subLabel?: (row: T) => string;
-  /** undefined の行はリンクにしない（個人ページの無い、試合に一度も名前が無い登録選手。DESIGN.md 173章） */
+  /** undefined の行はリンクにしない（どのシーズンにも個人ページの無い、名簿から足した選手。DESIGN.md 173・174章） */
   linkTo: (row: T) => string | undefined;
   /** 指定時、名前の直後にBリーグ公式サイトへの外部リンクアイコンを表示する（選手モードのみ） */
   externalLinkTo?: (row: T) => string | undefined;
@@ -1159,6 +1159,11 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   );
 
   const registeredOnlyIds = useMemo(() => new Set((registeredPlayers ?? []).map((p) => p.playerId)), [registeredPlayers]);
+  // 名簿から足した選手（このシーズンに個人ページが無い）の名前は、個人ページがある一番新しいシーズンへつなぐ（表示は待たない。DESIGN.md 174章）
+  const { data: playerPageSeasons } = useJsonData(
+    () => (profileSelected ? fetchPlayerPageSeasons() : Promise.resolve(null)),
+    [profileSelected],
+  );
 
   const eligible: PlayerSummary[] = useMemo(() => {
     if (!players || !teams) return [];
@@ -1620,7 +1625,11 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               // 選手名の下はチーム名とポジションだけ（登録区分はタイトルの下の行）。ポジションの「＊」（当時の値でない印）と注意書きは、
               // 身長・体重・年齢を並べる Profile でだけ出す（DESIGN.md 170章）
               subLabel={(p) => [teamLabel(p.teamId, p.teamName), category === "profile" ? positionText(p) : p.position].filter(Boolean).join("・")}
-              linkTo={(p) => (registeredOnlyIds.has(p.playerId) ? undefined : `/players/${p.playerId}`)}
+              linkTo={(p) => {
+                if (!registeredOnlyIds.has(p.playerId)) return `/players/${p.playerId}`;
+                const s = playerPageSeasons?.latestSeason[p.playerId];
+                return s ? `/players/${p.playerId}?season=${s}` : undefined;
+              }}
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" />}
               limit={PLAYER_RANK_TOP_N}

@@ -2273,8 +2273,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <ProfileItem label="登録区分" value={classificationGroup(player.classification) ?? player.classification} />
             )}
             {player.nationality && <ProfileItem label="国籍" value={player.nationality} />}
-            {player.heightCm && <ProfileItem label="身長" value={heightText(player)!} />}
-            {player.weightKg && <ProfileItem label="体重" value={weightText(player)!} />}
+            {/* 身長・体重が無い（公式に載っていない）選手は「-」（DESIGN.md 174章） */}
+            <ProfileItem label="身長" value={heightText(player) ?? "-"} />
+            <ProfileItem label="体重" value={weightText(player) ?? "-"} />
             {player.birthDate && (
               <ProfileItem
                 label="生年月日"
@@ -2282,7 +2283,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               />
             )}
           </div>
-          {(player.position || player.heightCm || player.weightKg) && <HeightWeightNote players={players} />}
+          {(!!player.position || !!player.heightCm || !!player.weightKg) && <HeightWeightNote players={players} />}
           {player.birthDate && <p className="rule-change-footnote">※ {AGE_BASE_NOTE}</p>}
           {playerAwardList.length > 0 && (
             <div className="player-awards">

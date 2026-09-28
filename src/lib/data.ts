@@ -28,6 +28,7 @@ import type {
   PlayerGameLog,
   PlayerHistoryEntry,
   PlayerMasterEntry,
+  PlayerPageSeasonsFile,
   PlayerSummary,
   PlayoffRaceFile,
   ScheduleFile,
@@ -89,6 +90,15 @@ export async function fetchRegisteredPlayers(season: string): Promise<PlayerSumm
     return await fetchJson<PlayerSummary[]>(`${dataBase}/${season}/registered-players.json`);
   } catch {
     return [];
+  }
+}
+
+/** 選手ごとの、個人ページがある一番新しいシーズン（DESIGN.md 174章）。このファイルが無い（作る前のデータ）ときは空で返す */
+export async function fetchPlayerPageSeasons(): Promise<PlayerPageSeasonsFile> {
+  try {
+    return await fetchJson<PlayerPageSeasonsFile>(`${dataBase}/player-page-seasons.json`);
+  } catch {
+    return { latestSeason: {} };
   }
 }
 
