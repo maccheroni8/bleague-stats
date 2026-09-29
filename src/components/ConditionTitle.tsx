@@ -2,6 +2,24 @@ import { Fragment } from "react";
 import { joinLabels, LABEL_SEPARATOR, visibleConditionLabels } from "../lib/conditionLabels";
 
 /**
+ * 条件ラベル1つ。ラベルの途中では折り返さないが、複数選択の並び（「ポジション: PG、PG/SG、…」）は長くなりうるので、
+ * 「、」の後ろでだけ折り返せるようにする（スマホ幅で横にはみ出さないように。DESIGN.md 178章）
+ */
+function ConditionLabel({ label }: { label: string }) {
+  const parts = label.split(/(?<=、)/);
+  if (parts.length === 1) return <span className="condition-label">{label}</span>;
+  return (
+    <span className="condition-label condition-label-multi">
+      {parts.map((part, i) => (
+        <span key={i} className="condition-label">
+          {part}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
  * 表・画像出力の直上に置く「タイトル＋選択中の条件」表示。画像出力（export-target）の内側に
  * 置けば、保存された画像だけを見ても何の条件の表か分かる。条件ラベルの組み立ては
  * src/lib/conditionLabels.ts（軸ごとのラベル関数）で行い、この部品は表示だけを担う。
@@ -35,7 +53,7 @@ export function ConditionTitle({
           {shown.map((label, i) => (
             <Fragment key={`${i}:${label}`}>
               {i > 0 && LABEL_SEPARATOR}
-              <span className="condition-label">{label}</span>
+              <ConditionLabel label={label} />
             </Fragment>
           ))}
         </p>
@@ -45,7 +63,7 @@ export function ConditionTitle({
           {statConditions.labels.map((label, i) => (
             <Fragment key={`${i}:${label}`}>
               {i > 0 && statConditions.joiner}
-              <span className="condition-label">{label}</span>
+              <ConditionLabel label={label} />
             </Fragment>
           ))}
         </p>

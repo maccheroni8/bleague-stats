@@ -2375,6 +2375,11 @@ table.rankings-table-compact th:last-child .stat-header-wrap {
   white-space: nowrap;
 }
 
+/* 複数選択の並びは「、」の後ろでだけ折り返す（中の各要素は nowrap のまま。ConditionTitle.tsx の ConditionLabel） */
+.condition-label.condition-label-multi {
+  white-space: normal;
+}
+
 .condition-title-section {
   margin-top: 32px;
 }

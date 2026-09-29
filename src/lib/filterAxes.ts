@@ -115,11 +115,11 @@ export type FilterAxis = FilterSelectAxis | FilterDateAxis | FilterPopoverAxis |
 
 const MULTI_SHOWN_LABELS = 3;
 
-/** 複数選択の要約。3件までは「、」で並べ、それ以上は「他N」に省略する（multiSelectLabels と同じ考え方） */
-function summarizeMulti(labels: string[], allLabel: string): string {
+/** 複数選択の要約。maxShown件（既定3件）までは「、」で並べ、それ以上は「他N」に省略する（multiSelectLabels と同じ考え方） */
+function summarizeMulti(labels: string[], allLabel: string, maxShown = MULTI_SHOWN_LABELS): string {
   if (labels.length === 0) return allLabel;
-  if (labels.length <= MULTI_SHOWN_LABELS) return labels.join("、");
-  return `${labels.slice(0, MULTI_SHOWN_LABELS).join("、")} 他${labels.length - MULTI_SHOWN_LABELS}`;
+  if (labels.length <= maxShown) return labels.join("、");
+  return `${labels.slice(0, maxShown).join("、")} 他${labels.length - maxShown}`;
 }
 
 export function multiSelectAxis(input: {
@@ -133,12 +133,15 @@ export function multiSelectAxis(input: {
   presets?: { label: string; values: string[] }[];
   searchable?: boolean;
   disabledReason?: string;
+  /** ボタン・チップに並べる件数の上限（超えた分は「他N」）。省略時は3件。Infinity で省略しない */
+  maxShown?: number;
 }): FilterAxis {
   const selectedSet = new Set(input.selected);
   // 選択順ではなく選択肢の並び順で要約する（ボタン・チップの表示が選択の順序に左右されない）
   const summary = summarizeMulti(
     input.options.filter((o) => selectedSet.has(o.value)).map((o) => o.label),
     input.allLabel,
+    input.maxShown,
   );
   return {
     kind: "multi",

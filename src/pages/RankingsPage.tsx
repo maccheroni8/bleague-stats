@@ -1434,7 +1434,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       playerCategoryLabel,
       // 登録区分は選手名の下に書かないので、指定したときはタイトルの下の行に書く（「全選手」は書かない。DESIGN.md 170章）
       classificationLabels(selectedClassification),
-      multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positions), "全ポジション"),
+      // ポジションは選択肢が9つだけなので、選んだものを省略せずに全部書く（「他N」にしない。DESIGN.md 178章）
+      multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positions), "全ポジション", Infinity),
       playerScopeLabels,
       registeredTarget ? "登録選手" : eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
       `上位${PLAYER_RANK_TOP_N}名`,
@@ -1503,6 +1504,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       selected: positions,
       onChangeSelected: setPositions,
       allLabel: "全ポジション",
+      maxShown: Infinity,
     }),
     gameTypeAxis(gameType, setGameType, season, { disabledReason: playerFilterDisabledReason }),
     periodAxis(period, setPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: playerFilterDisabledReason }),
