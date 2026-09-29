@@ -348,6 +348,17 @@ export function GlossaryGuides() {
         </p>
       </section>
 
+      <section className="glossary-section" id={A.doubleDouble}>
+        <h2>DD2・TD3（ダブルダブル・トリプルダブル）</h2>
+        <p>
+          PTS・TR・AST・STL・BLKのうち2項目（TD3は3項目）で2桁を記録した試合です。達成は試合全体の記録で判定します（Q別・前後半を選んでも変わりません）。
+        </p>
+        <p>
+          ランキングの合計の表示では達成した回数、平均の表示では<strong>達成率</strong>（出場した試合のうち達成した試合の割合）です。
+          達成率には「45.0%（27/60）」のように、達成した試合数と出場した試合数を添えます。0回（0%）の選手は並べません。
+        </p>
+      </section>
+
       <section className="glossary-section" id={A.career}>
         <h2>キャリアの回数</h2>
         <p>

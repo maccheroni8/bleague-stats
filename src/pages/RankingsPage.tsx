@@ -41,6 +41,8 @@ import {
   buildPeriodFilteredRawTotals,
   buildSeasonBoxscoreCtx,
   computeGamePeriodTotals,
+  countDigits,
+  countDoubleTripleDoubles,
   filterByGameType,
   sumPlayerGameLogs,
   sumTeamGameLogsFor,
@@ -897,23 +899,84 @@ function rawTotalsFromPlayerSummary(p: PlayerSummary): PlayerSeasonRawTotals {
  * 参照）、常にPlayerSummary.advanced.eff（バックエンドで正しく計算済みの値）を直接使う
  * （シチュエーション別フィルタ・レギュラー/プレーオフ選択の対象外。従来の実装と同じ扱い）
  */
-function boxColumnItem(col: SeasonBoxscoreColumn): PlayerRankItem {
+/** 個人ランキングの平均/合計（DESIGN.md 179章）。30分換算は選べない */
+type PlayerRankMode = "perGame" | "total";
+
+/** EFF（シーズンの値。シチュエーション別等の対象外）。平均は players.json の1試合平均、合計はそれ×出場試合数 */
+function effValue(p: PlayerSummary, mode: PlayerRankMode): number {
+  return mode === "total" ? p.advanced.eff * p.gamesPlayed : p.advanced.eff;
+}
+
+function effText(p: PlayerSummary, mode: PlayerRankMode): string {
+  return formatDecimal(effValue(p, mode), countDigits(mode));
+}
+
+function boxColumnItem(col: SeasonBoxscoreColumn, mode: PlayerRankMode): PlayerRankItem {
   if (col.key === "eff") {
     return {
       key: col.key,
       label: col.label,
       higherIsBetter: col.higherIsBetter,
-      value: (p) => p.advanced.eff,
-      format: (p) => formatDecimal(p.advanced.eff),
+      value: (p) => effValue(p, mode),
+      format: (p) => effText(p, mode),
     };
   }
   return {
     key: col.key,
     label: col.label,
     higherIsBetter: col.higherIsBetter,
-    value: (_p, ctx) => (ctx ? col.value(ctx, "perGame") : 0),
-    format: (_p, ctx) => (ctx ? col.format(ctx, "perGame") : "-"),
+    value: (_p, ctx) => (ctx ? col.value(ctx, mode) : 0),
+    format: (_p, ctx) => (ctx ? col.format(ctx, mode) : "-"),
   };
+}
+
+/**
+ * 平均/合計で値が変わらない項目（割合・率・試合数）。これらとProfile・Careerでは、平均/合計の切り替えを無効にする（DESIGN.md 179章）。
+ * 名前に pct を含む項目（FG%・TOV%・%PTS・PAINT2%・シューティングの 2P% 等）もここに入れる
+ */
+const MODE_INVARIANT_KEYS: ReadonlySet<string> = new Set(["g", "gs", "asttov", "usg", "efg", "ts", "pps", "poss", "pace", "ortg", "drtg", "netrtg", "per", "ppp"]);
+
+function displayModeApplies(category: string, statKey: string): boolean {
+  if (category === "profile" || category === "career") return false;
+  return !MODE_INVARIANT_KEYS.has(statKey) && !statKey.startsWith("pct") && !statKey.endsWith("pct");
+}
+
+/** DD2・TD3（達成した試合数と出場試合数。ダブルダブル・トリプルダブルは試合全体で判定する。DESIGN.md 60-4・179章） */
+interface DoubleCounts {
+  dd: number;
+  td: number;
+  games: number;
+}
+
+/** DD2・TD3 の項目。合計は回数、平均は達成率（達成した試合÷出場試合）に、達成した試合数と出場試合数を添える */
+function doubleItems(countsOf: (p: PlayerSummary) => DoubleCounts | undefined, mode: PlayerRankMode): PlayerRankItem[] {
+  const defs = [
+    { key: "dd2", label: "DD2", count: (c: DoubleCounts) => c.dd },
+    { key: "td3", label: "TD3", count: (c: DoubleCounts) => c.td },
+  ];
+  return defs.map((d) => ({
+    key: d.key,
+    label: d.label,
+    value: (p) => {
+      const c = countsOf(p);
+      if (!c) return 0;
+      return mode === "total" ? d.count(c) : c.games > 0 ? d.count(c) / c.games : 0;
+    },
+    format: (p) => {
+      const c = countsOf(p);
+      if (!c) return "-";
+      if (mode === "total") return `${d.count(c)}回`;
+      const rate = c.games > 0 ? (100 * d.count(c)) / c.games : 0;
+      return `${rate.toFixed(1)}%（${d.count(c)}/${c.games}）`;
+    },
+  }));
+}
+
+/** スタッツの条件で判定する DD2・TD3 の表示（平均は「45.0%」、合計は「27」） */
+function doubleConditionText(c: DoubleCounts | undefined, count: number | undefined, mode: PlayerRankMode): string {
+  if (!c || count === undefined) return "-";
+  if (mode === "total") return String(count);
+  return `${(c.games > 0 ? (100 * count) / c.games : 0).toFixed(1)}%`;
 }
 
 const SEASON_BOX_COLUMNS_BY_TAB: Record<SeasonBoxTabKey, SeasonBoxscoreColumn[]> = {
@@ -1008,16 +1071,20 @@ const PLAYER_CONDITION_KEYS_NEEDING_LOGS: ReadonlySet<string> = (() => {
  */
 function buildPlayerConditionDefs(
   season: string,
-  ctxOf: (p: PlayerSummary) => SeasonBoxscoreCtx | null,
+  mode: PlayerRankMode,
+  ctxOf: (p: PlayerSummary, mode: PlayerRankMode) => SeasonBoxscoreCtx | null,
   shootingPerGame: Column<PlayerSummary>[],
   shootingTotal: Column<PlayerSummary>[],
   careerOf: (p: PlayerSummary) => PlayerCareerCounts | undefined,
+  doublesOf: (p: PlayerSummary) => DoubleCounts | undefined,
 ): StatConditionItemDef<PlayerSummary>[] {
+  // 判定は今の平均/合計の値（display）。displayOther は逆のほう（カウント系かの判定に使う。DESIGN.md 179章）
+  const other: PlayerRankMode = mode === "total" ? "perGame" : "total";
   const defs: StatConditionItemDef<PlayerSummary>[] = [];
   for (const tab of SEASON_BOX_TABS) {
     for (const col of SEASON_BOX_COLUMNS_BY_TAB[tab.key]) {
       if (col.key === "eff") {
-        defs.push({ key: "eff", label: col.label, group: tab.label, display: (p) => formatDecimal(p.advanced.eff), seasonTotal: true });
+        defs.push({ key: "eff", label: col.label, group: tab.label, display: (p) => effText(p, mode), displayOther: (p) => effText(p, other), seasonTotal: true });
         continue;
       }
       defs.push({
@@ -1025,14 +1092,20 @@ function buildPlayerConditionDefs(
         label: col.label,
         group: tab.label,
         display: (p) => {
-          const ctx = ctxOf(p);
-          return ctx ? col.format(ctx, "perGame") : "-";
+          const ctx = ctxOf(p, mode);
+          return ctx ? col.format(ctx, mode) : "-";
         },
         displayOther: (p) => {
-          const ctx = ctxOf(p);
-          return ctx ? col.format(ctx, "total") : "-";
+          const ctx = ctxOf(p, other);
+          return ctx ? col.format(ctx, other) : "-";
         },
       });
+    }
+    if (tab.key === "traditional") {
+      defs.push(
+        { key: "dd2", label: "DD2", group: tab.label, display: (p) => doubleConditionText(doublesOf(p), doublesOf(p)?.dd, mode), displayOther: (p) => doubleConditionText(doublesOf(p), doublesOf(p)?.dd, other) },
+        { key: "td3", label: "TD3", group: tab.label, display: (p) => doubleConditionText(doublesOf(p), doublesOf(p)?.td, mode), displayOther: (p) => doubleConditionText(doublesOf(p), doublesOf(p)?.td, other) },
+      );
     }
     if (tab.key === "advanced") {
       for (const item of EXTRA_ADVANCED_PLAYER_ITEMS) {
@@ -1041,14 +1114,16 @@ function buildPlayerConditionDefs(
     }
   }
   const cellText = (c: Column<PlayerSummary>, p: PlayerSummary) => (c.format ? c.format(p) : String(c.sortValue(p)));
-  shootingPerGame.forEach((c, i) => {
-    const other = shootingTotal[i];
+  const shootingShown = mode === "total" ? shootingTotal : shootingPerGame;
+  const shootingOther = mode === "total" ? shootingPerGame : shootingTotal;
+  shootingShown.forEach((c, i) => {
+    const o = shootingOther[i];
     defs.push({
       key: c.key,
       label: c.label,
       group: CATEGORY_LABELS.shooting,
       display: (p) => cellText(c, p),
-      displayOther: other ? (p) => cellText(other, p) : undefined,
+      displayOther: o ? (p) => cellText(o, p) : undefined,
       seasonTotal: true,
     });
   });
@@ -1113,6 +1188,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const filterActive = !isDefaultFilter(filter);
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const gameTypeActive = gameType !== "regular";
+  // 平均/合計（チーム版と同じ URL のキー mode。DESIGN.md 179章）
+  const [displayMode, setDisplayMode] = useUrlState(DISPLAY_MODE_PARAM, "perGame");
   // Q別/前後半トグル。「試合」（既定値）選択時は追加の生データ取得を発生させず、既存の
   // PlayerSummary/PlayerGameLogベースの経路をそのまま使う。Q別/前後半選択時のみ、対象選手
   // 全員分の生データ（StoredGame）を一括取得する（useLeagueRawGames、DESIGN.md参照）
@@ -1318,6 +1395,39 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     gamesByScheduleKey,
   ]);
 
+  // DD2・TD3 の回数と出場試合数（DESIGN.md 179章）。試合ログを読んでいるとき（シチュエーション別・レギュラー/ポストシーズン等）は
+  // 絞り込んだ試合（出場した試合）から数え、読んでいないときは players.json のシーズンの値（レギュラーシーズン）を使う。
+  // Q別/前後半を選んでも、達成は試合全体で判定する（DESIGN.md 60-4）
+  const doublesByPlayer = useMemo(() => {
+    const map = new Map<string, DoubleCounts>();
+    for (const p of eligible) {
+      if (needsGameLogRecompute && gameLogsByPlayer) {
+        const logs = gameLogsByPlayer.get(p.playerId) ?? [];
+        const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
+        const played = filterByGameType(situational, effGameType).filter((g) => g.min > 0);
+        const { dd, td } = countDoubleTripleDoubles(played);
+        map.set(p.playerId, { dd, td, games: played.length });
+      } else {
+        map.set(p.playerId, { dd: p.totals.doubleDoubles, td: p.totals.tripleDoubles, games: p.gamesPlayed });
+      }
+    }
+    return map;
+    // effFilter・effGameType は filter・gameType・filtersApply から決まる
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eligible, needsGameLogRecompute, gameLogsByPlayer, filtersApply, filter, gameType, opponentRecords, divisionHistory, season, playerOwnTeamOf]);
+
+  // 平均/合計（DESIGN.md 179章）。割合の項目・Profile・Career では切り替えを無効にし、平均として扱う。
+  // ctxByPlayer は1試合平均の値なので、合計のときはシーズン合計の値の ctx を作り直す
+  const modeApplies = displayModeApplies(category, statKey);
+  const rankMode: PlayerRankMode = modeApplies && displayMode === "total" ? "total" : "perGame";
+  const totalCtxByPlayer = useMemo(() => {
+    if (!ctxByPlayer) return null;
+    const map = new Map<string, SeasonBoxscoreCtx>();
+    for (const [id, c] of ctxByPlayer) map.set(id, buildSeasonBoxscoreCtx(c.raw, c.team, "total", c.seasonStartYear));
+    return map;
+  }, [ctxByPlayer]);
+  const ctxFor = (p: PlayerSummary, mode: PlayerRankMode) => (mode === "total" ? totalCtxByPlayer : ctxByPlayer)?.get(p.playerId) ?? null;
+
   // シチュエーション別フィルタで対象試合が0件になった選手は、"0"のまま下位に並べず除外する
   // （旧situationalByPlayerが null を返していたときと同じ扱い）。シューティングカテゴリは
   // 常にシーズン集計（掲載基準通過者全員）をそのまま表示する
@@ -1325,16 +1435,28 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     if (category === "profile") return eligible.filter((p) => profileItemHasValue(p, statKey));
     if (category === "career") return eligible.filter((p) => (careerBySeason?.[p.playerId]?.[statKey as keyof PlayerCareerCounts] ?? 0) > 0);
     if (category === "shooting" || !ctxByPlayer) return eligible;
-    return eligible.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.gamesPlayed ?? 0) > 0);
-  }, [eligible, ctxByPlayer, category, statKey, careerBySeason]);
+    const played = eligible.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.gamesPlayed ?? 0) > 0);
+    // DD2・TD3 は0回（0%）の選手を並べない（平均・合計とも。DESIGN.md 179章）
+    if (statKey === "dd2" || statKey === "td3") {
+      return played.filter((p) => {
+        const c = doublesByPlayer.get(p.playerId);
+        return !!c && (statKey === "dd2" ? c.dd : c.td) > 0;
+      });
+    }
+    return played;
+  }, [eligible, ctxByPlayer, category, statKey, careerBySeason, doublesByPlayer]);
 
   const shootingColumns = useMemo(
     () => shotTypeEntityColumns(SHOT_TYPE_DISPLAY_ORDER, (p: PlayerSummary) => p.shotTypes, "perGame", (p) => p.gamesPlayed),
     [],
   );
+  const shootingColumnsTotal = useMemo(
+    () => shotTypeEntityColumns(SHOT_TYPE_DISPLAY_ORDER, (p: PlayerSummary) => p.shotTypes, "total", (p) => p.gamesPlayed),
+    [],
+  );
   const currentItems: PlayerRankItem[] = useMemo(() => {
     if (category === "shooting") {
-      return shootingColumns.map((c) => ({
+      return (rankMode === "total" ? shootingColumnsTotal : shootingColumns).map((c) => ({
         key: c.key,
         label: c.label,
         higherIsBetter: c.higherIsBetter,
@@ -1344,29 +1466,28 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     }
     if (category === "profile") return buildProfileItems(season);
     if (category === "career") return buildCareerItems((p) => careerBySeason?.[p.playerId]);
-    const items = SEASON_BOX_COLUMNS_BY_TAB[category].map(boxColumnItem);
+    const items = SEASON_BOX_COLUMNS_BY_TAB[category].map((col) => boxColumnItem(col, rankMode));
+    if (category === "traditional") return [...items, ...doubleItems((p) => doublesByPlayer.get(p.playerId), rankMode)];
     return category === "advanced" ? [...items, ...EXTRA_ADVANCED_PLAYER_ITEMS] : items;
-  }, [category, shootingColumns, season, careerBySeason]);
+  }, [category, shootingColumns, shootingColumnsTotal, season, careerBySeason, rankMode, doublesByPlayer]);
 
   // スタッツの条件（DESIGN.md 162章）。今のタブに限らず全カテゴリの項目で、ランキングに出す行を絞り込む
-  const shootingColumnsTotal = useMemo(
-    () => shotTypeEntityColumns(SHOT_TYPE_DISPLAY_ORDER, (p: PlayerSummary) => p.shotTypes, "total", (p) => p.gamesPlayed),
-    [],
-  );
   const conditionItems = useMemo(
     () =>
       buildStatConditionItems(
         buildPlayerConditionDefs(
           season,
-          (p) => ctxByPlayer?.get(p.playerId) ?? null,
+          rankMode,
+          (p, mode) => (mode === "total" ? totalCtxByPlayer : ctxByPlayer)?.get(p.playerId) ?? null,
           shootingColumns,
           shootingColumnsTotal,
           (p) => careers?.seasons[season]?.[p.playerId],
+          (p) => doublesByPlayer.get(p.playerId),
         ),
         eligible,
-        "perGame",
+        rankMode,
       ),
-    [season, ctxByPlayer, shootingColumns, shootingColumnsTotal, careers, eligible],
+    [season, rankMode, ctxByPlayer, totalCtxByPlayer, shootingColumns, shootingColumnsTotal, careers, eligible, doublesByPlayer],
   );
   const conditionActive = hasActiveStatConditions(statConditions, conditionItems);
   const shownRows = useMemo(
@@ -1382,8 +1503,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     key: selectedItem.key,
     label: selectedItem.label,
     higherIsBetter: selectedItem.higherIsBetter,
-    value: (p) => selectedItem.value(p, ctxByPlayer?.get(p.playerId) ?? null),
-    format: (p) => selectedItem.format(p, ctxByPlayer?.get(p.playerId) ?? null),
+    value: (p) => selectedItem.value(p, ctxFor(p, rankMode)),
+    format: (p) => selectedItem.format(p, ctxFor(p, rankMode)),
   };
 
   // 「プロフィール」カテゴリの年齢の基準日ラベル（表・画像出力に出す。そのシーズンの6月30日か今日の早い方。DESIGN.md 172章）。
@@ -1436,6 +1557,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       classificationLabels(selectedClassification),
       // ポジションは選択肢が9つだけなので、選んだものを省略せずに全部書く（「他N」にしない。DESIGN.md 178章）
       multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positions), "全ポジション", Infinity),
+      // 平均/合計は初期値（平均）でも必ず書く（画像だけ見ても分かるように。初期値を書かないルールの例外。DESIGN.md 179章）。
+      // 切り替えの対象外の項目（割合・Profile・Career）では書かない
+      modeApplies ? displayModeLabels(rankMode) : [],
       playerScopeLabels,
       registeredTarget ? "登録選手" : eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
       `上位${PLAYER_RANK_TOP_N}名`,
@@ -1507,6 +1631,14 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       maxShown: Infinity,
     }),
     gameTypeAxis(gameType, setGameType, season, { disabledReason: playerFilterDisabledReason }),
+    // 対象外の項目では無効にし、平均のまま見せる（URL の mode は残すので、対象の項目に戻ると合計に戻る）
+    displayModeAxis(rankMode, setDisplayMode, {
+      disabledReason: modeApplies
+        ? undefined
+        : category === "profile" || category === "career"
+          ? "このカテゴリは平均/合計の切り替えの対象外です。"
+          : `「${selectedItem.label}」は割合・率（または試合数）の項目のため、平均/合計の切り替えの対象外です。`,
+    }),
     periodAxis(period, setPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: playerFilterDisabledReason }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
@@ -1519,6 +1651,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     setSelectedClassification("all");
     setPositions([]);
     setGameType("regular");
+    setDisplayMode("perGame");
     setPeriod("all");
     setFilter({ range: { kind: "all" } });
     eligibilityAxis.onChange("");

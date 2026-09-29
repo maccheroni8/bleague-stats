@@ -42,8 +42,8 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   最大連勝: "シーズン中の最大連勝数",
   最大連敗: "シーズン中の最大連敗数",
   現在: "現在の連勝・連敗",
-  DD2: "ダブルダブル（PTS・TR・AST・STL・BLKのうち2項目で2桁）を記録した試合数",
-  TD3: "トリプルダブル（PTS・TR・AST・STL・BLKのうち3項目で2桁）を記録した試合数",
+  DD2: "ダブルダブル（PTS・TR・AST・STL・BLKのうち2項目で2桁）を記録した試合数。ランキングの平均の表示では達成率（出場した試合のうち達成した試合の割合）",
+  TD3: "トリプルダブル（PTS・TR・AST・STL・BLKのうち3項目で2桁）を記録した試合数。ランキングの平均の表示では達成率（出場した試合のうち達成した試合の割合）",
 
   // --- Traditional ---
   MIN: "出場時間",

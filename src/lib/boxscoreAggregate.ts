@@ -194,7 +194,8 @@ export function playTimeToSeconds(playTime: string | undefined): number {
 export function formatMinutesFromSeconds(totalSec: number): string {
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
+  // シーズン合計等で1,000分を超えるときは3桁ごとに区切る（「1,523:40」。DESIGN.md 179章）
+  return `${m.toLocaleString("en-US")}:${String(s).padStart(2, "0")}`;
 }
 
 /**

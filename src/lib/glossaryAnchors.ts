@@ -21,6 +21,7 @@ export const GLOSSARY_ANCHORS = {
   magicNumber: "magic-number",
   profile: "profile",
   career: "career",
+  doubleDouble: "double-double",
 } as const;
 
 export type GlossaryAnchor = (typeof GLOSSARY_ANCHORS)[keyof typeof GLOSSARY_ANCHORS];
