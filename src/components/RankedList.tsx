@@ -41,8 +41,8 @@ export interface RankedListProps<T> {
   compact?: boolean;
   /** 項目名の説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */
   statScope?: StatScope;
-  /** 同じ順位のまとめの数え方（既定は statScope から: チーム→「チーム」、選手→「人」）。「試合」は1試合の記録の一覧用で、「20位タイ ほか◯試合」と書く */
-  unit?: "人" | "チーム" | "試合";
+  /** 同じ順位のまとめの数え方（既定は statScope から: チーム→「チーム」、選手→「人」）。「試合」「シーズン」は記録の一覧（1試合・1シーズン）用で、「20位タイ ほか◯試合」のように書く */
+  unit?: "人" | "チーム" | "試合" | "シーズン";
   /** 同じ順位かどうかを決める文字列（既定は def.format の表示値）。事前に順位を付けた記録の一覧は、元の値で決める */
   tieKey?: (row: T) => string;
   /** 指定時、値の欄に def.format の代わりにこれを出す（成功率に成功数／試投数を添える等。順位の判定には使わない） */
@@ -206,9 +206,9 @@ export function RankedList<T>({
       {hiddenTies > 0 && (
         <button className="load-more-button" type="button" onClick={() => setTiesExpanded((v) => !v)}>
           {tiesExpanded
-            ? `上位${limit}${unit === "試合" ? "件" : unit}だけを表示`
-            : unit === "試合"
-              ? `${rankAt(limit! - 1)}位タイ ほか${hiddenTies}試合を表示`
+            ? `上位${limit}${(unit === "試合" || unit === "シーズン") ? "件" : unit}だけを表示`
+            : (unit === "試合" || unit === "シーズン")
+              ? `${rankAt(limit! - 1)}位タイ ほか${hiddenTies}${unit}を表示`
               : `同じ順位のほか${hiddenTies}${unit}を表示`}
         </button>
       )}

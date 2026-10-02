@@ -39,7 +39,6 @@ import type {
   ClubHonorsFile,
   DivisionHistoryFile,
   GameSummary,
-  LeagueRecordEntry,
   LeagueTeamRankEntry,
   LeagueTeamRankingsFile,
   SeasonRules,
@@ -116,6 +115,7 @@ import { lastPremierSeasonFor, leagueTeamCurrentCategoryLabel, leagueTeamDisplay
 import { RECORD_MODE_PARAM, teamGameRecordRankingUrl } from "../components/TeamGameRecordRanking";
 import { CareerLeaderCard } from "../components/CareerLeaderCard";
 import { careerRecordRankingUrl } from "../components/CareerRecordRanking";
+import { TEAM_SEASON_RECORD_ITEMS, teamSeasonRecordRankingUrl } from "../components/TeamSeasonRecordRanking";
 import { TeamRecordLeaderCard } from "../components/TeamRecordLeaderCard";
 import { TEAM_RECORD_MODE_LABELS, allTimeTeamRecordRows, teamRecordItems, type TeamRecordMode } from "../lib/teamGameRecords";
 import { ONE_TEAM_DIVISIONS, TEAM_DIVISIONS, TEAM_NAMES } from "../../scripts/lib/divisions";
@@ -836,18 +836,11 @@ function recordsStatOptions(category: RecordsCategory): RecordsStatOption[] {
     case "seasonSpecial":
       return SEASON_SPECIAL_STAT_OPTIONS;
     case "premierRecord":
-      // 1試合の記録はカード（ランキングページへ移る。DESIGN.md 191章）。ここで選ぶのは、その下の1シーズンの記録（段階4でランキングへ移す）
-      return SEASON_SPECIAL_STAT_OPTIONS;
+      // 1試合の記録・1シーズンの記録ともカード（ランキングページへ移る。DESIGN.md 191・194章）
+      return [];
     case "periodRecord":
       return [];
   }
-}
-
-/** premierRecordカテゴリの選択中statKeyが、クラブレコード系（1試合単位）かシーズン記録系
- * （最多勝利数/最多連勝）かを判定する。TEAM_RECORD_STATSのkeyとSEASON_SPECIAL_STAT_OPTIONSの
- * key（wins/streak）は重複しないため、この2値だけで判別できる */
-function isSeasonSpecialStatKey(statKey: string): statKey is "wins" | "streak" {
-  return statKey === "wins" || statKey === "streak";
 }
 
 // クラブレコードの%系4項目（TeamDetailPage.tsxのTEAM_RECORD_PCT_FORMATSと同じ対象）のみ%表記、
@@ -884,17 +877,6 @@ function leagueEntriesFor(
   }
   const table = venue === "total" ? rankings.clubRecord : venue === "home" ? rankings.clubRecordHome : rankings.clubRecordAway;
   return table[gameType][statKey];
-}
-
-/** 「B.PREMIER（旧B1）レコード」（Batch 5）。ホーム/アウェイ限定版は対象外（トータルのみ） */
-function premierRecordEntriesFor(
-  rankings: LeagueTeamRankingsFile | null,
-  gameType: SeasonGameTypeFilter,
-  statKey: string,
-): LeagueRecordEntry[] {
-  if (!rankings) return [];
-  if (isSeasonSpecialStatKey(statKey)) return rankings.seasonSpecialTop20[gameType][statKey];
-  return rankings.clubRecordTop20[gameType][statKey] ?? [];
 }
 
 /** 歴代記録のファイルを最後に書き換えた日（日本時間）。内容に変化が無い日は書き換えないので、最後に順位や値が変わった日になる */
@@ -1016,10 +998,8 @@ function LeagueRecordsTab() {
         // 同じ順位（成功率の同じ率）の中は、試投数の多い記録を上に（2026-09-27）
         .sort((a, b) => a.entry.rank - b.entry.rank || (b.entry.attempted ?? 0) - (a.entry.attempted ?? 0) || Number(a.teamId) - Number(b.teamId))
     : [];
-  const premierRows: LeagueRecordEntry[] = isPremierRecord ? premierRecordEntriesFor(rankings, gameType, statKey) : [];
   const totalTeams = Object.keys(rankings.career.regular.wins ?? {}).length;
   const activeLabel = statOptions.find((d) => d.key === statKey)?.label ?? statKey;
-  const valueCategory: "clubRecord" | "seasonSpecial" = isSeasonSpecialStatKey(statKey) ? "seasonSpecial" : "clubRecord";
   // 1試合の記録のカード（各項目の1位。押すとランキングページの同じ項目へ移る。DESIGN.md 191章）
   const cardMode: TeamRecordMode = isPeriodRecord && recordMode === "against" ? "record" : recordMode;
   const recordCards =
@@ -1041,6 +1021,14 @@ function LeagueRecordsTab() {
           .sort((a, b) => Number(a[0]) - Number(b[0]));
         const first = top[0];
         return first ? [{ def, teamId: first[0], entry: first[1], others: top.length - 1 }] : [];
+      })
+    : [];
+  // 1シーズンの記録のカード（最多勝利数・最多連勝。全シーズンの中の1位。同じ記録のシーズンが複数あれば先頭の1件と「ほか◯シーズン」）
+  const seasonSpecialCards = isPremierRecord
+    ? TEAM_SEASON_RECORD_ITEMS.flatMap((def) => {
+        const top = (rankings.seasonSpecialTop20[gameType]?.[def.key] ?? []).filter((e) => e.rank === 1);
+        const first = top[0];
+        return first ? [{ def, entry: first, others: top.length - 1 }] : [];
       })
     : [];
   const recordCardsBlock = (
@@ -1131,62 +1119,21 @@ function LeagueRecordsTab() {
       ) : isPremierRecord ? (
         <>
         {recordCardsBlock}
-        <h3 className="career-highs-subheading">1シーズンの記録（最多勝利数・最多連勝）</h3>
-        <FilterBar axes={[statItemAxis(statOptions, statKey, setStatKey)]} stateKey="teams:records:stat" simple wide />
-        {premierRows.length === 0 ? (
-          <p className="empty-message">この条件（レギュラー/{postseasonLabel(null)}区分・項目）では該当記録がありません</p>
-        ) : (
-          <div className="table-scroll">
-            <table className="sortable-table rankings-table">
-              <thead>
-                <tr>
-                  <th className="align-right">#</th>
-                  <th className="align-left">チーム</th>
-                  <th className="align-right rank-value-head" title={statDescription(activeLabel, "team")}>{activeLabel}</th>
-                  {!narrow && <th className="align-left">シーズン</th>}
-                  <th className="align-left">試合</th>
-                </tr>
-              </thead>
-              <tbody>
-                {premierRows.map((r, i) => (
-                  <tr key={`${r.rank}-${r.teamId}-${r.scheduleKey ?? r.season}-${i}`}>
-                    <td className="align-right rank-cell">{r.rank}</td>
-                    <td className="align-left">
-                      <TeamNavLink teamId={r.teamId} divisionHistory={divisionHistory} className="cell-link">
-                        <span className="team-name-cell">
-                          <TeamLogo teamId={r.teamId} size={20} />
-                          <span className="rank-name-cell">
-                            <span className="rank-name">
-                              <ResponsiveTeamName teamId={r.teamId} name={seasonName(r.teamId, r.season)} />
-                            </span>
-                          </span>
-                        </span>
-                      </TeamNavLink>
-                    </td>
-                    <td className="align-right rank-value">
-                      <RecordValue text={formatLeagueRecordValue(valueCategory, statKey, r.value)} fraction={fractionOfEntry(r)} />
-                    </td>
-                    {!narrow && <td className="align-left record-season">{r.season}</td>}
-                    <td className="align-left">
-                      {r.scheduleKey ? (
-                        <Link to={`/games/${r.scheduleKey}?season=${r.season}`} className="cell-link">
-                          <span className="record-date">{r.date}</span>
-                          {r.opponentTeamId && (
-                            <span className="record-opponent">
-                              {` ${r.isHome ? "vs" : "@"} ${teamLabel(r.opponentTeamId, seasonName(r.opponentTeamId, r.season))}`}
-                            </span>
-                          )}
-                        </Link>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <h3 className="career-highs-subheading">1シーズンの記録（各項目の1位。押すとランキングへ）</h3>
+        <div className="career-highs-grid">
+          {seasonSpecialCards.map(({ def, entry, others }) => (
+            <CareerLeaderCard
+              key={def.key}
+              label={def.key === "wins" ? "最多勝利数（1シーズン）" : def.label}
+              valueText={`${entry.value}${def.unit}`}
+              name={<ResponsiveTeamName teamId={entry.teamId} name={seasonName(entry.teamId, entry.season)} always />}
+              sub={`${entry.season}シーズン`}
+              otherCount={others}
+              unit="シーズン"
+              to={teamSeasonRecordRankingUrl({ gameType, statKey: def.key })}
+            />
+          ))}
+        </div>
         </>
       ) : isCareer ? (
         <div className="career-highs-grid">

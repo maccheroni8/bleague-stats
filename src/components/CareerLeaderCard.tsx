@@ -20,7 +20,7 @@ export function CareerLeaderCard({
   sub?: ReactNode;
   /** 1位タイの先頭以外の数 */
   otherCount: number;
-  unit: "人" | "チーム";
+  unit: "人" | "チーム" | "シーズン";
   to: string;
 }) {
   return (

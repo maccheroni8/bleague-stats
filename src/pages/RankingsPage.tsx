@@ -1,6 +1,7 @@
 import { RankedList, type RankableStat } from "../components/RankedList";
 import { PlayerGameRecordRanking } from "../components/PlayerGameRecordRanking";
 import { TeamGameRecordRanking } from "../components/TeamGameRecordRanking";
+import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
 import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
 import { EligibilitySlider } from "../components/EligibilitySlider";
 import { useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
@@ -213,9 +214,9 @@ function buildTeamCategoryColumns(
  */
 const RANKING_MODE_PARAM = enumParam<Mode>("m", ["team", "player"], "team");
 /** 種類（DESIGN.md 190〜192章）: シーズン成績（今までのランキング）／1試合記録／通算記録（過去に在籍した全選手・全クラブの全シーズン合算） */
-type RankingKind = "season" | "game" | "career";
-const RANKING_KIND_PARAM = enumParam<RankingKind>("k", ["season", "game", "career"], "season");
-const RANKING_KIND_LABELS: Record<RankingKind, string> = { season: "シーズン成績", game: "1試合記録", career: "通算記録" };
+type RankingKind = "season" | "game" | "career" | "special";
+const RANKING_KIND_PARAM = enumParam<RankingKind>("k", ["season", "game", "career", "special"], "season");
+const RANKING_KIND_LABELS: Record<RankingKind, string> = { season: "シーズン成績", game: "1試合記録", career: "通算記録", special: "1シーズン記録" };
 const TEAM_CATEGORY_PARAM = enumParam<TeamRankingCategory>(
   "cat",
   ["traditional", "advanced", "misc", "scoring", "shooting", "forcedTurnovers"],
@@ -1634,8 +1635,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 export function RankingsPage({ season }: { season: string }) {
   // チーム/個人はURLのクエリ（m=player）に持つ。切り替えたら前の側のフィルタのクエリは消す（DESIGN.md 163章）
   const [mode, setModeParam] = useUrlState(RANKING_MODE_PARAM, "team");
-  const [kind, setKindParam] = useUrlState(RANKING_KIND_PARAM, "season");
+  const [kindParam, setKindParam] = useUrlState(RANKING_KIND_PARAM, "season");
   const [scope, setScopeParam] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
+  // 個人には1シーズン記録が無いので、URLに k=special があっても通常のシーズン成績にする
+  const kind: RankingKind = mode === "player" && kindParam === "special" ? "season" : kindParam;
   const setMode = (next: Mode) => {
     if (next === mode) return;
     clearUrlParams();
@@ -1650,9 +1653,10 @@ export function RankingsPage({ season }: { season: string }) {
   };
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const gameRecords = kind === "game";
-  const kinds: RankingKind[] = ["season", "game", "career"];
+  // 1シーズン記録はチームだけ（個人には1シーズンの記録の項目が無い）
+  const kinds: RankingKind[] = mode === "team" ? ["season", "game", "career", "special"] : ["season", "game", "career"];
   // 歴代（通算記録は常に歴代）はシーズンに依らないので、シーズンを出さない
-  const allTimeRecords = kind === "career" || (gameRecords && scope === "allTime");
+  const allTimeRecords = kind === "career" || kind === "special" || (gameRecords && scope === "allTime");
 
   return (
     <div data-design="v2">
@@ -1694,7 +1698,9 @@ export function RankingsPage({ season }: { season: string }) {
 
       {/* カテゴリのタブを「ページの主タブ」ではなく従のタブとして扱うため、ルート直下に置かない（v2のCSSは > .tab-bar だけを主タブにする） */}
       <div>
-        {kind === "career" ? (
+        {kind === "special" ? (
+          <TeamSeasonRecordRanking teamColors={teamColors ?? undefined} />
+        ) : kind === "career" ? (
           mode === "player" ? (
             <PlayerCareerRecordRanking teamColors={teamColors ?? undefined} />
           ) : (
