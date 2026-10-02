@@ -56,6 +56,7 @@ export function ClubPeriodRecords<G extends RecordGame>({
   stateKey,
   mode: controlledMode,
   teamLabel,
+  linkFor,
 }: {
   games: G[];
   stateKey: string;
@@ -63,6 +64,8 @@ export function ClubPeriodRecords<G extends RecordGame>({
   mode?: "record" | "worst";
   /** 複数チームの試合を並べるとき、試合の欄に記録したチームを出す */
   teamLabel?: (g: G) => ReactNode;
+  /** 指定時、表のマスを押すと展開するのではなく、その区間・記録のランキングページへ移る（チーム全体「記録」のシーズン。DESIGN.md 191章） */
+  linkFor?: (period: PeriodKey, kind: PeriodRecordKind) => string;
 }) {
   const [ownMode, setMode] = usePageState<"record" | "worst">(`${stateKey}:mode`, "record");
   const mode = controlledMode ?? ownMode;
@@ -133,6 +136,17 @@ export function ClubPeriodRecords<G extends RecordGame>({
                   return (
                     <td key={k.key} className="align-left">
                       {best ? (
+                        linkFor ? (
+                          <RouterLink to={linkFor(period, k.key)} className="period-records-cell">
+                          <span className="period-records-value">
+                            {formatRecordValue(k.key, best.value)}
+                            {best.score.fromPbp && <span title={PBP_NOTE}>※</span>}
+                          </span>
+                          {teamLabel && <span className="period-records-team">{teamLabel(best.game)}</span>}
+                          <span className="period-records-date">{formatDate(best.game.date, narrow)}</span>
+                          {ties > 1 && <span className="period-records-date">ほか{ties - 1}試合</span>}
+                          </RouterLink>
+                        ) : (
                         <button
                           type="button"
                           className={`period-records-cell${isSelected ? " is-selected" : ""}`}
@@ -147,6 +161,7 @@ export function ClubPeriodRecords<G extends RecordGame>({
                           <span className="period-records-date">{formatDate(best.game.date, narrow)}</span>
                           {ties > 1 && <span className="period-records-date">ほか{ties - 1}試合</span>}
                         </button>
+                        )
                       ) : (
                         "-"
                       )}
@@ -211,7 +226,7 @@ export function ClubPeriodRecords<G extends RecordGame>({
             </button>
           )}
         </div>
-      ) : (
+      ) : linkFor ? null : (
         <p className="page-subtitle">表のマスを押すと、その区間・記録の上位{TOP_RANK}位（同じ記録はすべて）を表示します</p>
       )}
     </div>

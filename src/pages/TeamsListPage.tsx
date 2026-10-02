@@ -112,6 +112,10 @@ import {
   formatTeamStreak,
   type TeamStreak,
 } from "../../shared/teamRecords";
+import { leagueTeamDisplayName } from "../lib/leagueTeamNames";
+import { RECORD_MODE_PARAM, teamGameRecordRankingUrl } from "../components/TeamGameRecordRanking";
+import { TeamRecordLeaderCard } from "../components/TeamRecordLeaderCard";
+import { TEAM_RECORD_MODE_LABELS, allTimeTeamRecordRows, teamRecordItems, type TeamRecordMode } from "../lib/teamGameRecords";
 import { ONE_TEAM_DIVISIONS, TEAM_DIVISIONS, TEAM_NAMES } from "../../scripts/lib/divisions";
 import {
   buildAdvancedColumns,
@@ -812,14 +816,6 @@ const RECORDS_CATEGORY_LABELS: Record<RecordsCategory, string> = {
   periodRecord: "クォーター別レコード",
 };
 
-/** クォーター別レコード（DESIGN.md 143章）の項目: 6区間×記録側の3種（最多得点・最少失点・最大得失点差）。キーは periodRecordStatKey */
-const PERIOD_RECORD_STAT_OPTIONS: RecordsStatOption[] = PERIOD_KEYS.flatMap((period) =>
-  PERIOD_RECORD_KINDS.filter((k) => k.mode === "record").map((k) => ({
-    key: periodRecordStatKey(period, k.key),
-    label: `${PERIOD_LABELS[period]} ${k.label}`,
-  })),
-);
-
 interface RecordsStatOption {
   key: string;
   label: string;
@@ -839,9 +835,10 @@ function recordsStatOptions(category: RecordsCategory): RecordsStatOption[] {
     case "seasonSpecial":
       return SEASON_SPECIAL_STAT_OPTIONS;
     case "premierRecord":
-      return [...TEAM_RECORD_STATS.map((d) => ({ key: d.key, label: d.label })), ...SEASON_SPECIAL_STAT_OPTIONS];
+      // 1試合の記録はカード（ランキングページへ移る。DESIGN.md 191章）。ここで選ぶのは、その下の1シーズンの記録（段階4でランキングへ移す）
+      return SEASON_SPECIAL_STAT_OPTIONS;
     case "periodRecord":
-      return PERIOD_RECORD_STAT_OPTIONS;
+      return [];
   }
 }
 
@@ -899,24 +896,11 @@ function premierRecordEntriesFor(
   return rankings.clubRecordTop20[gameType][statKey] ?? [];
 }
 
-// TEAM_NAMES（scripts/lib/divisions.ts）は現行B.PREMIER26クラブのみを収録している
-// （その出典・用途が26クラブに固定されているため）。過去在籍のみで現在はB.ONEに所属する
-// 4クラブ（新潟・FE名古屋・越谷・ライジングゼファー福岡）の名称はここで補う
-const EXTRA_TEAM_NAMES: Record<string, string> = {
-  "695": "新潟アルビレックスBB",
-  "717": "ファイティングイーグルス名古屋",
-  "745": "越谷アルファーズ",
-  "753": "ライジングゼファー福岡",
-};
-
 /** 歴代記録のファイルを最後に書き換えた日（日本時間）。内容に変化が無い日は書き換えないので、最後に順位や値が変わった日になる */
 function formatRankingsUpdatedAt(iso: string): string {
   return new Date(iso).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
 }
 
-function leagueTeamDisplayName(teamId: string): string {
-  return TEAM_NAMES[teamId] ?? EXTRA_TEAM_NAMES[teamId] ?? teamId;
-}
 
 // 現在の所属カテゴリ（要件3: 降格済み・退会済みクラブと現行クラブを区別する注記）。
 // TEAM_DIVISIONS/ONE_TEAM_DIVISIONSはいずれも2026-27シーズン基準の現行クラブ一覧
@@ -1027,12 +1011,14 @@ function LeagueRecordsTab() {
   const [venue, setVenue] = useUrlState(TEAM_VENUE_PARAM, "total");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [statKey, setStatKey] = useUrlState(TEAM_RECORDS_STAT_PARAM, "wins");
+  // 記録の種類（B.PREMIERレコード・クォーター別レコードのカード）。クォーター別レコードに被記録は無いので記録にする
+  const [recordMode, setRecordMode] = useUrlState(RECORD_MODE_PARAM, "record");
 
   const statOptions = recordsStatOptions(category);
 
   const selectCategory = (next: RecordsCategory) => {
     setCategory(next);
-    setStatKey(recordsStatOptions(next)[0]!.key);
+    setStatKey(recordsStatOptions(next)[0]?.key ?? "wins");
   };
 
   if (rankingsLoading) return <p className="loading">読み込み中...</p>;
@@ -1052,6 +1038,36 @@ function LeagueRecordsTab() {
   const totalTeams = Object.keys(rankings.career.regular.wins ?? {}).length;
   const activeLabel = statOptions.find((d) => d.key === statKey)?.label ?? statKey;
   const valueCategory: "clubRecord" | "seasonSpecial" = isSeasonSpecialStatKey(statKey) ? "seasonSpecial" : "clubRecord";
+  // 1試合の記録のカード（各項目の1位。押すとランキングページの同じ項目へ移る。DESIGN.md 191章）
+  const cardMode: TeamRecordMode = isPeriodRecord && recordMode === "against" ? "record" : recordMode;
+  const recordCards =
+    isPremierRecord || isPeriodRecord
+      ? teamRecordItems(cardMode)
+          .filter((i) => (isPeriodRecord ? !!i.group : !i.group))
+          .map((item) => ({
+            item,
+            rows: allTimeTeamRecordRows(rankings, teamHistory, cardMode, gameType, item.key, leagueTeamDisplayName),
+          }))
+          .filter((c) => c.rows.length > 0)
+      : [];
+  const recordCardsBlock = (
+    <>
+      <h3 className="career-highs-subheading">
+        {isPeriodRecord ? "クォーター別・前後半別" : "1試合"}の{TEAM_RECORD_MODE_LABELS[cardMode]}（各項目の1位。押すとランキングへ）
+      </h3>
+      <div className="career-highs-grid">
+        {recordCards.map(({ item, rows: cardRows }) => (
+          <TeamRecordLeaderCard
+            key={item.key}
+            itemKey={item.key}
+            label={item.label}
+            rows={cardRows}
+            to={teamGameRecordRankingUrl({ scope: "allTime", gameType, mode: cardMode, statKey: item.key })}
+          />
+        ))}
+      </div>
+    </>
+  );
 
   return (
     <div>
@@ -1080,19 +1096,49 @@ function LeagueRecordsTab() {
           // B.PREMIERレコード・クォーター別レコードは会場別の集計が無い（ホーム/アウェイ限定版は対象外）ため会場の軸自体を出さない
           ...(isPremierRecord || isPeriodRecord ? [] : [leagueVenueAxis(venue, setVenue)]),
           gameTypeAxis(gameType, setGameType, null),
+          ...(isPremierRecord || isPeriodRecord
+            ? [
+                simpleSelectAxis({
+                  id: "recordMode",
+                  label: "記録の種類",
+                  options: (isPeriodRecord ? (["record", "worst"] as const) : (["record", "worst", "against"] as const)).map((m) => ({
+                    value: m,
+                    label: TEAM_RECORD_MODE_LABELS[m],
+                  })),
+                  value: cardMode,
+                  defaultValue: "record",
+                  onChange: (v) => setRecordMode(v as TeamRecordMode),
+                }),
+              ]
+            : []),
         ]}
       />
-      <FilterBar axes={[statItemAxis(statOptions, statKey, setStatKey)]} stateKey="teams:records:stat" simple wide />
+      {!isPeriodRecord && !isPremierRecord && <FilterBar axes={[statItemAxis(statOptions, statKey, setStatKey)]} stateKey="teams:records:stat" simple wide />}
 
       <ConditionTitle
-        title={`歴代記録 ${RECORDS_CATEGORY_LABELS[category]}：${activeLabel}`}
-        conditions={composeLabels(!isPremierRecord && !isPeriodRecord && leagueVenueLabels(venue), gameTypeLabels(gameType, null))}
+        title={
+          isPeriodRecord || isPremierRecord
+            ? `歴代記録 ${RECORDS_CATEGORY_LABELS[category]}`
+            : `歴代記録 ${RECORDS_CATEGORY_LABELS[category]}：${activeLabel}`
+        }
+        conditions={composeLabels(
+          !isPremierRecord && !isPeriodRecord && leagueVenueLabels(venue),
+          (isPremierRecord || isPeriodRecord) && TEAM_RECORD_MODE_LABELS[cardMode],
+          gameTypeLabels(gameType, null),
+        )}
       />
 
       {isPeriodRecord ? (
-        <PeriodRecordTables rankings={rankings} gameType={gameType} statKey={statKey} divisionHistory={divisionHistory} />
+        <>
+          {recordCardsBlock}
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.periodRecords} label="クォーター別レコード" />
+        </>
       ) : isPremierRecord ? (
-        premierRows.length === 0 ? (
+        <>
+        {recordCardsBlock}
+        <h3 className="career-highs-subheading">1シーズンの記録（最多勝利数・最多連勝）</h3>
+        <FilterBar axes={[statItemAxis(statOptions, statKey, setStatKey)]} stateKey="teams:records:stat" simple wide />
+        {premierRows.length === 0 ? (
           <p className="empty-message">この条件（レギュラー/{postseasonLabel(null)}区分・項目）では該当記録がありません</p>
         ) : (
           <div className="table-scroll">
@@ -1145,7 +1191,8 @@ function LeagueRecordsTab() {
               </tbody>
             </table>
           </div>
-        )
+        )}
+        </>
       ) : rows.length === 0 ? (
         <p className="empty-message">この条件（ホーム/アウェイ/トータル・レギュラー/{postseasonLabel(null)}区分・項目）では該当クラブがありません</p>
       ) : (
@@ -1186,149 +1233,6 @@ function LeagueRecordsTab() {
         </div>
       )}
     </div>
-  );
-}
-
-/** クォーター別レコードの値の表記。得失点差は符号付き */
-function formatPeriodRecordValue(statKey: string, value: number): string {
-  return statKey.endsWith("Diff") && value > 0 ? `+${value}` : String(value);
-}
-
-const PERIOD_TOP_COLLAPSED_ROWS = 20;
-
-/**
- * 「歴代記録」のクォーター別レコード（DESIGN.md 143章。延長戦は含めない）: クラブごとの自己ベストの順位と、リーグ史上の試合の上位20位。
- * 上位20位は同じ記録をすべて含むので20件を超えることがあり、20件を超えた分は「ほか◯試合」にまとめて「すべて表示」で開く
- */
-function PeriodRecordTables({
-  rankings,
-  gameType,
-  statKey,
-  divisionHistory,
-}: {
-  rankings: LeagueTeamRankingsFile;
-  gameType: SeasonGameTypeFilter;
-  statKey: string;
-  divisionHistory: DivisionHistoryFile | null | undefined;
-}) {
-  const [showAll, setShowAll] = useState(false);
-  useEffect(() => setShowAll(false), [statKey, gameType]);
-  // スマホ幅は短いチーム名・2桁の年・日付と相手の2行にして、表を画面幅に収める
-  const narrow = useMediaQuery("(max-width: 560px)");
-  const { data: teamHistory } = useJsonData(() => fetchTeamHistory(), []);
-  const clubBests = Object.entries(rankings.periodRecord?.[gameType]?.[statKey] ?? {})
-    .map(([teamId, entry]) => ({ teamId, entry }))
-    .sort((a, b) => a.entry.rank - b.entry.rank || a.entry.date.localeCompare(b.entry.date));
-  const top = rankings.periodRecordTop20?.[gameType]?.[statKey] ?? [];
-  const visibleTop = showAll ? top : top.slice(0, PERIOD_TOP_COLLAPSED_ROWS);
-  const hidden = top.length - visibleTop.length;
-  if (!rankings.periodRecord) return <p className="empty-message">データがありません</p>;
-
-  // チーム名は記録のシーズンの名称（スマホ幅は当時の略称）。今の所属リーグは当時のリーグと違うことがあるので出さない
-  const seasonName = (teamId: string, season: string) => teamNameInSeason(teamHistory, teamId, season, leagueTeamDisplayName(teamId));
-  const teamCell = (teamId: string, season: string) => (
-    <TeamNavLink teamId={teamId} divisionHistory={divisionHistory} className="cell-link">
-      <span className="team-name-cell">
-        <TeamLogo teamId={teamId} size={20} />
-        <span className="rank-name-cell">
-          <span className="rank-name">{narrow ? teamShortName(teamId, seasonName(teamId, season)) : seasonName(teamId, season)}</span>
-        </span>
-      </span>
-    </TeamNavLink>
-  );
-  const opponentName = (teamId: string, season: string) =>
-    narrow ? teamShortName(teamId, seasonName(teamId, season)) : seasonName(teamId, season);
-  const gameLink = (e: { scheduleKey?: string; season: string; date?: string; isHome?: boolean; opponentTeamId?: string }) =>
-    e.scheduleKey ? (
-      <Link to={`/games/${e.scheduleKey}?season=${e.season}`} className="cell-link">
-        {narrow ? e.date?.replace(/-/g, "/").slice(2) : e.date?.replace(/-/g, "/")}
-        {narrow ? <br /> : " "}
-        {e.opponentTeamId && `${e.isHome ? "vs" : "@"} ${opponentName(e.opponentTeamId, e.season)}`}
-      </Link>
-    ) : (
-      "-"
-    );
-
-  return (
-    <>
-      <h3 className="career-highs-subheading">クラブごとの自己ベスト</h3>
-      <div className="table-scroll">
-        <table className="sortable-table rankings-table period-league-table">
-          <thead>
-            <tr>
-              <th className="align-right">#</th>
-              <th className="align-left">チーム</th>
-              <th className="align-right rank-value-head" title={statDescription(PERIOD_RECORD_STAT_OPTIONS.find((o) => o.key === statKey)?.label ?? "", "team")}>
-                記録
-              </th>
-              <th className="align-right" title={statDescription("区間のスコア", "team")}>
-                区間のスコア
-              </th>
-              <th className="align-left">試合</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clubBests.map(({ teamId, entry }) => (
-              <tr key={teamId}>
-                <td className="align-right rank-cell">{entry.rank}</td>
-                <td className="align-left">{teamCell(teamId, entry.season)}</td>
-                <td className="align-right rank-value">{formatPeriodRecordValue(statKey, entry.value)}</td>
-                <td className="align-right">
-                  {entry.ownPoints}-{entry.oppPoints}
-                </td>
-                <td className="align-left">
-                  {gameLink(entry)}
-                  {entry.otherGames > 0 && <span className="rank-sublabel">（ほか{entry.otherGames}試合）</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <h3 className="career-highs-subheading">リーグ史上の上位20位</h3>
-      <div className="table-scroll">
-        <table className="sortable-table rankings-table period-league-table">
-          <thead>
-            <tr>
-              <th className="align-right">#</th>
-              <th className="align-left">チーム</th>
-              <th className="align-right rank-value-head" title={statDescription(PERIOD_RECORD_STAT_OPTIONS.find((o) => o.key === statKey)?.label ?? "", "team")}>
-                記録
-              </th>
-              <th className="align-right" title={statDescription("区間のスコア", "team")}>
-                区間のスコア
-              </th>
-              {!narrow && <th className="align-left">シーズン</th>}
-              <th className="align-left">試合</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleTop.map((r, i) => (
-              <tr key={`${r.scheduleKey}-${r.teamId}-${i}`}>
-                <td className="align-right rank-cell">{r.rank}</td>
-                <td className="align-left">{teamCell(r.teamId, r.season)}</td>
-                <td className="align-right rank-value">
-                  {formatPeriodRecordValue(statKey, r.value)}
-                  {r.fromPbp && <span title="公式のクォーター別スコアが欠けている試合のため、プレーバイプレーの得点から出した値">※</span>}
-                </td>
-                <td className="align-right">
-                  {r.ownPoints}-{r.oppPoints}
-                </td>
-                {!narrow && <td className="align-left">{r.season}</td>}
-                <td className="align-left">{gameLink(r)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {top.length > PERIOD_TOP_COLLAPSED_ROWS && (
-        <button className="load-more-button" type="button" onClick={() => setShowAll((v) => !v)}>
-          {showAll ? `上位${PERIOD_TOP_COLLAPSED_ROWS}件のみ表示` : `ほか${hidden}試合（すべて表示）`}
-        </button>
-      )}
-      <GlossaryNote anchor={GLOSSARY_ANCHORS.periodRecords} label="クォーター別レコード" />
-    </>
   );
 }
 

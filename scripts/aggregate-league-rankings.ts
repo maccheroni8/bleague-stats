@@ -17,7 +17,7 @@ import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { filterByGameType } from "../shared/gameType.ts";
-import { CAREER_TOTAL_DEFS, TEAM_RECORD_STATS, buildTeamCareerTotals, longestWinStreak } from "../shared/teamRecords.ts";
+import { CAREER_TOTAL_DEFS, TEAM_AGAINST_RECORD_STATS, TEAM_RECORD_STATS, buildTeamCareerTotals, longestWinStreak } from "../shared/teamRecords.ts";
 import {
   PERIOD_AVERAGE_STATS,
   PERIOD_KEYS,
@@ -319,6 +319,65 @@ function computeTopRecords(careerDataByTeam: Map<string, TeamSeasonLogs[]>): {
 }
 
 /**
+ * 1試合の記録のワースト・被記録（ランキングページの個人／チーム > 1試合記録 > 歴代。DESIGN.md 191章）。clubRecordTop20 と同じ作り方で、
+ * 項目の定義と向きだけが違う。ワーストは TEAM_RECORD_STATS のうちワーストの対象の項目（worstEligible が false でないもの）を、
+ * 少ない方が良い項目（失点・ターンオーバー・ファウル）は多い方、それ以外は少ない方から並べる。被記録は TEAM_AGAINST_RECORD_STATS
+ * （対戦相手がそのチーム相手に記録した値）の多い方から並べる。ホーム/アウェイ限定版は作らない
+ */
+function computeWorstAndAgainstTop20(careerDataByTeam: Map<string, TeamSeasonLogs[]>): {
+  clubRecordWorstTop20: NonNullable<LeagueTeamRankingsFile["clubRecordWorstTop20"]>;
+  clubRecordAgainstTop20: NonNullable<LeagueTeamRankingsFile["clubRecordAgainstTop20"]>;
+} {
+  const clubRecordWorstTop20: NonNullable<LeagueTeamRankingsFile["clubRecordWorstTop20"]> = { regular: {}, playoff: {}, both: {} };
+  const clubRecordAgainstTop20: NonNullable<LeagueTeamRankingsFile["clubRecordAgainstTop20"]> = { regular: {}, playoff: {}, both: {} };
+
+  const collect = (
+    defs: typeof TEAM_RECORD_STATS,
+    lowerIsBetterOf: (def: (typeof TEAM_RECORD_STATS)[number]) => boolean,
+    filtered: TeamGameLogWithSeason[][],
+    teamIds: string[],
+  ): Record<string, LeagueRecordEntry[]> => {
+    const out: Record<string, LeagueRecordEntry[]> = {};
+    for (const def of defs) {
+      const candidates: RawRecordCandidate[] = [];
+      filtered.forEach((logs, i) => {
+        const pool = def.filter ? logs.filter(def.filter) : logs;
+        for (const g of pool) {
+          candidates.push({
+            value: def.value(g),
+            teamId: teamIds[i]!,
+            season: g.season,
+            scheduleKey: g.scheduleKey,
+            date: g.date,
+            opponentTeamId: g.opponentTeamId,
+            isHome: g.isHome,
+            ...(def.fraction ? { made: def.fraction(g)[0], attempted: def.fraction(g)[1] } : {}),
+          });
+        }
+      });
+      out[def.key] = rankTopEntries(candidates, lowerIsBetterOf(def));
+    }
+    return out;
+  };
+
+  for (const gameType of GAME_TYPES) {
+    const teamIds = [...careerDataByTeam.keys()];
+    const filtered = teamIds.map((teamId) => {
+      const flat: TeamGameLogWithSeason[] = careerDataByTeam.get(teamId)!.flatMap((s) => s.logs.map((g) => ({ ...g, season: s.season })));
+      return filterByGameType(flat, gameType) as TeamGameLogWithSeason[];
+    });
+    clubRecordWorstTop20[gameType] = collect(
+      TEAM_RECORD_STATS.filter((d) => d.worstEligible !== false),
+      (d) => !(d.lowerIsBetter ?? false),
+      filtered,
+      teamIds,
+    );
+    clubRecordAgainstTop20[gameType] = collect(TEAM_AGAINST_RECORD_STATS, () => false, filtered, teamIds);
+  }
+  return { clubRecordWorstTop20, clubRecordAgainstTop20 };
+}
+
+/**
  * クォーター別・前後半別（DESIGN.md 143章。延長戦は含めない）。記録側の3種（最多得点・最少失点・最大得失点差）×6区間について、
  * 各クラブの自己ベストでの順位（periodRecord）とリーグ史上の試合の上位20位（periodRecordTop20）、
  * 通算の区間別1試合平均の各クラブの順位（periodCareerAverage）を作る。ホーム/アウェイ限定版は作らない
@@ -331,7 +390,7 @@ function computePeriodRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>):
   const periodRecord: NonNullable<LeagueTeamRankingsFile["periodRecord"]> = { regular: {}, playoff: {}, both: {} };
   const periodRecordTop20: NonNullable<LeagueTeamRankingsFile["periodRecordTop20"]> = { regular: {}, playoff: {}, both: {} };
   const periodCareerAverage: NonNullable<LeagueTeamRankingsFile["periodCareerAverage"]> = { regular: {}, playoff: {}, both: {} };
-  const recordKinds = PERIOD_RECORD_KINDS.filter((k) => k.mode === "record");
+  // 上位20位は記録・ワーストの6種すべて、クラブごとの自己ベスト（periodRecord）は記録側の3種だけ
 
   for (const gameType of GAME_TYPES) {
     const teamLogs = [...careerDataByTeam].map(([teamId, seasons]) => ({
@@ -343,7 +402,7 @@ function computePeriodRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>):
     }));
 
     for (const period of PERIOD_KEYS) {
-      for (const kind of recordKinds) {
+      for (const kind of PERIOD_RECORD_KINDS) {
         const statKey = periodRecordStatKey(period, kind.key);
         const bests: { teamId: string; value: number; entry: Omit<LeaguePeriodClubBestEntry, "rank" | "totalTeams"> }[] = [];
         const candidates: (RawRecordCandidate & { ownPoints: number; oppPoints: number; fromPbp: boolean })[] = [];
@@ -392,7 +451,7 @@ function computePeriodRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>):
           if (i === 0 || b.value !== sortedBests[i - 1]!.value) rank = i + 1;
           table[b.teamId] = { ...b.entry, rank, totalTeams: sortedBests.length };
         });
-        periodRecord[gameType][statKey] = table;
+        if (kind.mode === "record") periodRecord[gameType][statKey] = table;
         periodRecordTop20[gameType][statKey] = rankTopEntries(candidates, kind.lowerFirst).map((e) => {
           // rankTopEntries は候補の追加の項目（区間の得点・失点）も引き継ぐ。fromPbp は補った試合だけ残す
           const { fromPbp, ...rest } = e as LeagueRecordEntry & { fromPbp?: boolean };
@@ -439,6 +498,7 @@ async function main() {
   const away = computeCategoryRankings(filterCareerDataByVenue(careerDataByTeam, "away"));
   const { clubRecordTop20, seasonSpecialTop20 } = computeTopRecords(careerDataByTeam);
   const { periodRecord, periodRecordTop20, periodCareerAverage } = computePeriodRankings(careerDataByTeam);
+  const { clubRecordWorstTop20, clubRecordAgainstTop20 } = computeWorstAndAgainstTop20(careerDataByTeam);
   console.log(
     `[クォーター別レコード] 1Q最多得点の対象クラブ数(regular)=${Object.keys(periodRecord.regular["q1:mostPts"] ?? {}).length} / ` +
       `上位20位の件数(regular, 1Q最多得点)=${periodRecordTop20.regular["q1:mostPts"]?.length ?? 0}`,
@@ -472,6 +532,8 @@ async function main() {
     seasonSpecialHome: home.seasonSpecial,
     seasonSpecialAway: away.seasonSpecial,
     clubRecordTop20,
+    clubRecordWorstTop20,
+    clubRecordAgainstTop20,
     seasonSpecialTop20,
     periodRecord,
     periodRecordTop20,

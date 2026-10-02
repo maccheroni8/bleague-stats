@@ -1,5 +1,6 @@
 import { RankedList, type RankableStat } from "../components/RankedList";
 import { PlayerGameRecordRanking } from "../components/PlayerGameRecordRanking";
+import { TeamGameRecordRanking } from "../components/TeamGameRecordRanking";
 import { EligibilitySlider } from "../components/EligibilitySlider";
 import { useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { postseasonLabel } from "../../shared/gameType";
@@ -210,7 +211,7 @@ function buildTeamCategoryColumns(
  * src/lib/urlFilterParams.ts・src/lib/urlState.ts
  */
 const RANKING_MODE_PARAM = enumParam<Mode>("m", ["team", "player"], "team");
-/** 種類（DESIGN.md 190章）: シーズン成績（今までのランキング）／1試合記録（選手のみ。チームは段階2で追加） */
+/** 種類（DESIGN.md 190・191章）: シーズン成績（今までのランキング）／1試合記録 */
 type RankingKind = "season" | "game";
 const RANKING_KIND_PARAM = enumParam<RankingKind>("k", ["season", "game"], "season");
 const RANKING_KIND_LABELS: Record<RankingKind, string> = { season: "シーズン成績", game: "1試合記録" };
@@ -1645,9 +1646,8 @@ export function RankingsPage({ season }: { season: string }) {
     setKindParam(next);
   };
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
-  // 種類の切り替えは、対応している側だけ出す（段階1は個人のみ）
-  const gameRecords = mode === "player" && kind === "game";
-  const kinds: RankingKind[] = mode === "player" ? ["season", "game"] : ["season"];
+  const gameRecords = kind === "game";
+  const kinds: RankingKind[] = ["season", "game"];
   // 歴代はシーズンに依らないので、シーズンを出さない
   const allTimeRecords = gameRecords && scope === "allTime";
 
@@ -1692,7 +1692,11 @@ export function RankingsPage({ season }: { season: string }) {
       {/* カテゴリのタブを「ページの主タブ」ではなく従のタブとして扱うため、ルート直下に置かない（v2のCSSは > .tab-bar だけを主タブにする） */}
       <div>
         {gameRecords ? (
-          <PlayerGameRecordRanking season={season} teamColors={teamColors ?? undefined} />
+          mode === "player" ? (
+            <PlayerGameRecordRanking season={season} teamColors={teamColors ?? undefined} />
+          ) : (
+            <TeamGameRecordRanking season={season} teamColors={teamColors ?? undefined} />
+          )
         ) : mode === "team" ? (
           <TeamRankingSection season={season} teamColors={teamColors ?? undefined} />
         ) : (

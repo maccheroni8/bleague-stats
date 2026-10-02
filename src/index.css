@@ -6667,3 +6667,18 @@ table.sortable-table tbody tr:not(.pinned-row) + tr.pinned-row td {
   margin-top: 14%;
   opacity: 0.6;
 }
+
+/* ロゴが無いクラブの枠（TeamLogo の placeholder）。ロゴと同じ大きさの空の枠 */
+.team-logo-placeholder {
+  display: inline-block;
+  box-sizing: border-box;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  vertical-align: baseline;
+}
+
+/* クォーター別レコードの表のマスをリンクにしたとき（ランキングへ移る。DESIGN.md 191章） */
+a.period-records-cell {
+  text-decoration: none;
+  box-sizing: border-box;
+}

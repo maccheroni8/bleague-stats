@@ -1494,10 +1494,17 @@ export interface LeagueTeamRankingsFile {
   clubRecordTop20: Record<LeagueRankingGameType, Record<string, LeagueRecordEntry[]>>;
   seasonSpecialTop20: Record<LeagueRankingGameType, Record<"wins" | "streak", LeagueRecordEntry[]>>;
   /**
+   * 1試合記録のワースト・被記録の上位20位（ランキングページの1試合記録・歴代。DESIGN.md 191章）。clubRecordTop20 と同じ形。
+   * ワーストは TEAM_RECORD_STATS のうちワーストの対象の項目、被記録は TEAM_AGAINST_RECORD_STATS の項目。追加前に生成したファイルには無いので省略可能
+   */
+  clubRecordWorstTop20?: Record<LeagueRankingGameType, Record<string, LeagueRecordEntry[]>>;
+  clubRecordAgainstTop20?: Record<LeagueRankingGameType, Record<string, LeagueRecordEntry[]>>;
+  /**
    * クォーター別・前後半別（DESIGN.md 143章。延長戦は含めない）。キーは shared/teamPeriodRecords.ts の
    * periodRecordStatKey（「q1:mostPts」等。記録側の最多得点・最少失点・最大得失点差のみ）。
    * periodRecord は各クラブの自己ベストでの順位（同値の扱いは career 等と同じ teamId 昇順）と、その記録の試合（同じ値の試合が
-   * 複数あれば最も古い試合と、ほかの試合数）。periodRecordTop20 はリーグ史上の試合の上位20位（同値はすべて含む）。
+   * 複数あれば最も古い試合と、ほかの試合数）。periodRecordTop20 はリーグ史上の試合の上位20位（同値はすべて含む。記録側3種に加えて、
+   * ワースト側3種〔最少得点 fewestPts・最多失点 mostOppPts・最大の点差負け worstDiff〕も持つ。DESIGN.md 191章）。
    * 追加前に生成したファイルには無いので省略可能
    */
   periodRecord?: Record<LeagueRankingGameType, Record<string, Record<string, LeaguePeriodClubBestEntry>>>;
