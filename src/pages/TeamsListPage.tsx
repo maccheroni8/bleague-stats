@@ -14,20 +14,16 @@ import {
 } from "../lib/statConditions";
 import { buildTeamConditionDefs } from "../lib/teamConditionItems";
 import { postseasonLabel } from "../../shared/gameType";
-import { PERIOD_KEYS, PERIOD_LABELS, PERIOD_RECORD_KINDS, periodRecordStatKey } from "../../shared/teamPeriodRecords";
-import { teamShortName } from "../../shared/teamNames";
-import { useMediaQuery } from "../lib/useMediaQuery";
 import { Link, Navigate, useLocation } from "react-router-dom";
+import { legacyTeamRecordsTarget } from "../lib/legacyRecordsUrl";
 import {
   fetchClubHonors,
   fetchDivisionHistory,
   fetchTeamHistory,
-  fetchGameSummaries,
   fetchLeagueAverage,
   fetchLeagueTeamRankings,
   fetchSeasonRules,
   fetchSeasons,
-  fetchTeamGameLogs,
   fetchTeams,
 } from "../lib/data";
 import { LEAGUE_TEAM_ID, LEAGUE_TEAM_NAME, averageTotals } from "../lib/leagueAverage";
@@ -38,12 +34,9 @@ import type {
   ClubHonor,
   ClubHonorsFile,
   DivisionHistoryFile,
-  GameSummary,
   LeagueTeamRankEntry,
   LeagueTeamRankingsFile,
-  SeasonRules,
   TeamForcedTurnovers,
-  TeamGameLog,
   TeamSummary,
 } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
@@ -77,10 +70,8 @@ import {
   type LeagueVenue,
 } from "../lib/conditionLabels";
 import {
-  buildRecordsBeforeGame,
   computeOpponentWinPctAvg,
   filterGameLogs,
-  type RecordBeforeGame,
   type SituationalFilter,
 } from "../lib/situational";
 import {
@@ -100,9 +91,8 @@ import {
   ClassificationCompositionChart,
   type ClassificationShareOrder,
 } from "../components/ClassificationCompositionChart";
-import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
-import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
-import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
+import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } from "../lib/format";
+import { offensiveRating, safeDiv } from "../../shared/formulas";
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import {
   CAREER_TOTAL_DEFS,
@@ -118,7 +108,7 @@ import { careerRecordRankingUrl } from "../components/CareerRecordRanking";
 import { TEAM_SEASON_RECORD_ITEMS, teamSeasonRecordRankingUrl } from "../components/TeamSeasonRecordRanking";
 import { TeamRecordLeaderCard } from "../components/TeamRecordLeaderCard";
 import { TEAM_RECORD_MODE_LABELS, allTimeTeamRecordRows, teamRecordItems, type TeamRecordMode } from "../lib/teamGameRecords";
-import { ONE_TEAM_DIVISIONS, TEAM_DIVISIONS, TEAM_NAMES } from "../../scripts/lib/divisions";
+import { TEAM_DIVISIONS } from "../../scripts/lib/divisions";
 import {
   buildAdvancedColumns,
   buildMiscColumns,
@@ -131,7 +121,7 @@ import {
 import { statDescription } from "../lib/statDescriptions";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "../lib/teamRankingData";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
-import { teamNameInSeason, useNarrow, useTeamLabel, useTeamText } from "../lib/teamLabel";
+import { teamNameInSeason, useTeamText } from "../lib/teamLabel";
 
 type TeamsPageTab = "stats" | "records" | "champions" | "recent";
 
@@ -923,6 +913,10 @@ const TEAM_RECORDS_SCOPE_PARAM = enumParam<RecordsScope>("scope", ["allTime", "s
  */
 function RecordsTab({ season }: { season: string }) {
   const [scope, setScope] = useUrlState(TEAM_RECORDS_SCOPE_PARAM, "allTime");
+  const { search } = useLocation();
+  // 記録をランキングへまとめる前の、項目を指す旧URL（ブックマーク等）は、ランキングの同じ項目へ送る（DESIGN.md 196章）
+  const legacy = legacyTeamRecordsTarget(new URLSearchParams(search));
+  if (legacy) return <Navigate to={legacy} replace />;
   return (
     <div>
       <div className="mode-toggle records-scope-toggle">
@@ -953,8 +947,6 @@ interface LeagueRecordRow {
 }
 
 function LeagueRecordsTab() {
-  const teamLabel = useTeamLabel();
-  const narrow = useNarrow();
   const { data: teamHistory } = useJsonData(() => fetchTeamHistory(), []);
   const seasonName = (teamId: string, season: string) => teamNameInSeason(teamHistory, teamId, season, leagueTeamDisplayName(teamId));
   // クラブ単位の一覧（クラブレコード・シーズン記録）は、記録を出したシーズンの名称。同じ値が名称の違う複数のシーズンにあれば今の名称。

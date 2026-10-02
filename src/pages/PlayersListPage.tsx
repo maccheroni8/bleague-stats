@@ -3,11 +3,11 @@ import { useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { postseasonLabel } from "../../shared/gameType";
-import { Link } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
+import { legacyPlayerRecordsTarget } from "../lib/legacyRecordsUrl";
 import {
   fetchDivisionHistory,
   fetchGameSummaries,
-  fetchLeaguePlayerRankings,
   fetchPlayerAwards,
   fetchPlayerCareers,
   fetchPlayerGameLogs,
@@ -20,10 +20,7 @@ import { useJsonData } from "../lib/useJsonData";
 import { BOX_CATEGORY_TABS, CATEGORY_LABELS, type BoxCategoryKey } from "../lib/categoryLabels";
 import { useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
-  DivisionHistoryFile,
   GameSummary,
-  LeaguePlayerRankEntry,
-  LeaguePlayerRankingsFile,
   PlayerAwardsFile,
   PlayerGameLog,
   PlayerMasterEntry,
@@ -41,7 +38,6 @@ import {
   multiSelectAxis,
   simpleSelectAxis,
   situationalAxes,
-  statItemAxis,
   type FilterAxis,
 } from "../lib/filterAxes";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
@@ -58,7 +54,6 @@ import {
   multiSelectLabels,
   SEASON_TOTAL_ONLY_LABELS,
   situationalFilterLabels,
-  type LeagueVenue,
   eligibilityLabels,
 } from "../lib/conditionLabels";
 import { PlayerPhoto } from "../components/PlayerPhoto";
@@ -84,8 +79,7 @@ import {
 } from "../lib/classificationFilter";
 import { shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
-import { filterByGameType, type SeasonGameTypeFilter } from "../../shared/gameType";
-import { statDescription } from "../lib/statDescriptions";
+import { filterByGameType } from "../../shared/gameType";
 import {
   PlayersFgaShareChart,
   PlayersScoringShareChart,
@@ -103,7 +97,7 @@ import {
   type PlayerRecentFormRecentN,
 } from "../lib/tableThresholds";
 import { usePageState } from "../lib/pageStateCache";
-import { choiceNumberParam, clearUrlParams, enumParam, rangeParam, situationalParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
+import { choiceNumberParam, clearUrlParams, enumParam, rangeParam, situationalParam, statConditionsParam, useUrlState } from "../lib/urlState";
 import { VENUE_PARAM, CLASSIFICATION_PARAM, CLUB_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, POSITION_PARAM } from "../lib/urlFilterParams";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import {
@@ -170,6 +164,10 @@ const OUTER_TAB_LABELS: Record<PlayersOuterTab, string> = {
  */
 function PlayerRecordsTab({ season }: { season: string }) {
   const [scope, setScope] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
+  const { search } = useLocation();
+  // 記録をランキングへまとめる前の、項目を指す旧URL（ブックマーク等）は、ランキングの同じ項目へ送る（DESIGN.md 196章）
+  const legacy = legacyPlayerRecordsTarget(new URLSearchParams(search));
+  if (legacy) return <Navigate to={legacy} replace />;
   return (
     <div>
       <div className="mode-toggle records-scope-toggle">
