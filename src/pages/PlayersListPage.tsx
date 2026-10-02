@@ -141,6 +141,7 @@ import {
 import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
 import { PlayerNamePool } from "../components/PlayerNamePool";
 import { PlayerSeasonRecords } from "../components/PlayerSeasonRecords";
+import { LeaguePlayerGameRecords } from "../components/LeaguePlayerGameRecords";
 
 // 「個人」ページ。「全選手スタッツ」タブ（チーム版の「全チームスタッツ」と同じ考え方）・
 // 「歴代記録」タブ（チーム版の「歴代記録」から通算成績部分のみ、ユーザー依頼2026-09-04）・
@@ -1221,7 +1222,26 @@ interface LeaguePlayerRecordRow {
   entry: LeaguePlayerRankEntry;
 }
 
+const PLAYER_RECORDS_CATEGORY_PARAM = enumParam<"career" | "premier">("cat", ["career", "premier"], "career");
+
+/** 範囲「歴代」。カテゴリ: 通算成績（全選手の通算の順位）／B.PREMIER（旧B1）レコード（全シーズンの1試合の記録。DESIGN.md 188章） */
 function LeaguePlayerRecordsTab() {
+  const [category, setCategory] = useUrlState(PLAYER_RECORDS_CATEGORY_PARAM, "career");
+  const categoryAxis = simpleSelectAxis({
+    id: "playerRecordsCategory",
+    label: "カテゴリ",
+    options: [
+      { value: "career", label: "通算成績" },
+      { value: "premier", label: "B.PREMIER（旧B1）レコード" },
+    ],
+    value: category,
+    defaultValue: "career",
+    onChange: (v) => setCategory(v as "career" | "premier"),
+  });
+  return category === "premier" ? <LeaguePlayerGameRecords categoryAxis={categoryAxis} /> : <LeaguePlayerCareerRecords categoryAxis={categoryAxis} />;
+}
+
+function LeaguePlayerCareerRecords({ categoryAxis }: { categoryAxis: FilterAxis }) {
   const {
     data: rankings,
     loading: rankingsLoading,
@@ -1249,13 +1269,13 @@ function LeaguePlayerRecordsTab() {
     <div>
       <p className="page-subtitle">
         過去在籍した全{totalPlayers}選手横断のランキング（毎日1回、前日までの試合結果を取り込んだあとに作り直します。最終更新
-        {" "}{formatRankingsUpdatedAt(rankings.generatedAt)}）。1試合単位の最高記録（クラブレコード相当）は対象外です
+        {" "}{formatRankingsUpdatedAt(rankings.generatedAt)}）。
       </p>
 
       <FilterBar
         simple
         stateKey="players:records"
-        axes={[leagueVenueAxis(venue, setVenue), gameTypeAxis(gameType, setGameType, null)]}
+        axes={[categoryAxis, leagueVenueAxis(venue, setVenue), gameTypeAxis(gameType, setGameType, null)]}
       />
       <FilterBar axes={[statItemAxis(PLAYER_CAREER_TOTAL_DEFS, statKey, setStatKey)]} stateKey="players:records:stat" simple wide />
 

@@ -13,6 +13,7 @@
 // 両方の環境に対応する
 
 import type {
+  LeaguePlayerGameRecordsFile,
   PlayerGameRecordsFile,
   PeriodAveragesFile,
   Category,
@@ -164,6 +165,15 @@ export async function fetchPeriodAverages(season: string): Promise<PeriodAverage
 export async function fetchPlayerGameRecords(season: string): Promise<PlayerGameRecordsFile | null> {
   try {
     return await fetchJson<PlayerGameRecordsFile>(`${dataBase}/${season}/player-game-records.json`);
+  } catch {
+    return null;
+  }
+}
+
+/** 全シーズンの選手の1試合の記録の上位（data/league-player-game-records.json、DESIGN.md 188章）。ファイルが無ければ null */
+export async function fetchLeaguePlayerGameRecords(): Promise<LeaguePlayerGameRecordsFile | null> {
+  try {
+    return await fetchJson<LeaguePlayerGameRecordsFile>(`${dataBase}/league-player-game-records.json`);
   } catch {
     return null;
   }

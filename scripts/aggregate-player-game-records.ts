@@ -12,101 +12,26 @@
 //   npm run aggregate:player-game-records -- --all
 
 import path from "node:path";
-import { existsSync, readdirSync } from "node:fs";
-import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
+import { readdirSync } from "node:fs";
+import { DATA_DIR, writeJsonIfChanged } from "./lib/storage.ts";
+import { loadSeasonRecordGames, topRecordEntries } from "./lib/playerGameRecordsTop.ts";
 import { filterByGameType } from "../shared/gameType.ts";
-import { PLAYER_GAME_RECORD_STATS, PLAYER_GAME_RECORD_TOP_N, type PlayerRecordGame } from "../shared/playerGameRecords.ts";
-import type {
-  GameSummary,
-  LeagueRankingGameType,
-  PlayerGameLog,
-  PlayerGameRecordEntry,
-  PlayerGameRecordsFile,
-  PlayerSummary,
-} from "../shared/types.ts";
+import { PLAYER_GAME_RECORD_STATS } from "../shared/playerGameRecords.ts";
+import type { LeagueRankingGameType, PlayerGameRecordsFile } from "../shared/types.ts";
 
 const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
 const GAME_TYPES: LeagueRankingGameType[] = ["regular", "playoff", "both"];
 
-interface Game extends PlayerRecordGame {
-  playerId: string;
-}
-
-async function loadSeasonGames(season: string): Promise<Game[]> {
-  const summaries = (await readJson<GameSummary[]>(path.join(DATA_DIR, season, "games-summary.json"))) ?? [];
-  const summaryByKey = new Map(summaries.map((s) => [s.scheduleKey, s]));
-  const dir = path.join(DATA_DIR, season, "player-games");
-  if (!existsSync(dir)) return [];
-  const games: Game[] = [];
-  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json.gz"))) {
-    const playerId = file.replace(/\.json\.gz$/, "");
-    const logs = await readJson<PlayerGameLog[]>(path.join(dir, `${playerId}.json`));
-    for (const g of logs ?? []) {
-      if (g.min <= 0 || !summaryByKey.has(g.scheduleKey)) continue;
-      if (g.gameType !== "regular" && g.gameType !== "playoff") continue;
-      games.push({ ...g, season, playerId });
-    }
-  }
-  return games;
-}
-
-/**
- * 上位N位（N位と同じ記録はすべて）。同じ記録の中は、成功率の項目は試投数の多い試合から、その後は新しい試合から
- * （チームのクラブレコードと同じ。2026-09-27）
- */
-function topEntries(
-  games: Game[],
-  value: (g: Game) => number,
-  fraction: ((g: Game) => readonly [number, number]) | undefined,
-  summaryByKey: Map<string, GameSummary>,
-  nameById: Map<string, string>,
-): PlayerGameRecordEntry[] {
-  const attempts = (g: Game) => (fraction ? fraction(g)[1] : 0);
-  const sorted = games
-    .map((g) => ({ g, v: value(g) }))
-    .sort(
-      (a, b) =>
-        b.v - a.v || attempts(b.g) - attempts(a.g) || b.g.date.localeCompare(a.g.date) || a.g.playerId.localeCompare(b.g.playerId),
-    );
-  const out: PlayerGameRecordEntry[] = [];
-  let rank = 0;
-  for (let i = 0; i < sorted.length; i++) {
-    const { g, v } = sorted[i]!;
-    if (i === 0 || v !== sorted[i - 1]!.v) rank = i + 1;
-    if (rank > PLAYER_GAME_RECORD_TOP_N) break;
-    const s = summaryByKey.get(g.scheduleKey)!;
-    out.push({
-      rank,
-      value: v,
-      playerId: g.playerId,
-      playerName: nameById.get(g.playerId) ?? g.playerId,
-      teamId: g.isHome ? s.homeTeamId : s.awayTeamId,
-      teamName: g.isHome ? s.homeTeamName : s.awayTeamName,
-      opponentTeamId: g.opponentTeamId,
-      opponentTeamName: g.opponentTeamName,
-      isHome: g.isHome,
-      date: g.date,
-      scheduleKey: g.scheduleKey,
-      ...(fraction ? { made: fraction(g)[0], attempted: fraction(g)[1] } : {}),
-    });
-  }
-  return out;
-}
-
 async function buildSeason(season: string): Promise<boolean> {
-  const games = await loadSeasonGames(season);
+  const games = await loadSeasonRecordGames(season);
   if (games.length === 0) return false;
-  const summaries = (await readJson<GameSummary[]>(path.join(DATA_DIR, season, "games-summary.json"))) ?? [];
-  const summaryByKey = new Map(summaries.map((s) => [s.scheduleKey, s]));
-  const players = (await readJson<PlayerSummary[]>(path.join(DATA_DIR, season, "players.json"))) ?? [];
-  const nameById = new Map(players.map((p) => [p.playerId, p.name]));
 
   const byGameType = { regular: {}, playoff: {}, both: {} } as PlayerGameRecordsFile["byGameType"];
   for (const gameType of GAME_TYPES) {
     const scoped = filterByGameType(games, gameType);
     for (const def of PLAYER_GAME_RECORD_STATS) {
       const pool = def.filter ? scoped.filter(def.filter) : scoped;
-      const entries = topEntries(pool, def.value, def.fraction, summaryByKey, nameById);
+      const entries = topRecordEntries(pool, def.value, def.fraction);
       if (entries.length > 0) byGameType[gameType][def.key] = entries;
     }
   }

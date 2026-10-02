@@ -47,7 +47,9 @@ function fractionOf(e: PlayerGameRecordEntry): readonly [number, number] | undef
   return e.made !== undefined && e.attempted !== undefined ? [e.made, e.attempted] : undefined;
 }
 
-function EntryLine({ e, season }: { e: PlayerGameRecordEntry; season: string }) {
+function EntryLine({ e, season, showSeason }: { e: PlayerGameRecordEntry; season: string; showSeason?: boolean }) {
+  // 全シーズンの記録は、行ごとの記録したシーズンへリンクする
+  season = e.season ?? season;
   return (
     <>
       {/* 記録した選手は太字にして、対戦相手と区別する */}
@@ -56,6 +58,7 @@ function EntryLine({ e, season }: { e: PlayerGameRecordEntry; season: string }) 
       </RouterLink>{" "}
       <RouterLink to={`/games/${e.scheduleKey}?season=${season}`} className="career-high-game-link">
         {e.date}
+        {showSeason && <span className="record-season">（{season}）</span>}
         {"　"}
         <ResponsiveTeamName teamId={e.teamId} name={e.teamName} always /> {e.isHome ? "vs" : "@"}{" "}
         <ResponsiveTeamName teamId={e.opponentTeamId} name={e.opponentTeamName} always />
@@ -64,7 +67,7 @@ function EntryLine({ e, season }: { e: PlayerGameRecordEntry; season: string }) 
   );
 }
 
-function PlayerRecordCard({
+export function PlayerRecordCard({
   def,
   entries,
   season,
@@ -72,6 +75,7 @@ function PlayerRecordCard({
   onToggle,
   showAll,
   onToggleShowAll,
+  showSeason,
 }: {
   def: PlayerGameRecordDef;
   entries: PlayerGameRecordEntry[];
@@ -80,6 +84,8 @@ function PlayerRecordCard({
   onToggle: () => void;
   showAll: boolean;
   onToggleShowAll: () => void;
+  /** 日付のあとに記録したシーズンも出す（全シーズンの記録用） */
+  showSeason?: boolean;
 }) {
   const first = entries[0]!;
   const ties = entries.filter((e) => e.rank === 1).length;
@@ -94,7 +100,7 @@ function PlayerRecordCard({
       <div className="career-high-value">
         <RecordValue text={formatValue(def, first.value)} fraction={fractionOf(first)} />
       </div>
-      <EntryLine e={first} season={season} />
+      <EntryLine e={first} season={season} showSeason={showSeason} />
       {ties > 1 && (
         <button type="button" className="career-high-others-toggle" onClick={onToggle}>
           {open ? "閉じる" : `ほか${ties - 1}試合`}
@@ -105,13 +111,13 @@ function PlayerRecordCard({
           <table className="career-top-n-table player-record-top-table">
             <tbody>
               {visible.map((e) => (
-                <tr key={`${e.scheduleKey}-${e.playerId}`}>
+                <tr key={`${e.scheduleKey}-${e.playerId}-${e.rank}`}>
                   <td>{e.rank}</td>
                   <td>
                     <RecordValue text={formatValue(def, e.value)} fraction={fractionOf(e)} />
                   </td>
                   <td>
-                    <EntryLine e={e} season={season} />
+                    <EntryLine e={e} season={season} showSeason={showSeason} />
                   </td>
                 </tr>
               ))}

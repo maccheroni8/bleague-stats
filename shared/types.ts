@@ -1705,6 +1705,8 @@ export interface PlayerGameRecordEntry {
   isHome: boolean;
   date: string;
   scheduleKey: string;
+  /** 全シーズンの記録（LeaguePlayerGameRecordsFile）のみ: 記録した試合のシーズン */
+  season?: string;
   /** 成功率の項目のみ: 成功数と試投数（「100.0%（6/6）」の表示用） */
   made?: number;
   attempted?: number;
@@ -1713,6 +1715,15 @@ export interface PlayerGameRecordEntry {
 export interface PlayerGameRecordsFile {
   generatedAt: string;
   season: string;
+  /** 試合区分 → 項目キー（shared/playerGameRecords.ts の PLAYER_GAME_RECORD_STATS） → 上位 */
+  byGameType: Record<LeagueRankingGameType, Record<string, PlayerGameRecordEntry[]>>;
+}
+
+// ---- data/league-player-game-records.json（選手一覧「記録」タブの範囲「歴代」・B.PREMIER（旧B1）レコード。DESIGN.md 188章） ----
+
+/** 全シーズンの選手の1試合の記録の上位（同じ記録はすべて含む）。各行に season がある */
+export interface LeaguePlayerGameRecordsFile {
+  generatedAt: string;
   /** 試合区分 → 項目キー（shared/playerGameRecords.ts の PLAYER_GAME_RECORD_STATS） → 上位 */
   byGameType: Record<LeagueRankingGameType, Record<string, PlayerGameRecordEntry[]>>;
 }
