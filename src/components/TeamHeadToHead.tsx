@@ -353,7 +353,7 @@ export function TeamHeadToHead({
                           {g.gameType === "playoff" && <span className="playoff-badge">PO</span>}
                         </Link>
                       </td>
-                      <td className="align-left">{g.venue ?? "-"}</td>
+                      <td className="align-left h2h-venue">{g.venue ?? "-"}</td>
                       <td className="align-right">
                         <Link to={`/games/${g.scheduleKey}?season=${g.season}`} className="cell-link">
                           <span className={`result-badge ${g.win ? "win" : "loss"}`}>

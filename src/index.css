@@ -6617,3 +6617,12 @@ table.sortable-table tbody tr:not(.pinned-row) + tr.pinned-row td {
 .condition-title-stat {
   margin-top: 2px;
 }
+
+/* 対戦成績の試合ごとの表：スマホ幅では会場名を折り返して全文を見せる */
+@media (max-width: 560px) {
+  .team-tab-panel table.schedule-table td.h2h-venue {
+    white-space: normal;
+    min-width: 9em;
+    overflow-wrap: anywhere;
+  }
+}
