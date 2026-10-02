@@ -1,6 +1,7 @@
 import { RankedList, type RankableStat } from "../components/RankedList";
 import { PlayerGameRecordRanking } from "../components/PlayerGameRecordRanking";
 import { TeamGameRecordRanking } from "../components/TeamGameRecordRanking";
+import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
 import { EligibilitySlider } from "../components/EligibilitySlider";
 import { useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { postseasonLabel } from "../../shared/gameType";
@@ -211,10 +212,10 @@ function buildTeamCategoryColumns(
  * src/lib/urlFilterParams.ts・src/lib/urlState.ts
  */
 const RANKING_MODE_PARAM = enumParam<Mode>("m", ["team", "player"], "team");
-/** 種類（DESIGN.md 190・191章）: シーズン成績（今までのランキング）／1試合記録 */
-type RankingKind = "season" | "game";
-const RANKING_KIND_PARAM = enumParam<RankingKind>("k", ["season", "game"], "season");
-const RANKING_KIND_LABELS: Record<RankingKind, string> = { season: "シーズン成績", game: "1試合記録" };
+/** 種類（DESIGN.md 190〜192章）: シーズン成績（今までのランキング）／1試合記録／通算記録（過去に在籍した全選手・全クラブの全シーズン合算） */
+type RankingKind = "season" | "game" | "career";
+const RANKING_KIND_PARAM = enumParam<RankingKind>("k", ["season", "game", "career"], "season");
+const RANKING_KIND_LABELS: Record<RankingKind, string> = { season: "シーズン成績", game: "1試合記録", career: "通算記録" };
 const TEAM_CATEGORY_PARAM = enumParam<TeamRankingCategory>(
   "cat",
   ["traditional", "advanced", "misc", "scoring", "shooting", "forcedTurnovers"],
@@ -1647,9 +1648,9 @@ export function RankingsPage({ season }: { season: string }) {
   };
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const gameRecords = kind === "game";
-  const kinds: RankingKind[] = ["season", "game"];
-  // 歴代はシーズンに依らないので、シーズンを出さない
-  const allTimeRecords = gameRecords && scope === "allTime";
+  const kinds: RankingKind[] = ["season", "game", "career"];
+  // 歴代（通算記録は常に歴代）はシーズンに依らないので、シーズンを出さない
+  const allTimeRecords = kind === "career" || (gameRecords && scope === "allTime");
 
   return (
     <div data-design="v2">
@@ -1691,7 +1692,13 @@ export function RankingsPage({ season }: { season: string }) {
 
       {/* カテゴリのタブを「ページの主タブ」ではなく従のタブとして扱うため、ルート直下に置かない（v2のCSSは > .tab-bar だけを主タブにする） */}
       <div>
-        {gameRecords ? (
+        {kind === "career" ? (
+          mode === "player" ? (
+            <PlayerCareerRecordRanking teamColors={teamColors ?? undefined} />
+          ) : (
+            <TeamCareerRecordRanking teamColors={teamColors ?? undefined} />
+          )
+        ) : gameRecords ? (
           mode === "player" ? (
             <PlayerGameRecordRanking season={season} teamColors={teamColors ?? undefined} />
           ) : (

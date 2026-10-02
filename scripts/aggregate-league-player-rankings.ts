@@ -20,6 +20,8 @@ import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { filterByGameType } from "../shared/gameType.ts";
 import { PLAYER_CAREER_TOTAL_DEFS, buildPlayerCareerTotals } from "../shared/playerRecords.ts";
 import type {
+  LeaguePlayerCareerTopEntry,
+  LeaguePlayerCareerTopFile,
   LeaguePlayerInfo,
   LeaguePlayerRankEntry,
   LeaguePlayerRankingsFile,
@@ -139,6 +141,23 @@ function filterByVenue(byPlayer: Map<string, PlayerSeasonLogs[]>, venue: "home" 
   );
 }
 
+/** 画面（ランキング > 個人 > 通算記録）用に、項目・試合区分ごとの上位20位（同じ値はすべて）だけを取り出す */
+const CAREER_TOP_N = 20;
+function topOfCareer(
+  table: Record<LeagueRankingGameType, LeaguePlayerRankingStatTable>,
+): Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>> {
+  const out: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>> = { regular: {}, playoff: {}, both: {} };
+  for (const gameType of GAME_TYPES) {
+    for (const [key, byPlayer] of Object.entries(table[gameType])) {
+      out[gameType][key] = Object.entries(byPlayer)
+        .filter(([, e]) => e.rank <= CAREER_TOP_N)
+        .map(([playerId, e]) => ({ playerId, value: e.value, rank: e.rank }))
+        .sort((a, b) => a.rank - b.rank || Number(a.playerId) - Number(b.playerId));
+    }
+  }
+  return out;
+}
+
 async function main() {
   const { byPlayer, info } = await loadCareerData();
   console.log(`対象選手数（出場記録のある全選手、B.PREMIER）: ${byPlayer.size}`);
@@ -162,6 +181,18 @@ async function main() {
     careerHome,
     careerAway,
   };
+
+  // 通算記録の上位だけのファイル（画面はこちらを読む。DESIGN.md 192章）
+  const top = { career: topOfCareer(career), careerHome: topOfCareer(careerHome), careerAway: topOfCareer(careerAway) };
+  const topPlayers: Record<string, LeaguePlayerInfo> = {};
+  for (const t of Object.values(top)) {
+    for (const byKey of Object.values(t)) {
+      for (const entries of Object.values(byKey)) for (const e of entries) if (info.has(e.playerId)) topPlayers[e.playerId] = info.get(e.playerId)!;
+    }
+  }
+  const topFile: LeaguePlayerCareerTopFile = { generatedAt: new Date().toISOString(), players: topPlayers, ...top };
+  const topChanged = await writeJsonIfChanged(path.join(DATA_DIR, "league-player-career-top.json"), topFile as unknown as Record<string, unknown>);
+  console.log(topChanged ? "data/league-player-career-top.jsonに保存しました" : "data/league-player-career-top.jsonは内容に変化が無いため書き換えませんでした");
 
   // 作った時刻以外が前回と同じなら書き換えない（夜間実行で変化の無い日にコミット・デプロイを起こさない。DESIGN.md 143-4）
   const changed = await writeJsonIfChanged(path.join(DATA_DIR, "league-player-rankings.json"), file as unknown as Record<string, unknown>);

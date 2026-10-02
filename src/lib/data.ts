@@ -21,6 +21,7 @@ import type {
   DivisionHistoryFile,
   GameSummary,
   HeadToHeadTeamRow,
+  LeaguePlayerCareerTopFile,
   LeaguePlayerRankingsFile,
   LeagueTeamRankingsFile,
   PlayerAwardsFile,
@@ -286,6 +287,15 @@ export function fetchLeagueTeamRankings(): Promise<LeagueTeamRankingsFile> {
  * シーズン非依存の単一ファイル */
 export function fetchLeaguePlayerRankings(): Promise<LeaguePlayerRankingsFile> {
   return fetchJson<LeaguePlayerRankingsFile>(`${dataBase}/league-player-rankings.json`);
+}
+
+/** 個人の通算成績の上位20位（data/league-player-career-top.json、DESIGN.md 192章）。ファイルが無ければ null */
+export async function fetchLeaguePlayerCareerTop(): Promise<LeaguePlayerCareerTopFile | null> {
+  try {
+    return await fetchJson<LeaguePlayerCareerTopFile>(`${dataBase}/league-player-career-top.json`);
+  } catch {
+    return null;
+  }
 }
 
 export function fetchSchedule(season: string): Promise<ScheduleFile> {

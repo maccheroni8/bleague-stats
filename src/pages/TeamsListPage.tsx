@@ -4,7 +4,7 @@ import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { choiceNumberParam, clearUrlParams, enumParam, situationalParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
-import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERSPECTIVE_PARAM } from "../lib/urlFilterParams";
+import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERSPECTIVE_PARAM, VENUE_PARAM } from "../lib/urlFilterParams";
 import {
   buildStatConditionItems,
   DEFAULT_STAT_CONDITIONS,
@@ -112,8 +112,10 @@ import {
   formatTeamStreak,
   type TeamStreak,
 } from "../../shared/teamRecords";
-import { leagueTeamDisplayName } from "../lib/leagueTeamNames";
+import { lastPremierSeasonFor, leagueTeamCurrentCategoryLabel, leagueTeamDisplayName } from "../lib/leagueTeamNames";
 import { RECORD_MODE_PARAM, teamGameRecordRankingUrl } from "../components/TeamGameRecordRanking";
+import { CareerLeaderCard } from "../components/CareerLeaderCard";
+import { careerRecordRankingUrl } from "../components/CareerRecordRanking";
 import { TeamRecordLeaderCard } from "../components/TeamRecordLeaderCard";
 import { TEAM_RECORD_MODE_LABELS, allTimeTeamRecordRows, teamRecordItems, type TeamRecordMode } from "../lib/teamGameRecords";
 import { ONE_TEAM_DIVISIONS, TEAM_DIVISIONS, TEAM_NAMES } from "../../scripts/lib/divisions";
@@ -805,7 +807,6 @@ const RECORDS_CATEGORY_PARAM = enumParam<RecordsCategory>(
   "career",
   { clubRecord: "club", seasonSpecial: "special", premierRecord: "premier", periodRecord: "period" },
 );
-const TEAM_VENUE_PARAM = enumParam<LeagueVenue>("venue", ["total", "home", "away"], "total");
 const TEAM_RECORDS_STAT_PARAM = stringParam("stat", "wins", (v) => /^[\w%]+$/.test(v));
 
 const RECORDS_CATEGORY_LABELS: Record<RecordsCategory, string> = {
@@ -902,26 +903,6 @@ function formatRankingsUpdatedAt(iso: string): string {
 }
 
 
-// 現在の所属カテゴリ（要件3: 降格済み・退会済みクラブと現行クラブを区別する注記）。
-// TEAM_DIVISIONS/ONE_TEAM_DIVISIONSはいずれも2026-27シーズン基準の現行クラブ一覧
-function leagueTeamCurrentCategoryLabel(teamId: string): string {
-  if (teamId in TEAM_DIVISIONS) return "B.PREMIER";
-  if (teamId in ONE_TEAM_DIVISIONS) return "B.ONE";
-  return "対象外";
-}
-
-// 現行B.PREMIERクラブでないチーム（B.ONEへ降格済み等）は、現在選択中のシーズンに向けて
-// リンクしても対象シーズンにそのクラブが存在せず「チームが見つかりませんでした」になってしまう
-// （23章で確立された挙動）。そのため、そのクラブが最後にB.PREMIERに在籍していたシーズンを
-// division-history.jsonから求め、明示的な?season=付きでリンクする
-function lastPremierSeasonFor(divisionHistory: DivisionHistoryFile | null | undefined, teamId: string): string | undefined {
-  if (!divisionHistory) return undefined;
-  const seasons = Object.keys(divisionHistory.premier).filter(
-    (s) => divisionHistory.premier[s]?.[teamId] !== undefined,
-  );
-  return seasons.sort().at(-1);
-}
-
 // 上記lastPremierSeasonForの結果に応じて、現行B.PREMIERクラブはSeasonLink（現在の?season=を
 // 引き継ぐ）、それ以外は明示的な?season=付きのLinkでチーム詳細ページへ遷移する共通リンク。
 // 「歴代記録」タブと「歴代王者」タブの両方から使う
@@ -1008,7 +989,7 @@ function LeagueRecordsTab() {
   const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
 
   const [category, setCategory] = useUrlState(RECORDS_CATEGORY_PARAM, "career");
-  const [venue, setVenue] = useUrlState(TEAM_VENUE_PARAM, "total");
+  const [venue, setVenue] = useUrlState(VENUE_PARAM, "total");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [statKey, setStatKey] = useUrlState(TEAM_RECORDS_STAT_PARAM, "wins");
   // 記録の種類（B.PREMIERレコード・クォーター別レコードのカード）。クォーター別レコードに被記録は無いので記録にする
@@ -1027,6 +1008,7 @@ function LeagueRecordsTab() {
 
   const isPremierRecord = category === "premierRecord";
   const isPeriodRecord = category === "periodRecord";
+  const isCareer = category === "career";
   const entries = isPremierRecord || isPeriodRecord ? undefined : leagueEntriesFor(rankings, category, venue, gameType, statKey);
   const rows: LeagueRecordRow[] = entries
     ? Object.entries(entries)
@@ -1050,6 +1032,17 @@ function LeagueRecordsTab() {
           }))
           .filter((c) => c.rows.length > 0)
       : [];
+  // 通算成績のカード（各項目の1位。同じ値のクラブが複数あれば先頭の1クラブと「ほか◯チーム」。押すとランキングの通算記録の同じ項目へ移る）
+  const careerCards = isCareer
+    ? CAREER_TOTAL_DEFS.flatMap((def) => {
+        const table = leagueEntriesFor(rankings, "career", venue, gameType, def.key) ?? {};
+        const top = Object.entries(table)
+          .filter(([, e]) => e.rank === 1)
+          .sort((a, b) => Number(a[0]) - Number(b[0]));
+        const first = top[0];
+        return first ? [{ def, teamId: first[0], entry: first[1], others: top.length - 1 }] : [];
+      })
+    : [];
   const recordCardsBlock = (
     <>
       <h3 className="career-highs-subheading">
@@ -1113,12 +1106,14 @@ function LeagueRecordsTab() {
             : []),
         ]}
       />
-      {!isPeriodRecord && !isPremierRecord && <FilterBar axes={[statItemAxis(statOptions, statKey, setStatKey)]} stateKey="teams:records:stat" simple wide />}
+      {!isPeriodRecord && !isPremierRecord && !isCareer && <FilterBar axes={[statItemAxis(statOptions, statKey, setStatKey)]} stateKey="teams:records:stat" simple wide />}
 
       <ConditionTitle
         title={
           isPeriodRecord || isPremierRecord
             ? `歴代記録 ${RECORDS_CATEGORY_LABELS[category]}`
+            : isCareer
+              ? `歴代記録 ${RECORDS_CATEGORY_LABELS[category]}：各項目の1位`
             : `歴代記録 ${RECORDS_CATEGORY_LABELS[category]}：${activeLabel}`
         }
         conditions={composeLabels(
@@ -1193,6 +1188,21 @@ function LeagueRecordsTab() {
           </div>
         )}
         </>
+      ) : isCareer ? (
+        <div className="career-highs-grid">
+          {careerCards.map(({ def, teamId, entry, others }) => (
+            <CareerLeaderCard
+              key={def.key}
+              label={def.label}
+              valueText={entry.value.toLocaleString()}
+              name={<ResponsiveTeamName teamId={teamId} name={leagueTeamDisplayName(teamId)} always />}
+              sub={leagueTeamCurrentCategoryLabel(teamId)}
+              otherCount={others}
+              unit="チーム"
+              to={careerRecordRankingUrl({ mode: "team", venue, gameType, statKey: def.key })}
+            />
+          ))}
+        </div>
       ) : rows.length === 0 ? (
         <p className="empty-message">この条件（ホーム/アウェイ/トータル・レギュラー/{postseasonLabel(null)}区分・項目）では該当クラブがありません</p>
       ) : (
@@ -1217,8 +1227,6 @@ function LeagueRecordsTab() {
                           <span className="rank-name">
                               <ResponsiveTeamName teamId={r.teamId} name={clubRowName(r.teamId, r.entry.seasons)} />
                             </span>
-                          {/* 今の所属リーグは、通算成績（クラブ単位）だけに出す。1試合・1シーズンの記録では当時のリーグと違うことがあるため */}
-                          {category === "career" && <span className="rank-sublabel">{leagueTeamCurrentCategoryLabel(r.teamId)}</span>}
                         </span>
                       </span>
                     </TeamNavLink>

@@ -6682,3 +6682,9 @@ a.period-records-cell {
   text-decoration: none;
   box-sizing: border-box;
 }
+
+/* 通算成績のカードの値は桁が多い（出場時間 17,096:37 など）ので、カードの幅に収まる大きさにする */
+.career-high-value-fit {
+  font-size: 24px;
+  overflow-wrap: anywhere;
+}

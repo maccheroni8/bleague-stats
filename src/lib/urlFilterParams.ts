@@ -3,6 +3,7 @@ import { CLASSIFICATION_GROUP_OPTIONS, type ClassificationGroupFilter } from "./
 import { SEASON_BOX_PERIOD_OPTIONS, type SeasonDisplayMode } from "./playerSeasonBoxscore";
 import type { PeriodRangeValue } from "./periodRange";
 import type { TeamPerspective } from "./teamStatsColumns";
+import type { LeagueVenue } from "./conditionLabels";
 import { enumParam, listParam } from "./urlState";
 
 /**
@@ -37,3 +38,6 @@ export const CLUB_PARAM = listParam("club");
 /** 記録の範囲（歴代／シーズン）。選手・チームの記録タブとランキングの1試合記録で共通（DESIGN.md 190章） */
 export type RecordsScope = "allTime" | "season";
 export const RECORDS_SCOPE_PARAM = enumParam<RecordsScope>("scope", ["allTime", "season"], "allTime", { allTime: "all" });
+
+/** 歴代の記録の会場（トータル／ホーム／アウェイ）。個人・チームの記録タブとランキングの通算記録で共通 */
+export const VENUE_PARAM = enumParam<LeagueVenue>("venue", ["total", "home", "away"], "total");

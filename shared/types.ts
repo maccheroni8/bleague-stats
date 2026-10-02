@@ -1610,6 +1610,28 @@ export interface LeaguePlayerRankingsFile {
   careerAway: Record<LeagueRankingGameType, LeaguePlayerRankingStatTable>;
 }
 
+/** LeaguePlayerCareerTopFile の1行 */
+export interface LeaguePlayerCareerTopEntry {
+  playerId: string;
+  value: number;
+  /** 競技方式の順位（1, 2, 2, 4） */
+  rank: number;
+}
+
+// ---- data/league-player-career-top.json（ランキング > 個人 > 通算記録。DESIGN.md 192章）----
+
+/**
+ * 個人の通算成績の上位20位（20位と同じ値の選手はすべて含む）。league-player-rankings.json（全選手の順位。約1.4MB）から、
+ * 画面が全選手を読まずに済むように、項目・会場・試合区分ごとの上位だけを書き出したもの。players には、上位に入った選手の表示用の情報だけを持つ
+ */
+export interface LeaguePlayerCareerTopFile {
+  generatedAt: string;
+  players: Record<string, LeaguePlayerInfo>;
+  career: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>>;
+  careerHome: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>>;
+  careerAway: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>>;
+}
+
 // ---- data/player-careers.json（ランキング「キャリア」カテゴリ。scripts/aggregate-player-careers.ts。DESIGN.md 145章）----
 
 /** 選手のキャリアの回数（Bリーグ 2016-17 以降、B1／B.PREMIER の記録だけ。そのシーズンの終了時点までの累計） */

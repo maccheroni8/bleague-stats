@@ -104,7 +104,7 @@ import {
 } from "../lib/tableThresholds";
 import { usePageState } from "../lib/pageStateCache";
 import { choiceNumberParam, clearUrlParams, enumParam, rangeParam, situationalParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
-import { CLASSIFICATION_PARAM, CLUB_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, POSITION_PARAM } from "../lib/urlFilterParams";
+import { VENUE_PARAM, CLASSIFICATION_PARAM, CLUB_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, POSITION_PARAM } from "../lib/urlFilterParams";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import {
   activeStatConditionKeys,
@@ -141,6 +141,11 @@ import {
 import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
 import { PlayerNamePool } from "../components/PlayerNamePool";
 import { PlayerSeasonRecords } from "../components/PlayerSeasonRecords";
+import { formatLeaguePlayerRecordValue } from "../lib/careerRecords";
+import { CareerLeaderCard } from "../components/CareerLeaderCard";
+import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
+import { careerRecordRankingUrl } from "../components/CareerRecordRanking";
+import { fetchLeaguePlayerCareerTop } from "../lib/data";
 import { LeaguePlayerGameRecords } from "../components/LeaguePlayerGameRecords";
 
 // 「個人」ページ。「全選手スタッツ」タブ（チーム版の「全チームスタッツ」と同じ考え方）・
@@ -631,8 +636,6 @@ function buildPlayerListConditionDefs(opts: {
  * scope＝記録の範囲、venue・stat＝歴代の記録の会場・項目、n＝直近成績の試合数
  */
 const RECORDS_SCOPE_PARAM = enumParam<"allTime" | "season">("scope", ["allTime", "season"], "allTime", { allTime: "all" });
-const VENUE_PARAM = enumParam<LeagueVenue>("venue", ["total", "home", "away"], "total");
-const PLAYER_RECORDS_STAT_PARAM = stringParam("stat", "pts", (v) => /^[\w%]+$/.test(v));
 const RECENT_N_PARAM = choiceNumberParam<PlayerRecentFormRecentN>("n", RECENT_FORM_N_OPTIONS, 5);
 const PLAYERS_VIEW_PARAM = enumParam<PlayersOuterTab>("view", ["stats", "records", "awards", "recent"], "stats");
 const PLAYERS_TAB_PARAM = enumParam<PlayersPageTab>(
@@ -1204,24 +1207,6 @@ function formatRankingsUpdatedAt(iso: string): string {
 // 既に算出済みのため、フロントエンドは項目・ホーム/アウェイ/トータル・レギュラー/プレーオフ/
 // 合算を選んで該当の[gameType][statKey][playerId]テーブルをrank昇順に並べ替えるだけでよい
 
-function leagueTableFor(rankings: LeaguePlayerRankingsFile, venue: LeagueVenue, gameType: SeasonGameTypeFilter, statKey: string) {
-  const table = venue === "total" ? rankings.career : venue === "home" ? rankings.careerHome : rankings.careerAway;
-  return table[gameType][statKey];
-}
-
-/** minMinutes（出場時間）はformatMinutesFromSecondsで、plusMinus（プラスマイナス）は符号付きで、
- * それ以外は桁区切り整数で表示する */
-function formatLeaguePlayerRecordValue(statKey: string, value: number): string {
-  if (statKey === "minMinutes") return formatMinutesFromSeconds(Math.round(value * 60));
-  if (statKey === "plusMinus") return formatSigned(value, 0);
-  return Math.round(value).toLocaleString();
-}
-
-interface LeaguePlayerRecordRow {
-  playerId: string;
-  entry: LeaguePlayerRankEntry;
-}
-
 const PLAYER_RECORDS_CATEGORY_PARAM = enumParam<"career" | "premier">("cat", ["career", "premier"], "career");
 
 /** 範囲「歴代」。カテゴリ: 通算成績（全選手の通算の順位）／B.PREMIER（旧B1）レコード（全シーズンの1試合の記録。DESIGN.md 188章） */
@@ -1242,34 +1227,25 @@ function LeaguePlayerRecordsTab() {
 }
 
 function LeaguePlayerCareerRecords({ categoryAxis }: { categoryAxis: FilterAxis }) {
-  const {
-    data: rankings,
-    loading: rankingsLoading,
-    error: rankingsError,
-  } = useJsonData(() => fetchLeaguePlayerRankings(), []);
+  const { data: file, loading } = useJsonData(() => fetchLeaguePlayerCareerTop(), []);
 
   const [venue, setVenue] = useUrlState(VENUE_PARAM, "total");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
-  const [statKey, setStatKey] = useUrlState(PLAYER_RECORDS_STAT_PARAM, "pts");
 
-  if (rankingsLoading) return <p className="loading">読み込み中...</p>;
-  if (rankingsError) return <p className="error-message">{rankingsError}</p>;
-  if (!rankings) return <p className="empty-message">データがありません</p>;
-
-  const entries = leagueTableFor(rankings, venue, gameType, statKey);
-  const rows: LeaguePlayerRecordRow[] = entries
-    ? Object.entries(entries)
-        .map(([playerId, entry]) => ({ playerId, entry }))
-        .sort((a, b) => a.entry.rank - b.entry.rank || Number(a.playerId) - Number(b.playerId))
-    : [];
-  const totalPlayers = Object.keys(rankings.career.regular.pts ?? {}).length;
-  const activeLabel = PLAYER_CAREER_TOTAL_DEFS.find((d) => d.key === statKey)?.label ?? statKey;
+  const table = file ? (venue === "total" ? file.career : venue === "home" ? file.careerHome : file.careerAway)[gameType] : undefined;
+  // 各項目の1位（同じ値の選手が複数いれば、先頭の1人と「ほか◯人」）
+  const cards = PLAYER_CAREER_TOTAL_DEFS.flatMap((def) => {
+    const top = (table?.[def.key] ?? []).filter((e) => e.rank === 1);
+    const first = top[0];
+    const info = first ? file?.players[first.playerId] : undefined;
+    return first && info ? [{ def, first, info, others: top.length - 1 }] : [];
+  });
 
   return (
     <div>
       <p className="page-subtitle">
-        過去在籍した全{totalPlayers}選手横断のランキング（毎日1回、前日までの試合結果を取り込んだあとに作り直します。最終更新
-        {" "}{formatRankingsUpdatedAt(rankings.generatedAt)}）。
+        過去在籍した全選手横断の通算成績（毎日1回、前日までの試合結果を取り込んだあとに作り直します。最終更新
+        {" "}{file ? formatRankingsUpdatedAt(file.generatedAt) : "-"}）。各項目の1位です。押すとランキングの個人「通算記録」の同じ項目へ移ります
       </p>
 
       <FilterBar
@@ -1277,52 +1253,33 @@ function LeaguePlayerCareerRecords({ categoryAxis }: { categoryAxis: FilterAxis 
         stateKey="players:records"
         axes={[categoryAxis, leagueVenueAxis(venue, setVenue), gameTypeAxis(gameType, setGameType, null)]}
       />
-      <FilterBar axes={[statItemAxis(PLAYER_CAREER_TOTAL_DEFS, statKey, setStatKey)]} stateKey="players:records:stat" simple wide />
 
-      <ConditionTitle
-        title={`歴代記録 通算成績：${activeLabel}`}
-        conditions={composeLabels(leagueVenueLabels(venue), gameTypeLabels(gameType, null))}
-      />
+      <ConditionTitle title="歴代記録 通算成績：各項目の1位" conditions={composeLabels(leagueVenueLabels(venue), gameTypeLabels(gameType, null))} />
 
-      {rows.length === 0 ? (
-        <p className="empty-message">この条件（ホーム/アウェイ/トータル・レギュラー/{postseasonLabel(null)}区分・項目）では該当選手がいません</p>
+      {loading ? (
+        <p className="loading">読み込み中...</p>
+      ) : cards.length === 0 ? (
+        <p className="empty-message">データがありません</p>
       ) : (
-        <PlayerNamePool names={rows.map((r) => rankings.players[r.playerId]?.name ?? "")}>
-        <div className="table-scroll">
-          <table className="sortable-table rankings-table">
-            <thead>
-              <tr>
-                <th className="align-right">#</th>
-                <th className="align-left">選手</th>
-                <th className="align-right" title={statDescription(activeLabel)}>{activeLabel}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const info = rankings.players[r.playerId];
-                return (
-                  <tr key={r.playerId}>
-                    <td className="align-right rank-cell">{r.entry.rank}</td>
-                    <td className="align-left">
-                      <Link to={`/players/${r.playerId}?season=${info?.latestSeason ?? ""}`} className="cell-link">
-                        <span className="player-cell">
-                          <PlayerPhoto playerId={r.playerId} size={32} className="player-cell-photo" />
-                          <span className="rank-name-cell">
-                            <span className="rank-name">{info ? <ResponsivePlayerName name={info.name} /> : r.playerId}</span>
-                            <span className="rank-sublabel">
-                              {info ? teamShortName(info.teamId, info.teamName) : ""}・{info?.latestSeason}シーズンまで在籍確認
-                            </span>
-                          </span>
-                        </span>
-                      </Link>
-                    </td>
-                    <td className="align-right rank-value">{formatLeaguePlayerRecordValue(statKey, r.entry.value)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <PlayerNamePool names={cards.map((c) => c.info.name)}>
+          <div className="career-highs-grid">
+            {cards.map(({ def, first, info, others }) => (
+              <CareerLeaderCard
+                key={def.key}
+                label={def.label}
+                valueText={formatLeaguePlayerRecordValue(def.key, first.value)}
+                name={<ResponsivePlayerName name={info.name} />}
+                sub={
+                  <>
+                    <ResponsiveTeamName teamId={info.teamId} name={info.teamName} always />・{info.latestSeason}シーズンまで
+                  </>
+                }
+                otherCount={others}
+                unit="人"
+                to={careerRecordRankingUrl({ mode: "player", venue, gameType, statKey: def.key })}
+              />
+            ))}
+          </div>
         </PlayerNamePool>
       )}
     </div>
