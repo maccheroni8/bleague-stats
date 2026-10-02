@@ -934,6 +934,8 @@ function boxColumnItem(col: SeasonBoxscoreColumn, mode: PlayerRankMode): PlayerR
  * 平均/合計で値が変わらない項目（割合・率・試合数）。これらとProfile・Careerでは、平均/合計の切り替えを無効にする（DESIGN.md 179章）。
  * 名前に pct を含む項目（FG%・TOV%・%PTS・PAINT2%・シューティングの 2P% 等）もここに入れる
  */
+const DDTD_PERIOD_REASON = (label: string) => `「${label}」は試合全体の記録でしか判定できないため、Q別・前後半を選んでいるときは対象外です。`;
+
 const MODE_INVARIANT_KEYS: ReadonlySet<string> = new Set(["g", "gs", "asttov", "usg", "efg", "ts", "pps", "poss", "pace", "ortg", "drtg", "netrtg", "per", "ppp"]);
 
 function displayModeApplies(category: string, statKey: string): boolean {
@@ -1077,6 +1079,7 @@ function buildPlayerConditionDefs(
   shootingTotal: Column<PlayerSummary>[],
   careerOf: (p: PlayerSummary) => PlayerCareerCounts | undefined,
   doublesOf: (p: PlayerSummary) => DoubleCounts | undefined,
+  ddtdOff: boolean,
 ): StatConditionItemDef<PlayerSummary>[] {
   // 判定は今の平均/合計の値（display）。displayOther は逆のほう（カウント系かの判定に使う。DESIGN.md 179章）
   const other: PlayerRankMode = mode === "total" ? "perGame" : "total";
@@ -1102,9 +1105,12 @@ function buildPlayerConditionDefs(
       });
     }
     if (tab.key === "traditional") {
+      // Q別/前後半を選んでいるときは値なし（「-」）で、条件に当てはまる選手がいなくなる（DESIGN.md 180章）
+      const dd = (p: PlayerSummary, m: PlayerRankMode) => (ddtdOff ? "-" : doubleConditionText(doublesOf(p), doublesOf(p)?.dd, m));
+      const td = (p: PlayerSummary, m: PlayerRankMode) => (ddtdOff ? "-" : doubleConditionText(doublesOf(p), doublesOf(p)?.td, m));
       defs.push(
-        { key: "dd2", label: "DD2", group: tab.label, display: (p) => doubleConditionText(doublesOf(p), doublesOf(p)?.dd, mode), displayOther: (p) => doubleConditionText(doublesOf(p), doublesOf(p)?.dd, other) },
-        { key: "td3", label: "TD3", group: tab.label, display: (p) => doubleConditionText(doublesOf(p), doublesOf(p)?.td, mode), displayOther: (p) => doubleConditionText(doublesOf(p), doublesOf(p)?.td, other) },
+        { key: "dd2", label: "DD2", group: tab.label, display: (p) => dd(p, mode), displayOther: (p) => dd(p, other) },
+        { key: "td3", label: "TD3", group: tab.label, display: (p) => td(p, mode), displayOther: (p) => td(p, other) },
       );
     }
     if (tab.key === "advanced") {
@@ -1418,7 +1424,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 
   // 平均/合計（DESIGN.md 179章）。割合の項目・Profile・Career では切り替えを無効にし、平均として扱う。
   // ctxByPlayer は1試合平均の値なので、合計のときはシーズン合計の値の ctx を作り直す
-  const modeApplies = displayModeApplies(category, statKey);
+  // DD2・TD3 は試合全体の記録でしか判定できないため、Q別/前後半を選んでいるときは対象外にする（DESIGN.md 180章）
+  const ddtdPeriodOff = effPeriodActive && (statKey === "dd2" || statKey === "td3");
+  const modeApplies = displayModeApplies(category, statKey) && !ddtdPeriodOff;
   const rankMode: PlayerRankMode = modeApplies && displayMode === "total" ? "total" : "perGame";
   const totalCtxByPlayer = useMemo(() => {
     if (!ctxByPlayer) return null;
@@ -1483,11 +1491,12 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           shootingColumnsTotal,
           (p) => careers?.seasons[season]?.[p.playerId],
           (p) => doublesByPlayer.get(p.playerId),
+          effPeriodActive,
         ),
         eligible,
         rankMode,
       ),
-    [season, rankMode, ctxByPlayer, totalCtxByPlayer, shootingColumns, shootingColumnsTotal, careers, eligible, doublesByPlayer],
+    [season, rankMode, ctxByPlayer, totalCtxByPlayer, shootingColumns, shootingColumnsTotal, careers, eligible, doublesByPlayer, effPeriodActive],
   );
   const conditionActive = hasActiveStatConditions(statConditions, conditionItems);
   const shownRows = useMemo(
@@ -1635,7 +1644,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     displayModeAxis(rankMode, setDisplayMode, {
       disabledReason: modeApplies
         ? undefined
-        : category === "profile" || category === "career"
+        : ddtdPeriodOff
+          ? DDTD_PERIOD_REASON(selectedItem.label)
+          : category === "profile" || category === "career"
           ? "このカテゴリは平均/合計の切り替えの対象外です。"
           : `「${selectedItem.label}」は割合・率（または試合数）の項目のため、平均/合計の切り替えの対象外です。`,
     }),
@@ -1704,7 +1715,13 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       <FilterBar
         axes={[
           statItemAxis(
-            category === "shooting" ? shootingStatItems(currentItems) : currentItems,
+            category === "shooting"
+              ? shootingStatItems(currentItems)
+              : currentItems.map((i) =>
+                  effPeriodActive && (i.key === "dd2" || i.key === "td3")
+                    ? { ...i, label: `${i.label}（Q別・前後半は対象外）`, disabled: true }
+                    : i,
+                ),
             statKey,
             selectStat,
           ),
@@ -1728,6 +1745,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 
       {waitingForGameLogs ? (
         <p className="loading">読み込み中...</p>
+      ) : ddtdPeriodOff ? (
+        <p className="empty-message">Q別・前後半を選んでいるため、「{selectedItem.label}」の順位は表示しません。</p>
       ) : (
         <>
           <ExportImageButton targetRef={exportRef} filename={playerTitle.filename} />

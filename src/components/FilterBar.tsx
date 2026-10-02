@@ -188,14 +188,14 @@ function FilterField({ axis }: { axis: FilterAxis }) {
           {selectOptionGroups(axis.options).map((g) =>
             g.label === null ? (
               g.options.map((o) => (
-                <option key={o.value} value={o.value}>
+                <option key={o.value} value={o.value} disabled={o.disabled}>
                   {o.label}
                 </option>
               ))
             ) : (
               <optgroup key={g.label} label={g.label}>
                 {g.options.map((o) => (
-                  <option key={o.value} value={o.value}>
+                  <option key={o.value} value={o.value} disabled={o.disabled}>
                     {o.label}
                   </option>
                 ))}

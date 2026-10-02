@@ -351,7 +351,7 @@ export function GlossaryGuides() {
       <section className="glossary-section" id={A.doubleDouble}>
         <h2>DD2・TD3（ダブルダブル・トリプルダブル）</h2>
         <p>
-          PTS・TR・AST・STL・BLKのうち2項目（TD3は3項目）で2桁を記録した試合です。達成は試合全体の記録で判定します（Q別・前後半を選んでも変わりません）。
+          PTS・TR・AST・STL・BLKのうち2項目（TD3は3項目）で2桁を記録した試合です。達成は試合全体の記録でしか判定できないため、Q別・前後半を選んでいるときは対象外です（ランキングでは項目を選べず、表では「-」と出ます）。
         </p>
         <p>
           ランキングの合計の表示では達成した回数、平均の表示では<strong>達成率</strong>（出場した試合のうち達成した試合の割合）です。

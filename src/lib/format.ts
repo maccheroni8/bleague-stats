@@ -1,5 +1,18 @@
+/**
+ * 小数の桁を指定して文字列にする。整数（digits=0）で1,000以上のとき（シーズン合計等）は3桁ごとに区切る（「1,591」。DESIGN.md 180章）。
+ * 小数のある値は区切らない（小数・割合・年・ID は区切らない方針）
+ */
 export function formatDecimal(value: number, digits = 1): string {
-  return value.toFixed(digits);
+  return digits === 0 ? formatInteger(value) : value.toFixed(digits);
+}
+
+/** 整数（四捨五入）を、1,000以上のとき3桁ごとに区切って文字列にする。負の値は先頭に「-」 */
+export function formatInteger(value: number): string {
+  const fixed = value.toFixed(0);
+  const negative = fixed.startsWith("-");
+  const digits = negative ? fixed.slice(1) : fixed;
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return negative ? `-${grouped}` : grouped;
 }
 
 export function formatPct(value: number, digits = 1): string {
@@ -18,7 +31,7 @@ export function formatWinPct(value: number, digits = 3): string {
 }
 
 export function formatSigned(value: number, digits = 1): string {
-  const rounded = value.toFixed(digits);
+  const rounded = digits === 0 ? formatInteger(value) : value.toFixed(digits);
   return value > 0 ? `+${rounded}` : rounded;
 }
 

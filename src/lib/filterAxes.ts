@@ -39,6 +39,8 @@ export interface FilterAxisOption {
   /** 指定すると select 内で `<optgroup>` にまとめる（条件別順位表の条件のように選択肢が多い軸用）。
    * groupを持たない選択肢は先頭にグループなしで並ぶ */
   group?: string;
+  /** trueのとき選べない（select の option を無効にする） */
+  disabled?: boolean;
 }
 
 interface FilterAxisBase {
@@ -352,7 +354,7 @@ export function simpleSelectAxis(input: {
  * 「絞り込み」ではなく表示項目の選択なので、simple のバーに単独で置いてチップには出さない（chip: false）
  */
 export function statItemAxis(
-  items: { key: string; label: string; group?: string }[],
+  items: { key: string; label: string; group?: string; disabled?: boolean }[],
   value: string,
   onChange: (key: string) => void,
 ): FilterAxis {
@@ -361,7 +363,7 @@ export function statItemAxis(
     ...simpleSelectAxis({
       id: "statItem",
       label: "スタッツ項目",
-      options: items.map((i) => ({ value: i.key, label: i.label, group: i.group })),
+      options: items.map((i) => ({ value: i.key, label: i.label, group: i.group, disabled: i.disabled })),
       value: selected,
       defaultValue: selected,
       onChange,

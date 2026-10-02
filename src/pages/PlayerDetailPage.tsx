@@ -3196,6 +3196,8 @@ function SeasonBreakdownTable({
   }, [careerData, gameTypeFilter, seasonRows, displayMode, playerId, periodOption, gamesByScheduleKey]);
 
   const columns = tab === "shooting" || tab === "scoringComposition" ? [] : SEASON_BOX_COLUMNS[tab];
+  // DD2・TD3 は試合全体の記録でしか判定できないため、Q別/前後半を選んでいるときは「-」（ベンチ得点の列と同じ扱い。DESIGN.md 180章）
+  const ddtdUnavailable = !!periodOption && periodOption.periods !== null;
 
   // シューティングタブ: 各行（シーズン・チーム別内訳）に属する試合ログのscheduleKeyから
   // careerShotsを引いてShotTypeBreakdownを組み立てる。列（シュートタイプ×2P/3P×M/A/%）は
@@ -3237,9 +3239,9 @@ function SeasonBreakdownTable({
       case "team":
         return r.teamLabel;
       case "dd2":
-        return r.ddtd.dd;
+        return ddtdUnavailable ? 0 : r.ddtd.dd;
       case "td3":
-        return r.ddtd.td;
+        return ddtdUnavailable ? 0 : r.ddtd.td;
       default: {
         if (tab === "shooting") {
           const col = seasonShotColumns.find((c) => c.key === key);
@@ -3393,8 +3395,8 @@ function SeasonBreakdownTable({
                         {col.format(r.ctx, displayMode)}
                       </td>
                     ))}
-                <td className="align-right">{r.ddtd.dd}</td>
-                <td className="align-right">{r.ddtd.td}</td>
+                <td className="align-right">{ddtdUnavailable ? "-" : r.ddtd.dd}</td>
+                <td className="align-right">{ddtdUnavailable ? "-" : r.ddtd.td}</td>
               </tr>
             ))}
             {total && (
@@ -3414,8 +3416,8 @@ function SeasonBreakdownTable({
                           : col.format(total.ctx, displayMode)}
                       </td>
                     ))}
-                <td className="align-right">{total.ddtd.dd}</td>
-                <td className="align-right">{total.ddtd.td}</td>
+                <td className="align-right">{ddtdUnavailable ? "-" : total.ddtd.dd}</td>
+                <td className="align-right">{ddtdUnavailable ? "-" : total.ddtd.td}</td>
               </tr>
             )}
           </tbody>

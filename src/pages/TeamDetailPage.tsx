@@ -4201,6 +4201,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 <TeamPlayerStatsTable
                   rows={playerStatsRows}
                   displayMode={playerStatsDisplayMode}
+                  periodSelected={!!playerStatsPeriodOption && playerStatsPeriodOption.periods !== null}
                   activeTab={playerStatsBoxTab}
                   onTabChange={setPlayerStatsBoxTab}
                   teamYahooPbp={teamYahooPbp}
@@ -4733,12 +4734,15 @@ interface TeamPlayerStatsRow {
 function TeamPlayerStatsTable({
   rows,
   displayMode,
+  periodSelected,
   activeTab: controlledActiveTab,
   onTabChange,
   teamYahooPbp,
   teamYahooPbpLoading,
 }: {
   rows: TeamPlayerStatsRow[];
+  /** Q別/前後半を選んでいる。DD2・TD3 は試合全体の記録でしか判定できないため「-」にする（DESIGN.md 180章） */
+  periodSelected: boolean;
   /** 試合種別・表示・Q別/前後半・S軸は親のFilterBarで選ぶ（このコンポーネントは表示モードを読むだけ） */
   displayMode: SeasonDisplayMode;
   /** カテゴリタブ（シューティングを含む）を外部から制御する（BoxscoreTable.tsxのactiveTab/
@@ -4756,6 +4760,7 @@ function TeamPlayerStatsTable({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const columns = tab === "shooting" ? [] : SEASON_BOX_COLUMNS[tab];
+  const ddtdUnavailable = periodSelected;
 
   // シューティングタブ: 各行（選手×このチーム在籍分）に属する試合のscheduleKeyから
   // teamYahooPbpのショットを引いてShotTypeBreakdownを組み立てる
@@ -4784,9 +4789,9 @@ function TeamPlayerStatsTable({
       case "player":
         return r.player.name;
       case "dd2":
-        return r.ddtd.dd;
+        return ddtdUnavailable ? 0 : r.ddtd.dd;
       case "td3":
-        return r.ddtd.td;
+        return ddtdUnavailable ? 0 : r.ddtd.td;
       default: {
         if (tab === "shooting") {
           const col = shotColumns.find((c) => c.key === key);
@@ -4901,8 +4906,8 @@ function TeamPlayerStatsTable({
                               {col.format(r.ctx, displayMode)}
                             </td>
                           ))}
-                      <td className="align-right">{r.ddtd.dd}</td>
-                      <td className="align-right">{r.ddtd.td}</td>
+                      <td className="align-right">{ddtdUnavailable ? "-" : r.ddtd.dd}</td>
+                      <td className="align-right">{ddtdUnavailable ? "-" : r.ddtd.td}</td>
                     </tr>
                   ))}
                 </tbody>
