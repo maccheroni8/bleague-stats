@@ -7,7 +7,7 @@ import { ResponsiveTeamName } from "./ResponsiveTeamName";
 import { StatHeaderLabel } from "./StatHeaderLabel";
 import { BOX_CATEGORY_TABS, CATEGORY_LABELS, type BoxCategoryKey } from "../lib/categoryLabels";
 import { composeLabels, gameTypeLabels, perspectiveLabels } from "../lib/conditionLabels";
-import { fetchTeamGameLogs } from "../lib/data";
+import { fetchGameSummaries, fetchTeamGameLogs } from "../lib/data";
 import { gameTypeAxis, perspectiveAxis, simpleSelectAxis } from "../lib/filterAxes";
 import { formatDecimal, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
@@ -61,6 +61,8 @@ interface OpponentOption {
 interface SeasonLogs {
   season: string;
   logs: TeamGameLog[];
+  /** scheduleKey → 会場（日程の試合一覧 games-summary から） */
+  venues: Map<string, string>;
 }
 
 /** 勝敗・ホーム／アウェイ別・平均得点失点 */
@@ -110,12 +112,21 @@ export function TeamHeadToHead({
     () =>
       Promise.all(
         seasonKeys.map(async (season) => {
+          let logs: TeamGameLog[] = [];
           try {
-            return { season, logs: await fetchTeamGameLogs(season, teamId) };
+            logs = await fetchTeamGameLogs(season, teamId);
           } catch {
             // そのシーズンにこのクラブの試合ログが無い（リーグにいなかった）
-            return { season, logs: [] as TeamGameLog[] };
           }
+          const venues = new Map<string, string>();
+          if (logs.length > 0) {
+            try {
+              for (const g of await fetchGameSummaries(season)) if (g.venue) venues.set(g.scheduleKey, g.venue);
+            } catch {
+              // 会場が読めなくても他の表示は続ける（会場は「-」）
+            }
+          }
+          return { season, logs, venues };
         }),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,13 +167,13 @@ export function TeamHeadToHead({
 
   // 選んだ相手との試合（試合種別で絞る）。新しい試合が上
   const games = useMemo(() => {
-    const out: (TeamGameLog & { season: string })[] = [];
-    for (const { season, logs } of seasonLogs ?? []) {
+    const out: (TeamGameLog & { season: string; venue?: string })[] = [];
+    for (const { season, logs, venues } of seasonLogs ?? []) {
       for (const g of logs) {
         if (g.opponentTeamId !== opponentId) continue;
         if (g.gameType !== "regular" && g.gameType !== "playoff") continue;
         if (gameType !== "both" && g.gameType !== gameType) continue;
-        out.push({ ...g, season });
+        out.push({ ...g, season, venue: venues.get(g.scheduleKey) });
       }
     }
     return out.sort((a, b) => b.date.localeCompare(a.date) || b.scheduleKey.localeCompare(a.scheduleKey));
@@ -231,7 +242,6 @@ export function TeamHeadToHead({
   const axes = [
     { ...opponentAxis, chip: false },
     gameTypeAxis(gameType, setGameType, null),
-    perspectiveAxis(perspective, setPerspective),
   ];
 
   const conditions = composeLabels(
@@ -298,6 +308,8 @@ export function TeamHeadToHead({
           </div>
 
           <ConditionTitle section title="試合ごとのスタッツ" conditions={conditions} />
+          {/* 視点は、この下の試合ごとの表と平均の行だけに効く（通算・シーズンごとの成績は常に自チーム基準） */}
+          <FilterBar simple stateKey="team:headToHead:stats" axes={[perspectiveAxis(perspective, setPerspective)]} />
           <div className="tab-bar">
             {BOX_CATEGORY_TABS.map((t) => (
               <button
@@ -322,6 +334,7 @@ export function TeamHeadToHead({
                       <StatHeaderLabel label={col.label} />
                     </th>
                   ))}
+                  <th className="align-left">会場</th>
                 </tr>
               </thead>
               <tbody>
@@ -352,6 +365,7 @@ export function TeamHeadToHead({
                           {col.format ? col.format(row) : String(col.sortValue(row))}
                         </td>
                       ))}
+                      <td className="align-left">{g.venue ?? "-"}</td>
                     </tr>
                   );
                 })}
@@ -372,6 +386,7 @@ export function TeamHeadToHead({
                       {col.format ? col.format(averageRow) : String(col.sortValue(averageRow))}
                     </td>
                   ))}
+                  <td />
                 </tr>
               </tfoot>
             </table>
@@ -379,7 +394,7 @@ export function TeamHeadToHead({
           <GlossaryNote
             anchor={GLOSSARY_ANCHORS.boxscoreColumns}
             label="対戦成績"
-            scope="レギュラーシーズン・ポストシーズンの試合全体の記録です（上部の視点・試合種別と連動します）。"
+            scope="レギュラーシーズン・ポストシーズンの試合全体の記録です（試合種別は上部、視点は試合ごとのスタッツの表の上の切り替えと連動します）。"
           />
         </>
       )}
