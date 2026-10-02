@@ -41,8 +41,21 @@ export async function scrapePlayerAwards(): Promise<PlayerAwardsFile> {
   const result: PlayerAwardsFile = {};
   let withAwardsCount = 0;
 
+  // 個人ページが公式から消えた選手（404）は、前回の受賞歴をそのまま残して次へ進む。1人の404で全体を止めると、
+  // それまでの取得（1時間近く）が保存されずに失敗する（2026-10-01 に 5100000064 で発生。DESIGN.md 181章）。404 以外のエラーは従来どおり失敗にする
+  const previous = (await readJson<PlayerAwardsFile>(AWARDS_PATH)) ?? {};
+  const skipped: string[] = [];
+
   for (const [i, entry] of master.entries()) {
-    const { awards } = await fetchPlayerPage(entry.playerId);
+    let awards: PlayerAwardsFile[string];
+    try {
+      ({ awards } = await fetchPlayerPage(entry.playerId));
+    } catch (err) {
+      if (!(err instanceof Error && /failed: 404$/.test(err.message))) throw err;
+      console.warn(`[player-awards] ${entry.playerId}（${entry.name}）の個人ページが404のため、前回の受賞歴を残します`);
+      skipped.push(entry.playerId);
+      awards = previous[entry.playerId] ?? [];
+    }
     if (awards.length > 0) {
       result[entry.playerId] = awards;
       withAwardsCount += 1;
@@ -51,6 +64,7 @@ export async function scrapePlayerAwards(): Promise<PlayerAwardsFile> {
   }
 
   console.log(`[player-awards] 受賞歴あり: ${withAwardsCount}/${master.length}名`);
+  if (skipped.length > 0) console.warn(`[player-awards] 個人ページが404でスキップ: ${skipped.join(", ")}`);
   return result;
 }
 
