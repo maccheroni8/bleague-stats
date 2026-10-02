@@ -126,5 +126,5 @@ export const PLAYER_GAME_RECORD_STATS: PlayerGameRecordDef[] = PLAYER_GAME_RECOR
   fraction: PLAYER_PCT_FRACTIONS.get(d.key),
 }));
 
-/** 上位何位まで書き出すか（同じ記録はすべて含むので、件数はこれより多くなることがある） */
-export const PLAYER_GAME_RECORD_TOP_N = 10;
+/** 上位何位まで書き出すか（同じ記録はすべて含むので、件数はこれより多くなることがある）。ランキングページの一覧（20位まで）に合わせた（DESIGN.md 189章。それまでは10位） */
+export const PLAYER_GAME_RECORD_TOP_N = 20;

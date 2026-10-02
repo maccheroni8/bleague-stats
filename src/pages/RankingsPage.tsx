@@ -1,3 +1,4 @@
+import { RankedList, type RankableStat } from "../components/RankedList";
 import { EligibilitySlider } from "../components/EligibilitySlider";
 import { useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { postseasonLabel } from "../../shared/gameType";
@@ -173,43 +174,6 @@ function makeRankingTitle(kind: "チーム" | "個人", season: string, statLabe
   };
 }
 
-/**
- * RankedListが実際に使う最小限の形（key/label/value/format）。statDefs.tsのStatDef<T>は
- * これを内包する上位互換の型のため、PLAYER_STAT_DEFS等をそのまま渡せる（構造的部分型）。
- * チーム版ランキング（COLUMNS_BY_TAB由来のColumn<AllTeamsRow>から都度組み立てる）は
- * formulaText等のグロッサリー用メタ情報を持たないため、この最小型にしてある
- */
-interface RankableStat<T> {
-  key: string;
-  label: string;
-  value: (row: T) => number;
-  format: (row: T) => string;
-  /** falseならDRtg・opp PTS等のように値が小さいほど良い項目（未指定はtrue扱い）。
-   * teamStatsColumns.tsのColumn.higherIsBetterをそのまま引き継ぐ */
-  higherIsBetter?: boolean;
-}
-
-interface RankedListProps<T> {
-  rows: T[];
-  def: RankableStat<T>;
-  rowKey: (row: T) => string;
-  name: (row: T) => string;
-  subLabel?: (row: T) => string;
-  /** undefined の行はリンクにしない（どのシーズンにも個人ページの無い、名簿から足した選手。DESIGN.md 173・174章） */
-  linkTo: (row: T) => string | undefined;
-  /** 指定時、名前の直後にBリーグ公式サイトへの外部リンクアイコンを表示する（選手モードのみ） */
-  externalLinkTo?: (row: T) => string | undefined;
-  teamColor?: (row: T) => string | undefined;
-  /** 指定時、名前の左にロゴ・写真等を表示する */
-  avatar?: (row: T) => ReactNode;
-  /** 指定時、ソート後の上位この件数だけを表示する（未指定は全件） */
-  limit?: number;
-  /** trueのとき、表を内容幅に詰める（名前と値の間が広がりすぎないように。親の.export-target-compactと併用） */
-  compact?: boolean;
-  /** 項目名の説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */
-  statScope?: StatScope;
-}
-
 /** シューティングの項目（キー「{シュート種別}_2pm」等）を、シュート種別ごとのグループにする（項目数が多いため） */
 function shootingStatItems(columns: { key: string; label: string }[]): { key: string; label: string; group: string }[] {
   return columns.map((c) => ({
@@ -217,137 +181,6 @@ function shootingStatItems(columns: { key: string; label: string }[]): { key: st
     label: c.label,
     group: shotTypeLabel(c.key.replace(/_(2pm|2pa|2ppct|3pm|3pa|3ppct)$/, "")),
   }));
-}
-
-/** defの向き（higherIsBetter）から導く、そのdefにとって「正しい」既定のソート方向 */
-function defaultSortDir<T>(def: RankableStat<T>): "asc" | "desc" {
-  return def.higherIsBetter === false ? "asc" : "desc";
-}
-
-function RankedList<T>({
-  rows,
-  def,
-  rowKey,
-  name,
-  subLabel,
-  linkTo,
-  externalLinkTo,
-  teamColor,
-  avatar,
-  limit,
-  compact,
-  statScope = "player",
-}: RankedListProps<T>) {
-  // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
-  // ソート方向は「値の大小」ではなく「良い/悪い」の向き（def.higherIsBetter）を基準にした
-  // asc/descで管理し、既定値は常にBatch 2で確立した「良い方が#1に来る」向きにする。
-  // 項目（def.key）や向き（def.higherIsBetter、自チーム/opp/+/-トグルで変わりうる）が変わったら
-  // 手動での反転状態をリセットし、常に新しい項目の「正しい既定順」から始める
-  const [sortDir, setSortDir] = useState<"asc" | "desc">(() => defaultSortDir(def));
-  const [tiesExpanded, setTiesExpanded] = useState(false);
-  const prevIdentityRef = useRef(`${def.key}:${def.higherIsBetter}`);
-  useEffect(() => {
-    const identity = `${def.key}:${def.higherIsBetter}`;
-    if (prevIdentityRef.current !== identity) {
-      prevIdentityRef.current = identity;
-      setSortDir(defaultSortDir(def));
-      setTiesExpanded(false);
-    }
-  }, [def]);
-
-  const factor = sortDir === "asc" ? 1 : -1;
-  const sorted = [...rows].sort((a, b) => (def.value(a) - def.value(b)) * factor);
-  // 順位（DESIGN.md 146章）: 同じ値は同じ順位にし、次の順位はその分飛ばす（1位・2位・2位・4位）。
-  // 同じかどうかは画面に表示している値（def.format。小数は丸めた後）で判定する。limit の境目で同じ順位が続く分は、
-  // 「同じ順位のほか◯人を表示」で広げる
-  const ranks = sorted.map((row) => def.format(row));
-  const rankAt = (i: number): number => {
-    let j = i;
-    while (j > 0 && ranks[j - 1] === ranks[i]) j -= 1;
-    return j + 1;
-  };
-  // 同じ順位が境目をまたぐ分（limit より後ろで、limit 番目と同じ値の行）
-  let tieEnd = limit ?? sorted.length;
-  if (limit !== undefined && limit > 0) {
-    while (tieEnd < sorted.length && ranks[tieEnd] === ranks[limit - 1]) tieEnd += 1;
-  }
-  const hiddenTies = limit !== undefined ? Math.max(0, Math.min(tieEnd, sorted.length) - limit) : 0;
-  const shownCount = limit === undefined ? sorted.length : tiesExpanded ? tieEnd : limit;
-  const limited = sorted.slice(0, shownCount);
-  const toggleSortDir = () => setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-  return (
-    <div className="table-scroll">
-      <table className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}`}>
-        <thead>
-          <tr>
-            <th className="align-right">#</th>
-            <th className="align-left">名前</th>
-            <th
-              className="align-right"
-              title={statDescription(def.label, statScope)}
-              onClick={toggleSortDir}
-              aria-sort={sortDir === "asc" ? "ascending" : "descending"}
-            >
-              <StatHeaderLabel label={def.label} />
-              {sortDir === "asc" ? " ▲" : " ▼"}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {limited.map((row, i) => {
-            const accent = teamColor?.(row);
-            return (
-              <tr key={rowKey(row)}>
-                <td
-                  className={`align-right rank-cell${accent ? " row-accent-cell" : ""}`}
-                  style={accent ? { borderLeftColor: accent } : undefined}
-                >
-                  {rankAt(i)}
-                </td>
-                <td className={`align-left${externalLinkTo?.(row) ? " has-external-link" : ""}`}>
-                  {(() => {
-                    const cell = (
-                      <span className="rank-name-with-logo">
-                        {avatar?.(row)}
-                        <span className="rank-name-cell">
-                          <span className="rank-name">{name(row)}</span>
-                          {subLabel && <span className="rank-sublabel">{subLabel(row)}</span>}
-                        </span>
-                      </span>
-                    );
-                    const to = linkTo(row);
-                    return to ? (
-                      <Link to={to} className="cell-link">
-                        {cell}
-                      </Link>
-                    ) : (
-                      cell
-                    );
-                  })()}
-                  {externalLinkTo?.(row) && (
-                    <ExternalLinkIcon href={externalLinkTo(row)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
-                  )}
-                </td>
-                <td className="align-right rank-value">{def.format(row)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {/* 保存する画像にはボタンを写さず、代わりに「20位タイ ほか1人」を出す（.export-rendering の中だけ表示。DESIGN.md 170章） */}
-      {hiddenTies > 0 && !tiesExpanded && limit !== undefined && (
-        <p className="export-only ranking-ties-note">
-          {rankAt(limit - 1)}位タイ ほか{hiddenTies}
-          {statScope === "team" ? "チーム" : "人"}
-        </p>
-      )}
-      {hiddenTies > 0 && (
-        <button className="load-more-button" type="button" onClick={() => setTiesExpanded((v) => !v)}>
-          {tiesExpanded ? `上位${limit}${statScope === "team" ? "チーム" : "人"}だけを表示` : `同じ順位のほか${hiddenTies}${statScope === "team" ? "チーム" : "人"}を表示`}
-        </button>
-      )}
-    </div>
-  );
 }
 
 function buildTeamCategoryColumns(
