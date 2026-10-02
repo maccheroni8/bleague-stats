@@ -1573,6 +1573,13 @@ table.quarter-table th {
   font-weight: 600;
 }
 
+.composition-pie-ring {
+  position: absolute;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--border);
+  pointer-events: none;
+}
+
 .composition-pie-value-label {
   font-size: 13px;
   fill: #1a1a1a;

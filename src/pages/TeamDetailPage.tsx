@@ -16,6 +16,7 @@ import {
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { OpposedBarRow } from "../components/OpposedBar";
 import { CompositionPieChart, type PieSegmentInput } from "../components/CompositionPieChart";
+import { MONO_FALLBACK_COLOR } from "../lib/color";
 import { usePageState, useSkipFirstEffectRun } from "../lib/pageStateCache";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import {
@@ -465,7 +466,9 @@ function buildClassificationPtsCompositionSegments(team: TeamSummary, perspectiv
  * （添付画像＝FG試投割合の円グラフと同じ形式）。FG試投構成（3P/IP/OP）・得点構成
  * （3P/IP/OP/FT）それぞれ自チーム・相手チームの円グラフを横に並べて表示する
  */
-function ScoringCompositionSection({ team, gameLogs }: { team: TeamSummary; gameLogs: TeamGameLog[] }) {
+function ScoringCompositionSection({ team, gameLogs, color }: { team: TeamSummary; gameLogs: TeamGameLog[]; color: string | undefined }) {
+  // 自チームの円グラフはチームカラーの濃淡、opp は対戦相手全体なので無彩色の濃淡（DESIGN.md 182章）
+  const ownColor = color ?? MONO_FALLBACK_COLOR;
   const regularLogs = useMemo(() => gameLogs.filter((g) => g.gameType === "regular"), [gameLogs]);
   const ownFga = useMemo(() => buildFgaCompositionSegments(regularLogs, "own"), [regularLogs]);
   const oppFga = useMemo(() => buildFgaCompositionSegments(regularLogs, "opp"), [regularLogs]);
@@ -480,19 +483,19 @@ function ScoringCompositionSection({ team, gameLogs }: { team: TeamSummary; game
       <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成・FG試投構成" scope="レギュラーシーズンの値です。" />
       <h4 className="composition-pie-group-title">シュート試投構成</h4>
       <div className="composition-pie-row">
-        <CompositionPieChart title="FG 試投割合" segments={ownFga} />
-        <CompositionPieChart title="opp FG 試投割合" segments={oppFga} />
+        <CompositionPieChart title="FG 試投割合" segments={ownFga} baseColor={ownColor} />
+        <CompositionPieChart title="opp FG 試投割合" segments={oppFga} baseColor={MONO_FALLBACK_COLOR} />
       </div>
       <h4 className="composition-pie-group-title">得点構成</h4>
       <div className="composition-pie-row">
-        <CompositionPieChart title="得点割合" segments={ownPts} />
-        <CompositionPieChart title="opp 得点割合" segments={oppPts} />
+        <CompositionPieChart title="得点割合" segments={ownPts} baseColor={ownColor} />
+        <CompositionPieChart title="opp 得点割合" segments={oppPts} baseColor={MONO_FALLBACK_COLOR} />
       </div>
       <h4 className="composition-pie-group-title">得点構成（登録区分）</h4>
       <p className="page-subtitle">※現在の登録情報に基づく参考値</p>
       <div className="composition-pie-row">
-        <CompositionPieChart title="得点割合" segments={ownClassificationPts} />
-        <CompositionPieChart title="opp 得点割合" segments={oppClassificationPts} />
+        <CompositionPieChart title="得点割合" segments={ownClassificationPts} baseColor={ownColor} />
+        <CompositionPieChart title="opp 得点割合" segments={oppClassificationPts} baseColor={MONO_FALLBACK_COLOR} />
       </div>
     </div>
   );
@@ -3443,7 +3446,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           ))}
 
           <MobileCollapse label="円グラフ">
-            <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} />
+            <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} color={accentColor} />
           </MobileCollapse>
 
           <ConditionTitle section title="チーム内リーダー" conditions={teamLeadersConditions} />

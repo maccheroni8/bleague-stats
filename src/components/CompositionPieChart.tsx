@@ -1,13 +1,16 @@
 import { Cell, Pie, PieChart } from "recharts";
 import { formatDecimal } from "../lib/format";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { pieShades, type PieTheme } from "../lib/pieColors";
+import { useEffect, useState } from "react";
 
 const RADIAN = Math.PI / 180;
 
 export interface PieSegmentInput {
   key: string;
   label: string;
-  color: string;
+  /** baseColor を渡す呼び出しでは使われない（チームカラーの濃淡で塗る）。渡さないときの塗り色 */
+  color?: string;
   /** セグメントの実数値（1試合あたり平均等、既に整形済みの単位で渡す） */
   value: number;
 }
@@ -17,6 +20,30 @@ interface CompositionPieChartProps {
   segments: PieSegmentInput[];
   size?: number;
   valueDigits?: number;
+  /** 区分を塗り分けるもとの色（チームカラー。文字色のモノクロ var(--fg) なら無彩色）。区分の順に濃い→薄い（DESIGN.md 182章） */
+  baseColor?: string;
+}
+
+/** 今のテーマ（<html data-theme> があればそれ、無ければOSの設定）。手動で切り替えたときも追従する */
+function useResolvedTheme(): PieTheme {
+  const read = (): PieTheme => {
+    const attr = document.documentElement.getAttribute("data-theme");
+    if (attr === "light" || attr === "dark") return attr;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  };
+  const [theme, setTheme] = useState<PieTheme>(read);
+  useEffect(() => {
+    const update = () => setTheme(read());
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    media.addEventListener("change", update);
+    return () => {
+      observer.disconnect();
+      media.removeEventListener("change", update);
+    };
+  }, []);
+  return theme;
 }
 
 function polarToCartesian(cx: number, cy: number, radius: number, angleDeg: number) {
@@ -83,8 +110,10 @@ interface OuterLabelLayout {
  * 描画前にラベルの位置と文字幅を計算し、はみ出す分だけ描画範囲を左右上下に広げて円の中心をずらす。長い名称は「・」で折り返す。
  * スマホ幅（560px以下）は円を小さくし、ラベル線も短くして画面幅に収める
  */
-export function CompositionPieChart({ title, segments, size = 320, valueDigits = 1 }: CompositionPieChartProps) {
+export function CompositionPieChart({ title, segments, size = 320, valueDigits = 1, baseColor }: CompositionPieChartProps) {
   const narrow = useMediaQuery("(max-width: 560px)");
+  const theme = useResolvedTheme();
+  const shades = baseColor !== undefined ? pieShades(baseColor, segments.length, theme) : null;
   const total = segments.reduce((s, seg) => s + seg.value, 0);
   const pieSize = narrow ? Math.min(size, 220) : size;
   const outerRadius = pieSize * 0.26;
@@ -149,7 +178,14 @@ export function CompositionPieChart({ title, segments, size = 320, valueDigits =
             {formatDecimal(p.percent * 100, 1)}%
           </tspan>
         </text>
-        <text x={valuePos.x} y={valuePos.y} textAnchor="middle" dominantBaseline="central" className="composition-pie-value-label">
+        <text
+          x={valuePos.x}
+          y={valuePos.y}
+          textAnchor="middle"
+          dominantBaseline="central"
+          className="composition-pie-value-label"
+          style={shades?.[p.index] ? { fill: shades[p.index]!.text } : undefined}
+        >
           {formatDecimal(seg.value, valueDigits)}
         </text>
       </g>
@@ -170,7 +206,15 @@ export function CompositionPieChart({ title, segments, size = 320, valueDigits =
       {total <= 0 ? (
         <p className="empty-message">データがありません</p>
       ) : (
-        <div className="composition-pie-chart-canvas" style={{ width, height }}>
+        <div className="composition-pie-chart-canvas" style={{ width, height, position: "relative" }}>
+          {/* 薄い段が背景に溶けないよう、円の外周に細い線を引く（チームカラーの濃淡のとき） */}
+          {shades && (
+            <div
+              aria-hidden="true"
+              className="composition-pie-ring"
+              style={{ left: cx - outerRadius, top: cy - outerRadius, width: outerRadius * 2, height: outerRadius * 2 }}
+            />
+          )}
           <PieChart width={width} height={height} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
             <Pie
               data={segments}
@@ -185,8 +229,8 @@ export function CompositionPieChart({ title, segments, size = 320, valueDigits =
               label={renderLabel}
               labelLine={renderLabelLine}
             >
-              {segments.map((seg) => (
-                <Cell key={seg.key} fill={seg.color} />
+              {segments.map((seg, i) => (
+                <Cell key={seg.key} fill={shades?.[i]?.fill ?? seg.color} />
               ))}
             </Pie>
           </PieChart>

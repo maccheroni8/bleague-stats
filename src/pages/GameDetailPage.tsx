@@ -31,6 +31,7 @@ import { BOXSCORE_TABS, BoxscoreTable, type BoxscoreTabKey } from "../components
 import { buildPeriodBoundaries, buildScoreTimeline, buildTimeoutMarks, totalGameSeconds } from "../lib/leadTracker";
 import { buildShotEvents } from "../lib/shotChart";
 import { distinctTeamColors } from "../lib/teamColorPairs";
+import { MONO_FALLBACK_COLOR } from "../lib/color";
 import { buildOfficialPaintSplit, type PaintSplitCounts } from "../../shared/paintSplit";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import {
@@ -789,6 +790,8 @@ export function GameDetailPage({ season }: { season: string }) {
           awayPlayers={awayPlayers}
           playByPlays={game.raw.PlayByPlays}
           classificationById={classificationById}
+          homeColor={homeColor}
+          awayColor={awayColor}
         />
       )}
 
@@ -840,7 +843,12 @@ function GameCompositionSection({
   awayPlayers,
   playByPlays,
   classificationById,
+  homeColor,
+  awayColor,
 }: {
+  /** 円グラフの塗り色のもと（チームカラー。両チームの色が近いときはアウェイがサブカラー。DESIGN.md 156・182章） */
+  homeColor: string | undefined;
+  awayColor: string | undefined;
   homeTeamName: string;
   awayTeamName: string;
   homeTotal: BoxscoreRow;
@@ -872,21 +880,21 @@ function GameCompositionSection({
       <MobileCollapse label="円グラフ">
         <h4 className="composition-pie-group-title">FG試投構成</h4>
         <div className="composition-pie-row">
-          <CompositionPieChart title={`${homePieName} FG試投割合`} segments={homeFga} valueDigits={0} />
-          <CompositionPieChart title={`${awayPieName} FG試投割合`} segments={awayFga} valueDigits={0} />
+          <CompositionPieChart title={`${homePieName} FG試投割合`} segments={homeFga} valueDigits={0} baseColor={homeColor ?? MONO_FALLBACK_COLOR} />
+          <CompositionPieChart title={`${awayPieName} FG試投割合`} segments={awayFga} valueDigits={0} baseColor={awayColor ?? MONO_FALLBACK_COLOR} />
         </div>
         <h4 className="composition-pie-group-title">得点構成</h4>
         <div className="composition-pie-row">
-          <CompositionPieChart title={`${homePieName} 得点割合`} segments={homePts} valueDigits={0} />
-          <CompositionPieChart title={`${awayPieName} 得点割合`} segments={awayPts} valueDigits={0} />
+          <CompositionPieChart title={`${homePieName} 得点割合`} segments={homePts} valueDigits={0} baseColor={homeColor ?? MONO_FALLBACK_COLOR} />
+          <CompositionPieChart title={`${awayPieName} 得点割合`} segments={awayPts} valueDigits={0} baseColor={awayColor ?? MONO_FALLBACK_COLOR} />
         </div>
         <h4 className="composition-pie-group-title">得点構成（登録区分）</h4>
         <p className="page-subtitle">
           ※現在の登録情報に基づく参考値{classificationUnclassifiedCount > 0 && `／${classificationUnclassifiedCount}名分のデータ欠落あり`}
         </p>
         <div className="composition-pie-row">
-          <CompositionPieChart title={`${homePieName} 得点割合`} segments={homeClassificationPts.segments} valueDigits={0} />
-          <CompositionPieChart title={`${awayPieName} 得点割合`} segments={awayClassificationPts.segments} valueDigits={0} />
+          <CompositionPieChart title={`${homePieName} 得点割合`} segments={homeClassificationPts.segments} valueDigits={0} baseColor={homeColor ?? MONO_FALLBACK_COLOR} />
+          <CompositionPieChart title={`${awayPieName} 得点割合`} segments={awayClassificationPts.segments} valueDigits={0} baseColor={awayColor ?? MONO_FALLBACK_COLOR} />
         </div>
       </MobileCollapse>
     </section>
