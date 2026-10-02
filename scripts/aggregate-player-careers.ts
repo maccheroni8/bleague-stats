@@ -14,7 +14,7 @@
 // - 優勝・地区優勝: 優勝（地区1位）チームに「レギュラーシーズン終了時に所属していた」選手（出場0試合を含む）。
 //   当時の選手一覧（season-rosters.json）は多くのシーズンでシーズン終了時点の名簿だが、1年を通して出場した選手が
 //   載っていない年がある（特に2016-17）ため、出場記録と組み合わせる（isMemberAtSeasonEnd。DESIGN.md 147章）
-// - 個人賞: player-awards.json のうち B2 の賞以外（MVP・ベストファイブ等の区分の無い賞は B1）
+// - 個人賞: player-awards.json のうち B2 の賞以外（MVP・ベストファイブ等の区分の無い賞は B1）を、種類ごと（MVP・ベストファイブ・最優秀新人賞・新人賞ベストファイブ・個人タイトル）に数える
 //
 // 夜間実行で歴代記録の順位と一緒に作り直す。作った時刻以外が前回と同じならファイルを書き換えない。
 //
@@ -36,6 +36,7 @@ import type {
   PlayerMasterEntry,
   SeasonRostersFile,
 } from "../shared/types.ts";
+import { awardCountKeyOf, type AwardCountKey } from "../shared/playerAwardKinds.ts";
 
 const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
 
@@ -128,8 +129,22 @@ async function main() {
       }
     }
   }
-  const awardsCountThrough = (playerId: string, season: string) =>
-    (awards[playerId] ?? []).filter((a) => a.season <= season && a.category !== "B2").length;
+  // 個人賞は種類ごとに数える（MVP・ベストファイブ・最優秀新人賞・新人賞ベストファイブ・個人タイトル。B2の賞は数えない。DESIGN.md 195章）
+  const unknownAwardNames = new Set<string>();
+  const awardCountsThrough = (playerId: string, season: string) => {
+    const counts: Record<AwardCountKey, number> = { awardMvp: 0, awardBestFive: 0, awardRookie: 0, awardRookieBestFive: 0, awardTitles: 0 };
+    for (const a of awards[playerId] ?? []) {
+      if (a.season > season || a.category === "B2") continue;
+      const key = awardCountKeyOf(a.name);
+      if (key) counts[key] += 1;
+      else if (!unknownAwardNames.has(a.name)) {
+        // 種類分けに無い賞（新しい賞が増えたとき）は数えないので、気づけるように知らせる
+        unknownAwardNames.add(a.name);
+        console.warn(`個人賞の種類に無い賞のため数えません: ${a.name}`);
+      }
+    }
+    return counts;
+  };
 
   const running = new Map<string, Running>();
   const out: PlayerCareersFile["seasons"] = {};
@@ -295,7 +310,7 @@ async function main() {
         finals: r.finals.size,
         titles: r.titles.size,
         divisionTitles: r.divisionTitles.size,
-        awards: awardsCountThrough(playerId, season),
+        ...awardCountsThrough(playerId, season),
       };
     }
     out[season] = seasonOut;

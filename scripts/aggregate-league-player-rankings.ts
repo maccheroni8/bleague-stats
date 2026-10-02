@@ -18,6 +18,7 @@ import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { filterByGameType } from "../shared/gameType.ts";
+import { AWARD_COUNT_KEYS } from "../shared/playerAwardKinds.ts";
 import { PLAYER_CAREER_TOTAL_DEFS, buildPlayerCareerTotals } from "../shared/playerRecords.ts";
 import type {
   LeaguePlayerCareerTopEntry,
@@ -161,7 +162,7 @@ function topOfCareer(
 }
 
 /** 回数・在籍の項目（ランキング > 個人 > 通算記録。通算出場試合は通算成績の「試合数」と重なるので入れない）。キーは PlayerCareerCounts */
-const CAREER_COUNT_KEYS: (keyof PlayerCareerCounts)[] = ["titles", "divisionTitles", "finals", "postseasons", "awards", "seasons", "clubs"];
+const CAREER_COUNT_KEYS: (keyof PlayerCareerCounts)[] = ["titles", "divisionTitles", "finals", "postseasons", ...AWARD_COUNT_KEYS, "seasons", "clubs"];
 
 /** 各選手の最新の累計（player-careers.json の、その選手が載っている最後のシーズンの値）の上位20位（同じ値はすべて） */
 function topOfCareerCounts(careers: PlayerCareersFile | null, known: Map<string, LeaguePlayerInfo>): Record<string, LeaguePlayerCareerTopEntry[]> {
@@ -171,10 +172,11 @@ function topOfCareerCounts(careers: PlayerCareersFile | null, known: Map<string,
   }
   const out: Record<string, LeaguePlayerCareerTopEntry[]> = {};
   for (const key of CAREER_COUNT_KEYS) {
-    // 表示用の情報（名前・チーム）が無い選手は出せないので対象外にする
+    // 表示用の情報（名前・チーム）が無い選手は出せないので対象外にする。0回の選手は並べない（受賞が少ない賞で、0回の同順位に全選手が入るのを避ける）
     const sorted = [...latest]
       .filter(([playerId]) => known.has(playerId))
-      .map(([playerId, c]) => ({ playerId, value: c[key] }))
+      .map(([playerId, c]) => ({ playerId, value: c[key] ?? 0 }))
+      .filter((e) => e.value > 0)
       .sort((a, b) => b.value - a.value || Number(a.playerId) - Number(b.playerId));
     const entries: LeaguePlayerCareerTopEntry[] = [];
     let rank = 0;

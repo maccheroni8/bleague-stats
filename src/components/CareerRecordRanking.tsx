@@ -39,7 +39,7 @@ const PLAYER_ITEMS = [
 ];
 const PLAYER_STAT_PARAM = stringParam("stat", "pts", (v) => PLAYER_ITEMS.some((d) => d.key === v));
 const COUNT_NOTE =
-  "回数・在籍は、Bリーグ（2016-17シーズン）以降のB1（B.PREMIER）の記録から数えた、各選手の最新の累計です（進行中のシーズンは現時点まで）。会場・試合区分は選べません。個人賞は、MVP・ベストファイブ・新人賞・新人賞ベストファイブ・個人タイトル（得点王など）の受賞数の合計です。";
+  "回数・在籍は、Bリーグ（2016-17シーズン）以降のB1（B.PREMIER）の記録から数えた、各選手の最新の累計です（進行中のシーズンは現時点まで）。会場・試合区分は選べません。個人賞（MVP・ベストファイブ・最優秀新人賞・新人賞ベストファイブ・個人タイトル）は種類ごとの受賞数で、B2の賞は数えません。個人タイトルは、得点王・リバウンド王・アシスト王・スティール王・ブロック王・ベスト3P成功率賞・ベストFT成功率賞の受賞数の合計です。";
 const TEAM_STAT_PARAM = stringParam("stat", "wins", (v) => CAREER_TOTAL_DEFS.some((d) => d.key === v));
 const PLAYER_RANK_TOP_N = 20;
 

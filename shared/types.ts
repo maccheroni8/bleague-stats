@@ -1631,7 +1631,7 @@ export interface LeaguePlayerCareerTopFile {
   careerHome: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>>;
   careerAway: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>>;
   /**
-   * 回数・在籍の項目（PlayerCareerCounts の titles・divisionTitles・finals・postseasons・awards・seasons・clubs。DESIGN.md 193章）の上位20位。
+   * 回数・在籍の項目（PlayerCareerCounts の titles・divisionTitles・finals・postseasons・awardMvp 等の個人賞5種・seasons・clubs。DESIGN.md 193章）の上位20位。
    * 各選手の最新の累計（player-careers.json の、その選手が載っている最後のシーズンの値）。会場・試合区分には依らない。
    * 追加前に生成したファイルには無いので省略可能
    */
@@ -1656,8 +1656,16 @@ export interface PlayerCareerCounts {
   titles: number;
   /** 地区優勝したシーズン数（レギュラーシーズン終了時に地区1位のチームに所属。判定は優勝と同じ） */
   divisionTitles: number;
-  /** 個人賞の受賞数（B1／B.PREMIER の賞。B2の賞は数えない） */
-  awards: number;
+  /**
+   * 個人賞の受賞数（B1／B.PREMIER の賞。B2の賞は数えない）。種類ごとに数える（DESIGN.md 195章）。
+   * 古いデータには無い（無いときは 0 として扱う）
+   */
+  awardMvp?: number;
+  awardBestFive?: number;
+  awardRookie?: number;
+  awardRookieBestFive?: number;
+  /** 個人タイトル（得点王・リバウンド王・アシスト王・スティール王・ブロック王・ベスト3P成功率賞・ベストFT成功率賞の合計） */
+  awardTitles?: number;
 }
 
 export interface PlayerCareersFile {

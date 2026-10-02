@@ -18,7 +18,11 @@ export const CAREER_ITEM_DEFS: { key: keyof PlayerCareerCounts; label: string; u
   { key: "divisionTitles", label: "地区優勝", unit: "回" },
   { key: "finals", label: "ファイナル出場", unit: "回" },
   { key: "postseasons", label: "ポストシーズン出場", unit: "回" },
-  { key: "awards", label: "個人賞", unit: "回" },
+  { key: "awardMvp", label: "MVP", unit: "回" },
+  { key: "awardBestFive", label: "ベストファイブ", unit: "回" },
+  { key: "awardRookie", label: "最優秀新人賞", unit: "回" },
+  { key: "awardRookieBestFive", label: "新人賞ベストファイブ", unit: "回" },
+  { key: "awardTitles", label: "個人タイトル", unit: "回" },
   { key: "seasons", label: "在籍シーズン", unit: "シーズン" },
   { key: "clubs", label: "所属クラブ", unit: "クラブ" },
   { key: "games", label: "通算出場試合", unit: "試合" },
@@ -49,7 +53,7 @@ export function playerCareerConditionDefs(
     group: CATEGORY_LABELS.career,
     display: (p) => {
       const counts = careerOf(p);
-      return counts ? `${counts[d.key]}${d.unit}` : "-";
+      return counts ? `${counts[d.key] ?? 0}${d.unit}` : "-";
     },
     fixedSuffix: d.unit,
     seasonTotal: true,
