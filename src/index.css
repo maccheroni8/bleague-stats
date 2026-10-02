@@ -6650,3 +6650,20 @@ table.sortable-table tbody tr:not(.pinned-row) + tr.pinned-row td {
   font-weight: 400;
   color: var(--muted);
 }
+
+/* 写真が無い選手の枠（PlayerPhoto の placeholder）。写真と同じ大きさで、シルエットを置く */
+.player-photo-placeholder {
+  /* 写真（img）と同じ並び方（行の高さが変わらないように、inline-block の下端を基準にそろえる） */
+  display: inline-block;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  text-align: center;
+  line-height: 0;
+}
+
+.player-photo-placeholder svg {
+  margin-top: 14%;
+  opacity: 0.6;
+}

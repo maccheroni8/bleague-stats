@@ -118,7 +118,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                 linkTo={(e) => `/players/${e.playerId}?season=${seasonOf(e)}`}
                 subLinkTo={(e) => `/games/${e.scheduleKey}?season=${seasonOf(e)}`}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
-                avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" />}
+                avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
                 limit={RANK_TOP_N}
                 unit="試合"
                 sortable={false}

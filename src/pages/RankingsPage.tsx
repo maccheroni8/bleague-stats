@@ -1609,7 +1609,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
                 return s ? `/players/${p.playerId}?season=${s}` : undefined;
               }}
               teamColor={(p) => teamColors?.[p.teamId]?.primary}
-              avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" />}
+              avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" placeholder />}
               limit={PLAYER_RANK_TOP_N}
               compact
             />
