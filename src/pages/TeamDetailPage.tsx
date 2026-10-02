@@ -4267,6 +4267,10 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <th className="align-right" title={statDescription("得点")}>得点</th>
                       <th className="align-right" title={statDescription("失点")}>失点</th>
                       <th className="align-right" title={statDescription("得失点")}>得失点</th>
+                      <th className="align-right" title={statDescription("平均出場時間")}>平均出場時間</th>
+                      <th className="align-right" title={statDescription("平均得点")}>平均得点</th>
+                      <th className="align-right" title={statDescription("平均失点")}>平均失点</th>
+                      <th className="align-right" title={statDescription("平均得失点")}>平均得失点</th>
                       <th className="align-right" title={statDescription("ORtg（推定）")}>ORtg（推定）</th>
                       <th className="align-right" title={statDescription("DRtg（推定）")}>DRtg（推定）</th>
                       <th className="align-right" title={statDescription("NetRtg（推定）")}>NetRtg（推定）</th>
@@ -4275,12 +4279,17 @@ export function TeamDetailPage({ season }: { season: string }) {
                   <tbody>
                     {displayedLineups.map((l) => (
                       <tr key={l.lineupKey}>
-                        <td className="align-left">{l.playerIds.map((id) => playerNameById.get(id) ?? id).join(" / ")}</td>
+                        <td className="align-left">{l.playerIds.map((id) => playerLabel(playerNameById.get(id) ?? id)).join(" / ")}</td>
                         <td className="align-right">{l.gamesPlayed}</td>
                         <td className="align-right">{formatDecimal(l.secondsPlayed / 60)}分</td>
                         <td className="align-right">{l.ownPoints}</td>
                         <td className="align-right">{l.oppPoints}</td>
                         <td className="align-right">{formatSigned(l.netPoints, 0)}</td>
+                        {/* 平均は、そのラインナップが使われた試合の数（試合数の列）で割る（DESIGN.md 184章） */}
+                        <td className="align-right">{formatDecimal(safeDiv(l.secondsPlayed / 60, l.gamesPlayed))}分</td>
+                        <td className="align-right">{formatDecimal(safeDiv(l.ownPoints, l.gamesPlayed))}</td>
+                        <td className="align-right">{formatDecimal(safeDiv(l.oppPoints, l.gamesPlayed))}</td>
+                        <td className="align-right">{formatSigned(safeDiv(l.netPoints, l.gamesPlayed))}</td>
                         <td className="align-right">{formatDecimal(l.estimatedOffRtg)}</td>
                         <td className="align-right">{formatDecimal(l.estimatedDefRtg)}</td>
                         <td className="align-right">{formatSigned(l.estimatedNetRtg)}</td>
