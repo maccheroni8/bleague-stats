@@ -176,6 +176,8 @@ import { CLASSIFICATION_COLORS } from "../lib/classificationFilter";
 import { statDescription } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import { TeamSeasonForeignChart, TeamSeasonScoringCharts } from "../components/TeamSeasonShareCharts";
+import { TeamHeadToHead } from "../components/TeamHeadToHead";
+import { enumParam, useUrlState } from "../lib/urlState";
 import { fgaShare, isRegularSeasonInProgress } from "../lib/shareCharts";
 import { sumTeamGameLogs } from "../lib/teamStatsColumns";
 import { currentSeason } from "../lib/season";
@@ -760,13 +762,14 @@ const HONOR_CATEGORY_ORDER: ClubHonor["category"][] = ["overall", "emperors_cup"
 
 // Phase H4（2026-08-29）: 「スタッツ」タブを「チームスタッツ」に改名し、概要と選手スタッツの間に
 // 移動した。オブジェクトのキー順序がそのままタブバーの表示順になる（DetailTabの並びに準拠）
-type DetailTab = "overview" | "teamStats" | "playerStats" | "schedule" | "career" | "clubRecord" | "compare";
+type DetailTab = "overview" | "teamStats" | "playerStats" | "schedule" | "headToHead" | "career" | "clubRecord" | "compare";
 
 const TAB_LABELS: Record<DetailTab, string> = {
   overview: "概要",
   teamStats: "チームスタッツ",
   playerStats: "選手スタッツ",
   schedule: "日程結果",
+  headToHead: "対戦成績",
   career: "通算成績",
   clubRecord: "クラブレコード",
   compare: "比較",
@@ -2025,7 +2028,18 @@ export function TeamDetailPage({ season }: { season: string }) {
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   const pbpSupported = isPbpSupported(coverage);
 
-  const [tab, setTab] = usePageState<DetailTab>(pk("tab"), "overview");
+  const [tab, setTabState] = usePageState<DetailTab>(pk("tab"), "overview");
+  // 「対戦成績」タブはURLにも載せる（?tab=h2h&vs=相手のID。DESIGN.md 185章）。そのURLを開いたときはこのタブから始める
+  const [urlTab, setUrlTab] = useUrlState(enumParam<"" | "h2h">("tab", ["", "h2h"], ""), "");
+  const setTab = (next: DetailTab) => {
+    setTabState(next);
+    setUrlTab(next === "headToHead" ? "h2h" : "");
+  };
+  useEffect(() => {
+    if (urlTab === "h2h") setTabState("headToHead");
+    // 開いたときのURLだけを見る
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // 「シーズン別成績」のカテゴリ切り替え（Phase H3①）。トラディショナル/アドバンスド/Misc/
   // スコアリングの4タブは既存の選手スタッツ/日程結果タブと同じSEASON_BOX_TABS/SeasonBoxTabKeyを
   // 再利用するが、列自体はTeamSummary（seasonHistory）＋TeamGameLog（careerData、Misc用）から
@@ -3709,6 +3723,15 @@ export function TeamDetailPage({ season }: { season: string }) {
             <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="日程結果" scope={`上部の自チーム/opp/+/-・レギュラー/${postseasonLabel(season)}・Q別/前後半と連動します。`} />
           </div>
         ))}
+
+      {tab === "headToHead" && (
+        <TeamHeadToHead
+          teamId={team.teamId}
+          seasons={seasons ?? []}
+          currentTeams={teams ?? []}
+          nextOpponentName={scheduleRows.find((r) => r.status === "upcoming")?.opponentName}
+        />
+      )}
 
       {tab === "career" && (
         <div className="team-tab-panel">
