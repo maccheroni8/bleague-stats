@@ -3226,7 +3226,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const seasonBoxConditions = composeLabels(
     teamBoxCategoryLabel(seasonBoxTab),
     seasonBoxTab !== "forcedTurnovers" && !seasonShareTab && displayModeLabels(seasonBoxDisplayMode),
-    seasonBoxTab !== "shooting" && seasonBoxTab !== "forcedTurnovers" && !seasonShareTab && perspectiveLabels(seasonBoxPerspective),
+    seasonBoxTab !== "shooting" && seasonBoxTab !== "forcedTurnovers" && seasonBoxTab !== "foreignPlayers" && perspectiveLabels(seasonBoxPerspective),
     gameTypeLabels("regular", null),
   );
   const teamLeadersConditions = composeLabels(
@@ -3903,9 +3903,11 @@ export function TeamDetailPage({ season }: { season: string }) {
                     ? `${CATEGORY_LABELS.shooting}は自チームの値のみです。`
                     : seasonBoxTab === "forcedTurnovers"
                       ? `${CATEGORY_LABELS.forcedTurnovers}は種類別の通算件数のみで、視点は連動しません。`
-                      : seasonShareTab
+                      : seasonBoxTab === "foreignPlayers"
                         ? `${teamBoxCategoryLabel(seasonBoxTab)}のグラフは自チームの値で、視点は連動しません。`
                         : undefined,
+                // Scoring % は自チーム（得点構成）と opp（失点構成）に切り替わる。+/- は対象外
+                disabledValues: seasonBoxTab === "scoringComposition" ? ["diff"] : undefined,
               }),
               displayModeAxis(seasonBoxDisplayMode, setSeasonBoxDisplayMode, {
                 disabledReason:
@@ -3973,11 +3975,16 @@ export function TeamDetailPage({ season }: { season: string }) {
               inProgressSeason={isRegularSeasonInProgress(currentSeason(), currentSeason(), currentRace, team.teamId) ? currentSeason() : null}
             />
           ) : seasonBoxTab === "scoringComposition" ? (
-            <TeamSeasonScoringCharts
-              rows={seasonHistoryDesc}
-              fgaBySeason={teamSeasonFgaBySeason}
-              inProgressSeason={isRegularSeasonInProgress(currentSeason(), currentSeason(), currentRace, team.teamId) ? currentSeason() : null}
-            />
+            seasonBoxPerspective === "diff" ? (
+              <p className="empty-message">視点の「+/-」では、構成のグラフは出しません。自チームまたはoppを選んでください。</p>
+            ) : (
+              <TeamSeasonScoringCharts
+                perspective={seasonBoxPerspective}
+                rows={seasonHistoryDesc}
+                fgaBySeason={teamSeasonFgaBySeason}
+                inProgressSeason={isRegularSeasonInProgress(currentSeason(), currentSeason(), currentRace, team.teamId) ? currentSeason() : null}
+              />
+            )
           ) : (
             <>
             <div className="table-scroll">

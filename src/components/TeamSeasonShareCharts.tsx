@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "./GlossaryNote";
 import type { SeasonRules, TeamSummary } from "../../shared/types";
@@ -131,48 +130,35 @@ export function TeamSeasonScoringCharts({
   rows,
   inProgressSeason,
   fgaBySeason,
+  perspective,
 }: {
   rows: TeamSeasonShareRow[];
   inProgressSeason: string | null;
   /** FG試投構成（試合ログから求める。読み込み中は null） */
   fgaBySeason: Map<string, { own: PointsShare; opponent: PointsShare }> | null;
+  /** 自チーム（得点構成・FG試投構成）か opp（失点構成・opp FG試投構成。DESIGN.md 183章） */
+  perspective: "own" | "opp";
 }) {
-  // 失点構成は最初は隠し、ボタンで出す（得点構成・得点構成（登録区分）の2つを並べるのが主）
-  const [showOpponent, setShowOpponent] = useState(false);
+  const opp = perspective === "opp";
+  const side = opp ? "opponent" : "own";
   return (
     <>
-      <PointsTrend title="得点構成" rows={pointsRows(rows, inProgressSeason, (t) => teamScoringShare(t, "own"), "pts")} categories={SCORING_CATEGORIES} />
       <PointsTrend
-        title="得点構成（登録区分）"
-        rows={pointsRows(rows, inProgressSeason, (t) => teamClassificationShare(t, "own"), "pts")}
+        title={opp ? "失点構成" : "得点構成"}
+        rows={pointsRows(rows, inProgressSeason, (t) => teamScoringShare(t, side), opp ? "opp" : "pts")}
+        categories={SCORING_CATEGORIES}
+      />
+      <PointsTrend
+        title={opp ? "失点構成（登録区分）" : "得点構成（登録区分）"}
+        rows={pointsRows(rows, inProgressSeason, (t) => teamClassificationShare(t, side), opp ? "opp" : "pts")}
         categories={CLASSIFICATION_CATEGORIES}
       />
       {fgaBySeason ? (
-        <PointsTrend title="FG試投構成" rows={fgaRows(rows, inProgressSeason, fgaBySeason, "own")} categories={FGA_CATEGORIES} />
+        <PointsTrend title={opp ? "opp FG試投構成" : "FG試投構成"} rows={fgaRows(rows, inProgressSeason, fgaBySeason, side)} categories={FGA_CATEGORIES} />
       ) : (
         <p className="loading">読み込み中...</p>
       )}
-      <button type="button" className="mobile-collapse-toggle share-trend-toggle" aria-expanded={showOpponent} onClick={() => setShowOpponent((v) => !v)}>
-        {showOpponent ? "失点構成・opp FG試投構成を隠す" : "失点構成・opp FG試投構成を表示"}
-      </button>
-      {showOpponent && (
-        <>
-          <PointsTrend
-            title="失点構成"
-            rows={pointsRows(rows, inProgressSeason, (t) => teamScoringShare(t, "opponent"), "opp")}
-            categories={SCORING_CATEGORIES}
-          />
-          <PointsTrend
-            title="失点構成（登録区分）"
-            rows={pointsRows(rows, inProgressSeason, (t) => teamClassificationShare(t, "opponent"), "opp")}
-            categories={CLASSIFICATION_CATEGORIES}
-          />
-          {fgaBySeason && (
-            <PointsTrend title="opp FG試投構成" rows={fgaRows(rows, inProgressSeason, fgaBySeason, "opponent")} categories={FGA_CATEGORIES} />
-          )}
-        </>
-      )}
-      <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成・FG試投構成" scope="レギュラーシーズン・シーズン合計の値です（上部の自チーム/opp/+/-・平均/合計とは連動しません）。" />
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成・FG試投構成" scope="レギュラーシーズン・シーズン合計の値です（上部の視点は自チーム/oppに連動し、平均/合計とは連動しません）。" />
     </>
   );
 }

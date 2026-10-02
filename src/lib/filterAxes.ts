@@ -251,14 +251,16 @@ export function gameTypeAxis(
 export function perspectiveAxis(
   value: TeamPerspective,
   onChange: (v: TeamPerspective) => void,
-  opts: SimpleAxisOptions = {},
+  opts: SimpleAxisOptions & { /** 選べなくする視点（「+/-」は対象外の項目など） */ disabledValues?: TeamPerspective[] } = {},
 ): FilterAxis {
   return {
     kind: "select",
     id: "perspective",
     label: "視点",
     tier: opts.tier ?? "primary",
-    options: optionsFromLabels(TEAM_PERSPECTIVE_LABELS, ["own", "opp", "diff"]),
+    options: optionsFromLabels(TEAM_PERSPECTIVE_LABELS, ["own", "opp", "diff"]).map((o) =>
+      opts.disabledValues?.includes(o.value as TeamPerspective) ? { ...o, disabled: true } : o,
+    ),
     value,
     defaultValue: "own",
     onChange: (v) => onChange(v as TeamPerspective),
