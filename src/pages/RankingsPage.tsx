@@ -1,4 +1,5 @@
 import { RankedList, type RankableStat } from "../components/RankedList";
+import { PlayerGameRecordRanking } from "../components/PlayerGameRecordRanking";
 import { EligibilitySlider } from "../components/EligibilitySlider";
 import { useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { postseasonLabel } from "../../shared/gameType";
@@ -114,7 +115,7 @@ import {
 } from "../lib/statConditions";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { clearUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
-import { CLASSIFICATION_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERIOD_PARAM, PERSPECTIVE_PARAM, POSITION_PARAM } from "../lib/urlFilterParams";
+import { CLASSIFICATION_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERIOD_PARAM, PERSPECTIVE_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM } from "../lib/urlFilterParams";
 import { buildTeamConditionDefs } from "../lib/teamConditionItems";
 import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS, playerCareerConditionDefs, playerProfileConditionDefs } from "../lib/playerConditionItems";
 
@@ -209,6 +210,10 @@ function buildTeamCategoryColumns(
  * src/lib/urlFilterParams.ts・src/lib/urlState.ts
  */
 const RANKING_MODE_PARAM = enumParam<Mode>("m", ["team", "player"], "team");
+/** 種類（DESIGN.md 190章）: シーズン成績（今までのランキング）／1試合記録（選手のみ。チームは段階2で追加） */
+type RankingKind = "season" | "game";
+const RANKING_KIND_PARAM = enumParam<RankingKind>("k", ["season", "game"], "season");
+const RANKING_KIND_LABELS: Record<RankingKind, string> = { season: "シーズン成績", game: "1試合記録" };
 const TEAM_CATEGORY_PARAM = enumParam<TeamRankingCategory>(
   "cat",
   ["traditional", "advanced", "misc", "scoring", "shooting", "forcedTurnovers"],
@@ -1625,17 +1630,31 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 export function RankingsPage({ season }: { season: string }) {
   // チーム/個人はURLのクエリ（m=player）に持つ。切り替えたら前の側のフィルタのクエリは消す（DESIGN.md 163章）
   const [mode, setModeParam] = useUrlState(RANKING_MODE_PARAM, "team");
+  const [kind, setKindParam] = useUrlState(RANKING_KIND_PARAM, "season");
+  const [scope, setScopeParam] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
   const setMode = (next: Mode) => {
     if (next === mode) return;
     clearUrlParams();
     setModeParam(next);
   };
+  // 種類を切り替えたら、前の種類のフィルタのクエリは消す（チーム／個人は残す）
+  const setKind = (next: RankingKind) => {
+    if (next === kind) return;
+    clearUrlParams();
+    setModeParam(mode);
+    setKindParam(next);
+  };
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
+  // 種類の切り替えは、対応している側だけ出す（段階1は個人のみ）
+  const gameRecords = mode === "player" && kind === "game";
+  const kinds: RankingKind[] = mode === "player" ? ["season", "game"] : ["season"];
+  // 歴代はシーズンに依らないので、シーズンを出さない
+  const allTimeRecords = gameRecords && scope === "allTime";
 
   return (
     <div data-design="v2">
       <h1>ランキング</h1>
-      <p className="page-subtitle">{season}シーズン</p>
+      <p className="page-subtitle">{allTimeRecords ? "歴代" : `${season}シーズン`}</p>
 
       <div className="mode-toggle">
         <button className={mode === "team" ? "active" : ""} onClick={() => setMode("team")}>
@@ -1646,9 +1665,35 @@ export function RankingsPage({ season }: { season: string }) {
         </button>
       </div>
 
+      {kinds.length > 1 && (
+        <div className="mode-toggle ranking-kind-toggle">
+          {kinds.map((k) => (
+            <button key={k} type="button" className={kind === k ? "active" : ""} onClick={() => setKind(k)}>
+              {RANKING_KIND_LABELS[k]}
+            </button>
+          ))}
+        </div>
+      )}
+      {gameRecords && (
+        <div className="mode-toggle records-scope-toggle">
+          {(
+            [
+              ["allTime", "歴代"],
+              ["season", "シーズン"],
+            ] as const
+          ).map(([key, label]) => (
+            <button key={key} type="button" className={scope === key ? "active" : ""} onClick={() => setScopeParam(key)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* カテゴリのタブを「ページの主タブ」ではなく従のタブとして扱うため、ルート直下に置かない（v2のCSSは > .tab-bar だけを主タブにする） */}
       <div>
-        {mode === "team" ? (
+        {gameRecords ? (
+          <PlayerGameRecordRanking season={season} teamColors={teamColors ?? undefined} />
+        ) : mode === "team" ? (
           <TeamRankingSection season={season} teamColors={teamColors ?? undefined} />
         ) : (
           <PlayerRankingSection season={season} teamColors={teamColors ?? undefined} />

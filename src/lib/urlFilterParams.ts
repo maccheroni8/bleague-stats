@@ -33,3 +33,7 @@ export const CLASSIFICATION_PARAM = enumParam<ClassificationGroupFilter>("cls", 
 
 export const POSITION_PARAM = listParam("pos");
 export const CLUB_PARAM = listParam("club");
+
+/** 記録の範囲（歴代／シーズン）。選手・チームの記録タブとランキングの1試合記録で共通（DESIGN.md 190章） */
+export type RecordsScope = "allTime" | "season";
+export const RECORDS_SCOPE_PARAM = enumParam<RecordsScope>("scope", ["allTime", "season"], "allTime", { allTime: "all" });

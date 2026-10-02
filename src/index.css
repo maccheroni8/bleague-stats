@@ -6626,3 +6626,27 @@ table.sortable-table tbody tr:not(.pinned-row) + tr.pinned-row td {
     overflow-wrap: anywhere;
   }
 }
+
+/* 選手一覧「記録」タブのカード（1位だけ。押すとランキングの同じ項目へ移る。DESIGN.md 190章） */
+.career-high-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.career-high-card-link:hover {
+  border-color: var(--accent);
+}
+
+.career-high-card-link .record-team {
+  font-size: 13px;
+}
+
+/* ランキングの一覧の値の列は幅が狭いので、成功数／試投数は率の下の行に回す（1試合記録の成功率。DESIGN.md 190章） */
+.rankings-table td.rank-value .record-fraction {
+  display: block;
+  font-size: 0.7em;
+  font-weight: 400;
+  color: var(--muted);
+}

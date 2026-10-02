@@ -45,6 +45,8 @@ export interface RankedListProps<T> {
   unit?: "人" | "チーム" | "試合";
   /** 同じ順位かどうかを決める文字列（既定は def.format の表示値）。事前に順位を付けた記録の一覧は、元の値で決める */
   tieKey?: (row: T) => string;
+  /** 指定時、値の欄に def.format の代わりにこれを出す（成功率に成功数／試投数を添える等。順位の判定には使わない） */
+  renderValue?: (row: T) => ReactNode;
   /** false なら見出しクリックでの昇順/降順の切り替えをしない（上位だけを書き出した一覧は、逆順にしても意味が無い） */
   sortable?: boolean;
 }
@@ -71,6 +73,7 @@ export function RankedList<T>({
   tieKey,
   sortable = true,
   subLinkTo,
+  renderValue,
 }: RankedListProps<T>) {
   const unit = unitProp ?? (statScope === "team" ? "チーム" : "人");
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
@@ -187,7 +190,7 @@ export function RankedList<T>({
                     <ExternalLinkIcon href={externalLinkTo(row)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
                 </td>
-                <td className="align-right rank-value">{def.format(row)}</td>
+                <td className="align-right rank-value">{renderValue ? renderValue(row) : def.format(row)}</td>
               </tr>
             );
           })}

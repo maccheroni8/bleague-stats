@@ -5,38 +5,28 @@ import { PLAYER_GAME_RECORD_STATS } from "../../shared/playerGameRecords";
 import { composeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { fetchLeaguePlayerGameRecords } from "../lib/data";
 import { gameTypeAxis, type FilterAxis } from "../lib/filterAxes";
-import { usePageState } from "../lib/pageStateCache";
 import { useJsonData } from "../lib/useJsonData";
 import { useUrlState } from "../lib/urlState";
 import { ConditionTitle } from "./ConditionTitle";
 import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
-import { PlayerRecordCard } from "./PlayerSeasonRecords";
+import { playerGameRecordRankingUrl } from "./PlayerGameRecordRanking";
+import { PlayerRecordLeaderCard } from "./PlayerRecordLeaderCard";
 
 /**
- * 選手一覧「記録」タブの範囲「歴代」・カテゴリ「B.PREMIER（旧B1）レコード」: 全シーズンの選手の1試合の記録（DESIGN.md 188章）。
- * 値は夜間の集計が書き出した上位（data/league-player-game-records.json）で、画面は全選手の試合ログを読まない。
- * カードの形はシーズン側（PlayerSeasonRecords）と同じ。各行にその試合のシーズンを添える
+ * 選手一覧「記録」タブの範囲「歴代」・カテゴリ「B.PREMIER（旧B1）レコード」: 全シーズンの選手の1試合の記録の1位（DESIGN.md 188・190章）。
+ * 各項目の1位のカードを並べ、カードを押すとランキングページの同じ項目（範囲「歴代」）へ移る。
+ * 値は夜間の集計が書き出した上位（data/league-player-game-records.json）で、画面は全選手の試合ログを読まない
  */
 export function LeaguePlayerGameRecords({ categoryAxis }: { categoryAxis: FilterAxis }) {
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
-  const [openKeys, setOpenKeys] = usePageState<Set<string>>("players:records:league:open", () => new Set());
-  const [showAllKeys, setShowAllKeys] = usePageState<Set<string>>("players:records:league:showAll", () => new Set());
-  const toggle = (setter: typeof setOpenKeys, key: string) =>
-    setter((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-
   const { data: file, loading } = useJsonData(() => fetchLeaguePlayerGameRecords(), []);
   const table = file?.byGameType[gameType] ?? {};
   const records = PLAYER_GAME_RECORD_STATS.flatMap((def) => {
     const entries = table[def.key];
     return entries && entries.length > 0 ? [{ def, entries }] : [];
   });
-  const names = records.flatMap((r) => r.entries.map((e) => e.playerName));
+  const names = records.flatMap((r) => r.entries.slice(0, 1).map((e) => e.playerName));
 
   return (
     <div>
@@ -48,18 +38,15 @@ export function LeaguePlayerGameRecords({ categoryAxis }: { categoryAxis: Filter
         <p className="empty-message">データがありません</p>
       ) : (
         <PlayerNamePool names={names}>
+          <h3 className="career-highs-subheading">1試合の記録（各項目の1位。押すとランキングへ）</h3>
           <div className="career-highs-grid">
             {records.map(({ def, entries }) => (
-              <PlayerRecordCard
+              <PlayerRecordLeaderCard
                 key={def.key}
                 def={def}
                 entries={entries}
                 season=""
-                showSeason
-                open={openKeys.has(def.key)}
-                onToggle={() => toggle(setOpenKeys, def.key)}
-                showAll={showAllKeys.has(def.key)}
-                onToggleShowAll={() => toggle(setShowAllKeys, def.key)}
+                to={playerGameRecordRankingUrl({ scope: "allTime", gameType, statKey: def.key })}
               />
             ))}
           </div>
