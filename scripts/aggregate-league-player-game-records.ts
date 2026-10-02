@@ -13,13 +13,10 @@
 import path from "node:path";
 import { readdirSync } from "node:fs";
 import { DATA_DIR, writeJsonIfChanged } from "./lib/storage.ts";
-import { loadSeasonRecordGames, topRecordEntries, type RecordGame } from "./lib/playerGameRecordsTop.ts";
-import { filterByGameType } from "../shared/gameType.ts";
-import { PLAYER_GAME_RECORD_STATS } from "../shared/playerGameRecords.ts";
-import type { LeagueRankingGameType, LeaguePlayerGameRecordsFile } from "../shared/types.ts";
+import { buildRecordTables, loadSeasonRecordGames, type RecordGame } from "./lib/playerGameRecordsTop.ts";
+import type { LeaguePlayerGameRecordsFile } from "../shared/types.ts";
 
 const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
-const GAME_TYPES: LeagueRankingGameType[] = ["regular", "playoff", "both"];
 
 async function main() {
   const seasons = readdirSync(DATA_DIR, { withFileTypes: true })
@@ -33,16 +30,8 @@ async function main() {
     console.log(`${season}: ${g.length}件`);
   }
 
-  const byGameType = { regular: {}, playoff: {}, both: {} } as LeaguePlayerGameRecordsFile["byGameType"];
-  for (const gameType of GAME_TYPES) {
-    const scoped = filterByGameType(games, gameType);
-    for (const def of PLAYER_GAME_RECORD_STATS) {
-      const pool = def.filter ? scoped.filter(def.filter) : scoped;
-      const entries = topRecordEntries(pool, def.value, def.fraction, true);
-      if (entries.length > 0) byGameType[gameType][def.key] = entries;
-    }
-  }
-  const file: LeaguePlayerGameRecordsFile = { generatedAt: new Date().toISOString(), byGameType };
+  const { byGameType, byClassification } = buildRecordTables(games, true);
+  const file: LeaguePlayerGameRecordsFile = { generatedAt: new Date().toISOString(), byGameType, byClassification };
   const changed = await writeJsonIfChanged(path.join(DATA_DIR, "league-player-game-records.json"), file as unknown as Record<string, unknown>);
   console.log(changed ? "data/league-player-game-records.json に保存しました" : "内容に変化が無いため書き換えませんでした");
 }

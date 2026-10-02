@@ -2,6 +2,7 @@
 // 両方から参照する共通モジュール（旧scripts/lib/types.ts・src/lib/types.tsを統合）。
 // 生データ（GeniusAPIレスポンス）系の型はDESIGN.md 2-2章の実機検証（6試合・4,513件の
 // PlayByPlaysで確認済み）に基づく。
+import type { ClassKey } from "./classificationKey.ts";
 
 /**
  * 東西2地区（B.PREMIER）に加え、北/東/中/西/南5地区（B.ONE）の値を含む（DESIGN.md 14-4章）。
@@ -1636,6 +1637,19 @@ export interface LeaguePlayerCareerTopFile {
    * 追加前に生成したファイルには無いので省略可能
    */
   careerCounts?: Record<string, LeaguePlayerCareerTopEntry[]>;
+  /**
+   * 登録区分ごと（jp＝日本人、intl＝外国籍・帰化・アジア）の、その区分の選手だけの中での上位20位（DESIGN.md 197章）。
+   * players には、この上位に入った選手の情報も含む。追加前に生成したファイルには無いので省略可能
+   */
+  byClassification?: Record<ClassKey, LeaguePlayerCareerTopByClass>;
+}
+
+/** 登録区分1つ分の、通算記録の上位（LeaguePlayerCareerTopFile の career・careerHome・careerAway・careerCounts と同じ形） */
+export interface LeaguePlayerCareerTopByClass {
+  career: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>>;
+  careerHome: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>>;
+  careerAway: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>>;
+  careerCounts: Record<string, LeaguePlayerCareerTopEntry[]>;
 }
 
 // ---- data/player-careers.json（ランキング「キャリア」カテゴリ。scripts/aggregate-player-careers.ts。DESIGN.md 145章）----
@@ -1755,11 +1769,19 @@ export interface PlayerGameRecordEntry {
   attempted?: number;
 }
 
+/** 試合区分 → 項目キー（shared/playerGameRecords.ts の PLAYER_GAME_RECORD_STATS） → 上位 */
+export type PlayerGameRecordTables = Record<LeagueRankingGameType, Record<string, PlayerGameRecordEntry[]>>;
+
 export interface PlayerGameRecordsFile {
   generatedAt: string;
   season: string;
-  /** 試合区分 → 項目キー（shared/playerGameRecords.ts の PLAYER_GAME_RECORD_STATS） → 上位 */
-  byGameType: Record<LeagueRankingGameType, Record<string, PlayerGameRecordEntry[]>>;
+  /** 試合区分 → 項目キー（shared/playerGameRecords.ts の PLAYER_GAME_RECORD_STATS） → 上位（全選手） */
+  byGameType: PlayerGameRecordTables;
+  /**
+   * 登録区分ごと（jp＝日本人、intl＝外国籍・帰化・アジア）の、その区分の選手だけの中での上位（DESIGN.md 197章）。
+   * 追加前に生成したファイルには無いので省略可能
+   */
+  byClassification?: Record<ClassKey, PlayerGameRecordTables>;
 }
 
 // ---- data/league-player-game-records.json（選手一覧「記録」タブの範囲「歴代」・B.PREMIER（旧B1）レコード。DESIGN.md 188章） ----
@@ -1767,6 +1789,8 @@ export interface PlayerGameRecordsFile {
 /** 全シーズンの選手の1試合の記録の上位（同じ記録はすべて含む）。各行に season がある */
 export interface LeaguePlayerGameRecordsFile {
   generatedAt: string;
-  /** 試合区分 → 項目キー（shared/playerGameRecords.ts の PLAYER_GAME_RECORD_STATS） → 上位 */
-  byGameType: Record<LeagueRankingGameType, Record<string, PlayerGameRecordEntry[]>>;
+  /** 試合区分 → 項目キー（shared/playerGameRecords.ts の PLAYER_GAME_RECORD_STATS） → 上位（全選手） */
+  byGameType: PlayerGameRecordTables;
+  /** 登録区分ごとの上位（PlayerGameRecordsFile.byClassification と同じ。DESIGN.md 197章） */
+  byClassification?: Record<ClassKey, PlayerGameRecordTables>;
 }

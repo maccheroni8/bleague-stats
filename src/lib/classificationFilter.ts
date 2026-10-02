@@ -1,3 +1,4 @@
+import type { ClassKey } from "../../shared/classificationKey";
 import type { PlayerSummary } from "../../shared/types";
 
 /**
@@ -35,6 +36,11 @@ export function classificationGroup(
 }
 
 export type ClassificationGroupFilter = "all" | ClassificationGroup;
+
+/** 絞り込みの値 → 上位だけのファイル（選手の1試合記録・通算記録）の区分名。「全選手」は undefined（全選手の表を使う） */
+export function classKeyOfFilter(filter: ClassificationGroupFilter): ClassKey | undefined {
+  return filter === "all" ? undefined : filter === "日本人" ? "jp" : "intl";
+}
 
 /** filterが"all"のときは絞り込みなし */
 export function matchesClassificationGroupFilter(

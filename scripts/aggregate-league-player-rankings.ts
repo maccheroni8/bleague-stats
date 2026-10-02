@@ -18,9 +18,11 @@ import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { filterByGameType } from "../shared/gameType.ts";
+import { CLASS_KEYS, classKeyOf, type ClassKey } from "../shared/classificationKey.ts";
 import { AWARD_COUNT_KEYS } from "../shared/playerAwardKinds.ts";
 import { PLAYER_CAREER_TOTAL_DEFS, buildPlayerCareerTotals } from "../shared/playerRecords.ts";
 import type {
+  LeaguePlayerCareerTopByClass,
   LeaguePlayerCareerTopEntry,
   LeaguePlayerCareerTopFile,
   LeaguePlayerInfo,
@@ -31,6 +33,7 @@ import type {
   PlayerCareerCounts,
   PlayerCareersFile,
   PlayerGameLog,
+  PlayerMasterEntry,
   PlayerSummary,
 } from "../shared/types.ts";
 
@@ -146,16 +149,36 @@ function filterByVenue(byPlayer: Map<string, PlayerSeasonLogs[]>, venue: "home" 
 
 /** 画面（ランキング > 個人 > 通算記録）用に、項目・試合区分ごとの上位20位（同じ値はすべて）だけを取り出す */
 const CAREER_TOP_N = 20;
+
+/** 値の大きい順に順位をつけ（同じ値は同じ順位）、上位20位（同じ値はすべて）を返す。同じ値の中は playerId 昇順 */
+function rankTop(items: { playerId: string; value: number }[]): LeaguePlayerCareerTopEntry[] {
+  const sorted = [...items].sort((a, b) => b.value - a.value || Number(a.playerId) - Number(b.playerId));
+  const entries: LeaguePlayerCareerTopEntry[] = [];
+  let rank = 0;
+  sorted.forEach((e, i) => {
+    if (i === 0 || e.value !== sorted[i - 1]!.value) rank = i + 1;
+    if (rank <= CAREER_TOP_N) entries.push({ ...e, rank });
+  });
+  return entries;
+}
+
+/**
+ * include を渡すと、その選手だけの中で順位をつけ直した上位20位にする（登録区分ごと。DESIGN.md 197章）。
+ * 渡さないときは、全選手の順位ファイルの順位のまま
+ */
 function topOfCareer(
   table: Record<LeagueRankingGameType, LeaguePlayerRankingStatTable>,
+  include?: (playerId: string) => boolean,
 ): Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>> {
   const out: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>> = { regular: {}, playoff: {}, both: {} };
   for (const gameType of GAME_TYPES) {
     for (const [key, byPlayer] of Object.entries(table[gameType])) {
-      out[gameType][key] = Object.entries(byPlayer)
-        .filter(([, e]) => e.rank <= CAREER_TOP_N)
-        .map(([playerId, e]) => ({ playerId, value: e.value, rank: e.rank }))
-        .sort((a, b) => a.rank - b.rank || Number(a.playerId) - Number(b.playerId));
+      out[gameType][key] = include
+        ? rankTop(Object.entries(byPlayer).filter(([playerId]) => include(playerId)).map(([playerId, e]) => ({ playerId, value: e.value })))
+        : Object.entries(byPlayer)
+            .filter(([, e]) => e.rank <= CAREER_TOP_N)
+            .map(([playerId, e]) => ({ playerId, value: e.value, rank: e.rank }))
+            .sort((a, b) => a.rank - b.rank || Number(a.playerId) - Number(b.playerId));
     }
   }
   return out;
@@ -165,7 +188,11 @@ function topOfCareer(
 const CAREER_COUNT_KEYS: (keyof PlayerCareerCounts)[] = ["titles", "divisionTitles", "finals", "postseasons", ...AWARD_COUNT_KEYS, "seasons", "clubs"];
 
 /** 各選手の最新の累計（player-careers.json の、その選手が載っている最後のシーズンの値）の上位20位（同じ値はすべて） */
-function topOfCareerCounts(careers: PlayerCareersFile | null, known: Map<string, LeaguePlayerInfo>): Record<string, LeaguePlayerCareerTopEntry[]> {
+function topOfCareerCounts(
+  careers: PlayerCareersFile | null,
+  known: Map<string, LeaguePlayerInfo>,
+  include: (playerId: string) => boolean = () => true,
+): Record<string, LeaguePlayerCareerTopEntry[]> {
   const latest = new Map<string, PlayerCareerCounts>();
   for (const season of Object.keys(careers?.seasons ?? {}).sort()) {
     for (const [playerId, counts] of Object.entries(careers!.seasons[season]!)) latest.set(playerId, counts);
@@ -173,18 +200,12 @@ function topOfCareerCounts(careers: PlayerCareersFile | null, known: Map<string,
   const out: Record<string, LeaguePlayerCareerTopEntry[]> = {};
   for (const key of CAREER_COUNT_KEYS) {
     // 表示用の情報（名前・チーム）が無い選手は出せないので対象外にする。0回の選手は並べない（受賞が少ない賞で、0回の同順位に全選手が入るのを避ける）
-    const sorted = [...latest]
-      .filter(([playerId]) => known.has(playerId))
-      .map(([playerId, c]) => ({ playerId, value: c[key] ?? 0 }))
-      .filter((e) => e.value > 0)
-      .sort((a, b) => b.value - a.value || Number(a.playerId) - Number(b.playerId));
-    const entries: LeaguePlayerCareerTopEntry[] = [];
-    let rank = 0;
-    sorted.forEach((e, i) => {
-      if (i === 0 || e.value !== sorted[i - 1]!.value) rank = i + 1;
-      if (rank <= CAREER_TOP_N) entries.push({ ...e, rank });
-    });
-    out[key] = entries;
+    out[key] = rankTop(
+      [...latest]
+        .filter(([playerId]) => known.has(playerId) && include(playerId))
+        .map(([playerId, c]) => ({ playerId, value: c[key] ?? 0 }))
+        .filter((e) => e.value > 0),
+    );
   }
   return out;
 }
@@ -215,15 +236,37 @@ async function main() {
 
   // 通算記録の上位だけのファイル（画面はこちらを読む。DESIGN.md 192章）
   const top = { career: topOfCareer(career), careerHome: topOfCareer(careerHome), careerAway: topOfCareer(careerAway) };
-  const careerCounts = topOfCareerCounts(await readJson<PlayerCareersFile>(path.join(DATA_DIR, "player-careers.json")), info);
-  const topPlayers: Record<string, LeaguePlayerInfo> = {};
-  for (const e of Object.values(careerCounts).flat()) topPlayers[e.playerId] = info.get(e.playerId)!;
-  for (const t of Object.values(top)) {
-    for (const byKey of Object.values(t)) {
-      for (const entries of Object.values(byKey)) for (const e of entries) if (info.has(e.playerId)) topPlayers[e.playerId] = info.get(e.playerId)!;
-    }
+  const careers = await readJson<PlayerCareersFile>(path.join(DATA_DIR, "player-careers.json"));
+  const careerCounts = topOfCareerCounts(careers, info);
+  // 登録区分ごと（選手マスタの区分。選手ごとの1つの値）に、その区分の選手だけの中で順位をつけ直した上位20位
+  const master = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
+  const classKeyById = new Map(master.map((p) => [p.playerId, classKeyOf(p.classification)]));
+  const byClassification = {} as Record<ClassKey, LeaguePlayerCareerTopByClass>;
+  for (const key of CLASS_KEYS) {
+    const include = (playerId: string) => classKeyById.get(playerId) === key;
+    byClassification[key] = {
+      career: topOfCareer(career, include),
+      careerHome: topOfCareer(careerHome, include),
+      careerAway: topOfCareer(careerAway, include),
+      careerCounts: topOfCareerCounts(careers, info, include),
+    };
   }
-  const topFile: LeaguePlayerCareerTopFile = { generatedAt: new Date().toISOString(), players: topPlayers, ...top, careerCounts };
+  const topPlayers: Record<string, LeaguePlayerInfo> = {};
+  const addPlayers = (entries: LeaguePlayerCareerTopEntry[]) => {
+    for (const e of entries) if (info.has(e.playerId)) topPlayers[e.playerId] = info.get(e.playerId)!;
+  };
+  const addAll = (t: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>>) => {
+    for (const byKey of Object.values(t)) for (const entries of Object.values(byKey)) addPlayers(entries);
+  };
+  addPlayers(Object.values(careerCounts).flat());
+  for (const t of Object.values(top)) addAll(t);
+  for (const c of Object.values(byClassification)) {
+    addAll(c.career);
+    addAll(c.careerHome);
+    addAll(c.careerAway);
+    addPlayers(Object.values(c.careerCounts).flat());
+  }
+  const topFile: LeaguePlayerCareerTopFile = { generatedAt: new Date().toISOString(), players: topPlayers, ...top, careerCounts, byClassification };
   const topChanged = await writeJsonIfChanged(path.join(DATA_DIR, "league-player-career-top.json"), topFile as unknown as Record<string, unknown>);
   console.log(topChanged ? "data/league-player-career-top.jsonに保存しました" : "data/league-player-career-top.jsonは内容に変化が無いため書き換えませんでした");
 

@@ -3,14 +3,15 @@ import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { CAREER_TOTAL_DEFS } from "../../shared/teamRecords";
 import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS } from "../lib/playerConditionItems";
 import type { LeagueRankingGameType, LeagueTeamRankEntry, TeamColors } from "../../shared/types";
-import { buildExportFilename, composeLabels, gameTypeLabels, leagueVenueLabels, type LeagueVenue } from "../lib/conditionLabels";
+import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, leagueVenueLabels, type LeagueVenue } from "../lib/conditionLabels";
+import { classKeyOfFilter } from "../lib/classificationFilter";
 import { formatLeaguePlayerRecordValue, formatLeagueTeamCareerValue } from "../lib/careerRecords";
 import { fetchDivisionHistory, fetchLeaguePlayerCareerTop, fetchLeagueTeamRankings } from "../lib/data";
-import { gameTypeAxis, leagueVenueAxis, statItemAxis } from "../lib/filterAxes";
+import { classificationAxis, gameTypeAxis, leagueVenueAxis, statItemAxis } from "../lib/filterAxes";
 import { lastPremierSeasonFor, leagueTeamCurrentCategoryLabel, leagueTeamDisplayName } from "../lib/leagueTeamNames";
 import type { SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
 import { stringParam, useUrlState } from "../lib/urlState";
-import { GAME_TYPE_PARAM, VENUE_PARAM } from "../lib/urlFilterParams";
+import { CLASSIFICATION_PARAM, GAME_TYPE_PARAM, VENUE_PARAM } from "../lib/urlFilterParams";
 import { useJsonData } from "../lib/useJsonData";
 import { TEAM_DIVISIONS } from "../../scripts/lib/divisions";
 import { ConditionTitle } from "./ConditionTitle";
@@ -63,19 +64,26 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
   const exportRef = useRef<HTMLDivElement>(null);
   const [venue, setVenue] = useUrlState(VENUE_PARAM, "total");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
+  const [classification, setClassification] = useUrlState(CLASSIFICATION_PARAM, "all");
   const [statParam, setStatKey] = useUrlState(PLAYER_STAT_PARAM, "pts");
   const { data: file, loading } = useJsonData(() => fetchLeaguePlayerCareerTop(), []);
 
   const item = PLAYER_ITEMS.find((d) => d.key === statParam) ?? PLAYER_ITEMS[0]!;
   const countDef = PLAYER_COUNT_ITEMS.find((d) => `${CAREER_CONDITION_KEY_PREFIX}${d.key}` === item.key);
   const def = { key: item.key, label: item.label };
-  const table = file ? (venue === "total" ? file.career : venue === "home" ? file.careerHome : file.careerAway) : undefined;
+  // 登録区分を選んだときは、その区分の選手だけの中での上位（区分ごとの表。DESIGN.md 197章）
+  const classKey = classKeyOfFilter(classification);
+  const source = classKey ? file?.byClassification?.[classKey] : file;
+  const table = source ? (venue === "total" ? source.career : venue === "home" ? source.careerHome : source.careerAway) : undefined;
   const entries = countDef
-    ? (file?.careerCounts?.[countDef.key] ?? [])
+    ? (source?.careerCounts?.[countDef.key] ?? [])
     : (table?.[gameType as LeagueRankingGameType]?.[def.key] ?? []);
   const rows = entries.flatMap((e) => (file?.players[e.playerId] ? [{ ...e, info: file.players[e.playerId]! }] : []));
 
-  const conditions = countDef ? ["各選手の最新の累計"] : composeLabels(leagueVenueLabels(venue), gameTypeLabels(gameType, null));
+  const classLabels = classification !== "all" ? classificationLabels(classification) : [];
+  const conditions = countDef
+    ? [...classLabels, "各選手の最新の累計"]
+    : composeLabels(classLabels, leagueVenueLabels(venue), gameTypeLabels(gameType, null));
   const title = `歴代 個人通算記録：${def.label}`;
   const countDisabled = "回数・在籍の項目は、会場・試合区分を選べません。";
   const filename = buildExportFilename(["個人通算記録", "歴代", def.label, ...conditions]);
@@ -86,6 +94,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
         simple
         stateKey="rankings:player:career"
         axes={[
+          classificationAxis(classification, setClassification),
           { ...leagueVenueAxis(venue, setVenue), ...(countDef ? { disabledReason: countDisabled } : {}) },
           gameTypeAxis(gameType, setGameType, null, countDef ? { disabledReason: countDisabled } : {}),
         ]}
@@ -93,7 +102,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
       <FilterBar simple wide stateKey="rankings:player:career:stat" axes={[statItemAxis(PLAYER_ITEMS, def.key, setStatKey)]} />
       {loading ? (
         <p className="loading">読み込み中...</p>
-      ) : !file ? (
+      ) : !file || !source ? (
         <p className="empty-message">データがありません</p>
       ) : rows.length === 0 ? (
         <p className="empty-message">この条件では該当選手がいません</p>

@@ -3,8 +3,18 @@
 import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readJson } from "./storage.ts";
-import { PLAYER_GAME_RECORD_TOP_N, type PlayerRecordGame } from "../../shared/playerGameRecords.ts";
-import type { GameSummary, PlayerGameLog, PlayerGameRecordEntry, PlayerSummary } from "../../shared/types.ts";
+import { filterByGameType } from "../../shared/gameType.ts";
+import { PLAYER_GAME_RECORD_STATS, PLAYER_GAME_RECORD_TOP_N, type PlayerRecordGame } from "../../shared/playerGameRecords.ts";
+import { CLASS_KEYS, classKeyOf, type ClassKey } from "../../shared/classificationKey.ts";
+import type {
+  GameSummary,
+  LeagueRankingGameType,
+  PlayerGameLog,
+  PlayerGameRecordEntry,
+  PlayerGameRecordTables,
+  PlayerMasterEntry,
+  PlayerSummary,
+} from "../../shared/types.ts";
 
 export interface RecordGame extends PlayerRecordGame {
   playerId: string;
@@ -12,6 +22,8 @@ export interface RecordGame extends PlayerRecordGame {
   /** 記録した試合の所属チーム（その試合のチーム名。試合一覧のホーム/アウェイから決めるので、シーズン途中の移籍にも合う） */
   teamId: string;
   teamName: string;
+  /** 登録区分（jp＝日本人、intl＝外国籍・帰化・アジア）。選手マスタの区分（選手ごとの1つの値。DESIGN.md 197章）。マスタに無い選手は undefined */
+  classKey?: ClassKey;
 }
 
 /**
@@ -23,6 +35,8 @@ export async function loadSeasonRecordGames(season: string): Promise<RecordGame[
   const summaryByKey = new Map(summaries.map((s) => [s.scheduleKey, s]));
   const players = (await readJson<PlayerSummary[]>(path.join(DATA_DIR, season, "players.json"))) ?? [];
   const nameById = new Map(players.map((p) => [p.playerId, p.name]));
+  const master = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
+  const classKeyById = new Map(master.map((p) => [p.playerId, classKeyOf(p.classification)]));
   const dir = path.join(DATA_DIR, season, "player-games");
   if (!existsSync(dir)) return [];
   const games: RecordGame[] = [];
@@ -38,6 +52,7 @@ export async function loadSeasonRecordGames(season: string): Promise<RecordGame[
         season,
         playerId,
         playerName: nameById.get(playerId) ?? playerId,
+        classKey: classKeyById.get(playerId),
         teamId: g.isHome ? s.homeTeamId : s.awayTeamId,
         teamName: g.isHome ? s.homeTeamName : s.awayTeamName,
       });
@@ -86,4 +101,32 @@ export function topRecordEntries(
     });
   }
   return out;
+}
+
+const GAME_TYPES: LeagueRankingGameType[] = ["regular", "playoff", "both"];
+
+function buildTables(games: RecordGame[], withSeason: boolean): PlayerGameRecordTables {
+  const tables = { regular: {}, playoff: {}, both: {} } as PlayerGameRecordTables;
+  for (const gameType of GAME_TYPES) {
+    const scoped = filterByGameType(games, gameType);
+    for (const def of PLAYER_GAME_RECORD_STATS) {
+      const pool = def.filter ? scoped.filter(def.filter) : scoped;
+      const entries = topRecordEntries(pool, def.value, def.fraction, withSeason);
+      if (entries.length > 0) tables[gameType][def.key] = entries;
+    }
+  }
+  return tables;
+}
+
+/**
+ * 全選手の上位と、登録区分ごと（日本人・外国籍/帰化/アジア）の、その区分の選手だけの中での上位（DESIGN.md 197章）。
+ * 区分の順位は区分の中でつけ直す（日本人の1位は、日本人の中での1位）
+ */
+export function buildRecordTables(
+  games: RecordGame[],
+  withSeason: boolean,
+): { byGameType: PlayerGameRecordTables; byClassification: Record<ClassKey, PlayerGameRecordTables> } {
+  const byClassification = {} as Record<ClassKey, PlayerGameRecordTables>;
+  for (const key of CLASS_KEYS) byClassification[key] = buildTables(games.filter((g) => g.classKey === key), withSeason);
+  return { byGameType: buildTables(games, withSeason), byClassification };
 }

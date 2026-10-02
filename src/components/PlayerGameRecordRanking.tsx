@@ -1,13 +1,14 @@
 import { useRef } from "react";
 import { PLAYER_GAME_RECORD_STATS, type PlayerGameRecordDef } from "../../shared/playerGameRecords";
 import type { PlayerGameRecordEntry, TeamColors } from "../../shared/types";
-import { buildExportFilename, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
+import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { fetchLeaguePlayerGameRecords, fetchPlayerGameRecords } from "../lib/data";
-import { gameTypeAxis, statItemAxis } from "../lib/filterAxes";
+import { classificationAxis, gameTypeAxis, statItemAxis } from "../lib/filterAxes";
+import { classKeyOfFilter } from "../lib/classificationFilter";
 import { formatPlayerGameRecordValue, playerGameRecordFraction, playerGameRecordMinAttemptsNote } from "../lib/playerGameRecordFormat";
 import { useNarrow } from "../lib/teamLabel";
 import { stringParam, useUrlState } from "../lib/urlState";
-import { GAME_TYPE_PARAM, RECORDS_SCOPE_PARAM, type RecordsScope } from "../lib/urlFilterParams";
+import { CLASSIFICATION_PARAM, GAME_TYPE_PARAM, RECORDS_SCOPE_PARAM, type RecordsScope } from "../lib/urlFilterParams";
 import type { SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
 import { useJsonData } from "../lib/useJsonData";
 import { ConditionTitle } from "./ConditionTitle";
@@ -61,6 +62,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const exportRef = useRef<HTMLDivElement>(null);
   const [scope] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
+  const [classification, setClassification] = useUrlState(CLASSIFICATION_PARAM, "all");
   const [statKey, setStatKey] = useUrlState(STAT_PARAM, "pts");
   const { data: file, loading } = useJsonData(
     () => (scope === "allTime" ? fetchLeaguePlayerGameRecords() : fetchPlayerGameRecords(season)),
@@ -68,10 +70,13 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   );
 
   const def: PlayerGameRecordDef = PLAYER_GAME_RECORD_STATS.find((d) => d.key === statKey) ?? PLAYER_GAME_RECORD_STATS[0]!;
-  const entries = file?.byGameType[gameType]?.[def.key] ?? [];
+  // 登録区分を選んだときは、その区分の選手だけの中での上位（区分ごとの表。DESIGN.md 197章）
+  const classKey = classKeyOfFilter(classification);
+  const tables = classKey ? file?.byClassification?.[classKey] : file?.byGameType;
+  const entries = tables?.[gameType]?.[def.key] ?? [];
   const seasonOf = (e: PlayerGameRecordEntry) => e.season ?? season;
   const seasonForTitle = scope === "season" ? season : null;
-  const conditions = composeLabels(gameTypeLabels(gameType, seasonForTitle));
+  const conditions = composeLabels(classification !== "all" && classificationLabels(classification), gameTypeLabels(gameType, seasonForTitle));
   const title = scope === "allTime" ? `歴代 個人1試合記録：${def.label}` : `${season}シーズン 個人1試合記録：${def.label}`;
   const filename = buildExportFilename(["個人1試合記録", scope === "allTime" ? "歴代" : season, def.label, ...conditions]);
   const minNote = playerGameRecordMinAttemptsNote(def.key);
@@ -81,7 +86,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
       <FilterBar
         simple
         stateKey="rankings:player:game"
-        axes={[gameTypeAxis(gameType, setGameType, seasonForTitle)]}
+        axes={[classificationAxis(classification, setClassification), gameTypeAxis(gameType, setGameType, seasonForTitle)]}
       />
       <FilterBar
         simple
@@ -91,7 +96,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
       />
       {loading ? (
         <p className="loading">読み込み中...</p>
-      ) : !file ? (
+      ) : !tables ? (
         <p className="empty-message">データがありません</p>
       ) : entries.length === 0 ? (
         <p className="empty-message">この条件の試合がありません</p>
