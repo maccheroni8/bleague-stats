@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { teamLogoUrl } from "../lib/data";
 
-// data/logos/{teamId}.pngは現行B.PREMIER26クラブ分しか無い（scripts/lib/teamLogoCodes.ts参照）。
-// 過去シーズンのみ在籍した降格クラブ等はロゴが存在しないため、404時は既定では要素ごと非表示にする。
-// placeholder を付けると、同じ大きさの空の枠を出す（歴代の記録の一覧のように、ロゴのある行とない行の高さをそろえたい場所用）
+// data/logos/{teamId}.png は、過去に在籍した30クラブすべてにある（降格したクラブ分も取得済み。チームIDは名称が変わっても同じ）。
+// 取得できなかった場合（ファイルの欠け・通信の失敗）は、既定では要素ごと非表示にする。
+// placeholder を付けると、同じ大きさの空の枠を出す（歴代の記録の一覧のように、行の高さをそろえたい場所用）
 export function TeamLogo({
   teamId,
   size = 24,
