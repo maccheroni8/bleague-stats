@@ -328,13 +328,13 @@ export function TeamHeadToHead({
                 <tr>
                   <th className="align-left">日付</th>
                   <th className="align-left">対戦相手</th>
+                  <th className="align-left">会場</th>
                   <th className="align-right">結果</th>
                   {columns.map((col) => (
                     <th key={col.key} className="align-right" title={statDescription(col.label, "team")}>
                       <StatHeaderLabel label={col.label} />
                     </th>
                   ))}
-                  <th className="align-left">会場</th>
                 </tr>
               </thead>
               <tbody>
@@ -353,6 +353,7 @@ export function TeamHeadToHead({
                           {g.gameType === "playoff" && <span className="playoff-badge">PO</span>}
                         </Link>
                       </td>
+                      <td className="align-left">{g.venue ?? "-"}</td>
                       <td className="align-right">
                         <Link to={`/games/${g.scheduleKey}?season=${g.season}`} className="cell-link">
                           <span className={`result-badge ${g.win ? "win" : "loss"}`}>
@@ -365,7 +366,6 @@ export function TeamHeadToHead({
                           {col.format ? col.format(row) : String(col.sortValue(row))}
                         </td>
                       ))}
-                      <td className="align-left">{g.venue ?? "-"}</td>
                     </tr>
                   );
                 })}
@@ -373,7 +373,7 @@ export function TeamHeadToHead({
               <tfoot>
                 {/* 平均の行。割合の項目は、試合ごとの割合の平均ではなく合計から計算する（FG% ＝ FGMの合計 ÷ FGAの合計。DESIGN.md 185章） */}
                 <tr className="schedule-row average-row">
-                  <td className="align-left" colSpan={2}>
+                  <td className="align-left" colSpan={3}>
                     平均（{games.length}試合）
                   </td>
                   <td className="align-right">
@@ -386,7 +386,6 @@ export function TeamHeadToHead({
                       {col.format ? col.format(averageRow) : String(col.sortValue(averageRow))}
                     </td>
                   ))}
-                  <td />
                 </tr>
               </tfoot>
             </table>
