@@ -1402,6 +1402,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     selectedItem.label,
     composeLabels(
       playerCategoryLabel,
+      // Career は、そのシーズンの登録選手を、そのシーズン終了時点の累計で並べる（通算記録の「歴代」と区別する。DESIGN.md 193章）
+      category === "career" ? "シーズン終了時点の累計" : [],
       // 登録区分は選手名の下に書かないので、指定したときはタイトルの下の行に書く（「全選手」は書かない。DESIGN.md 170章）
       classificationLabels(selectedClassification),
       // ポジションは選択肢が9つだけなので、選んだものを省略せずに全部書く（「他N」にしない。DESIGN.md 178章）

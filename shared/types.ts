@@ -1630,6 +1630,12 @@ export interface LeaguePlayerCareerTopFile {
   career: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>>;
   careerHome: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>>;
   careerAway: Record<LeagueRankingGameType, Record<string, LeaguePlayerCareerTopEntry[]>>;
+  /**
+   * 回数・在籍の項目（PlayerCareerCounts の titles・divisionTitles・finals・postseasons・awards・seasons・clubs。DESIGN.md 193章）の上位20位。
+   * 各選手の最新の累計（player-careers.json の、その選手が載っている最後のシーズンの値）。会場・試合区分には依らない。
+   * 追加前に生成したファイルには無いので省略可能
+   */
+  careerCounts?: Record<string, LeaguePlayerCareerTopEntry[]>;
 }
 
 // ---- data/player-careers.json（ランキング「キャリア」カテゴリ。scripts/aggregate-player-careers.ts。DESIGN.md 145章）----

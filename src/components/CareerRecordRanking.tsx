@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { CAREER_TOTAL_DEFS } from "../../shared/teamRecords";
+import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS } from "../lib/playerConditionItems";
 import type { LeagueRankingGameType, LeagueTeamRankEntry, TeamColors } from "../../shared/types";
 import { buildExportFilename, composeLabels, gameTypeLabels, leagueVenueLabels, type LeagueVenue } from "../lib/conditionLabels";
 import { formatLeaguePlayerRecordValue, formatLeagueTeamCareerValue } from "../lib/careerRecords";
@@ -28,7 +29,17 @@ import { TeamLogo } from "./TeamLogo";
  * 個人は夜間の集計が書き出した上位20位（data/league-player-career-top.json。同じ値はすべて含む）、チームは全クラブ（data/league-team-rankings.json）
  */
 
-const PLAYER_STAT_PARAM = stringParam("stat", "pts", (v) => PLAYER_CAREER_TOTAL_DEFS.some((d) => d.key === v));
+// 個人の通算記録の項目: 通算成績（ボックススコアの合計）と、回数・在籍（リーグ優勝など。通算出場試合は通算成績の「試合数」と重なるので入れない。DESIGN.md 193章）。
+// 回数・在籍の項目のキーは「career_titles」の形（スタッツの条件と同じ）
+export const PLAYER_COUNT_ITEMS = CAREER_ITEM_DEFS.filter((d) => d.key !== "games");
+const COUNT_GROUP = "回数・在籍";
+const PLAYER_ITEMS = [
+  ...PLAYER_CAREER_TOTAL_DEFS.map((d) => ({ key: d.key, label: d.label, group: "通算成績" })),
+  ...PLAYER_COUNT_ITEMS.map((d) => ({ key: `${CAREER_CONDITION_KEY_PREFIX}${d.key}`, label: d.label, group: COUNT_GROUP })),
+];
+const PLAYER_STAT_PARAM = stringParam("stat", "pts", (v) => PLAYER_ITEMS.some((d) => d.key === v));
+const COUNT_NOTE =
+  "回数・在籍は、Bリーグ（2016-17シーズン）以降のB1（B.PREMIER）の記録から数えた、各選手の最新の累計です（進行中のシーズンは現時点まで）。会場・試合区分は選べません。個人賞は、MVP・ベストファイブ・新人賞・新人賞ベストファイブ・個人タイトル（得点王など）の受賞数の合計です。";
 const TEAM_STAT_PARAM = stringParam("stat", "wins", (v) => CAREER_TOTAL_DEFS.some((d) => d.key === v));
 const PLAYER_RANK_TOP_N = 20;
 
@@ -55,13 +66,18 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
   const [statParam, setStatKey] = useUrlState(PLAYER_STAT_PARAM, "pts");
   const { data: file, loading } = useJsonData(() => fetchLeaguePlayerCareerTop(), []);
 
-  const def = PLAYER_CAREER_TOTAL_DEFS.find((d) => d.key === statParam) ?? PLAYER_CAREER_TOTAL_DEFS[0]!;
+  const item = PLAYER_ITEMS.find((d) => d.key === statParam) ?? PLAYER_ITEMS[0]!;
+  const countDef = PLAYER_COUNT_ITEMS.find((d) => `${CAREER_CONDITION_KEY_PREFIX}${d.key}` === item.key);
+  const def = { key: item.key, label: item.label };
   const table = file ? (venue === "total" ? file.career : venue === "home" ? file.careerHome : file.careerAway) : undefined;
-  const entries = table?.[gameType as LeagueRankingGameType]?.[def.key] ?? [];
+  const entries = countDef
+    ? (file?.careerCounts?.[countDef.key] ?? [])
+    : (table?.[gameType as LeagueRankingGameType]?.[def.key] ?? []);
   const rows = entries.flatMap((e) => (file?.players[e.playerId] ? [{ ...e, info: file.players[e.playerId]! }] : []));
 
-  const conditions = composeLabels(leagueVenueLabels(venue), gameTypeLabels(gameType, null));
+  const conditions = countDef ? ["各選手の最新の累計"] : composeLabels(leagueVenueLabels(venue), gameTypeLabels(gameType, null));
   const title = `歴代 個人通算記録：${def.label}`;
+  const countDisabled = "回数・在籍の項目は、会場・試合区分を選べません。";
   const filename = buildExportFilename(["個人通算記録", "歴代", def.label, ...conditions]);
 
   return (
@@ -69,14 +85,12 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
       <FilterBar
         simple
         stateKey="rankings:player:career"
-        axes={[leagueVenueAxis(venue, setVenue), gameTypeAxis(gameType, setGameType, null)]}
+        axes={[
+          { ...leagueVenueAxis(venue, setVenue), ...(countDef ? { disabledReason: countDisabled } : {}) },
+          gameTypeAxis(gameType, setGameType, null, countDef ? { disabledReason: countDisabled } : {}),
+        ]}
       />
-      <FilterBar
-        simple
-        wide
-        stateKey="rankings:player:career:stat"
-        axes={[statItemAxis(PLAYER_CAREER_TOTAL_DEFS.map((d) => ({ key: d.key, label: d.label })), def.key, setStatKey)]}
-      />
+      <FilterBar simple wide stateKey="rankings:player:career:stat" axes={[statItemAxis(PLAYER_ITEMS, def.key, setStatKey)]} />
       {loading ? (
         <p className="loading">読み込み中...</p>
       ) : !file ? (
@@ -95,7 +109,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
                   key: def.key,
                   label: def.label,
                   value: (r) => r.value,
-                  format: (r) => formatLeaguePlayerRecordValue(def.key, r.value),
+                  format: (r) => (countDef ? `${r.value}${countDef.unit}` : formatLeaguePlayerRecordValue(def.key, r.value)),
                   higherIsBetter: true,
                 }}
                 tieKey={(r) => String(r.value)}
@@ -113,6 +127,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
                 sortable={false}
                 compact
               />
+              {countDef && <p className="rule-change-footnote">※ {COUNT_NOTE}</p>}
             </PlayerNamePool>
           </div>
         </>

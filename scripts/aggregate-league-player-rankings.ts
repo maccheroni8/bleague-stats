@@ -27,6 +27,8 @@ import type {
   LeaguePlayerRankingsFile,
   LeaguePlayerRankingStatTable,
   LeagueRankingGameType,
+  PlayerCareerCounts,
+  PlayerCareersFile,
   PlayerGameLog,
   PlayerSummary,
 } from "../shared/types.ts";
@@ -158,6 +160,33 @@ function topOfCareer(
   return out;
 }
 
+/** 回数・在籍の項目（ランキング > 個人 > 通算記録。通算出場試合は通算成績の「試合数」と重なるので入れない）。キーは PlayerCareerCounts */
+const CAREER_COUNT_KEYS: (keyof PlayerCareerCounts)[] = ["titles", "divisionTitles", "finals", "postseasons", "awards", "seasons", "clubs"];
+
+/** 各選手の最新の累計（player-careers.json の、その選手が載っている最後のシーズンの値）の上位20位（同じ値はすべて） */
+function topOfCareerCounts(careers: PlayerCareersFile | null, known: Map<string, LeaguePlayerInfo>): Record<string, LeaguePlayerCareerTopEntry[]> {
+  const latest = new Map<string, PlayerCareerCounts>();
+  for (const season of Object.keys(careers?.seasons ?? {}).sort()) {
+    for (const [playerId, counts] of Object.entries(careers!.seasons[season]!)) latest.set(playerId, counts);
+  }
+  const out: Record<string, LeaguePlayerCareerTopEntry[]> = {};
+  for (const key of CAREER_COUNT_KEYS) {
+    // 表示用の情報（名前・チーム）が無い選手は出せないので対象外にする
+    const sorted = [...latest]
+      .filter(([playerId]) => known.has(playerId))
+      .map(([playerId, c]) => ({ playerId, value: c[key] }))
+      .sort((a, b) => b.value - a.value || Number(a.playerId) - Number(b.playerId));
+    const entries: LeaguePlayerCareerTopEntry[] = [];
+    let rank = 0;
+    sorted.forEach((e, i) => {
+      if (i === 0 || e.value !== sorted[i - 1]!.value) rank = i + 1;
+      if (rank <= CAREER_TOP_N) entries.push({ ...e, rank });
+    });
+    out[key] = entries;
+  }
+  return out;
+}
+
 async function main() {
   const { byPlayer, info } = await loadCareerData();
   console.log(`対象選手数（出場記録のある全選手、B.PREMIER）: ${byPlayer.size}`);
@@ -184,13 +213,15 @@ async function main() {
 
   // 通算記録の上位だけのファイル（画面はこちらを読む。DESIGN.md 192章）
   const top = { career: topOfCareer(career), careerHome: topOfCareer(careerHome), careerAway: topOfCareer(careerAway) };
+  const careerCounts = topOfCareerCounts(await readJson<PlayerCareersFile>(path.join(DATA_DIR, "player-careers.json")), info);
   const topPlayers: Record<string, LeaguePlayerInfo> = {};
+  for (const e of Object.values(careerCounts).flat()) topPlayers[e.playerId] = info.get(e.playerId)!;
   for (const t of Object.values(top)) {
     for (const byKey of Object.values(t)) {
       for (const entries of Object.values(byKey)) for (const e of entries) if (info.has(e.playerId)) topPlayers[e.playerId] = info.get(e.playerId)!;
     }
   }
-  const topFile: LeaguePlayerCareerTopFile = { generatedAt: new Date().toISOString(), players: topPlayers, ...top };
+  const topFile: LeaguePlayerCareerTopFile = { generatedAt: new Date().toISOString(), players: topPlayers, ...top, careerCounts };
   const topChanged = await writeJsonIfChanged(path.join(DATA_DIR, "league-player-career-top.json"), topFile as unknown as Record<string, unknown>);
   console.log(topChanged ? "data/league-player-career-top.jsonに保存しました" : "data/league-player-career-top.jsonは内容に変化が無いため書き換えませんでした");
 

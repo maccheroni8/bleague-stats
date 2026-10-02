@@ -188,8 +188,8 @@ jobs:
         continue-on-error: true
         run: |
           node --experimental-strip-types scripts/aggregate-league-rankings.ts
-          node --experimental-strip-types scripts/aggregate-league-player-rankings.ts
           node --experimental-strip-types scripts/aggregate-player-careers.ts
+          node --experimental-strip-types scripts/aggregate-league-player-rankings.ts
           node --experimental-strip-types scripts/aggregate-player-game-records.ts --season ${{ steps.season.outputs.season }}
           node --experimental-strip-types scripts/aggregate-league-player-game-records.ts
           npm run aggregate:league-compare -- --season ${{ steps.season.outputs.season }}

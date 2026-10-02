@@ -144,7 +144,7 @@ import { PlayerSeasonRecords } from "../components/PlayerSeasonRecords";
 import { formatLeaguePlayerRecordValue } from "../lib/careerRecords";
 import { CareerLeaderCard } from "../components/CareerLeaderCard";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
-import { careerRecordRankingUrl } from "../components/CareerRecordRanking";
+import { PLAYER_COUNT_ITEMS, careerRecordRankingUrl } from "../components/CareerRecordRanking";
 import { fetchLeaguePlayerCareerTop } from "../lib/data";
 import { LeaguePlayerGameRecords } from "../components/LeaguePlayerGameRecords";
 
@@ -1241,6 +1241,14 @@ function LeaguePlayerCareerRecords({ categoryAxis }: { categoryAxis: FilterAxis 
     return first && info ? [{ def, first, info, others: top.length - 1 }] : [];
   });
 
+  // 回数・在籍の項目（各選手の最新の累計。会場・試合区分には依らない）の1位
+  const countCards = PLAYER_COUNT_ITEMS.flatMap((def) => {
+    const top = (file?.careerCounts?.[def.key] ?? []).filter((e) => e.rank === 1);
+    const first = top[0];
+    const info = first ? file?.players[first.playerId] : undefined;
+    return first && info ? [{ def, first, info, others: top.length - 1 }] : [];
+  });
+
   return (
     <div>
       <p className="page-subtitle">
@@ -1261,7 +1269,7 @@ function LeaguePlayerCareerRecords({ categoryAxis }: { categoryAxis: FilterAxis 
       ) : cards.length === 0 ? (
         <p className="empty-message">データがありません</p>
       ) : (
-        <PlayerNamePool names={cards.map((c) => c.info.name)}>
+        <PlayerNamePool names={[...cards, ...countCards].map((c) => c.info.name)}>
           <div className="career-highs-grid">
             {cards.map(({ def, first, info, others }) => (
               <CareerLeaderCard
@@ -1280,6 +1288,29 @@ function LeaguePlayerCareerRecords({ categoryAxis }: { categoryAxis: FilterAxis 
               />
             ))}
           </div>
+          {countCards.length > 0 && (
+            <>
+              <h3 className="career-highs-subheading">回数・在籍（各選手の最新の累計。会場・試合区分には依りません）</h3>
+              <div className="career-highs-grid">
+                {countCards.map(({ def, first, info, others }) => (
+                  <CareerLeaderCard
+                    key={def.key}
+                    label={def.label}
+                    valueText={`${first.value}${def.unit}`}
+                    name={<ResponsivePlayerName name={info.name} />}
+                    sub={
+                      <>
+                        <ResponsiveTeamName teamId={info.teamId} name={info.teamName} always />・{info.latestSeason}シーズンまで
+                      </>
+                    }
+                    otherCount={others}
+                    unit="人"
+                    to={careerRecordRankingUrl({ mode: "player", venue, gameType, statKey: `${CAREER_CONDITION_KEY_PREFIX}${def.key}` })}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </PlayerNamePool>
       )}
     </div>
