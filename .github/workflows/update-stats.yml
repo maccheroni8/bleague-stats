@@ -1,12 +1,17 @@
 name: Update B.LEAGUE Stats
 
+# 深夜のディープrecheckの実行には名前に [deep] を付ける（予備の定時実行が、実行済みかを一覧から判定するため）
+run-name: Update B.LEAGUE Stats${{ (github.event.schedule == '0 20 * * *' || github.event.inputs.deep_recheck == 'true') && ' [deep]' || '' }}
+
 # DESIGN.md 8章の自動更新フロー（2026-09-23改訂: 日程データに基づく更新タイミングに変更）。
 # - 頻繁チェック（30分おき。毎時07分・37分、毎時00分は避けて負荷を分散）:
 #   schedule.json（前回までにコミット済みのデータ）だけを見て、「ティップオフ+2時間を過ぎて
 #   いてまだボックススコアを取得していない試合」があるときだけ本処理（直近14日分の日程軽量
 #   チェック＋新着試合のボックススコア取得＋集計再計算＋commit&push）に進む。無ければ
 #   bleague.jpへ一切アクセスせず即終了する（check-pending-games.ts）
-# - 深夜（毎日JST3時）のディープrecheck: 上記の判定を経ずに毎回本処理を実行する。直近14日
+# - 深夜のディープrecheck（毎日JST3:10にcron-job.orgからworkflow_dispatch（deep_recheck=true）で起動。GitHub側の
+#   定時実行は毎日JST5時（UTC20時）の予備で、直近20時間以内に深夜実行が成功していれば頻繁チェックとして扱う。DESIGN.md 8-10章）:
+#   上記の判定を経ずに毎回本処理を実行する。直近14日
 #   以内のwatching試合の再チェック（8-1章のスタッツ修正対応）・今後14日の日程変更検知（8-7章）・
 #   名簿取得・新競技規則検知の検知ステップはこちらだけで行う
 # - workflow_dispatch: 手動実行用。full_schedule=true でシーズン全体のスケジュールをフル収集する
@@ -17,7 +22,7 @@ name: Update B.LEAGUE Stats
 on:
   schedule:
     - cron: "7,37 * * * *" # 30分おき（毎時07分・37分）: 頻繁チェック
-    - cron: "0 18 * * *" # 毎日JST3時（UTC18時）: 深夜のディープrecheck
+    - cron: "0 20 * * *" # 毎日JST5時（UTC20時）: 深夜のディープrecheckの予備（外部のcron-job.orgが主。実行済みならスキップ）
   workflow_dispatch:
     inputs:
       season:
@@ -44,6 +49,7 @@ concurrency:
 
 permissions:
   contents: write
+  actions: read # 予備の定時実行が、直近の深夜実行（実行一覧）を確認するため
 
 jobs:
   update:
@@ -73,15 +79,26 @@ jobs:
           echo "season=$SEASON" >> "$GITHUB_OUTPUT"
           echo "対象シーズン: $SEASON"
 
-      # 深夜cron（0 18 * * *）、またはworkflow_dispatchでdeep_recheck=trueのときだけ
+      # 深夜cron（0 20 * * *。予備）、またはworkflow_dispatchでdeep_recheck=trueのときだけ
       # 「常に本処理を行う」深夜モードにする。それ以外（頻繁チェック・既定のworkflow_dispatch）は
       # 後続のcheck-pending-gamesステップの判定を挟む（手動実行でも早期終了経路を確認できるように）
       - name: Determine run mode
         id: mode
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           NIGHTLY="false"
-          if [ "${{ github.event.schedule }}" = "0 18 * * *" ]; then
+          if [ "${{ github.event.schedule }}" = "0 20 * * *" ]; then
             NIGHTLY="true"
+            # 予備の定時実行: 直近20時間以内に深夜実行（名前に [deep]）が成功していれば、深夜の本処理は行わず頻繁チェックとして扱う。
+            # 外部（cron-job.org）が失敗した日、または実行一覧を読めなかったときは、そのまま深夜の本処理を行う
+            SINCE=$(date -u -d '20 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+            DONE=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow update-stats.yml --status success --limit 100 --json displayTitle,createdAt \
+              | jq --arg since "$SINCE" '[.[] | select((.displayTitle | contains("[deep]")) and .createdAt >= $since)] | length' || echo 0)
+            if [ "${DONE:-0}" -gt 0 ]; then
+              NIGHTLY="false"
+              echo "::notice::直近20時間以内に深夜実行が成功しているため、予備の深夜実行はスキップします（頻繁チェックとして扱います）"
+            fi
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.deep_recheck }}" = "true" ]; then
             NIGHTLY="true"
           fi
