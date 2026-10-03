@@ -292,7 +292,12 @@ function buildRelevantEvents(
   //    （例:「得点を交代より先に処理する」という決め打ち）をすると、同一秒内で交代が絡む
   //    得点イベントの在コート判定を誤り、個人+/-がずれる（実際にこのバグで公式PLUSMINUSと
   //    ズレるケースを検出し、原因を特定した上で修正した経緯がある）
-  events.sort((a, b) => a.elapsedSec - b.elapsedSec);
+  //
+  // ただし、前のピリオドの終わり（残り0:00）と次のピリオドの始め（残り10:00・5:00）は経過秒が同じなので、
+  // 経過秒が同じときは前のピリオドのイベントを先に並べる（配列の中で次のピリオドの始めの交代が先に入っている試合が
+  // あり、そのままだと「前のピリオドの終わりのIN」と「次のピリオドの始めのOUT」の順が逆になる。DESIGN.md 200章）。
+  // 同じピリオドの中は、配列の元の並び順のまま
+  events.sort((a, b) => a.elapsedSec - b.elapsedSec || a.period - b.period);
   return events;
 }
 
@@ -488,13 +493,17 @@ export function reconstructOnCourt(
 
     // 同時刻・同チームの交代イベントをまとめて1バッチとして処理する
     // （OUTとペアのINが同一秒内で処理される前提。片方だけ処理すると在コート人数が一時的に
-    // 崩れて見えてしまうため、バッチ単位でしか人数チェックをしない）
+    // 崩れて見えてしまうため、バッチ単位でしか人数チェックをしない）。
+    // ピリオドが違う交代は別のバッチにする: 前のピリオドの終了（残り0:00）と次のピリオドの開始（残り10:00・5:00）は
+    // 試合開始からの経過秒が同じなので、まとめると「前のピリオドの終わりのIN」より先に「次のピリオドの始めのOUT」を
+    // 処理してしまい（OUTを先に処理するため）、在コートが6人になって5人組を復元できなくなる（DESIGN.md 200章）
     let j = i;
     while (
       j < events.length &&
       events[j]!.kind !== "score" &&
       events[j]!.elapsedSec === event.elapsedSec &&
-      events[j]!.teamId === event.teamId
+      events[j]!.teamId === event.teamId &&
+      events[j]!.period === event.period
     ) {
       j += 1;
     }
@@ -521,7 +530,10 @@ export function reconstructOnCourt(
       const start = openStart[teamId]!.get(s.playerId);
       if (start !== undefined) {
         const { ownPts, oppPts } = flushIntervalScore(s.playerId);
-        intervals.push({ playerId: s.playerId, teamId, startSec: start, endSec: t, ownPoss: 0, oppPoss: 0, ownPts, oppPts });
+        // 長さ0秒で得点も無い区間（ピリオドの終わりのINと、次のピリオドの始めのOUTが同じ秒に記録されたとき等）は残さない
+        if (t > start || ownPts !== 0 || oppPts !== 0) {
+          intervals.push({ playerId: s.playerId, teamId, startSec: start, endSec: t, ownPoss: 0, oppPoss: 0, ownPts, oppPts });
+        }
         openStart[teamId]!.delete(s.playerId);
       }
     }
@@ -558,17 +570,20 @@ export function reconstructOnCourt(
     const lineupAfterBatch = lineupKeyOf(onCourt[teamId]!);
     if (lineupAfterBatch !== lineupBeforeBatch && playersBeforeBatch.length === 5) {
       const stint = currentStint[teamId]!;
-      lineupStints.push({
-        teamId,
-        lineupKey: lineupBeforeBatch,
-        playerIds: playersBeforeBatch,
-        startSec: stint.start,
-        endSec: t,
-        netPoints: stint.net,
-        ownPoints: stint.own,
-        oppPoints: stint.opp,
-        pointsByPeriod: stint.byPeriod,
-      });
+      // 長さ0秒で得点も無いスティントは残さない（上の区間と同じ理由）
+      if (t > stint.start || stint.own !== 0 || stint.opp !== 0) {
+        lineupStints.push({
+          teamId,
+          lineupKey: lineupBeforeBatch,
+          playerIds: playersBeforeBatch,
+          startSec: stint.start,
+          endSec: t,
+          netPoints: stint.net,
+          ownPoints: stint.own,
+          oppPoints: stint.opp,
+          pointsByPeriod: stint.byPeriod,
+        });
+      }
     }
     if (lineupAfterBatch !== lineupBeforeBatch) {
       currentStint[teamId] = newStint(t);
