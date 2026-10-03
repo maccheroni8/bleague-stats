@@ -71,10 +71,15 @@ jobs:
     if: needs.check.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     steps:
+      # 2026-10-04判明: workflow_run の head_sha は「更新ジョブが開始時に取得したコミット」で、更新ジョブが自分で
+      # 作ったデータのコミット（その直後のコミット）を含まない。これを使うと毎回1つ前のデータがデプロイされ、
+      # 最後のコミット（試合が終了した更新など）が、次のコミットが来るまで公開されない。
+      # github.sha は、push では pushされたコミット、workflow_run と workflow_dispatch では mainの最新のコミットなので、
+      # どのイベントでも「その時点のmainの最新」をビルドする（DESIGN.md 198章）
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
