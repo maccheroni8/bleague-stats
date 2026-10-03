@@ -1,8 +1,9 @@
-// 「試合/1Q/2Q/3Q/4Q/(OT)/前半/後半」の範囲選択を、Period単位のデータを持つ画面
+// 「試合/1Q/2Q/3Q/4Q/前半/後半/(OT/OT1…)」の範囲選択を、Period単位のデータを持つ画面
 // （ショットチャート・ボックススコア等）で共通して使うためのロジック。
 // UIコンポーネントはcomponents/PeriodRangeToggle.tsx側。
 
-export type PeriodRangeValue = "all" | `q${number}` | `ot${number}` | "h1" | "h2";
+/** ot＝すべての延長の合計、ot1・ot2…＝個別の延長 */
+export type PeriodRangeValue = "all" | `q${number}` | "ot" | `ot${number}` | "h1" | "h2";
 
 export interface PeriodRangeOption {
   value: PeriodRangeValue;
@@ -11,23 +12,31 @@ export interface PeriodRangeOption {
   periods: number[] | null;
 }
 
-/** 試合の合計ピリオド数（延長を含む）から選択肢一覧を組み立てる */
+/**
+ * 試合の合計ピリオド数（延長を含む）から選択肢一覧を組み立てる。並びは 試合・1Q〜4Q・前半・後半・OT・OT1…。
+ * 前半は1Q＋2Q、後半は3Q＋4Qで、延長は含めない。延長がある試合には、すべての延長の合計「OT」を出し、
+ * 延長が2回以上ある試合には、個別の「OT1」「OT2」…も出す（延長が1回だけの試合は「OT」だけ）。延長のない試合には出さない
+ */
 export function buildPeriodRangeOptions(totalPeriods: number): PeriodRangeOption[] {
   const options: PeriodRangeOption[] = [{ value: "all", label: "試合", periods: null }];
   const regulation = Math.min(totalPeriods, 4);
   for (let q = 1; q <= regulation; q += 1) {
     options.push({ value: `q${q}`, label: `${q}Q`, periods: [q] });
   }
-  const otCount = totalPeriods - 4;
-  for (let i = 1; i <= otCount; i += 1) {
-    options.push({ value: `ot${i}`, label: otCount > 1 ? `OT${i}` : "OT", periods: [4 + i] });
-  }
   if (regulation >= 2) {
     options.push({ value: "h1", label: "前半", periods: [1, 2] });
   }
-  if (totalPeriods >= 3) {
-    const secondHalf = Array.from({ length: totalPeriods - 2 }, (_, i) => i + 3);
-    options.push({ value: "h2", label: "後半", periods: secondHalf });
+  if (regulation >= 3) {
+    options.push({ value: "h2", label: "後半", periods: Array.from({ length: regulation - 2 }, (_, i) => i + 3) });
+  }
+  const otCount = totalPeriods - 4;
+  if (otCount >= 1) {
+    options.push({ value: "ot", label: "OT", periods: Array.from({ length: otCount }, (_, i) => 5 + i) });
+  }
+  if (otCount >= 2) {
+    for (let i = 1; i <= otCount; i += 1) {
+      options.push({ value: `ot${i}`, label: `OT${i}`, periods: [4 + i] });
+    }
   }
   return options;
 }

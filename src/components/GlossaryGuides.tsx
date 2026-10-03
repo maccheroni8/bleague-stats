@@ -207,6 +207,10 @@ export function GlossaryGuides() {
         </p>
         <h3>Q別・前後半</h3>
         <p>Q別・前後半では、Qをまたいで出場した組み合わせの出場時間・得点をQごとに分けて集計します。</p>
+        <p>
+          試合詳細の切り替えでは、前半は1Q＋2Q、後半は3Q＋4Qで、延長戦は含めません。延長戦のある試合には、すべての延長の合計「OT」を出し、延長が2回以上の試合は
+          「OT1」「OT2」…も個別に選べます。
+        </p>
       </section>
 
       <section className="glossary-section" id={A.assists}>

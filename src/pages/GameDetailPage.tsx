@@ -34,6 +34,7 @@ import { distinctTeamColors } from "../lib/teamColorPairs";
 import { MONO_FALLBACK_COLOR } from "../lib/color";
 import { buildOfficialPaintSplit, type PaintSplitCounts } from "../../shared/paintSplit";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from "../lib/periodRange";
+import { gamePeriodScores } from "../lib/gamePeriods";
 import {
   computeOnCourtRatings,
   reconstructOnCourt,
@@ -368,7 +369,9 @@ export function GameDetailPage({ season }: { season: string }) {
     ? sortShotTypeKeys([...new Set(yahooPbp.shots.map((s) => s.shotType).filter((t) => t.length > 0))])
     : [];
 
-  const periods = game.quarterScores.home.length;
+  // ピリオド別の得点（公式のクォーター別スコアに延長が入っていない古い試合は補う）。延長を含むピリオド数
+  const quarterScores = gamePeriodScores(game);
+  const periods = quarterScores.home.length;
 
   const shotPeriodOptions = buildPeriodRangeOptions(periods);
   const selectedShotPeriodOption = shotPeriodOptions.find((o) => o.value === shotPeriodRange);
@@ -459,14 +462,14 @@ export function GameDetailPage({ season }: { season: string }) {
   // 5人組のオンザコート（外国籍・帰化・アジア特別枠の人数。出場交代の枠と同じ判定。shared/foreignOnCourt.ts）
   const lineupForeignCount = (row: GameLineupRow) => foreignCountInLineup(row.playerIds, (id) => classificationById.get(id));
   const maxForeignOnCourt = seasonRules?.find((r) => r.season === game.season)?.maxForeignOnCourt;
-  const homeLineupTotals = rangeTotals(selectedLineupPeriodOption, periodBoundaries, game.quarterScores.home, game.quarterScores.away);
-  const awayLineupTotals = rangeTotals(selectedLineupPeriodOption, periodBoundaries, game.quarterScores.away, game.quarterScores.home);
+  const homeLineupTotals = rangeTotals(selectedLineupPeriodOption, periodBoundaries, quarterScores.home, quarterScores.away);
+  const awayLineupTotals = rangeTotals(selectedLineupPeriodOption, periodBoundaries, quarterScores.away, quarterScores.home);
   const lineupPlayerSurnames = buildSurnameMap(
     [homePlayers, awayPlayers].map((rows) => rows.map((r) => ({ id: r.PlayerID, name: r.PlayerNameJ }))),
   );
 
-  const homeCum = cumulativeScores(game.quarterScores.home);
-  const awayCum = cumulativeScores(game.quarterScores.away);
+  const homeCum = cumulativeScores(quarterScores.home);
+  const awayCum = cumulativeScores(quarterScores.away);
 
   return (
     <div className="game-detail-page" data-design="v2">
@@ -530,7 +533,7 @@ export function GameDetailPage({ season }: { season: string }) {
                       <ResponsiveTeamName teamId={game.homeTeam.id} name={game.homeTeam.name} />
                     </Link>
                   </td>
-                  {game.quarterScores.home.map((s, i) => (
+                  {quarterScores.home.map((s, i) => (
                     <td key={i}>{s}</td>
                   ))}
                   <td>
@@ -543,7 +546,7 @@ export function GameDetailPage({ season }: { season: string }) {
                       <ResponsiveTeamName teamId={game.awayTeam.id} name={game.awayTeam.name} />
                     </Link>
                   </td>
-                  {game.quarterScores.away.map((s, i) => (
+                  {quarterScores.away.map((s, i) => (
                     <td key={i}>{s}</td>
                   ))}
                   <td>
