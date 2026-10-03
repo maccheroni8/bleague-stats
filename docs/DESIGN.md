@@ -11156,3 +11156,4 @@ GitHub Pages はデータのファイルに `Cache-Control: max-age=600` を返�
   - 9/23にbotのコミットを `workflow_run` で自動デプロイする形にして以来の不具合（push経由のデプロイは影響なし）
 - **「進行中」を決めるデータ**: 日程ページ・チーム詳細の日程結果は `games-summary.json` の `gameEndedFlg`（false なら「進行中」）。試合詳細の「試合中」は試合ごとのファイル（`games/{scheduleKey}.json`）の `gameEndedFlg`。ホームの最近の試合・順位表などは `gameEndedFlg` が true の試合だけを使う。`schedule.json` は開催予定（`upcomingGames`）を持つだけで、試合中の状態は持たない。2試合とも、mainでは `games-summary.json` と試合ごとのファイルの両方が終了済み（`gameEndedFlg: true`）に直っていて、データ側に試合中の状態は残っていない
 - **修正**: `deploy.yml` の取得を `ref: ${{ github.sha }}` にした。`github.sha` は、push ではpushされたコミット、`workflow_run`・`workflow_dispatch` ではmainの最新のコミット。どのイベントでも、その時点のmainの最新をビルドする
+- **公開サイトのコミットの確認（追加）**: ビルドしたコミットを、HTMLの `<meta name="build-commit">`（コミットの全桁）と `<meta name="build-time">`（ビルド時刻、UTC）に埋め込む（`vite.config.ts` の `build-info-meta`。画面には出さない）。コミットは `git rev-parse HEAD`（取れなければ `GITHUB_SHA`）。確かめ方は `CLAUDE.md` に書いた。今後、公開サイトが最新のコミットの内容かを、データの中身を見なくても確かめられる
