@@ -7,7 +7,7 @@ interface PeriodRangeToggleProps {
 }
 
 /**
- * 試合/1Q/2Q/3Q/4Q/前半/後半/(OT/OT1…)を切り替える汎用トグル。
+ * 試合/1Q/2Q/3Q/4Q/(OT1/OT2…)/前半/後半/(OT)を切り替える汎用トグル。
  * ショットチャート・ボックススコア等、Period単位のデータを持つ画面で共用する想定。
  */
 export function PeriodRangeToggle({ options, value, onChange }: PeriodRangeToggleProps) {

@@ -26,3 +26,12 @@ export function gamePeriodScores(game: StoredGame): { home: number[]; away: numb
   if (sum(home) !== game.homeScore || sum(away) !== game.awayScore) return official;
   return { home, away };
 }
+
+/**
+ * 延長戦のあった試合か。保存した `quarterScores` が5ピリオド以上、または集計行に延長（PeriodCategory 5〜14）がある試合。
+ * 2016-17〜2019-20の延長戦は `quarterScores` が4ピリオド分なので、集計行でも判定する
+ */
+export function gameHasOvertime(game: StoredGame): boolean {
+  if (game.quarterScores.home.length > 4) return true;
+  return (game.raw.Summaries ?? []).some((s) => s.PeriodCategory >= 5 && s.PeriodCategory <= 14);
+}

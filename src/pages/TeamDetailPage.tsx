@@ -76,6 +76,7 @@ import {
   type FilterAxis,
 } from "../lib/filterAxes";
 import { periodInRange, type PeriodRangeValue } from "../lib/periodRange";
+import { gameHasOvertime } from "../lib/gamePeriods";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
@@ -1629,8 +1630,8 @@ function buildSituationalRecordGroups(
       label: "延長",
       needsRawGame: true,
       rows: [
-        { key: "ot", label: "OT試合", predicate: (_g, raw) => !!raw && raw.quarterScores.home.length > 4 },
-        { key: "regulation", label: "レギュレーション決着", predicate: (_g, raw) => !!raw && raw.quarterScores.home.length <= 4 },
+        { key: "ot", label: "OT試合", predicate: (_g, raw) => !!raw && gameHasOvertime(raw) },
+        { key: "regulation", label: "レギュレーション決着", predicate: (_g, raw) => !!raw && !gameHasOvertime(raw) },
       ],
     },
     {
