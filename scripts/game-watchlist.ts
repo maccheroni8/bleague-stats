@@ -9,7 +9,6 @@
 // check の出力:
 //   - 標準出力に、変化・解消・期間終了を「見張り：506412 交代の記録が変化」の形で出す（::notice:: 付きでジョブの実行画面にも出る）
 //   - 環境変数 WATCH_SUMMARY_FILE があれば、その1行ずつをファイルに書く（コミットメッセージ用）
-//   - 環境変数 WATCH_SEASONS_FILE があれば、記録が変わった試合のシーズン（"2025-26" / "2025-26 one"）を1行ずつ書く（再集計用）
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -70,7 +69,6 @@ async function runCheck(): Promise<void> {
   const snaps = await readSnapshots();
   const today = todayJst();
   const summary: string[] = [];
-  const changedSeasons = new Set<string>();
   const active = file.entries.filter((e) => e.status === "watching");
   console.log(`[見張り] 見張り中 ${active.length}試合（一覧 ${file.entries.length}試合）`);
   let fileDirty = false;
@@ -103,7 +101,6 @@ async function runCheck(): Promise<void> {
       entry.history.push({ at: new Date().toISOString(), changes, diagnosis });
       fileDirty = true;
       summary.push(`見張り：${entry.scheduleKey} ${changes.join("、")}`);
-      changedSeasons.add(entry.category === "premier" ? entry.season : `${entry.season} ${entry.category}`);
     }
     if (!old || changes.length > 0) snaps[id] = snap;
 
@@ -128,7 +125,6 @@ async function runCheck(): Promise<void> {
   await writeSnapshots(snaps);
   for (const line of summary) notice(line);
   if (process.env.WATCH_SUMMARY_FILE && summary.length > 0) writeFileSync(process.env.WATCH_SUMMARY_FILE, `${summary.join("\n")}\n`);
-  if (process.env.WATCH_SEASONS_FILE && changedSeasons.size > 0) writeFileSync(process.env.WATCH_SEASONS_FILE, `${[...changedSeasons].join("\n")}\n`);
   console.log(`[見張り] 変化 ${summary.length}件${failed > 0 ? `、取得失敗 ${failed}試合` : ""}`);
   if (failed > 0) process.exitCode = 1;
 }

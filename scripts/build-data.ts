@@ -12,6 +12,7 @@
 //   npm run build:data -- export 2024-25 <出力先>       そのシーズンの導出データを <出力先>/data/ 以下に写す（デプロイの保存・受け渡し用）
 //   npm run build:data -- clean                        導出データをすべて消す（デプロイは、リポジトリに残っている導出データに左右されないよう、作る前に必ず呼ぶ）
 //   npm run build:data -- check-layout                 data/ の全ファイルが A か B に仕分け済みかを確かめる
+//   npm run build:data -- check-staged                 ステージ済み（git add 済み）の data/ のファイルに、導出データ・仕分け外が混ざっていないかを確かめる（夜間実行のコミット前）
 //
 // シーズンごとの集計: aggregate（B.PREMIER と、あれば B.ONE）→ 選手の1試合の記録（シーズン）→ 比較用のリーグ平均
 // 全シーズンをまたぐ集計: 収録シーズンの一覧 → チーム歴代 → キャリア → 個人歴代 → 選手の1試合の記録（歴代）
@@ -196,6 +197,22 @@ async function main(): Promise<void> {
   if (sub === "clean") {
     cleanDerived();
     console.log("導出データをすべて消しました");
+    return;
+  }
+  if (sub === "check-staged") {
+    const r = spawnSync("git", ["diff", "--cached", "--name-only", "-z", "--", "data"], { cwd: ROOT, encoding: "utf-8" });
+    if (r.status !== 0) throw new Error("git diff --cached に失敗しました");
+    const bad = r.stdout.split("\0").filter(Boolean).map((f) => f.replace(/^data\//, "")).filter((rel) => {
+      const kind = classifyDataPath(rel);
+      return kind === "derived" || kind === "unknown";
+    });
+    if (bad.length > 0) {
+      console.error("コミットに入れてはいけないファイル（導出データ、または仕分け外）がステージされています:");
+      for (const b of bad.slice(0, 30)) console.error(`  data/${b}`);
+      process.exitCode = 1;
+    } else {
+      console.log("ステージ済みのファイルは元データだけです");
+    }
     return;
   }
   if (sub === "check-layout") {
