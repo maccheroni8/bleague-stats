@@ -10,6 +10,8 @@
 //   npm run build:data -- plan                         デプロイ用: 現在のシーズンと、過去シーズンごとの保存キーを出力する
 //   npm run build:data -- key 2024-25                  そのシーズンの保存キー（元データ・シーズンをまたいで読む元データ・集計のコードの内容から作る）
 //   npm run build:data -- export 2024-25 <出力先>       そのシーズンの導出データを <出力先>/data/ 以下に写す（デプロイの保存・受け渡し用）
+//   npm run build:data -- restore <保存先>             保存先（manifest.json と data/）から、保存キーが今と同じ過去シーズンの導出データを data/ に戻し、作り直すシーズンを出力する
+//   npm run build:data -- save <保存先>                過去シーズンすべての導出データと保存キー（manifest.json）を保存先に書く
 //   npm run build:data -- clean                        導出データをすべて消す（デプロイは、リポジトリに残っている導出データに左右されないよう、作る前に必ず呼ぶ）
 //   npm run build:data -- check-layout                 data/ の全ファイルが A か B に仕分け済みかを確かめる
 //   npm run build:data -- check-staged                 ステージ済み（git add 済み）の data/ のファイルに、導出データ・仕分け外が混ざっていないかを確かめる（夜間実行のコミット前）
@@ -19,7 +21,7 @@
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { appendFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -263,11 +265,58 @@ async function main(): Promise<void> {
     const current = currentSeason();
     const past = seasonsWithGames().filter((s) => s < current);
     const matrix = { include: past.map((season) => ({ season, key: seasonKey(season) })) };
-    console.log(JSON.stringify({ current, ...matrix }, null, 2));
+    // 過去シーズンすべての保存キーをまとめたキー（保存の名前に使う。どれか1つでも変われば変わる）
+    const allKey = createHash("sha256").update(matrix.include.map((m) => `${m.season}:${m.key}`).join("\n")).digest("hex").slice(0, 32);
+    console.log(JSON.stringify({ current, allKey, ...matrix }, null, 2));
     const out = process.env.GITHUB_OUTPUT;
     if (out) {
-      await appendFile(out, `current=${current}\nmatrix=${JSON.stringify(matrix)}\n`);
+      await appendFile(out, `current=${current}\nall_key=${allKey}\nmatrix=${JSON.stringify(matrix)}\n`);
     }
+    return;
+  }
+  if (sub === "restore") {
+    const dir = path.resolve(args[1] ?? "");
+    if (!args[1]) throw new Error("使い方: build-data.ts restore <保存先>");
+    const manifestPath = path.join(dir, "manifest.json");
+    const manifest: Record<string, string> = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf-8")) : {};
+    const current = currentSeason();
+    const past = seasonsWithGames().filter((s) => s < current);
+    const missing: string[] = [];
+    for (const season of past) {
+      if (manifest[season] !== seasonKey(season)) {
+        missing.push(season);
+        continue;
+      }
+      for (const p of seasonDerivedPaths(DATA, season)) {
+        const src = path.join(dir, "data", path.relative(DATA, p));
+        if (!existsSync(src)) continue;
+        mkdirSync(path.dirname(p), { recursive: true });
+        cpSync(src, p, { recursive: true });
+      }
+    }
+    console.log(`保存から戻したシーズン: ${past.length - missing.length}／${past.length}。作り直すシーズン: ${missing.join(" ") || "なし"}`);
+    const out = process.env.GITHUB_OUTPUT;
+    if (out) await appendFile(out, `missing=${missing.join(" ")}\n`);
+    return;
+  }
+  if (sub === "save") {
+    const dir = path.resolve(args[1] ?? "");
+    if (!args[1]) throw new Error("使い方: build-data.ts save <保存先>");
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(dir, { recursive: true });
+    const current = currentSeason();
+    const manifest: Record<string, string> = {};
+    for (const season of seasonsWithGames().filter((s) => s < current)) {
+      manifest[season] = seasonKey(season);
+      for (const p of seasonDerivedPaths(DATA, season)) {
+        if (!existsSync(p)) continue;
+        const dest = path.join(dir, "data", path.relative(DATA, p));
+        mkdirSync(path.dirname(dest), { recursive: true });
+        cpSync(p, dest, { recursive: true });
+      }
+    }
+    writeFileSync(path.join(dir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    console.log(`${Object.keys(manifest).length}シーズンを ${args[1]} に保存しました`);
     return;
   }
   if (sub === "export") {

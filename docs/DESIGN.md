@@ -11411,3 +11411,10 @@ GitHub Pages はデータのファイルに `Cache-Control: max-age=600` を返�
 - 段階2で決めた範囲（`scripts/aggregate*`・`scripts/lib/`・`shared/`・`src/lib/` 全体）では、画面だけの変更（`src/lib/` の表示用のファイルなど）でも、過去のシーズンの保存キーが変わって全シーズンを作り直していた。入口のスクリプト（`build-data.ts`・`aggregate.ts`・`aggregate-player-game-records.ts`・`aggregate-league-compare.ts`）から、実行時の `import` でたどれるファイル（型だけの `import type` はたどらない）と `package-lock.json` だけにした（`scripts/lib/dataLayout.ts` の `BUILD_CODE_ENTRIES`）。今は38ファイル（入口の `scripts/` 4・`scripts/lib/` 11・`shared/` 17・`src/lib/` 5・`package-lock.json`）。一覧は `npm run build:data -- code-files` で見られる
 - 確認: `TeamDetailPage.tsx`・`lineupSearch.ts`・`statDescriptions.ts` を変えても過去シーズンの保存キーは変わらず、`format.ts`（集計が使う）や `shared/onCourt.ts` を変えると変わる
 - 全シーズンをまたぐ集計（歴代ランキングなど）は毎回作るので、キーに含めない
+
+### 206-3. デプロイを1つのジョブにまとめる（2026-10-05）
+- **変更**（`.github/workflows/deploy.yml`）: 段階2では、過去のシーズンをシーズンごとの別ジョブ（`past-seasons`）で作り、成果物（artifact）で `build` に渡していた。これをやめて、`build` の1つのジョブの中で、過去のシーズンの導出データを**1つのキャッシュにまとめて**戻す形にした。ジョブは `check` → `build` → `deploy` の3つ
+- **仕組み**: キャッシュの中身は、過去のシーズンごとの導出データと、そのシーズンの保存キーを並べた `manifest.json`。保存の名前は `derived-v2-{過去シーズンすべての保存キーから作った値}`。(1) `build-data.ts plan` が名前を作る、(2) キャッシュに同じ名前があればそのまま戻す。無ければ `restore-keys`（`derived-v2-`）で一番新しい保存を戻す、(3) `build-data.ts restore` が、`manifest.json` の保存キーが今と同じシーズンだけ `data/` に戻し、違うシーズン（保存が何も無いときは全部）を `missing` に出す、(4) `missing` のシーズンだけ、同じジョブの中で順に作る（`--season … --season-only`）、(5) 名前が見つからなかった（過去シーズンの保存キーが変わった）ときだけ、`build-data.ts save` で新しい保存を書く（ジョブの最後に GitHub が保存する）、(6) 今のシーズンと全シーズンをまたぐ集計を作り、`vite build`
+- **シーズンごとのキー**の考え方（そのシーズンの元データ・シーズンをまたいで読む元データ・集計のコード）は段階2のまま。保存の名前に全シーズンの値をまとめたので、1シーズンだけ変わった回は、前の保存からそのシーズンだけ作り直す
+- **試験の実測**（試験用ブランチ、GitHub Actions。実行全体）: 保存なし（初回）3分10秒、保存あり 1分00秒・1分11秒・1分30秒、過去1シーズンの元データだけ変えた回 1分12秒（9シーズンを戻し、1シーズンを約5秒で作り直し）。段階2の別ジョブ方式は、保存なし2分35秒〜2分56秒、保存あり1分58秒〜2分41秒
+- **トレードオフ**: 保存なし（集計のコードや選手マスタなどの共通の元データが変わった回）は、10シーズンを順に作るため、別ジョブ方式より15〜35秒遅い。普段の保存あり・1シーズンだけ変わった回は、約半分になった
