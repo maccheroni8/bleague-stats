@@ -1,0 +1,76 @@
+name: Watch Update Stats
+
+# データ更新（update-stats.yml）が止まっていないかを見張る。更新のワークフローとは別のファイルにしてある:
+# 更新側のファイルが無効になると外部（cron-job.org）からの起動も予備の定時実行もまとめて止まるため（DESIGN.md 208章）、
+# それとは別のファイルで動く見張りを、二重の備えにする。
+# - 更新の30分おきの実行は、試合の無い時間帯も「新着なしで即終了」として成功で終わる。
+#   そのため「STALE_HOURS 時間以上、成功した実行が無い」を停止とみなせる
+# - 停止とみなしたら Issue を1件立てる。同じラベルの Issue が開いている間は重ねて立てない
+# - 成功した実行が戻ったら、開いている Issue にコメントして閉じる
+
+on:
+  schedule:
+    - cron: "23 * * * *" # 毎時23分（更新の実行の07/22/37/52分とずらす）
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: watch-update-stats
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  UPDATE_WORKFLOW: update-stats.yml
+  STALE_HOURS: "6"
+  ISSUE_LABEL: update-stalled
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the last successful update run
+        run: |
+          set -euo pipefail
+          last=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$UPDATE_WORKFLOW" \
+            --status success --limit 1 --json createdAt --jq '.[0].createdAt // ""')
+          now=$(date -u +%s)
+          if [ -n "$last" ]; then
+            age_hours=$(( (now - $(date -u -d "$last" +%s)) / 3600 ))
+          else
+            age_hours=9999
+          fi
+          echo "last_success=${last:-none} age_hours=$age_hours"
+
+          gh label create "$ISSUE_LABEL" --repo "$GITHUB_REPOSITORY" \
+            --description "データ更新が止まっている" --color B60205 2>/dev/null || true
+          open=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "$ISSUE_LABEL" --state open \
+            --json number --jq '.[0].number // ""')
+
+          if [ "$age_hours" -ge "$STALE_HOURS" ]; then
+            if [ -n "$open" ]; then
+              echo "停止中（Issue #$open は作成済みのため重ねて立てない）"
+              exit 0
+            fi
+            body="データ更新のワークフロー（${UPDATE_WORKFLOW}）で、成功した実行が ${STALE_HOURS} 時間以上ありません。
+
+          - 最後に成功した実行の開始: ${last:-なし}（UTC）
+          - 確認時刻: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          確認すること:
+          1. [実行の一覧](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/workflows/${UPDATE_WORKFLOW}) に「workflow file issue」の失敗や、起動そのものが無い時間帯がないか
+          2. cron-job.org の履歴と通知
+          3. 実行が失敗している場合は、失敗した手順のログ
+
+          復旧して成功した実行が出ると、この Issue は自動で閉じます。"
+            gh issue create --repo "$GITHUB_REPOSITORY" --label "$ISSUE_LABEL" \
+              --title "データ更新が ${STALE_HOURS} 時間以上成功していません" --body "$body"
+          elif [ -n "$open" ]; then
+            gh issue comment "$open" --repo "$GITHUB_REPOSITORY" \
+              --body "成功した実行が戻りました（開始 ${last}）。閉じます。"
+            gh issue close "$open" --repo "$GITHUB_REPOSITORY"
+          fi
