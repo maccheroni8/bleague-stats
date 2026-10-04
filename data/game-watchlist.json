@@ -42,7 +42,7 @@
       "reason": "公式の+/-と記録の並びが食い違う（三河の須田・角野。4Q残り2:54、フリースロー2本のあとに記録された交代を、公式の+/-はフリースローの前として数えている）。公式の確定前（recordFixedFlg false）に取得",
       "foundAt": "2026-10-04",
       "watchUntil": "2026-12-03",
-      "status": "watching",
+      "status": "resolved",
       "check": "plusMinus",
       "diagnosisAtFound": {
         "warnings": 2,
@@ -50,7 +50,22 @@
         "unreconstructedSeconds": 0,
         "plusMinusMismatches": 2
       },
-      "history": []
+      "history": [
+        {
+          "at": "2026-10-04T18:51:40.325Z",
+          "changes": [
+            "recordFixedFlg false→true",
+            "得点・交代の並びが変化"
+          ],
+          "diagnosis": {
+            "warnings": 2,
+            "orderRepairs": 0,
+            "unreconstructedSeconds": 0,
+            "plusMinusMismatches": 0
+          }
+        }
+      ],
+      "closedAt": "2026-10-05"
     },
     {
       "scheduleKey": "505096",
