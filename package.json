@@ -6,6 +6,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "predev": "node --experimental-strip-types scripts/build-data.ts --if-missing",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -31,7 +32,8 @@
     "validate:oncourt": "node --experimental-strip-types scripts/validate-oncourt.ts",
     "check:rule-change": "node --experimental-strip-types scripts/check-rule-change.ts",
     "validate:points-off-turnovers": "node --experimental-strip-types scripts/validate-points-off-turnovers.ts",
-    "typecheck": "tsc -p tsconfig.scripts.json --noEmit && tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.scripts.json --noEmit && tsc -p tsconfig.json --noEmit",
+    "build:data": "node --experimental-strip-types scripts/build-data.ts"
   },
   "dependencies": {
     "cheerio": "^1.0.0",

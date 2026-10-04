@@ -13,19 +13,22 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import { DATA_DIR, readJson, seasonDirName } from "./lib/storage.ts";
+import { DATA_DIR, readAllGames, readJson, seasonDirName } from "./lib/storage.ts";
+import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import { FALLBACK_TIPOFF_TIME, TIPOFF_GRACE_HOURS, isDue } from "./lib/pendingGames.ts";
-import type { Category, GameSummary, ScheduleFile } from "../shared/types.ts";
+import type { Category, ScheduleFile } from "../shared/types.ts";
 
 export async function hasPendingGames(season: string, category: Category = "premier"): Promise<boolean> {
   const schedulePath = path.join(DATA_DIR, seasonDirName(season, category), "schedule.json");
   const schedule = await readJson<ScheduleFile>(schedulePath);
   const upcoming = schedule?.upcomingGames ?? [];
-  // 生データ取得済みの試合（games-summary.json）。schedule.jsonは同じ実行内でボックススコア取得より
-  // 先に書かれるため、取得済みの試合がupcomingGamesに一時的に残っていることがある
-  const summaries =
-    (await readJson<GameSummary[]>(path.join(DATA_DIR, seasonDirName(season, category), "games-summary.json"))) ?? [];
+  // 生データ取得済みの試合（games/ の生データ。オールスター等は除く）。schedule.jsonは同じ実行内でボックススコア取得より
+  // 先に書かれるため、取得済みの試合がupcomingGamesに一時的に残っていることがある。
+  // 導出データ（games-summary.json）はデプロイのときに作る（コミットに無い）ので、生データから直接読む（DESIGN.md 206章）
+  const summaries = (await readAllGames(season, category))
+    .filter((g) => !isExhibitionGame(g.raw.Game.ConventionNameJ))
+    .map((g) => ({ scheduleKey: g.scheduleKey, date: g.date, homeTeamName: g.homeTeam.name, awayTeamName: g.awayTeam.name, homeScore: g.homeScore, awayScore: g.awayScore, gameEndedFlg: g.gameEndedFlg }));
   const stored = new Set(summaries.map((g) => g.scheduleKey));
   const now = Date.now();
 

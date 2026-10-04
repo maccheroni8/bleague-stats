@@ -11342,3 +11342,13 @@ GitHub Pages はデータのファイルに `Cache-Control: max-age=600` を返�
 - **変更前の実測（ベースライン）**: 直近の7日（9/27〜10/3）に、botがコミットした試合ファイルの新しい版は236（B.ONEを除く）。試合のない日（9/28〜10/1）も毎晩26版ずつ（確認時刻だけの書き直し）
 - **効果の確認**: 入れてから1週間ほどあとに、試合ファイルの版の増え方（1日あたりの新しい版の数、試合のない日の数、生データが変わった版との比）を同じ方法で数えて報告する
 
+
+## 206. 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（リポジトリの増え方を抑える。2026-10-05〜）
+
+- **背景**: 履歴の大きさの調査（205章）で、リポジトリの増え方の大半は、元データから毎回同じ結果を作り直せる集計結果（選手の試合ログ・ラインナップ・歴代ランキングなど）を、再集計のたびにコミットしていることだった（1か月で172MB。手動の再集計143MB、botの更新29MB）。元データだけをコミットし、集計結果はデプロイのときに作る（案3。ユーザー決定 2026-10-05）
+- **仕分け**（`scripts/lib/dataLayout.ts` が正。data/ の全ファイルを A か B に分ける。新しい種類のファイルを足すときはここに書く。`npm run build:data -- check-layout` が、仕分け済みかを確かめる）:
+  - **A（コミットに残す。約245MB）**: 試合の生データ（`games/`。B.ONEは `one/games/`）、スポーツナビの記録（`yahoo/`）、日程（`schedule.json`。ティップオフ時刻の保持と開催予定を持つ）、選手マスタ（`players-master`）、1月15日の固定（`season-profiles`）、在籍中の選手名簿（`current-roster`）、当時の名簿・ポジション（`season-rosters`・`season-positions`。Waybackの当時の値を含む）、地区・クラブ・チーム・賞・規則・選手履歴（`division-history`・`club-honors`・`team-history`・`team-colors`・`season-rules`・`player-history`・`player-awards`）、見張りの一覧と前回の版（`game-watchlist`・`game-watchlist-snapshots`）、選手写真・ロゴ（`player-photos`・`player-photos-manifest`・`logos`）
+  - **B（デプロイのときに作る。約34MB）**: シーズンごと（`data/{season}/` と `one/`）の `players`・`teams`・`player-games/`・`team-games/`・`lineups/`・`team-stints/`・`games-summary`・`standings-history`・`head-to-head`・`league-average`・`period-averages`・`playoff-race`・`registered-players`・`player-game-records`・`league-compare`。全シーズンをまたぐ `seasons`・`player-page-seasons`・`player-careers`・`league-team-rankings`・`league-player-rankings`・`league-player-career-top`・`league-player-game-records`
+- **作り方**: `npm run build:data`（`scripts/build-data.ts`）。シーズンごとの集計（aggregate → B.ONEがあれば aggregate → 選手の1試合の記録 → 比較用のリーグ平均）を全シーズン行い、続けて全シーズンをまたぐ集計（収録シーズン一覧 → チーム歴代 → キャリア → 個人歴代 → 選手の1試合の記録（歴代））を行う。`--season 2026-27`（そのシーズンと、導出データがまだ無いシーズンを作り、全体を作り直す）、`--season-only`（そのシーズンだけ）、`--cross-only`、`--if-missing`（`npm run dev` の起動前に自動で呼ぶ）、`--clean`（導出データを消してから）。最後に各ステップの所要時間を出す
+- **導出データを元データから読む箇所の直し**: 30分おきの確認（`check-pending-games.ts`）が、導出データの `games-summary.json` を読んでいたため、生データ（`games/`）から直接読む形にした（オールスター等を除く条件と、`gameEndedFlg` の見方は同じ。結果は変わらない）。導出データを読む手元用のスクリプト（`scrape-club-honors`・`scrape-wayback-profiles`・`backfill-legacy-player-photos`）は、先に `npm run build:data` を実行しておく
+- **段階**（それぞれ別のコミット）: (1) 作成の仕組み（このコミット）、(2) デプロイで作る、(3) 夜間実行を元データだけのコミットにする、(4) 文書、(5) 導出データの追跡を外す（切り替えの確認が全部済んでから）

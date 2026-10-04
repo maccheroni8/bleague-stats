@@ -264,7 +264,7 @@ async function buildShotTypeBreakdowns(
  * 選手ごとの、個人ページがある（players.json に居る）一番新しいシーズン（B.PREMIER。DESIGN.md 174章）。
  * どのシーズンを集計しても全シーズンの players.json から作り直すので、進行中のシーズンで初めて出場した選手もすぐ反映される
  */
-async function regeneratePlayerPageSeasonsFile(): Promise<void> {
+export async function regeneratePlayerPageSeasonsFile(): Promise<void> {
   const entries = await readdir(DATA_DIR, { withFileTypes: true });
   const seasons = entries.filter((e) => e.isDirectory() && SEASON_DIR_PATTERN.test(e.name)).map((e) => e.name).sort();
   const latestSeason: Record<string, string> = {};
@@ -278,7 +278,7 @@ async function regeneratePlayerPageSeasonsFile(): Promise<void> {
   await writeJsonIfChanged(path.join(DATA_DIR, "player-page-seasons.json"), file as unknown as Record<string, unknown>);
 }
 
-async function regenerateSeasonsFile(): Promise<void> {
+export async function regenerateSeasonsFile(): Promise<void> {
   const entries = await readdir(DATA_DIR, { withFileTypes: true });
   const candidates = entries
     .filter((e) => e.isDirectory() && SEASON_DIR_PATTERN.test(e.name))
@@ -2501,10 +2501,16 @@ function buildHeadToHead(
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  // 全シーズンの集計が終わったあとに、収録シーズンの一覧と選手ごとの最新シーズンだけを作り直す（npm run build:data が使う。DESIGN.md 206章）
+  if (args.includes("--index-only")) {
+    await regenerateSeasonsFile();
+    await regeneratePlayerPageSeasonsFile();
+    return;
+  }
   const seasonIndex = args.indexOf("--season");
   const season = seasonIndex !== -1 ? args[seasonIndex + 1] : undefined;
   if (!season) {
-    console.error("使い方: aggregate.ts --season 2025-26 [--category one]");
+    console.error("使い方: aggregate.ts --season 2025-26 [--category one]（または --index-only）");
     process.exitCode = 1;
     return;
   }
