@@ -764,12 +764,13 @@ const HONOR_CATEGORY_ORDER: ClubHonor["category"][] = ["overall", "emperors_cup"
 
 // Phase H4（2026-08-29）: 「スタッツ」タブを「チームスタッツ」に改名し、概要と選手スタッツの間に
 // 移動した。オブジェクトのキー順序がそのままタブバーの表示順になる（DetailTabの並びに準拠）
-type DetailTab = "overview" | "teamStats" | "playerStats" | "schedule" | "headToHead" | "career" | "clubRecord" | "compare";
+type DetailTab = "overview" | "teamStats" | "playerStats" | "lineups" | "schedule" | "headToHead" | "career" | "clubRecord" | "compare";
 
 const TAB_LABELS: Record<DetailTab, string> = {
   overview: "概要",
   teamStats: "チームスタッツ",
   playerStats: "選手スタッツ",
+  lineups: "ラインナップ",
   schedule: "日程結果",
   headToHead: "対戦成績",
   career: "通算成績",
@@ -2031,14 +2032,15 @@ export function TeamDetailPage({ season }: { season: string }) {
   const pbpSupported = isPbpSupported(coverage);
 
   const [tab, setTabState] = usePageState<DetailTab>(pk("tab"), "overview");
-  // 「対戦成績」タブはURLにも載せる（?tab=h2h&vs=相手のID。DESIGN.md 185章）。そのURLを開いたときはこのタブから始める
-  const [urlTab, setUrlTab] = useUrlState(enumParam<"" | "h2h">("tab", ["", "h2h"], ""), "");
+  // 「対戦成績」「ラインナップ」タブはURLにも載せる（?tab=h2h&vs=相手のID、?tab=lineups。DESIGN.md 185章・207章）。そのURLを開いたときはこのタブから始める
+  const [urlTab, setUrlTab] = useUrlState(enumParam<"" | "h2h" | "lineups">("tab", ["", "h2h", "lineups"], ""), "");
   const setTab = (next: DetailTab) => {
     setTabState(next);
-    setUrlTab(next === "headToHead" ? "h2h" : "");
+    setUrlTab(next === "headToHead" ? "h2h" : next === "lineups" ? "lineups" : "");
   };
   useEffect(() => {
     if (urlTab === "h2h") setTabState("headToHead");
+    if (urlTab === "lineups") setTabState("lineups");
     // 開いたときのURLだけを見る
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -4274,6 +4276,79 @@ export function TeamDetailPage({ season }: { season: string }) {
 
           <ConditionTitle
             section
+            title="アシスト経由の得点パターン"
+            conditions={composeLabels(seasonLabel, gameTypeLabels("regular", null), periodLabels(undefined))}
+          />
+          {coverageLoading ? (
+            <p className="loading">読み込み中...</p>
+          ) : !pbpSupported ? (
+            <p className="empty-message">このシーズンのデータには対応していません</p>
+          ) : !assistPairsDataReady ? (
+            <p className="loading">読み込み中...</p>
+          ) : teamAssistPairs.length === 0 ? (
+            <p className="empty-message">アシスト経由の得点パターンがありません</p>
+          ) : (
+            <>
+              <div className="table-scroll">
+                <table className="sortable-table">
+                  <thead>
+                    <tr>
+                      <th className="align-left">アシスト元選手</th>
+                      <th className="align-left">得点選手</th>
+                      <th className="align-right" title={statDescription("アシスト回数")}>アシスト回数</th>
+                      <th className="align-right" title={statDescription("回数割合")}>回数割合</th>
+                      <th className="align-right" title={statDescription("アシスト経由得点数")}>アシスト経由得点数</th>
+                      <th className="align-right" title={statDescription("得点割合")}>得点割合</th>
+                      <th className="align-right" title={statDescription("2P成功数")}>2P成功数</th>
+                      <th className="align-right" title={statDescription("2P割合")}>2P割合</th>
+                      <th className="align-right" title={statDescription("3P成功数")}>3P成功数</th>
+                      <th className="align-right" title={statDescription("3P割合")}>3P割合</th>
+                      <th className="align-right" title={statDescription("FT成功数")}>FT成功数</th>
+                      <th className="align-right" title={statDescription("FT割合")}>FT割合</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedAssistPairs.map((p) => {
+                      const points = p.assisted2m * 2 + p.assisted3m * 3 + p.assistedFtm;
+                      const scorerTotal = teamAssistScorerTotals.get(p.scorerId);
+                      const countSharePct = scorerTotal && scorerTotal.count > 0 ? (100 * p.count) / scorerTotal.count : null;
+                      const pointsSharePct = scorerTotal && scorerTotal.points > 0 ? (100 * points) / scorerTotal.points : null;
+                      return (
+                        <tr key={`${p.assisterId}:${p.scorerId}`}>
+                          <td className="align-left">{playerLabel(playerNameById.get(p.assisterId) ?? p.assisterId)}</td>
+                          <td className="align-left">{playerLabel(playerNameById.get(p.scorerId) ?? p.scorerId)}</td>
+                          <td className="align-right">{p.count}</td>
+                          <td className="align-right">{countSharePct != null ? formatPct100(countSharePct) : "-"}</td>
+                          <td className="align-right">{points}</td>
+                          <td className="align-right">{pointsSharePct != null ? formatPct100(pointsSharePct) : "-"}</td>
+                          <td className="align-right">{p.assisted2m}</td>
+                          <td className="align-right">{formatPct100((100 * p.assisted2m) / p.count)}</td>
+                          <td className="align-right">{p.assisted3m}</td>
+                          <td className="align-right">{formatPct100((100 * p.assisted3m) / p.count)}</td>
+                          <td className="align-right">{p.assistedFtm}</td>
+                          <td className="align-right">{formatPct100((100 * p.assistedFtm) / p.count)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {teamAssistPairs.length > MAX_ASSIST_PAIR_ROWS && (
+                <button className="load-more-button" type="button" onClick={() => setAssistPairsExpanded((v) => !v)}>
+                  {assistPairsExpanded
+                    ? `上位${MAX_ASSIST_PAIR_ROWS}パターンのみ表示`
+                    : `全パターン表示（全${teamAssistPairs.length}パターン）`}
+                </button>
+              )}
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.assists} label="アシストの組み合わせ" scope="レギュラーシーズンの値です。" />
+            </>
+          )}
+        </div>
+      )}
+
+      {tab === "lineups" && (
+        <div className="team-tab-panel">
+          <ConditionTitle
             title={`よく使われるラインナップ ${eligibleLineups.length}パターン（全${allLineups.length}パターン中）`}
             conditions={composeLabels(
               seasonLabel,
@@ -4360,76 +4435,6 @@ export function TeamDetailPage({ season }: { season: string }) {
             playerLabel={playerLabel}
             supported={pbpSupported && substitutionModelForSeason(season) === "modern"}
           />
-
-          <ConditionTitle
-            section
-            title="アシスト経由の得点パターン"
-            conditions={composeLabels(seasonLabel, gameTypeLabels("regular", null), periodLabels(undefined))}
-          />
-          {coverageLoading ? (
-            <p className="loading">読み込み中...</p>
-          ) : !pbpSupported ? (
-            <p className="empty-message">このシーズンのデータには対応していません</p>
-          ) : !assistPairsDataReady ? (
-            <p className="loading">読み込み中...</p>
-          ) : teamAssistPairs.length === 0 ? (
-            <p className="empty-message">アシスト経由の得点パターンがありません</p>
-          ) : (
-            <>
-              <div className="table-scroll">
-                <table className="sortable-table">
-                  <thead>
-                    <tr>
-                      <th className="align-left">アシスト元選手</th>
-                      <th className="align-left">得点選手</th>
-                      <th className="align-right" title={statDescription("アシスト回数")}>アシスト回数</th>
-                      <th className="align-right" title={statDescription("回数割合")}>回数割合</th>
-                      <th className="align-right" title={statDescription("アシスト経由得点数")}>アシスト経由得点数</th>
-                      <th className="align-right" title={statDescription("得点割合")}>得点割合</th>
-                      <th className="align-right" title={statDescription("2P成功数")}>2P成功数</th>
-                      <th className="align-right" title={statDescription("2P割合")}>2P割合</th>
-                      <th className="align-right" title={statDescription("3P成功数")}>3P成功数</th>
-                      <th className="align-right" title={statDescription("3P割合")}>3P割合</th>
-                      <th className="align-right" title={statDescription("FT成功数")}>FT成功数</th>
-                      <th className="align-right" title={statDescription("FT割合")}>FT割合</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayedAssistPairs.map((p) => {
-                      const points = p.assisted2m * 2 + p.assisted3m * 3 + p.assistedFtm;
-                      const scorerTotal = teamAssistScorerTotals.get(p.scorerId);
-                      const countSharePct = scorerTotal && scorerTotal.count > 0 ? (100 * p.count) / scorerTotal.count : null;
-                      const pointsSharePct = scorerTotal && scorerTotal.points > 0 ? (100 * points) / scorerTotal.points : null;
-                      return (
-                        <tr key={`${p.assisterId}:${p.scorerId}`}>
-                          <td className="align-left">{playerLabel(playerNameById.get(p.assisterId) ?? p.assisterId)}</td>
-                          <td className="align-left">{playerLabel(playerNameById.get(p.scorerId) ?? p.scorerId)}</td>
-                          <td className="align-right">{p.count}</td>
-                          <td className="align-right">{countSharePct != null ? formatPct100(countSharePct) : "-"}</td>
-                          <td className="align-right">{points}</td>
-                          <td className="align-right">{pointsSharePct != null ? formatPct100(pointsSharePct) : "-"}</td>
-                          <td className="align-right">{p.assisted2m}</td>
-                          <td className="align-right">{formatPct100((100 * p.assisted2m) / p.count)}</td>
-                          <td className="align-right">{p.assisted3m}</td>
-                          <td className="align-right">{formatPct100((100 * p.assisted3m) / p.count)}</td>
-                          <td className="align-right">{p.assistedFtm}</td>
-                          <td className="align-right">{formatPct100((100 * p.assistedFtm) / p.count)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {teamAssistPairs.length > MAX_ASSIST_PAIR_ROWS && (
-                <button className="load-more-button" type="button" onClick={() => setAssistPairsExpanded((v) => !v)}>
-                  {assistPairsExpanded
-                    ? `上位${MAX_ASSIST_PAIR_ROWS}パターンのみ表示`
-                    : `全パターン表示（全${teamAssistPairs.length}パターン）`}
-                </button>
-              )}
-              <GlossaryNote anchor={GLOSSARY_ANCHORS.assists} label="アシストの組み合わせ" scope="レギュラーシーズンの値です。" />
-            </>
-          )}
         </div>
       )}
 
