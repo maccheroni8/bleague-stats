@@ -10,6 +10,7 @@
 //   npm run build:data -- plan                         デプロイ用: 現在のシーズンと、過去シーズンごとの保存キーを出力する
 //   npm run build:data -- key 2024-25                  そのシーズンの保存キー（元データ・シーズンをまたいで読む元データ・集計のコードの内容から作る）
 //   npm run build:data -- export 2024-25 <出力先>       そのシーズンの導出データを <出力先>/data/ 以下に写す（デプロイの保存・受け渡し用）
+//   npm run build:data -- clean                        導出データをすべて消す（デプロイは、リポジトリに残っている導出データに左右されないよう、作る前に必ず呼ぶ）
 //   npm run build:data -- check-layout                 data/ の全ファイルが A か B に仕分け済みかを確かめる
 //
 // シーズンごとの集計: aggregate（B.PREMIER と、あれば B.ONE）→ 選手の1試合の記録（シーズン）→ 比較用のリーグ平均
@@ -192,6 +193,11 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const sub = args[0] && !args[0].startsWith("--") ? args[0] : undefined;
 
+  if (sub === "clean") {
+    cleanDerived();
+    console.log("導出データをすべて消しました");
+    return;
+  }
   if (sub === "check-layout") {
     if (!checkLayout()) process.exitCode = 1;
     return;

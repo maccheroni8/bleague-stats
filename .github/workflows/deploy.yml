@@ -11,7 +11,13 @@ on:
   workflow_run:
     workflows: ["Update B.LEAGUE Stats", "Update Player Awards"]
     types: [completed]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      simulate_build_failure:
+        description: "導出データの作成をわざと失敗させる（失敗時に公開サイトが前の版のまま残ることと、通知が届くことの確認用。DESIGN.md 206章）"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -66,10 +72,17 @@ jobs:
             echo "::notice::データに変更が無かった実行のため、デプロイをスキップします"
           fi
 
-  build:
+  # 導出データ（集計結果。scripts/lib/dataLayout.ts の B）はコミットせず、このワークフローが元データから作る（DESIGN.md 206章）。
+  # 作る時間を抑えるため、過去のシーズンはシーズンごとの別ジョブで作り、結果を GitHub Actions のキャッシュに保存する。
+  # キーは「そのシーズンの元データ」「シーズンをまたいで読む元データ」「集計のコード」の内容から作る（scripts/build-data.ts の key）。
+  # どれかが変わったらキーが変わり、そのシーズンだけ作り直す。今のシーズンと、全シーズンをまたぐ集計（歴代ランキングなど）は毎回作る
+  plan:
     needs: check
     if: needs.check.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      current: ${{ steps.plan.outputs.current }}
+      matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       # 2026-10-04判明: workflow_run の head_sha は「更新ジョブが開始時に取得したコミット」で、更新ジョブが自分で
       # 作ったデータのコミット（その直後のコミット）を含まない。これを使うと毎回1つ前のデータがデプロイされ、
@@ -85,10 +98,98 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: "24"
+
+      - name: Plan (current season and cache keys of past seasons)
+        id: plan
+        run: node --experimental-strip-types scripts/build-data.ts plan
+
+  past-seasons:
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+
+      # 保存した導出データ（derived-out/data/{season}/…）。ヒットしたら作成は飛ばす
+      - name: Restore derived data of this season
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: derived-out
+          key: derived-v1-${{ matrix.season }}-${{ matrix.key }}
+
+      - name: Setup Node.js
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      # 作る前に、リポジトリに残っている導出データ（切り替え前はコミットされている）を消して、元データから作ったものだけを保存する
+      - name: Build derived data of this season
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          node --experimental-strip-types scripts/build-data.ts clean
+          node --experimental-strip-types scripts/build-data.ts --season ${{ matrix.season }} --season-only
+          node --experimental-strip-types scripts/build-data.ts export ${{ matrix.season }} derived-out
+
+      - name: Upload derived data of this season
+        uses: actions/upload-artifact@v4
+        with:
+          name: derived-${{ matrix.season }}
+          path: derived-out
+          retention-days: 1
+
+  build:
+    needs: [check, plan, past-seasons]
+    if: needs.check.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
           cache: "npm"
 
       - name: Install dependencies
         run: npm ci
+
+      # 失敗時に公開サイトが前の版のまま残ることと、通知が届くことの確認用（手動実行で指定したときだけ）
+      - name: Simulate build failure (manual test only)
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.simulate_build_failure == 'true' }}
+        run: |
+          echo "::error title=Simulated failure::導出データの作成をわざと失敗させています（確認用）"
+          exit 1
+
+      # リポジトリに残っている導出データ（切り替え前はコミットされている）に左右されないよう、先にすべて消す
+      - name: Remove derived data in the checkout
+        run: node --experimental-strip-types scripts/build-data.ts clean
+
+      # 過去のシーズンの導出データ（上のジョブで作った、または保存してあったもの）を data/ に重ねる
+      - name: Download derived data of past seasons
+        uses: actions/download-artifact@v4
+        with:
+          pattern: derived-*
+          merge-multiple: true
+          path: .
+
+      # 今のシーズン（と、導出データがまだ無いシーズン）を作り、続けて全シーズンをまたぐ集計を作る
+      - name: Build derived data (current season and cross-season)
+        run: node --experimental-strip-types scripts/build-data.ts --season ${{ needs.plan.outputs.current }}
 
       - name: Build
         run: npm run build
@@ -103,6 +204,8 @@ jobs:
 
   deploy:
     needs: build
+    # main 以外のブランチでの手動実行（導出データの作成の試験など）では公開しない
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
