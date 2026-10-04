@@ -12,7 +12,7 @@
 // 使い方: node --experimental-strip-types scripts/validate-possessions.ts --season 2025-26 [--category one]
 
 import { readAllGames } from "./lib/storage.ts";
-import { STINT_COUNT_KEYS, reconstructOnCourt, substitutionModelForSeason, sumCountsByPeriod, type StintCounts } from "../shared/onCourt.ts";
+import { STINT_COUNT_KEYS, onCourtPeriodCount, reconstructOnCourt, substitutionModelForSeason, sumCountsByPeriod, type StintCounts } from "../shared/onCourt.ts";
 import type { BoxscoreRow, Category, StoredGame } from "../shared/types.ts";
 
 type BoxKey = "pts" | "fgm" | "fga" | "tpm" | "tpa" | "ftm" | "fta" | "tov" | "or" | "dr" | "ast";
@@ -57,7 +57,7 @@ function evaluate(game: StoredGame) {
     game.raw.AwayBoxscores,
     homeId,
     awayId,
-    game.quarterScores.home.length,
+    onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays),
     substitutionModelForSeason(game.season),
   );
   if (!r.teamTotals) return null;

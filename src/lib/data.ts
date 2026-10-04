@@ -42,6 +42,7 @@ import type {
   TeamGameLog,
   TeamHistoryEntry,
   TeamLineupsFile,
+  TeamStintsFile,
   TeamSummary,
   YahooGamePbp,
 } from "../../shared/types";
@@ -186,6 +187,10 @@ export function fetchHeadToHead(season: string): Promise<HeadToHeadTeamRow[]> {
 
 export function fetchTeamLineups(season: string, teamId: string): Promise<TeamLineupsFile> {
   return fetchJson<TeamLineupsFile>(`${dataBase}/${season}/lineups/${teamId}.json`);
+}
+
+export function fetchTeamStints(season: string, teamId: string): Promise<TeamStintsFile> {
+  return fetchJson<TeamStintsFile>(`${dataBase}/${season}/team-stints/${teamId}.json`);
 }
 
 export function fetchSeasons(): Promise<SeasonEntry[]> {

@@ -69,7 +69,7 @@ import { bleaguePlayerUrl } from "../lib/externalLinks";
 import { formatDecimal, formatPct, formatPct100, formatSigned, formatWinPct } from "../lib/format";
 import { formatMinutesFromSeconds, astToTovRatio, buildAssistPairs } from "../lib/boxscoreAggregate";
 import type { AssistPair } from "../../shared/assistedScoring";
-import { reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
+import { onCourtPeriodCount, reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
 import { computeGameOnOffSplit, mergeOnOffSplits, type OnOffBucket, type OnOffSplit } from "../lib/onCourtSplit";
 import { buildShotTypeBreakdown, shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { ShotChartPanel } from "../components/ShotChart";
@@ -1751,7 +1751,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         game.raw.AwayBoxscores,
         game.homeTeam.id,
         game.awayTeam.id,
-        game.quarterScores.home.length,
+        onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays),
         substitutionModel,
       );
       const playerIntervals = onCourt.intervals.filter((iv) => iv.playerId === playerId && iv.teamId === ownTeamId);

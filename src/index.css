@@ -6688,3 +6688,110 @@ a.period-records-cell {
   font-size: 24px;
   overflow-wrap: anywhere;
 }
+
+/* ラインナップ検索（チーム詳細。DESIGN.md 207章） */
+.lineup-search-controls {
+  margin-bottom: 4px;
+}
+
+.lineup-search-controls .mode-toggle {
+  margin-bottom: 10px;
+}
+
+.lineup-search-controls .period-range-toggle {
+  margin-bottom: 10px;
+}
+
+.lineup-search-hint {
+  margin: 4px 0 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.lineup-search-clear {
+  margin-left: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.lineup-search-players {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px 12px;
+  margin-bottom: 16px;
+}
+
+.lineup-search-player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.lineup-search-player.checked {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.lineup-search-player.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.lineup-search-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.lineup-search-cards > div {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.lineup-search-cards dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.lineup-search-cards dd {
+  margin: 2px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 560px) {
+  .lineup-search-players {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  /* 範囲の切り替えは折り返さず、1行で横にスクロールする */
+  .lineup-search-scroll {
+    overflow-x: auto;
+    margin: 0 -16px 10px;
+    padding: 0 16px;
+  }
+
+  .lineup-search-scroll .period-range-toggle {
+    flex-wrap: nowrap;
+    margin-bottom: 0;
+    width: max-content;
+  }
+
+  .lineup-search-scroll .period-range-toggle button {
+    white-space: nowrap;
+  }
+}

@@ -11,6 +11,7 @@ export const GLOSSARY_ANCHORS = {
   shotChart: "shot-chart",
   situational: "situational",
   teamLineups: "team-lineups",
+  lineupSearch: "lineup-search",
   onOff: "on-off",
   gameLineups: "game-lineups",
   assists: "assists",

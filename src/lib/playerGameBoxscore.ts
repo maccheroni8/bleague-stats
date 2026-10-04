@@ -15,7 +15,7 @@ import {
   type BoxscoreCounts,
 } from "./boxscoreAggregate";
 import type { ColumnCtx } from "../components/BoxscoreTable";
-import { computeOnCourtRatings, reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
+import { computeOnCourtRatings, onCourtPeriodCount, reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
 
 export interface PlayerGameBoxscoreRow {
   gameLog: PlayerGameLog;
@@ -62,7 +62,7 @@ export function buildPlayerGameBoxscoreRow(
       game.raw.AwayBoxscores,
       game.homeTeam.id,
       game.awayTeam.id,
-      periods,
+      onCourtPeriodCount(game.season, periods, game.raw.PlayByPlays),
       substitutionModelForSeason(game.season),
     );
     onCourtPace = computeOnCourtRatings(onCourt.intervals)[playerId]?.pace;

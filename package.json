@@ -33,7 +33,8 @@
     "check:rule-change": "node --experimental-strip-types scripts/check-rule-change.ts",
     "validate:points-off-turnovers": "node --experimental-strip-types scripts/validate-points-off-turnovers.ts",
     "typecheck": "tsc -p tsconfig.scripts.json --noEmit && tsc -p tsconfig.json --noEmit",
-    "build:data": "node --experimental-strip-types scripts/build-data.ts"
+    "build:data": "node --experimental-strip-types scripts/build-data.ts",
+    "validate:lineup-search": "esbuild scripts/validate-lineup-search.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-lineup-search.mjs && node node_modules/.cache/validate-lineup-search.mjs"
   },
   "dependencies": {
     "cheerio": "^1.0.0",

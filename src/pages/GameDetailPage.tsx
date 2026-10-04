@@ -37,6 +37,7 @@ import { buildPeriodRangeOptions, periodInRange, type PeriodRangeValue } from ".
 import { gamePeriodScores } from "../lib/gamePeriods";
 import {
   computeOnCourtRatings,
+  onCourtPeriodCount,
   reconstructOnCourt,
   substitutionModelForSeason,
   type LineupStint,
@@ -418,7 +419,7 @@ export function GameDetailPage({ season }: { season: string }) {
       game.raw.AwayBoxscores,
       game.homeTeam.id,
       game.awayTeam.id,
-      periods,
+      onCourtPeriodCount(game.season, periods, game.raw.PlayByPlays),
       substitutionModelForSeason(game.season),
     );
     if (shotChartSupported) {

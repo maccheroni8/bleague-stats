@@ -32,6 +32,7 @@ import {
 import {
   STINT_COUNT_KEYS,
   computeOnCourtRatings,
+  onCourtPeriodCount,
   periodRangeSeconds,
   reconstructOnCourt,
   sumCountsByPeriod,
@@ -958,7 +959,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
 
   for (const game of games) {
     const gameType = classifyGameType(game.raw.Game.ConventionNameJ);
-    const periods = game.quarterScores.home.length;
+    const periods = onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays);
     const onCourt =
       game.raw.PlayByPlays.length > 0
         ? reconstructOnCourt(
@@ -1410,7 +1411,7 @@ interface TeamStintsBuilder {
  */
 function collectTeamStints(game: StoredGame, store: Map<string, TeamStintsBuilder>, onCourt: OnCourtReconstruction | null): void {
   if (!onCourt?.teamTotals) return;
-  const totalPeriods = game.quarterScores.home.length;
+  const totalPeriods = onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays);
   for (const stint of onCourt.lineupStints) {
     let b = store.get(stint.teamId);
     if (!b) {
@@ -1438,9 +1439,12 @@ function collectTeamStints(game: StoredGame, store: Map<string, TeamStintsBuilde
       const from = Math.max(stint.startSec, ps);
       const to = Math.min(stint.endSec, pe);
       const pair = byPeriod[p];
+      // 得点（pts）は、ラインナップ別成績と同じ、得点の推移から求めた値（stint.pointsByPeriod）で持つ。プレーバイプレーの記録の種類から数えた値
+      // （pair.own.pts）は、記録が欠けた試合でラインナップ別成績の得点と食い違うことがあるため（2024-25 越谷で48点）。DESIGN.md 207章
+      const scored = stint.pointsByPeriod[p];
       const hasOverlap = to > from;
-      if (!hasOverlap && !pair) continue;
-      if (!hasOverlap && pair && !(STINT_COUNT_KEYS.some((k) => pair.own[k] !== 0 || pair.opp[k] !== 0))) continue;
+      if (!hasOverlap && !pair && !scored) continue;
+      if (!hasOverlap && !scored?.own && !scored?.opp && !(pair && STINT_COUNT_KEYS.some((k) => pair.own[k] !== 0 || pair.opp[k] !== 0))) continue;
       const start = hasOverlap ? from : stint.endSec;
       const end = hasOverlap ? to : stint.endSec;
       b.rows.push([
@@ -1449,8 +1453,8 @@ function collectTeamStints(game: StoredGame, store: Map<string, TeamStintsBuilde
         start,
         end,
         ...playerNumbers,
-        ...STINT_COUNT_KEYS.map((k) => pair?.own[k] ?? 0),
-        ...STINT_COUNT_KEYS.map((k) => pair?.opp[k] ?? 0),
+        ...STINT_COUNT_KEYS.map((k) => (k === "pts" ? (scored?.own ?? 0) : (pair?.own[k] ?? 0))),
+        ...STINT_COUNT_KEYS.map((k) => (k === "pts" ? (scored?.opp ?? 0) : (pair?.opp[k] ?? 0))),
       ]);
     }
   }

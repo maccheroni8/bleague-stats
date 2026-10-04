@@ -10,7 +10,7 @@
 // 全シーズン（pbpSupported）で動作する（coverage制約なし）。
 
 import type { PlayByPlayEvent, StoredGame } from "../../shared/types";
-import { buildPossessionStartEvents, buildScoreEvents, totalGameSeconds } from "../../shared/onCourt";
+import { buildPossessionStartEvents, buildScoreEvents, onCourtPeriodCount, totalGameSeconds } from "../../shared/onCourt";
 import { elapsedSeconds } from "./leadTracker";
 
 const FG_MADE_CODES = new Set([1, 3, 4]);
@@ -76,7 +76,7 @@ export function computeGameOnOffSplit(
   playerIntervals: { startSec: number; endSec: number }[],
 ): OnOffSplit {
   const opponentTeamId = teamId === game.homeTeam.id ? game.awayTeam.id : game.homeTeam.id;
-  const gameEnd = totalGameSeconds(game.quarterScores.home.length);
+  const gameEnd = totalGameSeconds(onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays));
   const isOnCourt = (elapsedSec: number) => playerIntervals.some((iv) => elapsedSec >= iv.startSec && elapsedSec < iv.endSec);
 
   const on = zeroBucket();

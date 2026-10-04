@@ -100,6 +100,18 @@ function hasAnyCount(byPeriod: Record<number, StintCountsPair>): boolean {
 }
 
 /**
+ * 在コートの復元に渡すピリオド数。公式のクォーター別スコア（quarterScores）の数が、プレーバイプレーに出てくる最大のピリオドより少ない試合
+ * （公式データの欠け。2021-22 7863・2024-25 502982・2025-26 B.ONE 505834）で、後半のピリオドが復元から抜けて、試合の終わりの時刻が
+ * 実際より短くなる（最後の区間の長さが負になる）のを防ぐ。2020-21以降だけ（2016-17〜2019-20の延長戦の件は別に直す）
+ */
+export function onCourtPeriodCount(season: string, quarterScoresLength: number, playByPlays: readonly { Period: number }[]): number {
+  if (substitutionModelForSeason(season) !== "modern") return quarterScoresLength;
+  let maxPeriod = quarterScoresLength;
+  for (const e of playByPlays) if (e.Period > maxPeriod) maxPeriod = e.Period;
+  return maxPeriod;
+}
+
+/**
  * シーズン文字列から選手交代の記録モデルを判定する。境界は実データ4シーズン分
  * （2016-17・2017-18・2018-19・2019-20）で確定済み（DESIGN.md 2-7章）。
  */

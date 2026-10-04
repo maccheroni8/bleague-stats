@@ -82,6 +82,8 @@ import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { MIN_LINEUP_AVG_SECONDS, MIN_LINEUP_GAME_SHARE } from "../lib/tableThresholds";
 import { ESTIMATED_RATING_NOTE, lineupRatingsOf, lineupsHaveRealPossessions } from "../lib/lineupRatings";
+import { LineupSearch } from "../components/LineupSearch";
+import { substitutionModelForSeason } from "../../shared/onCourt";
 import {
   buildBackToBackStatus,
   buildGameTeamsByScheduleKey,
@@ -4348,6 +4350,16 @@ export function TeamDetailPage({ season }: { season: string }) {
               <GlossaryNote anchor={GLOSSARY_ANCHORS.teamLineups} label="よく使われるラインナップ" />
             </>
           )}
+
+          <LineupSearch
+            season={season}
+            teamId={teamId ?? ""}
+            playerNameById={playerNameById}
+            games={(gameLogs ?? []).map((g) => ({ scheduleKey: g.scheduleKey, gameType: g.gameType, isHome: g.isHome }))}
+            stateKey={pk}
+            playerLabel={playerLabel}
+            supported={pbpSupported && substitutionModelForSeason(season) === "modern"}
+          />
 
           <ConditionTitle
             section

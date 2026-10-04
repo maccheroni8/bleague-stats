@@ -15,7 +15,7 @@
 // 使い方: node --experimental-strip-types scripts/validate-oncourt.ts --season 2025-26
 
 import { readAllGames } from "./lib/storage.ts";
-import { reconstructOnCourt, substitutionModelForSeason, totalGameSeconds, totalOnCourtSeconds } from "../shared/onCourt.ts";
+import { onCourtPeriodCount, reconstructOnCourt, substitutionModelForSeason, totalGameSeconds, totalOnCourtSeconds } from "../shared/onCourt.ts";
 import { parsePlayTime } from "../shared/formulas.ts";
 import type { BoxscoreRow, StoredGame } from "../shared/types.ts";
 
@@ -50,7 +50,7 @@ function playerRows(rows: BoxscoreRow[]): BoxscoreRow[] {
 function evaluateGame(game: StoredGame): GameReport {
   const homeId = game.homeTeam.id;
   const awayId = game.awayTeam.id;
-  const periods = game.quarterScores.home.length;
+  const periods = onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays);
 
   const result = reconstructOnCourt(
     game.raw.PlayByPlays,
