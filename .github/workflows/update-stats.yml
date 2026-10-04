@@ -11,7 +11,7 @@ run-name: Update B.LEAGUE Stats${{ (github.event.schedule == '0 20 * * *' || git
 #   bleague.jpへ一切アクセスせず即終了する（check-pending-games.ts）
 # - 深夜のディープrecheck（毎日JST3:10にcron-job.orgからworkflow_dispatch（deep_recheck=true）で起動。GitHub側の
 #   定時実行は毎日JST5時（UTC20時）の予備で、直近20時間以内に深夜実行が成功していれば頻繁チェックとして扱う。DESIGN.md 8-10章）:
-#   上記の判定を経ずに毎回本処理を実行する。直近14日
+#   上記の判定を経ずに毎回本処理を実行する。直近21日
 #   以内のwatching試合の再チェック（8-1章のスタッツ修正対応）・今後14日の日程変更検知（8-7章）・
 #   名簿取得・新競技規則検知の検知ステップはこちらだけで行う
 # - workflow_dispatch: 手動実行用。full_schedule=true でシーズン全体のスケジュールをフル収集する
@@ -35,7 +35,7 @@ on:
         default: false
         type: boolean
       deep_recheck:
-        description: "深夜のディープrecheck（14日間の再チェック・名簿取得・新競技規則検知）として実行する"
+        description: "深夜のディープrecheck（21日間の再チェック・名簿取得・新競技規則検知）として実行する"
         required: false
         default: false
         type: boolean
@@ -159,7 +159,7 @@ jobs:
 
       # スポーツナビ（Yahoo!スポーツ）のplay-by-play（シュートタイプ別内訳・ターンオーバー種類別）。
       # 頻繁チェック・深夜とも、ボックススコアが保存済みで試合終了済みなのにPBPが未取得の試合だけを
-      # 取りに行く（1試合1リクエスト）。深夜は直近14日の試合のうち保存済みPBPが現在のボックススコアと
+      # 取りに行く（1試合1リクエスト）。深夜は直近21日の試合のうち保存済みPBPが現在のボックススコアと
       # 合わないものも取り直す。スポーツナビ側の失敗でデータ更新全体を止めないようcontinue-on-error
       # （DESIGN.md 129章）
       - name: Scrape Yahoo PBP (Sportsnavi)

@@ -23,7 +23,7 @@
 //   npm run scrape:yahoo-pbp -- --season 2024-25 --force      （保存済みでも再取得）
 //   npm run scrape:yahoo-pbp -- --season 2026-27 --incremental                 （自動更新用: 未取得の終了試合だけ。
 //                                                                              検証レポートは書かない）
-//   npm run scrape:yahoo-pbp -- --season 2026-27 --incremental --recheck-recent（＋直近14日の試合のうち、保存済みの
+//   npm run scrape:yahoo-pbp -- --season 2026-27 --incremental --recheck-recent（＋直近21日の試合のうち、保存済みの
 //                                                                              PBPが現在のボックススコアと合わないものを取り直す。深夜用）
 
 import path from "node:path";
@@ -33,6 +33,7 @@ import { yahooPbpCoverage, yahooWidgetLeaguePath } from "./lib/yahooCoverage.ts"
 import { buildPlayerLookup, parseYahooPbpHtml, type PlayerLookupEntry } from "./lib/yahooPbp.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
+import { RECHECK_PERIOD_DAYS } from "./lib/recheckPeriod.ts";
 import type { ScheduleFile, YahooGamePbp } from "../shared/types.ts";
 
 const MIN_REQUEST_INTERVAL_MS = 2500;
@@ -45,8 +46,6 @@ function widgetUrl(season: string, scheduleKey: string): string {
   return `https://sports.yahoo.co.jp/basket/widget/ds/pc/${yahooWidgetLeaguePath(season)}/games/${scheduleKey}/text_live.html`;
 }
 
-/** 深夜の取り直し対象にする期間（scrape-boxscore.tsのwatching再チェック期間と同じ14日） */
-const RECHECK_WITHIN_DAYS = 14;
 
 function yahooFilePath(season: string, scheduleKey: string): string {
   return path.join(DATA_DIR, season, "yahoo", `${scheduleKey}.json`);
@@ -142,7 +141,7 @@ export async function scrapeYahooPbpSeason(
   let totalUnresolved = 0;
   let totalResolvable = 0;
 
-  const recheckSince = Date.now() - RECHECK_WITHIN_DAYS * 86_400_000;
+  const recheckSince = Date.now() - RECHECK_PERIOD_DAYS * 86_400_000;
 
   for (const scheduleKey of scheduleKeys) {
     // 自前のボックススコアが無い・試合が終わっていない試合は問い合わせない（未開催の試合は500、
@@ -162,7 +161,7 @@ export async function scrapeYahooPbpSeason(
 
     const outPath = yahooFilePath(season, scheduleKey);
     if (!options.force && fileExists(`${outPath}.gz`)) {
-      // 深夜の取り直し: 直近14日の試合で、保存済みPBPが現在のボックススコアと合わないもの
+      // 深夜の取り直し: 直近21日（scrape-boxscore.tsのwatching再チェックと同じ期間）の試合で、保存済みPBPが現在のボックススコアと合わないもの
       // （試合終了直後の取得でテキスト速報が確定前だった、公式記録が後から訂正された等）
       const recent = new Date(`${game.date}T00:00:00+09:00`).getTime() >= recheckSince;
       const stored = options.recheckRecent && recent ? await readJson<YahooGamePbp>(outPath) : null;

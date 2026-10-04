@@ -34,8 +34,7 @@ import type { Category, GeniusContext, ScheduleFile, StoredGame, StoredGameMeta 
 import { isMainModule } from "./lib/isMain.ts";
 import { isDue } from "./lib/pendingGames.ts";
 import { applyPlayerIdCorrections } from "./lib/playerIdCorrections.ts";
-
-const WATCHING_PERIOD_DAYS = 14;
+import { isPastRecheckPeriod } from "./lib/recheckPeriod.ts";
 
 function formatJstDate(date: Date): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(date);
@@ -43,8 +42,7 @@ function formatJstDate(date: Date): string {
 
 function computeStatus(gameEndedFlg: boolean, jstDateStr: string): "watching" | "final" {
   if (!gameEndedFlg) return "watching";
-  const daysSince = (Date.now() - new Date(`${jstDateStr}T00:00:00+09:00`).getTime()) / 86_400_000;
-  return daysSince > WATCHING_PERIOD_DAYS ? "final" : "watching";
+  return isPastRecheckPeriod(jstDateStr) ? "final" : "watching";
 }
 
 export type ScrapeResult =
@@ -170,8 +168,9 @@ export async function runForSeason(
     const filePath = gameFilePath(season, scheduleKey, category);
     const existing = await readGameFile(filePath);
 
-    // 既に final の試合はスキップ（8章: 再チェック終了後はスクレイピング量を抑える）
-    if (existing?.meta.status === "final") {
+    // 既に final の試合はスキップ（8章: 再チェック終了後はスクレイピング量を抑える）。
+    // 再チェックの期間を延ばしたとき（14日→21日）、期間内なのに final で保存された試合も取り直せるよう、保存された status だけでなく試合日でも見る
+    if (existing?.meta.status === "final" && isPastRecheckPeriod(existing.date)) {
       continue;
     }
 

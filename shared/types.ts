@@ -263,7 +263,7 @@ export interface StoredGameMeta {
   firstScrapedAt: string;
   lastCheckedAt: string;
   lastChangedAt: string;
-  /** watching = 試合終了後14日以内の再チェック対象, final = 再チェック終了 */
+  /** watching = 試合終了後21日以内の再チェック対象, final = 再チェック終了 */
   status: "watching" | "final";
   /** これまでに実データが変化した回数（0なら未修正）。DESIGN.md 8章 */
   revisionCount: number;
