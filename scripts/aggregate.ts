@@ -924,6 +924,8 @@ export async function aggregateSeason(season: string, category: Category = "prem
   const players = new Map<string, PlayerAccumulator>();
   const teams = new Map<string, TeamAccumulator>();
   const teamLineups = new Map<string, Map<string, LineupAccumulator>>();
+  /** チームごとの、ラインナップを集計した試合（ScheduleKey）の集合 */
+  const teamLineupGames = new Map<string, Set<string>>();
 
   const ensureTeam = (teamId: string, teamName: string): TeamAccumulator => {
     let team = teams.get(teamId);
@@ -1019,7 +1021,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       paintSplit.byTeam,
       masterById,
     );
-    processLineups(game, teamLineups, onCourt);
+    processLineups(game, teamLineups, teamLineupGames, onCourt);
   }
   if (foreignOverLimit.stints > 0) {
     console.log(
@@ -1309,6 +1311,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       teamId,
       teamName: team?.teamName ?? "",
       season,
+      gamesCount: teamLineupGames.get(teamId)?.size ?? 0,
       lineups,
     };
     await writeJson(path.join(DATA_DIR, seasonDir, "lineups", `${teamId}.json`), file);
@@ -1370,9 +1373,15 @@ export async function aggregateSeason(season: string, category: Category = "prem
 function processLineups(
   game: StoredGame,
   teamLineups: Map<string, Map<string, LineupAccumulator>>,
+  teamLineupGames: Map<string, Set<string>>,
   onCourt: OnCourtReconstruction | null,
 ): void {
   if (!onCourt) return;
+  for (const teamId of [game.homeTeam.id, game.awayTeam.id]) {
+    const keys = teamLineupGames.get(teamId) ?? new Set<string>();
+    keys.add(game.scheduleKey);
+    teamLineupGames.set(teamId, keys);
+  }
   for (const stint of onCourt.lineupStints) {
     let lineupMap = teamLineups.get(stint.teamId);
     if (!lineupMap) {

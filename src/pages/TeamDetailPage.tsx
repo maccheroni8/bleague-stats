@@ -80,7 +80,7 @@ import { gameHasOvertime } from "../lib/gamePeriods";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
-import { MIN_LINEUP_SECONDS } from "../lib/tableThresholds";
+import { MIN_LINEUP_AVG_SECONDS, MIN_LINEUP_GAME_SHARE } from "../lib/tableThresholds";
 import {
   buildBackToBackStatus,
   buildGameTeamsByScheduleKey,
@@ -198,8 +198,6 @@ import { useTeamLabel } from "../lib/teamLabel";
 const TEAM_SHOOTING_TAB_TOOLTIP =
   "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（チーム全選手合算、2023-24シーズン以降のみ）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意";
 
-// 上位20組を初期表示とし、それ以下は「全パターン表示」ボタンで展開する（DESIGN.md参照）
-const MAX_LINEUP_ROWS = 20;
 // アシストペア分析（チーム版）も同じ上位20件・展開方式を踏襲する
 const MAX_ASSIST_PAIR_ROWS = 20;
 
@@ -3196,9 +3194,14 @@ export function TeamDetailPage({ season }: { season: string }) {
   const situationalTeamPointsColumns = teamPointsExtraColumnsForTab(situationalTeamBoxTab);
 
   const playerNameById = new Map((players ?? []).map((p) => [p.playerId, p.name]));
-  const eligibleLineups = (lineupsFile?.lineups ?? []).filter((l) => l.secondsPlayed >= MIN_LINEUP_SECONDS);
-  const topLineups = eligibleLineups.slice(0, MAX_LINEUP_ROWS);
-  const displayedLineups = lineupsExpanded ? eligibleLineups : topLineups;
+  // よく使われるラインナップ: 使われた試合の平均で一定秒数以上、かつ使われた試合数がチームの試合数の一定割合以上（DESIGN.md 203章）。
+  // 満たさない組み合わせは普段は隠し、「全パターンを表示」で開く。チームの試合数は、集計した試合の数（無い古いデータは試合ログの数）
+  const allLineups = lineupsFile?.lineups ?? [];
+  const lineupTeamGames = lineupsFile?.gamesCount ?? (gameLogs ?? []).filter((g) => g.min > 0).length;
+  const eligibleLineups = allLineups.filter(
+    (l) => l.gamesPlayed > 0 && l.secondsPlayed / l.gamesPlayed >= MIN_LINEUP_AVG_SECONDS && l.gamesPlayed >= MIN_LINEUP_GAME_SHARE * lineupTeamGames,
+  );
+  const displayedLineups = lineupsExpanded ? allLineups : eligibleLineups;
 
   const topAssistPairs = teamAssistPairs.slice(0, MAX_ASSIST_PAIR_ROWS);
   const displayedAssistPairs = assistPairsExpanded ? teamAssistPairs : topAssistPairs;
@@ -4266,19 +4269,27 @@ export function TeamDetailPage({ season }: { season: string }) {
 
           <ConditionTitle
             section
-            title="よく使われるラインナップ"
-            conditions={composeLabels(seasonLabel, gameTypeLabels("both", season), `出場時間${MIN_LINEUP_SECONDS}秒以上`)}
+            title={`よく使われるラインナップ ${eligibleLineups.length}パターン（全${allLineups.length}パターン中）`}
+            conditions={composeLabels(
+              seasonLabel,
+              gameTypeLabels("both", season),
+              `使われた試合の平均${MIN_LINEUP_AVG_SECONDS}秒以上`,
+              `使われた試合数がチームの${Math.round(MIN_LINEUP_GAME_SHARE * 100)}%以上`,
+            )}
           />
           {coverageLoading ? (
             <p className="loading">読み込み中...</p>
           ) : !pbpSupported ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
-          ) : topLineups.length === 0 ? (
-            <p className="empty-message">
-              {(lineupsFile?.lineups.length ?? 0) === 0
-                ? "ラインナップデータがありません"
-                : `出場時間${MIN_LINEUP_SECONDS}秒以上の組み合わせがまだありません（試合数が増えると表示されます）`}
-            </p>
+          ) : allLineups.length === 0 ? (
+            <p className="empty-message">ラインナップデータがありません</p>
+          ) : displayedLineups.length === 0 ? (
+            <>
+              <p className="empty-message">条件を満たす組み合わせがまだありません（試合数が増えると表示されます）</p>
+              <button className="load-more-button" type="button" onClick={() => setLineupsExpanded(true)}>
+                {`全パターンを表示（全${allLineups.length}パターン）`}
+              </button>
+            </>
           ) : (
             <>
               <div className="table-scroll">
@@ -4322,9 +4333,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                   </tbody>
                 </table>
               </div>
-              {eligibleLineups.length > MAX_LINEUP_ROWS && (
+              {allLineups.length > eligibleLineups.length && (
                 <button className="load-more-button" type="button" onClick={() => setLineupsExpanded((v) => !v)}>
-                  {lineupsExpanded ? `上位${MAX_LINEUP_ROWS}組のみ表示` : `全パターン表示（全${eligibleLineups.length}組）`}
+                  {lineupsExpanded ? "条件を満たすパターンだけを表示" : `全パターンを表示（全${allLineups.length}パターン）`}
                 </button>
               )}
               <GlossaryNote anchor={GLOSSARY_ANCHORS.teamLineups} label="よく使われるラインナップ" />

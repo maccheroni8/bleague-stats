@@ -1102,6 +1102,8 @@ export interface TeamLineupsFile {
   teamId: string;
   teamName: string;
   season: string;
+  /** このチームのラインナップを集計した試合の数（よく使われるラインナップの「試合数の割合」の分母。無い古いデータは画面側で試合ログの数に置き換える） */
+  gamesCount?: number;
   lineups: LineupAggregate[];
 }
 

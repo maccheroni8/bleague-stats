@@ -4,7 +4,8 @@ import { AGE_BASE_NOTE } from "../lib/age";
 import { GLOSSARY_ANCHORS as A } from "../lib/glossaryAnchors";
 import {
   MIN_GAMES_FOR_PLAYER_RECENT_FORM,
-  MIN_LINEUP_SECONDS,
+  MIN_LINEUP_AVG_SECONDS,
+  MIN_LINEUP_GAME_SHARE,
   RECENT_FORM_N_OPTIONS,
   SCORING_SHARE_MIN_MPG,
   SCORING_SHARE_MIN_TOTAL_MIN,
@@ -172,7 +173,10 @@ export function GlossaryGuides() {
 
       <section className="glossary-section" id={A.teamLineups}>
         <h2>よく使われるラインナップ（チーム詳細）</h2>
-        <p>出場時間{MIN_LINEUP_SECONDS}秒未満の組み合わせは除きます。</p>
+        <p>
+          使われた試合の平均で{MIN_LINEUP_AVG_SECONDS}秒以上、かつ使われた試合数がチームの試合数の{Math.round(MIN_LINEUP_GAME_SHARE * 100)}%以上の組み合わせだけを、普段は表示します。
+          それ以外の組み合わせは「全パターンを表示」で開けます。見出しの「◯パターン（全◯パターン中）」は、表示している数と全部の数です。
+        </p>
         <h3>ORtg・DRtg・Net Rating</h3>
         <p>
           組み合わせごとの実際のポゼッション数が無いため、チームのシーズン平均のペースから推定した参考値です。

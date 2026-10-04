@@ -13,7 +13,10 @@ export type PlayerRecentFormRecentN = (typeof RECENT_FORM_N_OPTIONS)[number];
 export const MIN_GAMES_FOR_PLAYER_RECENT_FORM: Record<PlayerRecentFormRecentN, number> = { 5: 3, 10: 5 };
 
 /**
- * よく使われるラインナップ（チーム詳細）で除外する出場時間の下限（秒）。これ未満はサンプルが小さすぎてノイズが大きい
- * （実データ確認: 4試合時点で3分(180秒)基準だとチームあたり4〜14組が該当。DESIGN.md参照）
+ * よく使われるラインナップ（チーム詳細）の条件。次の2つを両方満たす組み合わせだけを、普段の表示に出す
+ * （満たさない組み合わせは「全パターンを表示」で開く。DESIGN.md 203章）:
+ * - 使われた試合の平均で、MIN_LINEUP_AVG_SECONDS秒以上（出場時間の合計 ÷ 使われた試合数）
+ * - 使われた試合数が、チームの試合数のMIN_LINEUP_GAME_SHARE以上
  */
-export const MIN_LINEUP_SECONDS = 180;
+export const MIN_LINEUP_AVG_SECONDS = 180;
+export const MIN_LINEUP_GAME_SHARE = 0.15;
