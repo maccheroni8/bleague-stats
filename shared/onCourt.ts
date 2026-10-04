@@ -44,6 +44,62 @@ const TOV_CODES = new Set([13, 17]);
 export type SubstitutionModel = "modern" | "legacy";
 
 /**
+ * 出場区間（スティント）ごとの、チームの数え上げ（DESIGN.md 204章）。プレーバイプレーから実際に数える。
+ * - poss: ポゼッションの終わりの数（NBAの数え方）。implicitEndsを含む
+ * - implicitEnds: poss のうち、プレーバイプレーに終わりの記録が無く、次の動きから「終わっていた」と判断した数
+ *   （24秒などの記録漏れ。ターンオーバーの数 tov には足さない）
+ */
+export interface StintCounts {
+  poss: number;
+  implicitEnds: number;
+  pts: number;
+  fgm: number;
+  fga: number;
+  tpm: number;
+  tpa: number;
+  ftm: number;
+  fta: number;
+  tov: number;
+  or: number;
+  dr: number;
+  ast: number;
+}
+
+/** 保存ファイル（team-stints）の並び順。この順の数のリストで持つ */
+export const STINT_COUNT_KEYS = ["poss", "implicitEnds", "pts", "fgm", "fga", "tpm", "tpa", "ftm", "fta", "tov", "or", "dr", "ast"] as const satisfies readonly (keyof StintCounts)[];
+
+export function emptyStintCounts(): StintCounts {
+  return { poss: 0, implicitEnds: 0, pts: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, tov: 0, or: 0, dr: 0, ast: 0 };
+}
+
+/** そのスティントの間の、自チームの数え上げ(own)と、相手チームの数え上げ(opp) */
+export interface StintCountsPair {
+  own: StintCounts;
+  opp: StintCounts;
+}
+
+function addCounts(target: StintCounts, add: StintCounts): void {
+  for (const k of STINT_COUNT_KEYS) target[k] += add[k];
+}
+
+/** ピリオドごとの数え上げを、スティント全体に合計する */
+export function sumCountsByPeriod(byPeriod: Record<number, StintCountsPair>): StintCountsPair {
+  const total: StintCountsPair = { own: emptyStintCounts(), opp: emptyStintCounts() };
+  for (const pair of Object.values(byPeriod)) {
+    addCounts(total.own, pair.own);
+    addCounts(total.opp, pair.opp);
+  }
+  return total;
+}
+
+function hasAnyCount(byPeriod: Record<number, StintCountsPair>): boolean {
+  for (const pair of Object.values(byPeriod)) {
+    for (const k of STINT_COUNT_KEYS) if (pair.own[k] !== 0 || pair.opp[k] !== 0) return true;
+  }
+  return false;
+}
+
+/**
  * シーズン文字列から選手交代の記録モデルを判定する。境界は実データ4シーズン分
  * （2016-17・2017-18・2018-19・2019-20）で確定済み（DESIGN.md 2-7章）。
  */
@@ -71,6 +127,12 @@ function parseRestTimeSeconds(restTime: string): number {
 function elapsedSeconds(period: number, restTime: string): number {
   const remaining = parseRestTimeSeconds(restTime);
   return periodStartSeconds(period) + periodDurationSeconds(period) - remaining;
+}
+
+/** そのピリオドの開始・終了の、試合開始からの経過秒（各Q10分・OT5分） */
+export function periodRangeSeconds(period: number): [number, number] {
+  const start = periodStartSeconds(period);
+  return [start, start + periodDurationSeconds(period)];
 }
 
 export function totalGameSeconds(totalPeriods: number): number {
@@ -126,6 +188,11 @@ export interface LineupStint {
    * 振り分ける。出場時間はstartSec/endSecをピリオド境界で切れば求まるので持たない）
    */
   pointsByPeriod: Record<number, { own: number; opp: number }>;
+  /**
+   * ポゼッション・FGM/FGA・FTM/FTA・TOV・OR/DR・AST などの数え上げ（ピリオド別。キーはPeriod）。
+   * 2020-21以降のみ（旧形式のプレーバイプレーはチームリバウンドが欠けているため数えない）。DESIGN.md 204章
+   */
+  countsByPeriod?: Record<number, StintCountsPair>;
 }
 
 export interface OnCourtReconstruction {
@@ -137,6 +204,11 @@ export interface OnCourtReconstruction {
   warnings: OnCourtWarning[];
   /** 同じ秒の交代の間にフリースローが挟まっていたため、交代をフリースローの前に動かした場所の一覧（空なら補正なし） */
   orderRepairs: SubOrderRepair[];
+  /**
+   * チームごとの、試合全体の数え上げ（スティントに入れられなかった分も含む。検証用）。数え上げをしないシーズン（旧形式）は無い。
+   * キーはチームID。DESIGN.md 204章
+   */
+  teamTotals?: Record<string, StintCounts>;
 }
 
 /** 公式の記録で、交代の間にフリースローが挟まっていたため、動かした交代（DESIGN.md 201章） */
@@ -166,18 +238,29 @@ interface RelevantEvent {
   elapsedSec: number;
   period: number;
   restTime: string;
-  kind: "score" | "sub-in" | "sub-out";
+  /** score=得点、sub-in/out=交代、stat=得点以外の数え上げ・反則の記録、poss=ポゼッションの終わり（injectPossessionEventsが作る） */
+  kind: "score" | "sub-in" | "sub-out" | "stat" | "poss";
   teamId: string;
   playerId: string;
   points: number;
   /** 成功したフリースローの得点か（並びの補正の対象。repairSubOrderAroundFreeThrows参照） */
   freeThrow?: boolean;
+  /** score・statの元のActionCD1 */
+  actionCd?: number;
+  /** poss: プレーバイプレーに記録が無く、次の動きから終わっていたと判断したか */
+  implicit?: boolean;
 }
+
+// ポゼッションなどの数え上げに使う、得点以外のプレーバイプレーのコード（DESIGN.md 204章）:
+// 2=3P失敗、5・6=2P失敗、8=FT失敗、9・18=DR（個人・チーム）、10・19=OR、12=AST、13・17=TOV（個人・チーム）、
+// 反則の種類（20・21・24=テクニカル、25・26=アンスポーツマン・ディスクォリファイング、22・23=通常・オフェンス）
+const STAT_CODES = new Set([2, 5, 6, 8, 9, 10, 12, 13, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]);
 
 function buildRelevantEvents(
   playByPlays: PlayByPlayEvent[],
   warnings: OnCourtWarning[],
   model: SubstitutionModel,
+  countStats: boolean,
 ): RelevantEvent[] {
   const events: RelevantEvent[] = [];
   for (const ev of playByPlays) {
@@ -193,7 +276,23 @@ function buildRelevantEvents(
         playerId: ev.PlayerID1 ?? "",
         points,
         freeThrow: ev.ActionCD1 === FT_MAKE_CODE,
+        actionCd: ev.ActionCD1,
       });
+      continue;
+    }
+    if (countStats && STAT_CODES.has(ev.ActionCD1)) {
+      if (ev.TeamID) {
+        events.push({
+          elapsedSec: elapsedSeconds(ev.Period, ev.RestTime),
+          period: ev.Period,
+          restTime: ev.RestTime,
+          kind: "stat",
+          teamId: ev.TeamID,
+          playerId: ev.PlayerID1 ?? "",
+          points: 0,
+          actionCd: ev.ActionCD1,
+        });
+      }
       continue;
     }
     // 86（IN）は両モデル共通（試合開始時のスタメン挿入・legacyモデルでもここだけは共通）
@@ -400,6 +499,146 @@ function repairSubOrderAroundFreeThrows(events: RelevantEvent[]): SubOrderRepair
   return repairs;
 }
 
+/**
+ * ポゼッションの終わりを数える（NBAの数え方。DESIGN.md 204章）。並べ替え・並びの補正が済んだイベント列を受け取り、
+ * ポゼッションの終わりのイベント（kind="poss"）を、終わらせた動きの前後に挟んだ新しい列を返す。
+ *
+ * 終わり方:
+ * - 成功したシュート（アンドワン＝直後に同じ選手のフリースローが続く場合を除く）
+ * - 外れたシュート／フリースローのあと、相手のディフェンスリバウンド（個人・チーム）。外れたチームの終わりとして数える
+ * - ターンオーバー（個人・チーム）
+ * - フリースローの組の最後の成功（テクニカルのフリースローは数えない。アンスポーツマン・ディスクォリファイングの
+ *   フリースローは、成功しても外れてもボールを保持するので終わらせない）
+ * - ピリオドの終わりに、リバウンドが記録されない外れが残っているとき
+ * - 暗黙の終わり: 攻撃中のはずのチームの記録が無いまま、相手のシュート・ターンオーバー・フリースローが記録されたとき
+ *   （24秒などの記録漏れ。implicit=true。ターンオーバーの数には足さない）
+ */
+function injectPossessionEvents(events: RelevantEvent[]): RelevantEvent[] {
+  const GAME_ROW_CODES = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 17, 18, 19, 44]);
+  const isGameRow = (e: RelevantEvent): boolean => (e.kind === "score" || e.kind === "stat") && e.actionCd !== undefined && GAME_ROW_CODES.has(e.actionCd);
+  const teams = [...new Set(events.filter((e) => e.kind !== "poss").map((e) => e.teamId))];
+  if (teams.length !== 2) return events;
+  const opp = (t: string): string => (t === teams[0] ? teams[1]! : teams[0]!);
+
+  const out: RelevantEvent[] = [];
+  let offense: string | null = null;
+  let pendingMiss: string | null = null;
+  let tripKind: "normal" | "tech" | "unsport" = "normal";
+  let lastPeriod = 0;
+  let last: RelevantEvent | null = null;
+  const mk = (base: RelevantEvent, teamId: string, implicit: boolean): RelevantEvent => ({
+    elapsedSec: base.elapsedSec,
+    period: base.period,
+    restTime: base.restTime,
+    kind: "poss",
+    teamId,
+    playerId: "",
+    points: 0,
+    implicit,
+  });
+  const closePeriod = (): void => {
+    if (pendingMiss && last) out.push(mk(last, pendingMiss, false));
+    pendingMiss = null;
+    offense = null;
+    tripKind = "normal";
+  };
+
+  for (let i = 0; i < events.length; i += 1) {
+    const e = events[i]!;
+    if (e.period !== lastPeriod) {
+      if (lastPeriod !== 0) closePeriod();
+      lastPeriod = e.period;
+    }
+    last = e;
+    const before: RelevantEvent[] = [];
+    const after: RelevantEvent[] = [];
+    const c = e.actionCd;
+    const t = e.teamId;
+    if (c === 20 || c === 21 || c === 24) tripKind = "tech";
+    else if (c === 25 || c === 26) tripKind = "unsport";
+    else if (c === 22 || c === 23) tripKind = "normal";
+    else if (c !== undefined && isGameRow(e)) {
+      let next: RelevantEvent | null = null;
+      for (let j = i + 1; j < events.length; j += 1) {
+        if (isGameRow(events[j]!)) {
+          next = events[j]!;
+          break;
+        }
+      }
+      const sameTripContinues =
+        next !== null && (next.actionCd === 7 || next.actionCd === 8) && next.teamId === t && next.playerId === e.playerId;
+      // 外れたシュートの相手のリバウンドが記録されないまま、相手が動いたとき: 外れたチームの終わりとして数える
+      const resolvePending = (): void => {
+        if (pendingMiss && pendingMiss !== t) {
+          before.push(mk(e, pendingMiss, false));
+          pendingMiss = null;
+          offense = t;
+        }
+      };
+      // 攻撃中のはずのチームの記録が無いまま、相手が動いたとき: 暗黙の終わり
+      const implicitCheck = (): void => {
+        if (offense && offense !== t && !pendingMiss) before.push(mk(e, offense, true));
+      };
+      if (c === 1 || c === 3 || c === 4 || c === 44) {
+        resolvePending();
+        implicitCheck();
+        const andOne = next !== null && (next.actionCd === 7 || next.actionCd === 8) && next.teamId === t && next.playerId === e.playerId && next.period === e.period && next.restTime === e.restTime;
+        if (andOne) {
+          offense = t;
+        } else {
+          after.push(mk(e, t, false));
+          pendingMiss = null;
+          offense = opp(t);
+        }
+      } else if (c === 2 || c === 5 || c === 6) {
+        resolvePending();
+        implicitCheck();
+        pendingMiss = t;
+        offense = t;
+      } else if (c === 10 || c === 19) {
+        resolvePending();
+        pendingMiss = null;
+        offense = t;
+      } else if (c === 9 || c === 18) {
+        if (pendingMiss && pendingMiss !== t) after.push(mk(e, pendingMiss, false));
+        pendingMiss = null;
+        offense = t;
+      } else if (c === 13 || c === 17) {
+        resolvePending();
+        implicitCheck();
+        after.push(mk(e, t, false));
+        pendingMiss = null;
+        offense = opp(t);
+      } else if (c === 7 || c === 8) {
+        if (tripKind === "tech") {
+          if (!sameTripContinues) tripKind = "normal";
+        } else if (tripKind === "unsport") {
+          pendingMiss = null;
+          offense = t;
+          if (!sameTripContinues) tripKind = "normal";
+        } else {
+          resolvePending();
+          implicitCheck();
+          offense = t;
+          if (!sameTripContinues) {
+            tripKind = "normal";
+            if (c === 7) {
+              after.push(mk(e, t, false));
+              pendingMiss = null;
+              offense = opp(t);
+            } else {
+              pendingMiss = t;
+            }
+          }
+        }
+      }
+    }
+    out.push(...before, e, ...after);
+  }
+  closePeriod();
+  return out;
+}
+
 export interface PossessionStartEvent {
   /** このポゼッションを開始した（＝ボールを得た）チーム */
   teamId: string;
@@ -519,7 +758,7 @@ export function reconstructOnCourt(
   awayTeamId: string,
   totalPeriods: number,
   substitutionModel: SubstitutionModel,
-  options: { repairSubOrder?: boolean } = {},
+  options: { repairSubOrder?: boolean; countStats?: boolean } = {},
 ): OnCourtReconstruction {
   const warnings: OnCourtWarning[] = [];
 
@@ -553,11 +792,53 @@ export function reconstructOnCourt(
   // 同時に積算する。tie-break不要（配列の元の並び順を信頼する）という結論は個人+/-の
   // 検証で確立済みなので、そのロジックをそのまま流用する（ズレる余地がない）
   const lineupStints: LineupStint[] = [];
-  type StintAcc = { start: number; net: number; own: number; opp: number; byPeriod: Record<number, { own: number; opp: number }> };
-  const newStint = (start: number): StintAcc => ({ start, net: 0, own: 0, opp: 0, byPeriod: {} });
+  type StintAcc = {
+    start: number;
+    net: number;
+    own: number;
+    opp: number;
+    byPeriod: Record<number, { own: number; opp: number }>;
+    counts: Record<number, StintCountsPair>;
+  };
+  const newStint = (start: number): StintAcc => ({ start, net: 0, own: 0, opp: 0, byPeriod: {}, counts: {} });
   const currentStint: Record<string, StintAcc> = {
     [homeTeamId]: newStint(0),
     [awayTeamId]: newStint(0),
+  };
+  // 数え上げ（ポゼッション・FGM/FGA・…）を、動いたチームのスティントの own と、相手チームのスティントの opp に加える
+  const teamTotals: Record<string, StintCounts> = { [homeTeamId]: emptyStintCounts(), [awayTeamId]: emptyStintCounts() };
+  const bumpCount = (teamId: string, period: number, key: keyof StintCounts, delta = 1) => {
+    teamTotals[teamId]![key] += delta;
+    const opponentId = teamId === homeTeamId ? awayTeamId : homeTeamId;
+    for (const [id, side] of [[teamId, "own"], [opponentId, "opp"]] as const) {
+      const byPeriod = currentStint[id]!.counts;
+      const pair = byPeriod[period] ?? { own: emptyStintCounts(), opp: emptyStintCounts() };
+      pair[side][key] += delta;
+      byPeriod[period] = pair;
+    }
+  };
+  /** 得点以外の記録と、得点の記録（シュート・フリースローの成否）の数え上げ */
+  const countEvent = (e: RelevantEvent) => {
+    const c = e.actionCd;
+    if (c === undefined) return;
+    if (c === 1) { bumpCount(e.teamId, e.period, "tpm"); bumpCount(e.teamId, e.period, "tpa"); bumpCount(e.teamId, e.period, "fgm"); bumpCount(e.teamId, e.period, "fga"); bumpCount(e.teamId, e.period, "pts", 3); }
+    else if (c === 3 || c === 4 || c === 44) { bumpCount(e.teamId, e.period, "fgm"); bumpCount(e.teamId, e.period, "fga"); bumpCount(e.teamId, e.period, "pts", 2); }
+    else if (c === 2) { bumpCount(e.teamId, e.period, "tpa"); bumpCount(e.teamId, e.period, "fga"); }
+    else if (c === 5 || c === 6) bumpCount(e.teamId, e.period, "fga");
+    else if (c === 7) { bumpCount(e.teamId, e.period, "ftm"); bumpCount(e.teamId, e.period, "fta"); bumpCount(e.teamId, e.period, "pts", 1); }
+    else if (c === 8) bumpCount(e.teamId, e.period, "fta");
+    else if (c === 9 || c === 18) bumpCount(e.teamId, e.period, "dr");
+    else if (c === 10 || c === 19) bumpCount(e.teamId, e.period, "or");
+    else if (c === 12) bumpCount(e.teamId, e.period, "ast");
+    else if (c === 13 || c === 17) bumpCount(e.teamId, e.period, "tov");
+  };
+  const countStatLike = (e: RelevantEvent) => {
+    if (e.kind === "poss") {
+      bumpCount(e.teamId, e.period, "poss");
+      if (e.implicit) bumpCount(e.teamId, e.period, "implicitEnds");
+    } else if (e.kind === "stat") {
+      countEvent(e);
+    }
   };
   const addStintPeriodPoints = (teamId: string, period: number, key: "own" | "opp", points: number) => {
     const byPeriod = currentStint[teamId]!.byPeriod;
@@ -566,15 +847,24 @@ export function reconstructOnCourt(
     byPeriod[period] = acc;
   };
 
-  const events = buildRelevantEvents(playByPlays, warnings, substitutionModel);
+  // ポゼッションなどの数え上げは2020-21以降（modernモデル）だけ。旧形式のプレーバイプレーはチームリバウンドの行が欠けている（DESIGN.md 204章）
+  const countStats = options.countStats ?? substitutionModel === "modern";
+  const rawEvents = buildRelevantEvents(playByPlays, warnings, substitutionModel, countStats);
   // 同じ秒の交代の間にフリースローが挟まる並びは、交代をフリースローの前とみなす（検証スクリプトは false で補正前と比べる）
-  const orderRepairs = options.repairSubOrder === false ? [] : repairSubOrderAroundFreeThrows(events);
+  const orderRepairs = options.repairSubOrder === false ? [] : repairSubOrderAroundFreeThrows(rawEvents);
+  const events = countStats ? injectPossessionEvents(rawEvents) : rawEvents;
 
   let i = 0;
   while (i < events.length) {
     const event = events[i]!;
+    if (event.kind === "stat" || event.kind === "poss") {
+      countStatLike(event);
+      i += 1;
+      continue;
+    }
     if (event.kind === "score") {
       const opponentTeamId = event.teamId === homeTeamId ? awayTeamId : homeTeamId;
+      if (countStats) countEvent(event);
       for (const pid of onCourt[event.teamId]!) {
         addPlusMinus(pid, event.points);
         addIntervalScore(pid, "ownPts", event.points);
@@ -599,17 +889,21 @@ export function reconstructOnCourt(
     // ピリオドが違う交代は別のバッチにする: 前のピリオドの終了（残り0:00）と次のピリオドの開始（残り10:00・5:00）は
     // 試合開始からの経過秒が同じなので、まとめると「前のピリオドの終わりのIN」より先に「次のピリオドの始めのOUT」を
     // 処理してしまい（OUTを先に処理するため）、在コートが6人になって5人組を復元できなくなる（DESIGN.md 200章）
+    // 数え上げの記録（stat・poss）は交代の間に挟まっていても読み飛ばして、交代をまとめたあとに処理する
+    // （人数が崩れた一瞬の区間に数え上げが入って、取りこぼされないようにするため）
     let j = i;
-    while (
-      j < events.length &&
-      events[j]!.kind !== "score" &&
-      events[j]!.elapsedSec === event.elapsedSec &&
-      events[j]!.teamId === event.teamId &&
-      events[j]!.period === event.period
-    ) {
+    const deferred: RelevantEvent[] = [];
+    while (j < events.length && events[j]!.elapsedSec === event.elapsedSec && events[j]!.period === event.period) {
+      const x = events[j]!;
+      if (x.kind === "stat" || x.kind === "poss") {
+        deferred.push(x);
+        j += 1;
+        continue;
+      }
+      if (x.kind === "score" || x.teamId !== event.teamId) break;
       j += 1;
     }
-    const batch = events.slice(i, j);
+    const batch = events.slice(i, j).filter((x) => x.kind === "sub-in" || x.kind === "sub-out");
     const teamId = event.teamId;
     const t = event.elapsedSec;
     const lineupBeforeBatch = lineupKeyOf(onCourt[teamId]!);
@@ -670,6 +964,7 @@ export function reconstructOnCourt(
     // バッチ処理前が有効な5人組（playersBeforeBatch.length===5）の場合のみ記録する
     // （試合開始直後の最初のバッチは在コートが空集合からのスタートなので対象外）
     const lineupAfterBatch = lineupKeyOf(onCourt[teamId]!);
+    let carriedCounts: Record<number, StintCountsPair> | null = null;
     if (lineupAfterBatch !== lineupBeforeBatch && playersBeforeBatch.length === 5) {
       const stint = currentStint[teamId]!;
       // 長さ0秒で得点も無いスティントは残さない（上の区間と同じ理由）
@@ -684,12 +979,19 @@ export function reconstructOnCourt(
           ownPoints: stint.own,
           oppPoints: stint.opp,
           pointsByPeriod: stint.byPeriod,
+          ...(countStats ? { countsByPeriod: stint.counts } : {}),
         });
+      } else if (hasAnyCount(stint.counts)) {
+        // 長さ0秒で得点も無いスティントは残さない（上の区間と同じ理由）。数え上げが入っていたときは、次のスティントに引き継ぐ
+        // （同じ秒の交代の間に起きた記録。取りこぼさないため）
+        carriedCounts = stint.counts;
       }
     }
     if (lineupAfterBatch !== lineupBeforeBatch) {
       currentStint[teamId] = newStint(t);
+      if (carriedCounts) currentStint[teamId]!.counts = carriedCounts;
     }
+    for (const x of deferred) countStatLike(x);
     i = j;
   }
 
@@ -708,6 +1010,7 @@ export function reconstructOnCourt(
         ownPoints: stint.own,
         oppPoints: stint.opp,
         pointsByPeriod: stint.byPeriod,
+        ...(countStats ? { countsByPeriod: stint.counts } : {}),
       });
     }
     for (const [playerId, start] of openStart[teamId]!.entries()) {
@@ -749,7 +1052,7 @@ export function reconstructOnCourt(
     }
   }
 
-  return { intervals, plusMinus, lineupStints, warnings, orderRepairs };
+  return { intervals, plusMinus, lineupStints, warnings, orderRepairs, ...(countStats ? { teamTotals } : {}) };
 }
 
 /** 選手ごとの在コート合計秒数（intervalsの合算） */

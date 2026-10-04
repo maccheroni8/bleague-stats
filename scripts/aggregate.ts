@@ -30,7 +30,9 @@ import {
   type PerLeagueTotals,
 } from "../shared/formulas.ts";
 import {
+  STINT_COUNT_KEYS,
   computeOnCourtRatings,
+  periodRangeSeconds,
   reconstructOnCourt,
   substitutionModelForSeason,
   type OnCourtReconstruction,
@@ -80,6 +82,7 @@ import type {
   TeamForcedTurnovers,
   TeamGameLog,
   TeamLineupsFile,
+  TeamStintsFile,
   LeagueAverageFile,
   TeamSummary,
   YahooGamePbp,
@@ -926,6 +929,9 @@ export async function aggregateSeason(season: string, category: Category = "prem
   const teamLineups = new Map<string, Map<string, LineupAccumulator>>();
   /** チームごとの、ラインナップを集計した試合（ScheduleKey）の集合 */
   const teamLineupGames = new Map<string, Set<string>>();
+  /** チームごとの出場区間の数え上げ（2020-21以降。team-stints/ に保存する。DESIGN.md 204章） */
+  const teamStints = new Map<string, TeamStintsBuilder>();
+  const writeTeamStints = substitutionModelForSeason(season) === "modern";
 
   const ensureTeam = (teamId: string, teamName: string): TeamAccumulator => {
     let team = teams.get(teamId);
@@ -1022,6 +1028,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       masterById,
     );
     processLineups(game, teamLineups, teamLineupGames, onCourt);
+    if (writeTeamStints) collectTeamStints(game, teamStints, onCourt);
   }
   if (foreignOverLimit.stints > 0) {
     console.log(
@@ -1316,6 +1323,20 @@ export async function aggregateSeason(season: string, category: Category = "prem
     };
     await writeJson(path.join(DATA_DIR, seasonDir, "lineups", `${teamId}.json`), file);
   }
+  if (writeTeamStints) {
+    for (const [teamId, builder] of teamStints) {
+      const file: TeamStintsFile = {
+        teamId,
+        teamName: teams.get(teamId)?.teamName ?? "",
+        season,
+        countKeys: [...STINT_COUNT_KEYS],
+        games: builder.games,
+        players: builder.players,
+        rows: builder.rows,
+      };
+      await writeJson(path.join(DATA_DIR, seasonDir, "team-stints", `${teamId}.json`), file);
+    }
+  }
 
   // ランキングの Profile（身長・体重・年齢）の対象に加える「そのシーズンに登録していたが players.json に居ない（試合に一度も名前が無い）選手」
   // （DESIGN.md 173章）。終了したシーズンは当時の選手一覧（season-rosters.json）、進行中のシーズンは公式の「在籍中」の一覧
@@ -1367,6 +1388,65 @@ export async function aggregateSeason(season: string, category: Category = "prem
       `standings-history.json(${standingsHistory.length}日分) / head-to-head.json(${headToHead.length}チーム) / ` +
       `lineups/(${teamLineups.size}チーム) / games-summary.json(${gameSummaries.length}試合)`,
   );
+}
+
+interface TeamStintsBuilder {
+  games: string[];
+  players: string[];
+  playerIndex: Map<string, number>;
+  rows: number[][];
+}
+
+/**
+ * 1試合分のスティントの数え上げを、チームごとの team-stints の行（ピリオドごとに分割）に追加する。
+ * 行: [試合番号, ピリオド, 開始秒, 終了秒, 選手番号×5, own×STINT_COUNT_KEYS, opp×STINT_COUNT_KEYS]
+ */
+function collectTeamStints(game: StoredGame, store: Map<string, TeamStintsBuilder>, onCourt: OnCourtReconstruction | null): void {
+  if (!onCourt?.teamTotals) return;
+  const totalPeriods = game.quarterScores.home.length;
+  for (const stint of onCourt.lineupStints) {
+    let b = store.get(stint.teamId);
+    if (!b) {
+      b = { games: [], players: [], playerIndex: new Map(), rows: [] };
+      store.set(stint.teamId, b);
+    }
+    let gameIndex = b.games.indexOf(game.scheduleKey);
+    if (gameIndex < 0) {
+      gameIndex = b.games.length;
+      b.games.push(game.scheduleKey);
+    }
+    const playerNumbers = stint.playerIds.map((id) => {
+      let n = b.playerIndex.get(id);
+      if (n === undefined) {
+        n = b.players.length;
+        b.players.push(id);
+        b.playerIndex.set(id, n);
+      }
+      return n;
+    });
+    const byPeriod = stint.countsByPeriod ?? {};
+    // 時間はピリオドごとに分ける。時間の重なりが無いピリオドの数え上げ（ピリオドの境目の記録）は、スティントの終わりの長さ0秒の行に入れる
+    for (let p = 1; p <= totalPeriods; p += 1) {
+      const [ps, pe] = periodRangeSeconds(p);
+      const from = Math.max(stint.startSec, ps);
+      const to = Math.min(stint.endSec, pe);
+      const pair = byPeriod[p];
+      const hasOverlap = to > from;
+      if (!hasOverlap && !pair) continue;
+      if (!hasOverlap && pair && !(STINT_COUNT_KEYS.some((k) => pair.own[k] !== 0 || pair.opp[k] !== 0))) continue;
+      const start = hasOverlap ? from : stint.endSec;
+      const end = hasOverlap ? to : stint.endSec;
+      b.rows.push([
+        gameIndex,
+        p,
+        start,
+        end,
+        ...playerNumbers,
+        ...STINT_COUNT_KEYS.map((k) => pair?.own[k] ?? 0),
+        ...STINT_COUNT_KEYS.map((k) => pair?.opp[k] ?? 0),
+      ]);
+    }
+  }
 }
 
 /** 1試合分のラインナップスティント（shared/onCourt.ts）をチームごとに積算する */

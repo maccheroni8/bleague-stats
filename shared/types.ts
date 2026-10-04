@@ -1098,6 +1098,25 @@ export interface LineupAggregate {
   estimatedDefRtg: number;
 }
 
+/**
+ * チームの出場区間（スティント）ごとの数え上げ（`data/{season}/team-stints/{teamId}.json`。2020-21以降。DESIGN.md 204章）。
+ * 任意の選手の組み合わせの On/Off や、試合区分・Q別の絞り込みを、画面側で計算するための元データ。
+ * ピリオドをまたぐスティントはピリオドごとの行に分けてある。
+ */
+export interface TeamStintsFile {
+  teamId: string;
+  teamName: string;
+  season: string;
+  /** rowsの数え上げ列の意味と並び（自チーム own → 相手 opp の順に同じ並びで2回続く） */
+  countKeys: string[];
+  /** rowsの試合番号が指すScheduleKey */
+  games: string[];
+  /** rowsの選手番号が指す選手ID */
+  players: string[];
+  /** [試合番号, ピリオド, 開始秒, 終了秒, 選手番号×5, own数え上げ×countKeys, opp数え上げ×countKeys]（秒は試合開始からの経過秒） */
+  rows: number[][];
+}
+
 export interface TeamLineupsFile {
   teamId: string;
   teamName: string;

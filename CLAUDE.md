@@ -92,6 +92,9 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   （上の `legacyPeriodScores()` の項と同じ原因。`aggregate.ts`・`validate-oncourt`・選手詳細・1試合のボックススコア）。
   試合詳細・チーム詳細で使っている延長の判定（`src/lib/gamePeriods.ts` の `gamePeriodScores`・`gameHasOvertime`。設計書199章）を使って
   ピリオド数を決め直す。**単独では着手せず、在コート基準の再集計（次の項）と同じタイミングでまとめる**（設計書200章）
+- 実際のポゼッション（段階1は設計書204章で実装済み: `team-stints/` と `lineupStints[].countsByPeriod`。2020-21以降）。段階2（よく使われるラインナップ・ラインナップ検索の
+  ORtg・DRtg・NetRtgを実際のポゼッションにし、「推定」を外す。2016-17〜2019-20は「ORtg（推定）」の見出し・表の下の1行・用語集で推定と分かるようにする）と、
+  段階3（%系・USG%・選手のAST%・On-Court Foreign〈個人・opp〉・旧シーズンの延長戦の在コート）は、あとで進める
 - 【未対応タスク】在コート基準の再集計（設計書137章・139章）: 在コート区間ごとにチームのPTS・FGM・FGA・3PM・3PA・FTM・FTA・TOV・
   ポゼッションを数えて試合ログに保存し、選手の%系（%PTS・%FGM・%3PM等）・USG%・ラインナップの実ポゼッション・選手のAST%（NBA式、
   分子はFGMにつながったアシストのみ）・個人のOn-Court Foreign（本人を含む人数。除外ルールはチームと同じ処理の中で揃え、
