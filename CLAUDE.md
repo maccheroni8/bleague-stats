@@ -60,6 +60,9 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - コミットの前に、ビルド（`npm run build`）に加えて `npm run typecheck`（スクリプト用と画面側の両方）を実行し、
   エラー0件を確認する（2026-09-26）。集計・データの持ち方に関わる変更では、`npm run build:data` が通ること（導出データはコミットされない）と
   `npm run build:data -- check-layout` が通ることも確かめる（206章）
+- `.github/workflows/` を変更してpushしたら、その直後の実行一覧（`gh run list --workflow <ファイル名>`）で、push起因の「workflow file issue」の失敗が
+  出ていないかを確認する。ワークフローの書き方が無効だと、定期実行・外部からの起動がすべて止まる（2026-10-05に `env` 直下で `runner` コンテキストを使って発生。設計書205章）。
+  ジョブ直下の `env` で使えるのは github・needs・strategy・matrix・vars・secrets・inputs だけで、`runner` は使えない（ステップの中では使える）
 - 公開サイトがどのコミットの内容かは、HTMLのmetaタグで確かめる（画面には出ていない。設計書198章）。
   `curl -s https://maccheroni8.github.io/bleague-stats/ | grep -o '<meta name="build-[^>]*>'` で、`build-commit`（ビルドしたコミット）と
   `build-time`（ビルド時刻）が出る。`git log -1 --format=%H` や `git log origin/main -1` のコミットと見比べ、公開サイトが古いコミットなら、

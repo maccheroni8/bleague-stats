@@ -55,12 +55,14 @@ jobs:
   update:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    env:
-      # 同じ実行の中で取り直した試合の記録（コミットしない一時ファイル。見張りの一覧が同じ試合を重ねて取りに行かないための判定。DESIGN.md 205章）
-      FETCHED_GAMES_FILE: ${{ runner.temp }}/fetched-games.txt
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      # 同じ実行の中で取り直した試合の記録（コミットしない一時ファイル。見張りの一覧が同じ試合を重ねて取りに行かないための判定。DESIGN.md 205章）。
+      # ジョブ直下の env では runner コンテキストが使えず、ワークフロー全体が無効になる（2026-10-05判明）ため、ステップで環境変数に書く
+      - name: Prepare temporary file paths
+        run: echo "FETCHED_GAMES_FILE=$RUNNER_TEMP/fetched-games.txt" >> "$GITHUB_ENV"
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
