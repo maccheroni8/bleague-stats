@@ -6708,9 +6708,116 @@ a.period-records-cell {
   color: var(--muted);
 }
 
-.lineup-search-clear {
-  margin-left: 12px;
+.lineup-search-select {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 16px;
+  margin-bottom: 16px;
+}
+
+.lineup-search-dropdown {
+  position: relative;
+}
+
+.lineup-search-dropdown-button {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lineup-search-dropdown-button span {
+  margin-left: 8px;
+  color: var(--muted);
+}
+
+.lineup-search-dropdown-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 260px;
+  max-width: calc(100vw - 32px);
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+.lineup-search-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.lineup-search-option:hover {
+  background: var(--row-hover);
+}
+
+.lineup-search-option.checked {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.lineup-search-option.disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.lineup-search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+}
+
+.lineup-search-chips .lineup-search-hint {
+  margin: 0;
+}
+
+.lineup-search-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px 5px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.lineup-search-chip button {
+  width: 22px;
+  height: 22px;
   padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lineup-search-chip button:hover {
+  color: var(--accent);
+}
+
+.lineup-search-clear {
+  padding: 0 4px;
   border: none;
   background: none;
   color: var(--accent);
@@ -6719,65 +6826,58 @@ a.period-records-cell {
   text-decoration: underline;
 }
 
-.lineup-search-players {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 6px 12px;
-  margin-bottom: 16px;
-}
-
-.lineup-search-player {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.lineup-search-player.checked {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.lineup-search-player.disabled {
-  opacity: 0.5;
+table.sortable-table.lineup-search-table tbody th {
+  border-bottom: 1px solid var(--border);
+  position: static;
+  background: transparent;
+  color: var(--fg);
   cursor: default;
+  text-transform: none;
+  white-space: nowrap;
 }
 
-.lineup-search-cards {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+.lineup-search-diff-row td,
+.lineup-search-diff-row th {
+  border-top: 2px solid var(--border);
+  font-weight: 700;
+}
+
+.lineup-search-compare {
+  width: 100%;
   margin: 0 0 12px;
+  border-collapse: collapse;
+  font-size: 14px;
 }
 
-.lineup-search-cards > div {
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+.lineup-search-compare th,
+.lineup-search-compare td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
 }
 
-.lineup-search-cards dt {
+.lineup-search-compare .align-right {
+  text-align: right;
+}
+
+.lineup-search-compare .align-left {
+  text-align: left;
+}
+
+.lineup-search-compare thead th {
   font-size: 12px;
   color: var(--muted);
 }
 
-.lineup-search-cards dd {
-  margin: 2px 0 0;
-  font-size: 18px;
+.lineup-search-compare tbody th {
+  font-weight: 400;
+}
+
+.lineup-search-compare .lineup-search-diff {
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 560px) {
-  .lineup-search-players {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
-  }
-
   /* 範囲の切り替えは折り返さず、1行で横にスクロールする */
   .lineup-search-scroll {
     overflow-x: auto;

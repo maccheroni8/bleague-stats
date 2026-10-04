@@ -189,7 +189,8 @@ export function GlossaryGuides() {
       <section className="glossary-section" id={A.lineupSearch}>
         <h2>ラインナップ検索（チーム詳細）</h2>
         <p>
-          選んだ選手（1〜5人）が全員コートにいた時間帯（Players On）、または全員ベンチにいた時間帯（Players Off）の成績を出します。
+          選んだ選手（1〜5人。プルダウンから複数選び、選んだ選手は横に並べて表示します）が全員コートにいた時間帯（Players On）と、全員ベンチにいた時間帯（Players Off）の成績を、
+          上下に並べて出します。いちばん下の行は、その差（Players On − Players Off）です。
           選んだ選手のうち一部だけがコートにいる時間は、どちらにも入りません。
         </p>
         <h3>対象の試合</h3>
