@@ -12,6 +12,11 @@ on:
   schedule:
     - cron: "23 * * * *" # 毎時23分（更新の実行の07/22/37/52分とずらす）
   workflow_dispatch:
+    inputs:
+      stale_hours:
+        description: "停止とみなす時間（動作確認用。空なら6時間。0にするとIssueを立てる動きを確かめられる）"
+        required: false
+        default: ""
 
 permissions:
   actions: read
@@ -25,7 +30,7 @@ concurrency:
 env:
   GH_TOKEN: ${{ github.token }}
   UPDATE_WORKFLOW: update-stats.yml
-  STALE_HOURS: "6"
+  STALE_HOURS: ${{ github.event.inputs.stale_hours || '6' }}
   ISSUE_LABEL: update-stalled
 
 jobs:
@@ -36,6 +41,7 @@ jobs:
       - name: Check the last successful update run
         run: |
           set -euo pipefail
+          case "$STALE_HOURS" in ''|*[!0-9]*) echo "stale_hours は0以上の整数で指定してください: $STALE_HOURS"; exit 1;; esac
           last=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$UPDATE_WORKFLOW" \
             --status success --limit 1 --json createdAt --jq '.[0].createdAt // ""')
           now=$(date -u +%s)
