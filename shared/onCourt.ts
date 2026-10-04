@@ -135,6 +135,20 @@ export interface OnCourtReconstruction {
   /** 5人組の在コートスティント（ラインナップスタッツの基盤データ） */
   lineupStints: LineupStint[];
   warnings: OnCourtWarning[];
+  /** 同じ秒の交代の間にフリースローが挟まっていたため、交代をフリースローの前に動かした場所の一覧（空なら補正なし） */
+  orderRepairs: SubOrderRepair[];
+}
+
+/** 公式の記録で、交代の間にフリースローが挟まっていたため、動かした交代（DESIGN.md 201章） */
+export interface SubOrderRepair {
+  period: number;
+  restTime: string;
+  teamId: string;
+  /** フリースローの前へ動かした交代の選手 */
+  playerId: string;
+  kind: "sub-in" | "sub-out";
+  /** 動かした交代がまたいだフリースローの得点の合計 */
+  points: number;
 }
 
 function lineupKeyOf(set: Set<string>): string {
@@ -156,6 +170,8 @@ interface RelevantEvent {
   teamId: string;
   playerId: string;
   points: number;
+  /** 成功したフリースローの得点か（並びの補正の対象。repairSubOrderAroundFreeThrows参照） */
+  freeThrow?: boolean;
 }
 
 function buildRelevantEvents(
@@ -176,6 +192,7 @@ function buildRelevantEvents(
         teamId: ev.TeamID,
         playerId: ev.PlayerID1 ?? "",
         points,
+        freeThrow: ev.ActionCD1 === FT_MAKE_CODE,
       });
       continue;
     }
@@ -301,6 +318,88 @@ function buildRelevantEvents(
   return events;
 }
 
+/**
+ * 同じ秒の交代の間にフリースローが挟まっているときに、交代をフリースローの前へ動かす。
+ *
+ * FIBAのルールでは、フリースローの間（1本目と2本目の間を含む）は原則として交代できない。
+ * 公式の記録で、あるチームの「IN→フリースロー→OUT」（または「OUT→フリースロー→IN」）のように、
+ * 5人に戻す交代がフリースローのあとに記録されていると、その間のコート上が6人（または4人）になり、
+ * 5人組を割り出せず、そのフリースローの得点がラインナップ別成績の「集計外」に入ってしまう
+ * （2026-27 506412 の3Q残り0:01など。DESIGN.md 201章）。実際は交代がフリースローの前に行われたはずなので、
+ * 5人に戻す交代を、先に記録された交代の直後（フリースローの前）に動かす。
+ *
+ * 動かすのは次の3つがそろったときだけ（それ以外の並びは公式の記録のまま）:
+ * - 成功したフリースローの得点が、そのチームのコート上が5人でない間に記録されている
+ * - そのチームは、その秒（同じピリオド・同じ残り時間）に入る前は5人だった
+ *   （前の秒からの人数の食い違いは、交代記録の欠けなどが原因なので直さない）
+ * - 同じ秒の中に、5人へ戻す交代（6人ならOUT、4人ならIN）が、そのあとに記録されている
+ * 「入れ替え→得点→入れ替え」のように得点の時点で5人なら動かさない。
+ */
+function repairSubOrderAroundFreeThrows(events: RelevantEvent[]): SubOrderRepair[] {
+  const repairs: SubOrderRepair[] = [];
+  const onCourt = new Map<string, Set<string>>();
+  const setOf = (teamId: string): Set<string> => {
+    let set = onCourt.get(teamId);
+    if (!set) {
+      set = new Set();
+      onCourt.set(teamId, set);
+    }
+    return set;
+  };
+  const apply = (e: RelevantEvent): void => {
+    if (e.kind === "sub-in") setOf(e.teamId).add(e.playerId);
+    else if (e.kind === "sub-out") setOf(e.teamId).delete(e.playerId);
+  };
+
+  let k = 0;
+  let currentSecond = "";
+  let sizeAtSecondStart = new Map<string, number>();
+  while (k < events.length) {
+    const e = events[k]!;
+    const second = `${e.period}|${e.elapsedSec}`;
+    if (second !== currentSecond) {
+      currentSecond = second;
+      sizeAtSecondStart = new Map([...onCourt].map(([teamId, set]) => [teamId, set.size]));
+    }
+    if (e.kind !== "score" || !e.freeThrow) {
+      apply(e);
+      k += 1;
+      continue;
+    }
+    // このフリースローの時点で5人でないチームについて、5人へ戻す交代を同じ秒の中から探して前へ動かす
+    let moved = false;
+    for (const [teamId, set] of onCourt) {
+      if (set.size === 5 || set.size === 0) continue;
+      if (sizeAtSecondStart.get(teamId) !== 5) continue;
+      const needed: "sub-in" | "sub-out" = set.size > 5 ? "sub-out" : "sub-in";
+      let found = -1;
+      let points = 0;
+      for (let m = k; m < events.length; m += 1) {
+        const x = events[m]!;
+        if (x.period !== e.period || x.elapsedSec !== e.elapsedSec) break;
+        if (x.kind === "score") points += x.points;
+        else if (x.teamId === teamId && x.kind === needed) {
+          found = m;
+          break;
+        }
+      }
+      if (found < 0) continue;
+      const [sub] = events.splice(found, 1);
+      events.splice(k, 0, sub!);
+      apply(sub!);
+      repairs.push({ period: sub!.period, restTime: sub!.restTime, teamId, playerId: sub!.playerId, kind: needed, points });
+      k += 1; // 動かした交代の次（フリースロー）に進む。人数がまだ5人でなければ、同じ得点でもう一度探す
+      moved = true;
+      break;
+    }
+    if (!moved) {
+      apply(e);
+      k += 1;
+    }
+  }
+  return repairs;
+}
+
 export interface PossessionStartEvent {
   /** このポゼッションを開始した（＝ボールを得た）チーム */
   teamId: string;
@@ -420,6 +519,7 @@ export function reconstructOnCourt(
   awayTeamId: string,
   totalPeriods: number,
   substitutionModel: SubstitutionModel,
+  options: { repairSubOrder?: boolean } = {},
 ): OnCourtReconstruction {
   const warnings: OnCourtWarning[] = [];
 
@@ -467,6 +567,8 @@ export function reconstructOnCourt(
   };
 
   const events = buildRelevantEvents(playByPlays, warnings, substitutionModel);
+  // 同じ秒の交代の間にフリースローが挟まる並びは、交代をフリースローの前とみなす（検証スクリプトは false で補正前と比べる）
+  const orderRepairs = options.repairSubOrder === false ? [] : repairSubOrderAroundFreeThrows(events);
 
   let i = 0;
   while (i < events.length) {
@@ -647,7 +749,7 @@ export function reconstructOnCourt(
     }
   }
 
-  return { intervals, plusMinus, lineupStints, warnings };
+  return { intervals, plusMinus, lineupStints, warnings, orderRepairs };
 }
 
 /** 選手ごとの在コート合計秒数（intervalsの合算） */
