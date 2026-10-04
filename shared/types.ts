@@ -1096,6 +1096,12 @@ export interface LineupAggregate {
   estimatedOffRtg: number;
   /** 推定Defensive Rating（100ポゼッションあたり相手チーム得点）。同上 */
   estimatedDefRtg: number;
+  /**
+   * 実際のポゼッション数（この5人が同時に出場していた間の、自チームの攻撃と相手の攻撃の数。プレーバイプレーから数えたスティントの合計）。
+   * 2020-21以降のみ。無いシーズンは上の推定値を使う（DESIGN.md 207章）
+   */
+  ownPoss?: number;
+  oppPoss?: number;
 }
 
 /**

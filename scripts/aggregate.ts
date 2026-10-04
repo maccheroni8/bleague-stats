@@ -34,6 +34,7 @@ import {
   computeOnCourtRatings,
   periodRangeSeconds,
   reconstructOnCourt,
+  sumCountsByPeriod,
   substitutionModelForSeason,
   type OnCourtReconstruction,
   type PlayerOnCourtRatings,
@@ -846,6 +847,10 @@ interface LineupAccumulator {
   netPoints: number;
   ownPoints: number;
   oppPoints: number;
+  /** 実際のポゼッション数（スティントの数え上げの合計。2020-21以降。DESIGN.md 207章）。数え上げが無いシーズンは hasPoss が false のまま */
+  ownPoss: number;
+  oppPoss: number;
+  hasPoss: boolean;
   games: Set<string>;
 }
 
@@ -1311,6 +1316,8 @@ export async function aggregateSeason(season: string, category: Category = "prem
           estimatedNetRtg: safeDiv(100 * acc.netPoints, estimatedPoss),
           estimatedOffRtg: safeDiv(100 * acc.ownPoints, estimatedPoss),
           estimatedDefRtg: safeDiv(100 * acc.oppPoints, estimatedPoss),
+          // 実際のポゼッション数（数え上げのあるシーズンだけ。画面はこれがあれば「推定」を付けずに実際の値で出す）
+          ...(acc.hasPoss ? { ownPoss: acc.ownPoss, oppPoss: acc.oppPoss } : {}),
         };
       })
       .sort((a, b) => b.secondsPlayed - a.secondsPlayed);
@@ -1470,13 +1477,19 @@ function processLineups(
     }
     let acc = lineupMap.get(stint.lineupKey);
     if (!acc) {
-      acc = { playerIds: stint.playerIds, secondsPlayed: 0, netPoints: 0, ownPoints: 0, oppPoints: 0, games: new Set() };
+      acc = { playerIds: stint.playerIds, secondsPlayed: 0, netPoints: 0, ownPoints: 0, oppPoints: 0, ownPoss: 0, oppPoss: 0, hasPoss: false, games: new Set() };
       lineupMap.set(stint.lineupKey, acc);
     }
     acc.secondsPlayed += stint.endSec - stint.startSec;
     acc.netPoints += stint.netPoints;
     acc.ownPoints += stint.ownPoints;
     acc.oppPoints += stint.oppPoints;
+    if (stint.countsByPeriod) {
+      const total = sumCountsByPeriod(stint.countsByPeriod);
+      acc.ownPoss += total.own.poss;
+      acc.oppPoss += total.opp.poss;
+      acc.hasPoss = true;
+    }
     acc.games.add(game.scheduleKey);
   }
 }

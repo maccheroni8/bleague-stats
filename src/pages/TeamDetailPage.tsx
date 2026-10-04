@@ -81,6 +81,7 @@ import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { MIN_LINEUP_AVG_SECONDS, MIN_LINEUP_GAME_SHARE } from "../lib/tableThresholds";
+import { ESTIMATED_RATING_NOTE, lineupRatingsOf, lineupsHaveRealPossessions } from "../lib/lineupRatings";
 import {
   buildBackToBackStatus,
   buildGameTeamsByScheduleKey,
@@ -3202,6 +3203,8 @@ export function TeamDetailPage({ season }: { season: string }) {
     (l) => l.gamesPlayed > 0 && l.secondsPlayed / l.gamesPlayed >= MIN_LINEUP_AVG_SECONDS && l.gamesPlayed >= MIN_LINEUP_GAME_SHARE * lineupTeamGames,
   );
   const displayedLineups = lineupsExpanded ? allLineups : eligibleLineups;
+  // 実際のポゼッションで計算できるシーズン（2020-21以降）は「推定」を付けず、できないシーズンは推定値と分かるようにする（DESIGN.md 207章）
+  const lineupRatingsReal = lineupsHaveRealPossessions(allLineups);
 
   const topAssistPairs = teamAssistPairs.slice(0, MAX_ASSIST_PAIR_ROWS);
   const displayedAssistPairs = assistPairsExpanded ? teamAssistPairs : topAssistPairs;
@@ -4306,13 +4309,15 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <th className="align-right" title={statDescription("平均得点")}>平均得点</th>
                       <th className="align-right" title={statDescription("平均失点")}>平均失点</th>
                       <th className="align-right" title={statDescription("平均得失点")}>平均得失点</th>
-                      <th className="align-right" title={statDescription("ORtg（推定）")}>ORtg（推定）</th>
-                      <th className="align-right" title={statDescription("DRtg（推定）")}>DRtg（推定）</th>
-                      <th className="align-right" title={statDescription("NetRtg（推定）")}>NetRtg（推定）</th>
+                      <th className="align-right" title={statDescription(lineupRatingsReal ? "ラインナップORtg" : "ORtg（推定）")}>{lineupRatingsReal ? "ORtg" : "ORtg（推定）"}</th>
+                      <th className="align-right" title={statDescription(lineupRatingsReal ? "ラインナップDRtg" : "DRtg（推定）")}>{lineupRatingsReal ? "DRtg" : "DRtg（推定）"}</th>
+                      <th className="align-right" title={statDescription(lineupRatingsReal ? "ラインナップNetRtg" : "NetRtg（推定）")}>{lineupRatingsReal ? "NetRtg" : "NetRtg（推定）"}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {displayedLineups.map((l) => (
+                    {displayedLineups.map((l) => {
+                      const ratings = lineupRatingsOf(l);
+                      return (
                       <tr key={l.lineupKey}>
                         <td className="align-left">{l.playerIds.map((id) => playerLabel(playerNameById.get(id) ?? id)).join(" / ")}</td>
                         <td className="align-right">{l.gamesPlayed}</td>
@@ -4325,14 +4330,16 @@ export function TeamDetailPage({ season }: { season: string }) {
                         <td className="align-right">{formatDecimal(safeDiv(l.ownPoints, l.gamesPlayed))}</td>
                         <td className="align-right">{formatDecimal(safeDiv(l.oppPoints, l.gamesPlayed))}</td>
                         <td className="align-right">{formatSigned(safeDiv(l.netPoints, l.gamesPlayed))}</td>
-                        <td className="align-right">{formatDecimal(l.estimatedOffRtg)}</td>
-                        <td className="align-right">{formatDecimal(l.estimatedDefRtg)}</td>
-                        <td className="align-right">{formatSigned(l.estimatedNetRtg)}</td>
+                        <td className="align-right">{ratings.off !== null ? formatDecimal(ratings.off) : "-"}</td>
+                        <td className="align-right">{ratings.def !== null ? formatDecimal(ratings.def) : "-"}</td>
+                        <td className="align-right">{ratings.net !== null ? formatSigned(ratings.net) : "-"}</td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
+              {!lineupRatingsReal && <p className="rule-change-footnote">※ {ESTIMATED_RATING_NOTE}</p>}
               {allLineups.length > eligibleLineups.length && (
                 <button className="load-more-button" type="button" onClick={() => setLineupsExpanded((v) => !v)}>
                   {lineupsExpanded ? "条件を満たすパターンだけを表示" : `全パターンを表示（全${allLineups.length}パターン）`}
