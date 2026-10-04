@@ -22,7 +22,8 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 95章・99章: 選択中の条件のタイトル・画像ファイル名への反映
 - 105章: フィルタUI（NBA Stats型）。105-15・105-17 画像出力
 - 143章: クォーター別・前後半別の記録と1試合平均。143-3 順位の付け方（同じ値は同じ順位・次は飛ばす）、
-  143-4 歴代記録の順位のバッチ（`aggregate-league-rankings.ts`・`aggregate-league-player-rankings.ts`）を夜間実行で毎晩実行
+  143-4 歴代記録の順位のバッチ（`aggregate-league-rankings.ts`・`aggregate-league-player-rankings.ts`。206章以降はデプロイのときに作る）
+- 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
 ## 作業の心得
@@ -34,25 +35,38 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - スクレイピングは個人利用の範囲に留める。リクエスト間隔を最低2〜3秒空け、並列アクセスしない
   （設計書2章）。bleague.jp への問い合わせは必ず `scripts/lib/throttle.ts` の createThrottledFetch を通す
   （ホストごとにプロセス全体で直列・最低間隔を共有。1回30秒の上限、5xx・通信の失敗だけ10秒待って1回再試行、4xxは再試行しない。
-  設計書8-9）。夜間・30分おきの実行では、日程・ボックススコアの取得に失敗しても手元のデータのまま集計・コミットを続け、
+  設計書8-9）。夜間・30分おきの実行では、日程・ボックススコアの取得に失敗しても手元のデータのままコミットを続け、
   最後にジョブを失敗にして通知する（ジョブが失敗で終わっても、データの変更をコミットした回はデプロイする。変更の無い回はデプロイしない）
 - 機能はティアA（確実）／B（要追加調査）／C（難易度高・試験実装）で整理されている（設計書3章・
   12章）。ティアCの機能は、精度が基準に届かなければ縮小・非表示にする前提で扱う
 - 試合終了後21日間は該当試合を再チェックし、スタッツ修正（公式記録の後日訂正）に対応する
   （設計書8章）
-- `aggregate.ts`または`formulas.ts`のロジックを変更した場合、必ず全シーズン（過去バックフィル分
-  含む）で`npm run aggregate`を再実行してからコミットすること。現在シーズンのみの再集計で
-  済ませない。日次のGitHub Actionsワークフロー（`update-stats.yml`）が集計するのは現在シーズンの
-  みのため、過去シーズンはロジック変更のたびに手動で再集計しない限り自動では同期されない
+- **データの持ち方（設計書206章）**: `data/` のファイルは、コミットに残す**元データ（A）**と、デプロイのときに元データから作る**導出データ（B）**に
+  分かれる。仕分けは `scripts/lib/dataLayout.ts` が正。
+  - A（コミットする）: 試合の生データ（`games/`・B.ONEは `one/games/`）、スポーツナビの記録（`yahoo/`）、日程（`schedule.json`）、選手マスタ・
+    1月15日の固定（`season-profiles`）・在籍中の選手名簿（`current-roster`）・当時の名簿とポジション・地区・クラブの実績・賞・規則・選手履歴・
+    見張りの一覧と前回の版・選手写真・ロゴ
+  - B（コミットしない。`.gitignore` 済み）: シーズンごとの `players`・`teams`・`player-games/`・`team-games/`・`lineups/`・`team-stints/`・`games-summary` など
+    と、全シーズンをまたぐ `seasons`・`player-careers`・`league-team-rankings`・`league-player-rankings`・`league-player-game-records` など
+  - **集計や式（`aggregate.ts`・`formulas.ts`・`shared/` など）を変えたときは、再集計も導出データのコミットも要らない。** 次のデプロイが、変わったコードで
+    作り直す（過去のシーズンは、集計のコードが変わると保存キーが変わり、そのデプロイで全シーズンを作り直す。時間は余分にかかる）。
+    手元で画面や数値を確かめるときは `npm run build:data`（全シーズン＋全体、約1分）、`npm run build:data -- --season 2026-27`（そのシーズンと全体）を使う。
+    `npm run dev` は、導出データが無ければ起動前に自動で作る
+  - 新しい種類のファイルを `data/` に足すときは、`dataLayout.ts` に A か B かを書き、B なら `.gitignore` の「導出データ」の並びも直す
+    （`npm run build:data -- print-gitignore` の出力に置き換える）。`npm run build:data -- check-layout` が、仕分け漏れと `.gitignore` のずれを検出する
+  - 導出データを読む手元用のスクリプト（`scrape-club-honors.ts`・`scrape-wayback-profiles.ts`・`backfill-legacy-player-photos.ts`）は、先に `npm run build:data` を実行する
+  - 更新ジョブ（`update-stats.yml`）は元データだけをコミットする。1月15日の固定の直前にだけ、今のシーズンの導出データを作る（コミットされない）。
+    デプロイの導出データの作成が失敗すると、公開サイトは前の版のまま残り、実行の失敗として通知される
 - コミットの前に、ビルド（`npm run build`）に加えて `npm run typecheck`（スクリプト用と画面側の両方）を実行し、
-  エラー0件を確認する（2026-09-26）
+  エラー0件を確認する（2026-09-26）。集計・データの持ち方に関わる変更では、`npm run build:data` が通ること（導出データはコミットされない）と
+  `npm run build:data -- check-layout` が通ることも確かめる（206章）
 - 公開サイトがどのコミットの内容かは、HTMLのmetaタグで確かめる（画面には出ていない。設計書198章）。
   `curl -s https://maccheroni8.github.io/bleague-stats/ | grep -o '<meta name="build-[^>]*>'` で、`build-commit`（ビルドしたコミット）と
   `build-time`（ビルド時刻）が出る。`git log -1 --format=%H` や `git log origin/main -1` のコミットと見比べ、公開サイトが古いコミットなら、
   デプロイ（`Deploy to GitHub Pages`）の実行を見る。データだけを確かめるときは、`/data/{シーズン}/games-summary.json.gz` などの
   `last-modified` と中身を見る（ブラウザのキャッシュは約10分）
-- データに新しい項目を加えるときは、その項目が無い古いデータでも画面が動く形にする（デプロイ直後に古いデータが読まれることが
-  あるため。設計書167章）
+- データに新しい項目を加えるときは、その項目が無い古いデータでも画面が動く形にする（デプロイ直後に、ブラウザのキャッシュなどで古いデータが
+  読まれることがあるため。設計書167章。導出データはデプロイのたびに作り直すのでリポジトリには古い版が残らないが、この理由は変わらない）
 - 画面の文言（説明文・ツールチップ・列の説明・エラー文）には、関数名・設計書の章番号・ファイル名など、サイトを見る人に
   関係の無い記述を書かない（経緯は設計書とコードのコメントに残す。設計書133章）
 - スマホ幅（560px以下）では、ページのタイトル・見出し（h1〜h4）以外のチーム名はすべて略称、選手名はすべて名字だけにする
@@ -104,9 +118,8 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 公式の記録の誤り（交代の記録の欠け・並びの食い違いなど）を見つけたら、`npm run watchlist -- add <試合ID> --season ... --reason "..." [--check ...]` で
   見張りの一覧（`data/game-watchlist.json`）に入れる。夜間実行が60日間取り直し、公式のスタッツ修正で変わったら、ジョブの通知とデータのコミットの本文
   （「見張り：…」の行）に出る（設計書202章）。一覧の状態が「修正あり」「修正なし」「解消」になった試合は、結果を報告してから放っておいてよい
-- 歴代記録の順位（`league-team-rankings.json`・`league-player-rankings.json`）は夜間実行で毎晩作り直す（内容が変わらない日は
-  書き換えない。設計書143-4）。バッチや `aggregate.ts` のロジックを変えて全シーズンを再集計したときは、夜間を待たずに
-  `npm run aggregate:league-rankings`・`npm run aggregate:league-player-rankings` も実行してからコミットする
+- 歴代記録の順位（`league-team-rankings.json`・`league-player-rankings.json`）は導出データ（B）で、デプロイのたびに作り直す（設計書143-4・206章）。
+  バッチや `aggregate.ts` のロジックを変えても、手動で作り直してコミットする必要は無い
 - 順位は「同じ値は同じ順位、次は飛ばす（1位・2位・2位・4位）」に揃えている（設計書143-3）。新しく順位を出すときもこの形にする
 - 5カテゴリタブ間で同じ項目は重複させない。EFF・+/-はトラディショナル、eFG%・TS%はアドバンスドに
   置く。列定義は7系統（`BoxscoreTable.tsx`のCOLUMNS_BY_TAB、`playerSeasonBoxscore.ts`の
@@ -146,4 +159,5 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   （DESIGN.md 148章）
 - シーズン終了後は、`scrape-season-rosters.ts --from YYYY --to YYYY`を再実行して`season-positions.json`を
   アーカイブする必要がある（デフォルトの`--to`のままだと、終了したシーズンでも現在値が表示され続ける）。
-  再実行後は該当シーズンを`npm run aggregate`で再集計すること（DESIGN.md 101章）
+  再実行後は、コミットするのは `season-positions.json` だけでよい（そのシーズンの導出データは、元データの内容が変わるので次のデプロイが作り直す。
+  手元で確かめるなら `npm run build:data -- --season YYYY-YY`。DESIGN.md 101章・206章）
