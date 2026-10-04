@@ -98,6 +98,9 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   検算は「選手全員の秒数の合計＝チームの秒数×5」。設計書141章）をまとめて入れる。出場時間の比による近似式は使わない。
   同じタイミングで、チーム詳細 On-Court Foreign の opp 視点（相手チームのコート上の外国籍の人数。各試合の相手側の「人数別の在コート秒数」を
   `TeamSummary` に別項目として合算する。設計書183章）も入れる
+- 公式の記録の誤り（交代の記録の欠け・並びの食い違いなど）を見つけたら、`npm run watchlist -- add <試合ID> --season ... --reason "..." [--check ...]` で
+  見張りの一覧（`data/game-watchlist.json`）に入れる。夜間実行が60日間取り直し、公式のスタッツ修正で変わったら、ジョブの通知とデータのコミットの本文
+  （「見張り：…」の行）に出る（設計書202章）。一覧の状態が「修正あり」「修正なし」「解消」になった試合は、結果を報告してから放っておいてよい
 - 歴代記録の順位（`league-team-rankings.json`・`league-player-rankings.json`）は夜間実行で毎晩作り直す（内容が変わらない日は
   書き換えない。設計書143-4）。バッチや `aggregate.ts` のロジックを変えて全シーズンを再集計したときは、夜間を待たずに
   `npm run aggregate:league-rankings`・`npm run aggregate:league-player-rankings` も実行してからコミットする

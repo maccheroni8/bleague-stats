@@ -157,6 +157,18 @@ jobs:
         continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-boxscore.ts --season ${{ steps.season.outputs.season }}
 
+      # 見張りの一覧（data/game-watchlist.json。DESIGN.md 202章）: こちらが見つけた公式の記録の誤りが、公式のスタッツ修正で直るかを見張る。
+      # 一覧の試合を（21日を過ぎていても）取り直し、交代・得点の記録、recordFixedFlg、最終スコア、公式の+/-が前回から変わっていれば、
+      # 一覧の履歴に残し、ジョブの通知とコミットメッセージに1行ずつ出す。変化が無ければ何も書かない。深夜のディープrecheckでのみ実行する
+      - name: Check game watchlist
+        id: watchlist
+        if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
+        continue-on-error: true
+        env:
+          WATCH_SUMMARY_FILE: ${{ runner.temp }}/watch-summary.txt
+          WATCH_SEASONS_FILE: ${{ runner.temp }}/watch-seasons.txt
+        run: node --experimental-strip-types scripts/game-watchlist.ts check
+
       # スポーツナビ（Yahoo!スポーツ）のplay-by-play（シュートタイプ別内訳・ターンオーバー種類別）。
       # 頻繁チェック・深夜とも、ボックススコアが保存済みで試合終了済みなのにPBPが未取得の試合だけを
       # 取りに行く（1試合1リクエスト）。深夜は直近21日の試合のうち保存済みPBPが現在のボックススコアと
@@ -195,6 +207,22 @@ jobs:
         if: steps.proceed.outputs.run == 'true'
         run: node --experimental-strip-types scripts/aggregate.ts --season ${{ steps.season.outputs.season }}
 
+      # 見張りの一覧の試合の記録が変わったシーズン（現在のシーズン以外）を再集計する。変わっていなければ何もしない
+      - name: Aggregate seasons of changed watched games
+        if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
+        continue-on-error: true
+        env:
+          WATCH_SEASONS_FILE: ${{ runner.temp }}/watch-seasons.txt
+        run: |
+          if [ -s "$WATCH_SEASONS_FILE" ]; then
+            while read -r SEASON CATEGORY; do
+              if [ "$SEASON" = "${{ steps.season.outputs.season }}" ] && [ -z "$CATEGORY" ]; then continue; fi
+              echo "見張りの試合の記録が変わったため、$SEASON $CATEGORY を再集計します"
+              node --experimental-strip-types scripts/aggregate.ts --season "$SEASON" ${CATEGORY:+--category "$CATEGORY"}
+              if [ -z "$CATEGORY" ]; then node --experimental-strip-types scripts/aggregate-player-game-records.ts --season "$SEASON"; fi
+            done < "$WATCH_SEASONS_FILE"
+          fi
+
       # 歴代記録の順位（チーム・個人）と、選手の1試合の記録（進行中のシーズン。DESIGN.md 159章）、ランキングのキャリアの回数（全シーズンの試合ログから作る。DESIGN.md 143-4・145章）、
       # 比較で選べるリーグ平均（進行中のシーズンのみ。DESIGN.md 149章）。深夜のディープrecheckでのみ実行し、
       # 30分おきのチェックでは実行しない。作った時刻以外が前回と同じならファイルを書き換えないので、変化が無い日にコミット・デプロイは起きない。
@@ -226,6 +254,8 @@ jobs:
       - name: Commit and push if changed
         id: commit
         if: steps.proceed.outputs.run == 'true'
+        env:
+          WATCH_SUMMARY_FILE: ${{ runner.temp }}/watch-summary.txt
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -234,7 +264,12 @@ jobs:
             echo "変更なし。コミットをスキップします"
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            git commit -m "chore: update ${{ steps.season.outputs.season }} stats ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            MESSAGE="chore: update ${{ steps.season.outputs.season }} stats ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            # 見張りの一覧の試合に変化があった日は、その内容を1行ずつ本文に付ける
+            if [ -s "$WATCH_SUMMARY_FILE" ]; then
+              MESSAGE="$MESSAGE"$'\n\n'"$(cat "$WATCH_SUMMARY_FILE")"
+            fi
+            git commit -m "$MESSAGE"
             git pull --rebase origin main
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -272,6 +307,13 @@ jobs:
         if: ${{ always() && (steps.boxscore_new.outcome == 'failure' || steps.boxscore_nightly.outcome == 'failure') }}
         run: |
           echo "::error title=Boxscore scrape failed::一部の試合のボックススコアの取得に失敗しました（ほかの試合は取得・集計・コミット済み。失敗した試合は次回の実行で取り直します）。ログの「取得に失敗した試合」を確認してください"
+          exit 1
+
+      # 見張りの一覧の確認の失敗（試合の取得の失敗など）をジョブの失敗として通知する（取れた分の記録・commit&pushは上のステップで完了済み。DESIGN.md 202章）
+      - name: Fail if game watchlist check failed
+        if: ${{ always() && steps.watchlist.outcome == 'failure' }}
+        run: |
+          echo "::error title=Game watchlist check failed::見張りの一覧の確認が失敗しました。ログの「取得に失敗」を確認してください（失敗した試合は次回の実行で取り直します）"
           exit 1
 
       # ロースター取得の失敗・時間切れをジョブの失敗として通知する（データのcommit&pushは上のステップで完了済み）

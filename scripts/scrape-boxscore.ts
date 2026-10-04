@@ -67,6 +67,7 @@ async function fetchGameContextWithFallback(
 export async function scrapeAndSaveGame(
   scheduleKey: string | number,
   category: Category = "premier",
+  options: { writeOnlyIfChanged?: boolean } = {},
 ): Promise<ScrapeResult> {
   const key = String(scheduleKey);
   const result = await fetchGameContextWithFallback(key);
@@ -120,7 +121,11 @@ export async function scrapeAndSaveGame(
     raw: context,
   };
 
-  await writeGameFile(filePath, stored);
+  // 見張りの一覧の試合（scripts/game-watchlist.ts）は、記録に変化が無い夜は保存済みのファイルを書き換えない
+  // （確認時刻だけが変わるファイルが毎晩コミットされるのを避ける）
+  if (!(options.writeOnlyIfChanged && !isFirstScrape && !rawChanged)) {
+    await writeGameFile(filePath, stored);
+  }
 
   return { outcome: "saved", scheduleKey: key, season, changed: isFirstScrape || rawChanged, status: meta.status };
 }

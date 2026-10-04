@@ -1,0 +1,448 @@
+{
+  "description": "こちらが見つけた公式の記録の誤りが、公式のスタッツ修正で直るかを見張る試合の一覧。夜間実行（scripts/game-watchlist.ts check）が、status=watching の試合を21日を過ぎても取り直し、交代・得点の記録、recordFixedFlg、最終スコア、公式の+/-が変わっていれば history に残す。期間は見つけた日から60日。DESIGN.md 202章",
+  "watchDays": 60,
+  "entries": [
+    {
+      "scheduleKey": "506412",
+      "season": "2026-27",
+      "category": "premier",
+      "reason": "3Q残り0:01、宇都宮の交代の間にフリースローが挟まる（比江島のOUTがフリースローのあとに記録されている）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "watching",
+      "check": "orderRepairs",
+      "diagnosisAtFound": {
+        "warnings": 3,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": []
+    },
+    {
+      "scheduleKey": "506406",
+      "season": "2026-27",
+      "category": "premier",
+      "reason": "OT2の交代が0:00で記録されている（実際は残り0.9秒で富樫がIN）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "watching",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 0,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": []
+    },
+    {
+      "scheduleKey": "506427",
+      "season": "2026-27",
+      "category": "premier",
+      "reason": "公式の+/-と記録の並びが食い違う（三河の須田・角野。4Q残り2:54、フリースロー2本のあとに記録された交代を、公式の+/-はフリースローの前として数えている）。公式の確定前（recordFixedFlg false）に取得",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "watching",
+      "check": "plusMinus",
+      "diagnosisAtFound": {
+        "warnings": 2,
+        "orderRepairs": 0,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 2
+      },
+      "history": []
+    },
+    {
+      "scheduleKey": "505096",
+      "season": "2025-26",
+      "category": "premier",
+      "reason": "2Q残り3:10、千葉Jの交代の間にフリースローが挟まる",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "watching",
+      "check": "orderRepairs",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": []
+    },
+    {
+      "scheduleKey": "505524",
+      "season": "2025-26",
+      "category": "one",
+      "reason": "4Q残り1:31、横浜Eの交代の間にフリースローが挟まる",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "watching",
+      "check": "orderRepairs",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": []
+    },
+    {
+      "scheduleKey": "506417",
+      "season": "2026-27",
+      "category": "premier",
+      "reason": "三遠の交代の記録の欠けと重複（ラインナップの集計外 177秒）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "resolved",
+      "check": "warnings",
+      "diagnosisAtFound": {
+        "warnings": 5,
+        "orderRepairs": 0,
+        "unreconstructedSeconds": 177,
+        "plusMinusMismatches": 0
+      },
+      "history": [
+        {
+          "at": "2026-10-03T18:19:50.196Z",
+          "changes": [
+            "recordFixedFlg false→true",
+            "交代の記録が変化（追加15・削除15）",
+            "得点・フリースローの記録が変化（追加2・削除2）",
+            "公式の+/-が変化（7人）"
+          ],
+          "diagnosis": {
+            "warnings": 0,
+            "orderRepairs": 0,
+            "unreconstructedSeconds": 0,
+            "plusMinusMismatches": 0
+          }
+        }
+      ],
+      "closedAt": "2026-10-04",
+      "note": "公式のスタッツ修正（2026-10-03夕方）で直っていた。10/3 16:23の版は警告5件・集計外177秒、修正後の版は警告0・集計外0"
+    },
+    {
+      "scheduleKey": "5864",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "4Q 残り1:50、三遠ネオフェニックスの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 1,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "5871",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "4Q 残り8:59、富山グラウジーズの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "5876",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "4Q 残り8:27、千葉ジェッツの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "5881",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "3Q 残り6:12、レバンガ北海道の交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "5888",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "1Q 残り0:37、名古屋ダイヤモンドドルフィンズの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "5921",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "3Q 残り1:51、滋賀レイクスターズの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "5924",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "1Q 残り1:17、レバンガ北海道の交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 1,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "5950",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "2Q 残り6:29、名古屋ダイヤモンドドルフィンズの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "5978",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "4Q 残り0:35、富山グラウジーズの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "5998",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "2Q 残り6:00、島根スサノオマジックの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 1,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "6005",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "4Q 残り4:31、新潟アルビレックスBBの交代の間にフリースローが挟まる、4Q 残り0:42、新潟アルビレックスBBの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 2,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "6017",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "3Q 残り2:30、千葉ジェッツの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 1,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "6353",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "3Q 残り3:11、レバンガ北海道の交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "7672",
+      "season": "2021-22",
+      "category": "premier",
+      "reason": "4Q 残り0:24、滋賀レイクスターズの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "500680",
+      "season": "2022-23",
+      "category": "premier",
+      "reason": "3Q 残り6:23、アルバルク東京の交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 9
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "501561",
+      "season": "2023-24",
+      "category": "premier",
+      "reason": "4Q 残り0:31、島根スサノオマジックの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "501740",
+      "season": "2023-24",
+      "category": "premier",
+      "reason": "3Q 残り2:52、群馬クレインサンダーズの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 1,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "503288",
+      "season": "2024-25",
+      "category": "premier",
+      "reason": "3Q 残り4:15、三遠ネオフェニックスの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "503890",
+      "season": "2024-25",
+      "category": "premier",
+      "reason": "3Q 残り0:25、島根スサノオマジックの交代の間にフリースローが挟まる（古いシーズンのため見張らない）",
+      "foundAt": "2026-10-04",
+      "watchUntil": "2026-12-03",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 1,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-04"
+    }
+  ]
+}
