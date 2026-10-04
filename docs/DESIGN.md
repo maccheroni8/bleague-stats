@@ -11406,3 +11406,8 @@ GitHub Pages はデータのファイルに `Cache-Control: max-age=600` を返�
 - 選手スタッツタブの隣（タブの並び: 概要・チームスタッツ・選手スタッツ・**ラインナップ**・日程結果・対戦成績・通算成績・クラブレコード・比較）に「ラインナップ」タブを作り、「よく使われるラインナップ」と「ラインナップ検索」を選手スタッツタブから移した（表示の中身は変えていない）
 - URLのタブの指定: `?tab=lineups`（対戦成績の `?tab=h2h` と同じ `tab` パラメータ。例: `#/teams/697?season=2025-26&tab=lineups`）。そのURLを開くとラインナップタブから始まり、タブを切り替えるとURLも変わる。選手スタッツなどほかのタブに切り替えると `tab` は消える
 - このタブは、チーム全体の生データ（アシストペア分析用）や選手ごとの試合ログを取得しない（選手スタッツタブより軽い）。必要なのはラインナップ・出場区間（team-stints）・試合ログだけ
+
+### 206-2. 保存キーに含める集計のコードの範囲を絞る（2026-10-05）
+- 段階2で決めた範囲（`scripts/aggregate*`・`scripts/lib/`・`shared/`・`src/lib/` 全体）では、画面だけの変更（`src/lib/` の表示用のファイルなど）でも、過去のシーズンの保存キーが変わって全シーズンを作り直していた。入口のスクリプト（`build-data.ts`・`aggregate.ts`・`aggregate-player-game-records.ts`・`aggregate-league-compare.ts`）から、実行時の `import` でたどれるファイル（型だけの `import type` はたどらない）と `package-lock.json` だけにした（`scripts/lib/dataLayout.ts` の `BUILD_CODE_ENTRIES`）。今は38ファイル（入口の `scripts/` 4・`scripts/lib/` 11・`shared/` 17・`src/lib/` 5・`package-lock.json`）。一覧は `npm run build:data -- code-files` で見られる
+- 確認: `TeamDetailPage.tsx`・`lineupSearch.ts`・`statDescriptions.ts` を変えても過去シーズンの保存キーは変わらず、`format.ts`（集計が使う）や `shared/onCourt.ts` を変えると変わる
+- 全シーズンをまたぐ集計（歴代ランキングなど）は毎回作るので、キーに含めない

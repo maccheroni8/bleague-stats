@@ -26,7 +26,8 @@ import { fileURLToPath } from "node:url";
 import { currentSeason } from "./lib/season.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import {
-  BUILD_CODE_PATHS,
+  BUILD_CODE_ENTRIES,
+  BUILD_CODE_EXTRA_FILES,
   GLOBAL_DERIVED_ENTRIES,
   SEASON_BUILD_GLOBAL_INPUTS,
   SEASON_DIR_PATTERN,
@@ -74,13 +75,36 @@ function listFiles(abs: string): string[] {
   return out;
 }
 
-/** BUILD_CODE_PATHS の1項目から、対象のファイルを集める（"scripts/aggregate" のように存在しない名前は、同じ場所で名前がその文字で始まるものすべて） */
-function codeFiles(rel: string): string[] {
-  const abs = path.join(ROOT, rel);
-  if (existsSync(abs)) return listFiles(abs);
-  const dir = path.dirname(abs);
-  const prefix = path.basename(abs);
-  return existsSync(dir) ? readdirSync(dir).filter((n) => n.startsWith(prefix)).sort().flatMap((n) => listFiles(path.join(dir, n))) : [];
+/** 入口のファイルから、相対パスの import（export … from・動的 import を含む）でたどれるファイルすべて（node_modules の外部パッケージはたどらない） */
+export function importClosure(entries: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const stack = entries.map((e) => path.join(ROOT, e));
+  const importPattern = /(?:import|export)\s[^"'`]*?from\s*["']([^"']+)["']|import\s*["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g;
+  while (stack.length > 0) {
+    const file = stack.pop()!;
+    if (seen.has(file) || !existsSync(file)) continue;
+    seen.add(file);
+    const text = readFileSync(file, "utf-8");
+    for (const m of text.matchAll(importPattern)) {
+      // 型だけの import（import type … / export type …）は実行時に消えるので、たどらない
+      if (/^(?:import|export)\s+type\s/.test(m[0])) continue;
+      const spec = m[1] ?? m[2] ?? m[3];
+      if (!spec || !spec.startsWith(".")) continue;
+      const base = path.resolve(path.dirname(file), spec);
+      for (const candidate of [base, `${base}.ts`, `${base}.tsx`, path.join(base, "index.ts"), path.join(base, "index.tsx")]) {
+        if (existsSync(candidate) && statSync(candidate).isFile()) {
+          stack.push(candidate);
+          break;
+        }
+      }
+    }
+  }
+  return [...seen].sort();
+}
+
+/** 保存キーに含める集計のコードのファイル */
+function codeFiles(): string[] {
+  return [...importClosure(BUILD_CODE_ENTRIES), ...BUILD_CODE_EXTRA_FILES.map((f) => path.join(ROOT, f)).filter((f) => existsSync(f))];
 }
 
 export function seasonKey(season: string): string {
@@ -89,7 +113,7 @@ export function seasonKey(season: string): string {
     for (const e of SEASON_RAW_ENTRIES) files.push(...listFiles(path.join(base, e)));
   }
   for (const e of SEASON_BUILD_GLOBAL_INPUTS) files.push(...listFiles(path.join(DATA, e)));
-  for (const c of BUILD_CODE_PATHS) files.push(...codeFiles(c));
+  files.push(...codeFiles());
   const hash = createHash("sha256");
   for (const f of files) {
     hash.update(`${path.relative(ROOT, f)}\0`);
@@ -222,6 +246,11 @@ async function main(): Promise<void> {
   }
   if (sub === "print-gitignore") {
     console.log([`${"# BEGIN 導出データ"}（scripts/lib/dataLayout.ts から作る。手で直さない。デプロイのときに npm run build:data で作る）`, ...derivedGitignorePatterns(), "# END 導出データ"].join("\n"));
+    return;
+  }
+  if (sub === "code-files") {
+    // 保存キーに含める集計のコードのファイル（確認用）
+    for (const f of codeFiles()) console.log(path.relative(ROOT, f));
     return;
   }
   if (sub === "key") {

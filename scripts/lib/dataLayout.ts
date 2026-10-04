@@ -79,8 +79,18 @@ export const SEASON_BUILD_GLOBAL_INPUTS = [
   "season-rules.json.gz",
 ] as const;
 
-/** 保存キーに含める集計のコード（これらの内容が変わったら、保存した過去シーズンの集計結果は作り直す） */
-export const BUILD_CODE_PATHS = ["scripts/aggregate", "scripts/build-data.ts", "scripts/lib", "shared", "src/lib", "package-lock.json"] as const;
+/**
+ * 保存キーに含める集計のコード。シーズンごとの集計の入口のスクリプトと、そこから import でたどれるファイルすべて（画面のコードは、入口からたどれたものだけ）、
+ * と package-lock.json。これらの内容が変わったら、保存した過去シーズンの集計結果は作り直す。
+ * 全シーズンをまたぐ集計（歴代ランキングなど）は毎回作るので、ここには含めない
+ */
+export const BUILD_CODE_ENTRIES = [
+  "scripts/build-data.ts",
+  "scripts/aggregate.ts",
+  "scripts/aggregate-player-game-records.ts",
+  "scripts/aggregate-league-compare.ts",
+] as const;
+export const BUILD_CODE_EXTRA_FILES = ["package-lock.json"] as const;
 
 export type FileKind = "raw" | "derived" | "unknown";
 
