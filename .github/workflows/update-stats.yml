@@ -55,6 +55,9 @@ jobs:
   update:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      # 同じ実行の中で取り直した試合の記録（コミットしない一時ファイル。見張りの一覧が同じ試合を重ねて取りに行かないための判定。DESIGN.md 205章）
+      FETCHED_GAMES_FILE: ${{ runner.temp }}/fetched-games.txt
     steps:
       - name: Checkout
         uses: actions/checkout@v5

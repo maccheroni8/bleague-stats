@@ -16,6 +16,7 @@ import path from "node:path";
 import { DATA_DIR, gameFilePath, readGameFile, readJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import { scrapeAndSaveGame } from "./scrape-boxscore.ts";
+import { wasFetchedRecently } from "./lib/fetchLog.ts";
 import {
   WATCH_DAYS,
   addDays,
@@ -35,7 +36,7 @@ import type { Category } from "../shared/types.ts";
 
 const WATCHLIST_PATH = path.join(DATA_DIR, "game-watchlist.json");
 const SNAPSHOTS_PATH = path.join(DATA_DIR, "game-watchlist-snapshots.json");
-/** 今回の実行で、すでに取り直した（最終確認が新しい）試合は、もう一度取りに行かない */
+/** 今回の実行で、すでに取り直した試合は、もう一度取りに行かない（取り直した時刻は一時ファイル。lib/fetchLog.ts） */
 const FRESH_WITHIN_MS = 6 * 3600_000;
 
 const DESCRIPTION =
@@ -79,11 +80,10 @@ async function runCheck(): Promise<void> {
     const id = watchId(entry);
     const gamePath = gameFilePath(entry.season, entry.scheduleKey, entry.category);
     // 通常の再チェック（試合から21日以内）ですでに取り直した試合は、もう一度取りに行かない
-    const before = await readGameFile(gamePath);
-    const fresh = before && Date.now() - new Date(before.meta.lastCheckedAt).getTime() < FRESH_WITHIN_MS;
+    const fresh = wasFetchedRecently(entry.season, entry.category, entry.scheduleKey, FRESH_WITHIN_MS);
     if (!fresh) {
       try {
-        await scrapeAndSaveGame(entry.scheduleKey, entry.category, { writeOnlyIfChanged: true });
+        await scrapeAndSaveGame(entry.scheduleKey, entry.category);
       } catch (err) {
         failed += 1;
         console.error(`  [${id}] 取得に失敗（次回の実行で取り直します）: ${(err as Error).message}`);

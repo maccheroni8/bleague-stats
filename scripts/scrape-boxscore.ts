@@ -35,6 +35,7 @@ import { isMainModule } from "./lib/isMain.ts";
 import { isDue } from "./lib/pendingGames.ts";
 import { applyPlayerIdCorrections } from "./lib/playerIdCorrections.ts";
 import { isPastRecheckPeriod } from "./lib/recheckPeriod.ts";
+import { recordFetched } from "./lib/fetchLog.ts";
 
 function formatJstDate(date: Date): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(date);
@@ -48,7 +49,7 @@ function computeStatus(gameEndedFlg: boolean, jstDateStr: string): "watching" | 
 export type ScrapeResult =
   | { outcome: "no-data"; scheduleKey: string }
   | { outcome: "not-played-yet"; scheduleKey: string }
-  | { outcome: "saved"; scheduleKey: string; season: string; changed: boolean; status: StoredGameMeta["status"] };
+  | { outcome: "saved"; scheduleKey: string; season: string; changed: boolean; written: boolean; status: StoredGameMeta["status"] };
 
 async function fetchGameContextWithFallback(
   key: string,
@@ -67,7 +68,6 @@ async function fetchGameContextWithFallback(
 export async function scrapeAndSaveGame(
   scheduleKey: string | number,
   category: Category = "premier",
-  options: { writeOnlyIfChanged?: boolean } = {},
 ): Promise<ScrapeResult> {
   const key = String(scheduleKey);
   const result = await fetchGameContextWithFallback(key);
@@ -121,13 +121,18 @@ export async function scrapeAndSaveGame(
     raw: context,
   };
 
-  // 見張りの一覧の試合（scripts/game-watchlist.ts）は、記録に変化が無い夜は保存済みのファイルを書き換えない
-  // （確認時刻だけが変わるファイルが毎晩コミットされるのを避ける）
-  if (!(options.writeOnlyIfChanged && !isFirstScrape && !rawChanged)) {
+  recordFetched(season, category, key);
+  // 試合ファイルは、新しい試合・生データが変わったとき・状態（status等）が変わったときだけ書く。
+  // 確認時刻（meta.lastCheckedAt）だけが変わる書き直しは、同じ大きさの新しい版が毎晩コミットされて履歴が増えるので行わない
+  // （確認時刻は書かれたときの時刻のまま。同じ実行の中の重複取得の判定は fetchLog.ts の一時ファイルで行う。DESIGN.md 205章）
+  const unchanged =
+    !isFirstScrape &&
+    JSON.stringify({ ...stored, meta: { ...stored.meta, lastCheckedAt: existing.meta.lastCheckedAt } }) === JSON.stringify(existing);
+  if (!unchanged) {
     await writeGameFile(filePath, stored);
   }
 
-  return { outcome: "saved", scheduleKey: key, season, changed: isFirstScrape || rawChanged, status: meta.status };
+  return { outcome: "saved", scheduleKey: key, season, changed: isFirstScrape || rawChanged, written: !unchanged, status: meta.status };
 }
 
 async function loadSchedule(season: string, category: Category): Promise<ScheduleFile> {
@@ -218,7 +223,9 @@ function logResult(result: ScrapeResult): void {
       break;
     case "saved":
       console.log(
-        `  [${result.scheduleKey}] 保存完了 season=${result.season} status=${result.status} changed=${result.changed}`,
+        result.written
+          ? `  [${result.scheduleKey}] 保存完了 season=${result.season} status=${result.status} changed=${result.changed}`
+          : `  [${result.scheduleKey}] 変化なし（ファイルは書き換えません） season=${result.season} status=${result.status}`,
       );
       break;
   }
