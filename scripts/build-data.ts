@@ -175,7 +175,8 @@ function checkLayout(): boolean {
   const begin = "# BEGIN 導出データ";
   const end = "# END 導出データ";
   if (text.includes(begin)) {
-    const block = text.slice(text.indexOf(begin) + begin.length, text.indexOf(end)).split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+    const inner = text.slice(text.indexOf(begin), text.indexOf(end));
+    const block = inner.slice(inner.indexOf("\n") + 1).split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
     const expected = derivedGitignorePatterns();
     if (JSON.stringify(block) !== JSON.stringify(expected)) {
       ok = false;
