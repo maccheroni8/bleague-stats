@@ -38,6 +38,15 @@ export function tovPct(tov: number, fga: number, fta: number): number {
   return safeDiv(100 * tov, fga + 0.44 * fta + tov);
 }
 
+/**
+ * LIVE TOV% / DEAD TOV% = 100 * LIVETOV(またはDEADTOV) / (FGA + 0.44*FTA + TOV)。
+ * TOV%と同じ分母（TOVはライブ・デッドの区別に関わらない全ターンオーバー）で分子だけを内訳にしたもの。
+ * 足すとTOV%になる（ライブ/デッドに分類できなかったターンオーバーと、個人に紐付かないチームTOVが無ければ）
+ */
+export function tovPartPct(part: number, tov: number, fga: number, fta: number): number {
+  return safeDiv(100 * part, fga + 0.44 * fta + tov);
+}
+
 export interface PossessionTotals {
   fga: number;
   fgm: number;

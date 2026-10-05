@@ -4,7 +4,7 @@ import { SeasonLink as Link } from "./SeasonLink";
 import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
-import { efgPct, safeDiv, tovPct, tsPct, usagePct } from "../../shared/formulas";
+import { efgPct, safeDiv, tovPartPct, tovPct, tsPct, usagePct } from "../../shared/formulas";
 import type { PlayerOnCourtRatings } from "../../shared/onCourt";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow, YahooTurnoverEvent } from "../../shared/types";
 import { classificationGroup } from "../lib/classificationFilter";
@@ -298,17 +298,17 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
   },
   {
     key: "livetovpct",
-    label: "LIVE%",
-    format: (c, ctx) =>
-      ctx.yahooPbpSupported ? formatPct100(sharePct(c.liveTov, c.liveTov + c.deadTov)) : "-",
-    value: (c, ctx) => (ctx.yahooPbpSupported ? sharePct(c.liveTov, c.liveTov + c.deadTov) : undefined),
+    label: "LIVE TOV%",
+    format: (c, ctx) => (ctx.yahooPbpSupported ? formatPct100(tovPartPct(c.liveTov, c.tov, c.pt2a + c.pt3a, c.fta)) : "-"),
+    value: (c, ctx) => (ctx.yahooPbpSupported ? tovPartPct(c.liveTov, c.tov, c.pt2a + c.pt3a, c.fta) : undefined),
+    higherIsBetter: false,
   },
   {
     key: "deadtovpct",
-    label: "DEAD%",
-    format: (c, ctx) =>
-      ctx.yahooPbpSupported ? formatPct100(sharePct(c.deadTov, c.liveTov + c.deadTov)) : "-",
-    value: (c, ctx) => (ctx.yahooPbpSupported ? sharePct(c.deadTov, c.liveTov + c.deadTov) : undefined),
+    label: "DEAD TOV%",
+    format: (c, ctx) => (ctx.yahooPbpSupported ? formatPct100(tovPartPct(c.deadTov, c.tov, c.pt2a + c.pt3a, c.fta)) : "-"),
+    value: (c, ctx) => (ctx.yahooPbpSupported ? tovPartPct(c.deadTov, c.tov, c.pt2a + c.pt3a, c.fta) : undefined),
+    higherIsBetter: false,
   },
 ];
 

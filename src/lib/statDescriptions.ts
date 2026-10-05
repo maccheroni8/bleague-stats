@@ -136,8 +136,8 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   CHARGE: "チャージング（相手のオフェンスファウル）を取った回数",
   LIVETOV: "ライブボールターンオーバー数（パスミス・ボールを奪われた等、プレーが止まらず相手の速攻につながりうるもの）",
   DEADTOV: "デッドボールターンオーバー数（トラベリング・オフェンスファウル・バイオレーション等、笛でプレーが止まるもの）",
-  "LIVE%": "LIVETOV / (LIVETOV＋DEADTOV)",
-  "DEAD%": "DEADTOV / (LIVETOV＋DEADTOV)",
+  "LIVE TOV%": "100 × LIVETOV / (FGA＋0.44×FTA＋TOV)。TOV%と同じ分母で、分子だけをライブボールターンオーバーにしたもの（LIVE TOV%＋DEAD TOV%＝TOV%。ただしチーム合計の行は、選手個人に紐付かないチームのターンオーバーを含まないため、TOV%より少し小さくなる）",
+  "DEAD TOV%": "100 × DEADTOV / (FGA＋0.44×FTA＋TOV)。TOV%と同じ分母で、分子だけをデッドボールターンオーバーにしたもの（LIVE TOV%＋DEAD TOV%＝TOV%。ただしチーム合計の行は、選手個人に紐付かないチームのターンオーバーを含まないため、TOV%より少し小さくなる）",
 
   // --- Scoring ---
   AST2M: "アシストされた2P成功数",

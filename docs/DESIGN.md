@@ -11428,3 +11428,14 @@ GitHub Pages はデータのファイルに `Cache-Control: max-age=600` を返�
   - 復旧: 成功した実行が戻ったら、開いているIssueにコメントして閉じる（閉じないと、次の停止でIssueが立たなくなるため）
   - 見張り自体の起動もGitHubの定時実行で遅れうるが、更新側のファイルとは独立。外部（cron-job.org）の失敗通知とあわせて二重の備えとする
 - **確認の方法**: `workflow_dispatch` で手動実行できる（停止していなければ何もしない）。入力 `stale_hours` で停止とみなす時間を上書きでき（普段の毎時の実行は6時間のまま）、0にするとIssueを立てる動きを確かめられる
+
+## 209. LIVE%・DEAD% を「LIVE TOV%」「DEAD TOV%」（TOV%の分子を内訳にしたもの）に変える（2026-10-05）
+
+- **変更前の式**: `LIVE% = LIVETOV ÷ (LIVETOV＋DEADTOV)`、`DEAD% = DEADTOV ÷ (LIVETOV＋DEADTOV)`。「ターンオーバーのうちライブ（デッド）だった割合」で、足すと100%（38-2章）。どれくらい多いかの規模（TOV%）が伝わらないため、TOV%の分子だけを内訳にする形に改めた
+- **変更後**: `LIVE TOV% = 100 × LIVETOV ÷ (FGA＋0.44×FTA＋TOV)`、`DEAD TOV% = 100 × DEADTOV ÷ (FGA＋0.44×FTA＋TOV)`（`shared/formulas.ts` の `tovPartPct`。分母は `tovPct` と同じ）。足すとTOV%になる
+  - 列の定義は `BoxscoreTable.tsx` のMiscタブの1か所だけ（試合詳細・チーム詳細の日程結果・比較が同じ列を使う）。選手の一覧・ランキング・シーズン別成績にはこの列は無い（LIVETOV/DEADTOVも同様）。列のキー（`livetovpct`・`deadtovpct`）は変えていない
+  - 複数の試合の合計・シーズン合計は、試合ごとの割合の平均ではなく、合計したカウントから計算する（列は合計したカウントを受け取る）。チーム・相手チーム・選手とも同じ式
+  - 比較表のマーカーは小さいほど良い（`higherIsBetter: false`）。説明文（`statDescriptions.ts`）も書き換えた
+- **照合**（`npm run validate:live-dead-tov -- --season 2025-26`。生のボックススコアとYahoo!のPBPから、シーズン合計の LIVE TOV%＋DEAD TOV% と TOV% を比べる）:
+  - 選手: 2025-26は416人中394人、2024-25は371人中345人、2023-24は361人中289人でLIVE＋DEADがTOVと一致（TOV上位の選手は差0.00）。一致しない選手は、ライブ/デッドに分類できなかったターンオーバー（`ballType==="unknown"`）や、公式のTOVとYahoo!の記録が食い違う選手
+  - チーム: LIVE＋DEADはTOV%より小さい（2025-26で0.5〜1.5ポイント、最大1.47）。差の中身は、選手個人に紐付かないチームターンオーバー（24秒バイオレーション等）と分類不能分で、TOV−（LIVETOV＋DEADTOV）がYahoo!のチームTOV数＋分類不能数と一致する（仙台701−672＝29、チームTOV29・分類不能0。茨城813−745＝68、チームTOV67・分類不能1）

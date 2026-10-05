@@ -24,7 +24,7 @@ import type { TeamPerspective } from "./teamStatsColumns";
 const DECIMAL_DIFF_DIGITS: Record<string, number> = { asttov: 1, pps: 2, pace: 1, ortg: 1, drtg: 1, netrtg: 1 };
 
 // col.value()の値スケールが列ごとに異なる: FG%/2P%/3P%/FT%/eFG%/TS%/PAINT2%/MID2%はsafeDiv()
-// ベースで0〜1（format側でformatPctが×100する）だが、USG%/TOV%/AST%/LIVE%/DEAD%と
+// ベースで0〜1（format側でformatPctが×100する）だが、USG%/TOV%/AST%/LIVE TOV%/DEAD TOV%と
 // スコアリングタブの%-share系（%PTS等）はsharePct()/tovPct()等が既に0〜100スケールを返す
 // （format側はformatPct100でそのまま%表記にする）。後者を診断表示用のformatColumnDiffで
 // 誤って再度×100すると桁違いの値になるため、0〜100スケールの列だけこの集合で判定して
