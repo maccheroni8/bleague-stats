@@ -1,9 +1,9 @@
 // 2026-27シーズンの新競技規則（DESIGN.md 16章）に伴う、公式データの表記・コード変更の検知。
 //
 // B.LEAGUEは新競技規則（ディスラプティブ/フレグラント、テクニカルのカテゴリ1/2）を9/22開幕から
-// 先行適用するが、公式の記録システム改修が間に合わないため、当面は旧名称のまま配信される。
-// 改修完了後に新表記へ一括更新される予定で、その時期は未定。このスクリプトは日次cronで
-// 「新表記への移行」や「ActionCD1コードの変更」に気づくための警報（トリップワイヤ）で、
+// 先行適用し、公式の記録は2026-10-06に新表記へ移行した（9/23〜10/4の33試合が書き換わった。旧24→91/92、旧25→93/94。
+// shared/foulCodes.ts・DESIGN.md 16-7章）。集計は旧コードと新コードの両方を同じ扱いにしている。このスクリプトは日次cronで
+// 「ActionCD1コードのさらなる変更」や「新しい表記・コードの出現」に気づくための警報（トリップワイヤ）で、
 // B・C・Dの異常を検知すると終了コード1で終了する（GitHub Actionsの失敗ステータスとして通知される）。
 // A（新語彙）は、公式の新表記への移行が始まった後は毎晩出るのが想定どおりなので、失敗にせず
 // ::notice とログ・Summaryに出すだけにする（2026-10-06。DESIGN.md 16-4章）。
@@ -11,12 +11,15 @@
 // 検知する内容（B〜Dは異常＝要確認、Aはお知らせ）:
 //  A. 新語彙（お知らせ。ジョブは失敗にしない）: PlayTextに「ディスラプティブ」「フレグラント」「カテゴリ1/2」等が出現した。
 //     表記の揺れ（フラグラント・フレイグラント、カテゴリー1、全角数字・半角カナ）も拾う
-//  B. 未知のActionCD1: 過去10シーズンの実データで確認済みのコード集合に無いコードが出現した
-//  C. テキストとコードの不一致: 「テクニカル」「アンスポーツマン」「ディスクォリファイング」を含む
-//     PlayTextのActionCD1が、集計で使っているコード（24/20/21・25・26。boxscoreAggregate.ts）と
-//     異なる。文言は旧名称のままコードだけ変わった場合に、UFOUL/TF集計が静かに欠落するのを防ぐ
-//  D. 急な0件化: 直近の試合でTF/UFOUL等のイベント（ActionCD1=24・25・20・21）が統計的にあり得ない
-//     ほど出ていない（コードの意味変更や新コードへの移行で、旧コードのイベントが消えた場合）
+//  B. 未知のActionCD1: 実データで確認済みのコード集合（過去10シーズン＋新しい91〜94）に無いコードが出現した
+//  C. テキストとコードの不一致（新旧両方のコードで判定する）:
+//     C1. 「テクニカル」「アンスポーツマン」「フレグラント」「ディスラプティブ」「ディスクォリファイング」を含むファウルのPlayTextが、
+//         集計で使っているコード（テクニカル=20/21/24/91/92、アンスポーツマン=25、フレグラント=93、ディスラプティブ=94、ディスクォリファイング=26。
+//         shared/foulCodes.ts）と異なる
+//     C2. 逆向き: 上のコードのイベントのPlayTextに、対応する語が無い（コードの意味が変わった場合）
+//     コードだけ・文言だけが変わると、UFOUL/TF集計が静かに欠落するのを防ぐ
+//  D. 急な0件化: 直近の試合でTF/UFOUL等のイベントが統計的にあり得ないほど出ていない（旧コードと新コードの合計で数える。
+//     TF=24+91+92、UFOUL=25+93+94、20、21。コードの意味変更や新コードへの移行で、イベントが消えた場合）
 //
 // A〜Cは「この実行の対象範囲」（既定: 直近--since-hours時間以内に取得/変更された試合。
 // --allで当該シーズンの全試合）だけを見る。Dは対象範囲に関わらず、直近の試合を日付順に見る。
@@ -35,10 +38,10 @@ import { isMainModule } from "./lib/isMain.ts";
 import type { Category, StoredGame } from "../shared/types.ts";
 
 /** 2016-17〜2025-26の全試合（B.PREMIER/B.ONE）で実際に出現したActionCD1の全集合（2026-09-19時点）＋
- * DESIGN.md 2-4章で確定済みの90（タイムアウト） */
+ * DESIGN.md 2-4章で確定済みの90（タイムアウト）＋2026-10-06の新表記のコード91〜94（DESIGN.md 16-7章） */
 const KNOWN_ACTION_CD1: ReadonlySet<number> = new Set([
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 31, 80, 81, 82, 83, 84,
-  85, 86, 87, 88, 89, 90,
+  85, 86, 87, 88, 89, 90, 91, 92, 93, 94,
 ]);
 
 /** 新規則の新語彙（A）。表記の揺れを拾うため、判定の前にNFKCで正規化する（全角数字・半角カナ・全角英数を揃える）うえで、
@@ -51,22 +54,37 @@ export function findNewVocabulary(text: string): string | null {
   return m ? m[0] : null;
 }
 
-/** 旧名称の語彙と、それを集計で使っているActionCD1（C）。boxscoreAggregate.tsのbuildMiscEventCounts・
- * countTechnicalFoulsと対応させること */
-const OLD_TERM_CODES: { term: string; codes: readonly number[]; label: string }[] = [
-  { term: "テクニカル", codes: [20, 21, 24], label: "テクニカルファウル（TF）" },
-  { term: "アンスポーツマン", codes: [25], label: "アンスポーツマンファウル（UFOUL）" },
-  { term: "ディスクォリファイング", codes: [26], label: "ディスクォリファイングファウル（DQFOUL）" },
+/** 反則の語彙と、それを集計で使っているActionCD1（C）。新旧両方のコードを持つ。shared/foulCodes.ts・boxscoreAggregate.tsのbuildMiscEventCounts・
+ * aggregate.tsのcountTechnicalFoulsと対応させること。pattern は NFKC 正規化したPlayTextに当てる（表記の揺れを許す） */
+const FOUL_VOCABULARY_CODES: { term: string; pattern: RegExp; codes: readonly number[]; label: string }[] = [
+  { term: "テクニカル", pattern: /テクニカル/, codes: [20, 21, 24, 91, 92], label: "テクニカルファウル（TF）" },
+  { term: "アンスポーツマン", pattern: /アンスポーツマン/, codes: [25], label: "アンスポーツマンファウル（UFOUL）" },
+  { term: "フレグラント", pattern: /フ[レラ]イ?グラ/, codes: [93], label: "フレグラントファウル（UFOUL）" },
+  { term: "ディスラプティブ", pattern: /ディスラプ/, codes: [94], label: "ディスラプティブファウル（UFOUL）" },
+  { term: "ディスクォリファイング", pattern: /ディスクォリファイング/, codes: [26], label: "ディスクォリファイングファウル（DQFOUL）" },
 ];
 
-/** 急な0件化（D）の監視対象。windowGamesは、過去10シーズンの1試合あたり発生率の実績
+/** コード → そのPlayTextにあるはずの語（C2。逆向きの確認） */
+const CODE_EXPECTED_TERM: ReadonlyMap<number, { pattern: RegExp; term: string }> = new Map([
+  [20, { pattern: /テクニカル/, term: "テクニカル" }],
+  [21, { pattern: /テクニカル/, term: "テクニカル" }],
+  [24, { pattern: /テクニカル/, term: "テクニカル" }],
+  [91, { pattern: /テクニカル/, term: "テクニカル" }],
+  [92, { pattern: /テクニカル/, term: "テクニカル" }],
+  [25, { pattern: /アンスポーツマン/, term: "アンスポーツマン" }],
+  [93, { pattern: /フ[レラ]イ?グラ/, term: "フレグラント" }],
+  [94, { pattern: /ディスラプ/, term: "ディスラプティブ" }],
+  [26, { pattern: /ディスクォリファイング/, term: "ディスクォリファイング" }],
+]);
+
+/** 急な0件化（D）の監視対象。旧コードと新コードの合計で数える（2026-10-06に24→91/92、25→93/94へ移った）。windowGamesは、過去10シーズンの1試合あたり発生率の実績
  * （24: 0.15〜0.21、25: 0.20〜0.56、20: 0.05〜0.13、21: 0.04〜0.11）の下限側で、直近windowGames試合の
  * 期待発生数が約7件（0件になる確率0.1%未満）になる試合数 */
-const ZERO_WATCH: { code: number; label: string; windowGames: number }[] = [
-  { code: 24, label: "選手個人のテクニカルファウル（TF）", windowGames: 47 },
-  { code: 25, label: "アンスポーツマンファウル（UFOUL）", windowGames: 35 },
-  { code: 20, label: "コーチテクニカルファウル", windowGames: 140 },
-  { code: 21, label: "ベンチテクニカルファウル", windowGames: 175 },
+const ZERO_WATCH: { codes: readonly number[]; label: string; windowGames: number }[] = [
+  { codes: [24, 91, 92], label: "選手個人のテクニカルファウル（TF）", windowGames: 47 },
+  { codes: [25, 93, 94], label: "アンスポーツマン系ファウル（UFOUL）", windowGames: 35 },
+  { codes: [20], label: "コーチテクニカルファウル", windowGames: 140 },
+  { codes: [21], label: "ベンチテクニカルファウル", windowGames: 175 },
 ];
 
 const DEFAULT_SINCE_HOURS = 48;
@@ -127,6 +145,7 @@ export function checkRuleChange(games: GameRef[], scanTargets: GameRef[]): Check
   const vocabByGame = new Map<string, Map<string, number>>();
   const unknownCodes = new Map<number, string[]>();
   const mismatchSamples = new Map<string, string[]>();
+  const reverseMismatchSamples = new Map<number, string[]>();
   const labelCounts = new Map<string, number>();
   let newVocabCount = 0;
 
@@ -148,18 +167,26 @@ export function checkRuleChange(games: GameRef[], scanTargets: GameRef[]): Check
         if (samples.length < MAX_ALERT_SAMPLES) samples.push(`${ref(target)} 「${text}」`);
         unknownCodes.set(ev.ActionCD1, samples);
       }
-      for (const { term, codes } of OLD_TERM_CODES) {
-        if (!text.includes(term)) continue;
+      const normalized = text.normalize("NFKC");
+      for (const { term, pattern, codes } of FOUL_VOCABULARY_CODES) {
+        if (!pattern.test(normalized)) continue;
         // 「テクニカル」は「テクニカルタイムアウト」等、ファウル以外の語にも含まれうる。ファウルの判定名に限定する
-        if (!text.includes("ファウル")) continue;
+        if (!normalized.includes("ファウル")) continue;
         const key = `${term}|${ev.ActionCD1}`;
-        const label = `ActionCD1=${ev.ActionCD1} ${normalizePlayText(text)}`;
+        const label = `ActionCD1=${ev.ActionCD1} ${normalizePlayText(normalized)}`;
         labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
         if (!codes.includes(ev.ActionCD1)) {
           const samples = mismatchSamples.get(key) ?? [];
           if (samples.length < MAX_ALERT_SAMPLES) samples.push(`${ref(target)} 「${text}」`);
           mismatchSamples.set(key, samples);
         }
+      }
+      // C2: コードのイベントに、対応する語が無い（コードの意味が変わった）
+      const expected = CODE_EXPECTED_TERM.get(ev.ActionCD1);
+      if (expected && !expected.pattern.test(normalized)) {
+        const samples = reverseMismatchSamples.get(ev.ActionCD1) ?? [];
+        if (samples.length < MAX_ALERT_SAMPLES) samples.push(`${ref(target)} 「${text}」`);
+        reverseMismatchSamples.set(ev.ActionCD1, samples);
       }
     }
   }
@@ -192,6 +219,14 @@ export function checkRuleChange(games: GameRef[], scanTargets: GameRef[]): Check
         `UFOUL/TF/DQFOULの集計から漏れている恐れがあります。例: ${samples.join(" / ")}`,
     });
   }
+  for (const [code, samples] of reverseMismatchSamples) {
+    alerts.push({
+      kind: "text-code-mismatch",
+      message:
+        `ActionCD1=${code}のイベントのPlayTextに、対応する語（${CODE_EXPECTED_TERM.get(code)!.term}）がありません。` +
+        `コードの意味が変わった恐れがあり、UFOUL/TF/DQFOULの集計が誤る恐れがあります。例: ${samples.join(" / ")}`,
+    });
+  }
 
   // D: 直近の試合（日付順）で、監視対象コードが急に0件になっていないか
   const finished = games
@@ -199,20 +234,21 @@ export function checkRuleChange(games: GameRef[], scanTargets: GameRef[]): Check
     .sort((a, b) => (a.game.date === b.game.date ? Number(a.game.scheduleKey) - Number(b.game.scheduleKey) : a.game.date < b.game.date ? -1 : 1));
   for (const watch of ZERO_WATCH) {
     if (finished.length < watch.windowGames) {
-      summaryLines.push(`ActionCD1=${watch.code}（${watch.label}）: 終了試合${finished.length}件で、判定に必要な${watch.windowGames}件に未達のため0件化チェックは保留`);
+      summaryLines.push(`ActionCD1=${watch.codes.join("+")}（${watch.label}）: 終了試合${finished.length}件で、判定に必要な${watch.windowGames}件に未達のため0件化チェックは保留`);
       continue;
     }
     const recent = finished.slice(-watch.windowGames);
     const count = recent.reduce(
-      (sum, g) => sum + g.game.raw.PlayByPlays.filter((ev) => ev.ActionCD1 === watch.code).length,
+      (sum, g) => sum + g.game.raw.PlayByPlays.filter((ev) => watch.codes.includes(ev.ActionCD1)).length,
       0,
     );
-    summaryLines.push(`ActionCD1=${watch.code}（${watch.label}）: 直近${watch.windowGames}試合で${count}件`);
+    const codesLabel = watch.codes.join("+");
+    summaryLines.push(`ActionCD1=${codesLabel}（${watch.label}）: 直近${watch.windowGames}試合で${count}件`);
     if (count === 0) {
       alerts.push({
         kind: "zero-events",
         message:
-          `直近${watch.windowGames}試合（${ref(recent[0]!)}〜${ref(recent[recent.length - 1]!)}）でActionCD1=${watch.code}` +
+          `直近${watch.windowGames}試合（${ref(recent[0]!)}〜${ref(recent[recent.length - 1]!)}）でActionCD1=${codesLabel}` +
           `（${watch.label}）が0件です。過去10シーズンの発生率では0件になる確率が0.1%未満で、コードの意味変更・新コードへの移行の恐れがあります。` +
           `このままだと集計値が静かに欠落します（DESIGN.md 16-2章）`,
       });
