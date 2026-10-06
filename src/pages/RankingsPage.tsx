@@ -1252,6 +1252,29 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     gamesByScheduleKey,
   ]);
 
+  // 試合の条件（地区・勝敗・会場など）で絞っているときは、行に出すクラブを「条件に当てはまる試合で所属していたクラブ。複数あれば、その中の最新のクラブ」にする
+  // （シーズンの途中で移籍した選手の行に、条件に当てはまらない最新のクラブが出ないように。DESIGN.md 213章）。条件を付けていないときは、選手の最新の所属のまま
+  const conditionedClubByPlayer = useMemo<Map<string, { teamId: string; teamName: string }> | null>(() => {
+    if (!filtersApply || !filterActive || !gameLogsByPlayer || !teams || !playerOwnTeamOf) return null;
+    const teamNameById = new Map(teams.map((t) => [t.teamId, t.teamName]));
+    const map = new Map<string, { teamId: string; teamName: string }>();
+    for (const p of eligible) {
+      const logs = gameLogsByPlayer.get(p.playerId) ?? [];
+      const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
+      const scoped = filterByGameType(situational, effGameType);
+      let latest: PlayerGameLog | null = null;
+      for (const g of scoped) {
+        if (!latest || g.date > latest.date || (g.date === latest.date && Number(g.scheduleKey) > Number(latest.scheduleKey))) latest = g;
+      }
+      const teamId = latest ? playerOwnTeamOf({ scheduleKey: latest.scheduleKey, isHome: latest.isHome }) : undefined;
+      const teamName = teamId ? teamNameById.get(teamId) : undefined;
+      if (teamId && teamName) map.set(p.playerId, { teamId, teamName });
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersApply, filterActive, gameLogsByPlayer, teams, playerOwnTeamOf, eligible, filter, gameType, opponentRecords, divisionHistory, season]);
+  const clubOf = (p: PlayerSummary): { teamId: string; teamName: string } => conditionedClubByPlayer?.get(p.playerId) ?? { teamId: p.teamId, teamName: p.teamName };
+
   // DD2・TD3 の回数と出場試合数（DESIGN.md 179章）。試合ログを読んでいるとき（シチュエーション別・レギュラー/ポストシーズン等）は
   // 絞り込んだ試合（出場した試合）から数え、読んでいないときは players.json のシーズンの値（レギュラーシーズン）を使う。
   // Q別/前後半を選んでも、達成は試合全体で判定する（DESIGN.md 60-4）
@@ -1618,13 +1641,13 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               name={(p) => playerLabel(p.name)}
               // 選手名の下はチーム名とポジションだけ（登録区分はタイトルの下の行）。ポジションの「＊」（当時の値でない印）と注意書きは、
               // 身長・体重・年齢を並べる Profile でだけ出す（DESIGN.md 170章）
-              subLabel={(p) => [teamLabel(p.teamId, p.teamName), category === "profile" ? positionText(p) : p.position].filter(Boolean).join("・")}
+              subLabel={(p) => [teamLabel(clubOf(p).teamId, clubOf(p).teamName), category === "profile" ? positionText(p) : p.position].filter(Boolean).join("・")}
               linkTo={(p) => {
                 if (!registeredOnlyIds.has(p.playerId)) return `/players/${p.playerId}`;
                 const s = playerPageSeasons?.latestSeason[p.playerId];
                 return s ? `/players/${p.playerId}?season=${s}` : undefined;
               }}
-              teamColor={(p) => teamColors?.[p.teamId]?.primary}
+              teamColor={(p) => teamColors?.[clubOf(p).teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" placeholder />}
               limit={PLAYER_RANK_TOP_N}
               compact
