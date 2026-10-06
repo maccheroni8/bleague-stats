@@ -8,8 +8,8 @@ export function seasonsIncludeNewRule(seasons: readonly string[]): boolean {
   return seasons.some((s) => s >= NEW_RULE_FIRST_SEASON);
 }
 
-/** 新規則の脚注が必要な統計項目のキー（UFOUL=アンスポーツマンファウル、TF=テクニカルファウル）。
- * ランキング等、1度に1項目だけ表示する画面で、その項目が対象かを判定するのに使う */
+/** 新規則の脚注が必要な統計項目のキー（UFOUL=アンスポーツマン系ファウル、TF=テクニカルファウル、DQFOUL=ディスクォリファイングファウル。
+ * 脚注は3つをまとめて説明する）。ランキング等、1度に1項目だけ表示する画面で、その項目が対象かを判定するのに使う */
 export function isRuleChangeStatKey(key: string | undefined): boolean {
-  return key === "ufoul" || key === "tf";
+  return key === "ufoul" || key === "tf" || key === "dqfoul";
 }
