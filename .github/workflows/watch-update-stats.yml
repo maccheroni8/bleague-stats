@@ -7,6 +7,9 @@ name: Watch Update Stats
 #   そのため「STALE_HOURS 時間以上、成功した実行が無い」を停止とみなせる
 # - 停止とみなしたら Issue を1件立てる。同じラベルの Issue が開いている間は重ねて立てない
 # - 成功した実行が戻ったら、開いている Issue にコメントして閉じる
+# - 「最新の成功」は、実行の一覧を絞り込み（gh run list --status success）を使わずに直近 RUN_LIMIT 件だけ取り、
+#   結論が success のものを手元で選んで決める（絞り込みが古い成功を返し、2026-10-05に誤報のIssueが立ったため。DESIGN.md 208章）。
+#   判定に使った実行のIDと時刻は、Issueの本文に書く
 
 on:
   schedule:
@@ -32,6 +35,7 @@ env:
   UPDATE_WORKFLOW: update-stats.yml
   STALE_HOURS: ${{ github.event.inputs.stale_hours || '6' }}
   ISSUE_LABEL: update-stalled
+  RUN_LIMIT: "50" # 直近の実行を何件取るか（30分おき＋予備の定時実行で、6時間分は20件ほど）
 
 jobs:
   watch:
@@ -42,15 +46,26 @@ jobs:
         run: |
           set -euo pipefail
           case "$STALE_HOURS" in ''|*[!0-9]*) echo "stale_hours は0以上の整数で指定してください: $STALE_HOURS"; exit 1;; esac
-          last=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$UPDATE_WORKFLOW" \
-            --status success --limit 1 --json createdAt --jq '.[0].createdAt // ""')
+
+          # 直近の実行を絞り込みなしで取り、結論が success のうち最も新しいものを「最新の成功」にする
+          runs=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$UPDATE_WORKFLOW" \
+            --limit "$RUN_LIMIT" --json databaseId,createdAt,conclusion)
+          fetched=$(jq 'length' <<<"$runs")
+          oldest=$(jq -r 'sort_by(.createdAt) | first | .createdAt // ""' <<<"$runs")
+          latest=$(jq -c '[.[] | select(.conclusion == "success")] | sort_by(.createdAt) | last // empty' <<<"$runs")
           now=$(date -u +%s)
-          if [ -n "$last" ]; then
-            age_hours=$(( (now - $(date -u -d "$last" +%s)) / 3600 ))
+          if [ -n "$latest" ]; then
+            last=$(jq -r '.createdAt' <<<"$latest")
+            last_id=$(jq -r '.databaseId' <<<"$latest")
+            age_hours=$(( (now - $(jq -r '.createdAt | fromdateiso8601' <<<"$latest")) / 3600 ))
+            basis="最新の成功: 実行ID ${last_id}、開始 ${last}（UTC）（直近 ${fetched} 件から選択）"
           else
+            last=""
+            last_id=""
             age_hours=9999
+            basis="取得した直近 ${fetched} 件に成功した実行がありません（取得した中で最も古い実行: ${oldest:-なし}（UTC））"
           fi
-          echo "last_success=${last:-none} age_hours=$age_hours"
+          echo "$basis age_hours=$age_hours"
 
           gh label create "$ISSUE_LABEL" --repo "$GITHUB_REPOSITORY" \
             --description "データ更新が止まっている" --color B60205 2>/dev/null || true
@@ -64,11 +79,11 @@ jobs:
             fi
             body="データ更新のワークフロー（${UPDATE_WORKFLOW}）で、成功した実行が ${STALE_HOURS} 時間以上ありません。
 
-          - 最後に成功した実行の開始: ${last:-なし}（UTC）
+          - 判定に使った情報: ${basis}
           - 確認時刻: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 
           確認すること:
-          1. [実行の一覧](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/workflows/${UPDATE_WORKFLOW}) に「workflow file issue」の失敗や、起動そのものが無い時間帯がないか
+          1. [実行の一覧](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/workflows/${UPDATE_WORKFLOW}) に「workflow file issue」の失敗や、起動そのものが無い時間帯がないか（上の実行IDが一覧の最新の成功と合っているかも見る）
           2. cron-job.org の履歴と通知
           3. 実行が失敗している場合は、失敗した手順のログ
 
@@ -77,6 +92,6 @@ jobs:
               --title "データ更新が ${STALE_HOURS} 時間以上成功していません" --body "$body"
           elif [ -n "$open" ]; then
             gh issue comment "$open" --repo "$GITHUB_REPOSITORY" \
-              --body "成功した実行が戻りました（開始 ${last}）。閉じます。"
+              --body "成功した実行が戻りました（実行ID ${last_id}、開始 ${last}）。閉じます。"
             gh issue close "$open" --repo "$GITHUB_REPOSITORY"
           fi
