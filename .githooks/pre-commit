@@ -1,0 +1,8 @@
+#!/bin/sh
+# コミットの前に、ステージ済みの data/ に導出データ・仕分け外のファイルが混ざっていないかを確かめる
+# （scripts/build-data.ts の check-staged。設計書206章）。失敗したらコミットを止める。
+# CI（環境変数 CI が設定されているとき）では何もしない。
+# 有効にする設定は package.json の prepare（git config core.hooksPath .githooks）。
+[ -n "$CI" ] && exit 0
+cd "$(git rev-parse --show-toplevel)" || exit 1
+exec node --experimental-strip-types scripts/build-data.ts check-staged

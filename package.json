@@ -6,6 +6,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "prepare": "node -e \"if(!process.env.CI){try{require('child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch(e){}}\"",
     "predev": "node --experimental-strip-types scripts/build-data.ts --if-missing",
     "dev": "vite",
     "build": "vite build",

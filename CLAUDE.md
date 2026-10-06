@@ -60,6 +60,9 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - コミットの前に、ビルド（`npm run build`）に加えて `npm run typecheck`（スクリプト用と画面側の両方）を実行し、
   エラー0件を確認する（2026-09-26）。集計・データの持ち方に関わる変更では、`npm run build:data` が通ること（導出データはコミットされない）と
   `npm run build:data -- check-layout` が通ることも確かめる（206章）
+- ステージ済みの `data/` に導出データ・仕分け外のファイルが混ざっていないかを確かめる `check-staged` は、**pre-commit フック（`.githooks/pre-commit`）が
+  コミットのたびに自動で実行する**（`npm install` の `prepare` が `git config core.hooksPath .githooks` を設定する。クローンし直したあとも `npm install` で有効になる。
+  CI では設定も実行もしない）。**`--no-verify` でフックを飛ばさない。** フックが失敗したら、ステージを直す前に、失敗の原因（どのファイルが混ざったか）を報告してから対処する
 - `.github/workflows/` のファイルを変えたときは、**pushの前に** `actionlint .github/workflows/*.yml` を通し、エラー0件にする（未導入なら `brew install actionlint`。
   `npm run typecheck` と同じく、コミット前の確認に含める）。書き方が無効だと、そのワークフローの定期実行・外部（cron-job.org）からの起動がすべて止まる
   （2026-10-05に、ジョブ直下の `env` で `runner` コンテキストを使って、データ更新が約4時間止まった。actionlint はこれを検出する。設計書205章）。
