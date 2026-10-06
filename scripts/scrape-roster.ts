@@ -56,7 +56,8 @@ import {
   previousSeason,
 } from "./lib/mediaAssets.ts";
 import { isMainModule } from "./lib/isMain.ts";
-import type { CurrentRosterFile, PlayerAwardEntry, PlayerMasterEntry } from "../shared/types.ts";
+import { addClubHistory, parseClubHistory } from "./lib/clubHistory.ts";
+import type { ClubHistoryEntry, CurrentRosterFile, PlayerAwardEntry, PlayerMasterEntry } from "../shared/types.ts";
 
 const MIN_REQUEST_INTERVAL_MS = 2500;
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
@@ -194,12 +195,14 @@ function parseAwardHistory(html: string): PlayerAwardEntry[] {
 interface PlayerPage {
   detail: PlayerDetail;
   awards: PlayerAwardEntry[];
+  /** クラブ所属履歴（シーズン昇順。DESIGN.md 214章）。履歴の欄が読めなかったときは null */
+  clubHistory: ClubHistoryEntry[] | null;
 }
 
-/** 個人ページを1回取得し、プロフィール（detail）と受賞歴（awards）を同じHTMLから両方パースする */
+/** 個人ページを1回取得し、プロフィール（detail）・受賞歴（awards）・クラブ所属履歴（clubHistory）を同じHTMLからパースする */
 export async function fetchPlayerPage(playerId: string): Promise<PlayerPage> {
   const html = await fetchHtml(`https://www.bleague.jp/roster_detail/?PlayerID=${playerId}`);
-  return { detail: parsePlayerDetail(html), awards: parseAwardHistory(html) };
+  return { detail: parsePlayerDetail(html), awards: parseAwardHistory(html), clubHistory: parseClubHistory(html) };
 }
 
 /** 現行ロースター（今回のクラブ一覧に載っていた選手）1人分。写真の同期に使う */
@@ -215,7 +218,12 @@ export interface CurrentRosterPlayer {
 export async function scrapeRosterMaster(
   season: string,
   options: { force?: boolean } = {},
-): Promise<{ master: PlayerMasterEntry[]; currentRoster: CurrentRosterPlayer[] }> {
+): Promise<{
+  master: PlayerMasterEntry[];
+  currentRoster: CurrentRosterPlayer[];
+  /** 今回、個人ページを取得した選手のうち、クラブ所属履歴が読めた選手（別のファイル data/player-club-history.json に足す。選手マスタの所属は書き換えない） */
+  clubHistory: Map<string, ClubHistoryEntry[]>;
+}> {
   const year = Number(season.split("-")[0]);
   const existing = (await readJson<PlayerMasterEntry[]>(MASTER_PATH)) ?? [];
   const byId = new Map(existing.map((p) => [p.playerId, p]));
@@ -255,10 +263,12 @@ export async function scrapeRosterMaster(
   const targets = [...byId.values()].filter((p) => options.force || !p.birthDate);
   console.log(`[roster] 個人ページ取得対象: ${targets.length}名（新規${newCount}名／移籍検知${movedCount}件）`);
 
+  const clubHistory = new Map<string, ClubHistoryEntry[]>();
   for (const entry of targets) {
     // 1人の個人ページの失敗で全体（選手マスタの保存）が止まらないよう、失敗は警告にとどめて次回に回す
     try {
-      const { detail } = await fetchPlayerPage(entry.playerId);
+      const { detail, clubHistory: history } = await fetchPlayerPage(entry.playerId);
+      if (history) clubHistory.set(entry.playerId, history);
       entry.position = detail.position ?? entry.position;
       entry.nationality = detail.nationality ?? entry.nationality;
       entry.heightCm = detail.heightCm ?? entry.heightCm;
@@ -278,6 +288,7 @@ export async function scrapeRosterMaster(
   return {
     master: [...byId.values()].sort((a, b) => a.playerId.localeCompare(b.playerId)),
     currentRoster,
+    clubHistory,
   };
 }
 
@@ -378,7 +389,7 @@ async function main(): Promise<void> {
   }
   const force = args.includes("--force");
 
-  const { master, currentRoster } = await scrapeRosterMaster(season, { force });
+  const { master, currentRoster, clubHistory } = await scrapeRosterMaster(season, { force });
   // 写真より先に選手マスタを保存する（写真の失敗・時間切れで新加入選手の登録区分等が失われないように）
   await writeJson(MASTER_PATH, master);
   console.log(`保存完了: ${MASTER_PATH}（${master.length}名）`);
@@ -391,6 +402,13 @@ async function main(): Promise<void> {
     players: currentRoster.map((p) => ({ playerId: p.playerId, teamId: p.teamId })).sort((a, b) => a.playerId.localeCompare(b.playerId)),
   };
   await writeJsonIfChanged(path.join(DATA_DIR, "current-roster.json"), rosterFile as unknown as Record<string, unknown>);
+  // 同じ個人ページから読めたクラブ所属履歴を、別のファイルに足す（追加の問い合わせは無い。DESIGN.md 214章）。失敗しても選手マスタ・写真には影響させない
+  try {
+    const added = await addClubHistory(clubHistory);
+    console.log(`[roster] クラブ所属履歴: 個人ページを取得した選手のうち${clubHistory.size}名分が読め、新しく${added}名分を保存`);
+  } catch (err) {
+    console.warn(`[roster] クラブ所属履歴の保存に失敗（選手マスタ・写真には影響なし）: ${String(err)}`);
+  }
 
   await syncRosterPhotos(currentRoster, season, { force });
 }

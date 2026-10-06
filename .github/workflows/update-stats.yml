@@ -198,6 +198,16 @@ jobs:
         continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-roster.ts --season ${{ steps.season.outputs.season }}
 
+      # ルーキーの判定に使う、選手ページの「クラブ所属履歴」（data/player-club-history.json。DESIGN.md 214章）。新しく登録された選手の履歴は、直前の Scrape roster が
+      # 同じ個人ページから読んで保存済みなので、ここで取るのは「読めなかった選手のやり直し」だけ（通常は0件で、問い合わせはしない）。
+      # 取れなかった選手は警告を出して次の夜にやり直す（ステップは失敗にしない）。選手マスタ・写真には触れない
+      - name: Scrape club history (retry of missing players)
+        id: club_history
+        if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
+        timeout-minutes: 20
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/scrape-club-history.ts --nightly --budget-min 12
+
       # 進行中のシーズンの身長・体重・ポジションを、1月15日時点の選手名簿の値で固定する（1月15日より前は何もしない。
       # 1月15日より後に初めて出場した選手は、出場後の最初の夜間実行で固定。固定済みは上書きしない。DESIGN.md 148章）。
       # 直前の Scrape roster が保存した選手マスタ・今の選手名簿を読むので、その後に置く。深夜のディープrecheckでのみ実行する
@@ -307,6 +317,13 @@ jobs:
         if: ${{ always() && steps.roster.outcome == 'failure' }}
         run: |
           echo "::error title=Roster scan failed::Scrape roster ステップが失敗または時間切れになりました。選手マスタは写真取得前に保存されますが、ログで保存完了の行が出ているか確認してください"
+          exit 1
+
+      # 所属履歴の取得そのものがエラー終了・時間切れになったときだけ失敗にする（個別の選手の取得失敗は警告のみ）
+      - name: Fail if club history scrape crashed
+        if: ${{ always() && steps.club_history.outcome == 'failure' }}
+        run: |
+          echo "::error title=Club history scrape failed::Scrape club history ステップがエラー終了または時間切れになりました。個別の選手の取得失敗は警告のみで、ここには来ません。ログを確認してください"
           exit 1
 
       # 固定の前に行う導出データの作成の失敗をジョブの失敗として通知する（データのcommit&pushは上のステップで完了済み。デプロイでも同じ作成を行うので、そちらも失敗している可能性が高い）

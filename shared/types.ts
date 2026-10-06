@@ -1821,3 +1821,21 @@ export interface LeaguePlayerGameRecordsFile {
   /** 登録区分ごとの上位（PlayerGameRecordsFile.byClassification と同じ。DESIGN.md 197章） */
   byClassification?: Record<ClassKey, PlayerGameRecordTables>;
 }
+
+// ---- data/player-club-history.json（選手ページの「クラブ所属履歴」。ルーキーの判定に使う。DESIGN.md 214章） ----
+
+/** 選手ページの「クラブ所属履歴」の1行（例: 「2021-22 西宮」→ { season: "2021-22", club: "西宮" }）。B2・B3のクラブも載る（クラブID・カテゴリは載らない） */
+export interface ClubHistoryEntry {
+  season: string;
+  /** 選手ページに出る略称のまま（例: "横浜BC"、"A千葉"） */
+  club: string;
+}
+
+export interface PlayerClubHistoryFile {
+  generatedAt: string;
+  /**
+   * playerId → 履歴（シーズンの昇順。同じシーズンに複数のクラブがあれば、載っている順の逆＝古い順）。
+   * 選手ページから読めた選手だけが載る（読めなかった選手はキーが無い＝「判定不能」。次の取得でやり直す）。一度読めた選手は取り直さない
+   */
+  players: Record<string, ClubHistoryEntry[]>;
+}

@@ -43,6 +43,7 @@ export const GLOBAL_RAW_ENTRIES = [
   "game-watchlist.json",
   "logos",
   "player-awards.json.gz",
+  "player-club-history.json.gz",
   "player-history.json.gz",
   "player-photos",
   "player-photos-manifest.json.gz",

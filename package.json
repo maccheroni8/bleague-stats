@@ -16,6 +16,7 @@
     "scrape:roster": "node --experimental-strip-types scripts/scrape-roster.ts",
     "scrape:player-awards": "node --experimental-strip-types scripts/scrape-player-awards.ts",
     "colors:extract": "node --experimental-strip-types scripts/extract-team-colors.ts",
+    "scrape:club-history": "node --experimental-strip-types scripts/scrape-club-history.ts",
     "scrape:club-honors": "node --experimental-strip-types scripts/scrape-club-honors.ts",
     "scrape:division-history": "node --experimental-strip-types scripts/scrape-division-history.ts",
     "scrape:yahoo-pbp": "node --experimental-strip-types scripts/scrape-yahoo-pbp.ts",
