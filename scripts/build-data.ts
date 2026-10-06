@@ -17,7 +17,7 @@
 //   npm run build:data -- check-staged                 ステージ済み（git add 済み）の data/ のファイルに、導出データ・仕分け外が混ざっていないかを確かめる（夜間実行のコミット前）
 //
 // シーズンごとの集計: aggregate（B.PREMIER と、あれば B.ONE）→ 選手の1試合の記録（シーズン）→ 比較用のリーグ平均
-// 全シーズンをまたぐ集計: 収録シーズンの一覧 → チーム歴代 → キャリア → 個人歴代 → 選手の1試合の記録（歴代）
+// 全シーズンをまたぐ集計: 収録シーズンの一覧 → チーム歴代 → キャリア → ルーキーの対象シーズン → 個人歴代 → 選手の1試合の記録（歴代）
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -159,6 +159,7 @@ function buildCross(): void {
   node("収録シーズンの一覧・選手ごとの最新シーズン", "aggregate.ts", "--index-only");
   node("チーム歴代記録", "aggregate-league-rankings.ts");
   node("選手のキャリア", "aggregate-player-careers.ts");
+  node("ルーキーの対象シーズン", "aggregate-rookie-eligibility.ts"); // 選手のキャリア・選手の試合ログ・所属履歴から作る（214・215章）
   node("個人歴代記録", "aggregate-league-player-rankings.ts");
   node("選手の1試合の記録（歴代）", "aggregate-league-player-game-records.ts");
 }

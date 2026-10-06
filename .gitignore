@@ -10,6 +10,7 @@ dist/
 /data/league-team-rankings.json.gz
 /data/player-careers.json.gz
 /data/player-page-seasons.json.gz
+/data/rookie-eligibility.json.gz
 /data/seasons.json.gz
 /data/*/games-summary.json.gz
 /data/*/one/games-summary.json.gz

@@ -64,6 +64,7 @@ export const GLOBAL_DERIVED_ENTRIES = [
   "league-team-rankings.json.gz",
   "player-careers.json.gz",
   "player-page-seasons.json.gz",
+  "rookie-eligibility.json.gz",
   "seasons.json.gz",
 ] as const;
 

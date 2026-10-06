@@ -1839,3 +1839,13 @@ export interface PlayerClubHistoryFile {
    */
   players: Record<string, ClubHistoryEntry[]>;
 }
+
+// ---- data/rookie-eligibility.json（ルーキーの対象シーズン。導出データ。scripts/aggregate-rookie-eligibility.ts。DESIGN.md 214章） ----
+
+export interface RookieEligibilityFile {
+  generatedAt: string;
+  /** シーズン → そのシーズンにルーキー（新人賞の対象要件に準じる）の選手ID（昇順）。B1（B.PREMIER）のレギュラーシーズン・ポストシーズンの記録に使う */
+  seasons: Record<string, string[]>;
+  /** 判定不能で対象から外した選手 → 理由（"no-birth-date"・"no-history"・"history-lacks-first-season"）。履歴が取れた次の集計で判定に戻る */
+  undeterminable: Record<string, string>;
+}
