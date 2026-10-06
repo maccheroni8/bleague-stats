@@ -2,7 +2,7 @@
 //
 // LIVE TOV%＋DEAD TOV% が TOV%（tovPct）と一致するかを、試合の生データ（boxscore＋Yahoo!スポーツのPBP）から、
 // 選手（シーズン合計）とチーム（シーズン合計）で確認する。一致しない分は、ライブ/デッドに分類できなかった
-// ターンオーバー（ballType==="unknown"）と、個人に紐付かないチームターンオーバー（チームの行だけに出る）。
+// ターンオーバー（ballType==="unknown"）。チームの行は、個人に紐付かないチームターンオーバー（24秒等）をDEADTOVに含める。
 //
 // 使い方: npm run validate:live-dead-tov -- --season 2025-26 [--rows 6]
 //   （src/ のコードを使うため esbuild でまとめて実行する）
@@ -10,7 +10,7 @@
 import path from "node:path";
 import { DATA_DIR, readAllGames, readJson } from "./lib/storage.ts";
 import { tovPartPct, tovPct } from "../shared/formulas.ts";
-import { buildPlayerBoxscores, buildTeamTotalCounts, sumCountsList } from "../src/lib/boxscoreAggregate";
+import { buildPlayerBoxscores, buildTeamTotalCounts, countTeamTurnoversDead, sumCountsList } from "../src/lib/boxscoreAggregate";
 import type { BoxscoreCounts } from "../src/lib/boxscoreAggregate";
 import type { YahooGamePbp } from "../shared/types.ts";
 
@@ -39,7 +39,7 @@ async function main() {
       const players = buildPlayerBoxscores(ownRows, undefined, pbp, yahoo.turnovers);
       const total = buildTeamTotalCounts(ownRows, undefined);
       const sum = sumCountsList(players.map((p) => p.counts));
-      const teamCounts: BoxscoreCounts = { ...total, liveTov: sum.liveTov, deadTov: sum.deadTov };
+      const teamCounts: BoxscoreCounts = { ...total, liveTov: sum.liveTov, deadTov: sum.deadTov + countTeamTurnoversDead(yahoo.turnovers, teamInfo.id, undefined) };
       const acc = teamAcc.get(teamInfo.id) ?? { name: teamInfo.name, counts: [], unknown: 0, teamTov: 0, livePlayers: [] };
       acc.counts.push(teamCounts);
       acc.unknown += yahoo.turnovers.filter((t) => t.teamId === teamInfo.id && !t.isTeamTurnover && t.ballType === "unknown").length;
@@ -55,7 +55,7 @@ async function main() {
   console.log(`${season}: 試合 ${games.length}、Yahoo!のPBPがある試合 ${gamesWithYahoo}`);
 
   // ---- チーム（シーズン合計）----
-  console.log("\n【チーム（シーズン合計）】LIVE TOV% / DEAD TOV% / 合計 / TOV% / 差 | TOV, LIVE+DEAD, 分類不能, チームTOV(Yahoo)");
+  console.log("\n【チーム（シーズン合計）】LIVE TOV% / DEAD TOV% / 合計 / TOV% / 差 | TOV, LIVE+DEAD, 分類不能, チームTOV(Yahoo。DEADに含む)");
   let teamDiffMax = 0;
   const teamLines: string[] = [];
   for (const [, t] of teamAcc) {
@@ -68,6 +68,14 @@ async function main() {
     teamLines.push(`${t.name.padEnd(10)} ${f1(live)} / ${f1(dead)} / ${f1(live + dead)} / ${f1(tv)} / ${f1(live + dead - tv)} | ${s.tov}, ${c.liveTov + c.deadTov}, ${t.unknown}, ${t.teamTov}`);
   }
   teamLines.slice(0, rows).forEach((l) => console.log(l));
+  let gapMatch = 0;
+  let gapTotal = 0;
+  for (const [, t] of teamAcc) {
+    const c = sumCountsList(t.counts);
+    gapTotal += c.tov - (c.liveTov + c.deadTov);
+    if (c.tov - (c.liveTov + c.deadTov) === t.unknown) gapMatch++;
+  }
+  console.log(`  TOV−(LIVE+DEAD)が分類不能の数と一致するチーム: ${gapMatch}/${teamAcc.size}（差の合計 ${gapTotal}、分類不能の合計 ${[...teamAcc.values()].reduce((a, t) => a + t.unknown, 0)}）`);
   console.log(`  全${teamAcc.size}チームの |LIVE+DEAD−TOV%| の最大: ${f1(teamDiffMax)}ポイント`);
 
   // ---- 選手（シーズン合計。TOVが多い順）----

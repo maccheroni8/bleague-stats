@@ -17,6 +17,7 @@ import {
   computeIndividualRatings,
   computeTeamRatings,
   countTeamGeneratedTechnicalFouls,
+  countTeamTurnoversDead,
   formatAstToRatio,
   formatMinutesFromSeconds,
   sharePct,
@@ -650,10 +651,10 @@ function BoxscoreTeamPanel({
     assisted2m: miscTeamTotals.assisted2m,
     assisted3m: miscTeamTotals.assisted3m,
     assistedFtm: miscTeamTotals.assistedFtm,
-    // LIVETOV/DEADTOVも同様（isTeamTurnover=trueの個人に紐付かないターンオーバーは含まれない。
-    // DESIGN.md参照）
+    // LIVETOV/DEADTOVも同様。個人に紐付かないチームのターンオーバー（24秒等。すべてデッド）は
+    // 選手の合算には含まれないため、チーム合計行のDEADTOVにだけ足す（DESIGN.md 210章）
     liveTov: miscTeamTotals.liveTov,
-    deadTov: miscTeamTotals.deadTov,
+    deadTov: miscTeamTotals.deadTov + countTeamTurnoversDead(yahooTurnovers, ownRows[0]?.TeamID ?? null, periodOption),
     // ペイント内外2P分割（PAINT2M等）も同様、選手ごとの値を合算してチーム合計行に反映する
     paint2m: miscTeamTotals.paint2m,
     paint2a: miscTeamTotals.paint2a,

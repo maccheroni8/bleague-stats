@@ -501,6 +501,26 @@ function buildYahooTovCounts(turnovers: YahooTurnoverEvent[]): Map<string, Yahoo
   return byPlayer;
 }
 
+/**
+ * 個人に紐付かないチームのターンオーバー（24秒・8秒・5秒のバイオレーション等。Yahoo!スポーツPBPの
+ * isTeamTurnover===true。すべてデッドボール扱い）を、選択中の期間範囲・チーム単位で数える。
+ * チーム合計行のDEADTOVにのみ足す（選手の行には出ない。DESIGN.md 210章）
+ */
+export function countTeamTurnoversDead(
+  turnovers: YahooTurnoverEvent[],
+  teamId: string | null,
+  option: PeriodRangeOption | undefined,
+): number {
+  if (!teamId) return 0;
+  let count = 0;
+  for (const to of turnovers) {
+    if (!to.isTeamTurnover || to.teamId !== teamId || to.ballType !== "dead") continue;
+    if (!periodInRange(option, to.period)) continue;
+    count += 1;
+  }
+  return count;
+}
+
 export interface PlayerBoxscore {
   playerId: string;
   playerNo: string;
