@@ -26,6 +26,7 @@ import {
 import { TEAM_PERSPECTIVE_LABELS, type TeamPerspective } from "./teamStatsColumns";
 import type { ClassificationGroupFilter } from "./classificationFilter";
 import { CATEGORY_LABELS } from "./categoryLabels";
+import { DIVISION_LABELS } from "./divisionGroups";
 
 /** 何も絞り込んでいない状態のシチュエーション・ラベル（既存のdescribe系関数と同じ文言） */
 export const SITUATIONAL_DEFAULT_LABEL = "シーズン全体";
@@ -70,6 +71,8 @@ function situationalAndFilterParts(filter: SituationalAndFilters): string[] {
   if (filter.result) parts.push(filter.result === "win" ? "勝った試合" : "負けた試合");
   if (filter.homeAway) parts.push(filter.homeAway === "home" ? "ホーム" : "アウェイ");
   if (filter.division) parts.push(DIVISION_FILTER_LABELS[filter.division]);
+  // 自チームの地区は、指定したときだけ「地区: 東地区」の形で書く（登録区分・ポジションと同じ見出し付き。ファイル名では値だけになる）
+  if (filter.ownDivision) parts.push(`地区: ${DIVISION_LABELS[filter.ownDivision]}`);
   if (filter.months?.length) parts.push([...filter.months].sort((a, b) => a - b).map((m) => `${m}月`).join("・"));
   if (filter.newYear) parts.push(filter.newYear === "before" ? "年明け前" : "年明け後");
   if (filter.weekday) parts.push("平日開催");

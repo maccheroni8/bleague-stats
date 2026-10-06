@@ -150,6 +150,7 @@ export function rangeParam(key: string, defaultValue: readonly [number, number],
 const RESULT = ["win", "loss"] as const;
 const VENUE = ["home", "away"] as const;
 const DIVISION = ["east", "west", "same", "other"] as const;
+const OWN_DIVISION = ["east", "central", "west", "north", "south"] as const;
 const NEW_YEAR = ["before", "after"] as const;
 const OPP_WIN = ["under50", "atLeast50", "atLeast60"] as const;
 const MARGIN = ["lead10", "lead20", "trail10", "trail20", "close"] as const;
@@ -160,10 +161,10 @@ function pick<T extends string>(raw: string | null, values: readonly T[]): T | u
 }
 
 /**
- * res（勝敗）・ven（会場）・div（対戦地区）・mon（月、カンマ区切り）・ny（年明け前後）・day（wkday／wkend）・
+ * res（勝敗）・ven（会場）・div（対戦地区）・dv（自チームの地区。ランキングのシーズン成績だけ）・mon（月、カンマ区切り）・ny（年明け前後）・day（wkday／wkend）・
  * opw（対戦相手の勝率）・mg（点差）・rng（直近 r5、期間 2026-01-01~2026-02-28、片側だけなら ~2026-01-15・2026-01-16~）
  */
-export const SITUATIONAL_KEYS = ["res", "ven", "div", "mon", "ny", "day", "opw", "mg", "rng"];
+export const SITUATIONAL_KEYS = ["res", "ven", "div", "dv", "mon", "ny", "day", "opw", "mg", "rng"];
 
 export const situationalParam: UrlCodec<SituationalFilter> = {
   keys: SITUATIONAL_KEYS,
@@ -185,6 +186,8 @@ export const situationalParam: UrlCodec<SituationalFilter> = {
     if (homeAway) f.homeAway = homeAway;
     const division = pick(p.get("div"), DIVISION);
     if (division) f.division = division;
+    const ownDivision = pick(p.get("dv"), OWN_DIVISION);
+    if (ownDivision) f.ownDivision = ownDivision;
     const months = (p.get("mon") ?? "")
       .split(",")
       .map(Number)
@@ -207,6 +210,7 @@ export const situationalParam: UrlCodec<SituationalFilter> = {
     if (f.result) p.set("res", f.result);
     if (f.homeAway) p.set("ven", f.homeAway);
     if (f.division) p.set("div", f.division);
+    if (f.ownDivision) p.set("dv", f.ownDivision);
     if (f.months?.length) p.set("mon", f.months.join(","));
     if (f.newYear) p.set("ny", f.newYear);
     if (f.weekday) p.set("day", "wkday");

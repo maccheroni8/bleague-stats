@@ -1,4 +1,4 @@
-import type { Division, StandingsTeamSnapshot } from "../../shared/types";
+import type { Category, Division, DivisionHistoryFile, StandingsTeamSnapshot } from "../../shared/types";
 
 // 地区数は可変（東西2地区制のシーズンもあれば、過去の東・中・西3地区制のシーズンもある。
 // DESIGN.md参照）。表示順は固定のこの並びとし、latestSnapshotに実際に存在する地区だけを表示する
@@ -46,4 +46,19 @@ export function divisionPresets(
     byDivision.set(d, [...(byDivision.get(d) ?? []), id]);
   }
   return DIVISION_ORDER.filter((d) => byDivision.has(d)).map((d) => ({ label: DIVISION_LABELS[d], teamIds: byDivision.get(d)! }));
+}
+
+/**
+ * そのシーズンにある地区（data/division-history.json）を DIVISION_ORDER の順に返す。履歴にそのシーズンが無ければ空（地区の絞り込みの選択肢を出さない）。
+ * 地区の数はシーズンで違う（東・中・西の3地区制と、東・西の2地区制）ので、選択肢はこの結果だけにする（DESIGN.md 213章）
+ */
+export function seasonDivisions(
+  history: DivisionHistoryFile | null | undefined,
+  season: string,
+  category: Category = "premier",
+): Division[] {
+  const bySeason = history?.[category]?.[season];
+  if (!bySeason) return [];
+  const present = new Set<Division>(Object.values(bySeason));
+  return DIVISION_ORDER.filter((d) => present.has(d));
 }

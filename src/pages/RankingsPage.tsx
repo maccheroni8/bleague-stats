@@ -118,6 +118,8 @@ import {
 } from "../lib/statConditions";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { clearUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
+import { seasonDivisions } from "../lib/divisionGroups";
+import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import { CLASSIFICATION_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERIOD_PARAM, PERSPECTIVE_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM } from "../lib/urlFilterParams";
 import { buildTeamConditionDefs } from "../lib/teamConditionItems";
 import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS, playerCareerConditionDefs, playerProfileConditionDefs } from "../lib/playerConditionItems";
@@ -358,7 +360,14 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
       return { team, gamesPlayed: logs.length, wins, losses: logs.length - wins, totals: sumTeamGameLogs(logs) };
     });
   }, [teams, gameLogsByTeam]);
-  const conditionRows = isBoxscoreCategory(category) ? rows : seasonRows;
+  // 自チームの地区で絞る（ランキングのシーズン成績。DESIGN.md 213章）。試合の絞り込み（filterGameLogs）では地区の外のチームは試合数0になるだけで
+  // 一覧に残るので、そのシーズンの地区が違うチームは一覧から外す。履歴が読めるまでは空にする（絞り込みの前の順位を一瞬出さない）
+  const rowsInOwnDivision: AllTeamsRow[] = useMemo(() => {
+    if (!filter.ownDivision) return rows;
+    if (!divisionHistory) return [];
+    return rows.filter((r) => teamDivisionForSeason(divisionHistory, r.team.teamId, season) === filter.ownDivision);
+  }, [rows, filter.ownDivision, divisionHistory, season]);
+  const conditionRows = isBoxscoreCategory(category) ? rowsInOwnDivision : seasonRows;
   const teamById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t])), [teams]);
   const conditionClassificationSupported = !isBoxscoreCategory(category) || periodOption.periods === null;
   const conditionItems = useMemo(
@@ -499,6 +508,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
+      ownDivisions: seasonDivisions(divisionHistory, season),
       disabledReason: teamFilterDisabledReason,
     }),
   ];
@@ -634,7 +644,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
             <ConditionTitle title={teamBoxscoreTitle.title} conditions={teamBoxscoreTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
             <RankedList
                 statScope="team"
-              rows={passingTeamIds ? rows.filter((r) => passes(r.team.teamId)) : rows}
+              rows={passingTeamIds ? rowsInOwnDivision.filter((r) => passes(r.team.teamId)) : rowsInOwnDivision}
               def={teamDef}
               rowKey={(r) => r.team.teamId}
               name={(r) => teamLabel(r.team.teamId, r.team.teamName)}
@@ -1497,6 +1507,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
+      ownDivisions: seasonDivisions(divisionHistory, season),
       disabledReason: playerFilterDisabledReason,
     }),
     eligibilityAxis,

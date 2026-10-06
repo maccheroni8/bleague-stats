@@ -10,6 +10,7 @@ import type { SituationalFilter } from "./situational";
  * フィルタはURLに持ち、シーズンを変えても残す（163章）が、次のものはシーズンによって指す対象が変わるため例外にする。
  * - クラブ: そのシーズンに在籍していないクラブ
  * - 対戦地区: そのシーズンの地区構成に無い地区（同地区・他地区は外さない）
+ * - 自チームの地区: そのシーズンの地区構成に無い地区。履歴にそのシーズンの地区が無いとき（地区の選択肢が出ないシーズン）は外す（213章）
  * - 月: そのシーズンに試合が1つも無い月
  * - 期間指定: 始まり・終わりのどちらかの日付が、そのシーズンの期間（最初の試合〜最後の試合。今後の日程を含む）の外
  * - 試合種別のポストシーズン・合算: ポストシーズンが開催されなかったシーズン
@@ -81,6 +82,10 @@ export function cleanupForSeason(input: SeasonScopedFilters, scope: SeasonScope)
   }
   if (filter.division && (filter.division === "east" || filter.division === "west") && scope.divisions && !scope.divisions.has(filter.division)) {
     filter = { ...filter, division: undefined };
+    changed = true;
+  }
+  if (filter.ownDivision && (!scope.divisions || !scope.divisions.has(filter.ownDivision))) {
+    filter = { ...filter, ownDivision: undefined };
     changed = true;
   }
   if (filter.months?.length) {
