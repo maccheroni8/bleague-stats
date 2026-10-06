@@ -4,10 +4,13 @@
 // 先行適用するが、公式の記録システム改修が間に合わないため、当面は旧名称のまま配信される。
 // 改修完了後に新表記へ一括更新される予定で、その時期は未定。このスクリプトは日次cronで
 // 「新表記への移行」や「ActionCD1コードの変更」に気づくための警報（トリップワイヤ）で、
-// 異常を検知すると終了コード1で終了する（GitHub Actionsの失敗ステータスとして通知される）。
+// B・C・Dの異常を検知すると終了コード1で終了する（GitHub Actionsの失敗ステータスとして通知される）。
+// A（新語彙）は、公式の新表記への移行が始まった後は毎晩出るのが想定どおりなので、失敗にせず
+// ::notice とログ・Summaryに出すだけにする（2026-10-06。DESIGN.md 16-4章）。
 //
-// 検知する内容（いずれも異常＝要確認）:
-//  A. 新語彙: PlayTextに「ディスラプティブ」「フレグラント」「カテゴリ1/2」等が出現した
+// 検知する内容（B〜Dは異常＝要確認、Aはお知らせ）:
+//  A. 新語彙（お知らせ。ジョブは失敗にしない）: PlayTextに「ディスラプティブ」「フレグラント」「カテゴリ1/2」等が出現した。
+//     表記の揺れ（フラグラント・フレイグラント、カテゴリー1、全角数字・半角カナ）も拾う
 //  B. 未知のActionCD1: 過去10シーズンの実データで確認済みのコード集合に無いコードが出現した
 //  C. テキストとコードの不一致: 「テクニカル」「アンスポーツマン」「ディスクォリファイング」を含む
 //     PlayTextのActionCD1が、集計で使っているコード（24/20/21・25・26。boxscoreAggregate.ts）と
@@ -38,8 +41,15 @@ const KNOWN_ACTION_CD1: ReadonlySet<number> = new Set([
   85, 86, 87, 88, 89, 90,
 ]);
 
-/** 新規則の新語彙（A）。全角数字の「カテゴリ１」等の表記ゆれも拾う */
-const NEW_VOCABULARY = /ディスラプ|フレグラ|カテゴリ\s*[1-2１-２]/;
+/** 新規則の新語彙（A）。表記の揺れを拾うため、判定の前にNFKCで正規化する（全角数字・半角カナ・全角英数を揃える）うえで、
+ * フレグラント／フラグラント／フレイグラント、カテゴリ／カテゴリーの揺れと、全角数字の「カテゴリ１」も許す */
+const NEW_VOCABULARY_TERM = /ディスラプ\S*|フ[レラ]イ?グラ\S*|カテゴリー?\s*[1-2１-２]/;
+
+/** PlayTextにあるA（新語彙）の語を返す（無ければnull）。「ディスラプティブファウル」のように、語の続きも含めて返す */
+export function findNewVocabulary(text: string): string | null {
+  const m = NEW_VOCABULARY_TERM.exec(text.normalize("NFKC"));
+  return m ? m[0] : null;
+}
 
 /** 旧名称の語彙と、それを集計で使っているActionCD1（C）。boxscoreAggregate.tsのbuildMiscEventCounts・
  * countTechnicalFoulsと対応させること */
@@ -63,8 +73,17 @@ const DEFAULT_SINCE_HOURS = 48;
 const MAX_ALERT_SAMPLES = 5;
 
 interface Alert {
-  kind: "new-vocabulary" | "unknown-action-cd1" | "text-code-mismatch" | "zero-events";
+  kind: "unknown-action-cd1" | "text-code-mismatch" | "zero-events";
   message: string;
+}
+
+/** お知らせ（A）。ジョブを失敗にしない */
+interface Notice {
+  kind: "new-vocabulary";
+  /** ::notice に出す要約（試合数・件数・先頭の数試合） */
+  message: string;
+  /** 試合ごとの語彙（ログ・Summaryに全件出す） */
+  details: string[];
 }
 
 interface GameRef {
@@ -83,24 +102,29 @@ function ref(g: GameRef): string {
 
 /** 選手番号・選手名・(ファウル数)・後続のフリースロー指示を落として、判定名の部分だけを取り出す */
 function normalizePlayText(text: string): string {
-  const m = /(テクニカル\S*ファウル|アンスポーツマン\S*ファウル|ディスクォリファイング\S*ファウル|ディスラプ\S*|フレグラ\S*|カテゴリ\s*\S+)/.exec(
+  const m = /(テクニカル\S*ファウル|アンスポーツマン\S*ファウル|ディスクォリファイング\S*ファウル|ディスラプ\S*|フ[レラ]イ?グラ\S*|カテゴリー?\s*\S+)/.exec(
     text,
   );
   return m ? m[1]! : text.slice(0, 20);
 }
 
 export interface CheckResult {
+  /** 失敗にする異常（B・C・D） */
   alerts: Alert[];
+  /** お知らせ（A）。失敗にしない */
+  notices: Notice[];
   summaryLines: string[];
 }
 
 /** 純粋関数（ファイル入出力を含まない）。テストしやすいよう試合の配列を受け取る */
 export function checkRuleChange(games: GameRef[], scanTargets: GameRef[]): CheckResult {
   const alerts: Alert[] = [];
+  const notices: Notice[] = [];
   const summaryLines: string[] = [];
 
   // A・B・C: 対象範囲の全イベントを走査
-  const newVocabSamples: string[] = [];
+  /** A: 試合ごとの「判定名 → 件数」 */
+  const vocabByGame = new Map<string, Map<string, number>>();
   const unknownCodes = new Map<number, string[]>();
   const mismatchSamples = new Map<string, string[]>();
   const labelCounts = new Map<string, number>();
@@ -109,9 +133,15 @@ export function checkRuleChange(games: GameRef[], scanTargets: GameRef[]): Check
   for (const target of scanTargets) {
     for (const ev of target.game.raw.PlayByPlays) {
       const text = String(ev.PlayText ?? "");
-      if (NEW_VOCABULARY.test(text)) {
+      const vocab = findNewVocabulary(text);
+      if (vocab !== null) {
         newVocabCount++;
-        if (newVocabSamples.length < MAX_ALERT_SAMPLES) newVocabSamples.push(`${ref(target)} ActionCD1=${ev.ActionCD1} 「${text}」`);
+        // 「テクニカルファウル カテゴリ1」のように、語がカテゴリだけのときは判定名も添える
+        const name = normalizePlayText(text.normalize("NFKC"));
+        const label = `ActionCD1=${ev.ActionCD1} ${name.includes(vocab) ? name : `${name} ${vocab}`}`;
+        const perGame = vocabByGame.get(ref(target)) ?? new Map<string, number>();
+        perGame.set(label, (perGame.get(label) ?? 0) + 1);
+        vocabByGame.set(ref(target), perGame);
       }
       if (!KNOWN_ACTION_CD1.has(ev.ActionCD1)) {
         const samples = unknownCodes.get(ev.ActionCD1) ?? [];
@@ -135,12 +165,16 @@ export function checkRuleChange(games: GameRef[], scanTargets: GameRef[]): Check
   }
 
   if (newVocabCount > 0) {
-    alerts.push({
+    const details = [...vocabByGame.entries()].map(
+      ([game, labels]) => `${game}: ${[...labels.entries()].map(([label, n]) => `${label} ×${n}`).join(" / ")}`,
+    );
+    notices.push({
       kind: "new-vocabulary",
       message:
-        `PlayTextに新規則の新語彙（ディスラプティブ/フレグラント/カテゴリ1・2）が${newVocabCount}件出現しました。` +
-        `公式の記録システム改修が完了し、新表記へ移行し始めた可能性があります（DESIGN.md 16章）。` +
-        `例: ${newVocabSamples.join(" / ")}`,
+        `PlayTextに新規則の新語彙（ディスラプティブ/フレグラント/カテゴリ1・2）が${vocabByGame.size}試合・${newVocabCount}件ありました。` +
+        `公式の記録が新表記へ移行したとみられます（DESIGN.md 16章）。失敗にはしません。` +
+        `例: ${details.slice(0, MAX_ALERT_SAMPLES).join(" / ")}`,
+      details,
     });
   }
   for (const [code, samples] of unknownCodes) {
@@ -193,7 +227,7 @@ export function checkRuleChange(games: GameRef[], scanTargets: GameRef[]): Check
     for (const [label, count] of [...labelCounts.entries()].sort()) summaryLines.push(`${label}: ${count}件`);
   }
 
-  return { alerts, summaryLines };
+  return { alerts, notices, summaryLines };
 }
 
 function parseArgs(argv: string[]): { season: string; all: boolean; sinceHours: number } {
@@ -220,16 +254,23 @@ async function main(): Promise<void> {
 
   const sinceMs = Date.now() - sinceHours * 60 * 60 * 1000;
   const scanTargets = all ? games : games.filter((g) => isRecentlyChanged(g.game, sinceMs));
-  const { alerts, summaryLines } = checkRuleChange(games, scanTargets);
+  const { alerts, notices, summaryLines } = checkRuleChange(games, scanTargets);
 
   console.log(`[check-rule-change] ${season}（${all ? "全試合" : `直近${sinceHours}時間に取得/変更された試合`}）`);
   for (const line of summaryLines) console.log(`  ${line}`);
+  // お知らせ（A）: 試合ごとの語彙はログに全件出し、::notice には要約だけ出す。ジョブは失敗にしない
+  for (const n of notices) {
+    console.log(`  [お知らせ ${n.kind}] ${n.details.length}試合`);
+    for (const d of n.details) console.log(`    ${d}`);
+    console.log(`::notice title=新競技規則の検知 [${n.kind}]::${n.message}`);
+  }
 
   const summaryPath = process.env["GITHUB_STEP_SUMMARY"];
   if (summaryPath) {
     const md = [
       `### 新競技規則の検知（${season}）`,
       ...summaryLines.map((l) => `- ${l}`),
+      ...notices.map((n) => `\n**お知らせ [${n.kind}]**（失敗にはしません）\n${n.details.map((d) => `- ${d}`).join("\n")}`),
       alerts.length > 0 ? `\n**⚠ 異常 ${alerts.length}件**\n${alerts.map((a) => `- [${a.kind}] ${a.message}`).join("\n")}` : "\n異常なし",
       "",
     ].join("\n");
