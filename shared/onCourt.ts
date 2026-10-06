@@ -24,6 +24,7 @@
 
 import type { BoxscoreRow, PlayByPlayEvent } from "./types.ts";
 import { safeDiv } from "./formulas.ts";
+import { TECHNICAL_FT_FOUL_CODES, UNSPORTSMANLIKE_FT_FOUL_CODES } from "./foulCodes.ts";
 
 const REGULAR_PERIOD_SECONDS = 10 * 60;
 const OT_PERIOD_SECONDS = 5 * 60;
@@ -265,8 +266,9 @@ interface RelevantEvent {
 
 // ポゼッションなどの数え上げに使う、得点以外のプレーバイプレーのコード（DESIGN.md 204章）:
 // 2=3P失敗、5・6=2P失敗、8=FT失敗、9・18=DR（個人・チーム）、10・19=OR、12=AST、13・17=TOV（個人・チーム）、
-// 反則の種類（20・21・24=テクニカル、25・26=アンスポーツマン・ディスクォリファイング、22・23=通常・オフェンス）
-const STAT_CODES = new Set([2, 5, 6, 8, 9, 10, 12, 13, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]);
+// 反則の種類（20・21・24=テクニカル、25・26=アンスポーツマン・ディスクォリファイング、22・23=通常・オフェンス）。
+// 2026-27の新表記は、24→91・92（テクニカル カテゴリ1・2）、25→93・94（フレグラント・ディスラプティブ）。旧コードと同じ扱いにする（shared/foulCodes.ts・DESIGN.md 16-7章）
+const STAT_CODES = new Set([2, 5, 6, 8, 9, 10, 12, 13, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 91, 92, 93, 94]);
 
 function buildRelevantEvents(
   playByPlays: PlayByPlayEvent[],
@@ -566,8 +568,8 @@ function injectPossessionEvents(events: RelevantEvent[]): RelevantEvent[] {
     const after: RelevantEvent[] = [];
     const c = e.actionCd;
     const t = e.teamId;
-    if (c === 20 || c === 21 || c === 24) tripKind = "tech";
-    else if (c === 25 || c === 26) tripKind = "unsport";
+    if (c !== undefined && TECHNICAL_FT_FOUL_CODES.has(c)) tripKind = "tech";
+    else if (c !== undefined && UNSPORTSMANLIKE_FT_FOUL_CODES.has(c)) tripKind = "unsport";
     else if (c === 22 || c === 23) tripKind = "normal";
     else if (c !== undefined && isGameRow(e)) {
       let next: RelevantEvent | null = null;
@@ -680,7 +682,7 @@ export interface PossessionStartEvent {
  *   （ポゼッションは継続中のため）
  *
  * 既知の限界（低頻度のため許容し、報告のみに留める）:
- * - テクニカルファウルのFT（コーチ/ベンチ/選手のテクニカル。ActionCD1=20/21/24）は、
+ * - テクニカルファウルのFT（コーチ/ベンチ/選手のテクニカル。ActionCD1=20/21/24。新表記は91/92）は、
  *   FIBAルール上ボールを保持していたチームがそのまま継続するが、本ロジックは他のFTトリップと
  *   同じ扱い（成功なら相手ボールに切り替え）をしてしまう。低頻度のため個別対応はしていない
  * - 試合開始（Q1オープニングの最初のポゼッション）・各ピリオド開始時の最初のポゼッションは、

@@ -53,6 +53,15 @@ import { currentSeason } from "./lib/season.ts";
 import { measureOrUndefined, resolveSeasonProfile } from "../shared/seasonProfile.ts";
 import { sumTeamSeasonMisc } from "../shared/teamSeasonMisc.ts";
 import { gameMaxMargins } from "../shared/gameMargins.ts";
+import {
+  DISQUALIFYING_FOUL_CODE,
+  PLAYER_TECHNICAL_FOUL_CODES,
+  TECHNICAL_FT_FOUL_CODES,
+  UNSPORTSMANLIKE_FOUL_CODES,
+  foulCategoryKey,
+  nonZeroFoulCategoryFields,
+  opponentFoulCategoryFields,
+} from "../shared/foulCodes.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { classifyGameType } from "./lib/gameType.ts";
 import type {
@@ -63,6 +72,7 @@ import type {
   PlayerPageSeasonsFile,
   Division,
   DivisionHistoryFile,
+  FoulCategoryCounts,
   GameSummary,
   GameType,
   HeadToHeadRecord,
@@ -438,8 +448,8 @@ function emptyTotals(): StatTotals {
 
 /**
  * PlayByPlaysからテクニカルファウルの発生回数を数える（EFF計算専用。formulas.tsのeff()参照）。
- * - 選手個人（ActionCD1=24）はPlayerID1で選手単位に集計する（個人EFFの補正に使う）
- * - チーム単位はActionCD1=20（HCテクニカル）・21（ベンチテクニカル）・24（選手個人テクニカル）
+ * - 選手個人（ActionCD1=24。2026-27以降の新表記は91・92。shared/foulCodes.ts）はPlayerID1で選手単位に集計する（個人EFFの補正に使う）
+ * - チーム単位はActionCD1=20（HCテクニカル）・21（ベンチテクニカル）・24/91/92（選手個人テクニカル）
  *   の合計をTeamIDで集計する（チームEFFの補正に使う。20・21は選手に紐付かずCategory=2の
  *   チーム発生イベント行にのみ計上されるため、個人側には含めない。DESIGN.md 2-2章）
  */
@@ -450,29 +460,37 @@ function countTechnicalFouls(playByPlays: PlayByPlayEvent[]): {
   const byPlayer = new Map<string, number>();
   const byTeam = new Map<string, number>();
   for (const play of playByPlays) {
-    if (play.ActionCD1 === 24 && play.PlayerID1) {
+    if (PLAYER_TECHNICAL_FOUL_CODES.has(play.ActionCD1) && play.PlayerID1) {
       byPlayer.set(play.PlayerID1, (byPlayer.get(play.PlayerID1) ?? 0) + 1);
     }
-    if ((play.ActionCD1 === 20 || play.ActionCD1 === 21 || play.ActionCD1 === 24) && play.TeamID) {
+    if (TECHNICAL_FT_FOUL_CODES.has(play.ActionCD1) && play.TeamID) {
       byTeam.set(play.TeamID, (byTeam.get(play.TeamID) ?? 0) + 1);
     }
   }
   return { byPlayer, byTeam };
 }
 
-interface MiscEventCounts {
+interface MiscEventCounts extends FoulCategoryCounts {
   dunks: number;
   basketCounts: number;
+  /** アンスポーツマン系（旧25・新93/94の合計） */
   unsportsmanlikeFouls: number;
   disqualifyingFouls: number;
 }
 
-const ZERO_MISC_EVENTS: MiscEventCounts = { dunks: 0, basketCounts: 0, unsportsmanlikeFouls: 0, disqualifyingFouls: 0 };
+const ZERO_MISC_EVENTS: MiscEventCounts = {
+  dunks: 0,
+  basketCounts: 0,
+  unsportsmanlikeFouls: 0,
+  disqualifyingFouls: 0,
+  technicalFoulsCat1: 0,
+  technicalFoulsCat2: 0,
+  flagrantFouls: 0,
+  disruptiveFouls: 0,
+};
 
 const DUNK_ACTION_CD1 = 4;
 const BASKET_COUNT_ACTION_CD1 = 16;
-const UNSPORTSMANLIKE_FOUL_ACTION_CD1 = 25;
-const DISQUALIFYING_FOUL_ACTION_CD1 = 26;
 
 /**
  * ダンク数・アンドワン（バスケットカウント）・アンスポーツマンファウル・ディスクォリファイング
@@ -493,19 +511,23 @@ function buildMiscEventCounts(playByPlays: PlayByPlayEvent[]): { byPlayer: Map<s
     target.set(id, entry);
   };
   for (const ev of playByPlays) {
-    let key: keyof MiscEventCounts | null = null;
+    const keys: (keyof MiscEventCounts)[] = [];
     if (ev.ActionCD1 === DUNK_ACTION_CD1 && ev.PlayText.includes("ダンク")) {
-      key = "dunks";
+      keys.push("dunks");
     } else if (ev.ActionCD1 === BASKET_COUNT_ACTION_CD1) {
-      key = "basketCounts";
-    } else if (ev.ActionCD1 === UNSPORTSMANLIKE_FOUL_ACTION_CD1) {
-      key = "unsportsmanlikeFouls";
-    } else if (ev.ActionCD1 === DISQUALIFYING_FOUL_ACTION_CD1) {
-      key = "disqualifyingFouls";
+      keys.push("basketCounts");
+    } else if (UNSPORTSMANLIKE_FOUL_CODES.has(ev.ActionCD1)) {
+      keys.push("unsportsmanlikeFouls");
+    } else if (ev.ActionCD1 === DISQUALIFYING_FOUL_CODE) {
+      keys.push("disqualifyingFouls");
     }
-    if (!key) continue;
-    bump(byPlayer, ev.PlayerID1, key);
-    bump(byTeam, ev.TeamID, key);
+    // 新しい区分（91〜94）は、TF・UFOULの合計とは別に、区分ごとの件数も持つ（shared/foulCodes.ts）
+    const category = foulCategoryKey(ev.ActionCD1);
+    if (category) keys.push(category);
+    for (const key of keys) {
+      bump(byPlayer, ev.PlayerID1, key);
+      bump(byTeam, ev.TeamID, key);
+    }
   }
   return { byPlayer, byTeam };
 }
@@ -1607,6 +1629,7 @@ function processPlayers(
       basketCounts: miscEventsByPlayer.get(row.PlayerID)?.basketCounts ?? 0,
       unsportsmanlikeFouls: miscEventsByPlayer.get(row.PlayerID)?.unsportsmanlikeFouls ?? 0,
       disqualifyingFouls: miscEventsByPlayer.get(row.PlayerID)?.disqualifyingFouls ?? 0,
+      ...nonZeroFoulCategoryFields(miscEventsByPlayer.get(row.PlayerID)),
       offensiveFoulsCommitted: offensiveFoulCountsByPlayer.get(row.PlayerID)?.offensiveFoulsCommitted ?? 0,
       chargesDrawn: offensiveFoulCountsByPlayer.get(row.PlayerID)?.chargesDrawn ?? 0,
       assisted2m: assistedScoringByPlayer.get(row.PlayerID)?.assisted2m ?? 0,
@@ -1694,6 +1717,7 @@ function teamMiscExtraGameLogStats(
     basketCounts: ownMisc?.basketCounts ?? 0,
     unsportsmanlikeFouls: ownMisc?.unsportsmanlikeFouls ?? 0,
     disqualifyingFouls: ownMisc?.disqualifyingFouls ?? 0,
+    ...nonZeroFoulCategoryFields(ownMisc),
     assisted2m: ownAssisted?.assisted2m ?? 0,
     assisted3m: ownAssisted?.assisted3m ?? 0,
     assistedFtm: ownAssisted?.assistedFtm ?? 0,
@@ -1705,6 +1729,7 @@ function teamMiscExtraGameLogStats(
     opponentBasketCounts: oppMisc?.basketCounts ?? 0,
     opponentUnsportsmanlikeFouls: oppMisc?.unsportsmanlikeFouls ?? 0,
     opponentDisqualifyingFouls: oppMisc?.disqualifyingFouls ?? 0,
+    ...opponentFoulCategoryFields(oppMisc),
     opponentAssisted2m: oppAssisted?.assisted2m ?? 0,
     opponentAssisted3m: oppAssisted?.assisted3m ?? 0,
     opponentAssistedFtm: oppAssisted?.assistedFtm ?? 0,

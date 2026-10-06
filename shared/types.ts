@@ -662,7 +662,27 @@ export type ShotTypeBreakdown = Record<string, ShotTypeSplitCounts>;
 
 // ---- data/{season}/player-games/{playerId}.json の保存スキーマ（個人詳細ページの試合ログ用） ----
 
-export interface PlayerGameLog {
+/**
+ * 2026-27以降の新しい反則の区分の件数（shared/foulCodes.ts・DESIGN.md 16-7章）。TF・UFOULの内訳で、
+ * テクニカル カテゴリ1（ActionCD1=91）・カテゴリ2（92）・フレグラント（93）・ディスラプティブ（94）。
+ * 0件のとき・2025-26以前は項目自体が無い（省略可能。画面は無いものを0として扱う）
+ */
+export interface FoulCategoryCounts {
+  technicalFoulsCat1: number;
+  technicalFoulsCat2: number;
+  flagrantFouls: number;
+  disruptiveFouls: number;
+}
+
+/** 相手チーム分（TeamGameLog用）。FoulCategoryCounts の項目名に opponent を付けたもの */
+export interface OpponentFoulCategoryCounts {
+  opponentTechnicalFoulsCat1: number;
+  opponentTechnicalFoulsCat2: number;
+  opponentFlagrantFouls: number;
+  opponentDisruptiveFouls: number;
+}
+
+export interface PlayerGameLog extends Partial<FoulCategoryCounts> {
   scheduleKey: string;
   /** JST基準のYYYY-MM-DD */
   date: string;
@@ -696,7 +716,7 @@ export interface PlayerGameLog {
   foulsDrawn: number;
   /** 被ブロック数（BSON）。EFF計算・ボックススコアのBSR列に対応 */
   blockedAgainst: number;
-  /** テクニカルファウル数（ActionCD1=24）。EFF計算の追加減点補正に使う */
+  /** テクニカルファウル数（選手個人。旧ActionCD1=24・新91/92の合計。shared/foulCodes.ts）。EFF計算の追加減点補正に使う */
   technicalFouls: number;
   /**
    * ペイント内得点（PITP）。PlayByPlaysのPlayTextタグ集計による得点（shared/playTypePoints.ts）。
@@ -725,7 +745,7 @@ export interface PlayerGameLog {
   dunks: number;
   /** バスケットカウント（アンドワン）数 */
   basketCounts: number;
-  /** アンスポーツマンファウル数 */
+  /** アンスポーツマン系ファウル数（旧ActionCD1=25・新93/94の合計。shared/foulCodes.ts） */
   unsportsmanlikeFouls: number;
   /** ディスクォリファイングファウル数 */
   disqualifyingFouls: number;
@@ -763,7 +783,7 @@ export interface PlayerGameLog {
 
 // ---- data/{season}/team-games/{teamId}.json の保存スキーマ（チーム詳細ページの試合結果一覧用） ----
 
-export interface TeamGameLog {
+export interface TeamGameLog extends Partial<FoulCategoryCounts>, Partial<OpponentFoulCategoryCounts> {
   scheduleKey: string;
   /** JST基準のYYYY-MM-DD */
   date: string;

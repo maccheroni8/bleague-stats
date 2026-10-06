@@ -4,7 +4,15 @@
 // 該当するPeriodCategory=1..4(・OT分)の行を自前で合算する（15/16/17は「前半/後半/延長合計」
 // 専用の集計行で、PeriodRangeOptionのOTを含む「後半」等とは範囲が一致しないケースがあるため使わない）。
 
-import type { BoxscoreRow, PlayByPlayEvent, SummaryRow, YahooTurnoverEvent } from "../../shared/types";
+import type { BoxscoreRow, FoulCategoryCounts, PlayByPlayEvent, SummaryRow, YahooTurnoverEvent } from "../../shared/types";
+import {
+  DISQUALIFYING_FOUL_CODE,
+  PLAYER_TECHNICAL_FOUL_CODES,
+  TEAM_TECHNICAL_FOUL_CODES,
+  UNSPORTSMANLIKE_FOUL_CODES,
+  foulCategoryKey,
+  nonZeroFoulCategoryFields,
+} from "../../shared/foulCodes";
 import type { PeriodRangeOption } from "./periodRange";
 import { periodInRange } from "./periodRange";
 import {
@@ -21,7 +29,7 @@ import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints
 import { computeAssistedScoring, type AssistedScoringCounts, type AssistPair } from "../../shared/assistedScoring";
 import { buildOfficialPaintSplit } from "../../shared/paintSplit";
 
-export interface BoxscoreCounts {
+export interface BoxscoreCounts extends Partial<FoulCategoryCounts> {
   minSec: number;
   pts: number;
   pt2m: number;
@@ -339,6 +347,13 @@ export function sumCountsList(list: BoxscoreCounts[]): BoxscoreCounts {
       liveTov: acc.liveTov + c.liveTov,
       deadTov: acc.deadTov + c.deadTov,
       technicalFouls: acc.technicalFouls + c.technicalFouls,
+      // 新しい区分の件数（2026-27以降。0件・古いデータでは項目を持たない＝2025-26以前の集計結果は変わらない）
+      ...nonZeroFoulCategoryFields({
+        technicalFoulsCat1: (acc.technicalFoulsCat1 ?? 0) + (c.technicalFoulsCat1 ?? 0),
+        technicalFoulsCat2: (acc.technicalFoulsCat2 ?? 0) + (c.technicalFoulsCat2 ?? 0),
+        flagrantFouls: (acc.flagrantFouls ?? 0) + (c.flagrantFouls ?? 0),
+        disruptiveFouls: (acc.disruptiveFouls ?? 0) + (c.disruptiveFouls ?? 0),
+      }),
     }),
     ZERO_COUNTS,
   );
@@ -354,12 +369,13 @@ interface PaintSplitCounts {
 const ZERO_PAINT_SPLIT: PaintSplitCounts = { paint2m: 0, paint2a: 0, nonPaint2m: 0, nonPaint2a: 0 };
 
 
-interface MiscEventCounts {
+interface MiscEventCounts extends FoulCategoryCounts {
   dunks: number;
   basketCounts: number;
+  /** アンスポーツマン系（旧25・新93/94の合計） */
   unsportsmanlikeFouls: number;
   disqualifyingFouls: number;
-  /** 選手個人のテクニカルファウル数（ActionCD1=24のみ。HC/ベンチ分はここに含めない） */
+  /** 選手個人のテクニカルファウル数（旧24・新91/92の合計。HC/ベンチ分はここに含めない） */
   technicalFouls: number;
 }
 
@@ -369,6 +385,10 @@ const ZERO_MISC_EVENTS: MiscEventCounts = {
   unsportsmanlikeFouls: 0,
   disqualifyingFouls: 0,
   technicalFouls: 0,
+  technicalFoulsCat1: 0,
+  technicalFoulsCat2: 0,
+  flagrantFouls: 0,
+  disruptiveFouls: 0,
 };
 
 const ZERO_ASSISTED_SCORING: AssistedScoringCounts = { assisted2m: 0, assisted3m: 0, assistedFtm: 0 };
@@ -377,15 +397,11 @@ const ZERO_ASSISTED_SCORING: AssistedScoringCounts = { assisted2m: 0, assisted3m
 // 付くもの、バスケットカウント（アンドワン）は単独のマーカーイベント（ActionCD1=16）、
 // アンスポーツマンファウル・ディスクォリファイングファウルはそれぞれActionCD1=25・26
 // （いずれもDESIGN.md 15-6章で確定済み。実データで裏付け済み）。選手個人のテクニカルファウルは
-// ActionCD1=24（HC/ベンチテクニカルの20/21はPlayerID1を持たずここには乗らない。DESIGN.md 2-2章参照）
+// ActionCD1=24（HC/ベンチテクニカルの20/21はPlayerID1を持たずここには乗らない。DESIGN.md 2-2章参照）。
+// 2026-27の新表記では、24が91（カテゴリ1）・92（カテゴリ2）、25が93（フレグラント）・94（ディスラプティブ）になった
+// （shared/foulCodes.ts・DESIGN.md 16-7章）。TF・UFOULには旧コードと新コードの合計を使い、新しい区分の件数は別の項目としても持つ
 const DUNK_ACTION_CD1 = 4;
 const BASKET_COUNT_ACTION_CD1 = 16;
-const UNSPORTSMANLIKE_FOUL_ACTION_CD1 = 25;
-const DISQUALIFYING_FOUL_ACTION_CD1 = 26;
-const TECHNICAL_FOUL_ACTION_CD1 = 24;
-/** HC/ベンチテクニカルファウル（選手に紐付かずチームに帰属する。DESIGN.md 2-2章参照） */
-const HC_TECHNICAL_FOUL_ACTION_CD1 = 20;
-const BENCH_TECHNICAL_FOUL_ACTION_CD1 = 21;
 
 /** F4（ダンク数・バスケットカウント・アンスポーツマンファウル・ディスクォリファイングファウル）＋
  * 選手個人のテクニカルファウル数を選手ごとに集計する */
@@ -402,13 +418,15 @@ function buildMiscEventCounts(events: PlayByPlayEvent[]): Map<string, MiscEventC
       bump(ev.PlayerID1, "dunks");
     } else if (ev.ActionCD1 === BASKET_COUNT_ACTION_CD1) {
       bump(ev.PlayerID1, "basketCounts");
-    } else if (ev.ActionCD1 === UNSPORTSMANLIKE_FOUL_ACTION_CD1) {
+    } else if (UNSPORTSMANLIKE_FOUL_CODES.has(ev.ActionCD1)) {
       bump(ev.PlayerID1, "unsportsmanlikeFouls");
-    } else if (ev.ActionCD1 === DISQUALIFYING_FOUL_ACTION_CD1) {
+    } else if (ev.ActionCD1 === DISQUALIFYING_FOUL_CODE) {
       bump(ev.PlayerID1, "disqualifyingFouls");
-    } else if (ev.ActionCD1 === TECHNICAL_FOUL_ACTION_CD1) {
+    } else if (PLAYER_TECHNICAL_FOUL_CODES.has(ev.ActionCD1)) {
       bump(ev.PlayerID1, "technicalFouls");
     }
+    const category = foulCategoryKey(ev.ActionCD1);
+    if (category) bump(ev.PlayerID1, category);
   }
   return byPlayer;
 }
@@ -471,7 +489,7 @@ export function countTeamGeneratedTechnicalFouls(
   for (const ev of events) {
     if (!periodInRange(option, ev.Period)) continue;
     if (ev.TeamID !== teamId) continue;
-    if (ev.ActionCD1 === HC_TECHNICAL_FOUL_ACTION_CD1 || ev.ActionCD1 === BENCH_TECHNICAL_FOUL_ACTION_CD1) count += 1;
+    if (TEAM_TECHNICAL_FOUL_CODES.has(ev.ActionCD1)) count += 1;
   }
   return count;
 }
@@ -588,7 +606,8 @@ export function buildPlayerBoxscores(
   return gameRows.map((meta) => {
     const periodRows = rowsInPeriodRange(rowsByPlayer.get(meta.PlayerID) ?? [], option);
     const paintSplit = paintSplitByPlayer.get(meta.PlayerID) ?? ZERO_PAINT_SPLIT;
-    const miscEvents = miscEventsByPlayer.get(meta.PlayerID) ?? ZERO_MISC_EVENTS;
+    const { technicalFoulsCat1, technicalFoulsCat2, flagrantFouls, disruptiveFouls, ...miscEvents } =
+      miscEventsByPlayer.get(meta.PlayerID) ?? ZERO_MISC_EVENTS;
     const offensiveFoulCounts = offensiveFoulCountsByPlayer.get(meta.PlayerID) ?? ZERO_OFFENSIVE_FOUL_COUNTS;
     const assistedScoring = assistedScoringByPlayer.get(meta.PlayerID) ?? ZERO_ASSISTED_SCORING;
     const yahooTov = yahooTovByPlayer.get(meta.PlayerID) ?? ZERO_YAHOO_TOV;
@@ -609,6 +628,8 @@ export function buildPlayerBoxscores(
         pt2nd: secondChanceByPlayer.get(meta.PlayerID) ?? 0,
         ...paintSplit,
         ...miscEvents,
+        // 新しい区分の件数は、0件のとき項目を持たない（古いデータでも結果が変わらない）
+        ...nonZeroFoulCategoryFields({ technicalFoulsCat1, technicalFoulsCat2, flagrantFouls, disruptiveFouls }),
         ...offensiveFoulCounts,
         ...assistedScoring,
         ...yahooTov,
