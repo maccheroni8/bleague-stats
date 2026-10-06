@@ -59,6 +59,7 @@ import {
   TECHNICAL_FT_FOUL_CODES,
   UNSPORTSMANLIKE_FOUL_CODES,
   foulCategoryKey,
+  teamTechnicalCategoryKey,
   nonZeroFoulCategoryFields,
   opponentFoulCategoryFields,
 } from "../shared/foulCodes.ts";
@@ -528,6 +529,9 @@ function buildMiscEventCounts(playByPlays: PlayByPlayEvent[]): { byPlayer: Map<s
       bump(byPlayer, ev.PlayerID1, key);
       bump(byTeam, ev.TeamID, key);
     }
+    // HC/ベンチのテクニカル（20・21）は、文言に区分があるとき（2026-27〜）だけ、チームのTF1・TF2に数える（選手には紐付かない）
+    const teamCategory = teamTechnicalCategoryKey(ev.ActionCD1, ev.PlayText);
+    if (teamCategory) bump(byTeam, ev.TeamID, teamCategory);
   }
   return { byPlayer, byTeam };
 }

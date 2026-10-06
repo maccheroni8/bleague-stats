@@ -12,6 +12,7 @@ import {
   UNSPORTSMANLIKE_FOUL_CODES,
   foulCategoryKey,
   nonZeroFoulCategoryFields,
+  teamTechnicalCategoryKey,
 } from "../../shared/foulCodes";
 import type { PeriodRangeOption } from "./periodRange";
 import { periodInRange } from "./periodRange";
@@ -494,6 +495,26 @@ export function countTeamGeneratedTechnicalFouls(
   return count;
 }
 
+/** HC/ベンチのテクニカル（20・21）のうち、文言に区分（カテゴリ1・2）があるものの件数（2026-27〜。区分が無い試合では項目を持たない）。
+ * チーム合計行のTF1・TF2は、選手個人分（buildPlayerBoxscoresの合算）にこの値を足した値になる */
+export function countTeamGeneratedTechnicalFoulCategories(
+  events: PlayByPlayEvent[],
+  teamId: string | null,
+  option: PeriodRangeOption | undefined,
+): Partial<FoulCategoryCounts> {
+  if (!teamId) return {};
+  let cat1 = 0;
+  let cat2 = 0;
+  for (const ev of events) {
+    if (!periodInRange(option, ev.Period)) continue;
+    if (ev.TeamID !== teamId) continue;
+    const key = teamTechnicalCategoryKey(ev.ActionCD1, ev.PlayText);
+    if (key === "technicalFoulsCat1") cat1 += 1;
+    else if (key === "technicalFoulsCat2") cat2 += 1;
+  }
+  return nonZeroFoulCategoryFields({ technicalFoulsCat1: cat1, technicalFoulsCat2: cat2 });
+}
+
 interface YahooTovCounts {
   liveTov: number;
   deadTov: number;
@@ -663,6 +684,7 @@ export function buildTeamCoachesCounts(
   return {
     ...sumCounts(rowsInPeriodRange(allRows.filter((r) => r.Category === 2), option)),
     technicalFouls: countTeamGeneratedTechnicalFouls(playByPlays, teamId, option),
+    ...countTeamGeneratedTechnicalFoulCategories(playByPlays, teamId, option),
   };
 }
 

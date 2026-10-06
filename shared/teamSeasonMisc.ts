@@ -1,6 +1,6 @@
 // チーム詳細「シーズン別成績」の列用に、TeamGameLog から合算するシーズン集計（レギュラーシーズンのみ）。
 // scripts/aggregate.ts のリーグ平均（league-average.json。DESIGN.md 149章）でも同じ合算を使うため、ページから切り出した
-import type { TeamGameLog } from "./types.ts";
+import type { FoulCategoryCounts, OpponentFoulCategoryCounts, TeamGameLog } from "./types.ts";
 
 /**
  * 「シーズン別成績」Miscタブ用（Phase H3①）のPITP/FBPS/2ND PTS/PTSOFFTO/DUNKに加え、
@@ -9,7 +9,7 @@ import type { TeamGameLog } from "./types.ts";
  * 生カウントを公開していないため、TeamGameLog（careerData）側から都度合算する
  * （teams.jsonの他の集計と同じくレギュラーシーズンのみに揃える）
  */
-export interface TeamSeasonMiscTotals {
+export interface TeamSeasonMiscTotals extends Partial<FoulCategoryCounts>, Partial<OpponentFoulCategoryCounts> {
   pt2in: number;
   fb: number;
   pt2nd: number;
@@ -111,58 +111,76 @@ export const EMPTY_TEAM_SEASON_MISC: TeamSeasonMiscTotals = {
 };
 
 export function sumTeamSeasonMisc(logs: TeamGameLog[]): TeamSeasonMiscTotals {
-  return logs
-    .filter((g) => g.gameType === "regular")
-    .reduce<TeamSeasonMiscTotals>(
-      (acc, g) => ({
-        pt2in: acc.pt2in + g.pt2in,
-        fb: acc.fb + g.fb,
-        pt2nd: acc.pt2nd + g.pt2nd,
-        pft: acc.pft + g.pft,
-        dunks: acc.dunks + g.dunks,
-        oppPts: acc.oppPts + g.opponentScore,
-        oppFgm: acc.oppFgm + g.opponentFgm,
-        oppFga: acc.oppFga + g.opponentFga,
-        oppTpm: acc.oppTpm + g.opponentTpm,
-        oppTpa: acc.oppTpa + g.opponentTpa,
-        oppFtm: acc.oppFtm + g.opponentFtm,
-        oppFta: acc.oppFta + g.opponentFta,
-        oppOreb: acc.oppOreb + g.opponentOreb,
-        oppDreb: acc.oppDreb + g.opponentDreb,
-        oppAst: acc.oppAst + g.opponentAst,
-        oppStl: acc.oppStl + g.opponentStl,
-        oppBlk: acc.oppBlk + g.opponentBlk,
-        oppTov: acc.oppTov + g.opponentTov,
-        oppPf: acc.oppPf + g.opponentPf,
-        oppFoulsDrawn: acc.oppFoulsDrawn + g.opponentFoulsDrawn,
-        oppPt2in: acc.oppPt2in + g.opponentPt2in,
-        oppFb: acc.oppFb + g.opponentFb,
-        oppPt2nd: acc.oppPt2nd + g.opponentPt2nd,
-        oppPft: acc.oppPft + g.opponentPft,
-        oppDunks: acc.oppDunks + g.opponentDunks,
-        technicalFouls: acc.technicalFouls + g.technicalFouls,
-        basketCounts: acc.basketCounts + g.basketCounts,
-        unsportsmanlikeFouls: acc.unsportsmanlikeFouls + g.unsportsmanlikeFouls,
-        disqualifyingFouls: acc.disqualifyingFouls + g.disqualifyingFouls,
-        assisted2m: acc.assisted2m + g.assisted2m,
-        assisted3m: acc.assisted3m + g.assisted3m,
-        assistedFtm: acc.assistedFtm + g.assistedFtm,
-        paint2m: acc.paint2m + g.paint2m,
-        paint2a: acc.paint2a + g.paint2a,
-        mid2m: acc.mid2m + g.mid2m,
-        mid2a: acc.mid2a + g.mid2a,
-        oppTechnicalFouls: acc.oppTechnicalFouls + g.opponentTechnicalFouls,
-        oppBasketCounts: acc.oppBasketCounts + g.opponentBasketCounts,
-        oppUnsportsmanlikeFouls: acc.oppUnsportsmanlikeFouls + g.opponentUnsportsmanlikeFouls,
-        oppDisqualifyingFouls: acc.oppDisqualifyingFouls + g.opponentDisqualifyingFouls,
-        oppAssisted2m: acc.oppAssisted2m + g.opponentAssisted2m,
-        oppAssisted3m: acc.oppAssisted3m + g.opponentAssisted3m,
-        oppAssistedFtm: acc.oppAssistedFtm + g.opponentAssistedFtm,
-        oppPaint2m: acc.oppPaint2m + g.opponentPaint2m,
-        oppPaint2a: acc.oppPaint2a + g.opponentPaint2a,
-        oppMid2m: acc.oppMid2m + g.opponentMid2m,
-        oppMid2a: acc.oppMid2a + g.opponentMid2a,
-      }),
-      { ...EMPTY_TEAM_SEASON_MISC },
-    );
+  const regular = logs.filter((g) => g.gameType === "regular");
+  // 新しい区分の件数（2026-27〜）。0件・古いシーズンでは項目を持たない（league-average.json など、保存する導出データを変えないため）
+  const categories: Required<FoulCategoryCounts & OpponentFoulCategoryCounts> = {
+    technicalFoulsCat1: 0,
+    technicalFoulsCat2: 0,
+    flagrantFouls: 0,
+    disruptiveFouls: 0,
+    opponentTechnicalFoulsCat1: 0,
+    opponentTechnicalFoulsCat2: 0,
+    opponentFlagrantFouls: 0,
+    opponentDisruptiveFouls: 0,
+  };
+  for (const g of regular) {
+    for (const key of Object.keys(categories) as (keyof typeof categories)[]) categories[key] += g[key] ?? 0;
+  }
+  const nonZeroCategories: Partial<typeof categories> = {};
+  for (const key of Object.keys(categories) as (keyof typeof categories)[]) {
+    if (categories[key]) nonZeroCategories[key] = categories[key];
+  }
+  const totals = regular.reduce<TeamSeasonMiscTotals>(
+    (acc, g) => ({
+      pt2in: acc.pt2in + g.pt2in,
+      fb: acc.fb + g.fb,
+      pt2nd: acc.pt2nd + g.pt2nd,
+      pft: acc.pft + g.pft,
+      dunks: acc.dunks + g.dunks,
+      oppPts: acc.oppPts + g.opponentScore,
+      oppFgm: acc.oppFgm + g.opponentFgm,
+      oppFga: acc.oppFga + g.opponentFga,
+      oppTpm: acc.oppTpm + g.opponentTpm,
+      oppTpa: acc.oppTpa + g.opponentTpa,
+      oppFtm: acc.oppFtm + g.opponentFtm,
+      oppFta: acc.oppFta + g.opponentFta,
+      oppOreb: acc.oppOreb + g.opponentOreb,
+      oppDreb: acc.oppDreb + g.opponentDreb,
+      oppAst: acc.oppAst + g.opponentAst,
+      oppStl: acc.oppStl + g.opponentStl,
+      oppBlk: acc.oppBlk + g.opponentBlk,
+      oppTov: acc.oppTov + g.opponentTov,
+      oppPf: acc.oppPf + g.opponentPf,
+      oppFoulsDrawn: acc.oppFoulsDrawn + g.opponentFoulsDrawn,
+      oppPt2in: acc.oppPt2in + g.opponentPt2in,
+      oppFb: acc.oppFb + g.opponentFb,
+      oppPt2nd: acc.oppPt2nd + g.opponentPt2nd,
+      oppPft: acc.oppPft + g.opponentPft,
+      oppDunks: acc.oppDunks + g.opponentDunks,
+      technicalFouls: acc.technicalFouls + g.technicalFouls,
+      basketCounts: acc.basketCounts + g.basketCounts,
+      unsportsmanlikeFouls: acc.unsportsmanlikeFouls + g.unsportsmanlikeFouls,
+      disqualifyingFouls: acc.disqualifyingFouls + g.disqualifyingFouls,
+      assisted2m: acc.assisted2m + g.assisted2m,
+      assisted3m: acc.assisted3m + g.assisted3m,
+      assistedFtm: acc.assistedFtm + g.assistedFtm,
+      paint2m: acc.paint2m + g.paint2m,
+      paint2a: acc.paint2a + g.paint2a,
+      mid2m: acc.mid2m + g.mid2m,
+      mid2a: acc.mid2a + g.mid2a,
+      oppTechnicalFouls: acc.oppTechnicalFouls + g.opponentTechnicalFouls,
+      oppBasketCounts: acc.oppBasketCounts + g.opponentBasketCounts,
+      oppUnsportsmanlikeFouls: acc.oppUnsportsmanlikeFouls + g.opponentUnsportsmanlikeFouls,
+      oppDisqualifyingFouls: acc.oppDisqualifyingFouls + g.opponentDisqualifyingFouls,
+      oppAssisted2m: acc.oppAssisted2m + g.opponentAssisted2m,
+      oppAssisted3m: acc.oppAssisted3m + g.opponentAssisted3m,
+      oppAssistedFtm: acc.oppAssistedFtm + g.opponentAssistedFtm,
+      oppPaint2m: acc.oppPaint2m + g.opponentPaint2m,
+      oppPaint2a: acc.oppPaint2a + g.opponentPaint2a,
+      oppMid2m: acc.oppMid2m + g.opponentMid2m,
+      oppMid2a: acc.oppMid2a + g.opponentMid2a,
+    }),
+    { ...EMPTY_TEAM_SEASON_MISC },
+  );
+  return { ...totals, ...nonZeroCategories };
 }
