@@ -46,6 +46,7 @@ import type {
   TeamSummary,
   YahooGamePbp,
 } from "../../shared/types";
+import { withChronologicalPlayByPlays } from "../../shared/pbpOrder";
 import { legibleAccentColor, MONO_FALLBACK_COLOR } from "./color";
 import { TEAM_COLOR_OVERRIDES, TEAM_SUB_COLORS } from "./teamColorOverrides";
 import type { LeagueCompareFile } from "./leagueAverage";
@@ -117,8 +118,9 @@ export function fetchPlayerGameLogs(season: string, playerId: string, category: 
   return fetchJson<PlayerGameLog[]>(`${categoryBase(season, category)}/player-games/${playerId}.json`);
 }
 
+/** 試合の生データ。PBPは時系列に並べ直して返す（メモリ上だけ。2020-21以降の延長戦は公式の配列が時系列にならない。shared/pbpOrder.ts・DESIGN.md 212章） */
 export function fetchGame(season: string, scheduleKey: string): Promise<StoredGame> {
-  return fetchJson<StoredGame>(`${dataBase}/${season}/games/${scheduleKey}.json`);
+  return fetchJson<StoredGame>(`${dataBase}/${season}/games/${scheduleKey}.json`).then(withChronologicalPlayByPlays);
 }
 
 /**

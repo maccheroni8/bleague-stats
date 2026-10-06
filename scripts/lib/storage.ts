@@ -10,6 +10,7 @@ import { gzipSync, gunzipSync } from "node:zlib";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Category, StoredGame } from "../../shared/types.ts";
+import { withChronologicalPlayByPlays } from "../../shared/pbpOrder.ts";
 
 const SCRIPTS_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = path.resolve(SCRIPTS_DIR, "..", "..", "data");
@@ -55,6 +56,7 @@ async function readJsonGz<T>(filePath: string): Promise<T | null> {
   return JSON.parse(json) as T;
 }
 
+/** 試合ファイル1つを、保存されたまま読む（PBPは並べ替えない。取り込みの変更検知・見張りの一覧が、APIの返り値と保存済みの生データを比べるため。shared/pbpOrder.ts） */
 export async function readGameFile(filePath: string): Promise<StoredGame | null> {
   return readJsonGz<StoredGame>(filePath);
 }
@@ -74,7 +76,11 @@ export async function listStoredScheduleKeys(season: string, category: Category 
   return new Set(files.filter((f) => f.endsWith(".json.gz")).map((f) => f.replace(/\.json\.gz$/, "")));
 }
 
-/** シーズンに保存済みの全試合ファイルを読み込む（aggregate.ts等で使用） */
+/**
+ * シーズンに保存済みの全試合ファイルを読み込む（aggregate.ts等で使用）。
+ * PBPは時系列に並べ直してから返す（メモリ上だけ。保存済みのファイルは変えない。2020-21以降の延長戦は公式の配列が時系列にならない。
+ * shared/pbpOrder.ts・DESIGN.md 212章）。取り込みの変更検知と見張りの一覧は、並べ替えない `readGameFile` を使う
+ */
 export async function readAllGames(season: string, category: Category = "premier"): Promise<StoredGame[]> {
   const dir = gamesDir(season, category);
   if (!existsSync(dir)) return [];
@@ -82,7 +88,7 @@ export async function readAllGames(season: string, category: Category = "premier
   const games: StoredGame[] = [];
   for (const file of files) {
     const compressed = await readFile(path.join(dir, file));
-    games.push(JSON.parse(gunzipSync(compressed).toString("utf-8")) as StoredGame);
+    games.push(withChronologicalPlayByPlays(JSON.parse(gunzipSync(compressed).toString("utf-8")) as StoredGame));
   }
   return games;
 }
