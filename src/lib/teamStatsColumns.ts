@@ -93,6 +93,11 @@ export interface TeamTotals {
   basketCounts: number;
   unsportsmanlikeFouls: number;
   disqualifyingFouls: number;
+  /** 新しい区分の件数（2026-27〜。TF・UFOULの内訳。古いシーズンは0） */
+  technicalFoulsCat1: number;
+  technicalFoulsCat2: number;
+  flagrantFouls: number;
+  disruptiveFouls: number;
   assisted2m: number;
   assisted3m: number;
   assistedFtm: number;
@@ -104,6 +109,10 @@ export interface TeamTotals {
   oppBasketCounts: number;
   oppUnsportsmanlikeFouls: number;
   oppDisqualifyingFouls: number;
+  oppTechnicalFoulsCat1: number;
+  oppTechnicalFoulsCat2: number;
+  oppFlagrantFouls: number;
+  oppDisruptiveFouls: number;
   oppAssisted2m: number;
   oppAssisted3m: number;
   oppAssistedFtm: number;
@@ -175,6 +184,10 @@ export const EMPTY_TOTALS: TeamTotals = {
   basketCounts: 0,
   unsportsmanlikeFouls: 0,
   disqualifyingFouls: 0,
+  technicalFoulsCat1: 0,
+  technicalFoulsCat2: 0,
+  flagrantFouls: 0,
+  disruptiveFouls: 0,
   assisted2m: 0,
   assisted3m: 0,
   assistedFtm: 0,
@@ -186,6 +199,10 @@ export const EMPTY_TOTALS: TeamTotals = {
   oppBasketCounts: 0,
   oppUnsportsmanlikeFouls: 0,
   oppDisqualifyingFouls: 0,
+  oppTechnicalFoulsCat1: 0,
+  oppTechnicalFoulsCat2: 0,
+  oppFlagrantFouls: 0,
+  oppDisruptiveFouls: 0,
   oppAssisted2m: 0,
   oppAssisted3m: 0,
   oppAssistedFtm: 0,
@@ -253,6 +270,10 @@ export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
       basketCounts: acc.basketCounts + g.basketCounts,
       unsportsmanlikeFouls: acc.unsportsmanlikeFouls + g.unsportsmanlikeFouls,
       disqualifyingFouls: acc.disqualifyingFouls + g.disqualifyingFouls,
+      technicalFoulsCat1: acc.technicalFoulsCat1 + (g.technicalFoulsCat1 ?? 0),
+      technicalFoulsCat2: acc.technicalFoulsCat2 + (g.technicalFoulsCat2 ?? 0),
+      flagrantFouls: acc.flagrantFouls + (g.flagrantFouls ?? 0),
+      disruptiveFouls: acc.disruptiveFouls + (g.disruptiveFouls ?? 0),
       assisted2m: acc.assisted2m + g.assisted2m,
       assisted3m: acc.assisted3m + g.assisted3m,
       assistedFtm: acc.assistedFtm + g.assistedFtm,
@@ -264,6 +285,10 @@ export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
       oppBasketCounts: acc.oppBasketCounts + g.opponentBasketCounts,
       oppUnsportsmanlikeFouls: acc.oppUnsportsmanlikeFouls + g.opponentUnsportsmanlikeFouls,
       oppDisqualifyingFouls: acc.oppDisqualifyingFouls + g.opponentDisqualifyingFouls,
+      oppTechnicalFoulsCat1: acc.oppTechnicalFoulsCat1 + (g.opponentTechnicalFoulsCat1 ?? 0),
+      oppTechnicalFoulsCat2: acc.oppTechnicalFoulsCat2 + (g.opponentTechnicalFoulsCat2 ?? 0),
+      oppFlagrantFouls: acc.oppFlagrantFouls + (g.opponentFlagrantFouls ?? 0),
+      oppDisruptiveFouls: acc.oppDisruptiveFouls + (g.opponentDisruptiveFouls ?? 0),
       oppAssisted2m: acc.oppAssisted2m + g.opponentAssisted2m,
       oppAssisted3m: acc.oppAssisted3m + g.opponentAssisted3m,
       oppAssistedFtm: acc.oppAssistedFtm + g.opponentAssistedFtm,
@@ -353,6 +378,10 @@ export function sumTeamGameBoxTotalsForPeriod(
       basketCounts: acc.basketCounts + own.basketCounts,
       unsportsmanlikeFouls: acc.unsportsmanlikeFouls + own.unsportsmanlikeFouls,
       disqualifyingFouls: acc.disqualifyingFouls + own.disqualifyingFouls,
+      technicalFoulsCat1: acc.technicalFoulsCat1 + (own.technicalFoulsCat1 ?? 0),
+      technicalFoulsCat2: acc.technicalFoulsCat2 + (own.technicalFoulsCat2 ?? 0),
+      flagrantFouls: acc.flagrantFouls + (own.flagrantFouls ?? 0),
+      disruptiveFouls: acc.disruptiveFouls + (own.disruptiveFouls ?? 0),
       assisted2m: acc.assisted2m + own.assisted2m,
       assisted3m: acc.assisted3m + own.assisted3m,
       assistedFtm: acc.assistedFtm + own.assistedFtm,
@@ -364,6 +393,10 @@ export function sumTeamGameBoxTotalsForPeriod(
       oppBasketCounts: acc.oppBasketCounts + opp.basketCounts,
       oppUnsportsmanlikeFouls: acc.oppUnsportsmanlikeFouls + opp.unsportsmanlikeFouls,
       oppDisqualifyingFouls: acc.oppDisqualifyingFouls + opp.disqualifyingFouls,
+      oppTechnicalFoulsCat1: acc.oppTechnicalFoulsCat1 + (opp.technicalFoulsCat1 ?? 0),
+      oppTechnicalFoulsCat2: acc.oppTechnicalFoulsCat2 + (opp.technicalFoulsCat2 ?? 0),
+      oppFlagrantFouls: acc.oppFlagrantFouls + (opp.flagrantFouls ?? 0),
+      oppDisruptiveFouls: acc.oppDisruptiveFouls + (opp.disruptiveFouls ?? 0),
       oppAssisted2m: acc.oppAssisted2m + opp.assisted2m,
       oppAssisted3m: acc.oppAssisted3m + opp.assisted3m,
       oppAssistedFtm: acc.oppAssistedFtm + opp.assistedFtm,
@@ -620,21 +653,36 @@ export function buildAdvancedColumns(mode: SeasonDisplayMode, perspective: TeamP
   ];
 }
 
+/**
+ * foulSplit=true（表がすべて2026-27以降のシーズン）のとき、ファウルの列はTF・UFOULではなくTF1・TF2・FLAG・DISRにする
+ * （DESIGN.md 16-8章）。既定は従来のTF・UFOUL（新旧の合計）
+ */
 export function buildMiscColumns(
   mode: SeasonDisplayMode,
   perspective: TeamPerspective,
   pointsBreakdownSupported = true,
+  foulSplit = false,
 ): Column<AllTeamsRow>[] {
+  const foulColumns: Column<AllTeamsRow>[] = foulSplit
+    ? [
+        countColumn("tf1", "TF1", (t) => t.technicalFoulsCat1, (t) => t.oppTechnicalFoulsCat1, mode, perspective, { higherIsBetter: false }),
+        countColumn("tf2", "TF2", (t) => t.technicalFoulsCat2, (t) => t.oppTechnicalFoulsCat2, mode, perspective, { higherIsBetter: false }),
+        countColumn("flag", "FLAG", (t) => t.flagrantFouls, (t) => t.oppFlagrantFouls, mode, perspective, { higherIsBetter: false }),
+        countColumn("disr", "DISR", (t) => t.disruptiveFouls, (t) => t.oppDisruptiveFouls, mode, perspective, { higherIsBetter: false }),
+      ]
+    : [
+        countColumn("tf", "TF", (t) => t.technicalFouls, (t) => t.oppTechnicalFouls, mode, perspective, { higherIsBetter: false }),
+        countColumn("ufoul", "UFOUL", (t) => t.unsportsmanlikeFouls, (t) => t.oppUnsportsmanlikeFouls, mode, perspective, {
+          higherIsBetter: false,
+        }),
+      ];
   return [
     countColumn("pitp", "PITP", (t) => t.pt2in, (t) => t.oppPt2in, mode, perspective),
     countColumn("fbps", "FBPS", (t) => t.fb, (t) => t.oppFb, mode, perspective),
     countColumn("2ndpts", "2ND PTS", (t) => t.pt2nd, (t) => t.oppPt2nd, mode, perspective),
     countColumn("ptsofftov", "PTSOFFTO", (t) => t.pft, (t) => t.oppPft, mode, perspective),
     countColumn("dunk", "DUNK", (t) => t.dunks, (t) => t.oppDunks, mode, perspective),
-    countColumn("tf", "TF", (t) => t.technicalFouls, (t) => t.oppTechnicalFouls, mode, perspective, { higherIsBetter: false }),
-    countColumn("ufoul", "UFOUL", (t) => t.unsportsmanlikeFouls, (t) => t.oppUnsportsmanlikeFouls, mode, perspective, {
-      higherIsBetter: false,
-    }),
+    ...foulColumns,
     countColumn("dqfoul", "DQFOUL", (t) => t.disqualifyingFouls, (t) => t.oppDisqualifyingFouls, mode, perspective, {
       higherIsBetter: false,
     }),

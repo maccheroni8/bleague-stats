@@ -24,6 +24,8 @@ import {
   type OliverBoxStats,
 } from "../../shared/formulas";
 import { BOX_CATEGORY_TABS, type BoxCategoryKey } from "./categoryLabels";
+import { addFoulCategoryCounts } from "../../shared/foulCodes";
+import { filterFoulColumns } from "./ruleChange";
 import {
   astToTovRatio,
   buildPlayTypeCounts,
@@ -31,6 +33,7 @@ import {
   buildTeamTotalCounts,
   computeTeamRatings,
   countTeamGeneratedTechnicalFouls,
+  countTeamGeneratedTechnicalFoulCategories,
   countTeamTurnoversDead,
   formatAstToRatio,
   formatMinutesFromSeconds,
@@ -94,6 +97,11 @@ export interface PlayerSeasonRawTotals {
   basketCounts: number;
   unsportsmanlikeFouls: number;
   disqualifyingFouls: number;
+  /** 新しい区分の件数（2026-27〜。TF=カテゴリ1+2、UFOUL=フレグラント+ディスラプティブの内訳。古いシーズンは0） */
+  technicalFoulsCat1: number;
+  technicalFoulsCat2: number;
+  flagrantFouls: number;
+  disruptiveFouls: number;
   offensiveFoulsCommitted: number;
   chargesDrawn: number;
   assisted2m: number;
@@ -141,6 +149,10 @@ const EMPTY_RAW_TOTALS: PlayerSeasonRawTotals = {
   basketCounts: 0,
   unsportsmanlikeFouls: 0,
   disqualifyingFouls: 0,
+  technicalFoulsCat1: 0,
+  technicalFoulsCat2: 0,
+  flagrantFouls: 0,
+  disruptiveFouls: 0,
   offensiveFoulsCommitted: 0,
   chargesDrawn: 0,
   assisted2m: 0,
@@ -190,6 +202,10 @@ export function sumPlayerGameLogs(logs: PlayerGameLog[]): PlayerSeasonRawTotals 
       basketCounts: acc.basketCounts + g.basketCounts,
       unsportsmanlikeFouls: acc.unsportsmanlikeFouls + g.unsportsmanlikeFouls,
       disqualifyingFouls: acc.disqualifyingFouls + g.disqualifyingFouls,
+      technicalFoulsCat1: acc.technicalFoulsCat1 + (g.technicalFoulsCat1 ?? 0),
+      technicalFoulsCat2: acc.technicalFoulsCat2 + (g.technicalFoulsCat2 ?? 0),
+      flagrantFouls: acc.flagrantFouls + (g.flagrantFouls ?? 0),
+      disruptiveFouls: acc.disruptiveFouls + (g.disruptiveFouls ?? 0),
       offensiveFoulsCommitted: acc.offensiveFoulsCommitted + g.offensiveFoulsCommitted,
       chargesDrawn: acc.chargesDrawn + g.chargesDrawn,
       assisted2m: acc.assisted2m + g.assisted2m,
@@ -344,6 +360,10 @@ function scaleTotals(raw: PlayerSeasonRawTotals, factor: number): PlayerSeasonRa
     basketCounts: raw.basketCounts * factor,
     unsportsmanlikeFouls: raw.unsportsmanlikeFouls * factor,
     disqualifyingFouls: raw.disqualifyingFouls * factor,
+    technicalFoulsCat1: raw.technicalFoulsCat1 * factor,
+    technicalFoulsCat2: raw.technicalFoulsCat2 * factor,
+    flagrantFouls: raw.flagrantFouls * factor,
+    disruptiveFouls: raw.disruptiveFouls * factor,
     offensiveFoulsCommitted: raw.offensiveFoulsCommitted * factor,
     chargesDrawn: raw.chargesDrawn * factor,
     assisted2m: raw.assisted2m * factor,
@@ -951,7 +971,8 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
   },
 ];
 
-export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
+/** ファウルの列は、UFOUL・TF（新旧の合計）と新しい区分の4列（TF1・TF2・FLAG・DISR）の両方を持つ。表に出すときに foulKeyVisible で選ぶ */
+const ALL_SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
   { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), value: (c) => c.raw.gamesPlayed },
   { key: "gs", label: "GS", format: (c) => String(c.raw.gamesStarted), value: (c) => c.raw.gamesStarted },
   {
@@ -998,6 +1019,32 @@ export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
     value: (c) => c.scaled.basketCounts,
   },
   {
+    key: "tf1",
+    label: "TF1",
+    format: (c, mode) => formatDecimal(c.scaled.technicalFoulsCat1, countDigits(mode)),
+    value: (c) => c.scaled.technicalFoulsCat1,
+    higherIsBetter: false,
+  },
+  {
+    key: "tf2",
+    label: "TF2",
+    format: (c, mode) => formatDecimal(c.scaled.technicalFoulsCat2, countDigits(mode)),
+    value: (c) => c.scaled.technicalFoulsCat2,
+    higherIsBetter: false,
+  },
+  {
+    key: "flag",
+    label: "FLAG",
+    format: (c, mode) => formatDecimal(c.scaled.flagrantFouls, countDigits(mode)),
+    value: (c) => c.scaled.flagrantFouls,
+  },
+  {
+    key: "disr",
+    label: "DISR",
+    format: (c, mode) => formatDecimal(c.scaled.disruptiveFouls, countDigits(mode)),
+    value: (c) => c.scaled.disruptiveFouls,
+  },
+  {
     key: "ufoul",
     label: "UFOUL",
     format: (c, mode) => formatDecimal(c.scaled.unsportsmanlikeFouls, countDigits(mode)),
@@ -1029,6 +1076,9 @@ export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
     higherIsBetter: false,
   },
 ];
+
+/** ファウルの列が従来のUFOUL・TF（新旧の合計）の列定義。2025-26以前を含む表はこちら */
+export const SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = filterFoulColumns(ALL_SEASON_MISC_COLUMNS, false);
 
 /** ペイント内外の内訳を出せないシーズン（"-"表示列）のvalueは一律0にする（PPP等と同じ既存方針） */
 function shotChartValue(c: SeasonBoxscoreCtx, raw: number): number {
@@ -1219,6 +1269,11 @@ export const SEASON_BOX_COLUMNS: Record<SeasonBoxTabKey, SeasonBoxscoreColumn[]>
   scoring: SEASON_SCORING_COLUMNS,
 };
 
+/** タブの列。foulSplit=true（表がすべて2026-27以降のシーズン）のとき、Miscのファウルの列はUFOUL・TFではなくTF1・TF2・FLAG・DISRにする */
+export function seasonBoxColumnsFor(tab: SeasonBoxTabKey, foulSplit: boolean): SeasonBoxscoreColumn[] {
+  return foulSplit && tab === "misc" ? filterFoulColumns(ALL_SEASON_MISC_COLUMNS, true) : SEASON_BOX_COLUMNS[tab];
+}
+
 // ここから「シーズン別成績」「シチュエーション別成績」「チーム詳細ページの選手スタッツ」の
 // Q別/前半/後半トグル用ロジック（DESIGN.md参照）。試合ごとにOTの有無が異なりうるため、
 // 試合詳細ページのbuildPeriodRangeOptions()と同じ考え方だがOTは対象外にした固定4ピリオド
@@ -1304,6 +1359,7 @@ export function buildTeamGameBoxTotals(
     nonPaint2m: ownMisc.nonPaint2m,
     nonPaint2a: ownMisc.nonPaint2a,
     technicalFouls: ownMisc.technicalFouls + countTeamGeneratedTechnicalFouls(game.raw.PlayByPlays, ownTeamId, option),
+    ...addFoulCategoryCounts(ownMisc, countTeamGeneratedTechnicalFoulCategories(game.raw.PlayByPlays, ownTeamId, option)),
   };
   const opp: BoxscoreCounts = {
     ...buildTeamTotalCounts(oppRows, option),
@@ -1323,6 +1379,7 @@ export function buildTeamGameBoxTotals(
     nonPaint2m: oppMisc.nonPaint2m,
     nonPaint2a: oppMisc.nonPaint2a,
     technicalFouls: oppMisc.technicalFouls + countTeamGeneratedTechnicalFouls(game.raw.PlayByPlays, oppTeamId, option),
+    ...addFoulCategoryCounts(oppMisc, countTeamGeneratedTechnicalFoulCategories(game.raw.PlayByPlays, oppTeamId, option)),
   };
 
   const ownPlayType = buildPlayTypeCounts(game.raw.Summaries, ownSide, option);

@@ -3,12 +3,12 @@
 // トップレベル比較ページ（#/compare、ComparePage.tsx）も同じ列定義・表示ロジックを使うため
 // （DESIGN.md 100章）、ここに切り出して3箇所から共有する。詳細ページ側の挙動は変更していない。
 
-import { COLUMNS_BY_TAB, type BoxscoreColumn, type BoxscoreTabKey, type ColumnCtx } from "../components/BoxscoreTable";
+import { boxscoreColumnsFor, type BoxscoreColumn, type BoxscoreTabKey, type ColumnCtx } from "../components/BoxscoreTable";
 import type { ComparisonStatDef } from "../pages/ComparePage";
 import type { BoxscoreCounts } from "./boxscoreAggregate";
 import { formatSigned } from "./format";
 import {
-  SEASON_BOX_COLUMNS,
+  seasonBoxColumnsFor,
   type SeasonBoxTabKey,
   type SeasonBoxscoreCtx,
   type TeamGameBoxTotals,
@@ -116,10 +116,10 @@ export function cleanNumericString(s: string): string {
 /**
  * 比較の表で「良い方の値」を強調するときの向きの補正（DESIGN.md 134-4）。列定義（BoxscoreTable の COLUMNS_BY_TAB・
  * SEASON_BOX_COLUMNS）はボックススコア等の他の表でも使うので変えず、比較の表だけで上書きする。
- * - 少ないほど良い: UFOUL・DQFOUL・TF・OFF FOUL（個人の OFF FOUL は列定義に向きが無く「多いほど良い」扱いになっていた）
+ * - 少ないほど良い: UFOUL・DQFOUL・TF・TF1・TF2・FLAG・DISR・OFF FOUL（個人の OFF FOUL は列定義に向きが無く「多いほど良い」扱いになっていた）
  * - 強調しない: 試投数と、試投数に占める割合（多い・少ないに良し悪しが無い）
  */
-const COMPARE_LOWER_IS_BETTER = new Set(["ufoul", "dqfoul", "tf", "offfoul"]);
+const COMPARE_LOWER_IS_BETTER = new Set(["ufoul", "dqfoul", "tf", "tf1", "tf2", "flag", "disr", "offfoul"]);
 const COMPARE_NO_HIGHLIGHT = new Set([
   "fga",
   "2pa",
@@ -140,14 +140,23 @@ const TEAM_COMPARE_VALUE: Record<string, (c: BoxscoreCounts) => number> = {
   ufoul: (c) => c.unsportsmanlikeFouls,
   dqfoul: (c) => c.disqualifyingFouls,
   tf: (c) => c.technicalFouls,
+  tf1: (c) => c.technicalFoulsCat1 ?? 0,
+  tf2: (c) => c.technicalFoulsCat2 ?? 0,
+  flag: (c) => c.flagrantFouls ?? 0,
+  disr: (c) => c.disruptiveFouls ?? 0,
 };
 
 function compareHigherIsBetter(key: string, own: boolean | undefined): boolean {
   return COMPARE_LOWER_IS_BETTER.has(key) ? false : (own ?? true);
 }
 
-export function teamCompareDefs(tabKey: BoxscoreTabKey, perspective: TeamPerspective): ComparisonStatDef<TeamCompareColumnData>[] {
-  const defs = COLUMNS_BY_TAB[tabKey].map((raw) => {
+export function teamCompareDefs(
+  tabKey: BoxscoreTabKey,
+  perspective: TeamPerspective,
+  /** 比べるシーズンがすべて2026-27以降のとき true（Miscのファウルの列を TF1・TF2・FLAG・DISR にする） */
+  foulSplit = false,
+): ComparisonStatDef<TeamCompareColumnData>[] {
+  const defs = boxscoreColumnsFor(tabKey, foulSplit).map((raw) => {
     const extraValue = TEAM_COMPARE_VALUE[raw.key];
     const col: BoxscoreColumn = extraValue && !raw.value ? { ...raw, value: (c) => extraValue(c) } : raw;
     return teamCompareDef(col, perspective);
@@ -194,8 +203,12 @@ export interface CompareColumnData {
  * Misc/スコアリング）をそのままComparisonStatDefに変換する。表示は常に「平均」固定
  * （合計だとスロットごとの試合数の違いで比較しづらくなるため。シチュエーション別成績と同じ方針）
  */
-export function seasonBoxCompareDefs(tabKey: SeasonBoxTabKey): ComparisonStatDef<CompareColumnData>[] {
-  return SEASON_BOX_COLUMNS[tabKey].map((col) => ({
+export function seasonBoxCompareDefs(
+  tabKey: SeasonBoxTabKey,
+  /** 比べるシーズンがすべて2026-27以降のとき true（Miscのファウルの列を TF1・TF2・FLAG・DISR にする） */
+  foulSplit = false,
+): ComparisonStatDef<CompareColumnData>[] {
+  return seasonBoxColumnsFor(tabKey, foulSplit).map((col) => ({
     key: col.key,
     label: col.label,
     value: (r) => col.value(r.ctx, "perGame"),

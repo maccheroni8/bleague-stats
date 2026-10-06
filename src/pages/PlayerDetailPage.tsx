@@ -48,7 +48,8 @@ import type {
 } from "../../shared/types";
 import { teamShortName } from "../../shared/teamNames";
 import { SortableTable, type Column } from "../components/SortableTable";
-import { BOXSCORE_TABS, type BoxscoreColumn, type BoxscoreTabKey, COLUMNS_BY_TAB } from "../components/BoxscoreTable";
+import { BOXSCORE_TABS, boxscoreColumnsFor, type BoxscoreColumn, type BoxscoreTabKey } from "../components/BoxscoreTable";
+import { foulColumnsSplit } from "../lib/ruleChange";
 import { buildPlayerGameBoxscoreRow, type PlayerGameBoxscoreRow } from "../lib/playerGameBoxscore";
 import { CompareSlotFilter } from "../components/CompareSlotFilter";
 import { FilterBar } from "../components/FilterBar";
@@ -80,7 +81,7 @@ import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterElig
 import { safeDiv, eff, efgPct, tsPct } from "../../shared/formulas";
 import {
   EMPTY_TEAM_TOTALS,
-  SEASON_BOX_COLUMNS,
+  seasonBoxColumnsFor,
   SEASON_BOX_PERIOD_OPTIONS,
   SEASON_BOX_TABS,
   buildPeriodFilteredRawTotals,
@@ -194,7 +195,7 @@ function gameLogRowInfo(r: GameLogTableRow) {
 }
 
 /** 試合詳細ページのボックススコア列定義（BoxscoreColumn）を、試合ログテーブル用のColumnに変換する */
-function toGameLogColumns(tabKey: BoxscoreTabKey): Column<GameLogTableRow>[] {
+function toGameLogColumns(tabKey: BoxscoreTabKey, foulSplit: boolean): Column<GameLogTableRow>[] {
   const fixed: Column<GameLogTableRow>[] = [
     { key: "date", label: "日付", sortValue: (r) => gameLogRowInfo(r).date, align: "left" },
     {
@@ -223,7 +224,7 @@ function toGameLogColumns(tabKey: BoxscoreTabKey): Column<GameLogTableRow>[] {
     },
   ];
   // AST%（NBA式）はチームの行だけの列なので、選手の試合ログには出さない（選手のAST%は未対応。DESIGN.md 139章）
-  const statColumns: Column<GameLogTableRow>[] = COLUMNS_BY_TAB[tabKey]
+  const statColumns: Column<GameLogTableRow>[] = boxscoreColumnsFor(tabKey, foulSplit)
     .filter((col) => col.key !== "astpct")
     .map((col: BoxscoreColumn) => ({
     key: col.key,
@@ -465,6 +466,11 @@ interface CareerCountTotals {
   dunks: number;
   basketCounts: number;
   unsportsmanlikeFouls: number;
+  /** 新しい区分の件数（2026-27〜。2025-26以前は0） */
+  technicalFoulsCat1: number;
+  technicalFoulsCat2: number;
+  flagrantFouls: number;
+  disruptiveFouls: number;
 }
 
 type CareerHighGame = PlayerGameLog & { season: string };
@@ -496,6 +502,8 @@ interface CareerHighDef {
    * shared/teamRecords.tsのTeamRecordValueDef.lowerIsBetterと同じ考え方（2026-09-16追加）
    */
   lowerIsBetter?: boolean;
+  /** ファウルの項目: "merged"＝UFOUL・TF（新旧の合計）、"split"＝新しい区分（TF1・TF2・FLAG・DISR）。どちらを出すかは通算のシーズンで決める */
+  foulGroup?: "merged" | "split";
 }
 
 function effTotalsOfGame(g: PlayerGameLog) {
@@ -591,8 +599,13 @@ const CAREER_HIGH_STATS_BASE: CareerHighDef[] = [
   { key: "ptsOffTov", label: "PTSOFFTO", value: (g) => g.ptsOffTov },
   { key: "dunks", label: "DUNK", value: (g) => g.dunks },
   { key: "basketCounts", label: "AND1", value: (g) => g.basketCounts },
-  { key: "unsportsmanlikeFouls", label: "UFOUL", value: (g) => g.unsportsmanlikeFouls, lowerIsBetter: true },
-  { key: "technicalFouls", label: "TF", value: (g) => g.technicalFouls, lowerIsBetter: true },
+  // ファウルは、通算のシーズンがすべて2026-27以降ならTF1・TF2・FLAG・DISR（foulGroup: "split"）、そうでなければUFOUL・TF（"merged"）。DESIGN.md 16-8章
+  { key: "technicalFoulsCat1", label: "TF1", value: (g) => g.technicalFoulsCat1 ?? 0, lowerIsBetter: true, foulGroup: "split" },
+  { key: "technicalFoulsCat2", label: "TF2", value: (g) => g.technicalFoulsCat2 ?? 0, lowerIsBetter: true, foulGroup: "split" },
+  { key: "flagrantFouls", label: "FLAG", value: (g) => g.flagrantFouls ?? 0, lowerIsBetter: true, foulGroup: "split" },
+  { key: "disruptiveFouls", label: "DISR", value: (g) => g.disruptiveFouls ?? 0, lowerIsBetter: true, foulGroup: "split" },
+  { key: "unsportsmanlikeFouls", label: "UFOUL", value: (g) => g.unsportsmanlikeFouls, lowerIsBetter: true, foulGroup: "merged" },
+  { key: "technicalFouls", label: "TF", value: (g) => g.technicalFouls, lowerIsBetter: true, foulGroup: "merged" },
 ];
 
 const CAREER_HIGH_STATS: CareerHighDef[] = CAREER_HIGH_STATS_BASE.map((d) => ({
@@ -827,6 +840,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // （ページ本体の現在シーズンとは別のシーズンを選べるため、上のシーズン成績/シーズン別成績とは
   // 独立させている）。デフォルトは現在選択中のシーズン
   const [situationalStatsSeason, setSituationalStatsSeason] = usePageState(pk("situationalStatsSeason"), () => season);
+  // ファウルの列は、このシーズンが2026-27以降ならTF1・TF2・FLAG・DISR、それ以前ならUFOUL・TF（DESIGN.md 16-8章）
+  const situationalFoulSplit = foulColumnsSplit([situationalStatsSeason]);
   const [situationalStatsGameType, setSituationalStatsGameType] = usePageState<SeasonGameTypeFilter>(
     pk("situationalStatsGameType"),
     "regular",
@@ -1320,6 +1335,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 通算成績タブ: 全シーズン合算の単一の合計値（平均ではなく合計）。PlayerSituationalStatsは
   // 平均値と割合しか持たないため、FGM/3PM/FTM等の合計はgameLogから直接合算し直す
   const careerCountTotalsSource = careerCategory === "one" ? careerDataOne : careerData;
+  // ファウルの列・項目は、通算のシーズンがすべて2026-27以降のときだけ新しい区分（TF1・TF2・FLAG・DISR）にする（DESIGN.md 16-8章）
+  const careerFoulSplit = foulColumnsSplit((careerCountTotalsSource ?? []).map((cd) => cd.season));
+  const careerHighStats = CAREER_HIGH_STATS.filter((d) => !d.foulGroup || (d.foulGroup === "split") === careerFoulSplit);
   const careerCountTotals = useMemo((): CareerCountTotals | null => {
     if (!careerCountTotalsSource) return null;
     const allPlayed = careerCountTotalsSource.flatMap((cd) => playedFilteredLogs(cd.logs));
@@ -1346,6 +1364,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
         dunks: acc.dunks + g.dunks,
         basketCounts: acc.basketCounts + g.basketCounts,
         unsportsmanlikeFouls: acc.unsportsmanlikeFouls + g.unsportsmanlikeFouls,
+        technicalFoulsCat1: acc.technicalFoulsCat1 + (g.technicalFoulsCat1 ?? 0),
+        technicalFoulsCat2: acc.technicalFoulsCat2 + (g.technicalFoulsCat2 ?? 0),
+        flagrantFouls: acc.flagrantFouls + (g.flagrantFouls ?? 0),
+        disruptiveFouls: acc.disruptiveFouls + (g.disruptiveFouls ?? 0),
       }),
       {
         min: 0,
@@ -1368,6 +1390,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
         dunks: 0,
         basketCounts: 0,
         unsportsmanlikeFouls: 0,
+        technicalFoulsCat1: 0,
+        technicalFoulsCat2: 0,
+        flagrantFouls: 0,
+        disruptiveFouls: 0,
       },
     );
     const { dd, td } = countDoubleTripleDoubles(allPlayed);
@@ -1396,6 +1422,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
       dunks: sums.dunks,
       basketCounts: sums.basketCounts,
       unsportsmanlikeFouls: sums.unsportsmanlikeFouls,
+      technicalFoulsCat1: sums.technicalFoulsCat1,
+      technicalFoulsCat2: sums.technicalFoulsCat2,
+      flagrantFouls: sums.flagrantFouls,
+      disruptiveFouls: sums.disruptiveFouls,
     };
   }, [careerCountTotalsSource, careerGameTypeFilter]);
 
@@ -1420,7 +1450,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     const allGames = careerCountTotalsSource.flatMap((cd) =>
       playedFilteredLogs(cd.logs).map((g) => ({ ...g, season: cd.season })),
     );
-    return CAREER_HIGH_STATS.map((def) => {
+    return careerHighStats.map((def) => {
       // 成功率は最低試投数を満たす試合だけ。満たす試合が1つも無ければ、カードは残して「-」にする
       const pool = def.filter ? allGames.filter(def.filter) : allGames;
       if (def.filter && pool.length === 0 && allGames.length > 0) {
@@ -1449,7 +1479,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         display: string;
       } => r !== null,
     );
-  }, [careerCountTotalsSource, careerGameTypeFilter]);
+  }, [careerCountTotalsSource, careerGameTypeFilter, careerFoulSplit]);
 
   // 「キャリアワースト」: %系の指標・AST/TOV（worstEligible: false）を除いた項目について、
   // 同じ試合ログ集合から最小値を求める（キャリアハイと対になる一覧。DESIGN.md参照）。
@@ -1461,7 +1491,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     const allGames = careerCountTotalsSource.flatMap((cd) =>
       playedFilteredLogs(cd.logs).map((g) => ({ ...g, season: cd.season })),
     );
-    return CAREER_HIGH_STATS.filter((def) => def.worstEligible !== false)
+    return careerHighStats.filter((def) => def.worstEligible !== false)
       .map((def) => {
         let worstValue: number | null = null;
         for (const g of allGames) {
@@ -1489,7 +1519,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           display: string;
         } => r !== null,
       );
-  }, [careerCountTotalsSource, careerGameTypeFilter]);
+  }, [careerCountTotalsSource, careerGameTypeFilter, careerFoulSplit]);
 
   // 比較タブ: 各スロットの「前半戦/後半戦」ボタン用に、スロットで選ばれたシーズンの試合日程を
   // 都度取得する（2スロットのみなので配列化せず個別にuseJsonDataを呼ぶ）。比較タブを開いている
@@ -2065,7 +2095,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           const col = situationalStatsShotColumns.find((c) => c.key === key);
           return col ? col.sortValue(row) : 0;
         }
-        const col = SEASON_BOX_COLUMNS[situationalStatsTab].find((c) => c.key === key);
+        const col = seasonBoxColumnsFor(situationalStatsTab, foulColumnsSplit([situationalStatsSeason])).find((c) => c.key === key);
         return col ? col.value(row.ctx, situationalStatsDisplayMode) : 0;
       }
     }
@@ -2490,7 +2520,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     >
                       対戦相手勝率{situationalStatsSortIndicator("oppWinPct")}
                     </th>
-                    {(situationalStatsTab === "shooting" ? situationalStatsShotColumns : SEASON_BOX_COLUMNS[situationalStatsTab]).map(
+                    {(situationalStatsTab === "shooting" ? situationalStatsShotColumns : seasonBoxColumnsFor(situationalStatsTab, situationalFoulSplit)).map(
                       (col) => (
                         <th
                           key={col.key}
@@ -2512,7 +2542,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                       <tr className="situational-group-heading">
                         <td
                           colSpan={
-                            (situationalStatsTab === "shooting" ? situationalStatsShotColumns : SEASON_BOX_COLUMNS[situationalStatsTab])
+                            (situationalStatsTab === "shooting" ? situationalStatsShotColumns : seasonBoxColumnsFor(situationalStatsTab, situationalFoulSplit))
                               .length + 3
                           }
                         >
@@ -2541,7 +2571,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                                   {col.format!(row)}
                                 </td>
                               ))
-                            : SEASON_BOX_COLUMNS[situationalStatsTab].map((col) => (
+                            : seasonBoxColumnsFor(situationalStatsTab, situationalFoulSplit).map((col) => (
                                 <td key={col.key} className="align-right">
                                   {col.format(row.ctx, situationalStatsDisplayMode)}
                                 </td>
@@ -2858,7 +2888,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <div className="table-scroll player-sticky-2 player-sticky-gamelog">
                 <SortableTable
                   key={gameBoxTab}
-                  columns={toGameLogColumns(gameBoxTab)}
+                  columns={toGameLogColumns(gameBoxTab, foulColumnsSplit([season]))}
                   rows={gameLogTableRows}
                   rowKey={(r) => gameLogRowInfo(r).scheduleKey}
                   defaultSortKey="date"
@@ -2907,7 +2937,16 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <StatTile label="PTSOFFTO" value={formatDecimal(careerCountTotals.ptsOffTov, 0)} />
               <StatTile label="DUNK" value={formatDecimal(careerCountTotals.dunks, 0)} />
               <StatTile label="AND1" value={formatDecimal(careerCountTotals.basketCounts, 0)} />
-              <StatTile label="UFOUL" value={formatDecimal(careerCountTotals.unsportsmanlikeFouls, 0)} />
+              {careerFoulSplit ? (
+                <>
+                  <StatTile label="TF1" value={formatDecimal(careerCountTotals.technicalFoulsCat1, 0)} />
+                  <StatTile label="TF2" value={formatDecimal(careerCountTotals.technicalFoulsCat2, 0)} />
+                  <StatTile label="FLAG" value={formatDecimal(careerCountTotals.flagrantFouls, 0)} />
+                  <StatTile label="DISR" value={formatDecimal(careerCountTotals.disruptiveFouls, 0)} />
+                </>
+              ) : (
+                <StatTile label="UFOUL" value={formatDecimal(careerCountTotals.unsportsmanlikeFouls, 0)} />
+              )}
             </div>
           )}
           {careerCountTotals && <RuleChangeFootnote seasons={(careerCountTotalsSource ?? []).map((cd) => cd.season)} />}
@@ -3051,7 +3090,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           ) : (
             <ComparisonTable
               rows={compareRows}
-              defs={seasonBoxCompareDefs(compareTab)}
+              defs={seasonBoxCompareDefs(compareTab, foulColumnsSplit(compareSlots.map((slot) => slot.season).filter((s): s is string => !!s)))}
               rowKey={(r) => r.key}
               name={(r) => r.label}
               linkTo={() => `/players/${player.playerId}`}
@@ -3195,7 +3234,10 @@ function SeasonBreakdownTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [careerData, gameTypeFilter, seasonRows, displayMode, playerId, periodOption, gamesByScheduleKey]);
 
-  const columns = tab === "shooting" || tab === "scoringComposition" ? [] : SEASON_BOX_COLUMNS[tab];
+  const columns =
+    tab === "shooting" || tab === "scoringComposition"
+      ? []
+      : seasonBoxColumnsFor(tab, foulColumnsSplit((careerData ?? []).map((cd) => cd.season)));
   // DD2・TD3 は試合全体の記録でしか判定できないため、Q別/前後半を選んでいるときは「-」（ベンチ得点の列と同じ扱い。DESIGN.md 180章）
   const ddtdUnavailable = !!periodOption && periodOption.periods !== null;
 

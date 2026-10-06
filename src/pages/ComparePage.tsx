@@ -14,6 +14,7 @@ import { ExportImageButton } from "../components/ExportImageButton";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
+import { foulColumnsSplit } from "../lib/ruleChange";
 import { CompareSlotFilter } from "../components/CompareSlotFilter";
 import { FilterBar } from "../components/FilterBar";
 import { perspectiveAxis } from "../lib/filterAxes";
@@ -476,7 +477,9 @@ function TeamCompareView({
   const title = rows.length > 0 ? `チーム比較：${descriptions.join(" vs ")}` : "チーム比較";
   const filename = buildExportFilename(["比較", "チーム", ...descriptions, ...conditions]);
   const anyBusy = slotData.some((d) => d.status === "loading" || d.status === "fetching");
-  const defs = useMemo(() => teamCompareDefs(cat, perspective), [cat, perspective]);
+  // 比べるシーズンがすべて2026-27以降なら、ファウルの列をTF1・TF2・FLAG・DISRにする（DESIGN.md 16-8章）
+  const foulSplit = foulColumnsSplit(rows.map((r) => r.season));
+  const defs = useMemo(() => teamCompareDefs(cat, perspective, foulSplit), [cat, perspective, foulSplit]);
 
   // 並んだチームの色が近いときは、2つ目以降をサブカラーにする（同じチームの別シーズンも。src/lib/teamColorPairs.ts。DESIGN.md 156章）
   const slotColors = distinctTeamColors(
@@ -578,7 +581,8 @@ function PlayerCompareView({
   const title = rows.length > 0 ? `個人比較：${descriptions.join(" vs ")}` : "個人比較";
   const filename = buildExportFilename(["比較", "個人", ...descriptions, ...conditions]);
   const anyBusy = slotData.some((d) => d.status === "loading");
-  const defs = useMemo(() => seasonBoxCompareDefs(cat), [cat]);
+  const foulSplit = foulColumnsSplit(rows.map((r) => r.season));
+  const defs = useMemo(() => seasonBoxCompareDefs(cat, foulSplit), [cat, foulSplit]);
 
   // 選手の所属チームの色が近いとき（同じチームを含む）は、2つ目以降をサブカラーにする（DESIGN.md 156章）
   const slotColors = distinctTeamColors(rows.map((r) => (r.item.teamId ? (teamColors?.[r.item.teamId] ?? {}) : {})));

@@ -105,6 +105,7 @@ import {
 } from "../lib/situational";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
+import { filterFoulColumns, foulColumnsSplit } from "../lib/ruleChange";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageForSeason } from "../lib/age";
 import { heightText, positionText, weightText } from "../lib/profileMark";
@@ -133,7 +134,7 @@ import {
   type TeamSeasonSpecialAggregate,
 } from "../../shared/teamRecords";
 import {
-  SEASON_BOX_COLUMNS,
+  seasonBoxColumnsFor,
   SEASON_BOX_PERIOD_OPTIONS,
   SEASON_BOX_TABS,
   buildTeamGameBoxTotals,
@@ -151,7 +152,7 @@ import {
   type TeamPointsBreakdown,
   type TeamPointsBreakdownResult,
 } from "../lib/playerSeasonBoxscore";
-import { BOXSCORE_TABS, COLUMNS_BY_TAB, type BoxscoreColumn, type BoxscoreTabKey, type ColumnCtx } from "../components/BoxscoreTable";
+import { BOXSCORE_TABS, boxscoreColumnsFor, type BoxscoreColumn, type BoxscoreTabKey, type ColumnCtx } from "../components/BoxscoreTable";
 import { astToTovRatio, buildAssistPairs, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import type { BoxscoreCounts } from "../lib/boxscoreAggregate";
 import type { AssistPair } from "../../shared/assistedScoring";
@@ -1101,7 +1102,8 @@ const TEAM_SEASON_ADVANCED_COLUMNS: TeamSeasonBoxColumn[] = [
   },
 ];
 
-const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
+// ファウルの列は、UFOUL・TF（新旧の合計）と新しい区分の4列（TF1・TF2・FLAG・DISR）の両方を持つ。表に出すときに foulKeyVisible で選ぶ
+const ALL_TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
   { key: "g", label: "G", format: (r) => String(r.team.gamesPlayed) },
   {
     key: "pitp",
@@ -1178,6 +1180,30 @@ const TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
         mode,
         p,
       ),
+  },
+  {
+    key: "tf1",
+    label: "TF1",
+    format: (r, m, mode, p) =>
+      formatTeamSeasonCountPerspective(m.technicalFoulsCat1 ?? 0, m.opponentTechnicalFoulsCat1 ?? 0, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "tf2",
+    label: "TF2",
+    format: (r, m, mode, p) =>
+      formatTeamSeasonCountPerspective(m.technicalFoulsCat2 ?? 0, m.opponentTechnicalFoulsCat2 ?? 0, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "flag",
+    label: "FLAG",
+    format: (r, m, mode, p) =>
+      formatTeamSeasonCountPerspective(m.flagrantFouls ?? 0, m.opponentFlagrantFouls ?? 0, r.team.gamesPlayed, mode, p),
+  },
+  {
+    key: "disr",
+    label: "DISR",
+    format: (r, m, mode, p) =>
+      formatTeamSeasonCountPerspective(m.disruptiveFouls ?? 0, m.opponentDisruptiveFouls ?? 0, r.team.gamesPlayed, mode, p),
   },
   {
     key: "tf",
@@ -1436,12 +1462,19 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   },
 ];
 
-const TEAM_SEASON_BOX_COLUMNS: Record<SeasonBoxTabKey, TeamSeasonBoxColumn[]> = {
-  traditional: TEAM_SEASON_TRADITIONAL_COLUMNS,
-  advanced: TEAM_SEASON_ADVANCED_COLUMNS,
-  misc: TEAM_SEASON_MISC_COLUMNS,
-  scoring: TEAM_SEASON_SCORING_COLUMNS,
-};
+/** 表のシーズンがすべて2026-27以降（foulSplit）なら、Miscのファウルの列はTF1・TF2・FLAG・DISR、そうでなければTF・UFOUL（新旧の合計） */
+function teamSeasonBoxColumns(tab: SeasonBoxTabKey, foulSplit: boolean): TeamSeasonBoxColumn[] {
+  switch (tab) {
+    case "traditional":
+      return TEAM_SEASON_TRADITIONAL_COLUMNS;
+    case "advanced":
+      return TEAM_SEASON_ADVANCED_COLUMNS;
+    case "misc":
+      return filterFoulColumns(ALL_TEAM_SEASON_MISC_COLUMNS, foulSplit);
+    case "scoring":
+      return TEAM_SEASON_SCORING_COLUMNS;
+  }
+}
 
 // ---- 「シチュエーション別勝敗」（Phase H3③、概要タブ） ----
 
@@ -3233,7 +3266,9 @@ export function TeamDetailPage({ season }: { season: string }) {
       ? scheduleRows
       : scheduleRows.filter((row) => gameLogsByScheduleKey.get(row.scheduleKey)?.gameType === scheduleGameType);
   // 「日程結果」タブのカテゴリタブ用の列定義。試合詳細ページのボックススコアと完全に同じ配列
-  const scheduleBoxColumns = COLUMNS_BY_TAB[scheduleBoxTab];
+  // ファウルの列は、このシーズンが2026-27以降ならTF1・TF2・FLAG・DISR、それ以前ならUFOUL・TF（DESIGN.md 16-8章）
+  const foulSplit = foulColumnsSplit([season]);
+  const scheduleBoxColumns = boxscoreColumnsFor(scheduleBoxTab, foulSplit);
   // Misc・Scoringタブの末尾にベンチ得点・スタメン得点を足す（他の表と同じ置き場所）。TeamGameLogにだけある値のため、Q別/前後半の表示では「-」
   const schedulePointsColumns = teamPointsExtraColumnsForTab(scheduleBoxTab).filter((c) => SCHEDULE_POINTS_COLUMN_KEYS.has(c.key));
   const schedulePointsSupported = !schedulePeriodOption?.periods;
@@ -3248,6 +3283,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   const seasonLabel = `${season}シーズン`;
   // 「シーズン別成績」は新しいシーズンから順に表示する（seasons.json由来の並びは古い順）
   const seasonHistoryDesc = seasonHistory ? [...seasonHistory].sort((a, b) => b.season.localeCompare(a.season)) : null;
+  // シーズン別成績のMiscは、表のシーズンがすべて2026-27以降のときだけ、ファウルの列をTF1・TF2・FLAG・DISRにする（DESIGN.md 16-8章）
+  const seasonBoxFoulSplit = foulColumnsSplit((seasonHistoryDesc ?? []).map((r) => r.season));
   const seasonBoxConditions = composeLabels(
     teamBoxCategoryLabel(seasonBoxTab),
     seasonBoxTab !== "forcedTurnovers" && !seasonShareTab && displayModeLabels(seasonBoxDisplayMode),
@@ -4030,7 +4067,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <th className="align-right" title={statDescription("試合数")}>試合数</th>
                     <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
                     <th className="align-right" title={statDescription("勝率")}>勝率</th>
-                    {TEAM_SEASON_BOX_COLUMNS[seasonBoxTab].map((c) => (
+                    {teamSeasonBoxColumns(seasonBoxTab, seasonBoxFoulSplit).map((c) => (
                       <th className="align-right" key={c.key} title={statDescription(c.label, "team")}>
                         <StatHeaderLabel label={c.label} />
                       </th>
@@ -4053,7 +4090,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                         <td className="align-right">{r.team.gamesPlayed}</td>
                         <td className="align-right">{formatRecord(r.team.wins, r.team.losses)}</td>
                         <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
-                        {TEAM_SEASON_BOX_COLUMNS[seasonBoxTab].map((c) => (
+                        {teamSeasonBoxColumns(seasonBoxTab, seasonBoxFoulSplit).map((c) => (
                           <td className="align-right" key={c.key}>
                             {c.format(r, misc, seasonBoxDisplayMode, seasonBoxPerspective)}
                           </td>
@@ -4119,7 +4156,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <th className="align-right" title={statDescription("対戦相手勝率")}>
                       対戦相手勝率
                     </th>
-                    {(situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : COLUMNS_BY_TAB[situationalTeamBoxTab]).map(
+                    {(situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : boxscoreColumnsFor(situationalTeamBoxTab, foulSplit)).map(
                       (col) => (
                         <th key={col.key} className="align-right" title={statDescription(col.label, "team")}>
                           <StatHeaderLabel label={col.label} />
@@ -4139,7 +4176,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <tr className="situational-group-heading">
                         <td
                           colSpan={
-                            (situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : COLUMNS_BY_TAB[situationalTeamBoxTab])
+                            (situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : boxscoreColumnsFor(situationalTeamBoxTab, foulSplit))
                               .length +
                             situationalTeamPointsColumns.length +
                             3
@@ -4161,7 +4198,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                                   {col.format!(row)}
                                 </td>
                               ))
-                            : COLUMNS_BY_TAB[situationalTeamBoxTab].map((col) => (
+                            : boxscoreColumnsFor(situationalTeamBoxTab, foulSplit).map((col) => (
                                 <td key={col.key} className="align-right">
                                   {situationalTeamPerspective === "own"
                                     ? cleanNumericString(col.format(row.boxTotals.own, row.boxTotals.ownCtx))
@@ -4250,6 +4287,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   onTabChange={setPlayerStatsBoxTab}
                   teamYahooPbp={teamYahooPbp}
                   teamYahooPbpLoading={teamYahooPbpLoading}
+                  foulSplit={foulSplit}
                 />
                 {playerStatsRows.length > 0 && <HeightWeightNote players={players} />}
                 {playerStatsBoxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
@@ -4522,7 +4560,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             <ComparisonTable
               statScope="team"
               rows={compareRows}
-              defs={teamCompareDefs(compareTab, comparePerspective)}
+              defs={teamCompareDefs(compareTab, comparePerspective, foulColumnsSplit(compareSlots.map((slot) => slot.season).filter((s): s is string => !!s)))}
               rowKey={(r) => r.key}
               name={(r) => r.label}
               linkTo={(r) => (r.isLeague ? undefined : `/teams/${teamId}`)}
@@ -4817,8 +4855,11 @@ function TeamPlayerStatsTable({
   onTabChange,
   teamYahooPbp,
   teamYahooPbpLoading,
+  foulSplit,
 }: {
   rows: TeamPlayerStatsRow[];
+  /** Miscのファウルの列をTF1・TF2・FLAG・DISRにするか（このシーズンが2026-27以降） */
+  foulSplit: boolean;
   /** Q別/前後半を選んでいる。DD2・TD3 は試合全体の記録でしか判定できないため「-」にする（DESIGN.md 180章） */
   periodSelected: boolean;
   /** 試合種別・表示・Q別/前後半・S軸は親のFilterBarで選ぶ（このコンポーネントは表示モードを読むだけ） */
@@ -4837,7 +4878,7 @@ function TeamPlayerStatsTable({
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const columns = tab === "shooting" ? [] : SEASON_BOX_COLUMNS[tab];
+  const columns = tab === "shooting" ? [] : seasonBoxColumnsFor(tab, foulSplit);
   const ddtdUnavailable = periodSelected;
 
   // シューティングタブ: 各行（選手×このチーム在籍分）に属する試合のscheduleKeyから

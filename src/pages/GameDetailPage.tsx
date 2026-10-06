@@ -688,6 +688,7 @@ export function GameDetailPage({ season }: { season: string }) {
           onCourtRatings={onCourtRatings}
           homeColor={homeColor}
           awayColor={awayColor}
+          season={game.season}
           activeTab={boxscoreTab}
           onTabChange={setBoxscoreTab}
           hideTabBar

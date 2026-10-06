@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
+import { useFoulConditionCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
+import { foulColumnsSplit } from "../lib/ruleChange";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
@@ -364,6 +365,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する。表のタブ（4カテゴリ・Shooting・Forced TOV）の行を絞り込む。
   // Shooting・Forced TOV のタブでは上の絞り込みが効かないため、絞り込みの無いレギュラーシーズン全体の値で判定する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+  // ファウルの列は、2026-27以降だけの表ではTF1・TF2・FLAG・DISR、それ以外ではUFOUL・TF（DESIGN.md 16-8章）
+  const foulSplit = foulColumnsSplit([season]);
+  useFoulConditionCleanup(season, statConditions, setStatConditions);
   // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
   useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
   const mainTab = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
@@ -389,7 +393,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               : tab === "advanced"
                 ? buildAdvancedColumns(mode, p)
                 : tab === "misc"
-                  ? buildMiscColumns(mode, p)
+                  ? buildMiscColumns(mode, p, true, foulSplit)
                   : buildScoringColumns(mode, p, paintSupported),
           sampleRows: conditionRows,
           shotTypesOf: (r) => teamById.get(r.team.teamId)?.shotTypes,
@@ -399,7 +403,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         conditionRows,
         displayMode,
       ),
-    [displayMode, paintSupported, conditionRows, teamById],
+    [displayMode, paintSupported, foulSplit, conditionRows, teamById],
   );
   const conditionActive = conditionTab && hasActiveStatConditions(statConditions, conditionItems);
   const passingTeamIds = useMemo(
@@ -416,7 +420,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       case "advanced":
         return [...LEADING_COLUMNS, ...buildAdvancedColumns(displayMode, teamPerspective)];
       case "misc":
-        return [...LEADING_COLUMNS, ...buildMiscColumns(displayMode, teamPerspective)];
+        return [...LEADING_COLUMNS, ...buildMiscColumns(displayMode, teamPerspective, true, foulSplit)];
       case "scoring":
         return [...LEADING_COLUMNS, ...buildScoringColumns(displayMode, teamPerspective, paintSupported)];
       case "shooting":
@@ -425,7 +429,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       case "scoringComposition":
         return [];
     }
-  }, [boxTab, displayMode, teamPerspective, paintSupported]);
+  }, [boxTab, displayMode, teamPerspective, paintSupported, foulSplit]);
 
   const shootingRows: ShootingRow[] = (teams ?? []).filter((t) => t.shotTypes && passes(t.teamId)).map((team) => ({ team }));
   const shotTypeKeys = sortShotTypeKeys([...new Set(shootingRows.flatMap((r) => Object.keys(r.team.shotTypes ?? {})))]);

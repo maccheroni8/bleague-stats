@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { addFoulCategoryCounts } from "../../shared/foulCodes";
+import { filterFoulColumns, foulColumnsSplit, foulKeyVisible } from "../lib/ruleChange";
 import { BOX_CATEGORY_TABS, type BoxCategoryKey } from "../lib/categoryLabels";
 import { SeasonLink as Link } from "./SeasonLink";
 import { PeriodRangeToggle } from "./PeriodRangeToggle";
@@ -17,6 +19,7 @@ import {
   computeIndividualRatings,
   computeTeamRatings,
   countTeamGeneratedTechnicalFouls,
+  countTeamGeneratedTechnicalFoulCategories,
   countTeamTurnoversDead,
   formatAstToRatio,
   formatMinutesFromSeconds,
@@ -262,6 +265,11 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
   { key: "and1", label: "AND1", format: (c) => String(c.basketCounts), value: (c) => c.basketCounts },
   // 低頻度なファウル2種は通常のFカラムとは別にMiscタブでのみ表示する（DUNK/AND1と異なり
   // ほぼ全選手が0になるため、ハイライト対象からは外す＝valueを持たせない）
+  // 2026-27以降だけの表は、UFOUL・TFの代わりに新しい区分の4列を出す（foulKeyVisible。2025-26以前を含む表は従来のUFOUL・TF）
+  { key: "tf1", label: "TF1", format: (c) => String(c.technicalFoulsCat1 ?? 0), higherIsBetter: false },
+  { key: "tf2", label: "TF2", format: (c) => String(c.technicalFoulsCat2 ?? 0), higherIsBetter: false },
+  { key: "flag", label: "FLAG", format: (c) => String(c.flagrantFouls ?? 0), higherIsBetter: false },
+  { key: "disr", label: "DISR", format: (c) => String(c.disruptiveFouls ?? 0), higherIsBetter: false },
   { key: "ufoul", label: "UFOUL", format: (c) => String(c.unsportsmanlikeFouls) },
   { key: "dqfoul", label: "DQFOUL", format: (c) => String(c.disqualifyingFouls) },
   {
@@ -424,12 +432,25 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
   },
 ];
 
-export const COLUMNS_BY_TAB: Record<BoxscoreTabKey, BoxscoreColumn[]> = {
+const ALL_COLUMNS_BY_TAB: Record<BoxscoreTabKey, BoxscoreColumn[]> = {
   traditional: TRADITIONAL_COLUMNS,
   advanced: ADVANCED_COLUMNS,
   misc: MISC_COLUMNS,
   scoring: SCORING_COLUMNS,
 };
+
+/** ファウルの列が従来のUFOUL・TF（新旧の合計）の列定義。2025-26以前を含む表はこちら */
+export const COLUMNS_BY_TAB: Record<BoxscoreTabKey, BoxscoreColumn[]> = {
+  traditional: TRADITIONAL_COLUMNS,
+  advanced: ADVANCED_COLUMNS,
+  misc: filterFoulColumns(MISC_COLUMNS, false),
+  scoring: SCORING_COLUMNS,
+};
+
+/** タブの列。foulSplit=true（表がすべて2026-27以降のシーズン）のとき、Miscのファウルの列はUFOUL・TFではなくTF1・TF2・FLAG・DISRにする */
+export function boxscoreColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): BoxscoreColumn[] {
+  return foulSplit ? ALL_COLUMNS_BY_TAB[tab].filter((c) => foulKeyVisible(c.key, true)) : COLUMNS_BY_TAB[tab];
+}
 
 interface BoxscoreTableProps {
   homeTeamName: string;
@@ -449,6 +470,8 @@ interface BoxscoreTableProps {
   onCourtRatings: Record<string, PlayerOnCourtRatings>;
   homeColor?: string;
   awayColor?: string;
+  /** 試合のシーズン。2026-27以降なら、Miscのファウルの列をTF1・TF2・FLAG・DISRにする。未指定なら従来のUFOUL・TF */
+  season?: string;
   /**
    * カテゴリタブを外部（呼び出し側）から制御する場合に指定する（試合詳細ページが
    * 「シューティング」を5つ目のカテゴリとして同じタブバーに統合するために使う。DESIGN.md参照）。
@@ -481,6 +504,7 @@ export function BoxscoreTable({
   onCourtRatings,
   homeColor,
   awayColor,
+  season,
   activeTab: controlledActiveTab,
   onTabChange,
   hideTabBar,
@@ -497,7 +521,7 @@ export function BoxscoreTable({
 
   const periodOptions = buildPeriodRangeOptions(periods);
   const selectedOption = periodOptions.find((o) => o.value === periodRange);
-  const columns = COLUMNS_BY_TAB[activeTab];
+  const columns = boxscoreColumnsFor(activeTab, foulColumnsSplit(season ? [season] : []));
 
   return (
     <>
@@ -665,6 +689,11 @@ function BoxscoreTeamPanel({
     // 正しい値になる（DESIGN.md 2-2章参照）
     technicalFouls:
       miscTeamTotals.technicalFouls + countTeamGeneratedTechnicalFouls(playByPlays, ownRows[0]?.TeamID ?? null, periodOption),
+    // 新しい区分（TF1・TF2・FLAG・DISR）も同じ。TF1・TF2は、HC/ベンチの分（文言に区分があるもの）も足す
+    ...addFoulCategoryCounts(
+      miscTeamTotals,
+      countTeamGeneratedTechnicalFoulCategories(playByPlays, ownRows[0]?.TeamID ?? null, periodOption),
+    ),
   };
 
   const starters = players.filter((p) => p.startingFlg === 1);

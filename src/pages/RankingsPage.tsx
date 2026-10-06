@@ -4,7 +4,7 @@ import { TeamGameRecordRanking } from "../components/TeamGameRecordRanking";
 import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
 import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
 import { EligibilitySlider } from "../components/EligibilitySlider";
-import { useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
+import { useFoulConditionCleanup, useFoulStatKeyCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { postseasonLabel } from "../../shared/gameType";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SeasonLink as Link } from "../components/SeasonLink";
@@ -16,7 +16,7 @@ import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { ExportImageButton } from "../components/ExportImageButton";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
-import { isRuleChangeStatKey } from "../lib/ruleChange";
+import { foulColumnsSplit, isRuleChangeStatKey } from "../lib/ruleChange";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
@@ -39,7 +39,7 @@ import {
   SEASON_ADVANCED_COLUMNS,
   SEASON_BOX_PERIOD_OPTIONS,
   SEASON_BOX_TABS,
-  SEASON_MISC_COLUMNS,
+  seasonBoxColumnsFor,
   SEASON_SCORING_COLUMNS,
   SEASON_TRADITIONAL_COLUMNS,
   EMPTY_TEAM_TOTALS,
@@ -196,6 +196,7 @@ function buildTeamCategoryColumns(
   perspective: TeamPerspective,
   paintSupported: boolean,
   classificationSupported: boolean,
+  foulSplit: boolean,
 ): Column<AllTeamsRow>[] {
   switch (category) {
     case "traditional":
@@ -203,7 +204,7 @@ function buildTeamCategoryColumns(
     case "advanced":
       return buildAdvancedColumns(mode, perspective);
     case "misc":
-      return buildMiscColumns(mode, perspective, classificationSupported);
+      return buildMiscColumns(mode, perspective, classificationSupported, foulSplit);
     case "scoring":
       return buildScoringColumns(mode, perspective, paintSupported, classificationSupported);
   }
@@ -297,6 +298,10 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const periodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === period) ?? SEASON_BOX_PERIOD_OPTIONS[0]!;
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+  // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
+  const foulSplit = foulColumnsSplit([season]);
+  useFoulConditionCleanup(season, statConditions, setStatConditions);
+  useFoulStatKeyCleanup(season, statKey, () => setStatKey(defaultTeamStat));
   // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
   useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
 
@@ -376,7 +381,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
       buildStatConditionItems(
         buildTeamConditionDefs({
           mode: displayMode,
-          columnsFor: (tab, mode, p) => buildTeamCategoryColumns(tab, mode, p, paintSupported, conditionClassificationSupported),
+          columnsFor: (tab, mode, p) =>
+            buildTeamCategoryColumns(tab, mode, p, paintSupported, conditionClassificationSupported, foulSplit),
           sampleRows: conditionRows,
           shotTypesOf: (r) => teamById.get(r.team.teamId)?.shotTypes,
           shotGamesOf: (r) => teamById.get(r.team.teamId)?.gamesPlayed ?? 0,
@@ -385,7 +391,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         conditionRows,
         displayMode,
       ),
-    [displayMode, paintSupported, conditionClassificationSupported, conditionRows, teamById],
+    [displayMode, paintSupported, conditionClassificationSupported, foulSplit, conditionRows, teamById],
   );
   const conditionActive = hasActiveStatConditions(statConditions, conditionItems);
   const passingTeamIds = useMemo(
@@ -398,9 +404,9 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const columns = useMemo(
     () =>
       isBoxscoreCategory(category)
-        ? buildTeamCategoryColumns(category, displayMode, perspective, paintSupported, periodOption.periods === null)
+        ? buildTeamCategoryColumns(category, displayMode, perspective, paintSupported, periodOption.periods === null, foulSplit)
         : [],
-    [category, displayMode, perspective, paintSupported, periodOption],
+    [category, displayMode, perspective, paintSupported, periodOption, foulSplit],
   );
   const selectedColumn = columns.find((c) => c.key === statKey) ?? columns[0];
   const teamDef: RankableStat<AllTeamsRow> | null = selectedColumn
@@ -728,6 +734,10 @@ function rawTotalsFromPlayerSummary(p: PlayerSummary): PlayerSeasonRawTotals {
     basketCounts: 0,
     unsportsmanlikeFouls: 0,
     disqualifyingFouls: 0,
+    technicalFoulsCat1: 0,
+    technicalFoulsCat2: 0,
+    flagrantFouls: 0,
+    disruptiveFouls: 0,
     offensiveFoulsCommitted: 0,
     chargesDrawn: 0,
     assisted2m: 0,
@@ -833,12 +843,15 @@ function doubleConditionText(c: DoubleCounts | undefined, count: number | undefi
   return `${(c.games > 0 ? (100 * count) / c.games : 0).toFixed(1)}%`;
 }
 
-const SEASON_BOX_COLUMNS_BY_TAB: Record<SeasonBoxTabKey, SeasonBoxscoreColumn[]> = {
-  traditional: SEASON_TRADITIONAL_COLUMNS,
-  advanced: SEASON_ADVANCED_COLUMNS,
-  misc: SEASON_MISC_COLUMNS,
-  scoring: SEASON_SCORING_COLUMNS,
-};
+/** タブごとの列。ファウルの列は、2026-27以降のシーズン（foulSplit）ではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF（DESIGN.md 16-8章） */
+function seasonBoxColumnsByTab(foulSplit: boolean): Record<SeasonBoxTabKey, SeasonBoxscoreColumn[]> {
+  return {
+    traditional: SEASON_TRADITIONAL_COLUMNS,
+    advanced: SEASON_ADVANCED_COLUMNS,
+    misc: seasonBoxColumnsFor("misc", foulSplit),
+    scoring: SEASON_SCORING_COLUMNS,
+  };
+}
 
 /** アドバンスドカテゴリのみ、SeasonBoxscoreColumnには無いPER・PPP（statDefs.ts、シーズン合計値の
  * みでフィルタ非対応）を追加する。ランキングページが従来から提供していた項目を引き続き
@@ -908,11 +921,14 @@ const CAREER_NOTE =
 const PLAYER_CONDITION_KEYS_NEEDING_LOGS: ReadonlySet<string> = (() => {
   const seen = new Set<string>();
   const needs = new Set<string>();
-  for (const tab of SEASON_BOX_TABS) {
-    for (const col of SEASON_BOX_COLUMNS_BY_TAB[tab.key]) {
-      if (seen.has(col.key)) continue;
-      seen.add(col.key);
-      if (tab.key === "misc" || tab.key === "scoring") needs.add(col.key);
+  // ファウルの列は、どちらの列の出し方（UFOUL・TF／TF1・TF2・FLAG・DISR）でも読み込みが要る
+  for (const foulSplit of [false, true]) {
+    for (const tab of SEASON_BOX_TABS) {
+      for (const col of seasonBoxColumnsByTab(foulSplit)[tab.key]) {
+        if (seen.has(col.key)) continue;
+        seen.add(col.key);
+        if (tab.key === "misc" || tab.key === "scoring") needs.add(col.key);
+      }
     }
   }
   return needs;
@@ -936,8 +952,9 @@ function buildPlayerConditionDefs(
   // 判定は今の平均/合計の値（display）。displayOther は逆のほう（カウント系かの判定に使う。DESIGN.md 179章）
   const other: PlayerRankMode = mode === "total" ? "perGame" : "total";
   const defs: StatConditionItemDef<PlayerSummary>[] = [];
+  const columnsByTab = seasonBoxColumnsByTab(foulColumnsSplit([season]));
   for (const tab of SEASON_BOX_TABS) {
-    for (const col of SEASON_BOX_COLUMNS_BY_TAB[tab.key]) {
+    for (const col of columnsByTab[tab.key]) {
       if (col.key === "eff") {
         defs.push({ key: "eff", label: col.label, group: tab.label, display: (p) => effText(p, mode), displayOther: (p) => effText(p, other), seasonTotal: true });
         continue;
@@ -1056,6 +1073,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const periodActive = periodOption.periods !== null;
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+  // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
+  useFoulConditionCleanup(season, statConditions, setStatConditions);
+  useFoulStatKeyCleanup(season, statKey, () => setStatKey(defaultPlayerStat));
   // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
   useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
   const conditionKeys = activeStatConditionKeys(statConditions);
@@ -1360,7 +1380,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     }
     if (category === "profile") return buildProfileItems(season);
     if (category === "career") return buildCareerItems((p) => careerBySeason?.[p.playerId]);
-    const items = SEASON_BOX_COLUMNS_BY_TAB[category].map((col) => boxColumnItem(col, rankMode));
+    const items = seasonBoxColumnsByTab(foulColumnsSplit([season]))[category].map((col) => boxColumnItem(col, rankMode));
     if (category === "traditional") return [...items, ...doubleItems((p) => doublesByPlayer.get(p.playerId), rankMode)];
     return category === "advanced" ? [...items, ...EXTRA_ADVANCED_PLAYER_ITEMS] : items;
   }, [category, shootingColumns, shootingColumnsTotal, season, careerBySeason, rankMode, doublesByPlayer]);

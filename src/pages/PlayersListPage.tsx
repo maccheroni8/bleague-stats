@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
+import { useFoulConditionCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
+import { foulColumnsSplit } from "../lib/ruleChange";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { postseasonLabel } from "../../shared/gameType";
@@ -121,9 +122,9 @@ import {
   EMPTY_TEAM_TOTALS,
   SEASON_ADVANCED_COLUMNS,
   SEASON_BOX_TABS,
-  SEASON_MISC_COLUMNS,
   SEASON_SCORING_COLUMNS,
   SEASON_TRADITIONAL_COLUMNS,
+  seasonBoxColumnsFor,
   sumPlayerGameLogs,
   sumTeamGameLogsFor,
   type SeasonBoxTabKey,
@@ -542,7 +543,7 @@ function matchesTeamFilter(p: PlayerSummary, selected: Set<string>): boolean {
  */
 const SEASON_ONLY_KEYS = new Set(["per", "ppp"]);
 
-function playerListTabColumns(tab: BoxCategoryKey, mode: SeasonDisplayMode, filterActive: boolean): Column<PlayerRow>[] {
+function playerListTabColumns(tab: BoxCategoryKey, mode: SeasonDisplayMode, filterActive: boolean, foulSplit: boolean): Column<PlayerRow>[] {
   const cols =
     tab === "traditional"
       ? filterActive
@@ -553,18 +554,18 @@ function playerListTabColumns(tab: BoxCategoryKey, mode: SeasonDisplayMode, filt
           ? buildCtxColumns(SEASON_ADVANCED_COLUMNS, mode)
           : buildAdvancedColumns(mode)
         : tab === "misc"
-          ? buildCtxColumns(SEASON_MISC_COLUMNS, mode)
+          ? buildCtxColumns(seasonBoxColumnsFor("misc", foulSplit), mode)
           : buildCtxColumns(SEASON_SCORING_COLUMNS, mode);
   return cols.filter((c) => c.key !== "name" && c.key !== "team");
 }
 
 /** Misc・Scoring のタブにしかない項目（選手の試合ログの読み込みが要る） */
-function playerListKeysNeedingLogs(filterActive: boolean): Set<string> {
+function playerListKeysNeedingLogs(filterActive: boolean, foulSplit: boolean): Set<string> {
   const light = new Set(
-    (["traditional", "advanced"] as const).flatMap((t) => playerListTabColumns(t, "perGame", filterActive).map((c) => c.key)),
+    (["traditional", "advanced"] as const).flatMap((t) => playerListTabColumns(t, "perGame", filterActive, foulSplit).map((c) => c.key)),
   );
   return new Set(
-    (["misc", "scoring"] as const).flatMap((t) => playerListTabColumns(t, "perGame", filterActive).map((c) => c.key)).filter((k) => !light.has(k)),
+    (["misc", "scoring"] as const).flatMap((t) => playerListTabColumns(t, "perGame", filterActive, foulSplit).map((c) => c.key)).filter((k) => !light.has(k)),
   );
 }
 
@@ -576,16 +577,17 @@ function buildPlayerListConditionDefs(opts: {
   careerOf: (p: PlayerSummary) => PlayerCareerCounts | undefined;
 }): StatConditionItemDef<PlayerRow>[] {
   const { mode, filterActive, shotTypeKeys, season, careerOf } = opts;
+  const foulSplit = foulColumnsSplit([season]);
   const otherMode: SeasonDisplayMode = mode === "total" ? "perGame" : "total";
   const text = (c: Column<PlayerRow>, r: PlayerRow) => (c.format ? c.format(r) : String(c.sortValue(r)));
   const defs: StatConditionItemDef<PlayerRow>[] = [];
   for (const tab of BOX_CATEGORY_TABS) {
-    const cols = playerListTabColumns(tab.key, mode, filterActive);
-    const others = playerListTabColumns(tab.key, otherMode, filterActive);
+    const cols = playerListTabColumns(tab.key, mode, filterActive, foulSplit);
+    const others = playerListTabColumns(tab.key, otherMode, filterActive, foulSplit);
     // 絞り込み中は表から消える PER・PPP 等（シーズン通算の値だけの列）も選べるようにする
     const seasonCols =
       filterActive && (tab.key === "traditional" || tab.key === "advanced")
-        ? playerListTabColumns(tab.key, mode, false).filter((c) => !cols.some((x) => x.key === c.key))
+        ? playerListTabColumns(tab.key, mode, false, foulSplit).filter((c) => !cols.some((x) => x.key === c.key))
         : [];
     for (const c of cols) {
       const other = others.find((o) => o.key === c.key);
@@ -687,6 +689,9 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const filterActive = !isDefaultFilter(situationalFilter) || gameType !== "regular";
   // スタッツの条件（DESIGN.md 162章）
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+  // ファウルの列は、2026-27以降だけの表ではTF1・TF2・FLAG・DISR、それ以外ではUFOUL・TF（DESIGN.md 16-8章）
+  const foulSplit = foulColumnsSplit([season]);
+  useFoulConditionCleanup(season, statConditions, setStatConditions);
   // シーズンで意味が変わるフィルタ（クラブ・地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
   useSeasonFilterCleanup({
     season,
@@ -699,7 +704,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   });
   const conditionKeys = activeStatConditionKeys(statConditions);
   // Misc・Scoringのタブにしかない項目は、選手の試合ログから出す（読み込みが要る）
-  const conditionNeedsLogs = conditionKeys.some((k) => playerListKeysNeedingLogs(filterActive).has(k));
+  const conditionNeedsLogs = conditionKeys.some((k) => playerListKeysNeedingLogs(filterActive, foulSplit).has(k));
   const conditionNeedsCareers = conditionKeys.some((k) => k.startsWith(CAREER_CONDITION_KEY_PREFIX));
   const { data: careers, loading: careersLoading } = useJsonData(
     () => (conditionNeedsCareers ? fetchPlayerCareers() : Promise.resolve(null)),
@@ -932,7 +937,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
             ? buildCtxColumns(SEASON_ADVANCED_COLUMNS, displayMode)
             : buildAdvancedColumns(displayMode)
           : tab === "misc"
-            ? buildCtxColumns(SEASON_MISC_COLUMNS, displayMode)
+            ? buildCtxColumns(seasonBoxColumnsFor("misc", foulSplit), displayMode)
             : buildCtxColumns(SEASON_SCORING_COLUMNS, displayMode);
 
   const tableRows = tab === "shooting" ? shootingRows : conditionedRows;

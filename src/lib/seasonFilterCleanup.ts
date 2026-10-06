@@ -4,6 +4,8 @@ import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { fetchDivisionHistory, fetchGameSummaries, fetchSchedule, fetchTeams } from "./data";
 import { useJsonData } from "./useJsonData";
 import type { SituationalFilter } from "./situational";
+import { foulColumnsSplit, foulKeyVisible } from "./ruleChange";
+import type { StatConditionsState } from "./statConditions";
 
 /**
  * シーズンを変えたとき（とURLを直接開いたとき）に、そのシーズンでは意味が変わるフィルタを外す（DESIGN.md 164章）。
@@ -138,4 +140,39 @@ export function useSeasonFilterCleanup(opts: {
     if (o.setGameType && result.gameType && result.gameType !== o.gameType) o.setGameType(result.gameType);
   }, [scope, opts.season]);
 
+}
+
+/**
+ * ファウルの列はシーズンで変わる（2026-27以降は TF1・TF2・FLAG・DISR、それ以前は UFOUL・TF。DESIGN.md 16-8章）。
+ * シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い列のスタッツの条件を外す。
+ * 外したことは知らせない（165章）。手で選び直した値はその場では外さない
+ */
+export function dropUnavailableFoulConditions(state: StatConditionsState, season: string): StatConditionsState | null {
+  const split = foulColumnsSplit([season]);
+  const kept = state.conditions.filter((c) => foulKeyVisible(c.key, split));
+  return kept.length < state.conditions.length ? { ...state, conditions: kept } : null;
+}
+
+export function useFoulConditionCleanup(season: string, state: StatConditionsState, setState: (next: StatConditionsState) => void): void {
+  const checkedSeasonRef = useRef<string | null>(null);
+  const latest = useRef({ state, setState });
+  latest.current = { state, setState };
+  useEffect(() => {
+    if (checkedSeasonRef.current === season) return;
+    checkedSeasonRef.current = season;
+    const next = dropUnavailableFoulConditions(latest.current.state, season);
+    if (next) latest.current.setState(next);
+  }, [season]);
+}
+
+/** ランキングの項目（stat）がファウルの列で、そのシーズンの表に無い（例: 2026-27で ufoul）ときは、既定の項目に戻す。確かめるのはシーズンが変わったときとページを開いたときの1回だけ */
+export function useFoulStatKeyCleanup(season: string, statKey: string, resetStatKey: () => void): void {
+  const checkedSeasonRef = useRef<string | null>(null);
+  const latest = useRef({ statKey, resetStatKey });
+  latest.current = { statKey, resetStatKey };
+  useEffect(() => {
+    if (checkedSeasonRef.current === season) return;
+    checkedSeasonRef.current = season;
+    if (!foulKeyVisible(latest.current.statKey, foulColumnsSplit([season]))) latest.current.resetStatKey();
+  }, [season]);
 }
