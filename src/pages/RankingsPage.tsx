@@ -60,6 +60,7 @@ import {
   type SeasonGameTypeFilter,
   type TeamSeasonRawTotals,
 } from "../lib/playerSeasonBoxscore";
+import { teamTotalsForTransferredPlayer } from "../lib/transferredPlayerTotals";
 import {
   buildAdvancedColumns,
   buildMiscColumns,
@@ -1168,17 +1169,23 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 
   // USG%・%-shareスタッツ・個人ORtg/DRtgの分母（チーム総計）。gameLogsByTeamから選手側と
   // 同じシチュエーション別フィルタ・レギュラー/プレーオフ条件で組み立てる
-  const teamTotalsByTeamId = useMemo<Map<string, TeamSeasonRawTotals> | null>(() => {
+  const teamScopes = useMemo<{ totals: Map<string, TeamSeasonRawTotals>; logs: Map<string, TeamGameLog[]> } | null>(() => {
     if (!gameLogsByTeam) return null;
-    const map = new Map<string, TeamSeasonRawTotals>();
+    const totals = new Map<string, TeamSeasonRawTotals>();
+    const scopedLogs = new Map<string, TeamGameLog[]>();
     for (const [teamId, logs] of gameLogsByTeam) {
       const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => teamId);
       const scoped = filterByGameType(situational, effGameType);
-      map.set(teamId, sumTeamGameLogsFor(scoped, new Set(scoped.map((g) => g.scheduleKey))));
+      scopedLogs.set(teamId, scoped);
+      totals.set(teamId, sumTeamGameLogsFor(scoped, new Set(scoped.map((g) => g.scheduleKey))));
     }
-    return map;
+    return { totals, logs: scopedLogs };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameLogsByTeam, filtersApply, filter, gameType, opponentRecords, divisionHistory, season]);
+  const teamTotalsByTeamId = teamScopes?.totals ?? null;
+  // 試合の条件（地区・勝敗・会場など）か試合種別を変えているときだけ、シーズンの途中で移籍した選手の分母を、条件に当てはまる試合で所属していた各チームの
+  // 所属期間の合計にする（選手の最新の所属チームだけで割ると、条件に当てはまる試合の外のチームで割ってしまう。DESIGN.md 213章）。条件を付けていないときは従来どおり
+  const conditionedDenominators = filtersApply && (filterActive || gameTypeActive);
 
   // Q別/前後半選択時のみ、対象選手全員分の生データ（StoredGame）を一括取得する。
   // 「試合」選択時はrequestedScheduleKeysが常に空配列のため、useLeagueRawGamesは何も取得しない。
@@ -1222,11 +1229,14 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         map.set(p.playerId, buildSeasonBoxscoreCtx(raw, team, "perGame", seasonStartYear));
         continue;
       }
-      const team = teamTotalsByTeamId.get(p.teamId) ?? EMPTY_TEAM_TOTALS;
+      let team = teamTotalsByTeamId.get(p.teamId) ?? EMPTY_TEAM_TOTALS;
       if (needsGameLogRecompute) {
         const logs = gameLogsByPlayer!.get(p.playerId) ?? [];
         const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
         const scoped = filterByGameType(situational, effGameType);
+        if (conditionedDenominators && teamScopes && playerOwnTeamOf) {
+          team = teamTotalsForTransferredPlayer(logs, scoped, playerOwnTeamOf, teamScopes.logs) ?? team;
+        }
         map.set(p.playerId, buildSeasonBoxscoreCtx(sumPlayerGameLogs(scoped), team, "perGame", seasonStartYear));
       } else {
         map.set(p.playerId, buildSeasonBoxscoreCtx(rawTotalsFromPlayerSummary(p), team, "perGame", seasonStartYear));
@@ -1235,6 +1245,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     return map;
   }, [
     teamTotalsByTeamId,
+    teamScopes,
+    conditionedDenominators,
     needsGameLogRecompute,
     gameLogsByPlayer,
     eligible,
