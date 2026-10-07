@@ -22,6 +22,9 @@ export const COMPARE_LABEL = "前シーズン比較";
 /** シューティング・強制ターンオーバーの記録がある最初のシーズン（それ以前のシーズンは前季として使えない） */
 const SHOT_DATA_FIRST_SEASON = "2023-24";
 
+/** 選手のPACE（在コート区間のポゼッションから求める）の記録がある最初のシーズン（aggregate.ts は coverage が full の 2022-23 以降だけ在コート区間を数える） */
+const PLAYER_PACE_FIRST_SEASON = "2022-23";
+
 /** 選んだシーズンの直前のシーズン。最初のシーズン（2016-17）は null */
 export function previousSeason(season: string): string | null {
   if (season <= FIRST_LEAGUE_SEASON) return null;
@@ -35,6 +38,10 @@ export interface CompareSupportInput {
   /** Traditional・Advanced・Misc・Scoring は "boxscore"。Shooting・Forced TOV は "seasonTotal"（シーズン通算の値だけ）。Profile・Career は "registered"（登録選手全員が対象） */
   categoryKind: "boxscore" | "seasonTotal" | "registered";
   statKey: string;
+  /** 個人のランキングか、チームのランキングか（選手の POSS・PACE は値が無い。チームにはある） */
+  subject: "player" | "team";
+  /** 個人のランキングが、試合ログから値を作り直しているか（条件なしの集計済みの値では、PACE の元になる在コート区間のポゼッションを持たない） */
+  fromGameLogs: boolean;
   filter: SituationalFilter;
   gameType: SeasonGameTypeFilter;
   period: PeriodRangeValue;
@@ -47,7 +54,7 @@ export interface CompareSupportInput {
  * 比較は「両方のシーズンで、同じ条件・同じ掲載基準」で並べるため、前季に当てはめられない条件のときは無効にする
  */
 export function compareUnsupportedReason(input: CompareSupportInput): string | null {
-  const { season, categoryKind, statKey, filter, gameType, period, prevDivisions } = input;
+  const { season, categoryKind, statKey, subject, fromGameLogs, filter, gameType, period, prevDivisions } = input;
   const prev = previousSeason(season);
   if (!prev) {
     return `${COMPARE_LABEL}は、${season}では選べません。B.LEAGUE発足の最初のシーズンで、比べる前のシーズンがないためです。`;
@@ -60,6 +67,17 @@ export function compareUnsupportedReason(input: CompareSupportInput): string | n
   }
   if (!foulKeyVisible(statKey, foulColumnsSplit([prev]))) {
     return `この項目は${prev}の表にないため、${COMPARE_LABEL}は選べません。`;
+  }
+  if (subject === "player" && statKey === "poss") {
+    return `選手の POSS は値がなく、表示が「-」になるため、${COMPARE_LABEL}は選べません。`;
+  }
+  if (subject === "player" && statKey === "pace") {
+    if (!fromGameLogs) {
+      return `条件を付けていないとき、選手の PACE は値がなく、表示が「-」になるため、${COMPARE_LABEL}は選べません。`;
+    }
+    if (prev < PLAYER_PACE_FIRST_SEASON) {
+      return `選手の PACE の記録は${PLAYER_PACE_FIRST_SEASON}シーズン以降のため、${prev}にはデータがなく、${COMPARE_LABEL}は選べません。`;
+    }
   }
   if (categoryKind === "boxscore") {
     if (period !== "all") {

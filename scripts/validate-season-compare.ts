@@ -79,6 +79,8 @@ const base = {
   season: "2025-26",
   categoryKind: "boxscore" as const,
   statKey: "pts",
+  subject: "player" as "player" | "team",
+  fromGameLogs: false,
   filter: { range: { kind: "all" as const } },
   gameType: "regular" as const,
   period: "all" as const,
@@ -96,6 +98,14 @@ eq("理由 前季にある地区", compareUnsupportedReason({ ...base, filter: {
 eq("理由 前季にポストシーズンが無い", compareUnsupportedReason({ ...base, season: "2020-21", gameType: "playoff" })?.includes("開催されなかった"), true);
 eq("理由 前季の表に無いファウルの列", compareUnsupportedReason({ ...base, season: "2026-27", statKey: "tf1" })?.includes("表にない"), true);
 eq("理由 前季の表にあるファウルの列", compareUnsupportedReason({ ...base, season: "2026-27", statKey: "pts" }), null);
+// 選手の POSS・PACE は値が無い（チームにはある）
+eq("理由 選手のPOSS", compareUnsupportedReason({ ...base, statKey: "poss" })?.includes("POSS"), true);
+eq("理由 選手のPOSSは試合ログから作り直しても無効", compareUnsupportedReason({ ...base, statKey: "poss", fromGameLogs: true })?.includes("POSS"), true);
+eq("理由 チームのPOSS・PACEは使える", [compareUnsupportedReason({ ...base, subject: "team", statKey: "poss" }), compareUnsupportedReason({ ...base, subject: "team", statKey: "pace" })], [null, null]);
+eq("理由 選手のPACE（条件なしは値が無い）", compareUnsupportedReason({ ...base, statKey: "pace" })?.includes("PACE"), true);
+eq("理由 選手のPACE（条件ありは使える）", compareUnsupportedReason({ ...base, statKey: "pace", fromGameLogs: true }), null);
+eq("理由 選手のPACE（前季が2022-23より前）", compareUnsupportedReason({ ...base, season: "2022-23", statKey: "pace", fromGameLogs: true })?.includes("2022-23シーズン以降"), true);
+eq("理由 選手のPACE（前季が2022-23）", compareUnsupportedReason({ ...base, season: "2023-24", statKey: "pace", fromGameLogs: true }), null);
 
 if (failures > 0) {
   console.error(`\n${failures}件の食い違いがあります`);
