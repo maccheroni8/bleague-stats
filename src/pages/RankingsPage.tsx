@@ -60,7 +60,7 @@ import {
   type SeasonGameTypeFilter,
   type TeamSeasonRawTotals,
 } from "../lib/playerSeasonBoxscore";
-import { teamTotalsForTransferredPlayer } from "../lib/transferredPlayerTotals";
+import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTotals";
 import {
   buildAdvancedColumns,
   buildMiscColumns,
@@ -1203,9 +1203,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameLogsByTeam, filtersApply, filter, gameType, opponentRecords, divisionHistory, season]);
   const teamTotalsByTeamId = teamScopes?.totals ?? null;
-  // 試合の条件（地区・勝敗・会場など）か試合種別を変えているときだけ、シーズンの途中で移籍した選手の分母を、条件に当てはまる試合で所属していた各チームの
-  // 所属期間の合計にする（選手の最新の所属チームだけで割ると、条件に当てはまる試合の外のチームで割ってしまう。DESIGN.md 213章）。条件を付けていないときは従来どおり
-  const conditionedDenominators = filtersApply && (filterActive || gameTypeActive);
+  // シーズンの途中で移籍した選手の分母は、条件の有無によらず、条件に当てはまる試合で所属していた各チームの所属期間の合計にする
+  // （選手の最新の所属チームだけで割ると、条件に当てはまる試合の外のチームで割ってしまう。DESIGN.md 213・216章）。1チームだけの選手は、所属チームの合計
 
   // Q別/前後半選択時のみ、対象選手全員分の生データ（StoredGame）を一括取得する。
   // 「試合」選択時はrequestedScheduleKeysが常に空配列のため、useLeagueRawGamesは何も取得しない。
@@ -1254,19 +1253,19 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         const logs = gameLogsByPlayer!.get(p.playerId) ?? [];
         const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
         const scoped = filterByGameType(situational, effGameType);
-        if (conditionedDenominators && teamScopes && playerOwnTeamOf) {
+        if (teamScopes && playerOwnTeamOf) {
           team = teamTotalsForTransferredPlayer(logs, scoped, playerOwnTeamOf, teamScopes.logs) ?? team;
         }
         map.set(p.playerId, buildSeasonBoxscoreCtx(sumPlayerGameLogs(scoped), team, "perGame", seasonStartYear));
       } else {
-        map.set(p.playerId, buildSeasonBoxscoreCtx(rawTotalsFromPlayerSummary(p), team, "perGame", seasonStartYear));
+        // 試合ログを読まない経路（条件なし）。移籍した選手の分母は、集計済みの値（players.json の transferredTeamTotals）を使う
+        map.set(p.playerId, buildSeasonBoxscoreCtx(rawTotalsFromPlayerSummary(p), p.transferredTeamTotals ?? team, "perGame", seasonStartYear));
       }
     }
     return map;
   }, [
     teamTotalsByTeamId,
     teamScopes,
-    conditionedDenominators,
     needsGameLogRecompute,
     gameLogsByPlayer,
     eligible,

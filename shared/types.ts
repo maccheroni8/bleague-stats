@@ -606,6 +606,40 @@ export interface TeamForcedTurnovers {
   live: number;
 }
 
+/**
+ * チームのシーズン合計（個人のUSG%・%-shareスタッツ・個人ORtg/DRtg・PERの分母）。試合ログ（TeamGameLog）から合算する。
+ * シーズンの途中で移籍した選手の分母（所属期間ごとの、所属した各チームの合計。DESIGN.md 213・217章）にも使う
+ */
+export interface TeamSeasonRawTotals {
+  pts: number;
+  fgm: number;
+  fga: number;
+  tpm: number;
+  tpa: number;
+  ftm: number;
+  fta: number;
+  tov: number;
+  min: number;
+  /** 以下、個人ORtg/DRtg（Dean Oliver方式）の算出にのみ使う追加フィールド。DESIGN.md参照 */
+  ast: number;
+  oreb: number;
+  dreb: number;
+  stl: number;
+  blk: number;
+  pf: number;
+  poss: number;
+  /** 相手チームのボックススコア（DRtgの「opponent」役に必要な項目のみ） */
+  opponentMin: number;
+  opponentPts: number;
+  opponentFgm: number;
+  opponentFga: number;
+  opponentFtm: number;
+  opponentFta: number;
+  opponentOreb: number;
+  opponentDreb: number;
+  opponentTov: number;
+}
+
 export interface PlayerSummary {
   playerId: string;
   name: string;
@@ -617,6 +651,11 @@ export interface PlayerSummary {
   perGame: PerGameStats;
   shooting: ShootingStats;
   advanced: PlayerAdvancedStats;
+  /**
+   * そのシーズンの途中で移籍した選手（試合ログが2チーム以上にまたがる）だけが持つ、USG%・%-shareスタッツ・個人ORtg/DRtg・PERの分母
+   * （レギュラーシーズン。所属期間ごとの、所属した各チームの合計。DESIGN.md 217章）。1チームだけの選手は持たない（所属チームのシーズン合計を使う）
+   */
+  transferredTeamTotals?: TeamSeasonRawTotals;
   /**
    * data/players-master.json（scrape-roster.ts）から突合した選手属性。マスタに未登録の選手
    * （新加入直後でまだスクレイプできていない等）は全フィールド未定義になりうる。

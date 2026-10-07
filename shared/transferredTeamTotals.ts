@@ -1,14 +1,14 @@
-// ランキング（個人）で試合の条件を付けたときの、シーズン途中で移籍した選手のチーム合計（USG%・%-share・個人ORtg/DRtgの分母）。DESIGN.md 213章。
-// playerSeasonBoxscore.ts は集計のコード（シーズンごとの集計の保存キーに入る）から読まれるので、画面だけの処理は別のファイルに置く
-// （ここを直しても、過去シーズンの導出データの作り直しは起きない）
+// シーズンの途中で移籍した選手のチーム合計（USG%・%-shareスタッツ・個人ORtg/DRtg・PERの分母）。DESIGN.md 213・216章。
+// 画面（ランキング・選手一覧・個人詳細・比較）と、集計（scripts/aggregate.ts の players.json）で同じ関数を使い、値を揃える
+import { EMPTY_TEAM_TOTALS, sumTeamGameLogsFor, sumTeamSeasonTotals } from "./teamSeasonTotals.ts";
+import type { PlayerGameLog, TeamGameLog, TeamSeasonRawTotals } from "./types.ts";
 
-import { EMPTY_TEAM_TOTALS, sumTeamGameLogsFor, sumTeamSeasonTotals, type TeamSeasonRawTotals } from "./playerSeasonBoxscore";
-import type { OwnTeamResolver } from "./situational";
-import type { PlayerGameLog, TeamGameLog } from "../../shared/types";
+/** 試合ごとの自チームを引く（src/lib/situational.ts の OwnTeamResolver と同じ形） */
+export type OwnTeamOf = (g: { scheduleKey: string; isHome: boolean }) => string | undefined;
 
 /**
- * シーズンの途中で移籍した選手（そのシーズンの試合ログが2チーム以上にまたがる）の、USG%・%-shareスタッツ・個人ORtg/DRtgの分母になるチーム総計
- * （ランキングで試合の条件を付けたとき。DESIGN.md 213章）。
+ * シーズンの途中で移籍した選手（そのシーズンの試合ログが2チーム以上にまたがる）の、USG%・%-shareスタッツ・個人ORtg/DRtg・PERの分母になるチーム総計
+ * （試合の条件を付けているときも、付けていないときも同じ定義。DESIGN.md 213・216章）。
  * 条件に当てはまる試合（scopedLogs）で所属していたチームごとに、そのチームでの最初の試合から最後の試合まで（所属期間。allLogs＝絞り込み前の全試合で数える）の、
  * 条件に当てはまるチームの試合（scopedTeamLogsByTeamId＝チームごとに、選手と同じ条件で絞り込み済みの試合ログ）を合算し、チームをまたいで足す。
  * 条件に当てはまる試合が無いチームは足さない。1チームだけの選手は null（従来どおり、選手の所属チームの総計を使う）。
@@ -17,7 +17,7 @@ import type { PlayerGameLog, TeamGameLog } from "../../shared/types";
 export function teamTotalsForTransferredPlayer(
   allLogs: PlayerGameLog[],
   scopedLogs: PlayerGameLog[],
-  ownTeamOf: OwnTeamResolver,
+  ownTeamOf: OwnTeamOf,
   scopedTeamLogsByTeamId: Map<string, TeamGameLog[]>,
 ): TeamSeasonRawTotals | null {
   const tenureOf = new Map<string, { first: string; last: string }>();

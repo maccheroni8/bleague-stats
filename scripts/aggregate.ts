@@ -52,6 +52,9 @@ import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import { currentSeason } from "./lib/season.ts";
 import { measureOrUndefined, resolveSeasonProfile } from "../shared/seasonProfile.ts";
 import { sumTeamSeasonMisc } from "../shared/teamSeasonMisc.ts";
+import { filterByGameType } from "../shared/gameType.ts";
+import { opponentOliverBox, teamOliverBox } from "../shared/teamSeasonTotals.ts";
+import { teamTotalsForTransferredPlayer } from "../shared/transferredTeamTotals.ts";
 import { gameMaxMargins } from "../shared/gameMargins.ts";
 import {
   DISQUALIFYING_FOUL_CODE,
@@ -94,6 +97,7 @@ import type {
   StoredGame,
   TeamForcedTurnovers,
   TeamGameLog,
+  TeamSeasonRawTotals,
   TeamLineupsFile,
   TeamStintsFile,
   LeagueAverageFile,
@@ -834,6 +838,8 @@ interface PlayerAccumulator {
   teamName: string;
   totals: StatTotals;
   gameLogs: PlayerGameLog[];
+  /** 試合（ScheduleKey）ごとの、選手の所属チーム。シーズンの途中で移籍した選手の分母（所属期間ごとのチーム合計）を求めるのに使う（保存しない） */
+  teamOfGame: Map<string, string>;
 }
 
 /** 同じ形の数値のオブジェクト（入れ子・配列を含む）を足す。片方にしか無いキーはそのまま残す（リーグ平均用） */
@@ -1106,6 +1112,20 @@ export async function aggregateSeason(season: string, category: Category = "prem
   const perConst = perConstants(lgTotals);
   const lgPace = pace(lgPoss, lgMin);
 
+  // シーズンの途中で移籍した選手（試合ログが2チーム以上にまたがる）の分母。所属期間ごとの、所属した各チームの合計（レギュラーシーズン。DESIGN.md 216章）。
+  // 画面の計算（src/lib/transferredPlayerTotals.ts）と同じ関数を使う。1チームだけの選手は含めない
+  const regularTeamLogsByTeamId = new Map([...teams.values()].map((t) => [t.teamId, filterByGameType(t.gameLogs, "regular")] as const));
+  const transferredTotalsByPlayer = new Map<string, TeamSeasonRawTotals>();
+  for (const p of players.values()) {
+    const totals = teamTotalsForTransferredPlayer(
+      p.gameLogs,
+      filterByGameType(p.gameLogs, "regular"),
+      (g) => p.teamOfGame.get(g.scheduleKey),
+      regularTeamLogsByTeamId,
+    );
+    if (totals) transferredTotalsByPlayer.set(p.playerId, totals);
+  }
+
   const uPerByPlayer = new Map<string, number>();
   let sumWeightedUPer = 0;
   let sumMinForUPer = 0;
@@ -1124,18 +1144,24 @@ export async function aggregateSeason(season: string, category: Category = "prem
       const statBlock = buildStatBlock(p.totals, seasonStartYear);
       // Usage%はチームの出場全体（シーズン合計）を基準に算出する。移籍選手は直近所属チームで近似する
       const team = teams.get(p.teamId);
-      const usage = team ? usagePct(p.totals, team.totals) : 0;
-      const teamPaceForPlayer = team ? pace(team.totals.poss, team.totals.min) : 0;
-      const per =
-        teamPaceForPlayer > 0
-          ? finalizePer(uPerByPlayer.get(p.playerId) ?? 0, teamPaceForPlayer, lgPace, lgAvgUPer)
-          : 0;
+      // 移籍した選手は、所属期間ごとの、所属した各チームの合計で割る（DESIGN.md 216章）。1チームだけの選手は、所属チームのシーズン合計
+      const transferred = transferredTotalsByPlayer.get(p.playerId);
+      const usage = transferred ? usagePct(p.totals, transferred) : team ? usagePct(p.totals, team.totals) : 0;
+      const teamPaceForPlayer = transferred ? pace(transferred.poss, transferred.min) : team ? pace(team.totals.poss, team.totals.min) : 0;
+      // PERのリーグ平均（lgAvgUPer）は、従来の値（移籍した選手は最新の所属チームで算出したuPER）のまま使う。
+      // 移籍した選手のuPERを変えると、全選手のPERが少しずつ動いてしまい、1チームだけの選手の値が変わるため
+      const uPerValueOfPlayer = transferred
+        ? uPer({ ...p.totals, trb: p.totals.reb }, safeDiv(transferred.ast, transferred.fgm), lgTotals, perConst)
+        : (uPerByPlayer.get(p.playerId) ?? 0);
+      const per = teamPaceForPlayer > 0 ? finalizePer(uPerValueOfPlayer, teamPaceForPlayer, lgPace, lgAvgUPer) : 0;
       // PPP = 個人ORtg（Dean Oliver方式、試合詳細ページの個人ORtgと同じindividualOffRtg()）/ 100。
       // シーズン合計値をそのまま渡す（移籍選手はUsage%と同様、直近所属チームで近似する）。
       // 出場時間4分未満（シーズン合計）ではindividualOffRtg()自体がundefinedを返す
-      const individualSeasonOffRtg = team
-        ? individualOffRtg(toOliverBoxFromTotals(p.totals), toOliverBoxFromTotals(team.totals), toOliverBoxFromTotals(team.opponentTotals))
-        : undefined;
+      const individualSeasonOffRtg = transferred
+        ? individualOffRtg(toOliverBoxFromTotals(p.totals), teamOliverBox(transferred), opponentOliverBox(transferred))
+        : team
+          ? individualOffRtg(toOliverBoxFromTotals(p.totals), toOliverBoxFromTotals(team.totals), toOliverBoxFromTotals(team.opponentTotals))
+          : undefined;
       const ppp = individualSeasonOffRtg !== undefined ? individualSeasonOffRtg / 100 : undefined;
       // 国籍・身長体重・生年月日・ポジションはplayers-master.jsonから突合（未登録選手は全て未定義のまま）
       const master = masterById.get(p.playerId);
@@ -1156,6 +1182,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         birthDate: master?.birthDate,
         shotTypes: shotTypesByPlayer.get(p.playerId),
         ...statBlock,
+        ...(transferred ? { transferredTeamTotals: transferred } : {}),
         advanced: {
           eff: statBlock.advanced.eff,
           usagePct: usage,
@@ -1553,12 +1580,14 @@ function processPlayers(
         teamName: row.TeamNameJ,
         totals: emptyTotals(),
         gameLogs: [],
+        teamOfGame: new Map(),
       };
       players.set(row.PlayerID, acc);
     }
     // 直近の試合のチーム所属で上書き（移籍対応。DESIGN.mdでは選手マスタでの厳密な履歴管理は未対応）
     acc.teamId = row.TeamID ?? acc.teamId;
     acc.teamName = row.TeamNameJ;
+    if (row.TeamID) acc.teamOfGame.set(game.scheduleKey, row.TeamID);
     const isHome = row.TeamID === game.homeTeam.id;
     const teamNetForGame = isHome ? game.homeScore - game.awayScore : game.awayScore - game.homeScore;
     // 公式PLUSMINUSが無いシーズンはshared/onCourt.tsの自前復元値をフォールバックとして使う

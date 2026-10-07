@@ -25,6 +25,7 @@ import {
 } from "../../shared/formulas";
 import { BOX_CATEGORY_TABS, type BoxCategoryKey } from "./categoryLabels";
 import { addFoulCategoryCounts } from "../../shared/foulCodes";
+import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTotals";
 import { filterFoulColumns } from "./ruleChange";
 import {
   astToTovRatio,
@@ -45,7 +46,7 @@ import {
 } from "./boxscoreAggregate";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { buildPeriodRangeOptions, type PeriodRangeOption } from "./periodRange";
-import type { BoxscoreRow, PlayerGameLog, PlayerMasterEntry, StoredGame, TeamGameLog, YahooTurnoverEvent } from "../../shared/types";
+import type { BoxscoreRow, PlayerGameLog, PlayerMasterEntry, StoredGame, TeamGameLog, TeamSeasonRawTotals, YahooTurnoverEvent } from "../../shared/types";
 import type { GameTeamInfo } from "./situational";
 import { teamShortName } from "../../shared/teamNames";
 import type { ColumnCtx } from "../components/BoxscoreTable";
@@ -223,98 +224,17 @@ export function sumPlayerGameLogs(logs: PlayerGameLog[]): PlayerSeasonRawTotals 
   );
 }
 
-export interface TeamSeasonRawTotals {
-  pts: number;
-  fgm: number;
-  fga: number;
-  tpm: number;
-  tpa: number;
-  ftm: number;
-  fta: number;
-  tov: number;
-  min: number;
-  /** 以下、個人ORtg/DRtg（Dean Oliver方式）の算出にのみ使う追加フィールド。DESIGN.md参照 */
-  ast: number;
-  oreb: number;
-  dreb: number;
-  stl: number;
-  blk: number;
-  pf: number;
-  poss: number;
-  /** 相手チームのボックススコア（DRtgの「opponent」役に必要な項目のみ） */
-  opponentMin: number;
-  opponentPts: number;
-  opponentFgm: number;
-  opponentFga: number;
-  opponentFtm: number;
-  opponentFta: number;
-  opponentOreb: number;
-  opponentDreb: number;
-  opponentTov: number;
-}
+export type { TeamSeasonRawTotals } from "../../shared/types";
+export {
+  EMPTY_TEAM_TOTALS,
+  opponentOliverBox,
+  sumTeamGameLogsFor,
+  sumTeamSeasonTotals,
+  teamOliverBox,
+} from "../../shared/teamSeasonTotals";
+import { EMPTY_TEAM_TOTALS, opponentOliverBox, sumTeamGameLogsFor, sumTeamSeasonTotals, teamOliverBox } from "../../shared/teamSeasonTotals";
 
-export const EMPTY_TEAM_TOTALS: TeamSeasonRawTotals = {
-  pts: 0,
-  fgm: 0,
-  fga: 0,
-  tpm: 0,
-  tpa: 0,
-  ftm: 0,
-  fta: 0,
-  tov: 0,
-  min: 0,
-  ast: 0,
-  oreb: 0,
-  dreb: 0,
-  stl: 0,
-  blk: 0,
-  pf: 0,
-  poss: 0,
-  opponentMin: 0,
-  opponentPts: 0,
-  opponentFgm: 0,
-  opponentFga: 0,
-  opponentFtm: 0,
-  opponentFta: 0,
-  opponentOreb: 0,
-  opponentDreb: 0,
-  opponentTov: 0,
-};
 
-/** USG%・%-shareスタッツの分母用に、選手が出場した試合と同じScheduleKeyだけを対象にチーム総計を合算する */
-export function sumTeamGameLogsFor(logs: TeamGameLog[], scheduleKeys: Set<string>): TeamSeasonRawTotals {
-  const matched = logs.filter((g) => scheduleKeys.has(g.scheduleKey));
-  return matched.reduce<TeamSeasonRawTotals>(
-    (acc, g) => ({
-      pts: acc.pts + g.teamScore,
-      fgm: acc.fgm + g.fgm,
-      fga: acc.fga + g.fga,
-      tpm: acc.tpm + g.tpm,
-      tpa: acc.tpa + g.tpa,
-      ftm: acc.ftm + g.ftm,
-      fta: acc.fta + g.fta,
-      tov: acc.tov + g.tov,
-      min: acc.min + g.min,
-      ast: acc.ast + g.ast,
-      oreb: acc.oreb + g.oreb,
-      dreb: acc.dreb + g.dreb,
-      stl: acc.stl + g.stl,
-      blk: acc.blk + g.blk,
-      pf: acc.pf + g.pf,
-      poss: acc.poss + g.poss,
-      opponentMin: acc.opponentMin + g.opponentMin,
-      opponentPts: acc.opponentPts + g.opponentScore,
-      opponentFgm: acc.opponentFgm + g.opponentFgm,
-      opponentFga: acc.opponentFga + g.opponentFga,
-      opponentFtm: acc.opponentFtm + g.opponentFtm,
-      opponentFta: acc.opponentFta + g.opponentFta,
-      opponentOreb: acc.opponentOreb + g.opponentOreb,
-      opponentDreb: acc.opponentDreb + g.opponentDreb,
-      opponentTov: acc.opponentTov + g.opponentTov,
-    }),
-    { ...EMPTY_TEAM_TOTALS },
-  );
-}
 
 /**
  * total/perGame/per30の係数。per30は「シーズン合計出場分をちょうど30分に正規化する」係数
@@ -398,35 +318,6 @@ export function buildSeasonBoxscoreCtx(
   return { raw, scaled: scaleTotals(raw, modeFactor(raw, mode)), team, seasonStartYear };
 }
 
-export function sumTeamSeasonTotals(a: TeamSeasonRawTotals, b: TeamSeasonRawTotals): TeamSeasonRawTotals {
-  return {
-    pts: a.pts + b.pts,
-    fgm: a.fgm + b.fgm,
-    fga: a.fga + b.fga,
-    tpm: a.tpm + b.tpm,
-    tpa: a.tpa + b.tpa,
-    ftm: a.ftm + b.ftm,
-    fta: a.fta + b.fta,
-    tov: a.tov + b.tov,
-    min: a.min + b.min,
-    ast: a.ast + b.ast,
-    oreb: a.oreb + b.oreb,
-    dreb: a.dreb + b.dreb,
-    stl: a.stl + b.stl,
-    blk: a.blk + b.blk,
-    pf: a.pf + b.pf,
-    poss: a.poss + b.poss,
-    opponentMin: a.opponentMin + b.opponentMin,
-    opponentPts: a.opponentPts + b.opponentPts,
-    opponentFgm: a.opponentFgm + b.opponentFgm,
-    opponentFga: a.opponentFga + b.opponentFga,
-    opponentFtm: a.opponentFtm + b.opponentFtm,
-    opponentFta: a.opponentFta + b.opponentFta,
-    opponentOreb: a.opponentOreb + b.opponentOreb,
-    opponentDreb: a.opponentDreb + b.opponentDreb,
-    opponentTov: a.opponentTov + b.opponentTov,
-  };
-}
 
 export interface TeamSplitRow {
   key: string;
@@ -464,6 +355,23 @@ export function sumTeamTotalsForLogs(
 }
 
 /**
+ * シーズンの途中で移籍した選手の「複数チーム」の分母（所属期間ごとの、所属した各チームの合計。shared/transferredTeamTotals.ts、DESIGN.md 216章）。
+ * allLogs＝絞り込み前の全試合、scopedLogs＝絞り込み後の試合、scopedTeamLogsByTeamId＝チームごとに、選手と同じ条件で絞り込み済みの試合ログ。
+ * 1チームだけの選手は undefined（従来どおりの分母）
+ */
+export function transferredCombinedTeam(
+  allLogs: PlayerGameLog[],
+  scopedLogs: PlayerGameLog[],
+  ownTeamByScheduleKey: Map<string, GameTeamInfo>,
+  scopedTeamLogsByTeamId: Map<string, TeamGameLog[]>,
+): TeamSeasonRawTotals | undefined {
+  return (
+    teamTotalsForTransferredPlayer(allLogs, scopedLogs, (g) => ownTeamByScheduleKey.get(g.scheduleKey)?.teamId, scopedTeamLogsByTeamId) ??
+    undefined
+  );
+}
+
+/**
  * 試合ログを、試合ログから動的に導出した所属チーム（resolveOwnTeam）ごとに分割する
  * （シーズン内移籍対応。個人詳細ページ「シーズン別成績」「シチュエーション別成績」・
  * チーム詳細ページ「選手スタッツ」共通のロジック。DESIGN.md参照）。
@@ -477,6 +385,9 @@ export function buildTeamSplitRows(
   teamTotalsByTeamId: Map<string, TeamSeasonRawTotals>,
   displayMode: SeasonDisplayMode,
   seasonStartYear: number,
+  /** 「複数チーム」の合計行の分母。シーズンの途中で移籍した選手は、所属期間ごとの、所属した各チームの合計（transferredCombinedTeam）を渡す。
+   * 渡さないときは、チーム別の行の分母（出場した試合のチーム合計）の合計 */
+  combinedTeamOverride?: TeamSeasonRawTotals,
 ): TeamSplitRow[] {
   const played = logs.filter((g) => g.min > 0);
   if (played.length === 0) return [];
@@ -525,10 +436,9 @@ export function buildTeamSplitRows(
       isCombined: false,
     };
   });
-  const combinedTeam = teamIds.reduce(
-    (acc, id) => sumTeamSeasonTotals(acc, teamTotalsByTeamId.get(id) ?? EMPTY_TEAM_TOTALS),
-    EMPTY_TEAM_TOTALS,
-  );
+  const combinedTeam =
+    combinedTeamOverride ??
+    teamIds.reduce((acc, id) => sumTeamSeasonTotals(acc, teamTotalsByTeamId.get(id) ?? EMPTY_TEAM_TOTALS), EMPTY_TEAM_TOTALS);
   rows.push({
     key: `${keyPrefix}|combined`,
     teamId: null,
@@ -625,45 +535,6 @@ function playerOliverBox(raw: PlayerSeasonRawTotals): OliverBoxStats {
   };
 }
 
-function teamOliverBox(team: TeamSeasonRawTotals): OliverBoxStats {
-  return {
-    min: team.min,
-    fgm: team.fgm,
-    fga: team.fga,
-    fg3m: team.tpm,
-    ftm: team.ftm,
-    fta: team.fta,
-    pts: team.pts,
-    ast: team.ast,
-    oreb: team.oreb,
-    dreb: team.dreb,
-    tov: team.tov,
-    stl: team.stl,
-    blk: team.blk,
-    pf: team.pf,
-  };
-}
-
-/** DRtgの「opponent」役はmin/pts/fgm/fga/ftm/fta/oreb/dreb/tovの9項目のみ使う
- * （ast/fg3m/stl/blk/pfは式が参照しないため0で埋めてよい。shared/formulas.ts参照） */
-function opponentOliverBox(team: TeamSeasonRawTotals): OliverBoxStats {
-  return {
-    min: team.opponentMin,
-    fgm: team.opponentFgm,
-    fga: team.opponentFga,
-    fg3m: 0,
-    ftm: team.opponentFtm,
-    fta: team.opponentFta,
-    pts: team.opponentPts,
-    ast: 0,
-    oreb: team.opponentOreb,
-    dreb: team.opponentDreb,
-    tov: team.opponentTov,
-    stl: 0,
-    blk: 0,
-    pf: 0,
-  };
-}
 
 function usgPctOf(c: SeasonBoxscoreCtx): number {
   return usagePct(
@@ -1726,9 +1597,11 @@ export function buildTeamSplitRowsForPeriod(
   playerId: string,
   option: PeriodRangeOption | undefined,
   gamesByScheduleKey: Map<string, StoredGame>,
+  /** 「複数チーム」の合計行の分母（Q別・前後半を選んでいないときだけ使う。buildTeamSplitRows参照） */
+  combinedTeamOverride?: TeamSeasonRawTotals,
 ): TeamSplitRow[] {
   if (!option || option.periods === null) {
-    return buildTeamSplitRows(keyPrefix, logs, ownTeamByScheduleKey, teamTotalsByTeamId, displayMode, seasonStartYear);
+    return buildTeamSplitRows(keyPrefix, logs, ownTeamByScheduleKey, teamTotalsByTeamId, displayMode, seasonStartYear, combinedTeamOverride);
   }
 
   const played = logs.filter((g) => g.min > 0);
