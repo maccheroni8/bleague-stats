@@ -1,11 +1,13 @@
-import { RankedList } from "../components/RankedList";
+import { RankedList, type RankCompare, type RankableStat } from "../components/RankedList";
 import { PlayerGameRecordRanking } from "../components/PlayerGameRecordRanking";
 import { TeamGameRecordRanking } from "../components/TeamGameRecordRanking";
 import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
 import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
 import { EligibilitySlider } from "../components/EligibilitySlider";
-import { useFoulConditionCleanup, useFoulStatKeyCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
+import { useCompareCleanup, useFoulConditionCleanup, useFoulStatKeyCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
+import { COMPARE_LABEL, COMPARE_PARAM, buildCompare, compareUnsupportedReason, prevRankTooltip, previousSeason } from "../lib/seasonCompare";
 import { postseasonLabel } from "../../shared/gameType";
+import { isPastSeason } from "../lib/season";
 import { useMemo, useRef } from "react";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { fetchPlayerPageSeasons, fetchTeamColors } from "../lib/data";
@@ -25,6 +27,7 @@ import {
   multiSelectAxis,
   periodAxis,
   perspectiveAxis,
+  simpleSelectAxis,
   situationalAxes,
   statItemAxis,
   type FilterAxis,
@@ -97,6 +100,116 @@ function makeRankingTitle(kind: "チーム" | "個人", season: string, statLabe
     conditions,
     filename: buildExportFilename([`${kind}ランキング`, season, statLabel, ...conditions]),
   };
+}
+
+/**
+ * 前シーズン比較の行と列（DESIGN.md 218章）。今季の表（currentRows）と前季の全体（prevRows）から、両方にある行だけを並べる。
+ * 差は今季・前季の表示値どうし、前季の順位は前季の全体（スタッツの条件・ルーキーで絞る前）での順位
+ */
+function compareView<T, P>(args: {
+  prevSeason: string;
+  kind: "player" | "team";
+  currentRows: readonly T[];
+  currentKey: (row: T) => string;
+  currentDef: RankableStat<T>;
+  prevRows: readonly P[];
+  prevKey: (row: P) => string;
+  prevDef: RankableStat<P>;
+  /** 前季の値の下の行に添える、前季の名称（クラブ・チーム名が今季と違うときだけ） */
+  prevName: (row: T, prev: P) => string | undefined;
+  /** 比べない組を外す（順位の母集団は変えない） */
+  accept?: (row: T, prev: P) => boolean;
+}): { rows: T[]; compare: RankCompare<T> } {
+  const { rows, entries } = buildCompare({
+    currentRows: args.currentRows,
+    currentKey: args.currentKey,
+    currentDef: args.currentDef,
+    prevRows: args.prevRows,
+    prevKey: args.prevKey,
+    prevDef: args.prevDef,
+    accept: args.accept,
+  });
+  const entryOf = (row: T) => entries.get(args.currentKey(row))!;
+  return {
+    rows,
+    compare: {
+      prevLabel: "前季",
+      prevRankLabel: "前季順位",
+      prevRankTitle: prevRankTooltip(args.prevSeason, args.kind),
+      diffLabel: "差",
+      prevCell: (row) => {
+        const e = entryOf(row);
+        const name = args.prevName(row, e.prev);
+        return (
+          <>
+            {e.prevText}
+            {name && <span className="rank-sublabel rank-prev-club">{name}</span>}
+          </>
+        );
+      },
+      prevRank: (row) => entryOf(row).prevRank,
+      diff: (row) => entryOf(row).diff,
+      diffText: (row) => entryOf(row).diffText,
+      tone: (row) => entryOf(row).tone,
+      rankPool: [...args.currentRows],
+    },
+  };
+}
+
+/** 前シーズン比較の表の下の注記（画像にも入る） */
+function CompareNotes({
+  season,
+  prevSeason,
+  mode,
+  narrowed,
+  kind,
+  empty,
+}: {
+  season: string;
+  prevSeason: string;
+  mode: "perGame" | "total";
+  /** 今季だけに当てはめている条件（ルーキー・スタッツの条件）があるか */
+  narrowed: boolean;
+  kind: "player" | "team";
+  /** 比べられる行が1つも無いとき */
+  empty: boolean;
+}) {
+  return (
+    <>
+      {empty && (
+        <p className="empty-message">
+          {kind === "player" ? "今季・前季の両方で掲載基準を満たし、値のある選手がいません。" : "今季・前季の両方で値のあるチームがありません。"}
+        </p>
+      )}
+      <p className="rule-change-footnote">
+        ※ 前季は{prevSeason}シーズンです。{kind === "player" ? "今季・前季の両方で掲載基準を満たす選手" : "今季・前季の両方にあるチーム"}だけを表示しています。差は、表示している値どうしの差です（％の項目はポイントの差）。
+      </p>
+      {narrowed && (
+        <p className="rule-change-footnote">
+          ※ {kind === "player" ? "ルーキーとスタッツの条件" : "スタッツの条件"}は今季だけに当てはめています。前季の順位は、{kind === "player" ? "これらを" : "これを"}使わない前季のランキング全体での順位です。
+        </p>
+      )}
+      {mode === "total" && !isPastSeason(season) && (
+        <p className="rule-change-footnote">※ {season}は進行中のため、合計の差には、試合数の違いが含まれます。</p>
+      )}
+    </>
+  );
+}
+
+/** 前シーズン比較の軸（ランキングのシーズン成績の個人・チーム）。使えないときは、理由つきで無効にする */
+function compareAxis(value: "off" | "on", onChange: (v: "off" | "on") => void, disabledReason: string | null): FilterAxis {
+  return simpleSelectAxis({
+    id: "compare",
+    label: COMPARE_LABEL,
+    options: [
+      { value: "off", label: "しない" },
+      { value: "on", label: "する" },
+    ],
+    value,
+    defaultValue: "off",
+    onChange: (v) => onChange(v as "off" | "on"),
+    disabledReason: disabledReason ?? undefined,
+  });
 }
 
 /** シューティングの項目（キー「{シュート種別}_2pm」等）を、シュート種別ごとのグループにする（項目数が多いため） */
@@ -209,6 +322,26 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     forcedTurnoverDef,
     teamsWithForcedTurnovers,
   } = useTeamSeasonRanking(season, { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions });
+  // 前シーズン比較（DESIGN.md 218章）。試合の条件・試合区分・視点・平均/合計は前季にも同じように当てはめ、スタッツの条件は今季だけに当てはめる。
+  // 前季のデータは、比較をオンにしたときだけ読む
+  const [compareParam, setCompareParam] = useUrlState(COMPARE_PARAM, "off");
+  const prevSeason = previousSeason(season);
+  const compareReason = compareUnsupportedReason({
+    season,
+    categoryKind: isBoxscoreCategory(category) ? "boxscore" : "seasonTotal",
+    statKey,
+    filter,
+    gameType,
+    period,
+    prevDivisions: prevSeason && divisionHistory ? seasonDivisions(divisionHistory, prevSeason) : null,
+  });
+  const compareActive = compareParam === "on" && !compareReason && prevSeason !== null;
+  useCompareCleanup(season, compareParam, () => setCompareParam("off"));
+  const prevRanking = useTeamSeasonRanking(
+    prevSeason ?? season,
+    { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions: DEFAULT_STAT_CONDITIONS },
+    { enabled: compareActive, skipConditionItems: true },
+  );
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
   useFoulConditionCleanup(season, statConditions, setStatConditions);
   useFoulStatKeyCleanup(season, statKey, () => setStatKey(defaultTeamStat));
@@ -226,6 +359,61 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
 
   const isBoxscore = isBoxscoreCategory(category);
 
+  // 前シーズン比較の行と列。前季が読み込めるまでは「読み込み中」、前季の読み込みに失敗したときはエラーを出す
+  const prevPending =
+    compareActive &&
+    (prevRanking.teamsLoading || !prevRanking.teams || (isBoxscore && (prevRanking.gameLogsLoading || !prevRanking.gameLogsByTeam)));
+  const renamedTeam = (cur: { teamId: string; teamName: string }, prev: { teamId: string; teamName: string }) =>
+    prev.teamName !== cur.teamName ? teamLabel(prev.teamId, prev.teamName) : undefined;
+  const comparable = compareActive && !!prevSeason && !prevPending;
+  const boxCompare =
+    comparable && isBoxscore && teamDef && prevRanking.teamDef
+      ? compareView({
+          prevSeason: prevSeason!,
+          kind: "team",
+          currentRows: boxRows,
+          currentKey: (r) => r.team.teamId,
+          currentDef: teamDef,
+          prevRows: prevRanking.boxRows,
+          prevKey: (r) => r.team.teamId,
+          prevDef: prevRanking.teamDef,
+          prevName: (r, prev) => renamedTeam(r.team, prev.team),
+          // 条件に当てはまる試合が、今季か前季で0のチーム（例: ポストシーズンに出ていない）は、値が0になるだけなので比べない
+          accept: (r, prev) => r.gamesPlayed > 0 && prev.gamesPlayed > 0,
+        })
+      : null;
+  const shootingCompare =
+    comparable && category === "shooting" && shootingDef && prevRanking.shootingDef
+      ? compareView({
+          prevSeason: prevSeason!,
+          kind: "team",
+          currentRows: teamsWithShotTypes,
+          currentKey: (t) => t.teamId,
+          currentDef: shootingDef,
+          prevRows: prevRanking.teamsWithShotTypes,
+          prevKey: (t) => t.teamId,
+          prevDef: prevRanking.shootingDef,
+          prevName: renamedTeam,
+        })
+      : null;
+  const turnoverCompare =
+    comparable && category === "forcedTurnovers"
+      ? compareView({
+          prevSeason: prevSeason!,
+          kind: "team",
+          currentRows: teamsWithForcedTurnovers,
+          currentKey: (t) => t.teamId,
+          currentDef: forcedTurnoverDef,
+          prevRows: prevRanking.teamsWithForcedTurnovers,
+          prevKey: (t) => t.teamId,
+          prevDef: prevRanking.forcedTurnoverDef,
+          prevName: renamedTeam,
+        })
+      : null;
+  const compareNotes = (empty: boolean) => (
+    <CompareNotes season={season} prevSeason={prevSeason ?? ""} mode={displayMode === "total" ? "total" : "perGame"} narrowed={conditionActive} kind="team" empty={empty} />
+  );
+
   // 表・画像出力に出すタイトル。カテゴリごとに実際に効いている軸だけを並べる
   // （シューティング・強制ターンオーバーはシーズン通算値のみで、シチュエーション別フィルタ・
   // レギュラー/プレーオフ・自チーム/opp・Q別/前後半は対象外。その旨をラベルで明示する）
@@ -236,6 +424,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     teamDef?.label ?? "",
     composeLabels(
       boxscoreCategoryLabel,
+      compareActive && COMPARE_LABEL,
       displayModeLabels(displayMode),
       gameTypeLabels(gameType, season),
       perspectiveLabels(perspective),
@@ -247,13 +436,13 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     "チーム",
     season,
     shootingDef?.label ?? "",
-    composeLabels(CATEGORY_LABELS.shooting, displayModeLabels(displayMode), SEASON_TOTAL_ONLY_LABELS),
+    composeLabels(CATEGORY_LABELS.shooting, compareActive && COMPARE_LABEL, displayModeLabels(displayMode), SEASON_TOTAL_ONLY_LABELS),
   );
   const teamForcedTurnoverTitle = makeRankingTitle(
     "チーム",
     season,
     forcedTurnoverDef.label,
-    composeLabels(CATEGORY_LABELS.forcedTurnovers, TURNOVER_DIRECTION_LABELS[turnoverDirection], SEASON_TOTAL_ONLY_LABELS),
+    composeLabels(CATEGORY_LABELS.forcedTurnovers, compareActive && COMPARE_LABEL, TURNOVER_DIRECTION_LABELS[turnoverDirection], SEASON_TOTAL_ONLY_LABELS),
   );
 
   // フィルタバー（DESIGN.md 105章）。シューティングは表示（平均/合計）のみ、強制ターンオーバーは
@@ -276,6 +465,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
       ownDivisions: seasonDivisions(divisionHistory, season),
       disabledReason: teamFilterDisabledReason,
     }),
+    compareAxis(compareParam, setCompareParam, compareReason),
   ];
   const clearTeamFilters = () => {
     setGameType("regular");
@@ -283,6 +473,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     setDisplayMode("perGame");
     setPeriod("all");
     setFilter({ range: { kind: "all" } });
+    setCompareParam("off");
     setStatConditions({ ...statConditions, conditions: [] });
   };
 
@@ -354,7 +545,9 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         wide
       />
 
-      {conditionActive && (gameLogsLoading || !gameLogsByTeam) ? (
+      {compareActive && prevRanking.teamsError ? (
+        <p className="error-message">前のシーズンのデータを読み込めませんでした。{prevRanking.teamsError}</p>
+      ) : (conditionActive && (gameLogsLoading || !gameLogsByTeam)) || prevPending ? (
         <p className="loading">読み込み中...</p>
       ) : category === "shooting" ? (
         !shootingDef ? (
@@ -362,11 +555,12 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         ) : (
           <>
             <ExportImageButton targetRef={exportRef} filename={teamShootingTitle.filename} />
-            <div ref={exportRef} className="export-target export-target-compact export-target-rankings-team">
+            <div ref={exportRef} className={`export-target export-target-compact export-target-rankings-team${shootingCompare ? " export-target-compare" : ""}`}>
               <ConditionTitle title={teamShootingTitle.title} conditions={teamShootingTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
               <RankedList
                 statScope="team"
-                rows={teamsWithShotTypes}
+                rows={shootingCompare ? shootingCompare.rows : teamsWithShotTypes}
+                compare={shootingCompare?.compare}
                 def={shootingDef}
                 rowKey={(t) => t.teamId}
                 name={(t) => teamLabel(t.teamId, t.teamName)}
@@ -375,6 +569,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
                 avatar={(t) => <TeamLogo teamId={t.teamId} size={48} />}
                 compact
               />
+              {shootingCompare && compareNotes(shootingCompare.rows.length === 0)}
             </div>
           </>
         )
@@ -384,11 +579,12 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         ) : (
           <>
             <ExportImageButton targetRef={exportRef} filename={teamForcedTurnoverTitle.filename} />
-            <div ref={exportRef} className="export-target export-target-compact export-target-rankings-team">
+            <div ref={exportRef} className={`export-target export-target-compact export-target-rankings-team${turnoverCompare ? " export-target-compare" : ""}`}>
               <ConditionTitle title={teamForcedTurnoverTitle.title} conditions={teamForcedTurnoverTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
               <RankedList
                 statScope="team"
-                rows={teamsWithForcedTurnovers}
+                rows={turnoverCompare ? turnoverCompare.rows : teamsWithForcedTurnovers}
+                compare={turnoverCompare?.compare}
                 def={forcedTurnoverDef}
                 rowKey={(t) => t.teamId}
                 name={(t) => teamLabel(t.teamId, t.teamName)}
@@ -397,6 +593,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
                 avatar={(t) => <TeamLogo teamId={t.teamId} size={48} />}
                 compact
               />
+              {turnoverCompare && compareNotes(turnoverCompare.rows.length === 0)}
             </div>
           </>
         )
@@ -405,11 +602,12 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
       ) : (
         <>
           <ExportImageButton targetRef={exportRef} filename={teamBoxscoreTitle.filename} />
-          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-team">
+          <div ref={exportRef} className={`export-target export-target-compact export-target-rankings-team${boxCompare ? " export-target-compare" : ""}`}>
             <ConditionTitle title={teamBoxscoreTitle.title} conditions={teamBoxscoreTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
             <RankedList
                 statScope="team"
-              rows={boxRows}
+              rows={boxCompare ? boxCompare.rows : boxRows}
+              compare={boxCompare?.compare}
               def={teamDef}
               rowKey={(r) => r.team.teamId}
               name={(r) => teamLabel(r.team.teamId, r.team.teamName)}
@@ -419,6 +617,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
               compact
             />
             {category === "misc" && isRuleChangeStatKey(teamDef.key) && <RuleChangeFootnote seasons={[season]} />}
+            {boxCompare && compareNotes(boxCompare.rows.length === 0)}
           </div>
         </>
       )}
@@ -517,6 +716,40 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     statConditions,
   });
   const positionOptions = useMemo(() => positionFilterOptions(players, positions), [players, positions]);
+
+  // 前シーズン比較（DESIGN.md 218章）。試合の条件・試合区分・平均/合計・登録区分（日本人／外国籍・帰化・アジア）・ポジション・掲載基準は前季にも同じように当てはめ、
+  // スタッツの条件とルーキーは今季だけに当てはめる（前季に条件を満たさなかった選手を、比較から外さないため）。前季のデータは、比較をオンにしたときだけ読む
+  const [compareParam, setCompareParam] = useUrlState(COMPARE_PARAM, "off");
+  const prevSeason = previousSeason(season);
+  const compareReason = compareUnsupportedReason({
+    season,
+    categoryKind: category === "profile" || category === "career" ? "registered" : category === "shooting" ? "seasonTotal" : "boxscore",
+    statKey,
+    filter,
+    gameType,
+    period,
+    prevDivisions: prevSeason && divisionHistory ? seasonDivisions(divisionHistory, prevSeason) : null,
+  });
+  const compareActive = compareParam === "on" && !compareReason && prevSeason !== null;
+  useCompareCleanup(season, compareParam, () => setCompareParam("off"));
+  const prevRanking = usePlayerSeasonRanking(
+    prevSeason ?? season,
+    {
+      category,
+      statKey,
+      gamesRatio,
+      extraThreshold,
+      group: selectedClassification === "rookie" ? "all" : selectedClassification,
+      rookieIds: null,
+      positions,
+      filter,
+      gameType,
+      displayMode,
+      period,
+      statConditions: DEFAULT_STAT_CONDITIONS,
+    },
+    { enabled: compareActive, skipConditionItems: true },
+  );
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
   useFoulConditionCleanup(season, statConditions, setStatConditions);
   useFoulStatKeyCleanup(season, statKey, () => setStatKey(defaultPlayerStat));
@@ -550,7 +783,26 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const profileBaseDateLabel = category === "profile" && selectedItem.key === "age" ? ageBaseDateLabel(season) : null;
 
   const extraRule = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)];
-  const waitingForGameLogs = (rookieActive && rookies.loading) || waiting;
+  const waitingForGameLogs = (rookieActive && rookies.loading) || waiting || (compareActive && prevRanking.waiting && !prevRanking.playersError);
+  const teamLabelOf = teamLabel;
+  const comparison =
+    compareActive && prevSeason && !waitingForGameLogs && !ddtdPeriodOff
+      ? compareView({
+          prevSeason,
+          kind: "player",
+          currentRows: shownRows,
+          currentKey: (p) => p.playerId,
+          currentDef: rankDef,
+          prevRows: prevRanking.rows,
+          prevKey: (p) => p.playerId,
+          prevDef: prevRanking.rankDef,
+          prevName: (p, prev) => {
+            const cur = clubOf(p);
+            const before = prevRanking.clubOf(prev);
+            return before.teamId !== cur.teamId ? teamLabelOf(before.teamId, before.teamName) : undefined;
+          },
+        })
+      : null;
 
   if (playersLoading) return <p className="loading">読み込み中...</p>;
   if (playersError) return <p className="error-message">{playersError}</p>;
@@ -585,6 +837,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     selectedItem.label,
     composeLabels(
       playerCategoryLabel,
+      compareActive && COMPARE_LABEL,
       // Career は、そのシーズンの登録選手を、そのシーズン終了時点の累計で並べる（通算記録の「歴代」と区別する。DESIGN.md 193章）
       category === "career" ? "シーズン終了時点の累計" : [],
       // 登録区分は選手名の下に書かないので、指定したときはタイトルの下の行に書く（「全選手」は書かない。DESIGN.md 170章）
@@ -683,6 +936,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       disabledReason: playerFilterDisabledReason,
     }),
     eligibilityAxis,
+    compareAxis(compareParam, setCompareParam, compareReason),
   ];
   const clearPlayerFilters = () => {
     setSelectedGroup("all");
@@ -691,6 +945,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     setDisplayMode("perGame");
     setPeriod("all");
     setFilter({ range: { kind: "all" } });
+    setCompareParam("off");
     eligibilityAxis.onChange("");
     setStatConditions({ ...statConditions, conditions: [] });
   };
@@ -759,7 +1014,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 
       <div className="filter-block">
         <p className="page-subtitle">
-          対象{conditionActive ? shownRows.length : eligible.length}名中、上位{PLAYER_RANK_TOP_N}名を表示
+          対象{comparison ? comparison.rows.length : conditionActive ? shownRows.length : eligible.length}名中、上位{PLAYER_RANK_TOP_N}名を表示
+          {comparison && `（今季・前季（${prevSeason}）とも掲載基準を満たす選手）`}
           {conditionActive && "（スタッツの条件で絞り込んだ中での順位）"}
         </p>
         {(needsGameLogRecompute || periodActive) && ["eff", "per", "ppp"].includes(selectedItem.key) && (
@@ -771,6 +1027,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 
       {rookieActive && rookies.error ? (
         <p className="error-message">ルーキーの一覧を読み込めませんでした。{rookies.error}</p>
+      ) : compareActive && prevRanking.playersError ? (
+        <p className="error-message">前のシーズンのデータを読み込めませんでした。{prevRanking.playersError}</p>
       ) : waitingForGameLogs ? (
         <p className="loading">読み込み中...</p>
       ) : ddtdPeriodOff ? (
@@ -778,7 +1036,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       ) : (
         <>
           <ExportImageButton targetRef={exportRef} filename={playerTitle.filename} />
-          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
+          <div ref={exportRef} className={`export-target export-target-compact export-target-rankings-player${comparison ? " export-target-compare" : ""}`}>
             <ConditionTitle
               title={playerTitle.title}
               conditions={playerTitle.conditions}
@@ -786,7 +1044,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
             />
             {profileBaseDateLabel && <p className="rule-change-footnote ranking-base-date">{profileBaseDateLabel}</p>}
             <RankedList
-              rows={shownRows}
+              rows={comparison ? comparison.rows : shownRows}
+              compare={comparison?.compare}
               def={rankDef}
               rowKey={(p) => p.playerId}
               name={(p) => playerLabel(p.name)}
@@ -815,6 +1074,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
             {category === "career" && <p className="rule-change-footnote">※ {CAREER_NOTE}</p>}
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
             {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
+            {comparison && <CompareNotes season={season} prevSeason={prevSeason!} mode={rankMode} narrowed={rookieActive || conditionActive} kind="player" empty={comparison.rows.length === 0} />}
           </div>
         </>
       )}

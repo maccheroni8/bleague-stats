@@ -8,6 +8,7 @@ import { foulColumnsSplit, foulKeyVisible } from "./ruleChange";
 import type { StatConditionsState } from "./statConditions";
 import { rookieSupportedSeason } from "./rookieFilter";
 import type { PlayerGroupFilter } from "./classificationFilter";
+import { previousSeason } from "./seasonCompare";
 
 /**
  * シーズンを変えたとき（とURLを直接開いたとき）に、そのシーズンでは意味が変わるフィルタを外す（DESIGN.md 164章）。
@@ -192,5 +193,21 @@ export function useFoulStatKeyCleanup(season: string, statKey: string, resetStat
     if (checkedSeasonRef.current === season) return;
     checkedSeasonRef.current = season;
     if (!foulKeyVisible(latest.current.statKey, foulColumnsSplit([season]))) latest.current.resetStatKey();
+  }, [season]);
+}
+
+/**
+ * 前シーズン比較（cmp=1）は、前のシーズンが無いシーズン（2016-17）に切り替えたとき（とページを開いたとき）に外す（DESIGN.md 218章）。
+ * 外したことは知らせない（165章）。確かめるのはシーズンが変わったときとページを開いたときの1回だけ（手で選び直した値はその場では外さない）。
+ * ほかの理由（Q別・前後半、期間指定、カテゴリなど）で比較が使えないときは、URLの値は残し、使えるようになれば比較に戻る
+ */
+export function useCompareCleanup(season: string, value: "off" | "on", reset: () => void): void {
+  const checkedSeasonRef = useRef<string | null>(null);
+  const latest = useRef({ value, reset });
+  latest.current = { value, reset };
+  useEffect(() => {
+    if (checkedSeasonRef.current === season) return;
+    checkedSeasonRef.current = season;
+    if (latest.current.value === "on" && previousSeason(season) === null) latest.current.reset();
   }, [season]);
 }

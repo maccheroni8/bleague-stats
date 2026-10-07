@@ -520,6 +520,7 @@ export function usePlayerSeasonRanking(
     const missing = eligible.filter((p) => !fetchedPlayerIdsRef.current.has(p.playerId));
     if (missing.length === 0) return;
     let cancelled = false;
+    let completed = false;
     setGameLogsLoading(true);
     for (const p of missing) fetchedPlayerIdsRef.current.add(p.playerId);
     Promise.all(
@@ -533,6 +534,7 @@ export function usePlayerSeasonRanking(
     )
       .then((results) => {
         if (cancelled) return;
+        completed = true;
         setGameLogsByPlayer((prev) => {
           const next = new Map(prev ?? []);
           for (const [id, logs] of results) next.set(id, logs);
@@ -544,6 +546,9 @@ export function usePlayerSeasonRanking(
       });
     return () => {
       cancelled = true;
+      // 読み込みの途中で対象の選手が変わったとき（シーズンを切り替えた直後に、選手一覧とチーム一覧が別々に読み込まれる間など）は、
+      // 捨てた分を取得済みにしたままにしない（次の対象に入っていれば、もう一度取得する。取りこぼした選手が順位から抜けるのを防ぐ。DESIGN.md 218章）
+      if (!completed) for (const p of missing) fetchedPlayerIdsRef.current.delete(p.playerId);
     };
   }, [needsGameLogRecompute, eligible, season]);
 

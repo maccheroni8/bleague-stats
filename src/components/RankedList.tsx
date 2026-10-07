@@ -3,6 +3,7 @@ import { SeasonLink as Link } from "./SeasonLink";
 import { ExternalLinkIcon } from "./ExternalLinkIcon";
 import { StatHeaderLabel } from "./StatHeaderLabel";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
+import { rankPositions } from "../lib/seasonCompare";
 
 /**
  * RankedListが実際に使う最小限の形（key/label/value/format）。statDefs.tsのStatDef<T>は
@@ -18,6 +19,25 @@ export interface RankableStat<T> {
   /** falseならDRtg・opp PTS等のように値が小さいほど良い項目（未指定はtrue扱い）。
    * teamStatsColumns.tsのColumn.higherIsBetterをそのまま引き継ぐ */
   higherIsBetter?: boolean;
+}
+
+/**
+ * 前シーズン比較の列（DESIGN.md 218章）。今季の値の右に「前季の値」「前季の順位」「差」を出す。
+ * rows には両方のシーズンにある行だけを渡す。値で並べているときの # は、今季のランキング全体（rankPool）での順位にして、前季の順位と同じ基準で比べられるようにする
+ */
+export interface RankCompare<T> {
+  prevLabel: string;
+  prevRankLabel: string;
+  /** 前季の順位の列見出しのツールチップ（どの範囲での順位か） */
+  prevRankTitle: string;
+  diffLabel: string;
+  /** 前季の値（名称が今季と違うクラブは、下の行に当時の名称を添える） */
+  prevCell: (row: T) => ReactNode;
+  prevRank: (row: T) => number;
+  diff: (row: T) => number;
+  diffText: (row: T) => string;
+  tone: (row: T) => "good" | "bad" | "flat";
+  rankPool: T[];
 }
 
 export interface RankedListProps<T> {
@@ -49,6 +69,8 @@ export interface RankedListProps<T> {
   renderValue?: (row: T) => ReactNode;
   /** false なら見出しクリックでの昇順/降順の切り替えをしない（上位だけを書き出した一覧は、逆順にしても意味が無い） */
   sortable?: boolean;
+  /** 前シーズン比較の列（個人・チームのランキング（シーズン成績）だけ） */
+  compare?: RankCompare<T>;
 }
 
 /** defの向き（higherIsBetter）から導く、そのdefにとって「正しい」既定のソート方向 */
@@ -74,6 +96,7 @@ export function RankedList<T>({
   sortable = true,
   subLinkTo,
   renderValue,
+  compare,
 }: RankedListProps<T>) {
   const unit = unitProp ?? (statScope === "team" ? "チーム" : "人");
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
@@ -82,6 +105,8 @@ export function RankedList<T>({
   // 項目（def.key）や向き（def.higherIsBetter、自チーム/opp/+/-トグルで変わりうる）が変わったら
   // 手動での反転状態をリセットし、常に新しい項目の「正しい既定順」から始める
   const [sortDir, setSortDir] = useState<"asc" | "desc">(() => defaultSortDir(def));
+  // 並べ替えの基準: 今季の値、または前季との差（比較をオンにしたときだけ）。差は大きい順が初期値
+  const [sortBy, setSortBy] = useState<"value" | "diff">("value");
   const [tiesExpanded, setTiesExpanded] = useState(false);
   const prevIdentityRef = useRef(`${def.key}:${def.higherIsBetter}`);
   useEffect(() => {
@@ -89,21 +114,33 @@ export function RankedList<T>({
     if (prevIdentityRef.current !== identity) {
       prevIdentityRef.current = identity;
       setSortDir(defaultSortDir(def));
+      setSortBy("value");
       setTiesExpanded(false);
     }
   }, [def]);
+  const bySortDiff = !!compare && sortBy === "diff";
 
   const factor = sortDir === "asc" ? 1 : -1;
-  const sorted = [...rows].sort((a, b) => (def.value(a) - def.value(b)) * factor);
+  const sorted = bySortDiff
+    ? [...rows].sort((a, b) => (compare.diff(a) - compare.diff(b)) * factor)
+    : [...rows].sort((a, b) => (def.value(a) - def.value(b)) * factor);
   // 順位（DESIGN.md 146章）: 同じ値は同じ順位にし、次の順位はその分飛ばす（1位・2位・2位・4位）。
   // 同じかどうかは画面に表示している値（def.format。小数は丸めた後）で判定する。limit の境目で同じ順位が続く分は、
-  // 「同じ順位のほか◯人を表示」で広げる
-  const ranks = sorted.map((row) => (tieKey ?? def.format)(row));
+  // 「同じ順位のほか◯人を表示」で広げる。差で並べているときは、差の表示値で判定する
+  const ranks = sorted.map((row) => (bySortDiff ? compare.diffText(row) : (tieKey ?? def.format)(row)));
   const rankAt = (i: number): number => {
     let j = i;
     while (j > 0 && ranks[j - 1] === ranks[i]) j -= 1;
     return j + 1;
   };
+  // 比較中に値で並べているときは、今季のランキング全体での順位（前季の順位と同じ基準）
+  const poolRankByKey = (() => {
+    if (!compare || bySortDiff) return null;
+    const pool = [...compare.rankPool].sort((a, b) => (def.value(a) - def.value(b)) * factor);
+    const poolRanks = rankPositions(pool.map((row) => (tieKey ?? def.format)(row)));
+    return new Map(pool.map((row, i) => [rowKey(row), poolRanks[i]!]));
+  })();
+  const rankOf = (i: number): number => poolRankByKey?.get(rowKey(sorted[i]!)) ?? rankAt(i);
   // 同じ順位が境目をまたぐ分（limit より後ろで、limit 番目と同じ値の行）
   let tieEnd = limit ?? sorted.length;
   if (limit !== undefined && limit > 0) {
@@ -113,24 +150,55 @@ export function RankedList<T>({
   const shownCount = limit === undefined ? sorted.length : tiesExpanded ? tieEnd : limit;
   const limited = sorted.slice(0, shownCount);
   const toggleSortDir = () => {
-    if (sortable) setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    if (!sortable) return;
+    if (bySortDiff) {
+      // 差で並べているときに今季の値の見出しを押したら、今季の値の並び（良い方が先）に戻す
+      setSortBy("value");
+      setSortDir(defaultSortDir(def));
+      return;
+    }
+    setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+  };
+  const toggleDiffSort = () => {
+    if (!sortable || !compare) return;
+    if (bySortDiff) setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    else {
+      setSortBy("diff");
+      setSortDir("desc");
+    }
   };
   return (
     <div className="table-scroll">
-      <table className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}`}>
+      <table className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}${compare ? " rankings-table-compare" : ""}`}>
         <thead>
           <tr>
             <th className="align-right">#</th>
             <th className="align-left">名前</th>
             <th
-              className="align-right"
+              className={`align-right${compare ? " rank-cur-head" : ""}`}
               title={statDescription(def.label, statScope)}
               onClick={sortable ? toggleSortDir : undefined}
-              aria-sort={sortable ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
+              aria-sort={sortable && !bySortDiff ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
             >
               <StatHeaderLabel label={def.label} />
-              {sortable && (sortDir === "asc" ? " ▲" : " ▼")}
+              {sortable && !bySortDiff && (sortDir === "asc" ? " ▲" : " ▼")}
             </th>
+            {compare && (
+              <>
+                <th className="align-right rank-prev-head">{compare.prevLabel}</th>
+                <th className="align-right rank-prevrank-head" title={compare.prevRankTitle}>
+                  {compare.prevRankLabel}
+                </th>
+                <th
+                  className="align-right rank-diff-head"
+                  onClick={sortable ? toggleDiffSort : undefined}
+                  aria-sort={sortable && bySortDiff ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
+                >
+                  {compare.diffLabel}
+                  {sortable && bySortDiff && (sortDir === "asc" ? " ▲" : " ▼")}
+                </th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -142,7 +210,7 @@ export function RankedList<T>({
                   className={`align-right rank-cell${accent ? " row-accent-cell" : ""}`}
                   style={accent ? { borderLeftColor: accent } : undefined}
                 >
-                  {rankAt(i)}
+                  {rankOf(i)}
                 </td>
                 <td className={`align-left${externalLinkTo?.(row) ? " has-external-link" : ""}`}>
                   {(() => {
@@ -191,6 +259,13 @@ export function RankedList<T>({
                   )}
                 </td>
                 <td className="align-right rank-value">{renderValue ? renderValue(row) : def.format(row)}</td>
+                {compare && (
+                  <>
+                    <td className="align-right rank-prev">{compare.prevCell(row)}</td>
+                    <td className="align-right rank-prevrank">{compare.prevRank(row)}</td>
+                    <td className={`align-right rank-diff rank-diff-${compare.tone(row)}`}>{compare.diffText(row)}</td>
+                  </>
+                )}
               </tr>
             );
           })}
@@ -199,7 +274,7 @@ export function RankedList<T>({
       {/* 保存する画像にはボタンを写さず、代わりに「20位タイ ほか1人」を出す（.export-rendering の中だけ表示。DESIGN.md 170章） */}
       {hiddenTies > 0 && !tiesExpanded && limit !== undefined && (
         <p className="export-only ranking-ties-note">
-          {rankAt(limit - 1)}位タイ ほか{hiddenTies}
+          {rankOf(limit - 1)}位タイ ほか{hiddenTies}
           {unit}
         </p>
       )}
@@ -208,7 +283,7 @@ export function RankedList<T>({
           {tiesExpanded
             ? `上位${limit}${(unit === "試合" || unit === "シーズン") ? "件" : unit}だけを表示`
             : (unit === "試合" || unit === "シーズン")
-              ? `${rankAt(limit! - 1)}位タイ ほか${hiddenTies}${unit}を表示`
+              ? `${rankOf(limit! - 1)}位タイ ほか${hiddenTies}${unit}を表示`
               : `同じ順位のほか${hiddenTies}${unit}を表示`}
         </button>
       )}
