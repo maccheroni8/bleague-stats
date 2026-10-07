@@ -594,7 +594,7 @@ export function usePlayerSeasonRanking(
     return [...keys];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effPeriodActive, gameLogsByPlayer, eligible, filtersApply, filter, gameType, opponentRecords, divisionHistory, season, playerOwnTeamOf]);
-  const { gamesByScheduleKey, loading: rawGamesLoading } = useLeagueRawGames(season, requestedScheduleKeys);
+  const { gamesByScheduleKey, loading: rawGamesLoading, failedCount: rawGamesFailedCount, retry: retryRawGames } = useLeagueRawGames(season, requestedScheduleKeys);
   const periodDataReady = !effPeriodActive || requestedScheduleKeys.every((k) => gamesByScheduleKey.has(k));
 
   const seasonStartYear = Number(season.split("-")[0]);
@@ -831,5 +831,7 @@ export function usePlayerSeasonRanking(
     divisionHistory,
     opponentRecords,
     waiting,
+    rawGamesFailedCount: effPeriodActive && !rawGamesLoading ? rawGamesFailedCount : 0,
+    retryRawGames,
   };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchDivisionHistory, fetchGame, fetchGameSummaries, fetchTeamGameLogs } from "./data";
 import {
   buildGameTeamsByScheduleKey,
@@ -107,14 +107,18 @@ export function useLeagueSituationalContext(
  * DESIGN.md参照）。requestedScheduleKeysが空配列（＝トグルが「試合」のまま）の間は
  * 何も取得しない。一度取得したscheduleKeyはseasonが変わらない限り再取得しない
  * （フィルタ・カテゴリ切替でrequestedScheduleKeysの中身が変わっても、既に取得済みの
- * キーは飛ばして差分だけ追加取得する）
+ * キーは飛ばして差分だけ追加取得する）。
+ * 1回やり直しても読めなかった試合は取得済みにせず、failedCount（求めている試合のうち読めなかった数）で知らせる。
+ * retry() で、読めなかった試合だけをもう一度取りに行く
  */
 export function useLeagueRawGames(
   season: string,
   requestedScheduleKeys: string[],
-): { gamesByScheduleKey: Map<string, StoredGame>; loading: boolean } {
+): { gamesByScheduleKey: Map<string, StoredGame>; loading: boolean; failedCount: number; retry: () => void } {
   const [gamesByScheduleKey, setGamesByScheduleKey] = useState<Map<string, StoredGame>>(new Map());
   const [loading, setLoading] = useState(false);
+  const [failedKeys, setFailedKeys] = useState<ReadonlySet<string>>(new Set());
+  const [retryNonce, setRetryNonce] = useState(0);
   const fetchedRef = useRef<Set<string>>(new Set());
   const seasonRef = useRef(season);
   // 読み込み中のまとまりの数（条件を変えて対象の試合が変わると、前のまとまりと新しいまとまりが重なって動く）
@@ -125,6 +129,7 @@ export function useLeagueRawGames(
     seasonRef.current = season;
     fetchedRef.current = new Set();
     setGamesByScheduleKey(new Map());
+    setFailedKeys(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [season]);
 
@@ -135,9 +140,10 @@ export function useLeagueRawGames(
     const fetchSeason = season;
     inFlightRef.current += 1;
     setLoading(true);
+    setFailedKeys((prev) => (missing.some((k) => prev.has(k)) ? new Set([...prev].filter((k) => !missing.includes(k))) : prev));
     Promise.all(
       missing.map(async (scheduleKey): Promise<readonly [string, StoredGame] | null> => {
-        // 同時に多数読むと一部が失敗することがあるので、1回だけやり直す（失敗した試合は取得済みとして記録しているため、読めないと表が「読み込み中」のまま止まる）
+        // 同時に多数読むと一部が失敗することがあるので、1回だけやり直す
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
             return [scheduleKey, await fetchGame(fetchSeason, scheduleKey)] as const;
@@ -157,13 +163,22 @@ export function useLeagueRawGames(
           for (const r of results) if (r) next.set(r[0], r[1]);
           return next;
         });
+        // 読めなかった試合は取得済みから外し（retry() かあとの条件の変更でもう一度読めるように）、失敗として記録する
+        const failed = missing.filter((_, i) => results[i] === null);
+        if (failed.length > 0) {
+          for (const k of failed) fetchedRef.current.delete(k);
+          setFailedKeys((prev) => new Set([...prev, ...failed]));
+        }
       })
       .finally(() => {
         inFlightRef.current -= 1;
         if (inFlightRef.current === 0) setLoading(false);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestedScheduleKeys.join("|"), season]);
+  }, [requestedScheduleKeys.join("|"), season, retryNonce]);
 
-  return { gamesByScheduleKey, loading };
+  const failedCount = useMemo(() => requestedScheduleKeys.filter((k) => failedKeys.has(k)).length, [requestedScheduleKeys, failedKeys]);
+  const retry = useCallback(() => setRetryNonce((n) => n + 1), []);
+
+  return { gamesByScheduleKey, loading, failedCount, retry };
 }

@@ -180,6 +180,21 @@ function CompareNotes({
   );
 }
 
+/**
+ * Q別・前後半の表で、やり直しても読めなかった試合があるとき。読めた分だけで表を出すと値が欠けて誤解を招くため、表は出さない。
+ * 再読み込みは、読めなかった試合だけをもう一度取りに行く
+ */
+function RawGamesFailure({ count, onRetry }: { count: number; onRetry: () => void }) {
+  return (
+    <div className="error-message">
+      <p>{count}試合の記録を読み込めませんでした。Q別・前後半の表は、全試合がそろわないと値が欠けてしまうため、表示していません。</p>
+      <button type="button" className="load-more-button" onClick={onRetry}>
+        再読み込み
+      </button>
+    </div>
+  );
+}
+
 /** 前シーズン比較の軸（ランキングのシーズン成績の個人・チーム）。使えないときは、理由つきで無効にする */
 function compareAxis(value: "off" | "on", onChange: (v: "off" | "on") => void, disabledReason: string | null): FilterAxis {
   return simpleSelectAxis({
@@ -294,6 +309,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     periodOption,
     foulSplit,
     rawGamesLoading,
+    rawGamesFailedCount,
+    retryRawGames,
     periodDataReady,
     conditionItems,
     conditionActive,
@@ -570,6 +587,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
             </div>
           </>
         )
+      ) : rawGamesFailedCount > 0 ? (
+        <RawGamesFailure count={rawGamesFailedCount} onRetry={retryRawGames} />
       ) : gameLogsLoading || !gameLogsByTeam || !teamDef || rawGamesLoading || !periodDataReady ? (
         <p className="loading">読み込み中...</p>
       ) : (
@@ -674,6 +693,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     divisionHistory,
     opponentRecords,
     waiting,
+    rawGamesFailedCount,
+    retryRawGames,
   } = usePlayerSeasonRanking(season, {
     category,
     statKey,
@@ -994,6 +1015,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         <p className="error-message">ルーキーの一覧を読み込めませんでした。{rookies.error}</p>
       ) : compareActive && prevRanking.playersError ? (
         <p className="error-message">前のシーズンのデータを読み込めませんでした。{prevRanking.playersError}</p>
+      ) : rawGamesFailedCount > 0 ? (
+        <RawGamesFailure count={rawGamesFailedCount} onRetry={retryRawGames} />
       ) : waitingForGameLogs ? (
         <p className="loading">読み込み中...</p>
       ) : ddtdPeriodOff ? (

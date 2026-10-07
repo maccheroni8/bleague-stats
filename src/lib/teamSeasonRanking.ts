@@ -159,7 +159,7 @@ export function useTeamSeasonRanking(
     for (const logs of scopedLogsByTeam.values()) for (const g of logs) keys.add(g.scheduleKey);
     return [...keys];
   }, [periodOption, scopedLogsByTeam]);
-  const { gamesByScheduleKey, loading: rawGamesLoading } = useLeagueRawGames(season, requestedScheduleKeys);
+  const { gamesByScheduleKey, loading: rawGamesLoading, failedCount: rawGamesFailedCount, retry: retryRawGames } = useLeagueRawGames(season, requestedScheduleKeys);
   const periodDataReady = periodOption.periods === null || requestedScheduleKeys.every((k) => gamesByScheduleKey.has(k));
 
   const rows: AllTeamsRow[] = useMemo(() => {
@@ -304,6 +304,8 @@ export function useTeamSeasonRanking(
     foulSplit,
     paintSupported,
     rawGamesLoading,
+    rawGamesFailedCount: rawGamesLoading ? 0 : rawGamesFailedCount,
+    retryRawGames,
     periodDataReady,
     conditionItems,
     conditionActive,
