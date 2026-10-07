@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFoulConditionCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { foulColumnsSplit } from "../lib/ruleChange";
+import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTotals";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { postseasonLabel } from "../../shared/gameType";
@@ -842,6 +843,17 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   // 全選手を対象に機能するようにするため）。シチュエーション別フィルタ選択時は、絞り込んだ
   // 試合ログの合算値（+その試合に絞ったチーム総計、個人詳細ページ「シチュエーション別成績」と
   // 同じsumTeamGameLogsFor方式）からctxを組み立てる
+  // シーズンの途中で移籍した選手の分母（所属期間ごとの、所属した各チームの合計。DESIGN.md 213・216章）に使う、チームごとの絞り込み済みの試合ログ
+  const scopedTeamLogsByTeamId = useMemo(() => {
+    if (!filterActive || !teamGameLogsByTeam) return null;
+    const map = new Map<string, TeamGameLog[]>();
+    for (const [teamId, teamLogs] of teamGameLogsByTeam) {
+      const situational = filterGameLogs(teamLogs, { ...situationalFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => teamId);
+      map.set(teamId, filterByGameType(situational, gameType));
+    }
+    return map;
+  }, [filterActive, teamGameLogsByTeam, situationalFilter, gameType, opponentRecords, divisionHistory, season]);
+
   const rows: PlayerRow[] = useMemo(
     () =>
       filteredPlayers.map((p) => {
@@ -856,14 +868,19 @@ function AllPlayersStatsTab({ season }: { season: string }) {
           const raw = sumPlayerGameLogs(filteredLogs);
           const scheduleKeys = new Set(filteredLogs.map((g) => g.scheduleKey));
           const teamLogs = teamGameLogsByTeam?.get(p.teamId) ?? [];
-          const team = sumTeamGameLogsFor(teamLogs, scheduleKeys);
+          const team =
+            (scopedTeamLogsByTeamId && ownTeamOf ? teamTotalsForTransferredPlayer(logs, filteredLogs, ownTeamOf, scopedTeamLogsByTeamId) : null) ??
+            sumTeamGameLogsFor(teamLogs, scheduleKeys);
           return { player: p, ctx: buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear) };
         }
         // 絞り込みなし（試合種別＝レギュラー）の経路。チーム総計（teams.json）がレギュラーのみのため、
         // 選手側の試合ログもレギュラーに揃える（Misc/スコアリングタブはこの経路）
         const raw = sumPlayerGameLogs(filterByGameType(logs, "regular"));
         const teamTotals = teamTotalsById.get(p.teamId);
-        const team: TeamSeasonRawTotals = teamTotals
+        // 移籍した選手の分母は、集計済みの値（players.json の transferredTeamTotals）を使う
+        const team: TeamSeasonRawTotals = p.transferredTeamTotals
+          ? p.transferredTeamTotals
+          : teamTotals
           ? {
               ...EMPTY_TEAM_TOTALS,
               pts: teamTotals.pts,
@@ -890,6 +907,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       divisionHistory,
       season,
       teamGameLogsByTeam,
+      scopedTeamLogsByTeamId,
       displayMode,
     ],
   );

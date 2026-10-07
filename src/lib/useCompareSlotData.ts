@@ -28,6 +28,7 @@ import {
   buildTeamSplitRows,
   filterByGameType,
   sumTeamTotalsForLogs,
+  transferredCombinedTeam,
   type SeasonGameTypeFilter,
   type TeamGameBoxTotals,
 } from "./playerSeasonBoxscore";
@@ -327,14 +328,25 @@ export function usePlayerCompareSlot({
     const played = filtered.filter((g) => g.min > 0);
     const teamTotals = sumTeamTotalsForLogs(filtered, base.ownTeamByScheduleKey, base.teamLogsByTeamId);
     const seasonStartYear = Number(season.split("-")[0]);
-    const rows = buildTeamSplitRows("slot", filtered, base.ownTeamByScheduleKey, teamTotals, "perGame", seasonStartYear);
+    // シーズンの途中で移籍した選手の分母は、所属期間ごとの、所属した各チームの合計（条件に当てはまるチームの試合だけ。DESIGN.md 216章）
+    const scopedTeamLogs = new Map(
+      [...base.teamLogsByTeamId].map(([teamId, teamLogs]) => [
+        teamId,
+        filterByGameType(
+          filterGameLogs(teamLogs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => teamId),
+          gameType,
+        ),
+      ]),
+    );
+    const combinedTeam = transferredCombinedTeam(base.logs, filtered, base.ownTeamByScheduleKey, scopedTeamLogs);
+    const rows = buildTeamSplitRows("slot", filtered, base.ownTeamByScheduleKey, teamTotals, "perGame", seasonStartYear, combinedTeam);
     const combined = rows[rows.length - 1];
     if (!combined) return null;
     const latest = [...played].sort((a, b) => b.date.localeCompare(a.date))[0];
     const latestTeamId = latest ? (base.ownTeamByScheduleKey.get(latest.scheduleKey)?.teamId ?? null) : null;
     const teamIds = rows.filter((r) => !r.isCombined && r.teamId).map((r) => r.teamId!);
     return { ctx: combined.ctx, latestTeamId, teamIds };
-  }, [base, filtered, season]);
+  }, [base, filtered, season, filter, gameType, opponentRecords, divisionHistory]);
 
   let status: SlotStatus;
   if (!active) status = "idle";
