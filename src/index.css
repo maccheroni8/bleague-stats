@@ -2246,13 +2246,13 @@ table.compare-table th .compare-season-tag {
   max-width: 100%;
 }
 
-/* 前シーズン比較は列が3つ増えるので、保存範囲（表＋タイトル）の幅を広げる（DESIGN.md 218章） */
+/* 前シーズン比較は列が2つ増えるので、保存範囲（表＋タイトル）の幅を広げる（DESIGN.md 218章） */
 .export-target-compact.export-target-compare.export-target-rankings-team {
-  width: 680px;
+  width: 600px;
 }
 
 .export-target-compact.export-target-compare.export-target-rankings-player {
-  width: 800px;
+  width: 700px;
 }
 
 table.rankings-table-compact {
@@ -2367,8 +2367,8 @@ table.rankings-table-compact th:last-child .stat-header-wrap {
   }
 }
 
-/* 前シーズン比較（DESIGN.md 218章）。今季の値の右に「前季の値」「前季の順位」「差」を並べる。値の列の幅（th:last-child）は、差の列に付け替える。
- * スマホ幅（560px以下）は「前季」と「差」の2列にして、前季の順位は省く */
+/* 前シーズン比較（DESIGN.md 218章）。今季の値の右に「前季の値」「差」を並べる。値の列の幅（th:last-child）は、差の列に付け替える。
+ * スマホ幅（560px以下）は、名前の列に幅を残すため写真・ロゴを出さない */
 :root {
   --diff-good: #17803d;
   --diff-bad: #c62828;
@@ -2395,12 +2395,6 @@ table.rankings-table-compact.rankings-table-compare th.rank-prev-head {
   width: 96px;
 }
 
-table.rankings-table-compact.rankings-table-compare th.rank-prevrank-head {
-  width: 68px;
-  white-space: nowrap;
-  cursor: help;
-}
-
 table.rankings-table-compact.rankings-table-compare th.rank-diff-head {
   width: 88px;
   padding-left: 8px;
@@ -2409,7 +2403,6 @@ table.rankings-table-compact.rankings-table-compare th.rank-diff-head {
 
 table.rankings-table-compact.rankings-table-compare td.rank-value,
 table.rankings-table-compact.rankings-table-compare td.rank-prev,
-table.rankings-table-compact.rankings-table-compare td.rank-prevrank,
 table.rankings-table-compact.rankings-table-compare td.rank-diff {
   padding-left: 8px;
   font-variant-numeric: tabular-nums;
@@ -2418,10 +2411,6 @@ table.rankings-table-compact.rankings-table-compare td.rank-diff {
 .rankings-table-compare td.rank-prev {
   color: var(--muted);
   font-weight: 600;
-}
-
-.rankings-table-compare td.rank-prevrank {
-  color: var(--muted);
 }
 
 .rankings-table-compare td.rank-diff {
@@ -2440,20 +2429,7 @@ table.rankings-table-compact.rankings-table-compare td.rank-diff {
   color: var(--muted);
 }
 
-/* 前季の値の下の行（前季のクラブ・チーム名が今季と違うとき） */
-.rankings-table-compare .rank-prev-club {
-  display: block;
-  font-weight: 400;
-  white-space: normal;
-  line-height: 1.25;
-}
-
 @media (max-width: 560px) {
-  .rankings-table-compare th.rank-prevrank-head,
-  .rankings-table-compare td.rank-prevrank {
-    display: none;
-  }
-
   table.rankings-table-compact.rankings-table-compare th:first-child {
     width: 26px;
   }
@@ -2491,11 +2467,11 @@ table.rankings-table-compact.rankings-table-compare td.rank-diff {
 
 /* 保存する画像（比較あり）は、列が増えるぶん保存範囲の幅を広げる */
 .export-rendering.export-target-compare.export-target-rankings-player {
-  --export-rank-width: 940px;
+  --export-rank-width: 860px;
 }
 
 .export-rendering.export-target-compare.export-target-rankings-team {
-  --export-rank-width: 780px;
+  --export-rank-width: 700px;
 }
 
 .export-rendering table.rankings-table-compact.rankings-table-compare th.rank-cur-head,
@@ -2503,22 +2479,13 @@ table.rankings-table-compact.rankings-table-compare td.rank-diff {
   width: 130px;
 }
 
-.export-rendering table.rankings-table-compact.rankings-table-compare th.rank-prevrank-head {
-  width: 90px;
-}
-
-.export-rendering table.rankings-table-compact.rankings-table-compare th.rank-diff-head {
+.export-rendering .export-rendering table.rankings-table-compact.rankings-table-compare th.rank-diff-head {
   width: 110px;
 }
 
 .export-rendering .rankings-table-compare td.rank-prev,
-.export-rendering .rankings-table-compare td.rank-prevrank,
 .export-rendering .rankings-table-compare td.rank-diff {
   font-size: var(--export-rank-value);
-}
-
-.export-rendering .rankings-table-compare .rank-prev-club {
-  font-size: var(--export-rank-sub);
 }
 
 /* 表・画像出力の直上に置く「タイトル＋選択中の条件」（ConditionTitle.tsx）。

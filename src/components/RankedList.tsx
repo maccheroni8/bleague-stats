@@ -22,18 +22,14 @@ export interface RankableStat<T> {
 }
 
 /**
- * 前シーズン比較の列（DESIGN.md 218章）。今季の値の右に「前季の値」「前季の順位」「差」を出す。
- * rows には両方のシーズンにある行だけを渡す。値で並べているときの # は、今季のランキング全体（rankPool）での順位にして、前季の順位と同じ基準で比べられるようにする
+ * 前シーズン比較の列（DESIGN.md 218章）。今季の値の右に「前季の値」「差」を出す。
+ * rows には両方のシーズンにある行だけを渡す。値で並べているときの # は、今季のランキング全体（rankPool）での順位にする
  */
 export interface RankCompare<T> {
   prevLabel: string;
-  prevRankLabel: string;
-  /** 前季の順位の列見出しのツールチップ（どの範囲での順位か） */
-  prevRankTitle: string;
   diffLabel: string;
-  /** 前季の値（名称が今季と違うクラブは、下の行に当時の名称を添える） */
+  /** 前季の値 */
   prevCell: (row: T) => ReactNode;
-  prevRank: (row: T) => number;
   diff: (row: T) => number;
   diffText: (row: T) => string;
   tone: (row: T) => "good" | "bad" | "flat";
@@ -186,9 +182,6 @@ export function RankedList<T>({
             {compare && (
               <>
                 <th className="align-right rank-prev-head">{compare.prevLabel}</th>
-                <th className="align-right rank-prevrank-head" title={compare.prevRankTitle}>
-                  {compare.prevRankLabel}
-                </th>
                 <th
                   className="align-right rank-diff-head"
                   onClick={sortable ? toggleDiffSort : undefined}
@@ -262,7 +255,6 @@ export function RankedList<T>({
                 {compare && (
                   <>
                     <td className="align-right rank-prev">{compare.prevCell(row)}</td>
-                    <td className="align-right rank-prevrank">{compare.prevRank(row)}</td>
                     <td className={`align-right rank-diff rank-diff-${compare.tone(row)}`}>{compare.diffText(row)}</td>
                   </>
                 )}

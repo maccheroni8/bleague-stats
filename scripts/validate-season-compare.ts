@@ -1,11 +1,11 @@
 // ランキングの前シーズン比較（src/lib/seasonCompare.ts。DESIGN.md 218章）の純粋な部分の検証スクリプト（検証専用。CIには入れず、必要なときに手で実行する）。
 //
 // 確かめること: 前季の求め方／表示値どうしの差（桁・%・符号・桁区切り・「-」）／色の向き／順位の付け方（1・2・2・4）／
-// 前季の順位が前季の全体で決まること（今季の表のスタッツの条件・ルーキーで絞っても変わらない）／使えない条件の理由。
+// 両シーズンにいる行だけが出ること／使えない条件の理由。
 //
 // 使い方: npm run validate:season-compare（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 
-import { buildCompare, compareUnsupportedReason, displayedDiff, diffTone, previousSeason, rankByDefinition, rankPositions } from "../src/lib/seasonCompare";
+import { buildCompare, compareUnsupportedReason, displayedDiff, diffTone, previousSeason, rankPositions } from "../src/lib/seasonCompare";
 
 let failures = 0;
 function eq(label: string, actual: unknown, expected: unknown): void {
@@ -61,31 +61,18 @@ eq("色 差が0", diffTone(0, false), "flat");
 // 順位
 eq("順位 1・2・2・4", rankPositions(["10.0", "9.0", "9.0", "8.0"]), [1, 2, 2, 4]);
 eq("順位 全部同じ", rankPositions(["1", "1", "1"]), [1, 1, 1]);
-const ranks = rankByDefinition(
-  [{ id: "a", v: 3.04 }, { id: "b", v: 3.01 }, { id: "c", v: 5 }, { id: "d", v: 1 }],
-  { value: (r) => r.v, format: (r) => r.v.toFixed(1), higherIsBetter: true },
-  (r) => r.id,
-);
-eq("順位 表示値（丸めた後）が同じなら同じ順位", [...ranks.entries()], [["c", 1], ["a", 2], ["b", 2], ["d", 4]]);
-const ranksLow = rankByDefinition(
-  [{ id: "a", v: 0.4 }, { id: "b", v: 0.2 }, { id: "c", v: 0.2 }],
-  { value: (r) => r.v, format: (r) => r.v.toFixed(1), higherIsBetter: false },
-  (r) => r.id,
-);
-eq("順位 少ない方が良い項目は小さい順", [...ranksLow.entries()], [["b", 1], ["c", 1], ["a", 3]]);
-
-// 前季の順位は、前季の全体で決まる（今季の表を絞っても、前季に載っていない行があっても変わらない）
+// 両シーズンにいる行だけが出る。差は表示値どうし
 type Row = { id: string; v: number };
 const def = { value: (r: Row) => r.v, format: (r: Row) => r.v.toFixed(1), higherIsBetter: true };
 const prevAll: Row[] = [{ id: "a", v: 20 }, { id: "b", v: 18 }, { id: "c", v: 15 }, { id: "d", v: 15 }, { id: "e", v: 10 }];
 const full = buildCompare<Row, Row>({ currentRows: [{ id: "a", v: 22 }, { id: "c", v: 17 }, { id: "e", v: 12 }, { id: "z", v: 30 }], currentKey: (r) => r.id, currentDef: def, prevRows: prevAll, prevKey: (r) => r.id, prevDef: def });
 eq("比較 前季にいない行は出ない", full.rows.map((r) => r.id), ["a", "c", "e"]);
-eq("比較 前季の順位（前季の全体）", ["a", "c", "e"].map((k) => full.entries.get(k)!.prevRank), [1, 3, 5]);
-const narrowed = buildCompare<Row, Row>({ currentRows: [{ id: "e", v: 12 }], currentKey: (r) => r.id, currentDef: def, prevRows: prevAll, prevKey: (r) => r.id, prevDef: def });
-eq("比較 今季の表を絞っても前季の順位は同じ", narrowed.entries.get("e")!.prevRank, 5);
 eq("比較 差", ["a", "c", "e"].map((k) => full.entries.get(k)!.diffText), ["+2.0", "+2.0", "+2.0"]);
+eq("比較 前季の値", ["a", "c", "e"].map((k) => full.entries.get(k)!.prevText), ["20.0", "15.0", "10.0"]);
 const accepted = buildCompare<Row, Row>({ currentRows: [{ id: "a", v: 22 }, { id: "c", v: 17 }], currentKey: (r) => r.id, currentDef: def, prevRows: prevAll, prevKey: (r) => r.id, prevDef: def, accept: (r) => r.id !== "c" });
-eq("比較 外した行があっても、前季の順位の母集団は変わらない", [accepted.rows.map((r) => r.id), accepted.entries.get("a")!.prevRank], [["a"], 1]);
+eq("比較 外した行は出ない", accepted.rows.map((r) => r.id), ["a"]);
+const unreadable = buildCompare<Row, Row>({ currentRows: [{ id: "a", v: 22 }], currentKey: (r) => r.id, currentDef: { format: () => "-" }, prevRows: prevAll, prevKey: (r) => r.id, prevDef: def });
+eq("比較 値が読めない行は出ない", unreadable.rows.length, 0);
 
 // 使えない条件
 const base = {

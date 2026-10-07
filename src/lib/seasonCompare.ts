@@ -78,13 +78,6 @@ export function compareUnsupportedReason(input: CompareSupportInput): string | n
   return null;
 }
 
-/** 前季の順位の列のツールチップ（どの範囲での順位かを、利用者向けの文で） */
-export function prevRankTooltip(prevSeasonName: string, kind: "player" | "team"): string {
-  return kind === "player"
-    ? `${prevSeasonName}のランキング全体での順位です。試合の条件・試合区分・平均/合計・登録区分・ポジション・掲載基準は今季と同じにし、ルーキーとスタッツの条件は使っていません。`
-    : `${prevSeasonName}のランキング全体での順位です。試合の条件・試合区分・自チーム/opp・平均/合計は今季と同じにし、スタッツの条件は使っていません。`;
-}
-
 // ---- 表示値どうしの差 ----
 
 export interface DisplayedNumber {
@@ -149,24 +142,11 @@ export function rankPositions(texts: readonly string[]): number[] {
   return ranks;
 }
 
-/** 値の定義（RankableStat）に沿って、全行に順位を付ける（良い方が1位）。キーは rowKey の値 */
-export function rankByDefinition<T>(
-  rows: readonly T[],
-  def: { value: (row: T) => number; format: (row: T) => string; higherIsBetter?: boolean },
-  rowKey: (row: T) => string,
-): Map<string, number> {
-  const factor = def.higherIsBetter === false ? 1 : -1;
-  const sorted = [...rows].sort((a, b) => (def.value(a) - def.value(b)) * factor);
-  const ranks = rankPositions(sorted.map((r) => def.format(r)));
-  return new Map(sorted.map((r, i) => [rowKey(r), ranks[i]!]));
-}
-
 // ---- 比較の行を作る ----
 
 export interface CompareEntry<P> {
   prev: P;
   prevText: string;
-  prevRank: number;
   diff: number;
   diffText: string;
   tone: "good" | "bad" | "flat";
@@ -174,7 +154,7 @@ export interface CompareEntry<P> {
 
 /**
  * 今季の表（currentRows）と前季の全体（prevRows）から、両方にある行だけの比較を作る。
- * 前季の順位は、前季の全体（prevRows。スタッツの条件やルーキーで絞る前）での順位。表示値が読めない行は外す
+ * 表示値が読めない行は外す
  */
 export function buildCompare<T, P>(opts: {
   currentRows: readonly T[];
@@ -182,13 +162,12 @@ export function buildCompare<T, P>(opts: {
   currentDef: { format: (row: T) => string; higherIsBetter?: boolean };
   prevRows: readonly P[];
   prevKey: (row: P) => string;
-  prevDef: { value: (row: P) => number; format: (row: P) => string; higherIsBetter?: boolean };
-  /** 比べない組（例: どちらかのシーズンで、その条件の試合が0のチーム）を外す。順位の母集団（prevRows）は変えない */
+  prevDef: { format: (row: P) => string };
+  /** 比べない組（例: どちらかのシーズンで、その条件の試合が0のチーム）を外す */
   accept?: (row: T, prev: P) => boolean;
 }): { rows: T[]; entries: Map<string, CompareEntry<P>> } {
   const { currentRows, currentKey, currentDef, prevRows, prevKey, prevDef, accept } = opts;
   const prevByKey = new Map(prevRows.map((r) => [prevKey(r), r]));
-  const prevRank = rankByDefinition(prevRows, prevDef, prevKey);
   const rows: T[] = [];
   const entries = new Map<string, CompareEntry<P>>();
   for (const row of currentRows) {
@@ -199,7 +178,7 @@ export function buildCompare<T, P>(opts: {
     const d = displayedDiff(currentDef.format(row), prevText);
     if (!d) continue;
     rows.push(row);
-    entries.set(key, { prev, prevText, prevRank: prevRank.get(key)!, diff: d.diff, diffText: d.text, tone: diffTone(d.diff, currentDef.higherIsBetter) });
+    entries.set(key, { prev, prevText, diff: d.diff, diffText: d.text, tone: diffTone(d.diff, currentDef.higherIsBetter) });
   }
   return { rows, entries };
 }

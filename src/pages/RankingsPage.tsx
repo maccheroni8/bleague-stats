@@ -5,7 +5,7 @@ import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
 import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
 import { EligibilitySlider } from "../components/EligibilitySlider";
 import { useCompareCleanup, useFoulConditionCleanup, useFoulStatKeyCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
-import { COMPARE_LABEL, COMPARE_PARAM, buildCompare, compareUnsupportedReason, prevRankTooltip, previousSeason } from "../lib/seasonCompare";
+import { COMPARE_LABEL, COMPARE_PARAM, buildCompare, compareUnsupportedReason, previousSeason } from "../lib/seasonCompare";
 import { postseasonLabel } from "../../shared/gameType";
 import { isPastSeason } from "../lib/season";
 import { useMemo, useRef } from "react";
@@ -104,20 +104,16 @@ function makeRankingTitle(kind: "チーム" | "個人", season: string, statLabe
 
 /**
  * 前シーズン比較の行と列（DESIGN.md 218章）。今季の表（currentRows）と前季の全体（prevRows）から、両方にある行だけを並べる。
- * 差は今季・前季の表示値どうし、前季の順位は前季の全体（スタッツの条件・ルーキーで絞る前）での順位
+ * 差は今季・前季の表示値どうし
  */
 function compareView<T, P>(args: {
-  prevSeason: string;
-  kind: "player" | "team";
   currentRows: readonly T[];
   currentKey: (row: T) => string;
   currentDef: RankableStat<T>;
   prevRows: readonly P[];
   prevKey: (row: P) => string;
   prevDef: RankableStat<P>;
-  /** 前季の値の下の行に添える、前季の名称（クラブ・チーム名が今季と違うときだけ） */
-  prevName: (row: T, prev: P) => string | undefined;
-  /** 比べない組を外す（順位の母集団は変えない） */
+  /** 比べない組を外す */
   accept?: (row: T, prev: P) => boolean;
 }): { rows: T[]; compare: RankCompare<T> } {
   const { rows, entries } = buildCompare({
@@ -134,20 +130,8 @@ function compareView<T, P>(args: {
     rows,
     compare: {
       prevLabel: "前季",
-      prevRankLabel: "前季順位",
-      prevRankTitle: prevRankTooltip(args.prevSeason, args.kind),
       diffLabel: "差",
-      prevCell: (row) => {
-        const e = entryOf(row);
-        const name = args.prevName(row, e.prev);
-        return (
-          <>
-            {e.prevText}
-            {name && <span className="rank-sublabel rank-prev-club">{name}</span>}
-          </>
-        );
-      },
-      prevRank: (row) => entryOf(row).prevRank,
+      prevCell: (row) => entryOf(row).prevText,
       diff: (row) => entryOf(row).diff,
       diffText: (row) => entryOf(row).diffText,
       tone: (row) => entryOf(row).tone,
@@ -186,7 +170,7 @@ function CompareNotes({
       </p>
       {narrowed && (
         <p className="rule-change-footnote">
-          ※ {kind === "player" ? "ルーキーとスタッツの条件" : "スタッツの条件"}は今季だけに当てはめています。前季の順位は、{kind === "player" ? "これらを" : "これを"}使わない前季のランキング全体での順位です。
+          ※ {kind === "player" ? "ルーキーとスタッツの条件" : "スタッツの条件"}は今季だけに当てはめています（前季は、{kind === "player" ? "これらを" : "これを"}使わずに比べます）。
         </p>
       )}
       {mode === "total" && !isPastSeason(season) && (
@@ -363,21 +347,16 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const prevPending =
     compareActive &&
     (prevRanking.teamsLoading || !prevRanking.teams || (isBoxscore && (prevRanking.gameLogsLoading || !prevRanking.gameLogsByTeam)));
-  const renamedTeam = (cur: { teamId: string; teamName: string }, prev: { teamId: string; teamName: string }) =>
-    prev.teamName !== cur.teamName ? teamLabel(prev.teamId, prev.teamName) : undefined;
   const comparable = compareActive && !!prevSeason && !prevPending;
   const boxCompare =
     comparable && isBoxscore && teamDef && prevRanking.teamDef
       ? compareView({
-          prevSeason: prevSeason!,
-          kind: "team",
           currentRows: boxRows,
           currentKey: (r) => r.team.teamId,
           currentDef: teamDef,
           prevRows: prevRanking.boxRows,
           prevKey: (r) => r.team.teamId,
           prevDef: prevRanking.teamDef,
-          prevName: (r, prev) => renamedTeam(r.team, prev.team),
           // 条件に当てはまる試合が、今季か前季で0のチーム（例: ポストシーズンに出ていない）は、値が0になるだけなので比べない
           accept: (r, prev) => r.gamesPlayed > 0 && prev.gamesPlayed > 0,
         })
@@ -385,29 +364,23 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const shootingCompare =
     comparable && category === "shooting" && shootingDef && prevRanking.shootingDef
       ? compareView({
-          prevSeason: prevSeason!,
-          kind: "team",
           currentRows: teamsWithShotTypes,
           currentKey: (t) => t.teamId,
           currentDef: shootingDef,
           prevRows: prevRanking.teamsWithShotTypes,
           prevKey: (t) => t.teamId,
           prevDef: prevRanking.shootingDef,
-          prevName: renamedTeam,
         })
       : null;
   const turnoverCompare =
     comparable && category === "forcedTurnovers"
       ? compareView({
-          prevSeason: prevSeason!,
-          kind: "team",
           currentRows: teamsWithForcedTurnovers,
           currentKey: (t) => t.teamId,
           currentDef: forcedTurnoverDef,
           prevRows: prevRanking.teamsWithForcedTurnovers,
           prevKey: (t) => t.teamId,
           prevDef: prevRanking.forcedTurnoverDef,
-          prevName: renamedTeam,
         })
       : null;
   const compareNotes = (empty: boolean) => (
@@ -784,23 +757,15 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 
   const extraRule = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)];
   const waitingForGameLogs = (rookieActive && rookies.loading) || waiting || (compareActive && prevRanking.waiting && !prevRanking.playersError);
-  const teamLabelOf = teamLabel;
   const comparison =
     compareActive && prevSeason && !waitingForGameLogs && !ddtdPeriodOff
       ? compareView({
-          prevSeason,
-          kind: "player",
           currentRows: shownRows,
           currentKey: (p) => p.playerId,
           currentDef: rankDef,
           prevRows: prevRanking.rows,
           prevKey: (p) => p.playerId,
           prevDef: prevRanking.rankDef,
-          prevName: (p, prev) => {
-            const cur = clubOf(p);
-            const before = prevRanking.clubOf(prev);
-            return before.teamId !== cur.teamId ? teamLabelOf(before.teamId, before.teamName) : undefined;
-          },
         })
       : null;
 
