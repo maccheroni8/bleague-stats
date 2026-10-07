@@ -1,4 +1,4 @@
-import { RankedList, type RankableStat } from "../components/RankedList";
+import { RankedList } from "../components/RankedList";
 import { PlayerGameRecordRanking } from "../components/PlayerGameRecordRanking";
 import { TeamGameRecordRanking } from "../components/TeamGameRecordRanking";
 import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
@@ -6,22 +6,17 @@ import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../component
 import { EligibilitySlider } from "../components/EligibilitySlider";
 import { useFoulConditionCleanup, useFoulStatKeyCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { postseasonLabel } from "../../shared/gameType";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { SeasonLink as Link } from "../components/SeasonLink";
+import { useMemo, useRef } from "react";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
-import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayerPageSeasons, fetchPlayers, fetchRegisteredPlayers, fetchTeamColors, fetchTeams } from "../lib/data";
-import type { PlayerCareerCounts } from "../../shared/types";
+import { fetchPlayerPageSeasons, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { ExportImageButton } from "../components/ExportImageButton";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
-import { foulColumnsSplit, isRuleChangeStatKey } from "../lib/ruleChange";
-import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
+import { isRuleChangeStatKey } from "../lib/ruleChange";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
-import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
-import type { Column } from "../components/SortableTable";
+import { BOXSCORE_TABS } from "../components/BoxscoreTable";
 import { FilterBar } from "../components/FilterBar";
 import {
   classificationAxis,
@@ -34,59 +29,11 @@ import {
   statItemAxis,
   type FilterAxis,
 } from "../lib/filterAxes";
-import { filterGameLogs, isDefaultFilter, type SituationalFilter } from "../lib/situational";
-import {
-  SEASON_ADVANCED_COLUMNS,
-  SEASON_BOX_PERIOD_OPTIONS,
-  SEASON_BOX_TABS,
-  seasonBoxColumnsFor,
-  SEASON_SCORING_COLUMNS,
-  SEASON_TRADITIONAL_COLUMNS,
-  EMPTY_TEAM_TOTALS,
-  buildPeriodFilteredRawTotals,
-  buildSeasonBoxscoreCtx,
-  computeGamePeriodTotals,
-  countDigits,
-  countDoubleTripleDoubles,
-  filterByGameType,
-  sumPlayerGameLogs,
-  sumTeamGameLogsFor,
-  type GamePeriodTotals,
-  type PlayerSeasonRawTotals,
-  type SeasonBoxTabKey,
-  type SeasonBoxscoreColumn,
-  type SeasonBoxscoreCtx,
-  type SeasonDisplayMode,
-  type SeasonGameTypeFilter,
-  type TeamSeasonRawTotals,
-} from "../lib/playerSeasonBoxscore";
-import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTotals";
-import {
-  buildAdvancedColumns,
-  buildMiscColumns,
-  buildScoringColumns,
-  buildTraditionalColumns,
-  DEFAULT_SORT_KEY,
-  sumTeamGameBoxTotalsForPeriod,
-  sumTeamGameLogs,
-  type AllTeamsRow,
-  type TeamPerspective,
-} from "../lib/teamStatsColumns";
-import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns, shotTypeLabel } from "../lib/shotTypeBreakdown";
-import { useAllTeamGameLogs, useLeagueRawGames, useLeagueSituationalContext } from "../lib/teamRankingData";
-import {
-  matchesPlayerGroupFilter,
-  type PlayerGroupFilter,
-  matchesPositionFilter,
-  positionFilterOptions,
-  selectedPositionLabels,
-} from "../lib/classificationFilter";
-import {
-  EXTRA_ELIGIBILITY_RULES,
-  MIN_GAMES_PLAYED_RATIO_FOR_RANKING,
-  filterEligiblePlayers,
-} from "../lib/playerRankingEligibility";
-import { formatDecimal } from "../lib/format";
+import type { SituationalFilter } from "../lib/situational";
+import { SEASON_BOX_PERIOD_OPTIONS, SEASON_BOX_TABS } from "../lib/playerSeasonBoxscore";
+import { SHOT_TYPE_DISPLAY_ORDER, shotTypeLabel } from "../lib/shotTypeBreakdown";
+import { positionFilterOptions, selectedPositionLabels, type PlayerGroupFilter } from "../lib/classificationFilter";
+import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING } from "../lib/playerRankingEligibility";
 import {
   buildExportFilename,
   classificationLabels,
@@ -102,68 +49,37 @@ import {
   situationalFilterLabels,
 } from "../lib/conditionLabels";
 import { HeightWeightNote } from "../components/HeightWeightNote";
-import { AGE_BASE_NOTE, ageBaseDateLabel, ageForSeason } from "../lib/age";
-import { heightText, positionText, weightText } from "../lib/profileMark";
-import { statDescription, type StatScope } from "../lib/statDescriptions";
-import { StatHeaderLabel } from "../components/StatHeaderLabel";
-import type { PlayerGameLog, PlayerSummary, TeamColors, TeamForcedTurnovers, TeamGameLog, TeamSummary } from "../../shared/types";
+import { AGE_BASE_NOTE, ageBaseDateLabel } from "../lib/age";
+import { positionText } from "../lib/profileMark";
+import type { TeamColors } from "../../shared/types";
 import { useTeamLabel } from "../lib/teamLabel";
 import { usePlayerLabel } from "../lib/playerLabel";
-import {
-  activeStatConditionKeys,
-  buildStatConditionItems,
-  DEFAULT_STAT_CONDITIONS,
-  filterByStatConditions,
-  hasActiveStatConditions,
-  statConditionsTitle,
-  type StatConditionItemDef,
-} from "../lib/statConditions";
+import { DEFAULT_STAT_CONDITIONS, statConditionsTitle } from "../lib/statConditions";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { clearUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
 import { seasonDivisions } from "../lib/divisionGroups";
-import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERIOD_PARAM, PERSPECTIVE_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM } from "../lib/urlFilterParams";
 import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useSeasonRookies } from "../lib/rookieFilter";
-import { buildTeamConditionDefs } from "../lib/teamConditionItems";
-import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS, playerCareerConditionDefs, playerProfileConditionDefs } from "../lib/playerConditionItems";
+import {
+  FORCED_TURNOVER_ITEMS,
+  TURNOVER_DIRECTION_LABELS,
+  isBoxscoreCategory,
+  teamDefaultStatKey,
+  useTeamSeasonRanking,
+  type TeamRankingCategory,
+  type TurnoverDirection,
+} from "../lib/teamSeasonRanking";
+import {
+  CAREER_NOTE,
+  DDTD_PERIOD_REASON,
+  PLAYER_RANK_TOP_N,
+  extraRuleKey,
+  usePlayerSeasonRanking,
+  type PlayerRankCategory,
+} from "../lib/playerSeasonRanking";
 
 type Mode = "team" | "player";
 
-/** チームランキングのカテゴリ。既存のBOXSCORE_TABS（トラディショナル/アドバンスド/Misc/
- * スコアリング）に、チーム詳細ページ「チームスタッツ」タブと同じ2カテゴリ（シューティング・
- * 強制ターンオーバー）を追加したもの。この2つはteams.json（TeamSummary）に既に持っている
- * シーズン集計値（shotTypes・forcedTurnovers/turnoversCommitted）をそのまま使うため、
- * 他4カテゴリと異なりチーム試合ログの取得・シチュエーション別フィルタ・レギュラー/
- * プレーオフ切替・自チーム/opp切替の対象外（レギュラーシーズンの通算値のみ） */
-type TeamRankingCategory = BoxscoreTabKey | "shooting" | "forcedTurnovers";
-
-const BOXSCORE_TAB_KEYS = new Set<string>(BOXSCORE_TABS.map((t) => t.key));
-function isBoxscoreCategory(c: TeamRankingCategory): c is BoxscoreTabKey {
-  return BOXSCORE_TAB_KEYS.has(c);
-}
-
-/** 「強制ターンオーバー」カテゴリの項目定義（TeamForcedTurnoversの各フィールド＋合計）。
- * 奪った（forced）/記録した（committed）どちらの視点でも同じ項目を使う */
-const FORCED_TURNOVER_ITEMS: { key: string; label: string; value: (d: TeamForcedTurnovers) => number }[] = [
-  { key: "offensiveFoul", label: "オフェンスファウル", value: (d) => d.offensiveFoul },
-  { key: "violation24sec", label: "24秒バイオレーション", value: (d) => d.violation24sec },
-  { key: "backcourtViolation", label: "バックコート", value: (d) => d.backcourtViolation },
-  { key: "violation5sec", label: "5秒バイオレーション", value: (d) => d.violation5sec },
-  { key: "violation8sec", label: "8秒バイオレーション", value: (d) => d.violation8sec },
-  { key: "otherDead", label: "その他デッドボール", value: (d) => d.otherDead },
-  { key: "live", label: "ライブボール（参考）", value: (d) => d.live },
-  {
-    key: "total",
-    label: "合計",
-    value: (d) =>
-      d.offensiveFoul + d.violation24sec + d.backcourtViolation + d.violation5sec + d.violation8sec + d.otherDead + d.live,
-  },
-];
-type TurnoverDirection = "forced" | "committed";
-const TURNOVER_DIRECTION_LABELS: Record<TurnoverDirection, string> = {
-  forced: "奪った（自チームが強制）",
-  committed: "記録した（相手に強制された）",
-};
 
 /**
  * ランキングの表・画像出力の直上に出すタイトルと、画像ファイル名。選択中の全軸を条件ラベルとして
@@ -191,27 +107,6 @@ function shootingStatItems(columns: { key: string; label: string }[]): { key: st
     group: shotTypeLabel(c.key.replace(/_(2pm|2pa|2ppct|3pm|3pa|3ppct)$/, "")),
   }));
 }
-
-function buildTeamCategoryColumns(
-  category: BoxscoreTabKey,
-  mode: SeasonDisplayMode,
-  perspective: TeamPerspective,
-  paintSupported: boolean,
-  classificationSupported: boolean,
-  foulSplit: boolean,
-): Column<AllTeamsRow>[] {
-  switch (category) {
-    case "traditional":
-      return buildTraditionalColumns(mode, perspective);
-    case "advanced":
-      return buildAdvancedColumns(mode, perspective);
-    case "misc":
-      return buildMiscColumns(mode, perspective, classificationSupported, foulSplit);
-    case "scoring":
-      return buildScoringColumns(mode, perspective, paintSupported, classificationSupported);
-  }
-}
-
 
 /**
  * ランキングのURLのキー（DESIGN.md 163章）。m＝チーム/個人、cat＝カテゴリ、stat＝項目、tov＝Forced TOV の向き、
@@ -242,11 +137,6 @@ const EMPTY_POSITIONS: string[] = [];
 function isStatKeyLike(v: string): boolean {
   return v.length <= 64 && !/[\s,&=]/.test(v);
 }
-function teamDefaultStatKey(category: TeamRankingCategory): string {
-  if (category === "shooting") return `${SHOT_TYPE_DISPLAY_ORDER[0]}_2pm`;
-  if (category === "forcedTurnovers") return "total";
-  return DEFAULT_SORT_KEY[category];
-}
 function playerDefaultStatKey(category: PlayerRankCategory): string {
   return category === "shooting" ? `${SHOT_TYPE_DISPLAY_ORDER[0]}_2pm` : category === "profile" ? "height" : category === "career" ? "titles" : "pts";
 }
@@ -262,6 +152,7 @@ const GAMES_RATIO_ELIG_PARAM: UrlCodec<number> = {
   },
 };
 
+
 /**
  * ランキングページのチーム版。チーム詳細ページ「チームスタッツ」タブ・「チーム」ページ
  * 「全チームスタッツ」タブと同じ項目（トラディショナル/アドバンスド/Misc/スコアリング、
@@ -274,12 +165,6 @@ const GAMES_RATIO_ELIG_PARAM: UrlCodec<number> = {
 function TeamRankingSection({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
   const teamLabel = useTeamLabel();
   const exportRef = useRef<HTMLDivElement>(null);
-  const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
-  // ペイント内外の内訳は、プレーバイプレーの公式の区分で数えるため全シーズンで出る（2026-09-26。DESIGN.md 155章）
-  const paintSupported = true;
-
-  const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams);
-  const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season);
 
   // ブラウザバック等でページが一度アンマウント・再マウントされても、直前のフィルタ条件を
   // 復元する（src/lib/pageStateCache.ts参照。個人・チーム詳細ページと同じ仕組み。
@@ -297,11 +182,34 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   // TeamGameLog永続集計（sumTeamGameLogs）をそのまま使う。Q別/前後半選択時のみ、対象チーム
   // 全員分の生データ（StoredGame）を一括取得する（useLeagueRawGames、DESIGN.md参照）
   const [period, setPeriod] = useUrlState(PERIOD_PARAM, "all");
-  const periodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === period) ?? SEASON_BOX_PERIOD_OPTIONS[0]!;
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+
+  // 集計（行・値の定義・スタッツの条件の項目）は src/lib/teamSeasonRanking.ts。前シーズン比較の前季でも同じ処理を使う（DESIGN.md 218章）
+  const {
+    teams,
+    teamsLoading,
+    teamsError,
+    gameLogsByTeam,
+    gameLogsLoading,
+    divisionHistory,
+    opponentRecords,
+    periodOption,
+    foulSplit,
+    rawGamesLoading,
+    periodDataReady,
+    conditionItems,
+    conditionActive,
+    columns,
+    teamDef,
+    boxRows,
+    shootingColumns,
+    shootingDef,
+    teamsWithShotTypes,
+    forcedTurnoverDef,
+    teamsWithForcedTurnovers,
+  } = useTeamSeasonRanking(season, { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions });
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
-  const foulSplit = foulColumnsSplit([season]);
   useFoulConditionCleanup(season, statConditions, setStatConditions);
   useFoulStatKeyCleanup(season, statKey, () => setStatKey(defaultTeamStat));
   // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
@@ -310,158 +218,6 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const selectCategory = (next: TeamRankingCategory) => {
     setCategory(next);
     setStatKey(teamDefaultStatKey(next));
-  };
-
-  // シチュエーション別フィルタ・レギュラー/プレーオフ切替を適用した後の、チームごとの対象試合
-  // （TeamGameLog[]）。Q別/前後半の選択に関わらず「どの試合が対象か」自体は変わらないため、
-  // 生データ取得が必要なscheduleKeyの洗い出し・試合数/勝敗（常に試合全体で決まる）の
-  // 両方でこの結果を再利用する
-  const scopedLogsByTeam = useMemo(() => {
-    const map = new Map<string, TeamGameLog[]>();
-    if (!teams || !gameLogsByTeam) return map;
-    for (const team of teams) {
-      const logs = gameLogsByTeam.get(team.teamId) ?? [];
-      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => team.teamId);
-      map.set(team.teamId, filterByGameType(situational, gameType));
-    }
-    return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season]);
-
-  // Q別/前後半選択時のみ、対象チーム全員分の生データ（StoredGame）を一括取得する。
-  // 「試合」選択時はrequestedScheduleKeysが常に空配列のため、useLeagueRawGamesは何も取得しない
-  const requestedScheduleKeys = useMemo(() => {
-    if (periodOption.periods === null) return [];
-    const keys = new Set<string>();
-    for (const logs of scopedLogsByTeam.values()) for (const g of logs) keys.add(g.scheduleKey);
-    return [...keys];
-  }, [periodOption, scopedLogsByTeam]);
-  const { gamesByScheduleKey, loading: rawGamesLoading } = useLeagueRawGames(season, requestedScheduleKeys);
-  const periodDataReady = periodOption.periods === null || requestedScheduleKeys.every((k) => gamesByScheduleKey.has(k));
-
-  const rows: AllTeamsRow[] = useMemo(() => {
-    if (!teams || !gameLogsByTeam) return [];
-    return teams.map((team) => {
-      const scoped = scopedLogsByTeam.get(team.teamId) ?? [];
-      const wins = scoped.filter((g) => g.win).length;
-      const totals =
-        periodOption.periods === null
-          ? sumTeamGameLogs(scoped)
-          : sumTeamGameBoxTotalsForPeriod(
-              scoped.flatMap((g) => {
-                const game = gamesByScheduleKey.get(g.scheduleKey);
-                return game ? [{ game, isHome: g.isHome }] : [];
-              }),
-              periodOption,
-            );
-      return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals };
-    });
-  }, [teams, gameLogsByTeam, scopedLogsByTeam, periodOption, gamesByScheduleKey]);
-
-  // スタッツの条件の判定に使う行。Shooting・Forced TOV のカテゴリでは上の絞り込みが効かないため、
-  // 絞り込みの無いレギュラーシーズン全体の値で判定する
-  const seasonRows: AllTeamsRow[] = useMemo(() => {
-    if (!teams || !gameLogsByTeam) return [];
-    return teams.map((team) => {
-      const logs = filterByGameType(gameLogsByTeam.get(team.teamId) ?? [], "regular");
-      const wins = logs.filter((g) => g.win).length;
-      return { team, gamesPlayed: logs.length, wins, losses: logs.length - wins, totals: sumTeamGameLogs(logs) };
-    });
-  }, [teams, gameLogsByTeam]);
-  // 自チームの地区で絞る（ランキングのシーズン成績。DESIGN.md 213章）。試合の絞り込み（filterGameLogs）では地区の外のチームは試合数0になるだけで
-  // 一覧に残るので、そのシーズンの地区が違うチームは一覧から外す。履歴が読めるまでは空にする（絞り込みの前の順位を一瞬出さない）
-  const rowsInOwnDivision: AllTeamsRow[] = useMemo(() => {
-    if (!filter.ownDivision) return rows;
-    if (!divisionHistory) return [];
-    return rows.filter((r) => teamDivisionForSeason(divisionHistory, r.team.teamId, season) === filter.ownDivision);
-  }, [rows, filter.ownDivision, divisionHistory, season]);
-  const conditionRows = isBoxscoreCategory(category) ? rowsInOwnDivision : seasonRows;
-  const teamById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t])), [teams]);
-  const conditionClassificationSupported = !isBoxscoreCategory(category) || periodOption.periods === null;
-  const conditionItems = useMemo(
-    () =>
-      buildStatConditionItems(
-        buildTeamConditionDefs({
-          mode: displayMode,
-          columnsFor: (tab, mode, p) =>
-            buildTeamCategoryColumns(tab, mode, p, paintSupported, conditionClassificationSupported, foulSplit),
-          sampleRows: conditionRows,
-          shotTypesOf: (r) => teamById.get(r.team.teamId)?.shotTypes,
-          shotGamesOf: (r) => teamById.get(r.team.teamId)?.gamesPlayed ?? 0,
-          shotTypeKeys: SHOT_TYPE_DISPLAY_ORDER,
-        }),
-        conditionRows,
-        displayMode,
-      ),
-    [displayMode, paintSupported, conditionClassificationSupported, foulSplit, conditionRows, teamById],
-  );
-  const conditionActive = hasActiveStatConditions(statConditions, conditionItems);
-  const passingTeamIds = useMemo(
-    () =>
-      conditionActive ? new Set(filterByStatConditions(conditionRows, statConditions, conditionItems).map((r) => r.team.teamId)) : null,
-    [conditionActive, conditionRows, statConditions, conditionItems],
-  );
-  const passes = (teamId: string) => !passingTeamIds || passingTeamIds.has(teamId);
-
-  const columns = useMemo(
-    () =>
-      isBoxscoreCategory(category)
-        ? buildTeamCategoryColumns(category, displayMode, perspective, paintSupported, periodOption.periods === null, foulSplit)
-        : [],
-    [category, displayMode, perspective, paintSupported, periodOption, foulSplit],
-  );
-  const selectedColumn = columns.find((c) => c.key === statKey) ?? columns[0];
-  const teamDef: RankableStat<AllTeamsRow> | null = selectedColumn
-    ? {
-        key: selectedColumn.key,
-        label: selectedColumn.label,
-        value: (row) => Number(selectedColumn.sortValue(row)),
-        format: (row) => (selectedColumn.format ? selectedColumn.format(row) : String(selectedColumn.sortValue(row))),
-        higherIsBetter: selectedColumn.higherIsBetter,
-      }
-    : null;
-
-  // シューティングカテゴリ: teams.jsonのshotTypes（チーム全選手合算、2023-24シーズン以降のみ）を
-  // shotTypeEntityColumns（RankingsPage/TeamsListPage/TeamDetailPageで共通利用する既存ライブラリ）に
-  // そのまま渡す。試合ログ取得・シチュエーション別フィルタは不要（シーズン集計値をそのまま使う）
-  const shootingColumns = useMemo(
-    () =>
-      shotTypeEntityColumns(
-        SHOT_TYPE_DISPLAY_ORDER,
-        (t: TeamSummary) => t.shotTypes,
-        displayMode as "total" | "perGame",
-        (t) => t.gamesPlayed,
-      ),
-    [displayMode],
-  );
-  const teamsWithShotTypes = useMemo(() => (teams ?? []).filter((t) => !!t.shotTypes && passes(t.teamId)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [teams, passingTeamIds]);
-  const selectedShootingColumn = shootingColumns.find((c) => c.key === statKey) ?? shootingColumns[0];
-  const shootingDef: RankableStat<TeamSummary> | null = selectedShootingColumn
-    ? {
-        key: selectedShootingColumn.key,
-        label: selectedShootingColumn.label,
-        value: (t) => Number(selectedShootingColumn.sortValue(t)),
-        format: (t) => (selectedShootingColumn.format ? selectedShootingColumn.format(t) : String(selectedShootingColumn.sortValue(t))),
-        higherIsBetter: selectedShootingColumn.higherIsBetter,
-      }
-    : null;
-
-  // 強制ターンオーバーカテゴリ: teams.jsonのforcedTurnovers/turnoversCommitted
-  // （Yahoo!スポーツplay-by-play由来、2023-24シーズン以降のみ）をそのまま使う
-  const teamsWithForcedTurnovers = useMemo(
-    () => (teams ?? []).filter((t) => !!t.forcedTurnovers && !!t.turnoversCommitted && passes(t.teamId)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [teams, passingTeamIds],
-  );
-  const selectedTurnoverItem = FORCED_TURNOVER_ITEMS.find((i) => i.key === statKey) ?? FORCED_TURNOVER_ITEMS[0]!;
-  const forcedTurnoverDef: RankableStat<TeamSummary> = {
-    key: selectedTurnoverItem.key,
-    label: selectedTurnoverItem.label,
-    value: (t) => selectedTurnoverItem.value(turnoverDirection === "forced" ? t.forcedTurnovers! : t.turnoversCommitted!),
-    format: (t) =>
-      String(selectedTurnoverItem.value(turnoverDirection === "forced" ? t.forcedTurnovers! : t.turnoversCommitted!)),
   };
 
   if (teamsLoading) return <p className="loading">読み込み中...</p>;
@@ -653,7 +409,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
             <ConditionTitle title={teamBoxscoreTitle.title} conditions={teamBoxscoreTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
             <RankedList
                 statScope="team"
-              rows={passingTeamIds ? rowsInOwnDivision.filter((r) => passes(r.team.teamId)) : rowsInOwnDivision}
+              rows={boxRows}
               def={teamDef}
               rowKey={(r) => r.team.teamId}
               name={(r) => teamLabel(r.team.teamId, r.team.teamName)}
@@ -670,361 +426,6 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   );
 }
 
-const PLAYER_RANK_TOP_N = 20;
-
-/** ボックススコア列キー（SEASON_TRADITIONAL_COLUMNS等、小文字。例: "fgpct"）→掲載基準
- * （EXTRA_ELIGIBILITY_RULES、statDefs.ts由来のキャメルケース。例: "fgPct"）キーの対応 */
-const BOX_KEY_TO_EXTRA_RULE_KEY: Record<string, string> = {
-  fgpct: "fgPct",
-  "2ppct": "twoPct",
-  "3ppct": "tpPct",
-  ftpct: "ftPct",
-};
-function extraRuleKey(statKey: string): string {
-  return BOX_KEY_TO_EXTRA_RULE_KEY[statKey] ?? statKey;
-}
-
-/** 選手ランキングのカテゴリ項目1つを表す最小限の型。valueがctx（未計算ならnull）を
- * 受け取れるようにし、SeasonBoxscoreColumn（PlayerGameLog取得が要る）とPLAYER_STAT_DEFS・
- * shotTypeEntityColumns（PlayerSummaryのみで完結、ctx不要）の両方をこの形に揃えて扱う */
-interface PlayerRankItem {
-  key: string;
-  label: string;
-  higherIsBetter?: boolean;
-  value: (p: PlayerSummary, ctx: SeasonBoxscoreCtx | null) => number;
-  format: (p: PlayerSummary, ctx: SeasonBoxscoreCtx | null) => string;
-}
-
-/**
- * シチュエーション別フィルタ・レギュラー/プレーオフ選択が既定値のときだけ使う0コスト経路。
- * PlayerSummary.totals（シーズン合計、既に取得済み）からSeasonBoxscoreColumnが必要とする
- * PlayerSeasonRawTotalsを組み立てる。PlayByPlays由来の項目（PTSOFFTO・DUNK・被アシスト内訳・
- * ペイント/ミッドレンジ分割・在コート区間・テクニカルファウル等）はPlayerSummaryに存在しない
- * ため0で埋める（Misc/スコアリングカテゴリはこの経路を使わず常にPlayerGameLogを取得する。
- * PlayerRankingSection参照）
- */
-function rawTotalsFromPlayerSummary(p: PlayerSummary): PlayerSeasonRawTotals {
-  const t = p.totals;
-  return {
-    gamesPlayed: t.gamesPlayed,
-    gamesStarted: t.gamesStarted,
-    min: t.min,
-    pts: t.pts,
-    fgm: t.fgm,
-    fga: t.fga,
-    tpm: t.tpm,
-    tpa: t.tpa,
-    ftm: t.ftm,
-    fta: t.fta,
-    oreb: t.oreb,
-    dreb: t.dreb,
-    reb: t.reb,
-    ast: t.ast,
-    tov: t.tov,
-    stl: t.stl,
-    blk: t.blk,
-    pf: t.pf,
-    foulsDrawn: t.foulsDrawn,
-    blockedAgainst: t.blockedAgainst,
-    technicalFouls: 0,
-    pt2in: 0,
-    ptfb: 0,
-    pt2nd: 0,
-    plusMinus: t.plusMinus,
-    ptsOffTov: 0,
-    dunks: 0,
-    basketCounts: 0,
-    unsportsmanlikeFouls: 0,
-    disqualifyingFouls: 0,
-    technicalFoulsCat1: 0,
-    technicalFoulsCat2: 0,
-    flagrantFouls: 0,
-    disruptiveFouls: 0,
-    offensiveFoulsCommitted: 0,
-    chargesDrawn: 0,
-    assisted2m: 0,
-    assisted3m: 0,
-    assistedFtm: 0,
-    paint2m: 0,
-    paint2a: 0,
-    mid2m: 0,
-    mid2a: 0,
-    onCourtOwnPoss: 0,
-    onCourtOppPoss: 0,
-    onCourtSeconds: 0,
-  };
-}
-
-/**
- * SeasonBoxscoreColumn（トラディショナル/アドバンスド/Misc/スコアリング共通の列定義、
- * 個人詳細ページ「シーズン別成績」・チーム詳細ページ「選手スタッツ」タブと同じ
- * src/lib/playerSeasonBoxscore.tsを再利用）をPlayerRankItemに変換する。
- * EFFのみ、0コスト経路だとtechnicalFoulsが常に0になり不正確になるため（rawTotalsFromPlayerSummary
- * 参照）、常にPlayerSummary.advanced.eff（バックエンドで正しく計算済みの値）を直接使う
- * （シチュエーション別フィルタ・レギュラー/プレーオフ選択の対象外。従来の実装と同じ扱い）
- */
-/** 個人ランキングの平均/合計（DESIGN.md 179章）。30分換算は選べない */
-type PlayerRankMode = "perGame" | "total";
-
-/** EFF（シーズンの値。シチュエーション別等の対象外）。平均は players.json の1試合平均、合計はそれ×出場試合数 */
-function effValue(p: PlayerSummary, mode: PlayerRankMode): number {
-  return mode === "total" ? p.advanced.eff * p.gamesPlayed : p.advanced.eff;
-}
-
-function effText(p: PlayerSummary, mode: PlayerRankMode): string {
-  return formatDecimal(effValue(p, mode), countDigits(mode));
-}
-
-function boxColumnItem(col: SeasonBoxscoreColumn, mode: PlayerRankMode): PlayerRankItem {
-  if (col.key === "eff") {
-    return {
-      key: col.key,
-      label: col.label,
-      higherIsBetter: col.higherIsBetter,
-      value: (p) => effValue(p, mode),
-      format: (p) => effText(p, mode),
-    };
-  }
-  return {
-    key: col.key,
-    label: col.label,
-    higherIsBetter: col.higherIsBetter,
-    value: (_p, ctx) => (ctx ? col.value(ctx, mode) : 0),
-    format: (_p, ctx) => (ctx ? col.format(ctx, mode) : "-"),
-  };
-}
-
-/**
- * 平均/合計で値が変わらない項目（割合・率・試合数）。これらとProfile・Careerでは、平均/合計の切り替えを無効にする（DESIGN.md 179章）。
- * 名前に pct を含む項目（FG%・TOV%・%PTS・PAINT2%・シューティングの 2P% 等）もここに入れる
- */
-const DDTD_PERIOD_REASON = (label: string) => `「${label}」は試合全体の記録でしか判定できないため、Q別・前後半を選んでいるときは対象外です。`;
-
-const MODE_INVARIANT_KEYS: ReadonlySet<string> = new Set(["g", "gs", "asttov", "usg", "efg", "ts", "pps", "poss", "pace", "ortg", "drtg", "netrtg", "per", "ppp"]);
-
-function displayModeApplies(category: string, statKey: string): boolean {
-  if (category === "profile" || category === "career") return false;
-  return !MODE_INVARIANT_KEYS.has(statKey) && !statKey.startsWith("pct") && !statKey.endsWith("pct");
-}
-
-/** DD2・TD3（達成した試合数と出場試合数。ダブルダブル・トリプルダブルは試合全体で判定する。DESIGN.md 60-4・179章） */
-interface DoubleCounts {
-  dd: number;
-  td: number;
-  games: number;
-}
-
-/** DD2・TD3 の項目。合計は回数、平均は達成率（達成した試合÷出場試合）に、達成した試合数と出場試合数を添える */
-function doubleItems(countsOf: (p: PlayerSummary) => DoubleCounts | undefined, mode: PlayerRankMode): PlayerRankItem[] {
-  const defs = [
-    { key: "dd2", label: "DD2", count: (c: DoubleCounts) => c.dd },
-    { key: "td3", label: "TD3", count: (c: DoubleCounts) => c.td },
-  ];
-  return defs.map((d) => ({
-    key: d.key,
-    label: d.label,
-    value: (p) => {
-      const c = countsOf(p);
-      if (!c) return 0;
-      return mode === "total" ? d.count(c) : c.games > 0 ? d.count(c) / c.games : 0;
-    },
-    format: (p) => {
-      const c = countsOf(p);
-      if (!c) return "-";
-      if (mode === "total") return `${d.count(c)}回`;
-      const rate = c.games > 0 ? (100 * d.count(c)) / c.games : 0;
-      return `${rate.toFixed(1)}%（${d.count(c)}/${c.games}）`;
-    },
-  }));
-}
-
-/** スタッツの条件で判定する DD2・TD3 の表示（平均は「45.0%」、合計は「27」） */
-function doubleConditionText(c: DoubleCounts | undefined, count: number | undefined, mode: PlayerRankMode): string {
-  if (!c || count === undefined) return "-";
-  if (mode === "total") return String(count);
-  return `${(c.games > 0 ? (100 * count) / c.games : 0).toFixed(1)}%`;
-}
-
-/** タブごとの列。ファウルの列は、2026-27以降のシーズン（foulSplit）ではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF（DESIGN.md 16-8章） */
-function seasonBoxColumnsByTab(foulSplit: boolean): Record<SeasonBoxTabKey, SeasonBoxscoreColumn[]> {
-  return {
-    traditional: SEASON_TRADITIONAL_COLUMNS,
-    advanced: SEASON_ADVANCED_COLUMNS,
-    misc: seasonBoxColumnsFor("misc", foulSplit),
-    scoring: SEASON_SCORING_COLUMNS,
-  };
-}
-
-/** アドバンスドカテゴリのみ、SeasonBoxscoreColumnには無いPER・PPP（statDefs.ts、シーズン合計値の
- * みでフィルタ非対応）を追加する。ランキングページが従来から提供していた項目を引き続き
- * 使えるようにするための補完 */
-const EXTRA_ADVANCED_PLAYER_ITEMS: PlayerRankItem[] = PLAYER_STAT_DEFS.filter((d) => d.key === "per" || d.key === "ppp").map(
-  (d) => ({
-    key: d.key,
-    label: d.label,
-    higherIsBetter: d.higherIsBetter,
-    value: (p: PlayerSummary) => d.value(p),
-    format: (p: PlayerSummary) => d.format(p),
-  }),
-);
-
-/**
- * 「プロフィール」カテゴリの項目（身長・体重・年齢）。値はPlayerSummaryのみで完結し（ctx不要）、
- * シチュエーション別フィルタ・レギュラー/プレーオフ・Q別/前後半の対象外。値が無い選手（マスタ未登録・
- * 生年月日欠損）は0扱いで下位に並べず、ランキングから除外する（rowsのuseMemo参照）。
- * 身長・体重はplayers.jsonの値
- * （終了したシーズンは当時の値。補った値には＊。DESIGN.md 148章）。年齢はageForSeason()
- * （そのシーズンの6月30日か今日（日本時間）の早い方の時点。DESIGN.md 172章）
- */
-function buildProfileItems(season: string): PlayerRankItem[] {
-  return [
-    {
-      key: "height",
-      label: "身長",
-      value: (p) => p.heightCm ?? 0,
-      format: (p) => heightText(p) ?? "-",
-    },
-    {
-      key: "weight",
-      label: "体重",
-      value: (p) => p.weightKg ?? 0,
-      format: (p) => weightText(p) ?? "-",
-    },
-    {
-      key: "age",
-      label: "年齢",
-      value: (p) => (p.birthDate ? ageForSeason(p.birthDate, season) : 0),
-      format: (p) => (p.birthDate ? `${ageForSeason(p.birthDate, season)}歳` : "-"),
-    },
-  ];
-}
-
-/**
- * 「キャリア」カテゴリの項目（DESIGN.md 145章）。値は data/player-careers.json の、選んだシーズンの終了時点までの累計
- * （Bリーグ 2016-17 以降、B1／B.PREMIER の記録だけ）。0 の選手はランキングに並べない（rows の useMemo 参照）。
- * 項目の一覧（CAREER_ITEM_DEFS）はスタッツの条件と共通（src/lib/playerConditionItems.ts）
- */
-function buildCareerItems(careerOf: (p: PlayerSummary) => PlayerCareerCounts | undefined): PlayerRankItem[] {
-  return CAREER_ITEM_DEFS.map((d) => ({
-    key: d.key,
-    label: d.label,
-    value: (p) => careerOf(p)?.[d.key] ?? 0,
-    format: (p) => `${careerOf(p)?.[d.key] ?? 0}${d.unit}`,
-  }));
-}
-
-const CAREER_NOTE =
-  "回数はBリーグ（2016-17シーズン）以降、B1（B.PREMIER）の記録から数えた、このシーズン終了時点までの累計です（進行中のシーズンは現時点まで）。対象はこのシーズンに登録していた選手です（出場の有無は問いません）";
-
-/**
- * スタッツの条件に使うと、選手の試合ログの読み込みが要る項目（Misc・Scoringのカテゴリにだけある項目）。
- * G・GS・MIN等、複数のカテゴリにある項目はトラディショナル側の扱い（読み込み不要）
- */
-const PLAYER_CONDITION_KEYS_NEEDING_LOGS: ReadonlySet<string> = (() => {
-  const seen = new Set<string>();
-  const needs = new Set<string>();
-  // ファウルの列は、どちらの列の出し方（UFOUL・TF／TF1・TF2・FLAG・DISR）でも読み込みが要る
-  for (const foulSplit of [false, true]) {
-    for (const tab of SEASON_BOX_TABS) {
-      for (const col of seasonBoxColumnsByTab(foulSplit)[tab.key]) {
-        if (seen.has(col.key)) continue;
-        seen.add(col.key);
-        if (tab.key === "misc" || tab.key === "scoring") needs.add(col.key);
-      }
-    }
-  }
-  return needs;
-})();
-
-/**
- * 選手ランキングのスタッツの条件に選べる項目（DESIGN.md 162章）。今のタブに限らず全カテゴリから選べる。
- * ボックススコアの項目はランキングと同じ1試合平均の値（Q別・シチュエーション別を選んでいればその値）。
- * EFF・PER・PPP・シューティング・プロフィール・キャリアは、ランキングの表示と同じシーズン通算の値
- */
-function buildPlayerConditionDefs(
-  season: string,
-  mode: PlayerRankMode,
-  ctxOf: (p: PlayerSummary, mode: PlayerRankMode) => SeasonBoxscoreCtx | null,
-  shootingPerGame: Column<PlayerSummary>[],
-  shootingTotal: Column<PlayerSummary>[],
-  careerOf: (p: PlayerSummary) => PlayerCareerCounts | undefined,
-  doublesOf: (p: PlayerSummary) => DoubleCounts | undefined,
-  ddtdOff: boolean,
-): StatConditionItemDef<PlayerSummary>[] {
-  // 判定は今の平均/合計の値（display）。displayOther は逆のほう（カウント系かの判定に使う。DESIGN.md 179章）
-  const other: PlayerRankMode = mode === "total" ? "perGame" : "total";
-  const defs: StatConditionItemDef<PlayerSummary>[] = [];
-  const columnsByTab = seasonBoxColumnsByTab(foulColumnsSplit([season]));
-  for (const tab of SEASON_BOX_TABS) {
-    for (const col of columnsByTab[tab.key]) {
-      if (col.key === "eff") {
-        defs.push({ key: "eff", label: col.label, group: tab.label, display: (p) => effText(p, mode), displayOther: (p) => effText(p, other), seasonTotal: true });
-        continue;
-      }
-      defs.push({
-        key: col.key,
-        label: col.label,
-        group: tab.label,
-        display: (p) => {
-          const ctx = ctxOf(p, mode);
-          return ctx ? col.format(ctx, mode) : "-";
-        },
-        displayOther: (p) => {
-          const ctx = ctxOf(p, other);
-          return ctx ? col.format(ctx, other) : "-";
-        },
-      });
-    }
-    if (tab.key === "traditional") {
-      // Q別/前後半を選んでいるときは値なし（「-」）で、条件に当てはまる選手がいなくなる（DESIGN.md 180章）
-      const dd = (p: PlayerSummary, m: PlayerRankMode) => (ddtdOff ? "-" : doubleConditionText(doublesOf(p), doublesOf(p)?.dd, m));
-      const td = (p: PlayerSummary, m: PlayerRankMode) => (ddtdOff ? "-" : doubleConditionText(doublesOf(p), doublesOf(p)?.td, m));
-      defs.push(
-        { key: "dd2", label: "DD2", group: tab.label, display: (p) => dd(p, mode), displayOther: (p) => dd(p, other) },
-        { key: "td3", label: "TD3", group: tab.label, display: (p) => td(p, mode), displayOther: (p) => td(p, other) },
-      );
-    }
-    if (tab.key === "advanced") {
-      for (const item of EXTRA_ADVANCED_PLAYER_ITEMS) {
-        defs.push({ key: item.key, label: item.label, group: tab.label, display: (p) => item.format(p, null), seasonTotal: true });
-      }
-    }
-  }
-  const cellText = (c: Column<PlayerSummary>, p: PlayerSummary) => (c.format ? c.format(p) : String(c.sortValue(p)));
-  const shootingShown = mode === "total" ? shootingTotal : shootingPerGame;
-  const shootingOther = mode === "total" ? shootingPerGame : shootingTotal;
-  shootingShown.forEach((c, i) => {
-    const o = shootingOther[i];
-    defs.push({
-      key: c.key,
-      label: c.label,
-      group: CATEGORY_LABELS.shooting,
-      display: (p) => cellText(c, p),
-      displayOther: o ? (p) => cellText(o, p) : undefined,
-      seasonTotal: true,
-    });
-  });
-  // 出場0試合の選手（Profile の対象に入る。DESIGN.md 173章）は、スタッツの項目を値なし（「-」）とし、条件に当てはまらない扱いにする
-  const noGames = (p: PlayerSummary) => p.gamesPlayed === 0;
-  const statDefs = defs.map((d) => ({
-    ...d,
-    display: (p: PlayerSummary) => (noGames(p) ? "-" : d.display(p)),
-    displayOther: d.displayOther ? (p: PlayerSummary) => (noGames(p) ? "-" : d.displayOther!(p)) : undefined,
-  }));
-  return [...statDefs, ...playerProfileConditionDefs(season), ...playerCareerConditionDefs(careerOf)];
-}
-
-// 公式の選手ページで身長・体重が載っていない選手は 0 で入っているので、0 も値なしとして並べない（DESIGN.md 173章）
-function profileItemHasValue(p: PlayerSummary, statKey: string): boolean {
-  if (statKey === "weight") return !!p.weightKg;
-  if (statKey === "age") return !!p.birthDate;
-  return !!p.heightCm;
-}
-
-/** 選手ランキングのカテゴリ。チーム版・チーム詳細ページ「選手スタッツ」タブと同じ
- * トラディショナル/アドバンスド/Misc/スコアリング（SeasonBoxTabKey）に、シューティングを
- * 追加したもの */
-type PlayerRankCategory = SeasonBoxTabKey | "shooting" | "profile" | "career";
 
 /**
  * ランキングページの選手版。掲載基準（所属チーム試合数の85%以上に出場、3P%/FT%/FG%/2P%は
@@ -1042,11 +443,6 @@ type PlayerRankCategory = SeasonBoxTabKey | "shooting" | "profile" | "career";
  */
 function PlayerRankingSection({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
   const exportRef = useRef<HTMLDivElement>(null);
-  const { data: players, loading: playersLoading, error: playersError } = useJsonData(() => fetchPlayers(season), [season]);
-  const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
-  // USG%・%-shareスタッツ・個人ORtg/DRtgの分母（チーム総計）用に、チーム版ランキングと共通の
-  // フックで26チーム分のTeamGameLogを取得する
-  const { gameLogsByTeam } = useAllTeamGameLogs(season, teams);
 
   // ブラウザバック等でページが一度アンマウント・再マウントされても、直前のフィルタ条件を
   // 復元する（src/lib/pageStateCache.ts参照）
@@ -1067,35 +463,65 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   useRookieFilterCleanup(season, selectedGroup, () => setSelectedGroup("all"));
   // ポジション（複数選択、未選択＝全ポジション）。登録どおり（PG・PG/SG 等の完全一致）で、どれかに当てはまる選手（DESIGN.md 171章）
   const [positions, setPositions] = useUrlState(POSITION_PARAM, EMPTY_POSITIONS);
-  const positionOptions = useMemo(() => positionFilterOptions(players, positions), [players, positions]);
   const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_RANKING_FILTER);
-  const filterActive = !isDefaultFilter(filter);
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
-  const gameTypeActive = gameType !== "regular";
   // 平均/合計（チーム版と同じ URL のキー mode。DESIGN.md 179章）
   const [displayMode, setDisplayMode] = useUrlState(DISPLAY_MODE_PARAM, "perGame");
   // Q別/前後半トグル。「試合」（既定値）選択時は追加の生データ取得を発生させず、既存の
   // PlayerSummary/PlayerGameLogベースの経路をそのまま使う。Q別/前後半選択時のみ、対象選手
   // 全員分の生データ（StoredGame）を一括取得する（useLeagueRawGames、DESIGN.md参照）
   const [period, setPeriod] = useUrlState(PERIOD_PARAM, "all");
-  const periodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === period) ?? SEASON_BOX_PERIOD_OPTIONS[0]!;
-  const periodActive = periodOption.periods !== null;
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+
+  // 集計（掲載基準・試合ログの読み込み・行・値の定義・スタッツの条件の項目）は src/lib/playerSeasonRanking.ts。前シーズン比較の前季でも同じ処理を使う（DESIGN.md 218章）
+  const {
+    players,
+    playersLoading,
+    playersError,
+    eligible,
+    shownRows,
+    selectedItem,
+    currentItems,
+    rankDef,
+    rankMode,
+    modeApplies,
+    ddtdPeriodOff,
+    effPeriodActive,
+    periodActive,
+    filterActive,
+    gameTypeActive,
+    periodOption,
+    needsGameLogRecompute,
+    conditionItems,
+    conditionActive,
+    conditionKeys,
+    clubOf,
+    registeredTarget,
+    registeredPlayers,
+    divisionHistory,
+    opponentRecords,
+    waiting,
+  } = usePlayerSeasonRanking(season, {
+    category,
+    statKey,
+    gamesRatio,
+    extraThreshold,
+    group: selectedClassification,
+    rookieIds: rookies.ids,
+    positions,
+    filter,
+    gameType,
+    displayMode,
+    period,
+    statConditions,
+  });
+  const positionOptions = useMemo(() => positionFilterOptions(players, positions), [players, positions]);
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
   useFoulConditionCleanup(season, statConditions, setStatConditions);
   useFoulStatKeyCleanup(season, statKey, () => setStatKey(defaultPlayerStat));
   // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
   useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
-  const conditionKeys = activeStatConditionKeys(statConditions);
-  const conditionNeedsLogs = conditionKeys.some((k) => PLAYER_CONDITION_KEYS_NEEDING_LOGS.has(k));
-  const conditionNeedsCareers = conditionKeys.some((k) => k.startsWith(CAREER_CONDITION_KEY_PREFIX));
-
-  const { divisionHistory, opponentRecords, playerOwnTeamOf } = useLeagueSituationalContext(season);
-
-  const [gameLogsByPlayer, setGameLogsByPlayer] = useState<Map<string, PlayerGameLog[]> | null>(null);
-  const [gameLogsLoading, setGameLogsLoading] = useState(false);
-  const fetchedPlayerIdsRef = useRef<Set<string>>(new Set());
 
   const selectCategory = (next: PlayerRankCategory) => {
     setCategory(next);
@@ -1108,20 +534,6 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     setExtraThreshold(EXTRA_ELIGIBILITY_RULES[extraRuleKey(next)]?.defaultValue ?? 0);
   };
 
-  // 「キャリア」カテゴリを開いたときだけ取得する
-  const careersNeeded = category === "career" || conditionNeedsCareers;
-  const { data: careers, loading: careersLoading } = useJsonData(
-    () => (careersNeeded ? fetchPlayerCareers() : Promise.resolve(null)),
-    [careersNeeded],
-  );
-  const careerBySeason = careers?.seasons[season];
-  // Profile・Career の対象に加える、試合に一度も名前が無い登録選手（DESIGN.md 173・175章）。どちらかを開いたときだけ取得する
-  const registeredTarget = category === "profile" || category === "career";
-  const { data: registeredPlayers, loading: registeredLoading } = useJsonData(
-    () => (registeredTarget ? fetchRegisteredPlayers(season) : Promise.resolve(null)),
-    [registeredTarget, season],
-  );
-
   const registeredOnlyIds = useMemo(() => new Set((registeredPlayers ?? []).map((p) => p.playerId)), [registeredPlayers]);
   // 名簿から足した選手（このシーズンに個人ページが無い）の名前は、個人ページがある一番新しいシーズンへつなぐ（表示は待たない。DESIGN.md 174章）
   const { data: playerPageSeasons } = useJsonData(
@@ -1129,322 +541,16 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     [registeredTarget],
   );
 
-  const eligible: PlayerSummary[] = useMemo(() => {
-    if (!players || !teams) return [];
-    // ルーキーの一覧を読み込むまでは空にする（全員分の試合ログを取りに行かないため）
-    if (rookieActive && !rookies.ids) return [];
-    const positionSet = new Set(positions);
-    // Profile・Career: 掲載基準（出場率）を使わず、そのシーズンに登録していた選手全員（出場の有無を問わない。DESIGN.md 173・175章）
-    if (registeredTarget) {
-      return [...players, ...(registeredPlayers ?? [])].filter(
-        (p) => matchesPlayerGroupFilter(p, selectedClassification, rookies.ids) && matchesPositionFilter(p, positionSet),
-      );
-    }
-    const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold).filter(
-      (p) => matchesPlayerGroupFilter(p, selectedClassification, rookies.ids) && matchesPositionFilter(p, positionSet),
-    );
-    return category === "shooting" ? base.filter((p) => !!p.shotTypes) : base;
-  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassification, positions, rookieActive, rookies.ids, category, registeredTarget, registeredPlayers]);
-
-  // シーズンが変わったら取得済みキャッシュをリセットする
-  useEffect(() => {
-    fetchedPlayerIdsRef.current = new Set();
-    setGameLogsByPlayer(null);
-  }, [season]);
-
-  // シチュエーション別フィルタ・レギュラー/プレーオフ切替が既定値以外、Misc/スコアリング
-  // カテゴリ選択時（PlayByPlays由来の項目のみでシーズン集計に存在しない）、またはQ別/前後半
-  // トグル選択時（対象試合のscheduleKey一覧・isHomeを得るのにPlayerGameLogが要る）だけ、
-  // 対象選手（掲載基準・国籍区分フィルタ通過後）分のPlayerGameLogを取得する
-  // （PlayersListPage.tsxの「全選手スタッツ」タブと同じ遅延取得方針）。出場率スライダー等で
-  // 対象選手が増えても、既に取得済みの選手は再取得せず差分だけ追加する
-  // シューティング・プロフィール・キャリアのカテゴリでは試合種別・シチュエーション別・Q別/前後半が効かない。
-  // そのカテゴリを開いているときにスタッツの条件でボックススコアの項目を使うと、絞り込みの無いシーズンの値で判定する
-  const filtersApply = category !== "shooting" && category !== "profile" && category !== "career";
-  const effFilter: SituationalFilter = filtersApply ? filter : { range: { kind: "all" } };
-  const effGameType: SeasonGameTypeFilter = filtersApply ? gameType : "regular";
-  const effPeriodActive = filtersApply && periodActive;
-  const needsGameLogRecompute =
-    (filtersApply && (filterActive || gameTypeActive || periodActive)) || category === "misc" || category === "scoring" || conditionNeedsLogs;
-  useEffect(() => {
-    if (!needsGameLogRecompute || eligible.length === 0) return;
-    const missing = eligible.filter((p) => !fetchedPlayerIdsRef.current.has(p.playerId));
-    if (missing.length === 0) return;
-    let cancelled = false;
-    setGameLogsLoading(true);
-    for (const p of missing) fetchedPlayerIdsRef.current.add(p.playerId);
-    Promise.all(
-      missing.map(async (p): Promise<readonly [string, PlayerGameLog[]]> => {
-        try {
-          return [p.playerId, await fetchPlayerGameLogs(season, p.playerId)] as const;
-        } catch {
-          return [p.playerId, [] as PlayerGameLog[]] as const;
-        }
-      }),
-    )
-      .then((results) => {
-        if (cancelled) return;
-        setGameLogsByPlayer((prev) => {
-          const next = new Map(prev ?? []);
-          for (const [id, logs] of results) next.set(id, logs);
-          return next;
-        });
-      })
-      .finally(() => {
-        if (!cancelled) setGameLogsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [needsGameLogRecompute, eligible, season]);
-
-  // USG%・%-shareスタッツ・個人ORtg/DRtgの分母（チーム総計）。gameLogsByTeamから選手側と
-  // 同じシチュエーション別フィルタ・レギュラー/プレーオフ条件で組み立てる
-  const teamScopes = useMemo<{ totals: Map<string, TeamSeasonRawTotals>; logs: Map<string, TeamGameLog[]> } | null>(() => {
-    if (!gameLogsByTeam) return null;
-    const totals = new Map<string, TeamSeasonRawTotals>();
-    const scopedLogs = new Map<string, TeamGameLog[]>();
-    for (const [teamId, logs] of gameLogsByTeam) {
-      const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => teamId);
-      const scoped = filterByGameType(situational, effGameType);
-      scopedLogs.set(teamId, scoped);
-      totals.set(teamId, sumTeamGameLogsFor(scoped, new Set(scoped.map((g) => g.scheduleKey))));
-    }
-    return { totals, logs: scopedLogs };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameLogsByTeam, filtersApply, filter, gameType, opponentRecords, divisionHistory, season]);
-  const teamTotalsByTeamId = teamScopes?.totals ?? null;
-  // シーズンの途中で移籍した選手の分母は、条件の有無によらず、条件に当てはまる試合で所属していた各チームの所属期間の合計にする
-  // （選手の最新の所属チームだけで割ると、条件に当てはまる試合の外のチームで割ってしまう。DESIGN.md 213・216章）。1チームだけの選手は、所属チームの合計
-
-  // Q別/前後半選択時のみ、対象選手全員分の生データ（StoredGame）を一括取得する。
-  // 「試合」選択時はrequestedScheduleKeysが常に空配列のため、useLeagueRawGamesは何も取得しない。
-  // gameLogsByPlayerが揃っていない間（fetch中）は一旦空扱いにし、揃い次第再計算される
-  const requestedScheduleKeys = useMemo(() => {
-    if (!effPeriodActive || !gameLogsByPlayer) return [];
-    const keys = new Set<string>();
-    for (const p of eligible) {
-      const logs = gameLogsByPlayer.get(p.playerId) ?? [];
-      const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
-      const scoped = filterByGameType(situational, effGameType);
-      for (const g of scoped) keys.add(g.scheduleKey);
-    }
-    return [...keys];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effPeriodActive, gameLogsByPlayer, eligible, filtersApply, filter, gameType, opponentRecords, divisionHistory, season, playerOwnTeamOf]);
-  const { gamesByScheduleKey, loading: rawGamesLoading } = useLeagueRawGames(season, requestedScheduleKeys);
-  const periodDataReady = !effPeriodActive || requestedScheduleKeys.every((k) => gamesByScheduleKey.has(k));
-
-  const seasonStartYear = Number(season.split("-")[0]);
-  const ctxByPlayer = useMemo<Map<string, SeasonBoxscoreCtx> | null>(() => {
-    if (!teamTotalsByTeamId) return null;
-    if (needsGameLogRecompute && !gameLogsByPlayer) return null;
-    if (effPeriodActive && !periodDataReady) return null;
-    const map = new Map<string, SeasonBoxscoreCtx>();
-    for (const p of eligible) {
-      if (effPeriodActive) {
-        // Q別/前後半: 試合単位で生データから組み立てる（team総計もこの選手が出場した試合の
-        // 期間限定値。個人詳細ページのQ別/前後半トグルと同じ設計、DESIGN.md参照）
-        const logs = gameLogsByPlayer!.get(p.playerId) ?? [];
-        const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
-        const scoped = filterByGameType(situational, effGameType);
-        const contributions: GamePeriodTotals[] = [];
-        for (const log of scoped) {
-          const game = gamesByScheduleKey.get(log.scheduleKey);
-          if (!game) continue;
-          const c = computeGamePeriodTotals(game, log.isHome, p.playerId, periodOption);
-          if (c) contributions.push(c);
-        }
-        const { raw, team } = buildPeriodFilteredRawTotals(contributions);
-        map.set(p.playerId, buildSeasonBoxscoreCtx(raw, team, "perGame", seasonStartYear));
-        continue;
-      }
-      let team = teamTotalsByTeamId.get(p.teamId) ?? EMPTY_TEAM_TOTALS;
-      if (needsGameLogRecompute) {
-        const logs = gameLogsByPlayer!.get(p.playerId) ?? [];
-        const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
-        const scoped = filterByGameType(situational, effGameType);
-        if (teamScopes && playerOwnTeamOf) {
-          team = teamTotalsForTransferredPlayer(logs, scoped, playerOwnTeamOf, teamScopes.logs) ?? team;
-        }
-        map.set(p.playerId, buildSeasonBoxscoreCtx(sumPlayerGameLogs(scoped), team, "perGame", seasonStartYear));
-      } else {
-        // 試合ログを読まない経路（条件なし）。移籍した選手の分母は、集計済みの値（players.json の transferredTeamTotals）を使う
-        map.set(p.playerId, buildSeasonBoxscoreCtx(rawTotalsFromPlayerSummary(p), p.transferredTeamTotals ?? team, "perGame", seasonStartYear));
-      }
-    }
-    return map;
-  }, [
-    teamTotalsByTeamId,
-    teamScopes,
-    needsGameLogRecompute,
-    gameLogsByPlayer,
-    eligible,
-    filtersApply,
-    filter,
-    gameType,
-    opponentRecords,
-    divisionHistory,
-    season,
-    playerOwnTeamOf,
-    seasonStartYear,
-    effPeriodActive,
-    periodDataReady,
-    periodOption,
-    gamesByScheduleKey,
-  ]);
-
-  // 試合の条件（地区・勝敗・会場など）で絞っているときは、行に出すクラブを「条件に当てはまる試合で所属していたクラブ。複数あれば、その中の最新のクラブ」にする
-  // （シーズンの途中で移籍した選手の行に、条件に当てはまらない最新のクラブが出ないように。DESIGN.md 213章）。条件を付けていないときは、選手の最新の所属のまま
-  const conditionedClubByPlayer = useMemo<Map<string, { teamId: string; teamName: string }> | null>(() => {
-    if (!filtersApply || !filterActive || !gameLogsByPlayer || !teams || !playerOwnTeamOf) return null;
-    const teamNameById = new Map(teams.map((t) => [t.teamId, t.teamName]));
-    const map = new Map<string, { teamId: string; teamName: string }>();
-    for (const p of eligible) {
-      const logs = gameLogsByPlayer.get(p.playerId) ?? [];
-      const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
-      const scoped = filterByGameType(situational, effGameType);
-      let latest: PlayerGameLog | null = null;
-      for (const g of scoped) {
-        if (!latest || g.date > latest.date || (g.date === latest.date && Number(g.scheduleKey) > Number(latest.scheduleKey))) latest = g;
-      }
-      const teamId = latest ? playerOwnTeamOf({ scheduleKey: latest.scheduleKey, isHome: latest.isHome }) : undefined;
-      const teamName = teamId ? teamNameById.get(teamId) : undefined;
-      if (teamId && teamName) map.set(p.playerId, { teamId, teamName });
-    }
-    return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersApply, filterActive, gameLogsByPlayer, teams, playerOwnTeamOf, eligible, filter, gameType, opponentRecords, divisionHistory, season]);
-  const clubOf = (p: PlayerSummary): { teamId: string; teamName: string } => conditionedClubByPlayer?.get(p.playerId) ?? { teamId: p.teamId, teamName: p.teamName };
-
-  // DD2・TD3 の回数と出場試合数（DESIGN.md 179章）。試合ログを読んでいるとき（シチュエーション別・レギュラー/ポストシーズン等）は
-  // 絞り込んだ試合（出場した試合）から数え、読んでいないときは players.json のシーズンの値（レギュラーシーズン）を使う。
-  // Q別/前後半を選んでも、達成は試合全体で判定する（DESIGN.md 60-4）
-  const doublesByPlayer = useMemo(() => {
-    const map = new Map<string, DoubleCounts>();
-    for (const p of eligible) {
-      if (needsGameLogRecompute && gameLogsByPlayer) {
-        const logs = gameLogsByPlayer.get(p.playerId) ?? [];
-        const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
-        const played = filterByGameType(situational, effGameType).filter((g) => g.min > 0);
-        const { dd, td } = countDoubleTripleDoubles(played);
-        map.set(p.playerId, { dd, td, games: played.length });
-      } else {
-        map.set(p.playerId, { dd: p.totals.doubleDoubles, td: p.totals.tripleDoubles, games: p.gamesPlayed });
-      }
-    }
-    return map;
-    // effFilter・effGameType は filter・gameType・filtersApply から決まる
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eligible, needsGameLogRecompute, gameLogsByPlayer, filtersApply, filter, gameType, opponentRecords, divisionHistory, season, playerOwnTeamOf]);
-
-  // 平均/合計（DESIGN.md 179章）。割合の項目・Profile・Career では切り替えを無効にし、平均として扱う。
-  // ctxByPlayer は1試合平均の値なので、合計のときはシーズン合計の値の ctx を作り直す
-  // DD2・TD3 は試合全体の記録でしか判定できないため、Q別/前後半を選んでいるときは対象外にする（DESIGN.md 180章）
-  const ddtdPeriodOff = effPeriodActive && (statKey === "dd2" || statKey === "td3");
-  const modeApplies = displayModeApplies(category, statKey) && !ddtdPeriodOff;
-  const rankMode: PlayerRankMode = modeApplies && displayMode === "total" ? "total" : "perGame";
-  const totalCtxByPlayer = useMemo(() => {
-    if (!ctxByPlayer) return null;
-    const map = new Map<string, SeasonBoxscoreCtx>();
-    for (const [id, c] of ctxByPlayer) map.set(id, buildSeasonBoxscoreCtx(c.raw, c.team, "total", c.seasonStartYear));
-    return map;
-  }, [ctxByPlayer]);
-  const ctxFor = (p: PlayerSummary, mode: PlayerRankMode) => (mode === "total" ? totalCtxByPlayer : ctxByPlayer)?.get(p.playerId) ?? null;
-
-  // シチュエーション別フィルタで対象試合が0件になった選手は、"0"のまま下位に並べず除外する
-  // （旧situationalByPlayerが null を返していたときと同じ扱い）。シューティングカテゴリは
-  // 常にシーズン集計（掲載基準通過者全員）をそのまま表示する
-  const rows: PlayerSummary[] = useMemo(() => {
-    if (category === "profile") return eligible.filter((p) => profileItemHasValue(p, statKey));
-    if (category === "career") return eligible.filter((p) => (careerBySeason?.[p.playerId]?.[statKey as keyof PlayerCareerCounts] ?? 0) > 0);
-    if (category === "shooting" || !ctxByPlayer) return eligible;
-    const played = eligible.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.gamesPlayed ?? 0) > 0);
-    // DD2・TD3 は0回（0%）の選手を並べない（平均・合計とも。DESIGN.md 179章）
-    if (statKey === "dd2" || statKey === "td3") {
-      return played.filter((p) => {
-        const c = doublesByPlayer.get(p.playerId);
-        return !!c && (statKey === "dd2" ? c.dd : c.td) > 0;
-      });
-    }
-    return played;
-  }, [eligible, ctxByPlayer, category, statKey, careerBySeason, doublesByPlayer]);
-
-  const shootingColumns = useMemo(
-    () => shotTypeEntityColumns(SHOT_TYPE_DISPLAY_ORDER, (p: PlayerSummary) => p.shotTypes, "perGame", (p) => p.gamesPlayed),
-    [],
-  );
-  const shootingColumnsTotal = useMemo(
-    () => shotTypeEntityColumns(SHOT_TYPE_DISPLAY_ORDER, (p: PlayerSummary) => p.shotTypes, "total", (p) => p.gamesPlayed),
-    [],
-  );
-  const currentItems: PlayerRankItem[] = useMemo(() => {
-    if (category === "shooting") {
-      return (rankMode === "total" ? shootingColumnsTotal : shootingColumns).map((c) => ({
-        key: c.key,
-        label: c.label,
-        higherIsBetter: c.higherIsBetter,
-        value: (p: PlayerSummary) => Number(c.sortValue(p)),
-        format: (p: PlayerSummary) => (c.format ? c.format(p) : String(c.sortValue(p))),
-      }));
-    }
-    if (category === "profile") return buildProfileItems(season);
-    if (category === "career") return buildCareerItems((p) => careerBySeason?.[p.playerId]);
-    const items = seasonBoxColumnsByTab(foulColumnsSplit([season]))[category].map((col) => boxColumnItem(col, rankMode));
-    if (category === "traditional") return [...items, ...doubleItems((p) => doublesByPlayer.get(p.playerId), rankMode)];
-    return category === "advanced" ? [...items, ...EXTRA_ADVANCED_PLAYER_ITEMS] : items;
-  }, [category, shootingColumns, shootingColumnsTotal, season, careerBySeason, rankMode, doublesByPlayer]);
-
-  // スタッツの条件（DESIGN.md 162章）。今のタブに限らず全カテゴリの項目で、ランキングに出す行を絞り込む
-  const conditionItems = useMemo(
-    () =>
-      buildStatConditionItems(
-        buildPlayerConditionDefs(
-          season,
-          rankMode,
-          (p, mode) => (mode === "total" ? totalCtxByPlayer : ctxByPlayer)?.get(p.playerId) ?? null,
-          shootingColumns,
-          shootingColumnsTotal,
-          (p) => careers?.seasons[season]?.[p.playerId],
-          (p) => doublesByPlayer.get(p.playerId),
-          effPeriodActive,
-        ),
-        eligible,
-        rankMode,
-      ),
-    [season, rankMode, ctxByPlayer, totalCtxByPlayer, shootingColumns, shootingColumnsTotal, careers, eligible, doublesByPlayer, effPeriodActive],
-  );
-  const conditionActive = hasActiveStatConditions(statConditions, conditionItems);
-  const shownRows = useMemo(
-    () => (conditionActive ? filterByStatConditions(rows, statConditions, conditionItems) : rows),
-    [conditionActive, rows, statConditions, conditionItems],
-  );
   // スマホ幅では名字だけ（同じ一覧で名字が重なる選手はフルネーム）
   const playerLabel = usePlayerLabel(shownRows.map((p) => p.name));
   const teamLabel = useTeamLabel();
-
-  const selectedItem = currentItems.find((i) => i.key === statKey) ?? currentItems[0]!;
-  const rankDef: RankableStat<PlayerSummary> = {
-    key: selectedItem.key,
-    label: selectedItem.label,
-    higherIsBetter: selectedItem.higherIsBetter,
-    value: (p) => selectedItem.value(p, ctxFor(p, rankMode)),
-    format: (p) => selectedItem.format(p, ctxFor(p, rankMode)),
-  };
 
   // 「プロフィール」カテゴリの年齢の基準日ラベル（表・画像出力に出す。そのシーズンの6月30日か今日の早い方。DESIGN.md 172章）。
   // 身長・体重は当時の値（補った値には＊。DESIGN.md 148章）なので基準日は出さない
   const profileBaseDateLabel = category === "profile" && selectedItem.key === "age" ? ageBaseDateLabel(season) : null;
 
   const extraRule = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)];
-  const waitingForGameLogs =
-    (rookieActive && rookies.loading) ||
-    (needsGameLogRecompute && (gameLogsLoading || !gameLogsByPlayer)) ||
-    !teamTotalsByTeamId ||
-    !ctxByPlayer ||
-    (effPeriodActive && (rawGamesLoading || !periodDataReady)) ||
-    (careersNeeded && (careersLoading || !careers)) ||
-    (registeredTarget && (registeredLoading || !registeredPlayers));
+  const waitingForGameLogs = (rookieActive && rookies.loading) || waiting;
 
   if (playersLoading) return <p className="loading">読み込み中...</p>;
   if (playersError) return <p className="error-message">{playersError}</p>;

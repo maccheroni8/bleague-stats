@@ -54,7 +54,10 @@ export function useAllTeamGameLogs(
  * 地区マスタ・そこから求めた「試合前時点の対戦成績」を取得する。取得に失敗しても該当フィルタが
  * 使えなくなるだけで他の機能は継続する（「チーム」ページと同じ方針）
  */
-export function useLeagueSituationalContext(season: string): {
+export function useLeagueSituationalContext(
+  season: string,
+  enabled = true,
+): {
   summaries: GameSummary[] | null;
   divisionHistory: DivisionHistoryFile | null;
   opponentRecords: Map<string, Map<string, RecordBeforeGame>> | undefined;
@@ -68,6 +71,8 @@ export function useLeagueSituationalContext(season: string): {
     let cancelled = false;
     setSummaries(null);
     setDivisionHistory(null);
+    // 前シーズン比較の前季は、比較をオンにしたときだけ読む（enabled が false の間は読まない）
+    if (!enabled) return;
     Promise.all([fetchGameSummaries(season), fetchDivisionHistory()])
       .then(([s, d]) => {
         if (!cancelled) {
@@ -81,7 +86,7 @@ export function useLeagueSituationalContext(season: string): {
     return () => {
       cancelled = true;
     };
-  }, [season]);
+  }, [season, enabled]);
 
   const opponentRecords = useMemo<Map<string, Map<string, RecordBeforeGame>> | undefined>(
     () => (summaries ? buildRecordsBeforeGame(summaries) : undefined),
