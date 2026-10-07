@@ -17,7 +17,20 @@
         "unreconstructedSeconds": 0,
         "plusMinusMismatches": 0
       },
-      "history": []
+      "history": [
+        {
+          "at": "2026-10-07T18:20:31.657Z",
+          "changes": [
+            "得点・フリースローの記録が変化（追加1・削除1）"
+          ],
+          "diagnosis": {
+            "warnings": 3,
+            "orderRepairs": 1,
+            "unreconstructedSeconds": 0,
+            "plusMinusMismatches": 0
+          }
+        }
+      ]
     },
     {
       "scheduleKey": "506406",
