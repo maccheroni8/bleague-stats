@@ -134,6 +134,11 @@ export function classificationLabels(filter: ClassificationGroupFilter): string[
   return [filter === "all" ? "全選手" : `登録区分: ${filter}`];
 }
 
+/** ルーキーの絞り込み。オンにしたときだけ「ルーキー」と書く（オフのときは何も書かない。DESIGN.md 217章） */
+export function rookieLabels(active: boolean): string[] {
+  return active ? ["ルーキー"] : [];
+}
+
 export interface EligibilityLabelInput {
   /** 出場率の下限（0〜1） */
   gamesRatio: number;

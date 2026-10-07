@@ -5,6 +5,7 @@ import type { PeriodRangeValue } from "./periodRange";
 import type { TeamPerspective } from "./teamStatsColumns";
 import type { LeagueVenue } from "./conditionLabels";
 import { enumParam, listParam } from "./urlState";
+import type { RookieFilter } from "./rookieFilter";
 
 /**
  * 個人一覧・チーム一覧・ランキングで共通のフィルタのURLのキー（DESIGN.md 163章）。
@@ -31,6 +32,9 @@ export const CLASSIFICATION_PARAM = enumParam<ClassificationGroupFilter>("cls", 
   日本人: "jp",
   "外国籍・帰化・アジア": "intl",
 });
+
+/** ルーキー（rk=1。DESIGN.md 217章）。ランキングのシーズン成績（個人）と全選手スタッツで使う */
+export const ROOKIE_PARAM = enumParam<RookieFilter>("rk", ["all", "rookie"], "all", { rookie: "1" });
 
 export const POSITION_PARAM = listParam("pos");
 export const CLUB_PARAM = listParam("club");

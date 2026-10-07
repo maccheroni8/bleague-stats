@@ -26,6 +26,7 @@ import type {
   LeagueTeamRankingsFile,
   PlayerAwardsFile,
   PlayerCareersFile,
+  RookieEligibilityFile,
   LeagueAverageFile,
   PlayerGameLog,
   PlayerHistoryEntry,
@@ -257,6 +258,11 @@ export function fetchLeagueCompare(season: string): Promise<LeagueCompareFile> {
 /** 選手のキャリアの回数（ランキングの個人「キャリア」カテゴリ。scripts/aggregate-player-careers.ts） */
 export function fetchPlayerCareers(): Promise<PlayerCareersFile> {
   return fetchJson<PlayerCareersFile>(`${dataBase}/player-careers.json`);
+}
+
+/** ルーキー（新人賞の対象要件に準じた推定）のシーズンごとの選手ID（導出データ。scripts/aggregate-rookie-eligibility.ts。DESIGN.md 215・217章） */
+export function fetchRookieEligibility(): Promise<RookieEligibilityFile> {
+  return fetchJson<RookieEligibilityFile>(`${dataBase}/rookie-eligibility.json`);
 }
 
 /** 選手プロフィール共通マスタ（シーズン非依存、DESIGN.md 5章・11章・51章参照）。B.ONE

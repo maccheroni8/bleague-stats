@@ -15,6 +15,7 @@ import type { Division } from "../../shared/types";
 import { DIVISION_LABELS, divisionPresets } from "./divisionGroups";
 import { LEAGUE_VENUE_LABELS, periodLabels, type LeagueVenue } from "./conditionLabels";
 import { CLASSIFICATION_GROUP_OPTIONS, type ClassificationGroupFilter } from "./classificationFilter";
+import type { RookieFilter } from "./rookieFilter";
 import type { PeriodRangeOption, PeriodRangeValue } from "./periodRange";
 import {
   MARGIN_CONDITION_LABELS,
@@ -323,6 +324,28 @@ export function classificationAxis(
     defaultValue: "all",
     onChange: (v) => onChange(v as ClassificationGroupFilter),
     disabledReason: opts.disabledReason,
+  };
+}
+
+/**
+ * ルーキー: オフ/オン（DESIGN.md 217章）。オンにすると、そのシーズンに新人賞の対象要件（推定）を満たす選手だけを出す。
+ * 選べないシーズン（2016-17）は disabledReason を渡す
+ */
+export function rookieAxis(value: RookieFilter, onChange: (v: RookieFilter) => void, opts: SimpleAxisOptions = {}): FilterAxis {
+  return {
+    kind: "select",
+    id: "rookie",
+    label: "ルーキー",
+    tier: opts.tier ?? "primary",
+    options: [
+      { value: "all", label: "オフ" },
+      { value: "rookie", label: "オン" },
+    ],
+    value,
+    defaultValue: "all",
+    onChange: (v) => onChange(v as RookieFilter),
+    disabledReason: opts.disabledReason,
+    chipValue: "オン",
   };
 }
 

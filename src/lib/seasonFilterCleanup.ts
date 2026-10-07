@@ -6,6 +6,7 @@ import { useJsonData } from "./useJsonData";
 import type { SituationalFilter } from "./situational";
 import { foulColumnsSplit, foulKeyVisible } from "./ruleChange";
 import type { StatConditionsState } from "./statConditions";
+import { rookieSupportedSeason, type RookieFilter } from "./rookieFilter";
 
 /**
  * シーズンを変えたとき（とURLを直接開いたとき）に、そのシーズンでは意味が変わるフィルタを外す（DESIGN.md 164章）。
@@ -16,6 +17,7 @@ import type { StatConditionsState } from "./statConditions";
  * - 月: そのシーズンに試合が1つも無い月
  * - 期間指定: 始まり・終わりのどちらかの日付が、そのシーズンの期間（最初の試合〜最後の試合。今後の日程を含む）の外
  * - 試合種別のポストシーズン・合算: ポストシーズンが開催されなかったシーズン
+ * - ルーキー: 選べないシーズン（2016-17。`useRookieFilterCleanup`。217章）
  * 外したことは知らせず、表のタイトルの下の行と「適用中」の表示で分かる形にする（165章）。登録区分・出場試合率・ポジション・スタッツの条件などはそのまま残す
  */
 
@@ -140,6 +142,21 @@ export function useSeasonFilterCleanup(opts: {
     if (o.setGameType && result.gameType && result.gameType !== o.gameType) o.setGameType(result.gameType);
   }, [scope, opts.season]);
 
+}
+
+/**
+ * ルーキーの絞り込み（rk）は、選べないシーズン（2016-17）に切り替えたとき（とページを開いたとき）に外す（DESIGN.md 217章）。
+ * 外したことは知らせない（165章）。確かめるのはシーズンが変わったときとページを開いたときの1回だけ（手で選び直した値はその場では外さない）
+ */
+export function useRookieFilterCleanup(season: string, value: RookieFilter, reset: () => void): void {
+  const checkedSeasonRef = useRef<string | null>(null);
+  const latest = useRef({ value, reset });
+  latest.current = { value, reset };
+  useEffect(() => {
+    if (checkedSeasonRef.current === season) return;
+    checkedSeasonRef.current = season;
+    if (latest.current.value === "rookie" && !rookieSupportedSeason(season)) latest.current.reset();
+  }, [season]);
 }
 
 /**
