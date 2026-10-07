@@ -5,6 +5,7 @@ import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
 import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
 import { EligibilitySlider } from "../components/EligibilitySlider";
 import { useCompareCleanup, useFoulConditionCleanup, useFoulStatKeyCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
+import { RawGamesFailure } from "../components/RawGamesFailure";
 import { COMPARE_LABEL, COMPARE_PARAM, buildCompare, compareUnsupportedReason, previousSeason } from "../lib/seasonCompare";
 import { postseasonLabel } from "../../shared/gameType";
 import { isPastSeason } from "../lib/season";
@@ -177,21 +178,6 @@ function CompareNotes({
         <p className="rule-change-footnote">※ {season}は進行中のため、合計の差には、試合数の違いが含まれます。</p>
       )}
     </>
-  );
-}
-
-/**
- * Q別・前後半の表で、やり直しても読めなかった試合があるとき。読めた分だけで表を出すと値が欠けて誤解を招くため、表は出さない。
- * 再読み込みは、読めなかった試合だけをもう一度取りに行く
- */
-function RawGamesFailure({ count, onRetry }: { count: number; onRetry: () => void }) {
-  return (
-    <div className="error-message">
-      <p>{count}試合の記録を読み込めませんでした。Q別・前後半の表は、全試合がそろわないと値が欠けてしまうため、表示していません。</p>
-      <button type="button" className="load-more-button" onClick={onRetry}>
-        再読み込み
-      </button>
-    </div>
   );
 }
 

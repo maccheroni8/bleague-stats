@@ -1,6 +1,7 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
+import { RawGamesFailure } from "../components/RawGamesFailure";
 import { postseasonLabel } from "../../shared/gameType";
 import { useParams } from "react-router-dom";
 import { Link as RouterLink } from "react-router-dom";
@@ -749,6 +750,48 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const periodRawGamesRequestedRef = useRef<Set<string>>(new Set());
   const [periodRawGames, setPeriodRawGames] = useState<Map<string, StoredGame>>(new Map());
   const [periodRawGamesLoading, setPeriodRawGamesLoading] = useState(false);
+  // 1回やり直しても読めなかった試合は、取得済みにせず失敗として持つ（二度と読まれず、表が「読み込み中」のまま止まるのを防ぐ。再読み込みで取り直す。DESIGN.md 218-8）
+  const [periodRawGamesFailed, setPeriodRawGamesFailed] = useState<ReadonlySet<string>>(new Set());
+  const [periodRawGamesRetryNonce, setPeriodRawGamesRetryNonce] = useState(0);
+  const periodRawGamesInFlightRef = useRef(0);
+  const retryPeriodRawGames = useCallback(() => setPeriodRawGamesRetryNonce((n) => n + 1), []);
+  // 「シーズン別成績」「シチュエーション別成績」の両方の取得で使う。要求済みの記録・読み込み中・失敗の記録をここで一元的に扱う
+  const loadPeriodRawGames = useCallback((needed: { season: string; scheduleKey: string }[]) => {
+    for (const n of needed) periodRawGamesRequestedRef.current.add(n.scheduleKey);
+    const keys = needed.map((n) => n.scheduleKey);
+    periodRawGamesInFlightRef.current += 1;
+    setPeriodRawGamesLoading(true);
+    setPeriodRawGamesFailed((prev) => (keys.some((k) => prev.has(k)) ? new Set([...prev].filter((k) => !keys.includes(k))) : prev));
+    Promise.all(
+      needed.map(async ({ season: s, scheduleKey }): Promise<readonly [string, StoredGame] | null> => {
+        // 同時に多数読むと一部が失敗することがあるので、1回だけやり直す
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            return [scheduleKey, await fetchGame(s, scheduleKey)] as const;
+          } catch {
+            if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 500));
+          }
+        }
+        return null;
+      }),
+    )
+      .then((results) => {
+        setPeriodRawGames((prev) => {
+          const next = new Map(prev);
+          for (const r of results) if (r) next.set(r[0], r[1]);
+          return next;
+        });
+        const failed = keys.filter((_, i) => results[i] === null);
+        if (failed.length > 0) {
+          for (const k of failed) periodRawGamesRequestedRef.current.delete(k);
+          setPeriodRawGamesFailed((prev) => new Set([...prev, ...failed]));
+        }
+      })
+      .finally(() => {
+        periodRawGamesInFlightRef.current -= 1;
+        if (periodRawGamesInFlightRef.current === 0) setPeriodRawGamesLoading(false);
+      });
+  }, []);
 
   const [tab, setTab] = usePageState<DetailTab>(pk("tab"), "stats");
   const [careerData, setCareerData] = useState<CareerSeasonLogs[] | null>(null);
@@ -935,6 +978,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     setSituationalStatsPeriod("all");
     setPeriodRawGames(new Map());
     periodRawGamesRequestedRef.current = new Set();
+    setPeriodRawGamesFailed(new Set());
     setPeriodRawGamesLoading(false);
     // 選手が変わった時だけリセットする（season変更では比較タブ・シチュエーション別成績・
     // シューティングの選択を維持したいため、依存配列にseasonは含めない。ここで参照するのは
@@ -1280,26 +1324,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
       }
     }
     if (needed.length === 0) return;
-    for (const n of needed) periodRawGamesRequestedRef.current.add(n.scheduleKey);
-    setPeriodRawGamesLoading(true);
-    Promise.all(
-      needed.map(async ({ season: s, scheduleKey }) => {
-        try {
-          return [scheduleKey, await fetchGame(s, scheduleKey)] as const;
-        } catch {
-          return null;
-        }
-      }),
-    )
-      .then((results) => {
-        setPeriodRawGames((prev) => {
-          const next = new Map(prev);
-          for (const r of results) if (r) next.set(r[0], r[1]);
-          return next;
-        });
-      })
-      .finally(() => setPeriodRawGamesLoading(false));
-  }, [seasonBreakdownPeriod, careerData]);
+    loadPeriodRawGames(needed);
+  }, [seasonBreakdownPeriod, careerData, periodRawGamesRetryNonce, loadPeriodRawGames]);
 
   // 「シーズン別成績」「シチュエーション別成績」いずれかでシューティングタブが選ばれたら、
   // Yahoo PBP対応シーズン（data/seasons.jsonのyahooPbpフラグ）の出場試合分だけ、この選手の
@@ -1600,26 +1626,20 @@ export function PlayerDetailPage({ season }: { season: string }) {
       .filter((g) => g.min > 0 && !periodRawGamesRequestedRef.current.has(g.scheduleKey))
       .map((g) => ({ season: situationalStatsSeason, scheduleKey: g.scheduleKey }));
     if (needed.length === 0) return;
-    for (const n of needed) periodRawGamesRequestedRef.current.add(n.scheduleKey);
-    setPeriodRawGamesLoading(true);
-    Promise.all(
-      needed.map(async ({ season: s, scheduleKey }) => {
-        try {
-          return [scheduleKey, await fetchGame(s, scheduleKey)] as const;
-        } catch {
-          return null;
-        }
-      }),
-    )
-      .then((results) => {
-        setPeriodRawGames((prev) => {
-          const next = new Map(prev);
-          for (const r of results) if (r) next.set(r[0], r[1]);
-          return next;
-        });
-      })
-      .finally(() => setPeriodRawGamesLoading(false));
-  }, [situationalStatsPeriod, situationalStatsLogs, situationalStatsSeason, tab]);
+    loadPeriodRawGames(needed);
+  }, [situationalStatsPeriod, situationalStatsLogs, situationalStatsSeason, tab, periodRawGamesRetryNonce, loadPeriodRawGames]);
+
+  // やり直しても読めなかった試合の数（読み込み中は0）。「シーズン別成績」は、期間が「試合」以外のとき全シーズンの出場試合、
+  // 「シチュエーション別成績」は、選択中シーズンの出場試合（アシストの関係性・オンコート/オフコートは「スタッツ」タブでは常に生データを使う）が対象
+  const seasonBreakdownFailedCount = useMemo(() => {
+    const option = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === seasonBreakdownPeriod);
+    if (periodRawGamesLoading || !option || option.periods === null || !careerData) return 0;
+    return careerData.reduce((n, cd) => n + cd.logs.filter((l) => l.min > 0 && periodRawGamesFailed.has(l.scheduleKey)).length, 0);
+  }, [periodRawGamesLoading, seasonBreakdownPeriod, careerData, periodRawGamesFailed]);
+  const situationalFailedCount = useMemo(() => {
+    if (periodRawGamesLoading || !situationalStatsLogs) return 0;
+    return situationalStatsLogs.filter((l) => l.min > 0 && periodRawGamesFailed.has(l.scheduleKey)).length;
+  }, [periodRawGamesLoading, situationalStatsLogs, periodRawGamesFailed]);
 
   const situationalStatsGameTeams = useMemo(
     () => (situationalStatsSummaries ? buildGameTeamsByScheduleKey(situationalStatsSummaries) : new Map()),
@@ -2446,19 +2466,23 @@ export function PlayerDetailPage({ season }: { season: string }) {
           {periodRawGamesLoading && seasonBreakdownPeriod !== "all" && (
             <p className="loading">この期間の再集計中...</p>
           )}
-          <SeasonBreakdownTable
-            careerData={careerData}
-            gameTypeFilter={gameTypeFilter}
-            teamData={careerTeamData}
-            displayMode={seasonDisplayMode}
-            playerId={player.playerId}
-            period={seasonBreakdownPeriod}
-            gamesByScheduleKey={periodRawGames}
-            activeTab={seasonBreakdownTab}
-            onTabChange={setSeasonBreakdownTab}
-            careerShots={careerShots}
-            careerShotsLoading={careerShotsLoading}
-          />
+          {seasonBreakdownFailedCount > 0 ? (
+            <RawGamesFailure count={seasonBreakdownFailedCount} onRetry={retryPeriodRawGames} />
+          ) : (
+            <SeasonBreakdownTable
+              careerData={careerData}
+              gameTypeFilter={gameTypeFilter}
+              teamData={careerTeamData}
+              displayMode={seasonDisplayMode}
+              playerId={player.playerId}
+              period={seasonBreakdownPeriod}
+              gamesByScheduleKey={periodRawGames}
+              activeTab={seasonBreakdownTab}
+              onTabChange={setSeasonBreakdownTab}
+              careerShots={careerShots}
+              careerShotsLoading={careerShotsLoading}
+            />
+          )}
           {seasonBreakdownTab === "misc" && <RuleChangeFootnote seasons={(careerData ?? []).map((cd) => cd.season)} />}
 
           <ConditionTitle section title="シチュエーション別成績" conditions={situationalStatsConditions} />
@@ -2512,6 +2536,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
             <p className="loading">読み込み中...</p>
           ) : situationalStatsTab === "shooting" && careerShotsLoading ? (
             <p className="loading">読み込み中...</p>
+          ) : situationalFailedCount > 0 && situationalStatsTab !== "shooting" && situationalStatsPeriod !== "all" ? (
+            <RawGamesFailure count={situationalFailedCount} onRetry={retryPeriodRawGames} />
           ) : situationalStatsGroups.length === 0 ? (
             <p className="empty-message">該当する試合がありません</p>
           ) : situationalStatsTab === "shooting" && situationalStatsShotTypeKeys.length === 0 ? (
@@ -2661,7 +2687,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
           {!assistRelationships ? (
             <p className="loading">読み込み中...</p>
           ) : !assistRelationships.dataReady ? (
-            <p className="loading">読み込み中...</p>
+            situationalFailedCount > 0 ? (
+              <RawGamesFailure count={situationalFailedCount} onRetry={retryPeriodRawGames} target="この表" />
+            ) : (
+              <p className="loading">読み込み中...</p>
+            )
           ) : (
             <>
               <h3>誰へのアシストが多いか</h3>
@@ -2769,7 +2799,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
           {!onOffSplit ? (
             <p className="loading">読み込み中...</p>
           ) : !onOffSplit.dataReady ? (
-            <p className="loading">読み込み中...</p>
+            situationalFailedCount > 0 ? (
+              <RawGamesFailure count={situationalFailedCount} onRetry={retryPeriodRawGames} target="この表" />
+            ) : (
+              <p className="loading">読み込み中...</p>
+            )
           ) : onOffSplit.merged.on.seconds === 0 ? (
             <p className="empty-message">出場記録がありません</p>
           ) : (
