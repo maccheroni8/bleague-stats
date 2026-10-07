@@ -14,7 +14,7 @@ export function RuleChangeFootnote({ seasons }: { seasons: readonly string[] }) 
       <p className="rule-change-footnote">
         {`※ ${NEW_RULE_FIRST_SEASON}シーズン以降は新競技規則が適用されており、TF1・TF2はテクニカルファウルのカテゴリ1・カテゴリ2、` +
           "FLAGはフレグラントファウル、DISRはディスラプティブファウルの件数です。DQFOULはディスクォリファイングファウルの件数です。" +
-          "チームのTF1・TF2には、ヘッドコーチ・ベンチのテクニカルファウルも含みます。"}
+          "チームのTF1・TF2には、ヘッドコーチ・ベンチのテクニカルファウルも含むため、選手の合計より多くなります。"}
       </p>
     );
   }
