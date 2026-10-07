@@ -9,7 +9,6 @@
 import path from "node:path";
 import { load } from "cheerio";
 import { DATA_DIR, readJson, writeJsonIfChanged } from "./storage.ts";
-import { isRookieAgeAtSeason } from "../../shared/rookieAge.ts";
 import type {
   ClubHistoryEntry,
   CurrentRosterFile,
@@ -76,9 +75,9 @@ export interface ClubHistoryTarget {
 }
 
 /**
- * 所属履歴を取る対象: 名簿（シーズン別の選手一覧と、今の選手名簿）に最初に載ったシーズンが2017-18以降で、そのシーズンの開始年の4月1日時点で22歳以下の選手。
- * 以降のシーズンの年齢の条件は、初登録のシーズンより厳しいだけなので、初登録のシーズンで絞れば漏れない。
- * 生年月日が読めない選手は、年齢を判定できないので対象に含めない（判定の側で「判定不能」にする）
+ * 所属履歴を取る対象: 名簿（シーズン別の選手一覧と、今の選手名簿）に最初に載ったシーズンが2017-18以降の、登録区分が日本人の選手。
+ * 規程の新人選手は、外国籍・アジア特別枠・帰化選手に該当せず、初めてBリーグに登録された選手なので、年齢では絞らない（年齢は翌シーズン以降への延長の判定だけに使う）。
+ * 登録区分は選手マスタ（`classification`）。マスタに無い・区分が不明の選手は、判定の側で「判定不能」にするので、ここでは対象に含める
  */
 export function clubHistoryTargets(
   rosters: SeasonRostersFile,
@@ -90,11 +89,12 @@ export function clubHistoryTargets(
     for (const team of rosters[season]!) for (const id of team.playerIds) if (!firstSeen.has(id)) firstSeen.set(id, season);
   }
   if (currentRoster) for (const p of currentRoster.players) if (!firstSeen.has(p.playerId)) firstSeen.set(p.playerId, currentRoster.season);
-  const birthDateOf = new Map(master.map((p) => [p.playerId, p.birthDate]));
+  const classificationOf = new Map(master.map((p) => [p.playerId, p.classification]));
   const targets: ClubHistoryTarget[] = [];
   for (const [playerId, firstSeason] of firstSeen) {
     if (firstSeason <= LEAGUE_FIRST_SEASON) continue;
-    if (isRookieAgeAtSeason(birthDateOf.get(playerId), firstSeason) !== true) continue;
+    const classification = classificationOf.get(playerId);
+    if (classification !== undefined && classification !== "日本人") continue;
     targets.push({ playerId, firstSeason });
   }
   return targets.sort((a, b) => a.firstSeason.localeCompare(b.firstSeason) || a.playerId.localeCompare(b.playerId));
