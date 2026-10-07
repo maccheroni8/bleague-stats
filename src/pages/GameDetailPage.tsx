@@ -23,6 +23,8 @@ import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { GameLineupTable } from "../components/GameLineupTable";
 import { buildSurnameMap } from "../lib/playerSurname";
 import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
+import { RookieBadge } from "../components/RookieBadge";
+import { useIsRookie } from "../lib/rookieFilter";
 import { buildGameLineups, rangeTotals, type GameLineupRow } from "../lib/gameLineups";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
@@ -661,6 +663,7 @@ export function GameDetailPage({ season }: { season: string }) {
               breakdownByPlayer={shotTypeBreakdownByPlayer}
               shotTypeKeys={shotTypeKeys}
               accentColor={homeColor}
+              season={season}
             />
             <ShootingBreakdownTable
               teamName={game.awayTeam.name}
@@ -668,6 +671,7 @@ export function GameDetailPage({ season }: { season: string }) {
               breakdownByPlayer={shotTypeBreakdownByPlayer}
               shotTypeKeys={shotTypeKeys}
               accentColor={awayColor}
+              season={season}
             />
             <GlossaryNote anchor={GLOSSARY_ANCHORS.shotTypes} label="シュートタイプ" />
           </>
@@ -734,8 +738,8 @@ export function GameDetailPage({ season }: { season: string }) {
 
       <ConditionTitle section title="ゲームリーダー" conditions={composeLabels("試合全体", "全選手")} />
       <div className="game-leaders">
-        <GameLeadersTeam teamName={game.homeTeam.name} rows={homePlayers} accentColor={homeColor} />
-        <GameLeadersTeam teamName={game.awayTeam.name} rows={awayPlayers} accentColor={awayColor} />
+        <GameLeadersTeam teamName={game.homeTeam.name} rows={homePlayers} accentColor={homeColor} season={season} />
+        <GameLeadersTeam teamName={game.awayTeam.name} rows={awayPlayers} accentColor={awayColor} season={season} />
       </div>
       <div className="leader-matchup-toggle">
         <button onClick={() => setShowExtendedLeaders((v) => !v)}>
@@ -768,6 +772,7 @@ export function GameDetailPage({ season }: { season: string }) {
           }
           homeColor={homeColor}
           awayColor={awayColor}
+          season={season}
         />
       )}
 
@@ -914,12 +919,14 @@ function ShootingBreakdownTable({
   breakdownByPlayer,
   shotTypeKeys,
   accentColor,
+  season,
 }: {
   teamName: string;
   players: BoxscoreRow[];
   breakdownByPlayer: Map<string, ShotTypeBreakdown>;
   shotTypeKeys: string[];
   accentColor?: string;
+  season: string;
 }) {
   const renderRows = (rows: BoxscoreRow[]) =>
     rows.map((p) => {
@@ -936,7 +943,7 @@ function ShootingBreakdownTable({
         <tr key={p.PlayerID}>
           <td className="align-left">
             <Link to={`/players/${p.PlayerID}`} className="cell-link">
-              <ResponsivePlayerName name={p.PlayerNameJ} among={players.map((x) => x.PlayerNameJ)} />
+              <ResponsivePlayerName name={p.PlayerNameJ} among={players.map((x) => x.PlayerNameJ)} playerId={p.PlayerID} season={season} />
             </Link>
           </td>
           {shotTypeKeys.map((key) => (
@@ -1012,22 +1019,24 @@ function GameLeadersTeam({
   teamName,
   rows,
   accentColor,
+  season,
 }: {
   teamName: string;
   rows: BoxscoreRow[];
   accentColor?: string;
+  season: string;
 }) {
   return (
     <div className="game-leaders-team" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
       <h3>{teamName}</h3>
-      <LeaderTop3Row label="PTS" rows={topRankedLeaderRows(rows, "Point")} teamNames={rows.map((r) => r.PlayerNameJ)} />
-      <LeaderTop3Row label="REB" rows={topRankedLeaderRows(rows, "RB_TOT")} teamNames={rows.map((r) => r.PlayerNameJ)} />
-      <LeaderTop3Row label="AST" rows={topRankedLeaderRows(rows, "AS")} teamNames={rows.map((r) => r.PlayerNameJ)} />
+      <LeaderTop3Row label="PTS" rows={topRankedLeaderRows(rows, "Point")} teamNames={rows.map((r) => r.PlayerNameJ)} season={season} />
+      <LeaderTop3Row label="REB" rows={topRankedLeaderRows(rows, "RB_TOT")} teamNames={rows.map((r) => r.PlayerNameJ)} season={season} />
+      <LeaderTop3Row label="AST" rows={topRankedLeaderRows(rows, "AS")} teamNames={rows.map((r) => r.PlayerNameJ)} season={season} />
     </div>
   );
 }
 
-function LeaderTop3Row({ label, rows, teamNames }: { label: string; rows: LeaderDisplayRow[]; teamNames: string[] }) {
+function LeaderTop3Row({ label, rows, teamNames, season }: { label: string; rows: LeaderDisplayRow[]; teamNames: string[]; season: string }) {
   const top1 = rows[0];
   return (
     <div className="leader-top3-row">
@@ -1041,7 +1050,7 @@ function LeaderTop3Row({ label, rows, teamNames }: { label: string; rows: Leader
         {rows.map((row) => (
           <div key={row.player.PlayerID} className={`leader-top3-item leader-top3-rank-${row.groupIndex + 1}`}>
             <Link to={`/players/${row.player.PlayerID}`} className="leader-top3-name">
-              <ResponsivePlayerName name={row.player.PlayerNameJ} among={teamNames} />
+              <ResponsivePlayerName name={row.player.PlayerNameJ} among={teamNames} playerId={row.player.PlayerID} season={season} />
               {row.otherCount > 0 && <span className="leader-top3-others"> 他{row.otherCount}人</span>}
             </Link>
             <span className="leader-top3-value">{row.value}</span>
@@ -1061,6 +1070,7 @@ function GameLeadersMatchup({
   awayRows,
   homeColor,
   awayColor,
+  season,
 }: {
   homeTeamName: string;
   awayTeamName: string;
@@ -1070,6 +1080,7 @@ function GameLeadersMatchup({
   awayRows: BoxscoreRow[];
   homeColor?: string;
   awayColor?: string;
+  season: string;
 }) {
   // スマホ幅（560px以下）では名字のみ表記（ラインナップ別成績・出場交代と同じ判定。同チーム内の重複はフルネーム）
   const narrow = useMediaQuery("(max-width: 560px)");
@@ -1114,13 +1125,13 @@ function GameLeadersMatchup({
             }
           >
             <div className="leader-matchup-side leader-matchup-side-home">
-              <LeaderMatchupPlayer leader={homeLeader} displayName={displayName} />
+              <LeaderMatchupPlayer leader={homeLeader} displayName={displayName} season={season} />
               <span className="leader-matchup-value">{homeLeader ? def.format(homeLeader.player) : "—"}</span>
             </div>
             <span className="leader-matchup-label">{def.label}</span>
             <div className="leader-matchup-side leader-matchup-side-away">
               <span className="leader-matchup-value">{awayLeader ? def.format(awayLeader.player) : "—"}</span>
-              <LeaderMatchupPlayer leader={awayLeader} displayName={displayName} />
+              <LeaderMatchupPlayer leader={awayLeader} displayName={displayName} season={season} />
             </div>
           </div>
         );
@@ -1132,10 +1143,13 @@ function GameLeadersMatchup({
 function LeaderMatchupPlayer({
   leader,
   displayName,
+  season,
 }: {
   leader: GameLeaderResult | undefined;
   displayName: (r: BoxscoreRow) => string;
+  season: string;
 }) {
+  const isRookie = useIsRookie();
   if (!leader) return <div className="leader-matchup-player" />;
   const { player, otherCount } = leader;
   return (
@@ -1144,6 +1158,7 @@ function LeaderMatchupPlayer({
         <PlayerPhoto playerId={player.PlayerID} size={44} className="leader-matchup-player-photo" />
         <span className="leader-matchup-player-name">
           <span className="leader-matchup-player-name-text">{displayName(player)}</span>
+          {isRookie(player.PlayerID, season) && <RookieBadge />}
           {otherCount > 0 && <span className="leader-matchup-player-others"> 他{otherCount}人</span>}
         </span>
       </Link>

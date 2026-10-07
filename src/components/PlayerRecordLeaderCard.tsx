@@ -34,7 +34,7 @@ export function PlayerRecordLeaderCard({
       {/* 記録した選手は太字にして、対戦相手と区別する */}
       <div>
         <span className="record-team">
-          <ResponsivePlayerName name={first.playerName} />
+          <ResponsivePlayerName name={first.playerName} playerId={first.playerId} season={first.season ?? season} />
         </span>
       </div>
       <div>

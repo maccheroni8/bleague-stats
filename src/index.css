@@ -6895,3 +6895,40 @@ table.sortable-table.lineup-search-table tbody th {
     white-space: nowrap;
   }
 }
+
+/* ルーキーの印（RookieBadge。DESIGN.md 217-3章）。名前の右に付ける小さな枠付きの文字。スマホ幅（560px以下）は「R」だけ */
+.rookie-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+  white-space: nowrap;
+  /* 列見出し（大文字にする指定）の中でも「Rookie」のまま出す */
+  text-transform: none;
+}
+
+.rookie-badge-short {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .rookie-badge {
+    margin-left: 4px;
+    padding: 0 3px;
+  }
+
+  .rookie-badge-full {
+    display: none;
+  }
+
+  .rookie-badge-short {
+    display: inline;
+  }
+}

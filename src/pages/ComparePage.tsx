@@ -19,6 +19,8 @@ import { CompareSlotFilter } from "../components/CompareSlotFilter";
 import { FilterBar } from "../components/FilterBar";
 import { perspectiveAxis } from "../lib/filterAxes";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
+import { RookieBadge } from "../components/RookieBadge";
+import { useIsRookie } from "../lib/rookieFilter";
 import {
   buildExportFilename,
   composeLabels,
@@ -616,7 +618,7 @@ function PlayerCompareView({
           rows={rows}
           defs={defs}
           rowKey={(r) => r.key}
-          name={(r) => <ResponsivePlayerName name={r.label} />}
+          name={(r) => <ResponsivePlayerName name={r.label} playerId={r.playerId} season={r.season} />}
           linkTo={(r) => `/players/${r.playerId}`}
           teamColor={(r) => slotColorByKey.get(r.key)}
           subLabel={(r) => r.subLabel}
@@ -774,7 +776,13 @@ export function ComparePage({ season }: { season: string }) {
 }
 
 /** 比較の表の列見出し（選手名）: スマホ幅（560px以下）は名字のみ（試合詳細・個人詳細と同じ）。フルネームは title に残す */
-function ResponsivePlayerName({ name }: { name: string }) {
+function ResponsivePlayerName({ name, playerId, season }: { name: string; playerId: string; season: string }) {
   const narrow = useMediaQuery("(max-width: 560px)");
-  return narrow ? <span title={name}>{surnameOf(name)}</span> : <>{name}</>;
+  const isRookie = useIsRookie();
+  return (
+    <>
+      {narrow ? <span title={name}>{surnameOf(name)}</span> : name}
+      {isRookie(playerId, season) && <RookieBadge />}
+    </>
+  );
 }

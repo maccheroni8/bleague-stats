@@ -3556,7 +3556,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <div className="leader-info">
                         <div className="leader-value">{def.format(leader)}</div>
                         <div className="leader-name">
-                          <ResponsivePlayerName name={leader.name} />
+                          <ResponsivePlayerName name={leader.name} playerId={leader.playerId} season={season} />
                         </div>
                       </div>
                     </Link>
@@ -3567,7 +3567,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                             <Link to={`/players/${p.playerId}`} className="leader-rest-item-link">
                               <span className="leader-rest-rank">{i + 2}</span>
                               <span className="leader-rest-name">
-                                <ResponsivePlayerName name={p.name} />
+                                <ResponsivePlayerName name={p.name} playerId={p.playerId} season={season} />
                               </span>
                             </Link>
                             <span className="leader-rest-value">{def.format(p)}</span>
@@ -4288,6 +4288,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   teamYahooPbp={teamYahooPbp}
                   teamYahooPbpLoading={teamYahooPbpLoading}
                   foulSplit={foulSplit}
+                  season={season}
                 />
                 {playerStatsRows.length > 0 && <HeightWeightNote players={players} />}
                 {playerStatsBoxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
@@ -4856,8 +4857,11 @@ function TeamPlayerStatsTable({
   teamYahooPbp,
   teamYahooPbpLoading,
   foulSplit,
+  season,
 }: {
   rows: TeamPlayerStatsRow[];
+  /** 表のシーズン（名前の右のルーキーの印用） */
+  season: string;
   /** Miscのファウルの列をTF1・TF2・FLAG・DISRにするか（このシーズンが2026-27以降） */
   foulSplit: boolean;
   /** Q別/前後半を選んでいる。DD2・TD3 は試合全体の記録でしか判定できないため「-」にする（DESIGN.md 180章） */
@@ -5007,7 +5011,7 @@ function TeamPlayerStatsTable({
                             <PlayerPhoto playerId={r.player.playerId} size={32} className="player-cell-photo" />
                             <div className="player-cell-info">
                               <div className="player-cell-name">
-                                <ResponsivePlayerName name={r.player.name} />
+                                <ResponsivePlayerName name={r.player.name} playerId={r.player.playerId} season={season} />
                               </div>
                               {playerProfileLine(r.player) && <div className="player-cell-profile">{playerProfileLine(r.player)}</div>}
                             </div>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFoulConditionCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
-import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useSeasonRookies } from "../lib/rookieFilter";
+import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useIsRookie, useSeasonRookies } from "../lib/rookieFilter";
 import { foulColumnsSplit } from "../lib/ruleChange";
 import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTotals";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
@@ -258,6 +258,8 @@ export function PlayersListPage({ season }: { season: string }) {
 type PlayersPageTab = SeasonBoxTabKey | "shooting" | "scoringComposition";
 
 interface PlayerRow {
+  /** 表のシーズン（名前の右のルーキーの印を、このシーズンで判定する。DESIGN.md 217-3章） */
+  season: string;
   player: PlayerSummary;
   ctx?: SeasonBoxscoreCtx;
 }
@@ -281,7 +283,7 @@ const nameColumn: Column<PlayerRow> = {
     <span className="player-cell">
       <PlayerPhoto playerId={r.player.playerId} size={44} className="player-cell-photo player-cell-photo-lg" />
       <span className="player-cell-name">
-        <ResponsivePlayerName name={r.player.name} />
+        <ResponsivePlayerName name={r.player.name} playerId={r.player.playerId} season={r.season} />
       </span>
     </span>
   ),
@@ -684,6 +686,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const classificationFilter: PlayerGroupFilter = groupFilter === "rookie" && !rookieSupported ? "all" : groupFilter;
   const rookieActive = classificationFilter === "rookie";
   const rookies = useSeasonRookies(season, rookieActive);
+  const isRookie = useIsRookie();
   useRookieFilterCleanup(season, groupFilter, () => setGroupFilter("all"));
   const [clubList, setClubList] = useUrlState(CLUB_PARAM, EMPTY_LIST);
   const [positionList, setPositionList] = useUrlState(POSITION_PARAM, EMPTY_LIST);
@@ -843,11 +846,12 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         name: p.name,
         teamId: p.teamId,
         teamName: p.teamName,
+        rookie: isRookie(p.playerId, season),
         share: playerLogsScoringShare(gameLogs.get(p.playerId) ?? []),
         fga: playerLogsFgaShare(gameLogs.get(p.playerId) ?? []),
       }))
       .filter((r) => r.share.perGame > 0);
-  }, [tab, players, teams, gameLogs, classificationFilter, teamFilter, positionFilter, rookieActive, rookies.ids]);
+  }, [tab, players, teams, gameLogs, classificationFilter, teamFilter, positionFilter, rookieActive, rookies.ids, isRookie, season]);
 
   // limit（SortableTable側で全件ソートしてから先頭visibleCount件だけ描画する）と組み合わせる
   // ため、rowsは常にフィルタ後の全選手分を作る（もっと見るを押す前でも列ソートが正しく
@@ -868,7 +872,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const rows: PlayerRow[] = useMemo(
     () =>
       filteredPlayers.map((p) => {
-        if (!gameLogs) return { player: p };
+        if (!gameLogs) return { season, player: p };
         const logs = gameLogs.get(p.playerId) ?? [];
         if (filterActive) {
           // 試合種別は filterGameLogs のあとに3値で絞り込む（includePlayoffs は常に true で全試合を通す）
@@ -882,7 +886,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
           const team =
             (scopedTeamLogsByTeamId && ownTeamOf ? teamTotalsForTransferredPlayer(logs, filteredLogs, ownTeamOf, scopedTeamLogsByTeamId) : null) ??
             sumTeamGameLogsFor(teamLogs, scheduleKeys);
-          return { player: p, ctx: buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear) };
+          return { season, player: p, ctx: buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear) };
         }
         // 絞り込みなし（試合種別＝レギュラー）の経路。チーム総計（teams.json）がレギュラーのみのため、
         // 選手側の試合ログもレギュラーに揃える（Misc/スコアリングタブはこの経路）
@@ -903,7 +907,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
               fta: teamTotals.fta,
             }
           : EMPTY_TEAM_TOTALS;
-        return { player: p, ctx: buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear) };
+        return { season, player: p, ctx: buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear) };
       }),
     [
       filteredPlayers,
@@ -1559,7 +1563,7 @@ function AwardEntryRow({
           <PlayerPhoto playerId={entry.playerId} size={32} className="player-cell-photo" />
           <span className="rank-name-cell">
             <span className="rank-name">
-              <ResponsivePlayerName name={name} />
+              <ResponsivePlayerName name={name} playerId={entry.playerId} season={season} />
             </span>
             <span className="rank-sublabel">
               {awardLabel(entry.name, entry.category)}
@@ -1744,7 +1748,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
         <span className="player-cell">
           <PlayerPhoto playerId={r.player.playerId} size={44} className="player-cell-photo player-cell-photo-lg" />
           <span className="player-cell-name">
-        <ResponsivePlayerName name={r.player.name} />
+        <ResponsivePlayerName name={r.player.name} playerId={r.player.playerId} season={season} />
       </span>
         </span>
       ),

@@ -63,6 +63,8 @@ import {
 } from "../lib/filterAxes";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
+import { RookieBadge } from "../components/RookieBadge";
+import { useIsRookie } from "../lib/rookieFilter";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { buildSurnameMap } from "../lib/playerSurname";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
@@ -702,6 +704,7 @@ const SHOOTING_TAB_TOOLTIP =
   "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（2023-24シーズン以降のみ）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意";
 
 export function PlayerDetailPage({ season }: { season: string }) {
+  const isRookie = useIsRookie();
   const { playerId } = useParams<{ playerId: string }>();
   const {
     data: players,
@@ -2285,6 +2288,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       <div className="player-detail-title" style={accentColor ? { borderTopColor: accentColor } : undefined}>
         <h1>
           {player.name}
+          {isRookie(player.playerId, season) && <RookieBadge />}
           <ExternalLinkIcon href={bleaguePlayerUrl(player.playerId)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
         </h1>
         <p className="page-subtitle">
@@ -3166,6 +3170,7 @@ function SeasonBreakdownTable({
   careerShots: Map<string, YahooShotEvent[]>;
   careerShotsLoading: boolean;
 }) {
+  const isRookie = useIsRookie();
   const [internalTab, setInternalTab] = useState<SeasonBoxTabKey | "shooting" | "scoringComposition">("traditional");
   const tab = controlledActiveTab ?? internalTab;
   const setTab = onTabChange ?? setInternalTab;
@@ -3446,7 +3451,10 @@ function SeasonBreakdownTable({
           <tbody>
             {sortedSeasonRows.map((r) => (
               <tr key={r.key} className={r.isCombined ? "season-team-total-row" : undefined}>
-                <td className="align-left">{r.season}</td>
+                <td className="align-left">
+                  {r.season}
+                  {isRookie(playerId, r.season) && <RookieBadge />}
+                </td>
                 <td className="align-left">
                   {r.teamId ? (
                     <RouterLink to={`/teams/${r.teamId}?season=${r.season}`} className="cell-link">

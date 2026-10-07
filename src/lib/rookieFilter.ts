@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { FIRST_LEAGUE_SEASON, OPENING_REGISTRATION_MAX_GAME } from "../../shared/rookieEligibility";
 import { fetchRookieEligibility } from "./data";
 import { useJsonData } from "./useJsonData";
@@ -54,4 +54,42 @@ export function useSeasonRookies(season: string, enabled: boolean): SeasonRookie
     return data ? new Set(data.seasons[season] ?? []) : null;
   }, [supported, data, season]);
   return { ids, loading: fetching && !data && !error, error: fetching ? error : null };
+}
+
+// ---- サイト全体の「Rookie」表示（DESIGN.md 217-3章） ----
+
+let rookieFilePromise: ReturnType<typeof fetchRookieEligibility> | null = null;
+
+/** 全シーズン分の導出データ。画面をまたいで1回だけ読む（失敗したときは次の呼び出しでやり直す） */
+function loadRookieFile(): ReturnType<typeof fetchRookieEligibility> {
+  rookieFilePromise ??= fetchRookieEligibility().catch((err: unknown) => {
+    rookieFilePromise = null;
+    throw err;
+  });
+  return rookieFilePromise;
+}
+
+/** (選手ID, シーズン) がルーキーか。読み込み中・読み込めなかったときは常に false（バッジを出さないだけで、画面は止めない） */
+export type IsRookie = (playerId: string, season: string) => boolean;
+
+const NEVER_ROOKIE: IsRookie = () => false;
+
+/**
+ * 行のシーズンで判定するための関数（`RookieProvider` が、アプリ全体で1回だけ読んだ導出データから作る）。
+ * 2016-17（選べないシーズン）と、導出データに無いシーズンは常に false。通算・複数シーズンを合わせた行には、使わない（バッジを付けない）
+ */
+export function useIsRookie(): IsRookie {
+  return useContext(RookieContext);
+}
+
+export const RookieContext = createContext<IsRookie>(NEVER_ROOKIE);
+
+/** 読み込んだ導出データから、判定の関数を作る（RookieProvider用） */
+export function useRookieLookup(): IsRookie {
+  const { data } = useJsonData(() => loadRookieFile().catch(() => null), []);
+  return useMemo<IsRookie>(() => {
+    if (!data) return NEVER_ROOKIE;
+    const sets = new Map(Object.entries(data.seasons).map(([season, ids]) => [season, new Set(ids)]));
+    return (playerId, season) => rookieSupportedSeason(season) && (sets.get(season)?.has(playerId) ?? false);
+  }, [data]);
 }

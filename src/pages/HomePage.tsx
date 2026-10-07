@@ -248,7 +248,7 @@ export function HomePage({ season }: { season: string }) {
                       <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" />
                       <div className="leader-info">
                         <div className="leader-value">{def.format(leader)}</div>
-                        <div className="leader-name"><ResponsivePlayerName name={leader.name} among={top.map((x) => x.name)} /></div>
+                        <div className="leader-name"><ResponsivePlayerName name={leader.name} among={top.map((x) => x.name)} playerId={leader.playerId} season={season} /></div>
                         <div className="leader-team">
                           <ResponsiveTeamName teamId={leader.teamId} name={leader.teamName} />
                         </div>
@@ -260,7 +260,7 @@ export function HomePage({ season }: { season: string }) {
                           <div key={p.playerId} className="leader-rest-item">
                             <Link to={`/players/${p.playerId}`} className="leader-rest-item-link">
                               <span className="leader-rest-rank">{i + 2}</span>
-                              <span className="leader-rest-name"><ResponsivePlayerName name={p.name} among={top.map((x) => x.name)} /></span>
+                              <span className="leader-rest-name"><ResponsivePlayerName name={p.name} among={top.map((x) => x.name)} playerId={p.playerId} season={season} /></span>
                             </Link>
                             <span className="leader-rest-value">{def.format(p)}</span>
                           </div>

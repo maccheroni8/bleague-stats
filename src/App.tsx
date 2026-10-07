@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { RookieProvider } from "./components/RookieProvider";
 import { HashRouter, NavLink, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 import { SeasonLink, SeasonNavLink } from "./components/SeasonLink";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -20,7 +21,9 @@ import { GlossaryPage } from "./pages/GlossaryPage";
 export default function App() {
   return (
     <HashRouter>
-      <AppShell />
+      <RookieProvider>
+        <AppShell />
+      </RookieProvider>
     </HashRouter>
   );
 }
