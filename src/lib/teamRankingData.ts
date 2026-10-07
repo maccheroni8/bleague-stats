@@ -117,6 +117,8 @@ export function useLeagueRawGames(
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef<Set<string>>(new Set());
   const seasonRef = useRef(season);
+  // 読み込み中のまとまりの数（条件を変えて対象の試合が変わると、前のまとまりと新しいまとまりが重なって動く）
+  const inFlightRef = useRef(0);
 
   useEffect(() => {
     if (seasonRef.current === season) return;
@@ -130,19 +132,26 @@ export function useLeagueRawGames(
     const missing = requestedScheduleKeys.filter((k) => !fetchedRef.current.has(k));
     if (missing.length === 0) return;
     for (const k of missing) fetchedRef.current.add(k);
-    let cancelled = false;
+    const fetchSeason = season;
+    inFlightRef.current += 1;
     setLoading(true);
     Promise.all(
       missing.map(async (scheduleKey): Promise<readonly [string, StoredGame] | null> => {
-        try {
-          return [scheduleKey, await fetchGame(season, scheduleKey)] as const;
-        } catch {
-          return null;
+        // 同時に多数読むと一部が失敗することがあるので、1回だけやり直す（失敗した試合は取得済みとして記録しているため、読めないと表が「読み込み中」のまま止まる）
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            return [scheduleKey, await fetchGame(fetchSeason, scheduleKey)] as const;
+          } catch {
+            if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 500));
+          }
         }
+        return null;
       }),
     )
       .then((results) => {
-        if (cancelled) return;
+        // 読み込み中に条件が変わっても、読めた試合は捨てない（取得済みとして記録しているので、捨てると二度と読まれず、表が「読み込み中」のまま止まる）。
+        // シーズンが変わったときだけ捨てる（別のシーズンの試合なので）
+        if (seasonRef.current !== fetchSeason) return;
         setGamesByScheduleKey((prev) => {
           const next = new Map(prev);
           for (const r of results) if (r) next.set(r[0], r[1]);
@@ -150,11 +159,9 @@ export function useLeagueRawGames(
         });
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        inFlightRef.current -= 1;
+        if (inFlightRef.current === 0) setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestedScheduleKeys.join("|"), season]);
 

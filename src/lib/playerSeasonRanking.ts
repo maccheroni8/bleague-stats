@@ -441,11 +441,18 @@ export function usePlayerSeasonRanking(
   const { category, statKey, gamesRatio, extraThreshold, group, rookieIds, positions, filter, gameType, displayMode, period, statConditions } = params;
   const rookieActive = group === "rookie";
 
-  const { data: players, loading: playersLoading, error: playersError } = useJsonData(
-    () => (enabled ? fetchPlayers(season) : Promise.resolve(null)),
+  // シーズンを切り替えた直後は、読み込み中の間、前のシーズンのデータが残る（useJsonData）。別のシーズンのデータで集計しないよう、どのシーズンのデータかを添えて読み、今のシーズンと一致するときだけ使う
+  const { data: playersData, loading: playersFetching, error: playersError } = useJsonData(
+    () => (enabled ? fetchPlayers(season).then((list) => ({ season, list })) : Promise.resolve(null)),
     [season, enabled],
   );
-  const { data: teams } = useJsonData(() => (enabled ? fetchTeams(season) : Promise.resolve(null)), [season, enabled]);
+  const { data: teamsData } = useJsonData(
+    () => (enabled ? fetchTeams(season).then((list) => ({ season, list })) : Promise.resolve(null)),
+    [season, enabled],
+  );
+  const players = playersData?.season === season ? playersData.list : null;
+  const teams = teamsData?.season === season ? teamsData.list : null;
+  const playersLoading = playersFetching || (enabled && !players && !playersError);
   // USG%・%-shareスタッツ・個人ORtg/DRtgの分母（チーム総計）用に、チーム版ランキングと共通の
   // フックで26チーム分のTeamGameLogを取得する
   const { gameLogsByTeam } = useAllTeamGameLogs(season, enabled ? teams : null);
@@ -460,9 +467,13 @@ export function usePlayerSeasonRanking(
 
   const { divisionHistory, opponentRecords, playerOwnTeamOf } = useLeagueSituationalContext(season, enabled);
 
-  const [gameLogsByPlayer, setGameLogsByPlayer] = useState<Map<string, PlayerGameLog[]> | null>(null);
+  const [gameLogsState, setGameLogsByPlayer] = useState<{ season: string; map: Map<string, PlayerGameLog[]> } | null>(null);
+  const gameLogsByPlayer = gameLogsState?.season === season ? gameLogsState.map : null;
   const [gameLogsLoading, setGameLogsLoading] = useState(false);
   const fetchedPlayerIdsRef = useRef<Set<string>>(new Set());
+  // 読み込み中のまとまりの数と、いま対象のシーズン（古いシーズンの読み込みの結果を捨てるため）
+  const inFlightLogsRef = useRef(0);
+  const seasonLogsRef = useRef(season);
 
   // 「キャリア」カテゴリを開いたときだけ取得する
   const careersNeeded = enabled && (category === "career" || conditionNeedsCareers);
@@ -497,6 +508,7 @@ export function usePlayerSeasonRanking(
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {
+    seasonLogsRef.current = season;
     fetchedPlayerIdsRef.current = new Set();
     setGameLogsByPlayer(null);
   }, [season]);
@@ -519,37 +531,33 @@ export function usePlayerSeasonRanking(
     if (!needsGameLogRecompute || eligible.length === 0) return;
     const missing = eligible.filter((p) => !fetchedPlayerIdsRef.current.has(p.playerId));
     if (missing.length === 0) return;
-    let cancelled = false;
-    let completed = false;
+    const fetchSeason = season;
+    inFlightLogsRef.current += 1;
     setGameLogsLoading(true);
     for (const p of missing) fetchedPlayerIdsRef.current.add(p.playerId);
     Promise.all(
       missing.map(async (p): Promise<readonly [string, PlayerGameLog[]]> => {
         try {
-          return [p.playerId, await fetchPlayerGameLogs(season, p.playerId)] as const;
+          return [p.playerId, await fetchPlayerGameLogs(fetchSeason, p.playerId)] as const;
         } catch {
           return [p.playerId, [] as PlayerGameLog[]] as const;
         }
       }),
     )
       .then((results) => {
-        if (cancelled) return;
-        completed = true;
+        // 読み込み中に対象の選手が変わっても（シーズンを切り替えた直後は、選手一覧とチーム一覧が別々に読み込まれて対象が2回変わる）、
+        // 読めた分は捨てない（取得済みとして記録しているので、捨てると二度と読まれず、その選手が順位から抜ける）。シーズンが変わったときだけ捨てる
+        if (seasonLogsRef.current !== fetchSeason) return;
         setGameLogsByPlayer((prev) => {
-          const next = new Map(prev ?? []);
+          const next = new Map(prev?.season === fetchSeason ? prev.map : []);
           for (const [id, logs] of results) next.set(id, logs);
-          return next;
+          return { season: fetchSeason, map: next };
         });
       })
       .finally(() => {
-        if (!cancelled) setGameLogsLoading(false);
+        inFlightLogsRef.current -= 1;
+        if (inFlightLogsRef.current === 0) setGameLogsLoading(false);
       });
-    return () => {
-      cancelled = true;
-      // 読み込みの途中で対象の選手が変わったとき（シーズンを切り替えた直後に、選手一覧とチーム一覧が別々に読み込まれる間など）は、
-      // 捨てた分を取得済みにしたままにしない（次の対象に入っていれば、もう一度取得する。取りこぼした選手が順位から抜けるのを防ぐ。DESIGN.md 218章）
-      if (!completed) for (const p of missing) fetchedPlayerIdsRef.current.delete(p.playerId);
-    };
   }, [needsGameLogRecompute, eligible, season]);
 
   // USG%・%-shareスタッツ・個人ORtg/DRtgの分母（チーム総計）。gameLogsByTeamから選手側と
