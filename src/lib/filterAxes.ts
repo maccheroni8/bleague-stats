@@ -14,8 +14,7 @@ import { teamShortName } from "../../shared/teamNames";
 import type { Division } from "../../shared/types";
 import { DIVISION_LABELS, divisionPresets } from "./divisionGroups";
 import { LEAGUE_VENUE_LABELS, periodLabels, type LeagueVenue } from "./conditionLabels";
-import { CLASSIFICATION_GROUP_OPTIONS, type ClassificationGroupFilter } from "./classificationFilter";
-import type { RookieFilter } from "./rookieFilter";
+import { CLASSIFICATION_GROUP_OPTIONS, type PlayerGroupFilter } from "./classificationFilter";
 import type { PeriodRangeOption, PeriodRangeValue } from "./periodRange";
 import {
   MARGIN_CONDITION_LABELS,
@@ -42,6 +41,8 @@ export interface FilterAxisOption {
   group?: string;
   /** trueのとき選べない（select の option を無効にする） */
   disabled?: boolean;
+  /** 選べない理由。disabled の選択肢に付けると、バーの下の注記に出る（軸全体が無効のときの disabledReason とは別） */
+  disabledReason?: string;
 }
 
 interface FilterAxisBase {
@@ -308,44 +309,31 @@ export function periodAxis(
   };
 }
 
-/** 登録区分: 全選手/日本人/外国籍・帰化・アジア */
-export function classificationAxis(
-  value: ClassificationGroupFilter,
-  onChange: (v: ClassificationGroupFilter) => void,
-  opts: SimpleAxisOptions = {},
+/**
+ * 登録区分: 全選手/日本人/外国籍・帰化・アジア。rookie を渡すと、4つ目に「ルーキー」の選択肢が付く（DESIGN.md 217章）。
+ * rookie.disabledReason があるとき（2016-17）は、その選択肢だけ選べなくし、理由をバーの下に出す
+ */
+export function classificationAxis<V extends PlayerGroupFilter>(
+  value: V,
+  onChange: (v: V) => void,
+  opts: SimpleAxisOptions & { rookie?: { disabledReason?: string } } = {},
 ): FilterAxis {
   return {
     kind: "select",
     id: "classification",
     label: "登録区分",
     tier: opts.tier ?? "primary",
-    options: [{ value: "all", label: "全選手" }, ...CLASSIFICATION_GROUP_OPTIONS.map((c) => ({ value: c, label: c }))],
-    value,
-    defaultValue: "all",
-    onChange: (v) => onChange(v as ClassificationGroupFilter),
-    disabledReason: opts.disabledReason,
-  };
-}
-
-/**
- * ルーキー: オフ/オン（DESIGN.md 217章）。オンにすると、そのシーズンに新人賞の対象要件（推定）を満たす選手だけを出す。
- * 選べないシーズン（2016-17）は disabledReason を渡す
- */
-export function rookieAxis(value: RookieFilter, onChange: (v: RookieFilter) => void, opts: SimpleAxisOptions = {}): FilterAxis {
-  return {
-    kind: "select",
-    id: "rookie",
-    label: "ルーキー",
-    tier: opts.tier ?? "primary",
     options: [
-      { value: "all", label: "オフ" },
-      { value: "rookie", label: "オン" },
+      { value: "all", label: "全選手" },
+      ...CLASSIFICATION_GROUP_OPTIONS.map((c) => ({ value: c, label: c })),
+      ...(opts.rookie
+        ? [{ value: "rookie", label: "ルーキー", disabled: !!opts.rookie.disabledReason, disabledReason: opts.rookie.disabledReason }]
+        : []),
     ],
     value,
     defaultValue: "all",
-    onChange: (v) => onChange(v as RookieFilter),
+    onChange: (v) => onChange(v as V),
     disabledReason: opts.disabledReason,
-    chipValue: "オン",
   };
 }
 

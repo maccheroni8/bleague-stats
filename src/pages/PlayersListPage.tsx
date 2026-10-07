@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFoulConditionCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
-import { matchesRookie, ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useRookieFilter } from "../lib/rookieFilter";
+import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useSeasonRookies } from "../lib/rookieFilter";
 import { foulColumnsSplit } from "../lib/ruleChange";
 import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTotals";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
@@ -35,7 +35,6 @@ import { SortableTable, type Column } from "../components/SortableTable";
 import { FilterBar } from "../components/FilterBar";
 import {
   classificationAxis,
-  rookieAxis,
   displayModeAxis,
   gameTypeAxis,
   leagueVenueAxis,
@@ -50,7 +49,6 @@ import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import {
   classificationLabels,
-  rookieLabels,
   composeLabels,
   displayModeLabels,
   gamesPlayedRatioRangeLabels,
@@ -77,7 +75,8 @@ import {
   type SituationalFilter,
 } from "../lib/situational";
 import {
-  matchesClassificationGroupFilter,
+  matchesPlayerGroupFilter,
+  type PlayerGroupFilter,
   matchesPositionFilter,
   positionFilterOptions,
   selectedPositionLabels,
@@ -103,7 +102,7 @@ import {
 } from "../lib/tableThresholds";
 import { usePageState } from "../lib/pageStateCache";
 import { choiceNumberParam, clearUrlParams, enumParam, rangeParam, situationalParam, statConditionsParam, useUrlState } from "../lib/urlState";
-import { VENUE_PARAM, CLASSIFICATION_PARAM, CLUB_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, POSITION_PARAM, ROOKIE_PARAM } from "../lib/urlFilterParams";
+import { VENUE_PARAM, CLUB_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, POSITION_PARAM, PLAYER_GROUP_PARAM } from "../lib/urlFilterParams";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import {
   activeStatConditionKeys,
@@ -679,13 +678,15 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const setRatio = (mn: number, mx: number) => setRatioRange([mn, mx]);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const [classificationFilter, setClassificationFilter] = useUrlState(CLASSIFICATION_PARAM, "all");
+  // 登録区分（全選手・日本人・外国籍/帰化/アジア）と、4つ目の「ルーキー」（cls=rookie。DESIGN.md 217章）。ルーキーを選べないシーズン（2016-17）では「全選手」として扱う
+  const [groupFilter, setGroupFilter] = useUrlState(PLAYER_GROUP_PARAM, "all");
+  const rookieSupported = rookieSupportedSeason(season);
+  const classificationFilter: PlayerGroupFilter = groupFilter === "rookie" && !rookieSupported ? "all" : groupFilter;
+  const rookieActive = classificationFilter === "rookie";
+  const rookies = useSeasonRookies(season, rookieActive);
+  useRookieFilterCleanup(season, groupFilter, () => setGroupFilter("all"));
   const [clubList, setClubList] = useUrlState(CLUB_PARAM, EMPTY_LIST);
   const [positionList, setPositionList] = useUrlState(POSITION_PARAM, EMPTY_LIST);
-  // ルーキー（新人賞の対象要件に準じた推定。オンのときだけ導出データを読む。DESIGN.md 217章）
-  const [rookieFilter, setRookieFilter] = useUrlState(ROOKIE_PARAM, "all");
-  const rookie = useRookieFilter(season, rookieFilter);
-  useRookieFilterCleanup(season, rookieFilter, () => setRookieFilter("all"));
   const teamFilter = useMemo(() => new Set(clubList), [clubList]);
   const positionFilter = useMemo(() => new Set(positionList), [positionList]);
   // 選択肢: 登録どおり（そのシーズンに実際にある PG・PG/SG 等。DESIGN.md 171章）
@@ -741,7 +742,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [minRatio, maxRatio, classificationFilter, teamFilter, positionFilter, rookie.active]);
+  }, [minRatio, maxRatio, classificationFilter, teamFilter, positionFilter, rookieActive]);
 
   useEffect(() => {
     const needsLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || filterActive || conditionNeedsLogs;
@@ -801,19 +802,18 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const filteredPlayers = useMemo(() => {
     if (!players) return [];
     // ルーキーの一覧を読み込むまでは空にする
-    if (rookie.active && !rookie.ids) return [];
+    if (rookieActive && !rookies.ids) return [];
     return players.filter((p) => {
       const teamGames = teamGamesById.get(p.teamId);
       if (!teamGames) return false;
       const ratio = (100 * p.gamesPlayed) / teamGames;
       if (ratio < minRatio || ratio > maxRatio) return false;
-      if (!matchesClassificationGroupFilter(p, classificationFilter)) return false;
+      if (!matchesPlayerGroupFilter(p, classificationFilter, rookies.ids)) return false;
       if (!matchesTeamFilter(p, teamFilter)) return false;
       if (!matchesPositionFilter(p, positionFilter)) return false;
-      if (!matchesRookie(p.playerId, rookie.ids)) return false;
       return true;
     });
-  }, [players, teamGamesById, minRatio, maxRatio, classificationFilter, teamFilter, positionFilter, rookie.active, rookie.ids]);
+  }, [players, teamGamesById, minRatio, maxRatio, classificationFilter, teamFilter, positionFilter, rookieActive, rookies.ids]);
 
   // Scoring %（得点構成、DESIGN.md 141章）の対象: 所属チームの試合数の85%以上に出場、かつ1試合平均10分以上、かつ合計300分以上
   // （出場試合率のスライダーの代わりに固定。登録区分・ポジション・クラブの絞り込みは効く）。値はレギュラーシーズンの試合ログの合計
@@ -825,19 +825,18 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const [fgaVisibleCount, setFgaVisibleCount] = useState(PAGE_SIZE);
   useEffect(() => {
     setFgaVisibleCount(PAGE_SIZE);
-  }, [season, classificationFilter, teamFilter, positionFilter, rookie.active]);
+  }, [season, classificationFilter, teamFilter, positionFilter, rookieActive]);
   const scoringShareRows: PlayerShareListRow[] = useMemo(() => {
     if (tab !== "scoringComposition" || !players || !teams || !gameLogs) return [];
-    if (rookie.active && !rookie.ids) return [];
+    if (rookieActive && !rookies.ids) return [];
     return filterPlayersByGamesPlayedRatio(players, teams)
       .filter(
         (p) =>
           p.perGame.min >= SCORING_SHARE_MIN_MPG &&
           p.totals.min >= SCORING_SHARE_MIN_TOTAL_MIN &&
-          matchesClassificationGroupFilter(p, classificationFilter) &&
+          matchesPlayerGroupFilter(p, classificationFilter, rookies.ids) &&
           matchesTeamFilter(p, teamFilter) &&
-          matchesPositionFilter(p, positionFilter) &&
-          matchesRookie(p.playerId, rookie.ids),
+          matchesPositionFilter(p, positionFilter),
       )
       .map((p) => ({
         playerId: p.playerId,
@@ -848,7 +847,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         fga: playerLogsFgaShare(gameLogs.get(p.playerId) ?? []),
       }))
       .filter((r) => r.share.perGame > 0);
-  }, [tab, players, teams, gameLogs, classificationFilter, teamFilter, positionFilter, rookie.active, rookie.ids]);
+  }, [tab, players, teams, gameLogs, classificationFilter, teamFilter, positionFilter, rookieActive, rookies.ids]);
 
   // limit（SortableTable側で全件ソートしてから先頭visibleCount件だけ描画する）と組み合わせる
   // ため、rowsは常にフィルタ後の全選手分を作る（もっと見るを押す前でも列ソートが正しく
@@ -986,7 +985,6 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   // （シーズン通算値のみ）
   const filterAxisLabels = composeLabels(
     classificationLabels(classificationFilter),
-    rookieLabels(rookie.active),
     multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positionList), "全ポジション"),
     multiSelectLabels(
       "クラブ",
@@ -1004,7 +1002,6 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       tab === "scoringComposition"
         ? composeLabels(
             classificationLabels(classificationFilter),
-            rookieLabels(rookie.active),
             multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positionList), "全ポジション"),
             multiSelectLabels(
               "クラブ",
@@ -1033,9 +1030,9 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   // （登録区分・ポジション・クラブ・出場試合率）だけが有効で、試合種別・S軸は対象外（シーズン通算値のみ）
   const shootingReason =
     tab === "shooting"
-      ? "このタブはシーズン通算値のみ対応です（表示の平均/合計と、登録区分・ポジション・クラブ・ルーキー・出場試合率の絞り込みだけ連動します）。"
+      ? "このタブはシーズン通算値のみ対応です（表示の平均/合計と、登録区分（ルーキーを含む）・ポジション・クラブ・出場試合率の絞り込みだけ連動します）。"
       : tab === "scoringComposition"
-        ? `${CATEGORY_LABELS.scoringComposition}はレギュラーシーズン・シーズン合計の割合です（登録区分・ポジション・クラブ・ルーキーの絞り込みだけ連動します）。`
+        ? `${CATEGORY_LABELS.scoringComposition}はレギュラーシーズン・シーズン合計の割合です（登録区分（ルーキーを含む）・ポジション・クラブの絞り込みだけ連動します）。`
         : undefined;
   const clubOptions = (teams ?? [])
     .slice()
@@ -1069,7 +1066,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     ),
   };
   const filterAxes: FilterAxis[] = [
-    classificationAxis(classificationFilter, setClassificationFilter),
+    classificationAxis(groupFilter, setGroupFilter, { rookie: { disabledReason: rookieSupported ? undefined : ROOKIE_UNSUPPORTED_REASON } }),
     multiSelectAxis({
       id: "position",
       label: "ポジション",
@@ -1088,7 +1085,6 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       presets: clubPresets,
       searchable: true,
     }),
-    rookieAxis(rookieFilter, setRookieFilter, { disabledReason: rookieSupportedSeason(season) ? undefined : ROOKIE_UNSUPPORTED_REASON }),
     gameTypeAxis(gameType, setGameType, season, { disabledReason: shootingReason }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: tab === "scoringComposition" ? shootingReason : undefined }),
     ...situationalAxes(situationalFilter, setSituationalFilter, {
@@ -1104,10 +1100,9 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       : ratioAxis,
   ];
   const clearAllFilters = () => {
-    setClassificationFilter("all");
+    setGroupFilter("all");
     setPositionList([]);
     setClubList([]);
-    setRookieFilter("all");
     setRatio(DEFAULT_MIN_RATIO, DEFAULT_MAX_RATIO);
     setGameType("regular");
     setDisplayMode("perGame");
@@ -1149,10 +1144,10 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         statConditions={tab === "scoringComposition" ? undefined : statConditionsTitle(statConditions, conditionItems)}
       />
 
-      {rookie.error ? (
-        <p className="error-message">ルーキーの一覧を読み込めませんでした。{rookie.error}</p>
+      {rookies.error ? (
+        <p className="error-message">ルーキーの一覧を読み込めませんでした。{rookies.error}</p>
       ) : tab === "scoringComposition" ? (
-        gameDataLoading || rookie.loading ? (
+        gameDataLoading || rookies.loading ? (
           <p className="loading">読み込み中...</p>
         ) : (
           <>
@@ -1197,12 +1192,12 @@ function AllPlayersStatsTab({ season }: { season: string }) {
               onMore={() => setFgaVisibleCount((c) => c + PAGE_SIZE)}
             />
             <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="FG試投構成" scope="対象の選手は得点構成と同じです。" />
-            {rookie.active && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
+            {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
           </>
         )
       ) : tab === "shooting" && !yahooPbpSupported ? (
         <p className="empty-message">このシーズンのデータには対応していません</p>
-      ) : gameDataLoading || teamDataLoading || careersDataLoading || rookie.loading ? (
+      ) : gameDataLoading || teamDataLoading || careersDataLoading || rookies.loading ? (
         <p className="loading">読み込み中...</p>
       ) : filteredPlayers.length === 0 || (conditionActive && tableRows.length === 0) ? (
         <p className="empty-message">条件に該当する選手がいません</p>
@@ -1228,7 +1223,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
             </button>
           )}
           {tab === "misc" && <RuleChangeFootnote seasons={[season]} />}
-          {rookie.active && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
+          {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
         </>
       )}
     </div>

@@ -24,7 +24,7 @@ import {
   type SeasonGameTypeFilter,
 } from "./playerSeasonBoxscore";
 import { TEAM_PERSPECTIVE_LABELS, type TeamPerspective } from "./teamStatsColumns";
-import type { ClassificationGroupFilter } from "./classificationFilter";
+import type { PlayerGroupFilter } from "./classificationFilter";
 import { CATEGORY_LABELS } from "./categoryLabels";
 import { DIVISION_LABELS } from "./divisionGroups";
 
@@ -130,13 +130,8 @@ export function perspectiveLabels(perspective: TeamPerspective): string[] {
  * 登録区分フィルタ（全選手/日本人/外国籍・帰化・アジア）。指定したときは「登録区分: 日本人」の形にする（「外国籍・帰化・アジア」の「・」が
  * 条件の区切りと紛れないよう、ポジション・クラブと同じ見出し付き）。「全選手」はタイトルの下の行・ファイル名には出ない（visibleConditionLabels）
  */
-export function classificationLabels(filter: ClassificationGroupFilter): string[] {
-  return [filter === "all" ? "全選手" : `登録区分: ${filter}`];
-}
-
-/** ルーキーの絞り込み。オンにしたときだけ「ルーキー」と書く（オフのときは何も書かない。DESIGN.md 217章） */
-export function rookieLabels(active: boolean): string[] {
-  return active ? ["ルーキー"] : [];
+export function classificationLabels(filter: PlayerGroupFilter): string[] {
+  return [filter === "all" ? "全選手" : `登録区分: ${filter === "rookie" ? "ルーキー" : filter}`];
 }
 
 export interface EligibilityLabelInput {

@@ -6,7 +6,8 @@ import { useJsonData } from "./useJsonData";
 import type { SituationalFilter } from "./situational";
 import { foulColumnsSplit, foulKeyVisible } from "./ruleChange";
 import type { StatConditionsState } from "./statConditions";
-import { rookieSupportedSeason, type RookieFilter } from "./rookieFilter";
+import { rookieSupportedSeason } from "./rookieFilter";
+import type { PlayerGroupFilter } from "./classificationFilter";
 
 /**
  * シーズンを変えたとき（とURLを直接開いたとき）に、そのシーズンでは意味が変わるフィルタを外す（DESIGN.md 164章）。
@@ -145,10 +146,10 @@ export function useSeasonFilterCleanup(opts: {
 }
 
 /**
- * ルーキーの絞り込み（rk）は、選べないシーズン（2016-17）に切り替えたとき（とページを開いたとき）に外す（DESIGN.md 217章）。
- * 外したことは知らせない（165章）。確かめるのはシーズンが変わったときとページを開いたときの1回だけ（手で選び直した値はその場では外さない）
+ * ルーキーの絞り込み（登録区分 cls=rookie）は、選べないシーズン（2016-17）に切り替えたとき（とページを開いたとき）に外す（DESIGN.md 217章）。
+ * 外して「全選手」に戻す。外したことは知らせない（165章）。確かめるのはシーズンが変わったときとページを開いたときの1回だけ（手で選び直した値はその場では外さない）
  */
-export function useRookieFilterCleanup(season: string, value: RookieFilter, reset: () => void): void {
+export function useRookieFilterCleanup(season: string, value: PlayerGroupFilter, reset: () => void): void {
   const checkedSeasonRef = useRef<string | null>(null);
   const latest = useRef({ value, reset });
   latest.current = { value, reset };

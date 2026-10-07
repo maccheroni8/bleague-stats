@@ -25,7 +25,6 @@ import type { Column } from "../components/SortableTable";
 import { FilterBar } from "../components/FilterBar";
 import {
   classificationAxis,
-  rookieAxis,
   displayModeAxis,
   gameTypeAxis,
   multiSelectAxis,
@@ -76,7 +75,8 @@ import {
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns, shotTypeLabel } from "../lib/shotTypeBreakdown";
 import { useAllTeamGameLogs, useLeagueRawGames, useLeagueSituationalContext } from "../lib/teamRankingData";
 import {
-  matchesClassificationGroupFilter,
+  matchesPlayerGroupFilter,
+  type PlayerGroupFilter,
   matchesPositionFilter,
   positionFilterOptions,
   selectedPositionLabels,
@@ -90,7 +90,6 @@ import { formatDecimal } from "../lib/format";
 import {
   buildExportFilename,
   classificationLabels,
-  rookieLabels,
   composeLabels,
   displayModeLabels,
   eligibilityLabels,
@@ -123,8 +122,8 @@ import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { clearUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
 import { seasonDivisions } from "../lib/divisionGroups";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
-import { CLASSIFICATION_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERIOD_PARAM, PERSPECTIVE_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, ROOKIE_PARAM } from "../lib/urlFilterParams";
-import { matchesRookie, ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useRookieFilter } from "../lib/rookieFilter";
+import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERIOD_PARAM, PERSPECTIVE_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM } from "../lib/urlFilterParams";
+import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useSeasonRookies } from "../lib/rookieFilter";
 import { buildTeamConditionDefs } from "../lib/teamConditionItems";
 import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS, playerCareerConditionDefs, playerProfileConditionDefs } from "../lib/playerConditionItems";
 
@@ -1058,14 +1057,17 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const [gamesRatio, setGamesRatio] = useUrlState(GAMES_RATIO_ELIG_PARAM, MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
   const defaultExtra = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)]?.defaultValue ?? 0;
   const [extraThreshold, setExtraThreshold] = useUrlState(numberParam("ex", defaultExtra, { min: 0 }), defaultExtra);
-  const [selectedClassification, setSelectedClassification] = useUrlState(CLASSIFICATION_PARAM, "all");
+  // 登録区分（全選手・日本人・外国籍/帰化/アジア）と、4つ目の「ルーキー」（cls=rookie。DESIGN.md 217章）。ルーキーを選べないシーズン（2016-17）では「全選手」として扱う
+  const [selectedGroup, setSelectedGroup] = useUrlState(PLAYER_GROUP_PARAM, "all");
+  const rookieSupported = rookieSupportedSeason(season);
+  const selectedClassification: PlayerGroupFilter = selectedGroup === "rookie" && !rookieSupported ? "all" : selectedGroup;
+  const rookieActive = selectedClassification === "rookie";
+  // そのシーズンのルーキー。ランキングの名前の下に「Rookie」を出すので、登録区分の選択によらず読む
+  const rookies = useSeasonRookies(season, true);
+  useRookieFilterCleanup(season, selectedGroup, () => setSelectedGroup("all"));
   // ポジション（複数選択、未選択＝全ポジション）。登録どおり（PG・PG/SG 等の完全一致）で、どれかに当てはまる選手（DESIGN.md 171章）
   const [positions, setPositions] = useUrlState(POSITION_PARAM, EMPTY_POSITIONS);
   const positionOptions = useMemo(() => positionFilterOptions(players, positions), [players, positions]);
-  // ルーキー（新人賞の対象要件に準じた推定。オンのときだけ導出データを読む。DESIGN.md 217章）
-  const [rookieFilter, setRookieFilter] = useUrlState(ROOKIE_PARAM, "all");
-  const rookie = useRookieFilter(season, rookieFilter);
-  useRookieFilterCleanup(season, rookieFilter, () => setRookieFilter("all"));
   const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_RANKING_FILTER);
   const filterActive = !isDefaultFilter(filter);
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
@@ -1130,19 +1132,19 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const eligible: PlayerSummary[] = useMemo(() => {
     if (!players || !teams) return [];
     // ルーキーの一覧を読み込むまでは空にする（全員分の試合ログを取りに行かないため）
-    if (rookie.active && !rookie.ids) return [];
+    if (rookieActive && !rookies.ids) return [];
     const positionSet = new Set(positions);
     // Profile・Career: 掲載基準（出場率）を使わず、そのシーズンに登録していた選手全員（出場の有無を問わない。DESIGN.md 173・175章）
     if (registeredTarget) {
       return [...players, ...(registeredPlayers ?? [])].filter(
-        (p) => matchesClassificationGroupFilter(p, selectedClassification) && matchesPositionFilter(p, positionSet) && matchesRookie(p.playerId, rookie.ids),
+        (p) => matchesPlayerGroupFilter(p, selectedClassification, rookies.ids) && matchesPositionFilter(p, positionSet),
       );
     }
     const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold).filter(
-      (p) => matchesClassificationGroupFilter(p, selectedClassification) && matchesPositionFilter(p, positionSet) && matchesRookie(p.playerId, rookie.ids),
+      (p) => matchesPlayerGroupFilter(p, selectedClassification, rookies.ids) && matchesPositionFilter(p, positionSet),
     );
     return category === "shooting" ? base.filter((p) => !!p.shotTypes) : base;
-  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassification, positions, rookie.active, rookie.ids, category, registeredTarget, registeredPlayers]);
+  }, [players, teams, gamesRatio, statKey, extraThreshold, selectedClassification, positions, rookieActive, rookies.ids, category, registeredTarget, registeredPlayers]);
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {
@@ -1436,7 +1438,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 
   const extraRule = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)];
   const waitingForGameLogs =
-    rookie.loading ||
+    (rookieActive && rookies.loading) ||
     (needsGameLogRecompute && (gameLogsLoading || !gameLogsByPlayer)) ||
     !teamTotalsByTeamId ||
     !ctxByPlayer ||
@@ -1481,8 +1483,6 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       category === "career" ? "シーズン終了時点の累計" : [],
       // 登録区分は選手名の下に書かないので、指定したときはタイトルの下の行に書く（「全選手」は書かない。DESIGN.md 170章）
       classificationLabels(selectedClassification),
-      // ルーキーは、オンにしたときだけ書く（オフのときは書かない。DESIGN.md 217章）
-      rookieLabels(rookie.active),
       // ポジションは選択肢が9つだけなので、選んだものを省略せずに全部書く（「他N」にしない。DESIGN.md 178章）
       multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positions), "全ポジション", Infinity),
       // 平均/合計は初期値（平均）でも必ず書く（画像だけ見ても分かるように。初期値を書かないルールの例外。DESIGN.md 179章）。
@@ -1548,7 +1548,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     ),
   };
   const playerFilterAxes: FilterAxis[] = [
-    classificationAxis(selectedClassification, setSelectedClassification),
+    classificationAxis(selectedGroup, setSelectedGroup, { rookie: { disabledReason: rookieSupported ? undefined : ROOKIE_UNSUPPORTED_REASON } }),
     multiSelectAxis({
       id: "position",
       label: "ポジション",
@@ -1558,7 +1558,6 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       allLabel: "全ポジション",
       maxShown: Infinity,
     }),
-    rookieAxis(rookieFilter, setRookieFilter, { disabledReason: rookieSupportedSeason(season) ? undefined : ROOKIE_UNSUPPORTED_REASON }),
     gameTypeAxis(gameType, setGameType, season, { disabledReason: playerFilterDisabledReason }),
     // 対象外の項目では無効にし、平均のまま見せる（URL の mode は残すので、対象の項目に戻ると合計に戻る）
     displayModeAxis(rankMode, setDisplayMode, {
@@ -1580,9 +1579,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     eligibilityAxis,
   ];
   const clearPlayerFilters = () => {
-    setSelectedClassification("all");
+    setSelectedGroup("all");
     setPositions([]);
-    setRookieFilter("all");
     setGameType("regular");
     setDisplayMode("perGame");
     setPeriod("all");
@@ -1665,8 +1663,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         )}
       </div>
 
-      {rookie.error ? (
-        <p className="error-message">ルーキーの一覧を読み込めませんでした。{rookie.error}</p>
+      {rookieActive && rookies.error ? (
+        <p className="error-message">ルーキーの一覧を読み込めませんでした。{rookies.error}</p>
       ) : waitingForGameLogs ? (
         <p className="loading">読み込み中...</p>
       ) : ddtdPeriodOff ? (
@@ -1686,9 +1684,13 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               def={rankDef}
               rowKey={(p) => p.playerId}
               name={(p) => playerLabel(p.name)}
-              // 選手名の下はチーム名とポジションだけ（登録区分はタイトルの下の行）。ポジションの「＊」（当時の値でない印）と注意書きは、
+              // 選手名の下はチーム名とポジション、そのシーズンのルーキーには「Rookie」（登録区分の選択によらず。DESIGN.md 217章。登録区分はタイトルの下の行）。ポジションの「＊」（当時の値でない印）と注意書きは、
               // 身長・体重・年齢を並べる Profile でだけ出す（DESIGN.md 170章）
-              subLabel={(p) => [teamLabel(clubOf(p).teamId, clubOf(p).teamName), category === "profile" ? positionText(p) : p.position].filter(Boolean).join("・")}
+              subLabel={(p) =>
+                [teamLabel(clubOf(p).teamId, clubOf(p).teamName), category === "profile" ? positionText(p) : p.position, rookies.ids?.has(p.playerId) ? "Rookie" : undefined]
+                  .filter(Boolean)
+                  .join("・")
+              }
               linkTo={(p) => {
                 if (!registeredOnlyIds.has(p.playerId)) return `/players/${p.playerId}`;
                 const s = playerPageSeasons?.latestSeason[p.playerId];
@@ -1706,7 +1708,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
             )}
             {category === "career" && <p className="rule-change-footnote">※ {CAREER_NOTE}</p>}
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
-            {rookie.active && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
+            {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
           </div>
         </>
       )}

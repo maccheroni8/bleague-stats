@@ -42,6 +42,25 @@ export function classKeyOfFilter(filter: ClassificationGroupFilter): ClassKey | 
   return filter === "all" ? undefined : filter === "日本人" ? "jp" : "intl";
 }
 
+/**
+ * 全選手スタッツ・ランキングのシーズン成績（個人）の登録区分の選択肢には、4つ目に「ルーキー」がある（DESIGN.md 217章）。
+ * ルーキーは、日本人・外国籍・帰化・アジアの区分と並ぶ選択肢（ルーキーは規程の定義で日本人だけ）
+ */
+export type PlayerGroupFilter = ClassificationGroupFilter | "rookie";
+
+/**
+ * 登録区分＋ルーキーの絞り込み。filterが"rookie"のときは、そのシーズンのルーキーの選手ID（rookieIds）に入っている選手だけ
+ * （rookieIdsがnull＝読み込み前は、誰も通さない）。ほかは matchesClassificationGroupFilter と同じ
+ */
+export function matchesPlayerGroupFilter(
+  p: PlayerSummary,
+  filter: PlayerGroupFilter,
+  rookieIds: ReadonlySet<string> | null,
+): boolean {
+  if (filter === "rookie") return rookieIds !== null && rookieIds.has(p.playerId);
+  return matchesClassificationGroupFilter(p, filter);
+}
+
 /** filterが"all"のときは絞り込みなし */
 export function matchesClassificationGroupFilter(
   p: PlayerSummary,

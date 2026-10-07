@@ -1,11 +1,10 @@
 import { SEASON_GAME_TYPE_KEYS, type SeasonGameTypeFilter } from "../../shared/gameType";
-import { CLASSIFICATION_GROUP_OPTIONS, type ClassificationGroupFilter } from "./classificationFilter";
+import { CLASSIFICATION_GROUP_OPTIONS, type ClassificationGroupFilter, type PlayerGroupFilter } from "./classificationFilter";
 import { SEASON_BOX_PERIOD_OPTIONS, type SeasonDisplayMode } from "./playerSeasonBoxscore";
 import type { PeriodRangeValue } from "./periodRange";
 import type { TeamPerspective } from "./teamStatsColumns";
 import type { LeagueVenue } from "./conditionLabels";
 import { enumParam, listParam } from "./urlState";
-import type { RookieFilter } from "./rookieFilter";
 
 /**
  * 個人一覧・チーム一覧・ランキングで共通のフィルタのURLのキー（DESIGN.md 163章）。
@@ -33,8 +32,11 @@ export const CLASSIFICATION_PARAM = enumParam<ClassificationGroupFilter>("cls", 
   "外国籍・帰化・アジア": "intl",
 });
 
-/** ルーキー（rk=1。DESIGN.md 217章）。ランキングのシーズン成績（個人）と全選手スタッツで使う */
-export const ROOKIE_PARAM = enumParam<RookieFilter>("rk", ["all", "rookie"], "all", { rookie: "1" });
+/** 登録区分＋ルーキー（cls=jp／intl／rookie）。ランキングのシーズン成績（個人）と全選手スタッツで使う（DESIGN.md 217章） */
+export const PLAYER_GROUP_PARAM = enumParam<PlayerGroupFilter>("cls", ["all", ...CLASSIFICATION_GROUP_OPTIONS, "rookie"], "all", {
+  日本人: "jp",
+  "外国籍・帰化・アジア": "intl",
+});
 
 export const POSITION_PARAM = listParam("pos");
 export const CLUB_PARAM = listParam("club");

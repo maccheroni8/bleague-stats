@@ -188,14 +188,14 @@ function FilterField({ axis }: { axis: FilterAxis }) {
           {selectOptionGroups(axis.options).map((g) =>
             g.label === null ? (
               g.options.map((o) => (
-                <option key={o.value} value={o.value} disabled={o.disabled}>
+                <option key={o.value} value={o.value} disabled={o.disabled} title={o.disabledReason}>
                   {o.label}
                 </option>
               ))
             ) : (
               <optgroup key={g.label} label={g.label}>
                 {g.options.map((o) => (
-                  <option key={o.value} value={o.value} disabled={o.disabled}>
+                  <option key={o.value} value={o.value} disabled={o.disabled} title={o.disabledReason}>
                     {o.label}
                   </option>
                 ))}
@@ -226,7 +226,11 @@ export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact 
   const advancedChangedCount = advanced.filter(isAxisChipped).length + (extraChip ? 1 : 0);
   const hasAdvanced = advanced.length > 0 || !!extra;
   const disabledReasons = [
-    ...new Set(axes.filter((a) => a.disabledReason && !a.quietDisabled).map((a) => a.disabledReason as string)),
+    ...new Set([
+      ...axes.filter((a) => a.disabledReason && !a.quietDisabled).map((a) => a.disabledReason as string),
+      // 選択肢だけが選べないときの理由（登録区分のルーキー。2016-17）
+      ...axes.flatMap((a) => (a.kind === "select" ? a.options.filter((o) => o.disabled && o.disabledReason).map((o) => o.disabledReason as string) : [])),
+    ]),
   ];
 
   // すべての軸が今のタブでは効かないとき、バー全体を薄くして「操作できない」ことを見た目で示す
