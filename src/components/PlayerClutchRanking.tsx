@@ -45,7 +45,7 @@ function ClutchLine({ r, allTime }: { r: ClutchRow; allTime: boolean }) {
         FG {r.fg}・FT {r.ft}
       </span>
       {"　"}
-      <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always />
+      <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap />
       {allTime && <span className="record-date-nowrap">　{span}</span>}
     </>
   );

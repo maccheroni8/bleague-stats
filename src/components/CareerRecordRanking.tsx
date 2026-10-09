@@ -131,7 +131,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
                 name={(r) => <ResponsivePlayerName name={r.info.name} />}
                 subLabel={(r) => (
                   <>
-                    <ResponsiveTeamName teamId={r.info.teamId} name={r.info.teamName} always />・{r.info.latestSeason}シーズンまで在籍確認
+                    <ResponsiveTeamName teamId={r.info.teamId} name={r.info.teamName} always nowrap />・{r.info.latestSeason}シーズンまで在籍確認
                   </>
                 )}
                 linkTo={(r) => `/players/${r.playerId}?season=${r.info.latestSeason}`}

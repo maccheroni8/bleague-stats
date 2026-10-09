@@ -93,7 +93,7 @@ function TeamGameRecordLine({ r }: { r: TeamGameRecordRow }) {
         {date}（{r.season}）
       </span>
       {narrow ? " " : "　"}
-      {r.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={r.opponentTeamId} name={r.opponentTeamName} always />
+      {r.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={r.opponentTeamId} name={r.opponentTeamName} always nowrap />
       {r.ownPoints !== undefined && <span className="record-date-nowrap">　区間 {r.ownPoints}-{r.oppPoints}</span>}
       {r.detail && <span className="record-detail">　{formatTeamRecordDetail(r.detail, r.value)}</span>}
     </>

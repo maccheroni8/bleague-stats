@@ -41,7 +41,7 @@ function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" 
           {date}（{r.season}）
         </span>
         {narrow ? " " : "　"}
-        <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always /> {r.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={r.opponentTeamId!} name={r.opponentTeamName!} always />
+        <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap /> {r.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={r.opponentTeamId!} name={r.opponentTeamName!} always nowrap />
         <span className="record-date-nowrap">　{parts}</span>
       </>
     );
@@ -53,7 +53,7 @@ function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" 
       {"　"}
       <span className="record-date-nowrap">{parts}</span>
       {"　"}
-      <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always />
+      <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap />
       {unit === "career" && <span className="record-date-nowrap">　{span}</span>}
     </>
   );
