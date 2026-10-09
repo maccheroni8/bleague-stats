@@ -17,6 +17,7 @@ export const SEASON_RAW_ENTRIES = ["games", "yahoo", "schedule.json.gz"] as cons
 
 /** シーズンのディレクトリ（data/{season}/ と data/{season}/one/）にある導出データ（B）。ディレクトリは中身ごと */
 export const SEASON_DERIVED_ENTRIES = [
+  "assist-pairs.json.gz",
   "games-summary.json.gz",
   "head-to-head.json.gz",
   "league-average.json.gz",

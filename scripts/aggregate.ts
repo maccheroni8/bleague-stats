@@ -56,6 +56,8 @@ import { filterByGameType } from "../shared/gameType.ts";
 import { opponentOliverBox, teamOliverBox } from "../shared/teamSeasonTotals.ts";
 import { teamTotalsForTransferredPlayer } from "../shared/transferredTeamTotals.ts";
 import { gameMaxMargins } from "../shared/gameMargins.ts";
+import { clutchByPlayer, maxRuns, scoringSequence, type TeamRun } from "../shared/gameFlow.ts";
+import { buildAssistPairsFile, sortedAssistPairRows, type AssistPairRow } from "../shared/assistPairs.ts";
 import { overtimeCount } from "../shared/gamePeriods.ts";
 import {
   DISQUALIFYING_FOUL_CODE,
@@ -971,6 +973,8 @@ export async function aggregateSeason(season: string, category: Category = "prem
   /** チームごとの出場区間の数え上げ（2020-21以降。team-stints/ に保存する。DESIGN.md 204章） */
   const teamStints = new Map<string, TeamStintsBuilder>();
   const writeTeamStints = substitutionModelForSeason(season) === "modern";
+  /** アシストペアの試合ごとの行（B.PREMIERのレギュラーシーズン・ポストシーズン。assist-pairs.json.gz） */
+  const assistPairGames: { key: string; rows: AssistPairRow[] }[] = [];
 
   const ensureTeam = (teamId: string, teamName: string): TeamAccumulator => {
     let team = teams.get(teamId);
@@ -1029,6 +1033,14 @@ export async function aggregateSeason(season: string, category: Category = "prem
     const fbpsByPlayer = fbps.byPlayer;
     const secondChanceByPlayer = secondChance.byPlayer;
     const assistedScoring = computeAssistedScoring(game.raw.PlayByPlays);
+    // 得点の流れ（最大のラン・勝ち越し弾・同点弾・決勝点。shared/gameFlow.ts、DESIGN.md 221章）。アシストペアの試合ごとの行は assist-pairs.json.gz に書く
+    const flow = scoringSequence(game.raw.PlayByPlays);
+    const teamRuns = maxRuns(flow.events);
+    const clutch = clutchByPlayer(flow.events, game.homeScore, game.awayScore);
+    if (category === "premier" && (gameType === "regular" || gameType === "playoff")) {
+      const rows = sortedAssistPairRows(assistedScoring.pairs.values());
+      if (rows.length > 0) assistPairGames.push({ key: game.scheduleKey, rows });
+    }
     const miscEvents = buildMiscEventCounts(game.raw.PlayByPlays);
     const offensiveFoulCountsByPlayer = buildOffensiveFoulCounts(game.raw.PlayByPlays);
     const paintSplit = buildPaintSplitByPlayer(game.raw.PlayByPlays);
@@ -1048,6 +1060,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       paintSplit.byPlayer,
       onCourtRatingsByPlayer,
       offensiveFoulCountsByPlayer,
+      clutch,
     );
     processTeams(
       game,
@@ -1065,6 +1078,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       assistedScoring.byTeam,
       paintSplit.byTeam,
       masterById,
+      teamRuns,
     );
     processLineups(game, teamLineups, teamLineupGames, onCourt);
     if (writeTeamStints) collectTeamStints(game, teamStints, onCourt);
@@ -1333,6 +1347,12 @@ export async function aggregateSeason(season: string, category: Category = "prem
     await writeJson(path.join(DATA_DIR, seasonDir, "team-games", `${t.teamId}.json`), gameLogs);
   }
 
+  // アシストペアの試合ごとの行（B.PREMIERのみ。DESIGN.md 221章）。列ごとに数値を並べるので字下げなしで書く
+  if (category === "premier") {
+    const pairsFile = buildAssistPairsFile(season, assistPairGames);
+    await writeJsonIfChanged(path.join(DATA_DIR, seasonDir, "assist-pairs.json"), pairsFile as unknown as Record<string, unknown>, ["generatedAt"], false);
+  }
+
   // クォーター別・前後半別の1試合平均とリーグ内順位（DESIGN.md 143章）
   const periodAverages = buildPeriodAveragesFile(season, new Map([...teams.values()].map((t) => [t.teamId, t.gameLogs])));
   await writeJson(path.join(DATA_DIR, seasonDir, "period-averages.json"), periodAverages);
@@ -1568,6 +1588,7 @@ function processPlayers(
   paintSplitByPlayer: Map<string, PaintSplitCounts>,
   onCourtRatingsByPlayer: Record<string, PlayerOnCourtRatings>,
   offensiveFoulCountsByPlayer: Map<string, OffensiveFoulCounts>,
+  clutchByPlayerId: Map<string, number[]>,
 ): void {
   const rows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
   for (const row of pickTeamRow(rows, 1)) {
@@ -1633,6 +1654,7 @@ function processPlayers(
         : {}),
       overtimes: overtimeCount(game),
       finalMargin: teamNetForGame,
+      ...(clutchByPlayerId.has(row.PlayerID) ? { clutch: clutchByPlayerId.get(row.PlayerID) } : {}),
       isStarter: row.StartingFlg === 1,
       min: parsePlayTime(row.PlayTime),
       pts: row.Point,
@@ -1792,6 +1814,7 @@ function processTeams(
   assistedScoringByTeam: Map<string, AssistedScoringCounts>,
   paintSplitByTeam: Map<string, PaintSplitCounts>,
   masterById: Map<string, PlayerMasterEntry>,
+  teamRuns: [TeamRun | null, TeamRun | null],
 ): void {
   const homeRow = pickTeamRow(game.raw.HomeBoxscores, 3)[0];
   const awayRow = pickTeamRow(game.raw.AwayBoxscores, 3)[0];
@@ -1927,6 +1950,9 @@ function processTeams(
   const margins = gameMaxMargins(game);
   const homeMargins = margins ? { maxLead: margins.homeMaxLead, maxDeficit: margins.awayMaxLead } : {};
   const awayMargins = margins ? { maxLead: margins.awayMaxLead, maxDeficit: margins.homeMaxLead } : {};
+  // 最大のラン（DESIGN.md 221章）
+  const runFields = (run: TeamRun | null) =>
+    run ? { maxRun: run.points, maxRunFromSec: run.fromSec, maxRunToSec: run.toSec, maxRunOwnBefore: run.ownBefore, maxRunOppBefore: run.oppBefore } : {};
 
   home.gameLogs.push({
     scheduleKey: game.scheduleKey,
@@ -1941,6 +1967,7 @@ function processTeams(
     overtimes,
     ...homePeriods,
     ...homeMargins,
+    ...runFields(teamRuns[0]),
     foreignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     ...teamGameLogStats(homeRow, gamePoss),
@@ -1991,6 +2018,7 @@ function processTeams(
     overtimes,
     ...awayPeriods,
     ...awayMargins,
+    ...runFields(teamRuns[1]),
     foreignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     gameType,

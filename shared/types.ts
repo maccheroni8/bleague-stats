@@ -741,6 +741,11 @@ export interface PlayerGameLog extends Partial<FoulCategoryCounts> {
   overtimes?: number;
   /** 所属チームから見た最終点差（勝てば正、負ければ負。延長戦を含む最終スコアの差）。古いデータには無い（DESIGN.md 219章） */
   finalMargin?: number;
+  /**
+   * 勝ち越し弾・同点弾・決勝点（第4Q・延長の残り5分・2分・1分以内。FGとFTを分ける）。18個の数の配列で、位置は shared/gameFlow.ts の clutchIndex。
+   * 1つも無い試合は項目ごと省く。古いデータには無い（DESIGN.md 221章）
+   */
+  clutch?: number[];
   isStarter: boolean;
   min: number;
   pts: number;
@@ -846,6 +851,15 @@ export interface TeamGameLog extends Partial<FoulCategoryCounts>, Partial<Oppone
   maxLead?: number;
   /** 試合中の最大ビハインド（一度もビハインドが無ければ0。延長戦を含む） */
   maxDeficit?: number;
+  /**
+   * 最大のラン（相手が無得点の間の自チームの連続得点。shared/gameFlow.ts・DESIGN.md 221章）。点数と、最初・最後の得点の試合開始からの経過秒、ランの直前の両チームの得点。
+   * プレーバイプレーの得点が無い試合は無し。古いデータには無い
+   */
+  maxRun?: number;
+  maxRunFromSec?: number;
+  maxRunToSec?: number;
+  maxRunOwnBefore?: number;
+  maxRunOppBefore?: number;
   /** 延長の本数（延長なしは 0。GameSummary.overtimes と同じ）。古いデータには無い（DESIGN.md 219章）。最終点差は teamScore − opponentScore */
   overtimes?: number;
   /**

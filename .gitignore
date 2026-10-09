@@ -13,6 +13,8 @@ tsconfig.tsbuildinfo
 /data/player-page-seasons.json.gz
 /data/rookie-eligibility.json.gz
 /data/seasons.json.gz
+/data/*/assist-pairs.json.gz
+/data/*/one/assist-pairs.json.gz
 /data/*/games-summary.json.gz
 /data/*/one/games-summary.json.gz
 /data/*/head-to-head.json.gz
