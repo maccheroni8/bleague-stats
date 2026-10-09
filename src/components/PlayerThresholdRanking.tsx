@@ -15,6 +15,7 @@ import { useNarrow } from "../lib/teamLabel";
 import {
   DEFAULT_THRESHOLD,
   THRESHOLD_ITEMS,
+  THRESHOLD_CAREER_MIN_GAMES,
   THRESHOLD_QUICK_VALUES,
   queryThresholdAge,
   queryThresholdCount,
@@ -96,7 +97,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
       const r = queryThresholdAge({ ...input, which });
       return r && { kind: "age" as const, ...r };
     }
-    const r = queryThresholdCount({ ...input, sort });
+    const r = queryThresholdCount({ ...input, sort, career: allTime });
     return r && { kind: "count" as const, ...r };
   }, [ready, unit, index.views, gameType, conditions, group, positions, rookies.file, activeOn, active.ids, rosters.rosters, ongoingOnly, which, allTime, current.names, threshold, includeSpecial, sort]);
 
@@ -281,7 +282,11 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
       ) : index.loading || rookies.loading || active.loading || current.loading || rosters.loading || !result ? (
         <p className="loading">読み込み中...</p>
       ) : !rows || rows.length === 0 ? (
-        <p className="empty-message">この条件の試合がありません</p>
+        <p className="empty-message">
+          {unit === "count" && sort === "rate" && allTime
+            ? `この条件の記録がありません（達成率の順は、通算の出場試合数が${THRESHOLD_CAREER_MIN_GAMES}試合以上の選手だけです）`
+            : "この条件の試合がありません"}
+        </p>
       ) : (
         <>
           <ExportImageButton targetRef={exportRef} filename={filename} />
@@ -311,7 +316,11 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
                 <ThresholdCountList rows={result.rows} sort={sort} allTime={allTime} teamColors={teamColors} />
                 <p className="rule-change-footnote">
                   ※ 達成試合数は、しきい値を満たした試合の数です。出場試合数は、試合の条件などに当てはまる試合のうち出場した試合の数、達成率は達成試合数÷出場試合数です。
-                  {sort === "rate" ? "達成率の順は、ランキングの掲載基準（所属チームの試合数の85%以上に出場）を満たす選手だけです。通算は、出場した各シーズンの所属チームの試合数の合計に対する出場率で判定します。" : ""}
+                  {sort === "rate"
+                    ? allTime
+                      ? `達成率の順は、通算の出場試合数（${gameTypeLabels(gameType, null)[0]}）が${THRESHOLD_CAREER_MIN_GAMES}試合以上の選手だけです。達成試合数の順には、この基準はありません。`
+                      : "達成率の順は、ランキングの掲載基準（所属チームの試合数の85%以上に出場）を満たす選手だけです。"
+                    : ""}
                 </p>
               </>
             )}

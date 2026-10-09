@@ -130,6 +130,8 @@ export type ThresholdCountSort = "count" | "rate";
 export interface ThresholdCountQuery extends ThresholdInput {
   /** count＝達成試合数、rate＝達成率（掲載基準を満たす選手だけ） */
   sort: ThresholdCountSort;
+  /** 通算（全シーズン）か。達成率の掲載基準が、通算は出場100試合以上、シーズンはランキングの掲載基準（所属チームの試合数の85%以上）になる */
+  career: boolean;
 }
 
 export interface ThresholdCountRow {
@@ -167,6 +169,40 @@ export function ratioEligiblePlayers(
   includeSpecial: boolean,
   minRatio: number = MIN_GAMES_PLAYED_RATIO_FOR_RANKING,
 ): Set<string> {
+  const { played, teamGames } = playedAndTeamGames(views, gameType, includeSpecial);
+  const out = new Set<string>();
+  for (const [id, gp] of played) {
+    const denom = teamGames.get(id) ?? 0;
+    if (denom > 0 && gp / denom >= minRatio) out.add(id);
+  }
+  return out;
+}
+
+/** 通算の達成率の掲載基準: 出場試合数の下限（ユーザー決定。DESIGN.md 223-3章） */
+export const THRESHOLD_CAREER_MIN_GAMES = 100;
+
+/**
+ * 通算の達成率の掲載基準を満たす選手: 全シーズンの出場試合数（試合区分と前後半5分の特別な試合の扱いには従い、試合の条件・しきい値には依存しない）が
+ * THRESHOLD_CAREER_MIN_GAMES 以上
+ */
+export function careerEligiblePlayers(
+  views: readonly PlayerGameIndexView[],
+  gameType: SeasonGameTypeFilter,
+  includeSpecial: boolean,
+  minGames: number = THRESHOLD_CAREER_MIN_GAMES,
+): Set<string> {
+  const { played } = playedAndTeamGames(views, gameType, includeSpecial);
+  const out = new Set<string>();
+  for (const [id, gp] of played) if (gp >= minGames) out.add(id);
+  return out;
+}
+
+/** 選手ごとの出場試合数と、出場した各シーズンの「最後の試合のチーム」の試合数の合計 */
+function playedAndTeamGames(
+  views: readonly PlayerGameIndexView[],
+  gameType: SeasonGameTypeFilter,
+  includeSpecial: boolean,
+): { played: Map<string, number>; teamGames: Map<string, number> } {
   const played = new Map<string, number>();
   const teamGames = new Map<string, number>();
   for (const view of views) {
@@ -198,12 +234,7 @@ export function ratioEligiblePlayers(
       teamGames.set(id, (teamGames.get(id) ?? 0) + (perTeam.get(e.team) ?? 0));
     }
   }
-  const out = new Set<string>();
-  for (const [id, gp] of played) {
-    const denom = teamGames.get(id) ?? 0;
-    if (denom > 0 && gp / denom >= minRatio) out.add(id);
-  }
-  return out;
+  return { played, teamGames };
 }
 
 interface CountAcc {
@@ -246,7 +277,7 @@ export function queryThresholdCount(q: ThresholdCountQuery): { rows: ThresholdCo
     }
   });
   if (!scan) return null;
-  const eligible = q.sort === "rate" ? ratioEligiblePlayers(q.views, q.gameType, q.includeSpecial) : null;
+  const eligible = q.sort !== "rate" ? null : q.career ? careerEligiblePlayers(q.views, q.gameType, q.includeSpecial) : ratioEligiblePlayers(q.views, q.gameType, q.includeSpecial);
   const list = [...acc.values()]
     .filter((a) => a.count > 0 && (!eligible || eligible.has(a.playerId)))
     .map<Omit<ThresholdCountRow, "rank">>((a) => ({
