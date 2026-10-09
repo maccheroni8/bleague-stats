@@ -40,6 +40,7 @@
     "build:data": "node --experimental-strip-types scripts/build-data.ts",
     "validate:lineup-search": "esbuild scripts/validate-lineup-search.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-lineup-search.mjs && node node_modules/.cache/validate-lineup-search.mjs",
     "validate:game-index": "esbuild scripts/validate-game-index.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-game-index.mjs && node node_modules/.cache/validate-game-index.mjs",
+    "validate:game-record-query": "esbuild scripts/validate-game-record-query.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-game-record-query.mjs && node node_modules/.cache/validate-game-record-query.mjs",
     "validate:season-compare": "esbuild scripts/validate-season-compare.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-season-compare.mjs && node node_modules/.cache/validate-season-compare.mjs",
     "validate:rookie-eligibility": "node --experimental-strip-types scripts/validate-rookie-eligibility.ts",
     "validate:pbp-order": "esbuild scripts/validate-pbp-order.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-pbp-order.mjs && node node_modules/.cache/validate-pbp-order.mjs",
