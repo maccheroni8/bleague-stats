@@ -5404,6 +5404,15 @@ table.compare-table th .compare-condition-tag {
   text-overflow: clip;
 }
 
+/* 日程結果のカテゴリタブ「Periods」（ラインスコア）: スマホ幅で1Q〜4Qまで見えるよう、セルの余白を詰める */
+@media (max-width: 560px) {
+  .team-tab-panel table.schedule-table.linescore-table th,
+  .team-tab-panel table.schedule-table.linescore-table td {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+
 /* 概要タブ先頭のスタッツタイル（9×4）の下: 次のブロック（絞り込み）との間を空ける */
 [data-design="v2"] .team-header-stat-grid + :not(.team-header-stat-grid) {
   margin-top: 28px;

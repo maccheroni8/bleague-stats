@@ -172,8 +172,16 @@ import {
   sumShotTypeCounts,
 } from "../lib/shotTypeBreakdown";
 import { ComparisonTable, type ComparisonRow } from "./ComparePage";
+import { useMediaQuery } from "../lib/useMediaQuery";
 import { PeriodScoringCells, PeriodScoringHeaderCells, periodScoringNote } from "../components/TeamPeriodCells";
-import { aggregatePeriodScoring, type PeriodScoringRow } from "../lib/teamPeriodScoring";
+import {
+  aggregatePeriodScoring,
+  formatLinescoreCell,
+  gameLinescore,
+  linescoreOvertimeLabels,
+  type Linescore,
+  type PeriodScoringRow,
+} from "../lib/teamPeriodScoring";
 import { MobileCollapse } from "../components/MobileCollapse";
 import { EligibilitySlider } from "../components/EligibilitySlider";
 import { StickyHeaderScroll } from "../components/StickyHeaderScroll";
@@ -2596,7 +2604,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [scheduleGameType, setScheduleGameType] = usePageState<SeasonGameTypeFilter>(pk("scheduleGameType"), "both");
   const [schedulePeriod, setSchedulePeriod] = usePageState<PeriodRangeValue>(pk("schedulePeriod"), "all");
   const schedulePeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === schedulePeriod);
-  const [scheduleBoxTab, setScheduleBoxTab] = usePageState<BoxscoreTabKey>(pk("scheduleBoxTab"), "traditional");
+  const [scheduleBoxTab, setScheduleBoxTab] = usePageState<BoxscoreTabKey | "periods">(pk("scheduleBoxTab"), "traditional");
 
   useEffect(() => {
     statsRawGamesRequestedRef.current = new Set();
@@ -3297,9 +3305,20 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「日程結果」タブのカテゴリタブ用の列定義。試合詳細ページのボックススコアと完全に同じ配列
   // ファウルの列は、このシーズンが2026-27以降ならTF1・TF2・FLAG・DISR、それ以前ならUFOUL・TF（DESIGN.md 16-8章）
   const foulSplit = foulColumnsSplit([season]);
-  const scheduleBoxColumns = boxscoreColumnsFor(scheduleBoxTab, foulSplit);
+  const scheduleBoxColumns = scheduleBoxTab === "periods" ? [] : boxscoreColumnsFor(scheduleBoxTab, foulSplit);
   // Misc・Scoringタブの末尾にベンチ得点・スタメン得点を足す（他の表と同じ置き場所）。TeamGameLogにだけある値のため、Q別/前後半の表示では「-」
-  const schedulePointsColumns = teamPointsExtraColumnsForTab(scheduleBoxTab).filter((c) => SCHEDULE_POINTS_COLUMN_KEYS.has(c.key));
+  const schedulePointsColumns = scheduleBoxTab === "periods" ? [] : teamPointsExtraColumnsForTab(scheduleBoxTab).filter((c) => SCHEDULE_POINTS_COLUMN_KEYS.has(c.key));
+  // Periods（DESIGN.md 226章）: ラインスコア。1Q〜4Qと延長が1本までは試合ログから、2本以上の延長は読み込み済みの生データの公式のクォーター別スコアから
+  const scheduleLinescores = new Map<string, Linescore | null>();
+  if (scheduleBoxTab === "periods") {
+    for (const row of scheduleFilteredRows) {
+      const log = gameLogsByScheduleKey.get(row.scheduleKey);
+      scheduleLinescores.set(row.scheduleKey, log ? gameLinescore(log, statsRawGames.get(row.scheduleKey)) : null);
+    }
+  }
+  const scheduleOvertimeLabels = linescoreOvertimeLabels(Math.max(0, ...[...scheduleLinescores.values()].map((l) => l?.overtimes ?? 0)));
+  const scheduleLinescoreFromPbp = [...scheduleLinescores.values()].some((l) => (l?.fromPbp.length ?? 0) > 0);
+  const scheduleLinescoreMissing = scheduleFilteredRows.filter((r) => r.status === "final" && scheduleLinescores.get(r.scheduleKey) === null).length;
   const schedulePointsSupported = !schedulePeriodOption?.periods;
   const scheduleShotChartSupported = isShotChartSupported(coverage);
   // Misc/スコアリングタブのPBPタグ集計にはYahoo PBPも必要。season対応でも該当試合の取得が
@@ -3421,11 +3440,10 @@ export function TeamDetailPage({ season }: { season: string }) {
   };
   const scheduleTitle = {
     title: `${seasonLabel} 日程結果：${teamBoxCategoryLabel(scheduleBoxTab)}`,
-    conditions: composeLabels(
-      perspectiveLabels(scheduleTeamPerspective),
-      gameTypeLabels(scheduleGameType, season),
-      periodLabels(schedulePeriodOption),
-    ),
+    conditions:
+      scheduleBoxTab === "periods"
+        ? composeLabels(gameTypeLabels(scheduleGameType, season))
+        : composeLabels(perspectiveLabels(scheduleTeamPerspective), gameTypeLabels(scheduleGameType, season), periodLabels(schedulePeriodOption)),
   };
   const careerRangeLabel =
     careerData && careerData.length > 0 ? `${careerData[0]!.season}〜${careerData[careerData.length - 1]!.season}シーズン` : null;
@@ -3733,9 +3751,13 @@ export function TeamDetailPage({ season }: { season: string }) {
               simple
               stateKey={pk("scheduleFilter")}
               axes={[
-                perspectiveAxis(scheduleTeamPerspective, setScheduleTeamPerspective),
+                perspectiveAxis(scheduleTeamPerspective, setScheduleTeamPerspective, {
+                  disabledReason: scheduleBoxTab === "periods" ? "ラインスコアは自チームと相手の得点を並べて出すため、視点は選べません。" : undefined,
+                }),
                 gameTypeAxis(scheduleGameType, setScheduleGameType, season, { defaultValue: "both" }),
-                periodAxis(schedulePeriod, setSchedulePeriod, SEASON_BOX_PERIOD_OPTIONS),
+                periodAxis(schedulePeriod, setSchedulePeriod, SEASON_BOX_PERIOD_OPTIONS, {
+                  disabledReason: scheduleBoxTab === "periods" ? `${CATEGORY_LABELS.periods}は区間ごとに出すため、Q別・前後半は選べません。` : undefined,
+                }),
               ]}
             />
             <div className="tab-bar">
@@ -3749,11 +3771,54 @@ export function TeamDetailPage({ season }: { season: string }) {
                   {t.label}
                 </button>
               ))}
+              <button
+                className={`tab-button${scheduleBoxTab === "periods" ? " active" : ""}`}
+                onClick={() => setScheduleBoxTab("periods")}
+                type="button"
+              >
+                {CATEGORY_LABELS.periods}
+              </button>
             </div>
             <ConditionTitle title={scheduleTitle.title} conditions={scheduleTitle.conditions} />
-            {scheduleDataLoading && <p className="loading">読み込み中...</p>}
+            {scheduleDataLoading && scheduleBoxTab !== "periods" && <p className="loading">読み込み中...</p>}
             {scheduleFilteredRows.length === 0 ? (
               <p className="empty-message">該当する試合がありません</p>
+            ) : scheduleBoxTab === "periods" ? (
+              <>
+                <div className="table-scroll">
+                  <table className="sortable-table schedule-table linescore-table">
+                    <thead>
+                      <tr>
+                        <th className="align-left">日付</th>
+                        <th className="align-left">対戦相手</th>
+                        <th className="align-right">結果</th>
+                        {["1Q", "2Q", "3Q", "4Q", ...scheduleOvertimeLabels].map((label) => (
+                          <th key={label} className="align-right">
+                            {label}
+                          </th>
+                        ))}
+                        <th className="align-left">会場</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scheduleFilteredRows.map((row) => (
+                        <TeamScheduleLinescoreRowView
+                          key={row.scheduleKey}
+                          row={row}
+                          line={scheduleLinescores.get(row.scheduleKey) ?? null}
+                          overtimeColumns={scheduleOvertimeLabels.length}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="page-subtitle">
+                  各区間は「自チーム-相手」の得点です。
+                  {scheduleOvertimeLabels.length > 1 && "延長が2回以上あった試合があるため、延長は OT1・OT2… に分けて出しています（延長が1回の試合は OT1）。"}
+                  {scheduleLinescoreMissing > 0 && `前後半5分の特別な試合（${scheduleLinescoreMissing}試合）は、クォーターごとの得点がありません。`}
+                  {scheduleLinescoreFromPbp && "＊は、公式のクォーター別スコアが欠けている区間のため、プレーバイプレーの得点から出した値です。"}
+                </p>
+              </>
             ) : (
               <div className="table-scroll">
                 <table className="sortable-table schedule-table">
@@ -3805,7 +3870,15 @@ export function TeamDetailPage({ season }: { season: string }) {
               </div>
             )}
             {scheduleBoxTab === "misc" && scheduleFilteredRows.length > 0 && <RuleChangeFootnote seasons={[season]} />}
-            <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="日程結果" scope={`上部の自チーム/opp/+/-・レギュラー/${postseasonLabel(season)}・Q別/前後半と連動します。`} />
+            <GlossaryNote
+              anchor={GLOSSARY_ANCHORS.boxscoreColumns}
+              label="日程結果"
+              scope={
+                scheduleBoxTab === "periods"
+                  ? `上部のレギュラー/${postseasonLabel(season)}と連動します。`
+                  : `上部の自チーム/opp/+/-・レギュラー/${postseasonLabel(season)}・Q別/前後半と連動します。`
+              }
+            />
           </div>
         ))}
 
@@ -4740,10 +4813,36 @@ function TeamScheduleRowView({
   pointsColumns: TeamPointsExtraColumn[];
   points: TeamPointsBreakdownResult | null;
 }) {
-  const linkTo = row.status === "upcoming" ? undefined : `/games/${row.scheduleKey}`;
   return (
     <tr className={`schedule-row status-${row.status}`}>
-      <td className="align-left">{linkTo ? <Link to={linkTo} className="cell-link">{row.date}</Link> : row.date}</td>
+      <ScheduleLeadCells row={row} />
+      {columns.map((col) => (
+        <td key={col.key} className="align-right">
+          {!boxTotals
+            ? "-"
+            : perspective === "own"
+              ? col.format(boxTotals.own, boxTotals.ownCtx)
+              : perspective === "opp"
+                ? col.format(boxTotals.opp, boxTotals.oppCtx)
+                : formatColumnDiff(col, boxTotals.own, boxTotals.ownCtx, boxTotals.opp, boxTotals.oppCtx)}
+        </td>
+      ))}
+      {pointsColumns.map((col) => (
+        <td key={col.key} className="align-right">
+          {formatTeamPointsExtraColumn(points, col, perspective, "total")}
+        </td>
+      ))}
+      <td className="align-left">{row.venue ?? "-"}</td>
+    </tr>
+  );
+}
+
+/** 日程結果の各行の先頭の3つのセル（日付・対戦相手・結果）。カテゴリタブによらず共通 */
+function ScheduleLeadCells({ row, shortDate = false }: { row: TeamScheduleRow; /** 年を2桁にする（スマホ幅のラインスコア） */ shortDate?: boolean }) {
+  const linkTo = row.status === "upcoming" ? undefined : `/games/${row.scheduleKey}`;
+  return (
+    <>
+      <td className="align-left">{linkTo ? <Link to={linkTo} className="cell-link">{shortDate ? row.date.slice(2) : row.date}</Link> : shortDate ? row.date.slice(2) : row.date}</td>
       <td className="align-left">
         <MaybeLink to={linkTo}>
           {row.isHome ? "vs" : "@"}{" "}
@@ -4767,22 +4866,29 @@ function TeamScheduleRowView({
             ))}
         </MaybeLink>
       </td>
-      {columns.map((col) => (
-        <td key={col.key} className="align-right">
-          {!boxTotals
-            ? "-"
-            : perspective === "own"
-              ? col.format(boxTotals.own, boxTotals.ownCtx)
-              : perspective === "opp"
-                ? col.format(boxTotals.opp, boxTotals.oppCtx)
-                : formatColumnDiff(col, boxTotals.own, boxTotals.ownCtx, boxTotals.opp, boxTotals.oppCtx)}
+    </>
+  );
+}
+
+/** 日程結果のカテゴリタブ「Periods」の行（ラインスコア。DESIGN.md 226章）。各区間は「自チーム-相手」。延長は overtimeColumns 列（試合の延長の本数が少なければ「-」） */
+function TeamScheduleLinescoreRowView({ row, line, overtimeColumns }: { row: TeamScheduleRow; line: Linescore | null; overtimeColumns: number }) {
+  const narrow = useMediaQuery("(max-width: 560px)");
+  return (
+    <tr className={`schedule-row status-${row.status}`}>
+      <ScheduleLeadCells row={row} shortDate={narrow} />
+      {[0, 1, 2, 3].map((q) => (
+        <td key={q} className="align-right">
+          {line ? `${formatLinescoreCell(line.own[q], line.opp[q])}${line.fromPbp.includes(q + 1) ? "＊" : ""}` : "-"}
         </td>
       ))}
-      {pointsColumns.map((col) => (
-        <td key={col.key} className="align-right">
-          {formatTeamPointsExtraColumn(points, col, perspective, "total")}
-        </td>
-      ))}
+      {Array.from({ length: overtimeColumns }, (_, i) => {
+        const ot = line && i < line.overtimes ? line.ot?.[i] : undefined;
+        return (
+          <td key={i} className="align-right">
+            {ot ? formatLinescoreCell(ot.own, ot.opp) : "-"}
+          </td>
+        );
+      })}
       <td className="align-left">{row.venue ?? "-"}</td>
     </tr>
   );
