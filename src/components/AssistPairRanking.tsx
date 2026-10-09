@@ -60,7 +60,7 @@ function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" 
 }
 
 /** 1人分: 写真と、写真の下の名前（個人ページへのリンク）。幅は固定（CSS）。幅が狭いときの名前は名字（ResponsivePlayerName） */
-function PairPerson({ playerId, name, season, among, rookieSeason }: { playerId: string; name: string; season: string; among: readonly string[]; rookieSeason?: string }) {
+export function PairPerson({ playerId, name, season, among, rookieSeason }: { playerId: string; name: string; season: string; among: readonly string[]; rookieSeason?: string }) {
   return (
     <Link to={`/players/${playerId}?season=${season}`} className="cell-link pair-person">
       <PlayerPhoto playerId={playerId} size={44} className="player-cell-photo" placeholder />

@@ -67,6 +67,7 @@ import { PAIR_UNITS, PAIR_UNIT_LABELS } from "../lib/clutchQuery";
 import { THRESHOLD_UNITS, THRESHOLD_UNIT_LABELS, THRESHOLD_UNIT_PARAM } from "../lib/thresholdParams";
 import { PlayerClutchRanking } from "../components/PlayerClutchRanking";
 import { PlayerThresholdRanking } from "../components/PlayerThresholdRanking";
+import { PlayerLineupRanking } from "../components/PlayerLineupRanking";
 import { AssistPairRanking } from "../components/AssistPairRanking";
 import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useSeasonRookies } from "../lib/rookieFilter";
 import {
@@ -218,8 +219,8 @@ function shootingStatItems(columns: { key: string; label: string }[]): { key: st
  */
 const RANKING_MODE_PARAM = enumParam<Mode>("m", ["team", "player"], "team");
 /** 種類（DESIGN.md 190〜192章）: シーズン成績（今までのランキング）／1試合記録／通算記録（過去に在籍した全選手・全クラブの全シーズン合算） */
-type RankingKind = "season" | "game" | "career" | "special" | "clutch" | "assistPair" | "threshold";
-const RANKING_KIND_PARAM = enumParam<RankingKind>("k", ["season", "game", "career", "special", "clutch", "assistPair", "threshold"], "season", { assistPair: "pair", threshold: "thr" });
+type RankingKind = "season" | "game" | "career" | "special" | "clutch" | "assistPair" | "threshold" | "lineup";
+const RANKING_KIND_PARAM = enumParam<RankingKind>("k", ["season", "game", "career", "special", "clutch", "assistPair", "threshold", "lineup"], "season", { assistPair: "pair", threshold: "thr", lineup: "lu" });
 const RANKING_KIND_LABELS: Record<RankingKind, string> = {
   season: "シーズン成績",
   game: "1試合記録",
@@ -228,6 +229,7 @@ const RANKING_KIND_LABELS: Record<RankingKind, string> = {
   clutch: "勝負所",
   assistPair: "アシストペア",
   threshold: "達成記録",
+  lineup: "On/Off・組み合わせ",
 };
 const TEAM_CATEGORY_PARAM = enumParam<TeamRankingCategory>(
   "cat",
@@ -1080,7 +1082,7 @@ export function RankingsPage({ season }: { season: string }) {
   const [scope, setScopeParam] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
   // 個人には1シーズン記録が無く、チームには勝負所・アシストペアが無いので、URLにそのkがあっても通常のシーズン成績にする
   const kind: RankingKind =
-    (mode === "player" && kindParam === "special") || (mode === "team" && (kindParam === "clutch" || kindParam === "assistPair" || kindParam === "threshold")) ? "season" : kindParam;
+    (mode === "player" && kindParam === "special") || (mode === "team" && (kindParam === "clutch" || kindParam === "assistPair" || kindParam === "threshold" || kindParam === "lineup")) ? "season" : kindParam;
   const [pairUnit, setPairUnit] = useUrlState(PAIR_UNIT_PARAM, "season");
   const [thresholdUnit, setThresholdUnit] = useUrlState(THRESHOLD_UNIT_PARAM, "count");
   const setMode = (next: Mode) => {
@@ -1098,7 +1100,7 @@ export function RankingsPage({ season }: { season: string }) {
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const gameRecords = kind === "game";
   // 1シーズン記録はチームだけ（個人には1シーズンの記録の項目が無い）
-  const kinds: RankingKind[] = mode === "team" ? ["season", "game", "career", "special"] : ["season", "game", "career", "clutch", "assistPair", "threshold"];
+  const kinds: RankingKind[] = mode === "team" ? ["season", "game", "career", "special"] : ["season", "game", "career", "clutch", "assistPair", "threshold", "lineup"];
   // 歴代（通算記録は常に歴代）はシーズンに依らないので、シーズンを出さない。勝負所は通算（歴代）かシーズン、アシストペアは1試合・通算（歴代）かシーズン
   const allTimeRecords =
     kind === "career" ||
@@ -1195,7 +1197,9 @@ export function RankingsPage({ season }: { season: string }) {
 
       {/* カテゴリのタブを「ページの主タブ」ではなく従のタブとして扱うため、ルート直下に置かない（v2のCSSは > .tab-bar だけを主タブにする） */}
       <div>
-        {kind === "threshold" ? (
+        {kind === "lineup" ? (
+          <PlayerLineupRanking season={season} teamColors={teamColors ?? undefined} />
+        ) : kind === "threshold" ? (
           <PlayerThresholdRanking season={season} teamColors={teamColors ?? undefined} />
         ) : kind === "clutch" ? (
           <PlayerClutchRanking season={season} teamColors={teamColors ?? undefined} />
