@@ -79,7 +79,7 @@ export interface IndexedPlayerGame {
   assisted2m: number;
   assisted3m: number;
   assistedFtm: number;
-  /** 勝ち越し弾・同点弾・決勝点（18個。位置は shared/gameFlow.ts の clutchIndex）。1つも無い試合は undefined */
+  /** 勝ち越し弾・同点弾・決勝弾（18個。位置は shared/gameFlow.ts の clutchIndex）。1つも無い試合は undefined */
   clutch?: number[];
 }
 

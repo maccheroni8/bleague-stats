@@ -319,8 +319,8 @@ for (const season of seasons) {
       const got = sums.get(gi) ?? new Array<number>(PLAYER_INDEX_CLUTCH_COLUMNS.length).fill(0);
       if (!same(got, want)) cm.add(`${games.key[gi]}: 索引 ${JSON.stringify(got)} / 数え直し ${JSON.stringify(want)}`);
     }
-    check(`${season} 勝負所（勝ち越し弾・同点弾・決勝点）が生データの数え直しと一致`, cm.count === 0, `${cm.count}件\n   ${cm.samples.join("\n   ")}`);
-    console.log(`   勝負所の合計（窓5分・2分・1分の [勝ち越し,同点,決勝点] FG+FT）: ${[0, 1, 2].map((w) => [0, 1, 2].map((k) => `${expectedClutch(clutchExpectedTotal, w, k, false)}+${expectedClutch(clutchExpectedTotal, w, k, true)}`).join(",")).join(" / ")}`);
+    check(`${season} 勝負所（勝ち越し弾・同点弾・決勝弾）が生データの数え直しと一致`, cm.count === 0, `${cm.count}件\n   ${cm.samples.join("\n   ")}`);
+    console.log(`   勝負所の合計（窓5分・2分・1分の [勝ち越し,同点,決勝弾] FG+FT）: ${[0, 1, 2].map((w) => [0, 1, 2].map((k) => `${expectedClutch(clutchExpectedTotal, w, k, false)}+${expectedClutch(clutchExpectedTotal, w, k, true)}`).join(",")).join(" / ")}`);
   }
 
   // アシストペア（assist-pairs.json.gz）: 生データの数え直しと一致。選手は索引の選手辞書にいる。（試合, 得点した選手）ごとの点数が選手の行のアシストされた得点と一致

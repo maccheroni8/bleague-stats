@@ -1033,7 +1033,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
     const fbpsByPlayer = fbps.byPlayer;
     const secondChanceByPlayer = secondChance.byPlayer;
     const assistedScoring = computeAssistedScoring(game.raw.PlayByPlays);
-    // 得点の流れ（最大のラン・勝ち越し弾・同点弾・決勝点。shared/gameFlow.ts、DESIGN.md 221章）。アシストペアの試合ごとの行は assist-pairs.json.gz に書く
+    // 得点の流れ（最大のラン・勝ち越し弾・同点弾・決勝弾。shared/gameFlow.ts、DESIGN.md 221章）。アシストペアの試合ごとの行は assist-pairs.json.gz に書く
     const flow = scoringSequence(game.raw.PlayByPlays);
     const teamRuns = maxRuns(flow.events);
     const clutch = clutchByPlayer(flow.events, game.homeScore, game.awayScore);

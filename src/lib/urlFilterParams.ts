@@ -49,7 +49,7 @@ export const RECORDS_SCOPE_PARAM = enumParam<RecordsScope>("scope", ["allTime", 
 /** 歴代の記録の会場（トータル／ホーム／アウェイ）。個人・チームの記録タブとランキングの通算記録で共通 */
 export const VENUE_PARAM = enumParam<LeagueVenue>("venue", ["total", "home", "away"], "total");
 
-/** ランキング > 個人 > 勝負所: 窓（cw＝残り5・2・1分。初期値2）と種類（cm＝勝ち越し弾・同点弾・決勝点）。アシストペアの単位（u＝1試合・シーズン・通算。DESIGN.md 221章） */
+/** ランキング > 個人 > 勝負所: 窓（cw＝残り5・2・1分。初期値2）と種類（cm＝勝ち越し弾・同点弾・決勝弾）。アシストペアの単位（u＝1試合・シーズン・通算。DESIGN.md 221章） */
 export const CLUTCH_WINDOW_PARAM = enumParam<ClutchWindowKey>("cw", CLUTCH_WINDOWS, "2");
 export const CLUTCH_MEASURE_PARAM = enumParam<ClutchMeasure>("cm", CLUTCH_MEASURES, "goAhead", { goAhead: "ga", winner: "win" });
 export const PAIR_UNIT_PARAM = enumParam<PairUnit>("u", PAIR_UNITS, "career");

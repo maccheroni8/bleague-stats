@@ -49,7 +49,7 @@ export const PLAYER_INDEX_STAT_COLUMNS = [
   "assisted2m",
   "assisted3m",
   "assistedFtm",
-  // 勝ち越し弾・同点弾・決勝点（第4Q・延長の残り5分・2分・1分以内。FGとFT）。位置は shared/gameFlow.ts の clutchIndex（窓×種類×{FG,FT}）。DESIGN.md 221章
+  // 勝ち越し弾・同点弾・決勝弾（第4Q・延長の残り5分・2分・1分以内。FGとFT）。位置は shared/gameFlow.ts の clutchIndex（窓×種類×{FG,FT}）。DESIGN.md 221章
   "c5GaFg",
   "c5GaFt",
   "c5TieFg",

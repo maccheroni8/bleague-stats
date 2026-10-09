@@ -1,4 +1,4 @@
-// 試合の得点の流れ（プレーバイプレーの得点イベントから）の集計: チームの最大のラン、選手の勝ち越し弾・同点弾・決勝点（DESIGN.md 221章）。
+// 試合の得点の流れ（プレーバイプレーの得点イベントから）の集計: チームの最大のラン、選手の勝ち越し弾・同点弾・決勝弾（DESIGN.md 221章）。
 //
 // 元は PlayByPlays の得点イベント（ActionCD1 = 1, 3, 4, 7, 44。shared/gameMargins.ts と同じ集合）の Score（その時点の両チームの累計「ホーム-アウェイ」）。
 // 得点したチームと点数は、前の得点イベントからの Score の差で決める（ActionCD1 のコードでは決めない）。フリースローは ActionCD1 = 7（FGと区別する）。
@@ -9,10 +9,10 @@
 // 累計得点は得点のたびに必ず増えるので、同じ秒の中の正しい並びは累計得点の昇順で一意に決まる。pbpOrder.ts 自体は変えない（既存の集計の入力が変わるため）。
 //
 // ラン（相手が無得点の間の、自チームの連続得点の合計）: ピリオドをまたいで続く。同じ値のランが1試合に複数あるときは、最初のものを採る。
-// 勝ち越し弾・同点弾・決勝点: 第4Qと各延長の、残り時間が window 秒以内（2:00ちょうどを含む）の得点。窓は 5分・2分・1分。
+// 勝ち越し弾・同点弾・決勝弾: 第4Qと各延長の、残り時間が window 秒以内（2:00ちょうどを含む）の得点。窓は 5分・2分・1分。
 //   - 勝ち越し: 得点前に同点か負けていて、得点後にリードしたもの
 //   - 同点: 得点前に負けていて、得点後に同点になったもの
-//   - 決勝点: 勝ったチームの最後の勝ち越し（その後、一度もリードを失わない）が、窓の中にあるもの
+//   - 決勝弾: 勝ったチームの最後の勝ち越し（その後、一度もリードを失わない）が、窓の中にあるもの
 // 得点者は PlayerID1。FG（ActionCD1 = 1, 3, 4）とフリースロー（7）を分けて数える。
 import { chronologicalPlayByPlays } from "./pbpOrder.ts";
 import type { PlayByPlayEvent } from "./types.ts";
@@ -24,7 +24,7 @@ const FREE_THROW_CODE = 7;
 const CLUTCH_FIRST_PERIOD = 4;
 /** 窓の長さ（秒）。0: 残り5分、1: 残り2分（初期値）、2: 残り1分 */
 export const CLUTCH_WINDOWS_SEC = [300, 120, 60] as const;
-/** 勝ち越し・同点・決勝点 */
+/** 勝ち越し・同点・決勝弾 */
 export const CLUTCH_KINDS = ["goAhead", "tie", "winner"] as const;
 export type ClutchKind = (typeof CLUTCH_KINDS)[number];
 /** 1人×1試合の勝負所の配列の長さ: 窓3 × 種類3 × {FG, FT} */
@@ -168,8 +168,8 @@ export function maxRuns(events: ScoringEvent[]): [TeamRun | null, TeamRun | null
 }
 
 /**
- * 選手ごとの勝ち越し弾・同点弾・決勝点（CLUTCH_LENGTH 個の配列。位置は clutchIndex）。1つも無い選手は含めない。
- * homeScore・awayScore は公式の最終スコア（引き分けの試合には決勝点が無い）
+ * 選手ごとの勝ち越し弾・同点弾・決勝弾（CLUTCH_LENGTH 個の配列。位置は clutchIndex）。1つも無い選手は含めない。
+ * homeScore・awayScore は公式の最終スコア（引き分けの試合には決勝弾が無い）
  */
 export function clutchByPlayer(events: ScoringEvent[], homeScore: number, awayScore: number): Map<string, number[]> {
   const out = new Map<string, number[]>();

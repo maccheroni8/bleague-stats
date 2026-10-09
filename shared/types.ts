@@ -742,7 +742,7 @@ export interface PlayerGameLog extends Partial<FoulCategoryCounts> {
   /** 所属チームから見た最終点差（勝てば正、負ければ負。延長戦を含む最終スコアの差）。古いデータには無い（DESIGN.md 219章） */
   finalMargin?: number;
   /**
-   * 勝ち越し弾・同点弾・決勝点（第4Q・延長の残り5分・2分・1分以内。FGとFTを分ける）。18個の数の配列で、位置は shared/gameFlow.ts の clutchIndex。
+   * 勝ち越し弾・同点弾・決勝弾（第4Q・延長の残り5分・2分・1分以内。FGとFTを分ける）。18個の数の配列で、位置は shared/gameFlow.ts の clutchIndex。
    * 1つも無い試合は項目ごと省く。古いデータには無い（DESIGN.md 221章）
    */
   clutch?: number[];

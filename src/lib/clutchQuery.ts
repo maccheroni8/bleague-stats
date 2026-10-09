@@ -1,4 +1,4 @@
-// ランキング > 個人 > 「勝負所」（勝ち越し弾・同点弾・決勝点）と「アシストペア」の集計（DESIGN.md 221章）。1試合行の索引（219章）と、アシストペアの試合ごとの行
+// ランキング > 個人 > 「勝負所」（勝ち越し弾・同点弾・決勝弾）と「アシストペア」の集計（DESIGN.md 221章）。1試合行の索引（219章）と、アシストペアの試合ごとの行
 // （assist-pairs.json.gz）を読み、試合の条件で絞って、選手ごと（勝負所）・ペアごと（アシストペア）に足し上げて並べる。通信・画面の部品を含まない純粋な部分（検証スクリプトからも使う）。
 // 集計のコードから読まれない場所（src/lib の保存キーの対象外）に置く。
 //
@@ -37,7 +37,7 @@ function rankRows<T extends { value: number }>(sorted: T[], topN: number): (T & 
 
 export type ClutchMeasure = "goAhead" | "tie" | "winner";
 export const CLUTCH_MEASURES: ClutchMeasure[] = ["goAhead", "tie", "winner"];
-export const CLUTCH_MEASURE_LABELS: Record<ClutchMeasure, string> = { goAhead: "勝ち越し弾", tie: "同点弾", winner: "決勝点" };
+export const CLUTCH_MEASURE_LABELS: Record<ClutchMeasure, string> = { goAhead: "勝ち越し弾", tie: "同点弾", winner: "決勝弾" };
 /** 窓: 第4Q・各延長の残り時間（分）。初期値は2分 */
 export type ClutchWindowKey = "5" | "2" | "1";
 export const CLUTCH_WINDOWS: ClutchWindowKey[] = ["5", "2", "1"];

@@ -1,7 +1,7 @@
 // ランキング > 個人 > 勝負所・アシストペア・被アシスト率（DESIGN.md 221章）の検証スクリプト（検証専用。CIには入れず、手で実行する）。
 //
 // 導出データを作ったあと（`npm run build:data` のあと）に実行する。独立した元から数え直した結果と比べる:
-//  1. 勝負所: 選手の試合ログ（player-games/ の clutch）から足し上げた順位が、索引から集計した結果（queryClutch）と完全に一致する。窓5分・2分・1分 × 勝ち越し・同点・決勝点 × 試合区分 × 通算・各シーズン、
+//  1. 勝負所: 選手の試合ログ（player-games/ の clutch）から足し上げた順位が、索引から集計した結果（queryClutch）と完全に一致する。窓5分・2分・1分 × 勝ち越し・同点・決勝弾 × 試合区分 × 通算・各シーズン、
 //     条件（勝った試合・延長あり・ホーム）つき。同じ値の中は選手IDの昇順
 //  2. アシストペア: 生データから作り直したペア（computeAssistedScoring）を足し上げた順位が、queryAssistPairs と一致する（1試合・シーズン・通算 × 試合区分、条件つき）。同じ値の中の並び（IDの昇順→日付）
 //  3. 被アシスト率: 1試合記録（league-player-game-records.json・シーズンごとの player-game-records.json）と通算（league-player-career-top.json）が、試合ログから数え直した値と一致する
@@ -128,10 +128,10 @@ const conds: { label: string; c: GameRecordConditions; ok: (g: PlayerGameLog) =>
   // 例: 通算の残り2分の勝ち越し弾の上位3
   const top = queryClutch({ views: seasons.map((s) => views.get(s)!), gameType: "both", conditions: DEFAULT_GAME_RECORD_CONDITIONS, group: "all", rookies: null, measure: "goAhead", window: "2" }).rows;
   console.log(`   通算（レギュラー+ポスト）残り2分の勝ち越し弾 上位3: ${top.slice(0, 3).map((r) => `${r.playerName} ${r.value}(FG${r.fg}・FT${r.ft})`).join(" / ")}`);
-  // 試合ごとの合計の整合: 決勝点は1試合に1つまで（試合数以内）
+  // 試合ごとの合計の整合: 決勝弾は1試合に1つまで（試合数以内）
   const winnerTotal = queryClutch({ views: seasons.map((s) => views.get(s)!), gameType: "both", conditions: DEFAULT_GAME_RECORD_CONDITIONS, group: "all", rookies: null, measure: "winner", window: "5", topN: ALL }).rows.reduce((a, r) => a + r.value, 0);
   const totalGames = seasons.reduce((a, s) => a + views.get(s)!.file.games.key.length, 0);
-  check("勝負所: 決勝点（残り5分）の合計が、試合数を超えない", winnerTotal <= totalGames, `${winnerTotal} / ${totalGames}`);
+  check("勝負所: 決勝弾（残り5分）の合計が、試合数を超えない", winnerTotal <= totalGames, `${winnerTotal} / ${totalGames}`);
 }
 
 // ---- 2. アシストペア ----

@@ -1,10 +1,10 @@
-// shared/gameFlow.ts（得点の流れ: 最大のラン・勝ち越し弾・同点弾・決勝点。DESIGN.md 221章）の検証スクリプト（検証専用。CIには入れず、必要なときに手で実行する）。
+// shared/gameFlow.ts（得点の流れ: 最大のラン・勝ち越し弾・同点弾・決勝弾。DESIGN.md 221章）の検証スクリプト（検証専用。CIには入れず、必要なときに手で実行する）。
 //
 // 全シーズンの終了済み試合（B.PREMIER。PBPのある試合）について、次を確かめる:
 //  1. 得点の流れが完全: 使わなかった得点イベントが0、最後の得点の Score が公式の最終スコアと一致、時刻が逆行しない。同じ秒の並べ直しをした試合の一覧
 //  2. 別の方法（時刻を使わず、累計得点の順だけで並べる）で作った得点の流れと、イベントがすべて一致
 //  3. 最大のラン: 別の書き方（相手の得点が同じ間の区間の差）と、点数・開始・終了・ラン前のスコアが一致
-//  4. 勝ち越し弾・同点弾・決勝点: 別の書き方（点差の状態列から数える。決勝点は「勝者の点差が最後に0以下だった状態の次の得点」）と、選手ごとの18個の数がすべて一致
+//  4. 勝ち越し弾・同点弾・決勝弾: 別の書き方（点差の状態列から数える。決勝弾は「勝者の点差が最後に0以下だった状態の次の得点」）と、選手ごとの18個の数がすべて一致
 //  5. 手で数えた小さな試合（合成）での期待値
 //  6. 試合詳細の得点推移グラフ（src/lib/leadTracker.ts の buildScoreTimeline）が、同じ秒の並びの食い違いのある試合で、リードの入れ替わりを間違えて見せていないか（報告のみ。失敗にしない）
 //
@@ -57,7 +57,7 @@ function prefixTo(home: number, away: number): PlayByPlayEvent[] {
   ok("合成: 同じ秒の並べ直し（累計の昇順）", tail === "80-83,80-84,80-85" && seq.reordered === 3 && seq.skipped === 0, `${tail} ${seq.reordered} ${seq.skipped}`);
 }
 {
-  // 第4Q残り1:30: ホームの3Pで 60-62 → 63-62（勝ち越し）、残り0:40: アウェイのFT 63-63（同点）→ 63-64（勝ち越し）、残り0:10: ホームの2Pで 65-64（勝ち越し・決勝点）
+  // 第4Q残り1:30: ホームの3Pで 60-62 → 63-62（勝ち越し）、残り0:40: アウェイのFT 63-63（同点）→ 63-64（勝ち越し）、残り0:10: ホームの2Pで 65-64（勝ち越し・決勝弾）
   const chain: [number, string, string, number, string, string][] = [
     [4, "3:00", "60-62", 3, "A", "a9"],
     [4, "1:30", "63-62", 1, "H", "h2"],
@@ -83,9 +83,9 @@ function prefixTo(home: number, away: number): PlayByPlayEvent[] {
   ok("合成: 勝ち越し弾（FG）は5分・2分の窓に入り1分の窓に入らない", !!h2 && h2[clutchIndex(0, 0, false)] === 1 && h2[clutchIndex(1, 0, false)] === 1 && h2[clutchIndex(2, 0, false)] === 0, JSON.stringify(h2));
   // 63-63 は同点弾（FT・残り0:50）、63-64 は勝ち越し（FT・残り0:40）。a1 は両方
   ok("合成: 同点弾と勝ち越し弾（FT）は3つの窓すべて", !!a1 && [0, 1, 2].every((w) => a1[clutchIndex(w, 1, true)] === 1 && a1[clutchIndex(w, 0, true)] === 1), JSON.stringify(a1));
-  // 65-64: ホームの勝ち越しで、ホームが最終的に勝つ → 決勝点。前の勝ち越し(63-62)は一度リードを失ったので決勝点ではない
-  ok("合成: 決勝点は勝者の最後の勝ち越しだけ", !!h1 && [0, 1, 2].every((w) => h1[clutchIndex(w, 2, false)] === 1 && h1[clutchIndex(w, 0, false)] === 1) && !!h2 && [0, 1, 2].every((w) => h2[clutchIndex(w, 2, false)] === 0), JSON.stringify([h1, h2]));
-  ok("合成: 引き分けには決勝点が無い", ![...clutchByPlayer(s2.events, 64, 64).values()].some((a) => a.some((v, i) => Math.floor((i % 6) / 2) === 2 && v > 0)));
+  // 65-64: ホームの勝ち越しで、ホームが最終的に勝つ → 決勝弾。前の勝ち越し(63-62)は一度リードを失ったので決勝弾ではない
+  ok("合成: 決勝弾は勝者の最後の勝ち越しだけ", !!h1 && [0, 1, 2].every((w) => h1[clutchIndex(w, 2, false)] === 1 && h1[clutchIndex(w, 0, false)] === 1) && !!h2 && [0, 1, 2].every((w) => h2[clutchIndex(w, 2, false)] === 0), JSON.stringify([h1, h2]));
+  ok("合成: 引き分けには決勝弾が無い", ![...clutchByPlayer(s2.events, 64, 64).values()].some((a) => a.some((v, i) => Math.floor((i % 6) / 2) === 2 && v > 0)));
 }
 ok("合成: 経過秒 → ピリオドと残り時間", (() => {
   const a = periodAndRestAt(600);
@@ -268,12 +268,12 @@ ok("得点の流れが完全（使わなかった得点0・最後の得点＝最
 ok("経過秒が逆行しない", tally.timeBackwards === 0, `${tally.timeBackwards}試合`);
 ok("累計得点だけで並べた列と、得点の流れが一致", tally.flowMismatch === 0, `${tally.flowMismatch}試合`);
 ok("最大のラン（別の書き方と一致）", tally.runMismatch === 0, `${tally.runMismatch}試合`);
-ok("勝ち越し弾・同点弾・決勝点（別の書き方と一致）", tally.clutchMismatch === 0, `${tally.clutchMismatch}試合`);
+ok("勝ち越し弾・同点弾・決勝弾（別の書き方と一致）", tally.clutchMismatch === 0, `${tally.clutchMismatch}試合`);
 console.log(`\n同じ秒の並べ直しをした試合: ${tally.reorderedGames.length}試合 ${tally.reorderedGames.join(" ")}`);
 console.log(`最大のランの最大: ${maxRunValue}点`);
-console.log("勝負所の合計（窓5分・2分・1分 × {勝ち越し・同点・決勝点} の [FG, FT]）:");
+console.log("勝負所の合計（窓5分・2分・1分 × {勝ち越し・同点・決勝弾} の [FG, FT]）:");
 CLUTCH_WINDOWS_SEC.forEach((w, wi) => {
-  const cells = [0, 1, 2].map((k) => `${["勝ち越し", "同点", "決勝点"][k]} ${clutchTotals[clutchIndex(wi, k, false)]}+${clutchTotals[clutchIndex(wi, k, true)]}`);
+  const cells = [0, 1, 2].map((k) => `${["勝ち越し", "同点", "決勝弾"][k]} ${clutchTotals[clutchIndex(wi, k, false)]}+${clutchTotals[clutchIndex(wi, k, true)]}`);
   console.log(`  ${w / 60}分: ${cells.join(" / ")}`);
 });
 if (chartReport.length > 0) {
