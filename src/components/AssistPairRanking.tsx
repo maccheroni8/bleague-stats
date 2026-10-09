@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import type { TeamColors } from "../../shared/types";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
+import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
 import { buildExportFilename, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { gameTypeAxis, type FilterAxis } from "../lib/filterAxes";
 import { DEFAULT_GAME_RECORD_CONDITIONS, cleanGameConditionsForSeason, gameRecordConditionLabels, gameRecordConditionsParam } from "../lib/gameRecordConditions";
@@ -85,9 +86,11 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
   const options = useGameRecordOptions(singleSeason ? "season" : "allTime", season);
   const pairs = useAssistPairData(singleSeason, season);
   const active = useActivePlayerIds(activeOn);
+  // 1試合（歴代）・通算は、選手名を今の登録名にそろえる。シーズンは、そのシーズンの表記
+  const current = useCurrentPlayerNames(!singleSeason);
   const result = useMemo(
-    () => (pairs.data && (!activeOn || active.ids) ? queryAssistPairs({ data: pairs.data, gameType, conditions, unit, activeIds: activeOn ? active.ids : null }) : null),
-    [pairs.data, gameType, conditions, unit, activeOn, active.ids],
+    () => (pairs.data && (!activeOn || active.ids) && (singleSeason || current.names) ? queryAssistPairs({ data: pairs.data, gameType, conditions, unit, activeIds: activeOn ? active.ids : null, currentNames: singleSeason ? null : current.names }) : null),
+    [pairs.data, gameType, conditions, unit, activeOn, active.ids, singleSeason, current.names],
   );
 
   // シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い対戦相手・地区を外す
@@ -125,21 +128,22 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
   return (
     <>
       <FilterBar axes={axes} stateKey="rankings:player:assistPair" onClearAll={clearAll} />
-      {pairs.error || active.error ? (
+      {pairs.error || active.error || current.error ? (
         <div className="error-message">
-          <p>アシストペアの記録を読み込めませんでした（{pairs.error ?? active.error}）。</p>
+          <p>アシストペアの記録を読み込めませんでした（{pairs.error ?? active.error ?? current.error}）。</p>
           <button
             type="button"
             className="load-more-button"
             onClick={() => {
               pairs.retry();
               active.retry();
+              current.retry();
             }}
           >
             再読み込み
           </button>
         </div>
-      ) : pairs.loading || active.loading || !result ? (
+      ) : pairs.loading || active.loading || current.loading || !result ? (
         <p className="loading">読み込み中...</p>
       ) : !entries || entries.length === 0 ? (
         <p className="empty-message">この条件の記録がありません</p>

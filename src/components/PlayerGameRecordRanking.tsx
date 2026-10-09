@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { PlayerGameRecordDef } from "../../shared/playerGameRecords";
 import type { TeamColors } from "../../shared/types";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
+import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { fetchLeaguePlayerGameRecords, fetchPlayerGameRecords } from "../lib/data";
 import { classificationAxis, gameTypeAxis, multiSelectAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
@@ -126,13 +127,15 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const index = useGameIndexViews("player", scope, season, useIndex);
   const rookies = useRookieFile(useIndex && group === "rookie");
   const active = useActivePlayerIds(activeOn);
+  // 歴代で索引から作る表は、選手名を今の登録名にそろえる（上位20位のファイルは、作る側でそろえてある）
+  const current = useCurrentPlayerNames(allTime && useIndex);
 
   const result = useMemo(
     () =>
-      index.views && (group !== "rookie" || rookies.file) && (!activeOn || active.ids)
-        ? queryPlayerGameRecords({ views: index.views, gameType, conditions, group, positions, statConditions, rookies: rookies.file, activeIds: activeOn ? active.ids : null, stat, includeSpecial })
+      index.views && (group !== "rookie" || rookies.file) && (!activeOn || active.ids) && (!allTime || current.names)
+        ? queryPlayerGameRecords({ views: index.views, gameType, conditions, group, positions, statConditions, rookies: rookies.file, activeIds: activeOn ? active.ids : null, currentNames: allTime ? current.names : null, stat, includeSpecial })
         : null,
-    [index.views, gameType, conditions, group, positions, statConditions, rookies.file, activeOn, active.ids, stat, includeSpecial],
+    [index.views, gameType, conditions, group, positions, statConditions, rookies.file, activeOn, active.ids, allTime, current.names, stat, includeSpecial],
   );
 
   // シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い対戦相手・地区・ルーキーを外す
@@ -148,8 +151,8 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const classKey = group === "rookie" ? undefined : classKeyOfFilter(group);
   const tables = classKey ? file?.byClassification?.[classKey] : file?.byGameType;
   const entries: PlayerRecordRow[] | undefined = useIndex ? result?.rows : (tables?.[gameType]?.[def.key] ?? []);
-  const loading = useIndex ? index.loading || rookies.loading || active.loading : fileLoading;
-  const failure = useIndex ? (index.error ?? rookies.error ?? active.error) : null;
+  const loading = useIndex ? index.loading || rookies.loading || active.loading || current.loading : fileLoading;
+  const failure = useIndex ? (index.error ?? rookies.error ?? active.error ?? current.error) : null;
   const noData = !useIndex && !loading && !tables;
 
   const teamName = (id: string) => {
@@ -238,6 +241,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
             onClick={() => {
               index.retry();
               active.retry();
+              current.retry();
             }}
           >
             再読み込み

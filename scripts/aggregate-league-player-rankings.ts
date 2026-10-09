@@ -18,6 +18,7 @@ import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { currentSeason } from "./lib/season.ts";
+import { currentPlayerNames, normalizePlayerName } from "../shared/playerName.ts";
 import { filterByGameType } from "../shared/gameType.ts";
 import { CLASS_KEYS, classKeyOf, type ClassKey } from "../shared/classificationKey.ts";
 import { AWARD_COUNT_KEYS } from "../shared/playerAwardKinds.ts";
@@ -90,6 +91,10 @@ async function loadCareerData(): Promise<{
       }
     }
   }
+
+  // 複数のシーズンをまたぐ表なので、選手名は選手マスタの今の登録名にそろえる（マスタに無い選手は最新のシーズンの名前。空白はそろえる。DESIGN.md 222-5）
+  const names = currentPlayerNames((await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? []);
+  for (const [id, p] of info) info.set(id, { ...p, name: names.get(id) ?? normalizePlayerName(p.name) });
 
   return { byPlayer, info };
 }

@@ -112,6 +112,7 @@ import type {
 import { isMainModule } from "./lib/isMain.ts";
 import { regulationPeriodScores } from "../shared/periodPoints.ts";
 import { buildPeriodAveragesFile } from "./lib/periodAverages.ts";
+import { normalizePlayerName } from "../shared/playerName.ts";
 
 const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
 
@@ -1442,7 +1443,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       const profile = resolveSeasonProfile(e.playerId, season, { master, positions: seasonPositionsFile, profiles: seasonProfilesFile, past: pastSeason });
       registeredPlayersJson.push({
         playerId: e.playerId,
-        name: master.name,
+        name: normalizePlayerName(master.name),
         teamId: e.teamId,
         teamName: e.teamName ?? teams.get(e.teamId)?.teamName ?? master.teamName,
         position: profile.position,
@@ -1597,7 +1598,7 @@ function processPlayers(
     if (!acc) {
       acc = {
         playerId: row.PlayerID,
-        name: row.PlayerNameJ,
+        name: normalizePlayerName(row.PlayerNameJ),
         teamId: row.TeamID ?? "",
         teamName: row.TeamNameJ,
         totals: emptyTotals(),

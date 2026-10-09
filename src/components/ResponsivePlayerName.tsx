@@ -1,3 +1,4 @@
+import { normalizePlayerName } from "../../shared/playerName";
 import { usePlayerLabel } from "../lib/playerLabel";
 import { useIsRookie } from "../lib/rookieFilter";
 import { RookieBadge } from "./RookieBadge";
@@ -22,7 +23,8 @@ export function ResponsivePlayerName({
   const label = usePlayerLabel(among);
   const isRookie = useIsRookie();
   const shown = label(name);
-  const text = shown === name ? <>{name}</> : <span title={name}>{shown}</span>;
+  const full = normalizePlayerName(name);
+  const text = shown === full ? <>{full}</> : <span title={full}>{shown}</span>;
   return playerId && season && isRookie(playerId, season) ? (
     <>
       {text}

@@ -74,6 +74,8 @@ export interface ClutchQuery {
   rookies: RookieEligibilityFile | null;
   /** 指定時、この選手IDの記録だけ（現役の絞り込み。DESIGN.md 222章） */
   activeIds?: ReadonlySet<string> | null;
+  /** 指定時、選手名を今の登録名にする（通算など、複数のシーズンをまたぐ表。DESIGN.md 222-5）。無い選手は最後に出場した試合のシーズンの名前 */
+  currentNames?: ReadonlyMap<string, string> | null;
   measure: ClutchMeasure;
   window: ClutchWindowKey;
   topN?: number;
@@ -143,7 +145,7 @@ export function queryClutch(q: ClutchQuery): { rows: ClutchRow[]; players: numbe
       fg: a.fg,
       ft: a.ft,
       playerId: a.playerId,
-      playerName: a.playerName,
+      playerName: q.currentNames?.get(a.playerId) ?? a.playerName,
       teamId: a.teamId,
       teamName: a.teamName,
       firstSeason: a.firstSeason,
@@ -205,6 +207,8 @@ export interface PairQuery {
   unit: PairUnit;
   /** 指定時、アシストした選手・得点した選手の両方がこの選手IDにいる組だけ（現役の絞り込み。DESIGN.md 222章） */
   activeIds?: ReadonlySet<string> | null;
+  /** 指定時、選手名を今の登録名にする（1試合（歴代）・通算。DESIGN.md 222-5）。無い選手は、その試合（通算は最後の試合）のシーズンの名前 */
+  currentNames?: ReadonlyMap<string, string> | null;
   topN?: number;
 }
 
@@ -268,8 +272,8 @@ export function queryAssistPairs(q: PairQuery): { rows: PairRow[]; pairs: number
       const opp = file.teams[home ? file.games.away[g]! : file.games.home[g]!]!;
       const date = file.games.date[g]!;
       const key = file.games.key[g]!;
-      const assisterName = file.players[ai]![1];
-      const scorerName = file.players[si]![1];
+      const assisterName = q.currentNames?.get(assisterId) ?? file.players[ai]![1];
+      const scorerName = q.currentNames?.get(scorerId) ?? file.players[si]![1];
       if (q.unit === "game") {
         singles.push({
           value: assistPairPoints({ n2, n3, nf }),

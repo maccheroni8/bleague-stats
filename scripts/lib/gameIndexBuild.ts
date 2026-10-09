@@ -23,6 +23,7 @@ import {
   type PlayerGameIndexFile,
   type TeamGameIndexFile,
 } from "../../shared/gameIndex.ts";
+import { normalizePlayerName } from "../../shared/playerName.ts";
 import type { DivisionHistoryFile, GameSummary, PlayerGameLog, PlayerMasterEntry, PlayerSummary, TeamGameLog } from "../../shared/types.ts";
 
 type PlayerStatColumn = (typeof PLAYER_INDEX_STAT_COLUMNS)[number];
@@ -195,7 +196,7 @@ export async function buildGameIndex(season: string): Promise<{ player: PlayerGa
     const fallback = p?.profileFallback?.position;
     return [
       id,
-      p?.name ?? m?.name ?? id,
+      normalizePlayerName(p?.name ?? m?.name ?? id),
       p?.position ?? "",
       fallback === "near" || fallback === "current" ? fallback : "",
       p?.birthDate ?? m?.birthDate ?? "",

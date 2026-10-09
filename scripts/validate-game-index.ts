@@ -12,6 +12,7 @@
 import path from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { DATA_DIR, readGameFile, readJson } from "./lib/storage.ts";
+import { currentPlayerNames, normalizePlayerName } from "../shared/playerName.ts";
 import { buildRecordTables, type RecordGame } from "./lib/playerGameRecordsTop.ts";
 import { regulationPeriodScores } from "../shared/periodPoints.ts";
 import { gameMaxMargins } from "../shared/gameMargins.ts";
@@ -169,7 +170,7 @@ for (const season of seasons) {
     }
     const ps = playerSummaryById.get(r.playerId);
     const m = masterById.get(r.playerId);
-    if (r.playerName !== (ps?.name ?? m?.name ?? r.playerId)) pm.add(`${key} 名前`);
+    if (r.playerName !== normalizePlayerName(ps?.name ?? m?.name ?? r.playerId)) pm.add(`${key} 名前`);
     if (r.position !== (ps?.position ?? "")) pm.add(`${key} ポジション: 索引 ${r.position} / 元 ${String(ps?.position)}`);
     if (r.positionFallback !== (ps?.profileFallback?.position ?? "")) pm.add(`${key} ポジションの補い方`);
     if (r.birthDate !== (ps?.birthDate ?? m?.birthDate ?? "")) pm.add(`${key} 生年月日`);
@@ -396,7 +397,12 @@ for (const season of seasons) {
 
 // ---- 全シーズンの上位20位 ----
 console.log("\n== 全シーズン");
-const allTime = buildRecordTables(allRecordGames, true);
+// 全シーズンのファイルは、複数のシーズンをまたぐ表なので選手名が選手マスタの今の登録名（無い選手はその試合のシーズンの名前）。DESIGN.md 222-5
+const currentNames = currentPlayerNames(master);
+const allTime = buildRecordTables(
+  allRecordGames.map((g) => ({ ...g, playerName: currentNames.get(g.playerId) ?? g.playerName })),
+  true,
+);
 const existingAll = await readJson<Record<string, unknown>>(path.join(DATA_DIR, "league-player-game-records.json"));
 eq("全シーズンの上位20位（league-player-game-records.json）が索引から再現できる", { byGameType: allTime.byGameType, byClassification: allTime.byClassification }, {
   byGameType: existingAll?.byGameType,

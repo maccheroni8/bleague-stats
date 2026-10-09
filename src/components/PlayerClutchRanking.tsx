@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
+import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { classificationAxis, gameTypeAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
 import { DEFAULT_GAME_RECORD_CONDITIONS, cleanGameConditionsForSeason, gameRecordConditionLabels, gameRecordConditionsParam } from "../lib/gameRecordConditions";
@@ -69,12 +70,14 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
   const index = useGameIndexViews("player", scope, season, true);
   const rookies = useRookieFile(group === "rookie");
   const active = useActivePlayerIds(activeOn);
+  // 通算は、選手名を今の登録名にそろえる
+  const current = useCurrentPlayerNames(allTime);
   const result = useMemo(
     () =>
-      index.views && (group !== "rookie" || rookies.file) && (!activeOn || active.ids)
-        ? queryClutch({ views: index.views, gameType, conditions, group, rookies: rookies.file, activeIds: activeOn ? active.ids : null, measure, window })
+      index.views && (group !== "rookie" || rookies.file) && (!activeOn || active.ids) && (!allTime || current.names)
+        ? queryClutch({ views: index.views, gameType, conditions, group, rookies: rookies.file, activeIds: activeOn ? active.ids : null, currentNames: allTime ? current.names : null, measure, window })
         : null,
-    [index.views, gameType, conditions, group, rookies.file, activeOn, active.ids, measure, window],
+    [index.views, gameType, conditions, group, rookies.file, activeOn, active.ids, allTime, current.names, measure, window],
   );
 
   // シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い対戦相手・地区・ルーキーを外す
@@ -101,7 +104,7 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
   const title = `${allTime ? "通算" : `${season}シーズン`} ${measureLabel}（第4Q・延長の${windowLabel}）`;
   const filename = buildExportFilename(["勝負所", allTime ? "通算" : season, measureLabel, windowLabel, ...conditionLabels]);
   const entries = result?.rows;
-  const failure = index.error ?? rookies.error ?? active.error;
+  const failure = index.error ?? rookies.error ?? active.error ?? current.error;
 
   const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, includeSpecial: true, includeSpecialDefault: true };
   const axes: FilterAxis[] = [
@@ -145,12 +148,13 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
           <button type="button" className="load-more-button" onClick={() => {
               index.retry();
               active.retry();
+              current.retry();
             }}
           >
             再読み込み
           </button>
         </div>
-      ) : index.loading || rookies.loading || active.loading || !result ? (
+      ) : index.loading || rookies.loading || active.loading || current.loading || !result ? (
         <p className="loading">読み込み中...</p>
       ) : !entries || entries.length === 0 ? (
         <p className="empty-message">この条件の記録がありません</p>

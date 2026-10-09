@@ -1,13 +1,15 @@
 // スマホ幅（560px以下）では選手名を名字だけにする（CLAUDE.md のルール。2026-09-26）。
 // ページのタイトル・見出し（h1〜h4）以外の選手名はすべてこれを通す。同じ一覧の中で名字が重なる選手はフルネームのまま
 import { createContext, useContext, useMemo } from "react";
+import { normalizePlayerName } from "../../shared/playerName";
 import { surnameOf } from "./playerSurname";
 import { useNarrow } from "./teamLabel";
 
 /** 名前の一覧のうち、名字が重なる（名字が同じで名前が違う）ものの名字 */
 export function duplicatedSurnames(names: readonly string[]): Set<string> {
   const bySurname = new Map<string, Set<string>>();
-  for (const n of names) {
+  for (const raw of names) {
+    const n = normalizePlayerName(raw);
     const s = surnameOf(n);
     if (!bySurname.has(s)) bySurname.set(s, new Set());
     bySurname.get(s)!.add(n);
@@ -28,7 +30,9 @@ export function usePlayerLabel(names?: readonly string[]): (name: string) => str
   const key = names ? names.join("\n") : null;
   const own = useMemo(() => (key === null ? null : duplicatedSurnames(key ? key.split("\n") : [])), [key]);
   const duplicated = own ?? pool;
-  return (name) => {
+  // 公式の記録の名前に混ざる全角空白・連続した空白は、半角の空白1つにそろえて出す（DESIGN.md 222-5）
+  return (raw) => {
+    const name = normalizePlayerName(raw);
     if (!narrow) return name;
     const s = surnameOf(name);
     return duplicated?.has(s) ? name : s;

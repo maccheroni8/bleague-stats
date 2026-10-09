@@ -205,6 +205,8 @@ export interface PlayerQuery {
   rookies: RookieEligibilityFile | null;
   /** 指定時、この選手IDの記録だけ（現役の絞り込み。今季の名簿の選手。DESIGN.md 222章） */
   activeIds?: ReadonlySet<string> | null;
+  /** 指定時、選手名を今の登録名にする（歴代など、複数のシーズンをまたぐ表。選手ID → 名前。DESIGN.md 222-5）。無い選手は、その試合のシーズンの名前 */
+  currentNames?: ReadonlyMap<string, string> | null;
   stat: PlayerQueryStat;
   includeSpecial: boolean;
   topN?: number;
@@ -261,7 +263,7 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
       rank,
       value: cand.v,
       playerId: row.playerId,
-      playerName: row.playerName,
+      playerName: q.currentNames?.get(row.playerId) ?? row.playerName,
       teamId: row.teamId,
       teamName: row.teamName,
       opponentTeamId: row.opponentTeamId,

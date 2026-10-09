@@ -12,9 +12,10 @@
 
 import path from "node:path";
 import { readdirSync } from "node:fs";
-import { DATA_DIR, writeJsonIfChanged } from "./lib/storage.ts";
+import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
+import { currentPlayerNames } from "../shared/playerName.ts";
 import { buildRecordTables, loadSeasonRecordGames, type RecordGame } from "./lib/playerGameRecordsTop.ts";
-import type { LeaguePlayerGameRecordsFile } from "../shared/types.ts";
+import type { LeaguePlayerGameRecordsFile, PlayerMasterEntry } from "../shared/types.ts";
 
 const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
 
@@ -29,6 +30,10 @@ async function main() {
     games.push(...g);
     console.log(`${season}: ${g.length}件`);
   }
+
+  // 複数のシーズンをまたぐ表なので、選手名は選手マスタの今の登録名にそろえる（マスタに無い選手は、その試合のシーズンの名前のまま。DESIGN.md 222-5）
+  const names = currentPlayerNames((await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? []);
+  for (const g of games) g.playerName = names.get(g.playerId) ?? g.playerName;
 
   const { byGameType, byClassification } = buildRecordTables(games, true);
   const file: LeaguePlayerGameRecordsFile = { generatedAt: new Date().toISOString(), byGameType, byClassification };
