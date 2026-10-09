@@ -168,6 +168,16 @@ function satisfies<R>(row: R, c: ActiveCondition<R>): boolean {
   return c.condition.op === "gte" ? v >= c.threshold - eps : v <= c.threshold + eps;
 }
 
+/**
+ * 条件を行ごとに判定する関数（使える条件が無ければ null）。大量の行を1件ずつ判定するとき（1試合記録の索引。DESIGN.md 220章）に、
+ * 行の配列を作らずに使う。判定は filterByStatConditions と同じ
+ */
+export function statConditionMatcher<R>(state: StatConditionsState, items: readonly StatConditionItem<R>[]): ((row: R) => boolean) | null {
+  const active = activeStatConditions(state, items);
+  if (active.length === 0) return null;
+  return state.match === "any" ? (row) => active.some((c) => satisfies(row, c)) : (row) => active.every((c) => satisfies(row, c));
+}
+
 export function filterByStatConditions<R>(rows: readonly R[], state: StatConditionsState, items: readonly StatConditionItem<R>[]): R[] {
   const active = activeStatConditions(state, items);
   if (active.length === 0) return [...rows];

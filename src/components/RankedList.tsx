@@ -67,6 +67,11 @@ export interface RankedListProps<T> {
   sortable?: boolean;
   /** 前シーズン比較の列（個人・チームのランキング（シーズン成績）だけ） */
   compare?: RankCompare<T>;
+  /**
+   * 同じ順位の行を広げて出すときの、表示する行数の上限（全体で）。同じ順位が数千件になる記録（0の同率など）でも表を重くしないため。
+   * 超えるときは、ボタンに「上限◯件まで表示」と出す。画像出力の「20位タイ ほか◯件」は実際の件数のまま
+   */
+  tieExpandMax?: number;
 }
 
 /** defの向き（higherIsBetter）から導く、そのdefにとって「正しい」既定のソート方向 */
@@ -93,6 +98,7 @@ export function RankedList<T>({
   subLinkTo,
   renderValue,
   compare,
+  tieExpandMax,
 }: RankedListProps<T>) {
   const unit = unitProp ?? (statScope === "team" ? "チーム" : "人");
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
@@ -143,7 +149,9 @@ export function RankedList<T>({
     while (tieEnd < sorted.length && ranks[tieEnd] === ranks[limit - 1]) tieEnd += 1;
   }
   const hiddenTies = limit !== undefined ? Math.max(0, Math.min(tieEnd, sorted.length) - limit) : 0;
-  const shownCount = limit === undefined ? sorted.length : tiesExpanded ? tieEnd : limit;
+  const expandedEnd = limit !== undefined && tieExpandMax !== undefined ? Math.min(tieEnd, Math.max(limit, tieExpandMax)) : tieEnd;
+  const expandCapped = limit !== undefined && expandedEnd < Math.min(tieEnd, sorted.length);
+  const shownCount = limit === undefined ? sorted.length : tiesExpanded ? expandedEnd : limit;
   const limited = sorted.slice(0, shownCount);
   const toggleSortDir = () => {
     if (!sortable) return;
@@ -275,7 +283,9 @@ export function RankedList<T>({
           {tiesExpanded
             ? `上位${limit}${(unit === "試合" || unit === "シーズン") ? "件" : unit}だけを表示`
             : (unit === "試合" || unit === "シーズン")
-              ? `${rankOf(limit! - 1)}位タイ ほか${hiddenTies}${unit}を表示`
+              ? expandCapped
+                ? `${rankOf(limit! - 1)}位タイ ほか${hiddenTies}件（上限${expandedEnd}件まで表示）`
+                : `${rankOf(limit! - 1)}位タイ ほか${hiddenTies}${unit}を表示`
               : `同じ順位のほか${hiddenTies}${unit}を表示`}
         </button>
       )}

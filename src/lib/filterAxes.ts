@@ -367,7 +367,7 @@ export function simpleSelectAxis(input: {
  * 「絞り込み」ではなく表示項目の選択なので、simple のバーに単独で置いてチップには出さない（chip: false）
  */
 export function statItemAxis(
-  items: { key: string; label: string; group?: string; disabled?: boolean }[],
+  items: { key: string; label: string; group?: string; disabled?: boolean; disabledReason?: string }[],
   value: string,
   onChange: (key: string) => void,
 ): FilterAxis {
@@ -376,7 +376,7 @@ export function statItemAxis(
     ...simpleSelectAxis({
       id: "statItem",
       label: "スタッツ項目",
-      options: items.map((i) => ({ value: i.key, label: i.label, group: i.group, disabled: i.disabled })),
+      options: items.map((i) => ({ value: i.key, label: i.label, group: i.group, disabled: i.disabled, disabledReason: i.disabledReason })),
       value: selected,
       defaultValue: selected,
       onChange,

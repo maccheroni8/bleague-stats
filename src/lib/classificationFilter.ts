@@ -86,7 +86,7 @@ const POSITION_FILTER_ORDER = ["PG", "PG/SG", "SG", "SG/SF", "SF", "SF/PF", "PF"
 const POSITION_ALIASES: Record<string, string> = { "PF/C": "C/PF" };
 
 /** 登録ポジション（"PG"・"PG/SG"・"PF/C" 等）→ 絞り込みの値（"PG"・"PG/SG"・"C/PF" 等） */
-function positionFilterValue(position: string): string {
+export function positionFilterValue(position: string): string {
   return POSITION_ALIASES[position] ?? position;
 }
 
