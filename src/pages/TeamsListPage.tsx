@@ -126,6 +126,7 @@ import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { teamNameInSeason, useTeamText } from "../lib/teamLabel";
 import { aggregatePeriodScoring, type PeriodScoringRow } from "../lib/teamPeriodScoring";
 import { buildPeriodColumns } from "../lib/teamPeriodColumns";
+import { periodScoringNote } from "../components/TeamPeriodCells";
 
 type TeamsPageTab = "stats" | "records" | "champions" | "recent";
 
@@ -843,10 +844,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               pinnedRows={periodLeagueRow && teamPerspective === "own" ? [periodLeagueRow] : undefined}
             />
           </div>
-          <p className="page-subtitle">
-            前半は1Q＋2Q、後半は3Q＋4Q。OTは延長のあった試合だけの値で、平均はその試合数（OT G）で割ります（合計はすべての延長の合計）。「試合」は試合全体の値です。
-            {periodsWithoutValue > 0 && `前後半5分の特別な試合（${periodsWithoutValue}試合）は1Q〜4Q・前半・後半・OTの値がないため、これらの列から除いています。`}
-          </p>
+          <p className="page-subtitle">{periodScoringNote(periodsWithoutValue)}</p>
           <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全チームスタッツ" scope="各チームの試合ログから、選んだ条件で集計し直した値です。" />
         </>
       ) : (
