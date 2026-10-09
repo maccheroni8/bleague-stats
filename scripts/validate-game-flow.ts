@@ -6,7 +6,8 @@
 //  3. 最大のラン: 別の書き方（相手の得点が同じ間の区間の差）と、点数・開始・終了・ラン前のスコアが一致
 //  4. 勝ち越し弾・同点弾・決勝弾: 別の書き方（点差の状態列から数える。決勝弾は「勝者の点差が最後に0以下だった状態の次の得点」）と、選手ごとの18個の数がすべて一致
 //  5. 手で数えた小さな試合（合成）での期待値
-//  6. 試合詳細の得点推移グラフ（src/lib/leadTracker.ts の buildScoreTimeline）が、同じ秒の並びの食い違いのある試合で、リードの入れ替わりを間違えて見せていないか（報告のみ。失敗にしない）
+//  6. 試合詳細の得点推移グラフ（src/lib/leadTracker.ts の buildScoreTimeline。DESIGN.md 221-8）: 全試合で、点列（最初の0-0と最後の最終スコアを除く）が得点の流れ（scoringSequence）と一致する。
+//     同じ秒の並びの食い違いのある試合（16試合）では、各秒の最後の点（次の秒まで画面に残る値）が正しい並びと一致し、試合7851（2021-22 第2Q 4:22）の点差の符号が逆にならない
 //
 // 使い方: npm run validate:game-flow [-- --season 2025-26]
 import { existsSync, readdirSync } from "node:fs";
@@ -132,11 +133,13 @@ function independentRun(ev: { h: number; a: number }[], home: boolean): number {
   return best;
 }
 
-type Stat = { games: number; reorderedGames: string[]; runMismatch: number; clutchMismatch: number; flowMismatch: number; incomplete: number; timeBackwards: number };
-const tally: Stat = { games: 0, reorderedGames: [], runMismatch: 0, clutchMismatch: 0, flowMismatch: 0, incomplete: 0, timeBackwards: 0 };
+type Stat = { games: number; chartMismatch: number; reorderedGames: string[]; runMismatch: number; clutchMismatch: number; flowMismatch: number; incomplete: number; timeBackwards: number };
+const tally: Stat = { games: 0, chartMismatch: 0, reorderedGames: [], runMismatch: 0, clutchMismatch: 0, flowMismatch: 0, incomplete: 0, timeBackwards: 0 };
 const clutchTotals: number[] = new Array(CLUTCH_LENGTH).fill(0);
 let maxRunValue = 0;
 const chartReport: string[] = [];
+let chartWrongHold = 0;
+let game7851Hold: number | null = null;
 
 const seasons = readdirSync(DATA_DIR).filter((s) => /^\d{4}-\d{2}$/.test(s) && (!onlySeason || s === onlySeason)).sort();
 for (const season of seasons) {
@@ -226,10 +229,21 @@ for (const season of seasons) {
     }
     for (const arr of mine.values()) arr.forEach((v, i) => (clutchTotals[i]! += v));
 
-    // 6. グラフ（同じ秒の並び替えをした試合だけ）
+    // 6. グラフ（全試合で得点の流れと一致。同じ秒の並び替えをした試合は、各秒の最後の点なども確かめる）
+    const periods = onCourtPeriodCount(g.season, g.quarterScores.home.length, g.raw.PlayByPlays);
+    const chart = buildScoreTimeline(g.raw.PlayByPlays, { home: g.homeScore, away: g.awayScore }, periods);
+    const inner = chart.slice(1, -1);
+    if (
+      inner.length !== seq.events.length ||
+      inner.some((p, i) => {
+        const e = seq.events[i]!;
+        return p.homeScore !== e.homeScore || p.awayScore !== e.awayScore || p.elapsedSec !== e.elapsedSec || p.period !== e.period;
+      })
+    ) {
+      tally.chartMismatch += 1;
+      console.log(`  グラフの点列が得点の流れと違う: ${tag}`);
+    }
     if (seq.reordered > 0) {
-      const periods = onCourtPeriodCount(g.season, g.quarterScores.home.length, g.raw.PlayByPlays);
-      const chart = buildScoreTimeline(g.raw.PlayByPlays, { home: g.homeScore, away: g.awayScore }, periods);
       // グラフが描く点列の、リードの符号の変化の回数（0を挟む変化も1回と数える）と、正しい並びでの回数
       const signs = (diffs: number[]) => {
         let n = 0;
@@ -258,6 +272,9 @@ for (const season of seasons) {
       const rightLast = lastOf(seq.events.map((e) => ({ elapsedSec: e.elapsedSec, diff: e.homeScore - e.awayScore })));
       let wrongHold = 0;
       for (const [sec, d] of rightLast) if (chartLast.get(sec) !== d) wrongHold += 1;
+      chartWrongHold += wrongHold;
+      // 試合7851: 第2Q 4:22（経過600+338=938秒）の後に残る値は −1（グラフが +1 と見せていた）
+      if (g.season === "2021-22" && g.scheduleKey === "7851") game7851Hold = chartLast.get(600 + 600 - 262) ?? null;
       chartReport.push(`${tag}: リードの入れ替わり グラフ${chartChanges}回／正しい並び${rightChanges}回、同じ秒の中で符号が揺れる縦線 ${spikes}か所、次の秒まで残る値が違う秒 ${wrongHold}`);
     }
   }
@@ -269,6 +286,9 @@ ok("経過秒が逆行しない", tally.timeBackwards === 0, `${tally.timeBackwa
 ok("累計得点だけで並べた列と、得点の流れが一致", tally.flowMismatch === 0, `${tally.flowMismatch}試合`);
 ok("最大のラン（別の書き方と一致）", tally.runMismatch === 0, `${tally.runMismatch}試合`);
 ok("勝ち越し弾・同点弾・決勝弾（別の書き方と一致）", tally.clutchMismatch === 0, `${tally.clutchMismatch}試合`);
+ok("試合詳細の得点推移グラフ: 点列が全試合で得点の流れと一致", tally.chartMismatch === 0, `${tally.chartMismatch}試合`);
+ok("試合詳細の得点推移グラフ: 同じ秒の食い違いのある試合で、各秒の最後の点が正しい並びと一致", chartWrongHold === 0, `${chartWrongHold}秒`);
+if (!onlySeason || onlySeason === "2021-22") ok("試合詳細の得点推移グラフ: 試合7851の第2Q 4:22の後の点差が −1（符号が逆にならない）", game7851Hold === -1, `${game7851Hold}`);
 console.log(`\n同じ秒の並べ直しをした試合: ${tally.reorderedGames.length}試合 ${tally.reorderedGames.join(" ")}`);
 console.log(`最大のランの最大: ${maxRunValue}点`);
 console.log("勝負所の合計（窓5分・2分・1分 × {勝ち越し・同点・決勝弾} の [FG, FT]）:");
@@ -277,7 +297,7 @@ CLUTCH_WINDOWS_SEC.forEach((w, wi) => {
   console.log(`  ${w / 60}分: ${cells.join(" / ")}`);
 });
 if (chartReport.length > 0) {
-  console.log("\n試合詳細の得点推移グラフ（同じ秒の並びの食い違いのある試合）。報告のみ:");
+  console.log("\n試合詳細の得点推移グラフ（同じ秒の並びの食い違いのある試合）:");
   for (const line of chartReport) console.log(`  ${line}`);
 }
 void gameFilePath;

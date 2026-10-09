@@ -11,6 +11,7 @@
 // クォーターの秒数はB.LEAGUE公式ルール通り: 各Q10分、延長(OT)は5分固定。実データ（PBPのPeriodEndRowFlg
 // 行のRestTime）でも延長開始時点が"5:00"であることを確認済み。
 
+import { scoringSequence } from "../../shared/gameFlow";
 import type { PlayByPlayEvent } from "../../shared/types";
 
 const REGULAR_PERIOD_SECONDS = 10 * 60;
@@ -87,6 +88,11 @@ function parseScore(score: string | undefined): { home: number; away: number } |
 /**
  * 得点イベントから、試合開始(0-0)〜試合終了時点までのスコア推移を時系列で構築する
  * （階段状に変化する値なのでrecharts側は`type="stepAfter"`で描画する前提）。
+ *
+ * 得点の並びは shared/gameFlow.ts の scoringSequence に任せる（同じ経過秒のイベントを累計得点の昇順に直す。
+ * 2020-21以降の16試合でScoreが同じ秒の中で逆転している。DESIGN.md 221-8）。補正の処理はここに複製しない。
+ * 吹き出しの時刻表示とプレー文は、scoringSequence が持たないので、累計スコアをキーに元のイベントから引く
+ * （累計得点は得点のたびに必ず増えるので、得点イベントの累計スコアは試合内で一意）。
  */
 export function buildScoreTimeline(
   events: PlayByPlayEvent[],
@@ -97,22 +103,27 @@ export function buildScoreTimeline(
     { elapsedSec: 0, period: 1, restTime: `${REGULAR_PERIOD_SECONDS / 60}:00`, homeScore: 0, awayScore: 0, diff: 0, playText: "試合開始" },
   ];
 
+  const sourceByScore = new Map<string, PlayByPlayEvent>();
   for (const ev of events) {
     if (!SCORING_ACTION_CODES.has(ev.ActionCD1)) continue;
     const score = parseScore(ev.Score);
     if (!score) continue;
-    points.push({
-      elapsedSec: elapsedSeconds(ev.Period, ev.RestTime),
-      period: ev.Period,
-      restTime: ev.RestTime,
-      homeScore: score.home,
-      awayScore: score.away,
-      diff: score.home - score.away,
-      playText: ev.PlayText.trim(),
-    });
+    const key = `${score.home}-${score.away}`;
+    if (!sourceByScore.has(key)) sourceByScore.set(key, ev);
   }
 
-  points.sort((a, b) => a.elapsedSec - b.elapsedSec);
+  for (const e of scoringSequence(events).events) {
+    const source = sourceByScore.get(`${e.homeScore}-${e.awayScore}`);
+    points.push({
+      elapsedSec: e.elapsedSec,
+      period: e.period,
+      restTime: source?.RestTime ?? "",
+      homeScore: e.homeScore,
+      awayScore: e.awayScore,
+      diff: e.homeScore - e.awayScore,
+      playText: source?.PlayText.trim() ?? "",
+    });
+  }
 
   points.push({
     elapsedSec: totalGameSeconds(totalPeriods),
