@@ -31,10 +31,12 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 220章: ランキングの1試合記録の条件（段階4。**画面だけの変更でキー不変**）。条件なし（かつ上位20位のファイルで出せる表示）は今のファイルのまま、条件・ルーキー・ポジション・スタッツの条件・個人のワースト・前後半5分の特別試合を除く指定のときだけ索引を読む。
   集計は `src/lib/gameRecordQuery.ts`（純粋な部分）、条件・URLは `gameRecordConditions.ts`（`res`・`ven`・`opp`・`ot`・`fm`・`mg`・`dv`・`div`・`sp`）。昇順（少ない方から並べる）は特別な試合4試合を既定で除く。
   個人のワーストは成功率6項目＋EFF・+/-（少ない順）とTOV（多い順）だけ。同率の展開は全体で最大100行。検証は `npm run validate:game-record-query`
-- 221章: 得点の流れ（`shared/gameFlow.ts`。最大のラン・勝ち越し弾・同点弾・決勝点。**PBPの得点イベントは、同じ秒の並びの逆転があるので、必ずこの関数の中の補正〔累計得点の昇順〕を通す**。`pbpOrder.ts` は変えない）、
+- 221章: 得点の流れ（`shared/gameFlow.ts`。最大のラン・勝ち越し弾・同点弾・決勝弾。**PBPの得点イベントは、同じ秒の並びの逆転があるので、必ずこの関数の中の補正〔累計得点の昇順〕を通す**。`pbpOrder.ts` は変えない）、
   アシストペアの試合ごとの行（`data/{season}/assist-pairs.json.gz`、`shared/assistPairs.ts`。並びはIDの昇順に固定）、索引の新しい列（選手: アシストされた得点・勝負所18列／チーム: 最大のラン5列）、
   上位20位のファイル（個人の2つ）を作る元は索引（行を戻す部分は `shared/gameIndexRead.ts`。保存キーの対象）、2016-17のPTSOFFTOはタグの表記違い（「ポイントフロムターンオーバ」）を数えて算出できる、
   ランキングの新しい種類「勝負所」「アシストペア」（`src/lib/clutchQuery.ts`）と被アシスト率（%PTS ASTED。1試合は20点以上・通算は1,000点以上）。検証は `npm run validate:game-flow`・`validate:clutch-query`
+- 222章: 段階5の確認後の修正。前季比較の差は MIN を時間（+3:15）、％を「+1.7%」で出す。「決勝点」は **「決勝弾」**（勝ち越し弾・同点弾とそろえた）。個人ランキングの **「現役」**（今季のB.PREMIERの名簿の選手。`act=1`、`src/lib/activePlayers.ts`。通算記録・歴代の1試合記録・勝負所の通算・アシストペアの1試合と通算だけ。
+  通算記録は `league-player-career-top.json` の `byActive`）。アシストペアの初期表示はシーズン。検証は `npm run validate:active-filter`
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
@@ -138,7 +140,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   同じタイミングで、チーム詳細 On-Court Foreign の opp 視点（相手チームのコート上の外国籍の人数。各試合の相手側の「人数別の在コート秒数」を
   `TeamSummary` に別項目として合算する。設計書183章）も入れる
 - **PBP（`raw.PlayByPlays`）の並び（設計書212章）**: 2020-21以降の延長戦では、公式のPBPの配列が時系列にならない（延長が第1〜第4ピリオドのブロックに混ざる。
-  `No` 順でも時系列にならない）。PBPを時系列で使う処理（得点の推移・リードの入れ替わり・最大ラン・決勝点など）は、`shared/pbpOrder.ts` の
+  `No` 順でも時系列にならない）。PBPを時系列で使う処理（得点の推移・リードの入れ替わり・最大ラン・決勝弾など）は、`shared/pbpOrder.ts` の
   `withChronologicalPlayByPlays`（または `chronologicalPlayByPlays`）の出力を使う。試合を読み込む2か所（集計用の `readAllGames`、画面の `fetchGame`）では適用済み。
   **取り込み（`scrape-boxscore.ts` の変更検知）と見張りの一覧（`gameWatch.ts`）の経路には、並べ替えを入れない**（保存済みの生データとAPIの返り値を比べるため。
   それらは `readGameFile` を使う）。配列順のまま「最後の得点イベント」などを見ない。確認は `npm run validate:pbp-order`（手で実行。CIには入れない）
