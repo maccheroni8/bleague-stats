@@ -2037,62 +2037,44 @@ table.boxscore-table .boxscore-summary-grand-total td {
   color: var(--muted);
 }
 
-/* アシストペアの行（幅があるとき）: アシストした選手の写真・名前 ⇒ 得点した選手の写真・名前 */
+/* アシストペアの行: 「アシストした選手の写真 ⇒ 得点した選手の写真」。名前は各写真の下（2行まで）。
+ * 1人分の幅を固定し、どの行でも写真と「⇒」が同じ位置にそろうようにする */
 .pair-people {
   display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.pair-person-name {
-  white-space: nowrap;
-}
-
-/* 幅が足りないとき（スマホ幅の手前まで）は、2人目を次の行に回す */
-@media (max-width: 640px) {
-  .pair-people {
-    flex-wrap: wrap;
-  }
-
-  .pair-person-name {
-    white-space: normal;
-  }
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .pair-person {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
+  width: 136px;
+  text-align: center;
+}
+
+.pair-person-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  max-width: 100%;
 }
 
 .pair-arrow {
   color: var(--muted);
   font-weight: 700;
-}
-
-/* 幅が狭いとき（560px以下）: 写真 ⇒ 写真を横に並べ、名前（名字）は各写真の下 */
-.pair-people-stacked {
-  flex-wrap: nowrap;
-  align-items: flex-start;
-  gap: 4px;
-}
-
-.pair-people-stacked .pair-arrow {
   margin-top: 12px;
 }
 
-.pair-person-stacked {
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: 92px;
-  text-align: center;
-}
-
-.pair-person-stacked .pair-person-name {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  line-height: 1.25;
+/* スマホ幅（560px以下）: 1人分を狭くする（名前は名字） */
+@media (max-width: 560px) {
+  .pair-person {
+    width: 92px;
+  }
 }
 
 .rankings-table .rank-value {
