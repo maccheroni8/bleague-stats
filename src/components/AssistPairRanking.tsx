@@ -58,10 +58,10 @@ function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" 
   );
 }
 
-/** 1人分: 写真と名前（個人ページへのリンク） */
-function PairPerson({ playerId, name, season, among, rookieSeason }: { playerId: string; name: string; season: string; among: readonly string[]; rookieSeason?: string }) {
+/** 1人分: 写真と名前（個人ページへのリンク）。幅が狭いとき（stacked）は、写真の下に名前（名字）を置く */
+function PairPerson({ playerId, name, season, among, rookieSeason, stacked }: { playerId: string; name: string; season: string; among: readonly string[]; rookieSeason?: string; stacked: boolean }) {
   return (
-    <Link to={`/players/${playerId}?season=${season}`} className="cell-link pair-person">
+    <Link to={`/players/${playerId}?season=${season}`} className={`cell-link pair-person${stacked ? " pair-person-stacked" : ""}`}>
       <PlayerPhoto playerId={playerId} size={44} className="player-cell-photo" placeholder />
       <span className="pair-person-name">
         <ResponsivePlayerName name={name} among={among} playerId={rookieSeason ? playerId : undefined} season={rookieSeason} />
@@ -154,28 +154,19 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
                 def={{ key: `assistPair:${unit}`, label: "得点", value: (e) => e.value, format: (e) => String(e.value), higherIsBetter: true }}
                 tieKey={(e) => String(e.value)}
                 rowKey={(e) => `${e.assisterId}>${e.scorerId}${e.scheduleKey ? `-${e.scheduleKey}` : ""}`}
-                name={(e) =>
-                  narrow ? (
-                    <>
-                      <ResponsivePlayerName name={e.assisterName} among={among} />
-                      {" → "}
-                      <ResponsivePlayerName name={e.scorerName} among={among} />
-                    </>
-                  ) : (
-                    <span className="pair-people">
-                      <PairPerson playerId={e.assisterId} name={e.assisterName} season={seasonOf(e)} among={among} rookieSeason={unit === "career" ? undefined : seasonOf(e)} />
-                      <span className="pair-arrow" aria-label="アシスト">
-                        ⇒
-                      </span>
-                      <PairPerson playerId={e.scorerId} name={e.scorerName} season={seasonOf(e)} among={among} rookieSeason={unit === "career" ? undefined : seasonOf(e)} />
+                name={(e) => (
+                  <span className={`pair-people${narrow ? " pair-people-stacked" : ""}`}>
+                    <PairPerson playerId={e.assisterId} name={e.assisterName} season={seasonOf(e)} among={among} rookieSeason={unit === "career" ? undefined : seasonOf(e)} stacked={narrow} />
+                    <span className="pair-arrow" aria-label="アシスト">
+                      ⇒
                     </span>
-                  )
-                }
+                    <PairPerson playerId={e.scorerId} name={e.scorerName} season={seasonOf(e)} among={among} rookieSeason={unit === "career" ? undefined : seasonOf(e)} stacked={narrow} />
+                  </span>
+                )}
                 subLabel={(e) => <PairLine r={e} unit={unit} />}
                 subLinkTo={unit === "game" ? (e) => `/games/${e.scheduleKey}?season=${e.season}` : undefined}
-                linkTo={narrow ? (e) => `/players/${e.scorerId}?season=${seasonOf(e)}` : () => undefined}
+                linkTo={() => undefined}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
-                avatar={narrow ? (e) => <PlayerPhoto playerId={e.scorerId} size={56} className="player-cell-photo" placeholder /> : undefined}
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
                 unit={unit === "game" ? "試合" : "組"}
@@ -186,7 +177,7 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
                 ※ アシストした選手 → そのアシストを受けて得点した選手の組です。得点は、2Pの成功×2・3Pの成功×3・フリースローの成功×1の合計です（フリースローは、シュートファウルでのアシストを含みます）。
                 試合の条件は、得点した選手のチームから見ます。
               </p>
-              {activeOn && <p className="rule-change-footnote">※ {activeNote()}アシストした選手・得点した選手の両方が現役の組です。</p>}
+              {activeOn && <p className="rule-change-footnote">※ {activeNote()}アシストした選手と得点した選手の両方が現役の組だけを表示しています。</p>}
             </PlayerNamePool>
           </div>
         </>
