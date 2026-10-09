@@ -42,9 +42,10 @@ function gzPathOf(filePath: string): string {
   return `${filePath}.gz`;
 }
 
-async function writeJsonGz(filePath: string, data: unknown): Promise<void> {
+async function writeJsonGz(filePath: string, data: unknown, pretty = true): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true });
-  const json = `${JSON.stringify(data, null, 2)}\n`;
+  // pretty=false は列ごとに数値を並べた大きなファイル用（字下げを付けると、1つの数値ごとに1行になり大きくなる）
+  const json = `${pretty ? JSON.stringify(data, null, 2) : JSON.stringify(data)}\n`;
   await writeFile(gzPathOf(filePath), gzipSync(Buffer.from(json, "utf-8")));
 }
 
@@ -101,11 +102,16 @@ export async function writeJson(filePath: string, data: unknown): Promise<void> 
  * 前回のファイルと比べ、ignoreKeys（作った時刻等）以外の内容が同じなら書き換えない。書き換えたら true。
  * 夜間実行の歴代記録バッチで、データに変化が無い日に余計なコミット・デプロイを起こさないために使う（DESIGN.md 143-4）
  */
-export async function writeJsonIfChanged(filePath: string, data: Record<string, unknown>, ignoreKeys: string[] = ["generatedAt"]): Promise<boolean> {
+export async function writeJsonIfChanged(
+  filePath: string,
+  data: Record<string, unknown>,
+  ignoreKeys: string[] = ["generatedAt"],
+  pretty = true,
+): Promise<boolean> {
   const strip = (o: Record<string, unknown>) => JSON.stringify(Object.fromEntries(Object.entries(o).filter(([k]) => !ignoreKeys.includes(k))));
   const existing = await readJsonGz<Record<string, unknown>>(filePath);
   if (existing && strip(existing) === strip(data)) return false;
-  await writeJsonGz(filePath, data);
+  await writeJsonGz(filePath, data, pretty);
   return true;
 }
 

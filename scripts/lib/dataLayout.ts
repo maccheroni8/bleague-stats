@@ -23,12 +23,14 @@ export const SEASON_DERIVED_ENTRIES = [
   "league-compare.json.gz",
   "lineups",
   "period-averages.json.gz",
+  "player-game-index.json.gz",
   "player-game-records.json.gz",
   "player-games",
   "players.json.gz",
   "playoff-race.json.gz",
   "registered-players.json.gz",
   "standings-history.json.gz",
+  "team-game-index.json.gz",
   "team-games",
   "team-stints",
   "teams.json.gz",
@@ -90,6 +92,7 @@ export const BUILD_CODE_ENTRIES = [
   "scripts/build-data.ts",
   "scripts/aggregate.ts",
   "scripts/aggregate-player-game-records.ts",
+  "scripts/aggregate-game-index.ts",
   "scripts/aggregate-league-compare.ts",
 ] as const;
 export const BUILD_CODE_EXTRA_FILES = ["package-lock.json"] as const;

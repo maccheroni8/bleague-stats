@@ -25,6 +25,8 @@ tsconfig.tsbuildinfo
 /data/*/one/lineups/
 /data/*/period-averages.json.gz
 /data/*/one/period-averages.json.gz
+/data/*/player-game-index.json.gz
+/data/*/one/player-game-index.json.gz
 /data/*/player-game-records.json.gz
 /data/*/one/player-game-records.json.gz
 /data/*/player-games/
@@ -37,6 +39,8 @@ tsconfig.tsbuildinfo
 /data/*/one/registered-players.json.gz
 /data/*/standings-history.json.gz
 /data/*/one/standings-history.json.gz
+/data/*/team-game-index.json.gz
+/data/*/one/team-game-index.json.gz
 /data/*/team-games/
 /data/*/one/team-games/
 /data/*/team-stints/
