@@ -7,6 +7,8 @@ import { fetchDivisionHistory, fetchPlayerCareers, fetchRookieEligibility, fetch
 import { DIVISION_ORDER, seasonDivisions } from "./divisionGroups";
 import type { PlayerGameIndexView, TeamGameIndexView } from "./gameIndex";
 import { loadAssistPairs, loadPlayerGameIndex, loadTeamGameIndex } from "./gameIndexLoad";
+import type { PlayerPeriodView } from "./periodIndex";
+import { loadPlayerPeriodIndex } from "./periodIndexLoad";
 import type { PairSeasonData } from "./clutchQuery";
 import { leagueTeamDisplayName } from "./leagueTeamNames";
 import type { RecordsScope } from "./urlFilterParams";
@@ -63,6 +65,48 @@ export function useGameIndexViews<S extends IndexSubject>(subject: S, scope: Rec
   return {
     views: enabled && current ? state.views : null,
     loading: enabled && (!current || (!state.views && !state.error)),
+    error: enabled && current ? state.error : null,
+    retry,
+  };
+}
+
+export interface PlayerPeriodViews {
+  /** 読み込み済みのピリオド別の索引（シーズンをキーに。主索引と同じシーズンすべて） */
+  views: Map<string, PlayerPeriodView> | null;
+  loading: boolean;
+  error: string | null;
+  retry: () => void;
+}
+
+/**
+ * 選手のピリオド別の索引（DESIGN.md 225章）を、読み込み済みの1試合行の索引に結び付けて読む。enabled が false の間は読まない（期間が「試合」のときは読まない）。
+ * 1つでも読めない（または1試合行の索引と行数が合わない）シーズンがあるときは、読めた分だけの記録を出さずにエラーにする（値が欠けるため）
+ */
+export function usePlayerPeriodViews(main: PlayerGameIndexView[] | null, enabled: boolean): PlayerPeriodViews {
+  const [state, setState] = useState<{ main: PlayerGameIndexView[] | null; views: Map<string, PlayerPeriodView> | null; error: string | null }>({ main: null, views: null, error: null });
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+
+  useEffect(() => {
+    if (!enabled || !main) return;
+    let cancelled = false;
+    (async () => {
+      const loaded = await Promise.all(main.map((v) => loadPlayerPeriodIndex(v)));
+      const missing = main.filter((_, i) => loaded[i] === null).map((v) => v.season);
+      if (missing.length > 0) throw new Error(`${missing.join("・")}のQ別・前後半のデータを読み込めませんでした`);
+      if (!cancelled) setState({ main, views: new Map(loaded.map((v) => [v!.season, v!])), error: null });
+    })().catch((err: unknown) => {
+      if (!cancelled) setState({ main, views: null, error: err instanceof Error ? err.message : String(err) });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, main, attempt]);
+
+  const current = state.main === main && main !== null;
+  return {
+    views: enabled && current ? state.views : null,
+    loading: enabled && !!main && (!current || (!state.views && !state.error)),
     error: enabled && current ? state.error : null,
     retry,
   };

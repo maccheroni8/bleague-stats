@@ -11,6 +11,8 @@
 //  5. チームの表: 自チームの値が試合全体の合計と一致する、区間の得点が公式のクォーター別スコアと一致する、延長の無い試合の延長・特別な試合の1Q〜4Qが -1
 //  6. 選手の得点の合計と、チームの区間の得点: 一致する（公式の記録の食い違いが既知の9区間〔2016-17の7試合・2020-21の試合5858の2区間〕あり、一覧と過不足なく一致）
 //  7. 感度: 値を1か所壊すと食い違いとして検出される
+//  8. 読む側（1試合記録の集計 queryPlayerGameRecords に区間を渡した結果）: 全区間（1Q〜4Q・前半・後半・延長）×すべての個数の項目の1位（値と同率の行数）が、試合の生データから別に数えた最大値と一致する。
+//     勝った試合・3PM 3以上の条件つきの前半の得点の1位も一致する。画面の確認に使う3つの例（1Qの最多得点・前半の最多3P・延長の最多得点。データが増えると変わるので、値を出力するだけ）
 //
 // 使い方: npm run validate:period-index [-- --season 2025-26]（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 
@@ -32,6 +34,11 @@ import {
 import { GAME_FLAG_SHORT, PLAYER_INDEX_STAT_COLUMNS, ROW_FLAG_HOME, ROW_FLAG_STARTER, type PlayerGameIndexFile, type TeamGameIndexFile } from "../shared/gameIndex.ts";
 import { gamePeriodScores, overtimeCount } from "../shared/gamePeriods.ts";
 import type { StoredGame } from "../shared/types.ts";
+import { DEFAULT_GAME_RECORD_CONDITIONS } from "../src/lib/gameRecordConditions";
+import { PLAYER_STAT_CONDITION_ITEMS, playerQueryStats, queryPlayerGameRecords } from "../src/lib/gameRecordQuery";
+import { viewPlayerGameIndex } from "../src/lib/gameIndex";
+import { PERIOD_ATOM_INDEXES, viewPlayerPeriodIndex, type GameRecordPeriod, type PlayerPeriodView } from "../src/lib/periodIndex";
+import { DEFAULT_STAT_CONDITIONS } from "../src/lib/statConditions";
 import { buildPlayerBoxscores, buildTeamTotalCounts, sumCounts, type BoxscoreCounts } from "../src/lib/boxscoreAggregate";
 import { buildPeriodRangeOptions, type PeriodRangeOption } from "../src/lib/periodRange";
 import {
@@ -79,6 +86,18 @@ const KNOWN_PLAYER_POINTS_GAPS = new Map<string, number>([
   ["2020-21|5858|q1", 6],
   ["2020-21|5858|q4", 3],
 ]);
+
+/** 試合の生データから別に数えた、区間×項目の最大値と、その値の行数（読む側の確認用。8） */
+const RAW_COUNT_STATS = ["pts", "fgm", "fga", "tpm", "tpa", "ftm", "fta", "oreb", "dreb", "reb", "ast", "stl", "blk", "blockedAgainst", "foulsDrawn", "pt2in", "ptfb", "pt2nd", "ptsOffTov", "dunks", "basketCounts", "minSec"] as const;
+const RAW_PERIODS: GameRecordPeriod[] = ["q1", "q2", "q3", "q4", "h1", "h2", "ot"];
+const rawMax = new Map<string, { max: number; count: number }>();
+function bump(acc: Map<string, { max: number; count: number }>, key: string, v: number): void {
+  const cur = acc.get(key);
+  if (!cur || v > cur.max) acc.set(key, { max: v, count: 1 });
+  else if (v === cur.max) cur.count += 1;
+}
+/** 条件つき（前半・勝った試合・3PM 3以上）の得点の最大値 */
+const rawCondMax = new Map<string, { max: number; count: number }>();
 
 const ATOM_OPTION_VALUES = ["q1", "q2", "q3", "q4", "ot"] as const;
 
@@ -394,6 +413,18 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
             pmFlags[player.rows.period[i]!] = (player.rows.flags[i]! & PERIOD_ROW_FLAG_PLUS_MINUS) !== 0;
           }
         }
+        // 8. 読む側の確認用に、区間ごとの最大値を別に数える（試合の生データから直接。短い試合は区間の行が無い）
+        if (!short && !capture) {
+          const win = (side === 0 ? game.homeScore > game.awayScore : game.awayScore > game.homeScore);
+          for (const pv of RAW_PERIODS) {
+            const dp = direct.get(pv)?.get(p.playerId);
+            if (!dp) continue;
+            const st = statsOf(dp.counts);
+            if (!PLAYER_PERIOD_STAT_COLUMNS.some((c) => c !== "plusMinus" && st[c] !== 0)) continue;
+            for (const stat of RAW_COUNT_STATS) bump(rawMax, `${pv}|${stat}`, st[stat]);
+            if (pv === "h1" && win && st.tpm >= 3) bump(rawCondMax, "h1|pts|win&tpm>=3", st.pts);
+          }
+        }
         // 2. 合計 = 試合全体（短い試合を除く）
         if (!short) {
           const sum = zeroStats();
@@ -560,6 +591,76 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
   ok(`${label} シーズン成績のQ別（buildPeriodFilteredRawTotals）の結果と全項目一致（${compared}組＝6区間×選手。試合ごとの貢献 ${nSeasonContrib}件）`, seasonNg === 0, `${seasonNg} ${seasonFirst}`);
 }
 
+/** 8. 読む側: 1試合記録の集計に区間を渡した結果 */
+async function checkQuery(): Promise<void> {
+  const mains = new Map<string, ReturnType<typeof viewPlayerGameIndex>>();
+  const periods = new Map<string, PlayerPeriodView>();
+  for (const season of SEASONS) {
+    const d = await load(season);
+    if (!d) continue;
+    const main = viewPlayerGameIndex(d.playerIndex);
+    mains.set(season, main);
+    const pv = viewPlayerPeriodIndex(d.player, main);
+    ok(`${season} 読む側: ピリオド別の索引が1試合行の索引に結び付く`, pv !== null);
+    if (pv) periods.set(season, pv);
+  }
+  const views = [...mains.values()];
+  const stats = playerQueryStats("record");
+  const keyOf: Record<string, string> = { min: "minSec" };
+  let compared = 0;
+  let ng = 0;
+  let first = "";
+  for (const pv of RAW_PERIODS) {
+    for (const stat of RAW_COUNT_STATS) {
+      const key = stat === "minSec" ? "min" : stat;
+      const def = stats.find((x) => x.key === key);
+      if (!def) continue;
+      const raw = rawMax.get(`${pv}|${stat}`);
+      if (!raw || raw.max === 0) continue;
+      const rows = queryPlayerGameRecords({ views, gameType: "both", conditions: DEFAULT_GAME_RECORD_CONDITIONS, group: "all", positions: [], statConditions: DEFAULT_STAT_CONDITIONS, rookies: null, stat: def, includeSpecial: true, period: { period: pv, views: periods } }).rows;
+      const top = rows.filter((r) => r.rank === 1);
+      const value = stat === "minSec" ? Math.round((top[0]?.value ?? 0) * 60) : (top[0]?.value ?? 0);
+      compared += 1;
+      if (value !== raw.max || top.length !== raw.count) {
+        ng += 1;
+        first ||= `${pv} ${key} 集計 ${value}×${top.length} / 生データ ${raw.max}×${raw.count}`;
+      }
+    }
+  }
+  void keyOf;
+  ok(`読む側: 7区間×${compared / 7}項目の1位（値と同率の行数）が、試合の生データから別に数えた最大値と一致（${compared}組）`, ng === 0 && compared > 0, `${ng} ${first}`);
+
+  // 条件つき: 前半・勝った試合・3PM 3以上 の得点
+  const ptsDef = stats.find((x) => x.key === "pts")!;
+  const cond = rawCondMax.get("h1|pts|win&tpm>=3");
+  const condRows = queryPlayerGameRecords({
+    views,
+    gameType: "both",
+    conditions: { ...DEFAULT_GAME_RECORD_CONDITIONS, result: "win" },
+    group: "all",
+    positions: [],
+    statConditions: { match: "all", conditions: [{ id: 1, key: "tpm", op: "gte", value: "3" }] },
+    rookies: null,
+    stat: ptsDef,
+    includeSpecial: true,
+    period: { period: "h1", views: periods },
+  }).rows.filter((r) => r.rank === 1);
+  ok(`読む側: 前半・勝った試合・3PM 3以上の得点の1位が一致（${condRows[0]?.value}点×${condRows.length}件）`, !!cond && condRows[0]?.value === cond.max && condRows.length === cond.count, `${JSON.stringify(cond)} / ${condRows[0]?.value}×${condRows.length}`);
+  void PLAYER_STAT_CONDITION_ITEMS;
+  void PERIOD_ATOM_INDEXES;
+
+  // 画面の確認に使う3つの例
+  const example = (pv: GameRecordPeriod, key: string) =>
+    queryPlayerGameRecords({ views, gameType: "both", conditions: DEFAULT_GAME_RECORD_CONDITIONS, group: "all", positions: [], statConditions: DEFAULT_STAT_CONDITIONS, rookies: null, stat: stats.find((x) => x.key === key)!, includeSpecial: true, period: { period: pv, views: periods } }).rows.filter((r) => r.rank === 1);
+  const q1 = example("q1", "pts");
+  const h1 = example("h1", "tpm");
+  const ot = example("ot", "pts");
+  const show = (rows: typeof q1) => rows.map((r) => `${r.playerName} ${r.date}`).join(" / ");
+  console.log(`  例: 1Qの最多得点 ${q1[0]?.value}点×${q1.length}: ${show(q1)}`);
+  console.log(`  例: 前半の最多3P ${h1[0]?.value}本×${h1.length}件: ${show(h1)}`);
+  console.log(`  例: 延長の最多得点 ${ot[0]?.value}点×${ot.length}: ${show(ot)}`);
+}
+
 async function main(): Promise<void> {
   const t0 = Date.now();
   for (const season of SEASONS) {
@@ -588,6 +689,7 @@ async function main(): Promise<void> {
     }
     console.log(`  （${season} 完了 ${((Date.now() - t0) / 1000).toFixed(0)}秒）`);
   }
+  await checkQuery();
   console.log(`\n確認 ${checks.ok + checks.ng} 項目: ok ${checks.ok} / NG ${checks.ng}`);
   if (failures > 0) process.exit(1);
 }

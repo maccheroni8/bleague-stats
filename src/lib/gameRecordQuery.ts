@@ -24,6 +24,7 @@ import {
   type TeamGameIndexView,
 } from "./gameIndex";
 import type { GameRecordConditions } from "./gameRecordConditions";
+import { PERIOD_ATOM_INDEXES, periodGameAt, type GameRecordPeriod, type IndexedPeriodGame, type PlayerPeriodView } from "./periodIndex";
 import { matchesMargin } from "./situational";
 import { statConditionMatcher, type StatConditionItem, type StatConditionsState } from "./statConditions";
 import {
@@ -118,6 +119,10 @@ export interface GameRecordQueryResult<R> {
   rows: R[];
   /** 前後半5分の特別な試合のうち、ほかの条件に当てはまるが除いた行の数 */
   excludedSpecial: number;
+  /** 区間（Q別・前後半・延長）を選んだとき: 前後半5分の特別な試合（1Q〜4Qが無い）のうち、ほかの条件に当てはまるが区間の行が無い行の数 */
+  periodShortGames?: number;
+  /** 区間を選んで +/- を並べたとき: 公式のピリオド別の +/- が無い（2021-22以前）ので除いた行の数 */
+  excludedNoPlusMinus?: number;
 }
 
 interface Candidate {
@@ -210,6 +215,11 @@ export interface PlayerQuery {
   stat: PlayerQueryStat;
   includeSpecial: boolean;
   topN?: number;
+  /**
+   * 指定時、試合全体でなくこの区間（1Q〜4Q・前半・後半・延長）の値で、条件・スタッツの条件・並びを決める（DESIGN.md 225章）。
+   * views の各シーズンのピリオド別の索引を、シーズンをキーに渡す。ワースト（少ない順）は想定しない（画面で選べない）
+   */
+  period?: { period: GameRecordPeriod; views: ReadonlyMap<string, PlayerPeriodView> };
 }
 
 /** 選手の索引の行を絞る条件（試合の条件・現役・登録区分〈ルーキーを含む〉・ポジション）。1試合記録・達成記録（thresholdQuery.ts）で共通 */
@@ -257,6 +267,17 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
   const rowFilter = playerRowFilter(q);
   const candidates: Candidate[] = [];
   let excludedSpecial = 0;
+  let periodShortGames = 0;
+  let excludedNoPlusMinus = 0;
+  const atoms = q.period ? PERIOD_ATOM_INDEXES[q.period.period] : null;
+
+  /** 行の値（区間を選んでいるときは区間の値。その区間に出ていない行は null） */
+  const rowOf = (view: PlayerGameIndexView, i: number): IndexedPlayerGame | IndexedPeriodGame | null => {
+    if (!q.period || !atoms) return playerGameAt(view, i);
+    const pv = q.period.views.get(view.season);
+    if (!pv) throw new Error(`${view.season} のピリオド別のデータがありません`);
+    return periodGameAt(view, pv, i, atoms);
+  };
 
   q.views.forEach((view, vi) => {
     const facts = gameFacts(view.file);
@@ -266,7 +287,16 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
       const g = rows.game[i]!;
       const f = rowSideFacts(view, facts, i);
       const p = players[rows.player[i]!]!;
-      const row = playerGameAt(view, i);
+      const row = rowOf(view, i);
+      if (!row) {
+        // 前後半5分の特別な試合は、1Q〜4Q・前半・後半を持たない（延長は元々無い）
+        if (f.short && q.period && q.period.period !== "ot") periodShortGames += 1;
+        continue;
+      }
+      if (q.period && stat.key === "plusMinus" && (row as IndexedPeriodGame).plusMinusMissing) {
+        excludedNoPlusMinus += 1;
+        continue;
+      }
       const game = row as unknown as PlayerRecordGame;
       if (def.filter && !def.filter(game)) continue;
       if (matcher && !matcher(row)) continue;
@@ -288,7 +318,7 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
 
   candidates.sort(compareCandidates(stat.lowerFirst, false));
   const rows = rankTop(candidates, q.topN ?? GAME_RECORD_TOP_N).map(({ cand, rank }): PlayerRecordRow => {
-    const row = playerGameAt(q.views[cand.vi]!, cand.i);
+    const row = rowOf(q.views[cand.vi]!, cand.i)!;
     const frac = def.fraction?.(row as unknown as PlayerRecordGame);
     return {
       rank,
@@ -308,7 +338,7 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
       ...(row.positionFallback ? { positionFallback: row.positionFallback } : {}),
     };
   });
-  return { rows, excludedSpecial };
+  return { rows, excludedSpecial, ...(q.period ? { periodShortGames, excludedNoPlusMinus } : {}) };
 }
 
 // ---- チーム ----
@@ -443,6 +473,8 @@ function playerConditionItem(def: PlayerGameRecordDef): StatConditionItem<Indexe
     suffix: kind === "pct" ? "%" : kind === "minutes" ? "分" : "",
     display: (row) => {
       const game = row as unknown as PlayerRecordGame;
+      // 区間の +/- で、公式のピリオド別の値が無い行は「-」
+      if (def.key === "plusMinus" && (row as { plusMinusMissing?: boolean }).plusMinusMissing) return "-";
       // 成功率は試投が無い試合を「-」にする（最低試投数は、条件ではなく、記録の一覧の対象を決めるものなので、ここでは掛けない）
       if (def.fraction && def.fraction(game)[1] === 0) return "-";
       const v = def.value(game);
