@@ -203,6 +203,8 @@ export interface PlayerQuery {
   positions: readonly string[];
   statConditions: StatConditionsState;
   rookies: RookieEligibilityFile | null;
+  /** 指定時、この選手IDの記録だけ（現役の絞り込み。今季の名簿の選手。DESIGN.md 222章） */
+  activeIds?: ReadonlySet<string> | null;
   stat: PlayerQueryStat;
   includeSpecial: boolean;
   topN?: number;
@@ -225,6 +227,7 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
       const f = facts[g * 2 + ((rows.flags[i]! & ROW_FLAG_HOME) !== 0 ? 0 : 1)]!;
       if (!matchesGame(f, q.gameType, c)) continue;
       const p = players[rows.player[i]!]!;
+      if (q.activeIds && !q.activeIds.has(p[0])) continue;
       if (q.group === "rookie") {
         // 2016-17は、それ以前の経歴が無くルーキーを判定できない（rookieFilter.ts の rookieSupportedSeason と同じ）
         if (view.season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, view.season, p[0])) continue;

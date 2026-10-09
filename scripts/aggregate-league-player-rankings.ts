@@ -17,6 +17,7 @@
 import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
+import { currentSeason } from "./lib/season.ts";
 import { filterByGameType } from "../shared/gameType.ts";
 import { CLASS_KEYS, classKeyOf, type ClassKey } from "../shared/classificationKey.ts";
 import { AWARD_COUNT_KEYS } from "../shared/playerAwardKinds.ts";
@@ -211,6 +212,15 @@ function topOfCareerCounts(
   return out;
 }
 
+/** 今季（season）の B.PREMIER の名簿に載っている選手のID（players.json と registered-players.json。DESIGN.md 173・222章） */
+async function loadActivePlayerIds(season: string): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for (const file of ["players.json", "registered-players.json"]) {
+    for (const p of (await readJson<PlayerSummary[]>(path.join(DATA_DIR, season, file))) ?? []) ids.add(p.playerId);
+  }
+  return ids;
+}
+
 async function main() {
   const { byPlayer, info } = await loadCareerData();
   console.log(`対象選手数（出場記録のある全選手、B.PREMIER）: ${byPlayer.size}`);
@@ -252,6 +262,19 @@ async function main() {
       careerCounts: topOfCareerCounts(careers, info, include),
     };
   }
+  // 現役（今季の B.PREMIER の名簿に載っている選手）だけの中での上位20位。画面の現役の絞り込み（src/lib/activePlayers.ts）と同じ選手
+  const activeIds = await loadActivePlayerIds(currentSeason());
+  console.log(`現役（${currentSeason()}の名簿）: ${activeIds.size}名`);
+  const byActive = {} as Record<"all" | ClassKey, LeaguePlayerCareerTopByClass>;
+  for (const key of ["all", ...CLASS_KEYS] as const) {
+    const include = (playerId: string) => activeIds.has(playerId) && (key === "all" || classKeyById.get(playerId) === key);
+    byActive[key] = {
+      career: topOfCareer(career, include),
+      careerHome: topOfCareer(careerHome, include),
+      careerAway: topOfCareer(careerAway, include),
+      careerCounts: topOfCareerCounts(careers, info, include),
+    };
+  }
   const topPlayers: Record<string, LeaguePlayerInfo> = {};
   const addPlayers = (entries: LeaguePlayerCareerTopEntry[]) => {
     for (const e of entries) if (info.has(e.playerId)) topPlayers[e.playerId] = info.get(e.playerId)!;
@@ -267,7 +290,13 @@ async function main() {
     addAll(c.careerAway);
     addPlayers(Object.values(c.careerCounts).flat());
   }
-  const topFile: LeaguePlayerCareerTopFile = { generatedAt: new Date().toISOString(), players: topPlayers, ...top, careerCounts, byClassification };
+  for (const c of Object.values(byActive)) {
+    addAll(c.career);
+    addAll(c.careerHome);
+    addAll(c.careerAway);
+    addPlayers(Object.values(c.careerCounts).flat());
+  }
+  const topFile: LeaguePlayerCareerTopFile = { generatedAt: new Date().toISOString(), players: topPlayers, ...top, careerCounts, byClassification, byActive };
   const topChanged = await writeJsonIfChanged(path.join(DATA_DIR, "league-player-career-top.json"), topFile as unknown as Record<string, unknown>);
   console.log(topChanged ? "data/league-player-career-top.jsonに保存しました" : "data/league-player-career-top.jsonは内容に変化が無いため書き換えませんでした");
 

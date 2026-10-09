@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
+import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { buildExportFilename, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { gameTypeAxis, type FilterAxis } from "../lib/filterAxes";
 import { DEFAULT_GAME_RECORD_CONDITIONS, cleanGameConditionsForSeason, gameRecordConditionLabels, gameRecordConditionsParam } from "../lib/gameRecordConditions";
@@ -62,12 +63,19 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
   const [unit] = useUrlState(PAIR_UNIT_PARAM, "career");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [conditions, setConditions] = useUrlState(gameRecordConditionsParam, DEFAULT_GAME_RECORD_CONDITIONS);
+  const [activeParam, setActive] = useUrlState(ACTIVE_PARAM, "all");
   const singleSeason = unit === "season";
+  // 現役の絞り込みは1試合（歴代）と通算だけ（過去の選手が混ざる範囲）
+  const activeOn = !singleSeason && activeParam === "active";
   const seasonForTitle = singleSeason ? season : null;
 
   const options = useGameRecordOptions(singleSeason ? "season" : "allTime", season);
   const pairs = useAssistPairData(singleSeason, season);
-  const result = useMemo(() => (pairs.data ? queryAssistPairs({ data: pairs.data, gameType, conditions, unit }) : null), [pairs.data, gameType, conditions, unit]);
+  const active = useActivePlayerIds(activeOn);
+  const result = useMemo(
+    () => (pairs.data && (!activeOn || active.ids) ? queryAssistPairs({ data: pairs.data, gameType, conditions, unit, activeIds: activeOn ? active.ids : null }) : null),
+    [pairs.data, gameType, conditions, unit, activeOn, active.ids],
+  );
 
   // シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い対戦相手・地区を外す
   useEffect(() => {
@@ -80,7 +88,7 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
     const t = options.teams.find((o) => o.value === id);
     return t ? (narrow ? t.label : t.name) : id;
   };
-  const conditionLabels = composeLabels(gameTypeLabels(gameType, seasonForTitle), gameRecordConditionLabels(conditions, teamName, true));
+  const conditionLabels = composeLabels(activeOn && ACTIVE_LABEL, gameTypeLabels(gameType, seasonForTitle), gameRecordConditionLabels(conditions, teamName, true));
   const scopeText = unit === "season" ? `${season}シーズン` : unit === "career" ? "通算" : "歴代 1試合";
   const title = `${scopeText} アシストペアの得点`;
   const filename = buildExportFilename(["アシストペア", PAIR_UNIT_LABELS[unit], unit === "season" ? season : "", ...conditionLabels]);
@@ -88,11 +96,13 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
 
   const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, includeSpecial: true, includeSpecialDefault: true };
   const axes: FilterAxis[] = [
+    ...(singleSeason ? [] : [activeAxis(activeParam, setActive)]),
     gameTypeAxis(gameType, setGameType, seasonForTitle),
     ...gameRecordPrimaryAxes(axesInput),
     ...gameRecordAdvancedAxes(axesInput).filter((a) => a.id !== "g.special"),
   ];
   const clearAll = () => {
+    setActive("all");
     setGameType("regular");
     setConditions(DEFAULT_GAME_RECORD_CONDITIONS);
   };
@@ -100,14 +110,21 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
   return (
     <>
       <FilterBar axes={axes} stateKey="rankings:player:assistPair" onClearAll={clearAll} />
-      {pairs.error ? (
+      {pairs.error || active.error ? (
         <div className="error-message">
-          <p>アシストペアの記録を読み込めませんでした（{pairs.error}）。</p>
-          <button type="button" className="load-more-button" onClick={pairs.retry}>
+          <p>アシストペアの記録を読み込めませんでした（{pairs.error ?? active.error}）。</p>
+          <button
+            type="button"
+            className="load-more-button"
+            onClick={() => {
+              pairs.retry();
+              active.retry();
+            }}
+          >
             再読み込み
           </button>
         </div>
-      ) : pairs.loading || !result ? (
+      ) : pairs.loading || active.loading || !result ? (
         <p className="loading">読み込み中...</p>
       ) : !entries || entries.length === 0 ? (
         <p className="empty-message">この条件の記録がありません</p>
@@ -144,6 +161,7 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
                 ※ アシストした選手 → そのアシストを受けて得点した選手の組です。得点は、2Pの成功×2・3Pの成功×3・フリースローの成功×1の合計です（フリースローは、シュートファウルでのアシストを含みます）。
                 試合の条件は、得点した選手のチームから見ます。
               </p>
+              {activeOn && <p className="rule-change-footnote">※ {activeNote()}アシストした選手・得点した選手の両方が現役の組です。</p>}
             </PlayerNamePool>
           </div>
         </>

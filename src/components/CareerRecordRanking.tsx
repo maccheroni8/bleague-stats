@@ -3,6 +3,7 @@ import { PLAYER_CAREER_ASTED_MIN_POINTS, PLAYER_CAREER_TOTAL_DEFS } from "../../
 import { CAREER_TOTAL_DEFS } from "../../shared/teamRecords";
 import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS } from "../lib/playerConditionItems";
 import type { LeagueRankingGameType, LeagueTeamRankEntry, TeamColors } from "../../shared/types";
+import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote } from "../lib/activePlayers";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, leagueVenueLabels, type LeagueVenue } from "../lib/conditionLabels";
 import { classKeyOfFilter } from "../lib/classificationFilter";
 import { formatLeaguePlayerRecordValue, formatLeagueTeamCareerValue } from "../lib/careerRecords";
@@ -65,7 +66,9 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
   const [venue, setVenue] = useUrlState(VENUE_PARAM, "total");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [classification, setClassification] = useUrlState(CLASSIFICATION_PARAM, "all");
+  const [activeParam, setActive] = useUrlState(ACTIVE_PARAM, "all");
   const [statParam, setStatKey] = useUrlState(PLAYER_STAT_PARAM, "pts");
+  const activeOn = activeParam === "active";
   const { data: file, loading } = useJsonData(() => fetchLeaguePlayerCareerTop(), []);
 
   const item = PLAYER_ITEMS.find((d) => d.key === statParam) ?? PLAYER_ITEMS[0]!;
@@ -73,14 +76,15 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
   const def = { key: item.key, label: item.label };
   // 登録区分を選んだときは、その区分の選手だけの中での上位（区分ごとの表。DESIGN.md 197章）
   const classKey = classKeyOfFilter(classification);
-  const source = classKey ? file?.byClassification?.[classKey] : file;
+  // 現役を選んだときは、今季の名簿の選手だけの中での上位（現役の表。登録区分と組み合わせられる）
+  const source = activeOn ? file?.byActive?.[classKey ?? "all"] : classKey ? file?.byClassification?.[classKey] : file;
   const table = source ? (venue === "total" ? source.career : venue === "home" ? source.careerHome : source.careerAway) : undefined;
   const entries = countDef
     ? (source?.careerCounts?.[countDef.key] ?? [])
     : (table?.[gameType as LeagueRankingGameType]?.[def.key] ?? []);
   const rows = entries.flatMap((e) => (file?.players[e.playerId] ? [{ ...e, info: file.players[e.playerId]! }] : []));
 
-  const classLabels = classification !== "all" ? classificationLabels(classification) : [];
+  const classLabels = composeLabels(activeOn && ACTIVE_LABEL, classification !== "all" && classificationLabels(classification));
   const conditions = countDef
     ? [...classLabels, "各選手の最新の累計"]
     : composeLabels(classLabels, leagueVenueLabels(venue), gameTypeLabels(gameType, null));
@@ -95,6 +99,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
         stateKey="rankings:player:career"
         axes={[
           classificationAxis(classification, setClassification),
+          activeAxis(activeParam, setActive),
           { ...leagueVenueAxis(venue, setVenue), ...(countDef ? { disabledReason: countDisabled } : {}) },
           gameTypeAxis(gameType, setGameType, null, countDef ? { disabledReason: countDisabled } : {}),
         ]}
@@ -136,6 +141,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
                 sortable={false}
                 compact
               />
+              {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
               {countDef && <p className="rule-change-footnote">※ {COUNT_NOTE}</p>}
               {!countDef && def.key === "astedPct" && (
                 <p className="rule-change-footnote">※ 通算得点が{PLAYER_CAREER_ASTED_MIN_POINTS.toLocaleString()}点以上の選手が対象です。得点のうち、アシストされた得点（アシストされた2P×2＋3P×3＋FT）の割合です。</p>

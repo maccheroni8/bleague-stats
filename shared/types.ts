@@ -1761,6 +1761,11 @@ export interface LeaguePlayerCareerTopFile {
    * players には、この上位に入った選手の情報も含む。追加前に生成したファイルには無いので省略可能
    */
   byClassification?: Record<ClassKey, LeaguePlayerCareerTopByClass>;
+  /**
+   * 現役（今季の B.PREMIER の名簿に載っている選手。players.json と registered-players.json）だけの中での上位20位（DESIGN.md 222章）。
+   * all＝登録区分を問わない、jp・intl＝現役のうち、その区分の選手だけ。追加前に生成したファイルには無いので省略可能
+   */
+  byActive?: Record<"all" | ClassKey, LeaguePlayerCareerTopByClass>;
 }
 
 /** 登録区分1つ分の、通算記録の上位（LeaguePlayerCareerTopFile の career・careerHome・careerAway・careerCounts と同じ形） */

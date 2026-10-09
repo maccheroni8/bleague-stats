@@ -72,6 +72,8 @@ export interface ClutchQuery {
   conditions: GameRecordConditions;
   group: PlayerGroupFilter;
   rookies: RookieEligibilityFile | null;
+  /** 指定時、この選手IDの記録だけ（現役の絞り込み。DESIGN.md 222章） */
+  activeIds?: ReadonlySet<string> | null;
   measure: ClutchMeasure;
   window: ClutchWindowKey;
   topN?: number;
@@ -110,6 +112,7 @@ export function queryClutch(q: ClutchQuery): { rows: ClutchRow[]; players: numbe
       const home = (rows.flags[i]! & ROW_FLAG_HOME) !== 0;
       if (!matchesGame(facts[g * 2 + (home ? 0 : 1)]!, q.gameType, q.conditions)) continue;
       const p = players[rows.player[i]!]!;
+      if (q.activeIds && !q.activeIds.has(p[0])) continue;
       if (q.group === "rookie") {
         if (view.season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, view.season, p[0])) continue;
       } else if (classKey && p[5] !== classKey) continue;
@@ -200,6 +203,8 @@ export interface PairQuery {
   gameType: SeasonGameTypeFilter;
   conditions: GameRecordConditions;
   unit: PairUnit;
+  /** 指定時、アシストした選手・得点した選手の両方がこの選手IDにいる組だけ（現役の絞り込み。DESIGN.md 222章） */
+  activeIds?: ReadonlySet<string> | null;
   topN?: number;
 }
 
@@ -248,6 +253,7 @@ export function queryAssistPairs(q: PairQuery): { rows: PairRow[]; pairs: number
       const g = gameIndexByKey.get(pairs.keys[r.game[k]!]!);
       const scorerId = pairs.players[r.scorer[k]!]!;
       const assisterId = pairs.players[r.assister[k]!]!;
+      if (q.activeIds && (!q.activeIds.has(scorerId) || !q.activeIds.has(assisterId))) continue;
       const si = dictIndex.get(scorerId);
       const ai = dictIndex.get(assisterId);
       if (g === undefined || si === undefined || ai === undefined) continue;

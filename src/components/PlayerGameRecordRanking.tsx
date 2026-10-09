@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { PlayerGameRecordDef } from "../../shared/playerGameRecords";
 import type { TeamColors } from "../../shared/types";
+import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { fetchLeaguePlayerGameRecords, fetchPlayerGameRecords } from "../lib/data";
 import { classificationAxis, gameTypeAxis, multiSelectAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
@@ -100,7 +101,10 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const [positions, setPositions] = useUrlState(POSITION_PARAM, EMPTY_POSITIONS);
   const [conditions, setConditions] = useUrlState(gameRecordConditionsParam, DEFAULT_GAME_RECORD_CONDITIONS);
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+  const [activeParam, setActive] = useUrlState(ACTIVE_PARAM, "all");
   const allTime = scope === "allTime";
+  // 現役の絞り込みは歴代だけ（過去の選手が混ざる範囲）
+  const activeOn = allTime && activeParam === "active";
   const seasonForTitle = allTime ? null : season;
 
   // 項目: 記録＝今の36項目、ワースト＝成功率6つ・EFF・+/-（少ない順）とTOV（多い順）。
@@ -112,7 +116,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const hasStatConditions = statConditionMatcher(statConditions, PLAYER_STAT_CONDITION_ITEMS) !== null;
 
   // 条件が無く、上位20位のファイルで出せる間は索引を読まない。ファイルに無い表（ワースト）・条件・ルーキー・ポジション・前後半5分の特別試合を除く指定は索引から
-  const useIndex = stat.indexOnly || hasGameConditions(conditions) || positions.length > 0 || group === "rookie" || hasStatConditions || !includeSpecial;
+  const useIndex = stat.indexOnly || hasGameConditions(conditions) || positions.length > 0 || group === "rookie" || hasStatConditions || !includeSpecial || activeOn;
 
   const options = useGameRecordOptions(scope, season);
   const { data: file, loading: fileLoading } = useJsonData(
@@ -121,13 +125,14 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   );
   const index = useGameIndexViews("player", scope, season, useIndex);
   const rookies = useRookieFile(useIndex && group === "rookie");
+  const active = useActivePlayerIds(activeOn);
 
   const result = useMemo(
     () =>
-      index.views && (group !== "rookie" || rookies.file)
-        ? queryPlayerGameRecords({ views: index.views, gameType, conditions, group, positions, statConditions, rookies: rookies.file, stat, includeSpecial })
+      index.views && (group !== "rookie" || rookies.file) && (!activeOn || active.ids)
+        ? queryPlayerGameRecords({ views: index.views, gameType, conditions, group, positions, statConditions, rookies: rookies.file, activeIds: activeOn ? active.ids : null, stat, includeSpecial })
         : null,
-    [index.views, gameType, conditions, group, positions, statConditions, rookies.file, stat, includeSpecial],
+    [index.views, gameType, conditions, group, positions, statConditions, rookies.file, activeOn, active.ids, stat, includeSpecial],
   );
 
   // シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い対戦相手・地区・ルーキーを外す
@@ -143,8 +148,8 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const classKey = group === "rookie" ? undefined : classKeyOfFilter(group);
   const tables = classKey ? file?.byClassification?.[classKey] : file?.byGameType;
   const entries: PlayerRecordRow[] | undefined = useIndex ? result?.rows : (tables?.[gameType]?.[def.key] ?? []);
-  const loading = useIndex ? index.loading || rookies.loading : fileLoading;
-  const failure = useIndex ? (index.error ?? rookies.error) : null;
+  const loading = useIndex ? index.loading || rookies.loading || active.loading : fileLoading;
+  const failure = useIndex ? (index.error ?? rookies.error ?? active.error) : null;
   const noData = !useIndex && !loading && !tables;
 
   const teamName = (id: string) => {
@@ -153,6 +158,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   };
   const positionLabels = positions.length > 0 ? multiSelectLabels("ポジション", selectedPositionLabels(POSITION_OPTIONS, positions), "全ポジション") : [];
   const conditionLabels = composeLabels(
+    activeOn && ACTIVE_LABEL,
     group !== "all" && classificationLabels(group),
     positionLabels,
     gameTypeLabels(gameType, seasonForTitle),
@@ -166,6 +172,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
 
   const clearAll = () => {
     setGroup("all");
+    setActive("all");
     setGameType("regular");
     setPositions(EMPTY_POSITIONS);
     setConditions(DEFAULT_GAME_RECORD_CONDITIONS);
@@ -176,6 +183,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
     classificationAxis(group, setGroup, {
       rookie: { disabledReason: !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined },
     }),
+    ...(allTime ? [activeAxis(activeParam, setActive)] : []),
     gameTypeAxis(gameType, setGameType, seasonForTitle),
     simpleSelectAxis({
       id: "recordMode",
@@ -224,7 +232,14 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
       {failure ? (
         <div className="error-message">
           <p>1試合の記録を読み込めませんでした（{failure}）。</p>
-          <button type="button" className="load-more-button" onClick={index.retry}>
+          <button
+            type="button"
+            className="load-more-button"
+            onClick={() => {
+              index.retry();
+              active.retry();
+            }}
+          >
             再読み込み
           </button>
         </div>
@@ -268,6 +283,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                 compact
               />
               {minNote && <p className="rule-change-footnote">※ {minNote}</p>}
+              {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
               {result && (
                 <GameRecordNotes
                   excludedSpecial={result.excludedSpecial}
