@@ -2,6 +2,7 @@ import { FIRST_LEAGUE_SEASON } from "../../shared/rookieEligibility";
 import { postseasonFormat } from "../../shared/postseasonFormat";
 import type { Division } from "../../shared/types";
 import { DIVISION_LABELS } from "./divisionGroups";
+import { formatMinutesFromSeconds } from "./boxscoreAggregate";
 import { formatSigned } from "./format";
 import { foulColumnsSplit, foulKeyVisible } from "./ruleChange";
 import type { SituationalFilter } from "./situational";
@@ -104,6 +105,8 @@ export interface DisplayedNumber {
   digits: number;
   /** 割合（%）の項目か */
   percent: boolean;
+  /** 時間（「28:30」）の項目か。その場合 value は秒 */
+  time: boolean;
 }
 
 /**
@@ -111,13 +114,26 @@ export interface DisplayedNumber {
  * 差は、画面の前季・今季の値と必ず合うように、この表示値どうしで出す
  */
 export function displayedNumber(text: string): DisplayedNumber | null {
+  // 時間（MIN。「28:30」「1,523:40」）は、分と秒を秒にして読む
+  const t = /^\s*(-?)(\d[\d,]*):(\d{2})(?!\d)/.exec(text);
+  if (t) {
+    const sec = Number(t[2]!.replace(/,/g, "")) * 60 + Number(t[3]);
+    return { value: t[1] ? -sec : sec, digits: 0, percent: false, time: true };
+  }
   const m = /[+-]?(?:\d[\d,]*(?:\.\d+)?|\.\d+)/.exec(text);
   if (!m) return null;
   const raw = m[0].replace(/,/g, "");
   const value = Number(raw);
   if (!Number.isFinite(value)) return null;
   const dot = raw.indexOf(".");
-  return { value, digits: dot < 0 ? 0 : raw.length - dot - 1, percent: text.includes("%") };
+  return { value, digits: dot < 0 ? 0 : raw.length - dot - 1, percent: text.includes("%"), time: false };
+}
+
+/** 秒の差を「+3:15」「-0:45」「0:00」にする */
+function formatSignedTime(sec: number): string {
+  const abs = Math.abs(sec);
+  const body = formatMinutesFromSeconds(abs);
+  return sec > 0 ? `+${body}` : sec < 0 ? `-${body}` : body;
 }
 
 export interface DisplayedDiff {
@@ -132,12 +148,16 @@ export function displayedDiff(currentText: string, prevText: string): DisplayedD
   const cur = displayedNumber(currentText);
   const prev = displayedNumber(prevText);
   if (!cur || !prev) return null;
+  if (cur.time && prev.time) {
+    const diff = cur.value - prev.value;
+    return { diff, text: formatSignedTime(diff), percent: false };
+  }
   const digits = Math.max(cur.digits, prev.digits);
   const scale = 10 ** digits;
   const diff = (Math.round(cur.value * scale) - Math.round(prev.value * scale)) / scale;
   const percent = cur.percent && prev.percent;
-  // 割合は、ポイントの差（「+1.2pt」）
-  const text = `${formatSigned(diff, digits)}${percent ? "pt" : ""}`;
+  // 割合は、割合どうしの差を「%」で出す（「+1.2%」）
+  const text = `${formatSigned(diff, digits)}${percent ? "%" : ""}`;
   return { diff, text, percent };
 }
 

@@ -170,7 +170,7 @@ function CompareNotes({
         </p>
       )}
       <p className="rule-change-footnote">
-        ※ 前季は{prevSeason}シーズンです。{kind === "player" ? "今季・前季の両方で掲載基準を満たす選手" : "今季・前季の両方にあるチーム"}だけを表示しています。差は、表示している値どうしの差です（％の項目はポイントの差）。
+        ※ 前季は{prevSeason}シーズンです。{kind === "player" ? "今季・前季の両方で掲載基準を満たす選手" : "今季・前季の両方にあるチーム"}だけを表示しています。差は、表示している値どうしの差です（％の項目は％どうしの差、MINは時間の差）。
       </p>
       {narrowed && (
         <p className="rule-change-footnote">
