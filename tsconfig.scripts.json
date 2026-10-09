@@ -15,5 +15,5 @@
     "rootDir": "."
   },
   "include": ["scripts/**/*.ts", "shared/**/*.ts"],
-  "exclude": ["node_modules", "dist", "data", "scripts/aggregate-league-compare.ts", "scripts/validate-lineup-search.ts", "scripts/validate-live-dead-tov.ts", "scripts/validate-pbp-order.ts", "scripts/validate-season-compare.ts", "scripts/validate-game-index.ts", "scripts/validate-game-flow.ts", "scripts/validate-game-record-query.ts"]
+  "exclude": ["node_modules", "dist", "data", "scripts/aggregate-league-compare.ts", "scripts/validate-lineup-search.ts", "scripts/validate-live-dead-tov.ts", "scripts/validate-pbp-order.ts", "scripts/validate-season-compare.ts", "scripts/validate-game-index.ts", "scripts/validate-game-flow.ts", "scripts/validate-clutch-query.ts", "scripts/validate-game-record-query.ts"]
 }

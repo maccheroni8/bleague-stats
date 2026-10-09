@@ -2,7 +2,7 @@
 import { formatMinutesFromSeconds } from "./boxscoreAggregate";
 import { formatPct, formatSigned } from "./format";
 import type { PlayerGameRecordDef } from "../../shared/playerGameRecords";
-import { PLAYER_PCT_MIN_ATTEMPTS } from "../../shared/playerGameRecords";
+import { PLAYER_ASTED_MIN_POINTS, PLAYER_PCT_MIN_ATTEMPTS } from "../../shared/playerGameRecords";
 import type { PlayerGameRecordEntry } from "../../shared/types";
 
 export function formatPlayerGameRecordValue(def: PlayerGameRecordDef, v: number): string {
@@ -36,6 +36,7 @@ export function playerGameRecordMinAttemptsNote(key: string): string | undefined
     tpPct: `3PAが${m.tpPct}以上`,
     ftPct: `FTAが${m.ftPct}以上`,
   };
+  if (key === "astedPct") return `得点が${PLAYER_ASTED_MIN_POINTS}点以上の試合が対象です。同じ率の中は得点の多い試合から並べます。`;
   const t = text[key];
   return t ? `${t}の試合が対象です。同じ率の中は試投数の多い試合から並べます。` : undefined;
 }

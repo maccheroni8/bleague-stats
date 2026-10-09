@@ -6,7 +6,8 @@ import type { Division, DivisionHistoryFile, RookieEligibilityFile } from "../..
 import { fetchDivisionHistory, fetchRookieEligibility, fetchSeasons, fetchTeams } from "./data";
 import { DIVISION_ORDER, seasonDivisions } from "./divisionGroups";
 import type { PlayerGameIndexView, TeamGameIndexView } from "./gameIndex";
-import { loadPlayerGameIndex, loadTeamGameIndex } from "./gameIndexLoad";
+import { loadAssistPairs, loadPlayerGameIndex, loadTeamGameIndex } from "./gameIndexLoad";
+import type { PairSeasonData } from "./clutchQuery";
 import { leagueTeamDisplayName } from "./leagueTeamNames";
 import type { RecordsScope } from "./urlFilterParams";
 import { useJsonData } from "./useJsonData";
@@ -65,6 +66,39 @@ export function useGameIndexViews<S extends IndexSubject>(subject: S, scope: Rec
     error: enabled && current ? state.error : null,
     retry,
   };
+}
+
+export interface AssistPairData {
+  /** 読み込み済みのアシストペア（シーズン単位は選んだシーズン1つ、それ以外は試合のあるシーズンすべて） */
+  data: PairSeasonData[] | null;
+  loading: boolean;
+  error: string | null;
+  retry: () => void;
+}
+
+/** アシストペアの試合ごとの行と、同じシーズンの選手の索引を読む。1つでも読めないシーズンがあるときはエラーにする（値が欠けるため） */
+export function useAssistPairData(singleSeason: boolean, season: string): AssistPairData {
+  const key = singleSeason ? season : "all";
+  const [state, setState] = useState<{ key: string; data: PairSeasonData[] | null; error: string | null }>({ key: "", data: null, error: null });
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const seasons = singleSeason ? [season] : (await fetchSeasons()).filter((s) => s.hasCompletedGames).map((s) => s.season).sort();
+      const loaded = await Promise.all(seasons.map(async (s) => ({ pairs: await loadAssistPairs(s), index: await loadPlayerGameIndex(s) })));
+      const missing = seasons.filter((_, i) => !loaded[i]!.pairs || !loaded[i]!.index);
+      if (missing.length > 0) throw new Error(`${missing.join("・")}の試合のデータを読み込めませんでした`);
+      if (!cancelled) setState({ key, data: loaded.map((l) => ({ pairs: l.pairs!, index: l.index! })), error: null });
+    })().catch((err: unknown) => {
+      if (!cancelled) setState({ key, data: null, error: err instanceof Error ? err.message : String(err) });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [singleSeason, season, key, attempt]);
+  const current = state.key === key;
+  return { data: current ? state.data : null, loading: !current || (!state.data && !state.error), error: current ? state.error : null, retry };
 }
 
 export interface GameRecordOptions {

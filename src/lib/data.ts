@@ -13,6 +13,7 @@
 // 両方の環境に対応する
 
 import type { PlayerGameIndexFile, TeamGameIndexFile } from "../../shared/gameIndex";
+import type { AssistPairsFile } from "../../shared/assistPairs";
 import type {
   LeaguePlayerGameRecordsFile,
   PlayerGameRecordsFile,
@@ -189,6 +190,15 @@ export async function fetchLeaguePlayerGameRecords(): Promise<LeaguePlayerGameRe
 export async function fetchPlayerGameIndex(season: string): Promise<PlayerGameIndexFile | null> {
   try {
     return await fetchJson<PlayerGameIndexFile>(`${dataBase}/${season}/player-game-index.json`);
+  } catch {
+    return null;
+  }
+}
+
+/** アシストペアの試合ごとの行（data/{season}/assist-pairs.json、DESIGN.md 221章）。ファイルが無ければ null */
+export async function fetchAssistPairs(season: string): Promise<AssistPairsFile | null> {
+  try {
+    return await fetchJson<AssistPairsFile>(`${dataBase}/${season}/assist-pairs.json`);
   } catch {
     return null;
   }

@@ -5,6 +5,7 @@
 // 同じ定義を参照する共通モジュールにした。チーム版と異なり、クラブレコード相当（1試合単位の
 // 最高記録）は対象外（ユーザー指定、別途Rankingsページの機能として検討予定）。
 
+import { safeDiv } from "./formulas.ts";
 import type { PlayerGameLog } from "./types.ts";
 
 /** 「歴代記録」タブ: 全シーズン合算の単一の合計値（平均ではない）。PlayerDetailPage.tsxの
@@ -41,6 +42,8 @@ export interface PlayerCareerTotals {
   dunks: number;
   doubleDoubles: number;
   tripleDoubles: number;
+  /** アシストされた得点（2P×2＋3P×3＋FT）の合計。被アシスト率の分子 */
+  assistedPts: number;
 }
 
 /** ダブルダブル/トリプルダブルの判定閾値。src/lib/playerSeasonBoxscore.tsの
@@ -83,6 +86,7 @@ export function buildPlayerCareerTotals(logs: PlayerGameLog[]): PlayerCareerTota
     dunks: 0,
     doubleDoubles: 0,
     tripleDoubles: 0,
+    assistedPts: 0,
   };
   for (const g of logs) {
     totals.wins += g.win ? 1 : 0;
@@ -113,6 +117,7 @@ export function buildPlayerCareerTotals(logs: PlayerGameLog[]): PlayerCareerTota
     totals.secondChancePts += g.pt2nd;
     totals.ptsOffTov += g.ptsOffTov;
     totals.dunks += g.dunks;
+    totals.assistedPts += (g.assisted2m ?? 0) * 2 + (g.assisted3m ?? 0) * 3 + (g.assistedFtm ?? 0);
     const { dd, td } = countDoubleTripleDouble(g);
     if (dd) totals.doubleDoubles += 1;
     if (td) totals.tripleDoubles += 1;
@@ -124,7 +129,14 @@ export interface PlayerCareerTotalDef {
   key: string;
   label: string;
   value: (t: PlayerCareerTotals) => number;
+  /** %の項目（値は0〜1の割合） */
+  kind?: "pct";
+  /** 順位の対象にする条件（未指定は全選手）。条件を満たさない選手は、この項目の順位表に載せない */
+  eligible?: (t: PlayerCareerTotals) => boolean;
 }
+
+/** 通算の被アシスト率の対象の最低通算得点（ユーザー決定。DESIGN.md 221章） */
+export const PLAYER_CAREER_ASTED_MIN_POINTS = 1000;
 
 export const PLAYER_CAREER_TOTAL_DEFS: PlayerCareerTotalDef[] = [
   { key: "wins", label: "勝利数（出場試合）", value: (t) => t.wins },
@@ -157,4 +169,12 @@ export const PLAYER_CAREER_TOTAL_DEFS: PlayerCareerTotalDef[] = [
   { key: "dunks", label: "ダンク", value: (t) => t.dunks },
   { key: "doubleDoubles", label: "ダブルダブル数", value: (t) => t.doubleDoubles },
   { key: "tripleDoubles", label: "トリプルダブル数", value: (t) => t.tripleDoubles },
+  // 被アシスト率（得点のうち、アシストされた得点の割合。シーズン成績の %PTS ASTED と同じ定義）。通算得点が最低得点に届かない選手は順位に載せない
+  {
+    key: "astedPct",
+    label: "%PTS ASTED",
+    value: (t) => safeDiv(t.assistedPts, t.pts),
+    kind: "pct",
+    eligible: (t) => t.pts >= PLAYER_CAREER_ASTED_MIN_POINTS,
+  },
 ];

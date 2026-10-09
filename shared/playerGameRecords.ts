@@ -32,12 +32,21 @@ export function playerPctFilters(min: PctMinAttempts): Map<string, (g: PlayerGam
   ]);
 }
 
-/** 成功率の項目の成功数と試投数（「100.0%（6/6）」の表示と、同じ率の中の並びに使う。eFG%・TS% は添えない） */
+/** アシストされた得点（アシストされた2P×2＋3P×3＋FT。shared/assistedScoring.ts） */
+export function assistedPoints(g: Pick<PlayerGameLog, "assisted2m" | "assisted3m" | "assistedFtm">): number {
+  return (g.assisted2m ?? 0) * 2 + (g.assisted3m ?? 0) * 3 + (g.assistedFtm ?? 0);
+}
+
+/** 被アシスト率（得点のうち、アシストされた得点の割合）の1試合記録の最低得点。得点が少ない試合の100%・0%が上位・下位に並ぶのを避ける（ユーザー決定。DESIGN.md 221章） */
+export const PLAYER_ASTED_MIN_POINTS = 20;
+
+/** 成功率の項目の成功数と試投数（「100.0%（6/6）」の表示と、同じ率の中の並びに使う。eFG%・TS% は添えない）。被アシスト率は、アシストされた得点／得点 */
 export const PLAYER_PCT_FRACTIONS = new Map<string, (g: PlayerGameLog) => readonly [number, number]>([
   ["fgPct", (g) => [g.fgm, g.fga]],
   ["2pPct", (g) => [g.fgm - g.tpm, g.fga - g.tpa]],
   ["tpPct", (g) => [g.tpm, g.tpa]],
   ["ftPct", (g) => [g.ftm, g.fta]],
+  ["astedPct", (g) => [assistedPoints(g), g.pts]],
 ]);
 
 export interface PlayerGameRecordDef {
@@ -75,7 +84,10 @@ function effOfGame(g: PlayerRecordGame): number {
   );
 }
 
-const LEAGUE_PCT_FILTERS = playerPctFilters(PLAYER_PCT_MIN_ATTEMPTS);
+const LEAGUE_PCT_FILTERS = new Map<string, (g: PlayerGameLog) => boolean>([
+  ...playerPctFilters(PLAYER_PCT_MIN_ATTEMPTS),
+  ["astedPct", (g) => g.pts >= PLAYER_ASTED_MIN_POINTS],
+]);
 
 const PLAYER_GAME_RECORD_STATS_BASE: PlayerGameRecordDef[] = [
   { key: "min", label: "MIN", value: (g) => g.min, kind: "minutes" },
@@ -118,6 +130,8 @@ const PLAYER_GAME_RECORD_STATS_BASE: PlayerGameRecordDef[] = [
   { key: "ptsOffTov", label: "PTSOFFTO", value: (g) => g.ptsOffTov },
   { key: "dunks", label: "DUNK", value: (g) => g.dunks },
   { key: "basketCounts", label: "AND1", value: (g) => g.basketCounts },
+  // 被アシスト率（得点のうちアシストされた得点の割合。シーズン成績の %PTS ASTED と同じ定義。最低得点は PLAYER_ASTED_MIN_POINTS）
+  { key: "astedPct", label: "%PTS ASTED", value: (g) => safeDiv(assistedPoints(g), g.pts), kind: "pct" },
 ];
 
 export const PLAYER_GAME_RECORD_STATS: PlayerGameRecordDef[] = PLAYER_GAME_RECORD_STATS_BASE.map((d) => ({

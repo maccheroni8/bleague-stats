@@ -1,5 +1,5 @@
 import { useMemo, useRef } from "react";
-import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
+import { PLAYER_CAREER_ASTED_MIN_POINTS, PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { CAREER_TOTAL_DEFS } from "../../shared/teamRecords";
 import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS } from "../lib/playerConditionItems";
 import type { LeagueRankingGameType, LeagueTeamRankEntry, TeamColors } from "../../shared/types";
@@ -137,6 +137,9 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
                 compact
               />
               {countDef && <p className="rule-change-footnote">※ {COUNT_NOTE}</p>}
+              {!countDef && def.key === "astedPct" && (
+                <p className="rule-change-footnote">※ 通算得点が{PLAYER_CAREER_ASTED_MIN_POINTS.toLocaleString()}点以上の選手が対象です。得点のうち、アシストされた得点（アシストされた2P×2＋3P×3＋FT）の割合です。</p>
+              )}
             </PlayerNamePool>
           </div>
         </>

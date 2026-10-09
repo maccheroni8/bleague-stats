@@ -43,7 +43,7 @@ export const GAME_RECORD_TIE_EXPAND_MAX = 100;
 
 // ---- 試合ごとの事実の表 ----
 
-interface GameSideFacts {
+export interface GameSideFacts {
   playoff: boolean;
   short: boolean;
   win: boolean;
@@ -61,7 +61,7 @@ interface GameSideFacts {
 const factsCache = new WeakMap<object, GameSideFacts[]>();
 
 /** 試合の番号×2＋(ホーム 0／アウェイ 1) の位置に、その側から見た事実を並べる */
-function gameFacts(file: { games: IndexGames; teams: IndexTeam[] }): GameSideFacts[] {
+export function gameFacts(file: { games: IndexGames; teams: IndexTeam[] }): GameSideFacts[] {
   const cached = factsCache.get(file);
   if (cached) return cached;
   const { games, teams } = file;
@@ -94,7 +94,7 @@ function gameFacts(file: { games: IndexGames; teams: IndexTeam[] }): GameSideFac
 }
 
 /** 試合区分と試合の条件（前後半5分の特別な試合の扱いを除く）に当てはまるか */
-function matchesGame(f: GameSideFacts, gameType: SeasonGameTypeFilter, c: GameRecordConditions): boolean {
+export function matchesGame(f: GameSideFacts, gameType: SeasonGameTypeFilter, c: GameRecordConditions): boolean {
   if (gameType === "regular" ? f.playoff : gameType === "playoff" ? !f.playoff : false) return false;
   if (c.result === "win" && !f.win) return false;
   if (c.result === "loss" && f.win) return false;

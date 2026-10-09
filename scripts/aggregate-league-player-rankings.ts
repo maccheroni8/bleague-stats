@@ -122,6 +122,7 @@ function computeCareerRankings(byPlayer: Map<string, PlayerSeasonLogs[]>): Recor
 
       const totals = buildPlayerCareerTotals(filtered);
       for (const def of PLAYER_CAREER_TOTAL_DEFS) {
+        if (def.eligible && !def.eligible(totals)) continue;
         const arr = collected.get(def.key) ?? [];
         arr.push({ playerId, value: def.value(totals) });
         collected.set(def.key, arr);
