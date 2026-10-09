@@ -285,7 +285,41 @@ export const TEAM_RECORD_STATS: TeamRecordValueDef[] = [
     filter: (g) => !g.win && (g.maxLead ?? 0) > 0,
     worstEligible: false,
   },
+  // 最大のラン（相手が無得点の間の自チームの連続得点。延長戦を含む。shared/gameFlow.ts・DESIGN.md 221章）。ワーストは意味を持たないので出さない
+  {
+    key: "maxRun",
+    label: "最大のラン（連続得点）",
+    value: (g) => g.maxRun ?? 0,
+    filter: (g) => g.maxRun !== undefined,
+    worstEligible: false,
+  },
 ];
+
+/** 一覧の行に、その試合の最終スコア（と最大のランの場所）を添える項目（DESIGN.md 221章） */
+export const TEAM_RECORD_DETAIL_KEYS: readonly string[] = ["comebackWin", "blownLeadLoss", "maxRun"];
+
+/** 行に添える項目の値（最終スコア。最大のランは、場所と、ランの直前の両チームの得点も） */
+export interface TeamRecordDetail {
+  finalOwn: number;
+  finalOpp: number;
+  runFromSec?: number;
+  runToSec?: number;
+  runOwnBefore?: number;
+  runOppBefore?: number;
+}
+
+/** key が TEAM_RECORD_DETAIL_KEYS の項目なら、その試合の添える値。そうでなければ undefined（TeamGameLog と索引の1行のどちらでも使える） */
+export function teamRecordDetail(
+  key: string,
+  g: Pick<TeamGameLog, "teamScore" | "opponentScore" | "maxRun" | "maxRunFromSec" | "maxRunToSec" | "maxRunOwnBefore" | "maxRunOppBefore">,
+): TeamRecordDetail | undefined {
+  if (!TEAM_RECORD_DETAIL_KEYS.includes(key)) return undefined;
+  const run =
+    key === "maxRun" && g.maxRun !== undefined
+      ? { runFromSec: g.maxRunFromSec, runToSec: g.maxRunToSec, runOwnBefore: g.maxRunOwnBefore, runOppBefore: g.maxRunOppBefore }
+      : {};
+  return { finalOwn: g.teamScore, finalOpp: g.opponentScore, ...run };
+}
 
 /**
  * 「被記録」（Phase H8）: TEAM_RECORD_STATSと同じ項目リストを、対戦相手がそのチーム相手に

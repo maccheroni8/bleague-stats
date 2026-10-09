@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { formatTeamRecordValue, type TeamGameRecordRow } from "../lib/teamGameRecords";
+import { formatTeamRecordDetail, formatTeamRecordValue, type TeamGameRecordRow } from "../lib/teamGameRecords";
 import { useNarrow } from "../lib/teamLabel";
 import { RecordValue } from "./RecordValue";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
@@ -48,6 +48,7 @@ export function TeamRecordLeaderCard({
         </span>{" "}
         {first.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={first.opponentTeamId} name={first.opponentTeamName} always />
       </div>
+      {first.detail && <div>{formatTeamRecordDetail(first.detail, first.value)}</div>}
       {ties > 1 && <div className="career-high-others-toggle">ほか{ties - 1}試合</div>}
     </Link>
   );

@@ -1678,6 +1678,14 @@ export interface LeagueRecordEntry {
   ownPoints?: number;
   oppPoints?: number;
   fromPbp?: boolean;
+  /** 最大点差からの逆転勝利・逆転負け・最大のランのみ: その試合の最終スコア（shared/teamRecords.ts の teamRecordDetail） */
+  finalOwn?: number;
+  finalOpp?: number;
+  /** 最大のランのみ: 最初・最後の得点の経過秒と、ランの直前の両チームの得点 */
+  runFromSec?: number;
+  runToSec?: number;
+  runOwnBefore?: number;
+  runOppBefore?: number;
 }
 
 // ---- data/league-player-rankings.json の保存スキーマ（個人版「歴代記録」タブ、通算成績のみ。

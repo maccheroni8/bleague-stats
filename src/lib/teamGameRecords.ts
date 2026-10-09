@@ -1,7 +1,8 @@
 // チームの1試合記録（ランキングページ > チーム > 1試合記録。DESIGN.md 191章）の項目と、一覧の行の作り方。
 // 範囲「歴代」は夜間の集計の上位20位（data/league-team-rankings.json）、範囲「シーズン」は選んだシーズンの全クラブの試合ログから作る。
 // どちらも同じ形の行（TeamGameRecordRow）にそろえる。
-import { TEAM_AGAINST_RECORD_STATS, TEAM_RECORD_STATS, type TeamRecordValueDef } from "../../shared/teamRecords";
+import { TEAM_AGAINST_RECORD_STATS, TEAM_RECORD_STATS, teamRecordDetail, type TeamRecordDetail, type TeamRecordValueDef } from "../../shared/teamRecords";
+import { periodAndRestAt } from "../../shared/gameFlow";
 import {
   PERIOD_KEYS,
   PERIOD_LABELS,
@@ -100,6 +101,29 @@ export interface TeamGameRecordRow {
   ownPoints?: number;
   oppPoints?: number;
   fromPbp?: boolean;
+  /** 逆転勝利・逆転負け・最大のラン: 最終スコア（と最大のランの場所）。DESIGN.md 221章 */
+  detail?: TeamRecordDetail;
+}
+
+function periodLabel(period: number): string {
+  return period <= 4 ? `第${period}Q` : period === 5 ? "OT" : `OT${period - 4}`;
+}
+
+function clock(restSec: number): string {
+  return `${Math.floor(restSec / 60)}:${String(restSec % 60).padStart(2, "0")}`;
+}
+
+/**
+ * 行に添える文字（「最終 85-79」。最大のランは「最終 85-79　第3Q 5:12〜2:30（40-52 → 61-52）」）。
+ * 点数は自チームから見て「自チーム-相手」。value は最大のランの点数（ラン後のスコアを出すのに使う）
+ */
+export function formatTeamRecordDetail(d: TeamRecordDetail, value: number): string {
+  const final = `最終 ${d.finalOwn}-${d.finalOpp}`;
+  if (d.runFromSec === undefined || d.runToSec === undefined || d.runOwnBefore === undefined || d.runOppBefore === undefined) return final;
+  const from = periodAndRestAt(d.runFromSec);
+  const to = periodAndRestAt(d.runToSec);
+  const when = from.period === to.period ? `${periodLabel(from.period)} ${clock(from.restSec)}〜${clock(to.restSec)}` : `${periodLabel(from.period)} ${clock(from.restSec)}〜${periodLabel(to.period)} ${clock(to.restSec)}`;
+  return `${final}　${when}（${d.runOwnBefore}-${d.runOppBefore} → ${d.runOwnBefore + value}-${d.runOppBefore}）`;
 }
 
 /** 歴代の集計ファイルから、その種類・試合区分・項目の行を作る。チーム名・相手の名称は、その試合のシーズンの名称 */
@@ -138,6 +162,15 @@ export function allTimeTeamRecordRows(
             ...(e.made !== undefined ? { made: e.made, attempted: e.attempted } : {}),
             ...(e.ownPoints !== undefined ? { ownPoints: e.ownPoints, oppPoints: e.oppPoints } : {}),
             ...(e.fromPbp ? { fromPbp: true } : {}),
+            ...(e.finalOwn !== undefined && e.finalOpp !== undefined
+              ? {
+                  detail: {
+                    finalOwn: e.finalOwn,
+                    finalOpp: e.finalOpp,
+                    ...(e.runFromSec !== undefined ? { runFromSec: e.runFromSec, runToSec: e.runToSec, runOwnBefore: e.runOwnBefore, runOppBefore: e.runOppBefore } : {}),
+                  },
+                }
+              : {}),
           },
         ]
       : [],
@@ -147,8 +180,10 @@ export function allTimeTeamRecordRows(
 /** シーズンの全クラブの試合ログ（記録したチームとシーズンを足したもの。1試合につき両チームの2件） */
 export type TeamRecordGame = TeamGameLog & { season: string; teamId: string; teamName: string };
 
-function rowOfGame(g: TeamRecordGame, rank: number, value: number): TeamGameRecordRow {
+function rowOfGame(g: TeamRecordGame, rank: number, value: number, key?: string): TeamGameRecordRow {
+  const detail = key ? teamRecordDetail(key, g) : undefined;
   return {
+    ...(detail ? { detail } : {}),
     rank,
     value,
     teamId: g.teamId,
@@ -180,6 +215,6 @@ export function seasonTeamRecordRows(games: TeamRecordGame[], mode: TeamRecordMo
   const pool = def.filter ? games.filter(def.filter) : games;
   return computeTopRecordEntries(pool, def.value, lowerFirst(def, mode), TEAM_RECORD_TOP_N, attemptsFirst(def.fraction)).map((e) => {
     const frac = def.fraction?.(e.game);
-    return { ...rowOfGame(e.game, e.rank, e.value), ...(frac ? { made: frac[0], attempted: frac[1] } : {}) };
+    return { ...rowOfGame(e.game, e.rank, e.value, key), ...(frac ? { made: frac[0], attempted: frac[1] } : {}) };
   });
 }

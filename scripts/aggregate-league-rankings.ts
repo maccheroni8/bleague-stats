@@ -17,7 +17,7 @@ import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { filterByGameType } from "../shared/gameType.ts";
-import { CAREER_TOTAL_DEFS, TEAM_AGAINST_RECORD_STATS, TEAM_RECORD_STATS, buildTeamCareerTotals, longestWinStreak } from "../shared/teamRecords.ts";
+import { CAREER_TOTAL_DEFS, TEAM_AGAINST_RECORD_STATS, TEAM_RECORD_STATS, buildTeamCareerTotals, longestWinStreak, teamRecordDetail } from "../shared/teamRecords.ts";
 import {
   PERIOD_AVERAGE_STATS,
   PERIOD_KEYS,
@@ -219,6 +219,13 @@ interface RawRecordCandidate {
   isHome?: boolean;
   made?: number;
   attempted?: number;
+  /** 逆転勝利・逆転負け・最大のランのみ（teamRecordDetail） */
+  finalOwn?: number;
+  finalOpp?: number;
+  runFromSec?: number;
+  runToSec?: number;
+  runOwnBefore?: number;
+  runOppBefore?: number;
 }
 
 /**
@@ -294,6 +301,7 @@ function computeTopRecords(careerDataByTeam: Map<string, TeamSeasonLogs[]>): {
             opponentTeamId: g.opponentTeamId,
             isHome: g.isHome,
             ...(def.fraction ? { made: def.fraction(g)[0], attempted: def.fraction(g)[1] } : {}),
+            ...teamRecordDetail(def.key, g),
           });
           recordCandidates.set(def.key, arr);
         }

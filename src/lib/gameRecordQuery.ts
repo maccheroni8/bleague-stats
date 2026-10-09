@@ -8,7 +8,7 @@ import { FIRST_LEAGUE_SEASON } from "../../shared/rookieEligibility";
 import { GAME_FLAG_PLAYOFF, GAME_FLAG_SHORT, ROW_FLAG_HOME, type IndexGames, type IndexTeam } from "../../shared/gameIndex";
 import { PLAYER_GAME_RECORD_STATS, type PlayerGameRecordDef, type PlayerRecordGame } from "../../shared/playerGameRecords";
 import { periodRecordKindDef, periodScore, type PeriodKey, type PeriodRecordKind } from "../../shared/teamPeriodRecords";
-import { TEAM_RECORD_STATS, type TeamRecordValueDef } from "../../shared/teamRecords";
+import { TEAM_RECORD_STATS, teamRecordDetail, type TeamRecordValueDef } from "../../shared/teamRecords";
 import type { PlayerGameRecordEntry, RookieEligibilityFile, TeamGameLog } from "../../shared/types";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { formatMinutesFromSeconds } from "./boxscoreAggregate";
@@ -372,7 +372,9 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
     const row = teamGameAt(q.views[cand.vi]!, cand.i);
     const frac = stat.fraction?.(row);
     const score = stat.period ? periodScore(row as unknown as TeamGameLog, stat.period.period) : null;
+    const detail = stat.period ? undefined : teamRecordDetail(stat.key, row);
     return {
+      ...(detail ? { detail } : {}),
       rank,
       value: cand.v,
       teamId: row.teamId,

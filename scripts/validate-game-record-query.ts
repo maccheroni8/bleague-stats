@@ -182,7 +182,7 @@ for (const mode of ["record", "worst", "against"] as TeamRecordMode[]) {
     for (const gameType of GAME_TYPES) {
       const mine = queryTeamGameRecords({ views: tViews, gameType, conditions: DEFAULT_GAME_RECORD_CONDITIONS, statConditions: DEFAULT_STAT_CONDITIONS, stat, includeSpecial: true }).rows;
       const fileRows: TeamGameRecordRow[] = allTimeTeamRecordRows(teamRankings, null, mode, gameType, item.key, (id) => id);
-      const key = (r: TeamGameRecordRow) => `${r.season}-${r.scheduleKey}-${r.teamId}`;
+      const key = (r: TeamGameRecordRow) => `${r.season}-${r.scheduleKey}-${r.teamId}-${JSON.stringify(r.detail ?? null)}`;
       const theirs = fileRows.map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
       g1tAll.add(sameRows(mine.map((r) => ({ rank: r.rank, value: r.value, key: key(r) })), theirs), () => `歴代 ${mode} ${gameType} ${item.key}: 索引 ${brief(mine.map((r) => ({ rank: r.rank, value: r.value, key: key(r) })))} / ファイル ${brief(theirs)}`);
     }
@@ -196,7 +196,7 @@ for (const season of seasons) {
       for (const gameType of GAME_TYPES) {
         const mine = queryTeamGameRecords({ views: [view], gameType, conditions: DEFAULT_GAME_RECORD_CONDITIONS, statConditions: DEFAULT_STAT_CONDITIONS, stat, includeSpecial: true }).rows;
         const theirs = seasonTeamRecordRows(filterByGameType(teamGamesBySeason.get(season)!, gameType), mode, item.key);
-        const key = (r: TeamGameRecordRow) => `${r.scheduleKey}-${r.teamId}`;
+        const key = (r: TeamGameRecordRow) => `${r.scheduleKey}-${r.teamId}-${JSON.stringify(r.detail ?? null)}`;
         const a = mine.map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
         const b = theirs.map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
         g1tSeason.add(sameRows(a, b), () => `${season} ${mode} ${gameType} ${item.key}: 索引 ${brief(a)} / ログ ${brief(b)}`);
@@ -438,6 +438,24 @@ g4.report();
   const pftWorst = teamQueryStat("worst", "ptsOffTov")!;
   const tAll = queryTeamGameRecords({ views: tViews, gameType: "both", conditions: DEFAULT_GAME_RECORD_CONDITIONS, statConditions: DEFAULT_STAT_CONDITIONS, stat: pftWorst, includeSpecial: true, topN: ALL });
   check("チーム PTSOFFTO（歴代）: 2016-17の行も入る", tAll.rows.some((r) => r.season === "2016-17"));
+}
+
+// ---- 5b. 最大のランと、逆転勝利・逆転負けの最終スコア（DESIGN.md 221章） ----
+{
+  const runStat = teamQueryStat("record", "maxRun")!;
+  const top = queryTeamGameRecords({ views: tViews, gameType: "both", conditions: DEFAULT_GAME_RECORD_CONDITIONS, statConditions: DEFAULT_STAT_CONDITIONS, stat: runStat, includeSpecial: true });
+  check("チーム 最大のラン（歴代）: 1位は29点（同点の2試合）", top.rows.filter((r) => r.rank === 1).length === 2 && top.rows[0]!.value === 29, brief(top.rows.map((r) => ({ rank: r.rank, value: r.value, key: r.scheduleKey }))));
+  check(
+    "チーム 最大のラン: 場所（経過秒・ラン前のスコア）と最終スコアが付き、ラン後のスコアが最終スコアを超えない",
+    top.rows.every((r) => !!r.detail && r.detail.runFromSec !== undefined && r.detail.runFromSec <= r.detail.runToSec! && r.detail.runOwnBefore! + r.value <= r.detail.finalOwn && r.detail.runOppBefore! <= r.detail.finalOpp),
+  );
+  for (const key of ["comebackWin", "blownLeadLoss"]) {
+    const st = teamQueryStat("record", key)!;
+    const rows = queryTeamGameRecords({ views: tViews, gameType: "both", conditions: DEFAULT_GAME_RECORD_CONDITIONS, statConditions: DEFAULT_STAT_CONDITIONS, stat: st, includeSpecial: true }).rows;
+    const wantWin = key === "comebackWin";
+    check(`チーム ${key}: 最終スコアが付き、勝敗と合う`, rows.length > 0 && rows.every((r) => !!r.detail && (wantWin ? r.detail.finalOwn > r.detail.finalOpp : r.detail.finalOwn < r.detail.finalOpp) && r.detail.runFromSec === undefined));
+  }
+  check("チーム 最大のラン以外の項目には添えない", queryTeamGameRecords({ views: tViews, gameType: "both", conditions: DEFAULT_GAME_RECORD_CONDITIONS, statConditions: DEFAULT_STAT_CONDITIONS, stat: ptsDef, includeSpecial: true }).rows.every((r) => r.detail === undefined));
 }
 
 // ---- 6. 感度: 条件を1か所間違えると NG になる ----

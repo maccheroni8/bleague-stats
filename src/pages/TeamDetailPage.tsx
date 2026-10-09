@@ -131,8 +131,10 @@ import {
   bestTeamSeasonRecord,
   buildTeamCareerTotals,
   longestWinStreak,
+  teamRecordDetail,
   type TeamSeasonSpecialAggregate,
 } from "../../shared/teamRecords";
+import { formatTeamRecordDetail } from "../lib/teamGameRecords";
 import {
   seasonBoxColumnsFor,
   SEASON_BOX_PERIOD_OPTIONS,
@@ -3875,6 +3877,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 {clubRecords.map((r) => (
                   <ClubRecordCard
                     key={r.key}
+                    recordKey={r.key}
                     tieKey={`high:${r.key}`}
                     label={r.label}
                     display={r.display}
@@ -3897,6 +3900,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 {clubWorsts.map((r) => (
                   <ClubRecordCard
                     key={r.key}
+                    recordKey={r.key}
                     tieKey={`worst:${r.key}`}
                     label={r.label}
                     display={r.display}
@@ -3918,6 +3922,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 {clubAgainstRecords.map((r) => (
                   <ClubRecordCard
                     key={r.key}
+                    recordKey={r.key}
                     tieKey={`against:${r.key}`}
                     label={r.label}
                     display={r.display}
@@ -4671,6 +4676,7 @@ function StatTile({ label, value, rank }: { label: string; value: string; rank?:
  * トップ5、それ以外はトップ10）が別途展開できる。デフォルトは非表示
  */
 function ClubRecordCard({
+  recordKey,
   tieKey,
   label,
   display,
@@ -4685,6 +4691,8 @@ function ClubRecordCard({
   topNExpandedKeys,
   onToggleTopN,
 }: {
+  /** 項目のキー（逆転勝利・逆転負け・最大のランは、最終スコアなどを添える） */
+  recordKey: string;
   tieKey: string;
   label: string;
   display: string;
@@ -4704,6 +4712,11 @@ function ClubRecordCard({
   const expanded = expandedKeys.has(tieKey);
   const topNExpanded = topNExpandedKeys?.has(tieKey) ?? false;
   const topNAvailable = topEntries.length > 1 && !!onToggleTopN;
+  const detailOf = (g: TeamRecordGame, value: number): string | null => {
+    const d = teamRecordDetail(recordKey, g);
+    return d ? formatTeamRecordDetail(d, value) : null;
+  };
+  const firstDetail = detailOf(game, game.maxRun ?? 0);
   return (
     <div className="career-high-card">
       {topNAvailable ? (
@@ -4726,6 +4739,7 @@ function ClubRecordCard({
         {game.date}　{game.isHome ? "vs" : "@"}
         <ResponsiveTeamName teamId={game.opponentTeamId} name={game.opponentTeamName} always />
       </RouterLink>
+      {firstDetail && <div>{firstDetail}</div>}
       {otherGames.length > 0 && (
         <>
           <button type="button" className="career-high-others-toggle" onClick={() => onToggle(tieKey)}>
@@ -4739,6 +4753,7 @@ function ClubRecordCard({
                     {g.date}　{g.isHome ? "vs" : "@"}
                     <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always />
                   </RouterLink>
+                  {detailOf(g, g.maxRun ?? 0) && <div>{detailOf(g, g.maxRun ?? 0)}</div>}
                 </li>
               ))}
             </ul>
@@ -4759,6 +4774,7 @@ function ClubRecordCard({
                     <span className="record-date-nowrap">{e.game.date}</span>　{e.game.isHome ? "vs" : "@"}
                     <ResponsiveTeamName teamId={e.game.opponentTeamId} name={e.game.opponentTeamName} always />
                   </RouterLink>
+                  {detailOf(e.game, e.value) && <div>{detailOf(e.game, e.value)}</div>}
                 </td>
               </tr>
             ))}
