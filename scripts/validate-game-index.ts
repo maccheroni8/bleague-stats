@@ -20,7 +20,7 @@ import { classKeyOf } from "../shared/classificationKey.ts";
 import { ageOnDate, compareAge, formatAgeOnDate } from "../shared/gameAge.ts";
 import { PLAYER_GAME_RECORD_STATS, type PlayerRecordGame } from "../shared/playerGameRecords.ts";
 import { TEAM_AGAINST_RECORD_STATS, TEAM_RECORD_STATS } from "../shared/teamRecords.ts";
-import { INDEX_UNAVAILABLE_COLUMNS, PLAYER_INDEX_CLUTCH_COLUMNS, PLAYER_INDEX_STAT_COLUMNS, type PlayerGameIndexFile, type TeamGameIndexFile } from "../shared/gameIndex.ts";
+import { PLAYER_INDEX_CLUTCH_COLUMNS, PLAYER_INDEX_STAT_COLUMNS, type PlayerGameIndexFile, type TeamGameIndexFile } from "../shared/gameIndex.ts";
 import { clutchByPlayer, maxRuns, scoringSequence } from "../shared/gameFlow.ts";
 import { computeAssistedScoring } from "../shared/assistedScoring.ts";
 import { assistPairPoints, sortedAssistPairRows, type AssistPairsFile } from "../shared/assistPairs.ts";
@@ -192,17 +192,8 @@ for (const season of seasons) {
   perSeasonRecordGames.set(season, recordGames);
   allRecordGames.push(...recordGames);
 
-  // ---- 算出できない列 ----
-  eq(`${season} 算出できない列（選手）`, playerFile.unavailable, INDEX_UNAVAILABLE_COLUMNS[season]?.player ?? []);
-  eq(`${season} 算出できない列（チーム）`, teamFile.unavailable, INDEX_UNAVAILABLE_COLUMNS[season]?.team ?? []);
-  if (season === "2016-17") {
-    // タグが無いのはこのシーズンの試合の記録のほぼ全部。0でない値は、後ろのほうの1試合（538、2017-05-07）にだけある
-    const nonZeroGames = (rowGame: (i: number) => number, values: number[]) => [...new Set(values.map((v, i) => (v !== 0 ? games.key[rowGame(i)]! : "")).filter((k) => k !== ""))];
-    eq("2016-17 のターンオーバーからの得点が0でない選手の行は、試合538だけ", nonZeroGames((i) => playerFile.rows.game[i]!, playerFile.rows.stats.ptsOffTov), ["538"]);
-    eq("2016-17 のターンオーバーからの得点が0でないチームの行は、試合538だけ", nonZeroGames((i) => i >> 1, teamFile.rows.stats.pft), ["538"]);
-  } else {
-    check(`${season} ターンオーバーからの得点に 0 でない値がある`, playerFile.rows.stats.ptsOffTov.some((v) => v > 0) && teamFile.rows.stats.pft.some((v) => v > 0));
-  }
+  // ---- ターンオーバーからの得点（2016-17を含む全シーズンで値がある。DESIGN.md 221章） ----
+  check(`${season} ターンオーバーからの得点に 0 でない値がある（選手・チーム）`, playerFile.rows.stats.ptsOffTov.some((v) => v > 0) && teamFile.rows.stats.pft.some((v) => v > 0));
 
   // ---- チームの行 ----
   eq(`${season} チームの行数 = 試合の数×2`, tv.size, games.key.length * 2);
@@ -282,6 +273,15 @@ for (const season of seasons) {
     if (isShort) shortGames += 1;
     if (((games.flags[gi]! & 1) !== 0) !== (summaryByKey.get(key)!.gameType === "playoff")) gm.add(`${key} ポストシーズンの旗`);
 
+    // ターンオーバーからの得点: チームの行が公式SummariesのPTPFT（試合全体の行 PeriodCategory=18）と一致する
+    const official = (raw.raw.Summaries ?? []).find((x) => x.PeriodCategory === 18);
+    if (!official) gm.add(`${key} 公式の集計行（PeriodCategory=18）が無い`);
+    else {
+      const h = teamGameAt(tv, gi * 2).pft;
+      const a = teamGameAt(tv, gi * 2 + 1).pft;
+      if (h !== official.HomeTeamPTPFT || a !== official.AwayTeamPTPFT) gm.add(`${key} ターンオーバーからの得点: 索引 ${h}-${a} / 公式 ${official.HomeTeamPTPFT}-${official.AwayTeamPTPFT}`);
+    }
+
     // 最大のラン・勝負所: 生データから作り直した値（shared/gameFlow.ts）と、索引のチームの行・選手の行の合計が一致する
     const flow = scoringSequence(raw.raw.PlayByPlays ?? []);
     const runs = maxRuns(flow.events);
@@ -301,7 +301,7 @@ for (const season of seasons) {
     const pairRows = sortedAssistPairRows(computeAssistedScoring(withChronologicalPlayByPlays(raw).raw.PlayByPlays ?? []).pairs.values());
     expectedPairs.set(key, pairRows.map((r) => `${r.assisterId}>${r.scorerId}:${r.n2},${r.n3},${r.nf}`));
   }
-  check(`${season} 延長の本数・最大リード・得点・旗・最大のランが生データの数え直しと一致`, gm.count === 0, `${gm.count}件\n   ${gm.samples.join("\n   ")}`);
+  check(`${season} 延長の本数・最大リード・得点・旗・最大のラン・ターンオーバーからの得点（公式Summaries）が生データの数え直しと一致`, gm.count === 0, `${gm.count}件\n   ${gm.samples.join("\n   ")}`);
 
   // 勝負所: 試合ごとに、索引の選手の行の合計が、生データから数えた合計と一致する（出場していない選手の分が無いことの確認も兼ねる）
   {

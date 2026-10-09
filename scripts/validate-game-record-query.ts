@@ -7,7 +7,7 @@
 //  2. 試合の条件（勝敗・会場・対戦相手・延長・最終点差・試合中の点差・自チーム／対戦相手の地区・試合区分）の判定が、元の試合ログと地区の履歴から数え直した結果と一致する
 //  3. 個人の登録区分・ルーキー（2016-17の行が無い）・ポジション・スタッツの条件（すべて／どれか）の判定が一致する
 //  4. 順位（1・2・2・4）・並びの向き・同じ値の中の並び・N位までの切り方
-//  5. 前後半5分の特別な試合の除外件数と、算出できない列（2016-17のPTSOFFTO）の行の扱い
+//  5. 前後半5分の特別な試合の除外件数と、2016-17のPTSOFFTOの行（値がある）
 //  6. 条件を1か所間違えると NG になること（感度の確認）
 //
 // 使い方: npm run validate:game-record-query（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
@@ -16,7 +16,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readJson } from "./lib/storage.ts";
 import { loadSeasonRecordGames, type RecordGame } from "./lib/playerGameRecordsTop.ts";
 import { teamDivisionForSeason } from "./lib/divisions.ts";
-import { INDEX_UNAVAILABLE_COLUMNS, type PlayerGameIndexFile, type TeamGameIndexFile } from "../shared/gameIndex.ts";
+import { type PlayerGameIndexFile, type TeamGameIndexFile } from "../shared/gameIndex.ts";
 import { PLAYER_GAME_RECORD_STATS } from "../shared/playerGameRecords.ts";
 import type {
   DivisionHistoryFile,
@@ -82,9 +82,6 @@ class Group {
   }
 }
 
-/** 今の上位20位のファイルが、公式の記録に無い2016-17のPTSOFFTO（0）の行を含むため、突き合わせから外したもの。索引の側は、その行を外して作る */
-const skippedAffected: string[] = [];
-
 const ALL = 1_000_000;
 const GAME_TYPES: SeasonGameTypeFilter[] = ["regular", "playoff", "both"];
 const SPECIAL_KEYS = new Set(["1330", "1333", "2690", "2693"]);
@@ -103,8 +100,6 @@ for (const s of seasons) {
   const tf = (await readJson<TeamGameIndexFile>(path.join(DATA_DIR, s, "team-game-index.json")))!;
   pViews.push(viewPlayerGameIndex(pf));
   tViews.push(viewTeamGameIndex(tf));
-  const expectedUnavailable = INDEX_UNAVAILABLE_COLUMNS[s] ?? { player: [], team: [] };
-  check(`${s} 算出できない列の定義がファイルと一致`, JSON.stringify(pf.unavailable) === JSON.stringify(expectedUnavailable.player) && JSON.stringify(tf.unavailable) === JSON.stringify(expectedUnavailable.team));
 }
 const pViewBySeason = new Map(pViews.map((v) => [v.season, v]));
 const tViewBySeason = new Map(tViews.map((v) => [v.season, v]));
@@ -159,10 +154,6 @@ for (const season of seasons) {
         const rows = queryPlayerGameRecords({ views: [pViewBySeason.get(season)!], gameType, conditions: DEFAULT_GAME_RECORD_CONDITIONS, group, positions: [], statConditions: DEFAULT_STAT_CONDITIONS, rookies, stat, includeSpecial: true }).rows;
         const mine = rows.map((r) => ({ rank: r.rank, value: r.value, key: `${r.scheduleKey}-${r.playerId}` }));
         const theirs = (tables[gameType][stat.key] ?? []).map((r) => ({ rank: r.rank, value: r.value, key: `${r.scheduleKey}-${r.playerId}` }));
-        if (stat.column && INDEX_UNAVAILABLE_COLUMNS[season]?.player.includes(stat.column)) {
-          skippedAffected.push(`個人 ${season} ${gameType} ${group} ${stat.key}`);
-          continue;
-        }
         g1p.add(sameRows(mine, theirs), () => `${season} ${gameType} ${group} ${stat.key}: 索引 ${brief(mine)} / ファイル ${brief(theirs)}`);
       }
     }
@@ -175,13 +166,7 @@ for (const gameType of GAME_TYPES) {
       const rows = queryPlayerGameRecords({ views: pViews, gameType, conditions: DEFAULT_GAME_RECORD_CONDITIONS, group, positions: [], statConditions: DEFAULT_STAT_CONDITIONS, rookies, stat, includeSpecial: true }).rows;
       const key = (r: { scheduleKey: string; playerId: string; season?: string }) => `${r.season}-${r.scheduleKey}-${r.playerId}`;
       const mine = rows.map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
-      // 算出できない列（2016-17のPTSOFFTO）の行は、索引では外す。ファイルの側からも同じ行を外して比べる
-      const fileRows = tables[gameType][stat.key] ?? [];
-      const theirs = fileRows.filter((r) => !(stat.column && INDEX_UNAVAILABLE_COLUMNS[r.season ?? ""]?.player.includes(stat.column))).map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
-      if (theirs.length !== fileRows.length) {
-        skippedAffected.push(`個人 歴代 ${gameType} ${group} ${stat.key}`);
-        continue;
-      }
+      const theirs = (tables[gameType][stat.key] ?? []).map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
       g1pAll.add(sameRows(mine, theirs), () => `歴代 ${gameType} ${group} ${stat.key}: 索引 ${brief(mine)} / ファイル ${brief(theirs)}`);
     }
   }
@@ -198,11 +183,7 @@ for (const mode of ["record", "worst", "against"] as TeamRecordMode[]) {
       const mine = queryTeamGameRecords({ views: tViews, gameType, conditions: DEFAULT_GAME_RECORD_CONDITIONS, statConditions: DEFAULT_STAT_CONDITIONS, stat, includeSpecial: true }).rows;
       const fileRows: TeamGameRecordRow[] = allTimeTeamRecordRows(teamRankings, null, mode, gameType, item.key, (id) => id);
       const key = (r: TeamGameRecordRow) => `${r.season}-${r.scheduleKey}-${r.teamId}`;
-      const theirs = fileRows.filter((r) => !(stat.column && INDEX_UNAVAILABLE_COLUMNS[r.season]?.team.includes(stat.column))).map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
-      if (theirs.length !== fileRows.length) {
-        skippedAffected.push(`チーム 歴代 ${mode} ${gameType} ${item.key}`);
-        continue;
-      }
+      const theirs = fileRows.map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
       g1tAll.add(sameRows(mine.map((r) => ({ rank: r.rank, value: r.value, key: key(r) })), theirs), () => `歴代 ${mode} ${gameType} ${item.key}: 索引 ${brief(mine.map((r) => ({ rank: r.rank, value: r.value, key: key(r) })))} / ファイル ${brief(theirs)}`);
     }
   }
@@ -212,7 +193,6 @@ for (const season of seasons) {
   for (const mode of ["record", "worst", "against"] as TeamRecordMode[]) {
     for (const item of teamRecordItems(mode)) {
       const stat = teamQueryStat(mode, item.key)!;
-      if (stat.column && INDEX_UNAVAILABLE_COLUMNS[season]?.team.includes(stat.column)) continue;
       for (const gameType of GAME_TYPES) {
         const mine = queryTeamGameRecords({ views: [view], gameType, conditions: DEFAULT_GAME_RECORD_CONDITIONS, statConditions: DEFAULT_STAT_CONDITIONS, stat, includeSpecial: true }).rows;
         const theirs = seasonTeamRecordRows(filterByGameType(teamGamesBySeason.get(season)!, gameType), mode, item.key);
@@ -226,8 +206,6 @@ for (const season of seasons) {
 }
 g1tAll.report();
 g1tSeason.report();
-console.log(`参考: 今の上位20位のファイルが2016-17の値なし（PTSOFFTO＝0）の行を含み、突き合わせから外した表 ${skippedAffected.length}件（索引ではその行を外すため、ここは意図した違い）\n  ${skippedAffected.join("\n  ")}`);
-check("突き合わせから外した表は、PTSOFFTOの表だけ", skippedAffected.every((l) => l.endsWith("ptsOffTov")));
 
 // ---- 2. 試合の条件の判定を、元の試合ログから数え直す ----
 const divisionOf = (teamId: string, season: string): string => teamDivisionForSeason(history, teamId, season, "premier") ?? "";
@@ -398,7 +376,7 @@ for (const gameType of ["regular", "both"] as SeasonGameTypeFilter[]) {
   g3.add(same(run("all", [], sc("all", [["pts", "gte", "20"], ["fgPct", "gte", "50"]])), expect((g) => g.pts >= 20 && g.fga > 0 && fgPctRounded(g) >= 50)), () => `スタッツの条件（すべて: PTS≥20・FG%≥50）${gameType}`);
   g3.add(same(run("all", [], sc("any", [["min", "gte", "35"], ["pts", "gte", "35"]])), expect((g) => g.min >= 35 - 1e-9 || g.pts >= 35)), () => `スタッツの条件（どれか: MIN≥35 または PTS≥35）${gameType}`);
   g3.add(same(run("all", [], sc("all", [["tov", "lte", "0"], ["ast", "gte", "8"]])), expect((g) => g.tov <= 0 && g.ast >= 8)), () => `スタッツの条件（TOV≤0・AST≥8）${gameType}`);
-  g3.add(same(run("all", [], sc("all", [["ptsOffTov", "gte", "10"]])), expect((g) => g.season !== "2016-17" && g.ptsOffTov >= 10)), () => `スタッツの条件（PTSOFFTO≥10。2016-17は値なし）${gameType}`);
+  g3.add(same(run("all", [], sc("all", [["ptsOffTov", "gte", "10"]])), expect((g) => g.ptsOffTov >= 10)), () => `スタッツの条件（PTSOFFTO≥10。2016-17を含む）${gameType}`);
 }
 g3.report();
 check("個人 スタッツの条件の項目に PTSOFFTO・TOV・PF がある", ["ptsOffTov", "tov", "pf"].every((k) => PLAYER_STAT_CONDITION_ITEMS.some((i) => i.key === k)));
@@ -423,7 +401,6 @@ function checkRanking<R extends { rank: number; value: number; date: string; sch
   g4.add(tiesOk, () => `${label}: 同じ値の中の並び（${fraction ? "試投数の多い順→" : ""}${dateOldFirst ? "古い" : "新しい"}試合から）`);
 }
 for (const stat of [...playerQueryStats("record"), ...playerQueryStats("worst")] as PlayerQueryStat[]) {
-  if (stat.column && false) continue;
   const q = (topN: number) => queryPlayerGameRecords({ views: pViews, gameType: "both", conditions: { ...DEFAULT_GAME_RECORD_CONDITIONS, result: "win" }, group: "all", positions: [], statConditions: DEFAULT_STAT_CONDITIONS, rookies, stat, includeSpecial: false, topN });
   checkRanking(`個人 ${stat.key} ${stat.lowerFirst ? "少ない順" : "多い順"}`, q(20).rows, q(ALL).rows, stat.lowerFirst, !!stat.def.fraction, false);
 }
@@ -436,7 +413,7 @@ for (const mode of ["record", "worst", "against"] as TeamRecordMode[]) {
 }
 g4.report();
 
-// ---- 5. 前後半5分の特別な試合・算出できない列 ----
+// ---- 5. 前後半5分の特別な試合・2016-17のPTSOFFTO ----
 {
   const flagged = new Set<string>();
   for (const v of tViews) v.file.games.key.forEach((k, g) => { if ((v.file.games.flags[g]! & 2) !== 0) flagged.add(k); });
@@ -453,14 +430,14 @@ g4.report();
 
   const ptsOff = playerQueryStats("record").find((s) => s.key === "ptsOffTov")!;
   const resAll = queryPlayerGameRecords({ views: pViews, gameType: "both", conditions: DEFAULT_GAME_RECORD_CONDITIONS, group: "all", positions: [], statConditions: DEFAULT_STAT_CONDITIONS, rookies, stat: ptsOff, includeSpecial: true, topN: ALL });
-  check("個人 PTSOFFTO（歴代）: 2016-17を行から外す", JSON.stringify(resAll.unavailableSeasons) === '["2016-17"]' && !resAll.rows.some((r) => r.season === "2016-17"));
-  const expectedCount = allPlayerGames.filter((g) => g.season !== "2016-17").length;
-  check("個人 PTSOFFTO（歴代）: 2016-17以外の行がすべて入る", resAll.rows.length === expectedCount, `${resAll.rows.length} / ${expectedCount}`);
+  check("個人 PTSOFFTO（歴代）: 2016-17の行も入る", resAll.rows.some((r) => r.season === "2016-17"));
+  const expectedCount = allPlayerGames.length;
+  check("個人 PTSOFFTO（歴代）: すべての行が入る", resAll.rows.length === expectedCount, `${resAll.rows.length} / ${expectedCount}`);
   const only1617 = queryPlayerGameRecords({ views: [pViewBySeason.get("2016-17")!], gameType: "both", conditions: DEFAULT_GAME_RECORD_CONDITIONS, group: "all", positions: [], statConditions: DEFAULT_STAT_CONDITIONS, rookies, stat: ptsOff, includeSpecial: true });
-  check("個人 PTSOFFTO（2016-17）: 行が無い", only1617.rows.length === 0);
+  check("個人 PTSOFFTO（2016-17）: 値のある行がある", only1617.rows.length > 0 && only1617.rows[0]!.value > 0);
   const pftWorst = teamQueryStat("worst", "ptsOffTov")!;
   const tAll = queryTeamGameRecords({ views: tViews, gameType: "both", conditions: DEFAULT_GAME_RECORD_CONDITIONS, statConditions: DEFAULT_STAT_CONDITIONS, stat: pftWorst, includeSpecial: true, topN: ALL });
-  check("チーム PTSOFFTO（歴代）: 2016-17を行から外す", JSON.stringify(tAll.unavailableSeasons) === '["2016-17"]' && !tAll.rows.some((r) => r.season === "2016-17"));
+  check("チーム PTSOFFTO（歴代）: 2016-17の行も入る", tAll.rows.some((r) => r.season === "2016-17"));
 }
 
 // ---- 6. 感度: 条件を1か所間違えると NG になる ----

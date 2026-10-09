@@ -70,8 +70,8 @@ export interface BoxscoreCounts extends Partial<FoulCategoryCounts> {
    * ターンオーバーからの得点（PTSOFFTO）。他のフィールドと異なりBoxscoreRowには個人単位の
    * フィールドが無いため、PlayByPlaysのPlayTextタグから別途算出する
    * （shared/pointsOffTurnovers.ts）。そのためsumCounts()では常に0のままで、
-   * buildPlayerBoxscores()が事後的に上書きする。2016-17シーズンのみタグ自体が存在せず
-   * 常に0になる（「0点」ではなく「算出不能」。shared/pointsOffTurnovers.ts参照）
+   * buildPlayerBoxscores()が事後的に上書きする。
+   * 2016-17のタグは表記が違う（「ポイントフロムターンオーバ」）が、同じように数える（shared/pointsOffTurnovers.ts参照）
    */
   ptsOffTov: number;
   /**

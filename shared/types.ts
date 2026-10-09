@@ -792,7 +792,7 @@ export interface PlayerGameLog extends Partial<FoulCategoryCounts> {
   /** 対戦相手チームの同時出場外国籍選手数（foreignPlayerCountと同じ算出方法、相手チーム視点） */
   opponentForeignPlayerCount?: number;
   /** ターンオーバーからの得点（PTSOFFTO）。PlayTextの公式判定タグ集計。shared/pointsOffTurnovers.ts参照。
-   * 2016-17シーズンのみタグ自体が存在せず常に0（「算出不能」、DESIGN.md参照） */
+   * 2016-17のタグは表記が違う（「ポイントフロムターンオーバ」）が、同じように数える（DESIGN.md 221章） */
   ptsOffTov: number;
   /** ダンク成功数 */
   dunks: number;

@@ -20,12 +20,10 @@
 // 公式が既に判定済みのタグをそのまま集計する薄いラッパーにとどめている
 // （ActionCD1コード自体の確認・状態機械のアルゴリズム検討はDESIGN.md参照）。
 //
-// ⚠️ 2016-17シーズン（B.LEAGUE発足シーズン）のみ、このタグがPlayTextに一切存在しない
-// （開幕〜プレーオフまでシーズン全体で確認済み）。2017-18シーズン以降（legacy取得・
-// modern取得問わず）は存在する。2016-17シーズンの試合ではこの関数は常に空のMapを返し、
-// 「0点」ではなく「算出不能」であることに注意（呼び出し側で明示的にケアすることを推奨）。
-// 2016-17以外の全シーズン（B.PREMIER 2017-18〜2025-26・B.ONE 2025-26）で、公式Summariesの
-// PTPFTと選手単位の合算値が完全一致することを確認済み
+// 2016-17シーズン（B.LEAGUE発足シーズン）は、タグの表記が違う: 「ポイントフロムターンオーバ（ー）」（2017-18以降は「ポインツオフターンオーバ（ー）」）。
+// 以前は「2016-17はタグが無く算出できない」と扱っていたが、表記の違いを数えていなかっただけだった（DESIGN.md 221章）。両方の表記を数えると、
+// 2016-17の全557試合でチームの合計が公式SummariesのPTPFTと一致する（scripts/validate-points-off-turnovers.ts）。試合538だけは両方の表記が混ざる。
+// 2017-18以降（B.PREMIER・B.ONE 2025-26）も公式SummariesのPTPFTと選手単位の合算値が完全一致することを確認済み
 // （scripts/validate-points-off-turnovers.ts、DESIGN.md参照）。
 
 import type { PlayByPlayEvent } from "./types.ts";
@@ -33,7 +31,8 @@ import type { PlayByPlayEvent } from "./types.ts";
 // 末尾の長音符「ー」は、後ろに別のタグ（"セカンドチャンス"等）が続く場合に脱落する表記ゆれが
 // あるため、長音符を含めずに判定する（例:
 // "ファストブレイクポインツオフターンオーバセカンドチャンス"。2026-08-17、実データで確認）
-const POINTS_OFF_TURNOVER_TAG = "ポインツオフターンオーバ";
+// 2016-17は「ポイントフロムターンオーバ」、2017-18以降は「ポインツオフターンオーバ」
+const POINTS_OFF_TURNOVER_TAGS = ["ポインツオフターンオーバ", "ポイントフロムターンオーバ"];
 
 const MADE_FG_CODES = new Set([1, 3, 4]);
 const MADE_FT_CODE = 7;
@@ -58,7 +57,7 @@ export function computePointsOffTurnovers(playByPlays: PlayByPlayEvent[]): Point
 
   for (const event of playByPlays) {
     if (!(MADE_FG_CODES.has(event.ActionCD1) || event.ActionCD1 === MADE_FT_CODE)) continue;
-    if (!event.PlayText?.includes(POINTS_OFF_TURNOVER_TAG)) continue;
+    if (!POINTS_OFF_TURNOVER_TAGS.some((tag) => event.PlayText?.includes(tag))) continue;
     const points = pointsForMadeShot(event.ActionCD1);
     if (points <= 0 || !event.TeamID) continue;
 

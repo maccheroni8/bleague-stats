@@ -33,7 +33,6 @@ import {
   TEAM_STAT_CONDITION_ITEMS,
   queryTeamGameRecords,
   teamQueryStat,
-  teamStatUnavailableIn,
 } from "../lib/gameRecordQuery";
 import { useGameIndexViews, useGameRecordOptions } from "../lib/useGameRecordData";
 import { DEFAULT_STAT_CONDITIONS, statConditionMatcher, statConditionsTitle } from "../lib/statConditions";
@@ -110,13 +109,9 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
   const allTime = scope === "allTime";
 
-  // 項目。その項目を算出できないシーズン（2016-17のPTSOFFTO）は選べない
+  // 項目
   const items = useMemo(() => teamRecordItems(mode), [mode]);
-  const unavailableHere = (key: string) => {
-    const st = teamQueryStat(mode, key);
-    return !allTime && !!st && teamStatUnavailableIn(season, st);
-  };
-  const item = items.find((i) => i.key === statParam && !unavailableHere(i.key)) ?? items.find((i) => i.key === "pts") ?? items.find((i) => !unavailableHere(i.key)) ?? items[0]!;
+  const item = items.find((i) => i.key === statParam) ?? items.find((i) => i.key === "pts") ?? items[0]!;
   const stat = useMemo(() => teamQueryStat(mode, item.key)!, [mode, item.key]);
   const includeSpecialDefault = effectiveIncludeSpecial(DEFAULT_GAME_RECORD_CONDITIONS, stat.lowerFirst);
   const includeSpecial = effectiveIncludeSpecial(conditions, stat.lowerFirst);
@@ -217,11 +212,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
         stateKey="rankings:team:game:stat"
         axes={[
           statItemAxis(
-            items.map((i) => ({
-              ...i,
-              disabled: unavailableHere(i.key),
-              disabledReason: unavailableHere(i.key) ? `${season}は、公式の記録にターンオーバーからの得点が無いため選べません。` : undefined,
-            })),
+            items,
             item.key,
             setStatKey,
           ),
@@ -240,7 +231,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
         <>
           <p className="empty-message">この条件の試合がありません</p>
           {result && (
-            <GameRecordNotes excludedSpecial={result.excludedSpecial} ascendingDefault={!includeSpecialDefault} unavailableSeasons={result.unavailableSeasons} unavailableLabel="ターンオーバーからの得点" positionFallback={false} />
+            <GameRecordNotes excludedSpecial={result.excludedSpecial} ascendingDefault={!includeSpecialDefault} positionFallback={false} />
           )}
         </>
       ) : (
@@ -293,8 +284,6 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
               <GameRecordNotes
                 excludedSpecial={result.excludedSpecial}
                 ascendingDefault={!includeSpecialDefault}
-                unavailableSeasons={result.unavailableSeasons}
-                unavailableLabel="ターンオーバーからの得点"
                 positionFallback={false}
               />
             )}

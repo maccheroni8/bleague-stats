@@ -15,7 +15,7 @@
 //   - 2ND PTS: 同上、"セカンドチャンス"タグ
 // このタグを持つ得点イベントの得点を選手単位で合算するだけで、公式Summariesの値と完全に
 // 一致することを確認済み（全10シーズン・B.ONE込み6,669試合・13,338チーム×試合で3項目とも
-// 100%一致、不一致0件。PTSOFFTOと異なり2016-17シーズンでもタグが存在し機能する。詳細はDESIGN.md参照）。
+// 100%一致、不一致0件。2016-17シーズンでもタグが存在し機能する（PTSOFFTOも表記違いの「ポイントフロムターンオーバ」で同様に数える）。詳細はDESIGN.md参照）。
 
 import type { PlayByPlayEvent } from "./types.ts";
 import { pointsForMadeShot } from "./pointsOffTurnovers.ts";

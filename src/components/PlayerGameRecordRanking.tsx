@@ -19,7 +19,6 @@ import {
   PLAYER_RECORD_MODE_LABELS,
   PLAYER_STAT_CONDITION_ITEMS,
   playerQueryStats,
-  playerStatUnavailableIn,
   queryPlayerGameRecords,
   type PlayerRecordMode,
   type PlayerRecordRow,
@@ -104,10 +103,9 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const allTime = scope === "allTime";
   const seasonForTitle = allTime ? null : season;
 
-  // 項目: 記録＝今の36項目、ワースト＝成功率6つ・EFF・+/-（少ない順）とTOV（多い順）。その項目を算出できないシーズン（2016-17のPTSOFFTO）は選べない
+  // 項目: 記録＝今の36項目、ワースト＝成功率6つ・EFF・+/-（少ない順）とTOV（多い順）。
   const stats = useMemo(() => playerQueryStats(mode), [mode]);
-  const unavailableHere = (s: { column?: string }) => !allTime && playerStatUnavailableIn(season, s);
-  const stat = stats.find((s) => s.key === statParam && !unavailableHere(s)) ?? stats.find((s) => s.key === "pts") ?? stats.find((s) => !unavailableHere(s)) ?? stats[0]!;
+  const stat = stats.find((s) => s.key === statParam) ?? stats.find((s) => s.key === "pts") ?? stats[0]!;
   const def: PlayerGameRecordDef = stat.def;
   const includeSpecialDefault = effectiveIncludeSpecial(DEFAULT_GAME_RECORD_CONDITIONS, stat.lowerFirst);
   const includeSpecial = effectiveIncludeSpecial(conditions, stat.lowerFirst);
@@ -217,8 +215,6 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
             stats.map((s) => ({
               key: s.key,
               label: s.label,
-              disabled: unavailableHere(s),
-              disabledReason: unavailableHere(s) ? `${season}は、公式の記録にターンオーバーからの得点が無いため選べません。` : undefined,
             })),
             def.key,
             setStatKey,
@@ -239,7 +235,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
       ) : !entries || entries.length === 0 ? (
         <>
           <p className="empty-message">この条件の試合がありません</p>
-          {result && <GameRecordNotes excludedSpecial={result.excludedSpecial} ascendingDefault={includeSpecialDefault === false} unavailableSeasons={result.unavailableSeasons} unavailableLabel="ターンオーバーからの得点" positionFallback={false} />}
+          {result && <GameRecordNotes excludedSpecial={result.excludedSpecial} ascendingDefault={includeSpecialDefault === false} positionFallback={false} />}
         </>
       ) : (
         <>
@@ -276,8 +272,6 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                 <GameRecordNotes
                   excludedSpecial={result.excludedSpecial}
                   ascendingDefault={includeSpecialDefault === false}
-                  unavailableSeasons={result.unavailableSeasons}
-                  unavailableLabel="ターンオーバーからの得点"
                   rookie={group === "rookie" ? { allTime } : undefined}
                   positionFallback={positions.length > 0 && entries.some((e) => e.positionFallback)}
                 />

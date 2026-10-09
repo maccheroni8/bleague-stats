@@ -11,7 +11,6 @@ import {
   GAME_FLAG_PLAYOFF,
   GAME_FLAG_SHORT,
   GAME_INDEX_VERSION,
-  INDEX_UNAVAILABLE_COLUMNS,
   PLAYER_INDEX_CLUTCH_COLUMNS,
   PLAYER_INDEX_STAT_COLUMNS,
   ROW_FLAG_HOME,
@@ -156,12 +155,10 @@ export async function buildGameIndex(season: string): Promise<{ player: PlayerGa
       if (own.periodPointsFromPbp?.length) periodsFromPbp.push([gi * 2 + side, own.periodPointsFromPbp]);
     }
   }
-  const unavailable = INDEX_UNAVAILABLE_COLUMNS[season];
   const team: TeamGameIndexFile = {
     version: GAME_INDEX_VERSION,
     generatedAt,
     season,
-    unavailable: unavailable?.team ?? [],
     teams,
     games,
     rows: { stats: teamStats, periodsFromPbp },
@@ -220,7 +217,6 @@ export async function buildGameIndex(season: string): Promise<{ player: PlayerGa
     version: GAME_INDEX_VERSION,
     generatedAt,
     season,
-    unavailable: unavailable?.player ?? [],
     teams,
     games,
     players,

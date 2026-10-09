@@ -3,7 +3,7 @@
 // 集計のコードから読まれるので保存キーの対象（scripts/lib/dataLayout.ts の BUILD_CODE_ENTRIES）。検索・年齢・ルーキーの突き合わせなど画面側の部品は src/lib/gameIndex.ts（対象外）に置く。
 //
 // 行を1件ずつオブジェクトにすると多い（全シーズンで選手 約13万行）ので、読み込んだ列はそのまま持ち、必要な行だけ playerGameAt・teamGameAt でオブジェクトにする。
-// 出場時間は分（秒÷60）に戻す。算出できない列（view.unavailable）は、行では 0 のままなので、条件や昇順では対象から外すこと。
+// 出場時間は分（秒÷60）に戻す。
 import {
   GAME_FLAG_PLAYOFF,
   GAME_FLAG_SHORT,
@@ -88,11 +88,10 @@ export interface PlayerGameIndexView {
   file: PlayerGameIndexFile;
   /** 行の数 */
   size: number;
-  unavailable: ReadonlySet<string>;
 }
 
 export function viewPlayerGameIndex(file: PlayerGameIndexFile): PlayerGameIndexView {
-  return { season: file.season, file, size: file.rows.player.length, unavailable: new Set(file.unavailable) };
+  return { season: file.season, file, size: file.rows.player.length };
 }
 
 function teamOf(teams: IndexTeam[], i: number): IndexTeam {
@@ -273,7 +272,6 @@ export interface TeamGameIndexView {
   file: TeamGameIndexFile;
   /** 行の数（試合の数×2） */
   size: number;
-  unavailable: ReadonlySet<string>;
   periodsFromPbp: ReadonlyMap<number, number[]>;
 }
 
@@ -282,7 +280,6 @@ export function viewTeamGameIndex(file: TeamGameIndexFile): TeamGameIndexView {
     season: file.season,
     file,
     size: file.games.key.length * 2,
-    unavailable: new Set(file.unavailable),
     periodsFromPbp: new Map(file.rows.periodsFromPbp),
   };
 }

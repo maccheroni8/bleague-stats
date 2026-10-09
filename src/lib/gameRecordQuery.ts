@@ -5,7 +5,7 @@
 // 行を全件オブジェクトにはしない（全シーズンで選手13万行）。試合ごとの条件は「試合×ホーム/アウェイ」の事実の表（GameSideFacts。約1万2千件）で先に判定し、
 // 通った行だけを playerGameAt・teamGameAt でオブジェクトにする。
 import { FIRST_LEAGUE_SEASON } from "../../shared/rookieEligibility";
-import { INDEX_UNAVAILABLE_COLUMNS, GAME_FLAG_PLAYOFF, GAME_FLAG_SHORT, ROW_FLAG_HOME, type IndexGames, type IndexTeam } from "../../shared/gameIndex";
+import { GAME_FLAG_PLAYOFF, GAME_FLAG_SHORT, ROW_FLAG_HOME, type IndexGames, type IndexTeam } from "../../shared/gameIndex";
 import { PLAYER_GAME_RECORD_STATS, type PlayerGameRecordDef, type PlayerRecordGame } from "../../shared/playerGameRecords";
 import { periodRecordKindDef, periodScore, type PeriodKey, type PeriodRecordKind } from "../../shared/teamPeriodRecords";
 import { TEAM_RECORD_STATS, type TeamRecordValueDef } from "../../shared/teamRecords";
@@ -118,8 +118,6 @@ export interface GameRecordQueryResult<R> {
   rows: R[];
   /** 前後半5分の特別な試合のうち、ほかの条件に当てはまるが除いた行の数 */
   excludedSpecial: number;
-  /** 項目の値を算出できず行ごと外したシーズン（ターンオーバーからの得点の2016-17など） */
-  unavailableSeasons: string[];
 }
 
 interface Candidate {
@@ -164,8 +162,6 @@ export interface PlayerQueryStat {
   def: PlayerGameRecordDef;
   /** 値の小さい方が上位か（ワーストの成功率・EFF・+/- ） */
   lowerFirst: boolean;
-  /** 索引の列のうち、シーズンによって算出できないもの（INDEX_UNAVAILABLE_COLUMNS のキー） */
-  column?: string;
   /** 上位20位のファイルに無く、索引でしか出せないか */
   indexOnly: boolean;
 }
@@ -175,17 +171,13 @@ const WORST_ASCENDING_KEYS = ["fgPct", "2pPct", "tpPct", "ftPct", "efgPct", "tsP
 
 const TOV_DEF: PlayerGameRecordDef = { key: "tov", label: "TOV", value: (g) => g.tov };
 
-function playerColumn(key: string): string | undefined {
-  return key === "ptsOffTov" ? "ptsOffTov" : undefined;
-}
-
 /**
  * 種類ごとの項目。記録＝今の36項目（多い順）。ワースト＝成功率6つ・EFF・+/-（少ない順）と、TOV（多い順）。
  * PF・UFOUL・TF は多い順でも同率が多い（PFの5は3,102試合）ので出さない
  */
 export function playerQueryStats(mode: PlayerRecordMode): PlayerQueryStat[] {
   if (mode === "record") {
-    return PLAYER_GAME_RECORD_STATS.map((def) => ({ key: def.key, label: def.label, def, lowerFirst: false, column: playerColumn(def.key), indexOnly: false }));
+    return PLAYER_GAME_RECORD_STATS.map((def) => ({ key: def.key, label: def.label, def, lowerFirst: false, indexOnly: false }));
   }
   const worst = PLAYER_GAME_RECORD_STATS.filter((d) => WORST_ASCENDING_KEYS.includes(d.key)).map<PlayerQueryStat>((def) => ({
     key: def.key,
@@ -195,11 +187,6 @@ export function playerQueryStats(mode: PlayerRecordMode): PlayerQueryStat[] {
     indexOnly: true,
   }));
   return [...worst, { key: TOV_DEF.key, label: TOV_DEF.label, def: TOV_DEF, lowerFirst: false, indexOnly: true }];
-}
-
-/** 項目が算出できないシーズンか（そのシーズンを選んだときに項目を選べなくする） */
-export function playerStatUnavailableIn(season: string, stat: { column?: string }): boolean {
-  return !!stat.column && !!INDEX_UNAVAILABLE_COLUMNS[season]?.player.includes(stat.column);
 }
 
 export interface PlayerRecordRow extends PlayerGameRecordEntry {
@@ -228,14 +215,9 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
   const positionSet = q.positions.length > 0 ? new Set(q.positions) : null;
   const classKey = q.group === "rookie" ? undefined : classKeyOfFilter(q.group);
   const candidates: Candidate[] = [];
-  const unavailableSeasons: string[] = [];
   let excludedSpecial = 0;
 
   q.views.forEach((view, vi) => {
-    if (playerStatUnavailableIn(view.season, stat)) {
-      unavailableSeasons.push(view.season);
-      return;
-    }
     const facts = gameFacts(view.file);
     const { rows, players, games } = view.file;
     for (let i = 0; i < view.size; i++) {
@@ -290,7 +272,7 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
       ...(row.positionFallback ? { positionFallback: row.positionFallback } : {}),
     };
   });
-  return { rows, excludedSpecial, unavailableSeasons };
+  return { rows, excludedSpecial };
 }
 
 // ---- チーム ----
@@ -305,13 +287,7 @@ export interface TeamQueryStat {
   fraction?: (g: IndexedTeamGame) => readonly [number, number];
   /** 区間の値（クォーター別・前後半別） */
   period?: { period: PeriodKey; kind: PeriodRecordKind };
-  /** 算出できないシーズンがある列（チームの索引の列名） */
-  column?: string;
   indexOnly: false;
-}
-
-function teamColumn(key: string): string | undefined {
-  return key === "ptsOffTov" ? "pft" : undefined;
 }
 
 /** 種類・項目から、条件付きの集計に使う定義を作る。項目が無ければ null */
@@ -342,13 +318,8 @@ export function teamQueryStat(mode: TeamRecordMode, key: string): TeamQueryStat 
     value: (g) => def.value(g as unknown as TeamGameLog),
     filter: def.filter ? (g) => def.filter!(g as unknown as TeamGameLog) : undefined,
     fraction: def.fraction ? (g) => def.fraction!(g as unknown as TeamGameLog) : undefined,
-    column: teamColumn(key),
     indexOnly: false,
   };
-}
-
-export function teamStatUnavailableIn(season: string, stat: { column?: string }): boolean {
-  return !!stat.column && !!INDEX_UNAVAILABLE_COLUMNS[season]?.team.includes(stat.column);
 }
 
 export interface TeamQuery {
@@ -365,14 +336,9 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
   const { stat, conditions: c } = q;
   const matcher = statConditionMatcher(q.statConditions, TEAM_STAT_CONDITION_ITEMS);
   const candidates: Candidate[] = [];
-  const unavailableSeasons: string[] = [];
   let excludedSpecial = 0;
 
   q.views.forEach((view, vi) => {
-    if (teamStatUnavailableIn(view.season, stat)) {
-      unavailableSeasons.push(view.season);
-      return;
-    }
     const facts = gameFacts(view.file);
     const { games, teams } = view.file;
     for (let i = 0; i < view.size; i++) {
@@ -421,7 +387,7 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
       ...(score ? { ownPoints: score.pts, oppPoints: score.oppPts, ...(score.fromPbp ? { fromPbp: true } : {}) } : {}),
     };
   });
-  return { rows, excludedSpecial, unavailableSeasons };
+  return { rows, excludedSpecial };
 }
 
 // ---- スタッツの条件の項目（その試合の値で判定する） ----
@@ -430,7 +396,6 @@ const CONDITION_GROUP = "1試合の値";
 
 function playerConditionItem(def: PlayerGameRecordDef): StatConditionItem<IndexedPlayerGame> {
   const kind = def.kind === "pct" ? "pct" : def.kind === "minutes" ? "minutes" : def.kind === "ratio" || def.kind === "signed" ? "rate" : "count";
-  const column = playerColumn(def.key);
   return {
     key: def.key,
     label: def.label,
@@ -439,7 +404,6 @@ function playerConditionItem(def: PlayerGameRecordDef): StatConditionItem<Indexe
     unit: kind === "pct" ? "%" : kind === "minutes" ? "分" : "",
     suffix: kind === "pct" ? "%" : kind === "minutes" ? "分" : "",
     display: (row) => {
-      if (column && INDEX_UNAVAILABLE_COLUMNS[row.season]?.player.includes(column)) return "-";
       const game = row as unknown as PlayerRecordGame;
       // 成功率は試投が無い試合を「-」にする（最低試投数は、条件ではなく、記録の一覧の対象を決めるものなので、ここでは掛けない）
       if (def.fraction && def.fraction(game)[1] === 0) return "-";
@@ -471,7 +435,6 @@ export const PLAYER_STAT_CONDITION_ITEMS: StatConditionItem<IndexedPlayerGame>[]
 
 function teamConditionItem(def: TeamRecordValueDef): StatConditionItem<IndexedTeamGame> {
   const pct = !!def.fraction;
-  const column = teamColumn(def.key);
   return {
     key: def.key,
     label: def.label,
@@ -480,7 +443,6 @@ function teamConditionItem(def: TeamRecordValueDef): StatConditionItem<IndexedTe
     unit: pct ? "%" : "",
     suffix: pct ? "%" : "",
     display: (row) => {
-      if (column && INDEX_UNAVAILABLE_COLUMNS[row.season]?.team.includes(column)) return "-";
       const game = row as unknown as TeamGameLog;
       if (def.fraction) {
         if (def.fraction(game)[1] === 0) return "-";

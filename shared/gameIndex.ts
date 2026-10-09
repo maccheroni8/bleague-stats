@@ -112,11 +112,6 @@ export const TEAM_INDEX_STAT_COLUMNS = [
 /** チームの1Q〜4Qの得点の列。自チーム p1〜p4、相手 o1〜o4。公式のスコアが欠けていて補えなかった区間と、前後半5分の特別な試合は -1 */
 export const TEAM_INDEX_PERIOD_COLUMNS = ["p1", "p2", "p3", "p4", "o1", "o2", "o3", "o4"] as const;
 
-/** そのシーズンは算出できない列（0ではなく「値なし」として読む）。2016-17はターンオーバーからの得点のタグが公式の記録に無い（shared/pointsOffTurnovers.ts） */
-export const INDEX_UNAVAILABLE_COLUMNS: Record<string, { player: string[]; team: string[] }> = {
-  "2016-17": { player: ["ptsOffTov"], team: ["pft"] },
-};
-
 /** チーム辞書の1件: [チームID, そのシーズンのチーム名, そのシーズンの地区（履歴に無ければ ""）] */
 export type IndexTeam = [id: string, name: string, division: Division | ""];
 
@@ -144,8 +139,6 @@ export interface PlayerGameIndexFile {
   version: typeof GAME_INDEX_VERSION;
   generatedAt: string;
   season: string;
-  /** 算出できない統計の列（INDEX_UNAVAILABLE_COLUMNS） */
-  unavailable: string[];
   teams: IndexTeam[];
   games: IndexGames;
   players: IndexPlayer[];
@@ -162,7 +155,6 @@ export interface TeamGameIndexFile {
   version: typeof GAME_INDEX_VERSION;
   generatedAt: string;
   season: string;
-  unavailable: string[];
   teams: IndexTeam[];
   games: IndexGames;
   /** 1チーム×1試合。各試合にホーム・アウェイの2行があり、行の位置は「試合の番号×2＋(ホーム 0／アウェイ 1)」 */
