@@ -80,10 +80,13 @@ export const GLOBAL_DERIVED_ENTRIES = [
   "seasons.json.gz",
 ] as const;
 
-/** シーズンごとの集計の元データのうち、シーズンをまたいで読む元データ（シーズンごとの集計結果の保存キーに含める） */
+/**
+ * シーズンごとの集計の元データのうち、シーズンをまたいで読む元データ（シーズンごとの集計結果の保存キーに含める）。
+ * current-roster は含めない: 読むのは進行中のシーズンだけ（aggregate.ts の registered-players）で、保存して使い回すのは過去シーズンだけなので、
+ * 名簿が変わっても過去シーズンの出力は変わらない（DESIGN.md 206-4章）。進行中のシーズンは保存せず毎回作る
+ */
 export const SEASON_BUILD_GLOBAL_INPUTS = [
   "club-honors.json.gz",
-  "current-roster.json.gz",
   "division-history.json.gz",
   "player-awards.json.gz",
   "players-master.json.gz",

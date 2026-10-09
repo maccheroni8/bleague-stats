@@ -25,6 +25,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statS
 import { appendFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { gunzipSync } from "node:zlib";
 import { currentSeason } from "./lib/season.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import {
@@ -111,17 +112,37 @@ function codeFiles(): string[] {
   return [...importClosure(BUILD_CODE_ENTRIES), ...BUILD_CODE_EXTRA_FILES.map((f) => path.join(ROOT, f)).filter((f) => existsSync(f))];
 }
 
-export function seasonKey(season: string): string {
+/**
+ * シーズンをまたいで読む元データ（SEASON_BUILD_GLOBAL_INPUTS）の中身のハッシュ。.json.gz は、展開して JSON として読み直した内容で取る。
+ * 同じ内容でも gzip の圧縮結果（バイト）だけが違うことがある（players-master で実際に起きた。DESIGN.md 206-4章）ため、バイトでは取らない。
+ * JSON として読めないファイルはバイトで取る
+ */
+function globalInputDigest(file: string): Buffer {
+  const bytes = readFileSync(file);
+  if (!file.endsWith(".json.gz")) return createHash("sha256").update(bytes).digest();
+  try {
+    return createHash("sha256").update(JSON.stringify(JSON.parse(gunzipSync(bytes).toString("utf-8")))).digest();
+  } catch {
+    return createHash("sha256").update(bytes).digest();
+  }
+}
+
+/**
+ * そのシーズンの保存キー（導出データの保存の名前に使う）。シーズンの元データ（バイト）・シーズンをまたいで読む元データ（内容）・集計のコードから作る。
+ * dataDir は検証用（scripts/validate-season-key.ts が、一時の data/ で試すときに渡す）
+ */
+export function seasonKey(season: string, dataDir: string = DATA): string {
   const files: string[] = [];
-  for (const base of [path.join(DATA, season), path.join(DATA, season, "one")]) {
+  for (const base of [path.join(dataDir, season), path.join(dataDir, season, "one")]) {
     for (const e of SEASON_RAW_ENTRIES) files.push(...listFiles(path.join(base, e)));
   }
-  for (const e of SEASON_BUILD_GLOBAL_INPUTS) files.push(...listFiles(path.join(DATA, e)));
+  const globalFiles: string[] = [];
+  for (const e of SEASON_BUILD_GLOBAL_INPUTS) globalFiles.push(...listFiles(path.join(dataDir, e)));
   files.push(...codeFiles());
   const hash = createHash("sha256");
-  for (const f of files) {
+  for (const f of [...files, ...globalFiles]) {
     hash.update(`${path.relative(ROOT, f)}\0`);
-    hash.update(createHash("sha256").update(readFileSync(f)).digest());
+    hash.update(globalFiles.includes(f) ? globalInputDigest(f) : createHash("sha256").update(readFileSync(f)).digest());
   }
   return hash.digest("hex").slice(0, 32);
 }
