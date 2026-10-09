@@ -28,6 +28,9 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 219章: 試合ログの土台（延長の本数 `overtimes`・選手の最終点差 `finalMargin`。古いデータには無いので `src/lib/gameFacts.ts` を通して読む）と、1試合行の索引（`data/{season}/player-game-index.json.gz`・`team-game-index.json.gz`。
   形式は `shared/gameIndex.ts`、読む部品は `src/lib/gameIndex.ts`・`gameIndexLoad.ts`。ルーキーは索引に無く `rookie-eligibility.json` と突き合わせる。検証は `npm run validate:game-index`）。
   段階4でポジションを出すときは、補った値に既存どおり「＊」（`profileMark.ts`）
+- 220章: ランキングの1試合記録の条件（段階4。**画面だけの変更でキー不変**）。条件なし（かつ上位20位のファイルで出せる表示）は今のファイルのまま、条件・ルーキー・ポジション・スタッツの条件・個人のワースト・前後半5分の特別試合を除く指定のときだけ索引を読む。
+  集計は `src/lib/gameRecordQuery.ts`（純粋な部分）、条件・URLは `gameRecordConditions.ts`（`res`・`ven`・`opp`・`ot`・`fm`・`mg`・`dv`・`div`・`sp`）。昇順（少ない方から並べる）は特別な試合4試合を既定で除く。
+  個人のワーストは成功率6項目＋EFF・+/-（少ない順）とTOV（多い順）だけ。同率の展開は全体で最大100行。検証は `npm run validate:game-record-query`
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
