@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { Link } from "react-router-dom";
 import type { TeamColors } from "../../shared/types";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { buildExportFilename, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
@@ -57,10 +58,22 @@ function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" 
   );
 }
 
+/** 1人分: 写真と名前（個人ページへのリンク） */
+function PairPerson({ playerId, name, season, among, rookieSeason }: { playerId: string; name: string; season: string; among: readonly string[]; rookieSeason?: string }) {
+  return (
+    <Link to={`/players/${playerId}?season=${season}`} className="cell-link pair-person">
+      <PlayerPhoto playerId={playerId} size={44} className="player-cell-photo" placeholder />
+      <span className="pair-person-name">
+        <ResponsivePlayerName name={name} among={among} playerId={rookieSeason ? playerId : undefined} season={rookieSeason} />
+      </span>
+    </Link>
+  );
+}
+
 export function AssistPairRanking({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
   const exportRef = useRef<HTMLDivElement>(null);
   const narrow = useNarrow();
-  const [unit] = useUrlState(PAIR_UNIT_PARAM, "career");
+  const [unit] = useUrlState(PAIR_UNIT_PARAM, "season");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [conditions, setConditions] = useUrlState(gameRecordConditionsParam, DEFAULT_GAME_RECORD_CONDITIONS);
   const [activeParam, setActive] = useUrlState(ACTIVE_PARAM, "all");
@@ -93,6 +106,8 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
   const title = `${scopeText} アシストペアの得点`;
   const filename = buildExportFilename(["アシストペア", PAIR_UNIT_LABELS[unit], unit === "season" ? season : "", ...conditionLabels]);
   const entries = result?.rows;
+  const among = useMemo(() => (entries ?? []).flatMap((x) => [x.assisterName, x.scorerName]), [entries]);
+  const seasonOf = (e: PairRow) => e.season ?? e.lastSeason ?? season;
 
   const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, includeSpecial: true, includeSpecialDefault: true };
   const axes: FilterAxis[] = [
@@ -133,24 +148,34 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
           <ExportImageButton targetRef={exportRef} filename={filename} />
           <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
             <ConditionTitle title={title} conditions={conditionLabels} />
-            <PlayerNamePool names={entries.flatMap((e) => [e.assisterName, e.scorerName])}>
+            <PlayerNamePool names={among}>
               <RankedList
                 rows={entries}
                 def={{ key: `assistPair:${unit}`, label: "得点", value: (e) => e.value, format: (e) => String(e.value), higherIsBetter: true }}
                 tieKey={(e) => String(e.value)}
                 rowKey={(e) => `${e.assisterId}>${e.scorerId}${e.scheduleKey ? `-${e.scheduleKey}` : ""}`}
-                name={(e) => (
-                  <>
-                    <ResponsivePlayerName name={e.assisterName} among={entries.flatMap((x) => [x.assisterName, x.scorerName])} />
-                    {" → "}
-                    <ResponsivePlayerName name={e.scorerName} among={entries.flatMap((x) => [x.assisterName, x.scorerName])} />
-                  </>
-                )}
+                name={(e) =>
+                  narrow ? (
+                    <>
+                      <ResponsivePlayerName name={e.assisterName} among={among} />
+                      {" → "}
+                      <ResponsivePlayerName name={e.scorerName} among={among} />
+                    </>
+                  ) : (
+                    <span className="pair-people">
+                      <PairPerson playerId={e.assisterId} name={e.assisterName} season={seasonOf(e)} among={among} rookieSeason={unit === "career" ? undefined : seasonOf(e)} />
+                      <span className="pair-arrow" aria-label="アシスト">
+                        ⇒
+                      </span>
+                      <PairPerson playerId={e.scorerId} name={e.scorerName} season={seasonOf(e)} among={among} rookieSeason={unit === "career" ? undefined : seasonOf(e)} />
+                    </span>
+                  )
+                }
                 subLabel={(e) => <PairLine r={e} unit={unit} />}
                 subLinkTo={unit === "game" ? (e) => `/games/${e.scheduleKey}?season=${e.season}` : undefined}
-                linkTo={(e) => `/players/${e.scorerId}?season=${e.season ?? e.lastSeason ?? season}`}
+                linkTo={narrow ? (e) => `/players/${e.scorerId}?season=${seasonOf(e)}` : () => undefined}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
-                avatar={(e) => <PlayerPhoto playerId={e.scorerId} size={56} className="player-cell-photo" placeholder />}
+                avatar={narrow ? (e) => <PlayerPhoto playerId={e.scorerId} size={56} className="player-cell-photo" placeholder /> : undefined}
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
                 unit={unit === "game" ? "試合" : "組"}

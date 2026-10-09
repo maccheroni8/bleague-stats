@@ -1078,7 +1078,7 @@ export function RankingsPage({ season }: { season: string }) {
   // 個人には1シーズン記録が無く、チームには勝負所・アシストペアが無いので、URLにそのkがあっても通常のシーズン成績にする
   const kind: RankingKind =
     (mode === "player" && kindParam === "special") || (mode === "team" && (kindParam === "clutch" || kindParam === "assistPair")) ? "season" : kindParam;
-  const [pairUnit, setPairUnit] = useUrlState(PAIR_UNIT_PARAM, "career");
+  const [pairUnit, setPairUnit] = useUrlState(PAIR_UNIT_PARAM, "season");
   const setMode = (next: Mode) => {
     if (next === mode) return;
     clearUrlParams();

@@ -2037,6 +2037,39 @@ table.boxscore-table .boxscore-summary-grand-total td {
   color: var(--muted);
 }
 
+/* アシストペアの行（幅があるとき）: アシストした選手の写真・名前 ⇒ 得点した選手の写真・名前 */
+.pair-people {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pair-person-name {
+  white-space: nowrap;
+}
+
+/* 幅が足りないとき（スマホ幅の手前まで）は、2人目を次の行に回す */
+@media (max-width: 640px) {
+  .pair-people {
+    flex-wrap: wrap;
+  }
+
+  .pair-person-name {
+    white-space: normal;
+  }
+}
+
+.pair-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pair-arrow {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .rankings-table .rank-value {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
