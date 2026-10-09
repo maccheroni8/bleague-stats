@@ -37,6 +37,9 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   ランキングの新しい種類「勝負所」「アシストペア」（`src/lib/clutchQuery.ts`）と被アシスト率（%PTS ASTED。1試合は20点以上・通算は1,000点以上）。検証は `npm run validate:game-flow`・`validate:clutch-query`
 - 222章: 段階5の確認後の修正。前季比較の差は MIN を時間（+3:15）、％を「+1.7%」で出す。「決勝点」は **「決勝弾」**（勝ち越し弾・同点弾とそろえた）。個人ランキングの **「現役」**（今季のB.PREMIERの名簿の選手。`act=1`、`src/lib/activePlayers.ts`。通算記録・歴代の1試合記録・勝負所の通算・アシストペアの1試合と通算だけ。
   通算記録は `league-player-career-top.json` の `byActive`）。アシストペアの初期表示はシーズン。検証は `npm run validate:active-filter`。選手名の表記: 単一のシーズンの表はそのシーズンの表記、複数のシーズンをまたぐ表は選手マスタの今の登録名、空白は半角1つにそろえる（`shared/playerName.ts`、`src/lib/currentPlayerNames.ts`。`validate:player-names`）
+- 223章: ランキング > 個人 > **「達成記録」**（`k=thr`。**索引だけ・画面だけの変更でキー不変**。`src/lib/thresholdQuery.ts`・`thresholdParams.ts`、`PlayerThresholdRanking.tsx`）。「項目がしきい値以上（以下）の試合」を共通の条件にして、達成試合数（`tu=count`。通算・シーズン、達成率の並びは掲載基準85%）・
+  連続記録（`tu=streak`。条件に当てはまる試合だけを順に見て続いた試合数。レギュラーとポストシーズンは別。B.PREMIERの名簿外のシーズンをはさむと途切れる〔`player-careers.json` の seasons〕。1選手1行・継続中・`cur=1`）・達成時の年齢（`tu=age`。最年少＝初めて達成、最年長＝最後に達成）。
+  しきい値は1試合記録のスタッツの条件（`sc`・`sm`）の流用に「2桁の部門数」（ダブルダブル2・トリプルダブル3）を足したもの。前後半5分の特別試合は既定で数えない（`sp=1`）。シュート単位の連続（FT・3Pの連続成功）は段階7の集計変更と同じpushにまとめる予定（保存キー対象の変更が要る）。検証は `npm run validate:threshold-query`
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
