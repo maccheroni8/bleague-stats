@@ -347,6 +347,11 @@ export interface GameSummary {
    * それより前は Unix 秒の数値文字列）。読めない試合は省略する。日程ページで1日の中の試合を時刻順に並べるのに使う（DESIGN.md 166章）
    */
   tipoffTime?: string;
+  /**
+   * 延長の本数（延長なしは 0。shared/gamePeriods.ts の overtimeCount、DESIGN.md 219章）。この項目を足す前に作った古いデータには無い
+   * （読む側は gameOvertimes〈src/lib/gameFacts.ts〉を通し、無ければ不明として扱う）
+   */
+  overtimes?: number;
 }
 
 // ---- data/{season}/teams.json・players.json の保存スキーマ（aggregate.tsの集計結果） ----
@@ -732,6 +737,10 @@ export interface PlayerGameLog extends Partial<FoulCategoryCounts> {
   /** 所属チームから見た試合中の最大リード・最大ビハインド（延長戦を含む。TeamGameLog と同じ。DESIGN.md 150章） */
   maxLead?: number;
   maxDeficit?: number;
+  /** 延長の本数（延長なしは 0。GameSummary.overtimes と同じ）。古いデータには無い（DESIGN.md 219章） */
+  overtimes?: number;
+  /** 所属チームから見た最終点差（勝てば正、負ければ負。延長戦を含む最終スコアの差）。古いデータには無い（DESIGN.md 219章） */
+  finalMargin?: number;
   isStarter: boolean;
   min: number;
   pts: number;
@@ -837,6 +846,8 @@ export interface TeamGameLog extends Partial<FoulCategoryCounts>, Partial<Oppone
   maxLead?: number;
   /** 試合中の最大ビハインド（一度もビハインドが無ければ0。延長戦を含む） */
   maxDeficit?: number;
+  /** 延長の本数（延長なしは 0。GameSummary.overtimes と同じ）。古いデータには無い（DESIGN.md 219章）。最終点差は teamScore − opponentScore */
+  overtimes?: number;
   /**
    * 1Q〜4Qの自チーム・相手の得点（長さ4。延長戦は含めない。shared/periodPoints.ts、DESIGN.md 143章）。
    * CSの前後半5分の特別な試合（2016-17・2017-18）は持たない。公式のスコアが欠けていて補えなかった区間は null

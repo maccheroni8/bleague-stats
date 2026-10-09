@@ -56,6 +56,7 @@ import { filterByGameType } from "../shared/gameType.ts";
 import { opponentOliverBox, teamOliverBox } from "../shared/teamSeasonTotals.ts";
 import { teamTotalsForTransferredPlayer } from "../shared/transferredTeamTotals.ts";
 import { gameMaxMargins } from "../shared/gameMargins.ts";
+import { overtimeCount } from "../shared/gamePeriods.ts";
 import {
   DISQUALIFYING_FOUL_CODE,
   PLAYER_TECHNICAL_FOUL_CODES,
@@ -1630,6 +1631,8 @@ function processPlayers(
       ...(margins
         ? { maxLead: isHome ? margins.homeMaxLead : margins.awayMaxLead, maxDeficit: isHome ? margins.awayMaxLead : margins.homeMaxLead }
         : {}),
+      overtimes: overtimeCount(game),
+      finalMargin: teamNetForGame,
       isStarter: row.StartingFlg === 1,
       min: parsePlayTime(row.PlayTime),
       pts: row.Point,
@@ -1917,6 +1920,9 @@ function processTeams(
       }
     : {};
 
+  // 延長の本数（DESIGN.md 219章）
+  const overtimes = overtimeCount(game);
+
   // 最大リード・最大ビハインド（延長戦を含む。DESIGN.md 150章）
   const margins = gameMaxMargins(game);
   const homeMargins = margins ? { maxLead: margins.homeMaxLead, maxDeficit: margins.awayMaxLead } : {};
@@ -1932,6 +1938,7 @@ function processTeams(
     opponentScore: game.awayScore,
     win: homeWin,
     gameType,
+    overtimes,
     ...homePeriods,
     ...homeMargins,
     foreignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
@@ -1981,6 +1988,7 @@ function processTeams(
     teamScore: game.awayScore,
     opponentScore: game.homeScore,
     win: awayWin,
+    overtimes,
     ...awayPeriods,
     ...awayMargins,
     foreignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
@@ -2041,6 +2049,7 @@ function buildGameSummaries(games: StoredGame[]): GameSummary[] {
       venue: g.raw.Game.StadiumNameJ || undefined,
       attendance: g.raw.Game.Attendance ?? undefined,
       tipoffTime: tipoffTimeJst(g.raw.Game.GameDateTime),
+      overtimes: overtimeCount(g),
     }))
     .sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
 }
