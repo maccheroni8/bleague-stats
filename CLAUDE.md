@@ -25,6 +25,9 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 143章: クォーター別・前後半別の記録と1試合平均。143-3 順位の付け方（同じ値は同じ順位・次は飛ばす）、
   143-4 歴代記録の順位のバッチ（`aggregate-league-rankings.ts`・`aggregate-league-player-rankings.ts`。206章以降はデプロイのときに作る）
 - 212章: 延長戦のPBPの並び（時系列に並べ直す共通関数。読み込みの出口で適用）。213〜215章: ランキングの拡張（地区の絞り込み・方針）と、ルーキーの判定（選手ページの所属履歴の取得・規程 第5条〔新人選手〕に準じた判定・検証）。217章: ルーキーの絞り込み（登録区分の4つ目の選択肢。ランキングのシーズン成績・全選手スタッツ。`cls=rookie`、`src/lib/rookieFilter.ts`）。218章: ランキング（シーズン成績）の前シーズン比較（`cmp=1`。前季の値・順位・差。集計は `usePlayerSeasonRanking`・`useTeamSeasonRanking` を前季にも使う。スタッツの条件・ルーキーは今季だけ。`src/lib/seasonCompare.ts`）
+- 219章: 試合ログの土台（延長の本数 `overtimes`・選手の最終点差 `finalMargin`。古いデータには無いので `src/lib/gameFacts.ts` を通して読む）と、1試合行の索引（`data/{season}/player-game-index.json.gz`・`team-game-index.json.gz`。
+  形式は `shared/gameIndex.ts`、読む部品は `src/lib/gameIndex.ts`・`gameIndexLoad.ts`。ルーキーは索引に無く `rookie-eligibility.json` と突き合わせる。検証は `npm run validate:game-index`）。
+  段階4でポジションを出すときは、補った値に既存どおり「＊」（`profileMark.ts`）
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
@@ -56,6 +59,9 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
     `npm run dev` は、導出データが無ければ起動前に自動で作る
   - 新しい種類のファイルを `data/` に足すときは、`dataLayout.ts` に A か B かを書き、B なら `.gitignore` の「導出データ」の並びも直す
     （`npm run build:data -- print-gitignore` の出力に置き換える）。`npm run build:data -- check-layout` が、仕分け漏れと `.gitignore` のずれを検出する
+    シーズンごとの導出データを足したときは、`npm run dev` の自動作成（`--if-missing`）が、`SEASON_DERIVED_ENTRIES` のすべての有無で作成済みかを見るので、`dataLayout.ts` に書くだけでよい
+    （作られないシーズンがあるものだけ `SEASON_OPTIONAL_DERIVED_ENTRIES` に書く。設計書219-7章）。**保存キーの対象のコードを変えると全シーズンの作り直しが起きる**ので、画面だけの変更は `shared/gameIndex.ts` など
+    キーの対象（`npm run build:data -- code-files`）に触れない場所に置き、コミットの前にそのファイルが `code-files` に入っていないことを確かめる
   - 導出データを読む手元用のスクリプト（`scrape-club-honors.ts`・`scrape-wayback-profiles.ts`・`backfill-legacy-player-photos.ts`）は、先に `npm run build:data` を実行する
   - 更新ジョブ（`update-stats.yml`）は元データだけをコミットする。1月15日の固定の直前にだけ、今のシーズンの導出データを作る（コミットされない）。
     デプロイの導出データの作成が失敗すると、公開サイトは前の版のまま残り、実行の失敗として通知される
