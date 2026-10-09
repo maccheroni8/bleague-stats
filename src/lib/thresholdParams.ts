@@ -6,7 +6,7 @@ import { enumParam, statConditionsParam, type UrlCodec } from "./urlState";
 
 /** 達成記録の中の3つ（達成試合数・連続記録・達成時の年齢） */
 export type ThresholdUnit = "count" | "streak" | "age";
-export const THRESHOLD_UNITS: ThresholdUnit[] = ["count"];
+export const THRESHOLD_UNITS: ThresholdUnit[] = ["count", "streak"];
 export const THRESHOLD_UNIT_LABELS: Record<ThresholdUnit, string> = { count: "達成試合数", streak: "連続記録", age: "達成時の年齢" };
 
 export const THRESHOLD_UNIT_PARAM = enumParam<ThresholdUnit>("tu", ["count", "streak", "age"], "count");

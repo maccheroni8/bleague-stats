@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { teamShortName } from "../../shared/teamNames";
 import type { Division, DivisionHistoryFile, RookieEligibilityFile } from "../../shared/types";
-import { fetchDivisionHistory, fetchRookieEligibility, fetchSeasons, fetchTeams } from "./data";
+import { fetchDivisionHistory, fetchPlayerCareers, fetchRookieEligibility, fetchSeasons, fetchTeams } from "./data";
 import { DIVISION_ORDER, seasonDivisions } from "./divisionGroups";
 import type { PlayerGameIndexView, TeamGameIndexView } from "./gameIndex";
 import { loadAssistPairs, loadPlayerGameIndex, loadTeamGameIndex } from "./gameIndexLoad";
@@ -140,4 +140,20 @@ export function useGameRecordOptions(scope: RecordsScope, season: string): GameR
 export function useRookieFile(enabled: boolean): { file: RookieEligibilityFile | null; loading: boolean; error: string | null } {
   const { data, loading, error } = useJsonData(() => (enabled ? fetchRookieEligibility() : Promise.resolve(null)), [enabled]);
   return { file: enabled ? data : null, loading: enabled && loading, error: enabled ? error : null };
+}
+
+/**
+ * シーズンごとの、B.PREMIERの名簿にいた選手（出場0試合の登録選手を含む）。達成記録の連続記録が、名簿外のシーズンをはさむ連続を途切れさせるのに使う
+ * （player-careers.json の seasons。約38KB。DESIGN.md 223章）。enabled のときだけ読む
+ */
+export function useSeasonRosters(enabled: boolean): {
+  rosters: Readonly<Record<string, Readonly<Record<string, unknown>>>> | null;
+  loading: boolean;
+  error: string | null;
+  retry: () => void;
+} {
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  const { data, loading, error } = useJsonData(async () => (enabled ? (await fetchPlayerCareers()).seasons : null), [enabled, attempt]);
+  return { rosters: enabled ? data : null, loading: enabled && loading, error: enabled && error ? `シーズンごとの名簿を読み込めませんでした（${error}）` : null, retry };
 }

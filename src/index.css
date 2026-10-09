@@ -6782,6 +6782,24 @@ table.sortable-table tbody tr:not(.pinned-row) + tr.pinned-row td {
   border-top: 0;
 }
 
+/* 達成記録の連続記録: 名前の下に「開始」「終了」の試合を1行ずつ。継続中の印 */
+.threshold-line {
+  display: block;
+}
+
+.threshold-ongoing {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 6px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
 /* しきい値の「すぐ選べる」値のボタン（達成記録。DESIGN.md 223章） */
 .stat-condition-quick {
   display: flex;

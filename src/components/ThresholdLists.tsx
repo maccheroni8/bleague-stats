@@ -1,7 +1,8 @@
 import type { TeamColors } from "../../shared/types";
 import { formatPct } from "../lib/format";
 import { GAME_RECORD_TIE_EXPAND_MAX } from "../lib/gameRecordQuery";
-import type { ThresholdCountRow, ThresholdCountSort } from "../lib/thresholdQuery";
+import { useNarrow } from "../lib/teamLabel";
+import type { StreakGame, ThresholdCountRow, ThresholdCountSort, ThresholdStreakRow } from "../lib/thresholdQuery";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
 import { RankedList } from "./RankedList";
@@ -58,6 +59,52 @@ export function ThresholdCountList({
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
         limit={RANK_TOP_N}
         tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
+        sortable={false}
+        compact
+      />
+    </PlayerNamePool>
+  );
+}
+
+/** 連続の開始・終了の試合1つ: 「開始 2017-04-29（2016-17） 新潟 @ 三遠　PTS 12」 */
+function StreakGameLine({ label, g, ongoing }: { label: string; g: StreakGame; ongoing?: boolean }) {
+  const narrow = useNarrow();
+  const date = narrow ? g.date.replace(/-/g, "/").slice(2) : g.date;
+  return (
+    <span className="threshold-line">
+      <span className="record-date-nowrap">
+        {label} {date}（{g.season}）
+      </span>
+      {narrow ? " " : "　"}
+      <ResponsiveTeamName teamId={g.teamId} name={g.teamName} always nowrap /> {g.isHome ? "vs" : "@"}{" "}
+      <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always nowrap />
+      {g.detail && <span className="record-date-nowrap">　{g.detail}</span>}
+      {ongoing && <span className="threshold-ongoing">継続中</span>}
+    </span>
+  );
+}
+
+export function ThresholdStreakList({ rows, ongoingOnly, teamColors }: { rows: ThresholdStreakRow[]; ongoingOnly: boolean; teamColors: Colors }) {
+  return (
+    <PlayerNamePool names={rows.map((e) => e.playerName)}>
+      <RankedList
+        rows={rows}
+        def={{ key: `threshold:streak:${ongoingOnly ? "ongoing" : "best"}`, label: "連続", value: (e) => e.value, format: (e) => String(e.value), higherIsBetter: true }}
+        tieKey={(e) => String(e.value)}
+        rowKey={(e) => e.playerId}
+        name={(e) => <ResponsivePlayerName name={e.playerName} playerId={e.playerId} season={e.end.season} />}
+        subLabel={(e) => (
+          <>
+            <StreakGameLine label="開始" g={e.start} />
+            <StreakGameLine label="終了" g={e.end} ongoing={e.ongoing} />
+          </>
+        )}
+        linkTo={(e) => `/players/${e.playerId}?season=${e.end.season}`}
+        teamColor={(e) => teamColors?.[e.teamId]?.primary}
+        avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
+        limit={RANK_TOP_N}
+        tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
+        unit="人"
         sortable={false}
         compact
       />
