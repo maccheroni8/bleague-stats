@@ -46,6 +46,8 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 225章: ランキング > 個人 > 1試合記録の **Q別・前後半・延長**（URL `q`。`shared/periodIndex.ts` の導出データ `player-period-index.json.gz`・`team-period-index.json.gz`。**作成は保存キーの対象**〔`scripts/aggregate-period-index.ts`・`scripts/lib/periodIndexBuild.ts`・`shared/periodIndex.ts`。形式は変えない〕、読む側・画面は `src/lib/periodIndex.ts`・`gameRecordPeriod.ts` で対象外）。
   値はシーズン成績のQ別と同じ関数（`buildPlayerBoxscores` 等）で作る。1Q〜4Q・延長の5区間だけ持ち、前半・後半は足す（チームのポゼッションだけは別に持つ）。ワースト・被アシスト率は区間では選べない。+/- は公式のQ別の値がある2022-23以降だけ。前後半5分の特別な試合は区間の行を持たない。
   **シーズン成績のQ別を導出データに切り替える**画面の差し替え（データはそろえてある）は別の段階。検証は `npm run validate:period-index`
+- 226章: カテゴリタブ **Periods**（`CATEGORY_LABELS.periods`）: 全チームスタッツ（`tab=periods`）・チーム詳細のシーズン別成績／シチュエーション別成績・日程結果のラインスコア。**画面だけの変更でキー不変**。値は `TeamGameLog` の `periodPoints`（1Q〜4Q）で、延長は「試合の得点−4Qまでの合計」（`src/lib/teamPeriodScoring.ts`。`team-period-index` は検証の突き合わせ先）。
+  1Q〜4Q・前半・後半・OT（平均は延長のあった試合だけで割る。OT G）、視点＝自チーム（得点）／opp（失点）／+/-。日程結果は「自チーム-相手」、延長は2延長以上の試合が表示中にあれば OT1・OT2…、無ければ「OT」。前後半5分の特別な試合は区間の列から除く。検証は `npm run validate:team-period-scoring`
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
@@ -75,6 +77,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
     作り直す（過去のシーズンは、集計のコードが変わると保存キーが変わり、そのデプロイで全シーズンを作り直す。時間は余分にかかる）。
     手元で画面や数値を確かめるときは `npm run build:data`（全シーズン＋全体、約1分）、`npm run build:data -- --season 2026-27`（そのシーズンと全体）を使う。
     `npm run dev` は、導出データが無ければ起動前に自動で作る
+  - 過去シーズンの保存キーは、そのシーズンの元データ（バイト）・シーズンをまたいで読む元データ（`.json.gz` は展開したJSONの**内容**。gzipのバイトだけが違っても変わらない）・集計のコードから作る。**`current-roster` は含めない**（読むのは進行中のシーズンだけ）。`players-master` などが変わると過去シーズンは作り直しになる（設計書206-4章。マスタをシーズンごとに絞る案は見送り）。確認は `npm run validate:season-key`
   - 新しい種類のファイルを `data/` に足すときは、`dataLayout.ts` に A か B かを書き、B なら `.gitignore` の「導出データ」の並びも直す
     （`npm run build:data -- print-gitignore` の出力に置き換える）。`npm run build:data -- check-layout` が、仕分け漏れと `.gitignore` のずれを検出する
     シーズンごとの導出データを足したときは、`npm run dev` の自動作成（`--if-missing`）が、`SEASON_DERIVED_ENTRIES` のすべての有無で作成済みかを見るので、`dataLayout.ts` に書くだけでよい
