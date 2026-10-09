@@ -3,7 +3,7 @@
 // 導出データを作ったあと（`npm run build:data` のあと）に実行する。索引を使う集計（src/lib/thresholdQuery.ts）の結果を、
 // 独立した元（選手の試合ログ player-games/、games-summary.json、players.json、registered-players.json）から素直に数え直した結果と比べる:
 //  1. DD（2桁の部門数が2以上）の試合数が、シーズンの players.json の doubleDoubles（レギュラーシーズン）と全選手で一致する
-//  2. 達成試合数: しきい値6通り × 試合区分3 × 条件4 × 範囲（通算・2025-26）。全選手の達成試合数・出場試合数・並び。達成率の並びと掲載基準（通算は出場100試合以上、シーズンは所属チームの試合数の85%）
+//  2. 達成試合数: しきい値6通り × 試合区分3 × 条件4 × 範囲（通算・2025-26）。全選手の達成試合数・出場試合数・並び。達成率の並びと掲載基準（通算は出場100試合以上〈ポストシーズンは20試合以上〉、シーズンは所属チームの試合数の85%）
 //  （連続記録の名簿は、集計側は player-careers.json の seasons、数え直しは players.json＋registered-players.json と、別の元を使う）
 //  3. 連続記録: しきい値5通り × 試合区分2 × 条件3。全選手の最長（長さ・開始と終了の試合・継続中）と、「継続中だけ」の長さ。名簿外のシーズンをはさむと途切れる
 //  4. 年齢の記録: しきい値4通り × 試合区分3 × 条件2 × 最年少・最年長。全選手の年齢・試合
@@ -190,7 +190,7 @@ const base = (v: PlayerGameIndexView[], gameType: GameType, c: GameRecordConditi
 {
   const specs = [SPEC_PTS20, SPEC_REB10, SPEC_TPM5, SPEC_DD, SPEC_NOTOV, SPEC_ANY];
   const g = new Group("達成試合数: 全選手の達成試合数・出場試合数・並びが、試合ログの数え直しと一致（しきい値6 × 試合区分3 × 条件4 × 通算・2025-26）");
-  const gRate = new Group("達成率: 掲載基準（通算は出場100試合以上、シーズンは所属チームの試合数の85%）を満たす選手だけが、達成率の高い順に並ぶ");
+  const gRate = new Group("達成率: 掲載基準（通算は出場100試合以上〈ポストシーズンは20試合以上〉、シーズンは所属チームの試合数の85%）を満たす選手だけが、達成率の高い順に並ぶ");
   let sampleTop = "";
   for (const spec of specs) {
     for (const t of GAME_TYPES) {
@@ -238,8 +238,8 @@ const base = (v: PlayerGameIndexView[], gameType: GameType, c: GameRecordConditi
               const last = ls[ls.length - 1]!;
               denom += (["regular", "playoff"] as const).filter((tt) => t === "both" || t === tt).reduce((a, tt) => a + (teamGames.get(`${seasons[si]}:${tt}:${last.teamId}`) ?? 0), 0);
             }
-            // 通算は出場100試合以上、シーズンは所属チームの試合数の85%以上
-            if (seasonSel === null ? played >= 100 : denom > 0 && played / denom >= 0.85) eligible.add(id);
+            // 通算は出場100試合以上（ポストシーズンは20試合以上）、シーズンは所属チームの試合数の85%以上
+            if (seasonSel === null ? played >= (t === "playoff" ? 20 : 100) : denom > 0 && played / denom >= 0.85) eligible.add(id);
           }
           const expRate = [...expected.entries()]
             .filter(([id]) => eligible.has(id))
@@ -445,21 +445,27 @@ const base = (v: PlayerGameIndexView[], gameType: GameType, c: GameRecordConditi
   check("感度: しきい値を20→21にすると達成試合数の合計が減り、勝った試合に絞っても減る", total(b) < total(a) && total(c) < total(a), `${total(a)} / ${total(b)} / ${total(c)}`);
 }
 
-// ---- 6. 通算の達成率は出場100試合以上だけ（達成試合数の並びには、100試合未満の選手も出る） ----
+// ---- 6. 通算の達成率の最低試合数（レギュラー・合算は100試合、ポストシーズンは20試合。達成試合数の並びには掛けない） ----
 {
-  const played = (id: string) => (logsByPlayer.get(id) ?? []).filter((l) => !isShort(l)).length;
-  const count = queryThresholdCount({ ...base(views, "both", DEFAULT_GAME_RECORD_CONDITIONS, SPEC_PTS20), sort: "count", career: true })!;
-  const rate = queryThresholdCount({ ...base(views, "both", DEFAULT_GAME_RECORD_CONDITIONS, SPEC_PTS20), sort: "rate", career: true })!;
-  const rateIds = new Set(rate.rows.map((r) => r.playerId));
-  const under = count.rows.filter((r) => played(r.playerId) < 100);
-  check(
-    `通算の達成率: 出場100試合以上の選手だけ（${rate.rows.length}人）。100試合未満の ${under.length} 人は達成試合数の並びには出る`,
-    rate.rows.every((r) => played(r.playerId) >= 100) && under.length > 0 && under.every((r) => !rateIds.has(r.playerId)) && count.rows.filter((r) => played(r.playerId) >= 100).length === rate.rows.length,
-  );
-  console.log(`   通算の達成率（PTS≥20・合算）上位: ${rate.rows.slice(0, 8).map((r) => `${nameById.get(r.playerId)} ${(r.rate * 100).toFixed(1)}%（${r.count}/${r.games}）`).join(" / ")}`);
-  // 2025-26のシーズン単位は、これまでの掲載基準（85%）のまま。100試合の基準は掛からない
+  for (const [t, min] of [["both", 100], ["regular", 100], ["playoff", 20]] as const) {
+    const played = (id: string) => (logsByPlayer.get(id) ?? []).filter((l) => typeOk(l, t) && !isShort(l)).length;
+    const count = queryThresholdCount({ ...base(views, t, DEFAULT_GAME_RECORD_CONDITIONS, SPEC_PTS20), sort: "count", career: true })!;
+    const rate = queryThresholdCount({ ...base(views, t, DEFAULT_GAME_RECORD_CONDITIONS, SPEC_PTS20), sort: "rate", career: true })!;
+    const rateIds = new Set(rate.rows.map((r) => r.playerId));
+    const under = count.rows.filter((r) => played(r.playerId) < min);
+    check(
+      `通算の達成率（${t}）: 出場${min}試合以上の選手だけ（${rate.rows.length}人）。${min}試合未満の ${under.length} 人は達成試合数の並びには出る`,
+      rate.rows.length > 0 &&
+        rate.rows.every((r) => played(r.playerId) >= min) &&
+        under.length > 0 &&
+        under.every((r) => !rateIds.has(r.playerId)) &&
+        count.rows.filter((r) => played(r.playerId) >= min).length === rate.rows.length,
+    );
+    console.log(`   通算の達成率（PTS≥20・${t}）上位: ${rate.rows.slice(0, 8).map((r) => `${nameById.get(r.playerId)} ${(r.rate * 100).toFixed(1)}%（${r.count}/${r.games}）`).join(" / ")}`);
+  }
+  // 2025-26のシーズン単位は、これまでの掲載基準（85%）のまま。通算の試合数の基準は掛からない
   const seasonRate = queryThresholdCount({ ...base([views[seasons.indexOf("2025-26")]!], "regular", DEFAULT_GAME_RECORD_CONDITIONS, SPEC_PTS20), sort: "rate", career: false })!;
-  check(`シーズンの達成率（2025-26）は、通算の100試合の基準を掛けない（出場${Math.min(...seasonRate.rows.map((r) => r.games))}試合の選手も出る）`, seasonRate.rows.some((r) => r.games < 100) && seasonRate.rows.length > 0);
+  check(`シーズンの達成率（2025-26）は、通算の試合数の基準を掛けない（出場${Math.min(...seasonRate.rows.map((r) => r.games))}試合の選手も出る）`, seasonRate.rows.some((r) => r.games < 100) && seasonRate.rows.length > 0);
 }
 
 function cond1(): GameRecordConditions {

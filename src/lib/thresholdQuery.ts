@@ -178,18 +178,18 @@ export function ratioEligiblePlayers(
   return out;
 }
 
-/** 通算の達成率の掲載基準: 出場試合数の下限（ユーザー決定。DESIGN.md 223-3章） */
-export const THRESHOLD_CAREER_MIN_GAMES = 100;
+/** 通算の達成率の掲載基準: 出場試合数の下限（ユーザー決定。DESIGN.md 223-3章）。ポストシーズンは試合数が少ないので20試合、レギュラーシーズン・合算は100試合 */
+export const THRESHOLD_CAREER_MIN_GAMES = { regular: 100, both: 100, playoff: 20 } as const satisfies Record<SeasonGameTypeFilter, number>;
 
 /**
- * 通算の達成率の掲載基準を満たす選手: 全シーズンの出場試合数（試合区分と前後半5分の特別な試合の扱いには従い、試合の条件・しきい値には依存しない）が
- * THRESHOLD_CAREER_MIN_GAMES 以上
+ * 通算の達成率の掲載基準を満たす選手: 全シーズンの出場試合数（選んだ試合種別。前後半5分の特別な試合の扱いには従い、試合の条件・しきい値には依存しない）が
+ * THRESHOLD_CAREER_MIN_GAMES[試合種別] 以上
  */
 export function careerEligiblePlayers(
   views: readonly PlayerGameIndexView[],
   gameType: SeasonGameTypeFilter,
   includeSpecial: boolean,
-  minGames: number = THRESHOLD_CAREER_MIN_GAMES,
+  minGames: number = THRESHOLD_CAREER_MIN_GAMES[gameType],
 ): Set<string> {
   const { played } = playedAndTeamGames(views, gameType, includeSpecial);
   const out = new Set<string>();

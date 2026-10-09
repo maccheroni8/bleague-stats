@@ -136,6 +136,8 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
           : "達成試合数";
   const title = `${scopeText} ${unitText}（${thresholdText}）`;
   const filename = buildExportFilename(["達成記録", unitText, scopeText, thresholdText, ...conditionLabels]);
+  // 通算の達成率の掲載基準の文（選んだ試合種別に合わせる。例: 「ポストシーズンの通算の出場試合数が20試合以上の選手だけです」）
+  const careerRateBasis = `${gameTypeLabels(gameType, null)[0]}の通算の出場試合数が${THRESHOLD_CAREER_MIN_GAMES[gameType]}試合以上の選手だけです`;
   const failure = index.error ?? rookies.error ?? active.error ?? current.error ?? rosters.error;
   const hasLte = activeStatConditions(threshold, THRESHOLD_ITEMS).some((c) => c.condition.op === "lte");
 
@@ -284,7 +286,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
       ) : !rows || rows.length === 0 ? (
         <p className="empty-message">
           {unit === "count" && sort === "rate" && allTime
-            ? `この条件の記録がありません（達成率の順は、通算の出場試合数が${THRESHOLD_CAREER_MIN_GAMES}試合以上の選手だけです）`
+            ? `この条件の記録がありません（達成率の順は、${careerRateBasis}）`
             : "この条件の試合がありません"}
         </p>
       ) : (
@@ -318,7 +320,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
                   ※ 達成試合数は、しきい値を満たした試合の数です。出場試合数は、試合の条件などに当てはまる試合のうち出場した試合の数、達成率は達成試合数÷出場試合数です。
                   {sort === "rate"
                     ? allTime
-                      ? `達成率の順は、通算の出場試合数（${gameTypeLabels(gameType, null)[0]}）が${THRESHOLD_CAREER_MIN_GAMES}試合以上の選手だけです。達成試合数の順には、この基準はありません。`
+                      ? `達成率の順は、${careerRateBasis}。達成試合数の順には、この基準はありません。`
                       : "達成率の順は、ランキングの掲載基準（所属チームの試合数の85%以上に出場）を満たす選手だけです。"
                     : ""}
                 </p>
