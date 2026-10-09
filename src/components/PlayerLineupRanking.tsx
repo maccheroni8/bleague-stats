@@ -39,11 +39,13 @@ import { useGameRecordOptions, useRookieFile } from "../lib/useGameRecordData";
 import { useJsonData } from "../lib/useJsonData";
 import { useUrlState } from "../lib/urlState";
 import { GAME_TYPE_PARAM, PLAYER_GROUP_PARAM, POSITION_PARAM } from "../lib/urlFilterParams";
+import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { PairPerson } from "./AssistPairRanking";
 import { ConditionTitle } from "./ConditionTitle";
 import { EligibilitySlider } from "./EligibilitySlider";
 import { ExportImageButton } from "./ExportImageButton";
 import { FilterBar } from "./FilterBar";
+import { GlossaryNote } from "./GlossaryNote";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
 import { POSITION_OPTIONS } from "./PlayerGameRecordRanking";
@@ -378,6 +380,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
               {group === "rookie" && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
             </PlayerNamePool>
           </div>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.lineupRanking} label="On/Off・組み合わせ" />
         </>
       )}
     </>
