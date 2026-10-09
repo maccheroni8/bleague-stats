@@ -154,6 +154,7 @@ function buildSeason(season: string): void {
   node(`${season} 集計`, "aggregate.ts", "--season", season);
   if (hasOne(season)) node(`${season} B.ONE 集計`, "aggregate.ts", "--season", season, "--category", "one");
   node(`${season} 1試合行の索引`, "aggregate-game-index.ts", "--season", season);
+  run(`${season} ピリオド別の索引`, "npm", ["run", "--silent", "aggregate:period-index", "--", "--season", season]); // 1試合行の索引に結び付けるので、その後（225章）
   node(`${season} 選手の1試合の記録`, "aggregate-player-game-records.ts", "--season", season); // 上位20位は索引から作る（221章）
   run(`${season} 比較用のリーグ平均`, "npm", ["run", "--silent", "aggregate:league-compare", "--", "--season", season]);
 }

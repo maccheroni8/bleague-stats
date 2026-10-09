@@ -33,6 +33,8 @@ tsconfig.tsbuildinfo
 /data/*/one/player-game-records.json.gz
 /data/*/player-games/
 /data/*/one/player-games/
+/data/*/player-period-index.json.gz
+/data/*/one/player-period-index.json.gz
 /data/*/players.json.gz
 /data/*/one/players.json.gz
 /data/*/playoff-race.json.gz
@@ -45,6 +47,8 @@ tsconfig.tsbuildinfo
 /data/*/one/team-game-index.json.gz
 /data/*/team-games/
 /data/*/one/team-games/
+/data/*/team-period-index.json.gz
+/data/*/one/team-period-index.json.gz
 /data/*/team-stints/
 /data/*/one/team-stints/
 /data/*/teams.json.gz
