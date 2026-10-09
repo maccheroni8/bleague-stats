@@ -31,6 +31,10 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 220章: ランキングの1試合記録の条件（段階4。**画面だけの変更でキー不変**）。条件なし（かつ上位20位のファイルで出せる表示）は今のファイルのまま、条件・ルーキー・ポジション・スタッツの条件・個人のワースト・前後半5分の特別試合を除く指定のときだけ索引を読む。
   集計は `src/lib/gameRecordQuery.ts`（純粋な部分）、条件・URLは `gameRecordConditions.ts`（`res`・`ven`・`opp`・`ot`・`fm`・`mg`・`dv`・`div`・`sp`）。昇順（少ない方から並べる）は特別な試合4試合を既定で除く。
   個人のワーストは成功率6項目＋EFF・+/-（少ない順）とTOV（多い順）だけ。同率の展開は全体で最大100行。検証は `npm run validate:game-record-query`
+- 221章: 得点の流れ（`shared/gameFlow.ts`。最大のラン・勝ち越し弾・同点弾・決勝点。**PBPの得点イベントは、同じ秒の並びの逆転があるので、必ずこの関数の中の補正〔累計得点の昇順〕を通す**。`pbpOrder.ts` は変えない）、
+  アシストペアの試合ごとの行（`data/{season}/assist-pairs.json.gz`、`shared/assistPairs.ts`。並びはIDの昇順に固定）、索引の新しい列（選手: アシストされた得点・勝負所18列／チーム: 最大のラン5列）、
+  上位20位のファイル（個人の2つ）を作る元は索引（行を戻す部分は `shared/gameIndexRead.ts`。保存キーの対象）、2016-17のPTSOFFTOはタグの表記違い（「ポイントフロムターンオーバ」）を数えて算出できる、
+  ランキングの新しい種類「勝負所」「アシストペア」（`src/lib/clutchQuery.ts`）と被アシスト率（%PTS ASTED。1試合は20点以上・通算は1,000点以上）。検証は `npm run validate:game-flow`・`validate:clutch-query`
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
@@ -64,7 +68,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
     （`npm run build:data -- print-gitignore` の出力に置き換える）。`npm run build:data -- check-layout` が、仕分け漏れと `.gitignore` のずれを検出する
     シーズンごとの導出データを足したときは、`npm run dev` の自動作成（`--if-missing`）が、`SEASON_DERIVED_ENTRIES` のすべての有無で作成済みかを見るので、`dataLayout.ts` に書くだけでよい
     （作られないシーズンがあるものだけ `SEASON_OPTIONAL_DERIVED_ENTRIES` に書く。設計書219-7章）。**保存キーの対象のコードを変えると全シーズンの作り直しが起きる**ので、画面だけの変更は `shared/gameIndex.ts` など
-    キーの対象（`npm run build:data -- code-files`）に触れない場所に置き、コミットの前にそのファイルが `code-files` に入っていないことを確かめる
+    キーの対象（`npm run build:data -- code-files`）に触れない場所に置き、コミットの前にそのファイルが `code-files` に入っていないことを確かめる（`shared/gameIndex.ts`・`shared/gameIndexRead.ts` はキーの対象。画面側の索引の部品は `src/lib/gameIndex.ts`・`clutchQuery.ts`・`gameRecordQuery.ts` など）
   - 導出データを読む手元用のスクリプト（`scrape-club-honors.ts`・`scrape-wayback-profiles.ts`・`backfill-legacy-player-photos.ts`）は、先に `npm run build:data` を実行する
   - 更新ジョブ（`update-stats.yml`）は元データだけをコミットする。1月15日の固定の直前にだけ、今のシーズンの導出データを作る（コミットされない）。
     デプロイの導出データの作成が失敗すると、公開サイトは前の版のまま残り、実行の失敗として通知される
