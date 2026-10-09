@@ -212,12 +212,49 @@ export interface PlayerQuery {
   topN?: number;
 }
 
-export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<PlayerRecordRow> {
-  const { stat, conditions: c } = q;
-  const def = stat.def;
-  const matcher = statConditionMatcher(q.statConditions, PLAYER_STAT_CONDITION_ITEMS);
+/** 選手の索引の行を絞る条件（試合の条件・現役・登録区分〈ルーキーを含む〉・ポジション）。1試合記録・達成記録（thresholdQuery.ts）で共通 */
+export interface PlayerRowFilterInput {
+  gameType: SeasonGameTypeFilter;
+  conditions: GameRecordConditions;
+  group: PlayerGroupFilter;
+  positions: readonly string[];
+  rookies: RookieEligibilityFile | null;
+  /** 指定時、この選手IDの記録だけ（現役の絞り込み。今季の名簿の選手。DESIGN.md 222章） */
+  activeIds?: ReadonlySet<string> | null;
+}
+
+/** i行目の、その側から見た試合の事実（gameFacts の表から引く） */
+export function rowSideFacts(view: PlayerGameIndexView, facts: GameSideFacts[], i: number): GameSideFacts {
+  const { rows } = view.file;
+  return facts[rows.game[i]! * 2 + ((rows.flags[i]! & ROW_FLAG_HOME) !== 0 ? 0 : 1)]!;
+}
+
+/**
+ * 選手の索引の行が、試合の条件・現役・登録区分（ルーキーを含む）・ポジションに当てはまるかを返す関数を作る。
+ * 前後半5分の特別な試合の扱い・スタッツの条件は含めない（呼び出し側で決める）。行をオブジェクトにせず、列の値だけで判定する
+ */
+export function playerRowFilter(q: PlayerRowFilterInput): (view: PlayerGameIndexView, facts: GameSideFacts[], i: number) => boolean {
   const positionSet = q.positions.length > 0 ? new Set(q.positions) : null;
   const classKey = q.group === "rookie" ? undefined : classKeyOfFilter(q.group);
+  return (view, facts, i) => {
+    const f = rowSideFacts(view, facts, i);
+    if (!matchesGame(f, q.gameType, q.conditions)) return false;
+    const p = view.file.players[view.file.rows.player[i]!]!;
+    if (q.activeIds && !q.activeIds.has(p[0])) return false;
+    if (q.group === "rookie") {
+      // 2016-17は、それ以前の経歴が無くルーキーを判定できない（rookieFilter.ts の rookieSupportedSeason と同じ）
+      if (view.season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, view.season, p[0])) return false;
+    } else if (classKey && p[5] !== classKey) return false;
+    if (positionSet && !(p[2] && positionSet.has(positionFilterValue(p[2])))) return false;
+    return true;
+  };
+}
+
+export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<PlayerRecordRow> {
+  const { stat } = q;
+  const def = stat.def;
+  const matcher = statConditionMatcher(q.statConditions, PLAYER_STAT_CONDITION_ITEMS);
+  const rowFilter = playerRowFilter(q);
   const candidates: Candidate[] = [];
   let excludedSpecial = 0;
 
@@ -225,16 +262,10 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
     const facts = gameFacts(view.file);
     const { rows, players, games } = view.file;
     for (let i = 0; i < view.size; i++) {
+      if (!rowFilter(view, facts, i)) continue;
       const g = rows.game[i]!;
-      const f = facts[g * 2 + ((rows.flags[i]! & ROW_FLAG_HOME) !== 0 ? 0 : 1)]!;
-      if (!matchesGame(f, q.gameType, c)) continue;
+      const f = rowSideFacts(view, facts, i);
       const p = players[rows.player[i]!]!;
-      if (q.activeIds && !q.activeIds.has(p[0])) continue;
-      if (q.group === "rookie") {
-        // 2016-17は、それ以前の経歴が無くルーキーを判定できない（rookieFilter.ts の rookieSupportedSeason と同じ）
-        if (view.season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, view.season, p[0])) continue;
-      } else if (classKey && p[5] !== classKey) continue;
-      if (positionSet && !(p[2] && positionSet.has(positionFilterValue(p[2])))) continue;
       const row = playerGameAt(view, i);
       const game = row as unknown as PlayerRecordGame;
       if (def.filter && !def.filter(game)) continue;
@@ -439,6 +470,19 @@ const PLAYER_CONDITION_DEFS: PlayerGameRecordDef[] = [
 
 /** 個人の1試合記録のスタッツの条件に選べる項目（記録の項目＋TOV・PF） */
 export const PLAYER_STAT_CONDITION_ITEMS: StatConditionItem<IndexedPlayerGame>[] = PLAYER_CONDITION_DEFS.map(playerConditionItem);
+
+/**
+ * 2桁（10以上）になった部門の数（PTS・TR・AST・STL・BLK）。ダブルダブルは2以上、トリプルダブルは3以上
+ * （集計の doubleDoubles・tripleDoubles、scripts/aggregate.ts と同じ定義）。達成記録（thresholdQuery.ts）のしきい値に使う。
+ * 1試合記録のスタッツの条件の項目には入れない
+ */
+export const DOUBLE_DIGIT_CATEGORIES = ["pts", "reb", "ast", "stl", "blk"] as const;
+export const DOUBLE_DIGIT_DEF: PlayerGameRecordDef = {
+  key: "ddCats",
+  label: "2桁の部門数（PTS・TR・AST・STL・BLK）",
+  value: (g) => DOUBLE_DIGIT_CATEGORIES.filter((c) => g[c] >= 10).length,
+};
+export const DOUBLE_DIGIT_ITEM: StatConditionItem<IndexedPlayerGame> = playerConditionItem(DOUBLE_DIGIT_DEF);
 
 function teamConditionItem(def: TeamRecordValueDef): StatConditionItem<IndexedTeamGame> {
   const pct = !!def.fraction;
