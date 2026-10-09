@@ -26,7 +26,7 @@ export function playerGameRecordFraction(e: { made?: number; attempted?: number 
 }
 
 /** 成功率の項目の対象の試合の条件（最低試投数）。成功率でない項目は undefined */
-export function playerGameRecordMinAttemptsNote(key: string): string | undefined {
+export function playerGameRecordMinAttemptsNote(key: string, period?: string): string | undefined {
   const m = PLAYER_PCT_MIN_ATTEMPTS;
   const text: Record<string, string> = {
     fgPct: `FGAが${m.fgPct}以上`,
@@ -38,7 +38,10 @@ export function playerGameRecordMinAttemptsNote(key: string): string | undefined
   };
   if (key === "astedPct") return `得点が${PLAYER_ASTED_MIN_POINTS}点以上の試合が対象です。同じ率の中は得点の多い試合から並べます。`;
   const t = text[key];
-  return t ? `${t}の試合が対象です。同じ率の中は試投数の多い試合から並べます。` : undefined;
+  if (!t) return undefined;
+  // Q別・前後半・延長でも、基準は試合全体のときと同じ（そのため対象の記録は少ない）
+  if (period) return `${t}の${period}の記録だけが対象です（基準は試合全体のときと同じなので、対象は少なくなります）。同じ率の中は試投数の多い記録から並べます。`;
+  return `${t}の試合が対象です。同じ率の中は試投数の多い試合から並べます。`;
 }
 
 export type { PlayerGameRecordEntry };

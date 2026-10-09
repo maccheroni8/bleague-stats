@@ -294,12 +294,12 @@ export function periodAxis(
   value: PeriodRangeValue,
   onChange: (v: PeriodRangeValue) => void,
   options: PeriodRangeOption[],
-  opts: SimpleAxisOptions = {},
+  opts: SimpleAxisOptions & { label?: string } = {},
 ): FilterAxis {
   return {
     kind: "select",
     id: "period",
-    label: "Q別・前後半",
+    label: opts.label ?? "Q別・前後半",
     tier: opts.tier ?? "primary",
     options: options.map((o) => ({ value: o.value, label: periodLabels(o)[0] ?? o.label })),
     value,
