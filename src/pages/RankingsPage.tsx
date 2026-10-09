@@ -68,6 +68,8 @@ import { THRESHOLD_UNITS, THRESHOLD_UNIT_LABELS, THRESHOLD_UNIT_PARAM } from "..
 import { PlayerClutchRanking } from "../components/PlayerClutchRanking";
 import { PlayerThresholdRanking } from "../components/PlayerThresholdRanking";
 import { PlayerLineupRanking } from "../components/PlayerLineupRanking";
+import { LINEUP_UNITS, LINEUP_UNIT_LABELS } from "../lib/lineupRanking";
+import { LINEUP_RANGE_PARAM, LINEUP_UNIT_PARAM } from "../lib/lineupParams";
 import { AssistPairRanking } from "../components/AssistPairRanking";
 import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useSeasonRookies } from "../lib/rookieFilter";
 import {
@@ -1085,6 +1087,8 @@ export function RankingsPage({ season }: { season: string }) {
     (mode === "player" && kindParam === "special") || (mode === "team" && (kindParam === "clutch" || kindParam === "assistPair" || kindParam === "threshold" || kindParam === "lineup")) ? "season" : kindParam;
   const [pairUnit, setPairUnit] = useUrlState(PAIR_UNIT_PARAM, "season");
   const [thresholdUnit, setThresholdUnit] = useUrlState(THRESHOLD_UNIT_PARAM, "count");
+  const [lineupUnit, setLineupUnit] = useUrlState(LINEUP_UNIT_PARAM, "onoff");
+  const [lineupRange, setLineupRange] = useUrlState(LINEUP_RANGE_PARAM, "season");
   const setMode = (next: Mode) => {
     if (next === mode) return;
     clearUrlParams();
@@ -1107,7 +1111,8 @@ export function RankingsPage({ season }: { season: string }) {
     kind === "special" ||
     ((gameRecords || kind === "clutch") && scope === "allTime") ||
     (kind === "assistPair" && pairUnit !== "season") ||
-    (kind === "threshold" && (thresholdUnit !== "count" || scope === "allTime"));
+    (kind === "threshold" && (thresholdUnit !== "count" || scope === "allTime")) ||
+    (kind === "lineup" && lineupRange === "career");
 
   return (
     <div data-design="v2">
@@ -1178,6 +1183,29 @@ export function RankingsPage({ season }: { season: string }) {
               ))}
             </div>
           )}
+        </>
+      )}
+      {kind === "lineup" && (
+        <>
+          <div className="mode-toggle records-scope-toggle">
+            {LINEUP_UNITS.map((u) => (
+              <button key={u} type="button" className={lineupUnit === u ? "active" : ""} onClick={() => setLineupUnit(u)}>
+                {LINEUP_UNIT_LABELS[u]}
+              </button>
+            ))}
+          </div>
+          <div className="mode-toggle records-scope-toggle">
+            {(
+              [
+                ["season", "シーズン"],
+                ["career", "通算"],
+              ] as const
+            ).map(([key, label]) => (
+              <button key={key} type="button" className={lineupRange === key ? "active" : ""} onClick={() => setLineupRange(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
         </>
       )}
       {gameRecords && (
