@@ -36,7 +36,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   上位20位のファイル（個人の2つ）を作る元は索引（行を戻す部分は `shared/gameIndexRead.ts`。保存キーの対象）、2016-17のPTSOFFTOはタグの表記違い（「ポイントフロムターンオーバ」）を数えて算出できる、
   ランキングの新しい種類「勝負所」「アシストペア」（`src/lib/clutchQuery.ts`）と被アシスト率（%PTS ASTED。1試合は20点以上・通算は1,000点以上）。検証は `npm run validate:game-flow`・`validate:clutch-query`
 - 222章: 段階5の確認後の修正。前季比較の差は MIN を時間（+3:15）、％を「+1.7%」で出す。「決勝点」は **「決勝弾」**（勝ち越し弾・同点弾とそろえた）。個人ランキングの **「現役」**（今季のB.PREMIERの名簿の選手。`act=1`、`src/lib/activePlayers.ts`。通算記録・歴代の1試合記録・勝負所の通算・アシストペアの1試合と通算だけ。
-  通算記録は `league-player-career-top.json` の `byActive`）。アシストペアの初期表示はシーズン。検証は `npm run validate:active-filter`
+  通算記録は `league-player-career-top.json` の `byActive`）。アシストペアの初期表示はシーズン。検証は `npm run validate:active-filter`。選手名の表記: 単一のシーズンの表はそのシーズンの表記、複数のシーズンをまたぐ表は選手マスタの今の登録名、空白は半角1つにそろえる（`shared/playerName.ts`、`src/lib/currentPlayerNames.ts`。`validate:player-names`）
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
