@@ -95,7 +95,8 @@ for (const season of seasons) {
   const pv = viewPlayerGameIndex(playerFile);
   const tv = viewTeamGameIndex(teamFile);
   const summaries = ((await readJson<GameSummary[]>(path.join(seasonDir, "games-summary.json"))) ?? []).filter(
-    (s) => s.gameType === "regular" || s.gameType === "playoff",
+    // 終了した試合だけ（進行中の試合は、要約にはあるが、索引・試合ログには入らない）
+    (s) => (s.gameType === "regular" || s.gameType === "playoff") && s.gameEndedFlg,
   );
   const summaryByKey = new Map(summaries.map((s) => [s.scheduleKey, s]));
   const playersJson = (await readJson<PlayerSummary[]>(path.join(seasonDir, "players.json"))) ?? [];

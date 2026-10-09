@@ -75,7 +75,10 @@ const teamGames = new Map<string, number>(); // season:type:teamId（特別な�
 const doubleDoublesByJson = new Map<string, number>(); // season:playerId
 for (let si = 0; si < seasons.length; si++) {
   const s = seasons[si]!;
-  const summaries = ((await readJson<GameSummary[]>(path.join(DATA_DIR, s, "games-summary.json"))) ?? []).filter((x) => x.gameType === "regular" || x.gameType === "playoff");
+  // 終了した試合だけ（進行中の試合は、要約にはあるが、索引・試合ログには入らない）
+  const summaries = ((await readJson<GameSummary[]>(path.join(DATA_DIR, s, "games-summary.json"))) ?? []).filter(
+    (x) => (x.gameType === "regular" || x.gameType === "playoff") && x.gameEndedFlg,
+  );
   for (const x of summaries) {
     summaryOf.set(`${s}:${x.scheduleKey}`, x);
     if (SHORT_KEYS.has(x.scheduleKey)) continue;
