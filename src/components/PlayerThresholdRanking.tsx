@@ -16,11 +16,12 @@ import {
   DEFAULT_THRESHOLD,
   THRESHOLD_ITEMS,
   THRESHOLD_QUICK_VALUES,
+  queryThresholdAge,
   queryThresholdCount,
   queryThresholdStreaks,
   thresholdActive,
 } from "../lib/thresholdQuery";
-import { THRESHOLD_ONGOING_PARAM, THRESHOLD_SORT_PARAM, THRESHOLD_UNIT_PARAM, thresholdParam } from "../lib/thresholdParams";
+import { THRESHOLD_AGE_PARAM, THRESHOLD_ONGOING_PARAM, THRESHOLD_SORT_PARAM, THRESHOLD_UNIT_PARAM, thresholdParam } from "../lib/thresholdParams";
 import { useUrlState } from "../lib/urlState";
 import { GAME_TYPE_PARAM, PLAYER_GROUP_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM } from "../lib/urlFilterParams";
 import { useGameIndexViews, useGameRecordOptions, useRookieFile, useSeasonRosters } from "../lib/useGameRecordData";
@@ -29,7 +30,7 @@ import { ExportImageButton } from "./ExportImageButton";
 import { FilterBar } from "./FilterBar";
 import { POSITION_OPTIONS } from "./PlayerGameRecordRanking";
 import { StatConditionsEditor } from "./StatConditionsEditor";
-import { ThresholdCountList, ThresholdStreakList } from "./ThresholdLists";
+import { ThresholdAgeList, ThresholdCountList, ThresholdStreakList } from "./ThresholdLists";
 
 const EMPTY_POSITIONS: string[] = [];
 
@@ -50,6 +51,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   const [threshold, setThreshold] = useUrlState(thresholdParam, DEFAULT_THRESHOLD);
   const [activeParamValue, setActive] = useUrlState(ACTIVE_PARAM, "all");
   const [sort, setSort] = useUrlState(THRESHOLD_SORT_PARAM, "count");
+  const [which, setWhich] = useUrlState(THRESHOLD_AGE_PARAM, "young");
   const [ongoingParam, setOngoing] = useUrlState(THRESHOLD_ONGOING_PARAM, "all");
   // 連続記録は、レギュラーシーズンとポストシーズンを別に数える（合算は無い）。URLに合算があればレギュラーシーズンにする
   const gameType = unit === "streak" && gameTypeParam === "both" ? "regular" : gameTypeParam;
@@ -90,9 +92,13 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
       const r = queryThresholdStreaks({ ...input, gameType, rosters: rosters.rosters, currentIds: active.ids, ongoingOnly });
       return r && { kind: "streak" as const, ...r };
     }
+    if (unit === "age") {
+      const r = queryThresholdAge({ ...input, which });
+      return r && { kind: "age" as const, ...r };
+    }
     const r = queryThresholdCount({ ...input, sort });
     return r && { kind: "count" as const, ...r };
-  }, [ready, unit, index.views, gameType, conditions, group, positions, rookies.file, activeOn, active.ids, rosters.rosters, ongoingOnly, allTime, current.names, threshold, includeSpecial, sort]);
+  }, [ready, unit, index.views, gameType, conditions, group, positions, rookies.file, activeOn, active.ids, rosters.rosters, ongoingOnly, which, allTime, current.names, threshold, includeSpecial, sort]);
 
   // シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い対戦相手・地区・ルーキーを外す
   useEffect(() => {
@@ -117,7 +123,16 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
     gameRecordConditionLabels(conditions, teamName, false),
   );
   const scopeText = allTime ? (unit === "count" ? "通算" : "歴代") : `${season}シーズン`;
-  const unitText = unit === "streak" ? (ongoingOnly ? "継続中の連続記録" : "連続記録") : sort === "rate" ? "達成率" : "達成試合数";
+  const unitText =
+    unit === "streak"
+      ? ongoingOnly
+        ? "継続中の連続記録"
+        : "連続記録"
+      : unit === "age"
+        ? `達成時の年齢 ${which === "young" ? "最年少" : "最年長"}`
+        : sort === "rate"
+          ? "達成率"
+          : "達成試合数";
   const title = `${scopeText} ${unitText}（${thresholdText}）`;
   const filename = buildExportFilename(["達成記録", unitText, scopeText, thresholdText, ...conditionLabels]);
   const failure = index.error ?? rookies.error ?? active.error ?? current.error ?? rosters.error;
@@ -199,6 +214,29 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
           ]}
         />
       )}
+      {unit === "age" && (
+        <FilterBar
+          simple
+          wide
+          stateKey="rankings:player:threshold:age"
+          axes={[
+            {
+              ...simpleSelectAxis({
+                id: "thresholdAge",
+                label: "向き",
+                options: [
+                  { value: "young", label: "最年少（初めて達成した試合）" },
+                  { value: "old", label: "最年長（最後に達成した試合）" },
+                ],
+                value: which,
+                defaultValue: "young",
+                onChange: (v) => setWhich(v as typeof which),
+              }),
+              chip: false,
+            },
+          ]}
+        />
+      )}
       {unit === "count" && (
         <FilterBar
           simple
@@ -249,7 +287,15 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
           <ExportImageButton targetRef={exportRef} filename={filename} />
           <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
             <ConditionTitle title={title} conditions={conditionLabels} />
-            {result.kind === "streak" ? (
+            {result.kind === "age" ? (
+              <>
+                <ThresholdAgeList rows={result.rows} which={which} teamColors={teamColors} />
+                <p className="rule-change-footnote">
+                  ※ 達成時の年齢は、その試合の当日の年齢（〇歳〇日）です。1選手につき、{which === "young" ? "初めて達成した試合（最年少）" : "最後に達成した試合（最年長）"}の年齢を出しています。同じ年齢は同じ順位です。
+                  {result.unknownBirth > 0 ? `生年月日が不明の選手（${result.unknownBirth}人）は含めていません。` : ""}
+                </p>
+              </>
+            ) : result.kind === "streak" ? (
               <>
                 <ThresholdStreakList rows={result.rows} ongoingOnly={ongoingOnly} teamColors={teamColors} />
                 <p className="rule-change-footnote">

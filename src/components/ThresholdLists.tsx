@@ -1,8 +1,9 @@
 import type { TeamColors } from "../../shared/types";
+import { formatAgeOnDate } from "../../shared/gameAge";
 import { formatPct } from "../lib/format";
 import { GAME_RECORD_TIE_EXPAND_MAX } from "../lib/gameRecordQuery";
 import { useNarrow } from "../lib/teamLabel";
-import type { StreakGame, ThresholdCountRow, ThresholdCountSort, ThresholdStreakRow } from "../lib/thresholdQuery";
+import type { StreakGame, ThresholdAgeRow, ThresholdAgeWhich, ThresholdCountRow, ThresholdCountSort, ThresholdStreakRow } from "../lib/thresholdQuery";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
 import { RankedList } from "./RankedList";
@@ -100,6 +101,49 @@ export function ThresholdStreakList({ rows, ongoingOnly, teamColors }: { rows: T
           </>
         )}
         linkTo={(e) => `/players/${e.playerId}?season=${e.end.season}`}
+        teamColor={(e) => teamColors?.[e.teamId]?.primary}
+        avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
+        limit={RANK_TOP_N}
+        tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
+        unit="人"
+        sortable={false}
+        compact
+      />
+    </PlayerNamePool>
+  );
+}
+
+/** 達成時の年齢の一覧: 値は「18歳269日」。名前の下に、達成した試合（日付・シーズン・対戦・しきい値の項目の値） */
+export function ThresholdAgeList({ rows, which, teamColors }: { rows: ThresholdAgeRow[]; which: ThresholdAgeWhich; teamColors: Colors }) {
+  const narrow = useNarrow();
+  return (
+    <PlayerNamePool names={rows.map((e) => e.playerName)}>
+      <RankedList
+        rows={rows}
+        def={{
+          key: `threshold:age:${which}`,
+          label: "達成時の年齢",
+          value: (e) => e.value,
+          format: (e) => formatAgeOnDate(e.age),
+          // 最年少は若い（小さい）方が上位、最年長は大きい方が上位
+          higherIsBetter: which === "old",
+        }}
+        tieKey={(e) => String(e.value)}
+        rowKey={(e) => e.playerId}
+        name={(e) => <ResponsivePlayerName name={e.playerName} playerId={e.playerId} season={e.season} />}
+        subLabel={(e) => (
+          <>
+            <span className="record-date-nowrap">
+              {narrow ? e.date.replace(/-/g, "/").slice(2) : e.date}（{e.season}）
+            </span>
+            {narrow ? " " : "　"}
+            <ResponsiveTeamName teamId={e.teamId} name={e.teamName} always nowrap /> {e.isHome ? "vs" : "@"}{" "}
+            <ResponsiveTeamName teamId={e.opponentTeamId} name={e.opponentTeamName} always nowrap />
+            {e.detail && <span className="record-date-nowrap">　{e.detail}</span>}
+          </>
+        )}
+        linkTo={(e) => `/players/${e.playerId}?season=${e.season}`}
+        subLinkTo={(e) => `/games/${e.scheduleKey}?season=${e.season}`}
         teamColor={(e) => teamColors?.[e.teamId]?.primary}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
         limit={RANK_TOP_N}
