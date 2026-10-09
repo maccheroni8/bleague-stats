@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import {
   newStatCondition,
   parseConditionInput,
@@ -25,6 +25,10 @@ export function StatConditionsEditor({
   items,
   defaultKey,
   disabledReason,
+  title = "スタッツの条件",
+  minConditions = 0,
+  quickValues,
+  hint,
 }: {
   state: StatConditionsState;
   onChange: (next: StatConditionsState) => void;
@@ -32,6 +36,14 @@ export function StatConditionsEditor({
   /** 「条件を追加」で最初に選んでおく項目 */
   defaultKey: string;
   disabledReason?: string;
+  /** 見出し（達成記録では「しきい値」） */
+  title?: string;
+  /** これ以下には減らせない行数（達成記録のしきい値は1行以上。0なら「条件をすべて削除」も出す） */
+  minConditions?: number;
+  /** 項目ごとの「すぐ選べる」値。各行の下にボタンで出す（label があれば値の代わりにその名前） */
+  quickValues?: Record<string, { value: number; label?: string }[]>;
+  /** 行の下に出す補足 */
+  hint?: ReactNode;
 }) {
   const baseId = useId();
   const groups: { label: string; items: ItemOption[] }[] = [];
@@ -53,7 +65,8 @@ export function StatConditionsEditor({
   return (
     <div className={`stat-conditions${disabled ? " disabled" : ""}`}>
       <div className="stat-conditions-head">
-        <span className="stat-conditions-title">スタッツの条件</span>
+        <span className="stat-conditions-title">{title}</span>
+        {(minConditions === 0 || state.conditions.length > 1) && (
         <div className="mode-toggle stat-conditions-match" role="group" aria-label="条件の組み合わせ">
           {(Object.keys(STAT_CONDITION_MATCH_LABELS) as StatConditionMatch[]).map((m) => (
             <button
@@ -68,13 +81,16 @@ export function StatConditionsEditor({
             </button>
           ))}
         </div>
+        )}
       </div>
       {disabledReason && <p className="filter-bar-note">{disabledReason}</p>}
       {state.conditions.map((c, i) => {
         const item = byKey.get(c.key);
         const invalid = c.value.trim() !== "" && parseConditionInput(c.value) === null;
+        const quick = quickValues?.[c.key] ?? [];
         return (
-          <div className="stat-condition-row" key={c.id}>
+          <div key={c.id}>
+          <div className="stat-condition-row">
             <select
               className="stat-condition-item"
               aria-label={`条件${i + 1}の項目`}
@@ -123,11 +139,28 @@ export function StatConditionsEditor({
               type="button"
               className="stat-condition-remove"
               aria-label={`条件${i + 1}を削除`}
-              disabled={disabled}
+              disabled={disabled || state.conditions.length <= minConditions}
               onClick={() => remove(c.id)}
             >
               ×
             </button>
+          </div>
+          {quick.length > 0 && (
+            <div className="stat-condition-quick" role="group" aria-label={`条件${i + 1}のよく使う値`}>
+              {quick.map((q) => (
+                <button
+                  key={q.value}
+                  type="button"
+                  className={parseConditionInput(c.value) === q.value ? "active" : ""}
+                  aria-pressed={parseConditionInput(c.value) === q.value}
+                  disabled={disabled}
+                  onClick={() => update(c.id, { value: String(q.value) })}
+                >
+                  {q.label ? `${q.label}（${q.value}）` : q.value}
+                </button>
+              ))}
+            </div>
+          )}
           </div>
         );
       })}
@@ -135,12 +168,13 @@ export function StatConditionsEditor({
         <button type="button" className="stat-conditions-add" disabled={disabled || items.length === 0} onClick={add}>
           ＋ 条件を追加
         </button>
-        {state.conditions.length > 0 && (
+        {state.conditions.length > 0 && minConditions === 0 && (
           <button type="button" className="stat-conditions-clear" disabled={disabled} onClick={() => onChange({ ...state, conditions: [] })}>
             条件をすべて削除
           </button>
         )}
       </div>
+      {hint && <p className="filter-bar-note">{hint}</p>}
     </div>
   );
 }

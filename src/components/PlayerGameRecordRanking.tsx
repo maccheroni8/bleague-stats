@@ -59,7 +59,7 @@ export const PLAYER_RECORD_MODE_PARAM = enumParam<PlayerRecordMode>("rmode", ["r
 const RANK_TOP_N = 20;
 const EMPTY_POSITIONS: string[] = [];
 /** ポジションの選択肢（そのシーズンに実際にいるかは見ず、すべて出す。索引を読まずに選べるように） */
-const POSITION_OPTIONS = positionFilterOptions(["PG", "PG/SG", "SG", "SG/SF", "SF", "SF/PF", "PF", "C/PF", "C"].map((position) => ({ position })));
+export const POSITION_OPTIONS = positionFilterOptions(["PG", "PG/SG", "SG", "SG/SF", "SF", "SF/PF", "PF", "C/PF", "C"].map((position) => ({ position })));
 
 /** 選手の1試合記録のランキングの URL（選手一覧の記録タブのカードから移るとき等） */
 export function playerGameRecordRankingUrl(opts: { scope: RecordsScope; gameType: SeasonGameTypeFilter; statKey: string; season?: string }): string {

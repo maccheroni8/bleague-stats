@@ -6771,6 +6771,47 @@ table.sortable-table tbody tr:not(.pinned-row) + tr.pinned-row td {
   cursor: default;
 }
 
+/* 達成記録のしきい値の編集欄（DESIGN.md 223章）。表の上に置くので、スタッツの条件の区切り線と余白は付けない */
+.threshold-editor {
+  margin: 12px 0 8px;
+}
+
+.threshold-editor .stat-conditions {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* しきい値の「すぐ選べる」値のボタン（達成記録。DESIGN.md 223章） */
+.stat-condition-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.stat-condition-quick button {
+  padding: 3px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+[data-design="v2"] .stat-condition-quick button {
+  border-radius: 3px;
+}
+
+.stat-condition-quick button.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 @media (max-width: 560px) {
   .stat-condition-row {
     grid-template-columns: 76px 84px minmax(0, 1fr) 32px;
