@@ -1,20 +1,17 @@
 // 選手の1試合の記録の上位を作る共通部分（シーズンごとの scripts/aggregate-player-game-records.ts と、
 // 全シーズンの scripts/aggregate-league-player-game-records.ts で使う。DESIGN.md 159・188章）。
+// 元は1試合行の索引（data/{season}/player-game-index.json.gz。DESIGN.md 219・221章）。それまでは選手の試合ログ（player-games/）を全件読んでいた。
+// 索引は同じ試合ログから作るので、記録の値・順位・並びは変わらない（変更の前後で上位20位のファイルが完全に一致することを確認した）。
+// 画面の条件つきの1試合記録（src/lib/gameRecordQuery.ts）も同じ索引を読むので、条件なしの表示と条件ありの表示の元がそろう。
 import path from "node:path";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { DATA_DIR, readJson } from "./storage.ts";
 import { filterByGameType } from "../../shared/gameType.ts";
 import { PLAYER_GAME_RECORD_STATS, PLAYER_GAME_RECORD_TOP_N, type PlayerRecordGame } from "../../shared/playerGameRecords.ts";
-import { CLASS_KEYS, classKeyOf, type ClassKey } from "../../shared/classificationKey.ts";
-import type {
-  GameSummary,
-  LeagueRankingGameType,
-  PlayerGameLog,
-  PlayerGameRecordEntry,
-  PlayerGameRecordTables,
-  PlayerMasterEntry,
-  PlayerSummary,
-} from "../../shared/types.ts";
+import { CLASS_KEYS, type ClassKey } from "../../shared/classificationKey.ts";
+import { playerGameAt, viewPlayerGameIndex } from "../../shared/gameIndexRead.ts";
+import type { PlayerGameIndexFile } from "../../shared/gameIndex.ts";
+import type { LeagueRankingGameType, PlayerGameRecordEntry, PlayerGameRecordTables } from "../../shared/types.ts";
 
 export interface RecordGame extends PlayerRecordGame {
   playerId: string;
@@ -22,41 +19,36 @@ export interface RecordGame extends PlayerRecordGame {
   /** 記録した試合の所属チーム（その試合のチーム名。試合一覧のホーム/アウェイから決めるので、シーズン途中の移籍にも合う） */
   teamId: string;
   teamName: string;
-  /** 登録区分（jp＝日本人、intl＝外国籍・帰化・アジア）。選手マスタの区分（選手ごとの1つの値。DESIGN.md 197章）。マスタに無い選手は undefined */
+  /** 登録区分（jp＝日本人、intl＝外国籍・帰化・アジア）。索引の選手辞書の区分（選手ごとの1つの値。DESIGN.md 197章）。無い選手は undefined */
   classKey?: ClassKey;
 }
 
 /**
- * そのシーズンの、出場した試合（min>0）で、試合一覧（games-summary.json）にある試合（オールスター等は含めない）。
- * 選手名はそのシーズンの players.json、無ければ playerId
+ * そのシーズンの、出場した試合（min>0）で、試合一覧（games-summary.json）にある試合（オールスター等は含めない）を、索引から読む。
+ * 選手名はそのシーズンの名前。索引は、先に scripts/aggregate-game-index.ts（build:data の「1試合行の索引」）で作っておく。
+ * そのシーズンの選手の試合ログが無ければ空（索引も作られない）
  */
 export async function loadSeasonRecordGames(season: string): Promise<RecordGame[]> {
-  const summaries = (await readJson<GameSummary[]>(path.join(DATA_DIR, season, "games-summary.json"))) ?? [];
-  const summaryByKey = new Map(summaries.map((s) => [s.scheduleKey, s]));
-  const players = (await readJson<PlayerSummary[]>(path.join(DATA_DIR, season, "players.json"))) ?? [];
-  const nameById = new Map(players.map((p) => [p.playerId, p.name]));
-  const master = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
-  const classKeyById = new Map(master.map((p) => [p.playerId, classKeyOf(p.classification)]));
-  const dir = path.join(DATA_DIR, season, "player-games");
-  if (!existsSync(dir)) return [];
-  const games: RecordGame[] = [];
-  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json.gz"))) {
-    const playerId = file.replace(/\.json\.gz$/, "");
-    const logs = await readJson<PlayerGameLog[]>(path.join(dir, `${playerId}.json`));
-    for (const g of logs ?? []) {
-      const s = summaryByKey.get(g.scheduleKey);
-      if (g.min <= 0 || !s) continue;
-      if (g.gameType !== "regular" && g.gameType !== "playoff") continue;
-      games.push({
-        ...g,
-        season,
-        playerId,
-        playerName: nameById.get(playerId) ?? playerId,
-        classKey: classKeyById.get(playerId),
-        teamId: g.isHome ? s.homeTeamId : s.awayTeamId,
-        teamName: g.isHome ? s.homeTeamName : s.awayTeamName,
-      });
+  const file = await readJson<PlayerGameIndexFile>(path.join(DATA_DIR, season, "player-game-index.json"));
+  if (!file) {
+    if (existsSync(path.join(DATA_DIR, season, "player-games"))) {
+      throw new Error(`${season}: 1試合行の索引（player-game-index.json.gz）がありません。先に npm run aggregate:game-index -- --season ${season} を実行してください`);
     }
+    return [];
+  }
+  const view = viewPlayerGameIndex(file);
+  const games: RecordGame[] = [];
+  for (let i = 0; i < view.size; i += 1) {
+    const r = playerGameAt(view, i);
+    games.push({
+      ...(r as unknown as PlayerRecordGame),
+      season,
+      playerId: r.playerId,
+      playerName: r.playerName,
+      teamId: r.teamId,
+      teamName: r.teamName,
+      classKey: r.classKey === "" ? undefined : r.classKey,
+    });
   }
   return games;
 }

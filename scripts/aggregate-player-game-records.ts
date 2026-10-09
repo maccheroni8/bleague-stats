@@ -1,7 +1,8 @@
 // data/{season}/player-game-records.json（選手一覧「記録」タブの範囲「シーズン」、選手の1試合の記録。DESIGN.md 159章）を生成する。
 //
-// そのシーズンの全選手の試合ログ（data/{season}/player-games/{playerId}.json.gz）から、shared/playerGameRecords.ts の項目ごとに
-// 上位20位（同じ記録はすべて）だけを書き出す。画面が全選手の試合ログ（1シーズン約430ファイル）を読まずに済むようにするため。
+// そのシーズンの1試合行の索引（data/{season}/player-game-index.json.gz。先に scripts/aggregate-game-index.ts で作る。DESIGN.md 221章）から、
+// shared/playerGameRecords.ts の項目ごとに上位20位（同じ記録はすべて）だけを書き出す。画面が全選手の試合ログ（1シーズン約430ファイル）を読まずに済むようにするため。
+// （以前は全選手の試合ログを直接読んでいた。索引は同じ試合ログから作るので、出力は変わらない）
 // 試合区分はレギュラーシーズン・ポストシーズン・合算。出場した試合（min>0）で、そのシーズンの試合一覧（games-summary.json）にある試合だけが対象
 // （オールスター等は含めない）。記録した試合の所属チームは、試合一覧のホーム/アウェイから決める（シーズン途中の移籍にも合う）。
 //

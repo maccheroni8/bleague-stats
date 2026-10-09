@@ -16,7 +16,7 @@
 //   npm run build:data -- check-layout                 data/ の全ファイルが A か B に仕分け済みかを確かめる
 //   npm run build:data -- check-staged                 ステージ済み（git add 済み）の data/ のファイルに、導出データ・仕分け外が混ざっていないかを確かめる（夜間実行のコミット前）
 //
-// シーズンごとの集計: aggregate（B.PREMIER と、あれば B.ONE）→ 選手の1試合の記録（シーズン）→ 1試合行の索引 → 比較用のリーグ平均
+// シーズンごとの集計: aggregate（B.PREMIER と、あれば B.ONE）→ 1試合行の索引 → 選手の1試合の記録（シーズン。索引から作る）→ 比較用のリーグ平均
 // 全シーズンをまたぐ集計: 収録シーズンの一覧 → チーム歴代 → キャリア → ルーキーの対象シーズン → 個人歴代 → 選手の1試合の記録（歴代）
 
 import { spawnSync } from "node:child_process";
@@ -153,8 +153,8 @@ function node(label: string, script: string, ...args: string[]): void {
 function buildSeason(season: string): void {
   node(`${season} 集計`, "aggregate.ts", "--season", season);
   if (hasOne(season)) node(`${season} B.ONE 集計`, "aggregate.ts", "--season", season, "--category", "one");
-  node(`${season} 選手の1試合の記録`, "aggregate-player-game-records.ts", "--season", season);
   node(`${season} 1試合行の索引`, "aggregate-game-index.ts", "--season", season);
+  node(`${season} 選手の1試合の記録`, "aggregate-player-game-records.ts", "--season", season); // 上位20位は索引から作る（221章）
   run(`${season} 比較用のリーグ平均`, "npm", ["run", "--silent", "aggregate:league-compare", "--", "--season", season]);
 }
 
