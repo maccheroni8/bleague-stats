@@ -38,6 +38,7 @@ import type {
   LeagueTeamRankEntry,
   LeagueTeamRankingsFile,
   TeamForcedTurnovers,
+  TeamGameLog,
   TeamSummary,
 } from "../../shared/types";
 import { SortableTable, type Column } from "../components/SortableTable";
@@ -123,6 +124,8 @@ import { statDescription } from "../lib/statDescriptions";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "../lib/teamRankingData";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { teamNameInSeason, useTeamText } from "../lib/teamLabel";
+import { aggregatePeriodScoring, type PeriodScoringRow } from "../lib/teamPeriodScoring";
+import { buildPeriodColumns } from "../lib/teamPeriodColumns";
 
 type TeamsPageTab = "stats" | "records" | "champions" | "recent";
 
@@ -131,10 +134,10 @@ type TeamsPageTab = "stats" | "records" | "champions" | "recent";
  * scope＝記録の範囲、cat・venue・stat＝歴代の記録のカテゴリ・会場・項目、n＝直近成績の試合数
  */
 const TEAMS_VIEW_PARAM = enumParam<TeamsPageTab>("view", ["stats", "records", "champions", "recent"], "stats");
-type TeamsBoxTab = BoxscoreTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition";
+type TeamsBoxTab = BoxscoreTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition" | "periods";
 const TEAMS_BOX_TAB_PARAM = enumParam<TeamsBoxTab>(
   "tab",
-  ["traditional", "advanced", "misc", "scoring", "shooting", "forcedTurnovers", "foreignPlayers", "scoringComposition"],
+  ["traditional", "advanced", "misc", "scoring", "shooting", "forcedTurnovers", "foreignPlayers", "scoringComposition", "periods"],
   "traditional",
   { traditional: "trad", advanced: "adv", shooting: "shoot", forcedTurnovers: "tov", foreignPlayers: "oc", scoringComposition: "share" },
 );
@@ -278,6 +281,11 @@ const winPctColumn: Column<AllTeamsRow> = {
 // 各行の先頭にロゴ・試合数・勝敗・勝率を置く（チーム詳細ページ「シーズン別成績」と同じ載せ方）
 const LEADING_COLUMNS: Column<AllTeamsRow>[] = [teamColumn, gamesColumn, recordColumn, winPctColumn];
 
+/** 「Periods」の行。全チームスタッツの行（AllTeamsRow）に、選んだ条件の試合の区間別の得点・失点の合計を足したもの（DESIGN.md 226章） */
+interface PeriodTeamRow extends AllTeamsRow {
+  scoring: PeriodScoringRow;
+}
+
 // 「シューティング（シュートタイプ別）」一覧用の行。TeamSummary.shotTypesをそのまま使う。
 // 各シュートタイプを2P/3P別・成功数/試投数/成功率の6列に分けて表示する
 // （個人詳細ページ・チーム詳細ページの内訳表示、ボックススコアのFG/2P/3P/FT分離と同じパターン）
@@ -337,16 +345,25 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   // 並べ替えで規定上ありえない人数の区分を飛ばすため、シーズンごとのオンザコートの規定を読む
   const { data: foreignRules } = useJsonData(() => (boxTab === "foreignPlayers" ? fetchSeasonRules() : Promise.resolve(null)), [boxTab]);
 
+  // 選んだ条件（シチュエーション別のフィルタ・試合区分）に当てはまる、チームごとの試合ログ。表の集計と Periods の区間別の得点が同じ試合を使う
+  const scopedLogsByTeam = useMemo(() => {
+    const map = new Map<string, TeamGameLog[]>();
+    if (!teams || !gameLogsByTeam) return map;
+    for (const team of teams) {
+      const logs = gameLogsByTeam.get(team.teamId) ?? [];
+      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => team.teamId);
+      map.set(team.teamId, filterByGameType(situational, gameType));
+    }
+    return map;
+  }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season]);
   const rows: AllTeamsRow[] = useMemo(() => {
     if (!teams || !gameLogsByTeam) return [];
     return teams.map((team) => {
-      const logs = gameLogsByTeam.get(team.teamId) ?? [];
-      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => team.teamId);
-      const scoped = filterByGameType(situational, gameType);
+      const scoped = scopedLogsByTeam.get(team.teamId) ?? [];
       const wins = scoped.filter((g) => g.win).length;
       return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: sumTeamGameLogs(scoped) };
     });
-  }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season]);
+  }, [teams, gameLogsByTeam, scopedLogsByTeam]);
 
   // リーグ平均の行（DESIGN.md 149章）。選択中の条件で絞った全チームの合計から出す（割合は合計÷合計、1試合平均は合計÷延べ試合数）。
   // カウント系はチーム数で割り、「合計」表示では平均的な1チームの合計にする。自チームの視点のときだけ出す（opp・+/-では出さない）
@@ -361,6 +378,39 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       totals: averageTotals(played.map((r) => r.totals)),
     };
   }, [rows]);
+
+  // Periods（DESIGN.md 226章）: 区間別の得点・失点の合計。リーグ平均の行は、全チームの合計をチーム数で割る（平均は区間の値のある試合数で割るので、試合数も同じ割合で割る）
+  const periodRows: PeriodTeamRow[] = useMemo(
+    () => (boxTab === "periods" ? rows.map((r) => ({ ...r, scoring: aggregatePeriodScoring(scopedLogsByTeam.get(r.team.teamId) ?? []) })) : []),
+    [boxTab, rows, scopedLogsByTeam],
+  );
+  const periodLeagueRow: PeriodTeamRow | null = useMemo(() => {
+    const played = periodRows.filter((r) => r.gamesPlayed > 0);
+    if (!leagueRow || played.length === 0) return null;
+    const n = played.length;
+    const cells = (key: string) => {
+      const sum = { games: 0, own: 0, opp: 0 };
+      for (const r of played) {
+        const c = key === "full" ? r.scoring.full : r.scoring.periods[key as keyof PeriodScoringRow["periods"]];
+        sum.games += c.games;
+        sum.own += c.own;
+        sum.opp += c.opp;
+      }
+      return { games: sum.games / n, own: sum.own / n, opp: sum.opp / n };
+    };
+    const scoring: PeriodScoringRow = {
+      games: leagueRow.gamesPlayed,
+      full: cells("full"),
+      periods: { q1: cells("q1"), q2: cells("q2"), q3: cells("q3"), q4: cells("q4"), h1: cells("h1"), h2: cells("h2"), ot: cells("ot") },
+      withoutPeriods: 0,
+    };
+    return { ...leagueRow, scoring };
+  }, [periodRows, leagueRow]);
+  const periodColumns = useMemo(
+    () => [...LEADING_COLUMNS, ...buildPeriodColumns<PeriodTeamRow>(displayMode === "total" ? "total" : "perGame", teamPerspective)] as Column<PeriodTeamRow>[],
+    [displayMode, teamPerspective],
+  );
+  const periodsWithoutValue = periodRows.reduce((sum, r) => sum + r.scoring.withoutPeriods, 0) / 2; // 2チーム分で1試合
 
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する。表のタブ（4カテゴリ・Shooting・Forced TOV）の行を絞り込む。
   // Shooting・Forced TOV のタブでは上の絞り込みが効かないため、絞り込みの無いレギュラーシーズン全体の値で判定する
@@ -427,6 +477,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       case "forcedTurnovers":
       case "foreignPlayers":
       case "scoringComposition":
+      case "periods":
         return [];
     }
   }, [boxTab, displayMode, teamPerspective, paintSupported, foulSplit]);
@@ -522,7 +573,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
 
   // フィルタバー（DESIGN.md 105章）。カテゴリによって効かない軸は操作不可にして理由を出す。
   // 通常4カテゴリ=全軸が有効、シューティング=表示（平均/合計）のみ有効、それ以外の専用ビュー=すべて対象外
-  const isMainCategory = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
+  const isMainCategory = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring" || boxTab === "periods";
   const seasonTotalOnlyReason = "このタブはシーズン通算値のみ対応のため、上の絞り込みは連動しません。";
   const filterDisabledReason = isMainCategory
     ? undefined
@@ -553,7 +604,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const statsTitle = {
     title: `${season}シーズン 全チームスタッツ：${TEAMS_STATS_CATEGORY_LABELS[boxTab]}`,
     conditions:
-      boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring"
+      boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring" || boxTab === "periods"
         ? composeLabels(
             displayModeLabels(displayMode),
             gameTypeLabels(gameType, season),
@@ -579,7 +630,11 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         onClearAll={clearAllFilters}
         advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, {
           defaultKey: "pts",
-          disabledReason: conditionTab ? undefined : "このタブはグラフのため、スタッツの条件は表のタブ（Traditional〜Forced TOV）でだけ効きます。",
+          disabledReason: conditionTab
+            ? undefined
+            : boxTab === "periods"
+              ? "このタブは区間別の得点の表のため、スタッツの条件は Traditional〜Forced TOV のタブでだけ効きます。"
+              : "このタブはグラフのため、スタッツの条件は表のタブ（Traditional〜Forced TOV）でだけ効きます。",
         })}
       />
       <div>
@@ -621,6 +676,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             type="button"
           >
             {CATEGORY_LABELS.scoringComposition}
+          </button>
+          <button
+            className={`tab-button${boxTab === "periods" ? " active" : ""}`}
+            onClick={() => setBoxTab("periods")}
+            type="button"
+          >
+            {CATEGORY_LABELS.periods}
           </button>
         </div>
       </div>
@@ -767,6 +829,26 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         </>
       ) : gameLogsLoading || !gameLogsByTeam ? (
         <p className="loading">読み込み中...</p>
+      ) : boxTab === "periods" ? (
+        <>
+          <div className="table-scroll">
+            <SortableTable
+              statScope="team"
+              key={`${boxTab}-${teamPerspective}`}
+              columns={periodColumns}
+              rows={periodRows}
+              rowKey={(r) => r.team.teamId}
+              defaultSortKey="full"
+              linkTo={(r) => `/teams/${r.team.teamId}`}
+              pinnedRows={periodLeagueRow && teamPerspective === "own" ? [periodLeagueRow] : undefined}
+            />
+          </div>
+          <p className="page-subtitle">
+            前半は1Q＋2Q、後半は3Q＋4Q。OTは延長のあった試合だけの値で、平均はその試合数（OT G）で割ります（合計はすべての延長の合計）。「試合」は試合全体の値です。
+            {periodsWithoutValue > 0 && `前後半5分の特別な試合（${periodsWithoutValue}試合）は1Q〜4Q・前半・後半・OTの値がないため、これらの列から除いています。`}
+          </p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全チームスタッツ" scope="各チームの試合ログから、選んだ条件で集計し直した値です。" />
+        </>
       ) : (
         <>
           <div className="table-scroll">
