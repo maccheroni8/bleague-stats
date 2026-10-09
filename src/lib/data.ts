@@ -12,6 +12,7 @@
 // gzip圧縮されたバイト列のまま届く。`Content-Encoding`レスポンスヘッダの有無で判定し、
 // 両方の環境に対応する
 
+import type { PlayerGameIndexFile, TeamGameIndexFile } from "../../shared/gameIndex";
 import type {
   LeaguePlayerGameRecordsFile,
   PlayerGameRecordsFile,
@@ -179,6 +180,24 @@ export async function fetchPlayerGameRecords(season: string): Promise<PlayerGame
 export async function fetchLeaguePlayerGameRecords(): Promise<LeaguePlayerGameRecordsFile | null> {
   try {
     return await fetchJson<LeaguePlayerGameRecordsFile>(`${dataBase}/league-player-game-records.json`);
+  } catch {
+    return null;
+  }
+}
+
+/** 選手の1試合行の索引（data/{season}/player-game-index.json、DESIGN.md 219章）。ファイルが無ければ null。読み方は src/lib/gameIndex.ts */
+export async function fetchPlayerGameIndex(season: string): Promise<PlayerGameIndexFile | null> {
+  try {
+    return await fetchJson<PlayerGameIndexFile>(`${dataBase}/${season}/player-game-index.json`);
+  } catch {
+    return null;
+  }
+}
+
+/** チームの1試合行の索引（data/{season}/team-game-index.json、DESIGN.md 219章）。ファイルが無ければ null */
+export async function fetchTeamGameIndex(season: string): Promise<TeamGameIndexFile | null> {
+  try {
+    return await fetchJson<TeamGameIndexFile>(`${dataBase}/${season}/team-game-index.json`);
   } catch {
     return null;
   }
