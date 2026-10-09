@@ -12,6 +12,7 @@ import {
   GAME_FLAG_SHORT,
   GAME_INDEX_VERSION,
   INDEX_UNAVAILABLE_COLUMNS,
+  PLAYER_INDEX_CLUTCH_COLUMNS,
   PLAYER_INDEX_STAT_COLUMNS,
   ROW_FLAG_HOME,
   ROW_FLAG_STARTER,
@@ -42,14 +43,24 @@ function numberOrThrow(v: unknown, what: string): number {
 }
 
 /** 選手の統計の列の値。minSec は出場時間（分）を秒に直す（分は秒÷60の値なので、四捨五入で元に戻る。確認は validate:game-index） */
+const CLUTCH_POSITION = new Map<string, number>(PLAYER_INDEX_CLUTCH_COLUMNS.map((c, i) => [c, i]));
+
 function playerStat(g: PlayerGameLog, col: PlayerStatColumn): number {
   if (col === "minSec") return Math.round(numberOrThrow(g.min, "min") * 60);
-  return numberOrThrow(g[col] ?? 0, col);
+  const clutchAt = CLUTCH_POSITION.get(col);
+  if (clutchAt !== undefined) return g.clutch?.[clutchAt] ?? 0;
+  return numberOrThrow((g as unknown as Record<string, unknown>)[col] ?? 0, col);
 }
 
+/** 試合ログに無い項目（古いデータ・プレーバイプレーの得点が無い試合）は -1 */
+const TEAM_OPTIONAL_COLUMNS = new Set<string>(["attendance", "maxRun", "maxRunFromSec", "maxRunToSec", "maxRunOwnBefore", "maxRunOppBefore"]);
+
 function teamStat(g: TeamGameLog, col: (typeof TEAM_INDEX_STAT_COLUMNS)[number]): number {
-  if (col === "attendance") return g.attendance === undefined ? -1 : g.attendance;
-  return numberOrThrow(g[col] ?? 0, col);
+  if (TEAM_OPTIONAL_COLUMNS.has(col)) {
+    const v = (g as unknown as Record<string, unknown>)[col];
+    return v === undefined ? -1 : numberOrThrow(v, col);
+  }
+  return numberOrThrow((g as unknown as Record<string, unknown>)[col] ?? 0, col);
 }
 
 interface SeasonInputs {

@@ -20,7 +20,11 @@ import { classKeyOf } from "../shared/classificationKey.ts";
 import { ageOnDate, compareAge, formatAgeOnDate } from "../shared/gameAge.ts";
 import { PLAYER_GAME_RECORD_STATS, type PlayerRecordGame } from "../shared/playerGameRecords.ts";
 import { TEAM_AGAINST_RECORD_STATS, TEAM_RECORD_STATS } from "../shared/teamRecords.ts";
-import { INDEX_UNAVAILABLE_COLUMNS, PLAYER_INDEX_STAT_COLUMNS, type PlayerGameIndexFile, type TeamGameIndexFile } from "../shared/gameIndex.ts";
+import { INDEX_UNAVAILABLE_COLUMNS, PLAYER_INDEX_CLUTCH_COLUMNS, PLAYER_INDEX_STAT_COLUMNS, type PlayerGameIndexFile, type TeamGameIndexFile } from "../shared/gameIndex.ts";
+import { clutchByPlayer, maxRuns, scoringSequence } from "../shared/gameFlow.ts";
+import { computeAssistedScoring } from "../shared/assistedScoring.ts";
+import { assistPairPoints, sortedAssistPairRows, type AssistPairsFile } from "../shared/assistPairs.ts";
+import { withChronologicalPlayByPlays } from "../shared/pbpOrder.ts";
 import type { GameSummary, PlayerGameLog, PlayerMasterEntry, PlayerSummary, RookieEligibilityFile, TeamGameLog } from "../shared/types.ts";
 import { gameOvertimes, playerFinalMargin, teamFinalMargin } from "../src/lib/gameFacts.ts";
 import {
@@ -61,6 +65,8 @@ class Mismatches {
 }
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+/** 勝負所の合計の配列から、窓 w・種類 k・FG/FT の値を取り出す（位置は shared/gameFlow.ts の clutchIndex と同じ） */
+const expectedClutch = (totals: number[], w: number, k: number, ft: boolean): number => totals[w * 6 + k * 2 + (ft ? 1 : 0)]!;
 
 const seasons = readdirSync(DATA_DIR, { withFileTypes: true })
   .filter((e) => e.isDirectory() && /^\d{4}-\d{2}$/.test(e.name) && existsSync(path.join(DATA_DIR, e.name, "player-game-index.json.gz")))
@@ -153,9 +159,13 @@ for (const season of seasons) {
       if ((r as unknown as Record<string, unknown>)[k] !== v) pm.add(`${key} ${k}: 索引 ${String((r as unknown as Record<string, unknown>)[k])} / 元 ${String(v)}`);
     }
     if (Math.abs(r.min - src.min) > 1e-9) pm.add(`${key} min: 索引 ${r.min} / 元 ${src.min}`);
+    const clutchColumns: readonly string[] = PLAYER_INDEX_CLUTCH_COLUMNS;
     for (const col of PLAYER_INDEX_STAT_COLUMNS) {
       if (col === "minSec") continue;
-      if ((r as unknown as Record<string, number>)[col] !== (src[col] ?? 0)) pm.add(`${key} ${col}: 索引 ${(r as unknown as Record<string, number>)[col]} / 元 ${String(src[col])}`);
+      const clutchAt = clutchColumns.indexOf(col);
+      const actual = clutchAt >= 0 ? (r.clutch?.[clutchAt] ?? 0) : (r as unknown as Record<string, number>)[col];
+      const original = clutchAt >= 0 ? (src.clutch?.[clutchAt] ?? 0) : ((src as unknown as Record<string, number | undefined>)[col] ?? 0);
+      if (actual !== original) pm.add(`${key} ${col}: 索引 ${actual} / 元 ${String(original)}`);
     }
     const ps = playerSummaryById.get(r.playerId);
     const m = masterById.get(r.playerId);
@@ -223,6 +233,7 @@ for (const season of seasons) {
         "fgm", "fga", "tpm", "tpa", "ftm", "fta", "oreb", "dreb", "reb", "ast", "tov", "stl", "blk", "pf", "fb", "pt2in", "pft", "pt2nd", "foulsDrawn", "dunks",
         "benchPoints", "starterPoints", "attendance", "japanesePoints", "foreignPoints", "naturalizedOrAsianPoints",
         "periodPoints", "opponentPeriodPoints", "periodPointsFromPbp",
+        "maxRun", "maxRunFromSec", "maxRunToSec", "maxRunOwnBefore", "maxRunOppBefore",
         "opponentFgm", "opponentFga", "opponentTpm", "opponentTpa", "opponentFtm", "opponentFta", "opponentOreb", "opponentDreb", "opponentAst", "opponentTov",
         "opponentStl", "opponentBlk", "opponentPf", "opponentFb", "opponentPt2in", "opponentPft", "opponentPt2nd", "opponentFoulsDrawn", "opponentDunks",
       ];
@@ -246,6 +257,9 @@ for (const season of seasons) {
 
   // ---- 試合の生データと突き合わせ（延長・最大リード・特別な試合） ----
   const gm = new Mismatches();
+  const clutchExpectedTotal = new Array<number>(PLAYER_INDEX_CLUTCH_COLUMNS.length).fill(0);
+  const gameClutchExpected = new Map<number, number[]>();
+  const expectedPairs = new Map<string, string[]>();
   let shortGames = 0;
   const otHistogram: Record<number, number> = {};
   for (const [key, gi] of gameIndexByKey) {
@@ -267,8 +281,94 @@ for (const season of seasons) {
     if (((games.flags[gi]! & 2) !== 0) !== isShort) gm.add(`${key} 特別な試合の旗`);
     if (isShort) shortGames += 1;
     if (((games.flags[gi]! & 1) !== 0) !== (summaryByKey.get(key)!.gameType === "playoff")) gm.add(`${key} ポストシーズンの旗`);
+
+    // 最大のラン・勝負所: 生データから作り直した値（shared/gameFlow.ts）と、索引のチームの行・選手の行の合計が一致する
+    const flow = scoringSequence(raw.raw.PlayByPlays ?? []);
+    const runs = maxRuns(flow.events);
+    for (const side of [0, 1] as const) {
+      const t = teamGameAt(tv, gi * 2 + side);
+      const run = runs[side];
+      const got = t.maxRun === undefined ? null : [t.maxRun, t.maxRunFromSec, t.maxRunToSec, t.maxRunOwnBefore, t.maxRunOppBefore];
+      const want = run ? [run.points, run.fromSec, run.toSec, run.ownBefore, run.oppBefore] : null;
+      if (!same(got, want)) gm.add(`${key} ${side === 0 ? "ホーム" : "アウェイ"}の最大のラン: 索引 ${JSON.stringify(got)} / 数え直し ${JSON.stringify(want)}`);
+    }
+    const expectedClutch = new Array<number>(PLAYER_INDEX_CLUTCH_COLUMNS.length).fill(0);
+    for (const arr of clutchByPlayer(flow.events, raw.homeScore, raw.awayScore).values()) arr.forEach((v, k) => (expectedClutch[k]! += v));
+    clutchExpectedTotal.forEach((_, k) => (clutchExpectedTotal[k]! += expectedClutch[k]!));
+    gameClutchExpected.set(gi, expectedClutch);
+
+    // アシストペア: 生データから作り直した行が assist-pairs.json.gz と一致する
+    const pairRows = sortedAssistPairRows(computeAssistedScoring(withChronologicalPlayByPlays(raw).raw.PlayByPlays ?? []).pairs.values());
+    expectedPairs.set(key, pairRows.map((r) => `${r.assisterId}>${r.scorerId}:${r.n2},${r.n3},${r.nf}`));
   }
-  check(`${season} 延長の本数・最大リード・得点・旗が生データの数え直しと一致`, gm.count === 0, `${gm.count}件\n   ${gm.samples.join("\n   ")}`);
+  check(`${season} 延長の本数・最大リード・得点・旗・最大のランが生データの数え直しと一致`, gm.count === 0, `${gm.count}件\n   ${gm.samples.join("\n   ")}`);
+
+  // 勝負所: 試合ごとに、索引の選手の行の合計が、生データから数えた合計と一致する（出場していない選手の分が無いことの確認も兼ねる）
+  {
+    const sums = new Map<number, number[]>();
+    for (let i = 0; i < pv.size; i += 1) {
+      const row = playerGameAt(pv, i);
+      if (!row.clutch) continue;
+      const gi = playerFile.rows.game[i]!;
+      const acc = sums.get(gi) ?? new Array<number>(PLAYER_INDEX_CLUTCH_COLUMNS.length).fill(0);
+      row.clutch.forEach((v, k) => (acc[k]! += v));
+      sums.set(gi, acc);
+    }
+    const cm = new Mismatches();
+    for (const [gi, want] of gameClutchExpected) {
+      const got = sums.get(gi) ?? new Array<number>(PLAYER_INDEX_CLUTCH_COLUMNS.length).fill(0);
+      if (!same(got, want)) cm.add(`${games.key[gi]}: 索引 ${JSON.stringify(got)} / 数え直し ${JSON.stringify(want)}`);
+    }
+    check(`${season} 勝負所（勝ち越し弾・同点弾・決勝点）が生データの数え直しと一致`, cm.count === 0, `${cm.count}件\n   ${cm.samples.join("\n   ")}`);
+    console.log(`   勝負所の合計（窓5分・2分・1分の [勝ち越し,同点,決勝点] FG+FT）: ${[0, 1, 2].map((w) => [0, 1, 2].map((k) => `${expectedClutch(clutchExpectedTotal, w, k, false)}+${expectedClutch(clutchExpectedTotal, w, k, true)}`).join(",")).join(" / ")}`);
+  }
+
+  // アシストペア（assist-pairs.json.gz）: 生データの数え直しと一致。選手は索引の選手辞書にいる。（試合, 得点した選手）ごとの点数が選手の行のアシストされた得点と一致
+  {
+    const pairsFile = await readJson<AssistPairsFile>(path.join(seasonDir, "assist-pairs.json"));
+    check(`${season} assist-pairs.json.gz がある`, !!pairsFile && pairsFile.season === season);
+    if (pairsFile) {
+      const got = new Map<string, string[]>();
+      let orderOk2 = true;
+      const r = pairsFile.rows;
+      for (let i = 0; i < r.game.length; i += 1) {
+        const key = pairsFile.keys[r.game[i]!]!;
+        const a = pairsFile.players[r.assister[i]!]!;
+        const sc = pairsFile.players[r.scorer[i]!]!;
+        (got.get(key) ?? got.set(key, []).get(key)!).push(`${a}>${sc}:${r.n2[i]},${r.n3[i]},${r.nf[i]}`);
+        if (i > 0 && (r.game[i]! < r.game[i - 1]! || (r.game[i] === r.game[i - 1] && (pairsFile.players[r.assister[i]!]! < pairsFile.players[r.assister[i - 1]!]! || (r.assister[i] === r.assister[i - 1] && pairsFile.players[r.scorer[i]!]! <= pairsFile.players[r.scorer[i - 1]!]!))))) orderOk2 = false;
+      }
+      check(`${season} ペアの行が (試合, アシストした選手ID, 得点した選手ID) の昇順で固定されている`, orderOk2 && same(pairsFile.keys, [...pairsFile.keys].sort()) && same(pairsFile.players, [...pairsFile.players].sort()));
+      const pmm = new Mismatches();
+      for (const [key, want] of expectedPairs) if (!same(got.get(key) ?? [], want)) pmm.add(`${key}: 索引 ${JSON.stringify(got.get(key))} / 数え直し ${JSON.stringify(want)}`);
+      for (const key of got.keys()) if (!expectedPairs.has(key)) pmm.add(`${key}: 試合の表に無い`);
+      check(`${season} ペアの行が生データの数え直しと一致`, pmm.count === 0, `${pmm.count}件\n   ${pmm.samples.join("\n   ")}`);
+      // 得点した選手ごとの点数 = 選手の行のアシストされた得点
+      const idsInIndex = new Set(playerFile.players.map((p) => p[0]));
+      const scored = new Map<string, number>();
+      let missingPlayers = 0;
+      for (let i = 0; i < r.game.length; i += 1) {
+        const a = pairsFile.players[r.assister[i]!]!;
+        const sc = pairsFile.players[r.scorer[i]!]!;
+        if (!idsInIndex.has(a) || !idsInIndex.has(sc)) missingPlayers += 1;
+        const k = `${sc}:${pairsFile.keys[r.game[i]!]}`;
+        scored.set(k, (scored.get(k) ?? 0) + assistPairPoints({ n2: r.n2[i]!, n3: r.n3[i]!, nf: r.nf[i]! }));
+      }
+      const sm = new Mismatches();
+      const rowsByKey = new Set<string>();
+      for (let i = 0; i < pv.size; i += 1) {
+        const row = playerGameAt(pv, i);
+        const k = `${row.playerId}:${row.scheduleKey}`;
+        rowsByKey.add(k);
+        const want = row.assisted2m * 2 + row.assisted3m * 3 + row.assistedFtm;
+        if ((scored.get(k) ?? 0) !== want) sm.add(`${k}: ペア ${scored.get(k) ?? 0} / 選手の行 ${want}`);
+      }
+      for (const k of scored.keys()) if (!rowsByKey.has(k)) sm.add(`${k}: 出場していない選手の行にペアがある`);
+      check(`${season} ペアの得点の合計が、選手の行のアシストされた得点と一致`, sm.count === 0, `${sm.count}件\n   ${sm.samples.join("\n   ")}`);
+      check(`${season} ペアの選手が全員、選手の索引にいる`, missingPlayers === 0, `${missingPlayers}行`);
+      console.log(`   ペアの行 ${r.game.length}、ファイル ${(statSync(path.join(seasonDir, "assist-pairs.json.gz")).size / 1024).toFixed(0)}KB（gz）`);
+    }
+  }
   console.log(`   延長の本数: ${JSON.stringify(otHistogram)}、前後半5分の特別な試合: ${shortGames}`);
   if (season === "2016-17" || season === "2017-18") eq(`${season} 前後半5分の特別な試合`, shortGames, 2);
   else check(`${season} 前後半5分の特別な試合は無い`, shortGames === 0);
@@ -341,6 +441,18 @@ eq("チームの最終点差は得点から出せる（古いデータでも値�
 check("版が合わないファイルは使わない（版 999）", !isSupportedGameIndex({ version: 999, rows: {}, games: {} }));
 check("空・null のファイルは使わない", !isSupportedGameIndex(null) && !isSupportedGameIndex({}));
 check("今のファイルは使える", isSupportedGameIndex(latest));
+{
+  // 新しい列（アシストされた得点・勝負所・最大のラン）が無い古い索引でも読める
+  const oldPlayer = JSON.parse(JSON.stringify(latest)) as PlayerGameIndexFile;
+  for (const c of ["assisted2m", "assisted3m", "assistedFtm", ...PLAYER_INDEX_CLUTCH_COLUMNS]) delete (oldPlayer.rows.stats as unknown as Record<string, unknown>)[c];
+  const latestTeam = (await readJson<TeamGameIndexFile>(path.join(DATA_DIR, "2026-27", "team-game-index.json")))!;
+  const oldTeam = JSON.parse(JSON.stringify(latestTeam)) as TeamGameIndexFile;
+  for (const c of ["maxRun", "maxRunFromSec", "maxRunToSec", "maxRunOwnBefore", "maxRunOppBefore"]) delete (oldTeam.rows.stats as unknown as Record<string, unknown>)[c];
+  const op = playerGameAt(viewPlayerGameIndex(oldPlayer), 0);
+  const ot = teamGameAt(viewTeamGameIndex(oldTeam), 0);
+  check("新しい列が無い古い索引（選手）は、アシストされた得点が0・勝負所が無し", op.assisted2m === 0 && op.assistedFtm === 0 && op.clutch === undefined);
+  check("新しい列が無い古い索引（チーム）は、最大のランが無し", ot.maxRun === undefined && ot.maxRunFromSec === undefined);
+}
 
 // ---- 同じ選手の連続記録の順（シーズンをまたいで時系列に並べられる） ----
 // 全シーズンの行を選手ごとに並べ、日付が昇順（同じ日は試合番号順）になること

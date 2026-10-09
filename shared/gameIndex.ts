@@ -45,7 +45,33 @@ export const PLAYER_INDEX_STAT_COLUMNS = [
   "pf",
   "technicalFouls",
   "unsportsmanlikeFouls",
+  // アシストされた得点（被アシスト率）。2P・3P・FTの成功数
+  "assisted2m",
+  "assisted3m",
+  "assistedFtm",
+  // 勝ち越し弾・同点弾・決勝点（第4Q・延長の残り5分・2分・1分以内。FGとFT）。位置は shared/gameFlow.ts の clutchIndex（窓×種類×{FG,FT}）。DESIGN.md 221章
+  "c5GaFg",
+  "c5GaFt",
+  "c5TieFg",
+  "c5TieFt",
+  "c5WinFg",
+  "c5WinFt",
+  "c2GaFg",
+  "c2GaFt",
+  "c2TieFg",
+  "c2TieFt",
+  "c2WinFg",
+  "c2WinFt",
+  "c1GaFg",
+  "c1GaFt",
+  "c1TieFg",
+  "c1TieFt",
+  "c1WinFg",
+  "c1WinFt",
 ] as const;
+
+/** 勝負所の列（clutchIndex の順）。PLAYER_INDEX_STAT_COLUMNS の末尾の18個 */
+export const PLAYER_INDEX_CLUTCH_COLUMNS = PLAYER_INDEX_STAT_COLUMNS.slice(-18) as unknown as readonly (typeof PLAYER_INDEX_STAT_COLUMNS)[number][];
 
 /** チームの統計の列（TeamGameLog の項目名のまま。attendance は未計測を -1 で持つ） */
 export const TEAM_INDEX_STAT_COLUMNS = [
@@ -75,6 +101,12 @@ export const TEAM_INDEX_STAT_COLUMNS = [
   "japanesePoints",
   "foreignPoints",
   "naturalizedOrAsianPoints",
+  // 最大のラン（点数・最初と最後の得点の経過秒・ラン直前の両チームの得点）。プレーバイプレーの得点が無い試合は -1。DESIGN.md 221章
+  "maxRun",
+  "maxRunFromSec",
+  "maxRunToSec",
+  "maxRunOwnBefore",
+  "maxRunOppBefore",
 ] as const;
 
 /** チームの1Q〜4Qの得点の列。自チーム p1〜p4、相手 o1〜o4。公式のスコアが欠けていて補えなかった区間と、前後半5分の特別な試合は -1 */
