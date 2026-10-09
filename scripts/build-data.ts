@@ -36,6 +36,7 @@ import {
   SEASON_RAW_ENTRIES,
   classifyDataPath,
   derivedGitignorePatterns,
+  missingSeasonDerived,
   seasonDerivedPaths,
 } from "./lib/dataLayout.ts";
 
@@ -59,8 +60,9 @@ function hasOne(season: string): boolean {
   return hasGameFiles(path.join(DATA, season, "one", "games"));
 }
 
+/** そのシーズンの導出データが作成済みか。シーズンごとの導出データ（SEASON_DERIVED_ENTRIES）がすべてあること（scripts/lib/dataLayout.ts の missingSeasonDerived） */
 function seasonBuilt(season: string): boolean {
-  return existsSync(path.join(DATA, season, "teams.json.gz"));
+  return missingSeasonDerived(DATA, season, existsSync).length === 0;
 }
 
 // ---- 保存キー ----
@@ -352,6 +354,7 @@ async function main(): Promise<void> {
     targets = args.includes("--season-only") ? [only] : all.filter((s) => s === only || !seasonBuilt(s));
   } else if (ifMissing) {
     targets = all.filter((s) => !seasonBuilt(s));
+    for (const s of targets) console.log(`${s}: 導出データが足りません（${missingSeasonDerived(DATA, s, existsSync).join("・")}）`);
   } else {
     targets = all;
   }

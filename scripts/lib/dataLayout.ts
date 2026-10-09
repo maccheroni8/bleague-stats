@@ -36,6 +36,13 @@ export const SEASON_DERIVED_ENTRIES = [
   "teams.json.gz",
 ] as const;
 
+/**
+ * SEASON_DERIVED_ENTRIES のうち、シーズンによっては作られないもの（作成済みかの判定から外す）。
+ * team-stints は 2020-21 以降だけ（2019-20 以前は実際のポゼッションの元になる交代の記録が使えない。DESIGN.md 204章）。
+ * ここに足すのは、シーズンによって作られないと分かっているものだけ。作られるはずのファイルを足すと、作成漏れに気付けなくなる
+ */
+export const SEASON_OPTIONAL_DERIVED_ENTRIES = ["team-stints"] as const;
+
 /** data/ 直下の元データ（A） */
 export const GLOBAL_RAW_ENTRIES = [
   "club-honors.json.gz",
@@ -132,6 +139,17 @@ export function derivedGitignorePatterns(): string[] {
     patterns.push(`/data/*/one/${entry}`);
   }
   return patterns;
+}
+
+/**
+ * そのシーズンの導出データが作成済みか（`build-data.ts --if-missing`＝`npm run dev` の起動前の自動作成の判定）。
+ * SEASON_DERIVED_ENTRIES の**すべて**（SEASON_OPTIONAL_DERIVED_ENTRIES を除く）があること。特定のファイル1つの有無で見ない
+ * （それだと、後から導出データの種類を足したときに、作成済みと判定されて新しいファイルが作られない。2026-10-09）。
+ * 返すのは足りないファイルの名前（空なら作成済み）
+ */
+export function missingSeasonDerived(dataDir: string, season: string, exists: (p: string) => boolean): string[] {
+  const optional = new Set<string>(SEASON_OPTIONAL_DERIVED_ENTRIES);
+  return SEASON_DERIVED_ENTRIES.filter((e) => !optional.has(e) && !exists(path.join(dataDir, season, e)));
 }
 
 export function seasonDerivedPaths(dataDir: string, season: string): string[] {
