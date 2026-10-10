@@ -5378,6 +5378,16 @@ table.compare-table th .compare-condition-tag {
   border-left-width: 3px;
 }
 
+/* アウェイ側は「チーム名・チームカラー棒・チームロゴ」の並び（ホームの鏡。棒はロゴ側＝名前の右に置く）。
+   棒とロゴの並びはホームと同じ（棒がロゴに隣り合う） */
+.schedule-team-chip.schedule-team-chip-away,
+[data-design="v2"] .schedule-team-chip.schedule-team-chip-away {
+  border-left: 0;
+  border-right: 3px solid var(--border);
+  padding-left: 0;
+  padding-right: 6px;
+}
+
 [data-design="v2"] table.schedule-table td .cell-link,
 [data-design="v2"] table.stats-table td .cell-link {
   text-decoration: underline;

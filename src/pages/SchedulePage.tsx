@@ -530,7 +530,7 @@ function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: R
       </td>
       <td className="align-right schedule-team-cell">
         <MaybeLink to={linkTo}>
-          <span className="schedule-team-chip" style={awayColor ? { borderLeftColor: awayColor } : undefined}>
+          <span className="schedule-team-chip schedule-team-chip-away" style={awayColor ? { borderRightColor: awayColor } : undefined}>
             <ResponsiveTeamName teamId={row.awayTeamId ?? ""} name={row.awayTeamName} />
           </span>
           {row.awayTeamId && <TeamLogo teamId={row.awayTeamId} size={24} />}
