@@ -92,8 +92,9 @@ function toRows(
       sortTime: g.tipoffTime ?? scheduleTipoffTimes[g.scheduleKey],
     }));
   // 中止になった試合（公式の日程で「試合中止」のカード。DESIGN.md 227章）。元の日付の行に「中止」で残す（リンクなし）
+  const resultOnlyKeys = new Set(resultOnly.map((g) => g.scheduleKey));
   const cancelledRows: ScheduleRow[] = cancelled
-    .filter((g) => !summaryKeys.has(g.scheduleKey))
+    .filter((g) => !summaryKeys.has(g.scheduleKey) && !resultOnlyKeys.has(g.scheduleKey))
     .map((g) => ({
       scheduleKey: g.scheduleKey,
       date: g.date,

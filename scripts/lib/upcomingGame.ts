@@ -69,12 +69,25 @@ export function parseGameDetailHtml(scheduleKey: string, html: string): GameDeta
   };
 }
 
-/** ScheduleKeyから試合ページを取得して読む。ページが無い/解析できない場合は null */
-export async function fetchGameDetailInfo(scheduleKey: string): Promise<GameDetailInfo | null> {
+export interface GameDetailPage {
+  /** 日付・対戦が読めたときの内容。読めない（クラブ名が空のオールスター等）ときは null */
+  info: GameDetailInfo | null;
+  /** 大会名。クラブ名が読めない試合でも、大会名だけは読めることがある（中止のカードの試合がリーグ戦かの判定に使う） */
+  conventionName: string | undefined;
+}
+
+/** ScheduleKeyから試合ページを取得して読む。ページが取れなかったら null */
+export async function fetchGameDetailPage(scheduleKey: string): Promise<GameDetailPage | null> {
   const url = `https://www.bleague.jp/game_detail/?ScheduleKey=${scheduleKey}`;
   const res = await throttledFetch(url);
   if (!res.ok) return null;
-  return parseGameDetailHtml(scheduleKey, await res.text());
+  const html = await res.text();
+  return { info: parseGameDetailHtml(scheduleKey, html), conventionName: html.match(CONVENTION_PATTERN)?.[1]?.trim() };
+}
+
+/** ScheduleKeyから試合ページを取得して読む。ページが無い/解析できない場合は null */
+export async function fetchGameDetailInfo(scheduleKey: string): Promise<GameDetailInfo | null> {
+  return (await fetchGameDetailPage(scheduleKey))?.info ?? null;
 }
 
 /**

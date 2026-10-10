@@ -3,6 +3,7 @@
 import { parseScheduleCards } from "./lib/scheduleCancelled.ts";
 import { parseGameDetailHtml } from "./lib/upcomingGame.ts";
 import { buildResultOnlyEntry, reconcileResultOnly } from "./lib/resultOnlyGames.ts";
+import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { isOlderThanDays, isUsableResultScore, type ResultOnlyGameEntry } from "../shared/resultOnlyGames.ts";
 
 let failed = 0;
@@ -89,6 +90,10 @@ const FORFEIT_PAGE = detailHtml({ date: "2023.04.12", home: "滋賀レイクス"
 
 // 5. 判定の部品
 {
+  check(
+    "中止のカードの大会がリーグ戦かの判定（2021-22 の U18 インターナショナルカップは対象外・リーグ戦は対象）",
+    isExhibitionGame("Bリーグ U18 インターナショナルカップ 2022") && !isExhibitionGame("Bリーグ 2021-22 B1リーグ戦"),
+  );
   check("得点が使えるのは、整数で、0-0でも同点でもないとき", isUsableResultScore(20, 0) && isUsableResultScore(67, 49) && !isUsableResultScore(0, 0) && !isUsableResultScore(null, 3) && !isUsableResultScore(5, 5) && !isUsableResultScore(NaN, 3));
   check("試合日から7日以上たったか", isOlderThanDays("2026-10-01", "2026-10-08", 7) && !isOlderThanDays("2026-10-02", "2026-10-08", 7));
 }

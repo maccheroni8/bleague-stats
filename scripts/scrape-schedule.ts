@@ -34,7 +34,8 @@ import { createThrottledFetch, formatRequestCounts } from "./lib/throttle.ts";
 import { DATA_DIR, listStoredScheduleKeys, readJson, seasonDirName, writeJson } from "./lib/storage.ts";
 import { seasonStartYearForDate } from "./lib/season.ts";
 import { isMainModule } from "./lib/isMain.ts";
-import { fetchGameDetailInfo, type GameDetailInfo } from "./lib/upcomingGame.ts";
+import { fetchGameDetailInfo, fetchGameDetailPage, type GameDetailInfo } from "./lib/upcomingGame.ts";
+import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { parseScheduleCards, reconcileCancelled, type ForfeitCard } from "./lib/scheduleCancelled.ts";
 import { buildResultOnlyEntry, reconcileResultOnly } from "./lib/resultOnlyGames.ts";
 import { TEAM_NAMES } from "./lib/divisions.ts";
@@ -345,7 +346,17 @@ async function resolveCancelled(
   const cancelledGames: CancelledGameEntry[] = [];
   const newlyCancelled: string[] = [];
   for (const key of rec.cancelled) {
-    const entry = known.get(key) ?? (await fetchGameDetailInfo(key))?.entry;
+    let entry = known.get(key);
+    if (!entry) {
+      const page = await fetchGameDetailPage(key);
+      // 日程の一覧にはオールスター・U18などの大会も載る。リーグ戦でない大会の中止は、中止の試合に載せない
+      // （2021-22 の「Bリーグ U18 インターナショナルカップ」2試合で確認。クラブ名が空のページもある）
+      if (page?.conventionName && isExhibitionGame(page.conventionName)) {
+        console.log(`[${season}] 中止のカードだがリーグ戦ではない大会のため対象外: ScheduleKey=${key}（${page.conventionName}）`);
+        continue;
+      }
+      entry = page?.info?.entry;
+    }
     if (!entry) {
       console.warn(`[${season}] 中止のカードに載っているが、日付・対戦を取れなかったため、まだ中止にしません: ScheduleKey=${key}`);
       scheduleKeys.add(key);
@@ -598,6 +609,9 @@ async function main(): Promise<void> {
       checkStale,
     });
     const upcomingGames = ro.upcoming;
+    // 中止から不戦勝／不戦敗に変わった試合は、結果だけの試合を優先する（中止には残さない）
+    const resultOnlyKeys = new Set(ro.resultOnlyGames.map((g) => g.scheduleKey));
+    resolved.cancelledGames = resolved.cancelledGames.filter((g) => !resultOnlyKeys.has(g.scheduleKey));
 
     await writeJson(outPath, {
       season,
@@ -646,6 +660,9 @@ async function main(): Promise<void> {
     checkStale: true,
   });
   const upcomingGames = ro.upcoming;
+  // 中止から不戦勝／不戦敗に変わった試合は、結果だけの試合を優先する（中止には残さない）
+  const resultOnlyKeys = new Set(ro.resultOnlyGames.map((g) => g.scheduleKey));
+  resolved.cancelledGames = resolved.cancelledGames.filter((g) => !resultOnlyKeys.has(g.scheduleKey));
   await writeJson(outPath, {
     season,
     generatedAt: new Date().toISOString(),
