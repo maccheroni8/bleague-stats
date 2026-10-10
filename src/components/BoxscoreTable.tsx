@@ -32,8 +32,6 @@ import {
 } from "../lib/boxscoreAggregate";
 import { statDescription } from "../lib/statDescriptions";
 import { usePlayerLabel } from "../lib/playerLabel";
-import { useIsRookie } from "../lib/rookieFilter";
-import { RookieBadge } from "./RookieBadge";
 
 export type BoxscoreTabKey = BoxCategoryKey;
 
@@ -556,7 +554,6 @@ export function BoxscoreTable({
         accentColor={homeColor}
         showStatBadges={activeTab === "traditional"}
         wideScrollable={activeTab !== "traditional"}
-        season={season}
       />
       <BoxscoreTeamPanel
         teamName={awayTeamName}
@@ -575,7 +572,6 @@ export function BoxscoreTable({
         accentColor={awayColor}
         showStatBadges={activeTab === "traditional"}
         wideScrollable={activeTab !== "traditional"}
-        season={season}
       />
     </>
   );
@@ -622,7 +618,6 @@ function BoxscoreTeamPanel({
   accentColor,
   showStatBadges,
   wideScrollable,
-  season,
 }: {
   teamName: string;
   ownRows: BoxscoreRow[];
@@ -645,8 +640,6 @@ function BoxscoreTeamPanel({
    * （トラディショナル以外のカテゴリタブ向け。DESIGN.md参照）
    */
   wideScrollable: boolean;
-  /** 試合のシーズン（ルーキーの印用） */
-  season?: string;
 }) {
   const tableClassName = wideScrollable ? "boxscore-table boxscore-table-wide" : "boxscore-table";
   let teamTotal = buildTeamTotalCounts(ownRows, periodOption);
@@ -770,7 +763,6 @@ function BoxscoreTeamPanel({
                 bestByColumn={bestByColumn}
                 showStatBadges={showStatBadges}
                 playerLabel={playerLabel}
-                season={season}
               />
               <BoxscoreGroup
                 title="ベンチ"
@@ -780,7 +772,6 @@ function BoxscoreTeamPanel({
                 bestByColumn={bestByColumn}
                 showStatBadges={showStatBadges}
                 playerLabel={playerLabel}
-                season={season}
               />
               <BoxscoreDataRow
                 label="TEAM / COACHES"
@@ -880,7 +871,6 @@ function BoxscoreGroup({
   bestByColumn,
   showStatBadges,
   playerLabel,
-  season,
 }: {
   title: string;
   players: PlayerBoxscore[];
@@ -889,10 +879,7 @@ function BoxscoreGroup({
   bestByColumn: Map<string, number>;
   showStatBadges: boolean;
   playerLabel: (name: string) => string;
-  /** 試合のシーズン（そのシーズンのルーキーに印を付ける。DESIGN.md 217-3章） */
-  season?: string;
 }) {
-  const isRookie = useIsRookie();
   if (players.length === 0) return null;
   // DNPは各グループの下部にまとめる（出場した選手を先に見せる）。それ以外は元の並び順を保持する
   const ordered = [...players].sort((a, b) => Number(a.dnp) - Number(b.dnp));
@@ -907,7 +894,6 @@ function BoxscoreGroup({
             {p.playerId ? (
               <Link to={`/players/${p.playerId}`} className="cell-link" title={p.nameJ}>
                 {playerLabel(p.nameJ)}
-                {season && isRookie(p.playerId, season) && <RookieBadge />}
               </Link>
             ) : (
               playerLabel(p.nameJ)
