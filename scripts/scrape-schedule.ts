@@ -26,16 +26,26 @@
 //   npm run scrape:schedule -- --season 2025-26 --category one                  # フル収集(B.ONE)
 //   npm run scrape:schedule -- --season 2025-26 --recent 14                     # 直近14日の軽量チェック
 //   npm run scrape:schedule -- --season 2025-26 --recent 14 --verify-upcoming 14  # ＋今後14日の日程変更検知（深夜用）
+//   npm run scrape:schedule -- --season 2022-23 --recent 1 --as-of 2023-04-12      # 指定した日（JST）だけを見る（その日の不戦勝などを拾う手動用）
+//   npm run scrape:schedule -- --season 2017-18 --recent 1 --check-stale           # 試合日から7日たっても生データが無い試合を、結果だけの試合として判定する
 
 import path from "node:path";
 import { createThrottledFetch, formatRequestCounts } from "./lib/throttle.ts";
 import { DATA_DIR, listStoredScheduleKeys, readJson, seasonDirName, writeJson } from "./lib/storage.ts";
 import { seasonStartYearForDate } from "./lib/season.ts";
 import { isMainModule } from "./lib/isMain.ts";
-import { fetchUpcomingGameEntry } from "./lib/upcomingGame.ts";
-import { parseScheduleCards, reconcileCancelled } from "./lib/scheduleCancelled.ts";
+import { fetchGameDetailInfo, type GameDetailInfo } from "./lib/upcomingGame.ts";
+import { parseScheduleCards, reconcileCancelled, type ForfeitCard } from "./lib/scheduleCancelled.ts";
+import { buildResultOnlyEntry, reconcileResultOnly } from "./lib/resultOnlyGames.ts";
+import { TEAM_NAMES } from "./lib/divisions.ts";
 import type { Category, UpcomingGameEntry } from "../shared/types.ts";
-import type { CancelledGameEntry, ScheduleFileWithCancelled } from "../shared/scheduleCancelled.ts";
+import type { CancelledGameEntry } from "../shared/scheduleCancelled.ts";
+import {
+  isOlderThanDays,
+  NO_BOXSCORE_AFTER_DAYS,
+  type ResultOnlyGameEntry,
+  type ScheduleFileExtended,
+} from "../shared/resultOnlyGames.ts";
 
 const MIN_REQUEST_INTERVAL_MS = 2500;
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
@@ -80,40 +90,49 @@ async function fetchDaySchedule(year: number, mon: string, day: string, event: n
   return parseScheduleCards(data.topics);
 }
 
-async function fetchMonthScheduleKeys(year: number, mon: string, event: number, tab: number): Promise<{ keys: Set<string>; cancelledKeys: Set<string> }> {
+async function fetchMonthScheduleKeys(
+  year: number,
+  mon: string,
+  event: number,
+  tab: number,
+): Promise<{ keys: Set<string>; cancelledKeys: Set<string>; forfeits: Map<string, ForfeitCard> }> {
   const keys = new Set<string>();
   const cancelledKeys = new Set<string>();
+  const forfeits = new Map<string, ForfeitCard>();
   for (let day = 1; day <= 31; day++) {
     const dayStr = String(day).padStart(2, "0");
     const cards = await fetchDaySchedule(year, mon, dayStr, event, tab);
     for (const key of cards.keys) keys.add(key);
     for (const key of cards.cancelledKeys) cancelledKeys.add(key);
+    for (const f of cards.forfeits) forfeits.set(f.scheduleKey, f);
   }
-  return { keys, cancelledKeys };
+  return { keys, cancelledKeys, forfeits };
 }
 
-/** シーズンの全日程を総当たりで集める。中止のカードのキー（cancelledKeys）も返す */
+/** シーズンの全日程を総当たりで集める。中止のカードのキー（cancelledKeys）と不戦勝／不戦敗のカード（forfeits）も返す */
 export async function scrapeSeasonScheduleWithCancelled(
   season: string,
   events: number[] = DEFAULT_EVENTS_BY_CATEGORY.premier,
   tab: number = CATEGORY_TAB.premier,
-): Promise<{ keys: string[]; cancelledKeys: string[] }> {
+): Promise<{ keys: string[]; cancelledKeys: string[]; forfeits: ForfeitCard[] }> {
   const year = Number(season.split("-")[0]);
   const allKeys = new Set<string>();
   const allCancelled = new Set<string>();
+  const allForfeits = new Map<string, ForfeitCard>();
 
   for (const event of events) {
     for (const mon of SEASON_MONTHS) {
       const month = await fetchMonthScheduleKeys(year, mon, event, tab);
       for (const key of month.keys) allKeys.add(key);
       for (const key of month.cancelledKeys) allCancelled.add(key);
+      for (const [key, card] of month.forfeits) allForfeits.set(key, card);
       console.log(
-        `[${season}] event=${event} tab=${tab} mon=${mon}: ${month.keys.size}件（累計${allKeys.size}件）${month.cancelledKeys.size > 0 ? ` ／ 中止${month.cancelledKeys.size}件` : ""}`,
+        `[${season}] event=${event} tab=${tab} mon=${mon}: ${month.keys.size}件（累計${allKeys.size}件）${month.cancelledKeys.size > 0 ? ` ／ 中止${month.cancelledKeys.size}件` : ""}${month.forfeits.size > 0 ? ` ／ 不戦${month.forfeits.size}件` : ""}`,
       );
     }
   }
 
-  return { keys: [...allKeys].sort(), cancelledKeys: [...allCancelled].sort() };
+  return { keys: [...allKeys].sort(), cancelledKeys: [...allCancelled].sort(), forfeits: [...allForfeits.values()] };
 }
 
 /** 通常のカードの ScheduleKey だけを返す（backfill.ts 用） */
@@ -136,10 +155,11 @@ export async function scrapeRecentSchedule(
   events: number[] = DEFAULT_EVENTS_BY_CATEGORY.premier,
   referenceDate: Date = new Date(),
   tab: number = CATEGORY_TAB.premier,
-): Promise<{ keys: string[]; cancelledKeys: string[]; queriedDays: string[] }> {
+): Promise<{ keys: string[]; cancelledKeys: string[]; forfeits: ForfeitCard[]; queriedDays: string[] }> {
   const seasonYear = Number(season.split("-")[0]);
   const foundKeys = new Set<string>();
   const cancelledKeys = new Set<string>();
+  const forfeits = new Map<string, ForfeitCard>();
   const queriedDays: string[] = [];
 
   for (let i = 0; i < days; i++) {
@@ -154,10 +174,11 @@ export async function scrapeRecentSchedule(
       const cards = await fetchDaySchedule(seasonYear, monStr, dayStr, event, tab);
       for (const key of cards.keys) foundKeys.add(key);
       for (const key of cards.cancelledKeys) cancelledKeys.add(key);
+      for (const f of cards.forfeits) forfeits.set(f.scheduleKey, f);
     }
   }
 
-  return { keys: [...foundKeys].sort(), cancelledKeys: [...cancelledKeys].sort(), queriedDays };
+  return { keys: [...foundKeys].sort(), cancelledKeys: [...cancelledKeys].sort(), forfeits: [...forfeits.values()], queriedDays };
 }
 
 /**
@@ -191,6 +212,8 @@ export interface UpcomingWindowScan {
   keys: Set<string>;
   /** 走査範囲の各日の問い合わせで、中止のカードに載っていたScheduleKey */
   cancelledKeys: Set<string>;
+  /** 走査範囲の各日の問い合わせで、不戦勝／不戦敗のカードに載っていた試合 */
+  forfeits: ForfeitCard[];
 }
 
 /**
@@ -209,6 +232,7 @@ export async function scanUpcomingWindow(
   const seasonYear = Number(season.split("-")[0]);
   const keys = new Set<string>();
   const cancelledKeys = new Set<string>();
+  const forfeits = new Map<string, ForfeitCard>();
   const queriedDays: string[] = [];
 
   for (let i = 0; i < days; i++) {
@@ -221,11 +245,12 @@ export async function scanUpcomingWindow(
       const cards = await fetchDaySchedule(seasonYear, monStr, dayStr, event, tab);
       for (const key of cards.keys) keys.add(key);
       for (const key of cards.cancelledKeys) cancelledKeys.add(key);
+      for (const f of cards.forfeits) forfeits.set(f.scheduleKey, f);
     }
   }
 
   if (queriedDays.length === 0) return null;
-  return { firstDay: queriedDays[0]!, lastDay: queriedDays.at(-1)!, keys, cancelledKeys };
+  return { firstDay: queriedDays[0]!, lastDay: queriedDays.at(-1)!, keys, cancelledKeys, forfeits: [...forfeits.values()] };
 }
 
 /**
@@ -320,7 +345,7 @@ async function resolveCancelled(
   const cancelledGames: CancelledGameEntry[] = [];
   const newlyCancelled: string[] = [];
   for (const key of rec.cancelled) {
-    const entry = known.get(key) ?? (await fetchUpcomingGameEntry(key));
+    const entry = known.get(key) ?? (await fetchGameDetailInfo(key))?.entry;
     if (!entry) {
       console.warn(`[${season}] 中止のカードに載っているが、日付・対戦を取れなかったため、まだ中止にしません: ScheduleKey=${key}`);
       scheduleKeys.add(key);
@@ -348,6 +373,8 @@ async function resolveUpcomingGames(
   existingUpcoming: UpcomingGameEntry[],
   category: Category,
   forceRefresh: Set<string> = new Set(),
+  /** この実行で試合ページを取得した試合の内容（結果だけの試合の判定が同じページを取り直さないよう、呼び出し側に返す） */
+  detailByKey: Map<string, GameDetailInfo> = new Map(),
 ): Promise<UpcomingGameEntry[]> {
   const withBoxscore = await listStoredScheduleKeys(season, category);
   const cached = new Map(existingUpcoming.map((g) => [g.scheduleKey, g]));
@@ -364,7 +391,9 @@ async function resolveUpcomingGames(
       result.push(existing);
       continue;
     }
-    const entry = await fetchUpcomingGameEntry(key);
+    const detail = await fetchGameDetailInfo(key);
+    const entry = detail?.entry ?? null;
+    if (detail) detailByKey.set(key, detail);
     if (entry) {
       if (!existing) {
         console.log(
@@ -388,13 +417,87 @@ async function resolveUpcomingGames(
   return result;
 }
 
+/** 日本時間の今日（YYYY-MM-DD） */
+function todayJst(): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
+}
+
+/**
+ * 結果だけの試合（resultOnlyGames。DESIGN.md 228章）を決める。
+ * - 不戦勝／不戦敗のカード（試合へのリンクが無い）: 試合ページから日付・対戦・得点を読んで加える
+ * - 生データが無いまま試合日から NO_BOXSCORE_AFTER_DAYS 日以上たった開催予定の試合（checkStale のとき）: 試合ページに得点があれば加える
+ * 前回までの項目は引き継ぐ。生データが取り込まれた試合は外す。返す upcoming は、結果だけの試合を除いた開催予定
+ */
+async function resolveResultOnly(
+  season: string,
+  category: Category,
+  input: {
+    existing: ResultOnlyGameEntry[];
+    forfeits: ForfeitCard[];
+    upcoming: UpcomingGameEntry[];
+    detailByKey: Map<string, GameDetailInfo>;
+    checkStale: boolean;
+  },
+): Promise<{ resultOnlyGames: ResultOnlyGameEntry[]; upcoming: UpcomingGameEntry[] }> {
+  const withBoxscore = await listStoredScheduleKeys(season, category);
+  const existingKeys = new Set(input.existing.map((g) => g.scheduleKey));
+  // 名前→TeamID の補い（試合ページのクラブのリンクから読めなかったとき）。現在の正式名称のみ
+  const fallbackTeamIdByName = new Map<string, string>(Object.entries(TEAM_NAMES).map(([id, name]) => [name, id]));
+  const built: ResultOnlyGameEntry[] = [];
+  const detailOf = async (key: string): Promise<GameDetailInfo | null> =>
+    input.detailByKey.get(key) ?? (await fetchGameDetailInfo(key));
+  const skip = (key: string, why: string) =>
+    console.warn(`[${season}] 結果だけの試合にしません: ScheduleKey=${key}（${why}）`);
+
+  for (const card of input.forfeits) {
+    if (existingKeys.has(card.scheduleKey) || withBoxscore.has(card.scheduleKey)) continue;
+    const info = await detailOf(card.scheduleKey);
+    if (!info) {
+      skip(card.scheduleKey, "試合ページを読めない。次回もう一度見ます");
+      continue;
+    }
+    const out = buildResultOnlyEntry(info, {
+      reason: "forfeit",
+      fallbackTeamIdByName,
+      fallbackScores: { home: card.homeScore, away: card.awayScore },
+    });
+    if (out.ok) built.push(out.entry);
+    else skip(card.scheduleKey, out.why);
+  }
+
+  if (input.checkStale) {
+    const today = todayJst();
+    for (const g of input.upcoming) {
+      if (existingKeys.has(g.scheduleKey) || withBoxscore.has(g.scheduleKey)) continue;
+      if (!isOlderThanDays(g.date, today, NO_BOXSCORE_AFTER_DAYS)) continue;
+      const info = await detailOf(g.scheduleKey);
+      if (!info) continue;
+      // 得点が「--」（未開催）や 0-0（中止）の試合は、結果だけの試合にしない（中止は日程の「試合中止」のカードで検出する）
+      const out = buildResultOnlyEntry(info, { reason: "no-boxscore", fallbackTeamIdByName });
+      if (out.ok) built.push(out.entry);
+      else if (out.why !== "score-unavailable") skip(g.scheduleKey, out.why);
+    }
+  }
+
+  const rec = reconcileResultOnly({ existing: input.existing, built, withBoxscore });
+  for (const key of rec.added) {
+    const g = rec.entries.find((e) => e.scheduleKey === key)!;
+    console.log(
+      `[${season}] 結果だけの試合: ScheduleKey=${key} ${g.date} ${g.homeTeamName} ${g.homeScore}-${g.awayScore} ${g.awayTeamName}（${g.reason === "forfeit" ? "不戦勝／不戦敗" : "ボックススコアなし"}）`,
+    );
+  }
+  for (const key of rec.superseded) console.log(`[${season}] 結果だけの試合から外しました（生データが取り込まれました）: ScheduleKey=${key}`);
+  const resultOnlyKeys = new Set(rec.entries.map((g) => g.scheduleKey));
+  return { resultOnlyGames: rec.entries, upcoming: input.upcoming.filter((g) => !resultOnlyKeys.has(g.scheduleKey)) };
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const seasonIndex = args.indexOf("--season");
   const season = seasonIndex !== -1 ? args[seasonIndex + 1] : undefined;
   if (!season) {
     console.error(
-      "使い方: scrape-schedule.ts --season 2025-26 [--category one] [--events 2,3] [--recent 14 [--verify-upcoming 14]]",
+      "使い方: scrape-schedule.ts --season 2025-26 [--category one] [--events 2,3] [--recent 14 [--verify-upcoming 14] [--as-of YYYY-MM-DD] [--check-stale]]",
     );
     process.exitCode = 1;
     return;
@@ -412,9 +515,13 @@ async function main(): Promise<void> {
   const recentIndex = args.indexOf("--recent");
   if (recentIndex !== -1) {
     const days = Number(args[recentIndex + 1] ?? "14");
-    const existingFile = await readJson<ScheduleFileWithCancelled>(outPath);
+    const existingFile = await readJson<ScheduleFileExtended>(outPath);
     const existingKeys = existingFile?.scheduleKeys ?? [];
-    const recent = await scrapeRecentSchedule(season, days, events, new Date(), tab);
+    // --as-of YYYY-MM-DD: その日（JST）を基準に過去へ days 日。手元で特定の日のカード（不戦勝など）を拾うとき用
+    const asOfIndex = args.indexOf("--as-of");
+    const referenceDate = asOfIndex !== -1 ? new Date(`${args[asOfIndex + 1]}T12:00:00+09:00`) : new Date();
+    if (Number.isNaN(referenceDate.getTime())) throw new Error("--as-of には YYYY-MM-DD を指定してください");
+    const recent = await scrapeRecentSchedule(season, days, events, referenceDate, tab);
     const recentKeys = recent.keys;
 
     // 深夜のみ: 今後N日分の日程も問い合わせ、開催予定の日付・時刻の変更を検知する（DESIGN.md 8-7章）
@@ -422,12 +529,14 @@ async function main(): Promise<void> {
     let forceRefresh = new Set<string>();
     let windowKeys: string[] = [];
     let windowCancelledKeys: string[] = [];
+    let windowForfeits: ForfeitCard[] = [];
     if (verifyIndex !== -1) {
       const verifyDays = Number(args[verifyIndex + 1] ?? "14");
       const scan = await scanUpcomingWindow(season, verifyDays, events, tab);
       if (scan) {
         windowKeys = [...scan.keys];
         windowCancelledKeys = [...scan.cancelledKeys];
+        windowForfeits = scan.forfeits;
         const detected = selectUpcomingToRefresh(
           scan,
           existingFile?.upcomingGames ?? [],
@@ -465,13 +574,30 @@ async function main(): Promise<void> {
     const mergedKeys = resolved.scheduleKeys;
     const existingKeySet = new Set(existingKeys);
     const addedCount = mergedKeys.filter((k) => !existingKeySet.has(k)).length;
-    const upcomingGames = await resolveUpcomingGames(
+    // 結果だけの試合（前回までの分）は、開催予定として解決し直さない。ボックススコアが後から公開されたかは、夜間の取り込みが見る
+    const existingResultOnly = existingFile?.resultOnlyGames ?? [];
+    const existingResultOnlyKeys = new Set(existingResultOnly.map((g) => g.scheduleKey));
+    const detailByKey = new Map<string, GameDetailInfo>();
+    const resolvedUpcoming = await resolveUpcomingGames(
       season,
-      mergedKeys,
+      mergedKeys.filter((k) => !existingResultOnlyKeys.has(k)),
       existingFile?.upcomingGames ?? [],
       category,
       forceRefresh,
+      detailByKey,
     );
+    // 試合日から7日たっても生データが無い試合の判定は、深夜（--verify-upcoming）か --check-stale のときだけ行う（30分おきの実行では行わない）
+    const checkStale = verifyIndex !== -1 || args.includes("--check-stale");
+    const forfeitCards = new Map<string, ForfeitCard>();
+    for (const f of [...recent.forfeits, ...windowForfeits]) forfeitCards.set(f.scheduleKey, f);
+    const ro = await resolveResultOnly(season, category, {
+      existing: existingResultOnly,
+      forfeits: [...forfeitCards.values()],
+      upcoming: resolvedUpcoming,
+      detailByKey,
+      checkStale,
+    });
+    const upcomingGames = ro.upcoming;
 
     await writeJson(outPath, {
       season,
@@ -479,16 +605,17 @@ async function main(): Promise<void> {
       scheduleKeys: mergedKeys,
       upcomingGames,
       ...(resolved.cancelledGames.length > 0 ? { cancelledGames: resolved.cancelledGames } : {}),
+      ...(ro.resultOnlyGames.length > 0 ? { resultOnlyGames: ro.resultOnlyGames } : {}),
       tipoffTimes: mergeTipoffTimes(existingFile?.tipoffTimes, upcomingGames),
     });
     console.log(
-      `[${season}] 直近${days}日の軽量チェック完了: 新規${addedCount}件（累計${mergedKeys.length}件） ／ 開催予定${upcomingGames.length}件${resolved.cancelledGames.length > 0 ? ` ／ 中止${resolved.cancelledGames.length}件` : ""}`,
+      `[${season}] 直近${days}日の軽量チェック完了: 新規${addedCount}件（累計${mergedKeys.length}件） ／ 開催予定${upcomingGames.length}件${resolved.cancelledGames.length > 0 ? ` ／ 中止${resolved.cancelledGames.length}件` : ""}${ro.resultOnlyGames.length > 0 ? ` ／ 結果だけの試合${ro.resultOnlyGames.length}件` : ""}`,
     );
     return;
   }
 
   const scanned = await scrapeSeasonScheduleWithCancelled(season, events, tab);
-  const existingFile = await readJson<ScheduleFileWithCancelled>(outPath);
+  const existingFile = await readJson<ScheduleFileExtended>(outPath);
   // フル収集は、全日程を見直す（走査に載らなかった前回の scheduleKeys は引き継がない）。ただし生データ（games/）がある試合は、
   // 走査に載らなくても残す（走査の取りこぼしで、取り込み済みの試合が一覧から消えないように）。中止は、カードの検出と前回の cancelledGames から決める
   const withData = await listStoredScheduleKeys(season, category);
@@ -500,17 +627,36 @@ async function main(): Promise<void> {
     existingCancelled: existingFile?.cancelledGames ?? [],
   });
   const scheduleKeys = resolved.scheduleKeys;
-  const upcomingGames = await resolveUpcomingGames(season, scheduleKeys, existingFile?.upcomingGames ?? [], category);
+  const existingResultOnly = existingFile?.resultOnlyGames ?? [];
+  const existingResultOnlyKeys = new Set(existingResultOnly.map((g) => g.scheduleKey));
+  const detailByKey = new Map<string, GameDetailInfo>();
+  const resolvedUpcoming = await resolveUpcomingGames(
+    season,
+    scheduleKeys.filter((k) => !existingResultOnlyKeys.has(k)),
+    existingFile?.upcomingGames ?? [],
+    category,
+    new Set(),
+    detailByKey,
+  );
+  const ro = await resolveResultOnly(season, category, {
+    existing: existingResultOnly,
+    forfeits: scanned.forfeits,
+    upcoming: resolvedUpcoming,
+    detailByKey,
+    checkStale: true,
+  });
+  const upcomingGames = ro.upcoming;
   await writeJson(outPath, {
     season,
     generatedAt: new Date().toISOString(),
     scheduleKeys,
     upcomingGames,
     ...(resolved.cancelledGames.length > 0 ? { cancelledGames: resolved.cancelledGames } : {}),
+    ...(ro.resultOnlyGames.length > 0 ? { resultOnlyGames: ro.resultOnlyGames } : {}),
     tipoffTimes: mergeTipoffTimes(existingFile?.tipoffTimes, upcomingGames),
   });
   console.log(
-    `保存完了: ${outPath}（${scheduleKeys.length}試合／開催予定${upcomingGames.length}件${resolved.cancelledGames.length > 0 ? `／中止${resolved.cancelledGames.length}件` : ""}）`,
+    `保存完了: ${outPath}（${scheduleKeys.length}試合／開催予定${upcomingGames.length}件${resolved.cancelledGames.length > 0 ? `／中止${resolved.cancelledGames.length}件` : ""}${ro.resultOnlyGames.length > 0 ? `／結果だけの試合${ro.resultOnlyGames.length}件` : ""}）`,
   );
 }
 

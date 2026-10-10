@@ -30,7 +30,8 @@ import {
   seasonDirName,
   DATA_DIR,
 } from "./lib/storage.ts";
-import type { Category, GeniusContext, ScheduleFile, StoredGame, StoredGameMeta } from "../shared/types.ts";
+import type { Category, GeniusContext, StoredGame, StoredGameMeta } from "../shared/types.ts";
+import type { ScheduleFileExtended } from "../shared/resultOnlyGames.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import { isDue } from "./lib/pendingGames.ts";
 import { applyPlayerIdCorrections } from "./lib/playerIdCorrections.ts";
@@ -135,9 +136,9 @@ export async function scrapeAndSaveGame(
   return { outcome: "saved", scheduleKey: key, season, changed: isFirstScrape || rawChanged, written: !unchanged, status: meta.status };
 }
 
-async function loadSchedule(season: string, category: Category): Promise<ScheduleFile> {
+async function loadSchedule(season: string, category: Category): Promise<ScheduleFileExtended> {
   const schedulePath = path.join(DATA_DIR, seasonDirName(season, category), "schedule.json");
-  const schedule = await readJson<ScheduleFile>(schedulePath);
+  const schedule = await readJson<ScheduleFileExtended>(schedulePath);
   if (!schedule) {
     const categoryFlag = category === "premier" ? "" : ` --category ${category}`;
     throw new Error(
@@ -166,9 +167,13 @@ export async function runForSeason(
   const schedule = await loadSchedule(season, category);
   const scheduleKeys = schedule.scheduleKeys;
   const upcomingByKey = new Map(schedule.upcomingGames.map((g) => [g.scheduleKey, g]));
+  // 結果だけの試合（ボックススコアが公式に無い試合。DESIGN.md 228章）。公式のボックススコアが後から公開されたかは夜間だけ確かめる
+  // （30分おきの実行では問い合わせない。取り込めたら、次の日程の取得で結果だけの試合から外れる）
+  const resultOnlyKeys = new Set((schedule.resultOnlyGames ?? []).map((g) => g.scheduleKey));
   const now = Date.now();
   console.log(`[${season}] schedule.json から ${scheduleKeys.length} 試合を確認${options.newOnly ? "（新着試合のみ）" : ""}`);
   let notDueSkipped = 0;
+  let resultOnlySkipped = 0;
   let queried = 0;
   // ある試合で問い合わせや保存に失敗しても、ほかの試合の取得は続ける（DESIGN.md 8-9）。失敗した試合は最後にまとめて報告し、
   // 呼び出し元（main）は終了コードを1にする。ワークフロー側はこのステップを continue-on-error にして、集計・コミットは続ける
@@ -190,6 +195,11 @@ export async function runForSeason(
       continue;
     }
 
+    if (!existing && options.newOnly && resultOnlyKeys.has(scheduleKey)) {
+      resultOnlySkipped++;
+      continue;
+    }
+
     // まだティップオフ+2時間を過ぎていない開催予定の試合は問い合わせない（両モード共通）
     const upcoming = upcomingByKey.get(scheduleKey);
     if (!existing && upcoming && !isDue(upcoming, now)) {
@@ -206,7 +216,10 @@ export async function runForSeason(
       console.error(`  [${scheduleKey}] 取得に失敗（ほかの試合は続けます。次回の実行で取り直します）: ${(err as Error).message}`);
     }
   }
-  console.log(`[${season}] 問い合わせ: ${queried}試合 ／ ティップオフ+2時間前のためスキップ: ${notDueSkipped}試合`);
+  console.log(
+    `[${season}] 問い合わせ: ${queried}試合 ／ ティップオフ+2時間前のためスキップ: ${notDueSkipped}試合` +
+      (resultOnlySkipped > 0 ? ` ／ 結果だけの試合（夜間のみ確認）のためスキップ: ${resultOnlySkipped}試合` : ""),
+  );
   if (failedKeys.length > 0) {
     console.error(`[${season}] 取得に失敗した試合: ${failedKeys.length}試合（${failedKeys.join(", ")}）`);
   }
