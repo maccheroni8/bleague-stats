@@ -2,6 +2,7 @@ import { useId, type ReactNode } from "react";
 import {
   newStatCondition,
   parseConditionInput,
+  parseConditionInputFor,
   STAT_CONDITION_MATCH_LABELS,
   STAT_CONDITION_OP_LABELS,
   type StatCondition,
@@ -13,7 +14,7 @@ import {
 } from "../lib/statConditions";
 
 /** 選択肢に出すだけの項目の情報（行の型に依存しない） */
-type ItemOption = Pick<StatConditionItem<unknown>, "key" | "label" | "group" | "unit">;
+type ItemOption = Pick<StatConditionItem<unknown>, "key" | "label" | "group" | "unit"> & Partial<Pick<StatConditionItem<unknown>, "kind">>;
 
 /**
  * スタッツの条件の編集欄（詳細フィルタの一番下に幅いっぱいで置く。DESIGN.md 162章）。
@@ -86,7 +87,8 @@ export function StatConditionsEditor({
       {disabledReason && <p className="filter-bar-note">{disabledReason}</p>}
       {state.conditions.map((c, i) => {
         const item = byKey.get(c.key);
-        const invalid = c.value.trim() !== "" && parseConditionInput(c.value) === null;
+        const invalid = c.value.trim() !== "" && parseConditionInputFor(c.value, item?.kind) === null;
+        const isMinutes = item?.kind === "minutes";
         const quick = quickValues?.[c.key] ?? [];
         return (
           <div key={c.id}>
@@ -126,9 +128,9 @@ export function StatConditionsEditor({
               id={`${baseId}-${c.id}`}
               className={`stat-condition-value${invalid ? " invalid" : ""}`}
               type="text"
-              inputMode="decimal"
+              inputMode={isMinutes ? "text" : "decimal"}
               enterKeyHint="done"
-              placeholder="値"
+              placeholder={isMinutes ? "20:00" : "値"}
               aria-label={`条件${i + 1}の値`}
               value={c.value}
               disabled={disabled}
@@ -181,7 +183,7 @@ export function StatConditionsEditor({
 
 /**
  * FilterBar の advancedExtra に渡す形（編集欄と「適用中」のチップ）にまとめる。
- * チップの文言はタイトルの書き出しと同じ（「MIN 20分以上・3P% 35%以上」「… または …」）
+ * チップの文言はタイトルの書き出しと同じ（「MIN 20:00以上・3P% 35%以上」「… または …」）
  */
 export function statConditionsBarExtra<R>(
   state: StatConditionsState,

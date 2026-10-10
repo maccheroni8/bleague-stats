@@ -4,8 +4,11 @@
  *
  * 判定は「表に出している値」で行う。各ページは、表の列と同じ表示（display）を返す項目（StatConditionItem）を渡し、
  * ここで表示の文字列を数値に読み直して比べる。平均/合計・Q別/前後半・シチュエーション別の絞り込みを選んでいれば、
- * 表と同じくその値で判定される。% は「35」と入れれば35%、MIN は分で入れる（表示の「20:15」を20.25分と読む）
+ * 表と同じくその値で判定される。% は「35」と入れれば35%、MIN は「20」（=20:00）・「20:15」（分:秒）・「20.5」（小数の分）のどれでも入れられる。
+ * 表示（単位・タイトル・チップ）は常に「分:秒」（20:15。サイト全体の時間の書式。CLAUDE.md）。URLには入力した文字列のまま持つ
  */
+import { formatMinutesColon } from "./minutesFormat";
+
 
 export type StatConditionOp = "gte" | "lte";
 export type StatConditionMatch = "all" | "any";
@@ -38,9 +41,9 @@ export interface StatConditionItem<R> {
   /** 選択肢の区切り（Traditional・opp Traditional・Shooting 等） */
   group: string;
   kind: StatValueKind;
-  /** 条件の行に出す単位（「分・1試合平均」「%」「シーズン通算」等） */
+  /** 条件の行に出す単位（「分:秒・1試合平均」「%」「シーズン通算」等） */
   unit: string;
-  /** タイトルの書き出しで値の後ろに付ける単位（「%」「分」「cm」等） */
+  /** タイトルの書き出しで値の後ろに付ける単位（「%」「cm」等。MINは値そのものが「20:15」の形なので付けない） */
   suffix: string;
   /** 表と同じ表示の文字列（値が無ければ「-」） */
   display: (row: R) => string;
@@ -66,7 +69,7 @@ const WIN_PCT_RE = /^\d?\.\d{3}$/;
 
 function normalizeDigits(text: string): string {
   return text
-    .replace(/[０-９．－＋]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[０-９．－＋：]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
     .replace(/[−–—]/g, "-")
     .replace(/,/g, "")
     .trim();
@@ -85,12 +88,26 @@ export function parseDisplayedValue(text: string, kind: StatValueKind): number |
   return Number(m[0]);
 }
 
-/** 入力欄の文字列を数値にする（全角数字・「％」「分」付きも受け付ける）。数値でなければ null */
+/** 入力欄の「20:15」（分:秒。秒は2桁で00〜59）。分で返す */
+const MINUTES_INPUT_RE = /^(\d+):([0-5]\d)$/;
+
+/**
+ * 入力欄の文字列を数値にする（全角数字・「％」「分」付きも受け付ける）。数値でなければ null。
+ * 「20:15」（分:秒）は20.25（分）。コロンの形がどの項目で使えるかは parseConditionInputFor が見る
+ */
 export function parseConditionInput(text: string): number | null {
   const t = normalizeDigits(text).replace(/[%％分]$/, "");
+  const clock = MINUTES_INPUT_RE.exec(t);
+  if (clock) return Number(clock[1]) + Number(clock[2]) / 60;
   if (t === "" || !/^[-+]?\d*(?:\.\d+)?$/.test(t) || t === "-" || t === "+") return null;
   const v = Number(t);
   return Number.isFinite(v) ? v : null;
+}
+
+/** 項目の種類を踏まえて読む。「20:15」の形は MIN（minutes）の項目だけで使える（ほかの項目では数値として読まない） */
+export function parseConditionInputFor(text: string, kind: StatValueKind | undefined): number | null {
+  if (kind !== "minutes" && normalizeDigits(text).includes(":")) return null;
+  return parseConditionInput(text);
 }
 
 function detectKind<R>(def: StatConditionItemDef<R>, rows: readonly R[]): StatValueKind {
@@ -121,14 +138,14 @@ export function buildStatConditionItems<R>(
     seen.add(def.key);
     const kind = detectKind(def, rows);
     const suffix =
-      kind === "fixed" ? (def.fixedSuffix ?? "") : kind === "pct" || kind === "winPct" ? "%" : kind === "minutes" ? "分" : "";
+      kind === "fixed" ? (def.fixedSuffix ?? "") : kind === "pct" || kind === "winPct" ? "%" : "";
     const base =
       kind === "fixed"
         ? (def.fixedSuffix ?? "")
         : kind === "pct" || kind === "winPct"
           ? "%"
           : kind === "minutes"
-            ? `分${modeUnit ? `・${modeUnit}` : ""}`
+            ? `分:秒${modeUnit ? `・${modeUnit}` : ""}`
             : kind === "count"
               ? modeUnit
               : "";
@@ -149,7 +166,7 @@ export function activeStatConditions<R>(state: StatConditionsState, items: reado
   const byKey = new Map(items.map((i) => [i.key, i]));
   return state.conditions.flatMap((condition) => {
     const item = byKey.get(condition.key);
-    const threshold = parseConditionInput(condition.value);
+    const threshold = parseConditionInputFor(condition.value, item?.kind);
     return item && threshold !== null ? [{ condition, item, threshold }] : [];
   });
 }
@@ -191,10 +208,11 @@ export function activeStatConditionKeys(state: StatConditionsState): string[] {
   return state.conditions.filter((c) => parseConditionInput(c.value) !== null).map((c) => c.key);
 }
 
-/** タイトルに書き出す条件の文言（「MIN 20分以上」等）。1条件＝1ラベル */
+/** タイトルに書き出す条件の文言（「MIN 20:15以上」「3P% 35%以上」等）。1条件＝1ラベル */
 export function statConditionLabels<R>(state: StatConditionsState, items: readonly StatConditionItem<R>[]): string[] {
   return activeStatConditions(state, items).map(
-    ({ condition, item, threshold }) => `${item.label} ${formatThreshold(threshold)}${item.suffix}${STAT_CONDITION_OP_LABELS[condition.op]}`,
+    ({ condition, item, threshold }) =>
+      `${item.label} ${item.kind === "minutes" ? formatMinutesColon(threshold) : `${formatThreshold(threshold)}${item.suffix}`}${STAT_CONDITION_OP_LABELS[condition.op]}`,
   );
 }
 

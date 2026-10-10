@@ -117,7 +117,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 時間（MIN・出場時間・平均出場時間など）の表示は、小数の分（28.5）や「28分」ではなく、**「分:秒」（28:30）に統一する**（表・ランキング・比較・前シーズン比較・
   タイトル・画像保存・ツールチップのすべて。差は「+3:15」）。平均は秒に丸めてから出し、並べ替え・判定は今までどおり値（分・秒）で行う。
   秒からは `formatMinutesFromSeconds`（`boxscoreAggregate.ts`）、分（小数）からは `formatMinutesColon`・`formatSignedMinutesColon`（`src/lib/minutesFormat.ts`）を使い、
-  `formatDecimal` に「分」を付けて出さない。`format.ts`・`boxscoreAggregate.ts` は保存キーの対象なので、時間の書式の関数を足すときはキーの対象外のファイルに置く
+  `formatDecimal` に「分」を付けて出さない。スタッツの条件（`statConditions.ts`）のMINの入力は「20」（=20:00）・「20:15」・「20.5」のどれも受け付け、単位・タイトル・チップは常に「分:秒」（「MIN 20:15以上」。URLには入力した文字列のまま）。`format.ts`・`boxscoreAggregate.ts` は保存キーの対象なので、時間の書式の関数を足すときはキーの対象外のファイルに置く
   （`minutesFormat.ts`。足したときに全過去シーズンの作り直しが起きない）。基準の説明文の「合計300分以上」のような整数の分の言い回しは対象外
 - スタッツの計算式は、NBA/Basketball-Reference・Bリーグ公式が実際に使っている正式な計算式を
   優先する。簡易版（近似式）を使う場合は、実装前に必ずユーザーに一言断ってから進めること。

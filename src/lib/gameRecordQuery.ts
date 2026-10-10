@@ -469,8 +469,8 @@ function playerConditionItem(def: PlayerGameRecordDef): StatConditionItem<Indexe
     label: def.label,
     group: CONDITION_GROUP,
     kind,
-    unit: kind === "pct" ? "%" : kind === "minutes" ? "分" : "",
-    suffix: kind === "pct" ? "%" : kind === "minutes" ? "分" : "",
+    unit: kind === "pct" ? "%" : kind === "minutes" ? "分:秒" : "",
+    suffix: kind === "pct" ? "%" : "",
     display: (row) => {
       const game = row as unknown as PlayerRecordGame;
       // 区間の +/- で、公式のピリオド別の値が無い行は「-」
