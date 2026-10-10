@@ -65,6 +65,7 @@ import {
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { RookieBadge } from "../components/RookieBadge";
+import { StickyHeaderScroll } from "../components/StickyHeaderScroll";
 import { useIsRookie } from "../lib/rookieFilter";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { buildSurnameMap } from "../lib/playerSurname";
@@ -2543,8 +2544,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
           ) : situationalStatsTab === "shooting" && situationalStatsShotTypeKeys.length === 0 ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : (
-            <div className="table-scroll situational-groups-scroll player-sticky-2 player-sticky-situation">
-              <table className="stats-table situational-groups-table">
+            <StickyHeaderScroll className="player-sticky-2 player-sticky-situation">
+              <table className="stats-table">
                 <thead>
                   <tr>
                     <th
@@ -2631,7 +2632,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </StickyHeaderScroll>
           )}
           {situationalStatsTab === "misc" && situationalStatsGroups.length > 0 && (
             <RuleChangeFootnote seasons={[situationalStatsSeason]} />

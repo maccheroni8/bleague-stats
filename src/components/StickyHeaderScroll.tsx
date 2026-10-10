@@ -10,9 +10,10 @@ import { useEffect, useRef, type ReactNode } from "react";
  * 2. 表が縦に長いと横スクロールバーが表の一番下にしか出ないため、本体の横スクロールバーは隠し、代わりに
  *    `position: sticky; bottom: 0` のスクロールバー（本体と同期）を表の直下に置いて、表が見えている間は画面下端に貼り付ける
  *
- * children は <table>（thead付き）1つを想定する。表の中身が変わっても（タブ切り替え等）MutationObserverで追随する
+ * children は <table>（thead付き）1つを想定する。表の中身が変わっても（タブ切り替え等）MutationObserverで追随する。
+ * className は外側の包みに付ける（見出しの複製も同じ子孫になるので、`.player-sticky-2` のような「表の中の列」への規則が複製にも効く）
  */
-export function StickyHeaderScroll({ children }: { children: ReactNode }) {
+export function StickyHeaderScroll({ children, className }: { children: ReactNode; className?: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const cloneRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
@@ -119,7 +120,7 @@ export function StickyHeaderScroll({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="sticky-header-scroll">
+    <div className={className ? `sticky-header-scroll ${className}` : "sticky-header-scroll"}>
       <div className="table-scroll sticky-header-scroll-body" ref={scrollRef}>
         {children}
       </div>
