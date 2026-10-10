@@ -489,9 +489,11 @@ async function main(): Promise<void> {
 
   const scanned = await scrapeSeasonScheduleWithCancelled(season, events, tab);
   const existingFile = await readJson<ScheduleFileWithCancelled>(outPath);
-  // フル収集は、全日程を見直す（前回の scheduleKeys は引き継がない）。中止は、カードの検出と前回の cancelledGames から決める
+  // フル収集は、全日程を見直す（走査に載らなかった前回の scheduleKeys は引き継がない）。ただし生データ（games/）がある試合は、
+  // 走査に載らなくても残す（走査の取りこぼしで、取り込み済みの試合が一覧から消えないように）。中止は、カードの検出と前回の cancelledGames から決める
+  const withData = await listStoredScheduleKeys(season, category);
   const resolved = await resolveCancelled(season, category, {
-    existingKeys: [],
+    existingKeys: (existingFile?.scheduleKeys ?? []).filter((k) => withData.has(k)),
     normalKeys: scanned.keys,
     cancelledKeys: scanned.cancelledKeys,
     existingUpcoming: existingFile?.upcomingGames ?? [],
