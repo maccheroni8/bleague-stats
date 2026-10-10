@@ -50,6 +50,10 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   1Q〜4Q・前半・後半・OT（平均は延長のあった試合だけで割る。OT G）、視点＝自チーム（得点）／opp（失点）／+/-。日程結果は「自チーム-相手」、延長は2延長以上の試合が表示中にあれば OT1・OT2…、無ければ「OT」。前後半5分の特別な試合は区間の列から除く。検証は `npm run validate:team-period-scoring`
 - 227章: 軽い修正のまとめ。時間は「分:秒」（MINの入力は「20」「20:15」「20.5」）、日程ページ（開いたとき今日の位置・中止の試合は灰色の「中止」バッジ）、
   中止になった試合は公式の日程の「試合中止」のカード（リンクなし）を検出して `schedule.json` の `cancelledGames` に移す（`scripts/lib/scheduleCancelled.ts`。`npm run validate:schedule-cancelled`）。型は保存キー対象外の `shared/scheduleCancelled.ts`
+- 228章: **結果だけの試合**（ボックススコアが公式に無い試合・不戦勝／不戦敗。`schedule.json` の `resultOnlyGames`、型は `shared/resultOnlyGames.ts`）。**勝敗・得失点・順位（teams.json の wins/losses・順位表・星取り表・勝敗表・日程・条件別順位表）にだけ数え、スタッツ・試合ログ・ランキング・記録には入れない**
+  （`gamesPlayed` は変えない。勝敗の試合数＝勝＋敗とスタッツの試合数が1試合違うチーム・シーズンは、ヘッダーに「（スタッツは59試合）」、勝敗の横に「※」、`ResultOnlyNote` の注記）。
+  不戦勝は日程のカード（リンクなし・「不戦勝／不戦敗」）から、ボックススコアなしは「試合日から7日たっても生データが無く、試合ページに得点がある」試合から、夜間・フル収集・`--check-stale` で自動で載る。生データが取り込まれたら外れる。
+  勝敗・得失点を計算する画面を足すときは、試合ログだけでなく結果だけの試合（`src/lib/resultOnlyGames.ts`）も足すか判断する。公式の順位表との突き合わせは `node --experimental-strip-types scripts/verify-official-standings.ts`（手で実行）。検証は `npm run validate:result-only-games`
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
