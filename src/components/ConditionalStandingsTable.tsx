@@ -20,6 +20,7 @@ import { useLeagueSituationalContext } from "../lib/teamRankingData";
 import {
   buildBackToBackStatus,
   buildBiweekPeriods,
+  buildRecordsBeforeGame,
   matchesBiweekPeriod,
   matchesDivision,
   matchesMonth,
@@ -41,6 +42,8 @@ import type {
   UpcomingGameEntry,
 } from "../../shared/types";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
+import { resultOnlySummaries } from "../lib/resultOnlyGames";
+import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
 
 /**
  * 「条件別順位表」タブが扱う単一選択の条件。SituationalFilterPicker（AND合成の複数選択）とは
@@ -249,15 +252,27 @@ export function ConditionalStandingsTable({
   gameLogsLoading,
   upcomingGames,
   teamColors,
+  resultOnlyGames,
 }: {
   season: string;
   teams: StandingsTeamSnapshot[];
+  /** 結果だけの試合の行（日付・ホーム/アウェイ・勝敗・得点・相手だけ）を含む、チームごとの試合ログ */
   gameLogsByTeam: Map<string, TeamGameLog[]> | null;
   gameLogsLoading: boolean;
   upcomingGames: UpcomingGameEntry[];
   teamColors?: Record<string, TeamColors>;
+  /** 結果だけの試合（ボックススコアが無い試合・不戦勝）。対戦相手の勝率・連戦・バイウィークの判定にも含める */
+  resultOnlyGames?: ResultOnlyGameEntry[];
 }) {
-  const { summaries, divisionHistory, opponentRecords } = useLeagueSituationalContext(season);
+  const { summaries: statSummaries, divisionHistory, opponentRecords: statOpponentRecords } = useLeagueSituationalContext(season);
+  const summaries = useMemo(
+    () => (statSummaries ? [...statSummaries, ...resultOnlySummaries(resultOnlyGames, statSummaries)] : statSummaries),
+    [statSummaries, resultOnlyGames],
+  );
+  const opponentRecords = useMemo(
+    () => (resultOnlyGames && resultOnlyGames.length > 0 ? (summaries ? buildRecordsBeforeGame(summaries) : undefined) : statOpponentRecords),
+    [summaries, statOpponentRecords, resultOnlyGames],
+  );
   const backToBackStatus = useMemo(() => (summaries ? buildBackToBackStatus(summaries) : undefined), [summaries]);
   // シーズンをバイウィークで区切った区間一覧（例: 「開幕〜11月バイウィーク前」「11月
   // バイウィーク以降〜2月バイウィーク前」「2月バイウィーク以降〜」）。区間数はシーズンごとに

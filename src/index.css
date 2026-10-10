@@ -5865,6 +5865,11 @@ table.wl-grid .wl-away {
   color: var(--accent);
 }
 
+/* 結果だけの試合（試合の記録が無い）のマスはリンクではないので、ホバーで色を変えない */
+span.wl-mark:hover {
+  color: var(--fg);
+}
+
 /* 試合中（途中経過で保存された試合）: 機能色の小さな丸。●（負け、文字色・13px）と色と大きさで区別する */
 .wl-live-dot {
   display: inline-block;
@@ -7230,4 +7235,21 @@ table.sortable-table.lineup-search-table tbody th {
   .pair-people-trio .pair-person {
     width: 64px;
   }
+}
+
+/* 結果だけの試合（ボックススコアが無い試合・不戦勝）の注記: 勝敗とスタッツの試合数が食い違って見える画面に添える補助の一行 */
+.result-only-note {
+  color: var(--muted);
+  max-width: 72em;
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+/* 勝敗の横の「※」（スタッツの無い試合を勝敗に含むチーム・シーズン）。本文の勝敗より小さく補助色 */
+.result-only-mark {
+  margin-left: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: help;
 }

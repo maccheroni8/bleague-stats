@@ -22,6 +22,7 @@ import {
   fetchDivisionHistory,
   fetchTeamHistory,
   fetchLeagueAverage,
+  fetchSchedule,
   fetchLeagueTeamRankings,
   fetchSeasonRules,
   fetchSeasons,
@@ -46,6 +47,7 @@ import { TeamLogo } from "../components/TeamLogo";
 import { SeasonLink } from "../components/SeasonLink";
 import { FilterBar } from "../components/FilterBar";
 import { ConditionTitle } from "../components/ConditionTitle";
+import { ResultOnlyNote } from "../components/ResultOnlyNote";
 import { LeagueSeasonRecords } from "../components/LeagueSeasonRecords";
 import { RecordValue } from "../components/RecordValue";
 import { FGA_ORDER_LABELS, FgaCompositionChart, type FgaChartTeam, type FgaShareOrder } from "../components/FgaCompositionChart";
@@ -320,6 +322,8 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams);
   // リーグ平均（data/{season}/league-average.json。シュートタイプ・強制TOV・棒グラフで使う。DESIGN.md 149章）
   const { data: leagueAverage } = useJsonData(() => fetchLeagueAverage(season).catch(() => null), [season]);
+  // 結果だけの試合（ボックススコアが公式に無い試合・不戦勝）。この表は試合ログ（スタッツのある試合）から数えるので、順位表と勝敗が1試合違うことがある
+  const { data: scheduleForNote } = useJsonData(() => fetchSchedule(season).catch(() => null), [season]);
   const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season);
 
   // タブ・フィルタはURLのクエリに持つ（DESIGN.md 163章）。変えても履歴は増やさず、別のページから戻るとURLから元に戻る
@@ -693,6 +697,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         conditions={statsTitle.conditions}
         statConditions={conditionTab ? statConditionsTitle(statConditions, conditionItems) : undefined}
       />
+      <ResultOnlyNote variant="stats" games={scheduleForNote?.resultOnlyGames} />
 
       {boxTab === "shooting" ? (
         !yahooPbpSupported ? (

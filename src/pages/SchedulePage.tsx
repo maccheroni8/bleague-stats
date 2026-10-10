@@ -15,6 +15,8 @@ import { formatDateHeading } from "../lib/format";
 import { teamShortName } from "../../shared/teamNames";
 import type { GameSummary, GameType, TeamColors, UpcomingGameEntry } from "../../shared/types";
 import type { CancelledGameEntry } from "../../shared/scheduleCancelled";
+import type { ResultOnlyGameEntry, ResultOnlyReason } from "../../shared/resultOnlyGames";
+import { resultOnlyReasonLabel } from "../lib/resultOnlyGames";
 import { useSearchParams } from "react-router-dom";
 import { currentSeason } from "../lib/season";
 
@@ -34,6 +36,8 @@ interface ScheduleRow {
   awayScore?: number;
   venue?: string;
   gameType?: GameType;
+  /** 結果だけの試合（ボックススコアが公式に無い試合・不戦勝）。得点は出すが試合詳細へはリンクしない（試合の記録が無い） */
+  resultOnly?: ResultOnlyReason;
   /** ティップオフ時刻（日本時間、例 "19:05"）。開催予定の試合は公式の日程に時刻が載っている試合だけ持つ
    *  （取り込みの判定で使う仮の時刻＝未定を13:00とみなすもの、は入れない）。試合中・終了した試合は生データの時刻。
    *  画面に出すのは開催予定の試合だけ */
@@ -55,6 +59,7 @@ function toRows(
   teamIdByName: Map<string, string>,
   scheduleTipoffTimes: Record<string, string>,
   cancelled: CancelledGameEntry[] = [],
+  resultOnly: ResultOnlyGameEntry[] = [],
 ): ScheduleRow[] {
   const summaryKeys = new Set(summaries.map((g) => g.scheduleKey));
   const finishedRows: ScheduleRow[] = summaries.map((g) => ({
@@ -101,8 +106,27 @@ function toRows(
       tipoffTime: g.tipoffTime,
       sortTime: g.tipoffTime ?? scheduleTipoffTimes[g.scheduleKey],
     }));
+  // 結果だけの試合（DESIGN.md 228章）。終了した試合として得点を出す（リンクなし。試合の記録＝ボックススコアが無い）
+  const resultOnlyRows: ScheduleRow[] = resultOnly
+    .filter((g) => !summaryKeys.has(g.scheduleKey))
+    .map((g) => ({
+      scheduleKey: g.scheduleKey,
+      date: g.date,
+      homeTeamId: g.homeTeamId,
+      homeTeamName: g.homeTeamName,
+      awayTeamId: g.awayTeamId,
+      awayTeamName: g.awayTeamName,
+      status: "final",
+      homeScore: g.homeScore,
+      awayScore: g.awayScore,
+      venue: g.venue,
+      gameType: g.gameType,
+      resultOnly: g.reason,
+      tipoffTime: g.tipoffTime,
+      sortTime: g.tipoffTime ?? scheduleTipoffTimes[g.scheduleKey],
+    }));
   // 1日の中はティップオフ時刻の早い順（試合中・終了した試合も同じ）。同じ時刻は従来どおりScheduleKey順、時刻の無い試合はその日の最後
-  return [...finishedRows, ...upcomingRows, ...cancelledRows].sort(
+  return [...finishedRows, ...resultOnlyRows, ...upcomingRows, ...cancelledRows].sort(
     (a, b) =>
       a.date.localeCompare(b.date) ||
       (a.sortTime ?? "99:99").localeCompare(b.sortTime ?? "99:99") ||
@@ -263,7 +287,14 @@ export function SchedulePage({ season }: { season: string }) {
   const rows = useMemo(
     () =>
       summaries
-        ? toRows(summaries, schedule?.upcomingGames ?? [], teamIdByName, schedule?.tipoffTimes ?? {}, schedule?.cancelledGames ?? [])
+        ? toRows(
+            summaries,
+            schedule?.upcomingGames ?? [],
+            teamIdByName,
+            schedule?.tipoffTimes ?? {},
+            schedule?.cancelledGames ?? [],
+            schedule?.resultOnlyGames ?? [],
+          )
         : [],
     [summaries, schedule, teamIdByName],
   );
@@ -527,7 +558,7 @@ function MaybeLink({ to, children }: { to?: string; children: ReactNode }) {
 function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: Record<string, TeamColors> }) {
   // 開催予定はまだ生データ（試合詳細ページのソース）が無いのでリンクしない
   // 開催予定・中止はリンクしない（試合詳細の生データが無い）
-  const linkTo = row.status === "upcoming" || row.status === "cancelled" ? undefined : `/games/${row.scheduleKey}`;
+  const linkTo = row.status === "upcoming" || row.status === "cancelled" || row.resultOnly ? undefined : `/games/${row.scheduleKey}`;
   const homeColor = row.homeTeamId ? teamColors?.[row.homeTeamId]?.primary : undefined;
   const awayColor = row.awayTeamId ? teamColors?.[row.awayTeamId]?.primary : undefined;
   return (
@@ -542,7 +573,10 @@ function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: R
       </td>
       <td className="align-center">
         <MaybeLink to={linkTo}>
-          {row.status === "final" && `${row.homeScore}-${row.awayScore}`}
+          {row.status === "final" && (
+            <span title={row.resultOnly ? resultOnlyReasonLabel(row.resultOnly) : undefined}>{`${row.homeScore}-${row.awayScore}`}</span>
+          )}
+          {row.resultOnly === "forfeit" && <span className="cancelled-badge">不戦勝</span>}
           {row.status === "live" && <span className="live-badge">進行中</span>}
           {row.status === "cancelled" && <span className="cancelled-badge">中止</span>}
           {row.status === "upcoming" &&
@@ -631,10 +665,10 @@ function CalendarView({
 }
 
 function CalendarGameChip({ row }: { row: ScheduleRow }) {
-  const linkTo = row.status === "upcoming" || row.status === "cancelled" ? undefined : `/games/${row.scheduleKey}`;
+  const linkTo = row.status === "upcoming" || row.status === "cancelled" || row.resultOnly ? undefined : `/games/${row.scheduleKey}`;
   const scoreLabel = row.status === "final" ? ` ${row.homeScore}-${row.awayScore}` : "";
   const tipoffLabel = row.status === "upcoming" && row.tipoffTime ? ` ${row.tipoffTime}` : "";
-  const title = `${row.homeTeamName}${scoreLabel} vs ${row.awayTeamName}${tipoffLabel}${row.status === "cancelled" ? "（中止）" : ""}`;
+  const title = `${row.homeTeamName}${scoreLabel} vs ${row.awayTeamName}${tipoffLabel}${row.status === "cancelled" ? "（中止）" : ""}${row.resultOnly ? `（${resultOnlyReasonLabel(row.resultOnly)}）` : ""}`;
   // 開催予定でティップオフ時刻が分かる試合は、スコアの位置に時刻を出す（未定は従来どおり「-」）
   const middle =
     row.status === "final" ? (

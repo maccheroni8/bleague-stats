@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import {
@@ -25,6 +25,8 @@ import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { pendingUpcomingGames } from "../lib/pendingUpcoming";
+import { resultOnlySummaries, withResultOnlyLogs } from "../lib/resultOnlyGames";
+import { ResultOnlyNote } from "../components/ResultOnlyNote";
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak, type TeamStreak } from "../../shared/teamRecords";
 import { teamShortName } from "../../shared/teamNames";
@@ -558,7 +560,19 @@ export function StandingsPage({ season }: { season: string }) {
   };
 
   const latest = history && history.length > 0 ? history[history.length - 1]! : null;
-  const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, latest?.teams ?? null);
+  const { gameLogsByTeam: statLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, latest?.teams ?? null);
+  // 結果だけの試合（ボックススコアが公式に無い試合・不戦勝）は、ホーム/アウェー・直近5試合・連勝連敗・条件別順位表・勝敗表にだけ足す
+  // （スタッツの画面には渡さない。DESIGN.md 228章）
+  const resultOnlyEntries = schedule?.resultOnlyGames;
+  const gameLogsByTeam = useMemo(() => withResultOnlyLogs(statLogsByTeam, resultOnlyEntries), [statLogsByTeam, resultOnlyEntries]);
+  const resultOnlyGameRows = useMemo(
+    () => resultOnlySummaries(resultOnlyEntries, gameSummaries),
+    [resultOnlyEntries, gameSummaries],
+  );
+  const gamesForGrid = useMemo(
+    () => (gameSummaries ? [...gameSummaries, ...resultOnlyGameRows] : gameSummaries),
+    [gameSummaries, resultOnlyGameRows],
+  );
 
   // 読み込み中・エラー時もv2の範囲に入れ、ヘッダー・ナビの見た目が切り替わらないようにする
   const v2 = (node: ReactNode) => (
@@ -745,6 +759,7 @@ export function StandingsPage({ season }: { season: string }) {
     <div data-design="v2" className="standings-page">
       <h1>順位表</h1>
       <p className="page-subtitle">{season}シーズン・{latest.date}時点</p>
+      <ResultOnlyNote games={resultOnlyEntries} />
 
       <div className="tab-bar">
         {(Object.keys(TAB_LABELS) as StandingsTab[])
@@ -961,7 +976,8 @@ export function StandingsPage({ season }: { season: string }) {
                       // 地区順位（順位表の表示と同じ値）。地区の無いシーズンの全体表示では順位を出さない
                       divisionRank: g.key === "all" ? undefined : r.unplayed ? null : (r.divisionRank ?? null),
                     }))}
-                    games={gameSummaries}
+                    games={gamesForGrid ?? gameSummaries}
+                    resultOnly={resultOnlyEntries}
                     upcomingGames={pendingUpcoming}
                     clinchEvents={playoffRace?.clinchEvents ?? []}
                     teamColors={teamColors ?? undefined}
@@ -981,6 +997,7 @@ export function StandingsPage({ season }: { season: string }) {
           gameLogsLoading={gameLogsLoading}
           upcomingGames={pendingUpcoming}
           teamColors={teamColors ?? undefined}
+          resultOnlyGames={resultOnlyEntries}
         />
       )}
 

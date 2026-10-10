@@ -80,6 +80,10 @@ import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { formatRecordShort } from "../lib/recordFormat";
+import type { ResultOnlyGameEntry, ResultOnlyReason } from "../../shared/resultOnlyGames";
+import { ResultOnlyNote } from "../components/ResultOnlyNote";
+import { TeamRecordShort } from "../components/TeamRecordShort";
+import { resultOnlyReasonLabel } from "../lib/resultOnlyGames";
 import { MIN_LINEUP_AVG_SECONDS, MIN_LINEUP_GAME_SHARE } from "../lib/tableThresholds";
 import { ESTIMATED_RATING_NOTE, lineupRatingsOf, lineupsHaveRealPossessions } from "../lib/lineupRatings";
 import { LineupSearch } from "../components/LineupSearch";
@@ -748,7 +752,9 @@ const DIVISION_LABELS: Record<string, string> = {
 // 地区順位・全体順位は既存のstandings-history.json（順位表ページと同じデータ源）から引く
 function buildTeamRecordLine(team: TeamSummary, standingsHistory: StandingsSnapshot[] | null | undefined): string {
   const winPct = safeDiv(team.wins, team.wins + team.losses);
-  let line = `${team.gamesPlayed}試合${team.wins}勝${team.losses}敗${formatWinPct(winPct)}`;
+  // 試合数は勝敗の試合数（勝＋敗）。スタッツの無い試合（結果だけの試合）を含むシーズンは、スタッツの試合数を添える（DESIGN.md 228章）
+  let line = `${team.wins + team.losses}試合${team.wins}勝${team.losses}敗${formatWinPct(winPct)}`;
+  if (team.resultOnlyGames) line += `（スタッツは${team.gamesPlayed}試合）`;
 
   const latest = standingsHistory && standingsHistory.length > 0 ? standingsHistory[standingsHistory.length - 1] : undefined;
   const entry = latest?.teams.find((t) => t.teamId === team.teamId);
@@ -1743,6 +1749,8 @@ interface TeamScheduleRow {
   opponentScore?: number;
   venue?: string;
   gameType?: GameType;
+  /** 結果だけの試合（ボックススコアが公式に無い試合・不戦勝）。得点は出すが、試合詳細へのリンクとスタッツは無い */
+  resultOnly?: ResultOnlyReason;
   /** 開催予定の試合のティップオフ時刻（日本時間。公式の日程に時刻が載っている試合だけ。DESIGN.md 166章） */
   tipoffTime?: string;
 }
@@ -1769,6 +1777,7 @@ function buildTeamScheduleRows(
   upcoming: UpcomingGameEntry[],
   teamId: string,
   teamName: string,
+  resultOnly: ResultOnlyGameEntry[] = [],
 ): TeamScheduleRow[] {
   const summaryKeys = new Set(summaries.map((g) => g.scheduleKey));
   const finishedRows: TeamScheduleRow[] = summaries
@@ -1802,7 +1811,26 @@ function buildTeamScheduleRows(
         tipoffTime: g.tipoffTime,
       };
     });
-  return [...finishedRows, ...upcomingRows].sort(
+  // 結果だけの試合（DESIGN.md 228章）。結果は出すが、リンクもスタッツも無い
+  const resultOnlyRows: TeamScheduleRow[] = resultOnly
+    .filter((g) => !summaryKeys.has(g.scheduleKey) && (g.homeTeamId === teamId || g.awayTeamId === teamId))
+    .map((g) => {
+      const isHome = g.homeTeamId === teamId;
+      return {
+        scheduleKey: g.scheduleKey,
+        date: g.date,
+        opponentName: isHome ? g.awayTeamName : g.homeTeamName,
+        opponentTeamId: isHome ? g.awayTeamId : g.homeTeamId,
+        isHome,
+        status: "final" as const,
+        teamScore: isHome ? g.homeScore : g.awayScore,
+        opponentScore: isHome ? g.awayScore : g.homeScore,
+        venue: g.venue,
+        gameType: g.gameType,
+        resultOnly: g.reason,
+      };
+    });
+  return [...finishedRows, ...resultOnlyRows, ...upcomingRows].sort(
     (a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey),
   );
 }
@@ -3296,7 +3324,7 @@ export function TeamDetailPage({ season }: { season: string }) {
 
   const scheduleRows =
     summaries && teamId
-      ? buildTeamScheduleRows(summaries, schedule?.upcomingGames ?? [], teamId, team.teamName)
+      ? buildTeamScheduleRows(summaries, schedule?.upcomingGames ?? [], teamId, team.teamName, schedule?.resultOnlyGames ?? [])
       : [];
   // 「日程結果」タブのレギュラー/プレーオフ/合算トグル用: scheduleKey→TeamGameLogの引き当て
   // （未消化・進行中の試合はTeamGameLogが存在しないため「合算」選択時以外は自然に除外される）
@@ -3304,7 +3332,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const scheduleFilteredRows =
     scheduleGameType === "both"
       ? scheduleRows
-      : scheduleRows.filter((row) => gameLogsByScheduleKey.get(row.scheduleKey)?.gameType === scheduleGameType);
+      : scheduleRows.filter((row) => (gameLogsByScheduleKey.get(row.scheduleKey)?.gameType ?? row.gameType) === scheduleGameType);
   // 「日程結果」タブのカテゴリタブ用の列定義。試合詳細ページのボックススコアと完全に同じ配列
   // ファウルの列は、このシーズンが2026-27以降ならTF1・TF2・FLAG・DISR、それ以前ならUFOUL・TF（DESIGN.md 16-8章）
   const foulSplit = foulColumnsSplit([season]);
@@ -3321,7 +3349,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   }
   const scheduleOvertimeLabels = linescoreOvertimeLabels(Math.max(0, ...[...scheduleLinescores.values()].map((l) => l?.overtimes ?? 0)));
   const scheduleLinescoreFromPbp = [...scheduleLinescores.values()].some((l) => (l?.fromPbp.length ?? 0) > 0);
-  const scheduleLinescoreMissing = scheduleFilteredRows.filter((r) => r.status === "final" && scheduleLinescores.get(r.scheduleKey) === null).length;
+  const scheduleLinescoreMissing = scheduleFilteredRows.filter((r) => r.status === "final" && !r.resultOnly && scheduleLinescores.get(r.scheduleKey) === null).length;
   const schedulePointsSupported = !schedulePeriodOption?.periods;
   const scheduleShotChartSupported = isShotChartSupported(coverage);
   // Misc/スコアリングタブのPBPタグ集計にはYahoo PBPも必要。season対応でも該当試合の取得が
@@ -3480,6 +3508,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           <p className="page-subtitle">
             {season}シーズン・{recordLine}
           </p>
+          <ResultOnlyNote games={schedule?.resultOnlyGames} teamId={team.teamId} />
         </div>
       </div>
 
@@ -4195,7 +4224,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                             <ResponsiveTeamName teamId={team.teamId} name={r.teamName} />
                           </td>
                           <td className="align-right">{r.team.gamesPlayed}</td>
-                          <td className="align-right">{formatRecordShort(r.team.wins, r.team.losses)}</td>
+                          <td className="align-right"><TeamRecordShort wins={r.team.wins} losses={r.team.losses} resultOnlyGames={r.team.resultOnlyGames} /></td>
                           <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
                           {scoring ? (
                             <PeriodScoringCells scoring={scoring} perspective={seasonBoxPerspective} mode={seasonBoxDisplayMode === "total" ? "total" : "perGame"} />
@@ -4252,7 +4281,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                           <ResponsiveTeamName teamId={team.teamId} name={r.teamName} />
                         </td>
                         <td className="align-right">{r.team.gamesPlayed}</td>
-                        <td className="align-right">{formatRecordShort(r.team.wins, r.team.losses)}</td>
+                        <td className="align-right"><TeamRecordShort wins={r.team.wins} losses={r.team.losses} resultOnlyGames={r.team.resultOnlyGames} /></td>
                         <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
                         {teamSeasonBoxColumns(seasonBoxTab, seasonBoxFoulSplit).map((c) => (
                           <td className="align-right" key={c.key}>
@@ -4844,7 +4873,7 @@ function TeamScheduleRowView({
 
 /** 日程結果の各行の先頭の3つのセル（日付・対戦相手・結果）。カテゴリタブによらず共通 */
 function ScheduleLeadCells({ row, shortDate = false }: { row: TeamScheduleRow; /** 年を2桁にする（スマホ幅のラインスコア） */ shortDate?: boolean }) {
-  const linkTo = row.status === "upcoming" ? undefined : `/games/${row.scheduleKey}`;
+  const linkTo = row.status === "upcoming" || row.resultOnly ? undefined : `/games/${row.scheduleKey}`;
   return (
     <>
       <td className="align-left">{linkTo ? <Link to={linkTo} className="cell-link">{shortDate ? row.date.slice(2) : row.date}</Link> : shortDate ? row.date.slice(2) : row.date}</td>
@@ -4858,10 +4887,14 @@ function ScheduleLeadCells({ row, shortDate = false }: { row: TeamScheduleRow; /
       <td className="align-right">
         <MaybeLink to={linkTo}>
           {row.status === "final" && (
-            <span className={`result-badge ${(row.teamScore ?? 0) > (row.opponentScore ?? 0) ? "win" : "loss"}`}>
+            <span
+              className={`result-badge ${(row.teamScore ?? 0) > (row.opponentScore ?? 0) ? "win" : "loss"}`}
+              title={row.resultOnly ? resultOnlyReasonLabel(row.resultOnly) : undefined}
+            >
               {row.teamScore}-{row.opponentScore}
             </span>
           )}
+          {row.resultOnly === "forfeit" && <span className="cancelled-badge">不戦</span>}
           {row.status === "live" && <span className="live-badge">進行中</span>}
           {row.status === "upcoming" &&
             (row.tipoffTime ? (

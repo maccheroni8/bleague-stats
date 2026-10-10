@@ -50,7 +50,7 @@ import type {
   YahooGamePbp,
 } from "../../shared/types";
 import { withChronologicalPlayByPlays } from "../../shared/pbpOrder";
-import type { ScheduleFileWithCancelled } from "../../shared/scheduleCancelled";
+import type { ScheduleFileExtended } from "../../shared/resultOnlyGames";
 import { legibleAccentColor, MONO_FALLBACK_COLOR } from "./color";
 import { TEAM_COLOR_OVERRIDES, TEAM_SUB_COLORS } from "./teamColorOverrides";
 import type { LeagueCompareFile } from "./leagueAverage";
@@ -350,8 +350,8 @@ export async function fetchLeaguePlayerCareerTop(): Promise<LeaguePlayerCareerTo
   }
 }
 
-export function fetchSchedule(season: string): Promise<ScheduleFileWithCancelled> {
-  return fetchJson<ScheduleFileWithCancelled>(`${dataBase}/${season}/schedule.json`);
+export function fetchSchedule(season: string): Promise<ScheduleFileExtended> {
+  return fetchJson<ScheduleFileExtended>(`${dataBase}/${season}/schedule.json`);
 }
 
 export function fetchGameSummaries(season: string): Promise<GameSummary[]> {

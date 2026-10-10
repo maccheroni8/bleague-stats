@@ -6,6 +6,8 @@ import { formatDateHeading } from "../lib/format";
 import { TeamLogo } from "./TeamLogo";
 import { statDescription } from "../lib/statDescriptions";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
+import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
+import { resultOnlyReasonLabel } from "../lib/resultOnlyGames";
 
 /**
  * 勝敗表（順位表ページのタブ。DESIGN.md 132章）。クラブごとにレギュラーシーズンの全試合を第1試合から順に○（勝ち）●（負け）で並べ、
@@ -162,9 +164,12 @@ export function WinLossGrid({
   clinchEvents,
   teamColors,
   teamIdByName,
+  resultOnly,
 }: {
   season: string;
   teams: WinLossGridTeam[];
+  /** 結果だけの試合（games に GameSummary の形で含めて渡す）の元の項目。マスのリンクを外し、理由をツールチップに添える */
+  resultOnly?: ResultOnlyGameEntry[];
   games: GameSummary[];
   /** 列数（シーズンの総試合数）を決めるための未消化の試合（schedule.json） */
   upcomingGames: UpcomingGameEntry[];
@@ -173,6 +178,7 @@ export function WinLossGrid({
   /** 開催予定の試合（クラブ名しか持たない）の相手を略称で出すための、クラブ名→ID */
   teamIdByName?: Map<string, string>;
 }) {
+  const resultOnlyByKey = new Map((resultOnly ?? []).map((g) => [g.scheduleKey, g]));
   const showRank = teams.some((t) => t.divisionRank !== undefined);
   const cellsByTeam = new Map(teams.map((t) => [t.teamId, teamGames(t.teamId, games)]));
   const pendingByTeam = new Map(teams.map((t) => [t.teamId, pendingGames(t, games, upcomingGames, teamIdByName)]));
@@ -248,6 +254,8 @@ export function WinLossGrid({
                     const title = `${head}\n開催予定${p.tipoffTime ? ` ${p.tipoffTime}` : ""}${p.venue ? `（${p.venue.replace(/^.+｜/, "")}）` : ""}`;
                     return <td key={i} className={cls} title={title} aria-label={title} />;
                   }
+                  // 結果だけの試合（試合の記録が無い）は、試合詳細へのリンクを付けない
+                  const resultOnlyEntry = resultOnlyByKey.get(c.scheduleKey);
                   const events = (eventsByKey.get(`${t.teamId}:${c.scheduleKey}`) ?? []).sort(
                     (a, b) => CLINCH_ORDER.indexOf(a.type) - CLINCH_ORDER.indexOf(b.type),
                   );
@@ -265,6 +273,7 @@ export function WinLossGrid({
                   const title = [
                     `第${c.n}試合 ${shortDate(c.date)} ${c.isHome ? "ホーム" : "アウェー"} vs ${teamShortName(c.opponentId, c.opponentName)}`,
                     `${c.teamScore}-${c.opponentScore} ${c.win ? "勝ち" : "負け"}${c.venue ? `（${c.venue}）` : ""}`,
+                    ...(resultOnlyEntry ? [resultOnlyReasonLabel(resultOnlyEntry.reason)] : []),
                     ...clinchLines,
                   ].join("\n");
                   const className = [
@@ -276,9 +285,15 @@ export function WinLossGrid({
                     .join(" ");
                   return (
                     <td key={i} className={`${className}${sep}`}>
-                      <Link to={`/games/${c.scheduleKey}`} className="wl-mark" title={title} aria-label={title}>
-                        {c.win ? "○" : "●"}
-                      </Link>
+                      {resultOnlyEntry ? (
+                        <span className="wl-mark" title={title} aria-label={title}>
+                          {c.win ? "○" : "●"}
+                        </span>
+                      ) : (
+                        <Link to={`/games/${c.scheduleKey}`} className="wl-mark" title={title} aria-label={title}>
+                          {c.win ? "○" : "●"}
+                        </Link>
+                      )}
                       {events.length > 0 && <span className="wl-clinch-mark">{CLINCH_MARKS[events[0]!.type]}</span>}
                     </td>
                   );
