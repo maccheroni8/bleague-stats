@@ -179,6 +179,13 @@ function buildMonthGrid(monthKey: string): CalendarCell[][] {
 
 const WEEKDAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"];
 
+/**
+ * 開いたときに今日の位置へ移ったシーズン・表示の組（`シーズン:表示`）。ページを開くたびに1回だけ移り、
+ * 試合詳細などからブラウザバックで戻ったとき（直前の表示・月を復元する）は、もう一度移らない。
+ * タブを開いている間だけ有効（リロードで消える）
+ */
+const autoPositionedViews = new Set<string>();
+
 export function SchedulePage({ season }: { season: string }) {
   const {
     data: summaries,
@@ -309,6 +316,17 @@ export function SchedulePage({ season }: { season: string }) {
     jumpToToday(pendingToday.view);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingToday, season, seasonDataReady]);
+
+  // 開いたとき（今のシーズン）は、今日の日付の位置を表示する。今日に試合が無ければ次に試合がある日（リスト・カレンダーとも。
+  // 「今日」ボタンと同じ行き先）。過去のシーズンは今日の位置が無いので先頭のまま。表示の切り替えでも、その表示で最初の1回だけ移る
+  useEffect(() => {
+    if (!seasonDataReady || rows.length === 0 || season !== currentSeason()) return;
+    const key = `${season}:${view}`;
+    if (autoPositionedViews.has(key)) return;
+    autoPositionedViews.add(key);
+    jumpToToday(view);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seasonDataReady, season, view, rows.length]);
 
   // 読み込み中・エラーの早期リターンも v2 の範囲に入れる
   const v2 = (node: ReactNode) => (
