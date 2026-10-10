@@ -48,6 +48,8 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   **シーズン成績のQ別を導出データに切り替える**画面の差し替え（データはそろえてある）は別の段階。検証は `npm run validate:period-index`
 - 226章: カテゴリタブ **Periods**（`CATEGORY_LABELS.periods`）: 全チームスタッツ（`tab=periods`）・チーム詳細のシーズン別成績／シチュエーション別成績・日程結果のラインスコア。**画面だけの変更でキー不変**。値は `TeamGameLog` の `periodPoints`（1Q〜4Q）で、延長は「試合の得点−4Qまでの合計」（`src/lib/teamPeriodScoring.ts`。`team-period-index` は検証の突き合わせ先）。
   1Q〜4Q・前半・後半・OT（平均は延長のあった試合だけで割る。OT G）、視点＝自チーム（得点）／opp（失点）／+/-。日程結果は「自チーム-相手」、延長は2延長以上の試合が表示中にあれば OT1・OT2…、無ければ「OT」。前後半5分の特別な試合は区間の列から除く。検証は `npm run validate:team-period-scoring`
+- 227章: 軽い修正のまとめ。時間は「分:秒」（MINの入力は「20」「20:15」「20.5」）、日程ページ（開いたとき今日の位置・中止の試合は灰色の「中止」バッジ）、
+  中止になった試合は公式の日程の「試合中止」のカード（リンクなし）を検出して `schedule.json` の `cancelledGames` に移す（`scripts/lib/scheduleCancelled.ts`。`npm run validate:schedule-cancelled`）。型は保存キー対象外の `shared/scheduleCancelled.ts`
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
