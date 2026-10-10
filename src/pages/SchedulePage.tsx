@@ -151,9 +151,12 @@ function todayJumpTarget(rows: ScheduleRow[]): string | null {
   return dates.find((d) => d >= today) ?? dates[dates.length - 1] ?? null;
 }
 
-function defaultCalendarMonth(rows: ScheduleRow[]): string {
+/** カレンダーの初期の月。過去のシーズンは「実際に試合があった最後の月」（中止の試合だけがある月は選ばない。2019-20なら2020年3月） */
+function defaultCalendarMonth(allRows: ScheduleRow[]): string {
   const today = todayJst();
-  if (rows.length === 0) return monthKeyOf(today);
+  if (allRows.length === 0) return monthKeyOf(today);
+  const played = allRows.filter((r) => r.status !== "cancelled");
+  const rows = played.length > 0 ? played : allRows;
   const dates = rows.map((r) => r.date).sort();
   const min = dates[0]!;
   const max = dates[dates.length - 1]!;
