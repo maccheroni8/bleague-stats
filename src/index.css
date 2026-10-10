@@ -3276,7 +3276,8 @@ table.schedule-table td.align-center {
   text-align: center;
 }
 
-.schedule-row.status-upcoming {
+.schedule-row.status-upcoming,
+.schedule-row.status-cancelled {
   color: var(--muted);
 }
 
@@ -3450,7 +3451,8 @@ td.schedule-team-cell.align-right :is(.cell-link, .schedule-cell-inner) {
   background: var(--row-hover);
 }
 
-.calendar-game-chip-vs {
+.calendar-game-chip-vs,
+.calendar-game-chip-cancelled {
   color: var(--muted);
 }
 
@@ -3464,7 +3466,8 @@ td.schedule-team-cell.align-right :is(.cell-link, .schedule-cell-inner) {
    100点ゲームの札だけずれて縦に並ばない。スマホ幅は欄を別の行に置くので、この幅は使わない（下の @media） */
 .calendar-game-chip-score,
 .calendar-game-chip-time,
-.calendar-game-chip-vs {
+.calendar-game-chip-vs,
+.calendar-game-chip-cancelled {
   min-width: 46px;
   text-align: center;
 }
@@ -3491,7 +3494,8 @@ td.schedule-team-cell.align-right :is(.cell-link, .schedule-cell-inner) {
 }
 
 .live-badge,
-.upcoming-badge {
+.upcoming-badge,
+.cancelled-badge {
   display: inline-block;
   padding: 1px 7px;
   border-radius: 4px;
@@ -3504,7 +3508,8 @@ td.schedule-team-cell.align-right :is(.cell-link, .schedule-cell-inner) {
   color: #2e7d32;
 }
 
-.upcoming-badge {
+.upcoming-badge,
+.cancelled-badge {
   background: color-mix(in srgb, var(--muted) 20%, transparent);
   color: var(--muted);
 }
@@ -5316,7 +5321,8 @@ table.compare-table th .compare-condition-tag {
 
 [data-design="v2"] .result-badge,
 [data-design="v2"] .live-badge,
-[data-design="v2"] .upcoming-badge {
+[data-design="v2"] .upcoming-badge,
+[data-design="v2"] .cancelled-badge {
   padding: 0 6px;
   border: 1px solid currentColor;
   border-radius: 3px;
@@ -6335,7 +6341,7 @@ table.wl-grid tbody tr:hover td.wl-away {
     height: 18px !important;
   }
 
-  [data-design="v2"] .calendar-game-chip :is(.calendar-game-chip-score, .calendar-game-chip-vs, .calendar-game-chip-time) {
+  [data-design="v2"] .calendar-game-chip :is(.calendar-game-chip-score, .calendar-game-chip-vs, .calendar-game-chip-time, .calendar-game-chip-cancelled) {
     order: 1;
     min-width: 0;
     flex-basis: 100%;
