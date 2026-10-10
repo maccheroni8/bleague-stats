@@ -53,6 +53,7 @@
     "validate:rookie-eligibility": "node --experimental-strip-types scripts/validate-rookie-eligibility.ts",
     "validate:pbp-order": "esbuild scripts/validate-pbp-order.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-pbp-order.mjs && node node_modules/.cache/validate-pbp-order.mjs",
     "validate:team-period-scoring": "esbuild scripts/validate-team-period-scoring.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-team-period-scoring.mjs && node node_modules/.cache/validate-team-period-scoring.mjs",
+    "validate:schedule-cancelled": "node --experimental-strip-types scripts/validate-schedule-cancelled.ts",
     "validate:season-key": "node --experimental-strip-types scripts/validate-season-key.ts",
     "validate:live-dead-tov": "esbuild scripts/validate-live-dead-tov.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-live-dead-tov.mjs && node node_modules/.cache/validate-live-dead-tov.mjs"
   },
