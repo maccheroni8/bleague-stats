@@ -79,6 +79,7 @@ import { gameHasOvertime } from "../lib/gamePeriods";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
+import { formatRecordShort } from "../lib/recordFormat";
 import { MIN_LINEUP_AVG_SECONDS, MIN_LINEUP_GAME_SHARE } from "../lib/tableThresholds";
 import { ESTIMATED_RATING_NOTE, lineupRatingsOf, lineupsHaveRealPossessions } from "../lib/lineupRatings";
 import { LineupSearch } from "../components/LineupSearch";
@@ -1827,6 +1828,9 @@ interface TeamSituationalStatsRow {
   key: string;
   label: string;
   gamesPlayed: number;
+  /** この行に属する試合の勝ち数・負け数（試合数の横の「勝敗」列） */
+  wins: number;
+  losses: number;
   boxTotals: TeamGameBoxTotals;
   /** シューティングタブ用: この行に属する試合のscheduleKey一覧 */
   scheduleKeys: string[];
@@ -3199,6 +3203,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                 key: row.key,
                 label: row.label,
                 gamesPlayed: matched.length,
+                wins: matched.filter((g) => g.win).length,
+                losses: matched.filter((g) => !g.win).length,
                 boxTotals,
                 scheduleKeys: matched.map((g) => g.scheduleKey),
                 oppWinPctAvg: computeOpponentWinPctAvg(matched, opponentRecords),
@@ -3228,6 +3234,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                   key: row.key,
                   label: row.label,
                   gamesPlayed: matched.length,
+                  wins: matched.filter((g) => g.win).length,
+                  losses: matched.filter((g) => !g.win).length,
                   oppWinPctAvg: computeOpponentWinPctAvg(matched, opponentRecords),
                   scoring: aggregatePeriodScoring(matched),
                 },
@@ -4187,7 +4195,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                             <ResponsiveTeamName teamId={team.teamId} name={r.teamName} />
                           </td>
                           <td className="align-right">{r.team.gamesPlayed}</td>
-                          <td className="align-right">{formatRecord(r.team.wins, r.team.losses)}</td>
+                          <td className="align-right">{formatRecordShort(r.team.wins, r.team.losses)}</td>
                           <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
                           {scoring ? (
                             <PeriodScoringCells scoring={scoring} perspective={seasonBoxPerspective} mode={seasonBoxDisplayMode === "total" ? "total" : "perGame"} />
@@ -4244,7 +4252,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                           <ResponsiveTeamName teamId={team.teamId} name={r.teamName} />
                         </td>
                         <td className="align-right">{r.team.gamesPlayed}</td>
-                        <td className="align-right">{formatRecord(r.team.wins, r.team.losses)}</td>
+                        <td className="align-right">{formatRecordShort(r.team.wins, r.team.losses)}</td>
                         <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
                         {teamSeasonBoxColumns(seasonBoxTab, seasonBoxFoulSplit).map((c) => (
                           <td className="align-right" key={c.key}>
@@ -4316,6 +4324,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <tr>
                         <th className="align-left">区分</th>
                         <th className="align-right" title={statDescription("試合数")}>試合数</th>
+                        <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
                         <th className="align-right" title={statDescription("対戦相手勝率")}>
                           対戦相手勝率
                         </th>
@@ -4326,7 +4335,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       {situationalPeriodGroups.map((group) => (
                         <Fragment key={group.key}>
                           <tr className="situational-group-heading">
-                            <td colSpan={12}>
+                            <td colSpan={13}>
                               <span className="sticky-group-label">{group.label}</span>
                             </td>
                           </tr>
@@ -4334,6 +4343,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                             <tr key={row.key}>
                               <td className="align-left">{row.label}</td>
                               <td className="align-right">{row.gamesPlayed}</td>
+                              <td className="align-right">{formatRecordShort(row.wins, row.losses)}</td>
                               <td className="align-right">{row.oppWinPctAvg !== undefined ? formatWinPct(row.oppWinPctAvg) : "-"}</td>
                               <PeriodScoringCells
                                 scoring={row.scoring}
@@ -4365,6 +4375,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   <tr>
                     <th className="align-left">区分</th>
                     <th className="align-right" title={statDescription("試合数")}>試合数</th>
+                    <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
                     <th className="align-right" title={statDescription("対戦相手勝率")}>
                       対戦相手勝率
                     </th>
@@ -4391,7 +4402,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                             (situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : boxscoreColumnsFor(situationalTeamBoxTab, foulSplit))
                               .length +
                             situationalTeamPointsColumns.length +
-                            3
+                            4
                           }
                         >
                           <span className="sticky-group-label">{group.label}</span>
@@ -4401,6 +4412,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                         <tr key={row.key}>
                           <td className="align-left">{row.label}</td>
                           <td className="align-right">{row.gamesPlayed}</td>
+                          <td className="align-right">{formatRecordShort(row.wins, row.losses)}</td>
                           <td className="align-right">
                             {row.oppWinPctAvg !== undefined ? formatWinPct(row.oppWinPctAvg) : "-"}
                           </td>
