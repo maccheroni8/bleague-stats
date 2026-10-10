@@ -38,7 +38,6 @@ import {
   fetchTeamLineups,
   fetchTeams,
   fetchYahooGamePbp,
-  fetchPlayoffRace,
   fetchSeasonRules,
 } from "../lib/data";
 import { LEAGUE_COLOR, LEAGUE_SLOT_NOTE, LEAGUE_TEAM_NAME } from "../lib/leagueAverage";
@@ -196,9 +195,8 @@ import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import { TeamSeasonForeignChart, TeamSeasonScoringCharts } from "../components/TeamSeasonShareCharts";
 import { TeamHeadToHead } from "../components/TeamHeadToHead";
 import { enumParam, useUrlState } from "../lib/urlState";
-import { fgaShare, isRegularSeasonInProgress } from "../lib/shareCharts";
+import { fgaShare } from "../lib/shareCharts";
 import { sumTeamGameLogs } from "../lib/teamStatsColumns";
-import { currentSeason } from "../lib/season";
 import {
   attemptsFirst,
   computeTopRecordEntries,
@@ -2098,14 +2096,10 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [seasonBoxTab, setSeasonBoxTab] = usePageState<
     SeasonBoxTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition" | "periods"
   >(pk("seasonBoxTab"), "traditional");
-  // On-Court Foreign・Scoring % のシーズン別推移（DESIGN.md 141章）: 規定の上限人数と、今のシーズンがレギュラーシーズンの途中か
+  // On-Court Foreign・Scoring % のシーズン別推移（DESIGN.md 141章）: 規定の上限人数
   const seasonShareTab = seasonBoxTab === "foreignPlayers" || seasonBoxTab === "scoringComposition";
   const { data: seasonRulesForTrend } = useJsonData(
     () => (seasonShareTab ? fetchSeasonRules() : Promise.resolve(null)),
-    [seasonShareTab],
-  );
-  const { data: currentRace } = useJsonData(
-    () => (seasonShareTab ? fetchPlayoffRace(currentSeason()).catch(() => null) : Promise.resolve(null)),
     [seasonShareTab],
   );
 
@@ -4164,7 +4158,6 @@ export function TeamDetailPage({ season }: { season: string }) {
             <TeamSeasonForeignChart
               rows={seasonHistoryDesc}
               rules={seasonRulesForTrend ?? null}
-              inProgressSeason={isRegularSeasonInProgress(currentSeason(), currentSeason(), currentRace, team.teamId) ? currentSeason() : null}
             />
           ) : seasonBoxTab === "periods" ? (
             <>
@@ -4217,7 +4210,6 @@ export function TeamDetailPage({ season }: { season: string }) {
                 perspective={seasonBoxPerspective}
                 rows={seasonHistoryDesc}
                 fgaBySeason={teamSeasonFgaBySeason}
-                inProgressSeason={isRegularSeasonInProgress(currentSeason(), currentSeason(), currentRace, team.teamId) ? currentSeason() : null}
               />
             )
           ) : (

@@ -123,20 +123,6 @@ export function pointsRightLabel(perGame: number): { wide: string; narrow: strin
   return { wide: `${perGame.toFixed(1)}点`, narrow: perGame.toFixed(1) };
 }
 
-/**
- * レギュラーシーズンの途中か（シーズン別推移の行に「途中経過」と添える判定）。今のシーズンで、playoff-race.json の残り試合
- * （remaining）が残っているとき。teamId を渡せばそのチーム、無ければリーグ全体（どこかのチームに残り試合があれば途中）で見る
- */
-export function isRegularSeasonInProgress(
-  season: string,
-  current: string,
-  race: { teams: { teamId: string; remaining: number }[] } | null | undefined,
-  teamId?: string,
-): boolean {
-  if (season !== current || !race || race.teams.length === 0) return false;
-  return teamId ? (race.teams.find((t) => t.teamId === teamId)?.remaining ?? 0) > 0 : race.teams.some((t) => t.remaining > 0);
-}
-
 // --- FG試投構成（3P・Mid-range・Paint。FGAに占める割合。2026-09-27） ---
 /** 色は得点構成の同じ区分と同じ */
 export const FGA_CATEGORIES: ShareBarCategory[] = [

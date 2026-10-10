@@ -10,16 +10,12 @@ import {
   fgaDetails,
   fgaRightLabel,
   fgaShare,
-  isRegularSeasonInProgress,
   playerScoringShare,
   pointsDetails,
   pointsRightLabel,
   SCORING_CATEGORIES,
   type PointsShare,
 } from "../lib/shareCharts";
-import { fetchPlayoffRace } from "../lib/data";
-import { currentSeason } from "../lib/season";
-import { useJsonData } from "../lib/useJsonData";
 import { comparePointsShares, type PointsShareOrder } from "./ScoringCompositionChart";
 import { compareFgaShares, type FgaShareOrder } from "./FgaCompositionChart";
 import { ShareBarChart, type ShareBarRow } from "./ShareBarChart";
@@ -175,10 +171,6 @@ export function PlayerSeasonScoringChart({
   /** 新しいシーズンが先頭。ownTeamByScheduleKey は試合ごとの所属チーム（シーズン内移籍の見出しに使う） */
   seasons: { season: string; logs: PlayerGameLog[]; ownTeamByScheduleKey?: Map<string, GameTeamInfo> }[];
 }) {
-  // 今のシーズンがレギュラーシーズンの途中なら「途中経過」を添える（リーグ全体の残り試合で判定）
-  const current = currentSeason();
-  const { data: race } = useJsonData(() => fetchPlayoffRace(current).catch(() => null), [current]);
-  const inProgressSeason = isRegularSeasonInProgress(current, current, race) ? current : null;
   const rows: ShareBarRow[] = [];
   const fgaRows: ShareBarRow[] = [];
   for (const s of seasons) {
@@ -193,7 +185,7 @@ export function PlayerSeasonScoringChart({
       if (teams.at(-1) !== label) teams.push(label);
     }
     const teamLabel = teams.join("→");
-    const sub = [teamLabel || null, s.season === inProgressSeason ? "途中経過" : null].filter(Boolean).join("・");
+    const sub = teamLabel;
     const d = pointsDetails(share);
     rows.push({
       key: s.season,

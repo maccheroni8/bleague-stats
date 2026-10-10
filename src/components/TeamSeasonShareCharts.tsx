@@ -29,24 +29,19 @@ export interface TeamSeasonShareRow {
   team: TeamSummary;
 }
 
-const IN_PROGRESS = "途中経過";
-
 export function TeamSeasonForeignChart({
   rows,
   rules,
-  inProgressSeason,
 }: {
   rows: TeamSeasonShareRow[];
   rules: SeasonRules[] | null;
-  /** レギュラーシーズンの途中のシーズン（「途中経過」を添える） */
-  inProgressSeason: string | null;
 }) {
   const chartRows: ShareBarRow[] = rows
     .map((r) => ({ ...r, share: foreignShare(r.team) }))
     .filter((r) => r.share.totalSeconds > 0)
     .map(({ season, share }) => {
       const max = rules?.find((x) => x.season === season)?.maxForeignOnCourt;
-      const sub = [max !== undefined ? `上限${max}名` : null, season === inProgressSeason ? IN_PROGRESS : null].filter(Boolean).join("・");
+      const sub = max !== undefined ? `上限${max}名` : "";
       const d = foreignDetails(share);
       return {
         key: season,
@@ -55,7 +50,7 @@ export function TeamSeasonForeignChart({
         details: d.details,
         tooltipDetails: d.tooltipDetails,
         rightLabel: foreignAverageLabel(share.average),
-        tooltipTitle: `${season}${max !== undefined ? `（上限${max}名）` : ""}${season === inProgressSeason ? `・${IN_PROGRESS}` : ""}`,
+        tooltipTitle: `${season}${max !== undefined ? `（上限${max}名）` : ""}`,
         tooltipFooter: d.footer,
       };
     });
@@ -69,7 +64,6 @@ export function TeamSeasonForeignChart({
 
 function pointsRows(
   rows: TeamSeasonShareRow[],
-  inProgressSeason: string | null,
   share: (t: TeamSummary) => PointsShare,
   unit: "pts" | "opp",
 ): ShareBarRow[] {
@@ -80,12 +74,12 @@ function pointsRows(
       const d = pointsDetails(s, unit);
       return {
         key: season,
-        labelLines: season === inProgressSeason ? [season, IN_PROGRESS] : [season],
+        labelLines: [season],
         pct: s.pct,
         details: d.details,
         tooltipDetails: d.tooltipDetails,
         rightLabel: pointsRightLabel(s.perGame),
-        tooltipTitle: season === inProgressSeason ? `${season}・${IN_PROGRESS}` : season,
+        tooltipTitle: season,
         tooltipFooter: d.footer,
       };
     });
@@ -94,7 +88,6 @@ function pointsRows(
 /** FG試投構成のシーズン別推移。fgaBySeason はシーズンごとのレギュラーシーズンの自チーム・相手のFG試投構成 */
 function fgaRows(
   rows: TeamSeasonShareRow[],
-  inProgressSeason: string | null,
   fgaBySeason: Map<string, { own: PointsShare; opponent: PointsShare }>,
   mode: "own" | "opponent",
 ): ShareBarRow[] {
@@ -105,12 +98,12 @@ function fgaRows(
     return [
       {
         key: r.season,
-        labelLines: r.season === inProgressSeason ? [r.season, IN_PROGRESS] : [r.season],
+        labelLines: [r.season],
         pct: s.pct,
         details: d.details,
         tooltipDetails: d.tooltipDetails,
         rightLabel: fgaRightLabel(s.perGame),
-        tooltipTitle: r.season === inProgressSeason ? `${r.season}・${IN_PROGRESS}` : r.season,
+        tooltipTitle: r.season,
         tooltipFooter: d.footer,
       },
     ];
@@ -128,12 +121,10 @@ function PointsTrend({ title, rows, categories }: { title: string; rows: ShareBa
 
 export function TeamSeasonScoringCharts({
   rows,
-  inProgressSeason,
   fgaBySeason,
   perspective,
 }: {
   rows: TeamSeasonShareRow[];
-  inProgressSeason: string | null;
   /** FG試投構成（試合ログから求める。読み込み中は null） */
   fgaBySeason: Map<string, { own: PointsShare; opponent: PointsShare }> | null;
   /** 自チーム（得点構成・FG試投構成）か opp（失点構成・opp FG試投構成。DESIGN.md 183章） */
@@ -145,16 +136,16 @@ export function TeamSeasonScoringCharts({
     <>
       <PointsTrend
         title={opp ? "失点構成" : "得点構成"}
-        rows={pointsRows(rows, inProgressSeason, (t) => teamScoringShare(t, side), opp ? "opp" : "pts")}
+        rows={pointsRows(rows, (t) => teamScoringShare(t, side), opp ? "opp" : "pts")}
         categories={SCORING_CATEGORIES}
       />
       <PointsTrend
         title={opp ? "失点構成（登録区分）" : "得点構成（登録区分）"}
-        rows={pointsRows(rows, inProgressSeason, (t) => teamClassificationShare(t, side), opp ? "opp" : "pts")}
+        rows={pointsRows(rows, (t) => teamClassificationShare(t, side), opp ? "opp" : "pts")}
         categories={CLASSIFICATION_CATEGORIES}
       />
       {fgaBySeason ? (
-        <PointsTrend title={opp ? "opp FG試投構成" : "FG試投構成"} rows={fgaRows(rows, inProgressSeason, fgaBySeason, side)} categories={FGA_CATEGORIES} />
+        <PointsTrend title={opp ? "opp FG試投構成" : "FG試投構成"} rows={fgaRows(rows, fgaBySeason, side)} categories={FGA_CATEGORIES} />
       ) : (
         <p className="loading">読み込み中...</p>
       )}
