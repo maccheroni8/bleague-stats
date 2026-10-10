@@ -156,6 +156,7 @@ import {
 } from "../lib/playerSeasonBoxscore";
 import { BOXSCORE_TABS, boxscoreColumnsFor, type BoxscoreColumn, type BoxscoreTabKey, type ColumnCtx } from "../components/BoxscoreTable";
 import { astToTovRatio, buildAssistPairs, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
+import { formatMinutesColon } from "../lib/minutesFormat";
 import type { BoxscoreCounts } from "../lib/boxscoreAggregate";
 import type { AssistPair } from "../../shared/assistedScoring";
 import { ShotChartPanel } from "../components/ShotChart";
@@ -4656,12 +4657,12 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <tr key={l.lineupKey}>
                         <td className="align-left">{l.playerIds.map((id) => playerLabel(playerNameById.get(id) ?? id)).join(" / ")}</td>
                         <td className="align-right">{l.gamesPlayed}</td>
-                        <td className="align-right">{formatDecimal(l.secondsPlayed / 60)}分</td>
+                        <td className="align-right">{formatMinutesColon(l.secondsPlayed / 60)}</td>
                         <td className="align-right">{l.ownPoints}</td>
                         <td className="align-right">{l.oppPoints}</td>
                         <td className="align-right">{formatSigned(l.netPoints, 0)}</td>
                         {/* 平均は、そのラインナップが使われた試合の数（試合数の列）で割る（DESIGN.md 184章） */}
-                        <td className="align-right">{formatDecimal(safeDiv(l.secondsPlayed / 60, l.gamesPlayed))}分</td>
+                        <td className="align-right">{formatMinutesColon(safeDiv(l.secondsPlayed / 60, l.gamesPlayed))}</td>
                         <td className="align-right">{formatDecimal(safeDiv(l.ownPoints, l.gamesPlayed))}</td>
                         <td className="align-right">{formatDecimal(safeDiv(l.oppPoints, l.gamesPlayed))}</td>
                         <td className="align-right">{formatSigned(safeDiv(l.netPoints, l.gamesPlayed))}</td>

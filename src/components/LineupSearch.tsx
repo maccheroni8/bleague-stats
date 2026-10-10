@@ -4,6 +4,7 @@ import { seasonGameTypeLabels, SEASON_GAME_TYPE_KEYS, type SeasonGameTypeFilter 
 import { fetchTeamStints } from "../lib/data";
 import { composeLabels, gameTypeLabels, periodLabels } from "../lib/conditionLabels";
 import { formatDecimal, formatSigned } from "../lib/format";
+import { formatMinutesColon, formatSignedMinutesColon } from "../lib/minutesFormat";
 import { lineupSearchRow, maxPeriodOf, playerSecondsOf, searchLineup, type LineupSearchRow } from "../lib/lineupSearch";
 import { buildPeriodRangeOptions, type PeriodRangeValue } from "../lib/periodRange";
 import { usePageState } from "../lib/pageStateCache";
@@ -256,7 +257,7 @@ function format(kind: Kind, v: number | null, diff: boolean): string {
   if (v === null) return "-";
   if (diff) {
     if (kind === "int" || kind === "signedInt") return formatSigned(v, 0);
-    return kind === "minutes" ? `${formatSigned(v)}分` : formatSigned(v);
+    return kind === "minutes" ? formatSignedMinutesColon(v) : formatSigned(v);
   }
   switch (kind) {
     case "int":
@@ -264,7 +265,7 @@ function format(kind: Kind, v: number | null, diff: boolean): string {
     case "signedInt":
       return formatSigned(v, 0);
     case "minutes":
-      return `${formatDecimal(v)}分`;
+      return formatMinutesColon(v);
     case "dec":
       return formatDecimal(v);
     case "signed":

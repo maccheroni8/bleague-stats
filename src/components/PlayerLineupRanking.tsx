@@ -6,6 +6,7 @@ import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabel
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
 import { classificationAxis, gameTypeAxis, multiSelectAxis, simpleSelectAxis, type FilterAxis } from "../lib/filterAxes";
 import { formatDecimal, formatInteger, formatSigned } from "../lib/format";
+import { formatMinutesColon } from "../lib/minutesFormat";
 import { DEFAULT_GAME_RECORD_CONDITIONS, cleanGameConditionsForSeason, gameRecordConditionLabels, gameRecordConditionsParam } from "../lib/gameRecordConditions";
 import { gameRecordAdvancedAxes, gameRecordPrimaryAxes } from "../lib/gameRecordAxes";
 import { GAME_RECORD_TIE_EXPAND_MAX } from "../lib/gameRecordQuery";
@@ -64,11 +65,11 @@ const RANK_TOP_N = 20;
 
 const EMPTY_POSITIONS: string[] = [];
 
-const minutesText = (s: LineupSide) => `${formatInteger(Math.round(s.seconds / 60))}分`;
+const minutesText = (s: LineupSide) => formatMinutesColon(s.seconds / 60);
 const signed = (v: number | null) => (v === null ? "-" : formatSigned(v));
 const plain = (v: number | null) => (v === null ? "-" : formatDecimal(v));
 
-/** 1つの状態（On または Off）の説明: 「On 668分・1,180ポゼッション NetRtg +6.9（ORtg 115.9／DRtg 109.0）」 */
+/** 1つの状態（On または Off）の説明: 「On 668:12・1,180ポゼッション NetRtg +6.9（ORtg 115.9／DRtg 109.0）」 */
 function SideLine({ label, s }: { label: string; s: LineupSide }) {
   const r = sideRatings(s);
   return (
