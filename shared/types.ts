@@ -549,8 +549,15 @@ export interface TeamColors {
 export interface TeamSummary {
   teamId: string;
   teamName: string;
+  /**
+   * 勝敗（レギュラーシーズン）。公式の順位表と同じ数え方で、ボックススコアが無い試合（結果だけの試合。
+   * schedule.json の resultOnlyGames、DESIGN.md 228章）も数える。スタッツの試合数（gamesPlayed）とは、その分だけ違うことがある
+   */
   wins: number;
   losses: number;
+  /** wins・losses に数えた、結果だけの試合の数（スタッツには入っていない）。無ければ省略 */
+  resultOnlyGames?: number;
+  /** スタッツ（ボックススコア）のある試合数。勝敗の試合数は wins + losses */
   gamesPlayed: number;
   gamesStarted: number;
   totals: StatTotals;

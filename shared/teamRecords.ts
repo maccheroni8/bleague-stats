@@ -402,7 +402,7 @@ export function formatTeamStreak(streak: TeamStreak | null): string {
  * 対し、こちらは試合ログ（日付順ソート未保証でも内部でソートする）の末尾から遡って
  * 「現在何連勝/連敗中か」を検出する。試合が1件も無ければnull
  */
-export function currentStreak(logs: TeamGameLog[]): TeamStreak | null {
+export function currentStreak(logs: Pick<TeamGameLog, "date" | "scheduleKey" | "win">[]): TeamStreak | null {
   if (logs.length === 0) return null;
   const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
   const last = sorted[sorted.length - 1]!;

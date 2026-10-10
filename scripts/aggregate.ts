@@ -109,6 +109,7 @@ import type {
   YahooShotEvent,
   YahooTurnoverEvent,
 } from "../shared/types.ts";
+import { toResultOnlyScore, type ResultOnlyGameEntry, type ResultOnlyScore, type ScheduleFileExtended } from "../shared/resultOnlyGames.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import { regulationPeriodScores } from "../shared/periodPoints.ts";
 import { buildPeriodAveragesFile } from "./lib/periodAverages.ts";
@@ -869,8 +870,11 @@ function scaleNumbers<T>(v: T, factor: number): T {
 interface TeamAccumulator {
   teamId: string;
   teamName: string;
+  /** レギュラーシーズンの勝敗。ボックススコアの無い試合（resultOnlyGames）も数える */
   wins: number;
   losses: number;
+  /** wins・losses に数えた、結果だけの試合の数 */
+  resultOnlyGames?: number;
   totals: StatTotals;
   opponentTotals: StatTotals;
   gameLogs: TeamGameLog[];
@@ -929,6 +933,13 @@ export async function aggregateSeason(season: string, category: Category = "prem
   const maxForeignOnCourt = seasonRules.find((r) => r.season === season)?.maxForeignOnCourt;
   const foreignOverLimit: ForeignOverLimitTally = { stints: 0, seconds: 0 };
   const rawGames = await readAllGames(season, category);
+  // 結果だけの試合（ボックススコアが公式に無い試合・不戦勝。schedule.json の resultOnlyGames、DESIGN.md 228章）のうちレギュラーシーズンの分。
+  // 勝敗・得失点（teams.json の wins/losses・順位表・星取り表）にだけ数える。スタッツ・試合ログ・ランキングには入れない。生データがある試合は除く
+  const scheduleFile = await readJson<ScheduleFileExtended>(path.join(DATA_DIR, seasonDir, "schedule.json"));
+  const storedKeys = new Set(rawGames.map((g) => g.scheduleKey));
+  const resultOnlyRegular = (scheduleFile?.resultOnlyGames ?? []).filter(
+    (g) => !storedKeys.has(g.scheduleKey) && g.gameType === "regular",
+  );
   const allGames = rawGames.filter((g) => g.gameEndedFlg);
   const games = allGames.filter((g) => !isExhibitionGame(g.raw.Game.ConventionNameJ));
   const excludedCount = allGames.length - games.length;
@@ -1083,6 +1094,24 @@ export async function aggregateSeason(season: string, category: Category = "prem
     );
     processLineups(game, teamLineups, teamLineupGames, onCourt);
     if (writeTeamStints) collectTeamStints(game, teamStints, onCourt);
+  }
+  // 結果だけの試合は、勝敗にだけ数える（上の試合ごとの集計には入らない）
+  for (const g of resultOnlyRegular) {
+    const home = ensureTeam(g.homeTeamId, g.homeTeamName);
+    const away = ensureTeam(g.awayTeamId, g.awayTeamName);
+    const homeWin = g.homeScore > g.awayScore;
+    if (homeWin) {
+      home.wins += 1;
+      away.losses += 1;
+    } else {
+      away.wins += 1;
+      home.losses += 1;
+    }
+    home.resultOnlyGames = (home.resultOnlyGames ?? 0) + 1;
+    away.resultOnlyGames = (away.resultOnlyGames ?? 0) + 1;
+  }
+  if (resultOnlyRegular.length > 0) {
+    console.log(`[${season}] 結果だけの試合（勝敗にだけ数える）: ${resultOnlyRegular.map((g) => g.scheduleKey).join(", ")}`);
   }
   if (foreignOverLimit.stints > 0) {
     console.log(
@@ -1252,6 +1281,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         teamName: t.teamName,
         wins: t.wins,
         losses: t.losses,
+        ...(t.resultOnlyGames ? { resultOnlyGames: t.resultOnlyGames } : {}),
         ...ownStats,
         advanced: {
           eff: ownStats.advanced.eff,
@@ -1360,10 +1390,15 @@ export async function aggregateSeason(season: string, category: Category = "prem
 
   // 順位表・星取り表はプレーオフの結果に左右されないよう、レギュラーシーズンの試合のみで作る
   const regularGames = games.filter((g) => classifyGameType(g.raw.Game.ConventionNameJ) === "regular");
-  const standingsHistory = buildStandingsHistory(regularGames, category, divisionHistory, season);
+  const standingsHistory = buildStandingsHistory(
+    [...regularGames, ...resultOnlyRegular.map(toResultOnlyScore)],
+    category,
+    divisionHistory,
+    season,
+  );
   await writeJson(path.join(DATA_DIR, seasonDir, "standings-history.json"), standingsHistory);
 
-  const headToHead = buildHeadToHead(teams, category, divisionHistory, season);
+  const headToHead = buildHeadToHead(teams, category, divisionHistory, season, resultOnlyRegular);
   await writeJson(path.join(DATA_DIR, seasonDir, "head-to-head.json"), headToHead);
 
   // マジックナンバー・進出/敗退・年間優勝（B.PREMIERのみ。scripts/lib/playoffRace.ts、DESIGN.md参照）
@@ -2225,7 +2260,9 @@ async function buildPlayoffRace(
   // 残り試合: 日程（upcomingGames）から、生データを取得済みの試合を除く。upcomingGamesは
   // 日程取得のタイミングによって消化済みの試合が残っていることがある
   const storedKeys = new Set(games.map((g) => g.scheduleKey));
-  const schedule = await readJson<ScheduleFile>(path.join(DATA_DIR, seasonDir, "schedule.json"));
+  const schedule = await readJson<ScheduleFileExtended>(path.join(DATA_DIR, seasonDir, "schedule.json"));
+  // 結果だけの試合（勝敗には数え済み）は残り試合に数えない
+  const resultOnlyKeys = new Set((schedule?.resultOnlyGames ?? []).map((g) => g.scheduleKey));
   const idByName = new Map<string, string>(Object.entries(TEAM_NAMES).map(([id, name]) => [name, id]));
   for (const g of games) {
     idByName.set(g.homeTeam.name, g.homeTeam.id);
@@ -2234,7 +2271,7 @@ async function buildPlayoffRace(
   const remaining = new Map<string, number>();
   const unknownNames = new Set<string>();
   for (const g of schedule?.upcomingGames ?? []) {
-    if (storedKeys.has(g.scheduleKey)) continue;
+    if (storedKeys.has(g.scheduleKey) || resultOnlyKeys.has(g.scheduleKey)) continue;
     for (const name of [g.homeTeamName, g.awayTeamName]) {
       const id = idByName.get(name);
       if (!id) unknownNames.add(name);
@@ -2438,8 +2475,11 @@ function partitionByValueDesc<T>(items: T[], valueOf: (item: T) => number): T[][
  * 同率の順位付けは`rankStandingsTeams()`（公式タイブレークルール、DESIGN.md参照）に
  * 集約してある。全体順位・地区内順位のどちらもこの1関数を経由する。
  */
+/** 順位表の計算に渡す試合（生データのある試合と、結果だけの試合の両方がこの形で渡せる） */
+type StandingsGameInput = Pick<StoredGame, "scheduleKey" | "date" | "homeTeam" | "awayTeam" | "homeScore" | "awayScore"> | ResultOnlyScore;
+
 function buildStandingsHistory(
-  games: StoredGame[],
+  games: StandingsGameInput[],
   category: Category,
   divisionHistory: DivisionHistoryFile,
   season: string,
@@ -2566,6 +2606,8 @@ function buildHeadToHead(
   category: Category,
   divisionHistory: DivisionHistoryFile,
   season: string,
+  /** 結果だけの試合（レギュラーシーズン）。勝敗・得失点差にだけ数える（teams の wins/losses には数え済み） */
+  resultOnly: ResultOnlyGameEntry[] = [],
 ): HeadToHeadTeamRow[] {
   const withPct = (wins: number, losses: number) => ({ wins, losses, winPct: safeDiv(wins, wins + losses) });
 
@@ -2581,6 +2623,21 @@ function buildHeadToHead(
       if (log.win) rec.wins += 1;
       else rec.losses += 1;
       rec.pointDiff += log.teamScore - log.opponentScore;
+    }
+    for (const g of resultOnly) {
+      const isHome = g.homeTeamId === team.teamId;
+      if (!isHome && g.awayTeamId !== team.teamId) continue;
+      const opponentTeamId = isHome ? g.awayTeamId : g.homeTeamId;
+      const own = isHome ? g.homeScore : g.awayScore;
+      const opp = isHome ? g.awayScore : g.homeScore;
+      let rec = vs.get(opponentTeamId);
+      if (!rec) {
+        rec = { wins: 0, losses: 0, pointDiff: 0 };
+        vs.set(opponentTeamId, rec);
+      }
+      if (own > opp) rec.wins += 1;
+      else rec.losses += 1;
+      rec.pointDiff += own - opp;
     }
 
     let eastWins = 0;
