@@ -24,6 +24,7 @@ import { ConditionalStandingsTable } from "../components/ConditionalStandingsTab
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } from "../lib/format";
+import { pendingUpcomingGames } from "../lib/pendingUpcoming";
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak, type TeamStreak } from "../../shared/teamRecords";
 import { teamShortName } from "../../shared/teamNames";
@@ -572,7 +573,9 @@ export function StandingsPage({ season }: { season: string }) {
   const teams = latest.teams;
   // schedule.upcomingGamesは古いschedule.jsonスナップショット（スクレイパーにこのフィールドを
   // 追加する前に取得されたもの）には存在しないことがあるため、undefinedの可能性を必ず考慮する
-  const upcomingCountByTeamName = schedule ? countUpcomingGamesByTeamName(schedule.upcomingGames ?? []) : null;
+  // 試合の記録（games-summary）がある試合は開催予定から除く（外れないまま残っていても、残り試合に数えない）
+  const pendingUpcoming = pendingUpcomingGames(schedule?.upcomingGames, gameSummaries);
+  const upcomingCountByTeamName = schedule ? countUpcomingGamesByTeamName(pendingUpcoming) : null;
   const raceById = new Map((playoffRace?.teams ?? []).map((r) => [r.teamId, r]));
   const standingsTeams = withUnplayedTeams(teams, playoffRace ?? null);
   const rowFor = (t: StandingsTeam) =>
@@ -631,7 +634,7 @@ export function StandingsPage({ season }: { season: string }) {
   const h2hTeamIdByName = headToHead ? new Map(headToHead.map((r) => [r.teamName, r.teamId])) : null;
   const h2hRemainingGames =
     headToHead && schedule && h2hTeamIdByName
-      ? buildH2hRemainingGames(schedule.upcomingGames ?? [], h2hTeamIdByName)
+      ? buildH2hRemainingGames(pendingUpcoming, h2hTeamIdByName)
       : undefined;
   const h2hTeamOptions: { teamId: string; teamName: string }[] = headToHead
     ? [...headToHead]
@@ -959,7 +962,7 @@ export function StandingsPage({ season }: { season: string }) {
                       divisionRank: g.key === "all" ? undefined : r.unplayed ? null : (r.divisionRank ?? null),
                     }))}
                     games={gameSummaries}
-                    upcomingGames={schedule?.upcomingGames ?? []}
+                    upcomingGames={pendingUpcoming}
                     clinchEvents={playoffRace?.clinchEvents ?? []}
                     teamColors={teamColors ?? undefined}
                     teamIdByName={new Map(standingsTeams.map((t) => [t.teamName, t.teamId]))}
@@ -976,7 +979,7 @@ export function StandingsPage({ season }: { season: string }) {
           teams={teams}
           gameLogsByTeam={gameLogsByTeam}
           gameLogsLoading={gameLogsLoading}
-          upcomingGames={schedule?.upcomingGames ?? []}
+          upcomingGames={pendingUpcoming}
           teamColors={teamColors ?? undefined}
         />
       )}
