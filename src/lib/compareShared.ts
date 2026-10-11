@@ -305,7 +305,7 @@ function teamLogTotalsDef(col: Column<AllTeamsRow>, perspective: TeamPerspective
 }
 
 /**
- * 全チームスタッツ（teamStatsColumns.ts の列の式）と、チーム詳細のシーズン別成績の得点の割合（%3P・%PinP・%PoutP・%FT・%IPA・%OPA）を、
+ * 全チームスタッツ（teamStatsColumns.ts の列の式）と、チーム詳細のシーズン別成績の得点の割合（%3P・%PoutP・%FT・%OPA）を、
  * 試合ログの合計（logTotals）から出す。全チームスタッツと同じ式・同じデータ（TeamGameLog）なので、同じ条件なら同じ値になる。
  * 登録区分別得点・ベンチ得点も TeamGameLog の値（選手マスタは読まない）
  */

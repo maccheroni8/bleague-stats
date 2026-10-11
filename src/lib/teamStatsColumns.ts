@@ -850,14 +850,14 @@ export function buildScoringColumns(
 
 /**
  * 得点の構成比（総得点に占める3P・ペイント内2P・ペイント外2P・FTの得点）と、試投の構成比（ペイント内外のFGA）。
- * チーム詳細のシーズン別成績（TeamDetailPage の %3P・%PinP・%PoutP・%FT・%IPA・%OPA）と同じ式を、試合ログの合計（TeamTotals）から出す
+ * チーム詳細のシーズン別成績（TeamDetailPage の %3P・%PoutP・%FT・%OPA）と同じ式を、試合ログの合計（TeamTotals）から出す
  * （比較ページ・比較タブの条件つきの値用。全チームスタッツには無い項目）。
- * %PinP はペイント内得点（PITP。TeamGameLog の pt2in）÷総得点、%PoutP は2P得点−ペイント内得点（ミッドレンジ得点）÷総得点
+ * %PoutP は2P得点−ペイント内得点（PITP。TeamGameLog の pt2in）÷総得点（ミッドレンジ得点の割合）。
+ * ペイント内得点の割合は PITP%（buildScoringColumns）、ペイント内の試投の割合は %PAINT2A と同じ値なので、ここには置かない（DESIGN.md 236章）
  */
 export function buildPointsShareColumns(perspective: TeamPerspective): Column<AllTeamsRow>[] {
   return [
     pct100Column("pct3p", "%3P", (t) => safeDiv(100 * t.tpm * 3, t.pts), (t) => safeDiv(100 * t.oppTpm * 3, t.oppPts), perspective),
-    pct100Column("pctpinp", "%PinP", (t) => safeDiv(100 * t.pt2in, t.pts), (t) => safeDiv(100 * t.oppPt2in, t.oppPts), perspective),
     pct100Column(
       "pctpoutp",
       "%PoutP",
@@ -866,7 +866,6 @@ export function buildPointsShareColumns(perspective: TeamPerspective): Column<Al
       perspective,
     ),
     pct100Column("pctft", "%FT", (t) => safeDiv(100 * t.ftm, t.pts), (t) => safeDiv(100 * t.oppFtm, t.oppPts), perspective),
-    pct100Column("pctipa", "%IPA", (t) => safeDiv(100 * t.paint2a, t.fga), (t) => safeDiv(100 * t.oppPaint2a, t.oppFga), perspective),
     pct100Column(
       "pctopa",
       "%OPA",

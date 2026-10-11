@@ -60,7 +60,8 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 232章: 試合詳細のキースタッツ。新カード「テンポと効率」（ORtg は対向バー1行、POSS・PACE は試合全体の値として数値だけで1行。DRtg・NetRtg は推定式では ORtg の言い換えなので出さない。値はボックススコアの Advanced の合計行と同じ推定式で、実際のポゼッションは使わない。延長は POSS が延長分を含み PACE は40分換算）。**キースタッツの TOV% は標準式（TOV÷(FGA+0.44FTA+TOV)）に統一**（以前は TO÷POSS）。Four Factors のラベルは OREB%・FT Rate。**画面だけの変更でキー不変**
 - 233章: **チームの表の Scoring**（チーム詳細の比較・日程結果・シチュエーション別成績、比較ページのチーム）。%3PM・%3PA・%2PM・%2PA は「FGAに占める割合」（全チームスタッツ・ランキングと同じ式）、%PTS・%FGM・%FGA・%FTM・%FTA は列ごと外す（チームでは常に100%）。差し替えは `src/lib/teamBoxscoreColumns.ts` の `teamBoxscoreColumnsFor`（`BoxscoreTable.tsx` の列定義は変えない。試合詳細のボックススコアは今のまま）。**画面だけの変更でキー不変**
 - 234章: **比較の表**（比較ページ・チーム詳細・個人詳細の比較タブで共通の `ComparisonTable`）。比べているすべての対象で値が「-」の項目は行ごと出さない（片方にだけ値があれば残す。`defsWithAnyValue`）。G の横に勝敗（「6（3-3）」。G と同じ試合の勝敗で、結果だけの試合 `resultOnlyGames` は入らない。`ComparisonStatDef.suffix`で、強調の判定には使わない）。値の列は中央寄せ。検証は `npm run validate:compare-table`。**画面だけの変更でキー不変**
-- 235章: **比較に足した項目**（チーム: Advanced の FTR・OR%〔強調あり〕、Misc の BENCH／STARTER PTS・日本人／外国籍・帰化・アジア PTS、Scoring の PITP%・FBP%・2ND PTS%・PTSOFFTO%・%BENCH／%STARTER／%日本人／%外国籍等 PTS・%PAINT2M〜%MID2A・%3P・%PinP・%PoutP・%FT・%IPA・%OPA。個人: FTR・DD2・TD3）。チームは試合ログの合計（`sumTeamGameLogs`）を**全チームスタッツと同じ列の式**に渡して出す（`compareShared.ts` の `teamLogTotalsDefs`。選手マスタは読まない。リーグ平均は `teamTotalsFromBoxTotals`、ベンチ得点・登録区分別は「-」）。結果だけの試合を公式の勝敗に含むチーム・シーズンは G の勝敗の横に「※」（`resultOnlyCompareNote`）。**画面だけの変更でキー不変**
+- 235章: **比較に足した項目**（チーム: Advanced の FTR・OR%〔強調あり〕、Misc の BENCH／STARTER PTS・日本人／外国籍・帰化・アジア PTS、Scoring の PITP%・FBP%・2ND PTS%・PTSOFFTO%・%BENCH／%STARTER／%日本人／%外国籍等 PTS・%PAINT2M〜%MID2A・%3P・%PoutP・%FT・%OPA〔%PinP・%IPA は PITP%・%PAINT2A と同じ値なので236章で外した〕。個人: FTR・DD2・TD3）。チームは試合ログの合計（`sumTeamGameLogs`）を**全チームスタッツと同じ列の式**に渡して出す（`compareShared.ts` の `teamLogTotalsDefs`。選手マスタは読まない。リーグ平均は `teamTotalsFromBoxTotals`、ベンチ得点・登録区分別は「-」）。結果だけの試合を公式の勝敗に含むチーム・シーズンは G の勝敗の横に「※」（`resultOnlyCompareNote`）。**画面だけの変更でキー不変**
+- 236章: **同じ値の項目は1つの名前にまとめる**。%PinP→PITP%、%IPA→%PAINT2A（チーム詳細のシーズン別成績・比較から外した。値は全シーズンで一致を確認、URL・保存状態に旧名は残っていない）。名前の決め方は「作業の心得」の項目名の方針。名前だけが違う同じ値の項目の洗い出し（得点／PTS・REB／TR・ORB%／OR%／OREB% など）は一覧を報告済みで、統一は決定待ち。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
@@ -127,6 +128,11 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   （設計書151章）
 - 表の列見出し・比較の項目名にカーソルを合わせたときの説明文は、`src/lib/statDescriptions.ts` の辞書1か所で定義する
   （列定義や各ページに説明文を書かない。項目を足したら辞書にも足す。設計書136章）
+- **項目名の方針**（設計書236章）: ①同じ値になる項目は、画面ごとに別の名前で出さず**1つの名前にまとめる**（項目を足す前に、既にある項目と値が同じでないかを確かめる。
+  全チームスタッツ・チーム詳細・全選手スタッツ・個人詳細・ランキング・記録・比較・スタッツの条件・用語集のすべてで同じ名前）。
+  ②名前は**同じ並び（同じ分母・同じ種類）の項目にそろえる**（総得点に対する割合は PITP%・FBP%・2ND PTS%・PTSOFFTO%、FGAに対する割合は %PAINT2M・%PAINT2A・%MID2M・%MID2A）。
+  ③まとめる前に、定義が同じか全シーズンで値を確かめる（`npm run validate:compare-table` の実データの確認）。④外す名前が URL・保存状態に残っているなら、残す名前に読み替えて開けるようにする。
+  補数（%OPA＝100−%PAINT2A）や定数倍（PITP＝2×PAINT2M）の関係は、同じ値ではないので別項目として残す
 - 時間（MIN・出場時間・平均出場時間など）の表示は、小数の分（28.5）や「28分」ではなく、**「分:秒」（28:30）に統一する**（表・ランキング・比較・前シーズン比較・
   タイトル・画像保存・ツールチップのすべて。差は「+3:15」）。平均は秒に丸めてから出し、並べ替え・判定は今までどおり値（分・秒）で行う。
   秒からは `formatMinutesFromSeconds`（`boxscoreAggregate.ts`）、分（小数）からは `formatMinutesColon`・`formatSignedMinutesColon`（`src/lib/minutesFormat.ts`）を使い、

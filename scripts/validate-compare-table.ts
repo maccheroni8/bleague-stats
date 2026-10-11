@@ -99,6 +99,22 @@ for (const tab of ["traditional", "advanced", "misc", "scoring"] as const) {
   eq(`個人 G 以外には勝敗を付けない（${tab}）`, pd.filter((d) => d.key !== "g").every((d) => d.suffix === undefined), true);
 }
 
+// --- 同じ値の項目を1つの名前にまとめた（DESIGN.md 236章）: 外した名前が比較の項目に残っていないこと ---
+{
+  const removed = ["pctpinp", "pctipa"];
+  const labelsRemoved = ["%PinP", "%IPA"];
+  for (const tab of ["traditional", "advanced", "misc", "scoring"] as const) {
+    for (const perspective of ["own", "opp", "diff"] as const) {
+      const defs = teamCompareDefs(tab, perspective, false);
+      eq(`外した名前が残っていない（${tab}・${perspective}）`, defs.filter((d) => removed.includes(d.key) || labelsRemoved.includes(d.label)).length, 0);
+      const keys = defs.map((d) => d.key);
+      eq(`項目の重複が無い（${tab}・${perspective}）`, new Set(keys).size, keys.length);
+    }
+  }
+  const scoring = teamCompareDefs("scoring", "own", false).map((d) => d.label);
+  eq("残した名前がある（PITP%・%PAINT2A）", [scoring.includes("PITP%"), scoring.includes("%PAINT2A")], [true, true]);
+}
+
 // --- 結果だけの試合の注記 ---
 const ro = (home: string, away: string, hs: number, as: number, gameType: "regular" | "playoff" = "regular") =>
   ({ scheduleKey: "x", date: "2018-01-01", homeTeamId: home, homeTeamName: home, awayTeamId: away, awayTeamName: away, homeScore: hs, awayScore: as, gameType, reason: "no-boxscore" }) as never;
@@ -176,8 +192,8 @@ for (const season of seasonsOnDisk) {
     expectNear(`${label} %日本人 PTS`, v(ownScoring, "pctjapanese3"), a.japanesePointsSharePct);
     expectNear(`${label} %外国籍・帰化・アジア PTS`, v(ownScoring, "pctinternational3"), a.foreignPointsSharePct + a.naturalizedOrAsianPointsSharePct);
     expectNear(`${label} %3P`, v(ownScoring, "pct3p"), a.threePointPointsSharePct);
-    expectNear(`${label} %PinP`, v(ownScoring, "pctpinp"), a.paintPointsSharePct);
-    expectNear(`${label} PITP%`, v(ownScoring, "pitppct"), a.paintPointsSharePct);
+    // ペイント内得点の割合は PITP% 1つにまとめた（旧 %PinP。チーム詳細の元データ paintPointsSharePct と同じ値。DESIGN.md 236章）
+    expectNear(`${label} PITP%（旧 %PinP）`, v(ownScoring, "pitppct"), a.paintPointsSharePct);
     expectNear(`${label} %PoutP`, v(ownScoring, "pctpoutp"), a.midRangePointsSharePct);
     expectNear(`${label} %FT`, v(ownScoring, "pctft"), a.ftPointsSharePct);
     // ①opp
@@ -188,7 +204,15 @@ for (const season of seasonsOnDisk) {
     expectNear(`${label} opp 日本人 PTS`, v(oppMisc, "japanesePts3"), a.opponentJapanesePointsPerGame);
     expectNear(`${label} opp 外国籍・帰化・アジア PTS`, v(oppMisc, "internationalPts3"), a.opponentInternationalPointsPerGame);
     expectNear(`${label} opp %3P`, v(oppScoring, "pct3p"), a.opponentThreePointPointsSharePct);
-    expectNear(`${label} opp %PinP`, v(oppScoring, "pctpinp"), a.opponentPaintPointsSharePct);
+    expectNear(`${label} opp PITP%（旧 %PinP）`, v(oppScoring, "pitppct"), a.opponentPaintPointsSharePct);
+    // ペイント内の試投の割合は %PAINT2A 1つにまとめた（旧 %IPA＝チーム詳細の 100×PAINT2A÷チームの FGA〔teams.json の totals.fga〕）
+    {
+      const fga = team.totals.fga;
+      const oppFga = totals.oppFga;
+      expectNear(`${label} %PAINT2A（旧 %IPA）`, v(ownScoring, "pctpaint2a"), (100 * totals.paint2a) / fga);
+      expectNear(`${label} opp %PAINT2A（旧 opp %IPA）`, v(oppScoring, "pctpaint2a"), (100 * totals.oppPaint2a) / oppFga);
+      expectNear(`${label} %OPA＋%PAINT2A＝100`, v(ownScoring, "pctopa") + v(ownScoring, "pctpaint2a"), 100);
+    }
     expectNear(`${label} opp %PoutP`, v(oppScoring, "pctpoutp"), a.opponentMidRangePointsSharePct);
     expectNear(`${label} opp %FT`, v(oppScoring, "pctft"), a.opponentFtPointsSharePct);
     // ②合計（選手の得点の合計がチーム得点と合わない既知の試合を除く）
@@ -212,7 +236,7 @@ for (const season of seasonsOnDisk) {
       for (const tab of TEAM_TABS) {
         for (const perspective of ["own", "opp"] as const) {
           const defs = teamDefsFor(tab, perspective);
-          for (const key of ["ftr", "orbpct", "pitppct", "fbppct", "2ndptspct", "ptsofftovpct", "pctpaint2m", "pctpaint2a", "pctmid2m", "pctmid2a", "pct3p", "pctpinp", "pctpoutp", "pctft", "pctipa", "pctopa"]) {
+          for (const key of ["ftr", "orbpct", "pitppct", "fbppct", "2ndptspct", "ptsofftovpct", "pctpaint2m", "pctpaint2a", "pctmid2m", "pctmid2a", "pct3p", "pctpoutp", "pctft", "pctopa"]) {
             const d = defs.get(key);
             if (!d) continue;
             // 画面に出る値（小数第1位まで）で比べる。2016-17・2020-21 は、ペイント内外の試投・成功だけ、平均の元（試合の生データ）と

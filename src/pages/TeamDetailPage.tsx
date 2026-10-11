@@ -1363,12 +1363,6 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
       formatTeamSeasonPct100(r.team.advanced.threePointPointsSharePct, r.team.advanced.opponentThreePointPointsSharePct, p),
   },
   {
-    key: "pctpinp",
-    label: "%PinP",
-    format: (r, _m, _mode, p) =>
-      formatTeamSeasonPct100(r.team.advanced.paintPointsSharePct, r.team.advanced.opponentPaintPointsSharePct, p),
-  },
-  {
     key: "pctpoutp",
     label: "%PoutP",
     format: (r, _m, _mode, p) =>
@@ -1456,14 +1450,8 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
         p,
       ),
   },
-  // Batch 3（2026-09-08）: %IPA（ペイント内試投割合）・%OPA（ペイント外試投割合）。
-  // ペイント内外の試投数は 2026-09-26 からプレーバイプレーの公式の区分で数える（全シーズン。DESIGN.md 155章）
-  {
-    key: "pctipa",
-    label: "%IPA",
-    format: (r, m, _mode, p) =>
-      formatTeamSeasonPct100(safeDiv(100 * m.paint2a, r.team.totals.fga), safeDiv(100 * m.oppPaint2a, m.oppFga), p),
-  },
+  // %OPA（ペイント外試投割合。= 100 − %PAINT2A）。ペイント内外の試投数は 2026-09-26 からプレーバイプレーの公式の区分で数える（全シーズン。DESIGN.md 155章）。
+  // ペイント内試投割合（旧 %IPA）は %PAINT2A と同じ値なので、%PAINT2A にまとめた（DESIGN.md 236章）
   {
     key: "pctopa",
     label: "%OPA",
