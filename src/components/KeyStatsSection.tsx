@@ -1,15 +1,15 @@
 import type { BoxscoreRow, SummaryRow } from "../../shared/types";
 import { efgPct, ftRate, orbPct, safeDiv, tovPct } from "../../shared/formulas";
 import { buildTeamTotalCounts, computeTeamRatings } from "../lib/boxscoreAggregate";
-import { formatDecimal, formatSigned } from "../lib/format";
-import { OpposedBarRow, OpposedValueRow } from "./OpposedBar";
+import { formatDecimal } from "../lib/format";
+import { OpposedBarRow } from "./OpposedBar";
 import { ShootingDonut } from "./ShootingDonut";
 
 interface KeyStatsSectionProps {
   homeTotal: BoxscoreRow;
   awayTotal: BoxscoreRow;
   /**
-   * チームの全行（Category=3 の合計行を含む）。テンポと効率（POSS・PACE・ORtg・DRtg・NetRtg）を、
+   * チームの全行（Category=3 の合計行を含む）。テンポと効率（POSS・PACE・ORtg）を、
    * ボックススコアのアドバンスドの「チーム合計」行と同じ関数（computeTeamRatings）で出すために使う
    */
   homeRows: BoxscoreRow[];
@@ -40,7 +40,6 @@ function fgPct(row: BoxscoreRow): number {
 
 const pct1 = (v: number) => `${v.toFixed(1)}%`;
 const dec1 = (v: number) => formatDecimal(v, 1);
-const signed1 = (v: number) => formatSigned(v, 1);
 const int0 = (v: number) => String(Math.round(v));
 
 export function KeyStatsSection({
@@ -76,11 +75,13 @@ export function KeyStatsSection({
   const homeFtr = ftRate(homeTotal.FTA, homeFga) * 100;
   const awayFtr = ftRate(awayTotal.FTA, awayFga) * 100;
 
-  // バーの長さの基準: 長い方が100%にならない（数値ボックスがカードの外へはみ出さない）よう、最大値に余白を持たせる。
-  // POSS と PACE（ポゼッションの数）、ORtg と DRtg（100ポゼッションあたりの得点）はそれぞれ同じ基準で並べる
-  const BAR_HEADROOM = 1.3;
-  const possBarMax = Math.max(homeRatings.poss, awayRatings.poss, homeRatings.pace, awayRatings.pace, 1) * BAR_HEADROOM;
-  const ratingBarMax = Math.max(homeRatings.offRtg, awayRatings.offRtg, homeRatings.defRtg, awayRatings.defRtg, 1) * BAR_HEADROOM;
+  // 推定式のポゼッションは両チームで同じ値なので、POSS・PACE は試合全体の値として1つだけ出す（DRtg＝相手のORtg、
+  // NetRtg＝ORtgの差、なので、ORtg のバー1行に畳んでいる。設計書232章）。PACE は、両チームの出場時間の合計が
+  // 公式の記録で食い違う試合（6,342試合中4試合）に備えて、両チームの平均にする（それ以外は両チームで同じ値）
+  const gamePoss = homeRatings.poss;
+  const gamePace = (homeRatings.pace + awayRatings.pace) / 2;
+  // ORtg のバーの長さの基準: 長い方が100%にならない（数値ボックスがカードの外へはみ出さない）よう、最大値に余白を持たせる
+  const ortgBarMax = Math.max(homeRatings.offRtg, awayRatings.offRtg, 1) * 1.3;
 
   const homeBench = benchPoints(homePlayers);
   const awayBench = benchPoints(awayPlayers);
@@ -187,11 +188,25 @@ export function KeyStatsSection({
 
       <section className="key-stats-card">
         <h3>テンポと効率</h3>
-        <OpposedBarRow label="POSS" homeValue={homeRatings.poss} awayValue={awayRatings.poss} homeColor={home} awayColor={away} format={dec1} maxValue={possBarMax} />
-        <OpposedBarRow label="PACE" homeValue={homeRatings.pace} awayValue={awayRatings.pace} homeColor={home} awayColor={away} format={dec1} maxValue={possBarMax} />
-        <OpposedBarRow label="ORtg" homeValue={homeRatings.offRtg} awayValue={awayRatings.offRtg} homeColor={home} awayColor={away} format={dec1} maxValue={ratingBarMax} />
-        <OpposedBarRow label="DRtg" homeValue={homeRatings.defRtg} awayValue={awayRatings.defRtg} homeColor={home} awayColor={away} format={dec1} maxValue={ratingBarMax} />
-        <OpposedValueRow label="NetRtg" homeValue={homeRatings.netRtg} awayValue={awayRatings.netRtg} homeColor={home} awayColor={away} format={signed1} />
+        <OpposedBarRow
+          label="ORtg"
+          homeValue={homeRatings.offRtg}
+          awayValue={awayRatings.offRtg}
+          homeColor={home}
+          awayColor={away}
+          format={dec1}
+          maxValue={ortgBarMax}
+        />
+        <div className="key-stats-game-values">
+          <span className="key-stats-game-value">
+            <span className="key-stats-game-value-label">POSS</span>
+            <span className="key-stats-game-value-number">{dec1(gamePoss)}</span>
+          </span>
+          <span className="key-stats-game-value">
+            <span className="key-stats-game-value-label">PACE</span>
+            <span className="key-stats-game-value-number">{dec1(gamePace)}</span>
+          </span>
+        </div>
         {hasOvertime && <p className="key-stats-note">延長を含む試合です。POSS は延長分を含み、PACE は40分に換算しています。</p>}
       </section>
 

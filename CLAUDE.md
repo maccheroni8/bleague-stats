@@ -57,7 +57,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   勝敗・得失点を計算する画面を足すときは、試合ログだけでなく結果だけの試合（`src/lib/resultOnlyGames.ts`）も足すか判断する。公式の順位表との突き合わせ（勝敗・得失点に加えて地区順位・ワイルドカード順位。229章）は `node --experimental-strip-types scripts/verify-official-standings.ts`（手で実行）。検証は `npm run validate:result-only-games`
 - 230章: 試合詳細ページの選手の並び（出場交代・ボックススコア・シューティングで共通。スタメン上固定・出場時間の長い順・同じなら元の並び・出場なしは末尾。`src/lib/boxscoreOrder.ts`。**画面だけの変更でキー不変**）
 - 231章: **STOCKS（STL＋BLK）**。読むとき足して出す（保存する列は増やさない）。Traditional の BLK の右。個人のシーズン表（`SEASON_TRADITIONAL_COLUMNS`）・試合のボックススコア・全選手スタッツ・チーム・ランキング（シーズン成績・1試合記録・通算）・記録タブ・キャリアハイ・比較・達成記録・用語集。`PLAYER_GAME_RECORD_STATS` に足したので**全シーズンの作り直しが1回**。ゲームリーダー・ホームのリーダー・ヘッダーのタイルには入れない
-- 232章: 試合詳細のキースタッツ。新カード「テンポと効率」（POSS・PACE・ORtg・DRtg・NetRtg。値はボックススコアの Advanced の合計行と同じ推定式で、実際のポゼッションは使わない。延長は POSS が延長分を含み PACE は40分換算）。**キースタッツの TOV% は標準式（TOV÷(FGA+0.44FTA+TOV)）に統一**（以前は TO÷POSS）。Four Factors のラベルは OREB%・FT Rate。**画面だけの変更でキー不変**
+- 232章: 試合詳細のキースタッツ。新カード「テンポと効率」（ORtg は対向バー1行、POSS・PACE は試合全体の値として数値だけで1行。DRtg・NetRtg は推定式では ORtg の言い換えなので出さない。値はボックススコアの Advanced の合計行と同じ推定式で、実際のポゼッションは使わない。延長は POSS が延長分を含み PACE は40分換算）。**キースタッツの TOV% は標準式（TOV÷(FGA+0.44FTA+TOV)）に統一**（以前は TO÷POSS）。Four Factors のラベルは OREB%・FT Rate。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
