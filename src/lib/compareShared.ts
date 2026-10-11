@@ -3,7 +3,7 @@
 // トップレベル比較ページ（#/compare、ComparePage.tsx）も同じ列定義・表示ロジックを使うため
 // （DESIGN.md 100章）、ここに切り出して3箇所から共有する。詳細ページ側の挙動は変更していない。
 
-import { boxscoreColumnsFor, type BoxscoreColumn, type BoxscoreTabKey, type ColumnCtx } from "../components/BoxscoreTable";
+import type { BoxscoreColumn, BoxscoreTabKey, ColumnCtx } from "../components/BoxscoreTable";
 import type { ComparisonStatDef } from "../pages/ComparePage";
 import type { BoxscoreCounts } from "./boxscoreAggregate";
 import { formatSigned } from "./format";
@@ -13,6 +13,7 @@ import {
   type SeasonBoxscoreCtx,
   type TeamGameBoxTotals,
 } from "./playerSeasonBoxscore";
+import { teamBoxscoreColumnsFor } from "./teamBoxscoreColumns";
 import type { TeamPerspective } from "./teamStatsColumns";
 
 // 「日程結果」タブ・比較タブの+/-（差分）表示用。BoxscoreColumnはformat(単一のBoxscoreCounts)のみを
@@ -156,7 +157,8 @@ export function teamCompareDefs(
   /** 比べるシーズンがすべて2026-27以降のとき true（Miscのファウルの列を TF1・TF2・FLAG・DISR にする） */
   foulSplit = false,
 ): ComparisonStatDef<TeamCompareColumnData>[] {
-  const defs = boxscoreColumnsFor(tabKey, foulSplit).map((raw) => {
+  // チームの表向けの列（Scoring の %3PM〜%2PA は FGA に占める割合、%PTS・%FGM・%FGA・%FTM・%FTA は外す。teamBoxscoreColumns.ts）
+  const defs = teamBoxscoreColumnsFor(tabKey, foulSplit).map((raw) => {
     const extraValue = TEAM_COMPARE_VALUE[raw.key];
     const col: BoxscoreColumn = extraValue && !raw.value ? { ...raw, value: (c) => extraValue(c) } : raw;
     return teamCompareDef(col, perspective);

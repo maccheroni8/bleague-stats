@@ -158,7 +158,8 @@ import {
   type TeamPointsBreakdown,
   type TeamPointsBreakdownResult,
 } from "../lib/playerSeasonBoxscore";
-import { BOXSCORE_TABS, boxscoreColumnsFor, type BoxscoreColumn, type BoxscoreTabKey, type ColumnCtx } from "../components/BoxscoreTable";
+import { BOXSCORE_TABS, type BoxscoreColumn, type BoxscoreTabKey, type ColumnCtx } from "../components/BoxscoreTable";
+import { teamBoxscoreColumnsFor } from "../lib/teamBoxscoreColumns";
 import { astToTovRatio, buildAssistPairs, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { formatMinutesColon } from "../lib/minutesFormat";
 import type { BoxscoreCounts } from "../lib/boxscoreAggregate";
@@ -3343,10 +3344,11 @@ export function TeamDetailPage({ season }: { season: string }) {
     scheduleGameType === "both"
       ? scheduleRows
       : scheduleRows.filter((row) => (gameLogsByScheduleKey.get(row.scheduleKey)?.gameType ?? row.gameType) === scheduleGameType);
-  // 「日程結果」タブのカテゴリタブ用の列定義。試合詳細ページのボックススコアと完全に同じ配列
+  // 「日程結果」タブのカテゴリタブ用の列定義。試合詳細ページのボックススコアの列から、チームの表向けに Scoring の %系だけ直したもの
+  // （%3PM〜%2PA は FGA に占める割合、%PTS・%FGM・%FGA・%FTM・%FTA は外す。teamBoxscoreColumns.ts。DESIGN.md 136章）
   // ファウルの列は、このシーズンが2026-27以降ならTF1・TF2・FLAG・DISR、それ以前ならUFOUL・TF（DESIGN.md 16-8章）
   const foulSplit = foulColumnsSplit([season]);
-  const scheduleBoxColumns = scheduleBoxTab === "periods" ? [] : boxscoreColumnsFor(scheduleBoxTab, foulSplit);
+  const scheduleBoxColumns = scheduleBoxTab === "periods" ? [] : teamBoxscoreColumnsFor(scheduleBoxTab, foulSplit);
   // Misc・Scoringタブの末尾にベンチ得点・スタメン得点を足す（他の表と同じ置き場所）。TeamGameLogにだけある値のため、Q別/前後半の表示では「-」
   const schedulePointsColumns = scheduleBoxTab === "periods" ? [] : teamPointsExtraColumnsForTab(scheduleBoxTab).filter((c) => SCHEDULE_POINTS_COLUMN_KEYS.has(c.key));
   // Periods（DESIGN.md 226章）: ラインスコア。1Q〜4Qと延長が1本までは試合ログから、2本以上の延長は読み込み済みの生データの公式のクォーター別スコアから
@@ -4424,7 +4426,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <th className="align-right" title={statDescription("対戦相手勝率")}>
                       対戦相手勝率
                     </th>
-                    {(situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : boxscoreColumnsFor(situationalTeamBoxTab, foulSplit)).map(
+                    {(situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : teamBoxscoreColumnsFor(situationalTeamBoxTab, foulSplit)).map(
                       (col) => (
                         <th key={col.key} className="align-right" title={statDescription(col.label, "team")}>
                           <StatHeaderLabel label={col.label} />
@@ -4444,7 +4446,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <tr className="situational-group-heading">
                         <td
                           colSpan={
-                            (situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : boxscoreColumnsFor(situationalTeamBoxTab, foulSplit))
+                            (situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : teamBoxscoreColumnsFor(situationalTeamBoxTab, foulSplit))
                               .length +
                             situationalTeamPointsColumns.length +
                             4
@@ -4467,7 +4469,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                                   {col.format!(row)}
                                 </td>
                               ))
-                            : boxscoreColumnsFor(situationalTeamBoxTab, foulSplit).map((col) => (
+                            : teamBoxscoreColumnsFor(situationalTeamBoxTab, foulSplit).map((col) => (
                                 <td key={col.key} className="align-right">
                                   {situationalTeamPerspective === "own"
                                     ? cleanNumericString(col.format(row.boxTotals.own, row.boxTotals.ownCtx))

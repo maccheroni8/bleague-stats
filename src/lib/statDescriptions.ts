@@ -4,11 +4,16 @@
 //
 // 同じ項目名でもチームと選手で意味が違う項目（%3PM等: 選手はチーム内のシェア、チームはシュート選択の構成比）は
 // { player, team } で両方を持ち、表の側がどちらの表か（scope）を渡す。
+// チームでは意味を持たず表に出さない項目（%PTS・%FGM・%FGA・%FTM・%FTA）も、team 側に出さない理由を書く。
 import { SHOT_TYPE_LABELS } from "./shotTypeBreakdown";
 
 export type StatScope = "player" | "team";
 
 type StatDescription = string | { player: string; team: string };
+
+// 選手の %PTS・%FGM・%FGA・%FTM・%FTA は「個人 ÷ チーム全体」なので、チームの値にすると常に100%になる。チームの表には出さない
+const TEAM_SHARE_NOT_SHOWN = (item: string) =>
+  `選手の値は「個人の${item} ÷ チーム全体の${item}」のため、チームでは常に100%になります。チームの表には出しません。`;
 
 const PAINT_SPLIT_NOTE = "公式の記録の区分（インサイドペイント／アウトサイドペイント）で数える";
 
@@ -158,9 +163,18 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   AST2M: "アシストされた2P成功数",
   AST3M: "アシストされた3P成功数",
   ASTFTM: "アシストされたフリースロー成功数（シュートファウルでフリースローになった場合）",
-  "%PTS": "個人の得点 ÷ その選手が出場した試合のチーム全体の得点（その選手がベンチにいた時間のチームの得点も分母に含む）",
-  "%FGM": "個人のFGM ÷ その選手が出場した試合のチーム全体のFGM（その選手がベンチにいた時間のチームのFGMも分母に含む）",
-  "%FGA": "個人のFGA ÷ その選手が出場した試合のチーム全体のFGA（その選手がベンチにいた時間のチームのFGAも分母に含む）",
+  "%PTS": {
+    player: "個人の得点 ÷ その選手が出場した試合のチーム全体の得点（その選手がベンチにいた時間のチームの得点も分母に含む）",
+    team: TEAM_SHARE_NOT_SHOWN("得点"),
+  },
+  "%FGM": {
+    player: "個人のFGM ÷ その選手が出場した試合のチーム全体のFGM（その選手がベンチにいた時間のチームのFGMも分母に含む）",
+    team: TEAM_SHARE_NOT_SHOWN("FGM"),
+  },
+  "%FGA": {
+    player: "個人のFGA ÷ その選手が出場した試合のチーム全体のFGA（その選手がベンチにいた時間のチームのFGAも分母に含む）",
+    team: TEAM_SHARE_NOT_SHOWN("FGA"),
+  },
   "%3PM": {
     player: "個人の3PM ÷ その選手が出場した試合のチーム全体の3PM（その選手がベンチにいた時間のチームの3PMも分母に含む）",
     team: "3PM / FGA（FGAに占める3P成功の割合）",
@@ -177,8 +191,14 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
     player: "個人の2PA ÷ その選手が出場した試合のチーム全体の2PA（その選手がベンチにいた時間のチームの2PAも分母に含む）",
     team: "2PA / FGA（FGAに占める2P試投の割合）",
   },
-  "%FTM": "個人のFTM ÷ その選手が出場した試合のチーム全体のFTM（その選手がベンチにいた時間のチームのFTMも分母に含む）",
-  "%FTA": "個人のFTA ÷ その選手が出場した試合のチーム全体のFTA（その選手がベンチにいた時間のチームのFTAも分母に含む）",
+  "%FTM": {
+    player: "個人のFTM ÷ その選手が出場した試合のチーム全体のFTM（その選手がベンチにいた時間のチームのFTMも分母に含む）",
+    team: TEAM_SHARE_NOT_SHOWN("FTM"),
+  },
+  "%FTA": {
+    player: "個人のFTA ÷ その選手が出場した試合のチーム全体のFTA（その選手がベンチにいた時間のチームのFTAも分母に含む）",
+    team: `${TEAM_SHARE_NOT_SHOWN("FTA")}チームのFTA / FGAは、アドバンスドのFTR（FT Rate）で見られます。`,
+  },
   PAINT2M: `ペイント内の2P成功数（${PAINT_SPLIT_NOTE}）`,
   PAINT2A: `ペイント内の2P試投数（${PAINT_SPLIT_NOTE}）`,
   "PAINT2%": `PAINT2M / PAINT2A（${PAINT_SPLIT_NOTE}）`,
