@@ -44,6 +44,7 @@ import {
 } from "./situational";
 import { useJsonData } from "./useJsonData";
 import type { SeasonBoxscoreCtx } from "./playerSeasonBoxscore";
+import { recordOfLogs, type CompareRecord } from "./compareShared";
 
 export type SlotStatus =
   /** スロットが未選択（何も取得していない） */
@@ -74,10 +75,14 @@ interface SlotDataCommon {
 
 export interface TeamSlotData extends SlotDataCommon {
   boxTotals: TeamGameBoxTotals | null;
+  /** 絞り込み後の試合（gamesCount の試合）でのチームの勝敗。リーグ平均は無し */
+  record: CompareRecord | null;
 }
 
 export interface PlayerSlotData extends SlotDataCommon {
   ctx: SeasonBoxscoreCtx | null;
+  /** 出場した試合（gamesCount の試合）での所属チームの勝敗 */
+  record: CompareRecord | null;
   /** 集計対象の試合で最後に所属していたチーム（ヘッダーのチームカラー用） */
   latestTeamId: string | null;
   /** 集計対象の試合で所属した全チーム（1チームなら1件。移籍で複数のとき「複数チーム」の合算） */
@@ -230,6 +235,7 @@ export function useTeamCompareSlot({
       gamesCount: file ? file.games[gameType] : 0,
       pendingGames: 0,
       boxTotals: totals,
+      record: null,
     };
   }
 
@@ -250,6 +256,8 @@ export function useTeamCompareSlot({
     gamesCount: filtered.length,
     pendingGames: pending,
     boxTotals,
+    // gamesCount と同じ試合（filtered）の勝敗。結果だけの試合は試合ログに無いので入らず、勝＋敗＝試合数になる
+    record: base && filtered.length > 0 ? recordOfLogs(filtered) : null,
   };
 }
 
@@ -345,7 +353,8 @@ export function usePlayerCompareSlot({
     const latest = [...played].sort((a, b) => b.date.localeCompare(a.date))[0];
     const latestTeamId = latest ? (base.ownTeamByScheduleKey.get(latest.scheduleKey)?.teamId ?? null) : null;
     const teamIds = rows.filter((r) => !r.isCombined && r.teamId).map((r) => r.teamId!);
-    return { ctx: combined.ctx, latestTeamId, teamIds };
+    // G（combined.ctx の試合数）と同じ試合＝出場した試合（combined.logs）での所属チームの勝敗
+    return { ctx: combined.ctx, latestTeamId, teamIds, record: recordOfLogs(combined.logs) };
   }, [base, filtered, season, filter, gameType, opponentRecords, divisionHistory]);
 
   let status: SlotStatus;
@@ -364,6 +373,7 @@ export function usePlayerCompareSlot({
     gamesCount: filtered.filter((g) => g.min > 0).length,
     pendingGames: 0,
     ctx: result?.ctx ?? null,
+    record: result?.record ?? null,
     latestTeamId: result?.latestTeamId ?? null,
     teamIds: result?.teamIds ?? [],
   };

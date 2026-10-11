@@ -59,6 +59,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 231章: **STOCKS（STL＋BLK）**。読むとき足して出す（保存する列は増やさない）。Traditional の BLK の右。個人のシーズン表（`SEASON_TRADITIONAL_COLUMNS`）・試合のボックススコア・全選手スタッツ・チーム・ランキング（シーズン成績・1試合記録・通算）・記録タブ・キャリアハイ・比較・達成記録・用語集。`PLAYER_GAME_RECORD_STATS` に足したので**全シーズンの作り直しが1回**。ゲームリーダー・ホームのリーダー・ヘッダーのタイルには入れない
 - 232章: 試合詳細のキースタッツ。新カード「テンポと効率」（ORtg は対向バー1行、POSS・PACE は試合全体の値として数値だけで1行。DRtg・NetRtg は推定式では ORtg の言い換えなので出さない。値はボックススコアの Advanced の合計行と同じ推定式で、実際のポゼッションは使わない。延長は POSS が延長分を含み PACE は40分換算）。**キースタッツの TOV% は標準式（TOV÷(FGA+0.44FTA+TOV)）に統一**（以前は TO÷POSS）。Four Factors のラベルは OREB%・FT Rate。**画面だけの変更でキー不変**
 - 233章: **チームの表の Scoring**（チーム詳細の比較・日程結果・シチュエーション別成績、比較ページのチーム）。%3PM・%3PA・%2PM・%2PA は「FGAに占める割合」（全チームスタッツ・ランキングと同じ式）、%PTS・%FGM・%FGA・%FTM・%FTA は列ごと外す（チームでは常に100%）。差し替えは `src/lib/teamBoxscoreColumns.ts` の `teamBoxscoreColumnsFor`（`BoxscoreTable.tsx` の列定義は変えない。試合詳細のボックススコアは今のまま）。**画面だけの変更でキー不変**
+- 234章: **比較の表**（比較ページ・チーム詳細・個人詳細の比較タブで共通の `ComparisonTable`）。比べているすべての対象で値が「-」の項目は行ごと出さない（片方にだけ値があれば残す。`defsWithAnyValue`）。G の横に勝敗（「6（3-3）」。G と同じ試合の勝敗で、結果だけの試合 `resultOnlyGames` は入らない。`ComparisonStatDef.suffix`で、強調の判定には使わない）。値の列は中央寄せ。検証は `npm run validate:compare-table`。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

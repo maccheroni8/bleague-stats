@@ -194,7 +194,7 @@ import { StickyHeaderScroll } from "../components/StickyHeaderScroll";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { teamShortName } from "../../shared/teamNames";
 import { ClubPeriodRecords, SeasonPeriodAverages } from "../components/TeamPeriodRecords";
-import { cleanNumericString, formatColumnDiff, teamCompareDefs, type TeamCompareColumnData } from "../lib/compareShared";
+import { cleanNumericString, formatColumnDiff, recordOfLogs, teamCompareDefs, type TeamCompareColumnData } from "../lib/compareShared";
 import { CLASSIFICATION_COLORS } from "../lib/classificationFilter";
 import { statDescription } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
@@ -2557,7 +2557,14 @@ export function TeamDetailPage({ season }: { season: string }) {
         const boxTotals = buildTeamMultiGameBoxTotals(entries, yahooTurnoversByScheduleKey, shotChartSupported, yahooPbpSupported);
         if (!boxTotals) return null;
         return {
-          item: { key: `slot${i}`, label: describeTeamSituationalFilter(slot.filter), boxTotals, gamesCount: entries.length },
+          item: {
+            key: `slot${i}`,
+            label: describeTeamSituationalFilter(slot.filter),
+            boxTotals,
+            gamesCount: entries.length,
+            // G（entries＝生データのある試合）と同じ試合の勝敗
+            record: recordOfLogs(filtered.filter((g) => compareRawGames.has(g.scheduleKey))),
+          },
           season: slot.season,
         };
       })

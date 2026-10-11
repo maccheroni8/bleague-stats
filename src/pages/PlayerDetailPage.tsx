@@ -153,7 +153,7 @@ import { ComparisonTable, type ComparisonRow } from "./ComparePage";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageForSeason } from "../lib/age";
 import { heightText, positionText, weightText } from "../lib/profileMark";
-import { seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
+import { recordOfLogs, seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
 import { statDescription } from "../lib/statDescriptions";
 import { PlayerSeasonScoringChart } from "../components/PlayerScoringShareCharts";
 import {
@@ -1879,7 +1879,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
       const combined = splitRows[splitRows.length - 1];
       if (!combined) return null;
       return {
-        item: { key: `slot${i}`, label: describeSituationalFilter(slot.filter, compareBoundaries[i]!), ctx: combined.ctx },
+        item: {
+          key: `slot${i}`,
+          label: describeSituationalFilter(slot.filter, compareBoundaries[i]!),
+          ctx: combined.ctx,
+          // G（出場した試合）と同じ試合での所属チームの勝敗
+          record: recordOfLogs(combined.logs),
+        },
         season: slot.season,
       };
     })

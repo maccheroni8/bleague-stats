@@ -72,6 +72,31 @@ export function formatColumnDiff(
   return digits !== undefined ? formatSigned(diff, digits) : formatSigned(Math.round(diff), 0);
 }
 
+/** 比較の「G」の横に添える勝敗（G の試合数と同じ試合の勝敗。結果だけの試合 resultOnlyGames は試合ログに無いので入らない。DESIGN.md 234章） */
+export interface CompareRecord {
+  wins: number;
+  losses: number;
+}
+
+/** 試合ログ（勝敗の旗を持つもの）から勝敗を数える。引き分けは無いので、敗は試合数−勝 */
+export function recordOfLogs(logs: readonly { win: boolean }[]): CompareRecord {
+  const wins = logs.filter((g) => g.win).length;
+  return { wins, losses: logs.length - wins };
+}
+
+/**
+ * 比べているすべての対象で値が「-」の項目を除く（比較の表で、データの無い項目を行ごと出さない。DESIGN.md 234章）。
+ * 1つでも値のある対象がいれば残す（片方だけにある項目は今までどおり）。判定は表に出す値（format）だけで、
+ * 対象・条件を変えて描き直すたびに判定し直すので、値が出るようになれば行は戻る
+ */
+export function defsWithAnyValue<T>(defs: ComparisonStatDef<T>[], items: readonly T[]): ComparisonStatDef<T>[] {
+  return defs.filter((def) => items.some((item) => def.format(item) !== "-"));
+}
+
+function recordSuffix(record: CompareRecord | undefined): string | undefined {
+  return record ? `（${record.wins}-${record.losses}）` : undefined;
+}
+
 export interface TeamCompareColumnData {
   key: string;
   label: string;
@@ -80,6 +105,8 @@ export interface TeamCompareColumnData {
   isLeague?: boolean;
   /** 絞り込んだ試合数（先頭の「G」行） */
   gamesCount: number;
+  /** 絞り込んだ試合でのそのチームの勝敗（「G 6（3-3）」。リーグ平均は無し） */
+  record?: CompareRecord;
 }
 
 /**
@@ -92,6 +119,7 @@ const TEAM_GAMES_DEF: ComparisonStatDef<TeamCompareColumnData> = {
   value: (r) => r.gamesCount,
   // リーグ平均はシーズン全体の試合数（見出しに「（◯試合）」で出す）で、チームの試合数と並べると紛らわしいので「-」
   format: (r) => (r.isLeague ? "-" : String(r.gamesCount)),
+  suffix: (r) => (r.isLeague ? undefined : recordSuffix(r.record)),
   higherIsBetter: true,
   noHighlight: true,
 };
@@ -198,6 +226,8 @@ export interface CompareColumnData {
   key: string;
   label: string;
   ctx: SeasonBoxscoreCtx;
+  /** 出場した試合（G の試合）での所属チームの勝敗（「G 6（3-3）」。移籍した選手は所属した各チームの試合の合計） */
+  record?: CompareRecord;
 }
 
 /**
@@ -215,6 +245,8 @@ export function seasonBoxCompareDefs(
     label: col.label,
     value: (r) => col.value(r.ctx, "perGame"),
     format: (r) => col.format(r.ctx, "perGame"),
+    // G の横に、出場した試合でのチームの勝敗を添える（強調の判定には使わない値の飾り）
+    ...(col.key === "g" ? { suffix: (r: CompareColumnData) => recordSuffix(r.record) } : {}),
     higherIsBetter: compareHigherIsBetter(col.key, col.higherIsBetter),
     noHighlight: COMPARE_NO_HIGHLIGHT.has(col.key),
   }));

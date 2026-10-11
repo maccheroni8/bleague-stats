@@ -31,6 +31,7 @@ import {
   situationalFilterLabels,
 } from "../lib/conditionLabels";
 import {
+  defsWithAnyValue,
   seasonBoxCompareDefs,
   teamCompareDefs,
   type CompareColumnData,
@@ -88,6 +89,8 @@ export interface ComparisonStatDef<T> {
   higherIsBetter?: boolean;
   /** true のとき、良い方の値を強調しない（試投数など、多い・少ないに良し悪しが無い項目） */
   noHighlight?: boolean;
+  /** 値の後ろに添える文字（G の「（3-3）」＝勝敗）。良い方の判定・「-」の判定には使わない（format の値だけで決める） */
+  suffix?: (row: T) => string | undefined;
 }
 
 // --- URLパラメータ ---
@@ -222,9 +225,10 @@ export function ComparisonTable<T>({
   const columns: (number | "label")[] = interleaved
     ? rows.flatMap((_, i) => (i === 0 ? [0] : ["label" as const, i]))
     : ["label", ...rows.map((_, i) => i)];
-  // 値の寄せ: 挟む形では項目名に近い側へ寄せる（左端の対象は右寄せ、右端は左寄せ、間は中央）
-  const valueAlign = (i: number) =>
-    !interleaved ? "align-right" : i === 0 ? "align-right" : i === rows.length - 1 ? "align-left" : "align-center";
+  // 値の寄せ: どの列も中央（見出しの名前・シーズンも同じ。DESIGN.md 234章。以前は挟む形で項目名に近い側へ寄せていた）
+  const valueAlign = "align-center";
+  // 比べているすべての枠で値が「-」の項目は行ごと出さない（片方にだけ値があれば残す。枠・条件を変えれば、描き直しのたびに判定し直すので戻る）
+  const visibleDefs = defsWithAnyValue(defs, rows.map((r) => r.item));
   return (
     <div
       className={`table-scroll compare-table-scroll compare-count-${rows.length}${interleaved ? " compare-interleaved" : " compare-label-first"}`}
@@ -246,7 +250,7 @@ export function ComparisonTable<T>({
               return (
                 <th
                   key={rowKey(item)}
-                  className={`compare-entity-col ${valueAlign(col)}${externalLinkTo?.(item) ? " has-external-link" : ""}`}
+                  className={`compare-entity-col ${valueAlign}${externalLinkTo?.(item) ? " has-external-link" : ""}`}
                   style={accent ? { borderTopColor: accent } : undefined}
                 >
                   {linkTo(item) ? (
@@ -267,7 +271,7 @@ export function ComparisonTable<T>({
           </tr>
         </thead>
         <tbody>
-          {defs.map((def) => {
+          {visibleDefs.map((def) => {
             // 値を出さない対象（「-」。リーグ平均の +/- 等）は良い方の判定から外す
             const formattedAll = rows.map(({ item }) => def.format(item));
             const values = rows.map(({ item }) => def.value(item)).filter((_, i) => formattedAll[i] !== "-");
@@ -296,7 +300,7 @@ export function ComparisonTable<T>({
                   ) : (
                     <td
                       key={rowKey(rows[col]!.item)}
-                      className={`${valueAlign(col)}${isBest(col) ? " compare-best" : ""}`}
+                      className={`${valueAlign}${isBest(col) ? " compare-best" : ""}`}
                       style={
                         isBest(col)
                           ? ({ "--leader-team-color": teamColor?.(rows[col]!.item) ?? "var(--accent)" } as CSSProperties)
@@ -304,6 +308,7 @@ export function ComparisonTable<T>({
                       }
                     >
                       {formatted[col]}
+                      {formatted[col] !== "-" && def.suffix?.(rows[col]!.item)}
                     </td>
                   ),
                 )}
@@ -312,6 +317,7 @@ export function ComparisonTable<T>({
           })}
         </tbody>
       </table>
+      {visibleDefs.length === 0 && <p className="empty-message">この条件では、値のある項目がありません</p>}
     </div>
   );
 }
@@ -462,6 +468,7 @@ function TeamCompareView({
         season: slot.season,
         boxTotals: data.boxTotals,
         gamesCount: data.gamesCount,
+        record: data.record ?? undefined,
         isLeague,
         subLabel: `${cond}（${data.gamesCount}試合）`,
       },
@@ -572,6 +579,7 @@ function PlayerCompareView({
         teamId: data.latestTeamId ?? player.teamId,
         season: slot.season,
         ctx: data.ctx,
+        record: data.record ?? undefined,
         subLabel: `${cond}（${data.gamesCount}試合）`,
       },
       season: slot.season,
