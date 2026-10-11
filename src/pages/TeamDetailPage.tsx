@@ -748,9 +748,13 @@ const DIVISION_LABELS: Record<string, string> = {
   south: "南地区",
 };
 
-// ヘッダーの試合数/勝敗/勝率+順位の1行表示（例:「60試合45勝15敗.750 東地区1位 全体2位」）。
-// 地区順位・全体順位は既存のstandings-history.json（順位表ページと同じデータ源）から引く
-function buildTeamRecordLine(team: TeamSummary, standingsHistory: StandingsSnapshot[] | null | undefined): string {
+// ヘッダーの試合数/勝敗/勝率+順位の1行表示（例:「60試合45勝15敗.750 東地区1位 全体2位（参考）」）。
+// 地区順位・全体順位は既存のstandings-history.json（順位表ページと同じデータ源）から引く。
+// 全体順位は公式の順位ではなく、全クラブを1つの表に並べた参考の並びなので、本体と分けて返し、画面で「（参考）」を添える
+function buildTeamRecordLine(
+  team: TeamSummary,
+  standingsHistory: StandingsSnapshot[] | null | undefined,
+): { line: string; overallRank: number | null } {
   const winPct = safeDiv(team.wins, team.wins + team.losses);
   // 試合数は勝敗の試合数（勝＋敗）。スタッツの無い試合（結果だけの試合）を含むシーズンは、スタッツの試合数を添える（DESIGN.md 228章）
   let line = `${team.wins + team.losses}試合${team.wins}勝${team.losses}敗${formatWinPct(winPct)}`;
@@ -763,9 +767,9 @@ function buildTeamRecordLine(team: TeamSummary, standingsHistory: StandingsSnaps
       const divisionLabel = DIVISION_LABELS[entry.division] ?? entry.division;
       line += ` ${divisionLabel}${entry.divisionRank}位`;
     }
-    line += ` 全体${entry.rank}位`;
+    return { line, overallRank: entry.rank };
   }
-  return line;
+  return { line, overallRank: null };
 }
 
 // 「チームスタッツ」タブの自チーム／opp／+/-トグル（ヘッダーの自チーム行/opp行の対比構造
@@ -3317,7 +3321,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     !!gameLogs && gameLogs.filter((g) => g.gameType === "regular" && g.min > 0).every((g) => statsRawGames.has(g.scheduleKey));
 
   const winPct = safeDiv(team.wins, team.wins + team.losses);
-  const recordLine = buildTeamRecordLine(team, standingsHistory);
+  const { line: recordLine, overallRank: overallRankInLeague } = buildTeamRecordLine(team, standingsHistory);
 
   const nameHistory = teamHistory?.find((h) => h.teamId === team.teamId)?.names ?? [];
   const honors = clubHonors?.[team.teamId] ?? [];
@@ -3507,6 +3511,12 @@ export function TeamDetailPage({ season }: { season: string }) {
           <h1>{team.teamName}</h1>
           <p className="page-subtitle">
             {season}シーズン・{recordLine}
+            {overallRankInLeague !== null && (
+              <>
+                {" "}
+                <span title="公式の順位ではなく、全クラブを1つの表に並べた参考の並びです">全体{overallRankInLeague}位（参考）</span>
+              </>
+            )}
           </p>
           <ResultOnlyNote games={schedule?.resultOnlyGames} teamId={team.teamId} />
         </div>

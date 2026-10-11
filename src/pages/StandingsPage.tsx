@@ -34,6 +34,7 @@ import {
   clinchTypesForSeason,
   isInWildcardPool,
   postseasonFormat,
+  wildcardOrderRank,
   type PostseasonFormat,
 } from "../../shared/postseasonFormat";
 import { DIVISION_LABELS, groupByDivision } from "../lib/divisionGroups";
@@ -407,6 +408,18 @@ const overallStandingsColumns: Column<StandingsRow>[] = divisionStandingsColumns
   (c) => c.key !== "divisionRank",
 );
 
+// ワイルドカード順位表用の列。全体順位の代わりに、プール内の順位（ワイルドカード順位）を出す
+const wildcardStandingsColumns: Column<StandingsRow>[] = divisionStandingsColumns.map((c) =>
+  c.key === "rank"
+    ? {
+        key: "wildcardRank",
+        label: "WC順位",
+        sortValue: (t: StandingsRow) => t.wildcardRank ?? t.rank,
+        format: (t: StandingsRow) => String(t.wildcardRank ?? "-"),
+      }
+    : c,
+);
+
 // 「全チームの全体順位表」用の列。地区順位が地区を跨いだ一覧の中でも区別できるよう、
 // 地区名の頭文字を併記する（例:「東1」「中5」）
 const allStandingsColumns: Column<StandingsRow>[] = divisionStandingsColumns.map((c) =>
@@ -471,7 +484,7 @@ function collectWildcardTeams(history: StandingsSnapshot[], format: PostseasonFo
 
 /**
  * ワイルドカード争いの「相対順位」推移を求める。日付ごとに、その時点で実際に地区の自動出場圏外
- * だったチームだけを全体順位(rank)昇順に並べ直し、その順位（1始まり）を割り当てる。
+ * だったチームだけを、プール内の順位（wildcardRank。古いデータは全体順位rank）の昇順に並べ、その順位（1始まり）を割り当てる。
  * 自動出場圏内に浮上した日はその日の値を持たない（=StandingsLineChartのconnectGaps={false}と
  * 組み合わせて、グラフ上でその期間だけ線が途切れる。静的な最終順位ベースの固定メンバーでは
  * なく、日々の実際の在籍状況を動的に反映する）。revealCountの意味・目的はreshape()と同じ
@@ -481,7 +494,9 @@ function reshapeWildcardRank(history: StandingsSnapshot[], format: PostseasonFor
   return history.map((snapshot, i) => {
     const row: Record<string, number | string> = { date: snapshot.date };
     if (revealCount !== undefined && i >= revealCount) return row;
-    const poolTeamsAtDate = snapshot.teams.filter((t) => isInWildcardPool(t, format)).sort((a, b) => a.rank - b.rank);
+    const poolTeamsAtDate = snapshot.teams
+      .filter((t) => isInWildcardPool(t, format))
+      .sort((a, b) => wildcardOrderRank(a) - wildcardOrderRank(b));
     poolTeamsAtDate.forEach((t, idx) => {
       row[t.teamId] = idx + 1;
     });
@@ -711,10 +726,9 @@ export function StandingsPage({ season }: { season: string }) {
   const wildcardRankDomainMax = teams.length - (wcFormat?.divisionTop ?? 0) * divisionCount;
 
   // ワイルドカード順位表（「順位表」タブ）: 最新スナップショット時点で地区の自動出場圏外の
-  // チームを、既存のタイブレークロジック（rankStandingsTeams、全体順位rankに反映済み）の
-  // 順序のまま抽出する。rankは全チーム間の一貫した全順序のため、その部分集合を
-  // rank昇順に並べれば「プール内だけで見たタイブレーク順」と同じ結果になる
-  // （プール内相対順位を1から振り直す必要はない）。
+  // チームを、プールのクラブだけで同率を判定し直した順位（wildcardRank。DESIGN.md 229章）の順に並べる。
+  // 全体順位rankの部分集合とは、プール外のクラブを含む3クラブ以上の同率で順序が変わりうる。
+  // wildcardRankが無い古いデータは全体順位rankで並べる。表の順位列は、並べた順の1始まりの番号を出す。
   // 表示可否の判定はワイルドカードグラフと同じ基準（2月のバイウィーク明け以降）を流用する:
   // - 進行中のシーズンでバイウィーク前: 非表示（案内メッセージ）
   // - 進行中のシーズンでバイウィーク後、または既に終了したシーズン: 最新スナップショットを表示
@@ -724,8 +738,8 @@ export function StandingsPage({ season }: { season: string }) {
   const wildcardStandingsRows = wildcardStandingsEligible
     ? [...teams]
         .filter((t) => wcFormat !== null && isInWildcardPool(t, wcFormat))
-        .sort((a, b) => a.rank - b.rank)
-        .map(rowFor)
+        .sort((a, b) => wildcardOrderRank(a) - wildcardOrderRank(b))
+        .map((t, idx) => rowFor({ ...t, wildcardRank: idx + 1 }))
     : [];
 
   // 各表・グラフに出す「選択中の条件」（Batch 5、DESIGN.md 99章）。順位・星取り・推移はいずれも
@@ -826,17 +840,17 @@ export function StandingsPage({ season }: { season: string }) {
                   standingsConditions,
                   wildcardPoolLabel,
                   `上位${wcFormat?.wildcardSlots ?? 0}クラブがワイルドカード`,
-                  "全体順位順",
+                  "ワイルドカード順位順",
                 )}
               />
               {wildcardStandingsEligible ? (
                 <div className="table-scroll standings-sticky-3">
                   <SortableTable
                     statScope="team"
-                    columns={divisionStandingsColumns}
+                    columns={wildcardStandingsColumns}
                     rows={wildcardStandingsRows}
                     rowKey={(t) => t.teamId}
-                    defaultSortKey="rank"
+                    defaultSortKey="wildcardRank"
                     defaultSortDir="asc"
                     linkTo={(t) => `/teams/${t.teamId}`}
                     rowAccentColor={(t) => teamColors?.[t.teamId]?.primary}
@@ -858,6 +872,11 @@ export function StandingsPage({ season }: { season: string }) {
                 全チームの全体順位表
               </h2>
               {overallStandingsExpanded && <ConditionLine conditions={composeLabels(standingsConditions, "全クラブ")} />}
+              {overallStandingsExpanded && (
+                <p className="standings-tab-note">
+                  公式の順位ではなく、全クラブを1つの表に並べた参考の並びです（公式の順位は、各地区の順位とワイルドカードの順位です）。
+                </p>
+              )}
               {overallStandingsExpanded && (
                 <div className="table-scroll standings-sticky-3">
                   <SortableTable
