@@ -6448,6 +6448,18 @@ table.compare-table th.align-center .compare-condition-tag {
   box-shadow: 1px 0 0 var(--border);
 }
 
+/* 項目名を左端に1本置く並び（スマホ幅）: 「・」を含む長い項目名（%外国籍・帰化・アジア PTS）は、「・」の後ろで3行まで折り返して
+   項目名の列を細くする（9em のままだと列が132pxになり、2つ並べても右の列が画面からはみ出す。DESIGN.md 235章） */
+.compare-label-first table.compare-table .stat-header-wrap {
+  min-width: 0;
+  max-width: 5.6em;
+}
+
+/* 空白を含む項目名（%STARTER PTS・LIVE TOV% 等）は、表が画面幅を超えるときだけ空白で折り返して列を細くする */
+.compare-label-first table.compare-table td.compare-label-col {
+  white-space: normal;
+}
+
 [data-design="v2"] table.compare-table td:not(.compare-label-col) {
   font-size: 13px;
   font-variant-numeric: tabular-nums;

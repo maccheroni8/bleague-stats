@@ -83,7 +83,7 @@ import { formatRecordShort } from "../lib/recordFormat";
 import type { ResultOnlyGameEntry, ResultOnlyReason } from "../../shared/resultOnlyGames";
 import { ResultOnlyNote } from "../components/ResultOnlyNote";
 import { TeamRecordShort } from "../components/TeamRecordShort";
-import { resultOnlyReasonLabel } from "../lib/resultOnlyGames";
+import { resultOnlyCompareNote, resultOnlyReasonLabel } from "../lib/resultOnlyGames";
 import { MIN_LINEUP_AVG_SECONDS, MIN_LINEUP_GAME_SHARE } from "../lib/tableThresholds";
 import { ESTIMATED_RATING_NOTE, lineupRatingsOf, lineupsHaveRealPossessions } from "../lib/lineupRatings";
 import { LineupSearch } from "../components/LineupSearch";
@@ -99,6 +99,7 @@ import {
   matchesNewYearHalf,
   matchesOpponentWinRateTier,
   resolveOwnTeam,
+  isDefaultFilter,
   type BackToBackGame,
   type GameTeamInfo,
   type RecordBeforeGame,
@@ -194,7 +195,14 @@ import { StickyHeaderScroll } from "../components/StickyHeaderScroll";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { teamShortName } from "../../shared/teamNames";
 import { ClubPeriodRecords, SeasonPeriodAverages } from "../components/TeamPeriodRecords";
-import { cleanNumericString, formatColumnDiff, recordOfLogs, teamCompareDefs, type TeamCompareColumnData } from "../lib/compareShared";
+import {
+  cleanNumericString,
+  formatColumnDiff,
+  recordOfLogs,
+  teamCompareDefs,
+  teamTotalsFromBoxTotals,
+  type TeamCompareColumnData,
+} from "../lib/compareShared";
 import { CLASSIFICATION_COLORS } from "../lib/classificationFilter";
 import { statDescription } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
@@ -2517,6 +2525,17 @@ export function TeamDetailPage({ season }: { season: string }) {
   );
   const compareLeagueFiles = [compareLeague0.data, compareLeague1.data] as const;
 
+  // 結果だけの試合（228章）。枠のシーズンが2つあるので2つ呼ぶ（G の勝敗の横の「※」の説明用。取得に失敗しても比較は止めない）
+  const loadResultOnly = (slot: TeamCompareSlotState) =>
+    tab === "compare" && slot.season && !slot.league
+      ? fetchSchedule(slot.season)
+          .then((file) => ({ season: slot.season, entries: file.resultOnlyGames ?? [] }))
+          .catch(() => ({ season: slot.season, entries: [] as ResultOnlyGameEntry[] }))
+      : Promise.resolve(null);
+  const compareResultOnly0 = useJsonData(() => loadResultOnly(compareSlots[0]), [tab, compareSlots[0].league, compareSlots[0].season]);
+  const compareResultOnly1 = useJsonData(() => loadResultOnly(compareSlots[1]), [tab, compareSlots[1].league, compareSlots[1].season]);
+  const compareResultOnlyFiles = [compareResultOnly0.data, compareResultOnly1.data] as const;
+
   const compareRows: ComparisonRow<TeamCompareColumnData>[] = useMemo(() => {
     return ([0, 1] as const)
       .map((i): ComparisonRow<TeamCompareColumnData> | null => {
@@ -2526,7 +2545,14 @@ export function TeamDetailPage({ season }: { season: string }) {
           const totals = file && file.season === slot.season ? file.totals[compareGameType] : null;
           if (!slot.season || !file || !totals) return null;
           return {
-            item: { key: `slot${i}`, label: LEAGUE_TEAM_NAME, boxTotals: totals, gamesCount: file.games[compareGameType], isLeague: true },
+            item: {
+              key: `slot${i}`,
+              label: LEAGUE_TEAM_NAME,
+              boxTotals: totals,
+              gamesCount: file.games[compareGameType],
+              isLeague: true,
+              logTotals: { totals: teamTotalsFromBoxTotals(totals), games: 1 },
+            },
             season: slot.season,
           };
         }
@@ -2564,13 +2590,22 @@ export function TeamDetailPage({ season }: { season: string }) {
             gamesCount: entries.length,
             // G（entries＝生データのある試合）と同じ試合の勝敗
             record: recordOfLogs(filtered.filter((g) => compareRawGames.has(g.scheduleKey))),
+            // 全チームスタッツと同じ式で出す項目（FTR・OR%・ベンチ得点・登録区分別得点・得点の割合など）の元。絞り込み後の試合ログの合計
+            logTotals: { totals: sumTeamGameLogs(filtered), games: filtered.length },
+            resultOnlyNote: resultOnlyCompareNote(
+              compareResultOnlyFiles[i]?.season === slot.season ? compareResultOnlyFiles[i]!.entries : null,
+              teamId ?? "",
+              compareGameType,
+              recordOfLogs(filtered.filter((g) => compareRawGames.has(g.scheduleKey))),
+              isDefaultFilter(slot.filter),
+            ),
           },
           season: slot.season,
         };
       })
       .filter((r): r is ComparisonRow<TeamCompareColumnData> => r !== null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compareSlots, careerData, compareGameType, compareOpponentRecords, compareRawGames, compareYahooPbp, seasons, teamId, divisionHistory, compareLeague0.data, compareLeague1.data]);
+  }, [compareSlots, careerData, compareGameType, compareOpponentRecords, compareRawGames, compareYahooPbp, seasons, teamId, divisionHistory, compareLeague0.data, compareLeague1.data, compareResultOnly0.data, compareResultOnly1.data]);
 
   // 「チームスタッツ」タブの「シチュエーション別成績」（チーム版）専用の自チーム/opp/+/-トグル・Q別/前後半トグル。
   // 「ショットチャート」のQ別/前後半（teamShotChartPeriod）とは独立して持つ（旧・概要タブの選択シーズン集計表と

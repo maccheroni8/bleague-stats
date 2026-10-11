@@ -6,8 +6,25 @@
 //
 // 使い方: npm run validate:compare-table（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 
-import { defsWithAnyValue, recordOfLogs, seasonBoxCompareDefs, teamCompareDefs, type CompareColumnData, type TeamCompareColumnData } from "../src/lib/compareShared";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { gunzipSync } from "node:zlib";
+import {
+  defsWithAnyValue,
+  recordOfLogs,
+  seasonBoxCompareDefs,
+  teamCompareDefs,
+  teamTotalsFromBoxTotals,
+  type CompareColumnData,
+  type TeamCompareColumnData,
+} from "../src/lib/compareShared";
 import type { ComparisonStatDef } from "../src/pages/ComparePage";
+import { buildSeasonBoxscoreCtx, countDoubleTripleDoubles, sumPlayerGameLogs } from "../src/lib/playerSeasonBoxscore";
+import { sumTeamGameLogs } from "../src/lib/teamStatsColumns";
+import { resultOnlyCompareNote } from "../src/lib/resultOnlyGames";
+import { EMPTY_TEAM_TOTALS } from "../shared/teamSeasonTotals";
+import type { PlayerGameLog, PlayerSummary, TeamGameLog, TeamSummary } from "../shared/types";
+import type { LeagueCompareFile } from "../src/lib/leagueAverage";
 
 let failures = 0;
 function eq(label: string, actual: unknown, expected: unknown): void {
@@ -80,6 +97,160 @@ for (const tab of ["traditional", "advanced", "misc", "scoring"] as const) {
   eq(`個人 G の勝敗（${tab}）`, g.suffix?.(player({ record: { wins: 35, losses: 25 } })), "（35-25）");
   eq(`個人 G: 勝敗の無い対象には付けない（${tab}）`, g.suffix?.(player({})), undefined);
   eq(`個人 G 以外には勝敗を付けない（${tab}）`, pd.filter((d) => d.key !== "g").every((d) => d.suffix === undefined), true);
+}
+
+// --- 結果だけの試合の注記 ---
+const ro = (home: string, away: string, hs: number, as: number, gameType: "regular" | "playoff" = "regular") =>
+  ({ scheduleKey: "x", date: "2018-01-01", homeTeamId: home, homeTeamName: home, awayTeamId: away, awayTeamName: away, homeScore: hs, awayScore: as, gameType, reason: "no-boxscore" }) as never;
+const rec = { wins: 43, losses: 16 };
+eq("注記 公式の勝敗は結果だけの試合の勝敗を足す（A東京が勝った）", resultOnlyCompareNote([ro("706", "704", 67, 49)], "706", "regular", rec, true)?.includes("（44-16）"), true);
+eq("注記 負けたチームは敗を足す", resultOnlyCompareNote([ro("706", "704", 67, 49)], "704", "regular", { wins: 46, losses: 13 }, true)?.includes("（46-14）"), true);
+eq("注記 結果だけの試合が無いチーム", resultOnlyCompareNote([ro("706", "704", 67, 49)], "700", "regular", rec, true), undefined);
+eq("注記 試合種別が違う（プレーオフの枠に、レギュラーの結果だけの試合は含まれない）", resultOnlyCompareNote([ro("706", "704", 67, 49)], "706", "playoff", rec, true), undefined);
+eq("注記 合算の枠には含まれる", resultOnlyCompareNote([ro("706", "704", 67, 49)], "706", "both", rec, true) !== undefined, true);
+eq("注記 条件で絞った枠には出さない（公式の勝敗と並べられない）", resultOnlyCompareNote([ro("706", "704", 67, 49)], "706", "regular", rec, false), undefined);
+eq("注記 日程が取れていないとき", resultOnlyCompareNote(null, "706", "regular", rec, true), undefined);
+
+// --- 追加項目（実データ） ---
+const DATA = path.resolve("data");
+const readGz = <T,>(file: string): T => JSON.parse(gunzipSync(readFileSync(file)).toString("utf-8")) as T;
+const seasonsOnDisk = existsSync(DATA) ? readdirSync(DATA).filter((d) => /^\d{4}-\d{2}$/.test(d) && existsSync(path.join(DATA, d, "teams.json.gz"))).sort() : [];
+if (seasonsOnDisk.length === 0) {
+  console.log("実データ（data/）が無いので、追加項目の実データの確認は飛ばします");
+}
+
+// 公式の記録で、選手の得点の合計がチーム得点と合わない試合（選手IDの無い得点。DESIGN.md 221-4章に既知の一覧）。
+// 登録区分別・ベンチ／スタメンの合計＝PTS の確認では、これらの試合を除く（記録どおりの値のため。一覧以外で合わない試合があれば食い違いになる）
+const KNOWN_PLAYER_SUM_GAPS = new Set(["2016-17:149", "2016-17:182", "2016-17:19", "2016-17:215", "2016-17:331", "2016-17:341", "2016-17:85", "2020-21:5858"]);
+
+const NEAR = 1e-6;
+const near = (a: number, b: number) => Math.abs(a - b) <= NEAR * Math.max(1, Math.abs(a), Math.abs(b));
+let checked = 0;
+const mismatches: string[] = [];
+function expectNear(label: string, actual: number, expected: number) {
+  checked += 1;
+  if (!near(actual, expected)) mismatches.push(`${label}: 画面の値 ${actual} / 元データ ${expected}`);
+}
+
+const teamDefsFor = (tab: "advanced" | "misc" | "scoring", perspective: "own" | "opp" | "diff") => {
+  const defs = teamCompareDefs(tab, perspective, false);
+  return new Map(defs.map((d) => [d.key, d]));
+};
+const TEAM_TABS = ["advanced", "misc", "scoring"] as const;
+const itemOf = (totals: ReturnType<typeof sumTeamGameLogs>, games: number, over: Partial<TeamCompareColumnData> = {}): TeamCompareColumnData => ({
+  key: "t",
+  label: "t",
+  boxTotals: { own: {}, opp: {}, ownCtx: {}, oppCtx: {} } as unknown as TeamCompareColumnData["boxTotals"],
+  gamesCount: games,
+  logTotals: { totals, games },
+  ...over,
+});
+
+for (const season of seasonsOnDisk) {
+  const teams = readGz<TeamSummary[]>(path.join(DATA, season, "teams.json.gz"));
+  const allLogs: TeamGameLog[] = [];
+  for (const team of teams) {
+    const file = path.join(DATA, season, "team-games", `${team.teamId}.json.gz`);
+    if (!existsSync(file)) continue;
+    const logs = readGz<TeamGameLog[]>(file).filter((g) => g.gameType === "regular");
+    if (logs.length === 0) continue;
+    allLogs.push(...logs);
+    const totals = sumTeamGameLogs(logs);
+    const item = itemOf(totals, logs.length);
+    const a = team.advanced;
+    const own = teamDefsFor("advanced", "own");
+    const ownMisc = teamDefsFor("misc", "own");
+    const ownScoring = teamDefsFor("scoring", "own");
+    const oppAdv = teamDefsFor("advanced", "opp");
+    const oppMisc = teamDefsFor("misc", "opp");
+    const oppScoring = teamDefsFor("scoring", "opp");
+    const v = (m: Map<string, ComparisonStatDef<TeamCompareColumnData>>, key: string) => m.get(key)!.value(item);
+    const label = `${season} ${team.teamName}`;
+    // ①チーム詳細・全チームスタッツと同じデータの値（自チーム）
+    expectNear(`${label} FTR`, v(own, "ftr"), team.shooting.ftRate);
+    expectNear(`${label} OR%`, v(own, "orbpct"), a.orbPct);
+    expectNear(`${label} BENCH PTS`, v(ownMisc, "benchPts"), a.benchPointsPerGame);
+    expectNear(`${label} STARTER PTS`, v(ownMisc, "starterPts"), a.starterPointsPerGame);
+    expectNear(`${label} 日本人 PTS`, v(ownMisc, "japanesePts3"), a.japanesePointsPerGame);
+    expectNear(`${label} 外国籍・帰化・アジア PTS`, v(ownMisc, "internationalPts3"), a.internationalPointsPerGame);
+    expectNear(`${label} %日本人 PTS`, v(ownScoring, "pctjapanese3"), a.japanesePointsSharePct);
+    expectNear(`${label} %外国籍・帰化・アジア PTS`, v(ownScoring, "pctinternational3"), a.foreignPointsSharePct + a.naturalizedOrAsianPointsSharePct);
+    expectNear(`${label} %3P`, v(ownScoring, "pct3p"), a.threePointPointsSharePct);
+    expectNear(`${label} %PinP`, v(ownScoring, "pctpinp"), a.paintPointsSharePct);
+    expectNear(`${label} PITP%`, v(ownScoring, "pitppct"), a.paintPointsSharePct);
+    expectNear(`${label} %PoutP`, v(ownScoring, "pctpoutp"), a.midRangePointsSharePct);
+    expectNear(`${label} %FT`, v(ownScoring, "pctft"), a.ftPointsSharePct);
+    // ①opp
+    expectNear(`${label} opp FTR`, v(oppAdv, "ftr"), team.opponentShooting.ftRate);
+    expectNear(`${label} opp OR%`, v(oppAdv, "orbpct"), a.opponentOrbPct);
+    expectNear(`${label} opp BENCH PTS`, v(oppMisc, "benchPts"), a.opponentBenchPointsPerGame);
+    expectNear(`${label} opp STARTER PTS`, v(oppMisc, "starterPts"), a.opponentStarterPointsPerGame);
+    expectNear(`${label} opp 日本人 PTS`, v(oppMisc, "japanesePts3"), a.opponentJapanesePointsPerGame);
+    expectNear(`${label} opp 外国籍・帰化・アジア PTS`, v(oppMisc, "internationalPts3"), a.opponentInternationalPointsPerGame);
+    expectNear(`${label} opp %3P`, v(oppScoring, "pct3p"), a.opponentThreePointPointsSharePct);
+    expectNear(`${label} opp %PinP`, v(oppScoring, "pctpinp"), a.opponentPaintPointsSharePct);
+    expectNear(`${label} opp %PoutP`, v(oppScoring, "pctpoutp"), a.opponentMidRangePointsSharePct);
+    expectNear(`${label} opp %FT`, v(oppScoring, "pctft"), a.opponentFtPointsSharePct);
+    // ②合計（選手の得点の合計がチーム得点と合わない既知の試合を除く）
+    const clean = logs.filter((g) => !KNOWN_PLAYER_SUM_GAPS.has(`${season}:${g.scheduleKey}`));
+    const cleanItem = itemOf(sumTeamGameLogs(clean), clean.length);
+    const cv = (m: Map<string, ComparisonStatDef<TeamCompareColumnData>>, key: string) => m.get(key)!.value(cleanItem);
+    const cleanPts = sumTeamGameLogs(clean).pts / clean.length;
+    expectNear(`${label} 日本人＋外国籍等＝PTS`, cv(ownMisc, "japanesePts3") + cv(ownMisc, "internationalPts3"), cleanPts);
+    expectNear(`${label} ベンチ＋スタメン＝PTS`, cv(ownMisc, "benchPts") + cv(ownMisc, "starterPts"), cleanPts);
+    expectNear(`${label} %日本人＋%外国籍等＝100`, cv(ownScoring, "pctjapanese3") + cv(ownScoring, "pctinternational3"), 100);
+    expectNear(`${label} %ベンチ＋%スタメン＝100`, cv(ownScoring, "pctbenchpts") + cv(ownScoring, "pctstarterpts"), 100);
+  }
+
+  // ③リーグ平均（league-compare.json の平均から作る）と、全チームの試合ログの合計から出した値
+  const leagueFile = path.join(DATA, season, "league-compare.json.gz");
+  if (existsSync(leagueFile) && allLogs.length > 0) {
+    const league = readGz<LeagueCompareFile>(leagueFile).totals.regular;
+    if (league) {
+      const fromLogs = itemOf(sumTeamGameLogs(allLogs), allLogs.length);
+      const fromLeague = itemOf(teamTotalsFromBoxTotals(league), 1, { isLeague: true });
+      for (const tab of TEAM_TABS) {
+        for (const perspective of ["own", "opp"] as const) {
+          const defs = teamDefsFor(tab, perspective);
+          for (const key of ["ftr", "orbpct", "pitppct", "fbppct", "2ndptspct", "ptsofftovpct", "pctpaint2m", "pctpaint2a", "pctmid2m", "pctmid2a", "pct3p", "pctpinp", "pctpoutp", "pctft", "pctipa", "pctopa"]) {
+            const d = defs.get(key);
+            if (!d) continue;
+            // 画面に出る値（小数第1位まで）で比べる。2016-17・2020-21 は、ペイント内外の試投・成功だけ、平均の元（試合の生データ）と
+            // 試合ログの集計で 0.01pt 未満の差がある（一部の試合の区分の取り方）。画面の値は同じ
+            checked += 1;
+            if (d.format(fromLeague) !== d.format(fromLogs)) {
+              mismatches.push(`${season} リーグ平均 ${perspective} ${d.label}: 平均から ${d.format(fromLeague)} / 試合ログから ${d.format(fromLogs)}`);
+            }
+          }
+        }
+      }
+      // 試合ログにしか無い項目は、リーグ平均では「-」
+      const misc = teamDefsFor("misc", "own");
+      eq(`${season} リーグ平均の BENCH PTS は「-」`, misc.get("benchPts")!.format(fromLeague), "-");
+      eq(`${season} リーグ平均の日本人 PTS は「-」`, misc.get("japanesePts3")!.format(fromLeague), "-");
+    }
+  }
+
+  // ④個人: DD2・TD3・FTR
+  const players = readGz<PlayerSummary[]>(path.join(DATA, season, "players.json.gz"));
+  const playerDefsTrad = new Map(seasonBoxCompareDefs("traditional", false).map((d) => [d.key, d]));
+  const playerDefsAdv = new Map(seasonBoxCompareDefs("advanced", false).map((d) => [d.key, d]));
+  for (const player of players) {
+    const file = path.join(DATA, season, "player-games", `${player.playerId}.json.gz`);
+    if (!existsSync(file)) continue;
+    const logs = readGz<PlayerGameLog[]>(file).filter((g) => g.gameType === "regular" && g.min > 0);
+    if (logs.length === 0) continue;
+    const ctx = buildSeasonBoxscoreCtx(sumPlayerGameLogs(logs), EMPTY_TEAM_TOTALS, "perGame", Number(season.slice(0, 4)));
+    const row: CompareColumnData = { key: "p", label: "p", ctx, ddtd: countDoubleTripleDoubles(logs) };
+    const label = `${season} ${player.name}`;
+    expectNear(`${label} DD2`, playerDefsTrad.get("dd2")!.value(row), player.totals.doubleDoubles);
+    expectNear(`${label} TD3`, playerDefsTrad.get("td3")!.value(row), player.totals.tripleDoubles);
+    expectNear(`${label} FTR`, playerDefsAdv.get("ftr")!.value(row), player.shooting.ftRate);
+  }
+}
+if (seasonsOnDisk.length > 0) {
+  eq(`追加項目の実データ（${seasonsOnDisk.length}シーズン・${checked}件）の食い違い`, mismatches.slice(0, 12), []);
+  if (mismatches.length > 12) console.error(`  ほか ${mismatches.length - 12}件`);
 }
 
 if (failures > 0) {

@@ -7,7 +7,7 @@ import { useMediaQuery } from "../lib/useMediaQuery";
 import { surnameOf } from "../lib/playerSurname";
 import { distinctTeamColors } from "../lib/teamColorPairs";
 import { Link, useSearchParams } from "react-router-dom";
-import { fetchDivisionHistory, fetchPlayers, fetchSeasons, fetchTeamColors, fetchTeams } from "../lib/data";
+import { fetchDivisionHistory, fetchPlayers, fetchSchedule, fetchSeasons, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import type { PlayerSummary, SeasonEntry, TeamColors, TeamSummary } from "../../shared/types";
 import { ExportImageButton } from "../components/ExportImageButton";
@@ -53,6 +53,10 @@ import { statDescription, type StatScope } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { useTeamLabel } from "../lib/teamLabel";
+import { RESULT_ONLY_MARK } from "../lib/recordFormat";
+import { resultOnlyCompareNote } from "../lib/resultOnlyGames";
+import { isDefaultFilter } from "../lib/situational";
+import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
 
 type Mode = "team" | "player";
 // スロットは3つ固定（各ビューのフック呼び出しも3つ固定）
@@ -91,6 +95,8 @@ export interface ComparisonStatDef<T> {
   noHighlight?: boolean;
   /** 値の後ろに添える文字（G の「（3-3）」＝勝敗）。良い方の判定・「-」の判定には使わない（format の値だけで決める） */
   suffix?: (row: T) => string | undefined;
+  /** 値（と suffix）の後ろに「※」を付け、カーソルを合わせたとき出す説明（結果だけの試合を公式の勝敗に含むチーム・シーズン） */
+  suffixNote?: (row: T) => string | undefined;
 }
 
 // --- URLパラメータ ---
@@ -229,7 +235,14 @@ export function ComparisonTable<T>({
   const valueAlign = "align-center";
   // 比べているすべての枠で値が「-」の項目は行ごと出さない（片方にだけ値があれば残す。枠・条件を変えれば、描き直しのたびに判定し直すので戻る）
   const visibleDefs = defsWithAnyValue(defs, rows.map((r) => r.item));
+  // 値の後ろの「※」の説明（G の勝敗が公式の勝敗と違うチーム・シーズン）。ツールチップはスマホ幅で見られないので、表の下にも出す
+  // （画像として保存する範囲に含まれる）
+  const footnotes = rows.flatMap(({ item, season }) => {
+    const note = visibleDefs.map((d) => d.suffixNote?.(item)).find((n) => !!n);
+    return note ? [{ key: rowKey(item), item, season, note }] : [];
+  });
   return (
+    <>
     <div
       className={`table-scroll compare-table-scroll compare-count-${rows.length}${interleaved ? " compare-interleaved" : " compare-label-first"}`}
     >
@@ -309,6 +322,11 @@ export function ComparisonTable<T>({
                     >
                       {formatted[col]}
                       {formatted[col] !== "-" && def.suffix?.(rows[col]!.item)}
+                      {formatted[col] !== "-" && def.suffixNote?.(rows[col]!.item) ? (
+                        <span className="result-only-mark" title={def.suffixNote(rows[col]!.item)}>
+                          {RESULT_ONLY_MARK}
+                        </span>
+                      ) : null}
                     </td>
                   ),
                 )}
@@ -319,6 +337,12 @@ export function ComparisonTable<T>({
       </table>
       {visibleDefs.length === 0 && <p className="empty-message">この条件では、値のある項目がありません</p>}
     </div>
+    {footnotes.map((f) => (
+      <p key={f.key} className="result-only-note">
+        {RESULT_ONLY_MARK} {name(f.item)}（{f.season}）: {f.note}
+      </p>
+    ))}
+    </>
   );
 }
 
@@ -437,8 +461,14 @@ function TeamCompareView({
   cat,
   perspective,
   teamsBySeason,
+  resultOnlyBySeason,
   onUpdateSlot,
-}: ViewCommonProps & { perspective: TeamPerspective; teamsBySeason: Map<string, TeamSummary[] | null> | null }) {
+}: ViewCommonProps & {
+  perspective: TeamPerspective;
+  teamsBySeason: Map<string, TeamSummary[] | null> | null;
+  /** シーズンごとの結果だけの試合（228章。G の勝敗の横の「※」の説明用） */
+  resultOnlyBySeason: Map<string, ResultOnlyGameEntry[] | null> | null;
+}) {
   const teamLabel = useTeamLabel();
   const exportRef = useRef<HTMLDivElement>(null);
 
@@ -469,6 +499,10 @@ function TeamCompareView({
         boxTotals: data.boxTotals,
         gamesCount: data.gamesCount,
         record: data.record ?? undefined,
+        resultOnlyNote: isLeague
+          ? undefined
+          : resultOnlyCompareNote(resultOnlyBySeason?.get(slot.season), team.teamId, slot.gameType, data.record ?? undefined, isDefaultFilter(slot.filter)),
+        logTotals: data.logTotals,
         isLeague,
         subLabel: `${cond}（${data.gamesCount}試合）`,
       },
@@ -580,6 +614,7 @@ function PlayerCompareView({
         season: slot.season,
         ctx: data.ctx,
         record: data.record ?? undefined,
+        ddtd: data.ddtd ?? undefined,
         subLabel: `${cond}（${data.gamesCount}試合）`,
       },
       season: slot.season,
@@ -639,6 +674,15 @@ function PlayerCompareView({
   );
 }
 
+/** そのシーズンの結果だけの試合の一覧（古い日程ファイルには無いので空）。取得に失敗しても比較は止めない（説明の「※」が出ないだけ） */
+async function fetchResultOnlyGames(season: string): Promise<ResultOnlyGameEntry[]> {
+  try {
+    return (await fetchSchedule(season)).resultOnlyGames ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export function ComparePage({ season }: { season: string }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -663,6 +707,8 @@ export function ComparePage({ season }: { season: string }) {
 
   const { dataBySeason: teamsBySeason } = useSeasonKeyedData(teamSeasons, fetchTeams);
   const { dataBySeason: playersBySeason } = useSeasonKeyedData(playerSeasons, fetchPlayers);
+  // 結果だけの試合（G の勝敗の横の「※」の説明用）。チーム比較のときだけ、選んだシーズン分の日程を読む
+  const { dataBySeason: resultOnlyBySeason } = useSeasonKeyedData(mode === "team" ? teamSeasons : [], fetchResultOnlyGames);
   // 個人のデフォルト（出場率の足切り）に所属チームの試合数が要る。個人モードのときだけ取得する
   const { dataBySeason: teamsForPlayerDefaults } = useSeasonKeyedData(mode === "player" ? playerSeasons : [], fetchTeams);
 
@@ -769,6 +815,7 @@ export function ComparePage({ season }: { season: string }) {
           slots={resolvedTeamSlots}
           perspective={perspective}
           teamsBySeason={teamsBySeason}
+          resultOnlyBySeason={resultOnlyBySeason}
           onUpdateSlot={makeUpdateSlot("t", resolvedTeamSlots)}
         />
       ) : (

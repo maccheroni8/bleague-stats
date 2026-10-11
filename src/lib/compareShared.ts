@@ -6,7 +6,8 @@
 import type { BoxscoreColumn, BoxscoreTabKey, ColumnCtx } from "../components/BoxscoreTable";
 import type { ComparisonStatDef } from "../pages/ComparePage";
 import type { BoxscoreCounts } from "./boxscoreAggregate";
-import { formatSigned } from "./format";
+import { formatPct, formatSigned } from "./format";
+import { ftRate } from "../../shared/formulas";
 import {
   seasonBoxColumnsFor,
   type SeasonBoxTabKey,
@@ -14,7 +15,17 @@ import {
   type TeamGameBoxTotals,
 } from "./playerSeasonBoxscore";
 import { teamBoxscoreColumnsFor } from "./teamBoxscoreColumns";
-import type { TeamPerspective } from "./teamStatsColumns";
+import {
+  buildAdvancedColumns,
+  buildMiscColumns,
+  buildPointsShareColumns,
+  buildScoringColumns,
+  EMPTY_TOTALS,
+  type AllTeamsRow,
+  type TeamPerspective,
+  type TeamTotals,
+} from "./teamStatsColumns";
+import type { Column } from "../components/SortableTable";
 
 // 「日程結果」タブ・比較タブの+/-（差分）表示用。BoxscoreColumnはformat(単一のBoxscoreCounts)のみを
 // 持ち差分表示を想定していないため、col.value(own/opp双方の生数値)から差分を求めて
@@ -107,6 +118,65 @@ export interface TeamCompareColumnData {
   gamesCount: number;
   /** 絞り込んだ試合でのそのチームの勝敗（「G 6（3-3）」。リーグ平均は無し） */
   record?: CompareRecord;
+  /** 結果だけの試合（228章）を勝敗に含むチーム・シーズンで、G の勝敗の横の「※」に添える説明（公式の勝敗は結果だけの試合を含む旨） */
+  resultOnlyNote?: string;
+  /**
+   * 試合ログ（TeamGameLog）の合計。全チームスタッツ・チーム詳細と同じ値の項目（FTR・OR%・BENCH PTS・登録区分別得点・得点の割合など）を、
+   * 全チームスタッツと同じ列の式で出すための元（`sumTeamGameLogs`）。リーグ平均は、試合ログを持たないので平均の値から作る
+   * （`teamTotalsFromBoxTotals`。試合ログにしか無いベンチ得点・登録区分別得点は「-」）
+   */
+  logTotals?: { totals: TeamTotals; games: number } | null;
+}
+
+/**
+ * リーグ平均の1チーム1試合平均（boxTotals）を、全チームスタッツの列の式（TeamTotals）に渡せる形にする。値は1試合平均なので games は1。
+ * 試合ログにしか無い項目（ベンチ得点・スタメン得点・登録区分別得点）は0のまま（呼び出し側が「-」にする）。
+ * プレータイプ内訳（PITP・FBPS・2ND PTS・PTSOFFTO）は、ボックススコアの列と同じく ctx.ownPlayType の値
+ */
+export function teamTotalsFromBoxTotals(box: TeamGameBoxTotals): TeamTotals {
+  const side = (c: BoxscoreCounts, ctx: ColumnCtx) => ({
+    pts: c.pts,
+    fgm: c.pt2m + c.pt3m,
+    fga: c.pt2a + c.pt3a,
+    tpm: c.pt3m,
+    tpa: c.pt3a,
+    ftm: c.ftm,
+    fta: c.fta,
+    oreb: c.oreb,
+    dreb: c.dreb,
+    pt2in: ctx.ownPlayType.pt2in,
+    fb: ctx.ownPlayType.fb,
+    pt2nd: ctx.ownPlayType.pt2nd,
+    pft: ctx.ownPlayType.pft,
+    paint2m: c.paint2m,
+    paint2a: c.paint2a,
+    mid2m: c.nonPaint2m,
+    mid2a: c.nonPaint2a,
+  });
+  const own = side(box.own, box.ownCtx);
+  const opp = side(box.opp, box.oppCtx);
+  return {
+    ...EMPTY_TOTALS,
+    ...own,
+    reb: box.own.oreb + box.own.dreb,
+    oppPts: opp.pts,
+    oppFgm: opp.fgm,
+    oppFga: opp.fga,
+    oppTpm: opp.tpm,
+    oppTpa: opp.tpa,
+    oppFtm: opp.ftm,
+    oppFta: opp.fta,
+    oppOreb: opp.oreb,
+    oppDreb: opp.dreb,
+    oppPt2in: opp.pt2in,
+    oppFb: opp.fb,
+    oppPt2nd: opp.pt2nd,
+    oppPft: opp.pft,
+    oppPaint2m: opp.paint2m,
+    oppPaint2a: opp.paint2a,
+    oppMid2m: opp.mid2m,
+    oppMid2a: opp.mid2a,
+  };
 }
 
 /**
@@ -120,6 +190,7 @@ const TEAM_GAMES_DEF: ComparisonStatDef<TeamCompareColumnData> = {
   // リーグ平均はシーズン全体の試合数（見出しに「（◯試合）」で出す）で、チームの試合数と並べると紛らわしいので「-」
   format: (r) => (r.isLeague ? "-" : String(r.gamesCount)),
   suffix: (r) => (r.isLeague ? undefined : recordSuffix(r.record)),
+  suffixNote: (r) => (r.isLeague ? undefined : r.resultOnlyNote),
   higherIsBetter: true,
   noHighlight: true,
 };
@@ -191,7 +262,87 @@ export function teamCompareDefs(
     const col: BoxscoreColumn = extraValue && !raw.value ? { ...raw, value: (c) => extraValue(c) } : raw;
     return teamCompareDef(col, perspective);
   });
-  return [TEAM_GAMES_DEF, ...defs];
+  // 全チームスタッツ・チーム詳細にあって、ボックススコアの列定義には無い項目（DESIGN.md 235章）
+  const extras = teamLogTotalsDefs(tabKey, perspective, foulSplit);
+  if (tabKey === "advanced") {
+    // 全チームスタッツと同じ並び: TOV% の次に FTR・OR%
+    const at = defs.findIndex((d) => d.key === "tovpct");
+    defs.splice(at === -1 ? defs.length : at + 1, 0, ...extras);
+    return [TEAM_GAMES_DEF, ...defs];
+  }
+  return [TEAM_GAMES_DEF, ...defs, ...extras];
+}
+
+/** 試合ログにしか無い項目（リーグ平均の値は作れない） */
+const TEAM_LOG_ONLY_KEYS: ReadonlySet<string> = new Set([
+  "benchPts",
+  "starterPts",
+  "japanesePts3",
+  "internationalPts3",
+  "pctbenchpts",
+  "pctstarterpts",
+  "pctjapanese3",
+  "pctinternational3",
+]);
+/** 強調する項目（多いほど良い。相手チーム視点の向きは列が反転する）。ほかは良し悪しの無い構成・内訳なので強調しない */
+const TEAM_LOG_TOTALS_HIGHLIGHT: ReadonlySet<string> = new Set(["ftr", "orbpct"]);
+
+function teamLogTotalsDef(col: Column<AllTeamsRow>, perspective: TeamPerspective): ComparisonStatDef<TeamCompareColumnData> {
+  const rowOf = (r: TeamCompareColumnData): AllTeamsRow | null =>
+    r.logTotals
+      ? { team: { teamId: "", teamName: r.label }, gamesPlayed: r.logTotals.games, wins: 0, losses: 0, totals: r.logTotals.totals }
+      : null;
+  const unavailable = (r: TeamCompareColumnData) =>
+    !r.logTotals || (r.isLeague && (TEAM_LOG_ONLY_KEYS.has(col.key) || perspective === "diff"));
+  return {
+    key: col.key,
+    label: col.label,
+    value: (r) => (unavailable(r) ? 0 : Number(col.sortValue(rowOf(r)!))),
+    format: (r) => (unavailable(r) ? "-" : (col.format?.(rowOf(r)!) ?? String(col.sortValue(rowOf(r)!)))),
+    higherIsBetter: col.higherIsBetter ?? true,
+    noHighlight: !TEAM_LOG_TOTALS_HIGHLIGHT.has(col.key),
+  };
+}
+
+/**
+ * 全チームスタッツ（teamStatsColumns.ts の列の式）と、チーム詳細のシーズン別成績の得点の割合（%3P・%PinP・%PoutP・%FT・%IPA・%OPA）を、
+ * 試合ログの合計（logTotals）から出す。全チームスタッツと同じ式・同じデータ（TeamGameLog）なので、同じ条件なら同じ値になる。
+ * 登録区分別得点・ベンチ得点も TeamGameLog の値（選手マスタは読まない）
+ */
+function teamLogTotalsDefs(tabKey: BoxscoreTabKey, perspective: TeamPerspective, foulSplit: boolean): ComparisonStatDef<TeamCompareColumnData>[] {
+  const pick = (cols: Column<AllTeamsRow>[], keys: string[]) =>
+    keys.map((k) => cols.find((c) => c.key === k)).filter((c): c is Column<AllTeamsRow> => c !== undefined);
+  const defsOf = (cols: Column<AllTeamsRow>[]) => cols.map((c) => teamLogTotalsDef(c, perspective));
+  if (tabKey === "advanced") {
+    return defsOf(pick(buildAdvancedColumns("perGame", perspective), ["ftr", "orbpct"]));
+  }
+  const scoring = buildScoringColumns("perGame", perspective, true, true);
+  if (tabKey === "misc") {
+    return defsOf([
+      ...pick(buildMiscColumns("perGame", perspective, true, foulSplit), ["benchPts", "starterPts"]),
+      ...pick(scoring, ["japanesePts3", "internationalPts3"]),
+    ]);
+  }
+  if (tabKey === "scoring") {
+    return defsOf([
+      ...pick(scoring, [
+        "pitppct",
+        "fbppct",
+        "2ndptspct",
+        "ptsofftovpct",
+        "pctbenchpts",
+        "pctstarterpts",
+        "pctjapanese3",
+        "pctinternational3",
+        "pctpaint2m",
+        "pctpaint2a",
+        "pctmid2m",
+        "pctmid2a",
+      ]),
+      ...buildPointsShareColumns(perspective),
+    ]);
+  }
+  return [];
 }
 
 function teamCompareDef(col: BoxscoreColumn, perspective: TeamPerspective): ComparisonStatDef<TeamCompareColumnData> {
@@ -228,6 +379,8 @@ export interface CompareColumnData {
   ctx: SeasonBoxscoreCtx;
   /** 出場した試合（G の試合）での所属チームの勝敗（「G 6（3-3）」。移籍した選手は所属した各チームの試合の合計） */
   record?: CompareRecord;
+  /** 出場した試合でのダブルダブル・トリプルダブルの回数（DD2・TD3。個人詳細のシーズン別成績と同じ数え方 `countDoubleTripleDoubles`） */
+  ddtd?: { dd: number; td: number };
 }
 
 /**
@@ -240,7 +393,7 @@ export function seasonBoxCompareDefs(
   /** 比べるシーズンがすべて2026-27以降のとき true（Miscのファウルの列を TF1・TF2・FLAG・DISR にする） */
   foulSplit = false,
 ): ComparisonStatDef<CompareColumnData>[] {
-  return seasonBoxColumnsFor(tabKey, foulSplit).map((col) => ({
+  const defs: ComparisonStatDef<CompareColumnData>[] = seasonBoxColumnsFor(tabKey, foulSplit).map((col) => ({
     key: col.key,
     label: col.label,
     value: (r) => col.value(r.ctx, "perGame"),
@@ -250,4 +403,29 @@ export function seasonBoxCompareDefs(
     higherIsBetter: compareHigherIsBetter(col.key, col.higherIsBetter),
     noHighlight: COMPARE_NO_HIGHLIGHT.has(col.key),
   }));
+  // 全選手スタッツ・個人詳細にあって、シーズン別成績の列定義には無い項目（DESIGN.md 235章）
+  if (tabKey === "advanced") {
+    // 全選手スタッツと同じ並び: TS% の次に FTR（FTA / FGA。チーム詳細・全選手スタッツの FTR と同じ式 shared/formulas.ts の ftRate）
+    const ftr: ComparisonStatDef<CompareColumnData> = {
+      key: "ftr",
+      label: "FTR",
+      value: (r) => ftRate(r.ctx.raw.fta, r.ctx.raw.fga),
+      format: (r) => formatPct(ftRate(r.ctx.raw.fta, r.ctx.raw.fga)),
+      higherIsBetter: true,
+    };
+    const at = defs.findIndex((d) => d.key === "ts");
+    defs.splice(at === -1 ? defs.length : at + 1, 0, ftr);
+  }
+  if (tabKey === "traditional") {
+    // DD2・TD3: 個人詳細のシーズン別成績と同じ位置（末尾）・同じ数え方。回数のまま（平均にしない）
+    const count = (key: "dd" | "td", label: string): ComparisonStatDef<CompareColumnData> => ({
+      key: label.toLowerCase(),
+      label,
+      value: (r) => r.ddtd?.[key] ?? 0,
+      format: (r) => (r.ddtd ? String(r.ddtd[key]) : "-"),
+      higherIsBetter: true,
+    });
+    defs.push(count("dd", "DD2"), count("td", "TD3"));
+  }
+  return defs;
 }

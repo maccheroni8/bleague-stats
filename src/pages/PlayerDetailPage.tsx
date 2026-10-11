@@ -1885,6 +1885,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
           ctx: combined.ctx,
           // G（出場した試合）と同じ試合での所属チームの勝敗
           record: recordOfLogs(combined.logs),
+          // DD2・TD3（個人詳細のシーズン別成績と同じ数え方・同じ試合）
+          ddtd: countDoubleTripleDoubles(combined.logs),
         },
         season: slot.season,
       };
