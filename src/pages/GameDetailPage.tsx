@@ -13,6 +13,7 @@ import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, ShotTypeBreakdown } f
 import { KeyStatsSection } from "../components/KeyStatsSection";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
+import { orderPlayersByPlayTime } from "../lib/boxscoreOrder";
 import { ShotChartPanel } from "../components/ShotChart";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
@@ -358,6 +359,9 @@ export function GameDetailPage({ season }: { season: string }) {
 
   const homePlayers = playerRows(game.raw.HomeBoxscores);
   const awayPlayers = playerRows(game.raw.AwayBoxscores);
+  // 出場交代・ボックススコアの並び（スタメン上固定・出場時間の長い順・出場なしは末尾）。他の表は元の並びのまま
+  const homePlayersByPlayTime = orderPlayersByPlayTime(homePlayers);
+  const awayPlayersByPlayTime = orderPlayersByPlayTime(awayPlayers);
   const homeTotal = teamTotalRow(game.raw.HomeBoxscores);
   const awayTotal = teamTotalRow(game.raw.AwayBoxscores);
   const gameSummary = game.raw.Summaries.find((s) => s.PeriodCategory === 18);
@@ -449,10 +453,10 @@ export function GameDetailPage({ season }: { season: string }) {
         playTime: r.PlayTime,
         intervals: (intervalsByPlayer.get(r.PlayerID) ?? []).sort((a, b) => a.startSec - b.startSec),
       }));
-    homeStarters = toSubstitutionRows(homePlayers.filter((r) => r.StartingFlg === 1));
-    homeBench = toSubstitutionRows(homePlayers.filter((r) => r.StartingFlg !== 1));
-    awayStarters = toSubstitutionRows(awayPlayers.filter((r) => r.StartingFlg === 1));
-    awayBench = toSubstitutionRows(awayPlayers.filter((r) => r.StartingFlg !== 1));
+    homeStarters = toSubstitutionRows(homePlayersByPlayTime.filter((r) => r.StartingFlg === 1));
+    homeBench = toSubstitutionRows(homePlayersByPlayTime.filter((r) => r.StartingFlg !== 1));
+    awayStarters = toSubstitutionRows(awayPlayersByPlayTime.filter((r) => r.StartingFlg === 1));
+    awayBench = toSubstitutionRows(awayPlayersByPlayTime.filter((r) => r.StartingFlg !== 1));
   }
 
   // ラインナップ別成績（1試合単位。チーム詳細の「よく使われるラインナップ」と同じくlineupStintsを5人組ごとに積算）
@@ -659,7 +663,7 @@ export function GameDetailPage({ season }: { season: string }) {
           <>
             <ShootingBreakdownTable
               teamName={game.homeTeam.name}
-              players={homePlayers}
+              players={homePlayersByPlayTime}
               breakdownByPlayer={shotTypeBreakdownByPlayer}
               shotTypeKeys={shotTypeKeys}
               accentColor={homeColor}
@@ -667,7 +671,7 @@ export function GameDetailPage({ season }: { season: string }) {
             />
             <ShootingBreakdownTable
               teamName={game.awayTeam.name}
-              players={awayPlayers}
+              players={awayPlayersByPlayTime}
               breakdownByPlayer={shotTypeBreakdownByPlayer}
               shotTypeKeys={shotTypeKeys}
               accentColor={awayColor}

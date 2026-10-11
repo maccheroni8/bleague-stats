@@ -259,15 +259,12 @@ function TeamSubstitutionBlock({
   onSegmentHover,
   onSegmentLeave,
 }: TeamSubstitutionBlockProps) {
-  // スタメン5人を上5段に固定し、ベンチは出場時間のある選手を先に詰めて表示、
-  // DNP（出場0分）の選手を最後尾にまとめる（「スタメン」「ベンチ」ラベルは廃止し、
-  // スタメンは名前の先頭に"*"を付けて区別する）
-  const benchPlayed = bench.filter((r) => r.intervals.length > 0);
-  const benchDnp = bench.filter((r) => r.intervals.length === 0);
+  // スタメン5人を上5段に固定し、その下にベンチを並べる（「スタメン」「ベンチ」ラベルは廃止し、
+  // スタメンは名前の先頭に"*"を付けて区別する）。それぞれの並び（出場時間の長い順・出場なしは末尾）は、
+  // ボックススコアと同じ並びを呼び出し側（src/lib/boxscoreOrder.ts）が決めて渡す
   const rows: (SubstitutionRow & { isStarter: boolean })[] = [
     ...starters.map((r) => ({ ...r, isStarter: true })),
-    ...benchPlayed.map((r) => ({ ...r, isStarter: false })),
-    ...benchDnp.map((r) => ({ ...r, isStarter: false })),
+    ...bench.map((r) => ({ ...r, isStarter: false })),
   ];
   return (
     <div className="sub-bar-team">

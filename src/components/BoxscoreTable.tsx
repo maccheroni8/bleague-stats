@@ -32,6 +32,7 @@ import {
 } from "../lib/boxscoreAggregate";
 import { statDescription } from "../lib/statDescriptions";
 import { usePlayerLabel } from "../lib/playerLabel";
+import { playTimeOrderIndex } from "../lib/boxscoreOrder";
 
 export type BoxscoreTabKey = BoxCategoryKey;
 
@@ -654,11 +655,16 @@ function BoxscoreTeamPanel({
   // 一方、個人ORtg/DRtg/NetRtg（Dean Oliver方式）は選択中の期間範囲のBoxscoreCountsのみで
   // 計算できるため、期間範囲を問わず常にマージする
   const showOnCourtPace = periodOption === undefined || periodOption.periods === null;
-  const players = buildPlayerBoxscores(ownRows, periodOption, playByPlays, yahooTurnovers).map((p) => {
-    const { offRtg, defRtg, netRtg } = computeIndividualRatings(p.counts, teamTotal, oppTeamTotal, ratings.poss);
-    const onCourtPace = showOnCourtPace ? onCourtRatings[p.playerId]?.pace : undefined;
-    return { ...p, counts: { ...p.counts, offRtg, defRtg, netRtg, onCourtPace } };
-  });
+  // 選手の並びは、出場交代と同じ（スタメン上固定・出場時間の長い順・出場なしは末尾。src/lib/boxscoreOrder.ts）。
+  // Q別・前後半を選んでも、試合全体の出場時間の順のまま変えない
+  const orderIndex = playTimeOrderIndex(ownRows);
+  const players = buildPlayerBoxscores(ownRows, periodOption, playByPlays, yahooTurnovers)
+    .map((p) => {
+      const { offRtg, defRtg, netRtg } = computeIndividualRatings(p.counts, teamTotal, oppTeamTotal, ratings.poss);
+      const onCourtPace = showOnCourtPace ? onCourtRatings[p.playerId]?.pace : undefined;
+      return { ...p, counts: { ...p.counts, offRtg, defRtg, netRtg, onCourtPace } };
+    })
+    .sort((a, b) => (orderIndex.get(a.playerId) ?? 0) - (orderIndex.get(b.playerId) ?? 0));
 
   // F4（ダンク数・バスケットカウント・アンスポーツマンファウル・ディスクォリファイングファウル）は
   // BoxscoreRowに個人単位のフィールドが無く、buildTeamTotalCounts()（Category=3行ベース）では
@@ -881,7 +887,7 @@ function BoxscoreGroup({
   playerLabel: (name: string) => string;
 }) {
   if (players.length === 0) return null;
-  // DNPは各グループの下部にまとめる（出場した選手を先に見せる）。それ以外は元の並び順を保持する
+  // 並びは呼び出し側で決めてある（出場時間の長い順。出場なしは末尾）。DNPは念のため各グループの下部にまとめる
   const ordered = [...players].sort((a, b) => Number(a.dnp) - Number(b.dnp));
   return (
     <>
