@@ -588,6 +588,7 @@ export function buildTraditionalColumns(mode: SeasonDisplayMode, perspective: Te
     decimalColumn("asttov", "AST/TOV", (t) => safeDiv(t.ast, t.tov), (t) => safeDiv(t.oppAst, t.oppTov), perspective),
     countColumn("stl", "STL", (t) => t.stl, (t) => t.oppStl, mode, perspective),
     countColumn("blk", "BLK", (t) => t.blk, (t) => t.oppBlk, mode, perspective),
+    countColumn("stocks", "STOCKS", (t) => t.stl + t.blk, (t) => t.oppStl + t.oppBlk, mode, perspective),
     countColumn("f", "F", (t) => t.pf, (t) => t.oppPf, mode, perspective, { higherIsBetter: false }),
     countColumn("fd", "FD", (t) => t.fd, (t) => t.oppFd, mode, perspective),
     countColumn("plusminus", "+/-", (t) => t.pts - t.oppPts, (t) => t.oppPts - t.pts, mode, perspective, { signed: true }),

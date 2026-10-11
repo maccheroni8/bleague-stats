@@ -45,6 +45,7 @@ export const THRESHOLD_QUICK_VALUES: Record<string, QuickValue[]> = {
   ast: [{ value: 5 }, { value: 10 }, { value: 15 }],
   stl: [{ value: 3 }, { value: 5 }],
   blk: [{ value: 3 }, { value: 5 }],
+  stocks: [{ value: 5 }, { value: 8 }],
   fgm: [{ value: 10 }, { value: 15 }],
   tpm: [{ value: 3 }, { value: 5 }, { value: 7 }],
   ftm: [{ value: 10 }, { value: 15 }],

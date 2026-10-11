@@ -588,6 +588,7 @@ const CAREER_HIGH_STATS_BASE: CareerHighDef[] = [
   },
   { key: "stl", label: "STL", value: (g) => g.stl },
   { key: "blk", label: "BLK", value: (g) => g.blk },
+  { key: "stocks", label: "STOCKS", value: (g) => g.stl + g.blk },
   { key: "blockedAgainst", label: "BSR", value: (g) => g.blockedAgainst },
   { key: "pf", label: "F", value: (g) => g.pf, lowerIsBetter: true },
   { key: "foulsDrawn", label: "FD", value: (g) => g.foulsDrawn },

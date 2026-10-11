@@ -158,6 +158,15 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
     category: "basic",
   },
   {
+    key: "stocks",
+    label: "STOCKS",
+    value: (t) => t.perGame.stl + t.perGame.blk,
+    format: (t) => formatDecimal(t.perGame.stl + t.perGame.blk),
+    formulaText: "STL ＋ BLK（スティール＋ブロック）",
+    source: "custom",
+    category: "basic",
+  },
+  {
     key: "tov",
     label: "TOV",
     value: (t) => t.perGame.tov,
@@ -337,6 +346,15 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     formulaText: "ブロック（ボックススコア）",
     source: "official",
     officialAbbr: "BS",
+    category: "basic",
+  },
+  {
+    key: "stocks",
+    label: "STOCKS",
+    value: (p) => p.perGame.stl + p.perGame.blk,
+    format: (p) => formatDecimal(p.perGame.stl + p.perGame.blk),
+    formulaText: "STL ＋ BLK（スティール＋ブロック）",
+    source: "custom",
     category: "basic",
   },
   {

@@ -13067,3 +13067,30 @@ FG% 29・2P% 23・3P% 527・FT%（最小9.1%）2・eFG% 29・TS% 14に収まる�
 
 ### 230-3. 保存キー
 - 画面だけの変更。`code-files` は57のまま、全シーズンの保存キー（allKey）も変わらない
+
+## 231. STOCKS（STL＋BLK）を追加する（2026-10-11）
+
+### 231-1. 方針
+- **STOCKS ＝ STL ＋ BLK**。読むときに足して出し、**保存する列・項目は増やさない**（試合ログ・索引・ピリオド別の索引は変えない）。
+- カテゴリタブは **Traditional の BLK の右**。5タブ間で項目を重複させない規約のとおり、ほかのタブには置かない。
+- 平均・合計・30分換算は、STL と BLK を同じ換算で足した値（どれも線形なので、STL の値＋BLK の値と必ず一致する）。チームは opp 視点も（相手の STL＋BLK）。
+
+### 231-2. 出す場所
+| 場所 | 実装 |
+|---|---|
+| 個人のシーズン表（個人詳細のシーズン別・シチュエーション別・通算、全選手スタッツ、比較、ランキングのシーズン成績・前季比較、スタッツの条件） | `SEASON_TRADITIONAL_COLUMNS`（`src/lib/playerSeasonBoxscore.ts`）に列を足す。表・ランキング・比較・条件は列から自動で出る |
+| 試合のボックススコア（Traditional）・比較 | `BoxscoreTable.tsx` の `TRADITIONAL_COLUMNS` |
+| 全選手スタッツ（シーズン合計の経路）・直近成績 | `PlayersListPage.tsx` の `buildTraditionalColumns`・直近成績の列 |
+| チーム（全チームスタッツ・チーム詳細のシーズン別成績・チームのランキング） | `teamStatsColumns.ts`・`TeamDetailPage.tsx` の `TEAM_SEASON_TRADITIONAL_COLUMNS` |
+| 1試合記録（ランキング・記録タブの個人／歴代・達成記録・スタッツの条件） | `PLAYER_GAME_RECORD_STATS`（`shared/playerGameRecords.ts`）に `stocks` を足す。上位20位のファイル・歴代・記録タブ・条件・達成記録のしきい値の項目はこの一覧から作る |
+| 通算記録（個人） | `PLAYER_CAREER_TOTAL_DEFS`（`shared/playerRecords.ts`） |
+| チームの記録（シーズン・通算・1試合・相手） | `shared/teamRecords.ts` の3つの一覧 |
+| キャリアハイ（個人詳細） | `PlayerDetailPage.tsx` の項目一覧 |
+| 用語集・列の説明文 | `statDefs.ts`（個人・チーム）・`statDescriptions.ts` に「STL＋BLK（スティール＋ブロック）」 |
+| 達成記録の「すぐ選べる」値 | `THRESHOLD_QUICK_VALUES` に 5・8 |
+
+**入れなかった所**: ホーム・チーム詳細のリーダー、ゲームリーダー（ユーザー指定）、ヘッダーのスタッツタイル・レーダーチャート。
+
+### 231-3. 保存キー
+- `src/lib/playerSeasonBoxscore.ts`・`shared/playerGameRecords.ts` は保存キーの対象（`code-files`。いずれも変えると全シーズンの導出データを作り直す）。**次のデプロイで過去10シーズンすべてを作り直す**（ユーザー承認。データの中身が変わるのは、シーズンごとの上位20位のファイルに `stocks` が増えることだけ）。
+- `code-files` の数は変わらない（既存のファイルへの追記のみ）。

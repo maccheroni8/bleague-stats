@@ -142,7 +142,7 @@ function sameRows(a: Keyed[], b: Keyed[]): boolean {
 }
 const brief = (rows: Keyed[]) => JSON.stringify(sortKeyed(rows).slice(0, 4));
 
-const g1p = new Group("個人 条件なし: シーズンの上位20位のファイルと一致（全選手・登録区分別 × 試合区分 × 36項目）");
+const g1p = new Group("個人 条件なし: シーズンの上位20位のファイルと一致（全選手・登録区分別 × 試合区分 × 全項目）");
 const g1pAll = new Group("個人 条件なし: 全シーズンの上位20位のファイルと一致");
 const recordStats = playerQueryStats("record");
 for (const season of seasons) {

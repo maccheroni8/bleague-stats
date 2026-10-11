@@ -1027,6 +1027,12 @@ const TEAM_SEASON_TRADITIONAL_COLUMNS: TeamSeasonBoxColumn[] = [
     format: (r, m, mode, p) => formatTeamSeasonCountPerspective(r.team.totals.blk, m.oppBlk, r.team.gamesPlayed, mode, p),
   },
   {
+    key: "stocks",
+    label: "STOCKS",
+    format: (r, m, mode, p) =>
+      formatTeamSeasonCountPerspective(r.team.totals.stl + r.team.totals.blk, m.oppStl + m.oppBlk, r.team.gamesPlayed, mode, p),
+  },
+  {
     key: "bsr",
     label: "BSR",
     // opp視点のBSR（相手チームの被ブロック数）＝自チームのブロック数（totals.blk）。

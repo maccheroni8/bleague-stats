@@ -158,6 +158,7 @@ export const PLAYER_CAREER_TOTAL_DEFS: PlayerCareerTotalDef[] = [
   { key: "tov", label: "ターンオーバー", value: (t) => t.tov },
   { key: "stl", label: "スティール", value: (t) => t.stl },
   { key: "blk", label: "ブロックショット", value: (t) => t.blk },
+  { key: "stocks", label: "スティール＋ブロック（STOCKS）", value: (t) => t.stl + t.blk },
   { key: "pf", label: "ファウル", value: (t) => t.pf },
   { key: "foulsDrawn", label: "ファウルドローン", value: (t) => t.foulsDrawn },
   { key: "blockedAgainst", label: "被ブロック数", value: (t) => t.blockedAgainst },

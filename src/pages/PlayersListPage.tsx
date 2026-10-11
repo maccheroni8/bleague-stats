@@ -419,6 +419,7 @@ function buildTraditionalColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
     },
     countColumn("stl", "STL", (p) => p.totals.stl, mode),
     countColumn("blk", "BLK", (p) => p.totals.blk, mode),
+    countColumn("stocks", "STOCKS", (p) => p.totals.stl + p.totals.blk, mode),
     countColumn("bsr", "BSR", (p) => p.totals.blockedAgainst, mode),
     countColumn("f", "F", (p) => p.totals.pf, mode),
     countColumn("fd", "FD", (p) => p.totals.foulsDrawn, mode),
@@ -1607,6 +1608,7 @@ interface PlayerRecentFormRow {
   astAvg: number;
   stlAvg: number;
   blkAvg: number;
+  stocksAvg: number;
   tovAvg: number;
   fgPct: number;
   tpPct: number;
@@ -1724,6 +1726,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
           astAvg: safeDiv(sum((g) => g.ast), gamesPlayed),
           stlAvg: safeDiv(sum((g) => g.stl), gamesPlayed),
           blkAvg: safeDiv(sum((g) => g.blk), gamesPlayed),
+          stocksAvg: safeDiv(sum((g) => g.stl) + sum((g) => g.blk), gamesPlayed),
           tovAvg: safeDiv(sum((g) => g.tov), gamesPlayed),
           fgPct: safeDiv(fgmSum, fgaSum),
           tpPct: safeDiv(tpmSum, tpaSum),
@@ -1773,6 +1776,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
     { key: "ast", label: "AST", sortValue: (r) => r.astAvg, format: (r) => formatDecimal(r.astAvg) },
     { key: "stl", label: "STL", sortValue: (r) => r.stlAvg, format: (r) => formatDecimal(r.stlAvg) },
     { key: "blk", label: "BLK", sortValue: (r) => r.blkAvg, format: (r) => formatDecimal(r.blkAvg) },
+    { key: "stocks", label: "STOCKS", sortValue: (r) => r.stocksAvg, format: (r) => formatDecimal(r.stocksAvg) },
     { key: "tov", label: "TOV", sortValue: (r) => r.tovAvg, format: (r) => formatDecimal(r.tovAvg) },
     { key: "fgpct", label: "FG%", sortValue: (r) => r.fgPct, format: (r) => formatPct(r.fgPct) },
     { key: "3ppct", label: "3P%", sortValue: (r) => r.tpPct, format: (r) => formatPct(r.tpPct) },

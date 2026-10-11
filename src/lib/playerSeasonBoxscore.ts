@@ -717,6 +717,13 @@ export const SEASON_TRADITIONAL_COLUMNS: SeasonBoxscoreColumn[] = [
     format: (c, mode) => formatDecimal(c.scaled.blk, countDigits(mode)),
     value: (c) => c.scaled.blk,
   },
+  // STOCKS＝STL＋BLK（読むときに足す。保存する項目は増やさない。設計書231章）
+  {
+    key: "stocks",
+    label: "STOCKS",
+    format: (c, mode) => formatDecimal(c.scaled.stl + c.scaled.blk, countDigits(mode)),
+    value: (c) => c.scaled.stl + c.scaled.blk,
+  },
   {
     key: "bsr",
     label: "BSR",

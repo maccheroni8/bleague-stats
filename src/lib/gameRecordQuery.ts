@@ -177,7 +177,7 @@ const WORST_ASCENDING_KEYS = ["fgPct", "2pPct", "tpPct", "ftPct", "efgPct", "tsP
 const TOV_DEF: PlayerGameRecordDef = { key: "tov", label: "TOV", value: (g) => g.tov };
 
 /**
- * 種類ごとの項目。記録＝今の36項目（多い順）。ワースト＝成功率6つ・EFF・+/-（少ない順）と、TOV（多い順）。
+ * 種類ごとの項目。記録＝記録の全項目（PLAYER_GAME_RECORD_STATS）（多い順）。ワースト＝成功率6つ・EFF・+/-（少ない順）と、TOV（多い順）。
  * PF・UFOUL・TF は多い順でも同率が多い（PFの5は3,102試合）ので出さない
  */
 export function playerQueryStats(mode: PlayerRecordMode): PlayerQueryStat[] {

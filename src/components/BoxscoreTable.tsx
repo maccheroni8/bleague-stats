@@ -121,6 +121,7 @@ const TRADITIONAL_COLUMNS: BoxscoreColumn[] = [
   },
   { key: "stl", label: "STL", format: (c) => String(c.stl), value: (c) => c.stl },
   { key: "blk", label: "BLK", format: (c) => String(c.blk), value: (c) => c.blk },
+  { key: "stocks", label: "STOCKS", format: (c) => String(c.stl + c.blk), value: (c) => c.stl + c.blk },
   { key: "bsr", label: "BSR", format: (c) => String(c.bson), value: (c) => c.bson, higherIsBetter: false },
   { key: "f", label: "F", format: (c) => String(c.foul), value: (c) => c.foul, higherIsBetter: false },
   { key: "fd", label: "FD", format: (c) => String(c.foulon), value: (c) => c.foulon },

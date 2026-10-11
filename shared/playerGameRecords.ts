@@ -120,6 +120,8 @@ const PLAYER_GAME_RECORD_STATS_BASE: PlayerGameRecordDef[] = [
   { key: "astTov", label: "AST/TOV", value: (g) => (g.tov === 0 ? g.ast : g.ast / g.tov), kind: "ratio" },
   { key: "stl", label: "STL", value: (g) => g.stl },
   { key: "blk", label: "BLK", value: (g) => g.blk },
+  // STOCKS＝STL＋BLK（読むときに足す。保存する列は増やさない。設計書231章）
+  { key: "stocks", label: "STOCKS", value: (g) => g.stl + g.blk },
   { key: "blockedAgainst", label: "BSR", value: (g) => g.blockedAgainst },
   { key: "foulsDrawn", label: "FD", value: (g) => g.foulsDrawn },
   { key: "eff", label: "EFF", value: effOfGame },

@@ -121,7 +121,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const activeOn = allTime && activeParam === "active";
   const seasonForTitle = allTime ? null : season;
 
-  // 項目: 記録＝今の36項目、ワースト＝成功率6つ・EFF・+/-（少ない順）とTOV（多い順）。
+  // 項目: 記録＝記録の全項目（PLAYER_GAME_RECORD_STATS）、ワースト＝成功率6つ・EFF・+/-（少ない順）とTOV（多い順）。
   // 区間を選んでいる間は、ワースト（少ない順）・被アシスト率は選べない。+/- は公式のQ別・前後半の値がある2022-23以降だけ
   const stats = useMemo(
     () =>

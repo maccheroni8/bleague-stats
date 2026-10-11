@@ -74,6 +74,7 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   "AST/TOV": "AST / TOV（TOVが0のときはASTの数をそのまま使う）",
   STL: "スティール",
   BLK: "ブロック",
+  STOCKS: "スティール＋ブロック（STL＋BLK）",
   BSR: "被ブロック数（自分のシュートがブロックされた回数）",
   F: "ファウル数",
   FD: "被ファウル数（ファウルを受けた回数）",
