@@ -1031,7 +1031,8 @@ export interface StandingsTeamSnapshot {
   /**
    * 公式タイブレークルール（DESIGN.md参照）: 勝率→直接対決の勝率→直接対決の得失点差→
    * 直接対決の1試合平均得点→シーズン全体の得失点差→シーズン全体の1試合平均得点→抽選
-   * （抽選のみ実装不可のためteamId昇順で代用。scripts/aggregate.tsのrankStandingsTeams()参照）
+   * （抽選のみ実装不可のためteamId昇順で代用。shared/standingsRank.tsのrankStandingsTeams()参照）。
+   * 全クラブを1つの表に並べた参考の順位で、公式の順位ではない（公式は地区順位と、ワイルドカードの順位を出す）
    */
   rank: number;
   /** 首位とのゲーム差 */
@@ -1046,6 +1047,12 @@ export interface StandingsTeamSnapshot {
   divisionRank?: number;
   /** 地区首位とのゲーム差。divisionが不明な場合は未定義 */
   divisionGamesBehind?: number;
+  /**
+   * ワイルドカード争いのプール（各地区の自動出場圏を除いたクラブ）の中の順位（1始まり）。同率を**プールのクラブだけで**
+   * 判定し直した値で、全体順位 rank の部分集合とは並びが違うことがある（DESIGN.md 229章）。プール外のクラブ・
+   * 出場形式の無いシーズン・B.ONEは未定義。古いデータには無いので、読む側は `wildcardRank ?? rank` で並べる
+   */
+  wildcardRank?: number;
 }
 
 export interface StandingsSnapshot {

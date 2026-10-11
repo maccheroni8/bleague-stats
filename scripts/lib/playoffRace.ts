@@ -31,12 +31,13 @@ export interface RaceTeamInput {
   losses: number;
   remaining: number;
   /**
-   * 公式タイブレーク適用済みの地区順位・全体順位（standings-historyの最新スナップショット）。
+   * 公式タイブレーク適用済みの地区順位と、ワイルドカード争いのプール内の順位（standings-historyの最新スナップショット。
+   * ワイルドカードの順位は `wildcardRank ?? rank`＝プールだけで同率を判定した値、古いデータは全体順位）。
    * 全チームの残り試合が0になった（レギュラーシーズン終了）ときだけ使い、同率のクラブも
    * タイブレークの結果どおりに確定させる
    */
   divisionRank?: number;
-  overallRank?: number;
+  wildcardRank?: number;
 }
 
 /** 2026-27〜のB.PREMIERの出場形式（各地区上位3＋ワイルドカード2） */
@@ -93,7 +94,7 @@ export function computePremierRace(
   const DIVISION_TOP = format.divisionTop;
   const WILDCARD_SLOTS = format.wildcardSlots;
   const seasonComplete =
-    inputs.length > 0 && inputs.every((t) => t.remaining === 0 && t.divisionRank !== undefined && t.overallRank !== undefined);
+    inputs.length > 0 && inputs.every((t) => t.remaining === 0 && t.divisionRank !== undefined && t.wildcardRank !== undefined);
   if (seasonComplete) return { season, format: "premier-2026", asOf, teams: finalRace(inputs, format) };
 
   const teams: PlayoffRaceTeam[] = inputs.map((self) => {
@@ -157,7 +158,7 @@ function finalRace(
   const wildcards = new Set(
     inputs
       .filter((t) => !divisionTop3.has(t.teamId))
-      .sort((a, b) => a.overallRank! - b.overallRank!)
+      .sort((a, b) => a.wildcardRank! - b.wildcardRank!)
       .slice(0, WILDCARD_SLOTS)
       .map((t) => t.teamId),
   );
@@ -260,10 +261,10 @@ export function computeClinchEvents(params: {
         losses: s?.losses ?? 0,
         remaining: 0,
         divisionRank: s?.divisionRank,
-        overallRank: s?.rank,
+        wildcardRank: s?.wildcardRank ?? s?.rank,
       };
     });
-    if (inputs.every((t) => t.divisionRank !== undefined && t.overallRank !== undefined)) {
+    if (inputs.every((t) => t.divisionRank !== undefined && t.wildcardRank !== undefined)) {
       for (const t of finalRace(inputs, format)) {
         for (const type of types) {
           const key = `${t.teamId}:${type}`;

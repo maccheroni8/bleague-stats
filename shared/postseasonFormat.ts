@@ -1,9 +1,9 @@
 // シーズンごとのポストシーズン（CS／プレーオフ）出場形式（DESIGN.md 131章）。サイト内の「CS進出圏」
 // （条件別順位表）・ワイルドカード順位表・ワイルドカードの推移グラフは、すべてここから値を取る。
 //
-// 形式はどのシーズンも「各地区の上位 divisionTop クラブ＋それ以外の全体順位上位 wildcardSlots クラブ（ワイルドカード）」
-// の計8クラブ。ワイルドカードの母集団は「各地区の上位 divisionTop クラブを除いた全クラブ」で、全体順位（公式タイブレーク
-// 適用済みの rank）の良い順に選ぶ。
+// 形式はどのシーズンも「各地区の上位 divisionTop クラブ＋それ以外のワイルドカード上位 wildcardSlots クラブ」
+// の計8クラブ。ワイルドカードの母集団は「各地区の上位 divisionTop クラブを除いた全クラブ」で、その中の順位
+// （プールのクラブだけで同率を判定した wildcardRank。無い古いデータは全体順位 rank）の良い順に選ぶ（DESIGN.md 229章）。
 //
 // 裏取り（2026-09-24）: 公式の発表・要項で確認したシーズンに加え、全シーズンで「最終順位にこの形式を当てはめた8クラブ」と
 // 「実際にCS/プレーオフの試合をしたクラブ」が一致することを確認した（games-summary.json の gameType=playoff）。
@@ -47,12 +47,20 @@ export function isInWildcardPool(team: StandingsTeamSnapshot, format: Postseason
   return !!team.division && (team.divisionRank ?? Number.POSITIVE_INFINITY) > format.divisionTop;
 }
 
+/**
+ * ワイルドカード争いのプールの中の並び順に使う値。スナップショットの `wildcardRank`（プールのクラブだけで同率を
+ * 判定した順位）を使い、無い古いデータは全体順位 `rank` で代える（保存済みの古いデータが読まれても動くように）
+ */
+export function wildcardOrderRank(team: Pick<StandingsTeamSnapshot, "rank" | "wildcardRank">): number {
+  return team.wildcardRank ?? team.rank;
+}
+
 /** その日付の順位でのポストシーズン進出圏の8クラブ（各地区の上位＋ワイルドカード） */
 export function postseasonQualifiedTeamIds(teams: StandingsTeamSnapshot[], format: PostseasonFormat): Set<string> {
   const divisionQualified = teams.filter((t) => !!t.division && !isInWildcardPool(t, format));
   const wildcard = teams
     .filter((t) => isInWildcardPool(t, format))
-    .sort((a, b) => a.rank - b.rank)
+    .sort((a, b) => wildcardOrderRank(a) - wildcardOrderRank(b))
     .slice(0, format.wildcardSlots);
   return new Set([...divisionQualified, ...wildcard].map((t) => t.teamId));
 }

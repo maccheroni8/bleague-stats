@@ -47,7 +47,8 @@ import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/as
 import { buildOfficialPaintSplit, type PaintSplitCounts as OfficialPaintSplitCounts } from "../shared/paintSplit.ts";
 import { TEAM_NAMES, teamDivisionForSeason } from "./lib/divisions.ts";
 import { computeClinchEvents, computePremierRace, premierChampion, type RaceTeamInput } from "./lib/playoffRace.ts";
-import { clinchTypesForSeason, postseasonFormat } from "../shared/postseasonFormat.ts";
+import { clinchTypesForSeason, isInWildcardPool, postseasonFormat } from "../shared/postseasonFormat.ts";
+import { rankStandingsTeams, recordHeadToHeadResult, type HeadToHeadTable } from "../shared/standingsRank.ts";
 import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import { currentSeason } from "./lib/season.ts";
 import { measureOrUndefined, resolveSeasonProfile } from "../shared/seasonProfile.ts";
@@ -2136,49 +2137,6 @@ interface StandingsAccumulator {
   pointsAgainst: number;
 }
 
-interface HeadToHeadTally {
-  wins: number;
-  losses: number;
-  pointsFor: number;
-  pointsAgainst: number;
-}
-
-/** チームID→対戦相手ID→直接対決成績。シーズンを日付順に走査しながら累積する */
-type HeadToHeadTable = Map<string, Map<string, HeadToHeadTally>>;
-
-function recordHeadToHeadResult(
-  table: HeadToHeadTable,
-  teamId: string,
-  opponentId: string,
-  win: boolean,
-  pointsFor: number,
-  pointsAgainst: number,
-): void {
-  let byOpponent = table.get(teamId);
-  if (!byOpponent) {
-    byOpponent = new Map();
-    table.set(teamId, byOpponent);
-  }
-  let tally = byOpponent.get(opponentId);
-  if (!tally) {
-    tally = { wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0 };
-    byOpponent.set(opponentId, tally);
-  }
-  if (win) tally.wins += 1;
-  else tally.losses += 1;
-  tally.pointsFor += pointsFor;
-  tally.pointsAgainst += pointsAgainst;
-}
-
-interface StandingsCompareEntry {
-  teamId: string;
-  winPct: number;
-  pointDiff: number;
-  pointsFor: number;
-  wins: number;
-  losses: number;
-}
-
 /** 2026-27〜のB.PREMIERフォーマット（東西2地区・各地区上位3＋ワイルドカード2、全チーム60試合） */
 const PREMIER_2026_FIRST_SEASON = "2026-27";
 const PREMIER_2026_GAMES_PER_TEAM = 60;
@@ -2289,7 +2247,7 @@ async function buildPlayoffRace(
       losses: s?.losses ?? 0,
       remaining: remaining.get(teamId) ?? 0,
       divisionRank: s?.divisionRank,
-      overallRank: s?.rank,
+      wildcardRank: s?.wildcardRank ?? s?.rank,
     };
   });
 
@@ -2354,126 +2312,9 @@ async function buildPlayoffRace(
 }
 
 /**
- * 順位表（全体・地区内とも）が共有するタイブレーク判定。公式ルール（DESIGN.md参照）:
- * ①勝率 → ②直接対決の勝率 → ③直接対決の得失点差 → ④直接対決の1試合平均得点 →
- * ⑤シーズン全体の得失点差 → ⑥シーズン全体の1試合平均得点 → ⑦抽選。
- * ⑦のみ実装不可のため、teamId昇順の決定論的な順序で代用する。3クラブ以上の同率は、優劣が
- * ついたクラブを確定させて残りを②から判定し直す再帰方式（`resolveTiedGroupByHeadToHead`
- * 参照）。全体順位・地区内順位のどちらも必ずこの関数を経由させるため、この1箇所を直せば
- * 両方に反映される。
- */
-function rankStandingsTeams<T extends StandingsCompareEntry>(teams: T[], headToHead: HeadToHeadTable): T[] {
-  const byWinPctDesc = [...teams].sort((a, b) => b.winPct - a.winPct);
-  const result: T[] = [];
-  let i = 0;
-  while (i < byWinPctDesc.length) {
-    let j = i + 1;
-    while (j < byWinPctDesc.length && byWinPctDesc[j]!.winPct === byWinPctDesc[i]!.winPct) {
-      j += 1;
-    }
-    result.push(...resolveTiedGroupByHeadToHead(byWinPctDesc.slice(i, j), headToHead));
-    i = j;
-  }
-  return result;
-}
-
-/**
- * 勝率が同率のグループを、公式タイブレーク（2026-27 B.PREMIERリーグ戦フォーマット、
- * bleague.jp/regulation/?tab=1。DESIGN.md参照）で並べ替える:
- * (1)当該クラブ間の直接対決の勝率 → (2)当該クラブ間の得失点差 → (3)当該クラブ間の1試合平均得点 →
- * (4)シーズン全体の得失点差 → (5)シーズン全体の1試合平均得点 → (6)抽選（実装不可のため
- * teamId昇順で代用する）。
- *
- * 3クラブ以上が同率の場合は公式ルールどおり再帰的に決める: ある基準で一部のクラブと他のクラブの
- * 間に優劣がついたら、その優劣関係を確定させ、優劣がつかなかったクラブ同士（部分グループ）で
- * **(1)から**改めて判定し直す（直接対決の成績も、その部分グループ内の対戦だけで数え直す）。
- *
- * 直接対決（(1)〜(3)）は、判定対象のグループ内の全ペアが最低1試合ずつ対戦済み（総当たりが
- * 揃っている）場合のみ適用する。シーズン序盤等で一部のペアがまだ対戦していない場合、その
- * 未対戦チームを「0勝（最下位）」として扱ってしまう（未対戦と0%勝率を混同する）のを避けるため、
- * 総当たりが揃っていなければ(1)〜(3)をスキップして(4)以降で判定する（本サイト独自の扱い。
- * 公式ルールは全日程終了後の最終順位を前提としている）。
- */
-function resolveTiedGroupByHeadToHead<T extends StandingsCompareEntry>(
-  group: T[],
-  headToHead: HeadToHeadTable,
-): T[] {
-  if (group.length <= 1) return group;
-
-  const idsInGroup = new Set(group.map((t) => t.teamId));
-  const hasPlayedEveryOther = group.every((team) => {
-    const opponents = headToHead.get(team.teamId);
-    return group.every((other) => {
-      if (other.teamId === team.teamId) return true;
-      const tally = opponents?.get(other.teamId);
-      return !!tally && tally.wins + tally.losses > 0;
-    });
-  });
-
-  // (1)〜(3)は、このグループ内の対戦だけを集計する（再帰で部分グループになったら数え直す）
-  const h2h = new Map<string, { winPct: number; pointDiff: number; avgPoints: number }>();
-  if (hasPlayedEveryOther) {
-    for (const team of group) {
-      let wins = 0;
-      let losses = 0;
-      let pointsFor = 0;
-      let pointsAgainst = 0;
-      for (const [opponentId, tally] of headToHead.get(team.teamId) ?? []) {
-        if (!idsInGroup.has(opponentId)) continue;
-        wins += tally.wins;
-        losses += tally.losses;
-        pointsFor += tally.pointsFor;
-        pointsAgainst += tally.pointsAgainst;
-      }
-      h2h.set(team.teamId, {
-        winPct: safeDiv(wins, wins + losses),
-        pointDiff: pointsFor - pointsAgainst,
-        avgPoints: safeDiv(pointsFor, wins + losses),
-      });
-    }
-  }
-
-  const criteria: ((t: T) => number)[] = [
-    ...(hasPlayedEveryOther
-      ? [
-          (t: T) => h2h.get(t.teamId)!.winPct,
-          (t: T) => h2h.get(t.teamId)!.pointDiff,
-          (t: T) => h2h.get(t.teamId)!.avgPoints,
-        ]
-      : []),
-    (t: T) => t.pointDiff,
-    (t: T) => safeDiv(t.pointsFor, t.wins + t.losses),
-  ];
-
-  for (const criterion of criteria) {
-    const partitions = partitionByValueDesc(group, criterion);
-    if (partitions.length > 1) {
-      // 優劣がついた。各部分グループ（同値のクラブ同士）は(1)から判定し直す
-      return partitions.flatMap((sub) => resolveTiedGroupByHeadToHead(sub, headToHead));
-    }
-  }
-
-  // (6)抽選は実装不可のため、teamId昇順の決定論的な順序で代用する
-  return [...group].sort((a, b) => a.teamId.localeCompare(b.teamId));
-}
-
-/** 値の降順に、同値（浮動小数点の誤差は許容）のチーム同士をまとめたグループの配列にする */
-function partitionByValueDesc<T>(items: T[], valueOf: (item: T) => number): T[][] {
-  const EPSILON = 1e-9;
-  const sorted = [...items].sort((a, b) => valueOf(b) - valueOf(a));
-  const groups: T[][] = [];
-  for (const item of sorted) {
-    const last = groups[groups.length - 1];
-    if (last && Math.abs(valueOf(last[0]!) - valueOf(item)) < EPSILON) last.push(item);
-    else groups.push([item]);
-  }
-  return groups;
-}
-
-/**
  * シーズン全試合を日付順に走査し、日付ごとの各チームの累積成績スナップショットを作る。
- * 同率の順位付けは`rankStandingsTeams()`（公式タイブレークルール、DESIGN.md参照）に
- * 集約してある。全体順位・地区内順位のどちらもこの1関数を経由する。
+ * 同率の順位付けは`rankStandingsTeams()`（shared/standingsRank.ts。公式タイブレークルール、DESIGN.md参照）に
+ * 集約してある。全体順位・地区内順位・ワイルドカード順位のどれもこの1関数を経由する。
  */
 /** 順位表の計算に渡す試合（生データのある試合と、結果だけの試合の両方がこの形で渡せる） */
 type StandingsGameInput = Pick<StoredGame, "scheduleKey" | "date" | "homeTeam" | "awayTeam" | "homeScore" | "awayScore"> | ResultOnlyScore;
@@ -2545,7 +2386,10 @@ function buildStandingsHistory(
       gamesBehind: leader ? (leader.wins - t.wins + (t.losses - leader.losses)) / 2 : 0,
     }));
 
-    history.push({ date, teams: attachDivisionRanks(teams, category, divisionHistory, season, headToHead) });
+    history.push({
+      date,
+      teams: attachWildcardRanks(attachDivisionRanks(teams, category, divisionHistory, season, headToHead), category, season, headToHead),
+    });
   }
 
   return history;
@@ -2587,6 +2431,28 @@ function attachDivisionRanks(
   }
 
   return withDivision;
+}
+
+/**
+ * ワイルドカード争いのプール（各地区の自動出場圏＝地区上位 divisionTop を除いたクラブ。出場形式は
+ * shared/postseasonFormat.ts）の順位を、**プールのクラブだけで**同率を判定し直して付ける（`wildcardRank`。1始まり）。
+ * 公式は比べる対象の集合ごとにタイブレークを判定する（プールの順位は、プールのクラブ間の直接対決で決まる）ので、
+ * 全体順位（全クラブで判定）の部分集合とは、プール外のクラブを含む3クラブ以上の同率で順序が変わりうる
+ * （2025-26の群馬と琉球。DESIGN.md 229章）。B.PREMIER以外・出場形式の無いシーズン（2019-20）は付けない
+ */
+function attachWildcardRanks(
+  teams: StandingsTeamSnapshot[],
+  category: Category,
+  season: string,
+  headToHead: HeadToHeadTable,
+): StandingsTeamSnapshot[] {
+  const format = category === "premier" ? postseasonFormat(season) : null;
+  if (!format) return teams;
+  const pool = teams.filter((t) => isInWildcardPool(t, format));
+  rankStandingsTeams(pool, headToHead).forEach((t, idx) => {
+    t.wildcardRank = idx + 1;
+  });
+  return teams;
 }
 
 /**
