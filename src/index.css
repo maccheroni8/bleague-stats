@@ -1624,6 +1624,43 @@ table.quarter-table th {
   transform: translate(-50%, -50%);
 }
 
+/* 数値だけの対向行（NetRtg等、符号を持つ値）。ラベルと左右の位置は .opposed-bar-row と同じ */
+.opposed-value-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+}
+
+.opposed-value-cell-home {
+  text-align: right;
+}
+
+.opposed-value-cell-away {
+  text-align: left;
+}
+
+.opposed-value {
+  display: inline-block;
+  box-sizing: border-box;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1.5px solid;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.key-stats-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .shot-chart-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -4898,7 +4935,8 @@ table.compare-table th .compare-condition-tag {
   border-radius: 2px;
 }
 
-[data-design="v2"] .opposed-bar-value {
+[data-design="v2"] .opposed-bar-value,
+[data-design="v2"] .opposed-value {
   border-radius: 3px;
   border-width: 1px;
 }

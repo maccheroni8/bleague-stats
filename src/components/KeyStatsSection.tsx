@@ -1,11 +1,21 @@
 import type { BoxscoreRow, SummaryRow } from "../../shared/types";
-import { efgPct, estimatedPossessions, ftRate, orbPct, safeDiv } from "../../shared/formulas";
-import { OpposedBarRow } from "./OpposedBar";
+import { efgPct, ftRate, orbPct, safeDiv, tovPct } from "../../shared/formulas";
+import { buildTeamTotalCounts, computeTeamRatings } from "../lib/boxscoreAggregate";
+import { formatDecimal, formatSigned } from "../lib/format";
+import { OpposedBarRow, OpposedValueRow } from "./OpposedBar";
 import { ShootingDonut } from "./ShootingDonut";
 
 interface KeyStatsSectionProps {
   homeTotal: BoxscoreRow;
   awayTotal: BoxscoreRow;
+  /**
+   * チームの全行（Category=3 の合計行を含む）。テンポと効率（POSS・PACE・ORtg・DRtg・NetRtg）を、
+   * ボックススコアのアドバンスドの「チーム合計」行と同じ関数（computeTeamRatings）で出すために使う
+   */
+  homeRows: BoxscoreRow[];
+  awayRows: BoxscoreRow[];
+  /** 延長のある試合か（テンポと効率の注記を出す） */
+  hasOvertime: boolean;
   /** ベンチ得点算出用（Category=1・PeriodCategory=18の個人行） */
   homePlayers: BoxscoreRow[];
   awayPlayers: BoxscoreRow[];
@@ -28,39 +38,17 @@ function fgPct(row: BoxscoreRow): number {
   return safeDiv(row.PT2M + row.PT3M, row.PT2A + row.PT3A) * 100;
 }
 
-/**
- * 1試合分のポゼッション数を確定する。公式POSS値がある試合（fullティア）はそれをそのまま使う
- * （ホーム/アウェイ双方の行で同一値になることをDESIGN.mdで確認済みなのでhome側のみ見ればよい）。
- * 無い試合（POSSフィールド自体が存在しないシーズン）はscripts/aggregate.tsと同じ推定式で代替する
- */
-function gamePossessions(home: BoxscoreRow, away: BoxscoreRow): number {
-  if (home.POSS !== undefined) return home.POSS;
-  return estimatedPossessions(
-    {
-      fga: home.PT2A + home.PT3A,
-      fgm: home.PT2M + home.PT3M,
-      fta: home.FTA,
-      oreb: home.RB_OFF,
-      dreb: home.RB_DEF,
-      tov: home.TO,
-    },
-    {
-      fga: away.PT2A + away.PT3A,
-      fgm: away.PT2M + away.PT3M,
-      fta: away.FTA,
-      oreb: away.RB_OFF,
-      dreb: away.RB_DEF,
-      tov: away.TO,
-    },
-  );
-}
-
 const pct1 = (v: number) => `${v.toFixed(1)}%`;
+const dec1 = (v: number) => formatDecimal(v, 1);
+const signed1 = (v: number) => formatSigned(v, 1);
 const int0 = (v: number) => String(Math.round(v));
 
 export function KeyStatsSection({
   homeTotal,
   awayTotal,
+  homeRows,
+  awayRows,
+  hasOvertime,
   homePlayers,
   awayPlayers,
   gameSummary,
@@ -73,15 +61,26 @@ export function KeyStatsSection({
   const homeFga = homeTotal.PT2A + homeTotal.PT3A;
   const awayFga = awayTotal.PT2A + awayTotal.PT3A;
 
-  const poss = gamePossessions(homeTotal, awayTotal);
+  // テンポと効率: ボックススコアのアドバンスドの「チーム合計」行と同じ値（推定式。全シーズン共通。チーム詳細の値とも同じ）
+  const homeCounts = buildTeamTotalCounts(homeRows, undefined);
+  const awayCounts = buildTeamTotalCounts(awayRows, undefined);
+  const homeRatings = computeTeamRatings(homeCounts, awayCounts);
+  const awayRatings = computeTeamRatings(awayCounts, homeCounts);
   const homeEfg = efgPct(homeTotal.PT2M + homeTotal.PT3M, homeTotal.PT3M, homeFga) * 100;
   const awayEfg = efgPct(awayTotal.PT2M + awayTotal.PT3M, awayTotal.PT3M, awayFga) * 100;
-  const homeTovPct = safeDiv(homeTotal.TO, poss) * 100;
-  const awayTovPct = safeDiv(awayTotal.TO, poss) * 100;
+  // TOV% は標準式 TOV ÷ (FGA + 0.44×FTA + TOV)（アドバンスドの TOV% と同じ。以前は TO ÷ ポゼッションだった。設計書232章）
+  const homeTovPct = tovPct(homeTotal.TO, homeFga, homeTotal.FTA);
+  const awayTovPct = tovPct(awayTotal.TO, awayFga, awayTotal.FTA);
   const homeOrbPct = orbPct(homeTotal.RB_OFF, awayTotal.RB_DEF);
   const awayOrbPct = orbPct(awayTotal.RB_OFF, homeTotal.RB_DEF);
   const homeFtr = ftRate(homeTotal.FTA, homeFga) * 100;
   const awayFtr = ftRate(awayTotal.FTA, awayFga) * 100;
+
+  // バーの長さの基準: 長い方が100%にならない（数値ボックスがカードの外へはみ出さない）よう、最大値に余白を持たせる。
+  // POSS と PACE（ポゼッションの数）、ORtg と DRtg（100ポゼッションあたりの得点）はそれぞれ同じ基準で並べる
+  const BAR_HEADROOM = 1.3;
+  const possBarMax = Math.max(homeRatings.poss, awayRatings.poss, homeRatings.pace, awayRatings.pace, 1) * BAR_HEADROOM;
+  const ratingBarMax = Math.max(homeRatings.offRtg, awayRatings.offRtg, homeRatings.defRtg, awayRatings.defRtg, 1) * BAR_HEADROOM;
 
   const homeBench = benchPoints(homePlayers);
   const awayBench = benchPoints(awayPlayers);
@@ -135,6 +134,14 @@ export function KeyStatsSection({
         <OpposedBarRow label="AST" homeValue={homeTotal.AS} awayValue={awayTotal.AS} homeColor={home} awayColor={away} format={int0} />
         <OpposedBarRow label="STL" homeValue={homeTotal.ST} awayValue={awayTotal.ST} homeColor={home} awayColor={away} format={int0} />
         <OpposedBarRow label="BLK" homeValue={homeTotal.BS} awayValue={awayTotal.BS} homeColor={home} awayColor={away} format={int0} />
+        <OpposedBarRow
+          label="STOCKS"
+          homeValue={homeTotal.ST + homeTotal.BS}
+          awayValue={awayTotal.ST + awayTotal.BS}
+          homeColor={home}
+          awayColor={away}
+          format={int0}
+        />
         <OpposedBarRow label="TO" homeValue={homeTotal.TO} awayValue={awayTotal.TO} homeColor={home} awayColor={away} format={int0} />
         <OpposedBarRow label="PF" homeValue={homeTotal.FOUL} awayValue={awayTotal.FOUL} homeColor={home} awayColor={away} format={int0} />
       </section>
@@ -179,6 +186,16 @@ export function KeyStatsSection({
       )}
 
       <section className="key-stats-card">
+        <h3>テンポと効率</h3>
+        <OpposedBarRow label="POSS" homeValue={homeRatings.poss} awayValue={awayRatings.poss} homeColor={home} awayColor={away} format={dec1} maxValue={possBarMax} />
+        <OpposedBarRow label="PACE" homeValue={homeRatings.pace} awayValue={awayRatings.pace} homeColor={home} awayColor={away} format={dec1} maxValue={possBarMax} />
+        <OpposedBarRow label="ORtg" homeValue={homeRatings.offRtg} awayValue={awayRatings.offRtg} homeColor={home} awayColor={away} format={dec1} maxValue={ratingBarMax} />
+        <OpposedBarRow label="DRtg" homeValue={homeRatings.defRtg} awayValue={awayRatings.defRtg} homeColor={home} awayColor={away} format={dec1} maxValue={ratingBarMax} />
+        <OpposedValueRow label="NetRtg" homeValue={homeRatings.netRtg} awayValue={awayRatings.netRtg} homeColor={home} awayColor={away} format={signed1} />
+        {hasOvertime && <p className="key-stats-note">延長を含む試合です。POSS は延長分を含み、PACE は40分に換算しています。</p>}
+      </section>
+
+      <section className="key-stats-card">
         <h3>Four Factors</h3>
         <OpposedBarRow label="eFG%" homeValue={homeEfg} awayValue={awayEfg} homeColor={home} awayColor={away} format={pct1} scale="fixed100" />
         <OpposedBarRow
@@ -191,7 +208,7 @@ export function KeyStatsSection({
           scale="fixed100"
         />
         <OpposedBarRow
-          label="ORB%"
+          label="OREB%"
           homeValue={homeOrbPct}
           awayValue={awayOrbPct}
           homeColor={home}
@@ -199,7 +216,7 @@ export function KeyStatsSection({
           format={pct1}
           scale="fixed100"
         />
-        <OpposedBarRow label="FTR" homeValue={homeFtr} awayValue={awayFtr} homeColor={home} awayColor={away} format={pct1} scale="fixed100" />
+        <OpposedBarRow label="FT Rate" homeValue={homeFtr} awayValue={awayFtr} homeColor={home} awayColor={away} format={pct1} scale="fixed100" />
       </section>
     </>
   );

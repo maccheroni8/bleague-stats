@@ -784,6 +784,9 @@ export function GameDetailPage({ season }: { season: string }) {
         <KeyStatsSection
           homeTotal={homeTotal}
           awayTotal={awayTotal}
+          homeRows={game.raw.HomeBoxscores}
+          awayRows={game.raw.AwayBoxscores}
+          hasOvertime={periods > 4}
           homePlayers={homePlayers}
           awayPlayers={awayPlayers}
           gameSummary={gameSummary}
