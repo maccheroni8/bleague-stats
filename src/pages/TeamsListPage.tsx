@@ -1414,7 +1414,7 @@ function ChampionsTab() {
                 <th className="align-left">優勝チーム</th>
                 <th className="align-right">成績</th>
                 <th className="align-right" title={statDescription("PTS", "team")}>PTS</th>
-                <th className="align-right" title={statDescription("REB", "team")}>REB</th>
+                <th className="align-right" title={statDescription("TR", "team")}>TR</th>
                 <th className="align-right" title={statDescription("AST", "team")}>AST</th>
                 <th className="align-right" title={statDescription("FG%", "team")}>FG%</th>
                 <th className="align-right" title={statDescription("3P%", "team")}>3P%</th>
@@ -1624,7 +1624,7 @@ function RecentFormTab({ season }: { season: string }) {
     { key: "net", label: "平均得失点", sortValue: (r) => r.netAvg, format: (r) => formatSigned(r.netAvg) },
     { key: "ortg", label: "ORtg", sortValue: (r) => r.ortg, format: (r) => formatDecimal(r.ortg) },
     { key: "drtg", label: "DRtg", sortValue: (r) => r.drtg, format: (r) => formatDecimal(r.drtg) },
-    { key: "netrtg", label: "NETRtg", sortValue: (r) => r.netrtg, format: (r) => formatSigned(r.netrtg) },
+    { key: "netrtg", label: "NetRtg", sortValue: (r) => r.netrtg, format: (r) => formatSigned(r.netrtg) },
     {
       key: "oppWinPct",
       label: "対戦相手の加重平均勝率",

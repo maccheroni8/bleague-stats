@@ -283,7 +283,7 @@ const TILE_STAT_DEFS: PlayerStatDef[] = [
     higherIsBetter: true,
   },
   { key: "pts", label: "PTS", value: (p) => p.perGame.pts, format: (p) => formatDecimal(p.perGame.pts), higherIsBetter: true },
-  { key: "reb", label: "REB", value: (p) => p.perGame.reb, format: (p) => formatDecimal(p.perGame.reb), higherIsBetter: true },
+  { key: "reb", label: "TR", value: (p) => p.perGame.reb, format: (p) => formatDecimal(p.perGame.reb), higherIsBetter: true },
   { key: "ast", label: "AST", value: (p) => p.perGame.ast, format: (p) => formatDecimal(p.perGame.ast), higherIsBetter: true },
   { key: "stl", label: "STL", value: (p) => p.perGame.stl, format: (p) => formatDecimal(p.perGame.stl), higherIsBetter: true },
   { key: "blk", label: "BLK", value: (p) => p.perGame.blk, format: (p) => formatDecimal(p.perGame.blk), higherIsBetter: true },
@@ -2982,18 +2982,18 @@ export function PlayerDetailPage({ season }: { season: string }) {
           ) : (
             <div className="stat-grid">
               <StatTile label="PTS" value={formatDecimal(careerCountTotals.pts, 0)} />
-              <StatTile label="FG成功数" value={formatDecimal(careerCountTotals.fgm, 0)} />
-              <StatTile label="3PT成功数" value={formatDecimal(careerCountTotals.tpm, 0)} />
-              <StatTile label="2PT成功数" value={formatDecimal(careerCountTotals.twoPm, 0)} />
-              <StatTile label="FT成功数" value={formatDecimal(careerCountTotals.ftm, 0)} />
+              <StatTile label="FGM" value={formatDecimal(careerCountTotals.fgm, 0)} />
+              <StatTile label="3PM" value={formatDecimal(careerCountTotals.tpm, 0)} />
+              <StatTile label="2PM" value={formatDecimal(careerCountTotals.twoPm, 0)} />
+              <StatTile label="FTM" value={formatDecimal(careerCountTotals.ftm, 0)} />
               <StatTile label="AST" value={formatDecimal(careerCountTotals.ast, 0)} />
-              <StatTile label="REB" value={formatDecimal(careerCountTotals.reb, 0)} />
+              <StatTile label="TR" value={formatDecimal(careerCountTotals.reb, 0)} />
               <StatTile label="BLK" value={formatDecimal(careerCountTotals.blk, 0)} />
               <StatTile label="STL" value={formatDecimal(careerCountTotals.stl, 0)} />
-              <StatTile label="試合数" value={String(careerCountTotals.gamesPlayed)} />
-              <StatTile label="出場時間" value={formatMinutesFromSeconds(careerCountTotals.minSeconds)} />
-              <StatTile label="DD数" value={String(careerCountTotals.dd)} />
-              <StatTile label="TD数" value={String(careerCountTotals.td)} />
+              <StatTile label="G" value={String(careerCountTotals.gamesPlayed)} />
+              <StatTile label="MIN" value={formatMinutesFromSeconds(careerCountTotals.minSeconds)} />
+              <StatTile label="DD2" value={String(careerCountTotals.dd)} />
+              <StatTile label="TD3" value={String(careerCountTotals.td)} />
               <StatTile label="OR" value={formatDecimal(careerCountTotals.oreb, 0)} />
               <StatTile label="DR" value={formatDecimal(careerCountTotals.dreb, 0)} />
               <StatTile label="F" value={formatDecimal(careerCountTotals.pf, 0)} />

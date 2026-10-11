@@ -6,6 +6,7 @@
 // { player, team } で両方を持ち、表の側がどちらの表か（scope）を渡す。
 // チームでは意味を持たず表に出さない項目（%PTS・%FGM・%FGA・%FTM・%FTA）も、team 側に出さない理由を書く。
 import { SHOT_TYPE_LABELS } from "./shotTypeBreakdown";
+import { canonicalStatLabel, isStatAbbr, statJa } from "./statNames";
 
 export type StatScope = "player" | "team";
 
@@ -56,6 +57,7 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   出場時間: "出場時間",
   平均出場時間: "そのラインナップが使われた試合1試合あたりの出場時間（出場時間÷試合数）",
   PTS: "得点",
+  "opp PTS": "相手チームの得点",
   得点: "得点",
   失点: "相手チームの得点",
   FGM: "フィールドゴール成功数（2PM＋3PM）",
@@ -73,7 +75,6 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   OR: "オフェンスリバウンド",
   DR: "ディフェンスリバウンド",
   TR: "リバウンド（OR＋DR）",
-  REB: "リバウンド（OR＋DR）",
   AST: "アシスト",
   TOV: "ターンオーバー",
   "AST/TOV": "AST / TOV（TOVが0のときはASTの数をそのまま使う）",
@@ -81,13 +82,13 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   BLK: "ブロック",
   STOCKS: "スティール＋ブロック（STL＋BLK）",
   BSR: "被ブロック数（自分のシュートがブロックされた回数）",
-  F: "ファウル数",
+  F: "ファウルをした回数",
   FD: "被ファウル数（ファウルを受けた回数）",
   "+/-": {
     player: "出場中の自チーム得点－相手チーム得点",
     team: "自チーム得点－相手チーム得点",
   },
-  EFF: "Bリーグ公式の総合貢献度。(PTS＋AST＋BLK＋STL＋FD＋REB)－(TOV＋BSR＋F)－(FGA－FGM)－(FTA－FTM)（2020-21シーズン以降の式）",
+  EFF: "Bリーグ公式の総合貢献度。(PTS＋AST＋BLK＋STL＋FD＋TR)－(TOV＋BSR＋F)－(FGA－FGM)－(FTA－FTM)（2020-21シーズン以降の式）",
 
   // --- Advanced ---
   "USG%": "自分が関与したプレー（FGA・FTA・TOV）の、出場中のチーム全体に占める割合。100 × ((FGA＋0.44×FTA＋TOV)×(チームMIN/5)) / (MIN×(チームFGA＋0.44×チームFTA＋チームTOV))",
@@ -95,6 +96,8 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   "eFG%": "(FGM＋0.5×3PM) / FGA",
   "TS%": "PTS / (2 × (FGA＋0.44×FTA))",
   PPS: "PTS / FGA",
+  PPP: "1ポゼッションあたりの得点。個人ORtg ÷ 100",
+  PER: "Hollinger方式の総合指標（NBA/Basketball-Reference流）。リーグ平均が15になるように調整した値",
   POSS: "推定ポゼッション数（Bリーグ公式の式）。自チーム・相手チームの両方の視点から推定した値の平均。チーム単位の値",
   PACE: {
     player: "40分あたりのポゼッション数。選手はその選手が出場している間の値（2022-23シーズン以降のみ）",
@@ -109,7 +112,6 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
     team: "100 × 相手PTS / POSS（100ポゼッションあたりの失点）",
   },
   NetRtg: "ORtg－DRtg",
-  NETRtg: "ORtg－DRtg",
   ラインナップORtg: "この5人が同時に出場している間の、100ポゼッションあたりの得点（実際のポゼッション数で計算）",
   ラインナップDRtg: "この5人が同時に出場している間の、100ポゼッションあたりの失点（実際のポゼッション数で計算）",
   ラインナップNetRtg: "ORtg－DRtg",
@@ -304,20 +306,30 @@ const SHOT_TYPE_BY_LABEL = new Map(Object.entries(SHOT_TYPE_LABELS).map(([ja, en
 
 /**
  * 項目名の説明。scope はチームの表か選手の表か（チームと選手で意味が違う項目だけ使い分ける）。辞書に無い項目名は undefined
- * （title 属性に渡すと属性自体が付かない）
+ * （title 属性に渡すと属性自体が付かない）。略称の項目は先頭に「日本語名（略称）：」を付ける（名前の定義は statNames.ts）。
+ * 旧い別表記（REB・NETRtg 等）は略称に読み替えて引く
  */
 export function statDescription(label: string, scope: StatScope = "player"): string | undefined {
+  const abbr = canonicalStatLabel(label);
+  const body = statDescriptionBody(abbr, scope);
+  if (body === undefined || !isStatAbbr(abbr)) return body;
+  const ja = statJa(abbr, scope);
+  // 説明が日本語名の言い換えだけのとき（「2P成功数」＝「2ポイント成功数」等）は、名前だけにする
+  return body === ja || body === ja.replace(/ポイント/g, "P") ? `${ja}（${abbr}）` : `${ja}（${abbr}）：${body}`;
+}
+
+function statDescriptionBody(label: string, scope: StatScope): string | undefined {
   const entry = STAT_DESCRIPTIONS[label];
   if (entry !== undefined) return typeof entry === "string" ? entry : entry[scope];
   // 歴代記録のクォーター別レコードの項目（「1Q 最多得点」等）
   const period = /^(1Q|2Q|3Q|4Q|前半|後半) (.+)$/.exec(label);
   const periodEntry = period && STAT_DESCRIPTIONS[period[2]!];
   if (period && typeof periodEntry === "string") return periodEntry.replace("その区間", period[1]!);
-  // Shootingタブのシュート種別（「Jump Shot」「Jump Shot 2PM」等）
+  // Shootingタブのシュート種別（「Jump Shot」「Jump Shot 2PM」）
   const m = /^(.+?)(?: (2PM|2PA|2P%|3PM|3PA|3P%))?$/.exec(label);
   const shotType = m && SHOT_TYPE_BY_LABEL.get(m[1]!);
   if (shotType) {
-    return m[2] ? `シュート種別「${shotType}」の${statDescription(m[2]) ?? m[2]}` : `シュート種別「${shotType}」（公式記録の分類）`;
+    return m[2] ? `シュート種別「${shotType}」の${statDescriptionBody(m[2], scope) ?? m[2]}` : `シュート種別「${shotType}」（公式記録の分類）`;
   }
   return undefined;
 }

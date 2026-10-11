@@ -145,6 +145,7 @@ import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { PLAYER_COUNT_ITEMS, careerRecordRankingUrl } from "../components/CareerRecordRanking";
 import { fetchLeaguePlayerCareerTop } from "../lib/data";
 import { LeaguePlayerGameRecords } from "../components/LeaguePlayerGameRecords";
+import { statJa } from "../lib/statNames";
 
 // 「個人」ページ。「全選手スタッツ」タブ（チーム版の「全チームスタッツ」と同じ考え方）・
 // 「歴代記録」タブ（チーム版の「歴代記録」から通算成績部分のみ、ユーザー依頼2026-09-04）・
@@ -1315,7 +1316,7 @@ function LeaguePlayerCareerRecords({ categoryAxis }: { categoryAxis: FilterAxis 
             {cards.map(({ def, first, info, others }) => (
               <CareerLeaderCard
                 key={def.key}
-                label={def.label}
+                label={statJa(def.label)}
                 valueText={formatLeaguePlayerRecordValue(def.key, first.value)}
                 name={<ResponsivePlayerName name={info.name} />}
                 sub={
@@ -1772,7 +1773,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
       format: (r) => formatMinutesFromSeconds(Math.round(r.minAvg * 60)),
     },
     { key: "pts", label: "PTS", sortValue: (r) => r.ptsAvg, format: (r) => formatDecimal(r.ptsAvg) },
-    { key: "reb", label: "REB", sortValue: (r) => r.rebAvg, format: (r) => formatDecimal(r.rebAvg) },
+    { key: "reb", label: "TR", sortValue: (r) => r.rebAvg, format: (r) => formatDecimal(r.rebAvg) },
     { key: "ast", label: "AST", sortValue: (r) => r.astAvg, format: (r) => formatDecimal(r.astAvg) },
     { key: "stl", label: "STL", sortValue: (r) => r.stlAvg, format: (r) => formatDecimal(r.stlAvg) },
     { key: "blk", label: "BLK", sortValue: (r) => r.blkAvg, format: (r) => formatDecimal(r.blkAvg) },

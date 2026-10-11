@@ -76,7 +76,7 @@ export function filterPlayersByGamesPlayedRatio<T extends { teamId: string; game
 export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
   {
     key: "pts",
-    label: "得点",
+    label: "PTS",
     value: (t) => t.perGame.pts,
     format: (t) => formatDecimal(t.perGame.pts),
     formulaText: "得点（ボックススコア）",
@@ -86,7 +86,7 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
   },
   {
     key: "net",
-    label: "Net",
+    label: "+/-",
     value: (t) => t.netPerGame.pts,
     format: (t) => formatSigned(t.netPerGame.pts),
     // Bリーグ公式の「+/-」は個人単位の指標（出場時間帯のチーム得失点差、オンコート追跡が必要）で
@@ -119,10 +119,10 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
   },
   {
     key: "reb",
-    label: "REB",
+    label: "TR",
     value: (t) => t.perGame.reb,
     format: (t) => formatDecimal(t.perGame.reb),
-    formulaText: "OREB + DREB",
+    formulaText: "OR + DR",
     source: "official",
     officialAbbr: "TR",
     category: "rebounding",
@@ -231,7 +231,7 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
     label: "EFF",
     value: (t) => t.advanced.eff,
     format: (t) => formatDecimal(t.advanced.eff),
-    formulaText: "(PTS+AST+BLK+STL+FD+REB) − (TOV+BSR+PF) − (FGA−FGM) − (FTA−FTM)　※2020-21シーズン以降の式",
+    formulaText: "(PTS+AST+BLK+STL+FD+TR) − (TOV+BSR+F) − (FGA−FGM) − (FTA−FTM)　※2020-21シーズン以降の式",
     source: "official",
     officialAbbr: "EFF",
     category: "rating",
@@ -247,10 +247,10 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
   },
   {
     key: "orbPct",
-    label: "ORB%",
+    label: "OR%",
     value: (t) => t.advanced.orbPct,
     format: (t) => formatPct100(t.advanced.orbPct),
-    formulaText: "100 × 自チームOREB / (自チームOREB + 相手DREB)",
+    formulaText: "100 × 自チームOR / (自チームOR + 相手DR)",
     source: "nba",
     category: "rebounding",
   },
@@ -290,7 +290,7 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
     label: "NetRtg",
     value: (t) => t.advanced.netRtg,
     format: (t) => formatSigned(t.advanced.netRtg),
-    formulaText: "OFFRTG − DEFRTG",
+    formulaText: "ORtg − DRtg",
     source: "official",
     officialAbbr: "NETRTG",
     category: "rating",
@@ -300,7 +300,7 @@ export const TEAM_STAT_DEFS: StatDef<TeamSummary>[] = [
 export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
   {
     key: "pts",
-    label: "得点",
+    label: "PTS",
     value: (p) => p.perGame.pts,
     format: (p) => formatDecimal(p.perGame.pts),
     formulaText: "得点（ボックススコア）",
@@ -310,10 +310,10 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
   },
   {
     key: "reb",
-    label: "REB",
+    label: "TR",
     value: (p) => p.perGame.reb,
     format: (p) => formatDecimal(p.perGame.reb),
-    formulaText: "OREB + DREB",
+    formulaText: "OR + DR",
     source: "official",
     officialAbbr: "TR",
     category: "rebounding",
@@ -441,7 +441,7 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     label: "EFF",
     value: (p) => p.advanced.eff,
     format: (p) => formatDecimal(p.advanced.eff),
-    formulaText: "(PTS+AST+BLK+STL+FD+REB) − (TOV+BSR+PF) − (FGA−FGM) − (FTA−FTM)　※2020-21シーズン以降の式",
+    formulaText: "(PTS+AST+BLK+STL+FD+TR) − (TOV+BSR+F) − (FGA−FGM) − (FTA−FTM)　※2020-21シーズン以降の式",
     source: "official",
     officialAbbr: "EFF",
     category: "rating",
@@ -457,7 +457,7 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
   },
   {
     key: "usagePct",
-    label: "Usage%",
+    label: "USG%",
     value: (p) => p.advanced.usagePct,
     format: (p) => formatPct100(p.advanced.usagePct),
     formulaText: "100 × ((FGA+0.44×FTA+TOV)×(チームMIN/5)) / (MIN×(チームFGA+0.44×チームFTA+チームTOV))",
@@ -528,9 +528,9 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
 ];
 
 /**
- * スタッツリーダー（ホーム・チーム詳細のチーム内リーダー）のカード見出し。得点だけ他のカテゴリ略称
- * （REB・AST等）に揃えて「PTS」にする（StatDefのlabelは用語集・ランキング等で共通のため「得点」のまま）
+ * スタッツリーダー（ホーム・チーム詳細のチーム内リーダー）のカード見出し。略称（label）をそのまま使う
+ * （以前は得点だけ label が「得点」だったため「PTS」に替えていた。項目名は statNames.ts の略称にそろえた）
  */
 export function leaderStatLabel(def: { key: string; label: string }): string {
-  return def.key === "pts" ? "PTS" : def.label;
+  return def.label;
 }

@@ -32,6 +32,7 @@ import {
   type SeasonGameTypeFilter,
 } from "./playerSeasonBoxscore";
 import { TEAM_PERSPECTIVE_LABELS, type TeamPerspective } from "./teamStatsColumns";
+import { statJa, type StatNameScope } from "./statNames";
 
 export interface FilterAxisOption {
   value: string;
@@ -370,13 +371,16 @@ export function statItemAxis(
   items: { key: string; label: string; group?: string; disabled?: boolean; disabledReason?: string }[],
   value: string,
   onChange: (key: string) => void,
+  /** 項目名の意味がチームと選手で違う項目（+/-・%3PM 等）の日本語名の引き方 */
+  scope: StatNameScope = "player",
 ): FilterAxis {
   const selected = items.some((i) => i.key === value) ? value : (items[0]?.key ?? "");
   return {
     ...simpleSelectAxis({
       id: "statItem",
       label: "スタッツ項目",
-      options: items.map((i) => ({ value: i.key, label: i.label, group: i.group, disabled: i.disabled, disabledReason: i.disabledReason })),
+      // 項目の選択には日本語名を出す（表の見出しは略称のまま。名前の定義は statNames.ts）
+      options: items.map((i) => ({ value: i.key, label: statJa(i.label, scope), group: i.group, disabled: i.disabled, disabledReason: i.disabledReason })),
       value: selected,
       defaultValue: selected,
       onChange,

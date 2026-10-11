@@ -10,6 +10,7 @@ import {
   type StatMeta,
   type StatSource,
 } from "../lib/statDefs";
+import { statGlossaryTitle } from "../lib/statNames";
 
 const SOURCE_LABELS: Record<StatSource, string> = {
   official: "Bリーグ公式",
@@ -92,8 +93,9 @@ export function GlossaryPage() {
                   {rows.map((row) => (
                     <tr key={row.key}>
                       <td className="align-left">
-                        {row.label}
-                        {row.officialAbbr && <span className="glossary-abbr">{row.officialAbbr}</span>}
+                        {/* 日本語名（略称）。Bリーグ公式の略称が表の略称と違う項目（AST の公式略称 AS 等）だけ、公式の略称を添える */}
+                        {statGlossaryTitle(row.label, row.appliesTo.length === 1 && row.appliesTo[0] === "チーム" ? "team" : "player")}
+                        {row.officialAbbr && row.officialAbbr !== row.label && <span className="glossary-abbr">{row.officialAbbr}</span>}
                       </td>
                       <td className="align-left glossary-formula">{row.formulaText}</td>
                       <td className="align-left">{row.appliesTo.join(" / ")}</td>

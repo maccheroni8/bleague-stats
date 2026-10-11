@@ -497,7 +497,7 @@ function playerConditionItem(def: PlayerGameRecordDef): StatConditionItem<Indexe
 const PLAYER_CONDITION_DEFS: PlayerGameRecordDef[] = [
   ...PLAYER_GAME_RECORD_STATS,
   TOV_DEF,
-  { key: "pf", label: "PF", value: (g) => g.pf },
+  { key: "pf", label: "F", value: (g) => g.pf },
 ];
 
 /** 個人の1試合記録のスタッツの条件に選べる項目（記録の項目＋TOV・PF） */

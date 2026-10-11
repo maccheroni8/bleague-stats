@@ -20,6 +20,7 @@ import { ExportImageButton } from "./ExportImageButton";
 import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
+import { statJa } from "../lib/statNames";
 import { RankedList } from "./RankedList";
 import { ResponsivePlayerName } from "./ResponsivePlayerName";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
@@ -88,9 +89,9 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
   const conditions = countDef
     ? [...classLabels, "各選手の最新の累計"]
     : composeLabels(classLabels, leagueVenueLabels(venue), gameTypeLabels(gameType, null));
-  const title = `歴代 個人通算記録：${def.label}`;
+  const title = `歴代 個人通算記録：${statJa(def.label)}`;
   const countDisabled = "回数・在籍の項目は、会場・試合区分を選べません。";
-  const filename = buildExportFilename(["個人通算記録", "歴代", def.label, ...conditions]);
+  const filename = buildExportFilename(["個人通算記録", "歴代", statJa(def.label), ...conditions]);
 
   return (
     <>
@@ -173,8 +174,8 @@ export function TeamCareerRecordRanking({ teamColors }: { teamColors: Record<str
   }, [rankings, venue, gameType, def.key]);
 
   const conditions = composeLabels(leagueVenueLabels(venue), gameTypeLabels(gameType, null));
-  const title = `歴代 チーム通算記録：${def.label}`;
-  const filename = buildExportFilename(["チーム通算記録", "歴代", def.label, ...conditions]);
+  const title = `歴代 チーム通算記録：${statJa(def.label, "team")}`;
+  const filename = buildExportFilename(["チーム通算記録", "歴代", statJa(def.label, "team"), ...conditions]);
 
   return (
     <>

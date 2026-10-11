@@ -31,6 +31,7 @@ import {
   type LineupSide,
   type LineupUnit,
 } from "../lib/lineupRanking";
+import { statJa } from "../lib/statNames";
 import { LINEUP_METRIC_PARAM, LINEUP_PERIOD_PARAM, LINEUP_RANGE_PARAM, LINEUP_UNIT_PARAM, lineupShareParam } from "../lib/lineupParams";
 import { buildPeriodRangeOptions } from "../lib/periodRange";
 import { ROOKIE_NOTE } from "../lib/rookieFilter";
@@ -192,9 +193,11 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   );
   const scopeText = allTime ? `通算（${seasons?.[0] ?? "2020-21"}以降）` : `${season}シーズン`;
   const metricLabel = LINEUP_METRIC_LABELS[metric];
-  const unitText = unit === "onoff" ? `On/Off ${metricLabel}差（On−Off）` : `${LINEUP_UNIT_LABELS[unit]}の組み合わせ ${metricLabel}`;
+  // タイトル・ファイル名には日本語名（表の見出しは略称のまま）
+  const metricJa = statJa(metricLabel);
+  const unitText = unit === "onoff" ? `On/Off ${metricJa}差（On−Off）` : `${LINEUP_UNIT_LABELS[unit]}の組み合わせ ${metricJa}`;
   const title = `${scopeText} ${unitText}`;
-  const filename = buildExportFilename(["On/Off・組み合わせ", LINEUP_UNIT_LABELS[unit], metricLabel, allTime ? "通算" : season, ...conditionLabels]);
+  const filename = buildExportFilename(["On/Off・組み合わせ", LINEUP_UNIT_LABELS[unit], metricJa, allTime ? "通算" : season, ...conditionLabels]);
   const failure = lineup.error ?? careerError ?? rookies.error ?? active.error ?? current.error;
 
   const shareRange = LINEUP_SHARE_RANGE[unit];
@@ -278,7 +281,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
             ...simpleSelectAxis({
               id: "lineupMetric",
               label: "指標",
-              options: LINEUP_METRICS.map((m) => ({ value: m, label: LINEUP_METRIC_LABELS[m] })),
+              options: LINEUP_METRICS.map((m) => ({ value: m, label: statJa(LINEUP_METRIC_LABELS[m]) })),
               value: metric,
               defaultValue: "net",
               onChange: (v) => setMetric(v as typeof metric),

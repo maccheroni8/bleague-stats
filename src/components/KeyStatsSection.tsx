@@ -129,9 +129,9 @@ export function KeyStatsSection({
       <section className="key-stats-card">
         <h3>ボリューム系</h3>
         <OpposedBarRow label="PTS" homeValue={homeTotal.Point} awayValue={awayTotal.Point} homeColor={home} awayColor={away} format={int0} />
-        <OpposedBarRow label="REB" homeValue={homeTotal.RB_TOT} awayValue={awayTotal.RB_TOT} homeColor={home} awayColor={away} format={int0} />
-        <OpposedBarRow label="OREB" homeValue={homeTotal.RB_OFF} awayValue={awayTotal.RB_OFF} homeColor={home} awayColor={away} format={int0} />
-        <OpposedBarRow label="DREB" homeValue={homeTotal.RB_DEF} awayValue={awayTotal.RB_DEF} homeColor={home} awayColor={away} format={int0} />
+        <OpposedBarRow label="TR" homeValue={homeTotal.RB_TOT} awayValue={awayTotal.RB_TOT} homeColor={home} awayColor={away} format={int0} />
+        <OpposedBarRow label="OR" homeValue={homeTotal.RB_OFF} awayValue={awayTotal.RB_OFF} homeColor={home} awayColor={away} format={int0} />
+        <OpposedBarRow label="DR" homeValue={homeTotal.RB_DEF} awayValue={awayTotal.RB_DEF} homeColor={home} awayColor={away} format={int0} />
         <OpposedBarRow label="AST" homeValue={homeTotal.AS} awayValue={awayTotal.AS} homeColor={home} awayColor={away} format={int0} />
         <OpposedBarRow label="STL" homeValue={homeTotal.ST} awayValue={awayTotal.ST} homeColor={home} awayColor={away} format={int0} />
         <OpposedBarRow label="BLK" homeValue={homeTotal.BS} awayValue={awayTotal.BS} homeColor={home} awayColor={away} format={int0} />
@@ -143,15 +143,15 @@ export function KeyStatsSection({
           awayColor={away}
           format={int0}
         />
-        <OpposedBarRow label="TO" homeValue={homeTotal.TO} awayValue={awayTotal.TO} homeColor={home} awayColor={away} format={int0} />
-        <OpposedBarRow label="PF" homeValue={homeTotal.FOUL} awayValue={awayTotal.FOUL} homeColor={home} awayColor={away} format={int0} />
+        <OpposedBarRow label="TOV" homeValue={homeTotal.TO} awayValue={awayTotal.TO} homeColor={home} awayColor={away} format={int0} />
+        <OpposedBarRow label="F" homeValue={homeTotal.FOUL} awayValue={awayTotal.FOUL} homeColor={home} awayColor={away} format={int0} />
       </section>
 
       {gameSummary && (
         <section className="key-stats-card">
           <h3>プレータイプ内訳</h3>
           <OpposedBarRow
-            label="Points off TO"
+            label="PTSOFFTO"
             homeValue={gameSummary.HomeTeamPTPFT}
             awayValue={gameSummary.AwayTeamPTPFT}
             homeColor={home}
@@ -159,7 +159,7 @@ export function KeyStatsSection({
             format={int0}
           />
           <OpposedBarRow
-            label="Fastbreak Pts"
+            label="FBPS"
             homeValue={gameSummary.HomeTeamPTFB}
             awayValue={gameSummary.AwayTeamPTFB}
             homeColor={home}
@@ -167,7 +167,7 @@ export function KeyStatsSection({
             format={int0}
           />
           <OpposedBarRow
-            label="2nd Chance Pts"
+            label="2ND PTS"
             homeValue={gameSummary.HomeTeamPT2ND}
             awayValue={gameSummary.AwayTeamPT2ND}
             homeColor={home}
@@ -175,14 +175,14 @@ export function KeyStatsSection({
             format={int0}
           />
           <OpposedBarRow
-            label="Points in Paint"
+            label="PITP"
             homeValue={gameSummary.HomeTeamPT2IN}
             awayValue={gameSummary.AwayTeamPT2IN}
             homeColor={home}
             awayColor={away}
             format={int0}
           />
-          <OpposedBarRow label="Bench Pts" homeValue={homeBench} awayValue={awayBench} homeColor={home} awayColor={away} format={int0} />
+          <OpposedBarRow label="BENCH PTS" homeValue={homeBench} awayValue={awayBench} homeColor={home} awayColor={away} format={int0} />
         </section>
       )}
 
@@ -223,7 +223,7 @@ export function KeyStatsSection({
           scale="fixed100"
         />
         <OpposedBarRow
-          label="OREB%"
+          label="OR%"
           homeValue={homeOrbPct}
           awayValue={awayOrbPct}
           homeColor={home}
@@ -231,7 +231,7 @@ export function KeyStatsSection({
           format={pct1}
           scale="fixed100"
         />
-        <OpposedBarRow label="FT Rate" homeValue={homeFtr} awayValue={awayFtr} homeColor={home} awayColor={away} format={pct1} scale="fixed100" />
+        <OpposedBarRow label="FTR" homeValue={homeFtr} awayValue={awayFtr} homeColor={home} awayColor={away} format={pct1} scale="fixed100" />
       </section>
     </>
   );

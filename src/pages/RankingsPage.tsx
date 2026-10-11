@@ -33,6 +33,7 @@ import {
   statItemAxis,
   type FilterAxis,
 } from "../lib/filterAxes";
+import { statJa } from "../lib/statNames";
 import type { SituationalFilter } from "../lib/situational";
 import { SEASON_BOX_PERIOD_OPTIONS, SEASON_BOX_TABS } from "../lib/playerSeasonBoxscore";
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeLabel } from "../lib/shotTypeBreakdown";
@@ -416,7 +417,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const teamBoxscoreTitle = makeRankingTitle(
     "チーム",
     season,
-    teamDef?.label ?? "",
+    statJa(teamDef?.label ?? "", "team"),
     composeLabels(
       boxscoreCategoryLabel,
       compareActive && COMPARE_LABEL,
@@ -430,13 +431,13 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const teamShootingTitle = makeRankingTitle(
     "チーム",
     season,
-    shootingDef?.label ?? "",
+    statJa(shootingDef?.label ?? "", "team"),
     composeLabels(CATEGORY_LABELS.shooting, compareActive && COMPARE_LABEL, displayModeLabels(displayMode), SEASON_TOTAL_ONLY_LABELS),
   );
   const teamForcedTurnoverTitle = makeRankingTitle(
     "チーム",
     season,
-    forcedTurnoverDef.label,
+    statJa(forcedTurnoverDef.label, "team"),
     composeLabels(CATEGORY_LABELS.forcedTurnovers, compareActive && COMPARE_LABEL, TURNOVER_DIRECTION_LABELS[turnoverDirection], SEASON_TOTAL_ONLY_LABELS),
   );
 
@@ -533,6 +534,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
                 : columns,
             statKey,
             setStatKey,
+            "team",
           ),
         ]}
         stateKey="rankings:team:stat"
@@ -827,7 +829,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const playerTitle = makeRankingTitle(
     "個人",
     season,
-    selectedItem.label,
+    statJa(selectedItem.label),
     composeLabels(
       playerCategoryLabel,
       compareActive && COMPARE_LABEL,
@@ -916,10 +918,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       disabledReason: modeApplies
         ? undefined
         : ddtdPeriodOff
-          ? DDTD_PERIOD_REASON(selectedItem.label)
+          ? DDTD_PERIOD_REASON(statJa(selectedItem.label))
           : category === "profile" || category === "career"
           ? "このカテゴリは平均/合計の切り替えの対象外です。"
-          : `「${selectedItem.label}」は割合・率（または試合数）の項目のため、平均/合計の切り替えの対象外です。`,
+          : `「${statJa(selectedItem.label)}」は割合・率（または試合数）の項目のため、平均/合計の切り替えの対象外です。`,
     }),
     periodAxis(period, setPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: playerFilterDisabledReason }),
     ...situationalAxes(filter, setFilter, {
@@ -993,7 +995,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               ? shootingStatItems(currentItems)
               : currentItems.map((i) =>
                   effPeriodActive && (i.key === "dd2" || i.key === "td3")
-                    ? { ...i, label: `${i.label}（Q別・前後半は対象外）`, disabled: true }
+                    ? { ...i, label: `${statJa(i.label)}（Q別・前後半は対象外）`, disabled: true }
                     : i,
                 ),
             statKey,
@@ -1013,7 +1015,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         </p>
         {(needsGameLogRecompute || periodActive) && ["eff", "per", "ppp"].includes(selectedItem.key) && (
           <p className="page-subtitle">
-            「{selectedItem.label}」はシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}選択・Q別/前後半トグルの対象外のため、シーズン合計の値をそのまま表示しています
+            「{statJa(selectedItem.label)}」はシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}選択・Q別/前後半トグルの対象外のため、シーズン合計の値をそのまま表示しています
           </p>
         )}
       </div>
@@ -1027,7 +1029,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       ) : waitingForGameLogs ? (
         <p className="loading">読み込み中...</p>
       ) : ddtdPeriodOff ? (
-        <p className="empty-message">Q別・前後半を選んでいるため、「{selectedItem.label}」の順位は表示しません。</p>
+        <p className="empty-message">Q別・前後半を選んでいるため、「{statJa(selectedItem.label)}」の順位は表示しません。</p>
       ) : (
         <>
           <ExportImageButton targetRef={exportRef} filename={playerTitle.filename} />

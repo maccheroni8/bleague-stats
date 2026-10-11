@@ -50,6 +50,7 @@ import { FilterBar } from "./FilterBar";
 import { GameRecordNotes } from "./GameRecordNotes";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
+import { statJa } from "../lib/statNames";
 import { RankedList } from "./RankedList";
 import { RecordValue } from "./RecordValue";
 import { ResponsivePlayerName } from "./ResponsivePlayerName";
@@ -216,8 +217,9 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
     gameRecordConditionLabels(conditions, teamName, includeSpecialDefault),
   );
   const modeLabel = mode === "worst" ? "ワースト" : "記録";
-  const title = allTime ? `歴代 個人1試合${modeLabel}：${def.label}` : `${season}シーズン 個人1試合${modeLabel}：${def.label}`;
-  const filename = buildExportFilename([`個人1試合${modeLabel}`, allTime ? "歴代" : season, def.label, ...conditionLabels]);
+  const defJa = statJa(def.label);
+  const title = allTime ? `歴代 個人1試合${modeLabel}：${defJa}` : `${season}シーズン 個人1試合${modeLabel}：${defJa}`;
+  const filename = buildExportFilename([`個人1試合${modeLabel}`, allTime ? "歴代" : season, defJa, ...conditionLabels]);
   const minNote = playerGameRecordMinAttemptsNote(def.key, period ? (period === "ot" ? "延長" : period === "h1" ? "前半" : period === "h2" ? "後半" : `${period.slice(1)}Q`) : undefined);
   const seasonOf = (e: PlayerRecordRow) => e.season ?? season;
   const periodNotes = period && result ? { overtime: period === "ot", shortGames: result.periodShortGames ?? 0, noPlusMinus: result.excludedNoPlusMinus ?? 0 } : undefined;

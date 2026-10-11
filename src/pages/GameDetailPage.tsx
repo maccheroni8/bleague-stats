@@ -235,7 +235,7 @@ function buildGameClassificationPtsSegments(
   };
 }
 
-/** ゲームリーダー拡張セクション（PTS/OREB/DREB/TREB/AST/STL/BLK/TO/2P%/3P%/FT%）の項目定義 */
+/** ゲームリーダー拡張セクション（PTS/OR/DR/TR/AST/STL/BLK/TOV/2P%/3P%/FT%）の項目定義 */
 interface GameLeaderStatDef {
   key: string;
   label: string;
@@ -257,13 +257,13 @@ interface GameLeaderStatDef {
 
 const GAME_LEADER_STAT_DEFS: GameLeaderStatDef[] = [
   { key: "pts", label: "PTS", value: (r) => r.Point, format: (r) => String(r.Point) },
-  { key: "oreb", label: "OREB", value: (r) => r.RB_OFF, format: (r) => String(r.RB_OFF) },
-  { key: "dreb", label: "DREB", value: (r) => r.RB_DEF, format: (r) => String(r.RB_DEF) },
-  { key: "treb", label: "TREB", value: (r) => r.RB_OFF + r.RB_DEF, format: (r) => String(r.RB_OFF + r.RB_DEF) },
+  { key: "oreb", label: "OR", value: (r) => r.RB_OFF, format: (r) => String(r.RB_OFF) },
+  { key: "dreb", label: "DR", value: (r) => r.RB_DEF, format: (r) => String(r.RB_DEF) },
+  { key: "treb", label: "TR", value: (r) => r.RB_OFF + r.RB_DEF, format: (r) => String(r.RB_OFF + r.RB_DEF) },
   { key: "ast", label: "AST", value: (r) => r.AS, format: (r) => String(r.AS) },
   { key: "stl", label: "STL", value: (r) => r.ST, format: (r) => String(r.ST) },
   { key: "blk", label: "BLK", value: (r) => r.BS, format: (r) => String(r.BS) },
-  { key: "to", label: "TO", value: (r) => r.TO, format: (r) => String(r.TO), lowerIsBetter: true },
+  { key: "to", label: "TOV", value: (r) => r.TO, format: (r) => String(r.TO), lowerIsBetter: true },
   {
     key: "fg2pct",
     label: "2P%",
@@ -1037,7 +1037,7 @@ function GameLeadersTeam({
     <div className="game-leaders-team" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
       <h3>{teamName}</h3>
       <LeaderTop3Row label="PTS" rows={topRankedLeaderRows(rows, "Point")} teamNames={rows.map((r) => r.PlayerNameJ)} season={season} />
-      <LeaderTop3Row label="REB" rows={topRankedLeaderRows(rows, "RB_TOT")} teamNames={rows.map((r) => r.PlayerNameJ)} season={season} />
+      <LeaderTop3Row label="TR" rows={topRankedLeaderRows(rows, "RB_TOT")} teamNames={rows.map((r) => r.PlayerNameJ)} season={season} />
       <LeaderTop3Row label="AST" rows={topRankedLeaderRows(rows, "AS")} teamNames={rows.map((r) => r.PlayerNameJ)} season={season} />
     </div>
   );
