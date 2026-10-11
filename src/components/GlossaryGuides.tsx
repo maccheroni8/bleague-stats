@@ -2,6 +2,7 @@ import { useSearchParams } from "react-router-dom";
 import { postseasonFormat } from "../../shared/postseasonFormat";
 import { AGE_BASE_NOTE } from "../lib/age";
 import { GLOSSARY_ANCHORS as A } from "../lib/glossaryAnchors";
+import { MIN_GAMES_FOR_OPPONENT_WIN_RATE } from "../lib/situational";
 import {
   MIN_GAMES_FOR_PLAYER_RECENT_FORM,
   MIN_LINEUP_AVG_SECONDS,
@@ -167,7 +168,7 @@ export function GlossaryGuides() {
           <dt>対戦相手の強さ</dt>
           <dd>
             その試合に入る時点での対戦相手の勝率（対5割未満／対5割以上／対6割以上）別の成績です。
-            相手の消化試合数が5試合未満の対戦は、勝率が極端な値になりやすいため除きます。
+            相手の消化試合数が{MIN_GAMES_FOR_OPPONENT_WIN_RATE}試合未満の対戦は、勝率が極端な値になりやすいため除きます。
           </dd>
           <dt>連戦</dt>
           <dd>中1日以内の間隔で続けて試合をした場合の、1試合目（GAME1）／2試合目以降（GAME2）別の成績です。</dd>
@@ -419,8 +420,16 @@ export function GlossaryGuides() {
       <section className="glossary-section" id={A.conditionalStandings}>
         <h2>条件別順位表</h2>
         <p>
-          順位は勝率の高い順→得失点差の大きい順の簡易タイブレークで出します（「順位表」タブの公式のタイブレークとは異なります）。
+          「条件なし」の並びは、「順位表」タブの全体順位と同じです（同率は公式のタイブレークの順序）。条件を選んだときは、
+          勝率の高い順→得失点差の大きい順の簡易な並びで出します（同じ値のときは全体順位の順。公式のタイブレークとは異なります）。
+          条件に当てはまる試合が1つも無いクラブは、勝率と順位を「-」にして末尾にまとめます。
           連勝・連敗は、選んだ条件に当てはまる試合だけで数えます。
+        </p>
+        <h3>対戦相手の強さ（対5割未満・対5割以上・対6割以上）</h3>
+        <p>
+          その試合に入る時点での対戦相手の勝率で分けます。相手の消化試合数が{MIN_GAMES_FOR_OPPONENT_WIN_RATE}試合未満の試合は、
+          勝率が0%や100%に振れやすいため、どの区分にも入れません。シーズンの序盤は対象になる試合が少なく、
+          条件を選んでいる間は表の上に、対象の試合の数（クラブごとの試合の延べ数）を出します。
         </p>
         <h3>残り試合数</h3>
         <p>
@@ -428,7 +437,7 @@ export function GlossaryGuides() {
         </p>
         <h3>進出圏</h3>
         <p>
-          各地区の上位クラブと、それ以外のクラブのうち全体順位の上位クラブ（ワイルドカード）の計8クラブです
+          各地区の上位クラブと、それ以外のクラブのうちワイルドカード順位（各地区の上位を除いたクラブの中での順位）の上位クラブの計8クラブです
           {format ? `（このシーズンは各地区の上位${format.divisionTop}クラブ＋ワイルドカード${format.wildcardSlots}クラブ）` : ""}。
           CS／プレーオフが開催されなかったシーズンは、進出圏のボタンを出しません。
         </p>

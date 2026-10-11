@@ -26,6 +26,7 @@ import {
   matchesMonth,
   matchesNewYearHalf,
   matchesOpponentWinRateTier,
+  MIN_GAMES_FOR_OPPONENT_WIN_RATE,
   type BackToBackGame,
   type BiweekPeriod,
   type RecordBeforeGame,
@@ -222,7 +223,8 @@ function computeRemainingCount(
 
 interface ConditionalRow {
   team: StandingsTeamSnapshot;
-  rank: number;
+  /** 順位。選んだ条件に当てはまる試合が1つも無いクラブは付けない（null。表示は「-」で、末尾にまとめる） */
+  rank: number | null;
   gamesPlayed: number;
   wins: number;
   losses: number;
@@ -468,10 +470,20 @@ export function ConditionalStandingsTable({
         remaining,
       };
     });
-    return built
-      .filter((r) => !selectedTeamIds || selectedTeamIds.has(r.team.teamId))
-      .sort((a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff)
-      .map((r, i) => ({ ...r, rank: i + 1 }));
+    const visible = built.filter((r) => !selectedTeamIds || selectedTeamIds.has(r.team.teamId));
+    // 並び: 「条件なし」は順位表の全体順位と同じ並び（同率のタイブレークを順位表と揃える）。条件を付けたときは
+    // 勝率→得失点差（同値は全体順位の順）。当てはまる試合が無いクラブは順位を付けず、末尾に全体順位の順でまとめる
+    const played = visible.filter((r) => r.gamesPlayed > 0);
+    const unplayed = visible.filter((r) => r.gamesPlayed === 0).sort((a, b) => a.team.rank - b.team.rank);
+    played.sort(
+      condition.kind === "all"
+        ? (a, b) => a.team.rank - b.team.rank
+        : (a, b) => b.winPct - a.winPct || b.pointDiff - a.pointDiff || a.team.rank - b.team.rank,
+    );
+    return [
+      ...played.map((r, i) => ({ ...r, rank: i + 1 as number | null })),
+      ...unplayed.map((r) => ({ ...r, rank: null as number | null })),
+    ];
   }, [
     teams,
     gameLogsByTeam,
@@ -485,8 +497,31 @@ export function ConditionalStandingsTable({
     selectedTeamIds,
   ]);
 
+  // 「相手の勝率」の条件: 相手の消化試合数が下限に満たない時点の試合は数えない。対象の試合の数を表の上に出す
+  // （クラブごとの試合を延べで数える。選んだクラブだけが対象）
+  const opponentWinRateCoverage = useMemo(() => {
+    if (condition.kind !== "opponentWinRate" || !gameLogsByTeam || !opponentRecords) return null;
+    let total = 0;
+    let counted = 0;
+    for (const team of teams) {
+      if (selectedTeamIds && !selectedTeamIds.has(team.teamId)) continue;
+      for (const g of gameLogsByTeam.get(team.teamId) ?? []) {
+        if (g.gameType !== "regular") continue;
+        total += 1;
+        const rec = opponentRecords.get(g.scheduleKey)?.get(g.opponentTeamId);
+        if (rec && rec.wins + rec.losses >= MIN_GAMES_FOR_OPPONENT_WIN_RATE) counted += 1;
+      }
+    }
+    return { total, counted };
+  }, [condition, gameLogsByTeam, opponentRecords, teams, selectedTeamIds]);
+
   const columns: Column<ConditionalRow>[] = [
-    { key: "rank", label: "順位", sortValue: (r) => r.rank, format: (r) => String(r.rank) },
+    {
+      key: "rank",
+      label: "順位",
+      sortValue: (r) => r.rank ?? Number.MAX_SAFE_INTEGER,
+      format: (r) => (r.rank === null ? "-" : String(r.rank)),
+    },
     {
       key: "team",
       label: "チーム",
@@ -502,7 +537,12 @@ export function ConditionalStandingsTable({
     { key: "g", label: "試合数", sortValue: (r) => r.gamesPlayed, format: (r) => String(r.gamesPlayed) },
     { key: "wins", label: "勝", sortValue: (r) => r.wins, format: (r) => String(r.wins) },
     { key: "losses", label: "負", sortValue: (r) => r.losses, format: (r) => String(r.losses), higherIsBetter: false },
-    { key: "winPct", label: "勝率", sortValue: (r) => r.winPct, format: (r) => formatWinPct(r.winPct) },
+    {
+      key: "winPct",
+      label: "勝率",
+      sortValue: (r) => (r.gamesPlayed === 0 ? -1 : r.winPct),
+      format: (r) => (r.gamesPlayed === 0 ? "-" : formatWinPct(r.winPct)),
+    },
     { key: "pts", label: "得点", sortValue: (r) => r.pts, format: (r) => String(r.pts) },
     { key: "oppPts", label: "失点", sortValue: (r) => r.oppPts, format: (r) => String(r.oppPts), higherIsBetter: false },
     { key: "pointDiff", label: "得失点差", sortValue: (r) => r.pointDiff, format: (r) => formatSigned(r.pointDiff, 0) },
@@ -539,6 +579,12 @@ export function ConditionalStandingsTable({
                 ),
         )}
       />
+      {opponentWinRateCoverage && (
+        <p className="standings-tab-note">
+          相手が{MIN_GAMES_FOR_OPPONENT_WIN_RATE}試合以上を消化した時点の試合だけを数えます（対象 {opponentWinRateCoverage.counted}／
+          {opponentWinRateCoverage.total}試合。クラブごとの試合を延べで数えています）。
+        </p>
+      )}
       {rows.length === 0 ? (
         <p className="empty-message">選択したチームがありません</p>
       ) : (
