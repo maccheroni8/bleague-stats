@@ -7650,6 +7650,24 @@ table.sortable-table.lineup-search-table tbody th {
 
 .export-rendering.export-plain .pair-arrow {
   margin-top: 0;
+  line-height: 1;
+}
+
+/* 名前と⇒を、行の縦の中央（値の列と同じ高さ）にそろえる: 名前の下に出す行（試合数・得点内訳。1〜2行）の高さの分だけ、上にも同じ余白を
+ * 取る（上・下の余白を等分する3段の格子。名前の位置が行の中央に来る。足さないと、名前が行の上寄りになる） */
+.export-rendering.export-plain.export-target-pairs .rank-name-cell {
+  display: grid;
+  grid-template-rows: 1fr auto 1fr;
+  gap: 0;
+}
+
+.export-rendering.export-plain.export-target-pairs .rank-name-cell > .rank-name {
+  grid-row: 2;
+}
+
+.export-rendering.export-plain.export-target-pairs .rank-name-cell > .rank-sublabel {
+  grid-row: 3;
+  align-self: start;
 }
 
 /* 保存画像の中だけ、注記を要点に縮める（画面の注記はそのまま。要点の版は .export-only、画面の版は .export-hide） */
