@@ -51,6 +51,9 @@ import type { DivisionHistoryFile } from "../../shared/types";
 import { useSeasonKeyedData } from "../lib/useSeasonKeyedData";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
+import { statJa } from "../lib/statNames";
+import { TeamLogo } from "../components/TeamLogo";
+import { PlayerPhoto } from "../components/PlayerPhoto";
 import { latestBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { useTeamLabel } from "../lib/teamLabel";
@@ -60,6 +63,16 @@ import { isDefaultFilter } from "../lib/situational";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
 
 type Mode = "team" | "player";
+
+/**
+ * 比較の大見出し（「長崎ヴェルカ vs 宇都宮ブレックス」）。同じ名前が並ぶとき（同じチームの別シーズン等）だけ、シーズンを添えて区別する
+ * （シーズン・条件そのものは列見出しの下に出す。DESIGN.md 239章）
+ */
+function versusTitle(entries: { name: string; season: string }[]): string {
+  const count = new Map<string, number>();
+  for (const e of entries) count.set(e.name, (count.get(e.name) ?? 0) + 1);
+  return entries.map((e) => ((count.get(e.name) ?? 0) > 1 ? `${e.name}（${e.season}）` : e.name)).join(" vs ");
+}
 
 /** 比較の保存画像の基準日: 比べている枠のシーズン・試合区分ごとの基準日のうち、最も新しい日 */
 async function compareBaseDate(slots: { season: string; gameType: SeasonGameTypeFilter }[]): Promise<string | undefined> {
@@ -209,6 +222,10 @@ interface ComparisonTableProps<T> {
   teamColor?: (row: T) => string | undefined;
   /** 指定時、シーズンタグの下に補足（そのスロットのシチュエーション・試合数等）を表示する */
   subLabel?: (row: T) => string | undefined;
+  /** 保存画像の列見出しの上に出すロゴ・写真（画面には出さない。DESIGN.md 239章） */
+  avatar?: (row: T) => ReactNode;
+  /** 保存画像の列見出しで名前の下に添える文字（選手の所属チーム。画面には出さない） */
+  caption?: (row: T) => string | undefined;
   emptyMessage?: string;
   /** 項目名の説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */
   statScope?: StatScope;
@@ -223,6 +240,8 @@ export function ComparisonTable<T>({
   externalLinkTo,
   teamColor,
   subLabel,
+  avatar,
+  caption,
   emptyMessage = "比較する項目を選んでください",
   statScope = "player",
 }: ComparisonTableProps<T>) {
@@ -273,6 +292,7 @@ export function ComparisonTable<T>({
                   className={`compare-entity-col ${valueAlign}${externalLinkTo?.(item) ? " has-external-link" : ""}`}
                   style={accent ? { borderTopColor: accent } : undefined}
                 >
+                  {avatar && <span className="compare-avatar export-only">{avatar(item)}</span>}
                   {linkTo(item) ? (
                     <Link to={`${linkTo(item)}?season=${season}`} className="cell-link">
                       {name(item)}
@@ -283,6 +303,7 @@ export function ComparisonTable<T>({
                   {externalLinkTo?.(item) && (
                     <ExternalLinkIcon href={externalLinkTo(item)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
+                  {caption?.(item) && <span className="compare-caption export-only">{caption(item)}</span>}
                   <span className="compare-season-tag">{season}</span>
                   {sub && <span className="compare-season-tag compare-condition-tag">{sub}</span>}
                 </th>
@@ -316,6 +337,10 @@ export function ComparisonTable<T>({
                       title={statDescription(def.label, statScope)}
                     >
                       <StatHeaderLabel label={def.label} />
+                      {/* 保存画像では、略称の下に日本語名を小さく添える（画面には出さない。DESIGN.md 239章） */}
+                      {statJa(def.label, statScope) !== def.label && (
+                        <span className="compare-label-ja export-only">{statJa(def.label, statScope)}</span>
+                      )}
                     </td>
                   ) : (
                     <td
@@ -524,7 +549,8 @@ function TeamCompareView({
     displayModeLabels("perGame"),
     "試合全体",
   );
-  const title = rows.length > 0 ? `チーム比較：${descriptions.join(" vs ")}` : "チーム比較";
+  // 大見出しは「長崎ヴェルカ vs 宇都宮ブレックス」だけ。シーズン・条件は列見出しの下に出す（同じ名前が並ぶときだけシーズンを添える）
+  const title = rows.length > 0 ? versusTitle(rows.map((r) => ({ name: r.item.label, season: r.season }))) : "チーム比較";
   const filename = buildExportFilename(["比較", "チーム", ...descriptions, ...conditions]);
   const anyBusy = slotData.some((d) => d.status === "loading" || d.status === "fetching");
   // 比べるシーズンがすべて2026-27以降なら、ファウルの列をTF1・TF2・FLAG・DISRにする（DESIGN.md 16-8章）
@@ -565,7 +591,7 @@ function TeamCompareView({
         filename={filename}
         baseDate={() => compareBaseDate(slots.filter((_, i) => valid[i]))}
       />
-      <div ref={exportRef} className="export-target">
+      <div ref={exportRef} className={`export-target export-target-versus export-versus-${Math.max(1, rows.length)}`}>
         {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} />}
         <ComparisonTable
           statScope="team"
@@ -576,6 +602,7 @@ function TeamCompareView({
           linkTo={(r) => (r.isLeague ? undefined : `/teams/${r.teamId}`)}
           teamColor={(r) => slotColorByKey.get(r.key)}
           subLabel={(r) => r.subLabel}
+          avatar={(r) => (r.isLeague ? null : <TeamLogo teamId={r.teamId} size={64} />)}
           emptyMessage={anyBusy ? "データ取得中..." : "比較するチームを選んでください"}
         />
       </div>
@@ -587,7 +614,7 @@ function TeamCompareView({
 
 // --- 個人比較 ---
 
-type PlayerPageRow = CompareColumnData & { playerId: string; teamId: string | null; season: string; subLabel: string };
+type PlayerPageRow = CompareColumnData & { playerId: string; teamId: string | null; teamName?: string; season: string; subLabel: string };
 
 function PlayerCompareView({
   slots,
@@ -622,6 +649,7 @@ function PlayerCompareView({
         label: player.name,
         playerId: player.playerId,
         teamId: data.latestTeamId ?? player.teamId,
+        teamName: player.teamName,
         season: slot.season,
         ctx: data.ctx,
         record: data.record ?? undefined,
@@ -634,7 +662,7 @@ function PlayerCompareView({
   });
 
   const conditions = composeLabels(categoryLabel(cat), displayModeLabels("perGame"), "試合全体");
-  const title = rows.length > 0 ? `個人比較：${descriptions.join(" vs ")}` : "個人比較";
+  const title = rows.length > 0 ? versusTitle(rows.map((r) => ({ name: r.item.label, season: r.season }))) : "個人比較";
   const filename = buildExportFilename(["比較", "個人", ...descriptions, ...conditions]);
   const anyBusy = slotData.some((d) => d.status === "loading");
   const foulSplit = foulColumnsSplit(rows.map((r) => r.season));
@@ -670,7 +698,7 @@ function PlayerCompareView({
         filename={filename}
         baseDate={() => compareBaseDate(slots.filter((_, i) => valid[i]))}
       />
-      <div ref={exportRef} className="export-target">
+      <div ref={exportRef} className={`export-target export-target-versus export-versus-${Math.max(1, rows.length)}`}>
         {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} />}
         <ComparisonTable
           rows={rows}
@@ -680,6 +708,8 @@ function PlayerCompareView({
           linkTo={(r) => `/players/${r.playerId}`}
           teamColor={(r) => slotColorByKey.get(r.key)}
           subLabel={(r) => r.subLabel}
+          avatar={(r) => <PlayerPhoto playerId={r.playerId} size={72} className="compare-photo" placeholder />}
+          caption={(r) => r.teamName}
           emptyMessage={anyBusy ? "データ取得中..." : "比較する選手を選んでください"}
         />
       </div>

@@ -7460,6 +7460,121 @@ table.sortable-table.lineup-search-table tbody th {
   cursor: help;
 }
 
+/* --- 保存画像（比較）の型（DESIGN.md 239章）---
+ * 大見出し「A vs B」・小見出しは中央揃え（上の .export-rendering）。幅は対象の数ごとに固定する（表の幅 + 左右の余白32px×2）。
+ * 列見出しの上にチームカラーの線とロゴ・写真、項目名は略称の下に日本語名を小さく。良い方の値のうすい塗りは画面と同じ（チームカラー） */
+.export-rendering.export-target-versus {
+  width: calc(var(--export-versus-width, 720px) + 64px);
+  max-width: none;
+}
+
+.export-rendering.export-versus-1 {
+  --export-versus-width: 560px;
+}
+
+.export-rendering.export-versus-2 {
+  --export-versus-width: 760px;
+}
+
+
+.export-rendering.export-versus-3 {
+  --export-versus-width: 980px;
+}
+
+.export-rendering .compare-table-scroll {
+  max-width: none;
+  margin: 0;
+  overflow: visible;
+}
+
+.export-rendering table.compare-table {
+  width: 100%;
+}
+
+.export-rendering table.compare-table thead th.compare-entity-col {
+  padding-top: 14px;
+  padding-bottom: 12px;
+  border-top-width: 6px;
+  border-radius: 3px 3px 0 0;
+  vertical-align: bottom;
+  background: transparent;
+}
+
+.export-rendering table.compare-table th a,
+.export-rendering table.compare-table th .cell-link {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.export-rendering table.compare-table th .external-link-icon {
+  display: none;
+}
+
+.export-rendering .compare-avatar {
+  display: block;
+  margin: 0 auto 8px;
+  line-height: 0;
+}
+
+.export-rendering .compare-avatar .team-logo,
+.export-rendering .compare-avatar .player-photo {
+  display: inline-block;
+  object-fit: contain;
+}
+
+.export-rendering .compare-avatar .compare-photo {
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.export-rendering .compare-caption {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.export-rendering table.compare-table th .compare-season-tag {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.export-rendering .compare-interleaved table.compare-table .compare-label-col {
+  width: 220px;
+}
+
+.export-rendering.export-versus-3 .compare-interleaved table.compare-table .compare-label-col {
+  width: 190px;
+}
+
+.export-rendering table.compare-table .compare-label-col {
+  font-size: 15px;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.export-rendering .compare-label-ja {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--muted);
+}
+
+.export-rendering table.compare-table td {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+.export-rendering [data-design="v2"] table.compare-table td:not(.compare-label-col),
+.export-rendering table.compare-table td:not(.compare-label-col) {
+  font-size: 20px;
+}
+
 /* 保存のときの「写真なし」: アシストペア・組み合わせの2〜3人の並び（写真を出さず、名前を横に並べる） */
 .export-rendering.export-plain .pair-person > :not(.pair-person-name) {
   display: none;
