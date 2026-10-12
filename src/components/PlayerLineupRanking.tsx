@@ -328,7 +328,10 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
             baseDate={() => (allTime ? allTimeBaseDate(gameType) : seasonBaseDate(season, gameType))}
             ranking={{ media: "写真", unit: unit === "onoff" ? "名" : "組", top: RANK_TOP_N }}
           />
-          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
+          <div
+            ref={exportRef}
+            className={`export-target export-target-compact export-target-rankings-player${unit === "onoff" ? "" : " export-target-pairs"}${unit === "trio" ? " export-target-trio" : ""}`}
+          >
             <ConditionTitle title={title} conditions={conditionLabels} />
             <PlayerNamePool names={among}>
               <RankedList
@@ -370,25 +373,32 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                 unit={unit === "onoff" ? "人" : "組"}
                 compact
               />
-              <p className="rule-change-footnote">
+              {/* 保存画像では要点だけ（画面の注記はそのまま） */}
+              <p className="rule-change-footnote export-only">
+                {unit === "onoff"
+                  ? "※ On/Off差は、選手が出場中と不在中（その選手が出た試合のみ）のNetRtgの差です。"
+                  : `※ 同じチームの${unit === "duo" ? "2人" : "3人"}が同時にコートにいた間のNetRtgです。`}
+                2020-21以降、ポゼッション100以上が対象で、ポゼッションが少ないほど値はぶれます。移籍した選手はチームごとに別の行です。
+              </p>
+              <p className="rule-change-footnote export-hide">
                 {unit === "onoff"
                   ? "※ On/Off差は、その選手がコートにいた間のNetRtg（ORtg−DRtg）から、いなかった間のNetRtgを引いた値です。いなかった間は、その選手が出場した試合の分だけを数えます。"
                   : `※ 同じチームの${unit === "duo" ? "2人" : "3人"}が同時にコートにいた間の値です。実際に同時に出た組だけが対象で、登録区分・ポジション・現役・ルーキーの絞り込みは、組の全員が当てはまる組だけを表示します。`}
                 ORtgは自チームの100ポゼッションあたりの得点、DRtgは相手の100ポゼッションあたりの得点（低いほど守備が良い）、NetRtgはその差です。チーム詳細のラインナップ検索と同じ数え方です。
               </p>
-              <p className="rule-change-footnote">
+              <p className="rule-change-footnote export-hide">
                 ※ 移籍した選手は、チームごとに別の行です。
                 {allTime ? "通算は、同じチームの記録をシーズンをまたいで足しています。" : ""}
                 {`2020-21以降のシーズンだけが対象です（それ以前は、実際のポゼッションを数えていません）。ポゼッションの下限は、チームの全ポゼッション（条件に当てはまる試合の分${allTime ? "。通算は、その選手・組が出場したシーズンの合計" : ""}）に対する割合で、${LINEUP_MIN_POSSESSIONS}ポゼッションを下回る行は常に除きます。`}
               </p>
-              <p className="rule-change-footnote">
+              <p className="rule-change-footnote export-hide">
                 ※ ポゼッションが少ないほど、値は偶然でぶれます。目安（得点の偶然のばらつきだけを見た概算）：
                 {unit === "onoff"
                   ? `On・Offのポゼッションがそれぞれ500のときの差の誤差は±${formatDecimal(onOffDiffError(500, 500))}、1,000で±${formatDecimal(onOffDiffError(1000, 1000))}、1,500で±${formatDecimal(onOffDiffError(1500, 1500))}。`
                   : `200ポゼッションのときのNetRtgの誤差は±${formatDecimal(netRatingError(200))}、500で±${formatDecimal(netRatingError(500))}、1,000で±${formatDecimal(netRatingError(1000))}。`}
                 進行中のシーズンや条件を絞ったときは、試合が少ないため特にぶれます。
               </p>
-              <p className="rule-change-footnote">※ 選手詳細の「オンコート/オフコート比較」は別の数え方（試合の記録を秒の境界で振り分ける）で、同じ選手でも値が食い違うことがあります。</p>
+              <p className="rule-change-footnote export-hide">※ 選手詳細の「オンコート/オフコート比較」は別の数え方（試合の記録を秒の境界で振り分ける）で、同じ選手でも値が食い違うことがあります。</p>
               {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
               {group === "rookie" && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
             </PlayerNamePool>

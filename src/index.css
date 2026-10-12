@@ -2061,12 +2061,11 @@ table.boxscore-table .boxscore-summary-grand-total td {
   text-align: center;
 }
 
+/* 名前は「・」と空白の位置でだけ折り返し、行数では切らない（外国籍選手の長い名前が欠けないように。以前は2行で切っていた）。
+ * 1つの区切りが1人分の幅より長いときだけ、はみ出す代わりに途中で折り返す */
 .pair-person-name {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
   overflow-wrap: anywhere;
+  word-break: keep-all;
   line-height: 1.25;
   max-width: 100%;
 }
@@ -2080,7 +2079,12 @@ table.boxscore-table .boxscore-summary-grand-total td {
 /* スマホ幅（560px以下）: 1人分を狭くする（名前は名字） */
 @media (max-width: 560px) {
   .pair-person {
-    width: 92px;
+    width: 100px;
+  }
+
+  /* 外国籍選手の長い名前が「・」の位置で折り返して収まるよう、文字を一回り小さくする */
+  .pair-person-name {
+    font-size: 12px;
   }
 }
 
@@ -7439,7 +7443,11 @@ table.sortable-table.lineup-search-table tbody th {
 
 @media (max-width: 560px) {
   .pair-people-trio .pair-person {
-    width: 64px;
+    width: 72px;
+  }
+
+  .pair-people-trio .pair-person-name {
+    font-size: 11px;
   }
 }
 
@@ -7575,23 +7583,76 @@ table.sortable-table.lineup-search-table tbody th {
   font-size: 20px;
 }
 
-/* 保存のときの「写真なし」: アシストペア・組み合わせの2〜3人の並び（写真を出さず、名前を横に並べる） */
+/* --- 保存画像: アシストペア・組み合わせ（2人・3人）の並び（DESIGN.md 239章）---
+ * 1人分の幅を、値の列との間の余りまで広げ（表を少し広げ、名前の列いっぱいを人数で等分）、写真を少し大きく・名前を少し小さくする。
+ * 名前は「・」と空白の位置でだけ折り返して、外国籍選手の長い名前も全部入れる（行数では切らない） */
+.export-rendering.export-target-pairs {
+  --export-rank-width: 780px;
+}
+
+.export-rendering.export-target-pairs.export-target-trio {
+  --export-rank-width: 920px;
+}
+
+/* 名前の列いっぱいに広げる（親の幅が内容幅のままだと、1人分の幅が行ごとにばらつく） */
+.export-rendering.export-target-pairs .rank-name-with-logo,
+.export-rendering.export-target-pairs .rank-name-cell {
+  width: 100%;
+}
+
+.export-rendering.export-target-pairs .rank-name {
+  display: block;
+}
+
+.export-rendering .pair-people {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.export-rendering .pair-people > .pair-people {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.export-rendering .pair-person {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  gap: 4px;
+}
+
+.export-rendering .pair-person .player-photo {
+  width: 64px;
+  height: 64px;
+}
+
+.export-rendering .rankings-table .pair-person-name {
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.export-rendering .pair-arrow {
+  flex: 0 0 26px;
+  margin-top: 20px;
+  text-align: center;
+}
+
+/* 保存のときの「写真なし」: 写真を出さず、名前を横に並べる（行の高さは名前の行数で決まる） */
 .export-rendering.export-plain .pair-person > :not(.pair-person-name) {
   display: none;
 }
 
-.export-rendering.export-plain .pair-person {
-  width: auto;
-  flex-direction: row;
-}
-
 .export-rendering.export-plain .pair-people {
   align-items: center;
-  gap: 10px;
 }
 
-/* 長い名前の2〜3人の組は、はみ出さず折り返す */
-.export-rendering .pair-people {
-  flex-wrap: wrap;
-  row-gap: 2px;
+.export-rendering.export-plain .pair-arrow {
+  margin-top: 0;
+}
+
+/* 保存画像の中だけ、注記を要点に縮める（画面の注記はそのまま。要点の版は .export-only、画面の版は .export-hide） */
+.export-rendering .export-hide {
+  display: none;
 }

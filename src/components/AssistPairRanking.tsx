@@ -66,7 +66,7 @@ export function PairPerson({ playerId, name, season, among, rookieSeason }: { pl
     <Link to={`/players/${playerId}?season=${season}`} className="cell-link pair-person">
       <PlayerPhoto playerId={playerId} size={44} className="player-cell-photo" placeholder />
       <span className="pair-person-name">
-        <ResponsivePlayerName name={name} among={among} playerId={rookieSeason ? playerId : undefined} season={rookieSeason} />
+        <ResponsivePlayerName name={name} among={among} playerId={rookieSeason ? playerId : undefined} season={rookieSeason} breakAtDot />
       </span>
     </Link>
   );
@@ -156,7 +156,7 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
             baseDate={() => (unit === "season" ? seasonBaseDate(season, gameType) : allTimeBaseDate(gameType))}
             ranking={{ media: "写真", unit: "組", top: RANK_TOP_N }}
           />
-          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
+          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player export-target-pairs">
             <ConditionTitle title={title} conditions={conditionLabels} />
             <PlayerNamePool names={among}>
               <RankedList
@@ -184,7 +184,11 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
                 sortable={false}
                 compact
               />
-              <p className="rule-change-footnote">
+              {/* 保存画像では要点だけ（画面の注記はそのまま） */}
+              <p className="rule-change-footnote export-only">
+                ※ アシストした選手 → そのアシストを受けて得点した選手の組。得点＝アシストを受けた2P×2・3P×3・FT×1の合計です。
+              </p>
+              <p className="rule-change-footnote export-hide">
                 ※ アシストした選手 → そのアシストを受けて得点した選手の組です。得点は、2Pの成功×2・3Pの成功×3・フリースローの成功×1の合計です（フリースローは、シュートファウルでのアシストを含みます）。
                 試合の条件は、得点した選手のチームから見ます。
               </p>

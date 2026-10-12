@@ -188,7 +188,15 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
                 sortable={false}
                 compact
               />
-              <p className="rule-change-footnote">
+              {/* 保存画像では要点だけ（画面の注記はそのまま。時間の窓は見出しに入っている） */}
+              <p className="rule-change-footnote export-only">
+                {measure === "winner"
+                  ? "※ 決勝弾＝勝ったチームの最後の勝ち越し弾（以後リードを失わない）。点差の上限はありません。"
+                  : measure === "goAhead"
+                    ? "※ 勝ち越し弾＝得点でリードを奪ったもの（直前は同点か負け）。点差の上限はありません。"
+                    : "※ 同点弾＝得点で同点にしたもの（直前は負け）。点差の上限はありません。"}
+              </p>
+              <p className="rule-change-footnote export-hide">
                 ※ 第4Qと各延長で、残り時間が{windowLabel.replace("残り", "")}以内の得点です（残り{windowLabel.replace("残り", "").replace("分", "")}:00ちょうども含みます）。フリースローで勝ち越した（追いついた）場合も1回と数えます。点差の上限はありません。
                 {measure === "winner" ? "決勝弾は、勝ったチームの最後の勝ち越し（その後、一度もリードを失わない）が、この時間の中にあるものです。" : ""}
                 {measure === "goAhead" ? "勝ち越しは、得点の前に同点か負けていて、得点でリードしたものです。" : ""}

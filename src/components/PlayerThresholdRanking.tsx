@@ -303,7 +303,10 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
             {result.kind === "age" ? (
               <>
                 <ThresholdAgeList rows={result.rows} which={which} teamColors={teamColors} />
-                <p className="rule-change-footnote">
+                <p className="rule-change-footnote export-only">
+                  ※ その試合当日の年齢（〇歳〇日）。1選手につき、{which === "young" ? "初めて達成した試合（最年少）" : "最後に達成した試合（最年長）"}の年齢です。
+                </p>
+                <p className="rule-change-footnote export-hide">
                   ※ 達成時の年齢は、その試合の当日の年齢（〇歳〇日）です。1選手につき、{which === "young" ? "初めて達成した試合（最年少）" : "最後に達成した試合（最年長）"}の年齢を出しています。同じ年齢は同じ順位です。
                   {result.unknownBirth > 0 ? `生年月日が不明の選手（${result.unknownBirth}人）は含めていません。` : ""}
                 </p>
@@ -311,10 +314,14 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
             ) : result.kind === "streak" ? (
               <>
                 <ThresholdStreakList rows={result.rows} ongoingOnly={ongoingOnly} teamColors={teamColors} />
-                <p className="rule-change-footnote">
+                <p className="rule-change-footnote export-only">
+                  ※ 条件に当てはまる試合だけを順に見て、途切れずに続いた試合数です。シーズンをまたいでも続き、レギュラーとポストシーズンは別に数えます。
+                  {ongoingOnly ? "今続いている連続（継続中）だけを並べています。" : "1選手につき最長の連続を1つ出しています。"}
+                </p>
+                <p className="rule-change-footnote export-hide">
                   ※ 条件に当てはまる試合だけを順に見て、途切れずに続いた試合数です。出場しなかった試合では途切れません。シーズンをまたいでも、移籍しても続きます（B.PREMIERの名簿に載っていないシーズンをはさむと途切れます）。レギュラーシーズンとポストシーズンは別に数えます。
                 </p>
-                <p className="rule-change-footnote">
+                <p className="rule-change-footnote export-hide">
                   ※ {ongoingOnly ? "今続いている連続（継続中）だけを、長い順に並べています。" : "1選手につき、最長の連続を1つ出しています（同じ長さが複数あるときは新しい方）。"}
                   継続中は、今季（{season0}シーズン）のB.PREMIERの名簿の選手で、最後に出場した試合まで記録が続いているものです。
                 </p>
@@ -322,7 +329,11 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
             ) : (
               <>
                 <ThresholdCountList rows={result.rows} sort={sort} allTime={allTime} teamColors={teamColors} />
-                <p className="rule-change-footnote">
+                <p className="rule-change-footnote export-only">
+                  ※ 達成試合数＝しきい値を満たした試合の数、出場試合数＝条件に当てはまる試合のうち出場した試合の数、達成率＝達成試合数÷出場試合数です。
+                  {sort === "rate" ? `達成率の順は、${allTime ? careerRateBasis : "所属チームの試合数の85%以上に出場した選手だけです"}。` : ""}
+                </p>
+                <p className="rule-change-footnote export-hide">
                   ※ 達成試合数は、しきい値を満たした試合の数です。出場試合数は、試合の条件などに当てはまる試合のうち出場した試合の数、達成率は達成試合数÷出場試合数です。
                   {sort === "rate"
                     ? allTime
@@ -333,9 +344,12 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
               </>
             )}
             {result.excludedSpecial > 0 && (
-              <p className="rule-change-footnote">
-                ※ 前後半5分ずつで行った特別な試合（2016-17・2017-18のチャンピオンシップ。4試合）は、数えていません。詳細フィルタの「前後半5分の特別試合」で含められます。
-              </p>
+              <>
+                <p className="rule-change-footnote export-only">※ 前後半5分ずつで行った特別な試合（2016-17・2017-18のCS。4試合）は数えていません。</p>
+                <p className="rule-change-footnote export-hide">
+                  ※ 前後半5分ずつで行った特別な試合（2016-17・2017-18のチャンピオンシップ。4試合）は、数えていません。詳細フィルタの「前後半5分の特別試合」で含められます。
+                </p>
+              </>
             )}
             {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
             {group === "rookie" && <p className="rule-change-footnote">※ {ROOKIE_NOTE}{allTime ? "2016-17は、ルーキーを判定できないため、含めていません。" : ""}</p>}
