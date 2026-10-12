@@ -11,7 +11,7 @@ import { GAME_TYPE_PARAM } from "../lib/urlFilterParams";
 import { useJsonData } from "../lib/useJsonData";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
-import { allTimeBaseDate } from "../lib/dataBaseDate";
+import { ExportTarget } from "./ExportTarget";
 import { FilterBar } from "./FilterBar";
 import { RankedList } from "./RankedList";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
@@ -70,8 +70,8 @@ export function TeamSeasonRecordRanking({ teamColors }: { teamColors: Record<str
         <p className="empty-message">この条件の記録がありません</p>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={filename} baseDate={() => allTimeBaseDate(gameType)} ranking={{ media: "ロゴ", unit: "件", top: RANK_TOP_N }} />
-          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-team">
+          <ExportImageButton targetRef={exportRef} filename={filename} baseDate={{ kind: "allTime", gameType: gameType }} ranking={{ media: "ロゴ", unit: "件", top: RANK_TOP_N }} />
+          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-team" baseDate={{ kind: "allTime", gameType: gameType }}>
             <ConditionTitle title={title} conditions={conditions} />
             <RankedList
               rows={entries}
@@ -97,7 +97,7 @@ export function TeamSeasonRecordRanking({ teamColors }: { teamColors: Record<str
               compact
             />
             {item.key === "streak" && <p className="rule-change-footnote">※ シーズンをまたいだ連勝は含みません。</p>}
-          </div>
+          </ExportTarget>
         </>
       )}
     </>

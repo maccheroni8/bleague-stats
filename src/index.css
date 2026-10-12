@@ -876,7 +876,20 @@ table.sortable-table tbody tr:hover {
 
 table.sortable-table td.row-accent-cell {
   border-left: 3px solid var(--border);
+  /* RankedList は行のチームカラーを --team-color で渡す（SortableTable は borderLeftColor を直接指定する） */
+  border-left-color: var(--team-color, var(--border));
   padding-left: 9px;
+}
+
+/* ダークの背景では、紺・黒などの濃いチームカラーの線が沈むので、白を混ぜて明るくする（ライトは混ぜない＝保存画像は変わらない） */
+:root[data-theme="dark"] table.sortable-table td.row-accent-cell[style*="--team-color"] {
+  border-left-color: color-mix(in srgb, var(--team-color) 62%, #ffffff);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) table.sortable-table td.row-accent-cell[style*="--team-color"] {
+    border-left-color: color-mix(in srgb, var(--team-color) 62%, #ffffff);
+  }
 }
 
 /* 行の強調（SortableTableのrowHighlightColor。試合詳細のラインナップ別成績のオンザコート4・3等。DESIGN.md 142章）。
@@ -2199,6 +2212,18 @@ table.compare-table th a {
 
 table.compare-table thead th.compare-entity-col {
   border-top: 3px solid var(--border);
+  /* 対象のチームカラー（ComparisonTable が --team-color で渡す） */
+  border-top-color: var(--team-color, var(--border));
+}
+
+:root[data-theme="dark"] table.compare-table thead th.compare-entity-col[style*="--team-color"] {
+  border-top-color: color-mix(in srgb, var(--team-color) 62%, #ffffff);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) table.compare-table thead th.compare-entity-col[style*="--team-color"] {
+    border-top-color: color-mix(in srgb, var(--team-color) 62%, #ffffff);
+  }
 }
 
 table.compare-table th .compare-season-tag {
@@ -2359,9 +2384,10 @@ table.rankings-table-compact {
   width: 100%;
 }
 
-/* 保存する画像の中でだけ、ランキングの文字を大きくする（lib/exportImage.ts が複製側に .export-rendering を付ける。画面の表示は変わらない。
- * DESIGN.md 170章）。スタッツの値は名前と同じ大きさにする。文字が大きくなる分、保存範囲の幅も広げる */
-.export-rendering.export-target-rankings-player {
+/* 画面と保存画像で共有するランキングの型（DESIGN.md 170・239・240章）。PC幅の画面（ExportTarget が付ける .export-wide）と、保存画像
+ * （lib/exportImage.ts が複製側に .export-wide と .export-rendering を付ける）で同じ文字の大きさ・列の幅にする。スマホ幅の画面は .export-wide が
+ * 付かず、従来のスマホ向けの表示のまま。スタッツの値は名前と同じ大きさにする。画像だけの違い（帯・余白・白い背景・アカウント名・注記の要点）は .export-rendering の側 */
+.export-wide.export-target-rankings-player {
   --export-rank-name: 20px;
   --export-rank-sub: 13px;
   --export-rank-value: 20px;
@@ -2369,7 +2395,7 @@ table.rankings-table-compact {
   --export-rank-width: 680px;
 }
 
-.export-rendering.export-target-rankings-team {
+.export-wide.export-target-rankings-team {
   --export-rank-name: 16px;
   --export-rank-sub: 12px;
   --export-rank-value: 16px;
@@ -2378,36 +2404,42 @@ table.rankings-table-compact {
   --export-rank-width: 560px;
 }
 
+/* 画面の幅 = 表の幅 + 保存範囲の余白4px×2（画面が狭いときは画面幅。ページの中央に置く） */
+.export-wide.export-target-compact:is(.export-target-rankings-team, .export-target-rankings-player) {
+  width: calc(var(--export-rank-width) + 8px);
+  max-width: 100%;
+}
+
+.export-target.export-wide:not(.export-rendering) {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 保存画像の幅 = 表の幅 + 左右の余白32px×2（共通の型。下の .export-rendering） */
 .export-rendering.export-target-compact:is(.export-target-rankings-team, .export-target-rankings-player) {
-  /* 保存画像の幅 = 表の幅 + 左右の余白32px×2（共通の型。下の .export-rendering） */
   width: calc(var(--export-rank-width) + 64px);
   max-width: none;
 }
 
-.export-rendering .rankings-table .rank-name {
+.export-wide .rankings-table .rank-name {
   font-size: var(--export-rank-name);
 }
 
-.export-rendering .rankings-table .rank-sublabel {
+.export-wide .rankings-table .rank-sublabel {
   font-size: var(--export-rank-sub);
 }
 
 /* 値・順位の列は [data-design="v2"] table.sortable-table td.align-right（13px）より優先させるため .align-right まで付ける */
-.export-rendering .rankings-table td.rank-value.align-right {
+.export-wide .rankings-table td.rank-value.align-right {
   font-size: var(--export-rank-value);
 }
 
-.export-rendering .rankings-table td.rank-cell.align-right {
+.export-wide .rankings-table td.rank-cell.align-right {
   font-size: var(--export-rank-num);
 }
 
-.export-rendering table.rankings-table-compact th:last-child {
+.export-wide table.rankings-table-compact th:last-child {
   width: 120px;
-}
-
-/* 保存する画像のランキングのタイトルは、名前（個人20px）より一回り大きくする */
-.export-rendering:is(.export-target-rankings-player, .export-target-rankings-team) .condition-title h2 {
-  font-size: 28px;
 }
 
 /* 画面では出さず、保存する画像の中でだけ出す要素（ランキングの「20位タイ ほか1人」等） */
@@ -2436,17 +2468,25 @@ table.rankings-table-compact {
   color: #1a1a1a;
 }
 
-.export-rendering .condition-title {
-  margin: 0 0 24px;
+/* 見出し（大見出し・小見出し）は中央揃え。画面（PC・スマホ）も保存画像も同じ。大きさはスマホ幅の画面が18px、PC表記（.export-wide）が28px */
+.export-target .condition-title {
   text-align: center;
 }
 
-.export-rendering .condition-title h2 {
-  margin: 0 0 8px;
-  font-size: 28px;
+.export-target .condition-title h2 {
+  font-size: 18px;
   line-height: 1.3;
   /* 長い名前の「A vs B」が1文字だけ次の行に落ちないよう、行の長さをそろえて折り返す */
   text-wrap: balance;
+}
+
+.export-wide .condition-title {
+  margin: 0 0 24px;
+}
+
+.export-wide .condition-title h2 {
+  margin: 0 0 8px;
+  font-size: 28px;
 }
 
 /* 大見出しの折り返しの単位（半角スペースで区切った語。ConditionTitle.tsx） */
@@ -2454,8 +2494,19 @@ table.rankings-table-compact {
   white-space: nowrap;
 }
 
-/* 表の外枠・スクロールの影は画像に写さない（保存画像は枠なしで、余白32pxの中に表を置く） */
-.export-rendering .table-scroll {
+/* スマホ幅の画面では、1語が行の幅を超えるときだけ途中で折り返す（「強制ターンオーバー（合計）ランキング」が画面の外にはみ出さないように）。
+ * 画面の幅（メディアクエリ）で切り替える。保存のときに複製側のクラスを付け替えて切り替えると、文字の組みが画像でずれる（240-3章） */
+@media (max-width: 560px) {
+  .export-target .condition-title .title-nowrap {
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+}
+
+
+/* 表の外枠・スクロールの影は出さない（型は枠なし。保存画像は余白32pxの中に表を置く） */
+.export-wide .table-scroll {
   border: none;
   box-shadow: none;
   border-radius: 0;
@@ -2467,7 +2518,7 @@ table.rankings-table-compact {
   font-variant-numeric: normal !important;
 }
 
-.export-rendering .condition-title-conditions {
+.export-wide .condition-title-conditions {
   max-width: none;
   font-size: 15px;
 }
@@ -2684,25 +2735,21 @@ table.rankings-table-compact.rankings-table-compare td.rank-diff {
 }
 
 /* 保存する画像（比較あり）は、列が増えるぶん保存範囲の幅を広げる */
-.export-rendering.export-target-compare.export-target-rankings-player {
+.export-wide.export-target-compare.export-target-rankings-player {
   --export-rank-width: 860px;
 }
 
-.export-rendering.export-target-compare.export-target-rankings-team {
+.export-wide.export-target-compare.export-target-rankings-team {
   --export-rank-width: 700px;
 }
 
-.export-rendering table.rankings-table-compact.rankings-table-compare th.rank-cur-head,
-.export-rendering table.rankings-table-compact.rankings-table-compare th.rank-prev-head {
+.export-wide table.rankings-table-compact.rankings-table-compare th.rank-cur-head,
+.export-wide table.rankings-table-compact.rankings-table-compare th.rank-prev-head {
   width: 130px;
 }
 
-.export-rendering .export-rendering table.rankings-table-compact.rankings-table-compare th.rank-diff-head {
-  width: 110px;
-}
-
-.export-rendering .rankings-table-compare td.rank-prev,
-.export-rendering .rankings-table-compare td.rank-diff {
+.export-wide .rankings-table-compare td.rank-prev,
+.export-wide .rankings-table-compare td.rank-diff {
   font-size: var(--export-rank-value);
 }
 
@@ -7468,38 +7515,83 @@ table.sortable-table.lineup-search-table tbody th {
   cursor: help;
 }
 
-/* --- 保存画像（比較）の型（DESIGN.md 239章）---
- * 大見出し「A vs B」・小見出しは中央揃え（上の .export-rendering）。幅は対象の数ごとに固定する（表の幅 + 左右の余白32px×2）。
- * 列見出しの上にチームカラーの線とロゴ・写真、項目名は略称の下に日本語名を小さく。良い方の値のうすい塗りは画面と同じ（チームカラー） */
+/* --- 比較の型（画面と保存画像で共有。DESIGN.md 239・240章）---
+ * 大見出し「A vs B」・小見出しは中央揃え（上の .export-target .condition-title）。幅は対象の数ごとに固定する（PC表記）。
+ * 列見出しの上にチームカラーの線とロゴ・写真、項目名は略称の下に日本語名を小さく。良い方の値のうすい塗りは画面と同じ（チームカラー）。
+ * ロゴ・写真・所属チーム・日本語名は、スマホ幅の画面にも出す（小さめ）。大きさと列の幅は PC表記（.export-wide）の側 */
+.compare-avatar {
+  display: block;
+  margin: 0 auto 6px;
+  line-height: 0;
+}
+
+.compare-avatar .team-logo,
+.compare-avatar .player-photo {
+  display: inline-block;
+  object-fit: contain;
+}
+
+.compare-avatar .compare-photo {
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.compare-caption {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.compare-label-ja {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--muted);
+}
+
+/* PC表記の画面 = 表の幅 + 保存範囲の余白4px×2（画面が狭いときは画面幅）。保存画像は 表の幅 + 余白32px×2（下の .export-rendering） */
+.export-wide.export-target-versus {
+  width: calc(var(--export-versus-width, 720px) + 8px);
+  max-width: 100%;
+}
+
 .export-rendering.export-target-versus {
   width: calc(var(--export-versus-width, 720px) + 64px);
   max-width: none;
 }
 
-.export-rendering.export-versus-1 {
+.export-wide.export-versus-1 {
   --export-versus-width: 560px;
 }
 
-.export-rendering.export-versus-2 {
+.export-wide.export-versus-2 {
   --export-versus-width: 760px;
 }
 
-
-.export-rendering.export-versus-3 {
+.export-wide.export-versus-3 {
   --export-versus-width: 980px;
 }
 
-.export-rendering .compare-table-scroll {
+.export-wide .compare-table-scroll {
   max-width: none;
   margin: 0;
+}
+
+/* 保存画像は幅が固定なので、はみ出さず全部写す（画面は幅が足りないとき横にスクロールする） */
+.export-rendering .compare-table-scroll {
   overflow: visible;
 }
 
-.export-rendering table.compare-table {
+.export-wide table.compare-table {
   width: 100%;
 }
 
-.export-rendering table.compare-table thead th.compare-entity-col {
+.export-wide table.compare-table thead th.compare-entity-col {
   padding-top: 14px;
   padding-bottom: 12px;
   border-top-width: 6px;
@@ -7508,132 +7600,124 @@ table.sortable-table.lineup-search-table tbody th {
   background: transparent;
 }
 
-.export-rendering table.compare-table th a,
-.export-rendering table.compare-table th .cell-link {
+.export-wide table.compare-table th a,
+.export-wide table.compare-table th .cell-link {
   font-size: 18px;
   font-weight: 700;
+}
+
+/* 画面では、長い名前（名古屋ダイヤモンドドルフィンズ等）が列の幅からはみ出して横スクロールの枠で切れないよう、文字を一回り小さくし、
+ * それでも入らないときは折り返す（保存画像は幅が固定で、はみ出しても枠の余白に写る） */
+.export-wide:not(.export-rendering) table.compare-table thead th.compare-entity-col {
+  white-space: normal;
+  text-wrap: balance;
+}
+
+.export-wide:not(.export-rendering) table.compare-table th a,
+.export-wide:not(.export-rendering) table.compare-table th .cell-link {
+  font-size: 16px;
+}
+
+.export-rendering table.compare-table th a,
+.export-rendering table.compare-table th .cell-link {
   color: #1a1a1a;
 }
 
-.export-rendering table.compare-table th .external-link-icon {
+.export-wide table.compare-table th .external-link-icon {
   display: none;
 }
 
-.export-rendering .compare-avatar {
-  display: block;
+.export-wide .compare-avatar {
   margin: 0 auto 8px;
-  line-height: 0;
 }
 
-.export-rendering .compare-avatar .team-logo,
-.export-rendering .compare-avatar .player-photo {
-  display: inline-block;
-  object-fit: contain;
-}
-
-.export-rendering .compare-avatar .compare-photo {
-  border-radius: 50%;
-  object-fit: cover;
-  object-position: top;
-}
-
-.export-rendering .compare-caption {
-  display: block;
-  margin-top: 2px;
+.export-wide .compare-caption {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
 }
 
-.export-rendering table.compare-table th .compare-season-tag {
+.export-wide table.compare-table th .compare-season-tag {
   font-size: 12px;
   line-height: 1.4;
 }
 
-.export-rendering .compare-interleaved table.compare-table .compare-label-col {
+.export-wide .compare-interleaved table.compare-table .compare-label-col {
   width: 220px;
 }
 
-.export-rendering.export-versus-3 .compare-interleaved table.compare-table .compare-label-col {
+.export-wide.export-versus-3 .compare-interleaved table.compare-table .compare-label-col {
   width: 190px;
 }
 
-.export-rendering table.compare-table .compare-label-col {
+.export-wide table.compare-table .compare-label-col {
   font-size: 15px;
   line-height: 1.2;
   white-space: normal;
 }
 
-.export-rendering .compare-label-ja {
-  display: block;
-  margin-top: 2px;
+.export-wide .compare-label-ja {
   font-size: 11px;
-  font-weight: 400;
-  line-height: 1.25;
-  color: var(--muted);
 }
 
-.export-rendering table.compare-table td {
+.export-wide table.compare-table td {
   padding-top: 11px;
   padding-bottom: 11px;
 }
 
-.export-rendering [data-design="v2"] table.compare-table td:not(.compare-label-col),
-.export-rendering table.compare-table td:not(.compare-label-col) {
+.export-wide table.compare-table td:not(.compare-label-col) {
   font-size: 20px;
 }
 
 /* --- 保存画像: アシストペア・組み合わせ（2人・3人）の並び（DESIGN.md 239章）---
  * 1人分の幅を、値の列との間の余りまで広げ（表を少し広げ、名前の列いっぱいを人数で等分）、写真を少し大きく・名前を少し小さくする。
  * 名前は「・」と空白の位置でだけ折り返して、外国籍選手の長い名前も全部入れる（行数では切らない） */
-.export-rendering.export-target-pairs {
+.export-wide.export-target-pairs {
   --export-rank-width: 780px;
 }
 
-.export-rendering.export-target-pairs.export-target-trio {
+.export-wide.export-target-pairs.export-target-trio {
   --export-rank-width: 920px;
 }
 
 /* 名前の列いっぱいに広げる（親の幅が内容幅のままだと、1人分の幅が行ごとにばらつく） */
-.export-rendering.export-target-pairs .rank-name-with-logo,
-.export-rendering.export-target-pairs .rank-name-cell {
+.export-wide.export-target-pairs .rank-name-with-logo,
+.export-wide.export-target-pairs .rank-name-cell {
   width: 100%;
 }
 
-.export-rendering.export-target-pairs .rank-name {
+.export-wide.export-target-pairs .rank-name {
   display: block;
 }
 
-.export-rendering .pair-people {
+.export-wide .pair-people {
   display: flex;
   width: 100%;
   align-items: flex-start;
   gap: 6px;
 }
 
-.export-rendering .pair-people > .pair-people {
+.export-wide .pair-people > .pair-people {
   flex: 1 1 0;
   min-width: 0;
 }
 
-.export-rendering .pair-person {
+.export-wide .pair-person {
   flex: 1 1 0;
   width: auto;
   min-width: 0;
   gap: 4px;
 }
 
-.export-rendering .pair-person .player-photo {
+.export-wide .pair-person .player-photo {
   width: 64px;
   height: 64px;
 }
 
-.export-rendering .rankings-table .pair-person-name {
+.export-wide .rankings-table .pair-person-name {
   font-size: 17px;
   line-height: 1.3;
 }
 
-.export-rendering .pair-arrow {
+.export-wide .pair-arrow {
   flex: 0 0 26px;
   margin-top: 20px;
   text-align: center;

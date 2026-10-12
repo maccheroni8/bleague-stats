@@ -11,8 +11,8 @@ export const EXPORT_ACCOUNT_NAME = "@dthiro1208";
  * 画像出力の共通処理（保存画像の「共通の型」。DESIGN.md 239章）。保存する画像は、画面の表示設定（ライト/ダーク・画面幅）に関わらず、
  * 白い背景・上端のブレックスの紺の帯・中央揃えの見出し・上下左右32pxの余白・下端のフッター
  * （左＝データの基準日、右＝アカウント名。保存した日は出さない）にそろえる。
- * 帯・余白・見出しの揃えは index.css の `.export-rendering` が、フッターはここで html2canvas が作る複製側にだけ足す
- * （画面上の表示・DOMは変わらず、画像出力の対象（.export-target）を使う全ページに1か所で反映される）
+ * 帯・余白・白い背景は index.css の `.export-rendering` が、フッターのアカウント名はここで html2canvas が作る複製側にだけ足す
+ * （画面上の表示・DOMは変わらない。見出しの揃え・表の行・比較の列見出しなどの「型」は画面と共有する `.export-wide`。DESIGN.md 240章）
  */
 
 /** 保存する画像の描画の倍率。画面の1pxを何ピクセルで描くか（DESIGN.md 170章） */
@@ -33,19 +33,29 @@ export async function renderExportCanvas(el: HTMLElement, options: ExportOptions
     onclone: (doc, clonedEl) => {
       // 色の変数（--bg・--fg 等）を複製側だけライトにする（OSのダーク設定・手動のダーク切り替えのどちらでも）
       doc.documentElement.setAttribute("data-theme", "light");
-      clonedEl.classList.add("export-rendering");
+      // 画面と同じ部品を、PC表記の型（.export-wide）で描く。上端の帯・余白・アカウント名・白い背景・注記の要点は .export-rendering の側
+      clonedEl.classList.add("export-rendering", "export-wide");
       if (options.plain) clonedEl.classList.add("export-plain");
       if (options.top10) clonedEl.classList.add("export-top10");
       convertModernColors(clonedEl);
-      const footer = doc.createElement("div");
-      footer.className = "export-footer";
-      const date = doc.createElement("span");
+      // フッターは画面の表の下に出している要素（ExportTarget）をそのまま使い、アカウント名だけを足す。基準日は保存のときに求めた値
+      let footer = Array.from(clonedEl.children).find((c): c is HTMLElement => c.classList.contains("export-footer"));
+      if (!footer) {
+        footer = doc.createElement("div");
+        footer.className = "export-footer";
+        clonedEl.appendChild(footer);
+      }
+      let date = footer.querySelector<HTMLElement>(".export-footer-date");
+      if (!date) {
+        date = doc.createElement("span");
+        date.className = "export-footer-date";
+        footer.prepend(date);
+      }
       date.textContent = baseDateFooterText(options.baseDate);
       const account = doc.createElement("span");
       account.className = "export-footer-account";
       account.textContent = EXPORT_ACCOUNT_NAME;
-      footer.append(date, account);
-      clonedEl.appendChild(footer);
+      footer.append(account);
     },
   });
 }

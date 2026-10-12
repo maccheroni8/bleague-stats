@@ -11,6 +11,7 @@ import { fetchDivisionHistory, fetchPlayers, fetchSchedule, fetchSeasons, fetchT
 import { useJsonData } from "../lib/useJsonData";
 import type { PlayerSummary, SeasonEntry, TeamColors, TeamSummary } from "../../shared/types";
 import { ExportImageButton } from "../components/ExportImageButton";
+import { ExportTarget } from "../components/ExportTarget";
 import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
@@ -54,7 +55,7 @@ import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import { statJa } from "../lib/statNames";
 import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
-import { latestBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
+import type { BaseDateSpec } from "../lib/dataBaseDate";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { useTeamLabel } from "../lib/teamLabel";
 import { RESULT_ONLY_MARK } from "../lib/recordFormat";
@@ -75,8 +76,8 @@ function versusTitle(entries: { name: string; season: string }[]): string {
 }
 
 /** 比較の保存画像の基準日: 比べている枠のシーズン・試合区分ごとの基準日のうち、最も新しい日 */
-async function compareBaseDate(slots: { season: string; gameType: SeasonGameTypeFilter }[]): Promise<string | undefined> {
-  return latestBaseDate(await Promise.all(slots.map((s) => seasonBaseDate(s.season, s.gameType))));
+function compareBaseDate(slots: { season: string; gameType: SeasonGameTypeFilter }[]): BaseDateSpec {
+  return { kind: "latest", slots: slots.map((s) => ({ season: s.season, gameType: s.gameType })) };
 }
 
 // スロットは3つ固定（各ビューのフック呼び出しも3つ固定）
@@ -222,10 +223,12 @@ interface ComparisonTableProps<T> {
   teamColor?: (row: T) => string | undefined;
   /** 指定時、シーズンタグの下に補足（そのスロットのシチュエーション・試合数等）を表示する */
   subLabel?: (row: T) => string | undefined;
-  /** 保存画像の列見出しの上に出すロゴ・写真（画面には出さない。DESIGN.md 239章） */
+  /** 列見出しの上に出すロゴ・写真（比較ページ。画面・保存画像とも。DESIGN.md 239・240章） */
   avatar?: (row: T) => ReactNode;
-  /** 保存画像の列見出しで名前の下に添える文字（選手の所属チーム。画面には出さない） */
+  /** 列見出しで名前の下に添える文字（選手の所属チーム） */
   caption?: (row: T) => string | undefined;
+  /** 項目名（略称）の下に日本語名を小さく添える（比較ページ。画面・保存画像とも。辞書で略称と同じ項目は出さない） */
+  jaNames?: boolean;
   emptyMessage?: string;
   /** 項目名の説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */
   statScope?: StatScope;
@@ -242,6 +245,7 @@ export function ComparisonTable<T>({
   subLabel,
   avatar,
   caption,
+  jaNames,
   emptyMessage = "比較する項目を選んでください",
   statScope = "player",
 }: ComparisonTableProps<T>) {
@@ -290,9 +294,9 @@ export function ComparisonTable<T>({
                 <th
                   key={rowKey(item)}
                   className={`compare-entity-col ${valueAlign}${externalLinkTo?.(item) ? " has-external-link" : ""}`}
-                  style={accent ? { borderTopColor: accent } : undefined}
+                  style={accent ? ({ "--team-color": accent } as CSSProperties) : undefined}
                 >
-                  {avatar && <span className="compare-avatar export-only">{avatar(item)}</span>}
+                  {avatar && <span className="compare-avatar">{avatar(item)}</span>}
                   {linkTo(item) ? (
                     <Link to={`${linkTo(item)}?season=${season}`} className="cell-link">
                       {name(item)}
@@ -303,7 +307,7 @@ export function ComparisonTable<T>({
                   {externalLinkTo?.(item) && (
                     <ExternalLinkIcon href={externalLinkTo(item)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
-                  {caption?.(item) && <span className="compare-caption export-only">{caption(item)}</span>}
+                  {caption?.(item) && <span className="compare-caption">{caption(item)}</span>}
                   <span className="compare-season-tag">{season}</span>
                   {sub && <span className="compare-season-tag compare-condition-tag">{sub}</span>}
                 </th>
@@ -337,9 +341,9 @@ export function ComparisonTable<T>({
                       title={statDescription(def.label, statScope)}
                     >
                       <StatHeaderLabel label={def.label} />
-                      {/* 保存画像では、略称の下に日本語名を小さく添える（画面には出さない。DESIGN.md 239章） */}
-                      {statJa(def.label, statScope) !== def.label && (
-                        <span className="compare-label-ja export-only">{statJa(def.label, statScope)}</span>
+                      {/* 略称の下に日本語名を小さく添える（DESIGN.md 239・240章） */}
+                      {jaNames && statJa(def.label, statScope) !== def.label && (
+                        <span className="compare-label-ja">{statJa(def.label, statScope)}</span>
                       )}
                     </td>
                   ) : (
@@ -589,9 +593,13 @@ function TeamCompareView({
       <ExportImageButton
         targetRef={exportRef}
         filename={filename}
-        baseDate={() => compareBaseDate(slots.filter((_, i) => valid[i]))}
+        baseDate={compareBaseDate(slots.filter((_, i) => valid[i]))}
       />
-      <div ref={exportRef} className={`export-target export-target-versus export-versus-${Math.max(1, rows.length)}`}>
+      <ExportTarget
+        ref={exportRef}
+        className={`export-target-versus export-versus-${Math.max(1, rows.length)}`}
+        baseDate={compareBaseDate(slots.filter((_, i) => valid[i]))}
+      >
         {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} />}
         <ComparisonTable
           statScope="team"
@@ -603,9 +611,10 @@ function TeamCompareView({
           teamColor={(r) => slotColorByKey.get(r.key)}
           subLabel={(r) => r.subLabel}
           avatar={(r) => (r.isLeague ? null : <TeamLogo teamId={r.teamId} size={64} />)}
+          jaNames
           emptyMessage={anyBusy ? "データ取得中..." : "比較するチームを選んでください"}
         />
-      </div>
+      </ExportTarget>
       {cat === "misc" && <RuleChangeFootnote seasons={rows.map((r) => r.season)} />}
       <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="比較" scope="スロットごとの条件で絞り込んだ試合の1試合平均です。" />
     </>
@@ -696,9 +705,13 @@ function PlayerCompareView({
       <ExportImageButton
         targetRef={exportRef}
         filename={filename}
-        baseDate={() => compareBaseDate(slots.filter((_, i) => valid[i]))}
+        baseDate={compareBaseDate(slots.filter((_, i) => valid[i]))}
       />
-      <div ref={exportRef} className={`export-target export-target-versus export-versus-${Math.max(1, rows.length)}`}>
+      <ExportTarget
+        ref={exportRef}
+        className={`export-target-versus export-versus-${Math.max(1, rows.length)}`}
+        baseDate={compareBaseDate(slots.filter((_, i) => valid[i]))}
+      >
         {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} />}
         <ComparisonTable
           rows={rows}
@@ -710,9 +723,10 @@ function PlayerCompareView({
           subLabel={(r) => r.subLabel}
           avatar={(r) => <PlayerPhoto playerId={r.playerId} size={72} className="compare-photo" placeholder />}
           caption={(r) => r.teamName}
+          jaNames
           emptyMessage={anyBusy ? "データ取得中..." : "比較する選手を選んでください"}
         />
-      </div>
+      </ExportTarget>
       {cat === "misc" && <RuleChangeFootnote seasons={rows.map((r) => r.season)} />}
       <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="比較" scope="スロットごとの条件で絞り込んだ試合の1試合平均です（移籍した選手は所属チームを合算）。" />
     </>

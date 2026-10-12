@@ -52,6 +52,26 @@ export function exportFilenameWithOptions(filename: string, options: ExportOptio
   return `${body}_${marks.join("_")}${ext}`;
 }
 
+/**
+ * 基準日の求め方の指定（DESIGN.md 240章）。画面の表の下の「データの基準日」と、保存画像のフッターが同じ指定から同じ日付を求める
+ * （関数ではなく値で持つので、画面側は指定が変わったときだけ求め直せる。求める処理は dataBaseDate.ts の resolveBaseDate）
+ */
+export type BaseDateSpec =
+  | { kind: "season"; season: string; gameType?: BaseDateGameType }
+  | { kind: "allTime"; gameType?: BaseDateGameType }
+  /** 比べている枠のシーズン・試合区分ごとの基準日のうち、最も新しい日 */
+  | { kind: "latest"; slots: { season: string; gameType: BaseDateGameType }[] };
+
+/** 指定の中身が同じかどうか（画面側が求め直すかの判定）に使う文字列 */
+export function baseDateSpecKey(spec: BaseDateSpec): string {
+  return JSON.stringify(spec);
+}
+
+/** 通算・歴代（allTime）か、そのシーズンかで求め方を切り替える表（1試合記録・勝負所・アシストペア等）の指定 */
+export function baseDateOf(allTime: boolean, season: string, gameType: BaseDateGameType): BaseDateSpec {
+  return allTime ? { kind: "allTime", gameType } : { kind: "season", season, gameType };
+}
+
 /** 保存画像の「上位10名」の件数 */
 export const EXPORT_TOP_10 = 10;
 

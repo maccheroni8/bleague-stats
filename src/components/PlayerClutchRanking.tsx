@@ -22,8 +22,9 @@ import { useUrlState } from "../lib/urlState";
 import { CLUTCH_MEASURE_PARAM, CLUTCH_WINDOW_PARAM, GAME_TYPE_PARAM, PLAYER_GROUP_PARAM, RECORDS_SCOPE_PARAM } from "../lib/urlFilterParams";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
+import { ExportTarget } from "./ExportTarget";
 import { teamShortName } from "../../shared/teamNames";
-import { allTimeBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
+import { baseDateOf } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
@@ -165,10 +166,10 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
           <ExportImageButton
             targetRef={exportRef}
             filename={filename}
-            baseDate={() => (allTime ? allTimeBaseDate(gameType) : seasonBaseDate(season, gameType))}
+            baseDate={baseDateOf(allTime, season, gameType)}
             ranking={{ media: "写真", unit: "名", top: RANK_TOP_N }}
           />
-          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
+          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player" baseDate={baseDateOf(allTime, season, gameType)}>
             <ConditionTitle title={title} conditions={conditionLabels} />
             <PlayerNamePool names={entries.map((e) => e.playerName)}>
               <RankedList
@@ -205,7 +206,7 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
               {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
               {group === "rookie" && <p className="rule-change-footnote">※ {ROOKIE_NOTE}{allTime ? "2016-17は、ルーキーを判定できないため、含めていません。" : ""}</p>}
             </PlayerNamePool>
-          </div>
+          </ExportTarget>
         </>
       )}
     </>

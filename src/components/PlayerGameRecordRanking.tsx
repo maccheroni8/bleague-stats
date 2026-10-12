@@ -46,8 +46,9 @@ import type { SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
 import { useJsonData } from "../lib/useJsonData";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
+import { ExportTarget } from "./ExportTarget";
 import { teamShortName } from "../../shared/teamNames";
-import { allTimeBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
+import { baseDateOf } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { GameRecordNotes } from "./GameRecordNotes";
 import { PlayerNamePool } from "./PlayerNamePool";
@@ -322,10 +323,10 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
           <ExportImageButton
             targetRef={exportRef}
             filename={filename}
-            baseDate={() => (allTime ? allTimeBaseDate(gameType) : seasonBaseDate(season, gameType))}
+            baseDate={baseDateOf(allTime, season, gameType)}
             ranking={{ media: "写真", unit: "件", top: RANK_TOP_N }}
           />
-          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
+          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player" baseDate={baseDateOf(allTime, season, gameType)}>
             <ConditionTitle title={title} conditions={conditionLabels} statConditions={statConditionsTitle(statConditions, PLAYER_STAT_CONDITION_ITEMS)} />
             <PlayerNamePool names={entries.map((e) => e.playerName)}>
               <RankedList
@@ -366,7 +367,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                 />
               )}
             </PlayerNamePool>
-          </div>
+          </ExportTarget>
         </>
       )}
     </>

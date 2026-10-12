@@ -14,6 +14,7 @@ import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { fetchPlayerPageSeasons, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { ExportImageButton } from "../components/ExportImageButton";
+import { ExportTarget } from "../components/ExportTarget";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { isRuleChangeStatKey } from "../lib/ruleChange";
@@ -34,7 +35,6 @@ import {
   type FilterAxis,
 } from "../lib/filterAxes";
 import { statJa } from "../lib/statNames";
-import { seasonBaseDate } from "../lib/dataBaseDate";
 import { teamShortName } from "../../shared/teamNames";
 import type { SituationalFilter } from "../lib/situational";
 import { SEASON_BOX_PERIOD_OPTIONS, SEASON_BOX_TABS } from "../lib/playerSeasonBoxscore";
@@ -558,8 +558,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
           <p className="empty-message">このシーズンのデータには対応していません</p>
         ) : (
           <>
-            <ExportImageButton targetRef={exportRef} filename={teamShootingTitle.filename} baseDate={() => seasonBaseDate(season, "regular")} ranking={TEAM_EXPORT_CHOICES} />
-            <div ref={exportRef} className={`export-target export-target-compact export-target-rankings-team${shootingCompare ? " export-target-compare" : ""}`}>
+            <ExportImageButton targetRef={exportRef} filename={teamShootingTitle.filename} baseDate={{ kind: "season", season, gameType: "regular" }} ranking={TEAM_EXPORT_CHOICES} />
+            <ExportTarget ref={exportRef} baseDate={{ kind: "season", season, gameType: "regular" }} className={`export-target-compact export-target-rankings-team${shootingCompare ? " export-target-compare" : ""}`}>
               <ConditionTitle title={teamShootingTitle.title} conditions={teamShootingTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
               <RankedList
                 statScope="team"
@@ -574,7 +574,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
                 compact
               />
               {shootingCompare && compareNotes(shootingCompare.rows.length === 0)}
-            </div>
+            </ExportTarget>
           </>
         )
       ) : category === "forcedTurnovers" ? (
@@ -582,8 +582,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
           <p className="empty-message">このシーズンのデータには対応していません</p>
         ) : (
           <>
-            <ExportImageButton targetRef={exportRef} filename={teamForcedTurnoverTitle.filename} baseDate={() => seasonBaseDate(season, "regular")} ranking={TEAM_EXPORT_CHOICES} />
-            <div ref={exportRef} className={`export-target export-target-compact export-target-rankings-team${turnoverCompare ? " export-target-compare" : ""}`}>
+            <ExportImageButton targetRef={exportRef} filename={teamForcedTurnoverTitle.filename} baseDate={{ kind: "season", season, gameType: "regular" }} ranking={TEAM_EXPORT_CHOICES} />
+            <ExportTarget ref={exportRef} baseDate={{ kind: "season", season, gameType: "regular" }} className={`export-target-compact export-target-rankings-team${turnoverCompare ? " export-target-compare" : ""}`}>
               <ConditionTitle title={teamForcedTurnoverTitle.title} conditions={teamForcedTurnoverTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
               <RankedList
                 statScope="team"
@@ -598,7 +598,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
                 compact
               />
               {turnoverCompare && compareNotes(turnoverCompare.rows.length === 0)}
-            </div>
+            </ExportTarget>
           </>
         )
       ) : rawGamesFailedCount > 0 ? (
@@ -607,8 +607,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         <p className="loading">読み込み中...</p>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={teamBoxscoreTitle.filename} baseDate={() => seasonBaseDate(season, gameType)} ranking={TEAM_EXPORT_CHOICES} />
-          <div ref={exportRef} className={`export-target export-target-compact export-target-rankings-team${boxCompare ? " export-target-compare" : ""}`}>
+          <ExportImageButton targetRef={exportRef} filename={teamBoxscoreTitle.filename} baseDate={{ kind: "season", season, gameType }} ranking={TEAM_EXPORT_CHOICES} />
+          <ExportTarget ref={exportRef} baseDate={{ kind: "season", season, gameType }} className={`export-target-compact export-target-rankings-team${boxCompare ? " export-target-compare" : ""}`}>
             <ConditionTitle title={teamBoxscoreTitle.title} conditions={teamBoxscoreTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
             <RankedList
                 statScope="team"
@@ -624,7 +624,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
             />
             {category === "misc" && isRuleChangeStatKey(teamDef.key) && <RuleChangeFootnote seasons={[season]} />}
             {boxCompare && compareNotes(boxCompare.rows.length === 0)}
-          </div>
+          </ExportTarget>
         </>
       )}
     </>
@@ -1041,10 +1041,14 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           <ExportImageButton
             targetRef={exportRef}
             filename={playerTitle.filename}
-            baseDate={() => seasonBaseDate(season, gameType)}
+            baseDate={{ kind: "season", season, gameType }}
             ranking={{ media: "写真", unit: "名", top: PLAYER_RANK_TOP_N }}
           />
-          <div ref={exportRef} className={`export-target export-target-compact export-target-rankings-player${comparison ? " export-target-compare" : ""}`}>
+          <ExportTarget
+            ref={exportRef}
+            baseDate={{ kind: "season", season, gameType }}
+            className={`export-target-compact export-target-rankings-player${comparison ? " export-target-compare" : ""}`}
+          >
             <ConditionTitle
               title={playerTitle.title}
               conditions={playerTitle.conditions}
@@ -1084,7 +1088,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
             {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
             {comparison && <CompareNotes season={season} prevSeason={prevSeason!} mode={rankMode} narrowed={rookieActive || conditionActive} kind="player" empty={comparison.rows.length === 0} />}
-          </div>
+          </ExportTarget>
         </>
       )}
     </>

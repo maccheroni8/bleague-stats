@@ -6,6 +6,7 @@
 //  2. フッターの文言・書式（「データの基準日：2026/10/11時点」。基準日が無いときは出さない）
 //  3. 上位10名で保存するときの「10位タイ ほか◯人」の数え方（同じ順位が10位の外に続く行数）
 //  4. 保存の選択に応じたファイル名（初期の選択は変えない）
+//  5. 画面の表の下の「データの基準日」と保存画像のフッターが使う、基準日の指定（240章）
 //
 // 使い方: npm run validate:export-image（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -13,6 +14,8 @@ import path from "node:path";
 import { gunzipSync } from "node:zlib";
 import {
   baseDateFooterText,
+  baseDateOf,
+  baseDateSpecKey,
   exportFilenameWithOptions,
   formatBaseDate,
   latestBaseDate,
@@ -71,6 +74,12 @@ console.log(`   確かめた組: ${checked}`);
 // --- 2. フッター ---
 eq("フッターの文言", baseDateFooterText("2026/10/11"), "データの基準日：2026/10/11時点");
 eq("基準日が無いときはフッターの日付を出さない", baseDateFooterText(undefined), "");
+
+// --- 2b. 基準日の指定（画面の表の下の日付と保存画像のフッターが同じ指定を使う。DESIGN.md 240章） ---
+eq("通算・歴代の指定", baseDateOf(true, "2026-27", "regular"), { kind: "allTime", gameType: "regular" });
+eq("シーズンの指定", baseDateOf(false, "2026-27", "both"), { kind: "season", season: "2026-27", gameType: "both" });
+eq("同じ指定は同じ文字列（画面側が求め直さない）", baseDateSpecKey(baseDateOf(false, "2026-27", "regular")), baseDateSpecKey({ kind: "season", season: "2026-27", gameType: "regular" }));
+eq("指定が違えば違う文字列（求め直す）", baseDateSpecKey(baseDateOf(false, "2026-27", "regular")) !== baseDateSpecKey(baseDateOf(false, "2025-26", "regular")), true);
 
 // --- 3. 上位10名の同率 ---
 eq("10位の外に同じ順位が続かない", tiesBeyondTop(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"], 10), 0);

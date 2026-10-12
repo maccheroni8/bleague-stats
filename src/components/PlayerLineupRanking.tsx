@@ -46,8 +46,9 @@ import { PairPerson } from "./AssistPairRanking";
 import { ConditionTitle } from "./ConditionTitle";
 import { EligibilitySlider } from "./EligibilitySlider";
 import { ExportImageButton } from "./ExportImageButton";
+import { ExportTarget } from "./ExportTarget";
 import { teamShortName } from "../../shared/teamNames";
-import { allTimeBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
+import { baseDateOf } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { GlossaryNote } from "./GlossaryNote";
 import { PlayerNamePool } from "./PlayerNamePool";
@@ -325,12 +326,13 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
           <ExportImageButton
             targetRef={exportRef}
             filename={filename}
-            baseDate={() => (allTime ? allTimeBaseDate(gameType) : seasonBaseDate(season, gameType))}
+            baseDate={baseDateOf(allTime, season, gameType)}
             ranking={{ media: "写真", unit: unit === "onoff" ? "名" : "組", top: RANK_TOP_N }}
           />
-          <div
+          <ExportTarget
             ref={exportRef}
-            className={`export-target export-target-compact export-target-rankings-player${unit === "onoff" ? "" : " export-target-pairs"}${unit === "trio" ? " export-target-trio" : ""}`}
+            className={`export-target-compact export-target-rankings-player${unit === "onoff" ? "" : " export-target-pairs"}${unit === "trio" ? " export-target-trio" : ""}`}
+            baseDate={baseDateOf(allTime, season, gameType)}
           >
             <ConditionTitle title={title} conditions={conditionLabels} />
             <PlayerNamePool names={among}>
@@ -402,7 +404,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
               {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
               {group === "rookie" && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
             </PlayerNamePool>
-          </div>
+          </ExportTarget>
           <GlossaryNote anchor={GLOSSARY_ANCHORS.lineupRanking} label="On/Off・組み合わせ" />
         </>
       )}

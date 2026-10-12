@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { SeasonLink as Link } from "./SeasonLink";
 import { ExternalLinkIcon } from "./ExternalLinkIcon";
 import { StatHeaderLabel } from "./StatHeaderLabel";
@@ -227,7 +227,7 @@ export function RankedList<T>({
               <tr key={rowKey(row)} className={i >= EXPORT_TOP_10 ? "rank-row-beyond10" : undefined}>
                 <td
                   className={`align-right rank-cell${accent ? " row-accent-cell" : ""}`}
-                  style={accent ? { borderLeftColor: accent } : undefined}
+                  style={accent ? ({ "--team-color": accent } as CSSProperties) : undefined}
                 >
                   {rankOf(i)}
                 </td>

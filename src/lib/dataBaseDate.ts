@@ -5,10 +5,10 @@
 // 基準日は「そのシーズン・その試合区分で、データが入っている最新の試合日」のまま（データがいつの時点のものかを示す日付のため）。
 import type { GameSummary } from "../../shared/types";
 import { fetchGameSummaries, fetchSeasons } from "./data";
-import { formatBaseDate, latestBaseDate, latestEndedGameDate, type BaseDateGameType } from "./exportFormat";
+import { baseDateOf, baseDateSpecKey, formatBaseDate, latestBaseDate, latestEndedGameDate, type BaseDateGameType, type BaseDateSpec } from "./exportFormat";
 
-export { latestBaseDate };
-export type { BaseDateGameType };
+export { baseDateOf, baseDateSpecKey, latestBaseDate };
+export type { BaseDateGameType, BaseDateSpec };
 
 // 同じシーズンを何度も読まないよう、読み込みの約束（Promise）をシーズンごとに持つ。保存のたびに新しい値が要るので、
 // 結果ではなく読み込みだけを使い回す（ページを開き直すまで変わらない。取得に失敗したら次の保存で読み直す）
@@ -55,4 +55,17 @@ export async function allTimeBaseDate(gameType: BaseDateGameType = "regular"): P
     // 基準日が取れなくても保存は止めない（フッターに日付を出さないだけ）
   }
   return undefined;
+}
+
+
+/** 基準日の指定（画面の表の下の日付と、保存画像のフッターで共通。DESIGN.md 240章）から日付（「2026/10/11」形式）を求める */
+export async function resolveBaseDate(spec: BaseDateSpec): Promise<string | undefined> {
+  switch (spec.kind) {
+    case "season":
+      return seasonBaseDate(spec.season, spec.gameType ?? "regular");
+    case "allTime":
+      return allTimeBaseDate(spec.gameType ?? "regular");
+    case "latest":
+      return latestBaseDate(await Promise.all(spec.slots.map((s) => seasonBaseDate(s.season, s.gameType))));
+  }
 }

@@ -1,4 +1,5 @@
 import { useState, type RefObject } from "react";
+import { resolveBaseDate, type BaseDateSpec } from "../lib/dataBaseDate";
 import { exportElementAsImage } from "../lib/exportImage";
 
 /**
@@ -22,8 +23,8 @@ export function ExportImageButton({
 }: {
   targetRef: RefObject<HTMLElement | null>;
   filename: string;
-  /** データの基準日（「2026/10/11」形式）を返す関数。保存のときに呼ぶ（表に入っている試合のうち、終わった試合の最も新しい試合日） */
-  baseDate?: () => Promise<string | undefined>;
+  /** データの基準日（表に入っている試合のうち、終わった試合の最も新しい試合日）の求め方。保存のときに求める（画面の表の下の日付と同じ指定） */
+  baseDate?: BaseDateSpec;
   /** ランキングの保存の選択肢（指定したときだけ出す） */
   ranking?: RankingExportChoices;
 }) {
@@ -35,7 +36,7 @@ export function ExportImageButton({
     if (!targetRef.current || busy) return;
     setBusy(true);
     try {
-      const date = baseDate ? await baseDate() : undefined;
+      const date = baseDate ? await resolveBaseDate(baseDate) : undefined;
       await exportElementAsImage(targetRef.current, filename, {
         baseDate: date,
         plain: ranking ? plain : false,

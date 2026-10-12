@@ -44,7 +44,8 @@ import { useJsonData } from "../lib/useJsonData";
 import { useNarrow } from "../lib/teamLabel";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
-import { allTimeBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
+import { ExportTarget } from "./ExportTarget";
+import { baseDateOf } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { GameRecordNotes } from "./GameRecordNotes";
 import { RankedList } from "./RankedList";
@@ -242,10 +243,10 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
           <ExportImageButton
             targetRef={exportRef}
             filename={filename}
-            baseDate={() => (allTime ? allTimeBaseDate(gameType) : seasonBaseDate(season, gameType))}
+            baseDate={baseDateOf(allTime, season, gameType)}
             ranking={{ media: "ロゴ", unit: "件", top: TEAM_RECORD_TOP_N }}
           />
-          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-team">
+          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-team" baseDate={baseDateOf(allTime, season, gameType)}>
             <ConditionTitle title={title} conditions={conditionLabels} statConditions={statConditionsTitle(statConditions, TEAM_STAT_CONDITION_ITEMS)} />
             <RankedList
               rows={rows}
@@ -296,7 +297,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
                 positionFallback={false}
               />
             )}
-          </div>
+          </ExportTarget>
         </>
       )}
     </>

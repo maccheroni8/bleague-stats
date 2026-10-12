@@ -15,7 +15,8 @@ import { useUrlState } from "../lib/urlState";
 import { GAME_TYPE_PARAM, PAIR_UNIT_PARAM } from "../lib/urlFilterParams";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
-import { allTimeBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
+import { ExportTarget } from "./ExportTarget";
+import { baseDateOf } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
@@ -153,10 +154,10 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
           <ExportImageButton
             targetRef={exportRef}
             filename={filename}
-            baseDate={() => (unit === "season" ? seasonBaseDate(season, gameType) : allTimeBaseDate(gameType))}
+            baseDate={baseDateOf(unit !== "season", season, gameType)}
             ranking={{ media: "写真", unit: "組", top: RANK_TOP_N }}
           />
-          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player export-target-pairs">
+          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player export-target-pairs" baseDate={baseDateOf(unit !== "season", season, gameType)}>
             <ConditionTitle title={title} conditions={conditionLabels} />
             <PlayerNamePool names={among}>
               <RankedList
@@ -194,7 +195,7 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
               </p>
               {activeOn && <p className="rule-change-footnote">※ {activeNote()}アシストした選手と得点した選手の両方が現役の組だけを表示しています。</p>}
             </PlayerNamePool>
-          </div>
+          </ExportTarget>
         </>
       )}
     </>

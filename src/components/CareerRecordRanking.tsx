@@ -17,7 +17,7 @@ import { useJsonData } from "../lib/useJsonData";
 import { TEAM_DIVISIONS } from "../../scripts/lib/divisions";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
-import { allTimeBaseDate } from "../lib/dataBaseDate";
+import { ExportTarget } from "./ExportTarget";
 import { teamShortName } from "../../shared/teamNames";
 import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
@@ -119,10 +119,10 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
           <ExportImageButton
             targetRef={exportRef}
             filename={filename}
-            baseDate={() => allTimeBaseDate(countDef ? "both" : gameType)}
+            baseDate={{ kind: "allTime", gameType: countDef ? "both" : gameType }}
             ranking={{ media: "写真", unit: "名", top: PLAYER_RANK_TOP_N }}
           />
-          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
+          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-player" baseDate={{ kind: "allTime", gameType: countDef ? "both" : gameType }}>
             <ConditionTitle title={title} conditions={conditions} />
             <PlayerNamePool names={rows.map((r) => r.info.name)}>
               <RankedList
@@ -156,7 +156,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
                 <p className="rule-change-footnote">※ 通算得点が{PLAYER_CAREER_ASTED_MIN_POINTS.toLocaleString()}点以上の選手が対象です。得点のうち、アシストされた得点（アシストされた2P×2＋3P×3＋FT）の割合です。</p>
               )}
             </PlayerNamePool>
-          </div>
+          </ExportTarget>
         </>
       )}
     </>
@@ -209,10 +209,10 @@ export function TeamCareerRecordRanking({ teamColors }: { teamColors: Record<str
           <ExportImageButton
             targetRef={exportRef}
             filename={filename}
-            baseDate={() => allTimeBaseDate(gameType)}
+            baseDate={{ kind: "allTime", gameType: gameType }}
             ranking={{ media: "ロゴ", unit: "チーム", top: null }}
           />
-          <div ref={exportRef} className="export-target export-target-compact export-target-rankings-team">
+          <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-team" baseDate={{ kind: "allTime", gameType: gameType }}>
             <ConditionTitle title={title} conditions={conditions} />
             <RankedList
               rows={rows}
@@ -240,7 +240,7 @@ export function TeamCareerRecordRanking({ teamColors }: { teamColors: Record<str
               statScope="team"
               compact
             />
-          </div>
+          </ExportTarget>
         </>
       )}
     </>
