@@ -235,8 +235,11 @@ const COMPARE_NO_HIGHLIGHT = new Set([
   "pctpaint2aown",
   "pctmid2aown",
 ]);
-/** チームの列定義で比較用の値（value）を持たない列の補い（無いと全員0扱いになり強調されない） */
-const TEAM_COMPARE_VALUE: Record<string, (c: BoxscoreCounts) => number> = {
+/**
+ * チームの列定義で比較用の値（value）を持たない列の補い（無いと全員0扱いになり、強調が値の大小ではなく先頭の対象に付く）。
+ * 値は表に出す値（format）と同じもの。ctx は列の式に渡るチームの文脈（ポゼッションの合計など）
+ */
+const TEAM_COMPARE_VALUE: Record<string, (c: BoxscoreCounts, ctx: ColumnCtx) => number | undefined> = {
   ufoul: (c) => c.unsportsmanlikeFouls,
   dqfoul: (c) => c.disqualifyingFouls,
   tf: (c) => c.technicalFouls,
@@ -244,7 +247,14 @@ const TEAM_COMPARE_VALUE: Record<string, (c: BoxscoreCounts) => number> = {
   tf2: (c) => c.technicalFoulsCat2 ?? 0,
   flag: (c) => c.flagrantFouls ?? 0,
   disr: (c) => c.disruptiveFouls ?? 0,
+  // POSS: 1試合平均のポゼッション（試合ごとのポゼッションの合計÷試合数。表の値 `ctx.ratings.poss` と同じ）
+  poss: (_c, ctx) => ctx.ratings?.poss,
 };
+/**
+ * 自チームと相手チームで同じ値になる項目（試合のポゼッションは両チームで共通）。差（+/-）は常に0なので、
+ * +/- の視点では値を出さない（従来どおり「-」。全対象が「-」なら行ごと出ない）
+ */
+const TEAM_COMPARE_NO_DIFF = new Set(["poss"]);
 
 function compareHigherIsBetter(key: string, own: boolean | undefined): boolean {
   return COMPARE_LOWER_IS_BETTER.has(key) ? false : (own ?? true);
@@ -259,7 +269,7 @@ export function teamCompareDefs(
   // チームの表向けの列（Scoring の %3PM〜%2PA は FGA に占める割合、%PTS・%FGM・%FGA・%FTM・%FTA は外す。teamBoxscoreColumns.ts）
   const defs = teamBoxscoreColumnsFor(tabKey, foulSplit).map((raw) => {
     const extraValue = TEAM_COMPARE_VALUE[raw.key];
-    const col: BoxscoreColumn = extraValue && !raw.value ? { ...raw, value: (c) => extraValue(c) } : raw;
+    const col: BoxscoreColumn = extraValue && !raw.value ? { ...raw, value: (c, ctx) => extraValue(c, ctx) } : raw;
     return teamCompareDef(col, perspective);
   });
   // 全チームスタッツ・チーム詳細にあって、ボックススコアの列定義には無い項目（DESIGN.md 235章）
@@ -358,7 +368,7 @@ function teamCompareDef(col: BoxscoreColumn, perspective: TeamPerspective): Comp
       return ownValue !== undefined && oppValue !== undefined ? ownValue - oppValue : 0;
     },
     format: (r) =>
-      perspective === "diff" && r.isLeague
+      perspective === "diff" && (r.isLeague || TEAM_COMPARE_NO_DIFF.has(col.key))
         ? "-"
         : perspective === "own"
         ? cleanNumericString(col.format(r.boxTotals.own, r.boxTotals.ownCtx))

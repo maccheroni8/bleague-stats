@@ -21,6 +21,8 @@ import {
 import type { ComparisonStatDef } from "../src/pages/ComparePage";
 import { buildSeasonBoxscoreCtx, countDoubleTripleDoubles, sumPlayerGameLogs } from "../src/lib/playerSeasonBoxscore";
 import { sumTeamGameLogs } from "../src/lib/teamStatsColumns";
+import { sumCountsList, type BoxscoreCounts, type PlayTypeCounts } from "../src/lib/boxscoreAggregate";
+import type { ColumnCtx } from "../src/components/BoxscoreTable";
 import { resultOnlyCompareNote } from "../src/lib/resultOnlyGames";
 import { EMPTY_TEAM_TOTALS } from "../shared/teamSeasonTotals";
 import type { PlayerGameLog, PlayerSummary, TeamGameLog, TeamSummary } from "../shared/types";
@@ -113,6 +115,95 @@ for (const tab of ["traditional", "advanced", "misc", "scoring"] as const) {
   }
   const scoring = teamCompareDefs("scoring", "own", false).map((d) => d.label);
   eq("残した名前がある（PITP%・%PAINT2A）", [scoring.includes("PITP%"), scoring.includes("%PAINT2A")], [true, true]);
+}
+
+// --- チームの比較: 強調が値の比較どおりであること（value を持たない列が無いこと。DESIGN.md 238章） ---
+// 値を持たない列は全対象が0扱いになり、同値として先頭（左）の対象が強調される（POSS の不具合）。
+// 対象を2つ作り、表に出る値（format）が違う項目は、強調に使う値（value）も違い、同じ向きに並ぶことを確かめる
+{
+  // 値が項目ごとに違う（比の項目も対象で変わる）ように、項目の番号と種から決まる擬似的な整数を入れる
+  const filled = (seed: number): BoxscoreCounts => {
+    const zero = sumCountsList([]) as unknown as Record<string, unknown>;
+    const out: Record<string, unknown> = { ...zero };
+    // 2026-27 以降の新しい区分の項目は、ゼロでは項目が無いので足す
+    for (const k of ["technicalFoulsCat1", "technicalFoulsCat2", "flagrantFouls", "disruptiveFouls"]) out[k] = 0;
+    let i = 0;
+    for (const k of Object.keys(out)) {
+      if (typeof out[k] === "number") out[k] = ((i * 37 + seed * 101) % 29) + 5 + (k === "minSec" ? 1500 : 0);
+      i += 1;
+    }
+    out.hasPlusMinus = true;
+    return out as unknown as BoxscoreCounts;
+  };
+  const playType = (seed: number): PlayTypeCounts => ({ pft: 10 + seed, fb: 5 + seed * 2, pt2nd: 8 + seed * 3, pt2in: 20 + seed * 4 }) as unknown as PlayTypeCounts;
+  const ctxOf2 = (own: BoxscoreCounts, seed: number, poss: number): ColumnCtx => ({
+    own,
+    ownPlayType: playType(seed),
+    ratings: { poss, pace: 70 + seed, offRtg: 100 + seed * 3, defRtg: 105 + seed * 2, netRtg: seed - 5 },
+    isPlayerRow: false,
+    isTeamTotalRow: true,
+    shotChartSupported: true,
+    yahooPbpSupported: true,
+  });
+  const boxOf = (seed: number, poss: number): TeamCompareColumnData => {
+    const own = filled(seed);
+    const opp = filled(seed + 7);
+    return {
+      key: `t${seed}`,
+      label: `t${seed}`,
+      gamesCount: 10,
+      boxTotals: { own, opp, ownCtx: ctxOf2(own, seed, poss), oppCtx: ctxOf2(opp, seed + 7, poss) } as unknown as TeamCompareColumnData["boxTotals"],
+    };
+  };
+  // POSS が小さい対象を先頭（左）に置く（不具合の例: 長崎 72.8・宇都宮 74.6）
+  const left = boxOf(1, 72.8);
+  const right = boxOf(2, 74.6);
+  const plain = /^[+-]?\d+(\.\d+)?%?$/;
+  let checkedDefs = 0;
+  const bad: string[] = [];
+  for (const tab of ["traditional", "advanced", "misc", "scoring"] as const) {
+    for (const perspective of ["own", "opp", "diff"] as const) {
+      for (const foulSplit of [false, true]) {
+        for (const d of teamCompareDefs(tab, perspective, foulSplit)) {
+          if (d.noHighlight) continue;
+          const fl = d.format(left);
+          const fr = d.format(right);
+          if (fl === "-" || fr === "-") continue;
+          checkedDefs += 1;
+          const vl = d.value(left);
+          const vr = d.value(right);
+          const where = `${tab}・${perspective}${foulSplit ? "・新ファウル区分" : ""} ${d.label}`;
+          if (fl !== fr && vl === vr) {
+            bad.push(`${where}: 表の値が違う（${fl} / ${fr}）のに強調の値が同じ（${vl}）`);
+          } else if (plain.test(fl) && plain.test(fr) && parseFloat(fl) !== parseFloat(fr)) {
+            if (parseFloat(fl) < parseFloat(fr) !== vl < vr) bad.push(`${where}: 表の値（${fl} / ${fr}）と強調の値（${vl} / ${vr}）の大小が逆`);
+          }
+        }
+      }
+    }
+  }
+  eq(`チームの比較: 強調する項目の値は、表の値と同じ大小（${checkedDefs}項目）`, bad.slice(0, 12), []);
+  eq("チームの比較: 確かめた項目が十分にある", checkedDefs > 100, true);
+
+  // POSS は自チーム・相手視点で値の比較どおりに強調され（PACE と同じ向き）、+/- の視点では値を出さない（従来どおり）
+  for (const tab of ["advanced"] as const) {
+    const ownDefs = new Map(teamCompareDefs(tab, "own", false).map((d) => [d.key, d]));
+    const oppDefs = new Map(teamCompareDefs(tab, "opp", false).map((d) => [d.key, d]));
+    const diffDefs = new Map(teamCompareDefs(tab, "diff", false).map((d) => [d.key, d]));
+    const poss = ownDefs.get("poss")!;
+    const pace = ownDefs.get("pace")!;
+    eq("POSS の表の値（1試合平均）", [poss.format(left), poss.format(right)], ["72.8", "74.6"]);
+    eq("POSS の強調の値は表の値と同じ（左 < 右）", [poss.value(left), poss.value(right)], [72.8, 74.6]);
+    eq("POSS は PACE と同じ向き・同じ扱い（自チーム）", [poss.higherIsBetter, poss.noHighlight], [pace.higherIsBetter, pace.noHighlight]);
+    eq("POSS は PACE と同じ向き・同じ扱い（相手視点）", [oppDefs.get("poss")!.higherIsBetter, oppDefs.get("poss")!.noHighlight], [oppDefs.get("pace")!.higherIsBetter, oppDefs.get("pace")!.noHighlight]);
+    eq("POSS の相手視点の値も1試合平均", [oppDefs.get("poss")!.format(left), oppDefs.get("poss")!.value(left)], ["72.8", 72.8]);
+    eq("POSS は +/- の視点では値を出さない（両チームで同じ値のため）", [diffDefs.get("poss")!.format(left), diffDefs.get("poss")!.format(right)], ["-", "-"]);
+  }
+  // 小数第1位まで同じなら同値（強調しない）の判定が働くよう、値は丸めずに持つ（表の値と同じ丸めで比べられる）
+  const near1 = boxOf(1, 72.84);
+  const near2 = boxOf(2, 72.81);
+  const possDef = teamCompareDefs("advanced", "own", false).find((d) => d.key === "poss")!;
+  eq("POSS 72.84 と 72.81 は表の値が同じ（72.8）", [possDef.format(near1), possDef.format(near2)], ["72.8", "72.8"]);
 }
 
 // --- 結果だけの試合の注記 ---
