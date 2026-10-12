@@ -217,7 +217,7 @@ export function cleanNumericString(s: string): string {
  * 比較の表で「良い方の値」を強調するときの向きの補正（DESIGN.md 134-4）。列定義（BoxscoreTable の COLUMNS_BY_TAB・
  * SEASON_BOX_COLUMNS）はボックススコア等の他の表でも使うので変えず、比較の表だけで上書きする。
  * - 少ないほど良い: UFOUL・DQFOUL・TF・TF1・TF2・FLAG・DISR・OFF FOUL（個人の OFF FOUL は列定義に向きが無く「多いほど良い」扱いになっていた）
- * - 強調しない: 試投数と、試投数に占める割合（多い・少ないに良し悪しが無い）
+ * - 強調しない: 試投数と、試投数に占める割合（多い・少ないに良し悪しが無い）と、テンポ（POSS・PACE。多いほうが良いものではない）
  */
 const COMPARE_LOWER_IS_BETTER = new Set(["ufoul", "dqfoul", "tf", "tf1", "tf2", "flag", "disr", "offfoul"]);
 const COMPARE_NO_HIGHLIGHT = new Set([
@@ -234,12 +234,12 @@ const COMPARE_NO_HIGHLIGHT = new Set([
   "pct3paown",
   "pctpaint2aown",
   "pctmid2aown",
+  // テンポ: 多いほうが良いものではない（POSS は延長の有無でも増える。DESIGN.md 238章）
+  "poss",
+  "pace",
 ]);
-/**
- * チームの列定義で比較用の値（value）を持たない列の補い（無いと全員0扱いになり、強調が値の大小ではなく先頭の対象に付く）。
- * 値は表に出す値（format）と同じもの。ctx は列の式に渡るチームの文脈（ポゼッションの合計など）
- */
-const TEAM_COMPARE_VALUE: Record<string, (c: BoxscoreCounts, ctx: ColumnCtx) => number | undefined> = {
+/** チームの列定義で比較用の値（value）を持たない列の補い（無いと全員0扱いになり、強調が値の大小ではなく先頭の対象に付く） */
+const TEAM_COMPARE_VALUE: Record<string, (c: BoxscoreCounts) => number> = {
   ufoul: (c) => c.unsportsmanlikeFouls,
   dqfoul: (c) => c.disqualifyingFouls,
   tf: (c) => c.technicalFouls,
@@ -247,14 +247,12 @@ const TEAM_COMPARE_VALUE: Record<string, (c: BoxscoreCounts, ctx: ColumnCtx) => 
   tf2: (c) => c.technicalFoulsCat2 ?? 0,
   flag: (c) => c.flagrantFouls ?? 0,
   disr: (c) => c.disruptiveFouls ?? 0,
-  // POSS: 1試合平均のポゼッション（試合ごとのポゼッションの合計÷試合数。表の値 `ctx.ratings.poss` と同じ）
-  poss: (_c, ctx) => ctx.ratings?.poss,
 };
 /**
- * 自チームと相手チームで同じ値になる項目（試合のポゼッションは両チームで共通）。差（+/-）は常に0なので、
- * +/- の視点では値を出さない（従来どおり「-」。全対象が「-」なら行ごと出ない）
+ * 自チームと相手チームで同じ値になる項目（1つの試合のポゼッション・テンポは両チームで共通）。差（+/-）は常に0なので、
+ * +/- の視点では値を出さない（「-」。全対象が「-」なら行ごと出ない）
  */
-const TEAM_COMPARE_NO_DIFF = new Set(["poss"]);
+const TEAM_COMPARE_NO_DIFF = new Set(["poss", "pace"]);
 
 function compareHigherIsBetter(key: string, own: boolean | undefined): boolean {
   return COMPARE_LOWER_IS_BETTER.has(key) ? false : (own ?? true);
@@ -269,7 +267,7 @@ export function teamCompareDefs(
   // チームの表向けの列（Scoring の %3PM〜%2PA は FGA に占める割合、%PTS・%FGM・%FGA・%FTM・%FTA は外す。teamBoxscoreColumns.ts）
   const defs = teamBoxscoreColumnsFor(tabKey, foulSplit).map((raw) => {
     const extraValue = TEAM_COMPARE_VALUE[raw.key];
-    const col: BoxscoreColumn = extraValue && !raw.value ? { ...raw, value: (c, ctx) => extraValue(c, ctx) } : raw;
+    const col: BoxscoreColumn = extraValue && !raw.value ? { ...raw, value: (c) => extraValue(c) } : raw;
     return teamCompareDef(col, perspective);
   });
   // 全チームスタッツ・チーム詳細にあって、ボックススコアの列定義には無い項目（DESIGN.md 235章）

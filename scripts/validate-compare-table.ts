@@ -185,25 +185,26 @@ for (const tab of ["traditional", "advanced", "misc", "scoring"] as const) {
   eq(`チームの比較: 強調する項目の値は、表の値と同じ大小（${checkedDefs}項目）`, bad.slice(0, 12), []);
   eq("チームの比較: 確かめた項目が十分にある", checkedDefs > 100, true);
 
-  // POSS は自チーム・相手視点で値の比較どおりに強調され（PACE と同じ向き）、+/- の視点では値を出さない（従来どおり）
+  // テンポ（POSS・PACE）は強調しない（多いほうが良いものではない）。+/- の視点では両チームで同じ値のため値を出さず、全対象が「-」なら行ごと出ない
   for (const tab of ["advanced"] as const) {
+    for (const foulSplit of [false, true]) {
+      const ownDefs = new Map(teamCompareDefs(tab, "own", foulSplit).map((d) => [d.key, d]));
+      const oppDefs = new Map(teamCompareDefs(tab, "opp", foulSplit).map((d) => [d.key, d]));
+      const diffDefs = new Map(teamCompareDefs(tab, "diff", foulSplit).map((d) => [d.key, d]));
+      for (const key of ["poss", "pace"]) {
+        eq(`${key} は強調しない（自チーム・相手視点・+/-）`, [ownDefs.get(key)!.noHighlight, oppDefs.get(key)!.noHighlight, diffDefs.get(key)!.noHighlight], [true, true, true]);
+        eq(`${key} は +/- の視点では値を出さない（両チームで同じ値のため）`, [diffDefs.get(key)!.format(left), diffDefs.get(key)!.format(right)], ["-", "-"]);
+        eq(
+          `${key} は +/- の視点では行ごと出ない`,
+          defsWithAnyValue([diffDefs.get(key)!], [left, right]).length,
+          0,
+        );
+        eq(`${key} は自チーム・相手視点では行が出る`, [defsWithAnyValue([ownDefs.get(key)!], [left, right]).length, defsWithAnyValue([oppDefs.get(key)!], [left, right]).length], [1, 1]);
+      }
+    }
     const ownDefs = new Map(teamCompareDefs(tab, "own", false).map((d) => [d.key, d]));
-    const oppDefs = new Map(teamCompareDefs(tab, "opp", false).map((d) => [d.key, d]));
-    const diffDefs = new Map(teamCompareDefs(tab, "diff", false).map((d) => [d.key, d]));
-    const poss = ownDefs.get("poss")!;
-    const pace = ownDefs.get("pace")!;
-    eq("POSS の表の値（1試合平均）", [poss.format(left), poss.format(right)], ["72.8", "74.6"]);
-    eq("POSS の強調の値は表の値と同じ（左 < 右）", [poss.value(left), poss.value(right)], [72.8, 74.6]);
-    eq("POSS は PACE と同じ向き・同じ扱い（自チーム）", [poss.higherIsBetter, poss.noHighlight], [pace.higherIsBetter, pace.noHighlight]);
-    eq("POSS は PACE と同じ向き・同じ扱い（相手視点）", [oppDefs.get("poss")!.higherIsBetter, oppDefs.get("poss")!.noHighlight], [oppDefs.get("pace")!.higherIsBetter, oppDefs.get("pace")!.noHighlight]);
-    eq("POSS の相手視点の値も1試合平均", [oppDefs.get("poss")!.format(left), oppDefs.get("poss")!.value(left)], ["72.8", 72.8]);
-    eq("POSS は +/- の視点では値を出さない（両チームで同じ値のため）", [diffDefs.get("poss")!.format(left), diffDefs.get("poss")!.format(right)], ["-", "-"]);
+    eq("POSS の表の値（1試合平均）", [ownDefs.get("poss")!.format(left), ownDefs.get("poss")!.format(right)], ["72.8", "74.6"]);
   }
-  // 小数第1位まで同じなら同値（強調しない）の判定が働くよう、値は丸めずに持つ（表の値と同じ丸めで比べられる）
-  const near1 = boxOf(1, 72.84);
-  const near2 = boxOf(2, 72.81);
-  const possDef = teamCompareDefs("advanced", "own", false).find((d) => d.key === "poss")!;
-  eq("POSS 72.84 と 72.81 は表の値が同じ（72.8）", [possDef.format(near1), possDef.format(near2)], ["72.8", "72.8"]);
 }
 
 // --- 結果だけの試合の注記 ---
