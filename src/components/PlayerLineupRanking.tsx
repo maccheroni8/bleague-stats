@@ -74,34 +74,71 @@ const signed = (v: number | null) => (v === null ? "-" : formatSigned(v));
 const plain = (v: number | null) => (v === null ? "-" : formatDecimal(v));
 
 /** 1つの状態（On または Off）の説明: 「On 668:12・1,180ポゼッション NetRtg +6.9（ORtg 115.9／DRtg 109.0）」 */
-function SideLine({ label, s }: { label: string; s: LineupSide }) {
+function SideLine({ label, s, narrow }: { label: string; s: LineupSide; narrow: boolean }) {
   const r = sideRatings(s);
   return (
     <>
-      <span className="record-date-nowrap">
-        {label} {minutesText(s)}・{formatInteger(s.ownPoss)}ポゼッション
-      </span>
+      {narrow ? (
+        // 通算は桁が多く（「On 5,850:01・10,022ポゼッション」）、これだけで名前の列の幅を超えるので、「・」の後ろでも折り返せるようにする
+        <>
+          <span className="record-date-nowrap">
+            {label} {minutesText(s)}・
+          </span>
+          <span className="record-date-nowrap">{formatInteger(s.ownPoss)}ポゼッション</span>
+        </>
+      ) : (
+        <span className="record-date-nowrap">
+          {label} {minutesText(s)}・{formatInteger(s.ownPoss)}ポゼッション
+        </span>
+      )}
       {"　"}
-      <span className="record-date-nowrap">
-        NetRtg {signed(r.net)}（ORtg {plain(r.off)}／DRtg {plain(r.def)}）
-      </span>
+      {narrow ? (
+        // スマホ幅: 名前の列の幅（約165px）に収まらないので、「NetRtg +12.7」と「（ORtg …／DRtg …）」の間で折り返せるようにする
+        // （1つの nowrap のままだと右端の値の列にかかる）
+        <>
+          <span className="record-date-nowrap">NetRtg {signed(r.net)}</span>
+          <span className="record-date-nowrap">
+            （ORtg {plain(r.off)}／DRtg {plain(r.def)}）
+          </span>
+        </>
+      ) : (
+        <span className="record-date-nowrap">
+          NetRtg {signed(r.net)}（ORtg {plain(r.off)}／DRtg {plain(r.def)}）
+        </span>
+      )}
     </>
   );
 }
 
-function RowLine({ row, unit, allTime }: { row: LineupRow; unit: LineupUnit; allTime: boolean }) {
+function RowLine({ row, unit, allTime, narrow }: { row: LineupRow; unit: LineupUnit; allTime: boolean; narrow: boolean }) {
   const span = row.firstSeason === row.lastSeason ? row.lastSeason : `${row.firstSeason}〜${row.lastSeason}`;
   return (
     <>
       <ResponsiveTeamName teamId={row.teamId} name={row.teamName} always nowrap />
-      {allTime && <span className="record-date-nowrap">　{span}</span>}
-      <span className="record-date-nowrap">　{row.on.games}試合</span>
+      {narrow ? (
+        // スマホ幅: 空白を nowrap の外に出し、「チーム名」「シーズン」「試合数」の間で折り返せるようにする（通算でチーム名が長いと値の列にかかる）
+        <>
+          {allTime && (
+            <>
+              {"　"}
+              <span className="record-date-nowrap">{span}</span>
+            </>
+          )}
+          {"　"}
+          <span className="record-date-nowrap">{row.on.games}試合</span>
+        </>
+      ) : (
+        <>
+          {allTime && <span className="record-date-nowrap">　{span}</span>}
+          <span className="record-date-nowrap">　{row.on.games}試合</span>
+        </>
+      )}
       <br />
-      <SideLine label={unit === "onoff" ? "On" : "同時出場"} s={row.on} />
+      <SideLine label={unit === "onoff" ? "On" : "同時出場"} s={row.on} narrow={narrow} />
       {row.off && (
         <>
           <br />
-          <SideLine label="Off" s={row.off} />
+          <SideLine label="Off" s={row.off} narrow={narrow} />
         </>
       )}
     </>
@@ -364,7 +401,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                     </span>
                   )
                 }
-                subLabel={(r) => <RowLine row={r} unit={unit} allTime={allTime} />}
+                subLabel={(r) => <RowLine row={r} unit={unit} allTime={allTime} narrow={narrow} />}
                 linkTo={(r) => (unit === "onoff" ? `/players/${r.players[0]!.id}?season=${r.lastSeason}` : undefined)}
                 avatar={unit === "onoff" ? (r) => <PlayerPhoto playerId={r.players[0]!.id} size={56} className="player-cell-photo" placeholder /> : undefined}
                 teamColor={(r) => teamColors?.[r.teamId]?.primary}

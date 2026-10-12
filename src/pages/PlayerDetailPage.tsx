@@ -3162,6 +3162,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               name={(r) => r.label}
               linkTo={() => `/players/${player.playerId}`}
               teamColor={() => accentColor}
+              jaNames
             />
           )}
           {compareTab === "misc" && (

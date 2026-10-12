@@ -6703,8 +6703,9 @@ table.compare-table th.align-center .compare-condition-tag {
     table-layout: fixed;
   }
 
+  /* 項目名の下の日本語名（フィールドゴール成功数 等）が2行に収まる幅（チーム詳細・個人詳細の比較タブ。比較ページは .export-wide の幅） */
   .compare-interleaved table.compare-table .compare-label-col {
-    width: 96px;
+    width: 128px;
   }
 }
 
@@ -7489,8 +7490,9 @@ table.sortable-table.lineup-search-table tbody th {
 }
 
 @media (max-width: 560px) {
+  /* 375px幅で、3人分（と「×」）が名前の列に収まり、右端の値の列にかからない幅 */
   .pair-people-trio .pair-person {
-    width: 72px;
+    width: 66px;
   }
 
   .pair-people-trio .pair-person-name {
@@ -7547,6 +7549,8 @@ table.sortable-table.lineup-search-table tbody th {
 
 .compare-label-ja {
   display: block;
+  /* 項目名の列は nowrap（長い日本語名が列の幅からはみ出さないよう、日本語名だけ折り返す） */
+  white-space: normal;
   margin-top: 2px;
   font-size: 10px;
   font-weight: 400;

@@ -227,7 +227,7 @@ interface ComparisonTableProps<T> {
   avatar?: (row: T) => ReactNode;
   /** 列見出しで名前の下に添える文字（選手の所属チーム） */
   caption?: (row: T) => string | undefined;
-  /** 項目名（略称）の下に日本語名を小さく添える（比較ページ。画面・保存画像とも。辞書で略称と同じ項目は出さない） */
+  /** 項目名（略称）の下に日本語名を小さく添える（比較ページ・チーム詳細・個人詳細の比較タブ。画面・保存画像とも。辞書で略称と同じ項目は出さない） */
   jaNames?: boolean;
   emptyMessage?: string;
   /** 項目名の説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */

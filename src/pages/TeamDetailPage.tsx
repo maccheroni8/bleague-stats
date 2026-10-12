@@ -4867,6 +4867,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               name={(r) => r.label}
               linkTo={(r) => (r.isLeague ? undefined : `/teams/${teamId}`)}
               teamColor={(r) => (r.isLeague ? LEAGUE_COLOR : accentColor)}
+              jaNames
             />
           )}
           {compareTab === "misc" && (
