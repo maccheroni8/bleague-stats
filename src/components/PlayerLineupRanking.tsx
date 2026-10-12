@@ -46,6 +46,8 @@ import { PairPerson } from "./AssistPairRanking";
 import { ConditionTitle } from "./ConditionTitle";
 import { EligibilitySlider } from "./EligibilitySlider";
 import { ExportImageButton } from "./ExportImageButton";
+import { teamShortName } from "../../shared/teamNames";
+import { allTimeBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { GlossaryNote } from "./GlossaryNote";
 import { PlayerNamePool } from "./PlayerNamePool";
@@ -320,7 +322,12 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
         <p className="empty-message">この条件の記録がありません（ポゼッションの下限を下げると、増えることがあります）</p>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={filename} />
+          <ExportImageButton
+            targetRef={exportRef}
+            filename={filename}
+            baseDate={() => (allTime ? allTimeBaseDate(gameType) : seasonBaseDate(season, gameType))}
+            ranking={{ media: "写真", unit: unit === "onoff" ? "名" : "組", top: RANK_TOP_N }}
+          />
           <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
             <ConditionTitle title={title} conditions={conditionLabels} />
             <PlayerNamePool names={among}>
@@ -356,6 +363,8 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                 linkTo={(r) => (unit === "onoff" ? `/players/${r.players[0]!.id}?season=${r.lastSeason}` : undefined)}
                 avatar={unit === "onoff" ? (r) => <PlayerPhoto playerId={r.players[0]!.id} size={56} className="player-cell-photo" placeholder /> : undefined}
                 teamColor={(r) => teamColors?.[r.teamId]?.primary}
+                exportTeam={unit === "onoff" ? (r) => teamShortName(r.teamId, r.teamName) : undefined}
+                exportKeepSub
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
                 unit={unit === "onoff" ? "人" : "組"}

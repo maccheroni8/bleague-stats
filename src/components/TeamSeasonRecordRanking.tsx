@@ -11,6 +11,7 @@ import { GAME_TYPE_PARAM } from "../lib/urlFilterParams";
 import { useJsonData } from "../lib/useJsonData";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
+import { allTimeBaseDate } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { RankedList } from "./RankedList";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
@@ -49,7 +50,7 @@ export function TeamSeasonRecordRanking({ teamColors }: { teamColors: Record<str
   const item = TEAM_SEASON_RECORD_ITEMS.find((d) => d.key === statParam) ?? TEAM_SEASON_RECORD_ITEMS[0]!;
   const entries = rankings?.seasonSpecialTop20[gameType]?.[item.key] ?? [];
   const conditions = composeLabels(gameTypeLabels(gameType, null));
-  const title = `歴代 チーム1シーズン記録：${item.label}`;
+  const title = `歴代 チーム1シーズン記録 ${item.label}ランキング`;
   const filename = buildExportFilename(["チーム1シーズン記録", "歴代", item.label, ...conditions]);
 
   return (
@@ -69,7 +70,7 @@ export function TeamSeasonRecordRanking({ teamColors }: { teamColors: Record<str
         <p className="empty-message">この条件の記録がありません</p>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={filename} />
+          <ExportImageButton targetRef={exportRef} filename={filename} baseDate={() => allTimeBaseDate(gameType)} ranking={{ media: "ロゴ", unit: "件", top: RANK_TOP_N }} />
           <div ref={exportRef} className="export-target export-target-compact export-target-rankings-team">
             <ConditionTitle title={title} conditions={conditions} />
             <RankedList
@@ -90,6 +91,7 @@ export function TeamSeasonRecordRanking({ teamColors }: { teamColors: Record<str
               avatar={(e) => <TeamLogo teamId={e.teamId} size={48} placeholder />}
               limit={RANK_TOP_N}
               unit="シーズン"
+              exportKeepSub
               sortable={false}
               statScope="team"
               compact

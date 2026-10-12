@@ -17,6 +17,8 @@ import { useJsonData } from "../lib/useJsonData";
 import { TEAM_DIVISIONS } from "../../scripts/lib/divisions";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
+import { allTimeBaseDate } from "../lib/dataBaseDate";
+import { teamShortName } from "../../shared/teamNames";
 import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
@@ -89,7 +91,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
   const conditions = countDef
     ? [...classLabels, "各選手の最新の累計"]
     : composeLabels(classLabels, leagueVenueLabels(venue), gameTypeLabels(gameType, null));
-  const title = `歴代 個人通算記録：${statJa(def.label)}`;
+  const title = `歴代 個人通算記録 ${statJa(def.label)}ランキング`;
   const countDisabled = "回数・在籍の項目は、会場・試合区分を選べません。";
   const filename = buildExportFilename(["個人通算記録", "歴代", statJa(def.label), ...conditions]);
 
@@ -114,7 +116,12 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
         <p className="empty-message">この条件では該当選手がいません</p>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={filename} />
+          <ExportImageButton
+            targetRef={exportRef}
+            filename={filename}
+            baseDate={() => allTimeBaseDate(countDef ? "both" : gameType)}
+            ranking={{ media: "写真", unit: "名", top: PLAYER_RANK_TOP_N }}
+          />
           <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
             <ConditionTitle title={title} conditions={conditions} />
             <PlayerNamePool names={rows.map((r) => r.info.name)}>
@@ -138,6 +145,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
                 linkTo={(r) => `/players/${r.playerId}?season=${r.info.latestSeason}`}
                 teamColor={(r) => teamColors?.[r.info.teamId]?.primary}
                 avatar={(r) => <PlayerPhoto playerId={r.playerId} size={56} className="player-cell-photo" placeholder />}
+                exportTeam={(r) => teamShortName(r.info.teamId, r.info.teamName)}
                 limit={PLAYER_RANK_TOP_N}
                 sortable={false}
                 compact
@@ -174,7 +182,7 @@ export function TeamCareerRecordRanking({ teamColors }: { teamColors: Record<str
   }, [rankings, venue, gameType, def.key]);
 
   const conditions = composeLabels(leagueVenueLabels(venue), gameTypeLabels(gameType, null));
-  const title = `歴代 チーム通算記録：${statJa(def.label, "team")}`;
+  const title = `歴代 チーム通算記録 ${statJa(def.label, "team")}ランキング`;
   const filename = buildExportFilename(["チーム通算記録", "歴代", statJa(def.label, "team"), ...conditions]);
 
   return (
@@ -198,7 +206,12 @@ export function TeamCareerRecordRanking({ teamColors }: { teamColors: Record<str
         <p className="empty-message">この条件では該当クラブがありません</p>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={filename} />
+          <ExportImageButton
+            targetRef={exportRef}
+            filename={filename}
+            baseDate={() => allTimeBaseDate(gameType)}
+            ranking={{ media: "ロゴ", unit: "チーム", top: null }}
+          />
           <div ref={exportRef} className="export-target export-target-compact export-target-rankings-team">
             <ConditionTitle title={title} conditions={conditions} />
             <RankedList

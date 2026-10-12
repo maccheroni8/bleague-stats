@@ -1,3 +1,4 @@
+import { teamShortName } from "../../shared/teamNames";
 import type { TeamColors } from "../../shared/types";
 import { formatAgeOnDate } from "../../shared/gameAge";
 import { formatPct } from "../lib/format";
@@ -58,6 +59,8 @@ export function ThresholdCountList({
         linkTo={(e) => `/players/${e.playerId}?season=${e.lastSeason}`}
         teamColor={(e) => teamColors?.[e.teamId]?.primary}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
+        exportTeam={(e) => teamShortName(e.teamId, e.teamName)}
+        exportKeepSub
         limit={RANK_TOP_N}
         tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
         sortable={false}
@@ -103,6 +106,8 @@ export function ThresholdStreakList({ rows, ongoingOnly, teamColors }: { rows: T
         linkTo={(e) => `/players/${e.playerId}?season=${e.end.season}`}
         teamColor={(e) => teamColors?.[e.teamId]?.primary}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
+        exportTeam={(e) => teamShortName(e.teamId, e.teamName)}
+        exportKeepSub
         limit={RANK_TOP_N}
         tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
         unit="人"
@@ -146,6 +151,8 @@ export function ThresholdAgeList({ rows, which, teamColors }: { rows: ThresholdA
         subLinkTo={(e) => `/games/${e.scheduleKey}?season=${e.season}`}
         teamColor={(e) => teamColors?.[e.teamId]?.primary}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
+        exportTeam={(e) => teamShortName(e.teamId, e.teamName)}
+        exportKeepSub
         limit={RANK_TOP_N}
         tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
         unit="人"

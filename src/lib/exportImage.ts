@@ -1,38 +1,48 @@
 import html2canvas from "html2canvas";
-import { todayBaseDateLabel } from "./age";
+import { baseDateFooterText, exportFilenameWithOptions, type ExportOptions } from "./exportFormat";
+
+export { baseDateFooterText, exportFilenameWithOptions };
+export type { ExportOptions };
 
 /** 画像の右下に入れるアカウント名 */
 export const EXPORT_ACCOUNT_NAME = "@dthiro1208";
 
 /**
- * 画像出力の共通処理。保存する画像の下端に、左下＝保存日（「2026/09/20 現在」形式）・右下＝アカウント名の
- * フッターを付ける。フッターは html2canvas が作る複製側にだけ追加するので、画面上の表示・DOMは変わらず、
- * 画像出力の対象（.export-target）を使う全ページに1か所で反映される。ConditionTitle（表の直上のタイトル）とは別物
+ * 画像出力の共通処理（保存画像の「共通の型」。DESIGN.md 239章）。保存する画像は、画面の表示設定（ライト/ダーク・画面幅）に関わらず、
+ * 白い背景・上端のブレックスの紺の帯・中央揃えの見出し・上下左右32pxの余白・下端のフッター
+ * （左＝データの基準日、右＝アカウント名。保存した日は出さない）にそろえる。
+ * 帯・余白・見出しの揃えは index.css の `.export-rendering` が、フッターはここで html2canvas が作る複製側にだけ足す
+ * （画面上の表示・DOMは変わらず、画像出力の対象（.export-target）を使う全ページに1か所で反映される）
  */
 
 /** 保存する画像の描画の倍率。画面の1pxを何ピクセルで描くか（DESIGN.md 170章） */
 export const EXPORT_SCALE = 3;
 
+/** 保存する画像の背景色（サイトの表示設定に依存しない画像専用の指定） */
+export const EXPORT_BACKGROUND = "#ffffff";
+
 /**
  * 画像出力の対象を canvas に描く。複製側のルートに .export-rendering を付けるので、保存する画像の中でだけ
  * 文字を大きくする等のスタイルを index.css に書ける（画面の表示は変わらない）
  */
-export async function renderExportCanvas(el: HTMLElement, scale = EXPORT_SCALE): Promise<HTMLCanvasElement> {
-  // 背景色は「今画面に適用されている配色」の --bg から取る。OSの prefers-color-scheme で決めると、
-  // OSがダークでサイトを手動でライトにしている（逆も）ときに、背景と文字の配色が食い違って読めなくなる
-  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
-  const savedDateLabel = todayBaseDateLabel();
+export async function renderExportCanvas(el: HTMLElement, options: ExportOptions = {}, scale = EXPORT_SCALE): Promise<HTMLCanvasElement> {
   return html2canvas(el, {
-    backgroundColor: bg || "#ffffff",
+    // 背景は常に白。画面がダークでも保存画像はライト（配色の変数も複製側だけライトに固定する。下の onclone）
+    backgroundColor: EXPORT_BACKGROUND,
     scale,
     onclone: (doc, clonedEl) => {
+      // 色の変数（--bg・--fg 等）を複製側だけライトにする（OSのダーク設定・手動のダーク切り替えのどちらでも）
+      doc.documentElement.setAttribute("data-theme", "light");
       clonedEl.classList.add("export-rendering");
+      if (options.plain) clonedEl.classList.add("export-plain");
+      if (options.top10) clonedEl.classList.add("export-top10");
       convertModernColors(clonedEl);
       const footer = doc.createElement("div");
       footer.className = "export-footer";
       const date = doc.createElement("span");
-      date.textContent = savedDateLabel;
+      date.textContent = baseDateFooterText(options.baseDate);
       const account = doc.createElement("span");
+      account.className = "export-footer-account";
       account.textContent = EXPORT_ACCOUNT_NAME;
       footer.append(date, account);
       clonedEl.appendChild(footer);
@@ -40,15 +50,15 @@ export async function renderExportCanvas(el: HTMLElement, scale = EXPORT_SCALE):
   });
 }
 
-export async function exportElementAsImage(el: HTMLElement, filename: string): Promise<void> {
-  const canvas = await renderExportCanvas(el);
+export async function exportElementAsImage(el: HTMLElement, filename: string, options: ExportOptions = {}): Promise<void> {
+  const canvas = await renderExportCanvas(el, options);
   // 倍率を上げると data URL が大きくなるため、Blob の URL で保存する
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
   if (!blob) return;
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename;
+  a.download = exportFilenameWithOptions(filename, options);
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }

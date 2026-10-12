@@ -20,6 +20,21 @@ function ConditionLabel({ label }: { label: string }) {
 }
 
 /**
+ * 大見出しは、半角スペースの位置でだけ折り返す（「2026-27シーズン 得点ランキング」「A vs B」。単語や名前の途中で
+ * 「組み/合わせ」「名古/屋〜」のように切れないように。DESIGN.md 239章）
+ */
+function renderTitle(title: string) {
+  const parts = title.split(" ");
+  if (parts.length === 1) return title;
+  return parts.map((part, i) => (
+    <Fragment key={i}>
+      {i > 0 && " "}
+      <span className="title-nowrap">{part}</span>
+    </Fragment>
+  ));
+}
+
+/**
  * 表・画像出力の直上に置く「タイトル＋選択中の条件」表示。画像出力（export-target）の内側に
  * 置けば、保存された画像だけを見ても何の条件の表か分かる。条件ラベルの組み立ては
  * src/lib/conditionLabels.ts（軸ごとのラベル関数）で行い、この部品は表示だけを担う。
@@ -46,7 +61,7 @@ export function ConditionTitle({
   const shown = visibleConditionLabels(conditions);
   return (
     <div className={`condition-title${section ? " condition-title-section" : ""}`}>
-      <h2>{title}</h2>
+      <h2>{renderTitle(title)}</h2>
       {shown.length > 0 && (
         // 幅が足りず折り返すときは、条件ラベルの区切り（・）でだけ折り返す（「試合全/体」のような単語の途中で切らない）
         <p className="condition-title-conditions">

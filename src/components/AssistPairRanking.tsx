@@ -15,6 +15,7 @@ import { useUrlState } from "../lib/urlState";
 import { GAME_TYPE_PARAM, PAIR_UNIT_PARAM } from "../lib/urlFilterParams";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
+import { allTimeBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
@@ -149,7 +150,12 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
         <p className="empty-message">この条件の記録がありません</p>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={filename} />
+          <ExportImageButton
+            targetRef={exportRef}
+            filename={filename}
+            baseDate={() => (unit === "season" ? seasonBaseDate(season, gameType) : allTimeBaseDate(gameType))}
+            ranking={{ media: "写真", unit: "組", top: RANK_TOP_N }}
+          />
           <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
             <ConditionTitle title={title} conditions={conditionLabels} />
             <PlayerNamePool names={among}>
@@ -171,6 +177,7 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
                 subLinkTo={unit === "game" ? (e) => `/games/${e.scheduleKey}?season=${e.season}` : undefined}
                 linkTo={() => undefined}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
+                exportKeepSub
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
                 unit={unit === "game" ? "試合" : "組"}

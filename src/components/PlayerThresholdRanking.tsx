@@ -28,6 +28,7 @@ import { GAME_TYPE_PARAM, PLAYER_GROUP_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARA
 import { useGameIndexViews, useGameRecordOptions, useRookieFile, useSeasonRosters } from "../lib/useGameRecordData";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
+import { allTimeBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { POSITION_OPTIONS } from "./PlayerGameRecordRanking";
 import { StatConditionsEditor } from "./StatConditionsEditor";
@@ -291,7 +292,12 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
         </p>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={filename} />
+          <ExportImageButton
+            targetRef={exportRef}
+            filename={filename}
+            baseDate={() => (allTime ? allTimeBaseDate(gameType) : seasonBaseDate(season, gameType))}
+            ranking={{ media: "写真", unit: "名", top: 20 }}
+          />
           <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
             <ConditionTitle title={title} conditions={conditionLabels} />
             {result.kind === "age" ? (

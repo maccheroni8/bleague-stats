@@ -46,6 +46,8 @@ import type { SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
 import { useJsonData } from "../lib/useJsonData";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
+import { teamShortName } from "../../shared/teamNames";
+import { allTimeBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { GameRecordNotes } from "./GameRecordNotes";
 import { PlayerNamePool } from "./PlayerNamePool";
@@ -218,7 +220,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   );
   const modeLabel = mode === "worst" ? "ワースト" : "記録";
   const defJa = statJa(def.label);
-  const title = allTime ? `歴代 個人1試合${modeLabel}：${defJa}` : `${season}シーズン 個人1試合${modeLabel}：${defJa}`;
+  const title = allTime ? `歴代 個人1試合${modeLabel} ${defJa}ランキング` : `${season}シーズン 個人1試合${modeLabel} ${defJa}ランキング`;
   const filename = buildExportFilename([`個人1試合${modeLabel}`, allTime ? "歴代" : season, defJa, ...conditionLabels]);
   const minNote = playerGameRecordMinAttemptsNote(def.key, period ? (period === "ot" ? "延長" : period === "h1" ? "前半" : period === "h2" ? "後半" : `${period.slice(1)}Q`) : undefined);
   const seasonOf = (e: PlayerRecordRow) => e.season ?? season;
@@ -317,7 +319,12 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
         </>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={filename} />
+          <ExportImageButton
+            targetRef={exportRef}
+            filename={filename}
+            baseDate={() => (allTime ? allTimeBaseDate(gameType) : seasonBaseDate(season, gameType))}
+            ranking={{ media: "写真", unit: "件", top: RANK_TOP_N }}
+          />
           <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
             <ConditionTitle title={title} conditions={conditionLabels} statConditions={statConditionsTitle(statConditions, PLAYER_STAT_CONDITION_ITEMS)} />
             <PlayerNamePool names={entries.map((e) => e.playerName)}>
@@ -339,6 +346,8 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                 subLinkTo={(e) => `/games/${e.scheduleKey}?season=${seasonOf(e)}`}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
                 avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
+                exportTeam={(e) => teamShortName(e.teamId, e.teamName)}
+                exportKeepSub
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
                 unit="試合"

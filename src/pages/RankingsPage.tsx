@@ -34,6 +34,8 @@ import {
   type FilterAxis,
 } from "../lib/filterAxes";
 import { statJa } from "../lib/statNames";
+import { seasonBaseDate } from "../lib/dataBaseDate";
+import { teamShortName } from "../../shared/teamNames";
 import type { SituationalFilter } from "../lib/situational";
 import { SEASON_BOX_PERIOD_OPTIONS, SEASON_BOX_TABS } from "../lib/playerSeasonBoxscore";
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeLabel } from "../lib/shotTypeBreakdown";
@@ -93,6 +95,9 @@ import {
 
 type Mode = "team" | "player";
 
+/** チームのランキングの保存の選択肢（全チームを出す表。保存のとき「ロゴ あり／なし」「全チーム／上位10チーム」） */
+const TEAM_EXPORT_CHOICES = { media: "ロゴ", unit: "チーム", top: null } as const;
+
 
 /**
  * ランキングの表・画像出力の直上に出すタイトルと、画像ファイル名。選択中の全軸を条件ラベルとして
@@ -106,7 +111,8 @@ interface RankingTitleInfo {
 
 function makeRankingTitle(kind: "チーム" | "個人", season: string, statLabel: string, conditions: string[]): RankingTitleInfo {
   return {
-    title: `${season}シーズン ${kind}ランキング：${statLabel}`,
+    // 見出しは「2026-27シーズン 得点ランキング」。個人／チームの別と件数は書かない（行を見れば分かる。DESIGN.md 239章）
+    title: `${season}シーズン ${statLabel}ランキング`,
     conditions,
     filename: buildExportFilename([`${kind}ランキング`, season, statLabel, ...conditions]),
   };
@@ -437,7 +443,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const teamForcedTurnoverTitle = makeRankingTitle(
     "チーム",
     season,
-    statJa(forcedTurnoverDef.label, "team"),
+    // 項目名は「合計」「24秒バイオレーション」等で、そのままでは何のランキングか分からないので、カテゴリ名を添える
+    `強制ターンオーバー（${statJa(forcedTurnoverDef.label, "team")}）`,
     composeLabels(CATEGORY_LABELS.forcedTurnovers, compareActive && COMPARE_LABEL, TURNOVER_DIRECTION_LABELS[turnoverDirection], SEASON_TOTAL_ONLY_LABELS),
   );
 
@@ -551,7 +558,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
           <p className="empty-message">このシーズンのデータには対応していません</p>
         ) : (
           <>
-            <ExportImageButton targetRef={exportRef} filename={teamShootingTitle.filename} />
+            <ExportImageButton targetRef={exportRef} filename={teamShootingTitle.filename} baseDate={() => seasonBaseDate(season, "regular")} ranking={TEAM_EXPORT_CHOICES} />
             <div ref={exportRef} className={`export-target export-target-compact export-target-rankings-team${shootingCompare ? " export-target-compare" : ""}`}>
               <ConditionTitle title={teamShootingTitle.title} conditions={teamShootingTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
               <RankedList
@@ -575,7 +582,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
           <p className="empty-message">このシーズンのデータには対応していません</p>
         ) : (
           <>
-            <ExportImageButton targetRef={exportRef} filename={teamForcedTurnoverTitle.filename} />
+            <ExportImageButton targetRef={exportRef} filename={teamForcedTurnoverTitle.filename} baseDate={() => seasonBaseDate(season, "regular")} ranking={TEAM_EXPORT_CHOICES} />
             <div ref={exportRef} className={`export-target export-target-compact export-target-rankings-team${turnoverCompare ? " export-target-compare" : ""}`}>
               <ConditionTitle title={teamForcedTurnoverTitle.title} conditions={teamForcedTurnoverTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
               <RankedList
@@ -600,7 +607,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         <p className="loading">読み込み中...</p>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={teamBoxscoreTitle.filename} />
+          <ExportImageButton targetRef={exportRef} filename={teamBoxscoreTitle.filename} baseDate={() => seasonBaseDate(season, gameType)} ranking={TEAM_EXPORT_CHOICES} />
           <div ref={exportRef} className={`export-target export-target-compact export-target-rankings-team${boxCompare ? " export-target-compare" : ""}`}>
             <ConditionTitle title={teamBoxscoreTitle.title} conditions={teamBoxscoreTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
             <RankedList
@@ -844,7 +851,6 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       modeApplies ? displayModeLabels(rankMode) : [],
       playerScopeLabels,
       registeredTarget ? "登録選手" : eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
-      `上位${PLAYER_RANK_TOP_N}名`,
     ),
   );
 
@@ -1032,7 +1038,12 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         <p className="empty-message">Q別・前後半を選んでいるため、「{statJa(selectedItem.label)}」の順位は表示しません。</p>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={playerTitle.filename} />
+          <ExportImageButton
+            targetRef={exportRef}
+            filename={playerTitle.filename}
+            baseDate={() => seasonBaseDate(season, gameType)}
+            ranking={{ media: "写真", unit: "名", top: PLAYER_RANK_TOP_N }}
+          />
           <div ref={exportRef} className={`export-target export-target-compact export-target-rankings-player${comparison ? " export-target-compare" : ""}`}>
             <ConditionTitle
               title={playerTitle.title}
@@ -1060,6 +1071,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               }}
               teamColor={(p) => teamColors?.[clubOf(p).teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" placeholder />}
+              exportTeam={(p) => teamShortName(clubOf(p).teamId, clubOf(p).teamName)}
               limit={PLAYER_RANK_TOP_N}
               compact
             />

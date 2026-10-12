@@ -4,6 +4,7 @@ import { ExternalLinkIcon } from "./ExternalLinkIcon";
 import { StatHeaderLabel } from "./StatHeaderLabel";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
 import { rankPositions } from "../lib/seasonCompare";
+import { EXPORT_TOP_10, tiesBeyondTop } from "../lib/exportFormat";
 
 /**
  * RankedListが実際に使う最小限の形（key/label/value/format）。statDefs.tsのStatDef<T>は
@@ -57,6 +58,13 @@ export interface RankedListProps<T> {
   compact?: boolean;
   /** 項目名の説明（lib/statDescriptions.ts）をチームの表として引くか選手の表として引くか。既定は選手 */
   statScope?: StatScope;
+  /**
+   * 保存画像の「写真なし」の版で、選手名の横に小さく添えるチームの略称（画面には出さない。DESIGN.md 239章）。
+   * 指定した表は、写真なしの版で名前の下の行（subLabel）も出さず、縦の長さを抑える
+   */
+  exportTeam?: (row: T) => string | undefined;
+  /** 写真なしの版でも名前の下の行（subLabel）を残す（1試合記録の「試合」の行のように、行の中身そのものを示すとき） */
+  exportKeepSub?: boolean;
   /** 同じ順位のまとめの数え方（既定は statScope から: チーム→「チーム」、選手→「人」）。「試合」「シーズン」は記録の一覧（1試合・1シーズン）用で、「20位タイ ほか◯試合」のように書く */
   unit?: "人" | "チーム" | "試合" | "シーズン" | "組";
   /** 同じ順位かどうかを決める文字列（既定は def.format の表示値）。事前に順位を付けた記録の一覧は、元の値で決める */
@@ -92,6 +100,8 @@ export function RankedList<T>({
   limit,
   compact,
   statScope = "player",
+  exportTeam,
+  exportKeepSub,
   unit: unitProp,
   tieKey,
   sortable = true,
@@ -151,6 +161,9 @@ export function RankedList<T>({
   const hiddenTies = limit !== undefined ? Math.max(0, Math.min(tieEnd, sorted.length) - limit) : 0;
   const expandedEnd = limit !== undefined && tieExpandMax !== undefined ? Math.min(tieEnd, Math.max(limit, tieExpandMax)) : tieEnd;
   const expandCapped = limit !== undefined && expandedEnd < Math.min(tieEnd, sorted.length);
+  // 保存画像の「上位10名」の版（DESIGN.md 239章）: 10位と同じ順位が11位以降に続くときは、「10位タイ ほか◯人」を1行にまとめる
+  // （画面の表は変えず、11行目以降を画像の中でだけ隠す。同じ順位の数え方は上の limit の境目と同じ）
+  const hiddenTies10 = tiesBeyondTop(ranks, EXPORT_TOP_10);
   const shownCount = limit === undefined ? sorted.length : tiesExpanded ? expandedEnd : limit;
   const limited = sorted.slice(0, shownCount);
   const toggleSortDir = () => {
@@ -173,7 +186,9 @@ export function RankedList<T>({
   };
   return (
     <div className="table-scroll">
-      <table className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}${compare ? " rankings-table-compare" : ""}`}>
+      <table
+        className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}${compare ? " rankings-table-compare" : ""}${exportKeepSub ? " rank-keep-sub" : ""}`}
+      >
         <thead>
           <tr>
             <th className="align-right">#</th>
@@ -185,7 +200,7 @@ export function RankedList<T>({
               aria-sort={sortable && !bySortDiff ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
             >
               <StatHeaderLabel label={def.label} />
-              {sortable && !bySortDiff && (sortDir === "asc" ? " ▲" : " ▼")}
+              {sortable && !bySortDiff && <span className="sort-mark">{sortDir === "asc" ? " ▲" : " ▼"}</span>}
             </th>
             {compare && (
               <>
@@ -196,7 +211,7 @@ export function RankedList<T>({
                   aria-sort={sortable && bySortDiff ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
                 >
                   {compare.diffLabel}
-                  {sortable && bySortDiff && (sortDir === "asc" ? " ▲" : " ▼")}
+                  {sortable && bySortDiff && <span className="sort-mark">{sortDir === "asc" ? " ▲" : " ▼"}</span>}
                 </th>
               </>
             )}
@@ -205,8 +220,11 @@ export function RankedList<T>({
         <tbody>
           {limited.map((row, i) => {
             const accent = teamColor?.(row);
+            const teamAbbr = exportTeam?.(row);
+            // 名前の横に添えるチーム略称（保存画像の写真なしの版でだけ表示）
+            const abbr = teamAbbr ? <span className="export-team-abbr">{teamAbbr}</span> : null;
             return (
-              <tr key={rowKey(row)}>
+              <tr key={rowKey(row)} className={i >= EXPORT_TOP_10 ? "rank-row-beyond10" : undefined}>
                 <td
                   className={`align-right rank-cell${accent ? " row-accent-cell" : ""}`}
                   style={accent ? { borderLeftColor: accent } : undefined}
@@ -231,7 +249,10 @@ export function RankedList<T>({
                         <span className="rank-name-with-logo">
                           {wrap(avatar?.(row))}
                           <span className="rank-name-cell">
-                            <span className="rank-name">{wrap(name(row))}</span>
+                            <span className="rank-name">
+                              {wrap(name(row))}
+                              {abbr}
+                            </span>
                             {subLabel &&
                               (subTo ? (
                                 <Link to={subTo} className="cell-link rank-sublabel">
@@ -248,7 +269,10 @@ export function RankedList<T>({
                       <span className="rank-name-with-logo">
                         {avatar?.(row)}
                         <span className="rank-name-cell">
-                          <span className="rank-name">{name(row)}</span>
+                          <span className="rank-name">
+                            {name(row)}
+                            {abbr}
+                          </span>
                           {subLabel && <span className="rank-sublabel">{subLabel(row)}</span>}
                         </span>
                       </span>
@@ -273,8 +297,14 @@ export function RankedList<T>({
       </table>
       {/* 保存する画像にはボタンを写さず、代わりに「20位タイ ほか1人」を出す（.export-rendering の中だけ表示。DESIGN.md 170章） */}
       {hiddenTies > 0 && !tiesExpanded && limit !== undefined && (
-        <p className="export-only ranking-ties-note">
+        <p className="export-only export-ties-all ranking-ties-note">
           {rankOf(limit - 1)}位タイ ほか{hiddenTies}
+          {unit}
+        </p>
+      )}
+      {hiddenTies10 > 0 && (
+        <p className="export-ties-top10 ranking-ties-note">
+          {rankOf(EXPORT_TOP_10 - 1)}位タイ ほか{hiddenTies10}
           {unit}
         </p>
       )}

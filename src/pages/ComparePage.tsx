@@ -51,6 +51,7 @@ import type { DivisionHistoryFile } from "../../shared/types";
 import { useSeasonKeyedData } from "../lib/useSeasonKeyedData";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
+import { latestBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { useTeamLabel } from "../lib/teamLabel";
 import { RESULT_ONLY_MARK } from "../lib/recordFormat";
@@ -59,6 +60,12 @@ import { isDefaultFilter } from "../lib/situational";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
 
 type Mode = "team" | "player";
+
+/** 比較の保存画像の基準日: 比べている枠のシーズン・試合区分ごとの基準日のうち、最も新しい日 */
+async function compareBaseDate(slots: { season: string; gameType: SeasonGameTypeFilter }[]): Promise<string | undefined> {
+  return latestBaseDate(await Promise.all(slots.map((s) => seasonBaseDate(s.season, s.gameType))));
+}
+
 // スロットは3つ固定（各ビューのフック呼び出しも3つ固定）
 const SLOT_INDEXES = [0, 1, 2] as const;
 
@@ -553,7 +560,11 @@ function TeamCompareView({
           />
         ))}
       </div>
-      <ExportImageButton targetRef={exportRef} filename={filename} />
+      <ExportImageButton
+        targetRef={exportRef}
+        filename={filename}
+        baseDate={() => compareBaseDate(slots.filter((_, i) => valid[i]))}
+      />
       <div ref={exportRef} className="export-target">
         {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} />}
         <ComparisonTable
@@ -654,7 +665,11 @@ function PlayerCompareView({
           />
         ))}
       </div>
-      <ExportImageButton targetRef={exportRef} filename={filename} />
+      <ExportImageButton
+        targetRef={exportRef}
+        filename={filename}
+        baseDate={() => compareBaseDate(slots.filter((_, i) => valid[i]))}
+      />
       <div ref={exportRef} className="export-target">
         {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} />}
         <ComparisonTable

@@ -22,6 +22,8 @@ import { useUrlState } from "../lib/urlState";
 import { CLUTCH_MEASURE_PARAM, CLUTCH_WINDOW_PARAM, GAME_TYPE_PARAM, PLAYER_GROUP_PARAM, RECORDS_SCOPE_PARAM } from "../lib/urlFilterParams";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
+import { teamShortName } from "../../shared/teamNames";
+import { allTimeBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
 import { PlayerPhoto } from "./PlayerPhoto";
@@ -160,7 +162,12 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
         <p className="empty-message">この条件の記録がありません</p>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={filename} />
+          <ExportImageButton
+            targetRef={exportRef}
+            filename={filename}
+            baseDate={() => (allTime ? allTimeBaseDate(gameType) : seasonBaseDate(season, gameType))}
+            ranking={{ media: "写真", unit: "名", top: RANK_TOP_N }}
+          />
           <div ref={exportRef} className="export-target export-target-compact export-target-rankings-player">
             <ConditionTitle title={title} conditions={conditionLabels} />
             <PlayerNamePool names={entries.map((e) => e.playerName)}>
@@ -174,6 +181,8 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
                 linkTo={(e) => `/players/${e.playerId}?season=${e.lastSeason}`}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
                 avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
+                exportTeam={(e) => teamShortName(e.teamId, e.teamName)}
+                exportKeepSub
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
                 sortable={false}

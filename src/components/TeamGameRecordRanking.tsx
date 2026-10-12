@@ -44,6 +44,7 @@ import { useJsonData } from "../lib/useJsonData";
 import { useNarrow } from "../lib/teamLabel";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
+import { allTimeBaseDate, seasonBaseDate } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { GameRecordNotes } from "./GameRecordNotes";
 import { RankedList } from "./RankedList";
@@ -174,7 +175,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   };
   const conditionLabels = composeLabels(gameTypeLabels(gameType, seasonForTitle), gameRecordConditionLabels(conditions, teamName, includeSpecialDefault));
   const modeLabel = TEAM_RECORD_MODE_LABELS[mode];
-  const title = allTime ? `歴代 チーム1試合${modeLabel}：${item.label}` : `${season}シーズン チーム1試合${modeLabel}：${item.label}`;
+  const title = allTime ? `歴代 チーム1試合${modeLabel} ${item.label}ランキング` : `${season}シーズン チーム1試合${modeLabel} ${item.label}ランキング`;
   const filename = buildExportFilename([`チーム1試合${modeLabel}`, allTime ? "歴代" : season, item.label, ...conditionLabels]);
   const isPct = ["fgPct", "twoPct", "tpPct", "ftPct"].includes(item.key);
   const hasPbp = rows.some((r) => r.fromPbp);
@@ -238,7 +239,12 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
         </>
       ) : (
         <>
-          <ExportImageButton targetRef={exportRef} filename={filename} />
+          <ExportImageButton
+            targetRef={exportRef}
+            filename={filename}
+            baseDate={() => (allTime ? allTimeBaseDate(gameType) : seasonBaseDate(season, gameType))}
+            ranking={{ media: "ロゴ", unit: "件", top: TEAM_RECORD_TOP_N }}
+          />
           <div ref={exportRef} className="export-target export-target-compact export-target-rankings-team">
             <ConditionTitle title={title} conditions={conditionLabels} statConditions={statConditionsTitle(statConditions, TEAM_STAT_CONDITION_ITEMS)} />
             <RankedList
@@ -267,6 +273,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
               subLinkTo={(r) => `/games/${r.scheduleKey}?season=${r.season}`}
               teamColor={(r) => teamColors?.[r.teamId]?.primary}
               avatar={(r) => <TeamLogo teamId={r.teamId} size={48} placeholder />}
+              exportKeepSub
               limit={TEAM_RECORD_TOP_N}
               tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
               unit="試合"
