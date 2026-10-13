@@ -7,6 +7,7 @@
 //  3. 上位10名で保存するときの「10位タイ ほか◯人」の数え方（同じ順位が10位の外に続く行数）
 //  4. 保存の選択に応じたファイル名（初期の選択は変えない）
 //  5. 画面の表の下の「データの基準日」と保存画像のフッターが使う、基準日の指定（240章）
+//  6. スマホ幅から保存するときの画面幅の判定（広い画面として評価する）と、iPhone・iPad の canvas の上限に収める倍率（241章）
 //
 // 使い方: npm run validate:export-image（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -17,9 +18,13 @@ import {
   baseDateOf,
   baseDateSpecKey,
   exportFilenameWithOptions,
+  fitExportScale,
   formatBaseDate,
+  IOS_CANVAS_MAX_AREA,
+  IOS_CANVAS_MAX_SIDE,
   latestBaseDate,
   latestEndedGameDate,
+  matchesAtViewportWidth,
   tiesBeyondTop,
 } from "../src/lib/exportFormat.ts";
 import type { GameSummary } from "../shared/types.ts";
@@ -94,6 +99,30 @@ eq("写真なし", exportFilenameWithOptions("ランキング.png", { plain: tru
 eq("上位10名", exportFilenameWithOptions("ランキング.png", { top10: true }), "ランキング_上位10.png");
 eq("写真なし・上位10名", exportFilenameWithOptions("ランキング.png", { plain: true, top10: true }), "ランキング_写真なし_上位10.png");
 
+// --- 5. スマホ幅から保存するときの画面幅の判定（241章）。保存の間だけ、useMediaQuery が広い画面（1280px）の答えを返す ---
+const WIDE = 1280;
+eq("スマホ幅の判定は広い画面では不一致", matchesAtViewportWidth("(max-width: 560px)", WIDE), false);
+eq("広い画面の判定は広い画面で一致", matchesAtViewportWidth("(min-width: 561px)", WIDE), true);
+eq("境目: 560px は max-width: 560px に一致", matchesAtViewportWidth("(max-width: 560px)", 560), true);
+eq("境目: 561px は max-width: 560px に不一致", matchesAtViewportWidth("(max-width: 560px)", 561), false);
+eq("境目: 561px は min-width: 561px に一致", matchesAtViewportWidth("(min-width: 561px)", 561), true);
+eq("and でつないだ条件", matchesAtViewportWidth("(min-width: 561px) and (max-width: 1000px)", WIDE), false);
+eq("画面幅では決まらない条件は null（実際の判定を使う）", matchesAtViewportWidth("(prefers-color-scheme: dark)", WIDE), null);
+eq("画面幅の条件と混ざるときも null", matchesAtViewportWidth("(min-width: 561px) and (prefers-color-scheme: dark)", WIDE), null);
+
+// --- 6. canvas の上限に収める倍率（241章。iPhone・iPad だけ。上限が null のときは今までどおり） ---
+const IOS = { maxArea: IOS_CANVAS_MAX_AREA, maxSide: IOS_CANVAS_MAX_SIDE };
+eq("iOS の上限（4096×4096）", IOS_CANVAS_MAX_AREA, 4096 * 4096);
+eq("上限が無ければ倍率はそのまま", fitExportScale(984, 3356, 3, { maxArea: null, maxSide: null }), 3);
+eq("上限に収まるなら倍率はそのまま（個人ランキング 744×1725）", fitExportScale(744, 1725, 3, IOS), 3);
+eq("3人組 984×3356 は 2.25 倍", fitExportScale(984, 3356, 3, IOS), 2.25);
+eq("下げた倍率で、寸法（切り捨て）の面積が上限以内", (() => {
+  const s = fitExportScale(984, 3356, 3, IOS);
+  return Math.floor(984 * s) * Math.floor(3356 * s) <= IOS_CANVAS_MAX_AREA;
+})(), true);
+eq("下限は 0.1 倍", fitExportScale(100000, 100000, 3, IOS), 0.1);
+eq("1辺の上限も効く（細長い画像）", fitExportScale(100, 40000, 3, IOS), 0.4);
+eq("サイズが 0 のときはそのまま", fitExportScale(0, 0, 3, IOS), 3);
 if (failures > 0) {
   console.log(`\n${failures}件の食い違いがあります`);
   process.exit(1);

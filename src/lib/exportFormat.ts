@@ -85,3 +85,45 @@ export function tiesBeyondTop(keys: readonly string[], top: number): number {
   while (end < keys.length && keys[end] === keys[top - 1]) end += 1;
   return end - top;
 }
+
+/**
+ * iPhone・iPad（WebKit）の canvas の面積の上限（4096×4096。これを超えると描画が空になる）と、1辺の上限。
+ * 超えそうなときは、倍率を自動で下げる（DESIGN.md 241章）。PC・Android の Chrome の上限は十分に大きいので、倍率はそのまま
+ */
+export const IOS_CANVAS_MAX_AREA = 16_777_216;
+export const IOS_CANVAS_MAX_SIDE = 16_384;
+
+/**
+ * 幅 w・高さ h（CSSのpx）の画像を、canvas の上限の中に収める倍率。requested のまま収まるなら requested。
+ * 小数第2位で切り捨てる（canvas の寸法は切り捨てなので、面積が上限を超えない）。上限が null のときはその制約なし
+ */
+export function fitExportScale(
+  w: number,
+  h: number,
+  requested: number,
+  limits: { maxArea: number | null; maxSide: number | null },
+): number {
+  let scale = requested;
+  if (w > 0 && h > 0) {
+    if (limits.maxArea !== null) scale = Math.min(scale, Math.sqrt(limits.maxArea / (w * h)));
+    if (limits.maxSide !== null) scale = Math.min(scale, limits.maxSide / Math.max(w, h));
+  }
+  if (scale >= requested) return requested;
+  return Math.max(0.1, Math.floor(scale * 100) / 100);
+}
+
+/**
+ * `(min-width: Npx)`・`(max-width: Npx)`（と `and` でつないだもの）だけを、指定した画面幅で評価する（保存のとき、スマホ幅の画面を
+ * 広い画面として描くための判定。DESIGN.md 241章）。それ以外の条件（prefers-color-scheme など）は null（画面幅では決まらない）
+ */
+export function matchesAtViewportWidth(query: string, width: number): boolean | null {
+  const parts = query.split(/\s+and\s+/i).map((p) => p.trim());
+  for (const part of parts) {
+    const m = /^\(\s*(min|max)-width\s*:\s*(\d+(?:\.\d+)?)px\s*\)$/i.exec(part);
+    const side = m?.[1]?.toLowerCase();
+    if (!m || (side !== "min" && side !== "max")) return null;
+    const limit = Number(m[2]);
+    if (side === "min" ? width < limit : width > limit) return false;
+  }
+  return true;
+}

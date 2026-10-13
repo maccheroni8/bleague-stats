@@ -2278,6 +2278,14 @@ table.compare-table th .compare-season-tag {
   gap: 4px;
 }
 
+/* 保存したあとの案内（解像度を下げたとき・「写真に保存」を出すとき）。横いっぱいの1行 */
+.export-notice {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .export-option-label {
   margin-right: 2px;
   color: var(--muted);
