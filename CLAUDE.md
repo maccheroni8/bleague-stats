@@ -73,6 +73,9 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 240章: **ランキング・比較の画面を保存画像の型にそろえる**（段階2の続き。**画面だけの変更でキー不変**）。画像として保存する範囲は `ExportTarget`（`src/components/ExportTarget.tsx`）で包む（PC幅は `.export-wide`＝保存画像と同じ文字の大きさ・列の幅。表の下に基準日。`BaseDateSpec`＝`exportFormat.ts`）。
   CSS は `.export-wide`（画面と保存画像で共通の型）と `.export-rendering`（画像だけ: 帯・余白・白い背景・アカウント名・幅の固定・注記の要点・写真なし／上位10名）に分け、画面では帯・アカウント名を出さない。
   チームカラーの線は `--team-color` で渡し、ダークは白を混ぜて明るくする。比較のロゴ・写真・所属チーム名は比較ページの画面にも出す。項目名の下の日本語名は比較ページ・チーム詳細・個人詳細の比較タブ（`jaNames`）。保存画像を比べるときは、html2canvas が文字の基準線を画面の文書の高さの端数で丸める点に注意（240-3章）
+- 241章: **スマホ幅から保存してもPC表記・PC幅の画像**（保存画像の段階3。**画面だけの変更でキー不変**）。保存の間だけ `useMediaQuery` が広い画面（1280px）の答えを返し（`withForcedViewportWidth`・`useMediaQuery.ts`。画面の描き直しと html2canvas の複製と元に戻すまでを1つの同期処理で行い、広い表記は画面に描かれない）、
+  html2canvas の `windowWidth` も 1280px にする（`lib/exportImage.ts`）。iPhone・iPad だけ、canvas の面積の上限（16,777,216）に収まるよう倍率を自動で下げ（`fitExportScale`）、共有シート（`navigator.share`）で「写真に保存」できる。パソコン・Android はダウンロードのまま。
+  **`useMediaQuery` の外（`window.innerWidth` など）で画面幅を見る処理を保存の枠の中の部品に足さない**（保存の画像だけ表記が崩れる）。html2canvas を上げるときは、スマホ幅から保存した画像が崩れないかを確かめる（241-2章）
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
