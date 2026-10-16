@@ -65,7 +65,9 @@ import { DEFAULT_STAT_CONDITIONS, statConditionsTitle } from "../lib/statConditi
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { clearUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
 import { seasonDivisions } from "../lib/divisionGroups";
-import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PAIR_UNIT_PARAM, PERIOD_PARAM, PERSPECTIVE_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM } from "../lib/urlFilterParams";
+import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PAIR_UNIT_PARAM, PERIOD_PARAM, PERSPECTIVE_PARAM, PLAYER_SEASON_PERIOD_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM } from "../lib/urlFilterParams";
+import { OVERTIME_ELIGIBILITY_LABEL, OVERTIME_ELIGIBILITY_REASON, OVERTIME_GAMES_NOTE, SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, hasShortGameSeason } from "../lib/seasonPeriod";
+import { PeriodIndexFailure } from "../components/PeriodIndexFailure";
 import { PAIR_UNITS, PAIR_UNIT_LABELS } from "../lib/clutchQuery";
 import { THRESHOLD_UNITS, THRESHOLD_UNIT_LABELS, THRESHOLD_UNIT_PARAM } from "../lib/thresholdParams";
 import { PlayerClutchRanking } from "../components/PlayerClutchRanking";
@@ -683,10 +685,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   // 平均/合計（チーム版と同じ URL のキー mode。DESIGN.md 179章）
   const [displayMode, setDisplayMode] = useUrlState(DISPLAY_MODE_PARAM, "perGame");
-  // Q別/前後半トグル。「試合」（既定値）選択時は追加の生データ取得を発生させず、既存の
-  // PlayerSummary/PlayerGameLogベースの経路をそのまま使う。Q別/前後半選択時のみ、対象選手
-  // 全員分の生データ（StoredGame）を一括取得する（useLeagueRawGames、DESIGN.md参照）
-  const [period, setPeriod] = useUrlState(PERIOD_PARAM, "all");
+  // Q別・前後半・延長。「試合」（既定値）選択時は、既存の PlayerSummary/PlayerGameLog ベースの経路をそのまま使う。
+  // 区間を選んだときは、そのシーズンのピリオド別の索引から組み立てる（DESIGN.md 256章。以前は対象選手全員分の試合の生データを読んでいた）
+  const [period, setPeriod] = useUrlState(PLAYER_SEASON_PERIOD_PARAM, "all");
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
 
@@ -719,8 +720,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     divisionHistory,
     opponentRecords,
     waiting,
-    rawGamesFailedCount,
-    retryRawGames,
+    overtimeActive,
+    periodFailed,
+    retryPeriodSource,
   } = usePlayerSeasonRanking(season, {
     category,
     statKey,
@@ -869,7 +871,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       // 切り替えの対象外の項目（割合・Profile・Career）では書かない
       modeApplies ? displayModeLabels(rankMode) : [],
       playerScopeLabels,
-      registeredTarget ? "登録選手" : eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }),
+      registeredTarget ? "登録選手" : overtimeActive ? OVERTIME_ELIGIBILITY_LABEL : eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }),
     ),
   );
 
@@ -892,7 +894,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     tier: "primary",
     disabledReason: registeredTarget
       ? "このカテゴリは、このシーズンに登録していた選手全員が対象です（出場の有無を問わず、掲載基準は使いません）。"
-      : undefined,
+      : overtimeActive
+        ? OVERTIME_ELIGIBILITY_REASON
+        : undefined,
     value: `${Math.round(gamesRatio * 100)}|${extraRule ? extraThreshold : ""}|${achievable ? "ach" : ""}`,
     defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}|${extraRule ? eligibilityDefaultExtra : ""}|`,
     onChange: () => {
@@ -953,7 +957,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           ? "このカテゴリは平均/合計の切り替えの対象外です。"
           : `「${statJa(selectedItem.label)}」は割合・率（または試合数）の項目のため、平均/合計の切り替えの対象外です。`,
     }),
-    periodAxis(period, setPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: playerFilterDisabledReason }),
+    periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: playerFilterDisabledReason, label: "Q別・前後半・延長" }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
@@ -1054,12 +1058,12 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         <p className="error-message">ルーキーの一覧を読み込めませんでした。{rookies.error}</p>
       ) : compareActive && prevRanking.playersError ? (
         <p className="error-message">前のシーズンのデータを読み込めませんでした。{prevRanking.playersError}</p>
-      ) : rawGamesFailedCount > 0 ? (
-        <RawGamesFailure count={rawGamesFailedCount} onRetry={retryRawGames} />
+      ) : periodFailed || (compareActive && prevRanking.periodFailed) ? (
+        <PeriodIndexFailure onRetry={() => (retryPeriodSource(), prevRanking.retryPeriodSource())} />
       ) : waitingForGameLogs ? (
         <p className="loading">読み込み中...</p>
       ) : ddtdPeriodOff ? (
-        <p className="empty-message">Q別・前後半を選んでいるため、「{statJa(selectedItem.label)}」の順位は表示しません。</p>
+        <p className="empty-message">Q別・前後半・延長を選んでいるため、「{statJa(selectedItem.label)}」の順位は表示しません。</p>
       ) : (
         <>
           <ExportImageButton
@@ -1117,6 +1121,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
             {category === "career" && <p className="rule-change-footnote">※ {CAREER_NOTE}</p>}
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
             {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
+            {overtimeActive && <p className="rule-change-footnote">※ {OVERTIME_GAMES_NOTE}</p>}
+            {effPeriodActive && gameType !== "regular" && hasShortGameSeason(compareActive && prevSeason ? [season, prevSeason] : [season]) && (
+              <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
+            )}
             {comparison && <CompareNotes season={season} prevSeason={prevSeason!} mode={rankMode} narrowed={rookieActive || conditionActive} kind="player" empty={comparison.rows.length === 0} />}
           </ExportTarget>
         </>

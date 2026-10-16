@@ -84,6 +84,47 @@ export function teamScoringShare(team: TeamSummary, mode: "own" | "opponent"): P
   return { perGame, pct, values: pct.map((p) => (p / 100) * perGame) };
 }
 
+/** 試合ログの合計（sumTeamGameLogs）のうち、得点構成に使う項目 */
+export interface PointsShareTotals {
+  pts: number;
+  fgm: number;
+  tpm: number;
+  ftm: number;
+  pt2in: number;
+  japanesePoints: number;
+  internationalPoints: number;
+  oppPts: number;
+  oppFgm: number;
+  oppTpm: number;
+  oppFtm: number;
+  oppPt2in: number;
+  oppJapanesePoints: number;
+  oppInternationalPoints: number;
+}
+
+function pointsShareOf(parts: number[], pts: number, games: number): PointsShare {
+  const perGame = games > 0 ? pts / games : 0;
+  const pct = parts.map((v) => (pts > 0 ? (100 * v) / pts : 0));
+  return { perGame, pct, values: pct.map((p) => (p / 100) * perGame) };
+}
+
+/**
+ * チームの得点構成を、選んだ条件の試合ログの合計から出す（全チームスタッツの Scoring % の絞り込み。DESIGN.md 256章）。
+ * teams.json の割合（teamScoringShare）と同じ式（3P＝3PM×3、FT＝FTM、ペイント内＝PITP、ミッドレンジ＝2Pの得点−PITP）。レギュラーシーズン全体では teams.json と同じ値（235章の確認）
+ */
+export function teamScoringShareFromTotals(t: PointsShareTotals, games: number, mode: "own" | "opponent"): PointsShare {
+  return mode === "own"
+    ? pointsShareOf([3 * t.tpm, t.ftm, 2 * (t.fgm - t.tpm) - t.pt2in, t.pt2in], t.pts, games)
+    : pointsShareOf([3 * t.oppTpm, t.oppFtm, 2 * (t.oppFgm - t.oppTpm) - t.oppPt2in, t.oppPt2in], t.oppPts, games);
+}
+
+/** チームの得点構成（登録区分）を、選んだ条件の試合ログの合計から出す（teamClassificationShare と同じ区分） */
+export function teamClassificationShareFromTotals(t: PointsShareTotals, games: number, mode: "own" | "opponent"): PointsShare {
+  return mode === "own"
+    ? pointsShareOf([t.japanesePoints, t.internationalPoints], t.pts, games)
+    : pointsShareOf([t.oppJapanesePoints, t.oppInternationalPoints], t.oppPts, games);
+}
+
 /** チームの得点構成（登録区分）。区分不明の選手の得点はどちらにも入れないため、合計が100%に満たないことがある */
 export function teamClassificationShare(team: TeamSummary, mode: "own" | "opponent"): PointsShare {
   const a = team.advanced;

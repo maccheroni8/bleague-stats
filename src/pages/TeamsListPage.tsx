@@ -51,7 +51,7 @@ import { ResultOnlyNote } from "../components/ResultOnlyNote";
 import { LeagueSeasonRecords } from "../components/LeagueSeasonRecords";
 import { RecordValue } from "../components/RecordValue";
 import { FGA_ORDER_LABELS, FgaCompositionChart, type FgaChartTeam, type FgaShareOrder } from "../components/FgaCompositionChart";
-import { fgaShare } from "../lib/shareCharts";
+import { fgaShare, teamClassificationShareFromTotals, teamScoringShareFromTotals } from "../lib/shareCharts";
 import {
   displayModeAxis,
   gameTypeAxis,
@@ -121,6 +121,7 @@ import {
   DEFAULT_SORT_KEY,
   sumTeamGameLogs,
   type AllTeamsRow,
+  EMPTY_TOTALS,
 } from "../lib/teamStatsColumns";
 import { statDescription } from "../lib/statDescriptions";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "../lib/teamRankingData";
@@ -514,14 +515,43 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     const data = turnoverPerspective === "forced" ? team.forcedTurnovers : team.turnoversCommitted;
     return data && passes(team.teamId) ? [{ team, data }] : [];
   });
-  // FG試投構成（Scoring %）。teams.json にペイント内外の試投数が無いため、各チームの試合ログのレギュラーシーズン分を合計する
-  // （ペイント内外はプレーバイプレーの公式の区分）。リーグ平均は全チームの合計を延べ試合数で割る
-  const fgaTeams = useMemo(() => {
+  // Scoring %（得点構成・FG試投構成・得点構成（登録区分））は、選んだ条件（試合区分・試合の条件）に当てはまる試合ログの合計から出す（DESIGN.md 256章。
+  // 以前は teams.json のレギュラーシーズン合計だけで、絞り込みと連動しなかった）。リーグ平均は全チームの合計を延べ試合数で割る。条件に当てはまる試合が無いチームは出さない
+  const shareTotals = useMemo(() => {
     if (!teams || !gameLogsByTeam) return null;
-    const perTeam = teams.map((team) => {
-      const logs = filterByGameType(gameLogsByTeam.get(team.teamId) ?? [], "regular");
-      return { team, games: logs.length, totals: sumTeamGameLogs(logs) };
-    });
+    const perTeam = teams
+      .map((team) => {
+        const logs = scopedLogsByTeam.get(team.teamId) ?? [];
+        return { team, games: logs.length, totals: sumTeamGameLogs(logs) };
+      })
+      .filter((r) => r.games > 0);
+    const allLogs = perTeam.flatMap((r) => scopedLogsByTeam.get(r.team.teamId) ?? []);
+    const league = perTeam.length > 0 ? { games: allLogs.length, totals: sumTeamGameLogs(allLogs) } : null;
+    return { perTeam, league };
+  }, [teams, gameLogsByTeam, scopedLogsByTeam]);
+  const scoringTeams = useMemo<TeamSummary[]>(() => {
+    if (!shareTotals) return [];
+    const list = shareTotals.perTeam.map((r) => r.team);
+    return shareTotals.league && leagueAverage ? [...list, { ...leagueAverage.team, teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME }] : list;
+  }, [shareTotals, leagueAverage]);
+  const scoringShareOf = useMemo(() => {
+    const byTeam = new Map((shareTotals?.perTeam ?? []).map((r) => [r.team.teamId, r]));
+    if (shareTotals?.league) byTeam.set(LEAGUE_TEAM_ID, { team: { teamId: LEAGUE_TEAM_ID } as TeamSummary, ...shareTotals.league });
+    return {
+      scoring: (t: TeamSummary, mode: "own" | "opponent") => {
+        const r = byTeam.get(t.teamId);
+        return teamScoringShareFromTotals(r?.totals ?? EMPTY_TOTALS, r?.games ?? 0, mode);
+      },
+      classification: (t: TeamSummary, mode: "own" | "opponent") => {
+        const r = byTeam.get(t.teamId);
+        return teamClassificationShareFromTotals(r?.totals ?? EMPTY_TOTALS, r?.games ?? 0, mode);
+      },
+    };
+  }, [shareTotals]);
+  // FG試投構成（Scoring %）。teams.json にペイント内外の試投数が無いため、もとから試合ログの合計から出している（ペイント内外はプレーバイプレーの公式の区分）
+  const fgaTeams = useMemo(() => {
+    if (!shareTotals) return null;
+    const perTeam = shareTotals.perTeam;
     const build = (mode: "own" | "opponent"): FgaChartTeam[] => {
       const pick = (games: number, t: ReturnType<typeof sumTeamGameLogs>) =>
         mode === "own"
@@ -538,7 +568,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       return league.games > 0 ? [...list, { teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME, share: fgaShare(league) }] : list;
     };
     return { own: build("own"), opponent: build("opponent") };
-  }, [teams, gameLogsByTeam]);
+  }, [shareTotals]);
   // 棒グラフ（On-Court Foreign・Scoring %）は、リーグ平均の棒を並び順の中の該当する位置に入れる（DESIGN.md 149章）
   const withLeague = (list: TeamSummary[] | null | undefined): TeamSummary[] =>
     leagueAverage ? [...(list ?? []), { ...leagueAverage.team, teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME }] : (list ?? []);
@@ -579,16 +609,25 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   // フィルタバー（DESIGN.md 105章）。カテゴリによって効かない軸は操作不可にして理由を出す。
   // 通常4カテゴリ=全軸が有効、シューティング=表示（平均/合計）のみ有効、それ以外の専用ビュー=すべて対象外
   const isMainCategory = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring" || boxTab === "periods";
+  // Scoring % は、試合区分・試合の条件が連動する（DESIGN.md 256章）。得点構成と失点構成を並べて出すので視点は切り替えず、割合のグラフなので平均/合計も切り替えない
+  const isShareCategory = boxTab === "scoringComposition";
   const seasonTotalOnlyReason = "このタブはシーズン通算値のみ対応のため、上の絞り込みは連動しません。";
-  const filterDisabledReason = isMainCategory
+  const filterDisabledReason = isMainCategory || isShareCategory
     ? undefined
     : boxTab === "shooting"
       ? "このタブはシーズン通算値のみ対応です（表示の平均/合計だけ連動します）。"
       : seasonTotalOnlyReason;
-  const displayDisabledReason = isMainCategory || boxTab === "shooting" ? undefined : seasonTotalOnlyReason;
+  const displayDisabledReason = isMainCategory || boxTab === "shooting"
+    ? undefined
+    : isShareCategory
+      ? "このタブは割合のグラフのため、平均/合計の切り替えは連動しません（右端の得点・失点は1試合平均です）。"
+      : seasonTotalOnlyReason;
+  const perspectiveDisabledReason = isShareCategory
+    ? "このタブは自チームの得点構成と、相手の得点（失点構成）の両方を並べて出すため、視点は切り替えません。"
+    : filterDisabledReason;
   const filterAxes: FilterAxis[] = [
     gameTypeAxis(gameType, setGameType, season, { disabledReason: filterDisabledReason }),
-    perspectiveAxis(teamPerspective, setTeamPerspective, { disabledReason: filterDisabledReason }),
+    perspectiveAxis(teamPerspective, setTeamPerspective, { disabledReason: perspectiveDisabledReason }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: displayDisabledReason }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
@@ -622,7 +661,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             ? composeLabels(TURNOVER_PERSPECTIVE_LABELS[turnoverPerspective], SEASON_TOTAL_ONLY_LABELS)
             : boxTab === "foreignPlayers"
               ? composeLabels(SEASON_TOTAL_ONLY_LABELS, "在コート時間ベース")
-              : composeLabels(SEASON_TOTAL_ONLY_LABELS),
+              : composeLabels(gameTypeLabels(gameType, season), situationalFilterLabels(filter)),
   };
 
   return (
@@ -782,7 +821,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           />
           <GlossaryNote anchor={GLOSSARY_ANCHORS.foreignCourt} label="在コート時間" scope="レギュラーシーズン・シーズン合計の値です（上部の絞り込みとは連動しません）。" />
         </>
-      ) : boxTab === "scoringComposition" ? (
+      ) : boxTab === "scoringComposition" && shareTotals ? (
         <>
           <FilterBar
             simple
@@ -818,22 +857,22 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             ]}
           />
           <h3>得点構成（総得点に占める割合）</h3>
-          <ScoringCompositionChart teams={withLeague(teams)} mode="own" order={scoringOrder} />
+          <ScoringCompositionChart teams={scoringTeams} mode="own" order={scoringOrder} shareOf={scoringShareOf.scoring} />
           <h3>失点構成（このチームが奪われた得点の割合）</h3>
-          <ScoringCompositionChart teams={withLeague(teams)} mode="opponent" order={scoringOrder} />
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成" scope="レギュラーシーズン・シーズン合計の値です（上部の絞り込みとは連動しません）。" />
+          <ScoringCompositionChart teams={scoringTeams} mode="opponent" order={scoringOrder} shareOf={scoringShareOf.scoring} />
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成" scope="上部で選んだ試合区分・試合の条件に当てはまる試合の合計の値です。" />
           <h3>FG試投構成（FGAに占める割合）</h3>
           {fgaTeams ? <FgaCompositionChart teams={fgaTeams.own} mode="own" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
           <h3>opp FG試投構成（相手のFGAに占める割合）</h3>
           {fgaTeams ? <FgaCompositionChart teams={fgaTeams.opponent} mode="opponent" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="FG試投構成" scope="レギュラーシーズン・シーズン合計の値です（上部の絞り込みとは連動しません）。" />
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="FG試投構成" scope="上部で選んだ試合区分・試合の条件に当てはまる試合の合計の値です。" />
           <h3>得点構成（登録区分）</h3>
-          <ClassificationCompositionChart teams={withLeague(teams)} mode="own" order={classificationOrder} />
+          <ClassificationCompositionChart teams={scoringTeams} mode="own" order={classificationOrder} shareOf={scoringShareOf.classification} />
           <h3>失点構成（登録区分）</h3>
-          <ClassificationCompositionChart teams={withLeague(teams)} mode="opponent" order={classificationOrder} />
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成（登録区分）" scope="レギュラーシーズン・シーズン合計の値です（上部の絞り込みとは連動しません）。" />
+          <ClassificationCompositionChart teams={scoringTeams} mode="opponent" order={classificationOrder} shareOf={scoringShareOf.classification} />
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成（登録区分）" scope="上部で選んだ試合区分・試合の条件に当てはまる試合の合計の値です。" />
         </>
-      ) : gameLogsLoading || !gameLogsByTeam ? (
+      ) : gameLogsLoading || !gameLogsByTeam || boxTab === "scoringComposition" ? (
         <p className="loading">読み込み中...</p>
       ) : boxTab === "periods" ? (
         <>

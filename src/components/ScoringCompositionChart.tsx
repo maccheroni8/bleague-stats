@@ -32,13 +32,16 @@ export function ScoringCompositionChart({
   teams,
   mode,
   order = "total",
+  shareOf,
 }: {
   teams: TeamSummary[];
   mode: "own" | "opponent";
+  /** 割合の元を差し替える（全チームスタッツで条件を選んだときの、試合ログの合計からの値。DESIGN.md 256章）。無ければ teams.json のシーズン合計 */
+  shareOf?: (team: TeamSummary, mode: "own" | "opponent") => PointsShare;
   order?: PointsShareOrder;
 }) {
   const rows: ShareBarRow[] = teams
-    .map((t) => ({ team: t, share: teamScoringShare(t, mode) }))
+    .map((t) => ({ team: t, share: shareOf ? shareOf(t, mode) : teamScoringShare(t, mode) }))
     .sort((a, b) => comparePointsShares(order, a.share, b.share) || a.team.teamId.localeCompare(b.team.teamId))
     .map(({ team, share }) => {
       const d = pointsDetails(share, mode === "own" ? "pts" : "opp");

@@ -6,6 +6,7 @@ import type { TeamPerspective } from "./teamStatsColumns";
 import type { LeagueVenue } from "./conditionLabels";
 import { CLUTCH_MEASURES, CLUTCH_WINDOWS, PAIR_UNITS, type ClutchMeasure, type ClutchWindowKey, type PairUnit } from "./clutchQuery";
 import { enumParam, listParam } from "./urlState";
+import { SEASON_PERIOD_OPTIONS } from "./seasonPeriod";
 
 /**
  * 個人一覧・チーム一覧・ランキングで共通のフィルタのURLのキー（DESIGN.md 163章）。
@@ -25,6 +26,13 @@ export const PERSPECTIVE_PARAM = enumParam<TeamPerspective>("v", ["own", "opp", 
 export const PERIOD_PARAM = enumParam<PeriodRangeValue>(
   "q",
   SEASON_BOX_PERIOD_OPTIONS.map((o) => o.value),
+  "all",
+);
+
+/** ランキング > シーズン成績 > 個人の区間（q）。PERIOD_PARAM に延長（ot）を足したもの（DESIGN.md 256章）。チームは段階2まで PERIOD_PARAM のまま */
+export const PLAYER_SEASON_PERIOD_PARAM = enumParam<PeriodRangeValue>(
+  "q",
+  SEASON_PERIOD_OPTIONS.map((o) => o.value),
   "all",
 );
 

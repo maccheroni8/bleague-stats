@@ -14,7 +14,7 @@
 
 import type { PlayerGameIndexFile, TeamGameIndexFile } from "../../shared/gameIndex";
 import type { AssistPairsFile } from "../../shared/assistPairs";
-import type { PlayerPeriodIndexFile } from "../../shared/periodIndex";
+import type { PlayerPeriodIndexFile, TeamPeriodIndexFile } from "../../shared/periodIndex";
 import type {
   LeaguePlayerGameRecordsFile,
   PlayerGameRecordsFile,
@@ -201,6 +201,15 @@ export async function fetchPlayerGameIndex(season: string): Promise<PlayerGameIn
 export async function fetchPlayerPeriodIndex(season: string): Promise<PlayerPeriodIndexFile | null> {
   try {
     return await fetchJson<PlayerPeriodIndexFile>(`${dataBase}/${season}/player-period-index.json`);
+  } catch {
+    return null;
+  }
+}
+
+/** チームのピリオド別の索引（data/{season}/team-period-index.json、DESIGN.md 225・256章）。ファイルが無ければ null */
+export async function fetchTeamPeriodIndex(season: string): Promise<TeamPeriodIndexFile | null> {
+  try {
+    return await fetchJson<TeamPeriodIndexFile>(`${dataBase}/${season}/team-period-index.json`);
   } catch {
     return null;
   }
