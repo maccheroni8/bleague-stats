@@ -3,6 +3,7 @@ import { RookieProvider } from "./components/RookieProvider";
 import { HashRouter, NavLink, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 import { SeasonLink, SeasonNavLink } from "./components/SeasonLink";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { ExportDebugPanel } from "./components/ExportDebugPanel";
 import { currentSeason } from "./lib/season";
 import { fetchSeasons } from "./lib/data";
 import { useJsonData } from "./lib/useJsonData";
@@ -143,6 +144,7 @@ function AppShell() {
           <Route path="/glossary" element={<GlossaryPage />} />
         </Routes>
       </main>
+      <ExportDebugPanel />
     </div>
   );
 }

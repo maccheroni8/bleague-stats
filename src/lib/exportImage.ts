@@ -3,6 +3,7 @@ import {
   baseDateFooterText,
   exportFilenameWithOptions,
   ExportImageError,
+  EXPORT_PHASE_LABELS,
   EXPORT_TIMEOUT_MS,
   fitExportScale,
   IOS_CANVAS_MAX_AREA,
@@ -10,7 +11,9 @@ import {
   runWithinDeadline,
   type ExportDeadline,
   type ExportOptions,
+  type ExportPhase,
 } from "./exportFormat";
+import { exportDebug } from "./exportDebugLog";
 import { NARROW_QUERY } from "./teamLabel";
 import { withForcedViewportWidth } from "./useMediaQuery";
 
@@ -99,6 +102,7 @@ export async function renderExportCanvas(
   for (let attempt = 0; ; attempt += 1) {
     deadline?.checkpoint();
     deadline?.setPhase("clone");
+    exportDebug(`html2canvas を呼ぶ（${attempt + 1}回目・倍率 ${requested}・広い画面で描く ${env.forceWide ? "はい（1280px）" : "いいえ"}）`);
     const html2canvasOptions: Html2CanvasOptions = {
       // 背景は常に白。画面がダークでも保存画像はライト（配色の変数も複製側だけライトに固定する。下の onclone）
       backgroundColor: EXPORT_BACKGROUND,
@@ -111,11 +115,13 @@ export async function renderExportCanvas(
         // 複製側の寸法（画面幅1280pxで組まれた結果）から倍率を決める。html2canvas は onclone のあとに倍率を読む
         const rect = clonedEl.getBoundingClientRect();
         html2canvasOptions.scale = fitExportScale(Math.ceil(rect.width), Math.ceil(rect.height), requested, env);
+        exportDebug(`複製の寸法 ${Math.ceil(rect.width)}×${Math.ceil(rect.height)}px → 倍率 ${html2canvasOptions.scale}（canvas 約 ${Math.floor(rect.width * html2canvasOptions.scale)}×${Math.floor(rect.height * html2canvasOptions.scale)}）`);
       },
     };
     const render = () => html2canvas(el, html2canvasOptions);
     const canvas = await (env.forceWide ? withForcedViewportWidth(EXPORT_WINDOW_WIDTH, render) : render());
     const drawn = html2canvasOptions.scale ?? requested;
+    exportDebug(`描いた canvas ${canvas.width}×${canvas.height}（面積 ${canvas.width * canvas.height}・倍率 ${drawn}）`);
     const overArea = env.maxArea !== null && canvas.width * canvas.height > env.maxArea;
     const overSide = env.maxSide !== null && Math.max(canvas.width, canvas.height) > env.maxSide;
     if ((overArea || overSide) && attempt === 0) {
@@ -186,17 +192,34 @@ export async function prepareExportImage(
     resolveBaseDate,
     timeoutMs = EXPORT_TIMEOUT_MS,
     env = detectExportEnvironment(),
+    onPhase,
   }: {
     options?: ExportOptions;
     /** データの基準日を求める（上限の時間に含める）。無ければ options.baseDate のまま */
     resolveBaseDate?: () => Promise<string | undefined>;
     timeoutMs?: number;
     env?: ExportEnvironment;
+    /** 段階が進んだとき（ボタンの文字を段階ごとに変えるため。DESIGN.md 243章） */
+    onPhase?: (phase: ExportPhase) => void;
   } = {},
 ): Promise<PreparedExportImage> {
   const before = html2canvasContainers();
   try {
-    return await runWithinDeadline(async (deadline) => {
+    return await runWithinDeadline(async (raw) => {
+      // 段階の切り替えを、ボタンの文字と調べるための記録にも伝える
+      let current: ExportPhase = "baseDate";
+      const deadline: ExportDeadline = {
+        checkpoint: raw.checkpoint,
+        setPhase: (phase) => {
+          raw.setPhase(phase);
+          if (phase === current) return;
+          exportDebug(`段階: ${EXPORT_PHASE_LABELS[current]} 終わり → ${EXPORT_PHASE_LABELS[phase]} 開始`);
+          current = phase;
+          onPhase?.(phase);
+        },
+      };
+      exportDebug(`段階: ${EXPORT_PHASE_LABELS.baseDate} 開始`);
+      onPhase?.("baseDate");
       const resolved = resolveBaseDate ? { ...options, baseDate: await resolveBaseDate() } : options;
       deadline.checkpoint();
       const { canvas, info } = await renderExportCanvas(el, resolved, EXPORT_SCALE, env, deadline);
@@ -205,14 +228,20 @@ export async function prepareExportImage(
       // 倍率を上げると data URL が大きくなるため、Blob で扱う。canvas が大きすぎて描けなかったとき（iOS）などは null が返る
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
       deadline.checkpoint();
+      exportDebug(blob ? `画像ファイル ${blob.size} バイト（${EXPORT_PHASE_LABELS.file} 終わり）` : "toBlob の結果が空（null）");
       if (!blob) throw new ExportImageError("file", "failed", timeoutMs);
       const file = new File([blob], exportFilenameWithOptions(filename, resolved), { type: "image/png" });
       return { file, info };
     }, timeoutMs);
   } catch (e) {
+    let removed = 0;
     for (const iframe of document.querySelectorAll(HTML2CANVAS_CONTAINER_SELECTOR)) {
-      if (!before.has(iframe)) iframe.remove();
+      if (!before.has(iframe)) {
+        iframe.remove();
+        removed += 1;
+      }
     }
+    if (removed > 0) exportDebug(`残った html2canvas の iframe を ${removed} 個外した`);
     throw e;
   }
 }
@@ -223,6 +252,7 @@ export function downloadExportImage(file: File): void {
   const a = document.createElement("a");
   a.href = url;
   a.download = file.name;
+  exportDebug(`ダウンロードを始める（${file.name}・${file.size} バイト）`);
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
@@ -232,9 +262,22 @@ export function downloadExportImage(file: File): void {
  * パソコンや Android は、今までどおりダウンロード
  */
 export function canShareExportImage(file: File): boolean {
-  if (!isIOSDevice()) return false;
+  const ios = isIOSDevice();
   const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
-  return typeof nav.share === "function" && typeof nav.canShare === "function" && nav.canShare({ files: [file] });
+  if (!ios) {
+    exportDebug("共有シートの判定: iPhone・iPad ではない → 使わない");
+    return false;
+  }
+  const hasShare = typeof nav.share === "function";
+  const hasCanShare = typeof nav.canShare === "function";
+  let can = false;
+  try {
+    can = hasShare && hasCanShare && nav.canShare!({ files: [file] });
+  } catch (e) {
+    exportDebug(`canShare が失敗: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`);
+  }
+  exportDebug(`共有シートの判定: iPhone・iPad／share ${hasShare ? "あり" : "なし"}／canShare ${hasCanShare ? "あり" : "なし"}／ファイルを渡せる ${can ? "はい" : "いいえ"}`);
+  return can;
 }
 
 /** 共有シートの結果。shared＝渡した／cancelled＝閉じた／blocked＝ボタンを押した直後でないため開けない（もう一度押してもらう）／failed＝使えない */
@@ -246,10 +289,13 @@ export type ShareResult = "shared" | "cancelled" | "blocked" | "failed";
  */
 export async function shareExportImage(file: File): Promise<ShareResult> {
   try {
+    exportDebug(`navigator.share を呼ぶ（${file.size} バイト）`);
     await navigator.share({ files: [file] });
+    exportDebug("navigator.share の結果: 成功");
     return "shared";
   } catch (e) {
     const name = e instanceof DOMException ? e.name : "";
+    exportDebug(`navigator.share の結果: 失敗（${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}）`);
     if (name === "AbortError") return "cancelled";
     if (name === "NotAllowedError") return "blocked";
     return "failed";

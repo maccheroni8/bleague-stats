@@ -2278,6 +2278,63 @@ table.compare-table th .compare-season-tag {
   gap: 4px;
 }
 
+/* 画像保存の調べるための記録（URL に debug=export があるときだけ。ExportDebugPanel.tsx・DESIGN.md 243章）。画面の下に固定し、スクリーンショットで送れる形 */
+.export-debug-spacer {
+  height: 42vh;
+}
+
+.export-debug-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  max-height: 42vh;
+  background: #111;
+  color: #e8e8e8;
+  border-top: 2px solid #f0b400;
+  font-size: 11px;
+}
+
+.export-debug-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  color: #f0b400;
+  font-weight: bold;
+}
+
+.export-debug-panel.export-debug-expanded {
+  max-height: 88vh;
+}
+
+.export-debug-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.export-debug-head button {
+  padding: 2px 8px;
+  border: 1px solid #888;
+  border-radius: 4px;
+  background: transparent;
+  color: #e8e8e8;
+  font-size: 11px;
+}
+
+.export-debug-body {
+  margin: 0;
+  padding: 4px 8px 8px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: ui-monospace, Menlo, monospace;
+  line-height: 1.35;
+}
+
 /* 保存したあとの案内（解像度を下げたとき・「写真に保存」を出すとき）。横いっぱいの1行 */
 .export-notice {
   flex-basis: 100%;
