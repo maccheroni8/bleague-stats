@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 
 /**
- * iPhone・iPad で、できた画像を画面いっぱいに出す（DESIGN.md 246章）。上に「写真に保存」（共有シート）と「閉じる」、
- * 画像の長押し（「"写真"に追加」）でも保存できる案内。長い画像は、この表示の中でスクロールして全体を見る。
+ * iPhone・iPad で、できた画像を画面いっぱいに出す（DESIGN.md 246・247章）。画面の下に「写真に保存」（共有シート）と「閉じる」を固定し、
+ * そのすぐ上に、画像の長押し（「"写真"に追加」）でも保存できる案内。長い画像は、ボタンの上の範囲でスクロールして全体を見る
+ * （ボタンは画像に重ならないので、スクロールの途中でも押せ、画像の下端〔基準日・アカウント名〕も隠れない）。
  * body の直下に出し（保存の範囲の外・html2canvas の対象外）、ページのスクロール位置や表の状態には触れない。閉じれば画面は保存前のまま
  */
 export function ExportImagePreview({
@@ -32,15 +33,6 @@ export function ExportImagePreview({
   }, [onClose]);
   return createPortal(
     <div className="export-preview" role="dialog" aria-modal="true" aria-label="保存する画像" data-html2canvas-ignore="true">
-      <div className="export-preview-bar">
-        <button type="button" className="export-preview-save" onClick={onShare}>
-          写真に保存
-        </button>
-        <button type="button" ref={closeRef} className="export-preview-close" onClick={onClose}>
-          閉じる
-        </button>
-      </div>
-      <p className="export-preview-hint">画像を長押しして「"写真"に追加」でも保存できます。</p>
       {notice && (
         <p className="export-preview-notice" role="status">
           {notice}
@@ -48,6 +40,17 @@ export function ExportImagePreview({
       )}
       <div className="export-preview-scroll">
         <img className="export-preview-image" src={url} alt="保存する画像" />
+      </div>
+      <div className="export-preview-footer">
+        <p className="export-preview-hint">画像を長押しして「"写真"に追加」でも保存できます。</p>
+        <div className="export-preview-bar">
+          <button type="button" className="export-preview-save" onClick={onShare}>
+            写真に保存
+          </button>
+          <button type="button" ref={closeRef} className="export-preview-close" onClick={onClose}>
+            閉じる
+          </button>
+        </div>
       </div>
     </div>,
     document.body,

@@ -13,7 +13,7 @@ import {
   type ExportOptions,
   type ExportPhase,
 } from "./exportFormat";
-import { exportDebug, exportDebugEnabled, exportExperiments, type ExportExperiment } from "./exportDebugLog";
+import { exportDebug, exportDebugEnabled, exportExperiments } from "./exportDebugLog";
 import { NARROW_QUERY } from "./teamLabel";
 import { withForcedViewportWidth } from "./useMediaQuery";
 
@@ -98,13 +98,13 @@ export async function renderExportCanvas(
   deadline?: ExportDeadline,
 ): Promise<{ canvas: HTMLCanvasElement; info: ExportRenderInfo }> {
   let requested = scale;
-  // 原因を絞るための試し方（debug=export のときの exp=…。ふだんは空で、動きは変わらない。DESIGN.md 244章）
+  // 試し方（debug=export のときの exp=…。ふだんは空で、動きは変わらない。244・247章。残しているのは keepimg だけ）
   const exp = exportExperiments();
-  const forceWide = env.forceWide && !exp.has("nowide");
+  const forceWide = env.forceWide;
   // 写真・ロゴ（<img>）は写し取らず、写し取ったあとで同じ位置に戻す（245章。iPhone では写し取った iframe の中の <img> が
-  // 読み込み完了（load）を引き止め、html2canvas が先へ進まなかった）。試し方 keepimg のときは前の形
-  const detachImages = !exp.has("keepimg") && !exp.has("noimg");
-  const ignoreElements = (node: Element) => (detachImages && node.tagName === "IMG") || ignoredByExperiment(node, el, exp);
+  // 読み込み完了（load）を引き止め、html2canvas が先へ進まなかった）。試し方 keepimg のときは前の形（<img> のまま写し取る）
+  const detachImages = !exp.has("keepimg");
+  const ignoreElements = (node: Element) => detachImages && node.tagName === "IMG";
   const isCloned = (node: Node) =>
     node.nodeType !== Node.ELEMENT_NODE ||
     !((node as Element).tagName === "SCRIPT" || (node as Element).hasAttribute("data-html2canvas-ignore") || ignoreElements(node as Element));
@@ -143,20 +143,11 @@ export async function renderExportCanvas(
       const before = html2canvasContainers();
       // 写し取る直前（広い画面に描き直したあと）の、表の中の <img> の位置を覚えておく
       slots = detachImages ? planImageSlots(el, isCloned) : [];
-      // 試し方 eager: 写し取るあいだだけ、画面の <img> の loading="lazy" を eager にする（同じ同期処理の中で戻すので、画面は変わらない）
-      const lazy = exp.has("eager") ? Array.from(document.querySelectorAll<HTMLImageElement>('img[loading="lazy"]')) : [];
-      for (const img of lazy) img.loading = "eager";
-      if (lazy.length > 0) exportDebug(`試し方 eager: 写し取るあいだ ${lazy.length} 個の画像を eager にする`);
-      let promise: ReturnType<typeof html2canvas>;
-      try {
-        promise = html2canvas(el, html2canvasOptions);
-      } finally {
-        for (const img of lazy) img.loading = "lazy";
-      }
+      const promise = html2canvas(el, html2canvasOptions);
       // html2canvas は呼んだその場で iframe を作って表を写し取り終え、そのあと iframe の読み込み完了・フォント・画像を待つ。
-      // 記録（debug=export）のときは、その待ちの様子を2秒ごとに見る。試し方（nofonts・forceload）もここで iframe に効かせる
+      // 記録（debug=export）のときは、その待ちの様子を2秒ごとに見る
       for (const frame of document.querySelectorAll<HTMLIFrameElement>(HTML2CANVAS_CONTAINER_SELECTOR)) {
-        if (!before.has(frame)) watchCloneFrame(frame, exp, () => cloned);
+        if (!before.has(frame)) watchCloneFrame(frame, () => cloned);
       }
       return promise;
     };
@@ -263,45 +254,10 @@ function imageReplacement(doc: Document, img: HTMLImageElement): HTMLImageElemen
 }
 
 /**
- * 試し方 ignore・noimg（DESIGN.md 244章）: 写し取らない要素か。ignore＝保存する表とその祖先・子孫、<head> の中以外は写し取らない。
- * noimg＝画像（<img>）を写し取らない（画像の読み込みを待たずに描けるかの確認。画像の無い画像になる）
- */
-function ignoredByExperiment(node: Element, target: HTMLElement, exp: ReadonlySet<ExportExperiment>): boolean {
-  if (exp.has("noimg") && node.tagName === "IMG") return true;
-  if (exp.has("ignore")) {
-    if (node.ownerDocument.head?.contains(node)) return false;
-    return !(node.contains(target) || target.contains(node));
-  }
-  return false;
-}
-
-/**
  * html2canvas が作った iframe（写し取った側）の待ちの様子を、記録（debug=export）に2秒ごとに出す。iframe の読み込み完了（load）が来たか、
- * 文書の readyState、フォントの読み込み、画像の数と読み込み中の数（3つまで名前）。写し取りが終わる（onclone）か iframe が外されたら止める。
- * 試し方 nofonts は写し取った側の document.fonts.ready を待たないようにし、forceload は1秒たっても load が来なければ来たことにする
+ * 文書の readyState、フォントの読み込み、画像の数と読み込み中の数（3つまで名前）。写し取りが終わる（onclone）か iframe が外されたら止める
  */
-function watchCloneFrame(frame: HTMLIFrameElement, exp: ReadonlySet<ExportExperiment>, done: () => boolean): void {
-  const doc = frame.contentDocument;
-  if (exp.has("nofonts") && doc?.fonts) {
-    try {
-      Object.defineProperty(doc.fonts, "ready", { configurable: true, get: () => Promise.resolve(doc.fonts) });
-      exportDebug("試し方 nofonts: 写し取った側のフォントの読み込みを待たない");
-    } catch (e) {
-      exportDebug(`試し方 nofonts を効かせられない: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-  if (exp.has("forceload")) {
-    setTimeout(() => {
-      if (done() || !frame.isConnected) return;
-      const onload = frame.onload;
-      if (typeof onload === "function") {
-        exportDebug("試し方 forceload: 1秒たっても iframe の load が来ないので、来たことにする");
-        onload.call(frame, new Event("load"));
-      } else {
-        exportDebug("試し方 forceload: load は来ている（何もしない）");
-      }
-    }, 1000);
-  }
+function watchCloneFrame(frame: HTMLIFrameElement, done: () => boolean): void {
   if (!exportDebugEnabled()) return;
   const started = performance.now();
   const probe = () => {
