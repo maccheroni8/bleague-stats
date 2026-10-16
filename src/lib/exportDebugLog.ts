@@ -25,6 +25,25 @@ export function exportDebugEnabled(): boolean {
   }
 }
 
+/**
+ * 原因を絞るための試し方（URL の exp=…。debug=export のときだけ効く。カンマで複数指定できる。DESIGN.md 244章）。
+ * ignore＝保存する表とその祖先以外を写し取らない／nowide＝広い画面（1280px）に切り替えずに描く／noimg＝画像を写し取らない（読み込みを待たない）／
+ * nofonts＝写し取った側のフォントの読み込みを待たない／forceload＝写し取った iframe の読み込み完了（load）が1秒来なければ、来たことにして進める
+ */
+export const EXPORT_EXPERIMENTS = ["ignore", "nowide", "noimg", "nofonts", "forceload"] as const;
+export type ExportExperiment = (typeof EXPORT_EXPERIMENTS)[number];
+
+export function exportExperiments(): ReadonlySet<ExportExperiment> {
+  if (!exportDebugEnabled()) return new Set();
+  const { search, hash } = window.location;
+  const hashQuery = hash.includes("?") ? hash.slice(hash.indexOf("?")) : "";
+  const values = [search, hashQuery]
+    .flatMap((q) => new URLSearchParams(q).getAll("exp"))
+    .flatMap((v) => v.split(","))
+    .map((v) => v.trim());
+  return new Set(EXPORT_EXPERIMENTS.filter((e) => values.includes(e)));
+}
+
 let lines: string[] | null = null;
 const listeners = new Set<() => void>();
 /** 今の保存を押した時刻（performance.now()。経過時間の起点） */

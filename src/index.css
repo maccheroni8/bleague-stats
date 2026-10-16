@@ -2343,6 +2343,13 @@ table.compare-table th .compare-season-tag {
   font-size: 12px;
 }
 
+/* 画像を作れなかったときの文（ふだんの案内より目立たせる。DESIGN.md 244章） */
+.export-notice.export-notice-error {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .export-option-label {
   margin-right: 2px;
   color: var(--muted);

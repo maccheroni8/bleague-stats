@@ -61,6 +61,21 @@ export function ExportImageButton({
   const [notice, setNotice] = useState<string | null>(null);
   /** iPhone・iPad で作った画像。2回目の「写真に保存」で共有シートに渡す */
   const [pending, setPending] = useState<PreparedExportImage | null>(null);
+  /** 案内がエラーか（目立つ色にし、画面の中央へ寄せて見えるようにする。DESIGN.md 244章） */
+  const [noticeIsError, setNoticeIsError] = useState(false);
+  const noticeRef = useRef<HTMLParagraphElement>(null);
+  // エラーの文・「写真に保存」の案内は、押したボタンのすぐ下に小さく出るため、画面の下端の近く（記録の枠の下など）に隠れて見えないことがあった。
+  // 出したら画面の中ほどへ寄せる（解像度を下げた案内だけのときは寄せない）
+  useEffect(() => {
+    const p = noticeRef.current;
+    if (!p || !(noticeIsError || pending)) return;
+    const rect = p.getBoundingClientRect();
+    const panel = document.querySelector(".export-debug-panel")?.getBoundingClientRect();
+    exportDebug(
+      `${noticeIsError ? "エラーの文" : "「写真に保存」の案内"}を画面に出した（画面の上から ${Math.round(rect.top)}px${panel ? `・記録の枠の上端 ${Math.round(panel.top)}px` : ""}・画面の高さ ${window.innerHeight}px。このあと中ほどへ寄せる）`,
+    );
+    p.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [notice, noticeIsError, pending]);
   /** 保存の回の番号。共有シートの結果が返ったとき、そのあとに新しく保存を始めていたら、古い結果で画面を変えない */
   const round = useRef(0);
   /** 保存の途中で部品が外されたかを、調べるための記録に残す（debug=export のときだけ） */
@@ -87,6 +102,7 @@ export function ExportImageButton({
     setBusy(true);
     setPhase(null);
     setNotice(null);
+    setNoticeIsError(false);
     setPending(null);
     exportDebugStart(`「${filename}」`);
     const env = detectExportEnvironment();
@@ -117,6 +133,7 @@ export function ExportImageButton({
     } catch (e) {
       console.error(e);
       setNotice(exportErrorMessage(e));
+      setNoticeIsError(true);
       const phaseText = e instanceof Error && "phase" in e ? `・段階 ${String((e as { phase: unknown }).phase)}` : "";
       exportDebugEnd(`エラーを出した（${describeError(e)}${phaseText}）`);
     } finally {
@@ -190,7 +207,7 @@ export function ExportImageButton({
         </>
       )}
       {notice && (
-        <p className="export-notice" role="status">
+        <p ref={noticeRef} className={`export-notice${noticeIsError ? " export-notice-error" : ""}`} role={noticeIsError ? "alert" : "status"}>
           {notice}
         </p>
       )}

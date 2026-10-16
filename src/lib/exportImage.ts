@@ -13,7 +13,7 @@ import {
   type ExportOptions,
   type ExportPhase,
 } from "./exportFormat";
-import { exportDebug } from "./exportDebugLog";
+import { exportDebug, exportDebugEnabled, exportExperiments, type ExportExperiment } from "./exportDebugLog";
 import { NARROW_QUERY } from "./teamLabel";
 import { withForcedViewportWidth } from "./useMediaQuery";
 
@@ -98,19 +98,32 @@ export async function renderExportCanvas(
   deadline?: ExportDeadline,
 ): Promise<{ canvas: HTMLCanvasElement; info: ExportRenderInfo }> {
   let requested = scale;
+  // 原因を絞るための試し方（debug=export のときの exp=…。ふだんは空で、動きは変わらない。DESIGN.md 244章）
+  const exp = exportExperiments();
+  const forceWide = env.forceWide && !exp.has("nowide");
+  const ignoreElements = exp.has("ignore") || exp.has("noimg") ? (node: Element) => ignoredByExperiment(node, el, exp) : undefined;
   // 測った寸法から倍率を決めても、描いた結果が上限を超えていたら（測ったあとに寸法が変わったとき）、一度だけ下げて描き直す
   for (let attempt = 0; ; attempt += 1) {
     deadline?.checkpoint();
     deadline?.setPhase("clone");
-    exportDebug(`html2canvas を呼ぶ（${attempt + 1}回目・倍率 ${requested}・広い画面で描く ${env.forceWide ? "はい（1280px）" : "いいえ"}）`);
+    exportDebug(
+      `html2canvas を呼ぶ（${attempt + 1}回目・倍率 ${requested}・広い画面で描く ${forceWide ? "はい（1280px）" : "いいえ"}・試し方 ${exp.size > 0 ? [...exp].join(", ") : "なし"}）`,
+    );
+    let cloned = false;
     const html2canvasOptions: Html2CanvasOptions = {
       // 背景は常に白。画面がダークでも保存画像はライト（配色の変数も複製側だけライトに固定する。下の onclone）
       backgroundColor: EXPORT_BACKGROUND,
       scale: requested,
-      ...(env.forceWide ? { windowWidth: EXPORT_WINDOW_WIDTH } : {}),
+      ...(forceWide ? { windowWidth: EXPORT_WINDOW_WIDTH } : {}),
+      ...(ignoreElements ? { ignoreElements } : {}),
       onclone: (doc, clonedEl) => {
         // ここまでで複製（写真・ロゴの読み込み待ちを含む）が終わり、このあとは canvas に描く
+        cloned = true;
         deadline?.setPhase("draw");
+        if (exportDebugEnabled()) {
+          const images = Array.from(doc.images);
+          exportDebug(`複製ができた（写し取った要素 ${doc.getElementsByTagName("*").length}・画像 ${images.length}・読み込み中の画像 ${images.filter((i) => !i.complete).length}）`);
+        }
         prepareClone(doc, clonedEl, options);
         // 複製側の寸法（画面幅1280pxで組まれた結果）から倍率を決める。html2canvas は onclone のあとに倍率を読む
         const rect = clonedEl.getBoundingClientRect();
@@ -118,8 +131,17 @@ export async function renderExportCanvas(
         exportDebug(`複製の寸法 ${Math.ceil(rect.width)}×${Math.ceil(rect.height)}px → 倍率 ${html2canvasOptions.scale}（canvas 約 ${Math.floor(rect.width * html2canvasOptions.scale)}×${Math.floor(rect.height * html2canvasOptions.scale)}）`);
       },
     };
-    const render = () => html2canvas(el, html2canvasOptions);
-    const canvas = await (env.forceWide ? withForcedViewportWidth(EXPORT_WINDOW_WIDTH, render) : render());
+    const render = () => {
+      const before = html2canvasContainers();
+      const promise = html2canvas(el, html2canvasOptions);
+      // html2canvas は呼んだその場で iframe を作って表を写し取り終え、そのあと iframe の読み込み完了・フォント・画像を待つ。
+      // 記録（debug=export）のときは、その待ちの様子を2秒ごとに見る。試し方（nofonts・forceload）もここで iframe に効かせる
+      for (const frame of document.querySelectorAll<HTMLIFrameElement>(HTML2CANVAS_CONTAINER_SELECTOR)) {
+        if (!before.has(frame)) watchCloneFrame(frame, exp, () => cloned);
+      }
+      return promise;
+    };
+    const canvas = await (forceWide ? withForcedViewportWidth(EXPORT_WINDOW_WIDTH, render) : render());
     const drawn = html2canvasOptions.scale ?? requested;
     exportDebug(`描いた canvas ${canvas.width}×${canvas.height}（面積 ${canvas.width * canvas.height}・倍率 ${drawn}）`);
     const overArea = env.maxArea !== null && canvas.width * canvas.height > env.maxArea;
@@ -130,6 +152,63 @@ export async function renderExportCanvas(
     }
     return { canvas, info: { requestedScale: scale, scale: drawn, width: canvas.width, height: canvas.height } };
   }
+}
+
+/**
+ * 試し方 ignore・noimg（DESIGN.md 244章）: 写し取らない要素か。ignore＝保存する表とその祖先・子孫、<head> の中以外は写し取らない。
+ * noimg＝画像（<img>）を写し取らない（画像の読み込みを待たずに描けるかの確認。画像の無い画像になる）
+ */
+function ignoredByExperiment(node: Element, target: HTMLElement, exp: ReadonlySet<ExportExperiment>): boolean {
+  if (exp.has("noimg") && node.tagName === "IMG") return true;
+  if (exp.has("ignore")) {
+    if (node.ownerDocument.head?.contains(node)) return false;
+    return !(node.contains(target) || target.contains(node));
+  }
+  return false;
+}
+
+/**
+ * html2canvas が作った iframe（写し取った側）の待ちの様子を、記録（debug=export）に2秒ごとに出す。iframe の読み込み完了（load）が来たか、
+ * 文書の readyState、フォントの読み込み、画像の数と読み込み中の数（3つまで名前）。写し取りが終わる（onclone）か iframe が外されたら止める。
+ * 試し方 nofonts は写し取った側の document.fonts.ready を待たないようにし、forceload は1秒たっても load が来なければ来たことにする
+ */
+function watchCloneFrame(frame: HTMLIFrameElement, exp: ReadonlySet<ExportExperiment>, done: () => boolean): void {
+  const doc = frame.contentDocument;
+  if (exp.has("nofonts") && doc?.fonts) {
+    try {
+      Object.defineProperty(doc.fonts, "ready", { configurable: true, get: () => Promise.resolve(doc.fonts) });
+      exportDebug("試し方 nofonts: 写し取った側のフォントの読み込みを待たない");
+    } catch (e) {
+      exportDebug(`試し方 nofonts を効かせられない: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  if (exp.has("forceload")) {
+    setTimeout(() => {
+      if (done() || !frame.isConnected) return;
+      const onload = frame.onload;
+      if (typeof onload === "function") {
+        exportDebug("試し方 forceload: 1秒たっても iframe の load が来ないので、来たことにする");
+        onload.call(frame, new Event("load"));
+      } else {
+        exportDebug("試し方 forceload: load は来ている（何もしない）");
+      }
+    }, 1000);
+  }
+  if (!exportDebugEnabled()) return;
+  const started = performance.now();
+  const probe = () => {
+    if (done() || !frame.isConnected) return;
+    const d = frame.contentDocument;
+    const images = d ? Array.from(d.images) : [];
+    const pending = images.filter((i) => !i.complete);
+    const names = pending.slice(0, 3).map((i) => `${(i.currentSrc || i.src).split("/").slice(-2).join("/")}（${i.loading || "-"}）`);
+    exportDebug(
+      `写し取った側の様子（${Math.round((performance.now() - started) / 1000)}秒）: load ${typeof frame.onload === "function" ? "まだ" : "済み"}・readyState ${d?.readyState ?? "なし"}・` +
+        `フォント ${d?.fonts?.status ?? "不明"}・要素 ${d?.getElementsByTagName("*").length ?? 0}・画像 ${images.length}・読み込み中 ${pending.length}${names.length > 0 ? `（${names.join("、")}）` : ""}`,
+    );
+    setTimeout(probe, 2000);
+  };
+  setTimeout(probe, 2000);
 }
 
 /** 複製側（html2canvas の iframe の中）を、保存画像の型にする */
