@@ -58,7 +58,7 @@ import {
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageBaseDateLabel } from "../lib/age";
 import { positionText } from "../lib/profileMark";
-import type { TeamColors } from "../../shared/types";
+import type { PlayerSummary, TeamColors } from "../../shared/types";
 import { useTeamLabel } from "../lib/teamLabel";
 import { usePlayerLabel } from "../lib/playerLabel";
 import { DEFAULT_STAT_CONDITIONS, statConditionsTitle } from "../lib/statConditions";
@@ -801,6 +801,11 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   // スマホ幅では名字だけ（同じ一覧で名字が重なる選手はフルネーム）
   const playerLabel = usePlayerLabel(shownRows.map((p) => p.name));
   const teamLabel = useTeamLabel();
+  // 「平均」で割った試合数（名前の下の行・写真なしの保存画像の名前の横に入れる。「6試合」）
+  const gamesText = (p: PlayerSummary) => {
+    const g = gamesDividedBy(p);
+    return g === undefined ? undefined : `${g}試合`;
+  };
 
   // 「プロフィール」カテゴリの年齢の基準日ラベル（表・画像出力に出す。そのシーズンの6月30日か今日の早い方。DESIGN.md 172章）。
   // 身長・体重は当時の値（補った値には＊。DESIGN.md 148章）なので基準日は出さない
@@ -1084,7 +1089,12 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               // 選手名の下はチーム名とポジション、そのシーズンのルーキーには「Rookie」（登録区分の選択によらず。DESIGN.md 217章。登録区分はタイトルの下の行）。ポジションの「＊」（当時の値でない印）と注意書きは、
               // 身長・体重・年齢を並べる Profile でだけ出す（DESIGN.md 170章）
               subLabel={(p) =>
-                [teamLabel(clubOf(p).teamId, clubOf(p).teamName), category === "profile" ? positionText(p) : p.position, rookies.ids?.has(p.playerId) ? "Rookie" : undefined]
+                [
+                  teamLabel(clubOf(p).teamId, clubOf(p).teamName),
+                  category === "profile" ? positionText(p) : p.position,
+                  gamesText(p),
+                  rookies.ids?.has(p.playerId) ? "Rookie" : undefined,
+                ]
                   .filter(Boolean)
                   .join("・")
               }
@@ -1095,7 +1105,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               }}
               teamColor={(p) => teamColors?.[clubOf(p).teamId]?.primary}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" placeholder />}
-              exportTeam={(p) => teamShortName(clubOf(p).teamId, clubOf(p).teamName)}
+              exportTeam={(p) => [teamShortName(clubOf(p).teamId, clubOf(p).teamName), gamesText(p)].filter(Boolean).join("・")}
               limit={PLAYER_RANK_TOP_N}
               compact
             />

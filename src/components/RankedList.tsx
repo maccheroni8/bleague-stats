@@ -75,7 +75,11 @@ export interface RankedListProps<T> {
   sortable?: boolean;
   /** 前シーズン比較の列（個人・チームのランキング（シーズン成績）だけ） */
   compare?: RankCompare<T>;
-  /** 指定時、値の横に「割った試合数」を小さく添える（「平均」で表示しているとき。undefined を返した行には添えない） */
+  /**
+   * 指定時、「平均」で割った試合数（「6試合」）を名前の近くに出す（undefined を返した行には出さない）。名前の下の行（subLabel）が無い表（チーム）は、
+   * 名前の下の行に「6試合」だけを出し、写真なしの保存画像では名前の横に添える。subLabel のある表（個人）は、呼び出し側が subLabel に入れる
+   * （「仙台・SG/SF・6試合・Rookie」）。写真なしの版の名前の横（exportTeam）も同じ
+   */
   gamesOf?: (row: T) => number | undefined;
   /**
    * 同じ順位の行を広げて出すときの、表示する行数の上限（全体で）。同じ順位が数千件になる記録（0の同率など）でも表を重くしないため。
@@ -169,8 +173,6 @@ export function RankedList<T>({
   const hiddenTies10 = tiesBeyondTop(ranks, EXPORT_TOP_10);
   const shownCount = limit === undefined ? sorted.length : tiesExpanded ? expandedEnd : limit;
   const limited = sorted.slice(0, shownCount);
-  // 「平均」のときだけ、値の横に割った試合数を添える（合計・割合の項目では gamesOf が undefined を返す）
-  const showGames = !!gamesOf && limited.some((row) => gamesOf(row) !== undefined);
   const toggleSortDir = () => {
     if (!sortable) return;
     if (bySortDiff) {
@@ -192,7 +194,7 @@ export function RankedList<T>({
   return (
     <div className="table-scroll">
       <table
-        className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}${compare ? " rankings-table-compare" : ""}${showGames ? " rankings-table-games" : ""}${exportKeepSub ? " rank-keep-sub" : ""}`}
+        className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}${compare ? " rankings-table-compare" : ""}${exportKeepSub ? " rank-keep-sub" : ""}`}
       >
         <thead>
           <tr>
@@ -227,7 +229,11 @@ export function RankedList<T>({
             const accent = teamColor?.(row);
             const teamAbbr = exportTeam?.(row);
             // 名前の横に添えるチーム略称（保存画像の写真なしの版でだけ表示）
-            const abbr = teamAbbr ? <span className="export-team-abbr">{teamAbbr}</span> : null;
+            // 名前の下の行が無い表（チーム）は、試合数だけを名前の下の行と、写真なしの版の名前の横に出す
+            const games = gamesOf?.(row);
+            const gamesOnly = !subLabel && games !== undefined ? `${games}試合` : null;
+            const abbrText = teamAbbr ?? gamesOnly;
+            const abbr = abbrText ? <span className="export-team-abbr">{abbrText}</span> : null;
             return (
               <tr key={rowKey(row)} className={i >= EXPORT_TOP_10 ? "rank-row-beyond10" : undefined}>
                 <td
@@ -278,7 +284,7 @@ export function RankedList<T>({
                             {name(row)}
                             {abbr}
                           </span>
-                          {subLabel && <span className="rank-sublabel">{subLabel(row)}</span>}
+                          {subLabel ? <span className="rank-sublabel">{subLabel(row)}</span> : gamesOnly && <span className="rank-sublabel">{gamesOnly}</span>}
                         </span>
                       </span>
                     );
@@ -288,13 +294,7 @@ export function RankedList<T>({
                     <ExternalLinkIcon href={externalLinkTo(row)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
                 </td>
-                <td className="align-right rank-value">
-                  {renderValue ? renderValue(row) : def.format(row)}
-                  {(() => {
-                    const games = gamesOf?.(row);
-                    return games === undefined ? null : <span className="rank-games">{games}試合</span>;
-                  })()}
-                </td>
+                <td className="align-right rank-value">{renderValue ? renderValue(row) : def.format(row)}</td>
                 {compare && (
                   <>
                     <td className="align-right rank-prev">{compare.prevCell(row)}</td>
