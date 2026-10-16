@@ -1,6 +1,18 @@
-import { useState, type RefObject } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { resolveBaseDate, type BaseDateSpec } from "../lib/dataBaseDate";
-import { downloadExportImage, exportElementAsImage, exportScaleReduced, shareExportImage, type PreparedExportImage } from "../lib/exportImage";
+import {
+  canShareExportImage,
+  downloadExportImage,
+  exportErrorMessage,
+  exportScaleReduced,
+  prepareExportImage,
+  shareExportImage,
+  type PreparedExportImage,
+} from "../lib/exportImage";
+
+/** iPhone・iPad で画像ができたときの案内（2回目の「写真に保存」で共有シートを開く。DESIGN.md 242章） */
+const SHARE_READY_NOTICE = "画像ができました。「写真に保存」を押し、共有の画面で「画像を保存」を選んでください。";
+const SHARE_BLOCKED_NOTICE = "共有の画面を開けませんでした。もう一度「写真に保存」を押してください。";
 
 /**
  * ランキングの保存の選択肢（DESIGN.md 239章）。写真（チームの表はロゴ）あり／なしと、上位の件数を、保存のときに選ぶ。
@@ -31,52 +43,67 @@ export function ExportImageButton({
   const [busy, setBusy] = useState(false);
   const [plain, setPlain] = useState(false);
   const [top10, setTop10] = useState(false);
-  /** 保存したあとの案内（解像度を下げたとき・共有シートを開くボタンを出すとき） */
+  /** 保存したあとの案内（解像度を下げたとき・「写真に保存」を出すとき・画像を作れなかったとき） */
   const [notice, setNotice] = useState<string | null>(null);
-  /** 共有シートを開けなかった（描くのに時間がかかり、ボタンを押した直後でなくなった）画像。「写真に保存」から開く */
+  /** iPhone・iPad で作った画像。2回目の「写真に保存」で共有シートに渡す */
   const [pending, setPending] = useState<PreparedExportImage | null>(null);
+  /** 保存の回の番号。共有シートの結果が返ったとき、そのあとに新しく保存を始めていたら、古い結果で画面を変えない */
+  const round = useRef(0);
 
   const reducedNotice = (prepared: PreparedExportImage): string | null =>
     exportScaleReduced(prepared.info)
       ? `画像が大きいため、解像度を${prepared.info.requestedScale}倍から${prepared.info.scale}倍に下げました。`
       : null;
 
+  // 1回目: 画像を作る（時間の上限つき）。パソコン・Android はそのままダウンロード、iPhone・iPad は「写真に保存」を出して終える
+  // （共有シートの結果は待たない。iOS では結果が返らず「出力中...」のまま止まることがあったため。DESIGN.md 242章）
   const handleClick = async () => {
-    if (!targetRef.current || busy) return;
+    const target = targetRef.current;
+    if (!target || busy) return;
+    round.current += 1;
     setBusy(true);
     setNotice(null);
     setPending(null);
     try {
-      const date = baseDate ? await resolveBaseDate(baseDate) : undefined;
-      const result = await exportElementAsImage(targetRef.current, filename, {
-        baseDate: date,
-        plain: ranking ? plain : false,
-        top10: ranking ? top10 : false,
+      const prepared = await prepareExportImage(target, filename, {
+        options: { plain: ranking ? plain : false, top10: ranking ? top10 : false },
+        resolveBaseDate: baseDate ? () => resolveBaseDate(baseDate) : undefined,
       });
-      if (!result) return;
-      const reduced = reducedNotice(result.prepared);
-      if (result.outcome === "share-ready") {
-        setPending(result.prepared);
-        setNotice([reduced, "画像ができました。「写真に保存」を押し、共有の画面で「画像を保存」を選んでください。"].filter(Boolean).join(""));
+      const reduced = reducedNotice(prepared);
+      if (canShareExportImage(prepared.file)) {
+        setPending(prepared);
+        setNotice([reduced, SHARE_READY_NOTICE].filter(Boolean).join(""));
       } else {
+        downloadExportImage(prepared.file);
         setNotice(reduced);
       }
+    } catch (e) {
+      console.error(e);
+      setNotice(exportErrorMessage(e));
     } finally {
       setBusy(false);
     }
   };
 
-  const handleSharePending = async () => {
+  // 2回目（iPhone・iPad）: 押した処理の中で、await を挟まずに共有シートを開く。結果を待つ間もボタンは止めない
+  const handleSharePending = () => {
     if (!pending) return;
-    const result = await shareExportImage(pending.file);
-    if (result === "shared") {
-      setPending(null);
-      setNotice(reducedNotice(pending));
-    } else if (result === "failed") {
-      downloadExportImage(pending.file);
-      setPending(null);
-      setNotice(reducedNotice(pending));
-    }
+    const prepared = pending;
+    const myRound = round.current;
+    void shareExportImage(prepared.file).then((result) => {
+      if (round.current !== myRound) return;
+      if (result === "shared") {
+        setPending(null);
+        setNotice(reducedNotice(prepared));
+      } else if (result === "blocked") {
+        setNotice(SHARE_BLOCKED_NOTICE);
+      } else if (result === "failed") {
+        downloadExportImage(prepared.file);
+        setPending(null);
+        setNotice(reducedNotice(prepared));
+      }
+      // cancelled（閉じた）は何もしない。「写真に保存」から開き直せる
+    });
   };
 
   const topLabel = ranking

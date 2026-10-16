@@ -8,6 +8,7 @@
 //  4. 保存の選択に応じたファイル名（初期の選択は変えない）
 //  5. 画面の表の下の「データの基準日」と保存画像のフッターが使う、基準日の指定（240章）
 //  6. スマホ幅から保存するときの画面幅の判定（広い画面として評価する）と、iPhone・iPad の canvas の上限に収める倍率（241章）
+//  7. 画像を作る段階の時間の上限（上限を超えたら止まった段階のエラー・失敗も段階つきのエラー・上限のあとは先へ進めない。242章）
 //
 // 使い方: npm run validate:export-image（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -17,7 +18,9 @@ import {
   baseDateFooterText,
   baseDateOf,
   baseDateSpecKey,
+  exportErrorMessage,
   exportFilenameWithOptions,
+  ExportImageError,
   fitExportScale,
   formatBaseDate,
   IOS_CANVAS_MAX_AREA,
@@ -25,6 +28,7 @@ import {
   latestBaseDate,
   latestEndedGameDate,
   matchesAtViewportWidth,
+  runWithinDeadline,
   tiesBeyondTop,
 } from "../src/lib/exportFormat.ts";
 import type { GameSummary } from "../shared/types.ts";
@@ -123,6 +127,63 @@ eq("下げた倍率で、寸法（切り捨て）の面積が上限以内", (() 
 eq("下限は 0.1 倍", fitExportScale(100000, 100000, 3, IOS), 0.1);
 eq("1辺の上限も効く（細長い画像）", fitExportScale(100, 40000, 3, IOS), 0.4);
 eq("サイズが 0 のときはそのまま", fitExportScale(0, 0, 3, IOS), 3);
+
+// --- 7. 画像を作る段階の時間の上限（242章）。上限を超えたら、そのときの段階のエラーで終わる（「出力中...」のまま止まらない） ---
+const never = new Promise<never>(() => {});
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+async function outcome<T>(p: Promise<T>): Promise<unknown> {
+  try {
+    return { ok: await p };
+  } catch (e) {
+    return e instanceof ExportImageError ? { phase: e.phase, reason: e.reason, message: e.message } : { other: String(e) };
+  }
+}
+eq("上限の中で終われば、その結果", await outcome(runWithinDeadline(async () => "done", 200)), { ok: "done" });
+eq(
+  "複製の途中で止まったら、上限で「表の複製」のエラー",
+  await outcome(runWithinDeadline(async (d) => { d.setPhase("clone"); return never; }, 50)),
+  { phase: "clone", reason: "timeout", message: "画像を作れませんでした（表の複製（写真・ロゴの読み込み）の途中で0秒を超えました）。もう一度お試しください。" },
+);
+eq(
+  "30秒の上限の文言",
+  new ExportImageError("draw", "timeout").message,
+  "画像を作れませんでした（画像の描画の途中で30秒を超えました）。もう一度お試しください。",
+);
+eq(
+  "途中の失敗は、そのときの段階のエラー",
+  await outcome(runWithinDeadline(async (d) => { d.setPhase("draw"); throw new Error("canvas"); }, 200)),
+  { phase: "draw", reason: "failed", message: "画像を作れませんでした（画像の描画で失敗しました）。もう一度お試しください。" },
+);
+eq(
+  "画像ファイルにできない（toBlob が空）のエラーはそのまま",
+  await outcome(runWithinDeadline(async () => { throw new ExportImageError("file", "failed"); }, 200)),
+  { phase: "file", reason: "failed", message: "画像を作れませんでした（画像ファイルの作成で失敗しました）。もう一度お試しください。" },
+);
+eq("思いがけない失敗の文言", exportErrorMessage(new Error("x")), "画像を作れませんでした。もう一度お試しください。");
+eq(
+  "上限を超えたあとは先の段階へ進めない（checkpoint が投げる・段階も変わらない）",
+  await (async () => {
+    let reached = false;
+    let afterPhase = "";
+    const r = await outcome(
+      runWithinDeadline(async (d) => {
+        d.setPhase("clone");
+        await sleep(80);
+        try {
+          d.checkpoint();
+          reached = true;
+        } catch (e) {
+          afterPhase = e instanceof ExportImageError ? e.phase : "";
+        }
+        d.setPhase("file");
+        return "late";
+      }, 30),
+    );
+    await sleep(80);
+    return { r: (r as { phase?: string }).phase, reached, afterPhase };
+  })(),
+  { r: "clone", reached: false, afterPhase: "clone" },
+);
 if (failures > 0) {
   console.log(`\n${failures}件の食い違いがあります`);
   process.exit(1);

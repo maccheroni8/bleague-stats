@@ -76,6 +76,8 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 241章: **スマホ幅から保存してもPC表記・PC幅の画像**（保存画像の段階3。**画面だけの変更でキー不変**）。保存の間だけ `useMediaQuery` が広い画面（1280px）の答えを返し（`withForcedViewportWidth`・`useMediaQuery.ts`。画面の描き直しと html2canvas の複製と元に戻すまでを1つの同期処理で行い、広い表記は画面に描かれない）、
   html2canvas の `windowWidth` も 1280px にする（`lib/exportImage.ts`）。iPhone・iPad だけ、canvas の面積の上限（16,777,216）に収まるよう倍率を自動で下げ（`fitExportScale`）、共有シート（`navigator.share`）で「写真に保存」できる。パソコン・Android はダウンロードのまま。
   **`useMediaQuery` の外（`window.innerWidth` など）で画面幅を見る処理を保存の枠の中の部品に足さない**（保存の画像だけ表記が崩れる）。html2canvas を上げるときは、スマホ幅から保存した画像が崩れないかを確かめる（241-2章）
+- 242章: **iPhone・iPad の保存は2回押す**（1回目で画像を作り、2回目の「写真に保存」で共有シート。共有の結果は待たない〔iOS では返らないことがあり「出力中...」のまま止まった〕）。
+  画像を作る段階（基準日・複製・描画・PNG化）は時間の上限30秒で、超えた・失敗したときは止まった段階つきのエラーを出し、残った html2canvas の iframe を外す（`runWithinDeadline`・`prepareExportImage`）。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

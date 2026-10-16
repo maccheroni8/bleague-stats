@@ -113,6 +113,90 @@ export function fitExportScale(
 }
 
 /**
+ * 画像を作る段階（DESIGN.md 242章）。時間の上限を超えたとき・失敗したときに、どの段階で止まったかを画面に出す。
+ * clone＝html2canvas が表を複製し終えるまで（写真・ロゴの読み込みを待つ）、draw＝複製した表を canvas に描くまで、file＝PNGのファイルにするまで
+ */
+export type ExportPhase = "baseDate" | "clone" | "draw" | "file";
+
+export const EXPORT_PHASE_LABELS: Record<ExportPhase, string> = {
+  baseDate: "データの基準日の取得",
+  clone: "表の複製（写真・ロゴの読み込み）",
+  draw: "画像の描画",
+  file: "画像ファイルの作成",
+};
+
+/** 画像を作る段階（ボタンを押してから画像ファイルができるまで）の時間の上限 */
+export const EXPORT_TIMEOUT_MS = 30_000;
+
+/** 画像を作れなかったこと（時間の上限を超えた・途中で失敗した）。message は画面にそのまま出す文言 */
+export class ExportImageError extends Error {
+  constructor(
+    readonly phase: ExportPhase,
+    readonly reason: "timeout" | "failed",
+    timeoutMs: number = EXPORT_TIMEOUT_MS,
+    readonly detail?: unknown,
+  ) {
+    super(
+      reason === "timeout"
+        ? `画像を作れませんでした（${EXPORT_PHASE_LABELS[phase]}の途中で${Math.round(timeoutMs / 1000)}秒を超えました）。もう一度お試しください。`
+        : `画像を作れませんでした（${EXPORT_PHASE_LABELS[phase]}で失敗しました）。もう一度お試しください。`,
+    );
+    this.name = "ExportImageError";
+  }
+}
+
+/** 画面に出すエラーの文言（ExportImageError 以外の思いがけない失敗は、段階の無い文言） */
+export function exportErrorMessage(e: unknown): string {
+  return e instanceof ExportImageError ? e.message : "画像を作れませんでした。もう一度お試しください。";
+}
+
+/** 時間の上限の中で進める処理に渡す道具。setPhase＝今の段階を伝える、checkpoint＝上限を超えたあとなら投げて先へ進めない */
+export interface ExportDeadline {
+  setPhase(phase: ExportPhase): void;
+  checkpoint(): void;
+}
+
+/**
+ * task を timeoutMs の上限の中で進める。上限を超えたら、そのときの段階の ExportImageError（timeout）で失敗にする
+ * （task 自体は止められないので、残りは checkpoint で打ち切る）。task が投げた失敗は、そのときの段階の ExportImageError（failed）にする
+ */
+export async function runWithinDeadline<T>(
+  task: (deadline: ExportDeadline) => Promise<T>,
+  timeoutMs: number = EXPORT_TIMEOUT_MS,
+  firstPhase: ExportPhase = "baseDate",
+): Promise<T> {
+  let phase = firstPhase;
+  let expired = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline: ExportDeadline = {
+    setPhase: (p) => {
+      if (!expired) phase = p;
+    },
+    checkpoint: () => {
+      if (expired) throw new ExportImageError(phase, "timeout", timeoutMs);
+    },
+  };
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      expired = true;
+      reject(new ExportImageError(phase, "timeout", timeoutMs));
+    }, timeoutMs);
+  });
+  const run = (async () => {
+    try {
+      return await task(deadline);
+    } catch (e) {
+      throw e instanceof ExportImageError ? e : new ExportImageError(phase, "failed", timeoutMs, e);
+    }
+  })();
+  try {
+    return await Promise.race([run, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * `(min-width: Npx)`・`(max-width: Npx)`（と `and` でつないだもの）だけを、指定した画面幅で評価する（保存のとき、スマホ幅の画面を
  * 広い画面として描くための判定。DESIGN.md 241章）。それ以外の条件（prefers-color-scheme など）は null（画面幅では決まらない）
  */

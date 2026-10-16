@@ -2,9 +2,13 @@ import html2canvas from "html2canvas";
 import {
   baseDateFooterText,
   exportFilenameWithOptions,
+  ExportImageError,
+  EXPORT_TIMEOUT_MS,
   fitExportScale,
   IOS_CANVAS_MAX_AREA,
   IOS_CANVAS_MAX_SIDE,
+  runWithinDeadline,
+  type ExportDeadline,
   type ExportOptions,
 } from "./exportFormat";
 import { NARROW_QUERY } from "./teamLabel";
@@ -12,6 +16,7 @@ import { withForcedViewportWidth } from "./useMediaQuery";
 
 export { baseDateFooterText, exportFilenameWithOptions };
 export type { ExportOptions };
+export { ExportImageError, exportErrorMessage } from "./exportFormat";
 
 /** 画像の右下に入れるアカウント名 */
 export const EXPORT_ACCOUNT_NAME = "@dthiro1208";
@@ -79,23 +84,29 @@ type Html2CanvasOptions = NonNullable<Parameters<typeof html2canvas>[1]>;
  * スマホ幅の画面からでも、PC幅で見たときと同じ画像にする（DESIGN.md 241章）: ①`useMediaQuery` を「広い画面」にした状態で画面のDOMを複製する
  * （html2canvas は呼んだ時点で複製し終えるので、複製したらすぐ元に戻す。画面には一度も描かれない。選んだ並べ替え・開閉などの状態は画面のDOMのまま引き継がれる）、
  * ②複製側の画面幅（windowWidth）を 1280px にして、CSSの @media もPC幅で評価させる。
- * iPhone・iPad では、描く前に複製側の寸法を測り、canvas の上限を超えるなら倍率を下げる
+ * iPhone・iPad では、描く前に複製側の寸法を測り、canvas の上限を超えるなら倍率を下げる。
+ * deadline を渡すと、段階（複製・描画）を伝え、時間の上限を超えたあとは描き直しに進まない（DESIGN.md 242章）
  */
 export async function renderExportCanvas(
   el: HTMLElement,
   options: ExportOptions = {},
   scale = EXPORT_SCALE,
   env: ExportEnvironment = detectExportEnvironment(),
+  deadline?: ExportDeadline,
 ): Promise<{ canvas: HTMLCanvasElement; info: ExportRenderInfo }> {
   let requested = scale;
   // 測った寸法から倍率を決めても、描いた結果が上限を超えていたら（測ったあとに寸法が変わったとき）、一度だけ下げて描き直す
   for (let attempt = 0; ; attempt += 1) {
+    deadline?.checkpoint();
+    deadline?.setPhase("clone");
     const html2canvasOptions: Html2CanvasOptions = {
       // 背景は常に白。画面がダークでも保存画像はライト（配色の変数も複製側だけライトに固定する。下の onclone）
       backgroundColor: EXPORT_BACKGROUND,
       scale: requested,
       ...(env.forceWide ? { windowWidth: EXPORT_WINDOW_WIDTH } : {}),
       onclone: (doc, clonedEl) => {
+        // ここまでで複製（写真・ロゴの読み込み待ちを含む）が終わり、このあとは canvas に描く
+        deadline?.setPhase("draw");
         prepareClone(doc, clonedEl, options);
         // 複製側の寸法（画面幅1280pxで組まれた結果）から倍率を決める。html2canvas は onclone のあとに倍率を読む
         const rect = clonedEl.getBoundingClientRect();
@@ -155,18 +166,55 @@ export function exportScaleReduced(info: ExportRenderInfo): boolean {
   return info.scale < info.requestedScale;
 }
 
+/** html2canvas が複製のために画面に足す iframe（描き終えると html2canvas が外す。途中で止まったり失敗したりすると残る） */
+const HTML2CANVAS_CONTAINER_SELECTOR = "iframe.html2canvas-container";
+
+function html2canvasContainers(): Set<Element> {
+  return new Set(document.querySelectorAll(HTML2CANVAS_CONTAINER_SELECTOR));
+}
+
+/**
+ * 画像（PNGの File）を作る。ボタンを押してから画像ファイルができるまで（基準日の取得・複製・描画・PNG化）に時間の上限（30秒）を設け、
+ * 超えたとき・途中で失敗したときは、どの段階かを持った ExportImageError を投げる（画面にそのまま出す。DESIGN.md 242章）。
+ * そのとき、この保存で html2canvas が画面に足した iframe が残っていれば外す
+ */
 export async function prepareExportImage(
   el: HTMLElement,
   filename: string,
-  options: ExportOptions = {},
-  env: ExportEnvironment = detectExportEnvironment(),
-): Promise<PreparedExportImage | null> {
-  const { canvas, info } = await renderExportCanvas(el, options, EXPORT_SCALE, env);
-  // 倍率を上げると data URL が大きくなるため、Blob で扱う
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-  if (!blob) return null;
-  const file = new File([blob], exportFilenameWithOptions(filename, options), { type: "image/png" });
-  return { file, info };
+  {
+    options = {},
+    resolveBaseDate,
+    timeoutMs = EXPORT_TIMEOUT_MS,
+    env = detectExportEnvironment(),
+  }: {
+    options?: ExportOptions;
+    /** データの基準日を求める（上限の時間に含める）。無ければ options.baseDate のまま */
+    resolveBaseDate?: () => Promise<string | undefined>;
+    timeoutMs?: number;
+    env?: ExportEnvironment;
+  } = {},
+): Promise<PreparedExportImage> {
+  const before = html2canvasContainers();
+  try {
+    return await runWithinDeadline(async (deadline) => {
+      const resolved = resolveBaseDate ? { ...options, baseDate: await resolveBaseDate() } : options;
+      deadline.checkpoint();
+      const { canvas, info } = await renderExportCanvas(el, resolved, EXPORT_SCALE, env, deadline);
+      deadline.checkpoint();
+      deadline.setPhase("file");
+      // 倍率を上げると data URL が大きくなるため、Blob で扱う。canvas が大きすぎて描けなかったとき（iOS）などは null が返る
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+      deadline.checkpoint();
+      if (!blob) throw new ExportImageError("file", "failed", timeoutMs);
+      const file = new File([blob], exportFilenameWithOptions(filename, resolved), { type: "image/png" });
+      return { file, info };
+    }, timeoutMs);
+  } catch (e) {
+    for (const iframe of document.querySelectorAll(HTML2CANVAS_CONTAINER_SELECTOR)) {
+      if (!before.has(iframe)) iframe.remove();
+    }
+    throw e;
+  }
 }
 
 /** ファイルとしてダウンロードする（パソコン・Android。共有シートが使えない端末の既定） */
@@ -192,6 +240,10 @@ export function canShareExportImage(file: File): boolean {
 /** 共有シートの結果。shared＝渡した／cancelled＝閉じた／blocked＝ボタンを押した直後でないため開けない（もう一度押してもらう）／failed＝使えない */
 export type ShareResult = "shared" | "cancelled" | "blocked" | "failed";
 
+/**
+ * 共有シートを開く。iPhone・iPad では「写真に保存」を押した処理の中で、await を挟まずに呼ぶ（押した直後でないと開けない。
+ * この関数は呼んだその場で navigator.share を呼ぶ）。iOS では結果が返らないことがあるので、呼ぶ側は結果を待つ間に画面を止めない（DESIGN.md 242章）
+ */
 export async function shareExportImage(file: File): Promise<ShareResult> {
   try {
     await navigator.share({ files: [file] });
@@ -202,32 +254,6 @@ export async function shareExportImage(file: File): Promise<ShareResult> {
     if (name === "NotAllowedError") return "blocked";
     return "failed";
   }
-}
-
-/** 保存の結果。downloaded＝ダウンロードした／shared＝共有シートに渡した／cancelled＝共有シートを閉じた／share-ready＝共有シートを開くボタンを出した（もう一度押してもらう） */
-export type ExportOutcome = "downloaded" | "shared" | "cancelled" | "share-ready";
-
-/**
- * 画像にして保存する。iPhone・iPad で共有シートが使えるときは共有シート（「画像を保存」で写真に入る）、それ以外は今までどおりダウンロード。
- * 共有シートは、ボタンを押した直後でないと開けないことがある（描くのに時間がかかったとき）。その場合は share-ready を返し、画面の「写真に保存」ボタンから開く
- */
-export async function exportElementAsImage(
-  el: HTMLElement,
-  filename: string,
-  options: ExportOptions = {},
-): Promise<{ outcome: ExportOutcome; prepared: PreparedExportImage } | null> {
-  const prepared = await prepareExportImage(el, filename, options);
-  if (!prepared) return null;
-  if (!canShareExportImage(prepared.file)) {
-    downloadExportImage(prepared.file);
-    return { outcome: "downloaded", prepared };
-  }
-  const result = await shareExportImage(prepared.file);
-  if (result === "shared") return { outcome: "shared", prepared };
-  if (result === "cancelled") return { outcome: "cancelled", prepared };
-  if (result === "blocked") return { outcome: "share-ready", prepared };
-  downloadExportImage(prepared.file);
-  return { outcome: "downloaded", prepared };
 }
 
 /**
