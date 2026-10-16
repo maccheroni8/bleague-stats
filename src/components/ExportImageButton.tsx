@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { resolveBaseDate, type BaseDateSpec } from "../lib/dataBaseDate";
 import { describeError, exportDebug, exportDebugEnd, exportDebugStart } from "../lib/exportDebugLog";
 import type { ExportPhase } from "../lib/exportFormat";
@@ -13,9 +13,8 @@ import {
   shareExportImage,
   type PreparedExportImage,
 } from "../lib/exportImage";
+import { ExportImagePreview } from "./ExportImagePreview";
 
-/** iPhone・iPad で画像ができたときの案内（2回目の「写真に保存」で共有シートを開く。DESIGN.md 242章） */
-const SHARE_READY_NOTICE = "画像ができました。「写真に保存」を押し、共有の画面で「画像を保存」を選んでください。";
 const SHARE_BLOCKED_NOTICE = "共有の画面を開けませんでした。もう一度「写真に保存」を押してください。";
 
 /** 画像を作っている間のボタンの文字（段階ごと。DESIGN.md 243章） */
@@ -57,25 +56,26 @@ export function ExportImageButton({
   const [phase, setPhase] = useState<ExportPhase | null>(null);
   const [plain, setPlain] = useState(false);
   const [top10, setTop10] = useState(false);
-  /** 保存したあとの案内（解像度を下げたとき・「写真に保存」を出すとき・画像を作れなかったとき） */
+  /** 保存したあとの案内（ダウンロードで解像度を下げたとき・画像を作れなかったとき） */
   const [notice, setNotice] = useState<string | null>(null);
-  /** iPhone・iPad で作った画像。2回目の「写真に保存」で共有シートに渡す */
+  /** iPhone・iPad で作った画像。画面いっぱいの表示に出し、「写真に保存」で共有シートに渡す（DESIGN.md 246章） */
   const [pending, setPending] = useState<PreparedExportImage | null>(null);
+  /** 画像の表示の中に出す案内（解像度を下げた・共有の画面を開けなかった） */
+  const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   /** 案内がエラーか（目立つ色にし、画面の中央へ寄せて見えるようにする。DESIGN.md 244章） */
   const [noticeIsError, setNoticeIsError] = useState(false);
   const noticeRef = useRef<HTMLParagraphElement>(null);
-  // エラーの文・「写真に保存」の案内は、押したボタンのすぐ下に小さく出るため、画面の下端の近く（記録の枠の下など）に隠れて見えないことがあった。
-  // 出したら画面の中ほどへ寄せる（解像度を下げた案内だけのときは寄せない）
+  // エラーの文は、押したボタンのすぐ下に小さく出るため、画面の下端の近く（記録の枠の下など）に隠れて見えないことがあった。出したら画面の中ほどへ寄せる
   useEffect(() => {
     const p = noticeRef.current;
-    if (!p || !(noticeIsError || pending)) return;
+    if (!p || !noticeIsError) return;
     const rect = p.getBoundingClientRect();
     const panel = document.querySelector(".export-debug-panel")?.getBoundingClientRect();
     exportDebug(
-      `${noticeIsError ? "エラーの文" : "「写真に保存」の案内"}を画面に出した（画面の上から ${Math.round(rect.top)}px${panel ? `・記録の枠の上端 ${Math.round(panel.top)}px` : ""}・画面の高さ ${window.innerHeight}px。このあと中ほどへ寄せる）`,
+      `エラーの文を画面に出した（画面の上から ${Math.round(rect.top)}px${panel ? `・記録の枠の上端 ${Math.round(panel.top)}px` : ""}・画面の高さ ${window.innerHeight}px。このあと中ほどへ寄せる）`,
     );
     p.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [notice, noticeIsError, pending]);
+  }, [notice, noticeIsError]);
   /** 保存の回の番号。共有シートの結果が返ったとき、そのあとに新しく保存を始めていたら、古い結果で画面を変えない */
   const round = useRef(0);
   /** 保存の途中で部品が外されたかを、調べるための記録に残す（debug=export のときだけ） */
@@ -93,8 +93,8 @@ export function ExportImageButton({
       ? `画像が大きいため、解像度を${prepared.info.requestedScale}倍から${prepared.info.scale}倍に下げました。`
       : null;
 
-  // 1回目: 画像を作る（時間の上限つき）。パソコン・Android はそのままダウンロード、iPhone・iPad は「写真に保存」を出して終える
-  // （共有シートの結果は待たない。iOS では結果が返らず「出力中...」のまま止まることがあったため。DESIGN.md 242章）
+  // 画像を作る（時間の上限つき）。パソコン・Android はそのままダウンロード、iPhone・iPad はできた画像を画面いっぱいに出して終える
+  // （共有シートは「押した直後」にしか開けないので、表示の中の「写真に保存」で開く。共有シートの結果は待たない。DESIGN.md 242・246章）
   const handleClick = async () => {
     const target = targetRef.current;
     if (!target || busy) return;
@@ -104,6 +104,7 @@ export function ExportImageButton({
     setNotice(null);
     setNoticeIsError(false);
     setPending(null);
+    setPreviewNotice(null);
     exportDebugStart(`「${filename}」`);
     const env = detectExportEnvironment();
     exportDebug(
@@ -123,8 +124,8 @@ export function ExportImageButton({
       const reduced = reducedNotice(prepared);
       if (canShareExportImage(prepared.file)) {
         setPending(prepared);
-        setNotice([reduced, SHARE_READY_NOTICE].filter(Boolean).join(""));
-        exportDebugEnd("共有の経路: 「写真に保存」のボタンと案内を出した");
+        setPreviewNotice(reduced);
+        exportDebugEnd("共有の経路: できた画像を画面いっぱいに出した（「写真に保存」・長押しの案内）");
       } else {
         downloadExportImage(prepared.file);
         setNotice(reduced);
@@ -142,7 +143,7 @@ export function ExportImageButton({
     }
   };
 
-  // 2回目（iPhone・iPad）: 押した処理の中で、await を挟まずに共有シートを開く。結果を待つ間もボタンは止めない
+  // 画像の表示の「写真に保存」（iPhone・iPad）: 押した処理の中で、await を挟まずに共有シートを開く。結果を待つ間も表示は止めない
   const handleSharePending = () => {
     if (!pending) return;
     const prepared = pending;
@@ -156,17 +157,24 @@ export function ExportImageButton({
       exportDebugEnd(`共有の結果: ${result}`, "share");
       if (result === "shared") {
         setPending(null);
-        setNotice(reducedNotice(prepared));
+        setPreviewNotice(null);
       } else if (result === "blocked") {
-        setNotice(SHARE_BLOCKED_NOTICE);
+        setPreviewNotice(SHARE_BLOCKED_NOTICE);
       } else if (result === "failed") {
         downloadExportImage(prepared.file);
         setPending(null);
-        setNotice(reducedNotice(prepared));
+        setPreviewNotice(null);
       }
-      // cancelled（閉じた）は何もしない。「写真に保存」から開き直せる
+      // cancelled（共有の画面を閉じた）は何もしない。表示はそのままで、「写真に保存」から開き直せ、長押しでも保存できる
     });
   };
+
+  // 画像の表示を閉じる（画面は保存前のまま。表示の外には何も残さない）
+  const handleClosePreview = useCallback(() => {
+    exportDebug("画像の表示を閉じた");
+    setPending(null);
+    setPreviewNotice(null);
+  }, []);
 
   const topLabel = ranking
     ? ranking.top === null
@@ -179,11 +187,7 @@ export function ExportImageButton({
       <button className="export-image-button" onClick={handleClick} disabled={busy}>
         {busy ? (phase ? BUSY_LABELS[phase] : "出力中…") : "画像として保存"}
       </button>
-      {pending && (
-        <button type="button" className="export-image-button export-share-button" onClick={handleSharePending}>
-          写真に保存
-        </button>
-      )}
+      {pending && <ExportImagePreview file={pending.file} notice={previewNotice} onShare={handleSharePending} onClose={handleClosePreview} />}
       {ranking && topLabel && (
         <>
           <span className="export-option-group" role="group" aria-label={`保存する画像の${ranking.media}`}>
