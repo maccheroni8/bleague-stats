@@ -19,6 +19,7 @@ export const GLOSSARY_ANCHORS = {
   records: "records",
   periodRecords: "period-records",
   recentForm: "recent-form",
+  standingsTable: "standings-table",
   conditionalStandings: "conditional-standings",
   magicNumber: "magic-number",
   profile: "profile",

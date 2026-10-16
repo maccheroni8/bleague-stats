@@ -7946,3 +7946,10 @@ table.sortable-table.lineup-search-table tbody th {
 .export-rendering .export-hide {
   display: none;
 }
+
+/* 順位表の「対戦相手の強さ」の、リーグ内の順位（値の右に小さく添える） */
+.opponent-strength-rank {
+  margin-left: 6px;
+  font-size: 0.8em;
+  color: var(--muted);
+}
