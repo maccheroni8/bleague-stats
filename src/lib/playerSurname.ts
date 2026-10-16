@@ -1,8 +1,13 @@
 // スマホ幅の表で使う名字のみの表記。PlayerNameJは日本人選手が「名字 名前」（半角スペース区切り）、
 // 外国籍選手等が「名・姓」（中黒区切り）の形式のため、後者は末尾、前者は先頭の要素を名字とみなす。
 // 同じチーム内で名字が重複する選手（兄弟等）はフルネームのまま表示する
+import { unknownPlayerShortName } from "./unknownPlayer";
+
 export function surnameOf(fullName: string): string {
   const trimmed = fullName.trim();
+  // 氏名が公式データに無い選手の仮の名前（「#22（氏名不明）」）は、スマホ幅では「#22」
+  const unknown = unknownPlayerShortName(trimmed);
+  if (unknown) return unknown;
   // 中黒を含む名前は末尾の要素（「セルジオ・エル ダーウィッチ」→「エル ダーウィッチ」のように
   // 姓の中にスペースを含む場合もあるため、スペースより先に判定する）
   const byDot = trimmed.split("・");

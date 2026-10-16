@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isUnknownPlayerId } from "../lib/unknownPlayer";
 import { addFoulCategoryCounts } from "../../shared/foulCodes";
 import { filterFoulColumns, foulColumnsSplit, foulKeyVisible } from "../lib/ruleChange";
 import { BOX_CATEGORY_TABS, type BoxCategoryKey } from "../lib/categoryLabels";
@@ -898,7 +899,7 @@ function BoxscoreGroup({
       {ordered.map((p) => (
         <tr key={p.playerId} className={p.dnp ? "dnp-row" : undefined}>
           <td className="align-left">
-            {p.playerId ? (
+            {p.playerId && !isUnknownPlayerId(p.playerId) ? (
               <Link to={`/players/${p.playerId}`} className="cell-link" title={p.nameJ}>
                 {playerLabel(p.nameJ)}
               </Link>

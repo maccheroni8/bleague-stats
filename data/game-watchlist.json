@@ -471,6 +471,41 @@
       },
       "history": [],
       "closedAt": "2026-10-04"
+    },
+    {
+      "scheduleKey": "5858",
+      "season": "2020-21",
+      "category": "premier",
+      "reason": "選手IDと氏名が空の選手の行がある（三河の背番号22。PBPの表記は「シモンズ」、PBPの選手IDも空）。個人スタッツには入らない（集計は選手IDが空の行を数えない）。画面は仮の名前「#22（氏名不明）」で出す（253章）",
+      "foundAt": "2026-10-17",
+      "watchUntil": "2026-12-16",
+      "status": "out-of-scope",
+      "diagnosisAtFound": {
+        "warnings": 14,
+        "orderRepairs": 0,
+        "unreconstructedSeconds": 1284,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "closedAt": "2026-10-17",
+      "note": "2020-21は古いので一覧に載せるだけ（取り直さない）。生データは直さない"
+    },
+    {
+      "scheduleKey": "505621",
+      "season": "2025-26",
+      "category": "one",
+      "reason": "選手IDと氏名が空の選手の行がある（神戸の背番号1。PBPの選手IDは51000515）。個人スタッツには入らない（集計は選手IDが空の行を数えない）。公式のスタッツ修正でIDと氏名が入れば直る。B.ONEの試合詳細は未実装",
+      "foundAt": "2026-10-17",
+      "watchUntil": "2026-12-16",
+      "status": "watching",
+      "diagnosisAtFound": {
+        "warnings": 0,
+        "orderRepairs": 0,
+        "unreconstructedSeconds": 0,
+        "plusMinusMismatches": 0
+      },
+      "history": [],
+      "note": "解消の判定（check）は無いので、期間の終わりまで見張る。生データは直さない"
     }
   ]
 }

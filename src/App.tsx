@@ -4,6 +4,7 @@ import { HashRouter, NavLink, Route, Routes, useLocation, useSearchParams } from
 import { SeasonLink, SeasonNavLink } from "./components/SeasonLink";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { ExportDebugPanel } from "./components/ExportDebugPanel";
+import { PageErrorBoundary } from "./components/PageErrorBoundary";
 import { currentSeason } from "./lib/season";
 import { fetchSeasons } from "./lib/data";
 import { useJsonData } from "./lib/useJsonData";
@@ -129,20 +130,22 @@ function AppShell() {
         </nav>
       </header>
       <main className="app-main">
-        <Routes>
-          <Route path="/" element={<HomePage season={season} />} />
-          <Route path="/teams" element={<TeamsListPage season={season} />} />
-          <Route path="/teams/stats" element={<TeamsStatsRedirect />} />
-          <Route path="/teams/:teamId" element={<TeamDetailPage season={season} />} />
-          <Route path="/players" element={<PlayersListPage season={season} />} />
-          <Route path="/players/:playerId" element={<PlayerDetailPage season={season} />} />
-          <Route path="/games/:scheduleKey" element={<GameDetailPage season={season} />} />
-          <Route path="/schedule" element={<SchedulePage season={season} />} />
-          <Route path="/rankings" element={<RankingsPage season={season} />} />
-          <Route path="/compare" element={<ComparePage season={season} />} />
-          <Route path="/standings" element={<StandingsPage season={season} />} />
-          <Route path="/glossary" element={<GlossaryPage />} />
-        </Routes>
+        <PageErrorBoundary resetKey={location.pathname + location.search}>
+          <Routes>
+            <Route path="/" element={<HomePage season={season} />} />
+            <Route path="/teams" element={<TeamsListPage season={season} />} />
+            <Route path="/teams/stats" element={<TeamsStatsRedirect />} />
+            <Route path="/teams/:teamId" element={<TeamDetailPage season={season} />} />
+            <Route path="/players" element={<PlayersListPage season={season} />} />
+            <Route path="/players/:playerId" element={<PlayerDetailPage season={season} />} />
+            <Route path="/games/:scheduleKey" element={<GameDetailPage season={season} />} />
+            <Route path="/schedule" element={<SchedulePage season={season} />} />
+            <Route path="/rankings" element={<RankingsPage season={season} />} />
+            <Route path="/compare" element={<ComparePage season={season} />} />
+            <Route path="/standings" element={<StandingsPage season={season} />} />
+            <Route path="/glossary" element={<GlossaryPage />} />
+          </Routes>
+        </PageErrorBoundary>
       </main>
       <ExportDebugPanel />
     </div>

@@ -23,6 +23,7 @@ import { useMediaQuery } from "../lib/useMediaQuery";
 import { PeriodRangeToggle } from "../components/PeriodRangeToggle";
 import { GameLineupTable } from "../components/GameLineupTable";
 import { buildSurnameMap } from "../lib/playerSurname";
+import { isUnknownPlayerId } from "../lib/unknownPlayer";
 import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
 import { RookieBadge } from "../components/RookieBadge";
 import { useIsRookie } from "../lib/rookieFilter";
@@ -949,9 +950,13 @@ function ShootingBreakdownTable({
       return (
         <tr key={p.PlayerID}>
           <td className="align-left">
-            <Link to={`/players/${p.PlayerID}`} className="cell-link">
+            {isUnknownPlayerId(p.PlayerID) ? (
               <ResponsivePlayerName name={p.PlayerNameJ} among={players.map((x) => x.PlayerNameJ)} playerId={p.PlayerID} season={season} />
-            </Link>
+            ) : (
+              <Link to={`/players/${p.PlayerID}`} className="cell-link">
+                <ResponsivePlayerName name={p.PlayerNameJ} among={players.map((x) => x.PlayerNameJ)} playerId={p.PlayerID} season={season} />
+              </Link>
+            )}
           </td>
           {shotTypeKeys.map((key) => (
             <Fragment key={key}>
@@ -1048,7 +1053,7 @@ function LeaderTop3Row({ label, rows, teamNames, season }: { label: string; rows
   return (
     <div className="leader-top3-row">
       <span className="leader-top3-label">{label}</span>
-      {top1 ? (
+      {top1 && !isUnknownPlayerId(top1.player.PlayerID) ? (
         <PlayerPhoto playerId={top1.player.PlayerID} size={60} className="leader-top3-photo" />
       ) : (
         <div className="leader-top3-photo-placeholder" />
@@ -1056,10 +1061,17 @@ function LeaderTop3Row({ label, rows, teamNames, season }: { label: string; rows
       <div className="leader-top3-list">
         {rows.map((row) => (
           <div key={row.player.PlayerID} className={`leader-top3-item leader-top3-rank-${row.groupIndex + 1}`}>
-            <Link to={`/players/${row.player.PlayerID}`} className="leader-top3-name">
-              <ResponsivePlayerName name={row.player.PlayerNameJ} among={teamNames} playerId={row.player.PlayerID} season={season} />
-              {row.otherCount > 0 && <span className="leader-top3-others"> 他{row.otherCount}人</span>}
-            </Link>
+            {isUnknownPlayerId(row.player.PlayerID) ? (
+              <span className="leader-top3-name">
+                <ResponsivePlayerName name={row.player.PlayerNameJ} among={teamNames} playerId={row.player.PlayerID} season={season} />
+                {row.otherCount > 0 && <span className="leader-top3-others"> 他{row.otherCount}人</span>}
+              </span>
+            ) : (
+              <Link to={`/players/${row.player.PlayerID}`} className="leader-top3-name">
+                <ResponsivePlayerName name={row.player.PlayerNameJ} among={teamNames} playerId={row.player.PlayerID} season={season} />
+                {row.otherCount > 0 && <span className="leader-top3-others"> 他{row.otherCount}人</span>}
+              </Link>
+            )}
             <span className="leader-top3-value">{row.value}</span>
           </div>
         ))}
@@ -1159,16 +1171,26 @@ function LeaderMatchupPlayer({
   const isRookie = useIsRookie();
   if (!leader) return <div className="leader-matchup-player" />;
   const { player, otherCount } = leader;
+  const unknown = isUnknownPlayerId(player.PlayerID);
+  const content = (
+    <>
+      {!unknown && <PlayerPhoto playerId={player.PlayerID} size={44} className="leader-matchup-player-photo" />}
+      <span className="leader-matchup-player-name">
+        <span className="leader-matchup-player-name-text">{displayName(player)}</span>
+        {isRookie(player.PlayerID, season) && <RookieBadge />}
+        {otherCount > 0 && <span className="leader-matchup-player-others"> 他{otherCount}人</span>}
+      </span>
+    </>
+  );
   return (
     <div className="leader-matchup-player">
-      <Link to={`/players/${player.PlayerID}`} className="leader-matchup-player-link">
-        <PlayerPhoto playerId={player.PlayerID} size={44} className="leader-matchup-player-photo" />
-        <span className="leader-matchup-player-name">
-          <span className="leader-matchup-player-name-text">{displayName(player)}</span>
-          {isRookie(player.PlayerID, season) && <RookieBadge />}
-          {otherCount > 0 && <span className="leader-matchup-player-others"> 他{otherCount}人</span>}
-        </span>
-      </Link>
+      {unknown ? (
+        <span className="leader-matchup-player-link">{content}</span>
+      ) : (
+        <Link to={`/players/${player.PlayerID}`} className="leader-matchup-player-link">
+          {content}
+        </Link>
+      )}
     </div>
   );
 }
