@@ -7,7 +7,8 @@ import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { FilterBar } from "../components/FilterBar";
 import { simpleSelectAxis, teamMultiAxis, type FilterAxis } from "../lib/filterAxes";
 import { ConditionTitle } from "../components/ConditionTitle";
-import { composeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { clubSelectionLabels, composeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { divisionPresets } from "../lib/divisionGroups";
 import { fetchDivisionHistory, fetchGameSummaries, fetchSchedule, fetchTeamColors, fetchTeamHistory, fetchTeams } from "../lib/data";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import { useJsonData } from "../lib/useJsonData";
@@ -406,16 +407,17 @@ export function SchedulePage({ season }: { season: string }) {
 
   // 表示中の日程に効いている条件（Batch 5、DESIGN.md 99章）。ステータス絞り込みはリスト表示のみ、
   // 表示月はカレンダー表示のみに効く。日程には確定済み・予定・進行中の全試合（レギュラー+プレーオフ）が入る
+  const clubOptionList = teamOptions.map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) }));
+  const clubDivisionGroups = divisionPresets(
+    teamOptions.map((t) => t.teamId),
+    (id) => teamDivisionForSeason(divisionHistory, id, season),
+  ).map((g) => ({ label: g.label, values: g.teamIds }));
   const scheduleClubLabels =
     selectedTeamIds === null
       ? multiSelectLabels("対象クラブ", [], "全クラブ")
       : selectedTeamIds.size === 0
         ? ["対象クラブ: なし"]
-        : multiSelectLabels(
-            "対象クラブ",
-            teamOptions.filter((t) => selectedTeamIds.has(t.teamId)).map((t) => teamShortName(t.teamId, t.teamName)),
-            "全クラブ",
-          );
+        : clubSelectionLabels("対象クラブ", [...selectedTeamIds], clubOptionList, clubDivisionGroups);
   const scheduleConditions = composeLabels(
     view === "list" ? "リスト表示" : "カレンダー表示",
     view === "list" ? { all: "全試合", upcoming: "今後の試合", finished: "終了した試合" }[statusFilter] : formatMonthLabel(effectiveMonth),

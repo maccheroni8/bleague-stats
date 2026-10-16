@@ -26,7 +26,7 @@ import {
 import { TEAM_PERSPECTIVE_LABELS, type TeamPerspective } from "./teamStatsColumns";
 import type { PlayerGroupFilter } from "./classificationFilter";
 import { CATEGORY_LABELS } from "./categoryLabels";
-import { DIVISION_LABELS } from "./divisionGroups";
+import { DIVISION_LABELS, summarizeClubSelection } from "./divisionGroups";
 
 /** 何も絞り込んでいない状態のシチュエーション・ラベル（既存のdescribe系関数と同じ文言） */
 export const SITUATIONAL_DEFAULT_LABEL = "シーズン全体";
@@ -176,6 +176,22 @@ export function multiSelectLabels(prefix: string, values: string[], allLabel: st
   const shown = values.slice(0, maxShown).join("、");
   const rest = values.length - maxShown;
   return [`${prefix}: ${shown}${rest > 0 ? ` 他${rest}` : ""}`];
+}
+
+/**
+ * クラブの複数選択（日程・星取り表・条件別順位表の「対象クラブ」、全選手スタッツの「クラブ」）。地区のクラブが全部選ばれていれば
+ * 「東地区」のように地区名で書き、地区に入りきらない個別のクラブはクラブ名で足す（「対象クラブ: 東地区、広島」。DESIGN.md 252章）。
+ * 未選択（＝絞り込みなし）は allLabel
+ */
+export function clubSelectionLabels(
+  prefix: string,
+  selectedIds: readonly string[],
+  options: readonly { value: string; label: string }[],
+  groups: readonly { label: string; values: readonly string[] }[],
+  allLabel = "全クラブ",
+): string[] {
+  const text = summarizeClubSelection(selectedIds, options, groups);
+  return [text ? `${prefix}: ${text}` : allLabel];
 }
 
 /** 出場試合率の範囲スライダー（下限〜上限、%） */

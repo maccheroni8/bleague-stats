@@ -8,13 +8,13 @@ import { TeamLogo } from "./TeamLogo";
 import { FilterBar } from "./FilterBar";
 import { simpleSelectAxis, teamMultiAxis, type FilterAxis, type FilterAxisOption } from "../lib/filterAxes";
 import { ConditionLine } from "./ConditionTitle";
-import { composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatSigned, formatWinPct } from "../lib/format";
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak } from "../../shared/teamRecords";
 import { teamShortName } from "../../shared/teamNames";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
-import { DIVISION_LABELS } from "../lib/divisionGroups";
+import { DIVISION_LABELS, divisionPresets } from "../lib/divisionGroups";
 import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { useLeagueSituationalContext } from "../lib/teamRankingData";
 import {
@@ -572,10 +572,14 @@ export function ConditionalStandingsTable({
             ? multiSelectLabels("対象クラブ", [], "全クラブ")
             : selectedTeamIds.size === 0
               ? "対象クラブ: なし"
-              : multiSelectLabels(
+              : clubSelectionLabels(
                   "対象クラブ",
-                  teamOptions.filter((t) => selectedTeamIds.has(t.teamId)).map((t) => teamShortName(t.teamId, t.teamName)),
-                  "全クラブ",
+                  [...selectedTeamIds],
+                  teamOptions.map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) })),
+                  divisionPresets(
+                    teamOptions.map((t) => t.teamId),
+                    (id) => divisionByTeamId.get(id),
+                  ).map((g) => ({ label: g.label, values: g.teamIds })),
                 ),
         )}
       />

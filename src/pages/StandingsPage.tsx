@@ -22,7 +22,7 @@ import { FilterBar } from "../components/FilterBar";
 import { teamMultiAxis } from "../lib/filterAxes";
 import { ConditionalStandingsTable } from "../components/ConditionalStandingsTable";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
-import { composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
+import { clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { pendingUpcomingGames } from "../lib/pendingUpcoming";
 import { computeOpponentStrength, type OpponentStrength } from "../lib/opponentStrength";
@@ -38,7 +38,7 @@ import {
   wildcardOrderRank,
   type PostseasonFormat,
 } from "../../shared/postseasonFormat";
-import { DIVISION_LABELS, groupByDivision } from "../lib/divisionGroups";
+import { DIVISION_LABELS, divisionPresets, groupByDivision } from "../lib/divisionGroups";
 import { findFebruaryBiweekGap } from "../lib/situational";
 import type {
   HeadToHeadTeamRow,
@@ -785,10 +785,14 @@ export function StandingsPage({ season }: { season: string }) {
     ? multiSelectLabels("対象クラブ", [], "全クラブ")
     : h2hSelectedTeamIds.size === 0
       ? ["対象クラブ: なし"]
-      : multiSelectLabels(
+      : clubSelectionLabels(
           "対象クラブ",
-          h2hTeamOptions.filter((t) => h2hSelectedTeamIds.has(t.teamId)).map((t) => teamShortName(t.teamId, t.teamName)),
-          "全クラブ",
+          [...h2hSelectedTeamIds],
+          h2hTeamOptions.map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) })),
+          divisionPresets(
+            h2hTeamOptions.map((t) => t.teamId),
+            (id) => divisionByTeamId.get(id),
+          ).map((g) => ({ label: g.label, values: g.teamIds })),
         );
   const h2hConditions = composeLabels(gameTypeLabels("regular", null), asOfLabel, h2hClubLabels);
 

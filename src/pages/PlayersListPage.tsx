@@ -54,6 +54,7 @@ import {
   gamesPlayedRatioRangeLabels,
   gameTypeLabels,
   leagueVenueLabels,
+  clubSelectionLabels,
   multiSelectLabels,
   SEASON_TOTAL_ONLY_LABELS,
   situationalFilterLabels,
@@ -986,20 +987,29 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   if (playersError) return <p className="error-message">{playersError}</p>;
   if (!players || players.length === 0) return <p className="empty-message">データがありません</p>;
 
+  const clubOptions = (teams ?? [])
+    .slice()
+    .sort((a, b) => teamShortName(a.teamId, a.teamName).localeCompare(teamShortName(b.teamId, b.teamName), "ja"))
+    .map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) }));
+  const clubPresets = divisionPresets(
+    (teams ?? []).map((t) => t.teamId),
+    (id) => teamDivisionForSeason(divisionHistory, id, season),
+  ).map((p) => ({ label: p.label, values: p.teamIds }));
+  // タイトルの下の行・ボタンの「クラブ」の表示。地区のクラブが全部選ばれていれば「東地区」のように地区名で書く（DESIGN.md 252章）
+  const clubFilterLabels = clubSelectionLabels(
+    "クラブ",
+    [...teamFilter],
+    clubOptions,
+    clubPresets,
+  );
+
   // 主表の見出し。絞り込みの軸（登録区分・ポジション・クラブ・出場試合率）は全タブ共通。
   // シチュエーション別フィルタとG（レギュラー/プレーオフ）はシューティングタブでは対象外
   // （シーズン通算値のみ）
   const filterAxisLabels = composeLabels(
     classificationLabels(classificationFilter),
     multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positionList), "全ポジション"),
-    multiSelectLabels(
-      "クラブ",
-      [...teamFilter].map((id) => {
-        const t = (teams ?? []).find((x) => x.teamId === id);
-        return t ? teamShortName(t.teamId, t.teamName) : id;
-      }),
-      "全クラブ",
-    ),
+    clubFilterLabels,
     gamesPlayedRatioRangeLabels(minRatio, maxRatio),
   );
   const statsTitle = {
@@ -1009,14 +1019,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         ? composeLabels(
             classificationLabels(classificationFilter),
             multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positionList), "全ポジション"),
-            multiSelectLabels(
-              "クラブ",
-              [...teamFilter].map((id) => {
-                const t = (teams ?? []).find((x) => x.teamId === id);
-                return t ? teamShortName(t.teamId, t.teamName) : id;
-              }),
-              "全クラブ",
-            ),
+            clubFilterLabels,
             eligibilityLabels({ gamesRatio: 0.85 }),
             `平均${SCORING_SHARE_MIN_MPG}分以上`,
             `合計${SCORING_SHARE_MIN_TOTAL_MIN}分以上`,
@@ -1040,14 +1043,6 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       : tab === "scoringComposition"
         ? `${CATEGORY_LABELS.scoringComposition}はレギュラーシーズン・シーズン合計の割合です（登録区分（ルーキーを含む）・ポジション・クラブの絞り込みだけ連動します）。`
         : undefined;
-  const clubOptions = (teams ?? [])
-    .slice()
-    .sort((a, b) => teamShortName(a.teamId, a.teamName).localeCompare(teamShortName(b.teamId, b.teamName), "ja"))
-    .map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) }));
-  const clubPresets = divisionPresets(
-    (teams ?? []).map((t) => t.teamId),
-    (id) => teamDivisionForSeason(divisionHistory, id, season),
-  ).map((p) => ({ label: p.label, values: p.teamIds }));
   const ratioDefault = `${DEFAULT_MIN_RATIO}|${DEFAULT_MAX_RATIO}`;
   const ratioAxis: FilterAxis = {
     kind: "popover",
@@ -1089,6 +1084,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       onChangeSelected: (v) => setClubList(v),
       allLabel: "全クラブ",
       presets: clubPresets,
+      collapseGroups: clubPresets,
       searchable: true,
     }),
     gameTypeAxis(gameType, setGameType, season, { disabledReason: shootingReason }),

@@ -62,3 +62,41 @@ export function seasonDivisions(
   const present = new Set<Division>(Object.values(bySeason));
   return DIVISION_ORDER.filter((d) => present.has(d));
 }
+
+/**
+ * クラブの複数選択の表示（ボタン・チップ・タイトルの下の行で共通。DESIGN.md 252章）。
+ * - 地区のクラブが全部選ばれているときは「東地区」のように地区名で書く。
+ * - 地区のほとんど（外れているのが2クラブ以下で、選ばれているほうが多い）が選ばれているときは「東地区（群馬を除く）」と書く。
+ * - 地区に入りきらない個別のクラブは、選択肢の並びでクラブ名を並べる（maxShown件まで。超えた分は「他N」）。
+ * 例: 東地区を選ぶ → 「東地区」／東地区＋広島 → 「東地区、広島」／東地区から群馬を外す → 「東地区（群馬を除く）」。
+ * 何も選んでいなければ空文字（呼び出し側が「全クラブ」を出す）。groups は地区ごとの一括選択（divisionPresets）と同じ形
+ */
+export function summarizeClubSelection(
+  selectedIds: readonly string[],
+  options: readonly { value: string; label: string }[],
+  groups: readonly { label: string; values: readonly string[] }[],
+  maxShown = 3,
+): string {
+  const selected = new Set(selectedIds);
+  if (selected.size === 0) return "";
+  const labelById = new Map(options.map((o) => [o.value, o.label]));
+  const covered = new Set<string>();
+  const groupParts: string[] = [];
+  for (const g of groups) {
+    const values = g.values.filter((v) => labelById.has(v));
+    const missing = values.filter((v) => !selected.has(v));
+    const chosen = values.length - missing.length;
+    if (values.length === 0 || chosen === 0) continue;
+    if (missing.length === 0) {
+      groupParts.push(g.label);
+    } else if (missing.length <= 2 && chosen > missing.length) {
+      groupParts.push(`${g.label}（${missing.map((v) => labelById.get(v)!).join("、")}を除く）`);
+    } else {
+      continue;
+    }
+    for (const v of values) if (selected.has(v)) covered.add(v);
+  }
+  const rest = options.filter((o) => selected.has(o.value) && !covered.has(o.value)).map((o) => o.label);
+  const text = [...groupParts, ...rest.slice(0, maxShown)].join("、");
+  return rest.length > maxShown ? `${text} 他${rest.length - maxShown}` : text;
+}

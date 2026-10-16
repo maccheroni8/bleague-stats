@@ -12,7 +12,7 @@
 import type { ReactNode } from "react";
 import { teamShortName } from "../../shared/teamNames";
 import type { Division } from "../../shared/types";
-import { DIVISION_LABELS, divisionPresets } from "./divisionGroups";
+import { DIVISION_LABELS, divisionPresets, summarizeClubSelection } from "./divisionGroups";
 import { LEAGUE_VENUE_LABELS, periodLabels, type LeagueVenue } from "./conditionLabels";
 import { CLASSIFICATION_GROUP_OPTIONS, type PlayerGroupFilter } from "./classificationFilter";
 import type { PeriodRangeOption, PeriodRangeValue } from "./periodRange";
@@ -140,14 +140,18 @@ export function multiSelectAxis(input: {
   disabledReason?: string;
   /** ボタン・チップに並べる件数の上限（超えた分は「他N」）。省略時は3件。Infinity で省略しない */
   maxShown?: number;
+  /** クラブの選択で、地区のクラブが全部選ばれているときに「東地区」のように地区名で書く地区ごとの一括選択（presets のうち地区のもの） */
+  collapseGroups?: { label: string; values: string[] }[];
 }): FilterAxis {
   const selectedSet = new Set(input.selected);
   // 選択順ではなく選択肢の並び順で要約する（ボタン・チップの表示が選択の順序に左右されない）
-  const summary = summarizeMulti(
-    input.options.filter((o) => selectedSet.has(o.value)).map((o) => o.label),
-    input.allLabel,
-    input.maxShown,
-  );
+  const summary = input.collapseGroups
+    ? summarizeClubSelection(input.selected, input.options, input.collapseGroups, input.maxShown) || input.allLabel
+    : summarizeMulti(
+        input.options.filter((o) => selectedSet.has(o.value)).map((o) => o.label),
+        input.allLabel,
+        input.maxShown,
+      );
   return {
     kind: "multi",
     id: input.id,
@@ -185,10 +189,8 @@ export function teamMultiAxis(input: {
   divisionOf?: (teamId: string) => Division | null | undefined;
   tier?: "primary" | "advanced";
 }): FilterAxis {
-  const presets = [
-    ...(input.divisionOf ? divisionPresets(input.options.map((t) => t.teamId), input.divisionOf) : []),
-    ...(input.presets ?? []),
-  ];
+  const divisions = input.divisionOf ? divisionPresets(input.options.map((t) => t.teamId), input.divisionOf) : [];
+  const presets = [...divisions, ...(input.presets ?? [])];
   return multiSelectAxis({
     id: input.id ?? "teams",
     label: input.label ?? "対象クラブ",
@@ -198,6 +200,7 @@ export function teamMultiAxis(input: {
     onChangeSelected: (values) => input.onChange(values.length === 0 ? null : new Set(values)),
     allLabel: "全クラブ",
     presets: presets.map((p) => ({ label: p.label, values: p.teamIds })),
+    collapseGroups: divisions.map((p) => ({ label: p.label, values: p.teamIds })),
     searchable: true,
   });
 }
