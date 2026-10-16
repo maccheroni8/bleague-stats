@@ -98,8 +98,9 @@ export function GameLineupTable({
   const selectedLabel = selectedCount === undefined ? null : selectedCount === null ? "集計外" : `OC ${selectedCount}`;
 
   return (
-    <div className="game-lineup-team">
-      <h3 className="game-lineup-team-name">{teamName}</h3>
+    // ボックススコア・ゲームリーダーと同じ、左端をチームカラーにした枠（.boxscore-section。色は color をそのまま borderLeftColor に渡す。色が無いチームは他の辺と同じ色）
+    <div className="game-lineup-team boxscore-section" style={color ? { borderLeftColor: color } : undefined}>
+      <h3>{teamName}</h3>
       {rows.length === 0 ? (
         <p className="empty-message">この範囲のラインナップはありません</p>
       ) : (

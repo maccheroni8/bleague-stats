@@ -3332,10 +3332,9 @@ table.rankings-table-compact.rankings-table-compare td.rank-diff {
   margin-top: 8px;
 }
 
-.game-lineup-team-name {
-  margin: 0 0 6px;
-  font-size: 13px;
-  font-weight: 800;
+/* 各チームの枠は .boxscore-section（ボックススコアと同じ左端のチームカラーの線）。間隔は .game-lineups の gap で取る */
+.game-lineups > .boxscore-section {
+  margin-bottom: 0;
 }
 
 /* オンザコート別の合計（ラインナップ別成績の上。DESIGN.md 142章）: 行を押すと下の一覧をその人数に絞る */
