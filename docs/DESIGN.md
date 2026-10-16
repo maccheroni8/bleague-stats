@@ -13789,3 +13789,20 @@ iPhone の Safari は、共有シート（`navigator.share`）を「押した直
 - `src/lib/playerRankingEligibility.ts` の `filterAchievablePlayers`、`filterEligiblePlayers` の末尾の引数 `remainingByTeam`（渡したときだけ達成可能で判定）。他の呼び出し（ホーム・チーム詳細・個人詳細・全選手スタッツ）は変えていない。
 - `usePlayerSeasonRanking` の条件に `achievable` を足した。前シーズン比較の前季にも同じ条件を渡す（前季は終わったシーズンなので、残りは0で今の基準と同じ）。
 - 例: 2026-27 の開幕7試合目（残り53試合）は、出場率85%以上が234名、達成可能を含めると333名（残りが多いほど、ほぼ全員が達成可能）。
+
+## 250. 比較: 塗っていなかった項目も、多いほうを塗る（2026-10-16。**画面だけの変更でキー不変**）
+
+### 250-1. 仕様（ユーザー指示）
+色が塗られていない項目のうち、POSS・PACE・MIN 以外は、多いほうを塗る。相手チーム視点（opp）は今の仕組みどおり向きを反転（相手の値が少ないほうを塗る）。+/- の視点は差の大きいほう。
+
+### 250-2. 塗るようにした項目
+- **チーム・個人 共通（Traditional）**: FGA・2PA・3PA・FTA。
+- **Scoring（チーム）**: %3PA・%2PA・PAINT2A・MID2A、PITP%・FBP%・2ND PTS%・PTSOFFTO%、%BENCH PTS・%STARTER PTS・%日本人 PTS・%外国籍・帰化・アジア PTS、%PAINT2M・%PAINT2A・%MID2M・%MID2A、%3P・%PoutP・%FT・%OPA。
+- **Scoring（個人）**: %FGA・%3PA・%2PA・%FTA・PAINT2A・MID2A・3PA/FGA・PAINT2A/FGA・MID2A/FGA。
+- **Misc（チーム）**: BENCH PTS・STARTER PTS・日本人 PTS・外国籍・帰化・アジア PTS。
+- 変えない: POSS・PACE（238章）、チームの MIN（試合時間。149章）、チームの G（相手視点で向きを反転すると、試合数の少ないほうを塗ることになるため。指示の例外には無いが変えていない）。
+- すでに塗っていた項目（PTS・成功率・FTR・OR% など）は変えていない。
+
+### 250-3. 実装と確認
+- `compareShared.ts` の `COMPARE_NO_HIGHLIGHT` を POSS・PACE だけにし、試合ログの合計から出す項目（`teamLogTotalsDef`）は一律に塗る（向きは列定義の `higherIsBetter`＝opp は反転済み）。
+- `validate:compare-table` に、上の項目が自チーム・+/-＝多いほう、opp＝向きが反対、POSS・PACE・MIN・G は塗らないことの確認を足した。既存の「強調する項目の値は、表の値と同じ大小」の確認が、新しく塗る項目にも効く（全シーズン・全項目で一致）。

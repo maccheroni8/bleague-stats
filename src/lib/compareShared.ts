@@ -217,23 +217,11 @@ export function cleanNumericString(s: string): string {
  * 比較の表で「良い方の値」を強調するときの向きの補正（DESIGN.md 134-4）。列定義（BoxscoreTable の COLUMNS_BY_TAB・
  * SEASON_BOX_COLUMNS）はボックススコア等の他の表でも使うので変えず、比較の表だけで上書きする。
  * - 少ないほど良い: UFOUL・DQFOUL・TF・TF1・TF2・FLAG・DISR・OFF FOUL（個人の OFF FOUL は列定義に向きが無く「多いほど良い」扱いになっていた）
- * - 強調しない: 試投数と、試投数に占める割合（多い・少ないに良し悪しが無い）と、テンポ（POSS・PACE。多いほうが良いものではない）
+ * - 強調しない: テンポ（POSS・PACE。多いほうが良いものではない）と、チームの MIN（試合時間なので延長の有無だけで変わる）・G
+ * - 試投数（FGA・2PA・3PA・FTA・PAINT2A・MID2A）と、試投・得点の内訳の割合・構成比は、良し悪しは無いが「多いほうを塗る」（相手チーム視点では向きを反転。DESIGN.md 250章）
  */
 const COMPARE_LOWER_IS_BETTER = new Set(["ufoul", "dqfoul", "tf", "tf1", "tf2", "flag", "disr", "offfoul"]);
 const COMPARE_NO_HIGHLIGHT = new Set([
-  "fga",
-  "2pa",
-  "3pa",
-  "fta",
-  "paint2a",
-  "mid2a",
-  "pctfga",
-  "pct3pa",
-  "pct2pa",
-  "pctfta",
-  "pct3paown",
-  "pctpaint2aown",
-  "pctmid2aown",
   // テンポ: 多いほうが良いものではない（POSS は延長の有無でも増える。DESIGN.md 238章）
   "poss",
   "pace",
@@ -292,9 +280,6 @@ const TEAM_LOG_ONLY_KEYS: ReadonlySet<string> = new Set([
   "pctjapanese3",
   "pctinternational3",
 ]);
-/** 強調する項目（多いほど良い。相手チーム視点の向きは列が反転する）。ほかは良し悪しの無い構成・内訳なので強調しない */
-const TEAM_LOG_TOTALS_HIGHLIGHT: ReadonlySet<string> = new Set(["ftr", "orbpct"]);
-
 function teamLogTotalsDef(col: Column<AllTeamsRow>, perspective: TeamPerspective): ComparisonStatDef<TeamCompareColumnData> {
   const rowOf = (r: TeamCompareColumnData): AllTeamsRow | null =>
     r.logTotals
@@ -308,7 +293,6 @@ function teamLogTotalsDef(col: Column<AllTeamsRow>, perspective: TeamPerspective
     value: (r) => (unavailable(r) ? 0 : Number(col.sortValue(rowOf(r)!))),
     format: (r) => (unavailable(r) ? "-" : (col.format?.(rowOf(r)!) ?? String(col.sortValue(rowOf(r)!)))),
     higherIsBetter: col.higherIsBetter ?? true,
-    noHighlight: !TEAM_LOG_TOTALS_HIGHLIGHT.has(col.key),
   };
 }
 

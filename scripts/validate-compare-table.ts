@@ -205,6 +205,33 @@ for (const tab of ["traditional", "advanced", "misc", "scoring"] as const) {
     const ownDefs = new Map(teamCompareDefs(tab, "own", false).map((d) => [d.key, d]));
     eq("POSS の表の値（1試合平均）", [ownDefs.get("poss")!.format(left), ownDefs.get("poss")!.format(right)], ["72.8", "74.6"]);
   }
+
+  // 試投数・構成比・ベンチ得点などは、多いほうを塗る（相手チーム視点は向きを反転。POSS・PACE・チームの MIN・G は塗らない。DESIGN.md 250章）
+  const flag = (tab: "traditional" | "advanced" | "misc" | "scoring", perspective: "own" | "opp" | "diff", key: string) => {
+    const d = teamCompareDefs(tab, perspective, false).find((x) => x.key === key);
+    return d ? [!d.noHighlight, d.higherIsBetter !== false] : null;
+  };
+  for (const [tab, key] of [
+    ["traditional", "fga"],
+    ["traditional", "fta"],
+    ["misc", "benchPts"],
+    ["misc", "japanesePts3"],
+    ["scoring", "paint2a"],
+    ["scoring", "pitppct"],
+    ["scoring", "pctbenchpts"],
+    ["scoring", "pct3p"],
+  ] as const) {
+    eq(`${key}: 自チーム・+/- は多いほうを塗り、相手視点は向きを反転`, [flag(tab, "own", key), flag(tab, "diff", key), flag(tab, "opp", key)], [[true, true], [true, true], [true, false]]);
+  }
+  for (const [tab, key] of [["advanced", "poss"], ["advanced", "pace"], ["traditional", "min"], ["traditional", "g"]] as const) {
+    eq(`${key}: 塗らない`, [flag(tab, "own", key)?.[0], flag(tab, "opp", key)?.[0], flag(tab, "diff", key)?.[0]], [false, false, false]);
+  }
+  const playerFlag = (tab: "traditional" | "advanced" | "misc" | "scoring", key: string) => {
+    const d = seasonBoxCompareDefs(tab, false).find((x) => x.key === key);
+    return d ? [!d.noHighlight, d.higherIsBetter !== false] : null;
+  };
+  eq("個人の比較: FGA・FTA・%3PA・PAINT2A は多いほうを塗る", [playerFlag("traditional", "fga"), playerFlag("traditional", "fta"), playerFlag("scoring", "pct3pa"), playerFlag("scoring", "paint2a")], [[true, true], [true, true], [true, true], [true, true]]);
+  eq("個人の比較: POSS・PACE は塗らない", [playerFlag("advanced", "poss")?.[0], playerFlag("advanced", "pace")?.[0]], [false, false]);
 }
 
 // --- 結果だけの試合の注記 ---
