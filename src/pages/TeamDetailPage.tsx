@@ -76,8 +76,8 @@ import {
 } from "../lib/filterAxes";
 import { periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { gameHasOvertime } from "../lib/gamePeriods";
-import { TeamLogo } from "../components/TeamLogo";
 import { PlayerPhoto } from "../components/PlayerPhoto";
+import { TeamDetailPublicMediaScope, TeamDetailPublicLogo, TeamDetailPublicPlayerPhoto } from "../components/TeamDetailPublicMedia";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { formatRecordShort } from "../lib/recordFormat";
 import type { ResultOnlyGameEntry, ResultOnlyReason } from "../../shared/resultOnlyGames";
@@ -3537,6 +3537,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const radarData = teams && teams.length > 1 ? buildRadarData(team, teams) : [];
 
   return (
+    <TeamDetailPublicMediaScope season={season} pageTeamId={teamId ?? ""}>
     <PlayerNamePool names={teamPlayers.map((p) => p.name)}>
     <div className="team-detail-page" data-design="v2">
       <Link to="/teams" className="back-link">
@@ -3544,7 +3545,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       </Link>
 
       <div className="team-detail-header" style={accentColor ? { borderTopColor: accentColor } : undefined}>
-        <TeamLogo teamId={team.teamId} size={56} />
+        <TeamDetailPublicLogo season={season} pageTeamId={teamId ?? ""} teamId={team.teamId} size={56} />
         <div>
           <h1>{team.teamName}</h1>
           <p className="page-subtitle">
@@ -4582,6 +4583,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 <ConditionTitle title={playerStatsTitle.title} conditions={playerStatsTitle.conditions} />
                 <TeamPlayerStatsTable
                   rows={playerStatsRows}
+                  pageTeamId={teamId ?? ""}
                   displayMode={playerStatsDisplayMode}
                   periodSelected={!!playerStatsPeriodOption && playerStatsPeriodOption.periods !== null}
                   activeTab={playerStatsBoxTab}
@@ -4878,6 +4880,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       )}
     </div>
     </PlayerNamePool>
+    </TeamDetailPublicMediaScope>
   );
 }
 
@@ -5200,6 +5203,7 @@ interface TeamPlayerStatsRow {
  */
 function TeamPlayerStatsTable({
   rows,
+  pageTeamId,
   displayMode,
   periodSelected,
   activeTab: controlledActiveTab,
@@ -5210,6 +5214,7 @@ function TeamPlayerStatsTable({
   season,
 }: {
   rows: TeamPlayerStatsRow[];
+  pageTeamId: string;
   /** 表のシーズン（名前の右のルーキーの印用） */
   season: string;
   /** Miscのファウルの列をTF1・TF2・FLAG・DISRにするか（このシーズンが2026-27以降） */
@@ -5358,7 +5363,7 @@ function TeamPlayerStatsTable({
                       <td className="align-left">
                         <Link to={`/players/${r.player.playerId}`} className="cell-link">
                           <div className="player-cell">
-                            <PlayerPhoto playerId={r.player.playerId} size={32} className="player-cell-photo" />
+                            <TeamDetailPublicPlayerPhoto season={season} pageTeamId={pageTeamId} playerId={r.player.playerId} size={32} className="player-cell-photo" />
                             <div className="player-cell-info">
                               <div className="player-cell-name">
                                 <ResponsivePlayerName name={r.player.name} playerId={r.player.playerId} season={season} />
