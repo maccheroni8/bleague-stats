@@ -1,9 +1,11 @@
 // 公式の試合データで、選手IDか氏名が空の選手の行（出場の記録はあるのに選手の特定ができない行）の扱い（DESIGN.md 253章。**画面だけの変更でキー不変**）。
 // 2020-21の5858（三河 #22）・2025-26のB.ONE 505621（神戸 #1）で見つかっている。生データは直さず、試合を読み込んだ画面側で、
 // 仮の名前（「#22（氏名不明）」。背番号が無ければ「氏名不明」）と仮のIDを付けて、表を崩さず、チーム合計と合う形で出す。
+// 誰か分かった行は、手で補う一覧（shared/boxscoreNameFills.ts）で、その選手の名前・IDにする（5858の三河 #22 → セドリック・シモンズ）。
 // 仮のIDの選手は、選手詳細へのリンクにも、写真にもしない。集計（scripts/aggregate.ts）は選手IDが空の行を数えない（個人スタッツには入らない）。
 
 import type { BoxscoreRow, StoredGame } from "../../shared/types";
+import { boxscoreNameFill } from "../../shared/boxscoreNameFills";
 
 /** 仮のIDの先頭。選手マスタ・集計のIDとは重ならない */
 export const UNKNOWN_PLAYER_ID_PREFIX = "unknown-";
@@ -50,12 +52,15 @@ export function fillUnnamedPlayers(game: StoredGame): StoredGame {
       const key = `${row.TeamID ?? ""}|${(row.PlayerNo ?? "").trim()}`;
       let id = idByTeamNo.get(key);
       if (!id) {
+        const fill = boxscoreNameFill(game.season, String(game.scheduleKey), row.TeamID, row.PlayerNo);
         const fromPbp = pbpIds.get(key);
-        id = row.PlayerID || (fromPbp?.size === 1 ? [...fromPbp][0]! : "") || `${UNKNOWN_PLAYER_ID_PREFIX}${row.TeamID ?? "x"}-${(row.PlayerNo ?? "").trim() || `row${idByTeamNo.size + 1}`}`;
+        id = row.PlayerID || fill?.playerId || (fromPbp?.size === 1 ? [...fromPbp][0]! : "") || `${UNKNOWN_PLAYER_ID_PREFIX}${row.TeamID ?? "x"}-${(row.PlayerNo ?? "").trim() || `row${idByTeamNo.size + 1}`}`;
         idByTeamNo.set(key, id);
       }
       row.PlayerID = id;
-      row.PlayerNameJ = unknownPlayerName(row.PlayerNo);
+      // 手で補う一覧（shared/boxscoreNameFills.ts）に当たる行は、仮の名前ではなく、その選手の名前
+      const fill = boxscoreNameFill(game.season, String(game.scheduleKey), row.TeamID, row.PlayerNo);
+      row.PlayerNameJ = fill?.name ?? unknownPlayerName(row.PlayerNo);
       if (!(row.PlayerNameE ?? "").trim()) row.PlayerNameE = row.PlayerNameJ;
     }
   }
