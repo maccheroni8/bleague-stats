@@ -80,6 +80,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   画像を作る段階（基準日・複製・描画・PNG化）は時間の上限30秒で、超えた・失敗したときは止まった段階つきのエラーを出し、残った html2canvas の iframe を外す（`runWithinDeadline`・`prepareExportImage`）。**画面だけの変更でキー不変**
 - 243章: **保存の調べるための記録**。URL に `debug=export` があるときだけ、画面の下に保存の処理の記録（段階・経過時間・端末の判定・寸法と倍率・経路・エラー・終わった理由）を出す（`exportDebugLog.ts`・`ExportDebugPanel.tsx`。ページが読み込み直されても localStorage に残る）。ボタンの文字は段階ごと（「表を複製中…」など）。**画面だけの変更でキー不変**
 - 244章: **エラーの文・「写真に保存」の案内は目立たせて画面の中ほどへ寄せる**（ボタンの下の小さな1行が記録の枠の下に隠れていた）。原因を絞る試し方 `exp=ignore|nowide|noimg|nofonts|forceload`（debug=export と一緒のときだけ）と、写し取った側（html2canvas の iframe）の待ちの様子の記録。**画面だけの変更でキー不変**
+- 245章: **保存のときは <img> を写し取らず、写し取ったあと（onclone）で同じ位置に戻す**（iPhone では写し取った iframe の中の <img> が load を引き止め、html2canvas が先へ進まなかった）。戻す <img> には画面の naturalWidth・naturalHeight を持たせ、絵は html2canvas が読み込み直す（描き方は前と同じ）。保存の枠の中の部品の構造を変えるときは、`planImageSlots` の位置のたどり方（html2canvas の写し取りの決まり）に合うかを、保存画像の比較で確かめる。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

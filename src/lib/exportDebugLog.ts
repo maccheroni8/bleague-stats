@@ -28,9 +28,10 @@ export function exportDebugEnabled(): boolean {
 /**
  * 原因を絞るための試し方（URL の exp=…。debug=export のときだけ効く。カンマで複数指定できる。DESIGN.md 244章）。
  * ignore＝保存する表とその祖先以外を写し取らない／nowide＝広い画面（1280px）に切り替えずに描く／noimg＝画像を写し取らない（読み込みを待たない）／
- * nofonts＝写し取った側のフォントの読み込みを待たない／forceload＝写し取った iframe の読み込み完了（load）が1秒来なければ、来たことにして進める
+ * nofonts＝写し取った側のフォントの読み込みを待たない／forceload＝写し取った iframe の読み込み完了（load）が1秒来なければ、来たことにして進める／
+ * keepimg＝写真・ロゴを写し取りのあとで戻す形（245章）を使わず、前の形（<img> のまま写し取る）にする／eager＝写し取るあいだだけ、画面の <img> の loading を eager にする（keepimg と組み合わせて、loading="lazy" が原因かを見る）
  */
-export const EXPORT_EXPERIMENTS = ["ignore", "nowide", "noimg", "nofonts", "forceload"] as const;
+export const EXPORT_EXPERIMENTS = ["ignore", "nowide", "noimg", "nofonts", "forceload", "keepimg", "eager"] as const;
 export type ExportExperiment = (typeof EXPORT_EXPERIMENTS)[number];
 
 export function exportExperiments(): ReadonlySet<ExportExperiment> {

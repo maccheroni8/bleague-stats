@@ -101,7 +101,13 @@ export async function renderExportCanvas(
   // 原因を絞るための試し方（debug=export のときの exp=…。ふだんは空で、動きは変わらない。DESIGN.md 244章）
   const exp = exportExperiments();
   const forceWide = env.forceWide && !exp.has("nowide");
-  const ignoreElements = exp.has("ignore") || exp.has("noimg") ? (node: Element) => ignoredByExperiment(node, el, exp) : undefined;
+  // 写真・ロゴ（<img>）は写し取らず、写し取ったあとで同じ位置に戻す（245章。iPhone では写し取った iframe の中の <img> が
+  // 読み込み完了（load）を引き止め、html2canvas が先へ進まなかった）。試し方 keepimg のときは前の形
+  const detachImages = !exp.has("keepimg") && !exp.has("noimg");
+  const ignoreElements = (node: Element) => (detachImages && node.tagName === "IMG") || ignoredByExperiment(node, el, exp);
+  const isCloned = (node: Node) =>
+    node.nodeType !== Node.ELEMENT_NODE ||
+    !((node as Element).tagName === "SCRIPT" || (node as Element).hasAttribute("data-html2canvas-ignore") || ignoreElements(node as Element));
   // 測った寸法から倍率を決めても、描いた結果が上限を超えていたら（測ったあとに寸法が変わったとき）、一度だけ下げて描き直す
   for (let attempt = 0; ; attempt += 1) {
     deadline?.checkpoint();
@@ -110,12 +116,13 @@ export async function renderExportCanvas(
       `html2canvas を呼ぶ（${attempt + 1}回目・倍率 ${requested}・広い画面で描く ${forceWide ? "はい（1280px）" : "いいえ"}・試し方 ${exp.size > 0 ? [...exp].join(", ") : "なし"}）`,
     );
     let cloned = false;
+    let slots: ImageSlot[] = [];
     const html2canvasOptions: Html2CanvasOptions = {
       // 背景は常に白。画面がダークでも保存画像はライト（配色の変数も複製側だけライトに固定する。下の onclone）
       backgroundColor: EXPORT_BACKGROUND,
       scale: requested,
       ...(forceWide ? { windowWidth: EXPORT_WINDOW_WIDTH } : {}),
-      ...(ignoreElements ? { ignoreElements } : {}),
+      ignoreElements,
       onclone: (doc, clonedEl) => {
         // ここまでで複製（写真・ロゴの読み込み待ちを含む）が終わり、このあとは canvas に描く
         cloned = true;
@@ -124,6 +131,7 @@ export async function renderExportCanvas(
           const images = Array.from(doc.images);
           exportDebug(`複製ができた（写し取った要素 ${doc.getElementsByTagName("*").length}・画像 ${images.length}・読み込み中の画像 ${images.filter((i) => !i.complete).length}）`);
         }
+        if (detachImages) restoreImageSlots(doc, clonedEl, slots);
         prepareClone(doc, clonedEl, options);
         // 複製側の寸法（画面幅1280pxで組まれた結果）から倍率を決める。html2canvas は onclone のあとに倍率を読む
         const rect = clonedEl.getBoundingClientRect();
@@ -133,7 +141,18 @@ export async function renderExportCanvas(
     };
     const render = () => {
       const before = html2canvasContainers();
-      const promise = html2canvas(el, html2canvasOptions);
+      // 写し取る直前（広い画面に描き直したあと）の、表の中の <img> の位置を覚えておく
+      slots = detachImages ? planImageSlots(el, isCloned) : [];
+      // 試し方 eager: 写し取るあいだだけ、画面の <img> の loading="lazy" を eager にする（同じ同期処理の中で戻すので、画面は変わらない）
+      const lazy = exp.has("eager") ? Array.from(document.querySelectorAll<HTMLImageElement>('img[loading="lazy"]')) : [];
+      for (const img of lazy) img.loading = "eager";
+      if (lazy.length > 0) exportDebug(`試し方 eager: 写し取るあいだ ${lazy.length} 個の画像を eager にする`);
+      let promise: ReturnType<typeof html2canvas>;
+      try {
+        promise = html2canvas(el, html2canvasOptions);
+      } finally {
+        for (const img of lazy) img.loading = "lazy";
+      }
       // html2canvas は呼んだその場で iframe を作って表を写し取り終え、そのあと iframe の読み込み完了・フォント・画像を待つ。
       // 記録（debug=export）のときは、その待ちの様子を2秒ごとに見る。試し方（nofonts・forceload）もここで iframe に効かせる
       for (const frame of document.querySelectorAll<HTMLIFrameElement>(HTML2CANVAS_CONTAINER_SELECTOR)) {
@@ -152,6 +171,95 @@ export async function renderExportCanvas(
     }
     return { canvas, info: { requestedScale: scale, scale: drawn, width: canvas.width, height: canvas.height } };
   }
+}
+
+/** 写し取る前の表の中の <img> と、写し取った側での位置（html2canvas が写し取る子のうち何番目か、をたどる道筋） */
+interface ImageSlot {
+  img: HTMLImageElement;
+  /** 保存する表の要素から <img> の親までの道筋（各段で「写し取られる子」のうち何番目か） */
+  path: number[];
+  /** 親の「写し取られる子」のうち、<img> の前にあるものの数（ここに戻す） */
+  index: number;
+}
+
+const PSEUDO_TAG = "HTML2CANVASPSEUDOELEMENT";
+const PSEUDO_BEFORE_CLASS = "___html2canvas___pseudoelement_before";
+
+/**
+ * 表の中の <img> の位置を覚える（245章）。html2canvas は子を順に写し取り、<script>・data-html2canvas-ignore・ignoreElements に当たる要素だけを外す
+ * （文字や注記は写し取る）。同じ決まり（isCloned）で数えれば、写し取った側の同じ位置がたどれる
+ */
+function planImageSlots(el: HTMLElement, isCloned: (node: Node) => boolean): ImageSlot[] {
+  const slots: ImageSlot[] = [];
+  const indexAmongCloned = (node: Node): number => {
+    let i = 0;
+    for (let n = node.parentNode?.firstChild ?? null; n && n !== node; n = n.nextSibling) if (isCloned(n)) i += 1;
+    return i;
+  };
+  for (const img of el.querySelectorAll("img")) {
+    const path: number[] = [];
+    let ok = true;
+    for (let node: Node | null = img.parentNode; node && node !== el; node = node.parentNode) {
+      if (!isCloned(node)) ok = false;
+      path.unshift(indexAmongCloned(node));
+    }
+    if (ok && img.parentNode) slots.push({ img, path, index: indexAmongCloned(img) });
+  }
+  return slots;
+}
+
+/**
+ * 写し取った側に、覚えておいた <img> を同じ位置へ戻す（onclone の中。245章）。戻す <img> は画面の <img> と同じ属性（loading を除く）で、
+ * html2canvas が読む元の寸法（naturalWidth・naturalHeight）だけを、画面の読み込み済みの値で持たせる。html2canvas は絵を自分で読み込み直して
+ * （画面の側で。上限15秒）描くので、描き方は前の形と同じで、写し取った iframe の中の読み込みを待たない（iPhone でも止まらない）
+ */
+function restoreImageSlots(doc: Document, clonedEl: HTMLElement, slots: readonly ImageSlot[]): void {
+  const inserted = new Set<Node>();
+  const clonedChildren = (node: Node): Node[] =>
+    Array.from(node.childNodes).filter((n) => !inserted.has(n) && !(n.nodeType === Node.ELEMENT_NODE && (n as Element).tagName === PSEUDO_TAG));
+  let restored = 0;
+  let notLoaded = 0;
+  let missing = 0;
+  for (const slot of slots) {
+    let parent: Node | undefined = clonedEl;
+    for (const i of slot.path) parent = parent ? clonedChildren(parent)[i] : undefined;
+    if (!parent) {
+      missing += 1;
+      continue;
+    }
+    const replacement = imageReplacement(doc, slot.img);
+    restored += 1;
+    if (!(slot.img.complete && slot.img.naturalWidth > 0)) notLoaded += 1;
+    const list = clonedChildren(parent);
+    let ref: Node | null;
+    if (slot.index < list.length) {
+      ref = list[slot.index]!;
+    } else if (list.length > 0) {
+      ref = list[list.length - 1]!.nextSibling;
+      while (ref && inserted.has(ref)) ref = ref.nextSibling;
+    } else {
+      // 写し取られる子が無い: ::before の疑似要素の後、ほかに戻したものの後、::after の疑似要素の前
+      ref = parent.firstChild;
+      if (ref && parent instanceof Element && parent.classList.contains(PSEUDO_BEFORE_CLASS)) ref = ref.nextSibling;
+      while (ref && inserted.has(ref)) ref = ref.nextSibling;
+    }
+    parent.insertBefore(replacement, ref);
+    inserted.add(replacement);
+  }
+  exportDebug(`写真・ロゴを戻した: ${restored}（画面でまだ読み込めていないもの ${notLoaded}）・位置が見つからない ${missing}`);
+}
+
+function imageReplacement(doc: Document, img: HTMLImageElement): HTMLImageElement {
+  const copy = doc.createElement("img");
+  for (const attr of Array.from(img.attributes)) if (attr.name !== "loading" && attr.name !== "srcset" && attr.name !== "sizes") copy.setAttribute(attr.name, attr.value);
+  // html2canvas は img.currentSrc || img.src を読み込み直して描く。src は画面で実際に使った URL（絶対 URL）にする
+  if (img.currentSrc) copy.setAttribute("src", img.currentSrc);
+  if (img.complete && img.naturalWidth > 0) {
+    // 写し取った側の <img> はまだ読み込まれていない（naturalWidth が0）。html2canvas が読む元の寸法を、画面の値にする
+    Object.defineProperty(copy, "naturalWidth", { configurable: true, value: img.naturalWidth });
+    Object.defineProperty(copy, "naturalHeight", { configurable: true, value: img.naturalHeight });
+  }
+  return copy;
 }
 
 /**
@@ -206,6 +314,26 @@ function watchCloneFrame(frame: HTMLIFrameElement, exp: ReadonlySet<ExportExperi
       `写し取った側の様子（${Math.round((performance.now() - started) / 1000)}秒）: load ${typeof frame.onload === "function" ? "まだ" : "済み"}・readyState ${d?.readyState ?? "なし"}・` +
         `フォント ${d?.fonts?.status ?? "不明"}・要素 ${d?.getElementsByTagName("*").length ?? 0}・画像 ${images.length}・読み込み中 ${pending.length}${names.length > 0 ? `（${names.join("、")}）` : ""}`,
     );
+    // 読み込み完了（load）を引き止めうるものの一覧（2秒目と、そのあと6秒ごと）。画像（complete・naturalWidth・loading）・<link>・埋め込み・SVG の画像と、
+    // 写し取った側の Performance の resource の記録（読み込み終わったものだけが載る）
+    const elapsed = Math.round((performance.now() - started) / 1000);
+    if (d && typeof frame.onload === "function" && (elapsed <= 2 || elapsed % 6 === 0)) {
+      const short = (url: string) => url.split("/").slice(-2).join("/").slice(0, 40);
+      const imgs = images.map((i) => `${short(i.currentSrc || i.src)}[${i.complete ? "済" : "中"}・幅${i.naturalWidth}・${i.loading || "-"}]`);
+      const links = Array.from(d.querySelectorAll("link")).map((l) => `${l.rel}:${short(l.href)}`);
+      const others = Array.from(d.querySelectorAll("iframe,object,embed,video,audio,source,image,picture")).map((n) => n.tagName.toLowerCase());
+      let resources = "不明";
+      try {
+        const entries = (frame.contentWindow?.performance.getEntriesByType("resource") ?? []) as PerformanceResourceTiming[];
+        resources = `${entries.length}件（${entries.slice(-5).map((e) => `${e.initiatorType}:${short(e.name)}`).join("、")}）`;
+      } catch (e) {
+        resources = `読めない（${e instanceof Error ? e.message : String(e)}）`;
+      }
+      exportDebug(
+        `写し取った側の内訳: 画像 ${imgs.slice(0, 8).join(" ")}${imgs.length > 8 ? ` ほか${imgs.length - 8}` : ""}／link ${links.join(" ") || "なし"}／` +
+          `そのほか ${others.join(" ") || "なし"}／resource ${resources}`,
+      );
+    }
     setTimeout(probe, 2000);
   };
   setTimeout(probe, 2000);
