@@ -713,6 +713,14 @@ export function usePlayerSeasonRanking(
     return map;
   }, [ctxByPlayer]);
   const ctxFor = (p: PlayerSummary, mode: PlayerRankMode) => (mode === "total" ? totalCtxByPlayer : ctxByPlayer)?.get(p.playerId) ?? null;
+  // 「平均」で表示しているとき、値を割った試合数（ランキングが値の横に添える）。合計・割合の項目・Profile・Career、
+  // DD2・TD3（値に「27/60」と試合数が入っている）は添えない。EFF・シューティングはシーズンの出場試合数で割っている
+  const gamesDividedBy = (p: PlayerSummary): number | undefined => {
+    if (!modeApplies || rankMode !== "perGame") return undefined;
+    if (statKey === "dd2" || statKey === "td3") return undefined;
+    if (category === "shooting" || statKey === "eff") return p.gamesPlayed;
+    return ctxByPlayer?.get(p.playerId)?.raw.gamesPlayed;
+  };
 
   // シチュエーション別フィルタで対象試合が0件になった選手は、"0"のまま下位に並べず除外する
   // （旧situationalByPlayerが null を返していたときと同じ扱い）。シューティングカテゴリは
@@ -815,6 +823,7 @@ export function usePlayerSeasonRanking(
     rankDef,
     rankMode,
     modeApplies,
+    gamesDividedBy,
     ddtdPeriodOff,
     effPeriodActive,
     periodActive,

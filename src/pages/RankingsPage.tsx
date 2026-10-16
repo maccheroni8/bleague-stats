@@ -566,6 +566,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
                 rows={shootingCompare ? shootingCompare.rows : teamsWithShotTypes}
                 compare={shootingCompare?.compare}
                 def={shootingDef}
+                gamesOf={displayMode === "perGame" && !shootingDef.key.endsWith("pct") ? (t) => t.gamesPlayed : undefined}
                 rowKey={(t) => t.teamId}
                 name={(t) => teamLabel(t.teamId, t.teamName)}
                 linkTo={(t) => `/teams/${t.teamId}`}
@@ -615,6 +616,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
               rows={boxCompare ? boxCompare.rows : boxRows}
               compare={boxCompare?.compare}
               def={teamDef}
+              gamesOf={displayMode !== "total" && columns.find((c) => c.key === teamDef.key)?.scalesWithGames ? (r) => r.gamesPlayed : undefined}
               rowKey={(r) => r.team.teamId}
               name={(r) => teamLabel(r.team.teamId, r.team.teamName)}
               linkTo={(r) => `/teams/${r.team.teamId}`}
@@ -691,6 +693,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     rankDef,
     rankMode,
     modeApplies,
+    gamesDividedBy,
     ddtdPeriodOff,
     effPeriodActive,
     periodActive,
@@ -1059,6 +1062,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               rows={comparison ? comparison.rows : shownRows}
               compare={comparison?.compare}
               def={rankDef}
+              gamesOf={gamesDividedBy}
               rowKey={(p) => p.playerId}
               name={(p) => playerLabel(p.name)}
               // 選手名の下はチーム名とポジション、そのシーズンのルーキーには「Rookie」（登録区分の選択によらず。DESIGN.md 217章。登録区分はタイトルの下の行）。ポジションの「＊」（当時の値でない印）と注意書きは、

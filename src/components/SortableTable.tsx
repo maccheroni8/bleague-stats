@@ -17,6 +17,8 @@ export interface Column<T> {
    * クリックでの昇順/降順切り替えのみでこの値を消費しないが、単一方向にランキングする
    * 呼び出し側（RankingsPage.tsx等）が向きの判定に利用する */
   higherIsBetter?: boolean;
+  /** 「平均」で表示しているとき、試合数で割った値になる列（カウント系。ランキングが割った試合数を添えるのに使う。割合・率の列は付けない） */
+  scalesWithGames?: boolean;
 }
 
 interface SortableTableProps<T> {

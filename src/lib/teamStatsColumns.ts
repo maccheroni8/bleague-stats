@@ -449,6 +449,7 @@ function countColumn(
       return signed || perspective === "diff" ? formatSigned(v, d) : formatDecimal(v, d);
     },
     higherIsBetter: higherIsBetterForPerspective(ownHigherIsBetter, perspective),
+    scalesWithGames: true,
   };
 }
 
@@ -560,6 +561,7 @@ export function buildTraditionalColumns(mode: SeasonDisplayMode, perspective: Te
       label: "MIN",
       sortValue: (r) => scaledValue(r.totals.min, r.gamesPlayed, mode),
       format: (r) => formatMinutesFromSeconds(Math.round(scaledValue(r.totals.min, r.gamesPlayed, mode) * 60)),
+      scalesWithGames: true,
     },
     countColumn("pts", "PTS", (t) => t.pts, (t) => t.oppPts, mode, perspective),
     countColumn("fgm", "FGM", (t) => t.fgm, (t) => t.oppFgm, mode, perspective),
@@ -627,6 +629,7 @@ export function buildAdvancedColumns(mode: SeasonDisplayMode, perspective: TeamP
       label: "POSS",
       sortValue: (r) => scaledValue(r.totals.poss, r.gamesPlayed, mode),
       format: (r) => formatDecimal(scaledValue(r.totals.poss, r.gamesPlayed, mode), mode === "total" ? 0 : 1),
+      scalesWithGames: true,
     },
     {
       key: "pace",

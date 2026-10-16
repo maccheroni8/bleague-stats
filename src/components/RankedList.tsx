@@ -75,6 +75,8 @@ export interface RankedListProps<T> {
   sortable?: boolean;
   /** 前シーズン比較の列（個人・チームのランキング（シーズン成績）だけ） */
   compare?: RankCompare<T>;
+  /** 指定時、値の横に「割った試合数」を小さく添える（「平均」で表示しているとき。undefined を返した行には添えない） */
+  gamesOf?: (row: T) => number | undefined;
   /**
    * 同じ順位の行を広げて出すときの、表示する行数の上限（全体で）。同じ順位が数千件になる記録（0の同率など）でも表を重くしないため。
    * 超えるときは、ボタンに「上限◯件まで表示」と出す。画像出力の「20位タイ ほか◯件」は実際の件数のまま
@@ -108,6 +110,7 @@ export function RankedList<T>({
   subLinkTo,
   renderValue,
   compare,
+  gamesOf,
   tieExpandMax,
 }: RankedListProps<T>) {
   const unit = unitProp ?? (statScope === "team" ? "チーム" : "人");
@@ -166,6 +169,8 @@ export function RankedList<T>({
   const hiddenTies10 = tiesBeyondTop(ranks, EXPORT_TOP_10);
   const shownCount = limit === undefined ? sorted.length : tiesExpanded ? expandedEnd : limit;
   const limited = sorted.slice(0, shownCount);
+  // 「平均」のときだけ、値の横に割った試合数を添える（合計・割合の項目では gamesOf が undefined を返す）
+  const showGames = !!gamesOf && limited.some((row) => gamesOf(row) !== undefined);
   const toggleSortDir = () => {
     if (!sortable) return;
     if (bySortDiff) {
@@ -187,7 +192,7 @@ export function RankedList<T>({
   return (
     <div className="table-scroll">
       <table
-        className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}${compare ? " rankings-table-compare" : ""}${exportKeepSub ? " rank-keep-sub" : ""}`}
+        className={`sortable-table rankings-table${compact ? " rankings-table-compact" : ""}${compare ? " rankings-table-compare" : ""}${showGames ? " rankings-table-games" : ""}${exportKeepSub ? " rank-keep-sub" : ""}`}
       >
         <thead>
           <tr>
@@ -283,7 +288,13 @@ export function RankedList<T>({
                     <ExternalLinkIcon href={externalLinkTo(row)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
                 </td>
-                <td className="align-right rank-value">{renderValue ? renderValue(row) : def.format(row)}</td>
+                <td className="align-right rank-value">
+                  {renderValue ? renderValue(row) : def.format(row)}
+                  {(() => {
+                    const games = gamesOf?.(row);
+                    return games === undefined ? null : <span className="rank-games">{games}試合</span>;
+                  })()}
+                </td>
                 {compare && (
                   <>
                     <td className="align-right rank-prev">{compare.prevCell(row)}</td>

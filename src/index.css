@@ -2106,6 +2106,36 @@ table.boxscore-table .boxscore-summary-grand-total td {
   font-variant-numeric: tabular-nums;
 }
 
+/* 「平均」で表示しているとき、値の横に添える「割った試合数」（RankedList の gamesOf）。値より小さく淡く、折り返さない */
+.rankings-table .rank-games {
+  margin-left: 6px;
+  font-size: 0.7em;
+  font-weight: 400;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* 試合数を添える表は、値の列を広げる（値＋「60試合」が1行に入る幅。前季比較の表は今季の値の列を広げる） */
+table.rankings-table-compact.rankings-table-games:not(.rankings-table-compare) th:last-child {
+  width: 148px;
+}
+
+@media (min-width: 561px) {
+  table.rankings-table-compact.rankings-table-compare.rankings-table-games th.rank-cur-head {
+    width: 128px;
+  }
+}
+
+.export-wide table.rankings-table-compact.rankings-table-games:not(.rankings-table-compare) th:last-child {
+  width: 176px;
+}
+
+@media (max-width: 640px) {
+  table.rankings-table-compact.rankings-table-games:not(.rankings-table-compare) th:last-child {
+    width: 116px;
+  }
+}
+
 /* スマホ幅: 名前列（サブラベル込み）を折り返し可にし、余白を詰めて、ランキング値の列が
    横スクロール無しで収まるようにする（サブラベルが長く、表が枠幅を超えて値が画面外に出ていたため。
    一度は身長・体重列の追加で悪化して対処した。列は撤去したが、この対処自体は残している） */
@@ -2863,6 +2893,12 @@ table.rankings-table-compact.rankings-table-compare td.rank-diff {
   table.rankings-table-compact.rankings-table-compare th.rank-diff-head {
     width: 58px;
     padding-left: 4px;
+  }
+
+  /* 前季比較の表は値の列が狭いので、割った試合数は値の下の行に出す */
+  .rankings-table-compare .rank-games {
+    display: block;
+    margin-left: 0;
   }
 
   /* 名前の列に幅を残すため、写真・ロゴは出さない */
