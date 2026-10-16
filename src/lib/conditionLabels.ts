@@ -137,14 +137,16 @@ export function classificationLabels(filter: PlayerGroupFilter): string[] {
 export interface EligibilityLabelInput {
   /** 出場率の下限（0〜1） */
   gamesRatio: number;
+  /** 出場率を「達成可能」（今の出場試合数＋チームの残り試合数で、出場率に届く）で判定している。指定したときだけ「達成可能」と書く */
+  achievable?: boolean;
   /** スタッツ固有の追加基準（EXTRA_ELIGIBILITY_RULESの該当ルールがあるときのみ） */
   extra?: { label: string; unit: string } | null;
   extraThreshold?: number;
 }
 
 /** ランキングの掲載基準（出場率＋スタッツ固有の追加基準） */
-export function eligibilityLabels({ gamesRatio, extra, extraThreshold }: EligibilityLabelInput): string[] {
-  const labels = [`出場率${Math.round(gamesRatio * 100)}%以上`];
+export function eligibilityLabels({ gamesRatio, achievable, extra, extraThreshold }: EligibilityLabelInput): string[] {
+  const labels = [`出場率${Math.round(gamesRatio * 100)}%以上${achievable ? "達成可能" : ""}`];
   if (extra && extraThreshold !== undefined) labels.push(`${extra.label}${extraThreshold.toFixed(1)}${extra.unit}以上`);
   return labels;
 }

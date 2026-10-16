@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORY_LABELS } from "./categoryLabels";
-import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayers, fetchRegisteredPlayers, fetchTeams } from "./data";
+import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayers, fetchPlayoffRace, fetchRegisteredPlayers, fetchTeams } from "./data";
 import type { PlayerCareerCounts } from "../../shared/types";
 import { useJsonData } from "./useJsonData";
 import { PLAYER_STAT_DEFS } from "./statDefs";
@@ -414,6 +414,8 @@ export interface PlayerRankingParams {
   category: PlayerRankCategory;
   statKey: string;
   gamesRatio: number;
+  /** 掲載基準の出場率を「達成可能」（今の出場試合数＋チームの残り試合数で、出場率に届く）で判定する */
+  achievable: boolean;
   extraThreshold: number;
   /** 登録区分＋ルーキー。ルーキーを選べないシーズンでは、呼び出し側が "all" にして渡す */
   group: PlayerGroupFilter;
@@ -438,7 +440,7 @@ export function usePlayerSeasonRanking(
   opts: { enabled?: boolean; skipConditionItems?: boolean } = {},
 ) {
   const enabled = opts.enabled ?? true;
-  const { category, statKey, gamesRatio, extraThreshold, group, rookieIds, positions, filter, gameType, displayMode, period, statConditions } = params;
+  const { category, statKey, gamesRatio, achievable, extraThreshold, group, rookieIds, positions, filter, gameType, displayMode, period, statConditions } = params;
   const rookieActive = group === "rookie";
 
   // シーズンを切り替えた直後は、読み込み中の間、前のシーズンのデータが残る（useJsonData）。別のシーズンのデータで集計しないよう、どのシーズンのデータかを添えて読み、今のシーズンと一致するときだけ使う
@@ -489,6 +491,20 @@ export function usePlayerSeasonRanking(
     [enabled, registeredTarget, season],
   );
 
+  // 「達成可能」の判定に使う、チームごとの残り試合数（レギュラーシーズン。マジックナンバーの元データと同じ）。チェックを入れたときだけ読む。
+  // ファイルが無いシーズンは、残りなし（今の掲載基準と同じ結果）として扱う
+  const achievableNeeded = enabled && achievable;
+  const { data: raceData, loading: raceLoading } = useJsonData(
+    () => (achievableNeeded ? fetchPlayoffRace(season).then((race) => ({ season, race })) : Promise.resolve(null)),
+    [achievableNeeded, season],
+  );
+  const raceReady = !achievableNeeded || (!raceLoading && raceData?.season === season);
+  const remainingByTeam = useMemo<ReadonlyMap<string, number> | undefined>(() => {
+    if (!achievableNeeded) return undefined;
+    const race = raceData?.season === season ? raceData.race : null;
+    return new Map((race?.teams ?? []).map((t) => [t.teamId, t.remaining]));
+  }, [achievableNeeded, raceData, season]);
+
   const eligible: PlayerSummary[] = useMemo(() => {
     if (!players || !teams) return [];
     // ルーキーの一覧を読み込むまでは空にする（全員分の試合ログを取りに行かないため）
@@ -500,11 +516,11 @@ export function usePlayerSeasonRanking(
         (p) => matchesPlayerGroupFilter(p, group, rookieIds) && matchesPositionFilter(p, positionSet),
       );
     }
-    const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold).filter(
+    const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold, remainingByTeam).filter(
       (p) => matchesPlayerGroupFilter(p, group, rookieIds) && matchesPositionFilter(p, positionSet),
     );
     return category === "shooting" ? base.filter((p) => !!p.shotTypes) : base;
-  }, [players, teams, gamesRatio, statKey, extraThreshold, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers]);
+  }, [players, teams, gamesRatio, remainingByTeam, statKey, extraThreshold, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers]);
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {
@@ -803,6 +819,7 @@ export function usePlayerSeasonRanking(
 
   const waiting =
     !enabled ||
+    !raceReady ||
     (needsGameLogRecompute && (gameLogsLoading || !gameLogsByPlayer)) ||
     !teamTotalsByTeamId ||
     !ctxByPlayer ||

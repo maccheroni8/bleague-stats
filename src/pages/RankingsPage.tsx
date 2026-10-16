@@ -273,6 +273,14 @@ const GAMES_RATIO_ELIG_PARAM: UrlCodec<number> = {
     if (Math.round(v * 100) !== Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)) p.set("elig", String(Math.round(v * 100)));
   },
 };
+/** 掲載基準の出場率を「達成可能」で判定する（URLでは ach=1。既定は今の出場率のまま） */
+const GAMES_ACHIEVABLE_PARAM: UrlCodec<boolean> = {
+  keys: ["ach"],
+  read: (p) => (p.get("ach") === "1" ? true : undefined),
+  write: (p, v) => {
+    if (v) p.set("ach", "1");
+  },
+};
 
 
 /**
@@ -658,6 +666,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const defaultPlayerStat = playerDefaultStatKey(category);
   const [statKey, setStatKey] = useUrlState(stringParam("stat", defaultPlayerStat, isStatKeyLike), defaultPlayerStat);
   const [gamesRatio, setGamesRatio] = useUrlState(GAMES_RATIO_ELIG_PARAM, MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
+  const [achievable, setAchievable] = useUrlState(GAMES_ACHIEVABLE_PARAM, false);
   const defaultExtra = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)]?.defaultValue ?? 0;
   const [extraThreshold, setExtraThreshold] = useUrlState(numberParam("ex", defaultExtra, { min: 0 }), defaultExtra);
   // 登録区分（全選手・日本人・外国籍/帰化/アジア）と、4つ目の「ルーキー」（cls=rookie。DESIGN.md 217章）。ルーキーを選べないシーズン（2016-17）では「全選手」として扱う
@@ -716,6 +725,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     category,
     statKey,
     gamesRatio,
+    achievable,
     extraThreshold,
     group: selectedClassification,
     rookieIds: rookies.ids,
@@ -751,6 +761,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       category,
       statKey,
       gamesRatio,
+      achievable,
       extraThreshold,
       group: selectedClassification === "rookie" ? "all" : selectedClassification,
       rookieIds: null,
@@ -853,7 +864,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       // 切り替えの対象外の項目（割合・Profile・Career）では書かない
       modeApplies ? displayModeLabels(rankMode) : [],
       playerScopeLabels,
-      registeredTarget ? "登録選手" : eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }),
+      registeredTarget ? "登録選手" : eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }),
     ),
   );
 
@@ -868,7 +879,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           ? "このカテゴリは試合種別・シチュエーション別フィルタ・Q別/前後半の対象外です（登録区分・ポジションのみ適用されます）。"
         : undefined;
   const eligibilityDefaultExtra = extraRule?.defaultValue ?? 0;
-  const eligibilitySummary = eligibilityLabels({ gamesRatio, extra: extraRule, extraThreshold }).join("・");
+  const eligibilitySummary = eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }).join("・");
   const eligibilityAxis: FilterAxis = {
     kind: "popover",
     id: "eligibility",
@@ -877,10 +888,11 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     disabledReason: registeredTarget
       ? "このカテゴリは、このシーズンに登録していた選手全員が対象です（出場の有無を問わず、掲載基準は使いません）。"
       : undefined,
-    value: `${Math.round(gamesRatio * 100)}|${extraRule ? extraThreshold : ""}`,
-    defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}|${extraRule ? eligibilityDefaultExtra : ""}`,
+    value: `${Math.round(gamesRatio * 100)}|${extraRule ? extraThreshold : ""}|${achievable ? "ach" : ""}`,
+    defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}|${extraRule ? eligibilityDefaultExtra : ""}|`,
     onChange: () => {
       setGamesRatio(MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
+      setAchievable(false);
       setExtraThreshold(eligibilityDefaultExtra);
     },
     summary: eligibilitySummary,
@@ -896,6 +908,10 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           format={(v) => `${v}%`}
           onChange={(v) => setGamesRatio(v / 100)}
         />
+        <label className="filter-multi-item">
+          <input type="checkbox" checked={achievable} onChange={(e) => setAchievable(e.target.checked)} />
+          {Math.round(gamesRatio * 100)}%以上達成可能
+        </label>
         {extraRule && (
           <EligibilitySlider
             label={extraRule.label}

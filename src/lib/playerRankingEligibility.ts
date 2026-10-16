@@ -75,8 +75,29 @@ export const EXTRA_ELIGIBILITY_RULES: Partial<Record<string, ExtraEligibilityRul
 };
 
 /**
+ * 「達成可能」の掲載基準（ランキングの「85%以上達成可能」）: （今の出場試合数＋チームの残り試合数）÷ チームの全試合数 が minRatio 以上。
+ * チームの全試合数は、今までの試合数（スタッツのある試合）に残り試合数を足したもの。残り試合が無い（終わったシーズン）と、
+ * 今の掲載基準（出場試合数÷チームの試合数が minRatio 以上）と同じ結果になる。残り試合数が分からないチームは0として扱う
+ */
+export function filterAchievablePlayers<T extends { teamId: string; gamesPlayed: number }>(
+  players: T[],
+  teams: Pick<TeamSummary, "teamId" | "gamesPlayed">[],
+  remainingByTeam: ReadonlyMap<string, number>,
+  minRatio: number,
+): T[] {
+  const teamGamesById = new Map(teams.map((t) => [t.teamId, t.gamesPlayed]));
+  return players.filter((p) => {
+    const teamGames = teamGamesById.get(p.teamId);
+    if (teamGames === undefined || teamGames <= 0) return false;
+    const remaining = remainingByTeam.get(p.teamId) ?? 0;
+    return (p.gamesPlayed + remaining) / (teamGames + remaining) >= minRatio;
+  });
+}
+
+/**
  * 出場率（gamesRatio）とスタッツ固有の追加基準（statKeyに応じてEXTRA_ELIGIBILITY_RULESから
- * 引く。extraThresholdはスライダーで動かした現在値）を両方満たす選手だけを残す
+ * 引く。extraThresholdはスライダーで動かした現在値）を両方満たす選手だけを残す。
+ * remainingByTeam を渡すと、出場率は「達成可能」（filterAchievablePlayers）で判定する
  */
 export function filterEligiblePlayers(
   players: PlayerSummary[],
@@ -84,8 +105,11 @@ export function filterEligiblePlayers(
   gamesRatio: number,
   statKey: string,
   extraThreshold: number,
+  remainingByTeam?: ReadonlyMap<string, number>,
 ): PlayerSummary[] {
-  const base = filterPlayersByGamesPlayedRatio(players, teams, gamesRatio);
+  const base = remainingByTeam
+    ? filterAchievablePlayers(players, teams, remainingByTeam, gamesRatio)
+    : filterPlayersByGamesPlayedRatio(players, teams, gamesRatio);
   const rule = EXTRA_ELIGIBILITY_RULES[statKey];
   if (!rule) return base;
   return base.filter((p) => rule.perGameValue(p) >= extraThreshold);
