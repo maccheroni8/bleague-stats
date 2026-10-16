@@ -7,13 +7,21 @@
 //  3. 履歴で外れた選手（B2・B3で先に登録されていた選手）の人数と一覧
 //  4. 延長で2年目以降も対象になった選手の例（シーズンごとの出場試合数・チームの試合数つき）
 //  5. 最優秀新人賞の受賞者（2017-18〜）が、受賞したシーズンにルーキーに入っているか（入っていない場合は理由。規程の定義では入らないことがある。結果は参考で、終了コードには影響しない）
+//  6. 例外の一覧（海外のプロ経験でルーキーから外した選手）・確認済みの一覧と、一覧の選手IDが選手マスタに残っているか
+//  7. 見直しの候補: 初めての登録のシーズン（開始年の4月1日時点）で23歳以上のルーキー。例外・確認済みの選手は出さない（海外のプロ経験の確認漏れを見つけるため。毎シーズンの初めに見る。215-8章）
 //
 // 使い方: npm run validate:rookie-eligibility
 
 import path from "node:path";
 import { DATA_DIR, readJson } from "./lib/storage.ts";
 import { loadRookieInputs } from "./lib/rookieInputs.ts";
-import { judgeRookie, FIRST_LEAGUE_SEASON } from "../shared/rookieEligibility.ts";
+import { judgeRookieForPlayer, FIRST_LEAGUE_SEASON } from "../shared/rookieEligibility.ts";
+import {
+  isConfirmedRookie,
+  ROOKIE_CANDIDATE_MIN_AGE,
+  ROOKIE_CONFIRMED_AS_ROOKIE,
+  ROOKIE_OVERSEAS_EXCEPTIONS,
+} from "../shared/rookieOverseasExceptions.ts";
 import type { PlayerAwardsFile } from "../shared/types.ts";
 
 const REASON_LABEL: Record<string, string> = {
@@ -36,11 +44,22 @@ async function main(): Promise<void> {
     extended.set(s, new Set());
   }
   const undeterminable: { id: string; reason: string }[] = [];
+  const candidates: { season: string; id: string; age: number; club: string }[] = [];
   const earlier: { first: string; id: string; line: string }[] = [];
   const extendedExamples: string[] = [];
   for (const [id, input] of players) {
-    const j = judgeRookie(input);
+    const j = judgeRookieForPlayer(id, input);
     if (j.status === "judged") {
+      const firstSeason = j.seasons[0]!;
+      const birth = input.birthDate;
+      if (birth && !isConfirmedRookie(id) && input.history?.[0]?.season === firstSeason) {
+        const [by, bm, bd] = birth.split("-").map(Number) as [number, number, number];
+        const startYear = Number(firstSeason.slice(0, 4));
+        const age = startYear - by - ((bm > 4 || (bm === 4 && bd > 1)) ? 1 : 0);
+        if (age >= ROOKIE_CANDIDATE_MIN_AGE) {
+          candidates.push({ season: firstSeason, id, age, club: input.history.filter((h) => h.season === firstSeason).map((h) => h.club).join("・") });
+        }
+      }
       for (const s of j.seasons) all.get(s)?.add(id);
       for (const s of j.extendedSeasons) extended.get(s)?.add(id);
       if (j.extendedSeasons.length > 0) {
@@ -89,9 +108,22 @@ async function main(): Promise<void> {
     for (const [id, input] of players) {
       if (!(awards[id] ?? []).some((a) => a.name === "最優秀新人賞" && a.season === s)) continue;
       const hit = all.get(s)!.has(id);
-      console.log(`  ${s} ${nameOf(id)}: ${hit ? "ルーキーに入っている" : `入っていない（${JSON.stringify(judgeRookie(input))}）`}`);
+      console.log(`  ${s} ${nameOf(id)}: ${hit ? "ルーキーに入っている" : `入っていない（${JSON.stringify(judgeRookieForPlayer(id, input))}）`}`);
     }
   }
+
+  console.log(`\n例外の一覧（海外のプロ経験でルーキーから外した選手。shared/rookieOverseasExceptions.ts）: ${ROOKIE_OVERSEAS_EXCEPTIONS.length}名`);
+  for (const e of ROOKIE_OVERSEAS_EXCEPTIONS) {
+    console.log(`  ${e.name}（${e.playerId}）: ${e.league}${players.has(e.playerId) ? "" : "【選手マスタ・入力に見つからない】"}`);
+  }
+  console.log(`\n確認済み（初登録時に年齢が高いが、ルーキーのままで正しい選手）: ${ROOKIE_CONFIRMED_AS_ROOKIE.length}名`);
+  for (const e of ROOKIE_CONFIRMED_AS_ROOKIE) console.log(`  ${e.name}（${e.playerId}）${players.has(e.playerId) ? "" : "【選手マスタ・入力に見つからない】"}`);
+
+  console.log(`\n見直しの候補（初めての登録で${ROOKIE_CANDIDATE_MIN_AGE}歳以上。例外・確認済みを除く）: ${candidates.length}名`);
+  for (const c of candidates.sort((a, b) => a.season.localeCompare(b.season) || a.id.localeCompare(b.id))) {
+    console.log(`  ${c.season} ${nameOf(c.id)}: ${c.age}歳・${c.club}`);
+  }
+  console.log("  海外のプロ経験が分かった選手は shared/rookieOverseasExceptions.ts の例外へ、そうでないと確認できた選手は「確認済み」へ足す（NCAAは海外リーグに数えない）");
 }
 
 main().catch((err) => {

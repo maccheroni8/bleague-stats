@@ -25,7 +25,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 105章: フィルタUI（NBA Stats型）。105-15・105-17 画像出力
 - 143章: クォーター別・前後半別の記録と1試合平均。143-3 順位の付け方（同じ値は同じ順位・次は飛ばす）、
   143-4 歴代記録の順位のバッチ（`aggregate-league-rankings.ts`・`aggregate-league-player-rankings.ts`。206章以降はデプロイのときに作る）
-- 212章: 延長戦のPBPの並び（時系列に並べ直す共通関数。読み込みの出口で適用）。213〜215章: ランキングの拡張（地区の絞り込み・方針）と、ルーキーの判定（選手ページの所属履歴の取得・規程 第5条〔新人選手〕に準じた判定・検証）。217章: ルーキーの絞り込み（登録区分の4つ目の選択肢。ランキングのシーズン成績・全選手スタッツ。`cls=rookie`、`src/lib/rookieFilter.ts`）。218章: ランキング（シーズン成績）の前シーズン比較（`cmp=1`。前季の値・順位・差。集計は `usePlayerSeasonRanking`・`useTeamSeasonRanking` を前季にも使う。スタッツの条件・ルーキーは今季だけ。`src/lib/seasonCompare.ts`）
+- 212章: 延長戦のPBPの並び（時系列に並べ直す共通関数。読み込みの出口で適用）。213〜215章: ランキングの拡張（地区の絞り込み・方針）と、ルーキーの判定（選手ページの所属履歴の取得・規程 第5条〔新人選手〕に準じた判定・検証）。**海外のプロ経験がある選手は `shared/rookieOverseasExceptions.ts` の例外の一覧でルーキーから外す**（215-8章。NCAAは海外リーグに数えない。確認済みの一覧・毎シーズンの候補は `validate:rookie-eligibility`。キー不変）。217章: ルーキーの絞り込み（登録区分の4つ目の選択肢。ランキングのシーズン成績・全選手スタッツ。`cls=rookie`、`src/lib/rookieFilter.ts`）。218章: ランキング（シーズン成績）の前シーズン比較（`cmp=1`。前季の値・順位・差。集計は `usePlayerSeasonRanking`・`useTeamSeasonRanking` を前季にも使う。スタッツの条件・ルーキーは今季だけ。`src/lib/seasonCompare.ts`）
 - 219章: 試合ログの土台（延長の本数 `overtimes`・選手の最終点差 `finalMargin`。古いデータには無いので `src/lib/gameFacts.ts` を通して読む）と、1試合行の索引（`data/{season}/player-game-index.json.gz`・`team-game-index.json.gz`。
   形式は `shared/gameIndex.ts`、読む部品は `src/lib/gameIndex.ts`・`gameIndexLoad.ts`。ルーキーは索引に無く `rookie-eligibility.json` と突き合わせる。検証は `npm run validate:game-index`）。
   段階4でポジションを出すときは、補った値に既存どおり「＊」（`profileMark.ts`）

@@ -17,13 +17,15 @@
 //  - B1に登録が無いシーズンの扱い: 所属履歴にそのシーズンのB2・B3のクラブがあれば、出場試合数が分からないので、そこで延長を打ち切る。履歴にも無いシーズン（大学・海外など）は、
 //    リーグ戦の出場が無いものとして、年齢が合えば延長する（B1に戻ったシーズンも、ルーキーに入る）
 //  - 新人賞の受賞の有無は使わない
-//  - 海外リーグの在籍経験・2016-17より前の国内の経歴は判定できない（選手ページの履歴は2016-17以降の国内クラブだけ）
+//  - 海外リーグの在籍経験・2016-17より前の国内の経歴は、データからは判定できない（選手ページの履歴は2016-17以降の国内クラブだけ）。確認できた選手は
+//    shared/rookieOverseasExceptions.ts の例外の一覧に記録し、judgeRookieForPlayer がルーキーから外す（215-8章）。NCAA（大学）の経験は「海外リーグ」に数えない（確定）
 //  - インジュアリーリスト: 2025年1月より前は判定できない
 //  - 現行の規程を全シーズンに当てはめる（過去の規程の版は見ていない）
 //  - 履歴・登録区分・（延長の判定で必要なときの）生年月日が読めていない選手は「判定不能」とし、対象から外す（ルーキーとはみなさない）。読めた次の集計から、判定に戻る
 
 import type { ClubHistoryEntry } from "./types.ts";
 import { isUnderExtensionAge } from "./rookieAge.ts";
+import { rookieOverseasException } from "./rookieOverseasExceptions.ts";
 
 /** 最初のベンチ入りが、クラブの開幕から何試合目以内なら「1シーズンのすべてにわたり登録」とみなすか */
 export const OPENING_REGISTRATION_MAX_GAME = 3;
@@ -63,6 +65,8 @@ export type RookieJudgement =
   | { status: "not-applicable"; reason: "not-japanese" | "first-season-2016-17" | "no-registration" }
   /** 履歴によると、B1より前にB2・B3で先に登録されていた（初めての登録ではない。延長を確かめられないので、B1ではルーキーとしない） */
   | { status: "registered-earlier"; firstHistorySeason: string }
+  /** 海外のプロ経験が確認できた選手（例外の一覧）。ルーキーから外す（初めての登録のシーズンも延長も） */
+  | { status: "overseas-experience"; league: string }
   /** 判定に必要な情報が足りない。対象から外す（ルーキーとはみなさない） */
   | { status: "undeterminable"; reason: "no-classification" | "no-birth-date" | "no-history" | "history-lacks-first-season" };
 
@@ -108,4 +112,11 @@ export function judgeRookie(input: RookieInput): RookieJudgement {
     if (registered.has(cur)) seasons.push(cur);
   }
   return { status: "judged", seasons, extendedSeasons: seasons.slice(1) };
+}
+
+/** 選手IDつきの判定。海外のプロ経験が確認できた選手（shared/rookieOverseasExceptions.ts）は、履歴にかかわらずルーキーから外す */
+export function judgeRookieForPlayer(playerId: string, input: RookieInput): RookieJudgement {
+  const overseas = rookieOverseasException(playerId);
+  if (overseas) return { status: "overseas-experience", league: overseas.league };
+  return judgeRookie(input);
 }

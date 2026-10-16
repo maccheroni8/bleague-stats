@@ -8,7 +8,7 @@
 import path from "node:path";
 import { DATA_DIR, writeJsonIfChanged } from "./lib/storage.ts";
 import { loadRookieInputs } from "./lib/rookieInputs.ts";
-import { judgeRookie } from "../shared/rookieEligibility.ts";
+import { judgeRookieForPlayer } from "../shared/rookieEligibility.ts";
 import type { RookieEligibilityFile } from "../shared/types.ts";
 
 async function main(): Promise<void> {
@@ -16,7 +16,7 @@ async function main(): Promise<void> {
   const bySeason = new Map<string, string[]>();
   const undeterminable: Record<string, string> = {};
   for (const [playerId, input] of [...players].sort(([a], [b]) => a.localeCompare(b))) {
-    const j = judgeRookie(input);
+    const j = judgeRookieForPlayer(playerId, input);
     if (j.status === "undeterminable") undeterminable[playerId] = j.reason;
     if (j.status !== "judged") continue;
     for (const season of j.seasons) (bySeason.get(season) ?? bySeason.set(season, []).get(season)!).push(playerId);
