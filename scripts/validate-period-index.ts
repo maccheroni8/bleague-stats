@@ -14,6 +14,8 @@
 //  9. チームの追加の列（256章の段階1）: 区間（1Q〜4Q＋延長）の合計が、チームの試合ログ（team-games）の同じ項目と全試合で一致する。人数別の在コート秒数（oc0〜oc4）の
 //     区間の合計が、試合ログの foreignCourtSeconds と一致し（無い試合はすべての区間で -1）、試合ログの自チーム・相手の値が、相手の試合ログと食い違わない。
 //     レギュラーシーズンの試合ログの合計が teams.json の foreignPlayerCourtSeconds（On-Court Foreign）と一致する。2016-17〜2019-20 の延長の秒数の合計が延長の長さになる
+// 10. 人数別の得点・失点・攻撃回数（256章の段階3の作り直しの回）: 試合全体（all）の秒数＝試合ログ、区間の合計＝試合全体（特別な試合を除く）、
+//     チームのシーズンの合計＝よく使われるラインナップを人数ごとに足した値、攻撃回数は 2020-21 以降だけ
 //  7. 感度: 値を1か所壊すと食い違いとして検出される
 //  8. 読む側（1試合記録の集計 queryPlayerGameRecords に区間を渡した結果）: 全区間（1Q〜4Q・前半・後半・延長）×すべての個数の項目の1位（値と同率の行数）が、試合の生データから別に数えた最大値と一致する。
 //     勝った試合・3PM 3以上の条件つきの前半の得点の1位も一致する。画面の確認に使う3つの例（1Qの最多得点・前半の最多3P・延長の最多得点。データが増えると変わるので、値を出力するだけ）
@@ -31,6 +33,8 @@ import {
   TEAM_PERIOD_COUNT_COLUMNS,
   TEAM_PERIOD_EXTRA_COLUMNS,
   TEAM_PERIOD_FOREIGN_COLUMNS,
+  TEAM_PERIOD_FOREIGN_DETAIL_COLUMNS,
+  TEAM_PERIOD_WHOLE_GAME_KEY,
   type PeriodAtom,
   type PeriodPossKey,
   type PlayerPeriodIndexFile,
@@ -39,7 +43,9 @@ import {
 } from "../shared/periodIndex.ts";
 import { GAME_FLAG_SHORT, PLAYER_INDEX_STAT_COLUMNS, ROW_FLAG_HOME, ROW_FLAG_STARTER, type PlayerGameIndexFile, type TeamGameIndexFile } from "../shared/gameIndex.ts";
 import { gamePeriodScores, overtimeCount } from "../shared/gamePeriods.ts";
-import type { StoredGame, TeamGameLog, TeamSummary } from "../shared/types.ts";
+import type { PlayerSummary, SeasonRules, StoredGame, TeamGameLog, TeamLineupsFile, TeamSummary } from "../shared/types.ts";
+import { foreignCountBucket } from "../src/lib/gameLineups";
+import { foreignCountInLineup } from "../shared/foreignOnCourt.ts";
 import { DEFAULT_GAME_RECORD_CONDITIONS } from "../src/lib/gameRecordConditions";
 import { PLAYER_STAT_CONDITION_ITEMS, playerQueryStats, queryPlayerGameRecords } from "../src/lib/gameRecordQuery";
 import { viewPlayerGameIndex } from "../src/lib/gameIndex";
@@ -748,6 +754,103 @@ async function checkTeamExtras(d: SeasonData): Promise<void> {
   ok(`${season} レギュラーシーズンの試合ログの合計 = teams.json の On-Court Foreign（${teams.length}チーム）`, seasonNg === 0, `${seasonNg}`);
 }
 
+/**
+ * 10. 人数別の得点・失点・攻撃回数（256章の段階3の作り直しの回）: 試合全体（all）の秒数が試合ログと一致し、特別な試合以外は区間の合計が試合全体と一致する。
+ * チームのシーズンの試合全体の合計が、よく使われるラインナップ（lineups）を人数ごとに足した値（チーム詳細のオンザコート別の合計）と一致する。
+ * 攻撃回数は 2020-21 以降だけ値があり、2019-20 以前は -1
+ */
+async function checkForeignDetail(d: SeasonData): Promise<void> {
+  const { season, team, teamIndex } = d;
+  const dir = path.join(DATA_DIR, season);
+  const teams = (await readJson<TeamSummary[]>(path.join(dir, "teams.json"))) ?? [];
+  const players = (await readJson<PlayerSummary[]>(path.join(dir, "players.json"))) ?? [];
+  const classification = new Map(players.map((p) => [p.playerId, p.classification]));
+  const rules = (await readJson<SeasonRules[]>(path.join(DATA_DIR, "season-rules.json"))) ?? [];
+  const max = rules.find((r) => r.season === season)?.maxForeignOnCourt ?? 4;
+  const modern = Number(season.slice(0, 4)) >= 2020;
+  const teamOfRow = new Map<number, string>();
+  const logOfRow = new Map<number, TeamGameLog>();
+  const gameNumber = new Map(teamIndex.games.key.map((k, i) => [k, i]));
+  for (const t of teams) {
+    for (const g of (await readJson<TeamGameLog[]>(path.join(dir, "team-games", `${t.teamId}.json`))) ?? []) {
+      const gi = gameNumber.get(g.scheduleKey);
+      if (gi === undefined) continue;
+      teamOfRow.set(gi * 2 + (g.isHome ? 0 : 1), t.teamId);
+      logOfRow.set(gi * 2 + (g.isHome ? 0 : 1), g);
+    }
+  }
+  const all = (c: string, r: number) => team.rows.counts[`${TEAM_PERIOD_WHOLE_GAME_KEY}.${c}`]?.[r] ?? Number.NaN;
+  let wholeNg = 0;
+  let sumNg = 0;
+  let possNg = 0;
+  let first = "";
+  const seasonSum = new Map<string, Record<string, number>>();
+  for (const [r, teamId] of teamOfRow) {
+    const log = logOfRow.get(r)!;
+    const gi = Math.floor(r / 2);
+    const short = (teamIndex.games.flags[gi]! & GAME_FLAG_SHORT) !== 0;
+    const seconds = TEAM_PERIOD_FOREIGN_COLUMNS.map((c) => all(c, r));
+    const expectSeconds = log.foreignCourtSeconds ?? [-1, -1, -1, -1, -1];
+    if (seconds.some((v, i) => v !== expectSeconds[i])) {
+      wholeNg += 1;
+      if (!first) first = `${season} ${log.scheduleKey} ${teamId} 試合全体の秒数 ${JSON.stringify(seconds)} ≠ ${JSON.stringify(expectSeconds)}`;
+    }
+    if (!log.foreignCourtSeconds) continue;
+    for (const c of [...TEAM_PERIOD_FOREIGN_COLUMNS, ...TEAM_PERIOD_FOREIGN_DETAIL_COLUMNS]) {
+      const whole = all(c, r);
+      const isPoss = c.endsWith("Poss");
+      if (isPoss && (modern ? whole < 0 : whole !== -1)) possNg += 1;
+      if (!short && !(isPoss && !modern)) {
+        const sum = PERIOD_ATOMS.reduce((a, at) => a + Math.max(0, team.rows.counts[`${at}.${c}`]?.[r] ?? Number.NaN), 0);
+        if (Math.abs(sum - whole) > 1e-9) {
+          sumNg += 1;
+          if (!first) first = `${season} ${log.scheduleKey} ${teamId} ${c} 区間の合計 ${sum} ≠ 試合全体 ${whole}`;
+        }
+      }
+      const acc = seasonSum.get(teamId) ?? {};
+      acc[c] = (acc[c] ?? 0) + Math.max(0, whole);
+      seasonSum.set(teamId, acc);
+    }
+  }
+  // チームのシーズンの合計 = よく使われるラインナップを人数ごとに足した値
+  let lineupNg = 0;
+  let lineupTeams = 0;
+  for (const t of teams) {
+    const file = await readJson<TeamLineupsFile>(path.join(dir, "lineups", `${t.teamId}.json`));
+    const got = seasonSum.get(t.teamId);
+    if (!file || !got) continue;
+    lineupTeams += 1;
+    const expect: Record<string, number> = {};
+    for (const l of file.lineups) {
+      const n = foreignCountBucket(foreignCountInLineup(l.playerIds, (id) => classification.get(id)), max);
+      if (n === null) continue;
+      const add = (k: string, v: number) => (expect[k] = (expect[k] ?? 0) + v);
+      add(`oc${n}`, l.secondsPlayed);
+      add(`oc${n}Pts`, l.ownPoints);
+      add(`oc${n}OppPts`, l.oppPoints);
+      if (modern) {
+        add(`oc${n}Poss`, l.ownPoss ?? Number.NaN);
+        add(`oc${n}OppPoss`, l.oppPoss ?? Number.NaN);
+      }
+    }
+    for (const c of [...TEAM_PERIOD_FOREIGN_COLUMNS, ...TEAM_PERIOD_FOREIGN_DETAIL_COLUMNS]) {
+      if (c.endsWith("Poss") && !modern) continue;
+      if (Math.abs((got[c] ?? 0) - (expect[c] ?? 0)) > 1e-6) {
+        lineupNg += 1;
+        if (!first) first = `${season} ${t.teamId} ${c} 索引 ${got[c]} ≠ ラインナップ ${expect[c] ?? 0}`;
+      }
+    }
+  }
+  if (capture) {
+    ok("", wholeNg === 0 && sumNg === 0 && possNg === 0 && lineupNg === 0);
+    return;
+  }
+  ok(`${season} 人数別の秒数（試合全体）= 試合ログ（${teamOfRow.size}行）`, wholeNg === 0, `${wholeNg} ${first}`);
+  ok(`${season} 人数別の得点・失点・攻撃回数・秒数の区間の合計 = 試合全体（特別な試合を除く）`, sumNg === 0, `${sumNg} ${first}`);
+  ok(`${season} 攻撃回数の列は${modern ? "値がある" : "すべて -1"}`, possNg === 0, `${possNg}`);
+  ok(`${season} チームのシーズンの人数別の合計 = よく使われるラインナップを人数ごとに足した値（${lineupTeams}チーム）`, lineupNg === 0, `${lineupNg} ${first}`);
+}
+
 async function main(): Promise<void> {
   const t0 = Date.now();
   for (const season of SEASONS) {
@@ -763,6 +866,7 @@ async function main(): Promise<void> {
     checkShape(d);
     await checkValues(d, allGames);
     if (!capture) await checkTeamExtras(d);
+    if (!capture) await checkForeignDetail(d);
     // 7. 感度: 索引を1か所壊すと、食い違いとして検出される（小さいシーズンで、選手の得点・チームのポゼッションを1か所ずつ壊す）
     if (season === (onlySeason ?? "2026-27")) {
       const brokenPlayer = { ...d, player: { ...d.player, rows: { ...d.player.rows, stats: { ...d.player.rows.stats, pts: d.player.rows.stats.pts.map((v, i) => (i === 100 ? v + 1 : v)) } } } };
@@ -775,12 +879,12 @@ async function main(): Promise<void> {
         ok(`${season} 感度: ${name}を1か所壊すと食い違いとして検出される（${detected}項目がNG）`, detected > 0);
       }
       // 追加の列（9）も、1か所壊すと検出される（値が 0 以上のマスを選ぶ）
-      for (const col of ["q1.pt2in", "q2.oc2"]) {
+      for (const col of ["q1.pt2in", "q2.oc2", "q3.oc2Pts", "all.oc2OppPts"]) {
         const values = d.team.rows.counts[col]!;
         const at = values.findIndex((v) => v > 0);
         const brokenExtra = { ...d, team: { ...d.team, rows: { ...d.team.rows, counts: { ...d.team.rows.counts, [col]: values.map((v, i) => (i === at ? v + 1 : v)) } } } };
         capture = { ng: 0 };
-        await checkTeamExtras(brokenExtra);
+        await (col.endsWith("Pts") ? checkForeignDetail(brokenExtra) : checkTeamExtras(brokenExtra));
         const detected = capture.ng;
         capture = null;
         ok(`${season} 感度: チームの ${col} を1か所壊すと食い違いとして検出される（${detected}項目がNG）`, detected > 0);

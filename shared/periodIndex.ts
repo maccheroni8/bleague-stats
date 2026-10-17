@@ -134,6 +134,26 @@ export const TEAM_PERIOD_FOREIGN_COLUMNS = ["oc0", "oc1", "oc2", "oc3", "oc4"] a
 export type TeamPeriodForeignColumn = (typeof TEAM_PERIOD_FOREIGN_COLUMNS)[number];
 
 /**
+ * 人数（0〜4人）ごとの、その人数の5人組がコートにいた間の得点・失点・攻撃回数の列（256章の段階3の作り直しの回。2026-10-17）。
+ * 「oc{n}Pts」自チームの得点・「oc{n}OppPts」相手の得点・「oc{n}Poss」自チームの攻撃回数・「oc{n}OppPoss」相手の攻撃回数。
+ * 数え方は、よく使われるラインナップ（data/{season}/lineups）と同じ（区間の長さによらず足し、得点イベントのピリオドで区間に振り分ける）。
+ * 攻撃回数は 2020-21 以降だけ（2019-20 以前は -1）。人数別の秒数（TEAM_PERIOD_FOREIGN_COLUMNS）と同じく、数えられる5人組が無いチームは全区間 -1。古い索引には無い
+ */
+export const TEAM_PERIOD_FOREIGN_DETAIL_COLUMNS = [
+  ...[0, 1, 2, 3, 4].map((n) => `oc${n}Pts`),
+  ...[0, 1, 2, 3, 4].map((n) => `oc${n}OppPts`),
+  ...[0, 1, 2, 3, 4].map((n) => `oc${n}Poss`),
+  ...[0, 1, 2, 3, 4].map((n) => `oc${n}OppPoss`),
+] as const;
+
+/**
+ * 試合全体の値を持つキー（「all.列」）。人数別の列（TEAM_PERIOD_FOREIGN_COLUMNS・TEAM_PERIOD_FOREIGN_DETAIL_COLUMNS）だけを持つ。
+ * 前後半5分の特別な試合は1Q〜4Qを持たない（-1）ので、試合全体の値は区間の合計では出せない。そのためすべての試合で試合全体の値を別に持つ
+ * （特別な試合以外では、1Q〜4Q＋延長の合計と一致する。validate-period-index が確かめる）。古い索引には無い
+ */
+export const TEAM_PERIOD_WHOLE_GAME_KEY = "all";
+
+/**
  * 選手のピリオド別の索引。同じシーズンの player-game-index.json の行（番号 row）に、区間ごとの値を結び付ける。
  * 行は (row, period) の昇順。その区間に出た（出場時間が0より長い、または何か記録のある）行だけを持つ。前後半5分の特別な試合の行は持たない
  */
@@ -156,7 +176,8 @@ export interface PlayerPeriodIndexFile {
 /**
  * チームのピリオド別の索引。行の位置は team-game-index.json と同じ（試合番号×2＋(ホーム 0／アウェイ 1)）。
  * 値が無い区間（前後半5分の特別な試合の1Q〜4Q・前半・後半、延長の無い試合の延長）は -1。
- * counts のキーは「区間.列」（例: "q1.pts"）。列は TEAM_PERIOD_COUNT_COLUMNS・TEAM_PERIOD_EXTRA_COLUMNS・TEAM_PERIOD_FOREIGN_COLUMNS（後の2つは 2026-10-17 から）。poss は PERIOD_POSS_KEYS ごとのポゼッション（足し算にならないので前半・後半も別に持つ。小数のまま）
+ * counts のキーは「区間.列」（例: "q1.pts"）。列は TEAM_PERIOD_COUNT_COLUMNS・TEAM_PERIOD_EXTRA_COLUMNS・TEAM_PERIOD_FOREIGN_COLUMNS・TEAM_PERIOD_FOREIGN_DETAIL_COLUMNS（後の3つは 2026-10-17 から）。
+ * 人数別の列は、試合全体の値も「all.列」（TEAM_PERIOD_WHOLE_GAME_KEY）で持つ。poss は PERIOD_POSS_KEYS ごとのポゼッション（足し算にならないので前半・後半も別に持つ。小数のまま）
  */
 export interface TeamPeriodIndexFile {
   version: typeof PERIOD_INDEX_VERSION;

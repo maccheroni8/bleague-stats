@@ -119,36 +119,75 @@ export function foreignCourtSecondsArray(buckets: Map<number, number> | undefine
   return out;
 }
 
+/** 人数（0〜4人）ごとの、1つのピリオドの在コートの値（並びはどれも [0人, 1人, 2人, 3人, 4人]） */
+export interface ForeignPeriodTotals {
+  seconds: number[];
+  /** その人数の5人組がコートにいた間の自チームの得点・相手の得点 */
+  ownPoints: number[];
+  oppPoints: number[];
+  /** その人数の5人組がコートにいた間の自チームの攻撃回数・相手の攻撃回数。数え上げの無い試合（2019-20以前）は null */
+  ownPoss: number[] | null;
+  oppPoss: number[] | null;
+}
+
+function emptyForeignPeriodTotals(withPoss: boolean): ForeignPeriodTotals {
+  const z = () => [0, 0, 0, 0, 0];
+  return { seconds: z(), ownPoints: z(), oppPoints: z(), ownPoss: withPoss ? z() : null, oppPoss: withPoss ? z() : null };
+}
+
 /**
- * 人数別の在コート秒数を、ピリオドごとに分ける（ピリオド別の索引用。DESIGN.md 256章）。区間の数え方（区分不明・規定の最大人数を超える5人組は外す、
- * 長さが0以下の区間は飛ばす）は computeForeignPlayerCourtSeconds と同じで、ピリオドの切れ目をまたぐ区間は切れ目で分ける。
- * 返すのは チーム → ピリオド番号 → 0〜4人の秒数（5人は4人にまとめる）。チームの区間が1つも数えられなかったチームは含めない
- * （全ピリオドの合計は、computeForeignPlayerCourtSeconds を foreignCourtSecondsArray にした値と一致する）
+ * 人数別の在コートの値を、ピリオドごとに分ける（ピリオド別の索引。DESIGN.md 256章）。区間の数え方（区分不明・規定の最大人数を超える5人組は外す）は
+ * computeForeignPlayerCourtSeconds と同じ。秒数は長さが0以下の区間を飛ばし、ピリオドの切れ目をまたぐ区間は切れ目で分ける。
+ * 得点・攻撃回数は、よく使われるラインナップ（scripts/aggregate.ts の processLineups）と同じく区間の長さによらず足し、区間の得点イベントのピリオド
+ * （pointsByPeriod・countsByPeriod）で振り分ける。返すのは チーム → ピリオド番号 → 値（5人は4人にまとめる）。
+ * 長さが0より長い数えられる区間が1つも無いチームは含めない（computeForeignPlayerCourtSeconds と同じ。全ピリオドの秒数の合計は、
+ * computeForeignPlayerCourtSeconds を foreignCourtSecondsArray にした値と一致する）
  */
-export function foreignCourtSecondsByPeriod(
+export function foreignCourtByPeriod(
   lineupStints: readonly LineupStint[],
   classify: ClassificationLookup,
   maxOnCourt: number | undefined,
   periodRange: (period: number) => [number, number],
   totalPeriods: number,
-): Map<string, Map<number, number[]>> {
-  const result = new Map<string, Map<number, number[]>>();
+): Map<string, Map<number, ForeignPeriodTotals>> {
+  const result = new Map<string, Map<number, ForeignPeriodTotals>>();
+  const counted = new Set<string>();
   for (const stint of lineupStints) {
-    if (stint.endSec - stint.startSec <= 0) continue;
     const foreignCount = foreignCountInLineup(stint.playerIds, classify);
     if (foreignCount === null) continue;
     if (maxOnCourt !== undefined && foreignCount > maxOnCourt) continue;
     const bucket = Math.min(foreignCount, 4);
+    const withPoss = stint.countsByPeriod !== undefined;
     let byPeriod = result.get(stint.teamId);
     if (!byPeriod) result.set(stint.teamId, (byPeriod = new Map()));
-    for (let period = 1; period <= totalPeriods; period++) {
-      const [ps, pe] = periodRange(period);
-      const seconds = Math.min(pe, stint.endSec) - Math.max(ps, stint.startSec);
-      if (seconds <= 0) continue;
-      let arr = byPeriod.get(period);
-      if (!arr) byPeriod.set(period, (arr = [0, 0, 0, 0, 0]));
-      arr[bucket] = arr[bucket]! + seconds;
+    const at = (period: number): ForeignPeriodTotals => {
+      let t = byPeriod!.get(period);
+      if (!t) byPeriod!.set(period, (t = emptyForeignPeriodTotals(withPoss)));
+      return t;
+    };
+    if (stint.endSec - stint.startSec > 0) {
+      counted.add(stint.teamId);
+      for (let period = 1; period <= totalPeriods; period++) {
+        const [ps, pe] = periodRange(period);
+        const seconds = Math.min(pe, stint.endSec) - Math.max(ps, stint.startSec);
+        if (seconds <= 0) continue;
+        const t = at(period);
+        t.seconds[bucket] = t.seconds[bucket]! + seconds;
+      }
+    }
+    for (const [period, pts] of Object.entries(stint.pointsByPeriod)) {
+      if (pts.own === 0 && pts.opp === 0) continue;
+      const t = at(Number(period));
+      t.ownPoints[bucket] = t.ownPoints[bucket]! + pts.own;
+      t.oppPoints[bucket] = t.oppPoints[bucket]! + pts.opp;
+    }
+    for (const [period, pair] of Object.entries(stint.countsByPeriod ?? {})) {
+      const t = at(Number(period));
+      if (!t.ownPoss || !t.oppPoss) continue;
+      t.ownPoss[bucket] = t.ownPoss[bucket]! + pair.own.poss;
+      t.oppPoss[bucket] = t.oppPoss[bucket]! + pair.opp.poss;
     }
   }
+  for (const teamId of [...result.keys()]) if (!counted.has(teamId)) result.delete(teamId);
   return result;
 }
