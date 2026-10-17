@@ -36,9 +36,9 @@ interface GameLineupTableProps {
 
 /**
  * 人数に応じた行の塗り: 4はチームカラーを背景に混ぜて塗る、3はその半分の濃さ、2以下は塗らない（DESIGN.md 142章）。
- * 区分不明（null）と、そのシーズンの上限を超える人数（公式記録の取り違え等で集計外に入る組）は塗らない
+ * 区分不明（null）と、そのシーズンの上限を超える人数（公式記録の取り違え等で集計外に入る組）は塗らない。チーム詳細の「よく使われるラインナップ」でも使う
  */
-function highlightStrength(count: number | null, maxOnCourt: number | undefined): "full" | "half" | undefined {
+export function highlightStrength(count: number | null, maxOnCourt: number | undefined): "full" | "half" | undefined {
   if (count === null || (maxOnCourt !== undefined && count > maxOnCourt)) return undefined;
   if (count >= 4) return "full";
   if (count === 3) return "half";

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { EMPTY_TEAM_SEASON_MISC, sumTeamSeasonMisc, type TeamSeasonMiscTotals } from "../../shared/teamSeasonMisc";
@@ -87,6 +87,9 @@ import { resultOnlyCompareNote, resultOnlyReasonLabel } from "../lib/resultOnlyG
 import { MIN_LINEUP_AVG_SECONDS, MIN_LINEUP_GAME_SHARE } from "../lib/tableThresholds";
 import { ESTIMATED_RATING_NOTE, lineupRatingsOf, lineupsHaveRealPossessions } from "../lib/lineupRatings";
 import { LineupSearch } from "../components/LineupSearch";
+import { highlightStrength } from "../components/GameLineupTable";
+import { TeamLineupOnCourtSummary } from "../components/TeamLineupOnCourtSummary";
+import { lineupBucket, lineupForeignCount, lineupSeasonTotals, seasonOnCourtSummary } from "../lib/teamLineupOnCourt";
 import { substitutionModelForSeason } from "../../shared/onCourt";
 import {
   buildBackToBackStatus,
@@ -2138,9 +2141,16 @@ export function TeamDetailPage({ season }: { season: string }) {
   // On-Court Foreign・Scoring % のシーズン別推移（DESIGN.md 141章）: 規定の上限人数
   const seasonShareTab = seasonBoxTab === "foreignPlayers" || seasonBoxTab === "scoringComposition";
   const { data: seasonRulesForTrend } = useJsonData(
-    () => (seasonShareTab ? fetchSeasonRules() : Promise.resolve(null)),
-    [seasonShareTab],
+    () => (seasonShareTab || tab === "lineups" ? fetchSeasonRules() : Promise.resolve(null)),
+    [seasonShareTab || tab === "lineups"],
   );
+  // よく使われるラインナップのオンザコート別の合計で選んだ行（人数、集計外は null、未選択は undefined）。一覧をその人数の組だけに絞る
+  // 選んだときのチーム・シーズンも持ち、別のチーム・シーズンに移ったら（同じ画面のまま切り替わっても）絞り込みを外す
+  const [lineupOcFilterState, setLineupOcFilterState] = usePageState<{ teamId: string; season: string; count: number | null } | null>(pk("lineupOcFilter"), null);
+  const lineupOcFilter =
+    lineupOcFilterState && lineupOcFilterState.teamId === teamId && lineupOcFilterState.season === season ? lineupOcFilterState.count : undefined;
+  const setLineupOcFilter = (count: number | null | undefined) =>
+    setLineupOcFilterState(count === undefined || !teamId ? null : { teamId, season, count });
 
   // 「通算成績」タブ（Phase TF）: 個人詳細ページのcareerDataと同じパターンで、このチームが
   // 存在する全シーズン分のTeamGameLogをタブを開いたときだけ遅延取得する
@@ -3348,9 +3358,25 @@ export function TeamDetailPage({ season }: { season: string }) {
   const eligibleLineups = allLineups.filter(
     (l) => l.gamesPlayed > 0 && l.secondsPlayed / l.gamesPlayed >= MIN_LINEUP_AVG_SECONDS && l.gamesPlayed >= MIN_LINEUP_GAME_SHARE * lineupTeamGames,
   );
-  const displayedLineups = lineupsExpanded ? allLineups : eligibleLineups;
   // 実際のポゼッションで計算できるシーズン（2020-21以降）は「推定」を付けず、できないシーズンは推定値と分かるようにする（DESIGN.md 207章）
   const lineupRatingsReal = lineupsHaveRealPossessions(allLineups);
+  // オンザコート（5人のうち外国籍・帰化・アジアの選手の人数）。試合詳細のラインナップ別成績と同じ数え方で、区分はシーズンの選手一覧から引く
+  const classificationById = new Map((players ?? []).map((p) => [p.playerId, p.classification] as const));
+  const classifyLineupPlayer = (id: string) => classificationById.get(id);
+  const lineupMaxForeign = seasonRulesForTrend?.find((r) => r.season === season)?.maxForeignOnCourt;
+  const lineupOcTotals = lineupSeasonTotals(gameLogs ?? []);
+  const lineupOcSummary =
+    lineupMaxForeign === undefined || allLineups.length === 0
+      ? null
+      : seasonOnCourtSummary(allLineups, classifyLineupPlayer, lineupMaxForeign, lineupOcTotals, team ? { teamPoss: team.advanced.poss, teamMin: team.totals.min } : null);
+  const activeLineupOc = lineupMaxForeign === undefined ? undefined : lineupOcFilter;
+  const ocFilteredLineups = (list: typeof allLineups) =>
+    activeLineupOc === undefined ? list : list.filter((l) => lineupBucket(l, classifyLineupPlayer, lineupMaxForeign!) === activeLineupOc);
+  // OC で絞ったときは、見出しのパターン数・「全パターンを表示」の数も、その人数の組だけで数える
+  const ocAllLineups = ocFilteredLineups(allLineups);
+  const ocEligibleLineups = ocFilteredLineups(eligibleLineups);
+  const displayedLineups = lineupsExpanded ? ocAllLineups : ocEligibleLineups;
+  const lineupOcLabel = activeLineupOc === undefined ? null : activeLineupOc === null ? "集計外" : `OC ${activeLineupOc}`;
 
   const topAssistPairs = teamAssistPairs.slice(0, MAX_ASSIST_PAIR_ROWS);
   const displayedAssistPairs = assistPairsExpanded ? teamAssistPairs : topAssistPairs;
@@ -4691,12 +4717,13 @@ export function TeamDetailPage({ season }: { season: string }) {
       {tab === "lineups" && (
         <div className="team-tab-panel">
           <ConditionTitle
-            title={`よく使われるラインナップ ${eligibleLineups.length}パターン（全${allLineups.length}パターン中）`}
+            title={`よく使われるラインナップ ${ocEligibleLineups.length}パターン（全${ocAllLineups.length}パターン中）`}
             conditions={composeLabels(
               seasonLabel,
               gameTypeLabels("both", season),
               `使われた試合の平均${MIN_LINEUP_AVG_SECONDS}秒以上`,
               `使われた試合数がチームの${Math.round(MIN_LINEUP_GAME_SHARE * 100)}%以上`,
+              lineupOcLabel ? `${lineupOcLabel}の組み合わせ` : null,
             )}
           />
           {coverageLoading ? (
@@ -4705,12 +4732,40 @@ export function TeamDetailPage({ season }: { season: string }) {
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : allLineups.length === 0 ? (
             <p className="empty-message">ラインナップデータがありません</p>
-          ) : displayedLineups.length === 0 ? (
+          ) : (
             <>
-              <p className="empty-message">条件を満たす組み合わせがまだありません（試合数が増えると表示されます）</p>
-              <button className="load-more-button" type="button" onClick={() => setLineupsExpanded(true)}>
-                {`全パターンを表示（全${allLineups.length}パターン）`}
-              </button>
+              {lineupOcSummary && (
+                <>
+                  <h4 className="lineup-oc-heading">オンザコート別の合計（レギュラーシーズン＋ポストシーズン）</h4>
+                  <TeamLineupOnCourtSummary
+                    rows={lineupOcSummary.rows}
+                    totals={lineupOcTotals}
+                    real={lineupOcSummary.real}
+                    color={accentColor ?? "var(--accent)"}
+                    selected={activeLineupOc}
+                    onSelect={(c) => setLineupOcFilter(activeLineupOc === c ? undefined : c)}
+                  />
+                  {!lineupOcSummary.real && <p className="rule-change-footnote">※ ORtg・DRtg・NetRtg は、{ESTIMATED_RATING_NOTE}（チームのシーズン平均のペースで時間から按分）</p>}
+                </>
+              )}
+              {lineupOcLabel && (
+                <p className="game-oc-filter-note">
+                  {lineupOcLabel}の組み合わせだけを表示しています
+                  <button type="button" onClick={() => setLineupOcFilter(undefined)}>
+                    すべて表示
+                  </button>
+                </p>
+              )}
+          {displayedLineups.length === 0 ? (
+            <>
+              <p className="empty-message">
+                {lineupOcLabel ? "条件を満たす組み合わせはありません" : "条件を満たす組み合わせがまだありません（試合数が増えると表示されます）"}
+              </p>
+              {!lineupsExpanded && ocAllLineups.length > 0 && (
+                <button className="load-more-button" type="button" onClick={() => setLineupsExpanded(true)}>
+                  {`全パターンを表示（全${ocAllLineups.length}パターン）`}
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -4718,6 +4773,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 <table className="sortable-table">
                   <thead>
                     <tr>
+                      <th className="align-left" title={statDescription("OC", "team")}>OC</th>
                       <th className="align-left">5人の組み合わせ</th>
                       <th className="align-right" title={statDescription("試合数")}>試合数</th>
                       <th className="align-right" title={statDescription("出場時間")}>出場時間</th>
@@ -4736,8 +4792,16 @@ export function TeamDetailPage({ season }: { season: string }) {
                   <tbody>
                     {displayedLineups.map((l) => {
                       const ratings = lineupRatingsOf(l);
+                      const oc = lineupForeignCount(l, classifyLineupPlayer);
+                      // 試合詳細のラインナップ別成績と同じ塗り（4人はチームカラー、3人はその半分の濃さ）
+                      const strength = highlightStrength(oc, lineupMaxForeign);
                       return (
-                      <tr key={l.lineupKey}>
+                      <tr
+                        key={l.lineupKey}
+                        className={[strength ? "row-highlight" : "", strength === "half" ? "row-highlight-half" : ""].filter(Boolean).join(" ") || undefined}
+                        style={strength ? ({ "--row-highlight-color": accentColor ?? "var(--accent)" } as CSSProperties) : undefined}
+                      >
+                        <td className="align-left">{oc === null ? "−" : oc}</td>
                         <td className="align-left">{l.playerIds.map((id) => playerLabel(playerNameById.get(id) ?? id)).join(" / ")}</td>
                         <td className="align-right">{l.gamesPlayed}</td>
                         <td className="align-right">{formatMinutesColon(l.secondsPlayed / 60)}</td>
@@ -4759,11 +4823,13 @@ export function TeamDetailPage({ season }: { season: string }) {
                 </table>
               </div>
               {!lineupRatingsReal && <p className="rule-change-footnote">※ {ESTIMATED_RATING_NOTE}</p>}
-              {allLineups.length > eligibleLineups.length && (
+              {ocAllLineups.length > ocEligibleLineups.length && (
                 <button className="load-more-button" type="button" onClick={() => setLineupsExpanded((v) => !v)}>
-                  {lineupsExpanded ? "条件を満たすパターンだけを表示" : `全パターンを表示（全${allLineups.length}パターン）`}
+                  {lineupsExpanded ? "条件を満たすパターンだけを表示" : `全パターンを表示（全${ocAllLineups.length}パターン）`}
                 </button>
               )}
+            </>
+          )}
               <GlossaryNote anchor={GLOSSARY_ANCHORS.teamLineups} label="よく使われるラインナップ" />
             </>
           )}

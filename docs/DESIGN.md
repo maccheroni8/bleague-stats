@@ -14012,3 +14012,26 @@ Codex が作った仕組み（作業の記録は `docs/PUBLIC_SEASON_MEDIA.md`�
 - `node --experimental-strip-types --test scripts/validate-media.test.ts scripts/public-media.test.ts`（架空のIDと対応表だけ）。
 - ブラウザ: `node --experimental-strip-types scripts/validate-public-media-browser.mjs`（`--real`・`--trial`〔一時フォルダの自作TEST画像で切り替え・404・通信失敗〕・`--main-regression`・`--baseline`・`--mobile`）。PNG の比較は `scripts/compare-public-media-png.mjs`・`compare-public-media-trial-png.mjs`。
 - Codex の結果（統合前）: 写真の差し替えた範囲の外は保存画像が全画素一致、ランキング・比較の保存画像も一致、1280px・375px。iPhone 実機は未確認。
+
+## 258. よく使われるラインナップのオンザコート（OC 列・OC での絞り込み・オンザコート別の合計。2026-10-17。**画面だけの変更でキー不変**）
+
+**依頼**: チーム詳細「ラインナップ」タブの「よく使われるラインナップ」に、①5人の組み合わせの左に OC（5人のうち外国籍・帰化・アジアの選手の人数）、②OC での絞り込み、③試合詳細の「オンザコート別の合計」のシーズン版を足す。
+
+### 258-1. 元データと作り方（画面だけ）
+- ラインナップのファイル（`data/{season}/lineups/{teamId}.json`。`scripts/aggregate.ts` の processLineups が、試合ごとの在コートの5人組の区間をシーズン分足したもの。**レギュラーシーズン＋ポストシーズン**）を、そのまま使う。集計は変えない（保存キー不変）。
+- 人数はシーズンの選手一覧（players.json）の登録区分から、試合詳細と同じ関数（`foreignCountInLineup`）で数える。上限はルール（season-rules.json の maxForeignOnCourt）。
+- オンザコート別の合計は試合詳細と同じ関数（`summarizeByForeignCount`）。集計外＝チームの試合時間・得点・失点（試合ログのレギュラー＋ポストシーズンの合計。試合時間は出場時間÷5）から人数別の合計を引いた値。部品は `src/lib/teamLineupOnCourt.ts`・`src/components/TeamLineupOnCourtSummary.tsx`。
+- 項目（決定）: OC・出場時間・得点・失点・得失点・割合（OC0%〜OC4%。人数を数えられた時間に占める割合で集計外を除く）・ORtg・DRtg・NetRtg。
+  ORtg 等は 2020-21 以降は5人組の実際の攻撃回数の合計、2019-20 以前は今のラインナップの表と同じ推定（teams.json の advanced.poss×5×出場分÷チームの出場分）で、見出しに「（推定）」と注記。
+  人数ごとの試合数・1試合平均は出さない（5人組の試合数は足しても試合数にならない）。
+- 「OC0%〜OC4%（オンザコート◯人の割合）」を `statNames.ts` に足した（256-3 の決定6）。時間の「OC0〜OC4」は段階3で足す。
+- 絞り込み: 合計の表の行を押すと、下の一覧（条件を満たす組、または全パターン）をその人数の組だけにする。見出しのパターン数と「全パターンを表示」の数も、その人数の組で数える。選んだ人数はチーム・シーズンごとに持ち、別のチーム・シーズンに移ると外れる。
+- 一覧の行の塗りは試合詳細と同じ（4人はチームカラー、3人はその半分の濃さ。`highlightStrength` を共用）。
+- On-Court Foreign のグラフ（teams.json。レギュラーシーズンだけ）とは時間が少し違う（ポストシーズンを含むため）。用語集に書いた。
+
+### 258-2. 確認
+- 全シーズン・全238チームで: 人数別の時間＝試合ログの `foreignCourtSeconds`（256-6章。レギュラー＋ポストシーズン）の合計に一致、人数別＋集計外の合計＝チームの試合時間・得点・失点、推定の式が lineups の estimatedOffRtg と一致（手元の確認スクリプト。コミットしていない）。
+- ついでに直したもの: クォーター別レコードの「延長 最多得点」などの説明文が出ていなかった（`statDescription` の区間の読み取りに「延長」が無かった。256-6章の追加漏れ）。
+
+### 258-3. あとで（段階3で検討）
+- 2020-21 以降の試合区分・ホーム／アウェイ・Q別（team-stints から画面で出せる）、旧シーズンの絞り込み（試合ごとの OC 別の得点が要るので作り直し）。
