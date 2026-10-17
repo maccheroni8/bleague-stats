@@ -2069,7 +2069,7 @@ function formatTeamPointsExtraColumn(
   return formatTeamPointsCount(result, col, perspective, mode);
 }
 
-/** オンザコート別の合計で、条件の切り替えに要るデータが読めなかったとき（古いデータ）の理由 */
+/** オンザコート別の合計で、条件の切り替えに要るデータが読めなかったとき（古いデータ）の理由。そのときの選択欄は、選んであった値ではなく出している値（合算・試合全体・合計）を見せる */
 const LINEUP_OC_CONDITION_UNAVAILABLE = "このシーズンのデータでは条件を切り替えられません（合算・試合全体・合計だけを出しています）。";
 
 export function TeamDetailPage({ season }: { season: string }) {
@@ -4773,12 +4773,12 @@ export function TeamDetailPage({ season }: { season: string }) {
                     simple
                     stateKey={pk("lineupOcSummaryFilter")}
                     axes={[
-                      gameTypeAxis(lineupOcGameType, setLineupOcGameType, season, { defaultValue: "both", disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE }),
-                      periodAxis(lineupOcPeriod, setLineupOcPeriod, SEASON_PERIOD_OPTIONS, {
+                      gameTypeAxis(lineupOcFromIndex ? lineupOcGameType : "both", setLineupOcGameType, season, { defaultValue: "both", disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE }),
+                      periodAxis(lineupOcFromIndex ? lineupOcPeriod : "all", setLineupOcPeriod, SEASON_PERIOD_OPTIONS, {
                         label: "Q別・前後半・延長",
                         disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE,
                       }),
-                      { ...displayModeAxis(lineupOcDisplay, setLineupOcDisplay, { disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE }), defaultValue: "total" },
+                      { ...displayModeAxis(lineupOcFromIndex ? lineupOcDisplay : "total", setLineupOcDisplay, { disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE }), defaultValue: "total" },
                     ]}
                   />
                   {lineupOcFromIndex && lineupOcFromIndex.games === 0 ? (
