@@ -2171,33 +2171,51 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [careerData, setCareerData] = useState<{ season: string; logs: TeamGameLog[] }[] | null>(null);
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerError, setCareerError] = useState<string | null>(null);
-  const careerFetchStartedRef = useRef(false);
+  // 取得を始めたクラブのteamId（取得前はnull）。/teams/:teamId は同じ部品が使い回されるため、
+  // 「取得済みかどうか」だけでなくどのクラブの分かを持ち、クラブが変わったら読み直す
+  const careerFetchTeamIdRef = useRef<string | null>(null);
   const [careerGameTypeFilter, setCareerGameTypeFilter] = usePageState<SeasonGameTypeFilter>(pk("careerGameTypeFilter"), "regular");
+
+  // 別クラブへ移ったら前のクラブの試合ログを捨てる（残すと通算成績・クラブレコード等に前のクラブの値が出る）
+  useEffect(() => {
+    careerFetchTeamIdRef.current = null;
+    setCareerData(null);
+    setCareerError(null);
+    setCareerLoading(false);
+  }, [teamId]);
 
   useEffect(() => {
     if (
       (tab !== "teamStats" && tab !== "career" && tab !== "clubRecord" && tab !== "compare") ||
       !teamId ||
       !seasons ||
-      careerFetchStartedRef.current
+      careerFetchTeamIdRef.current === teamId
     )
       return;
-    careerFetchStartedRef.current = true;
+    const fetchTeamId = teamId;
+    careerFetchTeamIdRef.current = fetchTeamId;
     setCareerLoading(true);
     setCareerError(null);
     Promise.all(
       seasons.map(async (s) => {
         try {
-          const logs = await fetchTeamGameLogs(s.season, teamId);
+          const logs = await fetchTeamGameLogs(s.season, fetchTeamId);
           return { season: s.season, logs };
         } catch {
           return { season: s.season, logs: [] as TeamGameLog[] };
         }
       }),
     )
-      .then((results) => setCareerData(results.filter((r) => r.logs.length > 0)))
-      .catch(() => setCareerError("通算成績の取得に失敗しました"))
-      .finally(() => setCareerLoading(false));
+      // 取得中に別クラブへ移った場合、前のクラブの結果は捨てる
+      .then((results) => {
+        if (careerFetchTeamIdRef.current === fetchTeamId) setCareerData(results.filter((r) => r.logs.length > 0));
+      })
+      .catch(() => {
+        if (careerFetchTeamIdRef.current === fetchTeamId) setCareerError("通算成績の取得に失敗しました");
+      })
+      .finally(() => {
+        if (careerFetchTeamIdRef.current === fetchTeamId) setCareerLoading(false);
+      });
   }, [tab, teamId, seasons]);
 
   // 「シーズン別成績」Miscタブ用（Phase H3①）。シーズンごとにレギュラーシーズンの
@@ -2810,24 +2828,27 @@ export function TeamDetailPage({ season }: { season: string }) {
 
   // careerLoading/careerDataをdeps配列に含めると自己キャンセルのループになるため
   // （PlayerDetailPageと同じ理由）、fetch開始済みかどうかはrefで管理する
-  const seasonHistoryFetchStartedRef = useRef(false);
+  // 取得を始めたクラブのteamId（careerFetchTeamIdRefと同じ理由で、取得中に別クラブへ移ったときの結果を捨てるのにも使う）
+  const seasonHistoryFetchTeamIdRef = useRef<string | null>(null);
   const [seasonHistory, setSeasonHistory] = useState<SeasonRecord[] | null>(null);
   const [seasonHistoryLoading, setSeasonHistoryLoading] = useState(false);
 
   useEffect(() => {
-    seasonHistoryFetchStartedRef.current = false;
+    seasonHistoryFetchTeamIdRef.current = null;
     setSeasonHistory(null);
+    setSeasonHistoryLoading(false);
   }, [teamId]);
 
   useEffect(() => {
-    if (tab !== "teamStats" || !teamId || !seasons || seasonHistoryFetchStartedRef.current) return;
-    seasonHistoryFetchStartedRef.current = true;
+    if (tab !== "teamStats" || !teamId || !seasons || seasonHistoryFetchTeamIdRef.current === teamId) return;
+    const fetchTeamId = teamId;
+    seasonHistoryFetchTeamIdRef.current = fetchTeamId;
     setSeasonHistoryLoading(true);
     Promise.all(
       seasons.map(async (s) => {
         try {
           const teamsOfSeason = await fetchTeams(s.season);
-          const found = teamsOfSeason.find((t) => t.teamId === teamId);
+          const found = teamsOfSeason.find((t) => t.teamId === fetchTeamId);
           return found ? { season: s.season, teamName: found.teamName, team: found } : null;
         } catch {
           return null;
@@ -2835,10 +2856,10 @@ export function TeamDetailPage({ season }: { season: string }) {
       }),
     )
       .then((results) => {
-        setSeasonHistory(results.filter((r): r is SeasonRecord => r !== null));
+        if (seasonHistoryFetchTeamIdRef.current === fetchTeamId) setSeasonHistory(results.filter((r): r is SeasonRecord => r !== null));
       })
       .finally(() => {
-        setSeasonHistoryLoading(false);
+        if (seasonHistoryFetchTeamIdRef.current === fetchTeamId) setSeasonHistoryLoading(false);
       });
   }, [tab, teamId, seasons]);
 
