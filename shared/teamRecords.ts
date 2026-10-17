@@ -131,22 +131,6 @@ export function longestWinStreak(logs: TeamGameLog[]): number {
   return max;
 }
 
-/** longestWinStreak() の負け版（シーズン内の最長の連敗。クラブレコードのシーズン記録のワースト側） */
-export function longestLosingStreak(logs: TeamGameLog[]): number {
-  const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
-  let max = 0;
-  let current = 0;
-  for (const g of sorted) {
-    if (!g.win) {
-      current += 1;
-      if (current > max) max = current;
-    } else {
-      current = 0;
-    }
-  }
-  return max;
-}
-
 export interface CareerTotalDef {
   key: string;
   label: string;

@@ -657,6 +657,41 @@ table.stats-table tr.situational-group-heading td {
   font-variant-numeric: tabular-nums;
 }
 
+/* 最多連勝・最多連敗の期間「（始まった試合 〜 終わった試合）」。スマホ幅では「〜」の前で折り返す */
+.streak-period {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.streak-top-period {
+  margin-top: 2px;
+}
+
+.streak-period .career-high-game-link {
+  display: inline;
+}
+
+/* 期間が長いので、カードは2列分の幅を使う（グリッドの列が狭いと「〜」の前後で細かく折り返す） */
+.streak-record-card {
+  grid-column: span 2;
+}
+
+.streak-top-n-table td:last-child {
+  white-space: normal;
+}
+
+@media (max-width: 560px) {
+  .streak-period .streak-to {
+    display: block;
+    padding-left: 0.5em;
+  }
+}
+
+.streak-top-n-table td:last-child .career-high-others-toggle {
+  display: inline-block;
+  margin-left: 6px;
+}
+
 /* シーズン記録のカードの下の一言（対象外のシーズンなど） */
 .career-high-note {
   font-size: 11px;

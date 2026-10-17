@@ -44,6 +44,9 @@ import {
 import { LEAGUE_COLOR, LEAGUE_SLOT_NOTE, LEAGUE_TEAM_NAME } from "../lib/leagueAverage";
 import { useJsonData } from "../lib/useJsonData";
 import { statJa } from "../lib/statNames";
+import { isPastSeason } from "../lib/season";
+import { StreakRecordCard } from "../components/StreakRecordCard";
+import { isOffseasonMonth, rankStreakRuns, streakRunsOfSeason, type StreakRun } from "../lib/streakRecords";
 import { formatBasisSeconds, isFrequentLineup, lineupMinAvgSeconds, lineupsByCondition } from "../lib/lineupsByCondition";
 import { SHORTENED_REGULAR_SEASONS, useCompletedRegularSeasons } from "../lib/regularSeasonComplete";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
@@ -146,7 +149,6 @@ import {
   TEAM_RECORD_STATS as TEAM_RECORD_VALUE_DEFS,
   bestTeamSeasonRecord,
   buildTeamCareerTotals,
-  longestLosingStreak,
   longestWinStreak,
   teamRecordDetail,
   type TeamSeasonSpecialAggregate,
@@ -2411,16 +2413,13 @@ export function TeamDetailPage({ season }: { season: string }) {
     () => bestTeamSeasonRecord(clubSeasonAggregates, (a) => a.wins),
     [clubSeasonAggregates],
   );
-  const longestStreakSeasonRecord = useMemo(
-    () => bestTeamSeasonRecord(clubSeasonAggregates, (a) => a.streak),
-    [clubSeasonAggregates],
-  );
 
-  // シーズン記録のワースト側（最少勝利数・最多敗戦数・最低勝率・最多連敗）。レギュラーシーズンだけで、
+  // シーズン記録のワースト側（最少勝利数・最多敗戦数・最低勝率）。レギュラーシーズンだけで、
   // レギュラーシーズンの全試合が終わったシーズンだけを対象にする（ベスト側は進行中のシーズンも含めたまま）。
-  // 最少勝利数・最多敗戦数は、試合数のそろわないシーズン（SHORTENED_REGULAR_SEASONS）を外す
+  // 最少勝利数・最多敗戦数は、試合数のそろわないシーズン（SHORTENED_REGULAR_SEASONS）を外す。
+  // 最多連敗（と最多連勝）のトップ10は、進行中のシーズンも含め、続いている連続は「継続中」と書く（全試合が終わったかは「継続中」の判定に使う）
   const seasonNames = useMemo(() => (seasons ? seasons.map((s) => s.season) : null), [seasons]);
-  const completedRegularSeasons = useCompletedRegularSeasons(seasonNames, tab === "clubRecord" && careerGameTypeFilter === "regular");
+  const completedRegularSeasons = useCompletedRegularSeasons(seasonNames, tab === "clubRecord");
   const clubSeasonWorsts = useMemo(() => {
     if (!careerData || !completedRegularSeasons) return null;
     const all = careerData
@@ -2428,7 +2427,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       .map((cd) => {
         const regular = filterByGameType(cd.logs, "regular");
         const wins = regular.filter((g) => g.win).length;
-        return { season: cd.season, wins, losses: regular.length - wins, games: regular.length, losingStreak: longestLosingStreak(regular) };
+        return { season: cd.season, wins, losses: regular.length - wins, games: regular.length };
       })
       .filter((a) => a.games > 0);
     const counted = all.filter((a) => !SHORTENED_REGULAR_SEASONS.includes(a.season));
@@ -2437,9 +2436,24 @@ export function TeamDetailPage({ season }: { season: string }) {
       mostLosses: bestTeamSeasonRecord(counted, (a) => a.losses),
       // 同じ値かは勝利数÷試合数の値そのもので比べる（表示が同じ .083 でも値が違えば別）
       lowestWinPct: bestTeamSeasonRecord(all, (a) => a.wins / a.games, true),
-      longestLosingStreak: bestTeamSeasonRecord(all, (a) => a.losingStreak),
     };
   }, [careerData, completedRegularSeasons]);
+
+  // 最多連勝・最多連敗のトップ10（シーズン内・2連以上。連勝は試合区分の選択に従い、連敗はレギュラーシーズンだけ）。
+  // 続いている連続（シーズンの最後の試合まで続き、そのシーズンがまだ終わっていない）は終わりを「継続中」にする。
+  // 試合区分がレギュラーシーズンのときは、レギュラーシーズンの全試合が終わっていれば続いていない扱い（7・8月のオフも続いていない）
+  const streakRows = useMemo(() => {
+    if (!careerData) return null;
+    const offseason = isOffseasonMonth();
+    const running = (season: string, selection: SeasonGameTypeFilter) =>
+      !offseason && !isPastSeason(season) && !(selection === "regular" && !!completedRegularSeasons?.has(season));
+    const runsOf = (kind: "win" | "loss", selection: SeasonGameTypeFilter): StreakRun<TeamGameLog>[] =>
+      careerData.flatMap((cd) => streakRunsOfSeason(cd.season, filterByGameType(cd.logs, selection), kind, running(cd.season, selection)));
+    return {
+      win: rankStreakRuns(runsOf("win", careerGameTypeFilter)),
+      loss: careerGameTypeFilter === "regular" ? rankStreakRuns(runsOf("loss", "regular")) : [],
+    };
+  }, [careerData, careerGameTypeFilter, completedRegularSeasons]);
 
   // 歴代クラブ横断順位（Phase H7）: leagueRankingsは[gameType][statKey][teamId]のルックアップ構造
   // （scripts/aggregate-league-rankings.ts参照）。「通算成績」「クラブレコード」タブは同じ
@@ -4184,18 +4198,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                     onToggle={toggleClubRecordTieCard}
                   />
                 )}
-                {longestStreakSeasonRecord && (
-                  <SeasonRecordCard
-                    teamId={teamId ?? ""}
-                    tieKey="season:streak"
-                    label="最多連勝（シーズン内）"
-                    display={`${longestStreakSeasonRecord.value}連勝`}
-                    season={longestStreakSeasonRecord.season}
-                    otherSeasons={longestStreakSeasonRecord.otherSeasons}
-                    rank={formatLeagueRank(seasonSpecialRank("streak"))}
-                    expandedKeys={expandedClubRecordTieCards}
-                    onToggle={toggleClubRecordTieCard}
-                  />
+                {streakRows && streakRows.win.length > 0 && (
+                  <StreakRecordCard kind="win" label="最多連勝（シーズン内）" rows={streakRows.win} rank={formatLeagueRank(seasonSpecialRank("streak"))} />
                 )}
               </div>
 
@@ -4211,7 +4215,6 @@ export function TeamDetailPage({ season }: { season: string }) {
                       { key: "fewestWins", label: `最少${statJa("勝", "team")}（1シーズン）`, record: clubSeasonWorsts.fewestWins, display: (v: number) => `${v}勝`, note: SHORTENED_SEASONS_NOTE },
                       { key: "mostLosses", label: `最多${statJa("負", "team")}（1シーズン）`, record: clubSeasonWorsts.mostLosses, display: (v: number) => `${v}敗`, note: SHORTENED_SEASONS_NOTE },
                       { key: "lowestWinPct", label: `最低${statJa("勝率", "team")}（1シーズン）`, record: clubSeasonWorsts.lowestWinPct, display: (v: number) => formatWinPct(v) },
-                      { key: "longestLosingStreak", label: "最多連敗（シーズン内）", record: clubSeasonWorsts.longestLosingStreak, display: (v: number) => `${v}連敗` },
                     ] as const
                   ).map(
                     (item) =>
@@ -4229,6 +4232,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                           onToggle={toggleClubRecordTieCard}
                         />
                       ),
+                  )}
+                  {streakRows && streakRows.loss.length > 0 && (
+                    <StreakRecordCard kind="loss" label="最多連敗（シーズン内）" rows={streakRows.loss} />
                   )}
                 </div>
               )}
