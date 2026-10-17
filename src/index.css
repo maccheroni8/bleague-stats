@@ -837,6 +837,18 @@ table.stats-table tbody tr:hover td:first-child {
   background: var(--row-hover);
 }
 
+/* チーム詳細「よく使われるラインナップ」の表は、スマホ幅では左端の固定をやめる
+   （5人の名前が固定した列の下に隠れて読めないため。PC幅は共通の固定のまま） */
+@media (max-width: 560px) {
+  table.sortable-table.team-lineups-table td:first-child {
+    position: static;
+  }
+
+  table.sortable-table.team-lineups-table thead tr:first-child th:first-child {
+    left: auto;
+  }
+}
+
 table.sortable-table {
   border-collapse: collapse;
   width: 100%;

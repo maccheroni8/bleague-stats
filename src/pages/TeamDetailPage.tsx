@@ -4837,7 +4837,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           ) : (
             <>
               <div className="table-scroll">
-                <table className="sortable-table">
+                <table className="sortable-table team-lineups-table">
                   <thead>
                     <tr>
                       <th className="align-left" title={statDescription("OC", "team")}>OC</th>
