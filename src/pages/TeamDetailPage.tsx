@@ -3496,8 +3496,8 @@ export function TeamDetailPage({ season }: { season: string }) {
     ? stintLineups.lineups.filter((l) => isFrequentLineup(l, lineupTablePeriod, stintLineups.teamGames))
     : eligibleLineups;
   const lineupTableDefaultCondition = lineupTableGameType === "both" && lineupTablePeriod === "all";
-  // 条件を選べない表（古いシーズン・読めなかったとき）は、合計・平均の列を両方出す。選べる表は、選んだ方の列だけを出す
-  const lineupTableColumns: "total" | "perGame" | "both" = lineupTableByCondition ? (lineupCondActive && lineupOcDisplay === "perGame" ? "perGame" : "total") : "both";
+  // 列の見出しは略称のまま（平均か合計かは、表のタイトルの下の行に書く）。合計／平均は、条件を選べない表（古いシーズン）でも選べる
+  const lineupTableColumns: "total" | "perGame" = lineupCondActive && lineupOcDisplay === "perGame" ? "perGame" : "total";
   // OC で絞ったときは、見出しのパターン数・「全パターンを表示」の数も、その人数の組だけで数える
   const ocAllLineups = ocFilteredLineups(tableLineups);
   const ocEligibleLineups = ocFilteredLineups(tableEligibleLineups);
@@ -4868,19 +4868,7 @@ export function TeamDetailPage({ season }: { season: string }) {
 
       {tab === "lineups" && (
         <div className="team-tab-panel team-lineups-panel">
-          <ConditionTitle
-            title="ラインナップ"
-            conditions={composeLabels(
-              seasonLabel,
-              lineupOcFromIndex
-                ? [
-                    ...gameTypeLabels(lineupOcGameType, season),
-                    ...(lineupOcPeriodValue === "all" ? [] : periodLabels(seasonPeriodOption(lineupOcPeriodValue))),
-                    ...(lineupOcDisplay === "perGame" ? ["1試合平均"] : []),
-                  ]
-                : gameTypeLabels("both", season),
-            )}
-          />
+          <ConditionTitle title="ラインナップ" conditions={composeLabels(seasonLabel)} />
           {coverageLoading ? (
             <p className="loading">読み込み中...</p>
           ) : !pbpSupported ? (
@@ -4906,11 +4894,14 @@ export function TeamDetailPage({ season }: { season: string }) {
               )}
               {lineupOcSummary && (
                 <>
-                  <h4 className="lineup-oc-heading">
-                    {lineupOcFromIndex
-                      ? `オンザコート別の${lineupOcDisplay === "perGame" ? "1試合平均" : "合計"}`
-                      : "オンザコート別の合計（レギュラーシーズン＋ポストシーズン）"}
-                  </h4>
+                  <h4 className="lineup-oc-heading">オンザコート別</h4>
+                  <ConditionLine
+                    conditions={composeLabels(
+                      lineupOcFromIndex ? displayModeLabels(lineupOcDisplay) : displayModeLabels("total"),
+                      lineupOcFromIndex ? gameTypeLabels(lineupOcGameType, season) : gameTypeLabels("both", season),
+                      lineupOcFromIndex ? periodLabels(seasonPeriodOption(lineupOcPeriodValue)) : null,
+                    )}
+                  />
                   {lineupOcFromIndex && lineupOcFromIndex.games === 0 ? (
                     <p className="empty-message">この条件に当てはまる試合はありません</p>
                   ) : (
@@ -4948,6 +4939,9 @@ export function TeamDetailPage({ season }: { season: string }) {
               <h4 className="lineup-oc-heading lineup-frequent-heading">{`よく使われるラインナップ ${ocEligibleLineups.length}パターン（全${ocAllLineups.length}パターン中）`}</h4>
               <ConditionLine
                 conditions={composeLabels(
+                  displayModeLabels(lineupTableColumns),
+                  gameTypeLabels(lineupTableGameType, season),
+                  periodLabels(seasonPeriodOption(lineupTablePeriod)),
                   `使われた試合の平均${formatBasisSeconds(lineupTableByCondition ? lineupMinAvgSeconds(lineupTablePeriod) : MIN_LINEUP_AVG_SECONDS)}秒以上`,
                   lineupTableByCondition && !lineupTableDefaultCondition
                     ? `使われた試合数が、条件に合うチームの${lineupBasisGames}試合の${Math.round(MIN_LINEUP_GAME_SHARE * 100)}%以上`
@@ -4991,22 +4985,10 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <th className="align-left" title={statDescription("OC", "team")}>OC</th>
                       <th className="align-left">5人の組み合わせ</th>
                       <th className="align-right" title={statDescription("試合数")}>試合数</th>
-                      {lineupTableColumns !== "perGame" && (
-                        <>
-                          <th className="align-right" title={statDescription("出場時間")}>出場時間</th>
-                          <th className="align-right" title={statDescription("得点")}>得点</th>
-                          <th className="align-right" title={statDescription("失点")}>失点</th>
-                          <th className="align-right" title={statDescription("得失点")}>得失点</th>
-                        </>
-                      )}
-                      {lineupTableColumns !== "total" && (
-                        <>
-                          <th className="align-right" title={statDescription("平均出場時間")}>平均出場時間</th>
-                          <th className="align-right" title={statDescription("平均得点")}>平均得点</th>
-                          <th className="align-right" title={statDescription("平均失点")}>平均失点</th>
-                          <th className="align-right" title={statDescription("平均得失点")}>平均得失点</th>
-                        </>
-                      )}
+                      <th className="align-right" title={statDescription(lineupTableColumns === "perGame" ? "平均出場時間" : "出場時間")}>出場時間</th>
+                      <th className="align-right" title={statDescription(lineupTableColumns === "perGame" ? "平均得点" : "得点")}>得点</th>
+                      <th className="align-right" title={statDescription(lineupTableColumns === "perGame" ? "平均失点" : "失点")}>失点</th>
+                      <th className="align-right" title={statDescription(lineupTableColumns === "perGame" ? "平均得失点" : "得失点")}>得失点</th>
                       <th className="align-right" title={statDescription(lineupRatingsReal ? "ラインナップORtg" : "ORtg（推定）")}>{lineupRatingsReal ? "ORtg" : "ORtg（推定）"}</th>
                       <th className="align-right" title={statDescription(lineupRatingsReal ? "ラインナップDRtg" : "DRtg（推定）")}>{lineupRatingsReal ? "DRtg" : "DRtg（推定）"}</th>
                       <th className="align-right" title={statDescription(lineupRatingsReal ? "ラインナップNetRtg" : "NetRtg（推定）")}>{lineupRatingsReal ? "NetRtg" : "NetRtg（推定）"}</th>
@@ -5027,21 +5009,20 @@ export function TeamDetailPage({ season }: { season: string }) {
                         <td className="align-left">{oc === null ? "−" : oc}</td>
                         <td className="align-left">{l.playerIds.map((id) => playerLabel(playerNameById.get(id) ?? id)).join(" / ")}</td>
                         <td className="align-right">{l.gamesPlayed}</td>
-                        {lineupTableColumns !== "perGame" && (
-                          <>
-                            <td className="align-right">{formatMinutesColon(l.secondsPlayed / 60)}</td>
-                            <td className="align-right">{l.ownPoints}</td>
-                            <td className="align-right">{l.oppPoints}</td>
-                            <td className="align-right">{formatSigned(l.netPoints, 0)}</td>
-                          </>
-                        )}
                         {/* 平均は、そのラインナップが使われた試合の数（試合数の列）で割る（DESIGN.md 184章） */}
-                        {lineupTableColumns !== "total" && (
+                        {lineupTableColumns === "perGame" ? (
                           <>
                             <td className="align-right">{formatMinutesColon(safeDiv(l.secondsPlayed / 60, l.gamesPlayed))}</td>
                             <td className="align-right">{formatDecimal(safeDiv(l.ownPoints, l.gamesPlayed))}</td>
                             <td className="align-right">{formatDecimal(safeDiv(l.oppPoints, l.gamesPlayed))}</td>
                             <td className="align-right">{formatSigned(safeDiv(l.netPoints, l.gamesPlayed))}</td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="align-right">{formatMinutesColon(l.secondsPlayed / 60)}</td>
+                            <td className="align-right">{l.ownPoints}</td>
+                            <td className="align-right">{l.oppPoints}</td>
+                            <td className="align-right">{formatSigned(l.netPoints, 0)}</td>
                           </>
                         )}
                         <td className="align-right">{ratings.off !== null ? formatDecimal(ratings.off) : "-"}</td>
@@ -5053,7 +5034,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   </tbody>
                 </table>
               </div>
-              {lineupTableColumns !== "total" && <p className="rule-change-footnote">※ 平均は、その組み合わせが一緒に出た試合で割った平均です。</p>}
+              {lineupTableColumns === "perGame" && <p className="rule-change-footnote">※ 平均は、その組み合わせが一緒に出た試合で割った平均です。</p>}
               {!lineupRatingsReal && <p className="rule-change-footnote">※ {ESTIMATED_RATING_NOTE}</p>}
               {ocAllLineups.length > ocEligibleLineups.length && (
                 <button className="load-more-button" type="button" onClick={() => setLineupsExpanded((v) => !v)}>
