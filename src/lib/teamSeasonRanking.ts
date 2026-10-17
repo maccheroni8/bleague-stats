@@ -7,7 +7,6 @@ import type { Column } from "../components/SortableTable";
 import type { RankableStat } from "../components/RankedList";
 import { filterGameLogs, type SituationalFilter } from "./situational";
 import {
-  SEASON_BOX_PERIOD_OPTIONS,
   filterByGameType,
   type SeasonDisplayMode,
   type SeasonGameTypeFilter,
@@ -18,13 +17,14 @@ import {
   buildScoringColumns,
   buildTraditionalColumns,
   DEFAULT_SORT_KEY,
-  sumTeamGameBoxTotalsForPeriod,
   sumTeamGameLogs,
   type AllTeamsRow,
   type TeamPerspective,
 } from "./teamStatsColumns";
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns } from "./shotTypeBreakdown";
-import { useAllTeamGameLogs, useLeagueRawGames, useLeagueSituationalContext } from "./teamRankingData";
+import { useAllTeamGameLogs, useLeagueSituationalContext } from "./teamRankingData";
+import { seasonPeriodOption } from "./seasonPeriod";
+import { OVERTIME_MIN_TEAM_GAMES_FOR_RANKING, sumTeamPeriodTotals, useTeamPeriodSource, type TeamPeriodValue } from "./teamPeriodTotals";
 import {
   buildStatConditionItems,
   filterByStatConditions,
@@ -131,7 +131,10 @@ export function useTeamSeasonRanking(
   const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, enabled ? teams : null);
   const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season, enabled);
 
-  const periodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === period) ?? SEASON_BOX_PERIOD_OPTIONS[0]!;
+  // 区間（試合全体・1Q〜4Q・前半・後半・延長）。区間の値はチームのピリオド別の索引から出す（DESIGN.md 256章の段階2。以前は試合の生データを読んでいた）
+  const periodOption = seasonPeriodOption(period);
+  const periodActive = enabled && isBoxscoreCategory(category) && period !== "all";
+  const { source: periodSource, loading: periodLoading, retry: retryPeriodSource } = useTeamPeriodSource(season, periodActive);
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
   const foulSplit = foulColumnsSplit([season]);
 
@@ -151,35 +154,25 @@ export function useTeamSeasonRanking(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season]);
 
-  // Q別/前後半選択時のみ、対象チーム全員分の生データ（StoredGame）を一括取得する。
-  // 「試合」選択時はrequestedScheduleKeysが常に空配列のため、useLeagueRawGamesは何も取得しない
-  const requestedScheduleKeys = useMemo(() => {
-    if (periodOption.periods === null) return [];
-    const keys = new Set<string>();
-    for (const logs of scopedLogsByTeam.values()) for (const g of logs) keys.add(g.scheduleKey);
-    return [...keys];
-  }, [periodOption, scopedLogsByTeam]);
-  const { gamesByScheduleKey, loading: rawGamesLoading, failedCount: rawGamesFailedCount, retry: retryRawGames } = useLeagueRawGames(season, requestedScheduleKeys);
-  const periodDataReady = periodOption.periods === null || requestedScheduleKeys.every((k) => gamesByScheduleKey.has(k));
+  const periodDataReady = !periodActive || !!periodSource;
 
   const rows: AllTeamsRow[] = useMemo(() => {
     if (!teams || !gameLogsByTeam) return [];
-    return teams.map((team) => {
+    if (periodActive && !periodSource) return [];
+    const all = teams.map((team) => {
       const scoped = scopedLogsByTeam.get(team.teamId) ?? [];
+      // 区間を選んでいるときは、その区間の値がある試合（1Q〜後半は前後半5分の特別な試合を除く全試合、延長は延長のあった試合）の合計。勝敗は試合の勝敗のまま
+      if (periodActive && periodSource) {
+        const { games, totals } = sumTeamPeriodTotals(periodSource, scoped, period as TeamPeriodValue);
+        const wins = games.filter((g) => g.win).length;
+        return { team, gamesPlayed: games.length, wins, losses: games.length - wins, totals };
+      }
       const wins = scoped.filter((g) => g.win).length;
-      const totals =
-        periodOption.periods === null
-          ? sumTeamGameLogs(scoped)
-          : sumTeamGameBoxTotalsForPeriod(
-              scoped.flatMap((g) => {
-                const game = gamesByScheduleKey.get(g.scheduleKey);
-                return game ? [{ game, isHome: g.isHome }] : [];
-              }),
-              periodOption,
-            );
-      return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals };
+      return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: sumTeamGameLogs(scoped) };
     });
-  }, [teams, gameLogsByTeam, scopedLogsByTeam, periodOption, gamesByScheduleKey]);
+    // 延長のランキングは、延長のあった試合が3試合以上のチームだけ（256章の決定4）
+    return periodActive && period === "ot" ? all.filter((r) => r.gamesPlayed >= OVERTIME_MIN_TEAM_GAMES_FOR_RANKING) : all;
+  }, [teams, gameLogsByTeam, scopedLogsByTeam, periodActive, periodSource, period]);
 
   // スタッツの条件の判定に使う行。Shooting・Forced TOV のカテゴリでは上の絞り込みが効かないため、
   // 絞り込みの無いレギュラーシーズン全体の値で判定する
@@ -200,7 +193,8 @@ export function useTeamSeasonRanking(
   }, [rows, filter.ownDivision, divisionHistory, season]);
   const conditionRows = isBoxscoreCategory(category) ? rowsInOwnDivision : seasonRows;
   const teamById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t])), [teams]);
-  const conditionClassificationSupported = !isBoxscoreCategory(category) || periodOption.periods === null;
+  // 区間の値も登録区分別・ベンチ／スタメンの得点を持つ（チームの索引。256章の段階1）ので、区間でも出せる
+  const conditionClassificationSupported = true;
   const conditionItems = useMemo(
     () =>
       opts.skipConditionItems
@@ -231,9 +225,9 @@ export function useTeamSeasonRanking(
   const columns = useMemo(
     () =>
       isBoxscoreCategory(category)
-        ? buildTeamCategoryColumns(category, displayMode, perspective, paintSupported, periodOption.periods === null, foulSplit)
+        ? buildTeamCategoryColumns(category, displayMode, perspective, paintSupported, true, foulSplit)
         : [],
-    [category, displayMode, perspective, paintSupported, periodOption, foulSplit],
+    [category, displayMode, perspective, paintSupported, foulSplit],
   );
   const selectedColumn = columns.find((c) => c.key === statKey) ?? columns[0];
   const teamDef: RankableStat<AllTeamsRow> | null = selectedColumn
@@ -303,9 +297,10 @@ export function useTeamSeasonRanking(
     periodOption,
     foulSplit,
     paintSupported,
-    rawGamesLoading,
-    rawGamesFailedCount: rawGamesLoading ? 0 : rawGamesFailedCount,
-    retryRawGames,
+    // 区間の索引の読み込み（名前は以前の生データの読み込みのまま。読めなかったときは1件の失敗として出す）
+    rawGamesLoading: periodActive && periodLoading,
+    rawGamesFailedCount: periodActive && !periodLoading && !periodSource ? 1 : 0,
+    retryRawGames: retryPeriodSource,
     periodDataReady,
     conditionItems,
     conditionActive,

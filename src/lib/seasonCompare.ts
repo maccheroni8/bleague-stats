@@ -84,10 +84,7 @@ export function compareUnsupportedReason(input: CompareSupportInput): string | n
     }
   }
   if (categoryKind === "boxscore") {
-    // 個人は、Q別・前後半・延長もピリオド別の索引（1シーズン1ファイル）から出すので、前季にも当てはめられる（DESIGN.md 256章）。チームは段階2まで試合の生データを読む
-    if (period !== "all" && subject === "team") {
-      return `Q別・前後半を選んでいるときは、前のシーズンの試合の生データも読み込む必要があり重くなるため、${COMPARE_LABEL}は選べません。`;
-    }
+    // 個人もチームも、Q別・前後半・延長はピリオド別の索引（1シーズン1ファイル）から出すので、前季にも当てはめられる（DESIGN.md 256章。チームは段階2から）
     if (filter.range.kind === "dateRange") {
       return `期間指定は日付がシーズンごとに違い、前のシーズンには当てはめられないため、${COMPARE_LABEL}は選べません。`;
     }

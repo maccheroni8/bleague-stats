@@ -5,7 +5,9 @@ import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { choiceNumberParam, clearUrlParams, enumParam, situationalParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
-import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERSPECTIVE_PARAM, VENUE_PARAM } from "../lib/urlFilterParams";
+import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERSPECTIVE_PARAM, TEAM_SEASON_PERIOD_PARAM, VENUE_PARAM } from "../lib/urlFilterParams";
+import { SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, hasShortGameSeason, seasonPeriodOption } from "../lib/seasonPeriod";
+import { sumTeamPeriodTotals, useTeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
 import {
   buildStatConditionItems,
   DEFAULT_STAT_CONDITIONS,
@@ -56,6 +58,7 @@ import {
   displayModeAxis,
   gameTypeAxis,
   leagueVenueAxis,
+  periodAxis,
   perspectiveAxis,
   simpleSelectAxis,
   situationalAxes,
@@ -68,6 +71,7 @@ import {
   displayModeLabels,
   gameTypeLabels,
   leagueVenueLabels,
+  periodLabels,
   perspectiveLabels,
   SEASON_TOTAL_ONLY_LABELS,
   situationalFilterLabels,
@@ -334,6 +338,12 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_TEAMS_FILTER);
   const [teamPerspective, setTeamPerspective] = useUrlState(PERSPECTIVE_PARAM, "own");
   const [turnoverPerspective, setTurnoverPerspective] = useUrlState(TURNOVER_PERSPECTIVE_PARAM, "forced");
+  // 区間（試合全体・1Q〜4Q・前半・後半・延長。DESIGN.md 256章の段階2）。Traditional〜Scoring の4つのタブだけで効く。区間の値はチームのピリオド別の索引から出す
+  const [period, setPeriod] = useUrlState(TEAM_SEASON_PERIOD_PARAM, "all");
+  const periodOption = seasonPeriodOption(period);
+  const periodTab = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
+  const periodActive = periodTab && period !== "all";
+  const { source: periodSource, loading: periodLoading } = useTeamPeriodSource(season, periodActive);
   // On-Court Foreignの並び順（DESIGN.md 135章）。ブラウザバックで戻ったときも保持する（usePageState、シーズンをまたいで共通）
   const [storedForeignOrder, setForeignOrder] = usePageState<ForeignCourtOrder>("teams:foreignOrder", "foreignDesc");
   // 選択肢の変更（2026-09-25）より前に保持した値（foreignAsc）が残っていても、初期値に戻して扱う
@@ -364,12 +374,19 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season]);
   const rows: AllTeamsRow[] = useMemo(() => {
     if (!teams || !gameLogsByTeam) return [];
+    if (periodActive && !periodSource) return [];
     return teams.map((team) => {
       const scoped = scopedLogsByTeam.get(team.teamId) ?? [];
+      // 区間を選んでいるときは、その区間の値がある試合（1Q〜後半は前後半5分の特別な試合を除く全試合、延長は延長のあった試合）の合計。勝敗は試合の勝敗のまま
+      if (periodActive && periodSource) {
+        const { games, totals } = sumTeamPeriodTotals(periodSource, scoped, period as TeamPeriodValue);
+        const wins = games.filter((g) => g.win).length;
+        return { team, gamesPlayed: games.length, wins, losses: games.length - wins, totals };
+      }
       const wins = scoped.filter((g) => g.win).length;
       return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: sumTeamGameLogs(scoped) };
     });
-  }, [teams, gameLogsByTeam, scopedLogsByTeam]);
+  }, [teams, gameLogsByTeam, scopedLogsByTeam, periodActive, periodSource, period]);
 
   // リーグ平均の行（DESIGN.md 149章）。選択中の条件で絞った全チームの合計から出す（割合は合計÷合計、1試合平均は合計÷延べ試合数）。
   // カウント系はチーム数で割り、「合計」表示では平均的な1チームの合計にする。自チームの視点のときだけ出す（opp・+/-では出さない）
@@ -629,6 +646,16 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     gameTypeAxis(gameType, setGameType, season, { disabledReason: filterDisabledReason }),
     perspectiveAxis(teamPerspective, setTeamPerspective, { disabledReason: perspectiveDisabledReason }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: displayDisabledReason }),
+    periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, {
+      label: "Q別・前後半・延長",
+      disabledReason: periodTab
+        ? undefined
+        : boxTab === "periods"
+          ? "このタブは区間別の得点の表のため、区間の選択は Traditional〜Scoring のタブでだけ効きます。"
+          : boxTab === "shooting" || boxTab === "forcedTurnovers"
+            ? "このタブはシーズン合計の値だけのため、区間は選べません（Traditional〜Scoring のタブでだけ効きます）。"
+            : "このタブでは区間は選べません（Traditional〜Scoring のタブでだけ効きます）。",
+    }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
@@ -640,6 +667,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     setTeamPerspective("own");
     setDisplayMode("perGame");
     setFilter({ range: { kind: "all" } });
+    setPeriod("all");
     setStatConditions({ ...statConditions, conditions: [] });
   };
 
@@ -654,6 +682,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             gameTypeLabels(gameType, season),
             perspectiveLabels(teamPerspective),
             situationalFilterLabels(filter),
+            periodTab ? periodLabels(periodOption) : [],
           )
         : boxTab === "shooting"
           ? composeLabels(displayModeLabels(displayMode), SEASON_TOTAL_ONLY_LABELS)
@@ -891,6 +920,10 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           <p className="page-subtitle">{periodScoringNote(periodsWithoutValue)}</p>
           <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全チームスタッツ" scope="各チームの試合ログから、選んだ条件で集計し直した値です。" />
         </>
+      ) : periodActive && periodLoading ? (
+        <p className="loading">読み込み中...</p>
+      ) : periodActive && !periodSource ? (
+        <p className="empty-message">このシーズンの区間別の値を読み込めませんでした。時間をおいて開き直すか、区間を「試合全体」にしてください。</p>
       ) : (
         <>
           <div className="table-scroll">
@@ -906,6 +939,11 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             />
           </div>
           {boxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
+          {periodActive && period === "ot" && (
+            <p className="page-subtitle">延長は、延長のあった試合だけの値です（すべての延長の合計）。G は延長のあった試合数で、平均はその試合数で割っています。勝敗は試合の勝敗です。</p>
+          )}
+          {periodActive && period !== "ot" && <p className="page-subtitle">区間を選んだときも、勝敗は試合の勝敗です。</p>}
+          {periodActive && gameType !== "regular" && hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
           <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全チームスタッツ" scope="各チームの試合ログから、選んだ条件で集計し直した値です。" />
         </>
       )}

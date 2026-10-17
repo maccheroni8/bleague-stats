@@ -29,7 +29,7 @@ export const PERIOD_PARAM = enumParam<PeriodRangeValue>(
   "all",
 );
 
-/** ランキング > シーズン成績 > 個人の区間（q）。PERIOD_PARAM に延長（ot）を足したもの（DESIGN.md 256章）。チームは段階2まで PERIOD_PARAM のまま */
+/** ランキング > シーズン成績 > 個人の区間（q）。PERIOD_PARAM に延長（ot）を足したもの（DESIGN.md 256章） */
 export const PLAYER_SEASON_PERIOD_PARAM = enumParam<PeriodRangeValue>(
   "q",
   SEASON_PERIOD_OPTIONS.map((o) => o.value),
@@ -61,3 +61,6 @@ export const VENUE_PARAM = enumParam<LeagueVenue>("venue", ["total", "home", "aw
 export const CLUTCH_WINDOW_PARAM = enumParam<ClutchWindowKey>("cw", CLUTCH_WINDOWS, "2");
 export const CLUTCH_MEASURE_PARAM = enumParam<ClutchMeasure>("cm", CLUTCH_MEASURES, "goAhead", { goAhead: "ga", winner: "win" });
 export const PAIR_UNIT_PARAM = enumParam<PairUnit>("u", PAIR_UNITS, "season");
+
+/** 全チームスタッツの区間（q）。個人と同じ選択肢（延長つき。DESIGN.md 256章の段階2） */
+export const TEAM_SEASON_PERIOD_PARAM = PLAYER_SEASON_PERIOD_PARAM;

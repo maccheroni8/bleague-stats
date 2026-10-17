@@ -96,8 +96,8 @@ eq("理由 使える", compareUnsupportedReason(base), null);
 eq("理由 2016-17", compareUnsupportedReason({ ...base, season: "2016-17" })?.includes("2016-17では選べません"), true);
 eq("理由 Profile・Career", compareUnsupportedReason({ ...base, categoryKind: "registered" })?.includes("登録していた選手全員"), true);
 eq("理由 Shooting・Forced TOV は前季が2023-24以降のときだけ", [compareUnsupportedReason({ ...base, season: "2024-25", categoryKind: "seasonTotal" }), compareUnsupportedReason({ ...base, season: "2023-24", categoryKind: "seasonTotal" }) !== null], [null, true]);
-// 個人は Q別・前後半・延長もピリオド別の索引から出すので使える。チームは試合の生データを読むので使えない（DESIGN.md 256章）
-eq("理由 Q別・前後半（チーム）", compareUnsupportedReason({ ...base, subject: "team", period: "q1" })?.includes("Q別・前後半"), true);
+// 個人もチームも Q別・前後半・延長はピリオド別の索引から出すので使える（DESIGN.md 256章。チームは段階2から）
+eq("理由 Q別・前後半・延長（チームも使える）", [compareUnsupportedReason({ ...base, subject: "team", period: "q1" }), compareUnsupportedReason({ ...base, subject: "team", period: "ot" })], [null, null]);
 eq("理由 Q別・前後半・延長（個人は使える）", [compareUnsupportedReason({ ...base, period: "q1" }), compareUnsupportedReason({ ...base, period: "ot" })], [null, null]);
 eq("理由 Q別の選手の PACE", compareUnsupportedReason({ ...base, statKey: "pace", fromGameLogs: true, period: "h1" })?.includes("PACE"), true);
 eq("理由 期間指定", compareUnsupportedReason({ ...base, filter: { range: { kind: "dateRange", start: "2025-11-01", end: "2025-12-01" } } })?.includes("期間指定"), true);

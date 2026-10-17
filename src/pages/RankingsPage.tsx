@@ -5,7 +5,6 @@ import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
 import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
 import { EligibilitySlider } from "../components/EligibilitySlider";
 import { useCompareCleanup, useFoulConditionCleanup, useFoulStatKeyCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
-import { RawGamesFailure } from "../components/RawGamesFailure";
 import { COMPARE_LABEL, COMPARE_PARAM, buildCompare, compareUnsupportedReason, previousSeason } from "../lib/seasonCompare";
 import { postseasonLabel } from "../../shared/gameType";
 import { isPastSeason } from "../lib/season";
@@ -37,7 +36,7 @@ import {
 import { statJa } from "../lib/statNames";
 import { teamShortName } from "../../shared/teamNames";
 import type { SituationalFilter } from "../lib/situational";
-import { SEASON_BOX_PERIOD_OPTIONS, SEASON_BOX_TABS } from "../lib/playerSeasonBoxscore";
+import { SEASON_BOX_TABS } from "../lib/playerSeasonBoxscore";
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeLabel } from "../lib/shotTypeBreakdown";
 import { positionFilterOptions, selectedPositionLabels, type PlayerGroupFilter } from "../lib/classificationFilter";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING } from "../lib/playerRankingEligibility";
@@ -65,8 +64,9 @@ import { DEFAULT_STAT_CONDITIONS, statConditionsTitle } from "../lib/statConditi
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { clearUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
 import { seasonDivisions } from "../lib/divisionGroups";
-import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PAIR_UNIT_PARAM, PERIOD_PARAM, PERSPECTIVE_PARAM, PLAYER_SEASON_PERIOD_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM } from "../lib/urlFilterParams";
+import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PAIR_UNIT_PARAM, PERSPECTIVE_PARAM, PLAYER_SEASON_PERIOD_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM, TEAM_SEASON_PERIOD_PARAM } from "../lib/urlFilterParams";
 import { OVERTIME_ELIGIBILITY_LABEL, OVERTIME_ELIGIBILITY_REASON, OVERTIME_GAMES_NOTE, SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, hasShortGameSeason } from "../lib/seasonPeriod";
+import { OVERTIME_MIN_TEAM_GAMES_FOR_RANKING } from "../lib/teamPeriodTotals";
 import { PeriodIndexFailure } from "../components/PeriodIndexFailure";
 import { PAIR_UNITS, PAIR_UNIT_LABELS } from "../lib/clutchQuery";
 import { THRESHOLD_UNITS, THRESHOLD_UNIT_LABELS, THRESHOLD_UNIT_PARAM } from "../lib/thresholdParams";
@@ -310,10 +310,9 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const [perspective, setPerspective] = useUrlState(PERSPECTIVE_PARAM, "own");
   const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_RANKING_FILTER);
   const [turnoverDirection, setTurnoverDirection] = useUrlState(TURNOVER_DIRECTION_PARAM, "forced");
-  // Q別/前後半トグル。「試合」（既定値）選択時は追加の生データ取得を発生させず、既存の
-  // TeamGameLog永続集計（sumTeamGameLogs）をそのまま使う。Q別/前後半選択時のみ、対象チーム
-  // 全員分の生データ（StoredGame）を一括取得する（useLeagueRawGames、DESIGN.md参照）
-  const [period, setPeriod] = useUrlState(PERIOD_PARAM, "all");
+  // Q別・前後半・延長。「試合」（既定値）選択時は、既存の TeamGameLog の合計（sumTeamGameLogs）をそのまま使う。
+  // 区間を選んだときは、そのシーズンのチームのピリオド別の索引から出す（DESIGN.md 256章の段階2。以前は対象チーム全員分の試合の生データを読んでいた）
+  const [period, setPeriod] = useUrlState(TEAM_SEASON_PERIOD_PARAM, "all");
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
 
@@ -471,7 +470,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     gameTypeAxis(gameType, setGameType, season, { disabledReason: teamFilterDisabledReason }),
     perspectiveAxis(perspective, setPerspective, { disabledReason: teamFilterDisabledReason }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: teamDisplayDisabledReason }),
-    periodAxis(period, setPeriod, SEASON_BOX_PERIOD_OPTIONS, { disabledReason: teamFilterDisabledReason }),
+    periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: teamFilterDisabledReason, label: "Q別・前後半・延長" }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
@@ -613,7 +612,12 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
           </>
         )
       ) : rawGamesFailedCount > 0 ? (
-        <RawGamesFailure count={rawGamesFailedCount} onRetry={retryRawGames} />
+        <div className="error-message">
+          <p>このシーズンの区間別の値を読み込めませんでした。Q別・前後半・延長の表は表示していません。</p>
+          <button type="button" className="load-more-button" onClick={retryRawGames}>
+            再読み込み
+          </button>
+        </div>
       ) : gameLogsLoading || !gameLogsByTeam || !teamDef || rawGamesLoading || !periodDataReady ? (
         <p className="loading">読み込み中...</p>
       ) : (
@@ -635,6 +639,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
               compact
             />
             {category === "misc" && isRuleChangeStatKey(teamDef.key) && <RuleChangeFootnote seasons={[season]} />}
+            {period === "ot" && <p className="rule-change-footnote">※ 延長は、延長のあった試合が{OVERTIME_MIN_TEAM_GAMES_FOR_RANKING}試合以上のチームが対象です。延長のあった試合だけの値（すべての延長の合計）で、平均はその試合数で割っています。勝敗は試合の勝敗です。</p>}
+            {period !== "all" && gameType !== "regular" && hasShortGameSeason([season]) && <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>}
             {boxCompare && compareNotes(boxCompare.rows.length === 0)}
           </ExportTarget>
         </>
