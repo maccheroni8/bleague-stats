@@ -3368,6 +3368,45 @@ table.sortable-table.game-oc-summary-table {
   width: auto;
 }
 
+/* チーム詳細のラインナップタブ（スマホ幅）: 選択欄3つを1行に、見出しを小さく、合計表の列を詰めて右端まで収める */
+@media (max-width: 560px) {
+  .team-lineups-panel .filter-bar-primary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .team-lineups-panel .filter-bar-primary .filter-field select {
+    padding: 0 4px 0 6px;
+    font-size: 12px;
+  }
+
+  .team-lineups-panel .filter-bar-primary .filter-field label {
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .team-lineups-panel .lineup-oc-heading {
+    font-size: 15px;
+    margin: 16px 0 8px;
+  }
+
+  .team-lineups-panel table.sortable-table.game-oc-summary-table th,
+  .team-lineups-panel table.sortable-table.game-oc-summary-table td {
+    padding: 6px 2px;
+    font-size: 11px;
+  }
+
+  .team-lineups-panel table.sortable-table.game-oc-summary-table td.align-right {
+    font-size: 11px;
+    letter-spacing: -0.02em;
+  }
+
+  .team-lineups-panel table.sortable-table.game-oc-summary-table th {
+    font-size: 10px;
+    letter-spacing: -0.03em;
+  }
+}
+
 table.sortable-table.game-oc-summary-table tbody tr.game-oc-row {
   cursor: pointer;
 }

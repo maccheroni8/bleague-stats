@@ -64,6 +64,7 @@
     "validate:standings-tiebreak": "node --experimental-strip-types scripts/validate-standings-tiebreak.ts",
     "validate:club-selection": "esbuild scripts/validate-club-selection.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-club-selection.mjs && node node_modules/.cache/validate-club-selection.mjs",
     "validate:opponent-strength": "esbuild scripts/validate-opponent-strength.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-opponent-strength.mjs && node node_modules/.cache/validate-opponent-strength.mjs",
+    "validate:lineups-by-condition": "esbuild scripts/validate-lineups-by-condition.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-lineups-by-condition.mjs && node node_modules/.cache/validate-lineups-by-condition.mjs",
     "validate:season-key": "node --experimental-strip-types scripts/validate-season-key.ts",
     "validate:live-dead-tov": "esbuild scripts/validate-live-dead-tov.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-live-dead-tov.mjs && node node_modules/.cache/validate-live-dead-tov.mjs"
   },

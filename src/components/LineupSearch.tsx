@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GameType, TeamStintsFile } from "../../shared/types";
 import { seasonGameTypeLabels, SEASON_GAME_TYPE_KEYS, type SeasonGameTypeFilter } from "../../shared/gameType";
-import { fetchTeamStints } from "../lib/data";
 import { composeLabels, gameTypeLabels, periodLabels } from "../lib/conditionLabels";
 import { formatDecimal, formatSigned } from "../lib/format";
 import { formatMinutesColon, formatSignedMinutesColon } from "../lib/minutesFormat";
@@ -10,7 +9,6 @@ import { buildPeriodRangeOptions, type PeriodRangeValue } from "../lib/periodRan
 import { usePageState } from "../lib/pageStateCache";
 import { statDescription } from "../lib/statDescriptions";
 import { useNarrow } from "../lib/teamLabel";
-import { useJsonData } from "../lib/useJsonData";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { ConditionTitle } from "./ConditionTitle";
 import { GlossaryNote } from "./GlossaryNote";
@@ -36,18 +34,18 @@ interface Props {
   playerLabel: (name: string) => string;
   /** このシーズンが実際のポゼッションの数え上げに対応しているか（2020-21以降） */
   supported: boolean;
+  /** このチームの出場区間ごとの数え上げ（親が読む。「よく使われるラインナップ」と共有する） */
+  stints: TeamStintsFile | null;
+  stintsLoading: boolean;
+  stintsError: boolean;
 }
 
 /**
  * ラインナップ検索（チーム詳細）。選んだ選手（1〜5人）が全員コートにいた時間帯（Players On）と、全員ベンチにいた時間帯（Players Off）の成績を
  * 上下に並べ、差（On−Off）の行を付けて出す。出場区間ごとの数え上げ（team-stints）から計算する。DESIGN.md 207章
  */
-export function LineupSearch({ season, teamId, playerNameById, games, stateKey, playerLabel, supported }: Props) {
+export function LineupSearch({ season, teamId, playerNameById, games, stateKey, playerLabel, supported, stints, stintsLoading: loading, stintsError: error }: Props) {
   const narrow = useNarrow();
-  const { data: stints, loading, error } = useJsonData<TeamStintsFile | null>(
-    () => (supported ? fetchTeamStints(season, teamId) : Promise.resolve(null)),
-    [season, teamId, supported],
-  );
   const [selectedRaw, setSelected] = usePageState<string[]>(stateKey("lineupSearchSelected"), []);
   const [gameType, setGameType] = usePageState<SeasonGameTypeFilter>(stateKey("lineupSearchGameType"), "regular");
   const [periodValue, setPeriodValue] = usePageState<PeriodRangeValue>(stateKey("lineupSearchPeriod"), "all");
