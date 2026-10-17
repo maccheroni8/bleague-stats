@@ -27,11 +27,16 @@ export interface ForeignShare {
 export function foreignShare(team: TeamSummary): ForeignShare {
   // 旧形式（4要素）のファイルやフィールドの欠落は0秒として扱う
   const raw = team.foreignPlayerCourtSeconds as readonly number[] | undefined;
+  // foreignPlayerCourtSeconds はレギュラーシーズンのみの集計で、gamesPlayed もレギュラーシーズンの試合数
+  return foreignShareFromSeconds(raw, team.gamesPlayed);
+}
+
+/** 区分ごとの在コート秒数（[0人〜4人]）と試合数から、割合・1試合平均・平均人数を出す（絞り込んだ試合・区間の合計にも使う） */
+export function foreignShareFromSeconds(raw: readonly number[] | undefined, gamesPlayed: number): ForeignShare {
   const seconds = FOREIGN_CATEGORIES.map((_, i) => raw?.[i] ?? 0);
   const totalSeconds = seconds.reduce((a, b) => a + b, 0);
   const pct = seconds.map((s) => (totalSeconds > 0 ? (100 * s) / totalSeconds : 0));
-  // foreignPlayerCourtSeconds はレギュラーシーズンのみの集計で、gamesPlayed もレギュラーシーズンの試合数
-  const games = team.gamesPlayed > 0 ? team.gamesPlayed : 0;
+  const games = gamesPlayed > 0 ? gamesPlayed : 0;
   const secondsPerGame = seconds.map((s) => (games > 0 ? Math.round(s / games) : 0));
   const average = pct.reduce((sum, p, count) => sum + (count * p) / 100, 0);
   return { seconds, secondsPerGame, totalSeconds, pct, average };

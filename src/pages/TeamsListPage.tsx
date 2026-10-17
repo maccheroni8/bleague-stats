@@ -7,7 +7,9 @@ import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { choiceNumberParam, clearUrlParams, enumParam, situationalParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
 import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERSPECTIVE_PARAM, TEAM_SEASON_PERIOD_PARAM, VENUE_PARAM } from "../lib/urlFilterParams";
 import { SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, hasShortGameSeason, seasonPeriodOption } from "../lib/seasonPeriod";
-import { sumTeamPeriodTotals, useTeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
+import { sumTeamPeriodTotals, useTeamPeriodSource, type TeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
+import { FOREIGN_COUNTS, hasForeignColumns, logsHaveForeignSeconds, sumForeignCourt, type ForeignPeriodValue } from "../lib/teamForeignCourt";
+import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import {
   buildStatConditionItems,
   DEFAULT_STAT_CONDITIONS,
@@ -53,7 +55,7 @@ import { ResultOnlyNote } from "../components/ResultOnlyNote";
 import { LeagueSeasonRecords } from "../components/LeagueSeasonRecords";
 import { RecordValue } from "../components/RecordValue";
 import { FGA_ORDER_LABELS, FgaCompositionChart, type FgaChartTeam, type FgaShareOrder } from "../components/FgaCompositionChart";
-import { fgaShare, teamClassificationShareFromTotals, teamScoringShareFromTotals } from "../lib/shareCharts";
+import { fgaShare, foreignShareFromSeconds, teamClassificationShareFromTotals, teamScoringShareFromTotals, type ForeignShare } from "../lib/shareCharts";
 import {
   displayModeAxis,
   gameTypeAxis,
@@ -126,6 +128,7 @@ import {
   sumTeamGameLogs,
   type AllTeamsRow,
   EMPTY_TOTALS,
+  type TeamTotals,
 } from "../lib/teamStatsColumns";
 import { statDescription } from "../lib/statDescriptions";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "../lib/teamRankingData";
@@ -318,6 +321,62 @@ function turnoverTotal(data: TeamForcedTurnovers): number {
   );
 }
 
+/** On-Court Foreign の表の行（絞り込んだ試合・区間の、人数別の在コート時間の合計。DESIGN.md 256章の段階3） */
+interface ForeignCourtRow {
+  team: TeamSummary;
+  games: number;
+  share: ForeignShare;
+}
+
+/** On-Court Foreign の表の列: チーム・G・OC0〜OC◯（時間。平均／合計）・OC0%〜OC◯%（割合）・平均人数。人数は規定の上限まで（上限を超える時間がある人数は残す） */
+function foreignCourtColumns(mode: "perGame" | "total", counts: readonly number[]): Column<ForeignCourtRow>[] {
+  return [
+    {
+      key: "team",
+      label: "チーム",
+      align: "left",
+      sortValue: (r) => r.team.teamName,
+      render: (r) => (
+        <span className="team-name-cell">
+          {r.team.teamId !== LEAGUE_TEAM_ID && <TeamLogo teamId={r.team.teamId} size={20} />}
+          <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
+        </span>
+      ),
+    },
+    { key: "g", label: "G", sortValue: (r) => r.games, format: (r) => (r.team.teamId === LEAGUE_TEAM_ID ? "-" : String(r.games)) },
+    ...counts.map(
+      (n): Column<ForeignCourtRow> => ({
+        key: `oc${n}`,
+        label: `OC${n}`,
+        scalesWithGames: true,
+        sortValue: (r) => (mode === "total" ? r.share.seconds[n]! : r.share.secondsPerGame[n]!),
+        format: (r) => formatMinutesFromSeconds(mode === "total" ? r.share.seconds[n]! : r.share.secondsPerGame[n]!),
+      }),
+    ),
+    ...counts.map(
+      (n): Column<ForeignCourtRow> => ({
+        key: `oc${n}Pct`,
+        label: `OC${n}%`,
+        sortValue: (r) => r.share.pct[n]!,
+        format: (r) => formatDecimal(r.share.pct[n]!),
+      }),
+    ),
+    { key: "avgCount", label: "平均人数", sortValue: (r) => r.share.average, format: (r) => r.share.average.toFixed(2) },
+  ];
+}
+
+/** チームの合計を足し合わせる（リーグ平均の材料。全チームの試合ログを足した値と同じ） */
+function sumTotalsOf(list: readonly TeamTotals[]): TeamTotals {
+  const sum: TeamTotals = { ...EMPTY_TOTALS };
+  for (const t of list) for (const k of Object.keys(sum) as (keyof TeamTotals)[]) sum[k] += t[k];
+  return sum;
+}
+
+/** 区間の値（索引）を使えるか。試合全体は試合ログ、区間は索引の人数別の列が要る */
+function foreignCourtReady(period: ForeignPeriodValue, source: TeamPeriodSource | null, logsSupported: boolean): boolean {
+  return period === "all" ? logsSupported : hasForeignColumns(source);
+}
+
 function AllTeamsStatsTab({ season }: { season: string }) {
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
   const { supported: yahooPbpSupported } = useYahooPbpCoverage(season);
@@ -341,7 +400,14 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   // 区間（試合全体・1Q〜4Q・前半・後半・延長。DESIGN.md 256章の段階2）。Traditional〜Scoring の4つのタブだけで効く。区間の値はチームのピリオド別の索引から出す
   const [period, setPeriod] = useUrlState(TEAM_SEASON_PERIOD_PARAM, "all");
   const periodOption = seasonPeriodOption(period);
-  const periodTab = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
+  // On-Court Foreign・Scoring % も区間を選べる（256章の段階3。On-Court Foreign は人数別の在コート時間、Scoring % は得点・試投の構成）
+  const periodTab =
+    boxTab === "traditional" ||
+    boxTab === "advanced" ||
+    boxTab === "misc" ||
+    boxTab === "scoring" ||
+    boxTab === "foreignPlayers" ||
+    boxTab === "scoringComposition";
   const periodActive = periodTab && period !== "all";
   const { source: periodSource, loading: periodLoading } = useTeamPeriodSource(season, periodActive);
   // On-Court Foreignの並び順（DESIGN.md 135章）。ブラウザバックで戻ったときも保持する（usePageState、シーズンをまたいで共通）
@@ -534,18 +600,26 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   });
   // Scoring %（得点構成・FG試投構成・得点構成（登録区分））は、選んだ条件（試合区分・試合の条件）に当てはまる試合ログの合計から出す（DESIGN.md 256章。
   // 以前は teams.json のレギュラーシーズン合計だけで、絞り込みと連動しなかった）。リーグ平均は全チームの合計を延べ試合数で割る。条件に当てはまる試合が無いチームは出さない
+  // 区間（1Q〜4Q・前半・後半・延長）を選んだときは、チームのピリオド別の索引の合計（全チームの表の区間別と同じ。特別な試合は除き、延長は延長のあった試合だけ）
   const shareTotals = useMemo(() => {
     if (!teams || !gameLogsByTeam) return null;
+    if (boxTab === "scoringComposition" && periodActive && !periodSource) return null;
     const perTeam = teams
       .map((team) => {
         const logs = scopedLogsByTeam.get(team.teamId) ?? [];
+        if (periodActive && periodSource) {
+          const { games, totals } = sumTeamPeriodTotals(periodSource, logs, period as TeamPeriodValue);
+          return { team, games: games.length, totals };
+        }
         return { team, games: logs.length, totals: sumTeamGameLogs(logs) };
       })
       .filter((r) => r.games > 0);
-    const allLogs = perTeam.flatMap((r) => scopedLogsByTeam.get(r.team.teamId) ?? []);
-    const league = perTeam.length > 0 ? { games: allLogs.length, totals: sumTeamGameLogs(allLogs) } : null;
+    const league =
+      perTeam.length > 0
+        ? { games: perTeam.reduce((a, r) => a + r.games, 0), totals: sumTotalsOf(perTeam.map((r) => r.totals)) }
+        : null;
     return { perTeam, league };
-  }, [teams, gameLogsByTeam, scopedLogsByTeam]);
+  }, [teams, gameLogsByTeam, scopedLogsByTeam, boxTab, periodActive, periodSource, period]);
   const scoringTeams = useMemo<TeamSummary[]>(() => {
     if (!shareTotals) return [];
     const list = shareTotals.perTeam.map((r) => r.team);
@@ -586,6 +660,44 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     };
     return { own: build("own"), opponent: build("opponent") };
   }, [shareTotals]);
+  // On-Court Foreign（DESIGN.md 256章の段階3）: 選んだ試合区分・試合の条件・区間の、人数別の在コート時間の合計。視点は自チーム／相手（相手のコート上の人数）。
+  // 試合全体は試合ログ、区間は索引から。人数を数えられた時間が無いチームは出さない。リーグ平均は全チームの合計を延べ試合数で割る。
+  // 試合ログに人数別の時間が無い古いデータのときは、teams.json（レギュラーシーズンの合計）のまま出す（絞り込みは連動しない）
+  const foreignSide: "own" | "opp" = teamPerspective === "opp" ? "opp" : "own";
+  const foreignPeriod: ForeignPeriodValue = periodActive ? (period as ForeignPeriodValue) : "all";
+  const foreignLogsSupported = useMemo(
+    () => !!gameLogsByTeam && [...gameLogsByTeam.values()].some((logs) => logsHaveForeignSeconds(logs)),
+    [gameLogsByTeam],
+  );
+  const foreignRows = useMemo<ForeignCourtRow[] | null>(() => {
+    if (boxTab !== "foreignPlayers" || !teams || !gameLogsByTeam) return null;
+    if (!foreignCourtReady(foreignPeriod, periodSource, foreignLogsSupported)) return null;
+    const list: ForeignCourtRow[] = [];
+    const leagueSeconds = [0, 0, 0, 0, 0];
+    let leagueGames = 0;
+    for (const team of teams) {
+      const sum = sumForeignCourt(periodSource, scopedLogsByTeam.get(team.teamId) ?? [], foreignPeriod, foreignSide);
+      if (!sum || sum.games === 0 || sum.seconds.every((v) => v === 0)) continue;
+      list.push({ team, games: sum.games, share: foreignShareFromSeconds(sum.seconds, sum.games) });
+      for (const n of FOREIGN_COUNTS) leagueSeconds[n]! += sum.seconds[n]!;
+      leagueGames += sum.games;
+    }
+    if (list.length > 0) {
+      list.push({
+        team: { teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME } as TeamSummary,
+        games: leagueGames / list.length,
+        share: foreignShareFromSeconds(leagueSeconds.map((v) => Math.round(v / list.length)), leagueGames / list.length),
+      });
+    }
+    return list;
+  }, [boxTab, teams, gameLogsByTeam, foreignPeriod, periodSource, foreignLogsSupported, scopedLogsByTeam, foreignSide]);
+  const foreignShareById = useMemo(() => new Map((foreignRows ?? []).map((r) => [r.team.teamId, r.share])), [foreignRows]);
+  const foreignMax = foreignRules?.find((r) => r.season === season)?.maxForeignOnCourt;
+  // 表の人数の列は規定の上限まで。上限を超える人数でも、時間のあるチームがあれば出す
+  const foreignCounts = FOREIGN_COUNTS.filter(
+    (n) => foreignMax === undefined || n <= foreignMax || (foreignRows ?? []).some((r) => r.share.seconds[n]! > 0),
+  );
+
   // 棒グラフ（On-Court Foreign・Scoring %）は、リーグ平均の棒を並び順の中の該当する位置に入れる（DESIGN.md 149章）
   const withLeague = (list: TeamSummary[] | null | undefined): TeamSummary[] =>
     leagueAverage ? [...(list ?? []), { ...leagueAverage.team, teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME }] : (list ?? []);
@@ -628,13 +740,15 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const isMainCategory = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring" || boxTab === "periods";
   // Scoring % は、試合区分・試合の条件が連動する（DESIGN.md 256章）。得点構成と失点構成を並べて出すので視点は切り替えず、割合のグラフなので平均/合計も切り替えない
   const isShareCategory = boxTab === "scoringComposition";
+  // On-Court Foreign は、試合区分・試合の条件・区間・視点（自チーム／相手）・平均／合計（表の時間）が連動する（256章の段階3）
+  const isForeignCategory = boxTab === "foreignPlayers";
   const seasonTotalOnlyReason = "このタブはシーズン通算値のみ対応のため、上の絞り込みは連動しません。";
-  const filterDisabledReason = isMainCategory || isShareCategory
+  const filterDisabledReason = isMainCategory || isShareCategory || isForeignCategory
     ? undefined
     : boxTab === "shooting"
       ? "このタブはシーズン通算値のみ対応です（表示の平均/合計だけ連動します）。"
       : seasonTotalOnlyReason;
-  const displayDisabledReason = isMainCategory || boxTab === "shooting"
+  const displayDisabledReason = isMainCategory || isForeignCategory || boxTab === "shooting"
     ? undefined
     : isShareCategory
       ? "このタブは割合のグラフのため、平均/合計の切り替えは連動しません（右端の得点・失点は1試合平均です）。"
@@ -644,17 +758,18 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     : filterDisabledReason;
   const filterAxes: FilterAxis[] = [
     gameTypeAxis(gameType, setGameType, season, { disabledReason: filterDisabledReason }),
-    perspectiveAxis(teamPerspective, setTeamPerspective, { disabledReason: perspectiveDisabledReason }),
+    perspectiveAxis(teamPerspective, setTeamPerspective, {
+      disabledReason: perspectiveDisabledReason,
+      disabledValues: isForeignCategory ? ["diff"] : undefined,
+    }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: displayDisabledReason }),
     periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, {
       label: "Q別・前後半・延長",
       disabledReason: periodTab
         ? undefined
         : boxTab === "periods"
-          ? "このタブは区間別の得点の表のため、区間の選択は Traditional〜Scoring のタブでだけ効きます。"
-          : boxTab === "shooting" || boxTab === "forcedTurnovers"
-            ? "このタブはシーズン合計の値だけのため、区間は選べません（Traditional〜Scoring のタブでだけ効きます）。"
-            : "このタブでは区間は選べません（Traditional〜Scoring のタブでだけ効きます）。",
+          ? "このタブは区間別の得点の表のため、区間の選択はほかのタブでだけ効きます。"
+          : "このタブはシーズン合計の値だけのため、区間は選べません。",
     }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
@@ -689,8 +804,17 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           : boxTab === "forcedTurnovers"
             ? composeLabels(TURNOVER_PERSPECTIVE_LABELS[turnoverPerspective], SEASON_TOTAL_ONLY_LABELS)
             : boxTab === "foreignPlayers"
-              ? composeLabels(SEASON_TOTAL_ONLY_LABELS, "在コート時間ベース")
-              : composeLabels(gameTypeLabels(gameType, season), situationalFilterLabels(filter)),
+              ? foreignRows || foreignPeriod !== "all"
+                ? composeLabels(
+                    displayModeLabels(displayMode),
+                    gameTypeLabels(gameType, season),
+                    foreignSide === "opp" ? perspectiveLabels("opp") : [],
+                    situationalFilterLabels(filter),
+                    periodLabels(periodOption),
+                    "在コート時間ベース",
+                  )
+                : composeLabels(SEASON_TOTAL_ONLY_LABELS, "在コート時間ベース")
+              : composeLabels(gameTypeLabels(gameType, season), situationalFilterLabels(filter), periodLabels(periodOption)),
   };
 
   return (
@@ -843,13 +967,53 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               }),
             ]}
           />
-          <ForeignPlayerCourtTimeChart
-            teams={withLeague(teams)}
-            order={foreignOrder}
-            maxOnCourt={foreignRules?.find((r) => r.season === season)?.maxForeignOnCourt}
-          />
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.foreignCourt} label="在コート時間" scope="レギュラーシーズン・シーズン合計の値です（上部の絞り込みとは連動しません）。" />
+          {foreignRows ? (
+            <>
+              <ForeignPlayerCourtTimeChart
+                teams={foreignRows.map((r) => r.team)}
+                order={foreignOrder}
+                maxOnCourt={foreignMax}
+                shareOf={(t) => foreignShareById.get(t.teamId) ?? foreignShareFromSeconds(undefined, 0)}
+              />
+              <div className="table-scroll">
+                <SortableTable
+                  statScope="team"
+                  key={`foreign-${displayMode}`}
+                  columns={foreignCourtColumns(displayMode === "total" ? "total" : "perGame", foreignCounts)}
+                  rows={foreignRows.filter((r) => r.team.teamId !== LEAGUE_TEAM_ID)}
+                  rowKey={(r) => r.team.teamId}
+                  defaultSortKey="avgCount"
+                  linkTo={(r) => `/teams/${r.team.teamId}`}
+                  pinnedRows={foreignRows.filter((r) => r.team.teamId === LEAGUE_TEAM_ID)}
+                />
+              </div>
+              {foreignPeriod === "ot" && (
+                <p className="page-subtitle">延長は、延長のあった試合だけの値です（すべての延長の合計）。G は延長のあった試合数で、平均はその試合数で割っています。</p>
+              )}
+              {foreignPeriod !== "all" && foreignPeriod !== "ot" && gameType !== "regular" && hasShortGameSeason([season]) && (
+                <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>
+              )}
+              <GlossaryNote
+                anchor={GLOSSARY_ANCHORS.foreignCourt}
+                label="在コート時間"
+                scope={`上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です${foreignSide === "opp" ? "（相手チームのコート上の人数）" : ""}。`}
+              />
+            </>
+          ) : foreignPeriod !== "all" && periodLoading ? (
+            <p className="loading">読み込み中...</p>
+          ) : foreignPeriod !== "all" ? (
+            <p className="empty-message">このシーズンの区間別の値を読み込めませんでした。時間をおいて開き直すか、区間を「試合全体」にしてください。</p>
+          ) : gameLogsLoading || !gameLogsByTeam ? (
+            <p className="loading">読み込み中...</p>
+          ) : (
+            <>
+              <ForeignPlayerCourtTimeChart teams={withLeague(teams)} order={foreignOrder} maxOnCourt={foreignMax} />
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.foreignCourt} label="在コート時間" scope="レギュラーシーズン・シーズン合計の値です（上部の絞り込みとは連動しません）。" />
+            </>
+          )}
         </>
+      ) : boxTab === "scoringComposition" && periodActive && !periodLoading && !periodSource ? (
+        <p className="empty-message">このシーズンの区間別の値を読み込めませんでした。時間をおいて開き直すか、区間を「試合全体」にしてください。</p>
       ) : boxTab === "scoringComposition" && shareTotals ? (
         <>
           <FilterBar
@@ -889,17 +1053,21 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           <ScoringCompositionChart teams={scoringTeams} mode="own" order={scoringOrder} shareOf={scoringShareOf.scoring} />
           <h3>失点構成（このチームが奪われた得点の割合）</h3>
           <ScoringCompositionChart teams={scoringTeams} mode="opponent" order={scoringOrder} shareOf={scoringShareOf.scoring} />
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成" scope="上部で選んだ試合区分・試合の条件に当てはまる試合の合計の値です。" />
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />
           <h3>FG試投構成（FGAに占める割合）</h3>
           {fgaTeams ? <FgaCompositionChart teams={fgaTeams.own} mode="own" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
           <h3>opp FG試投構成（相手のFGAに占める割合）</h3>
           {fgaTeams ? <FgaCompositionChart teams={fgaTeams.opponent} mode="opponent" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="FG試投構成" scope="上部で選んだ試合区分・試合の条件に当てはまる試合の合計の値です。" />
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="FG試投構成" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />
           <h3>得点構成（登録区分）</h3>
           <ClassificationCompositionChart teams={scoringTeams} mode="own" order={classificationOrder} shareOf={scoringShareOf.classification} />
           <h3>失点構成（登録区分）</h3>
           <ClassificationCompositionChart teams={scoringTeams} mode="opponent" order={classificationOrder} shareOf={scoringShareOf.classification} />
-          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成（登録区分）" scope="上部で選んだ試合区分・試合の条件に当てはまる試合の合計の値です。" />
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成（登録区分）" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />
+          {periodActive && period === "ot" && (
+            <p className="page-subtitle">延長は、延長のあった試合だけの値です（すべての延長の合計）。右端の得点・失点は、延長のあった試合で割った1試合平均です。</p>
+          )}
+          {periodActive && period !== "ot" && gameType !== "regular" && hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
         </>
       ) : gameLogsLoading || !gameLogsByTeam || boxTab === "scoringComposition" ? (
         <p className="loading">読み込み中...</p>

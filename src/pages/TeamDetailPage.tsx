@@ -89,7 +89,10 @@ import { ESTIMATED_RATING_NOTE, lineupRatingsOf, lineupsHaveRealPossessions } fr
 import { LineupSearch } from "../components/LineupSearch";
 import { highlightStrength } from "../components/GameLineupTable";
 import { TeamLineupOnCourtSummary } from "../components/TeamLineupOnCourtSummary";
-import { lineupBucket, lineupForeignCount, lineupSeasonTotals, seasonOnCourtSummary } from "../lib/teamLineupOnCourt";
+import { lineupBucket, lineupForeignCount, lineupSeasonTotals, seasonOnCourtSummary, seasonOnCourtSummaryFromDetail } from "../lib/teamLineupOnCourt";
+import { useTeamPeriodSource } from "../lib/teamPeriodTotals";
+import { sumForeignDetail, type ForeignPeriodValue } from "../lib/teamForeignCourt";
+import { SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, hasShortGameSeason, seasonPeriodOption } from "../lib/seasonPeriod";
 import { substitutionModelForSeason } from "../../shared/onCourt";
 import {
   buildBackToBackStatus,
@@ -2066,6 +2069,9 @@ function formatTeamPointsExtraColumn(
   return formatTeamPointsCount(result, col, perspective, mode);
 }
 
+/** オンザコート別の合計で、条件の切り替えに要るデータが読めなかったとき（古いデータ）の理由 */
+const LINEUP_OC_CONDITION_UNAVAILABLE = "このシーズンのデータでは条件を切り替えられません（合算・試合全体・合計だけを出しています）。";
+
 export function TeamDetailPage({ season }: { season: string }) {
   const { teamId } = useParams<{ teamId: string }>();
   // ブラウザバック等で本コンポーネントが一度アンマウント・再マウントされても、直前の
@@ -2147,6 +2153,11 @@ export function TeamDetailPage({ season }: { season: string }) {
   // よく使われるラインナップのオンザコート別の合計で選んだ行（人数、集計外は null、未選択は undefined）。一覧をその人数の組だけに絞る
   // 選んだときのチーム・シーズンも持ち、別のチーム・シーズンに移ったら（同じ画面のまま切り替わっても）絞り込みを外す
   const [lineupOcFilterState, setLineupOcFilterState] = usePageState<{ teamId: string; season: string; count: number | null } | null>(pk("lineupOcFilter"), null);
+  // オンザコート別の合計の条件（試合区分・区間・合計／1試合平均。DESIGN.md 256章の段階3）。初期値は今までと同じ「合算・試合全体・合計」
+  const [lineupOcGameType, setLineupOcGameType] = usePageState<SeasonGameTypeFilter>(pk("lineupOcGameType"), "both");
+  const [lineupOcPeriod, setLineupOcPeriod] = usePageState<PeriodRangeValue>(pk("lineupOcPeriod"), "all");
+  const [lineupOcDisplay, setLineupOcDisplay] = usePageState<SeasonDisplayMode>(pk("lineupOcDisplay"), "total");
+  const { source: lineupPeriodSource, loading: lineupPeriodLoading } = useTeamPeriodSource(season, tab === "lineups");
   const lineupOcFilter =
     lineupOcFilterState && lineupOcFilterState.teamId === teamId && lineupOcFilterState.season === season ? lineupOcFilterState.count : undefined;
   const setLineupOcFilter = (count: number | null | undefined) =>
@@ -3364,11 +3375,24 @@ export function TeamDetailPage({ season }: { season: string }) {
   const classificationById = new Map((players ?? []).map((p) => [p.playerId, p.classification] as const));
   const classifyLineupPlayer = (id: string) => classificationById.get(id);
   const lineupMaxForeign = seasonRulesForTrend?.find((r) => r.season === season)?.maxForeignOnCourt;
-  const lineupOcTotals = lineupSeasonTotals(gameLogs ?? []);
+  // オンザコート別の合計は、チームのピリオド別の索引から、選んだ試合区分・区間で出す（256章の段階3）。索引が古い・読めないときは、
+  // 今までのラインナップのファイルからの値（合算・試合全体・合計だけ）に戻す
+  const lineupOcPeriodValue: ForeignPeriodValue = (SEASON_PERIOD_OPTIONS.some((o) => o.value === lineupOcPeriod) ? lineupOcPeriod : "all") as ForeignPeriodValue;
+  const lineupOcLogs = filterByGameType((gameLogs ?? []).filter((g) => g.min > 0), lineupOcGameType);
+  const lineupOcDetail =
+    tab === "lineups" && lineupMaxForeign !== undefined && allLineups.length > 0 && lineupPeriodSource
+      ? sumForeignDetail(lineupPeriodSource, lineupOcLogs, lineupOcPeriodValue)
+      : null;
+  const lineupOcFromIndex = lineupOcDetail && lineupMaxForeign !== undefined ? seasonOnCourtSummaryFromDetail(lineupOcDetail, lineupMaxForeign) : null;
+  const lineupOcTotals = lineupOcFromIndex?.totals ?? lineupSeasonTotals(gameLogs ?? []);
   const lineupOcSummary =
     lineupMaxForeign === undefined || allLineups.length === 0
       ? null
-      : seasonOnCourtSummary(allLineups, classifyLineupPlayer, lineupMaxForeign, lineupOcTotals, team ? { teamPoss: team.advanced.poss, teamMin: team.totals.min } : null);
+      : (lineupOcFromIndex ??
+        (lineupPeriodLoading
+          ? null
+          : seasonOnCourtSummary(allLineups, classifyLineupPlayer, lineupMaxForeign, lineupOcTotals, team ? { teamPoss: team.advanced.poss, teamMin: team.totals.min } : null)));
+  const lineupOcPerGame = lineupOcFromIndex && lineupOcDisplay === "perGame" ? lineupOcFromIndex.games : undefined;
   const activeLineupOc = lineupMaxForeign === undefined ? undefined : lineupOcFilter;
   const ocFilteredLineups = (list: typeof allLineups) =>
     activeLineupOc === undefined ? list : list.filter((l) => lineupBucket(l, classifyLineupPlayer, lineupMaxForeign!) === activeLineupOc);
@@ -4734,18 +4758,61 @@ export function TeamDetailPage({ season }: { season: string }) {
             <p className="empty-message">ラインナップデータがありません</p>
           ) : (
             <>
+              {lineupMaxForeign !== undefined && lineupPeriodLoading && !lineupOcSummary && <p className="loading">読み込み中...</p>}
               {lineupOcSummary && (
                 <>
-                  <h4 className="lineup-oc-heading">オンザコート別の合計（レギュラーシーズン＋ポストシーズン）</h4>
-                  <TeamLineupOnCourtSummary
-                    rows={lineupOcSummary.rows}
-                    totals={lineupOcTotals}
-                    real={lineupOcSummary.real}
-                    color={accentColor ?? "var(--accent)"}
-                    selected={activeLineupOc}
-                    onSelect={(c) => setLineupOcFilter(activeLineupOc === c ? undefined : c)}
+                  <h4 className="lineup-oc-heading">
+                    {lineupOcFromIndex
+                      ? `オンザコート別の${lineupOcDisplay === "perGame" ? "1試合平均" : "合計"}（${[
+                          ...gameTypeLabels(lineupOcGameType, season),
+                          ...(lineupOcPeriodValue === "all" ? [] : periodLabels(seasonPeriodOption(lineupOcPeriodValue))),
+                        ].join("・")}）`
+                      : "オンザコート別の合計（レギュラーシーズン＋ポストシーズン）"}
+                  </h4>
+                  <FilterBar
+                    simple
+                    stateKey={pk("lineupOcSummaryFilter")}
+                    axes={[
+                      gameTypeAxis(lineupOcGameType, setLineupOcGameType, season, { defaultValue: "both", disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE }),
+                      periodAxis(lineupOcPeriod, setLineupOcPeriod, SEASON_PERIOD_OPTIONS, {
+                        label: "Q別・前後半・延長",
+                        disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE,
+                      }),
+                      { ...displayModeAxis(lineupOcDisplay, setLineupOcDisplay, { disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE }), defaultValue: "total" },
+                    ]}
                   />
-                  {!lineupOcSummary.real && <p className="rule-change-footnote">※ ORtg・DRtg・NetRtg は、{ESTIMATED_RATING_NOTE}（チームのシーズン平均のペースで時間から按分）</p>}
+                  {lineupOcFromIndex && lineupOcFromIndex.games === 0 ? (
+                    <p className="empty-message">この条件に当てはまる試合はありません</p>
+                  ) : (
+                    <TeamLineupOnCourtSummary
+                      rows={lineupOcSummary.rows}
+                      totals={lineupOcTotals}
+                      real={lineupOcSummary.real}
+                      color={accentColor ?? "var(--accent)"}
+                      selected={activeLineupOc}
+                      onSelect={(c) => setLineupOcFilter(activeLineupOc === c ? undefined : c)}
+                      perGame={lineupOcPerGame}
+                    />
+                  )}
+                  {lineupOcFromIndex && lineupOcDisplay === "perGame" && (
+                    <p className="rule-change-footnote">
+                      ※ 1試合平均は、
+                      {lineupOcPeriodValue === "ot" ? `延長のあった${lineupOcFromIndex.games}試合` : `この条件のチームの全${lineupOcFromIndex.games}試合`}
+                      で割っています（その人数の時間が無かった試合も含みます）。
+                    </p>
+                  )}
+                  {lineupOcFromIndex && lineupOcPeriodValue === "ot" && lineupOcDisplay !== "perGame" && (
+                    <p className="rule-change-footnote">※ 延長は、延長のあった{lineupOcFromIndex.games}試合のすべての延長の合計です。</p>
+                  )}
+                  {lineupOcFromIndex && lineupOcPeriodValue !== "all" && lineupOcPeriodValue !== "ot" && lineupOcGameType !== "regular" && hasShortGameSeason([season]) && (
+                    <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
+                  )}
+                  {!lineupOcSummary.real && (
+                    <p className="rule-change-footnote">
+                      ※ ORtg・DRtg・NetRtg は、{ESTIMATED_RATING_NOTE}
+                      {lineupOcFromIndex ? "（この条件のチームの攻撃回数を、時間の割合で人数ごとに分けています）" : "（チームのシーズン平均のペースで時間から按分）"}
+                    </p>
+                  )}
                 </>
               )}
               {lineupOcLabel && (

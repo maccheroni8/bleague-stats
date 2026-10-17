@@ -12,6 +12,8 @@ interface ForeignPlayerCourtTimeChartProps {
    * （規定上ありえない。公式記録の選手の取り違え等で生じる）は並べ替えの比較に使わない。グラフの表示はそのまま。未指定なら全区分を使う
    */
   maxOnCourt?: number;
+  /** チームの値を teams.json（レギュラーシーズンの合計）以外から出すとき（絞り込んだ試合・区間の合計）。未指定は teams.json の値 */
+  shareOf?: (team: TeamSummary) => ForeignShare;
 }
 
 /**
@@ -47,11 +49,11 @@ function compareShares(order: ForeignCourtOrder, a: ForeignShare, b: ForeignShar
  * ラインナップと規定の上限人数を超える区間は除外されている（合計時間が実際の出場時間より短くなりうる）。合計が0のチーム（データ欠落）は出さない。
  * 描画は共通部品の ShareBarChart（141章）
  */
-export function ForeignPlayerCourtTimeChart({ teams, order = "foreignDesc", maxOnCourt }: ForeignPlayerCourtTimeChartProps) {
+export function ForeignPlayerCourtTimeChart({ teams, order = "foreignDesc", maxOnCourt, shareOf = foreignShare }: ForeignPlayerCourtTimeChartProps) {
   // 比べる区分: 人数の多い順（規定の上限を超える区分は除く）
   const buckets = [4, 3, 2, 1, 0].filter((n) => maxOnCourt === undefined || n <= maxOnCourt);
   const rows: ShareBarRow[] = teams
-    .map((t) => ({ team: t, share: foreignShare(t) }))
+    .map((t) => ({ team: t, share: shareOf(t) }))
     .filter((r) => r.share.totalSeconds > 0)
     .sort((a, b) => compareShares(order, a.share, b.share, buckets) || a.team.teamId.localeCompare(b.team.teamId))
     .map(({ team, share }) => {

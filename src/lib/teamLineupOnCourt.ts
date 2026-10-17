@@ -6,6 +6,7 @@ import { foreignCountInLineup, type ClassificationLookup } from "../../shared/fo
 import type { LineupAggregate, TeamGameLog } from "../../shared/types";
 import { foreignCountBucket, summarizeByForeignCount, type GameLineupRow, type OnCourtSummaryRow, type RangeTotals } from "./gameLineups";
 import { per100 } from "./lineupRatings";
+import type { ForeignDetailSum } from "./teamForeignCourt";
 
 /** 5人のうち外国籍・帰化・アジアの選手の人数（区分の分からない選手がいれば null） */
 export function lineupForeignCount(lineup: Pick<LineupAggregate, "playerIds">, classify: ClassificationLookup): number | null {
@@ -100,4 +101,39 @@ export function seasonOnCourtSummary(
     return { ...s, pct, ortg, drtg, netRtg: ortg !== null && drtg !== null ? ortg - drtg : null };
   });
   return { rows, real };
+}
+
+/**
+ * 試合区分・区間を選べるオンザコート別の合計（DESIGN.md 256章の段階3）。材料はチームのピリオド別の索引（src/lib/teamForeignCourt.ts の sumForeignDetail）。
+ * 人数を数えた時間・得点・失点は、よく使われるラインナップと同じ数え方（試合区分が合算・区間が試合全体なら、ラインナップのファイルからの値と同じ）。
+ * ORtg・DRtg・NetRtg は、人数ごとの攻撃回数がある（2020-21以降）ときはその値、無いときは推定（その条件のチームの攻撃回数を、時間の割合で人数ごとに分ける。256-7章の決定4）。
+ * 規定の上限を超える人数の時間は集計外に入る（今までと同じ）
+ */
+export function seasonOnCourtSummaryFromDetail(
+  detail: ForeignDetailSum,
+  maxOnCourt: number,
+): { rows: SeasonOnCourtRow[]; real: boolean; totals: RangeTotals; games: number } {
+  const totals: RangeTotals = { seconds: detail.seconds, ownPoints: detail.ownPoints, oppPoints: detail.oppPoints };
+  const asRows: GameLineupRow[] = detail.byCount.map((b, n) => ({
+    teamId: "",
+    lineupKey: String(n),
+    playerIds: [],
+    seconds: b.seconds,
+    ownPoints: b.ownPoints,
+    oppPoints: b.oppPoints,
+    netPoints: b.ownPoints - b.oppPoints,
+  }));
+  const summary = summarizeByForeignCount(asRows, (r) => Number(r.lineupKey), maxOnCourt, totals);
+  const real = detail.realPoss;
+  const countedSeconds = summary.reduce((a, s) => a + (s.count === null ? 0 : s.seconds), 0);
+  const rows = summary.map((s): SeasonOnCourtRow => {
+    if (s.count === null) return { ...s, pct: null, ortg: null, drtg: null, netRtg: null };
+    const pct = countedSeconds > 0 ? (100 * s.seconds) / countedSeconds : null;
+    const b = detail.byCount[s.count]!;
+    const est = detail.seconds > 0 ? (detail.teamPoss * s.seconds) / detail.seconds : 0;
+    const ortg = per100(s.ownPoints, real ? b.ownPoss : est);
+    const drtg = per100(s.oppPoints, real ? b.oppPoss : est);
+    return { ...s, pct, ortg, drtg, netRtg: ortg !== null && drtg !== null ? ortg - drtg : null };
+  });
+  return { rows, real, totals, games: detail.games };
 }
