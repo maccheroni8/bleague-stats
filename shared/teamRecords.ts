@@ -131,6 +131,22 @@ export function longestWinStreak(logs: TeamGameLog[]): number {
   return max;
 }
 
+/** longestWinStreak() の負け版（シーズン内の最長の連敗。クラブレコードのシーズン記録のワースト側） */
+export function longestLosingStreak(logs: TeamGameLog[]): number {
+  const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
+  let max = 0;
+  let current = 0;
+  for (const g of sorted) {
+    if (!g.win) {
+      current += 1;
+      if (current > max) max = current;
+    } else {
+      current = 0;
+    }
+  }
+  return max;
+}
+
 export interface CareerTotalDef {
   key: string;
   label: string;
@@ -424,12 +440,14 @@ export interface TeamSeasonSpecialAggregate {
   streak: number;
 }
 
-export function bestTeamSeasonRecord(
-  aggregates: TeamSeasonSpecialAggregate[],
-  pick: (a: TeamSeasonSpecialAggregate) => number,
+export function bestTeamSeasonRecord<T extends { season: string }>(
+  aggregates: T[],
+  pick: (a: T) => number,
+  lowest = false,
 ): { value: number; season: string; otherSeasons: string[] } | null {
   if (aggregates.length === 0) return null;
-  const best = Math.max(...aggregates.map(pick));
+  // lowest=true は一番小さい値（ワースト側の最少勝利数・最低勝率）
+  const best = lowest ? Math.min(...aggregates.map(pick)) : Math.max(...aggregates.map(pick));
   const matches = aggregates
     .filter((a) => pick(a) === best)
     .map((a) => a.season)

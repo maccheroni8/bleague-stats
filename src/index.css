@@ -657,6 +657,14 @@ table.stats-table tr.situational-group-heading td {
   font-variant-numeric: tabular-nums;
 }
 
+/* シーズン記録のカードの下の一言（対象外のシーズンなど） */
+.career-high-note {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
 .career-high-game-link {
   display: block;
   font-size: 12px;

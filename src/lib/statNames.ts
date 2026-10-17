@@ -20,6 +20,11 @@ export const STAT_NAMES: Record<string, StatJaName> = {
   GS: "スタメン出場試合数",
   MIN: "出場時間",
 
+  // --- 勝敗（順位表の列・クラブレコードのシーズン記録） ---
+  勝: "勝利数",
+  負: "敗戦数",
+  勝率: "勝率",
+
   // --- Traditional ---
   PTS: "得点",
   FGM: "フィールドゴール成功数",
