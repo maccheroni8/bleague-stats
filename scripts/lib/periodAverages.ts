@@ -1,7 +1,8 @@
 // data/{season}/period-averages.json（クォーター別・前後半別の1試合平均と、そのシーズンのリーグ内順位。DESIGN.md 143章）を作る。
-// チーム詳細「通算成績」のシーズン別の表で使う。延長戦は含めない（shared/teamPeriodRecords.ts）
+// チーム詳細「通算成績」のシーズン別の表で使う。延長は、延長のあった試合で割り、延長のあった試合が3試合以上のチームだけで順位を付ける
+// （3試合未満のチームは値を持たない＝画面は順位を出さない。shared/teamPeriodRecords.ts・DESIGN.md 256章）
 import { filterByGameType } from "../../shared/gameType.ts";
-import { PERIOD_AVERAGE_STATS, PERIOD_KEYS, periodAverage } from "../../shared/teamPeriodRecords.ts";
+import { OVERTIME_MIN_TEAM_GAMES, PERIOD_AVERAGE_STATS, PERIOD_KEYS, periodAverage } from "../../shared/teamPeriodRecords.ts";
 import type { LeagueRankingGameType, PeriodAverageRankEntry, PeriodAveragesFile, TeamGameLog } from "../../shared/types.ts";
 
 const GAME_TYPES: LeagueRankingGameType[] = ["regular", "playoff", "both"];
@@ -27,7 +28,7 @@ export function buildPeriodAveragesFile(season: string, logsByTeam: Map<string, 
         // オールスター等（gameType が regular/playoff 以外）の試合は除く。擬似チームはこれで対象から外れる
         const real = logs.filter((g) => g.gameType === "regular" || g.gameType === "playoff");
         const avg = periodAverage(filterByGameType(real, gameType), period);
-        if (avg) rows.push({ teamId, avg });
+        if (avg && (period !== "ot" || avg.games >= OVERTIME_MIN_TEAM_GAMES)) rows.push({ teamId, avg });
       }
       const ranks = Object.fromEntries(
         PERIOD_AVERAGE_STATS.map((s) => [s.key, competitionRanks(rows.map((r) => ({ teamId: r.teamId, value: r.avg[s.key] })), s.lowerFirst)]),

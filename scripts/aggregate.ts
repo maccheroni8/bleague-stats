@@ -40,7 +40,8 @@ import {
   type OnCourtReconstruction,
   type PlayerOnCourtRatings,
 } from "../shared/onCourt.ts";
-import { foreignCountInLineup } from "../shared/foreignOnCourt.ts";
+import { computeForeignPlayerCourtSeconds, foreignCourtSecondsArray, type ForeignOverLimitTally } from "../shared/foreignOnCourt.ts";
+import { buildMiscEventCounts, countTechnicalFouls, teamPointsBreakdown, type MiscEventCounts } from "../shared/teamGameEvents.ts";
 import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
 import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../shared/playTypePoints.ts";
 import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
@@ -61,12 +62,6 @@ import { clutchByPlayer, maxRuns, scoringSequence, type TeamRun } from "../share
 import { buildAssistPairsFile, sortedAssistPairRows, type AssistPairRow } from "../shared/assistPairs.ts";
 import { overtimeCount } from "../shared/gamePeriods.ts";
 import {
-  DISQUALIFYING_FOUL_CODE,
-  PLAYER_TECHNICAL_FOUL_CODES,
-  TECHNICAL_FT_FOUL_CODES,
-  UNSPORTSMANLIKE_FOUL_CODES,
-  foulCategoryKey,
-  teamTechnicalCategoryKey,
   nonZeroFoulCategoryFields,
   opponentFoulCategoryFields,
 } from "../shared/foulCodes.ts";
@@ -80,7 +75,6 @@ import type {
   PlayerPageSeasonsFile,
   Division,
   DivisionHistoryFile,
-  FoulCategoryCounts,
   GameSummary,
   GameType,
   HeadToHeadRecord,
@@ -457,95 +451,6 @@ function emptyTotals(): StatTotals {
   };
 }
 
-/**
- * PlayByPlaysからテクニカルファウルの発生回数を数える（EFF計算専用。formulas.tsのeff()参照）。
- * - 選手個人（ActionCD1=24。2026-27以降の新表記は91・92。shared/foulCodes.ts）はPlayerID1で選手単位に集計する（個人EFFの補正に使う）
- * - チーム単位はActionCD1=20（HCテクニカル）・21（ベンチテクニカル）・24/91/92（選手個人テクニカル）
- *   の合計をTeamIDで集計する（チームEFFの補正に使う。20・21は選手に紐付かずCategory=2の
- *   チーム発生イベント行にのみ計上されるため、個人側には含めない。DESIGN.md 2-2章）
- */
-function countTechnicalFouls(playByPlays: PlayByPlayEvent[]): {
-  byPlayer: Map<string, number>;
-  byTeam: Map<string, number>;
-} {
-  const byPlayer = new Map<string, number>();
-  const byTeam = new Map<string, number>();
-  for (const play of playByPlays) {
-    if (PLAYER_TECHNICAL_FOUL_CODES.has(play.ActionCD1) && play.PlayerID1) {
-      byPlayer.set(play.PlayerID1, (byPlayer.get(play.PlayerID1) ?? 0) + 1);
-    }
-    if (TECHNICAL_FT_FOUL_CODES.has(play.ActionCD1) && play.TeamID) {
-      byTeam.set(play.TeamID, (byTeam.get(play.TeamID) ?? 0) + 1);
-    }
-  }
-  return { byPlayer, byTeam };
-}
-
-interface MiscEventCounts extends FoulCategoryCounts {
-  dunks: number;
-  basketCounts: number;
-  /** アンスポーツマン系（旧25・新93/94の合計） */
-  unsportsmanlikeFouls: number;
-  disqualifyingFouls: number;
-}
-
-const ZERO_MISC_EVENTS: MiscEventCounts = {
-  dunks: 0,
-  basketCounts: 0,
-  unsportsmanlikeFouls: 0,
-  disqualifyingFouls: 0,
-  technicalFoulsCat1: 0,
-  technicalFoulsCat2: 0,
-  flagrantFouls: 0,
-  disruptiveFouls: 0,
-};
-
-const DUNK_ACTION_CD1 = 4;
-const BASKET_COUNT_ACTION_CD1 = 16;
-
-/**
- * ダンク数・アンドワン（バスケットカウント）・アンスポーツマンファウル・ディスクォリファイング
- * ファウルを選手単位・チーム単位の両方で集計する（src/lib/boxscoreAggregate.tsの
- * buildMiscEventCounts()と同じロジック。DESIGN.md 15-6章参照。試合単位のPlayByPlaysから
- * 毎回集計する必要があるためバックエンド側にも同じロジックを移植した）。
- * チーム単位（byTeam）は2026-08-29、チーム版Miscタブ拡張のために追加した
- * （従来は個別関数countTeamDunks()でダンク数のみチーム集計していたが、同じPBPを二重に
- * 走査する無駄を避けるためこの関数に統合した）
- */
-function buildMiscEventCounts(playByPlays: PlayByPlayEvent[]): { byPlayer: Map<string, MiscEventCounts>; byTeam: Map<string, MiscEventCounts> } {
-  const byPlayer = new Map<string, MiscEventCounts>();
-  const byTeam = new Map<string, MiscEventCounts>();
-  const bump = (target: Map<string, MiscEventCounts>, id: string | null, key: keyof MiscEventCounts) => {
-    if (!id) return;
-    const entry = target.get(id) ?? { ...ZERO_MISC_EVENTS };
-    entry[key] += 1;
-    target.set(id, entry);
-  };
-  for (const ev of playByPlays) {
-    const keys: (keyof MiscEventCounts)[] = [];
-    if (ev.ActionCD1 === DUNK_ACTION_CD1 && ev.PlayText.includes("ダンク")) {
-      keys.push("dunks");
-    } else if (ev.ActionCD1 === BASKET_COUNT_ACTION_CD1) {
-      keys.push("basketCounts");
-    } else if (UNSPORTSMANLIKE_FOUL_CODES.has(ev.ActionCD1)) {
-      keys.push("unsportsmanlikeFouls");
-    } else if (ev.ActionCD1 === DISQUALIFYING_FOUL_CODE) {
-      keys.push("disqualifyingFouls");
-    }
-    // 新しい区分（91〜94）は、TF・UFOULの合計とは別に、区分ごとの件数も持つ（shared/foulCodes.ts）
-    const category = foulCategoryKey(ev.ActionCD1);
-    if (category) keys.push(category);
-    for (const key of keys) {
-      bump(byPlayer, ev.PlayerID1, key);
-      bump(byTeam, ev.TeamID, key);
-    }
-    // HC/ベンチのテクニカル（20・21）は、文言に区分があるとき（2026-27〜）だけ、チームのTF1・TF2に数える（選手には紐付かない）
-    const teamCategory = teamTechnicalCategoryKey(ev.ActionCD1, ev.PlayText);
-    if (teamCategory) bump(byTeam, ev.TeamID, teamCategory);
-  }
-  return { byPlayer, byTeam };
-}
-
 interface OffensiveFoulCounts {
   offensiveFoulsCommitted: number;
   chargesDrawn: number;
@@ -611,61 +516,6 @@ function buildPaintSplitByPlayer(playByPlays: PlayByPlayEvent[]): { byPlayer: Ma
 }
 
 /**
- * 外国籍選手（外国籍/帰化選手/アジア特別枠の合算）同時出場人数別に、試合単位でチームごとの
- * 在コート秒数をバケット分けする（DESIGN.md参照）。onCourt.lineupStints
- * （reconstructOnCourtの戻り値、既に計算済みのものを再利用しPBP再走査は行わない）を、
- * 5人組のうち非日本人の人数（バケットキー。0〜5、上限クランプはしない）でバケット分けし、
- * チーム全体の在コート秒数として積算する（特定選手の出場時間には限定しない）。
- * classificationが不明（players-master.jsonに存在しない選手を含む）な5人組は、
- * どのバケットにも計上せず丸ごと除外する（推測しない方針。DESIGN.md 51章参照）。
- * 対象チームの全スティントが不明だった場合、そのチームはMapに含まれない。
- * ⚠️ 一部のlegacy取得試合（2016-17〜2019-20シーズン）でOTを`legacyPeriodScores()`が
- * 正しく検出できず（`Game.MaxPeriod`がOT試合でも4のまま報告されるケースを確認）、
- * `reconstructOnCourt`が終盤のスティントを`gameEnd`（レギュレーション終了時刻）で
- * 打ち切ってしまい、結果的に`endSec < startSec`という負の区間長を持つスティントが
- * 稀に発生することを確認した（既存のlineups集計・よく使われるラインナップにも
- * 影響しうる別件のバグ。ここでは深追いせず、本集計にだけ悪影響が出ないよう
- * 負の区間長を持つスティントは丸ごとスキップする）
- */
-/** 規定の最大人数を超えて除外した区間の件数・秒数（シーズンごとのログ用。DESIGN.md 84-7章） */
-interface ForeignOverLimitTally {
-  stints: number;
-  seconds: number;
-}
-
-function computeForeignPlayerCourtSeconds(
-  onCourt: OnCourtReconstruction,
-  masterById: Map<string, PlayerMasterEntry>,
-  maxOnCourt: number | undefined,
-  overLimit: ForeignOverLimitTally,
-): Map<string, Map<number, number>> {
-  const secondsByTeamBucket = new Map<string, Map<number, number>>();
-  for (const stint of onCourt.lineupStints) {
-    const duration = stint.endSec - stint.startSec;
-    if (duration <= 0) continue;
-
-    const foreignCount = foreignCountInLineup(stint.playerIds, (id) => masterById.get(id)?.classification);
-    if (foreignCount === null) continue;
-    // 規定の最大人数（season-rules.json の maxForeignOnCourt）を超える5人組は、公式記録の選手の取り違え等によるものと
-    // みなし、区分不明の5人組と同じくOn-Court Foreignの集計から丸ごと外す（数え直さない。2026-09-25、DESIGN.md 84-7章）。
-    // 選手の出場時間・ラインナップ・+/-等の他の集計は lineupStints をそのまま使うので影響しない
-    if (maxOnCourt !== undefined && foreignCount > maxOnCourt) {
-      overLimit.stints += 1;
-      overLimit.seconds += duration;
-      continue;
-    }
-
-    let bucketSeconds = secondsByTeamBucket.get(stint.teamId);
-    if (!bucketSeconds) {
-      bucketSeconds = new Map();
-      secondsByTeamBucket.set(stint.teamId, bucketSeconds);
-    }
-    bucketSeconds.set(foreignCount, (bucketSeconds.get(foreignCount) ?? 0) + duration);
-  }
-  return secondsByTeamBucket;
-}
-
-/**
  * 外国籍選手同時出場人数の試合単位代表値（DESIGN.md参照）。
  * computeForeignPlayerCourtSeconds()の結果から、チームごとに最も長い時間を占めた
  * バケットをその試合の代表値とする（呼び出し側は`.get(teamId)`がundefinedになることで
@@ -685,56 +535,6 @@ function computeForeignPlayerCounts(secondsByTeamBucket: Map<string, Map<number,
     result.set(teamId, bestBucket);
   }
   return result;
-}
-
-/**
- * ベンチ得点（DESIGN.md 12章）。試合全体の個人行（Category=1・PeriodCategory=18）のうち、
- * 指定チーム・先発以外（StartingFlg!==1）の選手のPointを合計する。単純合計のため
- * （POSSのような比率項を含む式と違い）試合単位で確定させる必要は無いが、他のチーム集計と
- * 同じ「試合単位で求めてからシーズン合計に積算する」方式に揃えている
- */
-function benchPointsForGame(rows: BoxscoreRow[], teamId: string): number {
-  return rows
-    .filter((r) => r.Category === 1 && r.PeriodCategory === 18 && r.TeamID === teamId && r.StartingFlg !== 1)
-    .reduce((sum, r) => sum + r.Point, 0);
-}
-
-/** スタメン得点（Phase H8）。benchPointsForGame()の先発版 */
-function starterPointsForGame(rows: BoxscoreRow[], teamId: string): number {
-  return rows
-    .filter((r) => r.Category === 1 && r.PeriodCategory === 18 && r.TeamID === teamId && r.StartingFlg === 1)
-    .reduce((sum, r) => sum + r.Point, 0);
-}
-
-/**
- * 国籍区分別得点（Phase H8。Batch 1で外国籍/帰化orアジア特別枠の3分割、Batch 5で
- * 帰化選手/アジア特別枠を分離した4分割に拡張）。BoxscoreTable.tsxの「内訳集計」と同じ
- * classification突合を試合単位で行う。classification未定義の選手はいずれにも計上しない
- * （51章で確立した「推測しない」方針を踏襲）
- */
-function classificationPointsForGame(
-  rows: BoxscoreRow[],
-  teamId: string,
-  masterById: Map<string, PlayerMasterEntry>,
-): { japanese: number; foreign: number; naturalized: number; asianQuota: number } {
-  let japanese = 0;
-  let foreign = 0;
-  let naturalized = 0;
-  let asianQuota = 0;
-  for (const r of rows) {
-    if (r.Category !== 1 || r.PeriodCategory !== 18 || r.TeamID !== teamId) continue;
-    const classification = masterById.get(r.PlayerID)?.classification;
-    if (classification === "日本人") {
-      japanese += r.Point;
-    } else if (classification === "外国籍") {
-      foreign += r.Point;
-    } else if (classification === "帰化選手") {
-      naturalized += r.Point;
-    } else if (classification === "アジア特別枠") {
-      asianQuota += r.Point;
-    }
-  }
-  return { japanese, foreign, naturalized, asianQuota };
 }
 
 function addBoxscoreRow(
@@ -1024,7 +824,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         : null;
     const technicalFouls = countTechnicalFouls(game.raw.PlayByPlays);
     const foreignPlayerCourtSeconds = onCourt
-      ? computeForeignPlayerCourtSeconds(onCourt, masterById, maxForeignOnCourt, foreignOverLimit)
+      ? computeForeignPlayerCourtSeconds(onCourt.lineupStints, (id) => masterById.get(id)?.classification, maxForeignOnCourt, foreignOverLimit)
       : new Map<string, Map<number, number>>();
     const foreignPlayerCounts = computeForeignPlayerCounts(foreignPlayerCourtSeconds);
     // 個人PACE用の在コート区間ポゼッション（DESIGN.md参照）。既存のPACE表示ポリシー
@@ -1835,6 +1635,13 @@ function teamMiscExtraGameLogStats(
   };
 }
 
+/** 試合ログの人数別の在コート秒数（自チーム・相手。値が無い側は項目を持たない。DESIGN.md 256章） */
+function foreignCourtFields(own: Map<number, number> | undefined, opp: Map<number, number> | undefined): Pick<TeamGameLog, "foreignCourtSeconds" | "opponentForeignCourtSeconds"> {
+  const ownSeconds = foreignCourtSecondsArray(own);
+  const oppSeconds = foreignCourtSecondsArray(opp);
+  return { ...(ownSeconds ? { foreignCourtSeconds: ownSeconds } : {}), ...(oppSeconds ? { opponentForeignCourtSeconds: oppSeconds } : {}) };
+}
+
 function processTeams(
   game: StoredGame,
   gameType: GameType,
@@ -1873,13 +1680,17 @@ function processTeams(
   // ベンチ得点・スタメン得点・国籍区分別得点（Batch 1・2、全チームスタッツ「スコアリング」
   // タブ等のシチュエーション別フィルタ再集計用にレギュラー/プレーオフ問わず必要なため
   // gameTypeゲートの外で算出する）
+  // 個人行（Category=1・PeriodCategory=18）から試合単位で求める（shared/teamGameEvents.ts。ピリオド別の索引も同じ関数で区間ごとに出す）
   const individualRows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
-  const homeBench = benchPointsForGame(individualRows, game.homeTeam.id);
-  const awayBench = benchPointsForGame(individualRows, game.awayTeam.id);
-  const homeStarter = starterPointsForGame(individualRows, game.homeTeam.id);
-  const awayStarter = starterPointsForGame(individualRows, game.awayTeam.id);
-  const homeClassification = classificationPointsForGame(individualRows, game.homeTeam.id, masterById);
-  const awayClassification = classificationPointsForGame(individualRows, game.awayTeam.id, masterById);
+  const classify = (id: string) => masterById.get(id)?.classification;
+  const homeBreakdown = teamPointsBreakdown(individualRows, game.homeTeam.id, classify);
+  const awayBreakdown = teamPointsBreakdown(individualRows, game.awayTeam.id, classify);
+  const homeBench = homeBreakdown.bench;
+  const awayBench = awayBreakdown.bench;
+  const homeStarter = homeBreakdown.starter;
+  const awayStarter = awayBreakdown.starter;
+  const homeClassification = homeBreakdown;
+  const awayClassification = awayBreakdown;
 
   if (gameType === "regular") {
     // opponentTotalsもgamesPlayedを数える（perGame算出の分母は「自チームの試合数」と一致させる必要がある）。
@@ -2007,6 +1818,7 @@ function processTeams(
     ...runFields(teamRuns[0]),
     foreignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
+    ...foreignCourtFields(foreignPlayerCourtSeconds.get(game.homeTeam.id), foreignPlayerCourtSeconds.get(game.awayTeam.id)),
     ...teamGameLogStats(homeRow, gamePoss),
     ...opponentGameLogStats(awayRow),
     pt2in: pitpByTeam.get(game.homeTeam.id) ?? 0,
@@ -2058,6 +1870,7 @@ function processTeams(
     ...runFields(teamRuns[1]),
     foreignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
+    ...foreignCourtFields(foreignPlayerCourtSeconds.get(game.awayTeam.id), foreignPlayerCourtSeconds.get(game.homeTeam.id)),
     gameType,
     ...teamGameLogStats(awayRow, gamePoss),
     ...opponentGameLogStats(homeRow),

@@ -18,7 +18,7 @@ import { DATA_DIR, readAllGames, readJson } from "./lib/storage.ts";
 import { GAME_FLAG_PLAYOFF, GAME_FLAG_SHORT, type TeamGameIndexFile } from "../shared/gameIndex.ts";
 import type { TeamPeriodIndexFile } from "../shared/periodIndex.ts";
 import type { PeriodAveragesFile, TeamGameLog } from "../shared/types.ts";
-import { periodAverage, PERIOD_KEYS } from "../shared/teamPeriodRecords.ts";
+import { OVERTIME_MIN_TEAM_GAMES, periodAverage, PERIOD_KEYS } from "../shared/teamPeriodRecords.ts";
 import { gamePeriodScores } from "../src/lib/gamePeriods.ts";
 import {
   aggregatePeriodScoring,
@@ -229,13 +229,15 @@ for (const season of seasons) {
       if (!same(agg.periods.ot, expected.ot)) bad.aggregate.push(`${label} ot: ${JSON.stringify(agg.periods.ot)} ≠ ${JSON.stringify(expected.ot)}`);
     }
 
-    // 1Q〜後半の平均 = period-averages.json（レギュラー）
+    // 1Q〜後半・延長の平均 = period-averages.json（レギュラー）
     const regular = logs.filter((g) => g.gameType === "regular");
     const agg = aggregatePeriodScoring(regular);
     for (const k of PERIOD_KEYS) {
       const file = averages?.byGameType.regular?.[teamId]?.[k];
       const direct = periodAverage(regular, k);
       if (!file && !direct) continue;
+      // 延長は、延長のあった試合が3試合以上のチームだけが period-averages.json に入る（DESIGN.md 256章）
+      if (k === "ot" && !file && direct && direct.games < OVERTIME_MIN_TEAM_GAMES) continue;
       tally.averages += 1;
       const mine = periodScoringValue(agg.periods[k], "own", "perGame");
       const mineOpp = periodScoringValue(agg.periods[k], "opp", "perGame");

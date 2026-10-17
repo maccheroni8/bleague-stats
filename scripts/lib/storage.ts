@@ -11,6 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Category, StoredGame } from "../../shared/types.ts";
 import { withChronologicalPlayByPlays } from "../../shared/pbpOrder.ts";
+import { applyBoxscoreNameFills } from "../../shared/boxscoreNameFills.ts";
 
 const SCRIPTS_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = path.resolve(SCRIPTS_DIR, "..", "..", "data");
@@ -80,7 +81,8 @@ export async function listStoredScheduleKeys(season: string, category: Category 
 /**
  * シーズンに保存済みの全試合ファイルを読み込む（aggregate.ts等で使用）。
  * PBPは時系列に並べ直してから返す（メモリ上だけ。保存済みのファイルは変えない。2020-21以降の延長戦は公式の配列が時系列にならない。
- * shared/pbpOrder.ts・DESIGN.md 212章）。取り込みの変更検知と見張りの一覧は、並べ替えない `readGameFile` を使う
+ * shared/pbpOrder.ts・DESIGN.md 212章）。選手ID・氏名が空の行のうち、手で補う一覧（shared/boxscoreNameFills.ts）に当たる行には、その選手を入れる（256章）。
+ * 取り込みの変更検知と見張りの一覧は、並べ替えも補いもしない `readGameFile` を使う
  */
 export async function readAllGames(season: string, category: Category = "premier"): Promise<StoredGame[]> {
   const dir = gamesDir(season, category);
@@ -89,7 +91,8 @@ export async function readAllGames(season: string, category: Category = "premier
   const games: StoredGame[] = [];
   for (const file of files) {
     const compressed = await readFile(path.join(dir, file));
-    games.push(withChronologicalPlayByPlays(JSON.parse(gunzipSync(compressed).toString("utf-8")) as StoredGame));
+    // 手で補う選手（shared/boxscoreNameFills.ts。DESIGN.md 256章）を当ててから、プレーバイプレーを時系列に並べる
+    games.push(withChronologicalPlayByPlays(applyBoxscoreNameFills(JSON.parse(gunzipSync(compressed).toString("utf-8")) as StoredGame)));
   }
   return games;
 }

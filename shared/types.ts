@@ -905,6 +905,14 @@ export interface TeamGameLog extends Partial<FoulCategoryCounts>, Partial<Oppone
   /** PlayerGameLog.opponentForeignPlayerCountと同じ（対戦相手チーム視点） */
   opponentForeignPlayerCount?: number;
   /**
+   * 外国籍・帰化・アジアの選手が同時に何人コートにいたかごとの、その試合の在コート秒数（[0人, 1人, 2人, 3人, 4人]。DESIGN.md 256章）。
+   * 数え方は teams.json の foreignPlayerCourtSeconds（On-Court Foreign）と同じで、レギュラーシーズンの試合の合計がその値になる。
+   * 区分の分からない選手を含む5人組・規定の最大人数を超える5人組は数えない。数えられる5人組が1つも無い試合（プレーバイプレーの無い試合など）と、古いデータには無い（対象外）
+   */
+  foreignCourtSeconds?: number[];
+  /** 相手チームの同じ値（相手の視点。古いデータには無い） */
+  opponentForeignCourtSeconds?: number[];
+  /**
    * 相手チームのボックススコア（個人ORtg/DRtgのDean Oliver方式で「opponent」役として必要な
    * フィールドのみ。opponentScoreがptsに相当するためptsは別途持たない）。DESIGN.md参照
    */
@@ -1670,7 +1678,7 @@ export interface PeriodAverageRankEntry {
 
 export interface PeriodAveragesFile {
   season: string;
-  /** [試合種別][teamId][区間（q1〜q4・h1・h2）] */
+  /** [試合種別][teamId][区間（q1〜q4・h1・h2・ot。ot は 2026-10-17 から、延長のあった試合が3試合以上のチームだけ）] */
   byGameType: Record<LeagueRankingGameType, Record<string, Record<string, PeriodAverageRankEntry>>>;
 }
 

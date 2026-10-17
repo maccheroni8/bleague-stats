@@ -3,6 +3,7 @@
 // 仮の名前（「#22（氏名不明）」。背番号が無ければ「氏名不明」）と仮のIDを付けて、表を崩さず、チーム合計と合う形で出す。
 // 誰か分かった行は、手で補う一覧（shared/boxscoreNameFills.ts）で、その選手の名前・IDにする（5858の三河 #22 → セドリック・シモンズ）。
 // 仮のIDの選手は、選手詳細へのリンクにも、写真にもしない。集計（scripts/aggregate.ts）は選手IDが空の行を数えない（個人スタッツには入らない）。
+// ただし手で補う一覧に当たる行は、集計の入口（readAllGames）でも同じ選手にするので、個人スタッツに入る（DESIGN.md 256章）。
 
 import type { BoxscoreRow, StoredGame } from "../../shared/types";
 import { boxscoreNameFill } from "../../shared/boxscoreNameFills";

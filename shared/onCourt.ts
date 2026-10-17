@@ -101,12 +101,14 @@ function hasAnyCount(byPeriod: Record<number, StintCountsPair>): boolean {
 }
 
 /**
- * 在コートの復元に渡すピリオド数。公式のクォーター別スコア（quarterScores）の数が、プレーバイプレーに出てくる最大のピリオドより少ない試合
- * （公式データの欠け。2021-22 7863・2024-25 502982・2025-26 B.ONE 505834）で、後半のピリオドが復元から抜けて、試合の終わりの時刻が
- * 実際より短くなる（最後の区間の長さが負になる）のを防ぐ。2020-21以降だけ（2016-17〜2019-20の延長戦の件は別に直す）
+ * 在コートの復元に渡すピリオド数。公式のクォーター別スコア（quarterScores）の数と、プレーバイプレーに出てくる最大のピリオドの大きい方。
+ * - 公式のクォーター別スコアが途中までの試合（公式データの欠け。2021-22 7863・2024-25 502982・2025-26 B.ONE 505834）で、後半のピリオドが
+ *   復元から抜けて、試合の終わりの時刻が実際より短くなる（最後の区間の長さが負になる）のを防ぐ
+ * - 2016-17〜2019-20 の延長戦（92試合）は、quarterScores が4ピリオド分だけで延長が入っていない。プレーバイプレーには延長のピリオドがあり、
+ *   その数は集計行の延長（PeriodCategory 5〜14。試合詳細の延長の判定 gamePeriodScores・gameHasOvertime と同じ）と全試合で一致する。
+ *   以前は 2020-21 以降だけに当てていて、旧シーズンの延長の在コートが抜けていた（2026-10-17、DESIGN.md 256章の段階1で全シーズンに当てた）
  */
-export function onCourtPeriodCount(season: string, quarterScoresLength: number, playByPlays: readonly { Period: number }[]): number {
-  if (substitutionModelForSeason(season) !== "modern") return quarterScoresLength;
+export function onCourtPeriodCount(_season: string, quarterScoresLength: number, playByPlays: readonly { Period: number }[]): number {
   let maxPeriod = quarterScoresLength;
   for (const e of playByPlays) if (e.Period > maxPeriod) maxPeriod = e.Period;
   return maxPeriod;

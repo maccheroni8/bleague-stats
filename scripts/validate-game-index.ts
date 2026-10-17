@@ -12,6 +12,7 @@
 import path from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { DATA_DIR, readGameFile, readJson } from "./lib/storage.ts";
+import { applyBoxscoreNameFills } from "../shared/boxscoreNameFills.ts";
 import { currentPlayerNames, normalizePlayerName } from "../shared/playerName.ts";
 import { buildRecordTables, type RecordGame } from "./lib/playerGameRecordsTop.ts";
 import { regulationPeriodScores } from "../shared/periodPoints.ts";
@@ -256,7 +257,9 @@ for (const season of seasons) {
   let shortGames = 0;
   const otHistogram: Record<number, number> = {};
   for (const [key, gi] of gameIndexByKey) {
-    const raw = await readGameFile(path.join(seasonDir, "games", `${key}.json`));
+    // 集計の入口（readAllGames）と同じく、手で補う選手（shared/boxscoreNameFills.ts。DESIGN.md 256章）を当てる
+    const file = await readGameFile(path.join(seasonDir, "games", `${key}.json`));
+    const raw = file ? applyBoxscoreNameFills(file) : null;
     if (!raw) {
       gm.add(`${key} 生データが無い`);
       continue;

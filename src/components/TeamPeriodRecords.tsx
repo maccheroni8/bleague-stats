@@ -23,7 +23,7 @@ import { useMediaQuery } from "../lib/useMediaQuery";
 import { StatHeaderLabel } from "./StatHeaderLabel";
 
 /**
- * クォーター別・前後半別の記録と1試合平均（チーム詳細「クラブレコード」「通算成績」。DESIGN.md 143章）。延長戦は含めない
+ * クォーター別・前後半別・延長の記録と1試合平均（チーム詳細「クラブレコード」「通算成績」。DESIGN.md 143章・256章）。1Q〜後半は延長戦を含めない。延長はすべての延長の合計
  */
 
 type RecordGame = TeamGameLog & { season: string };

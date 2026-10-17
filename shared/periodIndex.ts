@@ -90,6 +90,50 @@ export const TEAM_PERIOD_COUNT_COLUMNS = [
 export type TeamPeriodCountColumn = (typeof TEAM_PERIOD_COUNT_COLUMNS)[number];
 
 /**
+ * チームの統計の列の追加分（DESIGN.md 256章の段階1。2026-10-17）。全チームの表の Misc・Scoring と Scoring % に要る値で、項目名は TeamGameLog と同じ。
+ * 値は試合ログ（scripts/aggregate.ts）と同じ関数で、プレーバイプレーをその区間のピリオドに絞って（得点の内訳・ファウル等）、
+ * ボックススコアはその区間の行で（被ファウル・ベンチ／スタメン得点・登録区分別の得点）出す。区間の合計は試合ログの値と一致する（validate-period-index が確かめる）。
+ * 古い索引には無い（読む側は、キー「区間.列」が無ければ対象外として扱う）
+ */
+export const TEAM_PERIOD_EXTRA_COLUMNS = [
+  "foulsDrawn",
+  "pt2in",
+  "fb",
+  "pt2nd",
+  "pft",
+  "dunks",
+  "technicalFouls",
+  "basketCounts",
+  "unsportsmanlikeFouls",
+  "disqualifyingFouls",
+  "technicalFoulsCat1",
+  "technicalFoulsCat2",
+  "flagrantFouls",
+  "disruptiveFouls",
+  "assisted2m",
+  "assisted3m",
+  "assistedFtm",
+  "paint2m",
+  "paint2a",
+  "mid2m",
+  "mid2a",
+  "benchPoints",
+  "starterPoints",
+  "japanesePoints",
+  "foreignPoints",
+  "naturalizedPoints",
+  "asianQuotaPoints",
+] as const;
+export type TeamPeriodExtraColumn = (typeof TEAM_PERIOD_EXTRA_COLUMNS)[number];
+
+/**
+ * 外国籍・帰化・アジアの選手が同時に0〜4人コートにいた在コート秒数の列（On-Court Foreign。256章の段階1）。数え方は TeamGameLog.foreignCourtSeconds と同じ
+ * （ピリオドの切れ目をまたぐ5人組は切れ目で分ける）。その試合で数えられる5人組が1つも無いチームは、すべての区間で -1（対象外）。古い索引には無い
+ */
+export const TEAM_PERIOD_FOREIGN_COLUMNS = ["oc0", "oc1", "oc2", "oc3", "oc4"] as const;
+export type TeamPeriodForeignColumn = (typeof TEAM_PERIOD_FOREIGN_COLUMNS)[number];
+
+/**
  * 選手のピリオド別の索引。同じシーズンの player-game-index.json の行（番号 row）に、区間ごとの値を結び付ける。
  * 行は (row, period) の昇順。その区間に出た（出場時間が0より長い、または何か記録のある）行だけを持つ。前後半5分の特別な試合の行は持たない
  */
@@ -112,7 +156,7 @@ export interface PlayerPeriodIndexFile {
 /**
  * チームのピリオド別の索引。行の位置は team-game-index.json と同じ（試合番号×2＋(ホーム 0／アウェイ 1)）。
  * 値が無い区間（前後半5分の特別な試合の1Q〜4Q・前半・後半、延長の無い試合の延長）は -1。
- * counts のキーは「区間.列」（例: "q1.pts"）。poss は PERIOD_POSS_KEYS ごとのポゼッション（足し算にならないので前半・後半も別に持つ。小数のまま）
+ * counts のキーは「区間.列」（例: "q1.pts"）。列は TEAM_PERIOD_COUNT_COLUMNS・TEAM_PERIOD_EXTRA_COLUMNS・TEAM_PERIOD_FOREIGN_COLUMNS（後の2つは 2026-10-17 から）。poss は PERIOD_POSS_KEYS ごとのポゼッション（足し算にならないので前半・後半も別に持つ。小数のまま）
  */
 export interface TeamPeriodIndexFile {
   version: typeof PERIOD_INDEX_VERSION;

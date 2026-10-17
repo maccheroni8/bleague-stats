@@ -177,33 +177,18 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 個人一覧・チーム一覧・ランキングのタブ・フィルタはURLのクエリに持つ（`src/lib/urlState.ts` の `useUrlState`。変えても履歴は増やさない。
   設計書163章）。この3ページに新しいフィルタを足すときは、usePageState ではなく useUrlState とキーを足す。
   【未対応タスク】GameDetailPage.tsxには、ページ状態保持（usePageState）が未適用のまま
-- 【未対応タスク・要調査】`scripts/lib/legacyGameDetail.ts`の`legacyPeriodScores()`が、
-  一部のlegacy取得試合（2016-17〜2019-20シーズン）で`Game.MaxPeriod`を実際は延長戦なのに
-  `4`のまま誤って報告するケースがある（DESIGN.md 84-3章、Phase H9で発見）。この誤報告により
-  `reconstructOnCourt`が終盤のラインナップスティントを正規時間終了時刻で打ち切ってしまい、
-  結果的に`endSec < startSec`という負の区間長のスティントが発生する（2016-17シーズン557試合中
-  42件で確認済み）。Phase H9では新機能側にだけ対症療法（負の区間長のスティントをスキップ）を
-  入れて回避したが、根本原因（`Game.MaxPeriod`がどういう条件で誤報告されるか）は未調査のまま。
-  **既存の「よく使われるラインナップ」機能（`scripts/aggregate.ts`の`processLineups`、
-  `acc.secondsPlayed += stint.endSec - stint.startSec`）にも同種のガードが無く、同じ負の
-  区間長により出場時間・純得失点・Net Rating（推定）が一部のlegacyシーズンOT試合で
-  わずかに不正確になっている可能性が高い**。着手する際は、まず該当ScheduleKey
-  （2016-17シーズンの例: 297, 360, 401等）の生データで`Game.MaxPeriod`の実際の値を確認し、
-  legacyデータでのOT検出をより信頼できる方法（PlayByPlaysの実際の経過時間範囲、
-  `HomeTeamScore05`以降の非ゼロ判定等）に置き換えることを検討する
-- 【未対応タスク】2016-17〜2019-20の延長戦で、在コートの復元がピリオド数を `quarterScores` の長さ（4）で決めているため延長が抜ける件
-  （上の `legacyPeriodScores()` の項と同じ原因。`aggregate.ts`・`validate-oncourt`・選手詳細・1試合のボックススコア）。
-  試合詳細・チーム詳細で使っている延長の判定（`src/lib/gamePeriods.ts` の `gamePeriodScores`・`gameHasOvertime`。設計書199章）を使って
-  ピリオド数を決め直す。**単独では着手せず、在コート基準の再集計（次の項）と同じタイミングでまとめる**（設計書200章）
+- 【対応済み・2026-10-17】2016-17〜2019-20の延長戦で、在コートの復元のピリオド数が `quarterScores` の長さ（4）のままで延長が抜けていた件（`legacyPeriodScores()` の `Game.MaxPeriod`、
+  負の区間長のスティント）は、`onCourtPeriodCount`（`shared/onCourt.ts`）を全シーズンで「quarterScores の数とPBPの最大のピリオドの大きい方」にして直した（設計書256-6章。
+  旧シーズンの延長戦92試合すべてで、PBPの延長の数は集計行の延長と一致）。`quarterScores` 自体（試合ファイル）は今も延長を含まないので、ピリオド別の得点は `gamePeriodScores` を使う
 - 実際のポゼッション（段階1は設計書204章で実装済み: `team-stints/` と `lineupStints[].countsByPeriod`。2020-21以降）。段階2（よく使われるラインナップ・ラインナップ検索の
   ORtg・DRtg・NetRtgを実際のポゼッションにし、「推定」を外す。2016-17〜2019-20は「ORtg（推定）」の見出し・表の下の1行・用語集で推定と分かるようにする）と、
-  段階3（%系・USG%・選手のAST%・On-Court Foreign〈個人・opp〉・旧シーズンの延長戦の在コート）は、あとで進める。段階3は、224章で作った計算の核（`shared/onCourtTotals.ts`）を集計から使い、個人詳細のオン/オフを出場区間の値に揃えるかも決める。シュート単位の連続記録（FT・3Pの連続成功）も同じ作り直しにまとめる。ピリオド別の +/-（Q別・前後半。公式の値が無い2016-17〜2021-22。設計書225-9章）も、この作り直しで行う
+  段階3（%系・USG%・選手のAST%・On-Court Foreign〈個人・opp〉）は、あとで進める（旧シーズンの延長戦の在コートは設計書256-6章で直した）。段階3は、224章で作った計算の核（`shared/onCourtTotals.ts`）を集計から使い、個人詳細のオン/オフを出場区間の値に揃えるかも決める。シュート単位の連続記録（FT・3Pの連続成功）も同じ作り直しにまとめる。ピリオド別の +/-（Q別・前後半。公式の値が無い2016-17〜2021-22。設計書225-9章）も、この作り直しで行う
 - 【未対応タスク】在コート基準の再集計（設計書137章・139章）: 在コート区間ごとにチームのPTS・FGM・FGA・3PM・3PA・FTM・FTA・TOV・
   ポゼッションを数えて試合ログに保存し、選手の%系（%PTS・%FGM・%3PM等）・USG%・ラインナップの実ポゼッション・選手のAST%（NBA式、
   分子はFGMにつながったアシストのみ）・個人のOn-Court Foreign（本人を含む人数。除外ルールはチームと同じ処理の中で揃え、
   検算は「選手全員の秒数の合計＝チームの秒数×5」。設計書141章）をまとめて入れる。出場時間の比による近似式は使わない。
-  同じタイミングで、チーム詳細 On-Court Foreign の opp 視点（相手チームのコート上の外国籍の人数。各試合の相手側の「人数別の在コート秒数」を
-  `TeamSummary` に別項目として合算する。設計書183章）も入れる
+  同じタイミングで、チーム詳細 On-Court Foreign の opp 視点（相手チームのコート上の外国籍の人数。設計書183章）も入れる
+  （試合ごとの「人数別の在コート秒数」〔自チーム・相手〕は `TeamGameLog.foreignCourtSeconds`・`opponentForeignCourtSeconds` とチームのピリオド別の索引に入れ済み。設計書256-6章）
 - **PBP（`raw.PlayByPlays`）の並び（設計書212章）**: 2020-21以降の延長戦では、公式のPBPの配列が時系列にならない（延長が第1〜第4ピリオドのブロックに混ざる。
   `No` 順でも時系列にならない）。PBPを時系列で使う処理（得点の推移・リードの入れ替わり・最大ラン・決勝弾など）は、`shared/pbpOrder.ts` の
   `withChronologicalPlayByPlays`（または `chronologicalPlayByPlays`）の出力を使う。試合を読み込む2か所（集計用の `readAllGames`、画面の `fetchGame`）では適用済み。

@@ -20,6 +20,7 @@ import { filterByGameType } from "../shared/gameType.ts";
 import { CAREER_TOTAL_DEFS, TEAM_AGAINST_RECORD_STATS, TEAM_RECORD_STATS, buildTeamCareerTotals, longestWinStreak, teamRecordDetail } from "../shared/teamRecords.ts";
 import {
   PERIOD_AVERAGE_STATS,
+  OVERTIME_MIN_TEAM_GAMES,
   PERIOD_KEYS,
   PERIOD_RECORD_KINDS,
   periodAverage,
@@ -469,7 +470,9 @@ function computePeriodRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>):
 
       const averages = teamLogs
         .map(({ teamId, logs }) => ({ teamId, avg: periodAverage(logs, period) }))
-        .filter((a): a is { teamId: string; avg: NonNullable<typeof a.avg> } => a.avg !== null);
+        .filter((a): a is { teamId: string; avg: NonNullable<typeof a.avg> } => a.avg !== null)
+        // 延長は、延長のあった試合が3試合以上のクラブだけで順位を付ける（DESIGN.md 256章の決定4）
+        .filter((a) => period !== "ot" || a.avg.games >= OVERTIME_MIN_TEAM_GAMES);
       for (const stat of PERIOD_AVERAGE_STATS) {
         periodCareerAverage[gameType][periodAverageStatKey(period, stat.key)] = buildRankTable(
           averages.map((a) => ({ teamId: a.teamId, value: a.avg[stat.key] })),
