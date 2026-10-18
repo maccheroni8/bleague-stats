@@ -115,7 +115,7 @@ import { lastPremierSeasonFor, leagueTeamCurrentCategoryLabel, leagueTeamDisplay
 import { RECORD_MODE_PARAM, teamGameRecordRankingUrl } from "../components/TeamGameRecordRanking";
 import { CareerLeaderCard } from "../components/CareerLeaderCard";
 import { careerRecordRankingUrl } from "../components/CareerRecordRanking";
-import { TEAM_SEASON_RECORD_ITEMS, teamSeasonRecordRankingUrl } from "../components/TeamSeasonRecordRanking";
+import { TEAM_SEASON_RECORD_ITEMS, teamSeasonRecordEntries, teamSeasonRecordRankingUrl } from "../components/TeamSeasonRecordRanking";
 import { TeamRecordLeaderCard } from "../components/TeamRecordLeaderCard";
 import { TEAM_RECORD_MODE_LABELS, allTimeTeamRecordRows, teamRecordItems, type TeamRecordMode } from "../lib/teamGameRecords";
 import { TEAM_DIVISIONS } from "../../scripts/lib/divisions";
@@ -1445,10 +1445,10 @@ function LeagueRecordsTab() {
         return first ? [{ def, teamId: first[0], entry: first[1], others: top.length - 1 }] : [];
       })
     : [];
-  // 1シーズンの記録のカード（最多勝利数・最多連勝。全シーズンの中の1位。同じ記録のシーズンが複数あれば先頭の1件と「ほか◯シーズン」）
+  // 1シーズンの記録のカード（最多勝利数・最多連勝・最多敗戦数・最多連敗。全シーズンの中の1位。同じ記録のシーズンが複数あれば先頭の1件と「ほか◯シーズン」）
   const seasonSpecialCards = isPremierRecord
     ? TEAM_SEASON_RECORD_ITEMS.flatMap((def) => {
-        const top = (rankings.seasonSpecialTop20[gameType]?.[def.key] ?? []).filter((e) => e.rank === 1);
+        const top = teamSeasonRecordEntries(rankings, gameType, def.key).filter((e) => e.rank === 1);
         const first = top[0];
         return first ? [{ def, entry: first, others: top.length - 1 }] : [];
       })
@@ -1549,7 +1549,7 @@ function LeagueRecordsTab() {
               label={def.key === "wins" ? "最多勝利数（1シーズン）" : def.label}
               valueText={`${entry.value}${def.unit}`}
               name={<ResponsiveTeamName teamId={entry.teamId} name={seasonName(entry.teamId, entry.season)} always />}
-              sub={`${entry.season}シーズン`}
+              sub={`${entry.season}シーズン${entry.ongoing ? "・継続中" : ""}`}
               otherCount={others}
               unit="シーズン"
               to={teamSeasonRecordRankingUrl({ gameType, statKey: def.key })}

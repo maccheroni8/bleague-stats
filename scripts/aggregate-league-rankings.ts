@@ -17,6 +17,11 @@ import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { filterByGameType } from "../shared/gameType.ts";
+import { currentSeason } from "./lib/season.ts";
+import { CHECKED_LATEST_SEASONS, SHORTENED_REGULAR_SEASONS, isRegularSeasonComplete } from "../shared/regularSeasonComplete.ts";
+import { resultOnlyLogsForTeam } from "../shared/resultOnlyLogs.ts";
+import type { ResultOnlyGameEntry, ScheduleFileExtended } from "../shared/resultOnlyGames.ts";
+import { isOffseasonMonth, rankStreakRuns, streakRunsOfSeason } from "../shared/streakRecords.ts";
 import { CAREER_TOTAL_DEFS, TEAM_AGAINST_RECORD_STATS, TEAM_RECORD_STATS, buildTeamCareerTotals, longestWinStreak, teamRecordDetail } from "../shared/teamRecords.ts";
 import {
   PERIOD_AVERAGE_STATS,
@@ -34,8 +39,10 @@ import type {
   LeagueRecordEntry,
   LeagueTeamRankEntry,
   LeagueTeamRankingsFile,
+  GameSummary,
   TeamGameLog,
 } from "../shared/types.ts";
+import type { LeagueSeasonWorstEntry, LeagueSeasonWorstTop20 } from "../shared/leagueSeasonWorst.ts";
 
 const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
 const GAME_TYPES: LeagueRankingGameType[] = ["regular", "playoff", "both"];
@@ -81,6 +88,35 @@ async function loadCareerDataByTeam(): Promise<Map<string, TeamSeasonLogs[]>> {
 }
 
 /**
+ * 結果だけの試合（不戦勝など）を足した、teamId単位・シーズン単位の試合ログ。連勝・連敗の数え方を、順位表・Streaks・クラブレコードと
+ * そろえるために使う（DESIGN.md 269章）。勝敗の数（最多勝利数・最多敗戦数）には足さない
+ */
+async function loadResultOnlyBySeason(seasons: string[]): Promise<Map<string, ResultOnlyGameEntry[]>> {
+  const out = new Map<string, ResultOnlyGameEntry[]>();
+  for (const season of seasons) {
+    const schedule = await readJson<ScheduleFileExtended>(path.join(DATA_DIR, season, "schedule.json"));
+    out.set(season, schedule?.resultOnlyGames ?? []);
+  }
+  return out;
+}
+
+/**
+ * レギュラーシーズンの全試合が終わったシーズン（チーム詳細「クラブレコード」と同じ判定。新しい2シーズンだけ日程と試合の一覧で確かめ、
+ * それより古いシーズンは終わっている扱い）。読めなかったシーズンは終わっていない扱い
+ */
+async function loadCompletedRegularSeasons(seasons: string[]): Promise<Set<string>> {
+  const sorted = [...seasons].sort();
+  const checked = sorted.slice(-CHECKED_LATEST_SEASONS);
+  const completed = new Set(sorted.slice(0, -CHECKED_LATEST_SEASONS));
+  for (const season of checked) {
+    const schedule = await readJson<ScheduleFileExtended>(path.join(DATA_DIR, season, "schedule.json"));
+    const summaries = await readJson<GameSummary[]>(path.join(DATA_DIR, season, "games-summary.json"));
+    if (schedule && summaries && isRegularSeasonComplete({ schedule, summaries })) completed.add(season);
+  }
+  return completed;
+}
+
+/**
  * クラブ間の順位。同じ値は同じ順位にし、次の順位はその分飛ばす（1位・2位・2位・4位。2026-09-25にユーザー指示で、
  * それまでの「同じ値も teamId 昇順で連番」から変更。DESIGN.md 143-3）。同じ値の中の並びは teamId 昇順で決定的にする
  */
@@ -121,7 +157,7 @@ interface CategoryRankings {
  * 「歴代記録」タブのホーム/アウェイ/トータル切り替え（2026-08-29）用に、venue絞り込み前の
  * 入力を渡すだけで同じロジックを3回（トータル・ホーム・アウェイ）再利用できるよう関数化した
  */
-function computeCategoryRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>): CategoryRankings {
+function computeCategoryRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>, streakDataByTeam: Map<string, TeamSeasonLogs[]>): CategoryRankings {
   const career: CategoryRankings["career"] = { regular: {}, playoff: {}, both: {} };
   const clubRecord: CategoryRankings["clubRecord"] = { regular: {}, playoff: {}, both: {} };
   const seasonSpecial: CategoryRankings["seasonSpecial"] = {
@@ -176,10 +212,13 @@ function computeCategoryRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>
       // その最高値をこのチームの代表値とする（bestTeamSeasonRecord()のvalueだけを使うのと同じ、
       // TeamDetailPage.tsxのclubSeasonAggregates/mostWinsSeasonRecord/longestStreakSeasonRecordと
       // 同じロジック）
+      // 連勝は、結果だけの試合（不戦勝など）も数える（順位表・Streaks・クラブレコードと同じ。DESIGN.md 269章）。勝利数には足さない
+      const streakSeasons = new Map((streakDataByTeam.get(teamId) ?? []).map((s) => [s.season, s.logs] as const));
       const seasonAggregates = seasons
         .map((s) => {
           const f = filterByGameType(s.logs, gameType);
-          return { season: s.season, wins: f.filter((g) => g.win).length, streak: longestWinStreak(f), games: f.length };
+          const withExtra = filterByGameType(streakSeasons.get(s.season) ?? s.logs, gameType);
+          return { season: s.season, wins: f.filter((g) => g.win).length, streak: longestWinStreak(withExtra), games: f.length };
         })
         .filter((a) => a.games > 0);
       if (seasonAggregates.length > 0) {
@@ -207,6 +246,31 @@ function computeCategoryRankings(careerDataByTeam: Map<string, TeamSeasonLogs[]>
 }
 
 const TOP_N = 20;
+
+/**
+ * 1シーズン・1チームの最長の連勝（または連敗）。logs は試合区分で絞り済みで、結果だけの試合を含む。
+ * 長さが同じ連続が複数あるときは、続いているものを優先して ongoing を決める（チーム詳細「クラブレコード」と同じ部品を使う）。連が無ければ null
+ */
+function longestRun(season: string, logs: TeamGameLog[], kind: "win" | "loss", seasonRunning: boolean): { length: number; ongoing: boolean } | null {
+  const top = rankStreakRuns(streakRunsOfSeason(season, logs, kind, seasonRunning, 1), 1)[0];
+  return top ? { length: top.length, ongoing: top.runs.some((r) => r.ongoing) } : null;
+}
+
+/** 試合ログに、そのシーズンの結果だけの試合（不戦勝など）の勝敗の行を足す */
+function withResultOnly(teamId: string, season: string, logs: TeamGameLog[], resultOnlyBySeason: Map<string, ResultOnlyGameEntry[]>): TeamGameLog[] {
+  const extra = resultOnlyLogsForTeam(resultOnlyBySeason.get(season), teamId, new Set(logs.map((l) => l.scheduleKey)));
+  return extra.length > 0 ? [...logs, ...extra] : logs;
+}
+
+/** 結果だけの試合を足した版の careerDataByTeam（連勝・連敗用） */
+function addResultOnly(careerDataByTeam: Map<string, TeamSeasonLogs[]>, resultOnlyBySeason: Map<string, ResultOnlyGameEntry[]>): Map<string, TeamSeasonLogs[]> {
+  return new Map(
+    [...careerDataByTeam].map(([teamId, seasons]) => [
+      teamId,
+      seasons.map((s) => ({ season: s.season, logs: withResultOnly(teamId, s.season, s.logs, resultOnlyBySeason) })),
+    ]),
+  );
+}
 
 type TeamGameLogWithSeason = TeamGameLog & { season: string };
 
@@ -269,10 +333,21 @@ function rankTopEntries(candidates: RawRecordCandidate[], lowerIsBetter: boolean
  * （同一クラブが複数回登場しうる）。対象はTEAM_RECORD_STATS・最多勝利数/最多連勝のみ
  * （通算成績・ホーム/アウェイ限定版は対象外、ユーザー指定）
  */
-function computeTopRecords(careerDataByTeam: Map<string, TeamSeasonLogs[]>): {
+function computeTopRecords(
+  careerDataByTeam: Map<string, TeamSeasonLogs[]>,
+  streakDataByTeam: Map<string, TeamSeasonLogs[]>,
+  completedRegularSeasons: Set<string>,
+): {
   clubRecordTop20: LeagueTeamRankingsFile["clubRecordTop20"];
   seasonSpecialTop20: LeagueTeamRankingsFile["seasonSpecialTop20"];
+  seasonWorstTop20: LeagueSeasonWorstTop20;
 } {
+  const seasonWorstTop20: LeagueSeasonWorstTop20 = {
+    regular: { losses: [], lossStreak: [] },
+    playoff: { losses: [], lossStreak: [] },
+    both: { losses: [], lossStreak: [] },
+  };
+  const offseason = isOffseasonMonth();
   const clubRecordTop20: LeagueTeamRankingsFile["clubRecordTop20"] = { regular: {}, playoff: {}, both: {} };
   const seasonSpecialTop20: LeagueTeamRankingsFile["seasonSpecialTop20"] = {
     regular: { wins: [], streak: [] },
@@ -284,6 +359,9 @@ function computeTopRecords(careerDataByTeam: Map<string, TeamSeasonLogs[]>): {
     const recordCandidates = new Map<string, RawRecordCandidate[]>();
     const winsCandidates: RawRecordCandidate[] = [];
     const streakCandidates: RawRecordCandidate[] = [];
+    const lossesCandidates: RawRecordCandidate[] = [];
+    const lossStreakCandidates: (RawRecordCandidate & { ongoing: boolean })[] = [];
+    const streakSeasonsOf = (teamId: string) => new Map((streakDataByTeam.get(teamId) ?? []).map((s) => [s.season, s.logs] as const));
 
     for (const [teamId, seasons] of careerDataByTeam) {
       const flat: TeamGameLogWithSeason[] = seasons.flatMap((s) => s.logs.map((g) => ({ ...g, season: s.season })));
@@ -312,7 +390,19 @@ function computeTopRecords(careerDataByTeam: Map<string, TeamSeasonLogs[]>): {
         const f = filterByGameType(s.logs, gameType);
         if (f.length === 0) continue;
         winsCandidates.push({ value: f.filter((g) => g.win).length, teamId, season: s.season });
-        streakCandidates.push({ value: longestWinStreak(f), teamId, season: s.season });
+        // 連勝は結果だけの試合も数える（DESIGN.md 269章）
+        const withExtra = filterByGameType(streakSeasonsOf(teamId).get(s.season) ?? s.logs, gameType);
+        streakCandidates.push({ value: longestWinStreak(withExtra), teamId, season: s.season });
+        if (gameType === "regular") {
+          // ワースト側（チーム詳細「クラブレコード」のシーズン記録のワーストと同じ対象）。最多敗戦数は、レギュラーシーズンの全試合が終わった
+          // シーズンだけで、試合数のそろわないシーズンを外す（勝敗の数に結果だけの試合は足さない）。最多連敗は全シーズンで、進行中のシーズンも含める
+          if (completedRegularSeasons.has(s.season) && !SHORTENED_REGULAR_SEASONS.includes(s.season)) {
+            lossesCandidates.push({ value: f.filter((g) => !g.win).length, teamId, season: s.season });
+          }
+          const running = !offseason && s.season >= currentSeason() && !completedRegularSeasons.has(s.season);
+          const run = longestRun(s.season, withExtra, "loss", running);
+          if (run) lossStreakCandidates.push({ value: run.length, teamId, season: s.season, ongoing: run.ongoing });
+        }
       }
     }
 
@@ -322,9 +412,11 @@ function computeTopRecords(careerDataByTeam: Map<string, TeamSeasonLogs[]>): {
     }
     seasonSpecialTop20[gameType].wins = rankTopEntries(winsCandidates, false);
     seasonSpecialTop20[gameType].streak = rankTopEntries(streakCandidates, false);
+    seasonWorstTop20[gameType].losses = rankTopEntries(lossesCandidates, false);
+    seasonWorstTop20[gameType].lossStreak = rankTopEntries(lossStreakCandidates, false) as LeagueSeasonWorstEntry[];
   }
 
-  return { clubRecordTop20, seasonSpecialTop20 };
+  return { clubRecordTop20, seasonSpecialTop20, seasonWorstTop20 };
 }
 
 /**
@@ -504,10 +596,15 @@ async function main() {
   const careerDataByTeam = await loadCareerDataByTeam();
   console.log(`対象クラブ数（オールスター等の擬似チームを除く）: ${careerDataByTeam.size}`);
 
-  const total = computeCategoryRankings(careerDataByTeam);
-  const home = computeCategoryRankings(filterCareerDataByVenue(careerDataByTeam, "home"));
-  const away = computeCategoryRankings(filterCareerDataByVenue(careerDataByTeam, "away"));
-  const { clubRecordTop20, seasonSpecialTop20 } = computeTopRecords(careerDataByTeam);
+  const seasonNames = [...new Set([...careerDataByTeam.values()].flatMap((seasons) => seasons.map((s) => s.season)))].sort();
+  const resultOnlyBySeason = await loadResultOnlyBySeason(seasonNames);
+  const completedRegularSeasons = await loadCompletedRegularSeasons(seasonNames);
+  const streakDataByTeam = addResultOnly(careerDataByTeam, resultOnlyBySeason);
+
+  const total = computeCategoryRankings(careerDataByTeam, streakDataByTeam);
+  const home = computeCategoryRankings(filterCareerDataByVenue(careerDataByTeam, "home"), filterCareerDataByVenue(streakDataByTeam, "home"));
+  const away = computeCategoryRankings(filterCareerDataByVenue(careerDataByTeam, "away"), filterCareerDataByVenue(streakDataByTeam, "away"));
+  const { clubRecordTop20, seasonSpecialTop20, seasonWorstTop20 } = computeTopRecords(careerDataByTeam, streakDataByTeam, completedRegularSeasons);
   const { periodRecord, periodRecordTop20, periodCareerAverage } = computePeriodRankings(careerDataByTeam);
   const { clubRecordWorstTop20, clubRecordAgainstTop20 } = computeWorstAndAgainstTop20(careerDataByTeam);
   console.log(
@@ -531,7 +628,7 @@ async function main() {
     );
   }
 
-  const file: LeagueTeamRankingsFile = {
+  const file: LeagueTeamRankingsFile & { seasonWorstTop20: LeagueSeasonWorstTop20 } = {
     generatedAt: new Date().toISOString(),
     career: total.career,
     clubRecord: total.clubRecord,
@@ -546,6 +643,7 @@ async function main() {
     clubRecordWorstTop20,
     clubRecordAgainstTop20,
     seasonSpecialTop20,
+    seasonWorstTop20,
     periodRecord,
     periodRecordTop20,
     periodCareerAverage,
