@@ -1,32 +1,32 @@
 // 選手の1試合の記録（選手一覧「記録」タブの範囲「シーズン」。DESIGN.md 159章）の項目。
 // 項目は個人詳細のキャリアハイ（src/pages/PlayerDetailPage.tsx の CAREER_HIGH_STATS）と同じ。ただしリーグ全体の記録なので、
 // 少ない方が良い項目（TOV・F・UFOUL・TF）は0の同率が多くなりすぎて記録として意味を持たないため出さない。
-// 成功率は最低試投数を満たす試合だけが対象（チームの記録と同じ考え方。shared/teamRecords.ts の TEAM_PCT_MIN_ATTEMPTS）。
+// 成功率は最低成功数を満たす試合だけが対象（チームの記録と同じ考え方。shared/teamRecords.ts の TEAM_PCT_MIN_MADE）。
 // 日次の集計（scripts/aggregate-player-game-records.ts）が上位だけをファイルに書き出し、画面は全選手の試合ログを読まない
 import { efgPct, eff, safeDiv, tsPct } from "./formulas.ts";
 import type { PlayerGameLog } from "./types.ts";
 
 export type PlayerRecordGame = PlayerGameLog & { season: string };
 
-/** 成功率の記録の最低試投数（選手・リーグ全体の記録）。1試合の試投数の分布から、100%の同率が数件に収まる値にした */
-export const PLAYER_PCT_MIN_ATTEMPTS = { fgPct: 10, twoPct: 8, tpPct: 6, ftPct: 10 } as const;
-
 /**
- * 個人詳細のキャリアハイの最低試投数（2026-09-27、ユーザー確認）。1人の選手の記録なので、リーグ全体の記録より低くし、
- * 出場の少ない選手や3Pを打たない選手でも「-」になりにくくした。eFG%・TS%はFGと同じ
+ * 成功率の記録の最低成功数（選手・リーグ全体の記録・選手詳細のキャリアハイ・選手一覧の記録で共通。2026-10-18に、試投数から成功数に変更。ユーザー決定）。
+ * 試投の少ない試合の極端な値（1/1＝100%等）を避ける。3P%・FT% は B.LEAGUE 公式のランキングが成功数で決めているのにならい、FG%・2P%・1試合記録の基準は
+ * 公式に無いので成功数にそろえたサイトの決まり。数は、全シーズンの選手の試合で、以前の試投数基準（FG 10・2P 8・3P 6・FT 10）とほぼ同じ件数になる値。
+ * eFG%・TS%はFGと同じ。同じ率の中は試投数の多い順。区間（Q別・前後半・延長）では区間の長さに合わせて下げる（src/lib/playerGameRecordFormat.ts）。
+ * 以前は、キャリアハイだけ試投数 FG 5・2P 4・3P 3・FT 4 の低い基準だった
  */
-export const PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS = { fgPct: 5, twoPct: 4, tpPct: 3, ftPct: 4 } as const;
+export const PLAYER_PCT_MIN_MADE = { fgPct: 5, twoPct: 5, tpPct: 3, ftPct: 8 } as const;
 
-type PctMinAttempts = { fgPct: number; twoPct: number; tpPct: number; ftPct: number };
+type PctMinMade = { fgPct: number; twoPct: number; tpPct: number; ftPct: number };
 
 /** 成功率の項目の対象の試合（キーは PLAYER_GAME_RECORD_STATS と同じ。eFG%・TS% は FG と同じ） */
-export function playerPctFilters(min: PctMinAttempts): Map<string, (g: PlayerGameLog) => boolean> {
-  const fg = (g: PlayerGameLog) => g.fga >= min.fgPct;
+export function playerPctFilters(min: PctMinMade): Map<string, (g: PlayerGameLog) => boolean> {
+  const fg = (g: PlayerGameLog) => g.fgm >= min.fgPct;
   return new Map<string, (g: PlayerGameLog) => boolean>([
     ["fgPct", fg],
-    ["2pPct", (g) => g.fga - g.tpa >= min.twoPct],
-    ["tpPct", (g) => g.tpa >= min.tpPct],
-    ["ftPct", (g) => g.fta >= min.ftPct],
+    ["2pPct", (g) => g.fgm - g.tpm >= min.twoPct],
+    ["tpPct", (g) => g.tpm >= min.tpPct],
+    ["ftPct", (g) => g.ftm >= min.ftPct],
     ["efgPct", fg],
     ["tsPct", fg],
   ]);
@@ -85,7 +85,7 @@ function effOfGame(g: PlayerRecordGame): number {
 }
 
 const LEAGUE_PCT_FILTERS = new Map<string, (g: PlayerGameLog) => boolean>([
-  ...playerPctFilters(PLAYER_PCT_MIN_ATTEMPTS),
+  ...playerPctFilters(PLAYER_PCT_MIN_MADE),
   ["astedPct", (g) => g.pts >= PLAYER_ASTED_MIN_POINTS],
 ]);
 
@@ -109,7 +109,7 @@ const PLAYER_GAME_RECORD_STATS_BASE: PlayerGameRecordDef[] = [
   { key: "ftm", label: "FTM", value: (g) => g.ftm },
   { key: "fta", label: "FTA", value: (g) => g.fta },
   { key: "ftPct", label: "FT%", value: (g) => safeDiv(g.ftm, g.fta), kind: "pct" },
-  // eFG%・TS% は FG% と同じ最低試投数（FGA）
+  // eFG%・TS% は FG% と同じ最低成功数（FGM）
   { key: "efgPct", label: "eFG%", value: (g) => efgPct(g.fgm, g.tpm, g.fga), kind: "pct" },
   { key: "tsPct", label: "TS%", value: (g) => tsPct(g.pts, g.fga, g.fta), kind: "pct" },
   { key: "oreb", label: "OR", value: (g) => g.oreb },

@@ -1,5 +1,5 @@
 import { TEAM_PCT_MIN_MADE } from "../../shared/teamRecords";
-import { PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS, PLAYER_PCT_MIN_ATTEMPTS } from "../../shared/playerGameRecords";
+import { PLAYER_PCT_MIN_MADE } from "../../shared/playerGameRecords";
 /**
  * 個人詳細ページ「キャリアハイ」・チーム詳細ページ「クラブレコード」の項目名クリックで展開する
  * トップ10（同値タイの場合は末尾の順位を共有する全員を含める）を算出する共通ロジック。
@@ -62,8 +62,8 @@ export function computeTopRecordEntries<T extends { date: string }>(
 /** チームの成功率の記録の最低成功数の注記（クラブレコード・歴代・シーズンの記録で共通） */
 export const TEAM_PCT_MIN_MADE_NOTE = `成功率の記録は、成功数がFG ${TEAM_PCT_MIN_MADE.fgPct}本・2P ${TEAM_PCT_MIN_MADE.twoPct}本・3P ${TEAM_PCT_MIN_MADE.tpPct}本・フリースロー ${TEAM_PCT_MIN_MADE.ftPct}本以上の試合だけが対象です。`;
 
-/** 選手の成功率の記録の最低試投数の注記（選手一覧の記録） */
-export const PLAYER_PCT_MIN_ATTEMPTS_NOTE = `成功率の記録は、試投数がFG ${PLAYER_PCT_MIN_ATTEMPTS.fgPct}本・2P ${PLAYER_PCT_MIN_ATTEMPTS.twoPct}本・3P ${PLAYER_PCT_MIN_ATTEMPTS.tpPct}本・フリースロー ${PLAYER_PCT_MIN_ATTEMPTS.ftPct}本以上の試合だけが対象です（eFG%・TS%はFGと同じ）。`;
+/** 選手の成功率の記録の最低成功数の注記（ランキング・選手一覧の記録・個人詳細のキャリアハイで共通） */
+export const PLAYER_PCT_MIN_MADE_NOTE = `成功率の記録は、成功数がFG ${PLAYER_PCT_MIN_MADE.fgPct}本・2P ${PLAYER_PCT_MIN_MADE.twoPct}本・3P ${PLAYER_PCT_MIN_MADE.tpPct}本・フリースロー ${PLAYER_PCT_MIN_MADE.ftPct}本以上の試合だけが対象です（eFG%・TS%はFGと同じ）。`;
 
 /**
  * 成功率の同じ率の中で、試投数の多い試合を上にする並び（順位は同じまま。2026-09-27）。fraction が無い項目は並びを変えない
@@ -77,6 +77,3 @@ export function sortTiedGames<T extends { date: string }>(games: T[], fraction?:
   const tie = attemptsFirst(fraction);
   return [...games].sort((a, b) => (tie?.(a, b) ?? 0) || (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
-
-/** 個人詳細のキャリアハイの成功率の最低試投数の注記（リーグ全体の記録より低い基準） */
-export const PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS_NOTE = `成功率のキャリアハイは、試投数がFG ${PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS.fgPct}本・2P ${PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS.twoPct}本・3P ${PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS.tpPct}本・フリースロー ${PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS.ftPct}本以上の試合だけが対象です（eFG%・TS%はFGと同じ）。`;

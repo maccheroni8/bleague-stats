@@ -11,7 +11,7 @@ import {
   SCORING_SHARE_MIN_MPG,
   SCORING_SHARE_MIN_TOTAL_MIN,
 } from "../lib/tableThresholds";
-import { PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS_NOTE, PLAYER_PCT_MIN_ATTEMPTS_NOTE, TEAM_PCT_MIN_MADE_NOTE } from "../lib/topRecords";
+import { PLAYER_PCT_MIN_MADE_NOTE, TEAM_PCT_MIN_MADE_NOTE } from "../lib/topRecords";
 
 /**
  * 用語集の「表・グラフの見方」。各ページの表・グラフの下にあった説明（見方・定義・計算の仕方・色や記号の意味・
@@ -379,9 +379,7 @@ export function GlossaryGuides() {
         <p>
           {TEAM_PCT_MIN_MADE_NOTE}（チーム。Q別・前後半・延長は、区間の長さに合わせて下げた数。1Q〜4Qは4分の1、前後半は2分の1、延長は8分の1）
           <br />
-          {PLAYER_PCT_MIN_ATTEMPTS_NOTE}（選手一覧の記録）
-          <br />
-          {PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS_NOTE}基準を満たす試合が無い項目は「-」です。
+          {PLAYER_PCT_MIN_MADE_NOTE}（選手一覧の記録・ランキング・個人詳細のキャリアハイ。Q別・前後半・延長は、区間の長さに合わせて下げた数）基準を満たす試合が無い項目は「-」です。
           <br />
           成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます。被記録の成功率は、相手の成功数で判定します。
         </p>
@@ -425,7 +423,7 @@ export function GlossaryGuides() {
         </p>
         <h3>B.PREMIER（旧B1）レコード（選手一覧）</h3>
         <p>
-          全シーズンの選手の1試合の記録です。項目と成功率の最低試投数は、選手一覧「シーズン」の1試合の記録と同じです（FG 10・2P 8・3P 6・FT 10、eFG%・TS%はFGと同じ）。
+          全シーズンの選手の1試合の記録です。項目と成功率の最低成功数は、選手一覧「シーズン」の1試合の記録と同じです（FG 5・2P 5・3P 3・FT 8、eFG%・TS%はFGと同じ）。
           カードは各項目の1位で、押すとランキングの個人「1試合記録」の同じ項目（上位20位、同じ記録はすべて）へ移ります。試合の日付のあとの（　）は、その試合のシーズンです。ワーストは出しません。
         </p>
         <h3>1シーズン記録（チーム）</h3>

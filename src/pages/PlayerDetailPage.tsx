@@ -171,7 +171,7 @@ import {
   type TopRecordEntry,
 } from "../lib/topRecords";
 import { RecordValue } from "../components/RecordValue";
-import { PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS, PLAYER_PCT_FRACTIONS, playerPctFilters } from "../../shared/playerGameRecords";
+import { PLAYER_PCT_MIN_MADE, PLAYER_PCT_FRACTIONS, playerPctFilters } from "../../shared/playerGameRecords";
 
 /**
  * 「試合ログ」タブの1行。ボックススコアが取れた試合（box）と、個人スタッツが無い試合
@@ -498,7 +498,7 @@ interface CareerHighDef {
    * 一覧からは除外する（DESIGN.md参照。ユーザー確認済み）。デフォルトはtrue
    */
   worstEligible?: boolean;
-  /** 対象の試合。成功率はキャリアハイ用の最低試投数を満たす試合だけ（shared/playerGameRecords.ts。2026-09-27） */
+  /** 対象の試合。成功率は最低成功数を満たす試合だけ（shared/playerGameRecords.ts。2026-10-18に試投数から成功数に変更） */
   filter?: (g: CareerHighGame) => boolean;
   /** 成功率の項目: 成功数と試投数（「100.0%（6/6）」と添え、同じ率の中は試投数の多い試合を上にする） */
   fraction?: (g: CareerHighGame) => readonly [number, number];
@@ -537,8 +537,8 @@ function effTotalsOfGame(g: PlayerGameLog) {
   };
 }
 
-/** 成功率の項目の最低試投数の条件（キャリアハイ用の低めの基準。リーグ全体の記録とは別） */
-const PCT_MIN_ATTEMPTS_FILTERS = playerPctFilters(PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS);
+/** 成功率の項目の最低成功数の条件（リーグ全体の記録・ランキングと同じ基準。2026-10-18に、キャリアハイ用の低めの試投数基準をやめて統一） */
+const PCT_MIN_ATTEMPTS_FILTERS = playerPctFilters(PLAYER_PCT_MIN_MADE);
 
 const CAREER_HIGH_STATS_BASE: CareerHighDef[] = [
   {
@@ -1472,7 +1472,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       playedFilteredLogs(cd.logs).map((g) => ({ ...g, season: cd.season })),
     );
     return careerHighStats.map((def) => {
-      // 成功率は最低試投数を満たす試合だけ。満たす試合が1つも無ければ、カードは残して「-」にする
+      // 成功率は最低成功数を満たす試合だけ。満たす試合が1つも無ければ、カードは残して「-」にする
       const pool = def.filter ? allGames.filter(def.filter) : allGames;
       if (def.filter && pool.length === 0 && allGames.length > 0) {
         return { ...def, game: undefined, otherGames: [], topEntries: [], display: "-" };
@@ -3600,7 +3600,7 @@ function CareerHighCard({
   label: string;
   display: string;
   fraction?: (g: CareerHighGame) => readonly [number, number];
-  /** 無いときは、成功率の最低試投数を満たす試合が1つも無い */
+  /** 無いときは、成功率の最低成功数を満たす試合が1つも無い */
   game: CareerHighGame | undefined;
   otherGames: CareerHighGame[];
   expandedKeys: Set<string>;

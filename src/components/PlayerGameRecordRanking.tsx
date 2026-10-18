@@ -36,7 +36,7 @@ import {
   type PlayerRecordRow,
 } from "../lib/gameRecordQuery";
 import { useGameIndexViews, useGameRecordOptions, usePlayerPeriodViews, useRookieFile } from "../lib/useGameRecordData";
-import { formatPlayerGameRecordValue, playerGameRecordFraction, playerGameRecordMinAttemptsNote } from "../lib/playerGameRecordFormat";
+import { formatPlayerGameRecordValue, playerGameRecordFraction, playerGameRecordMinMadeNote } from "../lib/playerGameRecordFormat";
 import { ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason } from "../lib/rookieFilter";
 import { DEFAULT_STAT_CONDITIONS, statConditionMatcher, statConditionsTitle } from "../lib/statConditions";
 import { useNarrow } from "../lib/teamLabel";
@@ -223,7 +223,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const defJa = statJa(def.label);
   const title = allTime ? `歴代 個人1試合${modeLabel} ${defJa}ランキング` : `${season}シーズン 個人1試合${modeLabel} ${defJa}ランキング`;
   const filename = buildExportFilename([`個人1試合${modeLabel}`, allTime ? "歴代" : season, defJa, ...conditionLabels]);
-  const minNote = playerGameRecordMinAttemptsNote(def.key, period ? (period === "ot" ? "延長" : period === "h1" ? "前半" : period === "h2" ? "後半" : `${period.slice(1)}Q`) : undefined);
+  const minNote = playerGameRecordMinMadeNote(def.key, period ? { key: period, label: period === "ot" ? "延長" : period === "h1" ? "前半" : period === "h2" ? "後半" : `${period.slice(1)}Q` } : undefined);
   const seasonOf = (e: PlayerRecordRow) => e.season ?? season;
   const periodNotes = period && result ? { overtime: period === "ot", shortGames: result.periodShortGames ?? 0, noPlusMinus: result.excludedNoPlusMinus ?? 0 } : undefined;
 

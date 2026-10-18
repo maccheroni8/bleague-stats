@@ -40,6 +40,7 @@ import {
   type TeamRecordMode,
 } from "./teamGameRecords";
 import { teamPeriodGameAt } from "./teamPeriodGames";
+import { playerPctPeriodFilter } from "./playerGameRecordFormat";
 import type { TeamPeriodIndexFile } from "../../shared/periodIndex";
 
 /** 上位何位まで返すか（同じ順位は続けて入れる）。一覧の表示も同じ件数で切る */
@@ -275,6 +276,7 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
   let periodShortGames = 0;
   let excludedNoPlusMinus = 0;
   const atoms = q.period ? PERIOD_ATOM_INDEXES[q.period.period] : null;
+  const periodPctFilter = q.period ? playerPctPeriodFilter(def.key, q.period.period) : null;
 
   /** 行の値（区間を選んでいるときは区間の値。その区間に出ていない行は null） */
   const rowOf = (view: PlayerGameIndexView, i: number): IndexedPlayerGame | IndexedPeriodGame | null => {
@@ -303,7 +305,8 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
         continue;
       }
       const game = row as unknown as PlayerRecordGame;
-      if (def.filter && !def.filter(game)) continue;
+      // 成功率の最低成功数（区間を選んだときは、区間の長さに合わせて下げた数）
+      if (periodPctFilter ? !periodPctFilter(game) : def.filter && !def.filter(game)) continue;
       if (matcher && !matcher(row)) continue;
       if (f.short && !q.includeSpecial) {
         excludedSpecial += 1;

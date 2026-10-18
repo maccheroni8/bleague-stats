@@ -14,6 +14,7 @@ import {
 import type { LeagueRecordEntry, LeagueTeamRankingsFile, TeamGameLog, TeamHistoryEntry } from "../../shared/types";
 import type { SeasonGameTypeFilter } from "./playerSeasonBoxscore";
 import { formatPct } from "./format";
+import { scaledMinForPeriod } from "./periodMinimum";
 import { teamNameInSeason } from "./teamLabel";
 export { leagueTeamDisplayName } from "./leagueTeamNames";
 import { attemptsFirst, computeTopRecordEntries } from "./topRecords";
@@ -107,11 +108,10 @@ export const LEGACY_PERIOD_ITEMS: Record<PeriodRecordKind, { mode: TeamRecordMod
  * 成功率の項目の最低成功数（試合全体は TEAM_PCT_MIN_MADE。区間を選んだときは、区間の長さに合わせて下げる。2026-10-18 ユーザー決定）。
  * 区間の長さ: 1Q〜4Q は4分の1、前半・後半は2分の1、延長は8分の1（四捨五入、最低1）
  */
-const PERIOD_SHARE: Record<string, number> = { q1: 1 / 4, q2: 1 / 4, q3: 1 / 4, q4: 1 / 4, h1: 1 / 2, h2: 1 / 2, ot: 1 / 8 };
 export function teamPctMinMade(key: string, period: string | null): number | null {
   const base = (TEAM_PCT_MIN_MADE as Record<string, number>)[key];
   if (base === undefined) return null;
-  return period ? Math.max(1, Math.round(base * (PERIOD_SHARE[period] ?? 1))) : base;
+  return scaledMinForPeriod(base, period);
 }
 
 /** 項目キーが「q1:mostPts」の形か（クォーター別・前後半別の項目） */
