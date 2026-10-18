@@ -237,8 +237,8 @@ export function visibleConditionLabels(labels: string[]): string[] {
   return labels.filter((label) => !OMITTED_CONDITION_LABELS.has(label));
 }
 
-/** タイトルの条件行に出す区切り文字（既存のdescribeSituationalFilter等と同じ「・」） */
-export const LABEL_SEPARATOR = "・";
+/** タイトルの条件行に出す区切り文字（全角の「／」。値の中の「・」〔外国籍・帰化・アジア〕やポジションの半角「/」〔C/PF〕と紛れない） */
+export const LABEL_SEPARATOR = "／";
 
 export function joinLabels(labels: string[]): string {
   return labels.join(LABEL_SEPARATOR);

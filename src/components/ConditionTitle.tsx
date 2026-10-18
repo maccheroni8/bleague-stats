@@ -53,7 +53,7 @@ export function ConditionTitle({
   section?: boolean;
   /**
    * スタッツの条件（DESIGN.md 162章）。ほかの条件と同じ行につなぐと「または」がどこまで掛かるか読めないため、
-   * 条件の行の下に別の行で出す。joiner は「・」（すべて満たす）か「 または 」（どれかを満たす）
+   * 条件の行の下に別の行で出す。joiner は「／」（すべて満たす）か「 または 」（どれかを満たす）
    */
   statConditions?: { labels: string[]; joiner: string };
 }) {
@@ -63,7 +63,7 @@ export function ConditionTitle({
     <div className={`condition-title${section ? " condition-title-section" : ""}`}>
       <h2>{renderTitle(title)}</h2>
       {shown.length > 0 && (
-        // 幅が足りず折り返すときは、条件ラベルの区切り（・）でだけ折り返す（「試合全/体」のような単語の途中で切らない）
+        // 幅が足りず折り返すときは、条件ラベルの区切り（／）でだけ折り返す（「試合全/体」のような単語の途中で切らない）
         <p className="condition-title-conditions">
           {shown.map((label, i) => (
             <Fragment key={`${i}:${label}`}>

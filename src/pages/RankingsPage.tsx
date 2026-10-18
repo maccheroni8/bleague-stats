@@ -53,6 +53,7 @@ import {
   SEASON_TOTAL_ONLY_LABELS,
   SITUATIONAL_DEFAULT_LABEL,
   situationalFilterLabels,
+  LABEL_SEPARATOR,
 } from "../lib/conditionLabels";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageBaseDateLabel } from "../lib/age";
@@ -892,7 +893,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           ? "このカテゴリは試合種別・シチュエーション別フィルタ・Q別/前後半の対象外です（登録区分・ポジションのみ適用されます）。"
         : undefined;
   const eligibilityDefaultExtra = extraRule?.defaultValue ?? 0;
-  const eligibilitySummary = eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }).join("・");
+  const eligibilitySummary = eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }).join(LABEL_SEPARATOR);
   const eligibilityAxis: FilterAxis = {
     kind: "popover",
     id: "eligibility",

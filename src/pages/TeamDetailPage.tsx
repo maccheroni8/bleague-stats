@@ -140,6 +140,7 @@ import {
   perspectiveLabels,
   periodLabels,
   situationalFilterLabels,
+  LABEL_SEPARATOR,
 } from "../lib/conditionLabels";
 import { isWednesdayGame, isWeekdayGame } from "../lib/japaneseHolidays";
 import { leaderStatLabel, PLAYER_STAT_DEFS } from "../lib/statDefs";
@@ -1964,7 +1965,7 @@ function formatLeagueRank(entry: LeagueTeamRankEntry | undefined): string | unde
  * ラベル生成ロジック。チーム版はシーズン前半戦/後半戦フィルタに対応していない
  * （チーム詳細の比較スロットがseasonHalfBoundaryを渡していないため、
  * dateRangeは常に「期間指定」/日付範囲表記になる）。2026-08-29、複数選択（AND条件）対応に伴い、
- * range＋AND条件の各軸で同時に選択されている全ての部分を「・」区切りで列挙する形に変更した
+ * range＋AND条件の各軸で同時に選択されている全ての部分を「／」区切りで列挙する形に変更した
  * （1つも選択が無ければ「シーズン全体」）
  */
 function describeTeamSituationalFilter(filter: SituationalFilter): string {
@@ -3617,7 +3618,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   );
   const situationalRecordConditions = composeLabels(seasonLabel, gameTypeLabels(situationalRecordGameType, season));
   // 「チーム内リーダー」の掲載基準（出場率）。ランキングページと同じ popover＋EligibilitySlider
-  const teamLeadersEligibilitySummary = eligibilityLabels({ gamesRatio: teamLeadersGamesRatio }).join("・");
+  const teamLeadersEligibilitySummary = eligibilityLabels({ gamesRatio: teamLeadersGamesRatio }).join(LABEL_SEPARATOR);
   const teamLeadersEligibilityAxis: FilterAxis = {
     kind: "popover",
     id: "teamLeadersEligibility",

@@ -220,9 +220,9 @@ function formatThreshold(v: number): string {
   return String(Number(v.toFixed(3)));
 }
 
-/** タイトルでの条件どうしのつなぎ（「すべて」は「・」、「どれか」は「または」） */
+/** タイトルでの条件どうしのつなぎ（「すべて」は「／」、「どれか」は「または」） */
 export function statConditionJoiner(match: StatConditionMatch): string {
-  return match === "any" ? " または " : "・";
+  return match === "any" ? " または " : "／";
 }
 
 /** フィルタの「適用中」のチップ・タイトルで使う1行の文言 */
