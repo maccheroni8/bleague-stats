@@ -185,7 +185,7 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   },
   "%3PM": {
     player: "個人の3PM ÷ その選手が出場した試合のチーム全体の3PM（その選手がベンチにいた時間のチームの3PMも分母に含む）",
-    team: "3PM / FGA（FGAに占める3P成功の割合）",
+    team: "3PM / FGM（成功したFGのうち3Pの割合。%2PMと合わせて100%）",
   },
   "%3PA": {
     player: "個人の3PA ÷ その選手が出場した試合のチーム全体の3PA（その選手がベンチにいた時間のチームの3PAも分母に含む）",
@@ -193,7 +193,7 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   },
   "%2PM": {
     player: "個人の2PM ÷ その選手が出場した試合のチーム全体の2PM（その選手がベンチにいた時間のチームの2PMも分母に含む）",
-    team: "2PM / FGA（FGAに占める2P成功の割合）",
+    team: "2PM / FGM（成功したFGのうち2Pの割合。%3PMと合わせて100%）",
   },
   "%2PA": {
     player: "個人の2PA ÷ その選手が出場した試合のチーム全体の2PA（その選手がベンチにいた時間のチームの2PAも分母に含む）",

@@ -796,13 +796,13 @@ export function buildScoringColumns(
       : unavailableColumn("pctinternational3", "%外国籍・帰化・アジア PTS"),
     // ここから下は「自チーム/相手チームの全FGAに対する割合」（シュート選択構成比）。
     // 上記PITP%等（総得点に対する割合）とは分母が異なる別系統の指標
-    pct100Column("pct3pm", "%3PM", (t) => safeDiv(100 * t.tpm, t.fga), (t) => safeDiv(100 * t.oppTpm, t.oppFga), perspective),
+    pct100Column("pct3pm", "%3PM", (t) => safeDiv(100 * t.tpm, t.fgm), (t) => safeDiv(100 * t.oppTpm, t.oppFgm), perspective),
     pct100Column("pct3pa", "%3PA", (t) => safeDiv(100 * t.tpa, t.fga), (t) => safeDiv(100 * t.oppTpa, t.oppFga), perspective),
     pct100Column(
       "pct2pm",
       "%2PM",
-      (t) => safeDiv(100 * (t.fgm - t.tpm), t.fga),
-      (t) => safeDiv(100 * (t.oppFgm - t.oppTpm), t.oppFga),
+      (t) => safeDiv(100 * (t.fgm - t.tpm), t.fgm),
+      (t) => safeDiv(100 * (t.oppFgm - t.oppTpm), t.oppFgm),
       perspective,
     ),
     pct100Column(

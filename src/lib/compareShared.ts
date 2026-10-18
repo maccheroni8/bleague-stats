@@ -252,7 +252,7 @@ export function teamCompareDefs(
   /** 比べるシーズンがすべて2026-27以降のとき true（Miscのファウルの列を TF1・TF2・FLAG・DISR にする） */
   foulSplit = false,
 ): ComparisonStatDef<TeamCompareColumnData>[] {
-  // チームの表向けの列（Scoring の %3PM〜%2PA は FGA に占める割合、%PTS・%FGM・%FGA・%FTM・%FTA は外す。teamBoxscoreColumns.ts）
+  // チームの表向けの列（Scoring の %3PM・%2PM は FGM、%3PA・%2PA は FGA に占める割合、%PTS・%FGM・%FGA・%FTM・%FTA は外す。teamBoxscoreColumns.ts）
   const defs = teamBoxscoreColumnsFor(tabKey, foulSplit).map((raw) => {
     const extraValue = TEAM_COMPARE_VALUE[raw.key];
     const col: BoxscoreColumn = extraValue && !raw.value ? { ...raw, value: (c) => extraValue(c) } : raw;

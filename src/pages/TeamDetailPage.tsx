@@ -1444,7 +1444,7 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
     key: "pct3pm",
     label: "%3PM",
     format: (r, m, _mode, p) =>
-      formatTeamSeasonPct100(safeDiv(100 * r.team.totals.tpm, r.team.totals.fga), safeDiv(100 * m.oppTpm, m.oppFga), p),
+      formatTeamSeasonPct100(safeDiv(100 * r.team.totals.tpm, r.team.totals.fgm), safeDiv(100 * m.oppTpm, m.oppFgm), p),
   },
   {
     key: "pct3pa",
@@ -1457,8 +1457,8 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "%2PM",
     format: (r, m, _mode, p) =>
       formatTeamSeasonPct100(
-        safeDiv(100 * (r.team.totals.fgm - r.team.totals.tpm), r.team.totals.fga),
-        safeDiv(100 * (m.oppFgm - m.oppTpm), m.oppFga),
+        safeDiv(100 * (r.team.totals.fgm - r.team.totals.tpm), r.team.totals.fgm),
+        safeDiv(100 * (m.oppFgm - m.oppTpm), m.oppFgm),
         p,
       ),
   },
