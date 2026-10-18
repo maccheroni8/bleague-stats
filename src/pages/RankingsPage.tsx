@@ -1,6 +1,7 @@
 import { RankedList, type RankCompare, type RankableStat } from "../components/RankedList";
 import { PlayerGameRecordRanking } from "../components/PlayerGameRecordRanking";
 import { TeamGameRecordRanking } from "../components/TeamGameRecordRanking";
+import { TeamAttendanceRanking, ATTENDANCE_SCOPE_PARAM } from "../components/TeamAttendanceRanking";
 import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
 import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
 import { EligibilitySlider } from "../components/EligibilitySlider";
@@ -232,13 +233,14 @@ function shootingStatItems(columns: { key: string; label: string }[]): { key: st
  */
 const RANKING_MODE_PARAM = enumParam<Mode>("m", ["team", "player"], "team");
 /** 種類（DESIGN.md 190〜192章）: シーズン成績（今までのランキング）／1試合記録／通算記録（過去に在籍した全選手・全クラブの全シーズン合算） */
-type RankingKind = "season" | "game" | "career" | "special" | "clutch" | "assistPair" | "threshold" | "lineup";
-const RANKING_KIND_PARAM = enumParam<RankingKind>("k", ["season", "game", "career", "special", "clutch", "assistPair", "threshold", "lineup"], "season", { assistPair: "pair", threshold: "thr", lineup: "lu" });
+type RankingKind = "season" | "game" | "career" | "special" | "attendance" | "clutch" | "assistPair" | "threshold" | "lineup";
+const RANKING_KIND_PARAM = enumParam<RankingKind>("k", ["season", "game", "career", "special", "attendance", "clutch", "assistPair", "threshold", "lineup"], "season", { assistPair: "pair", threshold: "thr", lineup: "lu", attendance: "att" });
 const RANKING_KIND_LABELS: Record<RankingKind, string> = {
   season: "シーズン成績",
   game: "1試合記録",
   career: "通算記録",
   special: "1シーズン記録",
+  attendance: "観客動員",
   clutch: "勝負所",
   assistPair: "アシストペア",
   threshold: "達成記録",
@@ -1148,9 +1150,10 @@ export function RankingsPage({ season }: { season: string }) {
   const [mode, setModeParam] = useUrlState(RANKING_MODE_PARAM, "team");
   const [kindParam, setKindParam] = useUrlState(RANKING_KIND_PARAM, "season");
   const [scope, setScopeParam] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
+  const [attendanceScope] = useUrlState(ATTENDANCE_SCOPE_PARAM, "season");
   // 個人には1シーズン記録が無く、チームには勝負所・アシストペアが無いので、URLにそのkがあっても通常のシーズン成績にする
   const kind: RankingKind =
-    (mode === "player" && kindParam === "special") || (mode === "team" && (kindParam === "clutch" || kindParam === "assistPair" || kindParam === "threshold" || kindParam === "lineup")) ? "season" : kindParam;
+    (mode === "player" && (kindParam === "special" || kindParam === "attendance")) || (mode === "team" && (kindParam === "clutch" || kindParam === "assistPair" || kindParam === "threshold" || kindParam === "lineup")) ? "season" : kindParam;
   const [pairUnit, setPairUnit] = useUrlState(PAIR_UNIT_PARAM, "season");
   const [thresholdUnit, setThresholdUnit] = useUrlState(THRESHOLD_UNIT_PARAM, "count");
   const [lineupUnit, setLineupUnit] = useUrlState(LINEUP_UNIT_PARAM, "onoff");
@@ -1170,11 +1173,12 @@ export function RankingsPage({ season }: { season: string }) {
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const gameRecords = kind === "game";
   // 1シーズン記録はチームだけ（個人には1シーズンの記録の項目が無い）
-  const kinds: RankingKind[] = mode === "team" ? ["season", "game", "career", "special"] : ["season", "game", "career", "clutch", "assistPair", "threshold", "lineup"];
+  const kinds: RankingKind[] = mode === "team" ? ["season", "game", "career", "special", "attendance"] : ["season", "game", "career", "clutch", "assistPair", "threshold", "lineup"];
   // 歴代（通算記録は常に歴代）はシーズンに依らないので、シーズンを出さない。勝負所は通算（歴代）かシーズン、アシストペアは1試合・通算（歴代）かシーズン
   const allTimeRecords =
     kind === "career" ||
     kind === "special" ||
+    (kind === "attendance" && attendanceScope === "allTime") ||
     ((gameRecords || kind === "clutch") && scope === "allTime") ||
     (kind === "assistPair" && pairUnit !== "season") ||
     (kind === "threshold" && (thresholdUnit !== "count" || scope === "allTime")) ||
@@ -1301,6 +1305,8 @@ export function RankingsPage({ season }: { season: string }) {
           <AssistPairRanking season={season} teamColors={teamColors ?? undefined} />
         ) : kind === "special" ? (
           <TeamSeasonRecordRanking teamColors={teamColors ?? undefined} />
+        ) : kind === "attendance" ? (
+          <TeamAttendanceRanking season={season} teamColors={teamColors ?? undefined} />
         ) : kind === "career" ? (
           mode === "player" ? (
             <PlayerCareerRecordRanking teamColors={teamColors ?? undefined} />
