@@ -11,7 +11,7 @@ import {
   SCORING_SHARE_MIN_MPG,
   SCORING_SHARE_MIN_TOTAL_MIN,
 } from "../lib/tableThresholds";
-import { PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS_NOTE, PLAYER_PCT_MIN_ATTEMPTS_NOTE, TEAM_PCT_MIN_ATTEMPTS_NOTE } from "../lib/topRecords";
+import { PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS_NOTE, PLAYER_PCT_MIN_ATTEMPTS_NOTE, TEAM_PCT_MIN_MADE_NOTE } from "../lib/topRecords";
 
 /**
  * 用語集の「表・グラフの見方」。各ページの表・グラフの下にあった説明（見方・定義・計算の仕方・色や記号の意味・
@@ -377,13 +377,19 @@ export function GlossaryGuides() {
         </p>
         <h3>成功率の記録</h3>
         <p>
-          {TEAM_PCT_MIN_ATTEMPTS_NOTE}（チーム）
+          {TEAM_PCT_MIN_MADE_NOTE}（チーム。Q別・前後半・延長は、区間の長さに合わせて下げた数。1Q〜4Qは4分の1、前後半は2分の1、延長は8分の1）
           <br />
           {PLAYER_PCT_MIN_ATTEMPTS_NOTE}（選手一覧の記録）
           <br />
           {PLAYER_CAREER_HIGH_PCT_MIN_ATTEMPTS_NOTE}基準を満たす試合が無い項目は「-」です。
           <br />
-          成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます。被記録の成功率は、相手の試投数で判定します。
+          成功率には成功数／試投数を添え、同じ率の中は試投数の多い試合から並べます。被記録の成功率は、相手の成功数で判定します。
+        </p>
+        <h3>ランキング（個人・シーズン成績）の成功率の基準</h3>
+        <p>
+          3P%・FT% は、B.LEAGUE 公式の基準にならい、所属チームの試合数の85%以上に出場し、かつ1試合平均の成功数が 3P 1.5本以上・FT 1本以上の選手が対象です
+          （公式にある「FT成功率85%以上」の条件は、このサイトでは外しています）。
+          FG%・2P% と1試合記録の基準は公式に無いので、公式の3P%・FT% にならって成功数にそろえた、このサイトの決まりです（FG% は1試合平均の FGM 1.5本以上、2P% は 2PM 1.0本以上）。
         </p>
         <h3>ワーストの対象外</h3>
         <p>

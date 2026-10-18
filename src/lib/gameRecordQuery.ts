@@ -30,7 +30,7 @@ import { statConditionMatcher, type StatConditionItem, type StatConditionsState 
 import {
   formatTeamRecordValue,
   parsePeriodItemKey,
-  teamPctMinAttempts,
+  teamPctMinMade,
   teamRankingDefs,
   teamRankingItems,
   teamRecordItems,
@@ -358,7 +358,7 @@ export interface TeamQueryStat {
   fraction?: (g: IndexedTeamGame) => readonly [number, number];
   /** 旧い項目「1Q 最多得点」の区間の値（今の画面では使わない。区間は条件の q で選ぶ） */
   period?: { period: PeriodKey; kind: PeriodRecordKind };
-  /** 成功率の項目のキー（区間を選んだときは、最低試投数を区間の長さに合わせて下げる） */
+  /** 成功率の項目のキー（区間を選んだときは、最低成功数を区間の長さに合わせて下げる） */
   pctKey?: string;
   /** 上位20位のファイルに無く、索引でしか出せないか（得失点差） */
   indexOnly: boolean;
@@ -426,11 +426,11 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
     if (!file) throw new Error(`${view.season} のピリオド別のデータがありません`);
     return teamPeriodGameAt(view, file, i, q.period.period);
   };
-  /** 成功率の最低試投数（区間を選んだときは、区間の長さに合わせて下げた数） */
+  /** 成功率の最低成功数（区間を選んだときは、区間の長さに合わせて下げた数） */
   const passesMinAttempts = (row: IndexedTeamGame): boolean => {
     if (q.period) {
-      const min = stat.pctKey ? teamPctMinAttempts(stat.pctKey, q.period.period) : null;
-      return min === null || (stat.fraction ? stat.fraction(row)[1] >= min : true);
+      const min = stat.pctKey ? teamPctMinMade(stat.pctKey, q.period.period) : null;
+      return min === null || (stat.fraction ? stat.fraction(row)[0] >= min : true);
     }
     return !stat.filter || stat.filter(row);
   };

@@ -1,7 +1,7 @@
 // チームの1試合記録（ランキングページ > チーム > 1試合記録。DESIGN.md 191章）の項目と、一覧の行の作り方。
 // 範囲「歴代」は夜間の集計の上位20位（data/league-team-rankings.json）、範囲「シーズン」は選んだシーズンの全クラブの試合ログから作る。
 // どちらも同じ形の行（TeamGameRecordRow）にそろえる。
-import { TEAM_AGAINST_RECORD_STATS, TEAM_PCT_MIN_ATTEMPTS, TEAM_RECORD_STATS, teamRecordDetail, type TeamRecordDetail, type TeamRecordValueDef } from "../../shared/teamRecords";
+import { TEAM_AGAINST_RECORD_STATS, TEAM_PCT_MIN_MADE, TEAM_RECORD_STATS, teamRecordDetail, type TeamRecordDetail, type TeamRecordValueDef } from "../../shared/teamRecords";
 import { periodAndRestAt } from "../../shared/gameFlow";
 import {
   PERIOD_KEYS,
@@ -104,12 +104,12 @@ export const LEGACY_PERIOD_ITEMS: Record<PeriodRecordKind, { mode: TeamRecordMod
 };
 
 /**
- * 成功率の項目の最低試投数（区間を選んだときは、区間の長さに合わせて下げる）。基準の数と数え方（試投数／成功数）は決定待ちで、今は試投数のまま。
- * 区間の長さ: 1Q〜4Q は4分の1、前半・後半は2分の1、延長は8分の1（最低1）
+ * 成功率の項目の最低成功数（試合全体は TEAM_PCT_MIN_MADE。区間を選んだときは、区間の長さに合わせて下げる。2026-10-18 ユーザー決定）。
+ * 区間の長さ: 1Q〜4Q は4分の1、前半・後半は2分の1、延長は8分の1（四捨五入、最低1）
  */
 const PERIOD_SHARE: Record<string, number> = { q1: 1 / 4, q2: 1 / 4, q3: 1 / 4, q4: 1 / 4, h1: 1 / 2, h2: 1 / 2, ot: 1 / 8 };
-export function teamPctMinAttempts(key: string, period: string | null): number | null {
-  const base = (TEAM_PCT_MIN_ATTEMPTS as Record<string, number>)[key];
+export function teamPctMinMade(key: string, period: string | null): number | null {
+  const base = (TEAM_PCT_MIN_MADE as Record<string, number>)[key];
   if (base === undefined) return null;
   return period ? Math.max(1, Math.round(base * (PERIOD_SHARE[period] ?? 1))) : base;
 }

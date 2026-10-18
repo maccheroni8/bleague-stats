@@ -3,7 +3,7 @@
 // 基本ルール: 所属チーム試合数の85%以上に出場した選手のみを対象とする
 // （statDefs.tsのfilterPlayersByGamesPlayedRatio・MIN_GAMES_PLAYED_RATIO_FOR_RANKINGをそのまま
 // 再利用）。3P%・FT%・FG%・2P%はこれに加えて「1試合あたりの試投/成功数」の最低ラインを
-// 併用する（極端に試投数が少ない選手が異常値で上位に出るのを防ぐ）。eFG%・TS%はこの追加基準を
+// 併用する（極端に試投数が少ない選手が異常値で上位に出るのを防ぐ）。2026-10-18: FG%・2P% は試投数でなく成功数の基準にそろえた（下の注）。eFG%・TS%はこの追加基準を
 // 設けず、85%出場のみで足りるとした（PTS/FGA/FTAという総合的な母数のため、他の個別シュート
 // 系%より小サンプルの影響を受けにくいと判断）。EFF・Usage%・FTR・PER・PPS・PPPのような
 // レーティング系スタッツも85%出場ルールのみに統合し、旧来のminMinutesForRanking
@@ -54,23 +54,25 @@ export const EXTRA_ELIGIBILITY_RULES: Partial<Record<string, ExtraEligibilityRul
     step: 0.1,
     perGameValue: (p) => safeDiv(p.totals.ftm, p.gamesPlayed),
   },
+  // FG%・2P% は成功数の基準（2026-10-18 ユーザー決定。公式の3P%・FT%〔1試合平均の成功数〕にならったこのサイトの決まり。以前は FGA 3.0・2PA 2.0）。
+  // 2025-26 の対象191名で、FGM 1.5以上＝141名（以前の FGA 3.0以上は160名）、2PM 1.0以上＝120名（以前の 2PA 2.0以上は122名）
   fgPct: {
-    label: "FGA",
+    label: "FGM",
     unit: "本/試合",
-    defaultValue: 3.0,
+    defaultValue: 1.5,
     min: 0,
-    max: 10,
+    max: 6,
     step: 0.5,
-    perGameValue: (p) => safeDiv(p.totals.fga, p.gamesPlayed),
+    perGameValue: (p) => safeDiv(p.totals.fgm, p.gamesPlayed),
   },
   twoPct: {
-    label: "2PA",
+    label: "2PM",
     unit: "本/試合",
-    defaultValue: 2.0,
+    defaultValue: 1.0,
     min: 0,
-    max: 8,
+    max: 5,
     step: 0.5,
-    perGameValue: (p) => safeDiv(p.totals.fga - p.totals.tpa, p.gamesPlayed),
+    perGameValue: (p) => safeDiv(p.totals.fgm - p.totals.tpm, p.gamesPlayed),
   },
 };
 

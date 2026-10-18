@@ -15,7 +15,7 @@ import {
   seasonTeamRecordRows,
   teamRecordLowerFirst,
   teamRankingItems,
-  teamPctMinAttempts,
+  teamPctMinMade,
   parsePeriodItemKey,
   LEGACY_PERIOD_ITEMS,
   TEAM_NO_PERIOD_KEYS,
@@ -24,7 +24,7 @@ import {
   type TeamRecordGame,
   type TeamRecordMode,
 } from "../lib/teamGameRecords";
-import { TEAM_PCT_MIN_ATTEMPTS_NOTE } from "../lib/topRecords";
+import { TEAM_PCT_MIN_MADE_NOTE } from "../lib/topRecords";
 import {
   DEFAULT_GAME_RECORD_CONDITIONS,
   cleanGameConditionsForSeason,
@@ -43,7 +43,7 @@ import {
 } from "../lib/gameRecordQuery";
 import { useGameIndexViews, useGameRecordOptions } from "../lib/useGameRecordData";
 import { useTeamPeriodFiles } from "../lib/useTeamPeriodFiles";
-import { GAME_RECORD_PERIOD_OPTIONS, GAME_RECORD_PERIOD_PARAM, gameRecordPeriodLabel, gameRecordPeriodOf } from "../lib/gameRecordPeriod";
+import { GAME_RECORD_PERIOD_OPTIONS, GAME_RECORD_PERIOD_PARAM, PERIOD_WORST_UNSUPPORTED_REASON, gameRecordPeriodLabel, gameRecordPeriodOf } from "../lib/gameRecordPeriod";
 import { DEFAULT_STAT_CONDITIONS, statConditionMatcher, statConditionsTitle } from "../lib/statConditions";
 import { enumParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
 import { GAME_TYPE_PARAM, RECORDS_SCOPE_PARAM, type RecordsScope } from "../lib/urlFilterParams";
@@ -129,10 +129,16 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
     const legacy = parsePeriodItemKey(statParam);
     if (!legacy) return;
     const to = LEGACY_PERIOD_ITEMS[legacy.kind];
+    // ワースト（少ない順）は区間では選べない（個人と同じ。0の同率が大量に並ぶため）ので、旧い「最少得点」などは、区間なし（試合全体）のワーストとして開く
     setMode(to.mode);
     setStatKey(to.stat);
-    setPeriod(legacy.period);
+    setPeriod(to.mode === "worst" ? "all" : legacy.period);
   }, [statParam, setMode, setStatKey, setPeriod]);
+
+  // 区間を選んだとき（とページを開いたとき）に、選べない「ワースト」を外す
+  useEffect(() => {
+    if (period && mode === "worst") setMode("record");
+  }, [period, mode, setMode]);
 
   // 項目。区間を選んでいる間は、試合全体の値で区間では意味が無い項目（来場者数・逆転・最大のラン）を選べなくする
   const items = useMemo(
@@ -231,7 +237,11 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   const modeAxis = simpleSelectAxis({
     id: "recordMode",
     label: "記録の種類",
-    options: (Object.keys(TEAM_RECORD_MODE_LABELS) as TeamRecordMode[]).map((m) => ({ value: m, label: TEAM_RECORD_MODE_LABELS[m] })),
+    options: (Object.keys(TEAM_RECORD_MODE_LABELS) as TeamRecordMode[]).map((m) => ({
+      value: m,
+      label: TEAM_RECORD_MODE_LABELS[m],
+      ...(m === "worst" && period ? { disabled: true, disabledReason: PERIOD_WORST_UNSUPPORTED_REASON } : {}),
+    })),
     value: mode,
     defaultValue: "record",
     onChange: (v) => setMode(v as TeamRecordMode),
@@ -327,10 +337,10 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
               statScope="team"
               compact
             />
-            {isPct && !period && <p className="rule-change-footnote">※ {TEAM_PCT_MIN_ATTEMPTS_NOTE}同じ率の中は試投数の多い試合から並べます。</p>}
+            {isPct && !period && <p className="rule-change-footnote">※ {TEAM_PCT_MIN_MADE_NOTE}同じ率の中は試投数の多い試合から並べます。</p>}
             {isPct && period && (
               <p className="rule-change-footnote">
-                ※ 成功率は、最低試投数（試合全体の基準を区間の長さに合わせて下げた数。{teamPctMinAttempts(item.key, period)}以上）を満たす記録だけが対象です。同じ率の中は試投数の多い記録から並べます。
+                ※ 成功率は、最低成功数（試合全体の基準を区間の長さに合わせて下げた数。{teamPctMinMade(item.key, period)}以上）を満たす記録だけが対象です。同じ率の中は試投数の多い記録から並べます。
               </p>
             )}
             {hasPbp && <p className="rule-change-footnote">※ {PBP_NOTE}</p>}
