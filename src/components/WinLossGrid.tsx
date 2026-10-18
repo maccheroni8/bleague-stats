@@ -208,7 +208,7 @@ export function WinLossGrid({
             <th className="wl-stat wl-stat-first" title={statDescription("ホーム平均観客", "team")}>ホーム平均観客</th>
             <th className="wl-stat" title={statDescription("最多連勝", "team")}>最多連勝</th>
             <th className="wl-stat" title={statDescription("最多連敗", "team")}>最多連敗</th>
-            <th className="wl-stat" title={statDescription("現在", "team")}>現在</th>
+            <th className="wl-stat" title={statDescription("連勝/連敗", "team")}>連勝/連敗</th>
           </tr>
         </thead>
         <tbody>
