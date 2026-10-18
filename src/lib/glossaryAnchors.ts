@@ -20,6 +20,7 @@ export const GLOSSARY_ANCHORS = {
   periodRecords: "period-records",
   recentForm: "recent-form",
   standingsTable: "standings-table",
+  teamStreaks: "team-streaks",
   conditionalStandings: "conditional-standings",
   magicNumber: "magic-number",
   profile: "profile",

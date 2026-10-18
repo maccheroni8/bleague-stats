@@ -133,6 +133,12 @@ import {
 import { statDescription } from "../lib/statDescriptions";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "../lib/teamRankingData";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
+import { OtherRuns, StreakPeriod } from "../components/StreakRecordCard";
+import { useCompletedRegularSeasons } from "../lib/regularSeasonComplete";
+import { withResultOnlyLogs } from "../lib/resultOnlyGames";
+import { isPastSeason } from "../lib/season";
+import { isOffseasonMonth } from "../lib/streakRecords";
+import { buildStreakTeamRow, signedStreak, STREAKS_CATEGORY_LABEL, type StreakTeamRow } from "../lib/streaksTab";
 import { teamNameInSeason, useTeamText } from "../lib/teamLabel";
 import { aggregatePeriodScoring, type PeriodScoringRow } from "../lib/teamPeriodScoring";
 import { buildPeriodColumns } from "../lib/teamPeriodColumns";
@@ -145,10 +151,10 @@ type TeamsPageTab = "stats" | "records" | "champions" | "recent";
  * scope＝記録の範囲、cat・venue・stat＝歴代の記録のカテゴリ・会場・項目、n＝直近成績の試合数
  */
 const TEAMS_VIEW_PARAM = enumParam<TeamsPageTab>("view", ["stats", "records", "champions", "recent"], "stats");
-type TeamsBoxTab = BoxscoreTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition" | "periods";
+type TeamsBoxTab = BoxscoreTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition" | "periods" | "streaks";
 const TEAMS_BOX_TAB_PARAM = enumParam<TeamsBoxTab>(
   "tab",
-  ["traditional", "advanced", "misc", "scoring", "shooting", "forcedTurnovers", "foreignPlayers", "scoringComposition", "periods"],
+  ["traditional", "advanced", "misc", "scoring", "shooting", "forcedTurnovers", "foreignPlayers", "scoringComposition", "periods", "streaks"],
   "traditional",
   { traditional: "trad", advanced: "adv", shooting: "shoot", forcedTurnovers: "tov", foreignPlayers: "oc", scoringComposition: "share" },
 );
@@ -246,7 +252,7 @@ export function TeamsStatsRedirect() {
 const BOX_TABS = BOXSCORE_TABS;
 
 /** 「全チームスタッツ」タブの各カテゴリ（BOXSCORE_TABS＋専用ビュー）の表示名。タイトルに使う */
-const TEAMS_STATS_CATEGORY_LABELS: Record<string, string> = CATEGORY_LABELS;
+const TEAMS_STATS_CATEGORY_LABELS: Record<string, string> = { ...CATEGORY_LABELS, streaks: STREAKS_CATEGORY_LABEL };
 
 /** 強制ターンオーバーの視点トグル（ボタン表示とタイトルで共通） */
 const TURNOVER_PERSPECTIVE_LABELS: Record<"forced" | "committed", string> = {
@@ -567,9 +573,62 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       case "foreignPlayers":
       case "scoringComposition":
       case "periods":
+      case "streaks":
         return [];
     }
   }, [boxTab, displayMode, teamPerspective, paintSupported, foulSplit]);
+
+  // 「Streaks」（DESIGN.md 261章）: レギュラーシーズンの連勝・連敗。結果だけの試合（不戦勝など）も数える（順位表・クラブレコードと同じ部品）。
+  // 続いている連続は、そのシーズンがまだ終わっていないとき（今のシーズンで、7・8月のオフでなく、レギュラーシーズンの全試合が終わっていない）に「継続中」
+  const streaksCompleted = useCompletedRegularSeasons([season], boxTab === "streaks");
+  const streaksRunning = !isOffseasonMonth() && !isPastSeason(season) && !streaksCompleted?.has(season);
+  const streakLogsByTeam = useMemo(
+    () => (boxTab === "streaks" ? withResultOnlyLogs(gameLogsByTeam, scheduleForNote?.resultOnlyGames) : null),
+    [boxTab, gameLogsByTeam, scheduleForNote],
+  );
+  const streakRows: StreakTeamRow[] = useMemo(() => {
+    if (boxTab !== "streaks" || !teams || !streakLogsByTeam) return [];
+    return teams.map((team) =>
+      buildStreakTeamRow(team, season, filterByGameType(streakLogsByTeam.get(team.teamId) ?? [], "regular"), streaksRunning),
+    );
+  }, [boxTab, teams, streakLogsByTeam, season, streaksRunning]);
+  const streakColumns: Column<StreakTeamRow>[] = useMemo(() => {
+    const venueCell = (v: { maxWin: number; maxLoss: number } | null, key: "maxWin" | "maxLoss") => (v ? String(v[key]) : "-");
+    const periodColumn = (key: "maxWin" | "maxLoss", label: string): Column<StreakTeamRow> => {
+      const kind = key === "maxWin" ? "win" : "loss";
+      return {
+        key: `${key}Period`,
+        label,
+        align: "left",
+        // 終わった日付の新しい順（継続中が一番上）
+        sortValue: (r) => (r.all[key]?.runs[0] ? (r.all[key]!.runs[0]!.ongoing ? "9999-99-99" : r.all[key]!.runs[0]!.last.date) : ""),
+        render: (r) => {
+          const max = r.all[key];
+          if (!max || max.length === 0) return "-";
+          return (
+            <span className="streak-table-period">
+              <StreakPeriod run={max.runs[0]!} kind={kind} />
+              <OtherRuns runs={max.runs.slice(1)} kind={kind} />
+            </span>
+          );
+        },
+      };
+    };
+    return [
+      teamColumn as unknown as Column<StreakTeamRow>,
+      { key: "g", label: "G", sortValue: (r) => r.games, format: (r) => String(r.games) },
+      { key: "record", label: "勝敗", sortValue: (r) => r.wins - r.losses, format: (r) => formatRecord(r.wins, r.losses) },
+      { key: "current", label: "連勝/連敗", sortValue: (r) => signedStreak(r.all.current), format: (r) => formatTeamStreak(r.all.current) },
+      { key: "maxWin", label: "最多連勝", sortValue: (r) => r.all.maxWin?.length ?? 0, format: (r) => String(r.all.maxWin?.length ?? 0) },
+      periodColumn("maxWin", "連勝の期間"),
+      { key: "maxLoss", label: "最多連敗", sortValue: (r) => r.all.maxLoss?.length ?? 0, format: (r) => String(r.all.maxLoss?.length ?? 0) },
+      periodColumn("maxLoss", "連敗の期間"),
+      { key: "homeMaxWin", label: "ホーム最多連勝", sortValue: (r) => r.home?.maxWin ?? -1, format: (r) => venueCell(r.home, "maxWin") },
+      { key: "homeMaxLoss", label: "ホーム最多連敗", sortValue: (r) => r.home?.maxLoss ?? -1, format: (r) => venueCell(r.home, "maxLoss") },
+      { key: "awayMaxWin", label: "アウェー最多連勝", sortValue: (r) => r.away?.maxWin ?? -1, format: (r) => venueCell(r.away, "maxWin") },
+      { key: "awayMaxLoss", label: "アウェー最多連敗", sortValue: (r) => r.away?.maxLoss ?? -1, format: (r) => venueCell(r.away, "maxLoss") },
+    ];
+  }, []);
 
   const shootingRows: ShootingRow[] = (teams ?? []).filter((t) => t.shotTypes && passes(t.teamId)).map((team) => ({ team }));
   const shotTypeKeys = sortShotTypeKeys([...new Set(shootingRows.flatMap((r) => Object.keys(r.team.shotTypes ?? {})))]);
@@ -743,16 +802,22 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   // On-Court Foreign は、試合区分・試合の条件・区間・視点（自チーム／相手）・平均／合計（表の時間）が連動する（256章の段階3）
   const isForeignCategory = boxTab === "foreignPlayers";
   const seasonTotalOnlyReason = "このタブはシーズン通算値のみ対応のため、上の絞り込みは連動しません。";
+  // Streaks は、レギュラーシーズンの連勝・連敗だけ（ホーム・アウェイ別も同じ）。試合区分などの選択欄は使えない（DESIGN.md 261章）
+  const streaksOnlyReason = "このタブはレギュラーシーズンの連勝・連敗だけのため、上の絞り込みは連動しません。";
   const filterDisabledReason = isMainCategory || isShareCategory || isForeignCategory
     ? undefined
     : boxTab === "shooting"
       ? "このタブはシーズン通算値のみ対応です（表示の平均/合計だけ連動します）。"
-      : seasonTotalOnlyReason;
+      : boxTab === "streaks"
+        ? streaksOnlyReason
+        : seasonTotalOnlyReason;
   const displayDisabledReason = isMainCategory || isForeignCategory || boxTab === "shooting"
     ? undefined
     : isShareCategory
       ? "このタブは割合のグラフのため、平均/合計の切り替えは連動しません（右端の得点・失点は1試合平均です）。"
-      : seasonTotalOnlyReason;
+      : boxTab === "streaks"
+        ? streaksOnlyReason
+        : seasonTotalOnlyReason;
   const perspectiveDisabledReason = isShareCategory
     ? "このタブは自チームの得点構成と、相手の得点（失点構成）の両方を並べて出すため、視点は切り替えません。"
     : filterDisabledReason;
@@ -769,7 +834,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         ? undefined
         : boxTab === "periods"
           ? "このタブは区間別の得点の表のため、区間の選択はほかのタブでだけ効きます。"
-          : "このタブはシーズン合計の値だけのため、区間は選べません。",
+          : boxTab === "streaks"
+            ? streaksOnlyReason
+            : "このタブはシーズン合計の値だけのため、区間は選べません。",
     }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
@@ -801,7 +868,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           )
         : boxTab === "shooting"
           ? composeLabels(displayModeLabels(displayMode), SEASON_TOTAL_ONLY_LABELS)
-          : boxTab === "forcedTurnovers"
+          : boxTab === "streaks"
+            ? composeLabels(gameTypeLabels("regular", season), "シーズン内の連続")
+            : boxTab === "forcedTurnovers"
             ? composeLabels(TURNOVER_PERSPECTIVE_LABELS[turnoverPerspective], SEASON_TOTAL_ONLY_LABELS)
             : boxTab === "foreignPlayers"
               ? foreignRows || foreignPeriod !== "all"
@@ -831,7 +900,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             ? undefined
             : boxTab === "periods"
               ? "このタブは区間別の得点の表のため、スタッツの条件は Traditional〜Forced TOV のタブでだけ効きます。"
-              : "このタブはグラフのため、スタッツの条件は表のタブ（Traditional〜Forced TOV）でだけ効きます。",
+              : boxTab === "streaks"
+                ? "このタブは連勝・連敗の表のため、スタッツの条件は Traditional〜Forced TOV のタブでだけ効きます。"
+                : "このタブはグラフのため、スタッツの条件は表のタブ（Traditional〜Forced TOV）でだけ効きます。",
         })}
       />
       <div>
@@ -881,6 +952,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           >
             {CATEGORY_LABELS.periods}
           </button>
+          <button
+            className={`tab-button${boxTab === "streaks" ? " active" : ""}`}
+            onClick={() => setBoxTab("streaks")}
+            type="button"
+          >
+            {STREAKS_CATEGORY_LABEL}
+          </button>
         </div>
       </div>
 
@@ -889,7 +967,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         conditions={statsTitle.conditions}
         statConditions={conditionTab ? statConditionsTitle(statConditions, conditionItems) : undefined}
       />
-      <ResultOnlyNote variant="stats" games={scheduleForNote?.resultOnlyGames} />
+      <ResultOnlyNote variant={boxTab === "streaks" ? "record" : "stats"} games={scheduleForNote?.resultOnlyGames} />
 
       {boxTab === "shooting" ? (
         !yahooPbpSupported ? (
@@ -1071,6 +1149,24 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         </>
       ) : gameLogsLoading || !gameLogsByTeam || boxTab === "scoringComposition" ? (
         <p className="loading">読み込み中...</p>
+      ) : boxTab === "streaks" ? (
+        <>
+          <div className="table-scroll">
+            <SortableTable
+              statScope="team"
+              key={boxTab}
+              columns={streakColumns}
+              rows={streakRows}
+              rowKey={(r) => r.team.teamId}
+              defaultSortKey="maxWin"
+              linkTo={(r) => `/teams/${r.team.teamId}`}
+            />
+          </div>
+          <p className="page-subtitle">
+            レギュラーシーズンの連勝・連敗です（そのシーズンの中だけ。ホーム・アウェー別は、その会場の試合だけを並べた連続）。今も続いている連続は終わりを「継続中」と書きます。
+          </p>
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.teamStreaks} label="Streaks" scope="結果だけの試合（不戦勝など）も数えます（上部の絞り込みとは連動しません）。" />
+        </>
       ) : boxTab === "periods" ? (
         <>
           <div className="table-scroll">
