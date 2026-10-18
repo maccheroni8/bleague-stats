@@ -30,12 +30,17 @@ import { statConditionMatcher, type StatConditionItem, type StatConditionsState 
 import {
   formatTeamRecordValue,
   parsePeriodItemKey,
-  teamRecordDefs,
+  teamPctMinAttempts,
+  teamRankingDefs,
+  teamRankingItems,
   teamRecordItems,
   teamRecordLowerFirst,
+  TEAM_NO_PERIOD_KEYS,
   type TeamGameRecordRow,
   type TeamRecordMode,
 } from "./teamGameRecords";
+import { teamPeriodGameAt } from "./teamPeriodGames";
+import type { TeamPeriodIndexFile } from "../../shared/periodIndex";
 
 /** 上位何位まで返すか（同じ順位は続けて入れる）。一覧の表示も同じ件数で切る */
 export const GAME_RECORD_TOP_N = 20;
@@ -351,15 +356,18 @@ export interface TeamQueryStat {
   value: (g: IndexedTeamGame) => number | null;
   filter?: (g: IndexedTeamGame) => boolean;
   fraction?: (g: IndexedTeamGame) => readonly [number, number];
-  /** 区間の値（クォーター別・前後半別） */
+  /** 旧い項目「1Q 最多得点」の区間の値（今の画面では使わない。区間は条件の q で選ぶ） */
   period?: { period: PeriodKey; kind: PeriodRecordKind };
-  indexOnly: false;
+  /** 成功率の項目のキー（区間を選んだときは、最低試投数を区間の長さに合わせて下げる） */
+  pctKey?: string;
+  /** 上位20位のファイルに無く、索引でしか出せないか（得失点差） */
+  indexOnly: boolean;
 }
 
 /** 種類・項目から、条件付きの集計に使う定義を作る。項目が無ければ null */
 export function teamQueryStat(mode: TeamRecordMode, key: string): TeamQueryStat | null {
   const period = parsePeriodItemKey(key);
-  const label = teamRecordItems(mode).find((i) => i.key === key)?.label;
+  const label = (period ? teamRecordItems(mode) : teamRankingItems(mode)).find((i) => i.key === key)?.label;
   if (label === undefined) return null;
   if (period) {
     const kind = periodRecordKindDef(period.kind);
@@ -375,7 +383,7 @@ export function teamQueryStat(mode: TeamRecordMode, key: string): TeamQueryStat 
       indexOnly: false,
     };
   }
-  const def: TeamRecordValueDef | undefined = teamRecordDefs(mode).find((d) => d.key === key);
+  const def: TeamRecordValueDef | undefined = teamRankingDefs(mode).find((d) => d.key === key);
   if (!def) return null;
   return {
     key,
@@ -384,7 +392,8 @@ export function teamQueryStat(mode: TeamRecordMode, key: string): TeamQueryStat 
     value: (g) => def.value(g as unknown as TeamGameLog),
     filter: def.filter ? (g) => def.filter!(g as unknown as TeamGameLog) : undefined,
     fraction: def.fraction ? (g) => def.fraction!(g as unknown as TeamGameLog) : undefined,
-    indexOnly: false,
+    ...(def.fraction ? { pctKey: key } : {}),
+    indexOnly: key === "margin",
   };
 }
 
@@ -396,13 +405,35 @@ export interface TeamQuery {
   stat: TeamQueryStat;
   includeSpecial: boolean;
   topN?: number;
+  /**
+   * 指定時、試合全体でなくこの区間（1Q〜4Q・前半・後半・延長）の値で、スタッツの条件・並びを決める（設計書265章）。
+   * files は各シーズンのチームのピリオド別の索引（シーズンをキーに）。試合の条件（勝敗・会場・相手など）は試合全体のまま
+   */
+  period?: { period: GameRecordPeriod; files: ReadonlyMap<string, TeamPeriodIndexFile> };
 }
 
 export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGameRecordRow> {
   const { stat, conditions: c } = q;
-  const matcher = statConditionMatcher(q.statConditions, TEAM_STAT_CONDITION_ITEMS);
+  const matcher = statConditionMatcher(q.statConditions, q.period ? TEAM_STAT_CONDITION_ITEMS_PERIOD : TEAM_STAT_CONDITION_ITEMS);
   const candidates: Candidate[] = [];
   let excludedSpecial = 0;
+  let periodShortGames = 0;
+
+  /** 行（区間を選んでいるときは区間の値。その区間の値が無い試合は null） */
+  const rowAt = (view: TeamGameIndexView, i: number): IndexedTeamGame | null => {
+    if (!q.period) return teamGameAt(view, i);
+    const file = q.period.files.get(view.season);
+    if (!file) throw new Error(`${view.season} のピリオド別のデータがありません`);
+    return teamPeriodGameAt(view, file, i, q.period.period);
+  };
+  /** 成功率の最低試投数（区間を選んだときは、区間の長さに合わせて下げた数） */
+  const passesMinAttempts = (row: IndexedTeamGame): boolean => {
+    if (q.period) {
+      const min = stat.pctKey ? teamPctMinAttempts(stat.pctKey, q.period.period) : null;
+      return min === null || (stat.fraction ? stat.fraction(row)[1] >= min : true);
+    }
+    return !stat.filter || stat.filter(row);
+  };
 
   q.views.forEach((view, vi) => {
     const facts = gameFacts(view.file);
@@ -410,8 +441,13 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
     for (let i = 0; i < view.size; i++) {
       const f = facts[i]!;
       if (!matchesGame(f, q.gameType, c)) continue;
-      const row = teamGameAt(view, i);
-      if (stat.filter && !stat.filter(row)) continue;
+      const row = rowAt(view, i);
+      if (!row) {
+        // 前後半5分の特別な試合は、1Q〜4Q・前半・後半を持たない。延長の無い試合は延長の値が無いだけ
+        if (f.short && q.period && q.period.period !== "ot") periodShortGames += 1;
+        continue;
+      }
+      if (!passesMinAttempts(row)) continue;
       if (matcher && !matcher(row)) continue;
       const v = stat.value(row);
       if (v === null) continue;
@@ -435,10 +471,16 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
   // 同じ値の中は、新しい試合から（シーズンの表と同じ。クォーター別・前後半別だけ古い試合から。DESIGN.md 143章・220章）
   candidates.sort(compareCandidates(stat.lowerFirst, !!stat.period));
   const rows = rankTop(candidates, q.topN ?? GAME_RECORD_TOP_N).map(({ cand, rank }): TeamGameRecordRow => {
-    const row = teamGameAt(q.views[cand.vi]!, cand.i);
+    const view = q.views[cand.vi]!;
+    const row = rowAt(view, cand.i)!;
     const frac = stat.fraction?.(row);
-    const score = stat.period ? periodScore(row as unknown as TeamGameLog, stat.period.period) : null;
-    const detail = stat.period ? undefined : teamRecordDetail(stat.key, row);
+    // 区間を選んでいるときは、その区間の得点を「区間 ◯-◯」に添える。公式のクォーター別スコアが無い試合は、プレーバイプレーから出した値
+    const score = q.period
+      ? { pts: row.teamScore, oppPts: row.opponentScore, fromPbp: view.periodsFromPbp.has(cand.i) }
+      : stat.period
+        ? periodScore(row as unknown as TeamGameLog, stat.period.period)
+        : null;
+    const detail = stat.period || q.period ? undefined : teamRecordDetail(stat.key, row);
     return {
       ...(detail ? { detail } : {}),
       rank,
@@ -455,7 +497,7 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
       ...(score ? { ownPoints: score.pts, oppPoints: score.oppPts, ...(score.fromPbp ? { fromPbp: true } : {}) } : {}),
     };
   });
-  return { rows, excludedSpecial };
+  return { rows, excludedSpecial, ...(q.period ? { periodShortGames } : {}) };
 }
 
 // ---- スタッツの条件の項目（その試合の値で判定する） ----
@@ -539,3 +581,5 @@ function teamConditionItem(def: TeamRecordValueDef): StatConditionItem<IndexedTe
 
 /** チームの1試合記録のスタッツの条件に選べる項目（記録したチーム自身のその試合の値） */
 export const TEAM_STAT_CONDITION_ITEMS: StatConditionItem<IndexedTeamGame>[] = TEAM_RECORD_STATS.map(teamConditionItem);
+/** 区間（Q別・前後半・延長）を選んでいるときに選べる項目（来場者数・逆転・最大のランを除く。区間の値で判定する） */
+export const TEAM_STAT_CONDITION_ITEMS_PERIOD: StatConditionItem<IndexedTeamGame>[] = TEAM_STAT_CONDITION_ITEMS.filter((i) => !TEAM_NO_PERIOD_KEYS.includes(i.key));

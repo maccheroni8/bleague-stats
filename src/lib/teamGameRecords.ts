@@ -1,7 +1,7 @@
 // チームの1試合記録（ランキングページ > チーム > 1試合記録。DESIGN.md 191章）の項目と、一覧の行の作り方。
 // 範囲「歴代」は夜間の集計の上位20位（data/league-team-rankings.json）、範囲「シーズン」は選んだシーズンの全クラブの試合ログから作る。
 // どちらも同じ形の行（TeamGameRecordRow）にそろえる。
-import { TEAM_AGAINST_RECORD_STATS, TEAM_RECORD_STATS, teamRecordDetail, type TeamRecordDetail, type TeamRecordValueDef } from "../../shared/teamRecords";
+import { TEAM_AGAINST_RECORD_STATS, TEAM_PCT_MIN_ATTEMPTS, TEAM_RECORD_STATS, teamRecordDetail, type TeamRecordDetail, type TeamRecordValueDef } from "../../shared/teamRecords";
 import { periodAndRestAt } from "../../shared/gameFlow";
 import {
   PERIOD_KEYS,
@@ -44,7 +44,7 @@ function lowerFirst(def: TeamRecordValueDef, mode: TeamRecordMode): boolean {
 export function teamRecordLowerFirst(mode: TeamRecordMode, key: string): boolean {
   const period = parsePeriodItemKey(key);
   if (period) return PERIOD_RECORD_KINDS.find((k) => k.key === period.kind)!.lowerFirst;
-  const def = teamRecordDefs(mode).find((d) => d.key === key);
+  const def = teamRankingDefs(mode).find((d) => d.key === key);
   return def ? lowerFirst(def, mode) : false;
 }
 
@@ -66,6 +66,54 @@ export function teamRecordItems(mode: TeamRecordMode): TeamRecordItem[] {
   return items;
 }
 
+// ---- ランキング（1試合記録）の項目（設計書265章）----
+// 区間（Q別・前後半・延長）は項目ではなく条件（URL の q）にしたので、「1Q 最多得点」のような項目は出さず、共通の項目に「得失点差」を足す。
+// 得失点差は、記録＝最大の点差勝ち（多い順）、ワースト＝最大の点差負け（少ない順）。被記録には出さない。索引でしか出せない（上位20位のファイルが無い）
+
+export const TEAM_MARGIN_DEF: TeamRecordValueDef = { key: "margin", label: "得失点差", value: (g) => g.teamScore - g.opponentScore };
+
+/** ランキングの項目の定義（得失点差は失点の次） */
+export function teamRankingDefs(mode: TeamRecordMode): TeamRecordValueDef[] {
+  const base = teamRecordDefs(mode);
+  if (mode === "against") return base;
+  const at = base.findIndex((d) => d.key === "oppPts");
+  return [...base.slice(0, at + 1), TEAM_MARGIN_DEF, ...base.slice(at + 1)];
+}
+
+export function teamRankingItems(mode: TeamRecordMode): TeamRecordItem[] {
+  return teamRankingDefs(mode).map((d) => ({ key: d.key, label: d.label }));
+}
+
+/** 区間を選んでいる間は選べない項目（試合全体の値で、区間では意味が無い） */
+export const TEAM_NO_PERIOD_KEYS: readonly string[] = ["attendance", "comebackWin", "blownLeadLoss", "maxRun"];
+export const TEAM_NO_PERIOD_REASON: Record<string, string> = {
+  attendance: "ホーム来場者数は試合全体の値のため、Q別・前後半・延長では選べません。",
+  comebackWin: "最大点差からの逆転は試合全体の記録のため、Q別・前後半・延長では選べません。",
+  blownLeadLoss: "最大点差からの逆転は試合全体の記録のため、Q別・前後半・延長では選べません。",
+  maxRun: "最大のランは試合全体の記録のため、Q別・前後半・延長では選べません。",
+};
+
+/** 古い URL の項目「q1:mostPts」を、区間と項目に読み替える表（種類・項目） */
+export const LEGACY_PERIOD_ITEMS: Record<PeriodRecordKind, { mode: TeamRecordMode; stat: string }> = {
+  mostPts: { mode: "record", stat: "pts" },
+  fewestOppPts: { mode: "record", stat: "oppPts" },
+  bestDiff: { mode: "record", stat: "margin" },
+  fewestPts: { mode: "worst", stat: "pts" },
+  mostOppPts: { mode: "worst", stat: "oppPts" },
+  worstDiff: { mode: "worst", stat: "margin" },
+};
+
+/**
+ * 成功率の項目の最低試投数（区間を選んだときは、区間の長さに合わせて下げる）。基準の数と数え方（試投数／成功数）は決定待ちで、今は試投数のまま。
+ * 区間の長さ: 1Q〜4Q は4分の1、前半・後半は2分の1、延長は8分の1（最低1）
+ */
+const PERIOD_SHARE: Record<string, number> = { q1: 1 / 4, q2: 1 / 4, q3: 1 / 4, q4: 1 / 4, h1: 1 / 2, h2: 1 / 2, ot: 1 / 8 };
+export function teamPctMinAttempts(key: string, period: string | null): number | null {
+  const base = (TEAM_PCT_MIN_ATTEMPTS as Record<string, number>)[key];
+  if (base === undefined) return null;
+  return period ? Math.max(1, Math.round(base * (PERIOD_SHARE[period] ?? 1))) : base;
+}
+
 /** 項目キーが「q1:mostPts」の形か（クォーター別・前後半別の項目） */
 export function parsePeriodItemKey(key: string): { period: (typeof PERIOD_KEYS)[number]; kind: PeriodRecordKind } | null {
   const [period, kind] = key.split(":");
@@ -77,6 +125,7 @@ export function parsePeriodItemKey(key: string): { period: (typeof PERIOD_KEYS)[
 const PCT_KEYS = new Set(["fgPct", "twoPct", "tpPct", "ftPct"]);
 
 export function formatTeamRecordValue(key: string, v: number): string {
+  if (key === "margin") return v > 0 ? `+${v}` : String(v);
   const period = parsePeriodItemKey(key);
   if (period) return (period.kind === "bestDiff" || period.kind === "worstDiff") && v > 0 ? `+${v}` : String(v);
   return PCT_KEYS.has(key) ? formatPct(v) : v.toLocaleString();

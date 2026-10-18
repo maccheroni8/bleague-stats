@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
 import { buildExportFilename, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { fetchLeagueTeamRankings, fetchTeamHistory, fetchTeams } from "../lib/data";
-import { gameTypeAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
+import { gameTypeAxis, periodAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
 import { filterByGameType } from "../../shared/gameType";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
 import {
@@ -14,7 +14,12 @@ import {
   leagueTeamDisplayName,
   seasonTeamRecordRows,
   teamRecordLowerFirst,
-  teamRecordItems,
+  teamRankingItems,
+  teamPctMinAttempts,
+  parsePeriodItemKey,
+  LEGACY_PERIOD_ITEMS,
+  TEAM_NO_PERIOD_KEYS,
+  TEAM_NO_PERIOD_REASON,
   type TeamGameRecordRow,
   type TeamRecordGame,
   type TeamRecordMode,
@@ -32,10 +37,13 @@ import { gameRecordAdvancedAxes, gameRecordPrimaryAxes } from "../lib/gameRecord
 import {
   GAME_RECORD_TIE_EXPAND_MAX,
   TEAM_STAT_CONDITION_ITEMS,
+  TEAM_STAT_CONDITION_ITEMS_PERIOD,
   queryTeamGameRecords,
   teamQueryStat,
 } from "../lib/gameRecordQuery";
 import { useGameIndexViews, useGameRecordOptions } from "../lib/useGameRecordData";
+import { useTeamPeriodFiles } from "../lib/useTeamPeriodFiles";
+import { GAME_RECORD_PERIOD_OPTIONS, GAME_RECORD_PERIOD_PARAM, gameRecordPeriodLabel, gameRecordPeriodOf } from "../lib/gameRecordPeriod";
 import { DEFAULT_STAT_CONDITIONS, statConditionMatcher, statConditionsTitle } from "../lib/statConditions";
 import { enumParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
 import { GAME_TYPE_PARAM, RECORDS_SCOPE_PARAM, type RecordsScope } from "../lib/urlFilterParams";
@@ -111,17 +119,39 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   const [statParam, setStatKey] = useUrlState(STAT_PARAM, "pts");
   const [conditions, setConditions] = useUrlState(gameRecordConditionsParam, DEFAULT_GAME_RECORD_CONDITIONS);
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+  const [periodParam, setPeriod] = useUrlState(GAME_RECORD_PERIOD_PARAM, "all");
   const allTime = scope === "allTime";
+  // Q別・前後半・延長（試合全体は null）。選ぶと、その区間の値でスタッツの条件・並びを決める（チームのピリオド別の索引。設計書265章）
+  const period = gameRecordPeriodOf(periodParam);
 
-  // 項目
-  const items = useMemo(() => teamRecordItems(mode), [mode]);
-  const item = items.find((i) => i.key === statParam) ?? items.find((i) => i.key === "pts") ?? items[0]!;
+  // 古い URL の項目「1Q 最多得点」（q1:mostPts）を、区間（q）と項目に読み替える
+  useEffect(() => {
+    const legacy = parsePeriodItemKey(statParam);
+    if (!legacy) return;
+    const to = LEGACY_PERIOD_ITEMS[legacy.kind];
+    setMode(to.mode);
+    setStatKey(to.stat);
+    setPeriod(legacy.period);
+  }, [statParam, setMode, setStatKey, setPeriod]);
+
+  // 項目。区間を選んでいる間は、試合全体の値で区間では意味が無い項目（来場者数・逆転・最大のラン）を選べなくする
+  const items = useMemo(
+    () =>
+      teamRankingItems(mode).map((i) => ({
+        ...i,
+        ...(period && TEAM_NO_PERIOD_KEYS.includes(i.key) ? { disabled: true, disabledReason: TEAM_NO_PERIOD_REASON[i.key] } : {}),
+      })),
+    [mode, period],
+  );
+  const selectableItems = items.filter((i) => !("disabled" in i && i.disabled));
+  const item = selectableItems.find((i) => i.key === statParam) ?? selectableItems.find((i) => i.key === "pts") ?? selectableItems[0]!;
   const stat = useMemo(() => teamQueryStat(mode, item.key)!, [mode, item.key]);
   const includeSpecialDefault = effectiveIncludeSpecial(DEFAULT_GAME_RECORD_CONDITIONS, stat.lowerFirst);
   const includeSpecial = effectiveIncludeSpecial(conditions, stat.lowerFirst);
-  const hasStatConditions = statConditionMatcher(statConditions, TEAM_STAT_CONDITION_ITEMS) !== null;
-  // 条件が無く、前後半5分の特別な試合も除かない間は、これまでどおり（歴代は上位20位のファイル、シーズンは全クラブの試合ログ）。条件を付けたときだけ索引を読む
-  const useIndex = hasGameConditions(conditions) || hasStatConditions || !includeSpecial;
+  const conditionItems = period ? TEAM_STAT_CONDITION_ITEMS_PERIOD : TEAM_STAT_CONDITION_ITEMS;
+  const hasStatConditions = statConditionMatcher(statConditions, conditionItems) !== null;
+  // 条件が無く、前後半5分の特別な試合も除かない間は、これまでどおり（歴代は上位20位のファイル、シーズンは全クラブの試合ログ）。条件・区間・得失点差のときだけ索引を読む
+  const useIndex = !!period || stat.indexOnly || hasGameConditions(conditions) || hasStatConditions || !includeSpecial;
   const options = useGameRecordOptions(scope, season);
 
   // 歴代: 集計ファイルと名称の履歴。シーズン: そのシーズンの全クラブの試合ログ（使わない範囲・索引を使うときは読み込まない）
@@ -137,6 +167,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   );
   const { gameLogsByTeam, loading: logsLoading } = useAllTeamGameLogs(season, allTime || !useFiles ? null : (teams ?? null));
   const index = useGameIndexViews("team", scope, season, useIndex);
+  const periodIndex = useTeamPeriodFiles(index.views, useIndex && !!period);
 
   const games = useMemo<TeamRecordGame[]>(() => {
     if (allTime || !useFiles || !teams || !gameLogsByTeam) return [];
@@ -147,8 +178,19 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   }, [allTime, useFiles, teams, gameLogsByTeam, season, gameType]);
 
   const result = useMemo(
-    () => (index.views ? queryTeamGameRecords({ views: index.views, gameType, conditions, statConditions, stat, includeSpecial }) : null),
-    [index.views, gameType, conditions, statConditions, stat, includeSpecial],
+    () =>
+      index.views && (!period || periodIndex.files)
+        ? queryTeamGameRecords({
+            views: index.views,
+            gameType,
+            conditions,
+            statConditions,
+            stat,
+            includeSpecial,
+            period: period && periodIndex.files ? { period, files: periodIndex.files } : undefined,
+          })
+        : null,
+    [index.views, periodIndex.files, period, gameType, conditions, statConditions, stat, includeSpecial],
   );
 
   const rows = useMemo<TeamGameRecordRow[]>(
@@ -160,7 +202,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
           : seasonTeamRecordRows(games, mode, item.key),
     [useIndex, result, allTime, rankings, history, mode, gameType, item.key, games],
   );
-  const loading = useIndex ? index.loading || !result : allTime ? rankingsLoading : teamsLoading || logsLoading;
+  const loading = useIndex ? index.loading || periodIndex.loading || !result : allTime ? rankingsLoading : teamsLoading || logsLoading;
 
   // シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い対戦相手・地区を外す
   useEffect(() => {
@@ -174,7 +216,12 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
     const t = options.teams.find((o) => o.value === id);
     return t ? (narrow ? t.label : t.name) : id;
   };
-  const conditionLabels = composeLabels(gameTypeLabels(gameType, seasonForTitle), gameRecordConditionLabels(conditions, teamName, includeSpecialDefault));
+  const conditionLabels = composeLabels(
+    gameRecordPeriodLabel(periodParam),
+    gameTypeLabels(gameType, seasonForTitle),
+    gameRecordConditionLabels(conditions, teamName, includeSpecialDefault),
+  );
+  const periodNotes = period && result ? { overtime: period === "ot", shortGames: result.periodShortGames ?? 0, noPlusMinus: 0 } : undefined;
   const modeLabel = TEAM_RECORD_MODE_LABELS[mode];
   const title = allTime ? `歴代 チーム1試合${modeLabel} ${item.label}ランキング` : `${season}シーズン チーム1試合${modeLabel} ${item.label}ランキング`;
   const filename = buildExportFilename([`チーム1試合${modeLabel}`, allTime ? "歴代" : season, item.label, ...conditionLabels]);
@@ -191,12 +238,14 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   });
   const clearAll = () => {
     setGameType("regular");
+    setPeriod("all");
     setConditions(DEFAULT_GAME_RECORD_CONDITIONS);
     setStatConditions({ ...statConditions, conditions: [] });
   };
   const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, includeSpecial, includeSpecialDefault };
   const axes: FilterAxis[] = [
     gameTypeAxis(gameType, setGameType, seasonForTitle),
+    periodAxis(periodParam, setPeriod, GAME_RECORD_PERIOD_OPTIONS, { label: "Q別・前後半・延長" }),
     modeAxis,
     ...gameRecordPrimaryAxes(axesInput),
     ...gameRecordAdvancedAxes(axesInput),
@@ -208,24 +257,20 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
         axes={axes}
         stateKey="rankings:team:game"
         onClearAll={clearAll}
-        advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, TEAM_STAT_CONDITION_ITEMS, { defaultKey: "pts" })}
+        advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, { defaultKey: "pts" })}
       />
       <FilterBar
         simple
         wide
         stateKey="rankings:team:game:stat"
         axes={[
-          statItemAxis(
-            items,
-            item.key,
-            setStatKey,
-          ),
+          statItemAxis(items, item.key, setStatKey),
         ]}
       />
-      {useIndex && index.error ? (
+      {useIndex && (index.error ?? periodIndex.error) ? (
         <div className="error-message">
-          <p>1試合の記録を読み込めませんでした（{index.error}）。</p>
-          <button type="button" className="load-more-button" onClick={index.retry}>
+          <p>1試合の記録を読み込めませんでした（{index.error ?? periodIndex.error}）。</p>
+          <button type="button" className="load-more-button" onClick={() => (index.retry(), periodIndex.retry())}>
             再読み込み
           </button>
         </div>
@@ -235,7 +280,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
         <>
           <p className="empty-message">この条件の試合がありません</p>
           {result && (
-            <GameRecordNotes excludedSpecial={result.excludedSpecial} ascendingDefault={!includeSpecialDefault} positionFallback={false} />
+            <GameRecordNotes excludedSpecial={result.excludedSpecial} ascendingDefault={!includeSpecialDefault} positionFallback={false} period={periodNotes} />
           )}
         </>
       ) : (
@@ -247,7 +292,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
             ranking={{ media: "ロゴ", unit: "件", top: TEAM_RECORD_TOP_N }}
           />
           <ExportTarget ref={exportRef} className="export-target-compact export-target-rankings-team" baseDate={baseDateOf(allTime, season, gameType)}>
-            <ConditionTitle title={title} conditions={conditionLabels} statConditions={statConditionsTitle(statConditions, TEAM_STAT_CONDITION_ITEMS)} />
+            <ConditionTitle title={title} conditions={conditionLabels} statConditions={statConditionsTitle(statConditions, conditionItems)} />
             <RankedList
               rows={rows}
               def={{
@@ -282,19 +327,25 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
               statScope="team"
               compact
             />
-            {isPct && <p className="rule-change-footnote">※ {TEAM_PCT_MIN_ATTEMPTS_NOTE}同じ率の中は試投数の多い試合から並べます。</p>}
+            {isPct && !period && <p className="rule-change-footnote">※ {TEAM_PCT_MIN_ATTEMPTS_NOTE}同じ率の中は試投数の多い試合から並べます。</p>}
+            {isPct && period && (
+              <p className="rule-change-footnote">
+                ※ 成功率は、最低試投数（試合全体の基準を区間の長さに合わせて下げた数。{teamPctMinAttempts(item.key, period)}以上）を満たす記録だけが対象です。同じ率の中は試投数の多い記録から並べます。
+              </p>
+            )}
             {hasPbp && <p className="rule-change-footnote">※ {PBP_NOTE}</p>}
             {mode === "against" && (
               <p className="rule-change-footnote">※ 被記録は、対戦相手がそのチーム相手に記録した値です。チーム名は、その値を記録された側のクラブです。</p>
             )}
             {useIndex && hasStatConditions && (
-              <p className="rule-change-footnote">※ スタッツの条件は、記録したチーム自身のその試合の値で判定します{mode === "against" ? "（被記録でも、対戦相手の値ではありません）" : ""}。</p>
+              <p className="rule-change-footnote">※ スタッツの条件は、記録したチーム自身の{period ? "その区間" : "その試合"}の値で判定します{mode === "against" ? "（被記録でも、対戦相手の値ではありません）" : ""}。</p>
             )}
             {result && (
               <GameRecordNotes
                 excludedSpecial={result.excludedSpecial}
                 ascendingDefault={!includeSpecialDefault}
                 positionFallback={false}
+                period={periodNotes}
               />
             )}
           </ExportTarget>
