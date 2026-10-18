@@ -668,8 +668,8 @@ table.stats-table tr.situational-group-heading td {
   font-size: 11px;
 }
 
-/* チームスタッツ「Streaks」の期間の列: 表は折り返さない（white-space: nowrap）ので、期間のセルだけ折り返せる幅にする */
-table.sortable-table .streak-table-period {
+/* チームスタッツ・チーム詳細「Streaks」の期間の列: 表は折り返さない（white-space: nowrap）ので、期間のセルだけ折り返せる幅にする */
+.streak-table-period {
   display: block;
   min-width: 15em;
   max-width: 20em;
@@ -677,17 +677,21 @@ table.sortable-table .streak-table-period {
   text-align: left;
 }
 
-table.sortable-table .streak-table-period .career-high-others-toggle {
+.streak-table-period .career-high-others-toggle {
   display: inline-block;
   margin-top: 0;
   margin-left: 6px;
 }
 
-table.sortable-table .streak-table-period .career-high-others-list {
+.streak-table-period .career-high-others-list {
   margin: 4px 0 0 4px;
   padding: 0 0 0 8px;
   border-top: none;
   border-left: 2px solid var(--border);
+}
+
+.streak-season-heading {
+  margin: 20px 0 4px;
 }
 
 .streak-top-period {

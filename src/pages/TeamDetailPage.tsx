@@ -46,7 +46,8 @@ import { useJsonData } from "../lib/useJsonData";
 import { statJa } from "../lib/statNames";
 import { isPastSeason } from "../lib/season";
 import { useResultOnlyBySeason } from "../lib/resultOnlyBySeason";
-import { StreakRecordCard } from "../components/StreakRecordCard";
+import { OtherRuns, StreakPeriod, StreakRecordCard } from "../components/StreakRecordCard";
+import { buildStreakTeamRow, STREAKS_CATEGORY_LABEL } from "../lib/streaksTab";
 import { isOffseasonMonth, rankStreakRuns, streakRunsOfSeason, type StreakRun } from "../lib/streakRecords";
 import { formatBasisSeconds, isFrequentLineup, lineupMinAvgSeconds, lineupsByCondition } from "../lib/lineupsByCondition";
 import { SHORTENED_REGULAR_SEASONS, useCompletedRegularSeasons } from "../lib/regularSeasonComplete";
@@ -150,6 +151,7 @@ import {
   TEAM_RECORD_STATS as TEAM_RECORD_VALUE_DEFS,
   bestTeamSeasonRecord,
   buildTeamCareerTotals,
+  formatTeamStreak,
   longestWinStreak,
   teamRecordDetail,
   type TeamSeasonSpecialAggregate,
@@ -825,6 +827,9 @@ const TAB_LABELS: Record<DetailTab, string> = {
   compare: "比較",
 };
 
+/** チーム詳細の Streaks（レギュラーシーズンの連勝・連敗だけ）で効かない選択欄の理由 */
+const STREAKS_FILTER_DISABLED_REASON = "このタブはレギュラーシーズンの連勝・連敗だけのため、視点・平均/合計は連動しません。";
+
 /** タイトルに出すカテゴリ名（BOXSCORE_TABS＋シューティング・強制ターンオーバー） */
 function teamBoxCategoryLabel(key: string): string {
   if (key === "shooting") return CATEGORY_LABELS.shooting;
@@ -832,6 +837,7 @@ function teamBoxCategoryLabel(key: string): string {
   if (key === "foreignPlayers") return CATEGORY_LABELS.foreignPlayers;
   if (key === "scoringComposition") return CATEGORY_LABELS.scoringComposition;
   if (key === "periods") return CATEGORY_LABELS.periods;
+  if (key === "streaks") return STREAKS_CATEGORY_LABEL;
   return BOXSCORE_TABS.find((t) => t.key === key)?.label ?? key;
 }
 
@@ -2151,7 +2157,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 再利用するが、列自体はTeamSummary（seasonHistory）＋TeamGameLog（careerData、Misc用）から
   // 直接組み立てる専用の列定義（TEAM_SEASON_*_COLUMNS）を使う（DESIGN.md参照）
   const [seasonBoxTab, setSeasonBoxTab] = usePageState<
-    SeasonBoxTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition" | "periods"
+    SeasonBoxTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition" | "periods" | "streaks"
   >(pk("seasonBoxTab"), "traditional");
   // On-Court Foreign・Scoring % のシーズン別推移（DESIGN.md 141章）: 規定の上限人数
   const seasonShareTab = seasonBoxTab === "foreignPlayers" || seasonBoxTab === "scoringComposition";
@@ -2420,9 +2426,10 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 最少勝利数・最多敗戦数は、試合数のそろわないシーズン（SHORTENED_REGULAR_SEASONS）を外す。
   // 最多連敗（と最多連勝）のトップ10は、進行中のシーズンも含め、続いている連続は「継続中」と書く（全試合が終わったかは「継続中」の判定に使う）
   const seasonNames = useMemo(() => (seasons ? seasons.map((s) => s.season) : null), [seasons]);
-  const completedRegularSeasons = useCompletedRegularSeasons(seasonNames, tab === "clubRecord");
+  const streaksTabOpen = tab === "teamStats" && seasonBoxTab === "streaks";
+  const completedRegularSeasons = useCompletedRegularSeasons(seasonNames, tab === "clubRecord" || streaksTabOpen);
   // 連勝・連敗には、結果だけの試合（不戦勝など。試合の記録は無いが勝敗はある）も数える（順位表・チームスタッツの「シーズン記録」と同じ。DESIGN.md 261章）
-  const resultOnlyBySeason = useResultOnlyBySeason(seasonNames, tab === "clubRecord");
+  const resultOnlyBySeason = useResultOnlyBySeason(seasonNames, tab === "clubRecord" || streaksTabOpen);
   const clubSeasonWorsts = useMemo(() => {
     if (!careerData || !completedRegularSeasons) return null;
     const all = careerData
@@ -3572,12 +3579,34 @@ export function TeamDetailPage({ season }: { season: string }) {
           scoring: aggregatePeriodScoring(filterByGameType(careerData.find((c) => c.season === r.season)?.logs ?? [], "regular")),
         }))
       : [];
+  // Streaks（DESIGN.md 261・262章）: シーズンごとの連勝・連敗。レギュラーシーズンだけ・結果だけの試合（不戦勝など）も数える（全チームの Streaks・順位表・クラブレコードと同じ部品）。
+  // 続いている連続は、そのシーズンがまだ終わっていないとき（今のシーズンで、7・8月のオフでなく、レギュラーシーズンの全試合が終わっていない）に「継続中」
+  const streaksSeasonRunning = (s: string) => !isOffseasonMonth() && !isPastSeason(s) && !completedRegularSeasons?.has(s);
+  const streaksLogsOf = (s: string): TeamGameLog[] => {
+    const logs = careerData?.find((c) => c.season === s)?.logs ?? [];
+    return filterByGameType([...logs, ...resultOnlyLogsForTeam(resultOnlyBySeason?.get(s), team.teamId, new Set(logs.map((l) => l.scheduleKey)))], "regular");
+  };
+  const seasonStreakRows =
+    seasonBoxTab === "streaks" && seasonHistoryDesc && careerData
+      ? seasonHistoryDesc.map((r) => ({
+          season: r.season,
+          teamName: r.teamName,
+          row: buildStreakTeamRow({ teamId: team.teamId, teamName: r.teamName }, r.season, streaksLogsOf(r.season), streaksSeasonRunning(r.season)),
+        }))
+      : [];
+  // 選んだシーズンのすべての連勝・連敗（2連以上）。始まった順（古い順）
+  const selectedSeasonRuns =
+    seasonBoxTab === "streaks" && careerData
+      ? (["win", "loss"] as const)
+          .flatMap((kind) => streakRunsOfSeason(season, streaksLogsOf(season), kind, streaksSeasonRunning(season)).map((run) => ({ kind, run })))
+          .sort((a, b) => a.run.first.date.localeCompare(b.run.first.date) || a.run.first.scheduleKey.localeCompare(b.run.first.scheduleKey))
+      : [];
   // シーズン別成績のMiscは、表のシーズンがすべて2026-27以降のときだけ、ファウルの列をTF1・TF2・FLAG・DISRにする（DESIGN.md 16-8章）
   const seasonBoxFoulSplit = foulColumnsSplit((seasonHistoryDesc ?? []).map((r) => r.season));
   const seasonBoxConditions = composeLabels(
     teamBoxCategoryLabel(seasonBoxTab),
-    seasonBoxTab !== "forcedTurnovers" && !seasonShareTab && displayModeLabels(seasonBoxDisplayMode),
-    seasonBoxTab !== "shooting" && seasonBoxTab !== "forcedTurnovers" && seasonBoxTab !== "foreignPlayers" && perspectiveLabels(seasonBoxPerspective),
+    seasonBoxTab !== "forcedTurnovers" && seasonBoxTab !== "streaks" && !seasonShareTab && displayModeLabels(seasonBoxDisplayMode),
+    seasonBoxTab !== "shooting" && seasonBoxTab !== "forcedTurnovers" && seasonBoxTab !== "foreignPlayers" && seasonBoxTab !== "streaks" && perspectiveLabels(seasonBoxPerspective),
     gameTypeLabels("regular", null),
   );
   const teamLeadersConditions = composeLabels(
@@ -4350,7 +4379,9 @@ export function TeamDetailPage({ season }: { season: string }) {
             axes={[
               perspectiveAxis(seasonBoxPerspective, setSeasonBoxPerspective, {
                 disabledReason:
-                  seasonBoxTab === "shooting"
+                  seasonBoxTab === "streaks"
+                    ? STREAKS_FILTER_DISABLED_REASON
+                    : seasonBoxTab === "shooting"
                     ? `${CATEGORY_LABELS.shooting}は自チームの値のみです。`
                     : seasonBoxTab === "forcedTurnovers"
                       ? `${CATEGORY_LABELS.forcedTurnovers}は種類別の通算件数のみで、視点は連動しません。`
@@ -4362,7 +4393,9 @@ export function TeamDetailPage({ season }: { season: string }) {
               }),
               displayModeAxis(seasonBoxDisplayMode, setSeasonBoxDisplayMode, {
                 disabledReason:
-                  seasonBoxTab === "forcedTurnovers"
+                  seasonBoxTab === "streaks"
+                    ? STREAKS_FILTER_DISABLED_REASON
+                    : seasonBoxTab === "forcedTurnovers"
                     ? `${CATEGORY_LABELS.forcedTurnovers}は種類別の通算件数のみで、平均/合計は連動しません。`
                     : seasonShareTab
                       ? `${teamBoxCategoryLabel(seasonBoxTab)}のグラフは割合で、平均/合計は連動しません。`
@@ -4416,6 +4449,13 @@ export function TeamDetailPage({ season }: { season: string }) {
               type="button"
             >
               {CATEGORY_LABELS.periods}
+            </button>
+            <button
+              className={`tab-button${seasonBoxTab === "streaks" ? " active" : ""}`}
+              onClick={() => setSeasonBoxTab("streaks")}
+              type="button"
+            >
+              {STREAKS_CATEGORY_LABEL}
             </button>
           </div>
           {seasonHistoryLoading || careerLoading ? (
@@ -4473,6 +4513,100 @@ export function TeamDetailPage({ season }: { season: string }) {
                 </table>
               </div>
               <p className="page-subtitle">{periodScoringNote(seasonPeriodRows.reduce((sum, p) => sum + p.scoring.withoutPeriods, 0) / 2)}</p>
+            </>
+          ) : seasonBoxTab === "streaks" ? (
+            <>
+              <div className="table-scroll">
+                <table className="stats-table">
+                  <thead>
+                    <tr>
+                      <th className="align-left">シーズン</th>
+                      <th className="align-left">チーム名</th>
+                      <th className="align-right" title={statDescription("試合数")}>試合数</th>
+                      <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
+                      <th className="align-right" title={statDescription("連勝/連敗", "team")}>連勝/連敗</th>
+                      <th className="align-right" title={statDescription("最多連勝", "team")}>最多連勝</th>
+                      <th className="align-left" title={statDescription("連勝の期間", "team")}>連勝の期間</th>
+                      <th className="align-right" title={statDescription("最多連敗", "team")}>最多連敗</th>
+                      <th className="align-left" title={statDescription("連敗の期間", "team")}>連敗の期間</th>
+                      <th className="align-right" title={statDescription("ホーム最多連勝", "team")}>ホーム最多連勝</th>
+                      <th className="align-right" title={statDescription("ホーム最多連敗", "team")}>ホーム最多連敗</th>
+                      <th className="align-right" title={statDescription("アウェー最多連勝", "team")}>アウェー最多連勝</th>
+                      <th className="align-right" title={statDescription("アウェー最多連敗", "team")}>アウェー最多連敗</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {seasonStreakRows.map(({ season: rowSeason, teamName, row }) => {
+                      const periodCell = (kind: "win" | "loss") => {
+                        const max = kind === "win" ? row.all.maxWin : row.all.maxLoss;
+                        if (!max || max.length === 0) return "-";
+                        return (
+                          <span className="streak-table-period">
+                            <StreakPeriod run={max.runs[0]!} kind={kind} />
+                            <OtherRuns runs={max.runs.slice(1)} kind={kind} />
+                          </span>
+                        );
+                      };
+                      const venue = (v: { maxWin: number; maxLoss: number } | null, key: "maxWin" | "maxLoss") => (v ? String(v[key]) : "-");
+                      return (
+                        <tr key={rowSeason}>
+                          <td className="align-left">
+                            <RouterLink to={`/teams/${team.teamId}?season=${rowSeason}`} className="cell-link">
+                              {rowSeason}
+                            </RouterLink>
+                          </td>
+                          <td className="align-left">
+                            <ResponsiveTeamName teamId={team.teamId} name={teamName} />
+                          </td>
+                          <td className="align-right">{row.games}</td>
+                          <td className="align-right">{formatRecord(row.wins, row.losses)}</td>
+                          <td className="align-right">{formatTeamStreak(row.all.current)}</td>
+                          <td className="align-right">{row.games === 0 ? "-" : (row.all.maxWin?.length ?? 0)}</td>
+                          <td className="align-left">{periodCell("win")}</td>
+                          <td className="align-right">{row.games === 0 ? "-" : (row.all.maxLoss?.length ?? 0)}</td>
+                          <td className="align-left">{periodCell("loss")}</td>
+                          <td className="align-right">{venue(row.home, "maxWin")}</td>
+                          <td className="align-right">{venue(row.home, "maxLoss")}</td>
+                          <td className="align-right">{venue(row.away, "maxWin")}</td>
+                          <td className="align-right">{venue(row.away, "maxLoss")}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="page-subtitle">レギュラーシーズンだけです。結果だけの試合（不戦勝など）も数えます。今も続いている連続は終わりを「継続中」と書きます。</p>
+              <h3 className="streak-season-heading">{`${season}シーズンの連勝・連敗`}</h3>
+              <p className="page-subtitle">2連以上を、始まった順に並べています。</p>
+              {selectedSeasonRuns.length === 0 ? (
+                <p className="empty-message">このシーズンには、2連以上の連勝・連敗がありません</p>
+              ) : (
+                <div className="table-scroll">
+                  <table className="stats-table">
+                    <thead>
+                      <tr>
+                        <th className="align-left">種類</th>
+                        <th className="align-right">長さ</th>
+                        <th className="align-left">期間</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedSeasonRuns.map(({ kind, run }) => (
+                        <tr key={`${kind}:${run.first.scheduleKey}`}>
+                          <td className="align-left">{kind === "win" ? "連勝" : "連敗"}</td>
+                          <td className="align-right">{run.length}</td>
+                          <td className="align-left">
+                            <span className="streak-table-period">
+                              <StreakPeriod run={run} kind={kind} />
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <GlossaryNote anchor={GLOSSARY_ANCHORS.teamStreaks} label="Streaks" />
             </>
           ) : seasonBoxTab === "scoringComposition" ? (
             seasonBoxPerspective === "diff" ? (
