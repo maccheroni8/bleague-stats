@@ -14136,3 +14136,8 @@ Codex が作った仕組み（作業の記録は `docs/PUBLIC_SEASON_MEDIA.md`�
 - `streakRunsOfSeason(season, logs, kind, seasonRunning, minLength)`（連続の洗い出し。クラブレコードは2連以上、順位表・タブの最長は1連から）、`rankStreakRuns`（トップ10）、`seasonStreakSummary`（1シーズン・1チームの最長の連勝・連敗〔同じ長さの回は新しい順〕と今の連続）、`streakResultOnlyNote`（注釈）。
 - クラブレコード: 全シーズンの日程（`schedule.json` の `resultOnlyGames`）を `useResultOnlyBySeason`（`src/lib/resultOnlyBySeason.ts`）で読み、試合ログに足してから連続を数える。
 - 確認: `npm run validate:streak-records`（最長・合計・順位・まとめ方、最長の連勝連敗、1連、継続中、注釈）。
+
+### 261-3. 順位表の列（B）
+- 「連勝/連敗」（今の連続）の右に「最多連勝」「最多連敗」を足した（`StandingsPage.tsx` の `maxStreakCell`。部品は `seasonStreakSummary`）。レギュラーシーズンだけ・結果だけの試合を数える。数字だけで、継続中と注釈（不戦勝を含む等）は数字の `title`（マウスを載せたとき）に出す（案B）。継続中＝そのシーズンがまだ終わっていない（今のシーズン・7・8月のオフでない・レギュラーシーズンの全試合が終わっていない）。
+- **勝敗表（`WinLossGrid`）にすでに「最大連勝」「最大連敗」（同じ値）があったので、「最多連勝」「最多連敗」に名前をそろえ**、数え方も同じ部品に切り替えた（値は変わらない）。勝敗表の「現在」は、順位表の「連勝/連敗」と同じ値で名前が違うまま（今回は直していない）。
+- 名前: 略称「最多連勝」「最多連敗」・日本語名「シーズン最多連勝」「シーズン最多連敗」（`statNames.ts`。クラブレコードの「最多連勝（シーズン内）」は全シーズンの中の最長で別の値）。

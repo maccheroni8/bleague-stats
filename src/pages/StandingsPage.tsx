@@ -30,6 +30,9 @@ import { resultOnlySummaries, withResultOnlyLogs } from "../lib/resultOnlyGames"
 import { ResultOnlyNote } from "../components/ResultOnlyNote";
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak, type TeamStreak } from "../../shared/teamRecords";
+import { isRegularSeasonComplete } from "../lib/regularSeasonComplete";
+import { isPastSeason } from "../lib/season";
+import { isOffseasonMonth, seasonStreakSummary, streakResultOnlyNote, type StreakKind, type StreakRun } from "../lib/streakRecords";
 import { teamShortName } from "../../shared/teamNames";
 import {
   clinchTypesForSeason,
@@ -90,6 +93,9 @@ interface StandingsRow extends StandingsTeam {
   /** 直近5試合の時系列順（古い→新しい）のW/L文字列（例: "WWLWW"）。データ未取得ならnull */
   last5: string | null;
   streak: TeamStreak | null;
+  /** そのシーズン（レギュラーシーズン）の最長の連勝・連敗。結果だけの試合も数える。試合ログが未取得・試合が無いクラブはnull */
+  maxWin: SeasonMaxStreak | null;
+  maxLoss: SeasonMaxStreak | null;
   /** 消化済み試合数 / (消化済み+未消化) の割合（0〜1）。schedule.json未取得ならnull */
   completionRate: number | null;
   /** マジックナンバー・進出/敗退・年間優勝（playoff-race.json）。未生成のシーズンはnull */
@@ -200,7 +206,28 @@ function withUnplayedTeams(teams: StandingsTeamSnapshot[], race: PlayoffRaceFile
   return [...teams, ...unplayed];
 }
 
+/** 最多連勝・最多連敗の列の値。length＝最長の長さ、説明＝マウスを載せたときの説明文（継続中・不戦勝などを含む。無ければnull） */
+interface SeasonMaxStreak {
+  length: number;
+  note: string | null;
+}
+
+function maxStreakCell(max: { length: number; runs: StreakRun[] } | null, kind: StreakKind, hasGames: boolean): SeasonMaxStreak | null {
+  // 試合はあるのに勝ち（負け）が1つも無ければ 0
+  if (!max) return hasGames ? { length: 0, note: null } : null;
+  const notes: string[] = [];
+  // 同じ長さの回が複数あるときは、一番新しい回（先頭）が続いているかを「継続中」の判定に使い、注釈はどの回のものでも添える
+  if (max.runs[0]?.ongoing) notes.push("継続中");
+  for (const reason of new Set(max.runs.flatMap((r) => r.resultOnlyReasons))) {
+    const note = streakResultOnlyNote({ resultOnlyReasons: [reason] }, kind);
+    if (note) notes.push(note);
+  }
+  return { length: max.length, note: notes.length > 0 ? notes.join("・") : null };
+}
+
 function buildStandingsRow(
+  season: string,
+  seasonRunning: boolean,
   team: StandingsTeam,
   logs: TeamGameLog[] | undefined,
   upcomingCount: number | undefined,
@@ -210,15 +237,18 @@ function buildStandingsRow(
   const gamesPlayed = team.wins + team.losses;
   const completionRate = upcomingCount === undefined ? null : safeDiv(gamesPlayed, gamesPlayed + upcomingCount);
   if (!logs) {
-    return { ...team, homeRecord: null, awayRecord: null, last5: null, streak: null, completionRate, race, opponentStrength };
+    return { ...team, homeRecord: null, awayRecord: null, last5: null, streak: null, maxWin: null, maxLoss: null, completionRate, race, opponentStrength };
   }
   const regular = regularSeasonLogs(logs);
+  const streaks = seasonStreakSummary(season, regular, seasonRunning);
   return {
     ...team,
     homeRecord: recordFrom(regular.filter((l) => l.isHome)),
     awayRecord: recordFrom(regular.filter((l) => !l.isHome)),
     last5: recordSequence(sortedByDate(regular).slice(-5)),
     streak: currentStreak(regular),
+    maxWin: maxStreakCell(streaks.maxWin, "win", regular.length > 0),
+    maxLoss: maxStreakCell(streaks.maxLoss, "loss", regular.length > 0),
     completionRate,
     race,
     opponentStrength,
@@ -399,6 +429,18 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
     label: "連勝/連敗",
     sortValue: (t) => (t.streak ? (t.streak.type === "win" ? t.streak.count : -t.streak.count) : 0),
     format: (t) => formatTeamStreak(t.streak),
+  },
+  {
+    key: "maxWin",
+    label: "最多連勝",
+    sortValue: (t) => t.maxWin?.length ?? 0,
+    render: (t) => (t.maxWin ? <span title={t.maxWin.note ?? undefined}>{t.maxWin.length}</span> : "-"),
+  },
+  {
+    key: "maxLoss",
+    label: "最多連敗",
+    sortValue: (t) => t.maxLoss?.length ?? 0,
+    render: (t) => (t.maxLoss ? <span title={t.maxLoss.note ?? undefined}>{t.maxLoss.length}</span> : "-"),
   },
   {
     key: "completionRate",
@@ -629,8 +671,13 @@ export function StandingsPage({ season }: { season: string }) {
   const standingsTeams = withUnplayedTeams(teams, playoffRace ?? null);
   // 対戦相手の強さ。結果だけの試合も含めた全試合（星取り・勝敗表と同じ gamesForGrid）で数える。試合の記録を読み込むまでは出さない
   const opponentStrengthById = gamesForGrid ? computeOpponentStrength(teams, gamesForGrid) : null;
+  // 最多連勝・最多連敗の「継続中」の判定: そのシーズンがまだ終わっていない（今のシーズンで、7・8月のオフではなく、レギュラーシーズンの全試合が終わっていない）
+  const seasonRunning =
+    !isOffseasonMonth() && !isPastSeason(season) && !(schedule && gameSummaries && isRegularSeasonComplete({ schedule, summaries: gameSummaries }));
   const rowFor = (t: StandingsTeam) =>
     buildStandingsRow(
+      season,
+      seasonRunning,
       t,
       gameLogsByTeam?.get(t.teamId),
       upcomingCountByTeamName ? (upcomingCountByTeamName.get(t.teamName) ?? 0) : undefined,

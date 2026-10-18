@@ -1,3 +1,5 @@
+import { formatTeamStreak } from "../../shared/teamRecords";
+import { seasonStreakSummary } from "../lib/streakRecords";
 import { Link } from "react-router-dom";
 import type { ClinchEvent, ClinchType, GameSummary, UpcomingGameEntry } from "../../shared/types";
 import { teamShortName } from "../../shared/teamNames";
@@ -15,7 +17,7 @@ import { resultOnlyReasonLabel } from "../lib/resultOnlyGames";
  * 公式記録上のホーム／アウェイ＝games-summary の homeTeamId に従う）。終了した試合の後ろに、試合中（途中経過で保存された試合）と
  * 開催予定（schedule.json の upcomingGames。日付順）のマスを続け、ホーム／アウェイの地だけ付ける。連勝・観客数等の集計は終了した試合だけ。チーム名の左に地区順位（順位表と同じ公式タイブレーク適用済みの値）。
  * 確定した試合（playoff-race.json の clinchEvents）は赤枠＋隅の記号（◎地区優勝・★準々決勝ホームコート・☆ポストシーズン進出）。
- * 試合の無い日に確定した場合は直前の試合に点線の枠。右端にホーム平均観客数・最大連勝・最大連敗・現在の連勝/連敗。
+ * 試合の無い日に確定した場合は直前の試合に点線の枠。右端にホーム平均観客数・最多連勝・最多連敗・現在の連勝/連敗。
  */
 
 export interface WinLossGridTeam {
@@ -134,18 +136,13 @@ function teamGames(teamId: string, games: GameSummary[]): GameCell[] {
 }
 
 function streaks(cells: GameCell[]): { maxWin: number; maxLoss: number; current: string } {
-  let maxWin = 0;
-  let maxLoss = 0;
-  let run = 0;
-  let prev: boolean | null = null;
-  for (const c of cells) {
-    run = c.win === prev ? run + 1 : 1;
-    prev = c.win;
-    if (c.win) maxWin = Math.max(maxWin, run);
-    else maxLoss = Math.max(maxLoss, run);
-  }
-  const current = prev === null ? "-" : prev ? `${run}連勝` : `${run}連敗`;
-  return { maxWin, maxLoss, current };
+  // 順位表・チームスタッツ・クラブレコードと同じ部品（src/lib/streakRecords.ts）で数える
+  const summary = seasonStreakSummary(
+    "",
+    cells.map((c) => ({ date: c.date, scheduleKey: c.scheduleKey, win: c.win, isHome: c.isHome, opponentTeamId: c.opponentId ?? "", opponentTeamName: c.opponentName })),
+    false,
+  );
+  return { maxWin: summary.maxWin?.length ?? 0, maxLoss: summary.maxLoss?.length ?? 0, current: formatTeamStreak(summary.current) };
 }
 
 function homeAttendance(teamId: string, games: GameSummary[]): number | null {
@@ -209,8 +206,8 @@ export function WinLossGrid({
               </th>
             ))}
             <th className="wl-stat wl-stat-first" title={statDescription("ホーム平均観客", "team")}>ホーム平均観客</th>
-            <th className="wl-stat" title={statDescription("最大連勝", "team")}>最大連勝</th>
-            <th className="wl-stat" title={statDescription("最大連敗", "team")}>最大連敗</th>
+            <th className="wl-stat" title={statDescription("最多連勝", "team")}>最多連勝</th>
+            <th className="wl-stat" title={statDescription("最多連敗", "team")}>最多連敗</th>
             <th className="wl-stat" title={statDescription("現在", "team")}>現在</th>
           </tr>
         </thead>
