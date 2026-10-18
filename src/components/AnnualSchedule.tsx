@@ -5,7 +5,6 @@ import { fetchGameSummaries, fetchSchedule, fetchTeams, fetchDivisionHistory, fe
 import { teamDivisionForSeason } from '../../scripts/lib/divisions';
 import { statDescription } from '../lib/statDescriptions';
 import { formatWinPct, formatDecimal } from '../lib/format';
-import { pendingUpcomingGames } from '../lib/pendingUpcoming';
 import { useJsonData } from '../lib/useJsonData';
 import { TeamLogo } from './TeamLogo';
 import { ResponsiveTeamName } from './ResponsiveTeamName';
@@ -28,9 +27,7 @@ export function AnnualSchedule({ season }: { season: string }) {
     const [games, schedule, teams, divisions, history, race] = await Promise.all([fetchGameSummaries(season), fetchSchedule(season), fetchTeams(season), fetchDivisionHistory(), fetchStandingsHistory(season), fetchPlayoffRace(season).catch(() => null)]);
     const ranks = new Map(history[history.length - 1]?.teams.map(t => [t.teamId, t]));
     const remaining = new Map(race?.teams.map(t => [t.teamId, t.remaining]));
-    const excluded = [...games, ...(schedule.resultOnlyGames ?? []), ...(schedule.cancelledGames ?? [])];
-    const pending = pendingUpcomingGames(schedule.upcomingGames, excluded);
-    return { games, schedule, asOf: history[history.length - 1]?.date, teams: teams.map(t => ({ ...t, division: teamDivisionForSeason(divisions, t.teamId, season), divisionRank: ranks.get(t.teamId)?.divisionRank, standing: ranks.get(t.teamId), remaining: remaining.get(t.teamId) ?? pending.filter(g => g.homeTeamName === t.teamName || g.awayTeamName === t.teamName).length })) };
+    return { games, schedule, asOf: history[history.length - 1]?.date, teams: teams.map(t => ({ ...t, division: teamDivisionForSeason(divisions, t.teamId, season), divisionRank: ranks.get(t.teamId)?.divisionRank, standing: ranks.get(t.teamId), remaining: remaining.get(t.teamId) })) };
   }, [season]);
   const external = useJsonData(fetchCalendar, []);
   const scrolls = useRef(new Map<string, HTMLDivElement>());
@@ -104,7 +101,7 @@ export function AnnualSchedule({ season }: { season: string }) {
                 const t = team.standing;
                 const gb = t?.division ? t.divisionGamesBehind : t?.gamesBehind;
                 const values = [t ? t.wins + t.losses : 0, t?.wins ?? 0, t?.losses ?? 0,
-                  t && t.wins + t.losses > 0 ? formatWinPct(t.winPct) : '−', team.remaining,
+                  t && t.wins + t.losses > 0 ? formatWinPct(t.winPct) : '−', team.remaining ?? '−',
                   gb === undefined || gb === 0 ? '−' : formatDecimal(gb)];
                 return values.map((value, i) => <td key={i} className="annual-stat" style={statStyle(i)}>{value}</td>);
               })()}
