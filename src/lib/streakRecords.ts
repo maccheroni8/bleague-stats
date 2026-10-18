@@ -22,7 +22,7 @@ export interface StreakRun<G extends StreakGame = StreakGame> {
   ongoing: boolean;
 }
 
-/** 長さごとにまとめた1行。runs は新しい順（先頭が一番新しい回） */
+/** 長さごとにまとめた1行。runs は新しい順（継続中が先頭、そのあとは終わった日付の新しい順。先頭が代表として載せる一番新しい回） */
 export interface StreakRow<G extends StreakGame = StreakGame> {
   /** 競技方式の順位（同じ長さは同じ順位を共有し、次の順位が飛ぶ。回数で数える） */
   rank: number;
@@ -63,12 +63,12 @@ export function streakRunsOfSeason<G extends StreakGame>(season: string, logs: r
 }
 
 /**
- * 連続を、長い順（同じ長さは新しい回が先）に並べ、トップN（同じ順位は続けて出す）を長さごとの行にまとめる。
+ * 連続を、長い順（同じ長さは、継続中が一番上、そのあとは終わった日付の新しい順）に並べ、トップN（同じ順位は続けて出す）を長さごとの行にまとめる。
  * 順位は今までの決まり（同じ値は同じ順位、次は飛ばす）で、個々の回を数えて付ける（長さ4が3回あれば、2位が3回で次は5位）
  */
 export function rankStreakRuns<G extends StreakGame>(runs: readonly StreakRun<G>[], n: number = STREAK_TOP_N): StreakRow<G>[] {
   if (runs.length === 0) return [];
-  const sorted = [...runs].sort((a, b) => b.length - a.length || b.last.date.localeCompare(a.last.date) || b.last.scheduleKey.localeCompare(a.last.scheduleKey));
+  const sorted = [...runs].sort((a, b) => b.length - a.length || Number(b.ongoing) - Number(a.ongoing) || b.last.date.localeCompare(a.last.date) || b.last.scheduleKey.localeCompare(a.last.scheduleKey));
   const ranks: number[] = [];
   let rank = 1;
   sorted.forEach((r, i) => {

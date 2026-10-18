@@ -676,8 +676,25 @@ table.stats-table tr.situational-group-heading td {
   grid-column: span 2;
 }
 
+.streak-top-n-table td {
+  vertical-align: top;
+  padding: 6px 6px 6px 0;
+}
+
+.streak-top-n-table tr + tr td {
+  border-top: 1px dashed var(--border);
+}
+
 .streak-top-n-table td:last-child {
   white-space: normal;
+}
+
+/* 「他◯回」で開いた同じ長さの別の回は、その行の中に字下げして、次の行（別の長さ）と見分けがつくようにする */
+.streak-top-n-table .career-high-others-list {
+  margin: 4px 0 0 4px;
+  padding: 0 0 0 8px;
+  border-top: none;
+  border-left: 2px solid var(--border);
 }
 
 @media (max-width: 560px) {

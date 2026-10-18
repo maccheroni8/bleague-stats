@@ -95,6 +95,15 @@ check("連敗は 3連 の1つ（1連の負けは数えない）", losses.map((r)
 const dup: StreakRun[] = [2, 2, 2, 3, 4].map((length, i) => ({ season: "2026-27", length, first: game(i + 1, true), last: game(i + 2, true), ongoing: false }));
 const ranked = rankStreakRuns(dup, 3);
 check("順位: 4連が1位・3連が2位・2連が3位（3回。トップ3の境目の同じ長さは全部入る）", ranked.map((r) => `${r.rank}:${r.length}:${r.runs.length}`).join(" ") === "1:4:1 2:3:1 3:2:3", ranked.map((r) => `${r.rank}:${r.length}:${r.runs.length}`).join(" "));
+// 同じ長さの中は、継続中が一番上、そのあとは終わった日付の新しい順（代表＝先頭）
+const mixed: StreakRun[] = [
+  { season: "2026-27", length: 3, first: game(1, true), last: game(3, true), ongoing: false },
+  { season: "2026-27", length: 3, first: game(20, true), last: game(22, true), ongoing: true },
+  { season: "2026-27", length: 3, first: game(10, true), last: game(12, true), ongoing: false },
+  { season: "2026-27", length: 3, first: game(5, true), last: game(7, true), ongoing: false },
+];
+const mixedRow = rankStreakRuns(mixed)[0]!;
+check("同じ長さの中は、継続中が先頭（代表）で、そのあとは終わった日付の新しい順", mixedRow.runs.map((r) => `${r.ongoing ? "継" : ""}${r.last.date.slice(-2)}`).join(",") === "継22,12,07,03", mixedRow.runs.map((r) => r.last.date).join(","));
 const tieRanked = rankStreakRuns([2, 2, 3, 3, 3, 5].map((length, i) => ({ season: "2026-27", length, first: game(i + 1, true), last: game(i + 2, true), ongoing: false })), 10);
 check("順位が飛ぶ: 5連1位・3連2位（3回）・2連5位（2回）", tieRanked.map((r) => `${r.rank}:${r.length}:${r.runs.length}`).join(" ") === "1:5:1 2:3:3 5:2:2", tieRanked.map((r) => `${r.rank}:${r.length}:${r.runs.length}`).join(" "));
 console.log(failures === 0 ? "\nすべて ok" : `\n${failures} 件 NG`);
