@@ -52,7 +52,7 @@ export interface SituationalAndFilters {
   newYear?: "before" | "after";
   /** 土日祝を除く曜日に開催された試合 */
   weekday?: boolean;
-  /** 土曜・日曜に開催された試合（祝日は含めない。平日の祝日開催は平日・土日のどちらにも入らない）。
+  /** 土曜・日曜・祝日に開催された試合（weekdayの逆。振替休日・国民の休日を含む）。
    * weekdayとは排他（UI側で片方を選ぶともう片方を外す） */
   weekend?: boolean;
   /**

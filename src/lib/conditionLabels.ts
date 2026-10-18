@@ -76,7 +76,7 @@ function situationalAndFilterParts(filter: SituationalAndFilters): string[] {
   if (filter.months?.length) parts.push([...filter.months].sort((a, b) => a - b).map((m) => `${m}月`).join("・"));
   if (filter.newYear) parts.push(filter.newYear === "before" ? "年明け前" : "年明け後");
   if (filter.weekday) parts.push("平日開催");
-  if (filter.weekend) parts.push("土日開催");
+  if (filter.weekend) parts.push("土日祝開催");
   if (filter.opponentWinRate) {
     parts.push(filter.opponentWinRate === "under50" ? "対5割未満" : filter.opponentWinRate === "atLeast50" ? "対5割以上" : "対6割以上");
   }

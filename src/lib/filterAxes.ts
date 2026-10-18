@@ -528,8 +528,8 @@ export function situationalAndAxes<T extends SituationalAndFilters>(
       { value: "after", label: "年明け後" },
     ], (f, v) => ({ ...f, newYear: v === "" ? undefined : (v as "before" | "after") })),
     andAxis("s.weekday", "曜日", "advanced", filter.weekday ? "weekday" : filter.weekend ? "weekend" : "", [
-      { value: "weekday", label: "平日開催のみ" },
-      { value: "weekend", label: "土日開催" },
+      { value: "weekday", label: "平日開催のみ（祝日を除く）" },
+      { value: "weekend", label: "土日祝開催" },
     ], (f, v) => ({ ...f, weekday: v === "weekday" ? true : undefined, weekend: v === "weekend" ? true : undefined })),
   ];
   // 試合中の点差（DESIGN.md 150章）
