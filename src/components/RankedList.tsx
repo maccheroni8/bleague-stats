@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { SeasonLink as Link } from "./SeasonLink";
 import { ExternalLinkIcon } from "./ExternalLinkIcon";
 import { StatHeaderLabel } from "./StatHeaderLabel";
@@ -86,6 +86,11 @@ export interface RankedListProps<T> {
    * 超えるときは、ボタンに「上限◯件まで表示」と出す。画像出力の「20位タイ ほか◯件」は実際の件数のまま
    */
   tieExpandMax?: number;
+  /**
+   * 割合の項目の関連スタッツ（3P% なら 3PM・3PA。設計書264章）。PC幅（.export-wide。保存画像も同じ）は名前の右に列を足し、
+   * スマホ幅は名前の下の行の末尾に「3PM 1.8／3PA 5.0」と続ける。of が undefined を返した行は出さない
+   */
+  related?: { labels: string[]; of: (row: T) => string[] | undefined };
 }
 
 /** defの向き（higherIsBetter）から導く、そのdefにとって「正しい」既定のソート方向 */
@@ -116,6 +121,7 @@ export function RankedList<T>({
   compare,
   gamesOf,
   tieExpandMax,
+  related,
 }: RankedListProps<T>) {
   const unit = unitProp ?? (statScope === "team" ? "チーム" : "人");
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
@@ -200,6 +206,7 @@ export function RankedList<T>({
           <tr>
             <th className="align-right">#</th>
             <th className="align-left">名前</th>
+            {related && <th className="align-right rank-related-col rank-related-head">{related.labels.join("／")}</th>}
             <th
               className={`align-right${compare ? " rank-cur-head" : ""}`}
               title={statDescription(def.label, statScope)}
@@ -234,6 +241,20 @@ export function RankedList<T>({
             const gamesOnly = !subLabel && games !== undefined ? `${games}試合` : null;
             const abbrText = teamAbbr ?? gamesOnly;
             const abbr = abbrText ? <span className="export-team-abbr">{abbrText}</span> : null;
+            const relatedValues = related?.of(row);
+            // スマホ幅で、名前の下の行の末尾に続ける（「3PM 1.8／3PA 5.0」。PC幅・保存画像では列に出すので隠す）
+            const relatedInline =
+              related && relatedValues ? (
+                <span className="rank-related-inline">
+                  {"・"}
+                  {related.labels.map((l, k) => (
+                    <Fragment key={l}>
+                      {k > 0 && "／"}
+                      <span className="rank-related-item">{`${l} ${relatedValues[k] ?? "-"}`}</span>
+                    </Fragment>
+                  ))}
+                </span>
+              ) : null;
             return (
               <tr key={rowKey(row)} className={i >= EXPORT_TOP_10 ? "rank-row-beyond10" : undefined}>
                 <td
@@ -284,7 +305,12 @@ export function RankedList<T>({
                             {name(row)}
                             {abbr}
                           </span>
-                          {subLabel ? <span className="rank-sublabel">{subLabel(row)}</span> : gamesOnly && <span className="rank-sublabel">{gamesOnly}</span>}
+                          {subLabel ? (
+                            <span className="rank-sublabel">
+                              {subLabel(row)}
+                              {relatedInline}
+                            </span>
+                          ) : gamesOnly && <span className="rank-sublabel">{gamesOnly}</span>}
                         </span>
                       </span>
                     );
@@ -294,6 +320,9 @@ export function RankedList<T>({
                     <ExternalLinkIcon href={externalLinkTo(row)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
                 </td>
+                {related && (
+                  <td className="align-right rank-related-col rank-related">{relatedValues ? relatedValues.join("／") : "-"}</td>
+                )}
                 <td className="align-right rank-value">{renderValue ? renderValue(row) : def.format(row)}</td>
                 {compare && (
                   <>

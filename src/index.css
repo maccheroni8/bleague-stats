@@ -8058,3 +8058,50 @@ table.sortable-table.lineup-search-table tbody th {
   font-size: 0.8em;
   color: var(--muted);
 }
+
+/* ランキング（個人）の関連スタッツ（3P% の右に 3PM／3PA。設計書264章）。PC幅（.export-wide。保存画像も同じ）は名前の右の列、
+ * スマホ幅は名前の下の行の末尾（.rank-related-inline）。幅の決め方は .export-wide の側に合わせる */
+.rankings-table .rank-related-col {
+  display: none;
+}
+
+.rankings-table .rank-related-inline {
+  white-space: normal;
+}
+
+.export-wide .rankings-table .rank-related-col {
+  display: table-cell;
+}
+
+.export-wide .rankings-table .rank-related-inline {
+  display: none;
+}
+
+.export-wide table.rankings-table-compact th.rank-related-head {
+  width: 150px;
+  padding-left: 12px;
+  padding-right: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.export-wide table.rankings-table-compact td.rank-related {
+  padding-left: 12px;
+  padding-right: 4px;
+  font-size: 15px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 列が1つ増える分、幅を広げて名前の列が狭くならないようにする */
+.export-wide.export-target-rankings-player.export-target-related {
+  --export-rank-width: 830px;
+}
+
+.rankings-table .rank-related-item {
+  white-space: nowrap;
+}

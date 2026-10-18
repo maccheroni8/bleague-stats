@@ -55,6 +55,7 @@ import {
   situationalFilterLabels,
   LABEL_SEPARATOR,
 } from "../lib/conditionLabels";
+import { hasRelatedStats } from "../lib/rankingRelatedStats";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageBaseDateLabel } from "../lib/age";
 import { positionText } from "../lib/profileMark";
@@ -708,6 +709,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     selectedItem,
     currentItems,
     rankDef,
+    related,
     rankMode,
     modeApplies,
     gamesDividedBy,
@@ -1082,7 +1084,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           <ExportTarget
             ref={exportRef}
             baseDate={{ kind: "season", season, gameType }}
-            className={`export-target-compact export-target-rankings-player${comparison ? " export-target-compare" : ""}`}
+            className={`export-target-compact export-target-rankings-player${comparison ? " export-target-compare" : ""}${related ? " export-target-related" : ""}`}
           >
             <ConditionTitle
               title={playerTitle.title}
@@ -1096,6 +1098,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               def={rankDef}
               gamesOf={gamesDividedBy}
               rowKey={(p) => p.playerId}
+              related={related ?? undefined}
               name={(p) => playerLabel(p.name)}
               // 選手名の下はチーム名とポジション、そのシーズンのルーキーには「Rookie」（登録区分の選択によらず。DESIGN.md 217章。登録区分はタイトルの下の行）。ポジションの「＊」（当時の値でない印）と注意書きは、
               // 身長・体重・年齢を並べる Profile でだけ出す（DESIGN.md 170章）
@@ -1132,7 +1135,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
             {effPeriodActive && gameType !== "regular" && hasShortGameSeason(compareActive && prevSeason ? [season, prevSeason] : [season]) && (
               <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
             )}
-            {comparison && <CompareNotes season={season} prevSeason={prevSeason!} mode={rankMode} narrowed={rookieActive || conditionActive} kind="player" empty={comparison.rows.length === 0} />}
+            {comparison && <CompareNotes season={season} prevSeason={prevSeason!} mode={hasRelatedStats(category, selectedItem.key) ? "perGame" : rankMode} narrowed={rookieActive || conditionActive} kind="player" empty={comparison.rows.length === 0} />}
           </ExportTarget>
         </>
       )}

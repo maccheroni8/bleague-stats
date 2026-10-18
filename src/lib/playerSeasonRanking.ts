@@ -37,6 +37,7 @@ import { OVERTIME_MIN_GAMES, overtimeCandidates, seasonPeriodOption, seasonPerio
 import { matchesPlayerGroupFilter, matchesPositionFilter, type PlayerGroupFilter } from "./classificationFilter";
 import { EXTRA_ELIGIBILITY_RULES, filterEligiblePlayers } from "./playerRankingEligibility";
 import { formatDecimal } from "./format";
+import { hasRelatedStats, relatedStatsFor } from "./rankingRelatedStats";
 import { ageForSeason } from "./age";
 import { heightText, weightText } from "./profileMark";
 import type { PlayerGameLog, PlayerSummary, TeamGameLog } from "../../shared/types";
@@ -186,6 +187,8 @@ const MODE_INVARIANT_KEYS: ReadonlySet<string> = new Set(["g", "gs", "asttov", "
 
 export function displayModeApplies(category: string, statKey: string): boolean {
   if (category === "profile" || category === "career") return false;
+  // 割合の項目でも、関連スタッツ（3P% の 3PM・3PA など）を並べる項目は、平均／合計の切り替えで関連スタッツだけが変わる（割合は変わらない）
+  if (hasRelatedStats(category, statKey)) return true;
   return !MODE_INVARIANT_KEYS.has(statKey) && !statKey.startsWith("pct") && !statKey.endsWith("pct");
 }
 
@@ -821,6 +824,15 @@ export function usePlayerSeasonRanking(
     format: (p) => selectedItem.format(p, ctxFor(p, rankMode)),
   };
 
+  // 割合の項目の右隣に並べる関連スタッツ（3P% なら 3PM・3PA。平均／合計に従う。設計書264章）
+  const related = relatedStatsFor({
+    category,
+    statKey: selectedItem.key,
+    mode: rankMode,
+    ctxOf: (p) => ctxFor(p, rankMode),
+    shooting: rankMode === "total" ? shootingColumnsTotal : shootingColumns,
+  });
+
   const waiting =
     !enabled ||
     !raceReady ||
@@ -842,6 +854,7 @@ export function usePlayerSeasonRanking(
     selectedItem,
     currentItems,
     rankDef,
+    related,
     rankMode,
     modeApplies,
     gamesDividedBy,

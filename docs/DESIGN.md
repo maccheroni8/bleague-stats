@@ -14170,3 +14170,22 @@ Codex が作った仕組み（作業の記録は `docs/PUBLIC_SEASON_MEDIA.md`�
 - 選手の %3PM 等（個人÷チーム全体）は別の指標なので変えない。選手側の別名「3PM/FGA」は残る（自分のFGAに占める3P成功の割合。以前のチームの %3PM と同じ値）。
 - 直した場所: `teamStatsColumns.ts`（全チームスタッツ・ランキング）、`TeamDetailPage.tsx`（シーズン別成績）、`teamBoxscoreColumns.ts`（チーム詳細の日程結果・シチュエーション別・比較、比較ページ）、`statDescriptions.ts`・`statNames.ts`・用語集（`GlossaryGuides.tsx`）。集計側では計算していないので作り直しなし（保存キーの対象のファイルに触れない）。
 - 5827行・10114行付近の「FGAに占める割合」の記述は、この章で %3PM・%2PM だけ FGM 分母に変わった。
+
+## 264. ランキング（個人・シーズン成績）で割合の項目の右隣に関連スタッツを並べる（2026-10-18。**画面だけの変更でキー不変**）
+
+**依頼**: 3P%・FT% など割合の項目で、その選手の関連スタッツ（3P% なら 3PM・3PA）を、チーム・ポジションの右隣に載せる（案C: 割合系のすべて）。
+
+### 264-1. 対応表（`src/lib/rankingRelatedStats.ts` の `RELATED_BY_KEY`。分子→分母の順）
+- Traditional: FG%＝FGM／FGA、2P%＝2PM／2PA、3P%＝3PM／3PA、FT%＝FTM／FTA、AST/TOV＝AST／TOV
+- Advanced: USG%＝FGA／FTA／TOV（分子が FGA＋0.44×FTA＋TOV の合計。チーム側の値は式が長いので並べない）、TOV%＝TOV／FGA／FTA、eFG%＝FGM／3PM／FGA、TS%＝PTS／FGA／FTA、PPS＝PTS／FGA
+- Scoring（個人÷チーム全体）: %PTS・%FGM・%FGA・%3PM・%3PA・%2PM・%2PA・%FTM・%FTA＝個人の値／TEAM ◯◯（その選手が出場した試合のチーム合計）、%PTS ASTED＝ASTED PTS（AST2M×2＋AST3M×3＋ASTFTM）／PTS
+- Scoring（ペイント内外）: PAINT2%＝PAINT2M／PAINT2A、MID2%＝MID2M／MID2A。ペイント内外の無いシーズン（2015-16以前）は「-」
+- Scoring（自分のFGAに占める割合）: 3PM/FGA＝3PM／FGA、3PA/FGA＝3PA／FGA、PAINT2M/FGA・PAINT2A/FGA・MID2M/FGA・MID2A/FGA＝その成功数（試投数）／FGA
+- Shooting: 「{種別} 2P%」「{種別} 3P%」＝同じ種別の 2PM／2PA、3PM／3PA（表の列をそのまま使う）
+- **並べない項目**: ORtg・DRtg・NetRtg・PACE（100ポゼッション・40分あたりの値。分母のポゼッションが画面の項目として無い）、PER・PPP（式が長く、分子・分母に分けられない）、DD2・TD3（値に回数が入っている）、EFF・+/-（割合ではない）
+
+### 264-2. 見せ方
+- 平均／合計の切り替えに連動: 平均＝1試合あたり（「3PM 1.8／3PA 5.0」）、合計＝シーズン合計。**割合そのものは切り替えで変わらない**。これまで割合の項目は切り替えが無効だったが、関連スタッツのある項目では使えるようにした（`displayModeApplies`）。前シーズン比較の注記（進行中のシーズンの合計の差）は、割合の項目では出さない。
+- PC幅（`.export-wide`。保存画像も同じ）: 名前の右に列を足す（見出しは「3PM／3PA」、値は「187／390」）。名前の列が狭くならないよう、保存範囲の幅を680→830pxにする（`export-target-related`）。写真なしの保存でも列は残る。
+- スマホ幅: 名前の下の行の末尾に「・3PM 187／3PA 390」（1項目ずつは折り返さない）。
+- 部品: `RankedList` の `related`（`labels`・`of`）。計算は `relatedStatsFor`（`usePlayerSeasonRanking` が `related` を返す）。検証は `npm run validate:ranking-related`（並べた分子÷分母が表の割合と一致）。
