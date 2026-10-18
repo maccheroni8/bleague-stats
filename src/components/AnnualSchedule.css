@@ -1,0 +1,72 @@
+.annual-schedule { --annual-cell: 42px; --annual-label: 130px; }
+.annual-toolbar, .annual-legend { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.annual-toolbar button, .annual-dialog button { padding: 6px 12px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); cursor: pointer; border-radius: 4px; }
+.annual-toolbar button:disabled { opacity: .4; cursor: default; }
+.annual-legend { color: var(--muted); font-size: 12px; margin: 12px 0; }
+.annual-legend > span { padding: 4px 6px; }
+.annual-home { background: color-mix(in srgb, #e3ca6a 12%, var(--bg)); }
+.annual-away { background: color-mix(in srgb, #6ba9e5 32%, var(--bg)); }
+.annual-neutral { background: var(--header-bg); }
+.annual-scroll { position: relative; overflow: auto; max-height: 72vh; border: 1px solid var(--border); overscroll-behavior-x: contain; }
+.annual-grid { table-layout: fixed; border-collapse: separate; border-spacing: 0; width: max-content; font-size: 11px; }
+.annual-grid .annual-team-col { width: var(--annual-label); }
+.annual-grid .annual-day-col { width: var(--annual-cell); }
+.annual-grid th, .annual-grid td { padding: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); text-align: center; }
+.annual-grid thead th { position: sticky; top: 0; z-index: 3; background: var(--header-bg); height: 28px; }
+.annual-grid thead tr:nth-child(2) th { top: 28px; height: 40px; min-width: var(--annual-cell); }
+.annual-grid thead small { display: block; font-weight: normal; }
+.annual-grid th:first-child:not([data-date]), .annual-grid tbody th { position: sticky; left: 0; min-width: var(--annual-label); max-width: var(--annual-label); background: var(--bg); z-index: 2; }
+.annual-grid thead th.annual-corner { z-index: 5; }
+.annual-grid tbody th { padding: 5px 8px; text-align: left; white-space: nowrap; }
+.annual-grid tbody th img { vertical-align: middle; margin-right: 6px; }
+.annual-grid .annual-division th, .annual-grid .annual-division td { background: var(--header-bg); height: 28px; }
+/* 日付見出しから地区の最終行までを1つの枠で囲む。各試合の上下には線を引かない。 */
+.annual-grid .annual-today { position: relative; }
+.annual-grid .annual-today::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  border-left: 2px solid #b97900; border-right: 2px solid #b97900;
+}
+.annual-grid thead .annual-today::after { border-top: 2px solid #b97900; }
+.annual-grid .annual-last-team .annual-today::after { border-bottom: 2px solid #b97900; }
+.annual-grid thead th.annual-today { position: sticky; }
+.annual-grid .annual-weekend { color: var(--accent); }
+.annual-game { width: 100%; min-height: 65px; padding: 3px 0; border: 0; color: var(--fg); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: space-between; font: inherit; gap: 2px; }
+.annual-game small { font-size: 9px; white-space: nowrap; }
+.annual-game:hover, .annual-game:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.annual-opponent { font-size: 10px; max-width: 40px; overflow-wrap: anywhere; }
+.annual-cancelled { opacity: .6; background: var(--header-bg); }
+.annual-event td { height: 30px; }
+.annual-event-span { background: color-mix(in srgb, #b49cd2 22%, var(--bg)); }
+.annual-event-span a { display: block; color: var(--fg); padding: 5px 2px; overflow: hidden; }
+.annual-note { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.annual-dialog { max-width: min(480px, 92vw); background: var(--bg); color: var(--fg); border: 1px solid var(--border); padding: 24px; }
+.annual-dialog::backdrop { background: #0008; }
+.annual-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media (max-width: 560px) { .annual-schedule { --annual-label: 100px; } .annual-toolbar { gap: 5px; } .annual-toolbar button { padding: 6px 9px; } }
+/* WebKitでも横スクロール後の固定セルの内容を独立して描画する。 */
+.annual-grid tbody th, .annual-grid thead th.annual-corner { transform: translateZ(0); }
+.annual-grid thead th.annual-corner { z-index: 5; }
+.annual-grid thead th.annual-corner:first-child { z-index: 5; }
+.annual-division-section { margin-top: 24px; }
+.annual-division-section h3 { margin: 0 0 10px; }
+.annual-rank { display: inline-block; width: 20px; text-align: center; margin-right: 3px; font-variant-numeric: tabular-nums; }
+.annual-schedule { --annual-label: 170px; }
+@media (max-width: 560px) { .annual-schedule { --annual-label: 150px; } }
+
+.annual-grid tbody th { font-size: 14px; }
+.annual-grid .annual-event th { font-size: 11px; }
+.annual-grid .annual-stat-col { width: 42px; }
+.annual-grid .annual-stat { min-width: 42px; width: 42px; font-size: 12px; font-variant-numeric: tabular-nums; background: var(--bg); }
+.annual-grid thead .annual-stat { background: var(--header-bg); }
+@media (min-width: 761px) {
+  .annual-grid .annual-stat { position: sticky; left: calc(var(--annual-label) + var(--annual-stat-offset)); z-index: 2; transform: translateZ(0); }
+  .annual-grid thead .annual-stat { z-index: 4; }
+}
+.annual-grid thead th.annual-corner[colspan] { min-width: calc(var(--annual-label) + 252px); max-width: calc(var(--annual-label) + 252px); font-size: 11px; }
+.annual-grid .annual-event th { max-width: none; }
+@media (max-width: 760px) {
+  .annual-grid thead th.annual-corner[colspan], .annual-grid .annual-event th { position: static; }
+}
+
+.annual-grid .annual-event td { position: relative; }
+.annual-grid .annual-event-span a { position: absolute; left: 0; top: 0; height: 100%; white-space: nowrap; z-index: 0; }

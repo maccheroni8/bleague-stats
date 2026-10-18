@@ -236,6 +236,12 @@ jobs:
         continue-on-error: true
         run: node --experimental-strip-types scripts/check-rule-change.ts --season ${{ steps.season.outputs.season }}
 
+      - name: Update annual calendar EASL schedule
+        id: annual_schedule
+        if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/scrape-annual-schedule.ts --season ${{ steps.season.outputs.season }}
+
       # ジョブが長時間(最大90分)かかるため、実行中に他のコミットがmainにpushされていることがある。
       # そのままpushすると非fast-forwardで弾かれるので、rebaseしてから再試行する
       - name: Commit and push if changed
@@ -287,6 +293,12 @@ jobs:
           retention-days: 1
 
       # 日程・ボックススコアの取得の失敗をジョブの失敗として通知する（取れた分の集計・commit&pushは上のステップで完了済み。DESIGN.md 8-9）
+      - name: Fail if annual calendar update failed
+        if: ${{ always() && steps.annual_schedule.outcome == 'failure' }}
+        run: |
+          echo "::error::EASL日程の取得に失敗しました。前回の大会日程を保持し、リーグ戦の更新・コミットは続けています。"
+          exit 1
+
       - name: Fail if schedule scrape failed
         if: ${{ always() && (steps.schedule_full.outcome == 'failure' || steps.schedule_recent.outcome == 'failure') }}
         run: |

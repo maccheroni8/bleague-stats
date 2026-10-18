@@ -1,0 +1,364 @@
+{
+  "version": 1,
+  "seasons": {
+    "2026-27": {
+      "events": [
+        {
+          "id": "cup-2027",
+          "competition": "cup",
+          "start": "2027-01-05",
+          "end": "2027-01-11",
+          "label": "天皇杯 ファイナル",
+          "source": "https://gunma.pba-japanbasketball.jp/wp-content/uploads/2026/03/dfe23f0a6862f9b3334094cf223a54b2.pdf",
+          "note": "2026年4月の大会概要による開催期間。休養日を含みます。対戦カードは未収録です。"
+        },
+        {
+          "id": "allstar-2027",
+          "competition": "allstar",
+          "start": "2027-01-15",
+          "end": "2027-01-17",
+          "label": "ALL-STAR",
+          "source": "https://www.bleague.jp/news_detail/id=599770",
+          "note": "オールスターウィークエンドの開催期間。"
+        }
+      ],
+      "games": [
+        {
+          "id": "easl:cc543fa2-b040-11f1-8e9e-196cf1274f5d",
+          "competition": "easl",
+          "date": "2026-10-14",
+          "tipoff": "19:10",
+          "home": {
+            "id": "2488",
+            "name": "長崎ヴェルカ"
+          },
+          "away": {
+            "name": "Busan KCC Egis",
+            "shortName": "KCC"
+          },
+          "status": "final",
+          "homeScore": 83,
+          "awayScore": 98,
+          "neutral": false,
+          "venue": "Happiness Arena",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:dfc36c0e-b036-11f1-9b09-1be8591dc5ce",
+          "competition": "easl",
+          "date": "2026-10-14",
+          "tipoff": "19:10",
+          "home": {
+            "id": "706",
+            "name": "アルバルク東京"
+          },
+          "away": {
+            "name": "South Gobi Broncos",
+            "shortName": "BRO"
+          },
+          "status": "final",
+          "homeScore": 113,
+          "awayScore": 78,
+          "neutral": false,
+          "venue": "Arena Tachikawa Tachihi",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc5ec257-b040-11f1-af12-c1c4c06cc772",
+          "competition": "easl",
+          "date": "2026-10-28",
+          "tipoff": "21:10",
+          "home": {
+            "name": "Macau Hou Chon",
+            "shortName": "MHC"
+          },
+          "away": {
+            "id": "2488",
+            "name": "長崎ヴェルカ"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "Tap Seac Multi-Sports Pavilion",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc60814c-b040-11f1-bb21-07340fcc4528",
+          "competition": "easl",
+          "date": "2026-10-28",
+          "tipoff": "20:10",
+          "home": {
+            "name": "Taoyuan Pauian Pilots",
+            "shortName": "TPP"
+          },
+          "away": {
+            "id": "701",
+            "name": "琉球ゴールデンキングス"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "Taoyuan Arena",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc61de29-b040-11f1-9dc5-73ad5d43cfce",
+          "competition": "easl",
+          "date": "2026-11-04",
+          "tipoff": "20:10",
+          "home": {
+            "name": "TSG Ghosthawks",
+            "shortName": "TSG"
+          },
+          "away": {
+            "id": "706",
+            "name": "アルバルク東京"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "Fengshan Stadium",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc62c2c3-b040-11f1-a175-d5f85ebe6ea8",
+          "competition": "easl",
+          "date": "2026-11-04",
+          "tipoff": "19:40",
+          "home": {
+            "id": "701",
+            "name": "琉球ゴールデンキングス"
+          },
+          "away": {
+            "name": "Hong Kong Eastern",
+            "shortName": "HKE"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "沖縄アリーナ",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc6c0e3e-b040-11f1-b3a3-3b289415936a",
+          "competition": "easl",
+          "date": "2026-12-09",
+          "tipoff": "19:10",
+          "home": {
+            "name": "Goyang Sono Skygunners",
+            "shortName": "SON"
+          },
+          "away": {
+            "id": "706",
+            "name": "アルバルク東京"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "고양소노아레나",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc6d0a51-b040-11f1-82e3-8515541a6212",
+          "competition": "easl",
+          "date": "2026-12-09",
+          "tipoff": "20:10",
+          "home": {
+            "name": "Taipei Fubon Braves",
+            "shortName": "TFB"
+          },
+          "away": {
+            "id": "2488",
+            "name": "長崎ヴェルカ"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "台北和平籃球館",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc6e0d0c-b040-11f1-9fc4-d7451a858254",
+          "competition": "easl",
+          "date": "2026-12-09",
+          "tipoff": "19:40",
+          "home": {
+            "id": "701",
+            "name": "琉球ゴールデンキングス"
+          },
+          "away": {
+            "name": "Abra Weavers",
+            "shortName": "ABR"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "沖縄アリーナ",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc715038-b040-11f1-a24a-1d8b9a1b91b6",
+          "competition": "easl",
+          "date": "2026-12-23",
+          "tipoff": "20:10",
+          "home": {
+            "name": "South Gobi Broncos",
+            "shortName": "BRO"
+          },
+          "away": {
+            "id": "706",
+            "name": "アルバルク東京"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "M Bank Arena",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc7492c7-b040-11f1-898e-4db2f412b29c",
+          "competition": "easl",
+          "date": "2026-12-23",
+          "tipoff": "19:10",
+          "home": {
+            "id": "2488",
+            "name": "長崎ヴェルカ"
+          },
+          "away": {
+            "name": "Taipei Fubon Braves",
+            "shortName": "TFB"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "Happiness Arena",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc749be2-b040-11f1-91bd-33324445878c",
+          "competition": "easl",
+          "date": "2026-12-23",
+          "tipoff": "21:10",
+          "home": {
+            "name": "Hong Kong Eastern",
+            "shortName": "HKE"
+          },
+          "away": {
+            "id": "701",
+            "name": "琉球ゴールデンキングス"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "TBC",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc7856eb-b040-11f1-a5f4-c93b3e361075",
+          "competition": "easl",
+          "date": "2027-01-13",
+          "tipoff": "19:10",
+          "home": {
+            "id": "706",
+            "name": "アルバルク東京"
+          },
+          "away": {
+            "name": "TSG Ghosthawks",
+            "shortName": "TSG"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "Arena Tachikawa Tachihi",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc7952de-b040-11f1-9d80-350f9c1d66d1",
+          "competition": "easl",
+          "date": "2027-01-13",
+          "tipoff": "19:10",
+          "home": {
+            "name": "Busan KCC Egis",
+            "shortName": "KCC"
+          },
+          "away": {
+            "id": "2488",
+            "name": "長崎ヴェルカ"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "Busan Sajik Gymnasium",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc7a5a56-b040-11f1-b05e-b161c86f682f",
+          "competition": "easl",
+          "date": "2027-01-13",
+          "tipoff": "20:10",
+          "home": {
+            "name": "Abra Weavers",
+            "shortName": "ABR"
+          },
+          "away": {
+            "id": "701",
+            "name": "琉球ゴールデンキングス"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "TBC",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc7a88f0-b040-11f1-be18-2da15d6d8880",
+          "competition": "easl",
+          "date": "2027-01-20",
+          "tipoff": "19:10",
+          "home": {
+            "id": "706",
+            "name": "アルバルク東京"
+          },
+          "away": {
+            "name": "Goyang Sono Skygunners",
+            "shortName": "SON"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "Arena Tachikawa Tachihi",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc7b210d-b040-11f1-b6d1-15ed6e9c3545",
+          "competition": "easl",
+          "date": "2027-01-20",
+          "tipoff": "19:10",
+          "home": {
+            "id": "2488",
+            "name": "長崎ヴェルカ"
+          },
+          "away": {
+            "name": "Macau Hou Chon",
+            "shortName": "MHC"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "Happiness Arena",
+          "source": "https://www.easl.basketball/schedule-results"
+        },
+        {
+          "id": "easl:cc7b4648-b040-11f1-aa92-71a0eedf5e14",
+          "competition": "easl",
+          "date": "2027-01-20",
+          "tipoff": "19:40",
+          "home": {
+            "id": "701",
+            "name": "琉球ゴールデンキングス"
+          },
+          "away": {
+            "name": "Taoyuan Pauian Pilots",
+            "shortName": "TPP"
+          },
+          "status": "upcoming",
+          "neutral": false,
+          "venue": "沖縄アリーナ",
+          "source": "https://www.easl.basketball/schedule-results"
+        }
+      ],
+      "easlUpdatedAt": "2026-10-18T07:31:20.515Z",
+      "notes": [
+        "天皇杯は大会概要で確認できるファイナルラウンドの期間のみ掲載しています（休養日を含む）。対戦カード・結果、各地の予選日程は未収録です。",
+        "天皇杯・オールスターの大会期間は公式発表に基づく掲載です。日程変更は公式情報もご確認ください。"
+      ],
+      "finalsEnd": "2027-06-01",
+      "finalsSource": "https://www.bleague.jp/schedule/?club=700&tab=1"
+    }
+  }
+}

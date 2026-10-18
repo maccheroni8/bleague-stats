@@ -13,6 +13,8 @@ import { useJsonData } from "../lib/useJsonData";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart, type ChartTeam } from "../components/StandingsLineChart";
+import { AnnualSchedule } from "../components/AnnualSchedule";
+import { enumParam, useUrlState } from "../lib/urlState";
 import { TeamLogo } from "../components/TeamLogo";
 import { CrownIcon } from "../components/CrownIcon";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
@@ -54,6 +56,7 @@ import type {
 } from "../../shared/types";
 
 type StandingsTab =
+  | "annual"
   | "standings"
   | "magic"
   | "h2h"
@@ -68,6 +71,7 @@ const TAB_LABELS: Record<StandingsTab, string> = {
   magic: "マジックナンバー",
   h2h: "星取り表",
   winLoss: "勝敗表",
+  annual: "年間スケジュール",
   conditional: "条件別順位表",
   rankTrend: "順位推移",
   winsTrend: "勝ち星推移",
@@ -586,7 +590,7 @@ function reshapeWildcardMetric(
 }
 
 export function StandingsPage({ season }: { season: string }) {
-  const [tab, setTab] = useState<StandingsTab>("standings");
+  const [tab, setTab] = useUrlState(enumParam("tab", Object.keys(TAB_LABELS) as StandingsTab[], "standings"), "standings");
   const { data: history, loading, error } = useJsonData(() => fetchStandingsHistory(season), [season]);
   const {
     data: headToHead,
@@ -657,6 +661,11 @@ export function StandingsPage({ season }: { season: string }) {
       {node}
     </div>
   );
+  if (tab === "annual" && (loading || error || !latest)) return v2(<>
+    <h1>順位表</h1>
+    <div className="tab-bar">{(Object.keys(TAB_LABELS) as StandingsTab[]).filter(t => t !== "magic" || playoffRace?.format === "premier-2026").map(t => <button type="button" key={t} className={`tab-button${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>{TAB_LABELS[t]}</button>)}</div>
+    <AnnualSchedule key={season} season={season} />
+  </>);
   if (loading) return v2(<p className="loading">読み込み中...</p>);
   if (error) return v2(<p className="error-message">{error}</p>);
   if (!history || history.length === 0 || !latest) return v2(<p className="empty-message">データがありません</p>);
@@ -858,6 +867,8 @@ export function StandingsPage({ season }: { season: string }) {
             </button>
           ))}
       </div>
+
+      {activeTab === "annual" && <AnnualSchedule key={season} season={season} />}
 
       {activeTab === "standings" && (
         <div>

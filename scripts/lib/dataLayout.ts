@@ -48,6 +48,7 @@ export const SEASON_OPTIONAL_DERIVED_ENTRIES = ["team-stints"] as const;
 
 /** data/ 直下の元データ（A） */
 export const GLOBAL_RAW_ENTRIES = [
+  "annual-calendar.json",
   "club-honors.json.gz",
   "current-roster.json.gz",
   "division-history.json.gz",

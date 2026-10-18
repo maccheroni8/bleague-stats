@@ -98,6 +98,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 264章: ランキング（個人・シーズン成績）の割合の項目の右隣に**関連スタッツ**（3P% なら 3PM・3PA。PC幅は列、スマホ幅は名前の下の行の末尾。平均／合計に連動）。`src/lib/rankingRelatedStats.ts`・`RankedList` の `related`・`npm run validate:ranking-related`。割合の項目を足すときは対応表（`RELATED_BY_KEY`）も足すか判断する。**画面だけの変更でキー不変**
 - 265章: ランキング > チーム > 1試合記録に **Q別・前後半・延長**（URL `q`。項目は共通の一覧・「得失点差」を足す・古い `stat=q1:mostPts` は読み替え・来場者数／逆転／最大のランは区間では選べない・スタッツの条件は区間の値）。チームのピリオド別の索引を結び付ける（`src/lib/teamPeriodGames.ts`）。成功率の最低試投数は区間の長さに合わせて下げる（基準の数は決定待ち）。検証は `npm run validate:team-period-record`。**画面だけの変更でキー不変**
 - 266章: 成功率の基準を成功数にそろえる（チームの1試合記録＝FG 11・2P 8・3P 4・FT 15、個人のシーズン＝FG%・2P% は1試合平均の FGM 1.5・2PM 1.0。3P%・FT% は公式の基準のまま。区間は長さに合わせて下げる）。チームの区間のワーストは選べない。**画面だけの変更でキー不変**。267章: 個人の1試合記録（ランキング・選手一覧の記録・キャリアハイ・上位20位のファイル）も成功数基準（FG 5・2P 5・3P 3・FT 8。区間は長さに合わせて下げる。`PLAYER_PCT_MIN_MADE`・`periodMinimum.ts`）。**`shared/playerGameRecords.ts` を変えたのでキーが変わる（全シーズンの作り直し1回）**
+- 271章: 順位表の **「年間スケジュール」タブ**（`tab=annual`。`src/components/AnnualSchedule.tsx`・`src/lib/annualSchedule.ts`・`shared/annualSchedule.ts`）。大会日程は `data/annual-calendar.json`（元データ・保存キー対象外）。EASL は深夜ジョブが自動更新（`scripts/scrape-annual-schedule.ts`、失敗時は前回を保持して最後に失敗通知）、**天皇杯・オールスターは手で更新**（手順は271-7章）。`scripts/lib/dataLayout.ts` に登録したため導入時のデプロイで全シーズンの作り直しが1回。検証は `npm run validate:annual-schedule`
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
