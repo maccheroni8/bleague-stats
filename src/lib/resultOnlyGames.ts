@@ -41,6 +41,7 @@ export function resultOnlyLogsForTeam(
   teamId: string,
   recorded?: Set<string> | { scheduleKey: string }[] | null,
 ): TeamGameLog[] {
+  const reasonByKey = new Map((entries ?? []).map((e) => [e.scheduleKey, e.reason] as const));
   return resultOnlySummaries(entries, recorded)
     .filter((g) => g.homeTeamId === teamId || g.awayTeamId === teamId)
     .map((g) => {
@@ -57,6 +58,8 @@ export function resultOnlyLogsForTeam(
         opponentScore,
         opponentTeamId: isHome ? g.awayTeamId : g.homeTeamId,
         opponentTeamName: isHome ? g.awayTeamName : g.homeTeamName,
+        // 結果だけの試合の印（連勝・連敗の注釈・試合ページへのリンクを付けない判定に使う）
+        resultOnlyReason: reasonByKey.get(g.scheduleKey),
       } as unknown as TeamGameLog;
     });
 }

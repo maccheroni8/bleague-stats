@@ -663,6 +663,11 @@ table.stats-table tr.situational-group-heading td {
   line-height: 1.5;
 }
 
+.streak-resultonly-note {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .streak-top-period {
   margin-top: 2px;
 }

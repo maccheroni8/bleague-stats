@@ -1,6 +1,8 @@
 // チーム詳細「クラブレコード」の最多連勝・最多連敗のトップ10（DESIGN.md 260章）。
 // 連勝・連敗は、シーズンをまたがない（シーズン内の連続。今の「最多連勝（シーズン内）」と同じ）。1連は数えない（2連以上）。
 // 試合ログ（日付順に並べ直す）から連続の区切りを数え、長さごとにまとめる。集計のコードから読まれない場所（保存キーの対象外）に置く。
+import type { ResultOnlyReason } from "../../shared/resultOnlyGames";
+import { currentStreak, type TeamStreak } from "../../shared/teamRecords";
 import type { TeamGameLog } from "../../shared/types";
 
 /** 連続の最小の長さ（1連は連勝・連敗に数えない） */
@@ -11,7 +13,8 @@ export const STREAK_TOP_N = 10;
 
 export type StreakKind = "win" | "loss";
 
-type StreakGame = Pick<TeamGameLog, "date" | "scheduleKey" | "win" | "isHome" | "opponentTeamId" | "opponentTeamName">;
+/** resultOnlyReason: 結果だけの試合（ボックススコアが公式に無い試合・不戦勝。DESIGN.md 228章）の行に付く印。試合ページは無い */
+type StreakGame = Pick<TeamGameLog, "date" | "scheduleKey" | "win" | "isHome" | "opponentTeamId" | "opponentTeamName"> & { resultOnlyReason?: ResultOnlyReason };
 
 export interface StreakRun<G extends StreakGame = StreakGame> {
   season: string;
@@ -20,6 +23,8 @@ export interface StreakRun<G extends StreakGame = StreakGame> {
   last: G;
   /** 今も続いている（シーズンの最後の試合まで続いていて、そのシーズンがまだ終わっていない） */
   ongoing: boolean;
+  /** 連続の中に、結果だけの試合（不戦勝など）がある。理由の種類（注釈に使う） */
+  resultOnlyReasons: ResultOnlyReason[];
 }
 
 /** 長さごとにまとめた1行。runs は新しい順（継続中が先頭、そのあとは終わった日付の新しい順。先頭が代表として載せる一番新しい回） */
@@ -38,7 +43,13 @@ function byDate(a: StreakGame, b: StreakGame): number {
  * 1シーズン分の試合ログ（試合区分で絞り済み）から、MIN_STREAK_LENGTH 以上の連勝（または連敗）の連続をすべて求める。
  * seasonRunning が true のとき、シーズンの最後の試合まで続いている連続を「継続中」にする
  */
-export function streakRunsOfSeason<G extends StreakGame>(season: string, logs: readonly G[], kind: StreakKind, seasonRunning: boolean): StreakRun<G>[] {
+export function streakRunsOfSeason<G extends StreakGame>(
+  season: string,
+  logs: readonly G[],
+  kind: StreakKind,
+  seasonRunning: boolean,
+  minLength: number = MIN_STREAK_LENGTH,
+): StreakRun<G>[] {
   const sorted = [...logs].sort(byDate);
   const target = kind === "win";
   const runs: StreakRun<G>[] = [];
@@ -46,8 +57,20 @@ export function streakRunsOfSeason<G extends StreakGame>(season: string, logs: r
   const close = (end: number) => {
     if (start < 0) return;
     const length = end - start + 1;
-    if (length >= MIN_STREAK_LENGTH) {
-      runs.push({ season, length, first: sorted[start]!, last: sorted[end]!, ongoing: seasonRunning && end === sorted.length - 1 });
+    if (length >= minLength) {
+      const reasons = new Set<ResultOnlyReason>();
+      for (let i = start; i <= end; i += 1) {
+        const r = sorted[i]!.resultOnlyReason;
+        if (r) reasons.add(r);
+      }
+      runs.push({
+        season,
+        length,
+        first: sorted[start]!,
+        last: sorted[end]!,
+        ongoing: seasonRunning && end === sorted.length - 1,
+        resultOnlyReasons: [...reasons],
+      });
     }
     start = -1;
   };
@@ -90,4 +113,35 @@ export function rankStreakRuns<G extends StreakGame>(runs: readonly StreakRun<G>
 export function isOffseasonMonth(date: Date = new Date()): boolean {
   const month = Number(new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo", month: "numeric" }).format(date));
   return month === 7 || month === 8;
+}
+
+/** 1シーズン・1チームの最長の連勝・連敗（長さが同じ回は新しい順。連が無ければ null）と、今の連勝・連敗。順位表・チームスタッツの「シーズン記録」で使う */
+export interface SeasonStreakSummary<G extends StreakGame = StreakGame> {
+  maxWin: { length: number; runs: StreakRun<G>[] } | null;
+  maxLoss: { length: number; runs: StreakRun<G>[] } | null;
+  current: TeamStreak | null;
+}
+
+function longestOf<G extends StreakGame>(runs: readonly StreakRun<G>[]): { length: number; runs: StreakRun<G>[] } | null {
+  const top = rankStreakRuns(runs, 1)[0];
+  return top ? { length: top.length, runs: top.runs } : null;
+}
+
+/**
+ * logs は、集計する試合区分で絞り済みの、そのシーズンのそのチームの試合ログ（結果だけの試合を含めてよい）。
+ * 最長は1連も数える（1回も連続が無いときは null）。seasonRunning は、そのシーズンがまだ終わっていないか
+ */
+export function seasonStreakSummary<G extends StreakGame & Pick<TeamGameLog, "win">>(season: string, logs: readonly G[], seasonRunning: boolean): SeasonStreakSummary<G> {
+  return {
+    maxWin: longestOf(streakRunsOfSeason(season, logs, "win", seasonRunning, 1)),
+    maxLoss: longestOf(streakRunsOfSeason(season, logs, "loss", seasonRunning, 1)),
+    current: currentStreak([...logs]),
+  };
+}
+
+/** 連続の中の結果だけの試合の注釈（連勝は「不戦勝」、連敗は「不戦敗」）。無ければ null */
+export function streakResultOnlyNote(run: Pick<StreakRun, "resultOnlyReasons">, kind: StreakKind): string | null {
+  if (run.resultOnlyReasons.length === 0) return null;
+  const parts = run.resultOnlyReasons.map((r) => (r === "forfeit" ? (kind === "win" ? "不戦勝" : "不戦敗") : "公式にボックススコアの無い試合"));
+  return `${parts.join("・")}を含む`;
 }

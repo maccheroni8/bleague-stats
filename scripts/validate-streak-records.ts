@@ -10,7 +10,7 @@ import path from "node:path";
 import { gunzipSync } from "node:zlib";
 import type { TeamGameLog } from "../shared/types.ts";
 import { longestWinStreak } from "../shared/teamRecords.ts";
-import { rankStreakRuns, streakRunsOfSeason, STREAK_TOP_N, type StreakRun } from "../src/lib/streakRecords.ts";
+import { rankStreakRuns, seasonStreakSummary, streakResultOnlyNote, streakRunsOfSeason, STREAK_TOP_N, type StreakRun } from "../src/lib/streakRecords.ts";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 let failures = 0;
@@ -92,19 +92,30 @@ check("最後まで続いている連勝だけが継続中（シーズンが進�
 check("シーズンが終わっていれば継続中にしない", streakRunsOfSeason("2026-27", logs, "win", false).every((r) => !r.ongoing));
 const losses = streakRunsOfSeason("2026-27", logs, "loss", true);
 check("連敗は 3連 の1つ（1連の負けは数えない）", losses.map((r) => r.length).join(",") === "3");
-const dup: StreakRun[] = [2, 2, 2, 3, 4].map((length, i) => ({ season: "2026-27", length, first: game(i + 1, true), last: game(i + 2, true), ongoing: false }));
+const dup: StreakRun[] = [2, 2, 2, 3, 4].map((length, i) => ({ season: "2026-27", length, first: game(i + 1, true), last: game(i + 2, true), ongoing: false, resultOnlyReasons: [] }));
 const ranked = rankStreakRuns(dup, 3);
 check("順位: 4連が1位・3連が2位・2連が3位（3回。トップ3の境目の同じ長さは全部入る）", ranked.map((r) => `${r.rank}:${r.length}:${r.runs.length}`).join(" ") === "1:4:1 2:3:1 3:2:3", ranked.map((r) => `${r.rank}:${r.length}:${r.runs.length}`).join(" "));
 // 同じ長さの中は、継続中が一番上、そのあとは終わった日付の新しい順（代表＝先頭）
 const mixed: StreakRun[] = [
-  { season: "2026-27", length: 3, first: game(1, true), last: game(3, true), ongoing: false },
-  { season: "2026-27", length: 3, first: game(20, true), last: game(22, true), ongoing: true },
-  { season: "2026-27", length: 3, first: game(10, true), last: game(12, true), ongoing: false },
-  { season: "2026-27", length: 3, first: game(5, true), last: game(7, true), ongoing: false },
+  { season: "2026-27", length: 3, first: game(1, true), last: game(3, true), ongoing: false, resultOnlyReasons: [] },
+  { season: "2026-27", length: 3, first: game(20, true), last: game(22, true), ongoing: true, resultOnlyReasons: [] },
+  { season: "2026-27", length: 3, first: game(10, true), last: game(12, true), ongoing: false, resultOnlyReasons: [] },
+  { season: "2026-27", length: 3, first: game(5, true), last: game(7, true), ongoing: false, resultOnlyReasons: [] },
 ];
 const mixedRow = rankStreakRuns(mixed)[0]!;
 check("同じ長さの中は、継続中が先頭（代表）で、そのあとは終わった日付の新しい順", mixedRow.runs.map((r) => `${r.ongoing ? "継" : ""}${r.last.date.slice(-2)}`).join(",") === "継22,12,07,03", mixedRow.runs.map((r) => r.last.date).join(","));
-const tieRanked = rankStreakRuns([2, 2, 3, 3, 3, 5].map((length, i) => ({ season: "2026-27", length, first: game(i + 1, true), last: game(i + 2, true), ongoing: false })), 10);
+const tieRanked = rankStreakRuns([2, 2, 3, 3, 3, 5].map((length, i) => ({ season: "2026-27", length, first: game(i + 1, true), last: game(i + 2, true), ongoing: false, resultOnlyReasons: [] })), 10);
 check("順位が飛ぶ: 5連1位・3連2位（3回）・2連5位（2回）", tieRanked.map((r) => `${r.rank}:${r.length}:${r.runs.length}`).join(" ") === "1:5:1 2:3:3 5:2:2", tieRanked.map((r) => `${r.rank}:${r.length}:${r.runs.length}`).join(" "));
+// 5. 最長・今の連勝連敗（順位表・チームスタッツ「Streaks」）と、結果だけの試合の注釈
+const sm = seasonStreakSummary("2026-27", logs, true);
+check("最長の連勝は4連（1連も数える）・最長の連敗は3連・今は2連勝", sm.maxWin?.length === 4 && sm.maxLoss?.length === 3 && sm.current?.type === "win" && sm.current.count === 2, JSON.stringify([sm.maxWin?.length, sm.maxLoss?.length, sm.current]));
+check("最長の連勝の回は新しい順で1回（4連）・継続中ではない", sm.maxWin?.runs.length === 1 && sm.maxWin.runs[0]!.ongoing === false);
+const single = seasonStreakSummary("2026-27", [game(1, true), game(2, false), game(3, true)], false);
+check("連続が1連だけのシーズンは、最長が1連（2回）で、連敗も1連", single.maxWin?.length === 1 && single.maxWin.runs.length === 2 && single.maxLoss?.length === 1);
+check("勝ちも負けも無ければ最長は無し", seasonStreakSummary("2026-27", [], false).maxWin === null && seasonStreakSummary("2026-27", [game(1, true)], false).maxLoss === null);
+const withForfeit = [game(1, true), { ...game(2, true), resultOnlyReason: "forfeit" as const }, game(3, true), game(4, false)];
+const fr = streakRunsOfSeason("2026-27", withForfeit, "win", false);
+check("結果だけの試合（不戦勝）を含む連続に印と注釈が付く", fr.length === 1 && fr[0]!.length === 3 && fr[0]!.resultOnlyReasons.join() === "forfeit" && streakResultOnlyNote(fr[0]!, "win") === "不戦勝を含む" && streakResultOnlyNote(fr[0]!, "loss") === "不戦敗を含む");
+check("結果だけの試合を含まない連続には注釈が付かない", streakResultOnlyNote(wins[0]!, "win") === null);
 console.log(failures === 0 ? "\nすべて ok" : `\n${failures} 件 NG`);
 process.exit(failures === 0 ? 0 : 1);

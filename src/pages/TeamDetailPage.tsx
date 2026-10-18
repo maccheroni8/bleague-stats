@@ -45,6 +45,7 @@ import { LEAGUE_COLOR, LEAGUE_SLOT_NOTE, LEAGUE_TEAM_NAME } from "../lib/leagueA
 import { useJsonData } from "../lib/useJsonData";
 import { statJa } from "../lib/statNames";
 import { isPastSeason } from "../lib/season";
+import { useResultOnlyBySeason } from "../lib/resultOnlyBySeason";
 import { StreakRecordCard } from "../components/StreakRecordCard";
 import { isOffseasonMonth, rankStreakRuns, streakRunsOfSeason, type StreakRun } from "../lib/streakRecords";
 import { formatBasisSeconds, isFrequentLineup, lineupMinAvgSeconds, lineupsByCondition } from "../lib/lineupsByCondition";
@@ -91,7 +92,7 @@ import { formatRecordShort } from "../lib/recordFormat";
 import type { ResultOnlyGameEntry, ResultOnlyReason } from "../../shared/resultOnlyGames";
 import { ResultOnlyNote } from "../components/ResultOnlyNote";
 import { TeamRecordShort } from "../components/TeamRecordShort";
-import { resultOnlyCompareNote, resultOnlyReasonLabel } from "../lib/resultOnlyGames";
+import { resultOnlyCompareNote, resultOnlyLogsForTeam, resultOnlyReasonLabel } from "../lib/resultOnlyGames";
 import { MIN_LINEUP_AVG_SECONDS, MIN_LINEUP_GAME_SHARE } from "../lib/tableThresholds";
 import { ESTIMATED_RATING_NOTE, lineupRatingsOf, lineupsHaveRealPossessions } from "../lib/lineupRatings";
 import { LineupSearch } from "../components/LineupSearch";
@@ -2420,6 +2421,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 最多連敗（と最多連勝）のトップ10は、進行中のシーズンも含め、続いている連続は「継続中」と書く（全試合が終わったかは「継続中」の判定に使う）
   const seasonNames = useMemo(() => (seasons ? seasons.map((s) => s.season) : null), [seasons]);
   const completedRegularSeasons = useCompletedRegularSeasons(seasonNames, tab === "clubRecord");
+  // 連勝・連敗には、結果だけの試合（不戦勝など。試合の記録は無いが勝敗はある）も数える（順位表・チームスタッツの「シーズン記録」と同じ。DESIGN.md 261章）
+  const resultOnlyBySeason = useResultOnlyBySeason(seasonNames, tab === "clubRecord");
   const clubSeasonWorsts = useMemo(() => {
     if (!careerData || !completedRegularSeasons) return null;
     const all = careerData
@@ -2447,13 +2450,18 @@ export function TeamDetailPage({ season }: { season: string }) {
     const offseason = isOffseasonMonth();
     const running = (season: string, selection: SeasonGameTypeFilter) =>
       !offseason && !isPastSeason(season) && !(selection === "regular" && !!completedRegularSeasons?.has(season));
+    const logsOf = (cd: { season: string; logs: TeamGameLog[] }, selection: SeasonGameTypeFilter) =>
+      filterByGameType(
+        [...cd.logs, ...resultOnlyLogsForTeam(resultOnlyBySeason?.get(cd.season), teamId ?? "", new Set(cd.logs.map((l) => l.scheduleKey)))],
+        selection,
+      );
     const runsOf = (kind: "win" | "loss", selection: SeasonGameTypeFilter): StreakRun<TeamGameLog>[] =>
-      careerData.flatMap((cd) => streakRunsOfSeason(cd.season, filterByGameType(cd.logs, selection), kind, running(cd.season, selection)));
+      careerData.flatMap((cd) => streakRunsOfSeason(cd.season, logsOf(cd, selection), kind, running(cd.season, selection)));
     return {
       win: rankStreakRuns(runsOf("win", careerGameTypeFilter)),
       loss: careerGameTypeFilter === "regular" ? rankStreakRuns(runsOf("loss", "regular")) : [],
     };
-  }, [careerData, careerGameTypeFilter, completedRegularSeasons]);
+  }, [careerData, careerGameTypeFilter, completedRegularSeasons, resultOnlyBySeason, teamId]);
 
   // 歴代クラブ横断順位（Phase H7）: leagueRankingsは[gameType][statKey][teamId]のルックアップ構造
   // （scripts/aggregate-league-rankings.ts参照）。「通算成績」「クラブレコード」タブは同じ
