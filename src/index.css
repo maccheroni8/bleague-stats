@@ -7046,6 +7046,43 @@ table.sortable-table.period-records-grid td {
   font-weight: 700;
 }
 
+/* すべてのマスを同じ大きさにする（値の列は同じ幅。高さは「ほか◯試合」の行を空で置いてそろえる） */
+table.sortable-table.period-records-uniform {
+  --prc-cell: 112px;
+  --prc-first: 64px;
+  table-layout: fixed;
+  width: calc(var(--prc-first) + var(--prc-cell) * 3);
+  min-width: 0;
+}
+
+table.sortable-table.period-records-uniform th:not(:first-child),
+table.sortable-table.period-records-uniform td:not(:first-child) {
+  width: var(--prc-cell);
+}
+
+table.sortable-table.period-records-uniform th:first-child,
+table.sortable-table.period-records-uniform td:first-child {
+  width: var(--prc-first);
+}
+
+table.sortable-table.period-records-uniform .period-records-value {
+  line-height: 20px;
+}
+
+table.sortable-table.period-records-uniform .period-records-date {
+  line-height: 15px;
+}
+
+table.sortable-table.period-records-uniform th {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+table.sortable-table.period-records-uniform .period-records-cell {
+  box-sizing: border-box;
+  justify-content: flex-start;
+}
+
 .period-records-cell {
   display: flex;
   flex-direction: column;
@@ -7123,6 +7160,11 @@ table.sortable-table.period-averages-table tbody tr.period-averages-total td {
 
   .period-records-date {
     font-size: 10px;
+  }
+
+  table.sortable-table.period-records-uniform {
+    --prc-cell: 82px;
+    --prc-first: 52px;
   }
 }
 

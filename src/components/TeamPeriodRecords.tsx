@@ -87,6 +87,16 @@ export function ClubPeriodRecords<G extends RecordGame>({
   for (const period of rowKeys)
     for (const k of kinds) ranked.set(`${period}:${k.key}`, period === WHOLE_GAME_KEY ? rankWholeGames(games, k.key) : rankPeriodGames(games, period, k.key));
 
+  // 「ほか◯試合」の行。無いマスも同じ高さにそろえるため、空の行を置く（複数チームの表〔teamLabel あり〕は今のまま）
+  const tiesLine = (ties: number) =>
+    ties > 1 ? (
+      <span className="period-records-date">ほか{ties - 1}試合</span>
+    ) : teamLabel ? null : (
+      <span className="period-records-date" aria-hidden="true">
+        &nbsp;
+      </span>
+    );
+
   const select = (period: RowKey, kind: PeriodRecordKind) => {
     setSelected((prev) => (prev && prev.period === period && prev.kind === kind ? null : { period, kind }));
     setShowAll(false);
@@ -120,7 +130,7 @@ export function ClubPeriodRecords<G extends RecordGame>({
       </div>
       )}
       <div className="table-scroll period-records-grid-scroll">
-        <table className="sortable-table period-records-grid">
+        <table className={`sortable-table period-records-grid${teamLabel ? "" : " period-records-uniform"}`}>
           <thead>
             <tr>
               <th className="align-left" title={statDescription("区間", "team")}>
@@ -153,7 +163,7 @@ export function ClubPeriodRecords<G extends RecordGame>({
                           </span>
                           {teamLabel && <span className="period-records-team">{teamLabel(best.game)}</span>}
                           <span className="period-records-date">{formatDate(best.game.date, narrow)}</span>
-                          {ties > 1 && <span className="period-records-date">ほか{ties - 1}試合</span>}
+                          {tiesLine(ties)}
                           </RouterLink>
                         ) : (
                         <button
@@ -168,7 +178,7 @@ export function ClubPeriodRecords<G extends RecordGame>({
                           </span>
                           {teamLabel && <span className="period-records-team">{teamLabel(best.game)}</span>}
                           <span className="period-records-date">{formatDate(best.game.date, narrow)}</span>
-                          {ties > 1 && <span className="period-records-date">ほか{ties - 1}試合</span>}
+                          {tiesLine(ties)}
                         </button>
                         )
                       ) : (
