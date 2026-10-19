@@ -2732,7 +2732,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const situationalTeamPeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === situationalTeamPeriod);
   // 「ショットチャート」専用のQ別/前後半
   const [teamShotChartPeriod, setTeamShotChartPeriod] = usePageState<PeriodRangeValue>(pk("teamShotChartPeriod"), "all");
-  const teamShotChartPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === teamShotChartPeriod);
+  const teamShotChartPeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === teamShotChartPeriod);
   const [situationalTeamBoxTab, setSituationalTeamBoxTab] = usePageState<BoxscoreTabKey | "shooting" | "periods">(pk("situationalTeamBoxTab"), "traditional");
   // Traditional〜Scoring の区間（Q別・前後半・延長）は、試合の生データではなくチームのピリオド別の索引から出す（全チームスタッツの区間別と同じ値。DESIGN.md 273章）。
   // Shooting（スポーツナビの記録）と Periods は今までどおり
@@ -3214,6 +3214,9 @@ export function TeamDetailPage({ season }: { season: string }) {
             .filter((s) => periodInRange(teamShotChartPeriodOption, s.period));
         })
     : [];
+  // 延長は、延長のあった試合のショットだけ（すべての延長の合計）。その試合数を添える
+  const teamShotChartOvertimeGames =
+    teamShotChartPeriod === "ot" ? filteredLogs.filter((g) => g.min > 0 && (g.overtimes ?? 0) > 0).length : null;
   const teamShotChartPlayerOptions = teamPlayers.map((p) => ({ PlayerID: p.playerId, PlayerNameJ: p.name }));
 
   // 「シチュエーション別勝敗」（概要タブ、Phase H3③）。延長・Q1/前半/3Q終了時点の区分は
@@ -3713,7 +3716,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // フィルタバー（DESIGN.md 105章 B4）。ショットチャート専用の絞り込み（旧・チームスタッツの共有バーから独立させた。118章）
   const teamShotChartFilterAxes: FilterAxis[] = [
     gameTypeAxis(teamShotChartGameType, setTeamShotChartGameType, season),
-    periodAxis(teamShotChartPeriod, setTeamShotChartPeriod, SEASON_BOX_PERIOD_OPTIONS),
+    periodAxis(teamShotChartPeriod, setTeamShotChartPeriod, SEASON_PERIOD_OPTIONS),
     ...situationalAxes(teamShotChartFilter, setTeamShotChartFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
@@ -4983,8 +4986,13 @@ export function TeamDetailPage({ season }: { season: string }) {
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : !teamShotChartExpanded ? null : statsRawGamesLoading ? (
             <p className="loading">読み込み中...</p>
+          ) : teamShotChartOvertimeGames === 0 ? (
+            <p className="empty-message">延長のあった試合はありません</p>
           ) : (
             <>
+              {teamShotChartOvertimeGames !== null && (
+                <p className="page-subtitle">延長のあった{teamShotChartOvertimeGames}試合の、すべての延長のショットです。</p>
+              )}
               <div className="shot-chart-grid shot-chart-grid-single">
                 <ShotChartPanel
                   teamName={team.teamName}
