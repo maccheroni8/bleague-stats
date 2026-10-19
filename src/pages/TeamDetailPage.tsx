@@ -2808,7 +2808,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [scheduleTeamPerspective, setScheduleTeamPerspective] = usePageState<TeamPerspective>(pk("scheduleTeamPerspective"), "own");
   const [scheduleGameType, setScheduleGameType] = usePageState<SeasonGameTypeFilter>(pk("scheduleGameType"), "both");
   const [schedulePeriod, setSchedulePeriod] = usePageState<PeriodRangeValue>(pk("schedulePeriod"), "all");
-  const schedulePeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === schedulePeriod);
+  const schedulePeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === schedulePeriod);
   const [scheduleBoxTab, setScheduleBoxTab] = usePageState<BoxscoreTabKey | "periods">(pk("scheduleBoxTab"), "traditional");
 
   useEffect(() => {
@@ -3601,10 +3601,15 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「日程結果」タブのレギュラー/プレーオフ/合算トグル用: scheduleKey→TeamGameLogの引き当て
   // （未消化・進行中の試合はTeamGameLogが存在しないため「合算」選択時以外は自然に除外される）
   const gameLogsByScheduleKey = new Map((gameLogs ?? []).map((g) => [g.scheduleKey, g]));
-  const scheduleFilteredRows =
+  const scheduleGameTypeRows =
     scheduleGameType === "both"
       ? scheduleRows
       : scheduleRows.filter((row) => (gameLogsByScheduleKey.get(row.scheduleKey)?.gameType ?? row.gameType) === scheduleGameType);
+  // 延長（Periods 以外のカテゴリ）を選んだときは、延長のあった試合だけを出す（その試合数を添える）
+  const scheduleOvertimeOnly = schedulePeriod === "ot" && scheduleBoxTab !== "periods";
+  const scheduleFilteredRows = scheduleOvertimeOnly
+    ? scheduleGameTypeRows.filter((row) => (gameLogsByScheduleKey.get(row.scheduleKey)?.overtimes ?? 0) > 0)
+    : scheduleGameTypeRows;
   // 「日程結果」タブのカテゴリタブ用の列定義。試合詳細ページのボックススコアの列から、チームの表向けに Scoring の %系だけ直したもの
   // （%3PM〜%2PA は FGA に占める割合、%PTS・%FGM・%FGA・%FTM・%FTA は外す。teamBoxscoreColumns.ts。DESIGN.md 136章）
   // ファウルの列は、このシーズンが2026-27以降ならTF1・TF2・FLAG・DISR、それ以前ならUFOUL・TF（DESIGN.md 16-8章）
@@ -4089,7 +4094,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   disabledReason: scheduleBoxTab === "periods" ? "ラインスコアは自チームと相手の得点を並べて出すため、視点は選べません。" : undefined,
                 }),
                 gameTypeAxis(scheduleGameType, setScheduleGameType, season, { defaultValue: "both" }),
-                periodAxis(schedulePeriod, setSchedulePeriod, SEASON_BOX_PERIOD_OPTIONS, {
+                periodAxis(schedulePeriod, setSchedulePeriod, SEASON_PERIOD_OPTIONS, {
                   disabledReason: scheduleBoxTab === "periods" ? `${CATEGORY_LABELS.periods}は区間ごとに出すため、Q別・前後半は選べません。` : undefined,
                 }),
               ]}
@@ -4116,7 +4121,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             <ConditionTitle title={scheduleTitle.title} conditions={scheduleTitle.conditions} />
             {scheduleDataLoading && scheduleBoxTab !== "periods" && <p className="loading">読み込み中...</p>}
             {scheduleFilteredRows.length === 0 ? (
-              <p className="empty-message">該当する試合がありません</p>
+              <p className="empty-message">{scheduleOvertimeOnly ? "延長のあった試合はありません" : "該当する試合がありません"}</p>
             ) : scheduleBoxTab === "periods" ? (
               <>
                 <div className="table-scroll">
@@ -4202,6 +4207,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                   </tbody>
                 </table>
               </div>
+            )}
+            {scheduleOvertimeOnly && scheduleFilteredRows.length > 0 && (
+              <p className="page-subtitle">延長のあった試合（{scheduleFilteredRows.length}試合）だけを出しています。値はすべての延長の合計です。</p>
             )}
             {scheduleBoxTab === "misc" && scheduleFilteredRows.length > 0 && <RuleChangeFootnote seasons={[season]} />}
             <GlossaryNote
