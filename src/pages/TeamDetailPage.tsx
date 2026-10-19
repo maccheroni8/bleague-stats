@@ -157,7 +157,7 @@ import {
   teamRecordDetail,
   type TeamSeasonSpecialAggregate,
 } from "../../shared/teamRecords";
-import { formatTeamRecordDetail } from "../lib/teamGameRecords";
+import { TEAM_MARGIN_DEF, formatTeamRecordDetail, formatTeamRecordValue } from "../lib/teamGameRecords";
 import {
   seasonBoxColumnsFor,
   SEASON_BOX_PERIOD_OPTIONS,
@@ -2404,6 +2404,22 @@ export function TeamDetailPage({ season }: { season: string }) {
     );
   }, [clubRecordAllGames]);
 
+  // 最大得点差勝利・最大得点差敗戦（1試合。ランキングの「得失点差」と同じ値〔TEAM_MARGIN_DEF〕）。試合区分の選択に従う。
+  // 試合ログだけから出すので、結果だけの試合（スコアはあるがボックススコアが無い試合・不戦勝）は入らない（他のクラブレコードと同じ）。
+  // シーズン記録のワーストの「レギュラーシーズンが終わったシーズンだけ」は数を数える記録向けなので、1試合の記録には当てはめない
+  const clubMarginRecords = useMemo(() => {
+    const build = (kind: "win" | "loss") => {
+      const pool = clubRecordAllGames.filter((g) => (kind === "win" ? TEAM_MARGIN_DEF.value(g) > 0 : TEAM_MARGIN_DEF.value(g) < 0));
+      if (pool.length === 0) return null;
+      const values = pool.map((g) => TEAM_MARGIN_DEF.value(g));
+      const best = kind === "win" ? Math.max(...values) : Math.min(...values);
+      const [game, ...otherGames] = sortTiedGames(pool.filter((g) => TEAM_MARGIN_DEF.value(g) === best));
+      const topEntries = computeTopRecordEntries(pool, TEAM_MARGIN_DEF.value, kind === "loss");
+      return { game: game!, otherGames, topEntries, display: formatTeamRecordValue("margin", best) };
+    };
+    return { win: build("win"), loss: build("loss") };
+  }, [clubRecordAllGames]);
+
   // シーズン単位の特殊集計（最多勝利数・最多連勝）。既存のlongestWinStreak()をシーズンごとの
   // 試合ログに絞って呼ぶだけで「シーズン内」の記録になる（シーズンをまたいだ通算成績タブの
   // 最多連勝＝careerLongestWinStreakとは別の値）
@@ -4279,6 +4295,23 @@ export function TeamDetailPage({ season }: { season: string }) {
 
               <h3 className="career-highs-subheading">クラブレコード</h3>
               <div className="career-highs-grid">
+                {clubMarginRecords.win && (
+                  <ClubRecordCard
+                    recordKey="margin"
+                    tieKey="high:margin"
+                    label={statJa("最大得点差勝利", "team")}
+                    display={clubMarginRecords.win.display}
+                    game={clubMarginRecords.win.game}
+                    otherGames={clubMarginRecords.win.otherGames}
+                    expandedKeys={expandedClubRecordTieCards}
+                    onToggle={toggleClubRecordTieCard}
+                    topEntries={clubMarginRecords.win.topEntries}
+                    format={(v) => formatTeamRecordValue("margin", v)}
+                    topNExpandedKeys={expandedTopNRecordCards}
+                    onToggleTopN={toggleTopNRecordCard}
+                    showScore
+                  />
+                )}
                 {clubRecords.map((r) => (
                   <ClubRecordCard
                     key={r.key}
@@ -4302,6 +4335,23 @@ export function TeamDetailPage({ season }: { season: string }) {
 
               <h3 className="career-highs-subheading">クラブワースト</h3>
               <div className="career-highs-grid">
+                {clubMarginRecords.loss && (
+                  <ClubRecordCard
+                    recordKey="margin"
+                    tieKey="worst:margin"
+                    label={statJa("最大得点差敗戦", "team")}
+                    display={clubMarginRecords.loss.display}
+                    game={clubMarginRecords.loss.game}
+                    otherGames={clubMarginRecords.loss.otherGames}
+                    expandedKeys={expandedClubRecordTieCards}
+                    onToggle={toggleClubRecordTieCard}
+                    topEntries={clubMarginRecords.loss.topEntries}
+                    format={(v) => formatTeamRecordValue("margin", v)}
+                    topNExpandedKeys={expandedTopNRecordCards}
+                    onToggleTopN={toggleTopNRecordCard}
+                    showScore
+                  />
+                )}
                 {clubWorsts.map((r) => (
                   <ClubRecordCard
                     key={r.key}
@@ -5452,6 +5502,7 @@ function ClubRecordCard({
   fraction,
   topNExpandedKeys,
   onToggleTopN,
+  showScore = false,
 }: {
   /** 項目のキー（逆転勝利・逆転負け・最大のランは、最終スコアなどを添える） */
   recordKey: string;
@@ -5470,6 +5521,8 @@ function ClubRecordCard({
   fraction?: (g: TeamRecordGame) => readonly [number, number];
   topNExpandedKeys?: Set<string>;
   onToggleTopN?: (key: string) => void;
+  /** 試合の日付・対戦相手の後ろに、最終スコア（自チーム-相手）を添える */
+  showScore?: boolean;
 }) {
   const expanded = expandedKeys.has(tieKey);
   const topNExpanded = topNExpandedKeys?.has(tieKey) ?? false;
@@ -5479,6 +5532,7 @@ function ClubRecordCard({
     return d ? formatTeamRecordDetail(d, value) : null;
   };
   const firstDetail = detailOf(game, game.maxRun ?? 0);
+  const scoreOf = (g: TeamRecordGame) => (showScore ? `　${g.teamScore}-${g.opponentScore}` : "");
   return (
     <div className="career-high-card">
       {topNAvailable ? (
@@ -5500,6 +5554,7 @@ function ClubRecordCard({
       <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}`} className="career-high-game-link">
         {game.date}　{game.isHome ? "vs" : "@"}
         <ResponsiveTeamName teamId={game.opponentTeamId} name={game.opponentTeamName} always />
+        {scoreOf(game)}
       </RouterLink>
       {firstDetail && <div>{firstDetail}</div>}
       {otherGames.length > 0 && (
@@ -5514,6 +5569,7 @@ function ClubRecordCard({
                   <RouterLink to={`/games/${g.scheduleKey}?season=${g.season}`} className="career-high-game-link">
                     {g.date}　{g.isHome ? "vs" : "@"}
                     <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always />
+                    {scoreOf(g)}
                   </RouterLink>
                   {detailOf(g, g.maxRun ?? 0) && <div>{detailOf(g, g.maxRun ?? 0)}</div>}
                 </li>
@@ -5535,6 +5591,7 @@ function ClubRecordCard({
                   <RouterLink to={`/games/${e.game.scheduleKey}?season=${e.game.season}`} className="career-high-game-link">
                     <span className="record-date-nowrap">{e.game.date}</span>　{e.game.isHome ? "vs" : "@"}
                     <ResponsiveTeamName teamId={e.game.opponentTeamId} name={e.game.opponentTeamName} always />
+                    {scoreOf(e.game)}
                   </RouterLink>
                   {detailOf(e.game, e.value) && <div>{detailOf(e.game, e.value)}</div>}
                 </td>
