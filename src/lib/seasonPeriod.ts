@@ -275,6 +275,29 @@ export function useSeasonPeriodSources(
 }
 
 /**
+ * 1人の選手の、ある範囲の試合（logs）の区間の値から、シーズン成績の表の1行分（ctx）を作る。
+ * 行の分け方（所属チーム別・対戦相手別など）は呼び出し側が決め、その1行に入る試合だけを渡す
+ * （チーム詳細の選手スタッツ・個人詳細のシーズン別成績／シチュエーション別成績・選手詳細の対戦相手別で使い回す）。
+ * 区間の値がある試合（延長は延長に出た試合）が1つも無いとき・索引が読めていないときは null（その行を出さない）
+ */
+export function buildPeriodCtxForLogs(
+  logs: readonly PlayerGameLog[],
+  playerId: string,
+  period: PeriodRangeValue,
+  source: SeasonPeriodSource | null | undefined,
+  displayMode: SeasonDisplayMode,
+  seasonStartYear: number,
+): SeasonBoxscoreCtx | null {
+  if (!source) return null;
+  const contributions = logs
+    .map((log) => seasonPeriodTotalsOf(source, playerId, log.scheduleKey, log.isHome, period))
+    .filter((c): c is GamePeriodTotals => c !== null);
+  if (contributions.length === 0) return null;
+  const { raw, team } = buildPeriodFilteredRawTotals(contributions);
+  return buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear);
+}
+
+/**
  * buildTeamSplitRowsForPeriod（playerSeasonBoxscore.ts。保存キーの対象なので変えない）の、索引版。
  * 「試合」のときは buildTeamSplitRows にそのまま任せ、区間のときは試合ごとに seasonPeriodTotalsOf の値を合算する。行の分け方（所属チームごと＋「複数チーム」）は同じ
  */
@@ -296,10 +319,6 @@ export function buildTeamSplitRowsFromPeriodSource(
   const played = logs.filter((g) => g.min > 0);
   if (played.length === 0 || !source) return [];
 
-  const contributionsOf = (teamLogs: PlayerGameLog[]) =>
-    teamLogs
-      .map((log) => seasonPeriodTotalsOf(source, playerId, log.scheduleKey, log.isHome, period))
-      .filter((c): c is GamePeriodTotals => c !== null);
   // 延長は、延長に出た試合が無い行を出さない（行の試合数が0になるため）
   const byTeam = new Map<string, { teamName: string; logs: PlayerGameLog[] }>();
   for (const log of played) {
@@ -313,19 +332,16 @@ export function buildTeamSplitRowsFromPeriodSource(
     entry.logs.push(log);
   }
   const labelFor = (id: string, teamName: string) => (id === "unknown" ? "-" : teamShortName(id, teamName));
-  const ctxOf = (contributions: GamePeriodTotals[]): SeasonBoxscoreCtx => {
-    const { raw, team } = buildPeriodFilteredRawTotals(contributions);
-    return buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear);
-  };
+  const ctxOf = (teamLogs: PlayerGameLog[]) => buildPeriodCtxForLogs(teamLogs, playerId, period, source, displayMode, seasonStartYear);
   const teamRows = [...byTeam].flatMap(([id, entry]) => {
-    const contributions = contributionsOf(entry.logs);
-    if (contributions.length === 0) return [];
-    return [{ key: `${keyPrefix}|${id}`, teamId: id === "unknown" ? null : id, teamLabel: labelFor(id, entry.teamName), ctx: ctxOf(contributions), logs: entry.logs, isCombined: false }];
+    const ctx = ctxOf(entry.logs);
+    if (!ctx) return [];
+    return [{ key: `${keyPrefix}|${id}`, teamId: id === "unknown" ? null : id, teamLabel: labelFor(id, entry.teamName), ctx, logs: entry.logs, isCombined: false }];
   });
   if (byTeam.size === 1) return teamRows;
-  const all = contributionsOf(played);
-  if (all.length === 0) return [];
-  return [...teamRows, { key: `${keyPrefix}|combined`, teamId: null, teamLabel: "複数チーム", ctx: ctxOf(all), logs: played, isCombined: true }];
+  const all = ctxOf(played);
+  if (!all) return [];
+  return [...teamRows, { key: `${keyPrefix}|combined`, teamId: null, teamLabel: "複数チーム", ctx: all, logs: played, isCombined: true }];
 }
 
 /** 複数の試合の区間の値を合算した raw（シーズン別成績の通算行など）。読めていないシーズンの試合は数えない */

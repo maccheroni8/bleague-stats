@@ -102,7 +102,15 @@ import { TeamLineupOnCourtSummary } from "../components/TeamLineupOnCourtSummary
 import { lineupBucket, lineupForeignCount, lineupSeasonTotals, seasonOnCourtSummary, seasonOnCourtSummaryFromDetail } from "../lib/teamLineupOnCourt";
 import { useTeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
 import { sumForeignDetail, type ForeignPeriodValue } from "../lib/teamForeignCourt";
-import { SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, hasShortGameSeason, seasonPeriodOption } from "../lib/seasonPeriod";
+import {
+  OVERTIME_GAMES_NOTE,
+  SEASON_PERIOD_OPTIONS,
+  SHORT_GAMES_PERIOD_NOTE,
+  buildTeamSplitRowsFromPeriodSource,
+  hasShortGameSeason,
+  seasonPeriodOption,
+  useSeasonPeriodSources,
+} from "../lib/seasonPeriod";
 import { substitutionModelForSeason } from "../../shared/onCourt";
 import {
   buildBackToBackStatus,
@@ -160,12 +168,10 @@ import {
 import { TEAM_MARGIN_DEF, formatTeamRecordDetail, formatTeamRecordValue } from "../lib/teamGameRecords";
 import {
   seasonBoxColumnsFor,
-  SEASON_BOX_PERIOD_OPTIONS,
   SEASON_BOX_TABS,
   buildTeamGameBoxTotals,
   buildTeamMultiGameBoxTotals,
   buildTeamPointsBreakdown,
-  buildTeamSplitRowsForPeriod,
   countDoubleTripleDoubles,
   filterByGameType,
   sumTeamGameLogsFor,
@@ -2944,15 +2950,14 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [playerStatsCandidates, setPlayerStatsCandidates] = useState<PlayerStatsCandidate[] | null>(null);
   const [playerStatsCandidatesLoading, setPlayerStatsCandidatesLoading] = useState(false);
   const [playerStatsGameType, setPlayerStatsGameType] = usePageState<SeasonGameTypeFilter>(pk("playerStatsGameType"), "regular");
-  // 「選手スタッツ」タブの平均/合計トグル。ctx.scaledがbuildTeamSplitRowsForPeriod呼び出し時の
+  // 「選手スタッツ」タブの平均/合計トグル。ctx.scaledがbuildTeamSplitRowsFromPeriodSource呼び出し時の
   // modeで確定するため、render時にcol.format(ctx, mode)へ渡すだけでは反映されない
   // （SeasonBoxscoreCtx.scaledは構築時に1回だけ計算される）。playerStatsRowsのuseMemo側で
   // このstateを使ってctxを再構築する必要があるため、TeamPlayerStatsTable内のローカルstateでは
   // なく親コンポーネントで持つ
   const [playerStatsDisplayMode, setPlayerStatsDisplayMode] = usePageState<SeasonDisplayMode>(pk("playerStatsDisplayMode"), "perGame");
-  // Q別/前後半トグル（既存のbuildPeriodRangeOptionsをOT無しで固定した共通オプション）。
-  // 「試合」選択時は追加取得不要（既存のTeamGameLog/PlayerGameLog永続集計をそのまま使う）だが、
-  // Q別/前後半選択時のみ、必要な試合の生データ（PlayByPlays込み）を遅延取得する
+  // Q別・前後半・延長トグル。「試合」選択時は追加取得不要（既存のTeamGameLog/PlayerGameLog永続集計をそのまま使う）。
+  // 区間を選んだときだけ、選手のピリオド別の索引（1シーズン1ファイル）を読む
   const [playerStatsPeriod, setPlayerStatsPeriod] = usePageState<PeriodRangeValue>(pk("playerStatsPeriod"), "all");
   // シチュエーション別フィルタ（シーズン全体/直近N試合/勝敗別/期間指定/ホーム・アウェイ/
   // 対東西地区/月別/年明け前後/平日開催/対勝率別）。FilterBar（situationalAxes）で
@@ -2960,10 +2965,17 @@ export function TeamDetailPage({ season }: { season: string }) {
   // プレーオフ/合算は既存のplayerStatsGameType（3値トグル）に一本化するため、
   // filterGameLogsへは常にincludePlayoffs: trueを渡す（比較タブ・43章と同じパターン）
   const [playerStatsFilter, setPlayerStatsFilter] = usePageState<SituationalFilter>(pk("playerStatsFilter"), { range: { kind: "all" } });
-  const playerStatsRawGamesRequestedRef = useRef<Set<string>>(new Set());
-  const [playerStatsRawGames, setPlayerStatsRawGames] = useState<Map<string, StoredGame>>(new Map());
-  const [playerStatsRawGamesLoading, setPlayerStatsRawGamesLoading] = useState(false);
-  const playerStatsPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === playerStatsPeriod);
+  const playerStatsPeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === playerStatsPeriod);
+  // 区間（Q別・前後半・延長）は、試合の生データではなく選手のピリオド別の索引から出す（個人詳細・ランキングの同じ区間と同じ値。DESIGN.md 273章）。
+  // シューティングは区間の対象外なので、そのタブでは試合全体の行を使う
+  const playerStatsPeriod2: PeriodRangeValue =
+    playerStatsBoxTab === "shooting" || !playerStatsPeriodOption?.periods ? "all" : playerStatsPeriodOption.value;
+  const {
+    sources: playerStatsPeriodSources,
+    loading: playerStatsPeriodLoading,
+    failedSeasons: playerStatsPeriodFailed,
+    retry: retryPlayerStatsPeriod,
+  } = useSeasonPeriodSources([season], tab === "playerStats" && playerStatsPeriod2 !== "all");
 
   // 切り替え直後、新しいデータの取得完了を待つ間に前のシーズン・チームの候補を出し続けないよう破棄する。
   // fetchKeyも消しておく（消さないと、別タブにいる間に A→B→A と戻った場合に「取得済み」と
@@ -2985,8 +2997,6 @@ export function TeamDetailPage({ season }: { season: string }) {
     playerStatsCandidatesFetchKeyRef.current = fetchKey;
     setPlayerStatsCandidatesLoading(true);
     setPlayerStatsCandidates(null);
-    setPlayerStatsRawGames(new Map());
-    playerStatsRawGamesRequestedRef.current = new Set();
     const candidateIds = [...new Set(lineupsFile.lineups.flatMap((l) => l.playerIds))];
     const gameTeams = buildGameTeamsByScheduleKey(summaries);
     Promise.all(
@@ -3016,41 +3026,10 @@ export function TeamDetailPage({ season }: { season: string }) {
       });
   }, [tab, teamId, season, pbpSupported, lineupsFile, summaries, summariesSeason]);
 
-  // Q別/前後半選択時のみ、このチームに関係する試合（候補選手の誰かがこのチーム所属として
-  // 出場した試合）の生データを遅延取得する。同じチームの選手はほぼ同じ試合群を共有するため、
-  // scheduleKey単位で重複排除すれば選手数に関わらずチームの試合数分（〜60試合程度）で済む
-  useEffect(() => {
-    if (!playerStatsPeriodOption || playerStatsPeriodOption.periods === null || !playerStatsCandidates || !teamId) return;
-    const neededKeys = new Set<string>();
-    for (const c of playerStatsCandidates) {
-      for (const [scheduleKey, own] of c.ownTeamByScheduleKey) {
-        if (own.teamId === teamId && !playerStatsRawGamesRequestedRef.current.has(scheduleKey)) neededKeys.add(scheduleKey);
-      }
-    }
-    if (neededKeys.size === 0) return;
-    for (const k of neededKeys) playerStatsRawGamesRequestedRef.current.add(k);
-    setPlayerStatsRawGamesLoading(true);
-    Promise.all(
-      [...neededKeys].map(async (scheduleKey) => {
-        try {
-          return [scheduleKey, await fetchGame(season, scheduleKey)] as const;
-        } catch {
-          return null;
-        }
-      }),
-    )
-      .then((results) => {
-        setPlayerStatsRawGames((prev) => {
-          const next = new Map(prev);
-          for (const r of results) if (r) next.set(r[0], r[1]);
-          return next;
-        });
-      })
-      .finally(() => setPlayerStatsRawGamesLoading(false));
-  }, [playerStatsPeriodOption, playerStatsCandidates, teamId, season]);
-
   const playerStatsRows = useMemo((): TeamPlayerStatsRow[] | null => {
     if (!playerStatsCandidates || !players || !gameLogs || !teamId) return null;
+    // 区間の索引を読み込んでいる間は、行を出さず「読み込み中」にする（読めなかったときは行が無いまま、親が理由を出す）
+    if (playerStatsPeriod2 !== "all" && !playerStatsPeriodSources.has(season)) return null;
     const seasonStartYear = Number(season.split("-")[0]);
     const playerById = new Map(players.map((p) => [p.playerId, p]));
     const rows: TeamPlayerStatsRow[] = [];
@@ -3071,7 +3050,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       );
       if (scheduleKeys.size === 0) continue;
       const teamTotals = sumTeamGameLogsFor(gameLogs, scheduleKeys);
-      const splitRows = buildTeamSplitRowsForPeriod(
+      const splitRows = buildTeamSplitRowsFromPeriodSource(
         c.playerId,
         situationalFilteredLogs,
         c.ownTeamByScheduleKey,
@@ -3079,8 +3058,8 @@ export function TeamDetailPage({ season }: { season: string }) {
         playerStatsDisplayMode,
         seasonStartYear,
         c.playerId,
-        playerStatsPeriodOption,
-        playerStatsRawGames,
+        playerStatsPeriod2,
+        playerStatsPeriodSources.get(season),
       );
       const row = splitRows.find((r) => r.teamId === teamId);
       const player = playerById.get(c.playerId);
@@ -3099,8 +3078,8 @@ export function TeamDetailPage({ season }: { season: string }) {
     opponentRecords,
     divisionHistory,
     playerStatsDisplayMode,
-    playerStatsPeriodOption,
-    playerStatsRawGames,
+    playerStatsPeriod2,
+    playerStatsPeriodSources,
   ]);
 
   // 「スタメン平均」見出しに追記する、当該シーズン（レギュラーシーズンのみ、avgHeightCm等と
@@ -3736,7 +3715,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const playerStatsFilterAxes: FilterAxis[] = [
     gameTypeAxis(playerStatsGameType, setPlayerStatsGameType, season),
     displayModeAxis(playerStatsDisplayMode, setPlayerStatsDisplayMode),
-    periodAxis(playerStatsPeriod, setPlayerStatsPeriod, SEASON_BOX_PERIOD_OPTIONS, {
+    periodAxis(playerStatsPeriod, setPlayerStatsPeriod, SEASON_PERIOD_OPTIONS, {
       disabledReason: playerStatsShooting ? `${CATEGORY_LABELS.shooting}はQ別/前後半の対象外です。` : undefined,
     }),
     ...situationalAxes(playerStatsFilter, setPlayerStatsFilter, {
@@ -5027,7 +5006,15 @@ export function TeamDetailPage({ season }: { season: string }) {
           ) : (
             <>
               <FilterBar axes={playerStatsFilterAxes} stateKey={pk("playerStatsFilter")} onClearAll={clearPlayerStatsFilters} />
-              {playerStatsRawGamesLoading && <p className="loading">この期間の再集計中...</p>}
+              {playerStatsPeriodLoading && <p className="loading">この期間の再集計中...</p>}
+              {playerStatsPeriodFailed.length > 0 && (
+                <p className="empty-message">
+                  Q別・前後半・延長のデータを読み込めませんでした{" "}
+                  <button type="button" onClick={retryPlayerStatsPeriod}>
+                    再読み込み
+                  </button>
+                </p>
+              )}
               {playerStatsCandidatesLoading || !playerStatsRows ? (
                 <p className="loading">読み込み中...</p>
               ) : (
@@ -5038,6 +5025,11 @@ export function TeamDetailPage({ season }: { season: string }) {
                   pageTeamId={teamId ?? ""}
                   displayMode={playerStatsDisplayMode}
                   periodSelected={!!playerStatsPeriodOption && playerStatsPeriodOption.periods !== null}
+                  emptyMessage={
+                    playerStatsPeriod2 === "ot" && !playerStatsPeriodLoading && playerStatsPeriodFailed.length === 0
+                      ? "延長のあった試合はありません"
+                      : undefined
+                  }
                   activeTab={playerStatsBoxTab}
                   onTabChange={setPlayerStatsBoxTab}
                   teamYahooPbp={teamYahooPbp}
@@ -5045,6 +5037,12 @@ export function TeamDetailPage({ season }: { season: string }) {
                   foulSplit={foulSplit}
                   season={season}
                 />
+                {playerStatsRows.length > 0 && playerStatsPeriod2 === "ot" && <p className="page-subtitle">{OVERTIME_GAMES_NOTE}</p>}
+                {playerStatsRows.length > 0 &&
+                  playerStatsPeriod2 !== "all" &&
+                  playerStatsPeriod2 !== "ot" &&
+                  playerStatsGameType !== "regular" &&
+                  hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
                 {playerStatsRows.length > 0 && <HeightWeightNote players={players} />}
                 {playerStatsBoxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
                 </>
@@ -5766,7 +5764,7 @@ interface TeamPlayerStatsRow {
 /**
  * 「選手スタッツ」タブ: 選択中シーズンに一度でもこのチームでプレーした選手の一覧
  * （シーズン内移籍選手は移籍前後どちらのチームでも、そのチーム在籍分のみのスタッツで表示する。
- * 集計自体は個人詳細ページ「シーズン別成績」と同じbuildTeamSplitRowsForPeriodを再利用し、
+ * 集計自体は個人詳細ページ「シーズン別成績」と同じbuildTeamSplitRowsFromPeriodSource（選手のピリオド別の索引から）を再利用し、
  * 対象チームの行だけを抽出している。呼び出し元のfetch・行構築ロジック参照）。カテゴリタブ切り替え・
  * 列ヘッダーソートは個人詳細ページのSeasonBreakdownTableと同じ方式を踏襲する。
  * レギュラー/プレーオフ/合算・Q別/前後半・表示は親のFilterBarで選ぶ
@@ -5776,6 +5774,7 @@ function TeamPlayerStatsTable({
   pageTeamId,
   displayMode,
   periodSelected,
+  emptyMessage,
   activeTab: controlledActiveTab,
   onTabChange,
   teamYahooPbp,
@@ -5791,6 +5790,8 @@ function TeamPlayerStatsTable({
   foulSplit: boolean;
   /** Q別/前後半を選んでいる。DD2・TD3 は試合全体の記録でしか判定できないため「-」にする（DESIGN.md 180章） */
   periodSelected: boolean;
+  /** 行が無いときの文言（未指定は「選手スタッツがありません」） */
+  emptyMessage?: string;
   /** 試合種別・表示・Q別/前後半・S軸は親のFilterBarで選ぶ（このコンポーネントは表示モードを読むだけ） */
   displayMode: SeasonDisplayMode;
   /** カテゴリタブ（シューティングを含む）を外部から制御する（BoxscoreTable.tsxのactiveTab/
@@ -5877,7 +5878,7 @@ function TeamPlayerStatsTable({
   return (
     <>
       {rows.length === 0 ? (
-        <p className="empty-message">選手スタッツがありません</p>
+        <p className="empty-message">{emptyMessage ?? "選手スタッツがありません"}</p>
       ) : (
         <>
           <div className="tab-bar">
