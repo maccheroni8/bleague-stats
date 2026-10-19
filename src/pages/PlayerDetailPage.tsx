@@ -91,7 +91,7 @@ import { computeGameOnOffSplit, mergeOnOffSplits, type OnOffBucket, type OnOffSp
 import { buildShotTypeBreakdown, shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
-import { periodInRange, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
+import { periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { safeDiv, eff, efgPct, tsPct } from "../../shared/formulas";
@@ -695,21 +695,6 @@ function formatBirthDate(date: string): string {
 }
 
 
-// シーズン集計ショットチャートのQ別/前後半トグル用の固定オプション。試合詳細ページの
-// buildPeriodRangeOptions()は1試合のOT数に応じて動的に組み立てるが、シーズン合計では
-// 試合ごとにOT数が異なりうるため、5〜9（最大4OTまで）を一括で「OT」として扱う固定表にする
-// （複数OTの試合自体が低頻度事象であることは既存のDESIGN.md記載の通り）
-const SEASON_SHOT_CHART_PERIOD_OPTIONS: PeriodRangeOption[] = [
-  { value: "all", label: "試合", periods: null },
-  { value: "q1", label: "1Q", periods: [1] },
-  { value: "q2", label: "2Q", periods: [2] },
-  { value: "q3", label: "3Q", periods: [3] },
-  { value: "q4", label: "4Q", periods: [4] },
-  { value: "ot1", label: "OT", periods: [5, 6, 7, 8, 9] },
-  { value: "h1", label: "前半", periods: [1, 2] },
-  { value: "h2", label: "後半", periods: [3, 4, 5, 6, 7, 8, 9] },
-];
-
 const SHOOTING_TAB_TOOLTIP =
   "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（2023-24シーズン以降のみ）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意";
 
@@ -1076,7 +1061,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     return [...byId.entries()].map(([teamId, teamName]) => ({ teamId, label: teamShortName(teamId, teamName) }));
   }, [shotChartOwnTeamByScheduleKey]);
 
-  const shotChartPeriodOption = SEASON_SHOT_CHART_PERIOD_OPTIONS.find((o) => o.value === shotChartPeriod);
+  const shotChartPeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === shotChartPeriod);
   const filteredSeasonShotEvents = useMemo(() => {
     if (!seasonShotGameData) return [];
     return seasonShotGameData
@@ -2250,7 +2235,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       opponentWinRateSupported: !!shotChartGameSummaries,
       ownTeamDivisionSupported: !!divisionHistory && !!shotChartGameSummaries,
     }).map((a): FilterAxis => (a.id === "s.result" ? { ...a, tier: "primary" } : a)),
-    periodAxis(shotChartPeriod, setShotChartPeriod, SEASON_SHOT_CHART_PERIOD_OPTIONS),
+    periodAxis(shotChartPeriod, setShotChartPeriod, SEASON_PERIOD_OPTIONS),
   ];
   const clearShotChartFilters = () => {
     setShotChartFilters({});
@@ -2916,6 +2901,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
           ) : (
             <>
               <FilterBar axes={shotChartFilterAxes} stateKey={pk("shotChartFilter")} onClearAll={clearShotChartFilters} />
+              {shotChartPeriod === "ot" && filteredSeasonShotEvents.length === 0 && (
+                <p className="empty-message">延長に出た試合のショットがありません</p>
+              )}
               <div className="shot-chart-grid shot-chart-grid-single">
                 <ShotChartPanel
                   teamName={player.name}

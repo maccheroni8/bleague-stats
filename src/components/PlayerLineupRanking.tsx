@@ -20,7 +20,6 @@ import {
   LINEUP_UNSUPPORTED_REASON,
   lineupSeasonSupported,
   lineupValue,
-  maxPeriodOfStints,
   netRatingError,
   onOffDiffError,
   applyLineupThreshold,
@@ -33,7 +32,7 @@ import {
 } from "../lib/lineupRanking";
 import { statJa } from "../lib/statNames";
 import { LINEUP_METRIC_PARAM, LINEUP_PERIOD_PARAM, LINEUP_RANGE_PARAM, LINEUP_UNIT_PARAM, lineupShareParam } from "../lib/lineupParams";
-import { buildPeriodRangeOptions } from "../lib/periodRange";
+import { SEASON_PERIOD_OPTIONS } from "../lib/seasonPeriod";
 import { ROOKIE_NOTE } from "../lib/rookieFilter";
 import { useNarrow } from "../lib/teamLabel";
 import { lineupCareerSeasons, useLineupData } from "../lib/useLineupData";
@@ -174,8 +173,8 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   // 通算は、選手名を今の登録名にそろえる
   const current = useCurrentPlayerNames(allTime);
 
-  const maxPeriod = useMemo(() => (lineup.data ? maxPeriodOfStints(lineup.data) : 4), [lineup.data]);
-  const periodOptions = useMemo(() => buildPeriodRangeOptions(maxPeriod), [maxPeriod]);
+  // 区間は1Q〜4Q・前半・後半・延長（すべての延長の合計。第1延長・第2延長は分けない。DESIGN.md 273章）
+  const periodOptions = SEASON_PERIOD_OPTIONS;
   const periodOption = periodOptions.find((o) => o.value === periodValue) ?? periodOptions[0]!;
 
   // 行を作る計算は重い（通算の3人組は数秒）。下限だけを変えるときは作り直さず、作った行に当てはめる。
@@ -357,7 +356,10 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
           <progress className="lineup-progress" value={total > 0 ? done : undefined} max={total > 0 ? total : undefined} aria-label="読み込みの進み具合" />
         </div>
       ) : rows.length === 0 ? (
-        <p className="empty-message">この条件の記録がありません（ポゼッションの下限を下げると、増えることがあります）</p>
+        <p className="empty-message">
+          この条件の記録がありません（ポゼッションの下限を下げると、増えることがあります）
+          {periodOption.value === "ot" && `。延長はポゼッションが少なく、${LINEUP_MIN_POSSESSIONS}ポゼッション以上の基準を満たす選手・組がほとんど無いため、行が出ないことがあります`}
+        </p>
       ) : (
         <>
           <ExportImageButton
@@ -425,6 +427,11 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                   : `※ 同じチームの${unit === "duo" ? "2人" : "3人"}が同時にコートにいた間の値です。実際に同時に出た組だけが対象で、登録区分・ポジション・現役・ルーキーの絞り込みは、組の全員が当てはまる組だけを表示します。`}
                 ORtgは自チームの100ポゼッションあたりの得点、DRtgは相手の100ポゼッションあたりの得点（低いほど守備が良い）、NetRtgはその差です。チーム詳細のラインナップ検索と同じ数え方です。
               </p>
+              {periodOption.value === "ot" && (
+                <p className="rule-change-footnote">
+                  ※ 延長は、すべての延長の合計です。延長はポゼッションが少なく、{LINEUP_MIN_POSSESSIONS}ポゼッション以上の基準を満たす選手・組がほとんど無いため、行が少ない（出ない）ことがあります。
+                </p>
+              )}
               <p className="rule-change-footnote export-hide">
                 ※ 移籍した選手は、チームごとに別の行です。
                 {allTime ? "通算は、同じチームの記録をシーズンをまたいで足しています。" : ""}

@@ -4,8 +4,9 @@ import { seasonGameTypeLabels, SEASON_GAME_TYPE_KEYS, type SeasonGameTypeFilter 
 import { composeLabels, gameTypeLabels, periodLabels } from "../lib/conditionLabels";
 import { formatDecimal, formatSigned } from "../lib/format";
 import { formatMinutesColon, formatSignedMinutesColon } from "../lib/minutesFormat";
-import { lineupSearchRow, maxPeriodOf, playerSecondsOf, searchLineup, type LineupSearchRow } from "../lib/lineupSearch";
-import { buildPeriodRangeOptions, type PeriodRangeValue } from "../lib/periodRange";
+import { lineupSearchRow, playerSecondsOf, searchLineup, type LineupSearchRow } from "../lib/lineupSearch";
+import type { PeriodRangeValue } from "../lib/periodRange";
+import { SEASON_PERIOD_OPTIONS } from "../lib/seasonPeriod";
 import { usePageState } from "../lib/pageStateCache";
 import { statDescription } from "../lib/statDescriptions";
 import { useNarrow } from "../lib/teamLabel";
@@ -62,7 +63,8 @@ export function LineupSearch({ season, teamId, playerNameById, games, stateKey, 
   }, [file]);
   const selected = selectedRaw.filter((id) => candidates.includes(id));
 
-  const periodOptions = useMemo(() => (file ? buildPeriodRangeOptions(maxPeriodOf(file)) : buildPeriodRangeOptions(4)), [file]);
+  // 区間は1Q〜4Q・前半・後半・延長（すべての延長の合計。第1延長・第2延長は分けない。DESIGN.md 273章）
+  const periodOptions = SEASON_PERIOD_OPTIONS;
   const periodOption = periodOptions.find((o) => o.value === periodValue) ?? periodOptions[0]!;
 
   const gameInfo = useMemo(() => new Map(games.map((g) => [g.scheduleKey, g])), [games]);
