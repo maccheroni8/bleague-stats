@@ -4396,7 +4396,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               <GlossaryNote anchor={GLOSSARY_ANCHORS.records} label="クラブレコード" scope={`${careerData[0]?.season}〜${careerData[careerData.length - 1]?.season}シーズンの中での1試合の最高／最低記録です。`} />
 
               <h3 className="career-highs-subheading">クォーター別レコード</h3>
-              <ClubPeriodRecords games={clubRecordAllGames} stateKey={pk("periodRecords")} />
+              <ClubPeriodRecords games={clubRecordAllGames} stateKey={pk("periodRecords")} wholeGame />
               <GlossaryNote anchor={GLOSSARY_ANCHORS.periodRecords} label="クォーター別レコード" />
             </>
           )}

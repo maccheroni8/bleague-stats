@@ -21,12 +21,15 @@ import { statDescription } from "../lib/statDescriptions";
 import { useJsonData } from "../lib/useJsonData";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { StatHeaderLabel } from "./StatHeaderLabel";
+import { WHOLE_GAME_KEY, WHOLE_GAME_LABEL, rankWholeGames } from "../lib/wholeGameRecords";
 
 /**
  * クォーター別・前後半別・延長の記録と1試合平均（チーム詳細「クラブレコード」「通算成績」。DESIGN.md 143章・256章）。1Q〜後半は延長戦を含めない。延長はすべての延長の合計
  */
 
 type RecordGame = TeamGameLog & { season: string };
+
+type RowKey = PeriodKey | typeof WHOLE_GAME_KEY;
 
 /** 上位10位（同じ記録はすべて）のうち、最初に出す件数。これを超える分は「ほか◯試合」にまとめ、「すべて表示」で開く */
 const TOP_RANK = 10;
@@ -57,6 +60,7 @@ export function ClubPeriodRecords<G extends RecordGame>({
   mode: controlledMode,
   teamLabel,
   linkFor,
+  wholeGame = false,
 }: {
   games: G[];
   stateKey: string;
@@ -66,19 +70,24 @@ export function ClubPeriodRecords<G extends RecordGame>({
   teamLabel?: (g: G) => ReactNode;
   /** 指定時、表のマスを押すと展開するのではなく、その区間・記録のランキングページへ移る（チーム全体「記録」のシーズン。DESIGN.md 191章） */
   linkFor?: (period: PeriodKey, kind: PeriodRecordKind) => string;
+  /** 先頭に「試合全体」の行（最終スコア・延長を含む）を足す（チーム詳細のクラブレコード） */
+  wholeGame?: boolean;
 }) {
   const [ownMode, setMode] = usePageState<"record" | "worst">(`${stateKey}:mode`, "record");
   const mode = controlledMode ?? ownMode;
-  const [selected, setSelected] = usePageState<{ period: PeriodKey; kind: PeriodRecordKind } | null>(`${stateKey}:selected`, null);
+  const [selected, setSelected] = usePageState<{ period: RowKey; kind: PeriodRecordKind } | null>(`${stateKey}:selected`, null);
   const [showAll, setShowAll] = usePageState(`${stateKey}:showAll`, false);
   const narrow = useMediaQuery("(max-width: 560px)");
   const kinds = PERIOD_RECORD_KINDS.filter((k) => k.mode === mode);
   const selectedKind = selected && kinds.some((k) => k.key === selected.kind) ? selected : null;
 
+  const rowKeys: RowKey[] = wholeGame ? [WHOLE_GAME_KEY, ...PERIOD_KEYS] : PERIOD_KEYS;
+  const rowLabel = (r: RowKey) => (r === WHOLE_GAME_KEY ? WHOLE_GAME_LABEL : PERIOD_LABELS[r]);
   const ranked = new Map<string, RankedPeriodGame<G>[]>();
-  for (const period of PERIOD_KEYS) for (const k of kinds) ranked.set(`${period}:${k.key}`, rankPeriodGames(games, period, k.key));
+  for (const period of rowKeys)
+    for (const k of kinds) ranked.set(`${period}:${k.key}`, period === WHOLE_GAME_KEY ? rankWholeGames(games, k.key) : rankPeriodGames(games, period, k.key));
 
-  const select = (period: PeriodKey, kind: PeriodRecordKind) => {
+  const select = (period: RowKey, kind: PeriodRecordKind) => {
     setSelected((prev) => (prev && prev.period === period && prev.kind === kind ? null : { period, kind }));
     setShowAll(false);
   };
@@ -87,7 +96,7 @@ export function ClubPeriodRecords<G extends RecordGame>({
   const visibleRows = showAll ? topRows : topRows.slice(0, COLLAPSED_ROWS);
   const hiddenCount = topRows.length - visibleRows.length;
   const selectedLabel = selectedKind
-    ? `${PERIOD_LABELS[selectedKind.period]} ${PERIOD_RECORD_KINDS.find((k) => k.key === selectedKind.kind)!.label}`
+    ? `${rowLabel(selectedKind.period)} ${PERIOD_RECORD_KINDS.find((k) => k.key === selectedKind.kind)!.label}`
     : null;
 
   return (
@@ -125,9 +134,9 @@ export function ClubPeriodRecords<G extends RecordGame>({
             </tr>
           </thead>
           <tbody>
-            {PERIOD_KEYS.map((period) => (
+            {rowKeys.map((period) => (
               <tr key={period}>
-                <td className="align-left period-records-period">{PERIOD_LABELS[period]}</td>
+                <td className="align-left period-records-period">{rowLabel(period)}</td>
                 {kinds.map((k) => {
                   const list = ranked.get(`${period}:${k.key}`) ?? [];
                   const best = list[0];
@@ -137,7 +146,7 @@ export function ClubPeriodRecords<G extends RecordGame>({
                     <td key={k.key} className="align-left">
                       {best ? (
                         linkFor ? (
-                          <RouterLink to={linkFor(period, k.key)} className="period-records-cell">
+                          <RouterLink to={linkFor(period as PeriodKey, k.key)} className="period-records-cell">
                           <span className="period-records-value">
                             {formatRecordValue(k.key, best.value)}
                             {best.score.fromPbp && <span title={PBP_NOTE}>※</span>}
@@ -184,9 +193,11 @@ export function ClubPeriodRecords<G extends RecordGame>({
                   <th className="align-right" title={statDescription(PERIOD_RECORD_KINDS.find((k) => k.key === selectedKind.kind)!.label, "team")}>
                     記録
                   </th>
-                  <th className="align-right" title={statDescription("区間のスコア", "team")}>
-                    区間のスコア
-                  </th>
+                  {selectedKind.period !== WHOLE_GAME_KEY && (
+                    <th className="align-right" title={statDescription("区間のスコア", "team")}>
+                      区間のスコア
+                    </th>
+                  )}
                   <th className="align-right" title={statDescription("最終スコア", "team")}>
                     最終スコア
                   </th>
@@ -201,9 +212,11 @@ export function ClubPeriodRecords<G extends RecordGame>({
                       {formatRecordValue(selectedKind.kind, r.value)}
                       {r.score.fromPbp && <span title={PBP_NOTE}>※</span>}
                     </td>
-                    <td className="align-right">
-                      {r.score.pts}-{r.score.oppPts}
-                    </td>
+                    {selectedKind.period !== WHOLE_GAME_KEY && (
+                      <td className="align-right">
+                        {r.score.pts}-{r.score.oppPts}
+                      </td>
+                    )}
                     <td className="align-right">
                       {r.game.teamScore}-{r.game.opponentScore}
                     </td>
