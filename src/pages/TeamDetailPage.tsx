@@ -100,7 +100,7 @@ import { LineupSearch } from "../components/LineupSearch";
 import { highlightStrength } from "../components/GameLineupTable";
 import { TeamLineupOnCourtSummary } from "../components/TeamLineupOnCourtSummary";
 import { lineupBucket, lineupForeignCount, lineupSeasonTotals, seasonOnCourtSummary, seasonOnCourtSummaryFromDetail } from "../lib/teamLineupOnCourt";
-import { useTeamPeriodSource } from "../lib/teamPeriodTotals";
+import { useTeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
 import { sumForeignDetail, type ForeignPeriodValue } from "../lib/teamForeignCourt";
 import { SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, hasShortGameSeason, seasonPeriodOption } from "../lib/seasonPeriod";
 import { substitutionModelForSeason } from "../../shared/onCourt";
@@ -229,6 +229,7 @@ import { TeamHeadToHead } from "../components/TeamHeadToHead";
 import { enumParam, useUrlState } from "../lib/urlState";
 import { fgaShare } from "../lib/shareCharts";
 import { sumTeamGameLogs } from "../lib/teamStatsColumns";
+import { INDEX_UNAVAILABLE_COLUMN_KEYS, buildTeamPeriodRowValues, withIndexUnavailableColumns } from "../lib/teamSituationalPeriod";
 import {
   attemptsFirst,
   computeTopRecordEntries,
@@ -2728,11 +2729,20 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「試合」選択時は追加取得不要だが、Q別/前後半選択時のみ生データを遅延取得する
   const [situationalTeamPerspective, setSituationalTeamPerspective] = usePageState<TeamPerspective>(pk("situationalTeamPerspective"), "own");
   const [situationalTeamPeriod, setSituationalTeamPeriod] = usePageState<PeriodRangeValue>(pk("situationalTeamPeriod"), "all");
-  const situationalTeamPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === situationalTeamPeriod);
+  const situationalTeamPeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === situationalTeamPeriod);
   // 「ショットチャート」専用のQ別/前後半
   const [teamShotChartPeriod, setTeamShotChartPeriod] = usePageState<PeriodRangeValue>(pk("teamShotChartPeriod"), "all");
   const teamShotChartPeriodOption = SEASON_BOX_PERIOD_OPTIONS.find((o) => o.value === teamShotChartPeriod);
   const [situationalTeamBoxTab, setSituationalTeamBoxTab] = usePageState<BoxscoreTabKey | "shooting" | "periods">(pk("situationalTeamBoxTab"), "traditional");
+  // Traditional〜Scoring の区間（Q別・前後半・延長）は、試合の生データではなくチームのピリオド別の索引から出す（全チームスタッツの区間別と同じ値。DESIGN.md 273章）。
+  // Shooting（スポーツナビの記録）と Periods は今までどおり
+  const situationalIndexMode =
+    !!situationalTeamPeriodOption?.periods && situationalTeamBoxTab !== "shooting" && situationalTeamBoxTab !== "periods";
+  const {
+    source: situationalPeriodSource,
+    loading: situationalPeriodLoading,
+    retry: retrySituationalPeriod,
+  } = useTeamPeriodSource(season, tab === "teamStats" && situationalIndexMode);
   // 「選手スタッツ」タブのカテゴリタブ（シューティングを含む）。シューティングタブ選択時のみ
   // teamYahooPbpの遅延取得をトリガーする必要があるため、親（このコンポーネント）で状態を持つ
   // （BoxscoreTable.tsxのactiveTab/onTabChangeと同じパターン。DESIGN.md参照）
@@ -3381,7 +3391,34 @@ export function TeamDetailPage({ season }: { season: string }) {
       key: group.key,
       label: group.label,
       rows: group.rows.flatMap((row) => {
-        const matched = situationalTeamScopedLogs.filter(row.predicate);
+        const predicated = situationalTeamScopedLogs.filter(row.predicate);
+        // 区間の値の出し方は全チームスタッツの区間別と同じ（索引から。DESIGN.md 273章）
+        if (situationalIndexMode) {
+          if (!situationalPeriodSource) return [];
+          const values = buildTeamPeriodRowValues(
+            situationalPeriodSource,
+            predicated,
+            situationalTeamPeriod as TeamPeriodValue,
+            situationalTeamDisplayMode,
+            { shotChartSupported: teamStatsShotChartSupported, yahooPbpSupported },
+          );
+          if (!values) return [];
+          return [
+            {
+              key: row.key,
+              label: row.label,
+              gamesPlayed: values.games.length,
+              wins: values.games.filter((g) => g.win).length,
+              losses: values.games.filter((g) => !g.win).length,
+              boxTotals: values.boxTotals,
+              scheduleKeys: values.games.map((g) => g.scheduleKey),
+              oppWinPctAvg: computeOpponentWinPctAvg(values.games, opponentRecords),
+              points: values.points,
+            },
+          ];
+        }
+        // 延長は延長のあった試合だけを数える（Shooting。Q別・前後半は試合全体の分母のまま）
+        const matched = situationalTeamPeriod === "ot" ? predicated.filter((g) => (g.overtimes ?? 0) > 0) : predicated;
         const entries = matched
           .map((g) => {
             const game = statsRawGames.get(g.scheduleKey);
@@ -3461,6 +3498,13 @@ export function TeamDetailPage({ season }: { season: string }) {
     situationalTeamBoxTab === "shooting"
       ? sortShotTypeKeys([...new Set([...situationalTeamShotBreakdownByRowKey.values()].flatMap((b) => Object.keys(b)))])
       : [];
+  // Traditional〜Scoring の列。区間を索引から出すときは、索引に無い項目（BSR・EFF・OFF FOUL・CHARGE・LIVETOV・DEADTOV 等）は「-」にする
+  const situationalTeamMainColumns =
+    situationalTeamBoxTab === "shooting" || situationalTeamBoxTab === "periods"
+      ? []
+      : situationalIndexMode
+        ? withIndexUnavailableColumns(teamBoxscoreColumnsFor(situationalTeamBoxTab, foulColumnsSplit([season])))
+        : teamBoxscoreColumnsFor(situationalTeamBoxTab, foulColumnsSplit([season]));
   const situationalTeamShotColumns = shotTypeEntityColumns<TeamSituationalStatsRow>(
     situationalTeamShotTypeKeys,
     (r) => situationalTeamShotBreakdownByRowKey.get(r.key),
@@ -4719,7 +4763,9 @@ export function TeamDetailPage({ season }: { season: string }) {
           )}
 
           <ConditionTitle section title="シチュエーション別成績" conditions={situationalTeamConditions} />
-          {statsRawGamesLoading && situationalTeamBoxTab !== "periods" && <p className="loading">読み込み中...</p>}
+          {(situationalIndexMode ? situationalPeriodLoading : statsRawGamesLoading && situationalTeamBoxTab !== "periods") && (
+            <p className="loading">読み込み中...</p>
+          )}
           <FilterBar
             simple
             stateKey={pk("situationalTeamFilter")}
@@ -4730,7 +4776,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   situationalTeamBoxTab === "shooting" ? `${CATEGORY_LABELS.shooting}は自チームの値のみです。` : undefined,
               }),
               displayModeAxis(situationalTeamDisplayMode, setSituationalTeamDisplayMode),
-              periodAxis(situationalTeamPeriod, setSituationalTeamPeriod, SEASON_BOX_PERIOD_OPTIONS, {
+              periodAxis(situationalTeamPeriod, setSituationalTeamPeriod, SEASON_PERIOD_OPTIONS, {
                 disabledReason: situationalTeamBoxTab === "periods" ? `${CATEGORY_LABELS.periods}は区間ごとに出すため、Q別・前後半は選べません。` : undefined,
               }),
             ]}
@@ -4813,8 +4859,15 @@ export function TeamDetailPage({ season }: { season: string }) {
             )
           ) : situationalTeamBoxTab === "shooting" && teamYahooPbpLoading ? (
             <p className="loading">読み込み中...</p>
+          ) : situationalIndexMode && situationalPeriodLoading ? null : situationalIndexMode && !situationalPeriodSource ? (
+            <p className="empty-message">
+              Q別・前後半・延長のデータを読み込めませんでした{" "}
+              <button type="button" onClick={retrySituationalPeriod}>
+                再読み込み
+              </button>
+            </p>
           ) : situationalTeamGroups.length === 0 ? (
-            <p className="empty-message">該当する試合がありません</p>
+            <p className="empty-message">{situationalTeamPeriod === "ot" ? "延長のあった試合はありません" : "該当する試合がありません"}</p>
           ) : situationalTeamBoxTab === "shooting" && situationalTeamShotTypeKeys.length === 0 ? (
             <p className="empty-message">このシーズンのデータには対応していません</p>
           ) : (
@@ -4828,7 +4881,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <th className="align-right" title={statDescription("対戦相手勝率")}>
                       対戦相手勝率
                     </th>
-                    {(situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : teamBoxscoreColumnsFor(situationalTeamBoxTab, foulSplit)).map(
+                    {(situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : situationalTeamMainColumns).map(
                       (col) => (
                         <th key={col.key} className="align-right" title={statDescription(col.label, "team")}>
                           <StatHeaderLabel label={col.label} />
@@ -4848,8 +4901,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <tr className="situational-group-heading">
                         <td
                           colSpan={
-                            (situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : teamBoxscoreColumnsFor(situationalTeamBoxTab, foulSplit))
-                              .length +
+                            (situationalTeamBoxTab === "shooting" ? situationalTeamShotColumns : situationalTeamMainColumns).length +
                             situationalTeamPointsColumns.length +
                             4
                           }
@@ -4871,7 +4923,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                                   {col.format!(row)}
                                 </td>
                               ))
-                            : teamBoxscoreColumnsFor(situationalTeamBoxTab, foulSplit).map((col) => (
+                            : situationalTeamMainColumns.map((col) => (
                                 <td key={col.key} className="align-right">
                                   {situationalTeamPerspective === "own"
                                     ? cleanNumericString(col.format(row.boxTotals.own, row.boxTotals.ownCtx))
@@ -4900,6 +4952,19 @@ export function TeamDetailPage({ season }: { season: string }) {
             </StickyHeaderScroll>
           )}
           {situationalTeamBoxTab === "misc" && situationalTeamGroups.length > 0 && <RuleChangeFootnote seasons={[season]} />}
+          {situationalTeamPeriod === "ot" && situationalTeamBoxTab !== "periods" && situationalTeamGroups.length > 0 && (
+            <p className="page-subtitle">
+              延長は、延長のあった試合だけの値です（すべての延長の合計）。試合数は延長のあった試合数で、平均はその試合数で割っています。勝敗は試合の勝敗です。
+            </p>
+          )}
+          {situationalTeamPeriod !== "all" &&
+            situationalTeamPeriod !== "ot" &&
+            situationalTeamBoxTab !== "periods" &&
+            situationalTeamGameType !== "regular" &&
+            hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
+          {situationalIndexMode && situationalTeamGroups.length > 0 && situationalTeamMainColumns.some((c) => INDEX_UNAVAILABLE_COLUMN_KEYS.has(c.key)) && (
+            <p className="page-subtitle">Q別・前後半・延長では、BSR・EFF・OFF FOUL・CHARGE・LIVETOV・DEADTOV など、この区間では集計していない項目は「-」です。</p>
+          )}
 
           <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績" />
 
