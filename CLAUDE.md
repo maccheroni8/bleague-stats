@@ -100,6 +100,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 266章: 成功率の基準を成功数にそろえる（チームの1試合記録＝FG 11・2P 8・3P 4・FT 15、個人のシーズン＝FG%・2P% は1試合平均の FGM 1.5・2PM 1.0。3P%・FT% は公式の基準のまま。区間は長さに合わせて下げる）。チームの区間のワーストは選べない。**画面だけの変更でキー不変**。267章: 個人の1試合記録（ランキング・選手一覧の記録・キャリアハイ・上位20位のファイル）も成功数基準（FG 5・2P 5・3P 3・FT 8。区間は長さに合わせて下げる。`PLAYER_PCT_MIN_MADE`・`periodMinimum.ts`）。**`shared/playerGameRecords.ts` を変えたのでキーが変わる（全シーズンの作り直し1回）**
 - 271章: 順位表の **「年間スケジュール」タブ**（`tab=annual`。`src/components/AnnualSchedule.tsx`・`src/lib/annualSchedule.ts`・`shared/annualSchedule.ts`）。大会日程は `data/annual-calendar.json`（元データ・保存キー対象外）。EASL は深夜ジョブが自動更新（`scripts/scrape-annual-schedule.ts`、失敗時は前回を保持して最後に失敗通知）、**天皇杯・オールスターは手で更新**（手順は271-7章）。`scripts/lib/dataLayout.ts` に登録したため導入時のデプロイで全シーズンの作り直しが1回。検証は `npm run validate:annual-schedule`
 - 274章: チーム詳細 > チームスタッツ > **シーズン別成績に Q別・前後半・延長**（Traditional・Advanced・Misc・Scoring・On-Court Foreign・Scoring %。区間を選んだときだけ全在籍シーズンの索引を読む。`src/lib/teamSeasonPeriod.ts`）。**BSR＝相手のBLK・EFF は索引から出せる**ので、シチュエーション別成績の「-」も埋めた（`teamPeriodEffTotal`）。検証は `npm run validate:team-season-period`。**画面だけの変更でキー不変**
+- 275章: **手入力のボックススコア**（`meta.source` が `manual:` の試合。2017-18 の1810だけ。公式に無い試合を basketballnavi の試合合計で補う。ピリオド別の行・PBP・Summaries が無いので、`periodIndexBuild.ts` は区間の値を持たず、`validate-period-index`・`validate-game-index` は `scripts/lib/manualBoxscores.ts` の一覧で除く。試合詳細に注記。保存キーが変わる）
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

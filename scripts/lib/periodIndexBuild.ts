@@ -234,6 +234,12 @@ export async function buildPeriodIndex(season: string): Promise<{ player: Player
   const teamPoss = Object.fromEntries(PERIOD_POSS_KEYS.map((k) => [k, new Array<number>(teamRows).fill(-1)])) as Record<PeriodPossKey, number[]>;
   const teamGameNumber = new Map<string, number>(teamIndex.games.key.map((k, i) => [k, i]));
 
+  // ピリオド別の選手行（PeriodCategory 1〜4）がある試合。無い試合は区間の値を持たない
+  const hasPeriodRows = new Set<string>(
+    allGames
+      .filter((game) => [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores].some((r) => r.Category === 1 && r.PeriodCategory >= 1 && r.PeriodCategory <= 4))
+      .map((game) => String(game.scheduleKey)),
+  );
   for (const game of allGames) {
     const key = String(game.scheduleKey);
     const g = gameNumber.get(key)!;
@@ -285,6 +291,8 @@ export async function buildPeriodIndex(season: string): Promise<{ player: Player
     if (perRow.has(i)) continue;
     const g = pr.game[i]!;
     if ((games.flags[g]! & GAME_FLAG_SHORT) !== 0) continue;
+    // ピリオド別の選手行が無い試合（公式にボックススコアが無く、合計だけを手で入れた 2017-18 の1810。DESIGN.md 275章）は区間の値を持たない
+    if (!hasPeriodRows.has(games.key[g]!)) continue;
     // 公式の記録で、試合全体の出場が1秒だけでどの区間にも記録の無い選手（全区間が DNP）。区間の値は無い（validate-period-index が確かめる）
     if (pr.stats.minSec[i]! <= 2) continue;
     throw new Error(`${season} ${games.key[g]} ${players[pr.player[i]!]![0]}: 試合に出た選手の区間の値がありません`);

@@ -9,6 +9,7 @@
 //
 // 使い方: npm run validate:game-index（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 
+import { isManualBoxscoreKey } from "./lib/manualBoxscores.ts";
 import path from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { DATA_DIR, readGameFile, readJson } from "./lib/storage.ts";
@@ -280,8 +281,9 @@ for (const season of seasons) {
 
     // ターンオーバーからの得点: チームの行が公式SummariesのPTPFT（試合全体の行 PeriodCategory=18）と一致する
     const official = (raw.raw.Summaries ?? []).find((x) => x.PeriodCategory === 18);
-    if (!official) gm.add(`${key} 公式の集計行（PeriodCategory=18）が無い`);
-    else {
+    if (!official) {
+      if (!isManualBoxscoreKey(key)) gm.add(`${key} 公式の集計行（PeriodCategory=18）が無い`);
+    } else {
       const h = teamGameAt(tv, gi * 2).pft;
       const a = teamGameAt(tv, gi * 2 + 1).pft;
       if (h !== official.HomeTeamPTPFT || a !== official.AwayTeamPTPFT) gm.add(`${key} ターンオーバーからの得点: 索引 ${h}-${a} / 公式 ${official.HomeTeamPTPFT}-${official.AwayTeamPTPFT}`);

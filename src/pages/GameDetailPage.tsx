@@ -520,6 +520,14 @@ export function GameDetailPage({ season }: { season: string }) {
         </div>
       </div>
 
+      {typeof (game.meta as { source?: unknown } | undefined)?.source === "string" &&
+        String((game.meta as { source?: string }).source).startsWith("manual:") && (
+          <p className="result-only-note">
+            この試合は公式サイトにボックススコアが無いため、他の公開記録の試合合計（クォーター別得点と選手の基本スタッツ）から作っています。
+            Q別・前半／後半の選手スタッツ、出場交代、プレー記録、ペイント内などPBPから数える項目、チームリバウンド、+/- は含まれません。
+          </p>
+        )}
+
       <div className="quarter-tables-grid">
         <section className="gd-card">
           <h2>Q別得点</h2>

@@ -22,6 +22,7 @@
 //
 // 使い方: npm run validate:period-index [-- --season 2025-26]（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 
+import { isManualBoxscoreKey } from "./lib/manualBoxscores.ts";
 import path from "node:path";
 import { DATA_DIR, readAllGames, readJson } from "./lib/storage.ts";
 import {
@@ -297,6 +298,7 @@ function checkShape(d: SeasonData): void {
     if (start[r] !== -1) continue;
     const g = playerIndex.rows.game[r]!;
     if ((gamesTable.flags[g]! & GAME_FLAG_SHORT) !== 0) continue;
+    if (isManualBoxscoreKey(playerIndex.games.key[g]!)) continue; // 合計だけの手入力の試合
     if (playerIndex.rows.stats.minSec[r]! <= 2 && PLAYER_INDEX_STAT_COLUMNS.every((c) => c === "minSec" || playerIndex.rows.stats[c][r]! === 0)) tiny += 1;
     else missing += 1;
   }
@@ -362,6 +364,7 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
 
   for (const game of allGames) {
     const key = String(game.scheduleKey);
+    if (isManualBoxscoreKey(key)) continue; // 合計だけの手入力の試合（ピリオド別の行が無い）
     const g = gameNumber.get(key)!;
     const tg = teamGameNumber.get(key)!;
     const short = (playerIndex.games.flags[g]! & GAME_FLAG_SHORT) !== 0;
@@ -700,6 +703,7 @@ async function checkTeamExtras(d: SeasonData): Promise<void> {
   let legacyOt = 0;
   let legacyOtNg = 0;
   teamIndex.games.key.forEach((key, gi) => {
+    if (isManualBoxscoreKey(key)) return; // 合計だけの手入力の試合
     const short = (teamIndex.games.flags[gi]! & GAME_FLAG_SHORT) !== 0;
     for (const side of [0, 1] as const) {
       const log = logByKeySide.get(`${key}|${side}`);
