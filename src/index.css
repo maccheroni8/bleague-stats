@@ -8147,3 +8147,108 @@ table.sortable-table.lineup-search-table tbody th {
 .rankings-table .rank-related-item {
   white-space: nowrap;
 }
+
+/* --------------------------------------------------------------------------
+ * チーム詳細・個人詳細の「対戦相手別」の表。左の3列（相手・G・勝敗）を固定して、残りの成績の列を横にスクロールする。
+ * 一番下の「全体」の行は、その条件のシーズン全体の値（並べ替えの対象にしない）
+ * -------------------------------------------------------------------------- */
+.opp-split-table table.sortable-table :is(th, td):nth-child(-n + 3) {
+  position: sticky;
+  background: var(--bg);
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+.opp-split-table table.sortable-table th:nth-child(-n + 3) {
+  background: var(--header-bg);
+  z-index: 2;
+}
+
+.opp-split-table table.sortable-table :is(th, td):nth-child(1) {
+  left: 0;
+  width: 240px;
+  min-width: 240px;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.opp-split-table table.sortable-table :is(th, td):nth-child(2) {
+  left: 240px;
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
+}
+
+.opp-split-table table.sortable-table :is(th, td):nth-child(3) {
+  left: 288px;
+  width: 72px;
+  min-width: 72px;
+  max-width: 72px;
+}
+
+.opp-split-table table.sortable-table tbody tr:not(.pinned-row):hover td:nth-child(-n + 3) {
+  background: var(--row-hover);
+}
+
+.opp-split-table table.sortable-table tr.pinned-row td {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.opp-split-table table.sortable-table tr.pinned-row td:nth-child(-n + 3) {
+  background: var(--header-bg);
+}
+
+/* 固定した列と流れる列の境目の線は、表が横スクロールしうる幅でだけ引く */
+@media (max-width: 900px) {
+  .opp-split-table table.sortable-table :is(th, td):nth-child(3) {
+    box-shadow: 1px 0 0 var(--border);
+  }
+}
+
+/* スマホ幅: 相手は略称になるので、固定する列を詰める（合計 約180px） */
+@media (max-width: 560px) {
+  .opp-split-table table.sortable-table :is(th, td):nth-child(-n + 3) {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .opp-split-table table.sortable-table :is(th, td):nth-child(1) {
+    width: 76px;
+    min-width: 76px;
+    max-width: 76px;
+  }
+
+  .opp-split-table table.sortable-table :is(th, td):nth-child(2) {
+    left: 76px;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+  }
+
+  .opp-split-table table.sortable-table :is(th, td):nth-child(3) {
+    left: 116px;
+    width: 64px;
+    min-width: 64px;
+    max-width: 64px;
+  }
+}
+
+/* 相手の名前（押すと対戦成績タブへ移る）。見た目はリンクにそろえる */
+.opp-split-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.opp-split-link:hover {
+  text-decoration: underline;
+}

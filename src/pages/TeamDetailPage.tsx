@@ -65,7 +65,6 @@ import type {
   ShotTypeBreakdown,
   StandingsSnapshot,
   StoredGame,
-  TeamForcedTurnovers,
   TeamGameLog,
   TeamStintsFile,
   TeamSummary,
@@ -231,10 +230,13 @@ import { CLASSIFICATION_COLORS } from "../lib/classificationFilter";
 import { statDescription } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import { TeamSeasonForeignChart, TeamSeasonScoringCharts } from "../components/TeamSeasonShareCharts";
-import { TeamHeadToHead } from "../components/TeamHeadToHead";
+import { OPPONENT_PARAM, TeamHeadToHead } from "../components/TeamHeadToHead";
+import { TeamOpponentSplit } from "../components/TeamOpponentSplit";
 import { enumParam, useUrlState } from "../lib/urlState";
 import { fgaShare, foreignShareFromSeconds, teamClassificationShareFromTotals, teamScoringShareFromTotals, type ForeignShare } from "../lib/shareCharts";
 import { EMPTY_TOTALS, sumTeamGameLogs } from "../lib/teamStatsColumns";
+import { FORCED_TURNOVER_COLUMNS } from "../lib/forcedTurnoverColumns";
+import { categoryNeedsYahoo, type OpponentSplitCategory } from "../lib/opponentSplit";
 import { buildSeasonPeriodRow, seasonPeriodCell, seasonPeriodFormatters, unavailableSeasonPeriodLabels, useTeamPeriodSources } from "../lib/teamSeasonPeriod";
 import { buildTeamPeriodRowValues, indexUnavailableKeys, withIndexUnavailableColumns } from "../lib/teamSituationalPeriod";
 import {
@@ -255,43 +257,6 @@ const TEAM_SHOOTING_TAB_TOOLTIP =
 
 // アシストペア分析（チーム版）も同じ上位20件・展開方式を踏襲する
 const MAX_ASSIST_PAIR_ROWS = 20;
-
-/** 強制ターンオーバー表の列（種類別。「シーズン別成績」のForced TOVタブ用） */
-const FORCED_TURNOVER_COLUMNS: { key: string; label: string; title?: string; value: (d: TeamForcedTurnovers) => number }[] = [
-  {
-    key: "offensiveFoul",
-    label: "オフェンスファウル",
-    title: "シュートファウル以外のオフェンスファウルによるターンオーバー",
-    value: (d) => d.offensiveFoul,
-  },
-  { key: "violation24sec", label: "24秒バイオレーション", title: "24秒バイオレーションによるターンオーバー", value: (d) => d.violation24sec },
-  { key: "backcourt", label: "バックコート", title: "バックコートバイオレーションによるターンオーバー", value: (d) => d.backcourtViolation },
-  { key: "violation5sec", label: "5秒バイオレーション", title: "5秒バイオレーションによるターンオーバー", value: (d) => d.violation5sec },
-  { key: "violation8sec", label: "8秒バイオレーション", title: "8秒バイオレーションによるターンオーバー", value: (d) => d.violation8sec },
-  {
-    key: "otherDead",
-    label: "その他デッドボール",
-    title: "トラベリング・ダブルドリブル・3秒バイオレーション・アウトオブバウンズ等、上記以外のデッドボールターンオーバー",
-    value: (d) => d.otherDead,
-  },
-  {
-    key: "live",
-    label: "ライブボール（参考）",
-    title: "スティール由来（バッドパス・ボールハンドリングロスト）のライブボールターンオーバー。参考値",
-    value: (d) => d.live,
-  },
-  {
-    key: "total",
-    label: "合計",
-    value: (d) => d.offensiveFoul + d.violation24sec + d.backcourtViolation + d.violation5sec + d.violation8sec + d.otherDead + d.live,
-  },
-  {
-    key: "gamesWithData",
-    label: "データあり試合数",
-    title: "Yahoo!スポーツplay-by-playが実際に取得できた試合数（分母の目安）",
-    value: (d) => d.gamesWithData,
-  },
-];
 
 const FORCED_TURNOVER_ROW_LABELS = {
   forced: "相手から奪った（自チームが強制）",
@@ -870,7 +835,7 @@ const HONOR_CATEGORY_ORDER: ClubHonor["category"][] = ["overall", "emperors_cup"
 
 // Phase H4（2026-08-29）: 「スタッツ」タブを「チームスタッツ」に改名し、概要と選手スタッツの間に
 // 移動した。オブジェクトのキー順序がそのままタブバーの表示順になる（DetailTabの並びに準拠）
-type DetailTab = "overview" | "teamStats" | "playerStats" | "lineups" | "schedule" | "headToHead" | "career" | "clubRecord" | "compare";
+type DetailTab = "overview" | "teamStats" | "playerStats" | "lineups" | "schedule" | "opponentSplit" | "headToHead" | "career" | "clubRecord" | "compare";
 
 const TAB_LABELS: Record<DetailTab, string> = {
   overview: "概要",
@@ -878,6 +843,7 @@ const TAB_LABELS: Record<DetailTab, string> = {
   playerStats: "選手スタッツ",
   lineups: "ラインナップ",
   schedule: "日程結果",
+  opponentSplit: "対戦相手別",
   headToHead: "対戦成績",
   career: "通算成績",
   clubRecord: "クラブレコード",
@@ -2836,6 +2802,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   const teamYahooPbpRequestedRef = useRef<Set<string>>(new Set());
   const [teamYahooPbp, setTeamYahooPbp] = useState<Map<string, YahooGamePbp>>(new Map());
   const [teamYahooPbpLoading, setTeamYahooPbpLoading] = useState(false);
+  // スポーツナビの記録の取得が一通り終わったか（「対戦相手別」の Shooting・Forced TOV が、取得前の空の状態を0件として出さないため）
+  const [teamYahooPbpDone, setTeamYahooPbpDone] = useState(false);
 
   // 「ショットチャート」セクション: 個人詳細ページの季集計ショットチャートと同じく、
   // 開いたときだけ生データ（PlayByPlays込み）を遅延取得する。取得自体はstatsRawGames
@@ -2866,11 +2834,20 @@ export function TeamDetailPage({ season }: { season: string }) {
   const schedulePeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === schedulePeriod);
   const [scheduleBoxTab, setScheduleBoxTab] = usePageState<BoxscoreTabKey | "periods">(pk("scheduleBoxTab"), "traditional");
 
+  // 「対戦相手別」タブ: 選んだシーズンの対戦相手ごとの成績。カテゴリ・試合区分・視点・平均/合計は、このタブ専用の独立した状態を持つ
+  const [opponentSplitCategory, setOpponentSplitCategory] = usePageState<OpponentSplitCategory>(pk("opponentSplitCategory"), "traditional");
+  const [opponentSplitGameType, setOpponentSplitGameType] = usePageState<SeasonGameTypeFilter>(pk("opponentSplitGameType"), "regular");
+  const [opponentSplitPerspective, setOpponentSplitPerspective] = usePageState<TeamPerspective>(pk("opponentSplitPerspective"), "own");
+  const [opponentSplitDisplayMode, setOpponentSplitDisplayMode] = usePageState<SeasonDisplayMode>(pk("opponentSplitDisplayMode"), "perGame");
+  // 相手の名前を押したときは、対戦成績タブ（その相手）へ移る（対戦成績タブは ?vs= の相手を最初に選ぶ）
+  const [, setHeadToHeadOpponent] = useUrlState(OPPONENT_PARAM, "");
+
   useEffect(() => {
     statsRawGamesRequestedRef.current = new Set();
     setStatsRawGames(new Map());
     teamYahooPbpRequestedRef.current = new Set();
     setTeamYahooPbp(new Map());
+    setTeamYahooPbpDone(false);
     setTeamShotChartExpanded(false);
     setSituationalRecordRawExpanded(false);
   }, [teamId, season]);
@@ -2923,13 +2900,18 @@ export function TeamDetailPage({ season }: { season: string }) {
     // （0コストの高速経路は無い。DESIGN.md参照）。「選手スタッツ」タブはシューティングタブを
     // 選んだ時だけ遅延取得する（既存のロースター候補取得と同じ「必要になってから取る」方針）
     const playerStatsNeedsShots = tab === "playerStats" && playerStatsBoxTab === "shooting";
-    if ((tab !== "teamStats" && tab !== "schedule" && !playerStatsNeedsShots) || !yahooPbpSupported || !gameLogs) return;
+    // 「対戦相手別」は Shooting・Forced TOV を選んだときだけ（種類別の記録が要る）
+    const opponentSplitNeedsYahoo = tab === "opponentSplit" && categoryNeedsYahoo(opponentSplitCategory);
+    if ((tab !== "teamStats" && tab !== "schedule" && !playerStatsNeedsShots && !opponentSplitNeedsYahoo) || !yahooPbpSupported || !gameLogs) return;
     const needed = [
       ...new Set(
         gameLogs.filter((g) => g.min > 0 && !teamYahooPbpRequestedRef.current.has(g.scheduleKey)).map((g) => g.scheduleKey),
       ),
     ];
-    if (needed.length === 0) return;
+    if (needed.length === 0) {
+      setTeamYahooPbpDone(true);
+      return;
+    }
     for (const k of needed) teamYahooPbpRequestedRef.current.add(k);
     setTeamYahooPbpLoading(true);
     Promise.all(
@@ -2948,8 +2930,11 @@ export function TeamDetailPage({ season }: { season: string }) {
           return next;
         });
       })
-      .finally(() => setTeamYahooPbpLoading(false));
-  }, [tab, playerStatsBoxTab, yahooPbpSupported, gameLogs, season]);
+      .finally(() => {
+        setTeamYahooPbpLoading(false);
+        setTeamYahooPbpDone(true);
+      });
+  }, [tab, playerStatsBoxTab, opponentSplitCategory, yahooPbpSupported, gameLogs, season]);
 
   // careerLoading/careerDataをdeps配列に含めると自己キャンセルのループになるため
   // （PlayerDetailPageと同じ理由）、fetch開始済みかどうかはrefで管理する
@@ -4337,6 +4322,31 @@ export function TeamDetailPage({ season }: { season: string }) {
             />
           </div>
         ))}
+
+      {tab === "opponentSplit" && (
+        <TeamOpponentSplit
+          teamId={team.teamId}
+          season={season}
+          logs={gameLogs ?? null}
+          logsLoading={gameLogsLoading}
+          category={opponentSplitCategory}
+          onCategoryChange={setOpponentSplitCategory}
+          gameType={opponentSplitGameType}
+          onGameTypeChange={setOpponentSplitGameType}
+          perspective={opponentSplitPerspective}
+          onPerspectiveChange={setOpponentSplitPerspective}
+          displayMode={opponentSplitDisplayMode}
+          onDisplayModeChange={setOpponentSplitDisplayMode}
+          yahooPbp={teamYahooPbp}
+          yahooSupported={yahooPbpSupported}
+          yahooReady={teamYahooPbpDone && !teamYahooPbpLoading}
+          resultOnlyGames={schedule?.resultOnlyGames}
+          onSelectOpponent={(opponentTeamId) => {
+            setHeadToHeadOpponent(opponentTeamId);
+            setTab("headToHead");
+          }}
+        />
+      )}
 
       {tab === "headToHead" && (
         <TeamHeadToHead

@@ -29,7 +29,8 @@ import { safeDiv } from "../../shared/formulas";
 import type { SeasonEntry, TeamGameLog, TeamSummary } from "../../shared/types";
 import type { Column } from "./SortableTable";
 
-const OPPONENT_PARAM = {
+/** 対戦相手のクラブID（?vs=）。対戦相手別タブからこのタブへ移るときにも使う */
+export const OPPONENT_PARAM = {
   keys: ["vs"],
   read: (p: URLSearchParams) => p.get("vs") ?? undefined,
   write: (p: URLSearchParams, v: string) => {
