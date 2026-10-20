@@ -5,6 +5,7 @@
 //   npm run aggregate -- --season 2025-26                # B.PREMIER（従来通り、data/{season}/配下）
 //   npm run aggregate -- --season 2025-26 --category one # B.ONE（data/{season}/one/配下。DESIGN.md 14章）
 
+import { classifyForcedTurnover } from "../shared/forcedTurnover.ts";
 import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { readdir } from "node:fs/promises";
@@ -156,31 +157,6 @@ function emptyForcedTurnovers(): TeamForcedTurnovers {
     otherDead: 0,
     live: 0,
   };
-}
-
-/**
- * Yahoo!スポーツplay-by-playのターンオーバーイベントを、相手に強制した種類別カウントの
- * バケットに分類する（scripts/lib/yahooPbp.tsのLIVE/DEAD_TURNOVER_SUBTYPESと同じ語彙、
- * TeamForcedTurnoversの5主要種別＋その他デッド/ライブに集約する。DESIGN.md参照。
- * 8秒バイオレーションは全2,274試合中265試合・288件確認済みで、実在するタグ）
- */
-function classifyForcedTurnover(to: YahooTurnoverEvent): keyof Omit<TeamForcedTurnovers, "gamesWithData"> {
-  if (to.ballType === "live") return "live";
-  switch (to.subtypeRaw) {
-    case "オフェンスファウル":
-      return "offensiveFoul";
-    case "24秒バイオレーション":
-      return "violation24sec";
-    case "バックコート":
-      return "backcourtViolation";
-    case "5秒バイオレーション":
-    case "5秒チームバイオレーション":
-      return "violation5sec";
-    case "8秒バイオレーション":
-      return "violation8sec";
-    default:
-      return "otherDead";
-  }
 }
 
 /**
