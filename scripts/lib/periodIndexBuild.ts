@@ -244,6 +244,8 @@ export async function buildPeriodIndex(season: string): Promise<{ player: Player
     const key = String(game.scheduleKey);
     const g = gameNumber.get(key)!;
     const short = (games.flags[g]! & GAME_FLAG_SHORT) !== 0;
+    // ピリオド別の選手行が無い試合（合計だけの手入力の試合。DESIGN.md 275章）は、区間の値を持たない（0ではなく -1＝無い）
+    const noPeriods = !hasPeriodRows.has(key);
     const tg = teamGameNumber.get(key);
     if (tg === undefined) throw new Error(`${season} ${key}: チームの索引に試合がありません`);
     const { atoms, poss } = periodOptionsOf(game);
@@ -256,7 +258,7 @@ export async function buildPeriodIndex(season: string): Promise<{ player: Player
       const ownRows = side === 0 ? game.raw.HomeBoxscores : game.raw.AwayBoxscores;
       const oppRows = side === 0 ? game.raw.AwayBoxscores : game.raw.HomeBoxscores;
       // 前後半5分の特別な試合は、1Q〜4Q・前半・後半を持たない（クォーターではない。DESIGN.md 143章）
-      const usable = (a: PeriodAtom, opt: PeriodRangeOption | null): opt is PeriodRangeOption => opt !== null && !(short && a !== "ot");
+      const usable = (a: PeriodAtom, opt: PeriodRangeOption | null): opt is PeriodRangeOption => opt !== null && !noPeriods && !(short && a !== "ot");
       PERIOD_ATOMS.forEach((atom, ai) => {
         const opt = atoms[ai]!;
         if (!usable(atom, opt)) return;
@@ -279,7 +281,7 @@ export async function buildPeriodIndex(season: string): Promise<{ player: Player
       });
       for (const k of PERIOD_POSS_KEYS) {
         const opt = poss[k];
-        if (!opt || (short && k !== "ot")) continue;
+        if (!opt || noPeriods || (short && k !== "ot")) continue;
         teamPoss[k][tg * 2 + side] = computeTeamRatings(buildTeamTotalCounts(ownRows, opt), buildTeamTotalCounts(oppRows, opt)).poss;
       }
     }

@@ -68,7 +68,7 @@ import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { clearUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
 import { seasonDivisions } from "../lib/divisionGroups";
 import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PAIR_UNIT_PARAM, PERSPECTIVE_PARAM, PLAYER_SEASON_PERIOD_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM, TEAM_SEASON_PERIOD_PARAM } from "../lib/urlFilterParams";
-import { OVERTIME_ELIGIBILITY_LABEL, OVERTIME_ELIGIBILITY_REASON, OVERTIME_GAMES_NOTE, SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, hasShortGameSeason } from "../lib/seasonPeriod";
+import { OVERTIME_ELIGIBILITY_LABEL, OVERTIME_ELIGIBILITY_REASON, OVERTIME_GAMES_NOTE, SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason } from "../lib/seasonPeriod";
 import { OVERTIME_MIN_TEAM_GAMES_FOR_RANKING } from "../lib/teamPeriodTotals";
 import { PeriodIndexFailure } from "../components/PeriodIndexFailure";
 import { PAIR_UNITS, PAIR_UNIT_LABELS } from "../lib/clutchQuery";
@@ -645,6 +645,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
             {category === "misc" && isRuleChangeStatKey(teamDef.key) && <RuleChangeFootnote seasons={[season]} />}
             {period === "ot" && <p className="rule-change-footnote">※ 延長は、延長のあった試合が{OVERTIME_MIN_TEAM_GAMES_FOR_RANKING}試合以上のチームが対象です。延長のあった試合だけの値（すべての延長の合計）で、平均はその試合数で割っています。勝敗は試合の勝敗です。</p>}
             {period !== "all" && gameType !== "regular" && hasShortGameSeason([season]) && <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>}
+            {period !== "all" && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
             {boxCompare && compareNotes(boxCompare.rows.length === 0)}
           </ExportTarget>
         </>
@@ -1136,6 +1137,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
             {overtimeActive && <p className="rule-change-footnote">※ {OVERTIME_GAMES_NOTE}</p>}
             {effPeriodActive && gameType !== "regular" && hasShortGameSeason(compareActive && prevSeason ? [season, prevSeason] : [season]) && (
               <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
+            )}
+            {effPeriodActive && gameType !== "playoff" && hasManualBoxscoreSeason(compareActive && prevSeason ? [season, prevSeason] : [season]) && (
+              <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>
             )}
             {comparison && <CompareNotes season={season} prevSeason={prevSeason!} mode={hasRelatedStats(category, selectedItem.key) ? "perGame" : rankMode} narrowed={rookieActive || conditionActive} kind="player" empty={comparison.rows.length === 0} />}
           </ExportTarget>

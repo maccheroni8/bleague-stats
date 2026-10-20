@@ -6,7 +6,7 @@ import { GlossaryNote } from "../components/GlossaryNote";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { choiceNumberParam, clearUrlParams, enumParam, situationalParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
 import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERSPECTIVE_PARAM, TEAM_SEASON_PERIOD_PARAM, VENUE_PARAM } from "../lib/urlFilterParams";
-import { SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, hasShortGameSeason, seasonPeriodOption } from "../lib/seasonPeriod";
+import { SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason, seasonPeriodOption } from "../lib/seasonPeriod";
 import { sumTeamPeriodTotals, useTeamPeriodSource, type TeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
 import { FOREIGN_COUNTS, hasForeignColumns, logsHaveForeignSeconds, sumForeignCourt, type ForeignPeriodValue } from "../lib/teamForeignCourt";
 import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
@@ -1071,6 +1071,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               {foreignPeriod !== "all" && foreignPeriod !== "ot" && gameType !== "regular" && hasShortGameSeason([season]) && (
                 <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>
               )}
+              {foreignPeriod !== "all" && foreignPeriod !== "ot" && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && (
+                <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>
+              )}
               <GlossaryNote
                 anchor={GLOSSARY_ANCHORS.foreignCourt}
                 label="在コート時間"
@@ -1146,6 +1149,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             <p className="page-subtitle">延長は、延長のあった試合だけの値です（すべての延長の合計）。右端の得点・失点は、延長のあった試合で割った1試合平均です。</p>
           )}
           {periodActive && period !== "ot" && gameType !== "regular" && hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
+          {periodActive && period !== "ot" && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
         </>
       ) : gameLogsLoading || !gameLogsByTeam || boxTab === "scoringComposition" ? (
         <p className="loading">読み込み中...</p>
@@ -1208,6 +1212,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           )}
           {periodActive && period !== "ot" && <p className="page-subtitle">区間を選んだときも、勝敗は試合の勝敗です。</p>}
           {periodActive && gameType !== "regular" && hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
+          {periodActive && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
           <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全チームスタッツ" scope="各チームの試合ログから、選んだ条件で集計し直した値です。" />
         </>
       )}

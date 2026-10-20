@@ -12,6 +12,7 @@
 //
 // 使い方: npm run validate:team-period-scoring [-- --season 2025-26]（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 
+import { isManualBoxscoreKey } from "./lib/manualBoxscores.ts";
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { DATA_DIR, readAllGames, readJson } from "./lib/storage.ts";
@@ -105,6 +106,11 @@ for (const season of seasons) {
         continue;
       }
       tally.invariantRows += 1;
+      // 手入力の試合（275章）は、ログにはクォーター別得点があるが、ピリオド別の索引は全区間 -1（区間の集計に入らない）
+      if (isManualBoxscoreKey(g.scheduleKey)) {
+        if ((["q1", "q2", "q3", "q4"] as const).some((k) => ptsOf(k, row) !== -1)) bad.index.push(`${label}: 手入力の試合なのに索引に区間の値がある`);
+        continue;
+      }
       const pairs = (["q1", "q2", "q3", "q4", "h1", "h2", "ot"] as PeriodScoringKey[]).map((k) => [k, gamePeriodPair(g, k)] as const);
       const at = (k: PeriodScoringKey) => pairs.find((p) => p[0] === k)![1];
       const isShort = (gi.games.flags[row >> 1]! & GAME_FLAG_SHORT) !== 0;

@@ -63,6 +63,13 @@ export function hasShortGameSeason(seasons: readonly string[]): boolean {
   return seasons.some((s) => s === "2016-17" || s === "2017-18");
 }
 
+/** 公式にボックススコアが無く、試合合計だけを入れた試合（2017-18 の1810）の注記。区間の記録が無いので Q別・前後半・延長には含めない */
+export const MANUAL_BOXSCORE_PERIOD_NOTE =
+  "2017-18の1試合（2018年1月1日 A東京-千葉）は、公式にボックススコアが無く試合合計だけを入れているため、Q別・前後半・延長には含めていません。";
+export function hasManualBoxscoreSeason(seasons: readonly string[]): boolean {
+  return seasons.includes("2017-18");
+}
+
 /** 1シーズン分の索引（選手の1試合行・選手のピリオド別・チームの1試合行・チームのピリオド別）と、引くための表 */
 export interface SeasonPeriodSource {
   season: string;

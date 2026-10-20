@@ -227,7 +227,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
     gameTypeLabels(gameType, seasonForTitle),
     gameRecordConditionLabels(conditions, teamName, includeSpecialDefault),
   );
-  const periodNotes = period && result ? { overtime: period === "ot", shortGames: result.periodShortGames ?? 0, noPlusMinus: 0 } : undefined;
+  const periodNotes = period && result ? { overtime: period === "ot", shortGames: result.periodShortGames ?? 0, noRecordGames: result.periodNoRecordGames ?? 0, noPlusMinus: 0 } : undefined;
   const modeLabel = TEAM_RECORD_MODE_LABELS[mode];
   const title = allTime ? `歴代 チーム1試合${modeLabel} ${item.label}ランキング` : `${season}シーズン チーム1試合${modeLabel} ${item.label}ランキング`;
   const filename = buildExportFilename([`チーム1試合${modeLabel}`, allTime ? "歴代" : season, item.label, ...conditionLabels]);

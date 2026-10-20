@@ -105,7 +105,7 @@ import { hasForeignColumns, sumForeignCourt, sumForeignDetail, type ForeignPerio
 import {
   OVERTIME_GAMES_NOTE,
   SEASON_PERIOD_OPTIONS,
-  SHORT_GAMES_PERIOD_NOTE,
+  SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason,
   buildTeamSplitRowsFromPeriodSource,
   hasShortGameSeason,
   seasonPeriodOption,
@@ -5139,6 +5139,11 @@ export function TeamDetailPage({ season }: { season: string }) {
             situationalTeamBoxTab !== "periods" &&
             situationalTeamGameType !== "regular" &&
             hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
+          {situationalTeamPeriod !== "all" &&
+            situationalTeamPeriod !== "ot" &&
+            situationalTeamBoxTab !== "periods" &&
+            situationalTeamGameType !== "playoff" &&
+            hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
           {situationalIndexMode && situationalTeamGroups.length > 0 && situationalTeamMainColumns.some((c) => INDEX_UNAVAILABLE_COLUMN_KEYS.has(c.key)) && (
             <p className="page-subtitle">
               区間を選んだときは表示できない項目があります（{situationalTeamMainColumns.filter((c) => INDEX_UNAVAILABLE_COLUMN_KEYS.has(c.key)).map((c) => c.label).join("・")}）。その項目は「-」です。
@@ -5232,6 +5237,11 @@ export function TeamDetailPage({ season }: { season: string }) {
                   playerStatsPeriod2 !== "ot" &&
                   playerStatsGameType !== "regular" &&
                   hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
+                {playerStatsRows.length > 0 &&
+                  playerStatsPeriod2 !== "all" &&
+                  playerStatsPeriod2 !== "ot" &&
+                  playerStatsGameType !== "playoff" &&
+                  hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
                 {playerStatsRows.length > 0 && <HeightWeightNote players={players} />}
                 {playerStatsBoxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
                 </>
@@ -5388,6 +5398,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                   )}
                   {lineupOcFromIndex && lineupOcPeriodValue !== "all" && lineupOcPeriodValue !== "ot" && lineupOcGameType !== "regular" && hasShortGameSeason([season]) && (
                     <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
+                  )}
+                  {lineupOcFromIndex && lineupOcPeriodValue !== "all" && lineupOcPeriodValue !== "ot" && lineupOcGameType !== "playoff" && hasManualBoxscoreSeason([season]) && (
+                    <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>
                   )}
                   {!lineupOcSummary.real && (
                     <p className="rule-change-footnote">

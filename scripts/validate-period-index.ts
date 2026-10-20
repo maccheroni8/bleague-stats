@@ -312,15 +312,16 @@ function checkShape(d: SeasonData): void {
   for (let g = 0; g < gamesTable.key.length; g++) {
     const short = (gamesTable.flags[g]! & GAME_FLAG_SHORT) !== 0;
     const hasOt = gamesTable.overtimes[g]! > 0;
+    const noPeriods = isManualBoxscoreKey(gamesTable.key[g]!); // ピリオド別の行が無い手入力の試合は、全区間が -1（別の検査: ピリオド別の選手行が無い試合）
     for (const side of [0, 1]) {
       const t = g * 2 + side;
       for (const a of PERIOD_ATOMS) {
-        const expectValue = a === "ot" ? hasOt : !short;
+        const expectValue = !noPeriods && (a === "ot" ? hasOt : !short);
         const got = team.rows.counts[`${a}.pts`]![t]! !== -1;
         if (got !== expectValue) teamBad += 1;
       }
       for (const k of PERIOD_POSS_KEYS) {
-        const expectValue = k === "ot" ? hasOt : !short;
+        const expectValue = !noPeriods && (k === "ot" ? hasOt : !short);
         if ((team.rows.poss[k][t]! !== -1) !== expectValue) teamBad += 1;
       }
     }
@@ -350,6 +351,8 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
   let gapMismatch = 0;
   const gapSeen = new Set<string>();
   let teamAllNg = 0;
+  let noPeriodGames = 0;
+  let noPeriodNg = 0;
   let teamQuarterNg = 0;
   let teamQuarterFirst = "";
   let possNg = 0;
@@ -364,7 +367,16 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
 
   for (const game of allGames) {
     const key = String(game.scheduleKey);
-    if (isManualBoxscoreKey(key)) continue; // 合計だけの手入力の試合（ピリオド別の行が無い）
+    // ピリオド別の選手行が無い試合（合計だけの手入力の試合。275章）は、チームの区間の値がすべて -1（無い）で、区間の集計に入らない
+    if (!game.raw.HomeBoxscores.concat(game.raw.AwayBoxscores).some((r) => r.Category === 1 && r.PeriodCategory >= 1 && r.PeriodCategory <= 4)) {
+      noPeriodGames += 1;
+      const rowsOfGame = [teamGameNumber.get(key)! * 2, teamGameNumber.get(key)! * 2 + 1];
+      for (const r of rowsOfGame) {
+        for (const a of PERIOD_ATOMS) for (const c of TEAM_PERIOD_COUNT_COLUMNS) if (team.rows.counts[`${a}.${c}`]![r] !== -1) noPeriodNg += 1;
+        for (const k of PERIOD_POSS_KEYS) if (team.rows.poss[k][r] !== -1) noPeriodNg += 1;
+      }
+      continue;
+    }
     const g = gameNumber.get(key)!;
     const tg = teamGameNumber.get(key)!;
     const short = (playerIndex.games.flags[g]! & GAME_FLAG_SHORT) !== 0;
@@ -570,6 +582,7 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
   ok(`${label} 区間の合計 = 試合全体（${rowsChecked}行・${PLAYER_PERIOD_STAT_COLUMNS.length}項目）。出場時間のずれは${minOff}行・最大${minMaxDiff}秒（許容2秒）`, sumNg === 0 && minMaxDiff <= 2, `${sumNg} ${sumFirst}`);
   ok(`${label} 区間の合計 = 1試合行の索引の値`, indexNg === 0, `${indexNg} ${indexFirst}`);
   ok(`${label} 前半・後半 = 直接出した値（1Q+2Q／3Q+4Q）`, halfNg === 0, `${halfNg} ${halfFirst}`);
+  ok(`${label} ピリオド別の選手行が無い試合（${noPeriodGames}試合）のチームの区間の値はすべて -1（区間の集計に入らない）`, noPeriodNg === 0, `${noPeriodNg}`);
   ok(`${label} チームの区間の合計 = 試合全体、前半・後半のポゼッション = 直接出した値`, teamAllNg === 0 && possNg === 0, `${teamAllNg} ${possNg}`);
   ok(`${label} チームの区間の得点 = 公式のクォーター別スコア`, teamQuarterNg === 0, `${teamQuarterNg} ${teamQuarterFirst}`);
   const knownHere = [...KNOWN_PLAYER_POINTS_GAPS.keys()].filter((id) => id.startsWith(`${season}|`)).length;

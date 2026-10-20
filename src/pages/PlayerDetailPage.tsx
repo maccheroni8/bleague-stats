@@ -6,7 +6,7 @@ import { PeriodIndexFailure } from "../components/PeriodIndexFailure";
 import {
   OVERTIME_GAMES_NOTE,
   SEASON_PERIOD_OPTIONS,
-  SHORT_GAMES_PERIOD_NOTE,
+  SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason,
   buildTeamSplitRowsFromPeriodSource,
   hasShortGameSeason,
   periodRawTotalsFromSources,
@@ -2475,6 +2475,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
           {seasonBreakdownPeriod !== "all" && gameTypeFilter !== "regular" && seasonBreakdownTab !== "shooting" && seasonBreakdownTab !== "scoringComposition" && hasShortGameSeason(careerSeasons) && (
             <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
           )}
+          {seasonBreakdownPeriod !== "all" && gameTypeFilter !== "playoff" && seasonBreakdownTab !== "shooting" && seasonBreakdownTab !== "scoringComposition" && hasManualBoxscoreSeason(careerSeasons) && (
+            <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>
+          )}
 
           <ConditionTitle section title="シチュエーション別成績" conditions={situationalStatsConditions} />
           <FilterBar
@@ -2680,6 +2683,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
           {situationalStatsPeriod === "ot" && situationalStatsTab !== "shooting" && <p className="rule-change-footnote">※ {OVERTIME_GAMES_NOTE}</p>}
           {situationalStatsPeriod !== "all" && situationalStatsGameType !== "regular" && situationalStatsTab !== "shooting" && hasShortGameSeason([situationalStatsSeason]) && (
             <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
+          )}
+          {situationalStatsPeriod !== "all" && situationalStatsGameType !== "playoff" && situationalStatsTab !== "shooting" && hasManualBoxscoreSeason([situationalStatsSeason]) && (
+            <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>
           )}
           <ConditionTitle section title="アシストの関係性" conditions={assistConditions} />
           {!assistRelationships ? (

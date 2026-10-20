@@ -127,6 +127,8 @@ export interface GameRecordQueryResult<R> {
   excludedSpecial: number;
   /** 区間（Q別・前後半・延長）を選んだとき: 前後半5分の特別な試合（1Q〜4Qが無い）のうち、ほかの条件に当てはまるが区間の行が無い行の数 */
   periodShortGames?: number;
+  /** 区間を選んだとき: ピリオド別の記録が無い試合（公式にボックススコアが無く合計だけを入れた試合。275章）のうち、ほかの条件に当てはまるが区間の行が無い数（チームは試合数） */
+  periodNoRecordGames?: number;
   /** 区間を選んで +/- を並べたとき: 公式のピリオド別の +/- が無い（2021-22以前）ので除いた行の数 */
   excludedNoPlusMinus?: number;
 }
@@ -274,6 +276,7 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
   const candidates: Candidate[] = [];
   let excludedSpecial = 0;
   let periodShortGames = 0;
+  let periodNoRecordGames = 0;
   let excludedNoPlusMinus = 0;
   const atoms = q.period ? PERIOD_ATOM_INDEXES[q.period.period] : null;
   const periodPctFilter = q.period ? playerPctPeriodFilter(def.key, q.period.period) : null;
@@ -298,6 +301,7 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
       if (!row) {
         // 前後半5分の特別な試合は、1Q〜4Q・前半・後半を持たない（延長は元々無い）
         if (f.short && q.period && q.period.period !== "ot") periodShortGames += 1;
+        else if (!f.short && q.period && q.period.period !== "ot" && true) periodNoRecordGames += 1;
         continue;
       }
       if (q.period && stat.key === "plusMinus" && (row as IndexedPeriodGame).plusMinusMissing) {
@@ -346,7 +350,7 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
       ...(row.positionFallback ? { positionFallback: row.positionFallback } : {}),
     };
   });
-  return { rows, excludedSpecial, ...(q.period ? { periodShortGames, excludedNoPlusMinus } : {}) };
+  return { rows, excludedSpecial, ...(q.period ? { periodShortGames, periodNoRecordGames, excludedNoPlusMinus } : {}) };
 }
 
 // ---- チーム ----
@@ -421,6 +425,7 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
   const candidates: Candidate[] = [];
   let excludedSpecial = 0;
   let periodShortGames = 0;
+  let periodNoRecordGames = 0;
 
   /** 行（区間を選んでいるときは区間の値。その区間の値が無い試合は null） */
   const rowAt = (view: TeamGameIndexView, i: number): IndexedTeamGame | null => {
@@ -448,6 +453,7 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
       if (!row) {
         // 前後半5分の特別な試合は、1Q〜4Q・前半・後半を持たない。延長の無い試合は延長の値が無いだけ
         if (f.short && q.period && q.period.period !== "ot") periodShortGames += 1;
+        else if (!f.short && q.period && q.period.period !== "ot" && (i & 1) === 0) periodNoRecordGames += 1;
         continue;
       }
       if (!passesMinAttempts(row)) continue;
@@ -500,7 +506,7 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
       ...(score ? { ownPoints: score.pts, oppPoints: score.oppPts, ...(score.fromPbp ? { fromPbp: true } : {}) } : {}),
     };
   });
-  return { rows, excludedSpecial, ...(q.period ? { periodShortGames } : {}) };
+  return { rows, excludedSpecial, ...(q.period ? { periodShortGames, periodNoRecordGames } : {}) };
 }
 
 // ---- スタッツの条件の項目（その試合の値で判定する） ----

@@ -8,6 +8,7 @@
 //  4. 感度: 索引を1か所壊すと食い違いとして検出される
 //
 // 使い方: npm run validate:team-period-table（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
+import { isManualBoxscoreKey } from "./lib/manualBoxscores.ts";
 import path from "node:path";
 import { readdirSync } from "node:fs";
 import { DATA_DIR, readJson } from "./lib/storage.ts";
@@ -45,7 +46,7 @@ async function runSeason(season: string, source: TeamPeriodSource, logsByTeam: M
   };
   for (const [teamId, logs] of logsByTeam) {
     teams += 1;
-    const normal = logs.filter((g) => !shortKeys.has(g.scheduleKey));
+    const normal = logs.filter((g) => !shortKeys.has(g.scheduleKey) && !isManualBoxscoreKey(g.scheduleKey)); // 手入力の試合（区間の値が無い。275章）は区間の合計に入らない
     const at = (v: TeamPeriodValue) => sumTeamPeriodTotals(source, logs, v);
     const q = (["q1", "q2", "q3", "q4"] as const).map(at);
     const ot = at("ot");

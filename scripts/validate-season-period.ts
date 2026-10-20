@@ -9,6 +9,7 @@
 //
 // 使い方: npm run validate:season-period [-- --season 2025-26]。1つでも食い違いがあれば終了コード1
 
+import { isManualBoxscoreKey } from "./lib/manualBoxscores.ts";
 import path from "node:path";
 import { DATA_DIR, readAllGames, readJson } from "./lib/storage.ts";
 import type { PlayerGameIndexFile, TeamGameIndexFile } from "../shared/gameIndex.ts";
@@ -100,6 +101,11 @@ async function validateSeason(season: string) {
     const isHome = (file.rows.flags[i]! & ROW_FLAG_HOME) !== 0;
     for (const option of ranges) {
       const next = seasonPeriodTotalsOf(source, playerId, key, isHome, option.value);
+      if (isManualBoxscoreKey(key)) {
+        // ピリオド別の選手行が無い手入力の試合（275章）は、どの区間でも値が無い
+        if (next !== null) fail(`${season} ${key} ${playerId} ${option.value}: 手入力の試合なのに値がある`);
+        continue;
+      }
       if (source.shortGames.has(key)) {
         if (next !== null) fail(`${season} ${key} ${playerId} ${option.value}: 特別な試合なのに値がある`);
         continue;

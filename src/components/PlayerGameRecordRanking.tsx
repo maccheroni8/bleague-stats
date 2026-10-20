@@ -225,7 +225,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const filename = buildExportFilename([`個人1試合${modeLabel}`, allTime ? "歴代" : season, defJa, ...conditionLabels]);
   const minNote = playerGameRecordMinMadeNote(def.key, period ? { key: period, label: period === "ot" ? "延長" : period === "h1" ? "前半" : period === "h2" ? "後半" : `${period.slice(1)}Q` } : undefined);
   const seasonOf = (e: PlayerRecordRow) => e.season ?? season;
-  const periodNotes = period && result ? { overtime: period === "ot", shortGames: result.periodShortGames ?? 0, noPlusMinus: result.excludedNoPlusMinus ?? 0 } : undefined;
+  const periodNotes = period && result ? { overtime: period === "ot", shortGames: result.periodShortGames ?? 0, noRecordGames: result.periodNoRecordGames ?? 0, noPlusMinus: result.excludedNoPlusMinus ?? 0 } : undefined;
 
   const clearAll = () => {
     setGroup("all");

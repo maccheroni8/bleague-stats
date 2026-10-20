@@ -28,6 +28,8 @@ export function GameRecordNotes({
     overtime: boolean;
     /** 区間の記録が無い前後半5分の特別な試合（ほかの条件に当てはまる分）の数 */
     shortGames: number;
+    /** 区間の記録が無い、公式にボックススコアが無く合計だけを入れた試合の数 */
+    noRecordGames?: number;
     /** 公式のQ別・前後半の +/- が無いために除いた行の数（+/- を並べているとき） */
     noPlusMinus: number;
   };
@@ -52,6 +54,11 @@ export function GameRecordNotes({
       {period && period.shortGames > 0 && (
         <p className="rule-change-footnote">
           ※ 前後半5分ずつで行った特別な試合（2016-17・2017-18のチャンピオンシップ。{period.shortGames}件）は、1Q〜4Qが無く、Q別・前半・後半の記録が無いため、含めていません。
+        </p>
+      )}
+      {period && (period.noRecordGames ?? 0) > 0 && (
+        <p className="rule-change-footnote">
+          ※ 公式にボックススコアが無く、試合合計だけを入れた試合（{period.noRecordGames}件）は、Q別・前半・後半の記録が無いため、含めていません。
         </p>
       )}
       {period && period.noPlusMinus > 0 && <p className="rule-change-footnote">※ {PERIOD_PLUS_MINUS_NOTE}</p>}

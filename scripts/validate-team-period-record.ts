@@ -8,6 +8,7 @@
 // 使い方: npm run validate:team-period-record（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 // （導出データ data/{season}/team-game-index.json.gz・team-period-index.json.gz が要る。無ければ npm run build:data）
 
+import { isManualBoxscoreKey } from "./lib/manualBoxscores.ts";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
@@ -52,6 +53,10 @@ for (const season of seasons) {
     const h1 = at(i, "h1");
     const h2 = at(i, "h2");
     const ot = at(i, "ot");
+    if (isManualBoxscoreKey(whole.scheduleKey)) {
+      if (q.some((r) => r) || h1 || h2 || ot) bad(`${season} ${whole.scheduleKey} 行${i}: ピリオド別の行が無い手入力の試合に区間の値がある`);
+      continue;
+    }
     if (whole.shortGame) {
       if (q.some((r) => r) || h1 || h2) bad(`${season} ${whole.scheduleKey} 行${i}: 前後半5分の特別な試合に1Q〜4Qの値がある`);
       continue;
