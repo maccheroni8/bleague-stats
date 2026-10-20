@@ -1,6 +1,6 @@
 // Phase 4「在コート状態の復元」の精度検証スクリプト（UIには一切関与しない、検証専用）。
 //
-// data/{season}/games/*.json（終了済み試合）全件に対しshared/onCourt.tsの復元ロジックを走らせ、
+// data/{season}/games/*.json（終了済み・エキシビション以外の試合）全件に対しshared/onCourt.tsの復元ロジックを走らせ、
 // 以下を集計・報告する:
 //   1. 在コート人数チェック（常にちょうど5人になっているか。崩れの警告件数）
 //   2. 選手ごとの在コート合計時間 vs ボックススコアのMIN（±6秒/0.1分以内の一致率）
@@ -14,6 +14,7 @@
 //
 // 使い方: node --experimental-strip-types scripts/validate-oncourt.ts --season 2025-26
 
+import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { readAllGames } from "./lib/storage.ts";
 import { onCourtPeriodCount, reconstructOnCourt, substitutionModelForSeason, totalGameSeconds, totalOnCourtSeconds } from "../shared/onCourt.ts";
 import { parsePlayTime } from "../shared/formulas.ts";
@@ -200,8 +201,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  const games = (await readAllGames(season)).filter((g) => g.gameEndedFlg);
-  console.log(`[${season}] 検証対象: ${games.length}試合（終了済みのみ）\n`);
+  const endedGames = (await readAllGames(season)).filter((g) => g.gameEndedFlg);
+  // 集計と同じ大会名の判定を使い、通常の試合時間・人数を前提にできない試合を除く。
+  const games = endedGames.filter((g) => !isExhibitionGame(g.raw.Game.ConventionNameJ));
+  console.log(`[${season}] 検証対象: ${games.length}試合（終了済みのみ・エキシビション${endedGames.length - games.length}試合を除外）\n`);
 
   const reports = games.map(evaluateGame);
 
