@@ -163,6 +163,8 @@ import { heightText, positionText, weightText } from "../lib/profileMark";
 import { recordOfLogs, seasonBoxCompareDefs, type CompareColumnData } from "../lib/compareShared";
 import { statDescription } from "../lib/statDescriptions";
 import { PlayerSeasonScoringChart } from "../components/PlayerScoringShareCharts";
+import { PlayerOpponentSplit } from "../components/PlayerOpponentSplit";
+import type { PlayerOpponentCategory } from "../lib/playerOpponentSplit";
 import {
   attemptsFirst,
   computeTopRecordEntries,
@@ -247,11 +249,12 @@ function toGameLogColumns(tabKey: BoxscoreTabKey, foulSplit: boolean): Column<Ga
   return [...fixed, ...statColumns];
 }
 
-type DetailTab = "stats" | "gamelog" | "career" | "highs" | "compare";
+type DetailTab = "stats" | "gamelog" | "opponentSplit" | "career" | "highs" | "compare";
 
 const TAB_LABELS: Record<DetailTab, string> = {
   stats: "スタッツ",
   gamelog: "試合ログ",
+  opponentSplit: "対戦相手別",
   career: "通算成績",
   highs: "キャリアハイ",
   compare: "比較",
@@ -698,6 +701,10 @@ function formatBirthDate(date: string): string {
 const SHOOTING_TAB_TOOLTIP =
   "Yahoo!スポーツplay-by-play由来のシュートタイプ別成功/試投（2023-24シーズン以降のみ）。「キャッチアンドシュート」に相当する独立分類はデータ上存在せず、無印の「Jump Shot」に一括りになっている点に注意";
 
+/** 所属チームの情報が読めなかったシーズンの「対戦相手別」用（分母は空） */
+const EMPTY_OWN_TEAMS = new Map<string, GameTeamInfo>();
+const EMPTY_TEAM_LOGS = new Map<string, TeamGameLog[]>();
+
 export function PlayerDetailPage({ season }: { season: string }) {
   const isRookie = useIsRookie();
   const { playerId } = useParams<{ playerId: string }>();
@@ -895,6 +902,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
     pk("situationalStatsDisplayMode"),
     "perGame",
   );
+  // 「対戦相手別」タブ: 選んだシーズンの対戦相手ごとの成績。シーズン・カテゴリ・試合区分・平均/合計は、このタブ専用の独立した状態を持つ
+  const [opponentSplitSeasonState, setOpponentSplitSeason] = usePageState<string>(pk("opponentSplitSeason"), () => season);
+  const [opponentSplitCategory, setOpponentSplitCategory] = usePageState<PlayerOpponentCategory>(pk("opponentSplitCategory"), "traditional");
+  const [opponentSplitGameType, setOpponentSplitGameType] = usePageState<SeasonGameTypeFilter>(pk("opponentSplitGameType"), "regular");
+  const [opponentSplitDisplayMode, setOpponentSplitDisplayMode] = usePageState<SeasonDisplayMode>(pk("opponentSplitDisplayMode"), "perGame");
   // Q別/前後半トグル（periodRawGamesキャッシュ・fetchロジックは「シーズン別成績」と共有。上の
   // seasonBreakdownPeriod参照）
   const [situationalStatsPeriod, setSituationalStatsPeriod] = usePageState<PeriodRangeValue>(
@@ -1200,7 +1212,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
   useEffect(() => {
     if (
-      (tab !== "stats" && tab !== "career" && tab !== "highs" && tab !== "compare") ||
+      (tab !== "stats" && tab !== "opponentSplit" && tab !== "career" && tab !== "highs" && tab !== "compare") ||
       !playerId ||
       !seasons ||
       careerFetchStartedRef.current
@@ -1646,6 +1658,30 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const situationalStatsBackToBack = useMemo(
     () => (situationalStatsSummaries ? buildBackToBackStatus(situationalStatsSummaries) : undefined),
     [situationalStatsSummaries],
+  );
+
+  // 「対戦相手別」タブ: 試合ログ・所属チームごとの分母は、通算成績と同じ全シーズン分の読み込み（careerData・careerTeamData）を使い回す。
+  // Shooting だけは、選んだシーズンの出場した試合のスポーツナビの記録（この選手のシュート）を読む
+  const opponentSplitSeasons = useMemo(() => [...(careerData ?? [])].map((cd) => cd.season).reverse(), [careerData]);
+  const opponentSplitSeason = opponentSplitSeasons.includes(opponentSplitSeasonState) ? opponentSplitSeasonState : (opponentSplitSeasons[0] ?? opponentSplitSeasonState);
+  const opponentSplitLogs = careerData?.find((cd) => cd.season === opponentSplitSeason)?.logs;
+  const opponentSplitTeamInfo = careerTeamData?.get(opponentSplitSeason);
+  const opponentSplitYahooSupported = seasons?.find((s) => s.season === opponentSplitSeason)?.yahooPbp ?? false;
+  const opponentSplitNeedsShots =
+    tab === "opponentSplit" && opponentSplitCategory === "shooting" && opponentSplitYahooSupported && !!opponentSplitLogs && !!playerId;
+  const { data: opponentSplitShots, loading: opponentSplitShotsLoading } = useJsonData(
+    () =>
+      opponentSplitNeedsShots && opponentSplitLogs
+        ? Promise.all(
+            opponentSplitLogs
+              .filter((g) => g.min > 0)
+              .map(async (g) => {
+                const pbp = await fetchYahooGamePbp(opponentSplitSeason, g.scheduleKey);
+                return [g.scheduleKey, pbp?.shots.filter((sh) => sh.playerId === playerId) ?? []] as const;
+              }),
+          ).then((entries) => new Map(entries))
+        : Promise.resolve(null),
+    [opponentSplitNeedsShots, opponentSplitSeason, playerId, opponentSplitLogs],
   );
 
   // アシストの関係性（Batch 3）: 「誰へのアシストが多いか」「誰からのアシストで得点が多いか」を、
@@ -2963,6 +2999,28 @@ export function PlayerDetailPage({ season }: { season: string }) {
             {gameBoxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
           </div>
         ))}
+
+      {tab === "opponentSplit" && playerId && (
+        <PlayerOpponentSplit
+          playerId={playerId}
+          season={opponentSplitSeason}
+          seasonOptions={opponentSplitSeasons}
+          onSeasonChange={setOpponentSplitSeason}
+          logs={opponentSplitLogs}
+          ownTeamByScheduleKey={opponentSplitTeamInfo?.ownTeamByScheduleKey ?? (careerTeamData ? EMPTY_OWN_TEAMS : undefined)}
+          teamLogsByTeamId={opponentSplitTeamInfo?.teamLogsByTeamId ?? (careerTeamData ? EMPTY_TEAM_LOGS : undefined)}
+          loading={careerLoading || !careerData || !careerTeamData}
+          category={opponentSplitCategory}
+          onCategoryChange={setOpponentSplitCategory}
+          gameType={opponentSplitGameType}
+          onGameTypeChange={setOpponentSplitGameType}
+          displayMode={opponentSplitDisplayMode}
+          onDisplayModeChange={setOpponentSplitDisplayMode}
+          shotsByScheduleKey={opponentSplitShots ?? undefined}
+          shotsLoading={opponentSplitShotsLoading}
+          yahooSupported={opponentSplitYahooSupported}
+        />
+      )}
 
       {tab === "career" && (
         <div className="player-tab-panel">

@@ -14491,3 +14491,19 @@ Codex が作った仕組み（作業の記録は `docs/PUBLIC_SEASON_MEDIA.md`�
 - `npm run validate:opponent-split`（新規）: ①相手ごとの合計（試合数・勝ち・各項目の合計・Periods の得点）を全部足すと「全体」と一致（レギュラー・ポストシーズン・合算）、②レギュラーシーズンの「全体」が teams.json と一致（試合数・合計の主な項目・Forced TOV の奪った・された・Shooting のシュートの種類別・On-Court Foreign の人数別の秒数。相手ごとの合計も一致）。全シーズン・全チーム（238チーム・シーズン）で食い違い0。
 - 宇都宮（2025-26）で Traditional〜Periods の9カテゴリの表示、2016-17 で古いデータの表示（Shooting・Forced TOV は「対応していません」）、スマホ幅（相手が略称・左3列が固定）、相手の名前から対戦成績タブへ移ることを確認。
 - 保存キー: 変えたのは `TeamDetailPage.tsx`・`TeamHeadToHead.tsx`（`OPPONENT_PARAM` を export）・新規の部品と `src/lib/` のファイル・`index.css`・検証スクリプト・`tsconfig.scripts.json`・`package.json` の scripts で、いずれも `code-files` に入らない。allKey は変わらない。
+
+### 276-4. 個人詳細（段階2）
+- タブ: `PlayerDetailPage.tsx` の `opponentSplit`（表示名「対戦相手別」。試合ログと通算成績の間）。部品は `src/components/PlayerOpponentSplit.tsx`、行と列の作り方は `src/lib/playerOpponentSplit.ts`（保存キーの対象外）。表そのものはチーム詳細と共通の `OpponentSplitTable.tsx`。
+- カテゴリ: Traditional・Advanced・Misc・Scoring・Shooting・Scoring %。選べる条件は シーズン（その選手が出場したシーズン）・試合区分・平均／合計。
+- 値・列: 個人詳細のシーズン別成績と同じ列（`seasonBoxColumnsFor`。G は左の固定の列があるので除き、DD2・TD3 を足す）・同じ数え方（出場した試合だけ。出場時間0の試合は数えない）。USG%・%-share の分母は、相手ごとの行ではその相手との試合のチーム合計（シチュエーション別成績と同じ）。
+- **シーズンの途中で移籍した選手**: 相手ごとに1行にまとめる（所属の違う試合も1行）。`buildTeamSplitRows` の「複数チーム」の行を使い、分母は216章の「所属期間ごとの、所属した各チームの合計」（`transferredCombinedTeam`。その相手との試合だけを数える）。「全体」の行は、スタッツタブのシーズン別成績の「複数チーム」の行と同じ値。
+- Shooting: 選んだシーズンの、出場した試合のスポーツナビの記録（その選手のシュート）だけを読む（通算の Shooting が読む全シーズン分は使わない）。2023-24より前は「このシーズンのデータには対応していません」。
+- Scoring %: 得点構成（%3P・%FT・%PoutP・PITP%）と FG試投構成（3PA/FGA・MID2A/FGA・PAINT2A/FGA）。選手の割合の式は `playerScoringShare`・`fgaShare`（個人詳細のグラフと同じ）。
+- 試合ログ・所属チームごとの分母は、通算成績・比較タブと同じ全シーズン分の読み込み（`careerData`・`careerTeamData`）を使い回す。
+- 相手の名前: 個人詳細に対戦成績タブは無いので、**その相手との試合でのいちばん新しい自チームの、チーム詳細の対戦成績タブ（その相手を選んだ状態）**へ移る。
+
+### 276-5. 確認（選手）
+- `npm run validate:opponent-split` の選手の部分: 全シーズン・全選手（3,505人・シーズン。うち移籍した選手55）で、①相手ごとの試合数・勝敗・合計の項目を足すと「全体」と一致（レギュラー・ポストシーズン・合算）、②「全体」が、スタッツタブのシーズン別成績の同じ条件の行（移籍した選手は「複数チーム」の行）と Traditional〜Scoring の全項目の表示まで一致（68万項目）、③レギュラーシーズンの試合数・合計の主な項目が players.json と一致。
+- 宇都宮の比江島 慎（8589・2025-26）で全カテゴリ、移籍した選手としてジャメール・マクリーン（30515・2025-26。宇都宮6試合＋秋田24試合。「全体」が スタッツタブの「複数チーム」の行〔30試合・6.8点〕と同じ）、古いシーズン（古川孝敏・2016-17）で表示を確認。スマホ幅で相手が略称・左3列固定。相手の名前から対戦成績タブへ移ることを確認。
+- 見つかった事項（今回の対象外）: 2016-17 の数人で、試合ログの PF の合計が players.json より1少ない（例: 9057 は 108 と 109）。今回の表は試合ログの値のまま。
+- 保存キー: 変えたのは `PlayerDetailPage.tsx`・新規の部品と `src/lib/` のファイルで、いずれも `code-files` に入らない。allKey は変わらない。
