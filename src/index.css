@@ -2146,6 +2146,9 @@ table.boxscore-table .boxscore-summary-grand-total td {
 }
 
 .rank-name-cell {
+  /* 固定幅の名前列の中で縮め、長い名前は隣の値の列へ出さず折り返す。 */
+  min-width: 0;
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -2153,9 +2156,17 @@ table.boxscore-table .boxscore-summary-grand-total td {
 
 .rank-name {
   font-weight: 600;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.rank-name-with-logo > :not(.rank-name-cell) {
+  flex-shrink: 0;
 }
 
 .rank-sublabel {
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-size: 11px;
   color: var(--muted);
 }
@@ -2314,6 +2325,9 @@ table.compare-table th a {
 }
 
 table.compare-table thead th.compare-entity-col {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
   border-top: 3px solid var(--border);
   /* 対象のチームカラー（ComparisonTable が --team-color で渡す） */
   border-top-color: var(--team-color, var(--border));
@@ -7941,13 +7955,7 @@ table.sortable-table.lineup-search-table tbody th {
   font-weight: 700;
 }
 
-/* 画面では、長い名前（名古屋ダイヤモンドドルフィンズ等）が列の幅からはみ出して横スクロールの枠で切れないよう、文字を一回り小さくし、
- * それでも入らないときは折り返す（保存画像は幅が固定で、はみ出しても枠の余白に写る） */
-.export-wide:not(.export-rendering) table.compare-table thead th.compare-entity-col {
-  white-space: normal;
-  text-wrap: balance;
-}
-
+/* 画面の比較名は従来の大きさを保つ。折り返しは保存画像と共有する compare-entity-col で指定する。 */
 .export-wide:not(.export-rendering) table.compare-table th a,
 .export-wide:not(.export-rendering) table.compare-table th .cell-link {
   font-size: 16px;
@@ -8014,28 +8022,28 @@ table.sortable-table.lineup-search-table tbody th {
 }
 
 /* 名前の列いっぱいに広げる（親の幅が内容幅のままだと、1人分の幅が行ごとにばらつく） */
-.export-wide.export-target-pairs .rank-name-with-logo,
-.export-wide.export-target-pairs .rank-name-cell {
+.export-target-pairs .rank-name-with-logo,
+.export-target-pairs .rank-name-cell {
   width: 100%;
 }
 
-.export-wide.export-target-pairs .rank-name {
+.export-target-pairs .rank-name {
   display: block;
 }
 
-.export-wide .pair-people {
+.export-target-pairs .pair-people {
   display: flex;
   width: 100%;
   align-items: flex-start;
   gap: 6px;
 }
 
-.export-wide .pair-people > .pair-people {
+.export-target-pairs .pair-people > .pair-people {
   flex: 1 1 0;
   min-width: 0;
 }
 
-.export-wide .pair-person {
+.export-target-pairs .pair-person {
   flex: 1 1 0;
   width: auto;
   min-width: 0;
