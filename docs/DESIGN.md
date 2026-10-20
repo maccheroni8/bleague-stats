@@ -14438,3 +14438,25 @@ Codex が作った仕組み（作業の記録は `docs/PUBLIC_SEASON_MEDIA.md`�
 - 検証: `validate-period-index`・`validate-game-index` は手入力の試合を対象から外す（公式の Summaries・ピリオド別の行と突き合わせる検証のため）。
 - 画面: 試合詳細に「公式にボックススコアが無く、他の公開記録の試合合計から作った。Q別の選手スタッツ・出場交代・プレー記録・PBP の項目・チームリバウンド・+/- は含まれない」旨の注記を出す。出場交代・Lead Tracker は空。
 - 公式が後からボックススコアを出した場合: 1810.json.gz を削除して `npm run scrape:boxscore -- 1810` で取り直す（夜間の取り込みは、ファイルがある試合を新着として取りに行かない）。
+
+### 275-4. 追補（2026-10-20）: 区間の値を持たない試合・Forced TOV の分類・チームの索引の OFF FOUL／CHARGE（保存キーが変わる＝次のデプロイで全シーズンの作り直しが1回。1810の補完と同じ回）
+
+**段階1 ピリオド別の行が無い試合の扱い**
+- チームのピリオド別の索引（`scripts/lib/periodIndexBuild.ts`）は、**ピリオド別の選手行（PeriodCategory 1〜4）が1つも無い試合**の全区間（1Q〜4Q・延長・前半・後半のポゼッション）を、0 ではなく **-1（無い）**にする（`hasPeriodRows`。1810だけの特別扱いではない）。直す前は 1810 の千葉・A東京が「1Q〜4Q の得点0・出場0」の値あり行になり、Q別の G に入り平均を下げていた。
+- 外れる画面（索引から出す）: チーム詳細のシーズン別成績・シチュエーション別成績・選手スタッツ・ラインナップ（On-Court Foreign）のQ別／前後半／延長、全チームスタッツの区間別（Scoring % の絞り込み・On-Court Foreign）、ランキングの個人・チームのQ別、チームの1試合記録のQ別。注記は `MANUAL_BOXSCORE_PERIOD_NOTE`（`seasonPeriod.ts`。試合区分が「ポストシーズン」以外のとき 2017-18 で出す）、1試合記録は `GameRecordNotes` に「（N件）含めていません」。
+- **外れない画面（判断メモ）**: 全チームスタッツの **Periods タブ**（226章）とチーム詳細の日程結果のラインスコアは、試合ログの `periodPoints`（公式のクォーター別得点。1810は手入力の値 18/17/15/17・9/19/10/11）から作るので、**1810も入る**（得点は実在の値）。Q別の索引の画面とは、1810の分だけ G が1違う（千葉 2017-18 は Periods タブ 60・索引のQ別 59）。
+- 検証: `validate:period-index` に「ピリオド別の選手行が無い試合のチームの区間の値はすべて -1」を足した。公式の Summaries・ピリオド別の行と突き合わせる検証は、手入力の試合（`scripts/lib/manualBoxscores.ts`）を除くか「値が無いこと」を確かめる形にした（`validate-season-period`・`validate-team-period-record`・`validate-team-period-table`・`validate-team-period-scoring`・`validate-game-index`）。
+
+**段階2 Forced TOV の分類を1か所に**
+- `classifyForcedTurnover`（Yahoo のターンオーバーを 5 主要種別＋その他デッド／ライブに分ける）を `scripts/aggregate.ts` から **`shared/forcedTurnover.ts`** に移した（集計と画面の両方から使える）。
+- 移す前後で、全 11 シーズンの `teams.json`（Forced TOV 100チーム・シーズン分の「奪った」「奪われた」）と `league-compare.json` の内容（generatedAt を除く）が**完全に一致**することを確かめた。
+
+**段階3 チームの索引に OFF FOUL・CHARGE**
+- `shared/periodIndex.ts` の **`TEAM_PERIOD_FOUL_COLUMNS`（offFouls・charges）**。自チームの選手の区間ごとのオフェンスファウル数・チャージ数の合計（画面の区間別の選手スタッツと同じ値。相手の値は相手の行から引く）。`TEAM_PERIOD_EXTRA_COLUMNS` には入れず、**古い索引（この列が無い）でも読める**（`teamPeriodHasFoulColumns`。無ければその2列は「-」）。
+- 画面: チーム詳細のシチュエーション別成績で、区間を選んだときも OFF FOUL・CHARGE を出す。「表示できない項目」の注記は LIVETOV・DEADTOV（とその%）だけ（古い索引のときは OFF FOUL・CHARGE も）。`indexUnavailableKeys`（`teamSituationalPeriod.ts`）。シーズン別成績の表には OFF FOUL・CHARGE の列が無いので対象外。**LIVETOV・DEADTOV は今回も対象外**。
+- 検証: `validate:period-index`（区間の合計 = 試合全体の選手の合計）、`validate:team-situational-period`（前半 = 1Q + 2Q、古い索引でも読めて2列だけ「-」）。
+
+**注記だけにしたもの（直していない）**
+- 1810 は普通の試合として G と平均の分母に入るが、PBP から数える項目（+/-・PITP・FBPS・2ND PTS・PTSOFFTO・DUNK・AND1・アシストされた得点・ペイント内外の内訳・テクニカル／オフェンスファウル／チャージ）と在コート系（ORtg・DRtg・USG%・%系・On/Off。区間の合計から出すので分子は足りず、分母の試合数だけ入る）は、この1試合が 0 で入って平均がわずかに薄まる。千葉・A東京の選手・チームの 2017-18 だけ。
+- ラインナップ・5人組（2017-18 は PBP から復元）の時間の合計は、1810の分だけチームの時間に届かない。
+- いずれも**後回しの課題「在コート基準の再集計」と一緒に扱う**（CLAUDE.md の未対応タスク）。画面上の注記は、今は試合詳細ページの注記と上のQ別の注記だけ。

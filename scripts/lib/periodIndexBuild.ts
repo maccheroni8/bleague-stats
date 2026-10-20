@@ -17,6 +17,7 @@ import {
   TEAM_PERIOD_COUNT_COLUMNS,
   TEAM_PERIOD_EXTRA_COLUMNS,
   TEAM_PERIOD_FOREIGN_COLUMNS,
+  TEAM_PERIOD_FOUL_COLUMNS,
   TEAM_PERIOD_FOREIGN_DETAIL_COLUMNS,
   TEAM_PERIOD_WHOLE_GAME_KEY,
   type TeamPeriodExtraColumn,
@@ -228,7 +229,7 @@ export async function buildPeriodIndex(season: string): Promise<{ player: Player
   const teamRows = teamIndex.games.key.length * 2;
   const teamCounts: Record<string, number[]> = {};
   for (const a of PERIOD_ATOMS) {
-    for (const c of [...TEAM_PERIOD_COUNT_COLUMNS, ...TEAM_PERIOD_EXTRA_COLUMNS, ...FOREIGN_INDEX_COLUMNS]) teamCounts[`${a}.${c}`] = new Array<number>(teamRows).fill(-1);
+    for (const c of [...TEAM_PERIOD_COUNT_COLUMNS, ...TEAM_PERIOD_EXTRA_COLUMNS, ...TEAM_PERIOD_FOUL_COLUMNS, ...FOREIGN_INDEX_COLUMNS]) teamCounts[`${a}.${c}`] = new Array<number>(teamRows).fill(-1);
   }
   for (const c of FOREIGN_INDEX_COLUMNS) teamCounts[`${TEAM_PERIOD_WHOLE_GAME_KEY}.${c}`] = new Array<number>(teamRows).fill(-1);
   const teamPoss = Object.fromEntries(PERIOD_POSS_KEYS.map((k) => [k, new Array<number>(teamRows).fill(-1)])) as Record<PeriodPossKey, number[]>;
@@ -262,7 +263,11 @@ export async function buildPeriodIndex(season: string): Promise<{ player: Player
       PERIOD_ATOMS.forEach((atom, ai) => {
         const opt = atoms[ai]!;
         if (!usable(atom, opt)) return;
+        let offFouls = 0;
+        let charges = 0;
         for (const p of buildPlayerBoxscores(ownRows, opt, game.raw.PlayByPlays, [])) {
+          offFouls += p.counts.offensiveFoulsCommitted;
+          charges += p.counts.chargesDrawn;
           if (p.dnp) continue;
           const row = rowOf.get(`${p.playerId}|${key}`);
           if (row === undefined) continue; // 出場時間が0の行（索引に無い）
@@ -272,6 +277,8 @@ export async function buildPeriodIndex(season: string): Promise<{ player: Player
           if (!list) perRow.set(row, (list = []));
           list.push({ period: ai, plusMinus: p.counts.hasPlusMinus, values });
         }
+        teamCounts[`${atom}.offFouls`]![tg * 2 + side] = offFouls;
+        teamCounts[`${atom}.charges`]![tg * 2 + side] = charges;
         // チームの自チームの値（相手の値は相手の行から引く）
         const own = buildTeamTotalCounts(ownRows, opt);
         for (const c of TEAM_PERIOD_COUNT_COLUMNS) teamCounts[`${atom}.${c}`]![tg * 2 + side] = Number((own as unknown as Record<string, unknown>)[c] ?? 0);

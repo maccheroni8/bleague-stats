@@ -3,7 +3,7 @@
 // 全チームスタッツの区間別（teamPeriodTotals.ts の sumTeamPeriodTotals。チームのピリオド別の索引から作る）と同じ関数で値を作り、
 // 行の表（BoxscoreColumn。自チーム・opp・+/- のどの視点でも使える）に渡せる形に直す。
 // 同じ値・同じ数え方（PITP・FBPS・ペイント内外・ポゼッションなど）になる。
-// BSR（相手のBLK）・EFF（式の材料はすべて索引にある）は索引から出す（274章）。索引に無い項目（OFF FOUL・CHARGE・LIVETOV・DEADTOV）は「-」にする（INDEX_UNAVAILABLE_COLUMN_KEYS）。
+// BSR（相手のBLK）・EFF（式の材料はすべて索引にある）は索引から出す（274章）。索引に無い項目（LIVETOV・DEADTOV。OFF FOUL・CHARGE は275章 段階3から索引にある）は「-」にする（INDEX_UNAVAILABLE_COLUMN_KEYS）。
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
 import { eff as effFormula, offensiveRating, pace } from "../../shared/formulas";
 import type { TeamGameLog } from "../../shared/types";
@@ -15,19 +15,24 @@ import type { TeamTotals } from "./teamStatsColumns";
 
 /** チームのピリオド別の索引に無い項目の列。区間を選んでいる間は「-」にする */
 export const INDEX_UNAVAILABLE_COLUMN_KEYS: ReadonlySet<string> = new Set([
-  "offfoul",
-  "charge",
   "livetov",
   "deadtov",
   "livetovpct",
   "deadtovpct",
 ]);
 
+/** 古い索引（OFF FOUL・CHARGE の列が無い。teamPeriodHasFoulColumns）のときだけ「-」にする列 */
+const INDEX_FOUL_COLUMN_KEYS: readonly string[] = ["offfoul", "charge"];
+
+/** 区間を索引から出すとき「-」になる列のキー。hasFoulColumns は、読んだ索引に OFF FOUL・CHARGE の列があるか */
+export function indexUnavailableKeys(hasFoulColumns: boolean): ReadonlySet<string> {
+  return hasFoulColumns ? INDEX_UNAVAILABLE_COLUMN_KEYS : new Set([...INDEX_UNAVAILABLE_COLUMN_KEYS, ...INDEX_FOUL_COLUMN_KEYS]);
+}
+
 /** 列のうち、索引から出せないものを「-」にする（並びは変えない） */
-export function withIndexUnavailableColumns(columns: BoxscoreColumn[]): BoxscoreColumn[] {
-  return columns.map((col) =>
-    INDEX_UNAVAILABLE_COLUMN_KEYS.has(col.key) ? { ...col, format: () => "-", value: undefined } : col,
-  );
+export function withIndexUnavailableColumns(columns: BoxscoreColumn[], hasFoulColumns = true): BoxscoreColumn[] {
+  const keys = indexUnavailableKeys(hasFoulColumns);
+  return columns.map((col) => (keys.has(col.key) ? { ...col, format: () => "-", value: undefined } : col));
 }
 
 /**
@@ -95,6 +100,8 @@ function countsOf(t: TeamTotals, opp: boolean, seasonStartYear: number): Boxscor
     eff: teamPeriodEffTotal(t, opp, seasonStartYear),
     foul: pick(t.pf, t.oppPf),
     foulon: pick(t.fd, t.oppFd),
+    offensiveFoulsCommitted: pick(t.offFoul, t.oppOffFoul),
+    chargesDrawn: pick(t.charge, t.oppCharge),
     // 全チームスタッツの +/- と同じく、区間の得点の差（視点が相手のときは逆）
     plusMinus: pts - otherPts,
     hasPlusMinus: true,

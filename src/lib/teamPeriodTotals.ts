@@ -6,7 +6,7 @@
 // - 勝敗は試合の勝敗のまま（区間ごとの勝ち負けは出さない。決定3）
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
 import { useEffect, useState } from "react";
-import { PERIOD_ATOMS, TEAM_PERIOD_EXTRA_COLUMNS, type PeriodPossKey, type TeamPeriodIndexFile } from "../../shared/periodIndex";
+import { PERIOD_ATOMS, TEAM_PERIOD_EXTRA_COLUMNS, TEAM_PERIOD_FOUL_COLUMNS, type PeriodPossKey, type TeamPeriodIndexFile } from "../../shared/periodIndex";
 import type { TeamGameLog } from "../../shared/types";
 import { fetchTeamPeriodIndex } from "./data";
 import { loadTeamGameIndex } from "./gameIndexLoad";
@@ -14,6 +14,11 @@ import { isSupportedPeriodIndex, PERIOD_ATOM_INDEXES, type GameRecordPeriod } fr
 import { EMPTY_TOTALS, type TeamTotals } from "./teamStatsColumns";
 
 export type TeamPeriodValue = GameRecordPeriod;
+
+/** 索引に OFF FOUL・CHARGE の列があるか（275章 段階3より前の索引には無い。無ければ画面は「-」にする） */
+export function teamPeriodHasFoulColumns(file: TeamPeriodIndexFile): boolean {
+  return TEAM_PERIOD_FOUL_COLUMNS.every((c) => !!file.rows.counts[`q1.${c}`]);
+}
 
 export interface TeamPeriodSource {
   season: string;
@@ -94,6 +99,7 @@ export function sumTeamPeriodTotals(
   const { file } = source;
   const t: TeamTotals = { ...EMPTY_TOTALS };
   const games: TeamGameLog[] = [];
+  const hasFoul = teamPeriodHasFoulColumns(file);
   for (const g of logs) {
     const n = source.gameNo.get(g.scheduleKey);
     if (n === undefined) continue;
@@ -137,6 +143,12 @@ export function sumTeamPeriodTotals(
     t.oppBlk += p("blk");
     t.oppPf += p("foul");
     t.oppFd += p("foulsDrawn");
+    if (hasFoul) {
+      t.offFoul += o("offFouls");
+      t.charge += o("charges");
+      t.oppOffFoul += p("offFouls");
+      t.oppCharge += p("charges");
+    }
     t.pt2in += o("pt2in");
     t.fb += o("fb");
     t.pt2nd += o("pt2nd");

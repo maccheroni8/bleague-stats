@@ -352,6 +352,9 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
   const gapSeen = new Set<string>();
   let teamAllNg = 0;
   let noPeriodGames = 0;
+  let foulChecked = 0;
+  let foulNg = 0;
+  let foulFirst = "";
   let noPeriodNg = 0;
   let teamQuarterNg = 0;
   let teamQuarterFirst = "";
@@ -399,6 +402,16 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
       const tr = tg * 2 + side;
       const ownAll = buildTeamTotalCounts(ownRows, allOpt ?? undefined);
       if (!short) {
+        // OFF FOUL・CHARGE（275章 段階3）: 区間の合計 = 試合全体の選手の合計（buildPlayerBoxscores を足した値）
+        for (const [col, key2] of [["offFouls", "offensiveFoulsCommitted"], ["charges", "chargesDrawn"]] as const) {
+          const sumIdx = PERIOD_ATOMS.reduce((s2, a2) => s2 + Math.max(0, team.rows.counts[`${a2}.${col}`]![tr]!), 0);
+          const sumWhole = [...whole.values()].reduce((s2, p) => s2 + p.counts[key2], 0);
+          foulChecked += 1;
+          if (sumIdx !== sumWhole) {
+            foulNg += 1;
+            if (!foulFirst) foulFirst = `${season} ${key} ${side} ${col} ${sumIdx}/${sumWhole}`;
+          }
+        }
         for (const c of TEAM_PERIOD_COUNT_COLUMNS) {
           const sum = PERIOD_ATOMS.reduce((s, a) => s + Math.max(0, team.rows.counts[`${a}.${c}`]![tr]!), 0);
           const expect = Number((ownAll as unknown as Record<string, unknown>)[c] ?? 0);
@@ -582,6 +595,7 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
   ok(`${label} 区間の合計 = 試合全体（${rowsChecked}行・${PLAYER_PERIOD_STAT_COLUMNS.length}項目）。出場時間のずれは${minOff}行・最大${minMaxDiff}秒（許容2秒）`, sumNg === 0 && minMaxDiff <= 2, `${sumNg} ${sumFirst}`);
   ok(`${label} 区間の合計 = 1試合行の索引の値`, indexNg === 0, `${indexNg} ${indexFirst}`);
   ok(`${label} 前半・後半 = 直接出した値（1Q+2Q／3Q+4Q）`, halfNg === 0, `${halfNg} ${halfFirst}`);
+  ok(`${label} OFF FOUL・CHARGE の区間の合計 = 試合全体の選手の合計（${foulChecked}件）`, foulNg === 0, `${foulNg} ${foulFirst}`);
   ok(`${label} ピリオド別の選手行が無い試合（${noPeriodGames}試合）のチームの区間の値はすべて -1（区間の集計に入らない）`, noPeriodNg === 0, `${noPeriodNg}`);
   ok(`${label} チームの区間の合計 = 試合全体、前半・後半のポゼッション = 直接出した値`, teamAllNg === 0 && possNg === 0, `${teamAllNg} ${possNg}`);
   ok(`${label} チームの区間の得点 = 公式のクォーター別スコア`, teamQuarterNg === 0, `${teamQuarterNg} ${teamQuarterFirst}`);

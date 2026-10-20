@@ -22,8 +22,8 @@ import {
   type AllTeamsRow,
   type TeamPerspective,
 } from "../src/lib/teamStatsColumns";
-import { sumTeamPeriodTotals, type TeamPeriodSource, type TeamPeriodValue } from "../src/lib/teamPeriodTotals";
-import { INDEX_UNAVAILABLE_COLUMN_KEYS, buildTeamPeriodRowValues, teamPeriodEffTotal, withIndexUnavailableColumns } from "../src/lib/teamSituationalPeriod";
+import { sumTeamPeriodTotals, teamPeriodHasFoulColumns, type TeamPeriodSource, type TeamPeriodValue } from "../src/lib/teamPeriodTotals";
+import { INDEX_UNAVAILABLE_COLUMN_KEYS, indexUnavailableKeys, buildTeamPeriodRowValues, teamPeriodEffTotal, withIndexUnavailableColumns } from "../src/lib/teamSituationalPeriod";
 import { teamBoxscoreColumnsFor } from "../src/lib/teamBoxscoreColumns";
 import { cleanNumericString, formatColumnDiff } from "../src/lib/compareShared";
 import { foulColumnsSplit } from "../src/lib/ruleChange";
@@ -221,6 +221,36 @@ async function main(): Promise<void> {
       if (cleanNumericString(col2.format(brokenValues.boxTotals.own, brokenValues.boxTotals.ownCtx)) !== cleanNumericString(refCol.format?.(row) ?? "")) sens.ng += 1;
     }
     check(`感度: ${last.season} の 2Q の PITP を1か所壊すと検出される（${sens.ng}チーム）`, sens.ng > 0);
+  }
+  if (last) {
+    // 275章 段階3: OFF FOUL・CHARGE は索引から出す（前半 = 1Q + 2Q）。古い索引（この列が無い）は「-」で、ほかの列は変わらない
+    const foulSplit = foulColumnsSplit([last.season]);
+    let foulBad = 0;
+    let foulSeen = 0;
+    for (const [, logs] of last.logsByTeam) {
+      const at = (v: TeamPeriodValue) => buildTeamPeriodRowValues(last.source, logs, v, "total", { shotChartSupported: true, yahooPbpSupported: true });
+      const q1 = at("q1");
+      const q2 = at("q2");
+      const h1 = at("h1");
+      if (!q1 || !q2 || !h1) continue;
+      for (const k of ["offensiveFoulsCommitted", "chargesDrawn"] as const) {
+        foulSeen += 1;
+        if (h1.boxTotals.own[k] !== q1.boxTotals.own[k] + q2.boxTotals.own[k] || h1.boxTotals.opp[k] !== q1.boxTotals.opp[k] + q2.boxTotals.opp[k]) foulBad += 1;
+      }
+    }
+    check(`${last.season}: OFF FOUL・CHARGE の前半 = 1Q + 2Q（自チーム・相手。${foulSeen}件）`, foulBad === 0 && foulSeen > 0, `${foulBad}`);
+    check("OFF FOUL・CHARGE は索引から出す列（新しい索引では「-」にしない）", teamPeriodHasFoulColumns(last.source.file) && !indexUnavailableKeys(true).has("offfoul") && !indexUnavailableKeys(true).has("charge"));
+    const oldCounts = Object.fromEntries(Object.entries(last.source.file.rows.counts).filter(([k]) => !k.endsWith(".offFouls") && !k.endsWith(".charges")));
+    const oldSource: TeamPeriodSource = { ...last.source, file: { ...last.source.file, rows: { ...last.source.file.rows, counts: oldCounts } } };
+    const oldCols = withIndexUnavailableColumns(teamBoxscoreColumnsFor("misc", foulSplit), teamPeriodHasFoulColumns(oldSource.file));
+    const offCol = oldCols.find((c) => c.key === "offfoul");
+    let oldSame = true;
+    for (const [, logs] of last.logsByTeam) {
+      const a = sumTeamPeriodTotals(oldSource, logs, "q1");
+      const b = sumTeamPeriodTotals(last.source, logs, "q1");
+      if (a.games.length !== b.games.length || a.totals.pts !== b.totals.pts || a.totals.offFoul !== 0) oldSame = false;
+    }
+    check("古い索引（OFF FOUL・CHARGE の列が無い）でも読めて、その2列だけ「-」になる", !teamPeriodHasFoulColumns(oldSource.file) && !!offCol && offCol.value === undefined && oldSame);
   }
   console.log(failures === 0 && total.ng === 0 ? "\nすべて ok" : `\n${failures + total.ng}件の食い違い\n${total.first.join("\n")}`);
   if (failures > 0 || total.ng > 0) process.exit(1);

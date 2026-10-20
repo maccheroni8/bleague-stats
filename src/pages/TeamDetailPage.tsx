@@ -100,7 +100,7 @@ import { LineupSearch } from "../components/LineupSearch";
 import { highlightStrength } from "../components/GameLineupTable";
 import { TeamLineupOnCourtSummary } from "../components/TeamLineupOnCourtSummary";
 import { lineupBucket, lineupForeignCount, lineupSeasonTotals, seasonOnCourtSummary, seasonOnCourtSummaryFromDetail } from "../lib/teamLineupOnCourt";
-import { useTeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
+import { teamPeriodHasFoulColumns, useTeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
 import { hasForeignColumns, sumForeignCourt, sumForeignDetail, type ForeignPeriodValue } from "../lib/teamForeignCourt";
 import {
   OVERTIME_GAMES_NOTE,
@@ -236,7 +236,7 @@ import { enumParam, useUrlState } from "../lib/urlState";
 import { fgaShare, foreignShareFromSeconds, teamClassificationShareFromTotals, teamScoringShareFromTotals, type ForeignShare } from "../lib/shareCharts";
 import { EMPTY_TOTALS, sumTeamGameLogs } from "../lib/teamStatsColumns";
 import { buildSeasonPeriodRow, seasonPeriodCell, seasonPeriodFormatters, unavailableSeasonPeriodLabels, useTeamPeriodSources } from "../lib/teamSeasonPeriod";
-import { INDEX_UNAVAILABLE_COLUMN_KEYS, buildTeamPeriodRowValues, withIndexUnavailableColumns } from "../lib/teamSituationalPeriod";
+import { buildTeamPeriodRowValues, indexUnavailableKeys, withIndexUnavailableColumns } from "../lib/teamSituationalPeriod";
 import {
   attemptsFirst,
   computeTopRecordEntries,
@@ -3546,12 +3546,14 @@ export function TeamDetailPage({ season }: { season: string }) {
     situationalTeamBoxTab === "shooting"
       ? sortShotTypeKeys([...new Set([...situationalTeamShotBreakdownByRowKey.values()].flatMap((b) => Object.keys(b)))])
       : [];
-  // Traditional〜Scoring の列。区間を索引から出すときは、索引に無い項目（BSR・EFF・OFF FOUL・CHARGE・LIVETOV・DEADTOV 等）は「-」にする
+  // 読んだ索引に OFF FOUL・CHARGE の列があるか（275章 段階3より前の索引には無く、その列は「-」）
+  const situationalIndexUnavailable = indexUnavailableKeys(!situationalPeriodSource || teamPeriodHasFoulColumns(situationalPeriodSource.file));
+  // Traditional〜Scoring の列。区間を索引から出すときは、索引に無い項目（LIVETOV・DEADTOV 等。古い索引は OFF FOUL・CHARGE も）は「-」にする
   const situationalTeamMainColumns =
     situationalTeamBoxTab === "shooting" || situationalTeamBoxTab === "periods"
       ? []
       : situationalIndexMode
-        ? withIndexUnavailableColumns(teamBoxscoreColumnsFor(situationalTeamBoxTab, foulColumnsSplit([season])))
+        ? withIndexUnavailableColumns(teamBoxscoreColumnsFor(situationalTeamBoxTab, foulColumnsSplit([season])), !situationalIndexUnavailable.has("offfoul"))
         : teamBoxscoreColumnsFor(situationalTeamBoxTab, foulColumnsSplit([season]));
   const situationalTeamShotColumns = shotTypeEntityColumns<TeamSituationalStatsRow>(
     situationalTeamShotTypeKeys,
@@ -5144,9 +5146,9 @@ export function TeamDetailPage({ season }: { season: string }) {
             situationalTeamBoxTab !== "periods" &&
             situationalTeamGameType !== "playoff" &&
             hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
-          {situationalIndexMode && situationalTeamGroups.length > 0 && situationalTeamMainColumns.some((c) => INDEX_UNAVAILABLE_COLUMN_KEYS.has(c.key)) && (
+          {situationalIndexMode && situationalTeamGroups.length > 0 && situationalTeamMainColumns.some((c) => situationalIndexUnavailable.has(c.key)) && (
             <p className="page-subtitle">
-              区間を選んだときは表示できない項目があります（{situationalTeamMainColumns.filter((c) => INDEX_UNAVAILABLE_COLUMN_KEYS.has(c.key)).map((c) => c.label).join("・")}）。その項目は「-」です。
+              区間を選んだときは表示できない項目があります（{situationalTeamMainColumns.filter((c) => situationalIndexUnavailable.has(c.key)).map((c) => c.label).join("・")}）。その項目は「-」です。
             </p>
           )}
 

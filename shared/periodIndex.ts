@@ -127,6 +127,14 @@ export const TEAM_PERIOD_EXTRA_COLUMNS = [
 export type TeamPeriodExtraColumn = (typeof TEAM_PERIOD_EXTRA_COLUMNS)[number];
 
 /**
+ * オフェンスファウル（OFF FOUL）・チャージ（CHARGE）の列（275章 段階3。2026-10-20）。自チームの選手のうち、その区間にオフェンスファウルを犯した数・チャージを取った数の合計
+ * （画面の区間別の選手スタッツ〔buildPlayerBoxscores〕を足したものと同じ値）。相手の値は相手の行から引く。ピリオド別の行が無い試合は -1。
+ * 古い索引には無い（画面は「-」にする）ので、TEAM_PERIOD_EXTRA_COLUMNS には入れない
+ */
+export const TEAM_PERIOD_FOUL_COLUMNS = ["offFouls", "charges"] as const;
+export type TeamPeriodFoulColumn = (typeof TEAM_PERIOD_FOUL_COLUMNS)[number];
+
+/**
  * 外国籍・帰化・アジアの選手が同時に0〜4人コートにいた在コート秒数の列（On-Court Foreign。256章の段階1）。数え方は TeamGameLog.foreignCourtSeconds と同じ
  * （ピリオドの切れ目をまたぐ5人組は切れ目で分ける）。その試合で数えられる5人組が1つも無いチームは、すべての区間で -1（対象外）。古い索引には無い
  */

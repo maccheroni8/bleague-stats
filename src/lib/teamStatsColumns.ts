@@ -88,6 +88,11 @@ export interface TeamTotals {
   oppPt2nd: number;
   oppPft: number;
   oppDunks: number;
+  /** オフェンスファウル・チャージ（チームのピリオド別の索引から出すときだけ値が入る。試合ログの合計では 0） */
+  offFoul: number;
+  charge: number;
+  oppOffFoul: number;
+  oppCharge: number;
   // Misc/スコアリングタブ拡張（2026-08-29）
   technicalFouls: number;
   basketCounts: number;
@@ -180,6 +185,10 @@ export const EMPTY_TOTALS: TeamTotals = {
   oppPt2nd: 0,
   oppPft: 0,
   oppDunks: 0,
+  offFoul: 0,
+  charge: 0,
+  oppOffFoul: 0,
+  oppCharge: 0,
   technicalFouls: 0,
   basketCounts: 0,
   unsportsmanlikeFouls: 0,
@@ -304,6 +313,10 @@ export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
       starterPoints: acc.starterPoints + g.starterPoints,
       oppBenchPoints: acc.oppBenchPoints + (g.opponentBenchPoints ?? 0),
       oppStarterPoints: acc.oppStarterPoints + (g.opponentStarterPoints ?? 0),
+      offFoul: acc.offFoul,
+      charge: acc.charge,
+      oppOffFoul: acc.oppOffFoul,
+      oppCharge: acc.oppCharge,
     }),
     { ...EMPTY_TOTALS },
   );
