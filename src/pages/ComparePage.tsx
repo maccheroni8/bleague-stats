@@ -1,3 +1,4 @@
+import { NameText } from "../components/NameText";
 import { useMemo, useRef, type CSSProperties, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
@@ -307,7 +308,7 @@ export function ComparisonTable<T>({
                   {externalLinkTo?.(item) && (
                     <ExternalLinkIcon href={externalLinkTo(item)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
-                  {caption?.(item) && <span className="compare-caption">{caption(item)}</span>}
+                  {caption?.(item) && <span className="compare-caption"><NameText name={caption(item)!} kind="team" /></span>}
                   <span className="compare-season-tag">{season}</span>
                   {sub && <span className="compare-season-tag compare-condition-tag">{sub}</span>}
                 </th>
@@ -895,7 +896,7 @@ function ResponsivePlayerName({ name, playerId, season }: { name: string; player
   const isRookie = useIsRookie();
   return (
     <>
-      {narrow ? <span title={name}>{surnameOf(name)}</span> : name}
+      {narrow ? <span title={name}><NameText name={surnameOf(name)} /></span> : <NameText name={name} />}
       {isRookie(playerId, season) && <RookieBadge />}
     </>
   );

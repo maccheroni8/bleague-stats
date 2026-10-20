@@ -1,3 +1,4 @@
+import { fitNamesIn } from "./nameLayout";
 import html2canvas from "html2canvas";
 import {
   baseDateFooterText,
@@ -303,6 +304,7 @@ function prepareClone(doc: Document, clonedEl: HTMLElement, options: ExportOptio
   clonedEl.classList.add("export-rendering", "export-wide");
   if (options.plain) clonedEl.classList.add("export-plain");
   if (options.top10) clonedEl.classList.add("export-top10");
+  fitNamesIn(clonedEl);
   convertModernColors(clonedEl);
   // フッターは画面の表の下に出している要素（ExportTarget）をそのまま使い、アカウント名だけを足す。基準日は保存のときに求めた値
   let footer = Array.from(clonedEl.children).find((c): c is HTMLElement => c.classList.contains("export-footer"));

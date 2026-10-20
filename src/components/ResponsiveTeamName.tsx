@@ -1,3 +1,4 @@
+import { NameText } from "./NameText";
 import { teamShortName } from "../../shared/teamNames";
 import { useMediaQuery } from "../lib/useMediaQuery";
 
@@ -11,5 +12,5 @@ import { useMediaQuery } from "../lib/useMediaQuery";
 export function ResponsiveTeamName({ teamId, name, always = false, nowrap = false }: { teamId: string; name: string; always?: boolean; nowrap?: boolean }) {
   const narrow = useMediaQuery("(max-width: 560px)");
   const text = always || narrow ? teamShortName(teamId, name) : name;
-  return nowrap ? <span className="record-date-nowrap">{text}</span> : <>{text}</>;
+  return nowrap ? <span className="record-date-nowrap">{text}</span> : <NameText name={text} kind="team" />;
 }

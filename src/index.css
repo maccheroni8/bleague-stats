@@ -8260,3 +8260,27 @@ table.sortable-table.lineup-search-table tbody th {
 .opp-split-link:hover {
   text-decoration: underline;
 }
+
+/* 名前は区切りを含む単位ごとに保持し、左から入るだけ詰める。
+ * 1単位が入らない場合だけ NameText が縮小する（PC・保存12px、スマホ10pxまで）。 */
+.export-target .name-text {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+  white-space: normal;
+  text-wrap: wrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.export-target .name-piece {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* 3人分の名字を10px未満にしない。狭い画面では表を横スクロールして読む。 */
+@media (max-width: 560px) {
+  .export-target-trio .rankings-table {
+    min-width: 520px;
+  }
+}
