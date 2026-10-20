@@ -1,6 +1,7 @@
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "./GlossaryNote";
 import type { SeasonRules, TeamSummary } from "../../shared/types";
+import type { TeamTotals } from "../lib/teamStatsColumns";
 import {
   CLASSIFICATION_CATEGORIES,
   FGA_CATEGORIES,
@@ -14,7 +15,10 @@ import {
   pointsRightLabel,
   SCORING_CATEGORIES,
   teamClassificationShare,
+  teamClassificationShareFromTotals,
   teamScoringShare,
+  teamScoringShareFromTotals,
+  type ForeignShare,
   type PointsShare,
 } from "../lib/shareCharts";
 import { ShareBarChart, type ShareBarCategory, type ShareBarRow } from "./ShareBarChart";
@@ -32,12 +36,19 @@ export interface TeamSeasonShareRow {
 export function TeamSeasonForeignChart({
   rows,
   rules,
+  periodShares,
 }: {
   rows: TeamSeasonShareRow[];
   rules: SeasonRules[] | null;
+  /** 区間を選んでいるとき、シーズンごとの区間の値（無いシーズンは行を出さない）。無いときはシーズン全体（teams.json） */
+  periodShares?: Map<string, ForeignShare>;
 }) {
   const chartRows: ShareBarRow[] = rows
-    .map((r) => ({ ...r, share: foreignShare(r.team) }))
+    .flatMap((r) => {
+      if (!periodShares) return [{ ...r, share: foreignShare(r.team) }];
+      const share = periodShares.get(r.season);
+      return share ? [{ ...r, share }] : [];
+    })
     .filter((r) => r.share.totalSeconds > 0)
     .map(({ season, share }) => {
       const max = rules?.find((x) => x.season === season)?.maxForeignOnCourt;
@@ -57,18 +68,25 @@ export function TeamSeasonForeignChart({
   return (
     <>
       <ShareBarChart rows={chartRows} categories={FOREIGN_CATEGORIES} labelWidth={{ wide: 104, narrow: 92 }} />
-      <GlossaryNote anchor={GLOSSARY_ANCHORS.foreignCourt} label="在コート時間" scope="レギュラーシーズン・シーズン合計の値です（上部の自チーム/opp/+/-・平均/合計とは連動しません）。" />
+      <GlossaryNote
+        anchor={GLOSSARY_ANCHORS.foreignCourt}
+        label="在コート時間"
+        scope={`レギュラーシーズン・${periodShares ? "選んだ区間の" : "シーズン"}合計の値です（上部の自チーム/opp/+/-・平均/合計とは連動しません）。`}
+      />
     </>
   );
 }
 
 function pointsRows(
   rows: TeamSeasonShareRow[],
-  share: (t: TeamSummary) => PointsShare,
+  share: (t: TeamSummary, season: string) => PointsShare | null,
   unit: "pts" | "opp",
 ): ShareBarRow[] {
   return rows
-    .map((r) => ({ season: r.season, s: share(r.team) }))
+    .flatMap((r) => {
+      const s = share(r.team, r.season);
+      return s ? [{ season: r.season, s }] : [];
+    })
     .filter((r) => r.s.perGame > 0)
     .map(({ season, s }) => {
       const d = pointsDetails(s, unit);
@@ -123,8 +141,11 @@ export function TeamSeasonScoringCharts({
   rows,
   fgaBySeason,
   perspective,
+  periodTotals,
 }: {
   rows: TeamSeasonShareRow[];
+  /** 区間を選んでいるとき、シーズンごとの区間の合計と試合数（無いシーズンは行を出さない）。無いときはシーズン全体（teams.json） */
+  periodTotals?: Map<string, { games: number; totals: TeamTotals }>;
   /** FG試投構成（試合ログから求める。読み込み中は null） */
   fgaBySeason: Map<string, { own: PointsShare; opponent: PointsShare }> | null;
   /** 自チーム（得点構成・FG試投構成）か opp（失点構成・opp FG試投構成。DESIGN.md 183章） */
@@ -132,16 +153,29 @@ export function TeamSeasonScoringCharts({
 }) {
   const opp = perspective === "opp";
   const side = opp ? "opponent" : "own";
+  const fromPeriod = (season: string, f: (p: { games: number; totals: TeamTotals }) => PointsShare): PointsShare | null => {
+    const p = periodTotals?.get(season);
+    return p ? f(p) : null;
+  };
   return (
     <>
       <PointsTrend
         title={opp ? "失点構成" : "得点構成"}
-        rows={pointsRows(rows, (t) => teamScoringShare(t, side), opp ? "opp" : "pts")}
+        rows={pointsRows(
+          rows,
+          (t, season) => (periodTotals ? fromPeriod(season, (p) => teamScoringShareFromTotals(p.totals, p.games, side)) : teamScoringShare(t, side)),
+          opp ? "opp" : "pts",
+        )}
         categories={SCORING_CATEGORIES}
       />
       <PointsTrend
         title={opp ? "失点構成（登録区分）" : "得点構成（登録区分）"}
-        rows={pointsRows(rows, (t) => teamClassificationShare(t, side), opp ? "opp" : "pts")}
+        rows={pointsRows(
+          rows,
+          (t, season) =>
+            periodTotals ? fromPeriod(season, (p) => teamClassificationShareFromTotals(p.totals, p.games, side)) : teamClassificationShare(t, side),
+          opp ? "opp" : "pts",
+        )}
         categories={CLASSIFICATION_CATEGORIES}
       />
       {fgaBySeason ? (
@@ -149,7 +183,7 @@ export function TeamSeasonScoringCharts({
       ) : (
         <p className="loading">読み込み中...</p>
       )}
-      <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成・FG試投構成" scope="レギュラーシーズン・シーズン合計の値です（上部の視点は自チーム/oppに連動し、平均/合計とは連動しません）。" />
+      <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成・FG試投構成" scope={`レギュラーシーズン・${periodTotals ? "選んだ区間の" : "シーズン"}合計の値です（上部の視点は自チーム/oppに連動し、平均/合計とは連動しません）。`} />
     </>
   );
 }

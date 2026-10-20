@@ -101,7 +101,7 @@ import { highlightStrength } from "../components/GameLineupTable";
 import { TeamLineupOnCourtSummary } from "../components/TeamLineupOnCourtSummary";
 import { lineupBucket, lineupForeignCount, lineupSeasonTotals, seasonOnCourtSummary, seasonOnCourtSummaryFromDetail } from "../lib/teamLineupOnCourt";
 import { useTeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
-import { sumForeignDetail, type ForeignPeriodValue } from "../lib/teamForeignCourt";
+import { hasForeignColumns, sumForeignCourt, sumForeignDetail, type ForeignPeriodValue } from "../lib/teamForeignCourt";
 import {
   OVERTIME_GAMES_NOTE,
   SEASON_PERIOD_OPTIONS,
@@ -233,8 +233,9 @@ import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import { TeamSeasonForeignChart, TeamSeasonScoringCharts } from "../components/TeamSeasonShareCharts";
 import { TeamHeadToHead } from "../components/TeamHeadToHead";
 import { enumParam, useUrlState } from "../lib/urlState";
-import { fgaShare } from "../lib/shareCharts";
-import { sumTeamGameLogs } from "../lib/teamStatsColumns";
+import { fgaShare, foreignShareFromSeconds, teamClassificationShareFromTotals, teamScoringShareFromTotals, type ForeignShare } from "../lib/shareCharts";
+import { EMPTY_TOTALS, sumTeamGameLogs } from "../lib/teamStatsColumns";
+import { buildSeasonPeriodRow, seasonPeriodCell, seasonPeriodFormatters, unavailableSeasonPeriodLabels, useTeamPeriodSources } from "../lib/teamSeasonPeriod";
 import { INDEX_UNAVAILABLE_COLUMN_KEYS, buildTeamPeriodRowValues, withIndexUnavailableColumns } from "../lib/teamSituationalPeriod";
 import {
   attemptsFirst,
@@ -302,6 +303,54 @@ const FORCED_TURNOVER_ROW_LABELS = {
  * teams.json のシーズン別集計（Yahoo PBP由来）は2023-24シーズン以降のみのため、それ以前は非対応の行を出す
  * （値が出るシーズンの制約をそのまま見せる）。平均/合計トグルは効かない（種類別の合計件数のみ）
  */
+/** 区間を選んだシーズン別成績の行のうち、読み込めなかったシーズンと、その区間の試合が無いシーズン */
+function periodRowIssues(rows: Map<string, { status: string }> | null): { unreadable: string[]; empty: string[] } {
+  const unreadable: string[] = [];
+  const empty: string[] = [];
+  for (const [season, r] of rows ?? []) {
+    if (r.status === "unreadable") unreadable.push(season);
+    else if (r.status === "empty") empty.push(season);
+  }
+  return { unreadable, empty };
+}
+
+/** シーズン別成績で区間を選んだときの表の下の注記 */
+function SeasonPeriodNotes({
+  period,
+  advanced = false,
+  chart = false,
+  unavailable = [],
+  unreadable,
+  empty,
+}: {
+  period: PeriodRangeValue;
+  advanced?: boolean;
+  /** グラフ（試合数・勝敗の列が無い）のとき true */
+  chart?: boolean;
+  unavailable?: string[];
+  unreadable: string[];
+  empty: string[];
+}) {
+  return (
+    <>
+      {period === "ot" && chart && (
+        <p className="page-subtitle">延長は、延長のあった試合だけの値です（すべての延長の合計）。延長のあった試合が無いシーズンは出していません。</p>
+      )}
+      {period === "ot" && !chart && (
+        <p className="page-subtitle">
+          延長は、延長のあった試合だけの値です（すべての延長の合計）。試合数は延長のあった試合数で、平均はその試合数で割っています。勝敗は試合の勝敗です。延長のあった試合が無いシーズンは「-」です。
+        </p>
+      )}
+      {advanced && <p className="page-subtitle">区間のPOSS・PACE・ORtg・DRtg・NetRtgは、その区間の記録から推定した値です。</p>}
+      {unavailable.length > 0 && (
+        <p className="page-subtitle">区間を選んだときは表示できない項目があります（{unavailable.join("・")}）。その項目は「-」です。</p>
+      )}
+      {empty.length > 0 && period !== "ot" && <p className="page-subtitle">この区間の記録が無いシーズン: {empty.join("、")}</p>}
+      {unreadable.length > 0 && <p className="page-subtitle">この区間の記録を読み込めなかったシーズン: {unreadable.join("、")}</p>}
+    </>
+  );
+}
+
 function TeamSeasonForcedTurnoversTable({ rows }: { rows: SeasonRecord[] }) {
   return (
     <div className="table-scroll">
@@ -2908,6 +2957,23 @@ export function TeamDetailPage({ season }: { season: string }) {
   const seasonHistoryFetchTeamIdRef = useRef<string | null>(null);
   const [seasonHistory, setSeasonHistory] = useState<SeasonRecord[] | null>(null);
   const [seasonHistoryLoading, setSeasonHistoryLoading] = useState(false);
+  // シーズン別成績の区間（Q別・前後半・延長）。区間を選んだときだけ、そのクラブが在籍したシーズンの索引をまとめて読む。
+  // 区間を選べないカテゴリ（Shooting・Forced TOV・Periods・Streaks）では「試合全体」に固定する
+  const [seasonBoxPeriod, setSeasonBoxPeriod] = usePageState<PeriodRangeValue>(pk("seasonBoxPeriod"), "all");
+  const seasonBoxPeriodSupported =
+    seasonBoxTab === "traditional" ||
+    seasonBoxTab === "advanced" ||
+    seasonBoxTab === "misc" ||
+    seasonBoxTab === "scoring" ||
+    seasonBoxTab === "foreignPlayers" ||
+    seasonBoxTab === "scoringComposition";
+  const seasonBoxPeriodValue: PeriodRangeValue =
+    seasonBoxPeriodSupported && SEASON_PERIOD_OPTIONS.some((o) => o.value === seasonBoxPeriod) ? seasonBoxPeriod : "all";
+  const seasonBoxPeriodOn = seasonBoxPeriodValue !== "all";
+  const seasonPeriodSources = useTeamPeriodSources(
+    (seasonHistory ?? []).map((r) => r.season),
+    tab === "teamStats" && seasonBoxPeriodOn,
+  );
 
   useEffect(() => {
     seasonHistoryFetchTeamIdRef.current = null;
@@ -3651,8 +3717,75 @@ export function TeamDetailPage({ season }: { season: string }) {
       : [];
   // シーズン別成績のMiscは、表のシーズンがすべて2026-27以降のときだけ、ファウルの列をTF1・TF2・FLAG・DISRにする（DESIGN.md 16-8章）
   const seasonBoxFoulSplit = foulColumnsSplit((seasonHistoryDesc ?? []).map((r) => r.season));
+  // 区間を選んでいるときの、シーズンごとの行（索引から。レギュラーシーズンだけ）。選んでいないときは null
+  const seasonPeriodTableRows =
+    seasonBoxPeriodOn && seasonHistoryDesc && careerData
+      ? new Map(
+          seasonHistoryDesc.map((r) => [
+            r.season,
+            buildSeasonPeriodRow(
+              r.season,
+              seasonPeriodSources.states.get(r.season),
+              filterByGameType(careerData.find((c) => c.season === r.season)?.logs ?? [], "regular"),
+              seasonBoxPeriodValue as TeamPeriodValue,
+              EMPTY_TOTALS,
+            ),
+          ]),
+        )
+      : null;
+  // 区間を選んだとき、列の値は全チームスタッツと同じ列の式で出す（名前で引く）。引けない列は「-」
+  const seasonPeriodFmt = seasonPeriodTableRows
+    ? seasonPeriodFormatters(seasonBoxDisplayMode, seasonBoxPerspective, seasonBoxFoulSplit)
+    : null;
+  const seasonTableColumns =
+    seasonBoxTab === "traditional" || seasonBoxTab === "advanced" || seasonBoxTab === "misc" || seasonBoxTab === "scoring"
+      ? teamSeasonBoxColumns(seasonBoxTab, seasonBoxFoulSplit)
+      : [];
+  // On-Court Foreign のグラフ（区間）: 各シーズンの人数別の在コート時間を索引から足す。値が出せないシーズンは理由つきで注記する
+  const seasonForeignPeriodShares: Map<string, ForeignShare> | undefined = (() => {
+    if (!seasonPeriodTableRows || seasonBoxTab !== "foreignPlayers") return undefined;
+    const m = new Map<string, ForeignShare>();
+    for (const r of seasonPeriodTableRows.values()) {
+      const st = seasonPeriodSources.states.get(r.season);
+      if (st?.status !== "ready" || !hasForeignColumns(st.source)) continue;
+      const logs = filterByGameType(careerData?.find((c) => c.season === r.season)?.logs ?? [], "regular");
+      const sum = sumForeignCourt(st.source, logs, seasonBoxPeriodValue as ForeignPeriodValue, "own");
+      if (sum && sum.games > 0) m.set(r.season, foreignShareFromSeconds(sum.seconds, sum.games));
+    }
+    return m;
+  })();
+  const seasonForeignPeriodIssues = (() => {
+    const unreadable: string[] = [];
+    const empty: string[] = [];
+    if (!seasonPeriodTableRows || seasonBoxTab !== "foreignPlayers") return { unreadable, empty };
+    for (const r of seasonPeriodTableRows.values()) {
+      const st = seasonPeriodSources.states.get(r.season);
+      if (st?.status === "loading" || !st) continue;
+      if (st.status === "unreadable" || !hasForeignColumns(st.source)) unreadable.push(r.season);
+      else if (!seasonForeignPeriodShares?.has(r.season)) empty.push(r.season);
+    }
+    return { unreadable, empty };
+  })();
+  // Scoring % のグラフ（区間）: 各シーズンの区間の合計から得点構成・登録区分・FG試投構成を出す
+  const seasonPeriodShareTotals = seasonPeriodTableRows
+    ? new Map([...seasonPeriodTableRows.values()].filter((r) => r.status === "ready").map((r) => [r.season, { games: r.games.length, totals: r.totals }] as const))
+    : undefined;
+  const seasonPeriodFgaBySeason = seasonPeriodTableRows
+    ? new Map(
+        [...seasonPeriodTableRows.values()]
+          .filter((r) => r.status === "ready")
+          .map((r) => [
+            r.season,
+            {
+              own: fgaShare({ games: r.games.length, tpa: r.totals.tpa, mid2a: r.totals.mid2a, paint2a: r.totals.paint2a }),
+              opponent: fgaShare({ games: r.games.length, tpa: r.totals.oppTpa, mid2a: r.totals.oppMid2a, paint2a: r.totals.oppPaint2a }),
+            },
+          ] as const),
+      )
+    : null;
   const seasonBoxConditions = composeLabels(
     teamBoxCategoryLabel(seasonBoxTab),
+    seasonBoxPeriodOn && periodLabels(seasonPeriodOption(seasonBoxPeriodValue)),
     seasonBoxTab !== "forcedTurnovers" && seasonBoxTab !== "streaks" && !seasonShareTab && displayModeLabels(seasonBoxDisplayMode),
     seasonBoxTab !== "shooting" && seasonBoxTab !== "forcedTurnovers" && seasonBoxTab !== "foreignPlayers" && seasonBoxTab !== "streaks" && perspectiveLabels(seasonBoxPerspective),
     gameTypeLabels("regular", null),
@@ -4486,8 +4619,20 @@ export function TeamDetailPage({ season }: { season: string }) {
                       ? `${teamBoxCategoryLabel(seasonBoxTab)}のグラフは割合で、平均/合計は連動しません。`
                       : undefined,
               }),
+              periodAxis(seasonBoxPeriodValue, setSeasonBoxPeriod, SEASON_PERIOD_OPTIONS, {
+                disabledReason: seasonBoxPeriodSupported
+                  ? undefined
+                  : seasonBoxTab === "periods"
+                    ? `${CATEGORY_LABELS.periods}は区間ごとに出すため、Q別・前後半・延長は選べません。`
+                    : seasonBoxTab === "streaks"
+                      ? `${STREAKS_CATEGORY_LABEL}は試合の並びで出すため、Q別・前後半・延長は選べません。`
+                      : `${teamBoxCategoryLabel(seasonBoxTab)}はシーズン全体の記録のため、Q別・前後半・延長は選べません。`,
+              }),
             ]}
           />
+          {seasonBoxPeriodOn && seasonPeriodSources.loadedCount < seasonPeriodSources.total && (
+            <p className="loading">区間の記録を読み込み中...（{seasonPeriodSources.loadedCount}/{seasonPeriodSources.total}シーズン）</p>
+          )}
           <div className="tab-bar">
             {SEASON_BOX_TABS.map((t) => (
               <button
@@ -4552,10 +4697,10 @@ export function TeamDetailPage({ season }: { season: string }) {
           ) : seasonBoxTab === "forcedTurnovers" ? (
             <TeamSeasonForcedTurnoversTable rows={seasonHistoryDesc} />
           ) : seasonBoxTab === "foreignPlayers" ? (
-            <TeamSeasonForeignChart
-              rows={seasonHistoryDesc}
-              rules={seasonRulesForTrend ?? null}
-            />
+            <>
+              <TeamSeasonForeignChart rows={seasonHistoryDesc} rules={seasonRulesForTrend ?? null} periodShares={seasonForeignPeriodShares} />
+              {seasonBoxPeriodOn && <SeasonPeriodNotes chart period={seasonBoxPeriodValue} {...seasonForeignPeriodIssues} />}
+            </>
           ) : seasonBoxTab === "periods" ? (
             <>
               <div className="table-scroll">
@@ -4697,11 +4842,15 @@ export function TeamDetailPage({ season }: { season: string }) {
             seasonBoxPerspective === "diff" ? (
               <p className="empty-message">視点の「+/-」では、構成のグラフは出しません。自チームまたはoppを選んでください。</p>
             ) : (
-              <TeamSeasonScoringCharts
-                perspective={seasonBoxPerspective}
-                rows={seasonHistoryDesc}
-                fgaBySeason={teamSeasonFgaBySeason}
-              />
+              <>
+                <TeamSeasonScoringCharts
+                  perspective={seasonBoxPerspective}
+                  rows={seasonHistoryDesc}
+                  fgaBySeason={seasonPeriodTableRows ? seasonPeriodFgaBySeason : teamSeasonFgaBySeason}
+                  periodTotals={seasonPeriodTableRows ? seasonPeriodShareTotals : undefined}
+                />
+                {seasonBoxPeriodOn && <SeasonPeriodNotes chart period={seasonBoxPeriodValue} {...periodRowIssues(seasonPeriodTableRows)} />}
+              </>
             )
           ) : (
             <>
@@ -4714,7 +4863,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <th className="align-right" title={statDescription("試合数")}>試合数</th>
                     <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
                     <th className="align-right" title={statDescription("勝率")}>勝率</th>
-                    {teamSeasonBoxColumns(seasonBoxTab, seasonBoxFoulSplit).map((c) => (
+                    {seasonTableColumns.map((c) => (
                       <th className="align-right" key={c.key} title={statDescription(c.label, "team")}>
                         <StatHeaderLabel label={c.label} />
                       </th>
@@ -4724,6 +4873,36 @@ export function TeamDetailPage({ season }: { season: string }) {
                 <tbody>
                   {seasonHistoryDesc.map((r) => {
                     const misc = teamSeasonMiscBySeason.get(r.season) ?? EMPTY_TEAM_SEASON_MISC;
+                    const pr = seasonPeriodTableRows?.get(r.season);
+                    if (pr && seasonPeriodFmt) {
+                      const ready = pr.status === "ready";
+                      return (
+                        <tr key={r.season}>
+                          <td className="align-left">
+                            <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
+                              {r.season}
+                            </RouterLink>
+                          </td>
+                          <td className="align-left">
+                            <ResponsiveTeamName teamId={team.teamId} name={r.teamName} />
+                          </td>
+                          <td className="align-right">{ready ? pr.games.length : "-"}</td>
+                          <td className="align-right">{ready ? <TeamRecordShort wins={pr.wins} losses={pr.losses} /> : "-"}</td>
+                          <td className="align-right">{ready ? formatWinPct(safeDiv(pr.wins, pr.wins + pr.losses)) : "-"}</td>
+                          {pr.status === "unreadable" || pr.status === "loading" ? (
+                            <td className="align-left" colSpan={seasonTableColumns.length}>
+                              {pr.status === "loading" ? "読み込み中..." : "この区間の記録を読み込めませんでした"}
+                            </td>
+                          ) : (
+                            seasonTableColumns.map((c) => (
+                              <td className="align-right" key={c.key}>
+                                {seasonPeriodCell(seasonPeriodFmt, c.label, pr, team.teamId, r.teamName)}
+                              </td>
+                            ))
+                          )}
+                        </tr>
+                      );
+                    }
                     return (
                       <tr key={r.season}>
                         <td className="align-left">
@@ -4737,7 +4916,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                         <td className="align-right">{r.team.gamesPlayed}</td>
                         <td className="align-right"><TeamRecordShort wins={r.team.wins} losses={r.team.losses} resultOnlyGames={r.team.resultOnlyGames} /></td>
                         <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
-                        {teamSeasonBoxColumns(seasonBoxTab, seasonBoxFoulSplit).map((c) => (
+                        {seasonTableColumns.map((c) => (
                           <td className="align-right" key={c.key}>
                             {c.format(r, misc, seasonBoxDisplayMode, seasonBoxPerspective)}
                           </td>
@@ -4749,6 +4928,14 @@ export function TeamDetailPage({ season }: { season: string }) {
               </table>
             </div>
             {seasonBoxTab === "misc" && <RuleChangeFootnote seasons={seasonHistoryDesc.map((r) => r.season)} />}
+            {seasonBoxPeriodOn && (
+              <SeasonPeriodNotes
+                {...periodRowIssues(seasonPeriodTableRows)}
+                period={seasonBoxPeriodValue}
+                advanced={seasonBoxTab === "advanced"}
+                unavailable={seasonPeriodFmt ? unavailableSeasonPeriodLabels(seasonTableColumns.map((c) => c.label), seasonPeriodFmt) : []}
+              />
+            )}
             </>
           )}
 
@@ -4953,7 +5140,9 @@ export function TeamDetailPage({ season }: { season: string }) {
             situationalTeamGameType !== "regular" &&
             hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
           {situationalIndexMode && situationalTeamGroups.length > 0 && situationalTeamMainColumns.some((c) => INDEX_UNAVAILABLE_COLUMN_KEYS.has(c.key)) && (
-            <p className="page-subtitle">区間を選んだときは表示できない項目があります（BSR・EFF など）。その項目は「-」です。</p>
+            <p className="page-subtitle">
+              区間を選んだときは表示できない項目があります（{situationalTeamMainColumns.filter((c) => INDEX_UNAVAILABLE_COLUMN_KEYS.has(c.key)).map((c) => c.label).join("・")}）。その項目は「-」です。
+            </p>
           )}
 
           <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績" />
