@@ -25,7 +25,7 @@ import type { BoxscoreRow, StoredGame } from "../shared/types.ts";
 const MIN_TOLERANCE_SEC = 6; // ±0.1分
 
 /** 調査済み・修正保留の例外（season:scheduleKey → 理由）。公式の誤りではなく復元処理の課題。
- * 詳細と修正候補は docs/ONCOURT_HANDOFF.md。解消した試合は注意を出し、一覧から外す判断を促す。
+ * 詳細と修正候補は 設計書280章。解消した試合は注意を出し、一覧から外す判断を促す。
  */
 const ALLOWED: Record<string, string> = {
   "2025-26:504790": "4Q 4:34 メイヨのIN→OUTをまとめ直し、274秒と+/-がずれる",
