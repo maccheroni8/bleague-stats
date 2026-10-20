@@ -4953,7 +4953,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             situationalTeamGameType !== "regular" &&
             hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
           {situationalIndexMode && situationalTeamGroups.length > 0 && situationalTeamMainColumns.some((c) => INDEX_UNAVAILABLE_COLUMN_KEYS.has(c.key)) && (
-            <p className="page-subtitle">Q別・前後半・延長では、BSR・EFF・OFF FOUL・CHARGE・LIVETOV・DEADTOV など、この区間では集計していない項目は「-」です。</p>
+            <p className="page-subtitle">区間を選んだときは表示できない項目があります（BSR・EFF など）。その項目は「-」です。</p>
           )}
 
           <GlossaryNote anchor={GLOSSARY_ANCHORS.situational} label="シチュエーション別成績" />
