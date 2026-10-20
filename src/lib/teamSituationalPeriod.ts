@@ -3,9 +3,9 @@
 // 全チームスタッツの区間別（teamPeriodTotals.ts の sumTeamPeriodTotals。チームのピリオド別の索引から作る）と同じ関数で値を作り、
 // 行の表（BoxscoreColumn。自チーム・opp・+/- のどの視点でも使える）に渡せる形に直す。
 // 同じ値・同じ数え方（PITP・FBPS・ペイント内外・ポゼッションなど）になる。
-// 索引に無い項目（BSR・EFF・OFF FOUL・CHARGE・LIVETOV・DEADTOV）は「-」にする（INDEX_UNAVAILABLE_COLUMN_KEYS）。
+// BSR（相手のBLK）・EFF（式の材料はすべて索引にある）は索引から出す（274章）。索引に無い項目（OFF FOUL・CHARGE・LIVETOV・DEADTOV）は「-」にする（INDEX_UNAVAILABLE_COLUMN_KEYS）。
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
-import { offensiveRating, pace } from "../../shared/formulas";
+import { eff as effFormula, offensiveRating, pace } from "../../shared/formulas";
 import type { TeamGameLog } from "../../shared/types";
 import { scaleCounts, sumCountsList, type BoxscoreCounts, type PlayTypeCounts } from "./boxscoreAggregate";
 import type { BoxscoreColumn } from "../components/BoxscoreTable";
@@ -15,8 +15,6 @@ import type { TeamTotals } from "./teamStatsColumns";
 
 /** チームのピリオド別の索引に無い項目の列。区間を選んでいる間は「-」にする */
 export const INDEX_UNAVAILABLE_COLUMN_KEYS: ReadonlySet<string> = new Set([
-  "bsr",
-  "eff",
   "offfoul",
   "charge",
   "livetov",
@@ -32,13 +30,41 @@ export function withIndexUnavailableColumns(columns: BoxscoreColumn[]): Boxscore
   );
 }
 
+/**
+ * 区間の合計から出す EFF の合計（シーズン成績の EFF と同じ式。BSR は相手のBLK、TF は索引のテクニカルファウル）。
+ * opp が true なら相手側の項目（相手のBSR＝自チームのBLK）で出す
+ */
+export function teamPeriodEffTotal(t: TeamTotals, opp: boolean, seasonStartYear: number): number {
+  const pick = (own: number, against: number) => (opp ? against : own);
+  return effFormula(
+    seasonStartYear,
+    {
+      pts: pick(t.pts, t.oppPts),
+      ast: pick(t.ast, t.oppAst),
+      blk: pick(t.blk, t.oppBlk),
+      stl: pick(t.stl, t.oppStl),
+      reb: opp ? t.oppOreb + t.oppDreb : t.reb,
+      tov: pick(t.tov, t.oppTov),
+      pf: pick(t.pf, t.oppPf),
+      fgm: pick(t.fgm, t.oppFgm),
+      fga: pick(t.fga, t.oppFga),
+      ftm: pick(t.ftm, t.oppFtm),
+      fta: pick(t.fta, t.oppFta),
+      foulsDrawn: pick(t.fd, t.oppFd),
+      blockedAgainst: pick(t.oppBlk, t.blk),
+      technicalFouls: pick(t.technicalFouls, t.oppTechnicalFouls),
+    },
+    1,
+  );
+}
+
 function zeroCounts(): BoxscoreCounts {
   // sumCountsList([]) は boxscoreAggregate.ts の定数そのものを返すので、書き換えないよう必ず写しを作る
   return { ...sumCountsList([]) };
 }
 
 /** TeamTotals（自チーム側）を BoxscoreCounts に直す。opp が true なら相手側の項目から作る */
-function countsOf(t: TeamTotals, opp: boolean): BoxscoreCounts {
+function countsOf(t: TeamTotals, opp: boolean, seasonStartYear: number): BoxscoreCounts {
   const c = zeroCounts();
   const pick = (own: number, against: number) => (opp ? against : own);
   const fgm = pick(t.fgm, t.oppFgm);
@@ -64,6 +90,9 @@ function countsOf(t: TeamTotals, opp: boolean): BoxscoreCounts {
     tov: pick(t.tov, t.oppTov),
     stl: pick(t.stl, t.oppStl),
     blk: pick(t.blk, t.oppBlk),
+    // BSR は相手のBLK（相手が自チームのシュートを止めた数）。EFF はその値を使う
+    bson: pick(t.oppBlk, t.blk),
+    eff: teamPeriodEffTotal(t, opp, seasonStartYear),
     foul: pick(t.pf, t.oppPf),
     foulon: pick(t.fd, t.oppFd),
     // 全チームスタッツの +/- と同じく、区間の得点の差（視点が相手のときは逆）
@@ -124,8 +153,9 @@ export function buildTeamPeriodRowValues(
   const { games, totals } = sumTeamPeriodTotals(source, logs, value);
   if (games.length === 0) return null;
   const factor = mode === "total" ? 1 : 1 / games.length;
-  const ownSum = countsOf(totals, false);
-  const oppSum = countsOf(totals, true);
+  const seasonStartYear = Number(source.season.split("-")[0]);
+  const ownSum = countsOf(totals, false, seasonStartYear);
+  const oppSum = countsOf(totals, true, seasonStartYear);
   const poss = totals.poss;
   const offRtg = offensiveRating(totals.pts, poss);
   const defRtg = offensiveRating(totals.oppPts, poss);

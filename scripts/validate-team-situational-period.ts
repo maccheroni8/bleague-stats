@@ -4,7 +4,7 @@
 //  1. 全チームスタッツと同じ値: 全シーズン・全チーム・各区間（1Q〜4Q・前半・後半・延長）・平均／合計・自チーム／opp／+/-・4つのカテゴリで、
 //     シチュエーション別成績の表の列（teamBoxscoreColumnsFor）のうち、全チームスタッツにも同じ名前の列があるものの表示が、全チームスタッツの表示と一致する
 //  2. 数えた試合: 全チームスタッツの区間別と同じ（1Q〜後半は特別な試合を除く全試合、延長は延長のあった試合）
-//  3. 索引に無い項目は「-」になる（withIndexUnavailableColumns）
+//  3. 索引に無い項目は「-」になる（withIndexUnavailableColumns）。BSR・EFF は索引の合計から出す（274章）
 //  4. 感度: 索引を1か所壊すと食い違いとして検出される
 //
 // 使い方: npm run validate:team-situational-period。1つでも食い違いがあれば終了コード1
@@ -23,7 +23,7 @@ import {
   type TeamPerspective,
 } from "../src/lib/teamStatsColumns";
 import { sumTeamPeriodTotals, type TeamPeriodSource, type TeamPeriodValue } from "../src/lib/teamPeriodTotals";
-import { INDEX_UNAVAILABLE_COLUMN_KEYS, buildTeamPeriodRowValues, withIndexUnavailableColumns } from "../src/lib/teamSituationalPeriod";
+import { INDEX_UNAVAILABLE_COLUMN_KEYS, buildTeamPeriodRowValues, teamPeriodEffTotal, withIndexUnavailableColumns } from "../src/lib/teamSituationalPeriod";
 import { teamBoxscoreColumnsFor } from "../src/lib/teamBoxscoreColumns";
 import { cleanNumericString, formatColumnDiff } from "../src/lib/compareShared";
 import { foulColumnsSplit } from "../src/lib/ruleChange";
@@ -104,6 +104,22 @@ function runSeason(season: string, source: TeamPeriodSource, logsByTeam: Map<str
           losses: 0,
           totals: base.totals,
         };
+        // BSR（相手のBLK）・EFF（シーズン成績と同じ式）は全チームスタッツに列が無いので、索引の合計から直接出した値と比べる（自チーム視点）
+        {
+          const detail = teamBoxscoreColumnsFor("traditional", foulSplit);
+          const bsrCol = detail.find((c) => c.key === "bsr")!;
+          const effCol = detail.find((c) => c.key === "eff")!;
+          const f = mode === "total" ? 1 : 1 / base.games.length;
+          const startYear = Number(season.split("-")[0]);
+          const { own, ownCtx } = values.boxTotals;
+          const bsrOk = Math.abs((bsrCol.value?.(own, ownCtx) as number) - base.totals.oppBlk * f) < 1e-6;
+          const effOk = Math.abs((effCol.value?.(own, ownCtx) as number) - teamPeriodEffTotal(base.totals, false, startYear) * f) < 1e-6;
+          stats.rawCells += 2;
+          if (!bsrOk || !effOk) {
+            stats.ng += 1;
+            if (stats.first.length < 12) stats.first.push(`${season} ${teamId} ${value} ${mode}: BSR/EFF が索引の合計と違う`);
+          }
+        }
         for (const tab of TABS) {
           const detailCols = withIndexUnavailableColumns(teamBoxscoreColumnsFor(tab, foulSplit));
           for (const p of PERSPECTIVES) {
