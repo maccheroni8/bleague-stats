@@ -14527,3 +14527,21 @@ Codex が作った仕組み（作業の記録は `docs/PUBLIC_SEASON_MEDIA.md`�
 ### 277-3. 見張り
 - `npm run validate:dnp-rows`（新規。手で実行）: 生データ（元データ）の選手の試合合計の行（PeriodCategory=18・Category=1）で、PlayTime が DNP なのに成績が付いている行を探す。許可済みの例外は ALLOWED（`scripts/validate-dnp-rows.ts`）の **2016-17:101 だけ**。これ以外が見つかったら終了コード1で、試合ID・選手・項目を出す。例外を増やすときは、この章に記録する。許可済みの試合が見つからなくなったとき（公式が直した）は注意を出す。
 - 保存キーの対象のファイルには触れていない（検証スクリプトと `package.json` の scripts だけ）。allKey は変わらない。
+
+
+---
+
+## 278. 全validateをコミット前の決まりにする（`npm run validate:all`。2026-10-20。**検証・設計書・CLAUDE.md だけの変更でキー不変**）
+
+### 278-1. 決定（ユーザー）
+- 「コミットの前に全validateを通す」を正式な決まりにし（CLAUDE.md の作業の心得）、全validateを1つの命令で流せるようにする。
+- `validate:dnp-rows`（277章）は、他の章と同じ書き方で CLAUDE.md の章の一覧に足す。
+- 277章の見張り（`validate:dnp-rows`）は、毎日の更新（30分おき・深夜）には足さない（ワークフローは変えない）。全validateの中で動けば十分とする。新しい試合で同じことが起きて気づけるのは、全validateを流したとき。
+
+### 278-2. 作ったもの
+- `npm run validate:all`（`scripts/validate-all.ts`）: `package.json` の `validate:` で始まるもの全部（自分自身を除く）を順に流し、1本ずつ「ok／NG・秒数」を出す。失敗した検証は出力の末尾15行を添えて最後に一覧し、1本でも失敗すれば終了コード1。`-- --only a,b`・`-- --skip a,b` で絞れる。事前に `npm run build:data` が要る（検証の多くが導出データを読む）。
+- **含める／外すの判断**: 外したものは無い。「手で実行」と書かれていた `rookie-eligibility`・`pbp-order` も、データだけで動き（外のサイトに問い合わせない）、実行時間も短い（1秒・約25秒）ので含める。全体で約12分（41本・717秒。いちばん長いのは `game-record-query` の約3分45秒、次に `period-index` 約2分）。新しい検証は `validate:` の名前で足せば自動で入る。
+- 保存キー: 変えたのは `package.json` の scripts（`validate:all` を足しただけ）・検証スクリプト・設計書・CLAUDE.md。`package.json` は `code-files`（キーの対象）に入らず、allKey は `687a779d…` のまま変わらない（`build-data.ts plan` で確認）。
+
+### 278-3. 実行
+- 初回は 2026-10-20 に全部通した（41本・717秒・すべて ok）。流さなかった・流せなかったときは、報告に「流していない」と書く。
