@@ -14445,6 +14445,7 @@ Codex が作った仕組み（作業の記録は `docs/PUBLIC_SEASON_MEDIA.md`�
 - チームのピリオド別の索引（`scripts/lib/periodIndexBuild.ts`）は、**ピリオド別の選手行（PeriodCategory 1〜4）が1つも無い試合**の全区間（1Q〜4Q・延長・前半・後半のポゼッション）を、0 ではなく **-1（無い）**にする（`hasPeriodRows`。1810だけの特別扱いではない）。直す前は 1810 の千葉・A東京が「1Q〜4Q の得点0・出場0」の値あり行になり、Q別の G に入り平均を下げていた。
 - 外れる画面（索引から出す）: チーム詳細のシーズン別成績・シチュエーション別成績・選手スタッツ・ラインナップ（On-Court Foreign）のQ別／前後半／延長、全チームスタッツの区間別（Scoring % の絞り込み・On-Court Foreign）、ランキングの個人・チームのQ別、チームの1試合記録のQ別。注記は `MANUAL_BOXSCORE_PERIOD_NOTE`（`seasonPeriod.ts`。試合区分が「ポストシーズン」以外のとき 2017-18 で出す）、1試合記録は `GameRecordNotes` に「（N件）含めていません」。
 - **外れない画面（判断メモ）**: 全チームスタッツの **Periods タブ**（226章）とチーム詳細の日程結果のラインスコアは、試合ログの `periodPoints`（公式のクォーター別得点。1810は手入力の値 18/17/15/17・9/19/10/11）から作るので、**1810も入る**（得点は実在の値）。Q別の索引の画面とは、1810の分だけ G が1違う（千葉 2017-18 は Periods タブ 60・索引のQ別 59）。
+- **決定（2026-10-20、ユーザー）**: Periods タブは 1810 を入れたまま（得点は実在の値）。Q別の索引の画面との G の1の違い（千葉 2017-18: Periods タブ 60・索引のQ別 59）は仕様として残し、画面は変えない。
 - 検証: `validate:period-index` に「ピリオド別の選手行が無い試合のチームの区間の値はすべて -1」を足した。公式の Summaries・ピリオド別の行と突き合わせる検証は、手入力の試合（`scripts/lib/manualBoxscores.ts`）を除くか「値が無いこと」を確かめる形にした（`validate-season-period`・`validate-team-period-record`・`validate-team-period-table`・`validate-team-period-scoring`・`validate-game-index`）。
 
 **段階2 Forced TOV の分類を1か所に**
