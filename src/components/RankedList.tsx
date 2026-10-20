@@ -1,3 +1,4 @@
+import { NameText } from "./NameText";
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { SeasonLink as Link } from "./SeasonLink";
 import { ExternalLinkIcon } from "./ExternalLinkIcon";
@@ -124,6 +125,11 @@ export function RankedList<T>({
   related,
 }: RankedListProps<T>) {
   const unit = unitProp ?? (statScope === "team" ? "チーム" : "人");
+  // 呼び出し側が文字列を渡す表（シーズン成績など）も、名前の共通の改行を通す。
+  const renderName = (row: T): ReactNode => {
+    const text = name(row);
+    return typeof text === "string" ? <NameText name={text} kind={statScope === "team" ? "team" : "player"} /> : text;
+  };
   // 列見出しクリックでの昇順/降順切り替え（SortableTable.tsxと同じクリックパターン）。
   // ソート方向は「値の大小」ではなく「良い/悪い」の向き（def.higherIsBetter）を基準にした
   // asc/descで管理し、既定値は常にBatch 2で確立した「良い方が#1に来る」向きにする。
@@ -282,7 +288,7 @@ export function RankedList<T>({
                           {wrap(avatar?.(row))}
                           <span className="rank-name-cell">
                             <span className="rank-name">
-                              {wrap(name(row))}
+                              {wrap(renderName(row))}
                               {abbr}
                             </span>
                             {subLabel &&
@@ -302,7 +308,7 @@ export function RankedList<T>({
                         {avatar?.(row)}
                         <span className="rank-name-cell">
                           <span className="rank-name">
-                            {name(row)}
+                            {renderName(row)}
                             {abbr}
                           </span>
                           {subLabel ? (

@@ -102,6 +102,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 271章: 順位表の **「年間スケジュール」タブ**（`tab=annual`。`src/components/AnnualSchedule.tsx`・`src/lib/annualSchedule.ts`・`shared/annualSchedule.ts`）。大会日程は `data/annual-calendar.json`（元データ・保存キー対象外）。EASL は深夜ジョブが自動更新（`scripts/scrape-annual-schedule.ts`、失敗時は前回を保持して最後に失敗通知）、**天皇杯・オールスターは手で更新**（手順は271-7章）。`scripts/lib/dataLayout.ts` に登録したため導入時のデプロイで全シーズンの作り直しが1回。検証は `npm run validate:annual-schedule`
 - 274章: チーム詳細 > チームスタッツ > **シーズン別成績に Q別・前後半・延長**（Traditional・Advanced・Misc・Scoring・On-Court Foreign・Scoring %。区間を選んだときだけ全在籍シーズンの索引を読む。`src/lib/teamSeasonPeriod.ts`）。**BSR＝相手のBLK・EFF は索引から出せる**ので、シチュエーション別成績の「-」も埋めた（`teamPeriodEffTotal`）。検証は `npm run validate:team-season-period`。**画面だけの変更でキー不変**
 - 275章: **手入力のボックススコア**（`meta.source` が `manual:` の試合。2017-18 の1810だけ。公式に無い試合を basketballnavi の試合合計で補う。ピリオド別の行・PBP・Summaries が無いので、`periodIndexBuild.ts` は区間の値を持たず、`validate-period-index`・`validate-game-index` は `scripts/lib/manualBoxscores.ts` の一覧で除く。試合詳細に注記。保存キーが変わる）。**ピリオド別の行が無い試合はチームの区間の値がすべて -1**（Q別の画面から外れる。Periods タブは試合ログのクォーター別得点なので入る）。Forced TOV の分類は `shared/forcedTurnover.ts`。チームの索引に OFF FOUL・CHARGE（`TEAM_PERIOD_FOUL_COLUMNS`。古い索引は「-」）。PBP由来の平均・在コート系・ラインナップの時間が1810の分だけ薄まる件は「在コート基準の再集計」と一緒に扱う
+- 279章: **保存画像と画面の長い名前**。選手名は「・」までの単位で左から詰めて折り返す。単位が入らないときだけ縮小（PC・保存12px／スマホ10pxまで）。チーム名は地名とクラブ名の間（語順は維持）。`NameText.tsx`・`src/lib/nameLayout.ts`、文字列を渡すランキングも共通の型を通し、保存の複製側で再計測。**画面だけ・キー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
