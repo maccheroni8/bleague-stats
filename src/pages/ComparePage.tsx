@@ -1,5 +1,5 @@
 import { NameText } from "../components/NameText";
-import { useMemo, useRef, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { LEAGUE_COLOR, LEAGUE_SLOT_NOTE, LEAGUE_TEAM_ID, LEAGUE_TEAM_NAME } from "../lib/leagueAverage";
@@ -51,6 +51,8 @@ import {
 } from "../lib/useCompareSlotData";
 import type { DivisionHistoryFile } from "../../shared/types";
 import { useSeasonKeyedData } from "../lib/useSeasonKeyedData";
+import { usePickerSources, usePlayerPickerGroups, type PickerSources } from "../lib/usePlayerPickerGroups";
+import { pickerEntryKey, pickerPlayerIdOf } from "../lib/playerPickerOrder";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
 import { statJa } from "../lib/statNames";
@@ -401,6 +403,8 @@ interface SlotCardProps {
   entityLoaded: boolean;
   /** 選択中のエンティティがそのシーズンに実在するか（falseなら何も取得されない） */
   entityValid: boolean;
+  /** 対象selectの選択中の値。省略時は選んでいるID（選手の一覧は、チームごとの選択肢の値で渡す） */
+  entityValue?: string;
   data: Pick<TeamSlotData, "status" | "error" | "boundary" | "opponentWinRateSupported" | "ownTeamDivisionSupported" | "gamesCount" | "pendingGames">;
   onSeason: (season: string) => void;
   onEntity: (id: string) => void;
@@ -423,6 +427,7 @@ function CompareSlotCard({
   entityOptions,
   entityLoaded,
   entityValid,
+  entityValue,
   data,
   onSeason,
   onEntity,
@@ -445,7 +450,7 @@ function CompareSlotCard({
           {
             id: "entity",
             label: entityLabel,
-            value: entityValid ? slot.id : "",
+            value: entityValue ?? (entityValid ? slot.id : ""),
             options: [{ value: "", label: "未選択" }, ...entityOptions],
             onChange: onEntity,
           },
@@ -633,13 +638,22 @@ function PlayerCompareView({
   divisionHistory,
   cat,
   playersBySeason,
+  pickerSources,
   onUpdateSlot,
-}: ViewCommonProps & { playersBySeason: Map<string, PlayerSummary[] | null> | null }) {
+}: ViewCommonProps & { playersBySeason: Map<string, PlayerSummary[] | null> | null; pickerSources: PickerSources }) {
   const teamLabel = useTeamLabel();
   const exportRef = useRef<HTMLDivElement>(null);
 
   const lists = slots.map((s) => playersBySeason?.get(s.season) ?? null);
   const valid = slots.map((s, i) => !!s.id && !!lists[i]?.some((p) => p.playerId === s.id));
+  // 選手の選択肢は、チームごと（東→西、順位表の順）・出場時間の長い順にまとめる（DESIGN.md 281章）。移籍した選手は出場したチームそれぞれの下に出るので、
+  // 選んだチームはスロットごとに覚える（同じ選手でも、どのチームの下で選んだかを選択中の表示に使う）
+  const [pickedTeam, setPickedTeam] = useState<Record<number, string>>({});
+  const pickerGroups = [
+    usePlayerPickerGroups(slots[0]!.season, slots[0]!.gameType, playersBySeason?.get(slots[0]!.season) ?? null, pickerSources),
+    usePlayerPickerGroups(slots[1]!.season, slots[1]!.gameType, playersBySeason?.get(slots[1]!.season) ?? null, pickerSources),
+    usePlayerPickerGroups(slots[2]!.season, slots[2]!.gameType, playersBySeason?.get(slots[2]!.season) ?? null, pickerSources),
+  ];
   const slotData: PlayerSlotData[] = [
     usePlayerCompareSlot({ playerId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory }),
     usePlayerCompareSlot({ playerId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory }),
@@ -692,13 +706,25 @@ function PlayerCompareView({
             stateKey={`compare:player:slot${i}`}
             entityLabel="選手"
             seasonOptions={seasonOptions}
-            entityOptions={(lists[i] ?? []).map((p) => ({ value: p.playerId, label: `${p.name}（${teamLabel(p.teamId, p.teamName)}）` }))}
+            entityOptions={pickerGroups[i]!.flatMap((g) =>
+              g.entries.map((e) => ({ value: e.key, label: e.name, group: teamLabel(g.teamId, g.teamName) })),
+            )}
+            entityValue={
+              valid[i]!
+                ? (pickerGroups[i]!.flatMap((g) => g.entries).find((e) => e.key === pickerEntryKey(slots[i]!.id, pickedTeam[i] ?? ""))?.key ??
+                  pickerGroups[i]!.flatMap((g) => g.entries).find((e) => e.playerId === slots[i]!.id)?.key ??
+                  "")
+                : ""
+            }
             entityLoaded={lists[i] !== null && lists[i] !== undefined}
             entityValid={valid[i]!}
             data={slotData[i]!}
             onSeason={(season) => onUpdateSlot(i, { season, filter: DEFAULT_FILTER })}
             onGameType={(gameType) => onUpdateSlot(i, { gameType })}
-            onEntity={(id) => onUpdateSlot(i, { id })}
+            onEntity={(key) => {
+              setPickedTeam((prev) => ({ ...prev, [i]: key.slice(pickerPlayerIdOf(key).length + 1) }));
+              onUpdateSlot(i, { id: pickerPlayerIdOf(key) });
+            }}
             onFilter={(filter) => onUpdateSlot(i, { filter })}
           />
         ))}
@@ -767,6 +793,8 @@ export function ComparePage({ season }: { season: string }) {
 
   const { dataBySeason: teamsBySeason } = useSeasonKeyedData(teamSeasons, fetchTeams);
   const { dataBySeason: playersBySeason } = useSeasonKeyedData(playerSeasons, fetchPlayers);
+  // 選手の選択肢（チームごとの並び）に要る順位表・出場時間。個人比較のときだけ読む
+  const pickerSources = usePickerSources(mode === "player" ? playerSeasons : []);
   // 結果だけの試合（G の勝敗の横の「※」の説明用）。チーム比較のときだけ、選んだシーズン分の日程を読む
   const { dataBySeason: resultOnlyBySeason } = useSeasonKeyedData(mode === "team" ? teamSeasons : [], fetchResultOnlyGames);
   // 個人のデフォルト（出場率の足切り）に所属チームの試合数が要る。個人モードのときだけ取得する
@@ -883,6 +911,7 @@ export function ComparePage({ season }: { season: string }) {
           {...common}
           slots={resolvedPlayerSlots}
           playersBySeason={playersBySeason}
+          pickerSources={pickerSources}
           onUpdateSlot={makeUpdateSlot("p", resolvedPlayerSlots)}
         />
       )}
