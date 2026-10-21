@@ -60,6 +60,10 @@ export async function loadAiExport(season: string, teamId: string, source: AiExp
     const logs = await source.fetchPlayerGameLogs(season, id);
     if (!Array.isArray(logs)) throw new Error('選手の試合記録を確認できません。');
     const mine = logs.filter(g => g.gameType === 'regular' && g.min > 0 && teamKeys.get(g.scheduleKey) === g.isHome);
+    // 必須項目の欠けを順位表からの黙った除外にしない（旧キャッシュ・更新途中も停止）。
+    const required: (keyof typeof mine[number])[] = ['min', 'pts', 'reb', 'ast', 'stl', 'blk', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'tov'];
+    if (season >= '2020-21') required.push('pf', 'foulsDrawn', 'blockedAgainst', 'technicalFouls');
+    if (mine.some(g => required.some(k => typeof g[k] !== 'number' || !Number.isFinite(g[k])))) throw new Error('選手の成績に必要な項目が揃っていません。');
     const expectedKeys = expected.get(id)!;
     if (mine.length !== expectedKeys.size || mine.some(g => !expectedKeys.has(g.scheduleKey))) throw new Error('選手の試合記録と索引が揃っていません。');
     return { player, logs };

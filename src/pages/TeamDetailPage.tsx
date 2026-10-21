@@ -1,3 +1,4 @@
+import { AiExportButton } from "../components/AiExportButton";
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
@@ -4585,6 +4586,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       {tab === "teamStats" && (
         <div className="team-tab-panel">
           <ConditionTitle section title="シーズン別成績" conditions={seasonBoxConditions} />
+          <AiExportButton season={season} teamId={team.teamId} />
           {nameHistory.length > 1 && (
             <p className="page-subtitle">
               名称変更履歴:{" "}

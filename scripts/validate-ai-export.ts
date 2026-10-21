@@ -187,3 +187,6 @@ for (const [season, teamId] of [['2016-17', '703'], ['2025-26', '703'], ['2023-2
   assert(output.markdown.includes(teamId === '2488' ? '前季：比較対象データなし' : season === '2016-17' ? '栃木ブレックス' : '終了シーズン'));
 }
 console.log('OK: 旧形式の日程・前季なし・旧名称の読み込み');
+
+await assert.rejects(loadAiExport('2026-27', '703', { ...source, fetchPlayerGameLogs: async (s, id) => (await source.fetchPlayerGameLogs(s, id)).map(g => { const copy = { ...g }; delete (copy as Partial<PlayerGameLog>).ast; return copy; }) }));
+console.log('OK: 選手の必須項目欠損で不完全なリーダー表を作らない');
