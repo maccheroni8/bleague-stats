@@ -3898,9 +3898,12 @@ export function TeamDetailPage({ season }: { season: string }) {
     <TeamDetailPublicMediaScope season={season} pageTeamId={teamId ?? ""}>
     <PlayerNamePool names={teamPlayers.map((p) => p.name)}>
     <div className="team-detail-page" data-design="v2">
-      <Link to="/teams" className="back-link">
-        ← チーム一覧に戻る
-      </Link>
+      <div className="team-detail-top-actions">
+        <Link to="/teams" className="back-link">
+          ← チーム一覧に戻る
+        </Link>
+        <AiExportButton season={season} teamId={team.teamId} />
+      </div>
 
       <div className="team-detail-header" style={accentColor ? { borderTopColor: accentColor } : undefined}>
         <TeamDetailPublicLogo season={season} pageTeamId={teamId ?? ""} teamId={team.teamId} size={56} />
@@ -4586,7 +4589,6 @@ export function TeamDetailPage({ season }: { season: string }) {
       {tab === "teamStats" && (
         <div className="team-tab-panel">
           <ConditionTitle section title="シーズン別成績" conditions={seasonBoxConditions} />
-          <AiExportButton season={season} teamId={team.teamId} />
           {nameHistory.length > 1 && (
             <p className="page-subtitle">
               名称変更履歴:{" "}

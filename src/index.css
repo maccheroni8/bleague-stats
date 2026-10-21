@@ -167,6 +167,26 @@ h2 {
   color: var(--fg);
 }
 
+.team-detail-top-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.team-detail-top-actions > .back-link,
+.team-detail-top-actions > .ai-export-button {
+  margin-bottom: 0;
+}
+
+.team-detail-top-actions > .ai-export-button {
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 7px 12px;
+}
+
 .team-logo {
   object-fit: contain;
   vertical-align: middle;
