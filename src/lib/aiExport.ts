@@ -141,8 +141,8 @@ export function aiLeaders(input: AiExportInput, team: AiRow) {
     const ranked = eligible.map(p => ({ playerId: p.player.playerId, name: normalizePlayerName(p.player.name), games: p.raw.gamesPlayed, value: col.value(p.ctx, 'perGame'), text: col.format(p.ctx, 'perGame') }))
       .filter(p => Number.isFinite(p.value)).sort((a, b) => b.value - a.value || a.playerId.localeCompare(b.playerId));
     const rows = ranked.map((p) => ({ ...p, rank: ranked.findIndex(x => x.text === p.text) + 1 }));
-    // 3位タイを含む。サイトの1・2・2・4の順位を維持し、同じ値の選手を名前順で落とさない。
-    return { label, rows: rows.filter(p => p.rank <= 3) };
+    // 指定の上位3人。順位の判定は表示値（1・2・2・4）、並びは既存と同じ生の値の順。
+    return { label, rows: rows.slice(0, 3) };
   });
 }
 const escapeCell = (s: string) => s.replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ');
@@ -176,11 +176,11 @@ export function buildAiExport(input: AiExportInput): { markdown: string; filenam
     `リーグ：${current.season >= '2026-27' ? 'B.PREMIER' : 'B1'}。${complete ? '終了シーズン' : '途中経過'}。消化${own.gamesPlayed + extra.length}試合、${wins}勝${own.gamesPlayed + extra.length - wins}敗。スタッツの対象は${own.gamesPlayed}試合。`,
     `データ基準日：${baseDate}（収録済みのリーグの最新終了試合日）。自チームの最終収録試合：${own.logs.map(g => g.date).sort().at(-1)}。`,
     prev ? `前季：${previous!.season} ${prevName}、スタッツ${prev.gamesPlayed}試合（前季全体）。` : '前季：比較対象データなし。',
-    `参照：https://maccheroni8.github.io/bleague-stats/teams/${teamId}?season=${current.season}`, '', '## シーズン成績・リーグ内順位・前季比較', '',
+    `参照：https://maccheroni8.github.io/bleague-stats/#/teams/${teamId}?season=${current.season}`, '', '## シーズン成績・リーグ内順位・前季比較', '',
     'カウント系は1試合平均。割合は合計の分子÷合計の分母。リーグ平均は全チームの合計÷延べチーム試合数（割合は合計同士の比）。',
-    '平均差＝自チーム−リーグ平均、前季差＝今季−前季。順位は表示値で同率判定（1・2・2・4）。並び順は大小を示し、優劣の断定ではありません。', ''];
+    '平均差＝自チーム−リーグ平均、前季差＝今季−前季。差は丸める前の値から計算します。順位は表示値で同率判定（1・2・2・4）。並び順は大小を示し、優劣の断定ではありません。', ''];
   out.push(table(['項目', '値', '順位', '順', 'リーグ平均', '平均差', '前季', '前季差'], metrics.map(m => [named(m.label), m.text(own), aiRank(m, own, rows), m.direction, m.text(league), aiDifference(m.value(own), m.value(league), m.percent), prev ? m.text(prev) : '—', aiDifference(m.value(own), prev ? m.value(prev) : null, m.percent)])));
-  out.push('', '## チーム内リーダー', '', 'このチームでの出場のみ、1試合平均。3位タイまで掲載。Gは出場試合数、MINは平均出場時間（分:秒）。',
+  out.push('', '## チーム内リーダー', '', 'このチームでの出場のみ、1試合平均。各項目上位3人（同率は同じ順位）。Gは出場試合数、MINは平均出場時間（分:秒）。',
     `割合はチームのスタッツ対象試合の${MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100}%以上に出場し、1試合平均の成功数がFG%・eFG%は${EXTRA_ELIGIBILITY_RULES.fgPct!.defaultValue}本、3P%は${EXTRA_ELIGIBILITY_RULES.tpPct!.defaultValue}本、2P%は${EXTRA_ELIGIBILITY_RULES.twoPct!.defaultValue}本、FT%は${EXTRA_ELIGIBILITY_RULES.ftPct!.defaultValue}本以上。`, '',
     table(['項目', '順位', '選手', 'G', '値'], aiLeaders(input, own).flatMap(({ label, rows: leaders }) => leaders.length ? leaders.map((p, i) => [i === 0 ? named(label, 'player') : label, String(p.rank), p.name, String(p.games), p.text]) : [[named(label, 'player'), '—', '該当なし', '—', '—']])));
   if (input.opponentId) {

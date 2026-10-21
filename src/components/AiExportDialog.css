@@ -1,0 +1,15 @@
+.ai-export-dialog { box-sizing: border-box; width: min(1100px, 96vw); max-width: 96vw; max-height: 94dvh; padding: 20px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); }
+.ai-export-dialog::backdrop { background: #0008; }
+.ai-export-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ai-export-heading h2 { margin: 0; font-size: 1.2rem; }
+.ai-export-dialog button, .ai-export-dialog select { padding: 9px 12px; min-height: 44px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font: inherit; }
+.ai-export-dialog button { cursor: pointer; }
+.ai-export-dialog button:disabled { cursor: default; opacity: .5; }
+.ai-export-dialog :focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.ai-export-opponent { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ai-export-opponent select { max-width: 100%; }
+.ai-export-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+.ai-export-notice { min-height: 1.5em; margin: 8px 0; }
+.ai-export-preview { display: block; }
+.ai-export-preview textarea { box-sizing: border-box; display: block; width: 100%; height: 48dvh; min-height: 220px; margin-top: 8px; padding: 12px; resize: vertical; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; font: 14px/1.7 monospace; tab-size: 2; }
+@media (max-width: 560px) { .ai-export-dialog { padding: 12px; } .ai-export-preview textarea { font-size: 16px; } .ai-export-heading h2 { font-size: 1.05rem; } }

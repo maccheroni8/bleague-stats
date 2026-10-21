@@ -1,3 +1,4 @@
+import { loadAiExport, type AiExportSource } from '../src/lib/aiExportLoad.ts';
 // 実データと独立した欠損・移籍・同率・重み付き平均の境界事例。build:dataの後に実行。
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -80,9 +81,11 @@ for (const season of ['2016-17', '2025-26', '2026-27']) {
   const result = buildAiExport(x);
   assert(!/NaN|Infinity|undefined/.test(result.markdown));
   assert.equal(result.characters, Array.from(result.markdown).length);
+  assert(result.markdown.includes(`/#/teams/703?season=${season}`));
   if (season === '2016-17') { assert(result.markdown.includes('栃木ブレックス')); assert(result.markdown.includes('前季：比較対象データなし')); }
   else assert(result.markdown.includes(season === '2025-26' ? '終了シーズン' : '途中経過'));
   const leaders = aiLeaders(x, row);
+  assert(leaders.every(group => group.rows.length <= 3));
   const keys = new Map(row.logs.map(g => [g.scheduleKey, g.isHome]));
   for (const group of leaders) for (const entry of group.rows) {
     const p = x.players.find(p => p.player.playerId === entry.playerId)!;
@@ -155,3 +158,32 @@ const tieInput = { ...input, players: [1, 2, 2, 4].map((n, i) => ({ player: { ..
 assert.deepEqual(aiLeaders(tieInput, small).find(g => g.label === 'PTS')!.rows.map(r => r.rank), [1, 2, 2]);
 assert.equal(aiLeaders(tieInput, small).find(g => g.label === 'eFG%')!.rows.length, 0);
 console.log(`OK: ${teamsChecked}チーム・${valuesChecked}値・${leadersChecked}リーダー。欠損・同率・移籍・前季なし・旧名・未対戦・結果だけの試合を検証`);
+
+// 通信境界：失敗を「記録なし」として公開しない。全データが同じ版なら純粋な生成処理と一致。
+const source: AiExportSource = {
+  fetchSeasons: async () => read('seasons'),
+  fetchTeams: async s => read(`${s}/teams`),
+  fetchSchedule: async s => read(`${s}/schedule`),
+  fetchGameSummaries: async s => read(`${s}/games-summary`),
+  fetchTeamHistory: async () => history,
+  fetchPlayers: async s => read(`${s}/players`),
+  fetchTeamGameLogs: async (s, id) => read(`${s}/team-games/${id}`),
+  fetchPlayerGameLogs: async (s, id) => read(`${s}/player-games/${id}`),
+  fetchPlayerGameIndex: async s => read(`${s}/player-game-index`),
+};
+const loaded = await loadAiExport('2026-27', '703', source);
+assert.equal(buildAiExport(loaded).markdown, buildAiExport(input).markdown);
+await assert.rejects(loadAiExport('2026-27', '703', { ...source, fetchTeamGameLogs: async () => { throw new Error('offline'); } }));
+await assert.rejects(loadAiExport('2026-27', '703', { ...source, fetchPlayerGameLogs: async () => { throw new Error('offline'); } }));
+await assert.rejects(loadAiExport('2026-27', '703', { ...source, fetchPlayerGameIndex: async () => null }));
+await assert.rejects(loadAiExport('2026-27', '703', { ...source, fetchTeamGameLogs: async (s, id) => (await source.fetchTeamGameLogs(s, id)).slice(1) }));
+await assert.rejects(loadAiExport('2026-27', '703', { ...source, fetchTeams: async s => { if (s === '2025-26') throw new Error('previous offline'); return source.fetchTeams(s); } }));
+await assert.rejects(loadAiExport('2026-27', '703', { ...source, fetchSchedule: async () => { throw new Error('schedule offline'); } }));
+console.log('OK: 読み込みの完全性・前季の失敗・索引の欠落・更新途中のデータを検出');
+
+for (const [season, teamId] of [['2016-17', '703'], ['2025-26', '703'], ['2023-24', '2488']] as const) {
+  const data = await loadAiExport(season, teamId, source);
+  const output = buildAiExport(data);
+  assert(output.markdown.includes(teamId === '2488' ? '前季：比較対象データなし' : season === '2016-17' ? '栃木ブレックス' : '終了シーズン'));
+}
+console.log('OK: 旧形式の日程・前季なし・旧名称の読み込み');
