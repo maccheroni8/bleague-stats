@@ -177,7 +177,7 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
                 def={{ key: `clutch:${measure}:${window}`, label: measureLabel, value: (e) => e.value, format: (e) => String(e.value), higherIsBetter: true }}
                 tieKey={(e) => String(e.value)}
                 rowKey={(e) => e.playerId}
-                name={(e) => <ResponsivePlayerName name={e.playerName} playerId={e.playerId} season={allTime ? undefined : e.lastSeason} />}
+                name={(e) => <ResponsivePlayerName name={e.playerName} />}
                 subLabel={(e) => <ClutchLine r={e} allTime={allTime} />}
                 linkTo={(e) => `/players/${e.playerId}?season=${e.lastSeason}`}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}

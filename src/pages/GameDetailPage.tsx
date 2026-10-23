@@ -25,8 +25,6 @@ import { GameLineupTable } from "../components/GameLineupTable";
 import { buildSurnameMap } from "../lib/playerSurname";
 import { isUnknownPlayerId } from "../lib/unknownPlayer";
 import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
-import { RookieBadge } from "../components/RookieBadge";
-import { useIsRookie } from "../lib/rookieFilter";
 import { buildGameLineups, rangeTotals, type GameLineupRow } from "../lib/gameLineups";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
@@ -959,10 +957,10 @@ function ShootingBreakdownTable({
         <tr key={p.PlayerID}>
           <td className="align-left">
             {isUnknownPlayerId(p.PlayerID) ? (
-              <ResponsivePlayerName name={p.PlayerNameJ} among={players.map((x) => x.PlayerNameJ)} playerId={p.PlayerID} season={season} />
+              <ResponsivePlayerName name={p.PlayerNameJ} among={players.map((x) => x.PlayerNameJ)} />
             ) : (
               <Link to={`/players/${p.PlayerID}`} className="cell-link">
-                <ResponsivePlayerName name={p.PlayerNameJ} among={players.map((x) => x.PlayerNameJ)} playerId={p.PlayerID} season={season} />
+                <ResponsivePlayerName name={p.PlayerNameJ} among={players.map((x) => x.PlayerNameJ)} />
               </Link>
             )}
           </td>
@@ -1071,12 +1069,12 @@ function LeaderTop3Row({ label, rows, teamNames, season }: { label: string; rows
           <div key={row.player.PlayerID} className={`leader-top3-item leader-top3-rank-${row.groupIndex + 1}`}>
             {isUnknownPlayerId(row.player.PlayerID) ? (
               <span className="leader-top3-name">
-                <ResponsivePlayerName name={row.player.PlayerNameJ} among={teamNames} playerId={row.player.PlayerID} season={season} />
+                <ResponsivePlayerName name={row.player.PlayerNameJ} among={teamNames} />
                 {row.otherCount > 0 && <span className="leader-top3-others"> 他{row.otherCount}人</span>}
               </span>
             ) : (
               <Link to={`/players/${row.player.PlayerID}`} className="leader-top3-name">
-                <ResponsivePlayerName name={row.player.PlayerNameJ} among={teamNames} playerId={row.player.PlayerID} season={season} />
+                <ResponsivePlayerName name={row.player.PlayerNameJ} among={teamNames} />
                 {row.otherCount > 0 && <span className="leader-top3-others"> 他{row.otherCount}人</span>}
               </Link>
             )}
@@ -1152,13 +1150,13 @@ function GameLeadersMatchup({
             }
           >
             <div className="leader-matchup-side leader-matchup-side-home">
-              <LeaderMatchupPlayer leader={homeLeader} displayName={displayName} season={season} />
+              <LeaderMatchupPlayer leader={homeLeader} displayName={displayName} />
               <span className="leader-matchup-value">{homeLeader ? def.format(homeLeader.player) : "—"}</span>
             </div>
             <span className="leader-matchup-label">{def.label}</span>
             <div className="leader-matchup-side leader-matchup-side-away">
               <span className="leader-matchup-value">{awayLeader ? def.format(awayLeader.player) : "—"}</span>
-              <LeaderMatchupPlayer leader={awayLeader} displayName={displayName} season={season} />
+              <LeaderMatchupPlayer leader={awayLeader} displayName={displayName} />
             </div>
           </div>
         );
@@ -1170,13 +1168,10 @@ function GameLeadersMatchup({
 function LeaderMatchupPlayer({
   leader,
   displayName,
-  season,
 }: {
   leader: GameLeaderResult | undefined;
   displayName: (r: BoxscoreRow) => string;
-  season: string;
 }) {
-  const isRookie = useIsRookie();
   if (!leader) return <div className="leader-matchup-player" />;
   const { player, otherCount } = leader;
   const unknown = isUnknownPlayerId(player.PlayerID);
@@ -1185,7 +1180,6 @@ function LeaderMatchupPlayer({
       {!unknown && <PlayerPhoto playerId={player.PlayerID} size={44} className="leader-matchup-player-photo" />}
       <span className="leader-matchup-player-name">
         <span className="leader-matchup-player-name-text">{displayName(player)}</span>
-        {isRookie(player.PlayerID, season) && <RookieBadge />}
         {otherCount > 0 && <span className="leader-matchup-player-others"> 他{otherCount}人</span>}
       </span>
     </>

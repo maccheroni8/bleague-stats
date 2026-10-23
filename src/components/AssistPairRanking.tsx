@@ -62,12 +62,12 @@ function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" 
 }
 
 /** 1人分: 写真と、写真の下の名前（個人ページへのリンク）。幅は固定（CSS）。幅が狭いときの名前は名字（ResponsivePlayerName） */
-export function PairPerson({ playerId, name, season, among, rookieSeason }: { playerId: string; name: string; season: string; among: readonly string[]; rookieSeason?: string }) {
+export function PairPerson({ playerId, name, season, among }: { playerId: string; name: string; season: string; among: readonly string[] }) {
   return (
     <Link to={`/players/${playerId}?season=${season}`} className="cell-link pair-person">
       <PlayerPhoto playerId={playerId} size={44} className="player-cell-photo" placeholder />
       <span className="pair-person-name">
-        <ResponsivePlayerName name={name} among={among} playerId={rookieSeason ? playerId : undefined} season={rookieSeason} breakAtDot />
+        <ResponsivePlayerName name={name} among={among} breakAtDot />
       </span>
     </Link>
   );
@@ -167,11 +167,11 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
                 rowKey={(e) => `${e.assisterId}>${e.scorerId}${e.scheduleKey ? `-${e.scheduleKey}` : ""}`}
                 name={(e) => (
                   <span className="pair-people">
-                    <PairPerson playerId={e.assisterId} name={e.assisterName} season={seasonOf(e)} among={among} rookieSeason={unit === "career" ? undefined : seasonOf(e)} />
+                    <PairPerson playerId={e.assisterId} name={e.assisterName} season={seasonOf(e)} among={among} />
                     <span className="pair-arrow" aria-label="アシスト">
                       ⇒
                     </span>
-                    <PairPerson playerId={e.scorerId} name={e.scorerName} season={seasonOf(e)} among={among} rookieSeason={unit === "career" ? undefined : seasonOf(e)} />
+                    <PairPerson playerId={e.scorerId} name={e.scorerName} season={seasonOf(e)} among={among} />
                   </span>
                 )}
                 subLabel={(e) => <PairLine r={e} unit={unit} />}

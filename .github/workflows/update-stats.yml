@@ -56,8 +56,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
+      # 同時に動かせるのは1つだけ（concurrency）。待たされた実行は、起動を頼まれた時点のコミット（github.sha）のままだと、
+      # 先に終わった実行（深夜の本処理など）のpushを含まない古い版で始まり、最後のpushで日程などのgzが衝突する（2026-10-23、#1672）。
+      # 実行が始まった時点の main の最新から始める
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: main
 
       # 同じ実行の中で取り直した試合の記録（コミットしない一時ファイル。見張りの一覧が同じ試合を重ねて取りに行かないための判定。DESIGN.md 205章）。
       # ジョブ直下の env では runner コンテキストが使えず、ワークフロー全体が無効になる（2026-10-05判明）ため、ステップで環境変数に書く
@@ -286,7 +291,7 @@ jobs:
 
       - name: Upload deploy signal artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: deploy-signal
           path: /tmp/deploy-signal/deploy-changed.txt

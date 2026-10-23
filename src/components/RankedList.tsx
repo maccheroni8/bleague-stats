@@ -81,7 +81,7 @@ export interface RankedListProps<T> {
   /**
    * 指定時、「平均」で割った試合数（「6試合」）を名前の近くに出す（undefined を返した行には出さない）。名前の下の行（subLabel）が無い表（チーム）は、
    * 名前の下の行に「6試合」だけを出し、写真なしの保存画像では名前の横に添える。subLabel のある表（個人）は、呼び出し側が subLabel に入れる
-   * （「仙台・SG/SF・6試合・Rookie」）。写真なしの版の名前の横（exportTeam）も同じ
+   * （「仙台・SG/SF・6試合」）。写真なしの版の名前の横（exportTeam）も同じ
    */
   gamesOf?: (row: T) => number | undefined;
   /**

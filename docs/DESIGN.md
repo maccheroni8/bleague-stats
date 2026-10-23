@@ -14772,7 +14772,35 @@ PC／スマホ×両テーマでコピー・保存ファイルの本文一致、�
 - キーボードは数字が中心の `inputMode="decimal"`。数字のキーボードには「:」が無いので、行の下に「:」ボタンを置いた（押しても入力欄のフォーカスは外れない）。
 - 検証 `npm run validate:minutes-input`（読み方・整え方・読めない入力）。**`code-files` には触れていない。** allKey は `9324a9638ff12266ca5f6f0c4918b864` のまま。
 
-## 287. チームの成績の登録区分別（日本人／外国籍・帰化・アジア。2026-10-23〜。**画面だけの変更でキー不変**）
+## 287. 保守2件: actions の Node.js 24 対応と、npm 依存の脆弱性の小さな更新（2026-10-23。**保存キー〔allKey〕が変わる**）
+283-7章の候補①②を、1回の公開にまとめて行った（画面・集計のコードは変えていない）。
+
+### 287-1. actions の更新（キー不変）
+- Node.js 20 指定のため Node.js 24 で強制実行される警告が出ていた3つを、Node.js 24 で動く最小の版へ上げた: `actions/cache` v4→**v5**（deploy.yml）、`actions/upload-artifact` v4→**v6**（update-stats.yml・update-player-awards.yml）、`actions/download-artifact` v4→**v7**（deploy.yml）。
+- 最新ではなく最小の版にした理由: cache v6 は内部が ESM に変わった、download-artifact v8 は「ハッシュの不一致を既定でエラーにする」に変わった。v5 の upload/download は Node.js 20 のまま。
+- 更新の実行が上げる合図（deploy-signal）をデプロイが取る受け渡しは、版が違っても同じ保存の仕組み（artifact v4 以降）。取れなかったときは `continue-on-error` で「変更なし」側に倒れるので、公開後に**デプロイのログで合図を受け取れたこと**を確かめる。
+- `.github/` は保存キーの入力に入っていないので allKey は変わらない。`actionlint` エラー0件。
+
+### 287-2. npm 依存の更新（`package-lock.json` だけ。allKey が変わる）
+- `npm audit fix --package-lock-only`（`--force` は使わない。`package.json` は変更なし）。vite 6.4.3→6.4.5、source-map-js 1.2.1→1.2.2、sharp 0.35.3→0.35.5（画像ライブラリ一式 1.3.2→1.3.4）、undici 7.29.0→7.30.1、react-router・react-router-dom 6.30.4→6.30.6（@remix-run/router 1.23.3→1.23.4）。
+- `package-lock.json` は保存キーの入力（`BUILD_CODE_EXTRA_FILES`）。allKey は `9324a9638ff12266ca5f6f0c4918b864` → **`a449be23b9ea38a1574cbb7f00966248`**。公開後に過去10シーズンの作り直しが1回起きる（ログは「作り直すシーズン: 10」）。以後の基準は新しい allKey。
+- Node.js は 24.22.1 で確認（`npm ci`・build・typecheck・build:data・validate:all・sharp の変換）。
+
+### 287-3. 残った指摘と、見送った大きな版の上げ
+- 残る2件（moderate）は react-router・react-router-dom で、全部を消すには 7.18 以上への大きな版の上げが要る。**今回は見送り**（画面コードの修正を伴いうるため。vite 8・undici 8 の大きな版も、小さな更新で解消できるので上げない）。
+- 「バックスラッシュによる外部リダイレクト（`<Link>`・`useNavigate`）」は該当しない（コードを調べて確認）。`to`・`navigate` の引数はすべて「/」で始まる固定の文字列にデータ上のIDを足した形。URL から来る値が遷移先に入るのは、旧URLからの転送2か所（`legacyTeamRecordsTarget`・`legacyPlayerRecordsTarget`。`stat` は固定の項目一覧と照合し、他の値は決まった候補だけを読む。作られる先は `/rankings?…`）と、`/teams${location.search}` 1か所（行き先は `/teams` のまま）。`urlState.ts` の移動は、いまのページの経路と `?` で始まる検索部分だけ。外部リンクの `<a href>` は固定の公式サイトとリポジトリ内の日程データの値だけ。
+- 「サーバー側描画の `deserializeErrors()`」は、HashRouter でサーバー描画をしないので該当しない。
+- 次に見直すとき: `npm audit` に react-router の指摘が増えたら、7系への移行を別の作業として検討する。
+
+### 287-4. update-player-awards の確認
+- 手動で起動すると全選手の受賞歴を取り直し（約44分）、変更があれば `data/player-awards.json.gz` を `main` にコミット・push する。そのため手動では起動せず、**次の定期実行（毎月1日 JST 4:00＝11月1日）で確認**する（upload-artifact v6 で合図が上がり、デプロイが受け取れること）。
+
+### 287-5. 更新の実行のチェックアウトを `ref: main` にする（衝突の対策）
+- 2026-10-23、深夜実行（#1671）と待たされた30分おきの実行（#1672）で、`git pull --rebase` が `data/2026-27/schedule.json.gz` の衝突で止まった。待たされた実行は、起動を頼まれた時点のコミット（`github.sha`）をチェックアウトするため、先に終わった実行のpushを含まない古い版で始まっていた。公式サイトの不調ではない。
+- `update-stats.yml` のチェックアウトに `ref: main` を足し、実行が始まった時点の最新の `main` から始める。保存キーは変わらない（`.github/` は入力外）。
+- `deploy.yml` は `ref: github.sha`（workflow_run では起動時点の `main` の最新）で、pushしないので衝突は起きない。`update-player-awards.yml`（月1回・同じ concurrency グループ）は同じ形（`ref` なし・`git push` のみ）だが、起動が毎月1日 JST 4時で深夜実行と重なりにくいため、今回は変えない。
+
+## 288. チームの成績の登録区分別（日本人／外国籍・帰化・アジア。2026-10-23〜。**画面だけの変更でキー不変**）
 全チームスタッツの区分の選択（全体／日本人／外国籍・帰化・アジア）と、チーム詳細のシーズン別成績のアコーディオン（各シーズンの行から区分の2行を開く）を、同じ土台で作る。段階: 1 計算の部品と検証（本節）→ 2 読み込み → 3 全チームスタッツ → 4 チーム詳細 → 6 Q別・前後半・延長との併用。ルーキーは入れない。
 - **土台**: 選手の1試合行の索引（`player-game-index`）を「チームの試合×区分」ごとに足す（`src/lib/teamClassSplit.ts` の `buildClassSplitSource`・`sumClassTotals`）。試合ログの合計（`sumTeamGameLogs`）と同じ形の `TeamTotals` を返すので、列の式はそのまま使える。区分は選手マスタの `classification`（索引の選手の辞書の6番目）。所属チームは行のホームの旗で決める（移籍した選手は試合ごとのチーム）。既存の「日本人 PTS」は、この足し算と全シーズン・全試合で一致する。
 - **自チームの値は自チームのその区分の選手、opp の値は相手チームの同じ区分の選手**（opp の視点で相手の外国籍等を見る）。+/- の視点は「-」。表記（決定済み）: 区分を選んでいる opp の視点は、画面のタイトルの下の行・保存画像の条件を「相手の日本人選手」「相手の外国籍・帰化・アジア選手」にし、視点の選択肢の下に「相手チームの日本人選手の成績」の補足を出す。表の列見出しは今の opp のまま。チーム詳細のアコーディオンは opp の視点のとき2行とも「相手の日本人」「相手の外国籍・帰化・アジア」。+/- の視点は区分を選んでいるとき「-」にして「区分別では出せません」と注記する。
