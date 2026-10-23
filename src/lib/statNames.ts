@@ -16,6 +16,7 @@ export type StatJaName = string | { team: string; player: string };
 /** 略称 → 日本語名 */
 export const STAT_NAMES: Record<string, StatJaName> = {
   // --- 試合数・出場 ---
+  "内訳対象": "2P内訳の対象試合数",
   G: "試合数",
   GS: "スタメン出場試合数",
   MIN: "出場時間",

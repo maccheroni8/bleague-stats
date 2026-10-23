@@ -1,3 +1,4 @@
+import { withPaint, mergePaint, PAINT2_NOTE } from "../lib/teamPaint2";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useFoulConditionCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { foulColumnsSplit } from "../lib/ruleChange";
@@ -470,7 +471,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       gamesPlayed: played.reduce((sum, r) => sum + r.gamesPlayed, 0) / played.length,
       wins: 0,
       losses: 0,
-      totals: averageTotals(played.map((r) => r.totals)),
+      totals: withPaint(averageTotals(played.map((r) => r.totals)), mergePaint(played.map((r) => r.totals))),
     };
   }, [rows]);
 
@@ -1206,7 +1207,12 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               pinnedRows={leagueRow && teamPerspective === "own" ? [leagueRow] : undefined}
             />
           </div>
-          {boxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
+          {boxTab === "misc" && (
+            <>
+              <p className="page-subtitle">{PAINT2_NOTE}</p>
+              <RuleChangeFootnote seasons={[season]} />
+            </>
+          )}
           {periodActive && period === "ot" && (
             <p className="page-subtitle">延長は、延長のあった試合だけの値です（すべての延長の合計）。G は延長のあった試合数で、平均はその試合数で割っています。勝敗は試合の勝敗です。</p>
           )}

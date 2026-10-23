@@ -11,6 +11,7 @@
 // 「ホーム」「プレーオフ」等で絞れば取得量も減る）。試合単位の取得はモジュールスコープの
 // Promiseキャッシュで重複排除するため、同じ試合を別スロットが必要としても二重取得にならない。
 
+import { loadLeaguePaintComplete } from "./teamPaint2Load";
 import { useEffect, useMemo, useState } from "react";
 import type {
   DivisionHistoryFile,
@@ -76,6 +77,7 @@ interface SlotDataCommon {
 }
 
 export interface TeamSlotData extends SlotDataCommon {
+  paintLeagueComplete?: boolean;
   boxTotals: TeamGameBoxTotals | null;
   /** 絞り込み後の試合（gamesCount の試合）でのチームの勝敗。リーグ平均は無し */
   record: CompareRecord | null;
@@ -183,6 +185,16 @@ export function useTeamCompareSlot({
     () => (active && isLeague ? fetchLeagueCompare(season).then((file) => ({ key: season, file })) : Promise.resolve(null)),
     [active, isLeague, season],
   );
+  const leaguePaint = useJsonData(
+    async () => {
+      const file = league.data?.key === season ? league.data.file : null;
+      const totals = file?.totals[gameType];
+      if (!active || !isLeague || !totals) return null;
+      const complete = await loadLeaguePaintComplete(season, gameType, teamTotalsFromBoxTotals(totals));
+      return { key: `${season}|${gameType}`, complete };
+    },
+    [active, isLeague, season, gameType, league.data],
+  );
   const { data, loading, error } = useJsonData(
     () =>
       active && !isLeague
@@ -246,6 +258,7 @@ export function useTeamCompareSlot({
       gamesCount: file ? file.games[gameType] : 0,
       pendingGames: 0,
       boxTotals: totals,
+      paintLeagueComplete: leaguePaint.data?.key === `${season}|${gameType}` ? leaguePaint.data.complete : undefined,
       record: null,
       logTotals: totals ? { totals: teamTotalsFromBoxTotals(totals), games: 1 } : null,
     };

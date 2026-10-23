@@ -5,6 +5,7 @@ import { TeamAttendanceRanking, ATTENDANCE_SCOPE_PARAM } from "../components/Tea
 import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
 import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
 import { EligibilitySlider } from "../components/EligibilitySlider";
+import { isPaint2Key, paintOf, paintRankable, paintCoverage, PAINT2_NOTE } from "../lib/teamPaint2";
 import { useCompareCleanup, useFoulConditionCleanup, useFoulStatKeyCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { COMPARE_LABEL, COMPARE_PARAM, buildCompare, compareUnsupportedReason, previousSeason } from "../lib/seasonCompare";
 import { postseasonLabel } from "../../shared/gameType";
@@ -396,7 +397,9 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
           currentRows: boxRows,
           currentKey: (r) => r.team.teamId,
           currentDef: teamDef,
-          prevRows: prevRanking.boxRows,
+          prevRows: prevRanking.boxRows.filter(
+            (r) => !isPaint2Key(teamDef.key) || paintRankable(paintOf(r.totals), teamDef.key, perspective),
+          ),
           prevKey: (r) => r.team.teamId,
           prevDef: prevRanking.teamDef,
           // 条件に当てはまる試合が、今季か前季で0のチーム（例: ポストシーズンに出ていない）は、値が0になるだけなので比べない
@@ -551,7 +554,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
               ? shootingStatItems(shootingColumns)
               : category === "forcedTurnovers"
                 ? FORCED_TURNOVER_ITEMS
-                : columns,
+                : columns.filter((c) => c.key !== "paint2games"),
             statKey,
             setStatKey,
             "team",
@@ -632,6 +635,9 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
             <RankedList
                 statScope="team"
               rows={boxCompare ? boxCompare.rows : boxRows}
+              unranked={isPaint2Key(teamDef.key) ? (r) => !paintRankable(paintOf(r.totals), teamDef.key, perspective) : undefined}
+              subLabel={isPaint2Key(teamDef.key) ? (r) => `内訳対象 ${paintCoverage(paintOf(r.totals), perspective)}試合` : undefined}
+              exportKeepSub={isPaint2Key(teamDef.key)}
               compare={boxCompare?.compare}
               def={teamDef}
               gamesOf={displayMode !== "total" && columns.find((c) => c.key === teamDef.key)?.scalesWithGames ? (r) => r.gamesPlayed : undefined}
@@ -642,6 +648,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
               avatar={(r) => <TeamLogo teamId={r.team.teamId} size={48} />}
               compact
             />
+            {isPaint2Key(teamDef.key) && <p className="rule-change-footnote">{PAINT2_NOTE} 全試合の記録が揃い、成功率は試投数が1本以上の場合だけ順位を付けます。対象外は参考値です。</p>}
             {category === "misc" && isRuleChangeStatKey(teamDef.key) && <RuleChangeFootnote seasons={[season]} />}
             {period === "ot" && <p className="rule-change-footnote">※ 延長は、延長のあった試合が{OVERTIME_MIN_TEAM_GAMES_FOR_RANKING}試合以上のチームが対象です。延長のあった試合だけの値（すべての延長の合計）で、平均はその試合数で割っています。勝敗は試合の勝敗です。</p>}
             {period !== "all" && gameType !== "regular" && hasShortGameSeason([season]) && <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>}

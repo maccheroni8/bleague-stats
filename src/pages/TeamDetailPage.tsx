@@ -235,7 +235,9 @@ import { OPPONENT_PARAM, TeamHeadToHead } from "../components/TeamHeadToHead";
 import { TeamOpponentSplit } from "../components/TeamOpponentSplit";
 import { enumParam, useUrlState } from "../lib/urlState";
 import { fgaShare, foreignShareFromSeconds, teamClassificationShareFromTotals, teamScoringShareFromTotals, type ForeignShare } from "../lib/shareCharts";
-import { EMPTY_TOTALS, sumTeamGameLogs } from "../lib/teamStatsColumns";
+import { EMPTY_TOTALS, sumTeamGameLogs, type AllTeamsRow } from "../lib/teamStatsColumns";
+import { paintColumns, summarizePaintLogs, withPaint, PAINT2_NOTE } from "../lib/teamPaint2";
+import { loadLeaguePaintComplete } from "../lib/teamPaint2Load";
 import { FORCED_TURNOVER_COLUMNS } from "../lib/forcedTurnoverColumns";
 import { categoryNeedsYahoo, type OpponentSplitCategory } from "../lib/opponentSplit";
 import { buildSeasonPeriodRow, seasonPeriodCell, seasonPeriodFormatters, unavailableSeasonPeriodLabels, useTeamPeriodSources } from "../lib/teamSeasonPeriod";
@@ -1187,6 +1189,14 @@ const TEAM_SEASON_ADVANCED_COLUMNS: TeamSeasonBoxColumn[] = [
 
 // ファウルの列は、UFOUL・TF（新旧の合計）と新しい区分の4列（TF1・TF2・FLAG・DISR）の両方を持つ。表に出すときに foulKeyVisible で選ぶ
 const ALL_TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
+  ...paintColumns("perGame", "own").map(
+    (col) =>
+      ({
+        key: col.key,
+        label: col.label,
+        format: (_r, m, mode, p) => paintColumns(mode, p).find((c) => c.key === col.key)!.format!({ totals: m } as unknown as AllTeamsRow),
+      }) satisfies TeamSeasonBoxColumn,
+  ),
   { key: "g", label: "G", format: (r) => String(r.team.gamesPlayed) },
   {
     key: "pitp",
@@ -2279,7 +2289,13 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「シーズン別成績」Miscタブ用（Phase H3①）。シーズンごとにレギュラーシーズンの
   // TeamGameLogだけを合算する（careerDataは「チームスタッツ」タブで通算成績等と同じものを取得済みのため追加取得なし）
   const teamSeasonMiscBySeason = useMemo(
-    () => new Map((careerData ?? []).map((cd) => [cd.season, sumTeamSeasonMisc(cd.logs)])),
+    () =>
+      new Map(
+        (careerData ?? []).map((cd) => [
+          cd.season,
+          withPaint(sumTeamSeasonMisc(cd.logs), summarizePaintLogs(filterByGameType(cd.logs, "regular"))),
+        ]),
+      ),
     [careerData],
   );
 
@@ -2673,6 +2689,22 @@ export function TeamDetailPage({ season }: { season: string }) {
     [tab, compareSlots[1].league, compareSlots[1].season],
   );
   const compareLeagueFiles = [compareLeague0.data, compareLeague1.data] as const;
+  const leaguePaint0 = useJsonData(async () => {
+    const slot = compareSlots[0];
+    const box = compareLeague0.data?.season === slot.season ? compareLeague0.data.totals[compareGameType] : null;
+    if (!box) return null;
+    const complete = await loadLeaguePaintComplete(slot.season, compareGameType, teamTotalsFromBoxTotals(box));
+    return { key: `${slot.season}|${compareGameType}`, complete };
+  }, [compareLeague0.data, compareSlots[0].season, compareGameType]);
+  const leaguePaint1 = useJsonData(async () => {
+    const slot = compareSlots[1];
+    const box = compareLeague1.data?.season === slot.season ? compareLeague1.data.totals[compareGameType] : null;
+    if (!box) return null;
+    const complete = await loadLeaguePaintComplete(slot.season, compareGameType, teamTotalsFromBoxTotals(box));
+    return { key: `${slot.season}|${compareGameType}`, complete };
+  }, [compareLeague1.data, compareSlots[1].season, compareGameType]);
+  const compareLeaguePaint = [leaguePaint0.data, leaguePaint1.data];
+
 
   // 結果だけの試合（228章）。枠のシーズンが2つあるので2つ呼ぶ（G の勝敗の横の「※」の説明用。取得に失敗しても比較は止めない）
   const loadResultOnly = (slot: TeamCompareSlotState) =>
@@ -2700,6 +2732,8 @@ export function TeamDetailPage({ season }: { season: string }) {
               boxTotals: totals,
               gamesCount: file.games[compareGameType],
               isLeague: true,
+              paintLeagueComplete:
+                compareLeaguePaint[i]?.key === `${slot.season}|${compareGameType}` ? compareLeaguePaint[i]!.complete : undefined,
               logTotals: { totals: teamTotalsFromBoxTotals(totals), games: 1 },
             },
             season: slot.season,
@@ -2754,7 +2788,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       })
       .filter((r): r is ComparisonRow<TeamCompareColumnData> => r !== null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compareSlots, careerData, compareGameType, compareOpponentRecords, compareRawGames, compareYahooPbp, seasons, teamId, divisionHistory, compareLeague0.data, compareLeague1.data, compareResultOnly0.data, compareResultOnly1.data]);
+  }, [compareSlots, careerData, compareGameType, compareOpponentRecords, compareRawGames, compareYahooPbp, seasons, teamId, divisionHistory, compareLeague0.data, compareLeague1.data, compareResultOnly0.data, compareResultOnly1.data, leaguePaint0.data, leaguePaint1.data]);
 
   // 「チームスタッツ」タブの「シチュエーション別成績」（チーム版）専用の自チーム/opp/+/-トグル・Q別/前後半トグル。
   // 「ショットチャート」のQ別/前後半（teamShotChartPeriod）とは独立して持つ（旧・概要タブの選択シーズン集計表と
@@ -4957,7 +4991,12 @@ export function TeamDetailPage({ season }: { season: string }) {
                 </tbody>
               </table>
             </div>
-            {seasonBoxTab === "misc" && <RuleChangeFootnote seasons={seasonHistoryDesc.map((r) => r.season)} />}
+            {seasonBoxTab === "misc" && (
+              <>
+                <p className="page-subtitle">{PAINT2_NOTE}</p>
+                <RuleChangeFootnote seasons={seasonHistoryDesc.map((r) => r.season)} />
+              </>
+            )}
             {seasonBoxPeriodOn && (
               <SeasonPeriodNotes
                 {...periodRowIssues(seasonPeriodTableRows)}

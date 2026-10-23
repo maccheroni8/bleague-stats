@@ -1,4 +1,5 @@
 import { NameText } from "../components/NameText";
+import { PAINT2_COMPARE_NOTE } from "../lib/teamPaint2";
 import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
@@ -376,6 +377,7 @@ export function ComparisonTable<T>({
       </table>
       {visibleDefs.length === 0 && <p className="empty-message">この条件では、値のある項目がありません</p>}
     </div>
+    {defs.some((d) => d.key === "paint2games") && <p className="page-subtitle">{PAINT2_COMPARE_NOTE}</p>}
     {footnotes.map((f) => (
       <p key={f.key} className="result-only-note">
         {RESULT_ONLY_MARK} {name(f.item)}（{f.season}）: {f.note}
@@ -546,6 +548,7 @@ function TeamCompareView({
           : resultOnlyCompareNote(resultOnlyBySeason?.get(slot.season), team.teamId, slot.gameType, data.record ?? undefined, isDefaultFilter(slot.filter)),
         logTotals: data.logTotals,
         isLeague,
+        paintLeagueComplete: data.paintLeagueComplete,
         subLabel: `${cond}（${data.gamesCount}試合）`,
       },
       season: slot.season,

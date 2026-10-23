@@ -13,6 +13,7 @@ import { viewPlayerGameIndex, playerGameAt } from '../src/lib/gameIndex.ts';
 import type { PlayerGameIndexFile } from '../shared/gameIndex.ts';
 import { buildSeasonBoxscoreCtx, EMPTY_TEAM_TOTALS, sumPlayerGameLogs, seasonBoxColumnsFor } from '../src/lib/playerSeasonBoxscore.ts';
 import { filterEligiblePlayers, EXTRA_ELIGIBILITY_RULES } from '../src/lib/playerRankingEligibility.ts';
+import { paintPair, validPaint } from '../src/lib/teamPaint2.ts';
 function read<T>(path: string): T {
   const p = `data/${path}.json`;
   return JSON.parse(existsSync(p) ? readFileSync(p, 'utf8') : gunzipSync(readFileSync(p + '.gz')).toString('utf8')) as T;
@@ -57,6 +58,14 @@ for (const season of seasons) {
         // ランキング・全チーム表と表示まで一致（符号の+だけは出力側の数値表現との差として許容）。
         assert.equal(Number.parseFloat(m.text(row)), Number.parseFloat(col.format!(row)), `${season}/${team.teamId}/${m.label}`);
         valuesChecked++;
+        // 2P内訳（PAINT2／MID2）は、記録が揃う試合だけで数える（チームの表と同じ。2017-18の1810は内訳が無い）。ログから別に求めて照合する。
+        if (/^(PAINT|MID)2/.test(base)) {
+          const zone = base.startsWith('PAINT') ? 'pm' : 'mm', zoneA = base.startsWith('PAINT') ? 'pa' : 'ma';
+          const valid = row.logs.map(paintPair).map(p => m.side === 'opp' ? p.opp : p.own).filter(validPaint);
+          const made = valid.reduce((n, p) => n + p[zone], 0), attempts = valid.reduce((n, p) => n + p[zoneA], 0);
+          const expected = base.endsWith('%') ? 100 * made / attempts : (base.endsWith('M') ? made : attempts) / valid.length;
+          assert(Math.abs(m.value(row)! - expected) < 1e-9, `${season}/${team.teamId}/${m.label}`); valuesChecked++;
+        }
       } else {
         const prefix = m.side === 'opp' ? 'opponent' : '';
         const field = (name: string) => prefix ? prefix + name[0]!.toUpperCase() + name.slice(1) : name;

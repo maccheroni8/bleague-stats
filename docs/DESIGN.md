@@ -14734,3 +14734,24 @@ PC／スマホ×両テーマでコピー・保存ファイルの本文一致、�
 - 変更: `src/pages/TeamDetailPage.tsx`（`buildSituationalRecordGroups` を export し、行の定義を差し替え。チームの一覧の読み込みをシーズンごとに照合し、前のシーズンの勝率が残らないようにした）、`src/lib/opponentSeasonWinRate.ts`（新規）、`src/components/GlossaryGuides.tsx`、`scripts/validate-situational-days.ts`（新規）、`package.json`・`tsconfig.json`・`tsconfig.scripts.json`。
 - 検証 `npm run validate:situational-days`: 曜日・祝日・振替休日・特例祝日25件（画面の行定義も確認）、勝率の境界（ちょうど5割・6割・0試合・欠損値）、全シーズンの試合数・勝敗が元の勝敗表と一致すること。
 - **`code-files`（保存キーの対象）には触れていない。** allKey は `9324a9638ff12266ca5f6f0c4918b864` のまま。過去10シーズンの作り直しは発生しない。
+
+
+## 285. チームのペイント内・ペイント外（ミッドレンジ）の2P内訳（2026-10-23。**画面・検証だけの変更でキー不変**）
+
+### 285-1. 何を足したか
+- 個人のスタッツには出ていた**ペイント内の2P（PAINT2M／PAINT2A／PAINT2%）とペイント外（ミッドレンジ）の2P（MID2M／MID2A／MID2%）**を、チームのスタッツにも出す。項目名・日本語名・説明は個人と同じもの（`statNames.ts`・`statDescriptions.ts`。個人の表の `BoxscoreTable.tsx` の列と同じ「MID2」の呼び方）。新しく足した名前は「内訳対象」だけ。
+- 出す場所: チーム詳細（チームスタッツのMisc、シーズン別の成績のMisc、区間〔Q別・前半・後半・延長〕の選択）、チーム一覧のMisc、ランキング（チーム）、比較ページ（スコアリング。自チーム／相手／差の視点、リーグ平均）。
+
+### 285-2. 数え方
+- 試合ごとの記録（`TeamGameLog` の `paint2m` など）は元から保存されているので、**集計・保存形式は変えない**。画面側で足し合わせる（`src/lib/teamPaint2.ts`）。
+- **記録が揃う試合だけ**で数える（整数・非負・成功≦試投・「内訳の合計＝2P全体」）。揃わない試合は平均・成功率に入れず、「内訳対象」（揃う試合数／全試合数）を添える。例: 2017-18 の 1810（手入力のボックススコアで内訳が無い）のアルバルク東京・千葉ジェッツは59/60。個数は揃う試合の1試合平均、成功率は合計の成功÷合計の試投。
+- ランキングは、全試合の記録が揃い、成功率は試投が1本以上のチームだけ順位を付ける。それ以外は末尾に「参考」として並べ、順位は付けない。
+- 比較ページのリーグ平均は、内訳が2P全体と一致するときだけ出し、足りないときは「-」（一致の確認は既存のリーグ平均と、必要なときは各チームの試合ごとの記録で行う）。
+
+### 285-3. AI書き出し（283章）との整合
+- AI書き出しの2P内訳は、以前は全試合の合計÷試合数だった。チームの表と同じ計算（記録が揃う試合だけ）に揃えた（`aiExport.ts`）。順位は表と同じく、記録が揃わないチームには付けず「参考」にする。`validate:ai-export` に、ログから別に求めた値との照合を足した（検証の値の数が14,280から増えた）。
+
+### 285-4. 検証・変更したファイル・保存キー
+- 新規: `src/lib/teamPaint2.ts`（集計・表示・順位の可否）、`src/lib/teamPaint2Load.ts`（比較のリーグ平均の確認）、`scripts/validate-team-paint2.ts`。変更: `teamStatsColumns.ts`・`teamPeriodTotals.ts`・`compareShared.ts`・`useCompareSlotData.ts`・`RankedList.tsx`・`ComparePage.tsx`・`RankingsPage.tsx`・`TeamDetailPage.tsx`・`TeamsListPage.tsx`・`statNames.ts`・`statDescriptions.ts`・`aiExport.ts` ほか。
+- 検証 `npm run validate:team-paint2`: 不正値・合計÷合計・試投0・自他の対象数・参考行、全11シーズンの714チーム試合区分・1666期間選択、表と比較の表示の一致、リーグ平均。
+- **`code-files`（保存キーの対象）には触れていない。** allKey は `9324a9638ff12266ca5f6f0c4918b864` のまま。過去10シーズンの作り直しは発生しない。

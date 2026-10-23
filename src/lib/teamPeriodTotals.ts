@@ -11,6 +11,7 @@ import type { TeamGameLog } from "../../shared/types";
 import { fetchTeamPeriodIndex } from "./data";
 import { loadTeamGameIndex } from "./gameIndexLoad";
 import { isSupportedPeriodIndex, PERIOD_ATOM_INDEXES, type GameRecordPeriod } from "./periodIndex";
+import { withPaint, summarizePaint, type PaintPair, type PaintInput } from "./teamPaint2";
 import { EMPTY_TOTALS, type TeamTotals } from "./teamStatsColumns";
 
 export type TeamPeriodValue = GameRecordPeriod;
@@ -99,6 +100,7 @@ export function sumTeamPeriodTotals(
   const { file } = source;
   const t: TeamTotals = { ...EMPTY_TOTALS };
   const games: TeamGameLog[] = [];
+  const paintPairs: PaintPair[] = [];
   const hasFoul = teamPeriodHasFoulColumns(file);
   for (const g of logs) {
     const n = source.gameNo.get(g.scheduleKey);
@@ -109,6 +111,20 @@ export function sumTeamPeriodTotals(
     games.push(g);
     const o = (col: string) => sumAt(file, own, atoms, col);
     const p = (col: string) => sumAt(file, opp, atoms, col);
+    // 2P内訳は、選んだ区間のどれかで記録が欠けていれば -1（記録なし）にする
+    const paintSide = (row: number): PaintInput => {
+      const count = (col: string) =>
+        atoms.every((a) => (file.rows.counts[`${PERIOD_ATOMS[a]}.${col}`]?.[row] ?? -1) >= 0) ? sumAt(file, row, atoms, col) : -1;
+      return {
+        pm: count("paint2m"),
+        pa: count("paint2a"),
+        mm: count("mid2m"),
+        ma: count("mid2a"),
+        tm: count("pt2m"),
+        ta: count("pt2a"),
+      };
+    };
+    paintPairs.push({ own: paintSide(own), opp: paintSide(opp) });
     const poss = file.rows.poss[value as PeriodPossKey]?.[own] ?? -1;
     t.pts += o("pts");
     t.oppPts += p("pts");
@@ -198,5 +214,5 @@ export function sumTeamPeriodTotals(
     t.oppBenchPoints += p("benchPoints");
     t.oppStarterPoints += p("starterPoints");
   }
-  return { games, totals: t };
+  return { games, totals: withPaint(t, summarizePaint(paintPairs)) };
 }

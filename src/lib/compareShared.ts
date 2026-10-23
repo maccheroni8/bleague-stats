@@ -3,6 +3,7 @@
 // トップレベル比較ページ（#/compare、ComparePage.tsx）も同じ列定義・表示ロジックを使うため
 // （DESIGN.md 100章）、ここに切り出して3箇所から共有する。詳細ページ側の挙動は変更していない。
 
+import { isPaint2Key, paintOf, paintFormat, paintValue, paintCoverage, PAINT2_COVERAGE, leaguePaintComplete } from "./teamPaint2";
 import type { BoxscoreColumn, BoxscoreTabKey, ColumnCtx } from "../components/BoxscoreTable";
 import type { ComparisonStatDef } from "../pages/ComparePage";
 import type { BoxscoreCounts } from "./boxscoreAggregate";
@@ -114,6 +115,7 @@ export interface TeamCompareColumnData {
   boxTotals: TeamGameBoxTotals;
   /** リーグ平均（DESIGN.md 149章）。opp は自チームと同じ値（リーグ全体の相手はリーグ全体）、+/- は出さない（「-」） */
   isLeague?: boolean;
+  paintLeagueComplete?: boolean;
   /** 絞り込んだ試合数（先頭の「G」行） */
   gamesCount: number;
   /** 絞り込んだ試合でのそのチームの勝敗（「G 6（3-3）」。リーグ平均は無し） */
@@ -256,10 +258,35 @@ export function teamCompareDefs(
   const defs = teamBoxscoreColumnsFor(tabKey, foulSplit).map((raw) => {
     const extraValue = TEAM_COMPARE_VALUE[raw.key];
     const col: BoxscoreColumn = extraValue && !raw.value ? { ...raw, value: (c) => extraValue(c) } : raw;
-    return teamCompareDef(col, perspective);
+    const original = teamCompareDef(col, perspective);
+    if (!isPaint2Key(col.key)) return original;
+    const summaryOf = (r: TeamCompareColumnData) => (r.logTotals ? paintOf(r.logTotals.totals) : undefined);
+    // リーグ平均は、内訳が2P全体と一致するときだけ出す（足りないときは「-」）
+    const leagueAvailable = (r: TeamCompareColumnData) =>
+      r.paintLeagueComplete ?? (!!r.logTotals && leaguePaintComplete(r.logTotals.totals));
+    return {
+      ...original,
+      format: (r: TeamCompareColumnData) =>
+        r.isLeague
+          ? leagueAvailable(r) ? original.format(r) : "-"
+          : paintFormat(summaryOf(r), col.key, "perGame", perspective),
+      value: (r: TeamCompareColumnData) =>
+        r.isLeague
+          ? leagueAvailable(r) ? original.value(r) : 0
+          : (paintValue(summaryOf(r), col.key, "perGame", perspective) ?? 0),
+    };
   });
   // 全チームスタッツ・チーム詳細にあって、ボックススコアの列定義には無い項目（DESIGN.md 235章）
   const extras = teamLogTotalsDefs(tabKey, perspective, foulSplit);
+  if (tabKey === "scoring") {
+    defs.unshift({
+      key: "paint2games",
+      label: PAINT2_COVERAGE,
+      value: () => 0,
+      format: (r) => (r.isLeague ? "-" : paintCoverage(r.logTotals ? paintOf(r.logTotals.totals) : undefined, perspective)),
+      noHighlight: true,
+    });
+  }
   if (tabKey === "advanced") {
     // 全チームスタッツと同じ並び: TOV% の次に FTR・OR%
     const at = defs.findIndex((d) => d.key === "tovpct");

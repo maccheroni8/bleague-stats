@@ -5,6 +5,7 @@ import { buildTeamGameBoxTotals, type SeasonDisplayMode } from "./playerSeasonBo
 import type { PeriodRangeOption } from "./periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { formatMinutesFromSeconds } from "./boxscoreAggregate";
+import { paintColumns, summarizePaintLogs, withPaint } from "./teamPaint2";
 import { efgPct, ftRate, offensiveRating, orbPct, pace, safeDiv, tovPct, tsPct } from "../../shared/formulas";
 
 /**
@@ -230,7 +231,7 @@ export const EMPTY_TOTALS: TeamTotals = {
 };
 
 export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
-  return logs.reduce<TeamTotals>(
+  const totals = logs.reduce<TeamTotals>(
     (acc, g) => ({
       pts: acc.pts + g.teamScore,
       oppPts: acc.oppPts + g.opponentScore,
@@ -320,6 +321,7 @@ export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
     }),
     { ...EMPTY_TOTALS },
   );
+  return withPaint(totals, summarizePaintLogs(logs));
 }
 
 /**
@@ -694,6 +696,7 @@ export function buildMiscColumns(
         }),
       ];
   return [
+    ...paintColumns(mode, perspective),
     countColumn("pitp", "PITP", (t) => t.pt2in, (t) => t.oppPt2in, mode, perspective),
     countColumn("fbps", "FBPS", (t) => t.fb, (t) => t.oppFb, mode, perspective),
     countColumn("2ndpts", "2ND PTS", (t) => t.pt2nd, (t) => t.oppPt2nd, mode, perspective),

@@ -40,6 +40,8 @@ export interface RankCompare<T> {
 
 export interface RankedListProps<T> {
   rows: T[];
+  /** 順位を付けない行（参考値として末尾にまとめ、順位欄に「参考」と出す） */
+  unranked?: (row: T) => boolean;
   def: RankableStat<T>;
   rowKey: (row: T) => string;
   name: (row: T) => ReactNode;
@@ -101,6 +103,7 @@ function defaultSortDir<T>(def: RankableStat<T>): "asc" | "desc" {
 
 export function RankedList<T>({
   rows,
+  unranked,
   def,
   rowKey,
   name,
@@ -152,9 +155,10 @@ export function RankedList<T>({
   const bySortDiff = !!compare && sortBy === "diff";
 
   const factor = sortDir === "asc" ? 1 : -1;
-  const sorted = bySortDiff
+  const sortedValues = bySortDiff
     ? [...rows].sort((a, b) => (compare.diff(a) - compare.diff(b)) * factor)
     : [...rows].sort((a, b) => (def.value(a) - def.value(b)) * factor);
+  const sorted = unranked ? [...sortedValues.filter((r) => !unranked(r)), ...sortedValues.filter(unranked)] : sortedValues;
   // 順位（DESIGN.md 146章）: 同じ値は同じ順位にし、次の順位はその分飛ばす（1位・2位・2位・4位）。
   // 同じかどうかは画面に表示している値（def.format。小数は丸めた後）で判定する。limit の境目で同じ順位が続く分は、
   // 「同じ順位のほか◯人を表示」で広げる。差で並べているときは、差の表示値で判定する
@@ -167,7 +171,7 @@ export function RankedList<T>({
   // 比較中に値で並べているときは、今季のランキング全体での順位（前季の順位と同じ基準）
   const poolRankByKey = (() => {
     if (!compare || bySortDiff) return null;
-    const pool = [...compare.rankPool].sort((a, b) => (def.value(a) - def.value(b)) * factor);
+    const pool = compare.rankPool.filter((r) => !unranked?.(r)).sort((a, b) => (def.value(a) - def.value(b)) * factor);
     const poolRanks = rankPositions(pool.map((row) => (tieKey ?? def.format)(row)));
     return new Map(pool.map((row, i) => [rowKey(row), poolRanks[i]!]));
   })();
@@ -267,7 +271,7 @@ export function RankedList<T>({
                   className={`align-right rank-cell${accent ? " row-accent-cell" : ""}`}
                   style={accent ? ({ "--team-color": accent } as CSSProperties) : undefined}
                 >
-                  {rankOf(i)}
+                  {unranked?.(row) ? "参考" : rankOf(i)}
                 </td>
                 <td className={`align-left${externalLinkTo?.(row) ? " has-external-link" : ""}`}>
                   {(() => {

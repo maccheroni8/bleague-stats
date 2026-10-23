@@ -207,6 +207,7 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
     player: "個人のFTA ÷ その選手が出場した試合のチーム全体のFTA（その選手がベンチにいた時間のチームのFTAも分母に含む）",
     team: `${TEAM_SHARE_NOT_SHOWN("FTA")}チームのFTA / FGAは、アドバンスドのFTR（FT Rate）で見られます。`,
   },
+  "内訳対象": "2P内訳の記録が揃う試合数／全試合数。内訳の平均・成功率は記録が揃う試合だけで計算します。",
   PAINT2M: `ペイント内の2P成功数（${PAINT_SPLIT_NOTE}）`,
   PAINT2A: `ペイント内の2P試投数（${PAINT_SPLIT_NOTE}）`,
   "PAINT2%": `PAINT2M / PAINT2A（${PAINT_SPLIT_NOTE}）`,

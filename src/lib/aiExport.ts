@@ -3,8 +3,7 @@ import type { PlayerGameLog, PlayerSummary, TeamGameLog, TeamHistoryEntry, TeamS
 import type { ScheduleFileExtended } from '../../shared/resultOnlyGames';
 import { buildOpponentSplitRows } from './opponentSplit';
 import { buildTraditionalColumns, buildAdvancedColumns, buildMiscColumns, sumTeamGameLogs, type AllTeamsRow } from './teamStatsColumns';
-import { boxscoreColumnsFor, type ColumnCtx } from '../components/BoxscoreTable';
-import { sumCountsList } from './boxscoreAggregate';
+import { paintOf, paintRankable, paintValue } from './teamPaint2';
 import { buildSeasonBoxscoreCtx, sumPlayerGameLogs, seasonBoxColumnsFor, EMPTY_TEAM_TOTALS } from './playerSeasonBoxscore';
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING } from './playerRankingEligibility';
 import { statJa } from './statNames';
@@ -36,6 +35,8 @@ export interface AiMetric {
   percent: boolean;
   direction: '多い順' | '少ない順' | '速い順';
   value: (row: AiRow) => number | null; // %は表示と同じ0〜100。他は1試合平均。
+  /** 順位を付けてよい行か。2P内訳の記録が揃わない試合があるチームは参考値にする（ランキングと同じ扱い）。 */
+  rankable?: (row: AiRow) => boolean;
   text: (row: AiRow) => string;
 }
 const BASE = [
@@ -80,19 +81,15 @@ export function aiMetrics(): AiMetric[] {
     return specs.map(([key, dependencies]) => {
       const paint = /^(paint2|mid2)/.test(key);
       const col = columns.find(c => c.key === key);
-      const box = paint ? boxscoreColumnsFor('scoring', false).find(c => c.key === key)! : null;
-      const baseLabel = box?.label ?? col!.label;
+      const baseLabel = col!.label;
       const percent = baseLabel.includes('%') || key === 'ftr';
       const scale = percent && !['tovpct', 'orbpct'].includes(key) ? 100 : 1;
       let deps = dependencies.map(k => opp ? opposite(k) : k as LogKey);
       if (key === 'tr' && opp) deps = ['opponentOreb', 'opponentDreb'];
       const rawValue = (r: AiRow): number => {
-        if (!box) return Number(col!.sortValue(r)) * scale;
-        // 既存のBoxscore列に1試合平均のカウントを渡す。表示文字列は計算に使わない。
-        const t = r.totals, n = r.gamesPlayed;
-        const c = { ...sumCountsList([]), paint2m: (opp ? t.oppPaint2m : t.paint2m) / n, paint2a: (opp ? t.oppPaint2a : t.paint2a) / n, nonPaint2m: (opp ? t.oppMid2m : t.mid2m) / n, nonPaint2a: (opp ? t.oppMid2a : t.mid2a) / n };
-        const ctx: ColumnCtx = { own: c, ownPlayType: { pt2in: 0, fb: 0, pt2nd: 0, pft: 0 }, isPlayerRow: false, isTeamTotalRow: true, shotChartSupported: true, yahooPbpSupported: false };
-        return box.value!(c, ctx)! * scale;
+        // 2P内訳は、チームスタッツの表と同じ計算（記録が揃う試合だけで平均・合計÷合計）にする。
+        if (paint) return (paintValue(paintOf(r.totals), key, 'perGame', side) ?? NaN) * scale;
+        return Number(col!.sortValue(r)) * scale;
       };
       const value = (r: AiRow): number | null => {
         if (!r.gamesPlayed || r.logs.some(g => deps.some(k => typeof g[k] !== 'number' || !Number.isFinite(g[k])))) return null;
@@ -101,15 +98,16 @@ export function aiMetrics(): AiMetric[] {
         return Number.isFinite(v) ? v : null;
       };
       return { label: opp ? `opp ${baseLabel}` : baseLabel, side, percent,
-        direction: key === 'pace' ? '速い順' : (paint ? !opp : col!.higherIsBetter !== false) ? '多い順' : '少ない順',
-        value, text: r => { const v = value(r); return v === null ? '未収録' : `${v.toFixed(1)}${percent ? '%' : ''}`; } };
+        direction: key === 'pace' ? '速い順' : col!.higherIsBetter !== false ? '多い順' : '少ない順',
+        value, rankable: paint ? (r: AiRow) => paintRankable(paintOf(r.totals), key, side) : undefined, text: r => { const v = value(r); return v === null ? '未収録' : `${v.toFixed(1)}${percent ? '%' : ''}`; } };
     });
   });
 }
 export function aiRank(metric: AiMetric, row: AiRow, rows: AiRow[]): string {
   const v = metric.value(row);
   if (v === null) return '未収録';
-  const values = rows.map(r => metric.value(r)).filter((n): n is number => n !== null).map(n => Number(n.toFixed(1)));
+  if (metric.rankable && !metric.rankable(row)) return '参考（記録が揃わない試合あり）';
+  const values = rows.filter(r => !metric.rankable || metric.rankable(r)).map(r => metric.value(r)).filter((n): n is number => n !== null).map(n => Number(n.toFixed(1)));
   const shown = Number(v.toFixed(1));
   const rank = 1 + values.filter(n => metric.direction === '少ない順' ? n < shown : n > shown).length;
   return `${rank}位／${values.length}チーム`;
