@@ -82,7 +82,8 @@
     "scrape:annual-schedule": "node --experimental-strip-types scripts/scrape-annual-schedule.ts",
     "validate:season-key": "node --experimental-strip-types scripts/validate-season-key.ts",
     "validate:live-dead-tov": "esbuild scripts/validate-live-dead-tov.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-live-dead-tov.mjs && node node_modules/.cache/validate-live-dead-tov.mjs",
-    "validate:ai-export": "esbuild scripts/validate-ai-export.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-ai-export.mjs && node node_modules/.cache/validate-ai-export.mjs"
+    "validate:ai-export": "esbuild scripts/validate-ai-export.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-ai-export.mjs && node node_modules/.cache/validate-ai-export.mjs",
+    "validate:situational-days": "esbuild scripts/validate-situational-days.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-situational-days.mjs && node node_modules/.cache/validate-situational-days.mjs"
   },
   "dependencies": {
     "cheerio": "^1.0.0",

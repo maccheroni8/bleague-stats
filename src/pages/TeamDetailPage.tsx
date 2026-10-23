@@ -126,7 +126,6 @@ import {
   isDefaultFilter,
   type BackToBackGame,
   type GameTeamInfo,
-  type RecordBeforeGame,
   type SituationalFilter,
   MARGIN_CONDITION_LABELS,
   matchesMargin,
@@ -150,7 +149,8 @@ import {
   situationalFilterLabels,
   LABEL_SEPARATOR,
 } from "../lib/conditionLabels";
-import { isWednesdayGame, isWeekdayGame } from "../lib/japaneseHolidays";
+import { isWeekdayGame, isWeekendGame } from "../lib/japaneseHolidays";
+import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate } from "../lib/opponentSeasonWinRate";
 import { leaderStatLabel, PLAYER_STAT_DEFS } from "../lib/statDefs";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { safeDiv } from "../../shared/formulas";
@@ -1615,11 +1615,11 @@ function statusAtCheckpoint(
   return "tie";
 }
 
-function buildSituationalRecordGroups(
+export function buildSituationalRecordGroups(
   logs: TeamGameLog[],
   teamId: string,
   backToBack: Map<string, Map<string, BackToBackGame>> | undefined,
-  opponentRecords: Map<string, Map<string, RecordBeforeGame>> | undefined,
+  opponentWinRates: ReadonlyMap<string, number>,
   divisionHistory: DivisionHistoryFile | null | undefined,
   season: string,
 ): SituationalRecordGroupDef[] {
@@ -1644,7 +1644,10 @@ function buildSituationalRecordGroups(
     {
       key: "weekday",
       label: "曜日",
-      rows: [{ key: "wed", label: "水曜開催", predicate: (g) => isWednesdayGame(g.date) }],
+      rows: [
+        { key: "weekday", label: "平日開催（祝日を除く）", predicate: (g) => isWeekdayGame(g.date) },
+        { key: "weekend", label: "土日祝開催", predicate: (g) => isWeekendGame(g.date) },
+      ],
     },
     {
       key: "month",
@@ -1656,19 +1659,22 @@ function buildSituationalRecordGroups(
     {
       key: "opponentStrength",
       label: "対戦相手の強さ",
-      rows: opponentRecords
-        ? (
-            [
-              ["under50", "対5割未満"],
-              ["atLeast50", "対5割以上"],
-              ["atLeast60", "対6割以上"],
-            ] as const
-          ).map(([tier, label]) => ({
-            key: tier,
-            label,
-            predicate: (g: TeamGameLog) => matchesOpponentWinRateTier(g, tier, opponentRecords),
-          }))
-        : [],
+      rows: [
+        ...([
+          ["under50", "対5割未満"],
+          ["atLeast50", "対5割以上"],
+          ["atLeast60", "対6割以上"],
+        ] as const).map(([tier, label]) => ({
+          key: tier,
+          label,
+          predicate: (g: TeamGameLog) => matchesOpponentSeasonWinRate(g.opponentTeamId, tier, opponentWinRates),
+        })),
+        {
+          key: "unclassified",
+          label: "対象外",
+          predicate: (g: TeamGameLog) => !opponentWinRates.has(g.opponentTeamId),
+        },
+      ],
     },
     {
       key: "backToBack",
@@ -2117,7 +2123,12 @@ export function TeamDetailPage({ season }: { season: string }) {
   // フィルタ条件を復元するためのキャッシュキー（src/lib/pageStateCache.ts参照。
   // 個人詳細ページと同じ仕組み）
   const pk = (field: string) => `team:${teamId}:${field}`;
-  const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
+  const { data: teamsTagged, loading: teamsLoading, error: teamsError } = useJsonData(
+    () => fetchTeams(season).then((list) => ({ season, list })),
+    [season],
+  );
+  const teams = teamsTagged?.season === season ? teamsTagged.list : null;
+  const opponentSeasonWinRates = useMemo(() => buildOpponentSeasonWinRates(teams), [teams]);
   const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season), [season]);
   // スマホ幅では名字だけ（同じチームで名字が重なる選手はフルネーム）。表の中の ResponsivePlayerName は PlayerNamePool で同じ一覧を受け取る
   const teamLabel = useTeamLabel();
@@ -3201,7 +3212,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     return totals;
   }, [teamAssistPairs]);
 
-  if (teamsLoading || playersLoading) return <p className="loading">読み込み中...</p>;
+  if (teamsLoading || playersLoading || (teamsTagged?.season !== season && !teamsError)) return <p className="loading">読み込み中...</p>;
   if (teamsError) return <p className="error-message">{teamsError}</p>;
 
   const team = teams?.find((t) => t.teamId === teamId);
@@ -3261,7 +3272,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         situationalRecordScopedLogs,
         teamId,
         situationalRecordBackToBack,
-        opponentRecords,
+        opponentSeasonWinRates,
         divisionHistory,
         season,
       )
@@ -4092,6 +4103,9 @@ export function TeamDetailPage({ season }: { season: string }) {
             stateKey={pk("situationalRecordFilter")}
             axes={[gameTypeAxis(situationalRecordGameType, setSituationalRecordGameType, season)]}
           />
+          {situationalRecordGroups.some((group) => group.key === "opponentStrength") && (
+            <p className="rule-change-footnote">対戦相手の強さは対象シーズンの最新勝率（終了後は最終勝率）で判定します。「対5割以上」には「対6割以上」も含みます。勝率を算出できない相手との試合は対象外です。</p>
+          )}
           {gameLogsLoading ? (
             <p className="loading">読み込み中...</p>
           ) : situationalRecordGroups.length === 0 ? (
