@@ -22,8 +22,8 @@
 // lib/playerClassificationOverrides.ts の手動リストで個別に上書きする（DESIGN.md参照）。
 //
 // 更新方針（DESIGN.md 8章）: 一覧ページは毎回26クラブ分取得してteamId/teamName/positionを
-// 更新する（軽量・移籍を検知できる）。個人ページは「まだマスタに無い新規選手」だけ追加取得する
-// （身長体重等の属性は変化しないため、既知選手を毎回取り直す必要が無い＝日次cronでも軽量に保てる）。
+// 更新する（軽量・移籍を検知できる）。個人ページは生年月日または国籍が未取得の選手を取得する。
+// 根拠付き国籍補完の対象者は、公式値を再確認するため補完後も取得する（DESIGN.md 282章）。
 // --force を付けると全選手の個人ページと写真を強制的に取り直す。
 //
 // 実行順（DESIGN.md 125章）: ロゴ → クラブ一覧 → 新規選手の個人ページ → 選手マスタを保存 → 写真。
@@ -46,6 +46,7 @@ import { load } from "cheerio";
 import { createThrottledFetch } from "./lib/throttle.ts";
 import { DATA_DIR, readJson, writeJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { TEAM_NAMES } from "./lib/divisions.ts";
+import { fillMissingNationality, isSupplementRecheckOnly, needsRosterDetail, type RosterProfileContext } from "./lib/playerNationalitySupplements.ts";
 import { CLASSIFICATION_OVERRIDES } from "./lib/playerClassificationOverrides.ts";
 import {
   downloadPlayerPhoto,
@@ -74,13 +75,13 @@ const RETRYABLE_ATTEMPTS = 3;
 
 // bleague.jp側の一時的な502/503が稀に発生するため、5xxのみ間隔を空けてリトライする
 // （4xxはリクエスト自体の問題なので即座にエラーにする）
-async function fetchHtml(url: string, attempt = 1): Promise<string> {
+async function fetchHtml(url: string, maxAttempts = RETRYABLE_ATTEMPTS, attempt = 1): Promise<string> {
   const res = await throttledFetch(url);
   if (!res.ok) {
-    if (res.status >= 500 && attempt < RETRYABLE_ATTEMPTS) {
+    if (res.status >= 500 && attempt < maxAttempts) {
       console.warn(`[roster] GET ${url} が${res.status}（${attempt}回目）。5秒後にリトライします`);
       await new Promise((resolve) => setTimeout(resolve, 5000 * attempt));
-      return fetchHtml(url, attempt + 1);
+      return fetchHtml(url, maxAttempts, attempt + 1);
     }
     throw new Error(`GET ${url} failed: ${res.status}`);
   }
@@ -153,7 +154,7 @@ interface PlayerDetail {
   birthDate?: string;
 }
 
-function parsePlayerDetail(html: string): PlayerDetail {
+export function parsePlayerDetail(html: string): PlayerDetail {
   const $ = load(html);
   const detail: PlayerDetail = {};
   $("li.rosterDetail-kv-playerProfile-list-item").each((_, el) => {
@@ -200,9 +201,34 @@ interface PlayerPage {
 }
 
 /** 個人ページを1回取得し、プロフィール（detail）・受賞歴（awards）・クラブ所属履歴（clubHistory）を同じHTMLからパースする */
-export async function fetchPlayerPage(playerId: string): Promise<PlayerPage> {
-  const html = await fetchHtml(`https://www.bleague.jp/roster_detail/?PlayerID=${playerId}`);
+export async function fetchPlayerPage(playerId: string, options: { attempts?: number } = {}): Promise<PlayerPage> {
+  const html = await fetchHtml(`https://www.bleague.jp/roster_detail/?PlayerID=${playerId}`, options.attempts);
   return { detail: parsePlayerDetail(html), awards: parseAwardHistory(html), clubHistory: parseClubHistory(html) };
+}
+
+/** 保存を伴わない1人分の更新。取得失敗後も、根拠のある国籍補完だけを適用する。 */
+export async function updateRosterProfile(
+  entry: PlayerMasterEntry,
+  context: RosterProfileContext,
+  fetchPage: typeof fetchPlayerPage = fetchPlayerPage,
+): Promise<ClubHistoryEntry[] | null> {
+  let history: ClubHistoryEntry[] | null = null;
+  try {
+    // 補完後の再確認だけが目的の取得は、外側の再試行を省く（共通throttleの1回再試行は残る＝最大2通信）。DESIGN.md 282章
+    const page = await fetchPage(entry.playerId, isSupplementRecheckOnly(entry, context) ? { attempts: 1 } : {});
+    history = page.clubHistory;
+    entry.position = page.detail.position ?? entry.position;
+    // 空欄の応答では既存国籍を消さない。正常に取得できた非空欄の公式値を優先する。
+    if (page.detail.nationality?.trim()) entry.nationality = page.detail.nationality.trim();
+    entry.heightCm = page.detail.heightCm ?? entry.heightCm;
+    entry.weightKg = page.detail.weightKg ?? entry.weightKg;
+    entry.birthDate = page.detail.birthDate ?? entry.birthDate;
+  } catch (err) {
+    console.warn(`[roster] ${entry.name}（${entry.playerId}）の個人ページ取得に失敗。次回再試行: ${String(err)}`);
+  }
+  const supplement = fillMissingNationality(entry, context);
+  if (supplement) console.warn(`[roster] 国籍補完: ${entry.playerId} ${supplement.nationality}（${supplement.officialUrl}、確認日${supplement.checkedOn}）`);
+  return history;
 }
 
 /** 現行ロースター（今回のクラブ一覧に載っていた選手）1人分。写真の同期に使う */
@@ -259,24 +285,15 @@ export async function scrapeRosterMaster(
     }
   }
 
-  // birthDateが未取得＝個人ページ未取得の判定に使う（既存選手の属性は変化しないため再取得しない）
-  const targets = [...byId.values()].filter((p) => options.force || !p.birthDate);
+  const currentTeams = new Map(currentRoster.map((p) => [p.playerId, p.teamId]));
+  const contextFor = (entry: PlayerMasterEntry): RosterProfileContext => ({ season, currentTeamId: currentTeams.get(entry.playerId) });
+  const targets = [...byId.values()].filter((p) => options.force || needsRosterDetail(p, contextFor(p)));
   console.log(`[roster] 個人ページ取得対象: ${targets.length}名（新規${newCount}名／移籍検知${movedCount}件）`);
 
   const clubHistory = new Map<string, ClubHistoryEntry[]>();
   for (const entry of targets) {
-    // 1人の個人ページの失敗で全体（選手マスタの保存）が止まらないよう、失敗は警告にとどめて次回に回す
-    try {
-      const { detail, clubHistory: history } = await fetchPlayerPage(entry.playerId);
-      if (history) clubHistory.set(entry.playerId, history);
-      entry.position = detail.position ?? entry.position;
-      entry.nationality = detail.nationality ?? entry.nationality;
-      entry.heightCm = detail.heightCm ?? entry.heightCm;
-      entry.weightKg = detail.weightKg ?? entry.weightKg;
-      entry.birthDate = detail.birthDate ?? entry.birthDate;
-    } catch (err) {
-      console.warn(`[roster] ${entry.name}（${entry.playerId}）の個人ページ取得に失敗。次回再試行: ${String(err)}`);
-    }
+    const history = await updateRosterProfile(entry, contextFor(entry));
+    if (history) clubHistory.set(entry.playerId, history);
   }
 
   // classificationはネットワーク取得不要（nationality + 手動上書きから算出）なので、
