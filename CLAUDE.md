@@ -207,6 +207,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   検算は「選手全員の秒数の合計＝チームの秒数×5」。設計書141章）をまとめて入れる。出場時間の比による近似式は使わない。
   同じタイミングで、チーム詳細 On-Court Foreign の opp 視点（相手チームのコート上の外国籍の人数。設計書183章）も入れる
   （試合ごとの「人数別の在コート秒数」〔自チーム・相手〕は `TeamGameLog.foreignCourtSeconds`・`opponentForeignCourtSeconds` とチームのピリオド別の索引に入れ済み。設計書256-6章）
+- 【後回し・2026-10-23】`actions/cache` のv5などへの更新と、npmの脆弱性6件の直し（`package-lock.json` が変わるため作り直しが1回起きる）は、次に作り直しが起きる作業（在コート復元処理の直しなど）とまとめて行う（設計書283-7章）
 - **PBP（`raw.PlayByPlays`）の並び（設計書212章）**: 2020-21以降の延長戦では、公式のPBPの配列が時系列にならない（延長が第1〜第4ピリオドのブロックに混ざる。
   `No` 順でも時系列にならない）。PBPを時系列で使う処理（得点の推移・リードの入れ替わり・最大ラン・決勝弾など）は、`shared/pbpOrder.ts` の
   `withChronologicalPlayByPlays`（または `chronologicalPlayByPlays`）の出力を使う。試合を読み込む2か所（集計用の `readAllGames`、画面の `fetchGame`）では適用済み。
