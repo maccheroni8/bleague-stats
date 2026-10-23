@@ -109,6 +109,10 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 
 ## 作業の心得
 
+- **メインの作業場所（`bleague-stats`）では、ブランチの切り替えを含めて作業しない。** 作業は、最新の `origin/main` から作った別の作業場所
+  （`git worktree add`）で行う。調べるだけなら `git show origin/main:パス` を使う
+- **新しい作業場所の `node_modules` は、ほかの作業場所へのリンクにしない**（`cp -Rc` でコピーする）。esbuildで作る処理
+  （ピリオド別の索引・比較用のリーグ平均・一部の検証）が、リンク先の作業場所の `data/` を読み書きしてしまう（設計書283-8章）
 - bleague.jpのJSON API（`v2_genius_contexts`、設計書2-1章）はブラウザ経由だとMixed Content
   制限で確認できない。データ構造を確かめるときはNode.js等のサーバーサイド環境から叩く
 - 「無料」「自動更新」が絶対条件。DBは使わず、JSON静的ファイル＋GitHub Pages＋GitHub Actions
