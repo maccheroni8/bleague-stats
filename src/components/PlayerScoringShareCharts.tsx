@@ -58,13 +58,6 @@ export interface PlayerShareListRow {
   share: PointsShare;
   /** FG試投構成 */
   fga: PointsShare;
-  /** そのシーズンのルーキー（チームの行に「Rookie」を添える。DESIGN.md 217-3章） */
-  rookie?: boolean;
-}
-
-/** チームの行（スマホ幅は「R」）。ルーキーなら「チーム・Rookie」 */
-function teamLine(team: string, rookie: boolean | undefined, narrow: boolean): string {
-  return rookie ? `${team}・${narrow ? "R" : "Rookie"}` : team;
 }
 
 export function PlayersScoringShareChart({
@@ -86,12 +79,12 @@ export function PlayersScoringShareChart({
     return {
       key: r.playerId,
       // スマホ幅は名字だけ（見出しの幅に収めるため。サイト全体と同じ出し方で、「〜・ジュニア」は「ジュニア」）
-      labelLines: [narrow ? surnameOf(r.name) : r.name, teamLine(team, r.rookie, narrow)],
+      labelLines: [narrow ? surnameOf(r.name) : r.name, team],
       pct: r.share.pct,
       details: d.details,
       tooltipDetails: d.tooltipDetails,
       rightLabel: pointsRightLabel(r.share.perGame),
-      tooltipTitle: `${r.name}（${team}${r.rookie ? "・Rookie" : ""}）`,
+      tooltipTitle: `${r.name}（${team}）`,
       tooltipFooter: d.footer,
     };
   });
@@ -134,12 +127,12 @@ export function PlayersFgaShareChart({
     const team = teamShortName(r.teamId, r.teamName);
     return {
       key: r.playerId,
-      labelLines: [narrow ? surnameOf(r.name) : r.name, teamLine(team, r.rookie, narrow)],
+      labelLines: [narrow ? surnameOf(r.name) : r.name, team],
       pct: r.fga.pct,
       details: d.details,
       tooltipDetails: d.tooltipDetails,
       rightLabel: fgaRightLabel(r.fga.perGame),
-      tooltipTitle: `${r.name}（${team}${r.rookie ? "・Rookie" : ""}）`,
+      tooltipTitle: `${r.name}（${team}）`,
       tooltipFooter: d.footer,
     };
   });

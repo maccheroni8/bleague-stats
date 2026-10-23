@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFoulConditionCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
-import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useIsRookie, useSeasonRookies } from "../lib/rookieFilter";
+import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useSeasonRookies } from "../lib/rookieFilter";
 import { foulColumnsSplit } from "../lib/ruleChange";
 import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTotals";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
@@ -689,7 +689,6 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const classificationFilter: PlayerGroupFilter = groupFilter === "rookie" && !rookieSupported ? "all" : groupFilter;
   const rookieActive = classificationFilter === "rookie";
   const rookies = useSeasonRookies(season, rookieActive);
-  const isRookie = useIsRookie();
   useRookieFilterCleanup(season, groupFilter, () => setGroupFilter("all"));
   const [clubList, setClubList] = useUrlState(CLUB_PARAM, EMPTY_LIST);
   const [positionList, setPositionList] = useUrlState(POSITION_PARAM, EMPTY_LIST);
@@ -849,12 +848,11 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         name: p.name,
         teamId: p.teamId,
         teamName: p.teamName,
-        rookie: isRookie(p.playerId, season),
         share: playerLogsScoringShare(gameLogs.get(p.playerId) ?? []),
         fga: playerLogsFgaShare(gameLogs.get(p.playerId) ?? []),
       }))
       .filter((r) => r.share.perGame > 0);
-  }, [tab, players, teams, gameLogs, classificationFilter, teamFilter, positionFilter, rookieActive, rookies.ids, isRookie, season]);
+  }, [tab, players, teams, gameLogs, classificationFilter, teamFilter, positionFilter, rookieActive, rookies.ids, season]);
 
   // limit（SortableTable側で全件ソートしてから先頭visibleCount件だけ描画する）と組み合わせる
   // ため、rowsは常にフィルタ後の全選手分を作る（もっと見るを押す前でも列ソートが正しく

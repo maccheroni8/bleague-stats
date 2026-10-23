@@ -694,8 +694,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const rookieSupported = rookieSupportedSeason(season);
   const selectedClassification: PlayerGroupFilter = selectedGroup === "rookie" && !rookieSupported ? "all" : selectedGroup;
   const rookieActive = selectedClassification === "rookie";
-  // そのシーズンのルーキー。ランキングの名前の下に「Rookie」を出すので、登録区分の選択によらず読む
-  const rookies = useSeasonRookies(season, true);
+  // そのシーズンのルーキー（登録区分でルーキーを選んだときの絞り込み用）
+  const rookies = useSeasonRookies(season, rookieActive);
   useRookieFilterCleanup(season, selectedGroup, () => setSelectedGroup("all"));
   // ポジション（複数選択、未選択＝全ポジション）。登録どおり（PG・PG/SG 等の完全一致）で、どれかに当てはまる選手（DESIGN.md 171章）
   const [positions, setPositions] = useUrlState(POSITION_PARAM, EMPTY_POSITIONS);
@@ -1110,14 +1110,13 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
               rowKey={(p) => p.playerId}
               related={related ?? undefined}
               name={(p) => playerLabel(p.name)}
-              // 選手名の下はチーム名とポジション、そのシーズンのルーキーには「Rookie」（登録区分の選択によらず。DESIGN.md 217章。登録区分はタイトルの下の行）。ポジションの「＊」（当時の値でない印）と注意書きは、
+              // 選手名の下はチーム名とポジション（登録区分はタイトルの下の行）。ポジションの「＊」（当時の値でない印）と注意書きは、
               // 身長・体重・年齢を並べる Profile でだけ出す（DESIGN.md 170章）
               subLabel={(p) =>
                 [
                   teamLabel(clubOf(p).teamId, clubOf(p).teamName),
                   category === "profile" ? positionText(p) : p.position,
                   gamesText(p),
-                  rookies.ids?.has(p.playerId) ? "Rookie" : undefined,
                 ]
                   .filter(Boolean)
                   .join("・")
