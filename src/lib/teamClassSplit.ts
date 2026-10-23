@@ -14,8 +14,9 @@
 import { PLAYER_INDEX_STAT_COLUMNS, ROW_FLAG_HOME, type PlayerGameIndexFile } from "../../shared/gameIndex";
 import { PLAYER_PERIOD_STAT_COLUMNS, type PlayerPeriodIndexFile } from "../../shared/periodIndex";
 import type { TeamGameLog } from "../../shared/types";
+import type { Column } from "../components/SortableTable";
 import { summarizePaint, withPaint, type PaintInput, type PaintPair } from "./teamPaint2";
-import { EMPTY_TOTALS, type TeamTotals } from "./teamStatsColumns";
+import { EMPTY_TOTALS, type AllTeamsRow, type TeamTotals } from "./teamStatsColumns";
 
 /** 区分: jp＝日本人、intl＝外国籍・帰化・アジア */
 export type SplitClass = "jp" | "intl";
@@ -89,6 +90,41 @@ export const CLASS_SPLIT_UNAVAILABLE: ReadonlySet<keyof TeamTotals> = new Set<ke
 
 /** 選手の値を足しても、チームの値にならない項目（チーム分を除く）。画面の注記に使う */
 export const CLASS_SPLIT_PLAYERS_ONLY: readonly (keyof TeamTotals)[] = ["oreb", "dreb", "reb", "tov", "pf", "technicalFouls"];
+
+/**
+ * 全チームスタッツで、区分の行に出せない列のキー（CLASS_SPLIT_UNAVAILABLE を使う列）。POSS を使う PACE・ORtg・DRtg・NetRtg、相手の値が要る OR%、
+ * +/-（区分では出せない）、TF1/TF2/FLAG/DISR、ベンチ／スタメン得点とその割合、登録区分別得点とその割合
+ */
+export const CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS: ReadonlySet<string> = new Set([
+  "poss",
+  "pace",
+  "ortg",
+  "drtg",
+  "netrtg",
+  "orbpct",
+  "plusminus",
+  "tf1",
+  "tf2",
+  "flag",
+  "disr",
+  "benchPts",
+  "starterPts",
+  "pctbenchpts",
+  "pctstarterpts",
+  "japanesePts3",
+  "internationalPts3",
+  "pctjapanese3",
+  "pctinternational3",
+]);
+
+/** 区分の行で出せない列（と、all が true のときは全列）を「-」固定にする。+/- の視点は区分別では出せないので all にする */
+export function maskClassSplitColumns(columns: Column<AllTeamsRow>[], all: boolean): Column<AllTeamsRow>[] {
+  return columns.map((c) =>
+    all || CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS.has(c.key)
+      ? { key: c.key, label: c.label, sortValue: () => 0, format: () => "-", render: undefined, align: c.align }
+      : c,
+  );
+}
 
 /** 1シーズン分の、チームの試合×区分ごとの合計 */
 export interface ClassSplitSource {

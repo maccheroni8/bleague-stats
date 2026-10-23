@@ -1,12 +1,14 @@
 import { withPaint, mergePaint, PAINT2_NOTE } from "../lib/teamPaint2";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useFoulConditionCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { foulColumnsSplit } from "../lib/ruleChange";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { choiceNumberParam, clearUrlParams, enumParam, situationalParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
-import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERSPECTIVE_PARAM, TEAM_SEASON_PERIOD_PARAM, VENUE_PARAM } from "../lib/urlFilterParams";
+import { CLASSIFICATION_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERSPECTIVE_PARAM, TEAM_SEASON_PERIOD_PARAM, VENUE_PARAM } from "../lib/urlFilterParams";
+import { hasUnclassifiedRows, maskClassSplitColumns, sumClassTotals } from "../lib/teamClassSplit";
+import { useClassSplitSource } from "../lib/teamClassSplitLoad";
 import { SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason, seasonPeriodOption } from "../lib/seasonPeriod";
 import { sumTeamPeriodTotals, useTeamPeriodSource, type TeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
 import { FOREIGN_COUNTS, hasForeignColumns, logsHaveForeignSeconds, sumForeignCourt, type ForeignPeriodValue } from "../lib/teamForeignCourt";
@@ -58,6 +60,7 @@ import { RecordValue } from "../components/RecordValue";
 import { FGA_ORDER_LABELS, FgaCompositionChart, type FgaChartTeam, type FgaShareOrder } from "../components/FgaCompositionChart";
 import { fgaShare, foreignShareFromSeconds, teamClassificationShareFromTotals, teamScoringShareFromTotals, type ForeignShare } from "../lib/shareCharts";
 import {
+  classificationAxis,
   displayModeAxis,
   gameTypeAxis,
   leagueVenueAxis,
@@ -76,6 +79,7 @@ import {
   leagueVenueLabels,
   periodLabels,
   perspectiveLabels,
+  teamClassLabels,
   SEASON_TOTAL_ONLY_LABELS,
   situationalFilterLabels,
   type LeagueVenue,
@@ -416,6 +420,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     boxTab === "foreignPlayers" ||
     boxTab === "scoringComposition";
   const periodActive = periodTab && period !== "all";
+  // 登録区分別（DESIGN.md 288章）。Traditional〜Scoring の4つのタブだけで効く。区間（Q別・前後半・延長）との併用は段階6までは選べない（区間を選んでいるときは区間を優先）
+  const [classFilter, setClassFilter] = useUrlState(CLASSIFICATION_PARAM, "all");
+  const classTab = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
+  const classActive = classTab && classFilter !== "all" && !periodActive;
+  const splitClass: "jp" | "intl" = classFilter === "日本人" ? "jp" : "intl";
+  const { state: classState, retry: retryClass } = useClassSplitSource(season, classActive);
+  const classSource = classActive && classState.status === "ready" ? classState.source : null;
   const { source: periodSource, loading: periodLoading } = useTeamPeriodSource(season, periodActive);
   // On-Court Foreignの並び順（DESIGN.md 135章）。ブラウザバックで戻ったときも保持する（usePageState、シーズンをまたいで共通）
   const [storedForeignOrder, setForeignOrder] = usePageState<ForeignCourtOrder>("teams:foreignOrder", "foreignDesc");
@@ -445,11 +456,24 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     }
     return map;
   }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season]);
+  // 区分が付かない行（マスタに無い選手）があるか。あれば、どちらの区分にも入らない分があると注記する
+  const classUnclassified = useMemo(() => {
+    if (!classSource) return false;
+    for (const logs of scopedLogsByTeam.values()) if (hasUnclassifiedRows(classSource, logs)) return true;
+    return false;
+  }, [classSource, scopedLogsByTeam]);
   const rows: AllTeamsRow[] = useMemo(() => {
     if (!teams || !gameLogsByTeam) return [];
     if (periodActive && !periodSource) return [];
+    if (classActive && !classSource) return [];
     return teams.map((team) => {
       const scoped = scopedLogsByTeam.get(team.teamId) ?? [];
+      // 登録区分を選んでいるときは、その区分の選手の合計（opp は相手の同じ区分の選手）。勝敗は試合の勝敗
+      if (classActive && classSource) {
+        const { games, totals } = sumClassTotals(classSource, scoped, splitClass);
+        const wins = games.filter((g) => g.win).length;
+        return { team, gamesPlayed: games.length, wins, losses: games.length - wins, totals };
+      }
       // 区間を選んでいるときは、その区間の値がある試合（1Q〜後半は前後半5分の特別な試合を除く全試合、延長は延長のあった試合）の合計。勝敗は試合の勝敗のまま
       if (periodActive && periodSource) {
         const { games, totals } = sumTeamPeriodTotals(periodSource, scoped, period as TeamPeriodValue);
@@ -459,7 +483,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       const wins = scoped.filter((g) => g.win).length;
       return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: sumTeamGameLogs(scoped) };
     });
-  }, [teams, gameLogsByTeam, scopedLogsByTeam, periodActive, periodSource, period]);
+  }, [teams, gameLogsByTeam, scopedLogsByTeam, periodActive, periodSource, period, classActive, classSource, splitClass]);
 
   // リーグ平均の行（DESIGN.md 149章）。選択中の条件で絞った全チームの合計から出す（割合は合計÷合計、1試合平均は合計÷延べ試合数）。
   // カウント系はチーム数で割り、「合計」表示では平均的な1チームの合計にする。自チームの視点のときだけ出す（opp・+/-では出さない）
@@ -527,6 +551,11 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     });
   }, [teams, gameLogsByTeam]);
   const conditionRows = mainTab ? rows : seasonRows;
+  // 登録区分別では出せない列（と、+/- の視点の全列）は「-」にする。条件の選択肢の値も同じ列から作るので同じ列を通す
+  const maskCols = useCallback(
+    (cols: Column<AllTeamsRow>[]) => (classActive ? maskClassSplitColumns(cols, teamPerspective === "diff") : cols),
+    [classActive, teamPerspective],
+  );
   const teamById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t])), [teams]);
   const conditionItems = useMemo(
     () =>
@@ -534,13 +563,15 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         buildTeamConditionDefs({
           mode: displayMode,
           columnsFor: (tab, mode, p) =>
-            tab === "traditional"
-              ? buildTraditionalColumns(mode, p)
-              : tab === "advanced"
-                ? buildAdvancedColumns(mode, p)
-                : tab === "misc"
-                  ? buildMiscColumns(mode, p, true, foulSplit)
-                  : buildScoringColumns(mode, p, paintSupported),
+            maskCols(
+              tab === "traditional"
+                ? buildTraditionalColumns(mode, p)
+                : tab === "advanced"
+                  ? buildAdvancedColumns(mode, p)
+                  : tab === "misc"
+                    ? buildMiscColumns(mode, p, true, foulSplit)
+                    : buildScoringColumns(mode, p, paintSupported),
+            ),
           sampleRows: conditionRows,
           shotTypesOf: (r) => teamById.get(r.team.teamId)?.shotTypes,
           shotGamesOf: (r) => teamById.get(r.team.teamId)?.gamesPlayed ?? 0,
@@ -549,7 +580,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         conditionRows,
         displayMode,
       ),
-    [displayMode, paintSupported, foulSplit, conditionRows, teamById],
+    [displayMode, paintSupported, foulSplit, conditionRows, teamById, maskCols],
   );
   const conditionActive = conditionTab && hasActiveStatConditions(statConditions, conditionItems);
   const passingTeamIds = useMemo(
@@ -562,13 +593,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const columns = useMemo(() => {
     switch (boxTab) {
       case "traditional":
-        return [...LEADING_COLUMNS, ...buildTraditionalColumns(displayMode, teamPerspective)];
+        return [...LEADING_COLUMNS, ...maskCols(buildTraditionalColumns(displayMode, teamPerspective))];
       case "advanced":
-        return [...LEADING_COLUMNS, ...buildAdvancedColumns(displayMode, teamPerspective)];
+        return [...LEADING_COLUMNS, ...maskCols(buildAdvancedColumns(displayMode, teamPerspective))];
       case "misc":
-        return [...LEADING_COLUMNS, ...buildMiscColumns(displayMode, teamPerspective, true, foulSplit)];
+        return [...LEADING_COLUMNS, ...maskCols(buildMiscColumns(displayMode, teamPerspective, true, foulSplit))];
       case "scoring":
-        return [...LEADING_COLUMNS, ...buildScoringColumns(displayMode, teamPerspective, paintSupported)];
+        return [...LEADING_COLUMNS, ...maskCols(buildScoringColumns(displayMode, teamPerspective, paintSupported))];
       case "shooting":
       case "forcedTurnovers":
       case "foreignPlayers":
@@ -577,7 +608,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       case "streaks":
         return [];
     }
-  }, [boxTab, displayMode, teamPerspective, paintSupported, foulSplit]);
+  }, [boxTab, displayMode, teamPerspective, paintSupported, foulSplit, maskCols]);
 
   // 「Streaks」（DESIGN.md 261章）: レギュラーシーズンの連勝・連敗。結果だけの試合（不戦勝など）も数える（順位表・クラブレコードと同じ部品）。
   // 続いている連続は、そのシーズンがまだ終わっていないとき（今のシーズンで、7・8月のオフでなく、レギュラーシーズンの全試合が終わっていない）に「継続中」
@@ -828,10 +859,19 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       disabledReason: perspectiveDisabledReason,
       disabledValues: isForeignCategory ? ["diff"] : undefined,
     }),
+    classificationAxis(classFilter, setClassFilter, {
+      disabledReason: !classTab
+        ? "登録区分別の値は Traditional〜Scoring のタブでだけ見られます。"
+        : periodActive
+          ? "Q別・前後半・延長と登録区分の併用は準備中です。区間を「試合全体」にすると選べます。"
+          : undefined,
+    }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: displayDisabledReason }),
     periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, {
       label: "Q別・前後半・延長",
-      disabledReason: periodTab
+      disabledReason: periodTab && classTab && classFilter !== "all"
+        ? "登録区分を選んでいるときは区間を選べません（併用は準備中です）。登録区分を「全選手」にすると選べます。"
+        : periodTab
         ? undefined
         : boxTab === "periods"
           ? "このタブは区間別の得点の表のため、区間の選択はほかのタブでだけ効きます。"
@@ -851,6 +891,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     setDisplayMode("perGame");
     setFilter({ range: { kind: "all" } });
     setPeriod("all");
+    setClassFilter("all");
     setStatConditions({ ...statConditions, conditions: [] });
   };
 
@@ -864,6 +905,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             displayModeLabels(displayMode),
             gameTypeLabels(gameType, season),
             perspectiveLabels(teamPerspective),
+            classActive ? teamClassLabels(classFilter, teamPerspective) : [],
             situationalFilterLabels(filter),
             periodTab ? periodLabels(periodOption) : [],
           )
@@ -906,6 +948,12 @@ function AllTeamsStatsTab({ season }: { season: string }) {
                 : "このタブはグラフのため、スタッツの条件は表のタブ（Traditional〜Forced TOV）でだけ効きます。",
         })}
       />
+      {classActive && teamPerspective === "opp" && (
+        <p className="page-subtitle">相手チームの{classFilter}選手の成績です（自チームではなく、対戦相手の同じ区分の選手の合計）。</p>
+      )}
+      {classActive && teamPerspective === "diff" && (
+        <p className="page-subtitle">+/- の視点は、登録区分別では出せません。「自チーム」か「opp」を選んでください。</p>
+      )}
       <div>
         <div className="tab-bar">
           {BOX_TABS.map((t) => (
@@ -1189,6 +1237,16 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           <p className="page-subtitle">{periodScoringNote(periodsWithoutValue)}</p>
           <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全チームスタッツ" scope="各チームの試合ログから、選んだ条件で集計し直した値です。" />
         </>
+      ) : classActive && classState.status === "loading" ? (
+        <p className="loading">読み込み中...</p>
+      ) : classActive && classState.status === "unreadable" ? (
+        <p className="empty-message">
+          このシーズンの登録区分別の値を読み込めませんでした。
+          <button type="button" onClick={retryClass}>
+            もう一度読み込む
+          </button>
+          または登録区分を「全選手」にしてください。
+        </p>
       ) : periodActive && periodLoading ? (
         <p className="loading">読み込み中...</p>
       ) : periodActive && !periodSource ? (
@@ -1211,6 +1269,17 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             <>
               <p className="page-subtitle">{PAINT2_NOTE}</p>
               <RuleChangeFootnote seasons={[season]} />
+            </>
+          )}
+          {classActive && classSource && (
+            <>
+              <p className="page-subtitle">
+                {classFilter}選手の合計です。勝敗は試合の勝敗です。OR・DR・TR・TOV・F・TF は選手の分だけです（チームリバウンド・チームターンオーバー・ベンチ／コーチのファウルを含みません）。
+                PACE・ORtg・DRtg・NetRtg・OR%・+/-・TF1/TF2/FLAG/DISR・ベンチ／スタメン得点・登録区分別得点は、区分では出せないので「-」にしています。
+              </p>
+              {classUnclassified && (
+                <p className="page-subtitle">登録区分が付いていない選手（選手マスタに無い選手）の記録は、どちらの区分にも入れていません。</p>
+              )}
             </>
           )}
           {periodActive && period === "ot" && (

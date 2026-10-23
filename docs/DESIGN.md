@@ -14809,3 +14809,8 @@ PC／スマホ×両テーマでコピー・保存ファイルの本文一致、�
 - **公式の記録で選手の合計がチームの合計と合わない試合**（2016-17 の7試合で、どの選手にも付かないFG1本〔2点〕がチーム合計にある。`validate-team-class-split.ts` の `KNOWN_GAPS`）と、試合101（出場していない選手の行。277章）の DQFOUL は既知の例外。生データ・集計は直さない。新しい食い違いは検証が失敗する。
 - 検証 `npm run validate:team-class-split`（全シーズン・全試合）。**`code-files` には触れていない**（`src/lib/` と `scripts/` の検証だけ）。
 - **読み込み（段階2）**: `src/lib/teamClassSplitLoad.ts`。`loadClassSplitSource(season)`（選手の1試合行の索引は `gameIndexLoad.ts` の記憶を使い回し、ピリオド別の索引だけが読めないときはペイント内外・DQFOUL を「記録なし」にして続ける。失敗は持たず次の呼び出しでやり直す）、`useClassSplitSources(seasons, enabled)`（読み込めたシーズンから順に state に入る。チーム詳細は開いたシーズンだけを渡す）、`useClassSplitSource`（全チームスタッツ用の1シーズン）。区分を選んだときだけ・シーズンの行を開いたときだけ読み、初期表示では読まない。
+- **全チームスタッツ（段階3）**: 「登録区分」の選択（全選手／日本人／外国籍・帰化・アジア。URL は `cls`＝選手ランキングと同じ。`TeamsListPage.tsx`）。Traditional〜Scoring の4タブだけで効き、ほかのタブでは選べない理由を出す。区分を選んだときだけ `useClassSplitSource` で索引を読み、行は `sumClassTotals`（勝敗は試合の勝敗。G は索引のある試合数）。リーグ平均の行・スタッツの条件は同じ行から出る。
+- 出せない列は `maskClassSplitColumns`（`CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS`: POSS・PACE・ORtg・DRtg・NetRtg・OR%・+/-・TF1/TF2/FLAG/DISR・ベンチ／スタメン得点とその割合・登録区分別得点とその割合）で「-」。**+/- の視点は全列「-」**にして注記。表の下に、OR・DR・TR・TOV・F・TF は選手の分だけ（チーム分を含まない）／区分なしの選手の記録は入れない、の注記。
+- 表記: タイトルの下の行は `teamClassLabels`（自チーム＝「日本人選手」「外国籍・帰化・アジア選手」、opp＝「相手の日本人選手」「相手の外国籍・帰化・アジア選手」）。opp のときは視点の選択肢の下に「相手チームの○○選手の成績です」の補足。列見出しは今のまま。
+- **Q別・前後半・延長との併用は段階6まで選べない**（区分を選ぶと区間の選択が、区間を選ぶと区分の選択が、理由つきで選べなくなる。URL に両方あるときは区間を優先）。MIN は選手の出場時間の合計（opp の視点でも自チームの値のまま）。
+- 確認: 2026-27 の全チームで 日本人＋外国籍等＝チーム（PTS）を画面の値で確かめた。`npm run typecheck`・`validate:team-class-split` 通過。キー不変。
