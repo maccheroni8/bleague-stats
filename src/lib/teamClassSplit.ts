@@ -15,7 +15,7 @@ import { PLAYER_INDEX_STAT_COLUMNS, ROW_FLAG_HOME, type PlayerGameIndexFile } fr
 import { PLAYER_PERIOD_STAT_COLUMNS, type PlayerPeriodIndexFile } from "../../shared/periodIndex";
 import type { TeamGameLog } from "../../shared/types";
 import type { Column } from "../components/SortableTable";
-import { summarizePaint, withPaint, type PaintInput, type PaintPair } from "./teamPaint2";
+import { paintOf, summarizePaint, withPaint, type PaintInput, type PaintPair } from "./teamPaint2";
 import { EMPTY_TOTALS, type AllTeamsRow, type TeamTotals } from "./teamStatsColumns";
 
 /** 区分: jp＝日本人、intl＝外国籍・帰化・アジア */
@@ -116,6 +116,17 @@ export const CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS: ReadonlySet<string> = new Set(
   "pctjapanese3",
   "pctinternational3",
 ]);
+
+/**
+ * opp の視点では MIN も相手チームのその区分の選手の出場時間にする（sumClassTotals が opp の値を oppMin に足している。TeamTotals には項目が無いので読み替える）。
+ * 区分を選んでいないときの全チームスタッツは従来どおり（呼び出さない）
+ */
+export function withOppMinutes(totals: TeamTotals): TeamTotals {
+  // ペイント内外の内訳（teamPaint2 の withPaint で付けた分）は新しい値に引き継ぐ
+  const next = { ...totals, min: (totals as unknown as Record<string, number>)["oppMin"] ?? 0 };
+  const paint = paintOf(totals);
+  return paint ? withPaint(next, paint) : next;
+}
 
 /** 区分の行で出せない列（と、all が true のときは全列）を「-」固定にする。+/- の視点は区分別では出せないので all にする */
 export function maskClassSplitColumns(columns: Column<AllTeamsRow>[], all: boolean): Column<AllTeamsRow>[] {

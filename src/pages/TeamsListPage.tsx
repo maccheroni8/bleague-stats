@@ -7,7 +7,7 @@ import { GlossaryNote } from "../components/GlossaryNote";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { choiceNumberParam, clearUrlParams, enumParam, situationalParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
 import { CLASSIFICATION_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERSPECTIVE_PARAM, TEAM_SEASON_PERIOD_PARAM, VENUE_PARAM } from "../lib/urlFilterParams";
-import { hasUnclassifiedRows, maskClassSplitColumns, sumClassTotals } from "../lib/teamClassSplit";
+import { hasUnclassifiedRows, maskClassSplitColumns, sumClassTotals, withOppMinutes } from "../lib/teamClassSplit";
 import { useClassSplitSource } from "../lib/teamClassSplitLoad";
 import { SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason, seasonPeriodOption } from "../lib/seasonPeriod";
 import { sumTeamPeriodTotals, useTeamPeriodSource, type TeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
@@ -472,7 +472,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       if (classActive && classSource) {
         const { games, totals } = sumClassTotals(classSource, scoped, splitClass);
         const wins = games.filter((g) => g.win).length;
-        return { team, gamesPlayed: games.length, wins, losses: games.length - wins, totals };
+        return { team, gamesPlayed: games.length, wins, losses: games.length - wins, totals: teamPerspective === "opp" ? withOppMinutes(totals) : totals };
       }
       // 区間を選んでいるときは、その区間の値がある試合（1Q〜後半は前後半5分の特別な試合を除く全試合、延長は延長のあった試合）の合計。勝敗は試合の勝敗のまま
       if (periodActive && periodSource) {
@@ -483,7 +483,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       const wins = scoped.filter((g) => g.win).length;
       return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: sumTeamGameLogs(scoped) };
     });
-  }, [teams, gameLogsByTeam, scopedLogsByTeam, periodActive, periodSource, period, classActive, classSource, splitClass]);
+  }, [teams, gameLogsByTeam, scopedLogsByTeam, periodActive, periodSource, period, classActive, classSource, splitClass, teamPerspective]);
 
   // リーグ平均の行（DESIGN.md 149章）。選択中の条件で絞った全チームの合計から出す（割合は合計÷合計、1試合平均は合計÷延べ試合数）。
   // カウント系はチーム数で割り、「合計」表示では平均的な1チームの合計にする。自チームの視点のときだけ出す（opp・+/-では出さない）
