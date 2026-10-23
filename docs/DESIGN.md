@@ -14794,3 +14794,8 @@ PC／スマホ×両テーマでコピー・保存ファイルの本文一致、�
 
 ### 287-4. update-player-awards の確認
 - 手動で起動すると全選手の受賞歴を取り直し（約44分）、変更があれば `data/player-awards.json.gz` を `main` にコミット・push する。そのため手動では起動せず、**次の定期実行（毎月1日 JST 4:00＝11月1日）で確認**する（upload-artifact v6 で合図が上がり、デプロイが受け取れること）。
+
+### 287-5. 更新の実行のチェックアウトを `ref: main` にする（衝突の対策）
+- 2026-10-23、深夜実行（#1671）と待たされた30分おきの実行（#1672）で、`git pull --rebase` が `data/2026-27/schedule.json.gz` の衝突で止まった。待たされた実行は、起動を頼まれた時点のコミット（`github.sha`）をチェックアウトするため、先に終わった実行のpushを含まない古い版で始まっていた。公式サイトの不調ではない。
+- `update-stats.yml` のチェックアウトに `ref: main` を足し、実行が始まった時点の最新の `main` から始める。保存キーは変わらない（`.github/` は入力外）。
+- `deploy.yml` は `ref: github.sha`（workflow_run では起動時点の `main` の最新）で、pushしないので衝突は起きない。`update-player-awards.yml`（月1回・同じ concurrency グループ）は同じ形（`ref` なし・`git push` のみ）だが、起動が毎月1日 JST 4時で深夜実行と重なりにくいため、今回は変えない。
