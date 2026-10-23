@@ -187,6 +187,29 @@ h2 {
   padding: 7px 12px;
 }
 
+/* mdボタンは白黒（無彩色）にする。ライトは白地に黒、ダークは暗い地に白（--bg・--fg が切り替わる）。
+   赤（--accent）は使わない。共通の .export-image-button（赤）はほかの画面のため触らない。
+   ホバー・押下・キーボードの選択も、行ホバーと同じ灰色と --fg の範囲で示す */
+.app-shell .team-detail-top-actions > button.ai-export-button {
+  border-color: var(--fg);
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.app-shell .team-detail-top-actions > button.ai-export-button:hover:not(:disabled) {
+  background: var(--row-hover);
+  border-color: var(--fg);
+}
+
+.app-shell .team-detail-top-actions > button.ai-export-button:active:not(:disabled) {
+  background: var(--border);
+}
+
+.app-shell .team-detail-top-actions > button.ai-export-button:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
 .team-logo {
   object-fit: contain;
   vertical-align: middle;
