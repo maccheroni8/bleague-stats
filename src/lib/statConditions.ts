@@ -88,8 +88,8 @@ export function parseDisplayedValue(text: string, kind: StatValueKind): number |
   return Number(m[0]);
 }
 
-/** 入力欄の「20:15」（分:秒。秒は2桁で00〜59）。分で返す */
-const MINUTES_INPUT_RE = /^(\d+):([0-5]\d)$/;
+/** 入力欄の「20:15」（分:秒。秒は1〜2桁で0〜59。「5:5」は5:05、「20:」は20:00）。分で返す */
+const MINUTES_INPUT_RE = /^(\d+):([0-5]?\d)?$/;
 
 /**
  * 入力欄の文字列を数値にする（全角数字・「％」「分」付きも受け付ける）。数値でなければ null。
@@ -98,7 +98,7 @@ const MINUTES_INPUT_RE = /^(\d+):([0-5]\d)$/;
 export function parseConditionInput(text: string): number | null {
   const t = normalizeDigits(text).replace(/[%％分]$/, "");
   const clock = MINUTES_INPUT_RE.exec(t);
-  if (clock) return Number(clock[1]) + Number(clock[2]) / 60;
+  if (clock) return Number(clock[1]) + Number(clock[2] ?? 0) / 60;
   if (t === "" || !/^[-+]?\d*(?:\.\d+)?$/.test(t) || t === "-" || t === "+") return null;
   const v = Number(t);
   return Number.isFinite(v) ? v : null;

@@ -14763,3 +14763,11 @@ PC／スマホ×両テーマでコピー・保存ファイルの本文一致、�
 - 新規: `src/lib/teamPaint2.ts`（集計・表示・順位の可否）、`src/lib/teamPaint2Load.ts`（比較のリーグ平均の確認）、`scripts/validate-team-paint2.ts`。変更: `teamStatsColumns.ts`・`teamPeriodTotals.ts`・`compareShared.ts`・`useCompareSlotData.ts`・`RankedList.tsx`・`ComparePage.tsx`・`RankingsPage.tsx`・`TeamDetailPage.tsx`・`TeamsListPage.tsx`・`statNames.ts`・`statDescriptions.ts`・`aiExport.ts` ほか。
 - 検証 `npm run validate:team-paint2`: 不正値・合計÷合計・試投0・自他の対象数・参考行、全11シーズンの714チーム試合区分・1666期間選択、表と比較の表示の一致、リーグ平均。
 - **`code-files`（保存キーの対象）には触れていない。** allKey は `9324a9638ff12266ca5f6f0c4918b864` のまま。過去10シーズンの作り直しは発生しない。
+
+## 286. スタッツの条件の MIN（出場時間）の入力欄を打ちやすくする（2026-10-23。**画面だけの変更でキー不変**）
+- 対象は `StatConditionsEditor` の MIN の行（ランキング・全選手スタッツ・全チームスタッツの詳細フィルタで共通。MIN の入力欄はここだけ）。
+- 打っている途中で文字は足さない。「20」「20:00」「20:30」「5:5」「20:」「20.5」を受け付ける（秒は1〜2桁で0〜59。「5:5」は5:05、「20:」は20:00、「20」は20:00）。読み方は `statConditions.ts` の `parseConditionInput`（秒の桁数だけ広げた）。
+- 入力欄を離れたとき・Enter で「分:秒」（20:00）の形に整える（`formatMinutesColon`）。URL には整えた形が入る。
+- 読めない入力（「20:75」など）は、書き換えず・前の値にも戻さず、行の下に「「20」「20:30」「5:05」の形で入力してください」と案内を出す（枠も赤）。戻すと打った内容が理由なく消えるため。
+- キーボードは数字が中心の `inputMode="decimal"`。数字のキーボードには「:」が無いので、行の下に「:」ボタンを置いた（押しても入力欄のフォーカスは外れない）。
+- 検証 `npm run validate:minutes-input`（読み方・整え方・読めない入力）。**`code-files` には触れていない。** allKey は `9324a9638ff12266ca5f6f0c4918b864` のまま。
