@@ -387,7 +387,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                 rowKey={(r) => r.key}
                 name={(r) =>
                   unit === "onoff" ? (
-                    <ResponsivePlayerName name={r.players[0]!.name} playerId={r.players[0]!.id} season={allTime ? undefined : r.lastSeason} />
+                    <ResponsivePlayerName name={r.players[0]!.name} />
                   ) : (
                     <span className={unit === "trio" ? "pair-people pair-people-trio" : "pair-people"}>
                       {r.players.map((p, i) => (
@@ -397,7 +397,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                               ×
                             </span>
                           )}
-                          <PairPerson playerId={p.id} name={p.name} season={r.lastSeason} among={among} rookieSeason={allTime ? undefined : r.lastSeason} />
+                          <PairPerson playerId={p.id} name={p.name} season={r.lastSeason} among={among} />
                         </span>
                       ))}
                     </span>

@@ -341,7 +341,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                 renderValue={(e) => <RecordValue text={formatPlayerGameRecordValue(def, e.value)} fraction={playerGameRecordFraction(e)} />}
                 tieKey={(e) => String(e.value)}
                 rowKey={(e) => `${e.scheduleKey}-${e.playerId}`}
-                name={(e) => <ResponsivePlayerName name={e.playerName} playerId={e.playerId} season={seasonOf(e)} />}
+                name={(e) => <ResponsivePlayerName name={e.playerName} />}
                 subLabel={(e) => <PlayerGameRecordLine e={e} season={seasonOf(e)} showPosition={positions.length > 0} />}
                 linkTo={(e) => `/players/${e.playerId}?season=${seasonOf(e)}`}
                 subLinkTo={(e) => `/games/${e.scheduleKey}?season=${seasonOf(e)}`}

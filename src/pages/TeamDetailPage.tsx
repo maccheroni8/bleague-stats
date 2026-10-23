@@ -4098,7 +4098,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <div className="leader-info">
                         <div className="leader-value">{def.format(leader)}</div>
                         <div className="leader-name">
-                          <ResponsivePlayerName name={leader.name} playerId={leader.playerId} season={season} />
+                          <ResponsivePlayerName name={leader.name} />
                         </div>
                       </div>
                     </Link>
@@ -4109,7 +4109,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                             <Link to={`/players/${p.playerId}`} className="leader-rest-item-link">
                               <span className="leader-rest-rank">{i + 2}</span>
                               <span className="leader-rest-name">
-                                <ResponsivePlayerName name={p.name} playerId={p.playerId} season={season} />
+                                <ResponsivePlayerName name={p.name} />
                               </span>
                             </Link>
                             <span className="leader-rest-value">{def.format(p)}</span>
@@ -6208,7 +6208,7 @@ function TeamPlayerStatsTable({
                             <TeamDetailPublicPlayerPhoto season={season} pageTeamId={pageTeamId} playerId={r.player.playerId} size={32} className="player-cell-photo" />
                             <div className="player-cell-info">
                               <div className="player-cell-name">
-                                <ResponsivePlayerName name={r.player.name} playerId={r.player.playerId} season={season} />
+                                <ResponsivePlayerName name={r.player.name} />
                               </div>
                               {playerProfileLine(r.player) && <div className="player-cell-profile">{playerProfileLine(r.player)}</div>}
                             </div>

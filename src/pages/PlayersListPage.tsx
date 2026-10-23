@@ -285,7 +285,7 @@ const nameColumn: Column<PlayerRow> = {
     <span className="player-cell">
       <PlayerPhoto playerId={r.player.playerId} size={44} className="player-cell-photo player-cell-photo-lg" />
       <span className="player-cell-name">
-        <ResponsivePlayerName name={r.player.name} playerId={r.player.playerId} season={r.season} />
+        <ResponsivePlayerName name={r.player.name} />
       </span>
     </span>
   ),
@@ -1561,7 +1561,7 @@ function AwardEntryRow({
           <PlayerPhoto playerId={entry.playerId} size={32} className="player-cell-photo" />
           <span className="rank-name-cell">
             <span className="rank-name">
-              <ResponsivePlayerName name={name} playerId={entry.playerId} season={season} />
+              <ResponsivePlayerName name={name} />
             </span>
             <span className="rank-sublabel">
               {awardLabel(entry.name, entry.category)}
@@ -1748,7 +1748,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
         <span className="player-cell">
           <PlayerPhoto playerId={r.player.playerId} size={44} className="player-cell-photo player-cell-photo-lg" />
           <span className="player-cell-name">
-        <ResponsivePlayerName name={r.player.name} playerId={r.player.playerId} season={season} />
+        <ResponsivePlayerName name={r.player.name} />
       </span>
         </span>
       ),
