@@ -1658,7 +1658,7 @@ export function buildSituationalRecordGroups(
     },
     {
       key: "opponentStrength",
-      label: "対戦相手の強さ",
+      label: "対戦相手の強さ（最新勝率）",
       rows: [
         ...([
           ["under50", "対5割未満"],
@@ -4104,7 +4104,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             axes={[gameTypeAxis(situationalRecordGameType, setSituationalRecordGameType, season)]}
           />
           {situationalRecordGroups.some((group) => group.key === "opponentStrength") && (
-            <p className="rule-change-footnote">対戦相手の強さは対象シーズンの最新勝率（終了後は最終勝率）で判定します。「対5割以上」には「対6割以上」も含みます。勝率を算出できない相手との試合は対象外です。</p>
+            <p className="rule-change-footnote">対戦相手の強さ（最新勝率）は、対象シーズンの最新勝率（終了後は最終勝率）で判定します。「対5割以上」には「対6割以上」も含みます。勝率を算出できない相手との試合は対象外です。</p>
           )}
           {gameLogsLoading ? (
             <p className="loading">読み込み中...</p>
