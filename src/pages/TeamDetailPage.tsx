@@ -240,6 +240,9 @@ import { paintColumns, summarizePaintLogs, withPaint, PAINT2_NOTE } from "../lib
 import { loadLeaguePaintComplete } from "../lib/teamPaint2Load";
 import { FORCED_TURNOVER_COLUMNS } from "../lib/forcedTurnoverColumns";
 import { categoryNeedsYahoo, type OpponentSplitCategory } from "../lib/opponentSplit";
+import { useClassSplitSources } from "../lib/teamClassSplitLoad";
+import { hasUnclassifiedRows } from "../lib/teamClassSplit";
+import { buildSeasonClassRow, classRowLabel, seasonClassFormatters, SPLIT_CLASSES } from "../lib/teamSeasonClassSplit";
 import { buildSeasonPeriodRow, seasonPeriodCell, seasonPeriodFormatters, unavailableSeasonPeriodLabels, useTeamPeriodSources } from "../lib/teamSeasonPeriod";
 import { buildTeamPeriodRowValues, indexUnavailableKeys, withIndexUnavailableColumns } from "../lib/teamSituationalPeriod";
 import {
@@ -3006,6 +3009,11 @@ export function TeamDetailPage({ season }: { season: string }) {
     tab === "teamStats" && seasonBoxPeriodOn,
   );
 
+  // シーズン別成績の登録区分別（DESIGN.md 288章）。開いたシーズンの行だけ、区分別の索引を読む（初期表示では読まない）。区間との併用は段階6まで選べない
+  const [openClassSeasons, setOpenClassSeasons] = usePageState<Set<string>>(pk("seasonBoxClassOpen"), new Set());
+  const classSeasonList = [...openClassSeasons].sort();
+  const classSplitSources = useClassSplitSources(classSeasonList, tab === "teamStats" && classSeasonList.length > 0);
+
   useEffect(() => {
     seasonHistoryFetchTeamIdRef.current = null;
     setSeasonHistory(null);
@@ -3770,6 +3778,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const seasonPeriodFmt = seasonPeriodTableRows
     ? seasonPeriodFormatters(seasonBoxDisplayMode, seasonBoxPerspective, seasonBoxFoulSplit)
     : null;
+  const seasonClassFmt = seasonClassFormatters(seasonBoxDisplayMode, seasonBoxPerspective, seasonBoxFoulSplit);
   const seasonTableColumns =
     seasonBoxTab === "traditional" || seasonBoxTab === "advanced" || seasonBoxTab === "misc" || seasonBoxTab === "scoring"
       ? teamSeasonBoxColumns(seasonBoxTab, seasonBoxFoulSplit)
@@ -4967,9 +4976,28 @@ export function TeamDetailPage({ season }: { season: string }) {
                         </tr>
                       );
                     }
+                    const classOpen = openClassSeasons.has(r.season);
                     return (
-                      <tr key={r.season}>
-                        <td className="align-left">
+                      <Fragment key={r.season}>
+                      <tr>
+                        <td className="align-left season-class-cell">
+                          <button
+                            type="button"
+                            className="season-class-toggle"
+                            aria-expanded={classOpen}
+                            aria-label={`${r.season}の登録区分別を${classOpen ? "閉じる" : "開く"}`}
+                            title="登録区分別（日本人／外国籍・帰化・アジア）"
+                            onClick={() =>
+                              setOpenClassSeasons((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(r.season)) next.delete(r.season);
+                                else next.add(r.season);
+                                return next;
+                              })
+                            }
+                          >
+                            {classOpen ? "▾" : "▸"}
+                          </button>
                           <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
                             {r.season}
                           </RouterLink>
@@ -4986,6 +5014,39 @@ export function TeamDetailPage({ season }: { season: string }) {
                           </td>
                         ))}
                       </tr>
+                      {classOpen &&
+                        SPLIT_CLASSES.map((cls) => {
+                          const cr = buildSeasonClassRow(
+                            r.season,
+                            classSplitSources.states.get(r.season),
+                            filterByGameType(careerData?.find((c) => c.season === r.season)?.logs ?? [], "regular"),
+                            cls,
+                            seasonBoxPerspective,
+                            EMPTY_TOTALS,
+                          );
+                          const ready = cr.status === "ready";
+                          return (
+                            <tr key={`${r.season}:${cls}`} className="season-class-row">
+                              <td className="align-left" />
+                              <td className="align-left">{classRowLabel(cls, seasonBoxPerspective)}</td>
+                              <td className="align-right">{ready ? cr.games.length : "-"}</td>
+                              <td className="align-right">{ready ? <TeamRecordShort wins={cr.wins} losses={cr.losses} /> : "-"}</td>
+                              <td className="align-right">{ready ? formatWinPct(safeDiv(cr.wins, cr.wins + cr.losses)) : "-"}</td>
+                              {cr.status === "loading" || cr.status === "unreadable" ? (
+                                <td className="align-left" colSpan={seasonTableColumns.length}>
+                                  {cr.status === "loading" ? "読み込み中..." : "この登録区分の記録を読み込めませんでした"}
+                                </td>
+                              ) : (
+                                seasonTableColumns.map((c) => (
+                                  <td className="align-right" key={c.key}>
+                                    {seasonPeriodCell(seasonClassFmt, c.label, cr, team.teamId, r.teamName)}
+                                  </td>
+                                ))
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -4995,6 +5056,19 @@ export function TeamDetailPage({ season }: { season: string }) {
               <>
                 <p className="page-subtitle">{PAINT2_NOTE}</p>
                 <RuleChangeFootnote seasons={seasonHistoryDesc.map((r) => r.season)} />
+              </>
+            )}
+            {openClassSeasons.size > 0 && !seasonBoxPeriodOn && (
+              <>
+                <p className="page-subtitle">
+                  ▸ を押したシーズンの登録区分別の行です。{seasonBoxPerspective === "opp" ? "opp の視点は、相手チームの同じ区分の選手の合計です。" : "その区分の選手の合計です。"}
+                  OR・DR・TR・TOV・F・TF は選手の分だけです（チームリバウンド等を含みません）。PACE・ORtg・DRtg・NetRtg・OR%・BSR・+/-・TF1/TF2/FLAG/DISR・ベンチ／スタメン得点・登録区分別得点は、区分では出せないので「-」にしています。
+                  {seasonBoxPerspective === "diff" && " +/- の視点は、登録区分別では出せません。"}
+                </p>
+                {[...openClassSeasons].some((sn) => {
+                  const st = classSplitSources.states.get(sn);
+                  return st?.status === "ready" && hasUnclassifiedRows(st.source, filterByGameType(careerData?.find((c) => c.season === sn)?.logs ?? [], "regular"));
+                }) && <p className="page-subtitle">登録区分が付いていない選手（選手マスタに無い選手）の記録は、どちらの区分にも入れていません。</p>}
               </>
             )}
             {seasonBoxPeriodOn && (

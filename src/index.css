@@ -8375,3 +8375,21 @@ table.sortable-table.lineup-search-table tbody th {
     min-width: 520px;
   }
 }
+
+/* チーム詳細 シーズン別成績の登録区分別（DESIGN.md 288章）: 行の開閉ボタンと、開いた2行 */
+.season-class-toggle {
+  background: none;
+  border: 0;
+  padding: 0 6px 0 0;
+  margin: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  min-width: 20px;
+}
+.season-class-row td {
+  background: var(--header-bg);
+  font-size: 0.95em;
+}
+.season-class-cell { white-space: nowrap; }
+.stats-table td.season-class-cell a.cell-link { display: inline; }
