@@ -212,7 +212,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   検算は「選手全員の秒数の合計＝チームの秒数×5」。設計書141章）をまとめて入れる。出場時間の比による近似式は使わない。
   同じタイミングで、チーム詳細 On-Court Foreign の opp 視点（相手チームのコート上の外国籍の人数。設計書183章）も入れる
   （試合ごとの「人数別の在コート秒数」〔自チーム・相手〕は `TeamGameLog.foreignCourtSeconds`・`opponentForeignCourtSeconds` とチームのピリオド別の索引に入れ済み。設計書256-6章）
-- 【後回し・2026-10-23】`actions/cache` のv5などへの更新と、npmの脆弱性6件の直し（`package-lock.json` が変わるため作り直しが1回起きる）は、次に作り直しが起きる作業（在コート復元処理の直しなど）とまとめて行う（設計書283-7章）
+- 【対応済み・2026-10-23】actions の Node.js 24 対応（cache v5・upload-artifact v6・download-artifact v7）と、npm 依存の脆弱性の小さな更新（`package-lock.json`。allKey は `a449be23b9ea38a1574cbb7f00966248` が新しい基準）は設計書287章で行った。react-router 7 への大きな版の上げは見送り（残る2件は該当しない根拠を287-3章に記録）。update-player-awards は11月1日の定期実行で確認する
 - **PBP（`raw.PlayByPlays`）の並び（設計書212章）**: 2020-21以降の延長戦では、公式のPBPの配列が時系列にならない（延長が第1〜第4ピリオドのブロックに混ざる。
   `No` 順でも時系列にならない）。PBPを時系列で使う処理（得点の推移・リードの入れ替わり・最大ラン・決勝弾など）は、`shared/pbpOrder.ts` の
   `withChronologicalPlayByPlays`（または `chronologicalPlayByPlays`）の出力を使う。試合を読み込む2か所（集計用の `readAllGames`、画面の `fetchGame`）では適用済み。
