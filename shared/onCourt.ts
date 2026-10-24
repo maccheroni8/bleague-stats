@@ -925,45 +925,46 @@ export function reconstructOnCourt(
     const lineupBeforeBatch = lineupKeyOf(onCourt[teamId]!);
     const playersBeforeBatch = [...onCourt[teamId]!].sort();
 
+    // 同じ秒の交代は、記録された順に1件ずつ処理する（同じ選手の IN→OUT・OUT→IN、A→B→C の連続交代などを取りこぼさない）。
+    // 人数のチェックとスティントの区切りは、これまでどおりバッチの最後にまとめて行う
     for (const s of batch) {
-      if (s.kind !== "sub-out") continue;
-      if (!onCourt[teamId]!.has(s.playerId)) {
-        warnings.push({
-          type: "unmatched-out",
-          message: `OUTだが在コートでない選手（playerId=${s.playerId}）`,
-          elapsedSec: t,
-          period: s.period,
-          restTime: s.restTime,
-          teamId,
-        });
-        continue;
-      }
-      onCourt[teamId]!.delete(s.playerId);
-      const start = openStart[teamId]!.get(s.playerId);
-      if (start !== undefined) {
-        const { ownPts, oppPts } = flushIntervalScore(s.playerId);
-        // 長さ0秒で得点も無い区間（ピリオドの終わりのINと、次のピリオドの始めのOUTが同じ秒に記録されたとき等）は残さない
-        if (t > start || ownPts !== 0 || oppPts !== 0) {
-          intervals.push({ playerId: s.playerId, teamId, startSec: start, endSec: t, ownPoss: 0, oppPoss: 0, ownPts, oppPts });
+      if (s.kind === "sub-out") {
+        if (!onCourt[teamId]!.has(s.playerId)) {
+          warnings.push({
+            type: "unmatched-out",
+            message: `OUTだが在コートでない選手（playerId=${s.playerId}）`,
+            elapsedSec: t,
+            period: s.period,
+            restTime: s.restTime,
+            teamId,
+          });
+          continue;
         }
-        openStart[teamId]!.delete(s.playerId);
+        onCourt[teamId]!.delete(s.playerId);
+        const start = openStart[teamId]!.get(s.playerId);
+        if (start !== undefined) {
+          const { ownPts, oppPts } = flushIntervalScore(s.playerId);
+          // 長さ0秒で得点も無い区間（ピリオドの終わりのINと、次のピリオドの始めのOUTが同じ秒に記録されたとき等）は残さない
+          if (t > start || ownPts !== 0 || oppPts !== 0) {
+            intervals.push({ playerId: s.playerId, teamId, startSec: start, endSec: t, ownPoss: 0, oppPoss: 0, ownPts, oppPts });
+          }
+          openStart[teamId]!.delete(s.playerId);
+        }
+      } else {
+        if (onCourt[teamId]!.has(s.playerId)) {
+          warnings.push({
+            type: "duplicate-in",
+            message: `INだが既に在コートの選手（playerId=${s.playerId}）`,
+            elapsedSec: t,
+            period: s.period,
+            restTime: s.restTime,
+            teamId,
+          });
+          continue;
+        }
+        onCourt[teamId]!.add(s.playerId);
+        openStart[teamId]!.set(s.playerId, t);
       }
-    }
-    for (const s of batch) {
-      if (s.kind !== "sub-in") continue;
-      if (onCourt[teamId]!.has(s.playerId)) {
-        warnings.push({
-          type: "duplicate-in",
-          message: `INだが既に在コートの選手（playerId=${s.playerId}）`,
-          elapsedSec: t,
-          period: s.period,
-          restTime: s.restTime,
-          teamId,
-        });
-        continue;
-      }
-      onCourt[teamId]!.add(s.playerId);
-      openStart[teamId]!.set(s.playerId, t);
     }
     if (onCourt[teamId]!.size !== 5) {
       warnings.push({

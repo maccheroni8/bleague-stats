@@ -12,31 +12,41 @@
 //      a. 1試合内、あるチームの全スティント時間の合計 == 試合時間（40分+OT）
 //      b. 1試合内、あるチームの全スティント純得失点の合計 == そのチームの最終得失点差
 //
-// MIN・+/-・スティント時間・純得失点の不一致は、ALLOWED 以外なら終了コード1。
+// MIN・スティント時間・純得失点の不一致は、全シーズンで ALLOWED 以外なら終了コード1。
+// +/- の不一致は、公式の +/- と突き合わせられるシーズン（2023-24 以降）だけ数える。
+// 2016-17〜2021-22 は公式の +/- が無く、2022-23 は公式の +/- との食い違いが226試合ある（原因は別。設計書289章の候補の一覧）ので、
+// どちらも +/- の不一致は数えない（件数は報告する）。
 // 人数警告は交代途中の一時的な状態も含むため、単独ではNGにしない。
-// 使い方: node --experimental-strip-types scripts/validate-oncourt.ts --season 2025-26
+// 使い方: node --experimental-strip-types scripts/validate-oncourt.ts [--season 2025-26] [--verbose]
+//   --season を省くと全シーズン（B.PREMIER。エキシビションを除く）。試合ごとの出力は不一致のある試合だけ（--verbose で全試合）
 
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
-import { readAllGames } from "./lib/storage.ts";
+import { readdirSync } from "node:fs";
+import { DATA_DIR, readAllGames } from "./lib/storage.ts";
 import { onCourtPeriodCount, reconstructOnCourt, substitutionModelForSeason, totalGameSeconds, totalOnCourtSeconds } from "../shared/onCourt.ts";
 import { parsePlayTime } from "../shared/formulas.ts";
 import type { BoxscoreRow, StoredGame } from "../shared/types.ts";
 
 const MIN_TOLERANCE_SEC = 6; // ±0.1分
 
-/** 調査済み・修正保留の例外（season:scheduleKey → 理由）。公式の誤りではなく復元処理の課題。
- * 詳細と修正候補は 設計書280章。解消した試合は注意を出し、一覧から外す判断を促す。
+/** 調査済みの例外（season:scheduleKey → 理由）。公式の誤りではなく復元処理の限界。解消した試合は注意を出し、一覧から外す判断を促す。
+ * 設計書289章。2025-26 の8試合（同じ秒の交代のまとめ直しが原因）は、同じ秒の交代を記録順に1件ずつ処理する直しで解消した。
  */
 const ALLOWED: Record<string, string> = {
-  "2025-26:504790": "4Q 4:34 メイヨのIN→OUTをまとめ直し、274秒と+/-がずれる",
-  "2025-26:504796": "4Q 0:08 船生のIN→OUTをまとめ直し、FT2本の+/-がずれる",
-  "2025-26:505144": "4Q 0:17 関野のIN→FT失敗→OUTをまとめ直し、17秒ずれる",
-  "2025-26:505216": "2Q 4:57 山口のIN→OUTをまとめ直し、次のINまでの84秒と+/-がずれる",
-  "2025-26:505297": "4Q 0:31 岸田・井上のIN→OUTをまとめ直し、14秒ずれる",
-  "2025-26:505307": "OT 0:02 津屋のIN→OUTをまとめ直し、2秒と+/-がずれる",
-  "2025-26:505401": "4Q 0:10 西部のIN→OUTをまとめ直し、10秒と+/-がずれる",
-  "2025-26:506086": "4Q 0:07 ケネディのIN→OUTをまとめ直し、7秒と+/-がずれる",
+  "2016-17:1330": "B.LEAGUE CHAMPIONSHIP（ポストシーズン）。10人のMINとチームのスティント時間2件がずれる。交代の記録の食い違い（今回の直しの前後で変わらない）",
+  "2016-17:1333": "B.LEAGUE CHAMPIONSHIP（ポストシーズン）。10人のMINとチームのスティント時間2件がずれる。交代の記録の食い違い（今回の直しの前後で変わらない）",
+  "2017-18:1810": "手入力のボックススコア（275章）。PBPが薄く、MIN・スティント時間・純得失点が合わない",
+  "2017-18:2690": "B.LEAGUE CHAMPIONSHIP（ポストシーズン）。10人のMINとチームのスティント時間2件がずれる。交代の記録の食い違い（今回の直しの前後で変わらない）",
+  "2017-18:2693": "B.LEAGUE CHAMPIONSHIP（ポストシーズン）。10人のMINとチームのスティント時間2件がずれる。交代の記録の食い違い（今回の直しの前後で変わらない）",
+  "2022-23:500065": "交代の記録の食い違い（OUT／INの対応が取れない公式の記録。今回の直しの前後で変わらない）",
+  "2021-22:7710": "同じ秒に「A IN→B OUT→A OUT→B IN」のような取り消す記録があり、チームの時間・得点は合うが、個人の割り振りが公式のMINと合わない（リード・トラビス−409秒、小阪+409秒）",
+  "2021-22:7878": "同じ秒の取り消すような交代の食い違いで、個人の割り振りが公式のMINと合わない（永吉−254秒）",
+  "2022-23:500565": "同じ秒の取り消すような交代の食い違いで、個人の割り振りが公式のMINと合わない（田中−87秒）",
+  "2022-23:500073": "同じ秒の取り消すような交代の食い違いで、個人の割り振りが公式のMINと合わない（トーマス+208秒。直す前から同じずれ）",
 };
+
+/** 公式の +/- と突き合わせるシーズン（2023-24 以降）。それ以前は公式の値が無い・食い違いの原因が別（設計書289章） */
+const PLUS_MINUS_CHECK_FROM = "2023-24";
 
 interface GameReport {
   scheduleKey: string;
@@ -207,20 +217,12 @@ function evaluateGame(game: StoredGame): GameReport {
   };
 }
 
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const seasonIndex = args.indexOf("--season");
-  const season = seasonIndex !== -1 ? args[seasonIndex + 1] : "2025-26";
-  if (!season) {
-    console.error("使い方: validate-oncourt.ts --season 2025-26");
-    process.exitCode = 1;
-    return;
-  }
-
+async function validateSeason(season: string, verbose: boolean): Promise<{ ng: number; known: number }> {
+  const checkPlusMinus = season >= PLUS_MINUS_CHECK_FROM;
   const endedGames = (await readAllGames(season)).filter((g) => g.gameEndedFlg);
   // 集計と同じ大会名の判定を使い、通常の試合時間・人数を前提にできない試合を除く。
   const games = endedGames.filter((g) => !isExhibitionGame(g.raw.Game.ConventionNameJ));
-  console.log(`[${season}] 検証対象: ${games.length}試合（終了済みのみ・エキシビション${endedGames.length - games.length}試合を除外）\n`);
+  console.log(`[${season}] 検証対象: ${games.length}試合（終了済みのみ・エキシビション${endedGames.length - games.length}試合を除外）${checkPlusMinus ? "" : "。+/-の不一致は数えない"}\n`);
 
   const reports = games.map(evaluateGame);
 
@@ -238,41 +240,53 @@ async function main(): Promise<void> {
   let totalLineupTeamChecks = 0;
   let totalLineupStints = 0;
 
+  // 不一致として数える項目（+/- は公式と突き合わせられるシーズンだけ）
+  const mismatchItems = (r: GameReport): string[] =>
+    [
+      r.minMismatchDetails.length > 0 ? `MIN ${r.minMismatchDetails.length}人` : "",
+      checkPlusMinus && r.plusMinusMismatchDetails.length > 0 ? `+/- ${r.plusMinusMismatchDetails.length}人` : "",
+      r.lineupTimeMismatches.length > 0 ? `スティント時間 ${r.lineupTimeMismatches.length}件` : "",
+      r.lineupNetMismatches.length > 0 ? `スティント純得失点 ${r.lineupNetMismatches.length}件` : "",
+    ].filter(Boolean);
+
   for (const r of reports) {
-    console.log(
+    const quiet = !verbose && mismatchItems(r).length === 0;
+    if (!quiet) console.log(
       `=== ${r.scheduleKey} ${r.homeTeam} vs ${r.awayTeam}${r.hasOT ? "（OT）" : ""} ===`,
     );
-    console.log(`  在コート人数警告: ${r.warningCount}件 ${JSON.stringify(r.warningsByType)}`);
-    console.log(
-      `  MIN一致（±${MIN_TOLERANCE_SEC}秒以内）: ${r.minMatchWithinTolerance}/${r.playedPlayerCount}人（出場選手のみ）`,
-    );
-    for (const m of r.minMismatchDetails) {
+    if (!quiet) {
+      console.log(`  在コート人数警告: ${r.warningCount}件 ${JSON.stringify(r.warningsByType)}`);
       console.log(
-        `    ✗ MIN不一致: ${m.name}（${m.team}） 公式=${m.officialMin.toFixed(2)}分 復元=${m.reconstructedMin.toFixed(2)}分 差=${m.diffSec}秒`,
+        `  MIN一致（±${MIN_TOLERANCE_SEC}秒以内）: ${r.minMatchWithinTolerance}/${r.playedPlayerCount}人（出場選手のみ）`,
       );
-    }
-    console.log(
-      `  +/-完全一致: ${r.plusMinusMatchCount}/${r.playerCount}人（DNP含む全選手${r.plusMinusExceptionDetails.length > 0 ? `。うち例外${r.plusMinusExceptionDetails.length}人` : ""}）`,
-    );
-    for (const m of r.orderRepairs) {
+      for (const m of r.minMismatchDetails) {
+        console.log(
+          `    ✗ MIN不一致: ${m.name}（${m.team}） 公式=${m.officialMin.toFixed(2)}分 復元=${m.reconstructedMin.toFixed(2)}分 差=${m.diffSec}秒`,
+        );
+      }
       console.log(
-        `    ・並びを直した: ${m.period <= 4 ? `${m.period}Q` : `OT${m.period - 4}`} 残り${m.restTime} ${m.team} ${m.player}の${m.kind === "sub-in" ? "IN" : "OUT"}をフリースロー（${m.points}点）の前へ`,
+        `  +/-完全一致: ${r.plusMinusMatchCount}/${r.playerCount}人（DNP含む全選手${r.plusMinusExceptionDetails.length > 0 ? `。うち例外${r.plusMinusExceptionDetails.length}人` : ""}）`,
       );
+      for (const m of r.orderRepairs) {
+        console.log(
+          `    ・並びを直した: ${m.period <= 4 ? `${m.period}Q` : `OT${m.period - 4}`} 残り${m.restTime} ${m.team} ${m.player}の${m.kind === "sub-in" ? "IN" : "OUT"}をフリースロー（${m.points}点）の前へ`,
+        );
+      }
+      for (const m of r.plusMinusExceptionDetails) {
+        console.log(`    ・例外（公式は記録の並びのまま数えている）: ${m.name}（${m.team}） 公式=${m.official} 復元=${m.reconstructed}`);
+      }
+      for (const m of r.plusMinusMismatchDetails) {
+        console.log(`    ✗ +/-不一致: ${m.name}（${m.team}） 公式=${m.official} 復元=${m.reconstructed}`);
+      }
+      console.log(`  ラインナップスティント: ${r.lineupCount}件`);
+      for (const m of r.lineupTimeMismatches) {
+        console.log(`    ✗ スティント時間合計不一致: ${m.team} 期待=${m.expectedSec}秒 実際=${m.actualSec}秒`);
+      }
+      for (const m of r.lineupNetMismatches) {
+        console.log(`    ✗ スティント純得失点合計不一致: ${m.team} 期待=${m.expectedNet} 実際=${m.actualNet}`);
+      }
+      console.log("");
     }
-    for (const m of r.plusMinusExceptionDetails) {
-      console.log(`    ・例外（公式は記録の並びのまま数えている）: ${m.name}（${m.team}） 公式=${m.official} 復元=${m.reconstructed}`);
-    }
-    for (const m of r.plusMinusMismatchDetails) {
-      console.log(`    ✗ +/-不一致: ${m.name}（${m.team}） 公式=${m.official} 復元=${m.reconstructed}`);
-    }
-    console.log(`  ラインナップスティント: ${r.lineupCount}件`);
-    for (const m of r.lineupTimeMismatches) {
-      console.log(`    ✗ スティント時間合計不一致: ${m.team} 期待=${m.expectedSec}秒 実際=${m.actualSec}秒`);
-    }
-    for (const m of r.lineupNetMismatches) {
-      console.log(`    ✗ スティント純得失点合計不一致: ${m.team} 期待=${m.expectedNet} 実際=${m.actualNet}`);
-    }
-    console.log("");
 
     totalWarnings += r.warningCount;
     for (const [type, count] of Object.entries(r.warningsByType)) {
@@ -295,12 +309,7 @@ async function main(): Promise<void> {
   let ng = 0;
   const found = new Set<string>();
   for (const r of reports) {
-    const items = [
-      r.minMismatchDetails.length > 0 ? `MIN ${r.minMismatchDetails.length}人` : "",
-      r.plusMinusMismatchDetails.length > 0 ? `+/- ${r.plusMinusMismatchDetails.length}人` : "",
-      r.lineupTimeMismatches.length > 0 ? `スティント時間 ${r.lineupTimeMismatches.length}件` : "",
-      r.lineupNetMismatches.length > 0 ? `スティント純得失点 ${r.lineupNetMismatches.length}件` : "",
-    ].filter(Boolean);
+    const items = mismatchItems(r);
     if (items.length === 0) continue;
     const key = `${season}:${r.scheduleKey}`;
     found.add(key);
@@ -319,25 +328,49 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log("===== 全体集計 =====");
+  console.log(`----- ${season} 集計 -----`);
   console.log(`試合数: ${reports.length}（うちOT: ${reports.filter((r) => r.hasOT).length}）`);
   console.log(`在コート人数警告: 合計${totalWarnings}件 ${JSON.stringify(totalWarningsByType)}`);
   console.log(
     `MIN一致率（±${MIN_TOLERANCE_SEC}秒以内・出場選手のみ）: ${totalMinMatch}/${totalPlayed} = ${((totalMinMatch / totalPlayed) * 100).toFixed(1)}%`,
   );
   console.log(
-    `+/-完全一致率（DNP含む全選手）: ${totalPMMatch}/${totalPlayers} = ${((totalPMMatch / totalPlayers) * 100).toFixed(1)}%`,
+    `+/-完全一致率（DNP含む全選手${checkPlusMinus ? "" : "。このシーズンは参考値で、NGには数えない"}）: ${totalPMMatch}/${totalPlayers} = ${((totalPMMatch / totalPlayers) * 100).toFixed(1)}%`,
   );
-  console.log(`不一致件数: MIN ${totalPlayed - totalMinMatch}人、+/- ${totalPlayers - totalPMMatch}人、スティント時間 ${totalLineupTimeMismatches}件、スティント純得失点 ${totalLineupNetMismatches}件（許可済みを含む）`);
+  console.log(
+    `不一致件数: MIN ${totalPlayed - totalMinMatch}人、+/- ${totalPlayers - totalPMMatch}人${checkPlusMinus ? "" : "（数えない）"}、スティント時間 ${totalLineupTimeMismatches}件、スティント純得失点 ${totalLineupNetMismatches}件（許可済みを含む）`,
+  );
   console.log(`  うち例外（並びを直したために公式と合わないが、直さなければ一致）: ${totalPMException}人`);
   console.log(`交代をフリースローの前に動かした場所: ${totalOrderRepairs}か所（${totalOrderRepairGames}試合）`);
   console.log(`ラインナップスティント総数: ${totalLineupStints}件`);
-  console.log(
-    `スティント時間合計一致率（チーム×試合単位）: ${totalLineupTeamChecks - totalLineupTimeMismatches}/${totalLineupTeamChecks} = ${(((totalLineupTeamChecks - totalLineupTimeMismatches) / totalLineupTeamChecks) * 100).toFixed(1)}%`,
-  );
-  console.log(
-    `スティント純得失点合計一致率（チーム×試合単位）: ${totalLineupTeamChecks - totalLineupNetMismatches}/${totalLineupTeamChecks} = ${(((totalLineupTeamChecks - totalLineupNetMismatches) / totalLineupTeamChecks) * 100).toFixed(1)}%`,
-  );
+  console.log(`既知の不一致 ${known}試合（許可済み）、未許可の不一致 ${ng}試合\n`);
+  return { ng, known };
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const seasonIndex = args.indexOf("--season");
+  const verbose = args.includes("--verbose");
+  let seasons: string[];
+  if (seasonIndex !== -1) {
+    const season = args[seasonIndex + 1];
+    if (!season) {
+      console.error("使い方: validate-oncourt.ts [--season 2025-26] [--verbose]");
+      process.exitCode = 1;
+      return;
+    }
+    seasons = [season];
+  } else {
+    seasons = readdirSync(DATA_DIR).filter((d) => /^\d{4}-\d{2}$/.test(d)).sort();
+  }
+  let ng = 0;
+  let known = 0;
+  for (const season of seasons) {
+    const r = await validateSeason(season, verbose);
+    ng += r.ng;
+    known += r.known;
+  }
+  console.log(`===== 全体（${seasons.join("・")}） =====`);
   console.log(`既知の不一致 ${known}試合（許可済み）、未許可の不一致 ${ng}試合`);
   console.log(ng === 0 ? "OK: 許可済み以外の不一致はありません" : `NG: 未許可の不一致 ${ng}試合`);
   process.exitCode = ng === 0 ? 0 : 1;
