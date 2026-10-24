@@ -36,15 +36,17 @@ export const SEASON_DERIVED_ENTRIES = [
   "team-games",
   "team-period-index.json.gz",
   "team-stints",
+  "team-tts.json.gz",
   "teams.json.gz",
 ] as const;
 
 /**
  * SEASON_DERIVED_ENTRIES のうち、シーズンによっては作られないもの（作成済みかの判定から外す）。
  * team-stints は 2020-21 以降だけ（2019-20 以前は実際のポゼッションの元になる交代の記録が使えない。DESIGN.md 204章）。
+ * team-tts.json.gz（Time to Shot）も 2020-21 以降だけ。
  * ここに足すのは、シーズンによって作られないと分かっているものだけ。作られるはずのファイルを足すと、作成漏れに気付けなくなる
  */
-export const SEASON_OPTIONAL_DERIVED_ENTRIES = ["team-stints"] as const;
+export const SEASON_OPTIONAL_DERIVED_ENTRIES = ["team-stints", "team-tts.json.gz"] as const;
 
 /** data/ 直下の元データ（A） */
 export const GLOBAL_RAW_ENTRIES = [
@@ -108,6 +110,7 @@ export const BUILD_CODE_ENTRIES = [
   "scripts/aggregate-player-game-records.ts",
   "scripts/aggregate-game-index.ts",
   "scripts/aggregate-period-index.ts",
+  "scripts/aggregate-tts-index.ts",
   "scripts/aggregate-league-compare.ts",
 ] as const;
 export const BUILD_CODE_EXTRA_FILES = ["package-lock.json"] as const;

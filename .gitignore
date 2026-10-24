@@ -51,6 +51,8 @@ tsconfig.tsbuildinfo
 /data/*/one/team-period-index.json.gz
 /data/*/team-stints/
 /data/*/one/team-stints/
+/data/*/team-tts.json.gz
+/data/*/one/team-tts.json.gz
 /data/*/teams.json.gz
 /data/*/one/teams.json.gz
 # END 導出データ

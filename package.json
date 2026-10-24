@@ -28,6 +28,7 @@
     "aggregate:player-careers": "node --experimental-strip-types scripts/aggregate-player-careers.ts",
     "aggregate:league-player-game-records": "node --experimental-strip-types scripts/aggregate-league-player-game-records.ts",
     "aggregate:player-game-records": "node --experimental-strip-types scripts/aggregate-player-game-records.ts",
+    "aggregate:tts-index": "node --experimental-strip-types scripts/aggregate-tts-index.ts",
     "aggregate:game-index": "node --experimental-strip-types scripts/aggregate-game-index.ts",
     "aggregate:period-index": "esbuild scripts/aggregate-period-index.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/aggregate-period-index.mjs && node node_modules/.cache/aggregate-period-index.mjs",
     "freeze:season-profiles": "node --experimental-strip-types scripts/freeze-season-profiles.ts",
@@ -86,7 +87,9 @@
     "validate:live-dead-tov": "esbuild scripts/validate-live-dead-tov.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-live-dead-tov.mjs && node node_modules/.cache/validate-live-dead-tov.mjs",
     "validate:ai-export": "esbuild scripts/validate-ai-export.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-ai-export.mjs && node node_modules/.cache/validate-ai-export.mjs",
     "validate:situational-days": "esbuild scripts/validate-situational-days.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-situational-days.mjs && node node_modules/.cache/validate-situational-days.mjs",
-    "validate:team-paint2": "esbuild scripts/validate-team-paint2.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-team-paint2.mjs && node node_modules/.cache/validate-team-paint2.mjs"
+    "validate:team-paint2": "esbuild scripts/validate-team-paint2.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-team-paint2.mjs && node node_modules/.cache/validate-team-paint2.mjs",
+    "validate:tts-index": "node --experimental-strip-types scripts/validate-tts-index.ts",
+    "validate:time-to-shot": "node --experimental-strip-types scripts/validate-time-to-shot.ts"
   },
   "dependencies": {
     "cheerio": "^1.0.0",
