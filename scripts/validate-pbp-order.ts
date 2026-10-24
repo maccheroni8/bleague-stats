@@ -68,7 +68,7 @@ function mismatches(before: StoredGame, after: StoredGame): string[] {
     buildPlayerBoxscores(g.raw.HomeBoxscores, undefined, g.raw.PlayByPlays, []).map((p) => [p.playerId, p.counts]),
     buildPlayerBoxscores(g.raw.AwayBoxscores, undefined, g.raw.PlayByPlays, []).map((p) => [p.playerId, p.counts]),
   ]);
-  check("ポゼッション開始", (g) => buildPossessionStartEvents(g.raw.PlayByPlays, home, away));
+  check("ポゼッション開始", (g) => buildPossessionStartEvents(g.raw.PlayByPlays, home, away, substitutionModelForSeason(g.season)));
   check("在コートの復元", (g) => {
     const periods = onCourtPeriodCount(g.season, g.quarterScores.home.length, g.raw.PlayByPlays);
     const r = reconstructOnCourt(g.raw.PlayByPlays, g.raw.HomeBoxscores, g.raw.AwayBoxscores, home, away, periods, substitutionModelForSeason(g.season));

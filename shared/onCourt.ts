@@ -35,11 +35,12 @@ const LEGACY_SUB_SWAP_CODE = 89;
 const POINTS_BY_ACTION_CD1: Record<number, number> = { 1: 3, 3: 2, 4: 2, 7: 1, 44: 2 };
 
 // ポゼッション区切り検出用のActionCD1コード（DESIGN.md 14-3章で確定済み。B.PREMIER/B.ONE共通）。
-// 2P/3Pの成功（1,3,4）、FT成功/失敗（7,8）、DREB（個人9・チーム18）、TOV（個人13・チーム17）
+// 2P/3Pの成功（1,3,4）、FT成功/失敗（7,8）、DREB（個人9・チーム18。旧形式はチーム19）、TOV（個人13・チーム17）
 const FG_MAKE_CODES = new Set([1, 3, 4]);
 const FT_MAKE_CODE = 7;
 const FT_MISS_CODE = 8;
-const DREB_CODES = new Set([9, 18]);
+// チームのDREBの番号は、新形式（2020-21以降）が18、旧形式（2016-17〜2019-20）は19（18＝OREB。DESIGN.md 289章。ボックススコアのチームの行と試合ごとに一致）
+const DREB_CODES_BY_MODEL: Record<SubstitutionModel, ReadonlySet<number>> = { modern: new Set([9, 18]), legacy: new Set([9, 19]) };
 const TOV_CODES = new Set([13, 17]);
 
 export type SubstitutionModel = "modern" | "legacy";
@@ -695,7 +696,9 @@ export function buildPossessionStartEvents(
   playByPlays: PlayByPlayEvent[],
   homeTeamId: string,
   awayTeamId: string,
+  model: SubstitutionModel = "modern",
 ): PossessionStartEvent[] {
+  const DREB_CODES = DREB_CODES_BY_MODEL[model];
   const opponentOf = (teamId: string): string => (teamId === homeTeamId ? awayTeamId : homeTeamId);
 
   const relevant = playByPlays
@@ -1060,7 +1063,7 @@ export function reconstructOnCourt(
   // 個人PACE算出用に、各在コート区間へ自チーム/相手チームの新ポゼッション開始回数を集計する
   // （buildPossessionStartEvents()参照）。在コート人数の判定・個人+/-・ラインナップスティントの
   // 既存ロジックには一切影響しない、末尾の追加パスとして実装する
-  const possessionStarts = buildPossessionStartEvents(playByPlays, homeTeamId, awayTeamId);
+  const possessionStarts = buildPossessionStartEvents(playByPlays, homeTeamId, awayTeamId, substitutionModel);
   for (const iv of intervals) {
     for (const ps of possessionStarts) {
       if (ps.elapsedSec < iv.startSec || ps.elapsedSec >= iv.endSec) continue;
