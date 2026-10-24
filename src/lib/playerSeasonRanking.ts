@@ -181,7 +181,7 @@ export function boxColumnItem(col: SeasonBoxscoreColumn, mode: PlayerRankMode): 
  * 平均/合計で値が変わらない項目（割合・率・試合数）。これらとProfile・Careerでは、平均/合計の切り替えを無効にする（DESIGN.md 179章）。
  * 名前に pct を含む項目（FG%・TOV%・%PTS・PAINT2%・シューティングの 2P% 等）もここに入れる
  */
-export const DDTD_PERIOD_REASON = (label: string) => `「${label}」は試合全体の記録でしか判定できないため、Q別・前後半・延長を選んでいるときは対象外です。`;
+export const DDTD_PERIOD_REASON = (label: string) => `「${label}」は試合全体の記録でしか判定できないため、Q別・前後半を選んでいるときは対象外です。`;
 
 const MODE_INVARIANT_KEYS: ReadonlySet<string> = new Set(["g", "gs", "asttov", "usg", "efg", "ts", "pps", "poss", "pace", "ortg", "drtg", "netrtg", "per", "ppp"]);
 
@@ -510,7 +510,7 @@ export function usePlayerSeasonRanking(
     return new Map((race?.teams ?? []).map((t) => [t.teamId, t.remaining]));
   }, [achievableNeeded, raceData, season]);
 
-  // Q別・前後半・延長の値の元（ピリオド別の索引。そのシーズンの1ファイルずつ。選んでいるときだけ読む）
+  // Q別・前後半の値の元（ピリオド別の索引。そのシーズンの1ファイルずつ。選んでいるときだけ読む）
   const periodFiltersApply = category !== "shooting" && category !== "profile" && category !== "career";
   const { sources: periodSources, loading: periodSourceLoading, failedSeasons: periodFailedSeasons, retry: retryPeriodSource } = useSeasonPeriodSources(
     [season],
@@ -617,7 +617,7 @@ export function usePlayerSeasonRanking(
   // シーズンの途中で移籍した選手の分母は、条件の有無によらず、条件に当てはまる試合で所属していた各チームの所属期間の合計にする
   // （選手の最新の所属チームだけで割ると、条件に当てはまる試合の外のチームで割ってしまう。DESIGN.md 213・216章）。1チームだけの選手は、所属チームの合計
 
-  // Q別・前後半・延長は、ピリオド別の索引が読めてから集計する（読めないシーズンは表を出さない）
+  // Q別・前後半は、ピリオド別の索引が読めてから集計する（読めないシーズンは表を出さない）
   const periodDataReady = !effPeriodActive || !!periodSource;
 
   const seasonStartYear = Number(season.split("-")[0]);
@@ -628,8 +628,8 @@ export function usePlayerSeasonRanking(
     const map = new Map<string, SeasonBoxscoreCtx>();
     for (const p of eligible) {
       if (effPeriodActive) {
-        // Q別・前後半・延長: 試合単位でピリオド別の索引から組み立てる（team総計もこの選手が出場した試合の
-        // 期間限定値。個人詳細ページのQ別・前後半・延長と同じ設計。DESIGN.md 256章）
+        // Q別・前後半: 試合単位でピリオド別の索引から組み立てる（team総計もこの選手が出場した試合の
+        // 期間限定値。個人詳細ページのQ別・前後半と同じ設計。DESIGN.md 256章）
         const logs = gameLogsByPlayer!.get(p.playerId) ?? [];
         const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
         const scoped = filterByGameType(situational, effGameType);

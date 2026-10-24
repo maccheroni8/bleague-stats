@@ -17,7 +17,7 @@ interface SeasonRow {
 
 /**
  * チーム詳細「チームスタッツ」のシーズン別成績の Time to Shot（DESIGN.md 290章）。シーズンごとに1行、レギュラーシーズンの試合の合計。
- * 視点（自チーム／opp／+/-）と区間（Q別・前後半・延長）が連動する。2019-20以前のシーズンは「-」
+ * 視点（自チーム／opp／+/-）と区間（Q別・前後半）が連動する。2019-20以前のシーズンは「-」
  */
 export function TeamSeasonTtsTable({
   teamId,

@@ -315,7 +315,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const [perspective, setPerspective] = useUrlState(PERSPECTIVE_PARAM, "own");
   const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_RANKING_FILTER);
   const [turnoverDirection, setTurnoverDirection] = useUrlState(TURNOVER_DIRECTION_PARAM, "forced");
-  // Q別・前後半・延長。「試合」（既定値）選択時は、既存の TeamGameLog の合計（sumTeamGameLogs）をそのまま使う。
+  // Q別・前後半。「試合」（既定値）選択時は、既存の TeamGameLog の合計（sumTeamGameLogs）をそのまま使う。
   // 区間を選んだときは、そのシーズンのチームのピリオド別の索引から出す（DESIGN.md 256章の段階2。以前は対象チーム全員分の試合の生データを読んでいた）
   const [period, setPeriod] = useUrlState(TEAM_SEASON_PERIOD_PARAM, "all");
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
@@ -477,7 +477,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     gameTypeAxis(gameType, setGameType, season, { disabledReason: teamFilterDisabledReason }),
     perspectiveAxis(perspective, setPerspective, { disabledReason: teamFilterDisabledReason }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: teamDisplayDisabledReason }),
-    periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: teamFilterDisabledReason, label: "Q別・前後半・延長" }),
+    periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: teamFilterDisabledReason }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
@@ -620,7 +620,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
         )
       ) : rawGamesFailedCount > 0 ? (
         <div className="error-message">
-          <p>このシーズンの区間別の値を読み込めませんでした。Q別・前後半・延長の表は表示していません。</p>
+          <p>このシーズンの区間別の値を読み込めませんでした。Q別・前後半の表は表示していません。</p>
           <button type="button" className="load-more-button" onClick={retryRawGames}>
             再読み込み
           </button>
@@ -703,7 +703,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   // 平均/合計（チーム版と同じ URL のキー mode。DESIGN.md 179章）
   const [displayMode, setDisplayMode] = useUrlState(DISPLAY_MODE_PARAM, "perGame");
-  // Q別・前後半・延長。「試合」（既定値）選択時は、既存の PlayerSummary/PlayerGameLog ベースの経路をそのまま使う。
+  // Q別・前後半。「試合」（既定値）選択時は、既存の PlayerSummary/PlayerGameLog ベースの経路をそのまま使う。
   // 区間を選んだときは、そのシーズンのピリオド別の索引から組み立てる（DESIGN.md 256章。以前は対象選手全員分の試合の生データを読んでいた）
   const [period, setPeriod] = useUrlState(PLAYER_SEASON_PERIOD_PARAM, "all");
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する
@@ -976,7 +976,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           ? "このカテゴリは平均/合計の切り替えの対象外です。"
           : `「${statJa(selectedItem.label)}」は割合・率（または試合数）の項目のため、平均/合計の切り替えの対象外です。`,
     }),
-    periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: playerFilterDisabledReason, label: "Q別・前後半・延長" }),
+    periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: playerFilterDisabledReason }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
@@ -1082,7 +1082,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       ) : waitingForGameLogs ? (
         <p className="loading">読み込み中...</p>
       ) : ddtdPeriodOff ? (
-        <p className="empty-message">Q別・前後半・延長を選んでいるため、「{statJa(selectedItem.label)}」の順位は表示しません。</p>
+        <p className="empty-message">Q別・前後半を選んでいるため、「{statJa(selectedItem.label)}」の順位は表示しません。</p>
       ) : (
         <>
           <ExportImageButton

@@ -119,7 +119,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const [activeParam, setActive] = useUrlState(ACTIVE_PARAM, "all");
   const [periodParam, setPeriod] = useUrlState(GAME_RECORD_PERIOD_PARAM, "all");
   const allTime = scope === "allTime";
-  // Q別・前後半・延長（試合全体は null）。選ぶと、その区間の値で条件・並びを決める（ピリオド別の索引。DESIGN.md 225章）
+  // Q別・前後半（試合全体は null）。選ぶと、その区間の値で条件・並びを決める（ピリオド別の索引。DESIGN.md 225章）
   const period = gameRecordPeriodOf(periodParam);
   // 現役の絞り込みは歴代だけ（過去の選手が混ざる範囲）
   const activeOn = allTime && activeParam === "active";
@@ -243,7 +243,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
     }),
     ...(allTime ? [activeAxis(activeParam, setActive)] : []),
     gameTypeAxis(gameType, setGameType, seasonForTitle),
-    periodAxis(periodParam, setPeriod, GAME_RECORD_PERIOD_OPTIONS, { label: "Q別・前後半・延長" }),
+    periodAxis(periodParam, setPeriod, GAME_RECORD_PERIOD_OPTIONS, {}),
     simpleSelectAxis({
       id: "recordMode",
       label: "記録の種類",

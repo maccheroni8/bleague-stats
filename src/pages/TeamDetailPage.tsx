@@ -2807,7 +2807,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [teamShotChartPeriod, setTeamShotChartPeriod] = usePageState<PeriodRangeValue>(pk("teamShotChartPeriod"), "all");
   const teamShotChartPeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === teamShotChartPeriod);
   const [situationalTeamBoxTab, setSituationalTeamBoxTab] = usePageState<BoxscoreTabKey | "shooting" | "periods">(pk("situationalTeamBoxTab"), "traditional");
-  // Traditional〜Scoring の区間（Q別・前後半・延長）は、試合の生データではなくチームのピリオド別の索引から出す（全チームスタッツの区間別と同じ値。DESIGN.md 273章）。
+  // Traditional〜Scoring の区間（Q別・前後半）は、試合の生データではなくチームのピリオド別の索引から出す（全チームスタッツの区間別と同じ値。DESIGN.md 273章）。
   // Shooting（スポーツナビの記録）と Periods は今までどおり
   const situationalIndexMode =
     !!situationalTeamPeriodOption?.periods && situationalTeamBoxTab !== "shooting" && situationalTeamBoxTab !== "periods";
@@ -2994,7 +2994,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const seasonHistoryFetchTeamIdRef = useRef<string | null>(null);
   const [seasonHistory, setSeasonHistory] = useState<SeasonRecord[] | null>(null);
   const [seasonHistoryLoading, setSeasonHistoryLoading] = useState(false);
-  // シーズン別成績の区間（Q別・前後半・延長）。区間を選んだときだけ、そのクラブが在籍したシーズンの索引をまとめて読む。
+  // シーズン別成績の区間（Q別・前後半）。区間を選んだときだけ、そのクラブが在籍したシーズンの索引をまとめて読む。
   // 区間を選べないカテゴリ（Shooting・Forced TOV・Periods・Streaks）では「試合全体」に固定する
   const [seasonBoxPeriod, setSeasonBoxPeriod] = usePageState<PeriodRangeValue>(pk("seasonBoxPeriod"), "all");
   const seasonBoxPeriodSupported =
@@ -3065,7 +3065,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // このstateを使ってctxを再構築する必要があるため、TeamPlayerStatsTable内のローカルstateでは
   // なく親コンポーネントで持つ
   const [playerStatsDisplayMode, setPlayerStatsDisplayMode] = usePageState<SeasonDisplayMode>(pk("playerStatsDisplayMode"), "perGame");
-  // Q別・前後半・延長トグル。「試合」選択時は追加取得不要（既存のTeamGameLog/PlayerGameLog永続集計をそのまま使う）。
+  // Q別・前後半トグル。「試合」選択時は追加取得不要（既存のTeamGameLog/PlayerGameLog永続集計をそのまま使う）。
   // 区間を選んだときだけ、選手のピリオド別の索引（1シーズン1ファイル）を読む
   const [playerStatsPeriod, setPlayerStatsPeriod] = usePageState<PeriodRangeValue>(pk("playerStatsPeriod"), "all");
   // シチュエーション別フィルタ（シーズン全体/直近N試合/勝敗別/期間指定/ホーム・アウェイ/
@@ -3075,7 +3075,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // filterGameLogsへは常にincludePlayoffs: trueを渡す（比較タブ・43章と同じパターン）
   const [playerStatsFilter, setPlayerStatsFilter] = usePageState<SituationalFilter>(pk("playerStatsFilter"), { range: { kind: "all" } });
   const playerStatsPeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === playerStatsPeriod);
-  // 区間（Q別・前後半・延長）は、試合の生データではなく選手のピリオド別の索引から出す（個人詳細・ランキングの同じ区間と同じ値。DESIGN.md 273章）。
+  // 区間（Q別・前後半）は、試合の生データではなく選手のピリオド別の索引から出す（個人詳細・ランキングの同じ区間と同じ値。DESIGN.md 273章）。
   // シューティングは区間の対象外なので、そのタブでは試合全体の行を使う
   const playerStatsPeriod2: PeriodRangeValue =
     playerStatsBoxTab === "shooting" || !playerStatsPeriodOption?.periods ? "all" : playerStatsPeriodOption.value;
@@ -4702,10 +4702,10 @@ export function TeamDetailPage({ season }: { season: string }) {
                 disabledReason: seasonBoxPeriodSupported
                   ? undefined
                   : seasonBoxTab === "periods"
-                    ? `${CATEGORY_LABELS.periods}は区間ごとに出すため、Q別・前後半・延長は選べません。`
+                    ? `${CATEGORY_LABELS.periods}は区間ごとに出すため、Q別・前後半は選べません。`
                     : seasonBoxTab === "streaks"
-                      ? `${STREAKS_CATEGORY_LABEL}は試合の並びで出すため、Q別・前後半・延長は選べません。`
-                      : `${teamBoxCategoryLabel(seasonBoxTab)}はシーズン全体の記録のため、Q別・前後半・延長は選べません。`,
+                      ? `${STREAKS_CATEGORY_LABEL}は試合の並びで出すため、Q別・前後半は選べません。`
+                      : `${teamBoxCategoryLabel(seasonBoxTab)}はシーズン全体の記録のため、Q別・前後半は選べません。`,
               }),
             ]}
           />
@@ -5203,7 +5203,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             <p className="loading">読み込み中...</p>
           ) : situationalIndexMode && situationalPeriodLoading ? null : situationalIndexMode && !situationalPeriodSource ? (
             <p className="empty-message">
-              Q別・前後半・延長のデータを読み込めませんでした{" "}
+              Q別・前後半のデータを読み込めませんでした{" "}
               <button type="button" onClick={retrySituationalPeriod}>
                 再読み込み
               </button>
@@ -5368,7 +5368,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               {playerStatsPeriodLoading && <p className="loading">この期間の再集計中...</p>}
               {playerStatsPeriodFailed.length > 0 && (
                 <p className="empty-message">
-                  Q別・前後半・延長のデータを読み込めませんでした{" "}
+                  Q別・前後半のデータを読み込めませんでした{" "}
                   <button type="button" onClick={retryPlayerStatsPeriod}>
                     再読み込み
                   </button>
@@ -5521,7 +5521,6 @@ export function TeamDetailPage({ season }: { season: string }) {
                   axes={[
                     gameTypeAxis(lineupOcFromIndex ? lineupOcGameType : "both", setLineupOcGameType, season, { defaultValue: "both", disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE }),
                     periodAxis(lineupOcFromIndex ? lineupOcPeriod : "all", setLineupOcPeriod, SEASON_PERIOD_OPTIONS, {
-                      label: "Q別・前後半・延長",
                       disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE,
                     }),
                     { ...displayModeAxis(lineupOcFromIndex ? lineupOcDisplay : "total", setLineupOcDisplay, { disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE }), defaultValue: "total" },

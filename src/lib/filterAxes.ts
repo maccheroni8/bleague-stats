@@ -293,6 +293,9 @@ export function displayModeAxis(
   };
 }
 
+/** 区間の選択欄の名前（サイト内で1か所だけ定義。ほかの場所の文言はこの名前に合わせる） */
+export const PERIOD_AXIS_LABEL = "Q別・前後半";
+
 /** P軸: 試合全体/1Q〜4Q/試合前半/試合後半（表記はConditionTitleと同じ periodLabels） */
 export function periodAxis(
   value: PeriodRangeValue,
@@ -303,7 +306,7 @@ export function periodAxis(
   return {
     kind: "select",
     id: "period",
-    label: opts.label ?? "Q別・前後半",
+    label: opts.label ?? PERIOD_AXIS_LABEL,
     tier: opts.tier ?? "primary",
     options: options.map((o) => ({ value: o.value, label: periodLabels(o)[0] ?? o.label })),
     value,

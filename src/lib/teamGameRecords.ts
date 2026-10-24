@@ -68,7 +68,7 @@ export function teamRecordItems(mode: TeamRecordMode): TeamRecordItem[] {
 }
 
 // ---- ランキング（1試合記録）の項目（設計書265章）----
-// 区間（Q別・前後半・延長）は項目ではなく条件（URL の q）にしたので、「1Q 最多得点」のような項目は出さず、共通の項目に「得失点差」を足す。
+// 区間（Q別・前後半）は項目ではなく条件（URL の q）にしたので、「1Q 最多得点」のような項目は出さず、共通の項目に「得失点差」を足す。
 // 得失点差は、記録＝最大の点差勝ち（多い順）、ワースト＝最大の点差負け（少ない順）。被記録には出さない。索引でしか出せない（上位20位のファイルが無い）
 
 export const TEAM_MARGIN_DEF: TeamRecordValueDef = { key: "margin", label: "得失点差", value: (g) => g.teamScore - g.opponentScore };
@@ -88,10 +88,10 @@ export function teamRankingItems(mode: TeamRecordMode): TeamRecordItem[] {
 /** 区間を選んでいる間は選べない項目（試合全体の値で、区間では意味が無い） */
 export const TEAM_NO_PERIOD_KEYS: readonly string[] = ["attendance", "comebackWin", "blownLeadLoss", "maxRun"];
 export const TEAM_NO_PERIOD_REASON: Record<string, string> = {
-  attendance: "ホーム来場者数は試合全体の値のため、Q別・前後半・延長では選べません。",
-  comebackWin: "最大点差からの逆転は試合全体の記録のため、Q別・前後半・延長では選べません。",
-  blownLeadLoss: "最大点差からの逆転は試合全体の記録のため、Q別・前後半・延長では選べません。",
-  maxRun: "最大のランは試合全体の記録のため、Q別・前後半・延長では選べません。",
+  attendance: "ホーム来場者数は試合全体の値のため、Q別・前後半では選べません。",
+  comebackWin: "最大点差からの逆転は試合全体の記録のため、Q別・前後半では選べません。",
+  blownLeadLoss: "最大点差からの逆転は試合全体の記録のため、Q別・前後半では選べません。",
+  maxRun: "最大のランは試合全体の記録のため、Q別・前後半では選べません。",
 };
 
 /** 古い URL の項目「q1:mostPts」を、区間と項目に読み替える表（種類・項目） */

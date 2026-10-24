@@ -22,7 +22,7 @@ export function GameRecordNotes({
   /** ルーキーで絞り込んでいるとき、2016-17の試合が含まれない理由も添えるか */
   rookie?: { allTime: boolean };
   positionFallback: boolean;
-  /** Q別・前後半・延長を選んでいるとき */
+  /** Q別・前後半を選んでいるとき */
   period?: {
     /** 延長を選んでいるか（延長のあった試合だけが対象） */
     overtime: boolean;

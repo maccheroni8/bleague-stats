@@ -37,7 +37,7 @@ const PCT_MADE: Record<string, { base: keyof typeof PLAYER_PCT_MIN_MADE; label: 
 };
 
 /**
- * 区間（Q別・前後半・延長）を選んだときの、成功率の項目の最低成功数の判定（区間の長さに合わせて下げた数。periodMinimum.ts）。
+ * 区間（Q別・前後半）を選んだときの、成功率の項目の最低成功数の判定（区間の長さに合わせて下げた数。periodMinimum.ts）。
  * 成功率でない項目は null（判定しない）
  */
 export function playerPctPeriodFilter(key: string, period: string): ((g: PlayerRecordGame) => boolean) | null {
@@ -53,7 +53,7 @@ export function playerGameRecordMinMadeNote(key: string, period?: { key: string;
   const m = PCT_MADE[key];
   if (!m) return undefined;
   const t = `${m.label}が${scaledMinForPeriod(PLAYER_PCT_MIN_MADE[m.base], period?.key ?? null)}以上`;
-  // Q別・前後半・延長では、試合全体の基準を区間の長さに合わせて下げた数
+  // Q別・前後半では、試合全体の基準を区間の長さに合わせて下げた数
   if (period) return `${t}の${period.label}の記録だけが対象です（試合全体の基準を区間の長さに合わせて下げた数）。同じ率の中は試投数の多い記録から並べます。`;
   return `${t}の試合が対象です。同じ率の中は試投数の多い試合から並べます。`;
 }

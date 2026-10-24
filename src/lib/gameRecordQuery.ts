@@ -125,7 +125,7 @@ export interface GameRecordQueryResult<R> {
   rows: R[];
   /** 前後半5分の特別な試合のうち、ほかの条件に当てはまるが除いた行の数 */
   excludedSpecial: number;
-  /** 区間（Q別・前後半・延長）を選んだとき: 前後半5分の特別な試合（1Q〜4Qが無い）のうち、ほかの条件に当てはまるが区間の行が無い行の数 */
+  /** 区間（Q別・前後半）を選んだとき: 前後半5分の特別な試合（1Q〜4Qが無い）のうち、ほかの条件に当てはまるが区間の行が無い行の数 */
   periodShortGames?: number;
   /** 区間を選んだとき: ピリオド別の記録が無い試合（公式にボックススコアが無く合計だけを入れた試合。275章）のうち、ほかの条件に当てはまるが区間の行が無い数（チームは試合数） */
   periodNoRecordGames?: number;
@@ -590,5 +590,5 @@ function teamConditionItem(def: TeamRecordValueDef): StatConditionItem<IndexedTe
 
 /** チームの1試合記録のスタッツの条件に選べる項目（記録したチーム自身のその試合の値） */
 export const TEAM_STAT_CONDITION_ITEMS: StatConditionItem<IndexedTeamGame>[] = TEAM_RECORD_STATS.map(teamConditionItem);
-/** 区間（Q別・前後半・延長）を選んでいるときに選べる項目（来場者数・逆転・最大のランを除く。区間の値で判定する） */
+/** 区間（Q別・前後半）を選んでいるときに選べる項目（来場者数・逆転・最大のランを除く。区間の値で判定する） */
 export const TEAM_STAT_CONDITION_ITEMS_PERIOD: StatConditionItem<IndexedTeamGame>[] = TEAM_STAT_CONDITION_ITEMS.filter((i) => !TEAM_NO_PERIOD_KEYS.includes(i.key));

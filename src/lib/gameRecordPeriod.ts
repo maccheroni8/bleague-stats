@@ -1,4 +1,4 @@
-// ランキング > 個人 > 1試合記録の「Q別・前後半・延長」（DESIGN.md 225章）の選択肢・URL・選べない項目の理由。
+// ランキング > 個人 > 1試合記録の「Q別・前後半」（DESIGN.md 225章）の選択肢・URL・選べない項目の理由。
 // シーズン成績のQ別・前後半（SEASON_BOX_PERIOD_OPTIONS）と同じ選択肢に、延長（すべての延長の合計）を足したもの。URLのキーは `q`（On/Off・組み合わせと同じ）。
 import type { PeriodRangeOption, PeriodRangeValue } from "./periodRange";
 import { buildPeriodRangeOptions } from "./periodRange";
@@ -32,10 +32,10 @@ export function gameRecordPeriodLabel(value: PeriodRangeValue): string | null {
 
 /** 区間を選んだとき、記録の種類「ワースト」を選べない理由 */
 export const PERIOD_WORST_UNSUPPORTED_REASON =
-  "Q別・前後半・延長では、ワースト（少ない順）は選べません。少ない方から並べると、0の同率が大量に並ぶためです（試合全体のときだけ選べます）。";
+  "Q別・前後半では、ワースト（少ない順）は選べません。少ない方から並べると、0の同率が大量に並ぶためです（試合全体のときだけ選べます）。";
 
 /** 区間を選んだとき、被アシスト率を選べない理由（最低得点20点が、区間では成り立たない） */
-export const PERIOD_ASTED_UNSUPPORTED_REASON = "被アシスト率は、得点20点以上の試合が対象のため、Q別・前後半・延長では選べません。";
+export const PERIOD_ASTED_UNSUPPORTED_REASON = "被アシスト率は、得点20点以上の試合が対象のため、Q別・前後半では選べません。";
 
 /** 範囲「シーズン」で、+/- を選べない理由。公式のピリオド別の +/- は2022-23以降だけ */
 export const PERIOD_PLUS_MINUS_FIRST_SEASON = "2022-23";

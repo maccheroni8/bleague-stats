@@ -1,9 +1,9 @@
-// シーズン成績のQ別・前後半・延長を、ピリオド別の索引（player-period-index・team-period-index。DESIGN.md 225章）から組み立てる（DESIGN.md 256章の段階0）。
+// シーズン成績のQ別・前後半を、ピリオド別の索引（player-period-index・team-period-index。DESIGN.md 225章）から組み立てる（DESIGN.md 256章の段階0）。
 // 以前は試合の生データ（ランキングではそのシーズンの全試合、2025-26 で展開後約600MB）を読んで computeGamePeriodTotals で出していた。
 // 索引の値は同じ関数（buildPlayerBoxscores・buildTeamTotalCounts・computeTeamRatings）で作ってあるので、1試合ごとの値（GamePeriodTotals）は生データから出した値と同じになる。
 // 違うのは次の2点（256章）:
 // - 延長（すべての延長の合計）を選べる。延長は「その選手が延長に出た試合」だけを数える（延長の区間の行がある試合。延長の無い試合・延長に出なかった試合は数えない）
-// - 前後半5分の特別な試合（2016-17・2017-18のCS。4試合）は、Q別・前後半・延長のどれにも入れない（225章の決定7。以前は前半に試合全体が入っていた）
+// - 前後半5分の特別な試合（2016-17・2017-18のCS。4試合）は、Q別・前後半のどれにも入れない（225章の決定7。以前は前半に試合全体が入っていた）
 // 1Q〜4Q・前半・後半は今までどおり、その試合に出場していれば、その区間に出ていなくても0として数える。
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -58,14 +58,14 @@ export const OVERTIME_ELIGIBILITY_REASON = `延長は、${OVERTIME_ELIGIBILITY_L
 /** 延長の平均の分母の説明（表の下の注記） */
 export const OVERTIME_GAMES_NOTE = "延長は、延長に出た試合だけで割っています（すべての延長の合計）。";
 /** 前後半5分の特別な試合の注記（2016-17・2017-18 のときだけ出す） */
-export const SHORT_GAMES_PERIOD_NOTE = "前後半5分の特別な試合（チャンピオンシップ）は、クォーターが無いため、Q別・前後半・延長には含めていません。";
+export const SHORT_GAMES_PERIOD_NOTE = "前後半5分の特別な試合（チャンピオンシップ）は、クォーターが無いため、Q別・前後半には含めていません。";
 export function hasShortGameSeason(seasons: readonly string[]): boolean {
   return seasons.some((s) => s === "2016-17" || s === "2017-18");
 }
 
-/** 公式にボックススコアが無く、試合合計だけを入れた試合（2017-18 の1810）の注記。区間の記録が無いので Q別・前後半・延長には含めない */
+/** 公式にボックススコアが無く、試合合計だけを入れた試合（2017-18 の1810）の注記。区間の記録が無いので Q別・前後半には含めない */
 export const MANUAL_BOXSCORE_PERIOD_NOTE =
-  "2017-18の1試合（2018年1月1日 A東京-千葉）は、公式にボックススコアが無く試合合計だけを入れているため、Q別・前後半・延長には含めていません。";
+  "2017-18の1試合（2018年1月1日 A東京-千葉）は、公式にボックススコアが無く試合合計だけを入れているため、Q別・前後半には含めていません。";
 export function hasManualBoxscoreSeason(seasons: readonly string[]): boolean {
   return seasons.includes("2017-18");
 }
@@ -243,7 +243,7 @@ export function overtimeCandidates(source: SeasonPeriodSource, minGames: number)
 }
 
 /**
- * 複数シーズンの索引を読む（Q別・前後半・延長を選んでいるときだけ。enabled が false の間は読まない）。
+ * 複数シーズンの索引を読む（Q別・前後半を選んでいるときだけ。enabled が false の間は読まない）。
  * sources はシーズン → 索引（読めなかったシーズンは null）。failedSeasons は読めなかったシーズン。retry() で読めなかったシーズンを読み直す
  */
 export function useSeasonPeriodSources(

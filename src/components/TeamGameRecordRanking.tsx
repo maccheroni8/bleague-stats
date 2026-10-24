@@ -121,7 +121,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
   const [periodParam, setPeriod] = useUrlState(GAME_RECORD_PERIOD_PARAM, "all");
   const allTime = scope === "allTime";
-  // Q別・前後半・延長（試合全体は null）。選ぶと、その区間の値でスタッツの条件・並びを決める（チームのピリオド別の索引。設計書265章）
+  // Q別・前後半（試合全体は null）。選ぶと、その区間の値でスタッツの条件・並びを決める（チームのピリオド別の索引。設計書265章）
   const period = gameRecordPeriodOf(periodParam);
 
   // 古い URL の項目「1Q 最多得点」（q1:mostPts）を、区間（q）と項目に読み替える
@@ -255,7 +255,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, includeSpecial, includeSpecialDefault };
   const axes: FilterAxis[] = [
     gameTypeAxis(gameType, setGameType, seasonForTitle),
-    periodAxis(periodParam, setPeriod, GAME_RECORD_PERIOD_OPTIONS, { label: "Q別・前後半・延長" }),
+    periodAxis(periodParam, setPeriod, GAME_RECORD_PERIOD_OPTIONS, {}),
     modeAxis,
     ...gameRecordPrimaryAxes(axesInput),
     ...gameRecordAdvancedAxes(axesInput),

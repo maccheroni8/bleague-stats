@@ -1619,7 +1619,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
   // やり直しても読めなかった試合の数（読み込み中は0）。「シーズン別成績」は、期間が「試合」以外のとき全シーズンの出場試合、
   // 「シチュエーション別成績」は、選択中シーズンの出場試合（アシストの関係性・オンコート/オフコートは「スタッツ」タブでは常に生データを使う）が対象
-  // 「シーズン別成績」「シチュエーション別成績」の表の Q別・前後半・延長は、シーズンごとのピリオド別の索引から組み立てる（DESIGN.md 256章。
+  // 「シーズン別成績」「シチュエーション別成績」の表の Q別・前後半は、シーズンごとのピリオド別の索引から組み立てる（DESIGN.md 256章。
   // 以前は出場した全試合の生データを読んでいた）。区間を選んだときだけ読む
   const careerSeasons = useMemo(() => (careerData ?? []).map((cd) => cd.season), [careerData]);
   const breakdownPeriodSources = useSeasonPeriodSources(careerSeasons, seasonBreakdownPeriod !== "all");
@@ -2472,7 +2472,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 disabledReason: seasonBreakdownTab === "scoringComposition" ? scoringShareReason : undefined,
               }),
               periodAxis(seasonBreakdownPeriod, setSeasonBreakdownPeriod, SEASON_PERIOD_OPTIONS, {
-                label: "Q別・前後半・延長",
                 disabledReason:
                   seasonBreakdownTab === "shooting"
                     ? `${CATEGORY_LABELS.shooting}はQ別/前後半の対象外です。`
@@ -2534,7 +2533,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
               }),
               gameTypeAxis(situationalStatsGameType, setSituationalStatsGameType, situationalStatsSeason),
               periodAxis(situationalStatsPeriod, setSituationalStatsPeriod, SEASON_PERIOD_OPTIONS, {
-                label: "Q別・前後半・延長",
                 disabledReason: situationalStatsTab === "shooting" ? `${CATEGORY_LABELS.shooting}はQ別/前後半の対象外です。` : undefined,
               }),
               displayModeAxis(situationalStatsDisplayMode, setSituationalStatsDisplayMode),
@@ -3258,7 +3256,7 @@ function SeasonBreakdownTable({
   displayMode: SeasonDisplayMode;
   playerId: string;
   period: PeriodRangeValue;
-  /** Q別・前後半・延長のときの、シーズンごとのピリオド別の索引（DESIGN.md 256章） */
+  /** Q別・前後半のときの、シーズンごとのピリオド別の索引（DESIGN.md 256章） */
   periodSources: ReadonlyMap<string, SeasonPeriodSource | null>;
   /**
    * カテゴリタブ（シューティングを含む）を外部から制御する場合に指定する（試合詳細ページの

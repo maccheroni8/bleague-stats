@@ -74,7 +74,7 @@ export function compareUnsupportedReason(input: CompareSupportInput): string | n
   }
   if (subject === "player" && statKey === "pace") {
     if (period !== "all") {
-      return `Q別・前後半・延長では、選手の PACE は値がなく、表示が「-」になるため、${COMPARE_LABEL}は選べません。`;
+      return `Q別・前後半では、選手の PACE は値がなく、表示が「-」になるため、${COMPARE_LABEL}は選べません。`;
     }
     if (!fromGameLogs) {
       return `条件を付けていないとき、選手の PACE は値がなく、表示が「-」になるため、${COMPARE_LABEL}は選べません。`;
@@ -84,7 +84,7 @@ export function compareUnsupportedReason(input: CompareSupportInput): string | n
     }
   }
   if (categoryKind === "boxscore") {
-    // 個人もチームも、Q別・前後半・延長はピリオド別の索引（1シーズン1ファイル）から出すので、前季にも当てはめられる（DESIGN.md 256章。チームは段階2から）
+    // 個人もチームも、Q別・前後半はピリオド別の索引（1シーズン1ファイル）から出すので、前季にも当てはめられる（DESIGN.md 256章。チームは段階2から）
     if (filter.range.kind === "dateRange") {
       return `期間指定は日付がシーズンごとに違い、前のシーズンには当てはめられないため、${COMPARE_LABEL}は選べません。`;
     }

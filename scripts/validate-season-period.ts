@@ -1,4 +1,4 @@
-// シーズン成績のQ別・前後半・延長（src/lib/seasonPeriod.ts。DESIGN.md 256章）の検証スクリプト（検証専用。CIには入れず、手で実行する）。
+// シーズン成績のQ別・前後半（src/lib/seasonPeriod.ts。DESIGN.md 256章）の検証スクリプト（検証専用。CIには入れず、手で実行する）。
 //
 // 確かめること（`npm run build:data` のあとに実行する）:
 //  1. 1Q〜4Q・前半・後半: ピリオド別の索引から組み立てた1試合の値（seasonPeriodTotalsOf）が、以前の生データからの値（computeGamePeriodTotals）と、

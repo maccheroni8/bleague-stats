@@ -463,7 +463,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     boxTab === "scoringComposition" ||
     boxTab === "timeToShot";
   const periodActive = periodTab && period !== "all";
-  // 登録区分別（DESIGN.md 288章）。Traditional〜Scoring の4つのタブだけで効く。区間（Q別・前後半・延長）との併用は段階6までは選べない（区間を選んでいるときは区間を優先）
+  // 登録区分別（DESIGN.md 288章）。Traditional〜Scoring の4つのタブだけで効く。区間（Q別・前後半）との併用は段階6までは選べない（区間を選んでいるときは区間を優先）
   const [classFilter, setClassFilter] = useUrlState(CLASSIFICATION_PARAM, "all");
   const classTab = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
   const classActive = classTab && classFilter !== "all" && !periodActive;
@@ -941,12 +941,11 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       disabledReason: !classTab
         ? "登録区分別の値は Traditional〜Scoring のタブでだけ見られます。"
         : periodActive
-          ? "Q別・前後半・延長と登録区分の併用は準備中です。区間を「試合全体」にすると選べます。"
+          ? "Q別・前後半と登録区分の併用は準備中です。区間を「試合全体」にすると選べます。"
           : undefined,
     }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: displayDisabledReason }),
     periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, {
-      label: "Q別・前後半・延長",
       disabledReason: periodTab && classTab && classFilter !== "all"
         ? "登録区分を選んでいるときは区間を選べません（併用は準備中です）。登録区分を「全選手」にすると選べます。"
         : periodTab
