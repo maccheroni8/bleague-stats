@@ -148,6 +148,19 @@ import { teamNameInSeason, useTeamText } from "../lib/teamLabel";
 import { aggregatePeriodScoring, type PeriodScoringRow } from "../lib/teamPeriodScoring";
 import { buildPeriodColumns } from "../lib/teamPeriodColumns";
 import { periodScoringNote } from "../components/TeamPeriodCells";
+import { TtsNameLegend, TtsTable, type TtsLeadingColumn } from "../components/TtsTable";
+import {
+  emptyTtsTotals,
+  TTS_CATEGORY_LABEL,
+  ttsRowValues,
+  ttsSeasonSupported,
+  sumTtsTotals,
+  TTS_UNSUPPORTED_NOTE,
+  useTtsSource,
+  type TtsPeriodValue,
+  type TtsRowValues,
+  type TtsTotals,
+} from "../lib/teamTts";
 
 type TeamsPageTab = "stats" | "records" | "champions" | "recent";
 
@@ -156,12 +169,12 @@ type TeamsPageTab = "stats" | "records" | "champions" | "recent";
  * scope＝記録の範囲、cat・venue・stat＝歴代の記録のカテゴリ・会場・項目、n＝直近成績の試合数
  */
 const TEAMS_VIEW_PARAM = enumParam<TeamsPageTab>("view", ["stats", "records", "champions", "recent"], "stats");
-type TeamsBoxTab = BoxscoreTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition" | "periods" | "streaks";
+type TeamsBoxTab = BoxscoreTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition" | "periods" | "timeToShot" | "streaks";
 const TEAMS_BOX_TAB_PARAM = enumParam<TeamsBoxTab>(
   "tab",
-  ["traditional", "advanced", "misc", "scoring", "shooting", "forcedTurnovers", "foreignPlayers", "scoringComposition", "periods", "streaks"],
+  ["traditional", "advanced", "misc", "scoring", "shooting", "forcedTurnovers", "foreignPlayers", "scoringComposition", "periods", "timeToShot", "streaks"],
   "traditional",
-  { traditional: "trad", advanced: "adv", shooting: "shoot", forcedTurnovers: "tov", foreignPlayers: "oc", scoringComposition: "share" },
+  { traditional: "trad", advanced: "adv", shooting: "shoot", forcedTurnovers: "tov", foreignPlayers: "oc", scoringComposition: "share", timeToShot: "tts" },
 );
 const TURNOVER_PERSPECTIVE_PARAM = enumParam<"forced" | "committed">("tov", ["forced", "committed"], "forced");
 const DEFAULT_TEAMS_FILTER: SituationalFilter = { range: { kind: "all" } };
@@ -257,7 +270,7 @@ export function TeamsStatsRedirect() {
 const BOX_TABS = BOXSCORE_TABS;
 
 /** 「全チームスタッツ」タブの各カテゴリ（BOXSCORE_TABS＋専用ビュー）の表示名。タイトルに使う */
-const TEAMS_STATS_CATEGORY_LABELS: Record<string, string> = { ...CATEGORY_LABELS, streaks: STREAKS_CATEGORY_LABEL };
+const TEAMS_STATS_CATEGORY_LABELS: Record<string, string> = { ...CATEGORY_LABELS, streaks: STREAKS_CATEGORY_LABEL, timeToShot: TTS_CATEGORY_LABEL };
 
 /** 強制ターンオーバーの視点トグル（ボタン表示とタイトルで共通） */
 const TURNOVER_PERSPECTIVE_LABELS: Record<"forced" | "committed", string> = {
@@ -302,6 +315,35 @@ const winPctColumn: Column<AllTeamsRow> = {
 
 // 各行の先頭にロゴ・試合数・勝敗・勝率を置く（チーム詳細ページ「シーズン別成績」と同じ載せ方）
 const LEADING_COLUMNS: Column<AllTeamsRow>[] = [teamColumn, gamesColumn, recordColumn, winPctColumn];
+
+/** Time to Shot の表の行（DESIGN.md 290章）。values が null のときは「-」（対象外のシーズン） */
+interface TtsTeamRow {
+  team: AllTeamsRow["team"];
+  gamesPlayed: number;
+  values: TtsRowValues | null;
+  own: TtsTotals | null;
+}
+
+const TTS_TEAM_LEADING: TtsLeadingColumn<TtsTeamRow>[] = [
+  {
+    key: "team",
+    label: "チーム",
+    align: "left",
+    sortValue: (r) => r.team.teamName,
+    render: (r) => (
+      <span className="team-name-cell">
+        {r.team.teamId !== LEAGUE_TEAM_ID && <TeamLogo teamId={r.team.teamId} size={20} />}
+        <ResponsiveTeamName teamId={r.team.teamId} name={r.team.teamName} />
+      </span>
+    ),
+  },
+  {
+    key: "g",
+    label: "G",
+    sortValue: (r) => r.gamesPlayed,
+    render: (r) => (r.team.teamId === LEAGUE_TEAM_ID ? "-" : r.values ? String(r.gamesPlayed) : "-"),
+  },
+];
 
 /** 「Periods」の行。全チームスタッツの行（AllTeamsRow）に、選んだ条件の試合の区間別の得点・失点の合計を足したもの（DESIGN.md 226章） */
 interface PeriodTeamRow extends AllTeamsRow {
@@ -418,7 +460,8 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     boxTab === "misc" ||
     boxTab === "scoring" ||
     boxTab === "foreignPlayers" ||
-    boxTab === "scoringComposition";
+    boxTab === "scoringComposition" ||
+    boxTab === "timeToShot";
   const periodActive = periodTab && period !== "all";
   // 登録区分別（DESIGN.md 288章）。Traditional〜Scoring の4つのタブだけで効く。区間（Q別・前後半・延長）との併用は段階6までは選べない（区間を選んでいるときは区間を優先）
   const [classFilter, setClassFilter] = useUrlState(CLASSIFICATION_PARAM, "all");
@@ -532,6 +575,36 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   );
   const periodsWithoutValue = periodRows.reduce((sum, r) => sum + r.scoring.withoutPeriods, 0) / 2; // 2チーム分で1試合
 
+  // Time to Shot（DESIGN.md 290章）: 選んだ試合区分・試合の条件・区間の試合の、攻撃の始まりから最初のFGの試投までの秒数。視点は自チーム／opp（同じ試合の相手のシュート）／+/-
+  const ttsTab = boxTab === "timeToShot";
+  const ttsSupported = ttsSeasonSupported(season);
+  const { source: ttsSource, loading: ttsLoading, retry: retryTts } = useTtsSource(season, ttsTab && ttsSupported);
+  const ttsRows: TtsTeamRow[] = useMemo(() => {
+    if (!ttsTab || !teams) return [];
+    return teams.map((team) => {
+      if (!ttsSource) return { team, gamesPlayed: 0, values: null, own: null };
+      const scoped = scopedLogsByTeam.get(team.teamId) ?? [];
+      const own = sumTtsTotals(ttsSource, scoped, period as TtsPeriodValue | "all", "own");
+      const opp = sumTtsTotals(ttsSource, scoped, period as TtsPeriodValue | "all", "opp");
+      return { team, gamesPlayed: own.games, values: ttsRowValues(own, opp, teamPerspective), own };
+    });
+  }, [ttsTab, teams, ttsSource, scopedLogsByTeam, period, teamPerspective]);
+  // リーグ平均の行: 全チームの自チームのシュートの合計から出す（秒数の合計÷本数。自チームの視点のときだけ出す）
+  const ttsLeagueRow: TtsTeamRow | null = useMemo(() => {
+    const played = ttsRows.filter((r) => r.own && r.gamesPlayed > 0);
+    if (played.length === 0) return null;
+    const sum: TtsTotals = emptyTtsTotals();
+    for (const r of played) {
+      sum.games += r.own!.games;
+      sum.excluded += r.own!.excluded;
+      for (const c of Object.keys(sum.byCategory) as (keyof TtsTotals["byCategory"])[]) {
+        sum.byCategory[c].n += r.own!.byCategory[c].n;
+        sum.byCategory[c].s += r.own!.byCategory[c].s;
+      }
+    }
+    return { team: { teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME }, gamesPlayed: sum.games / played.length, values: ttsRowValues(sum, emptyTtsTotals(), "own"), own: null };
+  }, [ttsRows]);
+
   // スタッツの条件（DESIGN.md 162章）。ブラウザバックで戻っても保持する。表のタブ（4カテゴリ・Shooting・Forced TOV）の行を絞り込む。
   // Shooting・Forced TOV のタブでは上の絞り込みが効かないため、絞り込みの無いレギュラーシーズン全体の値で判定する
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
@@ -605,6 +678,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       case "foreignPlayers":
       case "scoringComposition":
       case "periods":
+      case "timeToShot":
       case "streaks":
         return [];
     }
@@ -836,7 +910,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const seasonTotalOnlyReason = "このタブはシーズン通算値のみ対応のため、上の絞り込みは連動しません。";
   // Streaks は、レギュラーシーズンの連勝・連敗だけ（ホーム・アウェイ別も同じ）。試合区分などの選択欄は使えない（DESIGN.md 261章）
   const streaksOnlyReason = "このタブはレギュラーシーズンの連勝・連敗だけのため、上の絞り込みは連動しません。";
-  const filterDisabledReason = isMainCategory || isShareCategory || isForeignCategory
+  // Time to Shot は、試合区分・試合の条件・区間・視点（自チーム／opp／+/-）が連動する（290章）。平均／合計・登録区分・スタッツの条件は使わない
+  const isTtsCategory = boxTab === "timeToShot";
+  const filterDisabledReason = isMainCategory || isShareCategory || isForeignCategory || isTtsCategory
     ? undefined
     : boxTab === "shooting"
       ? "このタブはシーズン通算値のみ対応です（表示の平均/合計だけ連動します）。"
@@ -847,7 +923,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     ? undefined
     : isShareCategory
       ? "このタブは割合のグラフのため、平均/合計の切り替えは連動しません（右端の得点・失点は1試合平均です）。"
-      : boxTab === "streaks"
+      : isTtsCategory
+        ? "このタブは平均の秒数と割合のため、平均/合計の切り替えは連動しません。"
+        : boxTab === "streaks"
         ? streaksOnlyReason
         : seasonTotalOnlyReason;
   const perspectiveDisabledReason = isShareCategory
@@ -909,6 +987,8 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             situationalFilterLabels(filter),
             periodTab ? periodLabels(periodOption) : [],
           )
+        : boxTab === "timeToShot"
+          ? composeLabels(gameTypeLabels(gameType, season), perspectiveLabels(teamPerspective), situationalFilterLabels(filter), periodLabels(periodOption), "公式の記録の時刻から計算")
         : boxTab === "shooting"
           ? composeLabels(displayModeLabels(displayMode), SEASON_TOTAL_ONLY_LABELS)
           : boxTab === "streaks"
@@ -943,6 +1023,8 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             ? undefined
             : boxTab === "periods"
               ? "このタブは区間別の得点の表のため、スタッツの条件は Traditional〜Forced TOV のタブでだけ効きます。"
+              : boxTab === "timeToShot"
+              ? "このタブは秒数と割合の表のため、スタッツの条件は Traditional〜Forced TOV のタブでだけ効きます。"
               : boxTab === "streaks"
                 ? "このタブは連勝・連敗の表のため、スタッツの条件は Traditional〜Forced TOV のタブでだけ効きます。"
                 : "このタブはグラフのため、スタッツの条件は表のタブ（Traditional〜Forced TOV）でだけ効きます。",
@@ -1000,6 +1082,13 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             type="button"
           >
             {CATEGORY_LABELS.periods}
+          </button>
+          <button
+            className={`tab-button${boxTab === "timeToShot" ? " active" : ""}`}
+            onClick={() => setBoxTab("timeToShot")}
+            type="button"
+          >
+            {TTS_CATEGORY_LABEL}
           </button>
           <button
             className={`tab-button${boxTab === "streaks" ? " active" : ""}`}
@@ -1202,6 +1291,42 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         </>
       ) : gameLogsLoading || !gameLogsByTeam || boxTab === "scoringComposition" ? (
         <p className="loading">読み込み中...</p>
+      ) : boxTab === "timeToShot" ? (
+        ttsSupported && ttsLoading ? (
+          <p className="loading">読み込み中...</p>
+        ) : ttsSupported && !ttsSource ? (
+          <p className="empty-message">
+            このシーズンの Time to Shot を読み込めませんでした。
+            <button type="button" onClick={retryTts}>
+              もう一度読み込む
+            </button>
+          </p>
+        ) : (
+          <>
+            <div className="table-scroll">
+              <TtsTable
+                key={`${boxTab}-${teamPerspective}`}
+                leading={TTS_TEAM_LEADING}
+                rows={ttsRows}
+                rowKey={(r) => r.team.teamId}
+                valuesOf={(r) => r.values}
+                perspective={teamPerspective}
+                linkTo={(r) => `/teams/${r.team.teamId}`}
+                defaultSortKey="avg:all"
+                defaultSortDir="asc"
+                pinnedRows={ttsLeagueRow && teamPerspective === "own" ? [ttsLeagueRow] : undefined}
+              />
+            </div>
+            {!ttsSupported && <p className="page-subtitle">{TTS_UNSUPPORTED_NOTE}</p>}
+            <p className="page-subtitle">
+              秒＝攻撃が始まってから最初のFGを打つまでの平均、%＝計測できたFGの総数に占める割合です（1st Shot%＋After OR%＝100%）。
+              相手の得点後はスローインの時間を含み、途中でファウルがあっても数え直しません。デッドボールTOはスティールの付いていないTOです。公式の記録の時刻（1秒単位）から計算した値です。
+              {period === "ot" ? "延長は、延長のあった試合だけの値です（すべての延長の合計）。" : ""}
+            </p>
+            <TtsNameLegend />
+            <GlossaryNote anchor={GLOSSARY_ANCHORS.timeToShot} label="Time to Shot" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />
+          </>
+        )
       ) : boxTab === "streaks" ? (
         <>
           <div className="table-scroll">

@@ -8393,3 +8393,47 @@ table.sortable-table.lineup-search-table tbody th {
 }
 .season-class-cell { white-space: nowrap; }
 .stats-table td.season-class-cell a.cell-link { display: inline; }
+
+/* Time to Shot の表（DESIGN.md 290章）: 項目名の見出しの下に「秒」「%」の2段見出し。2段目は上の段に重ねず、通常の位置に置く */
+table.sortable-table.tts-table thead tr:nth-child(2) th {
+  position: static;
+  font-weight: 500;
+}
+table.sortable-table.tts-table th.tts-group-head {
+  text-align: center;
+  text-transform: none;
+  cursor: help;
+  border-left: 1px solid var(--border);
+}
+table.sortable-table.tts-table th.tts-sub-head {
+  padding-top: 2px;
+  padding-bottom: 4px;
+}
+table.sortable-table.tts-table td,
+table.sortable-table.tts-table th {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.tts-name-legend {
+  margin: 8px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.tts-name-legend summary {
+  cursor: pointer;
+}
+.tts-name-legend dl {
+  margin: 6px 0 0;
+}
+.tts-name-legend dl > div {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+}
+.tts-name-legend dt {
+  min-width: 112px;
+  font-weight: 600;
+}
+.tts-name-legend dd {
+  margin: 0;
+}

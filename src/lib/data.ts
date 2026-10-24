@@ -15,6 +15,7 @@
 import type { PlayerGameIndexFile, TeamGameIndexFile } from "../../shared/gameIndex";
 import type { AssistPairsFile } from "../../shared/assistPairs";
 import type { PlayerPeriodIndexFile, TeamPeriodIndexFile } from "../../shared/periodIndex";
+import type { TtsIndexFile } from "../../shared/ttsIndex";
 import type {
   LeaguePlayerGameRecordsFile,
   PlayerGameRecordsFile,
@@ -210,6 +211,15 @@ export async function fetchPlayerPeriodIndex(season: string): Promise<PlayerPeri
 export async function fetchTeamPeriodIndex(season: string): Promise<TeamPeriodIndexFile | null> {
   try {
     return await fetchJson<TeamPeriodIndexFile>(`${dataBase}/${season}/team-period-index.json`);
+  } catch {
+    return null;
+  }
+}
+
+/** Time to Shot の導出データ（data/{season}/team-tts.json）。2020-21 より前・ファイルが無ければ null */
+export async function fetchTeamTtsIndex(season: string): Promise<TtsIndexFile | null> {
+  try {
+    return await fetchJson<TtsIndexFile>(`${dataBase}/${season}/team-tts.json`);
   } catch {
     return null;
   }

@@ -1,6 +1,8 @@
 import { AiExportButton } from "../components/AiExportButton";
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
+import { TeamSeasonTtsTable } from "../components/TeamSeasonTtsTable";
+import { TTS_CATEGORY_LABEL, type TtsPeriodValue } from "../lib/teamTts";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { EMPTY_TEAM_SEASON_MISC, sumTeamSeasonMisc, type TeamSeasonMiscTotals } from "../../shared/teamSeasonMisc";
 import { postseasonLabel } from "../../shared/gameType";
@@ -866,6 +868,7 @@ function teamBoxCategoryLabel(key: string): string {
   if (key === "foreignPlayers") return CATEGORY_LABELS.foreignPlayers;
   if (key === "scoringComposition") return CATEGORY_LABELS.scoringComposition;
   if (key === "periods") return CATEGORY_LABELS.periods;
+  if (key === "timeToShot") return TTS_CATEGORY_LABEL;
   if (key === "streaks") return STREAKS_CATEGORY_LABEL;
   return BOXSCORE_TABS.find((t) => t.key === key)?.label ?? key;
 }
@@ -2205,7 +2208,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 再利用するが、列自体はTeamSummary（seasonHistory）＋TeamGameLog（careerData、Misc用）から
   // 直接組み立てる専用の列定義（TEAM_SEASON_*_COLUMNS）を使う（DESIGN.md参照）
   const [seasonBoxTab, setSeasonBoxTab] = usePageState<
-    SeasonBoxTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition" | "periods" | "streaks"
+    SeasonBoxTabKey | "shooting" | "forcedTurnovers" | "foreignPlayers" | "scoringComposition" | "periods" | "timeToShot" | "streaks"
   >(pk("seasonBoxTab"), "traditional");
   // On-Court Foreign・Scoring % のシーズン別推移（DESIGN.md 141章）: 規定の上限人数
   const seasonShareTab = seasonBoxTab === "foreignPlayers" || seasonBoxTab === "scoringComposition";
@@ -3000,13 +3003,14 @@ export function TeamDetailPage({ season }: { season: string }) {
     seasonBoxTab === "misc" ||
     seasonBoxTab === "scoring" ||
     seasonBoxTab === "foreignPlayers" ||
-    seasonBoxTab === "scoringComposition";
+    seasonBoxTab === "scoringComposition" ||
+    seasonBoxTab === "timeToShot";
   const seasonBoxPeriodValue: PeriodRangeValue =
     seasonBoxPeriodSupported && SEASON_PERIOD_OPTIONS.some((o) => o.value === seasonBoxPeriod) ? seasonBoxPeriod : "all";
   const seasonBoxPeriodOn = seasonBoxPeriodValue !== "all";
   const seasonPeriodSources = useTeamPeriodSources(
     (seasonHistory ?? []).map((r) => r.season),
-    tab === "teamStats" && seasonBoxPeriodOn,
+    tab === "teamStats" && seasonBoxPeriodOn && seasonBoxTab !== "timeToShot", // Time to Shot は専用の導出データを読む
   );
 
   // シーズン別成績の登録区分別（DESIGN.md 288章）。開いたシーズンの行だけ、区分別の索引を読む（初期表示では読まない）。区間との併用は段階6まで選べない
@@ -3760,7 +3764,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const seasonBoxFoulSplit = foulColumnsSplit((seasonHistoryDesc ?? []).map((r) => r.season));
   // 区間を選んでいるときの、シーズンごとの行（索引から。レギュラーシーズンだけ）。選んでいないときは null
   const seasonPeriodTableRows =
-    seasonBoxPeriodOn && seasonHistoryDesc && careerData
+    seasonBoxPeriodOn && seasonBoxTab !== "timeToShot" && seasonHistoryDesc && careerData
       ? new Map(
           seasonHistoryDesc.map((r) => [
             r.season,
@@ -4690,7 +4694,9 @@ export function TeamDetailPage({ season }: { season: string }) {
                     ? `${CATEGORY_LABELS.forcedTurnovers}は種類別の通算件数のみで、平均/合計は連動しません。`
                     : seasonShareTab
                       ? `${teamBoxCategoryLabel(seasonBoxTab)}のグラフは割合で、平均/合計は連動しません。`
-                      : undefined,
+                      : seasonBoxTab === "timeToShot"
+                        ? `${TTS_CATEGORY_LABEL}は平均の秒数と割合のため、平均/合計は連動しません。`
+                        : undefined,
               }),
               periodAxis(seasonBoxPeriodValue, setSeasonBoxPeriod, SEASON_PERIOD_OPTIONS, {
                 disabledReason: seasonBoxPeriodSupported
@@ -4703,7 +4709,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               }),
             ]}
           />
-          {seasonBoxPeriodOn && seasonPeriodSources.loadedCount < seasonPeriodSources.total && (
+          {seasonBoxPeriodOn && seasonBoxTab !== "timeToShot" && seasonPeriodSources.loadedCount < seasonPeriodSources.total && (
             <p className="loading">区間の記録を読み込み中...（{seasonPeriodSources.loadedCount}/{seasonPeriodSources.total}シーズン）</p>
           )}
           <div className="tab-bar">
@@ -4754,6 +4760,13 @@ export function TeamDetailPage({ season }: { season: string }) {
               {CATEGORY_LABELS.periods}
             </button>
             <button
+              className={`tab-button${seasonBoxTab === "timeToShot" ? " active" : ""}`}
+              onClick={() => setSeasonBoxTab("timeToShot")}
+              type="button"
+            >
+              {TTS_CATEGORY_LABEL}
+            </button>
+            <button
               className={`tab-button${seasonBoxTab === "streaks" ? " active" : ""}`}
               onClick={() => setSeasonBoxTab("streaks")}
               type="button"
@@ -4774,6 +4787,15 @@ export function TeamDetailPage({ season }: { season: string }) {
               <TeamSeasonForeignChart rows={seasonHistoryDesc} rules={seasonRulesForTrend ?? null} periodShares={seasonForeignPeriodShares} />
               {seasonBoxPeriodOn && <SeasonPeriodNotes chart period={seasonBoxPeriodValue} {...seasonForeignPeriodIssues} />}
             </>
+          ) : seasonBoxTab === "timeToShot" ? (
+            <TeamSeasonTtsTable
+              teamId={team.teamId}
+              seasons={seasonHistoryDesc.map((r) => r.season)}
+              teamNameOf={(s) => seasonHistoryDesc.find((r) => r.season === s)?.teamName ?? ""}
+              logsOf={(s) => careerData?.find((c) => c.season === s)?.logs ?? []}
+              perspective={seasonBoxPerspective}
+              period={seasonBoxPeriodValue as TtsPeriodValue | "all"}
+            />
           ) : seasonBoxTab === "periods" ? (
             <>
               <div className="table-scroll">
