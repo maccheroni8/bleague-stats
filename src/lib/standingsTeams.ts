@@ -1,4 +1,5 @@
 import type { PlayoffRaceFile, StandingsTeamSnapshot } from "../../shared/types";
+import { formatDecimal, formatRecord, formatSigned, formatWinPct } from "./format";
 
 /**
  * 順位表の1チーム。unplayed=true は、開幕直後でまだ試合をしていないため順位表スナップショット
@@ -6,6 +7,33 @@ import type { PlayoffRaceFile, StandingsTeamSnapshot } from "../../shared/types"
  * から0勝0敗で補ったもの（withUnplayedTeams参照）。順位は付けず「-」で表示する
  */
 export type StandingsTeam = StandingsTeamSnapshot & { unplayed?: boolean };
+
+/**
+ * 順位表の列（試合数・勝敗・勝率・得失点差・ゲーム差）の表示。順位表（StandingsPage）と勝敗表（WinLossGrid）で同じ値にするため、
+ * 整形はここ1か所にまとめる。未試合のクラブは「-」（ゲーム差だけ、首位との勝ち負け差があれば数値）。首位（差0）は「-」
+ */
+export interface StandingsStatCells {
+  games: string;
+  record: string;
+  winPct: string;
+  pointDiff: string;
+  gamesBehind: string;
+}
+
+export function formatGamesBehind(t: Pick<StandingsTeam, "unplayed" | "divisionGamesBehind">): string {
+  if (t.unplayed) return t.divisionGamesBehind === undefined ? "-" : formatDecimal(t.divisionGamesBehind);
+  return !t.divisionGamesBehind ? "-" : formatDecimal(t.divisionGamesBehind);
+}
+
+export function standingsStatCells(t: StandingsTeam): StandingsStatCells {
+  return {
+    games: String(t.wins + t.losses),
+    record: formatRecord(t.wins, t.losses),
+    winPct: t.unplayed ? "-" : formatWinPct(t.winPct),
+    pointDiff: t.unplayed ? "-" : formatSigned(t.pointDiff, 0),
+    gamesBehind: formatGamesBehind(t),
+  };
+}
 
 /**
  * まだ試合をしていないクラブを0勝0敗で順位表に加える（2026-27〜のB.PREMIERフォーマットのみ。それ以前の

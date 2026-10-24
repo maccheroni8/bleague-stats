@@ -25,6 +25,7 @@ export const STAT_NAMES: Record<string, StatJaName> = {
   勝: "勝利数",
   負: "敗戦数",
   勝率: "勝率",
+  ゲーム差: "ゲーム差",
   // シーズンの最長の連勝・連敗（順位表・勝敗表・チームスタッツ Streaks。チーム詳細クラブレコードの「最多連勝（シーズン内）」は全シーズンの中の最長で、別の値）
   最多連勝: "シーズン最多連勝",
   最多連敗: "シーズン最多連敗",
@@ -203,6 +204,7 @@ export const STAT_NAMES: Record<string, StatJaName> = {
  * 保存状態・共有された URL・古い文字列から開かれたときに読み替える。`validate:stat-names` が、画面のソースに残っていないことを確かめる
  */
 export const STAT_ALIASES: Record<string, string> = {
+  GB: "ゲーム差",
   REB: "TR",
   TREB: "TR",
   OREB: "OR",

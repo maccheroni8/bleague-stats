@@ -6579,6 +6579,45 @@ table.wl-grid .wl-clinch-dashed {
   pointer-events: none;
 }
 
+/* チーム名と○●のマスの間の列（試合数・勝敗・勝率・得失点差・ゲーム差。順位表と同じ値）。ほかの列と一緒にスクロールする（チーム名の列だけ固定） */
+table.wl-grid .wl-rec {
+  padding: 6px 8px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+table.wl-grid th.wl-rec {
+  text-align: right;
+}
+
+table.wl-grid td.wl-rec {
+  font-size: 12px;
+}
+
+table.wl-grid .wl-rec-first {
+  border-left: 1px solid var(--border);
+}
+
+table.wl-grid .wl-rec-games {
+  min-width: 44px;
+}
+
+table.wl-grid .wl-rec-record {
+  min-width: 60px;
+}
+
+table.wl-grid .wl-rec-winPct {
+  min-width: 48px;
+}
+
+table.wl-grid .wl-rec-pointDiff {
+  min-width: 56px;
+}
+
+table.wl-grid .wl-rec-gamesBehind {
+  min-width: 56px;
+}
+
 table.wl-grid .wl-stat {
   min-width: 64px;
   padding: 6px 10px;
@@ -6670,6 +6709,31 @@ table.wl-grid tbody tr:hover td.wl-away {
     min-width: 120px;
     max-width: 120px;
     padding-right: 6px;
+  }
+
+  /* 足した列は詰める（チーム名の列＋5列がほぼ画面幅に入る。ゲーム差が切れる幅ではスクロールで見る） */
+  table.wl-grid .wl-rec {
+    padding: 6px 3px;
+  }
+
+  table.wl-grid .wl-rec-games {
+    min-width: 32px;
+  }
+
+  table.wl-grid .wl-rec-record {
+    min-width: 48px;
+  }
+
+  table.wl-grid .wl-rec-winPct {
+    min-width: 38px;
+  }
+
+  table.wl-grid .wl-rec-pointDiff {
+    min-width: 44px;
+  }
+
+  table.wl-grid .wl-rec-gamesBehind {
+    min-width: 42px;
   }
 }
 

@@ -12,7 +12,7 @@ import { SeasonLink } from './SeasonLink';
 import { DIVISION_LABELS, DIVISION_ORDER } from '../lib/divisionGroups';
 import './AnnualSchedule.css';
 
-const STANDING_LABELS = ['試合数', '勝', '負', '勝率', '残', 'GB'];
+const STANDING_LABELS = ['試合数', '勝', '負', '勝率', '残', 'ゲーム差'];
 const statStyle = (i: number) => ({ '--annual-stat-offset': `${i * 42}px` }) as CSSProperties;
 const COMPETITIONS = { league: 'リーグ戦', easl: 'EASL', cup: '天皇杯' };
 async function fetchCalendar(): Promise<AnnualCalendarFile> {
@@ -122,7 +122,7 @@ export function AnnualSchedule({ season }: { season: string }) {
       </table>
     </div>
     </section>)}
-    <p className="annual-note">試合数・勝・負・勝率・残・GBはレギュラーシーズンの成績です。GBは地区首位との差、残は残り試合数です。</p>
+    <p className="annual-note">試合数・勝・負・勝率・残・ゲーム差はレギュラーシーズンの成績です。ゲーム差は地区首位との差、残は残り試合数です。</p>
     <p className="annual-note">{dates[0]}〜{dates[dates.length - 1]}・日本時間。リーグ戦はポストシーズンを含みます。空欄は収録した日程に試合がない日です。大会期間の帯は各チームの出場を示すものではありません。</p>
     {supplement?.finalsSource && <p className="annual-note">終端はFINALSの最終戦予定日です。<a href={supplement.finalsSource} target="_blank" rel="noreferrer">公式日程</a></p>}
     {supplement?.notes.map(n => <p className="annual-note" key={n}>{n}</p>)}

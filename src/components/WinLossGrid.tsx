@@ -7,6 +7,7 @@ import { postseasonLabel } from "../../shared/gameType";
 import { formatDateHeading } from "../lib/format";
 import { TeamLogo } from "./TeamLogo";
 import { statDescription } from "../lib/statDescriptions";
+import type { StandingsStatCells } from "../lib/standingsTeams";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
 import { resultOnlyReasonLabel } from "../lib/resultOnlyGames";
@@ -25,6 +26,8 @@ export interface WinLossGridTeam {
   teamName: string;
   /** 地区順位。null は未試合（「-」）。地区の無い表示では渡さない（undefined＝順位の列なし） */
   divisionRank?: number | null;
+  /** 試合数・勝敗・勝率・得失点差・ゲーム差（順位表と同じ値。src/lib/standingsTeams.ts の standingsStatCells）。渡さなければ列を出さない */
+  stats?: StandingsStatCells;
 }
 
 interface GameCell {
@@ -39,6 +42,15 @@ interface GameCell {
   opponentScore: number;
   venue?: string;
 }
+
+/** チーム名と○●のマスの間に出す列（順位表と同じ名前・同じ値） */
+const STAT_COLS: { key: keyof StandingsStatCells; label: string }[] = [
+  { key: "games", label: "試合数" },
+  { key: "record", label: "勝敗" },
+  { key: "winPct", label: "勝率" },
+  { key: "pointDiff", label: "得失点差" },
+  { key: "gamesBehind", label: "ゲーム差" },
+];
 
 const CLINCH_MARKS: Record<ClinchType, string> = { division: "◎", homeCourt: "★", playoffs: "☆" };
 const CLINCH_ORDER: ClinchType[] = ["division", "homeCourt", "playoffs"];
@@ -177,6 +189,7 @@ export function WinLossGrid({
 }) {
   const resultOnlyByKey = new Map((resultOnly ?? []).map((g) => [g.scheduleKey, g]));
   const showRank = teams.some((t) => t.divisionRank !== undefined);
+  const showStats = teams.some((t) => t.stats !== undefined);
   const cellsByTeam = new Map(teams.map((t) => [t.teamId, teamGames(t.teamId, games)]));
   const pendingByTeam = new Map(teams.map((t) => [t.teamId, pendingGames(t, games, upcomingGames, teamIdByName)]));
   // 列数: シーズンの最大試合数（終了＋試合中＋開催予定）。2019-20（中止）等は実際に消化した最大数
@@ -200,6 +213,12 @@ export function WinLossGrid({
               {showRank && <span className="wl-rank">順位</span>}
               チーム
             </th>
+            {showStats &&
+              STAT_COLS.map((c) => (
+                <th key={c.key} className={`wl-rec wl-rec-${c.key}${c.key === "games" ? " wl-rec-first" : ""}`} title={statDescription(c.label, "team")}>
+                  {c.label}
+                </th>
+              ))}
             {Array.from({ length: slots }, (_, i) => (
               <th key={i} className={`wl-num${i > 0 && i % 10 === 0 ? " wl-sep" : ""}`}>
                 {i + 1}
@@ -229,6 +248,12 @@ export function WinLossGrid({
                     </span>
                   </Link>
                 </td>
+                {showStats &&
+                  STAT_COLS.map((c) => (
+                    <td key={c.key} className={`wl-rec wl-rec-${c.key}${c.key === "games" ? " wl-rec-first" : ""}`}>
+                      {t.stats?.[c.key] ?? "-"}
+                    </td>
+                  ))}
                 {Array.from({ length: slots }, (_, i) => {
                   const c = cells[i];
                   const sep = i > 0 && i % 10 === 0 ? " wl-sep" : "";

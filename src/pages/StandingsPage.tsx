@@ -44,7 +44,7 @@ import {
   type PostseasonFormat,
 } from "../../shared/postseasonFormat";
 import { DIVISION_LABELS, divisionPresets, groupByDivision } from "../lib/divisionGroups";
-import { withUnplayedTeams, type StandingsTeam } from "../lib/standingsTeams";
+import { formatGamesBehind, standingsStatCells, withUnplayedTeams, type StandingsTeam } from "../lib/standingsTeams";
 import { findFebruaryBiweekGap } from "../lib/situational";
 import type {
   HeadToHeadTeamRow,
@@ -345,17 +345,10 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
   },
   {
     key: "divisionGamesBehind",
-    label: "GB",
+    label: "ゲーム差",
     sortValue: (t) => t.divisionGamesBehind ?? 0,
     // 首位（差0）は「-」。未試合のクラブは首位と同じ勝ち負け差でも「0.0」と数値で示す
-    format: (t) =>
-      t.unplayed
-        ? t.divisionGamesBehind === undefined
-          ? "-"
-          : formatDecimal(t.divisionGamesBehind)
-        : !t.divisionGamesBehind
-          ? "-"
-          : formatDecimal(t.divisionGamesBehind),
+    format: (t) => formatGamesBehind(t),
   },
   {
     key: "pointDiff",
@@ -1033,6 +1026,7 @@ export function StandingsPage({ season }: { season: string }) {
                       teamName: r.teamName,
                       // 地区順位（順位表の表示と同じ値）。地区の無いシーズンの全体表示では順位を出さない
                       divisionRank: g.key === "all" ? undefined : r.unplayed ? null : (r.divisionRank ?? null),
+                      stats: standingsStatCells(r),
                     }))}
                     games={gamesForGrid ?? gameSummaries}
                     resultOnly={resultOnlyEntries}
