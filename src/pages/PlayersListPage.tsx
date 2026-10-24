@@ -1206,6 +1206,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
           <PlayerNamePool names={tableRows.map((r) => r.player.name)}>
           <div className="table-scroll">
             <SortableTable
+              rowNumbers
               key={`${tab}|${tab === "traditional" || tab === "advanced" ? filterActive : false}`}
               columns={columns}
               rows={tableRows}
@@ -1820,6 +1821,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
         <PlayerNamePool names={rows.map((r) => r.player.name)}>
           <div className="table-scroll">
             <SortableTable
+              rowNumbers
               columns={columns}
               rows={rows}
               rowKey={(r) => r.player.playerId}

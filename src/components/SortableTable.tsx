@@ -51,6 +51,8 @@ interface SortableTableProps<T> {
    * 列の format・render をそのまま使う
    */
   pinnedRows?: T[];
+  /** 指定時、先頭に「#」の列を足し、今の並びで上から 1, 2, 3… の通し番号を出す（並べ替え・絞り込みのたびに振り直す。左端に固定。リーグ平均の行は空欄） */
+  rowNumbers?: boolean;
 }
 
 export function SortableTable<T>({
@@ -67,6 +69,7 @@ export function SortableTable<T>({
   limit,
   statScope = "player",
   pinnedRows,
+  rowNumbers,
 }: SortableTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
@@ -95,9 +98,14 @@ export function SortableTable<T>({
   };
 
   return (
-    <table className="sortable-table">
+    <table className={rowNumbers ? "sortable-table has-row-number" : "sortable-table"}>
       <thead>
         <tr>
+          {rowNumbers && (
+            <th className="align-right row-number-cell" title="今の並びでの上からの番号">
+              #
+            </th>
+          )}
           {columns.map((col) => (
             <th
               key={col.key}
@@ -113,7 +121,7 @@ export function SortableTable<T>({
         </tr>
       </thead>
       <tbody>
-        {visibleRows.map((row) => {
+        {visibleRows.map((row, rowIndex) => {
           const accent = rowAccentColor?.(row);
           const highlight = rowHighlightColor?.(row);
           return (
@@ -122,6 +130,7 @@ export function SortableTable<T>({
               className={highlight ? (rowHighlightStrength?.(row) === "half" ? "row-highlight row-highlight-half" : "row-highlight") : undefined}
               style={highlight ? ({ "--row-highlight-color": highlight } as CSSProperties) : undefined}
             >
+              {rowNumbers && <td className="align-right row-number-cell">{rowIndex + 1}</td>}
               {columns.map((col, i) => {
                 const content: ReactNode = col.render
                   ? col.render(row)
@@ -150,6 +159,7 @@ export function SortableTable<T>({
         })}
         {pinnedRows?.map((row) => (
           <tr key={`pinned-${rowKey(row)}`} className="pinned-row">
+            {rowNumbers && <td className="align-right row-number-cell" />}
             {columns.map((col) => (
               <td key={col.key} className={col.align === "left" ? "align-left" : "align-right"}>
                 {col.render ? col.render(row) : (col.format?.(row) ?? String(col.sortValue(row)))}

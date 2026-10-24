@@ -1031,6 +1031,46 @@ table.stats-table tbody tr:hover td:first-child {
   }
 }
 
+/* 通し番号の列（SortableTable・TtsTable の rowNumbers）。番号列を左端に固定し、その右の列（チーム名・選手名）も
+   番号列の幅の分だけずらして一緒に固定する。幅は固定値にして、2列目の固定位置（left）を確定させる */
+table.sortable-table.has-row-number th.row-number-cell,
+table.sortable-table.has-row-number td.row-number-cell {
+  box-sizing: border-box;
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  padding-left: 4px;
+  padding-right: 4px;
+  text-align: right;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+table.sortable-table.has-row-number td:nth-child(2) {
+  position: sticky;
+  left: 32px;
+  z-index: 1;
+  background: var(--bg);
+}
+
+table.sortable-table.has-row-number thead tr:first-child th:nth-child(2) {
+  position: sticky;
+  left: 32px;
+  z-index: 2;
+}
+
+table.sortable-table.has-row-number tbody tr:hover td:nth-child(2) {
+  background: var(--row-hover);
+}
+
+[data-design="v2"] table.sortable-table.has-row-number td:first-child {
+  font-weight: 400;
+}
+
+[data-design="v2"] table.sortable-table.has-row-number td:nth-child(2) {
+  font-weight: 600;
+}
+
 table.sortable-table {
   border-collapse: collapse;
   width: 100%;

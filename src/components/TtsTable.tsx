@@ -25,13 +25,15 @@ interface TtsTableProps<T> {
   defaultSortDir?: "asc" | "desc";
   /** 並べ替えの対象にせず、末尾に固定で出す行（リーグ平均） */
   pinnedRows?: T[];
+  /** 先頭に「#」の列を足し、今の並びで上から 1, 2, 3… の通し番号を出す（リーグ平均の行は空欄） */
+  rowNumbers?: boolean;
 }
 
 /**
  * Time to Shot の表（DESIGN.md 290章）。項目名の見出しの下に「秒」と「%」の2列を並べる2段の見出し（TTS は「秒」だけ）。
  * 見出しにカーソルを当てると日本語名（statJa）の説明が出る。クリックで並べ替え（項目名の見出しは「秒」の列で並べ替える）
  */
-export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, linkTo, defaultSortKey, defaultSortDir = "desc", pinnedRows }: TtsTableProps<T>) {
+export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, linkTo, defaultSortKey, defaultSortDir = "desc", pinnedRows, rowNumbers }: TtsTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
   const valueColumn = (key: string): { item: (typeof TTS_TABLE_ITEMS)[number]["item"]; kind: "avg" | "pct" } | null => {
@@ -67,11 +69,12 @@ export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, link
   const mark = (key: string) => (sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "");
   const aria = (key: string) => (sortKey === key ? (sortDir === "asc" ? ("ascending" as const) : ("descending" as const)) : undefined);
 
-  const cells = (row: T, isLink: boolean) => {
+  const cells = (row: T, isLink: boolean, index?: number) => {
     const v = valuesOf(row);
     const to = isLink ? linkTo?.(row) : undefined;
     return (
       <>
+        {rowNumbers && <td className="align-right row-number-cell">{index !== undefined ? index + 1 : ""}</td>}
         {leading.map((c) => (
           <td key={c.key} className={c.align === "left" ? "align-left" : "align-right"}>
             {to ? (
@@ -100,9 +103,14 @@ export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, link
   };
 
   return (
-    <table className="sortable-table tts-table">
+    <table className={rowNumbers ? "sortable-table tts-table has-row-number" : "sortable-table tts-table"}>
       <thead>
         <tr>
+          {rowNumbers && (
+            <th rowSpan={2} className="align-right row-number-cell" title="今の並びでの上からの番号">
+              #
+            </th>
+          )}
           {leading.map((c) => (
             <th key={c.key} rowSpan={2} className={c.align === "left" ? "align-left" : "align-right"} onClick={() => click(c.key)} aria-sort={aria(c.key)} title={statDescription(c.label, "team")}>
               {c.label}
@@ -131,8 +139,8 @@ export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, link
         </tr>
       </thead>
       <tbody>
-        {sortedRows.map((row) => (
-          <tr key={rowKey(row)}>{cells(row, true)}</tr>
+        {sortedRows.map((row, i) => (
+          <tr key={rowKey(row)}>{cells(row, true, i)}</tr>
         ))}
         {pinnedRows?.map((row) => (
           <tr key={`pinned-${rowKey(row)}`} className="pinned-row">

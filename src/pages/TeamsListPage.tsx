@@ -1114,6 +1114,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           <>
             <div className="table-scroll">
               <SortableTable
+                rowNumbers
                 statScope="team"
                 columns={shootingColumns}
                 rows={shootingRows}
@@ -1150,6 +1151,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
             </div>
             <div className="table-scroll">
               <SortableTable
+                rowNumbers
                 statScope="team"
                 columns={turnoverColumns}
                 rows={turnoverRows}
@@ -1193,6 +1195,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
               />
               <div className="table-scroll">
                 <SortableTable
+                  rowNumbers
                   statScope="team"
                   key={`foreign-${displayMode}`}
                   columns={foreignCourtColumns(displayMode === "total" ? "total" : "perGame", foreignCounts)}
@@ -1305,6 +1308,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           <>
             <div className="table-scroll">
               <TtsTable
+                rowNumbers
                 key={`${boxTab}-${teamPerspective}`}
                 leading={TTS_TEAM_LEADING}
                 rows={ttsRows}
@@ -1331,6 +1335,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         <>
           <div className="table-scroll">
             <SortableTable
+              rowNumbers
               statScope="team"
               key={boxTab}
               columns={streakColumns}
@@ -1349,6 +1354,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         <>
           <div className="table-scroll">
             <SortableTable
+              rowNumbers
               statScope="team"
               key={`${boxTab}-${teamPerspective}`}
               columns={periodColumns}
@@ -1380,6 +1386,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         <>
           <div className="table-scroll">
             <SortableTable
+              rowNumbers
               statScope="team"
               key={`${boxTab}-${teamPerspective}`}
               columns={columns}
@@ -2218,6 +2225,7 @@ function RecentFormTab({ season }: { season: string }) {
       ) : (
         <div className="table-scroll">
           <SortableTable
+            rowNumbers
             statScope="team"
             columns={columns}
             rows={rows}
