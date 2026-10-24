@@ -1385,6 +1385,12 @@ function processLineups(
   }
 }
 
+/**
+ * 出場時間0の行の +/- も含めて全部数えない試合（season:scheduleKey）。2016-17 の試合101は、出場していない選手9人に
+ * 公式がPF1を付けた誤りの試合で、在コートの復元がその誤った記録を追った +/- を作ってしまうため（DESIGN.md 277・289章）
+ */
+const DNP_ROWS_IGNORED_ENTIRELY = new Set(["2016-17:101"]);
+
 function processPlayers(
   game: StoredGame,
   gameType: GameType,
@@ -1433,15 +1439,26 @@ function processPlayers(
       // 出場判定はPlayingFlgではなくPlayTime基準（実データ検証でPlayingFlg=falseでも
       // 得点等が記録されている選手が見つかったため。DESIGN.md 2-2章の記述は誤りだった）
       const countGame = row.PlayTime !== "DNP";
-      addBoxscoreRow(
-        acc.totals,
-        row,
-        countGame,
-        teamNetForGame,
-        reconstructedPlusMinus,
-        undefined,
-        technicalFoulsByPlayer.get(row.PlayerID) ?? 0,
-      );
+      if (countGame) {
+        addBoxscoreRow(
+          acc.totals,
+          row,
+          countGame,
+          teamNetForGame,
+          reconstructedPlusMinus,
+          undefined,
+          technicalFoulsByPlayer.get(row.PlayerID) ?? 0,
+        );
+      } else {
+        // 出場時間0（DNP）の行は、成績（PF など）をシーズン合計に数えない。+/- が0でない行だけは、公式（または復元）の
+        // 正しい値なので plusMinus に足し、Off-Court Net（teamNetSum − plusMinus）が崩れないよう teamNetSum にも足す。
+        // gamesPlayed（出場試合数）には足さない。試合ログ（gameLogs）には今までどおり残す。DESIGN.md 289章
+        const dnpPlusMinus = row.PLUSMINUS ?? reconstructedPlusMinus ?? 0;
+        if (dnpPlusMinus !== 0 && !DNP_ROWS_IGNORED_ENTIRELY.has(`${game.season}:${game.scheduleKey}`)) {
+          acc.totals.plusMinus += dnpPlusMinus;
+          acc.totals.teamNetSum += teamNetForGame;
+        }
+      }
       // ダブルダブル/トリプルダブル判定（src/lib/boxscoreAggregate.tsのcomputeStatBadge()と
       // 同じ閾値。PTS/REB/AST/STL/BLKのうち2桁到達部門数が2以上でDD、3以上でTD）
       if (countGame) {
