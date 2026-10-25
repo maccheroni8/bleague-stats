@@ -105,7 +105,8 @@ assert.ok(figureAgeReferences(ageSummary([]),"both").every(r=>r.value===null));
 assert.deepEqual(figureAgeReferences(ageSummary([20,20,40]),"both").map(r=>r.value), [80/3,20]);
 console.log("年齢分布: 出場試合率の境界・分母欠損・平均出場時間とのAND・平均/中央値の両方 OK");
 
-// 任意: 既存の導出データを読み取り専用で使い、移動前の全選手スタッツの判定と全季で比較。
+// 既存の導出データ（npm run build:data のあと）を読み取り専用で使い、移動前の全選手スタッツの判定と全季で比較。
+// package.json の validate:figures が data を渡すので、validate:all でも毎回流れる（DESIGN.md 296章）。導出データが無ければ失敗する
 const source = process.argv[2];
 if (source) {
   let seasons = 0;
@@ -215,6 +216,7 @@ if(source){
     }
     seasonCount++;
   }
+  assert.ok(seasonCount>0&&comparisons>0,"散布図: 比較できる導出データが必要");
   console.log(`散布図: ${seasonCount}シーズン×4期間×3試合区分=${scenarios}条件、${comparisons}件のチーム指標とリーグ平均が全チームスタッツと一致`);
 }
 

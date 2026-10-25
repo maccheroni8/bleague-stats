@@ -4,6 +4,7 @@ import { teamShortName } from "../../shared/teamNames";
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from "../../shared/gameType";
 import { FilterBar } from "../components/FilterBar";
 import { ExportTarget } from "../components/ExportTarget";
+import { ConditionTitle } from "../components/ConditionTitle";
 import { ExportImageButton } from "../components/ExportImageButton";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory, fetchStandingsHistory, teamLogoUrl } from "../lib/data";
@@ -15,7 +16,7 @@ import { type SituationalFilter } from "../lib/situational";
 import { situationalFilterLabels } from "../lib/conditionLabels";
 import { DIVISION_LABELS, DIVISION_ORDER } from "../lib/divisionGroups";
 import { buildRatingScatter, ratingDomain, ratingColumn, RATING_KEYS, RATING_LABELS, DIVISION_RATING_COLORS, type RatingPoint, type RatingKey, ratingLabelLayout } from "../lib/figureRatings";
-import { useTeamLabel } from "../lib/teamLabel";
+import { useNarrow, useTeamLabel } from "../lib/teamLabel";
 import { statJa } from "../lib/statNames";
 import { statDescription } from "../lib/statDescriptions";
 import type { FigureProps } from "./catalog";
@@ -88,7 +89,8 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!model?.league || !visible.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
       <ExportImageButton targetRef={target} filename={`ORtg_DRtg_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={target} className="ratings-export" baseDate={baseDate}>
-        <div className="condition-title"><h2><span className="title-nowrap">{statJa("ORtg","team")}</span> × <span className="title-nowrap">{statJa("DRtg","team")}</span></h2><p>{conditions.join(" · ")}</p></div>
+        {/* 見出しと条件の行はほかのページと同じ部品（半角スペースでだけ折り返す・区切りは「／」・初期値は書かない。DESIGN.md 239章・296章） */}
+        <ConditionTitle title={`${statJa("ORtg","team")} × ${statJa("DRtg","team")}`} conditions={conditions} />
         <p className="ratings-league">リーグ平均：ORtg {model.league.ortg.toFixed(1)} ／ DRtg {model.league.drtg.toFixed(1)}</p>
         <div className="ratings-legend">{present.map(d=><span key={d}><i style={{borderColor:DIVISION_RATING_COLORS[d]}}/>{divisionLabel(d)}</span>)}<span><i className="ratings-diagonal-key"/>NetRtg 0</span></div>
         <div ref={plot} onPointerDown={event=>{if(!(event.target as Element).closest(".ratings-point"))setTooltipId(null);}}>
@@ -134,7 +136,10 @@ function RatingChart({points,all,league,selectedId,tooltip,teamLabel,onSelect,on
     observer.observe(ref.current);return ()=>observer.disconnect();
   },[exportOnly]);
   const mobile=!exportOnly&&size<500;
-  const layout=useMemo(()=>ratingLabelLayout(points,all,size,mobile),[points,all,size,mobile]);
+  // スマホ幅（560px以下）の画面では、図の上の順位ラベルを出さない（順位は吹き出しと一覧で見る）。PC幅と保存画像は出す（DESIGN.md 296章）
+  const narrow=useNarrow();
+  const hideRankLabels=!exportOnly&&narrow;
+  const layout=useMemo(()=>hideRankLabels?{labels:[],height:size}:ratingLabelLayout(points,all,size,mobile),[points,all,size,mobile,hideRankLabels]);
   const domain=ratingDomain(all),position=(value:number)=>(value-domain.min)/(domain.max-domain.min)*100;
   return <div className={`ratings-chart ${exportOnly?"ratings-export-chart":"ratings-screen-chart"}`}>
     <div className="ratings-plot-wrap" style={{marginBottom:55+layout.height-size}}>

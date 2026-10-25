@@ -29,7 +29,7 @@ export function FiguresPage({ season, category = "premier" }: { season: string; 
     }, { replace: true });
   };
   return <div className="figures-page">
-    <h1>図解</h1><p>条件を変えて見る、チームと選手の図の保存庫。</p>
+    <h1>図解</h1><p>チームと選手の図をまとめたページ。条件を変えて見られます。</p>
     <div className="figures-tabs" role="group" aria-label="図の対象">
       {(["team", "player"] as const).map(value => <button key={value} aria-pressed={entity === value}
         onClick={() => { if (entity !== value) selectFigure(value, figuresForEntity(value)[0]?.id ?? "index"); }}>
