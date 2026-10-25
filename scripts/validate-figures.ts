@@ -1,10 +1,11 @@
+import { FIGURES, figuresForEntity, type FigureDefinition } from "../src/figures/catalog";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
 import { DEFAULT_GAMES_RATIO_RANGE, matchesGamesPlayedRatioRange } from "../src/lib/gamesPlayedRatio";
 // 小さな人工データで、分母・境界・移籍・欠損を確認。元データを読み書きしない。
 import assert from "node:assert/strict";
-import { figureAgeData, ageSummary, centeredAgeDots, figureMarkerShape, figureAgeReferences } from "../src/lib/figureAge";
+import { figureAgeData, ageSummary, centeredAgeDots, figureMarkerShape, figureAgeReferences, FIGURE_GAMES_RATIO_RANGE, isDefaultFigureGamesRatio } from "../src/lib/figureAge";
 import { viewPlayerGameIndex } from "../src/lib/gameIndex";
 import { PLAYER_INDEX_STAT_COLUMNS, type PlayerGameIndexFile } from "../shared/gameIndex";
 const file = {
@@ -45,7 +46,10 @@ for (const old of ["season=2026-27", "season=2026-27&entity=player&min=20&cls=jp
   assert.equal(normalizeFigureParams(next).toString(), next.toString(), "正規化が繰り返されない");
 }
 const playerIndex = new URLSearchParams("entity=player&figure=index&season=2026-27");
-assert.equal(normalizeFigureParams(playerIndex).toString(), playerIndex.toString(), "新しい選手タブは維持");
+const playerView = normalizeFigureParams(playerIndex);
+assert.equal(playerView.get("entity"), "player", "選手タブを維持");
+assert.equal(playerView.get("figure"), figuresForEntity("player")[0]?.id ?? "index", "登録した最初の図か空一覧を開く");
+assert.equal(playerView.get("season"), "2026-27");
 console.log("図解URL: 旧URLの移動・条件保持・選手タブ・再読み込み OK");
 
 assert.equal(result.byTeam.get("a")?.[0]?.registration, "jp");
@@ -107,3 +111,28 @@ if (source) {
   assert.ok(seasons>0,"比較できる導出データが必要");
   console.log(`出場試合率: 全選手スタッツの変更前と${seasons}シーズン×5範囲で一致`);
 }
+
+assert.deepEqual(FIGURE_GAMES_RATIO_RANGE, [0,100], "図解だけは初期値0〜100%");
+assert.deepEqual(DEFAULT_GAMES_RATIO_RANGE, [60,100], "全選手スタッツの初期値は維持");
+assert.equal(isDefaultFigureGamesRatio([0,100]),true);
+assert.equal(isDefaultFigureGamesRatio([60,100]),false);
+assert.equal(isDefaultFigureGamesRatio([0,80]),false);
+assert.equal(new Set(FIGURES.map(f=>f.id)).size,FIGURES.length,"図のIDは重複不可");
+assert.ok(FIGURES.every(f=>/^[a-z][a-z0-9-]*$/.test(f.id)&&f.id!=="index"&&f.label&&f.group));
+assert.ok(FIGURES.every(f=>typeof f.load === "function"),"一覧には部品を読み込める図だけを登録");
+const future: readonly FigureDefinition[] = [
+  {id:"efficiency",entity:"team",label:"効率",group:"効率",load:FIGURES[0]!.load},
+  ...FIGURES,
+  {id:"player-profile",entity:"player",label:"プロフィール",group:"年齢",load:FIGURES[0]!.load},
+];
+assert.deepEqual(figuresForEntity("team",future).map(f=>f.id),["efficiency",...figuresForEntity("team").map(f=>f.id)]);
+assert.deepEqual(figuresForEntity("player",future).map(f=>f.id),[...figuresForEntity("player").map(f=>f.id),"player-profile"]);
+assert.equal(normalizeFigureParams(new URLSearchParams("season=2026-27"),future).get("figure"),"age","並べ替えても旧URLは年齢分布へ");
+const direct=normalizeFigureParams(new URLSearchParams("entity=team&figure=player-profile&gp=60-100&line=both"),future);
+assert.equal(direct.get("entity"),"player","図の追加後もURLを対象に合わせる");
+assert.equal(direct.get("figure"),"player-profile");
+assert.equal(direct.get("gp"),"60-100");
+assert.equal(direct.get("line"),"both");
+assert.equal(normalizeFigureParams(new URLSearchParams("entity=player&figure=index"),future).get("figure"),figuresForEntity("player",future)[0]!.id);
+assert.equal(normalizeFigureParams(new URLSearchParams("entity=team&figure=unknown"),future).get("figure"),"efficiency");
+console.log("図解タブ: 図解だけの初期値・一覧による追加と対象別の並び・直接URL・旧URL互換 OK");

@@ -48,3 +48,9 @@
 .figure-reference-legend > span { display:inline-flex; align-items:center; gap:8px; }
 .figure-reference-swatch { display:inline-block; width:24px; height:0; border-top-width:2px; border-top-style:dashed; border-left:0; }
 .figure-reference-swatch.figure-reference-median { border-top-style:dotted; }
+
+.figures-page { min-width:0; }
+.figure-tabs { display:flex; flex-wrap:nowrap; gap:4px; max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; border-bottom:1px solid var(--border); margin:16px 0; }
+.figure-tabs button { flex:0 0 auto; white-space:nowrap; padding:10px 16px; border:0; border-bottom:3px solid transparent; background:var(--bg); color:var(--fg); cursor:pointer; font:inherit; }
+.figure-tabs button[aria-selected="true"] { border-bottom-color:var(--accent); font-weight:bold; }
+.figure-tabs button:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }

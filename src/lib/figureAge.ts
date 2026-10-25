@@ -78,3 +78,9 @@ export function figureAgeReferences(summary: ReturnType<typeof ageSummary>, mode
   const keys: ("mean" | "median")[] = mode === "both" ? ["mean", "median"] : [mode];
   return keys.map(key => ({ key, label: key === "mean" ? "平均" : "中央値", value: summary[key] }));
 }
+
+/** 図解だけの初期値。全選手スタッツの初期値60〜100%は変えない。 */
+export const FIGURE_GAMES_RATIO_RANGE: [number, number] = [0, 100];
+export function isDefaultFigureGamesRatio(range: readonly [number, number]): boolean {
+  return range[0] === FIGURE_GAMES_RATIO_RANGE[0] && range[1] === FIGURE_GAMES_RATIO_RANGE[1];
+}
