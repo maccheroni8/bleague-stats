@@ -1,6 +1,10 @@
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { gunzipSync } from "node:zlib";
+import { DEFAULT_GAMES_RATIO_RANGE, matchesGamesPlayedRatioRange } from "../src/lib/gamesPlayedRatio";
 // 小さな人工データで、分母・境界・移籍・欠損を確認。元データを読み書きしない。
 import assert from "node:assert/strict";
-import { figureAgeData, ageSummary, centeredAgeDots, figureMarkerShape } from "../src/lib/figureAge";
+import { figureAgeData, ageSummary, centeredAgeDots, figureMarkerShape, figureAgeReferences } from "../src/lib/figureAge";
 import { viewPlayerGameIndex } from "../src/lib/gameIndex";
 import { PLAYER_INDEX_STAT_COLUMNS, type PlayerGameIndexFile } from "../shared/gameIndex";
 const file = {
@@ -32,7 +36,7 @@ assert.equal(ageSummary([20,40,30]).median,30);
 console.log("年齢分布: DNP・しきい値・誕生日・移籍・登録区分・試合区分・空結果・生年月日欠損 OK");
 
 const { normalizeFigureParams } = await import("../src/lib/figureRoute");
-for (const old of ["season=2026-27", "season=2026-27&entity=player&min=20&cls=jp&line=median", "entity=player&figure=age"]) {
+for (const old of ["season=2026-27", "season=2026-27&entity=player&min=20&cls=jp&line=median", "entity=player&figure=age", "entity=player&line=both&gp=85-100"]) {
   const before = new URLSearchParams(old);
   const next = normalizeFigureParams(before);
   assert.equal(next.get("entity"), "team");
@@ -57,3 +61,49 @@ for (const count of [1, 2, 3, 6]) {
 const mixed = centeredAgeDots([20,25,25,25].map((age,i) => ({playerId:String(i),name:"P",age,averageMinutes:20,registration:"jp"})));
 assert.equal(mixed.dots[0]!.centerY,mixed.height/2,"別の年齢が多くても単独の点は中央");
 console.log("年齢分布の表示: 登録区分・見做し日本人・同年齢の中央配置 OK");
+
+assert.deepEqual(DEFAULT_GAMES_RATIO_RANGE, [60,100], "全選手スタッツと同じ初期範囲");
+assert.equal(matchesGamesPlayedRatioRange(6,10,60,100),true);
+assert.equal(matchesGamesPlayedRatioRange(5,10,60,100),false);
+assert.equal(matchesGamesPlayedRatioRange(7,10,0,60),false, "上限も適用");
+assert.equal(matchesGamesPlayedRatioRange(10,10,100,100),true);
+assert.equal(matchesGamesPlayedRatioRange(12,10,0,100),false, "100%を超える場合も全選手スタッツと同じ判定");
+assert.equal(matchesGamesPlayedRatioRange(1,0,0,100),false);
+assert.equal(matchesGamesPlayedRatioRange(1,undefined,0,100),false);
+const qOnly = new Set(["q"]);
+assert.equal(figureAgeData(view,{...options,eligiblePlayerIds:qOnly}).overall.count,1);
+assert.equal(figureAgeData(view,{...options,min:25,eligiblePlayerIds:qOnly}).overall.count,0, "出場試合率を通っても平均出場時間で除く");
+assert.equal(figureAgeData(view,{...options,eligiblePlayerIds:new Set<string>()}).overall.count,0);
+assert.deepEqual(figureAgeReferences(result.overall,"both").map(r=>[r.key,r.value]), [["mean",29.5],["median",29.5]]);
+assert.equal(figureAgeReferences(result.overall,"mean").length,1);
+assert.equal(figureAgeReferences(result.overall,"median")[0]?.key,"median");
+assert.ok(figureAgeReferences(ageSummary([]),"both").every(r=>r.value===null));
+assert.deepEqual(figureAgeReferences(ageSummary([20,20,40]),"both").map(r=>r.value), [80/3,20]);
+console.log("年齢分布: 出場試合率の境界・分母欠損・平均出場時間とのAND・平均/中央値の両方 OK");
+
+// 任意: 既存の導出データを読み取り専用で使い、移動前の全選手スタッツの判定と全季で比較。
+const source = process.argv[2];
+if (source) {
+  let seasons = 0;
+  for (const season of readdirSync(source).filter(s=>/^\d{4}-\d{2}$/.test(s))) {
+    const playerFile=path.join(source,season,"players.json.gz");
+    const teamFile=path.join(source,season,"teams.json.gz");
+    if (!existsSync(playerFile)||!existsSync(teamFile)) continue;
+    const players=JSON.parse(gunzipSync(readFileSync(playerFile)).toString()) as {playerId:string;teamId:string;gamesPlayed:number}[];
+    const teams=JSON.parse(gunzipSync(readFileSync(teamFile)).toString()) as {teamId:string;gamesPlayed:number}[];
+    const teamGames=new Map(teams.map(t=>[t.teamId,t.gamesPlayed]));
+    for (const [min,max] of [[0,100],[60,100],[85,100],[10,60],[100,100]] as const) {
+      const before=players.filter(p=>{
+        const games=teamGames.get(p.teamId); if(!games)return false;
+        const ratio=100*p.gamesPlayed/games;
+        if(ratio<min||ratio>max)return false;
+        return true;
+      }).map(p=>p.playerId);
+      const after=players.filter(p=>matchesGamesPlayedRatioRange(p.gamesPlayed,teamGames.get(p.teamId),min,max)).map(p=>p.playerId);
+      assert.deepEqual(after,before,`${season} 出場試合率${min}〜${max}`);
+    }
+    seasons++;
+  }
+  assert.ok(seasons>0,"比較できる導出データが必要");
+  console.log(`出場試合率: 全選手スタッツの変更前と${seasons}シーズン×5範囲で一致`);
+}

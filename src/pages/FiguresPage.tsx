@@ -1,13 +1,18 @@
+import { GamesPlayedRatioSlider } from "../components/GamesPlayedRatioSlider";
+import { FilterBar } from "../components/FilterBar";
+import type { FilterAxis } from "../lib/filterAxes";
+import { DEFAULT_GAMES_RATIO_RANGE, matchesGamesPlayedRatioRange } from "../lib/gamesPlayedRatio";
+import { gamesPlayedRatioRangeLabels } from "../lib/conditionLabels";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { normalizeFigureParams } from "../lib/figureRoute";
 import type { Category, StandingsTeamSnapshot, TeamColors } from "../../shared/types";
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from "../../shared/gameType";
-import { fetchPlayoffRace, fetchStandingsHistory, fetchTeamColors, teamLogoUrl } from "../lib/data";
+import { fetchPlayoffRace, fetchStandingsHistory, fetchTeamColors, fetchPlayers, fetchTeams, teamLogoUrl } from "../lib/data";
 import { loadPlayerGameIndex } from "../lib/gameIndexLoad";
 import { useJsonData } from "../lib/useJsonData";
-import { choiceNumberParam, enumParam, useUrlState } from "../lib/urlState";
-import { ageSummary, figureAgeData, centeredAgeDots, figureMarkerShape, FIGURE_CLASSES, type FigureClass } from "../lib/figureAge";
+import { choiceNumberParam, enumParam, rangeParam, useUrlState } from "../lib/urlState";
+import { ageSummary, figureAgeData, centeredAgeDots, figureMarkerShape, figureAgeReferences, type FigureReferenceMode, FIGURE_CLASSES, type FigureClass } from "../lib/figureAge";
 import { ageBaseDateLabel } from "../lib/age";
 import { pickerTeamOrder } from "../lib/playerPickerOrder";
 import { withUnplayedTeams } from "../lib/standingsTeams";
@@ -26,7 +31,8 @@ const figureCodec = enumParam("figure", ["age", "index"] as const, "age");
 const minCodec = choiceNumberParam("min", [0, 10, 15, 20, 25] as const, 15);
 const classCodec = enumParam<FigureClass>("cls", FIGURE_CLASSES.map(c => c.value), "all");
 const gameCodec = enumParam<SeasonGameTypeFilter>("gt", ["regular", "playoff", "both"], "regular");
-const lineCodec = enumParam("line", ["mean", "median"] as const, "mean");
+const lineCodec = enumParam<FigureReferenceMode>("line", ["mean", "median", "both"], "mean");
+const ratioCodec = rangeParam("gp", DEFAULT_GAMES_RATIO_RANGE, [0, 100]);
 const oneDecimal = (n: number | null) => n === null ? "—" : n.toFixed(1);
 
 export function FiguresPage({ season, category = "premier" }: { season: string; category?: Category }) {
@@ -51,14 +57,29 @@ function AgeFigure({ season }: { season: string }) {
   const [classification, setClassification] = useUrlState(classCodec, "all");
   const [gameType, setGameType] = useUrlState(gameCodec, "regular");
   const [line, setLine] = useUrlState(lineCodec, "mean");
+  const [ratioRange, setRatioRange] = useUrlState(ratioCodec, DEFAULT_GAMES_RATIO_RANGE);
+  const [minRatio, maxRatio] = ratioRange;
   const request = useJsonData(async () => {
-    const [index, history, race, colors] = await Promise.all([
-      loadPlayerGameIndex(season), fetchStandingsHistory(season), fetchPlayoffRace(season), fetchTeamColors(),
+    const [index, history, race, colors, players, teams] = await Promise.all([
+      loadPlayerGameIndex(season), fetchStandingsHistory(season), fetchPlayoffRace(season), fetchTeamColors(), fetchPlayers(season), fetchTeams(season),
     ]);
-    return { index, history, race, colors };
+    return { index, history, race, colors, players, teams };
   }, [season]);
   const data = request.data;
-  const model = useMemo(() => data?.index ? figureAgeData(data.index, { season, min, classification, gameType }) : null, [data, season, min, classification, gameType]);
+  // 全選手スタッツと同じく、レギュラーシーズンの選手・所属チームのシーズン成績で先に判定。
+  const eligiblePlayerIds = useMemo(() => {
+    if (!data) return new Set<string>();
+    const teamGames = new Map(data.teams.map(t => [t.teamId, t.gamesPlayed]));
+    return new Set(data.players.filter(p => matchesGamesPlayedRatioRange(p.gamesPlayed, teamGames.get(p.teamId), minRatio, maxRatio)).map(p => p.playerId));
+  }, [data, minRatio, maxRatio]);
+  const model = useMemo(() => data?.index ? figureAgeData(data.index, { season, min, classification, gameType, eligiblePlayerIds }) : null, [data, season, min, classification, gameType, eligiblePlayerIds]);
+  const ratioAxis: FilterAxis = {
+    kind: "popover", id: "gamesRatio", label: "出場試合率", tier: "advanced",
+    value: `${minRatio}|${maxRatio}`, defaultValue: DEFAULT_GAMES_RATIO_RANGE.join("|"),
+    onChange: () => setRatioRange(DEFAULT_GAMES_RATIO_RANGE),
+    summary: `${minRatio}%〜${maxRatio}%`, chipValue: `${minRatio}%〜${maxRatio}%`,
+    content: <GamesPlayedRatioSlider min={minRatio} max={maxRatio} onChange={(mn, mx) => setRatioRange([mn, mx])} />,
+  };
   const gameLabels = seasonGameTypeLabels(season);
   const classLabel = FIGURE_CLASSES.find(c => c.value === classification)!.label;
   const title = min ? `平均${min}:00以上出場した選手の年齢分布` : "出場選手の年齢分布（出場時間の下限なし）";
@@ -82,13 +103,14 @@ function AgeFigure({ season }: { season: string }) {
       <label>平均{statJa("MIN")}<select value={min} onChange={e => setMin(Number(e.target.value) as typeof min)}>{[0, 10, 15, 20, 25].map(n => <option key={n} value={n}>{n ? `${n}:00以上` : "なし（出場者）"}</option>)}</select></label>
       <label>登録区分<select value={classification} onChange={e => setClassification(e.target.value as FigureClass)}>{FIGURE_CLASSES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></label>
       <label>試合区分<select value={gameType} onChange={e => setGameType(e.target.value as SeasonGameTypeFilter)}>{Object.entries(gameLabels).map(([k,v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-      <label>全体の縦線<select value={line} onChange={e => setLine(e.target.value as typeof line)}><option value="mean">平均</option><option value="median">中央値</option></select></label>
+      <label>全体の縦線<select value={line} onChange={e => setLine(e.target.value as typeof line)}><option value="mean">平均</option><option value="median">中央値</option><option value="both">両方</option></select></label>
     </div>
+    <FilterBar axes={[ratioAxis]} stateKey="figures:age" onClearAll={() => setRatioRange(DEFAULT_GAMES_RATIO_RANGE)} />
     {request.loading ? <p role="status">読み込み中…</p> : request.error ? <p role="alert">図のデータを読み込めませんでした。ページを読み直してください。</p> : !model ? <p>このシーズンには図に必要なデータがありません。</p> : <>
       {[...groups].map(([id, group]) => <AgeDistrict key={id}
         divisionLabel={group.label} teams={group.teams} model={model} colors={data!.colors}
         season={season} min={min} classification={classification} gameType={gameType} line={line}
-        classLabel={classLabel} title={title} lower={lower} upper={upper} />)}
+        classLabel={classLabel} title={title} lower={lower} upper={upper} ratioRange={ratioRange} />)}
     </>}
   </section>;
 }
@@ -102,26 +124,29 @@ function FigureTeamLogo({ teamId }: { teamId: string }) {
 }
 
 type AgeTeam = Pick<StandingsTeamSnapshot, "teamId" | "teamName" | "division">;
-function AgeDistrict({ divisionLabel, teams, model, colors, season, min, classification, gameType, line, classLabel, title, lower, upper }: {
+function AgeDistrict({ divisionLabel, teams, model, colors, season, min, classification, gameType, line, classLabel, title, lower, upper, ratioRange }: {
   divisionLabel: string; teams: AgeTeam[]; model: ReturnType<typeof figureAgeData>; colors: Record<string, TeamColors>;
-  season: string; min: number; classification: FigureClass; gameType: SeasonGameTypeFilter; line: "mean" | "median";
-  classLabel: string; title: string; lower: number; upper: number;
+  season: string; min: number; classification: FigureClass; gameType: SeasonGameTypeFilter; line: FigureReferenceMode;
+  classLabel: string; title: string; lower: number; upper: number; ratioRange: [number, number];
 }) {
   const target = useRef<HTMLDivElement>(null);
   const gameLabels = seasonGameTypeLabels(season);
   const baseDate = { kind: "season" as const, season, gameType };
-  const reference = model.overall[line];
+  const references = figureAgeReferences(model.overall, line);
+  const ratioLabel = gamesPlayedRatioRangeLabels(...ratioRange).join(" · ");
   // 地区別の画像でも横軸と全体基準線は共通にして比較できるようにする。
   const x = (age: number) => 12 + (age - lower) / (upper - lower) * 576;
   return <section className="figure-age-district" aria-label={`${divisionLabel}の年齢分布`}>
       <h3>{divisionLabel}</h3>
-      <ExportImageButton targetRef={target} filename={`年齢分布_${season}_${divisionLabel}_${min}-00_${classification}_${gameType}_${line}`} baseDate={baseDate} />
+      <ExportImageButton targetRef={target} filename={`年齢分布_${season}_${divisionLabel}_${min}-00_${classification}_${gameType}_${line}_gp${ratioRange[0]}-${ratioRange[1]}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="figure-age-export" baseDate={baseDate}>
-        <div className="condition-title"><h2>{title}</h2><p>{season} · {divisionLabel} · {gameLabels[gameType]} · {classLabel}</p></div>
+        <div className="condition-title"><h2>{title}</h2><p>{season} · {divisionLabel} · {gameLabels[gameType]} · {classLabel} · {ratioLabel}</p></div>
         <p>{FIGURES[0].description}</p>
         <p className="figure-marker-legend"><span><span aria-hidden="true" className={`figure-marker figure-marker-${figureMarkerShape("jp")}`} />日本人</span><span><span aria-hidden="true" className={`figure-marker figure-marker-${figureMarkerShape("intl")}`} />外国籍・帰化・アジア</span></p>
         {teams.some(t => (model.byTeam.get(t.teamId) ?? []).some(d => figureMarkerShape(d.registration) === "unknown")) && <p>○ 登録区分不明</p>}
-        <p>全体{line === "mean" ? "平均" : "中央値"}：{oneDecimal(reference)}歳（{model.overall.count}人・移籍の重複なし）</p>
+        <p className="figure-reference-legend">{references.map(ref => <span key={ref.key}><span aria-hidden="true" className={`figure-reference-swatch figure-reference-${ref.key}`} />{ref.label}：{oneDecimal(ref.value)}歳</span>)}</p>
+        <p>全体：{model.overall.count}人（移籍の重複なし）</p>
+        {line === "both" && model.overall.mean !== null && model.overall.mean === model.overall.median && <p className="figure-notes">平均と中央値が同じため、縦線は重なっています。</p>}
         {!teams.some(t => (model.byTeam.get(t.teamId)?.length ?? 0) > 0) && <p role="status">条件に該当する、年齢が分かる出場選手はいません。</p>}
         <div className="figure-scroll" tabIndex={0} role="region" aria-label="チーム別の年齢分布。狭い画面では横にスクロールできます。">
           <div className="figure-age-chart">
@@ -135,7 +160,7 @@ function AgeDistrict({ divisionLabel, teams, model, colors, season, min, classif
                   <span className="figure-team-cell"><FigureTeamLogo teamId={t.teamId} /><span className="figure-team-name"><ResponsiveTeamName teamId={t.teamId} name={t.teamName} /></span></span>
                   <div className="figure-age-plot" style={{height:layout.height}} role="img" aria-label={`${dots.length}人、平均${oneDecimal(stats.mean)}歳、中央値${oneDecimal(stats.median)}歳`}>
                     {Array.from({length: upper - lower + 1}, (_,j) => j + lower).filter(a => a % 2 === 0).map(a => <span key={a} style={{left:`${x(a)/6}%`}} className="figure-gridline" />)}
-                    {reference !== null && <span style={{left:`${x(reference)/6}%`}} className="figure-reference" />}
+                    {references.map(ref => ref.value !== null && <span key={ref.key} style={{left:`${x(ref.value)/6}%`}} className={`figure-reference figure-reference-${ref.key}`} />)}
                     {layout.dots.map(d => <span className="figure-age-dot" key={d.playerId} style={{left:`${x(d.age)/6}%`, top:d.centerY, color:colors[t.teamId]?.primary ?? "var(--fg)"}} title={`${d.age}歳・平均${formatMinutesColon(d.averageMinutes)}`}><span className={`figure-marker figure-marker-${figureMarkerShape(d.registration)}`} /></span>)}
                   </div><span>{stats.count}</span><span>{oneDecimal(stats.mean)}</span><span>{oneDecimal(stats.median)}</span>
                 </div>
@@ -146,6 +171,7 @@ function AgeDistrict({ divisionLabel, teams, model, colors, season, min, classif
         <div className="figure-notes">
           <p>年齢：{ageBaseDateLabel(season)}（日本時間）。横軸・平均・中央値の単位は歳。</p>
           <p>平均出場時間は各チームでの出場試合を対象に計算。出場なしの試合は数えません。移籍選手は条件を満たす各チームに表示します。</p>
+          <p>出場試合率は全選手スタッツと同じく、レギュラーシーズンの出場試合数を、選手一覧の所属チームの試合数で割って判定します。平均出場時間と出場試合率の両方を満たす選手を表示します。</p>
           <p>IL登録中かを判定できないため、IL登録選手は除外していません。「なし」でも未出場の登録選手は含みません。</p>
           {model.missingBirth > 0 && <p>全地区で生年月日不明の{model.missingBirth}件（選手×チーム）は図・人数・平均・中央値から除いています。</p>}
           <p>チームの並びはレギュラーシーズンの地区順位。縦線は全地区の出場選手を対象にしています。</p>

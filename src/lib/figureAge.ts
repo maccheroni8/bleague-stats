@@ -18,11 +18,12 @@ export function ageSummary(ages: readonly number[]) {
     median: sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2 };
 }
 export function figureAgeData(view: PlayerGameIndexView, options: {
-  season: string; gameType: SeasonGameTypeFilter; min: number; classification: FigureClass;
+  season: string; gameType: SeasonGameTypeFilter; min: number; classification: FigureClass; eligiblePlayerIds?: ReadonlySet<string>;
 }) {
   const memberships = new Map<string, { playerId: string; name: string; teamId: string; birth: string; registration: string; minutes: number; games: number }>();
   for (let i = 0; i < view.size; i++) {
     const g = playerGameAt(view, i);
+    if (options.eligiblePlayerIds && !options.eligiblePlayerIds.has(g.playerId)) continue;
     if (options.gameType !== "both" && g.gameType !== options.gameType) continue;
     if (options.classification !== "all" && g.classKey !== options.classification) continue;
     if (!(g.min > 0)) continue; // DNPは平均の分母に含めない。「なし」も出場者が対象。
@@ -70,4 +71,10 @@ export function centeredAgeDots(dots: readonly AgeDot[]) {
     used.set(dot.age, level + 1);
     return { ...dot, centerY: height / 2 + (level - (totals.get(dot.age)! - 1) / 2) * 12 };
   }) };
+}
+
+export type FigureReferenceMode = "mean" | "median" | "both";
+export function figureAgeReferences(summary: ReturnType<typeof ageSummary>, mode: FigureReferenceMode) {
+  const keys: ("mean" | "median")[] = mode === "both" ? ["mean", "median"] : [mode];
+  return keys.map(key => ({ key, label: key === "mean" ? "平均" : "中央値", value: summary[key] }));
 }

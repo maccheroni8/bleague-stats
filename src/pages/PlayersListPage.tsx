@@ -1,3 +1,5 @@
+import { GamesPlayedRatioSlider } from "../components/GamesPlayedRatioSlider";
+import { DEFAULT_MIN_RATIO, DEFAULT_MAX_RATIO, matchesGamesPlayedRatioRange } from "../lib/gamesPlayedRatio";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFoulConditionCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useSeasonRookies } from "../lib/rookieFilter";
@@ -492,52 +494,6 @@ const DEFAULT_SORT: Record<PlayersPageTab, { key: string; dir: "asc" | "desc" }>
 };
 
 const PAGE_SIZE = 50;
-const DEFAULT_MIN_RATIO = 60;
-const DEFAULT_MAX_RATIO = 100;
-
-// 出場試合率（所属チームの試合数に対する出場試合数の割合）を絞り込む、下限・上限を
-// それぞれ動かせる範囲スライダー。旅行予約サイトの価格帯フィルタと同じ実装パターン
-// （2本のtype="range"を重ね、トラックはpointer-events:noneでつまみだけ操作可能にする）
-function GamesPlayedRatioSlider({
-  min,
-  max,
-  onChange,
-}: {
-  min: number;
-  max: number;
-  onChange: (min: number, max: number) => void;
-}) {
-  return (
-    <div className="dual-range">
-      <div className="dual-range-labels">
-        出場試合率: {min}%〜{max}%
-      </div>
-      <div className="dual-range-track-wrap">
-        <div className="dual-range-track">
-          <div className="dual-range-fill" style={{ left: `${min}%`, width: `${max - min}%` }} />
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={min}
-          onChange={(e) => onChange(Math.min(Number(e.target.value), max), max)}
-          className="dual-range-input"
-          aria-label="出場試合率の下限"
-        />
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={max}
-          onChange={(e) => onChange(min, Math.max(Number(e.target.value), min))}
-          className="dual-range-input"
-          aria-label="出場試合率の上限"
-        />
-      </div>
-    </div>
-  );
-}
 
 const DEFAULT_SITUATIONAL_FILTER: SituationalFilter = { range: { kind: "all" } };
 
@@ -810,9 +766,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     if (rookieActive && !rookies.ids) return [];
     return players.filter((p) => {
       const teamGames = teamGamesById.get(p.teamId);
-      if (!teamGames) return false;
-      const ratio = (100 * p.gamesPlayed) / teamGames;
-      if (ratio < minRatio || ratio > maxRatio) return false;
+      if (!matchesGamesPlayedRatioRange(p.gamesPlayed, teamGames, minRatio, maxRatio)) return false;
       if (!matchesPlayerGroupFilter(p, classificationFilter, rookies.ids)) return false;
       if (!matchesTeamFilter(p, teamFilter)) return false;
       if (!matchesPositionFilter(p, positionFilter)) return false;

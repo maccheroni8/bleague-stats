@@ -41,3 +41,10 @@
 @media(max-width:560px) { .figure-team-cell .team-logo { width:20px; height:20px; } .figure-age-row > .figure-team-cell { gap:4px; } }
 .export-rendering.figure-age-export .figure-team-cell .team-logo { width:24px; height:24px; }
 .export-rendering.figure-age-export .figure-team-cell { gap:6px; }
+
+.figure-reference-mean { border-color:var(--fg); border-left-style:dashed; }
+.figure-reference-median { border-color:var(--accent); border-left-style:dotted; border-left-width:2px; }
+.figure-reference-legend { display:flex; flex-wrap:wrap; gap:8px 24px; font-size:12px; }
+.figure-reference-legend > span { display:inline-flex; align-items:center; gap:8px; }
+.figure-reference-swatch { display:inline-block; width:24px; height:0; border-top-width:2px; border-top-style:dashed; border-left:0; }
+.figure-reference-swatch.figure-reference-median { border-top-style:dotted; }
