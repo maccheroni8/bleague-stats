@@ -1083,7 +1083,8 @@ export interface PlayoffRaceFile {
    * マジックナンバーと進出/敗退マークを計算する。legacy: それ以前のシーズン（地区制・CS形式が
    * 毎年異なるため、年間優勝マークのみ）
    */
-  format: "premier-2026" | "legacy";
+  /** one-2026: 2026-27〜の B.ONE（5地区・各地区上位2＋ワイルドカード6。DESIGN.md 295章） */
+  format: "premier-2026" | "one-2026" | "legacy";
   /** 計算の基準にした最新の順位表の日付（試合が無ければnull） */
   asOf: string | null;
   /**
@@ -1171,6 +1172,8 @@ export interface HeadToHeadTeamRow {
   overall: HeadToHeadSummary;
   /** 相手が東地区のチームだった試合の合算成績（相手の地区が不明な試合は含まない） */
   vsEast: HeadToHeadSummary;
+  /** 地区ごとの対戦成績（対戦のあった地区だけ。B.ONE の5地区も入る。古いデータには無い。DESIGN.md 295章） */
+  vsDivision?: Partial<Record<Division, HeadToHeadSummary>>;
   /** 相手が西地区のチームだった試合の合算成績（相手の地区が不明な試合は含まない） */
   vsWest: HeadToHeadSummary;
 }
@@ -1298,6 +1301,8 @@ export interface ForeignPlayerRule {
 
 export interface SeasonRules {
   season: string;
+  /** どのリーグの規則か。無ければ B.PREMIER。B.ONE の行（"one"）は 2026-27 から（shared/seasonRules.ts の seasonRuleFor。DESIGN.md 295章） */
+  league?: Category;
   /** この期間区分の通称（例: "2016-17〜2017-18: クォーター別事前申請制"） */
   eraLabel: string;
   foreignPlayerRule: ForeignPlayerRule;
@@ -1422,6 +1427,8 @@ export interface PlayerMasterEntry {
    * （src/lib/classificationFilter.ts参照）
    */
   classification?: "日本人" | "外国籍" | "帰化選手" | "アジア特別枠";
+  /** 見做し日本人（日本人として扱う。国籍は書き換えない。scripts/lib/playerClassificationOverrides.ts。DESIGN.md 295章） */
+  deemedJapanese?: boolean;
   heightCm?: number;
   weightKg?: number;
   /** YYYY-MM-DD */
@@ -1877,7 +1884,8 @@ export interface PlayerPageSeasonsFile {
 export interface CurrentRosterFile {
   generatedAt: string;
   season: string;
-  players: { playerId: string; teamId: string }[];
+  /** league が無い行は B.PREMIER（B.ONE を足す前の版。DESIGN.md 295章） */
+  players: { playerId: string; teamId: string; league?: Category }[];
 }
 
 /** data/{season}/league-average.json: そのシーズンのリーグ平均（レギュラーシーズン。scripts/aggregate.ts。DESIGN.md 149章） */

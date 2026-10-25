@@ -54,6 +54,8 @@ import { rankStandingsTeams, recordHeadToHeadResult, type HeadToHeadTable } from
 import { seasonCoverage } from "./lib/seasonCoverage.ts";
 import { currentSeason } from "./lib/season.ts";
 import { measureOrUndefined, resolveSeasonProfile } from "../shared/seasonProfile.ts";
+import { makeClassifier, type ClassifyAt, type SeasonRegistrationFile } from "../shared/registration.ts";
+import { seasonRuleFor } from "../shared/seasonRules.ts";
 import { sumTeamSeasonMisc } from "../shared/teamSeasonMisc.ts";
 import { filterByGameType } from "../shared/gameType.ts";
 import { opponentOliverBox, teamOliverBox } from "../shared/teamSeasonTotals.ts";
@@ -707,7 +709,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
   };
   // On-Court Foreignで規定上ありえない人数の区間を外すための、同時に出られる外国籍・特別枠の最大人数（DESIGN.md 84-7章・135章）
   const seasonRules = (await readJson<SeasonRules[]>(path.join(DATA_DIR, "season-rules.json"))) ?? [];
-  const maxForeignOnCourt = seasonRules.find((r) => r.season === season)?.maxForeignOnCourt;
+  const maxForeignOnCourt = seasonRuleFor(seasonRules, season, category)?.maxForeignOnCourt;
   const foreignOverLimit: ForeignOverLimitTally = { stints: 0, seconds: 0 };
   const rawGames = await readAllGames(season, category);
   // 結果だけの試合（ボックススコアが公式に無い試合・不戦勝。schedule.json の resultOnlyGames、DESIGN.md 228章）のうちレギュラーシーズンの分。
@@ -742,6 +744,9 @@ export async function aggregateSeason(season: string, category: Category = "prem
   // 選手マスタ（シーズン非依存。scrape-roster.tsが生成）。未生成でも集計自体は動く
   const playersMaster = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
   const masterById = new Map(playersMaster.map((p) => [p.playerId, p]));
+  // 登録区分（試合ごと）。2026-27 以降はそのシーズン・リーグの登録区分の記録、2025-26 以前は選手マスタ（shared/registration.ts。DESIGN.md 295章）
+  const registrations = await readJson<SeasonRegistrationFile>(path.join(DATA_DIR, seasonDir, "registrations.json"));
+  const classifyAt = makeClassifier(season, registrations, masterById);
   // 当時のポジション（scrape-season-rosters.tsが構築。season→playerId→position）。B.PREMIERで
   // このシーズンのキーがあれば、マスタ（現在値1つ）ではなくこちらだけを使う。当時の一覧で空欄
   // だった選手はマスタの現在値で補完せず未定義のままにする。シーズンのキー自体が無い
@@ -751,7 +756,8 @@ export async function aggregateSeason(season: string, category: Category = "prem
   // 身長・体重・ポジションは当時の値を使う（B.PREMIER。終了したシーズンは Wayback・固定した値、進行中のシーズンは1月15日以降に固定した値。
   // shared/seasonProfile.ts。DESIGN.md 148章）
   const seasonProfilesFile = await readJson<SeasonProfilesFile>(path.join(DATA_DIR, "season-profiles.json"));
-  const useSeasonProfile = category === "premier";
+  // B.ONE は 2026-27 から（1月15日の固定に B.ONE の名簿の選手も入る。それ以前の旧B2は当時の値が無いので選手マスタのまま。DESIGN.md 295章）
+  const useSeasonProfile = category === "premier" || season >= PREMIER_2026_FIRST_SEASON;
   const pastSeason = season < currentSeason();
 
   const players = new Map<string, PlayerAccumulator>();
@@ -800,7 +806,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         : null;
     const technicalFouls = countTechnicalFouls(game.raw.PlayByPlays);
     const foreignPlayerCourtSeconds = onCourt
-      ? computeForeignPlayerCourtSeconds(onCourt.lineupStints, (id) => masterById.get(id)?.classification, maxForeignOnCourt, foreignOverLimit)
+      ? computeForeignPlayerCourtSeconds(onCourt.lineupStints, (id) => classifyAt(id, game.date), maxForeignOnCourt, foreignOverLimit)
       : new Map<string, Map<number, number>>();
     const foreignPlayerCounts = computeForeignPlayerCounts(foreignPlayerCourtSeconds);
     // 個人PACE用の在コート区間ポゼッション（DESIGN.md参照）。既存のPACE表示ポリシー
@@ -826,7 +832,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
     const flow = scoringSequence(game.raw.PlayByPlays);
     const teamRuns = maxRuns(flow.events);
     const clutch = clutchByPlayer(flow.events, game.homeScore, game.awayScore);
-    if (category === "premier" && (gameType === "regular" || gameType === "playoff")) {
+    if (gameType === "regular" || gameType === "playoff") {
       const rows = sortedAssistPairRows(assistedScoring.pairs.values());
       if (rows.length > 0) assistPairGames.push({ key: game.scheduleKey, rows });
     }
@@ -866,7 +872,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       miscEvents.byTeam,
       assistedScoring.byTeam,
       paintSplit.byTeam,
-      masterById,
+      classifyAt,
       teamRuns,
     );
     processLineups(game, teamLineups, teamLineupGames, onCourt);
@@ -997,7 +1003,8 @@ export async function aggregateSeason(season: string, category: Category = "prem
         teamName: p.teamName,
         position: profile.position,
         nationality: master?.nationality,
-        classification: master?.classification,
+        // シーズンの初めの区分（2026-27 以降は登録区分の記録。途中の変更は試合ごとの値で見る）
+        classification: classifyAt(p.playerId) ?? master?.classification,
         heightCm: profile.heightCm,
         weightKg: profile.weightKg,
         ...(profile.fallback ? { profileFallback: profile.fallback } : {}),
@@ -1155,8 +1162,8 @@ export async function aggregateSeason(season: string, category: Category = "prem
     await writeJson(path.join(DATA_DIR, seasonDir, "team-games", `${t.teamId}.json`), gameLogs);
   }
 
-  // アシストペアの試合ごとの行（B.PREMIERのみ。DESIGN.md 221章）。列ごとに数値を並べるので字下げなしで書く
-  if (category === "premier") {
+  // アシストペアの試合ごとの行（DESIGN.md 221章。B.ONE も同じ形で one/ に書く。295章）。列ごとに数値を並べるので字下げなしで書く
+  {
     const pairsFile = buildAssistPairsFile(season, assistPairGames);
     await writeJsonIfChanged(path.join(DATA_DIR, seasonDir, "assist-pairs.json"), pairsFile as unknown as Record<string, unknown>, ["generatedAt"], false);
   }
@@ -1178,9 +1185,9 @@ export async function aggregateSeason(season: string, category: Category = "prem
   const headToHead = buildHeadToHead(teams, category, divisionHistory, season, resultOnlyRegular);
   await writeJson(path.join(DATA_DIR, seasonDir, "head-to-head.json"), headToHead);
 
-  // マジックナンバー・進出/敗退・年間優勝（B.PREMIERのみ。scripts/lib/playoffRace.ts、DESIGN.md参照）
-  if (category === "premier") {
-    const playoffRace = await buildPlayoffRace(season, seasonDir, games, standingsHistory, divisionHistory);
+  // マジックナンバー・進出/敗退・年間優勝（scripts/lib/playoffRace.ts。B.ONE は 2026-27 から。旧B2は形式を登録していないので作らない。DESIGN.md 295章）
+  if (category === "premier" || season >= PREMIER_2026_FIRST_SEASON) {
+    const playoffRace = await buildPlayoffRace(season, seasonDir, games, standingsHistory, divisionHistory, category);
     await writeJson(path.join(DATA_DIR, seasonDir, "playoff-race.json"), playoffRace);
   }
 
@@ -1237,14 +1244,16 @@ export async function aggregateSeason(season: string, category: Category = "prem
   // （DESIGN.md 173章）。終了したシーズンは当時の選手一覧（season-rosters.json）、進行中のシーズンは公式の「在籍中」の一覧
   // （current-roster.json。夜間実行で保存）。身長・体重・ポジションは players.json と同じく当時の値。スタッツは0のまま
   const registeredPlayersJson: typeof playersJson = [];
-  if (category === "premier") {
+  // B.ONE は 2026-27 から（終了したシーズンの当時の名簿 season-rosters.json は B.PREMIER だけなので、旧B2は作らない。DESIGN.md 295章）
+  if (category === "premier" || season >= PREMIER_2026_FIRST_SEASON) {
     const registeredEntries: { playerId: string; teamId: string; teamName?: string }[] = [];
-    if (pastSeason) {
+    if (pastSeason && category === "premier") {
       const seasonRosters = (await readJson<SeasonRostersFile>(path.join(DATA_DIR, "season-rosters.json"))) ?? {};
       for (const t of seasonRosters[season] ?? []) for (const id of t.playerIds) registeredEntries.push({ playerId: id, teamId: t.teamId, teamName: t.teamName });
     } else {
       const roster = await readJson<CurrentRosterFile>(path.join(DATA_DIR, "current-roster.json"));
-      if (roster?.season === season) registeredEntries.push(...roster.players);
+      // 名簿は両リーグの選手を持つ（league が無い行は B.PREMIER）。そのリーグの選手だけ
+      if (roster?.season === season) registeredEntries.push(...roster.players.filter((p) => (p.league ?? "premier") === category));
     }
     const emptyBlock = buildStatBlock(emptyTotals(), seasonStartYear);
     const seen = new Set(playersJson.map((p) => p.playerId));
@@ -1260,7 +1269,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         teamName: e.teamName ?? teams.get(e.teamId)?.teamName ?? master.teamName,
         position: profile.position,
         nationality: master.nationality,
-        classification: master.classification,
+        classification: classifyAt(e.playerId) ?? master.classification,
         heightCm: profile.heightCm,
         weightKg: profile.weightKg,
         ...(profile.fallback ? { profileFallback: profile.fallback } : {}),
@@ -1650,7 +1659,7 @@ function processTeams(
   miscEventsByTeam: Map<string, MiscEventCounts>,
   assistedScoringByTeam: Map<string, AssistedScoringCounts>,
   paintSplitByTeam: Map<string, PaintSplitCounts>,
-  masterById: Map<string, PlayerMasterEntry>,
+  classifyAt: ClassifyAt,
   teamRuns: [TeamRun | null, TeamRun | null],
 ): void {
   const homeRow = pickTeamRow(game.raw.HomeBoxscores, 3)[0];
@@ -1675,7 +1684,7 @@ function processTeams(
   // gameTypeゲートの外で算出する）
   // 個人行（Category=1・PeriodCategory=18）から試合単位で求める（shared/teamGameEvents.ts。ピリオド別の索引も同じ関数で区間ごとに出す）
   const individualRows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
-  const classify = (id: string) => masterById.get(id)?.classification;
+  const classify = (id: string) => classifyAt(id, game.date);
   const homeBreakdown = teamPointsBreakdown(individualRows, game.homeTeam.id, classify);
   const awayBreakdown = teamPointsBreakdown(individualRows, game.awayTeam.id, classify);
   const homeBench = homeBreakdown.bench;
@@ -1973,6 +1982,7 @@ async function buildPlayoffRace(
   games: StoredGame[],
   standingsHistory: StandingsSnapshot[],
   divisionHistory: DivisionHistoryFile,
+  category: Category,
 ): Promise<PlayoffRaceFile> {
   const latest = standingsHistory.at(-1);
   const asOf = latest?.date ?? null;
@@ -2017,7 +2027,11 @@ async function buildPlayoffRace(
     };
   }
 
-  const seasonDivisions = divisionHistory.premier?.[season] ?? {};
+  const seasonDivisions = divisionHistory[category]?.[season] ?? {};
+  const format = postseasonFormat(season, category) ?? { divisionTop: 3, wildcardSlots: 2, finalWinsNeeded: 3 };
+  const raceFormat: PlayoffRaceFile["format"] = category === "one" ? "one-2026" : "premier-2026";
+  // B.ONE は準々決勝のホームの区別が無い（全ラウンド出場順位の上位がホーム）ので、ホームコートの確定は出さない
+  const clinchTypes = clinchTypesForSeason(season).filter((t) => category === "premier" || t !== "homeCourt");
   const teamIds = Object.keys(seasonDivisions);
   const standingById = new Map((latest?.teams ?? []).map((t) => [t.teamId, t]));
 
@@ -2083,13 +2097,14 @@ async function buildPlayoffRace(
         homeScore: g.homeScore,
         awayScore: g.awayScore,
       })),
+    format.finalWinsNeeded ?? 3,
   );
 
   if (unavailableReason) {
     console.warn(`[${season}] playoff-race: 進出/敗退判定を出さない（${unavailableReason}）`);
     return {
       season,
-      format: "premier-2026",
+      format: raceFormat,
       asOf,
       unavailableReason,
       teams: inputs.map((t) => ({
@@ -2104,14 +2119,14 @@ async function buildPlayoffRace(
     };
   }
 
-  const race = computePremierRace(season, asOf, inputs);
+  const race = computePremierRace(season, asOf, inputs, format, raceFormat);
   for (const t of race.teams) if (t.teamId === championId) t.champion = true;
   race.clinchEvents = computeClinchEvents({
     snapshots: standingsHistory,
     teams: inputs.map((t) => ({ teamId: t.teamId, division: t.division, totalGames: PREMIER_2026_GAMES_PER_TEAM })),
     gamesByTeam: regularGamesByTeam(games),
-    types: clinchTypesForSeason(season),
-    format: postseasonFormat(season) ?? { divisionTop: 3, wildcardSlots: 2 },
+    types: clinchTypes,
+    format,
     seasonComplete: inputs.every((t) => t.remaining === 0),
   });
   return race;
@@ -2252,7 +2267,7 @@ function attachWildcardRanks(
   season: string,
   headToHead: HeadToHeadTable,
 ): StandingsTeamSnapshot[] {
-  const format = category === "premier" ? postseasonFormat(season) : null;
+  const format = postseasonFormat(season, category);
   if (!format) return teams;
   const pool = teams.filter((t) => isInWildcardPool(t, format));
   rankStandingsTeams(pool, headToHead).forEach((t, idx) => {
@@ -2316,6 +2331,8 @@ function buildHeadToHead(
     let eastLosses = 0;
     let westWins = 0;
     let westLosses = 0;
+    // 地区ごとの対戦成績（B.ONE の北・東・中・西・南の5地区も落とさない。vsEast・vsWest は B.PREMIER の画面の互換のために残す。DESIGN.md 295章）
+    const byDivision = new Map<Division, { wins: number; losses: number }>();
     for (const [opponentTeamId, rec] of vs) {
       const division = teamDivisionForSeason(divisionHistory, opponentTeamId, season, category);
       if (division === "east") {
@@ -2324,6 +2341,12 @@ function buildHeadToHead(
       } else if (division === "west") {
         westWins += rec.wins;
         westLosses += rec.losses;
+      }
+      if (division) {
+        const d = byDivision.get(division) ?? { wins: 0, losses: 0 };
+        d.wins += rec.wins;
+        d.losses += rec.losses;
+        byDivision.set(division, d);
       }
     }
 
@@ -2335,6 +2358,7 @@ function buildHeadToHead(
       overall: withPct(team.wins, team.losses),
       vsEast: withPct(eastWins, eastLosses),
       vsWest: withPct(westWins, westLosses),
+      vsDivision: Object.fromEntries([...byDivision].sort(([a], [b]) => a.localeCompare(b)).map(([d, r]) => [d, withPct(r.wins, r.losses)])),
     };
   });
 

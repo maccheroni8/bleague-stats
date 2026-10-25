@@ -90,12 +90,14 @@ export function computePremierRace(
   asOf: string | null,
   inputs: RaceTeamInput[],
   format: Pick<PostseasonFormat, "divisionTop" | "wildcardSlots"> = PREMIER_FORMAT,
+  /** 判定の形式の名前（B.ONE は "one-2026"。DESIGN.md 295章） */
+  raceFormat: PlayoffRaceFile["format"] = "premier-2026",
 ): PlayoffRaceFile {
   const DIVISION_TOP = format.divisionTop;
   const WILDCARD_SLOTS = format.wildcardSlots;
   const seasonComplete =
     inputs.length > 0 && inputs.every((t) => t.remaining === 0 && t.divisionRank !== undefined && t.wildcardRank !== undefined);
-  if (seasonComplete) return { season, format: "premier-2026", asOf, teams: finalRace(inputs, format) };
+  if (seasonComplete) return { season, format: raceFormat, asOf, teams: finalRace(inputs, format) };
 
   const teams: PlayoffRaceTeam[] = inputs.map((self) => {
     const ownRivals = inputs.filter((t) => t.teamId !== self.teamId && t.division === self.division);
@@ -141,7 +143,7 @@ export function computePremierRace(
       eliminatedPlayoffs,
     };
   });
-  return { season, format: "premier-2026", asOf, teams };
+  return { season, format: raceFormat, asOf, teams };
 }
 
 /**
@@ -184,12 +186,14 @@ function finalRace(
 }
 
 /**
- * 2026-27〜のプレーオフ決勝（3勝先取）の勝者。プレーオフの試合のうち最も新しい試合の2クラブを
- * 決勝のカードとみなし（8クラブのトーナメントで同じ2クラブが対戦するのは1回だけ）、その2クラブ間の
- * プレーオフでの勝数が3に達したクラブを優勝とする。まだ決着していなければundefined
+ * 2026-27〜のプレーオフ決勝の勝者。プレーオフの試合のうち最も新しい試合の2クラブを
+ * 決勝のカードとみなし（トーナメントで同じ2クラブが対戦するのは1回だけ）、その2クラブ間の
+ * プレーオフでの勝数が winsNeeded（B.PREMIER は3勝先取、B.ONE は2試合＋1勝1敗なら3試合目で2勝）に達したクラブを優勝とする。
+ * まだ決着していなければundefined
  */
 export function premierChampion(
   playoffGames: { date: string; homeTeamId: string; awayTeamId: string; homeScore: number; awayScore: number }[],
+  winsNeeded = 3,
 ): string | undefined {
   if (playoffGames.length === 0) return undefined;
   const latest = [...playoffGames].sort((a, b) => a.date.localeCompare(b.date)).at(-1)!;
@@ -200,7 +204,7 @@ export function premierChampion(
     const winner = g.homeScore > g.awayScore ? g.homeTeamId : g.awayTeamId;
     wins.set(winner, (wins.get(winner) ?? 0) + 1);
   }
-  for (const [teamId, count] of wins) if (count >= 3) return teamId;
+  for (const [teamId, count] of wins) if (count >= winsNeeded) return teamId;
   return undefined;
 }
 

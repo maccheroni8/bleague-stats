@@ -7,7 +7,9 @@
 // チームの追加の列（Misc・Scoring 用の項目と、外国籍の人数別の在コート秒数。256章の段階1）は、チームの試合ログ（scripts/aggregate.ts）と同じ関数で区間ごとに出す。
 // 人数別の得点・失点・攻撃回数（256章の段階3の作り直しの回）は、よく使われるラインナップと同じ数え方で区間ごとと試合全体（all）に出す。
 import path from "node:path";
-import { DATA_DIR, readAllGames, readJson } from "./storage.ts";
+import { DATA_DIR, readAllGames, readJson, seasonDirName } from "./storage.ts";
+import { makeClassifier, type SeasonRegistrationFile } from "../../shared/registration.ts";
+import { seasonRuleFor } from "../../shared/seasonRules.ts";
 import {
   PERIOD_ATOMS,
   PERIOD_INDEX_VERSION,
@@ -29,7 +31,7 @@ import {
 } from "../../shared/periodIndex.ts";
 import { GAME_FLAG_SHORT, type PlayerGameIndexFile, type TeamGameIndexFile } from "../../shared/gameIndex.ts";
 import { overtimeCount } from "../../shared/gamePeriods.ts";
-import type { PlayByPlayEvent, PlayerMasterEntry, SeasonRules, StoredGame } from "../../shared/types.ts";
+import type { Category, PlayByPlayEvent, PlayerMasterEntry, SeasonRules, StoredGame } from "../../shared/types.ts";
 import { onCourtPeriodCount, periodRangeSeconds, reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt.ts";
 import { foreignCourtByPeriod, type ForeignPeriodTotals } from "../../shared/foreignOnCourt.ts";
 import { buildMiscEventCounts, countTechnicalFouls, teamPointsBreakdown, ZERO_MISC_EVENTS } from "../../shared/teamGameEvents.ts";
@@ -191,8 +193,8 @@ function isParticipating(values: number[]): boolean {
   return values.some((v) => v !== 0);
 }
 
-async function readIndexes(season: string): Promise<{ player: PlayerGameIndexFile; team: TeamGameIndexFile } | null> {
-  const dir = path.join(DATA_DIR, season);
+async function readIndexes(season: string, category: Category): Promise<{ player: PlayerGameIndexFile; team: TeamGameIndexFile } | null> {
+  const dir = path.join(DATA_DIR, seasonDirName(season, category));
   const player = await readJson<PlayerGameIndexFile>(path.join(dir, "player-game-index.json"));
   const team = await readJson<TeamGameIndexFile>(path.join(dir, "team-game-index.json"));
   if (!player || !team) return null;
@@ -200,8 +202,11 @@ async function readIndexes(season: string): Promise<{ player: PlayerGameIndexFil
 }
 
 /** そのシーズンのピリオド別の索引（選手・チーム）。1試合行の索引が無いシーズンは null */
-export async function buildPeriodIndex(season: string): Promise<{ player: PlayerPeriodIndexFile; team: TeamPeriodIndexFile } | null> {
-  const indexes = await readIndexes(season);
+export async function buildPeriodIndex(
+  season: string,
+  category: Category = "premier",
+): Promise<{ player: PlayerPeriodIndexFile; team: TeamPeriodIndexFile } | null> {
+  const indexes = await readIndexes(season, category);
   if (!indexes) return null;
   const { player: playerIndex, team: teamIndex } = indexes;
   const generatedAt = new Date().toISOString();
@@ -215,11 +220,16 @@ export async function buildPeriodIndex(season: string): Promise<{ player: Player
   // 登録区分（ベンチ／スタメン・区分別の得点、On-Court Foreign）と、同時に出られる外国籍・特別枠の最大人数（試合ログと同じ値）
   const playersMaster = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
   const masterById = new Map(playersMaster.map((p) => [p.playerId, p]));
-  const classify = (id: string) => masterById.get(id)?.classification;
+  // 登録区分は試合ログと同じ決め方（shared/registration.ts。試合の日付で決める）
+  const classifyAt = makeClassifier(
+    season,
+    await readJson<SeasonRegistrationFile>(path.join(DATA_DIR, seasonDirName(season, category), "registrations.json")),
+    masterById,
+  );
   const seasonRules = (await readJson<SeasonRules[]>(path.join(DATA_DIR, "season-rules.json"))) ?? [];
-  const maxForeignOnCourt = seasonRules.find((r) => r.season === season)?.maxForeignOnCourt;
+  const maxForeignOnCourt = seasonRuleFor(seasonRules, season, category)?.maxForeignOnCourt;
 
-  const allGames = (await readAllGames(season)).filter((g) => gameNumber.has(String(g.scheduleKey)));
+  const allGames = (await readAllGames(season, category)).filter((g) => gameNumber.has(String(g.scheduleKey)));
   if (allGames.length !== games.key.length) throw new Error(`${season}: 索引の試合 ${games.key.length} 件のうち、生データがあるのは ${allGames.length} 件です`);
   allGames.sort((a, b) => gameNumber.get(String(a.scheduleKey))! - gameNumber.get(String(b.scheduleKey))!);
 
@@ -244,6 +254,7 @@ export async function buildPeriodIndex(season: string): Promise<{ player: Player
   for (const game of allGames) {
     const key = String(game.scheduleKey);
     const g = gameNumber.get(key)!;
+    const classify = (id: string) => classifyAt(id, game.date);
     const short = (games.flags[g]! & GAME_FLAG_SHORT) !== 0;
     // ピリオド別の選手行が無い試合（合計だけの手入力の試合。DESIGN.md 275章）は、区間の値を持たない（0ではなく -1＝無い）
     const noPeriods = !hasPeriodRows.has(key);

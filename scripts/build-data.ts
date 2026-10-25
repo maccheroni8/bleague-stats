@@ -44,12 +44,12 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DATA = path.join(ROOT, "data");
 
-/** 生データ（games/）が1件でもある収録シーズン（古い順） */
+/** 生データ（games/ か、B.ONE の one/games/）が1件でもある収録シーズン（古い順。DESIGN.md 295章） */
 function seasonsWithGames(): string[] {
   return readdirSync(DATA, { withFileTypes: true })
     .filter((e) => e.isDirectory() && SEASON_DIR_PATTERN.test(e.name))
     .map((e) => e.name)
-    .filter((s) => hasGameFiles(path.join(DATA, s, "games")))
+    .filter((s) => hasGameFiles(path.join(DATA, s, "games")) || hasOne(s))
     .sort();
 }
 
@@ -171,14 +171,53 @@ function node(label: string, script: string, ...args: string[]): void {
   run(label, process.execPath, ["--experimental-strip-types", path.join("scripts", script), ...args]);
 }
 
+type Step = [label: string, command: string, args: string[]];
+
+/** そのシーズン・リーグの集計の手順。B.ONE は同じ手順に --category one を付ける（data/{season}/one/。DESIGN.md 295章） */
+function seasonSteps(season: string, category: "premier" | "one"): Step[] {
+  const cat = category === "one" ? ["--category", "one"] : [];
+  const name = category === "one" ? `${season} B.ONE` : season;
+  const nodeStep = (label: string, script: string, ...args: string[]): Step => [label, process.execPath, ["--experimental-strip-types", path.join("scripts", script), ...args]];
+  return [
+    nodeStep(`${name} 集計`, "aggregate.ts", "--season", season, ...cat),
+    nodeStep(`${name} 1試合行の索引`, "aggregate-game-index.ts", "--season", season, ...cat),
+    [`${name} ピリオド別の索引`, "npm", ["run", "--silent", "aggregate:period-index", "--", "--season", season, ...cat]], // 1試合行の索引に結び付けるので、その後（225章）
+    nodeStep(`${name} Time to Shot の導出データ`, "aggregate-tts-index.ts", "--season", season, ...cat), // 1試合行の索引に結び付ける
+    nodeStep(`${name} 選手の1試合の記録`, "aggregate-player-game-records.ts", "--season", season, ...cat), // 上位20位は索引から作る（221章）
+    [`${name} 比較用のリーグ平均`, "npm", ["run", "--silent", "aggregate:league-compare", "--", "--season", season, ...cat]],
+  ];
+}
+
+/** B.ONE の作成が失敗した今のシーズン（B.PREMIER の作成・公開は続ける。末尾で通知する） */
+const oneFailures: string[] = [];
+
+/**
+ * 今のシーズンの B.ONE の手順は、失敗しても B.PREMIER を止めない（そのシーズンの B.ONE の導出データを消して続け、最後に通知する）。
+ * 過去のシーズンは保存して使い回すので、B.ONE も失敗したら止める（欠けた導出データを保存しない）
+ */
+function buildOne(season: string): void {
+  const soft = season >= currentSeason();
+  for (const [label, command, args] of seasonSteps(season, "one")) {
+    if (!soft) {
+      run(label, command, args);
+      continue;
+    }
+    const started = Date.now();
+    console.log(`\n▶ ${label}`);
+    const r = spawnSync(command, args, { cwd: ROOT, stdio: "inherit" });
+    timings.push({ label, seconds: (Date.now() - started) / 1000 });
+    if (r.status !== 0) {
+      console.error(`✗ 失敗: ${label}（終了コード ${r.status ?? "なし"}）。このシーズンの B.ONE の導出データを消して、B.PREMIER の作成を続けます`);
+      for (const p of seasonDerivedPaths(DATA, season)) if (p.startsWith(path.join(DATA, season, "one") + path.sep)) rmSync(p, { recursive: true, force: true });
+      oneFailures.push(season);
+      return;
+    }
+  }
+}
+
 function buildSeason(season: string): void {
-  node(`${season} 集計`, "aggregate.ts", "--season", season);
-  if (hasOne(season)) node(`${season} B.ONE 集計`, "aggregate.ts", "--season", season, "--category", "one");
-  node(`${season} 1試合行の索引`, "aggregate-game-index.ts", "--season", season);
-  run(`${season} ピリオド別の索引`, "npm", ["run", "--silent", "aggregate:period-index", "--", "--season", season]); // 1試合行の索引に結び付けるので、その後（225章）
-  node(`${season} Time to Shot の導出データ`, "aggregate-tts-index.ts", "--season", season); // 1試合行の索引に結び付ける
-  node(`${season} 選手の1試合の記録`, "aggregate-player-game-records.ts", "--season", season); // 上位20位は索引から作る（221章）
-  run(`${season} 比較用のリーグ平均`, "npm", ["run", "--silent", "aggregate:league-compare", "--", "--season", season]);
+  if (hasGameFiles(path.join(DATA, season, "games"))) for (const [label, command, args] of seasonSteps(season, "premier")) run(label, command, args);
+  if (hasOne(season)) buildOne(season);
 }
 
 function buildCross(): void {
@@ -393,6 +432,12 @@ async function main(): Promise<void> {
   console.log(`\n== 所要時間 ==`);
   for (const t of timings) console.log(`${t.seconds.toFixed(1).padStart(6)}秒  ${t.label}`);
   console.log(`${total.toFixed(1).padStart(6)}秒  合計`);
+  if (oneFailures.length > 0) {
+    // デプロイは ONE_BUILD_FAILURE_FILE に書かれたシーズンを見て、公開のあとで失敗として通知する（.github/workflows/deploy.yml）
+    console.error(`::error title=B.ONE build failed::B.ONE の導出データの作成が失敗しました（${oneFailures.join("・")}）。B.PREMIER は作成済みです`);
+    const failureFile = process.env.ONE_BUILD_FAILURE_FILE;
+    if (failureFile) await appendFile(failureFile, `${oneFailures.join("\n")}\n`);
+  }
 }
 
 if (isMainModule(import.meta.url)) {

@@ -5,13 +5,13 @@
 // 画面の条件つきの1試合記録（src/lib/gameRecordQuery.ts）も同じ索引を読むので、条件なしの表示と条件ありの表示の元がそろう。
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { DATA_DIR, readJson } from "./storage.ts";
+import { DATA_DIR, readJson, seasonDirName } from "./storage.ts";
 import { filterByGameType } from "../../shared/gameType.ts";
 import { PLAYER_GAME_RECORD_STATS, PLAYER_GAME_RECORD_TOP_N, type PlayerRecordGame } from "../../shared/playerGameRecords.ts";
 import { CLASS_KEYS, type ClassKey } from "../../shared/classificationKey.ts";
 import { playerGameAt, viewPlayerGameIndex } from "../../shared/gameIndexRead.ts";
 import type { PlayerGameIndexFile } from "../../shared/gameIndex.ts";
-import type { LeagueRankingGameType, PlayerGameRecordEntry, PlayerGameRecordTables } from "../../shared/types.ts";
+import type { Category, LeagueRankingGameType, PlayerGameRecordEntry, PlayerGameRecordTables } from "../../shared/types.ts";
 
 export interface RecordGame extends PlayerRecordGame {
   playerId: string;
@@ -28,10 +28,11 @@ export interface RecordGame extends PlayerRecordGame {
  * 選手名はそのシーズンの名前。索引は、先に scripts/aggregate-game-index.ts（build:data の「1試合行の索引」）で作っておく。
  * そのシーズンの選手の試合ログが無ければ空（索引も作られない）
  */
-export async function loadSeasonRecordGames(season: string): Promise<RecordGame[]> {
-  const file = await readJson<PlayerGameIndexFile>(path.join(DATA_DIR, season, "player-game-index.json"));
+export async function loadSeasonRecordGames(season: string, category: Category = "premier"): Promise<RecordGame[]> {
+  const dir = path.join(DATA_DIR, seasonDirName(season, category));
+  const file = await readJson<PlayerGameIndexFile>(path.join(dir, "player-game-index.json"));
   if (!file) {
-    if (existsSync(path.join(DATA_DIR, season, "player-games"))) {
+    if (existsSync(path.join(dir, "player-games"))) {
       throw new Error(`${season}: 1試合行の索引（player-game-index.json.gz）がありません。先に npm run aggregate:game-index -- --season ${season} を実行してください`);
     }
     return [];

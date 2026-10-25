@@ -14,11 +14,11 @@ import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
-import { DATA_DIR, readAllGames, readJson, writeJsonIfChanged } from "./lib/storage.ts";
+import { DATA_DIR, readAllGames, readJson, seasonDirName, writeJsonIfChanged } from "./lib/storage.ts";
 import { classifyGameType } from "./lib/gameType.ts";
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { buildTeamMultiGameBoxTotals } from "../src/lib/playerSeasonBoxscore";
-import type { SeasonEntry, StoredGame, YahooGamePbp, YahooTurnoverEvent } from "../shared/types.ts";
+import type { Category, SeasonEntry, StoredGame, YahooGamePbp, YahooTurnoverEvent } from "../shared/types.ts";
 import type { LeagueCompareFile } from "../src/lib/leagueAverage";
 
 async function readYahooTurnovers(season: string, scheduleKey: string): Promise<YahooTurnoverEvent[]> {
@@ -28,13 +28,14 @@ async function readYahooTurnovers(season: string, scheduleKey: string): Promise<
   return pbp.turnovers ?? [];
 }
 
-async function buildSeason(season: string, entry: SeasonEntry | undefined): Promise<LeagueCompareFile | null> {
-  const games = (await readAllGames(season)).filter(
+async function buildSeason(season: string, entry: SeasonEntry | undefined, category: Category): Promise<LeagueCompareFile | null> {
+  const games = (await readAllGames(season, category)).filter(
     (g) => g.gameEndedFlg && !isExhibitionGame(g.raw.Game.ConventionNameJ ?? ""),
   );
   if (games.length === 0) return null;
   const shotChartSupported = entry?.coverage === "full";
-  const yahooPbpSupported = entry?.yahooPbp ?? false;
+  // スポーツナビ（Yahoo PBP）は B.PREMIER だけ。B.ONE は試合の記録の形式（シーズンの coverage）だけ同じものを使う（DESIGN.md 295章）
+  const yahooPbpSupported = category === "premier" ? (entry?.yahooPbp ?? false) : false;
   const turnovers = new Map<string, YahooTurnoverEvent[]>();
   if (yahooPbpSupported) for (const g of games) turnovers.set(g.scheduleKey, await readYahooTurnovers(season, g.scheduleKey));
 
@@ -60,6 +61,8 @@ async function buildSeason(season: string, entry: SeasonEntry | undefined): Prom
 
 async function main() {
   const idx = process.argv.indexOf("--season");
+  const categoryIdx = process.argv.indexOf("--category");
+  const category = (categoryIdx >= 0 ? process.argv[categoryIdx + 1] : "premier") as Category;
   const seasonsFile = (await readJson<SeasonEntry[]>(path.join(DATA_DIR, "seasons.json"))) ?? [];
   const seasons =
     idx >= 0
@@ -68,10 +71,10 @@ async function main() {
           .filter((d) => /^\d{4}-\d{2}$/.test(d))
           .sort();
   for (const season of seasons) {
-    const file = await buildSeason(season, seasonsFile.find((s) => s.season === season));
+    const file = await buildSeason(season, seasonsFile.find((s) => s.season === season), category);
     if (!file) continue;
-    const changed = await writeJsonIfChanged(path.join(DATA_DIR, season, "league-compare.json"), file as unknown as Record<string, unknown>, []);
-    console.log(`${season}: レギュラー${file.games.regular}試合・ポストシーズン${file.games.playoff}試合${changed ? "" : "（変化なし）"}`);
+    const changed = await writeJsonIfChanged(path.join(DATA_DIR, seasonDirName(season, category), "league-compare.json"), file as unknown as Record<string, unknown>, []);
+    console.log(`${category === "one" ? `${season} B.ONE` : season}: レギュラー${file.games.regular}試合・ポストシーズン${file.games.playoff}試合${changed ? "" : "（変化なし）"}`);
   }
 }
 

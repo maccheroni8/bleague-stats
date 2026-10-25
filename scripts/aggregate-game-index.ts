@@ -9,17 +9,18 @@
 
 import path from "node:path";
 import { readdirSync } from "node:fs";
-import { DATA_DIR, writeJsonIfChanged } from "./lib/storage.ts";
+import { DATA_DIR, seasonDirName, writeJsonIfChanged } from "./lib/storage.ts";
+import type { Category } from "../shared/types.ts";
 import { buildGameIndex } from "./lib/gameIndexBuild.ts";
 
 const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
 
-async function buildSeason(season: string): Promise<boolean> {
-  const built = await buildGameIndex(season);
+async function buildSeason(season: string, category: Category): Promise<boolean> {
+  const built = await buildGameIndex(season, category);
   if (!built) return false;
   // 列ごとに数値を並べるので、字下げなしで書く
-  const a = await writeJsonIfChanged(path.join(DATA_DIR, season, "player-game-index.json"), built.player as unknown as Record<string, unknown>, ["generatedAt"], false);
-  const b = await writeJsonIfChanged(path.join(DATA_DIR, season, "team-game-index.json"), built.team as unknown as Record<string, unknown>, ["generatedAt"], false);
+  const a = await writeJsonIfChanged(path.join(DATA_DIR, seasonDirName(season, category), "player-game-index.json"), built.player as unknown as Record<string, unknown>, ["generatedAt"], false);
+  const b = await writeJsonIfChanged(path.join(DATA_DIR, seasonDirName(season, category), "team-game-index.json"), built.team as unknown as Record<string, unknown>, ["generatedAt"], false);
   return a || b;
 }
 
@@ -38,9 +39,16 @@ async function main() {
     console.error("--season <YYYY-YY> か --all を指定してください");
     process.exit(1);
   }
+  // --category one: B.ONE（data/{season}/one/。DESIGN.md 295章）。省略は B.PREMIER
+  const categoryArg = args.indexOf("--category");
+  const category = (categoryArg >= 0 ? args[categoryArg + 1] : "premier") as Category;
+  if (category !== "premier" && category !== "one") {
+    console.error("--category は premier か one を指定してください");
+    process.exit(1);
+  }
   for (const season of seasons) {
-    const changed = await buildSeason(season);
-    console.log(`${season}: ${changed ? "保存しました" : "変化なし（または対象の試合なし）"}`);
+    const changed = await buildSeason(season, category);
+    console.log(`${category === "one" ? `${season} B.ONE` : season}: ${changed ? "保存しました" : "変化なし（または対象の試合なし）"}`);
   }
 }
 

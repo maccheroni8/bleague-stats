@@ -1,16 +1,17 @@
 // Time to Shot の導出データを作る（形式は shared/ttsIndex.ts。計算は shared/timeToShot.ts）。
 // 1試合行の索引（team-game-index.json。先に作っておく）の行に結び付ける。2020-21 より前のシーズンは作らない（null）。
 import path from "node:path";
-import { DATA_DIR, readAllGames, readJson } from "./storage.ts";
+import { DATA_DIR, readAllGames, readJson, seasonDirName } from "./storage.ts";
+import type { Category } from "../../shared/types.ts";
 import { calculateTimeToShot } from "../../shared/timeToShot.ts";
 import { TTS_ATOMS, TTS_FIRST_SEASON, TTS_INDEX_CATEGORIES, TTS_INDEX_VERSION, ttsExcludedKey, ttsKey, type TtsAtom, type TtsIndexFile } from "../../shared/ttsIndex.ts";
 import type { TeamGameIndexFile } from "../../shared/gameIndex.ts";
 
 const atomOf = (period: number): TtsAtom => (period <= 4 ? (TTS_ATOMS[period - 1] as TtsAtom) : "ot");
 
-export async function buildTtsIndex(season: string): Promise<TtsIndexFile | null> {
+export async function buildTtsIndex(season: string, category: Category = "premier"): Promise<TtsIndexFile | null> {
   if (season < TTS_FIRST_SEASON) return null;
-  const teamIndex = await readJson<TeamGameIndexFile>(path.join(DATA_DIR, season, "team-game-index.json"));
+  const teamIndex = await readJson<TeamGameIndexFile>(path.join(DATA_DIR, seasonDirName(season, category), "team-game-index.json"));
   if (!teamIndex) return null;
   const rowsCount = teamIndex.games.key.length * 2;
   const counts: Record<string, number[]> = {};
@@ -23,7 +24,7 @@ export async function buildTtsIndex(season: string): Promise<TtsIndexFile | null
     }
   }
   const gameNumber = new Map<string, number>(teamIndex.games.key.map((k, i) => [k, i]));
-  for (const game of await readAllGames(season)) {
+  for (const game of await readAllGames(season, category)) {
     const g = gameNumber.get(String(game.scheduleKey));
     if (g === undefined) continue;
     // PBP が無い試合は値なし（-1）。ボックスの FGA は復元できない

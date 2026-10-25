@@ -4,9 +4,10 @@
 // 選手の行は出場した試合（min>0）だけ。ルーキーは入れない（所属履歴から作る別の導出データ rookie-eligibility.json と、読むときに突き合わせる。219章）。
 import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
-import { DATA_DIR, readJson } from "./storage.ts";
+import { DATA_DIR, readJson, seasonDirName } from "./storage.ts";
 import { teamDivisionForSeason } from "./divisions.ts";
 import { classKeyOf } from "../../shared/classificationKey.ts";
+import { classificationCode, hasSplitClassification, makeClassifier, type SeasonRegistrationFile } from "../../shared/registration.ts";
 import {
   GAME_FLAG_PLAYOFF,
   GAME_FLAG_SHORT,
@@ -24,7 +25,7 @@ import {
   type TeamGameIndexFile,
 } from "../../shared/gameIndex.ts";
 import { normalizePlayerName } from "../../shared/playerName.ts";
-import type { DivisionHistoryFile, GameSummary, PlayerGameLog, PlayerMasterEntry, PlayerSummary, TeamGameLog } from "../../shared/types.ts";
+import type { Category, DivisionHistoryFile, GameSummary, PlayerGameLog, PlayerMasterEntry, PlayerSummary, TeamGameLog } from "../../shared/types.ts";
 
 type PlayerStatColumn = (typeof PLAYER_INDEX_STAT_COLUMNS)[number];
 type TeamStatColumn = (typeof TEAM_INDEX_STAT_COLUMNS)[number] | (typeof TEAM_INDEX_PERIOD_COLUMNS)[number];
@@ -72,7 +73,13 @@ interface SeasonInputs {
   gameIndex: Map<string, number>;
 }
 
-function loadInputs(season: string, divisionHistory: DivisionHistoryFile | null, summaries: GameSummary[], teamLogsByTeam: Map<string, TeamGameLog[]>): SeasonInputs {
+function loadInputs(
+  season: string,
+  category: Category,
+  divisionHistory: DivisionHistoryFile | null,
+  summaries: GameSummary[],
+  teamLogsByTeam: Map<string, TeamGameLog[]>,
+): SeasonInputs {
   const indexed = summaries.filter(isIndexedGame);
   const names = new Map<string, string>();
   for (const s of indexed) {
@@ -80,7 +87,7 @@ function loadInputs(season: string, divisionHistory: DivisionHistoryFile | null,
     names.set(s.awayTeamId, s.awayTeamName);
   }
   const teamIds = [...names.keys()].sort();
-  const teams: IndexTeam[] = teamIds.map((id) => [id, names.get(id)!, teamDivisionForSeason(divisionHistory, id, season) ?? ""]);
+  const teams: IndexTeam[] = teamIds.map((id) => [id, names.get(id)!, teamDivisionForSeason(divisionHistory, id, season, category) ?? ""]);
   const teamIndex = new Map(teamIds.map((id, i) => [id, i]));
 
   // 試合ごとのホーム・アウェイのチーム試合ログ（チームの試合ログの isHome で振り分ける）
@@ -122,8 +129,11 @@ function loadInputs(season: string, divisionHistory: DivisionHistoryFile | null,
 }
 
 /** そのシーズンの索引（選手・チーム）。試合の要約が無いシーズンは null */
-export async function buildGameIndex(season: string): Promise<{ player: PlayerGameIndexFile; team: TeamGameIndexFile } | null> {
-  const seasonDir = path.join(DATA_DIR, season);
+export async function buildGameIndex(
+  season: string,
+  category: Category = "premier",
+): Promise<{ player: PlayerGameIndexFile; team: TeamGameIndexFile } | null> {
+  const seasonDir = path.join(DATA_DIR, seasonDirName(season, category));
   const summaries = await readJson<GameSummary[]>(path.join(seasonDir, "games-summary.json"));
   if (!summaries || summaries.length === 0) return null;
   const divisionHistory = await readJson<DivisionHistoryFile>(path.join(DATA_DIR, "division-history.json"));
@@ -134,7 +144,7 @@ export async function buildGameIndex(season: string): Promise<{ player: PlayerGa
     const teamId = f.replace(/\.json\.gz$/, "");
     teamLogsByTeam.set(teamId, (await readJson<TeamGameLog[]>(path.join(seasonDir, "team-games", `${teamId}.json`))) ?? []);
   }
-  const inputs = loadInputs(season, divisionHistory, summaries, teamLogsByTeam);
+  const inputs = loadInputs(season, category, divisionHistory, summaries, teamLogsByTeam);
   if (inputs.games.key.length === 0) return null;
   const { games, teams, gameIndex, teamLogs } = inputs;
 
@@ -170,6 +180,13 @@ export async function buildGameIndex(season: string): Promise<{ player: PlayerGa
   const summaryById = new Map(playersJson.map((p) => [p.playerId, p]));
   const master = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
   const masterById = new Map(master.map((p) => [p.playerId, p]));
+  // 外国籍・帰化・アジア特別枠を分けて選べるシーズンは、行ごとにその試合での登録区分を持つ（shared/registration.ts。DESIGN.md 295章）
+  const splitClasses = hasSplitClassification(season);
+  const classifyAt = makeClassifier(
+    season,
+    splitClasses ? await readJson<SeasonRegistrationFile>(path.join(seasonDir, "registrations.json")) : null,
+    masterById,
+  );
 
   const playerIds = filesIn(path.join(seasonDir, "player-games")).map((f) => f.replace(/\.json\.gz$/, "")).sort();
   const playerRows: { playerId: string; gi: number; g: PlayerGameLog }[] = [];
@@ -208,7 +225,9 @@ export async function buildGameIndex(season: string): Promise<{ player: PlayerGa
   const rowPlayer: number[] = [];
   const rowGame: number[] = [];
   const rowFlags: number[] = [];
+  const rowClasses: number[] = [];
   for (const r of playerRows) {
+    if (splitClasses) rowClasses.push(classificationCode(classifyAt(r.playerId, games.date[r.gi])));
     rowPlayer.push(playerIdx.get(r.playerId)!);
     rowGame.push(r.gi);
     rowFlags.push((r.g.isStarter ? ROW_FLAG_STARTER : 0) | (r.g.isHome ? ROW_FLAG_HOME : 0));
@@ -221,7 +240,7 @@ export async function buildGameIndex(season: string): Promise<{ player: PlayerGa
     teams,
     games,
     players,
-    rows: { player: rowPlayer, game: rowGame, flags: rowFlags, stats: playerStats },
+    rows: { player: rowPlayer, game: rowGame, flags: rowFlags, stats: playerStats, ...(splitClasses ? { cls: rowClasses } : {}) },
   };
   return { player, team };
 }

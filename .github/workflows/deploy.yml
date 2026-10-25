@@ -82,6 +82,8 @@ jobs:
     needs: check
     if: needs.check.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      one_failed: ${{ steps.build_data.outputs.one_failed }}
     steps:
       # 2026-10-04判明: workflow_run の head_sha は「更新ジョブが開始時に取得したコミット」で、更新ジョブが自分で
       # 作ったデータのコミット（その直後のコミット）を含まない。これを使うと毎回1つ前のデータがデプロイされ、
@@ -143,9 +145,16 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: node --experimental-strip-types scripts/build-data.ts save derived-cache
 
-      # 今のシーズン（と、導出データがまだ無いシーズン）を作り、続けて全シーズンをまたぐ集計を作る
+      # 今のシーズン（と、導出データがまだ無いシーズン）を作り、続けて全シーズンをまたぐ集計を作る。
+      # 今のシーズンの B.ONE の作成が失敗しても B.PREMIER は作って公開し、失敗したシーズンを ONE_BUILD_FAILURE_FILE に書く。
+      # 公開のあとの「Fail if B.ONE build failed」で実行を失敗にして通知する（DESIGN.md 295章）
       - name: Build derived data (current season and cross-season)
-        run: node --experimental-strip-types scripts/build-data.ts --season ${{ steps.plan.outputs.current }}
+        id: build_data
+        env:
+          ONE_BUILD_FAILURE_FILE: ${{ runner.temp }}/one-build-failure.txt
+        run: |
+          node --experimental-strip-types scripts/build-data.ts --season ${{ steps.plan.outputs.current }}
+          if [ -s "$ONE_BUILD_FAILURE_FILE" ]; then echo "one_failed=true" >> "$GITHUB_OUTPUT"; else echo "one_failed=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Build
         run: npm run build
@@ -170,3 +179,10 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+      # 今のシーズンの B.ONE の導出データの作成が失敗した（B.PREMIER は公開済み）ことを、実行の失敗として通知する
+      - name: Fail if B.ONE build failed
+        if: ${{ needs.build.outputs.one_failed == 'true' }}
+        run: |
+          echo "::error title=B.ONE build failed::今のシーズンの B.ONE の導出データの作成が失敗しました。B.PREMIER は公開済みで、B.ONE は前の版も無い状態です。build ジョブのログの「✗ 失敗」を確認してください"
+          exit 1
