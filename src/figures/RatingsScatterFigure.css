@@ -17,7 +17,8 @@
 .ratings-quadrant.top { top:6px; }.ratings-quadrant.bottom { bottom:6px; }.ratings-quadrant.left { left:6px; }.ratings-quadrant.right { right:6px; }
 .ratings-point { position:absolute; z-index:2; transform:translate(-50%,-50%); width:46px; height:46px; padding:3px; display:flex; justify-content:center; align-items:center; border:3px solid; border-radius:50%; background:#fff; color:#222; cursor:pointer; }
 .ratings-point img { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
-.ratings-point.is-selected { z-index:5; transform:translate(-50%,-50%) scale(1.2); outline:2px solid var(--fg); outline-offset:2px; }
+.ratings-point.is-selected { z-index:5; }
+.ratings-point.is-expanded { transform:translate(-50%,-50%) scale(1.2); outline:2px solid var(--fg); outline-offset:2px; }
 .ratings-fallback { font-size:9px; line-height:1.1; overflow-wrap:anywhere; }
 .ratings-tick-x { position:absolute; top:100%; margin-top:6px; transform:translateX(-50%); font-size:12px; }
 .ratings-tick-y { position:absolute; left:-8px; transform:translate(-100%,-50%); font-size:12px; }
@@ -31,7 +32,7 @@
 .ratings-table button { background:none; border:0; color:var(--fg); cursor:pointer; text-align:left; padding:0; font:inherit; }
 .ratings-table .is-selected { background:var(--row-hover); }
 .export-rendering.ratings-export { width:1100px !important; }.export-rendering .ratings-chart { max-width:950px; }
-.export-rendering .ratings-point.is-selected { transform:translate(-50%,-50%); outline:none; z-index:2; }
+.export-rendering .ratings-point.is-expanded { transform:translate(-50%,-50%); outline:none; z-index:2; }
 @media(max-width:560px) { .ratings-plot-wrap { margin-left:35px; margin-right:18px; } .ratings-point { width:32px; height:32px; padding:2px; border-width:2px; } .ratings-point img { width:24px; height:24px; } .ratings-fallback { font-size:8px; } .ratings-quadrant { font-size:10px; padding:1px 2px; } .ratings-legend { gap:6px 12px; } }
 .export-rendering.ratings-export .ratings-point { width:46px; height:46px; padding:3px; border-width:3px; }
 .export-rendering.ratings-export .ratings-point img { width:34px; height:34px; }.export-rendering.ratings-export .ratings-fallback { font-size:9px; }

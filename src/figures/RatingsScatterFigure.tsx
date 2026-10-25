@@ -116,10 +116,10 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
     </>}
   </section>;
 }
-function RatingLogo({point,label,selected,left,top,onSelect,onDismiss}:{point:RatingPoint;label:string;selected:boolean;left:number;top:number;onSelect:()=>void;onDismiss:()=>void}) {
+function RatingLogo({point,label,selected,expanded,left,top,onSelect,onDismiss}:{point:RatingPoint;label:string;selected:boolean;expanded:boolean;left:number;top:number;onSelect:()=>void;onDismiss:()=>void}) {
   const[failed,setFailed]=useState(false);
   const description=`${label}：${RATING_KEYS.map(key=>`${RATING_LABELS[key]} ${ratingColumn(key).format!(point.row)}（${point.ranks[key]}位）`).join("、")}`;
-  return <button className={`ratings-point${selected?" is-selected":""}`} style={{left:`${left}%`,top:`${top}%`,borderColor:DIVISION_RATING_COLORS[point.division??"unknown"]}}
+  return <button className={`ratings-point${selected?" is-selected":""}${expanded?" is-expanded":""}`} style={{left:`${left}%`,top:`${top}%`,borderColor:DIVISION_RATING_COLORS[point.division??"unknown"]}}
     aria-label={description} aria-pressed={selected} onPointerEnter={event=>{if(event.pointerType==="mouse")onSelect();}} onPointerLeave={event=>{if(event.pointerType==="mouse")onDismiss();}} onFocus={onSelect} onBlur={onDismiss} onClick={onSelect}>
     {failed?<span className="ratings-fallback">{teamShortName(point.teamId,point.teamName)}</span>:<img src={teamLogoUrl(point.teamId)} alt="" width={26} height={26} loading="eager" onError={()=>setFailed(true)}/>}
   </button>;
@@ -153,7 +153,7 @@ function RatingChart({points,all,league,selectedId,tooltip,teamLabel,onSelect,on
             <span className="ratings-rank-label" style={{left:`${box.x/size*100}%`,top:`${box.y/size*100}%`,width:box.width,height:box.height,fontSize:mobile?9:10}}>{box.texts.map(text=><span key={text}>{text}</span>)}</span>
           </span>;
         })}
-        {points.map(point=><RatingLogo key={point.teamId} point={point} label={teamLabel(point.teamId,point.teamName)} selected={selectedId===point.teamId} left={position(point.ortg)} top={position(point.drtg)} onSelect={()=>onSelect(point.teamId)} onDismiss={onDismiss}/>)}
+        {points.map(point=><RatingLogo key={point.teamId} point={point} label={teamLabel(point.teamId,point.teamName)} selected={selectedId===point.teamId} expanded={tooltip?.teamId===point.teamId} left={position(point.ortg)} top={position(point.drtg)} onSelect={()=>onSelect(point.teamId)} onDismiss={onDismiss}/>)}
         {tooltip&&<div role="tooltip" className="ratings-tooltip" style={{left:`clamp(0px, calc(${position(tooltip.ortg)}% - 100px), calc(100% - 200px))`,top:`clamp(0px, calc(${position(tooltip.drtg)}% + 30px), calc(100% - 120px))`}}><strong>{teamLabel(tooltip.teamId,tooltip.teamName)}</strong>{RATING_KEYS.map(key=><span key={key}>{RATING_LABELS[key]} {ratingColumn(key).format!(tooltip.row)}（{tooltip.ranks[key]}位）</span>)}</div>}
       </div>
       {domain.ticks.map(tick=><span key={`x${tick}`} className="ratings-tick-x" style={{left:`${position(tick)}%`}}>{tick}</span>)}
