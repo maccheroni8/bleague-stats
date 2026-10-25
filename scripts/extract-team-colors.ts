@@ -120,8 +120,10 @@ async function extractColors(pngPath: string): Promise<{ primary: string; second
 async function main() {
   // --add-missing-one: B.ONE のクラブ（ONE_TEAM_DIVISIONS）のうち、まだ色の無いクラブだけを足す。
   // 既にある色（B.PREMIER の26クラブ）は読み直さずにそのまま残す（ロゴが更新されていても、画面の色を変えない。DESIGN.md 14章）。
-  // B.PREMIER に在籍したことのあるクラブ（新潟・FE名古屋・越谷・福岡）は、B.PREMIER の過去シーズンの画面の色が変わるので、ここでは足さない
+  // B.PREMIER に在籍したことのあるクラブ（新潟・FE名古屋・越谷・福岡）は、B.PREMIER の過去シーズンの画面の色が変わるので、ここでは足さない。
+  // --include-ever-premier を付けたときだけ、その4クラブにも足す（画面の色の変わり方を確かめてから使う。DESIGN.md 294章）
   if (process.argv.includes("--add-missing-one")) {
+    const includeEverPremier = process.argv.includes("--include-ever-premier");
     const existing = (await readJson<Record<string, { primary: string; secondary: string }>>(OUTPUT_PATH)) ?? {};
     const history = await readJson<DivisionHistoryFile>(path.join(DATA_DIR, "division-history.json"));
     const everPremier = new Set(Object.values(history?.premier ?? {}).flatMap((teams) => Object.keys(teams)));
@@ -129,7 +131,7 @@ async function main() {
     let added = 0;
     for (const teamId of Object.keys(ONE_TEAM_DIVISIONS)) {
       if (merged[teamId]) continue;
-      if (everPremier.has(teamId)) {
+      if (everPremier.has(teamId) && !includeEverPremier) {
         console.log(`[skip] ${teamId}: B.PREMIER に在籍したことのあるクラブのため足しません`);
         continue;
       }

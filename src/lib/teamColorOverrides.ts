@@ -28,6 +28,12 @@ export const TEAM_COLOR_OVERRIDES: Record<string, { primary?: string; secondary?
   "720": { primary: "#003ca5" },
   "701": { primary: "#dbc073", secondary: "#003f6b" },
   "694": { primary: "#00263A", skipLegibilityCheck: true },
+  // 2026-10-25（DESIGN.md 294章）: B.PREMIER に在籍したことのある B.ONE のクラブ。自動抽出の主の色が、公式のクラブ一覧（bleague.jp/club/?tab=2 の
+  // クラブカラーの帯）の色と違い、公式の色は自動抽出の副の色に近かった2クラブ。主の色を公式の色にし、副の色は自動抽出の主の色にする
+  "695": { primary: "#EA5404", secondary: "#0040a0" }, // 新潟アルビレックスBB（自動抽出は青が主・オレンジが副）
+  "745": { primary: "#811B2E", secondary: "#d0b080" }, // 越谷アルファーズ（自動抽出はベージュが主・えんじが副）
+  // ライジングゼファー福岡は、公式のクラブ一覧の紺（#0b318f。FE名古屋と同じ値）をユーザーの判断で主の色にした（自動抽出は赤が主・紺が副）
+  "753": { primary: "#0b318f", secondary: "#e00020" },
 };
 
 /**
