@@ -41,10 +41,12 @@
 .ratings-tooltip { position:absolute; z-index:10; width:200px; max-width:100%; height:120px; box-sizing:border-box; padding:8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg); box-shadow:0 2px 8px #0003; font-size:12px; pointer-events:none; overflow:hidden; }
 .ratings-tooltip strong { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:5px; }
 .ratings-tooltip span { display:block; line-height:21px; }
-.ratings-badges { position:absolute; left:100%; margin-left:3px; display:flex; flex-direction:column; align-items:flex-start; gap:1px; pointer-events:none; font-size:10px; line-height:1.2; color:var(--fg); }
-.ratings-badges > span { white-space:nowrap; background:var(--bg); border-radius:2px; padding:1px 2px; }
-.ratings-badges.on-left { left:auto; right:100%; margin:0 3px 0 0; align-items:flex-end; }
 .ratings-standing { white-space:nowrap; color:var(--muted); }
 .export-rendering .ratings-tooltip { display:none !important; }
-@media(max-width:560px) { .ratings-badges { font-size:8px; } }
-.export-rendering .ratings-badges { font-size:10px; }
+
+.ratings-export-chart { display:none; }
+.export-rendering .ratings-screen-chart { display:none; }
+.export-rendering .ratings-export-chart { display:block; width:950px; }
+.ratings-rank-label { position:absolute; z-index:3; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; padding:2px 4px; font-family:monospace; line-height:1.4; background:var(--bg); color:var(--fg); pointer-events:none; }
+.ratings-rank-label span { white-space:nowrap; }
+.ratings-label-leader { position:absolute; z-index:1; border-top:1px solid var(--muted); transform-origin:0 0; pointer-events:none; }

@@ -215,3 +215,21 @@ if(source){
   assert.ok(ratingBadges(points[4]!,points).includes("#6 ORtg"));
   console.log("散布図: 上下3枠の実順位ラベル・同順位・複数ラベル OK");
 }
+
+{
+  const {ratingLabelLayout,ratingDomain}=await import("../src/lib/figureRatings");
+  const points=Array.from({length:26},(_,i)=>({teamId:String(i),ortg:110+(i%4),drtg:110+(i%3),ranks:{ortg:i+1,drtg:26-i,netrtg:i+1}})) as import("../src/lib/figureRatings").RatingPoint[];
+  for(const size of [240,294,500,770,870]) {
+    const layout=ratingLabelLayout(points,points,size,size<500),domain=ratingDomain(points);
+    const pos=(v:number)=>(v-domain.min)/(domain.max-domain.min)*size;
+    const overlap=(a:{x:number;y:number;width:number;height:number},b:{x:number;y:number;width:number;height:number})=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
+    for(const [i,box] of layout.labels.entries()) {
+      assert.ok(box.x>=0&&box.x+box.width<=size);
+      assert.ok(!layout.labels.slice(i+1).some(other=>overlap(box,other)),"ラベル同士が重ならない");
+      assert.ok(!points.some(p=>overlap(box,{x:pos(p.ortg)-30,y:pos(p.drtg)-30,width:60,height:60})),"ロゴと重ならない");
+      assert.ok(!overlap(box,{x:0,y:size,width:size,height:55}),"軸の説明と重ならない");
+    }
+    assert.ok(layout.labels.some(box=>box.leader),"密集時に引き出し線を使う");
+  }
+  console.log("散布図: 密集26チーム・5画面幅でラベル同士／ロゴ／横軸の非重複 OK");
+}

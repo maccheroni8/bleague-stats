@@ -69,3 +69,43 @@ export function ratingBadges(point: RatingPoint, points: readonly RatingPoint[])
     return point.ranks[key]<=3 || point.ranks[key]>=bottom;
   }).map(key=>`#${point.ranks[key]} ${RATING_LABELS[key]}`);
 }
+
+export interface RatingLabelBox { id:string; x:number; y:number; width:number; height:number; anchorX:number; anchorY:number; leader:boolean; texts:string[] }
+type Rect = {x:number;y:number;width:number;height:number};
+export function ratingLabelLayout(points: readonly RatingPoint[], all: readonly RatingPoint[], size:number, mobile=false) {
+  const domain=ratingDomain(all);
+  const pos=(v:number)=>(v-domain.min)/(domain.max-domain.min)*size;
+  const radius=30, font=mobile?9:10, gap=4;
+  const occupied:Rect[]=points.map(p=>({x:pos(p.ortg)-radius,y:pos(p.drtg)-radius,width:radius*2,height:radius*2}));
+  occupied.push(...[0,size-110].flatMap(x=>[0,size-24].map(y=>({x,y,width:110,height:24}))));
+  const intersects=(a:Rect,b:Rect)=>a.x<b.x+b.width+gap&&a.x+a.width+gap>b.x&&a.y<b.y+b.height+gap&&a.y+a.height+gap>b.y;
+  occupied.push({x:0,y:size,width:size,height:55}); // 横軸の目盛り・説明も避ける
+  const labels:RatingLabelBox[]=[];
+  let bottom=size;
+  for(const point of points) {
+    const texts=ratingBadges(point,all);if(!texts.length)continue;
+    const width=Math.ceil(Math.max(...texts.map(t=>t.length))*font*.7+8),height=texts.length*(font+4)+4;
+    const anchorX=pos(point.ortg),anchorY=pos(point.drtg);
+    const candidates:Rect[]=[
+      {x:anchorX+radius+gap,y:anchorY-height/2,width,height},
+      {x:anchorX-radius-gap-width,y:anchorY-height/2,width,height},
+      {x:anchorX-width/2,y:anchorY-radius-gap-height,width,height},
+      {x:anchorX-width/2,y:anchorY+radius+gap,width,height},
+    ];
+    // 近傍に空きが無ければ全面を探索。密集したスマホは図下の余白も使い、文字を重ねない。
+    const grid:Rect[]=[];
+    for(let y=4;y<size+500;y+=8)for(let x=4;x+width<=size-4;x+=8)grid.push({x,y,width,height});
+
+    const fits=(r:Rect)=>r.x>=4&&r.x+r.width<=size-4&&r.y>=4&&!occupied.some(o=>intersects(r,o));
+    const local=candidates.find(fits);
+    let box=local,bestDistance=Infinity;
+    if(!box)for(const candidate of grid) {
+      const distance=Math.hypot(candidate.x+width/2-anchorX,candidate.y+height/2-anchorY);
+      if(distance<bestDistance&&fits(candidate)){box=candidate;bestDistance=distance;}
+    }
+    box??={x:4,y:Math.max(bottom+8,size+60),width,height};
+    occupied.push(box);bottom=Math.max(bottom,box.y+height+4);
+    labels.push({...box,id:point.teamId,anchorX,anchorY,leader:!local,texts});
+  }
+  return {labels,height:bottom};
+}
