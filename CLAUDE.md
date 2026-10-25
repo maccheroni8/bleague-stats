@@ -100,6 +100,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 265章: ランキング > チーム > 1試合記録に **Q別・前後半**（URL `q`。項目は共通の一覧・「得失点差」を足す・古い `stat=q1:mostPts` は読み替え・来場者数／逆転／最大のランは区間では選べない・スタッツの条件は区間の値）。チームのピリオド別の索引を結び付ける（`src/lib/teamPeriodGames.ts`）。成功率の最低試投数は区間の長さに合わせて下げる（基準の数は決定待ち）。検証は `npm run validate:team-period-record`。**画面だけの変更でキー不変**
 - 266章: 成功率の基準を成功数にそろえる（チームの1試合記録＝FG 11・2P 8・3P 4・FT 15、個人のシーズン＝FG%・2P% は1試合平均の FGM 1.5・2PM 1.0。3P%・FT% は公式の基準のまま。区間は長さに合わせて下げる）。チームの区間のワーストは選べない。**画面だけの変更でキー不変**。267章: 個人の1試合記録（ランキング・選手一覧の記録・キャリアハイ・上位20位のファイル）も成功数基準（FG 5・2P 5・3P 3・FT 8。区間は長さに合わせて下げる。`PLAYER_PCT_MIN_MADE`・`periodMinimum.ts`）。**`shared/playerGameRecords.ts` を変えたのでキーが変わる（全シーズンの作り直し1回）**
 - 290章: **Time to Shot**（攻撃の始まりから最初のFGの試投までの秒数）。計算は `shared/timeToShot.ts`（FGの試投だけ・2020-21以降・補正しない）、導出データは `data/{season}/team-tts.json.gz`（`shared/ttsIndex.ts`・`scripts/aggregate-tts-index.ts`。2019-20以前は作らない）、画面は全チームスタッツとチーム詳細の「Time to Shot」タブ（`src/lib/teamTts.ts`・`src/components/TtsTable.tsx`）。表の見出しは英語の略称（TTS・1st Shot・After Score…）、日本語名はホバー・表の下の一覧・用語集。検証は `validate:tts-index`・`validate:tts-table`・`validate:time-to-shot`。290-4章: 旧形式のチームリバウンドの番号（18＝OREB・19＝DREB）を `buildPossessionStartEvents` で読み替えた
+- 293章: **B.ONE 2026-27 の導入の push A**（収集・自動更新・ロゴと色。**キー不変**）。`update-stats.yml` は B.ONE の判定（`check_one`）・日程・ボックススコアを**B.PREMIER の取得のあと**に `continue-on-error`・`timeout-minutes` 付きで行い、失敗は「Fail if B.ONE …」で別に通知する（`proceed` の `run`・`premier`・`one`）。約束は `npm run validate:update-workflow`。今季 B.ONE の元データは `data/2026-27/one/`。新しいリーグ・シーズンをまとめて取るときは「日程のフル収集 → ボックススコア → `--recent 14 --verify-upcoming 14`」の順（逆だと7日を過ぎた試合が結果だけの試合と判定される。293-4章）。ロゴ・色は B.ONE の25クラブ分（色は B.PREMIER に在籍したことの無い21クラブだけ）。略称・名簿・集計の B.ONE 対応は push B（キーが変わる）。検証は `npm run validate:one-league-data`
 - 271章: 順位表の **「年間スケジュール」タブ**（`tab=annual`。`src/components/AnnualSchedule.tsx`・`src/lib/annualSchedule.ts`・`shared/annualSchedule.ts`）。大会日程は `data/annual-calendar.json`（元データ・保存キー対象外）。EASL は深夜ジョブが自動更新（`scripts/scrape-annual-schedule.ts`、失敗時は前回を保持して最後に失敗通知）、**天皇杯・オールスターは手で更新**（手順は271-7章）。`scripts/lib/dataLayout.ts` に登録したため導入時のデプロイで全シーズンの作り直しが1回。検証は `npm run validate:annual-schedule`
 - 274章: チーム詳細 > チームスタッツ > **シーズン別成績に Q別・前後半**（Traditional・Advanced・Misc・Scoring・On-Court Foreign・Scoring %。区間を選んだときだけ全在籍シーズンの索引を読む。`src/lib/teamSeasonPeriod.ts`）。**BSR＝相手のBLK・EFF は索引から出せる**ので、シチュエーション別成績の「-」も埋めた（`teamPeriodEffTotal`）。検証は `npm run validate:team-season-period`。**画面だけの変更でキー不変**
 - 275章: **手入力のボックススコア**（`meta.source` が `manual:` の試合。2017-18 の1810だけ。公式に無い試合を basketballnavi の試合合計で補う。ピリオド別の行・PBP・Summaries が無いので、`periodIndexBuild.ts` は区間の値を持たず、`validate-period-index`・`validate-game-index` は `scripts/lib/manualBoxscores.ts` の一覧で除く。試合詳細に注記。保存キーが変わる）。**ピリオド別の行が無い試合はチームの区間の値がすべて -1**（Q別の画面から外れる。Periods タブは試合ログのクォーター別得点なので入る）。Forced TOV の分類は `shared/forcedTurnover.ts`。チームの索引に OFF FOUL・CHARGE（`TEAM_PERIOD_FOUL_COLUMNS`。古い索引は「-」）。PBP由来の平均・在コート系・ラインナップの時間が1810の分だけ薄まる件は「在コート基準の再集計」と一緒に扱う
@@ -243,12 +244,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   過去の試合のゲームリーダー等で、当時の所属チームではなく現在の所属チームのユニフォーム写真が
   表示される（例: 移籍済み選手の過去試合で新所属先のユニフォームが出る）。シーズンごとに写真を
   保存する運用にすれば解決するが、保存容量が増えるため、実害の大きさを見て判断する（2026-09-23）。仕組みは257章で用意済み（宇都宮のチーム詳細だけ・写真は未登録）
-- 【保留】`scripts/lib/teamLogoCodes.ts`のTEAM_LOGO_CODESは、B.PREMIER30クラブ
-  （現行26クラブ＋過去在籍4クラブ）分のみ登録済み。B.ONE所属クラブ（`ONE_TEAM_DIVISIONS`の
-  25クラブ）のうち716・718（信州・神戸、B.PREMIERと共通のTeamID）以外の22クラブは
-  ロゴコード未調査。B.ONEのクラブ一覧・詳細ページ自体がフロントエンドに未実装のため
-  実害は無いが、着手する際はbleague.jp/club_detail/?TeamID=を個別に確認してコードを
-  特定すること（2026-09-14時点）
+- `scripts/lib/teamLogoCodes.ts` の TEAM_LOGO_CODES は、B.PREMIER 30クラブ（現行26＋過去在籍4）と、2026-27 の B.ONE の21クラブ（2026-10-25、`bleague.jp/club/?tab=2` から。設計書293-3章）。新しいクラブのロゴの初回取得は `scripts/add-missing-team-logos.ts`、色は `extract-team-colors.ts --add-missing-one`（既存の色は変えない）
 - 【保留】条件別順位表の「二桁リード/ビハインドした試合」条件は保留中。条件選択のたびに
   全チーム分の生データ（数十MB）を取得するコストが重いため、バックエンドで事前集計し
   試合単位のフラグとして永続化する方式を含めて、実現方法を別途検討する
