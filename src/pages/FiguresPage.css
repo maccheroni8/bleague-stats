@@ -22,3 +22,7 @@
 .export-rendering .figure-age-chart { width:1036px; }
 .export-rendering .figure-scroll { overflow:visible; }
 @media(max-width:560px) { .figure-age-row { grid-template-columns:90px minmax(300px,1fr) 50px 55px 55px; } .figure-age-chart { min-width:620px; } .figures-controls label { flex:1 1 140px; } }
+
+.figure-age-district { margin-top:24px; }
+/* 保存時は端末幅のCSSより優先し、チーム名と列幅をPCと同じ型にする。 */
+.export-rendering.figure-age-export .figure-age-row { grid-template-columns:190px minmax(300px,1fr) 55px 60px 60px; }

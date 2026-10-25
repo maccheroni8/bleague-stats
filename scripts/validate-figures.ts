@@ -30,3 +30,16 @@ assert.equal(figureAgeData(view,{...options,min:0}).overall.count,2);
 assert.deepEqual(ageSummary([]),{count:0,mean:null,median:null});
 assert.equal(ageSummary([20,40,30]).median,30);
 console.log("年齢分布: DNP・しきい値・誕生日・移籍・登録区分・試合区分・空結果・生年月日欠損 OK");
+
+const { normalizeFigureParams } = await import("../src/lib/figureRoute");
+for (const old of ["season=2026-27", "season=2026-27&entity=player&min=20&cls=jp&line=median", "entity=player&figure=age"]) {
+  const before = new URLSearchParams(old);
+  const next = normalizeFigureParams(before);
+  assert.equal(next.get("entity"), "team");
+  assert.equal(next.get("figure"), "age");
+  for (const [key, value] of before) if (key !== "entity" && key !== "figure") assert.equal(next.get(key), value);
+  assert.equal(normalizeFigureParams(next).toString(), next.toString(), "正規化が繰り返されない");
+}
+const playerIndex = new URLSearchParams("entity=player&figure=index&season=2026-27");
+assert.equal(normalizeFigureParams(playerIndex).toString(), playerIndex.toString(), "新しい選手タブは維持");
+console.log("図解URL: 旧URLの移動・条件保持・選手タブ・再読み込み OK");
