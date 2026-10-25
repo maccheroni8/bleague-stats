@@ -46,7 +46,9 @@ const active = new Set<string>();
 for (const file of ["players.json", "registered-players.json"]) {
   for (const p of (await readJson<PlayerSummary[]>(path.join(DATA_DIR, season, file))) ?? []) active.add(p.playerId);
 }
-const roster = (await readJson<CurrentRosterFile>(path.join(DATA_DIR, "current-roster.json")))!;
+const rosterFile = (await readJson<CurrentRosterFile>(path.join(DATA_DIR, "current-roster.json")))!;
+// 今の名簿は B.ONE の選手も持つ（league。DESIGN.md 295章）。現役（B.PREMIER）と比べるのは B.PREMIER の行だけ（league の無い行は B.PREMIER）
+const roster = { ...rosterFile, players: rosterFile.players.filter((p) => (p.league ?? "premier") === "premier") };
 const master = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
 const masterIds = new Set(master.map((p) => p.playerId));
 {

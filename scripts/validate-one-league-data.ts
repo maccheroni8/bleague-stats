@@ -14,7 +14,8 @@ import { DATA_DIR, listStoredScheduleKeys, readAllGames, readJson, seasonDirName
 import { isExhibitionGame } from "./lib/exhibitionGames.ts";
 import { ONE_TEAM_DIVISIONS } from "./lib/divisions.ts";
 import { TEAM_LOGO_CODES } from "./lib/teamLogoCodes.ts";
-import type { Category, DivisionHistoryFile, ScheduleFile } from "../shared/types.ts";
+import type { Category, DivisionHistoryFile, HeadToHeadTeamRow, PlayoffRaceFile, ScheduleFile, StandingsSnapshot, TeamGameLog } from "../shared/types.ts";
+import { teamShortName } from "../shared/teamNames.ts";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail = ""): void {
@@ -96,6 +97,63 @@ for (const season of seasons) {
   const codes = Object.values(TEAM_LOGO_CODES);
   const dup = codes.filter((c, i) => codes.indexOf(c) !== i);
   check("ロゴのコードが重ならない", dup.length === 0, dup.join(", "));
+}
+
+// 6. B.ONE の導出データ（npm run build:data のあと。2026-27 以降。DESIGN.md 295章）
+{
+  const season = "2026-27";
+  const dir = path.join(DATA_DIR, season, "one");
+  if (existsSync(path.join(dir, "games"))) {
+    const need = [
+      "players.json.gz", "teams.json.gz", "standings-history.json.gz", "head-to-head.json.gz", "assist-pairs.json.gz", "playoff-race.json.gz",
+      "registered-players.json.gz", "league-compare.json.gz", "player-game-index.json.gz", "team-game-index.json.gz",
+      "player-period-index.json.gz", "team-period-index.json.gz", "team-tts.json.gz", "player-game-records.json.gz",
+    ];
+    const missing = need.filter((f) => !existsSync(path.join(dir, f)));
+    check(`${season} B.ONE: 導出データがそろっている（${need.length}種類）`, missing.length === 0, missing.join(", "));
+
+    const standings = (await readJson<StandingsSnapshot[]>(path.join(dir, "standings-history.json"))) ?? [];
+    const latest = standings.at(-1);
+    const teams = latest?.teams ?? [];
+    const byDivision = new Map<string, number>();
+    for (const t of teams) byDivision.set(t.division ?? "-", (byDivision.get(t.division ?? "-") ?? 0) + 1);
+    check(`${season} B.ONE: 順位表は25クラブ・5地区×5クラブ`, teams.length === 25 && byDivision.size === 5 && [...byDivision.values()].every((n) => n === 5), JSON.stringify([...byDivision]));
+    const pool = teams.filter((t) => (t.divisionRank ?? 99) > 2);
+    const poolRanks = pool.map((t) => t.wildcardRank).filter((r): r is number => r !== undefined).sort((a, b) => a - b);
+    check(`${season} B.ONE: ワイルドカードの順位は各地区3位以下の15クラブだけに 1〜15`, pool.length === 15 && poolRanks.join(",") === Array.from({ length: 15 }, (_, i) => i + 1).join(","), poolRanks.join(","));
+    check(`${season} B.ONE: 各地区1・2位にはワイルドカードの順位が無い`, teams.filter((t) => (t.divisionRank ?? 99) <= 2).every((t) => t.wildcardRank === undefined));
+
+    const race = await readJson<PlayoffRaceFile>(path.join(dir, "playoff-race.json"));
+    check(`${season} B.ONE: 進出争いは B.ONE の形式（one-2026）で25クラブ`, race?.format === "one-2026" && race.teams.length === 25, `${race?.format} ${race?.teams.length}`);
+    if (race && !race.unavailableReason) {
+      const clinched = race.teams.filter((t) => t.clinchedPlayoffs).length;
+      check(`${season} B.ONE: 進出確定は16クラブ以下`, clinched <= 16, String(clinched));
+    } else {
+      console.log(`     ${season} B.ONE: 進出争いの判定は出していない（${race?.unavailableReason ?? "ファイルなし"}）`);
+    }
+
+    const h2h = (await readJson<HeadToHeadTeamRow[]>(path.join(dir, "head-to-head.json"))) ?? [];
+    const badDiv = h2h.filter((r) => {
+      const d = r.vsDivision ?? {};
+      const w = Object.values(d).reduce((n, x) => n + (x?.wins ?? 0), 0);
+      const l = Object.values(d).reduce((n, x) => n + (x?.losses ?? 0), 0);
+      return Object.keys(d).some((k) => !["north", "east", "central", "west", "south"].includes(k)) || w !== r.overall.wins || l !== r.overall.losses;
+    });
+    check(`${season} B.ONE: 地区ごとの対戦成績の合計が全体の勝敗と一致（${h2h.length}クラブ）`, h2h.length === 25 && badDiv.length === 0, badDiv.map((r) => r.teamId).join(", "));
+
+    // オンザコートの上限（B.ONE は3人）を超える人数の時間が無い
+    const over: string[] = [];
+    for (const f of readdirSync(path.join(dir, "team-games")).filter((x) => x.endsWith(".json.gz"))) {
+      for (const log of (await readJson<TeamGameLog[]>(path.join(dir, "team-games", f.replace(/\.gz$/, "")))) ?? []) {
+        const secs = log.foreignCourtSeconds ?? [];
+        if (secs.slice(4).some((v) => v > 0)) over.push(`${log.scheduleKey}`);
+      }
+    }
+    check(`${season} B.ONE: オンザコートの人数が上限（3人）を超える時間が無い`, over.length === 0, over.slice(0, 5).join(", "));
+
+    const shortless = Object.keys(ONE_TEAM_DIVISIONS).filter((id) => teamShortName(id, "?") === "?");
+    check(`${season} B.ONE: 25クラブすべてに略称がある`, shortless.length === 0, shortless.join(", "));
+  }
 }
 
 if (failed > 0) {
