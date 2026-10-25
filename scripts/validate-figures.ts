@@ -1,3 +1,9 @@
+import { buildRatingScatter, ratingDomain, RATING_KEYS, ratingColumn } from "../src/lib/figureRatings";
+import { buildAdvancedColumns, sumTeamGameLogs, type AllTeamsRow } from "../src/lib/teamStatsColumns";
+import { filterGameLogs, type SituationalRange } from "../src/lib/situational";
+import { filterByGameType, type SeasonGameTypeFilter } from "../shared/gameType";
+import type { TeamGameLog, DivisionHistoryFile } from "../shared/types";
+import { averageTotals } from "../src/lib/leagueAverage";
 import { FIGURES, figuresForEntity, type FigureDefinition } from "../src/figures/catalog";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -136,3 +142,64 @@ assert.equal(direct.get("line"),"both");
 assert.equal(normalizeFigureParams(new URLSearchParams("entity=player&figure=index"),future).get("figure"),figuresForEntity("player",future)[0]!.id);
 assert.equal(normalizeFigureParams(new URLSearchParams("entity=team&figure=unknown"),future).get("figure"),"efficiency");
 console.log("図解タブ: 図解だけの初期値・一覧による追加と対象別の並び・直接URL・旧URL互換 OK");
+
+function sampleTeamLog(score:number,opp:number,date="2026-10-01",gameType:"regular"|"playoff"="regular"):TeamGameLog {
+  return {scheduleKey:date,date,gameType,min:40,teamScore:score,opponentScore:opp,poss:100,win:score>opp,isHome:true,opponentTeamId:"opponent"} as TeamGameLog;
+}
+const ratingTeams=[{teamId:"a",teamName:"A"},{teamId:"b",teamName:"B"},{teamId:"c",teamName:"C"}];
+const ratingLogs=new Map<string,TeamGameLog[]>([["a",[sampleTeamLog(100,90)]],["b",[sampleTeamLog(100.04,90)]],["c",[sampleTeamLog(90,100)]]]);
+const ratingQuery={season:"2026-27",category:"premier" as const,range:{kind:"all" as const},gameType:"regular" as const};
+const ratings=buildRatingScatter(ratingTeams,ratingLogs,null,ratingQuery);
+assert.equal(ratings.points.length,3);
+assert.equal(ratings.points.find(p=>p.teamId==="a")?.ranks.ortg,1);
+assert.equal(ratings.points.find(p=>p.teamId==="b")?.ranks.ortg,1,"小数1桁の同値は同順位");
+assert.equal(ratings.points.find(p=>p.teamId==="c")?.ranks.ortg,3,"同順位の次を飛ばす");
+assert.equal(ratings.points.find(p=>p.teamId==="a")?.netrtg,10);
+assert.equal(ratings.points.find(p=>p.teamId==="a")?.division,undefined,"地区不明を推測しない");
+const bounds=ratingDomain(ratings.points);
+assert.ok(bounds.min<90 && bounds.max>100.04);
+assert.ok(ratingDomain([]).max>ratingDomain([]).min);
+const afterPlayoffs=new Map([["a",[sampleTeamLog(100,90,"2026-04-01"),...Array.from({length:5},(_,i)=>sampleTeamLog(90,100,`2026-05-0${i+1}`,"playoff"))]]]);
+assert.equal(buildRatingScatter([ratingTeams[0]!],afterPlayoffs,null,{...ratingQuery,range:{kind:"recent",n:5}}).points.length,0,"全チームスタッツと同じく期間→試合区分の順");
+assert.equal(buildRatingScatter(ratingTeams,ratingLogs,null,{...ratingQuery,range:{kind:"dateRange",start:"2027-01-01",end:"2027-02-01"}}).league,null);
+console.log("散布図: Advanced列の値・同順位・空結果・地区不明・期間と試合区分の順序 OK");
+
+if(source){
+  let scenarios=0,comparisons=0,seasonCount=0;
+  const referenceColumns=buildAdvancedColumns("perGame","own");
+  for(const season of readdirSync(source).filter(s=>/^\d{4}-\d{2}$/.test(s))){
+    const teamFile=path.join(source,season,"teams.json.gz");if(!existsSync(teamFile))continue;
+    const teams=JSON.parse(gunzipSync(readFileSync(teamFile)).toString()) as {teamId:string;teamName:string}[];
+    const logs=new Map<string,TeamGameLog[]>();
+    for(const team of teams){const file=path.join(source,season,"team-games",team.teamId+".json.gz");assert.ok(existsSync(file),`${season} ${team.teamId} 試合ログが必要`);logs.set(team.teamId,JSON.parse(gunzipSync(readFileSync(file)).toString()));}
+    const dates=[...new Set([...logs.values()].flat().map(g=>g.date))].sort();
+    const ranges:SituationalRange[]=[{kind:"all"},{kind:"recent",n:5},{kind:"recent",n:10},{kind:"dateRange",start:dates[Math.floor(dates.length/2)]??"",end:dates.at(-1)??""}];
+    for(const range of ranges)for(const gameType of ["regular","playoff","both"] as SeasonGameTypeFilter[]){
+      const scatter=buildRatingScatter(teams,logs,null,{season,category:"premier",range,gameType});
+      const reference:AllTeamsRow[]=[];
+      for(const team of teams){
+        // TeamsListPageのscopedLogsByTeamと通常行と同じ処理。散布図とは別に参照行を作る。
+        const selected=filterByGameType(filterGameLogs(logs.get(team.teamId)!,{range,includePlayoffs:true}),gameType);
+        const row={team,gamesPlayed:selected.length,wins:selected.filter(g=>g.win).length,losses:selected.filter(g=>!g.win).length,totals:sumTeamGameLogs(selected)};
+        const point=scatter.points.find(p=>p.teamId===team.teamId);
+        if(!selected.length||!(row.totals.poss>0)){assert.equal(point,undefined);continue;}
+        assert.ok(point);reference.push(row);assert.equal(point.games,selected.length);
+        const score=selected.reduce((sum,g)=>sum+g.teamScore,0),against=selected.reduce((sum,g)=>sum+g.opponentScore,0),poss=selected.reduce((sum,g)=>sum+g.poss,0);
+        const expected={ortg:100*score/poss,drtg:100*against/poss,netrtg:100*score/poss-100*against/poss};
+        for(const key of RATING_KEYS){
+          const column=referenceColumns.find(c=>c.key===key)!;
+          assert.equal(point[key],column.sortValue(row),`${season} ${team.teamId} ${key}内部値`);
+          assert.equal(ratingColumn(key).format!(point.row),column.format!(row),`${season} ${team.teamId} ${key}表示値`);
+          assert.ok(Math.abs(point[key]-expected[key])<1e-9,`${season} ${team.teamId} ${key}合計からの率`);comparisons++;
+        }
+      }
+      if(reference.length){
+        const leagueRow:AllTeamsRow={team:{teamId:"league",teamName:"リーグ平均"},gamesPlayed:reference.reduce((sum,row)=>sum+row.gamesPlayed,0)/reference.length,wins:0,losses:0,totals:averageTotals(reference.map(row=>row.totals))};
+        for(const key of RATING_KEYS)assert.equal(scatter.league![key],referenceColumns.find(c=>c.key===key)!.sortValue(leagueRow),`${season} リーグ平均${key}`);
+      }else assert.equal(scatter.league,null);
+      scenarios++;
+    }
+    seasonCount++;
+  }
+  console.log(`散布図: ${seasonCount}シーズン×4期間×3試合区分=${scenarios}条件、${comparisons}件のチーム指標とリーグ平均が全チームスタッツと一致`);
+}

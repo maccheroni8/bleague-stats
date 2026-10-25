@@ -15,6 +15,7 @@ export interface FigureDefinition {
 }
 export const FIGURES: readonly FigureDefinition[] = [
   { id: "age", entity: "team", label: "年齢分布", group: "年齢", load: () => import("./AgeDistributionFigure") },
+  { id: "ratings", entity: "team", label: "ORtg・DRtg", group: "効率", load: () => import("./RatingsScatterFigure") },
 ];
 
 export function figuresForEntity(entity: FigureEntity, catalog: readonly FigureDefinition[] = FIGURES) {

@@ -185,13 +185,13 @@ allKeyは前回コミット時と今回の変更後の両方で `0fb3baa2576b403
 ## 現在の図の足し方（タブとURLの配線）
 
 1. `src/figures/` に図の部品を1つ作り、default exportする。`FigureProps` は同じフォルダのcatalogから型だけimportできる。`season` とリーグを表す `category` が渡る。
-2. `src/figures/catalog.ts` の `FIGURES` に次の形式で1行追加する。タブは配列の順に並ぶ。**完成した図だけ登録**する。以下は追加方法の例で、未実装の散布図は現在登録していない。
+2. `src/figures/catalog.ts` の `FIGURES` に次の形式で1行追加する。タブは配列の順に並ぶ。**完成した図だけ登録**する。以下は今回追加した散布図の登録例。
 
 ```ts
-{ id: "efficiency", entity: "team", label: "ORtg・DRtg", group: "効率", load: () => import("./EfficiencyFigure") },
+{ id: "ratings", entity: "team", label: "ORtg・DRtg", group: "効率", load: () => import("./RatingsScatterFigure") },
 ```
 
-これだけで対象別のタブ・部品の読み込み・`figure=efficiency` の直接リンクが使える。FiguresPageやURL処理に個別のif/switch/選択肢を足す必要はない。
+これだけで対象別のタブ・部品の読み込み・`figure=ratings` の直接リンクが使える。FiguresPageやURL処理に個別のif/switch/選択肢を足す必要はない。
 選手の図なら `entity: "player"`。対象に初めて図を登録した場合も、自動でそのタブが表示される。
 部品は選択時だけ読み込むため、図が増えても全てを一度に描画・取得しない。
 
@@ -218,3 +218,25 @@ allKeyは前回コミット時と今回の変更後の両方で `0fb3baa2576b403
 今回の検証はtypecheck・build・validate:figures・validate:export-image・validate:stat-names・check-layout・code-files・allKey・差分確認。
 画像保存検証の実データ基準日項目は今回もスキップ。全件検証と再集計は流していない。
 allKeyは変更前後とも `0fb3baa2576b403f257653c7b617ca2c`。集計・data・shared・ワークフローの変更なし。
+
+
+## 改訂記録（ORtg・DRtgの散布図の試作）
+
+- チーム側に `figure=ratings` を追加。一覧への登録1行と図の部品で接続し、ライブラリの共通配線は変更していない。年齢分布の旧URLも維持。
+- 既存のteams／team-games／division-historyを読むだけ。期間の部品はsituationalAxes、試合区分はgameTypeAxisを使用。全体／直近5／直近10／日付範囲。条件はURLへ保存。
+- 全チームスタッツと同じ順序でfilterGameLogs→filterByGameType→sumTeamGameLogsを実行し、buildAdvancedColumnsの値・表示をそのまま使う。直近は区分を絞る前に選ぶので、指定数より対象試合が少ない場合がある。
+- リーグ平均も全チームスタッツのaverageTotalsを共用。チームの率の単純平均ではなく合計得点・ポゼッションに基づく。順位はリーグ全体、小数1桁の表示値が同じ場合は同順位で次を飛ばす。
+- ORtgは右ほど良い、DRtgは小さい値ほど上。両軸は同じ範囲・尺度。リーグ平均の十字とNetRtg 0の薄い対角線。地区を隠しても軸・平均・順位はリーグ全体のまま。
+- 区画名は提案として右上「攻守とも良い」、右下「攻撃型」、左上「守備型」、左下「攻守とも課題」。絶対評価ではなく期間のリーグ平均に対する位置。
+- ロゴに地区色の枠。過去の中地区も既存履歴から取得。ロゴが読み込めない場合は略称の丸。座標をずらさず、選択時に手前へ拡大。一覧からも選択でき、重なっているロゴを選べる。詳細は図の下にチーム名・対象試合数／期間・3指標とリーグ順位。
+- 保存は共通のExportTarget／ExportImageButton。白背景・紺帯・既存の基準日と@dthiro1208。スマホ幅でも1100pxの図を作る。詳細・選択強調・一覧は保存対象の外。条件と地区凡例、平均、区画名、NetRtg 0線は保存対象。
+- 試合データの取得が一部でも失敗したら不完全な平均を描かず、再読み込み案内。地区取得失敗は地区不明として表示。対象試合なし・ポゼッション不明は点を作らない。
+
+検証した範囲: 既存導出データを読み取り専用で11シーズン×4期間（全体・直近5・直近10・日付範囲）×3区分＝132条件。全チームスタッツの手順との6,486件の指標値・表示値とリーグ平均が一致。人工例で同順位・対象なし・期間→区分の順序も確認。
+画面では日付入力→URL反映、2016-17中地区・直近10、ロゴ選択の詳細、390px幅・ライト／ダークを確認。390pxのダーク画面から共通処理でPNGを生成し、3300×4065px（1100px幅の3倍）で白背景・紺帯・ロゴ・条件・凡例・基準日／署名を目視。手元データの基準日は2026/10/21。実端末の保存操作はユーザー確認。
+型チェック・build・validate:figures・validate:export-image・validate:stat-names・check-layout・code-files・allKey・差分を確認。export-imageの実データ基準日テストは作業場所に導出データがないためスキップ（再生成しない）。validate:allとデータ再生成は流していない。allKeyは前後とも `0fb3baa2576b403f257653c7b617ca2c`。通常のpre-commitを使い、pushしない。
+
+確認用の開き方（再集計なし）: `node /tmp/figures-preview.mjs` を実行し、`http://127.0.0.1:5187/bleague-stats/#/figures?season=2026-27&entity=team&figure=ratings` を開く。確認後はそのターミナルでCtrl+C。これは一時的な手元専用サーバーで、main側の既存dataを読み取り専用で参照する。npm run devはpredevで生成する場合があるため今回の確認では使わない。
+
+ユーザー判断候補: 区画名をこの案で確定するか／重なり対策を現状の選択＋一覧とするか（常時略称は混雑が増える、ロゴ縮小は読みにくい）／地区絞り込み時もリーグ基準を維持するか。
+Claudeが戻ってからやる候補: B.ONE統合作業との接続、設計書への章追加、未実装の「他地区1試合」図。今回の散布図に必要な追加の集計データはなし。

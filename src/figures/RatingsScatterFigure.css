@@ -1,0 +1,39 @@
+.ratings-export { margin-top:16px; }
+.ratings-league { text-align:center; font-size:14px; }
+.ratings-legend { display:flex; justify-content:center; flex-wrap:wrap; gap:8px 20px; font-size:12px; }
+.ratings-legend > span { display:inline-flex; align-items:center; gap:6px; }
+.ratings-legend i { display:inline-block; width:12px; height:12px; border:3px solid; border-radius:50%; box-sizing:border-box; }
+.ratings-legend i.ratings-diagonal-key { width:24px; height:0; border:0; border-top:1px solid var(--muted); border-radius:0; }
+.ratings-chart { width:100%; max-width:850px; margin:auto; padding-top:38px; }
+.ratings-plot-wrap { position:relative; margin:0 28px 55px 52px; }
+.ratings-plot { position:relative; aspect-ratio:1; border:1px solid var(--border); isolation:isolate; }
+.ratings-grid-v,.ratings-grid-h,.ratings-average-v,.ratings-average-h { position:absolute; pointer-events:none; }
+.ratings-grid-v { top:0; height:100%; border-left:1px solid var(--border); }
+.ratings-grid-h { left:0; width:100%; border-top:1px solid var(--border); }
+.ratings-average-v { top:0; height:100%; border-left:2px dashed var(--muted); }
+.ratings-average-h { left:0; width:100%; border-top:2px dashed var(--muted); }
+.ratings-net-zero { position:absolute; left:0; top:0; width:141.421356%; border-top:1px solid var(--muted); transform:rotate(45deg); transform-origin:0 0; opacity:.35; pointer-events:none; }
+.ratings-quadrant { position:absolute; font-size:12px; color:var(--muted); pointer-events:none; background:var(--bg); padding:2px 4px; }
+.ratings-quadrant.top { top:6px; }.ratings-quadrant.bottom { bottom:6px; }.ratings-quadrant.left { left:6px; }.ratings-quadrant.right { right:6px; }
+.ratings-point { position:absolute; z-index:2; transform:translate(-50%,-50%); width:38px; height:38px; padding:3px; display:flex; justify-content:center; align-items:center; border:3px solid; border-radius:50%; background:#fff; color:#222; cursor:pointer; }
+.ratings-point img { width:26px; height:26px; object-fit:contain; flex-shrink:0; }
+.ratings-point.is-selected { z-index:5; transform:translate(-50%,-50%) scale(1.2); outline:2px solid var(--fg); outline-offset:2px; }
+.ratings-fallback { font-size:9px; line-height:1.1; overflow-wrap:anywhere; }
+.ratings-tick-x { position:absolute; top:100%; margin-top:6px; transform:translateX(-50%); font-size:12px; }
+.ratings-tick-y { position:absolute; left:-8px; transform:translate(-100%,-50%); font-size:12px; }
+.ratings-x-label { position:absolute; top:100%; margin-top:30px; right:0; font-size:13px; }
+.ratings-y-label { position:absolute; left:0; top:-28px; font-size:13px; }
+.ratings-team-detail { min-height:110px; padding:12px 16px; margin:16px 0; border:1px solid var(--border); background:var(--header-bg); }
+.ratings-team-detail h3 { margin:0; }.ratings-team-detail p { margin:8px 0 0; }.ratings-team-detail span { display:inline-block; }
+.ratings-table-scroll { overflow-x:auto; }.ratings-table { width:100%; border-collapse:collapse; font-size:13px; min-width:480px; }
+.ratings-table th,.ratings-table td { border-bottom:1px solid var(--border); padding:8px; text-align:center; }
+.ratings-table td:first-child,.ratings-table th:first-child { text-align:left; }
+.ratings-table button { background:none; border:0; color:var(--fg); cursor:pointer; text-align:left; padding:0; font:inherit; }
+.ratings-table .is-selected { background:var(--row-hover); }
+.export-rendering.ratings-export { width:1100px !important; }.export-rendering .ratings-chart { max-width:950px; }
+.export-rendering .ratings-point.is-selected { transform:translate(-50%,-50%); outline:none; z-index:2; }
+@media(max-width:560px) { .ratings-plot-wrap { margin-left:35px; margin-right:18px; } .ratings-point { width:28px; height:28px; padding:2px; border-width:2px; } .ratings-point img { width:20px; height:20px; } .ratings-fallback { font-size:8px; } .ratings-quadrant { font-size:10px; padding:1px 2px; } .ratings-legend { gap:6px 12px; } }
+.export-rendering.ratings-export .ratings-point { width:38px; height:38px; padding:3px; border-width:3px; }
+.export-rendering.ratings-export .ratings-point img { width:26px; height:26px; }.export-rendering.ratings-export .ratings-fallback { font-size:9px; }
+
+.ratings-guide-clip { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
