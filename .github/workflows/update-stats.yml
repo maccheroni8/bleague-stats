@@ -39,6 +39,11 @@ on:
         required: false
         default: false
         type: boolean
+      full_schedule_one:
+        description: "B.ONE のシーズン全体のスケジュールをフル収集する（B.PREMIER の full_schedule とは別。初回・日程変更時のみ）"
+        required: false
+        default: false
+        type: boolean
 
 # 二重実行によるコミット競合・並列スクレイピングを防ぐ（DESIGN.md 2章: 並列アクセスしない）。
 # 頻繁チェックと深夜のディープrecheckは同じワークフロー内の別cronのため、自動的に同じ
@@ -122,21 +127,44 @@ jobs:
         if: steps.mode.outputs.nightly != 'true'
         run: node --experimental-strip-types scripts/check-pending-games.ts --season ${{ steps.season.outputs.season }}
 
+      # B.ONE（DESIGN.md 14章）も同じ判定を別に行う。B.ONE の判定・取得の失敗で B.PREMIER の更新を止めないよう、
+      # B.ONE のステップはすべて continue-on-error にし、末尾の「Fail if B.ONE ...」で通知する
+      - name: Check for games needing processing (B.ONE)
+        id: check_one
+        if: steps.mode.outputs.nightly != 'true'
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/check-pending-games.ts --season ${{ steps.season.outputs.season }} --category one
+
+      # run: どちらかのリーグに本処理が要る（コミット・後続の共通処理に使う）。premier・one: リーグごとの取得の要否。
+      # 深夜は両方とも本処理を行う。B.ONE の判定が失敗したとき（should_run が空）は、B.ONE は進めない
       - name: Determine whether to proceed
         id: proceed
         run: |
           if [ "${{ steps.mode.outputs.nightly }}" = "true" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
+            PREMIER="true"
+            ONE="true"
           else
-            echo "run=${{ steps.check.outputs.should_run }}" >> "$GITHUB_OUTPUT"
+            PREMIER="${{ steps.check.outputs.should_run }}"
+            ONE="${{ steps.check_one.outputs.should_run }}"
           fi
+          if [ "${{ github.event.inputs.full_schedule_one }}" = "true" ]; then ONE="true"; fi
+          [ "$PREMIER" = "true" ] || PREMIER="false"
+          [ "$ONE" = "true" ] || ONE="false"
+          RUN="false"
+          if [ "$PREMIER" = "true" ] || [ "$ONE" = "true" ]; then RUN="true"; fi
+          {
+            echo "run=$RUN"
+            echo "premier=$PREMIER"
+            echo "one=$ONE"
+          } >> "$GITHUB_OUTPUT"
+          echo "本処理: ${RUN}（B.PREMIER: ${PREMIER} ／ B.ONE: ${ONE}）"
 
       # 日程の取得が失敗しても（bleague.jp の一時的なエラー等）、手元の日程データ（前回の schedule.json）のまま
       # ボックススコアの取得・集計・コミット・デプロイを続ける（デプロイはジョブが失敗で終わっても、コミットがあれば deploy.yml が行う）。末尾の「Fail if schedule scrape failed」でジョブを失敗にして通知する
       # （選手名簿と同じ形。DESIGN.md 8-9）。問い合わせごとの5xx・通信の失敗は scripts/lib/throttle.ts で1回だけ再試行済み
       - name: Scrape schedule (full)
         id: schedule_full
-        if: ${{ steps.proceed.outputs.run == 'true' && github.event.inputs.full_schedule == 'true' }}
+        if: ${{ steps.proceed.outputs.premier == 'true' && github.event.inputs.full_schedule == 'true' }}
         continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }}
 
@@ -147,7 +175,7 @@ jobs:
       # その場で開催予定を取り直す（DESIGN.md 8-9）
       - name: Scrape schedule (recent days)
         id: schedule_recent
-        if: ${{ steps.proceed.outputs.run == 'true' && github.event.inputs.full_schedule != 'true' }}
+        if: ${{ steps.proceed.outputs.premier == 'true' && github.event.inputs.full_schedule != 'true' }}
         continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }} --recent ${{ steps.mode.outputs.nightly == 'true' && '14 --verify-upcoming 14' || '2' }}
 
@@ -157,13 +185,13 @@ jobs:
       # 取れた試合の集計・コミットは続けたいので continue-on-error にし、末尾の「Fail if boxscore scrape failed」で通知する（DESIGN.md 8-9）
       - name: Scrape boxscores (new games only)
         id: boxscore_new
-        if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly != 'true' }}
+        if: ${{ steps.proceed.outputs.premier == 'true' && steps.mode.outputs.nightly != 'true' }}
         continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-boxscore.ts --season ${{ steps.season.outputs.season }} --new-only
 
       - name: Scrape boxscores (new games + watching re-checks)
         id: boxscore_nightly
-        if: ${{ steps.proceed.outputs.run == 'true' && steps.mode.outputs.nightly == 'true' }}
+        if: ${{ steps.proceed.outputs.premier == 'true' && steps.mode.outputs.nightly == 'true' }}
         continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-boxscore.ts --season ${{ steps.season.outputs.season }}
 
@@ -184,10 +212,42 @@ jobs:
       # 合わないものも取り直す。スポーツナビ側の失敗でデータ更新全体を止めないようcontinue-on-error
       # （DESIGN.md 129章）
       - name: Scrape Yahoo PBP (Sportsnavi)
-        if: steps.proceed.outputs.run == 'true'
+        if: steps.proceed.outputs.premier == 'true'
         timeout-minutes: 10
         continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-yahoo-pbp.ts --season ${{ steps.season.outputs.season }} --incremental ${{ steps.mode.outputs.nightly == 'true' && '--recheck-recent' || '' }}
+
+      # B.ONE の日程・ボックススコア（DESIGN.md 14章）。B.PREMIER の取得（上のステップ）がすべて終わってから行い、
+      # 失敗・時間切れでも後続（名簿・集計・コミット）を止めない（continue-on-error。末尾の「Fail if B.ONE ...」で通知する）。
+      # 日程の問い合わせは event=7・tab=2 の組（scrape-schedule.ts の CATEGORY_TAB）。保存先は data/{season}/one/。
+      # スポーツナビ（Yahoo PBP）は B.ONE を扱わないので取りに行かない
+      - name: Scrape schedule (full, B.ONE)
+        id: schedule_full_one
+        if: ${{ steps.proceed.outputs.one == 'true' && github.event.inputs.full_schedule_one == 'true' }}
+        timeout-minutes: 60
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }} --category one
+
+      - name: Scrape schedule (recent days, B.ONE)
+        id: schedule_recent_one
+        if: ${{ steps.proceed.outputs.one == 'true' && github.event.inputs.full_schedule_one != 'true' }}
+        timeout-minutes: 15
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/scrape-schedule.ts --season ${{ steps.season.outputs.season }} --category one --recent ${{ steps.mode.outputs.nightly == 'true' && '14 --verify-upcoming 14' || '2' }}
+
+      - name: Scrape boxscores (new games only, B.ONE)
+        id: boxscore_new_one
+        if: ${{ steps.proceed.outputs.one == 'true' && steps.mode.outputs.nightly != 'true' }}
+        timeout-minutes: 15
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/scrape-boxscore.ts --season ${{ steps.season.outputs.season }} --category one --new-only
+
+      - name: Scrape boxscores (new games + watching re-checks, B.ONE)
+        id: boxscore_nightly_one
+        if: ${{ steps.proceed.outputs.one == 'true' && steps.mode.outputs.nightly == 'true' }}
+        timeout-minutes: 25
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/scrape-boxscore.ts --season ${{ steps.season.outputs.season }} --category one
 
       # 名簿取得はbleague.jp側の一時的なエラーや、新規選手が多い日の処理時間超過で
       # 失敗しうるが、それによって試合結果の集計・commitまで止めないよう
@@ -314,6 +374,25 @@ jobs:
         if: ${{ always() && (steps.boxscore_new.outcome == 'failure' || steps.boxscore_nightly.outcome == 'failure') }}
         run: |
           echo "::error title=Boxscore scrape failed::一部の試合のボックススコアの取得に失敗しました（ほかの試合は取得・集計・コミット済み。失敗した試合は次回の実行で取り直します）。ログの「取得に失敗した試合」を確認してください"
+          exit 1
+
+      # B.ONE の判定・日程・ボックススコアの失敗は、B.PREMIER とは別に通知する（B.PREMIER の取得・コミットは上のステップで完了済み）
+      - name: Fail if B.ONE pending check failed
+        if: ${{ always() && steps.check_one.outcome == 'failure' }}
+        run: |
+          echo "::error title=B.ONE pending check failed::B.ONE の取り込み要否の判定が失敗しました（この回の B.ONE の取得は行っていません。B.PREMIER の更新は続けています）。ログを確認してください"
+          exit 1
+
+      - name: Fail if B.ONE schedule scrape failed
+        if: ${{ always() && (steps.schedule_full_one.outcome == 'failure' || steps.schedule_recent_one.outcome == 'failure') }}
+        run: |
+          echo "::error title=B.ONE schedule scrape failed::B.ONE の日程の取得が失敗しました。手元の B.ONE の日程のまま続け、B.PREMIER の更新・コミットは完了しています。ログで失敗した問い合わせを確認してください"
+          exit 1
+
+      - name: Fail if B.ONE boxscore scrape failed
+        if: ${{ always() && (steps.boxscore_new_one.outcome == 'failure' || steps.boxscore_nightly_one.outcome == 'failure') }}
+        run: |
+          echo "::error title=B.ONE boxscore scrape failed::B.ONE の一部の試合のボックススコアの取得に失敗しました（取れた試合と B.PREMIER はコミット済み。失敗した試合は次回の実行で取り直します）。ログの「取得に失敗した試合」を確認してください"
           exit 1
 
       # 見張りの一覧の確認の失敗（試合の取得の失敗など）をジョブの失敗として通知する（取れた分の記録・commit&pushは上のステップで完了済み。DESIGN.md 202章）

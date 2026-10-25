@@ -9,7 +9,9 @@
 // GitHub Actionsのjob outputに should_run=true/false を書き込む（GITHUB_OUTPUT未設定時は
 // 標準出力のみ、ローカル動作確認用）。
 //
-// 使い方: check-pending-games.ts --season 2026-27
+// 使い方: check-pending-games.ts --season 2026-27 [--category one]
+//   --category one のときは B.ONE の日程（data/{season}/one/schedule.json）と生データを見る。
+//   日程がまだ無い（未取得）なら should_run=false（B.ONE の取得は B.PREMIER の判定とは別のステップで行う）
 
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -56,12 +58,20 @@ async function main(): Promise<void> {
   const seasonIndex = args.indexOf("--season");
   const season = seasonIndex !== -1 ? args[seasonIndex + 1] : undefined;
   if (!season) {
-    console.error("使い方: check-pending-games.ts --season 2026-27");
+    console.error("使い方: check-pending-games.ts --season 2026-27 [--category one]");
     process.exitCode = 1;
     return;
   }
+  const categoryIndex = args.indexOf("--category");
+  const category = (categoryIndex !== -1 ? args[categoryIndex + 1] : "premier") as Category;
+  if (category !== "premier" && category !== "one") {
+    console.error(`--category は premier か one を指定してください（${String(category)}）`);
+    process.exitCode = 1;
+    return;
+  }
+  if (category !== "premier") console.log(`対象リーグ: ${category}`);
 
-  const shouldRun = await hasPendingGames(season);
+  const shouldRun = await hasPendingGames(season, category);
   console.log(shouldRun ? "→ 対象試合あり。本処理へ進みます" : "→ 対象試合なし。bleague.jpへアクセスせず終了します");
 
   const githubOutput = process.env.GITHUB_OUTPUT;
