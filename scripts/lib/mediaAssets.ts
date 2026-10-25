@@ -15,6 +15,7 @@
 //
 // なお`v=xxxxx/`のバージョンプレフィックスは省略可能（実機確認済み。省略時も200で同じ画像が返る）。
 
+import { existsSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { DATA_DIR, fileExists, writeBinaryFile } from "./storage.ts";
@@ -57,10 +58,15 @@ async function fetchBinary(
 export async function downloadTeamLogos(
   season: string,
   throttledFetch: (url: string) => Promise<Response>,
+  options: { onlyMissing?: boolean } = {},
 ): Promise<void> {
   const year = Number(season.split("-")[0]);
   let savedCount = 0;
-  for (const [teamId, code] of Object.entries(TEAM_LOGO_CODES)) {
+  // onlyMissing: まだロゴのファイルが無いクラブだけ取る（新しく対応表に足したクラブの初回取得用。既存のロゴは書き換えない）
+  const targets = Object.entries(TEAM_LOGO_CODES).filter(
+    ([teamId]) => !options.onlyMissing || !existsSync(path.join(LOGOS_DIR, `${teamId}.png`)),
+  );
+  for (const [teamId, code] of targets) {
     const preferredUrl = `${IMG_HOST}/files/user/common/img/logo/${year + 1}/m/${code}.png`;
     const fallbackUrl = `${IMG_HOST}/files/user/common/img/logo/${year}/m/${code}.png`;
     const buf = (await fetchBinary(throttledFetch, preferredUrl)) ?? (await fetchBinary(throttledFetch, fallbackUrl));
@@ -71,7 +77,7 @@ export async function downloadTeamLogos(
     await writeBinaryFile(path.join(LOGOS_DIR, `${teamId}.png`), buf);
     savedCount += 1;
   }
-  console.log(`[logo] ${savedCount}/${Object.keys(TEAM_LOGO_CODES).length}クラブ分保存`);
+  console.log(`[logo] ${savedCount}/${targets.length}クラブ分保存`);
 }
 
 /** 顔写真中心にクロップしてWebPへリサイズ変換する。品質を段階的に下げてPHOTO_TARGET_BYTES以下に収める */

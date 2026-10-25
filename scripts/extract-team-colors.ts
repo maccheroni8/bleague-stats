@@ -14,8 +14,9 @@
 
 import path from "node:path";
 import sharp from "sharp";
-import { TEAM_NAMES } from "./lib/divisions.ts";
-import { DATA_DIR, fileExists, writeJson } from "./lib/storage.ts";
+import { ONE_TEAM_DIVISIONS, TEAM_NAMES } from "./lib/divisions.ts";
+import { DATA_DIR, fileExists, readJson, writeJson } from "./lib/storage.ts";
+import type { DivisionHistoryFile } from "../shared/types.ts";
 
 const LOGOS_DIR = path.join(DATA_DIR, "logos");
 const OUTPUT_PATH = path.join(DATA_DIR, "team-colors.json");
@@ -117,6 +118,35 @@ async function extractColors(pngPath: string): Promise<{ primary: string; second
 }
 
 async function main() {
+  // --add-missing-one: B.ONE のクラブ（ONE_TEAM_DIVISIONS）のうち、まだ色の無いクラブだけを足す。
+  // 既にある色（B.PREMIER の26クラブ）は読み直さずにそのまま残す（ロゴが更新されていても、画面の色を変えない。DESIGN.md 14章）。
+  // B.PREMIER に在籍したことのあるクラブ（新潟・FE名古屋・越谷・福岡）は、B.PREMIER の過去シーズンの画面の色が変わるので、ここでは足さない
+  if (process.argv.includes("--add-missing-one")) {
+    const existing = (await readJson<Record<string, { primary: string; secondary: string }>>(OUTPUT_PATH)) ?? {};
+    const history = await readJson<DivisionHistoryFile>(path.join(DATA_DIR, "division-history.json"));
+    const everPremier = new Set(Object.values(history?.premier ?? {}).flatMap((teams) => Object.keys(teams)));
+    const merged = { ...existing };
+    let added = 0;
+    for (const teamId of Object.keys(ONE_TEAM_DIVISIONS)) {
+      if (merged[teamId]) continue;
+      if (everPremier.has(teamId)) {
+        console.log(`[skip] ${teamId}: B.PREMIER に在籍したことのあるクラブのため足しません`);
+        continue;
+      }
+      const logoPath = path.join(LOGOS_DIR, `${teamId}.png`);
+      if (!fileExists(logoPath)) {
+        console.log(`[skip] ${teamId}: ロゴファイルが見つかりません`);
+        continue;
+      }
+      merged[teamId] = await extractColors(logoPath);
+      added += 1;
+      console.log(`[ok] ${teamId}: primary=${merged[teamId]!.primary} secondary=${merged[teamId]!.secondary}`);
+    }
+    await writeJson(OUTPUT_PATH, merged);
+    console.log(`\n${added}クラブ分を足しました（全${Object.keys(merged).length}クラブ）`);
+    return;
+  }
+
   const result: Record<string, { primary: string; secondary: string }> = {};
   const teamIds = Object.keys(TEAM_NAMES);
 
