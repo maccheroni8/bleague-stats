@@ -6,7 +6,7 @@ import { FilterBar } from "../components/FilterBar";
 import { ExportTarget } from "../components/ExportTarget";
 import { ExportImageButton } from "../components/ExportImageButton";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
-import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory, teamLogoUrl } from "../lib/data";
+import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory, fetchStandingsHistory, teamLogoUrl } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { GAME_TYPE_PARAM } from "../lib/urlFilterParams";
 import { enumParam, situationalParam, useUrlState, type UrlCodec } from "../lib/urlState";
@@ -14,7 +14,7 @@ import { gameTypeAxis, situationalAxes, type FilterAxis } from "../lib/filterAxe
 import { type SituationalFilter } from "../lib/situational";
 import { situationalFilterLabels } from "../lib/conditionLabels";
 import { DIVISION_LABELS, DIVISION_ORDER } from "../lib/divisionGroups";
-import { buildRatingScatter, ratingDomain, ratingColumn, RATING_KEYS, RATING_LABELS, DIVISION_RATING_COLORS, type RatingPoint } from "../lib/figureRatings";
+import { buildRatingScatter, ratingDomain, ratingColumn, RATING_KEYS, RATING_LABELS, DIVISION_RATING_COLORS, type RatingPoint, type RatingKey, ratingBadges } from "../lib/figureRatings";
 import { useTeamLabel } from "../lib/teamLabel";
 import { statJa } from "../lib/statNames";
 import { statDescription } from "../lib/statDescriptions";
@@ -38,18 +38,19 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
   const [filter,setFilter]=useUrlState(rangeCodec,DEFAULT_RANGE);
   const [gameType,setGameType]=useUrlState(gameCodec,"regular");
   const [division,setDivision]=useUrlState(divisionCodec,"all");
+  const [sort,setSort]=useState<{key:RatingKey;bestFirst:boolean}>({key:"netrtg",bestFirst:true});
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const target=useRef<HTMLDivElement>(null);
   const plot=useRef<HTMLDivElement>(null);
   const teamLabel=useTeamLabel();
   const request=useJsonData(async()=>{
     const teams=await fetchTeams(season,category);
-    const [divisions,entries]=await Promise.all([fetchDivisionHistory().catch(()=>null),Promise.all(teams.map(async team=>{
+    const [standings,divisions,entries]=await Promise.all([fetchStandingsHistory(season).catch(()=>null),fetchDivisionHistory().catch(()=>null),Promise.all(teams.map(async team=>{
       try {return [team.teamId,await fetchTeamGameLogs(season,team.teamId)] as const;}
       catch {return [team.teamId,null] as const;}
     }))]);
     const missing=entries.filter(([,logs])=>logs===null).map(([id])=>id);
-    return {teams,divisions,missing,logs:new Map(entries.map(([id,logs])=>[id,logs??[]]))};
+    return {teams,divisions,standings:standings?.at(-1)??null,missing,logs:new Map(entries.map(([id,logs])=>[id,logs??[]]))};
   },[season,category]);
   const model=useMemo(()=>request.data && !request.data.missing.length ? buildRatingScatter(request.data.teams,request.data.logs,request.data.divisions,{season,category,range:filter.range,gameType}) : null,[request.data,season,category,filter,gameType]);
   const present=useMemo(()=>{
@@ -70,6 +71,9 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
     options:[{value:"all",label:"全チーム"},...present.map(d=>({value:d,label:divisionLabel(d)}))],onChange:value=>setDivision(value as DivisionChoice),
   }];
   const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision === "all"?[]:[divisionLabel(activeDivision)])];
+  const standingById=new Map(request.data?.standings?.teams.map(team=>[team.teamId,team]));
+  const sortedVisible=[...visible].sort((a,b)=> (a[sort.key]-b[sort.key])*(sort.key === "drtg"?1:-1)*(sort.bestFirst?1:-1));
+  const toggleSort=(key:RatingKey)=>setSort(previous=>({key,bestFirst:previous.key===key?!previous.bestFirst:true}));
   const baseDate={kind:"season" as const,season,gameType};
   const choose=(id:string,scroll=false)=>{setSelectedId(id);if(scroll)plot.current?.scrollIntoView({block:"center",behavior:"smooth"});};
   return <section aria-label="ORtg・DRtgの散布図">
@@ -77,7 +81,7 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!model?.league || !visible.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
       <ExportImageButton targetRef={target} filename={`ORtg_DRtg_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={target} className="ratings-export" baseDate={baseDate}>
-        <div className="condition-title"><h2>{statJa("ORtg","team")}・{statJa("DRtg","team")}</h2><p>{conditions.join(" · ")}</p></div>
+        <div className="condition-title"><h2>{statJa("ORtg","team")} × {statJa("DRtg","team")}</h2><p>{conditions.join(" · ")}</p></div>
         <p className="ratings-league">リーグ平均：ORtg {model.league.ortg.toFixed(1)} ／ DRtg {model.league.drtg.toFixed(1)}</p>
         <div className="ratings-legend">{present.map(d=><span key={d}><i style={{borderColor:DIVISION_RATING_COLORS[d]}}/>{divisionLabel(d)}</span>)}<span><i className="ratings-diagonal-key"/>NetRtg 0</span></div>
         <div className="ratings-chart" ref={plot}>
@@ -92,7 +96,11 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
               <span className="ratings-quadrant top left">守備型</span><span className="ratings-quadrant top right">攻守とも良い</span>
               <span className="ratings-quadrant bottom left">攻守とも課題</span><span className="ratings-quadrant bottom right">攻撃型</span>
               {visible.map(point=><RatingLogo key={point.teamId} point={point} label={teamLabel(point.teamId,point.teamName)} selected={selected?.teamId===point.teamId}
-                left={position(point.ortg)} top={position(point.drtg)} onSelect={()=>choose(point.teamId)}/>)}
+                badges={ratingBadges(point,model.points)} left={position(point.ortg)} top={position(point.drtg)} onSelect={()=>choose(point.teamId)}/>)}
+              {selected&&<div role="tooltip" className="ratings-tooltip" style={{left:`clamp(0px, calc(${position(selected.ortg)}% - 100px), calc(100% - 200px))`,top:`clamp(0px, calc(${position(selected.drtg)}% + 30px), calc(100% - 120px))`}}>
+                <strong>{teamLabel(selected.teamId,selected.teamName)}</strong>
+                {RATING_KEYS.map(key=><span key={key}>{RATING_LABELS[key]} {ratingColumn(key).format!(selected.row)}（{selected.ranks[key]}位）</span>)}
+              </div>}
             </div>
             {domain.ticks.map(tick=><span key={`x${tick}`} className="ratings-tick-x" style={{left:`${position(tick)}%`}}>{tick}</span>)}
             {domain.ticks.map(tick=><span key={`y${tick}`} className="ratings-tick-y" style={{top:`${position(tick)}%`}}>{tick}</span>)}
@@ -112,18 +120,20 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
         <p>{RATING_KEYS.map(key=><span key={key}>{RATING_LABELS[key]} {ratingColumn(key).format!(selected.row)}（{selected.ranks[key]}位）　</span>)}</p>
       </>:<p>ロゴに触れるか押すと、チームの値とリーグ順位を表示します。</p>}</div>
       <p className="figure-notes">ロゴが重なる場合は下の一覧から選ぶと、そのチームを手前に表示します。順位は表示値の同率を同順位とし、次の順位を飛ばしています。</p>
+      <p className="figure-notes">地区順位はシーズンの最新の順位表が基準です{request.data?.standings?`（${request.data.standings.date}）`:"（取得できない場合は—）"}。対象期間を変えても変わりません。</p>
       <div className="ratings-table-scroll" tabIndex={0} role="region" aria-label="散布図のチーム一覧">
-        <table className="ratings-table"><thead><tr><th>チーム</th>{RATING_KEYS.map(key=><th key={key} title={statDescription(RATING_LABELS[key],"team")}>{RATING_LABELS[key]}（リーグ順位）</th>)}</tr></thead>
-        <tbody>{[...visible].sort((a,b)=>b.netrtg-a.netrtg).map(point=><tr key={point.teamId} className={selected?.teamId===point.teamId?"is-selected":""}><td><button onClick={()=>choose(point.teamId,true)}><ResponsiveTeamName teamId={point.teamId} name={point.teamName}/></button></td>{RATING_KEYS.map(key=><td key={key}>{ratingColumn(key).format!(point.row)}（{point.ranks[key]}位）</td>)}</tr>)}</tbody></table>
+        <table className="ratings-table"><thead><tr><th>チーム</th>{RATING_KEYS.map(key=><th key={key} aria-sort={sort.key===key?(sort.bestFirst===(key==="drtg")?"ascending":"descending"):"none"}><button title={statDescription(RATING_LABELS[key],"team")} onClick={()=>toggleSort(key)}>{RATING_LABELS[key]}（リーグ順位）{sort.key===key?(sort.bestFirst===(key==="drtg")?" ↑":" ↓"):" ↕"}</button></th>)}</tr></thead>
+        <tbody>{sortedVisible.map(point=><tr key={point.teamId} className={selected?.teamId===point.teamId?"is-selected":""}><td><button onClick={()=>choose(point.teamId,true)}><ResponsiveTeamName teamId={point.teamId} name={point.teamName}/></button> <span className="ratings-standing">{(()=>{const standing=standingById.get(point.teamId);return standing?.division&&standing.divisionRank?`${DIVISION_LABELS[standing.division][0]}${standing.divisionRank}`:"—";})()}</span></td>{RATING_KEYS.map(key=><td key={key}>{ratingColumn(key).format!(point.row)}（{point.ranks[key]}位）</td>)}</tr>)}</tbody></table>
       </div>
     </>}
   </section>;
 }
-function RatingLogo({point,label,selected,left,top,onSelect}:{point:RatingPoint;label:string;selected:boolean;left:number;top:number;onSelect:()=>void}) {
+function RatingLogo({point,label,selected,left,top,onSelect,badges}:{point:RatingPoint;label:string;selected:boolean;left:number;top:number;onSelect:()=>void;badges:string[]}) {
   const[failed,setFailed]=useState(false);
   const description=`${label}：${RATING_KEYS.map(key=>`${RATING_LABELS[key]} ${ratingColumn(key).format!(point.row)}（${point.ranks[key]}位）`).join("、")}`;
   return <button className={`ratings-point${selected?" is-selected":""}`} style={{left:`${left}%`,top:`${top}%`,borderColor:DIVISION_RATING_COLORS[point.division??"unknown"]}}
-    aria-label={description} aria-pressed={selected} title={description} onMouseEnter={onSelect} onFocus={onSelect} onClick={onSelect}>
+    aria-label={description} aria-pressed={selected} onMouseEnter={onSelect} onFocus={onSelect} onClick={onSelect}>
     {failed?<span className="ratings-fallback">{teamShortName(point.teamId,point.teamName)}</span>:<img src={teamLogoUrl(point.teamId)} alt="" width={26} height={26} loading="eager" onError={()=>setFailed(true)}/>}
+    {!!badges.length&&<span className={`ratings-badges${left>70?" on-left":""}`}>{badges.map(badge=><span key={badge}>{badge}</span>)}</span>}
   </button>;
 }

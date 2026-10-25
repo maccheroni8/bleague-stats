@@ -60,3 +60,12 @@ export function ratingDomain(points: readonly Pick<RatingPoint,"ortg"|"drtg">[])
 export const DIVISION_RATING_COLORS: Record<Division | "unknown",string> = {
   east:"#2878b5",central:"#218357",west:"#cd681b",north:"#8454a3",south:"#95670f",unknown:"#767676",
 };
+
+/** 上下3枠の境目と同率なら全て表示。順位は地区絞り込み前の実順位。 */
+export function ratingBadges(point: RatingPoint, points: readonly RatingPoint[]): string[] {
+  return RATING_KEYS.filter(key=>{
+    const ranks=points.map(p=>p.ranks[key]).sort((a,b)=>a-b);
+    const bottom=ranks[Math.max(0,ranks.length-3)]??Infinity;
+    return point.ranks[key]<=3 || point.ranks[key]>=bottom;
+  }).map(key=>`#${point.ranks[key]} ${RATING_LABELS[key]}`);
+}

@@ -203,3 +203,15 @@ if(source){
   }
   console.log(`散布図: ${seasonCount}シーズン×4期間×3試合区分=${scenarios}条件、${comparisons}件のチーム指標とリーグ平均が全チームスタッツと一致`);
 }
+
+// 順位ラベルは実順位を使い、下位3枠の同率を落とさない。
+{
+  const {ratingBadges}=await import("../src/lib/figureRatings");
+  const points=Array.from({length:8},(_,i)=>({ranks:{ortg:i+1,drtg:8-i,netrtg:i+1}})) as import("../src/lib/figureRatings").RatingPoint[];
+  assert.deepEqual(ratingBadges(points[0]!,points),["#1 ORtg","#8 DRtg","#1 NetRtg"]);
+  assert.deepEqual(ratingBadges(points[3]!,points),[]);
+  assert.deepEqual(ratingBadges(points[7]!,points),["#8 ORtg","#1 DRtg","#8 NetRtg"]);
+  points[4]!.ranks.ortg=6;
+  assert.ok(ratingBadges(points[4]!,points).includes("#6 ORtg"));
+  console.log("散布図: 上下3枠の実順位ラベル・同順位・複数ラベル OK");
+}
