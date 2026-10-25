@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { normalizeFigureParams } from "../lib/figureRoute";
 import type { Category, StandingsTeamSnapshot, TeamColors } from "../../shared/types";
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from "../../shared/gameType";
-import { fetchPlayoffRace, fetchStandingsHistory, fetchTeamColors } from "../lib/data";
+import { fetchPlayoffRace, fetchStandingsHistory, fetchTeamColors, teamLogoUrl } from "../lib/data";
 import { loadPlayerGameIndex } from "../lib/gameIndexLoad";
 import { useJsonData } from "../lib/useJsonData";
 import { choiceNumberParam, enumParam, useUrlState } from "../lib/urlState";
-import { ageSummary, figureAgeData, FIGURE_CLASSES, type FigureClass } from "../lib/figureAge";
+import { ageSummary, figureAgeData, centeredAgeDots, figureMarkerShape, FIGURE_CLASSES, type FigureClass } from "../lib/figureAge";
 import { ageBaseDateLabel } from "../lib/age";
 import { pickerTeamOrder } from "../lib/playerPickerOrder";
 import { withUnplayedTeams } from "../lib/standingsTeams";
@@ -94,6 +94,13 @@ function AgeFigure({ season }: { season: string }) {
 }
 
 
+// 図の下端まで一度に保存するため、画面外のロゴも遅延せず読む。失敗時は名前だけ残す。
+function FigureTeamLogo({ teamId }: { teamId: string }) {
+  const [failed, setFailed] = useState(false);
+  return failed ? null : <img src={teamLogoUrl(teamId)} alt="" width={24} height={24}
+    className="team-logo" loading="eager" onError={() => setFailed(true)} />;
+}
+
 type AgeTeam = Pick<StandingsTeamSnapshot, "teamId" | "teamName" | "division">;
 function AgeDistrict({ divisionLabel, teams, model, colors, season, min, classification, gameType, line, classLabel, title, lower, upper }: {
   divisionLabel: string; teams: AgeTeam[]; model: ReturnType<typeof figureAgeData>; colors: Record<string, TeamColors>;
@@ -112,6 +119,8 @@ function AgeDistrict({ divisionLabel, teams, model, colors, season, min, classif
       <ExportTarget ref={target} className="figure-age-export" baseDate={baseDate}>
         <div className="condition-title"><h2>{title}</h2><p>{season} · {divisionLabel} · {gameLabels[gameType]} · {classLabel}</p></div>
         <p>{FIGURES[0].description}</p>
+        <p className="figure-marker-legend"><span><span aria-hidden="true" className={`figure-marker figure-marker-${figureMarkerShape("jp")}`} />日本人</span><span><span aria-hidden="true" className={`figure-marker figure-marker-${figureMarkerShape("intl")}`} />外国籍・帰化・アジア</span></p>
+        {teams.some(t => (model.byTeam.get(t.teamId) ?? []).some(d => figureMarkerShape(d.registration) === "unknown")) && <p>○ 登録区分不明</p>}
         <p>全体{line === "mean" ? "平均" : "中央値"}：{oneDecimal(reference)}歳（{model.overall.count}人・移籍の重複なし）</p>
         {!teams.some(t => (model.byTeam.get(t.teamId)?.length ?? 0) > 0) && <p role="status">条件に該当する、年齢が分かる出場選手はいません。</p>}
         <div className="figure-scroll" tabIndex={0} role="region" aria-label="チーム別の年齢分布。狭い画面では横にスクロールできます。">
@@ -120,16 +129,14 @@ function AgeDistrict({ divisionLabel, teams, model, colors, season, min, classif
             {teams.map((t) => {
               const dots = model.byTeam.get(t.teamId) ?? [];
               const stats = ageSummary(dots.map(d => d.age));
-              const stacks = new Map<number, number>();
-              const maxStack = Math.max(1, ...dots.map(d => dots.filter(o => o.age === d.age).length));
-              const height = Math.max(38, maxStack * 12 + 12);
+              const layout = centeredAgeDots(dots);
               return <div key={t.teamId}>
                 <div className="figure-age-row">
-                  <span><ResponsiveTeamName teamId={t.teamId} name={t.teamName} /></span>
-                  <div className="figure-age-plot" style={{height}} role="img" aria-label={`${dots.length}人、平均${oneDecimal(stats.mean)}歳、中央値${oneDecimal(stats.median)}歳`}>
+                  <span className="figure-team-cell"><FigureTeamLogo teamId={t.teamId} /><span className="figure-team-name"><ResponsiveTeamName teamId={t.teamId} name={t.teamName} /></span></span>
+                  <div className="figure-age-plot" style={{height:layout.height}} role="img" aria-label={`${dots.length}人、平均${oneDecimal(stats.mean)}歳、中央値${oneDecimal(stats.median)}歳`}>
                     {Array.from({length: upper - lower + 1}, (_,j) => j + lower).filter(a => a % 2 === 0).map(a => <span key={a} style={{left:`${x(a)/6}%`}} className="figure-gridline" />)}
                     {reference !== null && <span style={{left:`${x(reference)/6}%`}} className="figure-reference" />}
-                    {dots.map(d => { const level = stacks.get(d.age) ?? 0; stacks.set(d.age, level + 1); return <span className="figure-age-dot" key={d.playerId} style={{left:`${x(d.age)/6}%`, bottom:4 + level * 12, backgroundColor:colors[t.teamId]?.primary ?? "var(--fg)"}} title={`${d.age}歳・平均${formatMinutesColon(d.averageMinutes)}`} />; })}
+                    {layout.dots.map(d => <span className="figure-age-dot" key={d.playerId} style={{left:`${x(d.age)/6}%`, top:d.centerY, color:colors[t.teamId]?.primary ?? "var(--fg)"}} title={`${d.age}歳・平均${formatMinutesColon(d.averageMinutes)}`}><span className={`figure-marker figure-marker-${figureMarkerShape(d.registration)}`} /></span>)}
                   </div><span>{stats.count}</span><span>{oneDecimal(stats.mean)}</span><span>{oneDecimal(stats.median)}</span>
                 </div>
               </div>;

@@ -1,6 +1,6 @@
 // 小さな人工データで、分母・境界・移籍・欠損を確認。元データを読み書きしない。
 import assert from "node:assert/strict";
-import { figureAgeData, ageSummary } from "../src/lib/figureAge";
+import { figureAgeData, ageSummary, centeredAgeDots, figureMarkerShape } from "../src/lib/figureAge";
 import { viewPlayerGameIndex } from "../src/lib/gameIndex";
 import { PLAYER_INDEX_STAT_COLUMNS, type PlayerGameIndexFile } from "../shared/gameIndex";
 const file = {
@@ -43,3 +43,17 @@ for (const old of ["season=2026-27", "season=2026-27&entity=player&min=20&cls=jp
 const playerIndex = new URLSearchParams("entity=player&figure=index&season=2026-27");
 assert.equal(normalizeFigureParams(playerIndex).toString(), playerIndex.toString(), "新しい選手タブは維持");
 console.log("図解URL: 旧URLの移動・条件保持・選手タブ・再読み込み OK");
+
+assert.equal(result.byTeam.get("a")?.[0]?.registration, "jp");
+assert.equal(result.byTeam.get("b")?.[1]?.registration, "intl");
+for (const registration of ["jp", "日本人", "見做し日本人", "みなし日本人"]) assert.equal(figureMarkerShape(registration), "circle");
+for (const registration of ["intl", "外国籍", "帰化", "帰化選手", "アジア特別枠"]) assert.equal(figureMarkerShape(registration), "diamond");
+assert.equal(figureMarkerShape(undefined), "unknown", "区分不明を日本人扱いしない");
+for (const count of [1, 2, 3, 6]) {
+  const layout = centeredAgeDots(Array.from({length:count}, (_,i) => ({playerId:String(i),name:"P",age:25,averageMinutes:20,registration:i%2 ? "intl" : "jp"})));
+  assert.equal((layout.dots[0]!.centerY + layout.dots.at(-1)!.centerY)/2,layout.height/2,"偶数・奇数・形の混在でも固まりが中央");
+  assert.ok(layout.dots[0]!.centerY >= 6 && layout.dots.at(-1)!.centerY <= layout.height-6);
+}
+const mixed = centeredAgeDots([20,25,25,25].map((age,i) => ({playerId:String(i),name:"P",age,averageMinutes:20,registration:"jp"})));
+assert.equal(mixed.dots[0]!.centerY,mixed.height/2,"別の年齢が多くても単独の点は中央");
+console.log("年齢分布の表示: 登録区分・見做し日本人・同年齢の中央配置 OK");

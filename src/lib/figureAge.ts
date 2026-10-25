@@ -9,7 +9,7 @@ export const FIGURE_CLASSES = [
   { value: "intl", label: "外国籍・帰化・アジア" },
 ] as const;
 export type FigureClass = typeof FIGURE_CLASSES[number]["value"];
-export interface AgeDot { playerId: string; name: string; age: number; averageMinutes: number }
+export interface AgeDot { playerId: string; name: string; age: number; averageMinutes: number; registration: string }
 export function ageSummary(ages: readonly number[]) {
   if (!ages.length) return { count: 0, mean: null, median: null };
   const sorted = [...ages].sort((a, b) => a - b);
@@ -20,14 +20,14 @@ export function ageSummary(ages: readonly number[]) {
 export function figureAgeData(view: PlayerGameIndexView, options: {
   season: string; gameType: SeasonGameTypeFilter; min: number; classification: FigureClass;
 }) {
-  const memberships = new Map<string, { playerId: string; name: string; teamId: string; birth: string; minutes: number; games: number }>();
+  const memberships = new Map<string, { playerId: string; name: string; teamId: string; birth: string; registration: string; minutes: number; games: number }>();
   for (let i = 0; i < view.size; i++) {
     const g = playerGameAt(view, i);
     if (options.gameType !== "both" && g.gameType !== options.gameType) continue;
     if (options.classification !== "all" && g.classKey !== options.classification) continue;
     if (!(g.min > 0)) continue; // DNPは平均の分母に含めない。「なし」も出場者が対象。
     const key = `${g.playerId}@${g.teamId}`;
-    const row = memberships.get(key) ?? { playerId: g.playerId, name: g.playerName, teamId: g.teamId, birth: g.birthDate, minutes: 0, games: 0 };
+    const row = memberships.get(key) ?? { playerId: g.playerId, name: g.playerName, teamId: g.teamId, birth: g.birthDate, registration: g.classKey, minutes: 0, games: 0 };
     row.minutes += g.min;
     row.games++;
     memberships.set(key, row);
@@ -41,9 +41,33 @@ export function figureAgeData(view: PlayerGameIndexView, options: {
     const age = row.birth ? ageForSeason(row.birth, options.season) : NaN;
     if (!Number.isFinite(age) || age < 0) { missingBirth++; continue; }
     const dots = byTeam.get(row.teamId) ?? [];
-    dots.push({ playerId: row.playerId, name: row.name, age, averageMinutes });
+    dots.push({ playerId: row.playerId, name: row.name, age, averageMinutes, registration: row.registration });
     byTeam.set(row.teamId, dots);
     unique.set(row.playerId, age);
   }
   return { byTeam, overall: ageSummary([...unique.values()]), missingBirth };
+}
+
+// 形を決める場所はここだけ。将来のシーズン別4区分は読む側で結合してここへ渡す。
+// 見做し日本人を含め、現行の索引でjpに分類される選手は丸にする。
+export type FigureMarkerShape = "circle" | "diamond" | "square" | "triangle" | "unknown";
+const REGISTRATION_MARKERS: Readonly<Record<string, FigureMarkerShape>> = {
+  jp: "circle", 日本人: "circle", 見做し日本人: "circle", みなし日本人: "circle",
+  intl: "diamond", 外国籍: "diamond", 帰化選手: "diamond", 帰化: "diamond", アジア特別枠: "diamond",
+};
+export function figureMarkerShape(registration: string | undefined): FigureMarkerShape {
+  return REGISTRATION_MARKERS[registration ?? ""] ?? "unknown";
+}
+
+/** 同年齢の点の中心を、形によらず行の中央から等間隔に置く。 */
+export function centeredAgeDots(dots: readonly AgeDot[]) {
+  const totals = new Map<number, number>();
+  for (const dot of dots) totals.set(dot.age, (totals.get(dot.age) ?? 0) + 1);
+  const height = Math.max(38, Math.max(1, ...totals.values()) * 12 + 12);
+  const used = new Map<number, number>();
+  return { height, dots: dots.map(dot => {
+    const level = used.get(dot.age) ?? 0;
+    used.set(dot.age, level + 1);
+    return { ...dot, centerY: height / 2 + (level - (totals.get(dot.age)! - 1) / 2) * 12 };
+  }) };
 }

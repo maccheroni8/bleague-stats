@@ -14,7 +14,18 @@
 .figure-age-tick { position:absolute; transform:translateX(-50%); top:5px; }
 .figure-gridline, .figure-reference { position:absolute; height:100%; top:0; border-left:1px solid var(--border); }
 .figure-reference { border-left:1.5px dashed var(--fg); }
-.figure-age-dot { position:absolute; transform:translateX(-50%); width:10px; height:10px; border-radius:50%; box-sizing:border-box; border:0.5px solid var(--fg); }
+.figure-age-dot { position:absolute; transform:translate(-50%,-50%); width:12px; height:12px; display:flex; align-items:center; justify-content:center; }
+.figure-marker { display:inline-block; width:10px; height:10px; flex-shrink:0; box-sizing:border-box; background:currentColor; border:0.5px solid var(--fg); }
+.figure-marker-circle { border-radius:50%; }
+.figure-marker-diamond { width:7.5px; height:7.5px; transform:rotate(45deg); }
+.figure-marker-square { border-radius:0; }
+.figure-marker-triangle { width:0; height:0; background:none; border:5px solid transparent; border-top:0; border-bottom:10px solid currentColor; }
+.figure-marker-unknown { border-radius:50%; background:var(--bg); border-color:currentColor; }
+.figure-marker-legend { display:flex; flex-wrap:wrap; gap:8px 24px; font-size:12px; }
+.figure-marker-legend > span { display:inline-flex; gap:8px; align-items:center; }
+.figure-age-row > .figure-team-cell { display:flex; align-items:center; gap:6px; min-width:0; }
+.figure-team-name { min-width:0; flex:1; }
+.figure-team-cell .team-logo { width:24px; height:24px; border-radius:4px; }
 .figure-division { margin:0; padding:8px; background:var(--header-bg); font-size:14px; }
 .figure-notes { font-size:12px; color:var(--muted); line-height:1.7; }
 .figure-age-export { margin-top:16px; }
@@ -26,3 +37,7 @@
 .figure-age-district { margin-top:24px; }
 /* 保存時は端末幅のCSSより優先し、チーム名と列幅をPCと同じ型にする。 */
 .export-rendering.figure-age-export .figure-age-row { grid-template-columns:190px minmax(300px,1fr) 55px 60px 60px; }
+
+@media(max-width:560px) { .figure-team-cell .team-logo { width:20px; height:20px; } .figure-age-row > .figure-team-cell { gap:4px; } }
+.export-rendering.figure-age-export .figure-team-cell .team-logo { width:24px; height:24px; }
+.export-rendering.figure-age-export .figure-team-cell { gap:6px; }
