@@ -65,6 +65,7 @@
     "validate:rookie-eligibility": "node --experimental-strip-types scripts/validate-rookie-eligibility.ts",
     "validate:pbp-order": "esbuild scripts/validate-pbp-order.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-pbp-order.mjs && node node_modules/.cache/validate-pbp-order.mjs",
     "validate:roster-nationality": "node --experimental-strip-types --test scripts/test-roster-nationality.ts",
+    "validate:figures": "esbuild scripts/validate-figures.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-figures.mjs && node node_modules/.cache/validate-figures.mjs",
     "validate:all": "node --experimental-strip-types scripts/validate-all.ts",
     "validate:dnp-rows": "node --experimental-strip-types scripts/validate-dnp-rows.ts",
     "validate:opponent-split": "esbuild scripts/validate-opponent-split.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-opponent-split.mjs && node node_modules/.cache/validate-opponent-split.mjs",

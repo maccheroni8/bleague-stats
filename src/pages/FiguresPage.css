@@ -1,0 +1,24 @@
+.figures-tabs, .figures-controls { display:flex; flex-wrap:wrap; gap:12px; margin:16px 0; }
+.figures-tabs button { padding:8px 24px; border:1px solid var(--border); background:var(--bg); color:var(--fg); cursor:pointer; }
+.figures-tabs button[aria-pressed="true"] { border-bottom:3px solid var(--accent); font-weight:bold; }
+.figures-controls label { display:flex; flex-direction:column; gap:5px; font-size:13px; }
+.figures-controls select { max-width:100%; padding:8px; background:var(--bg); color:var(--fg); border:1px solid var(--border); }
+.figure-scroll { overflow-x:auto; }
+.figure-age-chart { min-width:740px; }
+.figure-age-row { display:grid; grid-template-columns:190px minmax(300px,1fr) 55px 60px 60px; align-items:center; border-bottom:1px solid var(--border); font-size:12px; }
+.figure-age-row > span { padding:4px; text-align:center; }
+.figure-age-row > span:first-child { text-align:left; }
+.figure-age-heading { font-weight:bold; }
+.figure-age-axis, .figure-age-plot { position:relative; width:100%; }
+.figure-age-axis { height:28px; }
+.figure-age-tick { position:absolute; transform:translateX(-50%); top:5px; }
+.figure-gridline, .figure-reference { position:absolute; height:100%; top:0; border-left:1px solid var(--border); }
+.figure-reference { border-left:1.5px dashed var(--fg); }
+.figure-age-dot { position:absolute; transform:translateX(-50%); width:10px; height:10px; border-radius:50%; box-sizing:border-box; border:0.5px solid var(--fg); }
+.figure-division { margin:0; padding:8px; background:var(--header-bg); font-size:14px; }
+.figure-notes { font-size:12px; color:var(--muted); line-height:1.7; }
+.figure-age-export { margin-top:16px; }
+.export-rendering.figure-age-export { width:1100px !important; }
+.export-rendering .figure-age-chart { width:1036px; }
+.export-rendering .figure-scroll { overflow:visible; }
+@media(max-width:560px) { .figure-age-row { grid-template-columns:90px minmax(300px,1fr) 50px 55px 55px; } .figure-age-chart { min-width:620px; } .figures-controls label { flex:1 1 140px; } }

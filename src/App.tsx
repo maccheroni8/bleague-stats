@@ -18,6 +18,7 @@ import { SchedulePage } from "./pages/SchedulePage";
 import { RankingsPage } from "./pages/RankingsPage";
 import { ComparePage } from "./pages/ComparePage";
 import { StandingsPage } from "./pages/StandingsPage";
+import { FiguresPage } from "./pages/FiguresPage";
 import { GlossaryPage } from "./pages/GlossaryPage";
 
 export default function App() {
@@ -31,7 +32,7 @@ export default function App() {
 }
 
 /** フィルタをURLに持つページ（DESIGN.md 163章） */
-const URL_FILTER_PAGES = ["/players", "/teams", "/rankings"];
+const URL_FILTER_PAGES = ["/players", "/teams", "/rankings", "/figures"];
 
 function AppShell() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -124,6 +125,7 @@ function AppShell() {
           <SeasonNavLink to="/standings" className={({ isActive }) => (isActive ? "active" : "")}>
             順位表
           </SeasonNavLink>
+          <SeasonNavLink to="/figures" className={({ isActive }) => (isActive ? "active" : "")}>図解</SeasonNavLink>
           <NavLink to="/glossary" className={({ isActive }) => (isActive ? "active" : "")}>
             用語集
           </NavLink>
@@ -143,6 +145,7 @@ function AppShell() {
             <Route path="/rankings" element={<RankingsPage season={season} />} />
             <Route path="/compare" element={<ComparePage season={season} />} />
             <Route path="/standings" element={<StandingsPage season={season} />} />
+            <Route path="/figures" element={<FiguresPage season={season} />} />
             <Route path="/glossary" element={<GlossaryPage />} />
           </Routes>
         </PageErrorBoundary>
