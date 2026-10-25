@@ -17,18 +17,29 @@ export function ageSummary(ages: readonly number[]) {
   return { count: ages.length, mean: ages.reduce((a, b) => a + b, 0) / ages.length,
     median: sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2 };
 }
+/**
+ * i行目の試合での登録区分（jp／intl）。2026-27 以降の索引は行ごとに、その試合での区分（rows.cls。0 日本人・1〜3 外国籍・帰化・アジア特別枠・-1 不明）を
+ * 持つので、それを使う（シーズン途中の区分の変更を当てる。DESIGN.md 295章・296章）。行ごとの区分が無い索引（2025-26 以前・古い版）は、選手ごとの1つの値
+ */
+export function figureRowClassKey(view: PlayerGameIndexView, i: number, fallback: "jp" | "intl" | ""): "jp" | "intl" | "" {
+  const code = view.file.rows.cls?.[i];
+  if (code === undefined) return fallback;
+  return code === 0 ? "jp" : code > 0 ? "intl" : "";
+}
+
 export function figureAgeData(view: PlayerGameIndexView, options: {
   season: string; gameType: SeasonGameTypeFilter; min: number; classification: FigureClass; eligiblePlayerIds?: ReadonlySet<string>;
 }) {
   const memberships = new Map<string, { playerId: string; name: string; teamId: string; birth: string; registration: string; minutes: number; games: number }>();
   for (let i = 0; i < view.size; i++) {
     const g = playerGameAt(view, i);
+    const classKey = figureRowClassKey(view, i, g.classKey);
     if (options.eligiblePlayerIds && !options.eligiblePlayerIds.has(g.playerId)) continue;
     if (options.gameType !== "both" && g.gameType !== options.gameType) continue;
-    if (options.classification !== "all" && g.classKey !== options.classification) continue;
+    if (options.classification !== "all" && classKey !== options.classification) continue;
     if (!(g.min > 0)) continue; // DNPは平均の分母に含めない。「なし」も出場者が対象。
     const key = `${g.playerId}@${g.teamId}`;
-    const row = memberships.get(key) ?? { playerId: g.playerId, name: g.playerName, teamId: g.teamId, birth: g.birthDate, registration: g.classKey, minutes: 0, games: 0 };
+    const row = memberships.get(key) ?? { playerId: g.playerId, name: g.playerName, teamId: g.teamId, birth: g.birthDate, registration: classKey, minutes: 0, games: 0 };
     row.minutes += g.min;
     row.games++;
     memberships.set(key, row);

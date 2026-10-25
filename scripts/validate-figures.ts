@@ -42,6 +42,20 @@ assert.deepEqual(ageSummary([]),{count:0,mean:null,median:null});
 assert.equal(ageSummary([20,40,30]).median,30);
 console.log("年齢分布: DNP・しきい値・誕生日・移籍・登録区分・試合区分・空結果・生年月日欠損 OK");
 
+// 2026-27 以降の索引は行ごとの区分（rows.cls）を持つ。それがあれば選手ごとの値より優先する（シーズン途中の区分の変更。DESIGN.md 296章）
+{
+  // 行0〜3は選手pの試合。p は選手ごとには jp だが、行1（0の次）から intl（例: 帰化の登録）に変わったとする。-1 は区分不明
+  const withCls = viewPlayerGameIndex({ ...file, rows: { ...file.rows, cls: [0, 1, 1, 1, 1, -1, 1] } } as PlayerGameIndexFile);
+  const jp = figureAgeData(withCls, { ...options, min: 0, classification: "jp" });
+  const intl = figureAgeData(withCls, { ...options, min: 0, classification: "intl" });
+  assert.equal(jp.byTeam.get("a")?.[0]?.averageMinutes, 10, "行ごとの区分で日本人の試合だけを数える");
+  assert.equal(intl.byTeam.get("a")?.find(d => d.playerId === "p")?.averageMinutes, 20, "区分が変わったあとの試合だけを数える");
+  assert.equal(figureAgeData(withCls, { ...options, min: 0 }).byTeam.get("a")?.find(d => d.playerId === "r")?.registration ?? "missing-birth", "missing-birth", "生年月日の無い選手は除外のまま");
+  const unknown = figureAgeData(viewPlayerGameIndex({ ...file, players: [...file.players.slice(0, 2), ["r", "R", "", "", "1995-01-01", "jp"]], rows: { ...file.rows, cls: [0, 0, 0, 0, 1, -1, 0] } } as PlayerGameIndexFile), { ...options, min: 0 });
+  assert.equal(unknown.byTeam.get("a")?.find(d => d.playerId === "r")?.registration, "", "行の区分が -1 なら区分不明（推測で日本人にしない）");
+  console.log("年齢分布: 行ごとの区分（2026-27 以降）を優先する OK");
+}
+
 const { normalizeFigureParams } = await import("../src/lib/figureRoute");
 for (const old of ["season=2026-27", "season=2026-27&entity=player&min=20&cls=jp&line=median", "entity=player&figure=age", "entity=player&line=both&gp=85-100"]) {
   const before = new URLSearchParams(old);

@@ -88,7 +88,7 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!model?.league || !visible.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
       <ExportImageButton targetRef={target} filename={`ORtg_DRtg_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={target} className="ratings-export" baseDate={baseDate}>
-        <div className="condition-title"><h2>{statJa("ORtg","team")} × {statJa("DRtg","team")}</h2><p>{conditions.join(" · ")}</p></div>
+        <div className="condition-title"><h2><span className="title-nowrap">{statJa("ORtg","team")}</span> × <span className="title-nowrap">{statJa("DRtg","team")}</span></h2><p>{conditions.join(" · ")}</p></div>
         <p className="ratings-league">リーグ平均：ORtg {model.league.ortg.toFixed(1)} ／ DRtg {model.league.drtg.toFixed(1)}</p>
         <div className="ratings-legend">{present.map(d=><span key={d}><i style={{borderColor:DIVISION_RATING_COLORS[d]}}/>{divisionLabel(d)}</span>)}<span><i className="ratings-diagonal-key"/>NetRtg 0</span></div>
         <div ref={plot} onPointerDown={event=>{if(!(event.target as Element).closest(".ratings-point"))setTooltipId(null);}}>
