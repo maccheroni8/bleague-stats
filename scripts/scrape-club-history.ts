@@ -37,7 +37,9 @@ async function main(): Promise<void> {
   const master = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
   const nameOf = new Map(master.map((p) => [p.playerId, p.name]));
 
-  const targets = clubHistoryTargets(rosters, currentRoster, master);
+  // ルーキーの判定（B.PREMIER）用なので、今の名簿は B.PREMIER の選手だけを見る（B.ONE の選手は対象外。DESIGN.md 295章）
+  const premierRoster = currentRoster ? { ...currentRoster, players: currentRoster.players.filter((p) => (p.league ?? "premier") === "premier") } : null;
+  const targets = clubHistoryTargets(rosters, premierRoster, master);
   const have = (await readClubHistory()).players;
   const missing = targets.filter((t) => !have[t.playerId]);
   console.log(`[club-history] 取得対象${targets.length}名のうち、履歴が未取得の選手: ${missing.length}名（取得済み${targets.length - missing.length}名）`);

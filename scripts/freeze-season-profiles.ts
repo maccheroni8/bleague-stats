@@ -39,9 +39,10 @@ async function main() {
 
   const master = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
   const masterById = new Map(master.map((p) => [p.playerId, p]));
-  // そのシーズンの B.PREMIER のクラブ（地区の構成。teams.json は試合をしたクラブしか持たないので使わない）
+  // そのシーズンの B.PREMIER と B.ONE のクラブ（地区の構成。teams.json は試合をしたクラブしか持たないので使わない）。
+  // B.ONE は 2026-27 から固定する（DESIGN.md 295章）
   const divisions = await readJson<DivisionHistoryFile>(path.join(DATA_DIR, "division-history.json"));
-  const teamIds = new Set(Object.keys(divisions?.premier?.[season] ?? {}));
+  const teamIds = new Set([...Object.keys(divisions?.premier?.[season] ?? {}), ...(season >= "2026-27" ? Object.keys(divisions?.one?.[season] ?? {}) : [])]);
   // 今の選手名簿（scripts/scrape-roster.ts が直前の Scrape roster で保存）。選手マスタの所属は退団後も残るので使わない
   const roster = await readJson<CurrentRosterFile>(path.join(DATA_DIR, "current-roster.json"));
 
@@ -52,8 +53,8 @@ async function main() {
   // そのシーズンに出場した選手（試合ログがある選手）。最初の固定（1月15日）のときだけ、B.PREMIER のクラブに在籍している選手
   // （まだ出場していない選手を含む）も加える。2回目以降に選手マスタの所属で加えると、シーズン終了後（6〜8月も同じシーズン扱い）の
   // 来季の新加入選手まで、終わったシーズンの値として固定してしまうため
-  const dir = path.join(DATA_DIR, season, "player-games");
-  const appeared = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json.gz")).map((f) => f.replace(/\.json\.gz$/, "")) : [];
+  const dirs = [path.join(DATA_DIR, season, "player-games"), ...(season >= "2026-27" ? [path.join(DATA_DIR, season, "one", "player-games")] : [])];
+  const appeared = dirs.flatMap((dir) => (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json.gz")).map((f) => f.replace(/\.json\.gz$/, "")) : []));
   const onRoster = firstFreeze ? (roster?.season === season ? roster.players : []).filter((p) => teamIds.has(p.teamId)).map((p) => p.playerId) : [];
   const targets = new Set([...onRoster, ...appeared]);
   let added = 0;

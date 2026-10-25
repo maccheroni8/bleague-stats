@@ -173,7 +173,8 @@ async function main() {
         addRegisteredTeam(id, entry.teamId);
       }
     }
-    if (currentRoster?.season === season) for (const p of currentRoster.players) addRegisteredTeam(p.playerId, p.teamId);
+    // 今の名簿は B.ONE の選手も持つ（league）。B.PREMIER の経歴なので B.PREMIER の選手だけ（DESIGN.md 295章）
+    if (currentRoster?.season === season) for (const p of currentRoster.players) if ((p.league ?? "premier") === "premier") addRegisteredTeam(p.playerId, p.teamId);
 
     // 選手ごとの出場（所属チーム付き）
     const appearancesOf = new Map<string, Appearance[]>();

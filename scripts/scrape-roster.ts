@@ -45,9 +45,9 @@ import path from "node:path";
 import { load } from "cheerio";
 import { createThrottledFetch } from "./lib/throttle.ts";
 import { DATA_DIR, readJson, writeJson, writeJsonIfChanged } from "./lib/storage.ts";
-import { TEAM_NAMES } from "./lib/divisions.ts";
+import { ONE_TEAM_NAMES, TEAM_NAMES } from "./lib/divisions.ts";
 import { fillMissingNationality, isSupplementRecheckOnly, needsRosterDetail, type RosterProfileContext } from "./lib/playerNationalitySupplements.ts";
-import { CLASSIFICATION_OVERRIDES } from "./lib/playerClassificationOverrides.ts";
+import { CLASSIFICATION_OVERRIDES, DEEMED_JAPANESE_PLAYER_IDS } from "./lib/playerClassificationOverrides.ts";
 import {
   downloadPlayerPhoto,
   downloadPlayerPhotoFromUrl,
@@ -58,7 +58,7 @@ import {
 } from "./lib/mediaAssets.ts";
 import { isMainModule } from "./lib/isMain.ts";
 import { addClubHistory, parseClubHistory } from "./lib/clubHistory.ts";
-import type { ClubHistoryEntry, CurrentRosterFile, PlayerAwardEntry, PlayerMasterEntry } from "../shared/types.ts";
+import type { Category, ClubHistoryEntry, CurrentRosterFile, PlayerAwardEntry, PlayerMasterEntry } from "../shared/types.ts";
 
 const MIN_REQUEST_INTERVAL_MS = 2500;
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal scraper)";
@@ -123,8 +123,11 @@ export function parseRosterList(html: string): RosterListItem[] {
   return items;
 }
 
-async function fetchClubRoster(year: number, teamId: string): Promise<RosterListItem[]> {
-  const url = `https://www.bleague.jp/roster/?year=${year}&club=${teamId}&p=&c=&o=random&e=${encodeURIComponent("在籍中")}&tab=1`;
+/** 名簿のページの tab（1 B.PREMIER・2 B.ONE。日程の tab と同じ組。DESIGN.md 14章・295章） */
+const LEAGUE_TAB: Record<Category, number> = { premier: 1, one: 2 };
+
+async function fetchClubRoster(year: number, teamId: string, league: Category = "premier"): Promise<RosterListItem[]> {
+  const url = `https://www.bleague.jp/roster/?year=${year}&club=${teamId}&p=&c=&o=random&e=${encodeURIComponent("在籍中")}&tab=${LEAGUE_TAB[league]}`;
   return parseRosterList(await fetchHtml(url));
 }
 
@@ -236,9 +239,66 @@ export interface CurrentRosterPlayer {
   playerId: string;
   name: string;
   teamId: string;
+  league: Category;
   /** 前回のマスタ上の所属（移籍を検知した場合のみ）。写真未公開時のフォールバックに使う */
   previousTeamId?: string;
   photo?: { path: string; version: string };
+}
+
+/**
+ * B.PREMIER → B.ONE の順に、リーグごとに全クラブの一覧を取り、選手マスタ（byId）の所属・名前・ポジションを今の値にして、今の名簿を返す（DESIGN.md 295章）。
+ * あるリーグで一覧の取得が失敗したら（5xx の再試行のあと）、そのリーグの今回の名簿は捨てて前回の名簿（previousRoster の同じリーグの行）のまま残す
+ * （もう片方のリーグの名簿を消さない）。失敗までに読めたクラブの所属の変化は、選手マスタに反映したままにする（そのクラブの一覧で確かめた事実のため）。
+ * fetchRoster を差し替えて試せるよう、問い合わせは引数で受け取る（scripts/validate-roster-leagues.ts）
+ */
+export async function collectLeagueRosters(
+  season: string,
+  byId: Map<string, PlayerMasterEntry>,
+  previousRoster: CurrentRosterFile | null,
+  fetchRoster: (teamId: string, league: Category) => Promise<RosterListItem[]>,
+  leagueClubs: [Category, Record<string, string>][] = [
+    ["premier", TEAM_NAMES],
+    ["one", ONE_TEAM_NAMES],
+  ],
+): Promise<{ currentRoster: CurrentRosterPlayer[]; failedLeagues: Category[]; newCount: number; movedCount: number }> {
+  let newCount = 0;
+  let movedCount = 0;
+  const currentRoster: CurrentRosterPlayer[] = [];
+  const failedLeagues: Category[] = [];
+  for (const [league, clubs] of leagueClubs) {
+    const leagueRoster: CurrentRosterPlayer[] = [];
+    try {
+      for (const [teamId, teamName] of Object.entries(clubs)) {
+        const items = await fetchRoster(teamId, league);
+        console.log(`[roster] ${teamName}: ${items.length}名`);
+        for (const item of items) {
+          const entry = byId.get(item.playerId);
+          let previousTeamId: string | undefined;
+          if (!entry) {
+            byId.set(item.playerId, { playerId: item.playerId, name: item.name, teamId, teamName, position: item.position });
+            newCount += 1;
+          } else {
+            if (entry.teamId !== teamId) {
+              movedCount += 1;
+              previousTeamId = entry.teamId;
+            }
+            entry.name = item.name;
+            entry.teamId = teamId;
+            entry.teamName = teamName;
+            entry.position = item.position ?? entry.position;
+          }
+          leagueRoster.push({ playerId: item.playerId, name: item.name, teamId, league, previousTeamId, photo: item.photo });
+        }
+      }
+      currentRoster.push(...leagueRoster);
+    } catch (err) {
+      failedLeagues.push(league);
+      const kept = (previousRoster?.season === season ? previousRoster.players : []).filter((p) => (p.league ?? "premier") === league);
+      console.error(`[roster] ${league} のクラブ一覧の取得に失敗しました。このリーグの今の名簿は前回のまま（${kept.length}名）にします: ${String(err)}`);
+      for (const p of kept) currentRoster.push({ playerId: p.playerId, name: byId.get(p.playerId)?.name ?? p.playerId, teamId: p.teamId, league });
+    }
+  }
+  return { currentRoster, failedLeagues, newCount, movedCount };
 }
 
 export async function scrapeRosterMaster(
@@ -249,6 +309,8 @@ export async function scrapeRosterMaster(
   currentRoster: CurrentRosterPlayer[];
   /** 今回、個人ページを取得した選手のうち、クラブ所属履歴が読めた選手（別のファイル data/player-club-history.json に足す。選手マスタの所属は書き換えない） */
   clubHistory: Map<string, ClubHistoryEntry[]>;
+  /** クラブ一覧の取得に失敗したリーグ（そのリーグの今の名簿は前回のまま。最後にジョブを失敗にする） */
+  failedLeagues: Category[];
 }> {
   const year = Number(season.split("-")[0]);
   const existing = (await readJson<PlayerMasterEntry[]>(MASTER_PATH)) ?? [];
@@ -257,33 +319,10 @@ export async function scrapeRosterMaster(
   // ブランド刷新への追従を自動化するため毎回26クラブ分取得し直す（軽量なので週次実行でも問題ない）
   await downloadTeamLogos(season, throttledFetch);
 
-  let newCount = 0;
-  let movedCount = 0;
-  const currentRoster: CurrentRosterPlayer[] = [];
-
-  for (const [teamId, teamName] of Object.entries(TEAM_NAMES)) {
-    const items = await fetchClubRoster(year, teamId);
-    console.log(`[roster] ${teamName}: ${items.length}名`);
-
-    for (const item of items) {
-      const entry = byId.get(item.playerId);
-      let previousTeamId: string | undefined;
-      if (!entry) {
-        byId.set(item.playerId, { playerId: item.playerId, name: item.name, teamId, teamName, position: item.position });
-        newCount += 1;
-      } else {
-        if (entry.teamId !== teamId) {
-          movedCount += 1;
-          previousTeamId = entry.teamId;
-        }
-        entry.name = item.name;
-        entry.teamId = teamId;
-        entry.teamName = teamName;
-        entry.position = item.position ?? entry.position;
-      }
-      currentRoster.push({ playerId: item.playerId, name: item.name, teamId, previousTeamId, photo: item.photo });
-    }
-  }
+  const previousRoster = await readJson<CurrentRosterFile>(path.join(DATA_DIR, "current-roster.json"));
+  const { currentRoster, failedLeagues, newCount, movedCount } = await collectLeagueRosters(season, byId, previousRoster, (teamId, league) =>
+    fetchClubRoster(year, teamId, league),
+  );
 
   const currentTeams = new Map(currentRoster.map((p) => [p.playerId, p.teamId]));
   const contextFor = (entry: PlayerMasterEntry): RosterProfileContext => ({ season, currentTeamId: currentTeams.get(entry.playerId) });
@@ -300,12 +339,16 @@ export async function scrapeRosterMaster(
   // 新規/既存に関わらず毎回全選手に適用する。CLASSIFICATION_OVERRIDESの更新も次回実行で反映される
   for (const entry of byId.values()) {
     entry.classification = deriveClassification(entry);
+    // 見做し日本人（日本人として扱う。国籍は書き換えない。DESIGN.md 295章）
+    if (DEEMED_JAPANESE_PLAYER_IDS.has(entry.playerId)) entry.deemedJapanese = true;
+    else delete entry.deemedJapanese;
   }
 
   return {
     master: [...byId.values()].sort((a, b) => a.playerId.localeCompare(b.playerId)),
     currentRoster,
     clubHistory,
+    failedLeagues,
   };
 }
 
@@ -406,7 +449,7 @@ async function main(): Promise<void> {
   }
   const force = args.includes("--force");
 
-  const { master, currentRoster, clubHistory } = await scrapeRosterMaster(season, { force });
+  const { master, currentRoster, clubHistory, failedLeagues } = await scrapeRosterMaster(season, { force });
   // 写真より先に選手マスタを保存する（写真の失敗・時間切れで新加入選手の登録区分等が失われないように）
   await writeJson(MASTER_PATH, master);
   console.log(`保存完了: ${MASTER_PATH}（${master.length}名）`);
@@ -416,7 +459,10 @@ async function main(): Promise<void> {
   const rosterFile: CurrentRosterFile = {
     generatedAt: new Date().toISOString(),
     season,
-    players: currentRoster.map((p) => ({ playerId: p.playerId, teamId: p.teamId })).sort((a, b) => a.playerId.localeCompare(b.playerId)),
+    // league は B.PREMIER・B.ONE の別（同じ選手が両方に載ることは無い前提だが、並びは選手ID→リーグで固定する）
+    players: currentRoster
+      .map((p) => ({ playerId: p.playerId, teamId: p.teamId, league: p.league }))
+      .sort((a, b) => a.playerId.localeCompare(b.playerId) || a.league.localeCompare(b.league)),
   };
   await writeJsonIfChanged(path.join(DATA_DIR, "current-roster.json"), rosterFile as unknown as Record<string, unknown>);
   // 同じ個人ページから読めたクラブ所属履歴を、別のファイルに足す（追加の問い合わせは無い。DESIGN.md 214章）。失敗しても選手マスタ・写真には影響させない
@@ -428,6 +474,11 @@ async function main(): Promise<void> {
   }
 
   await syncRosterPhotos(currentRoster, season, { force });
+  if (failedLeagues.length > 0) {
+    // 取れた分（選手マスタ・もう片方のリーグの名簿・写真）は保存済み。ステップを失敗にして通知する
+    console.error(`[roster] クラブ一覧の取得に失敗したリーグ: ${failedLeagues.join("・")}（このリーグの今の名簿は前回のまま）`);
+    process.exitCode = 1;
+  }
 }
 
 if (isMainModule(import.meta.url)) {
