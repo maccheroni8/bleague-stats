@@ -160,6 +160,10 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - ステージ済みの `data/` に導出データ・仕分け外のファイルが混ざっていないかを確かめる `check-staged` は、**pre-commit フック（`.githooks/pre-commit`）が
   コミットのたびに自動で実行する**（`npm install` の `prepare` が `git config core.hooksPath .githooks` を設定する。クローンし直したあとも `npm install` で有効になる。
   CI では設定も実行もしない）。**`--no-verify` でフックを飛ばさない。** フックが失敗したら、ステージを直す前に、失敗の原因（どのファイルが混ざったか）を報告してから対処する
+- **pushの直前に自動更新（`chore: update 20xx-xx stats`）が入ったとき**（2026-10-25 の決まり）: 取り込んだ変更が `data/2026-27`（現在のシーズン）だけなら、**validate:all の全件は直前の結果を使い、変更に関係する検証だけ流し直す**
+  （`validate:all` が30分近くかかる日は、30分おきの更新が毎回入り、取り込んだ直後の状態では終わらないため）。報告には「validate:all の全件は、取り込み一つ前の状態での結果」と書く。`data/` の変更が現在のシーズン以外に及ぶときは、手順どおり全件を通し直す
+- **確認用サーバー（`vite` など）は、使い終わったら止める**（2026-10-25 の決まり。動いたままの `vite` が CPU を使い続け、`validate:all` が約11分から約30分に延びた疑いがある）。**`validate:all` の前に、動いたままの確認用サーバーが無いか確かめる**
+  （`lsof -nP -iTCP -sTCP:LISTEN | grep node`、`ps -Ao pid,pcpu,etime,command | grep vite`）。自分が起動していないものは、止める前にユーザーに報告する
 - `.github/workflows/` のファイルを変えたときは、**pushの前に** `actionlint .github/workflows/*.yml` を通し、エラー0件にする（未導入なら `brew install actionlint`。
   `npm run typecheck` と同じく、コミット前の確認に含める）。書き方が無効だと、そのワークフローの定期実行・外部（cron-job.org）からの起動がすべて止まる
   （2026-10-05に、ジョブ直下の `env` で `runner` コンテキストを使って、データ更新が約4時間止まった。actionlint はこれを検出する。設計書205章）。
