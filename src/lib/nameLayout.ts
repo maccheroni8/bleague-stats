@@ -10,6 +10,12 @@ export function playerNameUnits(name: string): string[] {
  */
 export const TEAM_NAME_BREAK_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
   東京ユナイテッドバスケットボールクラブ: ["東京ユナイテッド", "バスケットボールクラブ"],
+  東京八王子ビートレインズ: ["東京八王子", "ビートレインズ"],
+  アースフレンズ東京Z: ["アースフレンズ", "東京Z"],
+  さいたまブロンコス: ["さいたま", "ブロンコス"],
+  トライフープ岡山: ["トライフープ", "岡山"],
+  立川ダイス: ["立川", "ダイス"],
+  岐阜スゥープス: ["岐阜", "スゥープス"],
 };
 
 /** 現旧の地名を先頭／末尾に持つクラブ名だけ、地名とクラブ名に分ける。例外（TEAM_NAME_BREAK_EXCEPTIONS）はその位置で分ける。 */
