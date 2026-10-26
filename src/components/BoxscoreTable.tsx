@@ -7,7 +7,7 @@ import { SeasonLink as Link } from "./SeasonLink";
 import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
-import { efgPct, safeDiv, tovPartPct, tovPct, tsPct, usagePct } from "../../shared/formulas";
+import { efgPct, orbPct, safeDiv, tovPartPct, tovPct, tsPct, usagePct } from "../../shared/formulas";
 import type { PlayerOnCourtRatings } from "../../shared/onCourt";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow, YahooTurnoverEvent } from "../../shared/types";
 import { classificationGroup, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
@@ -46,6 +46,8 @@ export interface ColumnCtx {
   ownPlayType: PlayTypeCounts;
   /** チーム合計行のみ定義される（POSS/PACE/ORtg/DRtg/NetRtg用） */
   ratings?: TeamRatings;
+  /** チーム合計行のみ定義される、相手チームのDR（OR%の分母用。選択中の期間範囲） */
+  oppDreb?: number;
   isPlayerRow: boolean;
   isTeamTotalRow: boolean;
   /** ショットチャートの座標（X/Y）が収録されているか（2022-23シーズン以降）。ペイント内外の列は 2026-09-26 から公式の区分で数えるため、この値を見ない */
@@ -455,6 +457,24 @@ export function boxscoreColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): Box
   return foulSplit ? ALL_COLUMNS_BY_TAB[tab].filter((c) => foulKeyVisible(c.key, true)) : COLUMNS_BY_TAB[tab];
 }
 
+/**
+ * 試合詳細のアドバンスドだけに足す OR%（チームの行のみ。OR ÷（OR＋相手のDR））。個人の OR% は在コート中の相手の DR が要るので出さず「-」にする。
+ * 列定義の一覧（COLUMNS_BY_TAB）には入れない（個人詳細・チーム詳細など ctx に相手のDRを持たない画面で常に「-」の列になるため）
+ */
+const TEAM_OR_PCT_COLUMN: BoxscoreColumn = {
+  key: "orpct",
+  label: "OR%",
+  format: (c, ctx) => (ctx.isTeamTotalRow && ctx.oppDreb !== undefined ? formatPct100(orbPct(c.oreb, ctx.oppDreb)) : "-"),
+};
+
+/** 試合詳細のボックススコアの列。アドバンスドは TOV% の右に OR% を足す */
+function gameDetailColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): BoxscoreColumn[] {
+  const cols = boxscoreColumnsFor(tab, foulSplit);
+  if (tab !== "advanced") return cols;
+  const i = cols.findIndex((c) => c.key === "tovpct");
+  return i < 0 ? cols : [...cols.slice(0, i + 1), TEAM_OR_PCT_COLUMN, ...cols.slice(i + 1)];
+}
+
 interface BoxscoreTableProps {
   homeTeamName: string;
   awayTeamName: string;
@@ -526,7 +546,7 @@ export function BoxscoreTable({
 
   const periodOptions = buildPeriodRangeOptions(periods);
   const selectedOption = periodOptions.find((o) => o.value === periodRange);
-  const columns = boxscoreColumnsFor(activeTab, foulColumnsSplit(season ? [season] : []));
+  const columns = gameDetailColumnsFor(activeTab, foulColumnsSplit(season ? [season] : []));
 
   return (
     <>
@@ -580,6 +600,9 @@ export function BoxscoreTable({
         showStatBadges={activeTab === "traditional"}
         wideScrollable={activeTab !== "traditional"}
       />
+      {activeTab === "advanced" && (
+        <p className="page-subtitle">※OR%はチームの行のみ（個人のOR%は、出場中の相手のDRが必要なため出していません）</p>
+      )}
     </>
   );
 }
@@ -749,6 +772,7 @@ function BoxscoreTeamPanel({
     own: teamTotal,
     ownPlayType: playType,
     ratings,
+    oppDreb: oppTeamTotal.dreb,
     isPlayerRow: false,
     isTeamTotalRow: true,
     shotChartSupported,
