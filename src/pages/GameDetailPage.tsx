@@ -752,6 +752,8 @@ export function GameDetailPage({ season }: { season: string }) {
           hideTabBar
           periodRange={boxscorePeriodRange}
           onPeriodRangeChange={setBoxscorePeriodRange}
+          lineupStints={lineupStints}
+          manualBoxscore={String((game.meta as { source?: string }).source).startsWith("manual:")}
         />
       )}
       {boxscoreTab === "misc" && <RuleChangeFootnote seasons={[game.season]} />}

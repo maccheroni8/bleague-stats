@@ -89,6 +89,7 @@ export const STAT_NAMES: Record<string, StatJaName> = {
   "%PTS ASTED": "被アシスト率",
   FTR: "フリースロー率",
   "OR%": "オフェンスリバウンド率",
+  "%OR": "チームORに占める割合",
 
   // --- Misc ---
   PITP: "ペイント内得点",

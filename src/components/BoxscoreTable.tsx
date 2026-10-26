@@ -8,7 +8,8 @@ import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
 import { efgPct, orbPct, safeDiv, tovPartPct, tovPct, tsPct, usagePct } from "../../shared/formulas";
-import type { PlayerOnCourtRatings } from "../../shared/onCourt";
+import type { LineupStint, PlayerOnCourtRatings } from "../../shared/onCourt";
+import { OR_PCT_UNAVAILABLE_NOTE, computeTeamOrPct, orShare, personalOrPct } from "../lib/gameOrPct";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow, YahooTurnoverEvent } from "../../shared/types";
 import { classificationGroup, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
 import {
@@ -457,22 +458,47 @@ export function boxscoreColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): Box
   return foulSplit ? ALL_COLUMNS_BY_TAB[tab].filter((c) => foulKeyVisible(c.key, true)) : COLUMNS_BY_TAB[tab];
 }
 
+/** 試合詳細だけが選手の行に付ける個人 OR%（0〜100。出せない行は null）。保存キーの対象の BoxscoreCounts は変えず、この画面の中だけで足す */
+type GameBoxscoreCounts = BoxscoreCounts & { orPct?: number | null };
+
 /**
- * 試合詳細のアドバンスドだけに足す OR%（チームの行のみ。OR ÷（OR＋相手のDR））。個人の OR% は在コート中の相手の DR が要るので出さず「-」にする。
- * 列定義の一覧（COLUMNS_BY_TAB）には入れない（個人詳細・チーム詳細など ctx に相手のDRを持たない画面で常に「-」の列になるため）
+ * 試合詳細のアドバンスドだけに足す OR%。チームの行＝OR ÷（OR＋相手のDR）、選手の行＝本人の OR ÷（本人が出場中の自チーム OR＋出場中の相手 DR。
+ * `lib/gameOrPct.ts`）。出せない選手・試合は「-」。列定義の一覧（COLUMNS_BY_TAB）には入れない（個人詳細・チーム詳細など、この値を持たない画面で
+ * 常に「-」の列になるため）
  */
-const TEAM_OR_PCT_COLUMN: BoxscoreColumn = {
+const OR_PCT_COLUMN: BoxscoreColumn = {
   key: "orpct",
   label: "OR%",
-  format: (c, ctx) => (ctx.isTeamTotalRow && ctx.oppDreb !== undefined ? formatPct100(orbPct(c.oreb, ctx.oppDreb)) : "-"),
+  format: (c, ctx) => {
+    if (ctx.isTeamTotalRow) return ctx.oppDreb !== undefined ? formatPct100(orbPct(c.oreb, ctx.oppDreb)) : "-";
+    const v = ctx.isPlayerRow ? (c as GameBoxscoreCounts).orPct : null;
+    return v == null ? "-" : formatPct100(v);
+  },
+  value: (c, ctx) => (ctx.isTeamTotalRow ? undefined : ctx.isPlayerRow ? ((c as GameBoxscoreCounts).orPct ?? undefined) : undefined),
 };
 
+/**
+ * 内訳集計（スタメン・ベンチ・登録区分）の %OR＝グループの OR ÷ チームの OR（チームに付いた OR も分母に含む）。個人の OR% とは別の項目。
+ * 手入力のボックススコア（チームリバウンドが記録にない試合）は、分母が正しくないので「-」
+ */
+export function orShareColumn(noTeamRebounds: boolean): BoxscoreColumn {
+  return {
+    key: "orshare",
+    label: "%OR",
+    format: (c, ctx) => {
+      if (noTeamRebounds) return "-";
+      const v = orShare(c.oreb, ctx.own.oreb);
+      return v === null ? "-" : formatPct100(v);
+    },
+  };
+}
+
 /** 試合詳細のボックススコアの列。アドバンスドは TOV% の右に OR% を足す */
-function gameDetailColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): BoxscoreColumn[] {
+export function gameDetailColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): BoxscoreColumn[] {
   const cols = boxscoreColumnsFor(tab, foulSplit);
   if (tab !== "advanced") return cols;
   const i = cols.findIndex((c) => c.key === "tovpct");
-  return i < 0 ? cols : [...cols.slice(0, i + 1), TEAM_OR_PCT_COLUMN, ...cols.slice(i + 1)];
+  return i < 0 ? cols : [...cols.slice(0, i + 1), OR_PCT_COLUMN, ...cols.slice(i + 1)];
 }
 
 interface BoxscoreTableProps {
@@ -510,6 +536,10 @@ interface BoxscoreTableProps {
    */
   periodRange?: PeriodRangeValue;
   onPeriodRangeChange?: (value: PeriodRangeValue) => void;
+  /** 在コートの復元の区間（個人 OR% の分母。プレーバイプレーが無い試合は空） */
+  lineupStints?: LineupStint[];
+  /** 手入力のボックススコア（チームリバウンドが記録にない試合）。内訳集計の %OR は「-」にする */
+  manualBoxscore?: boolean;
 }
 
 export function BoxscoreTable({
@@ -533,6 +563,8 @@ export function BoxscoreTable({
   hideTabBar,
   periodRange: controlledPeriodRange,
   onPeriodRangeChange,
+  lineupStints = [],
+  manualBoxscore = false,
 }: BoxscoreTableProps) {
   // 2026-27 以降の試合は、登録区分の内訳で外国籍・帰化・アジア特別枠を分ける（classificationById はその試合の日の区分。DESIGN.md 298章）
   const classificationSplit = !!season && splitClassificationSeason(season);
@@ -580,6 +612,8 @@ export function BoxscoreTable({
         accentColor={homeColor}
         showStatBadges={activeTab === "traditional"}
         wideScrollable={activeTab !== "traditional"}
+        lineupStints={lineupStints}
+        manualBoxscore={manualBoxscore}
       />
       <BoxscoreTeamPanel
         teamName={awayTeamName}
@@ -599,10 +633,9 @@ export function BoxscoreTable({
         accentColor={awayColor}
         showStatBadges={activeTab === "traditional"}
         wideScrollable={activeTab !== "traditional"}
+        lineupStints={lineupStints}
+        manualBoxscore={manualBoxscore}
       />
-      {activeTab === "advanced" && (
-        <p className="page-subtitle">※OR%はチームの行のみ（個人のOR%は、出場中の相手のDRが必要なため出していません）</p>
-      )}
     </>
   );
 }
@@ -649,6 +682,8 @@ function BoxscoreTeamPanel({
   accentColor,
   showStatBadges,
   wideScrollable,
+  lineupStints,
+  manualBoxscore,
 }: {
   teamName: string;
   ownRows: BoxscoreRow[];
@@ -673,6 +708,8 @@ function BoxscoreTeamPanel({
    * （トラディショナル以外のカテゴリタブ向け。DESIGN.md参照）
    */
   wideScrollable: boolean;
+  lineupStints: LineupStint[];
+  manualBoxscore: boolean;
 }) {
   const tableClassName = wideScrollable ? "boxscore-table boxscore-table-wide" : "boxscore-table";
   let teamTotal = buildTeamTotalCounts(ownRows, periodOption);
@@ -680,6 +717,18 @@ function BoxscoreTeamPanel({
   const coaches = buildTeamCoachesCounts(ownRows, periodOption, playByPlays);
   const playType = buildPlayTypeCounts(summaries, side, periodOption);
   const ratings = computeTeamRatings(teamTotal, oppTeamTotal);
+  // 個人 OR%（アドバンスド）。分母は在コートの復元の区間の数え上げ。出せない試合・チームは理由を表の下に出す（lib/gameOrPct.ts）
+  const showOrPct = columns.some((c) => c.key === "orpct");
+  const teamOrPct = showOrPct
+    ? computeTeamOrPct({
+        lineupStints,
+        teamId: ownRows[0]?.TeamID ?? "",
+        opponentTeamId: oppRows[0]?.TeamID ?? "",
+        boxOr: buildTeamTotalCounts(ownRows, undefined).oreb,
+        boxOpponentDr: buildTeamTotalCounts(oppRows, undefined).dreb,
+        periods: periodOption?.periods ?? null,
+      })
+    : null;
 
   // 個人PACEは試合全体（periods===null）選択時のみマージする。PlayByPlaysのポゼッション区切り
   // 検出（shared/onCourt.ts）に依存するため、Q別・前後半選択時に「試合全体固定」の値が出ると
@@ -694,7 +743,9 @@ function BoxscoreTeamPanel({
     .map((p) => {
       const { offRtg, defRtg, netRtg } = computeIndividualRatings(p.counts, teamTotal, oppTeamTotal, ratings.poss);
       const onCourtPace = showOnCourtPace ? onCourtRatings[p.playerId]?.pace : undefined;
-      return { ...p, counts: { ...p.counts, offRtg, defRtg, netRtg, onCourtPace } };
+      const orPct = teamOrPct?.available ? personalOrPct(p.counts.oreb, teamOrPct.byPlayer.get(p.playerId)) : null;
+      const counts: GameBoxscoreCounts = { ...p.counts, offRtg, defRtg, netRtg, onCourtPace, orPct };
+      return { ...p, counts };
     })
     .sort((a, b) => (orderIndex.get(a.playerId) ?? 0) - (orderIndex.get(b.playerId) ?? 0));
 
@@ -784,6 +835,8 @@ function BoxscoreTeamPanel({
   // ハイライトはスタメン・ベンチを跨いだチーム全体で見た「トップ値」（Bリーグ公式ボックススコアの
   // チームリーダー表示と同じ考え方）。DNPは0値で不当に最良値を取ってしまうため候補から除外する
   const bestByColumn = computeBestByColumn(players, columns, playerCtx);
+  // 内訳集計の表では、個人の OR% の列を、グループの %OR（チームORに占める割合）に差し替える
+  const summaryColumns = columns.map((col) => (col.key === "orpct" ? orShareColumn(manualBoxscore) : col));
   // スマホ幅では名字だけ（同じチームで名字が重なる選手はフルネーム）
   const playerLabel = usePlayerLabel(players.map((p) => p.nameJ));
 
@@ -837,6 +890,7 @@ function BoxscoreTeamPanel({
             </tbody>
           </table>
         </div>
+        {teamOrPct && !teamOrPct.available && <p className="page-subtitle">※{OR_PCT_UNAVAILABLE_NOTE[teamOrPct.reason]}</p>}
       </div>
 
       <div
@@ -849,7 +903,7 @@ function BoxscoreTeamPanel({
             <thead>
               <tr>
                 <th className="align-left"> </th>
-                {columns.map((col) => (
+                {summaryColumns.map((col) => (
                   <th key={col.key} title={statDescription(col.label)}>{col.label}</th>
                 ))}
               </tr>
@@ -858,21 +912,21 @@ function BoxscoreTeamPanel({
               <BoxscoreDataRow
                 label="スタメン合計"
                 counts={withoutPlusMinus(sumCountsList(starters.map((p) => p.counts)))}
-                columns={columns}
+                columns={summaryColumns}
                 ctx={nonPlayerCtx}
                 className="boxscore-summary-row"
               />
               <BoxscoreDataRow
                 label="ベンチ合計"
                 counts={withoutPlusMinus(sumCountsList(bench.map((p) => p.counts)))}
-                columns={columns}
+                columns={summaryColumns}
                 ctx={nonPlayerCtx}
                 className="boxscore-summary-row"
               />
               <BoxscoreDataRow
                 label="チーム合計"
                 counts={withoutPlusMinus(teamTotal)}
-                columns={columns}
+                columns={summaryColumns}
                 ctx={summaryTotalCtx}
                 className="boxscore-summary-row boxscore-summary-grand-total"
               />
@@ -884,7 +938,7 @@ function BoxscoreTeamPanel({
                   key={g.label}
                   label={g.label}
                   counts={withoutPlusMinus(sumCountsList(g.players.map((p) => p.counts)))}
-                  columns={columns}
+                  columns={summaryColumns}
                   ctx={nonPlayerCtx}
                   className="boxscore-summary-row"
                   note={classificationNote}
@@ -893,13 +947,18 @@ function BoxscoreTeamPanel({
               <BoxscoreDataRow
                 label="チーム合計"
                 counts={withoutPlusMinus(teamTotal)}
-                columns={columns}
+                columns={summaryColumns}
                 ctx={summaryTotalCtx}
                 className="boxscore-summary-row boxscore-summary-grand-total"
               />
             </tbody>
           </table>
         </div>
+        {showOrPct && (
+          <p className="page-subtitle">
+            ※%ORは、選手に付いたORの割合です。チームに付いたORは内訳に含まないため、合計が100%にならないことがあります
+          </p>
+        )}
       </div>
     </>
   );
