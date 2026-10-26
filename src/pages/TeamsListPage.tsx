@@ -779,11 +779,11 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         return { team, games: logs.length, totals: sumTeamGameLogs(logs) };
       })
       .filter((r) => r.games > 0);
-    const league =
+    const leagueTotal =
       perTeam.length > 0
         ? { games: perTeam.reduce((a, r) => a + r.games, 0), totals: sumTotalsOf(perTeam.map((r) => r.totals)) }
         : null;
-    return { perTeam, league };
+    return { perTeam, league: leagueTotal };
   }, [teams, gameLogsByTeam, scopedLogsByTeam, boxTab, periodActive, periodSource, period]);
   const scoringTeams = useMemo<TeamSummary[]>(() => {
     if (!shareTotals) return [];
@@ -814,14 +814,14 @@ function AllTeamsStatsTab({ season }: { season: string }) {
           ? { games, tpa: t.tpa, mid2a: t.mid2a, paint2a: t.paint2a }
           : { games, tpa: t.oppTpa, mid2a: t.oppMid2a, paint2a: t.oppPaint2a };
       const list = perTeam.map((r) => ({ teamId: r.team.teamId, teamName: r.team.teamName, share: fgaShare(pick(r.games, r.totals)) }));
-      const league = perTeam.reduce(
+      const leagueTotal = perTeam.reduce(
         (acc, r) => {
           const v = pick(r.games, r.totals);
           return { games: acc.games + v.games, tpa: acc.tpa + v.tpa, mid2a: acc.mid2a + v.mid2a, paint2a: acc.paint2a + v.paint2a };
         },
         { games: 0, tpa: 0, mid2a: 0, paint2a: 0 },
       );
-      return league.games > 0 ? [...list, { teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME, share: fgaShare(league) }] : list;
+      return leagueTotal.games > 0 ? [...list, { teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME, share: fgaShare(leagueTotal) }] : list;
     };
     return { own: build("own"), opponent: build("opponent") };
   }, [shareTotals]);

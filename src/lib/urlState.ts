@@ -1,3 +1,4 @@
+import { LEAGUE_PARAM } from "./league";
 import { useCallback, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { useLocation, useNavigate, type NavigateFunction } from "react-router-dom";
 import type { SituationalFilter } from "./situational";
@@ -279,10 +280,10 @@ export function choiceNumberParam<T extends number>(key: string, values: readonl
 }
 
 /**
- * season 以外のクエリをすべて消す（ページのタブ・ランキングのチーム/個人を切り替えたとき、前のタブのフィルタを持ち越さない）。
+ * season とリーグ（league。DESIGN.md 297章）以外のクエリをすべて消す（ページのタブ・ランキングのチーム/個人を切り替えたとき、前のタブのフィルタを持ち越さない）。
  * 同じ処理の中で続けて呼ぶ setter の書き換えと1回にまとまる
  */
 export function clearUrlParams(keep: string[] = ["season"]): void {
   const p = pendingParams();
-  for (const k of [...new Set(p.keys())]) if (!keep.includes(k)) p.delete(k);
+  for (const k of [...new Set(p.keys())]) if (!keep.includes(k) && k !== LEAGUE_PARAM) p.delete(k);
 }

@@ -11,6 +11,7 @@
 // 「ホーム」「プレーオフ」等で絞れば取得量も減る）。試合単位の取得はモジュールスコープの
 // Promiseキャッシュで重複排除するため、同じ試合を別スロットが必要としても二重取得にならない。
 
+import { leagueCacheKey, type League } from "./league";
 import { loadLeaguePaintComplete } from "./teamPaint2Load";
 import { useEffect, useMemo, useState } from "react";
 import type {
@@ -100,11 +101,11 @@ export interface PlayerSlotData extends SlotDataCommon {
 // --- 試合単位の生データ取得（モジュールスコープのキャッシュでスロット間の重複を排除） ---
 
 const gameCache = new Map<string, Promise<StoredGame | null>>();
-function loadGame(season: string, scheduleKey: string): Promise<StoredGame | null> {
-  const key = `${season}/${scheduleKey}`;
+function loadGame(season: string, scheduleKey: string, league: League = "premier"): Promise<StoredGame | null> {
+  const key = `${leagueCacheKey(season, league)}/${scheduleKey}`;
   let p = gameCache.get(key);
   if (!p) {
-    p = fetchGame(season, scheduleKey).catch(() => null);
+    p = fetchGame(season, scheduleKey, league).catch(() => null);
     gameCache.set(key, p);
     // 一時的な失敗は次回の再取得を妨げないようキャッシュから外す（成功・恒久的な欠落は保持）
     void p.then((r) => {
@@ -115,11 +116,11 @@ function loadGame(season: string, scheduleKey: string): Promise<StoredGame | nul
 }
 
 const yahooCache = new Map<string, Promise<YahooGamePbp | null>>();
-function loadYahoo(season: string, scheduleKey: string): Promise<YahooGamePbp | null> {
-  const key = `${season}/${scheduleKey}`;
+function loadYahoo(season: string, scheduleKey: string, league: League = "premier"): Promise<YahooGamePbp | null> {
+  const key = `${leagueCacheKey(season, league)}/${scheduleKey}`;
   let p = yahooCache.get(key);
   if (!p) {
-    p = fetchYahooGamePbp(season, scheduleKey);
+    p = fetchYahooGamePbp(season, scheduleKey, league);
     yahooCache.set(key, p);
   }
   return p;
@@ -181,19 +182,19 @@ export function useTeamCompareSlot({
 }: CommonArgs & { teamId: string; seasons: SeasonEntry[] | null }): TeamSlotData {
   // 「リーグ平均」（teamId が LEAGUE_TEAM_ID）: そのシーズン全体の値（data/{season}/league-compare.json）。シチュエーションの絞り込みは使わない
   const isLeague = teamId === LEAGUE_TEAM_ID;
-  const league = useJsonData(
+  const leagueFile = useJsonData(
     () => (active && isLeague ? fetchLeagueCompare(season).then((file) => ({ key: season, file })) : Promise.resolve(null)),
     [active, isLeague, season],
   );
   const leaguePaint = useJsonData(
     async () => {
-      const file = league.data?.key === season ? league.data.file : null;
+      const file = leagueFile.data?.key === season ? leagueFile.data.file : null;
       const totals = file?.totals[gameType];
       if (!active || !isLeague || !totals) return null;
       const complete = await loadLeaguePaintComplete(season, gameType, teamTotalsFromBoxTotals(totals));
       return { key: `${season}|${gameType}`, complete };
     },
-    [active, isLeague, season, gameType, league.data],
+    [active, isLeague, season, gameType, leagueFile.data],
   );
   const { data, loading, error } = useJsonData(
     () =>
@@ -247,11 +248,11 @@ export function useTeamCompareSlot({
   );
 
   if (isLeague) {
-    const file = league.data && league.data.key === season && !league.loading ? league.data.file : null;
+    const file = leagueFile.data && leagueFile.data.key === season && !leagueFile.loading ? leagueFile.data.file : null;
     const totals = file ? file.totals[gameType] : null;
     return {
-      status: !active ? "idle" : league.error ? "error" : !file ? "loading" : totals ? "ready" : "empty",
-      error: active ? league.error : null,
+      status: !active ? "idle" : leagueFile.error ? "error" : !file ? "loading" : totals ? "ready" : "empty",
+      error: active ? leagueFile.error : null,
       boundary: null,
       opponentWinRateSupported: false,
       ownTeamDivisionSupported: false,

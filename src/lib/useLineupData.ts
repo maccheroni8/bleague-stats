@@ -1,6 +1,7 @@
 // ランキング > 個人 > On/Off・組み合わせ（DESIGN.md 224章）が読むデータ。選手の索引（試合の表・チーム辞書・選手辞書。219章）と、各チームの出場区間（team-stints。204章）。
 // 出場区間は数をまとめた1本の配列（CompactStints）にして、ページを開いている間メモリに持つ（全シーズンでも約30MB。条件を変えても読み直さない）。
 // 通算は全シーズンのチーム分（166ファイル、圧縮で約4.6MB）を読むので、読み込んだファイルの数を進み具合として返す。
+import { leagueCacheKey, type League } from "./league";
 import { useCallback, useEffect, useState } from "react";
 import { compactStints, type CompactStints } from "../../shared/onCourtTotals";
 import { fetchSeasons, fetchTeamStints } from "./data";
@@ -11,11 +12,11 @@ import { lineupSeasonSupported } from "./lineupRanking";
 const stintsCache = new Map<string, Promise<CompactStints>>();
 
 /** 1チーム・1シーズンの出場区間。読めなかったときは持たず、次の呼び出しでやり直す */
-function loadStints(season: string, teamId: string): Promise<CompactStints> {
-  const key = `${season}/${teamId}`;
+function loadStints(season: string, teamId: string, league: League = "premier"): Promise<CompactStints> {
+  const key = `${leagueCacheKey(season, league)}/${teamId}`;
   let p = stintsCache.get(key);
   if (!p) {
-    p = fetchTeamStints(season, teamId).then(compactStints);
+    p = fetchTeamStints(season, teamId, league).then(compactStints);
     p.catch(() => stintsCache.delete(key));
     stintsCache.set(key, p);
   }

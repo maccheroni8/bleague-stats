@@ -3,6 +3,8 @@ import { postseasonLabel } from "../../shared/gameType";
 import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGameSummaries, fetchPlayers, fetchStandingsHistory, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
+import { LEAGUE_LABELS, useLeague } from "../lib/league";
+import { pageAvailability } from "../lib/leagueAvailability";
 import { leaderStatLabel, PLAYER_STAT_DEFS, TEAM_STAT_DEFS, type StatDef } from "../lib/statDefs";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { TeamLogo } from "../components/TeamLogo";
@@ -111,31 +113,34 @@ const standingsColumns: Column<StandingsTeamSnapshot>[] = [
 
 export function HomePage({ season }: { season: string }) {
   const [leaderMode, setLeaderMode] = useState<LeaderMode>("player");
+  const league = useLeague();
+  // 「◯◯を見る」のリンクは、そのリーグで見られるページだけに出す（B.ONE の順位表・ランキングは準備中・段階3。DESIGN.md 297章）
+  const canOpen = (page: "rankings" | "standings") => pageAvailability(page, league).ready;
   const {
     data: games,
     loading: gamesLoading,
     error: gamesError,
-  } = useJsonData(() => fetchGameSummaries(season), [season]);
+  } = useJsonData(() => fetchGameSummaries(season, league), [season, league]);
   const {
     data: players,
     loading: playersLoading,
     error: playersError,
-  } = useJsonData(() => fetchPlayers(season), [season]);
+  } = useJsonData(() => fetchPlayers(season, league), [season, league]);
   const {
     data: teams,
     loading: teamsLoading,
     error: teamsError,
-  } = useJsonData(() => fetchTeams(season), [season]);
+  } = useJsonData(() => fetchTeams(season, league), [season, league]);
   const {
     data: history,
     loading: standingsLoading,
     error: standingsError,
-  } = useJsonData(() => fetchStandingsHistory(season), [season]);
+  } = useJsonData(() => fetchStandingsHistory(season, league), [season, league]);
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
 
   const recentGames = games ? recentFinishedGames(games) : [];
   const latestSnapshot = history && history.length > 0 ? history[history.length - 1]! : null;
-  const divisionGroups = latestSnapshot ? groupByDivision(latestSnapshot.teams) : [];
+  const divisionGroups = latestSnapshot ? groupByDivision(latestSnapshot.teams, league) : [];
 
   // 各セクションに出す「選択中の条件」（Batch 5、DESIGN.md 99章）。ホームには絞り込みトグルが無く、
   // 個人/チームの切り替えだけが表示内容を変える。掲載基準等の固定条件も明示する
@@ -168,7 +173,7 @@ export function HomePage({ season }: { season: string }) {
   return (
     <div data-design="v2">
       <h1>B.LEAGUE Stats</h1>
-      <p className="page-subtitle">{season}シーズン</p>
+      <p className="page-subtitle">{LEAGUE_LABELS[league]} {season}シーズン</p>
 
       <section className="home-section">
         <div className="home-section-head">
@@ -213,9 +218,11 @@ export function HomePage({ season }: { season: string }) {
       <section className="home-section">
         <div className="home-section-head">
           <h2>シーズンスタッツリーダー</h2>
-          <Link to="/rankings" className="home-section-more">
-            ランキングを見る
-          </Link>
+          {canOpen("rankings") && (
+            <Link to="/rankings" className="home-section-more">
+              ランキングを見る
+            </Link>
+          )}
         </div>
         <ConditionLine conditions={leaderConditions} />
         <div className="mode-toggle">
@@ -323,9 +330,11 @@ export function HomePage({ season }: { season: string }) {
       <section className="home-section">
         <div className="home-section-head">
           <h2>順位表</h2>
-          <Link to="/standings" className="home-section-more">
-            順位表を見る
-          </Link>
+          {canOpen("standings") && (
+            <Link to="/standings" className="home-section-more">
+              順位表を見る
+            </Link>
+          )}
         </div>
         <ConditionLine conditions={standingsConditions} />
         {standingsLoading ? (

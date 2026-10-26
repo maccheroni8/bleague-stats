@@ -6,6 +6,8 @@ import { SeasonLink as Link } from "../components/SeasonLink";
 import { fetchGame, fetchPlayers, fetchSeasonRules, fetchTeamColors, fetchYahooGamePbp } from "../lib/data";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { useJsonData } from "../lib/useJsonData";
+import { useLeague } from "../lib/league";
+import { seasonRuleFor } from "../../shared/seasonRules";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import { formatPct } from "../lib/format";
 import { classificationGroup, CLASSIFICATION_COLORS } from "../lib/classificationFilter";
@@ -309,16 +311,19 @@ function gameLeaderPlayer(rows: BoxscoreRow[], def: GameLeaderStatDef): GameLead
 }
 
 export function GameDetailPage({ season }: { season: string }) {
+  const league = useLeague();
   const { scheduleKey } = useParams<{ scheduleKey: string }>();
   const { data: game, loading, error } = useJsonData(
-    () => (scheduleKey ? fetchGame(season, scheduleKey) : Promise.reject(new Error("試合が指定されていません"))),
-    [season, scheduleKey],
+    () => (scheduleKey ? fetchGame(season, scheduleKey, league) : Promise.reject(new Error("試合が指定されていません"))),
+    [season, scheduleKey, league],
   );
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
-  const { supported: yahooSeasonSupported } = useYahooPbpCoverage(season);
+  // スポーツナビの記録は B.PREMIER だけ取っている（B.ONE には無い。DESIGN.md 297章）
+  const { supported: yahooPremierSupported } = useYahooPbpCoverage(season);
+  const yahooSeasonSupported = league === "premier" && yahooPremierSupported;
   const { data: yahooPbp } = useJsonData(
-    () => (yahooSeasonSupported && scheduleKey ? fetchYahooGamePbp(season, scheduleKey) : Promise.resolve(null)),
-    [season, scheduleKey, yahooSeasonSupported],
+    () => (yahooSeasonSupported && scheduleKey ? fetchYahooGamePbp(season, scheduleKey, league) : Promise.resolve(null)),
+    [season, scheduleKey, yahooSeasonSupported, league],
   );
   // シーズン単位で対応範囲でも、この試合自体が未取得（Yahoo側500エラー等でスキップ）のことが
   // あるため、実際にデータが取れているかで最終判定する（DESIGN.md参照）
@@ -327,7 +332,7 @@ export function GameDetailPage({ season }: { season: string }) {
   // 2016-17〜2025-26シーズンの退団済み選手はscrape-season-rosters.tsのバックフィルで概ね
   // カバー済みだが、それ以外（バックフィル対象外の選手・legacy期間の一覧漏れ等）は
   // classification未定義のままになりうる
-  const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season), [season]);
+  const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season, league), [season, league]);
   // シーズン非依存の静的データなので空配列depsで一度だけ取得する。無くても表示は成立する
   // （ロゴ・写真と同じくグレースフルデグラデーション。デフォルト色にフォールバックする）ため
   // ローディング/エラーで画面全体をブロックしない
@@ -467,7 +472,8 @@ export function GameDetailPage({ season }: { season: string }) {
   const lineupPlayerOrder = new Map([...homePlayers, ...awayPlayers].map((r, i) => [r.PlayerID, i] as const));
   // 5人組のオンザコート（外国籍・帰化・アジア特別枠の人数。出場交代の枠と同じ判定。shared/foreignOnCourt.ts）
   const lineupForeignCount = (row: GameLineupRow) => foreignCountInLineup(row.playerIds, (id) => classificationById.get(id));
-  const maxForeignOnCourt = seasonRules?.find((r) => r.season === game.season)?.maxForeignOnCourt;
+  // 同時に出られる人数の上限はリーグごと（B.ONE 2026-27 は3人。DESIGN.md 295・297章）
+  const maxForeignOnCourt = seasonRules ? seasonRuleFor(seasonRules, game.season, league)?.maxForeignOnCourt : undefined;
   const homeLineupTotals = rangeTotals(selectedLineupPeriodOption, periodBoundaries, quarterScores.home, quarterScores.away);
   const awayLineupTotals = rangeTotals(selectedLineupPeriodOption, periodBoundaries, quarterScores.away, quarterScores.home);
   const lineupPlayerSurnames = buildSurnameMap(

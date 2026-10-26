@@ -4,6 +4,7 @@
 // - 視点: own＝自チーム、opp＝同じ試合の相手のシュート、diff＝自チーム−opp（割合はポイントの差）
 // - 2020-21 より前は導出データが無い（null）。画面は「-」にして理由を注記する
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
+import { leagueCacheKey, type League } from "./league";
 import { useEffect, useState } from "react";
 import { TTS_ATOMS, TTS_FIRST_SEASON, TTS_INDEX_CATEGORIES, TTS_INDEX_VERSION, ttsExcludedKey, ttsKey, type TtsIndexCategory, type TtsIndexFile } from "../../shared/ttsIndex";
 import type { TeamGameLog } from "../../shared/types";
@@ -36,18 +37,19 @@ export function ttsSeasonSupported(season: string): boolean {
 const cache = new Map<string, Promise<TtsSource | null>>();
 
 /** 1シーズン分を読む。無い・版や行数が合わないときは null。失敗は持たず、次の呼び出しでやり直す */
-export function loadTtsSource(season: string): Promise<TtsSource | null> {
+export function loadTtsSource(season: string, league: League = "premier"): Promise<TtsSource | null> {
   if (!ttsSeasonSupported(season)) return Promise.resolve(null);
-  let p = cache.get(season);
+  const key = leagueCacheKey(season, league);
+  let p = cache.get(key);
   if (!p) {
     p = (async () => {
-      const [team, file] = await Promise.all([loadTeamGameIndex(season), fetchTeamTtsIndex(season)]);
+      const [team, file] = await Promise.all([loadTeamGameIndex(season, league), fetchTeamTtsIndex(season, league)]);
       if (!team || !file || file.version !== TTS_INDEX_VERSION || file.indexRows !== team.size) return null;
       const gameNo = new Map<string, number>(team.file.games.key.map((k, i) => [k, i]));
       return { season, file, gameNo };
     })();
-    p.then((v) => v ?? cache.delete(season), () => cache.delete(season));
-    cache.set(season, p);
+    p.then((v) => v ?? cache.delete(key), () => cache.delete(key));
+    cache.set(key, p);
   }
   return p;
 }

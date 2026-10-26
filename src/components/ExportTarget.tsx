@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useState, type ReactNode } from "react";
 import { baseDateSpecKey, resolveBaseDate, type BaseDateSpec } from "../lib/dataBaseDate";
 import { baseDateFooterText } from "../lib/exportFormat";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { useLeague } from "../lib/league";
 
 /** 画面でPC表記の型（.export-wide）にする幅。index.css の「スマホ幅（560px以下）」と同じ境目 */
 export const EXPORT_WIDE_QUERY = "(min-width: 561px)";
@@ -11,11 +12,12 @@ export const EXPORT_WIDE_QUERY = "(min-width: 561px)";
  * （保存のときは lib/exportImage.ts が、同じ要素にアカウント名だけを足す。DESIGN.md 240章）
  */
 function ExportFooter({ baseDate }: { baseDate: BaseDateSpec }) {
-  const key = baseDateSpecKey(baseDate);
+  const league = useLeague();
+  const key = `${league}:${baseDateSpecKey(baseDate)}`;
   const [found, setFound] = useState<{ key: string; date: string | undefined } | null>(null);
   useEffect(() => {
     let alive = true;
-    void resolveBaseDate(baseDate).then((date) => {
+    void resolveBaseDate(baseDate, league).then((date) => {
       if (alive) setFound({ key, date });
     });
     return () => {
@@ -23,7 +25,7 @@ function ExportFooter({ baseDate }: { baseDate: BaseDateSpec }) {
     };
     // 指定の中身（key）が変わったときだけ求め直す
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, league]);
   const date = found?.key === key ? found.date : undefined;
   if (!date) return null;
   return (

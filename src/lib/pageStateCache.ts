@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { leaguePageStateKey, useLeague } from "./league";
 
 /**
  * 個人詳細ページ・チーム詳細ページ等、タブやフィルタの数が多いページで、ブラウザバック
@@ -32,7 +33,9 @@ function readCache<T>(key: string, initialValue: T | (() => T)): T {
  * 呼び出し側が持つ既存のuseEffect（[playerId]依存等）にそのまま任せる設計。このフックは
  * あくまで「同じkeyで再マウントされた時に直前の値を復元する」役割のみを担う
  */
-export function usePageState<T>(key: string, initialValue: T | (() => T)): [T, Dispatch<SetStateAction<T>>] {
+export function usePageState<T>(pageKey: string, initialValue: T | (() => T)): [T, Dispatch<SetStateAction<T>>] {
+  // 鍵にはリーグを入れる（B.PREMIER は今までの鍵のまま、B.ONE は「one:」付き。DESIGN.md 297章）。リーグを切り替えるとページは作り直される（App.tsx）
+  const key = leaguePageStateKey(pageKey, useLeague());
   const [state, setState] = useState<T>(() => readCache(key, initialValue));
 
   useEffect(() => {

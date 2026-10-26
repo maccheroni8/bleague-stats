@@ -59,6 +59,9 @@ import type { LeagueCompareFile } from "./leagueAverage";
 
 const dataBase = `${import.meta.env.BASE_URL}data`;
 
+/** リーグ（B.PREMIER／B.ONE）。保存の置き場所は shared/types.ts の Category と同じ（B.ONE は data/{season}/one/） */
+export type League = Category;
+
 async function fetchJson<T>(url: string): Promise<T> {
   const gzUrl = `${url}.gz`;
   // ブラウザのキャッシュを使う前に、毎回サーバーへ新しいかを確かめる（変わっていなければ304で中身は送られない）。
@@ -79,25 +82,25 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 /** B.PREMIERは`data/{season}/...`のまま、B.ONEは`data/{season}/one/...`に保存されている
  * （DESIGN.md 14-5章の案A）。カテゴリ別に読むfetcherはこのプレフィックスを差し替えるだけでよい */
-function categoryBase(season: string, category: Category): string {
-  return category === "one" ? `${dataBase}/${season}/one` : `${dataBase}/${season}`;
+export function categoryBase(season: string, league: League): string {
+  return league === "one" ? `${dataBase}/${season}/one` : `${dataBase}/${season}`;
 }
 
-export function fetchTeams(season: string, category: Category = "premier"): Promise<TeamSummary[]> {
-  return fetchJson<TeamSummary[]>(`${categoryBase(season, category)}/teams.json`);
+export function fetchTeams(season: string, league: League = "premier"): Promise<TeamSummary[]> {
+  return fetchJson<TeamSummary[]>(`${categoryBase(season, league)}/teams.json`);
 }
 
-export function fetchPlayers(season: string, category: Category = "premier"): Promise<PlayerSummary[]> {
-  return fetchJson<PlayerSummary[]>(`${categoryBase(season, category)}/players.json`);
+export function fetchPlayers(season: string, league: League = "premier"): Promise<PlayerSummary[]> {
+  return fetchJson<PlayerSummary[]>(`${categoryBase(season, league)}/players.json`);
 }
 
 /**
  * そのシーズンに登録していたが players.json に居ない（試合に一度も名前が無い）選手（スタッツは0。scripts/aggregate.ts。DESIGN.md 173章）。
  * ランキングの Profile の対象に加える。このファイルが無いシーズン（作る前のデータ）は空で返す
  */
-export async function fetchRegisteredPlayers(season: string): Promise<PlayerSummary[]> {
+export async function fetchRegisteredPlayers(season: string, league: League = "premier"): Promise<PlayerSummary[]> {
   try {
-    return await fetchJson<PlayerSummary[]>(`${dataBase}/${season}/registered-players.json`);
+    return await fetchJson<PlayerSummary[]>(`${categoryBase(season, league)}/registered-players.json`);
   } catch {
     return [];
   }
@@ -120,13 +123,13 @@ export async function fetchPlayerPageSeasons(): Promise<PlayerPageSeasonsFile> {
  */
 export const ONE_CATEGORY_SEASONS: string[] = ["2025-26"];
 
-export function fetchPlayerGameLogs(season: string, playerId: string, category: Category = "premier"): Promise<PlayerGameLog[]> {
-  return fetchJson<PlayerGameLog[]>(`${categoryBase(season, category)}/player-games/${playerId}.json`);
+export function fetchPlayerGameLogs(season: string, playerId: string, league: League = "premier"): Promise<PlayerGameLog[]> {
+  return fetchJson<PlayerGameLog[]>(`${categoryBase(season, league)}/player-games/${playerId}.json`);
 }
 
 /** 試合の生データ。PBPは時系列に並べ直して返す（メモリ上だけ。2020-21以降の延長戦は公式の配列が時系列にならない。shared/pbpOrder.ts・DESIGN.md 212章） */
-export function fetchGame(season: string, scheduleKey: string): Promise<StoredGame> {
-  return fetchJson<StoredGame>(`${dataBase}/${season}/games/${scheduleKey}.json`).then(fillUnnamedPlayers).then(withChronologicalPlayByPlays);
+export function fetchGame(season: string, scheduleKey: string, league: League = "premier"): Promise<StoredGame> {
+  return fetchJson<StoredGame>(`${categoryBase(season, league)}/games/${scheduleKey}.json`).then(fillUnnamedPlayers).then(withChronologicalPlayByPlays);
 }
 
 /**
@@ -134,47 +137,47 @@ export function fetchGame(season: string, scheduleKey: string): Promise<StoredGa
  * 個別の試合が未取得（Yahoo側500エラー等でスキップ）のことがあるため、404はエラーにせず
  * nullを返す（呼び出し側はnullを「この試合はデータ無し」として扱う）
  */
-export async function fetchYahooGamePbp(season: string, scheduleKey: string): Promise<YahooGamePbp | null> {
+export async function fetchYahooGamePbp(season: string, scheduleKey: string, league: League = "premier"): Promise<YahooGamePbp | null> {
   try {
-    return await fetchJson<YahooGamePbp>(`${dataBase}/${season}/yahoo/${scheduleKey}.json`);
+    return await fetchJson<YahooGamePbp>(`${categoryBase(season, league)}/yahoo/${scheduleKey}.json`);
   } catch {
     return null;
   }
 }
 
-export function fetchTeamGameLogs(season: string, teamId: string): Promise<TeamGameLog[]> {
-  return fetchJson<TeamGameLog[]>(`${dataBase}/${season}/team-games/${teamId}.json`);
+export function fetchTeamGameLogs(season: string, teamId: string, league: League = "premier"): Promise<TeamGameLog[]> {
+  return fetchJson<TeamGameLog[]>(`${categoryBase(season, league)}/team-games/${teamId}.json`);
 }
 
-export function fetchStandingsHistory(season: string): Promise<StandingsSnapshot[]> {
-  return fetchJson<StandingsSnapshot[]>(`${dataBase}/${season}/standings-history.json`);
+export function fetchStandingsHistory(season: string, league: League = "premier"): Promise<StandingsSnapshot[]> {
+  return fetchJson<StandingsSnapshot[]>(`${categoryBase(season, league)}/standings-history.json`);
 }
 
 /**
  * マジックナンバー・進出/敗退・年間優勝（data/{season}/playoff-race.json）。導入前に集計された
  * シーズン等でファイルが無い場合はnull（マークを出さないだけで、順位表自体は表示できるようにする）
  */
-export async function fetchPlayoffRace(season: string): Promise<PlayoffRaceFile | null> {
+export async function fetchPlayoffRace(season: string, league: League = "premier"): Promise<PlayoffRaceFile | null> {
   try {
-    return await fetchJson<PlayoffRaceFile>(`${dataBase}/${season}/playoff-race.json`);
+    return await fetchJson<PlayoffRaceFile>(`${categoryBase(season, league)}/playoff-race.json`);
   } catch {
     return null;
   }
 }
 
 /** クォーター別・前後半別の1試合平均とリーグ内順位（data/{season}/period-averages.json、DESIGN.md 143章）。ファイルが無ければ null */
-export async function fetchPeriodAverages(season: string): Promise<PeriodAveragesFile | null> {
+export async function fetchPeriodAverages(season: string, league: League = "premier"): Promise<PeriodAveragesFile | null> {
   try {
-    return await fetchJson<PeriodAveragesFile>(`${dataBase}/${season}/period-averages.json`);
+    return await fetchJson<PeriodAveragesFile>(`${categoryBase(season, league)}/period-averages.json`);
   } catch {
     return null;
   }
 }
 
 /** 選手の1試合の記録の上位（data/{season}/player-game-records.json、DESIGN.md 159章）。ファイルが無ければ null */
-export async function fetchPlayerGameRecords(season: string): Promise<PlayerGameRecordsFile | null> {
+export async function fetchPlayerGameRecords(season: string, league: League = "premier"): Promise<PlayerGameRecordsFile | null> {
   try {
-    return await fetchJson<PlayerGameRecordsFile>(`${dataBase}/${season}/player-game-records.json`);
+    return await fetchJson<PlayerGameRecordsFile>(`${categoryBase(season, league)}/player-game-records.json`);
   } catch {
     return null;
   }
@@ -190,69 +193,69 @@ export async function fetchLeaguePlayerGameRecords(): Promise<LeaguePlayerGameRe
 }
 
 /** 選手の1試合行の索引（data/{season}/player-game-index.json、DESIGN.md 219章）。ファイルが無ければ null。読み方は src/lib/gameIndex.ts */
-export async function fetchPlayerGameIndex(season: string): Promise<PlayerGameIndexFile | null> {
+export async function fetchPlayerGameIndex(season: string, league: League = "premier"): Promise<PlayerGameIndexFile | null> {
   try {
-    return await fetchJson<PlayerGameIndexFile>(`${dataBase}/${season}/player-game-index.json`);
+    return await fetchJson<PlayerGameIndexFile>(`${categoryBase(season, league)}/player-game-index.json`);
   } catch {
     return null;
   }
 }
 
 /** 選手のピリオド別の索引（data/{season}/player-period-index.json、DESIGN.md 225章）。ファイルが無ければ null */
-export async function fetchPlayerPeriodIndex(season: string): Promise<PlayerPeriodIndexFile | null> {
+export async function fetchPlayerPeriodIndex(season: string, league: League = "premier"): Promise<PlayerPeriodIndexFile | null> {
   try {
-    return await fetchJson<PlayerPeriodIndexFile>(`${dataBase}/${season}/player-period-index.json`);
+    return await fetchJson<PlayerPeriodIndexFile>(`${categoryBase(season, league)}/player-period-index.json`);
   } catch {
     return null;
   }
 }
 
 /** チームのピリオド別の索引（data/{season}/team-period-index.json、DESIGN.md 225・256章）。ファイルが無ければ null */
-export async function fetchTeamPeriodIndex(season: string): Promise<TeamPeriodIndexFile | null> {
+export async function fetchTeamPeriodIndex(season: string, league: League = "premier"): Promise<TeamPeriodIndexFile | null> {
   try {
-    return await fetchJson<TeamPeriodIndexFile>(`${dataBase}/${season}/team-period-index.json`);
+    return await fetchJson<TeamPeriodIndexFile>(`${categoryBase(season, league)}/team-period-index.json`);
   } catch {
     return null;
   }
 }
 
 /** Time to Shot の導出データ（data/{season}/team-tts.json）。2020-21 より前・ファイルが無ければ null */
-export async function fetchTeamTtsIndex(season: string): Promise<TtsIndexFile | null> {
+export async function fetchTeamTtsIndex(season: string, league: League = "premier"): Promise<TtsIndexFile | null> {
   try {
-    return await fetchJson<TtsIndexFile>(`${dataBase}/${season}/team-tts.json`);
+    return await fetchJson<TtsIndexFile>(`${categoryBase(season, league)}/team-tts.json`);
   } catch {
     return null;
   }
 }
 
 /** アシストペアの試合ごとの行（data/{season}/assist-pairs.json、DESIGN.md 221章）。ファイルが無ければ null */
-export async function fetchAssistPairs(season: string): Promise<AssistPairsFile | null> {
+export async function fetchAssistPairs(season: string, league: League = "premier"): Promise<AssistPairsFile | null> {
   try {
-    return await fetchJson<AssistPairsFile>(`${dataBase}/${season}/assist-pairs.json`);
+    return await fetchJson<AssistPairsFile>(`${categoryBase(season, league)}/assist-pairs.json`);
   } catch {
     return null;
   }
 }
 
 /** チームの1試合行の索引（data/{season}/team-game-index.json、DESIGN.md 219章）。ファイルが無ければ null */
-export async function fetchTeamGameIndex(season: string): Promise<TeamGameIndexFile | null> {
+export async function fetchTeamGameIndex(season: string, league: League = "premier"): Promise<TeamGameIndexFile | null> {
   try {
-    return await fetchJson<TeamGameIndexFile>(`${dataBase}/${season}/team-game-index.json`);
+    return await fetchJson<TeamGameIndexFile>(`${categoryBase(season, league)}/team-game-index.json`);
   } catch {
     return null;
   }
 }
 
-export function fetchHeadToHead(season: string): Promise<HeadToHeadTeamRow[]> {
-  return fetchJson<HeadToHeadTeamRow[]>(`${dataBase}/${season}/head-to-head.json`);
+export function fetchHeadToHead(season: string, league: League = "premier"): Promise<HeadToHeadTeamRow[]> {
+  return fetchJson<HeadToHeadTeamRow[]>(`${categoryBase(season, league)}/head-to-head.json`);
 }
 
-export function fetchTeamLineups(season: string, teamId: string): Promise<TeamLineupsFile> {
-  return fetchJson<TeamLineupsFile>(`${dataBase}/${season}/lineups/${teamId}.json`);
+export function fetchTeamLineups(season: string, teamId: string, league: League = "premier"): Promise<TeamLineupsFile> {
+  return fetchJson<TeamLineupsFile>(`${categoryBase(season, league)}/lineups/${teamId}.json`);
 }
 
-export function fetchTeamStints(season: string, teamId: string): Promise<TeamStintsFile> {
-  return fetchJson<TeamStintsFile>(`${dataBase}/${season}/team-stints/${teamId}.json`);
+export function fetchTeamStints(season: string, teamId: string, league: League = "premier"): Promise<TeamStintsFile> {
+  return fetchJson<TeamStintsFile>(`${categoryBase(season, league)}/team-stints/${teamId}.json`);
 }
 
 export function fetchSeasons(): Promise<SeasonEntry[]> {
@@ -305,13 +308,13 @@ export function fetchPlayerAwards(): Promise<PlayerAwardsFile> {
 }
 
 /** そのシーズンのリーグ平均（data/{season}/league-average.json。DESIGN.md 149章） */
-export function fetchLeagueAverage(season: string): Promise<LeagueAverageFile> {
-  return fetchJson<LeagueAverageFile>(`${dataBase}/${season}/league-average.json`);
+export function fetchLeagueAverage(season: string, league: League = "premier"): Promise<LeagueAverageFile> {
+  return fetchJson<LeagueAverageFile>(`${categoryBase(season, league)}/league-average.json`);
 }
 
 /** 比較で選べるリーグ平均（data/{season}/league-compare.json。DESIGN.md 149章） */
-export function fetchLeagueCompare(season: string): Promise<LeagueCompareFile> {
-  return fetchJson<LeagueCompareFile>(`${dataBase}/${season}/league-compare.json`);
+export function fetchLeagueCompare(season: string, league: League = "premier"): Promise<LeagueCompareFile> {
+  return fetchJson<LeagueCompareFile>(`${categoryBase(season, league)}/league-compare.json`);
 }
 
 /** 選手のキャリアの回数（ランキングの個人「キャリア」カテゴリ。scripts/aggregate-player-careers.ts） */
@@ -370,12 +373,12 @@ export async function fetchLeaguePlayerCareerTop(): Promise<LeaguePlayerCareerTo
   }
 }
 
-export function fetchSchedule(season: string): Promise<ScheduleFileExtended> {
-  return fetchJson<ScheduleFileExtended>(`${dataBase}/${season}/schedule.json`);
+export function fetchSchedule(season: string, league: League = "premier"): Promise<ScheduleFileExtended> {
+  return fetchJson<ScheduleFileExtended>(`${categoryBase(season, league)}/schedule.json`);
 }
 
-export function fetchGameSummaries(season: string): Promise<GameSummary[]> {
-  return fetchJson<GameSummary[]>(`${dataBase}/${season}/games-summary.json`);
+export function fetchGameSummaries(season: string, league: League = "premier"): Promise<GameSummary[]> {
+  return fetchJson<GameSummary[]>(`${categoryBase(season, league)}/games-summary.json`);
 }
 
 // チームロゴ・選手写真は自前保存の生画像（gzip非対応・シーズン非依存）なので、

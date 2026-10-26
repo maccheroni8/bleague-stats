@@ -11,7 +11,7 @@
 
 import type { ReactNode } from "react";
 import { teamShortName } from "../../shared/teamNames";
-import type { Division } from "../../shared/types";
+import type { Category, Division } from "../../shared/types";
 import { DIVISION_LABELS, divisionPresets, summarizeClubSelection } from "./divisionGroups";
 import { LEAGUE_VENUE_LABELS, periodLabels, type LeagueVenue } from "./conditionLabels";
 import { CLASSIFICATION_GROUP_OPTIONS, type PlayerGroupFilter } from "./classificationFilter";
@@ -187,9 +187,11 @@ export function teamMultiAxis(input: {
   presets?: { label: string; teamIds: string[] }[];
   /** そのシーズンの各クラブの地区。指定すると、選択肢の先頭に地区ごとの一括選択（divisionPresets）を置く */
   divisionOf?: (teamId: string) => Division | null | undefined;
+  /** 地区の並びのリーグ（B.ONE は北→東→中→西→南。DESIGN.md 297章）。省略時は B.PREMIER */
+  league?: Category;
   tier?: "primary" | "advanced";
 }): FilterAxis {
-  const divisions = input.divisionOf ? divisionPresets(input.options.map((t) => t.teamId), input.divisionOf) : [];
+  const divisions = input.divisionOf ? divisionPresets(input.options.map((t) => t.teamId), input.divisionOf, input.league) : [];
   const presets = [...divisions, ...(input.presets ?? [])];
   return multiSelectAxis({
     id: input.id ?? "teams",

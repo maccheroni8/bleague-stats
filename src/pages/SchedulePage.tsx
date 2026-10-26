@@ -12,6 +12,7 @@ import { divisionPresets } from "../lib/divisionGroups";
 import { fetchDivisionHistory, fetchGameSummaries, fetchSchedule, fetchTeamColors, fetchTeamHistory, fetchTeams } from "../lib/data";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import { useJsonData } from "../lib/useJsonData";
+import { useLeague } from "../lib/league";
 import { formatDateHeading } from "../lib/format";
 import { teamShortName } from "../../shared/teamNames";
 import type { GameSummary, GameType, TeamColors, UpcomingGameEntry } from "../../shared/types";
@@ -234,14 +235,15 @@ const WEEKDAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"];
 const autoPositionedViews = new Set<string>();
 
 export function SchedulePage({ season }: { season: string }) {
+  const league = useLeague();
   const {
     data: summaries,
     loading: summariesLoading,
     error,
-  } = useJsonData(() => fetchGameSummaries(season), [season]);
+  } = useJsonData(() => fetchGameSummaries(season, league), [season, league]);
   // schedule.jsonの取得に失敗しても開催予定が出ないだけで日程ページ自体は表示できるようにする
-  const { data: schedule, loading: scheduleLoading } = useJsonData(() => fetchSchedule(season), [season]);
-  const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
+  const { data: schedule, loading: scheduleLoading } = useJsonData(() => fetchSchedule(season, league), [season, league]);
+  const { data: teams } = useJsonData(() => fetchTeams(season, league), [season, league]);
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const [jumpDate, setJumpDate] = useState("");
   const [, setSearchParams] = useSearchParams();
@@ -273,8 +275,8 @@ export function SchedulePage({ season }: { season: string }) {
   // 名前→TeamIDを補う（開催予定の試合にもロゴ・チームカラー・略称を出すため）
   const prevSeason = `${Number(season.slice(0, 4)) - 1}-${season.slice(2, 4)}`;
   const { data: prevTeams } = useJsonData(
-    () => (season > "2016-17" ? fetchTeams(prevSeason).catch(() => []) : Promise.resolve([])),
-    [season, prevSeason],
+    () => (season > "2016-17" ? fetchTeams(prevSeason, league).catch(() => []) : Promise.resolve([])),
+    [season, prevSeason, league],
   );
   const { data: teamHistory } = useJsonData(() => fetchTeamHistory().catch(() => []), []);
   // クラブの複数選択の「◯地区を選択」ボタン用（そのシーズンの地区構成）
@@ -378,12 +380,12 @@ export function SchedulePage({ season }: { season: string }) {
   // 「今日」ボタンと同じ行き先）。過去のシーズンは今日の位置が無いので先頭のまま。表示の切り替えでも、その表示で最初の1回だけ移る
   useEffect(() => {
     if (!seasonDataReady || rows.length === 0 || season !== currentSeason()) return;
-    const key = `${season}:${view}`;
+    const key = `${league}:${season}:${view}`;
     if (autoPositionedViews.has(key)) return;
     autoPositionedViews.add(key);
     jumpToToday(view);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seasonDataReady, season, view, rows.length]);
+  }, [seasonDataReady, season, view, rows.length, league]);
 
   // 読み込み中・エラーの早期リターンも v2 の範囲に入れる
   const v2 = (node: ReactNode) => (
@@ -410,7 +412,8 @@ export function SchedulePage({ season }: { season: string }) {
   const clubOptionList = teamOptions.map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) }));
   const clubDivisionGroups = divisionPresets(
     teamOptions.map((t) => t.teamId),
-    (id) => teamDivisionForSeason(divisionHistory, id, season),
+    (id) => teamDivisionForSeason(divisionHistory, id, season, league),
+    league,
   ).map((g) => ({ label: g.label, values: g.teamIds }));
   const scheduleClubLabels =
     selectedTeamIds === null
@@ -446,7 +449,8 @@ export function SchedulePage({ season }: { season: string }) {
       options: teamOptions,
       selected: selectedTeamIds,
       onChange: setSelectedTeamIds,
-      divisionOf: (id) => teamDivisionForSeason(divisionHistory, id, season),
+      divisionOf: (id) => teamDivisionForSeason(divisionHistory, id, season, league),
+      league,
     }),
   ];
   const clearFilters = () => {

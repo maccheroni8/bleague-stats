@@ -91,6 +91,19 @@ body {
   cursor: pointer;
 }
 
+/* B.ONE でまだ見られないページの案内（LeagueGate。DESIGN.md 297章） */
+.league-unavailable {
+  padding: 24px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--fg);
+  text-align: center;
+}
+
+.league-unavailable p {
+  margin: 0 0 8px;
+}
+
 .theme-toggle {
   margin-left: auto;
   width: 28px;

@@ -3,6 +3,14 @@ import type { Category, Division, DivisionHistoryFile, StandingsTeamSnapshot } f
 // 地区数は可変（東西2地区制のシーズンもあれば、過去の東・中・西3地区制のシーズンもある。
 // DESIGN.md参照）。表示順は固定のこの並びとし、latestSnapshotに実際に存在する地区だけを表示する
 export const DIVISION_ORDER: Division[] = ["east", "central", "west", "north", "south"];
+
+/** B.ONE の地区の並び（公式の並び: 北→東→中→西→南。DESIGN.md 296-4・297章） */
+export const ONE_DIVISION_ORDER: Division[] = ["north", "east", "central", "west", "south"];
+
+/** リーグの地区の並び。B.PREMIER は DIVISION_ORDER、B.ONE は ONE_DIVISION_ORDER */
+export function divisionOrder(league: Category = "premier"): Division[] {
+  return league === "one" ? ONE_DIVISION_ORDER : DIVISION_ORDER;
+}
 export const DIVISION_LABELS: Record<Division, string> = {
   east: "東地区",
   west: "西地区",
@@ -13,6 +21,7 @@ export const DIVISION_LABELS: Record<Division, string> = {
 
 export function groupByDivision<T extends StandingsTeamSnapshot>(
   teams: T[],
+  league: Category = "premier",
 ): { division: Division; teams: T[] }[] {
   const byDivision = new Map<Division, T[]>();
   for (const t of teams) {
@@ -24,7 +33,7 @@ export function groupByDivision<T extends StandingsTeamSnapshot>(
   for (const list of byDivision.values()) {
     list.sort((a, b) => (a.divisionRank ?? 0) - (b.divisionRank ?? 0));
   }
-  return DIVISION_ORDER.filter((d) => byDivision.has(d)).map((division) => ({
+  return divisionOrder(league).filter((d) => byDivision.has(d)).map((division) => ({
     division,
     teams: byDivision.get(division)!,
   }));
@@ -38,6 +47,7 @@ export function groupByDivision<T extends StandingsTeamSnapshot>(
 export function divisionPresets(
   teamIds: string[],
   divisionOf: (teamId: string) => Division | null | undefined,
+  league: Category = "premier",
 ): { label: string; teamIds: string[] }[] {
   const byDivision = new Map<Division, string[]>();
   for (const id of teamIds) {
@@ -45,7 +55,7 @@ export function divisionPresets(
     if (!d) continue;
     byDivision.set(d, [...(byDivision.get(d) ?? []), id]);
   }
-  return DIVISION_ORDER.filter((d) => byDivision.has(d)).map((d) => ({ label: DIVISION_LABELS[d], teamIds: byDivision.get(d)! }));
+  return divisionOrder(league).filter((d) => byDivision.has(d)).map((d) => ({ label: DIVISION_LABELS[d], teamIds: byDivision.get(d)! }));
 }
 
 /**
@@ -60,7 +70,7 @@ export function seasonDivisions(
   const bySeason = history?.[category]?.[season];
   if (!bySeason) return [];
   const present = new Set<Division>(Object.values(bySeason));
-  return DIVISION_ORDER.filter((d) => present.has(d));
+  return divisionOrder(category).filter((d) => present.has(d));
 }
 
 /**

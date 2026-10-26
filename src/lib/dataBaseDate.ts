@@ -5,31 +5,33 @@
 // 基準日は「そのシーズン・その試合区分で、データが入っている最新の試合日」のまま（データがいつの時点のものかを示す日付のため）。
 import type { GameSummary } from "../../shared/types";
 import { fetchGameSummaries, fetchSeasons } from "./data";
+import { leagueCacheKey, ONE_SEASONS, type League } from "./league";
 import { baseDateOf, baseDateSpecKey, formatBaseDate, latestBaseDate, latestEndedGameDate, type BaseDateGameType, type BaseDateSpec } from "./exportFormat";
 
 export { baseDateOf, baseDateSpecKey, latestBaseDate };
 export type { BaseDateGameType, BaseDateSpec };
 
-// 同じシーズンを何度も読まないよう、読み込みの約束（Promise）をシーズンごとに持つ。保存のたびに新しい値が要るので、
+// 同じシーズンを何度も読まないよう、読み込みの約束（Promise）をリーグ・シーズンごとに持つ。保存のたびに新しい値が要るので、
 // 結果ではなく読み込みだけを使い回す（ページを開き直すまで変わらない。取得に失敗したら次の保存で読み直す）
 const summaryCache = new Map<string, Promise<GameSummary[]>>();
 
-function summariesOf(season: string): Promise<GameSummary[]> {
-  let p = summaryCache.get(season);
+function summariesOf(season: string, league: League): Promise<GameSummary[]> {
+  const key = leagueCacheKey(season, league);
+  let p = summaryCache.get(key);
   if (!p) {
-    p = fetchGameSummaries(season).catch((e) => {
-      summaryCache.delete(season);
+    p = fetchGameSummaries(season, league).catch((e) => {
+      summaryCache.delete(key);
       throw e;
     });
-    summaryCache.set(season, p);
+    summaryCache.set(key, p);
   }
   return p;
 }
 
 /** 1シーズンの基準日（「2026/10/11」形式）。試合が無い・取得できないときは undefined */
-export async function seasonBaseDate(season: string, gameType: BaseDateGameType = "regular"): Promise<string | undefined> {
+export async function seasonBaseDate(season: string, gameType: BaseDateGameType = "regular", league: League = "premier"): Promise<string | undefined> {
   try {
-    const d = latestEndedGameDate(await summariesOf(season), gameType);
+    const d = latestEndedGameDate(await summariesOf(season, league), gameType);
     return d ? formatBaseDate(d) : undefined;
   } catch {
     return undefined;
@@ -40,15 +42,13 @@ export async function seasonBaseDate(season: string, gameType: BaseDateGameType 
  * 歴代・通算の基準日: 試合区分に合う試合がある最も新しいシーズンの、最新の試合日。
  * 新しいシーズンから順に探す（進行中のシーズンにまだプレーオフが無いときは前のシーズンの日付になる）
  */
-export async function allTimeBaseDate(gameType: BaseDateGameType = "regular"): Promise<string | undefined> {
+export async function allTimeBaseDate(gameType: BaseDateGameType = "regular", league: League = "premier"): Promise<string | undefined> {
   try {
-    const seasons = (await fetchSeasons())
-      .filter((s) => s.hasCompletedGames)
-      .map((s) => s.season)
+    const seasons = (league === "one" ? [...ONE_SEASONS] : (await fetchSeasons()).filter((s) => s.hasCompletedGames).map((s) => s.season))
       .sort()
       .reverse();
     for (const season of seasons) {
-      const d = await seasonBaseDate(season, gameType);
+      const d = await seasonBaseDate(season, gameType, league);
       if (d) return d;
     }
   } catch {
@@ -58,14 +58,17 @@ export async function allTimeBaseDate(gameType: BaseDateGameType = "regular"): P
 }
 
 
-/** 基準日の指定（画面の表の下の日付と、保存画像のフッターで共通。DESIGN.md 240章）から日付（「2026/10/11」形式）を求める */
-export async function resolveBaseDate(spec: BaseDateSpec): Promise<string | undefined> {
+/**
+ * 基準日の指定（画面の表の下の日付と、保存画像のフッターで共通。DESIGN.md 240章）から日付（「2026/10/11」形式）を求める。
+ * リーグは見ているリーグ（ExportTarget・ExportImageButton が URL から渡す。DESIGN.md 297章）
+ */
+export async function resolveBaseDate(spec: BaseDateSpec, league: League = "premier"): Promise<string | undefined> {
   switch (spec.kind) {
     case "season":
-      return seasonBaseDate(spec.season, spec.gameType ?? "regular");
+      return seasonBaseDate(spec.season, spec.gameType ?? "regular", league);
     case "allTime":
-      return allTimeBaseDate(spec.gameType ?? "regular");
+      return allTimeBaseDate(spec.gameType ?? "regular", league);
     case "latest":
-      return latestBaseDate(await Promise.all(spec.slots.map((s) => seasonBaseDate(s.season, s.gameType))));
+      return latestBaseDate(await Promise.all(spec.slots.map((s) => seasonBaseDate(s.season, s.gameType, league))));
   }
 }

@@ -6,6 +6,7 @@
 // - 前後半5分の特別な試合（2016-17・2017-18のCS。4試合）は、Q別・前後半のどれにも入れない（225章の決定7。以前は前半に試合全体が入っていた）
 // 1Q〜4Q・前半・後半は今までどおり、その試合に出場していれば、その区間に出ていなくても0として数える。
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
+import { leagueCacheKey, type League } from "./league";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GAME_FLAG_SHORT, ROW_FLAG_STARTER } from "../../shared/gameIndex";
 import {
@@ -88,13 +89,14 @@ export interface SeasonPeriodSource {
 const sourceCache = new Map<string, Promise<SeasonPeriodSource | null>>();
 
 /** 1シーズン分の索引を読む。どれかが無い・版や行数が合わないときは null（呼び出し側は読めなかったことを出す）。失敗は持たず、次の呼び出しでやり直す */
-export function loadSeasonPeriodSource(season: string): Promise<SeasonPeriodSource | null> {
-  let p = sourceCache.get(season);
+export function loadSeasonPeriodSource(season: string, league: League = "premier"): Promise<SeasonPeriodSource | null> {
+  const key = leagueCacheKey(season, league);
+  let p = sourceCache.get(key);
   if (!p) {
     p = (async () => {
-      const [player, team, teamPeriod] = await Promise.all([loadPlayerGameIndex(season), loadTeamGameIndex(season), fetchTeamPeriodIndex(season)]);
+      const [player, team, teamPeriod] = await Promise.all([loadPlayerGameIndex(season, league), loadTeamGameIndex(season, league), fetchTeamPeriodIndex(season, league)]);
       if (!player || !team || !teamPeriod || !isSupportedPeriodIndex(teamPeriod) || teamPeriod.indexRows !== team.size) return null;
-      const period = await loadPlayerPeriodIndex(player);
+      const period = await loadPlayerPeriodIndex(player, league);
       if (!period) return null;
       const { rows, games, players } = player.file;
       const rowByPlayerGame = new Map<string, number>();
@@ -109,8 +111,8 @@ export function loadSeasonPeriodSource(season: string): Promise<SeasonPeriodSour
       });
       return { season, player, period, team, teamPeriod, rowByPlayerGame, teamGameNo, shortGames };
     })();
-    p.then((v) => v ?? sourceCache.delete(season), () => sourceCache.delete(season));
-    sourceCache.set(season, p);
+    p.then((v) => v ?? sourceCache.delete(key), () => sourceCache.delete(key));
+    sourceCache.set(key, p);
   }
   return p;
 }

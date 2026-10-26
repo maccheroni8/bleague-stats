@@ -5,6 +5,7 @@
 // - 延長は、延長のあった試合だけを数える（平均はその試合数で割る。256章の決定2）
 // - 勝敗は試合の勝敗のまま（区間ごとの勝ち負けは出さない。決定3）
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
+import { leagueCacheKey, type League } from "./league";
 import { useEffect, useState } from "react";
 import { PERIOD_ATOMS, TEAM_PERIOD_EXTRA_COLUMNS, TEAM_PERIOD_FOUL_COLUMNS, type PeriodPossKey, type TeamPeriodIndexFile } from "../../shared/periodIndex";
 import type { TeamGameLog } from "../../shared/types";
@@ -34,18 +35,19 @@ const cache = new Map<string, Promise<TeamPeriodSource | null>>();
  * 1シーズン分のチームの索引を読む。無い・版や行数が合わない・段階1の列（Misc・Scoring 用）が無い古い索引のときは null（呼び出し側は区間別を出せないことを示す）。
  * 失敗は持たず、次の呼び出しでやり直す
  */
-export function loadTeamPeriodSource(season: string): Promise<TeamPeriodSource | null> {
-  let p = cache.get(season);
+export function loadTeamPeriodSource(season: string, league: League = "premier"): Promise<TeamPeriodSource | null> {
+  const key = leagueCacheKey(season, league);
+  let p = cache.get(key);
   if (!p) {
     p = (async () => {
-      const [team, file] = await Promise.all([loadTeamGameIndex(season), fetchTeamPeriodIndex(season)]);
+      const [team, file] = await Promise.all([loadTeamGameIndex(season, league), fetchTeamPeriodIndex(season, league)]);
       if (!team || !file || !isSupportedPeriodIndex(file) || file.indexRows !== team.size) return null;
       if (TEAM_PERIOD_EXTRA_COLUMNS.some((c) => !file.rows.counts[`q1.${c}`])) return null;
       const gameNo = new Map<string, number>(team.file.games.key.map((k, i) => [k, i]));
       return { season, file, gameNo };
     })();
-    p.then((v) => v ?? cache.delete(season), () => cache.delete(season));
-    cache.set(season, p);
+    p.then((v) => v ?? cache.delete(key), () => cache.delete(key));
+    cache.set(key, p);
   }
   return p;
 }

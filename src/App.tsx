@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { RookieProvider } from "./components/RookieProvider";
-import { HashRouter, NavLink, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
+import { HashRouter, Route, Routes, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { SeasonLink, SeasonNavLink } from "./components/SeasonLink";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { ExportDebugPanel } from "./components/ExportDebugPanel";
@@ -8,6 +8,8 @@ import { PageErrorBoundary } from "./components/PageErrorBoundary";
 import { currentSeason } from "./lib/season";
 import { fetchSeasons } from "./lib/data";
 import { useJsonData } from "./lib/useJsonData";
+import { LEAGUES, LEAGUE_LABELS, isLeagueSeason, latestLeagueSeason, leagueFromParams, leagueSeasonEntries, leagueSwitchUrl, writeLeagueParam, type League } from "./lib/league";
+import { LeagueGate } from "./components/LeagueGate";
 import { HomePage } from "./pages/HomePage";
 import { TeamsListPage, TeamsStatsRedirect } from "./pages/TeamsListPage";
 import { TeamDetailPage } from "./pages/TeamDetailPage";
@@ -48,8 +50,13 @@ function AppShell() {
   // seasons.jsonには開幕前（確定済み試合0件、日程のみ先行登録）のシーズンも選択肢として
   // 含まれうる（hasCompletedGames: false）ため、末尾要素ではなくhasCompletedGamesがtrueの
   // 最新シーズンを使う（23章の「未開幕シーズンが最新シーズンに誤って解決される」バグの再発防止）
-  const latestSeason = seasons ? [...seasons].reverse().find((s) => s.hasCompletedGames)?.season ?? null : null;
-  const season = explicitSeason ?? latestSeason ?? currentSeason();
+  // リーグ（URL の league=one。書かなければ B.PREMIER。DESIGN.md 297章）ごとに、選べるシーズンと初期のシーズンが違う
+  const league = leagueFromParams(searchParams);
+  const latestSeason = seasons ? latestLeagueSeason(league, seasons) : null;
+  // B.ONE で選べないシーズンが URL に書いてあるとき（B.ONE は 2026-27 から）は、B.ONE の初期のシーズンにする
+  const seasonUsable = explicitSeason !== null && isLeagueSeason(league, explicitSeason, seasons);
+  const season = (seasonUsable ? explicitSeason : null) ?? latestSeason ?? currentSeason();
+  const navigate = useNavigate();
 
   // ?season=が無いURL（素のルートアクセス・外部リンク・ブックマーク等）で解決したフォールバック値を
   // URLへ書き戻す。これをしないと、SeasonLink（src/components/SeasonLink.tsx）は
@@ -58,7 +65,7 @@ function AppShell() {
   // （2026-08-18に発覚。seasons.jsonの末尾が誤って未開幕シーズンになっていた際、この連鎖により
   // 実際には存在しない試合詳細URLへ辿り着きFailed to fetchになる不具合の一因になっていた）
   useEffect(() => {
-    if (!explicitSeason && !seasonsLoading) {
+    if ((!explicitSeason || !seasonUsable) && !seasonsLoading) {
       // フィルタのクエリ（DESIGN.md 163章）が付いたURLでも、それを消さずに season だけ足す
       setSearchParams(
         (prev) => {
@@ -69,7 +76,10 @@ function AppShell() {
         { replace: true },
       );
     }
-  }, [explicitSeason, seasonsLoading, season, setSearchParams]);
+  }, [explicitSeason, seasonUsable, seasonsLoading, season, setSearchParams]);
+
+  // リーグを切り替えたときの行き先（season とリーグだけを残す・チーム詳細と試合詳細は一覧・日程へ。league.ts）
+  const changeLeague = (next: League) => navigate(leagueSwitchUrl(location.pathname, season, seasons, next));
 
   // ?season=が無い場合は、seasons.jsonの読み込みが終わるまでデフォルトシーズンが確定しない。
   // 確定前に描画すると誤ったシーズンで一瞬フェッチしてしまうため、読み込み中は待つ
@@ -84,7 +94,20 @@ function AppShell() {
           B.LEAGUE Stats
         </SeasonLink>
         <select
+          className="season-select league-select"
+          aria-label="リーグ"
+          value={league}
+          onChange={(e) => changeLeague(e.target.value as League)}
+        >
+          {LEAGUES.map((l) => (
+            <option key={l} value={l}>
+              {LEAGUE_LABELS[l]}
+            </option>
+          ))}
+        </select>
+        <select
           className="season-select"
+          aria-label="シーズン"
           value={season}
           onChange={(e) =>
             // 個人一覧・チーム一覧・ランキングでは、シーズンを変えてもフィルタのクエリはそのまま残す（DESIGN.md 163章）。
@@ -92,11 +115,12 @@ function AppShell() {
             setSearchParams((prev) => {
               const next = URL_FILTER_PAGES.includes(location.pathname) ? new URLSearchParams(prev) : new URLSearchParams();
               next.set("season", e.target.value);
+              writeLeagueParam(next, league);
               return next;
             })
           }
         >
-          {[...(seasons ?? [])].reverse().map((s) => (
+          {[...leagueSeasonEntries(league, seasons)].reverse().map((s) => (
             <option key={s.season} value={s.season}>
               {s.season}シーズン
             </option>
@@ -126,27 +150,28 @@ function AppShell() {
             順位表
           </SeasonNavLink>
           <SeasonNavLink to="/figures" className={({ isActive }) => (isActive ? "active" : "")}>図解</SeasonNavLink>
-          <NavLink to="/glossary" className={({ isActive }) => (isActive ? "active" : "")}>
+          <SeasonNavLink to="/glossary" className={({ isActive }) => (isActive ? "active" : "")}>
             用語集
-          </NavLink>
+          </SeasonNavLink>
         </nav>
       </header>
       <main className="app-main">
         <PageErrorBoundary resetKey={location.pathname + location.search}>
-          <Routes>
-            <Route path="/" element={<HomePage season={season} />} />
-            <Route path="/teams" element={<TeamsListPage season={season} />} />
+          {/* リーグを切り替えたらページを作り直す（前のリーグの状態・読み込みを持ち越さない） */}
+          <Routes key={league}>
+            <Route path="/" element={<LeagueGate page="home"><HomePage season={season} /></LeagueGate>} />
+            <Route path="/teams" element={<LeagueGate page="teams"><TeamsListPage season={season} /></LeagueGate>} />
             <Route path="/teams/stats" element={<TeamsStatsRedirect />} />
-            <Route path="/teams/:teamId" element={<TeamDetailPage season={season} />} />
-            <Route path="/players" element={<PlayersListPage season={season} />} />
-            <Route path="/players/:playerId" element={<PlayerDetailPage season={season} />} />
-            <Route path="/games/:scheduleKey" element={<GameDetailPage season={season} />} />
-            <Route path="/schedule" element={<SchedulePage season={season} />} />
-            <Route path="/rankings" element={<RankingsPage season={season} />} />
-            <Route path="/compare" element={<ComparePage season={season} />} />
-            <Route path="/standings" element={<StandingsPage season={season} />} />
-            <Route path="/figures" element={<FiguresPage season={season} />} />
-            <Route path="/glossary" element={<GlossaryPage />} />
+            <Route path="/teams/:teamId" element={<LeagueGate page="teamDetail"><TeamDetailPage season={season} /></LeagueGate>} />
+            <Route path="/players" element={<LeagueGate page="players"><PlayersListPage season={season} /></LeagueGate>} />
+            <Route path="/players/:playerId" element={<LeagueGate page="playerDetail"><PlayerDetailPage season={season} /></LeagueGate>} />
+            <Route path="/games/:scheduleKey" element={<LeagueGate page="game"><GameDetailPage season={season} /></LeagueGate>} />
+            <Route path="/schedule" element={<LeagueGate page="schedule"><SchedulePage season={season} /></LeagueGate>} />
+            <Route path="/rankings" element={<LeagueGate page="rankings"><RankingsPage season={season} /></LeagueGate>} />
+            <Route path="/compare" element={<LeagueGate page="compare"><ComparePage season={season} /></LeagueGate>} />
+            <Route path="/standings" element={<LeagueGate page="standings"><StandingsPage season={season} /></LeagueGate>} />
+            <Route path="/figures" element={<LeagueGate page="figures"><FiguresPage season={season} /></LeagueGate>} />
+            <Route path="/glossary" element={<LeagueGate page="glossary"><GlossaryPage /></LeagueGate>} />
           </Routes>
         </PageErrorBoundary>
       </main>

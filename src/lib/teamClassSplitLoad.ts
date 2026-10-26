@@ -3,6 +3,7 @@
 // 区分を選んだときだけ・シーズンの行を開いたときだけ読む（初期表示では読まない）。同じシーズンは、ページを開いている間メモリに持つ。
 // 試合全体の索引が読めなければ null（呼び出し側は区分別を出せないことを示す）。ピリオド別の索引だけが読めないときは、ペイント内外・DQFOUL を「記録なし」にして続ける。
 // 失敗（null・通信の失敗）は持たず、次の呼び出しでやり直す。集計のコードから読まれない場所（保存キーの対象外）に置く。
+import { leagueCacheKey, type League } from "./league";
 import { useEffect, useMemo, useState } from "react";
 import { fetchPlayerPeriodIndex } from "./data";
 import { loadPlayerGameIndex } from "./gameIndexLoad";
@@ -11,17 +12,18 @@ import { buildClassSplitSource, type ClassSplitSource } from "./teamClassSplit";
 
 const cache = new Map<string, Promise<ClassSplitSource | null>>();
 
-export function loadClassSplitSource(season: string): Promise<ClassSplitSource | null> {
-  let p = cache.get(season);
+export function loadClassSplitSource(season: string, league: League = "premier"): Promise<ClassSplitSource | null> {
+  const key = leagueCacheKey(season, league);
+  let p = cache.get(key);
   if (!p) {
     p = (async () => {
-      const main = await loadPlayerGameIndex(season);
+      const main = await loadPlayerGameIndex(season, league);
       if (!main) return null;
-      const period = await fetchPlayerPeriodIndex(season).catch(() => null);
+      const period = await fetchPlayerPeriodIndex(season, league).catch(() => null);
       return buildClassSplitSource(main.file, period && isSupportedPeriodIndex(period) ? period : null);
     })();
-    p.then((v) => v ?? cache.delete(season), () => cache.delete(season));
-    cache.set(season, p);
+    p.then((v) => v ?? cache.delete(key), () => cache.delete(key));
+    cache.set(key, p);
   }
   return p;
 }
