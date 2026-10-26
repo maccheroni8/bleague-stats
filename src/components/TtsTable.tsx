@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { SeasonLink } from "./SeasonLink";
 import { statDescription } from "../lib/statDescriptions";
 import { statJa } from "../lib/statNames";
 import { formatTtsPct, formatTtsSeconds, TTS_TABLE_ITEMS, type TtsPerspective, type TtsRowValues } from "../lib/teamTts";
@@ -78,9 +78,9 @@ export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, link
         {leading.map((c) => (
           <td key={c.key} className={c.align === "left" ? "align-left" : "align-right"}>
             {to ? (
-              <Link to={to} className="cell-link">
+              <SeasonLink to={to} className="cell-link">
                 {c.render(row)}
-              </Link>
+              </SeasonLink>
             ) : (
               c.render(row)
             )}
@@ -88,12 +88,12 @@ export function TtsTable<T>({ leading, rows, rowKey, valuesOf, perspective, link
         ))}
         {TTS_TABLE_ITEMS.flatMap(({ item, hasPct }) => [
           <td key={`avg:${item}`} className="align-right">
-            {to ? <Link to={to} className="cell-link">{formatTtsSeconds(v?.[item].avg ?? null, perspective)}</Link> : formatTtsSeconds(v?.[item].avg ?? null, perspective)}
+            {to ? <SeasonLink to={to} className="cell-link">{formatTtsSeconds(v?.[item].avg ?? null, perspective)}</SeasonLink> : formatTtsSeconds(v?.[item].avg ?? null, perspective)}
           </td>,
           ...(hasPct
             ? [
                 <td key={`pct:${item}`} className="align-right">
-                  {to ? <Link to={to} className="cell-link">{formatTtsPct(v?.[item].pct ?? null, perspective)}</Link> : formatTtsPct(v?.[item].pct ?? null, perspective)}
+                  {to ? <SeasonLink to={to} className="cell-link">{formatTtsPct(v?.[item].pct ?? null, perspective)}</SeasonLink> : formatTtsPct(v?.[item].pct ?? null, perspective)}
                 </td>,
               ]
             : []),

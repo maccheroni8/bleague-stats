@@ -53,20 +53,20 @@ export function loadTeamPeriodSource(season: string, league: League = "premier")
 }
 
 /** 区間を選んでいるときだけ索引を読む。source は読めたもの（読めなかったら null）、loading は読み込み中、retry() で読み直す */
-export function useTeamPeriodSource(season: string, enabled: boolean): { source: TeamPeriodSource | null; loading: boolean; retry: () => void } {
+export function useTeamPeriodSource(season: string, enabled: boolean, league: League = "premier"): { source: TeamPeriodSource | null; loading: boolean; retry: () => void } {
   const [state, setState] = useState<{ season: string; nonce: number; source: TeamPeriodSource | null } | null>(null);
   const [nonce, setNonce] = useState(0);
   useEffect(() => {
     if (!enabled) return;
     let alive = true;
-    loadTeamPeriodSource(season).then(
+    loadTeamPeriodSource(season, league).then(
       (source) => alive && setState({ season, nonce, source }),
       () => alive && setState({ season, nonce, source: null }),
     );
     return () => {
       alive = false;
     };
-  }, [season, enabled, nonce]);
+  }, [season, enabled, nonce, league]);
   const ready = state && state.season === season && state.nonce === nonce;
   return { source: ready ? state.source : null, loading: enabled && !ready, retry: () => setNonce((n) => n + 1) };
 }

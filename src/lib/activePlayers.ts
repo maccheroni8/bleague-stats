@@ -43,14 +43,14 @@ export interface ActivePlayers {
   retry: () => void;
 }
 
-/** enabled のときだけ、今季の名簿（players.json と registered-players.json）を読む */
+/** enabled のときだけ、今季の名簿（今は B.PREMIER の名簿。B.PREMIER・B.ONE のどちらかにいる選手に広げるのは段階2の push 3）（players.json と registered-players.json）を読む */
 export function useActivePlayerIds(enabled: boolean): ActivePlayers {
   const season = currentSeason();
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
   const { data, loading, error } = useJsonData(async () => {
     if (!enabled) return null;
-    const [players, registered] = await Promise.all([fetchPlayers(season), fetchRegisteredPlayers(season)]);
+    const [players, registered] = await Promise.all([fetchPlayers(season, "premier"), fetchRegisteredPlayers(season, "premier")]);
     return new Set([...players, ...registered].map((p) => p.playerId));
   }, [enabled, season, attempt]);
   return {

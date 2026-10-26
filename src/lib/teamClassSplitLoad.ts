@@ -39,6 +39,7 @@ export type ClassSplitSourceState = { status: "loading" } | { status: "ready"; s
 export function useClassSplitSources(
   seasons: readonly string[],
   enabled: boolean,
+  league: League = "premier",
 ): { states: Map<string, ClassSplitSourceState>; retry: () => void } {
   const seasonsKey = seasons.join(",");
   const [loaded, setLoaded] = useState<Map<string, ClassSplitSourceState>>(new Map());
@@ -48,7 +49,7 @@ export function useClassSplitSources(
     let alive = true;
     for (const season of seasonsKey ? seasonsKey.split(",") : []) {
       if (loaded.get(season)?.status === "ready") continue;
-      loadClassSplitSource(season).then(
+      loadClassSplitSource(season, league).then(
         (source) => alive && setLoaded((prev) => new Map(prev).set(season, source ? { status: "ready", source } : { status: "unreadable" })),
         () => alive && setLoaded((prev) => new Map(prev).set(season, { status: "unreadable" })),
       );
@@ -57,7 +58,7 @@ export function useClassSplitSources(
       alive = false;
     };
     // loaded は読み込み済みを飛ばす判定にだけ使う（deps に入れると、読み込みのたびにやり直す）
-  }, [seasonsKey, enabled, nonce]);
+  }, [seasonsKey, enabled, nonce, league]);
   const states = useMemo(() => {
     const m = new Map<string, ClassSplitSourceState>();
     for (const s of seasonsKey ? seasonsKey.split(",") : []) m.set(s, loaded.get(s) ?? { status: "loading" });
@@ -77,8 +78,8 @@ export function useClassSplitSources(
 }
 
 /** 全チームスタッツ用: 1シーズンだけ読む */
-export function useClassSplitSource(season: string, enabled: boolean): { state: ClassSplitSourceState; retry: () => void } {
+export function useClassSplitSource(season: string, enabled: boolean, league: League = "premier"): { state: ClassSplitSourceState; retry: () => void } {
   const seasons = useMemo(() => [season], [season]);
-  const { states, retry } = useClassSplitSources(seasons, enabled);
+  const { states, retry } = useClassSplitSources(seasons, enabled, league);
   return { state: states.get(season) ?? { status: "loading" }, retry };
 }

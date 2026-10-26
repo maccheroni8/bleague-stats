@@ -22,7 +22,10 @@ import {
 } from "../lib/statConditions";
 import { buildTeamConditionDefs } from "../lib/teamConditionItems";
 import { postseasonLabel } from "../../shared/gameType";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { useLeague, type League } from "../lib/league";
+import { ONE_PERIOD_REASON, ONE_CLASS_REASON, ONE_TEAMS_TAB_REASONS } from "../lib/leagueAvailability";
+import { seasonRuleFor } from "../../shared/seasonRules";
 import { legacyTeamRecordsTarget } from "../lib/legacyRecordsUrl";
 import {
   fetchClubHonors,
@@ -117,7 +120,7 @@ import {
   type TeamStreak,
 } from "../../shared/teamRecords";
 import { lastPremierSeasonFor, leagueTeamCurrentCategoryLabel, leagueTeamDisplayName } from "../lib/leagueTeamNames";
-import { RECORD_MODE_PARAM, teamGameRecordRankingUrl } from "../components/TeamGameRecordRanking";
+import { RECORD_MODE_PARAM, teamGameRecordRankingUrl } from "../lib/teamRecordRankingUrl";
 import { CareerLeaderCard } from "../components/CareerLeaderCard";
 import { careerRecordRankingUrl } from "../components/CareerRecordRanking";
 import { TEAM_SEASON_RECORD_ITEMS, teamSeasonRecordEntries, teamSeasonRecordRankingUrl } from "../components/TeamSeasonRecordRanking";
@@ -189,8 +192,11 @@ const DEFAULT_TEAMS_FILTER: SituationalFilter = { range: { kind: "all" } };
 // タブはURLのクエリ（view）に持つ（DESIGN.md 163章）。旧/teams/statsへのリンクは既定のタブ（全チームスタッツ）の
 // /teams に送る（下記TeamsStatsRedirect参照）
 export function TeamsListPage({ season }: { season: string }) {
+  const league = useLeague();
   // ページのタブはURLのクエリ（view）に持つ（DESIGN.md 163章）。切り替えたら前のタブのフィルタのクエリは消す
-  const [tab, setTabParam] = useUrlState(TEAMS_VIEW_PARAM, "stats");
+  const [urlTab, setTabParam] = useUrlState(TEAMS_VIEW_PARAM, "stats");
+  // B.ONE で見られないタブが URL にあるときは全チームスタッツにする（タブのボタンには理由を出す）
+  const tab: TeamsPageTab = league === "one" && ONE_TEAMS_TAB_REASONS[urlTab] ? "stats" : urlTab;
   const setTab = (next: TeamsPageTab) => {
     if (next === tab) return;
     clearUrlParams();
@@ -213,6 +219,8 @@ export function TeamsListPage({ season }: { season: string }) {
           className={`tab-button${tab === "records" ? " active" : ""}`}
           onClick={() => setTab("records")}
           type="button"
+          disabled={league === "one"}
+          title={league === "one" ? ONE_TEAMS_TAB_REASONS.records : undefined}
         >
           記録
         </button>
@@ -220,6 +228,8 @@ export function TeamsListPage({ season }: { season: string }) {
           className={`tab-button${tab === "champions" ? " active" : ""}`}
           onClick={() => setTab("champions")}
           type="button"
+          disabled={league === "one"}
+          title={league === "one" ? ONE_TEAMS_TAB_REASONS.champions : undefined}
         >
           歴代王者
         </button>
@@ -231,14 +241,15 @@ export function TeamsListPage({ season }: { season: string }) {
           直近成績
         </button>
       </div>
+      {league === "one" && ONE_TEAMS_TAB_REASONS[urlTab] && <p className="standings-tab-note">{ONE_TEAMS_TAB_REASONS[urlTab]}</p>}
       {tab === "stats" ? (
-        <AllTeamsStatsTab season={season} />
+        <AllTeamsStatsTab season={season} league={league} />
       ) : tab === "records" ? (
         <RecordsTab season={season} />
       ) : tab === "champions" ? (
         <ChampionsTab />
       ) : (
-        <RecentFormTab season={season} />
+        <RecentFormTab season={season} league={league} />
       )}
     </div>
   );
@@ -430,18 +441,20 @@ function foreignCourtReady(period: ForeignPeriodValue, source: TeamPeriodSource 
   return period === "all" ? logsSupported : hasForeignColumns(source);
 }
 
-function AllTeamsStatsTab({ season }: { season: string }) {
-  const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
-  const { supported: yahooPbpSupported } = useYahooPbpCoverage(season);
+function AllTeamsStatsTab({ season, league }: { season: string; league: League }) {
+  const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season, league), [season, league]);
+  // スポーツナビの記録は B.PREMIER だけ
+  const { supported: premierYahooPbpSupported } = useYahooPbpCoverage(season);
+  const yahooPbpSupported = league === "premier" && premierYahooPbpSupported;
   // ペイント内外の内訳は、プレーバイプレーの公式の区分で数えるため全シーズンで出る（2026-09-26。DESIGN.md 155章）
   const paintSupported = true;
 
-  const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams);
+  const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams, league);
   // リーグ平均（data/{season}/league-average.json。シュートタイプ・強制TOV・棒グラフで使う。DESIGN.md 149章）
-  const { data: leagueAverage } = useJsonData(() => fetchLeagueAverage(season).catch(() => null), [season]);
+  const { data: leagueAverage } = useJsonData(() => fetchLeagueAverage(season, league).catch(() => null), [season, league]);
   // 結果だけの試合（ボックススコアが公式に無い試合・不戦勝）。この表は試合ログ（スタッツのある試合）から数えるので、順位表と勝敗が1試合違うことがある
-  const { data: scheduleForNote } = useJsonData(() => fetchSchedule(season).catch(() => null), [season]);
-  const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season);
+  const { data: scheduleForNote } = useJsonData(() => fetchSchedule(season, league).catch(() => null), [season, league]);
+  const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season, true, league);
 
   // タブ・フィルタはURLのクエリに持つ（DESIGN.md 163章）。変えても履歴は増やさず、別のページから戻るとURLから元に戻る
   const [boxTab, setBoxTab] = useUrlState(TEAMS_BOX_TAB_PARAM, "traditional");
@@ -451,7 +464,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const [teamPerspective, setTeamPerspective] = useUrlState(PERSPECTIVE_PARAM, "own");
   const [turnoverPerspective, setTurnoverPerspective] = useUrlState(TURNOVER_PERSPECTIVE_PARAM, "forced");
   // 区間（試合全体・1Q〜4Q・前半・後半・延長。DESIGN.md 256章の段階2）。Traditional〜Scoring の4つのタブだけで効く。区間の値はチームのピリオド別の索引から出す
-  const [period, setPeriod] = useUrlState(TEAM_SEASON_PERIOD_PARAM, "all");
+  const [urlPeriod, setPeriod] = useUrlState(TEAM_SEASON_PERIOD_PARAM, "all");
+  // B.ONE の Q別・前後半・登録区分別は段階3（URL に書いてあっても試合全体・全選手で出す）
+  const period = league === "one" ? "all" : urlPeriod;
   const periodOption = seasonPeriodOption(period);
   // On-Court Foreign・Scoring % も区間を選べる（256章の段階3。On-Court Foreign は人数別の在コート時間、Scoring % は得点・試投の構成）
   const periodTab =
@@ -464,13 +479,14 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     boxTab === "timeToShot";
   const periodActive = periodTab && period !== "all";
   // 登録区分別（DESIGN.md 288章）。Traditional〜Scoring の4つのタブだけで効く。区間（Q別・前後半）との併用は段階6までは選べない（区間を選んでいるときは区間を優先）
-  const [classFilter, setClassFilter] = useUrlState(CLASSIFICATION_PARAM, "all");
+  const [urlClassFilter, setClassFilter] = useUrlState(CLASSIFICATION_PARAM, "all");
+  const classFilter = league === "one" ? "all" : urlClassFilter;
   const classTab = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
   const classActive = classTab && classFilter !== "all" && !periodActive;
   const splitClass: "jp" | "intl" = classFilter === "日本人" ? "jp" : "intl";
-  const { state: classState, retry: retryClass } = useClassSplitSource(season, classActive);
+  const { state: classState, retry: retryClass } = useClassSplitSource(season, classActive, league);
   const classSource = classActive && classState.status === "ready" ? classState.source : null;
-  const { source: periodSource, loading: periodLoading } = useTeamPeriodSource(season, periodActive);
+  const { source: periodSource, loading: periodLoading } = useTeamPeriodSource(season, periodActive, league);
   // On-Court Foreignの並び順（DESIGN.md 135章）。ブラウザバックで戻ったときも保持する（usePageState、シーズンをまたいで共通）
   const [storedForeignOrder, setForeignOrder] = usePageState<ForeignCourtOrder>("teams:foreignOrder", "foreignDesc");
   // 選択肢の変更（2026-09-25）より前に保持した値（foreignAsc）が残っていても、初期値に戻して扱う
@@ -494,11 +510,11 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     if (!teams || !gameLogsByTeam) return map;
     for (const team of teams) {
       const logs = gameLogsByTeam.get(team.teamId) ?? [];
-      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => team.teamId);
+      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => team.teamId, league);
       map.set(team.teamId, filterByGameType(situational, gameType));
     }
     return map;
-  }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season]);
+  }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season, league]);
   // 区分が付かない行（マスタに無い選手）があるか。あれば、どちらの区分にも入らない分があると注記する
   const classUnclassified = useMemo(() => {
     if (!classSource) return false;
@@ -578,7 +594,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   // Time to Shot（DESIGN.md 290章）: 選んだ試合区分・試合の条件・区間の試合の、攻撃の始まりから最初のFGの試投までの秒数。視点は自チーム／opp（同じ試合の相手のシュート）／+/-
   const ttsTab = boxTab === "timeToShot";
   const ttsSupported = ttsSeasonSupported(season);
-  const { source: ttsSource, loading: ttsLoading, retry: retryTts } = useTtsSource(season, ttsTab && ttsSupported);
+  const { source: ttsSource, loading: ttsLoading, retry: retryTts } = useTtsSource(season, ttsTab && ttsSupported, league);
   const ttsRows: TtsTeamRow[] = useMemo(() => {
     if (!ttsTab || !teams) return [];
     return teams.map((team) => {
@@ -612,7 +628,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
   const foulSplit = foulColumnsSplit([season]);
   useFoulConditionCleanup(season, statConditions, setStatConditions);
   // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
-  useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
+  useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType, league });
   const mainTab = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
   const conditionTab = mainTab || boxTab === "shooting" || boxTab === "forcedTurnovers";
   const seasonRows: AllTeamsRow[] = useMemo(() => {
@@ -686,7 +702,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
 
   // 「Streaks」（DESIGN.md 261章）: レギュラーシーズンの連勝・連敗。結果だけの試合（不戦勝など）も数える（順位表・クラブレコードと同じ部品）。
   // 続いている連続は、そのシーズンがまだ終わっていないとき（今のシーズンで、7・8月のオフでなく、レギュラーシーズンの全試合が終わっていない）に「継続中」
-  const streaksCompleted = useCompletedRegularSeasons([season], boxTab === "streaks");
+  const streaksCompleted = useCompletedRegularSeasons([season], boxTab === "streaks", league);
   const streaksRunning = !isOffseasonMonth() && !isPastSeason(season) && !streaksCompleted?.has(season);
   const streakLogsByTeam = useMemo(
     () => (boxTab === "streaks" ? withResultOnlyLogs(gameLogsByTeam, scheduleForNote?.resultOnlyGames) : null),
@@ -857,7 +873,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     return list;
   }, [boxTab, teams, gameLogsByTeam, foreignPeriod, periodSource, foreignLogsSupported, scopedLogsByTeam, foreignSide]);
   const foreignShareById = useMemo(() => new Map((foreignRows ?? []).map((r) => [r.team.teamId, r.share])), [foreignRows]);
-  const foreignMax = foreignRules?.find((r) => r.season === season)?.maxForeignOnCourt;
+  const foreignMax = foreignRules ? seasonRuleFor(foreignRules, season, league)?.maxForeignOnCourt : undefined;
   // 表の人数の列は規定の上限まで。上限を超える人数でも、時間のあるチームがあれば出す
   const foreignCounts = FOREIGN_COUNTS.filter(
     (n) => foreignMax === undefined || n <= foreignMax || (foreignRows ?? []).some((r) => r.share.seconds[n]! > 0),
@@ -938,7 +954,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
       disabledValues: isForeignCategory ? ["diff"] : undefined,
     }),
     classificationAxis(classFilter, setClassFilter, {
-      disabledReason: !classTab
+      disabledReason: league === "one"
+        ? ONE_CLASS_REASON
+        : !classTab
         ? "登録区分別の値は Traditional〜Scoring のタブでだけ見られます。"
         : periodActive
           ? "Q別・前後半と登録区分の併用は準備中です。区間を「試合全体」にすると選べます。"
@@ -946,7 +964,9 @@ function AllTeamsStatsTab({ season }: { season: string }) {
     }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: displayDisabledReason }),
     periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, {
-      disabledReason: periodTab && classTab && classFilter !== "all"
+      disabledReason: league === "one"
+        ? ONE_PERIOD_REASON
+        : periodTab && classTab && classFilter !== "all"
         ? "登録区分を選んでいるときは区間を選べません（併用は準備中です）。登録区分を「全選手」にすると選べます。"
         : periodTab
         ? undefined
@@ -1108,7 +1128,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
 
       {boxTab === "shooting" ? (
         !yahooPbpSupported ? (
-          <p className="empty-message">このシーズンのデータには対応していません</p>
+          <p className="empty-message">{league === "one" ? "B.ONE では、まだ見られません（今後対応します）。" : "このシーズンのデータには対応していません"}</p>
         ) : (
           <>
             <div className="table-scroll">
@@ -1129,7 +1149,7 @@ function AllTeamsStatsTab({ season }: { season: string }) {
         )
       ) : boxTab === "forcedTurnovers" ? (
         !yahooPbpSupported ? (
-          <p className="empty-message">このシーズンのデータには対応していません</p>
+          <p className="empty-message">{league === "one" ? "B.ONE では、まだ見られません（今後対応します）。" : "このシーズンのデータには対応していません"}</p>
         ) : (
           <>
             <div className="mode-toggle">
@@ -1539,9 +1559,9 @@ function TeamNavLink({
   }
   const lastSeason = lastPremierSeasonFor(divisionHistory, teamId);
   return (
-    <Link to={lastSeason ? `/teams/${teamId}?season=${lastSeason}` : `/teams/${teamId}`} className={className}>
+    <SeasonLink to={lastSeason ? `/teams/${teamId}?season=${lastSeason}` : `/teams/${teamId}`} className={className}>
       {children}
-    </Link>
+    </SeasonLink>
   );
 }
 
@@ -1927,7 +1947,7 @@ function ChampionsTab() {
     Promise.all(
       neededSeasons.map(async (s): Promise<readonly [string, TeamSummary[]]> => {
         try {
-          return [s, await fetchTeams(s)] as const;
+          return [s, await fetchTeams(s, "premier")] as const;
         } catch {
           return [s, []] as const;
         }
@@ -2103,21 +2123,21 @@ interface RecentFormRow {
   streak: TeamStreak | null;
 }
 
-function RecentFormTab({ season }: { season: string }) {
-  const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season), [season]);
+function RecentFormTab({ season, league }: { season: string; league: League }) {
+  const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(() => fetchTeams(season, league), [season, league]);
 
   const [recentN, setRecentN] = useUrlState(TEAM_RECENT_N_PARAM, 5);
 
-  const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams);
+  const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, teams, league);
   // 「対戦相手の加重平均勝率」用。既存のbuildRecordsBeforeGame()（対勝率別フィルタ・48章と
   // 同じロジック）をそのまま再利用し、各対戦相手のその試合時点までの勝敗数を求める
-  const { opponentRecords } = useLeagueSituationalContext(season);
+  const { opponentRecords } = useLeagueSituationalContext(season, true, league);
 
   const rows: RecentFormRow[] = useMemo(() => {
     if (!teams || !gameLogsByTeam) return [];
     return teams.map((team) => {
       const logs = gameLogsByTeam.get(team.teamId) ?? [];
-      const recentLogs = filterGameLogs(logs, { range: { kind: "recent", n: recentN }, includePlayoffs: true });
+      const recentLogs = filterGameLogs(logs, { range: { kind: "recent", n: recentN }, includePlayoffs: true }, undefined, undefined, undefined, undefined, league);
       const wins = recentLogs.filter((g) => g.win).length;
       const gamesPlayed = recentLogs.length;
       const ptsSum = recentLogs.reduce((s, g) => s + g.teamScore, 0);
@@ -2143,7 +2163,7 @@ function RecentFormTab({ season }: { season: string }) {
         streak: currentStreak(logs),
       };
     });
-  }, [teams, gameLogsByTeam, opponentRecords, recentN]);
+  }, [teams, gameLogsByTeam, opponentRecords, recentN, league]);
 
   const columns: Column<RecentFormRow>[] = [
     {

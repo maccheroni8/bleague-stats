@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { SeasonLink as RouterLink } from "./SeasonLink";
 import type { TeamGameLog } from "../../shared/types";
 import { streakResultOnlyNote, type StreakKind, type StreakRow, type StreakRun } from "../lib/streakRecords";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";

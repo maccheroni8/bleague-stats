@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { postseasonFormat } from "../../shared/postseasonFormat";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
-import { fetchDivisionHistory, fetchGameSummaries, fetchSchedule, fetchTeams } from "./data";
+import { fetchDivisionHistory, fetchGameSummaries, fetchSchedule, fetchTeams, type League } from "./data";
 import { useJsonData } from "./useJsonData";
 import type { SituationalFilter } from "./situational";
 import { foulColumnsSplit, foulKeyVisible } from "./ruleChange";
@@ -36,24 +36,24 @@ export interface SeasonScope {
 }
 
 /** シーズンの期間・月・地区構成・在籍クラブを読む（読み込み中は null） */
-export function useSeasonScope(season: string): SeasonScope | null {
+export function useSeasonScope(season: string, league: League = "premier"): SeasonScope | null {
   // 読み込み中は前のシーズンのデータが残るため、どのシーズンのデータかを添えて読み、今のシーズンと一致するときだけ使う
   const { data } = useJsonData(
     () =>
       Promise.all([
-        fetchGameSummaries(season).catch(() => []),
-        fetchSchedule(season).catch(() => null),
+        fetchGameSummaries(season, league).catch(() => []),
+        fetchSchedule(season, league).catch(() => null),
         fetchDivisionHistory().catch(() => null),
-        fetchTeams(season).catch(() => []),
+        fetchTeams(season, league).catch(() => []),
       ]).then(([summaries, schedule, history, teams]) => ({ season, summaries, schedule, history, teams })),
-    [season],
+    [season, league],
   );
   return useMemo(() => {
     if (!data || data.season !== season) return null;
     const { summaries, schedule, history, teams } = data;
     const dates = [...summaries.map((g) => g.date), ...(schedule?.upcomingGames ?? []).map((g) => g.date)].filter(Boolean).sort();
     if (dates.length === 0) return null;
-    const seasonDivisions = history?.premier?.[season];
+    const seasonDivisions = history?.[league]?.[season];
     return {
       season,
       start: dates[0]!,
@@ -61,9 +61,9 @@ export function useSeasonScope(season: string): SeasonScope | null {
       months: new Set(dates.map((d) => Number(d.slice(5, 7)))),
       divisions: seasonDivisions ? new Set<string>(Object.values(seasonDivisions)) : null,
       teamIds: teams.length > 0 ? new Set(teams.map((t) => t.teamId)) : null,
-      postseasonHeld: postseasonFormat(season) !== null,
+      postseasonHeld: postseasonFormat(season, league) !== null,
     };
-  }, [season, data]);
+  }, [season, data, league]);
 }
 
 export interface SeasonScopedFilters {
@@ -127,8 +127,9 @@ export function useSeasonFilterCleanup(opts: {
   setClubs?: Dispatch<SetStateAction<string[]>>;
   gameType?: SeasonGameTypeFilter;
   setGameType?: Dispatch<SetStateAction<SeasonGameTypeFilter>>;
+  league?: League;
 }): void {
-  const scope = useSeasonScope(opts.season);
+  const scope = useSeasonScope(opts.season, opts.league);
   const checkedSeasonRef = useRef<string | null>(null);
   const latest = useRef(opts);
   latest.current = opts;

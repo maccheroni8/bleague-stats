@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { SeasonLink } from "./SeasonLink";
 import { formatTeamRecordDetail, formatTeamRecordValue, type TeamGameRecordRow } from "../lib/teamGameRecords";
 import { useNarrow } from "../lib/teamLabel";
 import { RecordValue } from "./RecordValue";
@@ -27,7 +27,7 @@ export function TeamRecordLeaderCard({
   const ties = rows.filter((r) => r.rank === 1).length;
   const date = narrow ? first.date.replace(/-/g, "/").slice(2) : first.date;
   return (
-    <Link to={to} className="career-high-card career-high-card-link" aria-label={`${label}のランキングを見る`}>
+    <SeasonLink to={to} className="career-high-card career-high-card-link" aria-label={`${label}のランキングを見る`}>
       <div className="career-high-label">{label} ›</div>
       <div className="career-high-value">
         <RecordValue
@@ -50,6 +50,6 @@ export function TeamRecordLeaderCard({
       </div>
       {first.detail && <div>{formatTeamRecordDetail(first.detail, first.value)}</div>}
       {ties > 1 && <div className="career-high-others-toggle">ほか{ties - 1}試合</div>}
-    </Link>
+    </SeasonLink>
   );
 }

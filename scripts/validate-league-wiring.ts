@@ -88,6 +88,7 @@ const ALLOWED_RAW_LINKS: Record<string, string> = {
   "src/App.tsx": "リーグの切り替え（leagueSwitchUrl で league を書いた URL へ移る）",
   "src/lib/urlState.ts": "今の URL のクエリを書き換えるだけ（league はそのまま残る）",
   "src/components/SeasonLink.tsx": "league を引き継ぐ部品そのもの",
+  "src/pages/TeamsListPage.tsx": "旧URLの転送（今の URL のクエリをそのまま引き継ぐので league も残る。記録タブは B.PREMIER だけ）",
 };
 
 /** 読み込みの使い回しのうち、リーグに関係しないもの（理由つき）。ファイル単位 */

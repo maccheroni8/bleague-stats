@@ -55,20 +55,20 @@ export function loadTtsSource(season: string, league: League = "premier"): Promi
 }
 
 /** 有効なときだけ読む。source は読めたもの（読めなかったら null）、loading は読み込み中、retry() で読み直す */
-export function useTtsSource(season: string, enabled: boolean): { source: TtsSource | null; loading: boolean; retry: () => void } {
+export function useTtsSource(season: string, enabled: boolean, league: League = "premier"): { source: TtsSource | null; loading: boolean; retry: () => void } {
   const [state, setState] = useState<{ season: string; nonce: number; source: TtsSource | null } | null>(null);
   const [nonce, setNonce] = useState(0);
   useEffect(() => {
     if (!enabled) return;
     let alive = true;
-    loadTtsSource(season).then(
+    loadTtsSource(season, league).then(
       (source) => alive && setState({ season, nonce, source }),
       () => alive && setState({ season, nonce, source: null }),
     );
     return () => {
       alive = false;
     };
-  }, [season, enabled, nonce]);
+  }, [season, enabled, nonce, league]);
   const ready = state && state.season === season && state.nonce === nonce;
   return { source: ready ? state.source : null, loading: enabled && !ready, retry: () => setNonce((n) => n + 1) };
 }

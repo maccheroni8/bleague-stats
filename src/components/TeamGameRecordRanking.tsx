@@ -45,6 +45,7 @@ import { useGameIndexViews, useGameRecordOptions } from "../lib/useGameRecordDat
 import { useTeamPeriodFiles } from "../lib/useTeamPeriodFiles";
 import { GAME_RECORD_PERIOD_OPTIONS, GAME_RECORD_PERIOD_PARAM, PERIOD_WORST_UNSUPPORTED_REASON, gameRecordPeriodLabel, gameRecordPeriodOf } from "../lib/gameRecordPeriod";
 import { DEFAULT_STAT_CONDITIONS, statConditionMatcher, statConditionsTitle } from "../lib/statConditions";
+import { RECORD_MODE_PARAM } from "../lib/teamRecordRankingUrl";
 import { enumParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
 import { GAME_TYPE_PARAM, RECORDS_SCOPE_PARAM, type RecordsScope } from "../lib/urlFilterParams";
 import type { SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
@@ -72,26 +73,7 @@ import { TeamLogo } from "./TeamLogo";
 
 // 項目キーは「q1:mostPts」のようにコロンを含む
 const STAT_PARAM = stringParam("stat", "pts", (v) => /^[\w%:]+$/.test(v));
-export const RECORD_MODE_PARAM = enumParam<TeamRecordMode>("rmode", ["record", "worst", "against"], "record");
 const PBP_NOTE = "公式のクォーター別スコアが欠けている試合のため、プレーバイプレーの得点から出した値です。";
-
-/** チームの1試合記録のランキングの URL（チーム一覧の記録タブのカードから移るとき） */
-export function teamGameRecordRankingUrl(opts: {
-  scope: RecordsScope;
-  gameType: SeasonGameTypeFilter;
-  mode: TeamRecordMode;
-  statKey: string;
-  season?: string;
-}): string {
-  const p = new URLSearchParams();
-  p.set("k", "game");
-  RECORDS_SCOPE_PARAM.write(p, opts.scope);
-  GAME_TYPE_PARAM.write(p, opts.gameType);
-  RECORD_MODE_PARAM.write(p, opts.mode);
-  p.set("stat", opts.statKey);
-  if (opts.season) p.set("season", opts.season);
-  return `/rankings?${p.toString()}`;
-}
 
 /** 名前の下の行: 日付（シーズン）・対戦相手（クォーター別・前後半別は区間のスコアも） */
 function TeamGameRecordLine({ r }: { r: TeamGameRecordRow }) {

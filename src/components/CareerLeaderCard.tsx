@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { SeasonLink } from "./SeasonLink";
 
 /**
  * 個人・チームの「記録」タブの通算成績のカード（DESIGN.md 192章）: 項目ごとの1位。カード全体が、ランキングページの通算記録の同じ項目へのリンク。
@@ -24,7 +24,7 @@ export function CareerLeaderCard({
   to: string;
 }) {
   return (
-    <Link to={to} className="career-high-card career-high-card-link" aria-label={`${label}のランキングを見る`}>
+    <SeasonLink to={to} className="career-high-card career-high-card-link" aria-label={`${label}のランキングを見る`}>
       <div className="career-high-label">{label} ›</div>
       <div className="career-high-value career-high-value-fit">{valueText}</div>
       <div>
@@ -37,6 +37,6 @@ export function CareerLeaderCard({
           {unit}
         </div>
       )}
-    </Link>
+    </SeasonLink>
   );
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { SeasonLink as RouterLink } from "./SeasonLink";
+import type { League } from "../lib/league";
 import { teamShortName } from "../../shared/teamNames";
 import {
   PERIOD_KEYS,
@@ -275,8 +276,10 @@ export function SeasonPeriodAverages({
   gameType,
   leagueRankings,
   stateKey,
+  league = "premier",
 }: {
   teamId: string;
+  league?: League;
   /** シーズンの古い順 */
   careerData: { season: string; logs: TeamGameLog[] }[];
   gameType: LeagueRankingGameType;
@@ -286,8 +289,8 @@ export function SeasonPeriodAverages({
   const [period, setPeriod] = usePageState<PeriodKey>(`${stateKey}:period`, "q1");
   const seasons = careerData.map((cd) => cd.season);
   const { data: files } = useJsonData(
-    () => Promise.all(seasons.map((s) => fetchPeriodAverages(s))),
-    [seasons.join(",")],
+    () => Promise.all(seasons.map((s) => fetchPeriodAverages(s, league))),
+    [seasons.join(","), league],
   );
   const fileBySeason = new Map<string, PeriodAveragesFile>();
   (files ?? []).forEach((f, i) => {

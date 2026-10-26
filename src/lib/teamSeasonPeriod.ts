@@ -6,6 +6,7 @@
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
 import { useEffect, useMemo, useState } from "react";
 import type { TeamGameLog } from "../../shared/types";
+import type { League } from "./league";
 import type { BoxscoreTabKey } from "../components/BoxscoreTable";
 import { formatDecimal, formatSigned } from "./format";
 import type { SeasonDisplayMode } from "./playerSeasonBoxscore";
@@ -31,7 +32,7 @@ export type SeasonPeriodSourceState = { status: "loading" } | { status: "ready";
  * 区間を選んでいる間だけ、シーズンの索引を読む。読み込みが終わったシーズンから順に state に入る（全部を待たずに表の行を出せる）。
  * 読めなかった（ファイルが無い・古い形式・通信の失敗）シーズンは unreadable。読み直すときは retry()
  */
-export function useTeamPeriodSources(seasons: readonly string[], enabled: boolean): {
+export function useTeamPeriodSources(seasons: readonly string[], enabled: boolean, league: League = "premier"): {
   states: Map<string, SeasonPeriodSourceState>;
   loadedCount: number;
   total: number;
@@ -44,7 +45,7 @@ export function useTeamPeriodSources(seasons: readonly string[], enabled: boolea
     if (!enabled) return;
     let alive = true;
     for (const season of seasonsKey ? seasonsKey.split(",") : []) {
-      loadTeamPeriodSource(season).then(
+      loadTeamPeriodSource(season, league).then(
         (source) => alive && setLoaded((prev) => new Map(prev).set(season, source ? { status: "ready", source } : { status: "unreadable" })),
         () => alive && setLoaded((prev) => new Map(prev).set(season, { status: "unreadable" })),
       );
@@ -52,7 +53,7 @@ export function useTeamPeriodSources(seasons: readonly string[], enabled: boolea
     return () => {
       alive = false;
     };
-  }, [seasonsKey, enabled, nonce]);
+  }, [seasonsKey, enabled, nonce, league]);
   const states = useMemo(() => {
     const m = new Map<string, SeasonPeriodSourceState>();
     for (const s of seasonsKey ? seasonsKey.split(",") : []) m.set(s, loaded.get(s) ?? { status: "loading" });

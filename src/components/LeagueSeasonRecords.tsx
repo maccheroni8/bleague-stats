@@ -20,7 +20,8 @@ import { ConditionTitle } from "./ConditionTitle";
 import { FilterBar } from "./FilterBar";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
 import { ClubPeriodRecords } from "./TeamPeriodRecords";
-import { RECORD_MODE_PARAM, teamGameRecordRankingUrl } from "./TeamGameRecordRanking";
+import { useLeague } from "../lib/league";
+import { RECORD_MODE_PARAM, teamGameRecordRankingUrl } from "../lib/teamRecordRankingUrl";
 import { TeamRecordLeaderCard } from "./TeamRecordLeaderCard";
 
 /**
@@ -29,14 +30,15 @@ import { TeamRecordLeaderCard } from "./TeamRecordLeaderCard";
  * 値は各クラブの試合ログ（team-games）からその場で求めるため、取り込みで試合ログが更新されれば、進行中のシーズンもそのまま新しい記録になる
  */
 export function LeagueSeasonRecords({ defaultSeason }: { defaultSeason: string }) {
+  const league = useLeague();
   // シーズン・試合種別・記録の種類はURLのクエリに持つ（rseason・gt・rmode。DESIGN.md 163章）
   const [season, setSeason] = useUrlState(stringParam("rseason", defaultSeason, (v) => /^\d{4}-\d{2}$/.test(v)), defaultSeason);
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [mode, setMode] = useUrlState(RECORD_MODE_PARAM, "record");
 
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
-  const { data: teams, loading: teamsLoading } = useJsonData(() => fetchTeams(season), [season]);
-  const { gameLogsByTeam, loading: logsLoading } = useAllTeamGameLogs(season, teams);
+  const { data: teams, loading: teamsLoading } = useJsonData(() => fetchTeams(season, league), [season, league]);
+  const { gameLogsByTeam, loading: logsLoading } = useAllTeamGameLogs(season, teams, league);
 
   const games = useMemo<TeamRecordGame[]>(() => {
     if (!teams || !gameLogsByTeam) return [];

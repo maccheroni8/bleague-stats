@@ -2,10 +2,10 @@
 // チーム詳細「クラブレコード」の連勝・連敗（全シーズン）に、結果だけの試合を足すために使う。集計のコードから読まれない場所（保存キーの対象外）に置く。
 import { useEffect, useState } from "react";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
-import { fetchSchedule } from "./data";
+import { fetchSchedule, type League } from "./data";
 
 /** seasons の日程から結果だけの試合を読む。読み込み中・enabled=false は null。読めなかったシーズンは空として扱う */
-export function useResultOnlyBySeason(seasons: readonly string[] | null, enabled: boolean): Map<string, ResultOnlyGameEntry[]> | null {
+export function useResultOnlyBySeason(seasons: readonly string[] | null, enabled: boolean, league: League = "premier"): Map<string, ResultOnlyGameEntry[]> | null {
   const key = seasons ? [...seasons].sort().join(",") : "";
   const [state, setState] = useState<{ key: string; bySeason: Map<string, ResultOnlyGameEntry[]> } | null>(null);
   useEffect(() => {
@@ -14,7 +14,7 @@ export function useResultOnlyBySeason(seasons: readonly string[] | null, enabled
     Promise.all(
       key.split(",").map(async (season) => {
         try {
-          return [season, (await fetchSchedule(season)).resultOnlyGames ?? []] as const;
+          return [season, (await fetchSchedule(season, league)).resultOnlyGames ?? []] as const;
         } catch {
           return [season, [] as ResultOnlyGameEntry[]] as const;
         }
@@ -25,6 +25,6 @@ export function useResultOnlyBySeason(seasons: readonly string[] | null, enabled
     return () => {
       cancelled = true;
     };
-  }, [key, enabled]);
+  }, [key, enabled, league]);
   return state && state.key === key ? state.bySeason : null;
 }

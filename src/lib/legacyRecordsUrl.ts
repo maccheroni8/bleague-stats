@@ -1,7 +1,7 @@
 import { PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { CAREER_TOTAL_DEFS } from "../../shared/teamRecords";
 import { careerRecordRankingUrl } from "../components/CareerRecordRanking";
-import { RECORD_MODE_PARAM, teamGameRecordRankingUrl } from "../components/TeamGameRecordRanking";
+import { RECORD_MODE_PARAM, teamGameRecordRankingUrl } from "./teamRecordRankingUrl";
 import { teamSeasonRecordRankingUrl } from "../components/TeamSeasonRecordRanking";
 import { teamRecordItems } from "./teamGameRecords";
 import { GAME_TYPE_PARAM, VENUE_PARAM } from "./urlFilterParams";
