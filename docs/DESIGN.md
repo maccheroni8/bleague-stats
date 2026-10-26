@@ -15050,7 +15050,7 @@ Codex が計算の試作と検証を済ませた（`codex/tts` の `a9db2f46a`�
 - **ヘッダーに「B.PREMIER／B.ONE」の切り替え**。URL は今の形に `league=one` を足す（書かなければ B.PREMIER。今までの URL・共有リンクはそのまま B.PREMIER）。ページを移っても保つ（`SeasonLink`・`SeasonNavLink` が season と一緒に引き継ぐ）。
 - **B.ONE のシーズンは 2026-27 だけ**（`src/lib/league.ts` の `ONE_SEASONS`）。旧B2 2025-26 は画面のシーズンの選択肢に出さない。選手詳細の通算成績・キャリアハイの今の部分表示（`ONE_CATEGORY_SEASONS`）で、表示名を「B.ONE」から「**B2**」に直すだけ（push 2）。
 - 最初に出す画面: ホーム・日程・試合詳細（push 1）、順位表・図解・クラブ（一覧・詳細）・選手（一覧・詳細）・全チームスタッツ・全選手スタッツ（push 2）。
-- **段階3で出すもの**（段階2では B.ONE を選んだときに理由を出して選べなくする）: Q別・前後半（シーズン単位の索引を使うもの）・歴代・達成/連続・On/Off・マジックと進出確定・ランキングのページ・比較のページ。チーム詳細の通算成績・クラブレコード・比較のタブも段階3。
+- **段階3で出すもの**（段階2では B.ONE を選んだときに理由を出して選べなくする）: Q別・前後半（シーズン単位の索引を使うもの）・歴代・達成/連続・On/Off・マジックと進出確定・ランキングのページ・比較のページ。チーム詳細の通算成績・クラブレコード・比較のタブも段階3。**ホームの「ランキングを見る」**は、段階3でランキングのページを B.ONE に対応させ `ONE_PAGE_AVAILABILITY.rankings` を `READY` にしたときに B.ONE のホームにも出る（それまでは出さない。`HomePage.tsx` の `canOpen`）。
 - 順位表は、B.ONE のデータがあるタブは出す（順位表〔地区順位・ワイルドカード順位・プレーオフ出場圏〕・星取り表・勝敗表・条件別順位表・各推移）。データが無いタブ（年間スケジュールなど）とマジックナンバーは理由を出して選べなくする。
 - チーム詳細のタブ: 概要・チームスタッツ・選手スタッツ・ラインナップ（5人組だけ。On/Off は段階3）・日程結果・対戦相手別・対戦成績を出す。
 - ランキング・記録はリーグ別（合算しない）。選手は共通（PlayerID は両リーグ共通）で、成績はリーグごとに分けて表示。
@@ -15084,7 +15084,7 @@ push 1 の時点の「残り」: league の渡し忘れ 138件・37ファイル�
 
 共通: 各画面の `ONE_PAGE_AVAILABILITY` を `READY` にし、`validate:league-wiring` を0件にする（ページから `useLeague()`、読み込みに `league`、依存に `league`、`DIVISION_ORDER` でなく `divisionOrder(league)`、`rules.find` でなく `seasonRuleFor(…, league)`、`situational.ts` の地区の条件の `"premier"` 固定〔`matchesDivision`・`matchesOwnDivision` の呼び出し。531〜532行あたり〕をリーグに）。段階3の機能（Q別・前後半の選択〔シーズン単位の索引〕・歴代・達成/連続・On/Off・マジック・進出確定・ルーキー）は B.ONE で理由を出して選べなくする（理由の文は1か所にまとめる。`leagueAvailability.ts` に足す）。見え方は PC・スマホ幅・ダーク表示・保存画像で確かめる。
 
-1. **順位表**（`StandingsPage.tsx` と部品）: 順位表タブ（地区順位・ワイルドカード順位・プレーオフ出場圏〔`postseasonFormat(season, "one")`＝各地区上位2＋WC6。★〈ホームコートの確定〉は出さない〕）・星取り表（`fetchHeadToHead`。地区は5つ）・勝敗表・条件別順位表・順位推移・勝ち星推移・貯金推移を出す。年間スケジュール（`AnnualSchedule.tsx`。大会日程は B.PREMIER のもの）とマジックナンバーは理由を出して選べなくする。`WinLossGrid.tsx` の直接のリンク。
+1. **順位表**（`StandingsPage.tsx` と部品）: 順位表タブ（地区順位・ワイルドカード順位・プレーオフ出場圏〔`postseasonFormat(season, "one")`＝各地区上位2＋WC6。★〈ホームコートの確定〉は出さない〕）・星取り表（`fetchHeadToHead`。地区は5つ）・勝敗表・条件別順位表・順位推移・勝ち星推移・貯金推移を出す。年間スケジュール（`AnnualSchedule.tsx`。大会日程は B.PREMIER のもの）とマジックナンバーは理由を出して選べなくする。`WinLossGrid.tsx` の直接のリンク。**ホームの「順位表を見る」**は、`ONE_PAGE_AVAILABILITY.standings` を `READY` にすれば B.ONE のホームにも出る（`HomePage.tsx` の `canOpen`。出ることを画面で確かめる）。
 2. **図解**（`FiguresPage.tsx`・`src/figures/`）: 296-4章のとおり（ページの `category` の口を `useLeague()` に、読み込みと鍵にリーグ、B.ONE の地区の並び）。年齢分布の区分の5択は push 3。
 3. **チーム**（`TeamsListPage.tsx`・`TeamDetailPage.tsx`）: 一覧と全チームスタッツは B.ONE の25クラブ・5地区、On-Court Foreign の上限3（`fetchSeasonRules` の使い方を `seasonRuleFor` に）。歴代の記録・歴代優勝のタブ、Q別・前後半（Periods の区間・シーズン単位の索引）、Streaks の連続などは段階3（理由を出す）。チーム詳細のタブは 297-1 のとおり。昇格・降格したクラブ（新潟・FE名古屋・越谷・福岡）は、シーズンとリーグの組で行・リンクを分ける（チーム詳細のシーズンの選択に、もう一方のリーグのシーズンへのリンク）。`TtsTable.tsx`・`TeamPeriodRecords.tsx`・`StreakRecordCard.tsx` などの直接のリンク。
 4. **選手**（`PlayersListPage.tsx`・`PlayerDetailPage.tsx`）: 全選手スタッツは B.ONE の選手の成績（記録・表彰のタブは段階3）。選手詳細は共通の1ページで、成績はヘッダーのリーグ×シーズン。そのリーグ×シーズンに出場が無ければ、出場のあるリーグへのリンクを出す（`league=premier` を書いたリンクで B.PREMIER へ）。通算成績・キャリアハイの「リーグ」の選択は残し、ヘッダーのリーグを初期値にする。`ONE_CATEGORY_SEASONS`（`["2025-26"]`）に 2026-27 を足し、2025-26 の表示名を「**B2**」にする（`CAREER_CATEGORY_LABELS` はリーグの名前なので、シーズンで表示名を変える関数を足す）。今の部分表示は消さない。B.PREMIER から B.ONE に移った選手（星野 曹樹 30436・関屋 心 51000330 など）で確かめる。
