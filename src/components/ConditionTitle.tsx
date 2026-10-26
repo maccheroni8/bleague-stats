@@ -1,5 +1,7 @@
 import { Fragment } from "react";
 import { joinLabels, LABEL_SEPARATOR, visibleConditionLabels } from "../lib/conditionLabels";
+import { exportHeadingLines } from "../lib/exportHeading";
+import { LEAGUE_LABELS, useLeague } from "../lib/league";
 
 /**
  * 条件ラベル1つ。ラベルの途中では折り返さないが、複数選択の並び（「ポジション: PG、PG/SG、…」）は長くなりうるので、
@@ -41,14 +43,20 @@ function renderTitle(title: string) {
  *
  * section: ページ内の見出し（従来の`<h2>`）の置き換えとして使うとき、`<h2>`と同じ上余白を付ける。
  * 画像出力の内側や、タブの先頭直下に置くときは指定しない
+ *
+ * 保存画像の中では、見出しを2行（1行目「B.PREMIER 2026-27シーズン」・2行目「得点ランキング」）にする（exportHeading.ts。DESIGN.md 297章）。
+ * 見出しの先頭に範囲（シーズン・歴代・通算）が無いもの（比較・図解）は exportScope で範囲を渡す
  */
 export function ConditionTitle({
   title,
   conditions,
   section = false,
   statConditions,
+  exportScope,
 }: {
   title: string;
+  /** 保存画像の見出しの1行目に出す範囲（「2026-27シーズン」）。見出しの先頭に範囲が書いてあるときは要らない */
+  exportScope?: string;
   conditions: string[];
   section?: boolean;
   /**
@@ -59,9 +67,15 @@ export function ConditionTitle({
 }) {
   // 初期値のままの項目・カテゴリ名・登録区分は書かない（DESIGN.md 170章）
   const shown = visibleConditionLabels(conditions);
+  const league = useLeague();
+  const heading = exportHeadingLines(title, LEAGUE_LABELS[league], exportScope);
   return (
     <div className={`condition-title${section ? " condition-title-section" : ""}`}>
-      <h2>{renderTitle(title)}</h2>
+      <h2 className="export-hide">{renderTitle(title)}</h2>
+      <div className="export-only export-heading">
+        <p className="export-heading-scope">{heading.scope}</p>
+        <h2>{renderTitle(heading.name)}</h2>
+      </div>
       {shown.length > 0 && (
         // 幅が足りず折り返すときは、条件ラベルの区切り（／）でだけ折り返す（「試合全/体」のような単語の途中で切らない）
         <p className="condition-title-conditions">

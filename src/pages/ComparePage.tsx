@@ -64,6 +64,7 @@ import { RESULT_ONLY_MARK } from "../lib/recordFormat";
 import { resultOnlyCompareNote } from "../lib/resultOnlyGames";
 import { isDefaultFilter } from "../lib/situational";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
+import { seasonsScope } from "../lib/exportHeading";
 
 type Mode = "team" | "player";
 
@@ -607,7 +608,7 @@ function TeamCompareView({
         className={`export-target-versus export-versus-${Math.max(1, rows.length)}`}
         baseDate={compareBaseDate(slots.filter((_, i) => valid[i]))}
       >
-        {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} />}
+        {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} exportScope={seasonsScope(rows.map((r) => r.season))} />}
         <ComparisonTable
           statScope="team"
           rows={rows}
@@ -740,7 +741,7 @@ function PlayerCompareView({
         className={`export-target-versus export-versus-${Math.max(1, rows.length)}`}
         baseDate={compareBaseDate(slots.filter((_, i) => valid[i]))}
       >
-        {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} />}
+        {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} exportScope={seasonsScope(rows.map((r) => r.season))} />}
         <ComparisonTable
           rows={rows}
           defs={defs}

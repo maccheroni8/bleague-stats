@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { resolveBaseDate, type BaseDateSpec } from "../lib/dataBaseDate";
+import { exportFilenameWithLeague } from "../lib/exportFormat";
+import { LEAGUE_LABELS, useLeague } from "../lib/league";
 import { describeError, exportDebug, exportDebugEnd, exportDebugStart } from "../lib/exportDebugLog";
 import type { ExportPhase } from "../lib/exportFormat";
 import {
@@ -40,7 +42,7 @@ export interface RankingExportChoices {
 
 export function ExportImageButton({
   targetRef,
-  filename,
+  filename: baseFilename,
   baseDate,
   ranking,
 }: {
@@ -51,6 +53,9 @@ export function ExportImageButton({
   /** ランキングの保存の選択肢（指定したときだけ出す） */
   ranking?: RankingExportChoices;
 }) {
+  // ファイル名の先頭と基準日は、見ているリーグで決める（DESIGN.md 297章）
+  const league = useLeague();
+  const filename = exportFilenameWithLeague(baseFilename, LEAGUE_LABELS[league]);
   const [busy, setBusy] = useState(false);
   /** 画像を作っている段階（ボタンの文字に出す） */
   const [phase, setPhase] = useState<ExportPhase | null>(null);
@@ -116,7 +121,7 @@ export function ExportImageButton({
     try {
       const prepared = await prepareExportImage(target, filename, {
         options: { plain: ranking ? plain : false, top10: ranking ? top10 : false },
-        resolveBaseDate: baseDate ? () => resolveBaseDate(baseDate) : undefined,
+        resolveBaseDate: baseDate ? () => resolveBaseDate(baseDate, league) : undefined,
         env,
         onPhase: setPhase,
       });

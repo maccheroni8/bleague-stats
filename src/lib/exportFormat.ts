@@ -42,6 +42,15 @@ export function latestEndedGameDate(summaries: readonly GameSummary[], gameType:
   return latest;
 }
 
+/**
+ * ファイル名の先頭にリーグ名を付ける（「B.PREMIER_個人ランキング_2026-27_得点.png」。両リーグとも付ける。DESIGN.md 297章）。
+ * 拡張子が無い名前には .png を付ける（リーグ名の「.」を拡張子の区切りと取り違えないように）
+ */
+export function exportFilenameWithLeague(filename: string, leagueLabel: string): string {
+  const name = /\.(png|jpe?g)$/i.test(filename) ? filename : `${filename}.png`;
+  return `${leagueLabel}_${name}`.normalize("NFC");
+}
+
 /** 選択に応じてファイル名の末尾（拡張子の前）に足す印。初期の選択（写真あり・画面の件数）のときは何も足さない */
 export function exportFilenameWithOptions(filename: string, options: ExportOptions): string {
   const marks = [options.plain ? "写真なし" : "", options.top10 ? "上位10" : ""].filter(Boolean);

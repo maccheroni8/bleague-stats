@@ -2898,6 +2898,19 @@ table.rankings-table-compact {
   font-size: 28px;
 }
 
+/* 保存画像の見出しの1行目（リーグと範囲「B.PREMIER 2026-27シーズン」。2行目が図の名前。DESIGN.md 297章） */
+.export-heading-scope {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #003050;
+}
+
+.export-wide .export-heading-scope {
+  font-size: 20px;
+  margin: 0 0 6px;
+}
+
 /* 大見出しの折り返しの単位（半角スペースで区切った語。ConditionTitle.tsx） */
 .condition-title .title-nowrap {
   white-space: nowrap;
