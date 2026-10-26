@@ -10,7 +10,7 @@ import { useLeague } from "../lib/league";
 import { seasonRuleFor } from "../../shared/seasonRules";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import { formatPct } from "../lib/format";
-import { CLASSIFICATION_COLORS, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
+import { CLASSIFICATION_COLORS, classificationGroup, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
 import { makeClassifier } from "../../shared/registration";
 import { loadSeasonRegistrations } from "../lib/registrationScope";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, ShotTypeBreakdown } from "../../shared/types";
@@ -375,6 +375,22 @@ export function GameDetailPage({ season }: { season: string }) {
   const classificationById = new Map<string, PlayerSummary["classification"]>(
     [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores].map((r) => [r.PlayerID, classifyAt(r.PlayerID, game.date)] as const),
   );
+  // シューティングタブの内訳集計の区分（ボックススコアの内訳集計と同じ分け方。登録区分は試合の日の区分）
+  const shootingClassGroups: ShootingClassGroup[] = classificationSplit
+    ? (["日本人", "外国籍", "帰化", "アジア特別枠"] as const).map((g) => ({
+        label: g === "日本人" ? "日本人選手合計" : `${g}選手合計`,
+        includes: (id: string) => splitGroupOf(classificationById.get(id)) === g,
+      }))
+    : [
+        { label: "日本人選手合計", includes: (id: string) => classificationGroup(classificationById.get(id)) === "日本人" },
+        { label: "外国籍・帰化・アジア合計", includes: (id: string) => classificationGroup(classificationById.get(id)) === "外国籍・帰化・アジア" },
+      ];
+  const shootingUnclassifiedCount = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores].filter(
+    (r) => r.PlayTime !== "DNP" && classificationById.get(r.PlayerID) === undefined,
+  ).length;
+  const shootingClassificationNote =
+    (classificationSplit ? "※試合の日の登録区分（日本人は見做し日本人を含む）" : "※現在の登録情報に基づく参考値") +
+    (shootingUnclassifiedCount > 0 ? `／${shootingUnclassifiedCount}名分のデータ欠落あり` : "");
   // 両チームの色が近いときは、アウェイをサブカラーにする（src/lib/teamColorPairs.ts。DESIGN.md 156章）
   const [homeColor, awayColor] = distinctTeamColors([teamColors?.[game.homeTeam.id] ?? {}, teamColors?.[game.awayTeam.id] ?? {}]);
 
@@ -698,6 +714,8 @@ export function GameDetailPage({ season }: { season: string }) {
               shotTypeKeys={shotTypeKeys}
               accentColor={homeColor}
               season={season}
+              classGroups={shootingClassGroups}
+              classificationNote={shootingClassificationNote}
             />
             <ShootingBreakdownTable
               teamName={game.awayTeam.name}
@@ -706,6 +724,8 @@ export function GameDetailPage({ season }: { season: string }) {
               shotTypeKeys={shotTypeKeys}
               accentColor={awayColor}
               season={season}
+              classGroups={shootingClassGroups}
+              classificationNote={shootingClassificationNote}
             />
             <GlossaryNote anchor={GLOSSARY_ANCHORS.shotTypes} label="シュートタイプ" />
           </>
@@ -955,6 +975,61 @@ function GameCompositionSection({
 
 const EMPTY_SHOT_TYPE_COUNTS = { made: 0, attempted: 0 };
 
+/** シューティングの内訳集計に出す登録区分の行（ボックススコアの内訳集計と同じ分け方） */
+interface ShootingClassGroup {
+  label: string;
+  includes: (playerId: string) => boolean;
+}
+
+/** 複数選手のシュートタイプ別の成功／試投を足し合わせる */
+function sumShotTypeBreakdowns(parts: (ShotTypeBreakdown | undefined)[], shotTypeKeys: string[]): ShotTypeBreakdown {
+  const out: ShotTypeBreakdown = {};
+  for (const key of shotTypeKeys) {
+    let two = EMPTY_SHOT_TYPE_COUNTS;
+    let three = EMPTY_SHOT_TYPE_COUNTS;
+    for (const b of parts) {
+      const c = b?.[key];
+      if (!c) continue;
+      two = sumShotTypeCounts(two, c.twoPoint);
+      three = sumShotTypeCounts(three, c.threePoint);
+    }
+    out[key] = { twoPoint: two, threePoint: three };
+  }
+  return out;
+}
+
+/** シュートタイプ別の列のセル（タイプごとの 2PM〜3P% と、全タイプの合計） */
+function ShotTypeCells({ breakdown, shotTypeKeys }: { breakdown: ShotTypeBreakdown; shotTypeKeys: string[] }) {
+  const totalTwo = shotTypeKeys.reduce((acc, key) => {
+    const c = breakdown[key];
+    return c ? sumShotTypeCounts(acc, c.twoPoint) : acc;
+  }, EMPTY_SHOT_TYPE_COUNTS);
+  const totalThree = shotTypeKeys.reduce((acc, key) => {
+    const c = breakdown[key];
+    return c ? sumShotTypeCounts(acc, c.threePoint) : acc;
+  }, EMPTY_SHOT_TYPE_COUNTS);
+  return (
+    <>
+      {shotTypeKeys.map((key) => (
+        <Fragment key={key}>
+          <td className="align-right">{formatShotTypeMade(breakdown[key]?.twoPoint)}</td>
+          <td className="align-right">{formatShotTypeAttempted(breakdown[key]?.twoPoint)}</td>
+          <td className="align-right">{formatShotTypePct(breakdown[key]?.twoPoint)}</td>
+          <td className="align-right">{formatShotTypeMade(breakdown[key]?.threePoint)}</td>
+          <td className="align-right">{formatShotTypeAttempted(breakdown[key]?.threePoint)}</td>
+          <td className="align-right">{formatShotTypePct(breakdown[key]?.threePoint)}</td>
+        </Fragment>
+      ))}
+      <td className="align-right">{formatShotTypeMade(totalTwo)}</td>
+      <td className="align-right">{formatShotTypeAttempted(totalTwo)}</td>
+      <td className="align-right">{formatShotTypePct(totalTwo)}</td>
+      <td className="align-right">{formatShotTypeMade(totalThree)}</td>
+      <td className="align-right">{formatShotTypeAttempted(totalThree)}</td>
+      <td className="align-right">{formatShotTypePct(totalThree)}</td>
+    </>
+  );
+}
+
 function ShootingBreakdownTable({
   teamName,
   players,
@@ -962,6 +1037,8 @@ function ShootingBreakdownTable({
   shotTypeKeys,
   accentColor,
   season,
+  classGroups,
+  classificationNote,
 }: {
   teamName: string;
   players: BoxscoreRow[];
@@ -969,18 +1046,12 @@ function ShootingBreakdownTable({
   shotTypeKeys: string[];
   accentColor?: string;
   season: string;
+  classGroups: ShootingClassGroup[];
+  classificationNote: string;
 }) {
   const renderRows = (rows: BoxscoreRow[]) =>
     rows.map((p) => {
       const breakdown = breakdownByPlayer.get(p.PlayerID) ?? {};
-      const totalTwo = shotTypeKeys.reduce((acc, key) => {
-        const c = breakdown[key];
-        return c ? sumShotTypeCounts(acc, c.twoPoint) : acc;
-      }, EMPTY_SHOT_TYPE_COUNTS);
-      const totalThree = shotTypeKeys.reduce((acc, key) => {
-        const c = breakdown[key];
-        return c ? sumShotTypeCounts(acc, c.threePoint) : acc;
-      }, EMPTY_SHOT_TYPE_COUNTS);
       return (
         <tr key={p.PlayerID}>
           <td className="align-left">
@@ -992,72 +1063,88 @@ function ShootingBreakdownTable({
               </Link>
             )}
           </td>
-          {shotTypeKeys.map((key) => (
-            <Fragment key={key}>
-              <td className="align-right">{formatShotTypeMade(breakdown[key]?.twoPoint)}</td>
-              <td className="align-right">{formatShotTypeAttempted(breakdown[key]?.twoPoint)}</td>
-              <td className="align-right">{formatShotTypePct(breakdown[key]?.twoPoint)}</td>
-              <td className="align-right">{formatShotTypeMade(breakdown[key]?.threePoint)}</td>
-              <td className="align-right">{formatShotTypeAttempted(breakdown[key]?.threePoint)}</td>
-              <td className="align-right">{formatShotTypePct(breakdown[key]?.threePoint)}</td>
-            </Fragment>
-          ))}
-          <td className="align-right">{formatShotTypeMade(totalTwo)}</td>
-          <td className="align-right">{formatShotTypeAttempted(totalTwo)}</td>
-          <td className="align-right">{formatShotTypePct(totalTwo)}</td>
-          <td className="align-right">{formatShotTypeMade(totalThree)}</td>
-          <td className="align-right">{formatShotTypeAttempted(totalThree)}</td>
-          <td className="align-right">{formatShotTypePct(totalThree)}</td>
+          <ShotTypeCells breakdown={breakdown} shotTypeKeys={shotTypeKeys} />
         </tr>
       );
     });
   const starters = players.filter((p) => p.StartingFlg === 1);
   const bench = players.filter((p) => p.StartingFlg !== 1);
+  const sumOf = (rows: BoxscoreRow[]) => sumShotTypeBreakdowns(rows.map((p) => breakdownByPlayer.get(p.PlayerID)), shotTypeKeys);
+  const summaryRow = (label: string, rows: BoxscoreRow[], className: string, note?: string) => (
+    <tr key={label} className={className}>
+      <td className="align-left" title={note}>{label}</td>
+      <ShotTypeCells breakdown={sumOf(rows)} shotTypeKeys={shotTypeKeys} />
+    </tr>
+  );
+  const head = (
+    <thead>
+      <tr>
+        <th className="align-left" rowSpan={2}>選手</th>
+        {shotTypeKeys.map((key) => (
+          <th key={key} colSpan={6} title={statDescription(shotTypeLabel(key))}>
+            {shotTypeLabel(key)}
+          </th>
+        ))}
+        <th colSpan={6}>合計</th>
+      </tr>
+      <tr>
+        {[...shotTypeKeys, null].map((key) => (
+          <Fragment key={key ?? "total"}>
+            <th className="align-right" title={statDescription("2PM")}>2PM</th>
+            <th className="align-right" title={statDescription("2PA")}>2PA</th>
+            <th className="align-right" title={statDescription("2P%")}>2P%</th>
+            <th className="align-right" title={statDescription("3PM")}>3PM</th>
+            <th className="align-right" title={statDescription("3PA")}>3PA</th>
+            <th className="align-right" title={statDescription("3P%")}>3P%</th>
+          </Fragment>
+        ))}
+      </tr>
+    </thead>
+  );
   return (
-    <div className="boxscore-section" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
-      <h3>{teamName}</h3>
-      {shotTypeKeys.length === 0 ? (
-        <p className="empty-message">この試合のデータがありません</p>
-      ) : (
-        <div className="table-scroll">
-          <table className="boxscore-table boxscore-table-wide">
-            <thead>
-              <tr>
-                <th className="align-left" rowSpan={2}>選手</th>
-                {shotTypeKeys.map((key) => (
-                  <th key={key} colSpan={6} title={statDescription(shotTypeLabel(key))}>
-                    {shotTypeLabel(key)}
-                  </th>
-                ))}
-                <th colSpan={6}>合計</th>
-              </tr>
-              <tr>
-                {shotTypeKeys.map((key) => (
-                  <Fragment key={key}>
-                    <th className="align-right" title={statDescription("2PM")}>2PM</th>
-                    <th className="align-right" title={statDescription("2PA")}>2PA</th>
-                    <th className="align-right" title={statDescription("2P%")}>2P%</th>
-                    <th className="align-right" title={statDescription("3PM")}>3PM</th>
-                    <th className="align-right" title={statDescription("3PA")}>3PA</th>
-                    <th className="align-right" title={statDescription("3P%")}>3P%</th>
-                  </Fragment>
-                ))}
-                <th className="align-right" title={statDescription("2PM")}>2PM</th>
-                <th className="align-right" title={statDescription("2PA")}>2PA</th>
-                <th className="align-right" title={statDescription("2P%")}>2P%</th>
-                <th className="align-right" title={statDescription("3PM")}>3PM</th>
-                <th className="align-right" title={statDescription("3PA")}>3PA</th>
-                <th className="align-right" title={statDescription("3P%")}>3P%</th>
-              </tr>
-            </thead>
-            <tbody>
-              {renderRows(starters)}
-              {renderRows(bench)}
-            </tbody>
-          </table>
+    <>
+      <div className="boxscore-section" style={accentColor ? { borderLeftColor: accentColor } : undefined}>
+        <h3>{teamName}</h3>
+        {shotTypeKeys.length === 0 ? (
+          <p className="empty-message">この試合のデータがありません</p>
+        ) : (
+          <div className="table-scroll">
+            <table className="boxscore-table boxscore-table-wide">
+              {head}
+              <tbody>
+                {renderRows(starters)}
+                {renderRows(bench)}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      {shotTypeKeys.length > 0 && (
+        <div
+          className={accentColor ? "boxscore-summary-section accented" : "boxscore-summary-section"}
+          style={accentColor ? { borderLeftColor: accentColor } : undefined}
+        >
+          <h4>内訳集計</h4>
+          <div className="table-scroll">
+            <table className="boxscore-table boxscore-table-wide">
+              {head}
+              <tbody>
+                {summaryRow("スタメン合計", starters, "boxscore-summary-row")}
+                {summaryRow("ベンチ合計", bench, "boxscore-summary-row")}
+                {summaryRow("チーム合計", players, "boxscore-summary-row boxscore-summary-grand-total")}
+                <tr className="boxscore-summary-spacer" aria-hidden="true">
+                  <td colSpan={shotTypeKeys.length * 6 + 7} />
+                </tr>
+                {classGroups.map((g) =>
+                  summaryRow(g.label, players.filter((p) => g.includes(p.PlayerID)), "boxscore-summary-row", classificationNote),
+                )}
+                {summaryRow("チーム合計", players, "boxscore-summary-row boxscore-summary-grand-total")}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
