@@ -14,7 +14,7 @@ import { enumParam, situationalParam, useUrlState, type UrlCodec } from "../lib/
 import { gameTypeAxis, situationalAxes, type FilterAxis } from "../lib/filterAxes";
 import { type SituationalFilter } from "../lib/situational";
 import { situationalFilterLabels } from "../lib/conditionLabels";
-import { DIVISION_LABELS, DIVISION_ORDER } from "../lib/divisionGroups";
+import { DIVISION_LABELS, divisionOrder } from "../lib/divisionGroups";
 import { buildRatingScatter, ratingDomain, ratingColumn, RATING_KEYS, RATING_LABELS, DIVISION_RATING_COLORS, type RatingPoint, type RatingKey, ratingLabelLayout } from "../lib/figureRatings";
 import { useNarrow, useTeamLabel } from "../lib/teamLabel";
 import { statJa } from "../lib/statNames";
@@ -47,8 +47,8 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
   const teamLabel=useTeamLabel();
   const request=useJsonData(async()=>{
     const teams=await fetchTeams(season,category);
-    const [standings,divisions,entries]=await Promise.all([fetchStandingsHistory(season).catch(()=>null),fetchDivisionHistory().catch(()=>null),Promise.all(teams.map(async team=>{
-      try {return [team.teamId,await fetchTeamGameLogs(season,team.teamId)] as const;}
+    const [standings,divisions,entries]=await Promise.all([fetchStandingsHistory(season,category).catch(()=>null),fetchDivisionHistory().catch(()=>null),Promise.all(teams.map(async team=>{
+      try {return [team.teamId,await fetchTeamGameLogs(season,team.teamId,category)] as const;}
       catch {return [team.teamId,null] as const;}
     }))]);
     const missing=entries.filter(([,logs])=>logs===null).map(([id])=>id);
@@ -57,7 +57,7 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
   const model=useMemo(()=>request.data && !request.data.missing.length ? buildRatingScatter(request.data.teams,request.data.logs,request.data.divisions,{season,category,range:filter.range,gameType}) : null,[request.data,season,category,filter,gameType]);
   const present=useMemo(()=>{
     const values=new Set(model?.points.map(point=>point.division??"unknown"));
-    return [...DIVISION_ORDER.filter(d=>values.has(d)),...(values.has("unknown")?["unknown" as const]:[])];
+    return [...divisionOrder(category).filter(d=>values.has(d)),...(values.has("unknown")?["unknown" as const]:[])];
   },[model]);
   const activeDivision=division === "all" || present.includes(division) ? division : "all";
   const visible=model?.points.filter(point=>activeDivision === "all" || (point.division??"unknown")===activeDivision)??[];
@@ -76,7 +76,7 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
   const sortedVisible=[...visible].sort((a,b)=>{
     if(sort.key==="division") {
       const sa=standingById.get(a.teamId),sb=standingById.get(b.teamId);
-      const order=(d:Division|undefined)=>d?DIVISION_ORDER.indexOf(d):99;
+      const order=(d:Division|undefined)=>d?divisionOrder(category).indexOf(d):99;
       return ((order(sa?.division)-order(sb?.division))||((sa?.divisionRank??999)-(sb?.divisionRank??999))||a.teamId.localeCompare(b.teamId))*(sort.bestFirst?1:-1);
     }
     return (a[sort.key]-b[sort.key])*(sort.key === "drtg"?1:-1)*(sort.bestFirst?1:-1);

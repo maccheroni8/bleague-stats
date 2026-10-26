@@ -251,6 +251,7 @@ export function overtimeCandidates(source: SeasonPeriodSource, minGames: number)
 export function useSeasonPeriodSources(
   seasons: readonly string[],
   enabled: boolean,
+  league: League = "premier",
 ): { sources: ReadonlyMap<string, SeasonPeriodSource | null>; loading: boolean; failedSeasons: string[]; retry: () => void } {
   const [sources, setSources] = useState<ReadonlyMap<string, SeasonPeriodSource | null>>(new Map());
   const [retryNonce, setRetryNonce] = useState(0);
@@ -263,7 +264,7 @@ export function useSeasonPeriodSources(
     for (const s of missing) requestedRef.current.add(s);
     // 読み込みの途中で条件が変わっても、読めた分は捨てない（シーズンごとに持つので、ほかの条件の表とぶつからない。
     // 捨てると、要求済みのまま二度と読まれず「読み込み中」で止まる）
-    void Promise.all(missing.map((s) => loadSeasonPeriodSource(s).then((v) => [s, v] as const, () => [s, null] as const))).then((loaded) => {
+    void Promise.all(missing.map((s) => loadSeasonPeriodSource(s, league).then((v) => [s, v] as const, () => [s, null] as const))).then((loaded) => {
       setSources((prev) => {
         const next = new Map(prev);
         for (const [s, v] of loaded) next.set(s, v);
@@ -273,7 +274,7 @@ export function useSeasonPeriodSources(
       for (const [s, v] of loaded) if (!v) requestedRef.current.delete(s);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, enabled, retryNonce]);
+  }, [key, enabled, retryNonce, league]);
   const loading = enabled && seasons.some((s) => !sources.has(s));
   const failedSeasons = useMemo(() => (enabled ? seasons.filter((s) => sources.has(s) && sources.get(s) === null) : []), [enabled, key, sources]); // eslint-disable-line react-hooks/exhaustive-deps
   const retry = useCallback(() => {

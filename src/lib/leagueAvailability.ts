@@ -42,7 +42,7 @@ export const ONE_PAGE_AVAILABILITY: Record<LeaguePage, LeagueAvailability> = {
   players: preparing("個人のページ"),
   playerDetail: preparing("個人のページ"),
   standings: READY,
-  figures: preparing("図解"),
+  figures: READY,
   rankings: later("ランキング"),
   compare: later("比較"),
 };

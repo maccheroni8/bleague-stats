@@ -21,6 +21,7 @@ import { ExportImageButton } from "../components/ExportImageButton";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { formatMinutesColon } from "../lib/minutesFormat";
 import { statJa } from "../lib/statNames";
+import type { FigureProps } from "./catalog";
 
 
 const AGE_TITLE = "出場選手の年齢分布";
@@ -32,7 +33,7 @@ const lineCodec = enumParam<FigureReferenceMode>("line", ["mean", "median", "bot
 const ratioCodec = rangeParam("gp", FIGURE_GAMES_RATIO_RANGE, [0, 100]);
 const oneDecimal = (n: number | null) => n === null ? "—" : n.toFixed(1);
 
-export default function AgeFigure({ season }: { season: string }) {
+export default function AgeFigure({ season, category: league }: FigureProps) {
   const [min, setMin] = useUrlState(minCodec, 15);
   const [classification, setClassification] = useUrlState(classCodec, "all");
   const [gameType, setGameType] = useUrlState(gameCodec, "regular");
@@ -41,10 +42,10 @@ export default function AgeFigure({ season }: { season: string }) {
   const [minRatio, maxRatio] = ratioRange;
   const request = useJsonData(async () => {
     const [index, history, race, colors, players, teams] = await Promise.all([
-      loadPlayerGameIndex(season), fetchStandingsHistory(season), fetchPlayoffRace(season), fetchTeamColors(), fetchPlayers(season), fetchTeams(season),
+      loadPlayerGameIndex(season, league), fetchStandingsHistory(season, league), fetchPlayoffRace(season, league), fetchTeamColors(), fetchPlayers(season, league), fetchTeams(season, league),
     ]);
     return { index, history, race, colors, players, teams };
-  }, [season]);
+  }, [season, league]);
   const data = request.data;
   // 全選手スタッツと同じく、レギュラーシーズンの選手・所属チームのシーズン成績で先に判定。
   const eligiblePlayerIds = useMemo(() => {
@@ -64,7 +65,7 @@ export default function AgeFigure({ season }: { season: string }) {
   const classLabel = FIGURE_CLASSES.find(c => c.value === classification)!.label;
   const title = min ? `平均${min}:00以上出場した選手の年齢分布` : "出場選手の年齢分布（出場時間の下限なし）";
   const teams = data ? withUnplayedTeams(data.history.at(-1)?.teams ?? [], data.race) : [];
-  const order = data ? pickerTeamOrder(data.history.at(-1)?.teams, data.race) : [];
+  const order = data ? pickerTeamOrder(data.history.at(-1)?.teams, data.race, league) : [];
   const orderedTeams = order.map(id => teams.find(t => t.teamId === id)!);
   // 順位表に無いチームも落とさず、索引の当時の名称・地区で最後に添える。
   for (const t of data?.index?.file.teams ?? []) if (!order.includes(t[0])) orderedTeams.push({ teamId: t[0], teamName: t[1], division: t[2] || undefined } as typeof teams[number]);

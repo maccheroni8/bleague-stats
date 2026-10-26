@@ -28,7 +28,7 @@ export function buildRatingScatter(teams: readonly RatingTeam[], logsByTeam: Rea
   const omitted: string[] = [];
   for (const team of teams) {
     // 全チームスタッツと同じ順序: 期間を選び、その後に試合区分を適用する。
-    const ranged = filterGameLogs(logsByTeam.get(team.teamId) ?? [], {range:query.range, includePlayoffs:true});
+    const ranged = filterGameLogs(logsByTeam.get(team.teamId) ?? [], {range:query.range, includePlayoffs:true}, undefined, undefined, undefined, undefined, query.category);
     const scoped = filterByGameType(ranged, query.gameType);
     const row: AllTeamsRow = { team, gamesPlayed:scoped.length, wins:scoped.filter(g=>g.win).length, losses:scoped.filter(g=>!g.win).length, totals:sumTeamGameLogs(scoped) };
     const metrics = ratingMetrics(row);

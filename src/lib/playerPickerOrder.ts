@@ -6,7 +6,8 @@
 import { GAME_FLAG_PLAYOFF, ROW_FLAG_HOME } from "../../shared/gameIndex";
 import type { PlayerGameIndexFile } from "../../shared/gameIndex";
 import type { Division, PlayoffRaceFile, StandingsTeamSnapshot } from "../../shared/types";
-import { DIVISION_ORDER } from "./divisionGroups";
+import { divisionOrder } from "./divisionGroups";
+import type { League } from "./league";
 import { withUnplayedTeams } from "./standingsTeams";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 
@@ -51,11 +52,13 @@ export function pickerPlayerIdOf(key: string): string {
 export function pickerTeamOrder(
   latestStandings: StandingsTeamSnapshot[] | null | undefined,
   race: PlayoffRaceFile | null | undefined,
+  league: League = "premier",
 ): string[] {
   const teams = withUnplayedTeams(latestStandings ?? [], race ?? null);
+  const order = divisionOrder(league);
   const rank = (d: Division | undefined) => {
-    const i = d ? DIVISION_ORDER.indexOf(d) : -1;
-    return i === -1 ? DIVISION_ORDER.length : i;
+    const i = d ? order.indexOf(d) : -1;
+    return i === -1 ? order.length : i;
   };
   return teams
     .map((t, i) => ({ t, i }))

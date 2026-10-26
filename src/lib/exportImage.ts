@@ -354,7 +354,7 @@ export async function prepareExportImage(
   filename: string,
   {
     options = {},
-    resolveBaseDate,
+    resolveBaseDate: baseDateResolver,
     timeoutMs = EXPORT_TIMEOUT_MS,
     env = detectExportEnvironment(),
     onPhase,
@@ -385,7 +385,7 @@ export async function prepareExportImage(
       };
       exportDebug(`段階: ${EXPORT_PHASE_LABELS.baseDate} 開始`);
       onPhase?.("baseDate");
-      const resolved = resolveBaseDate ? { ...options, baseDate: await resolveBaseDate() } : options;
+      const resolved = baseDateResolver ? { ...options, baseDate: await baseDateResolver() } : options;
       deadline.checkpoint();
       const { canvas, info } = await renderExportCanvas(el, resolved, EXPORT_SCALE, env, deadline);
       deadline.checkpoint();

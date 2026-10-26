@@ -1,13 +1,14 @@
 import { lazy, Suspense, useEffect, useRef, type KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { Category } from "../../shared/types";
+import { useLeague } from "../lib/league";
 import { normalizeFigureParams } from "../lib/figureRoute";
 import { FIGURES, figuresForEntity, type FigureDefinition, type FigureEntity } from "../figures/catalog";
 import "./FiguresPage.css";
 
 const COMPONENTS = new Map(FIGURES.map(figure => [figure.id, lazy(figure.load)]));
 
-export function FiguresPage({ season, category = "premier" }: { season: string; category?: Category }) {
+export function FiguresPage({ season }: { season: string }) {
+  const category = useLeague();
   const [params, setParams] = useSearchParams();
   const normalized = normalizeFigureParams(params);
   const search = params.toString();
@@ -37,7 +38,7 @@ export function FiguresPage({ season, category = "premier" }: { season: string; 
       </button>)}
     </div>
     {figures.length > 0 && <FigureTabs figures={figures} selectedId={selectedId} onSelect={id => selectFigure(entity, id)} />}
-    {category !== "premier" ? <p>このリーグの図は準備中です。</p> : Figure ?
+    {Figure ?
       <section id="figure-active-panel" role="tabpanel" aria-labelledby={`figure-tab-${selectedId}`}>
         <Suspense fallback={<p role="status">読み込み中…</p>}>
           <Figure key={`${selectedId}:${season}:${category}`} season={season} category={category} />
