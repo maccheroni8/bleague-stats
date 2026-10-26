@@ -16,7 +16,9 @@ import {
 } from "../lib/seasonPeriod";
 import { postseasonLabel } from "../../shared/gameType";
 import { useParams } from "react-router-dom";
-import { Link as RouterLink } from "react-router-dom";
+import { SeasonLink as RouterLink } from "../components/SeasonLink";
+import { LEAGUE_LABELS, ONE_SEASONS, useLeague, type League } from "../lib/league";
+import { ONE_PLAYER_DETAIL_TAB_REASONS } from "../lib/leagueAvailability";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -268,6 +270,16 @@ const CAREER_CATEGORY_LABELS: Record<Category, string> = {
   premier: "B.PREMIER",
   one: "B.ONE",
 };
+
+/**
+ * 通算成績・キャリアハイの条件に出すリーグ名。B.ONE は 2025-26 までが旧B2、2026-27 から B.ONE なので、含まれるシーズンで名前を変える
+ * （両方含むなら「B2・B.ONE」）。選択肢のリーグ名（CAREER_CATEGORY_LABELS）は変えない
+ */
+function careerCategoryLabel(category: Category, seasons: readonly string[]): string {
+  if (category !== "one" || seasons.length === 0) return CAREER_CATEGORY_LABELS[category];
+  const names = [...new Set(seasons.map((s) => (s < "2026-27" ? "B2" : "B.ONE")))];
+  return names.join("・");
+}
 
 interface PlayerStatDef {
   key: string;
@@ -706,29 +718,44 @@ const EMPTY_OWN_TEAMS = new Map<string, GameTeamInfo>();
 const EMPTY_TEAM_LOGS = new Map<string, TeamGameLog[]>();
 
 export function PlayerDetailPage({ season }: { season: string }) {
+  const league = useLeague();
   const isRookie = useIsRookie();
   const { playerId } = useParams<{ playerId: string }>();
   const {
     data: players,
     loading: playersLoading,
     error: playersError,
-  } = useJsonData(() => fetchPlayers(season), [season]);
+  } = useJsonData(() => fetchPlayers(season, league), [season, league]);
   const { data: gameLogs, loading: logsLoading } = useJsonData(
-    () => (playerId ? fetchPlayerGameLogs(season, playerId) : Promise.resolve([])),
-    [season, playerId],
+    () => (playerId ? fetchPlayerGameLogs(season, playerId, league) : Promise.resolve([])),
+    [season, playerId, league],
   );
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   // レーダーチャートのランキング母集団の足切り（所属チーム試合数の85%以上出場）に使う
-  const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
-  const { data: seasons } = useJsonData(() => fetchSeasons(), []);
+  const { data: teams } = useJsonData(() => fetchTeams(season, league), [season, league]);
+  const { data: allSeasons } = useJsonData(() => fetchSeasons(), []);
+  // このリーグ・シーズンに出場が無い選手は、もう一方のリーグに出場があればそこへのリンクを出す
+  const otherLeague: League = league === "one" ? "premier" : "one";
+  const notInThisLeague = !!players && !players.some((p) => p.playerId === playerId);
+  const { data: otherLeaguePlayers } = useJsonData(
+    () => (notInThisLeague ? fetchPlayers(season, otherLeague).catch(() => []) : Promise.resolve([])),
+    [notInThisLeague, season, otherLeague],
+  );
+  const playerInOtherLeague = !!otherLeaguePlayers?.some((p) => p.playerId === playerId);
+  // ヘッダーのリーグのシーズン（B.ONE は 2026-27 だけ。seasons.json は B.PREMIER の一覧。スポーツナビの記録は B.PREMIER だけ）
+  const seasons = useMemo(
+    () => (allSeasons && league === "one" ? allSeasons.filter((s) => ONE_SEASONS.includes(s.season)).map((s) => ({ ...s, yahooPbp: false })) : allSeasons),
+    [allSeasons, league],
+  );
   const { data: playerHistory } = useJsonData(() => fetchPlayerHistory(), []);
   const { data: playerAwards } = useJsonData(() => fetchPlayerAwards(), []);
   // 優勝回数: レギュラーシーズン終了時に優勝チームに所属していたシーズン（data/player-careers.json。DESIGN.md 147章）
   const { data: playerCareers } = useJsonData(() => fetchPlayerCareers(), []);
   const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
   const { coverage } = useSeasonCoverage(season);
-  const shotChartSupported = isShotChartSupported(coverage);
-  const { supported: yahooSeasonSupported } = useYahooPbpCoverage(season);
+  const shotChartSupported = league === "premier" && isShotChartSupported(coverage);
+  const { supported: premierYahooSeasonSupported } = useYahooPbpCoverage(season);
+  const yahooSeasonSupported = league === "premier" && premierYahooSeasonSupported;
 
   // ブラウザバック等で本コンポーネントが一度アンマウント・再マウントされても、直前の
   // フィルタ条件を復元するためのキャッシュキー（src/lib/pageStateCache.ts参照）。
@@ -768,7 +795,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         // 同時に多数読むと一部が失敗することがあるので、1回だけやり直す
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
-            return [scheduleKey, await fetchGame(s, scheduleKey)] as const;
+            return [scheduleKey, await fetchGame(s, scheduleKey, league)] as const;
           } catch {
             if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 500));
           }
@@ -792,9 +819,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
         periodRawGamesInFlightRef.current -= 1;
         if (periodRawGamesInFlightRef.current === 0) setPeriodRawGamesLoading(false);
       });
-  }, []);
+  }, [league]);
 
-  const [tab, setTab] = usePageState<DetailTab>(pk("tab"), "stats");
+  const [storedTab, setTab] = usePageState<DetailTab>(pk("tab"), "stats");
+  // B.ONE で見られないタブが残っているときはスタッツにする（タブのボタンには理由を出す）
+  const tab: DetailTab = league === "one" && ONE_PLAYER_DETAIL_TAB_REASONS[storedTab] ? "stats" : storedTab;
   const [careerData, setCareerData] = useState<CareerSeasonLogs[] | null>(null);
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerError, setCareerError] = useState<string | null>(null);
@@ -843,10 +872,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // （比較・シーズン別成績等、他タブ全部が参照する共有state）はB.PREMIER専用のまま変更しない。
   // B.ONE選択時だけ別途careerDataOneを遅延取得する（B.ONEは現状data/seasons.json相当の
   // 季一覧が無いため、ONE_CATEGORY_SEASONS（既知の取得済みシーズン一覧）を直接ループする）
-  const [careerCategory, setCareerCategory] = usePageState<Category>(pk("careerCategory"), "premier");
+  const [careerCategory, setCareerCategory] = usePageState<Category>(pk("careerCategory"), league);
   const [careerDataOne, setCareerDataOne] = useState<CareerSeasonLogs[] | null>(null);
   const [careerOneLoading, setCareerOneLoading] = useState(false);
   const careerOneFetchStartedRef = useRef(false);
+  // ヘッダーが B.ONE のとき、通算成績・キャリアハイで B.PREMIER を選んだときだけ、B.PREMIER の全シーズンを別に読む（careerData はヘッダーのリーグのシーズン）
+  const [careerDataAlt, setCareerDataAlt] = useState<CareerSeasonLogs[] | null>(null);
+  const [careerAltLoading, setCareerAltLoading] = useState(false);
+  const careerAltFetchStartedRef = useRef(false);
 
   // 試合ログタブのボックススコア形式表示（試合詳細ページと同じトラディショナル/アドバンスド/
   // Misc/スコアリング切り替え）。各試合の生データ（PlayByPlays込み）を選手の出場試合数分
@@ -965,8 +998,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
     careerFetchStartedRef.current = false;
     setCareerTeamData(null);
     careerTeamDataFetchStartedRef.current = false;
-    setCareerCategory("premier");
+    setCareerCategory(league);
     setCareerDataOne(null);
+    setCareerDataAlt(null);
+    careerAltFetchStartedRef.current = false;
     careerOneFetchStartedRef.current = false;
     setGameBoxRows(null);
     gameBoxFetchStartedRef.current = false;
@@ -990,7 +1025,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     // シューティングの選択を維持したいため、依存配列にseasonは含めない。ここで参照するのは
     // リセット時点の最新値でよい）
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerId]);
+  }, [playerId, league]);
 
   // シーズン切り替え時も試合ログボックススコアを再取得する必要がある（careerは全シーズン
   // 横断のため season 変更の影響を受けないが、こちらは選択中シーズンのgameLogsに依存する）。
@@ -1031,7 +1066,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         .filter((log) => log.min > 0)
         .map(async (log) => {
           try {
-            const game = await fetchGame(season, log.scheduleKey);
+            const game = await fetchGame(season, log.scheduleKey, league);
             const shots = buildShotEvents(game.raw.PlayByPlays).filter((s) => s.playerId === playerId);
             return { log, shots };
           } catch {
@@ -1041,13 +1076,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
     )
       .then((results) => setSeasonShotGameData(results))
       .finally(() => setSeasonShotChartLoading(false));
-  }, [seasonShotChartExpanded, playerId, season, gameLogs, shotChartSupported, gameTypeFilter]);
+  }, [seasonShotChartExpanded, playerId, season, gameLogs, shotChartSupported, gameTypeFilter, league]);
 
   // ショットチャートの「対勝率別」フィルタ用の試合日程（対応シーズンでのみ取得。ページ本体の
   // 現在シーズンに紐づくため、シチュエーション別成績セクションが別シーズンを選んでいても影響しない）
   const { data: shotChartGameSummaries } = useJsonData(
-    () => (seasonShotChartExpanded ? fetchGameSummaries(season) : Promise.resolve(null)),
-    [seasonShotChartExpanded, season],
+    () => (seasonShotChartExpanded ? fetchGameSummaries(season, league) : Promise.resolve(null)),
+    [seasonShotChartExpanded, season, league],
   );
   const shotChartOpponentRecords = useMemo(
     () => (shotChartGameSummaries ? buildRecordsBeforeGame(shotChartGameSummaries) : undefined),
@@ -1085,10 +1120,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
           shotChartOwnTeamByScheduleKey,
           divisionHistory,
           season,
+          league,
         ),
       )
       .flatMap(({ shots }) => shots.filter((s) => periodInRange(shotChartPeriodOption, s.period)));
-  }, [seasonShotGameData, shotChartFilters, shotChartOpponentRecords, shotChartOwnTeamByScheduleKey, shotChartPeriodOption]);
+  }, [seasonShotGameData, shotChartFilters, shotChartOpponentRecords, shotChartOwnTeamByScheduleKey, shotChartPeriodOption, league]);
 
   useEffect(() => {
     if (tab !== "gamelog" || !playerId || !gameLogs || gameBoxFetchStartedRef.current) return;
@@ -1102,8 +1138,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
         .map(async (log) => {
           try {
             const [game, yahooPbp] = await Promise.all([
-              fetchGame(season, log.scheduleKey),
-              yahooSeasonSupported ? fetchYahooGamePbp(season, log.scheduleKey) : Promise.resolve(null),
+              fetchGame(season, log.scheduleKey, league),
+              yahooSeasonSupported ? fetchYahooGamePbp(season, log.scheduleKey, league) : Promise.resolve(null),
             ]);
             return buildPlayerGameBoxscoreRow(game, log, playerId, yahooPbp, shotChartSupported);
           } catch {
@@ -1117,7 +1153,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       .finally(() => {
         setGameBoxLoading(false);
       });
-  }, [tab, playerId, season, gameLogs, yahooSeasonSupported, shotChartSupported]);
+  }, [tab, playerId, season, gameLogs, yahooSeasonSupported, shotChartSupported, league]);
 
   // 「試合ログ」タブのDNP試合表示: 出場していない試合も、日付・対戦カード・チームの勝敗が
   // 分かる形で一覧に含める（既存の「シーズン別成績」「シチュエーション別成績」と同じ
@@ -1126,8 +1162,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // box score行自体が存在しない試合（生データにこの選手の行が無い）はgameLogsに現れないため、
   // 所属チームの試合結果一覧（fetchTeamGameLogs）と突き合わせて補完する
   const { data: gameLogGameSummaries } = useJsonData(
-    () => (tab === "gamelog" ? fetchGameSummaries(season) : Promise.resolve(null)),
-    [tab, season],
+    () => (tab === "gamelog" ? fetchGameSummaries(season, league) : Promise.resolve(null)),
+    [tab, season, league],
   );
   const gameLogGameTeams = useMemo(
     () => (gameLogGameSummaries ? buildGameTeamsByScheduleKey(gameLogGameSummaries) : new Map()),
@@ -1165,11 +1201,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { data: gameLogTeamGameLogsByTeam, loading: gameLogTeamGameLogsLoading } = useJsonData(
     () =>
       tab === "gamelog" && gameLogTeamIds.length > 0
-        ? Promise.all(gameLogTeamIds.map(async (teamId) => [teamId, await fetchTeamGameLogs(season, teamId)] as const)).then(
+        ? Promise.all(gameLogTeamIds.map(async (teamId) => [teamId, await fetchTeamGameLogs(season, teamId, league)] as const)).then(
             (entries) => new Map(entries),
           )
         : Promise.resolve(new Map<string, TeamGameLog[]>()),
-    [tab, season, gameLogTeamIds.join("|")],
+    [tab, season, gameLogTeamIds.join("|"), league],
   );
   const gameLogTableRows: GameLogTableRow[] = useMemo(() => {
     if (!gameLogs) return [];
@@ -1224,7 +1260,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     Promise.all(
       seasons.map(async (s) => {
         try {
-          const logs = await fetchPlayerGameLogs(s.season, playerId);
+          const logs = await fetchPlayerGameLogs(s.season, playerId, league);
           return { season: s.season, logs };
         } catch {
           return { season: s.season, logs: [] as PlayerGameLog[] };
@@ -1240,7 +1276,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       .finally(() => {
         setCareerLoading(false);
       });
-  }, [tab, playerId, seasons]);
+  }, [tab, playerId, seasons, league]);
 
   // 「通算成績」「キャリアハイ」タブでB.ONEを選んだ時だけ遅延取得する（ONE_CATEGORY_SEASONSは
   // 既知の取得済みシーズンの列挙。data/{season}/one/player-games/{playerId}.jsonが存在しない
@@ -1268,6 +1304,23 @@ export function PlayerDetailPage({ season }: { season: string }) {
       });
   }, [tab, careerCategory, playerId]);
 
+  useEffect(() => {
+    if (league !== "one" || (tab !== "career" && tab !== "highs") || careerCategory !== "premier" || !playerId || !allSeasons || careerAltFetchStartedRef.current) return;
+    careerAltFetchStartedRef.current = true;
+    setCareerAltLoading(true);
+    Promise.all(
+      allSeasons.map(async (s) => {
+        try {
+          return { season: s.season, logs: await fetchPlayerGameLogs(s.season, playerId, "premier") };
+        } catch {
+          return { season: s.season, logs: [] as PlayerGameLog[] };
+        }
+      }),
+    )
+      .then((results) => setCareerDataAlt(results.filter((r) => r.logs.length > 0)))
+      .finally(() => setCareerAltLoading(false));
+  }, [league, tab, careerCategory, playerId, allSeasons]);
+
   // 「シーズン別成績」テーブルのUSG%・%-shareスタッツ用に、careerData取得済みの各シーズンについて
   // 所属チームを試合ログから動的に導出（games-summary.jsonのhomeTeamId/awayTeamId×isHome、
   // resolveOwnTeam参照）してからチーム総計を取得する。players.jsonの単一teamId（直近所属チームで
@@ -1280,7 +1333,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     Promise.all(
       careerData.map(async (cd) => {
         try {
-          const summaries = await fetchGameSummaries(cd.season);
+          const summaries = await fetchGameSummaries(cd.season, league);
           const gameTeams = buildGameTeamsByScheduleKey(summaries);
           const playedLogs = cd.logs.filter((g) => g.min > 0);
           const ownTeamByScheduleKey = new Map<string, GameTeamInfo>();
@@ -1294,7 +1347,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           await Promise.all(
             teamIds.map(async (teamId) => {
               try {
-                const teamLogs = await fetchTeamGameLogs(cd.season, teamId);
+                const teamLogs = await fetchTeamGameLogs(cd.season, teamId, league);
                 const scheduleKeys = new Set(
                   playedLogs.filter((g) => ownTeamByScheduleKey.get(g.scheduleKey)?.teamId === teamId).map((g) => g.scheduleKey),
                 );
@@ -1313,7 +1366,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     ).then((entries) => {
       setCareerTeamData(new Map(entries.filter((e): e is readonly [string, CareerSeasonTeamInfo] => e !== null)));
     });
-  }, [careerData, playerId]);
+  }, [careerData, playerId, league]);
 
   // 「シーズン別成績」「シチュエーション別成績」いずれかでシューティングタブが選ばれたら、
   // Yahoo PBP対応シーズン（data/seasons.jsonのyahooPbpフラグ）の出場試合分だけ、この選手の
@@ -1335,7 +1388,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     Promise.all(
       targets.map(async ({ season: s, scheduleKey }) => {
         try {
-          const pbp = await fetchYahooGamePbp(s, scheduleKey);
+          const pbp = await fetchYahooGamePbp(s, scheduleKey, league);
           return [scheduleKey, pbp?.shots.filter((sh) => sh.playerId === playerId) ?? []] as const;
         } catch {
           return [scheduleKey, [] as YahooShotEvent[]] as const;
@@ -1344,7 +1397,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     )
       .then((results) => setCareerShots(new Map(results)))
       .finally(() => setCareerShotsLoading(false));
-  }, [seasonBreakdownTab, situationalStatsTab, careerData, seasons, playerId]);
+  }, [seasonBreakdownTab, situationalStatsTab, careerData, seasons, playerId, league]);
 
   // 通算成績・キャリアハイ共通: DNP（出場0分）を除いた上で、選択中のレギュラー/プレーオフ/合算
   // トグルで絞り込む（既存のSeasonGameTypeFilter/filterByGameTypeをそのまま再利用）
@@ -1352,7 +1405,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
   // 通算成績タブ: 全シーズン合算の単一の合計値（平均ではなく合計）。PlayerSituationalStatsは
   // 平均値と割合しか持たないため、FGM/3PM/FTM等の合計はgameLogから直接合算し直す
-  const careerCountTotalsSource = careerCategory === "one" ? careerDataOne : careerData;
+  // 通算成績・キャリアハイの B.PREMIER の分（ヘッダーが B.PREMIER ならその careerData、B.ONE なら別に読んだ分）
+  const careerPremierData = league === "premier" ? careerData : careerDataAlt;
+  const careerCategoryLoading = careerCategory === "one" ? careerOneLoading : league === "premier" ? careerLoading : careerAltLoading;
+  const careerCountTotalsSource = careerCategory === "one" ? careerDataOne : careerPremierData;
   // ファウルの列・項目は、通算のシーズンがすべて2026-27以降のときだけ新しい区分（TF1・TF2・FLAG・DISR）にする（DESIGN.md 16-8章）
   const careerFoulSplit = foulColumnsSplit((careerCountTotalsSource ?? []).map((cd) => cd.season));
   const careerHighStats = CAREER_HIGH_STATS.filter((d) => !d.foulGroup || (d.foulGroup === "split") === careerFoulSplit);
@@ -1543,11 +1599,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 都度取得する（2スロットのみなので配列化せず個別にuseJsonDataを呼ぶ）。比較タブを開いている
   // 間だけ取得する（タブを開くまで無駄な通信をしないため）
   const { data: compareSummaries0 } = useJsonData(
-    () => (tab === "compare" && compareSlots[0].season ? fetchGameSummaries(compareSlots[0].season) : Promise.resolve(null)),
+    () => (tab === "compare" && compareSlots[0].season ? fetchGameSummaries(compareSlots[0].season, "premier") : Promise.resolve(null)),
     [tab, compareSlots[0].season],
   );
   const { data: compareSummaries1 } = useJsonData(
-    () => (tab === "compare" && compareSlots[1].season ? fetchGameSummaries(compareSlots[1].season) : Promise.resolve(null)),
+    () => (tab === "compare" && compareSlots[1].season ? fetchGameSummaries(compareSlots[1].season, "premier") : Promise.resolve(null)),
     [tab, compareSlots[1].season],
   );
   const compareBoundaries: [SeasonHalfBoundary | null, SeasonHalfBoundary | null] = [
@@ -1565,8 +1621,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 所属チーム解決に使う）と、チーム総計（%-share・USG%の分母）。「スタッツ」タブを
   // 開いている間だけ取得する
   const { data: situationalStatsSummaries } = useJsonData(
-    () => (tab === "stats" ? fetchGameSummaries(situationalStatsSeason) : Promise.resolve(null)),
-    [tab, situationalStatsSeason],
+    () => (tab === "stats" ? fetchGameSummaries(situationalStatsSeason, league) : Promise.resolve(null)),
+    [tab, situationalStatsSeason, league],
   );
   const situationalStatsOpponentRecords = useMemo(
     () => (situationalStatsSummaries ? buildRecordsBeforeGame(situationalStatsSummaries) : undefined),
@@ -1576,8 +1632,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 独立にsituationalStatsSeasonのplayers.jsonを取得する（他選手の在籍シーズンが自身のページの
   // シーズンと異なりうるため）
   const { data: situationalStatsPlayers } = useJsonData(
-    () => (tab === "stats" ? fetchPlayers(situationalStatsSeason) : Promise.resolve(null)),
-    [tab, situationalStatsSeason],
+    () => (tab === "stats" ? fetchPlayers(situationalStatsSeason, league) : Promise.resolve(null)),
+    [tab, situationalStatsSeason, league],
   );
   const situationalStatsPlayerNameById = useMemo(
     () => new Map((situationalStatsPlayers ?? []).map((p) => [p.playerId, p.name])),
@@ -1622,9 +1678,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 「シーズン別成績」「シチュエーション別成績」の表の Q別・前後半は、シーズンごとのピリオド別の索引から組み立てる（DESIGN.md 256章。
   // 以前は出場した全試合の生データを読んでいた）。区間を選んだときだけ読む
   const careerSeasons = useMemo(() => (careerData ?? []).map((cd) => cd.season), [careerData]);
-  const breakdownPeriodSources = useSeasonPeriodSources(careerSeasons, seasonBreakdownPeriod !== "all");
+  const breakdownPeriodSources = useSeasonPeriodSources(careerSeasons, seasonBreakdownPeriod !== "all", league);
   const situationalPeriodSeasons = useMemo(() => [situationalStatsSeason], [situationalStatsSeason]);
-  const situationalPeriodSources = useSeasonPeriodSources(situationalPeriodSeasons, situationalStatsPeriod !== "all");
+  const situationalPeriodSources = useSeasonPeriodSources(situationalPeriodSeasons, situationalStatsPeriod !== "all", league);
   const situationalFailedCount = useMemo(() => {
     if (periodRawGamesLoading || !situationalStatsLogs) return 0;
     return situationalStatsLogs.filter((l) => l.min > 0 && periodRawGamesFailed.has(l.scheduleKey)).length;
@@ -1649,11 +1705,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
       tab === "stats" && situationalStatsTeamIds.length > 0
         ? Promise.all(
             situationalStatsTeamIds.map(
-              async (teamId) => [teamId, await fetchTeamGameLogs(situationalStatsSeason, teamId)] as const,
+              async (teamId) => [teamId, await fetchTeamGameLogs(situationalStatsSeason, teamId, league)] as const,
             ),
           ).then((entries) => new Map(entries))
         : Promise.resolve(new Map<string, TeamGameLog[]>()),
-    [tab, situationalStatsSeason, situationalStatsTeamIds.join("|")],
+    [tab, situationalStatsSeason, situationalStatsTeamIds.join("|"), league],
   );
   const situationalStatsBackToBack = useMemo(
     () => (situationalStatsSummaries ? buildBackToBackStatus(situationalStatsSummaries) : undefined),
@@ -1676,12 +1732,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
             opponentSplitLogs
               .filter((g) => g.min > 0)
               .map(async (g) => {
-                const pbp = await fetchYahooGamePbp(opponentSplitSeason, g.scheduleKey);
+                const pbp = await fetchYahooGamePbp(opponentSplitSeason, g.scheduleKey, league);
                 return [g.scheduleKey, pbp?.shots.filter((sh) => sh.playerId === playerId) ?? []] as const;
               }),
           ).then((entries) => new Map(entries))
         : Promise.resolve(null),
-    [opponentSplitNeedsShots, opponentSplitSeason, playerId, opponentSplitLogs],
+    [opponentSplitNeedsShots, opponentSplitSeason, playerId, opponentSplitLogs, league],
   );
 
   // アシストの関係性（Batch 3）: 「誰へのアシストが多いか」「誰からのアシストで得点が多いか」を、
@@ -1853,6 +1909,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         divisionHistory,
         slot.season,
         (g) => teamInfo?.ownTeamByScheduleKey.get(g.scheduleKey)?.teamId,
+        "premier",
       );
       if (filtered.length === 0) return null;
       const seasonStartYear = Number(slot.season.split("-")[0]);
@@ -1871,7 +1928,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               [...teamInfo.teamLogsByTeamId].map(([teamId, teamLogs]) => [
                 teamId,
                 filterByGameType(
-                  filterGameLogs(teamLogs, { ...slot.filter, includePlayoffs: true }, compareOpponentRecords[i], divisionHistory, slot.season, () => teamId),
+                  filterGameLogs(teamLogs, { ...slot.filter, includePlayoffs: true }, compareOpponentRecords[i], divisionHistory, slot.season, () => teamId, "premier"),
                   compareGameType,
                 ),
               ]),
@@ -1914,7 +1971,25 @@ export function PlayerDetailPage({ season }: { season: string }) {
   if (playersError) return v2(<p className="error-message">{playersError}</p>);
 
   const player = players?.find((p) => p.playerId === playerId);
-  if (!player) return v2(<p className="error-message">選手が見つかりませんでした</p>);
+  if (!player) {
+    return v2(
+      <>
+        <p className="error-message">
+          {playerId && playerInOtherLeague
+            ? `この選手は、${LEAGUE_LABELS[league]} の${season}シーズンには出場がありません`
+            : "選手が見つかりませんでした"}
+        </p>
+        {playerId && playerInOtherLeague && (
+          <p>
+            {/* もう一方のリーグには出場がある（昇格・降格・移籍した選手） */}
+            <Link to={`/players/${playerId}?season=${season}&league=${otherLeague}`}>
+              {LEAGUE_LABELS[otherLeague]} {season}シーズンの成績を見る
+            </Link>
+          </p>
+        )}
+      </>,
+    );
+  }
 
   const accentColor = teamColors?.[player.teamId]?.primary;
   const nameHistory = playerHistory?.find((h) => h.playerId === player.playerId)?.names ?? [];
@@ -2288,7 +2363,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     }),
     gameTypeAxis(careerGameTypeFilter, setCareerGameTypeFilter, null),
   ];
-  const careerRangeSeasons = (careerCategory === "one" ? careerDataOne : careerData)?.map((cd) => cd.season) ?? [];
+  const careerRangeSeasons = (careerCategory === "one" ? careerDataOne : careerPremierData)?.map((cd) => cd.season) ?? [];
   const careerRangeLabel =
     careerRangeSeasons.length === 0
       ? null
@@ -2296,7 +2371,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         ? `${careerRangeSeasons[0]}シーズン`
         : `${careerRangeSeasons[0]}〜${careerRangeSeasons[careerRangeSeasons.length - 1]}シーズン`;
   const careerBaseConditions = composeLabels(
-    CAREER_CATEGORY_LABELS[careerCategory],
+    careerCategoryLabel(careerCategory, careerRangeSeasons),
     careerRangeLabel,
     gameTypeLabels(careerGameTypeFilter, null),
   );
@@ -2455,6 +2530,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
             className={`tab-button${tab === t ? " active" : ""}`}
             onClick={() => setTab(t)}
             type="button"
+            disabled={league === "one" && !!ONE_PLAYER_DETAIL_TAB_REASONS[t]}
+            title={league === "one" ? ONE_PLAYER_DETAIL_TAB_REASONS[t] : undefined}
           >
             {TAB_LABELS[t]}
           </button>
@@ -2490,6 +2567,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             <p className="loading">この期間の再集計中...</p>
           ) : (
             <SeasonBreakdownTable
+              league={league}
               careerData={careerData}
               gameTypeFilter={gameTypeFilter}
               teamData={careerTeamData}
@@ -2635,7 +2713,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                           <td className="align-left">{row.label}</td>
                           <td className="align-left">
                             {row.teamId ? (
-                              <RouterLink to={`/teams/${row.teamId}?season=${situationalStatsSeason}`} className="cell-link">
+                              <RouterLink to={`/teams/${row.teamId}?season=${situationalStatsSeason}&league=${league}`} className="cell-link">
                                 {row.teamLabel}
                               </RouterLink>
                             ) : (
@@ -3024,9 +3102,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
         <div className="player-tab-panel">
           <FilterBar simple stateKey={pk("careerFilter")} axes={careerFilterAxes} />
           <ConditionTitle title="通算成績" conditions={careerConditions} />
-          {(careerCategory === "one" ? careerOneLoading : careerLoading) ? (
+          {careerCategoryLoading ? (
             <p className="loading">読み込み中...</p>
-          ) : careerCategory === "premier" && careerError ? (
+          ) : careerCategory === "premier" && league === "premier" && careerError ? (
             <p className="error-message">{careerError}</p>
           ) : !careerCountTotals ? (
             <p className="empty-message">
@@ -3077,9 +3155,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
         <div className="player-tab-panel">
           <FilterBar simple stateKey={pk("careerFilter")} axes={careerFilterAxes} />
           <ConditionTitle title="キャリアハイ・ワースト" conditions={careerBaseConditions} />
-          {(careerCategory === "one" ? careerOneLoading : careerLoading) ? (
+          {careerCategoryLoading ? (
             <p className="loading">読み込み中...</p>
-          ) : careerCategory === "premier" && careerError ? (
+          ) : careerCategory === "premier" && league === "premier" && careerError ? (
             <p className="error-message">{careerError}</p>
           ) : !careerCountTotalsSource || (careerHighs.length === 0 && !careerTotal) ? (
             <p className="empty-message">
@@ -3091,6 +3169,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <div className="career-highs-grid">
                 {careerHighs.map((h) => (
                   <CareerHighCard
+                    gameLeague={careerCategory}
                     key={h.key}
                     tieKey={`high:${h.key}`}
                     label={h.label}
@@ -3124,6 +3203,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <div className="career-highs-grid">
                 {careerWorsts.map((h) => (
                   <CareerHighCard
+                    gameLeague={careerCategory}
                     key={h.key}
                     tieKey={`worst:${h.key}`}
                     label={h.label}
@@ -3237,6 +3317,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
  * DD2/TD3のみ列定義に無いため、末尾に独自の列として追加する。
  */
 function SeasonBreakdownTable({
+  league,
   careerData,
   gameTypeFilter,
   teamData,
@@ -3249,6 +3330,7 @@ function SeasonBreakdownTable({
   careerShots,
   careerShotsLoading,
 }: {
+  league: League;
   careerData: CareerSeasonLogs[] | null;
   gameTypeFilter: SeasonGameTypeFilter;
   teamData: Map<string, CareerSeasonTeamInfo> | null;
@@ -3555,7 +3637,7 @@ function SeasonBreakdownTable({
                 </td>
                 <td className="align-left">
                   {r.teamId ? (
-                    <RouterLink to={`/teams/${r.teamId}?season=${r.season}`} className="cell-link">
+                    <RouterLink to={`/teams/${r.teamId}?season=${r.season}&league=${league}`} className="cell-link">
                       {r.teamLabel}
                     </RouterLink>
                   ) : (
@@ -3633,6 +3715,7 @@ function StatTile({ label, value, rank }: { label: string; value: string; rank?:
  * が別途展開できる。デフォルトは非表示
  */
 function CareerHighCard({
+  gameLeague,
   tieKey,
   label,
   display,
@@ -3646,6 +3729,8 @@ function CareerHighCard({
   topNExpandedKeys,
   onToggleTopN,
 }: {
+  /** 試合へのリンクのリーグ（通算成績・キャリアハイのカテゴリ） */
+  gameLeague: League;
   tieKey: string;
   label: string;
   display: string;
@@ -3681,7 +3766,7 @@ function CareerHighCard({
         <RecordValue text={display} fraction={game && fraction ? fraction(game) : undefined} />
       </div>
       {game ? (
-        <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}`} className="career-high-game-link">
+        <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}&league=${gameLeague}`} className="career-high-game-link">
           {game.date}　{game.isHome ? "vs" : "@"}
           <ResponsiveTeamName teamId={game.opponentTeamId} name={game.opponentTeamName} always />
         </RouterLink>
@@ -3697,7 +3782,7 @@ function CareerHighCard({
             <ul className="career-high-others-list">
               {otherGames.map((g) => (
                 <li key={g.scheduleKey}>
-                  <RouterLink to={`/games/${g.scheduleKey}?season=${g.season}`} className="career-high-game-link">
+                  <RouterLink to={`/games/${g.scheduleKey}?season=${g.season}&league=${gameLeague}`} className="career-high-game-link">
                     {g.date}　{g.isHome ? "vs" : "@"}
                     <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always />
                   </RouterLink>
@@ -3717,7 +3802,7 @@ function CareerHighCard({
                   <RecordValue text={format ? format(e.value) : String(e.value)} fraction={fraction?.(e.game)} />
                 </td>
                 <td>
-                  <RouterLink to={`/games/${e.game.scheduleKey}?season=${e.game.season}`} className="career-high-game-link">
+                  <RouterLink to={`/games/${e.game.scheduleKey}?season=${e.game.season}&league=${gameLeague}`} className="career-high-game-link">
                     <span className="record-date-nowrap">{e.game.date}</span>　{e.game.isHome ? "vs" : "@"}
                     <ResponsiveTeamName teamId={e.game.opponentTeamId} name={e.game.opponentTeamName} always />
                   </RouterLink>

@@ -40,7 +40,7 @@ export const ONE_PAGE_AVAILABILITY: Record<LeaguePage, LeagueAvailability> = {
   teams: READY,
   teamDetail: READY,
   players: READY,
-  playerDetail: preparing("個人のページ"),
+  playerDetail: READY,
   standings: READY,
   figures: READY,
   rankings: later("ランキング"),
@@ -77,3 +77,7 @@ export const ONE_PLAYERS_TAB_REASONS: Partial<Record<string, string>> = {
   awards: "歴代アワードは、B.ONE ではまだ見られません（今後対応します）。",
 };
 export const ONE_ROOKIE_REASON = "ルーキーは、B.PREMIER の規程に準じた判定のため、B.ONE ではまだ選べません。";
+/** B.ONE の選手詳細で選べないタブ */
+export const ONE_PLAYER_DETAIL_TAB_REASONS: Partial<Record<string, string>> = {
+  compare: "比較は、B.ONE ではまだ見られません（今後対応します）。",
+};

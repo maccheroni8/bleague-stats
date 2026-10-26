@@ -116,12 +116,12 @@ export async function fetchPlayerPageSeasons(): Promise<PlayerPageSeasonsFile> {
 }
 
 /**
- * B.ONE（旧B2）は現状2025-26シーズンのみバックフィル済み（DESIGN.md参照。過去シーズンの
+ * B.ONE（旧B2）は現状2025-26（旧B2）・2026-27シーズンのみ（2025-26 は選手詳細の通算成績・キャリアハイだけに出す）（DESIGN.md参照。過去シーズンの
  * 一括取得はまだ行っていない）。B.PREMIERのdata/seasons.jsonに相当する季一覧ファイルが
  * 無いため、既知の取得済みシーズンをここに列挙する。今後シーズンを追加取得した場合はここに
  * 追記する
  */
-export const ONE_CATEGORY_SEASONS: string[] = ["2025-26"];
+export const ONE_CATEGORY_SEASONS: string[] = ["2025-26", "2026-27"];
 
 export function fetchPlayerGameLogs(season: string, playerId: string, league: League = "premier"): Promise<PlayerGameLog[]> {
   return fetchJson<PlayerGameLog[]>(`${categoryBase(season, league)}/player-games/${playerId}.json`);
