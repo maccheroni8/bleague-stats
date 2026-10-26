@@ -138,6 +138,7 @@ import {
   sumTeamGameLogs,
   type AllTeamsRow,
   EMPTY_TOTALS,
+  type TeamPerspective,
   type TeamTotals,
 } from "../lib/teamStatsColumns";
 import { statDescription } from "../lib/statDescriptions";
@@ -285,10 +286,11 @@ const BOX_TABS = BOXSCORE_TABS;
 /** 「全チームスタッツ」タブの各カテゴリ（BOXSCORE_TABS＋専用ビュー）の表示名。タイトルに使う */
 const TEAMS_STATS_CATEGORY_LABELS: Record<string, string> = { ...CATEGORY_LABELS, streaks: STREAKS_CATEGORY_LABEL, timeToShot: TTS_CATEGORY_LABEL };
 
-/** 強制ターンオーバーの視点トグル（ボタン表示とタイトルで共通） */
-const TURNOVER_PERSPECTIVE_LABELS: Record<"forced" | "committed", string> = {
-  forced: "相手から奪った（自チームが強制）",
-  committed: "自チームが記録（相手に強制された）",
+/** 強制ターンオーバーの視点（タイトルの表示）。自チーム＝相手から奪った分、opp＝相手に強制された（自チームが記録した）分、+/-＝奪った分−記録した分 */
+const TURNOVER_PERSPECTIVE_LABELS: Record<TeamPerspective, string> = {
+  own: "自チーム：相手から奪った（自チームが強制）",
+  opp: "opp：自チームが記録（相手に強制された）",
+  diff: "+/-：奪った−記録（相手に強制された）",
 };
 
 const teamColumn: Column<AllTeamsRow> = {
@@ -373,6 +375,27 @@ interface ShootingRow {
 interface TurnoverRow {
   team: TeamSummary;
   data: TeamForcedTurnovers;
+}
+
+/** 強制ターンオーバーの視点ごとの値。自チーム＝奪った分、opp＝記録した分、+/-＝奪った分−記録した分（どちらかが無いときは出さない） */
+function turnoverDataFor(
+  forced: TeamForcedTurnovers | undefined,
+  committed: TeamForcedTurnovers | undefined,
+  perspective: TeamPerspective,
+): TeamForcedTurnovers | undefined {
+  if (perspective === "own") return forced;
+  if (perspective === "opp") return committed;
+  if (!forced || !committed) return undefined;
+  return {
+    gamesWithData: forced.gamesWithData,
+    offensiveFoul: forced.offensiveFoul - committed.offensiveFoul,
+    violation24sec: forced.violation24sec - committed.violation24sec,
+    backcourtViolation: forced.backcourtViolation - committed.backcourtViolation,
+    violation5sec: forced.violation5sec - committed.violation5sec,
+    violation8sec: forced.violation8sec - committed.violation8sec,
+    otherDead: forced.otherDead - committed.otherDead,
+    live: forced.live - committed.live,
+  };
 }
 
 function turnoverTotal(data: TeamForcedTurnovers): number {
@@ -464,7 +487,14 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_TEAMS_FILTER);
   const [teamPerspective, setTeamPerspective] = useUrlState(PERSPECTIVE_PARAM, "own");
+  // 旧い強制ターンオーバーの切り替え（tov=committed）で開いたURLは、視点の opp に読み替える
   const [turnoverPerspective, setTurnoverPerspective] = useUrlState(TURNOVER_PERSPECTIVE_PARAM, "forced");
+  useEffect(() => {
+    if (turnoverPerspective !== "committed") return;
+    setTurnoverPerspective("forced");
+    setTeamPerspective("opp");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnoverPerspective]);
   // 区間（試合全体・1Q〜4Q・前半・後半・延長。DESIGN.md 256章の段階2）。Traditional〜Scoring の4つのタブだけで効く。区間の値はチームのピリオド別の索引から出す
   const [urlPeriod, setPeriod] = useUrlState(TEAM_SEASON_PERIOD_PARAM, "all");
   // B.ONE の Q別・前後半・登録区分別は段階3（URL に書いてあっても試合全体・全選手で出す）
@@ -780,7 +810,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   ];
 
   const turnoverRows: TurnoverRow[] = (teams ?? []).flatMap((team) => {
-    const data = turnoverPerspective === "forced" ? team.forcedTurnovers : team.turnoversCommitted;
+    const data = turnoverDataFor(team.forcedTurnovers, team.turnoversCommitted, teamPerspective);
     return data && passes(team.teamId) ? [{ team, data }] : [];
   });
   // Scoring %（得点構成・FG試投構成・得点構成（登録区分））は、選んだ条件（試合区分・試合の条件）に当てはまる試合ログの合計から出す（DESIGN.md 256章。
@@ -887,10 +917,10 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const withLeague = (list: TeamSummary[] | null | undefined): TeamSummary[] =>
     leagueAverage ? [...(list ?? []), { ...leagueAverage.team, teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME }] : (list ?? []);
   const leagueTurnoverData = leagueAverage
-    ? turnoverPerspective === "forced"
-      ? leagueAverage.team.forcedTurnovers
-      : leagueAverage.team.turnoversCommitted
+    ? turnoverDataFor(leagueAverage.team.forcedTurnovers, leagueAverage.team.turnoversCommitted, teamPerspective)
     : undefined;
+  // +/- の視点は符号つきで出す
+  const turnoverText = (v: number) => (teamPerspective === "diff" ? formatSigned(v, 0) : String(v));
   const leagueTurnoverRow: TurnoverRow | null = leagueAverage && leagueTurnoverData ? { team: leagueAverage.team, data: leagueTurnoverData } : null;
   const turnoverColumns: Column<TurnoverRow>[] = [
     {
@@ -905,14 +935,14 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
         </span>
       ),
     },
-    { key: "offensiveFoul", label: "オフェンスファウル", sortValue: (r) => r.data.offensiveFoul, format: (r) => String(r.data.offensiveFoul) },
-    { key: "violation24sec", label: "24秒バイオレーション", sortValue: (r) => r.data.violation24sec, format: (r) => String(r.data.violation24sec) },
-    { key: "backcourtViolation", label: "バックコート", sortValue: (r) => r.data.backcourtViolation, format: (r) => String(r.data.backcourtViolation) },
-    { key: "violation5sec", label: "5秒バイオレーション", sortValue: (r) => r.data.violation5sec, format: (r) => String(r.data.violation5sec) },
-    { key: "violation8sec", label: "8秒バイオレーション", sortValue: (r) => r.data.violation8sec, format: (r) => String(r.data.violation8sec) },
-    { key: "otherDead", label: "その他デッドボール", sortValue: (r) => r.data.otherDead, format: (r) => String(r.data.otherDead) },
-    { key: "live", label: "ライブボール（参考）", sortValue: (r) => r.data.live, format: (r) => String(r.data.live) },
-    { key: "total", label: "合計", sortValue: (r) => turnoverTotal(r.data), format: (r) => String(turnoverTotal(r.data)) },
+    { key: "offensiveFoul", label: "オフェンスファウル", sortValue: (r) => r.data.offensiveFoul, format: (r) => turnoverText(r.data.offensiveFoul) },
+    { key: "violation24sec", label: "24秒バイオレーション", sortValue: (r) => r.data.violation24sec, format: (r) => turnoverText(r.data.violation24sec) },
+    { key: "backcourtViolation", label: "バックコート", sortValue: (r) => r.data.backcourtViolation, format: (r) => turnoverText(r.data.backcourtViolation) },
+    { key: "violation5sec", label: "5秒バイオレーション", sortValue: (r) => r.data.violation5sec, format: (r) => turnoverText(r.data.violation5sec) },
+    { key: "violation8sec", label: "8秒バイオレーション", sortValue: (r) => r.data.violation8sec, format: (r) => turnoverText(r.data.violation8sec) },
+    { key: "otherDead", label: "その他デッドボール", sortValue: (r) => r.data.otherDead, format: (r) => turnoverText(r.data.otherDead) },
+    { key: "live", label: "ライブボール（参考）", sortValue: (r) => r.data.live, format: (r) => turnoverText(r.data.live) },
+    { key: "total", label: "合計", sortValue: (r) => turnoverTotal(r.data), format: (r) => turnoverText(turnoverTotal(r.data)) },
     { key: "gamesWithData", label: "データあり試合数", sortValue: (r) => r.data.gamesWithData, format: (r) => String(r.data.gamesWithData) },
   ];
 
@@ -950,7 +980,9 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
         : seasonTotalOnlyReason;
   const perspectiveDisabledReason = isShareCategory
     ? "このタブは自チームの得点構成と、相手の得点（失点構成）の両方を並べて出すため、視点は切り替えません。"
-    : filterDisabledReason;
+    : boxTab === "forcedTurnovers"
+      ? undefined
+      : filterDisabledReason;
   const filterAxes: FilterAxis[] = [
     gameTypeAxis(gameType, setGameType, season, { disabledReason: filterDisabledReason }),
     perspectiveAxis(teamPerspective, setTeamPerspective, {
@@ -1016,7 +1048,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           : boxTab === "streaks"
             ? composeLabels(gameTypeLabels("regular", season), "シーズン内の連続")
             : boxTab === "forcedTurnovers"
-            ? composeLabels(TURNOVER_PERSPECTIVE_LABELS[turnoverPerspective], SEASON_TOTAL_ONLY_LABELS)
+            ? composeLabels(TURNOVER_PERSPECTIVE_LABELS[teamPerspective], SEASON_TOTAL_ONLY_LABELS)
             : boxTab === "foreignPlayers"
               ? foreignRows || foreignPeriod !== "all"
                 ? composeLabels(
@@ -1155,22 +1187,6 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           <p className="empty-message">{league === "one" ? "B.ONE では、まだ見られません（今後対応します）。" : "このシーズンのデータには対応していません"}</p>
         ) : (
           <>
-            <div className="mode-toggle">
-              <button
-                className={turnoverPerspective === "forced" ? "active" : ""}
-                onClick={() => setTurnoverPerspective("forced")}
-                type="button"
-              >
-                {TURNOVER_PERSPECTIVE_LABELS.forced}
-              </button>
-              <button
-                className={turnoverPerspective === "committed" ? "active" : ""}
-                onClick={() => setTurnoverPerspective("committed")}
-                type="button"
-              >
-                {TURNOVER_PERSPECTIVE_LABELS.committed}
-              </button>
-            </div>
             <div className="table-scroll">
               <SortableTable
                 rowNumbers
@@ -1184,7 +1200,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
               />
             </div>
             <p className="page-subtitle">
-              レギュラーシーズン・シーズン合計のみ（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算・自チーム/opp/+/-とは連動しない）
+              レギュラーシーズン・シーズン合計のみ（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算とは連動しない。自チーム＝相手から奪った分、opp＝自チームが記録した分、+/-＝その差）
             </p>
           </>
         )
