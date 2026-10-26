@@ -1,7 +1,7 @@
 // レギュラーシーズンの全試合が終わったシーズンか（チーム詳細「クラブレコード」のシーズン記録のワースト側の対象）。判定そのものは shared/regularSeasonComplete.ts
 import { useEffect, useState } from "react";
 import { CHECKED_LATEST_SEASONS, isRegularSeasonComplete } from "../../shared/regularSeasonComplete";
-import { fetchGameSummaries, fetchSchedule } from "./data";
+import { fetchGameSummaries, fetchSchedule, type League } from "./data";
 
 export { CHECKED_LATEST_SEASONS, SHORTENED_REGULAR_SEASONS, isRegularSeasonComplete } from "../../shared/regularSeasonComplete";
 
@@ -9,7 +9,7 @@ export { CHECKED_LATEST_SEASONS, SHORTENED_REGULAR_SEASONS, isRegularSeasonCompl
  * seasons（古い順・新しい順どちらでもよい）のうち、レギュラーシーズンの全試合が終わったシーズン。
  * 新しい2シーズンだけ日程・試合の一覧を読んで確かめる。読み込み中・enabled=false は null。読めなかったシーズンは終わっていない扱い
  */
-export function useCompletedRegularSeasons(seasons: readonly string[] | null, enabled: boolean): Set<string> | null {
+export function useCompletedRegularSeasons(seasons: readonly string[] | null, enabled: boolean, league: League = "premier"): Set<string> | null {
   const key = seasons ? [...seasons].sort().join(",") : "";
   const [state, setState] = useState<{ key: string; completed: Set<string> } | null>(null);
   useEffect(() => {
@@ -21,7 +21,7 @@ export function useCompletedRegularSeasons(seasons: readonly string[] | null, en
     Promise.all(
       checked.map(async (season) => {
         try {
-          const [schedule, summaries] = await Promise.all([fetchSchedule(season), fetchGameSummaries(season)]);
+          const [schedule, summaries] = await Promise.all([fetchSchedule(season, league), fetchGameSummaries(season, league)]);
           return isRegularSeasonComplete({ schedule, summaries }) ? season : null;
         } catch {
           return null;
@@ -34,6 +34,6 @@ export function useCompletedRegularSeasons(seasons: readonly string[] | null, en
     return () => {
       cancelled = true;
     };
-  }, [key, enabled]);
+  }, [key, enabled, league]);
   return state && state.key === key ? state.completed : null;
 }

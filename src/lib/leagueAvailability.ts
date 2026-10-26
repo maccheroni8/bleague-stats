@@ -41,7 +41,7 @@ export const ONE_PAGE_AVAILABILITY: Record<LeaguePage, LeagueAvailability> = {
   teamDetail: preparing("チームのページ"),
   players: preparing("個人のページ"),
   playerDetail: preparing("個人のページ"),
-  standings: preparing("順位表"),
+  standings: READY,
   figures: preparing("図解"),
   rankings: later("ランキング"),
   compare: later("比較"),
@@ -50,3 +50,9 @@ export const ONE_PAGE_AVAILABILITY: Record<LeaguePage, LeagueAvailability> = {
 export function pageAvailability(page: LeaguePage, league: League): LeagueAvailability {
   return league === "premier" ? READY : ONE_PAGE_AVAILABILITY[page];
 }
+
+/** B.ONE の順位表で選べないタブ（タブ名 → 理由）。年間スケジュールの大会日程は B.PREMIER のもの、マジックナンバーは段階3 */
+export const ONE_STANDINGS_TAB_REASONS: Partial<Record<string, string>> = {
+  annual: "年間スケジュールは、B.ONE ではまだ見られません。",
+  magic: "マジックナンバーは、B.ONE ではまだ見られません（今後対応します）。",
+};

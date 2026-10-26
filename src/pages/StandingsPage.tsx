@@ -10,6 +10,8 @@ import {
   fetchTeamColors,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
+import { useLeague, type League } from "../lib/league";
+import { ONE_STANDINGS_TAB_REASONS } from "../lib/leagueAvailability";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart, type ChartTeam } from "../components/StandingsLineChart";
@@ -475,8 +477,8 @@ function reshape(
  * このシーズンのワイルドカード表示（順位表・推移グラフ）の対象か。ポストシーズンの出場形式
  * （shared/postseasonFormat.ts）があり、地区データがあるシーズンだけ対象にする（CS中止の2019-20は対象外）
  */
-function wildcardFormat(season: string, teams: StandingsTeamSnapshot[]): PostseasonFormat | null {
-  const format = postseasonFormat(season);
+function wildcardFormat(season: string, teams: StandingsTeamSnapshot[], league: League): PostseasonFormat | null {
+  const format = postseasonFormat(season, league);
   return format && teams.some((t) => t.division) ? format : null;
 }
 
@@ -536,18 +538,21 @@ function reshapeWildcardMetric(
 }
 
 export function StandingsPage({ season }: { season: string }) {
-  const [tab, setTab] = useUrlState(enumParam("tab", Object.keys(TAB_LABELS) as StandingsTab[], "standings"), "standings");
-  const { data: history, loading, error } = useJsonData(() => fetchStandingsHistory(season), [season]);
+  const league = useLeague();
+  const [urlTab, setTab] = useUrlState(enumParam("tab", Object.keys(TAB_LABELS) as StandingsTab[], "standings"), "standings");
+  // B.ONE で見られないタブが URL にあるときは順位表タブにする（タブのボタンには理由を出す）
+  const tab: StandingsTab = league === "one" && ONE_STANDINGS_TAB_REASONS[urlTab] ? "standings" : urlTab;
+  const { data: history, loading, error } = useJsonData(() => fetchStandingsHistory(season, league), [season, league]);
   const {
     data: headToHead,
     loading: h2hLoading,
     error: h2hError,
-  } = useJsonData(() => fetchHeadToHead(season), [season]);
+  } = useJsonData(() => fetchHeadToHead(season, league), [season, league]);
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
-  const { data: schedule } = useJsonData(() => fetchSchedule(season), [season]);
+  const { data: schedule } = useJsonData(() => fetchSchedule(season, league), [season, league]);
   // ワイルドカードグラフの表示開始基準（2月のバイウィーク明け）算出用
-  const { data: gameSummaries } = useJsonData(() => fetchGameSummaries(season), [season]);
-  const { data: playoffRace } = useJsonData(() => fetchPlayoffRace(season), [season]);
+  const { data: gameSummaries } = useJsonData(() => fetchGameSummaries(season, league), [season, league]);
+  const { data: playoffRace } = useJsonData(() => fetchPlayoffRace(season, league), [season, league]);
 
   // null = 全チーム選択（絞り込みなし）。個別に外したチームだけをSetで管理する（SchedulePageと同じパターン）
   const [h2hSelectedTeamIds, setH2hSelectedTeamIds] = useState<Set<string> | null>(null);
@@ -587,7 +592,7 @@ export function StandingsPage({ season }: { season: string }) {
   };
 
   const latest = history && history.length > 0 ? history[history.length - 1]! : null;
-  const { gameLogsByTeam: statLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, latest?.teams ?? null);
+  const { gameLogsByTeam: statLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, latest?.teams ?? null, league);
   // 結果だけの試合（ボックススコアが公式に無い試合・不戦勝）は、ホーム/アウェー・直近5試合・連勝連敗・条件別順位表・勝敗表にだけ足す
   // （スタッツの画面には渡さない。DESIGN.md 228章）
   const resultOnlyEntries = schedule?.resultOnlyGames;
@@ -601,6 +606,31 @@ export function StandingsPage({ season }: { season: string }) {
     [gameSummaries, resultOnlyGameRows],
   );
 
+  // タブの並び。B.ONE で見られないタブは、押せない状態にして理由を添える
+  const tabBar = (magicShown: boolean) => (
+    <>
+      <div className="tab-bar">
+        {(Object.keys(TAB_LABELS) as StandingsTab[])
+          .filter((t) => t !== "magic" || magicShown || league === "one")
+          .map((t) => {
+            const reason = league === "one" ? ONE_STANDINGS_TAB_REASONS[t] : undefined;
+            return (
+              <button
+                key={t}
+                className={`tab-button${tab === t ? " active" : ""}`}
+                onClick={() => setTab(t)}
+                type="button"
+                disabled={!!reason}
+                title={reason}
+              >
+                {TAB_LABELS[t]}
+              </button>
+            );
+          })}
+      </div>
+      {league === "one" && ONE_STANDINGS_TAB_REASONS[urlTab] && <p className="standings-tab-note">{ONE_STANDINGS_TAB_REASONS[urlTab]}</p>}
+    </>
+  );
   // 読み込み中・エラー時もv2の範囲に入れ、ヘッダー・ナビの見た目が切り替わらないようにする
   const v2 = (node: ReactNode) => (
     <div data-design="v2" className="standings-page">
@@ -609,8 +639,8 @@ export function StandingsPage({ season }: { season: string }) {
   );
   if (tab === "annual" && (loading || error || !latest)) return v2(<>
     <h1>順位表</h1>
-    <div className="tab-bar">{(Object.keys(TAB_LABELS) as StandingsTab[]).filter(t => t !== "magic" || playoffRace?.format === "premier-2026").map(t => <button type="button" key={t} className={`tab-button${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>{TAB_LABELS[t]}</button>)}</div>
-    <AnnualSchedule key={season} season={season} />
+    {tabBar(false)}
+    <AnnualSchedule key={season} season={season} league={league} />
   </>);
   if (loading) return v2(<p className="loading">読み込み中...</p>);
   if (error) return v2(<p className="error-message">{error}</p>);
@@ -676,7 +706,7 @@ export function StandingsPage({ season }: { season: string }) {
   const magicEarly =
     magicAvailable &&
     playoffRace.teams.reduce((sum, r) => sum + r.wins + r.losses, 0) / Math.max(1, playoffRace.teams.length) < 10;
-  const divisionStandingsGroups = groupByDivision(standingsTeams).map((g) => ({
+  const divisionStandingsGroups = groupByDivision(standingsTeams, league).map((g) => ({
     division: g.division,
     rows: g.teams.map(rowFor),
   }));
@@ -706,7 +736,7 @@ export function StandingsPage({ season }: { season: string }) {
   const gamesAboveData = reshape(history, (t) => t.wins - t.losses, revealCount);
   const divisionRankData = reshape(history, (t) => t.divisionRank ?? NaN, revealCount);
 
-  const divisionGroups = groupByDivision(teams);
+  const divisionGroups = groupByDivision(teams, league);
 
   // ワイルドカードグラフは、シーズン最終順位ベースの固定メンバーではなく、各日付時点で
   // 実際に地区の自動出場圏（上位divisionTop）の外にいたチームを動的に描画する（圏内に浮上した期間は線が途切れる）。
@@ -715,7 +745,7 @@ export function StandingsPage({ season }: { season: string }) {
   // 参照する意味が薄い序盤の順位変動が多く、ノイズになるため）。2月のバイウィークが
   // 検出できない場合（gameSummaries未取得時を含む）は、安全側に倒してグラフ自体を
   // 表示しない（誤った全期間表示をしないため。DESIGN.md参照）
-  const wcFormat = wildcardFormat(season, teams);
+  const wcFormat = wildcardFormat(season, teams, league);
   const wildcardApplicable = wcFormat !== null;
   // 「地区4位以下」のような、ワイルドカード争いの対象を表す表記（2025-26など地区上位2が自動出場のシーズンは「地区3位以下」）
   const wildcardPoolLabel = wcFormat ? `地区${wcFormat.divisionTop + 1}位以下` : "";
@@ -794,6 +824,7 @@ export function StandingsPage({ season }: { season: string }) {
           divisionPresets(
             h2hTeamOptions.map((t) => t.teamId),
             (id) => divisionByTeamId.get(id),
+            league,
           ).map((g) => ({ label: g.label, values: g.teamIds })),
         );
   const h2hConditions = composeLabels(gameTypeLabels("regular", null), asOfLabel, h2hClubLabels);
@@ -804,17 +835,9 @@ export function StandingsPage({ season }: { season: string }) {
       <p className="page-subtitle">{season}シーズン・{latest.date}時点</p>
       <ResultOnlyNote games={resultOnlyEntries} />
 
-      <div className="tab-bar">
-        {(Object.keys(TAB_LABELS) as StandingsTab[])
-          .filter((t) => t !== "magic" || magicAvailable)
-          .map((t) => (
-            <button key={t} className={`tab-button${activeTab === t ? " active" : ""}`} onClick={() => setTab(t)} type="button">
-              {TAB_LABELS[t]}
-            </button>
-          ))}
-      </div>
+      {tabBar(magicAvailable)}
 
-      {activeTab === "annual" && <AnnualSchedule key={season} season={season} />}
+      {activeTab === "annual" && <AnnualSchedule key={season} season={season} league={league} />}
 
       {activeTab === "standings" && (
         <div>
@@ -1007,7 +1030,7 @@ export function StandingsPage({ season }: { season: string }) {
           <p className="loading">読み込み中...</p>
         ) : (
           <div className="standings-tab-panel">
-            <WinLossLegend season={season} clinchTypes={clinchTypesForSeason(season)} />
+            <WinLossLegend season={season} clinchTypes={clinchTypesForSeason(season).filter((c) => league === "premier" || c !== "homeCourt")} />
             <div className="standings-stack">
               {(divisionStandingsGroups.length > 0
                 ? divisionStandingsGroups.map((g) => ({ key: g.division, title: `${DIVISION_LABELS[g.division]} 勝敗表`, rows: g.rows }))
@@ -1044,6 +1067,7 @@ export function StandingsPage({ season }: { season: string }) {
       {activeTab === "conditional" && (
         <ConditionalStandingsTable
           season={season}
+          league={league}
           teams={teams}
           gameLogsByTeam={gameLogsByTeam}
           gameLogsLoading={gameLogsLoading}

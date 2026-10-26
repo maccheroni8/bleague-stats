@@ -523,13 +523,14 @@ export function matchesSituationalAndFilters<
   divisionHistory?: DivisionHistoryFile | null,
   season?: string,
   ownTeamOf?: OwnTeamResolver,
+  league: Category = "premier",
 ): boolean {
   if (filters.result === "win" && !g.win) return false;
   if (filters.result === "loss" && g.win) return false;
   if (filters.homeAway === "home" && !g.isHome) return false;
   if (filters.homeAway === "away" && g.isHome) return false;
-  if (filters.division && (!season || !matchesDivision(g, filters.division, divisionHistory, season, "premier", ownTeamOf))) return false;
-  if (filters.ownDivision && (!season || !matchesOwnDivision(g, filters.ownDivision, divisionHistory, season, "premier", ownTeamOf))) return false;
+  if (filters.division && (!season || !matchesDivision(g, filters.division, divisionHistory, season, league, ownTeamOf))) return false;
+  if (filters.ownDivision && (!season || !matchesOwnDivision(g, filters.ownDivision, divisionHistory, season, league, ownTeamOf))) return false;
   if (filters.months?.length && !filters.months.some((m) => matchesMonth(g, m))) return false;
   if (filters.newYear && !matchesNewYearHalf(g, filters.newYear)) return false;
   if (filters.weekday && !isWeekdayGame(g.date)) return false;
@@ -565,12 +566,13 @@ export function matchesShotChartGameFilters<
   ownTeamByScheduleKey?: Map<string, GameTeamInfo>,
   divisionHistory?: DivisionHistoryFile | null,
   season?: string,
+  league: Category = "premier",
 ): boolean {
   // 同地区/他地区の判定に使う自チームは、シーズン内移籍対応で導出済みの所属チーム（ownTeamByScheduleKey）から引く
   const ownTeamOf: OwnTeamResolver | undefined = ownTeamByScheduleKey
     ? (log) => ownTeamByScheduleKey.get(log.scheduleKey)?.teamId
     : undefined;
-  if (!matchesSituationalAndFilters(g, filters, opponentRecords, divisionHistory, season, ownTeamOf)) return false;
+  if (!matchesSituationalAndFilters(g, filters, opponentRecords, divisionHistory, season, ownTeamOf, league)) return false;
   if (filters.ownTeamId && ownTeamByScheduleKey?.get(g.scheduleKey)?.teamId !== filters.ownTeamId) return false;
   return true;
 }
@@ -618,11 +620,12 @@ export function filterGameLogs<
   divisionHistory?: DivisionHistoryFile | null,
   season?: string,
   ownTeamOf?: OwnTeamResolver,
+  league: Category = "premier",
 ): T[] {
   const played = logs.filter((g) => g.min > 0);
   const scoped = filter.includePlayoffs ? played : played.filter((g) => g.gameType === "regular");
   const ranged = applySituationalRange(scoped, filter.range);
-  return ranged.filter((g) => matchesSituationalAndFilters(g, filter, opponentRecords, divisionHistory, season, ownTeamOf));
+  return ranged.filter((g) => matchesSituationalAndFilters(g, filter, opponentRecords, divisionHistory, season, ownTeamOf, league));
 }
 
 export interface TeamSituationalStats {

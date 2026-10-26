@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchDivisionHistory, fetchGame, fetchGameSummaries, fetchTeamGameLogs } from "./data";
+import { fetchDivisionHistory, fetchGame, fetchGameSummaries, fetchTeamGameLogs, type League } from "./data";
 import {
   buildGameTeamsByScheduleKey,
   buildRecordsBeforeGame,
@@ -17,6 +17,7 @@ import type { DivisionHistoryFile, GameSummary, StoredGame, TeamGameLog } from "
 export function useAllTeamGameLogs(
   season: string,
   teams: { teamId: string }[] | null,
+  league: League = "premier",
 ): { gameLogsByTeam: Map<string, TeamGameLog[]> | null; loading: boolean } {
   const [gameLogsByTeam, setGameLogsByTeam] = useState<Map<string, TeamGameLog[]> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,7 +30,7 @@ export function useAllTeamGameLogs(
     Promise.all(
       teams.map(async (t): Promise<readonly [string, TeamGameLog[]]> => {
         try {
-          return [t.teamId, await fetchTeamGameLogs(season, t.teamId)] as const;
+          return [t.teamId, await fetchTeamGameLogs(season, t.teamId, league)] as const;
         } catch {
           return [t.teamId, []] as const;
         }
@@ -44,7 +45,7 @@ export function useAllTeamGameLogs(
     return () => {
       cancelled = true;
     };
-  }, [teams, season]);
+  }, [teams, season, league]);
 
   return { gameLogsByTeam, loading };
 }
@@ -57,6 +58,7 @@ export function useAllTeamGameLogs(
 export function useLeagueSituationalContext(
   season: string,
   enabled = true,
+  league: League = "premier",
 ): {
   summaries: GameSummary[] | null;
   divisionHistory: DivisionHistoryFile | null;
@@ -73,7 +75,7 @@ export function useLeagueSituationalContext(
     setDivisionHistory(null);
     // 前シーズン比較の前季は、比較をオンにしたときだけ読む（enabled が false の間は読まない）
     if (!enabled) return;
-    Promise.all([fetchGameSummaries(season), fetchDivisionHistory()])
+    Promise.all([fetchGameSummaries(season, league), fetchDivisionHistory()])
       .then(([s, d]) => {
         if (!cancelled) {
           setSummaries(s);
@@ -86,7 +88,7 @@ export function useLeagueSituationalContext(
     return () => {
       cancelled = true;
     };
-  }, [season, enabled]);
+  }, [season, enabled, league]);
 
   const opponentRecords = useMemo<Map<string, Map<string, RecordBeforeGame>> | undefined>(
     () => (summaries ? buildRecordsBeforeGame(summaries) : undefined),
@@ -114,6 +116,7 @@ export function useLeagueSituationalContext(
 export function useLeagueRawGames(
   season: string,
   requestedScheduleKeys: string[],
+  league: League = "premier",
 ): { gamesByScheduleKey: Map<string, StoredGame>; loading: boolean; failedCount: number; retry: () => void } {
   const [gamesByScheduleKey, setGamesByScheduleKey] = useState<Map<string, StoredGame>>(new Map());
   const [loading, setLoading] = useState(false);
@@ -146,7 +149,7 @@ export function useLeagueRawGames(
         // 同時に多数読むと一部が失敗することがあるので、1回だけやり直す
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
-            return [scheduleKey, await fetchGame(fetchSeason, scheduleKey)] as const;
+            return [scheduleKey, await fetchGame(fetchSeason, scheduleKey, league)] as const;
           } catch {
             if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 500));
           }
@@ -175,7 +178,7 @@ export function useLeagueRawGames(
         if (inFlightRef.current === 0) setLoading(false);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestedScheduleKeys.join("|"), season, retryNonce]);
+  }, [requestedScheduleKeys.join("|"), season, retryNonce, league]);
 
   const failedCount = useMemo(() => requestedScheduleKeys.filter((k) => failedKeys.has(k)).length, [requestedScheduleKeys, failedKeys]);
   const retry = useCallback(() => setRetryNonce((n) => n + 1), []);

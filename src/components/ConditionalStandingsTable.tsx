@@ -14,7 +14,8 @@ import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak } from "../../shared/teamRecords";
 import { teamShortName } from "../../shared/teamNames";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
-import { DIVISION_LABELS, divisionPresets } from "../lib/divisionGroups";
+import { DIVISION_LABELS, divisionOrder, divisionPresets } from "../lib/divisionGroups";
+import type { League } from "../lib/league";
 import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { useLeagueSituationalContext } from "../lib/teamRankingData";
 import {
@@ -119,6 +120,7 @@ function describeCondition(condition: ConditionalCondition): string {
 interface ConditionContext {
   teamId: string;
   season: string;
+  league: League;
   opponentRecords?: Map<string, Map<string, RecordBeforeGame>>;
   divisionHistory?: DivisionHistoryFile | null;
   backToBackStatus?: Map<string, Map<string, BackToBackGame>>;
@@ -138,7 +140,7 @@ function applyConditionalCondition(
     case "homeAway":
       return logs.filter((g) => (condition.value === "home" ? g.isHome : !g.isHome));
     case "division":
-      return logs.filter((g) => matchesDivision(g, condition.value, ctx.divisionHistory, ctx.season));
+      return logs.filter((g) => matchesDivision(g, condition.value, ctx.divisionHistory, ctx.season, ctx.league));
     case "weekday":
       return logs.filter((g) => isWeekdayGame(g.date) === condition.value);
     case "month":
@@ -186,6 +188,7 @@ function computeRemainingCount(
   teamIdByName: Map<string, string>,
   divisionHistory: DivisionHistoryFile | null | undefined,
   season: string,
+  league: League,
 ): number | null {
   const myGames: UpcomingOwnGame[] = upcomingGames
     .filter((g) => g.homeTeamName === teamName || g.awayTeamName === teamName)
@@ -203,7 +206,7 @@ function computeRemainingCount(
     case "division":
       return myGames.filter((g) => {
         const oppId = teamIdByName.get(g.opponentTeamName);
-        return !!oppId && teamDivisionForSeason(divisionHistory, oppId, season) === condition.value;
+        return !!oppId && teamDivisionForSeason(divisionHistory, oppId, season, league) === condition.value;
       }).length;
     case "weekday":
       return myGames.filter((g) => isWeekdayGame(g.date) === condition.value).length;
@@ -249,6 +252,7 @@ interface ConditionGroup {
 
 export function ConditionalStandingsTable({
   season,
+  league,
   teams,
   gameLogsByTeam,
   gameLogsLoading,
@@ -257,6 +261,7 @@ export function ConditionalStandingsTable({
   resultOnlyGames,
 }: {
   season: string;
+  league: League;
   teams: StandingsTeamSnapshot[];
   /** 結果だけの試合の行（日付・ホーム/アウェイ・勝敗・得点・相手だけ）を含む、チームごとの試合ログ */
   gameLogsByTeam: Map<string, TeamGameLog[]> | null;
@@ -266,7 +271,7 @@ export function ConditionalStandingsTable({
   /** 結果だけの試合（ボックススコアが無い試合・不戦勝）。対戦相手の勝率・連戦・バイウィークの判定にも含める */
   resultOnlyGames?: ResultOnlyGameEntry[];
 }) {
-  const { summaries: statSummaries, divisionHistory, opponentRecords: statOpponentRecords } = useLeagueSituationalContext(season);
+  const { summaries: statSummaries, divisionHistory, opponentRecords: statOpponentRecords } = useLeagueSituationalContext(season, true, league);
   const summaries = useMemo(
     () => (statSummaries ? [...statSummaries, ...resultOnlySummaries(resultOnlyGames, statSummaries)] : statSummaries),
     [statSummaries, resultOnlyGames],
@@ -290,10 +295,11 @@ export function ConditionalStandingsTable({
     setSelectedTeamIds(null);
   }, [season]);
 
-  const hasCentralDivision = teams.some((t) => t.division === "central");
+  // 対戦相手の地区の選択肢: そのシーズンの順位表にいる地区だけを、リーグの並びで
+  const presentDivisions = divisionOrder(league).filter((d) => teams.some((t) => t.division === d));
   // シーズンごとの出場形式（各地区の上位○クラブ＋ワイルドカード○クラブ。shared/postseasonFormat.ts）で算出する。
   // 形式の無いシーズン（CS中止の2019-20）と地区データの無いシーズンは null（進出圏のボタン自体を出さない）
-  const format = postseasonFormat(season);
+  const format = postseasonFormat(season, league);
   const playoffQualifiedIds = useMemo(
     () => (format && teams.some((t) => t.division) ? postseasonQualifiedTeamIds(teams, format) : null),
     [teams, format],
@@ -326,11 +332,11 @@ export function ConditionalStandingsTable({
     {
       label: "対戦相手の地区",
       options: [
-        { key: "div-east", label: "対東地区", condition: { kind: "division", value: "east" } },
-        ...(hasCentralDivision
-          ? [{ key: "div-central", label: "対中地区", condition: { kind: "division", value: "central" } as ConditionalCondition }]
-          : []),
-        { key: "div-west", label: "対西地区", condition: { kind: "division", value: "west" } },
+        ...presentDivisions.map((d) => ({
+          key: `div-${d}`,
+          label: `対${DIVISION_LABELS[d]}`,
+          condition: { kind: "division", value: d } as ConditionalCondition,
+        })),
       ],
     },
     {
@@ -428,6 +434,7 @@ export function ConditionalStandingsTable({
       selected: selectedTeamIds,
       onChange: setSelectedTeamIds,
       divisionOf: (id) => divisionByTeamId.get(id),
+      league,
       presets: [
         ...(playoffQualifiedIds ? [{ label: `${postseasonLabel(season)}進出圏（現時点）`, teamIds: [...playoffQualifiedIds] }] : []),
       ],
@@ -448,6 +455,7 @@ export function ConditionalStandingsTable({
       const filtered = applyConditionalCondition(sorted, condition, {
         teamId: team.teamId,
         season,
+        league,
         opponentRecords,
         divisionHistory,
         backToBackStatus,
@@ -456,7 +464,7 @@ export function ConditionalStandingsTable({
       const losses = filtered.length - wins;
       const pts = filtered.reduce((s, g) => s + g.teamScore, 0);
       const oppPts = filtered.reduce((s, g) => s + g.opponentScore, 0);
-      const remaining = computeRemainingCount(team.teamName, condition, upcomingGames, teamIdByName, divisionHistory, season);
+      const remaining = computeRemainingCount(team.teamName, condition, upcomingGames, teamIdByName, divisionHistory, season, league);
       return {
         team,
         gamesPlayed: filtered.length,
@@ -495,6 +503,7 @@ export function ConditionalStandingsTable({
     upcomingGames,
     teamIdByName,
     selectedTeamIds,
+    league,
   ]);
 
   // 「相手の勝率」の条件: 相手の消化試合数が下限に満たない時点の試合は数えない。対象の試合の数を表の上に出す
@@ -579,6 +588,7 @@ export function ConditionalStandingsTable({
                   divisionPresets(
                     teamOptions.map((t) => t.teamId),
                     (id) => divisionByTeamId.get(id),
+                    league,
                   ).map((g) => ({ label: g.label, values: g.teamIds })),
                 ),
         )}

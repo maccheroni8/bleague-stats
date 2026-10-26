@@ -1,6 +1,6 @@
 import { formatTeamStreak } from "../../shared/teamRecords";
 import { seasonStreakSummary } from "../lib/streakRecords";
-import { Link } from "react-router-dom";
+import { SeasonLink } from "./SeasonLink";
 import type { ClinchEvent, ClinchType, GameSummary, UpcomingGameEntry } from "../../shared/types";
 import { teamShortName } from "../../shared/teamNames";
 import { postseasonLabel } from "../../shared/gameType";
@@ -241,12 +241,12 @@ export function WinLossGrid({
               <tr key={t.teamId}>
                 <td className="wl-team-col" style={accent ? { borderLeftColor: accent } : undefined}>
                   {showRank && <span className="wl-rank">{t.divisionRank ?? "-"}</span>}
-                  <Link to={`/teams/${t.teamId}`} className="wl-team-link">
+                  <SeasonLink to={`/teams/${t.teamId}`} className="wl-team-link">
                     <TeamLogo teamId={t.teamId} size={18} />
                     <span className="wl-team-name" title={t.teamName}>
                       <ResponsiveTeamName teamId={t.teamId} name={t.teamName} />
                     </span>
-                  </Link>
+                  </SeasonLink>
                 </td>
                 {showStats &&
                   STAT_COLS.map((c) => (
@@ -267,9 +267,9 @@ export function WinLossGrid({
                       const title = `${head}\n試合中 ${p.teamScore}-${p.opponentScore}（途中経過）${p.venue ? `（${p.venue}）` : ""}`;
                       return (
                         <td key={i} className={cls}>
-                          <Link to={`/games/${p.scheduleKey}`} className="wl-mark" title={title} aria-label={title}>
+                          <SeasonLink to={`/games/${p.scheduleKey}`} className="wl-mark" title={title} aria-label={title}>
                             <span className="wl-live-dot" aria-hidden="true" />
-                          </Link>
+                          </SeasonLink>
                         </td>
                       );
                     }
@@ -312,9 +312,9 @@ export function WinLossGrid({
                           {c.win ? "○" : "●"}
                         </span>
                       ) : (
-                        <Link to={`/games/${c.scheduleKey}`} className="wl-mark" title={title} aria-label={title}>
+                        <SeasonLink to={`/games/${c.scheduleKey}`} className="wl-mark" title={title} aria-label={title}>
                           {c.win ? "○" : "●"}
-                        </Link>
+                        </SeasonLink>
                       )}
                       {events.length > 0 && <span className="wl-clinch-mark">{CLINCH_MARKS[events[0]!.type]}</span>}
                     </td>

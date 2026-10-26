@@ -5,11 +5,12 @@ import { fetchGameSummaries, fetchSchedule, fetchTeams, fetchDivisionHistory, fe
 import { teamDivisionForSeason } from '../../scripts/lib/divisions';
 import { statDescription } from '../lib/statDescriptions';
 import { formatWinPct, formatDecimal } from '../lib/format';
+import type { League } from '../lib/league';
 import { useJsonData } from '../lib/useJsonData';
 import { TeamLogo } from './TeamLogo';
 import { ResponsiveTeamName } from './ResponsiveTeamName';
 import { SeasonLink } from './SeasonLink';
-import { DIVISION_LABELS, DIVISION_ORDER } from '../lib/divisionGroups';
+import { DIVISION_LABELS, divisionOrder } from '../lib/divisionGroups';
 import './AnnualSchedule.css';
 
 const STANDING_LABELS = ['試合数', '勝', '負', '勝率', '残', 'ゲーム差'];
@@ -21,14 +22,14 @@ async function fetchCalendar(): Promise<AnnualCalendarFile> {
   return res.json();
 }
 
-export function AnnualSchedule({ season }: { season: string }) {
+export function AnnualSchedule({ season, league }: { season: string; league: League }) {
   // シーズン変更時は親のkeyで再作成。古いシーズンの読み込み結果を表示しない。
   const { data, loading, error } = useJsonData(async () => {
-    const [games, schedule, teams, divisions, history, race] = await Promise.all([fetchGameSummaries(season), fetchSchedule(season), fetchTeams(season), fetchDivisionHistory(), fetchStandingsHistory(season), fetchPlayoffRace(season).catch(() => null)]);
+    const [games, schedule, teams, divisions, history, race] = await Promise.all([fetchGameSummaries(season, league), fetchSchedule(season, league), fetchTeams(season, league), fetchDivisionHistory(), fetchStandingsHistory(season, league), fetchPlayoffRace(season, league).catch(() => null)]);
     const ranks = new Map(history[history.length - 1]?.teams.map(t => [t.teamId, t]));
     const remaining = new Map(race?.teams.map(t => [t.teamId, t.remaining]));
-    return { games, schedule, asOf: history[history.length - 1]?.date, teams: teams.map(t => ({ ...t, division: teamDivisionForSeason(divisions, t.teamId, season), divisionRank: ranks.get(t.teamId)?.divisionRank, standing: ranks.get(t.teamId), remaining: remaining.get(t.teamId) })) };
-  }, [season]);
+    return { games, schedule, asOf: history[history.length - 1]?.date, teams: teams.map(t => ({ ...t, division: teamDivisionForSeason(divisions, t.teamId, season, league), divisionRank: ranks.get(t.teamId)?.divisionRank, standing: ranks.get(t.teamId), remaining: remaining.get(t.teamId) })) };
+  }, [season, league]);
   const external = useJsonData(fetchCalendar, []);
   const scrolls = useRef(new Map<string, HTMLDivElement>());
   const [selected, setSelected] = useState<{ game: CalendarGame; teamId: string } | null>(null);
@@ -65,7 +66,7 @@ export function AnnualSchedule({ season }: { season: string }) {
   }, [loading, data, external.loading, dates, today]);
   if (loading) return <p className="loading">年間スケジュールを読み込み中...</p>;
   if (error || !data) return <p className="error-message">日程を取得できませんでした。再読み込みしてください。</p>;
-  const groups = DIVISION_ORDER.map(division => ({ label: DIVISION_LABELS[division], teams: data.teams.filter(t => t.division === division).sort((a, b) => (a.divisionRank ?? Infinity) - (b.divisionRank ?? Infinity)) })).filter(g => g.teams.length);
+  const groups = divisionOrder(league).map(division => ({ label: DIVISION_LABELS[division], teams: data.teams.filter(t => t.division === division).sort((a, b) => (a.divisionRank ?? Infinity) - (b.divisionRank ?? Infinity)) })).filter(g => g.teams.length);
   const ungrouped = data.teams.filter(t => !t.division);
   if (ungrouped.length) groups.push({ label: 'チーム', teams: ungrouped });
   const events = supplement?.events ?? [];
