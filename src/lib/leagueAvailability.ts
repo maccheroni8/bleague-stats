@@ -39,7 +39,7 @@ export const ONE_PAGE_AVAILABILITY: Record<LeaguePage, LeagueAvailability> = {
   glossary: READY,
   teams: READY,
   teamDetail: READY,
-  players: preparing("個人のページ"),
+  players: READY,
   playerDetail: preparing("個人のページ"),
   standings: READY,
   figures: READY,
@@ -71,3 +71,9 @@ export const ONE_TEAM_DETAIL_TAB_REASONS: Partial<Record<string, string>> = {
   clubRecord: "クラブレコードは、B.ONE ではまだ見られません（今後対応します）。",
   compare: "比較は、B.ONE ではまだ見られません（今後対応します）。",
 };
+/** B.ONE の個人のページ（一覧）で選べないタブ・項目 */
+export const ONE_PLAYERS_TAB_REASONS: Partial<Record<string, string>> = {
+  records: "個人の記録は、B.ONE ではまだ見られません（今後対応します）。",
+  awards: "歴代アワードは、B.ONE ではまだ見られません（今後対応します）。",
+};
+export const ONE_ROOKIE_REASON = "ルーキーは、B.PREMIER の規程に準じた判定のため、B.ONE ではまだ選べません。";

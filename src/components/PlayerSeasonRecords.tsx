@@ -10,7 +10,8 @@ import { useJsonData } from "../lib/useJsonData";
 import { ConditionTitle } from "./ConditionTitle";
 import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
-import { playerGameRecordRankingUrl } from "./PlayerGameRecordRanking";
+import { useLeague } from "../lib/league";
+import { playerGameRecordRankingUrl } from "./PlayerGameRecordLine";
 import { PlayerRecordLeaderCard } from "./PlayerRecordLeaderCard";
 
 /**
@@ -19,12 +20,13 @@ import { PlayerRecordLeaderCard } from "./PlayerRecordLeaderCard";
  * 値は日次の集計が書き出した上位（data/{season}/player-game-records.json）で、画面は全選手の試合ログを読まない
  */
 export function PlayerSeasonRecords({ defaultSeason }: { defaultSeason: string }) {
+  const league = useLeague();
   // シーズン・試合種別はURLのクエリに持つ（rseason・gt。DESIGN.md 163章）
   const [season, setSeason] = useUrlState(stringParam("rseason", defaultSeason, (v) => /^\d{4}-\d{2}$/.test(v)), defaultSeason);
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
 
   const { data: seasons } = useJsonData(() => fetchSeasons(), []);
-  const { data: file, loading } = useJsonData(() => fetchPlayerGameRecords(season), [season]);
+  const { data: file, loading } = useJsonData(() => fetchPlayerGameRecords(season, league), [season, league]);
   const table = file?.byGameType[gameType] ?? {};
   const records = PLAYER_GAME_RECORD_STATS.flatMap((def) => {
     const entries = table[def.key];

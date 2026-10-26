@@ -1,8 +1,8 @@
-import { Link } from "react-router-dom";
+import { SeasonLink } from "./SeasonLink";
 import type { PlayerGameRecordDef } from "../../shared/playerGameRecords";
 import type { PlayerGameRecordEntry } from "../../shared/types";
 import { formatPlayerGameRecordValue, playerGameRecordFraction } from "../lib/playerGameRecordFormat";
-import { PlayerGameRecordLine } from "./PlayerGameRecordRanking";
+import { PlayerGameRecordLine } from "./PlayerGameRecordLine";
 import { statJa } from "../lib/statNames";
 import { RecordValue } from "./RecordValue";
 import { ResponsivePlayerName } from "./ResponsivePlayerName";
@@ -27,7 +27,7 @@ export function PlayerRecordLeaderCard({
   const first = entries[0]!;
   const ties = entries.filter((e) => e.rank === 1).length;
   return (
-    <Link to={to} className="career-high-card career-high-card-link" aria-label={`${statJa(def.label)}のランキングを見る`}>
+    <SeasonLink to={to} className="career-high-card career-high-card-link" aria-label={`${statJa(def.label)}のランキングを見る`}>
       <div className="career-high-label">{statJa(def.label)} ›</div>
       <div className="career-high-value">
         <RecordValue text={formatPlayerGameRecordValue(def, first.value)} fraction={playerGameRecordFraction(first)} />
@@ -42,6 +42,6 @@ export function PlayerRecordLeaderCard({
         <PlayerGameRecordLine e={first} season={first.season ?? season} />
       </div>
       {ties > 1 && <div className="career-high-others-toggle">ほか{ties - 1}試合</div>}
-    </Link>
+    </SeasonLink>
   );
 }

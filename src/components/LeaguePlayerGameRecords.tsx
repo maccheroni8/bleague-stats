@@ -10,7 +10,7 @@ import { useUrlState } from "../lib/urlState";
 import { ConditionTitle } from "./ConditionTitle";
 import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
-import { playerGameRecordRankingUrl } from "./PlayerGameRecordRanking";
+import { playerGameRecordRankingUrl } from "./PlayerGameRecordLine";
 import { PlayerRecordLeaderCard } from "./PlayerRecordLeaderCard";
 
 /**

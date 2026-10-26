@@ -36,6 +36,7 @@ import {
   type PlayerRecordRow,
 } from "../lib/gameRecordQuery";
 import { useGameIndexViews, useGameRecordOptions, usePlayerPeriodViews, useRookieFile } from "../lib/useGameRecordData";
+import { PlayerGameRecordLine, playerGameRecordRankingUrl } from "./PlayerGameRecordLine";
 import { formatPlayerGameRecordValue, playerGameRecordFraction, playerGameRecordMinMadeNote } from "../lib/playerGameRecordFormat";
 import { ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason } from "../lib/rookieFilter";
 import { DEFAULT_STAT_CONDITIONS, statConditionMatcher, statConditionsTitle } from "../lib/statConditions";
@@ -75,35 +76,6 @@ const EMPTY_POSITIONS: string[] = [];
 /** ポジションの選択肢（そのシーズンに実際にいるかは見ず、すべて出す。索引を読まずに選べるように） */
 export const POSITION_OPTIONS = positionFilterOptions(["PG", "PG/SG", "SG", "SG/SF", "SF", "SF/PF", "PF", "C/PF", "C"].map((position) => ({ position })));
 
-/** 選手の1試合記録のランキングの URL（選手一覧の記録タブのカードから移るとき等） */
-export function playerGameRecordRankingUrl(opts: { scope: RecordsScope; gameType: SeasonGameTypeFilter; statKey: string; season?: string }): string {
-  const p = new URLSearchParams();
-  p.set("m", "player");
-  p.set("k", "game");
-  RECORDS_SCOPE_PARAM.write(p, opts.scope);
-  GAME_TYPE_PARAM.write(p, opts.gameType);
-  p.set("stat", opts.statKey);
-  if (opts.season) p.set("season", opts.season);
-  return `/rankings?${p.toString()}`;
-}
-
-/** 名前の下の行: 日付（シーズン）・当時のチーム・対戦相手（ポジションで絞り込んでいるときは当時のポジション） */
-export function PlayerGameRecordLine({ e, season, showPosition = false }: { e: PlayerRecordRow; season: string; showPosition?: boolean }) {
-  const narrow = useNarrow();
-  const date = narrow ? e.date.replace(/-/g, "/").slice(2) : e.date;
-  const position = showPosition && e.position ? `${e.position}${e.positionFallback ? "＊" : ""}` : null;
-  return (
-    <>
-      <span className="record-date-nowrap">
-        {date}（{season}）
-      </span>
-      {narrow ? " " : "　"}
-      <ResponsiveTeamName teamId={e.teamId} name={e.teamName} always nowrap /> {e.isHome ? "vs" : "@"}{" "}
-      <ResponsiveTeamName teamId={e.opponentTeamId} name={e.opponentTeamName} always nowrap />
-      {position && <span className="record-date-nowrap">　{position}</span>}
-    </>
-  );
-}
 
 export function PlayerGameRecordRanking({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
   const exportRef = useRef<HTMLDivElement>(null);

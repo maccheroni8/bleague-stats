@@ -8,7 +8,10 @@ import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTota
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { postseasonLabel } from "../../shared/gameType";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { SeasonLink as Link } from "../components/SeasonLink";
+import { useLeague, type League } from "../lib/league";
+import { ONE_PLAYERS_TAB_REASONS, ONE_ROOKIE_REASON } from "../lib/leagueAvailability";
 import { legacyPlayerRecordsTarget } from "../lib/legacyRecordsUrl";
 import {
   fetchDivisionHistory,
@@ -196,7 +199,10 @@ function PlayerRecordsTab({ season }: { season: string }) {
 }
 
 export function PlayersListPage({ season }: { season: string }) {
-  const [tab, setTab] = useUrlState(PLAYERS_VIEW_PARAM, "stats");
+  const league = useLeague();
+  const [urlTab, setTab] = useUrlState(PLAYERS_VIEW_PARAM, "stats");
+  // B.ONE で見られないタブが URL にあるときは全選手スタッツにする（タブのボタンには理由を出す）
+  const tab: PlayersOuterTab = league === "one" && ONE_PLAYERS_TAB_REASONS[urlTab] ? "stats" : urlTab;
 
   return (
     <div data-design="v2">
@@ -212,19 +218,22 @@ export function PlayersListPage({ season }: { season: string }) {
               setTab(t);
             }}
             type="button"
+            disabled={league === "one" && !!ONE_PLAYERS_TAB_REASONS[t]}
+            title={league === "one" ? ONE_PLAYERS_TAB_REASONS[t] : undefined}
           >
             {OUTER_TAB_LABELS[t]}
           </button>
         ))}
       </div>
+      {league === "one" && ONE_PLAYERS_TAB_REASONS[urlTab] && <p className="standings-tab-note">{ONE_PLAYERS_TAB_REASONS[urlTab]}</p>}
       {tab === "stats" ? (
-        <AllPlayersStatsTab season={season} />
+        <AllPlayersStatsTab season={season} league={league} />
       ) : tab === "records" ? (
         <PlayerRecordsTab season={season} />
       ) : tab === "awards" ? (
         <PlayerAwardsTimelineTab />
       ) : (
-        <PlayerRecentFormTab season={season} />
+        <PlayerRecentFormTab season={season} league={league} />
       )}
     </div>
   );
@@ -539,8 +548,9 @@ function buildPlayerListConditionDefs(opts: {
   shotTypeKeys: string[];
   season: string;
   careerOf: (p: PlayerSummary) => PlayerCareerCounts | undefined;
+  league: League;
 }): StatConditionItemDef<PlayerRow>[] {
-  const { mode, filterActive, shotTypeKeys, season, careerOf } = opts;
+  const { mode, filterActive, shotTypeKeys, season, careerOf, league } = opts;
   const foulSplit = foulColumnsSplit([season]);
   const otherMode: SeasonDisplayMode = mode === "total" ? "perGame" : "total";
   const text = (c: Column<PlayerRow>, r: PlayerRow) => (c.format ? c.format(r) : String(c.sortValue(r)));
@@ -590,7 +600,8 @@ function buildPlayerListConditionDefs(opts: {
   const pick = (r: PlayerRow) => r.player;
   defs.push(
     ...mapConditionDefs(playerProfileConditionDefs(season), pick),
-    ...mapConditionDefs(playerCareerConditionDefs(careerOf), pick),
+    // 通算の項目は B.PREMIER の通算成績（player-careers.json）から出すので、B.ONE では出さない
+    ...(league === "premier" ? mapConditionDefs(playerCareerConditionDefs(careerOf), pick) : []),
   );
   return defs;
 }
@@ -612,14 +623,16 @@ const DEFAULT_RATIO_RANGE: [number, number] = [DEFAULT_MIN_RATIO, DEFAULT_MAX_RA
 const GAMES_RATIO_PARAM = rangeParam("gp", DEFAULT_RATIO_RANGE, [0, 100]);
 const EMPTY_LIST: string[] = [];
 
-function AllPlayersStatsTab({ season }: { season: string }) {
-  const { data: players, loading: playersLoading, error: playersError } = useJsonData(() => fetchPlayers(season), [season]);
-  const { data: teams } = useJsonData(() => fetchTeams(season), [season]);
-  const { supported: yahooPbpSupported } = useYahooPbpCoverage(season);
+function AllPlayersStatsTab({ season, league }: { season: string; league: League }) {
+  const { data: players, loading: playersLoading, error: playersError } = useJsonData(() => fetchPlayers(season, league), [season, league]);
+  const { data: teams } = useJsonData(() => fetchTeams(season, league), [season, league]);
+  // スポーツナビの記録は B.PREMIER だけ
+  const { supported: premierYahooPbpSupported } = useYahooPbpCoverage(season);
+  const yahooPbpSupported = league === "premier" && premierYahooPbpSupported;
   // シチュエーション別フィルタ（地区・対勝率別）用。いずれもシーズン非依存/軽量なため
   // タブの開閉に関わらず常に取得する（チーム詳細ページ・個人詳細ページと同じ方針）
   const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
-  const { data: gameSummaries } = useJsonData(() => fetchGameSummaries(season), [season]);
+  const { data: gameSummaries } = useJsonData(() => fetchGameSummaries(season, league), [season, league]);
   const opponentRecords = useMemo(
     () => (gameSummaries ? buildRecordsBeforeGame(gameSummaries) : undefined),
     [gameSummaries],
@@ -641,7 +654,8 @@ function AllPlayersStatsTab({ season }: { season: string }) {
 
   // 登録区分（全選手・日本人・外国籍/帰化/アジア）と、4つ目の「ルーキー」（cls=rookie。DESIGN.md 217章）。ルーキーを選べないシーズン（2016-17）では「全選手」として扱う
   const [groupFilter, setGroupFilter] = useUrlState(PLAYER_GROUP_PARAM, "all");
-  const rookieSupported = rookieSupportedSeason(season);
+  // ルーキーの判定は B.PREMIER の規程に準じたもの。B.ONE では選べない
+  const rookieSupported = league === "premier" && rookieSupportedSeason(season);
   const classificationFilter: PlayerGroupFilter = groupFilter === "rookie" && !rookieSupported ? "all" : groupFilter;
   const rookieActive = classificationFilter === "rookie";
   const rookies = useSeasonRookies(season, rookieActive);
@@ -665,6 +679,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   // シーズンで意味が変わるフィルタ（クラブ・地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
   useSeasonFilterCleanup({
     season,
+    league,
     filter: situationalFilter,
     setFilter: setSituationalFilter,
     clubs: clubList,
@@ -675,7 +690,8 @@ function AllPlayersStatsTab({ season }: { season: string }) {
   const conditionKeys = activeStatConditionKeys(statConditions);
   // Misc・Scoringのタブにしかない項目は、選手の試合ログから出す（読み込みが要る）
   const conditionNeedsLogs = conditionKeys.some((k) => playerListKeysNeedingLogs(filterActive, foulSplit).has(k));
-  const conditionNeedsCareers = conditionKeys.some((k) => k.startsWith(CAREER_CONDITION_KEY_PREFIX));
+  // 通算の項目（player-careers.json）は B.PREMIER だけ
+  const conditionNeedsCareers = league === "premier" && conditionKeys.some((k) => k.startsWith(CAREER_CONDITION_KEY_PREFIX));
   const { data: careers, loading: careersLoading } = useJsonData(
     () => (conditionNeedsCareers ? fetchPlayerCareers() : Promise.resolve(null)),
     [conditionNeedsCareers],
@@ -714,7 +730,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     Promise.all(
       players.map(async (p): Promise<readonly [string, PlayerGameLog[]]> => {
         try {
-          return [p.playerId, await fetchPlayerGameLogs(season, p.playerId)] as const;
+          return [p.playerId, await fetchPlayerGameLogs(season, p.playerId, league)] as const;
         } catch {
           return [p.playerId, [] as PlayerGameLog[]] as const;
         }
@@ -729,7 +745,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     return () => {
       cancelled = true;
     };
-  }, [tab, players, season, filterActive, conditionNeedsLogs]);
+  }, [tab, players, season, filterActive, conditionNeedsLogs, league]);
 
   useEffect(() => {
     if (!filterActive || !teams || teamGameLogsFetchedForSeasonRef.current === season) return;
@@ -739,7 +755,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     Promise.all(
       teams.map(async (t): Promise<readonly [string, TeamGameLog[]]> => {
         try {
-          return [t.teamId, await fetchTeamGameLogs(season, t.teamId)] as const;
+          return [t.teamId, await fetchTeamGameLogs(season, t.teamId, league)] as const;
         } catch {
           return [t.teamId, [] as TeamGameLog[]] as const;
         }
@@ -754,7 +770,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     return () => {
       cancelled = true;
     };
-  }, [filterActive, teams, season]);
+  }, [filterActive, teams, season, league]);
 
   const teamGamesById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t.gamesPlayed])), [teams]);
   const teamTotalsById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t.totals])), [teams]);
@@ -818,11 +834,11 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     if (!filterActive || !teamGameLogsByTeam) return null;
     const map = new Map<string, TeamGameLog[]>();
     for (const [teamId, teamLogs] of teamGameLogsByTeam) {
-      const situational = filterGameLogs(teamLogs, { ...situationalFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => teamId);
+      const situational = filterGameLogs(teamLogs, { ...situationalFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => teamId, league);
       map.set(teamId, filterByGameType(situational, gameType));
     }
     return map;
-  }, [filterActive, teamGameLogsByTeam, situationalFilter, gameType, opponentRecords, divisionHistory, season]);
+  }, [filterActive, teamGameLogsByTeam, situationalFilter, gameType, opponentRecords, divisionHistory, season, league]);
 
   const rows: PlayerRow[] = useMemo(
     () =>
@@ -832,7 +848,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
         if (filterActive) {
           // 試合種別は filterGameLogs のあとに3値で絞り込む（includePlayoffs は常に true で全試合を通す）
           const filteredLogs = filterByGameType(
-            filterGameLogs(logs, { ...situationalFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, ownTeamOf),
+            filterGameLogs(logs, { ...situationalFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, ownTeamOf, league),
             gameType,
           );
           const raw = sumPlayerGameLogs(filteredLogs);
@@ -879,6 +895,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       teamGameLogsByTeam,
       scopedTeamLogsByTeamId,
       displayMode,
+      league,
     ],
   );
 
@@ -891,9 +908,10 @@ function AllPlayersStatsTab({ season }: { season: string }) {
       shotTypeKeys: allShotTypeKeys,
       season,
       careerOf: (p) => careers?.seasons[season]?.[p.playerId],
+      league,
     });
     return buildStatConditionItems(defs, rows, displayMode);
-  }, [players, displayMode, filterActive, season, careers, rows]);
+  }, [players, displayMode, filterActive, season, careers, rows, league]);
   const conditionActive = tab !== "scoringComposition" && hasActiveStatConditions(statConditions, conditionItems);
   const conditionedRows = useMemo(
     () => (conditionActive ? filterByStatConditions(rows, statConditions, conditionItems) : rows),
@@ -945,7 +963,8 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     .map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) }));
   const clubPresets = divisionPresets(
     (teams ?? []).map((t) => t.teamId),
-    (id) => teamDivisionForSeason(divisionHistory, id, season),
+    (id) => teamDivisionForSeason(divisionHistory, id, season, league),
+    league,
   ).map((p) => ({ label: p.label, values: p.teamIds }));
   // タイトルの下の行・ボタンの「クラブ」の表示。地区のクラブが全部選ばれていれば「東地区」のように地区名で書く（DESIGN.md 252章）
   const clubFilterLabels = clubSelectionLabels(
@@ -1019,7 +1038,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
     ),
   };
   const filterAxes: FilterAxis[] = [
-    classificationAxis(groupFilter, setGroupFilter, { rookie: { disabledReason: rookieSupported ? undefined : ROOKIE_UNSUPPORTED_REASON } }),
+    classificationAxis(groupFilter, setGroupFilter, { rookie: { disabledReason: league === "one" ? ONE_ROOKIE_REASON : rookieSupported ? undefined : ROOKIE_UNSUPPORTED_REASON } }),
     multiSelectAxis({
       id: "position",
       label: "ポジション",
@@ -1150,7 +1169,7 @@ function AllPlayersStatsTab({ season }: { season: string }) {
           </>
         )
       ) : tab === "shooting" && !yahooPbpSupported ? (
-        <p className="empty-message">このシーズンのデータには対応していません</p>
+        <p className="empty-message">{league === "one" ? "B.ONE では、まだ見られません（今後対応します）。" : "このシーズンのデータには対応していません"}</p>
       ) : gameDataLoading || teamDataLoading || careersDataLoading || rookies.loading ? (
         <p className="loading">読み込み中...</p>
       ) : filteredPlayers.length === 0 || (conditionActive && tableRows.length === 0) ? (
@@ -1395,7 +1414,7 @@ function PlayerAwardsTimelineTab() {
     Promise.all(
       seasonsDesc.map(async (s): Promise<readonly [string, PlayerSummary[]]> => {
         try {
-          return [s, await fetchPlayers(s)] as const;
+          return [s, await fetchPlayers(s, "premier")] as const;
         } catch {
           return [s, []] as const;
         }
@@ -1571,8 +1590,8 @@ interface PlayerRecentFormRow {
   oppWinPctAvg: number | undefined;
 }
 
-function PlayerRecentFormTab({ season }: { season: string }) {
-  const { data: players, loading: playersLoading, error: playersError } = useJsonData(() => fetchPlayers(season), [season]);
+function PlayerRecentFormTab({ season, league }: { season: string; league: League }) {
+  const { data: players, loading: playersLoading, error: playersError } = useJsonData(() => fetchPlayers(season, league), [season, league]);
 
   const [gameLogs, setGameLogs] = useState<Map<string, PlayerGameLog[]> | null>(null);
   const [gameLogsLoading, setGameLogsLoading] = useState(true);
@@ -1587,7 +1606,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
     Promise.all(
       players.map(async (p): Promise<readonly [string, PlayerGameLog[]]> => {
         try {
-          return [p.playerId, await fetchPlayerGameLogs(season, p.playerId)] as const;
+          return [p.playerId, await fetchPlayerGameLogs(season, p.playerId, league)] as const;
         } catch {
           return [p.playerId, [] as PlayerGameLog[]] as const;
         }
@@ -1602,7 +1621,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
     return () => {
       cancelled = true;
     };
-  }, [players, season]);
+  }, [players, season, league]);
 
   // 「対戦相手の加重平均勝率」用。チーム版RecentFormTabと同じbuildRecordsBeforeGame()（48章の
   // 対勝率別フィルタと同じロジック）をそのまま再利用し、各対戦相手のその試合時点までの
@@ -1610,7 +1629,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
   useEffect(() => {
     let cancelled = false;
     setSummaries(null);
-    fetchGameSummaries(season)
+    fetchGameSummaries(season, league)
       .then((s) => {
         if (!cancelled) setSummaries(s);
       })
@@ -1620,7 +1639,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
     return () => {
       cancelled = true;
     };
-  }, [season]);
+  }, [season, league]);
 
   const opponentRecords = useMemo<Map<string, Map<string, RecordBeforeGame>> | undefined>(
     () => (summaries ? buildRecordsBeforeGame(summaries) : undefined),
@@ -1635,7 +1654,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
     return players
       .map((player): PlayerRecentFormRow => {
         const logs = gameLogs.get(player.playerId) ?? [];
-        const recentLogs = filterGameLogs(logs, { range: { kind: "recent", n: recentN }, includePlayoffs: true });
+        const recentLogs = filterGameLogs(logs, { range: { kind: "recent", n: recentN }, includePlayoffs: true }, undefined, undefined, undefined, undefined, league);
         const gamesPlayed = recentLogs.length;
         const sum = (pick: (g: PlayerGameLog) => number) => recentLogs.reduce((s, g) => s + pick(g), 0);
         const ptsSum = sum((g) => g.pts);
@@ -1689,7 +1708,7 @@ function PlayerRecentFormTab({ season }: { season: string }) {
         };
       })
       .filter((r) => r.gamesPlayed >= minGames);
-  }, [players, gameLogs, recentN, opponentRecords, seasonStartYear, minGames]);
+  }, [players, gameLogs, recentN, opponentRecords, seasonStartYear, minGames, league]);
 
   const columns: Column<PlayerRecentFormRow>[] = [
     {
