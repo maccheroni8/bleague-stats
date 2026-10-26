@@ -249,8 +249,9 @@ import { loadLeaguePaintComplete } from "../lib/teamPaint2Load";
 import { FORCED_TURNOVER_COLUMNS } from "../lib/forcedTurnoverColumns";
 import { categoryNeedsYahoo, type OpponentSplitCategory } from "../lib/opponentSplit";
 import { useClassSplitSources } from "../lib/teamClassSplitLoad";
+import { JAPANESE_DEEMED_NOTE, SPLIT_CLASSIFICATION_FIRST_SEASON, splitClassificationSeason } from "../lib/classificationFilter";
 import { hasUnclassifiedRows } from "../lib/teamClassSplit";
-import { buildSeasonClassRow, classRowLabel, seasonClassFormatters, SPLIT_CLASSES } from "../lib/teamSeasonClassSplit";
+import { buildSeasonClassRow, classRowLabel, seasonClassFormatters, seasonSplitClasses } from "../lib/teamSeasonClassSplit";
 import { buildSeasonPeriodRow, seasonPeriodCell, seasonPeriodFormatters, unavailableSeasonPeriodLabels, useTeamPeriodSources } from "../lib/teamSeasonPeriod";
 import { buildTeamPeriodRowValues, indexUnavailableKeys, withIndexUnavailableColumns } from "../lib/teamSituationalPeriod";
 import {
@@ -5119,7 +5120,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                         ))}
                       </tr>
                       {classOpen &&
-                        SPLIT_CLASSES.map((cls) => {
+                        seasonSplitClasses(r.season).map((cls) => {
                           const cr = buildSeasonClassRow(
                             r.season,
                             classSplitSources.states.get(r.season),
@@ -5172,7 +5173,13 @@ export function TeamDetailPage({ season }: { season: string }) {
                 {[...openClassSeasons].some((sn) => {
                   const st = classSplitSources.states.get(sn);
                   return st?.status === "ready" && hasUnclassifiedRows(st.source, filterByGameType(careerData?.find((c) => c.season === sn)?.logs ?? [], "regular"));
-                }) && <p className="page-subtitle">登録区分が付いていない選手（選手マスタに無い選手）の記録は、どちらの区分にも入れていません。</p>}
+                }) && <p className="page-subtitle">登録区分が付いていない選手（選手マスタに無い選手）の記録は、どの区分にも入れていません。</p>}
+                <p className="page-subtitle">
+                  {[...openClassSeasons].some((sn) => splitClassificationSeason(sn))
+                    ? `${SPLIT_CLASSIFICATION_FIRST_SEASON}シーズン以降は外国籍・帰化・アジア特別枠を分け、試合ごとの区分で数えています（それより前は「外国籍・帰化・アジア」のまとめ）。`
+                    : ""}
+                  {JAPANESE_DEEMED_NOTE}
+                </p>
               </>
             )}
             {seasonBoxPeriodOn && (

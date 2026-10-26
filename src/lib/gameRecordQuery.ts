@@ -12,7 +12,7 @@ import { TEAM_RECORD_STATS, teamRecordDetail, type TeamRecordValueDef } from "..
 import type { PlayerGameRecordEntry, RookieEligibilityFile, TeamGameLog } from "../../shared/types";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { formatMinutesFromSeconds } from "./boxscoreAggregate";
-import { classKeyOfFilter, positionFilterValue, type PlayerGroupFilter } from "./classificationFilter";
+import { indexRowClassMatches, positionFilterValue, type PlayerGroupFilter } from "./classificationFilter";
 import { formatPct, formatSigned } from "./format";
 import {
   playerGameAt,
@@ -253,7 +253,6 @@ export function rowSideFacts(view: PlayerGameIndexView, facts: GameSideFacts[], 
  */
 export function playerRowFilter(q: PlayerRowFilterInput): (view: PlayerGameIndexView, facts: GameSideFacts[], i: number) => boolean {
   const positionSet = q.positions.length > 0 ? new Set(q.positions) : null;
-  const classKey = q.group === "rookie" ? undefined : classKeyOfFilter(q.group);
   return (view, facts, i) => {
     const f = rowSideFacts(view, facts, i);
     if (!matchesGame(f, q.gameType, q.conditions)) return false;
@@ -262,7 +261,7 @@ export function playerRowFilter(q: PlayerRowFilterInput): (view: PlayerGameIndex
     if (q.group === "rookie") {
       // 2016-17は、それ以前の経歴が無くルーキーを判定できない（rookieFilter.ts の rookieSupportedSeason と同じ）
       if (view.season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, view.season, p[0])) return false;
-    } else if (classKey && p[5] !== classKey) return false;
+    } else if (!indexRowClassMatches(view.file, i, q.group)) return false;
     if (positionSet && !(p[2] && positionSet.has(positionFilterValue(p[2])))) return false;
     return true;
   };

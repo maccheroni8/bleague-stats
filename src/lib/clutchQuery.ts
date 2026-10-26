@@ -9,7 +9,7 @@ import { assistPairPoints, ASSIST_PAIRS_VERSION, type AssistPairsFile } from "..
 import type { RookieEligibilityFile } from "../../shared/types";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { FIRST_LEAGUE_SEASON } from "../../shared/rookieEligibility";
-import { classKeyOfFilter, type PlayerGroupFilter } from "./classificationFilter";
+import { indexRowClassMatches, type PlayerGroupFilter } from "./classificationFilter";
 import type { PlayerGameIndexView } from "./gameIndex";
 import { rookieOfIndex } from "./gameIndex";
 import type { GameRecordConditions } from "./gameRecordConditions";
@@ -97,7 +97,6 @@ interface ClutchAcc {
 /** 選手ごとに足し上げる。views が1シーズンなら「シーズン」、全シーズンなら「通算」。値が0の選手は含めない */
 export function queryClutch(q: ClutchQuery): { rows: ClutchRow[]; players: number } {
   const [fgCol, ftCol] = clutchColumns(q.window, q.measure);
-  const classKey = q.group === "rookie" ? undefined : classKeyOfFilter(q.group);
   const acc = new Map<string, ClutchAcc>();
   for (const view of q.views) {
     const file = view.file;
@@ -117,7 +116,7 @@ export function queryClutch(q: ClutchQuery): { rows: ClutchRow[]; players: numbe
       if (q.activeIds && !q.activeIds.has(p[0])) continue;
       if (q.group === "rookie") {
         if (view.season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, view.season, p[0])) continue;
-      } else if (classKey && p[5] !== classKey) continue;
+      } else if (!indexRowClassMatches(file, i, q.group)) continue;
       const team = teams[home ? games.home[g]! : games.away[g]!]!;
       const date = games.date[g]!;
       const key = games.key[g]!;

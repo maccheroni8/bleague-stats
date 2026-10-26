@@ -12,6 +12,7 @@
 // gzip圧縮されたバイト列のまま届く。`Content-Encoding`レスポンスヘッダの有無で判定し、
 // 両方の環境に対応する
 
+import type { SeasonRegistrationFile } from "../../shared/registration";
 import type { PlayerGameIndexFile, TeamGameIndexFile } from "../../shared/gameIndex";
 import type { AssistPairsFile } from "../../shared/assistPairs";
 import type { PlayerPeriodIndexFile, TeamPeriodIndexFile } from "../../shared/periodIndex";
@@ -122,6 +123,18 @@ export async function fetchPlayerPageSeasons(): Promise<PlayerPageSeasonsFile> {
  * 追記する
  */
 export const ONE_CATEGORY_SEASONS: string[] = ["2025-26", "2026-27"];
+
+/**
+ * そのシーズン・リーグの登録区分の記録（data/{season}/registrations.json。B.ONE は one/ 側。2026-27 以降の元データ。DESIGN.md 295・298章）。
+ * 無いシーズン（2025-26 以前）・読めないときは null
+ */
+export async function fetchSeasonRegistrations(season: string, league: League = "premier"): Promise<SeasonRegistrationFile | null> {
+  try {
+    return await fetchJson<SeasonRegistrationFile>(`${categoryBase(season, league)}/registrations.json`);
+  } catch {
+    return null;
+  }
+}
 
 export function fetchPlayerGameLogs(season: string, playerId: string, league: League = "premier"): Promise<PlayerGameLog[]> {
   return fetchJson<PlayerGameLog[]>(`${categoryBase(season, league)}/player-games/${playerId}.json`);

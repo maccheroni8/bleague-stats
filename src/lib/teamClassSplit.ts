@@ -2,7 +2,8 @@
 // 選手の1試合行の索引（player-game-index。形式は shared/gameIndex.ts）の行を、「チームの試合×区分」ごとに足して、
 // 試合ログの合計（teamStatsColumns.ts の sumTeamGameLogs）と同じ形の TeamTotals にする。画面だけの変更で、保存キーの対象のファイルは触らない。
 //
-// 区分は選手マスタの classification（選手ごとに1つ。索引の選手の辞書の6番目）。区分が付かない行（マスタに無い選手）はどちらの区分にも入れない
+// 区分は試合ごとの区分（DESIGN.md 298章）。2026-27 以降の索引は行ごとの区分（rows.cls。日本人・外国籍・帰化選手・アジア特別枠。シーズン途中の変更・見做し日本人を含む）、
+// それより前は選手マスタの classification（選手ごとに1つ。索引の選手の辞書の6番目。jp／intl の2つだけ）。区分が付かない行（マスタに無い選手）はどの区分にも入れない
 // （unclassified に別に数える。推測しない。51章）。所属チームは行の「ホーム」の旗で決めるので、移籍した選手は試合ごとにそのときのチームに数えられる。
 //
 // 値の出どころ:
@@ -18,15 +19,59 @@ import type { Column } from "../components/SortableTable";
 import { paintOf, summarizePaint, withPaint, type PaintInput, type PaintPair } from "./teamPaint2";
 import { EMPTY_TOTALS, type AllTeamsRow, type TeamTotals } from "./teamStatsColumns";
 
-/** 区分: jp＝日本人、intl＝外国籍・帰化・アジア */
-export type SplitClass = "jp" | "intl";
+/** 区分: jp＝日本人、intl＝外国籍・帰化・アジア（まとめ）、foreign＝外国籍・naturalized＝帰化・asia＝アジア特別枠（2026-27 以降だけ分けられる） */
+export type SplitClass = "jp" | "intl" | "foreign" | "naturalized" | "asia";
+/** 2025-26 以前（と古い索引）で出せる区分 */
 export const SPLIT_CLASSES: readonly SplitClass[] = ["jp", "intl"];
+/** 外国籍・帰化・アジア特別枠を分けて出せるシーズン（2026-27 以降）の区分 */
+export const DETAILED_SPLIT_CLASSES: readonly SplitClass[] = ["jp", "foreign", "naturalized", "asia"];
 
-/** 足し込みの区分の番号: 0 日本人・1 外国籍・帰化・アジア・2 区分なし */
+/** 画面の登録区分の絞り込み → チームの区分（全選手・ルーキーは null） */
+export function splitClassOfFilter(filter: string): SplitClass | null {
+  switch (filter) {
+    case "日本人":
+      return "jp";
+    case "外国籍・帰化・アジア":
+      return "intl";
+    case "外国籍":
+      return "foreign";
+    case "帰化":
+      return "naturalized";
+    case "アジア特別枠":
+      return "asia";
+    default:
+      return null;
+  }
+}
+
+/** チームの区分の名前（「日本人」「帰化」など。区分の行の見出し・注記に使う） */
+export const SPLIT_CLASS_LABELS: Record<SplitClass, string> = {
+  jp: "日本人",
+  intl: "外国籍・帰化・アジア",
+  foreign: "外国籍",
+  naturalized: "帰化",
+  asia: "アジア特別枠",
+};
+
+/**
+ * 足し込みの区分の番号: 0 日本人・1 外国籍・2 帰化選手・3 アジア特別枠（行ごとの区分 rows.cls と同じ番号）・
+ * 4 外国籍・帰化・アジアのどれか（行ごとの区分の無い索引の intl）・5 区分なし
+ */
 const CLASS_JP = 0;
-const CLASS_INTL = 1;
-const CLASS_NONE = 2;
-const CLASS_COUNT = 3;
+const CLASS_INTL_ANY = 4;
+const CLASS_NONE = 5;
+const CLASS_COUNT = 6;
+/** 足し込みの区分の数（検証で、足し込みの位置を計算するのに使う） */
+export const CLASS_SPLIT_BUCKETS = CLASS_COUNT;
+/** 区分 → 足し込む番号（intl は 1〜4 の合計） */
+const CLASS_NUMBERS: Record<SplitClass | "none", readonly number[]> = {
+  jp: [CLASS_JP],
+  foreign: [1],
+  naturalized: [2],
+  asia: [3],
+  intl: [1, 2, 3, CLASS_INTL_ANY],
+  none: [CLASS_NONE],
+};
 
 /** 試合全体の索引から足す列（PlayerGameLog の項目名） */
 export const CLASS_SPLIT_GAME_COLUMNS = [
@@ -142,19 +187,25 @@ export interface ClassSplitSource {
   season: string;
   /** scheduleKey → 試合の番号（チームの行の位置は 番号×2＋〔ホーム 0／アウェイ 1〕） */
   gameNo: Map<string, number>;
-  /** 試合全体の索引の列の合計。位置は ((チームの行×区分3)＋区分)×列数＋列 */
+  /** 試合全体の索引の列の合計。位置は ((チームの行×区分の数)＋区分)×列数＋列 */
   game: Float64Array;
   /** ペイント内外・DQFOUL の合計（ピリオド別の索引。5区間すべて）。ピリオド別の行が無い試合は hasPeriod が 0 */
   period: Float64Array | null;
   /** チームの行ごとに、ピリオド別の行がある選手が1人でもいたか（1／0）。period が null のときは空 */
   hasPeriod: Uint8Array;
+  /** 行ごとの区分（rows.cls）を持つ索引か（2026-27 以降）。true なら外国籍・帰化・アジア特別枠を分けて出せる */
+  detailed: boolean;
 }
 
 const gameCol = new Map<string, number>(CLASS_SPLIT_GAME_COLUMNS.map((c, i) => [c, i]));
 const periodCol = new Map<string, number>(PERIOD_COLS.map((c, i) => [c, i]));
 
-function classNumber(classKey: string): number {
-  return classKey === "jp" ? CLASS_JP : classKey === "intl" ? CLASS_INTL : CLASS_NONE;
+/** 索引の i 行目の足し込みの番号（行ごとの区分があればそれ、無ければ選手の辞書の jp／intl） */
+function rowClassNumber(index: PlayerGameIndexFile, i: number): number {
+  const code = index.rows.cls?.[i];
+  if (code !== undefined) return code >= 0 && code <= 3 ? code : CLASS_NONE;
+  const key = index.players[index.rows.player[i]!]![5];
+  return key === "jp" ? CLASS_JP : key === "intl" ? CLASS_INTL_ANY : CLASS_NONE;
 }
 
 /** 選手の1試合行の索引（と、あればピリオド別の索引）から、チームの試合×区分の合計を作る */
@@ -167,7 +218,7 @@ export function buildClassSplitSource(index: PlayerGameIndexFile, periodIndex: P
   const slot = new Int32Array(n);
   for (let i = 0; i < n; i++) {
     const teamRow = rows.game[i]! * 2 + ((rows.flags[i]! & ROW_FLAG_HOME) !== 0 ? 0 : 1);
-    slot[i] = teamRow * CLASS_COUNT + classNumber(players[rows.player[i]!]![5]);
+    slot[i] = teamRow * CLASS_COUNT + rowClassNumber(index, i);
   }
   for (let c = 0; c < CLASS_SPLIT_GAME_COLUMNS.length; c++) {
     const col = rows.stats[CLASS_SPLIT_GAME_COLUMNS[c]!];
@@ -184,15 +235,24 @@ export function buildClassSplitSource(index: PlayerGameIndexFile, periodIndex: P
       for (let c = 0; c < PERIOD_COLS.length; c++) period[s * PERIOD_COLS.length + c]! += pr.stats[PERIOD_COLS[c]!][k]!;
     }
   }
-  return { season: index.season, gameNo: new Map(games.key.map((k, i) => [k, i])), game, period, hasPeriod };
+  return { season: index.season, gameNo: new Map(games.key.map((k, i) => [k, i])), game, period, hasPeriod, detailed: rows.cls !== undefined };
 }
 
-function gameValue(source: ClassSplitSource, teamRow: number, cls: number, col: string): number {
-  return source.game[(teamRow * CLASS_COUNT + cls) * CLASS_SPLIT_GAME_COLUMNS.length + gameCol.get(col)!]!;
+function gameValue(source: ClassSplitSource, teamRow: number, cls: readonly number[], col: string): number {
+  let v = 0;
+  for (const c of cls) v += source.game[(teamRow * CLASS_COUNT + c) * CLASS_SPLIT_GAME_COLUMNS.length + gameCol.get(col)!]!;
+  return v;
 }
 
-function periodValue(source: ClassSplitSource, teamRow: number, cls: number, col: string): number {
-  return source.period![(teamRow * CLASS_COUNT + cls) * PERIOD_COLS.length + periodCol.get(col)!]!;
+function periodValue(source: ClassSplitSource, teamRow: number, cls: readonly number[], col: string): number {
+  let v = 0;
+  for (const c of cls) v += source.period![(teamRow * CLASS_COUNT + c) * PERIOD_COLS.length + periodCol.get(col)!]!;
+  return v;
+}
+
+/** その区分を、このシーズンの索引で出せるか（外国籍・帰化・アジア特別枠は行ごとの区分がある索引だけ） */
+export function classSplitAvailable(source: ClassSplitSource, cls: SplitClass): boolean {
+  return cls === "jp" || cls === "intl" || source.detailed;
 }
 
 /** 1チーム・1試合・1区分の値（TeamTotals の own 側の項目名ごと） */
@@ -234,7 +294,7 @@ export interface ClassSideValues {
 
 /** チームの行（試合の番号×2＋〔ホーム 0／アウェイ 1〕）の、指定した区分（"none" は区分なし）の値 */
 export function classSideValues(source: ClassSplitSource, teamRow: number, cls: SplitClass | "none"): ClassSideValues {
-  const c = cls === "jp" ? CLASS_JP : cls === "intl" ? CLASS_INTL : CLASS_NONE;
+  const c = CLASS_NUMBERS[cls];
   const g = (col: string) => gameValue(source, teamRow, c, col);
   const p = (col: string) => (source.period && source.hasPeriod[teamRow] ? periodValue(source, teamRow, c, col) : 0);
   return {
@@ -355,7 +415,7 @@ export function sumUnclassifiedPoints(source: ClassSplitSource, logs: readonly T
   for (const g of logs) {
     const no = source.gameNo.get(g.scheduleKey);
     if (no === undefined) continue;
-    s += gameValue(source, no * 2 + (g.isHome ? 0 : 1), CLASS_NONE, "pts");
+    s += gameValue(source, no * 2 + (g.isHome ? 0 : 1), CLASS_NUMBERS.none, "pts");
   }
   return s;
 }
@@ -366,7 +426,7 @@ export function hasUnclassifiedRows(source: ClassSplitSource, logs: readonly Tea
     const no = source.gameNo.get(g.scheduleKey);
     if (no === undefined) continue;
     for (const row of [no * 2, no * 2 + 1]) {
-      for (const col of CLASS_SPLIT_GAME_COLUMNS) if (gameValue(source, row, CLASS_NONE, col) !== 0) return true;
+      for (const col of CLASS_SPLIT_GAME_COLUMNS) if (gameValue(source, row, CLASS_NUMBERS.none, col) !== 0) return true;
     }
   }
   return false;

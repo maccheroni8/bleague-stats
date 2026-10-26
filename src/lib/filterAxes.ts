@@ -14,7 +14,7 @@ import { teamShortName } from "../../shared/teamNames";
 import type { Category, Division } from "../../shared/types";
 import { DIVISION_LABELS, divisionPresets, summarizeClubSelection } from "./divisionGroups";
 import { LEAGUE_VENUE_LABELS, periodLabels, type LeagueVenue } from "./conditionLabels";
-import { CLASSIFICATION_GROUP_OPTIONS, type PlayerGroupFilter } from "./classificationFilter";
+import { COMBINED_INTL_GROUP, SPLIT_CLASSIFICATION_GROUPS, splitClassificationSeason, type PlayerGroupFilter } from "./classificationFilter";
 import type { PeriodRangeOption, PeriodRangeValue } from "./periodRange";
 import {
   MARGIN_CONDITION_LABELS,
@@ -319,14 +319,17 @@ export function periodAxis(
 }
 
 /**
- * 登録区分: 全選手/日本人/外国籍・帰化・アジア。rookie を渡すと、4つ目に「ルーキー」の選択肢が付く（DESIGN.md 217章）。
- * rookie.disabledReason があるとき（2016-17）は、その選択肢だけ選べなくし、理由をバーの下に出す
+ * 登録区分: 全選手／日本人／外国籍／帰化／アジア特別枠。rookie を渡すと、最後に「ルーキー」の選択肢が付く（DESIGN.md 217章・298章）。
+ * rookie.disabledReason があるとき（2016-17）は、その選択肢だけ選べなくし、理由をバーの下に出す。
+ * まとめの「外国籍・帰化・アジア」は、選んでいるとき（旧URL）と、表のシーズン（season）が 2025-26 以前のときだけ出す（season が null は通算・歴代）。
+ * 分けた区分は 2025-26 以前でも選べ、選んだときは表の代わりに理由を出す（splitClassificationBlocked）
  */
 export function classificationAxis<V extends PlayerGroupFilter>(
   value: V,
   onChange: (v: V) => void,
-  opts: SimpleAxisOptions & { rookie?: { disabledReason?: string } } = {},
+  opts: SimpleAxisOptions & { rookie?: { disabledReason?: string }; season?: string | null } = {},
 ): FilterAxis {
+  const showCombined = value === COMBINED_INTL_GROUP || (opts.season != null && !splitClassificationSeason(opts.season));
   return {
     kind: "select",
     id: "classification",
@@ -334,7 +337,9 @@ export function classificationAxis<V extends PlayerGroupFilter>(
     tier: opts.tier ?? "primary",
     options: [
       { value: "all", label: "全選手" },
-      ...CLASSIFICATION_GROUP_OPTIONS.map((c) => ({ value: c, label: c })),
+      { value: "日本人", label: "日本人" },
+      ...SPLIT_CLASSIFICATION_GROUPS.map((c) => ({ value: c, label: c })),
+      ...(showCombined ? [{ value: COMBINED_INTL_GROUP, label: COMBINED_INTL_GROUP }] : []),
       ...(opts.rookie
         ? [{ value: "rookie", label: "ルーキー", disabled: !!opts.rookie.disabledReason, disabledReason: opts.rookie.disabledReason }]
         : []),

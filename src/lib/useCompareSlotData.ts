@@ -11,6 +11,8 @@
 // 「ホーム」「プレーオフ」等で絞れば取得量も減る）。試合単位の取得はモジュールスコープの
 // Promiseキャッシュで重複排除するため、同じ試合を別スロットが必要としても二重取得にならない。
 
+import { splitClassificationSeason } from "./classificationFilter";
+import { sumSplitClassPoints, type SplitClassPoints } from "./compareShared";
 import { leagueCacheKey, type League } from "./league";
 import { loadLeaguePaintComplete } from "./teamPaint2Load";
 import { useEffect, useMemo, useState } from "react";
@@ -83,7 +85,7 @@ export interface TeamSlotData extends SlotDataCommon {
   /** 絞り込み後の試合（gamesCount の試合）でのチームの勝敗。リーグ平均は無し */
   record: CompareRecord | null;
   /** 試合ログの合計（全チームスタッツと同じ列の式で出す項目の元。リーグ平均は平均の値から作る）。games は1試合平均なら1 */
-  logTotals: { totals: TeamTotals; games: number } | null;
+  logTotals: { totals: TeamTotals; games: number; classPoints?: SplitClassPoints | null } | null;
 }
 
 export interface PlayerSlotData extends SlotDataCommon {
@@ -242,9 +244,13 @@ export function useTeamCompareSlot({
     return buildTeamMultiGameBoxTotals(entries, yahooTurnovers, shotChartSupported, yahooPbpSupported);
   }, [base, filtered, pending, games, yahoo, shotChartSupported, yahooPbpSupported]);
 
+  // 外国籍・帰化・アジア特別枠の得点は、区分を分けて記録しているシーズン（2026-27 以降）だけ（DESIGN.md 298章）
   const logTotals = useMemo(
-    () => (base && filtered.length > 0 ? { totals: sumTeamGameLogs(filtered), games: filtered.length } : null),
-    [base, filtered],
+    () =>
+      base && filtered.length > 0
+        ? { totals: sumTeamGameLogs(filtered), games: filtered.length, classPoints: splitClassificationSeason(season) ? sumSplitClassPoints(filtered) : null }
+        : null,
+    [base, filtered, season],
   );
 
   if (isLeague) {

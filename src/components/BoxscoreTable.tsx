@@ -10,7 +10,7 @@ import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/for
 import { efgPct, safeDiv, tovPartPct, tovPct, tsPct, usagePct } from "../../shared/formulas";
 import type { PlayerOnCourtRatings } from "../../shared/onCourt";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow, YahooTurnoverEvent } from "../../shared/types";
-import { classificationGroup } from "../lib/classificationFilter";
+import { classificationGroup, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
 import {
   astToTovRatio,
   buildPlayTypeCounts,
@@ -514,6 +514,8 @@ export function BoxscoreTable({
   periodRange: controlledPeriodRange,
   onPeriodRangeChange,
 }: BoxscoreTableProps) {
+  // 2026-27 以降の試合は、登録区分の内訳で外国籍・帰化・アジア特別枠を分ける（classificationById はその試合の日の区分。DESIGN.md 298章）
+  const classificationSplit = !!season && splitClassificationSeason(season);
   const [internalActiveTab, setInternalActiveTab] = useState<BoxscoreTabKey>("traditional");
   const [internalPeriodRange, setInternalPeriodRange] = useState<PeriodRangeValue>("all");
   const periodRange = controlledPeriodRange ?? internalPeriodRange;
@@ -552,6 +554,7 @@ export function BoxscoreTable({
         periodOption={selectedOption}
         columns={columns}
         classificationById={classificationById}
+        classificationSplit={classificationSplit}
         shotChartSupported={shotChartSupported}
         onCourtRatings={onCourtRatings}
         accentColor={homeColor}
@@ -570,6 +573,7 @@ export function BoxscoreTable({
         periodOption={selectedOption}
         columns={columns}
         classificationById={classificationById}
+        classificationSplit={classificationSplit}
         shotChartSupported={shotChartSupported}
         onCourtRatings={onCourtRatings}
         accentColor={awayColor}
@@ -616,6 +620,7 @@ function BoxscoreTeamPanel({
   periodOption,
   columns,
   classificationById,
+  classificationSplit,
   shotChartSupported,
   onCourtRatings,
   accentColor,
@@ -633,6 +638,8 @@ function BoxscoreTeamPanel({
   periodOption: PeriodRangeOption | undefined;
   columns: BoxscoreColumn[];
   classificationById: Map<string, PlayerSummary["classification"]>;
+  /** 外国籍・帰化・アジア特別枠を分けて出すか（2026-27 以降の試合。classificationById はその試合の日の区分） */
+  classificationSplit: boolean;
   shotChartSupported: boolean;
   onCourtRatings: Record<string, PlayerOnCourtRatings>;
   accentColor?: string;
@@ -706,13 +713,21 @@ function BoxscoreTeamPanel({
 
   const starters = players.filter((p) => p.startingFlg === 1);
   const bench = players.filter((p) => p.startingFlg !== 1);
-  const japanese = players.filter((p) => classificationGroup(classificationById.get(p.playerId)) === "日本人");
-  const international = players.filter(
-    (p) => classificationGroup(classificationById.get(p.playerId)) === "外国籍・帰化・アジア",
-  );
+  // 登録区分の内訳。2026-27 以降の試合は、その試合の日の区分で日本人・外国籍・帰化・アジア特別枠に分ける（DESIGN.md 298章）。
+  // それより前は日本人・外国籍・帰化・アジアの2つ（現在の登録情報）
+  const classGroups: { label: string; players: typeof players }[] = classificationSplit
+    ? (["日本人", "外国籍", "帰化", "アジア特別枠"] as const).map((g) => ({
+        label: g === "日本人" ? "日本人選手合計" : `${g}選手合計`,
+        players: players.filter((p) => splitGroupOf(classificationById.get(p.playerId)) === g),
+      }))
+    : [
+        { label: "日本人選手合計", players: players.filter((p) => classificationGroup(classificationById.get(p.playerId)) === "日本人") },
+        { label: "外国籍・帰化・アジア合計", players: players.filter((p) => classificationGroup(classificationById.get(p.playerId)) === "外国籍・帰化・アジア") },
+      ];
   const unclassifiedPlayedCount = players.filter((p) => !p.dnp && classificationById.get(p.playerId) === undefined).length;
   const classificationNote =
-    "※現在の登録情報に基づく参考値" + (unclassifiedPlayedCount > 0 ? `／${unclassifiedPlayedCount}名分のデータ欠落あり` : "");
+    (classificationSplit ? "※試合の日の登録区分（日本人は見做し日本人を含む）" : "※現在の登録情報に基づく参考値") +
+    (unclassifiedPlayedCount > 0 ? `／${unclassifiedPlayedCount}名分のデータ欠落あり` : "");
 
   const playerCtx: ColumnCtx = {
     own: teamTotal,
@@ -840,22 +855,17 @@ function BoxscoreTeamPanel({
               <tr className="boxscore-summary-spacer" aria-hidden="true">
                 <td colSpan={columns.length + 1} />
               </tr>
-              <BoxscoreDataRow
-                label="日本人選手合計"
-                counts={withoutPlusMinus(sumCountsList(japanese.map((p) => p.counts)))}
-                columns={columns}
-                ctx={nonPlayerCtx}
-                className="boxscore-summary-row"
-                note={classificationNote}
-              />
-              <BoxscoreDataRow
-                label="外国籍・帰化・アジア合計"
-                counts={withoutPlusMinus(sumCountsList(international.map((p) => p.counts)))}
-                columns={columns}
-                ctx={nonPlayerCtx}
-                className="boxscore-summary-row"
-                note={classificationNote}
-              />
+              {classGroups.map((g) => (
+                <BoxscoreDataRow
+                  key={g.label}
+                  label={g.label}
+                  counts={withoutPlusMinus(sumCountsList(g.players.map((p) => p.counts)))}
+                  columns={columns}
+                  ctx={nonPlayerCtx}
+                  className="boxscore-summary-row"
+                  note={classificationNote}
+                />
+              ))}
               <BoxscoreDataRow
                 label="チーム合計"
                 counts={withoutPlusMinus(teamTotal)}

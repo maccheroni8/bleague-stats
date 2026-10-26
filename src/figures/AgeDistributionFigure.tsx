@@ -10,7 +10,8 @@ import { fetchPlayoffRace, fetchStandingsHistory, fetchTeamColors, fetchPlayers,
 import { loadPlayerGameIndex } from "../lib/gameIndexLoad";
 import { useJsonData } from "../lib/useJsonData";
 import { choiceNumberParam, enumParam, rangeParam, useUrlState } from "../lib/urlState";
-import { ageSummary, figureAgeData, centeredAgeDots, figureMarkerShape, figureAgeReferences, type FigureReferenceMode, FIGURE_GAMES_RATIO_RANGE, isDefaultFigureGamesRatio, FIGURE_CLASSES, type FigureClass } from "../lib/figureAge";
+import { ageSummary, figureAgeData, centeredAgeDots, figureMarkerShape, figureAgeReferences, type FigureReferenceMode, FIGURE_GAMES_RATIO_RANGE, isDefaultFigureGamesRatio, FIGURE_CLASSES, figureClassGroup, type FigureClass } from "../lib/figureAge";
+import { JAPANESE_DEEMED_NOTE, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked, splitClassificationSeason } from "../lib/classificationFilter";
 import { ageBaseDateLabel } from "../lib/age";
 import { pickerTeamOrder } from "../lib/playerPickerOrder";
 import { withUnplayedTeams } from "../lib/standingsTeams";
@@ -63,6 +64,9 @@ export default function AgeFigure({ season, category: league }: FigureProps) {
   };
   const gameLabels = seasonGameTypeLabels(season);
   const classLabel = FIGURE_CLASSES.find(c => c.value === classification)!.label;
+  // まとめ（外国籍・帰化・アジア）は 2025-26 以前と、選んでいるとき（旧URL）だけ選択肢に出す。分けた区分を 2025-26 以前で選んだら図の代わりに理由
+  const classOptions = FIGURE_CLASSES.filter(c => c.value !== "intl" || classification === "intl" || !splitClassificationSeason(season));
+  const classBlocked = splitClassificationBlocked(figureClassGroup(classification), season);
   const title = min ? `平均${min}:00以上出場した選手の年齢分布` : "出場選手の年齢分布（出場時間の下限なし）";
   const teams = data ? withUnplayedTeams(data.history.at(-1)?.teams ?? [], data.race) : [];
   const order = data ? pickerTeamOrder(data.history.at(-1)?.teams, data.race, league) : [];
@@ -82,12 +86,13 @@ export default function AgeFigure({ season, category: league }: FigureProps) {
   return <section aria-label={AGE_TITLE}>
     <div className="figures-controls">
       <label>平均{statJa("MIN")}<select value={min} onChange={e => setMin(Number(e.target.value) as typeof min)}>{[0, 10, 15, 20, 25].map(n => <option key={n} value={n}>{n ? `${n}:00以上` : "なし（出場者）"}</option>)}</select></label>
-      <label>登録区分<select value={classification} onChange={e => setClassification(e.target.value as FigureClass)}>{FIGURE_CLASSES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></label>
+      <label>登録区分<select value={classification} onChange={e => setClassification(e.target.value as FigureClass)}>{classOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></label>
       <label>試合区分<select value={gameType} onChange={e => setGameType(e.target.value as SeasonGameTypeFilter)}>{Object.entries(gameLabels).map(([k,v]) => <option key={k} value={k}>{v}</option>)}</select></label>
       <label>全体の縦線<select value={line} onChange={e => setLine(e.target.value as typeof line)}><option value="mean">平均</option><option value="median">中央値</option><option value="both">両方</option></select></label>
     </div>
     <FilterBar axes={[ratioAxis]} stateKey="figures:age" onClearAll={() => setRatioRange(FIGURE_GAMES_RATIO_RANGE)} />
-    {request.loading ? <p role="status">読み込み中…</p> : request.error ? <p role="alert">図のデータを読み込めませんでした。ページを読み直してください。</p> : !model ? <p>このシーズンには図に必要なデータがありません。</p> : <>
+    {classification === "jp" && <p className="rule-change-footnote">※ {JAPANESE_DEEMED_NOTE}</p>}
+    {classBlocked ? <p className="empty-message">{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">読み込み中…</p> : request.error ? <p role="alert">図のデータを読み込めませんでした。ページを読み直してください。</p> : !model ? <p>このシーズンには図に必要なデータがありません。</p> : <>
       {[...groups].map(([id, group]) => <AgeDistrict key={id}
         divisionLabel={group.label} teams={group.teams} model={model} colors={data!.colors}
         season={season} min={min} classification={classification} gameType={gameType} line={line}

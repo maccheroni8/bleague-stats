@@ -11,7 +11,8 @@ import { substitutionModelForSeason } from "../../shared/onCourt";
 import { onCourtByGroup, onOffByPlayer, teamTotals, type CompactStints, type OnCourtTotals } from "../../shared/onCourtTotals";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import type { RookieEligibilityFile } from "../../shared/types";
-import { classKeyOfFilter, positionFilterValue, type PlayerGroupFilter } from "./classificationFilter";
+import { indexClassScope } from "./indexClassScope";
+import { positionFilterValue, type PlayerGroupFilter } from "./classificationFilter";
 import { rookieOfIndex, type PlayerGameIndexView } from "./gameIndex";
 import type { GameRecordConditions } from "./gameRecordConditions";
 import { gameFacts, matchesGame, type GameSideFacts } from "./gameRecordQuery";
@@ -207,17 +208,22 @@ function seasonContext(view: PlayerGameIndexView): SeasonContext {
   return ctx;
 }
 
-/** 選手が登録区分・ポジション・現役・ルーキーの条件に当てはまるか（gameRecordQuery.ts の playerRowFilter と同じ判定） */
-function playerFilter(q: LineupBuildQuery, ctx: SeasonContext, season: string): (id: string) => boolean {
+/**
+ * 選手が登録区分・ポジション・現役・ルーキーの条件に当てはまるか（gameRecordQuery.ts の playerRowFilter と同じ判定）。
+ * 登録区分は試合ごとの区分（indexClassScope）で、そのシーズンに1試合でもその区分で出場した選手を通す。
+ * シーズンの途中で区分が変わった選手（status が "some"）は、buildLineupRows がその区分の試合だけで数え直す
+ */
+function playerFilter(q: LineupBuildQuery, ctx: SeasonContext, view: PlayerGameIndexView): (id: string) => boolean {
+  const season = view.season;
   const positionSet = q.positions.length > 0 ? new Set(q.positions) : null;
-  const classKey = q.group === "rookie" ? undefined : classKeyOfFilter(q.group);
+  const classScope = q.group === "rookie" || q.group === "all" ? null : indexClassScope(view.file, q.group);
   return (id) => {
     const p = ctx.players.get(id);
     if (!p) return false;
     if (q.activeIds && !q.activeIds.has(id)) return false;
     if (q.group === "rookie") {
       if (season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, season, id)) return false;
-    } else if (classKey && p[5] !== classKey) return false;
+    } else if (classScope && classScope.status(id) === "none") return false;
     if (positionSet && !(p[2] && positionSet.has(positionFilterValue(p[2])))) return false;
     return true;
   };
@@ -233,22 +239,27 @@ export function buildLineupRows(q: LineupBuildQuery): LineupRow[] {
   for (const { view, stints } of q.data) {
     const ctx = seasonContext(view);
     const season = view.season;
-    const playerOk = playerFilter(q, ctx, season);
+    const playerOk = playerFilter(q, ctx, view);
+    // 登録区分の途中の変更（その区分で出場した試合だけで数え直す選手）
+    const classScope = q.group === "rookie" || q.group === "all" ? null : indexClassScope(view.file, q.group);
+    const partial = (id: string) => classScope !== null && classScope.status(id) === "some";
     for (const [teamId, c] of stints) {
-      const options = {
-        includeGame: (scheduleKey: string) => {
-          const g = ctx.gameIndex.get(scheduleKey);
-          if (g === undefined) return false;
-          const f = ctx.facts[g * 2 + (ctx.homeTeamId[g] === teamId ? 0 : 1)]!;
-          return !f.short && matchesGame(f, q.gameType, q.conditions);
-        },
-        periods: q.periods,
-        keys: KEYS,
+      const baseInclude = (scheduleKey: string) => {
+        const g = ctx.gameIndex.get(scheduleKey);
+        if (g === undefined) return false;
+        const f = ctx.facts[g * 2 + (ctx.homeTeamId[g] === teamId ? 0 : 1)]!;
+        return !f.short && matchesGame(f, q.gameType, q.conditions);
       };
+      const options = { includeGame: baseInclude, periods: q.periods, keys: KEYS };
+      /** 区分が途中で変わった選手 ids がそろってその区分で出場した試合だけに絞った options */
+      const optionsFor = (ids: readonly string[]) => ({
+        ...options,
+        includeGame: (scheduleKey: string) => baseInclude(scheduleKey) && ids.every((id) => classScope!.inClass(id, scheduleKey)),
+      });
       const teamPoss = teamTotals(c, options).own[1]!;
       const teamName = ctx.teamNames.get(teamId) ?? c.teamId;
       const nameOf = (id: string) => q.currentNames?.get(id) ?? ctx.players.get(id)![1];
-      const put = (ids: string[], on: LineupSide, off: LineupSide | null) => {
+      const put = (ids: string[], on: LineupSide, off: LineupSide | null, poss: number = teamPoss) => {
         if (on.games === 0 && on.seconds === 0) return;
         const key = `${teamId}:${ids.join(",")}`;
         let acc = accs.get(key);
@@ -274,15 +285,38 @@ export function buildLineupRows(q: LineupBuildQuery): LineupRow[] {
         r.players = ids.map((id) => ({ id, name: nameOf(id), season }));
         addSide(r.on, on);
         if (off && r.off) addSide(r.off, off);
-        r.teamPoss += teamPoss;
+        r.teamPoss += poss;
       };
       if (q.unit === "onoff") {
+        const partialIds: string[] = [];
         for (const [id, t] of onOffByPlayer(c, options)) {
-          if (playerOk(id)) put([id], sideOf(t.on), sideOf(t.off));
+          if (!playerOk(id)) continue;
+          if (partial(id)) partialIds.push(id);
+          else put([id], sideOf(t.on), sideOf(t.off));
+        }
+        // 途中で区分が変わった選手は、その区分の試合だけで On・Off を数え直す（On と Off は同じ試合の集合）
+        for (const id of partialIds) {
+          const scoped = optionsFor([id]);
+          const t = onOffByPlayer(c, scoped).get(id);
+          if (t) put([id], sideOf(t.on), sideOf(t.off), teamTotals(c, scoped).own[1]!);
         }
       } else {
-        for (const g of onCourtByGroup(c, q.unit === "duo" ? 2 : 3, options)) {
-          if (g.playerIds.every(playerOk)) put(g.playerIds, sideOf(g.on), null);
+        const size = q.unit === "duo" ? 2 : 3;
+        const partialSets = new Map<string, string[]>();
+        for (const g of onCourtByGroup(c, size, options)) {
+          if (!g.playerIds.every(playerOk)) continue;
+          const ids = g.playerIds.filter(partial);
+          if (ids.length === 0) put(g.playerIds, sideOf(g.on), null);
+          else partialSets.set(ids.join(","), ids);
+        }
+        // 途中で区分が変わった選手を含む組は、その選手たちがそろってその区分で出場した試合だけで数え直す
+        for (const ids of partialSets.values()) {
+          const scoped = optionsFor(ids);
+          const poss = teamTotals(c, scoped).own[1]!;
+          for (const g of onCourtByGroup(c, size, scoped)) {
+            if (!g.playerIds.every(playerOk)) continue;
+            if (g.playerIds.filter(partial).join(",") === ids.join(",")) put(g.playerIds, sideOf(g.on), null, poss);
+          }
         }
       }
     }

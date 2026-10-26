@@ -1,5 +1,5 @@
 import { SEASON_GAME_TYPE_KEYS, type SeasonGameTypeFilter } from "../../shared/gameType";
-import { CLASSIFICATION_GROUP_OPTIONS, type ClassificationGroupFilter, type PlayerGroupFilter } from "./classificationFilter";
+import { CLASSIFICATION_GROUP_OPTIONS, CLASSIFICATION_URL_ALIASES, type ClassificationGroupFilter, type PlayerGroupFilter } from "./classificationFilter";
 import { SEASON_BOX_PERIOD_OPTIONS, type SeasonDisplayMode } from "./playerSeasonBoxscore";
 import type { PeriodRangeValue } from "./periodRange";
 import type { TeamPerspective } from "./teamStatsColumns";
@@ -36,16 +36,11 @@ export const PLAYER_SEASON_PERIOD_PARAM = enumParam<PeriodRangeValue>(
   "all",
 );
 
-export const CLASSIFICATION_PARAM = enumParam<ClassificationGroupFilter>("cls", ["all", ...CLASSIFICATION_GROUP_OPTIONS], "all", {
-  日本人: "jp",
-  "外国籍・帰化・アジア": "intl",
-});
+/** 登録区分（cls=jp／foreign／nat／asia、まとめの intl。DESIGN.md 298章） */
+export const CLASSIFICATION_PARAM = enumParam<ClassificationGroupFilter>("cls", ["all", ...CLASSIFICATION_GROUP_OPTIONS], "all", CLASSIFICATION_URL_ALIASES);
 
-/** 登録区分＋ルーキー（cls=jp／intl／rookie）。ランキングのシーズン成績（個人）と全選手スタッツで使う（DESIGN.md 217章） */
-export const PLAYER_GROUP_PARAM = enumParam<PlayerGroupFilter>("cls", ["all", ...CLASSIFICATION_GROUP_OPTIONS, "rookie"], "all", {
-  日本人: "jp",
-  "外国籍・帰化・アジア": "intl",
-});
+/** 登録区分＋ルーキー（cls=jp／foreign／nat／asia／intl／rookie）。ランキングのシーズン成績（個人）と全選手スタッツで使う（DESIGN.md 217章・298章） */
+export const PLAYER_GROUP_PARAM = enumParam<PlayerGroupFilter>("cls", ["all", ...CLASSIFICATION_GROUP_OPTIONS, "rookie"], "all", CLASSIFICATION_URL_ALIASES);
 
 export const POSITION_PARAM = listParam("pos");
 export const CLUB_PARAM = listParam("club");

@@ -127,16 +127,16 @@ export function perspectiveLabels(perspective: TeamPerspective): string[] {
 }
 
 /**
- * チームの成績の登録区分別（全チームスタッツ。DESIGN.md 288章）。「全選手」は出さない。
- * 自チームの視点は「日本人選手」「外国籍・帰化・アジア選手」、opp の視点は相手の同じ区分の選手なので「相手の日本人選手」「相手の外国籍・帰化・アジア選手」
+ * チームの成績の登録区分別（全チームスタッツ。DESIGN.md 288章・298章）。「全選手」は出さない。
+ * 自チームの視点は「日本人選手」「帰化選手」など、opp の視点は相手の同じ区分の選手なので「相手の日本人選手」など
  */
 export function teamClassLabels(filter: PlayerGroupFilter, perspective: TeamPerspective): string[] {
   if (filter === "all" || filter === "rookie") return [];
-  return [`${perspective === "opp" ? "相手の" : ""}${filter}選手`];
+  return [`${perspective === "opp" ? "相手の" : ""}${filter === "帰化" ? "帰化" : filter}選手`];
 }
 
 /**
- * 登録区分フィルタ（全選手/日本人/外国籍・帰化・アジア）。指定したときは「登録区分: 日本人」の形にする（「外国籍・帰化・アジア」の「・」が
+ * 登録区分フィルタ（全選手／日本人／外国籍／帰化／アジア特別枠／外国籍・帰化・アジア）。指定したときは「登録区分: 日本人」の形にする（「外国籍・帰化・アジア」の「・」が
  * 条件の区切りと紛れないよう、ポジション・クラブと同じ見出し付き）。「全選手」はタイトルの下の行・ファイル名には出ない（visibleConditionLabels）
  */
 export function classificationLabels(filter: PlayerGroupFilter): string[] {

@@ -7,7 +7,7 @@ import { GlossaryNote } from "../components/GlossaryNote";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { choiceNumberParam, clearUrlParams, enumParam, situationalParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
 import { CLASSIFICATION_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERSPECTIVE_PARAM, TEAM_SEASON_PERIOD_PARAM, VENUE_PARAM } from "../lib/urlFilterParams";
-import { hasUnclassifiedRows, maskClassSplitColumns, sumClassTotals, withOppMinutes } from "../lib/teamClassSplit";
+import { hasUnclassifiedRows, maskClassSplitColumns, splitClassOfFilter, sumClassTotals, withOppMinutes, type SplitClass } from "../lib/teamClassSplit";
 import { useClassSplitSource } from "../lib/teamClassSplitLoad";
 import { SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason, seasonPeriodOption } from "../lib/seasonPeriod";
 import { sumTeamPeriodTotals, useTeamPeriodSource, type TeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
@@ -24,7 +24,9 @@ import { buildTeamConditionDefs } from "../lib/teamConditionItems";
 import { postseasonLabel } from "../../shared/gameType";
 import { Navigate, useLocation } from "react-router-dom";
 import { useLeague, type League } from "../lib/league";
-import { ONE_PERIOD_REASON, ONE_CLASS_REASON, ONE_TEAMS_TAB_REASONS } from "../lib/leagueAvailability";
+import { ONE_PERIOD_REASON, ONE_TEAMS_TAB_REASONS } from "../lib/leagueAvailability";
+import { SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
+import { ClassificationNotes } from "../components/ClassificationNotes";
 import { seasonRuleFor } from "../../shared/seasonRules";
 import { legacyTeamRecordsTarget } from "../lib/legacyRecordsUrl";
 import {
@@ -480,10 +482,12 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const periodActive = periodTab && period !== "all";
   // 登録区分別（DESIGN.md 288章）。Traditional〜Scoring の4つのタブだけで効く。区間（Q別・前後半）との併用は段階6までは選べない（区間を選んでいるときは区間を優先）
   const [urlClassFilter, setClassFilter] = useUrlState(CLASSIFICATION_PARAM, "all");
-  const classFilter = league === "one" ? "all" : urlClassFilter;
+  const classFilter = urlClassFilter;
   const classTab = boxTab === "traditional" || boxTab === "advanced" || boxTab === "misc" || boxTab === "scoring";
-  const classActive = classTab && classFilter !== "all" && !periodActive;
-  const splitClass: "jp" | "intl" = classFilter === "日本人" ? "jp" : "intl";
+  // 2025-26 以前で外国籍・帰化・アジア特別枠を選んでいるときは、表の代わりに理由を出す（DESIGN.md 298章）
+  const classBlocked = classTab && !periodActive && splitClassificationBlocked(classFilter, season);
+  const classActive = classTab && classFilter !== "all" && !periodActive && !classBlocked;
+  const splitClass: SplitClass = splitClassOfFilter(classFilter) ?? "jp";
   const { state: classState, retry: retryClass } = useClassSplitSource(season, classActive, league);
   const classSource = classActive && classState.status === "ready" ? classState.source : null;
   const { source: periodSource, loading: periodLoading } = useTeamPeriodSource(season, periodActive, league);
@@ -954,13 +958,12 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       disabledValues: isForeignCategory ? ["diff"] : undefined,
     }),
     classificationAxis(classFilter, setClassFilter, {
-      disabledReason: league === "one"
-        ? ONE_CLASS_REASON
-        : !classTab
+      disabledReason: !classTab
         ? "登録区分別の値は Traditional〜Scoring のタブでだけ見られます。"
         : periodActive
           ? "Q別・前後半と登録区分の併用は準備中です。区間を「試合全体」にすると選べます。"
           : undefined,
+      season,
     }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: displayDisabledReason }),
     periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, {
@@ -1387,6 +1390,8 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           <p className="page-subtitle">{periodScoringNote(periodsWithoutValue)}</p>
           <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全チームスタッツ" scope="各チームの試合ログから、選んだ条件で集計し直した値です。" />
         </>
+      ) : classBlocked ? (
+        <p className="empty-message">{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p>
       ) : classActive && classState.status === "loading" ? (
         <p className="loading">読み込み中...</p>
       ) : classActive && classState.status === "unreadable" ? (
@@ -1429,8 +1434,9 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                 PACE・ORtg・DRtg・NetRtg・OR%・+/-・TF1/TF2/FLAG/DISR・ベンチ／スタメン得点・登録区分別得点は、区分では出せないので「-」にしています。
               </p>
               {classUnclassified && (
-                <p className="page-subtitle">登録区分が付いていない選手（選手マスタに無い選手）の記録は、どちらの区分にも入れていません。</p>
+                <p className="page-subtitle">登録区分が付いていない選手（選手マスタに無い選手）の記録は、どの区分にも入れていません。</p>
               )}
+              <ClassificationNotes filter={classFilter} scope="season" />
             </>
           )}
           {periodActive && period === "ot" && (

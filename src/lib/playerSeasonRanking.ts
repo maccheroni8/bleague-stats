@@ -34,7 +34,8 @@ import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTota
 import { shotTypeEntityColumns, SHOT_TYPE_DISPLAY_ORDER } from "./shotTypeBreakdown";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "./teamRankingData";
 import { OVERTIME_MIN_GAMES, overtimeCandidates, seasonPeriodOption, seasonPeriodTotalsOf, useSeasonPeriodSources } from "./seasonPeriod";
-import { matchesPlayerGroupFilter, matchesPositionFilter, type PlayerGroupFilter } from "./classificationFilter";
+import { matchesPositionFilter, type PlayerGroupFilter } from "./classificationFilter";
+import { needsClassificationRecompute, scopedPlayerMatches, scopeLogsByClassification, useClassScopedPlayers } from "./registrationScope";
 import { EXTRA_ELIGIBILITY_RULES, filterEligiblePlayers } from "./playerRankingEligibility";
 import { formatDecimal } from "./format";
 import { hasRelatedStats, relatedStatsFor } from "./rankingRelatedStats";
@@ -457,6 +458,12 @@ export function usePlayerSeasonRanking(
   const players = playersData?.season === season ? playersData.list : null;
   const teams = teamsData?.season === season ? teamsData.list : null;
   const playersLoading = playersFetching || (enabled && !players && !playersError);
+  // 登録区分を選んだときは、シーズンの途中で区分が変わった選手を、その区分で出場した試合だけの値にする（DESIGN.md 298章。ランキングは B.PREMIER だけ）
+  const classScope = useClassScopedPlayers(season, "premier", players, group, enabled);
+  const scopedPlayers = classScope.players;
+  const groupOk = (p: PlayerSummary) => (group === "rookie" ? rookieIds !== null && rookieIds.has(p.playerId) : scopedPlayerMatches(p, group, classScope.changed));
+  /** 試合ログ（途中で区分が変わった選手は、選んだ区分の試合だけ） */
+  const classLogs = (map: Map<string, PlayerGameLog[]>, id: string) => scopeLogsByClassification(map.get(id) ?? [], id, group, classScope.changed);
   // USG%・%-shareスタッツ・個人ORtg/DRtgの分母（チーム総計）用に、チーム版ランキングと共通の
   // フックで26チーム分のTeamGameLogを取得する
   const { gameLogsByTeam } = useAllTeamGameLogs(season, enabled ? teams : null);
@@ -523,26 +530,27 @@ export function usePlayerSeasonRanking(
   );
 
   const eligible: PlayerSummary[] = useMemo(() => {
+    const players = scopedPlayers;
     if (!players || !teams) return [];
     // ルーキーの一覧を読み込むまでは空にする（全員分の試合ログを取りに行かないため）
     if (rookieActive && !rookieIds) return [];
     const positionSet = new Set(positions);
     // Profile・Career: 掲載基準（出場率）を使わず、そのシーズンに登録していた選手全員（出場の有無を問わない。DESIGN.md 173・175章）
     if (registeredTarget) {
-      return [...players, ...(registeredPlayers ?? [])].filter(
-        (p) => matchesPlayerGroupFilter(p, group, rookieIds) && matchesPositionFilter(p, positionSet),
-      );
+      return [...players, ...(registeredPlayers ?? [])].filter((p) => groupOk(p) && matchesPositionFilter(p, positionSet));
     }
     // 延長: 延長に出た試合が基準以上の選手（シーズン全体）を先に選び、条件で絞ったあとの試合数でもう一度確かめる（rows）
     if (overtimeActive && periodFiltersApply) {
       if (!overtimeIds) return [];
-      return players.filter((p) => overtimeIds.has(p.playerId) && matchesPlayerGroupFilter(p, group, rookieIds) && matchesPositionFilter(p, positionSet));
+      return players.filter((p) => overtimeIds.has(p.playerId) && groupOk(p) && matchesPositionFilter(p, positionSet));
     }
     const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold, remainingByTeam).filter(
-      (p) => matchesPlayerGroupFilter(p, group, rookieIds) && matchesPositionFilter(p, positionSet),
+      (p) => groupOk(p) && matchesPositionFilter(p, positionSet),
     );
     return category === "shooting" ? base.filter((p) => !!p.shotTypes) : base;
-  }, [players, teams, gamesRatio, remainingByTeam, statKey, extraThreshold, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers, overtimeActive, periodFiltersApply, overtimeIds]);
+    // groupOk は group・rookieIds・classScope.changed から決まる
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopedPlayers, teams, gamesRatio, remainingByTeam, statKey, extraThreshold, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers, overtimeActive, periodFiltersApply, overtimeIds, classScope.changed]);
 
   // シーズンが変わったら取得済みキャッシュをリセットする
   useEffect(() => {
@@ -563,8 +571,13 @@ export function usePlayerSeasonRanking(
   const effFilter: SituationalFilter = filtersApply ? filter : { range: { kind: "all" } };
   const effGameType: SeasonGameTypeFilter = filtersApply ? gameType : "regular";
   const effPeriodActive = filtersApply && periodActive;
+  // 途中で区分が変わった選手が対象にいるときは、その区分の試合だけを試合ログから足し直す（率・上級スタッツも。DESIGN.md 298章）
   const needsGameLogRecompute =
-    (filtersApply && (filterActive || gameTypeActive || periodActive)) || category === "misc" || category === "scoring" || conditionNeedsLogs;
+    (filtersApply && (filterActive || gameTypeActive || periodActive)) ||
+    category === "misc" ||
+    category === "scoring" ||
+    conditionNeedsLogs ||
+    (filtersApply && needsClassificationRecompute(eligible, group, classScope.changed));
   useEffect(() => {
     if (!needsGameLogRecompute || eligible.length === 0) return;
     const missing = eligible.filter((p) => !fetchedPlayerIdsRef.current.has(p.playerId));
@@ -630,7 +643,7 @@ export function usePlayerSeasonRanking(
       if (effPeriodActive) {
         // Q別・前後半: 試合単位でピリオド別の索引から組み立てる（team総計もこの選手が出場した試合の
         // 期間限定値。個人詳細ページのQ別・前後半と同じ設計。DESIGN.md 256章）
-        const logs = gameLogsByPlayer!.get(p.playerId) ?? [];
+        const logs = classLogs(gameLogsByPlayer!, p.playerId);
         const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
         const scoped = filterByGameType(situational, effGameType);
         const contributions: GamePeriodTotals[] = [];
@@ -644,7 +657,7 @@ export function usePlayerSeasonRanking(
       }
       let team = teamTotalsByTeamId.get(p.teamId) ?? EMPTY_TEAM_TOTALS;
       if (needsGameLogRecompute) {
-        const logs = gameLogsByPlayer!.get(p.playerId) ?? [];
+        const logs = classLogs(gameLogsByPlayer!, p.playerId);
         const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
         const scoped = filterByGameType(situational, effGameType);
         if (teamScopes && playerOwnTeamOf) {
@@ -675,6 +688,8 @@ export function usePlayerSeasonRanking(
     periodDataReady,
     periodSource,
     period,
+    group,
+    classScope.changed,
   ]);
 
   // 試合の条件（地区・勝敗・会場など）で絞っているときは、行に出すクラブを「条件に当てはまる試合で所属していたクラブ。複数あれば、その中の最新のクラブ」にする
@@ -684,7 +699,7 @@ export function usePlayerSeasonRanking(
     const teamNameById = new Map(teams.map((t) => [t.teamId, t.teamName]));
     const map = new Map<string, { teamId: string; teamName: string }>();
     for (const p of eligible) {
-      const logs = gameLogsByPlayer.get(p.playerId) ?? [];
+      const logs = classLogs(gameLogsByPlayer, p.playerId);
       const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
       const scoped = filterByGameType(situational, effGameType);
       let latest: PlayerGameLog | null = null;
@@ -697,7 +712,7 @@ export function usePlayerSeasonRanking(
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersApply, filterActive, gameLogsByPlayer, teams, playerOwnTeamOf, eligible, filter, gameType, opponentRecords, divisionHistory, season]);
+  }, [filtersApply, filterActive, gameLogsByPlayer, teams, playerOwnTeamOf, eligible, filter, gameType, opponentRecords, divisionHistory, season, group, classScope.changed]);
   const clubOf = (p: PlayerSummary): { teamId: string; teamName: string } => conditionedClubByPlayer?.get(p.playerId) ?? { teamId: p.teamId, teamName: p.teamName };
 
   // DD2・TD3 の回数と出場試合数（DESIGN.md 179章）。試合ログを読んでいるとき（シチュエーション別・レギュラー/ポストシーズン等）は
@@ -707,7 +722,7 @@ export function usePlayerSeasonRanking(
     const map = new Map<string, DoubleCounts>();
     for (const p of eligible) {
       if (needsGameLogRecompute && gameLogsByPlayer) {
-        const logs = gameLogsByPlayer.get(p.playerId) ?? [];
+        const logs = classLogs(gameLogsByPlayer, p.playerId);
         const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
         const played = filterByGameType(situational, effGameType).filter((g) => g.min > 0);
         const { dd, td } = countDoubleTripleDoubles(played);
@@ -719,7 +734,7 @@ export function usePlayerSeasonRanking(
     return map;
     // effFilter・effGameType は filter・gameType・filtersApply から決まる
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eligible, needsGameLogRecompute, gameLogsByPlayer, filtersApply, filter, gameType, opponentRecords, divisionHistory, season, playerOwnTeamOf]);
+  }, [eligible, needsGameLogRecompute, gameLogsByPlayer, filtersApply, filter, gameType, opponentRecords, divisionHistory, season, playerOwnTeamOf, group, classScope.changed]);
 
   // 平均/合計（DESIGN.md 179章）。割合の項目・Profile・Career では切り替えを無効にし、平均として扱う。
   // ctxByPlayer は1試合平均の値なので、合計のときはシーズン合計の値の ctx を作り直す
@@ -841,7 +856,8 @@ export function usePlayerSeasonRanking(
     !ctxByPlayer ||
     (effPeriodActive && periodSourceLoading) ||
     (careersNeeded && (careersLoading || !careers)) ||
-    (registeredTarget && (registeredLoading || !registeredPlayers));
+    (registeredTarget && (registeredLoading || !registeredPlayers)) ||
+    classScope.loading;
 
   return {
     players,

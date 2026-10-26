@@ -9,6 +9,8 @@
 //  5. 区分が付かない行は、どちらの区分にも入らない（試合ごとに jp＋intl＋区分なし＝チーム。区分なしがあるのは進行中のシーズンだけ）
 //  6. opp の値は、相手チームの同じ区分の値（リーグ全体で、自チームの合計＝opp の合計）
 //  7. 感度: 索引を1か所壊すと食い違いとして検出される
+//  8. 2026-27 以降（行ごとの区分がある索引）: 外国籍・帰化・アジア特別枠の PTS が、試合ログの foreignPoints・naturalizedPoints・asianQuotaPoints と一致し、
+//     その3つの合計がまとめ（外国籍・帰化・アジア）と一致する（DESIGN.md 298章）。B.ONE（data/{season}/one/）も同じように確かめる
 //
 // 使い方: npm run validate:team-class-split。1つでも食い違いがあれば終了コード1
 import path from "node:path";
@@ -17,7 +19,7 @@ import { DATA_DIR, readJson } from "./lib/storage.ts";
 import type { PlayerGameIndexFile } from "../shared/gameIndex.ts";
 import type { PlayerPeriodIndexFile } from "../shared/periodIndex.ts";
 import type { TeamGameLog, TeamSummary } from "../shared/types.ts";
-import { buildClassSplitSource, CLASS_SPLIT_GAME_COLUMNS, classSideValues, hasUnclassifiedRows, sumClassTotals, sumUnclassifiedPoints, type ClassSideValues, type ClassSplitSource } from "../src/lib/teamClassSplit";
+import { buildClassSplitSource, CLASS_SPLIT_BUCKETS, CLASS_SPLIT_GAME_COLUMNS, classSideValues, hasUnclassifiedRows, sumClassTotals, sumUnclassifiedPoints, type ClassSideValues, type ClassSplitSource } from "../src/lib/teamClassSplit";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = ""): void {
@@ -113,6 +115,7 @@ async function main(): Promise<void> {
     if (first.length < 15) first.push(m);
   };
   let games = 0;
+  let detailedGames = 0;
   let missingFromIndex = 0;
   let noPeriodGames = 0;
   let periodChecked = 0;
@@ -128,7 +131,9 @@ async function main(): Promise<void> {
 
   for (const season of seasons) {
     if (only.length > 0 && !only.includes(season)) continue;
-    const dir = path.join(DATA_DIR, season);
+    // B.ONE（data/{season}/one/）も同じように確かめる（DESIGN.md 298章）
+    for (const dir of [path.join(DATA_DIR, season), path.join(DATA_DIR, season, "one")]) {
+    const leagueLabel = dir.endsWith(`${path.sep}one`) ? `${season} B.ONE` : season;
     const index = await readJson<PlayerGameIndexFile>(path.join(dir, "player-game-index.json"));
     const periodIndex = await readJson<PlayerPeriodIndexFile>(path.join(dir, "player-period-index.json"));
     const teams = (await readJson<TeamSummary[]>(path.join(dir, "teams.json"))) ?? [];
@@ -152,7 +157,7 @@ async function main(): Promise<void> {
         const jp = classSideValues(source, row, "jp");
         const intl = classSideValues(source, row, "intl");
         const none = classSideValues(source, row, "none");
-        const where = `${season} ${t.teamId} ${g.scheduleKey}`;
+        const where = `${leagueLabel} ${t.teamId} ${g.scheduleKey}`;
         // 1. 足せば一致する項目
         for (const [k, f] of EXACT) {
           if (add(jp, intl, none, k) !== f(g)) note(`${where} ${String(k)}: ${jp[k]}+${intl[k]}+${none[k]} ≠ ${f(g)}`, String(k));
@@ -184,6 +189,19 @@ async function main(): Promise<void> {
         // 4. 既存の「日本人 PTS」「外国籍・帰化・アジア PTS」
         if (jp.pts !== g.japanesePoints) note(`${where} 日本人 PTS ${jp.pts} ≠ ${g.japanesePoints}`, "jpPts");
         if (intl.pts !== g.foreignPoints + g.naturalizedOrAsianPoints) note(`${where} 外国籍等 PTS ${intl.pts} ≠ ${g.foreignPoints + g.naturalizedOrAsianPoints}`, "intlPts");
+        // 8. 外国籍・帰化・アジア特別枠（行ごとの区分がある索引だけ）
+        if (source.detailed) {
+          detailedGames += 1;
+          const fo = classSideValues(source, row, "foreign");
+          const na = classSideValues(source, row, "naturalized");
+          const as = classSideValues(source, row, "asia");
+          if (fo.pts !== g.foreignPoints) note(`${where} 外国籍 PTS ${fo.pts} ≠ ${g.foreignPoints}`, "foreignPts");
+          if (na.pts !== g.naturalizedPoints) note(`${where} 帰化 PTS ${na.pts} ≠ ${g.naturalizedPoints}`, "naturalizedPts");
+          if (as.pts !== g.asianQuotaPoints) note(`${where} アジア特別枠 PTS ${as.pts} ≠ ${g.asianQuotaPoints}`, "asiaPts");
+          for (const [k] of EXACT) {
+            if (fo[k] + na[k] + as[k] !== intl[k]) note(`${where} ${String(k)}: 外国籍＋帰化＋アジア ${fo[k] + na[k] + as[k]} ≠ まとめ ${intl[k]}`, `split-${String(k)}`);
+          }
+        }
         seasonOwnPts += jp.pts + intl.pts;
         seasonOppPts += classSideValues(source, no * 2 + (g.isHome ? 1 : 0), "jp").pts + classSideValues(source, no * 2 + (g.isHome ? 1 : 0), "intl").pts;
       }
@@ -200,10 +218,12 @@ async function main(): Promise<void> {
     leagueChecked = true;
     // 6. リーグ全体（そのシーズン）で、自チームの合計と opp の合計が等しい
     if (seasonOwnPts !== seasonOppPts) note(`${season} 自チームの合計 ${seasonOwnPts} ≠ 相手の合計 ${seasonOppPts}`);
-    if (seasonUnclassifiedPts > 0 && season < "2026-27") note(`${season} 区分が付かない選手の得点が ${seasonUnclassifiedPts} 点ある`);
+    if (seasonUnclassifiedPts > 0 && season < "2026-27") note(`${leagueLabel} 区分が付かない選手の得点が ${seasonUnclassifiedPts} 点ある`);
+    }
   }
   void leagueChecked;
 
+  check(`2026-27 以降の試合（${detailedGames}試合）で、外国籍・帰化・アジア特別枠の値を出せる（行ごとの区分がある）`, detailedGames > 0);
   check(`試合ログの全試合を索引から引ける（${games}試合。引けない ${missingFromIndex}）`, missingFromIndex === 0, `${missingFromIndex}試合`);
   const knownExpected = [...KNOWN_GAPS].reduce((a, [, ks]) => a + ks.length, 0);
   console.log(`   既知の食い違い（公式の記録）: ${knownSeen.size}／${knownExpected}項目が出ている`);
@@ -217,7 +237,7 @@ async function main(): Promise<void> {
     const g = lastLogs.find((l) => lastSource!.gameNo.has(l.scheduleKey))!;
     const no = lastSource.gameNo.get(g.scheduleKey)!;
     const row = no * 2 + (g.isHome ? 0 : 1);
-    const ptsAt = (row * 3 + 0) * CLASS_SPLIT_GAME_COLUMNS.length + CLASS_SPLIT_GAME_COLUMNS.indexOf("pts");
+    const ptsAt = (row * CLASS_SPLIT_BUCKETS + 0) * CLASS_SPLIT_GAME_COLUMNS.length + CLASS_SPLIT_GAME_COLUMNS.indexOf("pts");
     const sumOf = () => add(classSideValues(lastSource!, row, "jp"), classSideValues(lastSource!, row, "intl"), classSideValues(lastSource!, row, "none"), "pts");
     const okBefore = sumOf() === g.teamScore;
     lastSource.game[ptsAt] = lastSource.game[ptsAt]! + 1;

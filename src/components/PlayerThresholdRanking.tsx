@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
+import { isSplitClassificationGroup, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
+import { ClassificationNotes } from "./ClassificationNotes";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
@@ -68,7 +70,11 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   const ready = thresholdActive(threshold);
 
   const options = useGameRecordOptions(allTime ? "allTime" : "season", season);
-  const index = useGameIndexViews("player", allTime ? "allTime" : "season", season, ready);
+  // 2025-26 以前のシーズンで分けた区分を選んでいるときは、表の代わりに理由を出す。全シーズンの表で分けた区分は 2026-27 以降の索引だけを読む
+  const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
+  const index = useGameIndexViews("player", allTime ? "allTime" : "season", season, ready && !classBlocked, {
+    fromSeason: isSplitClassificationGroup(group) ? SPLIT_CLASSIFICATION_FIRST_SEASON : null,
+  });
   const rookies = useRookieFile(ready && group === "rookie");
   // 今季の名簿は、現役の絞り込みと、連続記録の「継続中」の判定に使う
   const active = useActivePlayerIds(activeOn || (ready && unit === "streak"));
@@ -147,6 +153,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   const axes: FilterAxis[] = [
     classificationAxis(group, setGroup, {
       rookie: { disabledReason: !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined },
+      season: allTime ? null : season,
     }),
     ...(allTime ? [activeAxis(activeParamValue, setActive)] : []),
     unit === "streak"
@@ -283,6 +290,8 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
             再読み込み
           </button>
         </div>
+      ) : classBlocked ? (
+        <p className="empty-message">{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p>
       ) : index.loading || rookies.loading || active.loading || current.loading || rosters.loading || !result ? (
         <p className="loading">読み込み中...</p>
       ) : !rows || rows.length === 0 ? (
@@ -353,6 +362,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
               </>
             )}
             {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
+            <ClassificationNotes filter={group} scope={allTime ? "allTime" : "season"} />
             {group === "rookie" && <p className="rule-change-footnote">※ {ROOKIE_NOTE}{allTime ? "2016-17は、ルーキーを判定できないため、含めていません。" : ""}</p>}
           </ExportTarget>
         </>

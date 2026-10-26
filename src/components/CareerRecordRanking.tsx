@@ -5,7 +5,9 @@ import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS } from "../lib/playerCond
 import type { LeagueRankingGameType, LeagueTeamRankEntry, TeamColors } from "../../shared/types";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote } from "../lib/activePlayers";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, leagueVenueLabels, type LeagueVenue } from "../lib/conditionLabels";
-import { classKeyOfFilter } from "../lib/classificationFilter";
+import { isSplitClassificationGroup, topFileClassKey, type SplitClassificationGroup } from "../lib/classificationFilter";
+import type { LeaguePlayerCareerTopFileWithSplit, SplitCareerKey } from "../../shared/careerTopSplit";
+import { ClassificationNotes } from "./ClassificationNotes";
 import { formatLeaguePlayerRecordValue, formatLeagueTeamCareerValue } from "../lib/careerRecords";
 import { fetchDivisionHistory, fetchLeaguePlayerCareerTop, fetchLeagueTeamRankings } from "../lib/data";
 import { classificationAxis, gameTypeAxis, leagueVenueAxis, statItemAxis } from "../lib/filterAxes";
@@ -47,6 +49,9 @@ const COUNT_NOTE =
   "回数・在籍は、Bリーグ（2016-17シーズン）以降のB1（B.PREMIER）の記録から数えた、各選手の最新の累計です（進行中のシーズンは現時点まで）。会場・試合区分は選べません。個人賞（MVP・ベストファイブ・最優秀新人賞・新人賞ベストファイブ・個人タイトル）は種類ごとの受賞数で、B2の賞は数えません。個人タイトルは、得点王・リバウンド王・アシスト王・スティール王・ブロック王・ベスト3P成功率賞・ベストFT成功率賞の受賞数の合計です。";
 const TEAM_STAT_PARAM = stringParam("stat", "wins", (v) => CAREER_TOTAL_DEFS.some((d) => d.key === v));
 const PLAYER_RANK_TOP_N = 20;
+/** 分けた区分 → 通算記録の上位のファイルの鍵 */
+const SPLIT_CAREER_KEY: Record<SplitClassificationGroup, SplitCareerKey> = { 外国籍: "foreign", 帰化: "naturalized", アジア特別枠: "asia" };
+const SPLIT_COUNT_REASON = "回数・在籍の項目は、外国籍・帰化・アジア特別枠を分けた区分では見られません（試合ごとの区分で分けられないため）。";
 
 /** 通算記録のランキングの URL（個人・チームの記録タブのカードから移るとき） */
 export function careerRecordRankingUrl(opts: {
@@ -72,15 +77,25 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
   const [activeParam, setActive] = useUrlState(ACTIVE_PARAM, "all");
   const [statParam, setStatKey] = useUrlState(PLAYER_STAT_PARAM, "pts");
   const activeOn = activeParam === "active";
-  const { data: file, loading } = useJsonData(() => fetchLeaguePlayerCareerTop(), []);
+  const { data: file, loading } = useJsonData(() => fetchLeaguePlayerCareerTop() as Promise<LeaguePlayerCareerTopFileWithSplit>, []);
 
   const item = PLAYER_ITEMS.find((d) => d.key === statParam) ?? PLAYER_ITEMS[0]!;
   const countDef = PLAYER_COUNT_ITEMS.find((d) => `${CAREER_CONDITION_KEY_PREFIX}${d.key}` === item.key);
   const def = { key: item.key, label: item.label };
-  // 登録区分を選んだときは、その区分の選手だけの中での上位（区分ごとの表。DESIGN.md 197章）
-  const classKey = classKeyOfFilter(classification);
+  // 登録区分を選んだときは、その区分で出場した試合だけの通算での上位（区分ごとの表。DESIGN.md 197・298章）。分けた区分は 2026-27 以降の試合だけ
+  const classKey = topFileClassKey(classification);
+  const splitKey = isSplitClassificationGroup(classification) ? SPLIT_CAREER_KEY[classification] : null;
+  const splitCountBlocked = !!splitKey && !!countDef;
   // 現役を選んだときは、今季の名簿の選手だけの中での上位（現役の表。登録区分と組み合わせられる）
-  const source = activeOn ? file?.byActive?.[classKey ?? "all"] : classKey ? file?.byClassification?.[classKey] : file;
+  const source = splitKey
+    ? activeOn
+      ? file?.byActiveSplitClass?.[splitKey]
+      : file?.bySplitClass?.[splitKey]
+    : activeOn
+      ? file?.byActive?.[classKey ?? "all"]
+      : classKey === "jp" || classKey === "intl"
+        ? file?.byClassification?.[classKey]
+        : file;
   const table = source ? (venue === "total" ? source.career : venue === "home" ? source.careerHome : source.careerAway) : undefined;
   const entries = countDef
     ? (source?.careerCounts?.[countDef.key] ?? [])
@@ -101,7 +116,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
         simple
         stateKey="rankings:player:career"
         axes={[
-          classificationAxis(classification, setClassification),
+          classificationAxis(classification, setClassification, { season: null }),
           activeAxis(activeParam, setActive),
           { ...leagueVenueAxis(venue, setVenue), ...(countDef ? { disabledReason: countDisabled } : {}) },
           gameTypeAxis(gameType, setGameType, null, countDef ? { disabledReason: countDisabled } : {}),
@@ -110,6 +125,8 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
       <FilterBar simple wide stateKey="rankings:player:career:stat" axes={[statItemAxis(PLAYER_ITEMS, def.key, setStatKey)]} />
       {loading ? (
         <p className="loading">読み込み中...</p>
+      ) : splitCountBlocked ? (
+        <p className="empty-message">{SPLIT_COUNT_REASON}</p>
       ) : !file || !source ? (
         <p className="empty-message">データがありません</p>
       ) : rows.length === 0 ? (
@@ -151,6 +168,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
                 compact
               />
               {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
+              <ClassificationNotes filter={classification} scope="allTime" />
               {countDef && <p className="rule-change-footnote">※ {COUNT_NOTE}</p>}
               {!countDef && def.key === "astedPct" && (
                 <p className="rule-change-footnote">※ 通算得点が{PLAYER_CAREER_ASTED_MIN_POINTS.toLocaleString()}点以上の選手が対象です。得点のうち、アシストされた得点（アシストされた2P×2＋3P×3＋FT）の割合です。</p>

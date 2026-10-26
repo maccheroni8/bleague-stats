@@ -21,12 +21,13 @@ import { currentSeason } from "./lib/season.ts";
 import { currentPlayerNames, normalizePlayerName } from "../shared/playerName.ts";
 import { filterByGameType } from "../shared/gameType.ts";
 import { CLASS_KEYS, classKeyOf, type ClassKey } from "../shared/classificationKey.ts";
+import { makeClassifier, SPLIT_CLASSIFICATION_FIRST_SEASON, type Classification, type ClassifyAt, type SeasonRegistrationFile } from "../shared/registration.ts";
+import { filterByClassification, SPLIT_CAREER_CLASSIFICATION, type PlayerSeasonLogs, SPLIT_CAREER_KEYS, type LeaguePlayerCareerTopFileWithSplit, type SplitCareerKey } from "../shared/careerTopSplit.ts";
 import { AWARD_COUNT_KEYS } from "../shared/playerAwardKinds.ts";
 import { PLAYER_CAREER_TOTAL_DEFS, buildPlayerCareerTotals } from "../shared/playerRecords.ts";
 import type {
   LeaguePlayerCareerTopByClass,
   LeaguePlayerCareerTopEntry,
-  LeaguePlayerCareerTopFile,
   LeaguePlayerInfo,
   LeaguePlayerRankEntry,
   LeaguePlayerRankingsFile,
@@ -49,10 +50,6 @@ function listSeasonDirs(): string[] {
     .sort();
 }
 
-interface PlayerSeasonLogs {
-  season: string;
-  logs: PlayerGameLog[];
-}
 
 /**
  * playerId単位で全シーズン分のPlayerGameLogを集める（出場なし＝min<=0の試合は除外。
@@ -217,13 +214,29 @@ function topOfCareerCounts(
   return out;
 }
 
-/** 今季（season）の B.PREMIER の名簿に載っている選手のID（players.json と registered-players.json。DESIGN.md 173・222章） */
+/**
+ * 現役＝今季（season）の B.PREMIER か B.ONE の名簿に載っている選手のID（両リーグの players.json と registered-players.json。DESIGN.md 173・222・298章）。
+ * 画面の現役の絞り込み（src/lib/activePlayers.ts）と同じ選手
+ */
 async function loadActivePlayerIds(season: string): Promise<Set<string>> {
   const ids = new Set<string>();
-  for (const file of ["players.json", "registered-players.json"]) {
-    for (const p of (await readJson<PlayerSummary[]>(path.join(DATA_DIR, season, file))) ?? []) ids.add(p.playerId);
+  for (const dir of [path.join(DATA_DIR, season), path.join(DATA_DIR, season, "one")]) {
+    for (const file of ["players.json", "registered-players.json"]) {
+      for (const p of (await readJson<PlayerSummary[]>(path.join(dir, file))) ?? []) ids.add(p.playerId);
+    }
   }
   return ids;
+}
+
+/** シーズンごとの区分の決め方（集計と同じ shared/registration.ts の makeClassifier。2026-27 以降は登録区分の記録、それより前は選手マスタ） */
+async function loadClassifiers(seasons: readonly string[], master: PlayerMasterEntry[]): Promise<Map<string, ClassifyAt>> {
+  const masterById = new Map(master.map((p) => [p.playerId, p]));
+  const out = new Map<string, ClassifyAt>();
+  for (const season of seasons) {
+    const registrations = await readJson<SeasonRegistrationFile>(path.join(DATA_DIR, season, "registrations.json"));
+    out.set(season, makeClassifier(season, registrations, masterById));
+  }
+  return out;
 }
 
 async function main() {
@@ -254,32 +267,55 @@ async function main() {
   const top = { career: topOfCareer(career), careerHome: topOfCareer(careerHome), careerAway: topOfCareer(careerAway) };
   const careers = await readJson<PlayerCareersFile>(path.join(DATA_DIR, "player-careers.json"));
   const careerCounts = topOfCareerCounts(careers, info);
-  // 登録区分ごと（選手マスタの区分。選手ごとの1つの値）に、その区分の選手だけの中で順位をつけ直した上位20位
+  // 登録区分ごとに、その区分で出場した試合だけの通算で順位をつけ直した上位20位（試合ごとの区分。DESIGN.md 197・298章）。
+  // 日本人・外国籍・帰化・アジアのまとめは全シーズン（2025-26 以前は選手マスタの区分）、分けた区分は 2026-27 以降の試合だけ。
+  // 回数・在籍（試合で分けられない）は、日本人・まとめは選手マスタの区分の選手で数え、分けた区分は出さない
   const master = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
   const classKeyById = new Map(master.map((p) => [p.playerId, classKeyOf(p.classification)]));
+  const seasons = [...new Set([...byPlayer.values()].flatMap((list) => list.map((x) => x.season)))].sort();
+  const classifiers = await loadClassifiers(seasons, master);
+  const careerTables = (logs: Map<string, PlayerSeasonLogs[]>) => ({
+    career: computeCareerRankings(logs),
+    careerHome: computeCareerRankings(filterByVenue(logs, "home")),
+    careerAway: computeCareerRankings(filterByVenue(logs, "away")),
+  });
+  const classMatch: Record<ClassKey | SplitCareerKey, (season: string, c: Classification | undefined) => boolean> = {
+    jp: (_, c) => c === "日本人",
+    intl: (_, c) => c !== undefined && c !== "日本人",
+    foreign: (season, c) => season >= SPLIT_CLASSIFICATION_FIRST_SEASON && c === SPLIT_CAREER_CLASSIFICATION.foreign,
+    naturalized: (season, c) => season >= SPLIT_CLASSIFICATION_FIRST_SEASON && c === SPLIT_CAREER_CLASSIFICATION.naturalized,
+    asia: (season, c) => season >= SPLIT_CLASSIFICATION_FIRST_SEASON && c === SPLIT_CAREER_CLASSIFICATION.asia,
+  };
+  const tablesByClass = new Map<ClassKey | SplitCareerKey, ReturnType<typeof careerTables>>();
+  for (const key of [...CLASS_KEYS, ...SPLIT_CAREER_KEYS]) tablesByClass.set(key, careerTables(filterByClassification(byPlayer, classifiers, classMatch[key])));
+  const topOfClass = (key: ClassKey | SplitCareerKey, include?: (playerId: string) => boolean, countsInclude?: (playerId: string) => boolean): LeaguePlayerCareerTopByClass => {
+    const t = tablesByClass.get(key)!;
+    return {
+      career: topOfCareer(t.career, include),
+      careerHome: topOfCareer(t.careerHome, include),
+      careerAway: topOfCareer(t.careerAway, include),
+      careerCounts: countsInclude ? topOfCareerCounts(careers, info, countsInclude) : {},
+    };
+  };
+  const all = () => true;
   const byClassification = {} as Record<ClassKey, LeaguePlayerCareerTopByClass>;
-  for (const key of CLASS_KEYS) {
-    const include = (playerId: string) => classKeyById.get(playerId) === key;
-    byClassification[key] = {
-      career: topOfCareer(career, include),
-      careerHome: topOfCareer(careerHome, include),
-      careerAway: topOfCareer(careerAway, include),
-      careerCounts: topOfCareerCounts(careers, info, include),
-    };
-  }
-  // 現役（今季の B.PREMIER の名簿に載っている選手）だけの中での上位20位。画面の現役の絞り込み（src/lib/activePlayers.ts）と同じ選手
+  for (const key of CLASS_KEYS) byClassification[key] = topOfClass(key, all, (playerId) => classKeyById.get(playerId) === key);
+  const bySplitClass = {} as Record<SplitCareerKey, LeaguePlayerCareerTopByClass>;
+  for (const key of SPLIT_CAREER_KEYS) bySplitClass[key] = topOfClass(key, all);
+  // 現役（今季の B.PREMIER か B.ONE の名簿に載っている選手）だけの中での上位20位。画面の現役の絞り込み（src/lib/activePlayers.ts）と同じ選手
   const activeIds = await loadActivePlayerIds(currentSeason());
-  console.log(`現役（${currentSeason()}の名簿）: ${activeIds.size}名`);
+  console.log(`現役（${currentSeason()}の B.PREMIER・B.ONE の名簿）: ${activeIds.size}名`);
+  const isActive = (playerId: string) => activeIds.has(playerId);
   const byActive = {} as Record<"all" | ClassKey, LeaguePlayerCareerTopByClass>;
-  for (const key of ["all", ...CLASS_KEYS] as const) {
-    const include = (playerId: string) => activeIds.has(playerId) && (key === "all" || classKeyById.get(playerId) === key);
-    byActive[key] = {
-      career: topOfCareer(career, include),
-      careerHome: topOfCareer(careerHome, include),
-      careerAway: topOfCareer(careerAway, include),
-      careerCounts: topOfCareerCounts(careers, info, include),
-    };
-  }
+  byActive.all = {
+    career: topOfCareer(career, isActive),
+    careerHome: topOfCareer(careerHome, isActive),
+    careerAway: topOfCareer(careerAway, isActive),
+    careerCounts: topOfCareerCounts(careers, info, isActive),
+  };
+  for (const key of CLASS_KEYS) byActive[key] = topOfClass(key, isActive, (playerId) => isActive(playerId) && classKeyById.get(playerId) === key);
+  const byActiveSplitClass = {} as Record<SplitCareerKey, LeaguePlayerCareerTopByClass>;
+  for (const key of SPLIT_CAREER_KEYS) byActiveSplitClass[key] = topOfClass(key, isActive);
   const topPlayers: Record<string, LeaguePlayerInfo> = {};
   const addPlayers = (entries: LeaguePlayerCareerTopEntry[]) => {
     for (const e of entries) if (info.has(e.playerId)) topPlayers[e.playerId] = info.get(e.playerId)!;
@@ -295,13 +331,22 @@ async function main() {
     addAll(c.careerAway);
     addPlayers(Object.values(c.careerCounts).flat());
   }
-  for (const c of Object.values(byActive)) {
+  for (const c of [...Object.values(byActive), ...Object.values(bySplitClass), ...Object.values(byActiveSplitClass)]) {
     addAll(c.career);
     addAll(c.careerHome);
     addAll(c.careerAway);
     addPlayers(Object.values(c.careerCounts).flat());
   }
-  const topFile: LeaguePlayerCareerTopFile = { generatedAt: new Date().toISOString(), players: topPlayers, ...top, careerCounts, byClassification, byActive };
+  const topFile: LeaguePlayerCareerTopFileWithSplit = {
+    generatedAt: new Date().toISOString(),
+    players: topPlayers,
+    ...top,
+    careerCounts,
+    byClassification,
+    byActive,
+    bySplitClass,
+    byActiveSplitClass,
+  };
   const topChanged = await writeJsonIfChanged(path.join(DATA_DIR, "league-player-career-top.json"), topFile as unknown as Record<string, unknown>);
   console.log(topChanged ? "data/league-player-career-top.jsonに保存しました" : "data/league-player-career-top.jsonは内容に変化が無いため書き換えませんでした");
 

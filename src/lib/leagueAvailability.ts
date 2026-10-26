@@ -59,7 +59,6 @@ export const ONE_STANDINGS_TAB_REASONS: Partial<Record<string, string>> = {
 
 /** B.ONE のチームのページで選べない項目の理由（段階3で出す） */
 export const ONE_PERIOD_REASON = "Q別・前後半は、B.ONE ではまだ選べません（今後対応します）。";
-export const ONE_CLASS_REASON = "登録区分別は、B.ONE ではまだ選べません（今後対応します）。";
 /** B.ONE のチームのページ（一覧）で選べないタブ */
 export const ONE_TEAMS_TAB_REASONS: Partial<Record<string, string>> = {
   records: "チームの記録は、B.ONE ではまだ見られません（今後対応します）。",

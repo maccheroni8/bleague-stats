@@ -40,7 +40,16 @@ import { teamShortName } from "../../shared/teamNames";
 import type { SituationalFilter } from "../lib/situational";
 import { SEASON_BOX_TABS } from "../lib/playerSeasonBoxscore";
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeLabel } from "../lib/shotTypeBreakdown";
-import { positionFilterOptions, selectedPositionLabels, type PlayerGroupFilter } from "../lib/classificationFilter";
+import {
+  isSplitClassificationGroup,
+  positionFilterOptions,
+  selectedPositionLabels,
+  SPLIT_CLASSIFICATION_UNAVAILABLE_REASON,
+  splitClassificationBlocked,
+  splitClassificationSeason,
+  type PlayerGroupFilter,
+} from "../lib/classificationFilter";
+import { ClassificationNotes } from "../components/ClassificationNotes";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING } from "../lib/playerRankingEligibility";
 import {
   buildExportFilename,
@@ -763,7 +772,12 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   // スタッツの条件とルーキーは今季だけに当てはめる（前季に条件を満たさなかった選手を、比較から外さないため）。前季のデータは、比較をオンにしたときだけ読む
   const [compareParam, setCompareParam] = useUrlState(COMPARE_PARAM, "off");
   const prevSeason = previousSeason(season);
-  const compareReason = compareUnsupportedReason({
+  // 前季が 2025-26 以前のときは、外国籍・帰化・アジア特別枠を分けた区分で前季と比べられない（前季は区分を分けて記録していない）
+  const splitCompareReason =
+    isSplitClassificationGroup(selectedClassification) && prevSeason !== null && !splitClassificationSeason(prevSeason)
+      ? `前のシーズン（${prevSeason}）は外国籍・帰化・アジア特別枠を分けて記録していないため、前シーズンと比べられません。`
+      : null;
+  const compareReason = splitCompareReason ?? compareUnsupportedReason({
     season,
     categoryKind: category === "profile" || category === "career" ? "registered" : category === "shooting" ? "seasonTotal" : "boxscore",
     statKey,
@@ -955,7 +969,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     ),
   };
   const playerFilterAxes: FilterAxis[] = [
-    classificationAxis(selectedGroup, setSelectedGroup, { rookie: { disabledReason: rookieSupported ? undefined : ROOKIE_UNSUPPORTED_REASON } }),
+    classificationAxis(selectedGroup, setSelectedGroup, { rookie: { disabledReason: rookieSupported ? undefined : ROOKIE_UNSUPPORTED_REASON }, season }),
     multiSelectAxis({
       id: "position",
       label: "ポジション",
@@ -1073,7 +1087,9 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         )}
       </div>
 
-      {rookieActive && rookies.error ? (
+      {splitClassificationBlocked(selectedClassification, season) ? (
+        <p className="empty-message">{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p>
+      ) : rookieActive && rookies.error ? (
         <p className="error-message">ルーキーの一覧を読み込めませんでした。{rookies.error}</p>
       ) : compareActive && prevRanking.playersError ? (
         <p className="error-message">前のシーズンのデータを読み込めませんでした。{prevRanking.playersError}</p>
@@ -1140,6 +1156,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
             {category === "career" && <p className="rule-change-footnote">※ {CAREER_NOTE}</p>}
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
             {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
+            <ClassificationNotes filter={selectedClassification} scope="season" />
             {overtimeActive && <p className="rule-change-footnote">※ {OVERTIME_GAMES_NOTE}</p>}
             {effPeriodActive && gameType !== "regular" && hasShortGameSeason(compareActive && prevSeason ? [season, prevSeason] : [season]) && (
               <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>

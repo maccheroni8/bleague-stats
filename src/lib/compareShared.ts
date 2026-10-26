@@ -7,7 +7,7 @@ import { isPaint2Key, paintOf, paintFormat, paintValue, paintCoverage, PAINT2_CO
 import type { BoxscoreColumn, BoxscoreTabKey, ColumnCtx } from "../components/BoxscoreTable";
 import type { ComparisonStatDef } from "../pages/ComparePage";
 import type { BoxscoreCounts } from "./boxscoreAggregate";
-import { formatPct, formatSigned } from "./format";
+import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { ftRate } from "../../shared/formulas";
 import {
   seasonBoxColumnsFor,
@@ -22,10 +22,12 @@ import {
   buildPointsShareColumns,
   buildScoringColumns,
   EMPTY_TOTALS,
+  perspectiveValue,
   type AllTeamsRow,
   type TeamPerspective,
   type TeamTotals,
 } from "./teamStatsColumns";
+import type { TeamGameLog } from "../../shared/types";
 import type { Column } from "../components/SortableTable";
 
 // 「日程結果」タブ・比較タブの+/-（差分）表示用。BoxscoreColumnはformat(単一のBoxscoreCounts)のみを
@@ -127,7 +129,69 @@ export interface TeamCompareColumnData {
    * 全チームスタッツと同じ列の式で出すための元（`sumTeamGameLogs`）。リーグ平均は、試合ログを持たないので平均の値から作る
    * （`teamTotalsFromBoxTotals`。試合ログにしか無いベンチ得点・登録区分別得点は「-」）
    */
-  logTotals?: { totals: TeamTotals; games: number } | null;
+  logTotals?: { totals: TeamTotals; games: number; classPoints?: SplitClassPoints | null } | null;
+}
+
+/**
+ * 試合ログの外国籍・帰化・アジア特別枠の得点の合計（自チーム・相手。DESIGN.md 298章）。試合ログの値は試合ごとの登録区分で集計済み
+ * （2026-27 以降は登録区分の記録）。区分を分けて記録していない 2025-26 以前は作らない（null。比較の行は「-」）
+ */
+export interface SplitClassPoints {
+  foreign: number;
+  naturalized: number;
+  asia: number;
+  oppForeign: number;
+  oppNaturalized: number;
+  oppAsia: number;
+}
+
+export function sumSplitClassPoints(logs: readonly Pick<TeamGameLog, "foreignPoints" | "naturalizedPoints" | "asianQuotaPoints" | "opponentForeignPoints" | "opponentNaturalizedPoints" | "opponentAsianQuotaPoints">[]): SplitClassPoints {
+  const out: SplitClassPoints = { foreign: 0, naturalized: 0, asia: 0, oppForeign: 0, oppNaturalized: 0, oppAsia: 0 };
+  for (const g of logs) {
+    out.foreign += g.foreignPoints ?? 0;
+    out.naturalized += g.naturalizedPoints ?? 0;
+    out.asia += g.asianQuotaPoints ?? 0;
+    out.oppForeign += g.opponentForeignPoints ?? 0;
+    out.oppNaturalized += g.opponentNaturalizedPoints ?? 0;
+    out.oppAsia += g.opponentAsianQuotaPoints ?? 0;
+  }
+  return out;
+}
+
+const SPLIT_CLASS_POINT_ITEMS = [
+  { key: "foreignPts3", pctKey: "pctforeign3", label: "外国籍 PTS", own: "foreign", opp: "oppForeign" },
+  { key: "naturalizedPts3", pctKey: "pctnaturalized3", label: "帰化 PTS", own: "naturalized", opp: "oppNaturalized" },
+  { key: "asiaPts3", pctKey: "pctasia3", label: "アジア特別枠 PTS", own: "asia", opp: "oppAsia" },
+] as const;
+
+/** 外国籍・帰化・アジア特別枠の得点（Misc）と、その総得点に占める割合（Scoring）。2025-26 以前・リーグ平均は「-」 */
+function splitClassPointDefs(kind: "count" | "pct", perspective: TeamPerspective): ComparisonStatDef<TeamCompareColumnData>[] {
+  return SPLIT_CLASS_POINT_ITEMS.map((item) => {
+    const valueOf = (r: TeamCompareColumnData): number | null => {
+      const lt = r.logTotals;
+      const cp = lt?.classPoints;
+      if (!lt || !cp || r.isLeague || lt.games === 0) return null;
+      const own = kind === "count" ? cp[item.own] / lt.games : safeDivide(100 * cp[item.own], lt.totals.pts);
+      const opp = kind === "count" ? cp[item.opp] / lt.games : safeDivide(100 * cp[item.opp], lt.totals.oppPts);
+      return perspectiveValue(own, opp, perspective);
+    };
+    return {
+      key: kind === "count" ? item.key : item.pctKey,
+      label: kind === "count" ? item.label : `%${item.label}`,
+      value: (r) => valueOf(r) ?? 0,
+      format: (r) => {
+        const v = valueOf(r);
+        if (v === null) return "-";
+        if (kind === "count") return perspective === "diff" ? formatSigned(v, 1) : formatDecimal(v, 1);
+        return perspective === "diff" ? `${formatSigned(v, 1)}%` : formatPct100(v);
+      },
+      higherIsBetter: perspective === "opp" ? false : true,
+    };
+  });
+}
+
+function safeDivide(a: number, b: number): number {
+  return b === 0 ? 0 : a / b;
 }
 
 /**
@@ -340,7 +404,7 @@ function teamLogTotalsDefs(tabKey: BoxscoreTabKey, perspective: TeamPerspective,
     return defsOf([
       ...pick(buildMiscColumns("perGame", perspective, true, foulSplit), ["benchPts", "starterPts"]),
       ...pick(scoring, ["japanesePts3", "internationalPts3"]),
-    ]);
+    ]).concat(splitClassPointDefs("count", perspective));
   }
   if (tabKey === "scoring") {
     return defsOf([
@@ -353,13 +417,11 @@ function teamLogTotalsDefs(tabKey: BoxscoreTabKey, perspective: TeamPerspective,
         "pctstarterpts",
         "pctjapanese3",
         "pctinternational3",
-        "pctpaint2m",
-        "pctpaint2a",
-        "pctmid2m",
-        "pctmid2a",
       ]),
-      ...buildPointsShareColumns(perspective),
-    ]);
+    ]).concat(
+      splitClassPointDefs("pct", perspective),
+      defsOf([...pick(scoring, ["pctpaint2m", "pctpaint2a", "pctmid2m", "pctmid2a"]), ...buildPointsShareColumns(perspective)]),
+    );
   }
   return [];
 }

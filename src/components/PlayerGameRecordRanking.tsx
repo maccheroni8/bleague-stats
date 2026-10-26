@@ -6,7 +6,9 @@ import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { fetchLeaguePlayerGameRecords, fetchPlayerGameRecords } from "../lib/data";
 import { classificationAxis, gameTypeAxis, multiSelectAxis, periodAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
-import { classKeyOfFilter, positionFilterOptions, selectedPositionLabels } from "../lib/classificationFilter";
+import { positionFilterOptions, selectedPositionLabels, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked, topFileClassKey } from "../lib/classificationFilter";
+import { hasRegistrationChanges, splitRecordedSeasons, useRegistrationChanges } from "../lib/registrationScope";
+import { ClassificationNotes } from "./ClassificationNotes";
 import {
   DEFAULT_GAME_RECORD_CONDITIONS,
   cleanGameConditionsForSeason,
@@ -120,15 +122,32 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const includeSpecial = effectiveIncludeSpecial(conditions, stat.lowerFirst);
   const hasStatConditions = statConditionMatcher(statConditions, PLAYER_STAT_CONDITION_ITEMS) !== null;
 
+  // 登録区分の上位20位の表（日本人・外国籍・帰化・アジアのまとめ）。分けた区分（外国籍・帰化・アジア特別枠）はファイルに無いので索引から（null）
+  const topKey = group === "rookie" ? "all" : topFileClassKey(group);
+  // シーズンの途中で区分が変わった選手がいるシーズンは、日本人・まとめも索引の試合ごとの区分で数える（上位20位のファイルは選手ごとの1つの区分で作られている）
+  const registrationChanges = useRegistrationChanges(allTime ? splitRecordedSeasons() : [season], "premier", topKey === "jp" || topKey === "intl");
+  // 2025-26 以前のシーズンで分けた区分を選んでいるときは、表の代わりに理由を出す（通算・歴代は 2026-27 以降の試合だけを数える）
+  const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
   // 条件が無く、上位20位のファイルで出せる間は索引を読まない。ファイルに無い表（ワースト）・条件・ルーキー・ポジション・前後半5分の特別試合を除く指定は索引から
-  const useIndex = !!period || stat.indexOnly || hasGameConditions(conditions) || positions.length > 0 || group === "rookie" || hasStatConditions || !includeSpecial || activeOn;
+  const useIndex =
+    !classBlocked &&
+    (!!period ||
+      stat.indexOnly ||
+      hasGameConditions(conditions) ||
+      positions.length > 0 ||
+      group === "rookie" ||
+      hasStatConditions ||
+      !includeSpecial ||
+      activeOn ||
+      topKey === null ||
+      hasRegistrationChanges(registrationChanges));
 
   const options = useGameRecordOptions(scope, season);
   const { data: file, loading: fileLoading } = useJsonData(
     () => (useIndex ? Promise.resolve(null) : allTime ? fetchLeaguePlayerGameRecords() : fetchPlayerGameRecords(season)),
     [allTime, season, useIndex],
   );
-  const index = useGameIndexViews("player", scope, season, useIndex);
+  const index = useGameIndexViews("player", scope, season, useIndex, { fromSeason: topKey === null ? SPLIT_CLASSIFICATION_FIRST_SEASON : null });
   const periodIndex = usePlayerPeriodViews(index.views, useIndex && !!period);
   const rookies = useRookieFile(useIndex && group === "rookie");
   const active = useActivePlayerIds(activeOn);
@@ -171,12 +190,11 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   }, [allTime, season, group, conditions, options, setGroup, setConditions]);
 
   // 登録区分を選んだときは、その区分の選手だけの中での上位（区分ごとの表。DESIGN.md 197章）
-  const classKey = group === "rookie" ? undefined : classKeyOfFilter(group);
-  const tables = classKey ? file?.byClassification?.[classKey] : file?.byGameType;
+  const tables = topKey === "jp" || topKey === "intl" ? file?.byClassification?.[topKey] : file?.byGameType;
   const entries: PlayerRecordRow[] | undefined = useIndex ? result?.rows : (tables?.[gameType]?.[def.key] ?? []);
-  const loading = useIndex ? index.loading || periodIndex.loading || rookies.loading || active.loading || current.loading : fileLoading;
+  const loading = registrationChanges.loading || (useIndex ? index.loading || periodIndex.loading || rookies.loading || active.loading || current.loading : fileLoading);
   const failure = useIndex ? (index.error ?? periodIndex.error ?? rookies.error ?? active.error ?? current.error) : null;
-  const noData = !useIndex && !loading && !tables;
+  const noData = !classBlocked && !useIndex && !loading && !tables;
 
   const teamName = (id: string) => {
     const t = options.teams.find((o) => o.value === id);
@@ -212,6 +230,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const axes: FilterAxis[] = [
     classificationAxis(group, setGroup, {
       rookie: { disabledReason: !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined },
+      season: allTime ? null : season,
     }),
     ...(allTime ? [activeAxis(activeParam, setActive)] : []),
     gameTypeAxis(gameType, setGameType, seasonForTitle),
@@ -281,6 +300,8 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
             再読み込み
           </button>
         </div>
+      ) : classBlocked ? (
+        <p className="empty-message">{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p>
       ) : loading || (useIndex && !result) ? (
         <p className="loading">読み込み中...</p>
       ) : noData ? (
@@ -329,6 +350,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
               />
               {minNote && <p className="rule-change-footnote">※ {minNote}</p>}
               {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
+              <ClassificationNotes filter={group} scope={allTime ? "allTime" : "season"} />
               {result && (
                 <GameRecordNotes
                   excludedSpecial={result.excludedSpecial}

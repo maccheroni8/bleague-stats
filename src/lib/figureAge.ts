@@ -2,13 +2,26 @@
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { playerGameAt, type PlayerGameIndexView } from "./gameIndex";
 import { ageForSeason } from "./age";
+import { indexRowClassMatches, type ClassificationGroupFilter } from "./classificationFilter";
 
+/**
+ * 登録区分の選択肢（URL の cls。全選手スタッツと同じ書き方。DESIGN.md 298章）。外国籍・帰化・アジア特別枠は 2026-27 以降だけ（それより前は理由を出す）、
+ * まとめの「外国籍・帰化・アジア」（intl）は 2025-26 以前と旧URLのときだけ選択肢に出す
+ */
 export const FIGURE_CLASSES = [
-  { value: "all", label: "全選手" },
-  { value: "jp", label: "日本人" },
-  { value: "intl", label: "外国籍・帰化・アジア" },
-] as const;
+  { value: "all", label: "全選手", group: "all" },
+  { value: "jp", label: "日本人", group: "日本人" },
+  { value: "foreign", label: "外国籍", group: "外国籍" },
+  { value: "nat", label: "帰化", group: "帰化" },
+  { value: "asia", label: "アジア特別枠", group: "アジア特別枠" },
+  { value: "intl", label: "外国籍・帰化・アジア", group: "外国籍・帰化・アジア" },
+] as const satisfies readonly { value: string; label: string; group: ClassificationGroupFilter }[];
 export type FigureClass = typeof FIGURE_CLASSES[number]["value"];
+
+/** 選択肢の値 → 登録区分の絞り込み */
+export function figureClassGroup(value: FigureClass): ClassificationGroupFilter {
+  return FIGURE_CLASSES.find((c) => c.value === value)!.group;
+}
 export interface AgeDot { playerId: string; name: string; age: number; averageMinutes: number; registration: string }
 export function ageSummary(ages: readonly number[]) {
   if (!ages.length) return { count: 0, mean: null, median: null };
@@ -36,7 +49,8 @@ export function figureAgeData(view: PlayerGameIndexView, options: {
     const classKey = figureRowClassKey(view, i, g.classKey);
     if (options.eligiblePlayerIds && !options.eligiblePlayerIds.has(g.playerId)) continue;
     if (options.gameType !== "both" && g.gameType !== options.gameType) continue;
-    if (options.classification !== "all" && classKey !== options.classification) continue;
+    // 区分は試合ごと（2026-27 以降は行ごとの区分。その区分で出場した試合だけを数える）
+    if (options.classification !== "all" && !indexRowClassMatches(view.file, i, figureClassGroup(options.classification))) continue;
     if (!(g.min > 0)) continue; // DNPは平均の分母に含めない。「なし」も出場者が対象。
     const key = `${g.playerId}@${g.teamId}`;
     const row = memberships.get(key) ?? { playerId: g.playerId, name: g.playerName, teamId: g.teamId, birth: g.birthDate, registration: classKey, minutes: 0, games: 0 };

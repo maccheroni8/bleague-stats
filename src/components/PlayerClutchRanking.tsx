@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
+import { isSplitClassificationGroup, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
+import { ClassificationNotes } from "./ClassificationNotes";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
@@ -70,7 +72,9 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
   const seasonForTitle = allTime ? null : season;
 
   const options = useGameRecordOptions(scope, season);
-  const index = useGameIndexViews("player", scope, season, true);
+  // 2025-26 以前のシーズンで分けた区分を選んでいるときは、表の代わりに理由を出す。通算で分けた区分は 2026-27 以降の索引だけを読む
+  const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
+  const index = useGameIndexViews("player", scope, season, !classBlocked, { fromSeason: isSplitClassificationGroup(group) ? SPLIT_CLASSIFICATION_FIRST_SEASON : null });
   const rookies = useRookieFile(group === "rookie");
   const active = useActivePlayerIds(activeOn);
   // 通算は、選手名を今の登録名にそろえる
@@ -113,6 +117,7 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
   const axes: FilterAxis[] = [
     classificationAxis(group, setGroup, {
       rookie: { disabledReason: !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined },
+      season: allTime ? null : season,
     }),
     ...(allTime ? [activeAxis(activeParam, setActive)] : []),
     gameTypeAxis(gameType, setGameType, seasonForTitle),
@@ -157,6 +162,8 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
             再読み込み
           </button>
         </div>
+      ) : classBlocked ? (
+        <p className="empty-message">{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p>
       ) : index.loading || rookies.loading || active.loading || current.loading || !result ? (
         <p className="loading">読み込み中...</p>
       ) : !entries || entries.length === 0 ? (
@@ -204,6 +211,7 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
                 {measure === "tie" ? "同点は、得点の前に負けていて、得点で同点にしたものです。" : ""}
               </p>
               {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
+              <ClassificationNotes filter={group} scope={allTime ? "allTime" : "season"} />
               {group === "rookie" && <p className="rule-change-footnote">※ {ROOKIE_NOTE}{allTime ? "2016-17は、ルーキーを判定できないため、含めていません。" : ""}</p>}
             </PlayerNamePool>
           </ExportTarget>

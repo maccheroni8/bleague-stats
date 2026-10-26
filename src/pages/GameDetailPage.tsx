@@ -10,7 +10,9 @@ import { useLeague } from "../lib/league";
 import { seasonRuleFor } from "../../shared/seasonRules";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import { formatPct } from "../lib/format";
-import { classificationGroup, CLASSIFICATION_COLORS } from "../lib/classificationFilter";
+import { CLASSIFICATION_COLORS, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
+import { makeClassifier } from "../../shared/registration";
+import { loadSeasonRegistrations } from "../lib/registrationScope";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, ShotTypeBreakdown } from "../../shared/types";
 import { KeyStatsSection } from "../components/KeyStatsSection";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
@@ -217,23 +219,28 @@ function buildGamePtsCompositionSegments(
 function buildGameClassificationPtsSegments(
   rows: BoxscoreRow[],
   classificationById: Map<string, PlayerSummary["classification"]>,
+  split: boolean,
 ): { segments: PieSegmentInput[]; unclassifiedPlayedCount: number } {
-  let japanese = 0;
-  let international = 0;
   let unclassifiedPlayedCount = 0;
+  // 2026-27 以降の試合は、その試合の日の区分で日本人・外国籍・帰化・アジア特別枠に分ける（DESIGN.md 298章）
+  const points = { 日本人: 0, 外国籍: 0, 帰化: 0, アジア特別枠: 0 };
   for (const r of rows) {
-    const group = classificationGroup(classificationById.get(r.PlayerID));
-    if (group === "日本人") japanese += r.Point;
-    else if (group === "外国籍・帰化・アジア") international += r.Point;
+    const group = splitGroupOf(classificationById.get(r.PlayerID));
+    if (group) points[group] += r.Point;
     else if (r.PlayTime !== "DNP") unclassifiedPlayedCount += 1;
   }
-  return {
-    segments: [
-      { key: "jp", label: "日本人", color: CLASSIFICATION_COLORS.japanese, value: japanese },
-      { key: "international", label: "外国籍・帰化・アジア", color: CLASSIFICATION_COLORS.international, value: international },
-    ],
-    unclassifiedPlayedCount,
-  };
+  const segments: PieSegmentInput[] = split
+    ? [
+        { key: "jp", label: "日本人", color: CLASSIFICATION_COLORS.japanese, value: points.日本人 },
+        { key: "foreign", label: "外国籍", color: CLASSIFICATION_COLORS.foreign, value: points.外国籍 },
+        { key: "naturalized", label: "帰化", color: CLASSIFICATION_COLORS.naturalized, value: points.帰化 },
+        { key: "asia", label: "アジア特別枠", color: CLASSIFICATION_COLORS.asia, value: points.アジア特別枠 },
+      ]
+    : [
+        { key: "jp", label: "日本人", color: CLASSIFICATION_COLORS.japanese, value: points.日本人 },
+        { key: "international", label: "外国籍・帰化・アジア", color: CLASSIFICATION_COLORS.international, value: points.外国籍 + points.帰化 + points.アジア特別枠 },
+      ];
+  return { segments, unclassifiedPlayedCount };
 }
 
 /** ゲームリーダー拡張セクション（PTS/OR/DR/TR/AST/STL/BLK/TOV/2P%/3P%/FT%）の項目定義 */
@@ -333,6 +340,12 @@ export function GameDetailPage({ season }: { season: string }) {
   // カバー済みだが、それ以外（バックフィル対象外の選手・legacy期間の一覧漏れ等）は
   // classification未定義のままになりうる
   const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season, league), [season, league]);
+  // 2026-27 以降は、試合の日の登録区分（登録区分の記録 registrations.json。シーズン途中の変更・見做し日本人を含む。DESIGN.md 298章）
+  const classificationSplit = splitClassificationSeason(season);
+  const { data: registrations, loading: registrationsLoading } = useJsonData(
+    () => (classificationSplit ? loadSeasonRegistrations(season, league).catch(() => null) : Promise.resolve(null)),
+    [season, league, classificationSplit],
+  );
   // シーズン非依存の静的データなので空配列depsで一度だけ取得する。無くても表示は成立する
   // （ロゴ・写真と同じくグレースフルデグラデーション。デフォルト色にフォールバックする）ため
   // ローディング/エラーで画面全体をブロックしない
@@ -351,13 +364,17 @@ export function GameDetailPage({ season }: { season: string }) {
   // ラインナップ別成績のQ別/前後半（ボックススコアのトグルとは独立）
   const [lineupPeriodRange, setLineupPeriodRange] = useState<PeriodRangeValue>("all");
 
-  if (loading || coverageLoading || playersLoading) return <p className="loading">読み込み中...</p>;
+  if (loading || coverageLoading || playersLoading || registrationsLoading) return <p className="loading">読み込み中...</p>;
   if (error) return <p className="error-message">{error}</p>;
   if (!game) return <p className="error-message">試合が見つかりませんでした</p>;
 
   const pbpSupported = isPbpSupported(coverage);
   const shotChartSupported = isShotChartSupported(coverage);
-  const classificationById = new Map((players ?? []).map((p) => [p.playerId, p.classification] as const));
+  // 選手の区分（集計と同じ shared/registration.ts の決め方。2026-27 以降は記録にある選手は試合の日の区分、記録に無い選手と 2025-26 以前は players.json の区分）
+  const classifyAt = makeClassifier(season, registrations, new Map((players ?? []).map((p) => [p.playerId, p] as const)));
+  const classificationById = new Map<string, PlayerSummary["classification"]>(
+    [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores].map((r) => [r.PlayerID, classifyAt(r.PlayerID, game.date)] as const),
+  );
   // 両チームの色が近いときは、アウェイをサブカラーにする（src/lib/teamColorPairs.ts。DESIGN.md 156章）
   const [homeColor, awayColor] = distinctTeamColors([teamColors?.[game.homeTeam.id] ?? {}, teamColors?.[game.awayTeam.id] ?? {}]);
 
@@ -820,6 +837,7 @@ export function GameDetailPage({ season }: { season: string }) {
           awayPlayers={awayPlayers}
           playByPlays={game.raw.PlayByPlays}
           classificationById={classificationById}
+          classificationSplit={classificationSplit}
           homeColor={homeColor}
           awayColor={awayColor}
         />
@@ -873,6 +891,7 @@ function GameCompositionSection({
   awayPlayers,
   playByPlays,
   classificationById,
+  classificationSplit,
   homeColor,
   awayColor,
 }: {
@@ -889,6 +908,8 @@ function GameCompositionSection({
   awayPlayers: BoxscoreRow[];
   playByPlays: PlayByPlayEvent[];
   classificationById: Map<string, PlayerSummary["classification"]>;
+  /** 外国籍・帰化・アジア特別枠を分けるか（2026-27 以降の試合） */
+  classificationSplit: boolean;
 }) {
   // 円グラフの表題「◯◯ 得点割合」等は固定の接尾語がつくため、スマホ幅（560px以下）では略称にして折り返しを避ける
   const narrow = useMediaQuery("(max-width: 560px)");
@@ -900,8 +921,8 @@ function GameCompositionSection({
   const awayFga = buildGameFgaCompositionSegments(awayTotal, paintSplitByTeam.get(awayTeamId));
   const homePts = buildGamePtsCompositionSegments(homeTotal, homeTeamId, paintPointsByTeam);
   const awayPts = buildGamePtsCompositionSegments(awayTotal, awayTeamId, paintPointsByTeam);
-  const homeClassificationPts = buildGameClassificationPtsSegments(homePlayers, classificationById);
-  const awayClassificationPts = buildGameClassificationPtsSegments(awayPlayers, classificationById);
+  const homeClassificationPts = buildGameClassificationPtsSegments(homePlayers, classificationById, classificationSplit);
+  const awayClassificationPts = buildGameClassificationPtsSegments(awayPlayers, classificationById, classificationSplit);
   const classificationUnclassifiedCount = homeClassificationPts.unclassifiedPlayedCount + awayClassificationPts.unclassifiedPlayedCount;
 
   return (
@@ -920,7 +941,8 @@ function GameCompositionSection({
         </div>
         <h4 className="composition-pie-group-title">得点構成（登録区分）</h4>
         <p className="page-subtitle">
-          ※現在の登録情報に基づく参考値{classificationUnclassifiedCount > 0 && `／${classificationUnclassifiedCount}名分のデータ欠落あり`}
+          {classificationSplit ? "※試合の日の登録区分（日本人は見做し日本人を含む）" : "※現在の登録情報に基づく参考値"}
+          {classificationUnclassifiedCount > 0 && `／${classificationUnclassifiedCount}名分のデータ欠落あり`}
         </p>
         <div className="composition-pie-row">
           <CompositionPieChart title={`${homePieName} 得点割合`} segments={homeClassificationPts.segments} valueDigits={0} baseColor={homeColor ?? MONO_FALLBACK_COLOR} />

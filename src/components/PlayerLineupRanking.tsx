@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TeamColors } from "../../shared/types";
+import { isSplitClassificationGroup, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
+import { ClassificationNotes } from "./ClassificationNotes";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { selectedPositionLabels } from "../lib/classificationFilter";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels, periodLabels } from "../lib/conditionLabels";
@@ -165,8 +167,14 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const supported = allTime || lineupSeasonSupported(season);
 
   const { data: careerSeasons, error: careerError } = useJsonData<string[] | null>(() => (allTime ? lineupCareerSeasons() : Promise.resolve(null)), [allTime]);
-  const seasons = allTime ? careerSeasons : supported ? [season] : null;
-  const lineup = useLineupData(seasons, supported);
+  // 2025-26 以前のシーズンで分けた区分を選んでいるときは、表の代わりに理由を出す。通算で分けた区分は 2026-27 以降のシーズンだけを読む
+  const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
+  const splitGroup = isSplitClassificationGroup(group);
+  const seasons = useMemo(
+    () => (allTime ? (careerSeasons ? careerSeasons.filter((s) => !splitGroup || s >= SPLIT_CLASSIFICATION_FIRST_SEASON) : null) : supported ? [season] : null),
+    [allTime, careerSeasons, splitGroup, supported, season],
+  );
+  const lineup = useLineupData(seasons, supported && !classBlocked);
   const options = useGameRecordOptions(allTime ? "allTime" : "season", season);
   const rookies = useRookieFile(group === "rookie");
   const active = useActivePlayerIds(activeOn);
@@ -244,7 +252,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const shareSummary = `チームの${sharePct}%以上`;
   const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, includeSpecial: true, includeSpecialDefault: true };
   const axes: FilterAxis[] = [
-    classificationAxis(group, setGroup, { rookie: {} }),
+    classificationAxis(group, setGroup, { rookie: {}, season: allTime ? null : season }),
     ...(allTime ? [activeAxis(activeParam, setActive)] : []),
     gameTypeAxis(gameType, setGameType, seasonForTitle),
     simpleSelectAxis({
@@ -331,6 +339,8 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
       />
       {!supported ? (
         <p className="empty-message">{LINEUP_UNSUPPORTED_REASON}</p>
+      ) : classBlocked ? (
+        <p className="empty-message">{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p>
       ) : failure ? (
         <div className="error-message">
           <p>On/Offと組み合わせの記録を読み込めませんでした（{failure}）。</p>
@@ -446,6 +456,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
               </p>
               <p className="rule-change-footnote export-hide">※ 選手詳細の「オンコート/オフコート比較」は別の数え方（試合の記録を秒の境界で振り分ける）で、同じ選手でも値が食い違うことがあります。</p>
               {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
+              <ClassificationNotes filter={group} scope={allTime ? "allTime" : "season"} />
               {group === "rookie" && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
             </PlayerNamePool>
           </ExportTarget>

@@ -35,8 +35,16 @@ export interface GameIndexViews<V> {
  * 1試合行の索引を読む。enabled が false の間は読まない（条件なしの初期表示は上位20位のファイルを使う）。
  * 歴代は全シーズンを並列で読む。1つでも読めないシーズンがあるときは、読めた分だけの記録を出さずにエラーにする（値が欠けるため）
  */
-export function useGameIndexViews<S extends IndexSubject>(subject: S, scope: RecordsScope, season: string, enabled: boolean): GameIndexViews<ViewOf<S>> {
-  const key = `${subject}:${scope === "season" ? season : "all"}`;
+export function useGameIndexViews<S extends IndexSubject>(
+  subject: S,
+  scope: RecordsScope,
+  season: string,
+  enabled: boolean,
+  opts: { fromSeason?: string | null } = {},
+): GameIndexViews<ViewOf<S>> {
+  // fromSeason: 歴代で、このシーズン以降だけを読む（分けた登録区分は 2026-27 以降の試合だけを数える。DESIGN.md 298章）
+  const fromSeason = scope === "season" ? null : (opts.fromSeason ?? null);
+  const key = `${subject}:${scope === "season" ? season : "all"}:${fromSeason ?? ""}`;
   const [state, setState] = useState<IndexState<ViewOf<S>>>({ key: "", views: null, error: null });
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
@@ -48,7 +56,7 @@ export function useGameIndexViews<S extends IndexSubject>(subject: S, scope: Rec
       const seasons =
         scope === "season"
           ? [season]
-          : (await fetchSeasons()).filter((s) => s.hasCompletedGames).map((s) => s.season).sort();
+          : (await fetchSeasons()).filter((s) => s.hasCompletedGames && (!fromSeason || s.season >= fromSeason)).map((s) => s.season).sort();
       const loaded = await Promise.all(seasons.map((s) => (subject === "player" ? loadPlayerGameIndex(s) : loadTeamGameIndex(s))));
       const missing = seasons.filter((_, i) => loaded[i] === null);
       if (missing.length > 0) throw new Error(`${missing.join("・")}の試合のデータを読み込めませんでした`);
@@ -59,7 +67,7 @@ export function useGameIndexViews<S extends IndexSubject>(subject: S, scope: Rec
     return () => {
       cancelled = true;
     };
-  }, [enabled, subject, scope, season, key, attempt]);
+  }, [enabled, subject, scope, season, key, attempt, fromSeason]);
 
   const current = state.key === key;
   return {
