@@ -1,3 +1,4 @@
+import type { League } from "../lib/league";
 import { useEffect, useMemo, useState } from "react";
 import type { TeamGameLog } from "../../shared/types";
 import { filterByGameType } from "../../shared/gameType";
@@ -26,7 +27,9 @@ export function TeamSeasonTtsTable({
   logsOf,
   perspective,
   period,
+  league,
 }: {
+  league: League;
   teamId: string;
   seasons: readonly string[];
   teamNameOf: (season: string) => string;
@@ -41,7 +44,7 @@ export function TeamSeasonTtsTable({
     let alive = true;
     for (const season of seasonsKey ? seasonsKey.split(",") : []) {
       if (!ttsSeasonSupported(season)) continue;
-      loadTtsSource(season).then(
+      loadTtsSource(season, league).then(
         (source) => alive && setSources((prev) => new Map(prev).set(season, source)),
         () => alive && setSources((prev) => new Map(prev).set(season, null)),
       );
@@ -49,7 +52,7 @@ export function TeamSeasonTtsTable({
     return () => {
       alive = false;
     };
-  }, [seasonsKey, nonce]);
+  }, [seasonsKey, nonce, league]);
 
   const rows: SeasonRow[] = useMemo(
     () =>

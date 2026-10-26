@@ -6,7 +6,13 @@ import { TTS_CATEGORY_LABEL, type TtsPeriodValue } from "../lib/teamTts";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { EMPTY_TEAM_SEASON_MISC, sumTeamSeasonMisc, type TeamSeasonMiscTotals } from "../../shared/teamSeasonMisc";
 import { postseasonLabel } from "../../shared/gameType";
-import { useParams, Link as RouterLink } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { LEAGUE_LABELS, ONE_SEASONS, useLeague, type League } from "../lib/league";
+import { seasonRuleFor } from "../../shared/seasonRules";
+import { divisionOrder } from "../lib/divisionGroups";
+import { ONE_TEAM_DETAIL_TAB_REASONS } from "../lib/leagueAvailability";
+import type { Division } from "../../shared/types";
+import { SeasonLink as RouterLink } from "../components/SeasonLink";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -1631,6 +1637,53 @@ function statusAtCheckpoint(
   return "tie";
 }
 
+/**
+ * 昇格・降格したクラブ（新潟・FE名古屋・越谷・福岡など）のための、もう一方のリーグのシーズンへのリンク。
+ * リーグ×シーズンの組で在籍が分かれるので、地区の履歴（division-history.json）からもう一方のリーグにいたシーズンを探す。B.PREMIER から見るときは B.ONE の 2026-27 以降、B.ONE から見るときは B.PREMIER の全シーズン
+ */
+function OtherLeagueSeasonLinks({
+  teamId,
+  league,
+  divisionHistory,
+}: {
+  teamId: string;
+  league: League;
+  divisionHistory: DivisionHistoryFile | null | undefined;
+}) {
+  const other: League = league === "one" ? "premier" : "one";
+  const seasons = Object.entries(divisionHistory?.[other] ?? {})
+    .filter(([season, byTeam]) => !!byTeam[teamId] && (other === "premier" || ONE_SEASONS.includes(season)))
+    .map(([season]) => season)
+    .sort()
+    .reverse();
+  if (seasons.length === 0) return null;
+  return (
+    <p className="page-subtitle other-league-seasons">
+      {LEAGUE_LABELS[other]}では：
+      {seasons.map((s, i) => (
+        <span key={s}>
+          {i > 0 && "　"}
+          <RouterLink to={`/teams/${teamId}?season=${s}${other === "one" ? "&league=one" : "&league=premier"}`}>{s}</RouterLink>
+        </span>
+      ))}
+    </p>
+  );
+}
+
+/** 「対◯地区」の行。B.PREMIER は今までどおり東・西、B.ONE は公式の並び（北→東→中→西→南）の5地区 */
+function opponentDivisionRows(
+  divisionHistory: DivisionHistoryFile | null | undefined,
+  season: string,
+  league: League,
+): { key: string; label: string; predicate: (g: TeamGameLog) => boolean }[] {
+  const divisions: Division[] = league === "one" ? divisionOrder("one") : ["east", "west"];
+  return divisions.map((d) => ({
+    key: d,
+    label: `対${DIVISION_LABELS[d]}`,
+    predicate: (g: TeamGameLog) => matchesDivision(g, d, divisionHistory, season, league),
+  }));
+}
+
 export function buildSituationalRecordGroups(
   logs: TeamGameLog[],
   teamId: string,
@@ -1638,6 +1691,7 @@ export function buildSituationalRecordGroups(
   opponentWinRates: ReadonlyMap<string, number>,
   divisionHistory: DivisionHistoryFile | null | undefined,
   season: string,
+  league: League = "premier",
 ): SituationalRecordGroupDef[] {
   const monthsWithData = new Set(logs.map((g) => Number(g.date.slice(5, 7))));
   return [
@@ -1653,8 +1707,7 @@ export function buildSituationalRecordGroups(
       key: "division",
       label: "地区",
       rows: [
-        { key: "east", label: "対東地区", predicate: (g) => matchesDivision(g, "east", divisionHistory, season) },
-        { key: "west", label: "対西地区", predicate: (g) => matchesDivision(g, "west", divisionHistory, season) },
+        ...opponentDivisionRows(divisionHistory, season, league),
       ],
     },
     {
@@ -2135,27 +2188,28 @@ const LINEUP_OC_CONDITION_UNAVAILABLE = "このシーズンのデータでは条
 
 export function TeamDetailPage({ season }: { season: string }) {
   const { teamId } = useParams<{ teamId: string }>();
+  const league = useLeague();
   // ブラウザバック等で本コンポーネントが一度アンマウント・再マウントされても、直前の
   // フィルタ条件を復元するためのキャッシュキー（src/lib/pageStateCache.ts参照。
   // 個人詳細ページと同じ仕組み）
   const pk = (field: string) => `team:${teamId}:${field}`;
   const { data: teamsTagged, loading: teamsLoading, error: teamsError } = useJsonData(
-    () => fetchTeams(season).then((list) => ({ season, list })),
-    [season],
+    () => fetchTeams(season, league).then((list) => ({ season, list })),
+    [season, league],
   );
   const teams = teamsTagged?.season === season ? teamsTagged.list : null;
   const opponentSeasonWinRates = useMemo(() => buildOpponentSeasonWinRates(teams), [teams]);
-  const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season), [season]);
+  const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season, league), [season, league]);
   // スマホ幅では名字だけ（同じチームで名字が重なる選手はフルネーム）。表の中の ResponsivePlayerName は PlayerNamePool で同じ一覧を受け取る
   const teamLabel = useTeamLabel();
   const playerLabel = usePlayerLabel((players ?? []).filter((p) => p.teamId === teamId).map((p) => p.name));
   const { data: gameLogs, loading: gameLogsLoading } = useJsonData(
-    () => (teamId ? fetchTeamGameLogs(season, teamId) : Promise.resolve([])),
-    [season, teamId],
+    () => (teamId ? fetchTeamGameLogs(season, teamId, league) : Promise.resolve([])),
+    [season, teamId, league],
   );
   const { data: lineupsFile } = useJsonData(
-    () => (teamId ? fetchTeamLineups(season, teamId) : Promise.resolve(null)),
-    [season, teamId],
+    () => (teamId ? fetchTeamLineups(season, teamId, league) : Promise.resolve(null)),
+    [season, teamId, league],
   );
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const { data: teamHistory } = useJsonData(() => fetchTeamHistory(), []);
@@ -2169,19 +2223,21 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 夜間実行で作り直す単一ファイル。ファイルが未生成でもfetchJsonが
   // エラーを投げるだけでページ全体は壊れない（leagueRankingsがnullのまま＝順位バッジ非表示になる）
   const { data: leagueRankings } = useJsonData(() => fetchLeagueTeamRankings(), []);
-  const { data: seasons } = useJsonData(() => fetchSeasons(), []);
+  const { data: allSeasons } = useJsonData(() => fetchSeasons(), []);
+  // このリーグのシーズン（B.ONE は 2026-27 だけ。seasons.json は B.PREMIER の一覧）。通算・シーズン別の取得はこの一覧を使う
+  const seasons = useMemo(() => (allSeasons && league === "one" ? allSeasons.filter((s) => ONE_SEASONS.includes(s.season)) : allSeasons), [allSeasons, league]);
   // GameSummary自体にはseasonが無いため、どのシーズンの取得結果かをここで付けておく。useJsonDataは
   // 依存（season）が変わっても新しい取得が終わるまで古いdataを保持するため、その間に走る副作用が
   // 旧シーズンのsummariesを新シーズンのものと取り違えないよう、副作用側でsummariesSeasonを照合する
   const { data: summariesTagged, loading: summariesLoading } = useJsonData(
-    () => fetchGameSummaries(season).then((list) => ({ season, list })),
-    [season],
+    () => fetchGameSummaries(season, league).then((list) => ({ season, list })),
+    [season, league],
   );
   const summaries = summariesTagged?.list ?? null;
   const summariesSeason = summariesTagged?.season;
-  const { data: schedule, loading: scheduleLoading } = useJsonData(() => fetchSchedule(season), [season]);
+  const { data: schedule, loading: scheduleLoading } = useJsonData(() => fetchSchedule(season, league), [season, league]);
   // ヘッダーの地区順位・全体順位表示用（既存の順位表ページと同じstandings-history.jsonを再利用）
-  const { data: standingsHistory } = useJsonData(() => fetchStandingsHistory(season), [season]);
+  const { data: standingsHistory } = useJsonData(() => fetchStandingsHistory(season, league), [season, league]);
   // シチュエーション別フィルタの「対勝率別」用（対戦相手のその試合時点までの勝率が必要）
   const opponentRecords = useMemo(() => (summaries ? buildRecordsBeforeGame(summaries) : undefined), [summaries]);
 
@@ -2190,7 +2246,9 @@ export function TeamDetailPage({ season }: { season: string }) {
   const { coverage, loading: coverageLoading } = useSeasonCoverage(season);
   const pbpSupported = isPbpSupported(coverage);
 
-  const [tab, setTabState] = usePageState<DetailTab>(pk("tab"), "overview");
+  const [storedTab, setTabState] = usePageState<DetailTab>(pk("tab"), "overview");
+  // B.ONE で見られないタブが残っているときは概要にする（タブのボタンには理由を出す）
+  const tab: DetailTab = league === "one" && ONE_TEAM_DETAIL_TAB_REASONS[storedTab] ? "overview" : storedTab;
   // 「対戦成績」「ラインナップ」タブはURLにも載せる（?tab=h2h&vs=相手のID、?tab=lineups。DESIGN.md 185章・207章）。そのURLを開いたときはこのタブから始める
   const [urlTab, setUrlTab] = useUrlState(enumParam<"" | "h2h" | "lineups">("tab", ["", "h2h", "lineups"], ""), "");
   const setTab = (next: DetailTab) => {
@@ -2223,7 +2281,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [lineupOcGameType, setLineupOcGameType] = usePageState<SeasonGameTypeFilter>(pk("lineupOcGameType"), "both");
   const [lineupOcPeriod, setLineupOcPeriod] = usePageState<PeriodRangeValue>(pk("lineupOcPeriod"), "all");
   const [lineupOcDisplay, setLineupOcDisplay] = usePageState<SeasonDisplayMode>(pk("lineupOcDisplay"), "total");
-  const { source: lineupPeriodSource, loading: lineupPeriodLoading } = useTeamPeriodSource(season, tab === "lineups");
+  const { source: lineupPeriodSource, loading: lineupPeriodLoading } = useTeamPeriodSource(season, tab === "lineups", league);
   // 5人組ごとの数字を条件別に出す材料（出場区間ごとの数え上げ。2020-21以降）。ラインナップ検索と共有する
   const lineupStintsSupported = pbpSupported && substitutionModelForSeason(season) === "modern";
   const {
@@ -2231,8 +2289,8 @@ export function TeamDetailPage({ season }: { season: string }) {
     loading: lineupStintsLoading,
     error: lineupStintsError,
   } = useJsonData<TeamStintsFile | null>(
-    () => (tab === "lineups" && lineupStintsSupported && teamId ? fetchTeamStints(season, teamId) : Promise.resolve(null)),
-    [tab === "lineups", lineupStintsSupported, season, teamId],
+    () => (tab === "lineups" && lineupStintsSupported && teamId ? fetchTeamStints(season, teamId, league) : Promise.resolve(null)),
+    [tab === "lineups", lineupStintsSupported, season, teamId, league],
   );
   const lineupStints = lineupStintsRaw && lineupStintsRaw.season === season && lineupStintsRaw.teamId === teamId ? lineupStintsRaw : null;
   const lineupOcFilter =
@@ -2273,7 +2331,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     Promise.all(
       seasons.map(async (s) => {
         try {
-          const logs = await fetchTeamGameLogs(s.season, fetchTeamId);
+          const logs = await fetchTeamGameLogs(s.season, fetchTeamId, league);
           return { season: s.season, logs };
         } catch {
           return { season: s.season, logs: [] as TeamGameLog[] };
@@ -2290,7 +2348,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       .finally(() => {
         if (careerFetchTeamIdRef.current === fetchTeamId) setCareerLoading(false);
       });
-  }, [tab, teamId, seasons]);
+  }, [tab, teamId, seasons, league]);
 
   // 「シーズン別成績」Miscタブ用（Phase H3①）。シーズンごとにレギュラーシーズンの
   // TeamGameLogだけを合算する（careerDataは「チームスタッツ」タブで通算成績等と同じものを取得済みのため追加取得なし）
@@ -2500,9 +2558,9 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 最多連敗（と最多連勝）のトップ10は、進行中のシーズンも含め、続いている連続は「継続中」と書く（全試合が終わったかは「継続中」の判定に使う）
   const seasonNames = useMemo(() => (seasons ? seasons.map((s) => s.season) : null), [seasons]);
   const streaksTabOpen = tab === "teamStats" && seasonBoxTab === "streaks";
-  const completedRegularSeasons = useCompletedRegularSeasons(seasonNames, tab === "clubRecord" || streaksTabOpen);
+  const completedRegularSeasons = useCompletedRegularSeasons(seasonNames, tab === "clubRecord" || streaksTabOpen, league);
   // 連勝・連敗には、結果だけの試合（不戦勝など。試合の記録は無いが勝敗はある）も数える（順位表・チームスタッツの「シーズン記録」と同じ。DESIGN.md 261章）
-  const resultOnlyBySeason = useResultOnlyBySeason(seasonNames, tab === "clubRecord" || streaksTabOpen);
+  const resultOnlyBySeason = useResultOnlyBySeason(seasonNames, tab === "clubRecord" || streaksTabOpen, league);
   const clubSeasonWorsts = useMemo(() => {
     if (!careerData || !completedRegularSeasons) return null;
     const all = careerData
@@ -2578,11 +2636,11 @@ export function TeamDetailPage({ season }: { season: string }) {
   // スロットごとに異なるシーズンを選べるため、個人詳細ページの比較タブと同様、
   // 配列化せず2つ個別にuseJsonDataを呼ぶ。「比較」タブを開いている間だけ取得する
   const { data: compareSummaries0 } = useJsonData(
-    () => (tab === "compare" && compareSlots[0].season ? fetchGameSummaries(compareSlots[0].season) : Promise.resolve(null)),
+    () => (tab === "compare" && compareSlots[0].season ? fetchGameSummaries(compareSlots[0].season, "premier") : Promise.resolve(null)),
     [tab, compareSlots[0].season],
   );
   const { data: compareSummaries1 } = useJsonData(
-    () => (tab === "compare" && compareSlots[1].season ? fetchGameSummaries(compareSlots[1].season) : Promise.resolve(null)),
+    () => (tab === "compare" && compareSlots[1].season ? fetchGameSummaries(compareSlots[1].season, "premier") : Promise.resolve(null)),
     [tab, compareSlots[1].season],
   );
   const compareOpponentRecords = [
@@ -2629,7 +2687,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     Promise.all(
       needed.map(async ({ season: s, scheduleKey }) => {
         try {
-          return [scheduleKey, await fetchGame(s, scheduleKey)] as const;
+          return [scheduleKey, await fetchGame(s, scheduleKey, "premier")] as const;
         } catch {
           return null;
         }
@@ -2666,7 +2724,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     Promise.all(
       needed.map(async ({ season: s, scheduleKey }) => {
         try {
-          return [scheduleKey, await fetchYahooGamePbp(s, scheduleKey)] as const;
+          return [scheduleKey, await fetchYahooGamePbp(s, scheduleKey, "premier")] as const;
         } catch {
           return null;
         }
@@ -2687,11 +2745,11 @@ export function TeamDetailPage({ season }: { season: string }) {
 
   // 「リーグ平均」を選んだ枠のデータ（data/{season}/league-compare.json）。枠は2つで固定なので2つ呼ぶ
   const compareLeague0 = useJsonData(
-    () => (tab === "compare" && compareSlots[0].league && compareSlots[0].season ? fetchLeagueCompare(compareSlots[0].season) : Promise.resolve(null)),
+    () => (tab === "compare" && compareSlots[0].league && compareSlots[0].season ? fetchLeagueCompare(compareSlots[0].season, "premier") : Promise.resolve(null)),
     [tab, compareSlots[0].league, compareSlots[0].season],
   );
   const compareLeague1 = useJsonData(
-    () => (tab === "compare" && compareSlots[1].league && compareSlots[1].season ? fetchLeagueCompare(compareSlots[1].season) : Promise.resolve(null)),
+    () => (tab === "compare" && compareSlots[1].league && compareSlots[1].season ? fetchLeagueCompare(compareSlots[1].season, "premier") : Promise.resolve(null)),
     [tab, compareSlots[1].league, compareSlots[1].season],
   );
   const compareLeagueFiles = [compareLeague0.data, compareLeague1.data] as const;
@@ -2699,14 +2757,14 @@ export function TeamDetailPage({ season }: { season: string }) {
     const slot = compareSlots[0];
     const box = compareLeague0.data?.season === slot.season ? compareLeague0.data.totals[compareGameType] : null;
     if (!box) return null;
-    const complete = await loadLeaguePaintComplete(slot.season, compareGameType, teamTotalsFromBoxTotals(box));
+    const complete = await loadLeaguePaintComplete(slot.season, compareGameType, teamTotalsFromBoxTotals(box), "premier");
     return { key: `${slot.season}|${compareGameType}`, complete };
   }, [compareLeague0.data, compareSlots[0].season, compareGameType]);
   const leaguePaint1 = useJsonData(async () => {
     const slot = compareSlots[1];
     const box = compareLeague1.data?.season === slot.season ? compareLeague1.data.totals[compareGameType] : null;
     if (!box) return null;
-    const complete = await loadLeaguePaintComplete(slot.season, compareGameType, teamTotalsFromBoxTotals(box));
+    const complete = await loadLeaguePaintComplete(slot.season, compareGameType, teamTotalsFromBoxTotals(box), "premier");
     return { key: `${slot.season}|${compareGameType}`, complete };
   }, [compareLeague1.data, compareSlots[1].season, compareGameType]);
   const compareLeaguePaint = [leaguePaint0.data, leaguePaint1.data];
@@ -2715,7 +2773,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 結果だけの試合（228章）。枠のシーズンが2つあるので2つ呼ぶ（G の勝敗の横の「※」の説明用。取得に失敗しても比較は止めない）
   const loadResultOnly = (slot: TeamCompareSlotState) =>
     tab === "compare" && slot.season && !slot.league
-      ? fetchSchedule(slot.season)
+      ? fetchSchedule(slot.season, "premier")
           .then((file) => ({ season: slot.season, entries: file.resultOnlyGames ?? [] }))
           .catch(() => ({ season: slot.season, entries: [] as ResultOnlyGameEntry[] }))
       : Promise.resolve(null);
@@ -2756,6 +2814,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           divisionHistory,
           slot.season,
           () => teamId,
+          "premier",
         );
         const entries = filtered
           .map((g) => {
@@ -2815,7 +2874,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     source: situationalPeriodSource,
     loading: situationalPeriodLoading,
     retry: retrySituationalPeriod,
-  } = useTeamPeriodSource(season, tab === "teamStats" && situationalIndexMode);
+  } = useTeamPeriodSource(season, tab === "teamStats" && situationalIndexMode, league);
   // 「選手スタッツ」タブのカテゴリタブ（シューティングを含む）。シューティングタブ選択時のみ
   // teamYahooPbpの遅延取得をトリガーする必要があるため、親（このコンポーネント）で状態を持つ
   // （BoxscoreTable.tsxのactiveTab/onTabChangeと同じパターン。DESIGN.md参照）
@@ -2902,7 +2961,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     setTeamYahooPbpDone(false);
     setTeamShotChartExpanded(false);
     setSituationalRecordRawExpanded(false);
-  }, [teamId, season]);
+  }, [teamId, season, league]);
 
   useEffect(() => {
     // 「概要」タブの「シチュエーション別勝敗」のうち延長・Q1/前半/3Q終了時点のリード状況は
@@ -2930,7 +2989,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     Promise.all(
       needed.map(async (scheduleKey) => {
         try {
-          return [scheduleKey, await fetchGame(season, scheduleKey)] as const;
+          return [scheduleKey, await fetchGame(season, scheduleKey, league)] as const;
         } catch {
           return null;
         }
@@ -2944,7 +3003,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         });
       })
       .finally(() => setStatsRawGamesLoading(false));
-  }, [tab, gameLogs, season, teamShotChartExpanded, situationalRecordRawExpanded]);
+  }, [tab, gameLogs, season, teamShotChartExpanded, situationalRecordRawExpanded, league]);
 
   useEffect(() => {
     // 「チームスタッツ」タブ（シチュエーション別成績）はMiscタブの
@@ -2969,7 +3028,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     Promise.all(
       needed.map(async (scheduleKey) => {
         try {
-          return [scheduleKey, await fetchYahooGamePbp(season, scheduleKey)] as const;
+          return [scheduleKey, await fetchYahooGamePbp(season, scheduleKey, league)] as const;
         } catch {
           return null;
         }
@@ -2986,7 +3045,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         setTeamYahooPbpLoading(false);
         setTeamYahooPbpDone(true);
       });
-  }, [tab, playerStatsBoxTab, opponentSplitCategory, yahooPbpSupported, gameLogs, season]);
+  }, [tab, playerStatsBoxTab, opponentSplitCategory, yahooPbpSupported, gameLogs, season, league]);
 
   // careerLoading/careerDataをdeps配列に含めると自己キャンセルのループになるため
   // （PlayerDetailPageと同じ理由）、fetch開始済みかどうかはrefで管理する
@@ -3011,12 +3070,13 @@ export function TeamDetailPage({ season }: { season: string }) {
   const seasonPeriodSources = useTeamPeriodSources(
     (seasonHistory ?? []).map((r) => r.season),
     tab === "teamStats" && seasonBoxPeriodOn && seasonBoxTab !== "timeToShot", // Time to Shot は専用の導出データを読む
+    league,
   );
 
   // シーズン別成績の登録区分別（DESIGN.md 288章）。開いたシーズンの行だけ、区分別の索引を読む（初期表示では読まない）。区間との併用は段階6まで選べない
   const [openClassSeasons, setOpenClassSeasons] = usePageState<Set<string>>(pk("seasonBoxClassOpen"), new Set());
   const classSeasonList = [...openClassSeasons].sort();
-  const classSplitSources = useClassSplitSources(classSeasonList, tab === "teamStats" && classSeasonList.length > 0);
+  const classSplitSources = useClassSplitSources(classSeasonList, tab === "teamStats" && classSeasonList.length > 0, league);
 
   useEffect(() => {
     seasonHistoryFetchTeamIdRef.current = null;
@@ -3032,7 +3092,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     Promise.all(
       seasons.map(async (s) => {
         try {
-          const teamsOfSeason = await fetchTeams(s.season);
+          const teamsOfSeason = await fetchTeams(s.season, league);
           const found = teamsOfSeason.find((t) => t.teamId === fetchTeamId);
           return found ? { season: s.season, teamName: found.teamName, team: found } : null;
         } catch {
@@ -3046,7 +3106,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       .finally(() => {
         if (seasonHistoryFetchTeamIdRef.current === fetchTeamId) setSeasonHistoryLoading(false);
       });
-  }, [tab, teamId, seasons]);
+  }, [tab, teamId, seasons, league]);
 
   // 「選手スタッツ」タブ: そのシーズン、このチームで一度でもプレーした選手の一覧
   // （シーズン内移籍選手も含む）。lineupsFile（在コート復元済みのラインナップ、既に
@@ -3084,7 +3144,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     loading: playerStatsPeriodLoading,
     failedSeasons: playerStatsPeriodFailed,
     retry: retryPlayerStatsPeriod,
-  } = useSeasonPeriodSources([season], tab === "playerStats" && playerStatsPeriod2 !== "all");
+  } = useSeasonPeriodSources([season], tab === "playerStats" && playerStatsPeriod2 !== "all", league);
 
   // 切り替え直後、新しいデータの取得完了を待つ間に前のシーズン・チームの候補を出し続けないよう破棄する。
   // fetchKeyも消しておく（消さないと、別タブにいる間に A→B→A と戻った場合に「取得済み」と
@@ -3111,7 +3171,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     Promise.all(
       candidateIds.map(async (playerId): Promise<PlayerStatsCandidate | null> => {
         try {
-          const logs = await fetchPlayerGameLogs(season, playerId);
+          const logs = await fetchPlayerGameLogs(season, playerId, league);
           const ownTeamByScheduleKey = new Map<string, GameTeamInfo>();
           for (const log of logs) {
             if (log.min <= 0) continue;
@@ -3133,7 +3193,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       .finally(() => {
         if (playerStatsCandidatesFetchKeyRef.current === fetchKey) setPlayerStatsCandidatesLoading(false);
       });
-  }, [tab, teamId, season, pbpSupported, lineupsFile, summaries, summariesSeason]);
+  }, [tab, teamId, season, pbpSupported, lineupsFile, summaries, summariesSeason, league]);
 
   const playerStatsRows = useMemo((): TeamPlayerStatsRow[] | null => {
     if (!playerStatsCandidates || !players || !gameLogs || !teamId) return null;
@@ -3151,6 +3211,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         divisionHistory,
         season,
         (g) => c.ownTeamByScheduleKey.get(g.scheduleKey)?.teamId,
+        league,
       );
       const scheduleKeys = new Set(
         situationalFilteredLogs
@@ -3189,6 +3250,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     playerStatsDisplayMode,
     playerStatsPeriod2,
     playerStatsPeriodSources,
+    league,
   ]);
 
   // 「スタメン平均」見出しに追記する、当該シーズン（レギュラーシーズンのみ、avgHeightCm等と
@@ -3262,7 +3324,14 @@ export function TeamDetailPage({ season }: { season: string }) {
   if (teamsError) return <p className="error-message">{teamsError}</p>;
 
   const team = teams?.find((t) => t.teamId === teamId);
-  if (!team) return <p className="error-message">チームが見つかりませんでした</p>;
+  if (!team) {
+    return (
+      <div>
+        <p className="error-message">{league === "one" ? "このクラブは、B.ONE のこのシーズンにはいません" : "チームが見つかりませんでした"}</p>
+        {teamId && <OtherLeagueSeasonLinks teamId={teamId} league={league} divisionHistory={divisionHistory} />}
+      </div>
+    );
+  }
 
   const accentColor = teamColors?.[team.teamId]?.primary;
   const teamPlayers = (players ?? []).filter((p) => p.teamId === teamId);
@@ -3281,7 +3350,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // filterByGameTypeで最終的なレギュラー/プレーオフ/合算の絞り込みを行う（個人・チーム双方の「比較」タブと同じ設計）
   const filteredLogs = gameLogs
     ? filterByGameType(
-        filterGameLogs(gameLogs, { ...teamShotChartFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => teamId),
+        filterGameLogs(gameLogs, { ...teamShotChartFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => teamId, league),
         teamShotChartGameType,
       )
     : [];
@@ -3321,6 +3390,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         opponentSeasonWinRates,
         divisionHistory,
         season,
+        league,
       )
     : [];
   const situationalRecordRawGamesReady =
@@ -3403,8 +3473,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       key: "division",
       label: "地区",
       rows: [
-        { key: "east", label: "対東地区", predicate: (g) => matchesDivision(g, "east", divisionHistory, season) },
-        { key: "west", label: "対西地区", predicate: (g) => matchesDivision(g, "west", divisionHistory, season) },
+        ...opponentDivisionRows(divisionHistory, season, league),
       ],
     },
     {
@@ -3620,7 +3689,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // オンザコート（5人のうち外国籍・帰化・アジアの選手の人数）。試合詳細のラインナップ別成績と同じ数え方で、区分はシーズンの選手一覧から引く
   const classificationById = new Map((players ?? []).map((p) => [p.playerId, p.classification] as const));
   const classifyLineupPlayer = (id: string) => classificationById.get(id);
-  const lineupMaxForeign = seasonRulesForTrend?.find((r) => r.season === season)?.maxForeignOnCourt;
+  const lineupMaxForeign = seasonRulesForTrend ? seasonRuleFor(seasonRulesForTrend, season, league)?.maxForeignOnCourt : undefined;
   // オンザコート別の合計は、チームのピリオド別の索引から、選んだ試合区分・区間で出す（256章の段階3）。索引が古い・読めないときは、
   // 今までのラインナップのファイルからの値（合算・試合全体・合計だけ）に戻す
   const lineupOcPeriodValue: ForeignPeriodValue = (SEASON_PERIOD_OPTIONS.some((o) => o.value === lineupOcPeriod) ? lineupOcPeriod : "all") as ForeignPeriodValue;
@@ -3960,7 +4029,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         <Link to="/teams" className="back-link">
           ← チーム一覧に戻る
         </Link>
-        <AiExportButton season={season} teamId={team.teamId} />
+        {league === "premier" && <AiExportButton season={season} teamId={team.teamId} />}
       </div>
 
       <div className="team-detail-header" style={accentColor ? { borderTopColor: accentColor } : undefined}>
@@ -3977,6 +4046,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             )}
           </p>
           <ResultOnlyNote games={schedule?.resultOnlyGames} teamId={team.teamId} />
+          <OtherLeagueSeasonLinks teamId={team.teamId} league={league} divisionHistory={divisionHistory} />
         </div>
       </div>
 
@@ -4040,11 +4110,21 @@ export function TeamDetailPage({ season }: { season: string }) {
       </div>
 
       <div className="tab-bar">
-        {(Object.keys(TAB_LABELS) as DetailTab[]).map((t) => (
-          <button key={t} className={`tab-button${tab === t ? " active" : ""}`} onClick={() => setTab(t)} type="button">
-            {TAB_LABELS[t]}
-          </button>
-        ))}
+        {(Object.keys(TAB_LABELS) as DetailTab[]).map((t) => {
+          const reason = league === "one" ? ONE_TEAM_DETAIL_TAB_REASONS[t] : undefined;
+          return (
+            <button
+              key={t}
+              className={`tab-button${tab === t ? " active" : ""}`}
+              onClick={() => setTab(t)}
+              type="button"
+              disabled={!!reason}
+              title={reason}
+            >
+              {TAB_LABELS[t]}
+            </button>
+          );
+        })}
       </div>
 
       {tab === "overview" && (
@@ -4419,6 +4499,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           seasons={seasons ?? []}
           currentTeams={teams ?? []}
           nextOpponentName={scheduleRows.find((r) => r.status === "upcoming")?.opponentName}
+          league={league}
         />
       )}
 
@@ -4784,7 +4865,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             <TeamSeasonForcedTurnoversTable rows={seasonHistoryDesc} />
           ) : seasonBoxTab === "foreignPlayers" ? (
             <>
-              <TeamSeasonForeignChart rows={seasonHistoryDesc} rules={seasonRulesForTrend ?? null} periodShares={seasonForeignPeriodShares} />
+              <TeamSeasonForeignChart rows={seasonHistoryDesc} rules={seasonRulesForTrend ?? null} league={league} periodShares={seasonForeignPeriodShares} />
               {seasonBoxPeriodOn && <SeasonPeriodNotes chart period={seasonBoxPeriodValue} {...seasonForeignPeriodIssues} />}
             </>
           ) : seasonBoxTab === "timeToShot" ? (
@@ -4795,6 +4876,7 @@ export function TeamDetailPage({ season }: { season: string }) {
               logsOf={(s) => careerData?.find((c) => c.season === s)?.logs ?? []}
               perspective={seasonBoxPerspective}
               period={seasonBoxPeriodValue as TtsPeriodValue | "all"}
+              league={league}
             />
           ) : seasonBoxTab === "periods" ? (
             <>

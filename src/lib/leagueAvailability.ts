@@ -38,7 +38,7 @@ export const ONE_PAGE_AVAILABILITY: Record<LeaguePage, LeagueAvailability> = {
   game: READY,
   glossary: READY,
   teams: READY,
-  teamDetail: preparing("チームのページ"),
+  teamDetail: READY,
   players: preparing("個人のページ"),
   playerDetail: preparing("個人のページ"),
   standings: READY,
@@ -64,4 +64,10 @@ export const ONE_CLASS_REASON = "登録区分別は、B.ONE ではまだ選べ�
 export const ONE_TEAMS_TAB_REASONS: Partial<Record<string, string>> = {
   records: "チームの記録は、B.ONE ではまだ見られません（今後対応します）。",
   champions: "歴代王者は、B.ONE ではまだ見られません（今後対応します）。",
+};
+/** B.ONE のチーム詳細で選べないタブ（段階3で出す） */
+export const ONE_TEAM_DETAIL_TAB_REASONS: Partial<Record<string, string>> = {
+  career: "通算成績は、B.ONE ではまだ見られません（今後対応します）。",
+  clubRecord: "クラブレコードは、B.ONE ではまだ見られません（今後対応します）。",
+  compare: "比較は、B.ONE ではまだ見られません（今後対応します）。",
 };

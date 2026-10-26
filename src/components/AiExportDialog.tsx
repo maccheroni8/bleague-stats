@@ -20,7 +20,7 @@ export default function AiExportDialog({ season, teamId, close }: { season: stri
     const timeout = window.setTimeout(() => {
       if (active) { active = false; setError('読み込みに時間がかかっています。もう一度お試しください。'); }
     }, 45_000);
-    loadAiExport(season, teamId).then(data => {
+    loadAiExport(season, teamId, undefined, 'premier').then(data => {
       if (active) { window.clearTimeout(timeout); setInput(data); }
     }, () => {
       if (active) { window.clearTimeout(timeout); setError('必要なデータを読み込めませんでした。完成版としてコピー・保存できません。時間をおいて、もう一度お試しください。'); }

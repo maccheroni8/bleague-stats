@@ -1,5 +1,6 @@
 // 書き出し専用の読み込み。失敗・版違いを空配列へ置き換えず、完成版の作成を止める。
 import { fetchTeams, fetchTeamGameLogs, fetchSchedule, fetchGameSummaries, fetchPlayers, fetchPlayerGameLogs, fetchTeamHistory, fetchPlayerGameIndex, fetchSeasons } from './data';
+import type { League } from './league';
 import { isSupportedGameIndex, playerGameAt, viewPlayerGameIndex } from './gameIndex';
 import { previousSeason } from './seasonCompare';
 import type { AiExportInput, AiExportSeason } from './aiExport';
@@ -14,17 +15,18 @@ async function mapLimited<T, R>(items: T[], fn: (item: T) => Promise<R>): Promis
   }));
   return results;
 }
-export async function loadAiExport(season: string, teamId: string, source: AiExportSource = aiExportSource): Promise<AiExportInput> {
+/** league は読み込む場所（データの置き場所）。書き出す文面は B.PREMIER の前提なので、画面は B.PREMIER のときだけ呼ぶ */
+export async function loadAiExport(season: string, teamId: string, source: AiExportSource = aiExportSource, league: League = 'premier'): Promise<AiExportInput> {
   const seasons = await source.fetchSeasons();
   if (!seasons.some(s => s.season === season)) throw new Error('対象シーズンが見つかりません。');
   const prev = previousSeason(season);
   // 日程・全チーム・試合一覧は必須。前季がないことと、前季の取得失敗を区別する。
   async function loadSeason(s: string, all: boolean): Promise<AiExportSeason> {
-    const [teams, schedule, summaries] = await Promise.all([source.fetchTeams(s), source.fetchSchedule(s), source.fetchGameSummaries(s)]);
+    const [teams, schedule, summaries] = await Promise.all([source.fetchTeams(s, league), source.fetchSchedule(s, league), source.fetchGameSummaries(s, league)]);
     if (!Array.isArray(teams) || !Array.isArray(summaries) || !schedule || schedule.season !== s || !Array.isArray(schedule.scheduleKeys) || (schedule.upcomingGames !== undefined && !Array.isArray(schedule.upcomingGames))) throw new Error('データの形式を確認できません。');
     const targets = all ? teams : teams.filter(t => t.teamId === teamId);
     const entries = await mapLimited(targets, async t => {
-      const logs = await source.fetchTeamGameLogs(s, t.teamId);
+      const logs = await source.fetchTeamGameLogs(s, t.teamId, league);
       if (!Array.isArray(logs)) throw new Error('チームの試合記録を確認できません。');
       const regular = logs.filter(g => g.gameType === 'regular');
       const keys = new Set(regular.map(g => g.scheduleKey));
@@ -37,8 +39,8 @@ export async function loadAiExport(season: string, teamId: string, source: AiExp
     return { season: s, teams, logs: new Map(entries), schedule, summaries };
   }
   const [current, previous, history, players, index] = await Promise.all([
-    loadSeason(season, true), prev && seasons.some(s => s.season === prev) ? loadSeason(prev, false) : Promise.resolve(null),
-    source.fetchTeamHistory(), source.fetchPlayers(season), source.fetchPlayerGameIndex(season),
+    loadSeason(season, true), league === 'premier' && prev && seasons.some(s => s.season === prev) ? loadSeason(prev, false) : Promise.resolve(null),
+    source.fetchTeamHistory(), source.fetchPlayers(season, league), source.fetchPlayerGameIndex(season, league),
   ]);
   if (!index || !isSupportedGameIndex(index) || index.season !== season) throw new Error('選手の試合索引を確認できません。');
   const view = viewPlayerGameIndex(index);
@@ -57,7 +59,7 @@ export async function loadAiExport(season: string, teamId: string, source: AiExp
   const playerData = await mapLimited([...ids], async id => {
     const player = players.find(p => p.playerId === id);
     if (!player) throw new Error('選手一覧と試合索引が揃っていません。');
-    const logs = await source.fetchPlayerGameLogs(season, id);
+    const logs = await source.fetchPlayerGameLogs(season, id, league);
     if (!Array.isArray(logs)) throw new Error('選手の試合記録を確認できません。');
     const mine = logs.filter(g => g.gameType === 'regular' && g.min > 0 && teamKeys.get(g.scheduleKey) === g.isHome);
     // 必須項目の欠けを順位表からの黙った除外にしない（旧キャッシュ・更新途中も停止）。

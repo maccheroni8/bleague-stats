@@ -1,6 +1,8 @@
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "./GlossaryNote";
 import type { SeasonRules, TeamSummary } from "../../shared/types";
+import { seasonRuleFor } from "../../shared/seasonRules";
+import type { League } from "../lib/league";
 import type { TeamTotals } from "../lib/teamStatsColumns";
 import {
   CLASSIFICATION_CATEGORIES,
@@ -36,10 +38,12 @@ export interface TeamSeasonShareRow {
 export function TeamSeasonForeignChart({
   rows,
   rules,
+  league = "premier",
   periodShares,
 }: {
   rows: TeamSeasonShareRow[];
   rules: SeasonRules[] | null;
+  league?: League;
   /** 区間を選んでいるとき、シーズンごとの区間の値（無いシーズンは行を出さない）。無いときはシーズン全体（teams.json） */
   periodShares?: Map<string, ForeignShare>;
 }) {
@@ -51,7 +55,7 @@ export function TeamSeasonForeignChart({
     })
     .filter((r) => r.share.totalSeconds > 0)
     .map(({ season, share }) => {
-      const max = rules?.find((x) => x.season === season)?.maxForeignOnCourt;
+      const max = (rules ? seasonRuleFor(rules, season, league) : undefined)?.maxForeignOnCourt;
       const sub = max !== undefined ? `上限${max}名` : "";
       const d = foreignDetails(share);
       return {

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import type { League } from "../lib/league";
 import { SeasonLink as Link } from "./SeasonLink";
 import { ConditionTitle } from "./ConditionTitle";
 import { FilterBar } from "./FilterBar";
@@ -98,7 +99,9 @@ export function TeamHeadToHead({
   seasons,
   currentTeams,
   nextOpponentName,
+  league,
 }: {
+  league: League;
   teamId: string;
   /** 収録済みのシーズン */
   seasons: SeasonEntry[];
@@ -115,14 +118,14 @@ export function TeamHeadToHead({
         seasonKeys.map(async (season) => {
           let logs: TeamGameLog[] = [];
           try {
-            logs = await fetchTeamGameLogs(season, teamId);
+            logs = await fetchTeamGameLogs(season, teamId, league);
           } catch {
             // そのシーズンにこのクラブの試合ログが無い（リーグにいなかった）
           }
           const venues = new Map<string, string>();
           if (logs.length > 0) {
             try {
-              for (const g of await fetchGameSummaries(season)) if (g.venue) venues.set(g.scheduleKey, g.venue);
+              for (const g of await fetchGameSummaries(season, league)) if (g.venue) venues.set(g.scheduleKey, g.venue);
             } catch {
               // 会場が読めなくても他の表示は続ける（会場は「-」）
             }
@@ -131,7 +134,7 @@ export function TeamHeadToHead({
         }),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [teamId, seasonsKey],
+    [teamId, seasonsKey, league],
   );
 
   const [opponentParam, setOpponent] = useUrlState(OPPONENT_PARAM, "");
