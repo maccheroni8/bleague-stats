@@ -545,12 +545,27 @@ function buildClassificationPtsCompositionSegments(team: TeamSummary, perspectiv
   ];
 }
 
+/** 2026-27 以降の登録区分別得点割合（日本人／外国籍／帰化／アジア特別枠。レギュラーシーズンの試合ログの1試合平均） */
+function buildSplitClassificationPtsSegments(logs: readonly TeamGameLog[], perspective: "own" | "opp"): PieSegmentInput[] {
+  const n = logs.length || 1;
+  const sum = (f: (g: TeamGameLog) => number) => logs.reduce((a, g) => a + (f(g) ?? 0), 0) / n;
+  const own = perspective === "own";
+  return [
+    { key: "jp", label: "日本人", color: CLASSIFICATION_COLORS.japanese, value: sum((g) => (own ? g.japanesePoints : g.opponentJapanesePoints)) },
+    { key: "foreign", label: "外国籍", color: CLASSIFICATION_COLORS.foreign, value: sum((g) => (own ? g.foreignPoints : g.opponentForeignPoints)) },
+    { key: "naturalized", label: "帰化", color: CLASSIFICATION_COLORS.naturalized, value: sum((g) => (own ? g.naturalizedPoints : g.opponentNaturalizedPoints)) },
+    { key: "asia", label: "アジア特別枠", color: CLASSIFICATION_COLORS.asia, value: sum((g) => (own ? g.asianQuotaPoints : g.opponentAsianQuotaPoints)) },
+  ];
+}
+
 /**
  * 得点構成/失点構成（Batch 4、2026-09-08）。対向バーから円グラフ形式に作り直した
  * （添付画像＝FG試投割合の円グラフと同じ形式）。FG試投構成（3P/IP/OP）・得点構成
  * （3P/IP/OP/FT）それぞれ自チーム・相手チームの円グラフを横に並べて表示する
  */
-function ScoringCompositionSection({ team, gameLogs, color }: { team: TeamSummary; gameLogs: TeamGameLog[]; color: string | undefined }) {
+function ScoringCompositionSection({ team, gameLogs, color, season }: { team: TeamSummary; gameLogs: TeamGameLog[]; color: string | undefined; season: string }) {
+  // 2026-27 以降は、登録区分を日本人／外国籍／帰化／アジア特別枠の4つに分ける（試合ログの試合ごとの区分の得点。DESIGN.md 298章）
+  const classSplit = splitClassificationSeason(season);
   // 自チームの円グラフはチームカラーの濃淡、opp は対戦相手全体なので無彩色の濃淡（DESIGN.md 182章）
   const ownColor = color ?? MONO_FALLBACK_COLOR;
   const regularLogs = useMemo(() => gameLogs.filter((g) => g.gameType === "regular"), [gameLogs]);
@@ -558,8 +573,14 @@ function ScoringCompositionSection({ team, gameLogs, color }: { team: TeamSummar
   const oppFga = useMemo(() => buildFgaCompositionSegments(regularLogs, "opp"), [regularLogs]);
   const ownPts = useMemo(() => buildPtsCompositionSegments(team, "own"), [team]);
   const oppPts = useMemo(() => buildPtsCompositionSegments(team, "opp"), [team]);
-  const ownClassificationPts = useMemo(() => buildClassificationPtsCompositionSegments(team, "own"), [team]);
-  const oppClassificationPts = useMemo(() => buildClassificationPtsCompositionSegments(team, "opp"), [team]);
+  const ownClassificationPts = useMemo(
+    () => (classSplit ? buildSplitClassificationPtsSegments(regularLogs, "own") : buildClassificationPtsCompositionSegments(team, "own")),
+    [classSplit, regularLogs, team],
+  );
+  const oppClassificationPts = useMemo(
+    () => (classSplit ? buildSplitClassificationPtsSegments(regularLogs, "opp") : buildClassificationPtsCompositionSegments(team, "opp")),
+    [classSplit, regularLogs, team],
+  );
 
   return (
     <div className="key-stats-card">
@@ -576,7 +597,7 @@ function ScoringCompositionSection({ team, gameLogs, color }: { team: TeamSummar
         <CompositionPieChart title="opp 得点割合" segments={oppPts} baseColor={MONO_FALLBACK_COLOR} />
       </div>
       <h4 className="composition-pie-group-title">得点構成（登録区分）</h4>
-      <p className="page-subtitle">※現在の登録情報に基づく参考値</p>
+      <p className="page-subtitle">{classSplit ? "※試合の日の登録区分（日本人は見做し日本人を含む）" : "※現在の登録情報に基づく参考値"}</p>
       <div className="composition-pie-row">
         <CompositionPieChart title="得点割合" segments={ownClassificationPts} baseColor={ownColor} />
         <CompositionPieChart title="opp 得点割合" segments={oppClassificationPts} baseColor={MONO_FALLBACK_COLOR} />
@@ -4144,7 +4165,7 @@ export function TeamDetailPage({ season }: { season: string }) {
           ))}
 
           <MobileCollapse label="円グラフ">
-            <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} color={accentColor} />
+            <ScoringCompositionSection team={team} gameLogs={gameLogs ?? []} color={accentColor} season={season} />
           </MobileCollapse>
 
           <ConditionTitle section title="チーム内リーダー" conditions={teamLeadersConditions} />

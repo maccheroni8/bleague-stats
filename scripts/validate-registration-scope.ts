@@ -2,7 +2,7 @@
 // シーズンの途中で区分が変わった選手は今は0人なので、実際の 2026-27 の選手1人に人工の変更（外国籍 → 帰化）を入れて確かめる。
 // 実データは書き換えない（読み込んだものをメモリの中だけで変える）。`npm run build:data` のあとに実行する。
 //
-//  1. 選択肢・URL: cls=jp／foreign／nat／asia／intl／rookie を読める。2026-27 はまとめを出さず、2025-26 以前はまとめを出す。2025-26 以前の分けた区分は理由を出す
+//  1. 選択肢・URL: cls=jp／foreign／nat／asia／intl／rookie を読める。並びは全選手／日本人／外国籍／帰化／アジア特別枠／まとめ／ルーキー。2025-26 以前の分けた区分は理由を出す
 //  2. 区分の判定: 見做し日本人は日本人。行ごとの区分（rows.cls）があればそれ、無ければ選手の辞書の jp／intl。分けた区分は行ごとの区分がある行だけ
 //  3. 人工の変更（外国籍 → 帰化）で、試合ログが変更日の前後に分かれ、足し直したシーズンの値（出場試合数・得点・出場時間）の合計が players.json と一致する
 //  4. 1試合記録・勝負所（索引）: 帰化を選ぶと変更日以降、外国籍を選ぶと変更日より前の行だけが出る。2つの合計＝全選手
@@ -67,13 +67,12 @@ const dir = path.join(DATA_DIR, SEASON);
   const optionsOf = (value: "all" | "外国籍・帰化・アジア", season: string | null) =>
     (classificationAxis(value, () => {}, { rookie: {}, season }) as { options: { value: string }[] }).options.map((o) => o.value);
   const now = optionsOf("all", SEASON);
+  const ORDER = ["all", "日本人", "外国籍", "帰化", "アジア特別枠", "外国籍・帰化・アジア", "rookie"];
   check(
-    "2026-27 の選択肢は 全選手／日本人／外国籍／帰化／アジア特別枠／ルーキー（ルーキーは最後・まとめは出さない）",
-    JSON.stringify(now) === JSON.stringify(["all", "日本人", "外国籍", "帰化", "アジア特別枠", "rookie"]),
+    "選択肢は 全選手／日本人／外国籍／帰化／アジア特別枠／外国籍・帰化・アジア／ルーキー（2026-27・2025-26・通算で同じ）",
+    [now, optionsOf("all", "2025-26"), optionsOf("all", null)].every((o) => JSON.stringify(o) === JSON.stringify(ORDER)),
     now.join(","),
   );
-  check("2025-26 以前は、まとめ（外国籍・帰化・アジア）も選択肢に出す", optionsOf("all", "2025-26").includes("外国籍・帰化・アジア"));
-  check("旧URLでまとめを選んでいるときは、2026-27 でも選択肢に出す", optionsOf("外国籍・帰化・アジア", SEASON).includes("外国籍・帰化・アジア"));
   check(
     "2025-26 以前で分けた区分を選ぶと理由を出す（通算・歴代と 2026-27 は出さない）",
     splitClassificationBlocked("帰化", "2025-26") && !splitClassificationBlocked("帰化", SEASON) && !splitClassificationBlocked("帰化", null) && !splitClassificationBlocked("日本人", "2016-17"),

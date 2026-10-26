@@ -15119,7 +15119,7 @@ push 1 の時点の「残り」: league の渡し忘れ 138件・37ファイル�
 ### 298-1. 共通の部品
 
 - **選択肢・判定**（`src/lib/classificationFilter.ts`）: 区分の値は `日本人`・`外国籍`・`帰化`・`アジア特別枠`・まとめの `外国籍・帰化・アジア`（URL の cls は jp・foreign・nat・asia・intl。`CLASSIFICATION_URL_ALIASES`）。`classificationMatches`（4値の区分）・`classificationCodeMatches`（索引の行の区分の番号）・`indexRowClassMatches`（索引の i 行目。2026-27 以降は行ごとの区分 `rows.cls`、それより前は選手の辞書の jp／intl。**分けた区分は行ごとの区分がある行だけ**＝通算・歴代では自然に 2026-27 以降の試合だけになる）。上位20位のファイルの表は `topFileClassKey`（分けた区分は null＝索引から集計）。
-- **選択欄**（`filterAxes.ts` の `classificationAxis`）: 全選手・日本人・外国籍・帰化・アジア特別枠（・ルーキー）。**まとめは、選んでいるとき（旧URL）と、表のシーズンが 2025-26 以前のときだけ出す**（`season` を渡す。通算・歴代は null）。分けた区分は 2025-26 以前でも選べ、選ぶと**表の代わりに理由**（`splitClassificationBlocked`・`SPLIT_CLASSIFICATION_UNAVAILABLE_REASON`。まとめを選ぶよう案内）。
+- **選択欄**（`filterAxes.ts` の `classificationAxis`）: **全選手・日本人・外国籍・帰化・アジア特別枠・外国籍・帰化・アジア（まとめ）・ルーキー**（どのシーズン・通算・歴代でも同じ。ユーザーの判断で、まとめは 2026-27 以降と通算・歴代でも残す。298-6）。分けた区分は 2025-26 以前でも選べ、選ぶと**表の代わりに理由**（`splitClassificationBlocked`・`SPLIT_CLASSIFICATION_UNAVAILABLE_REASON`。まとめを選ぶよう案内）。
 - **注記**（`src/components/ClassificationNotes.tsx`）: 日本人＝「日本人には見做し日本人を含みます。」、通算・歴代で分けた区分＝「2026-27シーズン以降の試合だけを数えています」。
 - **条件の見出し・保存画像**: `classificationLabels`（「登録区分: 帰化」）・`teamClassLabels`（「帰化選手」「相手の帰化選手」）。ファイル名にも同じ文字。
 - **シーズン途中の変更の足し直し**（`src/lib/registrationScopeCore.ts`〔純粋な部分〕・`registrationScope.ts`〔読み込み・React〕）: 登録区分の記録（`fetchSeasonRegistrations`・`loadSeasonRegistrations`）から changes のある選手だけを取り出し（`changedRegistrations`）、その選手の試合ログを選んだ区分の試合に絞る（`scopeLogsByClassification`。区分の決め方は集計と同じ `registrationOn`）。シーズンの値は `summaryScopedToClassification`（出場試合数・先発・合計・1試合平均を足し直す。掲載基準の出場率・成功数もこの値）。一覧は `useClassScopedPlayers`（途中で変わった選手の試合ログだけを読み、その区分の値に置き換える。0試合なら外す）、選手の判定は `scopedPlayerMatches`（シーズン中に一度でもその区分になったか）。**途中で変わった選手が対象にいるときは、試合ログから足し直す経路**（`needsClassificationRecompute`。条件で絞ったときと同じ経路で、率・上級スタッツも足し直す）。変わった選手がいなければ、今までどおり集計済みの値（読み込みは registrations.json の1ファイルだけ増える）。
@@ -15132,9 +15132,9 @@ push 1 の時点の「残り」: league の渡し忘れ 138件・37ファイル�
 - **全チームスタッツ・チーム詳細の登録区分別**（`teamClassSplit.ts`）: 足し込みの箱を6つ（日本人・外国籍・帰化選手・アジア特別枠・行ごとの区分の無い索引の外国籍等・区分なし）にし、まとめは1〜4の合計（`CLASS_NUMBERS`）。区分は `splitClassOfFilter`、行の見出しは `SPLIT_CLASS_LABELS`。**B.ONE でも選べるようにした**（push 2 の `ONE_CLASS_REASON` を外した）。チーム詳細のシーズン別成績の ▸ は、2026-27 以降は日本人／外国籍／帰化／アジア特別枠の4行（`seasonSplitClasses`）、それより前は2行。
 - **試合詳細**: 2026-27 以降は、試合の日の区分（`makeClassifier` に登録区分の記録と players.json）で、ボックススコアの内訳（日本人・外国籍・帰化・アジア特別枠の選手合計）と得点構成（登録区分）の円グラフを4つに分ける。注記は「試合の日の登録区分（日本人は見做し日本人を含む）」。それより前は今までどおり2つ・「現在の登録情報に基づく参考値」。オンザコートの人数（OC）も試合の日の区分で数える（3区分の合計なので人数は同じ）。
 - **個人詳細**: 登録区分は、2026-27 以降はそのシーズン・リーグの記録（「帰化」「アジア特別枠」「日本人（見做し日本人）」、途中の変更は「外国籍 → 帰化（2027/01/10から）」）。それより前は「日本人」か「外国籍・帰化・アジア」。
-- **図解（年齢分布）**: 選択肢を5つに（`FIGURE_CLASSES`。まとめは 2025-26 以前と旧URLだけ）。区分は試合ごと（`indexRowClassMatches`）。2025-26 以前で分けた区分は理由。マーカーの形は今までどおり日本人／外国籍等の2種類。
+- **図解（年齢分布）**: 選択肢を全選手スタッツと同じ並びに（`FIGURE_CLASSES`）。区分は試合ごと（`indexRowClassMatches`）。2025-26 以前で分けた区分は理由。マーカーの形は今までどおり日本人／外国籍等の2種類。
 - **比較（チーム）**: 2026-27 以降のシーズンは、Misc に「外国籍 PTS」「帰化 PTS」「アジア特別枠 PTS」、Scoring に「%外国籍 PTS」など（試合ログの foreignPoints・naturalizedPoints・asianQuotaPoints。`compareShared.ts` の `sumSplitClassPoints`・`splitClassPointDefs`）。2025-26 以前とリーグ平均は「-」（すべて「-」なら行ごと出さない）。項目名は `statNames.ts`・説明は `statDescriptions.ts`。全チームスタッツの表には足していない。
-- **出していないもの**: チーム詳細の概要の得点割合の円グラフ（teams.json の値。2区分のまま）。
+- **チーム詳細の概要の得点構成（登録区分）の円グラフ**: 2026-27 以降は日本人／外国籍／帰化／アジア特別枠の4つ（レギュラーシーズンの試合ログの試合ごとの区分の得点。`buildSplitClassificationPtsSegments`）、2025-26 以前は今までどおり2つ（teams.json の値）。
 
 ### 298-3. 通算記録（`scripts/aggregate-league-player-rankings.ts`。キーの対象外・全体の導出データは毎回作る）
 
@@ -15153,3 +15153,7 @@ push 1 の時点の「残り」: league の渡し忘れ 138件・37ファイル�
 - `validate:active-filter` を新しい現役に（両リーグの名簿・B.ONE の選手が現役に入る・分けた区分の現役の表も全員が現役。日本人・外国籍等の表は、途中で変わった選手がいない間だけ選手マスタの区分で突き合わせる）。
 - 画面（手元の確認用サーバー）: 上の各画面を B.PREMIER・B.ONE で。**登録区分の記録に一時的に人工の変更を入れて `build:data -- --season 2026-27` で作り直し**、全選手スタッツ（外国籍＝変更前の5試合・帰化＝変更後の6試合）・ランキングのシーズン成績（帰化で6試合・出場率もその試合数で判定）・1試合記録・全チームスタッツを確かめ、記録を元に戻して作り直した。
 - allKey `a4868db5326dae4cc0313d97075674b5` のまま（キーの対象のファイルは読むだけ。`shared/careerTopSplit.ts` は通算の集計と画面だけが読む）。
+
+### 298-6. 確認後の判断と直し（2026-10-26）
+
+ユーザーの判断: ①まとめ「外国籍・帰化・アジア」は 2026-27 以降と通算・歴代でも選択肢に残す（並びは全選手／日本人／外国籍／帰化／アジア特別枠／外国籍・帰化・アジア／ルーキー）。②比較に足した外国籍・帰化・アジア特別枠の得点は全チームスタッツの表には足さない。③チーム詳細の概要の得点割合の円グラフは 2026-27 以降4区分。④回数・在籍の項目は理由を出すまま。①③を直した（`classificationAxis`・`FIGURE_CLASSES`・`ScoringCompositionSection`。`validate:registration-scope` の選択肢の並びの確認も）。

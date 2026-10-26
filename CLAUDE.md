@@ -253,10 +253,10 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 【保留】条件別順位表の「二桁リード/ビハインドした試合」条件は保留中。条件選択のたびに
   全チーム分の生データ（数十MB）を取得するコストが重いため、バックエンドで事前集計し
   試合単位のフラグとして永続化する方式を含めて、実現方法を別途検討する
-- **登録区分の選択肢は「全選手／日本人／外国籍／帰化／アジア特別枠」（＋ルーキーは最後）**（設計書298章）。区分の値・判定・選択欄・注記は `src/lib/classificationFilter.ts`
+- **登録区分の選択肢は「全選手／日本人／外国籍／帰化／アジア特別枠／外国籍・帰化・アジア」（＋ルーキーは最後）**（設計書298章）。区分の値・判定・選択欄・注記は `src/lib/classificationFilter.ts`
   （`classificationMatches`・索引の行は `indexRowClassMatches`・選択欄は `filterAxes.ts` の `classificationAxis` に表のシーズンを渡す）。外国籍・帰化・アジア特別枠を分けられるのは
   **2026-27 以降だけ**（登録区分の記録 `registrations.json`・索引の `rows.cls`）。2025-26 以前で選んだら表の代わりに理由（`splitClassificationBlocked`）、まとめの「外国籍・帰化・アジア」（cls=intl）は
-  2025-26 以前と旧URLのときだけ選択肢に出す。**区分を選んだら、その区分で出場した試合だけを数える**（シーズン途中で区分が変わった選手は `src/lib/registrationScope.ts` で試合ログから足し直す。
+  どのシーズン・通算でもアジア特別枠とルーキーの間に出す。**区分を選んだら、その区分で出場した試合だけを数える**（シーズン途中で区分が変わった選手は `src/lib/registrationScope.ts` で試合ログから足し直す。
   通算・歴代で分けた区分は 2026-27 以降の試合だけ）。日本人は見做し日本人を含む（注記 `ClassificationNotes`）。OC0〜OC4 は3区分の合計人数のまま。検証は `validate:registration-scope`（人工の変更で確かめる）。
   4値の classification（選手マスタ）と `playerClassificationOverrides.ts`（帰化選手/アジア特別枠の手動上書き。日本人と誤判定されるのを防ぐ）は今までどおり。2025-26 以前は選手マスタの1つの値（設計書94章）
 - **現役＝今季の B.PREMIER か B.ONE のどちらかの名簿に載っている選手**（どのリーグの画面でも同じ。`src/lib/activePlayers.ts` と通算記録の現役の表〔`aggregate-league-player-rankings.ts`〕を同時に変える。設計書298-4章）

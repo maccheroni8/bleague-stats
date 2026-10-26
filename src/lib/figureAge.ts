@@ -5,8 +5,8 @@ import { ageForSeason } from "./age";
 import { indexRowClassMatches, type ClassificationGroupFilter } from "./classificationFilter";
 
 /**
- * 登録区分の選択肢（URL の cls。全選手スタッツと同じ書き方。DESIGN.md 298章）。外国籍・帰化・アジア特別枠は 2026-27 以降だけ（それより前は理由を出す）、
- * まとめの「外国籍・帰化・アジア」（intl）は 2025-26 以前と旧URLのときだけ選択肢に出す
+ * 登録区分の選択肢（URL の cls。全選手スタッツと同じ書き方・並び。DESIGN.md 298章）。外国籍・帰化・アジア特別枠は 2026-27 以降だけ（それより前は理由を出す）、
+ * まとめの「外国籍・帰化・アジア」（intl）はいつも選べる
  */
 export const FIGURE_CLASSES = [
   { value: "all", label: "全選手", group: "all" },

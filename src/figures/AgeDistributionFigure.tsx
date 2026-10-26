@@ -11,7 +11,7 @@ import { loadPlayerGameIndex } from "../lib/gameIndexLoad";
 import { useJsonData } from "../lib/useJsonData";
 import { choiceNumberParam, enumParam, rangeParam, useUrlState } from "../lib/urlState";
 import { ageSummary, figureAgeData, centeredAgeDots, figureMarkerShape, figureAgeReferences, type FigureReferenceMode, FIGURE_GAMES_RATIO_RANGE, isDefaultFigureGamesRatio, FIGURE_CLASSES, figureClassGroup, type FigureClass } from "../lib/figureAge";
-import { JAPANESE_DEEMED_NOTE, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked, splitClassificationSeason } from "../lib/classificationFilter";
+import { JAPANESE_DEEMED_NOTE, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
 import { ageBaseDateLabel } from "../lib/age";
 import { pickerTeamOrder } from "../lib/playerPickerOrder";
 import { withUnplayedTeams } from "../lib/standingsTeams";
@@ -64,8 +64,8 @@ export default function AgeFigure({ season, category: league }: FigureProps) {
   };
   const gameLabels = seasonGameTypeLabels(season);
   const classLabel = FIGURE_CLASSES.find(c => c.value === classification)!.label;
-  // まとめ（外国籍・帰化・アジア）は 2025-26 以前と、選んでいるとき（旧URL）だけ選択肢に出す。分けた区分を 2025-26 以前で選んだら図の代わりに理由
-  const classOptions = FIGURE_CLASSES.filter(c => c.value !== "intl" || classification === "intl" || !splitClassificationSeason(season));
+  // 分けた区分を 2025-26 以前で選んだら図の代わりに理由
+  const classOptions = FIGURE_CLASSES;
   const classBlocked = splitClassificationBlocked(figureClassGroup(classification), season);
   const title = min ? `平均${min}:00以上出場した選手の年齢分布` : "出場選手の年齢分布（出場時間の下限なし）";
   const teams = data ? withUnplayedTeams(data.history.at(-1)?.teams ?? [], data.race) : [];
