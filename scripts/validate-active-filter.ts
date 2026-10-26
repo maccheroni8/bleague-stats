@@ -1,10 +1,12 @@
-// ランキング > 個人 の「現役」の絞り込み（DESIGN.md 222章）の検証スクリプト（検証専用。CIには入れず、手で実行する）。
+// ランキング > 個人 の「現役」の絞り込み（DESIGN.md 222章・298章）の検証スクリプト（検証専用。CIには入れず、手で実行する）。
+// 現役＝今季の B.PREMIER か B.ONE のどちらかの名簿に載っている選手（どのリーグの画面でも同じ意味）。
 //
 // 導出データを作ったあと（`npm run build:data` のあと）に実行する。
-//  1. 現役の選手ID（今季の players.json ＋ registered-players.json。画面の useActivePlayerIds と同じ）が、別の元（current-roster.json＝公式の「在籍中」の一覧）の
-//     選手をすべて含む。名簿に無い選手（今季出場したが今は在籍中の一覧に無い）の人数も出す
+//  1. 現役の選手ID（今季の両リーグの players.json ＋ registered-players.json。画面の useActivePlayerIds と同じ）が、別の元（current-roster.json＝公式の「在籍中」の一覧。
+//     B.PREMIER・B.ONE の行）の選手をすべて含む。名簿に無い選手（今季出場したが今は在籍中の一覧に無い）の人数も出す。B.ONE の選手が現役に入っていること
 //  2. 通算記録（league-player-career-top.json の byActive）: 載っている選手は全員が現役。league-player-rankings.json から現役だけを取り出して順位をつけ直した
-//     上位20位と、全項目（通算成績 × 会場3 × 試合区分3 ＋ 回数・在籍）・登録区分3通り（すべて・日本人・外国籍等）で一致する
+//     上位20位と、全項目（通算成績 × 会場3 × 試合区分3 ＋ 回数・在籍）で一致する（すべて）。日本人・外国籍等は試合ごとの区分で数えた表なので、
+//     途中で区分が変わった選手がいない間は選手マスタの区分で取り出した上位と一致する。分けた区分（byActiveSplitClass）も全員が現役
 //  3. 歴代の1試合記録・勝負所の通算・アシストペア（1試合・通算）: activeIds を渡した結果が、渡さない結果から現役の選手（ペアは両方が現役）だけを残したものと一致し、
 //     今季の名簿に無い選手が1人も出ない。現役でない選手が絞り込み前の上位に含まれていること（絞り込みが効いていること）も確かめる
 //
@@ -17,6 +19,8 @@ import { CLASS_KEYS, classKeyOf, type ClassKey } from "../shared/classificationK
 import { PLAYER_GAME_RECORD_STATS } from "../shared/playerGameRecords.ts";
 import type { PlayerGameIndexFile } from "../shared/gameIndex.ts";
 import type { AssistPairsFile } from "../shared/assistPairs.ts";
+import type { SeasonRegistrationFile } from "../shared/registration.ts";
+import { SPLIT_CAREER_KEYS, type LeaguePlayerCareerTopFileWithSplit } from "../shared/careerTopSplit.ts";
 import type {
   CurrentRosterFile,
   LeaguePlayerCareerTopEntry,
@@ -43,18 +47,24 @@ const season = currentSeason();
 
 // ---- 1. 現役の選手ID ----
 const active = new Set<string>();
-for (const file of ["players.json", "registered-players.json"]) {
-  for (const p of (await readJson<PlayerSummary[]>(path.join(DATA_DIR, season, file))) ?? []) active.add(p.playerId);
+const oneIds = new Set<string>();
+for (const dir of [path.join(DATA_DIR, season), path.join(DATA_DIR, season, "one")]) {
+  for (const file of ["players.json", "registered-players.json"]) {
+    for (const p of (await readJson<PlayerSummary[]>(path.join(dir, file))) ?? []) {
+      active.add(p.playerId);
+      if (dir.endsWith("one")) oneIds.add(p.playerId);
+    }
+  }
 }
-const rosterFile = (await readJson<CurrentRosterFile>(path.join(DATA_DIR, "current-roster.json")))!;
-// 今の名簿は B.ONE の選手も持つ（league。DESIGN.md 295章）。現役（B.PREMIER）と比べるのは B.PREMIER の行だけ（league の無い行は B.PREMIER）
-const roster = { ...rosterFile, players: rosterFile.players.filter((p) => (p.league ?? "premier") === "premier") };
+// 今の名簿は B.PREMIER・B.ONE の両方の行を持つ（league。DESIGN.md 295章）。現役は両リーグの名簿の選手なので、両方の行と比べる
+const roster = (await readJson<CurrentRosterFile>(path.join(DATA_DIR, "current-roster.json")))!;
+check(`B.ONE の名簿の選手（${oneIds.size}名）が現役に入る`, oneIds.size > 0 && [...oneIds].every((id) => active.has(id)));
 const master = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
 const masterIds = new Set(master.map((p) => p.playerId));
 {
   const rosterInMaster = roster.players.filter((p) => masterIds.has(p.playerId));
   const missing = rosterInMaster.filter((p) => !active.has(p.playerId));
-  console.log(`   現役（${season}の players.json＋registered-players.json）${active.size}名、在籍中の一覧（${roster.season}）${roster.players.length}名`);
+  console.log(`   現役（${season}の B.PREMIER・B.ONE の players.json＋registered-players.json）${active.size}名、在籍中の一覧（${roster.season}）${roster.players.length}名`);
   check(`在籍中の一覧（${roster.season}）の選手が、現役にすべて含まれる`, roster.season === season && missing.length === 0, `含まれない: ${missing.map((p) => p.playerId).join(",")}`);
   const notOnRoster = [...active].filter((id) => !roster.players.some((p) => p.playerId === id));
   console.log(`   今季出場したが在籍中の一覧に無い選手: ${notOnRoster.length}名（現役には含める。既存の「そのシーズンに登録していた選手」の判定のまま）`);
@@ -66,6 +76,19 @@ const rankings = (await readJson<LeaguePlayerRankingsFile>(path.join(DATA_DIR, "
 const careers = (await readJson<PlayerCareersFile>(path.join(DATA_DIR, "player-careers.json"))) ?? null;
 const classKeyById = new Map(master.map((p) => [p.playerId, classKeyOf(p.classification)]));
 check("byActive がある（すべて・日本人・外国籍等）", !!top.byActive && ["all", ...CLASS_KEYS].every((k) => !!top.byActive![k as "all" | ClassKey]));
+// 途中で区分が変わった選手（登録区分の記録の changes）がいるシーズンがあると、日本人・外国籍等の表は選手マスタの区分とは一致しなくなる（試合ごとの区分で数えるため）
+let registrationChanges = 0;
+for (const s of readdirSync(DATA_DIR).filter((d) => /^\d{4}-\d{2}$/.test(d))) {
+  const reg = await readJson<SeasonRegistrationFile>(path.join(DATA_DIR, s, "registrations.json"));
+  registrationChanges += Object.values(reg?.players ?? {}).filter((e) => (e.changes ?? []).length > 0).length;
+}
+{
+  const split = (top as LeaguePlayerCareerTopFileWithSplit).byActiveSplitClass;
+  check("byActiveSplitClass がある（外国籍・帰化・アジア特別枠）", !!split && SPLIT_CAREER_KEYS.every((k) => !!split[k]));
+  let notActiveSplit = 0;
+  for (const k of SPLIT_CAREER_KEYS) for (const venue of ["career", "careerHome", "careerAway"] as const) for (const byStat of Object.values(split?.[k]?.[venue] ?? {})) for (const list of Object.values(byStat)) notActiveSplit += list.filter((e) => !active.has(e.playerId)).length;
+  check("分けた区分の現役の表（byActiveSplitClass）に、現役でない選手が1人もいない", notActiveSplit === 0, `${notActiveSplit}件`);
+}
 {
   const GAME_TYPES = ["regular", "playoff", "both"] as const;
   const venues = ["career", "careerHome", "careerAway"] as const;
@@ -83,7 +106,7 @@ check("byActive がある（すべて・日本人・外国籍等）", !!top.byAc
     return out;
   };
   const same = (a: LeaguePlayerCareerTopEntry[], b: LeaguePlayerCareerTopEntry[]) => JSON.stringify(a.map((e) => [e.playerId, e.value, e.rank])) === JSON.stringify(b.map((e) => [e.playerId, e.value, e.rank]));
-  for (const key of ["all", ...CLASS_KEYS] as const) {
+  for (const key of (registrationChanges === 0 ? ["all", ...CLASS_KEYS] : ["all"]) as ("all" | ClassKey)[]) {
     const inScope = (id: string) => active.has(id) && (key === "all" || classKeyById.get(id) === key);
     const t = top.byActive![key];
     for (const venue of venues) {
@@ -107,6 +130,7 @@ check("byActive がある（すべて・日本人・外国籍等）", !!top.byAc
       if (!same(want, have)) diffs.push(`${key} 回数・在籍 ${stat}`);
     }
   }
+  if (registrationChanges > 0) console.log(`   途中で区分が変わった選手が${registrationChanges}人いるので、日本人・外国籍等の表は選手マスタの区分との突き合わせを省いた`);
   check(`通算記録（byActive）の${tables}表に、現役でない選手が1人もいない`, notActive === 0, `${notActive}件`);
   check(`通算記録（byActive）が、全選手の順位から現役だけを取り出して順位をつけ直した上位20位と一致する（${tables}表）`, diffs.length === 0, diffs.slice(0, 8).join(" / "));
   const allTop = top.byActive!.all.career.regular.pts!.slice(0, 5).map((e) => `${e.rank}位 ${top.players[e.playerId]?.name} ${e.value}`);
