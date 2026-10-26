@@ -17,7 +17,7 @@ import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS } from "../src/lib/statDefs.ts";
 import { SEASON_BOX_COLUMNS, seasonBoxColumnsFor } from "../src/lib/playerSeasonBoxscore.ts";
 import { buildAdvancedColumns, buildMiscColumns, buildScoringColumns, buildTraditionalColumns } from "../src/lib/teamStatsColumns.ts";
 import { teamBoxscoreColumnsFor } from "../src/lib/teamBoxscoreColumns.ts";
-import { COLUMNS_BY_TAB, boxscoreColumnsFor } from "../src/components/BoxscoreTable.tsx";
+import { COLUMNS_BY_TAB, boxscoreColumnsFor, gameDetailColumnsFor, orShareColumn } from "../src/components/BoxscoreTable.tsx";
 import { PLAYER_GAME_RECORD_STATS } from "../shared/playerGameRecords.ts";
 import { CAREER_TOTAL_DEFS, TEAM_AGAINST_RECORD_STATS, TEAM_RECORD_STATS } from "../shared/teamRecords.ts";
 import { PLAYER_CAREER_TOTAL_DEFS } from "../shared/playerRecords.ts";
@@ -91,6 +91,8 @@ for (const tab of Object.keys(COLUMNS_BY_TAB) as (keyof typeof COLUMNS_BY_TAB)[]
   add(`チームの表:${tab}`, teamBoxscoreColumnsFor(tab, false));
   add(`チームの表:${tab}（ファウル分割）`, teamBoxscoreColumnsFor(tab, true));
 }
+add("試合詳細:アドバンスド（個人OR%）", gameDetailColumnsFor("advanced", false));
+add("試合詳細:内訳集計（%OR）", [orShareColumn(false)]);
 for (const perspective of ["own", "opp", "diff"] as const) {
   add(`全チームスタッツ Traditional:${perspective}`, buildTraditionalColumns("perGame", perspective));
   add(`全チームスタッツ Advanced:${perspective}`, buildAdvancedColumns("perGame", perspective));
