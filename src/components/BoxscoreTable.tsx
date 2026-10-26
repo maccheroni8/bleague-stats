@@ -954,11 +954,6 @@ function BoxscoreTeamPanel({
             </tbody>
           </table>
         </div>
-        {showOrPct && (
-          <p className="page-subtitle">
-            ※%ORは、選手に付いたORの割合です。チームに付いたORは内訳に含まないため、合計が100%にならないことがあります
-          </p>
-        )}
       </div>
     </>
   );
