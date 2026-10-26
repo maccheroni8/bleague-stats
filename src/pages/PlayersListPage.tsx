@@ -136,6 +136,7 @@ import {
   SEASON_BOX_TABS,
   SEASON_SCORING_COLUMNS,
   SEASON_TRADITIONAL_COLUMNS,
+  countDoubleTripleDoubles,
   seasonBoxColumnsFor,
   sumPlayerGameLogs,
   sumTeamGameLogsFor,
@@ -278,6 +279,18 @@ interface PlayerRow {
   season: string;
   player: PlayerSummary;
   ctx?: SeasonBoxscoreCtx;
+  /** DD2・TD3（絞り込み中は、絞り込んだ試合のうち出場した試合から数える。個人詳細と同じ数え方）。無ければシーズンの値（players.json） */
+  ddtd?: { dd: number; td: number };
+}
+
+/** DD2・TD3 の列。平均／合計に関わらず回数（個人詳細のシーズン別成績と同じ値） */
+function doubleDigitColumns(): Column<PlayerRow>[] {
+  const dd = (r: PlayerRow) => r.ddtd?.dd ?? r.player.totals.doubleDoubles ?? 0;
+  const td = (r: PlayerRow) => r.ddtd?.td ?? r.player.totals.tripleDoubles ?? 0;
+  return [
+    { key: "dd2", label: "DD2", sortValue: dd, format: (r) => String(dd(r)) },
+    { key: "td3", label: "TD3", sortValue: td, format: (r) => String(td(r)) },
+  ];
 }
 
 // チーム版「全チームスタッツ」（TeamsListPage.tsx）と同じ仕組みの平均/合計トグル
@@ -444,6 +457,7 @@ function buildTraditionalColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
     // mode="perGame"で元のeff()の値に正しく一致する
     countColumn("eff", "EFF", (p) => p.advanced.eff * p.gamesPlayed, mode),
     plusMinusColumn(mode),
+    ...doubleDigitColumns(),
   ];
 }
 
@@ -523,7 +537,7 @@ function playerListTabColumns(tab: BoxCategoryKey, mode: SeasonDisplayMode, filt
   const cols =
     tab === "traditional"
       ? filterActive
-        ? buildCtxColumns(SEASON_TRADITIONAL_COLUMNS, mode)
+        ? [...buildCtxColumns(SEASON_TRADITIONAL_COLUMNS, mode), ...doubleDigitColumns()]
         : buildTraditionalColumns(mode)
       : tab === "advanced"
         ? filterActive
@@ -875,7 +889,12 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
           const team =
             (scopedTeamLogsByTeamId && ownTeamOf ? teamTotalsForTransferredPlayer(logs, filteredLogs, ownTeamOf, scopedTeamLogsByTeamId) : null) ??
             sumTeamGameLogsFor(teamLogs, scheduleKeys);
-          return { season, player: p, ctx: buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear) };
+          return {
+            season,
+            player: p,
+            ctx: buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear),
+            ddtd: countDoubleTripleDoubles(filteredLogs.filter((g) => g.min > 0)),
+          };
         }
         // 絞り込みなし（試合種別＝レギュラー）の経路。チーム総計（teams.json）がレギュラーのみのため、
         // 選手側の試合ログもレギュラーに揃える（Misc/スコアリングタブはこの経路）
@@ -956,7 +975,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
       ? shootingColumns
       : tab === "traditional"
         ? filterActive
-          ? buildCtxColumns(SEASON_TRADITIONAL_COLUMNS, displayMode)
+          ? [...buildCtxColumns(SEASON_TRADITIONAL_COLUMNS, displayMode), ...doubleDigitColumns()]
           : buildTraditionalColumns(displayMode)
         : tab === "advanced"
           ? filterActive
