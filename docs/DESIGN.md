@@ -15040,3 +15040,61 @@ Codex が計算の試作と検証を済ませた（`codex/tts` の `a9db2f46a`�
 ### 296-5. 確かめ方
 
 `npm run validate:figures`（人工データ: 年齢の数え方・出場試合率・行ごとの区分の優先・URL の読み替え・順位ラベル・ラベルの重なり。**実データ**: 出場試合率の判定が全選手スタッツと全シーズンで一致、散布図の値とリーグ平均が全チームスタッツと全シーズン×期間×試合区分で一致。package.json の `validate:figures` が `data` を渡すので validate:all でも毎回流れ、導出データが無いと失敗する）。画面は PC・スマホ幅（375px）・ダーク表示で、年齢分布と散布図、それぞれの保存画像（3300px 幅＝1100px の3倍）を確かめた。実際の端末での写真保存はユーザーの確認。
+
+## 297. B.ONE 2026-27 の導入：段階2（画面）。push 1（土台・ホーム・日程・試合詳細・保存画像の見出し）と残りの push の内容（2026-10-26〜。**画面だけの変更でキー不変**）
+
+**経緯**: 段階1（293章 push A・295章 push B）で集計・導出データは B.ONE にそろった。段階2で画面にリーグの切り替えを入れる。設計案は 2026-10-26 に報告し、ユーザーの判断（297-1）を受けて **push を3回**に分けた（当初の5回案をユーザーが3回にまとめ直した）: push 1（このセッション）・push 2（順位表・図解・チーム・選手。Sonnet の新しいセッション、画面ごとにコミットを分けて push は1回）・push 3（登録区分5択＋現役。Opus の新しいセッション）。
+
+### 297-1. 決まったこと（段階2の全体の方針）
+
+- **ヘッダーに「B.PREMIER／B.ONE」の切り替え**。URL は今の形に `league=one` を足す（書かなければ B.PREMIER。今までの URL・共有リンクはそのまま B.PREMIER）。ページを移っても保つ（`SeasonLink`・`SeasonNavLink` が season と一緒に引き継ぐ）。
+- **B.ONE のシーズンは 2026-27 だけ**（`src/lib/league.ts` の `ONE_SEASONS`）。旧B2 2025-26 は画面のシーズンの選択肢に出さない。選手詳細の通算成績・キャリアハイの今の部分表示（`ONE_CATEGORY_SEASONS`）で、表示名を「B.ONE」から「**B2**」に直すだけ（push 2）。
+- 最初に出す画面: ホーム・日程・試合詳細（push 1）、順位表・図解・クラブ（一覧・詳細）・選手（一覧・詳細）・全チームスタッツ・全選手スタッツ（push 2）。
+- **段階3で出すもの**（段階2では B.ONE を選んだときに理由を出して選べなくする）: Q別・前後半（シーズン単位の索引を使うもの）・歴代・達成/連続・On/Off・マジックと進出確定・ランキングのページ・比較のページ。チーム詳細の通算成績・クラブレコード・比較のタブも段階3。
+- 順位表は、B.ONE のデータがあるタブは出す（順位表〔地区順位・ワイルドカード順位・プレーオフ出場圏〕・星取り表・勝敗表・条件別順位表・各推移）。データが無いタブ（年間スケジュールなど）とマジックナンバーは理由を出して選べなくする。
+- チーム詳細のタブ: 概要・チームスタッツ・選手スタッツ・ラインナップ（5人組だけ。On/Off は段階3）・日程結果・対戦相手別・対戦成績を出す。
+- ランキング・記録はリーグ別（合算しない）。選手は共通（PlayerID は両リーグ共通）で、成績はリーグごとに分けて表示。
+- **B.ONE のルーキー**: 判定（`rookie-eligibility.json`）は B.PREMIER の規程に準じたものなので、B.ONE では理由を出して選べなくする。名前の右の「Rookie」の印も B.ONE の画面では出さない（push 1 で `RookieProvider` に入れた）。
+- **B.ONE の地区の並びは北→東→中→西→南**（`divisionOrder("one")`。B.PREMIER は今までどおり東→中→西→北→南）。
+- **オンザコートの上限はリーグに合わせる**（`shared/seasonRules.ts` の `seasonRuleFor(rules, season, league)`。B.ONE 2026-27 は3人。`rules.find((r) => r.season === …)` で最初の行を取る書き方は B.PREMIER の行になるので使わない）。
+- **保存画像の見出しは両リーグとも2行**: 1行目「B.PREMIER 2026-27シーズン」（B.ONE なら「B.ONE 2026-27シーズン」、歴代・通算は「B.PREMIER 歴代」など）、2行目「得点ランキング」など図の名前。比較は1行目にリーグとシーズン、2行目に「A vs B」。**ファイル名の先頭にもリーグ名**（「B.PREMIER_個人ランキング_2026-27_得点.png」）。画面の見出しは今までどおり1行。
+- **登録区分の選択肢**（push 3）: 「全選手／日本人／外国籍／帰化／アジア特別枠」（＋ルーキーは最後）。分けた区分は 2026-27 以降だけ、2025-26 以前で選んだら理由を出す。旧URLの「外国籍・帰化・アジア」はまとめの選択肢として開ける。日本人には「見做し日本人を含む」の注記。通算・歴代で分けた区分を選んだら 2026-27 以降の試合だけ数え、その旨を出す。**シーズン途中で区分が変わった選手の足し直しは最初から入れる**（その区分の試合だけを試合ログから足し直す。今は該当者0人なので、人工のデータで検証する）。区分を選んだときの集計は、その区分で出場した試合だけ。OC0〜OC4 は今までどおり3区分の合計人数。
+- **「現役」**（push 3）は「今、B.PREMIER か B.ONE のどちらかの今季名簿にいる選手」に変える（どのリーグの画面でも同じ意味）。画面の判定（`src/lib/activePlayers.ts`）・通算記録の現役用の表（`scripts/aggregate-league-player-rankings.ts` の `byActive`。キーの対象外）・注記（`activeNote`）・用語集を同時に。`validate:active-filter` も合わせる。
+- **保存キーを変えない**: 段階2は `npm run build:data -- code-files` に出るファイル（`shared/types.ts`・`classificationKey.ts`・`registration.ts`・`seasonRules.ts`・`teamNames.ts`・`postseasonFormat.ts`・`standingsRank.ts`・`src/lib/format.ts`・`categoryLabels.ts`・`ruleChange.ts`・`playerSeasonBoxscore.ts`・`boxscoreAggregate.ts`・`scripts/aggregate.ts`・`build-data.ts`・`lib/dataLayout.ts` など）を**読むだけで書き換えない**。新しい型・区分の鍵は `src/` 側に置く。B.ONE のシーズン一覧を `seasons.json`（`aggregate.ts` が作る＝キー対象）に入れないのもこのため。キーの対象に触れる必要が出たら、その変更だけ止めてユーザーに報告し、最後に1回の push にまとめる。各 push の前に `build-data.ts plan` で allKey（`a4868db5326dae4cc0313d97075674b5`）を確かめ、デプロイ後は 10／10。
+
+### 297-2. 仕組み（push 1 で入れた土台）
+
+- **リーグの持ち方**（`src/lib/league.ts`）: `useLeague()`（URL から読む）・`LEAGUE_LABELS`・`ONE_SEASONS`・`leagueSeasonEntries`／`isLeagueSeason`／`latestLeagueSeason`（ヘッダーのシーズンの選択肢と初期値。B.ONE で選べないシーズンが URL にあれば B.ONE の初期のシーズンに置き換える）・`leagueCacheKey`（使い回しの鍵）・`leaguePageStateKey`（覚える鍵）・`applyLeagueToParams`（リンク）・`leagueSwitchUrl`（切り替えの行き先）。型 `League` は `src/lib/data.ts` にあり、中身は `shared/types.ts` の `Category` と同じ（キー対象の型ファイルは変えない）。
+- **ヘッダーの切り替え**（`App.tsx`）: 切り替えたら season とリーグだけを残す（地区・クラブ・対戦相手・タブなどの条件は外す）。チーム詳細・試合詳細は一覧・日程へ移る（そのクラブ・試合はもう一方のリーグに無い）。選手詳細はそのまま。`<Routes key={league}>` でページを作り直す（前のリーグの状態・読み込みを持ち越さない）。ヘッダーのシーズンの切り替え・`clearUrlParams` も league を残す。
+- **見られるページの一覧**（`src/lib/leagueAvailability.ts` の `ONE_PAGE_AVAILABILITY`）: B.ONE でまだ見られないページは、`LeagueGate` がページの代わりに理由と「B.PREMIER で見る」（行き先はヘッダーの切り替えと同じ）を出す。**push 2・3 で画面を B.ONE に対応させたら、ここを `READY` にする**（ページの中のタブ・選択肢の「選べない理由」は各ページで出す）。
+- **読み込み**: `data.ts` のシーズンごとの読み込み（`fetchTeams`・`fetchGame`・`fetchSchedule` など24関数）はすべて最後の引数に `league`（省略は B.PREMIER）。置き場所は `categoryBase(season, league)`（B.ONE は `data/{season}/one/`）。読み込みの部品（`gameIndexLoad.ts` の `load〜`・`seasonPeriod.ts`・`teamTts.ts`・`teamPeriodTotals.ts`・`teamClassSplitLoad.ts`・`periodIndexLoad.ts`・`useLineupData.ts`・`useCompareSlotData.ts`・`teamPaint2Load.ts`・`dataBaseDate.ts`）も `league` を受け、使い回しの鍵は `leagueCacheKey`。**ページ側は `league` を渡すだけで B.ONE を読む**。B.PREMIER の全体のファイル（`seasons.json`・`player-careers.json`・`team-history.json`・`division-history.json`〔中に `one` がある〕・`team-colors.json` など）はリーグに関係しないか、B.PREMIER だけのもの。
+- **覚える鍵**（`usePageState`）: 鍵にリーグが入る（B.PREMIER は今までの鍵のまま、B.ONE は「one:」付き）。ページ側は変えなくてよい。
+- **地区**: `divisionGroups.ts` の `divisionOrder(league)`・`groupByDivision(teams, league)`・`divisionPresets(…, league)`・`seasonDivisions(history, season, league)`、`filterAxes.ts` の `teamMultiAxis({ league })`、`teamDivisionForSeason(history, id, season, league)`。`DIVISION_ORDER` を直接使わない。
+- **保存画像**（`ConditionTitle`）: 画面用の1行の見出し（`.export-hide`）と、保存画像用の2行の見出し（`.export-only .export-heading`。`src/lib/exportHeading.ts` の `exportHeadingLines`）。見出しの先頭の「2026-27シーズン」「歴代」「通算」「通算（2020-21以降）」を1行目に移す。先頭に範囲が無い見出し（比較・図解）は `exportScope` を渡す（比較は `seasonsScope`）。ファイル名は `ExportImageButton` が先頭にリーグ名を付ける（`exportFilenameWithLeague`）。基準日（`resolveBaseDate(spec, league)`）もリーグごと。**保存画像のある部品を足すときは、見出しを範囲で始めるか `exportScope` を渡す**（`validate:league-wiring` の 8. が調べる）。
+- **試合詳細**: B.ONE の試合を読み、オンザコートの上限は `seasonRuleFor(…, league)`（OC の表は OC0〜OC3）。スポーツナビの記録は B.PREMIER だけ（B.ONE ではシューティングのシュートタイプ等は「対応していません」）。試合の中の Q別・前後半（ボックススコア・ラインナップの区間）は、その試合の生データから出すので B.ONE でも使える（段階3で止めるのは、シーズン単位の索引を使う Q別）。
+- **ホーム**: 「ランキングを見る」「順位表を見る」は、そのリーグで見られるページのときだけ出す（`pageAvailability`）。副題は両リーグとも「B.PREMIER 2026-27シーズン」のようにリーグ名を付けた。
+
+### 297-3. 通し忘れの検証（`npm run validate:league-wiring`）
+
+静的（TypeScript の構文木）: ①引数に `league` を持つ関数を league を渡さずに呼んでいる所。**B.ONE で見られるページ（`ONE_PAGE_AVAILABILITY` が ready）から import でたどれるファイル**にあれば失敗、たどれないファイルは「残り」として数だけ出す（`-- --list-pending` で全件）。②`data.ts` がシーズンの置き場所を直接書いていないか。③`useJsonData`・`useMemo`・`useEffect`・`useCallback` の中で `league` を使うのに依存の配列に `league` が無い所（全ファイル。**`league` という名前を別の意味〔リーグ平均など〕で使わない**。push 1 で `useCompareSlotData.ts` の `league`→`leagueFile`、`TeamsListPage.tsx` のリーグ平均の合計→`leagueTotal` に直した）。④react-router-dom の `Link`・`NavLink`・`useNavigate`・`Navigate` を直接使う所（ready のページからたどれるファイルなら失敗）。⑤モジュールの中の `Map<string, Promise<…>>` のあるファイルが `leagueCacheKey` を使うか。動かす確認: ⑥`fetch` を差し替えて、data.ts の24関数と読み込みの部品が `league "one"` で `data/{season}/one/` を、省略で `data/{season}/` を読むか。⑦URL・リンク・覚える鍵・切り替え・地区の並び・見出し・ファイル名の関数。⑧保存画像の見出しの1行目。`-- --list-ready-files` で、ready のページからたどれるファイルの一覧。わざと壊した3通り（読み込みの league を外す・依存から外す・Link を直に使う）で失敗することを確かめた。
+
+push 1 の時点の「残り」: league の渡し忘れ 138件・37ファイル（多い順に `TeamDetailPage.tsx` 22・`PlayerDetailPage.tsx` 20・`PlayersListPage.tsx` 10・`useCompareSlotData.ts` 9・`StandingsPage.tsx` 8・`aiExportLoad.ts` 7・`useGameRecordData.ts` 6・`AnnualSchedule.tsx` 5・`AgeDistributionFigure.tsx` 5・`playerSeasonRanking.ts` 5・`TeamsListPage.tsx` 5 …）。直接のリンク 13ファイル（`AssistPairRanking`・`CareerLeaderCard`・`PlayerRecordLeaderCard`・`StreakRecordCard`・`TeamPeriodRecords`・`TeamRecordLeaderCard`・`TtsTable`・`WinLossGrid`・`ComparePage`・`PlayerDetailPage`・`PlayersListPage`・`TeamDetailPage`・`TeamsListPage`）。**ページを ready にすると、そのページからたどれるファイルの残りがすべて失敗になる**ので、push 2 はそれを直しながら進める（ランキング・比較だけが使うファイルは段階3まで残ってよい）。直接のリンクは、`SeasonLink` に替える（リンク先に `?season=` が書いてあればそのまま使われる。season を付けたくないリンクは、今の挙動を確かめてから替える）。B.ONE に無いデータをわざと B.PREMIER で読む所は、`ALLOWED_PREMIER_CALLS` に理由つきで書く。
+
+### 297-4. push 2 でやること（順位表・図解・チーム・選手。Sonnet の新しいセッション。画面ごとにコミットを分け、push は1回）
+
+共通: 各画面の `ONE_PAGE_AVAILABILITY` を `READY` にし、`validate:league-wiring` を0件にする（ページから `useLeague()`、読み込みに `league`、依存に `league`、`DIVISION_ORDER` でなく `divisionOrder(league)`、`rules.find` でなく `seasonRuleFor(…, league)`、`situational.ts` の地区の条件の `"premier"` 固定〔`matchesDivision`・`matchesOwnDivision` の呼び出し。531〜532行あたり〕をリーグに）。段階3の機能（Q別・前後半の選択〔シーズン単位の索引〕・歴代・達成/連続・On/Off・マジック・進出確定・ルーキー）は B.ONE で理由を出して選べなくする（理由の文は1か所にまとめる。`leagueAvailability.ts` に足す）。見え方は PC・スマホ幅・ダーク表示・保存画像で確かめる。
+
+1. **順位表**（`StandingsPage.tsx` と部品）: 順位表タブ（地区順位・ワイルドカード順位・プレーオフ出場圏〔`postseasonFormat(season, "one")`＝各地区上位2＋WC6。★〈ホームコートの確定〉は出さない〕）・星取り表（`fetchHeadToHead`。地区は5つ）・勝敗表・条件別順位表・順位推移・勝ち星推移・貯金推移を出す。年間スケジュール（`AnnualSchedule.tsx`。大会日程は B.PREMIER のもの）とマジックナンバーは理由を出して選べなくする。`WinLossGrid.tsx` の直接のリンク。
+2. **図解**（`FiguresPage.tsx`・`src/figures/`）: 296-4章のとおり（ページの `category` の口を `useLeague()` に、読み込みと鍵にリーグ、B.ONE の地区の並び）。年齢分布の区分の5択は push 3。
+3. **チーム**（`TeamsListPage.tsx`・`TeamDetailPage.tsx`）: 一覧と全チームスタッツは B.ONE の25クラブ・5地区、On-Court Foreign の上限3（`fetchSeasonRules` の使い方を `seasonRuleFor` に）。歴代の記録・歴代優勝のタブ、Q別・前後半（Periods の区間・シーズン単位の索引）、Streaks の連続などは段階3（理由を出す）。チーム詳細のタブは 297-1 のとおり。昇格・降格したクラブ（新潟・FE名古屋・越谷・福岡）は、シーズンとリーグの組で行・リンクを分ける（チーム詳細のシーズンの選択に、もう一方のリーグのシーズンへのリンク）。`TtsTable.tsx`・`TeamPeriodRecords.tsx`・`StreakRecordCard.tsx` などの直接のリンク。
+4. **選手**（`PlayersListPage.tsx`・`PlayerDetailPage.tsx`）: 全選手スタッツは B.ONE の選手の成績（記録・表彰のタブは段階3）。選手詳細は共通の1ページで、成績はヘッダーのリーグ×シーズン。そのリーグ×シーズンに出場が無ければ、出場のあるリーグへのリンクを出す（`league=premier` を書いたリンクで B.PREMIER へ）。通算成績・キャリアハイの「リーグ」の選択は残し、ヘッダーのリーグを初期値にする。`ONE_CATEGORY_SEASONS`（`["2025-26"]`）に 2026-27 を足し、2025-26 の表示名を「**B2**」にする（`CAREER_CATEGORY_LABELS` はリーグの名前なので、シーズンで表示名を変える関数を足す）。今の部分表示は消さない。B.PREMIER から B.ONE に移った選手（星野 曹樹 30436・関屋 心 51000330 など）で確かめる。
+
+### 297-5. push 3 でやること（登録区分5択＋現役。Opus の新しいセッション）
+
+297-1 の登録区分と現役のとおり。区分を決める処理は `shared/registration.ts`（キー対象。読むだけ）、索引の行の区分は `rows.cls`（2026-27 以降）。区分の鍵（日本人／外国籍／帰化／アジア特別枠）は `shared/classificationKey.ts`（キー対象。`jp`・`intl` の2つ）を変えずに `src/` 側に置く。全選手スタッツ・ランキング（シーズン・1試合・通算・勝負所・アシストペア・達成記録・On/Off）・図解の年齢分布・チームの登録区分別（`teamClassSplit.ts`）・試合詳細の内訳・比較で選択肢をそろえる。通算・歴代で分けた区分は、2026-27 以降の索引（`rows.cls`）だけを数え、その旨の注記。途中の変更（`registrations.json` の `changes`）がある選手は、その区分の試合だけを試合ログ・索引から足し直す（人工のデータで検証）。現役の変更で `league-player-career-top.json` の `byActive` が変わる（キーの対象外。全体の導出データは毎回作る）。B.ONE の選手マスタの区分の抜け（`51000657` は区分なし）の扱いも確かめる。CLAUDE.md の「登録区分のUI・集計・表示は3区分で統一」の項目を書き直す。
+
+### 297-6. push 1 の確かめ方と結果
+
+- allKey は `a4868db5326dae4cc0313d97075674b5` のまま（`build-data.ts plan`）。触ったファイルは `code-files` に入っていない。
+- `npm run validate:league-wiring`（297-3）。
+- 画面（手元の確認用サーバー）: B.ONE のホーム（直近の試合・リーダー・順位〔北→東→中→西→南〕・まだ見られないページへの「◯◯を見る」を出さない）、日程（クラブの地区の一括選択が北→東→中→西→南）、試合詳細（鹿児島-金沢 507289。OC0〜OC3）、まだ見られないページ（チーム詳細 → 理由と「B.PREMIER で見る」＝チーム一覧へ）、ヘッダーの切り替え（試合詳細 → 日程、`league=one&season=2024-25` → 2026-27 に置き換え）、B.PREMIER のホームが今までどおり（東・西の2地区・リンク）。保存画像は本番と同じ処理（`prepareExportImage`）で比較の画像を作り、2行の見出しを確かめた。ファイル名は「B.PREMIER_個人ランキング_2026-27_得点_上位10.png」。実際の端末での保存はユーザーの確認。
