@@ -36,7 +36,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   アシストペアの試合ごとの行（`data/{season}/assist-pairs.json.gz`、`shared/assistPairs.ts`。並びはIDの昇順に固定）、索引の新しい列（選手: アシストされた得点・勝負所18列／チーム: 最大のラン5列）、
   上位20位のファイル（個人の2つ）を作る元は索引（行を戻す部分は `shared/gameIndexRead.ts`。保存キーの対象）、2016-17のPTSOFFTOはタグの表記違い（「ポイントフロムターンオーバ」）を数えて算出できる、
   ランキングの新しい種類「勝負所」「アシストペア」（`src/lib/clutchQuery.ts`）と被アシスト率（%PTS ASTED。1試合は20点以上・通算は1,000点以上）。検証は `npm run validate:game-flow`・`validate:clutch-query`
-- 222章: 段階5の確認後の修正。前季比較の差は MIN を時間（+3:15）、％を「+1.7%」で出す。「決勝点」は **「決勝弾」**（勝ち越し弾・同点弾とそろえた）。個人ランキングの **「現役」**（今季のB.PREMIERの名簿の選手。`act=1`、`src/lib/activePlayers.ts`。通算記録・歴代の1試合記録・勝負所の通算・アシストペアの1試合と通算だけ。
+- 222章: 段階5の確認後の修正。前季比較の差は MIN を時間（+3:15）、％を「+1.7%」で出す。「決勝点」は **「決勝弾」**（勝ち越し弾・同点弾とそろえた）。個人ランキングの **「現役」**（今季のB.PREMIERの名簿の選手。298章で B.PREMIER か B.ONE の名簿の選手に広げた。`act=1`、`src/lib/activePlayers.ts`。通算記録・歴代の1試合記録・勝負所の通算・アシストペアの1試合と通算だけ。
   通算記録は `league-player-career-top.json` の `byActive`）。アシストペアの初期表示はシーズン。検証は `npm run validate:active-filter`。選手名の表記: 単一のシーズンの表はそのシーズンの表記、複数のシーズンをまたぐ表は選手マスタの今の登録名、空白は半角1つにそろえる（`shared/playerName.ts`、`src/lib/currentPlayerNames.ts`。`validate:player-names`）
 - 223章: ランキング > 個人 > **「達成記録」**（`k=thr`。**索引だけ・画面だけの変更でキー不変**。`src/lib/thresholdQuery.ts`・`thresholdParams.ts`、`PlayerThresholdRanking.tsx`）。「項目がしきい値以上（以下）の試合」を共通の条件にして、達成試合数（`tu=count`。通算・シーズン、達成率の並びの掲載基準は通算＝出場100試合以上〈ポストシーズンは20試合以上〉・シーズン＝所属チームの試合数の85%）・
   連続記録（`tu=streak`。条件に当てはまる試合だけを順に見て続いた試合数。レギュラーとポストシーズンは別。B.PREMIERの名簿外のシーズンをはさむと途切れる〔`player-careers.json` の seasons〕。1選手1行・継続中・`cur=1`）・達成時の年齢（`tu=age`。最年少＝初めて達成、最年長＝最後に達成）。
@@ -104,6 +104,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 295章: **B.ONE 2026-27 の導入の push B**（**キーが変わる**）。作成の入口はシーズンごとに B.PREMIER のあと B.ONE を同じ手順で作る（`--category one`。**今のシーズンの B.ONE の失敗は B.PREMIER を止めず、デプロイが公開のあとに通知**）。規程は `postseasonFormat(season, category)`（B.ONE は各地区上位2＋WC6）・`season-rules` の `league`（`seasonRuleFor`。B.ONE は上限3人）。名簿は51クラブを巡回し、今の名簿の行に `league`（**片方のリーグの取得の失敗で、もう片方の名簿を消さない**。`validate:roster-leagues`）。**登録区分の分割は 2026-27 以降だけ**: シーズン・リーグごとの記録 `data/{season}/registrations.json`（記録済みは書き換えない・途中の変更は日付付き。`scripts/record-registrations.ts`）、区分を決めるのは `shared/registration.ts` の `makeClassifier` の1か所、索引の行の `rows.cls`。見做し日本人は日本人（`deemedJapanese`）。検証は `validate:registrations`・`validate:one-league-data`
 - 296章: **図解タブ**（`#/figures`。チーム／選手 → 図ごとのタブ。**画面だけの変更でキー不変**）。図を足すときは `src/figures/` に部品を1つ作り、`src/figures/catalog.ts` の `FIGURES` に1行足す（`id` は公開後に変えない）。年齢分布（`figure=age`。索引だけを読む。2026-27 以降は行ごとの区分 `rows.cls` を優先）と ORtg × DRtg（`figure=ratings`。全チームスタッツと同じ集計と式）。出場試合率の部品・判定は全選手スタッツと共用（`GamesPlayedRatioSlider`・`gamesPlayedRatio.ts`）。段階2でリーグを切り替えるときの要件は296-4章。検証は `npm run validate:figures`
 - 297章: **B.ONE の段階2（画面）**。ヘッダーの「B.PREMIER／B.ONE」（URL `league=one`。書かなければ B.PREMIER。`src/lib/league.ts`）、B.ONE で見られるページの一覧（`src/lib/leagueAvailability.ts`。まだのページは `LeagueGate` が理由を出す）。**読み込み（`data.ts` の fetch〜・`load〜`）には `league` を渡し、使い回しの鍵は `leagueCacheKey`、地区の並びは `divisionOrder(league)`、規則は `seasonRuleFor(…, league)`、リンクは `SeasonLink`**（通し忘れは `npm run validate:league-wiring`。B.ONE で見られるページからたどれるファイルにあれば失敗）。保存画像の見出しは2行（1行目「B.PREMIER 2026-27シーズン」）・ファイル名の先頭にリーグ名（`exportHeading.ts`。範囲で始まらない見出しは `exportScope`）。`league` という名前を別の意味で使わない。残りの push（push 2: 順位表・図解・チーム・選手／push 3: 登録区分5択＋現役）の内容は297-4・297-5章。**画面だけの変更でキー不変**（キー対象のファイルは読むだけ）
+- 298章: **B.ONE の段階2の push 3（登録区分5択＋現役）**。選択肢・試合ごとの区分・途中の変更の足し直し（`registrationScope.ts`・`indexClassScope.ts`）・チームの区分別の6つの箱（`teamClassSplit.ts`）・試合詳細の4区分・通算記録の分けた区分（`shared/careerTopSplit.ts`。2026-27 以降の試合だけ）・現役（両リーグの今季名簿）。**画面だけの変更でキー不変**
 - 271章: 順位表の **「年間スケジュール」タブ**（`tab=annual`。`src/components/AnnualSchedule.tsx`・`src/lib/annualSchedule.ts`・`shared/annualSchedule.ts`）。大会日程は `data/annual-calendar.json`（元データ・保存キー対象外）。EASL は深夜ジョブが自動更新（`scripts/scrape-annual-schedule.ts`、失敗時は前回を保持して最後に失敗通知）、**天皇杯・オールスターは手で更新**（手順は271-7章）。`scripts/lib/dataLayout.ts` に登録したため導入時のデプロイで全シーズンの作り直しが1回。検証は `npm run validate:annual-schedule`
 - 274章: チーム詳細 > チームスタッツ > **シーズン別成績に Q別・前後半**（Traditional・Advanced・Misc・Scoring・On-Court Foreign・Scoring %。区間を選んだときだけ全在籍シーズンの索引を読む。`src/lib/teamSeasonPeriod.ts`）。**BSR＝相手のBLK・EFF は索引から出せる**ので、シチュエーション別成績の「-」も埋めた（`teamPeriodEffTotal`）。検証は `npm run validate:team-season-period`。**画面だけの変更でキー不変**
 - 275章: **手入力のボックススコア**（`meta.source` が `manual:` の試合。2017-18 の1810だけ。公式に無い試合を basketballnavi の試合合計で補う。ピリオド別の行・PBP・Summaries が無いので、`periodIndexBuild.ts` は区間の値を持たず、`validate-period-index`・`validate-game-index` は `scripts/lib/manualBoxscores.ts` の一覧で除く。試合詳細に注記。保存キーが変わる）。**ピリオド別の行が無い試合はチームの区間の値がすべて -1**（Q別の画面から外れる。Periods タブは試合ログのクォーター別得点なので入る）。Forced TOV の分類は `shared/forcedTurnover.ts`。チームの索引に OFF FOUL・CHARGE（`TEAM_PERIOD_FOUL_COLUMNS`。古い索引は「-」）。PBP由来の平均・在コート系・ラインナップの時間が1810の分だけ薄まる件は「在コート基準の再集計」と一緒に扱う
@@ -252,13 +253,13 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 【保留】条件別順位表の「二桁リード/ビハインドした試合」条件は保留中。条件選択のたびに
   全チーム分の生データ（数十MB）を取得するコストが重いため、バックエンドで事前集計し
   試合単位のフラグとして永続化する方式を含めて、実現方法を別途検討する
-- 登録区分のUI・集計・表示は「全選手/日本人/外国籍・帰化・アジア」の3区分で統一し、
-  `src/lib/classificationFilter.ts`の`classificationGroup()`を通す（日本人かどうかはリーグ登録国籍で
-  確実に判定できるため、classificationがシーズン非依存でも、シーズンをまたいだ帰化等の区分変化は
-  問題にならない。設計書94章）。4値のclassificationフィールドはデータ層に残している。
-  `playerClassificationOverrides.ts`（帰化選手/アジア特別枠の手動上書きリスト）は、
-  「日本人と誤判定されるのを防ぐ」目的のみで維持する（ファジーカス選手のようにnationalityが
-  「日本」表記になる帰化選手を、正しく「外国籍・帰化・アジア」側に分類するため）
+- **登録区分の選択肢は「全選手／日本人／外国籍／帰化／アジア特別枠」（＋ルーキーは最後）**（設計書298章）。区分の値・判定・選択欄・注記は `src/lib/classificationFilter.ts`
+  （`classificationMatches`・索引の行は `indexRowClassMatches`・選択欄は `filterAxes.ts` の `classificationAxis` に表のシーズンを渡す）。外国籍・帰化・アジア特別枠を分けられるのは
+  **2026-27 以降だけ**（登録区分の記録 `registrations.json`・索引の `rows.cls`）。2025-26 以前で選んだら表の代わりに理由（`splitClassificationBlocked`）、まとめの「外国籍・帰化・アジア」（cls=intl）は
+  2025-26 以前と旧URLのときだけ選択肢に出す。**区分を選んだら、その区分で出場した試合だけを数える**（シーズン途中で区分が変わった選手は `src/lib/registrationScope.ts` で試合ログから足し直す。
+  通算・歴代で分けた区分は 2026-27 以降の試合だけ）。日本人は見做し日本人を含む（注記 `ClassificationNotes`）。OC0〜OC4 は3区分の合計人数のまま。検証は `validate:registration-scope`（人工の変更で確かめる）。
+  4値の classification（選手マスタ）と `playerClassificationOverrides.ts`（帰化選手/アジア特別枠の手動上書き。日本人と誤判定されるのを防ぐ）は今までどおり。2025-26 以前は選手マスタの1つの値（設計書94章）
+- **現役＝今季の B.PREMIER か B.ONE のどちらかの名簿に載っている選手**（どのリーグの画面でも同じ。`src/lib/activePlayers.ts` と通算記録の現役の表〔`aggregate-league-player-rankings.ts`〕を同時に変える。設計書298-4章）
 - 【未対応・原因不明】2024-25シーズンの「全チームスタッツ」ページを開くと、
   `data/2024-25/team-games/2486.json.gz`・`696.json.gz`の取得が404になる（2026-09-24確認）。
   両チームとも2024-25の`teams.json`には含まれておらず、どの処理が問い合わせているかは未調査。

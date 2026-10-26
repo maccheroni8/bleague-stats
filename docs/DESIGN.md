@@ -15089,7 +15089,7 @@ push 1 の時点の「残り」: league の渡し忘れ 138件・37ファイル�
 3. **チーム**（`TeamsListPage.tsx`・`TeamDetailPage.tsx`）: 一覧と全チームスタッツは B.ONE の25クラブ・5地区、On-Court Foreign の上限3（`fetchSeasonRules` の使い方を `seasonRuleFor` に）。歴代の記録・歴代優勝のタブ、Q別・前後半（Periods の区間・シーズン単位の索引）、Streaks の連続などは段階3（理由を出す）。チーム詳細のタブは 297-1 のとおり。昇格・降格したクラブ（新潟・FE名古屋・越谷・福岡）は、シーズンとリーグの組で行・リンクを分ける（チーム詳細のシーズンの選択に、もう一方のリーグのシーズンへのリンク）。`TtsTable.tsx`・`TeamPeriodRecords.tsx`・`StreakRecordCard.tsx` などの直接のリンク。
 4. **選手**（`PlayersListPage.tsx`・`PlayerDetailPage.tsx`）: 全選手スタッツは B.ONE の選手の成績（記録・表彰のタブは段階3）。選手詳細は共通の1ページで、成績はヘッダーのリーグ×シーズン。そのリーグ×シーズンに出場が無ければ、出場のあるリーグへのリンクを出す（`league=premier` を書いたリンクで B.PREMIER へ）。通算成績・キャリアハイの「リーグ」の選択は残し、ヘッダーのリーグを初期値にする。`ONE_CATEGORY_SEASONS`（`["2025-26"]`）に 2026-27 を足し、2025-26 の表示名を「**B2**」にする（`CAREER_CATEGORY_LABELS` はリーグの名前なので、シーズンで表示名を変える関数を足す）。今の部分表示は消さない。B.PREMIER から B.ONE に移った選手（星野 曹樹 30436・関屋 心 51000330 など）で確かめる。
 
-### 297-5. push 3 でやること（登録区分5択＋現役。Opus の新しいセッション）
+### 297-5. push 3 でやること（登録区分5択＋現役。Opus の新しいセッション。**実装の内容は298章**）
 
 297-1 の登録区分と現役のとおり。区分を決める処理は `shared/registration.ts`（キー対象。読むだけ）、索引の行の区分は `rows.cls`（2026-27 以降）。区分の鍵（日本人／外国籍／帰化／アジア特別枠）は `shared/classificationKey.ts`（キー対象。`jp`・`intl` の2つ）を変えずに `src/` 側に置く。全選手スタッツ・ランキング（シーズン・1試合・通算・勝負所・アシストペア・達成記録・On/Off）・図解の年齢分布・チームの登録区分別（`teamClassSplit.ts`）・試合詳細の内訳・比較で選択肢をそろえる。通算・歴代で分けた区分は、2026-27 以降の索引（`rows.cls`）だけを数え、その旨の注記。途中の変更（`registrations.json` の `changes`）がある選手は、その区分の試合だけを試合ログ・索引から足し直す（人工のデータで検証）。現役の変更で `league-player-career-top.json` の `byActive` が変わる（キーの対象外。全体の導出データは毎回作る）。B.ONE の選手マスタの区分の抜け（`51000657` は区分なし）の扱いも確かめる。CLAUDE.md の「登録区分のUI・集計・表示は3区分で統一」の項目を書き直す。
 
@@ -15111,3 +15111,45 @@ push 1 の時点の「残り」: league の渡し忘れ 138件・37ファイル�
 - **選手詳細**: ヘッダーのリーグ×シーズンの成績（シーズン別成績はそのリーグのシーズンだけ）。**そのリーグ・シーズンに出場が無い選手は、出場のあるリーグへのリンク**（例: B.ONE 2026-27 で開いた B.PREMIER の選手 → 「B.PREMIER 2026-27シーズンの成績を見る」）。通算成績・キャリアハイの「カテゴリ」の選択は残し、初期値はヘッダーのリーグ。B.ONE は `ONE_CATEGORY_SEASONS` に 2026-27 を足し、条件の表示名はシーズンで変える（`careerCategoryLabel`: 2025-26 までは「B2」、2026-27 から「B.ONE」、両方なら「B2・B.ONE」。選択肢の名前は B.ONE のまま）。ヘッダーが B.ONE のとき、B.PREMIER の通算は別に読む。比較のタブは押せない（`ONE_PLAYER_DETAIL_TAB_REASONS`）。スポーツナビの記録・ショットチャートは B.PREMIER だけ。チーム・試合へのリンクは行ごとのリーグを書く（通算成績・キャリアハイの試合は選んだカテゴリ）。
 - **「現役」**（`activePlayers.ts`）は今は B.PREMIER の名簿のまま（`"premier"` を明示）。push 3 で広げる。
 - **確かめ**: allKey `a4868db5326dae4cc0313d97075674b5` のまま（`code-files` に触れていない）。`typecheck`・`build`・`build:data`・`check-layout`・`validate:league-wiring`・`validate:figures`・`validate:situational-days`・`validate:all`。画面は手元の確認用サーバーで B.ONE の全画面と B.PREMIER の同じ画面を確かめた。
+
+## 298. B.ONE 2026-27 の導入：段階2の push 3（登録区分5択＋現役。2026-10-26。**画面だけの変更でキー不変**）
+
+**経緯**: 297-5 のとおり。ユーザーの決定（297-1）: 選択肢は「全選手／日本人／外国籍／帰化／アジア特別枠／ルーキー」（ルーキーは最後。B.ONE のルーキーは今のまま選べない）。分けた区分は 2026-27 以降だけ、2025-26 以前で選んだら理由を出す。旧URLの「外国籍・帰化・アジア」はまとめの選択肢として開ける。日本人には「見做し日本人を含む」の注記。区分を選んだら、その区分で出場した試合だけを数える（シーズン途中の変更の足し直しを含む。人工のデータで検証）。通算・歴代で分けた区分は 2026-27 以降の試合だけ。OC0〜OC4 は3区分の合計人数のまま。現役は「今、B.PREMIER か B.ONE の今季名簿にいる選手」。
+
+### 298-1. 共通の部品
+
+- **選択肢・判定**（`src/lib/classificationFilter.ts`）: 区分の値は `日本人`・`外国籍`・`帰化`・`アジア特別枠`・まとめの `外国籍・帰化・アジア`（URL の cls は jp・foreign・nat・asia・intl。`CLASSIFICATION_URL_ALIASES`）。`classificationMatches`（4値の区分）・`classificationCodeMatches`（索引の行の区分の番号）・`indexRowClassMatches`（索引の i 行目。2026-27 以降は行ごとの区分 `rows.cls`、それより前は選手の辞書の jp／intl。**分けた区分は行ごとの区分がある行だけ**＝通算・歴代では自然に 2026-27 以降の試合だけになる）。上位20位のファイルの表は `topFileClassKey`（分けた区分は null＝索引から集計）。
+- **選択欄**（`filterAxes.ts` の `classificationAxis`）: 全選手・日本人・外国籍・帰化・アジア特別枠（・ルーキー）。**まとめは、選んでいるとき（旧URL）と、表のシーズンが 2025-26 以前のときだけ出す**（`season` を渡す。通算・歴代は null）。分けた区分は 2025-26 以前でも選べ、選ぶと**表の代わりに理由**（`splitClassificationBlocked`・`SPLIT_CLASSIFICATION_UNAVAILABLE_REASON`。まとめを選ぶよう案内）。
+- **注記**（`src/components/ClassificationNotes.tsx`）: 日本人＝「日本人には見做し日本人を含みます。」、通算・歴代で分けた区分＝「2026-27シーズン以降の試合だけを数えています」。
+- **条件の見出し・保存画像**: `classificationLabels`（「登録区分: 帰化」）・`teamClassLabels`（「帰化選手」「相手の帰化選手」）。ファイル名にも同じ文字。
+- **シーズン途中の変更の足し直し**（`src/lib/registrationScopeCore.ts`〔純粋な部分〕・`registrationScope.ts`〔読み込み・React〕）: 登録区分の記録（`fetchSeasonRegistrations`・`loadSeasonRegistrations`）から changes のある選手だけを取り出し（`changedRegistrations`）、その選手の試合ログを選んだ区分の試合に絞る（`scopeLogsByClassification`。区分の決め方は集計と同じ `registrationOn`）。シーズンの値は `summaryScopedToClassification`（出場試合数・先発・合計・1試合平均を足し直す。掲載基準の出場率・成功数もこの値）。一覧は `useClassScopedPlayers`（途中で変わった選手の試合ログだけを読み、その区分の値に置き換える。0試合なら外す）、選手の判定は `scopedPlayerMatches`（シーズン中に一度でもその区分になったか）。**途中で変わった選手が対象にいるときは、試合ログから足し直す経路**（`needsClassificationRecompute`。条件で絞ったときと同じ経路で、率・上級スタッツも足し直す）。変わった選手がいなければ、今までどおり集計済みの値（読み込みは registrations.json の1ファイルだけ増える）。
+- **索引の試合単位の区分**（`src/lib/indexClassScope.ts`）: 選手ごとに「全試合がその区分／一部／無し」と、試合ごとにその区分で出場したか。On/Off・組み合わせの数え直しに使う。
+
+### 298-2. 画面ごと
+
+- **全選手スタッツ**: 選択肢（B.ONE も。ルーキーは B.ONE で押せないまま）・理由・注記。途中で変わった選手は足し直し（Scoring % の得点構成も）。
+- **ランキング（個人）**: シーズン成績（`playerSeasonRanking.ts`。足し直し・前季比較は、前季が 2025-26 以前なら分けた区分で比べられない理由）、1試合記録（分けた区分は索引から。歴代は 2026-27 以降のシーズンの索引だけ読む＝`useGameIndexViews` の `fromSeason`。途中で変わった選手がいるシーズンは、日本人・まとめも索引の試合ごとの区分で数える）、通算記録（298-3）、勝負所・達成記録（行ごとの区分。歴代は 2026-27 以降の索引だけ）、On/Off・組み合わせ（`lineupRanking.ts`。途中で変わった選手は、その区分の試合だけで On・Off とチームのポゼッションを数え直す。組は、変わった選手がそろってその区分で出た試合だけ。通算は 2026-27 以降のシーズンだけ）。
+- **全チームスタッツ・チーム詳細の登録区分別**（`teamClassSplit.ts`）: 足し込みの箱を6つ（日本人・外国籍・帰化選手・アジア特別枠・行ごとの区分の無い索引の外国籍等・区分なし）にし、まとめは1〜4の合計（`CLASS_NUMBERS`）。区分は `splitClassOfFilter`、行の見出しは `SPLIT_CLASS_LABELS`。**B.ONE でも選べるようにした**（push 2 の `ONE_CLASS_REASON` を外した）。チーム詳細のシーズン別成績の ▸ は、2026-27 以降は日本人／外国籍／帰化／アジア特別枠の4行（`seasonSplitClasses`）、それより前は2行。
+- **試合詳細**: 2026-27 以降は、試合の日の区分（`makeClassifier` に登録区分の記録と players.json）で、ボックススコアの内訳（日本人・外国籍・帰化・アジア特別枠の選手合計）と得点構成（登録区分）の円グラフを4つに分ける。注記は「試合の日の登録区分（日本人は見做し日本人を含む）」。それより前は今までどおり2つ・「現在の登録情報に基づく参考値」。オンザコートの人数（OC）も試合の日の区分で数える（3区分の合計なので人数は同じ）。
+- **個人詳細**: 登録区分は、2026-27 以降はそのシーズン・リーグの記録（「帰化」「アジア特別枠」「日本人（見做し日本人）」、途中の変更は「外国籍 → 帰化（2027/01/10から）」）。それより前は「日本人」か「外国籍・帰化・アジア」。
+- **図解（年齢分布）**: 選択肢を5つに（`FIGURE_CLASSES`。まとめは 2025-26 以前と旧URLだけ）。区分は試合ごと（`indexRowClassMatches`）。2025-26 以前で分けた区分は理由。マーカーの形は今までどおり日本人／外国籍等の2種類。
+- **比較（チーム）**: 2026-27 以降のシーズンは、Misc に「外国籍 PTS」「帰化 PTS」「アジア特別枠 PTS」、Scoring に「%外国籍 PTS」など（試合ログの foreignPoints・naturalizedPoints・asianQuotaPoints。`compareShared.ts` の `sumSplitClassPoints`・`splitClassPointDefs`）。2025-26 以前とリーグ平均は「-」（すべて「-」なら行ごと出さない）。項目名は `statNames.ts`・説明は `statDescriptions.ts`。全チームスタッツの表には足していない。
+- **出していないもの**: チーム詳細の概要の得点割合の円グラフ（teams.json の値。2区分のまま）。
+
+### 298-3. 通算記録（`scripts/aggregate-league-player-rankings.ts`。キーの対象外・全体の導出データは毎回作る）
+
+- 登録区分の表（`byClassification`）を**試合ごとの区分**で数え直した（`shared/careerTopSplit.ts` の `filterByClassification`。シーズンごとの区分の決め方は `makeClassifier`。2025-26 以前は選手マスタの区分なので、**今のデータでは日本人・まとめの表は以前とまったく同じ**ことを確かめた）。
+- 分けた区分の表 `bySplitClass`・`byActiveSplitClass`（外国籍・帰化・アジア特別枠。**2026-27 以降の試合だけ**）。回数・在籍（careerCounts）は試合で分けられないので空、画面は「回数・在籍の項目は、外国籍・帰化・アジア特別枠を分けた区分では見られません」。型は保存キーの対象の `shared/types.ts` を触らず `shared/careerTopSplit.ts`（`LeaguePlayerCareerTopFileWithSplit`）。古いファイル（この表が無い）は「データがありません」。
+
+### 298-4. 現役
+
+- **現役＝今季の B.PREMIER か B.ONE のどちらかの名簿に載っている選手**（両リーグの players.json＋registered-players.json。どのリーグの画面でも同じ）。画面（`src/lib/activePlayers.ts` の `useActivePlayerIds`。B.ONE の名簿が読めなければ失敗＝B.PREMIER だけの現役にしない）と通算記録の現役の表（`loadActivePlayerIds`）を同時に変えた。注記 `activeNote` と用語集（「現役」の節を足した）。
+- 現役の通算記録が変わった（例: 出場時間の上位にマイケル・パーカー・鈴木 達也〔今季 B.ONE〕が入る。回数・在籍の上位にも B.ONE の選手）。今季の現役 691名（うち B.ONE 334名）。
+
+### 298-5. 確かめ方と結果
+
+- `npm run validate:registration-scope`（新設）: 選択肢・URL（cls の読み方・まとめの出し方・理由）、見做し日本人（B.ONE の 51000663 の出場の行がすべて日本人）、2025-26 の索引は分けた区分に1行も入らない。**人工の変更**（D.J・ニュービル 33085 を 2026-10-09 から外国籍 → 帰化。メモリの中だけ）で、試合ログの分かれ方・足し直したシーズンの値の合計＝players.json・1試合記録と勝負所（外国籍＋帰化＝全選手）・チームの区分別（外国籍＋帰化＝変更前・帰化に移った得点＝変更後の得点）・On/Off（On・Off とも2つの合計＝全選手）・2人組・通算の集計（filterByClassification）・感度（変更を入れなければ外国籍＝全試合）。
+- `validate:team-class-split` に、2026-27 以降の外国籍・帰化・アジア特別枠の PTS＝試合ログ、3つの合計＝まとめ、B.ONE（`data/{season}/one/`）を足した。感度の位置の計算を箱の数（`CLASS_SPLIT_BUCKETS`）に。
+- `validate:active-filter` を新しい現役に（両リーグの名簿・B.ONE の選手が現役に入る・分けた区分の現役の表も全員が現役。日本人・外国籍等の表は、途中で変わった選手がいない間だけ選手マスタの区分で突き合わせる）。
+- 画面（手元の確認用サーバー）: 上の各画面を B.PREMIER・B.ONE で。**登録区分の記録に一時的に人工の変更を入れて `build:data -- --season 2026-27` で作り直し**、全選手スタッツ（外国籍＝変更前の5試合・帰化＝変更後の6試合）・ランキングのシーズン成績（帰化で6試合・出場率もその試合数で判定）・1試合記録・全チームスタッツを確かめ、記録を元に戻して作り直した。
+- allKey `a4868db5326dae4cc0313d97075674b5` のまま（キーの対象のファイルは読むだけ。`shared/careerTopSplit.ts` は通算の集計と画面だけが読む）。
