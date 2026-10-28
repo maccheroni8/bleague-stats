@@ -76,7 +76,9 @@
             "id": "2488",
             "name": "長崎ヴェルカ"
           },
-          "status": "upcoming",
+          "status": "final",
+          "homeScore": 76,
+          "awayScore": 97,
           "neutral": false,
           "venue": "Tap Seac Multi-Sports Pavilion",
           "source": "https://www.easl.basketball/schedule-results"
@@ -94,7 +96,9 @@
             "id": "701",
             "name": "琉球ゴールデンキングス"
           },
-          "status": "upcoming",
+          "status": "final",
+          "homeScore": 97,
+          "awayScore": 103,
           "neutral": false,
           "venue": "Taoyuan Arena",
           "source": "https://www.easl.basketball/schedule-results"
@@ -352,7 +356,7 @@
           "source": "https://www.easl.basketball/schedule-results"
         }
       ],
-      "easlUpdatedAt": "2026-10-18T07:31:20.515Z",
+      "easlUpdatedAt": "2026-10-28T18:41:29.066Z",
       "notes": [
         "天皇杯は大会概要で確認できるファイナルラウンドの期間のみ掲載しています（休養日を含む）。対戦カード・結果、各地の予選日程は未収録です。",
         "天皇杯・オールスターの大会期間は公式発表に基づく掲載です。日程変更は公式情報もご確認ください。"
