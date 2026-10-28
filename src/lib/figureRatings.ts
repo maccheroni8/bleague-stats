@@ -52,8 +52,8 @@ export function buildRatingScatter(teams: readonly RatingTeam[], logsByTeam: Rea
 export function ratingDomain(points: readonly Pick<RatingPoint,"ortg"|"drtg">[]) {
   const values = points.flatMap(point=>[point.ortg,point.drtg]);
   if (!values.length) return {min:80,max:120,ticks:[80,90,100,110,120]};
-  const min = Math.floor((Math.min(...values)-4)/5)*5;
-  const max = Math.ceil((Math.max(...values)+4)/5)*5;
+  const min = Math.floor((Math.min(...values)-2)/5)*5;
+  const max = Math.ceil((Math.max(...values)+2)/5)*5;
   const step = 5; // グリッド線と目盛りは常に5刻み。データが広がっても範囲だけ広げる
   return {min,max,ticks:Array.from({length:Math.floor((max-min)/step)+1},(_,i)=>min+i*step)};
 }
