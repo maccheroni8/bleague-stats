@@ -174,6 +174,12 @@ assert.equal(ratings.points.find(p=>p.teamId==="a")?.division,undefined,"地区�
 const bounds=ratingDomain(ratings.points);
 assert.ok(bounds.min<90 && bounds.max>100.04);
 assert.ok(ratingDomain([]).max>ratingDomain([]).min);
+for(const spread of [[96,104],[88,132],[70,150]] as const) {
+  const d=ratingDomain(spread.map(v=>({ortg:v,drtg:v})));
+  assert.ok(d.min%5===0&&d.max%5===0,"端は5の倍数");
+  assert.ok(d.ticks.every((t,i)=>i===0||t-(d.ticks[i-1] as number)===5),"目盛りは5刻み");
+  assert.equal(d.ticks[0],d.min);assert.equal(d.ticks.at(-1),d.max);
+}
 const afterPlayoffs=new Map([["a",[sampleTeamLog(100,90,"2026-04-01"),...Array.from({length:5},(_,i)=>sampleTeamLog(90,100,`2026-05-0${i+1}`,"playoff"))]]]);
 assert.equal(buildRatingScatter([ratingTeams[0]!],afterPlayoffs,null,{...ratingQuery,range:{kind:"recent",n:5}}).points.length,0,"全チームスタッツと同じく期間→試合区分の順");
 assert.equal(buildRatingScatter(ratingTeams,ratingLogs,null,{...ratingQuery,range:{kind:"dateRange",start:"2027-01-01",end:"2027-02-01"}}).league,null);
