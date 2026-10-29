@@ -49,13 +49,13 @@ export function buildRatingScatter(teams: readonly RatingTeam[], logsByTeam: Rea
   } : null;
   return {points, omitted, league:leagueRow ? ratingMetrics(leagueRow) : null, leagueRow};
 }
+/** 軸は全シーズン・全条件で 90〜130（5刻み）に固定する。範囲外のチームが図から消えないよう、その場合だけ5の倍数で広げる。 */
+export const RATING_AXIS_MIN = 90, RATING_AXIS_MAX = 130, RATING_AXIS_STEP = 5;
 export function ratingDomain(points: readonly Pick<RatingPoint,"ortg"|"drtg">[]) {
   const values = points.flatMap(point=>[point.ortg,point.drtg]);
-  if (!values.length) return {min:80,max:120,ticks:[80,90,100,110,120]};
-  const min = Math.floor((Math.min(...values)-2)/5)*5;
-  const max = Math.ceil((Math.max(...values)+2)/5)*5;
-  const step = 5; // グリッド線と目盛りは常に5刻み。データが広がっても範囲だけ広げる
-  return {min,max,ticks:Array.from({length:Math.floor((max-min)/step)+1},(_,i)=>min+i*step)};
+  const min = Math.min(RATING_AXIS_MIN, values.length ? Math.floor((Math.min(...values))/RATING_AXIS_STEP)*RATING_AXIS_STEP : RATING_AXIS_MIN);
+  const max = Math.max(RATING_AXIS_MAX, values.length ? Math.ceil((Math.max(...values))/RATING_AXIS_STEP)*RATING_AXIS_STEP : RATING_AXIS_MAX);
+  return {min,max,ticks:Array.from({length:(max-min)/RATING_AXIS_STEP+1},(_,i)=>min+i*RATING_AXIS_STEP)};
 }
 export const DIVISION_RATING_COLORS: Record<Division | "unknown",string> = {
   east:"#2878b5",central:"#218357",west:"#cd681b",north:"#8454a3",south:"#95670f",unknown:"#767676",

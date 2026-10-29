@@ -172,8 +172,9 @@ assert.equal(ratings.points.find(p=>p.teamId==="c")?.ranks.ortg,3,"同順位の�
 assert.equal(ratings.points.find(p=>p.teamId==="a")?.netrtg,10);
 assert.equal(ratings.points.find(p=>p.teamId==="a")?.division,undefined,"地区不明を推測しない");
 const bounds=ratingDomain(ratings.points);
-assert.ok(bounds.min<90 && bounds.max>100.04);
+assert.deepEqual([bounds.min,bounds.max],[90,130],"通常は90〜130に固定");
 assert.ok(ratingDomain([]).max>ratingDomain([]).min);
+assert.deepEqual(ratingDomain([{ortg:96,drtg:104},{ortg:120,drtg:127}]).ticks,[90,95,100,105,110,115,120,125,130],"データに合わせて変えない");
 for(const spread of [[96,104],[88,132],[70,150]] as const) {
   const d=ratingDomain(spread.map(v=>({ortg:v,drtg:v})));
   assert.ok(d.min%5===0&&d.max%5===0,"端は5の倍数");
