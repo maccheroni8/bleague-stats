@@ -344,13 +344,6 @@ const TILE_STAT_DEFS: PlayerStatDef[] = [
     format: (p) => String(p.totals.tripleDoubles),
     higherIsBetter: true,
   },
-  {
-    key: "points10Games",
-    label: "PTS10",
-    value: (p) => p.totals.points10Games ?? 0,
-    format: (p) => (p.totals.points10Games === undefined ? "-" : String(p.totals.points10Games)),
-    higherIsBetter: true,
-  },
 ];
 
 // レーダーチャート用の12項目（MIN/PTS/REB/AST/STL/BLK/TOV/3P%/2P%/FT%/EFF/eFG%）。TILE_STAT_DEFSの
@@ -3170,7 +3163,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <StatTile label="MIN" value={formatMinutesFromSeconds(careerCountTotals.minSeconds)} />
               <StatTile label="DD2" value={String(careerCountTotals.dd)} />
               <StatTile label="TD3" value={String(careerCountTotals.td)} />
-              <StatTile label="PTS10" value={String(careerCountTotals.p10)} />
               <StatTile label="OR" value={formatDecimal(careerCountTotals.oreb, 0)} />
               <StatTile label="DR" value={formatDecimal(careerCountTotals.dreb, 0)} />
               <StatTile label="F" value={formatDecimal(careerCountTotals.pf, 0)} />
@@ -3240,10 +3232,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     <div className="career-high-card" key="td3">
                       <div className="career-high-label">トリプルダブル達成数</div>
                       <div className="career-high-value">{careerTotal.ddtd.td}</div>
-                    </div>
-                    <div className="career-high-card" key="pts10">
-                      <div className="career-high-label">二桁得点試合</div>
-                      <div className="career-high-value">{careerTotal.ddtd.p10}</div>
                     </div>
                   </>
                 )}
