@@ -49,6 +49,7 @@ import { buildPeriodRangeOptions, type PeriodRangeOption } from "./periodRange";
 import type { BoxscoreRow, PlayerGameLog, PlayerMasterEntry, StoredGame, TeamGameLog, TeamSeasonRawTotals, YahooTurnoverEvent } from "../../shared/types";
 import type { GameTeamInfo } from "./situational";
 import { teamShortName } from "../../shared/teamNames";
+import { regulationPeriodScores } from "../../shared/periodPoints";
 import {
   ON_COURT_QUALITY_SHARES,
   fgAssistsByPlayer,
@@ -1693,6 +1694,8 @@ export function reconstructedPeriodPlusMinus(game: StoredGame): Map<string, Map<
   const out = new Map<string, Map<string, Map<number, number>>>();
   reconstructedPmCache.set(game, out);
   if (!reconstructsPeriodPlusMinus(game.season) || game.raw.PlayByPlays.length === 0) return out;
+  // 前後半5分の特別な試合（1Q〜4Q の無い試合）は、ピリオド別の索引と同じく対象外
+  if (regulationPeriodScores(game) === null) return out;
   const periods = onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays);
   const rec = reconstructOnCourt(game.raw.PlayByPlays, game.raw.HomeBoxscores, game.raw.AwayBoxscores, game.homeTeam.id, game.awayTeam.id, periods, substitutionModelForSeason(game.season));
   // 1Q〜4Q・延長（索引の区間と同じ）。前後半5分の特別な試合（1Q〜4Q が無い）は区間の値を持たないので出さない
