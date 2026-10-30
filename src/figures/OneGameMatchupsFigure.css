@@ -40,3 +40,6 @@
 .export-rendering.onegame-export-matrix { width:760px !important; }
 .export-rendering.onegame-export-single { width:760px !important; }
 .onegame-export-scope { text-align:center; margin:4px 0; }
+
+.onegame-outcome { white-space:nowrap; }
+.onegame-outcome .result-badge { padding:1px 6px; }

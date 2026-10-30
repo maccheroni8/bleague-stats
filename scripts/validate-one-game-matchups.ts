@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
-import { buildOneGameMatchups, matchupStatus, oneGameUnsupportedReason } from '../src/lib/oneGameMatchups.ts';
+import { buildOneGameMatchups, matchupOutcome, matchupStatus, oneGameUnsupportedReason } from '../src/lib/oneGameMatchups.ts';
 import { teamShortName } from '../shared/teamNames.ts';
 import type { Division, GameSummary, TeamSummary } from '../shared/types.ts';
 import type { ScheduleFileExtended } from '../shared/resultOnlyGames.ts';
@@ -51,6 +51,19 @@ assert.equal(without.kind, 'ready');
 if (without.kind === 'ready') assert.equal(without.matchups.find(m => m.id === '506498')!.status, 'unrecorded');
 assert.equal(byId.get('506433')!.status, 'final');
 assert.equal(byId.get('507158')!.status, 'upcoming');
+// 勝敗は「そのチームから見て」。506461 は大阪（ホーム）78-103 A東京: 大阪は負・A東京は勝。予定・結果未収録は空欄
+const g506461 = byId.get('506461')!;
+assert.equal(g506461.homeScore, 78); assert.equal(g506461.awayScore, 103);
+assert.equal(matchupOutcome(g506461, true), 'loss');
+assert.equal(matchupOutcome(g506461, false), 'win');
+const osaka = r.byTeam.get(g506461.homeId)!.find(o => o.game.id === '506461')!;
+const tokyo = r.byTeam.get(g506461.awayId)!.find(o => o.game.id === '506461')!;
+assert.equal(matchupOutcome(osaka.game, osaka.isHome), 'loss');
+assert.equal(matchupOutcome(tokyo.game, tokyo.isHome), 'win');
+assert.equal(matchupOutcome(byId.get('507158')!, true), null);
+assert.equal(matchupOutcome({ ...g506461, status: 'live' }, true), null);
+assert.equal(matchupOutcome({ ...g506461, status: 'cancelled' }, true), null);
+if (without.kind === 'ready') assert.equal(matchupOutcome(without.matchups.find(m => m.id === '506498')!, true), null);
 // 今日が前なら予定のまま（日付を過ぎたものだけ未収録）
 assert.equal(matchupStatus({ id: 'x', date: '2026-10-23', competition: 'league', home: { name: 'a' }, away: { name: 'b' }, status: 'upcoming' }, '2026-10-23'), 'upcoming');
 

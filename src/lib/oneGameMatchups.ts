@@ -133,6 +133,12 @@ export function buildOneGameMatchups(input: {
   return { kind: 'ready', teams, matchups, byTeam };
 }
 
+/** そのチームから見た勝敗。終了した試合だけで、予定・試合中・中止・結果未収録は null。 */
+export function matchupOutcome(game: OneGameMatchup, isHome: boolean): 'win' | 'loss' | null {
+  if (game.status !== 'final' || game.homeScore === undefined || game.awayScore === undefined || game.homeScore === game.awayScore) return null;
+  return (game.homeScore > game.awayScore) === isHome ? 'win' : 'loss';
+}
+
 /** 日本時間の今日（YYYY-MM-DD） */
 export function jstToday(now: Date = new Date()): string {
   return new Date(now.getTime() + 9 * 3600_000).toISOString().slice(0, 10);

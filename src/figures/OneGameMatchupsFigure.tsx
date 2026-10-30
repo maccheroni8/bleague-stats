@@ -9,7 +9,7 @@ import { teamLogoUrl, fetchDivisionHistory, fetchGameSummaries, fetchSchedule, f
 import { useJsonData } from "../lib/useJsonData";
 import { enumParam, stringParam, useUrlState } from "../lib/urlState";
 import { DIVISION_LABELS } from "../lib/divisionGroups";
-import { MATCHUP_STATUS_LABELS, buildOneGameMatchups, jstToday, type OneGameMatchup, type OneGameTeam } from "../lib/oneGameMatchups";
+import { MATCHUP_STATUS_LABELS, buildOneGameMatchups, jstToday, matchupOutcome, type OneGameMatchup, type OneGameTeam } from "../lib/oneGameMatchups";
 import type { FigureProps } from "./catalog";
 import "./OneGameMatchupsFigure.css";
 
@@ -143,7 +143,7 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
               <h3>{DIVISION_LABELS[dv]}</h3>
               <div className="figure-scroll" tabIndex={0} role="region" aria-label={`${DIVISION_LABELS[dv]}のチーム別の1試合の相手。狭い画面では横にスクロールできます。`}>
                 <table className="onegame-list">
-                  <thead><tr><th scope="col">チーム</th><th scope="col">相手</th><th scope="col">H/A</th><th scope="col">日付</th><th scope="col">結果・状態</th></tr></thead>
+                  <thead><tr><th scope="col">チーム</th><th scope="col">相手</th><th scope="col">H/A</th><th scope="col">日付</th><th scope="col">結果・状態</th><th scope="col">勝敗</th></tr></thead>
                   <tbody>{rows.map(t => (result.byTeam.get(t.teamId) ?? []).map((o, i) => <tr key={`${t.teamId}-${o.game.id}`}>
                     {i === 0 && <th scope="rowgroup" rowSpan={2}><span className="team-name-cell"><Logo team={t} size={24} /><ResponsiveTeamName teamId={t.teamId} name={t.teamName} /></span></th>}
                     <td><ResponsiveTeamName teamId={o.opponentId} name={teamById.get(o.opponentId)!.teamName} /></td>
@@ -152,6 +152,7 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
                     <td className="onegame-nowrap">{(o.game.status === "final" || o.game.status === "live") && o.game.homeScore !== undefined
                       ? `${o.game.status === "live" ? "試合中 " : ""}${o.isHome ? o.game.homeScore : o.game.awayScore}-${o.isHome ? o.game.awayScore : o.game.homeScore}`
                       : MATCHUP_STATUS_LABELS[o.game.status]}</td>
+                    <td className="onegame-outcome">{(() => { const w = matchupOutcome(o.game, o.isHome); return w ? <span className={`result-badge ${w}`}>{w === "win" ? "勝" : "負"}</span> : null; })()}</td>
                   </tr>))}</tbody>
                 </table>
               </div>
