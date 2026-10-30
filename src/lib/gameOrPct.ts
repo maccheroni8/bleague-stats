@@ -1,14 +1,13 @@
 // 試合詳細のボックススコア（アドバンスド）の個人 OR% と、内訳集計の %OR。**画面だけの計算（保存キーの対象のファイルからは読まない）**。
 // 個人 OR% = 100 × 本人の OR ÷（本人が出場中の自チーム OR ＋ 出場中の相手 DR）。分母は、在コートの復元（lineupStints）の
-// 区間ごとの数え上げ（countsByPeriod の own.or・opp.dr。チームリバウンド込み）を、本人が含まれる区間について足したもの。
-// 時間の比などの近似は使わない。2020-21 以降（新形式。旧形式の試合は countsByPeriod が無い）で、その試合のデータから
-// 数え上げが公式のチーム合計と合うと判定できたチームだけ出す。
-import type { LineupStint } from "../../shared/onCourt";
+// 区間ごとの数え上げ（新形式は countsByPeriod、旧形式 2016-17〜2019-20 は reboundsByPeriod の own.or・opp.dr。チームリバウンド込み）を、
+// 本人が含まれる区間について足したもの。時間の比などの近似は使わない。その試合のデータから数え上げが公式のチーム合計と合うと判定できたチームだけ出す。
+import { stintReboundsByPeriod, type LineupStint } from "../../shared/onCourt";
 import { safeDiv } from "../../shared/formulas";
 
 /** 個人 OR% を出せない理由 */
 export type OrPctUnavailableReason =
-  /** 旧形式（2016-17〜2019-20）の試合。在コートの数え上げが無い */
+  /** 区間にリバウンドの数え上げが無い（今は起きない。古い作りの読み込みへの備え） */
   | "legacy"
   /** プレーバイプレーが無い試合 */
   | "noPbp"
@@ -51,20 +50,21 @@ function inPeriods(period: number, periods: number[] | null): boolean {
 export function computeTeamOrPct(input: TeamOrPctInput): TeamOrPct {
   const { lineupStints, teamId, opponentTeamId, boxOr, boxOpponentDr, periods } = input;
   if (lineupStints.length === 0) return { available: false, reason: "noPbp" };
-  if (lineupStints.every((s) => !s.countsByPeriod)) return { available: false, reason: "legacy" };
+  const reb = new Map(lineupStints.map((s) => [s, stintReboundsByPeriod(s)] as const));
+  if ([...reb.values()].every((r) => r === null)) return { available: false, reason: "legacy" };
   const own = lineupStints.filter((s) => s.teamId === teamId);
   const opp = lineupStints.filter((s) => s.teamId === opponentTeamId);
   let ownOrTotal = 0;
   let oppDrTotal = 0;
   for (const s of own) {
-    for (const pair of Object.values(s.countsByPeriod ?? {})) {
+    for (const pair of Object.values(reb.get(s) ?? {})) {
       ownOrTotal += pair.own.or;
       oppDrTotal += pair.opp.dr;
       if ((pair.own.or > 0 || pair.opp.dr > 0) && s.playerIds.length !== 5) return { available: false, reason: "mismatch" };
     }
   }
   for (const s of opp) {
-    for (const pair of Object.values(s.countsByPeriod ?? {})) {
+    for (const pair of Object.values(reb.get(s) ?? {})) {
       if (pair.own.dr > 0 && s.playerIds.length !== 5) return { available: false, reason: "mismatch" };
     }
   }
@@ -74,7 +74,7 @@ export function computeTeamOrPct(input: TeamOrPctInput): TeamOrPct {
   for (const s of own) {
     let ownOr = 0;
     let oppDr = 0;
-    for (const [period, pair] of Object.entries(s.countsByPeriod ?? {})) {
+    for (const [period, pair] of Object.entries(reb.get(s) ?? {})) {
       if (!inPeriods(Number(period), periods)) continue;
       ownOr += pair.own.or;
       oppDr += pair.opp.dr;
@@ -103,7 +103,7 @@ export function orShare(groupOr: number, teamOr: number): number | null {
 }
 
 export const OR_PCT_UNAVAILABLE_NOTE: Record<OrPctUnavailableReason, string> = {
-  legacy: "2016-17〜2019-20の試合は、個人のOR%を出していません（在コート基準の再集計で対応予定です）",
+  legacy: "この試合は、出場中のリバウンドの記録が無いため、個人のOR%を出していません",
   noPbp: "この試合はプレーバイプレーの記録が無いため、個人のOR%を出していません",
   mismatch: "この試合は、リバウンドの記録が出場選手の復元と合わないため、個人のOR%を出していません",
 };

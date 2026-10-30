@@ -59,8 +59,8 @@ function teamOrPctOf(game: StoredGame, stints: ReturnType<typeof reconstruct>["l
 
 /** 独立した数え上げ: PBP を1行ずつたどる（区間の関数・時刻による区間判定は使わない）。期間を指定できる */
 function independentDenominators(game: StoredGame, periods: number[] | null) {
-  const model = substitutionModelForSeason(game.season);
-  if (model !== "modern") throw new Error("新形式のみ");
+  // 旧形式（2016-17〜2019-20）: 交代は 89（PlayerID1＝退場・PlayerID2＝入場）、OR＝10・18、DR＝9・19。新形式: 86・87、OR＝10・19、DR＝9・18
+  const legacy = substitutionModelForSeason(game.season) === "legacy";
   const home = game.homeTeam.id;
   const away = game.awayTeam.id;
   const active: Record<string, Set<string>> = { [home]: new Set(), [away]: new Set() };
@@ -71,9 +71,13 @@ function independentDenominators(game: StoredGame, periods: number[] | null) {
     if (!t || !active[t]) continue;
     const c = e.ActionCD1;
     if (c === 86 && e.PlayerID1) active[t]!.add(e.PlayerID1);
-    if (c === 87 && e.PlayerID1) active[t]!.delete(e.PlayerID1);
-    const isOr = c === 10 || c === 19;
-    const isDr = c === 9 || c === 18;
+    if (!legacy && c === 87 && e.PlayerID1) active[t]!.delete(e.PlayerID1);
+    if (legacy && c === 89 && e.PlayerID1 && e.PlayerID2) {
+      active[t]!.delete(e.PlayerID1);
+      active[t]!.add(e.PlayerID2);
+    }
+    const isOr = legacy ? c === 10 || c === 18 : c === 10 || c === 19;
+    const isDr = legacy ? c === 9 || c === 19 : c === 9 || c === 18;
     if (!isOr && !isDr) continue;
     const attacking = isOr ? t : t === home ? away : home;
     if (active[attacking]!.size !== 5 || active[attacking === home ? away : home]!.size !== 5) notFive += 1;
@@ -88,13 +92,12 @@ function independentDenominators(game: StoredGame, periods: number[] | null) {
   return { denominators: out, notFive };
 }
 
-function compareGame(season: string, key: string, league: "premier" | "one" = "premier"): { game: StoredGame; stints: ReturnType<typeof reconstruct>["lineupStints"] } {
-  const game = loadGame(season, key, league);
-  const rec = reconstruct(game);
+/** 画面の分母と独立の数え上げを、全期間・全選手で比べる。食い違いの説明の一覧（空なら一致）と比べた件数 */
+function compareDenominators(game: StoredGame, rec: ReturnType<typeof reconstruct>): { bad: string[]; compared: number; options: number } {
   const periodsTotal = onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays);
   const options = buildPeriodRangeOptions(periodsTotal);
   let compared = 0;
-  let bad: string[] = [];
+  const bad: string[] = [];
   for (const option of options) {
     const indep = independentDenominators(game, option.periods);
     for (const home of [true, false]) {
@@ -113,7 +116,14 @@ function compareGame(season: string, key: string, league: "premier" | "one" = "p
       }
     }
   }
-  check(`${league} ${season}:${key} 全期間・全選手で独立の数え上げと分母が一致（${compared}件 / 期間${options.length}通り）`, bad.length === 0 && compared > 0, bad.slice(0, 5).join("\n   "));
+  return { bad, compared, options: options.length };
+}
+
+function compareGame(season: string, key: string, league: "premier" | "one" = "premier"): { game: StoredGame; stints: ReturnType<typeof reconstruct>["lineupStints"] } {
+  const game = loadGame(season, key, league);
+  const rec = reconstruct(game);
+  const { bad, compared, options } = compareDenominators(game, rec);
+  check(`${league} ${season}:${key} 全期間・全選手で独立の数え上げと分母が一致（${compared}件 / 期間${options}通り）`, bad.length === 0 && compared > 0, bad.slice(0, 5).join("\n   "));
   return { game, stints: rec.lineupStints };
 }
 
@@ -138,6 +148,10 @@ check("5854 ジェフ・ギブス 15.0%", round1(pctOf(g5854.game, g5854.stints,
 check("5854 ジャック・クーリー 21.9%", round1(pctOf(g5854.game, g5854.stints, "クーリー")) === 21.9, String(pctOf(g5854.game, g5854.stints, "クーリー")));
 check("507159 ジェイコブ・ポラコヴィッチ 25.0%", round1(pctOf(g507159.game, g507159.stints, "ポラコヴィッチ")) === 25.0, String(pctOf(g507159.game, g507159.stints, "ポラコヴィッチ")));
 check("507159 アルナルド・トロ 16.7%", round1(pctOf(g507159.game, g507159.stints, "トロ")) === 16.7, String(pctOf(g507159.game, g507159.stints, "トロ")));
+// 旧形式（2016-17〜2019-20。在コートの復元の reboundsByPeriod）: 2018-19 3000 ガニ・ラワル 5/(8+25)=15.2%
+const g3000 = compareGame("2018-19", "3000");
+check("3000 ガニ・ラワル 15.2%（5/(8+25)）", round1(pctOf(g3000.game, g3000.stints, "ラワル")) === 15.2, String(pctOf(g3000.game, g3000.stints, "ラワル")));
+check("旧形式の区間は countsByPeriod を持たない（攻撃回数を数えたことにしない）", g3000.stints.every((s) => s.countsByPeriod === undefined && s.reboundsByPeriod !== undefined));
 
 // --- 期間を選ぶと変わる・分母0で「-」 ---
 {
@@ -165,10 +179,9 @@ check("507159 アルナルド・トロ 16.7%", round1(pctOf(g507159.game, g50715
 
 // --- 出せない場合 ---
 {
-  const game = loadGame("2018-19", "3000");
-  const rec = reconstruct(game);
-  const res = teamOrPctOf(game, rec.lineupStints, true, null);
-  check("旧形式（2018-19 3000）は legacy", !res.available && res.reason === "legacy", JSON.stringify(res));
+  const stripped = g3000.stints.map(({ reboundsByPeriod: _r, countsByPeriod: _c, ...rest }) => rest);
+  const res = teamOrPctOf(g3000.game, stripped, true, null);
+  check("区間にリバウンドの数え上げが無ければ legacy", !res.available && res.reason === "legacy", JSON.stringify(res));
   const none = teamOrPctOf(g5854.game, [], true, null);
   check("PBP なし（区間が空）は noPbp", !none.available && none.reason === "noPbp");
   const own = g5854.game.raw.HomeBoxscores;
@@ -190,11 +203,14 @@ check("507159 アルナルド・トロ 16.7%", round1(pctOf(g507159.game, g50715
 }
 
 // --- 全試合の走査（--all） ---
+const allDiffers: string[] = [];
 if (process.argv.includes("--all")) {
   for (const league of ["premier", "one"] as const) {
-    const seasons = readdirSync(DATA_DIR).filter((s) => /^\d{4}-\d{2}$/.test(s) && s >= "2020-21");
+    const seasons = readdirSync(DATA_DIR).filter((s) => /^\d{4}-\d{2}$/.test(s));
     for (const season of seasons) {
       let games = 0;
+      let compared = 0;
+      const differs: string[] = [];
       const unavailable: Record<string, string[]> = {};
       let list: StoredGame[] = [];
       try {
@@ -210,8 +226,14 @@ if (process.argv.includes("--all")) {
           const res = teamOrPctOf(game, rec.lineupStints, home, null);
           if (!res.available) (unavailable[res.reason] ??= []).push(`${game.scheduleKey}${home ? "H" : "A"}`);
         }
+        // 独立の数え上げとの照合（全期間・全選手。出せるチームだけ）
+        const cmp = compareDenominators(game, rec);
+        const differing = cmp.bad.filter((b) => !b.includes("出せない"));
+        compared += cmp.compared;
+        if (differing.length > 0) differs.push(`${game.scheduleKey}(${differing.length})`);
       }
-      console.log(`${league} ${season}: PBPのある試合 ${games} / 出せないチーム ${Object.entries(unavailable).map(([k, v]) => `${k} ${v.length}（${v.slice(0, 8).join(",")}）`).join("、") || "なし"}`);
+      console.log(`${league} ${season}: PBPのある試合 ${games} / 出せないチーム ${Object.entries(unavailable).map(([k, v]) => `${k} ${v.length}（${v.slice(0, 8).join(",")}）`).join("、") || "なし"} / 独立の数え上げと違う試合 ${differs.length}（${differs.slice(0, 8).join(",")}）・照合 ${compared}件`);
+      allDiffers.push(...differs.map((d) => `${league} ${season}:${d}`));
     }
   }
 }

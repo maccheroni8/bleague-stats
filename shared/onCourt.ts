@@ -206,10 +206,43 @@ export interface LineupStint {
   pointsByPeriod: Record<number, { own: number; opp: number }>;
   /**
    * ポゼッション・FGM/FGA・FTM/FTA・TOV・OR/DR・AST などの数え上げ（ピリオド別。キーはPeriod）。
-   * 2020-21以降のみ（旧形式のプレーバイプレーはチームリバウンドが欠けているため数えない）。DESIGN.md 204章
+   * 2020-21以降のみ。DESIGN.md 204章。旧形式（2016-17〜2019-20）は、攻撃の終わりの判定が新形式の記録の番号を前提にしているので数えない
+   * （旧形式もチームリバウンドの記録はある。1810以外の全試合で、プレーバイプレーの OR・DR がボックススコアのチーム合計と一致する。DESIGN.md 300-3章）
    */
   countsByPeriod?: Record<number, StintCountsPair>;
+  /**
+   * 旧形式（2016-17〜2019-20）だけの、リバウンドの数え上げ（ピリオド別。キーはPeriod）。旧形式の番号は 10・18＝OR、9・19＝DR（新形式は 18＝DR・19＝OR）。
+   * countsByPeriod とは別に持つ（countsByPeriod がある＝攻撃回数も実際に数えた、という前提を崩さないため）。個人 OR% の分母に使う
+   */
+  reboundsByPeriod?: Record<number, StintReboundPair>;
 }
+
+/** リバウンドだけの数え上げ（旧形式の reboundsByPeriod） */
+export interface StintRebounds {
+  or: number;
+  dr: number;
+}
+export interface StintReboundPair {
+  own: StintRebounds;
+  opp: StintRebounds;
+}
+
+/** 区間の、ピリオドごとのリバウンド（新形式は countsByPeriod、旧形式は reboundsByPeriod から）。どちらも無ければ null */
+export function stintReboundsByPeriod(stint: LineupStint): Record<number, StintReboundPair> | null {
+  if (stint.countsByPeriod) {
+    const out: Record<number, StintReboundPair> = {};
+    for (const [p, pair] of Object.entries(stint.countsByPeriod)) {
+      out[Number(p)] = { own: { or: pair.own.or, dr: pair.own.dr }, opp: { or: pair.opp.or, dr: pair.opp.dr } };
+    }
+    return out;
+  }
+  return stint.reboundsByPeriod ?? null;
+}
+
+// 旧形式のリバウンドの番号（DESIGN.md 289・300-3章）
+const LEGACY_OR_CODES = new Set([10, 18]);
+const LEGACY_DR_CODES = new Set([9, 19]);
+const LEGACY_REBOUND_CODES = new Set([...LEGACY_OR_CODES, ...LEGACY_DR_CODES]);
 
 export interface OnCourtReconstruction {
   intervals: OnCourtInterval[];
@@ -278,6 +311,7 @@ function buildRelevantEvents(
   warnings: OnCourtWarning[],
   model: SubstitutionModel,
   countStats: boolean,
+  countLegacyRebounds = false,
 ): RelevantEvent[] {
   const events: RelevantEvent[] = [];
   for (const ev of playByPlays) {
@@ -297,7 +331,7 @@ function buildRelevantEvents(
       });
       continue;
     }
-    if (countStats && STAT_CODES.has(ev.ActionCD1)) {
+    if ((countStats && STAT_CODES.has(ev.ActionCD1)) || (countLegacyRebounds && LEGACY_REBOUND_CODES.has(ev.ActionCD1))) {
       if (ev.TeamID) {
         events.push({
           elapsedSec: elapsedSeconds(ev.Period, ev.RestTime),
@@ -777,7 +811,7 @@ export function reconstructOnCourt(
   awayTeamId: string,
   totalPeriods: number,
   substitutionModel: SubstitutionModel,
-  options: { repairSubOrder?: boolean; countStats?: boolean } = {},
+  options: { repairSubOrder?: boolean; countStats?: boolean; countLegacyRebounds?: boolean } = {},
 ): OnCourtReconstruction {
   const warnings: OnCourtWarning[] = [];
 
@@ -818,8 +852,9 @@ export function reconstructOnCourt(
     opp: number;
     byPeriod: Record<number, { own: number; opp: number }>;
     counts: Record<number, StintCountsPair>;
+    rebounds: Record<number, StintReboundPair>;
   };
-  const newStint = (start: number): StintAcc => ({ start, net: 0, own: 0, opp: 0, byPeriod: {}, counts: {} });
+  const newStint = (start: number): StintAcc => ({ start, net: 0, own: 0, opp: 0, byPeriod: {}, counts: {}, rebounds: {} });
   const currentStint: Record<string, StintAcc> = {
     [homeTeamId]: newStint(0),
     [awayTeamId]: newStint(0),
@@ -851,7 +886,25 @@ export function reconstructOnCourt(
     else if (c === 12) bumpCount(e.teamId, e.period, "ast");
     else if (c === 13 || c === 17) bumpCount(e.teamId, e.period, "tov");
   };
+  /** 旧形式のリバウンド（reboundsByPeriod）。動いたチームの own と、相手のスティントの opp に加える */
+  const bumpLegacyRebound = (e: RelevantEvent) => {
+    const c = e.actionCd;
+    const key: keyof StintRebounds | null = c !== undefined && LEGACY_OR_CODES.has(c) ? "or" : c !== undefined && LEGACY_DR_CODES.has(c) ? "dr" : null;
+    if (!key) return;
+    const opponentId = e.teamId === homeTeamId ? awayTeamId : homeTeamId;
+    for (const [id, side] of [[e.teamId, "own"], [opponentId, "opp"]] as const) {
+      const stint = currentStint[id];
+      if (!stint) continue;
+      const pair = stint.rebounds[e.period] ?? { own: { or: 0, dr: 0 }, opp: { or: 0, dr: 0 } };
+      pair[side][key] += 1;
+      stint.rebounds[e.period] = pair;
+    }
+  };
   const countStatLike = (e: RelevantEvent) => {
+    if (!countStats) {
+      if (e.kind === "stat" && countLegacyRebounds) bumpLegacyRebound(e);
+      return;
+    }
     if (e.kind === "poss") {
       bumpCount(e.teamId, e.period, "poss");
       if (e.implicit) bumpCount(e.teamId, e.period, "implicitEnds");
@@ -866,9 +919,11 @@ export function reconstructOnCourt(
     byPeriod[period] = acc;
   };
 
-  // ポゼッションなどの数え上げは2020-21以降（modernモデル）だけ。旧形式のプレーバイプレーはチームリバウンドの行が欠けている（DESIGN.md 204章）
+  // ポゼッションなどの数え上げは2020-21以降（modernモデル）だけ。攻撃の終わりの判定（injectPossessionEvents）が新形式の番号を前提にしているため（DESIGN.md 204・300-3章）
   const countStats = options.countStats ?? substitutionModel === "modern";
-  const rawEvents = buildRelevantEvents(playByPlays, warnings, substitutionModel, countStats);
+  // 旧形式は、リバウンドだけを別に数える（reboundsByPeriod。数え上げ countStats とは別）
+  const countLegacyRebounds = !countStats && substitutionModel === "legacy" && options.countLegacyRebounds !== false;
+  const rawEvents = buildRelevantEvents(playByPlays, warnings, substitutionModel, countStats, countLegacyRebounds);
   // 同じ秒の交代の間にフリースローが挟まる並びは、交代をフリースローの前とみなす（検証スクリプトは false で補正前と比べる）
   const orderRepairs = options.repairSubOrder === false ? [] : repairSubOrderAroundFreeThrows(rawEvents);
   const events = countStats ? injectPossessionEvents(rawEvents) : rawEvents;
@@ -985,6 +1040,7 @@ export function reconstructOnCourt(
     // （試合開始直後の最初のバッチは在コートが空集合からのスタートなので対象外）
     const lineupAfterBatch = lineupKeyOf(onCourt[teamId]!);
     let carriedCounts: Record<number, StintCountsPair> | null = null;
+    let carriedRebounds: Record<number, StintReboundPair> | null = null;
     if (lineupAfterBatch !== lineupBeforeBatch && playersBeforeBatch.length === 5) {
       const stint = currentStint[teamId]!;
       // 長さ0秒で得点も無いスティントは残さない（上の区間と同じ理由）
@@ -1000,16 +1056,19 @@ export function reconstructOnCourt(
           oppPoints: stint.opp,
           pointsByPeriod: stint.byPeriod,
           ...(countStats ? { countsByPeriod: stint.counts } : {}),
+          ...(countLegacyRebounds ? { reboundsByPeriod: stint.rebounds } : {}),
         });
-      } else if (hasAnyCount(stint.counts)) {
+      } else {
         // 長さ0秒で得点も無いスティントは残さない（上の区間と同じ理由）。数え上げが入っていたときは、次のスティントに引き継ぐ
         // （同じ秒の交代の間に起きた記録。取りこぼさないため）
-        carriedCounts = stint.counts;
+        if (hasAnyCount(stint.counts)) carriedCounts = stint.counts;
+        if (Object.keys(stint.rebounds).length > 0) carriedRebounds = stint.rebounds;
       }
     }
     if (lineupAfterBatch !== lineupBeforeBatch) {
       currentStint[teamId] = newStint(t);
       if (carriedCounts) currentStint[teamId]!.counts = carriedCounts;
+      if (carriedRebounds) currentStint[teamId]!.rebounds = carriedRebounds;
     }
     for (const x of deferred) countStatLike(x);
     i = j;
@@ -1031,6 +1090,7 @@ export function reconstructOnCourt(
         oppPoints: stint.opp,
         pointsByPeriod: stint.byPeriod,
         ...(countStats ? { countsByPeriod: stint.counts } : {}),
+        ...(countLegacyRebounds ? { reboundsByPeriod: stint.rebounds } : {}),
       });
     }
     for (const [playerId, start] of openStart[teamId]!.entries()) {
