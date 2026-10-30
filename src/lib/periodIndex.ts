@@ -1,7 +1,8 @@
 // ピリオド別の索引（data/{season}/player-period-index.json.gz。形式は shared/periodIndex.ts、DESIGN.md 225章）を読む。
 // 1試合行の索引（gameIndex.ts）の行に結び付けて、Q別・前後半の値を持つ「選手の1試合」にする。集計のコードから読まれない場所（src/lib の保存キーの対象外）に置く。
 // 前半・後半は 1Q+2Q／3Q+4Q の合計（選手の値は足し算で出せる。シーズン成績のQ別と同じ関数で出した値を、直接出した前半・後半と全行で照合済み。validate:period-index）。
-import { PERIOD_INDEX_VERSION, PERIOD_ROW_FLAG_PLUS_MINUS, PLAYER_PERIOD_STAT_COLUMNS, type PlayerPeriodIndexFile, type PlayerPeriodStatColumn } from "../../shared/periodIndex";
+import { PERIOD_INDEX_VERSION, PERIOD_ROW_FLAG_PLUS_MINUS,
+  PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED, PLAYER_PERIOD_STAT_COLUMNS, type PlayerPeriodIndexFile, type PlayerPeriodStatColumn } from "../../shared/periodIndex";
 import { playerGameAt, type IndexedPlayerGame, type PlayerGameIndexView } from "./gameIndex";
 
 /** 1試合記録で選べる区間（試合全体を除く） */
@@ -64,9 +65,9 @@ export function periodGameAt(main: PlayerGameIndexView, period: PlayerPeriodView
   for (let k = from; k < period.end[i]!; k++) {
     if (!atoms.includes(periods[k]!)) continue;
     found = true;
-    const officialPm = (flags[k]! & PERIOD_ROW_FLAG_PLUS_MINUS) !== 0;
+    const officialPm = (flags[k]! & (PERIOD_ROW_FLAG_PLUS_MINUS | PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED)) !== 0;
     if (officialPm) hasPlusMinus = true;
-    // 公式の値の無い行の plusMinus（復元の値。PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED）は、ここでは足さない
+    // 公式の値（2022-23以降）か、復元の値（2016-17〜2021-22。PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED）のある行の plusMinus だけ足す
     for (const c of PLAYER_PERIOD_STAT_COLUMNS) if (c !== "plusMinus" || officialPm) sum[c] += stats[c][k]!;
   }
   if (!found) return null;

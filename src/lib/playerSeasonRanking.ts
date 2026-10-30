@@ -136,6 +136,23 @@ export function rawTotalsFromPlayerSummary(p: PlayerSummary): PlayerSeasonRawTot
     onCourtOwnPoss: 0,
     onCourtOppPoss: 0,
     onCourtSeconds: 0,
+    // 出場中の割合（Scoring・AST%）は試合ログからだけ出す（この経路の項目は「-」）
+    ocGames: 0,
+    ocPts: 0,
+    ocFgm: 0,
+    ocFga: 0,
+    ocTpm: 0,
+    ocTpa: 0,
+    ocFtm: 0,
+    ocFta: 0,
+    ocTeamPts: 0,
+    ocTeamFgm: 0,
+    ocTeamFga: 0,
+    ocTeamTpm: 0,
+    ocTeamTpa: 0,
+    ocTeamFtm: 0,
+    ocTeamFta: 0,
+    ocFgAssists: 0,
   };
 }
 
@@ -182,6 +199,12 @@ export function boxColumnItem(col: SeasonBoxscoreColumn, mode: PlayerRankMode): 
  * 平均/合計で値が変わらない項目（割合・率・試合数）。これらとProfile・Careerでは、平均/合計の切り替えを無効にする（DESIGN.md 179章）。
  * 名前に pct を含む項目（FG%・TOV%・%PTS・PAINT2%・シューティングの 2P% 等）もここに入れる
  */
+/** 出場中の値で計算する項目（Scoring の %PTS〜%FTA・Misc の AST%。在コート基準の再集計。DESIGN.md 303章）。出場中の記録がそろう試合が無い選手は並べない */
+export const ON_COURT_SHARE_STAT_KEYS: ReadonlySet<string> = new Set(["pctpts", "pctfgm", "pctfga", "pct3pm", "pct3pa", "pct2pm", "pct2pa", "pctftm", "pctfta", "astpct"]);
+export { onCourtShareSeasonUnsupported } from "./onCourtShareSeason";
+export const ON_COURT_SHARE_LEGACY_REASON = (label: string) =>
+  `「${label}」は選手の出場中の記録から計算するため、2016-17〜2019-20のシーズンは出していません（出場中の記録の数え上げが無いため）。`;
+
 export const DDTD_PERIOD_REASON = (label: string) => `「${label}」は試合全体の記録でしか判定できないため、Q別・前後半を選んでいるときは対象外です。`;
 
 const MODE_INVARIANT_KEYS: ReadonlySet<string> = new Set(["g", "gs", "asttov", "usg", "efg", "ts", "pps", "poss", "pace", "ortg", "drtg", "netrtg", "per", "ppp"]);
@@ -197,6 +220,8 @@ export function displayModeApplies(category: string, statKey: string): boolean {
 export interface DoubleCounts {
   dd: number;
   td: number;
+  /** 二桁得点試合（PTS10）。値の無い古いデータは undefined（「-」） */
+  p10?: number;
   games: number;
 }
 
@@ -205,21 +230,24 @@ export function doubleItems(countsOf: (p: PlayerSummary) => DoubleCounts | undef
   const defs = [
     { key: "dd2", label: "DD2", count: (c: DoubleCounts) => c.dd },
     { key: "td3", label: "TD3", count: (c: DoubleCounts) => c.td },
+    { key: "pts10", label: "PTS10", count: (c: DoubleCounts) => c.p10 },
   ];
   return defs.map((d) => ({
     key: d.key,
     label: d.label,
     value: (p) => {
       const c = countsOf(p);
-      if (!c) return 0;
-      return mode === "total" ? d.count(c) : c.games > 0 ? d.count(c) / c.games : 0;
+      const n = c ? d.count(c) : undefined;
+      if (!c || n === undefined) return 0;
+      return mode === "total" ? n : c.games > 0 ? n / c.games : 0;
     },
     format: (p) => {
       const c = countsOf(p);
-      if (!c) return "-";
-      if (mode === "total") return `${d.count(c)}回`;
-      const rate = c.games > 0 ? (100 * d.count(c)) / c.games : 0;
-      return `${rate.toFixed(1)}%（${d.count(c)}/${c.games}）`;
+      const n = c ? d.count(c) : undefined;
+      if (!c || n === undefined) return "-";
+      if (mode === "total") return `${n}回`;
+      const rate = c.games > 0 ? (100 * n) / c.games : 0;
+      return `${rate.toFixed(1)}%（${n}/${c.games}）`;
     },
   }));
 }
@@ -365,9 +393,11 @@ export function buildPlayerConditionDefs(
       // Q別/前後半を選んでいるときは値なし（「-」）で、条件に当てはまる選手がいなくなる（DESIGN.md 180章）
       const dd = (p: PlayerSummary, m: PlayerRankMode) => (ddtdOff ? "-" : doubleConditionText(doublesOf(p), doublesOf(p)?.dd, m));
       const td = (p: PlayerSummary, m: PlayerRankMode) => (ddtdOff ? "-" : doubleConditionText(doublesOf(p), doublesOf(p)?.td, m));
+      const p10 = (p: PlayerSummary, m: PlayerRankMode) => (ddtdOff ? "-" : doubleConditionText(doublesOf(p), doublesOf(p)?.p10, m));
       defs.push(
         { key: "dd2", label: "DD2", group: tab.label, display: (p) => dd(p, mode), displayOther: (p) => dd(p, other) },
         { key: "td3", label: "TD3", group: tab.label, display: (p) => td(p, mode), displayOther: (p) => td(p, other) },
+        { key: "pts10", label: "PTS10", group: tab.label, display: (p) => p10(p, mode), displayOther: (p) => p10(p, other) },
       );
     }
     if (tab.key === "advanced") {
@@ -725,10 +755,10 @@ export function usePlayerSeasonRanking(
         const logs = classLogs(gameLogsByPlayer, p.playerId);
         const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
         const played = filterByGameType(situational, effGameType).filter((g) => g.min > 0);
-        const { dd, td } = countDoubleTripleDoubles(played);
-        map.set(p.playerId, { dd, td, games: played.length });
+        const { dd, td, p10 } = countDoubleTripleDoubles(played);
+        map.set(p.playerId, { dd, td, p10, games: played.length });
       } else {
-        map.set(p.playerId, { dd: p.totals.doubleDoubles, td: p.totals.tripleDoubles, games: p.gamesPlayed });
+        map.set(p.playerId, { dd: p.totals.doubleDoubles, td: p.totals.tripleDoubles, p10: p.totals.points10Games, games: p.gamesPlayed });
       }
     }
     return map;
@@ -739,7 +769,7 @@ export function usePlayerSeasonRanking(
   // 平均/合計（DESIGN.md 179章）。割合の項目・Profile・Career では切り替えを無効にし、平均として扱う。
   // ctxByPlayer は1試合平均の値なので、合計のときはシーズン合計の値の ctx を作り直す
   // DD2・TD3 は試合全体の記録でしか判定できないため、Q別/前後半を選んでいるときは対象外にする（DESIGN.md 180章）
-  const ddtdPeriodOff = effPeriodActive && (statKey === "dd2" || statKey === "td3");
+  const ddtdPeriodOff = effPeriodActive && (statKey === "dd2" || statKey === "td3" || statKey === "pts10");
   const modeApplies = displayModeApplies(category, statKey) && !ddtdPeriodOff;
   const rankMode: PlayerRankMode = modeApplies && displayMode === "total" ? "total" : "perGame";
   const totalCtxByPlayer = useMemo(() => {
@@ -753,7 +783,7 @@ export function usePlayerSeasonRanking(
   // DD2・TD3（値に「27/60」と試合数が入っている）は添えない。EFF・シューティングはシーズンの出場試合数で割っている
   const gamesDividedBy = (p: PlayerSummary): number | undefined => {
     if (!modeApplies || rankMode !== "perGame") return undefined;
-    if (statKey === "dd2" || statKey === "td3") return undefined;
+    if (statKey === "dd2" || statKey === "td3" || statKey === "pts10") return undefined;
     if (category === "shooting" || statKey === "eff") return p.gamesPlayed;
     return ctxByPlayer?.get(p.playerId)?.raw.gamesPlayed;
   };
@@ -768,11 +798,13 @@ export function usePlayerSeasonRanking(
     // 延長は、条件で絞ったあとの延長に出た試合が基準以上の選手だけ（256章の決定4）
     const minGames = overtimeActive && effPeriodActive ? OVERTIME_MIN_GAMES : 1;
     const played = eligible.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.gamesPlayed ?? 0) >= minGames);
+    // 出場中の値で計算する項目は、出場中の記録がそろう試合がある選手だけ（DESIGN.md 303章）
+    if (ON_COURT_SHARE_STAT_KEYS.has(statKey)) return played.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.ocGames ?? 0) > 0);
     // DD2・TD3 は0回（0%）の選手を並べない（平均・合計とも。DESIGN.md 179章）
-    if (statKey === "dd2" || statKey === "td3") {
+    if (statKey === "dd2" || statKey === "td3" || statKey === "pts10") {
       return played.filter((p) => {
         const c = doublesByPlayer.get(p.playerId);
-        return !!c && (statKey === "dd2" ? c.dd : c.td) > 0;
+        return !!c && ((statKey === "dd2" ? c.dd : statKey === "td3" ? c.td : c.p10) ?? 0) > 0;
       });
     }
     return played;

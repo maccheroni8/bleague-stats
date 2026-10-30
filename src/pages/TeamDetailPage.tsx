@@ -141,6 +141,7 @@ import {
 } from "../lib/situational";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
+import { OnCourtShareNote } from "../components/OnCourtShareNote";
 import { filterFoulColumns, foulColumnsSplit } from "../lib/ruleChange";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageForSeason } from "../lib/age";
@@ -5519,6 +5520,10 @@ export function TeamDetailPage({ season }: { season: string }) {
                   hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
                 {playerStatsRows.length > 0 && <HeightWeightNote players={players} />}
                 {playerStatsBoxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
+                <OnCourtShareNote
+                  tab={playerStatsBoxTab}
+                  rows={(playerStatsRows ?? []).map((r) => ({ season, gamesPlayed: r.ctx.raw.gamesPlayed, ocGames: r.ctx.raw.ocGames }))}
+                />
                 </>
               )}
             </>
@@ -6232,7 +6237,7 @@ interface PlayerStatsCandidate {
 interface TeamPlayerStatsRow {
   player: PlayerSummary;
   ctx: SeasonBoxscoreCtx;
-  ddtd: { dd: number; td: number };
+  ddtd: { dd: number; td: number; p10: number };
   /** シューティングタブ用: この行（選手×このチーム在籍分）に属する試合ログ */
   logs: PlayerGameLog[];
 }
@@ -6317,6 +6322,8 @@ function TeamPlayerStatsTable({
         return ddtdUnavailable ? 0 : r.ddtd.dd;
       case "td3":
         return ddtdUnavailable ? 0 : r.ddtd.td;
+      case "pts10":
+        return ddtdUnavailable ? 0 : r.ddtd.p10;
       default: {
         if (tab === "shooting") {
           const col = shotColumns.find((c) => c.key === key);
@@ -6402,6 +6409,9 @@ function TeamPlayerStatsTable({
                     <th className="align-right sortable-col" title={statDescription("TD3")} onClick={() => handleHeaderClick("td3")} aria-sort={sortAria("td3")}>
                       TD3{sortIndicator("td3")}
                     </th>
+                    <th className="align-right sortable-col" title={statDescription("PTS10")} onClick={() => handleHeaderClick("pts10")} aria-sort={sortAria("pts10")}>
+                      PTS10{sortIndicator("pts10")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -6433,6 +6443,7 @@ function TeamPlayerStatsTable({
                           ))}
                       <td className="align-right">{ddtdUnavailable ? "-" : r.ddtd.dd}</td>
                       <td className="align-right">{ddtdUnavailable ? "-" : r.ddtd.td}</td>
+                      <td className="align-right">{ddtdUnavailable ? "-" : r.ddtd.p10}</td>
                     </tr>
                   ))}
                 </tbody>

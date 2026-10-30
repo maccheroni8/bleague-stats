@@ -14,7 +14,8 @@ import {
   computeTeamRatings,
   type BoxscoreCounts,
 } from "./boxscoreAggregate";
-import type { ColumnCtx } from "../components/BoxscoreTable";
+import type { ColumnCtx, OnCourtShareCounts } from "../components/BoxscoreTable";
+import { periodOnCourtShareFromGame, reconstructedPlusMinusOf } from "./playerSeasonBoxscore";
 import { computeOnCourtRatings, onCourtPeriodCount, reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
 
 export interface PlayerGameBoxscoreRow {
@@ -68,9 +69,13 @@ export function buildPlayerGameBoxscoreRow(
     onCourtPace = computeOnCourtRatings(onCourt.intervals)[playerId]?.pace;
   }
 
+  // 出場中の割合（%PTS〜%FTA）・AST% の分母（試合詳細と同じ。出せない試合は「-」）と、公式の値の無いシーズンの復元の +/-（DESIGN.md 303章）
+  const ocShare = periodOnCourtShareFromGame(game, gameLog.isHome, playerId, undefined) ?? null;
+  const reconPm = player.counts.hasPlusMinus ? null : reconstructedPlusMinusOf(game, gameLog.isHome, playerId, undefined);
+  const pm = reconPm === null ? {} : { plusMinus: reconPm, hasPlusMinus: true };
   return {
     gameLog,
-    counts: { ...player.counts, offRtg, defRtg, netRtg, onCourtPace },
+    counts: { ...player.counts, ...pm, offRtg, defRtg, netRtg, onCourtPace, ocShare } as OnCourtShareCounts,
     // ctx.ratingsは意図的に省略する（BoxscoreTeamPanelのplayerCtxと同じ扱い）。
     // POSS列の表示条件が`ctx.ratings`の有無だけで判定されており（「選手個人のPOSSという
     // 概念は無い」という既存の設計）、ここに含めるとチーム合計行専用のはずのPOSSが

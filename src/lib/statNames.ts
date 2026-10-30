@@ -71,6 +71,7 @@ export const STAT_NAMES: Record<string, StatJaName> = {
   "opp PTS": "失点",
   DD2: "ダブルダブル",
   TD3: "トリプルダブル",
+  PTS10: "二桁得点試合",
 
   // --- Advanced ---
   "USG%": "ユーセージ%",
@@ -90,6 +91,8 @@ export const STAT_NAMES: Record<string, StatJaName> = {
   FTR: "フリースロー率",
   "OR%": "オフェンスリバウンド率",
   "%OR": "チームORに占める割合",
+  "%USG": "チームのユーセージに占める割合",
+  "%AST": "チームASTに占める割合",
 
   // --- Misc ---
   PITP: "ペイント内得点",

@@ -113,7 +113,7 @@ import {
 } from "../components/ClassificationCompositionChart";
 import { formatDecimal, formatPct, formatRecord, formatSigned, formatWinPct } from "../lib/format";
 import { offensiveRating, safeDiv } from "../../shared/formulas";
-import { SHOT_TYPE_DISPLAY_ORDER, shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
+import { SHOT_TYPE_DISPLAY_ORDER, shotTypeDiffColumns, shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import {
   CAREER_TOTAL_DEFS,
   TEAM_RECORD_STATS,
@@ -697,7 +697,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
             ),
           sampleRows: conditionRows,
           shotTypesOf: (r) => teamById.get(r.team.teamId)?.shotTypes,
-          shotGamesOf: (r) => teamById.get(r.team.teamId)?.gamesPlayed ?? 0,
+          shotGamesOf: (r) => teamById.get(r.team.teamId)?.shotTypeGames ?? teamById.get(r.team.teamId)?.gamesPlayed ?? 0,
           shotTypeKeys: SHOT_TYPE_DISPLAY_ORDER,
         }),
         conditionRows,
@@ -787,7 +787,12 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   }, []);
 
   const shootingRows: ShootingRow[] = (teams ?? []).filter((t) => t.shotTypes && passes(t.teamId)).map((team) => ({ team }));
-  const shotTypeKeys = sortShotTypeKeys([...new Set(shootingRows.flatMap((r) => Object.keys(r.team.shotTypes ?? {})))]);
+  const shotTypeKeys = sortShotTypeKeys([
+    ...new Set(shootingRows.flatMap((r) => [...Object.keys(r.team.shotTypes ?? {}), ...Object.keys(r.team.opponentShotTypes ?? {})])),
+  ]);
+  // 平均の分母は、スポーツナビの記録がある試合の数（記録の無い試合を入れない。古いデータは出場試合数。DESIGN.md 303章）
+  const shotGamesOf = (r: ShootingRow) => r.team.shotTypeGames ?? r.team.gamesPlayed;
+  const shotMode = displayMode === "total" ? "total" : "perGame";
   const shootingColumns: Column<ShootingRow>[] = [
     {
       key: "team",
@@ -801,12 +806,15 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
         </span>
       ),
     },
-    ...shotTypeEntityColumns<ShootingRow>(
-      shotTypeKeys,
-      (r) => r.team.shotTypes,
-      displayMode === "total" ? "total" : "perGame",
-      (r) => r.team.gamesPlayed,
-    ),
+    // 視点（自チーム／opp／+/-）は Forced TOV と同じ切り替え。opp は相手のショット、+/- は自チーム − 相手（成功率はパーセントポイントの差）
+    ...(teamPerspective === "diff"
+      ? shotTypeDiffColumns<ShootingRow>(shotTypeKeys, (r) => r.team.shotTypes, (r) => r.team.opponentShotTypes, shotMode, shotGamesOf)
+      : shotTypeEntityColumns<ShootingRow>(
+          shotTypeKeys,
+          (r) => (teamPerspective === "opp" ? r.team.opponentShotTypes : r.team.shotTypes),
+          shotMode,
+          shotGamesOf,
+        )),
   ];
 
   const turnoverRows: TurnoverRow[] = (teams ?? []).flatMap((team) => {
@@ -980,7 +988,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
         : seasonTotalOnlyReason;
   const perspectiveDisabledReason = isShareCategory
     ? "このタブは自チームの得点構成と、相手の得点（失点構成）の両方を並べて出すため、視点は切り替えません。"
-    : boxTab === "forcedTurnovers"
+    : boxTab === "forcedTurnovers" || boxTab === "shooting"
       ? undefined
       : filterDisabledReason;
   const filterAxes: FilterAxis[] = [
@@ -1179,7 +1187,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                 pinnedRows={leagueAverage?.team.shotTypes ? [{ team: leagueAverage.team }] : undefined}
               />
             </div>
-            <GlossaryNote anchor={GLOSSARY_ANCHORS.shotTypes} label="シュートタイプ" scope="レギュラーシーズンのみの値です（平均/合計だけ連動し、ほかの絞り込みとは連動しません）。" />
+            <GlossaryNote anchor={GLOSSARY_ANCHORS.shotTypes} label="シュートタイプ" scope="レギュラーシーズンのみの値です（平均/合計・視点だけ連動し、ほかの絞り込みとは連動しません）。平均はスポーツナビの記録がある試合の数で割ります。+/- の成功率はパーセントポイントの差です。" />
           </>
         )
       ) : boxTab === "forcedTurnovers" ? (

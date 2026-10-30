@@ -89,7 +89,7 @@ import { formatDecimal, formatPct, formatPct100, formatSigned, formatWinPct } fr
 import { formatMinutesFromSeconds, astToTovRatio, buildAssistPairs } from "../lib/boxscoreAggregate";
 import type { AssistPair } from "../../shared/assistedScoring";
 import { onCourtPeriodCount, reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
-import { computeGameOnOffSplit, mergeOnOffSplits, type OnOffBucket, type OnOffSplit } from "../lib/onCourtSplit";
+import { computeGameOnOffSplit, mergeOnOffSplits, onOffSplitFromLogs, type OnOffBucket, type OnOffSplit } from "../lib/onCourtSplit";
 import { buildShotTypeBreakdown, shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
@@ -146,6 +146,7 @@ import {
 } from "../lib/situational";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
+import { OnCourtShareNote } from "../components/OnCourtShareNote";
 import {
   composeLabels,
   displayModeLabels,
@@ -341,6 +342,13 @@ const TILE_STAT_DEFS: PlayerStatDef[] = [
     format: (p) => String(p.totals.tripleDoubles),
     higherIsBetter: true,
   },
+  {
+    key: "points10Games",
+    label: "PTS10",
+    value: (p) => p.totals.points10Games ?? 0,
+    format: (p) => (p.totals.points10Games === undefined ? "-" : String(p.totals.points10Games)),
+    higherIsBetter: true,
+  },
 ];
 
 // レーダーチャート用の12項目（MIN/PTS/REB/AST/STL/BLK/TOV/3P%/2P%/FT%/EFF/eFG%）。TILE_STAT_DEFSの
@@ -484,6 +492,8 @@ interface CareerCountTotals {
   stl: number;
   dd: number;
   td: number;
+  /** 二桁得点試合（PTS10） */
+  p10: number;
   oreb: number;
   dreb: number;
   pf: number;
@@ -1485,7 +1495,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         disruptiveFouls: 0,
       },
     );
-    const { dd, td } = countDoubleTripleDoubles(allPlayed);
+    const { dd, td, p10 } = countDoubleTripleDoubles(allPlayed);
     return {
       gamesPlayed: allPlayed.length,
       minSeconds: Math.round(sums.min * 60),
@@ -1500,6 +1510,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       stl: sums.stl,
       dd,
       td,
+      p10,
       oreb: sums.oreb,
       dreb: sums.dreb,
       pf: sums.pf,
@@ -1875,6 +1886,15 @@ export function PlayerDetailPage({ season }: { season: string }) {
     if (!playerId || !situationalStatsLogs) return null;
     const scopedLogs = filterByGameType(situationalStatsLogs, situationalStatsGameType).filter((g) => g.min > 0);
     const substitutionModel = substitutionModelForSeason(situationalStatsSeason);
+    // 2020-21以降は、試合ログの出場中の材料から、ランキングの On/Off と同じ計算で出す（DESIGN.md 303章）。2019-20以前は今までの計算のまま
+    if (substitutionModel === "modern") {
+      if (!situationalStatsTeamGameLogsByTeam) return { merged: mergeOnOffSplits([]), dataReady: false };
+      const teamLogOf = (g: PlayerGameLog) => {
+        const teamId = situationalStatsOwnTeamByScheduleKey.get(g.scheduleKey)?.teamId;
+        return teamId ? situationalStatsTeamGameLogsByTeam.get(teamId)?.find((t) => t.scheduleKey === g.scheduleKey) : undefined;
+      };
+      return { merged: onOffSplitFromLogs(scopedLogs, teamLogOf), dataReady: true };
+    }
     const splits: OnOffSplit[] = [];
     let readyCount = 0;
     for (const g of scopedLogs) {
@@ -1902,6 +1922,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     situationalStatsGameType,
     situationalStatsSeason,
     situationalStatsOwnTeamByScheduleKey,
+    situationalStatsTeamGameLogsByTeam,
     periodRawGames,
   ]);
 
@@ -3145,6 +3166,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <StatTile label="MIN" value={formatMinutesFromSeconds(careerCountTotals.minSeconds)} />
               <StatTile label="DD2" value={String(careerCountTotals.dd)} />
               <StatTile label="TD3" value={String(careerCountTotals.td)} />
+              <StatTile label="PTS10" value={String(careerCountTotals.p10)} />
               <StatTile label="OR" value={formatDecimal(careerCountTotals.oreb, 0)} />
               <StatTile label="DR" value={formatDecimal(careerCountTotals.dreb, 0)} />
               <StatTile label="F" value={formatDecimal(careerCountTotals.pf, 0)} />
@@ -3214,6 +3236,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     <div className="career-high-card" key="td3">
                       <div className="career-high-label">トリプルダブル達成数</div>
                       <div className="career-high-value">{careerTotal.ddtd.td}</div>
+                    </div>
+                    <div className="career-high-card" key="pts10">
+                      <div className="career-high-label">二桁得点試合</div>
+                      <div className="career-high-value">{careerTotal.ddtd.p10}</div>
                     </div>
                   </>
                 )}
@@ -3392,7 +3418,7 @@ function SeasonBreakdownTable({
   // または単一チームの行のみ（countsTowardTotal）にし、チーム別の内訳行を二重に足し込まないようにする
   const seasonRows = useMemo(() => {
     if (!careerData) return [];
-    const rows: (TeamSplitRow & { season: string; ddtd: { dd: number; td: number }; countsTowardTotal: boolean })[] = [];
+    const rows: (TeamSplitRow & { season: string; ddtd: { dd: number; td: number; p10: number }; countsTowardTotal: boolean })[] = [];
     for (const cd of [...careerData].reverse()) {
       const played = playedFilteredLogs(cd.logs);
       if (played.length === 0) continue;
@@ -3519,6 +3545,8 @@ function SeasonBreakdownTable({
         return ddtdUnavailable ? 0 : r.ddtd.dd;
       case "td3":
         return ddtdUnavailable ? 0 : r.ddtd.td;
+      case "pts10":
+        return ddtdUnavailable ? 0 : r.ddtd.p10;
       default: {
         if (tab === "shooting") {
           const col = seasonShotColumns.find((c) => c.key === key);
@@ -3646,6 +3674,9 @@ function SeasonBreakdownTable({
               <th className="align-right sortable-col" title={statDescription("TD3")} onClick={() => handleHeaderClick("td3")} aria-sort={sortAria("td3")}>
                 TD3{sortIndicator("td3")}
               </th>
+              <th className="align-right sortable-col" title={statDescription("PTS10")} onClick={() => handleHeaderClick("pts10")} aria-sort={sortAria("pts10")}>
+                PTS10{sortIndicator("pts10")}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -3677,6 +3708,7 @@ function SeasonBreakdownTable({
                     ))}
                 <td className="align-right">{ddtdUnavailable ? "-" : r.ddtd.dd}</td>
                 <td className="align-right">{ddtdUnavailable ? "-" : r.ddtd.td}</td>
+                <td className="align-right">{ddtdUnavailable ? "-" : r.ddtd.p10}</td>
               </tr>
             ))}
             {total && (
@@ -3698,11 +3730,16 @@ function SeasonBreakdownTable({
                     ))}
                 <td className="align-right">{ddtdUnavailable ? "-" : total.ddtd.dd}</td>
                 <td className="align-right">{ddtdUnavailable ? "-" : total.ddtd.td}</td>
+                <td className="align-right">{ddtdUnavailable ? "-" : total.ddtd.p10}</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+      <OnCourtShareNote
+        tab={tab}
+        rows={seasonRows.filter((r) => r.countsTowardTotal).map((r) => ({ season: r.season, gamesPlayed: r.ctx.raw.gamesPlayed, ocGames: r.ctx.raw.ocGames }))}
+      />
     </>
   );
 }

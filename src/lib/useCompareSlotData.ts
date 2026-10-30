@@ -93,7 +93,7 @@ export interface PlayerSlotData extends SlotDataCommon {
   /** 出場した試合（gamesCount の試合）での所属チームの勝敗 */
   record: CompareRecord | null;
   /** 出場した試合でのダブルダブル・トリプルダブルの回数 */
-  ddtd: { dd: number; td: number } | null;
+  ddtd: { dd: number; td: number; p10: number } | null;
   /** 集計対象の試合で最後に所属していたチーム（ヘッダーのチームカラー用） */
   latestTeamId: string | null;
   /** 集計対象の試合で所属した全チーム（1チームなら1件。移籍で複数のとき「複数チーム」の合算） */

@@ -8,8 +8,10 @@ import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
 import { efgPct, orbPct, safeDiv, tovPartPct, tovPct, tsPct, usagePct } from "../../shared/formulas";
-import type { LineupStint, PlayerOnCourtRatings } from "../../shared/onCourt";
+import { onCourtPeriodCount, type LineupStint, type PlayerOnCourtRatings } from "../../shared/onCourt";
 import { OR_PCT_UNAVAILABLE_NOTE, computeTeamOrPct, orShare, personalOrPct } from "../lib/gameOrPct";
+import { ON_COURT_SHARE_UNAVAILABLE_NOTE, computeTeamOnCourtShare, gamePlayerAstPct } from "../lib/gameOnCourtShare";
+import type { PeriodOnCourtShare } from "../lib/playerSeasonBoxscore";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow, YahooTurnoverEvent } from "../../shared/types";
 import { classificationGroup, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
 import {
@@ -234,6 +236,33 @@ function usagePctOf(c: BoxscoreCounts, ctx: ColumnCtx): number {
   );
 }
 
+/**
+ * 選手の行の出場中の材料（在コート基準の再集計。DESIGN.md 303章。src/lib/gameOnCourtShare.ts）。%PTS〜%FTA の分母（本人が出場中の自チームの数）と、
+ * AST% の FGにつながったアシスト。保存キーの対象の BoxscoreCounts は変えず、行の値に足して渡す。無い行（出せない試合・古いデータ・この値を作らない画面）は「-」
+ */
+export type OnCourtShareCounts = BoxscoreCounts & { ocShare?: PeriodOnCourtShare | null };
+
+function ocShareOf(c: BoxscoreCounts, ctx: ColumnCtx): PeriodOnCourtShare | null {
+  return ctx.isPlayerRow ? ((c as OnCourtShareCounts).ocShare ?? null) : null;
+}
+
+/** 出場中の割合（選手の行だけ）。分母は出場中の自チームの数（試合全体のチーム合計ではない） */
+function onCourtShareColumn(key: string, label: string, player: (c: BoxscoreCounts) => number, team: (s: PeriodOnCourtShare) => number): BoxscoreColumn {
+  const v = (c: BoxscoreCounts, ctx: ColumnCtx): number | undefined => {
+    const s = ocShareOf(c, ctx);
+    return s ? sharePct(player(c), team(s)) : undefined;
+  };
+  return {
+    key,
+    label,
+    format: (c, ctx) => {
+      const x = v(c, ctx);
+      return x === undefined ? "-" : formatPct100(x);
+    },
+    value: v,
+  };
+}
+
 const MISC_COLUMNS: BoxscoreColumn[] = [
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
   { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
@@ -288,12 +317,16 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
   // ペアになるActionCD1=15〔ファウルドローン〕から相手選手を特定する。boxscoreAggregate.ts参照）
   { key: "offfoul", label: "OFF FOUL", format: (c) => String(c.offensiveFoulsCommitted), value: (c) => c.offensiveFoulsCommitted, higherIsBetter: false },
   { key: "charge", label: "CHARGE", format: (c) => String(c.chargesDrawn), value: (c) => c.chargesDrawn },
-  // AST%（NBA式）はチームの行だけ（AST / FGM）。選手のAST%（在コート中のチームメイトのFGMが分母）は再集計が必要なため未対応（DESIGN.md 139章）
+  // AST%（NBA式）。チームの行は AST / FGM。選手の行は FGにつながったアシスト ÷（出場中の自チーム FGM − 本人の FGM）（DESIGN.md 139・303章）
   {
     key: "astpct",
     label: "AST%",
-    format: (c, ctx) => (ctx.isTeamTotalRow ? formatPct100(sharePct(c.ast, c.pt2m + c.pt3m)) : "-"),
-    value: (c, ctx) => (ctx.isTeamTotalRow ? sharePct(c.ast, c.pt2m + c.pt3m) : undefined),
+    format: (c, ctx) => {
+      if (ctx.isTeamTotalRow) return formatPct100(sharePct(c.ast, c.pt2m + c.pt3m));
+      const v = gamePlayerAstPct(ocShareOf(c, ctx), c.pt2m + c.pt3m);
+      return v === null ? "-" : formatPct100(v);
+    },
+    value: (c, ctx) => (ctx.isTeamTotalRow ? sharePct(c.ast, c.pt2m + c.pt3m) : (gamePlayerAstPct(ocShareOf(c, ctx), c.pt2m + c.pt3m) ?? undefined)),
   },
   // ターンオーバーのライブ/デッドボール内訳（Yahoo!スポーツplay-by-play由来、2023-24シーズン
   // 以降のみ。DESIGN.md参照）。未対応シーズン・未取得試合は「-」表示にする
@@ -330,60 +363,16 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
 const SCORING_COLUMNS: BoxscoreColumn[] = [
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
   { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
-  {
-    key: "pctpts",
-    label: "%PTS",
-    format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pts, ctx.own.pts)) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pts, ctx.own.pts) : undefined),
-  },
-  {
-    key: "pctfgm",
-    label: "%FGM",
-    format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt2m + c.pt3m, ctx.own.pt2m + ctx.own.pt3m)) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt2m + c.pt3m, ctx.own.pt2m + ctx.own.pt3m) : undefined),
-  },
-  {
-    key: "pctfga",
-    label: "%FGA",
-    format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt2a + c.pt3a, ctx.own.pt2a + ctx.own.pt3a)) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt2a + c.pt3a, ctx.own.pt2a + ctx.own.pt3a) : undefined),
-  },
-  {
-    key: "pct3pm",
-    label: "%3PM",
-    format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt3m, ctx.own.pt3m)) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt3m, ctx.own.pt3m) : undefined),
-  },
-  {
-    key: "pct3pa",
-    label: "%3PA",
-    format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt3a, ctx.own.pt3a)) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt3a, ctx.own.pt3a) : undefined),
-  },
-  {
-    key: "pct2pm",
-    label: "%2PM",
-    format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt2m, ctx.own.pt2m)) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt2m, ctx.own.pt2m) : undefined),
-  },
-  {
-    key: "pct2pa",
-    label: "%2PA",
-    format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.pt2a, ctx.own.pt2a)) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.pt2a, ctx.own.pt2a) : undefined),
-  },
-  {
-    key: "pctftm",
-    label: "%FTM",
-    format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.ftm, ctx.own.ftm)) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.ftm, ctx.own.ftm) : undefined),
-  },
-  {
-    key: "pctfta",
-    label: "%FTA",
-    format: (c, ctx) => (ctx.isPlayerRow ? formatPct100(sharePct(c.fta, ctx.own.fta)) : "-"),
-    value: (c, ctx) => (ctx.isPlayerRow ? sharePct(c.fta, ctx.own.fta) : undefined),
-  },
+  onCourtShareColumn("pctpts", "%PTS", (c) => c.pts, (t) => t.pts),
+  onCourtShareColumn("pctfgm", "%FGM", (c) => c.pt2m + c.pt3m, (t) => t.fgm),
+  onCourtShareColumn("pctfga", "%FGA", (c) => c.pt2a + c.pt3a, (t) => t.fga),
+  onCourtShareColumn("pct3pm", "%3PM", (c) => c.pt3m, (t) => t.tpm),
+  onCourtShareColumn("pct3pa", "%3PA", (c) => c.pt3a, (t) => t.tpa),
+  onCourtShareColumn("pct2pm", "%2PM", (c) => c.pt2m, (t) => t.fgm - t.tpm),
+  onCourtShareColumn("pct2pa", "%2PA", (c) => c.pt2a, (t) => t.fga - t.tpa),
+  onCourtShareColumn("pctftm", "%FTM", (c) => c.ftm, (t) => t.ftm),
+  onCourtShareColumn("pctfta", "%FTA", (c) => c.fta, (t) => t.fta),
+
   // アシストからの得点（得点者視点。shared/assistedScoring.ts参照）。FTAST含め
   // PlayByPlays配列内の構造的な隣接パターンから求めた「被アシスト」内訳
   { key: "ast2m", label: "AST2M", format: (c) => String(c.assisted2m), value: (c) => c.assisted2m },
@@ -459,7 +448,7 @@ export function boxscoreColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): Box
 }
 
 /** 試合詳細だけが選手の行に付ける個人 OR%（0〜100。出せない行は null）。保存キーの対象の BoxscoreCounts は変えず、この画面の中だけで足す */
-type GameBoxscoreCounts = BoxscoreCounts & { orPct?: number | null };
+type GameBoxscoreCounts = OnCourtShareCounts & { orPct?: number | null };
 
 /**
  * 試合詳細のアドバンスドだけに足す OR%。チームの行＝OR ÷（OR＋相手のDR）、選手の行＝本人の OR ÷（本人が出場中の自チーム OR＋出場中の相手 DR。
@@ -490,6 +479,29 @@ export function orShareColumn(noTeamRebounds: boolean): BoxscoreColumn {
       const v = orShare(c.oreb, ctx.own.oreb);
       return v === null ? "-" : formatPct100(v);
     },
+  };
+}
+
+/**
+ * 内訳集計（スタメン・ベンチ・登録区分）の %USG＝グループの（FGA＋0.44×FTA＋TOV）÷ チーム全体の同じ値、%AST＝グループの AST ÷ チームの AST。
+ * 個人の USG%・AST% とは別の項目（チーム全体に占める割合。%OR と同じ考え方。DESIGN.md 303章）。チーム合計の行は100%
+ */
+function usageShareColumn(): BoxscoreColumn {
+  const use = (c: BoxscoreCounts) => c.pt2a + c.pt3a + 0.44 * c.fta + c.tov;
+  return {
+    key: "usgshare",
+    label: "%USG",
+    format: (c, ctx) => {
+      const d = use(ctx.own);
+      return d > 0 ? formatPct100(sharePct(use(c), d)) : "-";
+    },
+  };
+}
+function astShareColumn(): BoxscoreColumn {
+  return {
+    key: "astshare",
+    label: "%AST",
+    format: (c, ctx) => (ctx.own.ast > 0 ? formatPct100(sharePct(c.ast, ctx.own.ast)) : "-"),
   };
 }
 
@@ -538,6 +550,8 @@ interface BoxscoreTableProps {
   onPeriodRangeChange?: (value: PeriodRangeValue) => void;
   /** 在コートの復元の区間（個人 OR% の分母。プレーバイプレーが無い試合は空） */
   lineupStints?: LineupStint[];
+  /** 公式の値の無いシーズン（2016-17〜2021-22）の、復元の Q別 +/-（チーム → 選手 → ピリオド → +/-。出せないチームは無し。lib/playerSeasonBoxscore.ts） */
+  reconstructedPlusMinus?: Map<string, Map<string, Map<number, number>>>;
   /** 手入力のボックススコア（チームリバウンドが記録にない試合）。内訳集計の %OR は「-」にする */
   manualBoxscore?: boolean;
 }
@@ -564,6 +578,7 @@ export function BoxscoreTable({
   periodRange: controlledPeriodRange,
   onPeriodRangeChange,
   lineupStints = [],
+  reconstructedPlusMinus,
   manualBoxscore = false,
 }: BoxscoreTableProps) {
   // 2026-27 以降の試合は、登録区分の内訳で外国籍・帰化・アジア特別枠を分ける（classificationById はその試合の日の区分。DESIGN.md 298章）
@@ -613,6 +628,8 @@ export function BoxscoreTable({
         showStatBadges={activeTab === "traditional"}
         wideScrollable={activeTab !== "traditional"}
         lineupStints={lineupStints}
+        totalPeriods={onCourtPeriodCount("", periods, playByPlays)}
+        reconstructedPlusMinus={reconstructedPlusMinus}
         manualBoxscore={manualBoxscore}
       />
       <BoxscoreTeamPanel
@@ -634,6 +651,8 @@ export function BoxscoreTable({
         showStatBadges={activeTab === "traditional"}
         wideScrollable={activeTab !== "traditional"}
         lineupStints={lineupStints}
+        totalPeriods={onCourtPeriodCount("", periods, playByPlays)}
+        reconstructedPlusMinus={reconstructedPlusMinus}
         manualBoxscore={manualBoxscore}
       />
     </>
@@ -683,6 +702,8 @@ function BoxscoreTeamPanel({
   showStatBadges,
   wideScrollable,
   lineupStints,
+  totalPeriods,
+  reconstructedPlusMinus,
   manualBoxscore,
 }: {
   teamName: string;
@@ -709,6 +730,9 @@ function BoxscoreTeamPanel({
    */
   wideScrollable: boolean;
   lineupStints: LineupStint[];
+  /** 在コートの復元のピリオド数（延長を含む） */
+  totalPeriods: number;
+  reconstructedPlusMinus?: Map<string, Map<string, Map<number, number>>>;
   manualBoxscore: boolean;
 }) {
   const tableClassName = wideScrollable ? "boxscore-table boxscore-table-wide" : "boxscore-table";
@@ -730,6 +754,23 @@ function BoxscoreTeamPanel({
       })
     : null;
 
+  // 選手の出場中の割合（%PTS〜%FTA）・AST%。分母は在コートの復元の区間（lib/gameOnCourtShare.ts）。出せない試合・チームは理由を表の下に出す
+  const showOnCourtShare = columns.some((c) => c.key === "pctpts" || c.key === "astpct");
+  const teamOnCourtShare = showOnCourtShare
+    ? computeTeamOnCourtShare({
+        lineupStints,
+        playByPlays,
+        teamId: ownRows[0]?.TeamID ?? "",
+        opponentTeamId: oppRows[0]?.TeamID ?? "",
+        ownRows,
+        opponentRows: oppRows,
+        ownScore: buildTeamTotalCounts(ownRows, undefined).pts,
+        opponentScore: buildTeamTotalCounts(oppRows, undefined).pts,
+        totalPeriods,
+        periods: periodOption?.periods ?? null,
+      })
+    : null;
+
   // 個人PACEは試合全体（periods===null）選択時のみマージする。PlayByPlaysのポゼッション区切り
   // 検出（shared/onCourt.ts）に依存するため、Q別・前後半選択時に「試合全体固定」の値が出ると
   // 誤解を招く（他のペイント内外2P等と同じくundefinedのままにし「-」表示にする）。
@@ -744,7 +785,14 @@ function BoxscoreTeamPanel({
       const { offRtg, defRtg, netRtg } = computeIndividualRatings(p.counts, teamTotal, oppTeamTotal, ratings.poss);
       const onCourtPace = showOnCourtPace ? onCourtRatings[p.playerId]?.pace : undefined;
       const orPct = teamOrPct?.available ? personalOrPct(p.counts.oreb, teamOrPct.byPlayer.get(p.playerId)) : null;
-      const counts: GameBoxscoreCounts = { ...p.counts, offRtg, defRtg, netRtg, onCourtPace, orPct };
+      const ocShare = teamOnCourtShare?.available ? (teamOnCourtShare.byPlayer.get(p.playerId) ?? null) : null;
+      // 公式の +/- が無いシーズンは、復元の値（選んだ期間の合計。出せないチームは「-」のまま。DESIGN.md 303章）
+      const reconPm = p.counts.hasPlusMinus ? undefined : reconstructedPlusMinus?.get(ownRows[0]?.TeamID ?? "")?.get(p.playerId);
+      const pmOverride =
+        reconPm && !p.dnp
+          ? { plusMinus: [...reconPm].reduce((a, [period, v]) => a + (periodOption?.periods == null || periodOption.periods.includes(period) ? v : 0), 0), hasPlusMinus: true }
+          : {};
+      const counts: GameBoxscoreCounts = { ...p.counts, ...pmOverride, offRtg, defRtg, netRtg, onCourtPace, orPct, ocShare };
       return { ...p, counts };
     })
     .sort((a, b) => (orderIndex.get(a.playerId) ?? 0) - (orderIndex.get(b.playerId) ?? 0));
@@ -836,7 +884,10 @@ function BoxscoreTeamPanel({
   // チームリーダー表示と同じ考え方）。DNPは0値で不当に最良値を取ってしまうため候補から除外する
   const bestByColumn = computeBestByColumn(players, columns, playerCtx);
   // 内訳集計の表では、個人の OR% の列を、グループの %OR（チームORに占める割合）に差し替える
-  const summaryColumns = columns.map((col) => (col.key === "orpct" ? orShareColumn(manualBoxscore) : col));
+  // 同じく、USG% は %USG、AST% は %AST（チーム全体に占める割合）に差し替える
+  const summaryColumns = columns.map((col) =>
+    col.key === "orpct" ? orShareColumn(manualBoxscore) : col.key === "usg" ? usageShareColumn() : col.key === "astpct" ? astShareColumn() : col,
+  );
   // スマホ幅では名字だけ（同じチームで名字が重なる選手はフルネーム）
   const playerLabel = usePlayerLabel(players.map((p) => p.nameJ));
 
@@ -891,6 +942,7 @@ function BoxscoreTeamPanel({
           </table>
         </div>
         {teamOrPct && !teamOrPct.available && <p className="page-subtitle">※{OR_PCT_UNAVAILABLE_NOTE[teamOrPct.reason]}</p>}
+        {teamOnCourtShare && !teamOnCourtShare.available && <p className="page-subtitle">※{ON_COURT_SHARE_UNAVAILABLE_NOTE[teamOnCourtShare.reason]}</p>}
       </div>
 
       <div

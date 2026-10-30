@@ -49,6 +49,17 @@ import { buildPeriodRangeOptions, type PeriodRangeOption } from "./periodRange";
 import type { BoxscoreRow, PlayerGameLog, PlayerMasterEntry, StoredGame, TeamGameLog, TeamSeasonRawTotals, YahooTurnoverEvent } from "../../shared/types";
 import type { GameTeamInfo } from "./situational";
 import { teamShortName } from "../../shared/teamNames";
+import {
+  ON_COURT_QUALITY_SHARES,
+  fgAssistsByPlayer,
+  onCourtKeyIndex,
+  periodPlusMinusAvailable,
+  playerOnCourtByPeriod,
+  plusMinusOf,
+  sumOverPeriods,
+  teamOnCourtQuality,
+} from "../../shared/playerOnCourt";
+import { onCourtPeriodCount, reconstructOnCourt, substitutionModelForSeason, type OnCourtReconstruction } from "../../shared/onCourt";
 import type { ColumnCtx } from "../components/BoxscoreTable";
 
 export type SeasonDisplayMode = "total" | "perGame" | "per30";
@@ -117,6 +128,27 @@ export interface PlayerSeasonRawTotals {
   onCourtOwnPoss: number;
   onCourtOppPoss: number;
   onCourtSeconds: number;
+  /**
+   * 出場中の割合（%PTS〜%FTA）・AST% の材料（在コート基準の再集計。DESIGN.md 303章）。出場中の記録がそろう試合（試合ログの onCourt があり、
+   * onCourtQuality の割合のビットが立つ出場試合。2020-21以降）だけを足す。分子（本人）・分母（出場中の自チーム）・FGにつながったアシストを同じ試合で足すので、
+   * 記録が欠けた試合は分子・分母の両方から外れる。ocGames はその試合数（0なら「-」）
+   */
+  ocGames: number;
+  ocPts: number;
+  ocFgm: number;
+  ocFga: number;
+  ocTpm: number;
+  ocTpa: number;
+  ocFtm: number;
+  ocFta: number;
+  ocTeamPts: number;
+  ocTeamFgm: number;
+  ocTeamFga: number;
+  ocTeamTpm: number;
+  ocTeamTpa: number;
+  ocTeamFtm: number;
+  ocTeamFta: number;
+  ocFgAssists: number;
 }
 
 const EMPTY_RAW_TOTALS: PlayerSeasonRawTotals = {
@@ -166,6 +198,22 @@ const EMPTY_RAW_TOTALS: PlayerSeasonRawTotals = {
   onCourtOwnPoss: 0,
   onCourtOppPoss: 0,
   onCourtSeconds: 0,
+  ocGames: 0,
+  ocPts: 0,
+  ocFgm: 0,
+  ocFga: 0,
+  ocTpm: 0,
+  ocTpa: 0,
+  ocFtm: 0,
+  ocFta: 0,
+  ocTeamPts: 0,
+  ocTeamFgm: 0,
+  ocTeamFga: 0,
+  ocTeamTpm: 0,
+  ocTeamTpa: 0,
+  ocTeamFtm: 0,
+  ocTeamFta: 0,
+  ocFgAssists: 0,
 };
 
 /** min>0（実際に出場した試合）のみを対象に合算する。DNP行はgamesPlayedにも数えない */
@@ -219,9 +267,49 @@ export function sumPlayerGameLogs(logs: PlayerGameLog[]): PlayerSeasonRawTotals 
       onCourtOwnPoss: acc.onCourtOwnPoss + g.onCourtOwnPoss,
       onCourtOppPoss: acc.onCourtOppPoss + g.onCourtOppPoss,
       onCourtSeconds: acc.onCourtSeconds + g.onCourtSeconds,
+      ...addOnCourtShare(acc, g),
     }),
     { ...EMPTY_RAW_TOTALS },
   );
+}
+
+/** 試合ログの出場中の材料のうち、割合のビット（ON_COURT_QUALITY_SHARES）が立つ試合だけを、出場中の割合・AST% の材料に足す */
+function addOnCourtShare(acc: PlayerSeasonRawTotals, g: PlayerGameLog): Pick<PlayerSeasonRawTotals, (typeof ON_COURT_SHARE_KEYS)[number]> {
+  const ok = g.onCourt !== undefined && g.onCourtQuality !== undefined && (g.onCourtQuality & ON_COURT_QUALITY_SHARES) !== 0;
+  const oc = g.onCourt;
+  const own = (k: Parameters<typeof onCourtKeyIndex>[0]) => (ok && oc ? oc[onCourtKeyIndex(k, "own")]! : 0);
+  return {
+    ocGames: acc.ocGames + (ok ? 1 : 0),
+    ocPts: acc.ocPts + (ok ? g.pts : 0),
+    ocFgm: acc.ocFgm + (ok ? g.fgm : 0),
+    ocFga: acc.ocFga + (ok ? g.fga : 0),
+    ocTpm: acc.ocTpm + (ok ? g.tpm : 0),
+    ocTpa: acc.ocTpa + (ok ? g.tpa : 0),
+    ocFtm: acc.ocFtm + (ok ? g.ftm : 0),
+    ocFta: acc.ocFta + (ok ? g.fta : 0),
+    ocTeamPts: acc.ocTeamPts + own("pts"),
+    ocTeamFgm: acc.ocTeamFgm + own("fgm"),
+    ocTeamFga: acc.ocTeamFga + own("fga"),
+    ocTeamTpm: acc.ocTeamTpm + own("tpm"),
+    ocTeamTpa: acc.ocTeamTpa + own("tpa"),
+    ocTeamFtm: acc.ocTeamFtm + own("ftm"),
+    ocTeamFta: acc.ocTeamFta + own("fta"),
+    ocFgAssists: acc.ocFgAssists + (ok ? (g.fgAssists ?? 0) : 0),
+  };
+}
+
+const ON_COURT_SHARE_KEYS = ["ocGames", "ocPts", "ocFgm", "ocFga", "ocTpm", "ocTpa", "ocFtm", "ocFta", "ocTeamPts", "ocTeamFgm", "ocTeamFga", "ocTeamTpm", "ocTeamTpa", "ocTeamFtm", "ocTeamFta", "ocFgAssists"] as const;
+
+/** 出場中の割合（100 × 本人 ÷ 出場中の自チーム）。出場中の記録がそろう試合が無ければ null（「-」） */
+export function onCourtSharePct(r: PlayerSeasonRawTotals, player: number, team: number): number | null {
+  return r.ocGames > 0 ? sharePct(player, team) : null;
+}
+
+/** 選手の AST%（NBA式）＝ 100 × FGにつながったアシスト ÷（出場中の自チーム FGM − 本人の FGM）。出場中の記録がそろう試合が無い・分母0は null */
+export function playerAstPct(r: PlayerSeasonRawTotals): number | null {
+  if (r.ocGames === 0) return null;
+  const d = r.ocTeamFgm - r.ocFgm;
+  return d > 0 ? safeDiv(100 * r.ocFgAssists, d) : null;
 }
 
 export type { TeamSeasonRawTotals } from "../../shared/types";
@@ -296,6 +384,23 @@ function scaleTotals(raw: PlayerSeasonRawTotals, factor: number): PlayerSeasonRa
     onCourtOwnPoss: raw.onCourtOwnPoss * factor,
     onCourtOppPoss: raw.onCourtOppPoss * factor,
     onCourtSeconds: raw.onCourtSeconds * factor,
+    // 出場中の割合の材料は割合の計算にだけ使うので、生の値のまま（scaled では使わない）
+    ocGames: raw.ocGames,
+    ocPts: raw.ocPts,
+    ocFgm: raw.ocFgm,
+    ocFga: raw.ocFga,
+    ocTpm: raw.ocTpm,
+    ocTpa: raw.ocTpa,
+    ocFtm: raw.ocFtm,
+    ocFta: raw.ocFta,
+    ocTeamPts: raw.ocTeamPts,
+    ocTeamFgm: raw.ocTeamFgm,
+    ocTeamFga: raw.ocTeamFga,
+    ocTeamTpm: raw.ocTeamTpm,
+    ocTeamTpa: raw.ocTeamTpa,
+    ocTeamFtm: raw.ocTeamFtm,
+    ocTeamFta: raw.ocTeamFta,
+    ocFgAssists: raw.ocFgAssists,
   };
 }
 
@@ -456,15 +561,18 @@ export function buildTeamSplitRows(
  * 2桁到達部門数が2以上でDD、3以上でTD）。トリプルダブルはダブルダブルの条件も満たすため、
  * aggregate.tsの季集計と同じくDD側にも計上する（バッジ表示のような排他処理はしない）
  */
-export function countDoubleTripleDoubles(logs: PlayerGameLog[]): { dd: number; td: number } {
+export function countDoubleTripleDoubles(logs: PlayerGameLog[]): { dd: number; td: number; p10: number } {
   let dd = 0;
   let td = 0;
+  // 二桁得点試合（PTS10。PTS が10以上。DD2・TD3 と同じく渡された試合〔出場した試合〕から数える。DESIGN.md 299-5・303章）
+  let p10 = 0;
   for (const g of logs) {
     const doubleDigitCount = [g.pts, g.reb, g.ast, g.stl, g.blk].filter((v) => v >= 10).length;
     if (doubleDigitCount >= 2) dd += 1;
     if (doubleDigitCount >= 3) td += 1;
+    if (g.pts >= 10) p10 += 1;
   }
-  return { dd, td };
+  return { dd, td, p10 };
 }
 
 export type SeasonBoxTabKey = BoxCategoryKey;
@@ -946,6 +1054,13 @@ const ALL_SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
     format: (c, mode) => formatDecimal(c.scaled.chargesDrawn, countDigits(mode)),
     value: (c) => c.scaled.chargesDrawn,
   },
+  // 選手の AST%（NBA式。FGにつながったアシスト ÷（出場中の自チーム FGM − 本人の FGM））。出場中の記録がそろう試合だけで出す（DESIGN.md 303章）
+  {
+    key: "astpct",
+    label: "AST%",
+    format: (c) => formatPctOrNa(playerAstPct(c.raw)),
+    value: (c) => playerAstPct(c.raw) ?? 0,
+  },
   {
     key: "tf",
     label: "TF",
@@ -963,6 +1078,11 @@ function shotChartValue(c: SeasonBoxscoreCtx, raw: number): number {
   return c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? raw : 0;
 }
 
+/** 割合（0〜100）の表示。null は「-」 */
+function formatPctOrNa(v: number | null): string {
+  return v === null ? NA : formatPct100(v);
+}
+
 export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
   { key: "g", label: "G", format: (c) => String(c.raw.gamesPlayed), value: (c) => c.raw.gamesPlayed },
   { key: "gs", label: "GS", format: (c) => String(c.raw.gamesStarted), value: (c) => c.raw.gamesStarted },
@@ -976,56 +1096,56 @@ export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
   {
     key: "pctpts",
     label: "%PTS",
-    format: (c) => formatPct100(sharePct(c.raw.pts, c.team.pts)),
-    value: (c) => sharePct(c.raw.pts, c.team.pts),
+    format: (c) => formatPctOrNa(onCourtSharePct(c.raw, c.raw.ocPts, c.raw.ocTeamPts)),
+    value: (c) => onCourtSharePct(c.raw, c.raw.ocPts, c.raw.ocTeamPts) ?? 0,
   },
   {
     key: "pctfgm",
     label: "%FGM",
-    format: (c) => formatPct100(sharePct(c.raw.fgm, c.team.fgm)),
-    value: (c) => sharePct(c.raw.fgm, c.team.fgm),
+    format: (c) => formatPctOrNa(onCourtSharePct(c.raw, c.raw.ocFgm, c.raw.ocTeamFgm)),
+    value: (c) => onCourtSharePct(c.raw, c.raw.ocFgm, c.raw.ocTeamFgm) ?? 0,
   },
   {
     key: "pctfga",
     label: "%FGA",
-    format: (c) => formatPct100(sharePct(c.raw.fga, c.team.fga)),
-    value: (c) => sharePct(c.raw.fga, c.team.fga),
+    format: (c) => formatPctOrNa(onCourtSharePct(c.raw, c.raw.ocFga, c.raw.ocTeamFga)),
+    value: (c) => onCourtSharePct(c.raw, c.raw.ocFga, c.raw.ocTeamFga) ?? 0,
   },
   {
     key: "pct3pm",
     label: "%3PM",
-    format: (c) => formatPct100(sharePct(c.raw.tpm, c.team.tpm)),
-    value: (c) => sharePct(c.raw.tpm, c.team.tpm),
+    format: (c) => formatPctOrNa(onCourtSharePct(c.raw, c.raw.ocTpm, c.raw.ocTeamTpm)),
+    value: (c) => onCourtSharePct(c.raw, c.raw.ocTpm, c.raw.ocTeamTpm) ?? 0,
   },
   {
     key: "pct3pa",
     label: "%3PA",
-    format: (c) => formatPct100(sharePct(c.raw.tpa, c.team.tpa)),
-    value: (c) => sharePct(c.raw.tpa, c.team.tpa),
+    format: (c) => formatPctOrNa(onCourtSharePct(c.raw, c.raw.ocTpa, c.raw.ocTeamTpa)),
+    value: (c) => onCourtSharePct(c.raw, c.raw.ocTpa, c.raw.ocTeamTpa) ?? 0,
   },
   {
     key: "pct2pm",
     label: "%2PM",
-    format: (c) => formatPct100(sharePct(c.raw.fgm - c.raw.tpm, c.team.fgm - c.team.tpm)),
-    value: (c) => sharePct(c.raw.fgm - c.raw.tpm, c.team.fgm - c.team.tpm),
+    format: (c) => formatPctOrNa(onCourtSharePct(c.raw, c.raw.ocFgm - c.raw.ocTpm, c.raw.ocTeamFgm - c.raw.ocTeamTpm)),
+    value: (c) => onCourtSharePct(c.raw, c.raw.ocFgm - c.raw.ocTpm, c.raw.ocTeamFgm - c.raw.ocTeamTpm) ?? 0,
   },
   {
     key: "pct2pa",
     label: "%2PA",
-    format: (c) => formatPct100(sharePct(c.raw.fga - c.raw.tpa, c.team.fga - c.team.tpa)),
-    value: (c) => sharePct(c.raw.fga - c.raw.tpa, c.team.fga - c.team.tpa),
+    format: (c) => formatPctOrNa(onCourtSharePct(c.raw, c.raw.ocFga - c.raw.ocTpa, c.raw.ocTeamFga - c.raw.ocTeamTpa)),
+    value: (c) => onCourtSharePct(c.raw, c.raw.ocFga - c.raw.ocTpa, c.raw.ocTeamFga - c.raw.ocTeamTpa) ?? 0,
   },
   {
     key: "pctftm",
     label: "%FTM",
-    format: (c) => formatPct100(sharePct(c.raw.ftm, c.team.ftm)),
-    value: (c) => sharePct(c.raw.ftm, c.team.ftm),
+    format: (c) => formatPctOrNa(onCourtSharePct(c.raw, c.raw.ocFtm, c.raw.ocTeamFtm)),
+    value: (c) => onCourtSharePct(c.raw, c.raw.ocFtm, c.raw.ocTeamFtm) ?? 0,
   },
   {
     key: "pctfta",
     label: "%FTA",
-    format: (c) => formatPct100(sharePct(c.raw.fta, c.team.fta)),
-    value: (c) => sharePct(c.raw.fta, c.team.fta),
+    format: (c) => formatPctOrNa(onCourtSharePct(c.raw, c.raw.ocFta, c.raw.ocTeamFta)),
+    value: (c) => onCourtSharePct(c.raw, c.raw.ocFta, c.raw.ocTeamFta) ?? 0,
   },
   // アシストからの得点（得点者視点。shared/assistedScoring.ts参照）。得点の内訳のまとまりとしてMiscから移設（DESIGN.md 140章）
   {
@@ -1471,6 +1591,156 @@ export interface GamePeriodTotals {
   /** その試合でスタメン出場だったか（期間範囲の選択に関わらず試合全体で決まる値。29章・
    * 60-4章のDD/TD判定と同じ「常に試合全体で判定する」方針） */
   isStarter: boolean;
+  /**
+   * 出場中の割合・AST% の材料（その区間。DESIGN.md 303章）。出場中の記録がそろう試合（チームの割合の品質ビット）だけ。無い試合・古いデータは無し
+   * （分子・分母の両方から外す）
+   */
+  onCourt?: PeriodOnCourtShare;
+}
+
+/** 区間の出場中の自チームの数（%PTS〜%FTA・AST% の分母）と、本人の FGにつながったアシスト */
+export interface PeriodOnCourtShare {
+  pts: number;
+  fgm: number;
+  fga: number;
+  tpm: number;
+  tpa: number;
+  ftm: number;
+  fta: number;
+  fgAssists: number;
+}
+
+/** 1試合の、在コートの復元とFGアシスト（同じ試合を何度も読むときのため、試合ごとに1回だけ作る） */
+const onCourtCache = new WeakMap<StoredGame, { rec: OnCourtReconstruction; periods: number; fgAssists: Map<string, Map<number, number>> }>();
+
+/**
+ * 生データから、選手のその区間の出場中の材料。割合の品質ビット（shared/playerOnCourt.ts の teamOnCourtQuality。試合全体で判定）が立たないチーム・
+ * 数え上げの無い試合（2019-20以前）・プレーバイプレーの無い試合は undefined
+ */
+export function periodOnCourtShareFromGame(game: StoredGame, isHome: boolean, playerId: string, option: PeriodRangeOption | undefined): PeriodOnCourtShare | undefined {
+  if (game.raw.PlayByPlays.length === 0 || substitutionModelForSeason(game.season) !== "modern") return undefined;
+  let cached = onCourtCache.get(game);
+  if (!cached) {
+    const periods = onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays);
+    const rec = reconstructOnCourt(game.raw.PlayByPlays, game.raw.HomeBoxscores, game.raw.AwayBoxscores, game.homeTeam.id, game.awayTeam.id, periods, substitutionModelForSeason(game.season));
+    cached = { rec, periods, fgAssists: fgAssistsByPlayer(game.raw.PlayByPlays) };
+    onCourtCache.set(game, cached);
+  }
+  const teamId = isHome ? game.homeTeam.id : game.awayTeam.id;
+  const opponentId = isHome ? game.awayTeam.id : game.homeTeam.id;
+  const quality = teamOnCourtQuality(
+    cached.rec,
+    teamId,
+    opponentId,
+    isHome ? game.raw.HomeBoxscores : game.raw.AwayBoxscores,
+    isHome ? game.raw.AwayBoxscores : game.raw.HomeBoxscores,
+    isHome ? game.homeScore : game.awayScore,
+    isHome ? game.awayScore : game.homeScore,
+    cached.periods,
+  );
+  if ((quality & ON_COURT_QUALITY_SHARES) === 0) return undefined;
+  const periodSet = option?.periods ?? null;
+  // 区間を選んだときは、その選手に出場の記録がある区間（ピリオド別の索引に行がある区間）だけを足す（索引の経路と同じ値にする）
+  const participants = periodSet === null ? null : atomParticipants(game);
+  const side = isHome ? "home" : "away";
+  const inRange = (p: number) =>
+    periodSet === null || (periodSet.includes(p) && (participants!.get(`${side}|${atomOfPeriod(p)}`)?.has(playerId) ?? false));
+  const byPeriod = playerOnCourtByPeriod(cached.rec.lineupStints, teamId, cached.periods).get(playerId);
+  const v = sumOverPeriods(byPeriod, inRange);
+  const own = (k: Parameters<typeof onCourtKeyIndex>[0]) => v[onCourtKeyIndex(k, "own")]!;
+  let fgAssists = 0;
+  for (const [p, n] of cached.fgAssists.get(playerId) ?? []) if (inRange(p)) fgAssists += n;
+  return { pts: own("pts"), fgm: own("fgm"), fga: own("fga"), tpm: own("tpm"), tpa: own("tpa"), ftm: own("ftm"), fta: own("fta"), fgAssists };
+}
+
+/** 復元の Q別 +/- を出すシーズン（公式のピリオド別の +/- が無い 2016-17〜2021-22。DESIGN.md 303章） */
+export function reconstructsPeriodPlusMinus(season: string): boolean {
+  return Number(season.slice(0, 4)) < 2022;
+}
+
+const reconstructedPmCache = new WeakMap<StoredGame, Map<string, Map<string, Map<number, number>>>>();
+
+/**
+ * 公式の値の無いシーズン（2016-17〜2021-22）の、復元の Q別 +/-（チーム → 選手 → ピリオド → +/-）。ピリオド別の索引（scripts/lib/periodIndexBuild.ts）と同じ判定:
+ * 5人組の区間の Q別の得点差の合計が試合全体の復元の +/- と全選手で一致し、区間の得点の合計が両チームの得点と一致し、
+ * 出場中の区間（時間か得点差がある）のある選手×区間（1Q〜4Q・延長）すべてで、その区間のボックススコアに出場の記録がある。満たさないチームは含めない（「-」）
+ */
+export function reconstructedPeriodPlusMinus(game: StoredGame): Map<string, Map<string, Map<number, number>>> {
+  const hit = reconstructedPmCache.get(game);
+  if (hit) return hit;
+  const out = new Map<string, Map<string, Map<number, number>>>();
+  reconstructedPmCache.set(game, out);
+  if (!reconstructsPeriodPlusMinus(game.season) || game.raw.PlayByPlays.length === 0) return out;
+  const periods = onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays);
+  const rec = reconstructOnCourt(game.raw.PlayByPlays, game.raw.HomeBoxscores, game.raw.AwayBoxscores, game.homeTeam.id, game.awayTeam.id, periods, substitutionModelForSeason(game.season));
+  // 1Q〜4Q・延長（索引の区間と同じ）。前後半5分の特別な試合（1Q〜4Q が無い）は区間の値を持たないので出さない
+  const atomOptions = buildPeriodRangeOptions(periods).filter((o) => ["q1", "q2", "q3", "q4", "ot"].includes(o.value));
+  const hasPeriodRows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores].some((r) => r.Category === 1 && r.PeriodCategory >= 1 && r.PeriodCategory <= 4);
+  if (!hasPeriodRows) return out;
+  for (const home of [true, false]) {
+    const teamId = home ? game.homeTeam.id : game.awayTeam.id;
+    const ownRows = home ? game.raw.HomeBoxscores : game.raw.AwayBoxscores;
+    const byPlayer = playerOnCourtByPeriod(rec.lineupStints, teamId, periods);
+    if (!periodPlusMinusAvailable(rec, byPlayer, teamId, home ? game.homeScore : game.awayScore, home ? game.awayScore : game.homeScore)) continue;
+    let covered = true;
+    for (const opt of atomOptions) {
+      const inAtom = (p: number) => (opt.periods ?? []).includes(p);
+      const participating = atomParticipants(game).get(`${home ? "home" : "away"}|${opt.value}`) ?? new Set<string>();
+      for (const [pid, bp] of byPlayer) {
+        const v = sumOverPeriods(bp, inAtom);
+        if ((v[0]! > 0 || plusMinusOf(v) !== 0) && !participating.has(pid)) covered = false;
+      }
+    }
+    if (!covered) continue;
+    const pm = new Map<string, Map<number, number>>();
+    for (const [pid, bp] of byPlayer) pm.set(pid, new Map([...bp].map(([p, v]) => [p, plusMinusOf(v)] as const)));
+    out.set(teamId, pm);
+  }
+  return out;
+}
+
+/**
+ * その区間に出場の記録があるか。ピリオド別の索引（scripts/lib/periodIndexBuild.ts）が行を作る条件と同じ: DNP でなく、索引の列
+ * （PLAYER_PERIOD_STAT_COLUMNS。+/- は公式の値だけ）のどれかが0でない
+ */
+const PERIOD_ROW_FIELDS = [
+  "minSec", "pts", "pt2m", "pt2a", "pt3m", "pt3a", "ftm", "fta", "oreb", "dreb", "treb", "ast", "tov", "stl", "blk", "bson", "foulon",
+  "pt2in", "ptfb", "pt2nd", "ptsOffTov", "dunks", "basketCounts", "foul", "technicalFouls", "unsportsmanlikeFouls", "disqualifyingFouls",
+  "offensiveFoulsCommitted", "chargesDrawn", "assisted2m", "assisted3m", "assistedFtm", "paint2m", "paint2a", "nonPaint2m", "nonPaint2a",
+] as const;
+function participatesInRange(p: { dnp: boolean; counts: BoxscoreCounts }): boolean {
+  if (p.dnp) return false;
+  if (p.counts.hasPlusMinus && p.counts.plusMinus !== 0) return true;
+  const c = p.counts as unknown as Record<string, number>;
+  return PERIOD_ROW_FIELDS.some((k) => (c[k] ?? 0) !== 0);
+}
+
+const atomParticipantsCache = new WeakMap<StoredGame, Map<string, Set<string>>>();
+/** 1Q〜4Q・延長（"q1"〜"ot"）ごとに、その区間に出場の記録がある選手（"home"・"away" のキー付き。試合ごとに1回だけ作る） */
+function atomParticipants(game: StoredGame): Map<string, Set<string>> {
+  const hit = atomParticipantsCache.get(game);
+  if (hit) return hit;
+  const out = new Map<string, Set<string>>();
+  const periods = onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays);
+  for (const opt of buildPeriodRangeOptions(periods).filter((o) => ["q1", "q2", "q3", "q4", "ot"].includes(o.value))) {
+    for (const home of [true, false]) {
+      const rows = home ? game.raw.HomeBoxscores : game.raw.AwayBoxscores;
+      out.set(`${home ? "home" : "away"}|${opt.value}`, new Set(buildPlayerBoxscores(rows, opt, game.raw.PlayByPlays, []).filter(participatesInRange).map((p) => p.playerId)));
+    }
+  }
+  atomParticipantsCache.set(game, out);
+  return out;
+}
+const atomOfPeriod = (p: number) => (p >= 5 ? "ot" : `q${p}`);
+
+/** 選手の、選んだ期間の復元の +/-（そのチームが出せない・公式の値があるシーズンは null） */
+export function reconstructedPlusMinusOf(game: StoredGame, isHome: boolean, playerId: string, option: PeriodRangeOption | undefined): number | null {
+  const team = reconstructedPeriodPlusMinus(game).get(isHome ? game.homeTeam.id : game.awayTeam.id);
+  if (!team) return null;
+  const set = option?.periods ?? null;
+  let sum = 0;
+  for (const [p, v] of team.get(playerId) ?? []) if (set === null || set.includes(p)) sum += v;
+  return sum;
 }
 
 /**
@@ -1490,7 +1760,15 @@ export function computeGamePeriodTotals(
   const players = buildPlayerBoxscores(ownRows, option, game.raw.PlayByPlays, []);
   const player = players.find((p) => p.playerId === playerId);
   if (!player) return null;
-  return { player: player.counts, own, opp, poss, isStarter: player.startingFlg === 1 };
+  // 出場中の材料は、その区間に出場の記録がある（ピリオド別の索引に行がある）ときだけ（索引の経路と同じ。DESIGN.md 303章）
+  const onCourt = participatesInRange(player) ? periodOnCourtShareFromGame(game, isHome, playerId, option) : undefined;
+  // 公式の Q別 +/- が無いシーズンは、復元の値（ピリオド別の索引と同じ。DESIGN.md 303章）。区間を選んだときだけ（試合全体は今までどおり）
+  let counts = player.counts;
+  if (!counts.hasPlusMinus && option?.periods) {
+    const pm = reconstructedPlusMinusOf(game, isHome, playerId, option);
+    if (pm !== null) counts = { ...counts, plusMinus: pm, hasPlusMinus: true };
+  }
+  return { player: counts, own, opp, poss, isStarter: player.startingFlg === 1, ...(onCourt ? { onCourt } : {}) };
 }
 
 /**
@@ -1500,6 +1778,32 @@ export function computeGamePeriodTotals(
  * 個人PACE用の在コート区間3項目（onCourtOwnPoss等）はQ別の在コート復元に明確な定義が無いため
  * 対象外とし常に0にする（＝PACE列は「-」表示のまま）
  */
+/** 区間の出場中の材料を、出場中の割合・AST% の材料（PlayerSeasonRawTotals の oc〜）に足す。材料のある試合だけ（分子もその試合だけ） */
+function periodOnCourtShareTotals(contributions: readonly GamePeriodTotals[]): Pick<PlayerSeasonRawTotals, (typeof ON_COURT_SHARE_KEYS)[number]> {
+  const out = Object.fromEntries(ON_COURT_SHARE_KEYS.map((k) => [k, 0])) as Record<(typeof ON_COURT_SHARE_KEYS)[number], number>;
+  for (const c of contributions) {
+    if (!c.onCourt) continue;
+    const p = c.player;
+    out.ocGames += 1;
+    out.ocPts += p.pts;
+    out.ocFgm += p.pt2m + p.pt3m;
+    out.ocFga += p.pt2a + p.pt3a;
+    out.ocTpm += p.pt3m;
+    out.ocTpa += p.pt3a;
+    out.ocFtm += p.ftm;
+    out.ocFta += p.fta;
+    out.ocTeamPts += c.onCourt.pts;
+    out.ocTeamFgm += c.onCourt.fgm;
+    out.ocTeamFga += c.onCourt.fga;
+    out.ocTeamTpm += c.onCourt.tpm;
+    out.ocTeamTpa += c.onCourt.tpa;
+    out.ocTeamFtm += c.onCourt.ftm;
+    out.ocTeamFta += c.onCourt.fta;
+    out.ocFgAssists += c.onCourt.fgAssists;
+  }
+  return out;
+}
+
 export function buildPeriodFilteredRawTotals(contributions: GamePeriodTotals[]): {
   raw: PlayerSeasonRawTotals;
   team: TeamSeasonRawTotals;
@@ -1552,6 +1856,7 @@ export function buildPeriodFilteredRawTotals(contributions: GamePeriodTotals[]):
     paint2a: playerSum.paint2a,
     mid2m: playerSum.nonPaint2m,
     mid2a: playerSum.nonPaint2a,
+    ...periodOnCourtShareTotals(contributions),
   };
 
   const team: TeamSeasonRawTotals = {

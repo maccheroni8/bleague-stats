@@ -1,3 +1,4 @@
+import { reconstructedPeriodPlusMinus } from "../lib/playerSeasonBoxscore";
 import { Fragment, useState, type CSSProperties } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
@@ -753,6 +754,7 @@ export function GameDetailPage({ season }: { season: string }) {
           periodRange={boxscorePeriodRange}
           onPeriodRangeChange={setBoxscorePeriodRange}
           lineupStints={lineupStints}
+          reconstructedPlusMinus={reconstructedPeriodPlusMinus(game)}
           manualBoxscore={String((game.meta as { source?: string }).source).startsWith("manual:")}
         />
       )}

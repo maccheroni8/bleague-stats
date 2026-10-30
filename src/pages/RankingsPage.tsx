@@ -102,6 +102,9 @@ import {
 import {
   CAREER_NOTE,
   DDTD_PERIOD_REASON,
+  ON_COURT_SHARE_LEGACY_REASON,
+  ON_COURT_SHARE_STAT_KEYS,
+  onCourtShareSeasonUnsupported,
   PLAYER_RANK_TOP_N,
   extraRuleKey,
   usePlayerSeasonRanking,
@@ -1061,7 +1064,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
             category === "shooting"
               ? shootingStatItems(currentItems)
               : currentItems.map((i) =>
-                  effPeriodActive && (i.key === "dd2" || i.key === "td3")
+                  effPeriodActive && (i.key === "dd2" || i.key === "td3" || i.key === "pts10")
                     ? { ...i, label: `${statJa(i.label)}（Q別・前後半は対象外）`, disabled: true }
                     : i,
                 ),
@@ -1099,6 +1102,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
         <p className="loading">読み込み中...</p>
       ) : ddtdPeriodOff ? (
         <p className="empty-message">Q別・前後半を選んでいるため、「{statJa(selectedItem.label)}」の順位は表示しません。</p>
+      ) : ON_COURT_SHARE_STAT_KEYS.has(selectedItem.key) && onCourtShareSeasonUnsupported(season) ? (
+        <p className="empty-message">{ON_COURT_SHARE_LEGACY_REASON(statJa(selectedItem.label))}</p>
       ) : (
         <>
           <ExportImageButton

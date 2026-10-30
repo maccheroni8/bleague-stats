@@ -12,9 +12,12 @@ export type StatScope = "player" | "team";
 
 type StatDescription = string | { player: string; team: string };
 
-// 選手の %PTS・%FGM・%FGA・%FTM・%FTA は「個人 ÷ チーム全体」なので、チームの値にすると常に100%になる。チームの表には出さない
+// 選手の %PTS・%FGM・%FGA・%FTM・%FTA は「個人 ÷ 出場中のチーム」。チームの値にすると常に100%になるので、チームの表には出さない
 const TEAM_SHARE_NOT_SHOWN = (item: string) =>
-  `選手の値は「個人の${item} ÷ チーム全体の${item}」のため、チームでは常に100%になります。チームの表には出しません。`;
+  `選手の値は「個人の${item} ÷ 出場中のチームの${item}」です。チーム全体の値にすると常に100%になるため、チームの表には出しません。`;
+/** 選手の出場中の割合の説明（分母は本人が出場していた間の自チーム） */
+const ONCOURT_SHARE = (n: string) =>
+  `個人の${n} ÷ その選手が出場していた間の自チームの${n}（ベンチにいた時間のチームの${n}は分母に含まない）。出場中の記録がそろう試合だけで計算（2016-17〜2019-20は「-」）`;
 
 const PAINT_SPLIT_NOTE = "公式の記録の区分（インサイドペイント／アウトサイドペイント）で数える";
 
@@ -57,6 +60,7 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   アウェー最多連敗: "アウェーの試合だけを並べたときの、レギュラーシーズンの中の最長の連敗（ホームの試合は数えず、間に挟まっても連続を切らない）",
   DD2: "ダブルダブル（PTS・TR・AST・STL・BLKのうち2項目で2桁）を記録した試合数。ランキングの平均の表示では達成率（出場した試合のうち達成した試合の割合）。Q別・前後半では対象外",
   TD3: "トリプルダブル（PTS・TR・AST・STL・BLKのうち3項目で2桁）を記録した試合数。ランキングの平均の表示では達成率（出場した試合のうち達成した試合の割合）。Q別・前後半では対象外",
+  PTS10: "二桁得点試合。得点が10点以上だった試合の数（出場した試合）。ランキングの平均の表示では達成率（出場した試合のうち達成した試合の割合）。Q別・前後半では対象外",
 
   // --- Traditional ---
   MIN: "出場時間",
@@ -125,8 +129,8 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   "DRtg（推定）": "この5人が出場している間の、100ポゼッションあたりの失点（推定）",
   "NetRtg（推定）": "ORtg（推定）－DRtg（推定）",
   "AST%": {
-    // 選手のAST%（在コート中のチームメイトのFGMのうち自分がアシストした割合）は未対応で表示していない（DESIGN.md 139章）
-    player: "チームのFGMのうちアシストが付いた割合。AST / FGM（チームの値）",
+    // 選手の AST% は、出場中のチームメイトの FGM のうち自分がアシストした割合（NBA式。DESIGN.md 139・303章）
+    player: "出場中のチームメイトのFGMのうち、自分のアシストが付いた割合。FGにつながったアシスト ÷（出場中の自チームFGM − 自分のFGM）。フリースローにつながったアシストは含まない。2016-17〜2019-20は「-」",
     team: "FGMのうちアシストが付いた割合。AST / FGM",
   },
   "%PTS ASTED": "得点のうちアシストされた得点の割合（被アシスト率）。(アシストされた2PM×2＋3PM×3＋FTM) / PTS",
@@ -136,6 +140,8 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   FTR: "FTA / FGA",
   "OR%": "100 × OR / (OR＋相手DR)。試合詳細の個人は、本人が出場中の自チームORと相手DRで計算",
   "%OR": "100 × グループのOR / チームのOR（チームに付いたORも分母に含む）。試合詳細の内訳集計だけの項目で、選手に付いたORの割合のため、合計が100%にならないことがあります",
+  "%USG": "100 × グループの（FGA＋0.44×FTA＋TOV）/ チーム全体の（FGA＋0.44×FTA＋TOV）。試合詳細の内訳集計だけの項目で、スタメン・ベンチ・登録区分がチーム全体の攻撃の終わりに占める割合（個人のUSG%とは別の項目）",
+  "%AST": "100 × グループのAST / チームのAST。試合詳細の内訳集計だけの項目で、チームのアシストに占める割合（個人のAST%とは別の項目）",
 
   // --- Misc ---
   PITP: "ペイント内での得点",
@@ -169,43 +175,44 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   "DEAD TOV%": "100 × DEADTOV / (FGA＋0.44×FTA＋TOV)。TOV%と同じ分母で、分子だけをデッドボールターンオーバーにしたもの（LIVE TOV%＋DEAD TOV%＝TOV%。チーム合計の行は、個人に紐付かないチームのターンオーバー〔24秒・8秒・5秒のバイオレーション等〕をDEADに含める。ライブ/デッドに分類できなかった分だけ、足してもTOV%に届かないことがある。また、表示値の丸めにより、LIVE TOV%とDEAD TOV%の合計がTOV%と0.1ずれることがある）",
 
   // --- Scoring ---
+  // 選手の %PTS〜%FTA は出場中の自チームが分母（在コート基準の再集計。DESIGN.md 303章）
   AST2M: "アシストされた2P成功数",
   AST3M: "アシストされた3P成功数",
   ASTFTM: "アシストされたフリースロー成功数（シュートファウルでフリースローになった場合）",
   "%PTS": {
-    player: "個人の得点 ÷ その選手が出場した試合のチーム全体の得点（その選手がベンチにいた時間のチームの得点も分母に含む）",
+    player: ONCOURT_SHARE("得点"),
     team: TEAM_SHARE_NOT_SHOWN("得点"),
   },
   "%FGM": {
-    player: "個人のFGM ÷ その選手が出場した試合のチーム全体のFGM（その選手がベンチにいた時間のチームのFGMも分母に含む）",
+    player: ONCOURT_SHARE("FGM"),
     team: TEAM_SHARE_NOT_SHOWN("FGM"),
   },
   "%FGA": {
-    player: "個人のFGA ÷ その選手が出場した試合のチーム全体のFGA（その選手がベンチにいた時間のチームのFGAも分母に含む）",
+    player: ONCOURT_SHARE("FGA"),
     team: TEAM_SHARE_NOT_SHOWN("FGA"),
   },
   "%3PM": {
-    player: "個人の3PM ÷ その選手が出場した試合のチーム全体の3PM（その選手がベンチにいた時間のチームの3PMも分母に含む）",
+    player: ONCOURT_SHARE("3PM"),
     team: "3PM / FGM（成功したFGのうち3Pの割合。%2PMと合わせて100%）",
   },
   "%3PA": {
-    player: "個人の3PA ÷ その選手が出場した試合のチーム全体の3PA（その選手がベンチにいた時間のチームの3PAも分母に含む）",
+    player: ONCOURT_SHARE("3PA"),
     team: "3PA / FGA（FGAに占める3P試投の割合）",
   },
   "%2PM": {
-    player: "個人の2PM ÷ その選手が出場した試合のチーム全体の2PM（その選手がベンチにいた時間のチームの2PMも分母に含む）",
+    player: ONCOURT_SHARE("2PM"),
     team: "2PM / FGM（成功したFGのうち2Pの割合。%3PMと合わせて100%）",
   },
   "%2PA": {
-    player: "個人の2PA ÷ その選手が出場した試合のチーム全体の2PA（その選手がベンチにいた時間のチームの2PAも分母に含む）",
+    player: ONCOURT_SHARE("2PA"),
     team: "2PA / FGA（FGAに占める2P試投の割合）",
   },
   "%FTM": {
-    player: "個人のFTM ÷ その選手が出場した試合のチーム全体のFTM（その選手がベンチにいた時間のチームのFTMも分母に含む）",
+    player: ONCOURT_SHARE("FTM"),
     team: TEAM_SHARE_NOT_SHOWN("FTM"),
   },
   "%FTA": {
-    player: "個人のFTA ÷ その選手が出場した試合のチーム全体のFTA（その選手がベンチにいた時間のチームのFTAも分母に含む）",
+    player: ONCOURT_SHARE("FTA"),
     team: `${TEAM_SHARE_NOT_SHOWN("FTA")}チームのFTA / FGAは、アドバンスドのFTR（FT Rate）で見られます。`,
   },
   "内訳対象": "2P内訳の記録が揃う試合数／全試合数。内訳の平均・成功率は記録が揃う試合だけで計算します。",

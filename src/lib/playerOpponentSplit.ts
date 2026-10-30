@@ -39,7 +39,7 @@ export interface PlayerOpponentRow extends OpponentRowBase {
   /** この行に入った試合（出場した試合） */
   logs: PlayerGameLog[];
   /** ダブルダブル・トリプルダブルの数（試合全体の記録） */
-  ddtd: { dd: number; td: number };
+  ddtd: { dd: number; td: number; p10: number };
   /** この行の試合のうち、いちばん新しい試合の自チーム（対戦成績タブへの行き先。解決できなければ null） */
   latestTeamId: string | null;
 }
@@ -134,6 +134,7 @@ export function playerStandardColumns(category: SeasonBoxTabKey, mode: SeasonDis
   columns.push(
     { key: "dd2", label: "DD2", sortValue: (r) => r.ddtd.dd, format: (r) => String(r.ddtd.dd) },
     { key: "td3", label: "TD3", sortValue: (r) => r.ddtd.td, format: (r) => String(r.ddtd.td) },
+    { key: "pts10", label: "PTS10", sortValue: (r) => r.ddtd.p10, format: (r) => String(r.ddtd.p10) },
   );
   return columns;
 }

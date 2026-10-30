@@ -37,10 +37,13 @@ export const PERIOD_WORST_UNSUPPORTED_REASON =
 /** 区間を選んだとき、被アシスト率を選べない理由（最低得点20点が、区間では成り立たない） */
 export const PERIOD_ASTED_UNSUPPORTED_REASON = "被アシスト率は、得点20点以上の試合が対象のため、Q別・前後半では選べません。";
 
-/** 範囲「シーズン」で、+/- を選べない理由。公式のピリオド別の +/- は2022-23以降だけ */
-export const PERIOD_PLUS_MINUS_FIRST_SEASON = "2022-23";
+/**
+ * Q別・前後半の +/-。2022-23以降は公式の値、2016-17〜2021-22 は出場選手の復元の値（DESIGN.md 303章）。どのシーズンでも選べる
+ * （出場選手の復元が記録と合わない試合は値が無く、数えない）
+ */
+export const PERIOD_PLUS_MINUS_FIRST_SEASON = "2016-17";
 export function periodPlusMinusUnsupported(season: string): boolean {
   return season < PERIOD_PLUS_MINUS_FIRST_SEASON;
 }
-export const PERIOD_PLUS_MINUS_UNSUPPORTED_REASON = `${PERIOD_PLUS_MINUS_FIRST_SEASON}より前は、公式の記録にQ別・前後半の+/-が無いため選べません。`;
-export const PERIOD_PLUS_MINUS_NOTE = `${PERIOD_PLUS_MINUS_FIRST_SEASON}より前は、公式の記録にQ別・前後半の+/-が無いため、含めていません。`;
+export const PERIOD_PLUS_MINUS_UNSUPPORTED_REASON = "公式の記録にQ別・前後半の+/-が無いため選べません。";
+export const PERIOD_PLUS_MINUS_NOTE = `Q別・前後半の+/-が出せない試合（出場選手の復元が記録と合わない試合など）は、含めていません。`;

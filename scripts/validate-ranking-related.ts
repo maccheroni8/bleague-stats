@@ -25,6 +25,9 @@ const next = () => (n += 3);
 const raw = { gamesPlayed: 20, gamesStarted: 10 } as Record<string, number>;
 const ownKeys = ["min", "pts", "fgm", "fga", "tpm", "tpa", "ftm", "fta", "oreb", "dreb", "reb", "ast", "tov", "stl", "blk", "pf", "foulsDrawn", "blockedAgainst", "technicalFouls", "pt2in", "ptfb", "pt2nd", "plusMinus", "ptsOffTov", "dunks", "basketCounts", "unsportsmanlikeFouls", "disqualifyingFouls", "technicalFoulsCat1", "technicalFoulsCat2", "flagrantFouls", "disruptiveFouls", "offensiveFoulsCommitted", "chargesDrawn", "assisted2m", "assisted3m", "assistedFtm", "paint2m", "paint2a", "mid2m", "mid2a", "onCourtOwnPoss", "onCourtOppPoss", "onCourtSeconds"];
 for (const k of ownKeys) raw[k] = next();
+// 出場中の割合の材料（出場中の記録がそろう試合 18 / 出場 20）。分子は本人（その試合だけ）、分母は出場中の自チーム
+raw.ocGames = 18;
+for (const k of ["ocPts", "ocFgm", "ocFga", "ocTpm", "ocTpa", "ocFtm", "ocFta", "ocTeamPts", "ocTeamFgm", "ocTeamFga", "ocTeamTpm", "ocTeamTpa", "ocTeamFtm", "ocTeamFta", "ocFgAssists"]) raw[k] = 0;
 // 整合: 3PM<3PA<FGM<FGA, FTM<FTA
 raw.tpm = 40;
 raw.tpa = 110;
@@ -33,6 +36,8 @@ raw.fga = 520;
 raw.ftm = 90;
 raw.fta = 120;
 raw.pts = 2 * (raw.fgm - raw.tpm) + 3 * raw.tpm + raw.ftm;
+Object.assign(raw, { ocTpm: 36, ocTpa: 99, ocFgm: 207, ocFga: 468, ocFtm: 81, ocFta: 108, ocTeamTpm: 120, ocTeamTpa: 330, ocTeamFgm: 410, ocTeamFga: 880, ocTeamFtm: 200, ocTeamFta: 260, ocTeamPts: 1150, ocFgAssists: 60 });
+raw.ocPts = 2 * (raw.ocFgm! - raw.ocTpm!) + 3 * raw.ocTpm! + raw.ocFtm!;
 raw.min = 600;
 const teamRaw = {
   pts: 1900, fgm: 700, fga: 1500, tpm: 200, tpa: 560, ftm: 350, fta: 450, oreb: 200, dreb: 500, reb: 700, ast: 400, tov: 250, stl: 120, blk: 60, pf: 380, foulsDrawn: 300,
@@ -86,15 +91,24 @@ for (const [key, formula] of Object.entries(FORMULA)) {
     const tol = mode === "total" ? 0.5 : 0.05;
     const approx = formula(values);
     // 丸めの影響を避けるため、丸めなしの値（total なら整数なので厳密、perGame なら ×試合数で戻す）で計算し直す
-    const exact = formula(mode === "total" ? values : values.map((x: number) => x * 20));
+    // 出場中の値の項目は、平均を出場中の記録がそろう試合数（18）で割る
+    const games = key.startsWith("pct") && !key.endsWith("own") && key !== "pctptsasted" ? 18 : 20;
+    const exact = formula(mode === "total" ? values : values.map((x: number) => x * games));
     const ok = Math.abs(exact - shown) < Math.max(0.02 * Math.abs(shown), 1e-6) + (mode === "total" ? 0 : Math.abs(shown) * 0.02);
     check(`${key}(${mode}): ${rel.labels.join("／")} ${text.join("／")} → ${approx.toFixed(3)}（表 ${shown.toFixed(3)}）`, ok, `許容 ${tol}`);
   }
 }
-// 平均のとき、チームの値も同じ試合数で割っている（%PTS の TEAM PTS）
+// 平均のとき、出場中の自チームの値も、出場中の記録がそろう試合数で割っている（%PTS の TEAM PTS（出場中）。DESIGN.md 303章）
 {
   const rel = relatedStatsFor({ category: "scoring", statKey: "pctpts", mode: "perGame", ctxOf: () => ctxPerGame, shooting: [] })!;
-  check("pctpts(perGame): TEAM PTS は チーム合計÷出場試合数", rel.of(player)![1] === (1900 / 20).toFixed(1), String(rel.of(player)));
+  check("pctpts(perGame): TEAM PTS（出場中）は 出場中の合計÷そろう試合数", rel.of(player)![1] === (1150 / 18).toFixed(1), String(rel.of(player)));
+}
+// 出場中の記録がそろう試合が無い（2019-20以前など）ときは、%PTS とその関連スタッツは「-」
+{
+  const none = buildSeasonBoxscoreCtx({ ...raw, ocGames: 0 } as unknown as PlayerSeasonRawTotals, team, "total", 2018);
+  const rel = relatedStatsFor({ category: "scoring", statKey: "pctpts", mode: "total", ctxOf: () => none, shooting: [] })!;
+  check("pctpts: 出場中の記録が無ければ関連スタッツは「-」", rel.of(player)!.every((x: string) => x === "-"));
+  check("pctpts: 出場中の記録が無ければ表も「-」", columns.get("pctpts")!.format(none, "total") === "-");
 }
 // 2016-17 より前はペイント内外が無いので「-」
 {

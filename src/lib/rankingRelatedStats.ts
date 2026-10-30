@@ -16,10 +16,13 @@ interface RelatedSpec {
 }
 
 const own = (label: string, get: (s: SeasonBoxscoreCtx["scaled"]) => number): RelatedSpec => ({ label, value: (c) => get(c.scaled) });
-/** チーム全体の値（その選手が出場した試合のチーム合計）。選手の値と同じ係数で平均／合計に直す */
-const team = (label: string, get: (t: SeasonBoxscoreCtx["team"]) => number): RelatedSpec => ({
+/**
+ * 出場中の値（出場中の記録がそろう試合だけの合計。在コート基準の再集計）。平均はその試合数（ocGames）で割る。そろう試合が無ければ「-」
+ */
+const oc = (label: string, get: (r: SeasonBoxscoreCtx["raw"]) => number): RelatedSpec => ({
   label,
-  value: (c, factor) => get(c.team) * factor,
+  // 合計は factor が1（出場1試合のときは平均も1。そのとき ocGames も1なので同じ値）
+  value: (c, factor) => (c.raw.ocGames > 0 ? get(c.raw) * (factor === 1 ? 1 : 1 / c.raw.ocGames) : undefined),
 });
 /** ペイント内外の分割は 2016-17 シーズン以降だけ */
 const paintSplit = (label: string, get: (s: SeasonBoxscoreCtx["scaled"]) => number): RelatedSpec => ({
@@ -57,15 +60,18 @@ const RELATED_BY_KEY: Record<string, RelatedSpec[]> = {
   ts: [PTS, FGA, FTA],
   pps: [PTS, FGA],
   // Scoring: 個人÷チーム全体のシェア
-  pctpts: [PTS, team("TEAM PTS", (t) => t.pts)],
-  pctfgm: [FGM, team("TEAM FGM", (t) => t.fgm)],
-  pctfga: [FGA, team("TEAM FGA", (t) => t.fga)],
-  pct3pm: [TPM, team("TEAM 3PM", (t) => t.tpm)],
-  pct3pa: [TPA, team("TEAM 3PA", (t) => t.tpa)],
-  pct2pm: [own("2PM", (s) => s.fgm - s.tpm), team("TEAM 2PM", (t) => t.fgm - t.tpm)],
-  pct2pa: [own("2PA", (s) => s.fga - s.tpa), team("TEAM 2PA", (t) => t.fga - t.tpa)],
-  pctftm: [own("FTM", (s) => s.ftm), team("TEAM FTM", (t) => t.ftm)],
-  pctfta: [FTA, team("TEAM FTA", (t) => t.fta)],
+  // Scoring: 個人÷出場中の自チーム（在コート基準。出場中の記録がそろう試合だけ。DESIGN.md 303章）
+  pctpts: [oc("PTS", (r) => r.ocPts), oc("TEAM PTS（出場中）", (r) => r.ocTeamPts)],
+  pctfgm: [oc("FGM", (r) => r.ocFgm), oc("TEAM FGM（出場中）", (r) => r.ocTeamFgm)],
+  pctfga: [oc("FGA", (r) => r.ocFga), oc("TEAM FGA（出場中）", (r) => r.ocTeamFga)],
+  pct3pm: [oc("3PM", (r) => r.ocTpm), oc("TEAM 3PM（出場中）", (r) => r.ocTeamTpm)],
+  pct3pa: [oc("3PA", (r) => r.ocTpa), oc("TEAM 3PA（出場中）", (r) => r.ocTeamTpa)],
+  pct2pm: [oc("2PM", (r) => r.ocFgm - r.ocTpm), oc("TEAM 2PM（出場中）", (r) => r.ocTeamFgm - r.ocTeamTpm)],
+  pct2pa: [oc("2PA", (r) => r.ocFga - r.ocTpa), oc("TEAM 2PA（出場中）", (r) => r.ocTeamFga - r.ocTeamTpa)],
+  pctftm: [oc("FTM", (r) => r.ocFtm), oc("TEAM FTM（出場中）", (r) => r.ocTeamFtm)],
+  pctfta: [oc("FTA", (r) => r.ocFta), oc("TEAM FTA（出場中）", (r) => r.ocTeamFta)],
+  // Misc: 選手の AST%（FGにつながったアシスト ÷（出場中の自チーム FGM − 本人の FGM））
+  astpct: [oc("FG AST", (r) => r.ocFgAssists), oc("TEAM FGM−FGM（出場中）", (r) => r.ocTeamFgm - r.ocFgm)],
   pctptsasted: [own("ASTED PTS", (s) => s.assisted2m * 2 + s.assisted3m * 3 + s.assistedFtm), PTS],
   paint2pct: [PAINT2M, PAINT2A],
   mid2pct: [MID2M, MID2A],

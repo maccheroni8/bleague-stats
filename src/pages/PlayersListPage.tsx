@@ -52,6 +52,7 @@ import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import { divisionPresets } from "../lib/divisionGroups";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
+import { OnCourtShareNote } from "../components/OnCourtShareNote";
 import {
   classificationLabels,
   composeLabels,
@@ -279,17 +280,20 @@ interface PlayerRow {
   season: string;
   player: PlayerSummary;
   ctx?: SeasonBoxscoreCtx;
-  /** DD2・TD3（絞り込み中は、絞り込んだ試合のうち出場した試合から数える。個人詳細と同じ数え方）。無ければシーズンの値（players.json） */
-  ddtd?: { dd: number; td: number };
+  /** DD2・TD3・PTS10（絞り込み中は、絞り込んだ試合のうち出場した試合から数える。個人詳細と同じ数え方）。無ければシーズンの値（players.json） */
+  ddtd?: { dd: number; td: number; p10: number };
 }
 
-/** DD2・TD3 の列。平均／合計に関わらず回数（個人詳細のシーズン別成績と同じ値） */
+/** DD2・TD3・PTS10 の列。平均／合計に関わらず回数（個人詳細のシーズン別成績と同じ値） */
 function doubleDigitColumns(): Column<PlayerRow>[] {
   const dd = (r: PlayerRow) => r.ddtd?.dd ?? r.player.totals.doubleDoubles ?? 0;
   const td = (r: PlayerRow) => r.ddtd?.td ?? r.player.totals.tripleDoubles ?? 0;
+  const p10 = (r: PlayerRow): number | undefined => r.ddtd?.p10 ?? r.player.totals.points10Games;
   return [
     { key: "dd2", label: "DD2", sortValue: dd, format: (r) => String(dd(r)) },
     { key: "td3", label: "TD3", sortValue: td, format: (r) => String(td(r)) },
+    // 二桁得点試合（PTS10）。players.json に値の無い古いデータは「-」（0回にしない）
+    { key: "pts10", label: "PTS10", sortValue: (r) => p10(r) ?? -1, format: (r) => (p10(r) === undefined ? "-" : String(p10(r))) },
   ];
 }
 
@@ -1242,6 +1246,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
             </button>
           )}
           {tab === "misc" && <RuleChangeFootnote seasons={[season]} />}
+          <OnCourtShareNote tab={tab} rows={tableRows.map((r) => ({ season, gamesPlayed: r.ctx?.raw.gamesPlayed ?? 0, ocGames: r.ctx?.raw.ocGames ?? 0 }))} />
           {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
           <ClassificationNotes filter={classificationFilter} scope="season" />
         </>

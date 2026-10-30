@@ -9,7 +9,9 @@
 // 以降のみ存在）には依存しない。そのため「よく使われるラインナップ」と同じく、PBP対応の
 // 全シーズン（pbpSupported）で動作する（coverage制約なし）。
 
-import type { PlayByPlayEvent, StoredGame } from "../../shared/types";
+import type { PlayByPlayEvent, PlayerGameLog, StoredGame, TeamGameLog } from "../../shared/types";
+import { STINT_COUNT_KEYS } from "../../shared/onCourt";
+import { onCourtKeyIndex } from "../../shared/playerOnCourt";
 import { buildPossessionStartEvents, buildScoreEvents, onCourtPeriodCount, substitutionModelForSeason, totalGameSeconds } from "../../shared/onCourt";
 import { elapsedSeconds } from "./leadTracker";
 
@@ -137,6 +139,42 @@ export function mergeOnOffSplits(splits: OnOffSplit[]): OnOffSplit {
   for (const s of splits) {
     mergeBucketInto(on, s.on);
     mergeBucketInto(off, s.off);
+  }
+  return { on, off };
+}
+
+/**
+ * 試合ログの出場中の材料から作る On/Off（2020-21以降。在コート基準の再集計。DESIGN.md 303章）。ランキングの On/Off（shared/onCourtTotals.ts）と同じ値:
+ * On は本人がいた5人組の区間の合計（PlayerGameLog.onCourt）、Off は本人が時間のある区間に出た試合で、チームの出場区間の合計（TeamGameLog.stintTotals）− On。
+ * 攻撃回数は攻撃の終わりの数（ランキング・ラインナップと同じ）。材料の無い試合（チームの試合ログに stintTotals が無い等）は数えない
+ */
+export function onOffSplitFromLogs(logs: readonly PlayerGameLog[], teamLogOf: (g: PlayerGameLog) => TeamGameLog | undefined): OnOffSplit {
+  const on = zeroBucket();
+  const off = zeroBucket();
+  const add = (b: OnOffBucket, v: readonly number[], sign = 1, base?: readonly number[]) => {
+    const at = (i: number) => (base ? base[i]! - v[i]! : v[i]!) * sign;
+    const own = (k: (typeof STINT_COUNT_KEYS)[number]) => at(onCourtKeyIndex(k, "own"));
+    const opp = (k: (typeof STINT_COUNT_KEYS)[number]) => at(onCourtKeyIndex(k, "opp"));
+    b.seconds += at(0);
+    b.ownPts += own("pts");
+    b.oppPts += opp("pts");
+    b.ownPoss += own("poss");
+    b.oppPoss += opp("poss");
+    for (const [target, side] of [[b.ownShooting, own], [b.oppShooting, opp]] as const) {
+      target.fgm += side("fgm");
+      target.fga += side("fga");
+      target.tpm += side("tpm");
+      target.tpa += side("tpa");
+      target.ftm += side("ftm");
+      target.fta += side("fta");
+    }
+  };
+  for (const g of logs) {
+    if (!g.onCourt) continue;
+    const team = teamLogOf(g);
+    if (!team?.stintTotals) continue;
+    add(on, g.onCourt);
+    if (g.onCourt[0]! > 0) add(off, g.onCourt, 1, team.stintTotals);
   }
   return { on, off };
 }

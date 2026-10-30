@@ -207,3 +207,70 @@ export function shotTypeEntityColumns<T>(
     ];
   });
 }
+
+/**
+ * 自チーム − 相手（+/-）のシュートタイプ別の列（全チームスタッツ Shooting の +/-。DESIGN.md 299-5・303章）。列の並び・キーは shotTypeEntityColumns と同じ。
+ * - 成功数・試投数: 自チーム − 相手。平均は、両方を同じ対象試合数（スポーツナビの記録がある試合）で割ってから引く。差が0でも表示する
+ * - 成功率: 100 × 自チームの成功 ÷ 自チームの試投 − 100 × 相手の成功 ÷ 相手の試投（パーセントポイント）。どちらかの試投が0なら「-」
+ * 自チーム・相手のどちらかの値が無い（古いデータ）行は「-」
+ */
+export function shotTypeDiffColumns<T>(
+  shotTypeKeys: string[],
+  getOwn: (row: T) => ShotTypeBreakdown | undefined,
+  getOpp: (row: T) => ShotTypeBreakdown | undefined,
+  mode: "total" | "perGame",
+  getGames: (row: T) => number,
+): Column<T>[] {
+  const zero: ShotTypeCounts = { made: 0, attempted: 0 };
+  const pair = (row: T, key: string, split: "twoPoint" | "threePoint"): { own: ShotTypeCounts; opp: ShotTypeCounts } | null => {
+    const own = getOwn(row);
+    const opp = getOpp(row);
+    if (!own || !opp) return null;
+    const games = getGames(row);
+    if (mode === "perGame" && games <= 0) return null;
+    const f = mode === "perGame" ? 1 / games : 1;
+    return { own: scaleShotTypeCounts(own[key]?.[split] ?? zero, f), opp: scaleShotTypeCounts(opp[key]?.[split] ?? zero, f) };
+  };
+  const digits = mode === "perGame" ? 1 : 0;
+  const signed = (v: number, d: number) => {
+    const t = v.toFixed(d);
+    return Number(t) > 0 ? `+${t}` : Number(t) === 0 ? (0).toFixed(d) : t;
+  };
+  const countCol = (key: string, split: "twoPoint" | "threePoint", field: "made" | "attempted", suffix: string, label: string): Column<T> => ({
+    key: `${key}_${suffix}`,
+    label,
+    sortValue: (r) => {
+      const p = pair(r, key, split);
+      return p ? p.own[field] - p.opp[field] : Number.NEGATIVE_INFINITY;
+    },
+    format: (r) => {
+      const p = pair(r, key, split);
+      return p ? signed(p.own[field] - p.opp[field], digits) : "-";
+    },
+  });
+  const pctDiff = (r: T, key: string, split: "twoPoint" | "threePoint"): number | null => {
+    const p = pair(r, key, split);
+    if (!p || p.own.attempted === 0 || p.opp.attempted === 0) return null;
+    return (100 * p.own.made) / p.own.attempted - (100 * p.opp.made) / p.opp.attempted;
+  };
+  const pctCol = (key: string, split: "twoPoint" | "threePoint", suffix: string, label: string): Column<T> => ({
+    key: `${key}_${suffix}`,
+    label,
+    sortValue: (r) => pctDiff(r, key, split) ?? Number.NEGATIVE_INFINITY,
+    format: (r) => {
+      const v = pctDiff(r, key, split);
+      return v === null ? "-" : signed(v, 1);
+    },
+  });
+  return shotTypeKeys.flatMap((key): Column<T>[] => {
+    const label = shotTypeLabel(key);
+    return [
+      countCol(key, "twoPoint", "made", "2pm", `${label} 2PM`),
+      countCol(key, "twoPoint", "attempted", "2pa", `${label} 2PA`),
+      pctCol(key, "twoPoint", "2ppct", `${label} 2P%`),
+      countCol(key, "threePoint", "made", "3pm", `${label} 3PM`),
+      countCol(key, "threePoint", "attempted", "3pa", `${label} 3PA`),
+      pctCol(key, "threePoint", "3ppct", `${label} 3P%`),
+    ];
+  });
+}

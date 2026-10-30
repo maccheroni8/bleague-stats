@@ -461,7 +461,7 @@ export interface CompareColumnData {
   /** 出場した試合（G の試合）での所属チームの勝敗（「G 6（3-3）」。移籍した選手は所属した各チームの試合の合計） */
   record?: CompareRecord;
   /** 出場した試合でのダブルダブル・トリプルダブルの回数（DD2・TD3。個人詳細のシーズン別成績と同じ数え方 `countDoubleTripleDoubles`） */
-  ddtd?: { dd: number; td: number };
+  ddtd?: { dd: number; td: number; p10?: number };
 }
 
 /**
@@ -498,15 +498,16 @@ export function seasonBoxCompareDefs(
     defs.splice(at === -1 ? defs.length : at + 1, 0, ftr);
   }
   if (tabKey === "traditional") {
-    // DD2・TD3: 個人詳細のシーズン別成績と同じ位置（末尾）・同じ数え方。回数のまま（平均にしない）
-    const count = (key: "dd" | "td", label: string): ComparisonStatDef<CompareColumnData> => ({
+    // DD2・TD3・PTS10: 個人詳細のシーズン別成績と同じ位置（末尾）・同じ数え方。回数のまま（平均にしない）
+    const count = (key: "dd" | "td" | "p10", label: string): ComparisonStatDef<CompareColumnData> => ({
       key: label.toLowerCase(),
       label,
       value: (r) => r.ddtd?.[key] ?? 0,
-      format: (r) => (r.ddtd ? String(r.ddtd[key]) : "-"),
+      format: (r) => (r.ddtd?.[key] !== undefined ? String(r.ddtd[key]) : "-"),
       higherIsBetter: true,
     });
-    defs.push(count("dd", "DD2"), count("td", "TD3"));
+    // 二桁得点試合（PTS10）も同じ数え方で TD3 の右に（DESIGN.md 299-5・303章）
+    defs.push(count("dd", "DD2"), count("td", "TD3"), count("p10", "PTS10"));
   }
   return defs;
 }

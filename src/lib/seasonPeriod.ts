@@ -9,9 +9,11 @@
 import { leagueCacheKey, type League } from "./league";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GAME_FLAG_SHORT, ROW_FLAG_STARTER } from "../../shared/gameIndex";
+import { ON_COURT_QUALITY_SHARES } from "../../shared/playerOnCourt";
 import {
   PERIOD_ATOMS,
   PERIOD_ROW_FLAG_PLUS_MINUS,
+  PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED,
   PLAYER_PERIOD_STAT_COLUMNS,
   TEAM_PERIOD_COUNT_COLUMNS,
   type PeriodPossKey,
@@ -202,15 +204,26 @@ export function seasonPeriodTotalsOf(
   for (const c of PLAYER_PERIOD_STAT_COLUMNS) sum[c] = 0;
   let found = false;
   let hasPlusMinus = false;
+  // 出場中の割合の材料（2020-21以降の索引だけが持つ列。割合の品質ビットが立たない試合・値の無い行は持たせない）
+  const oc = { pts: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, fgAssists: 0 };
+  let ocOk = source.period.file.rows.stats["ocQuality"] !== undefined;
   const from = source.period.start[i]!;
   if (from !== -1) {
     const { stats, period: periods, flags } = source.period.file.rows;
     for (let k = from; k < source.period.end[i]!; k++) {
       if (!atoms.includes(periods[k]!)) continue;
       found = true;
-      const officialPm = (flags[k]! & PERIOD_ROW_FLAG_PLUS_MINUS) !== 0;
+      if (ocOk) {
+        const q = stats["ocQuality"]![k]!;
+        if (q < 0 || (q & ON_COURT_QUALITY_SHARES) === 0) ocOk = false;
+        else {
+          for (const key of ["pts", "fgm", "fga", "tpm", "tpa", "ftm", "fta"] as const) oc[key] += stats[`ocOwn.${key}`]![k]!;
+          oc.fgAssists += stats["fgAssists"]![k]!;
+        }
+      }
+      const officialPm = (flags[k]! & (PERIOD_ROW_FLAG_PLUS_MINUS | PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED)) !== 0;
       if (officialPm) hasPlusMinus = true;
-      // 公式の値の無い行の plusMinus（復元の値。PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED）は、ここでは足さない
+      // 公式の値（2022-23以降）か、復元の値（2016-17〜2021-22。PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED）のある行の plusMinus だけ足す
       for (const c of PLAYER_PERIOD_STAT_COLUMNS) if (c !== "plusMinus" || officialPm) sum[c] += stats[c][k]!;
     }
   }
@@ -222,7 +235,7 @@ export function seasonPeriodTotalsOf(
   if (!own || !opp) return null;
   const poss = source.teamPeriod.rows.poss[value as PeriodPossKey]?.[ownRow] ?? 0;
   const isStarter = (source.player.file.rows.flags[i]! & ROW_FLAG_STARTER) !== 0;
-  return { player: playerCountsOf(sum, hasPlusMinus), own, opp, poss: poss < 0 ? 0 : poss, isStarter };
+  return { player: playerCountsOf(sum, hasPlusMinus), own, opp, poss: poss < 0 ? 0 : poss, isStarter, ...(ocOk && found ? { onCourt: oc } : {}) };
 }
 
 /** 延長に出た試合が基準以上の選手の選手ID（シーズン全体・試合区分を問わない） */

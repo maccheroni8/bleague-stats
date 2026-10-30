@@ -30,6 +30,7 @@ import {
   PERIOD_INDEX_VERSION,
   PERIOD_POSS_KEYS,
   PERIOD_ROW_FLAG_PLUS_MINUS,
+  PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED,
   PLAYER_PERIOD_STAT_COLUMNS,
   TEAM_PERIOD_COUNT_COLUMNS,
   TEAM_PERIOD_EXTRA_COLUMNS,
@@ -60,6 +61,7 @@ import {
   computeGamePeriodTotals,
   computeGameTeamPeriodTotals,
   type GamePeriodTotals,
+  reconstructedPlusMinusOf,
 } from "../src/lib/playerSeasonBoxscore";
 
 const args = process.argv.slice(2);
@@ -264,8 +266,8 @@ function rowRanges(d: SeasonData): { start: Int32Array; end: Int32Array } {
 function periodStats(d: SeasonData, i: number): Record<PlayerPeriodStatColumn, number> {
   const out = zeroStats();
   for (const c of PLAYER_PERIOD_STAT_COLUMNS) out[c] = d.player.rows.stats[c][i]!;
-  // 復元の Q別 +/-（PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED）は、公式の値と同じ扱いでは読まない（画面の読み方と同じ。復元の値は validate:player-oncourt が確かめる）
-  if ((d.player.rows.flags[i]! & PERIOD_ROW_FLAG_PLUS_MINUS) === 0) out.plusMinus = 0;
+  // +/- は、公式の値か復元の値（PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED。2016-17〜2021-22）の旗のある行だけ（画面の読み方と同じ）
+  if ((d.player.rows.flags[i]! & (PERIOD_ROW_FLAG_PLUS_MINUS | PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED)) === 0) out.plusMinus = 0;
   return out;
 }
 
@@ -393,11 +395,18 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
       const ownRows = sides[side]!;
       const oppRows = sides[1 - side]!;
       // 試合全体と、区間ごとの、同じ関数の結果
-      const whole = new Map(buildPlayerBoxscores(ownRows, allOpt ?? undefined, game.raw.PlayByPlays, []).map((p) => [p.playerId, p]));
+      // 公式の +/- が無いシーズン（2016-17〜2021-22）は、画面と同じ復元の Q別 +/-（reconstructedPlusMinusOf）を重ねて比べる（DESIGN.md 303章）
+      const withRecon = (list: ReturnType<typeof buildPlayerBoxscores>, opt: PeriodRangeOption | undefined) =>
+        list.map((p) => {
+          if (p.counts.hasPlusMinus || p.dnp) return p;
+          const pm = reconstructedPlusMinusOf(game, side === 0, p.playerId, opt);
+          return pm === null ? p : { ...p, counts: { ...p.counts, plusMinus: pm, hasPlusMinus: true } };
+        });
+      const whole = new Map(withRecon(buildPlayerBoxscores(ownRows, allOpt ?? undefined, game.raw.PlayByPlays, []), undefined).map((p) => [p.playerId, p]));
       const direct = new Map<string, Map<string, ReturnType<typeof buildPlayerBoxscores>[number]>>();
       for (const v of [...ATOM_OPTION_VALUES, "h1", "h2"]) {
         const opt = optionOf(game, v);
-        if (opt && !(short && v !== "ot")) direct.set(v, new Map(buildPlayerBoxscores(ownRows, opt, game.raw.PlayByPlays, []).map((p) => [p.playerId, p])));
+        if (opt && !(short && v !== "ot")) direct.set(v, new Map(withRecon(buildPlayerBoxscores(ownRows, opt, game.raw.PlayByPlays, []), opt).map((p) => [p.playerId, p])));
       }
 
       // チームの表（自チーム）
@@ -451,7 +460,7 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
         if (start[r]! !== -1) {
           for (let i = start[r]!; i < end[r]!; i++) {
             byAtom[player.rows.period[i]!] = periodStats(d, i);
-            pmFlags[player.rows.period[i]!] = (player.rows.flags[i]! & PERIOD_ROW_FLAG_PLUS_MINUS) !== 0;
+            pmFlags[player.rows.period[i]!] = (player.rows.flags[i]! & (PERIOD_ROW_FLAG_PLUS_MINUS | PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED)) !== 0;
           }
         }
         // 8. 読む側の確認用に、区間ごとの最大値を別に数える（試合の生データから直接。短い試合は区間の行が無い）
@@ -583,6 +592,8 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
             const real = computeGamePeriodTotals(game, side === 0, pid, sOpt);
             realFnChecked += 1;
             const direct1 = buildPlayerBoxscores(sideRows[side]!, sOpt, game.raw.PlayByPlays, []).find((p) => p.playerId === pid);
+            const reconPm = direct1 && !direct1.counts.hasPlusMinus ? reconstructedPlusMinusOf(game, side === 0, pid, sOpt) : null;
+            if (direct1 && reconPm !== null) direct1.counts = { ...direct1.counts, plusMinus: reconPm, hasPlusMinus: true };
             const teamSide = computeGameTeamPeriodTotals(game, side === 0, sOpt);
             if (!real || !direct1 || diffObjects(real.player, direct1.counts) !== null || diffObjects(real.own, teamSide.own) !== null || diffObjects(real.opp, teamSide.opp) !== null || !sameNumber(real.poss, teamSide.poss)) {
               realFnNg += 1;
