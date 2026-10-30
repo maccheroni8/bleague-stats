@@ -90,6 +90,7 @@
     "validate:attendance-ranking": "esbuild scripts/validate-attendance-ranking.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-attendance-ranking.mjs && node node_modules/.cache/validate-attendance-ranking.mjs",
     "validate:streak-records": "esbuild scripts/validate-streak-records.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-streak-records.mjs && node node_modules/.cache/validate-streak-records.mjs",
     "validate:annual-schedule": "node --experimental-strip-types scripts/validate-annual-schedule.ts",
+    "validate:one-game-matchups": "node --experimental-strip-types scripts/validate-one-game-matchups.ts",
     "scrape:annual-schedule": "node --experimental-strip-types scripts/scrape-annual-schedule.ts",
     "validate:season-key": "node --experimental-strip-types scripts/validate-season-key.ts",
     "validate:live-dead-tov": "esbuild scripts/validate-live-dead-tov.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-live-dead-tov.mjs && node node_modules/.cache/validate-live-dead-tov.mjs",

@@ -1,0 +1,22 @@
+.onegame-layout { display:flex; flex-direction:column; gap:24px; }
+.onegame-matrix, .onegame-list { border-collapse:collapse; font-size:12px; }
+.onegame-matrix th, .onegame-matrix td, .onegame-list th, .onegame-list td { border:1px solid var(--border); padding:4px 6px; text-align:center; }
+.onegame-matrix thead th, .onegame-list thead th { background:var(--header-bg); white-space:nowrap; }
+.onegame-matrix tbody th { text-align:left; white-space:nowrap; background:var(--header-bg); }
+.onegame-list { width:100%; min-width:0; }
+.onegame-list tbody th { text-align:left; background:var(--header-bg); }
+.onegame-nowrap { white-space:nowrap; }
+.onegame-cell { min-width:34px; color:var(--muted); }
+.onegame-cell.is-one { padding:0; background:var(--header-bg); border:2px solid var(--fg); font-weight:bold; color:var(--fg); }
+.onegame-cell button { width:100%; min-width:38px; min-height:32px; border:0; background:transparent; color:var(--fg); font:inherit; font-weight:bold; cursor:pointer; }
+.onegame-cell button.is-selected { background:var(--accent); color:var(--bg); }
+.onegame-legend { font-size:12px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.onegame-legend .onegame-cell { display:inline-block; padding:2px 6px; min-width:0; }
+.onegame-detail { display:flex; flex-wrap:wrap; gap:6px 16px; min-height:44px; padding:10px 12px; margin-top:12px; border:1px solid var(--border); background:var(--header-bg); font-size:13px; }
+.onegame-hint { color:var(--muted); }
+.onegame-export { margin-top:16px; }
+.export-rendering.onegame-export { width:1100px !important; }
+.export-rendering .onegame-export .figure-scroll { overflow:visible; }
+@media(min-width:900px) { .onegame-layout { gap:32px; } }
+@media(max-width:560px) { .onegame-list-block { order:-1; } .onegame-wide { display:none; } .onegame-list { min-width:0; } .onegame-list th, .onegame-list td { padding:4px 3px; } }
+.export-rendering .onegame-wide { display:inline; }
