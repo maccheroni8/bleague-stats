@@ -5161,7 +5161,7 @@ table.compare-table th .compare-condition-tag {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
+  /* 文字は大文字にしない（ORtg・eFG% などの表記を項目名の辞書のまま出す） */
   transition: color 0.12s ease;
 }
 
@@ -5272,7 +5272,7 @@ table.compare-table th .compare-condition-tag {
 [data-design="v2"] .leader-stat-label {
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
+  /* 文字は大文字にしない（ORtg・eFG% などの表記を項目名の辞書のまま出す） */
 }
 
 [data-design="v2"] .leader-photo {
@@ -5450,7 +5450,7 @@ table.compare-table th .compare-condition-tag {
   border-bottom: 1px solid var(--fg);
   font-size: 11px;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
+  /* 文字は大文字にしない（ORtg・eFG% などの表記を項目名の辞書のまま出す） */
 }
 
 [data-design="v2"] table.quarter-table td a {
@@ -5564,7 +5564,7 @@ table.compare-table th .compare-condition-tag {
 [data-design="v2"] .leader-top3-label {
   font-size: 11px;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
+  /* 文字は大文字にしない（ORtg・eFG% などの表記を項目名の辞書のまま出す） */
 }
 
 [data-design="v2"] .leader-top3-value,
