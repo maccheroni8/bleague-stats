@@ -264,6 +264,8 @@ function rowRanges(d: SeasonData): { start: Int32Array; end: Int32Array } {
 function periodStats(d: SeasonData, i: number): Record<PlayerPeriodStatColumn, number> {
   const out = zeroStats();
   for (const c of PLAYER_PERIOD_STAT_COLUMNS) out[c] = d.player.rows.stats[c][i]!;
+  // 復元の Q別 +/-（PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED）は、公式の値と同じ扱いでは読まない（画面の読み方と同じ。復元の値は validate:player-oncourt が確かめる）
+  if ((d.player.rows.flags[i]! & PERIOD_ROW_FLAG_PLUS_MINUS) === 0) out.plusMinus = 0;
   return out;
 }
 

@@ -46,6 +46,7 @@ import { buildMiscEventCounts, countTechnicalFouls, teamPointsBreakdown, type Mi
 import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
 import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../shared/playTypePoints.ts";
 import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
+import { hasOnCourtValues, fgAssistsByPlayer, playerOnCourtByPeriod, sumOverPeriods, teamOnCourtQuality, teamStintTotals } from "../shared/playerOnCourt.ts";
 import { buildOfficialPaintSplit, type PaintSplitCounts as OfficialPaintSplitCounts } from "../shared/paintSplit.ts";
 import { TEAM_NAMES, teamDivisionForSeason } from "./lib/divisions.ts";
 import { computeClinchEvents, computePremierRace, premierChampion, type RaceTeamInput } from "./lib/playoffRace.ts";
@@ -804,6 +805,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
             substitutionModelForSeason(game.season),
           )
         : null;
+    const onCourtMaterials = buildGameOnCourtMaterials(game, onCourt, periods);
     const technicalFouls = countTechnicalFouls(game.raw.PlayByPlays);
     const foreignPlayerCourtSeconds = onCourt
       ? computeForeignPlayerCourtSeconds(onCourt.lineupStints, (id) => classifyAt(id, game.date), maxForeignOnCourt, foreignOverLimit)
@@ -856,6 +858,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       onCourtRatingsByPlayer,
       offensiveFoulCountsByPlayer,
       clutch,
+      onCourtMaterials,
     );
     processTeams(
       game,
@@ -874,6 +877,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       paintSplit.byTeam,
       classifyAt,
       teamRuns,
+      onCourtMaterials,
     );
     processLineups(game, teamLineups, teamLineupGames, onCourt);
     if (writeTeamStints) collectTeamStints(game, teamStints, onCourt);
@@ -1356,6 +1360,51 @@ function collectTeamStints(game: StoredGame, store: Map<string, TeamStintsBuilde
   }
 }
 
+/**
+ * 1試合分の出場中の材料（在コート基準の再集計。shared/playerOnCourt.ts・DESIGN.md 303章）。数え上げのある試合（2020-21以降のプレーバイプレーのある試合）だけ。
+ * チームごとの品質・出場区間の合計・選手のピリオド別の材料と、FGにつながったアシスト
+ */
+interface GameOnCourtMaterials {
+  byTeam: Map<string, { quality: number; stintTotals: number[]; byPlayer: Map<string, Map<number, number[]>> }>;
+  fgAssists: Map<string, number>;
+}
+
+function buildGameOnCourtMaterials(game: StoredGame, onCourt: OnCourtReconstruction | null, periods: number): GameOnCourtMaterials | null {
+  if (!onCourt?.teamTotals) return null;
+  const byTeam: GameOnCourtMaterials["byTeam"] = new Map();
+  for (const home of [true, false]) {
+    const teamId = home ? game.homeTeam.id : game.awayTeam.id;
+    const opponentId = home ? game.awayTeam.id : game.homeTeam.id;
+    const ownRows = home ? game.raw.HomeBoxscores : game.raw.AwayBoxscores;
+    const oppRows = home ? game.raw.AwayBoxscores : game.raw.HomeBoxscores;
+    byTeam.set(teamId, {
+      quality: teamOnCourtQuality(onCourt, teamId, opponentId, ownRows, oppRows, home ? game.homeScore : game.awayScore, home ? game.awayScore : game.homeScore, periods),
+      stintTotals: teamStintTotals(onCourt.lineupStints, teamId, periods),
+      byPlayer: playerOnCourtByPeriod(onCourt.lineupStints, teamId, periods),
+    });
+  }
+  const fgAssists = new Map<string, number>();
+  for (const [id, byPeriod] of fgAssistsByPlayer(game.raw.PlayByPlays)) fgAssists.set(id, [...byPeriod.values()].reduce((a, b) => a + b, 0));
+  return { byTeam, fgAssists };
+}
+
+function playerOnCourtFields(m: GameOnCourtMaterials | null, teamId: string, playerId: string): Pick<PlayerGameLog, "onCourt" | "onCourtQuality" | "fgAssists"> {
+  const team = m?.byTeam.get(teamId);
+  if (!m || !team) return {};
+  const byPeriod = team.byPlayer.get(playerId);
+  return {
+    ...(hasOnCourtValues(byPeriod) ? { onCourt: sumOverPeriods(byPeriod) } : {}),
+    onCourtQuality: team.quality,
+    fgAssists: m.fgAssists.get(playerId) ?? 0,
+  };
+}
+
+function teamOnCourtFields(m: GameOnCourtMaterials | null, teamId: string): Pick<TeamGameLog, "stintTotals" | "onCourtQuality"> {
+  const team = m?.byTeam.get(teamId);
+  if (!team) return {};
+  return { stintTotals: team.stintTotals, onCourtQuality: team.quality };
+}
+
 /** 1試合分のラインナップスティント（shared/onCourt.ts）をチームごとに積算する */
 function processLineups(
   game: StoredGame,
@@ -1417,6 +1466,7 @@ function processPlayers(
   onCourtRatingsByPlayer: Record<string, PlayerOnCourtRatings>,
   offensiveFoulCountsByPlayer: Map<string, OffensiveFoulCounts>,
   clutchByPlayerId: Map<string, number[]>,
+  onCourtMaterials: GameOnCourtMaterials | null,
 ): void {
   const rows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
   for (const row of pickTeamRow(rows, 1)) {
@@ -1539,6 +1589,7 @@ function processPlayers(
       onCourtOwnPoss: onCourtRatingsByPlayer[row.PlayerID]?.ownPoss ?? 0,
       onCourtOppPoss: onCourtRatingsByPlayer[row.PlayerID]?.oppPoss ?? 0,
       onCourtSeconds: onCourtRatingsByPlayer[row.PlayerID]?.onCourtSec ?? 0,
+      ...playerOnCourtFields(onCourtMaterials, row.TeamID ?? "", row.PlayerID),
     });
   }
 }
@@ -1661,6 +1712,7 @@ function processTeams(
   paintSplitByTeam: Map<string, PaintSplitCounts>,
   classifyAt: ClassifyAt,
   teamRuns: [TeamRun | null, TeamRun | null],
+  onCourtMaterials: GameOnCourtMaterials | null,
 ): void {
   const homeRow = pickTeamRow(game.raw.HomeBoxscores, 3)[0];
   const awayRow = pickTeamRow(game.raw.AwayBoxscores, 3)[0];
@@ -1821,6 +1873,7 @@ function processTeams(
     foreignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     ...foreignCourtFields(foreignPlayerCourtSeconds.get(game.homeTeam.id), foreignPlayerCourtSeconds.get(game.awayTeam.id)),
+    ...teamOnCourtFields(onCourtMaterials, game.homeTeam.id),
     ...teamGameLogStats(homeRow, gamePoss),
     ...opponentGameLogStats(awayRow),
     pt2in: pitpByTeam.get(game.homeTeam.id) ?? 0,
@@ -1873,6 +1926,7 @@ function processTeams(
     foreignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     ...foreignCourtFields(foreignPlayerCourtSeconds.get(game.awayTeam.id), foreignPlayerCourtSeconds.get(game.homeTeam.id)),
+    ...teamOnCourtFields(onCourtMaterials, game.awayTeam.id),
     gameType,
     ...teamGameLogStats(awayRow, gamePoss),
     ...opponentGameLogStats(homeRow),

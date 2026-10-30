@@ -839,6 +839,16 @@ export interface PlayerGameLog extends Partial<FoulCategoryCounts> {
   onCourtOppPoss: number;
   /** 同上、在コート秒数 */
   onCourtSeconds: number;
+  /**
+   * 出場中の材料（在コート基準の再集計。shared/playerOnCourt.ts・DESIGN.md 303章）。[秒, 自チーム×STINT_COUNT_KEYS, 相手×STINT_COUNT_KEYS]。
+   * 本人がいた5人組の区間の合計（チームの出場区間 team-stints・ランキングの On/Off と同じ数え方）。2020-21以降で、本人がいた区間に時間か記録がある試合だけ。
+   * Off を数えるのは秒（先頭）が0より大きい試合だけ（ランキングと同じ）。古いデータには無い
+   */
+  onCourt?: number[];
+  /** その試合の、所属チームの出場中の材料の品質（ビット。shared/playerOnCourt.ts の ON_COURT_QUALITY_*）。2020-21以降のプレーバイプレーのある試合だけ */
+  onCourtQuality?: number;
+  /** FGにつながったアシスト（本人がアシストした側。FTにつながったアシストは数えない）。2020-21以降のプレーバイプレーのある試合だけ */
+  fgAssists?: number;
 }
 
 // ---- data/{season}/team-games/{teamId}.json の保存スキーマ（チーム詳細ページの試合結果一覧用） ----
@@ -912,6 +922,13 @@ export interface TeamGameLog extends Partial<FoulCategoryCounts>, Partial<Oppone
   foreignCourtSeconds?: number[];
   /** 相手チームの同じ値（相手の視点。古いデータには無い） */
   opponentForeignCourtSeconds?: number[];
+  /**
+   * チームの出場区間の合計（[秒, 自チーム×STINT_COUNT_KEYS, 相手×STINT_COUNT_KEYS]。shared/playerOnCourt.ts の teamStintTotals）。
+   * 個人の Off＝この合計 − 本人の On（PlayerGameLog.onCourt）。2020-21以降のプレーバイプレーのある試合だけ。古いデータには無い
+   */
+  stintTotals?: number[];
+  /** 出場中の材料の品質（PlayerGameLog.onCourtQuality と同じ） */
+  onCourtQuality?: number;
   /**
    * 相手チームのボックススコア（個人ORtg/DRtgのDean Oliver方式で「opponent」役として必要な
    * フィールドのみ。opponentScoreがptsに相当するためptsは別途持たない）。DESIGN.md参照

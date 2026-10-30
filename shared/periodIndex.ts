@@ -4,6 +4,8 @@
 // シーズンごとの集計の保存キーの対象になるので（scripts/lib/dataLayout.ts の BUILD_CODE_ENTRIES）、**ここは形式の定義だけにして、あとから変えない**。
 // 読む補助は src/lib/periodIndex.ts（保存キーの対象外）に置く。項目を足すときは、既存の読み方を壊さない形（列を足す）にして、PERIOD_INDEX_VERSION は変えない。
 
+import { STINT_COUNT_KEYS } from "./onCourt.ts";
+
 export const PERIOD_INDEX_VERSION = 1;
 
 /**
@@ -67,6 +69,26 @@ export type PlayerPeriodStatColumn = (typeof PLAYER_PERIOD_STAT_COLUMNS)[number]
 
 /** 行の旗: 公式のピリオド別の +/- がある（2022-23以降。無い行の plusMinus は 0 で、値なしとして扱う） */
 export const PERIOD_ROW_FLAG_PLUS_MINUS = 1;
+/**
+ * 行の旗: plusMinus は在コートの復元の値（公式のピリオド別の +/- が無い 2016-17〜2021-22。5人組の区間の Q別の得点差を足したもの。DESIGN.md 303章）。
+ * そのチームの試合で、区間の合計が試合全体の復元の +/- と全選手で一致し、区間の得点の合計が両チームの得点と一致したときだけ付ける。古い索引には無い
+ */
+export const PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED = 2;
+/**
+ * 出場中の材料の列（在コート基準の再集計。DESIGN.md 303章。shared/playerOnCourt.ts）。選手のその区間の、本人がいた5人組の区間の合計。
+ * 「ocSec」秒、「ocOwn.{項目}」自チーム（PLAYER_PERIOD_ONCOURT_OWN_KEYS）、「ocOpp.{項目}」相手（PLAYER_PERIOD_ONCOURT_OPP_KEYS）、「fgAssists」FGにつながったアシスト、「ocQuality」チームの品質（ビット）。
+ * 2020-21以降のシーズンの索引だけが持つ（それ以前の索引・古い索引には無い）。プレーバイプレーの無い試合の行は -1
+ */
+/** Q別で使う項目だけ持つ（容量を抑えるため）: 出場中の割合（%PTS〜%FTA）・AST%（FGM）・個人 OR%（自チーム OR・相手 DR） */
+export const PLAYER_PERIOD_ONCOURT_OWN_KEYS = ["pts", "fgm", "fga", "tpm", "tpa", "ftm", "fta", "or"] as const satisfies readonly (typeof STINT_COUNT_KEYS)[number][];
+export const PLAYER_PERIOD_ONCOURT_OPP_KEYS = ["dr"] as const satisfies readonly (typeof STINT_COUNT_KEYS)[number][];
+export const PLAYER_PERIOD_ONCOURT_COLUMNS = [
+  "ocSec",
+  ...PLAYER_PERIOD_ONCOURT_OWN_KEYS.map((k) => `ocOwn.${k}` as const),
+  ...PLAYER_PERIOD_ONCOURT_OPP_KEYS.map((k) => `ocOpp.${k}` as const),
+  "fgAssists",
+  "ocQuality",
+] as const;
 
 /** チームの統計の列（BoxscoreCounts の項目名のまま。出場時間は秒）。相手の値は、同じ試合の相手の行から引く */
 export const TEAM_PERIOD_COUNT_COLUMNS = [
@@ -177,7 +199,8 @@ export interface PlayerPeriodIndexFile {
     /** 区間（PERIOD_ATOMS の番号） */
     period: number[];
     flags: number[];
-    stats: Record<PlayerPeriodStatColumn, number[]>;
+    /** 2020-21以降は、PLAYER_PERIOD_ONCOURT_COLUMNS の列も持つ */
+    stats: Record<PlayerPeriodStatColumn, number[]> & Partial<Record<string, number[]>>;
   };
 }
 

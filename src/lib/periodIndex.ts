@@ -64,8 +64,10 @@ export function periodGameAt(main: PlayerGameIndexView, period: PlayerPeriodView
   for (let k = from; k < period.end[i]!; k++) {
     if (!atoms.includes(periods[k]!)) continue;
     found = true;
-    if ((flags[k]! & PERIOD_ROW_FLAG_PLUS_MINUS) !== 0) hasPlusMinus = true;
-    for (const c of PLAYER_PERIOD_STAT_COLUMNS) sum[c] += stats[c][k]!;
+    const officialPm = (flags[k]! & PERIOD_ROW_FLAG_PLUS_MINUS) !== 0;
+    if (officialPm) hasPlusMinus = true;
+    // 公式の値の無い行の plusMinus（復元の値。PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED）は、ここでは足さない
+    for (const c of PLAYER_PERIOD_STAT_COLUMNS) if (c !== "plusMinus" || officialPm) sum[c] += stats[c][k]!;
   }
   if (!found) return null;
   const base = playerGameAt(main, i);

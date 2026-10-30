@@ -15,6 +15,10 @@ import {
   PERIOD_INDEX_VERSION,
   PERIOD_POSS_KEYS,
   PERIOD_ROW_FLAG_PLUS_MINUS,
+  PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED,
+  PLAYER_PERIOD_ONCOURT_COLUMNS,
+  PLAYER_PERIOD_ONCOURT_OPP_KEYS,
+  PLAYER_PERIOD_ONCOURT_OWN_KEYS,
   PLAYER_PERIOD_STAT_COLUMNS,
   TEAM_PERIOD_COUNT_COLUMNS,
   TEAM_PERIOD_EXTRA_COLUMNS,
@@ -32,7 +36,16 @@ import {
 import { GAME_FLAG_SHORT, type PlayerGameIndexFile, type TeamGameIndexFile } from "../../shared/gameIndex.ts";
 import { overtimeCount } from "../../shared/gamePeriods.ts";
 import type { Category, PlayByPlayEvent, PlayerMasterEntry, SeasonRules, StoredGame } from "../../shared/types.ts";
-import { onCourtPeriodCount, periodRangeSeconds, reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt.ts";
+import { onCourtPeriodCount, periodRangeSeconds, reconstructOnCourt, substitutionModelForSeason, type OnCourtReconstruction } from "../../shared/onCourt.ts";
+import {
+  fgAssistsByPlayer,
+  onCourtKeyIndex,
+  periodPlusMinusAvailable,
+  playerOnCourtByPeriod,
+  plusMinusOf,
+  sumOverPeriods,
+  teamOnCourtQuality,
+} from "../../shared/playerOnCourt.ts";
 import { foreignCourtByPeriod, type ForeignPeriodTotals } from "../../shared/foreignOnCourt.ts";
 import { buildMiscEventCounts, countTechnicalFouls, teamPointsBreakdown, ZERO_MISC_EVENTS } from "../../shared/teamGameEvents.ts";
 import { computePointsOffTurnovers } from "../../shared/pointsOffTurnovers.ts";
@@ -147,22 +160,13 @@ const FOREIGN_INDEX_COLUMNS = [...TEAM_PERIOD_FOREIGN_COLUMNS, ...TEAM_PERIOD_FO
  */
 function foreignValuesByAtom(
   game: StoredGame,
+  onCourt: OnCourtReconstruction | null,
   classify: (id: string) => string | undefined,
   maxOnCourt: number | undefined,
 ): Map<string, { atoms: number[][]; whole: number[] }> {
   const result = new Map<string, { atoms: number[][]; whole: number[] }>();
-  if (game.raw.PlayByPlays.length === 0) return result;
-  // 在コートの復元は試合ログ（scripts/aggregate.ts）と同じ呼び方
+  if (!onCourt) return result;
   const periods = onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays);
-  const onCourt = reconstructOnCourt(
-    game.raw.PlayByPlays,
-    game.raw.HomeBoxscores,
-    game.raw.AwayBoxscores,
-    game.homeTeam.id,
-    game.awayTeam.id,
-    periods,
-    substitutionModelForSeason(game.season),
-  );
   const withPoss = onCourt.lineupStints.some((s) => s.countsByPeriod !== undefined);
   const empty = () => foreignColumnValues({
     seconds: [0, 0, 0, 0, 0],
@@ -234,7 +238,11 @@ export async function buildPeriodIndex(
   allGames.sort((a, b) => gameNumber.get(String(a.scheduleKey))! - gameNumber.get(String(b.scheduleKey))!);
 
   // 選手: 行ごとの区間の値を集めてから (row, period) の昇順に書く
-  const perRow = new Map<number, { period: number; plusMinus: boolean; values: number[] }[]>();
+  const perRow = new Map<number, { period: number; flags: number; values: number[]; ocValues: number[] | null }[]>();
+  // 出場中の材料の列は、数え上げのあるシーズン（2020-21以降）の索引だけが持つ
+  const withOnCourtColumns = substitutionModelForSeason(season) === "modern";
+  // 復元の Q別 +/- は、公式のピリオド別の値が無いシーズン（2016-17〜2021-22）だけ。2022-23以降は公式の値を使い、欠けた行も補わない
+  const reconstructsPeriodPlusMinus = Number(season.slice(0, 4)) < 2022;
   // チーム: 試合番号×2＋(ホーム 0／アウェイ 1)
   const teamRows = teamIndex.games.key.length * 2;
   const teamCounts: Record<string, number[]> = {};
@@ -261,7 +269,22 @@ export async function buildPeriodIndex(
     const tg = teamGameNumber.get(key);
     if (tg === undefined) throw new Error(`${season} ${key}: チームの索引に試合がありません`);
     const { atoms, poss } = periodOptionsOf(game);
-    const foreignValues = foreignValuesByAtom(game, classify, maxForeignOnCourt);
+    // 在コートの復元は試合ログ（scripts/aggregate.ts）と同じ呼び方。1試合に1回だけ
+    const totalPeriods = onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays);
+    const onCourt =
+      game.raw.PlayByPlays.length > 0
+        ? reconstructOnCourt(
+            game.raw.PlayByPlays,
+            game.raw.HomeBoxscores,
+            game.raw.AwayBoxscores,
+            game.homeTeam.id,
+            game.awayTeam.id,
+            totalPeriods,
+            substitutionModelForSeason(game.season),
+          )
+        : null;
+    const foreignValues = foreignValuesByAtom(game, onCourt, classify, maxForeignOnCourt);
+    const fgAssists = withOnCourtColumns && onCourt ? fgAssistsByPlayer(game.raw.PlayByPlays) : null;
     for (const side of [0, 1] as const) {
       const teamId = side === 0 ? game.homeTeam.id : game.awayTeam.id;
       const ownForeign = foreignValues.get(teamId);
@@ -271,6 +294,16 @@ export async function buildPeriodIndex(
       const oppRows = side === 0 ? game.raw.AwayBoxscores : game.raw.HomeBoxscores;
       // 前後半5分の特別な試合は、1Q〜4Q・前半・後半を持たない（クォーターではない。DESIGN.md 143章）
       const usable = (a: PeriodAtom, opt: PeriodRangeOption | null): opt is PeriodRangeOption => opt !== null && !noPeriods && !(short && a !== "ot");
+      // 出場中の材料（2020-21以降）と、復元の Q別 +/-（公式の値が無い試合。チームの区間の合計が試合全体の復元と合うときだけ）。DESIGN.md 303章
+      const ownScore = side === 0 ? game.homeScore : game.awayScore;
+      const oppScore = side === 0 ? game.awayScore : game.homeScore;
+      const byPlayer = onCourt ? playerOnCourtByPeriod(onCourt.lineupStints, teamId, totalPeriods) : null;
+      const reconstructedPm = onCourt && byPlayer ? periodPlusMinusAvailable(onCourt, byPlayer, teamId, ownScore, oppScore) : false;
+      const quality =
+        withOnCourtColumns && onCourt
+          ? teamOnCourtQuality(onCourt, teamId, side === 0 ? game.awayTeam.id : game.homeTeam.id, ownRows, oppRows, ownScore, oppScore, totalPeriods)
+          : -1;
+      const sideEntries: { row: number; playerId: string; entry: { period: number; flags: number; values: number[]; ocValues: number[] | null } }[] = [];
       PERIOD_ATOMS.forEach((atom, ai) => {
         const opt = atoms[ai]!;
         if (!usable(atom, opt)) return;
@@ -284,9 +317,25 @@ export async function buildPeriodIndex(
           if (row === undefined) continue; // 出場時間が0の行（索引に無い）
           const values = PLAYER_PERIOD_STAT_COLUMNS.map((c) => playerStatOf(p.counts, c));
           if (!isParticipating(values)) continue;
-          let list = perRow.get(row);
-          if (!list) perRow.set(row, (list = []));
-          list.push({ period: ai, plusMinus: p.counts.hasPlusMinus, values });
+          const inAtom = (period: number) => (atom === "ot" ? period >= 5 : period === ai + 1);
+          const oc = byPlayer ? sumOverPeriods(byPlayer.get(p.playerId), inAtom) : null;
+          let flag = p.counts.hasPlusMinus ? PERIOD_ROW_FLAG_PLUS_MINUS : 0;
+          if (!p.counts.hasPlusMinus && reconstructsPeriodPlusMinus && reconstructedPm && oc) {
+            values[PLAYER_PERIOD_STAT_COLUMNS.indexOf("plusMinus")] = plusMinusOf(oc);
+            flag |= PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED;
+          }
+          const ocValues = withOnCourtColumns
+            ? onCourt && oc
+              ? [
+                  oc[0]!,
+                  ...PLAYER_PERIOD_ONCOURT_OWN_KEYS.map((k) => oc[onCourtKeyIndex(k, "own")]!),
+                  ...PLAYER_PERIOD_ONCOURT_OPP_KEYS.map((k) => oc[onCourtKeyIndex(k, "opp")]!),
+                  [...(fgAssists?.get(p.playerId) ?? [])].filter(([period]) => inAtom(period)).reduce((a, [, n]) => a + n, 0),
+                  quality,
+                ]
+              : new Array<number>(PLAYER_PERIOD_ONCOURT_COLUMNS.length).fill(-1)
+            : null;
+          sideEntries.push({ row, playerId: p.playerId, entry: { period: ai, flags: flag, values, ocValues } });
         }
         teamCounts[`${atom}.offFouls`]![tg * 2 + side] = offFouls;
         teamCounts[`${atom}.charges`]![tg * 2 + side] = charges;
@@ -297,6 +346,31 @@ export async function buildPeriodIndex(
         for (const c of TEAM_PERIOD_EXTRA_COLUMNS) teamCounts[`${atom}.${c}`]![tg * 2 + side] = extra[c];
         if (ownForeign) FOREIGN_INDEX_COLUMNS.forEach((c, i) => (teamCounts[`${atom}.${c}`]![tg * 2 + side] = ownForeign.atoms[ai]![i]!));
       });
+      // 復元の Q別 +/- は、そのチームの試合で、出場中の区間（時間か得点差がある）のある選手×区間すべてに索引の行があるときだけ残す。
+      // 行が無い区間（公式のピリオド別の記録では出場していない区間に、復元では出ていた）があると、区間の合計が試合の +/- と合わなくなるため
+      if (byPlayer && sideEntries.some((e) => (e.entry.flags & PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED) !== 0)) {
+        const has = new Set(sideEntries.map((e) => `${e.playerId}|${e.entry.period}`));
+        let covered = true;
+        for (const [pid, bp] of byPlayer) {
+          PERIOD_ATOMS.forEach((atom, ai) => {
+            const v = sumOverPeriods(bp, (period) => (atom === "ot" ? period >= 5 : period === ai + 1));
+            if ((v[0]! > 0 || plusMinusOf(v) !== 0) && !has.has(`${pid}|${ai}`)) covered = false;
+          });
+        }
+        if (!covered) {
+          const pmIndex = PLAYER_PERIOD_STAT_COLUMNS.indexOf("plusMinus");
+          for (const e of sideEntries) {
+            if ((e.entry.flags & PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED) === 0) continue;
+            e.entry.flags &= ~PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED;
+            e.entry.values[pmIndex] = 0;
+          }
+        }
+      }
+      for (const e of sideEntries) {
+        let list = perRow.get(e.row);
+        if (!list) perRow.set(e.row, (list = []));
+        list.push(e.entry);
+      }
       for (const k of PERIOD_POSS_KEYS) {
         const opt = poss[k];
         if (!opt || noPeriods || (short && k !== "ot")) continue;
@@ -323,8 +397,9 @@ export async function buildPeriodIndex(
     for (const e of perRow.get(row)!.sort((a, b) => a.period - b.period)) {
       rows.row.push(row);
       rows.period.push(e.period);
-      rows.flags.push(e.plusMinus ? PERIOD_ROW_FLAG_PLUS_MINUS : 0);
+      rows.flags.push(e.flags);
       PLAYER_PERIOD_STAT_COLUMNS.forEach((c, ci) => rows.stats[c].push(e.values[ci]!));
+      if (e.ocValues) PLAYER_PERIOD_ONCOURT_COLUMNS.forEach((c, ci) => (rows.stats[c] ??= []).push(e.ocValues![ci]!));
     }
   }
 

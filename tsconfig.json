@@ -15,5 +15,5 @@
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "shared", "scripts/aggregate-league-compare.ts", "scripts/aggregate-period-index.ts", "scripts/validate-period-index.ts", "scripts/validate-team-period-scoring.ts", "scripts/validate-pbp-order.ts", "scripts/validate-game-index.ts", "scripts/validate-game-record-query.ts", "scripts/validate-opponent-strength.ts", "scripts/validate-club-selection.ts", "scripts/validate-team-situational-period.ts", "scripts/validate-team-player-stats-period.ts", "scripts/validate-ai-export.ts", "scripts/validate-situational-days.ts", "scripts/validate-team-paint2.ts", "scripts/validate-figures.ts"]
+  "include": ["src", "shared", "scripts/validate-player-oncourt.ts", "scripts/aggregate-league-compare.ts", "scripts/aggregate-period-index.ts", "scripts/validate-period-index.ts", "scripts/validate-team-period-scoring.ts", "scripts/validate-pbp-order.ts", "scripts/validate-game-index.ts", "scripts/validate-game-record-query.ts", "scripts/validate-opponent-strength.ts", "scripts/validate-club-selection.ts", "scripts/validate-team-situational-period.ts", "scripts/validate-team-player-stats-period.ts", "scripts/validate-ai-export.ts", "scripts/validate-situational-days.ts", "scripts/validate-team-paint2.ts", "scripts/validate-figures.ts"]
 }
