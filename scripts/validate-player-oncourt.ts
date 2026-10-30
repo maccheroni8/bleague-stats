@@ -38,6 +38,7 @@ import { gamePeriodScores } from "../shared/gamePeriods.ts";
 import type { Category, PlayerGameLog, StoredGame, TeamGameLog, TeamStintsFile } from "../shared/types.ts";
 import { computeTeamOrPct } from "../src/lib/gameOrPct.ts";
 import { buildTeamTotalCounts } from "../src/lib/boxscoreAggregate.ts";
+import { onOffTotalsFromLogs } from "../src/lib/playerOnOffColumns.ts";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = ""): void {
@@ -67,6 +68,7 @@ const g3 = new Group("3. FGにつながったアシスト（ピリオドごと�
 const g4 = new Group("4. リバウンドの品質ビット＝試合詳細の個人 OR% を出せるか");
 const g5 = new Group("5. Q別 +/-（旗の行の合計＝試合の +/-、全選手の区間の合計＝得点差×5）");
 const g6 = new Group("6. ピリオド別の索引の出場中の列の合計＝試合ログの onCourt");
+const g7 = new Group("7. on/off タブの値（src/lib/playerOnOffColumns.ts）＝ランキングの On/Off（秒・ORtg・DRtg・NetRtg）");
 const uncoveredPeriods: string[] = [];
 const sameArr = (a: readonly number[] | undefined, b: readonly number[] | undefined) => !!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]);
 
@@ -240,6 +242,30 @@ for (const season of seasons) {
             if (o.some((v) => v !== 0)) offGames += 1;
           }
           const want = (x: { games: number; seconds: number; own: number[]; opp: number[] }) => [x.seconds, ...x.own, ...x.opp];
+          // 7. 画面の on/off タブと同じ関数で出した値（チーム詳細と同じく、このチームにいた試合だけ）
+          const myLogs = (playerLogs.get(pid) ?? []).filter((l) => {
+            const t = teamLogOf.get(`${file.teamId}|${l.scheduleKey}`);
+            return !!t && t.isHome === l.isHome && c.games.includes(l.scheduleKey);
+          });
+          const tot = onOffTotalsFromLogs(myLogs, (l) => teamLogOf.get(`${file.teamId}|${l.scheduleKey}`));
+          const rk = (x: { seconds: number; own: number[]; opp: number[] }) => {
+            const pts = x.own[STINT_COUNT_KEYS.indexOf("pts")]!;
+            const opts = x.opp[STINT_COUNT_KEYS.indexOf("pts")]!;
+            const poss = x.own[STINT_COUNT_KEYS.indexOf("poss")]!;
+            const oposs = x.opp[STINT_COUNT_KEYS.indexOf("poss")]!;
+            return { sec: x.seconds, o: poss > 0 ? (100 * pts) / poss : null, d: oposs > 0 ? (100 * opts) / oposs : null };
+          };
+          const mine = (b: { seconds: number; ownPts: number; oppPts: number; ownPoss: number; oppPoss: number }) => ({
+            sec: b.seconds,
+            o: b.ownPoss > 0 ? (100 * b.ownPts) / b.ownPoss : null,
+            d: b.oppPoss > 0 ? (100 * b.oppPts) / b.oppPoss : null,
+          });
+          if (tot) {
+            const same = (a: ReturnType<typeof mine>, b: ReturnType<typeof rk>) => a.sec === b.sec && a.o === b.o && a.d === b.d;
+            g7.add(same(mine(tot.on), rk(r.on)) && same(mine(tot.off), rk(r.off)), () => `${season} ${file.teamId} ${pid}: タブ ${JSON.stringify([mine(tot.on), mine(tot.off)])} / ランキング ${JSON.stringify([rk(r.on), rk(r.off)])}`);
+          } else {
+            g7.add(r.on.seconds === 0, () => `${season} ${file.teamId} ${pid}: タブは値なし / ランキング On ${r.on.seconds}秒`);
+          }
           g2.add(sameArr(on, want(r.on)) && sameArr(off, want(r.off)) && onGames === r.on.games && offGames === r.off.games, () => `${season} ${file.teamId} ${pid}: On ${JSON.stringify(on)} ${onGames} / ${JSON.stringify(want(r.on))} ${r.on.games}; Off ${JSON.stringify(off)} ${offGames} / ${JSON.stringify(want(r.off))} ${r.off.games}`);
         }
       }
@@ -247,7 +273,7 @@ for (const season of seasons) {
   }
 }
 if (ON_COURT_VALUE_LENGTH !== 1 + STINT_COUNT_KEYS.length * 2) failures += 1;
-for (const g of [g1, g2, g3, g4, g5, g6]) g.report();
+for (const g of [g1, g2, g3, g4, g5, g6, g7]) g.report();
 console.log(`（6の対象外: 公式のピリオド別の記録に無い区間に復元では出ていた選手×試合 ${uncoveredPeriods.length}件: ${uncoveredPeriods.slice(0, 10).join(" ")}）`);
 for (const [k, t] of Object.entries(qualityTally)) {
   if (t.teams === 0) continue;

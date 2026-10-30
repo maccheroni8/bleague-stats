@@ -412,6 +412,28 @@ export interface SeasonBoxscoreCtx {
   /** USG%・%-shareスタッツの分母（選手が出場した試合のみに絞ったチーム総計。常に生値） */
   team: TeamSeasonRawTotals;
   seasonStartYear: number;
+  /**
+   * on/off タブの値（src/lib/playerOnOffColumns.ts。画面が試合ログ・チームの試合ログから作って足す。無ければ「-」）。
+   * 型はここに直接書く（画面の部品を import すると、それらが保存キーの対象に入るため）
+   */
+  onOff?: SeasonOnOffTotals | null;
+}
+
+/** On/Off の片側（src/lib/onCourtSplit.ts の OnOffBucket と同じ形） */
+export interface SeasonOnOffBucket {
+  seconds: number;
+  ownPts: number;
+  oppPts: number;
+  ownPoss: number;
+  oppPoss: number;
+  ownShooting: { fgm: number; fga: number; tpm: number; tpa: number; ftm: number; fta: number };
+  oppShooting: { fgm: number; fga: number; tpm: number; tpa: number; ftm: number; fta: number };
+}
+export interface SeasonOnOffTotals {
+  /** 材料のある出場試合の数（Off を数えた試合） */
+  games: number;
+  on: SeasonOnOffBucket;
+  off: SeasonOnOffBucket;
 }
 
 export function buildSeasonBoxscoreCtx(

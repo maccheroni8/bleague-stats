@@ -142,6 +142,8 @@ import {
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { OnCourtShareNote } from "../components/OnCourtShareNote";
+import { OnOffNote } from "../components/OnOffNote";
+import { ONOFF_TAB_LABEL, SEASON_ONOFF_COLUMNS, onOffTotalsFromLogs, onOffUnavailableReason } from "../lib/playerOnOffColumns";
 import { filterFoulColumns, foulColumnsSplit } from "../lib/ruleChange";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageForSeason } from "../lib/age";
@@ -899,6 +901,7 @@ function teamBoxCategoryLabel(key: string): string {
   if (key === "periods") return CATEGORY_LABELS.periods;
   if (key === "timeToShot") return TTS_CATEGORY_LABEL;
   if (key === "streaks") return STREAKS_CATEGORY_LABEL;
+  if (key === "onoff") return ONOFF_TAB_LABEL;
   return BOXSCORE_TABS.find((t) => t.key === key)?.label ?? key;
 }
 
@@ -2901,7 +2904,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「選手スタッツ」タブのカテゴリタブ（シューティングを含む）。シューティングタブ選択時のみ
   // teamYahooPbpの遅延取得をトリガーする必要があるため、親（このコンポーネント）で状態を持つ
   // （BoxscoreTable.tsxのactiveTab/onTabChangeと同じパターン。DESIGN.md参照）
-  const [playerStatsBoxTab, setPlayerStatsBoxTab] = usePageState<SeasonBoxTabKey | "shooting">(pk("playerStatsBoxTab"), "traditional");
+  const [playerStatsBoxTab, setPlayerStatsBoxTab] = usePageState<SeasonBoxTabKey | "shooting" | "onoff">(pk("playerStatsBoxTab"), "traditional");
   // 「ショットチャート」専用のレギュラー/プレーオフ/合算トグル（Phase H4②）。FilterBarの
   // 試合種別は専用のteamShotChartGameTypeで持ち、詳細フィルタには常にincludePlayoffs: trueを渡した上で
   // filterByGameTypeで絞り込む（個人・チーム双方の「比較」タブと同じ設計）
@@ -3224,6 +3227,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     if (playerStatsPeriod2 !== "all" && !playerStatsPeriodSources.has(season)) return null;
     const seasonStartYear = Number(season.split("-")[0]);
     const playerById = new Map(players.map((p) => [p.playerId, p]));
+    const teamLogByKey = new Map(gameLogs.map((l) => [l.scheduleKey, l] as const));
     const rows: TeamPlayerStatsRow[] = [];
     for (const c of playerStatsCandidates) {
       const gameTypeFilteredLogs = filterByGameType(c.logs, playerStatsGameType);
@@ -3257,7 +3261,15 @@ export function TeamDetailPage({ season }: { season: string }) {
       const row = splitRows.find((r) => r.teamId === teamId);
       const player = playerById.get(c.playerId);
       if (!row || !player) continue;
-      rows.push({ player, ctx: row.ctx, ddtd: countDoubleTripleDoubles(row.logs), logs: row.logs });
+      // on/off タブ: このチームにいた試合だけ（row.logs）。Off はこのチームの試合ログの出場区間の合計 − On（試合全体・2020-21以降だけ。DESIGN.md 303章）
+      const onOff =
+        playerStatsBoxTab === "onoff" && !onOffUnavailableReason(season, playerStatsPeriod2 !== "all")
+          ? onOffTotalsFromLogs(
+              row.logs.filter((g) => c.ownTeamByScheduleKey.get(g.scheduleKey)?.teamId === teamId),
+              (g) => teamLogByKey.get(g.scheduleKey),
+            )
+          : null;
+      rows.push({ player, ctx: { ...row.ctx, onOff }, ddtd: countDoubleTripleDoubles(row.logs), logs: row.logs });
     }
     return rows;
   }, [
@@ -3273,6 +3285,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     playerStatsDisplayMode,
     playerStatsPeriod2,
     playerStatsPeriodSources,
+    playerStatsBoxTab,
     league,
   ]);
 
@@ -5520,6 +5533,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
                 {playerStatsRows.length > 0 && <HeightWeightNote players={players} />}
                 {playerStatsBoxTab === "misc" && <RuleChangeFootnote seasons={[season]} />}
+                {playerStatsBoxTab === "onoff" && <OnOffNote seasons={[season]} periodSelected={playerStatsPeriod2 !== "all"} />}
                 <OnCourtShareNote
                   tab={playerStatsBoxTab}
                   rows={(playerStatsRows ?? []).map((r) => ({ season, gamesPlayed: r.ctx.raw.gamesPlayed, ocGames: r.ctx.raw.ocGames }))}
@@ -6278,18 +6292,18 @@ function TeamPlayerStatsTable({
   /** カテゴリタブ（シューティングを含む）を外部から制御する（BoxscoreTable.tsxのactiveTab/
    * onTabChangeと同じパターン。DESIGN.md参照）。シューティングタブ選択時のteamYahooPbp遅延取得を
    * 親コンポーネント側でトリガーする必要があるため */
-  activeTab?: SeasonBoxTabKey | "shooting";
-  onTabChange?: (tab: SeasonBoxTabKey | "shooting") => void;
+  activeTab?: SeasonBoxTabKey | "shooting" | "onoff";
+  onTabChange?: (tab: SeasonBoxTabKey | "shooting" | "onoff") => void;
   teamYahooPbp: Map<string, YahooGamePbp>;
   teamYahooPbpLoading: boolean;
 }) {
-  const [internalTab, setInternalTab] = useState<SeasonBoxTabKey | "shooting">("traditional");
+  const [internalTab, setInternalTab] = useState<SeasonBoxTabKey | "shooting" | "onoff">("traditional");
   const tab = controlledActiveTab ?? internalTab;
   const setTab = onTabChange ?? setInternalTab;
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const columns = tab === "shooting" ? [] : seasonBoxColumnsFor(tab, foulSplit);
+  const columns = tab === "shooting" ? [] : tab === "onoff" ? SEASON_ONOFF_COLUMNS : seasonBoxColumnsFor(tab, foulSplit);
   const ddtdUnavailable = periodSelected;
 
   // シューティングタブ: 各行（選手×このチーム在籍分）に属する試合のscheduleKeyから
@@ -6377,6 +6391,9 @@ function TeamPlayerStatsTable({
               type="button"
             >
               {CATEGORY_LABELS.shooting}
+            </button>
+            <button className={`tab-button${tab === "onoff" ? " active" : ""}`} onClick={() => setTab("onoff")} type="button">
+              {ONOFF_TAB_LABEL}
             </button>
           </div>
           {tab === "shooting" && teamYahooPbpLoading ? (

@@ -53,6 +53,8 @@ import { divisionPresets } from "../lib/divisionGroups";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { OnCourtShareNote } from "../components/OnCourtShareNote";
+import { OnOffNote } from "../components/OnOffNote";
+import { ONOFF_TAB_LABEL, SEASON_ONOFF_COLUMNS, onOffTotalsFromLogs, onOffUnavailableReason } from "../lib/playerOnOffColumns";
 import {
   classificationLabels,
   composeLabels,
@@ -273,7 +275,7 @@ export function PlayersListPage({ season }: { season: string }) {
 //   一括取得済みのteams.jsonのシーズン合計値をそのまま使う（26チーム分のteam-games
 //   個別取得はしない）
 
-type PlayersPageTab = SeasonBoxTabKey | "shooting" | "scoringComposition";
+type PlayersPageTab = SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff";
 
 interface PlayerRow {
   /** 表のシーズン（名前の右のルーキーの印を、このシーズンで判定する。DESIGN.md 217-3章） */
@@ -512,6 +514,7 @@ const TAB_LABELS: { key: PlayersPageTab; label: string }[] = [
   ...SEASON_BOX_TABS,
   { key: "shooting", label: CATEGORY_LABELS.shooting },
   { key: "scoringComposition", label: CATEGORY_LABELS.scoringComposition },
+  { key: "onoff", label: ONOFF_TAB_LABEL },
 ];
 
 const DEFAULT_SORT: Record<PlayersPageTab, { key: string; dir: "asc" | "desc" }> = {
@@ -521,6 +524,7 @@ const DEFAULT_SORT: Record<PlayersPageTab, { key: string; dir: "asc" | "desc" }>
   scoring: { key: "pts", dir: "desc" },
   shooting: { key: "name", dir: "asc" },
   scoringComposition: { key: "pts", dir: "desc" },
+  onoff: { key: "onoffnetrtg", dir: "desc" },
 };
 
 const PAGE_SIZE = 50;
@@ -636,7 +640,7 @@ const RECENT_N_PARAM = choiceNumberParam<PlayerRecentFormRecentN>("n", RECENT_FO
 const PLAYERS_VIEW_PARAM = enumParam<PlayersOuterTab>("view", ["stats", "records", "awards", "recent"], "stats");
 const PLAYERS_TAB_PARAM = enumParam<PlayersPageTab>(
   "tab",
-  ["traditional", "advanced", "misc", "scoring", "shooting", "scoringComposition"],
+  ["traditional", "advanced", "misc", "scoring", "shooting", "scoringComposition", "onoff"],
   "traditional",
   { traditional: "trad", advanced: "adv", shooting: "shoot", scoringComposition: "share" },
 );
@@ -754,7 +758,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   }, [minRatio, maxRatio, classificationFilter, teamFilter, positionFilter, rookieActive]);
 
   useEffect(() => {
-    const needsLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || filterActive || conditionNeedsLogs;
+    const needsLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || tab === "onoff" || filterActive || conditionNeedsLogs;
     if (!needsLogs || !players || gameLogsFetchedForSeasonRef.current === season) return;
     gameLogsFetchedForSeasonRef.current = season;
     let cancelled = false;
@@ -780,7 +784,8 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   }, [tab, players, season, filterActive, conditionNeedsLogs, league]);
 
   useEffect(() => {
-    if (!filterActive || !teams || teamGameLogsFetchedForSeasonRef.current === season) return;
+    // on/off タブは、Off（チームの出場区間の合計 − On）に所属チームの試合ログが要る
+    if ((!filterActive && tab !== "onoff") || !teams || teamGameLogsFetchedForSeasonRef.current === season) return;
     teamGameLogsFetchedForSeasonRef.current = season;
     let cancelled = false;
     setTeamGameLogsLoading(true);
@@ -802,7 +807,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     return () => {
       cancelled = true;
     };
-  }, [filterActive, teams, season, league]);
+  }, [filterActive, teams, season, league, tab]);
 
   const teamGamesById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t.gamesPlayed])), [teams]);
   const teamTotalsById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t.totals])), [teams]);
@@ -876,6 +881,16 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     return map;
   }, [filterActive, teamGameLogsByTeam, situationalFilter, gameType, opponentRecords, divisionHistory, season, league]);
 
+  // on/off タブ: 試合ごとの所属チームの試合ログ（移籍した選手は試合ごとのチーム）で Off を出す。2016-17〜2019-20 は出さない（DESIGN.md 303章）
+  const teamLogIndex = useMemo(() => {
+    if (tab !== "onoff" || !teamGameLogsByTeam) return null;
+    return new Map([...teamGameLogsByTeam].map(([id, list]) => [id, new Map(list.map((l) => [l.scheduleKey, l] as const))] as const));
+  }, [tab, teamGameLogsByTeam]);
+  const onOffOf = (logs: PlayerGameLog[], fallbackTeamId: string) => {
+    if (tab !== "onoff" || !teamLogIndex || onOffUnavailableReason(season, false)) return null;
+    return onOffTotalsFromLogs(logs, (g) => teamLogIndex.get(ownTeamOf?.({ scheduleKey: g.scheduleKey, isHome: g.isHome }) ?? fallbackTeamId)?.get(g.scheduleKey));
+  };
+
   const rows: PlayerRow[] = useMemo(
     () =>
       filteredPlayers.map((p) => {
@@ -896,7 +911,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
           return {
             season,
             player: p,
-            ctx: buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear),
+            ctx: { ...buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear), onOff: onOffOf(filteredLogs, p.teamId) },
             ddtd: countDoubleTripleDoubles(filteredLogs.filter((g) => g.min > 0)),
           };
         }
@@ -919,7 +934,11 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
               fta: teamTotals.fta,
             }
           : EMPTY_TEAM_TOTALS;
-        return { season, player: p, ctx: buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear) };
+        return {
+          season,
+          player: p,
+          ctx: { ...buildSeasonBoxscoreCtx(raw, team, displayMode, seasonStartYear), onOff: onOffOf(filterByGameType(logs, "regular"), p.teamId) },
+        };
       }),
     [
       filteredPlayers,
@@ -936,6 +955,8 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
       teamGameLogsByTeam,
       scopedTeamLogsByTeamId,
       displayMode,
+      teamLogIndex,
+      tab,
       league,
       classificationFilter,
       classScope.changed,
@@ -987,14 +1008,16 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
             : buildAdvancedColumns(displayMode)
           : tab === "misc"
             ? buildCtxColumns(seasonBoxColumnsFor("misc", foulSplit), displayMode)
-            : buildCtxColumns(SEASON_SCORING_COLUMNS, displayMode);
+            : tab === "onoff"
+              ? buildCtxColumns(SEASON_ONOFF_COLUMNS, displayMode)
+              : buildCtxColumns(SEASON_SCORING_COLUMNS, displayMode);
 
   const tableRows = tab === "shooting" ? shootingRows : conditionedRows;
   const defaultSort = DEFAULT_SORT[tab];
-  const needsGameLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || filterActive || conditionNeedsLogs;
+  const needsGameLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || tab === "onoff" || filterActive || conditionNeedsLogs;
   const gameDataLoading = needsGameLogs && (gameLogsLoading || !gameLogs);
   const careersDataLoading = conditionActive && conditionNeedsCareers && (careersLoading || !careers);
-  const teamDataLoading = filterActive && (teamGameLogsLoading || !teamGameLogsByTeam);
+  const teamDataLoading = (filterActive || tab === "onoff") && (teamGameLogsLoading || !teamGameLogsByTeam);
 
   if (playersLoading) return <p className="loading">読み込み中...</p>;
   if (playersError) return <p className="error-message">{playersError}</p>;
@@ -1247,6 +1270,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
           )}
           {tab === "misc" && <RuleChangeFootnote seasons={[season]} />}
           <OnCourtShareNote tab={tab} rows={tableRows.map((r) => ({ season, gamesPlayed: r.ctx?.raw.gamesPlayed ?? 0, ocGames: r.ctx?.raw.ocGames ?? 0 }))} />
+          {tab === "onoff" && <OnOffNote seasons={[season]} periodSelected={false} />}
           {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
           <ClassificationNotes filter={classificationFilter} scope="season" />
         </>

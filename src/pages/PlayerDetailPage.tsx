@@ -147,6 +147,8 @@ import {
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { OnCourtShareNote } from "../components/OnCourtShareNote";
+import { OnOffNote } from "../components/OnOffNote";
+import { ONOFF_TAB_LABEL, SEASON_ONOFF_COLUMNS, mergeOnOffTotals, onOffTotalsFromLogs, onOffUnavailableReason } from "../lib/playerOnOffColumns";
 import {
   composeLabels,
   displayModeLabels,
@@ -998,7 +1000,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // タブ状態をactiveTab/onTabChangeで親（このコンポーネント）に持ち上げ、どちらかで
   // シューティングタブが選ばれたら、この選手のYahoo PBP対応シーズン分の出場試合のショットを
   // 遅延取得する（両セクションで共有。scheduleKeyごとにキャッシュするため二重取得しない）
-  const [seasonBreakdownTab, setSeasonBreakdownTab] = usePageState<SeasonBoxTabKey | "shooting" | "scoringComposition">(
+  const [seasonBreakdownTab, setSeasonBreakdownTab] = usePageState<SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff">(
     pk("seasonBreakdownTab"),
     "traditional",
   );
@@ -2313,8 +2315,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
   //   シーズン別成績 → gameTypeFilter/seasonBreakdownPeriod/seasonDisplayMode/seasonBreakdownTab
   //   シチュエーション別成績・アシスト・オンコート → situationalStatsSeason/GameType（アシストのみPも）
   //   ショットチャート → gameTypeFilter（シーズン別成績と共通）・ページのseason・shotChartFilters/shotChartPeriod
-  const seasonBoxCategoryLabel = (key: SeasonBoxTabKey | "shooting" | "scoringComposition"): string =>
-    key === "shooting"
+  const seasonBoxCategoryLabel = (key: SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff"): string =>
+    key === "onoff"
+      ? ONOFF_TAB_LABEL
+      : key === "shooting"
       ? CATEGORY_LABELS.shooting
       : key === "scoringComposition"
         ? CATEGORY_LABELS.scoringComposition
@@ -3391,14 +3395,14 @@ function SeasonBreakdownTable({
    * BoxscoreTable.tsxのactiveTab/onTabChangeと同じパターン。DESIGN.md参照）。未指定なら
    * コンポーネント内部のstateでタブを管理する
    */
-  activeTab?: SeasonBoxTabKey | "shooting" | "scoringComposition";
-  onTabChange?: (tab: SeasonBoxTabKey | "shooting" | "scoringComposition") => void;
+  activeTab?: SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff";
+  onTabChange?: (tab: SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff") => void;
   /** シューティングタブ用: scheduleKeyごとのこの選手のショット（Yahoo PBP対応シーズンのみ） */
   careerShots: Map<string, YahooShotEvent[]>;
   careerShotsLoading: boolean;
 }) {
   const isRookie = useIsRookie();
-  const [internalTab, setInternalTab] = useState<SeasonBoxTabKey | "shooting" | "scoringComposition">("traditional");
+  const [internalTab, setInternalTab] = useState<SeasonBoxTabKey | "shooting" | "scoringComposition" | "onoff">("traditional");
   const tab = controlledActiveTab ?? internalTab;
   const setTab = onTabChange ?? setInternalTab;
   // 列ヘッダークリックソート（RankingsPage等のSortableTableと同じ「1回目クリックで降順、
@@ -3447,9 +3451,16 @@ function SeasonBreakdownTable({
         periodSources.get(cd.season),
         combinedTeam,
       );
+      // on/off タブ: 試合ごとの所属チームの試合ログで Off を出す（試合全体・2020-21以降だけ。DESIGN.md 303章）
+      const onOffTeamLogOf = (g: PlayerGameLog) => {
+        const teamId = info?.ownTeamByScheduleKey.get(g.scheduleKey)?.teamId;
+        return teamId ? info?.teamLogsByTeamId.get(teamId)?.find((t) => t.scheduleKey === g.scheduleKey) : undefined;
+      };
+      const onOffOk = tab === "onoff" && !onOffUnavailableReason(cd.season, period !== "all");
       for (const row of splitRows) {
         rows.push({
           ...row,
+          ctx: { ...row.ctx, onOff: onOffOk ? onOffTotalsFromLogs(row.logs, onOffTeamLogOf) : null },
           season: cd.season,
           ddtd: countDoubleTripleDoubles(row.logs),
           countsTowardTotal: row.isCombined || splitRows.length === 1,
@@ -3458,7 +3469,7 @@ function SeasonBreakdownTable({
     }
     return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [careerData, gameTypeFilter, teamData, displayMode, playerId, period, periodSources]);
+  }, [careerData, gameTypeFilter, teamData, displayMode, playerId, period, periodSources, tab]);
 
   // 通算行のEFFは、複数シーズンの生カウント値を先に合算してから1回だけeff()を呼ぶと
   // 年度で異なる計算式（DESIGN.md参照）を誤って混在適用してしまうため、シーズンごとに
@@ -3485,7 +3496,7 @@ function SeasonBreakdownTable({
             periodSources,
           ).raw;
     if (totalRaw.gamesPlayed === 0) return null;
-    const ctx = buildSeasonBoxscoreCtx(totalRaw, totalTeam, displayMode, latestSeasonStartYear);
+    const ctx = { ...buildSeasonBoxscoreCtx(totalRaw, totalTeam, displayMode, latestSeasonStartYear), onOff: mergeOnOffTotals(totalRows.map((r) => r.ctx.onOff)) };
     const totalEffSum = totalRows.reduce((sum, r) => sum + seasonTotalEff(r.ctx.raw, r.ctx.seasonStartYear), 0);
     return {
       ctx,
@@ -3498,7 +3509,9 @@ function SeasonBreakdownTable({
   const columns =
     tab === "shooting" || tab === "scoringComposition"
       ? []
-      : seasonBoxColumnsFor(tab, foulColumnsSplit((careerData ?? []).map((cd) => cd.season)));
+      : tab === "onoff"
+        ? SEASON_ONOFF_COLUMNS
+        : seasonBoxColumnsFor(tab, foulColumnsSplit((careerData ?? []).map((cd) => cd.season)));
   // DD2・TD3 は試合全体の記録でしか判定できないため、Q別/前後半を選んでいるときは「-」（ベンチ得点の列と同じ扱い。DESIGN.md 180章）
   const ddtdUnavailable = !!periodOption && periodOption.periods !== null;
 
@@ -3607,6 +3620,9 @@ function SeasonBreakdownTable({
           type="button"
         >
           {CATEGORY_LABELS.scoringComposition}
+        </button>
+        <button className={`tab-button${tab === "onoff" ? " active" : ""}`} onClick={() => setTab("onoff")} type="button">
+          {ONOFF_TAB_LABEL}
         </button>
       </div>
     </div>
@@ -3736,6 +3752,7 @@ function SeasonBreakdownTable({
           </tbody>
         </table>
       </div>
+      {tab === "onoff" && <OnOffNote seasons={seasonRows.map((r) => r.season)} periodSelected={period !== "all"} />}
       <OnCourtShareNote
         tab={tab}
         rows={seasonRows.filter((r) => r.countsTowardTotal).map((r) => ({ season: r.season, gamesPlayed: r.ctx.raw.gamesPlayed, ocGames: r.ctx.raw.ocGames }))}

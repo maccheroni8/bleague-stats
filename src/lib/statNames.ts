@@ -72,6 +72,18 @@ export const STAT_NAMES: Record<string, StatJaName> = {
   DD2: "ダブルダブル",
   TD3: "トリプルダブル",
   PTS10: "二桁得点試合",
+  "On Min": "出場中の時間",
+  "Off Min": "ベンチの時間",
+  "On-Off Min": "出場中とベンチの時間の差",
+  "On ORtg": "出場中の攻撃効率",
+  "Off ORtg": "ベンチ中の攻撃効率",
+  "On-Off ORtg": "出場中とベンチ中の攻撃効率の差",
+  "On DRtg": "出場中の守備効率",
+  "Off DRtg": "ベンチ中の守備効率",
+  "On-Off DRtg": "出場中とベンチ中の守備効率の差",
+  "On NetRtg": "出場中の得失点効率",
+  "Off NetRtg": "ベンチ中の得失点効率",
+  "On-Off NetRtg": "出場中とベンチ中の得失点効率の差",
 
   // --- Advanced ---
   "USG%": "ユーセージ%",
