@@ -116,12 +116,12 @@ function extraFormatters(mode: SeasonDisplayMode, perspective: TeamPerspective):
       scaledValue(r.totals.blk, r.gamesPlayed, mode),
       perspective,
     );
-    const d = mode === "total" ? 0 : 1;
+    const d = mode === "total" ? 0 : 2;
     return perspective === "diff" ? formatSigned(v, d) : formatDecimal(v, d);
   });
   m.set("EFF", (r, seasonStartYear) => {
     const total = teamPeriodEffTotal(r.totals, false, seasonStartYear);
-    return mode === "total" ? formatDecimal(total, 0) : formatDecimal(r.gamesPlayed > 0 ? total / r.gamesPlayed : 0, 1);
+    return mode === "total" ? formatDecimal(total, 0) : formatDecimal(r.gamesPlayed > 0 ? total / r.gamesPlayed : 0, 2);
   });
   return m;
 }

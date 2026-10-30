@@ -194,7 +194,7 @@ export function foreignColumns(data: ForeignSplitData): Column<OpponentSplitRow>
       sortValue: (r) => valueOf(r) ?? -1,
       format: (r) => {
         const v = valueOf(r);
-        return v === null ? "-" : `${formatDecimal(v, 1)}%`;
+        return v === null ? "-" : `${formatDecimal(v, 2)}%`;
       },
     };
   });
@@ -258,7 +258,7 @@ export function forcedTurnoverColumns(
       format: (r) => {
         const v = valueOf(r);
         if (v === null) return "-";
-        const digits = col.key === "gamesWithData" || mode === "total" ? 0 : 1;
+        const digits = col.key === "gamesWithData" || mode === "total" ? 0 : 2;
         return perspective === "diff" && col.key !== "gamesWithData" ? (v > 0 ? "+" : "") + formatDecimal(v, digits) : formatDecimal(v, digits);
       },
       scalesWithGames: col.key !== "gamesWithData",

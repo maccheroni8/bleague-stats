@@ -172,7 +172,7 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
   {
     key: "poss",
     label: "POSS",
-    format: (_c, ctx) => (ctx.ratings ? formatDecimal(ctx.ratings.poss, 1) : "-"),
+    format: (_c, ctx) => (ctx.ratings ? formatDecimal(ctx.ratings.poss, 2) : "-"),
   },
   {
     key: "pace",
@@ -180,10 +180,10 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
     format: (c, ctx) =>
       ctx.isTeamTotalRow
         ? ctx.ratings
-          ? formatDecimal(ctx.ratings.pace, 1)
+          ? formatDecimal(ctx.ratings.pace, 2)
           : "-"
         : ctx.isPlayerRow && c.onCourtPace !== undefined
-          ? formatDecimal(c.onCourtPace, 1)
+          ? formatDecimal(c.onCourtPace, 2)
           : "-",
     value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.pace : ctx.isPlayerRow ? c.onCourtPace : undefined),
   },
@@ -193,10 +193,10 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
     format: (c, ctx) =>
       ctx.isTeamTotalRow
         ? ctx.ratings
-          ? formatDecimal(ctx.ratings.offRtg, 1)
+          ? formatDecimal(ctx.ratings.offRtg, 2)
           : "-"
         : ctx.isPlayerRow && c.offRtg !== undefined
-          ? formatDecimal(c.offRtg, 1)
+          ? formatDecimal(c.offRtg, 2)
           : "-",
     value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.offRtg : ctx.isPlayerRow ? c.offRtg : undefined),
   },
@@ -206,10 +206,10 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
     format: (c, ctx) =>
       ctx.isTeamTotalRow
         ? ctx.ratings
-          ? formatDecimal(ctx.ratings.defRtg, 1)
+          ? formatDecimal(ctx.ratings.defRtg, 2)
           : "-"
         : ctx.isPlayerRow && c.defRtg !== undefined
-          ? formatDecimal(c.defRtg, 1)
+          ? formatDecimal(c.defRtg, 2)
           : "-",
     value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.defRtg : ctx.isPlayerRow ? c.defRtg : undefined),
     higherIsBetter: false,
@@ -220,10 +220,10 @@ const ADVANCED_COLUMNS: BoxscoreColumn[] = [
     format: (c, ctx) =>
       ctx.isTeamTotalRow
         ? ctx.ratings
-          ? formatSigned(ctx.ratings.netRtg, 1)
+          ? formatSigned(ctx.ratings.netRtg, 2)
           : "-"
         : ctx.isPlayerRow && c.netRtg !== undefined
-          ? formatSigned(c.netRtg, 1)
+          ? formatSigned(c.netRtg, 2)
           : "-",
     value: (c, ctx) => (ctx.isTeamTotalRow ? ctx.ratings?.netRtg : ctx.isPlayerRow ? c.netRtg : undefined),
   },

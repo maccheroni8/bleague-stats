@@ -119,10 +119,10 @@ export function periodScoringValue(cell: PeriodScoringCell, perspective: PeriodS
   return mode === "total" ? sum : sum / cell.games;
 }
 
-/** 表の文字列。平均は小数1桁、合計は整数。得失点差は正のとき「+」 */
+/** 表の文字列。平均は小数2桁、合計は整数。得失点差は正のとき「+」 */
 export function formatPeriodScoringValue(value: number | null, perspective: PeriodScoringPerspective, mode: PeriodScoringMode): string {
   if (value === null) return "-";
-  const text = mode === "total" ? String(Math.round(value)) : value.toFixed(1);
+  const text = mode === "total" ? String(Math.round(value)) : value.toFixed(2);
   return perspective === "diff" && value > 0 ? `+${text}` : text;
 }
 

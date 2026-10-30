@@ -37,7 +37,7 @@ import { NATURALIZED_ASIA_LABEL } from "./statNames";
 // ポイント差（±X.X%）、それ以外は原則整数（1試合分のカウント系スタッツは小数ではなく整数で表示する。
 // SeasonBoxscoreColumnのcountDigits（合計モード=0桁）と同じ考え方）。
 // AST/TOV・PPS・Rtg系(PACE/ORtg/DRtg/NetRtg)は元々小数表示の指標のため、そのまま桁数を保つ
-const DECIMAL_DIFF_DIGITS: Record<string, number> = { asttov: 1, pps: 2, pace: 1, ortg: 1, drtg: 1, netrtg: 1 };
+const DECIMAL_DIFF_DIGITS: Record<string, number> = { asttov: 2, pps: 2, pace: 2, ortg: 2, drtg: 2, netrtg: 2 };
 
 // col.value()の値スケールが列ごとに異なる: FG%/2P%/3P%/FT%/eFG%/TS%/PAINT2%/MID2%はsafeDiv()
 // ベースで0〜1（format側でformatPctが×100する）だが、USG%/TOV%/AST%/LIVE TOV%/DEAD TOV%と
@@ -77,7 +77,7 @@ export function formatColumnDiff(
   const diff = ownValue - oppValue;
   if (col.label.includes("%")) {
     const diffPct = PCT_ALREADY_0_TO_100.has(col.key) ? diff : diff * 100;
-    return `${formatSigned(diffPct, 1)}%`;
+    return `${formatSigned(diffPct, 2)}%`;
   }
   if (col.key === "min") {
     const sign = diff > 0 ? "+" : diff < 0 ? "-" : "";
@@ -179,8 +179,8 @@ function splitClassPointDefs(kind: "count" | "pct", perspective: TeamPerspective
       format: (r) => {
         const v = valueOf(r);
         if (v === null) return "-";
-        if (kind === "count") return perspective === "diff" ? formatSigned(v, 1) : formatDecimal(v, 1);
-        return perspective === "diff" ? `${formatSigned(v, 1)}%` : formatPct100(v);
+        if (kind === "count") return perspective === "diff" ? formatSigned(v, 2) : formatDecimal(v, 2);
+        return perspective === "diff" ? `${formatSigned(v, 2)}%` : formatPct100(v);
       },
       higherIsBetter: perspective === "opp" ? false : true,
     };
@@ -263,13 +263,13 @@ const TEAM_GAMES_DEF: ComparisonStatDef<TeamCompareColumnData> = {
  * buildTeamMultiGameBoxTotalsが返す1試合あたり平均値（小数）をそのまま渡すと、内部の複合計算
  * （例: FGM列のc.pt2m+c.pt3m）で浮動小数点誤差が乗り小数点以下が延々と表示されることがある
  * （例: "31.200000000000003"）。col.formatの出力が単純な数値文字列（%表記・MM:SS・"-"等では
- * ない）の場合のみ小数第1位に丸め直す。丸め自体はbuildTeamMultiGameBoxTotals側では行わず
+ * ない）の場合のみ小数第2位に丸め直す。丸め自体はbuildTeamMultiGameBoxTotals側では行わず
  * （%系列の分子分母を丸め前の生の値で計算させ、ポイント差を防ぐため）、ここでの文字列レベルの
  * 後処理のみで対応する
  */
 export function cleanNumericString(s: string): string {
   const n = Number(s);
-  return Number.isFinite(n) ? n.toFixed(1) : s;
+  return Number.isFinite(n) ? n.toFixed(2) : s;
 }
 
 /**

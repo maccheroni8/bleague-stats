@@ -34,7 +34,7 @@ export function TeamLineupOnCourtSummary({
   const avg = perGame !== undefined && perGame > 0;
   const time = (sec: number) => formatMinutesFromSeconds(avg ? Math.round(sec / perGame!) : sec);
   const pts = (v: number) => (avg ? formatDecimal(v / perGame!) : String(v));
-  const net = (v: number) => (avg ? formatSigned(v / perGame!, 1) : formatSigned(v, 0));
+  const net = (v: number) => (avg ? formatSigned(v / perGame!, 2) : formatSigned(v, 0));
   const rtg = (label: "ORtg" | "DRtg" | "NetRtg") => ({
     label: real ? label : `${label}（推定）`,
     title: statDescription(real ? `オンザコート別の${label}` : `オンザコート別の${label}（推定）`, "team"),

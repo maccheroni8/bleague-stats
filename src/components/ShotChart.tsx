@@ -59,7 +59,7 @@ function formatShotSummary(shots: ShotEvent[]): string {
   const makes = shots.filter((s) => s.made).length;
   const attempts = shots.length;
   if (attempts === 0) return "0/0";
-  return `${makes}/${attempts} (${((makes / attempts) * 100).toFixed(1)}%)`;
+  return `${makes}/${attempts} (${((makes / attempts) * 100).toFixed(2)}%)`;
 }
 
 /** バスケット中心からの距離r(m)・角度θ(度)をSVG座標(cx, cy)に変換する */
@@ -167,11 +167,11 @@ function ZoneHeatmap({ shots }: { shots: ShotEvent[] }) {
           <g key={zone.id}>
             <path {...zoneProps(zone)} fill={zoneHeatColor(pct)} fillOpacity={ZONE_FILL_OPACITY} className="zone-fill">
               <title>
-                {zone.label}: {makes}-{attempts} ({(pct * 100).toFixed(1)}%)
+                {zone.label}: {makes}-{attempts} ({(pct * 100).toFixed(2)}%)
               </title>
             </path>
             <text x={centroid.x} y={centroid.y - 1.8} className="zone-label">
-              {(pct * 100).toFixed(1)}%
+              {(pct * 100).toFixed(2)}%
             </text>
             <text x={centroid.x} y={centroid.y + 2.6} className="zone-label-sub">
               {makes}/{attempts}

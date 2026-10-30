@@ -447,7 +447,7 @@ function countColumn(
   perspective: TeamPerspective,
   opts: { digits?: number; signed?: boolean; higherIsBetter?: boolean } = {},
 ): Column<AllTeamsRow> {
-  const { digits = 1, signed = false, higherIsBetter: ownHigherIsBetter = true } = opts;
+  const { digits = 2, signed = false, higherIsBetter: ownHigherIsBetter = true } = opts;
   const valueFor = (r: AllTeamsRow) =>
     perspectiveValue(
       scaledValue(pickOwn(r.totals), r.gamesPlayed, mode),
@@ -507,7 +507,7 @@ function pctColumn(
     calcOpp,
     perspective,
     (v) => formatPct(v),
-    (v) => `${formatSigned(v * 100, 1)}%`,
+    (v) => `${formatSigned(v * 100, 2)}%`,
     ownHigherIsBetter,
   );
 }
@@ -527,7 +527,7 @@ function pct100Column(
     calcOpp,
     perspective,
     (v) => formatPct100(v),
-    (v) => `${formatSigned(v, 1)}%`,
+    (v) => `${formatSigned(v, 2)}%`,
     ownHigherIsBetter,
   );
 }
@@ -538,7 +538,7 @@ function decimalColumn(
   calcOwn: (t: TeamTotals) => number,
   calcOpp: (t: TeamTotals) => number,
   perspective: TeamPerspective,
-  digits = 1,
+  digits = 2,
   ownHigherIsBetter = true,
 ): Column<AllTeamsRow> {
   return numberColumn(
@@ -559,7 +559,7 @@ function signedColumn(
   calcOwn: (t: TeamTotals) => number,
   calcOpp: (t: TeamTotals) => number,
   perspective: TeamPerspective,
-  digits = 1,
+  digits = 2,
 ): Column<AllTeamsRow> {
   return numberColumn(key, label, calcOwn, calcOpp, perspective, (v) => formatSigned(v, digits), (v) => formatSigned(v, digits));
 }
@@ -643,7 +643,7 @@ export function buildAdvancedColumns(mode: SeasonDisplayMode, perspective: TeamP
       key: "poss",
       label: "POSS",
       sortValue: (r) => scaledValue(r.totals.poss, r.gamesPlayed, mode),
-      format: (r) => formatDecimal(scaledValue(r.totals.poss, r.gamesPlayed, mode), mode === "total" ? 0 : 1),
+      format: (r) => formatDecimal(scaledValue(r.totals.poss, r.gamesPlayed, mode), mode === "total" ? 0 : 2),
       scalesWithGames: true,
     },
     {
@@ -652,14 +652,14 @@ export function buildAdvancedColumns(mode: SeasonDisplayMode, perspective: TeamP
       sortValue: (r) => pace(r.totals.poss, r.totals.min),
       format: (r) => formatDecimal(pace(r.totals.poss, r.totals.min)),
     },
-    decimalColumn("ortg", "ORtg", (t) => offensiveRating(t.pts, t.poss), (t) => offensiveRating(t.oppPts, t.poss), perspective, 1),
+    decimalColumn("ortg", "ORtg", (t) => offensiveRating(t.pts, t.poss), (t) => offensiveRating(t.oppPts, t.poss), perspective, 2),
     decimalColumn(
       "drtg",
       "DRtg",
       (t) => offensiveRating(t.oppPts, t.poss),
       (t) => offensiveRating(t.pts, t.poss),
       perspective,
-      1,
+      2,
       false,
     ),
     signedColumn(

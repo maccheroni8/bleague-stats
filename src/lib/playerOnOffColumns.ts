@@ -58,7 +58,7 @@ function ratingColumn(key: string, label: string, get: (t: OnOffSeasonTotals) =>
     label,
     format: (c) => {
       const v = c.onOff ? get(c.onOff) : null;
-      return v === null ? "-" : isDiff ? signed(v, 1) : formatDecimal(v, 1);
+      return v === null ? "-" : isDiff ? signed(v, 2) : formatDecimal(v, 2);
     },
     value: (c) => (c.onOff ? (get(c.onOff) ?? 0) : 0),
     higherIsBetter,

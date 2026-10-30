@@ -101,7 +101,7 @@ for (const [key, formula] of Object.entries(FORMULA)) {
 // 平均のとき、出場中の自チームの値も、出場中の記録がそろう試合数で割っている（%PTS の TEAM PTS（出場中）。DESIGN.md 304章）
 {
   const rel = relatedStatsFor({ category: "scoring", statKey: "pctpts", mode: "perGame", ctxOf: () => ctxPerGame, shooting: [] })!;
-  check("pctpts(perGame): TEAM PTS（出場中）は 出場中の合計÷そろう試合数", rel.of(player)![1] === (1150 / 18).toFixed(1), String(rel.of(player)));
+  check("pctpts(perGame): TEAM PTS（出場中）は 出場中の合計÷そろう試合数", rel.of(player)![1] === (1150 / 18).toFixed(2), String(rel.of(player)));
 }
 // 出場中の記録がそろう試合が無い（2019-20以前など）ときは、%PTS とその関連スタッツは「-」
 {

@@ -266,7 +266,7 @@ function SegmentLabel({
       strokeWidth={2.5}
       paintOrder="stroke"
     >
-      {narrow || !detail ? `${pct.toFixed(1)}%` : `${pct.toFixed(1)}% (${detail})`}
+      {narrow || !detail ? `${pct.toFixed(2)}%` : `${pct.toFixed(2)}% (${detail})`}
     </text>
   );
 }
@@ -291,7 +291,7 @@ function ShareBarTooltip({
       {categories.map((c, i) => (
         <div key={c.label} className="foreign-count-tooltip-row">
           <span className="foreign-count-tooltip-swatch" style={{ background: c.color }} />
-          {c.label}: {(row.pct[i] ?? 0).toFixed(1)}%{row.tooltipDetails[i] ?? ""}
+          {c.label}: {(row.pct[i] ?? 0).toFixed(2)}%{row.tooltipDetails[i] ?? ""}
         </div>
       ))}
       {row.tooltipFooter && <div className="foreign-count-tooltip-total">{row.tooltipFooter}</div>}

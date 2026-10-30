@@ -41,9 +41,9 @@ type Key = "japanese" | "foreign" | "intl";
 const STAT_LABEL: Record<Key,string> = { japanese:"日本人 PTS", foreign:"外国籍 PTS", intl:"外国籍・帰化・アジア PTS" };
 /** 項目名。視点が相手なら「相手の…」、差なら「…の差（自チーム − 相手）」 */
 const statName=(key:Key,pv:TeamPerspective)=>pv==="opp"?statJa(`opp ${STAT_LABEL[key]}`,"team"):pv==="diff"?`${statJa(STAT_LABEL[key],"team")}の差`:statJa(STAT_LABEL[key],"team");
-const signed=(value:number,pv:TeamPerspective,digits=1)=>pv==="diff"&&Math.round(value*10**digits)>0?`+${value.toFixed(digits)}`:value.toFixed(digits);
+const signed=(value:number,pv:TeamPerspective,digits=2)=>pv==="diff"&&Math.round(value*10**digits)>0?`+${value.toFixed(digits)}`:value.toFixed(digits);
 const perGameText=(value:number,pv:TeamPerspective)=>`${signed(value,pv)}点`;
-const shareText=(value:number|null,pv:TeamPerspective)=>value===null?"—":pv==="diff"?`${signed(value,pv)}ポイント`:`${value.toFixed(1)}%`;
+const shareText=(value:number|null,pv:TeamPerspective)=>value===null?"—":pv==="diff"?`${signed(value,pv)}ポイント`:`${value.toFixed(2)}%`;
 
 export default function ScoringScatterFigure({season,category}:FigureProps) {
   const [filter,setFilter]=useUrlState(rangeCodec,DEFAULT_RANGE);

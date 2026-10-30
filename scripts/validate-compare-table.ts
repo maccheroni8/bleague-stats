@@ -203,7 +203,7 @@ for (const tab of ["traditional", "advanced", "misc", "scoring"] as const) {
       }
     }
     const ownDefs = new Map(teamCompareDefs(tab, "own", false).map((d) => [d.key, d]));
-    eq("POSS の表の値（1試合平均）", [ownDefs.get("poss")!.format(left), ownDefs.get("poss")!.format(right)], ["72.8", "74.6"]);
+    eq("POSS の表の値（1試合平均）", [ownDefs.get("poss")!.format(left), ownDefs.get("poss")!.format(right)], ["72.80", "74.60"]);
   }
 
   // 試投数・構成比・ベンチ得点などは、多いほうを塗る（相手チーム視点は向きを反転。POSS・PACE・チームの MIN・G は塗らない。DESIGN.md 250章）
@@ -358,10 +358,16 @@ for (const season of seasonsOnDisk) {
           for (const key of ["ftr", "orbpct", "pitppct", "fbppct", "2ndptspct", "ptsofftovpct", "pctpaint2m", "pctpaint2a", "pctmid2m", "pctmid2a", "pct3p", "pctpoutp", "pctft", "pctopa"]) {
             const d = defs.get(key);
             if (!d) continue;
-            // 画面に出る値（小数第1位まで）で比べる。2016-17・2020-21 は、ペイント内外の試投・成功だけ、平均の元（試合の生データ）と
-            // 試合ログの集計で 0.01pt 未満の差がある（一部の試合の区分の取り方）。画面の値は同じ
+            // 画面に出る値（小数第2位まで）で比べる。2016-17・2020-21 は、ペイント内外の試投・成功だけ、平均の元（試合の生データ）と
+            // 試合ログの集計で 0.01pt 未満の差がある（一部の試合の区分の取り方）。小数第1位の表示では同じだったが、第2位の表示では
+            // 0.01 違うことがあるので、その項目（%PAINT2M・%PAINT2A・%MID2M・%MID2A・%OPA）だけ 0.01 までの差を許す（小数第2位の表示の章）
             checked += 1;
-            if (d.format(fromLeague) !== d.format(fromLogs)) {
+            const paintKnownGap =
+              (season === "2016-17" || season === "2020-21") && ["pctpaint2m", "pctpaint2a", "pctmid2m", "pctmid2a", "pctopa"].includes(key);
+            const shownLeague = Number.parseFloat(d.format(fromLeague));
+            const shownLogs = Number.parseFloat(d.format(fromLogs));
+            const withinKnownGap = paintKnownGap && Number.isFinite(shownLeague) && Number.isFinite(shownLogs) && Math.abs(shownLeague - shownLogs) <= 0.01 + 1e-9;
+            if (d.format(fromLeague) !== d.format(fromLogs) && !withinKnownGap) {
               mismatches.push(`${season} リーグ平均 ${perspective} ${d.label}: 平均から ${d.format(fromLeague)} / 試合ログから ${d.format(fromLogs)}`);
             }
           }

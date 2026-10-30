@@ -91,7 +91,7 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
       <ExportTarget ref={target} className="ratings-export" baseDate={baseDate}>
         {/* 見出しと条件の行はほかのページと同じ部品（半角スペースでだけ折り返す・区切りは「／」・初期値は書かない。DESIGN.md 239章・296章） */}
         <ConditionTitle title={`${statJa("ORtg","team")} × ${statJa("DRtg","team")}`} exportScope={`${season}シーズン`} conditions={conditions} />
-        <p className="ratings-league">リーグ平均：ORtg {model.league.ortg.toFixed(1)} ／ DRtg {model.league.drtg.toFixed(1)}</p>
+        <p className="ratings-league">リーグ平均：ORtg {model.league.ortg.toFixed(2)} ／ DRtg {model.league.drtg.toFixed(2)}</p>
         <div className="ratings-legend">{present.map(d=><span key={d}><i style={{borderColor:DIVISION_RATING_COLORS[d]}}/>{divisionLabel(d)}</span>)}<span><i className="ratings-diagonal-key"/>NetRtg 0</span></div>
         <div ref={plot} onPointerDown={event=>{if(!(event.target as Element).closest(".ratings-point"))setTooltipId(null);}}>
           <RatingChart points={visible} all={model.points} league={model.league} selectedId={selected?.teamId??null} tooltip={tooltip} teamLabel={teamLabel} onSelect={id=>choose(id)} onDismiss={()=>setTooltipId(null)}/>

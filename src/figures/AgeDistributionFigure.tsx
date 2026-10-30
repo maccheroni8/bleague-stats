@@ -32,7 +32,7 @@ const classCodec = enumParam<FigureClass>("cls", FIGURE_CLASSES.map(c => c.value
 const gameCodec = enumParam<SeasonGameTypeFilter>("gt", ["regular", "playoff", "both"], "regular");
 const lineCodec = enumParam<FigureReferenceMode>("line", ["mean", "median", "both"], "mean");
 const ratioCodec = rangeParam("gp", FIGURE_GAMES_RATIO_RANGE, [0, 100]);
-const oneDecimal = (n: number | null) => n === null ? "—" : n.toFixed(1);
+const oneDecimal = (n: number | null) => n === null ? "—" : n.toFixed(2);
 
 export default function AgeFigure({ season, category: league }: FigureProps) {
   const [min, setMin] = useUrlState(minCodec, 15);

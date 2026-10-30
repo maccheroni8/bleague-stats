@@ -619,7 +619,7 @@ const CAREER_HIGH_STATS_BASE: CareerHighDef[] = [
     key: "astTov",
     label: "AST/TOV",
     value: (g) => astToTovRatio(g.ast, g.tov),
-    format: (v) => v.toFixed(1),
+    format: (v) => v.toFixed(2),
     worstEligible: false,
   },
   { key: "stl", label: "STL", value: (g) => g.stl },
@@ -3035,8 +3035,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
                             <td className="align-right">{row.isPct ? formatPct(row.offValue) : formatDecimal(row.offValue)}</td>
                             <td className="align-right">
                               {row.isPct
-                                ? `${formatSigned((row.onValue - row.offValue) * 100, 1)}pt`
-                                : formatSigned(row.onValue - row.offValue, 1)}
+                                ? `${formatSigned((row.onValue - row.offValue) * 100, 2)}pt`
+                                : formatSigned(row.onValue - row.offValue, 2)}
                             </td>
                           </tr>
                         ))}

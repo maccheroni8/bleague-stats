@@ -12,10 +12,10 @@ import { formatTtsPct, formatTtsSeconds } from "../src/lib/teamTts.ts";
 
 assert.equal(ttsSeasonSupported("2019-20"), false);
 assert.equal(ttsSeasonSupported("2020-21"), true);
-assert.equal(formatTtsSeconds(-0.04, "diff"), "0.0");
-assert.equal(formatTtsSeconds(0.04, "diff"), "0.0");
-assert.equal(formatTtsSeconds(1.26, "diff"), "+1.3");
-assert.equal(formatTtsPct(-3.44, "diff"), "-3.4");
+assert.equal(formatTtsSeconds(-0.004, "diff"), "0.00");
+assert.equal(formatTtsSeconds(0.004, "diff"), "0.00");
+assert.equal(formatTtsSeconds(1.267, "diff"), "+1.27");
+assert.equal(formatTtsPct(-3.444, "diff"), "-3.44");
 assert.equal(formatTtsPct(null, "own"), "-");
 
 let checks = 0;

@@ -154,7 +154,7 @@ export function playerScoringCompositionColumns(): Column<PlayerOpponentRow>[] {
     sortValue: (r) => valueOf(r) ?? -1,
     format: (r) => {
       const v = valueOf(r);
-      return v === null ? "-" : `${formatDecimal(v, 1)}%`;
+      return v === null ? "-" : `${formatDecimal(v, 2)}%`;
     },
   });
   const hasPaintSplit = (r: PlayerOpponentRow) => r.ctx.raw.paint2a + r.ctx.raw.mid2a > 0;

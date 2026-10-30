@@ -360,7 +360,7 @@ function buildPtsColumn(mode: SeasonDisplayMode): Column<PlayerRow> {
     key: "pts",
     label: "PTS",
     sortValue: (r) => scaledValue(r.player.totals.pts, r.player.gamesPlayed, mode),
-    format: (r) => formatDecimal(scaledValue(r.player.totals.pts, r.player.gamesPlayed, mode), mode === "total" ? 0 : 1),
+    format: (r) => formatDecimal(scaledValue(r.player.totals.pts, r.player.gamesPlayed, mode), mode === "total" ? 0 : 2),
   };
 }
 
@@ -398,7 +398,7 @@ function countColumn(key: string, label: string, pickTotal: (p: PlayerSummary) =
     key,
     label,
     sortValue: (r) => scaledValue(pickTotal(r.player), r.player.gamesPlayed, mode),
-    format: (r) => formatDecimal(scaledValue(pickTotal(r.player), r.player.gamesPlayed, mode), mode === "total" ? 0 : 1),
+    format: (r) => formatDecimal(scaledValue(pickTotal(r.player), r.player.gamesPlayed, mode), mode === "total" ? 0 : 2),
   };
 }
 
@@ -412,7 +412,7 @@ function plusMinusColumn(mode: SeasonDisplayMode): Column<PlayerRow> {
     key: "plusminus",
     label: "+/-",
     sortValue: (r) => scaledValue(r.player.totals.plusMinus, r.player.gamesPlayed, mode),
-    format: (r) => formatSigned(scaledValue(r.player.totals.plusMinus, r.player.gamesPlayed, mode), mode === "total" ? 0 : 1),
+    format: (r) => formatSigned(scaledValue(r.player.totals.plusMinus, r.player.gamesPlayed, mode), mode === "total" ? 0 : 2),
   };
 }
 

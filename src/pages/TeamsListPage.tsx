@@ -933,7 +933,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const turnoverValue = (r: TurnoverRow, pick: (d: TeamForcedTurnovers) => number) =>
     turnoverAverage ? (r.team.gamesPlayed > 0 ? pick(r.data) / r.team.gamesPlayed : 0) : pick(r.data);
   const turnoverText = (v: number) => {
-    const digits = turnoverAverage ? 1 : 0;
+    const digits = turnoverAverage ? 2 : 0;
     return teamPerspective === "diff" ? formatSigned(v, digits) : formatDecimal(v, digits);
   };
   const leagueTurnoverRow: TurnoverRow | null = leagueAverage && leagueTurnoverData ? { team: leagueAverage.team, data: leagueTurnoverData } : null;

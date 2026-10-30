@@ -110,7 +110,7 @@ interface OuterLabelLayout {
  * 描画前にラベルの位置と文字幅を計算し、はみ出す分だけ描画範囲を左右上下に広げて円の中心をずらす。長い名称は「・」で折り返す。
  * スマホ幅（560px以下）は円を小さくし、ラベル線も短くして画面幅に収める
  */
-export function CompositionPieChart({ title, segments, size = 320, valueDigits = 1, baseColor }: CompositionPieChartProps) {
+export function CompositionPieChart({ title, segments, size = 320, valueDigits = 2, baseColor }: CompositionPieChartProps) {
   const narrow = useMediaQuery("(max-width: 560px)");
   const theme = useResolvedTheme();
   const shades = baseColor !== undefined ? pieShades(baseColor, segments.length, theme) : null;
@@ -175,7 +175,7 @@ export function CompositionPieChart({ title, segments, size = 320, valueDigits =
             </tspan>
           ))}
           <tspan x={textX} dy={`${OUTER_LABEL_LINE_EM}em`}>
-            {formatDecimal(p.percent * 100, 1)}%
+            {formatDecimal(p.percent * 100, 2)}%
           </tspan>
         </text>
         <text

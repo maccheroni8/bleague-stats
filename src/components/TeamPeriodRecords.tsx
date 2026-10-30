@@ -266,7 +266,7 @@ const AVERAGE_COLUMNS: { stat: PeriodAverageStat; label: string; rankKey: "ptsRa
 ];
 
 function formatAverage(stat: PeriodAverageStat, v: number): string {
-  const s = v.toFixed(1);
+  const s = v.toFixed(2);
   return stat === "diff" && v > 0 ? `+${s}` : s;
 }
 

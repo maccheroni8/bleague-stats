@@ -135,15 +135,15 @@ const g = own.logs[0]!;
 const missing = { ...g }; delete (missing as Partial<TeamGameLog>).opponentBenchPoints;
 const missingRow = aiTeamRow(own.team, [missing]);
 assert.equal(metrics.find(m => m.label === 'opp BENCH PTS')!.text(missingRow), '未収録');
-assert.equal(metrics.find(m => m.label === 'STL')!.text(aiTeamRow(own.team, [{ ...g, stl: 0 }])), '0.0');
+assert.equal(metrics.find(m => m.label === 'STL')!.text(aiTeamRow(own.team, [{ ...g, stl: 0 }])), '0.00');
 const pts = metrics.find(m => m.label === 'PTS')!;
 const a = aiTeamRow(own.team, [{ ...g, teamScore: 100 }]);
 const b = aiTeamRow(own.team, [{ ...g, teamScore: 60 }, { ...g, teamScore: 60 }]);
 assert.equal(pts.value(aiTeamRow(own.team, [...a.logs, ...b.logs])), 220 / 3);
 const tied = [10, 9, 9, 8].map(n => aiTeamRow(own.team, [{ ...g, teamScore: n }]));
 assert.deepEqual(tied.map(r => aiRank(pts, r, tied)), ['1位／4チーム', '2位／4チーム', '2位／4チーム', '4位／4チーム']);
-assert.equal(aiDifference(52.1, 50.4, true), '+1.7ポイント');
-assert.equal(aiDifference(10.01, 10.02, false), '0.0');
+assert.equal(aiDifference(52.1, 50.4, true), '+1.70ポイント');
+assert.equal(aiDifference(10.001, 10.002, false), '0.00');
 // 結果だけの試合は直接対決の本文を変えず、該当時だけ別記。中止もスタッツに入らない。
 const opp = g.opponentTeamId;
 const extra = { scheduleKey: 'test-result-only', date: g.date, homeTeamId: '703', homeTeamName: own.team.teamName, awayTeamId: opp, awayTeamName: g.opponentTeamName, homeScore: 20, awayScore: 0, gameType: 'regular' as const, reason: 'forfeit' as const };

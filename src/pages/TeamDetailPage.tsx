@@ -387,7 +387,7 @@ function TeamSeasonForcedTurnoversTable({ rows }: { rows: SeasonRecord[] }) {
  */
 function TeamSeasonShotTypeTable({ rows, displayMode }: { rows: SeasonRecord[]; displayMode: SeasonDisplayMode }) {
   const keys = sortShotTypeKeys([...new Set(rows.flatMap((r) => Object.keys(r.team.shotTypes ?? {})))]);
-  const digits = displayMode === "total" ? 0 : 1;
+  const digits = displayMode === "total" ? 0 : 2;
   return (
     <div className="table-scroll">
       <table className="stats-table">
@@ -945,7 +945,7 @@ function formatTeamSeasonCountPerspective(
   perspective: TeamPerspective,
   opts: { digits?: number; signed?: boolean } = {},
 ): string {
-  const { digits = 1, signed = false } = opts;
+  const { digits = 2, signed = false } = opts;
   const ownScaled = mode === "total" ? ownTotal : safeDiv(ownTotal, gamesPlayed);
   const oppScaled = mode === "total" ? oppTotal : safeDiv(oppTotal, gamesPlayed);
   const v = teamSeasonPerspectiveValue(ownScaled, oppScaled, perspective);
@@ -966,18 +966,18 @@ function formatTeamSeasonRatioPerspective(
 }
 
 function formatTeamSeasonPct(ownVal: number, oppVal: number, perspective: TeamPerspective): string {
-  return formatTeamSeasonRatioPerspective(ownVal, oppVal, perspective, (v) => formatPct(v), (v) => `${formatSigned(v * 100, 1)}%`);
+  return formatTeamSeasonRatioPerspective(ownVal, oppVal, perspective, (v) => formatPct(v), (v) => `${formatSigned(v * 100, 2)}%`);
 }
 
 function formatTeamSeasonPct100(ownVal: number, oppVal: number, perspective: TeamPerspective): string {
-  return formatTeamSeasonRatioPerspective(ownVal, oppVal, perspective, (v) => formatPct100(v), (v) => `${formatSigned(v, 1)}%`);
+  return formatTeamSeasonRatioPerspective(ownVal, oppVal, perspective, (v) => formatPct100(v), (v) => `${formatSigned(v, 2)}%`);
 }
 
-function formatTeamSeasonDecimal(ownVal: number, oppVal: number, perspective: TeamPerspective, digits = 1): string {
+function formatTeamSeasonDecimal(ownVal: number, oppVal: number, perspective: TeamPerspective, digits = 2): string {
   return formatTeamSeasonRatioPerspective(ownVal, oppVal, perspective, (v) => formatDecimal(v, digits), (v) => formatSigned(v, digits));
 }
 
-function formatTeamSeasonSigned(ownVal: number, oppVal: number, perspective: TeamPerspective, digits = 1): string {
+function formatTeamSeasonSigned(ownVal: number, oppVal: number, perspective: TeamPerspective, digits = 2): string {
   return formatTeamSeasonRatioPerspective(ownVal, oppVal, perspective, (v) => formatSigned(v, digits), (v) => formatSigned(v, digits));
 }
 
@@ -1155,7 +1155,7 @@ const TEAM_SEASON_TRADITIONAL_COLUMNS: TeamSeasonBoxColumn[] = [
     format: (r, _m, mode) =>
       formatDecimal(
         mode === "total" ? r.team.advanced.eff * r.team.gamesPlayed : r.team.advanced.eff,
-        mode === "total" ? 0 : 1,
+        mode === "total" ? 0 : 2,
       ),
   },
   {
@@ -2187,7 +2187,7 @@ function formatTeamPointsCount(
   mode: SeasonDisplayMode,
 ): string {
   if (!result) return "-";
-  const digits = mode === "total" ? 0 : 1;
+  const digits = mode === "total" ? 0 : 2;
   const ownVal = col.value(result.own);
   const oppVal = col.value(result.opp);
   return perspective === "own" ? formatDecimal(ownVal, digits) : perspective === "opp" ? formatDecimal(oppVal, digits) : formatSigned(ownVal - oppVal, digits);

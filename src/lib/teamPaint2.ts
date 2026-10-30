@@ -177,8 +177,8 @@ export function paintValue(s: PaintSummary | undefined, key: string, mode: strin
 export function paintFormat(s: PaintSummary | undefined, key: string, mode: string, perspective: TeamPerspective): string {
   const v = paintValue(s, key, mode, perspective);
   if (v === undefined) return "-";
-  const digits = mode === "total" ? 0 : 1;
-  if (key.endsWith("pct")) return perspective === "diff" ? `${formatSigned(v * 100, 1)}%` : formatPct(v);
+  const digits = mode === "total" ? 0 : 2;
+  if (key.endsWith("pct")) return perspective === "diff" ? `${formatSigned(v * 100, 2)}%` : formatPct(v);
   return perspective === "diff" ? formatSigned(v, digits) : formatDecimal(v, digits);
 }
 

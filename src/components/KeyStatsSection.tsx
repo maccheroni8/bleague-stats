@@ -38,8 +38,8 @@ function fgPct(row: BoxscoreRow): number {
   return safeDiv(row.PT2M + row.PT3M, row.PT2A + row.PT3A) * 100;
 }
 
-const pct1 = (v: number) => `${v.toFixed(1)}%`;
-const dec1 = (v: number) => formatDecimal(v, 1);
+const pct1 = (v: number) => `${v.toFixed(2)}%`;
+const dec1 = (v: number) => formatDecimal(v, 2);
 const int0 = (v: number) => String(Math.round(v));
 
 export function KeyStatsSection({

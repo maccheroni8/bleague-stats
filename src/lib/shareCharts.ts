@@ -159,14 +159,14 @@ export function playerScoringShare(t: { games: number; pts: number; fgm: number;
 
 export function pointsDetails(share: PointsShare, unit: "pts" | "opp" = "pts"): { details: string[]; tooltipDetails: string[]; footer: string } {
   return {
-    details: share.values.map((v) => v.toFixed(1)),
-    tooltipDetails: share.values.map((v) => `（${v.toFixed(1)} pts）`),
-    footer: `${unit === "pts" ? "平均得点" : "平均失点"}: ${share.perGame.toFixed(1)}`,
+    details: share.values.map((v) => v.toFixed(2)),
+    tooltipDetails: share.values.map((v) => `（${v.toFixed(2)} pts）`),
+    footer: `${unit === "pts" ? "平均得点" : "平均失点"}: ${share.perGame.toFixed(2)}`,
   };
 }
 
 export function pointsRightLabel(perGame: number): { wide: string; narrow: string } {
-  return { wide: `${perGame.toFixed(1)}点`, narrow: perGame.toFixed(1) };
+  return { wide: `${perGame.toFixed(2)}点`, narrow: perGame.toFixed(2) };
 }
 
 // --- FG試投構成（3P・Mid-range・Paint。FGAに占める割合。2026-09-27） ---
@@ -191,12 +191,12 @@ export function fgaShare(t: { games: number; tpa: number; mid2a: number; paint2a
 
 export function fgaDetails(share: PointsShare, unit: "own" | "opp" = "own"): { details: string[]; tooltipDetails: string[]; footer: string } {
   return {
-    details: share.values.map((v) => v.toFixed(1)),
-    tooltipDetails: share.values.map((v) => `（${v.toFixed(1)}本）`),
-    footer: `${unit === "own" ? "平均FGA" : "相手の平均FGA"}: ${share.perGame.toFixed(1)}`,
+    details: share.values.map((v) => v.toFixed(2)),
+    tooltipDetails: share.values.map((v) => `（${v.toFixed(2)}本）`),
+    footer: `${unit === "own" ? "平均FGA" : "相手の平均FGA"}: ${share.perGame.toFixed(2)}`,
   };
 }
 
 export function fgaRightLabel(perGame: number): { wide: string; narrow: string } {
-  return { wide: `${perGame.toFixed(1)}本`, narrow: perGame.toFixed(1) };
+  return { wide: `${perGame.toFixed(2)}本`, narrow: perGame.toFixed(2) };
 }

@@ -13,7 +13,7 @@ export function formatPlayerGameRecordValue(def: PlayerGameRecordDef, v: number)
     case "pct":
       return formatPct(v);
     case "ratio":
-      return v.toFixed(1);
+      return v.toFixed(2);
     case "signed":
       return formatSigned(v, 0);
     default:

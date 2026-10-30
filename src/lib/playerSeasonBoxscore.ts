@@ -696,9 +696,9 @@ function seasonPace(raw: PlayerSeasonRawTotals): number | undefined {
 }
 
 /** 合計モードでは小数第一位を四捨五入して整数表示にする（%が付く比率系スタッツはformatPct/
- * formatPct100を使うため対象外。平均モードは従来通り小数第一位のまま） */
+ * formatPct100を使うため対象外。平均モードは小数第2位まで（小数第2位の表示）） */
 export function countDigits(mode: SeasonDisplayMode): number {
-  return mode === "total" ? 0 : 1;
+  return mode === "total" ? 0 : 2;
 }
 
 const NA = "-";
@@ -941,7 +941,7 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
     label: "PACE",
     format: (c) => {
       const v = seasonPace(c.raw);
-      return v !== undefined ? formatDecimal(v, 1) : NA;
+      return v !== undefined ? formatDecimal(v, 2) : NA;
     },
     value: (c) => seasonPace(c.raw) ?? 0,
   },
@@ -950,7 +950,7 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
     label: "ORtg",
     format: (c) => {
       const v = seasonOffRtg(c);
-      return v !== undefined ? formatDecimal(v, 1) : NA;
+      return v !== undefined ? formatDecimal(v, 2) : NA;
     },
     value: (c) => seasonOffRtg(c) ?? 0,
   },
@@ -959,7 +959,7 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
     label: "DRtg",
     format: (c) => {
       const v = seasonDefRtg(c);
-      return v !== undefined ? formatDecimal(v, 1) : NA;
+      return v !== undefined ? formatDecimal(v, 2) : NA;
     },
     value: (c) => seasonDefRtg(c) ?? 0,
     higherIsBetter: false,
@@ -970,7 +970,7 @@ export const SEASON_ADVANCED_COLUMNS: SeasonBoxscoreColumn[] = [
     format: (c) => {
       const off = seasonOffRtg(c);
       const def = seasonDefRtg(c);
-      return off !== undefined && def !== undefined ? formatSigned(off - def, 1) : NA;
+      return off !== undefined && def !== undefined ? formatSigned(off - def, 2) : NA;
     },
     value: (c) => {
       const off = seasonOffRtg(c);

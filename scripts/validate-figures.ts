@@ -162,12 +162,12 @@ function sampleTeamLog(score:number,opp:number,date="2026-10-01",gameType:"regul
   return {scheduleKey:date,date,gameType,min:40,teamScore:score,opponentScore:opp,poss:100,win:score>opp,isHome:true,opponentTeamId:"opponent"} as TeamGameLog;
 }
 const ratingTeams=[{teamId:"a",teamName:"A"},{teamId:"b",teamName:"B"},{teamId:"c",teamName:"C"}];
-const ratingLogs=new Map<string,TeamGameLog[]>([["a",[sampleTeamLog(100,90)]],["b",[sampleTeamLog(100.04,90)]],["c",[sampleTeamLog(90,100)]]]);
+const ratingLogs=new Map<string,TeamGameLog[]>([["a",[sampleTeamLog(100,90)]],["b",[sampleTeamLog(100.004,90)]],["c",[sampleTeamLog(90,100)]]]);
 const ratingQuery={season:"2026-27",category:"premier" as const,range:{kind:"all" as const},gameType:"regular" as const};
 const ratings=buildRatingScatter(ratingTeams,ratingLogs,null,ratingQuery);
 assert.equal(ratings.points.length,3);
 assert.equal(ratings.points.find(p=>p.teamId==="a")?.ranks.ortg,1);
-assert.equal(ratings.points.find(p=>p.teamId==="b")?.ranks.ortg,1,"小数1桁の同値は同順位");
+assert.equal(ratings.points.find(p=>p.teamId==="b")?.ranks.ortg,1,"小数2桁の同値は同順位");
 assert.equal(ratings.points.find(p=>p.teamId==="c")?.ranks.ortg,3,"同順位の次を飛ばす");
 assert.equal(ratings.points.find(p=>p.teamId==="a")?.netrtg,10);
 assert.equal(ratings.points.find(p=>p.teamId==="a")?.division,undefined,"地区不明を推測しない");

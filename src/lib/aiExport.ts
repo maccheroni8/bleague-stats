@@ -99,7 +99,7 @@ export function aiMetrics(): AiMetric[] {
       };
       return { label: opp ? `opp ${baseLabel}` : baseLabel, side, percent,
         direction: key === 'pace' ? '速い順' : col!.higherIsBetter !== false ? '多い順' : '少ない順',
-        value, rankable: paint ? (r: AiRow) => paintRankable(paintOf(r.totals), key, side) : undefined, text: r => { const v = value(r); return v === null ? '未収録' : `${v.toFixed(1)}${percent ? '%' : ''}`; } };
+        value, rankable: paint ? (r: AiRow) => paintRankable(paintOf(r.totals), key, side) : undefined, text: r => { const v = value(r); return v === null ? '未収録' : `${v.toFixed(2)}${percent ? '%' : ''}`; } };
     });
   });
 }
@@ -107,15 +107,15 @@ export function aiRank(metric: AiMetric, row: AiRow, rows: AiRow[]): string {
   const v = metric.value(row);
   if (v === null) return '未収録';
   if (metric.rankable && !metric.rankable(row)) return '参考（記録が揃わない試合あり）';
-  const values = rows.filter(r => !metric.rankable || metric.rankable(r)).map(r => metric.value(r)).filter((n): n is number => n !== null).map(n => Number(n.toFixed(1)));
-  const shown = Number(v.toFixed(1));
+  const values = rows.filter(r => !metric.rankable || metric.rankable(r)).map(r => metric.value(r)).filter((n): n is number => n !== null).map(n => Number(n.toFixed(2)));
+  const shown = Number(v.toFixed(2));
   const rank = 1 + values.filter(n => metric.direction === '少ない順' ? n < shown : n > shown).length;
   return `${rank}位／${values.length}チーム`;
 }
 export function aiDifference(a: number | null, b: number | null, percent: boolean): string {
   if (a === null || b === null) return '—';
-  const n = Number((a - b).toFixed(1));
-  return `${n > 0 ? '+' : ''}${n === 0 ? '0.0' : n.toFixed(1)}${percent ? 'ポイント' : ''}`;
+  const n = Number((a - b).toFixed(2));
+  return `${n > 0 ? '+' : ''}${n === 0 ? '0.00' : n.toFixed(2)}${percent ? 'ポイント' : ''}`;
 }
 export const LEADER_LABELS = ['PTS', 'AST', 'TR', 'STL', 'BLK', 'FG%', '3P%', '2P%', 'FT%', 'eFG%', 'MIN', 'EFF'];
 export function aiLeaders(input: AiExportInput, team: AiRow) {

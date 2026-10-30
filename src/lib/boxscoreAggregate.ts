@@ -286,7 +286,7 @@ export function rowsInPeriodRange<T extends { PeriodCategory: number }>(
  * minSecのみ整数秒に丸める（formatMinutesFromSeconds()がMM:SS表記のために整数の秒を前提と
  * しているため、小数のままだと秒の部分がそのまま小数表示されてしまう）。それ以外のフィールドは
  * あえて丸めない: %系列はsafeDiv()で分子分母を毎回計算し直すため丸めていない生の値のほうが
- * 正確（先に丸めるとポイント差が生じる）。表示時の小数第1位までの整形は呼び出し側
+ * 正確（先に丸めるとポイント差が生じる）。表示時の小数第2位までの整形は呼び出し側
  * （TeamDetailPage.tsxのteamCompareDefs）が担当する
  */
 export function scaleCounts(counts: BoxscoreCounts, factor: number): BoxscoreCounts {
@@ -815,7 +815,7 @@ export function astToTovRatio(ast: number, tov: number): number {
 }
 
 export function formatAstToRatio(ast: number, tov: number): string {
-  return astToTovRatio(ast, tov).toFixed(1);
+  return astToTovRatio(ast, tov).toFixed(2);
 }
 
 /** %-shareスタッツ（個人の数値／チームの数値 × 100）。Bリーグ公式定義（DESIGN.md 6章） */

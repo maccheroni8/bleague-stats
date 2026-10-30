@@ -36,10 +36,10 @@ export function periodCellText(scoring: PeriodScoringRow, key: PeriodTableColumn
   return formatPeriodScoringValue(periodScoringValue(periodCell(scoring, key), perspective, mode), perspective, mode);
 }
 
-/** 延長のあった試合数の文字列。リーグ平均の行（チーム数で割った小数）は小数1桁 */
+/** 延長のあった試合数の文字列。リーグ平均の行（チーム数で割った小数）は小数2桁 */
 export function overtimeGamesText(scoring: PeriodScoringRow): string {
   const n = scoring.periods.ot.games;
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
 
 /** 全チームスタッツの列（SortableTable）。視点・平均/合計は、選んだ値に合わせる */

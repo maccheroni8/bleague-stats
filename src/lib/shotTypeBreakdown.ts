@@ -133,7 +133,7 @@ export function formatShotTypeAttempted(counts: { made: number; attempted: numbe
 
 export function formatShotTypePct(counts: { made: number; attempted: number } | undefined): string {
   if (!counts || counts.attempted === 0) return "-";
-  return `${((100 * counts.made) / counts.attempted).toFixed(1)}%`;
+  return `${((100 * counts.made) / counts.attempted).toFixed(2)}%`;
 }
 
 export function shotTypePctValue(counts: { made: number; attempted: number } | undefined): number {
@@ -164,7 +164,7 @@ export function shotTypeEntityColumns<T>(
     const games = getGames?.(row) ?? 0;
     return games > 0 ? scaleShotTypeCounts(counts, 1 / games) : undefined;
   };
-  const digits = mode === "perGame" ? 1 : 0;
+  const digits = mode === "perGame" ? 2 : 0;
   return shotTypeKeys.flatMap((key): Column<T>[] => {
     const label = shotTypeLabel(key);
     return [
@@ -231,7 +231,7 @@ export function shotTypeDiffColumns<T>(
     const f = mode === "perGame" ? 1 / games : 1;
     return { own: scaleShotTypeCounts(own[key]?.[split] ?? zero, f), opp: scaleShotTypeCounts(opp[key]?.[split] ?? zero, f) };
   };
-  const digits = mode === "perGame" ? 1 : 0;
+  const digits = mode === "perGame" ? 2 : 0;
   const signed = (v: number, d: number) => {
     const t = v.toFixed(d);
     return Number(t) > 0 ? `+${t}` : Number(t) === 0 ? (0).toFixed(d) : t;
@@ -259,7 +259,7 @@ export function shotTypeDiffColumns<T>(
     sortValue: (r) => pctDiff(r, key, split) ?? Number.NEGATIVE_INFINITY,
     format: (r) => {
       const v = pctDiff(r, key, split);
-      return v === null ? "-" : signed(v, 1);
+      return v === null ? "-" : signed(v, 2);
     },
   });
   return shotTypeKeys.flatMap((key): Column<T>[] => {

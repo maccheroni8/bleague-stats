@@ -175,11 +175,11 @@ export function ttsRowValues(own: TtsTotals, opp: TtsTotals, perspective: TtsPer
   return Object.fromEntries(TTS_ITEMS.map((i) => [i, ttsPerspectiveValues(own, opp, perspective, i)])) as TtsRowValues;
 }
 
-/** 表示: 小数1桁。+/- は符号を付ける（丸めて0になる値は符号なしの 0.0）。値が無ければ「-」 */
+/** 表示: 小数2桁。+/- は符号を付ける（丸めて0になる値は符号なしの 0.00）。値が無ければ「-」 */
 function formatTtsNumber(v: number | null, perspective: TtsPerspective): string {
   if (v === null) return "-";
-  const r = Number(v.toFixed(1));
-  const text = Math.abs(r).toFixed(1);
+  const r = Number(v.toFixed(2));
+  const text = Math.abs(r).toFixed(2);
   if (r === 0) return text;
   return r < 0 ? `-${text}` : perspective === "diff" ? `+${text}` : text;
 }

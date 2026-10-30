@@ -247,7 +247,7 @@ export function doubleItems(countsOf: (p: PlayerSummary) => DoubleCounts | undef
       if (!c || n === undefined) return "-";
       if (mode === "total") return `${n}回`;
       const rate = c.games > 0 ? (100 * n) / c.games : 0;
-      return `${rate.toFixed(1)}%（${n}/${c.games}）`;
+      return `${rate.toFixed(2)}%（${n}/${c.games}）`;
     },
   }));
 }
@@ -256,7 +256,7 @@ export function doubleItems(countsOf: (p: PlayerSummary) => DoubleCounts | undef
 function doubleConditionText(c: DoubleCounts | undefined, count: number | undefined, mode: PlayerRankMode): string {
   if (!c || count === undefined) return "-";
   if (mode === "total") return String(count);
-  return `${(c.games > 0 ? (100 * count) / c.games : 0).toFixed(1)}%`;
+  return `${(c.games > 0 ? (100 * count) / c.games : 0).toFixed(2)}%`;
 }
 
 /** タブごとの列。ファウルの列は、2026-27以降のシーズン（foulSplit）ではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF（DESIGN.md 16-8章） */

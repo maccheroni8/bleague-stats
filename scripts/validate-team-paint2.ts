@@ -130,7 +130,7 @@ for (const season of fs.readdirSync("data").filter((s) => /^20\d\d-\d\d$/.test(s
         assert(scoped.some((g) => g.scheduleKey === "1810"));
         if (f === "704.json.gz") {
           assert.equal(paintValue(s, "paint2m", "perGame", "own"), 1212 / 59);
-          assert.equal(paintFormat(s, "paint2m", "perGame", "own"), "20.5");
+          assert.equal(paintFormat(s, "paint2m", "perGame", "own"), "20.54");
         }
       }
       // 比較ページの表の表示と一致し、項目が重複しない
