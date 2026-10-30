@@ -5,7 +5,7 @@ import { ExportTarget } from "../components/ExportTarget";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { ExportImageButton } from "../components/ExportImageButton";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
-import { fetchDivisionHistory, fetchGameSummaries, fetchSchedule, fetchStandingsHistory, fetchTeams } from "../lib/data";
+import { teamLogoUrl, fetchDivisionHistory, fetchGameSummaries, fetchSchedule, fetchStandingsHistory, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { enumParam, stringParam, useUrlState } from "../lib/urlState";
 import { DIVISION_LABELS } from "../lib/divisionGroups";
@@ -18,6 +18,14 @@ type DivisionChoice = "all" | "east" | "west";
 const divisionCodec = enumParam<DivisionChoice>("dv", ["all", "east", "west"], "all");
 const clubCodec = stringParam("club", "all");
 
+// 図の下端まで一度に保存するため、画面外のロゴも遅延せず読む。取得できないときは名前の短縮形を出す。
+function Logo({ team, size }: { team: OneGameTeam; size: number }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <span className="onegame-logo-fallback" style={{ minWidth: size }} title={team.teamName}>{teamShortName(team.teamId, team.teamName)}</span>;
+  return <img src={teamLogoUrl(team.teamId)} alt={team.teamName} title={team.teamName} width={size} height={size}
+    className="team-logo" loading="eager" onError={() => setFailed(true)} />;
+}
+
 const dateLabel = (date: string) => date.slice(5).replace("-", "/");
 function resultText(m: OneGameMatchup): string {
   if (m.status === "final" || m.status === "live") return `${MATCHUP_STATUS_LABELS[m.status]} ${m.homeScore}-${m.awayScore}`;
@@ -28,6 +36,7 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
   const [division, setDivision] = useUrlState(divisionCodec, "all");
   const [club, setClub] = useUrlState(clubCodec, "all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tappedTeam, setTappedTeam] = useState<string | null>(null);
   const matrixTarget = useRef<HTMLDivElement>(null);
   const listTarget = useRef<HTMLDivElement>(null);
   const request = useJsonData(async () => {
@@ -84,9 +93,13 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
           <p className="onegame-legend"><span className="onegame-cell is-one" aria-hidden="true">1H</span>1試合のみ（H：東地区のチームがホーム／A：アウェー）　<span aria-hidden="true">・</span>2試合</p>
           <div className="figure-scroll" tabIndex={0} role="region" aria-label="東地区と西地区の対戦表。狭い画面では横にスクロールできます。">
             <table className="onegame-matrix">
-              <thead><tr><th scope="col">東＼西</th>{west.map(w => <th scope="col" key={w.teamId}>{teamShortName(w.teamId, w.teamName)}</th>)}</tr></thead>
-              <tbody>{east.map(e => <tr key={e.teamId}>
-                <th scope="row">{teamShortName(e.teamId, e.teamName)}</th>
+              <thead>
+                <tr><th scope="col" rowSpan={2} colSpan={2} className="onegame-corner">縦：東地区<br />横：西地区</th><th scope="colgroup" colSpan={west.length}>西地区（横）</th></tr>
+                <tr>{west.map(w => <th scope="col" key={w.teamId} className="onegame-logo-head"><button type="button" className="onegame-logo-button" aria-label={w.teamName} onClick={() => setTappedTeam(w.teamId)}><Logo team={w} size={28} /></button></th>)}</tr>
+              </thead>
+              <tbody>{east.map((e, i) => <tr key={e.teamId}>
+                {i === 0 && <th scope="rowgroup" rowSpan={east.length} className="onegame-side">東地区（縦）</th>}
+                <th scope="row" className="onegame-logo-head"><button type="button" className="onegame-logo-button" aria-label={e.teamName} onClick={() => setTappedTeam(e.teamId)}><Logo team={e} size={28} /></button></th>
                 {west.map(w => {
                   const c = cellFor(e.teamId, w.teamId);
                   if (!c) return <td key={w.teamId} className="onegame-cell" aria-label={`${e.teamName}と${w.teamName}：2試合`}>・</td>;
@@ -101,6 +114,7 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
           </div>
           {notes}
         </ExportTarget>
+        <p className="onegame-tapped export-hide" role="status">{tappedTeam && teamById.get(tappedTeam) ? `ロゴのチーム：${teamById.get(tappedTeam)!.teamName}` : "ロゴを押す（マウスを乗せる）とチーム名が分かります。"}</p>
         <div className="onegame-detail" role="status" aria-live="polite">{selected ? <>
           <strong>{selected.date}{selected.tipoff ? ` ${selected.tipoff}` : ""}</strong>
           <span>ホーム：<ResponsiveTeamName teamId={selected.homeId} name={teamById.get(selected.homeId)!.teamName} /></span>
@@ -111,20 +125,27 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
         <ExportImageButton targetRef={listTarget} filename={`年間1試合の対戦_一覧_${season}${activeDivision === "all" ? "" : `_${activeDivision}`}`} baseDate={baseDate} />
         <ExportTarget ref={listTarget} className="onegame-export" baseDate={baseDate}>
           <ConditionTitle title={`${TITLE}（チーム別）`} exportScope={`${season}シーズン`} conditions={conditions} />
-          <div className="figure-scroll" tabIndex={0} role="region" aria-label="チーム別の1試合の相手。狭い画面では横にスクロールできます。">
-            <table className="onegame-list">
-              <thead><tr><th scope="col">チーム</th><th scope="col">相手</th><th scope="col">H/A</th><th scope="col">日付</th><th scope="col">結果・状態</th></tr></thead>
-              <tbody>{listTeams.map(t => (result.byTeam.get(t.teamId) ?? []).map((o, i) => <tr key={`${t.teamId}-${o.game.id}`}>
-                {i === 0 && <th scope="rowgroup" rowSpan={2}><ResponsiveTeamName teamId={t.teamId} name={t.teamName} /></th>}
-                <td><ResponsiveTeamName teamId={o.opponentId} name={teamById.get(o.opponentId)!.teamName} /></td>
-                <td>{o.isHome ? "H" : "A"}<span className="onegame-wide">{o.isHome ? "（ホーム）" : "（アウェー）"}</span></td>
-                <td className="onegame-nowrap">{o.game.date.replace(/-/g, "/")}</td>
-                <td className="onegame-nowrap">{(o.game.status === "final" || o.game.status === "live") && o.game.homeScore !== undefined
-                  ? `${o.game.status === "live" ? "試合中 " : ""}${o.isHome ? o.game.homeScore : o.game.awayScore}-${o.isHome ? o.game.awayScore : o.game.homeScore}`
-                  : MATCHUP_STATUS_LABELS[o.game.status]}</td>
-              </tr>))}</tbody>
-            </table>
-          </div>
+          {(["east", "west"] as const).map(dv => {
+            const rows = listTeams.filter(t => t.division === dv);
+            if (!rows.length) return null;
+            return <section key={dv} className="onegame-division" aria-label={DIVISION_LABELS[dv]}>
+              <h3>{DIVISION_LABELS[dv]}</h3>
+              <div className="figure-scroll" tabIndex={0} role="region" aria-label={`${DIVISION_LABELS[dv]}のチーム別の1試合の相手。狭い画面では横にスクロールできます。`}>
+                <table className="onegame-list">
+                  <thead><tr><th scope="col">チーム</th><th scope="col">相手</th><th scope="col">H/A</th><th scope="col">日付</th><th scope="col">結果・状態</th></tr></thead>
+                  <tbody>{rows.map(t => (result.byTeam.get(t.teamId) ?? []).map((o, i) => <tr key={`${t.teamId}-${o.game.id}`}>
+                    {i === 0 && <th scope="rowgroup" rowSpan={2}><span className="team-name-cell"><Logo team={t} size={24} /><ResponsiveTeamName teamId={t.teamId} name={t.teamName} /></span></th>}
+                    <td><ResponsiveTeamName teamId={o.opponentId} name={teamById.get(o.opponentId)!.teamName} /></td>
+                    <td>{o.isHome ? "H" : "A"}<span className="onegame-wide">{o.isHome ? "（ホーム）" : "（アウェー）"}</span></td>
+                    <td className="onegame-nowrap">{o.game.date.replace(/-/g, "/")}</td>
+                    <td className="onegame-nowrap">{(o.game.status === "final" || o.game.status === "live") && o.game.homeScore !== undefined
+                      ? `${o.game.status === "live" ? "試合中 " : ""}${o.isHome ? o.game.homeScore : o.game.awayScore}-${o.isHome ? o.game.awayScore : o.game.homeScore}`
+                      : MATCHUP_STATUS_LABELS[o.game.status]}</td>
+                  </tr>))}</tbody>
+                </table>
+              </div>
+            </section>;
+          })}
           <div className="figure-notes"><p>得点は「そのチーム－相手」の順です。</p></div>
         </ExportTarget>
       </div>

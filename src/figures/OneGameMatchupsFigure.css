@@ -20,3 +20,14 @@
 @media(min-width:900px) { .onegame-layout { gap:32px; } }
 @media(max-width:560px) { .onegame-list-block { order:-1; } .onegame-wide { display:none; } .onegame-list { min-width:0; } .onegame-list th, .onegame-list td { padding:4px 3px; } }
 .export-rendering .onegame-wide { display:inline; }
+
+.onegame-matrix .onegame-logo-head { padding:2px; min-width:40px; background:var(--header-bg); }
+.onegame-logo-button { display:flex; justify-content:center; align-items:center; width:100%; min-height:36px; padding:0; border:0; background:transparent; color:var(--fg); cursor:pointer; }
+.onegame-matrix .team-logo { width:28px; height:28px; }
+.onegame-corner { font-size:11px; line-height:1.4; white-space:nowrap; }
+.onegame-side { writing-mode:vertical-rl; text-align:center !important; font-size:11px; letter-spacing:.1em; padding:4px 2px !important; }
+.onegame-logo-fallback { font-size:10px; line-height:1.1; }
+.onegame-tapped { font-size:12px; color:var(--muted); margin:8px 0 0; }
+.onegame-division { margin-top:16px; }
+.onegame-division h3 { margin:0 0 8px; padding:8px; background:var(--header-bg); font-size:14px; }
+.onegame-list .team-name-cell { gap:8px; }
