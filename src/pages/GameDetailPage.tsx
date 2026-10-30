@@ -11,7 +11,7 @@ import { useLeague } from "../lib/league";
 import { seasonRuleFor } from "../../shared/seasonRules";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import { formatPct } from "../lib/format";
-import { CLASSIFICATION_COLORS, classificationGroup, DISPLAY_CLASS_GROUPS, displayGroupOf, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
+import { CLASSIFICATION_COLORS, classificationGroup, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
 import { NATURALIZED_ASIA_LABEL } from "../lib/statNames";
 import { makeClassifier } from "../../shared/registration";
 import { loadSeasonRegistrations } from "../lib/registrationScope";
@@ -377,15 +377,10 @@ export function GameDetailPage({ season }: { season: string }) {
     [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores].map((r) => [r.PlayerID, classifyAt(r.PlayerID, game.date)] as const),
   );
   // シューティングタブの内訳集計の区分（ボックススコアの内訳集計と同じ分け方。登録区分は試合の日の区分）
-  const shootingClassGroups: ShootingClassGroup[] = classificationSplit
-    ? DISPLAY_CLASS_GROUPS.map((g) => ({
-        label: g === "日本人" ? "日本人選手合計" : `${g}選手合計`,
-        includes: (id: string) => displayGroupOf(classificationById.get(id)) === g,
-      }))
-    : [
-        { label: "日本人選手合計", includes: (id: string) => classificationGroup(classificationById.get(id)) === "日本人" },
-        { label: "外国籍・帰化・アジア合計", includes: (id: string) => classificationGroup(classificationById.get(id)) === "外国籍・帰化・アジア" },
-      ];
+  const shootingClassGroups: ShootingClassGroup[] = [
+    { label: "日本人選手合計", includes: (id: string) => classificationGroup(classificationById.get(id)) === "日本人" },
+    { label: "外国籍・帰化・アジア合計", includes: (id: string) => classificationGroup(classificationById.get(id)) === "外国籍・帰化・アジア" },
+  ];
   const shootingUnclassifiedCount = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores].filter(
     (r) => r.PlayTime !== "DNP" && classificationById.get(r.PlayerID) === undefined,
   ).length;

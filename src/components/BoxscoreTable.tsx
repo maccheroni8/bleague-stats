@@ -13,7 +13,7 @@ import { OR_PCT_UNAVAILABLE_NOTE, computeTeamOrPct, orShare, personalOrPct } fro
 import { ON_COURT_SHARE_UNAVAILABLE_NOTE, computeTeamOnCourtShare, gamePlayerAstPct } from "../lib/gameOnCourtShare";
 import type { PeriodOnCourtShare } from "../lib/playerSeasonBoxscore";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow, YahooTurnoverEvent } from "../../shared/types";
-import { classificationGroup, DISPLAY_CLASS_GROUPS, displayGroupOf, splitClassificationSeason } from "../lib/classificationFilter";
+import { classificationGroup, splitClassificationSeason } from "../lib/classificationFilter";
 import {
   astToTovRatio,
   buildPlayTypeCounts,
@@ -835,17 +835,11 @@ function BoxscoreTeamPanel({
 
   const starters = players.filter((p) => p.startingFlg === 1);
   const bench = players.filter((p) => p.startingFlg !== 1);
-  // 登録区分の内訳。2026-27 以降の試合は、その試合の日の区分で日本人・外国籍・帰化・アジア特別枠に分ける（DESIGN.md 298章）。
-  // それより前は日本人・外国籍・帰化・アジアの2つ（現在の登録情報）
-  const classGroups: { label: string; players: typeof players }[] = classificationSplit
-    ? DISPLAY_CLASS_GROUPS.map((g) => ({
-        label: g === "日本人" ? "日本人選手合計" : `${g}選手合計`,
-        players: players.filter((p) => displayGroupOf(classificationById.get(p.playerId)) === g),
-      }))
-    : [
-        { label: "日本人選手合計", players: players.filter((p) => classificationGroup(classificationById.get(p.playerId)) === "日本人") },
-        { label: "外国籍・帰化・アジア合計", players: players.filter((p) => classificationGroup(classificationById.get(p.playerId)) === "外国籍・帰化・アジア") },
-      ];
+  // 登録区分の内訳は全シーズン「日本人」「外国籍・帰化・アジア」の2行（2026-27 以降は、その試合の日の区分で分け、DESIGN.md 298章・305章）
+  const classGroups: { label: string; players: typeof players }[] = [
+    { label: "日本人選手合計", players: players.filter((p) => classificationGroup(classificationById.get(p.playerId)) === "日本人") },
+    { label: "外国籍・帰化・アジア合計", players: players.filter((p) => classificationGroup(classificationById.get(p.playerId)) === "外国籍・帰化・アジア") },
+  ];
   const unclassifiedPlayedCount = players.filter((p) => !p.dnp && classificationById.get(p.playerId) === undefined).length;
   const classificationNote =
     (classificationSplit ? "※試合の日の登録区分（日本人は見做し日本人を含む）" : "※現在の登録情報に基づく参考値") +
