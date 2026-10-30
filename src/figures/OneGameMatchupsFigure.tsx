@@ -15,6 +15,8 @@ import "./OneGameMatchupsFigure.css";
 
 const TITLE = "年間1試合の対戦";
 type DivisionChoice = "all" | "east" | "west";
+type ExportScope = "auto" | "both" | "east" | "west";
+const EXPORT_SCOPE_LABELS: Record<Exclude<ExportScope, "auto">, string> = { both: "東地区・西地区（縦並び）", east: "東地区のみ", west: "西地区のみ" };
 const divisionCodec = enumParam<DivisionChoice>("dv", ["all", "east", "west"], "all");
 const clubCodec = stringParam("club", "all");
 
@@ -36,6 +38,7 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
   const [division, setDivision] = useUrlState(divisionCodec, "all");
   const [club, setClub] = useUrlState(clubCodec, "all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [exportScope, setExportScope] = useState<ExportScope>("auto");
   const [tappedTeam, setTappedTeam] = useState<string | null>(null);
   const matrixTarget = useRef<HTMLDivElement>(null);
   const listTarget = useRef<HTMLDivElement>(null);
@@ -72,15 +75,18 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
   const listTeams = [...east, ...west].filter(t => (activeDivision === "all" || t.division === activeDivision) && (activeClub === "all" || t.teamId === activeClub));
   const clubOptions = [...east, ...west].filter(t => activeDivision === "all" || t.division === activeDivision);
   const conditions = [season, ...(activeDivision === "all" ? [] : [DIVISION_LABELS[activeDivision as Division]]), ...(activeClub === "all" ? [] : [teamById.get(activeClub)!.teamName])];
+  // 保存する地区。選ばなければ画面の地区の絞り込みに合わせる（全チームなら両方、東地区・西地区ならその地区だけ）。
+  const effectiveScope: Exclude<ExportScope, "auto"> = exportScope === "auto" ? (activeDivision === "all" ? "both" : activeDivision) : exportScope;
+  const scopeSingle = effectiveScope !== "both";
   const baseDate = { kind: "season" as const, season, gameType: "regular" as const };
-  const notes = <div className="figure-notes">
+  const notes = <div className="figure-notes export-hide">
     <p>当初の年間日程で、他地区と1試合だけ組まれた組み合わせです（全{result.matchups.length}組）。中止になった試合も1試合として数えます。</p>
     <p>日付を過ぎても結果が登録されていない試合は「結果未収録」と表示し、延期とは判断しません。</p>
   </div>;
 
   return <section aria-label={TITLE} className="onegame">
     <div className="figures-controls">
-      <label>地区<select value={activeDivision} onChange={e => { setDivision(e.target.value as DivisionChoice); setClub("all"); }}>
+      <label>地区<select value={activeDivision} onChange={e => { setDivision(e.target.value as DivisionChoice); setClub("all"); setExportScope("auto"); }}>
         <option value="all">全チーム</option><option value="east">東地区</option><option value="west">西地区</option></select></label>
       <label>クラブ<select value={activeClub} onChange={e => setClub(e.target.value)}>
         <option value="all">すべて</option>{clubOptions.map(t => <option key={t.teamId} value={t.teamId}>{t.teamName}</option>)}</select></label>
@@ -88,17 +94,17 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
     <div className="onegame-layout">
       <div className="onegame-matrix-block">
         <ExportImageButton targetRef={matrixTarget} filename={`年間1試合の対戦_対戦表_${season}`} baseDate={baseDate} />
-        <ExportTarget ref={matrixTarget} className="onegame-export" baseDate={baseDate}>
+        <ExportTarget ref={matrixTarget} className="onegame-export onegame-export-matrix" baseDate={baseDate}>
           <ConditionTitle title={`${TITLE}（対戦表）`} exportScope={`${season}シーズン`} conditions={[season]} />
-          <p className="onegame-legend"><span className="onegame-cell is-one" aria-hidden="true">1H</span>1試合のみ（H：東地区のチームがホーム／A：アウェー）　<span aria-hidden="true">・</span>2試合</p>
+          <p className="onegame-legend export-hide"><span className="onegame-cell is-one" aria-hidden="true">1H</span>1試合のみ（H：東地区のチームがホーム／A：アウェー）　<span aria-hidden="true">・</span>2試合</p>
           <div className="figure-scroll" tabIndex={0} role="region" aria-label="東地区と西地区の対戦表。狭い画面では横にスクロールできます。">
             <table className="onegame-matrix">
               <thead>
-                <tr><th scope="col" rowSpan={2} colSpan={2} className="onegame-corner">縦：東地区<br />横：西地区</th><th scope="colgroup" colSpan={west.length}>西地区（横）</th></tr>
+                <tr><th scope="col" rowSpan={2} colSpan={2} className="onegame-corner"><span className="export-hide">縦：東地区<br />横：西地区</span></th><th scope="colgroup" colSpan={west.length}>西地区</th></tr>
                 <tr>{west.map(w => <th scope="col" key={w.teamId} className="onegame-logo-head"><button type="button" className="onegame-logo-button" aria-label={w.teamName} onClick={() => setTappedTeam(w.teamId)}><Logo team={w} size={28} /></button></th>)}</tr>
               </thead>
               <tbody>{east.map((e, i) => <tr key={e.teamId}>
-                {i === 0 && <th scope="rowgroup" rowSpan={east.length} className="onegame-side">東地区（縦）</th>}
+                {i === 0 && <th scope="rowgroup" rowSpan={east.length} className="onegame-side" aria-label="東地区"><span aria-hidden="true">{["東", "地", "区"].map(c => <span key={c}>{c}</span>)}</span></th>}
                 <th scope="row" className="onegame-logo-head"><button type="button" className="onegame-logo-button" aria-label={e.teamName} onClick={() => setTappedTeam(e.teamId)}><Logo team={e} size={28} /></button></th>
                 {west.map(w => {
                   const c = cellFor(e.teamId, w.teamId);
@@ -122,13 +128,18 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
           <span>{resultText(selected)}</span></> : <span className="onegame-hint">「1H」「1A」のマスを選ぶと、日付・ホーム・結果を表示します。</span>}</div>
       </div>
       <div className="onegame-list-block">
-        <ExportImageButton targetRef={listTarget} filename={`年間1試合の対戦_一覧_${season}${activeDivision === "all" ? "" : `_${activeDivision}`}`} baseDate={baseDate} />
-        <ExportTarget ref={listTarget} className="onegame-export" baseDate={baseDate}>
+        <div className="onegame-export-controls">
+          <label>画像の地区<select value={effectiveScope} onChange={e => setExportScope(e.target.value as ExportScope)}>
+            {(Object.keys(EXPORT_SCOPE_LABELS) as (keyof typeof EXPORT_SCOPE_LABELS)[]).map(k => <option key={k} value={k}>{EXPORT_SCOPE_LABELS[k]}</option>)}</select></label>
+        <ExportImageButton targetRef={listTarget} filename={`年間1試合の対戦_一覧_${season}${scopeSingle ? `_${effectiveScope}` : ""}`} baseDate={baseDate} />
+        </div>
+        <ExportTarget ref={listTarget} className={`onegame-export${scopeSingle ? " onegame-export-single" : ""}`} baseDate={baseDate}>
           <ConditionTitle title={`${TITLE}（チーム別）`} exportScope={`${season}シーズン`} conditions={conditions} />
+          {scopeSingle && activeDivision === "all" && <p className="onegame-export-scope export-only">{DIVISION_LABELS[effectiveScope as Division]}のみ</p>}
           {(["east", "west"] as const).map(dv => {
             const rows = listTeams.filter(t => t.division === dv);
             if (!rows.length) return null;
-            return <section key={dv} className="onegame-division" aria-label={DIVISION_LABELS[dv]}>
+            return <section key={dv} className={`onegame-division${scopeSingle && effectiveScope !== dv ? " export-hide" : ""}`} aria-label={DIVISION_LABELS[dv]}>
               <h3>{DIVISION_LABELS[dv]}</h3>
               <div className="figure-scroll" tabIndex={0} role="region" aria-label={`${DIVISION_LABELS[dv]}のチーム別の1試合の相手。狭い画面では横にスクロールできます。`}>
                 <table className="onegame-list">
