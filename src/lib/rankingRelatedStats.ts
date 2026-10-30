@@ -60,7 +60,7 @@ const RELATED_BY_KEY: Record<string, RelatedSpec[]> = {
   ts: [PTS, FGA, FTA],
   pps: [PTS, FGA],
   // Scoring: 個人÷チーム全体のシェア
-  // Scoring: 個人÷出場中の自チーム（在コート基準。出場中の記録がそろう試合だけ。DESIGN.md 303章）
+  // Scoring: 個人÷出場中の自チーム（在コート基準。出場中の記録がそろう試合だけ。DESIGN.md 304章）
   pctpts: [oc("PTS", (r) => r.ocPts), oc("TEAM PTS（出場中）", (r) => r.ocTeamPts)],
   pctfgm: [oc("FGM", (r) => r.ocFgm), oc("TEAM FGM（出場中）", (r) => r.ocTeamFgm)],
   pctfga: [oc("FGA", (r) => r.ocFga), oc("TEAM FGA（出場中）", (r) => r.ocTeamFga)],

@@ -1,4 +1,4 @@
-// FT・3P の連続成功（シュート単位の連続記録。DESIGN.md 303章）の材料と、試合をまたいだつなぎ方。
+// FT・3P の連続成功（シュート単位の連続記録。DESIGN.md 304章）の材料と、試合をまたいだつなぎ方。
 //
 // 試合ごとの要約（ShotStreakSummary）: その選手のその種類の試投を時系列（withChronologicalPlayByPlays の並び。同じ秒は記録の順）に並べ、
 // 失敗で区切った成功の連なりを、先頭の連なり（prefix）・末尾の連なり（suffix）・途中の連なり（先頭・末尾以外）の最長（innerMax）とその件数（innerMaxCount）にまとめる。

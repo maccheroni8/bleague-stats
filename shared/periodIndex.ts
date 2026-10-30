@@ -70,12 +70,12 @@ export type PlayerPeriodStatColumn = (typeof PLAYER_PERIOD_STAT_COLUMNS)[number]
 /** 行の旗: 公式のピリオド別の +/- がある（2022-23以降。無い行の plusMinus は 0 で、値なしとして扱う） */
 export const PERIOD_ROW_FLAG_PLUS_MINUS = 1;
 /**
- * 行の旗: plusMinus は在コートの復元の値（公式のピリオド別の +/- が無い 2016-17〜2021-22。5人組の区間の Q別の得点差を足したもの。DESIGN.md 303章）。
+ * 行の旗: plusMinus は在コートの復元の値（公式のピリオド別の +/- が無い 2016-17〜2021-22。5人組の区間の Q別の得点差を足したもの。DESIGN.md 304章）。
  * そのチームの試合で、区間の合計が試合全体の復元の +/- と全選手で一致し、区間の得点の合計が両チームの得点と一致したときだけ付ける。古い索引には無い
  */
 export const PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED = 2;
 /**
- * 出場中の材料の列（在コート基準の再集計。DESIGN.md 303章。shared/playerOnCourt.ts）。選手のその区間の、本人がいた5人組の区間の合計。
+ * 出場中の材料の列（在コート基準の再集計。DESIGN.md 304章。shared/playerOnCourt.ts）。選手のその区間の、本人がいた5人組の区間の合計。
  * 「ocSec」秒、「ocOwn.{項目}」自チーム（PLAYER_PERIOD_ONCOURT_OWN_KEYS）、「ocOpp.{項目}」相手（PLAYER_PERIOD_ONCOURT_OPP_KEYS）、「fgAssists」FGにつながったアシスト、「ocQuality」チームの品質（ビット）。
  * 2020-21以降のシーズンの索引だけが持つ（それ以前の索引・古い索引には無い）。プレーバイプレーの無い試合の行は -1
  */

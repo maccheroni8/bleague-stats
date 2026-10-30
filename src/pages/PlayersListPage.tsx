@@ -881,7 +881,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     return map;
   }, [filterActive, teamGameLogsByTeam, situationalFilter, gameType, opponentRecords, divisionHistory, season, league]);
 
-  // on/off タブ: 試合ごとの所属チームの試合ログ（移籍した選手は試合ごとのチーム）で Off を出す。2016-17〜2019-20 は出さない（DESIGN.md 303章）
+  // on/off タブ: 試合ごとの所属チームの試合ログ（移籍した選手は試合ごとのチーム）で Off を出す。2016-17〜2019-20 は出さない（DESIGN.md 304章）
   const teamLogIndex = useMemo(() => {
     if (tab !== "onoff" || !teamGameLogsByTeam) return null;
     return new Map([...teamGameLogsByTeam].map(([id, list]) => [id, new Map(list.map((l) => [l.scheduleKey, l] as const))] as const));

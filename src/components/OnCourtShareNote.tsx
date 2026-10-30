@@ -1,4 +1,4 @@
-// 選手の出場中の割合（Scoring の %PTS〜%FTA・Misc の AST%）の注記（在コート基準の再集計。DESIGN.md 303章）。
+// 選手の出場中の割合（Scoring の %PTS〜%FTA・Misc の AST%）の注記（在コート基準の再集計。DESIGN.md 304章）。
 // 2016-17〜2019-20 は出していない理由、2020-21以降は、記録が欠けて分子・分母の両方から外した試合の数を出す。
 import { onCourtShareSeasonUnsupported } from "../lib/onCourtShareSeason";
 

@@ -205,7 +205,7 @@ export interface PlayerForeignOnCourt {
 }
 
 /**
- * 選手ごとの On-Court Foreign の材料（DESIGN.md 303章）。区間の扱いはチームの値（computeForeignPlayerCourtSeconds・foreignCourtByPeriod）と同じ:
+ * 選手ごとの On-Court Foreign の材料（DESIGN.md 304章）。区間の扱いはチームの値（computeForeignPlayerCourtSeconds・foreignCourtByPeriod）と同じ:
  * 区分の分からない選手を含む5人組・規定の最大人数を超える5人組は外す。人数は本人を含む。5人（特別な試合）は4にまとめる。
  * - 自チームの人数: 本人がいた5人組の区間の秒・本人の記録（区間の playerEventsByPeriod）・出場中の得点（pointsByPeriod）・攻撃回数（countsByPeriod）
  * - 相手の人数: 本人がいた区間と相手の5人組の区間の重なりの秒、本人の記録はその瞬間の相手の区間（oppSeq）の人数へ。相手の区間が分からない記録は数えない

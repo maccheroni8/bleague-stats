@@ -199,7 +199,7 @@ export function boxColumnItem(col: SeasonBoxscoreColumn, mode: PlayerRankMode): 
  * 平均/合計で値が変わらない項目（割合・率・試合数）。これらとProfile・Careerでは、平均/合計の切り替えを無効にする（DESIGN.md 179章）。
  * 名前に pct を含む項目（FG%・TOV%・%PTS・PAINT2%・シューティングの 2P% 等）もここに入れる
  */
-/** 出場中の値で計算する項目（Scoring の %PTS〜%FTA・Misc の AST%。在コート基準の再集計。DESIGN.md 303章）。出場中の記録がそろう試合が無い選手は並べない */
+/** 出場中の値で計算する項目（Scoring の %PTS〜%FTA・Misc の AST%。在コート基準の再集計。DESIGN.md 304章）。出場中の記録がそろう試合が無い選手は並べない */
 export const ON_COURT_SHARE_STAT_KEYS: ReadonlySet<string> = new Set(["pctpts", "pctfgm", "pctfga", "pct3pm", "pct3pa", "pct2pm", "pct2pa", "pctftm", "pctfta", "astpct"]);
 export { onCourtShareSeasonUnsupported } from "./onCourtShareSeason";
 export const ON_COURT_SHARE_LEGACY_REASON = (label: string) =>
@@ -798,7 +798,7 @@ export function usePlayerSeasonRanking(
     // 延長は、条件で絞ったあとの延長に出た試合が基準以上の選手だけ（256章の決定4）
     const minGames = overtimeActive && effPeriodActive ? OVERTIME_MIN_GAMES : 1;
     const played = eligible.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.gamesPlayed ?? 0) >= minGames);
-    // 出場中の値で計算する項目は、出場中の記録がそろう試合がある選手だけ（DESIGN.md 303章）
+    // 出場中の値で計算する項目は、出場中の記録がそろう試合がある選手だけ（DESIGN.md 304章）
     if (ON_COURT_SHARE_STAT_KEYS.has(statKey)) return played.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.ocGames ?? 0) > 0);
     // DD2・TD3 は0回（0%）の選手を並べない（平均・合計とも。DESIGN.md 179章）
     if (statKey === "dd2" || statKey === "td3" || statKey === "pts10") {

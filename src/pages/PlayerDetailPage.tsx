@@ -1888,7 +1888,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     if (!playerId || !situationalStatsLogs) return null;
     const scopedLogs = filterByGameType(situationalStatsLogs, situationalStatsGameType).filter((g) => g.min > 0);
     const substitutionModel = substitutionModelForSeason(situationalStatsSeason);
-    // 2020-21以降は、試合ログの出場中の材料から、ランキングの On/Off と同じ計算で出す（DESIGN.md 303章）。2019-20以前は今までの計算のまま
+    // 2020-21以降は、試合ログの出場中の材料から、ランキングの On/Off と同じ計算で出す（DESIGN.md 304章）。2019-20以前は今までの計算のまま
     if (substitutionModel === "modern") {
       if (!situationalStatsTeamGameLogsByTeam) return { merged: mergeOnOffSplits([]), dataReady: false };
       const teamLogOf = (g: PlayerGameLog) => {
@@ -3451,7 +3451,7 @@ function SeasonBreakdownTable({
         periodSources.get(cd.season),
         combinedTeam,
       );
-      // on/off タブ: 試合ごとの所属チームの試合ログで Off を出す（試合全体・2020-21以降だけ。DESIGN.md 303章）
+      // on/off タブ: 試合ごとの所属チームの試合ログで Off を出す（試合全体・2020-21以降だけ。DESIGN.md 304章）
       const onOffTeamLogOf = (g: PlayerGameLog) => {
         const teamId = info?.ownTeamByScheduleKey.get(g.scheduleKey)?.teamId;
         return teamId ? info?.teamLogsByTeamId.get(teamId)?.find((t) => t.scheduleKey === g.scheduleKey) : undefined;

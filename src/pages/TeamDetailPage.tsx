@@ -3261,7 +3261,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       const row = splitRows.find((r) => r.teamId === teamId);
       const player = playerById.get(c.playerId);
       if (!row || !player) continue;
-      // on/off タブ: このチームにいた試合だけ（row.logs）。Off はこのチームの試合ログの出場区間の合計 − On（試合全体・2020-21以降だけ。DESIGN.md 303章）
+      // on/off タブ: このチームにいた試合だけ（row.logs）。Off はこのチームの試合ログの出場区間の合計 − On（試合全体・2020-21以降だけ。DESIGN.md 304章）
       const onOff =
         playerStatsBoxTab === "onoff" && !onOffUnavailableReason(season, playerStatsPeriod2 !== "all")
           ? onOffTotalsFromLogs(

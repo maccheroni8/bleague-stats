@@ -395,7 +395,7 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
       const ownRows = sides[side]!;
       const oppRows = sides[1 - side]!;
       // 試合全体と、区間ごとの、同じ関数の結果
-      // 公式の +/- が無いシーズン（2016-17〜2021-22）は、画面と同じ復元の Q別 +/-（reconstructedPlusMinusOf）を重ねて比べる（DESIGN.md 303章）
+      // 公式の +/- が無いシーズン（2016-17〜2021-22）は、画面と同じ復元の Q別 +/-（reconstructedPlusMinusOf）を重ねて比べる（DESIGN.md 304章）
       const withRecon = (list: ReturnType<typeof buildPlayerBoxscores>, opt: PeriodRangeOption | undefined) =>
         list.map((p) => {
           if (p.counts.hasPlusMinus || p.dnp) return p;

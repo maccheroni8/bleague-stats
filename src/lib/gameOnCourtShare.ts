@@ -1,4 +1,4 @@
-// 試合詳細のボックススコアの、選手の出場中の割合（%PTS〜%FTA）と AST%（在コート基準の再集計。DESIGN.md 303章）。**画面だけの計算**。
+// 試合詳細のボックススコアの、選手の出場中の割合（%PTS〜%FTA）と AST%（在コート基準の再集計。DESIGN.md 304章）。**画面だけの計算**。
 // 分母は在コートの復元の5人組の区間（本人がいた区間の自チームの数。shared/playerOnCourt.ts）。チームごとに、区間の時間が試合を覆い、
 // 区間の得点・FGM・FGA・3PM・3PA・FTM・FTA の合計が公式と合うときだけ出す（集計の試合ログと同じ判定 teamOnCourtQuality）。
 import { fgAssistsByPlayer, onCourtKeyIndex, playerOnCourtByPeriod, sumOverPeriods, teamOnCourtQuality, ON_COURT_QUALITY_SHARES } from "../../shared/playerOnCourt";

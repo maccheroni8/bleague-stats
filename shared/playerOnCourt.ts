@@ -1,4 +1,4 @@
-// 選手ごとの「出場中」の材料（在コート基準の再集計。DESIGN.md 303章）。在コートの復元（shared/onCourt.ts の reconstructOnCourt）の
+// 選手ごとの「出場中」の材料（在コート基準の再集計。DESIGN.md 304章）。在コートの復元（shared/onCourt.ts の reconstructOnCourt）の
 // 5人組の区間（lineupStints）から、選手×ピリオドの出場中の自チーム・相手の数え上げ、Q別の +/-、FGにつながったアシストを作る。
 // 数え方はチームの出場区間（team-stints。scripts/aggregate.ts の collectTeamStints）・ランキングの On/Off（shared/onCourtTotals.ts）と同じ:
 // - 時間は区間をピリオドの切れ目で分ける。数え上げ（countsByPeriod）は、時間の重なりによらずそのピリオドに入れる

@@ -144,7 +144,7 @@ export function mergeOnOffSplits(splits: OnOffSplit[]): OnOffSplit {
 }
 
 /**
- * 試合ログの出場中の材料から作る On/Off（2020-21以降。在コート基準の再集計。DESIGN.md 303章）。ランキングの On/Off（shared/onCourtTotals.ts）と同じ値:
+ * 試合ログの出場中の材料から作る On/Off（2020-21以降。在コート基準の再集計。DESIGN.md 304章）。ランキングの On/Off（shared/onCourtTotals.ts）と同じ値:
  * On は本人がいた5人組の区間の合計（PlayerGameLog.onCourt）、Off は本人が時間のある区間に出た試合で、チームの出場区間の合計（TeamGameLog.stintTotals）− On。
  * 攻撃回数は攻撃の終わりの数（ランキング・ラインナップと同じ）。材料の無い試合（チームの試合ログに stintTotals が無い等）は数えない
  */

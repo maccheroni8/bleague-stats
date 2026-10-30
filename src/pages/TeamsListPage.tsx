@@ -790,7 +790,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const shotTypeKeys = sortShotTypeKeys([
     ...new Set(shootingRows.flatMap((r) => [...Object.keys(r.team.shotTypes ?? {}), ...Object.keys(r.team.opponentShotTypes ?? {})])),
   ]);
-  // 平均の分母は、スポーツナビの記録がある試合の数（記録の無い試合を入れない。古いデータは出場試合数。DESIGN.md 303章）
+  // 平均の分母は、スポーツナビの記録がある試合の数（記録の無い試合を入れない。古いデータは出場試合数。DESIGN.md 304章）
   const shotGamesOf = (r: ShootingRow) => r.team.shotTypeGames ?? r.team.gamesPlayed;
   const shotMode = displayMode === "total" ? "total" : "perGame";
   const shootingColumns: Column<ShootingRow>[] = [

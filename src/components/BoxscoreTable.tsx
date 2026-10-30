@@ -237,7 +237,7 @@ function usagePctOf(c: BoxscoreCounts, ctx: ColumnCtx): number {
 }
 
 /**
- * 選手の行の出場中の材料（在コート基準の再集計。DESIGN.md 303章。src/lib/gameOnCourtShare.ts）。%PTS〜%FTA の分母（本人が出場中の自チームの数）と、
+ * 選手の行の出場中の材料（在コート基準の再集計。DESIGN.md 304章。src/lib/gameOnCourtShare.ts）。%PTS〜%FTA の分母（本人が出場中の自チームの数）と、
  * AST% の FGにつながったアシスト。保存キーの対象の BoxscoreCounts は変えず、行の値に足して渡す。無い行（出せない試合・古いデータ・この値を作らない画面）は「-」
  */
 export type OnCourtShareCounts = BoxscoreCounts & { ocShare?: PeriodOnCourtShare | null };
@@ -317,7 +317,7 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
   // ペアになるActionCD1=15〔ファウルドローン〕から相手選手を特定する。boxscoreAggregate.ts参照）
   { key: "offfoul", label: "OFF FOUL", format: (c) => String(c.offensiveFoulsCommitted), value: (c) => c.offensiveFoulsCommitted, higherIsBetter: false },
   { key: "charge", label: "CHARGE", format: (c) => String(c.chargesDrawn), value: (c) => c.chargesDrawn },
-  // AST%（NBA式）。チームの行は AST / FGM。選手の行は FGにつながったアシスト ÷（出場中の自チーム FGM − 本人の FGM）（DESIGN.md 139・303章）
+  // AST%（NBA式）。チームの行は AST / FGM。選手の行は FGにつながったアシスト ÷（出場中の自チーム FGM − 本人の FGM）（DESIGN.md 139・304章）
   {
     key: "astpct",
     label: "AST%",
@@ -484,7 +484,7 @@ export function orShareColumn(noTeamRebounds: boolean): BoxscoreColumn {
 
 /**
  * 内訳集計（スタメン・ベンチ・登録区分）の %USG＝グループの（FGA＋0.44×FTA＋TOV）÷ チーム全体の同じ値、%AST＝グループの AST ÷ チームの AST。
- * 個人の USG%・AST% とは別の項目（チーム全体に占める割合。%OR と同じ考え方。DESIGN.md 303章）。チーム合計の行は100%
+ * 個人の USG%・AST% とは別の項目（チーム全体に占める割合。%OR と同じ考え方。DESIGN.md 304章）。チーム合計の行は100%
  */
 function usageShareColumn(): BoxscoreColumn {
   const use = (c: BoxscoreCounts) => c.pt2a + c.pt3a + 0.44 * c.fta + c.tov;
@@ -786,7 +786,7 @@ function BoxscoreTeamPanel({
       const onCourtPace = showOnCourtPace ? onCourtRatings[p.playerId]?.pace : undefined;
       const orPct = teamOrPct?.available ? personalOrPct(p.counts.oreb, teamOrPct.byPlayer.get(p.playerId)) : null;
       const ocShare = teamOnCourtShare?.available ? (teamOnCourtShare.byPlayer.get(p.playerId) ?? null) : null;
-      // 公式の +/- が無いシーズンは、復元の値（選んだ期間の合計。出せないチームは「-」のまま。DESIGN.md 303章）
+      // 公式の +/- が無いシーズンは、復元の値（選んだ期間の合計。出せないチームは「-」のまま。DESIGN.md 304章）
       const reconPm = p.counts.hasPlusMinus ? undefined : reconstructedPlusMinus?.get(ownRows[0]?.TeamID ?? "")?.get(p.playerId);
       const pmOverride =
         reconPm && !p.dnp

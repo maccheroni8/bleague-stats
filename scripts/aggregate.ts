@@ -236,7 +236,7 @@ async function buildShotTypeBreakdowns(
 ): Promise<{
   byPlayer: Map<string, ShotTypeBreakdown>;
   byTeam: Map<string, ShotTypeBreakdown>;
-  /** 相手チームのシュートタイプ別（同じ試合の相手のショットを自チームの側に足す。レギュラーシーズン。DESIGN.md 303章） */
+  /** 相手チームのシュートタイプ別（同じ試合の相手のショットを自チームの側に足す。レギュラーシーズン。DESIGN.md 304章） */
   opponentByTeam: Map<string, ShotTypeBreakdown>;
   /** スポーツナビの記録がある試合の数（レギュラーシーズン。全チームスタッツ Shooting の平均の分母） */
   gamesByTeam: Map<string, number>;
@@ -422,7 +422,7 @@ interface StatTotals {
    */
   doubleDoubles: number;
   tripleDoubles: number;
-  /** 二桁得点試合（PTS10。選手だけ。レギュラーシーズンの出場試合のうち PTS が10以上。DESIGN.md 303章） */
+  /** 二桁得点試合（PTS10。選手だけ。レギュラーシーズンの出場試合のうち PTS が10以上。DESIGN.md 304章） */
   points10Games?: number;
 }
 
@@ -838,7 +838,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
             game.awayTeam.id,
             periods,
             substitutionModelForSeason(game.season),
-            // 選手の On-Court Foreign の人数別の本人の成績に、区間ごとの本人の記録を使う（ほかの値は変わらない。DESIGN.md 303章）
+            // 選手の On-Court Foreign の人数別の本人の成績に、区間ごとの本人の記録を使う（ほかの値は変わらない。DESIGN.md 304章）
             { trackPlayerEvents: true },
           )
         : null;
@@ -897,7 +897,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       clutch,
       onCourtMaterials,
     );
-    // 選手の On-Court Foreign の人数別の材料（別のファイル player-foreign.json に書く。試合ログを読む画面を重くしないため。DESIGN.md 303章）
+    // 選手の On-Court Foreign の人数別の材料（別のファイル player-foreign.json に書く。試合ログを読む画面を重くしないため。DESIGN.md 304章）
     for (const team of onCourtMaterials?.byTeam.values() ?? []) {
       for (const [pid, v] of team.foreign) {
         if (Object.keys(v.own).length === 0 && Object.keys(v.opp).length === 0) continue;
@@ -1219,7 +1219,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       ) as unknown as TeamSummary,
       misc: scaleNumbers(sumTeamSeasonMisc(leagueTeams.flatMap((t) => t.gameLogs)), 1 / n),
     };
-    // Shooting の相手側・対象試合数（チームの値と同じく、各チームの値の平均。DESIGN.md 303章）
+    // Shooting の相手側・対象試合数（チームの値と同じく、各チームの値の平均。DESIGN.md 304章）
     const leagueOppShots = avg(leagueTeams.map((t) => opponentShotTypesByTeam.get(t.teamId)));
     const leagueShotGames = avg(leagueTeams.map((t) => shotTypeGamesByTeam.get(t.teamId)));
     if (leagueOppShots && leagueShotGames !== undefined) {
@@ -1230,7 +1230,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
   }
 
   for (const t of teams.values()) {
-    // 試合ごとのシュートタイプ別（自チーム・相手。スポーツナビの記録がある試合だけ。DESIGN.md 303章）
+    // 試合ごとのシュートタイプ別（自チーム・相手。スポーツナビの記録がある試合だけ。DESIGN.md 304章）
     for (const log of t.gameLogs) {
       const shot = shotTypesByTeamGame.get(`${t.teamId}|${log.scheduleKey}`);
       if (shot) {
@@ -1448,7 +1448,7 @@ function collectTeamStints(game: StoredGame, store: Map<string, TeamStintsBuilde
 }
 
 /**
- * 1試合分の出場中の材料（在コート基準の再集計。shared/playerOnCourt.ts・DESIGN.md 303章）。数え上げのある試合（2020-21以降のプレーバイプレーのある試合）だけ。
+ * 1試合分の出場中の材料（在コート基準の再集計。shared/playerOnCourt.ts・DESIGN.md 304章）。数え上げのある試合（2020-21以降のプレーバイプレーのある試合）だけ。
  * チームごとの品質・出場区間の合計・選手のピリオド別の材料と、FGにつながったアシスト
  */
 interface GameOnCourtMaterials {

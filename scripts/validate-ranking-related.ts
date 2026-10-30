@@ -98,7 +98,7 @@ for (const [key, formula] of Object.entries(FORMULA)) {
     check(`${key}(${mode}): ${rel.labels.join("／")} ${text.join("／")} → ${approx.toFixed(3)}（表 ${shown.toFixed(3)}）`, ok, `許容 ${tol}`);
   }
 }
-// 平均のとき、出場中の自チームの値も、出場中の記録がそろう試合数で割っている（%PTS の TEAM PTS（出場中）。DESIGN.md 303章）
+// 平均のとき、出場中の自チームの値も、出場中の記録がそろう試合数で割っている（%PTS の TEAM PTS（出場中）。DESIGN.md 304章）
 {
   const rel = relatedStatsFor({ category: "scoring", statKey: "pctpts", mode: "perGame", ctxOf: () => ctxPerGame, shooting: [] })!;
   check("pctpts(perGame): TEAM PTS（出場中）は 出場中の合計÷そろう試合数", rel.of(player)![1] === (1150 / 18).toFixed(1), String(rel.of(player)));

@@ -71,7 +71,7 @@ export const PLAYER_INDEX_STAT_COLUMNS = [
 ] as const;
 
 /**
- * FT・3P の連続成功の材料の列（試合ログの ftStreak・tpStreak から。DESIGN.md 303章）。試投・成功は fta・ftm（tpa・tpm）の列と同じ値なので持たない。
+ * FT・3P の連続成功の材料の列（試合ログの ftStreak・tpStreak から。DESIGN.md 304章）。試投・成功は fta・ftm（tpa・tpm）の列と同じ値なので持たない。
  * 「Pre」先頭の連なり・「Suf」末尾の連なり・「InMax」途中の最長・「InN」その件数。プレーバイプレーが無い・本数が公式と合わない試合は -1（つなぐときに区切る）。
  * PLAYER_INDEX_STAT_COLUMNS とは別に持つ（勝負所の列の位置を変えないため）。古い索引には無い
  */

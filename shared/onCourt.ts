@@ -220,7 +220,7 @@ export interface LineupStint {
   /**
    * 区間の間の、選手本人の記録（ピリオド別。PLAYER_EVENT_KEYS の並び）。その記録の瞬間の相手チームの区間（oppSeq。相手が5人でなかった等で
    * 区間が残らなかったときは -1）ごとに分ける。チームの数え上げ（countsByPeriod）と同じイベント・同じ瞬間の区間に入れる。
-   * 2020-21以降で、trackPlayerEvents のときだけ（選手の On-Court Foreign の人数別の本人の成績。DESIGN.md 303章）
+   * 2020-21以降で、trackPlayerEvents のときだけ（選手の On-Court Foreign の人数別の本人の成績。DESIGN.md 304章）
    */
   playerEventsByPeriod?: Record<number, { playerId: string; oppSeq: number; counts: number[] }[]>;
 }

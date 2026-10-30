@@ -1,4 +1,4 @@
-// 出場中の材料（在コート基準の再集計。shared/playerOnCourt.ts・DESIGN.md 303章）の検算スクリプト（検証専用。集計の入口からは import しない）。
+// 出場中の材料（在コート基準の再集計。shared/playerOnCourt.ts・DESIGN.md 304章）の検算スクリプト（検証専用。集計の入口からは import しない）。
 // `npm run build:data` のあとに実行する。生データから在コートを復元し直して、導出データ（選手・チームの試合ログ、選手のピリオド別の索引）と比べる:
 //  1. 選手の試合ログの onCourt＝本人がいた区間の合計。同じチームの全選手の合計＝チームの出場区間の合計（stintTotals）× 5（秒・全項目）
 //  2. On/Off: 試合ログから出した Off（stintTotals − onCourt を本人が出た試合で足す）と On が、ランキングの計算（shared/onCourtTotals.ts の onOffByPlayer。team-stints から）と

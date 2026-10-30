@@ -506,7 +506,7 @@ export function seasonBoxCompareDefs(
       format: (r) => (r.ddtd?.[key] !== undefined ? String(r.ddtd[key]) : "-"),
       higherIsBetter: true,
     });
-    // 二桁得点試合（PTS10）も同じ数え方で TD3 の右に（DESIGN.md 299-5・303章）
+    // 二桁得点試合（PTS10）も同じ数え方で TD3 の右に（DESIGN.md 299-5・304章）
     defs.push(count("dd", "DD2"), count("td", "TD3"), count("p10", "PTS10"));
   }
   return defs;

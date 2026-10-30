@@ -141,7 +141,7 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   "DRtg（推定）": "この5人が出場している間の、100ポゼッションあたりの失点（推定）",
   "NetRtg（推定）": "ORtg（推定）－DRtg（推定）",
   "AST%": {
-    // 選手の AST% は、出場中のチームメイトの FGM のうち自分がアシストした割合（NBA式。DESIGN.md 139・303章）
+    // 選手の AST% は、出場中のチームメイトの FGM のうち自分がアシストした割合（NBA式。DESIGN.md 139・304章）
     player: "出場中のチームメイトのFGMのうち、自分のアシストが付いた割合。FGにつながったアシスト ÷（出場中の自チームFGM − 自分のFGM）。フリースローにつながったアシストは含まない。2016-17〜2019-20は「-」",
     team: "FGMのうちアシストが付いた割合。AST / FGM",
   },
@@ -187,7 +187,7 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   "DEAD TOV%": "100 × DEADTOV / (FGA＋0.44×FTA＋TOV)。TOV%と同じ分母で、分子だけをデッドボールターンオーバーにしたもの（LIVE TOV%＋DEAD TOV%＝TOV%。チーム合計の行は、個人に紐付かないチームのターンオーバー〔24秒・8秒・5秒のバイオレーション等〕をDEADに含める。ライブ/デッドに分類できなかった分だけ、足してもTOV%に届かないことがある。また、表示値の丸めにより、LIVE TOV%とDEAD TOV%の合計がTOV%と0.1ずれることがある）",
 
   // --- Scoring ---
-  // 選手の %PTS〜%FTA は出場中の自チームが分母（在コート基準の再集計。DESIGN.md 303章）
+  // 選手の %PTS〜%FTA は出場中の自チームが分母（在コート基準の再集計。DESIGN.md 304章）
   AST2M: "アシストされた2P成功数",
   AST3M: "アシストされた3P成功数",
   ASTFTM: "アシストされたフリースロー成功数（シュートファウルでフリースローになった場合）",

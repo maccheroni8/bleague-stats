@@ -130,7 +130,7 @@ export interface PlayerSeasonRawTotals {
   onCourtOppPoss: number;
   onCourtSeconds: number;
   /**
-   * 出場中の割合（%PTS〜%FTA）・AST% の材料（在コート基準の再集計。DESIGN.md 303章）。出場中の記録がそろう試合（試合ログの onCourt があり、
+   * 出場中の割合（%PTS〜%FTA）・AST% の材料（在コート基準の再集計。DESIGN.md 304章）。出場中の記録がそろう試合（試合ログの onCourt があり、
    * onCourtQuality の割合のビットが立つ出場試合。2020-21以降）だけを足す。分子（本人）・分母（出場中の自チーム）・FGにつながったアシストを同じ試合で足すので、
    * 記録が欠けた試合は分子・分母の両方から外れる。ocGames はその試合数（0なら「-」）
    */
@@ -587,7 +587,7 @@ export function buildTeamSplitRows(
 export function countDoubleTripleDoubles(logs: PlayerGameLog[]): { dd: number; td: number; p10: number } {
   let dd = 0;
   let td = 0;
-  // 二桁得点試合（PTS10。PTS が10以上。DD2・TD3 と同じく渡された試合〔出場した試合〕から数える。DESIGN.md 299-5・303章）
+  // 二桁得点試合（PTS10。PTS が10以上。DD2・TD3 と同じく渡された試合〔出場した試合〕から数える。DESIGN.md 299-5・304章）
   let p10 = 0;
   for (const g of logs) {
     const doubleDigitCount = [g.pts, g.reb, g.ast, g.stl, g.blk].filter((v) => v >= 10).length;
@@ -1077,7 +1077,7 @@ const ALL_SEASON_MISC_COLUMNS: SeasonBoxscoreColumn[] = [
     format: (c, mode) => formatDecimal(c.scaled.chargesDrawn, countDigits(mode)),
     value: (c) => c.scaled.chargesDrawn,
   },
-  // 選手の AST%（NBA式。FGにつながったアシスト ÷（出場中の自チーム FGM − 本人の FGM））。出場中の記録がそろう試合だけで出す（DESIGN.md 303章）
+  // 選手の AST%（NBA式。FGにつながったアシスト ÷（出場中の自チーム FGM − 本人の FGM））。出場中の記録がそろう試合だけで出す（DESIGN.md 304章）
   {
     key: "astpct",
     label: "AST%",
@@ -1615,7 +1615,7 @@ export interface GamePeriodTotals {
    * 60-4章のDD/TD判定と同じ「常に試合全体で判定する」方針） */
   isStarter: boolean;
   /**
-   * 出場中の割合・AST% の材料（その区間。DESIGN.md 303章）。出場中の記録がそろう試合（チームの割合の品質ビット）だけ。無い試合・古いデータは無し
+   * 出場中の割合・AST% の材料（その区間。DESIGN.md 304章）。出場中の記録がそろう試合（チームの割合の品質ビット）だけ。無い試合・古いデータは無し
    * （分子・分母の両方から外す）
    */
   onCourt?: PeriodOnCourtShare;
@@ -1676,7 +1676,7 @@ export function periodOnCourtShareFromGame(game: StoredGame, isHome: boolean, pl
   return { pts: own("pts"), fgm: own("fgm"), fga: own("fga"), tpm: own("tpm"), tpa: own("tpa"), ftm: own("ftm"), fta: own("fta"), fgAssists };
 }
 
-/** 復元の Q別 +/- を出すシーズン（公式のピリオド別の +/- が無い 2016-17〜2021-22。DESIGN.md 303章） */
+/** 復元の Q別 +/- を出すシーズン（公式のピリオド別の +/- が無い 2016-17〜2021-22。DESIGN.md 304章） */
 export function reconstructsPeriodPlusMinus(season: string): boolean {
   return Number(season.slice(0, 4)) < 2022;
 }
@@ -1785,9 +1785,9 @@ export function computeGamePeriodTotals(
   const players = buildPlayerBoxscores(ownRows, option, game.raw.PlayByPlays, []);
   const player = players.find((p) => p.playerId === playerId);
   if (!player) return null;
-  // 出場中の材料は、その区間に出場の記録がある（ピリオド別の索引に行がある）ときだけ（索引の経路と同じ。DESIGN.md 303章）
+  // 出場中の材料は、その区間に出場の記録がある（ピリオド別の索引に行がある）ときだけ（索引の経路と同じ。DESIGN.md 304章）
   const onCourt = participatesInRange(player) ? periodOnCourtShareFromGame(game, isHome, playerId, option) : undefined;
-  // 公式の Q別 +/- が無いシーズンは、復元の値（ピリオド別の索引と同じ。DESIGN.md 303章）。区間を選んだときだけ（試合全体は今までどおり）
+  // 公式の Q別 +/- が無いシーズンは、復元の値（ピリオド別の索引と同じ。DESIGN.md 304章）。区間を選んだときだけ（試合全体は今までどおり）
   let counts = player.counts;
   if (!counts.hasPlusMinus && option?.periods) {
     const pm = reconstructedPlusMinusOf(game, isHome, playerId, option);

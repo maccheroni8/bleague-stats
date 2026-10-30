@@ -294,7 +294,7 @@ export async function buildPeriodIndex(
       const oppRows = side === 0 ? game.raw.AwayBoxscores : game.raw.HomeBoxscores;
       // 前後半5分の特別な試合は、1Q〜4Q・前半・後半を持たない（クォーターではない。DESIGN.md 143章）
       const usable = (a: PeriodAtom, opt: PeriodRangeOption | null): opt is PeriodRangeOption => opt !== null && !noPeriods && !(short && a !== "ot");
-      // 出場中の材料（2020-21以降）と、復元の Q別 +/-（公式の値が無い試合。チームの区間の合計が試合全体の復元と合うときだけ）。DESIGN.md 303章
+      // 出場中の材料（2020-21以降）と、復元の Q別 +/-（公式の値が無い試合。チームの区間の合計が試合全体の復元と合うときだけ）。DESIGN.md 304章
       const ownScore = side === 0 ? game.homeScore : game.awayScore;
       const oppScore = side === 0 ? game.awayScore : game.homeScore;
       const byPlayer = onCourt ? playerOnCourtByPeriod(onCourt.lineupStints, teamId, totalPeriods) : null;

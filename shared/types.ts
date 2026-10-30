@@ -386,7 +386,7 @@ export interface StatTotals {
    */
   doubleDoubles: number;
   tripleDoubles: number;
-  /** 二桁得点試合（PTS10。選手の players.json だけ。レギュラーシーズンの出場試合のうち PTS が10以上。DESIGN.md 303章）。古いデータには無い */
+  /** 二桁得点試合（PTS10。選手の players.json だけ。レギュラーシーズンの出場試合のうち PTS が10以上。DESIGN.md 304章）。古いデータには無い */
   points10Games?: number;
 }
 
@@ -588,7 +588,7 @@ export interface TeamSummary {
    * Yahoo PBPデータが1試合も取得できていないシーズンではフィールド自体を省略する
    */
   shotTypes?: ShotTypeBreakdown;
-  /** 相手チームのシュートタイプ別（同じ試合の相手のショット。レギュラーシーズン。全チームスタッツ Shooting の opp・+/-。DESIGN.md 303章）。古いデータには無い */
+  /** 相手チームのシュートタイプ別（同じ試合の相手のショット。レギュラーシーズン。全チームスタッツ Shooting の opp・+/-。DESIGN.md 304章）。古いデータには無い */
   opponentShotTypes?: ShotTypeBreakdown;
   /** スポーツナビの記録がある試合の数（レギュラーシーズン。Shooting の平均の分母）。古いデータには無い */
   shotTypeGames?: number;
@@ -846,7 +846,7 @@ export interface PlayerGameLog extends Partial<FoulCategoryCounts> {
   /** 同上、在コート秒数 */
   onCourtSeconds: number;
   /**
-   * 出場中の材料（在コート基準の再集計。shared/playerOnCourt.ts・DESIGN.md 303章）。[秒, 自チーム×STINT_COUNT_KEYS, 相手×STINT_COUNT_KEYS]。
+   * 出場中の材料（在コート基準の再集計。shared/playerOnCourt.ts・DESIGN.md 304章）。[秒, 自チーム×STINT_COUNT_KEYS, 相手×STINT_COUNT_KEYS]。
    * 本人がいた5人組の区間の合計（チームの出場区間 team-stints・ランキングの On/Off と同じ数え方）。2020-21以降で、本人がいた区間に時間か記録がある試合だけ。
    * Off を数えるのは秒（先頭）が0より大きい試合だけ（ランキングと同じ）。古いデータには無い
    */
@@ -941,7 +941,7 @@ export interface TeamGameLog extends Partial<FoulCategoryCounts>, Partial<Oppone
   stintTotals?: number[];
   /** 出場中の材料の品質（PlayerGameLog.onCourtQuality と同じ） */
   onCourtQuality?: number;
-  /** その試合の自チーム・相手のシュートタイプ別（スポーツナビの記録がある試合だけ。DESIGN.md 303章） */
+  /** その試合の自チーム・相手のシュートタイプ別（スポーツナビの記録がある試合だけ。DESIGN.md 304章） */
   shotTypes?: ShotTypeBreakdown;
   opponentShotTypes?: ShotTypeBreakdown;
   /**
@@ -2010,7 +2010,7 @@ export interface RookieEligibilityFile {
 }
 
 /**
- * 選手の On-Court Foreign の人数別の材料（data/{season}/player-foreign.json.gz。2020-21以降。DESIGN.md 303章）。
+ * 選手の On-Court Foreign の人数別の材料（data/{season}/player-foreign.json.gz。2020-21以降。DESIGN.md 304章）。
  * 選手ID → ScheduleKey → shared/foreignOnCourt.ts の PlayerForeignOnCourt（own は自チームの人数ごとに
  * [秒, 本人の記録×eventKeys, 出場中の自チーム得点・相手得点・自チーム攻撃回数・相手攻撃回数]、opp は相手の人数ごとに [秒, 本人の記録×eventKeys]。人数は本人を含む）。
  * 時間か記録のある人数だけを持つ。試合ログを読む画面を重くしないため、試合ログとは別のファイルにする

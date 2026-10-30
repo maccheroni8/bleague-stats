@@ -69,7 +69,7 @@ export function buildPlayerGameBoxscoreRow(
     onCourtPace = computeOnCourtRatings(onCourt.intervals)[playerId]?.pace;
   }
 
-  // 出場中の割合（%PTS〜%FTA）・AST% の分母（試合詳細と同じ。出せない試合は「-」）と、公式の値の無いシーズンの復元の +/-（DESIGN.md 303章）
+  // 出場中の割合（%PTS〜%FTA）・AST% の分母（試合詳細と同じ。出せない試合は「-」）と、公式の値の無いシーズンの復元の +/-（DESIGN.md 304章）
   const ocShare = periodOnCourtShareFromGame(game, gameLog.isHome, playerId, undefined) ?? null;
   const reconPm = player.counts.hasPlusMinus ? null : reconstructedPlusMinusOf(game, gameLog.isHome, playerId, undefined);
   const pm = reconPm === null ? {} : { plusMinus: reconPm, hasPlusMinus: true };

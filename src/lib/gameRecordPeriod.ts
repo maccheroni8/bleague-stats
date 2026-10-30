@@ -38,7 +38,7 @@ export const PERIOD_WORST_UNSUPPORTED_REASON =
 export const PERIOD_ASTED_UNSUPPORTED_REASON = "被アシスト率は、得点20点以上の試合が対象のため、Q別・前後半では選べません。";
 
 /**
- * Q別・前後半の +/-。2022-23以降は公式の値、2016-17〜2021-22 は出場選手の復元の値（DESIGN.md 303章）。どのシーズンでも選べる
+ * Q別・前後半の +/-。2022-23以降は公式の値、2016-17〜2021-22 は出場選手の復元の値（DESIGN.md 304章）。どのシーズンでも選べる
  * （出場選手の復元が記録と合わない試合は値が無く、数えない）
  */
 export const PERIOD_PLUS_MINUS_FIRST_SEASON = "2016-17";

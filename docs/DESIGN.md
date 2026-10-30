@@ -15231,3 +15231,51 @@ push 1 の時点の「残り」: league の渡し忘れ 138件・37ファイル�
 - **基本の範囲の外に出る点（全期間・レギュラー）**: 実際に選べる組み合わせでは、2026-27 の外国籍・帰化・アジア合計で自チーム側4チーム（上限 69.8）・相手側3チーム（上限 64.1）、2025-26 の合計で1チーム（61.3）。2026-27 の外国籍のみは全チーム範囲内、+/- は全シーズン範囲内。
 - **古いシーズンの注意**: 2025-26 以前は、区分（日本人＋外国籍＋帰化・アジア）の和が総得点に届かない試合がある（区分を決められない選手の得点）。割合の分母は総得点。
 - **検証**: `npm run validate:figures` に、人工データ（分母・視点・欠損・リーグ平均・軸）と、実データでの既存の合計（`sumTeamGameLogs`・`sumSplitClassPoints`）との突き合わせ（B.PREMIER・B.ONE の全シーズン×期間×試合区分）を足した。allKey は変更前後で `a030b5dc7e5387be6d85e95cd1dcd19d`（登録区分の訂正のあとの基準）。
+
+## 304. 在コート基準の再集計（作り直し1回。2026-10-31。**保存キーが変わる**）
+
+ランキング拡張の残り（旧段階3）と、299・300章で保留にした項目をまとめて、導出データの作り直し1回で入れた。
+
+### 304-1. 決まったこと
+
+- **USG% の式は変えない**。
+- **Scoring の割合（%PTS〜%FTA）・選手 AST%・On/Off は「出場中」の値を分母にする**。分母は本人がコートにいた区間の自チームの合計（在コート復元の5人組の区間）。選手 AST% ＝ FG由来アシスト ÷（出場中の自チーム FGM − 本人の FGM）。
+- **内訳集計の行は %USG・%AST**（チームの中での割合）を出す。
+- **2016-17〜2019-20（旧形式）**: 新しい項目は「-」と理由。例外として試合詳細の個人 OR% と、Q別 +/-（2016-17〜2021-22 は在コート復元から作る復元値。旗 `PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED`）は出す。前後半5分の特別な試合（`regulationPeriodScores` が null）は Q別 +/- も対象外。旧形式の今ある値は消さない。個人詳細の旧形式の On/Off は今までの計算のまま。
+- **記録の欠けた試合は、分子からも分母からも外し、対象の試合数を出す**。出せない判定はチーム×試合（`onCourtQuality`。割合＝1、リバウンド＝2 のビット）。欠けを 0 として扱わない。
+- **ランキングと比較で、旧形式と新しい値を混ぜない**。
+- **個人詳細の On/Off は、ランキングと同じ計算**（`onOffSplitFromLogs`）。
+- 2022-23 の公式 +/- との食い違い226件は対象外。
+
+### 304-2. 保存するもの（すべて任意項目。無い古いデータでは「-」）
+
+| 保存先 | 足した項目 |
+|---|---|
+| 試合ログ（player-games） | `onCourt`（秒＋自他の合計）・`onCourtQuality`・`fgAssists`・`ftStreak`／`tpStreak`（FT・3P 連続の要約） |
+| チーム試合ログ（team-games） | `stintTotals`（Off ＝ チーム − On）・試合ごとの `shotTypes`／`opponentShotTypes` |
+| teams.json | `opponentShotTypes`・`shotTypeGames` |
+| players.json `totals` | `points10Games`（PTS10＝二桁得点の試合数。全シーズン） |
+| player-period-index | 在コートのQ別の列・復元 Q別 +/- |
+| player-game-index | FT・3P 連続の列 |
+| `data/{season}/player-foreign.json.gz`（新しいファイル） | 選手の On-Court Foreign（自他の人数別の秒数と、人数別の本人成績）。`scripts/lib/dataLayout.ts`・`.gitignore` に追加 |
+| 保存しない（画面で作る） | 在コート復元に旧形式のリバウンド `reboundsByPeriod`／`stintReboundsByPeriod` を足し、試合詳細の旧形式の個人 OR% を出す（`src/lib/gameOrPct.ts`） |
+
+players.json に在コートの合計は足していない（Scoring・Misc は試合ログから作る）。JSON の字下げは変えていない。
+
+### 304-3. 画面
+
+- **全選手スタッツ・個人詳細のシーズン別成績・チーム詳細の選手スタッツ**: Scoring の出場中の割合、Misc の選手 AST%、Traditional の PTS10、**on/off タブ**（On/Off/On-Off の Min・ORtg・DRtg・NetRtg の12項目。`src/lib/playerOnOffColumns.ts`）。on/off は 2020-21 以降・試合全体だけ（旧形式・Q別・前後半は「-」と理由）。Off は本人が出場した試合で、本人がコートにいない時間。ORtg・DRtg は得点と攻撃回数をシーズンで足してから割り、平均／合計のどちらでも試合数で割らない。攻撃回数0は「-」。移籍した選手は試合ごとの所属チーム、チーム詳細ではそのチームの試合だけ。Dean Oliver 方式の個人 ORtg（Advanced）とは別の項目で、名前と用語集で区別する。
+- **試合詳細**: 選手の %PTS・AST%、内訳集計の %USG・%AST、旧形式の個人 OR%、Q別 +/-（復元）。出せない側は「-」と理由。
+- **全チームスタッツ Shooting**: 視点 opp・+/-（`v=opp`／`v=diff`）。
+- **ランキング**: %PTS 系・AST%・PTS10。関連スタッツは「TEAM PTS（出場中）」など出場中の値。旧形式は理由の文。
+- **1試合の記録**: Q別 +/- を 2021-22 以前でも選べる。
+- **用語集**: %USG・%AST、on/off、出場中の %PTS・AST% の説明。
+- まだ作っていない画面（材料だけある）: FT・3P 連続成功、選手の On-Court Foreign。
+
+### 304-4. 保存キーと検証
+
+- 保存キーの対象に足したのは `shared/playerOnCourt.ts`・`shared/shotStreaks.ts` の2つ。画面だけの部品を保存キーの対象のファイルから import しない（型も。`SeasonOnOffTotals` は `playerSeasonBoxscore.ts` に置いた）。
+- allKey は `a030b5dc7e5387be6d85e95cd1dcd19d` → `5e4b70a7d72f3faa4a7d590423b828a7`。導出データは 47.8MB → 62.6MB、手元の全作り直しは110秒。
+- 在コート復元そのものは変えていない（PBP のある全 6,975 試合で、変更前後の復元結果のハッシュが一致）。
+- 新しい検証: `npm run validate:player-oncourt`（出場中の合計・AST%・Off・Q別 +/- の網羅・on/off がランキングの On/Off と一致〔3,021件〕など）、`npm run validate:rebuild-materials`（PTS10・Shooting opp・連続・人数別）。`validate:game-orpct`・`validate:period-index`・`validate:ranking-related` を旧形式・復元値に合わせて更新。validate:all 62本、`validate:figures`・`validate:one-game-matchups` が通り、散布図の値は main と全13のシーズン×リーグで同じ。既存の項目は、足した項目を除いて main と同じ。
+- 既存の不具合（今回の変更ではない。main でも同じ）: 全選手スタッツで URL のシーズンだけを書き換えると、Misc・Scoring が読み込み中のまま止まることがある。読み込み直せば出る。別の作業で直す。
