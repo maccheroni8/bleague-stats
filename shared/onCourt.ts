@@ -215,7 +215,35 @@ export interface LineupStint {
    * countsByPeriod とは別に持つ（countsByPeriod がある＝攻撃回数も実際に数えた、という前提を崩さないため）。個人 OR% の分母に使う
    */
   reboundsByPeriod?: Record<number, StintReboundPair>;
+  /** 復元の中での区間の番号（両チーム通しの連番。playerEventsByPeriod の oppSeq が指す）。trackPlayerEvents のときだけ */
+  seq?: number;
+  /**
+   * 区間の間の、選手本人の記録（ピリオド別。PLAYER_EVENT_KEYS の並び）。その記録の瞬間の相手チームの区間（oppSeq。相手が5人でなかった等で
+   * 区間が残らなかったときは -1）ごとに分ける。チームの数え上げ（countsByPeriod）と同じイベント・同じ瞬間の区間に入れる。
+   * 2020-21以降で、trackPlayerEvents のときだけ（選手の On-Court Foreign の人数別の本人の成績。DESIGN.md 303章）
+   */
+  playerEventsByPeriod?: Record<number, { playerId: string; oppSeq: number; counts: number[] }[]>;
 }
+
+/** 選手本人の記録として数える項目（playerEventsByPeriod の並び） */
+export const PLAYER_EVENT_KEYS = ["pts", "fgm", "fga", "tpm", "tpa", "ftm", "fta", "or", "dr", "ast", "tov"] as const;
+const PLAYER_EVENT_INDEX = Object.fromEntries(PLAYER_EVENT_KEYS.map((k, i) => [k, i])) as Record<(typeof PLAYER_EVENT_KEYS)[number], number>;
+/** ActionCD1 → 本人の記録の項目（増やす量つき） */
+const PLAYER_EVENT_BY_CODE: Record<number, [(typeof PLAYER_EVENT_KEYS)[number], number][]> = {
+  1: [["pts", 3], ["fgm", 1], ["fga", 1], ["tpm", 1], ["tpa", 1]],
+  3: [["pts", 2], ["fgm", 1], ["fga", 1]],
+  4: [["pts", 2], ["fgm", 1], ["fga", 1]],
+  44: [["pts", 2], ["fgm", 1], ["fga", 1]],
+  2: [["fga", 1], ["tpa", 1]],
+  5: [["fga", 1]],
+  6: [["fga", 1]],
+  7: [["pts", 1], ["ftm", 1], ["fta", 1]],
+  8: [["fta", 1]],
+  9: [["dr", 1]],
+  10: [["or", 1]],
+  12: [["ast", 1]],
+  13: [["tov", 1]],
+};
 
 /** リバウンドだけの数え上げ（旧形式の reboundsByPeriod） */
 export interface StintRebounds {
@@ -811,7 +839,7 @@ export function reconstructOnCourt(
   awayTeamId: string,
   totalPeriods: number,
   substitutionModel: SubstitutionModel,
-  options: { repairSubOrder?: boolean; countStats?: boolean; countLegacyRebounds?: boolean } = {},
+  options: { repairSubOrder?: boolean; countStats?: boolean; countLegacyRebounds?: boolean; trackPlayerEvents?: boolean } = {},
 ): OnCourtReconstruction {
   const warnings: OnCourtWarning[] = [];
 
@@ -853,8 +881,14 @@ export function reconstructOnCourt(
     byPeriod: Record<number, { own: number; opp: number }>;
     counts: Record<number, StintCountsPair>;
     rebounds: Record<number, StintReboundPair>;
+    seq: number;
+    /** ピリオド → 「選手ID|相手の区間の番号」→ 本人の記録 */
+    personal: Record<number, Map<string, number[]>>;
   };
-  const newStint = (start: number): StintAcc => ({ start, net: 0, own: 0, opp: 0, byPeriod: {}, counts: {}, rebounds: {} });
+  let nextSeq = 0;
+  const newStint = (start: number): StintAcc => ({ start, net: 0, own: 0, opp: 0, byPeriod: {}, counts: {}, rebounds: {}, seq: nextSeq++, personal: {} });
+  /** 長さ0秒で残さなかった区間の番号 → 記録を引き継いだ次の区間の番号 */
+  const seqAlias = new Map<number, number>();
   const currentStint: Record<string, StintAcc> = {
     [homeTeamId]: newStint(0),
     [awayTeamId]: newStint(0),
@@ -871,6 +905,17 @@ export function reconstructOnCourt(
       byPeriod[period] = pair;
     }
   };
+  /** 区間の本人の記録を、保存する形にする（相手の区間の番号は、あとで残った区間の番号に読み替える） */
+  const personalOut = (stint: StintAcc): Record<number, { playerId: string; oppSeq: number; counts: number[] }[]> => {
+    const out: Record<number, { playerId: string; oppSeq: number; counts: number[] }[]> = {};
+    for (const [period, byKey] of Object.entries(stint.personal)) {
+      out[Number(period)] = [...byKey].map(([key, counts]) => {
+        const [playerId, oppSeq] = key.split("|");
+        return { playerId: playerId!, oppSeq: Number(oppSeq), counts };
+      });
+    }
+    return out;
+  };
   /** 得点以外の記録と、得点の記録（シュート・フリースローの成否）の数え上げ */
   const countEvent = (e: RelevantEvent) => {
     const c = e.actionCd;
@@ -885,6 +930,19 @@ export function reconstructOnCourt(
     else if (c === 10 || c === 19) bumpCount(e.teamId, e.period, "or");
     else if (c === 12) bumpCount(e.teamId, e.period, "ast");
     else if (c === 13 || c === 17) bumpCount(e.teamId, e.period, "tov");
+    if (trackPlayerEvents && e.playerId) bumpPersonal(e);
+  };
+  const bumpPersonal = (e: RelevantEvent) => {
+    const items = e.actionCd === undefined ? undefined : PLAYER_EVENT_BY_CODE[e.actionCd];
+    if (!items) return;
+    const own = currentStint[e.teamId];
+    const opp = currentStint[e.teamId === homeTeamId ? awayTeamId : homeTeamId];
+    if (!own || !opp) return;
+    const byKey = (own.personal[e.period] ??= new Map());
+    const key = `${e.playerId}|${opp.seq}`;
+    let counts = byKey.get(key);
+    if (!counts) byKey.set(key, (counts = new Array<number>(PLAYER_EVENT_KEYS.length).fill(0)));
+    for (const [k, n] of items) counts[PLAYER_EVENT_INDEX[k]]! += n;
   };
   /** 旧形式のリバウンド（reboundsByPeriod）。動いたチームの own と、相手のスティントの opp に加える */
   const bumpLegacyRebound = (e: RelevantEvent) => {
@@ -923,6 +981,8 @@ export function reconstructOnCourt(
   const countStats = options.countStats ?? substitutionModel === "modern";
   // 旧形式は、リバウンドだけを別に数える（reboundsByPeriod。数え上げ countStats とは別）
   const countLegacyRebounds = !countStats && substitutionModel === "legacy" && options.countLegacyRebounds !== false;
+  // 選手本人の記録を区間ごとに数える（数え上げのあるときだけ。呼び出し側が指定したときだけ）
+  const trackPlayerEvents = countStats && options.trackPlayerEvents === true;
   const rawEvents = buildRelevantEvents(playByPlays, warnings, substitutionModel, countStats, countLegacyRebounds);
   // 同じ秒の交代の間にフリースローが挟まる並びは、交代をフリースローの前とみなす（検証スクリプトは false で補正前と比べる）
   const orderRepairs = options.repairSubOrder === false ? [] : repairSubOrderAroundFreeThrows(rawEvents);
@@ -1041,6 +1101,8 @@ export function reconstructOnCourt(
     const lineupAfterBatch = lineupKeyOf(onCourt[teamId]!);
     let carriedCounts: Record<number, StintCountsPair> | null = null;
     let carriedRebounds: Record<number, StintReboundPair> | null = null;
+    let carriedPersonal: StintAcc["personal"] | null = null;
+    let carriedFrom = -1;
     if (lineupAfterBatch !== lineupBeforeBatch && playersBeforeBatch.length === 5) {
       const stint = currentStint[teamId]!;
       // 長さ0秒で得点も無いスティントは残さない（上の区間と同じ理由）
@@ -1057,11 +1119,16 @@ export function reconstructOnCourt(
           pointsByPeriod: stint.byPeriod,
           ...(countStats ? { countsByPeriod: stint.counts } : {}),
           ...(countLegacyRebounds ? { reboundsByPeriod: stint.rebounds } : {}),
+          ...(trackPlayerEvents ? { seq: stint.seq, playerEventsByPeriod: personalOut(stint) } : {}),
         });
       } else {
         // 長さ0秒で得点も無いスティントは残さない（上の区間と同じ理由）。数え上げが入っていたときは、次のスティントに引き継ぐ
         // （同じ秒の交代の間に起きた記録。取りこぼさないため）
-        if (hasAnyCount(stint.counts)) carriedCounts = stint.counts;
+        if (hasAnyCount(stint.counts)) {
+          carriedCounts = stint.counts;
+          carriedPersonal = stint.personal;
+          carriedFrom = stint.seq;
+        }
         if (Object.keys(stint.rebounds).length > 0) carriedRebounds = stint.rebounds;
       }
     }
@@ -1069,6 +1136,10 @@ export function reconstructOnCourt(
       currentStint[teamId] = newStint(t);
       if (carriedCounts) currentStint[teamId]!.counts = carriedCounts;
       if (carriedRebounds) currentStint[teamId]!.rebounds = carriedRebounds;
+      if (carriedPersonal) {
+        currentStint[teamId]!.personal = carriedPersonal;
+        seqAlias.set(carriedFrom, currentStint[teamId]!.seq);
+      }
     }
     for (const x of deferred) countStatLike(x);
     i = j;
@@ -1091,6 +1162,7 @@ export function reconstructOnCourt(
         pointsByPeriod: stint.byPeriod,
         ...(countStats ? { countsByPeriod: stint.counts } : {}),
         ...(countLegacyRebounds ? { reboundsByPeriod: stint.rebounds } : {}),
+        ...(trackPlayerEvents ? { seq: stint.seq, playerEventsByPeriod: personalOut(stint) } : {}),
       });
     }
     for (const [playerId, start] of openStart[teamId]!.entries()) {
@@ -1132,6 +1204,16 @@ export function reconstructOnCourt(
     }
   }
 
+  // 本人の記録の「相手の区間」を、残った区間の番号に読み替える（長さ0秒で残さなかった区間は、記録を引き継いだ次の区間へ。残らなかった区間は -1）
+  if (trackPlayerEvents) {
+    const kept = new Set(lineupStints.map((st) => st.seq));
+    const resolve = (seq: number): number => {
+      let cur = seq;
+      for (let guard = 0; !kept.has(cur) && seqAlias.has(cur) && guard < 1000; guard++) cur = seqAlias.get(cur)!;
+      return kept.has(cur) ? cur : -1;
+    };
+    for (const st of lineupStints) for (const list of Object.values(st.playerEventsByPeriod ?? {})) for (const e of list) e.oppSeq = resolve(e.oppSeq);
+  }
   return { intervals, plusMinus, lineupStints, warnings, orderRepairs, ...(countStats ? { teamTotals } : {}) };
 }
 

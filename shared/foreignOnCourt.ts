@@ -2,7 +2,7 @@
 // アジア特別枠）の人数を数える。下の computeForeignPlayerCourtSeconds（scripts/aggregate.ts の外国籍選手同時出場人数フィルタ・
 // On-Court Foreignチャートの元データ）・foreignCourtSecondsByPeriod（ピリオド別の索引。DESIGN.md 256章）と、試合詳細ページの
 // 「オンザコート4」の枠表示で同じ判定を使う。
-import type { LineupStint } from "./onCourt.ts";
+import { PLAYER_EVENT_KEYS, type LineupStint } from "./onCourt.ts";
 
 export type ClassificationLookup = (playerId: string) => string | undefined;
 
@@ -190,4 +190,105 @@ export function foreignCourtByPeriod(
   }
   for (const teamId of [...result.keys()]) if (!counted.has(teamId)) result.delete(teamId);
   return result;
+}
+
+/** 選手の On-Court Foreign（人数別の本人の成績）の自チームの人数の並び: [秒, 本人の記録×PLAYER_EVENT_KEYS, 出場中の自チーム得点, 相手得点, 自チーム攻撃回数, 相手攻撃回数] */
+export const PLAYER_FOREIGN_OWN_LENGTH = 1 + PLAYER_EVENT_KEYS.length + 4;
+/** 相手の人数の並び: [秒, 本人の記録×PLAYER_EVENT_KEYS] */
+export const PLAYER_FOREIGN_OPP_LENGTH = 1 + PLAYER_EVENT_KEYS.length;
+
+export interface PlayerForeignOnCourt {
+  /** 自チームの5人組の、日本人以外の人数（"0"〜"4"。5人は4にまとめる）→ 値。時間か記録のある人数だけ */
+  own: Record<string, number[]>;
+  /** 相手の5人組の人数 → 値 */
+  opp: Record<string, number[]>;
+}
+
+/**
+ * 選手ごとの On-Court Foreign の材料（DESIGN.md 303章）。区間の扱いはチームの値（computeForeignPlayerCourtSeconds・foreignCourtByPeriod）と同じ:
+ * 区分の分からない選手を含む5人組・規定の最大人数を超える5人組は外す。人数は本人を含む。5人（特別な試合）は4にまとめる。
+ * - 自チームの人数: 本人がいた5人組の区間の秒・本人の記録（区間の playerEventsByPeriod）・出場中の得点（pointsByPeriod）・攻撃回数（countsByPeriod）
+ * - 相手の人数: 本人がいた区間と相手の5人組の区間の重なりの秒、本人の記録はその瞬間の相手の区間（oppSeq）の人数へ。相手の区間が分からない記録は数えない
+ * 在コートの復元は trackPlayerEvents: true で呼んだものを渡す（2020-21以降）
+ */
+export function playerForeignOnCourt(
+  lineupStints: readonly LineupStint[],
+  teamId: string,
+  opponentTeamId: string,
+  classify: ClassificationLookup,
+  maxOnCourt: number | undefined,
+): Map<string, PlayerForeignOnCourt> {
+  const bucketOf = (s: LineupStint): number | null => {
+    const n = foreignCountInLineup(s.playerIds, classify);
+    if (n === null) return null;
+    if (maxOnCourt !== undefined && n > maxOnCourt) return null;
+    return Math.min(n, 4);
+  };
+  const out = new Map<string, PlayerForeignOnCourt>();
+  const at = (pid: string, side: "own" | "opp", bucket: number): number[] => {
+    let v = out.get(pid);
+    if (!v) out.set(pid, (v = { own: {}, opp: {} }));
+    const len = side === "own" ? PLAYER_FOREIGN_OWN_LENGTH : PLAYER_FOREIGN_OPP_LENGTH;
+    return (v[side][String(bucket)] ??= new Array<number>(len).fill(0));
+  };
+  const oppStints = lineupStints.filter((s) => s.teamId === opponentTeamId);
+  const oppBucketBySeq = new Map<number, number | null>();
+  for (const s of oppStints) if (s.seq !== undefined) oppBucketBySeq.set(s.seq, bucketOf(s));
+  for (const s of lineupStints) {
+    if (s.teamId !== teamId) continue;
+    const ownBucket = bucketOf(s);
+    const duration = s.endSec - s.startSec;
+    let pts = 0;
+    let oppPts = 0;
+    for (const v of Object.values(s.pointsByPeriod)) {
+      pts += v.own;
+      oppPts += v.opp;
+    }
+    let poss = 0;
+    let oppPoss = 0;
+    for (const pair of Object.values(s.countsByPeriod ?? {})) {
+      poss += pair.own.poss;
+      oppPoss += pair.opp.poss;
+    }
+    // 相手の人数ごとの重なりの秒
+    const overlapByBucket = new Map<number, number>();
+    if (duration > 0) {
+      for (const o of oppStints) {
+        const b = bucketOf(o);
+        if (b === null) continue;
+        const sec = Math.min(s.endSec, o.endSec) - Math.max(s.startSec, o.startSec);
+        if (sec > 0) overlapByBucket.set(b, (overlapByBucket.get(b) ?? 0) + sec);
+      }
+    }
+    for (const pid of s.playerIds) {
+      if (ownBucket !== null) {
+        const v = at(pid, "own", ownBucket);
+        if (duration > 0) v[0]! += duration;
+        const base = 1 + PLAYER_EVENT_KEYS.length;
+        v[base]! += pts;
+        v[base + 1]! += oppPts;
+        v[base + 2]! += poss;
+        v[base + 3]! += oppPoss;
+      }
+      for (const [b, sec] of overlapByBucket) at(pid, "opp", b)[0]! += sec;
+    }
+    for (const list of Object.values(s.playerEventsByPeriod ?? {})) {
+      for (const e of list) {
+        if (ownBucket !== null) {
+          const v = at(e.playerId, "own", ownBucket);
+          e.counts.forEach((n, i) => (v[1 + i]! += n));
+        }
+        const ob = e.oppSeq >= 0 ? oppBucketBySeq.get(e.oppSeq) : null;
+        if (ob !== null && ob !== undefined) {
+          const v = at(e.playerId, "opp", ob);
+          e.counts.forEach((n, i) => (v[1 + i]! += n));
+        }
+      }
+    }
+  }
+  // 時間も記録も無い人数は持たない
+  for (const v of out.values()) {
+    for (const side of ["own", "opp"] as const) for (const [k, arr] of Object.entries(v[side])) if (arr.every((x) => x === 0)) delete v[side][k];
+  }
+  return out;
 }

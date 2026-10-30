@@ -31,6 +31,8 @@ tsconfig.tsbuildinfo
 /data/*/one/player-game-index.json.gz
 /data/*/player-game-records.json.gz
 /data/*/one/player-game-records.json.gz
+/data/*/player-foreign.json.gz
+/data/*/one/player-foreign.json.gz
 /data/*/player-games/
 /data/*/one/player-games/
 /data/*/player-period-index.json.gz

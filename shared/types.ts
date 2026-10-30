@@ -386,6 +386,8 @@ export interface StatTotals {
    */
   doubleDoubles: number;
   tripleDoubles: number;
+  /** 二桁得点試合（PTS10。選手の players.json だけ。レギュラーシーズンの出場試合のうち PTS が10以上。DESIGN.md 303章）。古いデータには無い */
+  points10Games?: number;
 }
 
 export interface PerGameStats {
@@ -586,6 +588,10 @@ export interface TeamSummary {
    * Yahoo PBPデータが1試合も取得できていないシーズンではフィールド自体を省略する
    */
   shotTypes?: ShotTypeBreakdown;
+  /** 相手チームのシュートタイプ別（同じ試合の相手のショット。レギュラーシーズン。全チームスタッツ Shooting の opp・+/-。DESIGN.md 303章）。古いデータには無い */
+  opponentShotTypes?: ShotTypeBreakdown;
+  /** スポーツナビの記録がある試合の数（レギュラーシーズン。Shooting の平均の分母）。古いデータには無い */
+  shotTypeGames?: number;
   /**
    * 自チーム外国籍選手（外国籍+帰化選手+アジア特別枠の合算）同時出場人数別の在コート秒数
    * （0人/1人/2人/3人/4人以上の5区分の配列、DESIGN.md参照。2026-09-23に3人以上を3人/4人に分割）。TeamGameLog.foreignPlayerCount
@@ -849,6 +855,12 @@ export interface PlayerGameLog extends Partial<FoulCategoryCounts> {
   onCourtQuality?: number;
   /** FGにつながったアシスト（本人がアシストした側。FTにつながったアシストは数えない）。2020-21以降のプレーバイプレーのある試合だけ */
   fgAssists?: number;
+  /**
+   * FT・3P の連続成功の試合の要約（shared/shotStreaks.ts。[試投, 成功, 先頭の連なり, 末尾の連なり, 途中の最長, その件数]）。
+   * プレーバイプレーが無い・本数が公式と合わない試合は無い（連続をつなぐときにそこで区切る）。古いデータには無い
+   */
+  ftStreak?: number[];
+  tpStreak?: number[];
 }
 
 // ---- data/{season}/team-games/{teamId}.json の保存スキーマ（チーム詳細ページの試合結果一覧用） ----
@@ -929,6 +941,9 @@ export interface TeamGameLog extends Partial<FoulCategoryCounts>, Partial<Oppone
   stintTotals?: number[];
   /** 出場中の材料の品質（PlayerGameLog.onCourtQuality と同じ） */
   onCourtQuality?: number;
+  /** その試合の自チーム・相手のシュートタイプ別（スポーツナビの記録がある試合だけ。DESIGN.md 303章） */
+  shotTypes?: ShotTypeBreakdown;
+  opponentShotTypes?: ShotTypeBreakdown;
   /**
    * 相手チームのボックススコア（個人ORtg/DRtgのDean Oliver方式で「opponent」役として必要な
    * フィールドのみ。opponentScoreがptsに相当するためptsは別途持たない）。DESIGN.md参照
@@ -1992,4 +2007,18 @@ export interface RookieEligibilityFile {
   seasons: Record<string, string[]>;
   /** 判定不能で対象から外した選手 → 理由（"no-birth-date"・"no-history"・"history-lacks-first-season"）。履歴が取れた次の集計で判定に戻る */
   undeterminable: Record<string, string>;
+}
+
+/**
+ * 選手の On-Court Foreign の人数別の材料（data/{season}/player-foreign.json.gz。2020-21以降。DESIGN.md 303章）。
+ * 選手ID → ScheduleKey → shared/foreignOnCourt.ts の PlayerForeignOnCourt（own は自チームの人数ごとに
+ * [秒, 本人の記録×eventKeys, 出場中の自チーム得点・相手得点・自チーム攻撃回数・相手攻撃回数]、opp は相手の人数ごとに [秒, 本人の記録×eventKeys]。人数は本人を含む）。
+ * 時間か記録のある人数だけを持つ。試合ログを読む画面を重くしないため、試合ログとは別のファイルにする
+ */
+export interface PlayerForeignFile {
+  version: 1;
+  generatedAt: string;
+  season: string;
+  eventKeys: string[];
+  players: Record<string, Record<string, { own: Record<string, number[]>; opp: Record<string, number[]> }>>;
 }

@@ -28,6 +28,7 @@ export const SEASON_DERIVED_ENTRIES = [
   "period-averages.json.gz",
   "player-game-index.json.gz",
   "player-game-records.json.gz",
+  "player-foreign.json.gz",
   "player-games",
   "player-period-index.json.gz",
   "players.json.gz",
@@ -45,10 +46,10 @@ export const SEASON_DERIVED_ENTRIES = [
 /**
  * SEASON_DERIVED_ENTRIES のうち、シーズンによっては作られないもの（作成済みかの判定から外す）。
  * team-stints は 2020-21 以降だけ（2019-20 以前は実際のポゼッションの元になる交代の記録が使えない。DESIGN.md 204章）。
- * team-tts.json.gz（Time to Shot）も 2020-21 以降だけ。
+ * team-tts.json.gz（Time to Shot）も 2020-21 以降だけ。player-foreign.json.gz（選手の On-Court Foreign の人数別の材料。DESIGN.md 303章）も 2020-21 以降だけ。
  * ここに足すのは、シーズンによって作られないと分かっているものだけ。作られるはずのファイルを足すと、作成漏れに気付けなくなる
  */
-export const SEASON_OPTIONAL_DERIVED_ENTRIES = ["team-stints", "team-tts.json.gz"] as const;
+export const SEASON_OPTIONAL_DERIVED_ENTRIES = ["team-stints", "team-tts.json.gz", "player-foreign.json.gz"] as const;
 
 /** data/ 直下の元データ（A） */
 export const GLOBAL_RAW_ENTRIES = [

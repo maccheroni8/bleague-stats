@@ -36,16 +36,18 @@ import {
   onCourtPeriodCount,
   periodRangeSeconds,
   reconstructOnCourt,
+  PLAYER_EVENT_KEYS,
   sumCountsByPeriod,
   substitutionModelForSeason,
   type OnCourtReconstruction,
   type PlayerOnCourtRatings,
 } from "../shared/onCourt.ts";
-import { computeForeignPlayerCourtSeconds, foreignCourtSecondsArray, type ForeignOverLimitTally } from "../shared/foreignOnCourt.ts";
+import { computeForeignPlayerCourtSeconds, foreignCourtSecondsArray, playerForeignOnCourt, type ForeignOverLimitTally, type PlayerForeignOnCourt } from "../shared/foreignOnCourt.ts";
 import { buildMiscEventCounts, countTechnicalFouls, teamPointsBreakdown, type MiscEventCounts } from "../shared/teamGameEvents.ts";
 import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
 import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../shared/playTypePoints.ts";
 import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
+import { gameShotStreakSummary } from "../shared/shotStreaks.ts";
 import { hasOnCourtValues, fgAssistsByPlayer, playerOnCourtByPeriod, sumOverPeriods, teamOnCourtQuality, teamStintTotals } from "../shared/playerOnCourt.ts";
 import { buildOfficialPaintSplit, type PaintSplitCounts as OfficialPaintSplitCounts } from "../shared/paintSplit.ts";
 import { TEAM_NAMES, teamDivisionForSeason } from "./lib/divisions.ts";
@@ -86,6 +88,7 @@ import type {
   LineupAggregate,
   PlayByPlayEvent,
   PlayerGameLog,
+  PlayerForeignFile,
   PlayerMasterEntry,
   PlayoffRaceFile,
   ScheduleFile,
@@ -230,20 +233,49 @@ function accumulateShotType(byKey: Map<string, ShotTypeBreakdown>, key: string, 
 async function buildShotTypeBreakdowns(
   season: string,
   games: StoredGame[],
-): Promise<{ byPlayer: Map<string, ShotTypeBreakdown>; byTeam: Map<string, ShotTypeBreakdown> }> {
+): Promise<{
+  byPlayer: Map<string, ShotTypeBreakdown>;
+  byTeam: Map<string, ShotTypeBreakdown>;
+  /** 相手チームのシュートタイプ別（同じ試合の相手のショットを自チームの側に足す。レギュラーシーズン。DESIGN.md 303章） */
+  opponentByTeam: Map<string, ShotTypeBreakdown>;
+  /** スポーツナビの記録がある試合の数（レギュラーシーズン。全チームスタッツ Shooting の平均の分母） */
+  gamesByTeam: Map<string, number>;
+  /** 試合ごとの自チーム・相手（"チームID|ScheduleKey"。全試合区分。記録の無い試合は無し） */
+  byTeamGame: Map<string, { own: ShotTypeBreakdown; opp: ShotTypeBreakdown }>;
+}> {
   const byPlayer = new Map<string, ShotTypeBreakdown>();
   const byTeam = new Map<string, ShotTypeBreakdown>();
-  const regularGames = games.filter((g) => classifyGameType(g.raw.Game.ConventionNameJ) === "regular");
-  for (const game of regularGames) {
+  const opponentByTeam = new Map<string, ShotTypeBreakdown>();
+  const gamesByTeam = new Map<string, number>();
+  const byTeamGame = new Map<string, { own: ShotTypeBreakdown; opp: ShotTypeBreakdown }>();
+  for (const game of games) {
+    const regular = classifyGameType(game.raw.Game.ConventionNameJ) === "regular";
     const pbp = await readJson<YahooGamePbp>(path.join(DATA_DIR, season, "yahoo", `${game.scheduleKey}.json`));
     if (!pbp) continue;
+    const ids = [game.homeTeam.id, game.awayTeam.id];
+    const perGame = new Map<string, ShotTypeBreakdown>();
+    const perGameOpp = new Map<string, ShotTypeBreakdown>();
+    for (const id of ids) {
+      perGame.set(id, {});
+      perGameOpp.set(id, {});
+      if (regular) gamesByTeam.set(id, (gamesByTeam.get(id) ?? 0) + 1);
+    }
     for (const shot of pbp.shots) {
       if (!shot.shotType) continue;
-      accumulateShotType(byTeam, shot.teamId, shot);
-      if (shot.playerId) accumulateShotType(byPlayer, shot.playerId, shot);
+      if (regular) {
+        accumulateShotType(byTeam, shot.teamId, shot);
+        if (shot.playerId) accumulateShotType(byPlayer, shot.playerId, shot);
+      }
+      // 相手の側: この試合の2チームのどちらかのショットだけ（知らないチームIDを相手として扱わない）
+      if (!ids.includes(shot.teamId)) continue;
+      const opponentId = shot.teamId === ids[0] ? ids[1]! : ids[0]!;
+      if (regular) accumulateShotType(opponentByTeam, opponentId, shot);
+      accumulateShotType(perGame, shot.teamId, shot);
+      accumulateShotType(perGameOpp, opponentId, shot);
     }
+    for (const id of ids) byTeamGame.set(`${id}|${game.scheduleKey}`, { own: perGame.get(id)!, opp: perGameOpp.get(id)! });
   }
-  return { byPlayer, byTeam };
+  return { byPlayer, byTeam, opponentByTeam, gamesByTeam, byTeamGame };
 }
 
 /**
@@ -390,6 +422,8 @@ interface StatTotals {
    */
   doubleDoubles: number;
   tripleDoubles: number;
+  /** 二桁得点試合（PTS10。選手だけ。レギュラーシーズンの出場試合のうち PTS が10以上。DESIGN.md 303章） */
+  points10Games?: number;
 }
 
 function emptyTotals(): StatTotals {
@@ -790,6 +824,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
     return team;
   };
 
+  const playerForeignByPlayer = new Map<string, Record<string, PlayerForeignOnCourt>>();
   for (const game of games) {
     const gameType = classifyGameType(game.raw.Game.ConventionNameJ);
     const periods = onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays);
@@ -803,9 +838,11 @@ export async function aggregateSeason(season: string, category: Category = "prem
             game.awayTeam.id,
             periods,
             substitutionModelForSeason(game.season),
+            // 選手の On-Court Foreign の人数別の本人の成績に、区間ごとの本人の記録を使う（ほかの値は変わらない。DESIGN.md 303章）
+            { trackPlayerEvents: true },
           )
         : null;
-    const onCourtMaterials = buildGameOnCourtMaterials(game, onCourt, periods);
+    const onCourtMaterials = buildGameOnCourtMaterials(game, onCourt, periods, (id) => classifyAt(id, game.date), maxForeignOnCourt);
     const technicalFouls = countTechnicalFouls(game.raw.PlayByPlays);
     const foreignPlayerCourtSeconds = onCourt
       ? computeForeignPlayerCourtSeconds(onCourt.lineupStints, (id) => classifyAt(id, game.date), maxForeignOnCourt, foreignOverLimit)
@@ -860,6 +897,15 @@ export async function aggregateSeason(season: string, category: Category = "prem
       clutch,
       onCourtMaterials,
     );
+    // 選手の On-Court Foreign の人数別の材料（別のファイル player-foreign.json に書く。試合ログを読む画面を重くしないため。DESIGN.md 303章）
+    for (const team of onCourtMaterials?.byTeam.values() ?? []) {
+      for (const [pid, v] of team.foreign) {
+        if (Object.keys(v.own).length === 0 && Object.keys(v.opp).length === 0) continue;
+        let byGame = playerForeignByPlayer.get(pid);
+        if (!byGame) playerForeignByPlayer.set(pid, (byGame = {}));
+        byGame[game.scheduleKey] = v;
+      }
+    }
     processTeams(
       game,
       gameType,
@@ -915,10 +961,22 @@ export async function aggregateSeason(season: string, category: Category = "prem
       : { forced: new Map<string, TeamForcedTurnovers>(), committed: new Map<string, TeamForcedTurnovers>() };
   // シュートタイプ別の成功/試投カウント（Yahoo!スポーツplay-by-play由来。選手別・チーム別を
   // 1回の走査で同時に集計する。DESIGN.md参照）
-  const { byPlayer: shotTypesByPlayer, byTeam: shotTypesByTeam } =
+  const {
+    byPlayer: shotTypesByPlayer,
+    byTeam: shotTypesByTeam,
+    opponentByTeam: opponentShotTypesByTeam,
+    gamesByTeam: shotTypeGamesByTeam,
+    byTeamGame: shotTypesByTeamGame,
+  } =
     category === "premier"
       ? await buildShotTypeBreakdowns(season, games)
-      : { byPlayer: new Map<string, ShotTypeBreakdown>(), byTeam: new Map<string, ShotTypeBreakdown>() };
+      : {
+          byPlayer: new Map<string, ShotTypeBreakdown>(),
+          byTeam: new Map<string, ShotTypeBreakdown>(),
+          opponentByTeam: new Map<string, ShotTypeBreakdown>(),
+          gamesByTeam: new Map<string, number>(),
+          byTeamGame: new Map<string, { own: ShotTypeBreakdown; opp: ShotTypeBreakdown }>(),
+        };
 
   // PER（Hollinger方式、NBA/Basketball-Reference流。DESIGN.md参照）。
   // リーグ全体の合計値（自チーム視点のteams.totalsを全チーム分足し合わせたもの。相手チーム視点の
@@ -1122,6 +1180,9 @@ export async function aggregateSeason(season: string, category: Category = "prem
         forcedTurnovers,
         turnoversCommitted,
         shotTypes,
+        ...(shotTypeGamesByTeam.has(t.teamId)
+          ? { opponentShotTypes: opponentShotTypesByTeam.get(t.teamId) ?? {}, shotTypeGames: shotTypeGamesByTeam.get(t.teamId)! }
+          : {}),
         foreignPlayerCourtSeconds: t.foreignPlayerCourtSeconds,
       };
   };
@@ -1158,12 +1219,38 @@ export async function aggregateSeason(season: string, category: Category = "prem
       ) as unknown as TeamSummary,
       misc: scaleNumbers(sumTeamSeasonMisc(leagueTeams.flatMap((t) => t.gameLogs)), 1 / n),
     };
+    // Shooting の相手側・対象試合数（チームの値と同じく、各チームの値の平均。DESIGN.md 303章）
+    const leagueOppShots = avg(leagueTeams.map((t) => opponentShotTypesByTeam.get(t.teamId)));
+    const leagueShotGames = avg(leagueTeams.map((t) => shotTypeGamesByTeam.get(t.teamId)));
+    if (leagueOppShots && leagueShotGames !== undefined) {
+      leagueFile.team.opponentShotTypes = leagueOppShots;
+      leagueFile.team.shotTypeGames = leagueShotGames;
+    }
     await writeJson(path.join(DATA_DIR, seasonDir, "league-average.json"), leagueFile);
   }
 
   for (const t of teams.values()) {
+    // 試合ごとのシュートタイプ別（自チーム・相手。スポーツナビの記録がある試合だけ。DESIGN.md 303章）
+    for (const log of t.gameLogs) {
+      const shot = shotTypesByTeamGame.get(`${t.teamId}|${log.scheduleKey}`);
+      if (shot) {
+        log.shotTypes = shot.own;
+        log.opponentShotTypes = shot.opp;
+      }
+    }
     const gameLogs = [...t.gameLogs].sort((a, b) => a.date.localeCompare(b.date));
     await writeJson(path.join(DATA_DIR, seasonDir, "team-games", `${t.teamId}.json`), gameLogs);
+  }
+
+  if (playerForeignByPlayer.size > 0) {
+    const file: PlayerForeignFile = {
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      season,
+      eventKeys: [...PLAYER_EVENT_KEYS],
+      players: Object.fromEntries([...playerForeignByPlayer].sort(([a], [b]) => a.localeCompare(b))),
+    };
+    await writeJsonIfChanged(path.join(DATA_DIR, seasonDir, "player-foreign.json"), file as unknown as Record<string, unknown>, ["generatedAt"], false);
   }
 
   // アシストペアの試合ごとの行（DESIGN.md 221章。B.ONE も同じ形で one/ に書く。295章）。列ごとに数値を並べるので字下げなしで書く
@@ -1365,11 +1452,17 @@ function collectTeamStints(game: StoredGame, store: Map<string, TeamStintsBuilde
  * チームごとの品質・出場区間の合計・選手のピリオド別の材料と、FGにつながったアシスト
  */
 interface GameOnCourtMaterials {
-  byTeam: Map<string, { quality: number; stintTotals: number[]; byPlayer: Map<string, Map<number, number[]>> }>;
+  byTeam: Map<string, { quality: number; stintTotals: number[]; byPlayer: Map<string, Map<number, number[]>>; foreign: Map<string, PlayerForeignOnCourt> }>;
   fgAssists: Map<string, number>;
 }
 
-function buildGameOnCourtMaterials(game: StoredGame, onCourt: OnCourtReconstruction | null, periods: number): GameOnCourtMaterials | null {
+function buildGameOnCourtMaterials(
+  game: StoredGame,
+  onCourt: OnCourtReconstruction | null,
+  periods: number,
+  classify: (id: string) => string | undefined,
+  maxForeignOnCourt: number | undefined,
+): GameOnCourtMaterials | null {
   if (!onCourt?.teamTotals) return null;
   const byTeam: GameOnCourtMaterials["byTeam"] = new Map();
   for (const home of [true, false]) {
@@ -1381,6 +1474,7 @@ function buildGameOnCourtMaterials(game: StoredGame, onCourt: OnCourtReconstruct
       quality: teamOnCourtQuality(onCourt, teamId, opponentId, ownRows, oppRows, home ? game.homeScore : game.awayScore, home ? game.awayScore : game.homeScore, periods),
       stintTotals: teamStintTotals(onCourt.lineupStints, teamId, periods),
       byPlayer: playerOnCourtByPeriod(onCourt.lineupStints, teamId, periods),
+      foreign: playerForeignOnCourt(onCourt.lineupStints, teamId, opponentId, classify, maxForeignOnCourt),
     });
   }
   const fgAssists = new Map<string, number>();
@@ -1388,7 +1482,11 @@ function buildGameOnCourtMaterials(game: StoredGame, onCourt: OnCourtReconstruct
   return { byTeam, fgAssists };
 }
 
-function playerOnCourtFields(m: GameOnCourtMaterials | null, teamId: string, playerId: string): Pick<PlayerGameLog, "onCourt" | "onCourtQuality" | "fgAssists"> {
+function playerOnCourtFields(
+  m: GameOnCourtMaterials | null,
+  teamId: string,
+  playerId: string,
+): Pick<PlayerGameLog, "onCourt" | "onCourtQuality" | "fgAssists"> {
   const team = m?.byTeam.get(teamId);
   if (!m || !team) return {};
   const byPeriod = team.byPlayer.get(playerId);
@@ -1397,6 +1495,14 @@ function playerOnCourtFields(m: GameOnCourtMaterials | null, teamId: string, pla
     onCourtQuality: team.quality,
     fgAssists: m.fgAssists.get(playerId) ?? 0,
   };
+}
+
+/** FT・3P の連続成功の試合の要約（shared/shotStreaks.ts。プレーバイプレーが無い・本数が公式と合わない種類は持たない） */
+function shotStreakFields(game: StoredGame, playerId: string): Pick<PlayerGameLog, "ftStreak" | "tpStreak"> {
+  const rows = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores];
+  const ft = gameShotStreakSummary(game.raw.PlayByPlays, rows, playerId, "ft");
+  const tp = gameShotStreakSummary(game.raw.PlayByPlays, rows, playerId, "tp");
+  return { ...(ft ? { ftStreak: ft } : {}), ...(tp ? { tpStreak: tp } : {}) };
 }
 
 function teamOnCourtFields(m: GameOnCourtMaterials | null, teamId: string): Pick<TeamGameLog, "stintTotals" | "onCourtQuality"> {
@@ -1478,7 +1584,7 @@ function processPlayers(
         name: normalizePlayerName(row.PlayerNameJ),
         teamId: row.TeamID ?? "",
         teamName: row.TeamNameJ,
-        totals: emptyTotals(),
+        totals: { ...emptyTotals(), points10Games: 0 },
         gameLogs: [],
         teamOfGame: new Map(),
       };
@@ -1524,6 +1630,7 @@ function processPlayers(
         const doubleDigitCount = [row.Point, row.RB_TOT, row.AS, row.ST, row.BS].filter((v) => v >= 10).length;
         if (doubleDigitCount >= 2) acc.totals.doubleDoubles += 1;
         if (doubleDigitCount >= 3) acc.totals.tripleDoubles += 1;
+        if (row.Point >= 10) acc.totals.points10Games = (acc.totals.points10Games ?? 0) + 1;
       }
     }
 
@@ -1590,6 +1697,7 @@ function processPlayers(
       onCourtOppPoss: onCourtRatingsByPlayer[row.PlayerID]?.oppPoss ?? 0,
       onCourtSeconds: onCourtRatingsByPlayer[row.PlayerID]?.onCourtSec ?? 0,
       ...playerOnCourtFields(onCourtMaterials, row.TeamID ?? "", row.PlayerID),
+      ...shotStreakFields(game, row.PlayerID),
     });
   }
 }

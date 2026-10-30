@@ -14,6 +14,8 @@ import {
   GAME_INDEX_VERSION,
   PLAYER_INDEX_CLUTCH_COLUMNS,
   PLAYER_INDEX_STAT_COLUMNS,
+  PLAYER_INDEX_STREAK_COLUMNS,
+  type PlayerIndexStreakColumn,
   ROW_FLAG_HOME,
   ROW_FLAG_STARTER,
   TEAM_INDEX_PERIOD_COLUMNS,
@@ -222,6 +224,7 @@ export async function buildGameIndex(
   });
   const playerStats = {} as Record<PlayerStatColumn, number[]>;
   for (const c of PLAYER_INDEX_STAT_COLUMNS) playerStats[c] = [];
+  const streakStats = Object.fromEntries(PLAYER_INDEX_STREAK_COLUMNS.map((c) => [c, [] as number[]])) as Record<PlayerIndexStreakColumn, number[]>;
   const rowPlayer: number[] = [];
   const rowGame: number[] = [];
   const rowFlags: number[] = [];
@@ -232,6 +235,10 @@ export async function buildGameIndex(
     rowGame.push(r.gi);
     rowFlags.push((r.g.isStarter ? ROW_FLAG_STARTER : 0) | (r.g.isHome ? ROW_FLAG_HOME : 0));
     for (const c of PLAYER_INDEX_STAT_COLUMNS) playerStats[c].push(playerStat(r.g, c));
+    // 連続成功の材料（[試投, 成功, 先頭, 末尾, 途中の最長, 件数] の後ろ4つ。無い試合は -1）
+    for (const [kind, summary] of [["ft", r.g.ftStreak], ["tp", r.g.tpStreak]] as const) {
+      (["Pre", "Suf", "InMax", "InN"] as const).forEach((suffix, i) => streakStats[`${kind}${suffix}`].push(summary ? summary[2 + i]! : -1));
+    }
   }
   const player: PlayerGameIndexFile = {
     version: GAME_INDEX_VERSION,
@@ -240,7 +247,7 @@ export async function buildGameIndex(
     teams,
     games,
     players,
-    rows: { player: rowPlayer, game: rowGame, flags: rowFlags, stats: playerStats, ...(splitClasses ? { cls: rowClasses } : {}) },
+    rows: { player: rowPlayer, game: rowGame, flags: rowFlags, stats: { ...playerStats, ...streakStats }, ...(splitClasses ? { cls: rowClasses } : {}) },
   };
   return { player, team };
 }
