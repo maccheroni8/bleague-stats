@@ -58,6 +58,7 @@
     "validate:game-record-query": "esbuild scripts/validate-game-record-query.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-game-record-query.mjs && node node_modules/.cache/validate-game-record-query.mjs",
     "validate:export-image": "esbuild scripts/validate-export-image.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-export-image.mjs && node node_modules/.cache/validate-export-image.mjs",
     "validate:game-orpct": "esbuild scripts/validate-game-orpct.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-game-orpct.mjs && node node_modules/.cache/validate-game-orpct.mjs",
+    "validate:individual-drtg": "node --experimental-strip-types scripts/validate-individual-drtg.ts",
     "validate:player-oncourt": "esbuild scripts/validate-player-oncourt.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-player-oncourt.mjs && node node_modules/.cache/validate-player-oncourt.mjs",
     "validate:rebuild-materials": "node --experimental-strip-types scripts/validate-rebuild-materials.ts",
     "validate:stat-names": "esbuild scripts/validate-stat-names.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-stat-names.mjs && node node_modules/.cache/validate-stat-names.mjs",

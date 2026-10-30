@@ -501,13 +501,50 @@ function buildAdvancedColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
       sortValue: (r) => r.player.advanced.per,
       format: (r) => formatDecimal(r.player.advanced.per),
     },
+    // ORtg・DRtg・NetRtg（Dean Oliver方式）。出せない選手（出場4分未満・DRtgを持たない古いデータ）は「-」で、
+    // 並べ替えの値を NaN にして、昇順・降順どちらでも最後に並べる（「-」が DRtg の良い順に入らない）
     {
       key: "ortg",
       label: "ORtg",
-      sortValue: (r) => (r.player.advanced.ppp !== undefined ? r.player.advanced.ppp * 100 : 0),
-      format: (r) => (r.player.advanced.ppp !== undefined ? formatDecimal(r.player.advanced.ppp * 100) : "-"),
+      sortValue: (r) => individualOrtgOf(r) ?? Number.NaN,
+      format: (r) => {
+        const v = individualOrtgOf(r);
+        return v !== undefined ? formatDecimal(v) : "-";
+      },
+    },
+    {
+      key: "drtg",
+      label: "DRtg",
+      sortValue: (r) => r.player.advanced.individualDrtg ?? Number.NaN,
+      format: (r) => {
+        const v = r.player.advanced.individualDrtg;
+        return v !== undefined ? formatDecimal(v) : "-";
+      },
+      higherIsBetter: false,
+    },
+    {
+      key: "netrtg",
+      label: "NetRtg",
+      sortValue: (r) => individualNetRtgOf(r) ?? Number.NaN,
+      format: (r) => {
+        const v = individualNetRtgOf(r);
+        return v !== undefined ? formatSigned(v) : "-";
+      },
     },
   ];
+}
+
+/** 個人ORtg（players.json の ppp×100。丸めない） */
+function individualOrtgOf(r: PlayerRow): number | undefined {
+  const ppp = r.player.advanced.ppp;
+  return ppp !== undefined ? ppp * 100 : undefined;
+}
+
+/** 個人NetRtg＝丸める前の ORtg − DRtg（保存しない）。どちらかが無ければ undefined */
+function individualNetRtgOf(r: PlayerRow): number | undefined {
+  const ortg = individualOrtgOf(r);
+  const drtg = r.player.advanced.individualDrtg;
+  return ortg !== undefined && drtg !== undefined ? ortg - drtg : undefined;
 }
 
 const TAB_LABELS: { key: PlayersPageTab; label: string }[] = [

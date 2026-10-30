@@ -528,6 +528,12 @@ export interface PlayerAdvancedStats {
    * 引き継ぎ、該当選手はundefined（算出不能）になる
    */
   ppp?: number;
+  /**
+   * 個人DRtg（Dean Oliver方式、shared/formulas.tsのindividualDefRtg）。pppと同じ合計（移籍した選手は所属期間ごとの
+   * 各チームの合計。DESIGN.md 216章）とチームのPOSSの合計から求める。出場時間4分未満（シーズン合計）はundefined。
+   * この項目を持たない古いデータでは画面は「-」を出す（出場中のチームの守備効率 On DRtg で代わりにしない）
+   */
+  individualDrtg?: number;
 }
 
 // ---- data/team-colors.json の保存スキーマ（scripts/extract-team-colors.ts生成） ----

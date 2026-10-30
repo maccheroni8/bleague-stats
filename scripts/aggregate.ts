@@ -16,6 +16,7 @@ import {
   estimatedPossessions,
   finalizePer,
   ftRate,
+  individualDefRtg,
   individualOffRtg,
   offensiveRating,
   orbPct,
@@ -1053,6 +1054,13 @@ export async function aggregateSeason(season: string, category: Category = "prem
           ? individualOffRtg(toOliverBoxFromTotals(p.totals), toOliverBoxFromTotals(team.totals), toOliverBoxFromTotals(team.opponentTotals))
           : undefined;
       const ppp = individualSeasonOffRtg !== undefined ? individualSeasonOffRtg / 100 : undefined;
+      // 個人DRtg（Dean Oliver方式。individualDefRtg）。ORtgと同じ合計（移籍した選手は所属期間ごとの各チームの合計）と、
+      // そのチームのPOSSの合計を使う。出場時間4分未満（シーズン合計）はundefined。NetRtgは保存せず、画面で丸める前のORtg−DRtgで出す
+      const individualDrtg = transferred
+        ? individualDefRtg(toOliverBoxFromTotals(p.totals), teamOliverBox(transferred), opponentOliverBox(transferred), transferred.poss)
+        : team
+          ? individualDefRtg(toOliverBoxFromTotals(p.totals), toOliverBoxFromTotals(team.totals), toOliverBoxFromTotals(team.opponentTotals), team.totals.poss)
+          : undefined;
       // 国籍・身長体重・生年月日・ポジションはplayers-master.jsonから突合（未登録選手は全て未定義のまま）
       const master = masterById.get(p.playerId);
       const profile = useSeasonProfile
@@ -1085,6 +1093,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
           offCourtNetPerGame: (p.totals.teamNetSum - p.totals.plusMinus) / (p.totals.gamesPlayed || 1),
           per,
           ppp,
+          individualDrtg,
         },
       };
     })
@@ -1367,7 +1376,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         birthDate: master.birthDate,
         shotTypes: undefined,
         ...emptyBlock,
-        advanced: { eff: 0, usagePct: 0, onCourtNet: 0, onCourtNetPerGame: 0, offCourtNet: 0, offCourtNetPerGame: 0, per: 0, ppp: undefined },
+        advanced: { eff: 0, usagePct: 0, onCourtNet: 0, onCourtNetPerGame: 0, offCourtNet: 0, offCourtNetPerGame: 0, per: 0, ppp: undefined, individualDrtg: undefined },
       });
     }
     registeredPlayersJson.sort((a, b) => a.teamId.localeCompare(b.teamId) || a.playerId.localeCompare(b.playerId));

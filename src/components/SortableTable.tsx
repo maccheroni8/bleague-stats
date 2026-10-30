@@ -81,6 +81,10 @@ export function SortableTable<T>({
     return [...rows].sort((a, b) => {
       const av = column.sortValue(a);
       const bv = column.sortValue(b);
+      // 値が無い行（sortValue が NaN。「-」の表示）は、昇順・降順どちらでも最後に並べる
+      const aMissing = typeof av === "number" && Number.isNaN(av);
+      const bMissing = typeof bv === "number" && Number.isNaN(bv);
+      if (aMissing || bMissing) return aMissing === bMissing ? 0 : aMissing ? 1 : -1;
       if (typeof av === "number" && typeof bv === "number") return (av - bv) * factor;
       return String(av).localeCompare(String(bv)) * factor;
     });
