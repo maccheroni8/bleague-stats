@@ -52,7 +52,7 @@ import {
 } from "../lib/data";
 import { LEAGUE_COLOR, LEAGUE_SLOT_NOTE, LEAGUE_TEAM_NAME } from "../lib/leagueAverage";
 import { useJsonData } from "../lib/useJsonData";
-import { statJa } from "../lib/statNames";
+import { NATURALIZED_ASIA_LABEL, statJa } from "../lib/statNames";
 import { isPastSeason } from "../lib/season";
 import { useResultOnlyBySeason } from "../lib/resultOnlyBySeason";
 import { OtherRuns, StreakPeriod, StreakRecordCard } from "../components/StreakRecordCard";
@@ -548,7 +548,7 @@ function buildClassificationPtsCompositionSegments(team: TeamSummary, perspectiv
   ];
 }
 
-/** 2026-27 以降の登録区分別得点割合（日本人／外国籍／帰化／アジア特別枠。レギュラーシーズンの試合ログの1試合平均） */
+/** 2026-27 以降の登録区分別得点割合（日本人／外国籍／帰化・アジア特別枠〔帰化とアジア特別枠の合計〕。レギュラーシーズンの試合ログの1試合平均） */
 function buildSplitClassificationPtsSegments(logs: readonly TeamGameLog[], perspective: "own" | "opp"): PieSegmentInput[] {
   const n = logs.length || 1;
   const sum = (f: (g: TeamGameLog) => number) => logs.reduce((a, g) => a + (f(g) ?? 0), 0) / n;
@@ -556,8 +556,12 @@ function buildSplitClassificationPtsSegments(logs: readonly TeamGameLog[], persp
   return [
     { key: "jp", label: "日本人", color: CLASSIFICATION_COLORS.japanese, value: sum((g) => (own ? g.japanesePoints : g.opponentJapanesePoints)) },
     { key: "foreign", label: "外国籍", color: CLASSIFICATION_COLORS.foreign, value: sum((g) => (own ? g.foreignPoints : g.opponentForeignPoints)) },
-    { key: "naturalized", label: "帰化", color: CLASSIFICATION_COLORS.naturalized, value: sum((g) => (own ? g.naturalizedPoints : g.opponentNaturalizedPoints)) },
-    { key: "asia", label: "アジア特別枠", color: CLASSIFICATION_COLORS.asia, value: sum((g) => (own ? g.asianQuotaPoints : g.opponentAsianQuotaPoints)) },
+    {
+      key: "naturalizedAsia",
+      label: NATURALIZED_ASIA_LABEL,
+      color: CLASSIFICATION_COLORS.naturalizedAsia,
+      value: sum((g) => (own ? g.naturalizedPoints + g.asianQuotaPoints : g.opponentNaturalizedPoints + g.opponentAsianQuotaPoints)),
+    },
   ];
 }
 
@@ -567,7 +571,7 @@ function buildSplitClassificationPtsSegments(logs: readonly TeamGameLog[], persp
  * （3P/IP/OP/FT）それぞれ自チーム・相手チームの円グラフを横に並べて表示する
  */
 function ScoringCompositionSection({ team, gameLogs, color, season }: { team: TeamSummary; gameLogs: TeamGameLog[]; color: string | undefined; season: string }) {
-  // 2026-27 以降は、登録区分を日本人／外国籍／帰化／アジア特別枠の4つに分ける（試合ログの試合ごとの区分の得点。DESIGN.md 298章）
+  // 2026-27 以降は、登録区分を日本人／外国籍／帰化・アジア特別枠の3つに分ける（試合ログの試合ごとの区分の得点。DESIGN.md 298章）
   const classSplit = splitClassificationSeason(season);
   // 自チームの円グラフはチームカラーの濃淡、opp は対戦相手全体なので無彩色の濃淡（DESIGN.md 182章）
   const ownColor = color ?? MONO_FALLBACK_COLOR;

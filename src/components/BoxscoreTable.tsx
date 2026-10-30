@@ -13,7 +13,7 @@ import { OR_PCT_UNAVAILABLE_NOTE, computeTeamOrPct, orShare, personalOrPct } fro
 import { ON_COURT_SHARE_UNAVAILABLE_NOTE, computeTeamOnCourtShare, gamePlayerAstPct } from "../lib/gameOnCourtShare";
 import type { PeriodOnCourtShare } from "../lib/playerSeasonBoxscore";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, SummaryRow, YahooTurnoverEvent } from "../../shared/types";
-import { classificationGroup, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
+import { classificationGroup, DISPLAY_CLASS_GROUPS, displayGroupOf, splitClassificationSeason } from "../lib/classificationFilter";
 import {
   astToTovRatio,
   buildPlayTypeCounts,
@@ -838,9 +838,9 @@ function BoxscoreTeamPanel({
   // 登録区分の内訳。2026-27 以降の試合は、その試合の日の区分で日本人・外国籍・帰化・アジア特別枠に分ける（DESIGN.md 298章）。
   // それより前は日本人・外国籍・帰化・アジアの2つ（現在の登録情報）
   const classGroups: { label: string; players: typeof players }[] = classificationSplit
-    ? (["日本人", "外国籍", "帰化", "アジア特別枠"] as const).map((g) => ({
+    ? DISPLAY_CLASS_GROUPS.map((g) => ({
         label: g === "日本人" ? "日本人選手合計" : `${g}選手合計`,
-        players: players.filter((p) => splitGroupOf(classificationById.get(p.playerId)) === g),
+        players: players.filter((p) => displayGroupOf(classificationById.get(p.playerId)) === g),
       }))
     : [
         { label: "日本人選手合計", players: players.filter((p) => classificationGroup(classificationById.get(p.playerId)) === "日本人") },

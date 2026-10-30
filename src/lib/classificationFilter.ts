@@ -2,6 +2,7 @@ import type { ClassKey } from "../../shared/classificationKey";
 import type { PlayerGameIndexFile } from "../../shared/gameIndex";
 import { CLASSIFICATION_CODES, hasSplitClassification, SPLIT_CLASSIFICATION_FIRST_SEASON, type Classification } from "../../shared/registration";
 import type { PlayerSummary } from "../../shared/types";
+import { NATURALIZED_ASIA_LABEL } from "./statNames";
 
 /**
  * 選手の登録区分フィルタ・表示区分（DESIGN.md 94章・295章・298章）。
@@ -88,6 +89,7 @@ export const CLASSIFICATION_COLORS = {
   international: "#5b9bd5",
   foreign: "#5b9bd5",
   naturalized: "#9b7fd1",
+  naturalizedAsia: "#9b7fd1",
   asia: "#4fae8a",
 } as const;
 
@@ -102,6 +104,14 @@ export function splitGroupOf(c: Classification | undefined): "日本人" | Split
   if (c === undefined) return undefined;
   if (c === "日本人") return "日本人";
   return c === "帰化選手" ? "帰化" : c;
+}
+
+/** 表示用の3区分（日本人／外国籍／帰化・アジア特別枠）。絞り込みの選択肢は分けたまま、内訳の行・円グラフ・比較だけ帰化とアジア特別枠を合算して見せる */
+export type DisplayClassGroup = "日本人" | "外国籍" | typeof NATURALIZED_ASIA_LABEL;
+export const DISPLAY_CLASS_GROUPS: readonly DisplayClassGroup[] = ["日本人", "外国籍", NATURALIZED_ASIA_LABEL];
+export function displayGroupOf(c: Classification | undefined): DisplayClassGroup | undefined {
+  const g = splitGroupOf(c);
+  return g === "帰化" || g === "アジア特別枠" ? NATURALIZED_ASIA_LABEL : g;
 }
 
 export type ClassificationGroupFilter = "all" | ClassificationGroup;

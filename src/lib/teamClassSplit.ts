@@ -12,6 +12,7 @@
 // - ペイント内外の2P・DQFOUL は試合全体の索引に無いので、ピリオド別の索引（5区間）を足して出す（ピリオド別の行が無い試合は「記録なし」）
 // - 出せないもの（POSS・PACE・ORtg・DRtg・NetRtg・+/-・TF1/TF2/FLAG/DISR・ベンチ／スタメン得点・OR% など相手の値が要るもの）は CLASS_SPLIT_UNAVAILABLE に挙げ、列の側で「-」にする
 // - opp の視点は「相手チームの、同じ区分の選手」の値（opp* の項目に入れる）
+import { NATURALIZED_ASIA_LABEL } from "./statNames";
 import { PLAYER_INDEX_STAT_COLUMNS, ROW_FLAG_HOME, type PlayerGameIndexFile } from "../../shared/gameIndex";
 import { PLAYER_PERIOD_STAT_COLUMNS, type PlayerPeriodIndexFile } from "../../shared/periodIndex";
 import type { TeamGameLog } from "../../shared/types";
@@ -20,11 +21,12 @@ import { paintOf, summarizePaint, withPaint, type PaintInput, type PaintPair } f
 import { EMPTY_TOTALS, type AllTeamsRow, type TeamTotals } from "./teamStatsColumns";
 
 /** 区分: jp＝日本人、intl＝外国籍・帰化・アジア（まとめ）、foreign＝外国籍・naturalized＝帰化・asia＝アジア特別枠（2026-27 以降だけ分けられる） */
-export type SplitClass = "jp" | "intl" | "foreign" | "naturalized" | "asia";
+export type SplitClass = "jp" | "intl" | "foreign" | "naturalized" | "asia" | "natAsia";
 /** 2025-26 以前（と古い索引）で出せる区分 */
 export const SPLIT_CLASSES: readonly SplitClass[] = ["jp", "intl"];
 /** 外国籍・帰化・アジア特別枠を分けて出せるシーズン（2026-27 以降）の区分 */
-export const DETAILED_SPLIT_CLASSES: readonly SplitClass[] = ["jp", "foreign", "naturalized", "asia"];
+/** 帰化とアジア特別枠は足して1行（natAsia）にして見せる。帰化だけ・アジア特別枠だけは絞り込みで選んだときの区分 */
+export const DETAILED_SPLIT_CLASSES: readonly SplitClass[] = ["jp", "foreign", "natAsia"];
 
 /** 画面の登録区分の絞り込み → チームの区分（全選手・ルーキーは null） */
 export function splitClassOfFilter(filter: string): SplitClass | null {
@@ -51,6 +53,7 @@ export const SPLIT_CLASS_LABELS: Record<SplitClass, string> = {
   foreign: "外国籍",
   naturalized: "帰化",
   asia: "アジア特別枠",
+  natAsia: NATURALIZED_ASIA_LABEL,
 };
 
 /**
@@ -69,6 +72,7 @@ const CLASS_NUMBERS: Record<SplitClass | "none", readonly number[]> = {
   foreign: [1],
   naturalized: [2],
   asia: [3],
+  natAsia: [2, 3],
   intl: [1, 2, 3, CLASS_INTL_ANY],
   none: [CLASS_NONE],
 };

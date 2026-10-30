@@ -15279,3 +15279,14 @@ players.json に在コートの合計は足していない（Scoring・Misc は�
 - 在コート復元そのものは変えていない（PBP のある全 6,975 試合で、変更前後の復元結果のハッシュが一致）。
 - 新しい検証: `npm run validate:player-oncourt`（出場中の合計・AST%・Off・Q別 +/- の網羅・on/off がランキングの On/Off と一致〔3,021件〕など）、`npm run validate:rebuild-materials`（PTS10・Shooting opp・連続・人数別）。`validate:game-orpct`・`validate:period-index`・`validate:ranking-related` を旧形式・復元値に合わせて更新。validate:all 62本、`validate:figures`・`validate:one-game-matchups` が通り、散布図の値は main と全13のシーズン×リーグで同じ。既存の項目は、足した項目を除いて main と同じ。
 - 既存の不具合（今回の変更ではない。main でも同じ）: 全選手スタッツで URL のシーズンだけを書き換えると、Misc・Scoring が読み込み中のまま止まることがある。読み込み直せば出る。別の作業で直す。
+
+## 305. 帰化とアジア特別枠を「帰化・アジア特別枠」にまとめて表示／全チームスタッツ Forced TOV の平均（2026-10-31。**画面だけの変更でキー不変**。allKey `adef51794843195afa44b91c04bfd39b` のまま）
+
+### 305-1. 帰化・アジア特別枠のまとめ
+- 名前は `statNames.ts` の `NATURALIZED_ASIA_LABEL`（「帰化・アジア特別枠」）1か所。表示用の3区分（日本人／外国籍／帰化・アジア特別枠）は `classificationFilter.ts` の `DISPLAY_CLASS_GROUPS`・`displayGroupOf`、色は `CLASSIFICATION_COLORS.naturalizedAsia`（帰化と同じ紫）。
+- まとめた場所（**値は帰化とアジア特別枠の数を足してから計算する。率の平均はしない**）: 試合詳細のボックススコア・シューティングの内訳集計の行／試合詳細とチーム詳細の登録区分別得点の円グラフ／チーム詳細 > シーズン別成績の登録区分別の行（`teamClassSplit.ts` に区分 `natAsia`＝足し込み番号 [2,3] を足し、`DETAILED_SPLIT_CLASSES` は jp・foreign・natAsia）／比較（チーム）の Misc「帰化・アジア特別枠 PTS」と Scoring「%帰化・アジア特別枠 PTS」（`SplitClassPoints` を `naturalizedAsia` の合計にした）。
+- **分けたまま**: 登録区分の絞り込み（5択）と、帰化だけ・アジア特別枠だけを選んだときの表示（`splitClassOfFilter` の naturalized・asia、通算記録、図解、ランキング）。個人詳細の「登録区分」（選手本人の区分と途中の変更の履歴。まとめると「帰化→アジア特別枠」の変更が見えなくなる）。2025-26 以前の扱い（「外国籍・帰化・アジア」のまとめ・参考値の注記）は今のまま。
+- 検証: `validate:team-class-split` に「natAsia の値＝帰化＋アジア特別枠」を足した。
+
+### 305-2. 全チームスタッツ Forced TOV の平均
+- 「平均／合計」の切り替えを Forced TOV でも効かせる（自チーム／opp／+/- のどれでも）。平均の分母はほかのタブと同じ出場試合数（`gamesPlayed`。リーグ平均の行も同じ。全シーズンで「データあり試合数」と一致を確認）。小数1桁。合計は整数のまま（リーグ平均の行は以前は小数の生の値が出ていたが、合計では四捨五入の整数になる）。

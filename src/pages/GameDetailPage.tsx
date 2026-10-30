@@ -11,7 +11,8 @@ import { useLeague } from "../lib/league";
 import { seasonRuleFor } from "../../shared/seasonRules";
 import { isPbpSupported, isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import { formatPct } from "../lib/format";
-import { CLASSIFICATION_COLORS, classificationGroup, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
+import { CLASSIFICATION_COLORS, classificationGroup, DISPLAY_CLASS_GROUPS, displayGroupOf, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
+import { NATURALIZED_ASIA_LABEL } from "../lib/statNames";
 import { makeClassifier } from "../../shared/registration";
 import { loadSeasonRegistrations } from "../lib/registrationScope";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, ShotTypeBreakdown } from "../../shared/types";
@@ -223,7 +224,7 @@ function buildGameClassificationPtsSegments(
   split: boolean,
 ): { segments: PieSegmentInput[]; unclassifiedPlayedCount: number } {
   let unclassifiedPlayedCount = 0;
-  // 2026-27 以降の試合は、その試合の日の区分で日本人・外国籍・帰化・アジア特別枠に分ける（DESIGN.md 298章）
+  // 2026-27 以降の試合は、その試合の日の区分で集計し、円グラフは帰化とアジア特別枠を足して1つにする（DESIGN.md 298章）
   const points = { 日本人: 0, 外国籍: 0, 帰化: 0, アジア特別枠: 0 };
   for (const r of rows) {
     const group = splitGroupOf(classificationById.get(r.PlayerID));
@@ -234,8 +235,7 @@ function buildGameClassificationPtsSegments(
     ? [
         { key: "jp", label: "日本人", color: CLASSIFICATION_COLORS.japanese, value: points.日本人 },
         { key: "foreign", label: "外国籍", color: CLASSIFICATION_COLORS.foreign, value: points.外国籍 },
-        { key: "naturalized", label: "帰化", color: CLASSIFICATION_COLORS.naturalized, value: points.帰化 },
-        { key: "asia", label: "アジア特別枠", color: CLASSIFICATION_COLORS.asia, value: points.アジア特別枠 },
+        { key: "naturalizedAsia", label: NATURALIZED_ASIA_LABEL, color: CLASSIFICATION_COLORS.naturalizedAsia, value: points.帰化 + points.アジア特別枠 },
       ]
     : [
         { key: "jp", label: "日本人", color: CLASSIFICATION_COLORS.japanese, value: points.日本人 },
@@ -378,9 +378,9 @@ export function GameDetailPage({ season }: { season: string }) {
   );
   // シューティングタブの内訳集計の区分（ボックススコアの内訳集計と同じ分け方。登録区分は試合の日の区分）
   const shootingClassGroups: ShootingClassGroup[] = classificationSplit
-    ? (["日本人", "外国籍", "帰化", "アジア特別枠"] as const).map((g) => ({
+    ? DISPLAY_CLASS_GROUPS.map((g) => ({
         label: g === "日本人" ? "日本人選手合計" : `${g}選手合計`,
-        includes: (id: string) => splitGroupOf(classificationById.get(id)) === g,
+        includes: (id: string) => displayGroupOf(classificationById.get(id)) === g,
       }))
     : [
         { label: "日本人選手合計", includes: (id: string) => classificationGroup(classificationById.get(id)) === "日本人" },

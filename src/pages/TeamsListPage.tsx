@@ -928,7 +928,14 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     ? turnoverDataFor(leagueAverage.team.forcedTurnovers, leagueAverage.team.turnoversCommitted, teamPerspective)
     : undefined;
   // +/- の視点は符号つきで出す
-  const turnoverText = (v: number) => (teamPerspective === "diff" ? formatSigned(v, 0) : String(v));
+  // 平均は、ほかのタブと同じ出場試合数（gamesPlayed。リーグ平均の行も同じ）で割る。合計は整数のまま
+  const turnoverAverage = displayMode !== "total";
+  const turnoverValue = (r: TurnoverRow, pick: (d: TeamForcedTurnovers) => number) =>
+    turnoverAverage ? (r.team.gamesPlayed > 0 ? pick(r.data) / r.team.gamesPlayed : 0) : pick(r.data);
+  const turnoverText = (v: number) => {
+    const digits = turnoverAverage ? 1 : 0;
+    return teamPerspective === "diff" ? formatSigned(v, digits) : formatDecimal(v, digits);
+  };
   const leagueTurnoverRow: TurnoverRow | null = leagueAverage && leagueTurnoverData ? { team: leagueAverage.team, data: leagueTurnoverData } : null;
   const turnoverColumns: Column<TurnoverRow>[] = [
     {
@@ -943,14 +950,25 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
         </span>
       ),
     },
-    { key: "offensiveFoul", label: "オフェンスファウル", sortValue: (r) => r.data.offensiveFoul, format: (r) => turnoverText(r.data.offensiveFoul) },
-    { key: "violation24sec", label: "24秒バイオレーション", sortValue: (r) => r.data.violation24sec, format: (r) => turnoverText(r.data.violation24sec) },
-    { key: "backcourtViolation", label: "バックコート", sortValue: (r) => r.data.backcourtViolation, format: (r) => turnoverText(r.data.backcourtViolation) },
-    { key: "violation5sec", label: "5秒バイオレーション", sortValue: (r) => r.data.violation5sec, format: (r) => turnoverText(r.data.violation5sec) },
-    { key: "violation8sec", label: "8秒バイオレーション", sortValue: (r) => r.data.violation8sec, format: (r) => turnoverText(r.data.violation8sec) },
-    { key: "otherDead", label: "その他デッドボール", sortValue: (r) => r.data.otherDead, format: (r) => turnoverText(r.data.otherDead) },
-    { key: "live", label: "ライブボール（参考）", sortValue: (r) => r.data.live, format: (r) => turnoverText(r.data.live) },
-    { key: "total", label: "合計", sortValue: (r) => turnoverTotal(r.data), format: (r) => turnoverText(turnoverTotal(r.data)) },
+    ...(
+      [
+        ["offensiveFoul", "オフェンスファウル", (d: TeamForcedTurnovers) => d.offensiveFoul],
+        ["violation24sec", "24秒バイオレーション", (d: TeamForcedTurnovers) => d.violation24sec],
+        ["backcourtViolation", "バックコート", (d: TeamForcedTurnovers) => d.backcourtViolation],
+        ["violation5sec", "5秒バイオレーション", (d: TeamForcedTurnovers) => d.violation5sec],
+        ["violation8sec", "8秒バイオレーション", (d: TeamForcedTurnovers) => d.violation8sec],
+        ["otherDead", "その他デッドボール", (d: TeamForcedTurnovers) => d.otherDead],
+        ["live", "ライブボール（参考）", (d: TeamForcedTurnovers) => d.live],
+        ["total", "合計", turnoverTotal],
+      ] as const
+    ).map(
+      ([key, label, pick]): Column<TurnoverRow> => ({
+        key,
+        label,
+        sortValue: (r) => turnoverValue(r, pick),
+        format: (r) => turnoverText(turnoverValue(r, pick)),
+      }),
+    ),
     { key: "gamesWithData", label: "データあり試合数", sortValue: (r) => r.data.gamesWithData, format: (r) => String(r.data.gamesWithData) },
   ];
 
@@ -977,7 +995,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       : boxTab === "streaks"
         ? streaksOnlyReason
         : seasonTotalOnlyReason;
-  const displayDisabledReason = isMainCategory || isForeignCategory || boxTab === "shooting"
+  const displayDisabledReason = isMainCategory || isForeignCategory || boxTab === "shooting" || boxTab === "forcedTurnovers"
     ? undefined
     : isShareCategory
       ? "このタブは割合のグラフのため、平均/合計の切り替えは連動しません（右端の得点・失点は1試合平均です）。"
@@ -1056,7 +1074,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           : boxTab === "streaks"
             ? composeLabels(gameTypeLabels("regular", season), "シーズン内の連続")
             : boxTab === "forcedTurnovers"
-            ? composeLabels(TURNOVER_PERSPECTIVE_LABELS[teamPerspective], SEASON_TOTAL_ONLY_LABELS)
+            ? composeLabels(displayModeLabels(displayMode), TURNOVER_PERSPECTIVE_LABELS[teamPerspective], SEASON_TOTAL_ONLY_LABELS)
             : boxTab === "foreignPlayers"
               ? foreignRows || foreignPeriod !== "all"
                 ? composeLabels(
@@ -1208,7 +1226,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
               />
             </div>
             <p className="page-subtitle">
-              レギュラーシーズン・シーズン合計のみ（上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算とは連動しない。自チーム＝相手から奪った分、opp＝自チームが記録した分、+/-＝その差）
+              レギュラーシーズンのみ（平均/合計・視点だけ連動し、平均は出場試合数で割る。上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算とは連動しない。自チーム＝相手から奪った分、opp＝自チームが記録した分、+/-＝その差）
             </p>
           </>
         )

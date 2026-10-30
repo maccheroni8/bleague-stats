@@ -13,6 +13,9 @@ export type StatNameScope = "player" | "team";
 /** 日本語名。チームと選手で意味が違う項目は { team, player } で両方を持つ */
 export type StatJaName = string | { team: string; player: string };
 
+/** 帰化とアジア特別枠をまとめて見せるときの名前（試合詳細の内訳・円グラフ・チームの登録区分別・比較。絞り込みの選択肢は分けたまま） */
+export const NATURALIZED_ASIA_LABEL = "帰化・アジア特別枠";
+
 /** 略称 → 日本語名 */
 export const STAT_NAMES: Record<string, StatJaName> = {
   // --- 試合数・出場 ---
@@ -131,8 +134,7 @@ export const STAT_NAMES: Record<string, StatJaName> = {
   "日本人 PTS": "日本人選手の得点",
   "外国籍・帰化・アジア PTS": "外国籍・帰化・アジア選手の得点",
   "外国籍 PTS": "外国籍選手の得点",
-  "帰化 PTS": "帰化選手の得点",
-  "アジア特別枠 PTS": "アジア特別枠選手の得点",
+  [`${NATURALIZED_ASIA_LABEL} PTS`]: "帰化・アジア特別枠選手の得点",
 
   // --- Scoring ---
   "PITP%": "ペイント内得点の割合",
@@ -144,8 +146,7 @@ export const STAT_NAMES: Record<string, StatJaName> = {
   "%日本人 PTS": "日本人選手の得点の割合",
   "%外国籍・帰化・アジア PTS": "外国籍・帰化・アジア選手の得点の割合",
   "%外国籍 PTS": "外国籍選手の得点の割合",
-  "%帰化 PTS": "帰化選手の得点の割合",
-  "%アジア特別枠 PTS": "アジア特別枠選手の得点の割合",
+  [`%${NATURALIZED_ASIA_LABEL} PTS`]: "帰化・アジア特別枠選手の得点の割合",
   "%PTS": "得点シェア",
   "%FGM": "フィールドゴール成功数シェア",
   "%FGA": "フィールドゴール試投数シェア",

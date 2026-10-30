@@ -29,6 +29,7 @@ import {
 } from "./teamStatsColumns";
 import type { TeamGameLog } from "../../shared/types";
 import type { Column } from "../components/SortableTable";
+import { NATURALIZED_ASIA_LABEL } from "./statNames";
 
 // 「日程結果」タブ・比較タブの+/-（差分）表示用。BoxscoreColumnはformat(単一のBoxscoreCounts)のみを
 // 持ち差分表示を想定していないため、col.value(own/opp双方の生数値)から差分を求めて
@@ -138,30 +139,26 @@ export interface TeamCompareColumnData {
  */
 export interface SplitClassPoints {
   foreign: number;
-  naturalized: number;
-  asia: number;
+  /** 帰化とアジア特別枠の合計（足してから率を出す） */
+  naturalizedAsia: number;
   oppForeign: number;
-  oppNaturalized: number;
-  oppAsia: number;
+  oppNaturalizedAsia: number;
 }
 
 export function sumSplitClassPoints(logs: readonly Pick<TeamGameLog, "foreignPoints" | "naturalizedPoints" | "asianQuotaPoints" | "opponentForeignPoints" | "opponentNaturalizedPoints" | "opponentAsianQuotaPoints">[]): SplitClassPoints {
-  const out: SplitClassPoints = { foreign: 0, naturalized: 0, asia: 0, oppForeign: 0, oppNaturalized: 0, oppAsia: 0 };
+  const out: SplitClassPoints = { foreign: 0, naturalizedAsia: 0, oppForeign: 0, oppNaturalizedAsia: 0 };
   for (const g of logs) {
     out.foreign += g.foreignPoints ?? 0;
-    out.naturalized += g.naturalizedPoints ?? 0;
-    out.asia += g.asianQuotaPoints ?? 0;
+    out.naturalizedAsia += (g.naturalizedPoints ?? 0) + (g.asianQuotaPoints ?? 0);
     out.oppForeign += g.opponentForeignPoints ?? 0;
-    out.oppNaturalized += g.opponentNaturalizedPoints ?? 0;
-    out.oppAsia += g.opponentAsianQuotaPoints ?? 0;
+    out.oppNaturalizedAsia += (g.opponentNaturalizedPoints ?? 0) + (g.opponentAsianQuotaPoints ?? 0);
   }
   return out;
 }
 
 const SPLIT_CLASS_POINT_ITEMS = [
   { key: "foreignPts3", pctKey: "pctforeign3", label: "外国籍 PTS", own: "foreign", opp: "oppForeign" },
-  { key: "naturalizedPts3", pctKey: "pctnaturalized3", label: "帰化 PTS", own: "naturalized", opp: "oppNaturalized" },
-  { key: "asiaPts3", pctKey: "pctasia3", label: "アジア特別枠 PTS", own: "asia", opp: "oppAsia" },
+  { key: "naturalizedAsiaPts3", pctKey: "pctnaturalizedAsia3", label: `${NATURALIZED_ASIA_LABEL} PTS`, own: "naturalizedAsia", opp: "oppNaturalizedAsia" },
 ] as const;
 
 /** 外国籍・帰化・アジア特別枠の得点（Misc）と、その総得点に占める割合（Scoring）。2025-26 以前・リーグ平均は「-」 */

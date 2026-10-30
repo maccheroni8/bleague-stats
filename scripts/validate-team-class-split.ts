@@ -198,6 +198,11 @@ async function main(): Promise<void> {
           if (fo.pts !== g.foreignPoints) note(`${where} 外国籍 PTS ${fo.pts} ≠ ${g.foreignPoints}`, "foreignPts");
           if (na.pts !== g.naturalizedPoints) note(`${where} 帰化 PTS ${na.pts} ≠ ${g.naturalizedPoints}`, "naturalizedPts");
           if (as.pts !== g.asianQuotaPoints) note(`${where} アジア特別枠 PTS ${as.pts} ≠ ${g.asianQuotaPoints}`, "asiaPts");
+          // 画面は帰化とアジア特別枠を足して1行（natAsia）で見せる。足した値が、別々の値の和と一致すること
+          const naAsia = classSideValues(source, row, "natAsia");
+          for (const [k] of EXACT) {
+            if (naAsia[k] !== na[k] + as[k]) note(`${where} ${String(k)}: 帰化・アジア特別枠 ${naAsia[k]} ≠ 帰化＋アジア ${na[k] + as[k]}`, `natAsia-${String(k)}`);
+          }
           for (const [k] of EXACT) {
             if (fo[k] + na[k] + as[k] !== intl[k]) note(`${where} ${String(k)}: 外国籍＋帰化＋アジア ${fo[k] + na[k] + as[k]} ≠ まとめ ${intl[k]}`, `split-${String(k)}`);
           }
