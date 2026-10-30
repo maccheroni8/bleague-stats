@@ -1,0 +1,17 @@
+.scoring-average-key { width:24px !important; height:0 !important; border:0 !important; border-top:2px dashed var(--muted) !important; border-radius:0 !important; }
+.scoring-zero-key { width:24px !important; height:0 !important; border:0 !important; border-top:3px solid var(--fg) !important; border-radius:0 !important; }
+.scoring-zero-v,.scoring-zero-h { position:absolute; pointer-events:none; z-index:1; }
+.scoring-zero-v { top:0; height:100%; border-left:3px solid var(--fg); }
+.scoring-zero-h { left:0; width:100%; border-top:3px solid var(--fg); }
+.scoring-tooltip { width:260px; height:auto; }
+.scoring-tooltip span { white-space:normal; line-height:1.5; }
+.scoring-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+.ratings-x-label { white-space:nowrap; }
+.ratings-y-label { white-space:nowrap; }
+.scoring-export .ratings-table th button { text-align:center; }
+.scoring-detail span { display:block; }
+/* 10刻みは細い実線、5刻み（10の倍数以外）は細い点線。色・太さは ORtg・DRtg の図のグリッドと同じ var(--border) の1px */
+.scoring-grid.ratings-grid-v.is-major { border-left:1px solid var(--border); }
+.scoring-grid.ratings-grid-h.is-major { border-top:1px solid var(--border); }
+.scoring-grid.ratings-grid-v.is-minor { border-left:1px dotted var(--border); }
+.scoring-grid.ratings-grid-h.is-minor { border-top:1px dotted var(--border); }

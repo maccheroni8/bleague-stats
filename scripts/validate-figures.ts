@@ -256,3 +256,101 @@ if(source){
   }
   console.log("散布図: 密集26チーム・5画面幅でラベル同士／ロゴ／横軸の非重複 OK");
 }
+
+// 日本人 × 外国籍の得点の散布図: 分母・視点・欠損・リーグ平均を小さな人工データで、実データでは既存の合計と全シーズンで突き合わせる。
+{
+  const {buildScoringScatter,scoringPerGame,scoringShare,scoringDomain,scoringYModes}=await import("../src/lib/figureScoring");
+  const scoringLog=(date:string,jp:number,fo:number,na:number,oJp:number,oFo:number,oNa:number,gameType:"regular"|"playoff"="regular")=>({
+    ...sampleTeamLog(jp+fo+na,oJp+oFo+oNa,date,gameType),japanesePoints:jp,foreignPoints:fo,naturalizedOrAsianPoints:na,opponentJapanesePoints:oJp,opponentForeignPoints:oFo,opponentNaturalizedOrAsianPoints:oNa,
+  }) as TeamGameLog;
+  const teams=[{teamId:"a",teamName:"A"},{teamId:"b",teamName:"B"},{teamId:"c",teamName:"C"}];
+  const logs=new Map<string,TeamGameLog[]>([
+    ["a",[scoringLog("2026-10-01",30,40,10,20,50,10),scoringLog("2026-10-03",40,30,10,30,30,20),scoringLog("2026-10-05",0,0,0,0,0,0,"playoff")]],
+    ["b",[{...scoringLog("2026-10-01",20,50,10,30,40,10),foreignPoints:undefined} as unknown as TeamGameLog,scoringLog("2026-10-02",20,50,10,30,40,10)]],
+    ["c",[]],
+  ]);
+  const query={season:"2026-27",category:"premier" as const,range:{kind:"all" as const},gameType:"regular" as const};
+  const result=buildScoringScatter(teams,logs,null,query);
+  const a=result.points.find(p=>p.teamId==="a")!, b=result.points.find(p=>p.teamId==="b")!;
+  assert.equal(a.games,2,"試合区分で絞った試合数");
+  assert.equal(scoringPerGame(a,"japanese","own"),35);
+  assert.equal(scoringPerGame(a,"foreign","own"),35,"外国籍のみは帰化・アジアを含まない");
+  assert.equal(scoringPerGame(a,"intl","own"),45,"合計は外国籍＋帰化・アジア");
+  assert.equal(scoringPerGame(a,"foreign","opp"),40);
+  assert.equal(scoringPerGame(a,"foreign","diff"),-5,"差は同じ試合の自チーム−相手");
+  assert.equal(scoringShare(a,"japanese","own"),100*70/160);
+  assert.equal(scoringShare(a,"japanese","diff"),100*70/160-100*50/160);
+  assert.equal(b.games,1,"値が欠けた試合は分母にも入れない（0点として数えない）");
+  assert.equal(scoringPerGame(b,"foreign","own"),50);
+  assert.deepEqual(result.omitted,["c"],"試合がないチームは描かない");
+  assert.equal(result.league!.games,3);
+  assert.equal(scoringPerGame(result.league!,"japanese","own"),(70+20)/3,"リーグ平均は合計÷試合数");
+  assert.equal(buildScoringScatter(teams,logs,null,{...query,gameType:"playoff"}).points.length,1,"プレーオフの試合だけ");
+  const {SCORING_AXIS_MIN,SCORING_AXIS_MAX,SCORING_DIFF_REACH,SCORING_GRID_STEP,scoringLabelStep,isMajorTick}=await import("../src/lib/figureScoring");
+  const dd=scoringDomain([-7,3,12],"diff");assert.deepEqual([dd.min,dd.max],[-SCORING_DIFF_REACH,SCORING_DIFF_REACH],"+/-は0を中心に±30");assert.ok(dd.ticks.includes(0));
+  const od=scoringDomain([22.3,48.6],"own");assert.deepEqual([od.min,od.max],[10,60],"自チーム・相手の基本は10〜60");
+  assert.deepEqual(scoringDomain([],"own"),od,"値が無くても同じ範囲");
+  assert.deepEqual(scoringDomain([10,60],"opp"),od,"境界の値は広げない");
+  assert.deepEqual(od.ticks,[10,15,20,25,30,35,40,45,50,55,60]);assert.equal(od.step,SCORING_GRID_STEP);
+  assert.deepEqual(od.ticks.filter(isMajorTick),[10,20,30,40,50,60],"10の倍数は実線・ほかは点線");
+  assert.deepEqual(scoringDomain([30,31],"own"),scoringDomain([12,59.9],"opp"),"範囲内なら値によらず同じ範囲");
+  // 範囲の外に出る値があるときだけ、5の倍数で広げる（点を捨てない。条件が戻れば基本の範囲に戻る）
+  const up=scoringDomain([20,60.1],"own");assert.deepEqual([up.min,up.max],[10,65]);
+  const down=scoringDomain([9.9,40],"own");assert.deepEqual([down.min,down.max],[5,60]);
+  const both=scoringDomain([3,98],"own");assert.deepEqual([both.min,both.max],[0,100]);
+  assert.deepEqual(scoringDomain([20,61],"own").ticks.at(-1),65);
+  assert.equal(scoringDomain([-5,80],"own").min,0,"自チーム・相手は0より下に広げない");
+  const wideDiff=scoringDomain([-30.5,10],"diff");assert.deepEqual([wideDiff.min,wideDiff.max],[-35,35],"+/-は左右対称に広げる");
+  assert.deepEqual([scoringDomain([30],"diff").min,scoringDomain([30],"diff").max],[-30,30],"ちょうど30は広げない");
+  assert.equal(scoringLabelStep(282,od),10,"スマホ幅でも重ならなければ10刻み");
+  assert.equal(scoringLabelStep(120,od),20,"重なるときだけ20刻み");
+  assert.equal(SCORING_AXIS_MIN,10);assert.equal(SCORING_AXIS_MAX,60);
+  assert.deepEqual(scoringYModes("2025-26"),["intl"],"2025-26以前は合計だけ");
+  assert.deepEqual(scoringYModes("2026-27"),["foreign","intl"]);
+  console.log("日本人・外国籍の得点の散布図: 分母・視点・欠損・リーグ平均・軸 OK");
+
+  if (source) {
+    const {sumTeamGameLogs}=await import("../src/lib/teamStatsColumns");
+    const {sumSplitClassPoints}=await import("../src/lib/compareShared");
+    let checked=0;const outsideTally:Record<string,[number,number]>={};
+    for (const season of readdirSync(source).filter(s=>/^\d{4}-\d{2}$/.test(s))) {
+      for (const [category,dir] of [["premier",path.join(source,season,"team-games")],["one",path.join(source,season,"one","team-games")]] as const) {
+        if (!existsSync(dir)) continue;
+        const entries:(readonly [string,TeamGameLog[]])[]=readdirSync(dir).filter(f=>f.endsWith(".json.gz")).map(f=>[f.replace(".json.gz",""),JSON.parse(gunzipSync(readFileSync(path.join(dir,f))).toString()) as TeamGameLog[]] as const);
+        const ids=entries.map(([id])=>({teamId:id,teamName:id}));
+        const all=new Map<string,TeamGameLog[]>(entries);
+        for (const gameType of ["regular","playoff","both"] as const) for (const range of [{kind:"all" as const},{kind:"recent" as const,n:5},{kind:"recent" as const,n:10}]) {
+          const model=buildScoringScatter(ids,all,null,{season,category,range,gameType});
+          for (const p of model.points) {
+            const ranged:TeamGameLog[]=filterGameLogs(all.get(p.teamId)!,{range,includePlayoffs:true},undefined,undefined,undefined,undefined,category);
+            const scoped:TeamGameLog[]=filterByGameType(ranged,gameType);
+            const totals=sumTeamGameLogs(scoped), split=sumSplitClassPoints(scoped);
+            assert.equal(p.games,scoped.length,`${season} ${p.teamId} 試合数`);
+            assert.equal(p.own.japanese,totals.japanesePoints,`${season} ${p.teamId} 日本人`);
+            assert.equal(p.own.intl,totals.internationalPoints,`${season} ${p.teamId} 合計`);
+            assert.equal(p.opp.intl,totals.oppInternationalPoints,`${season} ${p.teamId} 相手の合計`);
+            assert.equal(p.own.foreign,split.foreign,`${season} ${p.teamId} 外国籍`);
+            assert.equal(p.opp.foreign,split.oppForeign,`${season} ${p.teamId} 相手の外国籍`);
+            assert.equal(p.own.pts,totals.pts,`${season} ${p.teamId} 総得点`);
+            // 古いシーズンは区分を決められない選手の得点があり、区分の和が総得点に届かないことがある（割合の分母は総得点のまま）
+            if (season >= "2026-27") {
+              assert.equal(p.opp.japanese+p.opp.intl,p.opp.pts,`${season} ${p.teamId} 相手の区分の和が総得点`);
+              assert.equal(p.own.japanese+p.own.intl,p.own.pts,`${season} ${p.teamId} 区分の和が総得点`);
+            }
+            for (const yMode of ["foreign","intl"] as const) for (const pv of ["own","opp","diff"] as const) {
+              const xv=scoringPerGame(p,"japanese",pv),yv=scoringPerGame(p,yMode,pv),dom=scoringDomain([xv,yv],pv);
+              assert.ok(xv>=dom.min&&xv<=dom.max&&yv>=dom.min&&yv<=dom.max,`${season} ${p.teamId} 点が範囲に入る（広げた範囲）`);
+              const outside=pv==="diff"?Math.abs(xv)>SCORING_DIFF_REACH||Math.abs(yv)>SCORING_DIFF_REACH:xv<SCORING_AXIS_MIN||xv>SCORING_AXIS_MAX||yv<SCORING_AXIS_MIN||yv>SCORING_AXIS_MAX;
+              const tally=outsideTally[`${category}/${range.kind==="all"?"全期間":"直近"+(range as {n:number}).n}/${gameType}/${pv}/${yMode}`]??=[0,0];
+              tally[1]++;if(outside)tally[0]++;
+            }
+            checked++;
+          }
+        }
+      }
+    }
+    assert.ok(checked>0,"突き合わせる導出データが必要");
+    for (const [key,[out,total]] of Object.entries(outsideTally).sort()) if (/\/全期間\//.test(key)) console.log(`  基本の範囲の外: ${key} ${out}/${total}`);
+    console.log(`日本人・外国籍の得点: 既存の合計・区分別成績と ${checked} 件（チーム×条件）で一致`);
+  }
+}
