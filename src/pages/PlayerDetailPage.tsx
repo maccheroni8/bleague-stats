@@ -95,6 +95,7 @@ import { buildShotTypeBreakdown, shotTypeEntityColumns, sortShotTypeKeys } from 
 import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
 import { periodInRange, type PeriodRangeValue } from "../lib/periodRange";
+import { addAssistDistribution, assistSharePct, countAssistDistribution, emptyAssistDistribution } from "../lib/assistDistribution";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { safeDiv, eff, efgPct, tsPct } from "../../shared/formulas";
@@ -358,10 +359,11 @@ const MAX_ASSIST_RELATIONSHIP_ROWS = 5;
 // 統合表示するためのassisterId用センチネル値
 const UNASSISTED_SENTINEL = "__unassisted__";
 
-// 「誰へのアシストが多いか」の各行に追加する割合(%): そのペアのアシスト回数が、
-// 受け手（得点選手）がその期間内に受けた全アシスト回数に対して占める割合
+// 「誰へのアシストが多いか」の各行: count はアシストの数（1回のアシストを1回。FT が2本入っても1回。
+// src/lib/assistDistribution.ts）。割合はこの選手の同じ条件のアシスト合計（相手不明を含む）に占める割合。
+// 2P・3P・FT 成功数と得点は、アシストされた得点の集計（buildAssistPairs）のまま
 interface GivenAssistRow extends AssistPair {
-  /** 受け手の全アシスト被数に対する割合。受け手側の合計が0件（データ上あり得ないが念のため）ならnull */
+  /** この選手のアシスト合計に対する割合。分母が0なら null */
   sharePct: number | null;
 }
 
@@ -1770,9 +1772,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
     const scopedLogs = filterByGameType(situationalStatsLogs, situationalStatsGameType).filter((g) => g.min > 0);
     const given = new Map<string, AssistPair>();
     const received = new Map<string, AssistPair>();
-    // 得点選手（scorerId）ごとの全アシスト被数・被得点。X（playerId）以外からのアシストも
-    // 含めて全ペアから積算する（「誰へ」テーブルの割合の分母＝受け手の全アシストに使う）
-    const scorerTotals = new Map<string, { count: number; points: number }>();
+    // この選手のアシストの数（相手ごと・相手不明）。PBP の無い試合（手入力の試合など）は分子・分母の両方から外す
+    const ownAssists = emptyAssistDistribution();
+    const assistPeriods = situationalStatsAssistPeriodOption.periods;
+    let assistGames = 0;
+    let assistNoPbpGames = 0;
     let ownMade2m = 0;
     let ownMade3m = 0;
     let ownMadeFtm = 0;
@@ -1781,12 +1785,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
       const game = periodRawGames.get(g.scheduleKey);
       if (!game) continue;
       readyCount++;
+      if (game.raw.PlayByPlays.length === 0) {
+        assistNoPbpGames++;
+      } else {
+        assistGames++;
+        const own = countAssistDistribution(game.raw.PlayByPlays, assistPeriods).get(playerId);
+        if (own) addAssistDistribution(ownAssists, own);
+      }
       for (const pair of buildAssistPairs(game.raw.PlayByPlays, situationalStatsAssistPeriodOption)) {
-        const points = pair.assisted2m * 2 + pair.assisted3m * 3 + pair.assistedFtm;
-        const totals = scorerTotals.get(pair.scorerId) ?? { count: 0, points: 0 };
-        totals.count += pair.count;
-        totals.points += points;
-        scorerTotals.set(pair.scorerId, totals);
         if (pair.assisterId === playerId) {
           const entry = given.get(pair.scorerId) ?? {
             assisterId: playerId,
@@ -1825,10 +1831,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
         else if (e.ActionCD1 === 7) ownMadeFtm++;
       }
     }
-    const givenList: GivenAssistRow[] = [...given.values()]
-      .map((entry) => {
-        const total = scorerTotals.get(entry.scorerId)?.count ?? 0;
-        return { ...entry, sharePct: total > 0 ? (100 * entry.count) / total : null };
+    const givenList: GivenAssistRow[] = [...ownAssists.byScorer]
+      .map(([scorerId, count]) => {
+        const pair = given.get(scorerId) ?? { assisterId: playerId, scorerId, count: 0, assisted2m: 0, assisted3m: 0, assistedFtm: 0 };
+        return { ...pair, count, sharePct: assistSharePct(count, ownAssists.total) };
       })
       .sort((a, b) => b.count - a.count);
 
@@ -1867,6 +1873,11 @@ export function PlayerDetailPage({ season }: { season: string }) {
     receivedList.sort((a, b) => b.count - a.count);
     return {
       given: givenList,
+      givenTotal: ownAssists.total,
+      givenUnknown: ownAssists.unknown,
+      givenUnknownPct: assistSharePct(ownAssists.unknown, ownAssists.total),
+      givenGames: assistGames,
+      givenNoPbpGames: assistNoPbpGames,
       received: receivedList,
       dataReady: readyCount === scopedLogs.length,
     };
@@ -2849,10 +2860,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
           ) : (
             <>
               <h3>誰へのアシストが多いか</h3>
-              {assistRelationships.given.length === 0 ? (
+              {assistRelationships.givenTotal === 0 ? (
                 <p className="empty-message">アシストの記録がありません</p>
               ) : (
                 <>
+                  <p className="rule-change-footnote">
+                    アシスト {assistRelationships.givenTotal}回・対象 {assistRelationships.givenGames}試合
+                    {assistRelationships.givenNoPbpGames > 0 && `（プレーバイプレーの無い${assistRelationships.givenNoPbpGames}試合を除く）`}
+                  </p>
                   <div className="table-scroll">
                     <table className="sortable-table">
                       <thead>
@@ -2881,6 +2896,17 @@ export function PlayerDetailPage({ season }: { season: string }) {
                             <td className="align-right">{p.assistedFtm}</td>
                           </tr>
                         ))}
+                        {assistRelationships.givenUnknown > 0 && (
+                          <tr>
+                            <td className="align-left" title={statDescription("相手不明")}>相手不明</td>
+                            <td className="align-right">{assistRelationships.givenUnknown}</td>
+                            <td className="align-right">{assistRelationships.givenUnknownPct != null ? formatPct100(assistRelationships.givenUnknownPct) : "-"}</td>
+                            <td className="align-right">-</td>
+                            <td className="align-right">-</td>
+                            <td className="align-right">-</td>
+                            <td className="align-right">-</td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -2904,7 +2930,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                       <thead>
                         <tr>
                           <th className="align-left">アシスト元選手</th>
-                          <th className="align-right" title={statDescription("アシスト回数")}>アシスト回数</th>
+                          <th className="align-right" title={statDescription("アシスト経由成功数")}>アシスト経由成功数</th>
                           <th className="align-right" title={statDescription("回数割合")}>回数割合</th>
                           <th className="align-right" title={statDescription("アシスト経由得点数")}>アシスト経由得点数</th>
                           <th className="align-right" title={statDescription("得点割合")}>得点割合</th>

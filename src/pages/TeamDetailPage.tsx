@@ -5584,7 +5584,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <tr>
                       <th className="align-left">アシスト元選手</th>
                       <th className="align-left">得点選手</th>
-                      <th className="align-right" title={statDescription("アシスト回数")}>アシスト回数</th>
+                      <th className="align-right" title={statDescription("アシスト経由成功数")}>アシスト経由成功数</th>
                       <th className="align-right" title={statDescription("回数割合")}>回数割合</th>
                       <th className="align-right" title={statDescription("アシスト経由得点数")}>アシスト経由得点数</th>
                       <th className="align-right" title={statDescription("得点割合")}>得点割合</th>
