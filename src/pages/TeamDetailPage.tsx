@@ -5676,6 +5676,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <TeamLineupOnCourtSummary
                       rows={lineupOcSummary.rows}
                       totals={lineupOcTotals}
+                      totalRatings={lineupOcSummary.total}
                       real={lineupOcSummary.real}
                       color={accentColor ?? "var(--accent)"}
                       selected={activeLineupOc}

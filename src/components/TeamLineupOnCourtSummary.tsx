@@ -5,7 +5,7 @@ import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { formatDecimal, formatSigned } from "../lib/format";
 import { statDescription } from "../lib/statDescriptions";
 import type { RangeTotals } from "../lib/gameLineups";
-import type { SeasonOnCourtRow } from "../lib/teamLineupOnCourt";
+import type { SeasonOnCourtRow, TotalRatings } from "../lib/teamLineupOnCourt";
 
 /**
  * チーム詳細「よく使われるラインナップ」のオンザコート別の合計（試合詳細の「オンザコート別の合計」のシーズン版）。
@@ -15,6 +15,7 @@ import type { SeasonOnCourtRow } from "../lib/teamLineupOnCourt";
 export function TeamLineupOnCourtSummary({
   rows,
   totals,
+  totalRatings,
   real,
   color,
   selected,
@@ -23,6 +24,8 @@ export function TeamLineupOnCourtSummary({
 }: {
   rows: SeasonOnCourtRow[];
   totals: RangeTotals;
+  /** 合計の行の ORtg・DRtg・NetRtg */
+  totalRatings: TotalRatings;
   /** ORtg・DRtg・NetRtg が実際のポゼッションで計算した値か（false は推定値） */
   real: boolean;
   color: string;
@@ -108,9 +111,9 @@ export function TeamLineupOnCourtSummary({
             <td className="align-right">{pts(totals.oppPoints)}</td>
             <td className="align-right">{net(totals.ownPoints - totals.oppPoints)}</td>
             <td className="align-right" />
-            <td className="align-right" />
-            <td className="align-right" />
-            <td className="align-right" />
+            <td className="align-right">{totalRatings.ortg === null ? "-" : formatDecimal(totalRatings.ortg)}</td>
+            <td className="align-right">{totalRatings.drtg === null ? "-" : formatDecimal(totalRatings.drtg)}</td>
+            <td className="align-right">{totalRatings.netRtg === null ? "-" : formatSigned(totalRatings.netRtg)}</td>
           </tr>
         </tbody>
       </table>

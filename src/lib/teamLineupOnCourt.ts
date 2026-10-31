@@ -43,6 +43,19 @@ export interface SeasonOnCourtRow extends OnCourtSummaryRow {
   netRtg: number | null;
 }
 
+/** 合計の行の ORtg・DRtg・NetRtg（各行の値の平均ではなく、得点・失点と攻撃回数を足してから割る。NetRtg は丸める前の ORtg − DRtg） */
+export interface TotalRatings {
+  ortg: number | null;
+  drtg: number | null;
+  netRtg: number | null;
+}
+
+function totalRatings(ownPoints: number, oppPoints: number, ownPoss: number, oppPoss: number): TotalRatings {
+  const ortg = per100(ownPoints, ownPoss);
+  const drtg = per100(oppPoints, oppPoss);
+  return { ortg, drtg, netRtg: ortg !== null && drtg !== null ? ortg - drtg : null };
+}
+
 /** チームのシーズンのペース（推定のポゼッションに使う）。scripts/aggregate.ts の estimatedPoss と同じ: チームのポゼッション×5×出場分÷チームの出場分 */
 export interface EstimatedPace {
   teamPoss: number;
@@ -59,7 +72,7 @@ export function seasonOnCourtSummary(
   maxOnCourt: number,
   totals: RangeTotals,
   pace: EstimatedPace | null,
-): { rows: SeasonOnCourtRow[]; real: boolean } {
+): { rows: SeasonOnCourtRow[]; real: boolean; total: TotalRatings } {
   const asRow = (l: LineupAggregate): GameLineupRow => ({
     teamId: "",
     lineupKey: l.lineupKey,
@@ -100,7 +113,14 @@ export function seasonOnCourtSummary(
     const drtg = per100(s.oppPoints, oppPoss);
     return { ...s, pct, ortg, drtg, netRtg: ortg !== null && drtg !== null ? ortg - drtg : null };
   });
-  return { rows, real };
+  // 合計の行: 実際の攻撃回数は、集計外（人数の上限を超える組）も含めた全5人組の合計
+  const total = real
+    ? totalRatings(totals.ownPoints, totals.oppPoints, lineups.reduce((a, l) => a + l.ownPoss!, 0), lineups.reduce((a, l) => a + l.oppPoss!, 0))
+    : (() => {
+        const est = pace && pace.teamMin > 0 ? (pace.teamPoss * 5 * (totals.seconds / 60)) / pace.teamMin : 0;
+        return totalRatings(totals.ownPoints, totals.oppPoints, est, est);
+      })();
+  return { rows, real, total };
 }
 
 /**
@@ -112,7 +132,7 @@ export function seasonOnCourtSummary(
 export function seasonOnCourtSummaryFromDetail(
   detail: ForeignDetailSum,
   maxOnCourt: number,
-): { rows: SeasonOnCourtRow[]; real: boolean; totals: RangeTotals; games: number } {
+): { rows: SeasonOnCourtRow[]; real: boolean; totals: RangeTotals; games: number; total: TotalRatings } {
   const totals: RangeTotals = { seconds: detail.seconds, ownPoints: detail.ownPoints, oppPoints: detail.oppPoints };
   const asRows: GameLineupRow[] = detail.byCount.map((b, n) => ({
     teamId: "",
@@ -135,5 +155,9 @@ export function seasonOnCourtSummaryFromDetail(
     const drtg = per100(s.oppPoints, real ? b.oppPoss : est);
     return { ...s, pct, ortg, drtg, netRtg: ortg !== null && drtg !== null ? ortg - drtg : null };
   });
-  return { rows, real, totals, games: detail.games };
+  // 合計の行: 実際の攻撃回数は、集計外（人数の上限を超える人数）も含めた全人数の合計。推定は条件のチームの攻撃回数
+  const total = real
+    ? totalRatings(totals.ownPoints, totals.oppPoints, detail.byCount.reduce((a, b) => a + b.ownPoss, 0), detail.byCount.reduce((a, b) => a + b.oppPoss, 0))
+    : totalRatings(totals.ownPoints, totals.oppPoints, detail.teamPoss, detail.teamPoss);
+  return { rows, real, totals, games: detail.games, total };
 }
