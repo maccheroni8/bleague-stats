@@ -15291,3 +15291,32 @@ players.json に在コートの合計は足していない（Scoring・Misc は�
 
 ### 305-2. 全チームスタッツ Forced TOV の平均
 - 「平均／合計」の切り替えを Forced TOV でも効かせる（自チーム／opp／+/- のどれでも）。平均の分母はほかのタブと同じ出場試合数（`gamesPlayed`。リーグ平均の行も同じ。全シーズンで「データあり試合数」と一致を確認）。小数1桁。合計は整数のまま（リーグ平均の行は以前は小数の生の値が出ていたが、合計では四捨五入の整数になる。Traditional などの合計表示のリーグ平均〔平均的な1チームの合計〕も `formatDecimal(v, 0)` で同じ出し方）。
+
+## 306. 小数第2位の表示（サイト全体）・表記の統一・個人 DRtg／NetRtg・PTS10 のタイル（2026-10-31。**保存キーが変わる**。allKey `adef51794843195afa44b91c04bfd39b` → `4a425b05f446f0eab675850d681cc6b4`）
+
+### 306-1. 小数第2位の表示
+- 小数がつく数字（1試合平均・30分換算・率〔%〕・レーティング・PPS・AST/TOV など）は、**サイト全体で小数第2位まで**出す。平均がちょうど整数でも「2.00」、率・レーティングも同じ。
+- **変えないもの**: 合計・試合数などの整数、時間（「分:秒」）、勝率（「.750」の3桁）。1試合の個数（PTS など）は整数、1試合の率（FG% など）は「50.00%」。
+- 方式（Codex の調査 four-tasks-survey.md の案B）: 書式の共通部分を直す。`format.ts` の `formatDecimal`・`formatPct`・`formatPct100`・`formatSigned` の既定の桁を 2、`playerSeasonBoxscore.ts` の `countDigits`（平均・30分換算）を 2、`boxscoreAggregate.ts` の `formatAstToRatio` を 2。画面ごとに1桁を書いていた場所（`toFixed(1)`・桁の引数・平均／合計の切り替え・`DECIMAL_DIFF_DIGITS`・円グラフ・棒グラフ・ショットチャート・図解・Time to Shot・Q別・記録・aiExport）も2桁にした。**新しく小数の数字を出すときは、桁を書かずに共通の関数の既定（2桁）を使う**。
+- 比較の差・前季差: `compareShared.ts` の差・`cleanNumericString` は元の数値から2桁を出す。`seasonCompare.ts` の前季差は表示の文字の桁を引き継ぐので、今季・前季とも2桁の表示から本来の第2位の差になる（「12.3」に0を足した「12.30」ではない）。
+- **1桁のまま残したもの（成績ではなく設定値）**: ランキングの掲載基準のスライダー（「FGM 1.5本以上」）・その条件の文言（`conditionLabels.ts`）・ラインナップの「よく使われる」の基準秒数（`formatBasisSeconds`）。
+- 表示の値で同じ順位を決めている場所（`RankedList`・`seasonCompare.ts` の前季順位・`figureRatings.ts`・`aiExport.ts`）は、2桁で値が分かれると順位も分かれる（正しい動き）。例（2025-26 レギュラーシーズン）: 個人 PTS の5位が同率2人（19.5）→ 19.53・19.47 で5位・6位、図解 ORtg×DRtg で長崎の ORtg 118.5（4位タイ）→ 118.50（5位）、大阪の DRtg 113.2（16位タイ）→ 113.20（17位）、On/Off差のホーキンソン・田代（+17.3 の同率）→ +17.35・+17.27。
+- 導出データは変わらない（変更の前後で全5,036ファイルの中身が一致）。`format.ts` などが保存キーの対象なので、キーだけが変わる。
+- 前後比較: 代表の61画面の文字を変更の前後で取り出し、数字ごとに照らし合わせた（値は同じで桁だけ増えた／整数の変化は順位の分かれだけ／1桁のまま残った数字なし）。キャリアハイ・クラブレコードのカードの「72.22%（13/18）」は、カッコの部分を次の行に回す（以前から「100.0%（6/6）」などで同じ設計。カードの幅は変えていない）。
+- 検証の期待値（1桁の文字）を2桁にした: `validate:tts-table`・`ai-export`・`team-paint2`・`figures`・`ranking-related`・`compare-table`・`lineup-ranking`。`validate:compare-table` のリーグ平均の照合は、2016-17・2020-21 のペイント内外の割合（%PAINT2M・%PAINT2A・%MID2M・%MID2A・%OPA）だけ 0.01 までの差を許す（元の平均と試合ログの集計の 0.01pt 未満の既知の差が、第2位の表示で見えるようになったため。2016-17 で6件。データは直していない）。
+
+### 306-2. ORtg・DRtg・NetRtg などの表記
+- 画面の見出しは statNames.ts と同じ ORtg・DRtg・NetRtg だったが、CSS の `text-transform: uppercase` で、全選手スタッツ・全チームスタッツ・ラインナップの表の見出しが ORTG・DRTG・NETRTG・EFG% と表示されていた。表の見出し（`table.sortable-table th`）・ホームのリーダーのラベル・試合詳細の Q 別の表とリーダーのラベルの4つの指定を外した（Shooting の見出しのシュートの種類も定義どおりの「Pull-Up」などになる）。
+- **残すもの**: 用語集で添える B.LEAGUE 公式の略称（OFFRTG・DEFRTG・NETRTG。`statDefs.ts` の `officialAbbr`。AST の「AS」と同じ扱い）。
+- 意味が違う指標の区別: 個人 ORtg（Dean Oliver 方式）とチームの ORtg（100×得点÷ポゼッション）は同じ名前で、行（選手／チーム）と説明文（`statDescription` の選手用・チーム用）で区別する（試合詳細のボックススコアの同じ列に選手の行と合計の行が並ぶのも、このまま）。出場中のチームの効率は On ORtg・Off ORtg・On-Off ORtg、推定の値は「ORtg（推定）」。
+
+### 306-3. 全選手スタッツの個人 DRtg・NetRtg（Advanced・条件なし）
+- Codex の調査 drtg-survey.md の案B。`scripts/aggregate.ts` で ORtg（`ppp`）と同じ合計（移籍した選手は `transferredTeamTotals`。216章）とチームの POSS の合計から `individualDefRtg` を計算し、`players.json` の `advanced.individualDrtg` に保存（`shared/types.ts`）。NetRtg は保存せず、画面で丸める前の ORtg − DRtg で出す。
+- 合計出場4分未満・項目を持たない古いデータは「-」。On DRtg（出場中のチームの守備効率）で代わりにしない。
+- 表の並べ替え（`SortableTable`）は、値が無い行（sortValue が NaN）を昇順・降順どちらでも最後に並べる。全選手スタッツの ORtg・DRtg・NetRtg が使う（「-」が DRtg の良い順・ORtg の昇順の先頭に来ない）。比較の強調は以前から「-」を除いている。
+- 検算: 2025-26 仙台のカルバー 106.21（NetRtg +10.46）・渡辺 113.98（+8.10）・トゥーレ 104.10（+6.92）。Codex の検算と小数第10位まで一致。
+- 導出データの変化は players.json（13ファイル）の `individualDrtg` の追加だけ（取り除くと変更前と一致）。検証は `npm run validate:individual-drtg`（仙台の3人・4分未満・移籍した選手の分母。全シーズン・両リーグ4,015人、移籍61人）。
+- スタッツの条件の選択肢にも、列から自動で入る。
+
+### 306-4. 個人詳細の PTS10
+- スタッツタイル（ページ上部の順位つきのタイル・通算成績のタイル）とキャリアハイ欄の「二桁得点試合」のカードから PTS10 を外した。シーズン別成績などの表・全選手スタッツ・ランキングの PTS10 は残す。
