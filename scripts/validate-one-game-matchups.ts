@@ -68,8 +68,18 @@ if (without.kind === 'ready') assert.equal(matchupOutcome(without.matchups.find(
 assert.equal(matchupStatus({ id: 'x', date: '2026-10-23', competition: 'league', home: { name: 'a' }, away: { name: 'b' }, status: 'upcoming' }, '2026-10-23'), 'upcoming');
 
 // 条件を満たさないとき: 試合が欠ける・地区が分からない・名前が解決できない → 日程を確認中
-const missing = buildOneGameMatchups({ ...input, schedule: { ...schedule, upcomingGames: schedule.upcomingGames.slice(1) } });
-assert.equal(missing.kind, 'checking');
+// 1試合を消して欠けさせる。予定の一覧には、結果が入ったのに予定に残っている試合（日程の更新の遅れ）があり、
+// それを消しても欠けないので、結果がまだ入っていない予定の試合を消す。
+// そういう試合が無いとき（シーズン終盤など）は、予定に載っていない結果の試合を消す（どちらも「試合が欠ける」の確認）
+const recordedKeys = new Set(summaries.map(g => g.scheduleKey));
+const upcomingKeys = new Set(schedule.upcomingGames.map(g => g.scheduleKey));
+const dropUpcoming = schedule.upcomingGames.find(g => !recordedKeys.has(g.scheduleKey));
+const dropSummary = summaries.find(g => !upcomingKeys.has(g.scheduleKey));
+assert.ok(dropUpcoming || dropSummary, '消して欠けさせる試合が見つからない');
+const missing = dropUpcoming
+  ? buildOneGameMatchups({ ...input, schedule: { ...schedule, upcomingGames: schedule.upcomingGames.filter(g => g.scheduleKey !== dropUpcoming.scheduleKey) } })
+  : buildOneGameMatchups({ ...input, summaries: summaries.filter(g => g.scheduleKey !== dropSummary!.scheduleKey) });
+assert.equal(missing.kind, 'checking', `試合 ${dropUpcoming?.scheduleKey ?? dropSummary!.scheduleKey} を消しても欠けない`);
 const noDiv = buildOneGameMatchups({ ...input, divisions: undefined });
 assert.equal(noDiv.kind, 'checking');
 const dup = buildOneGameMatchups({ ...input, schedule: { ...schedule, upcomingGames: [...schedule.upcomingGames, { ...schedule.upcomingGames[0]!, scheduleKey: 'dup-1' }] } });
