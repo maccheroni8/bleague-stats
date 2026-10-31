@@ -1,3 +1,4 @@
+import { seasonBoxColumnsWithFtr } from "../lib/ftrColumn";
 import { AiExportButton } from "../components/AiExportButton";
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
@@ -178,7 +179,6 @@ import {
 } from "../../shared/teamRecords";
 import { TEAM_MARGIN_DEF, formatTeamRecordDetail, formatTeamRecordValue } from "../lib/teamGameRecords";
 import {
-  seasonBoxColumnsFor,
   SEASON_BOX_TABS,
   buildTeamGameBoxTotals,
   buildTeamMultiGameBoxTotals,
@@ -6307,7 +6307,7 @@ function TeamPlayerStatsTable({
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const columns = tab === "shooting" ? [] : tab === "onoff" ? SEASON_ONOFF_COLUMNS : seasonBoxColumnsFor(tab, foulSplit);
+  const columns = tab === "shooting" ? [] : tab === "onoff" ? SEASON_ONOFF_COLUMNS : seasonBoxColumnsWithFtr(tab, foulSplit);
   const ddtdUnavailable = periodSelected;
 
   // シューティングタブ: 各行（選手×このチーム在籍分）に属する試合のscheduleKeyから

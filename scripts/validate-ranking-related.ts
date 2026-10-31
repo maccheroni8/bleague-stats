@@ -6,7 +6,8 @@
 //
 // 使い方: npm run validate:ranking-related（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 
-import { SEASON_ADVANCED_COLUMNS, SEASON_SCORING_COLUMNS, SEASON_TRADITIONAL_COLUMNS, buildSeasonBoxscoreCtx, type PlayerSeasonRawTotals, type TeamSeasonRawTotals } from "../src/lib/playerSeasonBoxscore";
+import { SEASON_ADVANCED_COLUMNS_WITH_FTR } from "../src/lib/ftrColumn";
+import { SEASON_SCORING_COLUMNS, SEASON_TRADITIONAL_COLUMNS, buildSeasonBoxscoreCtx, type PlayerSeasonRawTotals, type TeamSeasonRawTotals } from "../src/lib/playerSeasonBoxscore";
 import { hasRelatedStats, relatedStatsFor } from "../src/lib/rankingRelatedStats";
 import { displayModeApplies } from "../src/lib/playerSeasonRanking";
 import type { PlayerSummary } from "../shared/types";
@@ -49,7 +50,7 @@ const SEASON_START = 2025;
 const ctxTotal = buildSeasonBoxscoreCtx(raw as unknown as PlayerSeasonRawTotals, team, "total", SEASON_START);
 const ctxPerGame = buildSeasonBoxscoreCtx(raw as unknown as PlayerSeasonRawTotals, team, "perGame", SEASON_START);
 
-const columns = new Map([...SEASON_TRADITIONAL_COLUMNS, ...SEASON_ADVANCED_COLUMNS, ...SEASON_SCORING_COLUMNS].map((c) => [c.key, c]));
+const columns = new Map([...SEASON_TRADITIONAL_COLUMNS, ...SEASON_ADVANCED_COLUMNS_WITH_FTR, ...SEASON_SCORING_COLUMNS].map((c) => [c.key, c]));
 
 // 割合の計算式（関連スタッツの数から）
 const FORMULA: Record<string, (v: number[]) => number> = {
@@ -62,6 +63,7 @@ const FORMULA: Record<string, (v: number[]) => number> = {
   efg: (v) => (v[0]! + 0.5 * v[1]!) / v[2]!,
   ts: (v) => v[0]! / (2 * (v[1]! + 0.44 * v[2]!)),
   pps: (v) => v[0]! / v[1]!,
+  ftr: (v) => v[0]! / v[1]!,
   paint2pct: (v) => v[0]! / v[1]!,
   mid2pct: (v) => v[0]! / v[1]!,
 };
@@ -115,6 +117,12 @@ for (const [key, formula] of Object.entries(FORMULA)) {
   const old = buildSeasonBoxscoreCtx(raw as unknown as PlayerSeasonRawTotals, team, "total", 2015);
   const rel = relatedStatsFor({ category: "scoring", statKey: "paint2pct", mode: "total", ctxOf: () => old, shooting: [] })!;
   check("paint2pct: ペイント内外の無いシーズンは「-」", rel.of(player)!.every((x: string) => x === "-"));
+}
+// FTR は FGA が 0 のとき「-」（0.00% にしない）
+{
+  const noFga = buildSeasonBoxscoreCtx({ ...raw, fga: 0, fgm: 0, tpm: 0, tpa: 0 } as unknown as PlayerSeasonRawTotals, team, "total", SEASON_START);
+  check("ftr: FGA が 0 なら表も「-」", columns.get("ftr")!.format(noFga, "total") === "-" && columns.get("ftr")!.format(noFga, "perGame") === "-");
+  check("ftr: FTA÷FGA（%・小数第2位）", columns.get("ftr")!.format(ctxTotal, "total") === `${((100 * 120) / 520).toFixed(2)}%`);
 }
 // 関連スタッツを並べない項目
 for (const key of ["pace", "ortg", "drtg", "netrtg", "per", "ppp", "pts", "eff", "dd2"]) {

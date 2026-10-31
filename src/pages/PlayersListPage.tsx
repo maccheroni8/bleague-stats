@@ -1,3 +1,4 @@
+import { SEASON_ADVANCED_COLUMNS_WITH_FTR } from "../lib/ftrColumn";
 import { GamesPlayedRatioSlider } from "../components/GamesPlayedRatioSlider";
 import { DEFAULT_MIN_RATIO, DEFAULT_MAX_RATIO, matchesGamesPlayedRatioRange } from "../lib/gamesPlayedRatio";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -135,7 +136,6 @@ import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import {
   buildSeasonBoxscoreCtx,
   EMPTY_TEAM_TOTALS,
-  SEASON_ADVANCED_COLUMNS,
   SEASON_BOX_TABS,
   SEASON_SCORING_COLUMNS,
   SEASON_TRADITIONAL_COLUMNS,
@@ -586,7 +586,7 @@ function playerListTabColumns(tab: BoxCategoryKey, mode: SeasonDisplayMode, filt
         : buildTraditionalColumns(mode)
       : tab === "advanced"
         ? filterActive
-          ? buildCtxColumns(SEASON_ADVANCED_COLUMNS, mode)
+          ? buildCtxColumns(SEASON_ADVANCED_COLUMNS_WITH_FTR, mode)
           : buildAdvancedColumns(mode)
         : tab === "misc"
           ? buildCtxColumns(seasonBoxColumnsFor("misc", foulSplit), mode)
@@ -1041,7 +1041,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
           : buildTraditionalColumns(displayMode)
         : tab === "advanced"
           ? filterActive
-            ? buildCtxColumns(SEASON_ADVANCED_COLUMNS, displayMode)
+            ? buildCtxColumns(SEASON_ADVANCED_COLUMNS_WITH_FTR, displayMode)
             : buildAdvancedColumns(displayMode)
           : tab === "misc"
             ? buildCtxColumns(seasonBoxColumnsFor("misc", foulSplit), displayMode)

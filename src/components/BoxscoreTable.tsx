@@ -7,7 +7,7 @@ import { SeasonLink as Link } from "./SeasonLink";
 import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
-import { efgPct, orbPct, safeDiv, tovPartPct, tovPct, tsPct, usagePct } from "../../shared/formulas";
+import { efgPct, ftRate, orbPct, safeDiv, tovPartPct, tovPct, tsPct, usagePct } from "../../shared/formulas";
 import { onCourtPeriodCount, type LineupStint, type PlayerOnCourtRatings } from "../../shared/onCourt";
 import { OR_PCT_UNAVAILABLE_NOTE, computeTeamOrPct, orShare, personalOrPct } from "../lib/gameOrPct";
 import { ON_COURT_SHARE_UNAVAILABLE_NOTE, computeTeamOnCourtShare, gamePlayerAstPct } from "../lib/gameOnCourtShare";
@@ -505,12 +505,24 @@ function astShareColumn(): BoxscoreColumn {
   };
 }
 
-/** 試合詳細のボックススコアの列。アドバンスドは TOV% の右に OR% を足す */
+const FTR_BOX_COLUMN: BoxscoreColumn = {
+  key: "ftr",
+  label: "FTR",
+  format: (c) => (c.pt2a + c.pt3a > 0 ? formatPct(ftRate(c.fta, c.pt2a + c.pt3a)) : "-"),
+  value: (c) => (c.pt2a + c.pt3a > 0 ? ftRate(c.fta, c.pt2a + c.pt3a) : undefined),
+};
+
+/** 試合詳細のボックススコアの列。アドバンスドは TOV% の右に OR%、TS% の右に FTR を足す */
 export function gameDetailColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): BoxscoreColumn[] {
   const cols = boxscoreColumnsFor(tab, foulSplit);
   if (tab !== "advanced") return cols;
-  const i = cols.findIndex((c) => c.key === "tovpct");
-  return i < 0 ? cols : [...cols.slice(0, i + 1), OR_PCT_COLUMN, ...cols.slice(i + 1)];
+  const withOr = (() => {
+    const i = cols.findIndex((c) => c.key === "tovpct");
+    return i < 0 ? cols : [...cols.slice(0, i + 1), OR_PCT_COLUMN, ...cols.slice(i + 1)];
+  })();
+  // TS% の右に FTR。選手・チーム・内訳集計の行とも、その行の合計の FTA ÷ 合計の FGA（FGA が 0 なら「-」）
+  const t = withOr.findIndex((c) => c.key === "ts");
+  return t < 0 ? withOr : [...withOr.slice(0, t + 1), FTR_BOX_COLUMN, ...withOr.slice(t + 1)];
 }
 
 interface BoxscoreTableProps {

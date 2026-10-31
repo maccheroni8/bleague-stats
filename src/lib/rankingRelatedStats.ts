@@ -58,6 +58,7 @@ const RELATED_BY_KEY: Record<string, RelatedSpec[]> = {
   tovpct: [TOV, FGA, FTA],
   efg: [FGM, TPM, FGA],
   ts: [PTS, FGA, FTA],
+  ftr: [FTA, FGA],
   pps: [PTS, FGA],
   // Scoring: 個人÷チーム全体のシェア
   // Scoring: 個人÷出場中の自チーム（在コート基準。出場中の記録がそろう試合だけ。DESIGN.md 304章）

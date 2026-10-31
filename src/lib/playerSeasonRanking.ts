@@ -7,8 +7,8 @@ import { PLAYER_STAT_DEFS } from "./statDefs";
 import { foulColumnsSplit } from "./ruleChange";
 import type { Column } from "../components/SortableTable";
 import { filterGameLogs, isDefaultFilter, type SituationalFilter } from "./situational";
+import { SEASON_ADVANCED_COLUMNS_WITH_FTR } from "./ftrColumn";
 import {
-  SEASON_ADVANCED_COLUMNS,
   SEASON_BOX_TABS,
   seasonBoxColumnsFor,
   SEASON_SCORING_COLUMNS,
@@ -263,7 +263,7 @@ function doubleConditionText(c: DoubleCounts | undefined, count: number | undefi
 export function seasonBoxColumnsByTab(foulSplit: boolean): Record<SeasonBoxTabKey, SeasonBoxscoreColumn[]> {
   return {
     traditional: SEASON_TRADITIONAL_COLUMNS,
-    advanced: SEASON_ADVANCED_COLUMNS,
+    advanced: SEASON_ADVANCED_COLUMNS_WITH_FTR,
     misc: seasonBoxColumnsFor("misc", foulSplit),
     scoring: SEASON_SCORING_COLUMNS,
   };
@@ -798,6 +798,8 @@ export function usePlayerSeasonRanking(
     // 延長は、条件で絞ったあとの延長に出た試合が基準以上の選手だけ（256章の決定4）
     const minGames = overtimeActive && effPeriodActive ? OVERTIME_MIN_GAMES : 1;
     const played = eligible.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.gamesPlayed ?? 0) >= minGames);
+    // FTR は FGA が 0 の選手（「-」）を並べない
+    if (statKey === "ftr") return played.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.fga ?? 0) > 0);
     // 出場中の値で計算する項目は、出場中の記録がそろう試合がある選手だけ（DESIGN.md 304章）
     if (ON_COURT_SHARE_STAT_KEYS.has(statKey)) return played.filter((p) => (ctxByPlayer.get(p.playerId)?.raw.ocGames ?? 0) > 0);
     // DD2・TD3 は0回（0%）の選手を並べない（平均・合計とも。DESIGN.md 179章）

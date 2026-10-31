@@ -488,7 +488,7 @@ export function seasonBoxCompareDefs(
       key: "ftr",
       label: "FTR",
       value: (r) => ftRate(r.ctx.raw.fta, r.ctx.raw.fga),
-      format: (r) => formatPct(ftRate(r.ctx.raw.fta, r.ctx.raw.fga)),
+      format: (r) => (r.ctx.raw.fga > 0 ? formatPct(ftRate(r.ctx.raw.fta, r.ctx.raw.fga)) : "-"),
       higherIsBetter: true,
     };
     const at = defs.findIndex((d) => d.key === "ts");
