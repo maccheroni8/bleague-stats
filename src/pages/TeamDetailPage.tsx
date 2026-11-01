@@ -241,6 +241,7 @@ import {
 import { CLASSIFICATION_COLORS } from "../lib/classificationFilter";
 import { statDescription } from "../lib/statDescriptions";
 import { StatHeaderLabel } from "../components/StatHeaderLabel";
+import { TeamQuarterTab } from "../components/TeamQuarterTab";
 import { TeamSeasonForeignChart, TeamSeasonScoringCharts } from "../components/TeamSeasonShareCharts";
 import { OPPONENT_PARAM, TeamHeadToHead } from "../components/TeamHeadToHead";
 import { TeamOpponentSplit } from "../components/TeamOpponentSplit";
@@ -878,11 +879,12 @@ const HONOR_CATEGORY_ORDER: ClubHonor["category"][] = ["overall", "emperors_cup"
 
 // Phase H4（2026-08-29）: 「スタッツ」タブを「チームスタッツ」に改名し、概要と選手スタッツの間に
 // 移動した。オブジェクトのキー順序がそのままタブバーの表示順になる（DetailTabの並びに準拠）
-type DetailTab = "overview" | "teamStats" | "playerStats" | "lineups" | "schedule" | "opponentSplit" | "headToHead" | "career" | "clubRecord" | "compare";
+type DetailTab = "overview" | "teamStats" | "quarterSplit" | "playerStats" | "lineups" | "schedule" | "opponentSplit" | "headToHead" | "career" | "clubRecord" | "compare";
 
 const TAB_LABELS: Record<DetailTab, string> = {
   overview: "概要",
   teamStats: "チームスタッツ",
+  quarterSplit: "Q別",
   playerStats: "選手スタッツ",
   lineups: "ラインナップ",
   schedule: "日程結果",
@@ -2976,6 +2978,10 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [scheduleBoxTab, setScheduleBoxTab] = usePageState<BoxscoreTabKey | "periods">(pk("scheduleBoxTab"), "traditional");
 
   // 「対戦相手別」タブ: 選んだシーズンの対戦相手ごとの成績。カテゴリ・試合区分・視点・平均/合計は、このタブ専用の独立した状態を持つ
+  // 「Q別」タブ（1Q〜4Q・前半・後半・延長の行別の表）専用の状態
+  const [quarterGameType, setQuarterGameType] = usePageState<SeasonGameTypeFilter>(pk("quarterGameType"), "regular");
+  const [quarterDisplayMode, setQuarterDisplayMode] = usePageState<SeasonDisplayMode>(pk("quarterDisplayMode"), "perGame");
+  const [quarterCategory, setQuarterCategory] = usePageState<BoxscoreTabKey>(pk("quarterCategory"), "traditional");
   const [opponentSplitCategory, setOpponentSplitCategory] = usePageState<OpponentSplitCategory>(pk("opponentSplitCategory"), "traditional");
   const [opponentSplitGameType, setOpponentSplitGameType] = usePageState<SeasonGameTypeFilter>(pk("opponentSplitGameType"), "regular");
   const [opponentSplitPerspective, setOpponentSplitPerspective] = usePageState<TeamPerspective>(pk("opponentSplitPerspective"), "own");
@@ -5482,6 +5488,28 @@ export function TeamDetailPage({ season }: { season: string }) {
           )}
 
         </div>
+      )}
+
+      {tab === "quarterSplit" && (
+        <TeamQuarterTab
+          teamId={team.teamId}
+          teamName={team.teamName}
+          season={season}
+          league={league}
+          logs={gameLogs ?? null}
+          logsLoading={gameLogsLoading}
+          gameType={quarterGameType}
+          onGameTypeChange={setQuarterGameType}
+          displayMode={quarterDisplayMode}
+          onDisplayModeChange={setQuarterDisplayMode}
+          category={quarterCategory}
+          onCategoryChange={setQuarterCategory}
+          columns={teamSeasonBoxColumns(
+            quarterCategory === "advanced" || quarterCategory === "misc" || quarterCategory === "scoring" ? quarterCategory : "traditional",
+            foulColumnsSplit([season]),
+          )}
+          enabled={tab === "quarterSplit"}
+        />
       )}
 
       {tab === "playerStats" && (

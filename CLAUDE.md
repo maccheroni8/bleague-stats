@@ -118,6 +118,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 306章: **小数第2位の表示（サイト全体）**。小数がつく数字（平均・率・レーティング・PPS など）は2桁（「2.00」「50.00%」）。合計・試合数・時間（分:秒）・勝率（.750）は変えない。書式は `format.ts` の既定（2桁）・`countDigits`・`formatAstToRatio` で、**新しく小数を出すときは桁を書かずに既定を使う**（掲載基準のスライダーなど設定値は1桁のまま）。表示の値で順位を決める場所は2桁で順位が分かれる。表の見出しは大文字にしない（ORtg・eFG% を statNames.ts の表記のまま）。全選手スタッツ Advanced（条件なし）の個人 DRtg（`players.json` の `advanced.individualDrtg`）・NetRtg（丸める前の ORtg − DRtg）、値の無い行は並べ替えで常に最後（`SortableTable` の NaN）。検証は `validate:individual-drtg`。**保存キーが変わる**
 - 307章: 個人詳細「誰へのアシストが多いか」の割合は**アシストした側**（本人のアシスト合計に占める割合。1回のアシスト＝1回、FT が2本入っても1回、相手不明は分母に残して最後の行、PBP の無い試合は分子・分母とも外す）。処理は `src/lib/assistDistribution.ts`（画面だけ。`shared/assistedScoring.ts` のたどり方と同じに保つ）。成功の数の列は「アシスト経由成功数」。検証は `npm run validate:assist-distribution`。**画面だけの変更でキー不変**
 - 309章: チーム詳細 > ラインナップ > オンザコート別の**合計の行に ORtg・DRtg・NetRtg**（得点・失点と攻撃回数を足してから割る。割合は空欄のまま）。5人組の出場区間の攻撃回数なので、全チームスタッツの値（推定式）とは少しずれる。**画面だけの変更でキー不変**
+- 310章: チーム詳細の**「Q別」タブ**（`チームスタッツ` の隣。行＝1Q〜4Q・前半・後半・延長。上の表＝得点・失点・得失点・ORtg・DRtg・NetRtg、下の表＝チームスタッツと同じ Traditional・Advanced・Misc・Scoring。試合種別・平均／合計。値はチームスタッツタブの区間と同じ集計〔`teamSeasonPeriod.ts`〕・レーティングは足してから割る・延長は延長のあった試合で割る）。`src/components/TeamQuarterTab.tsx`・`src/lib/teamQuarterSplit.ts`・`npm run validate:team-quarter`。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
