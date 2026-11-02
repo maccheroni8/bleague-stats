@@ -1601,6 +1601,17 @@ function teamSeasonBoxColumns(tab: SeasonBoxTabKey, foulSplit: boolean): TeamSea
   }
 }
 
+/** AI向け書き出し（詳しい版）が使う、シーズン別成績の列の名前（Miscはファウルの新旧どちらの列も含む） */
+export function teamSeasonColumnLabels(): Record<string, string[]> {
+  const names = (cols: TeamSeasonBoxColumn[]) => cols.map(c => c.label);
+  return {
+    Traditional: names(TEAM_SEASON_TRADITIONAL_COLUMNS),
+    Advanced: names(TEAM_SEASON_ADVANCED_COLUMNS),
+    Misc: names(ALL_TEAM_SEASON_MISC_COLUMNS),
+    Scoring: names(TEAM_SEASON_SCORING_COLUMNS),
+  };
+}
+
 // ---- 「シチュエーション別勝敗」（Phase H3③、概要タブ） ----
 
 const SITUATIONAL_RECORD_STATUS_LABELS: Record<"lead" | "tie" | "behind", string> = {

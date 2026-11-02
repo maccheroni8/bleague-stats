@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildAiExport, type AiExportInput } from '../lib/aiExport';
 import { loadAiExport } from '../lib/aiExportLoad';
 import { teamNameInSeason, useTeamLabel } from '../lib/teamLabel';
+import { AiDetailedPanel } from './AiDetailedPanel';
 import './AiExportDialog.css';
 
 export default function AiExportDialog({ season, teamId, close }: { season: string; teamId: string; close: () => void }) {
@@ -12,6 +13,7 @@ export default function AiExportDialog({ season, teamId, close }: { season: stri
   const [attempt, setAttempt] = useState(0);
   const [opponentId, setOpponentId] = useState('');
   const [notice, setNotice] = useState('');
+  const [mode, setMode] = useState<'short' | 'detailed'>('short');
   const teamLabel = useTeamLabel();
   useEffect(() => { dialog.current?.showModal(); }, []);
   useEffect(() => {
@@ -50,6 +52,12 @@ export default function AiExportDialog({ season, teamId, close }: { season: stri
   };
   return <dialog ref={dialog} className="ai-export-dialog" aria-labelledby="ai-export-title" onClose={close}>
     <div className="ai-export-heading"><h2 id="ai-export-title">AI向けにデータを書き出す</h2><button type="button" onClick={() => dialog.current?.close()}>閉じる</button></div>
+    <div className="ai-export-tabs" role="group" aria-label="書き出しの種類">
+      <button type="button" aria-pressed={mode === 'short'} onClick={() => setMode('short')}>短い版</button>
+      <button type="button" aria-pressed={mode === 'detailed'} onClick={() => setMode('detailed')}>詳しい版</button>
+    </div>
+    {mode === 'detailed' && <AiDetailedPanel season={season} teamId={teamId} />}
+    {mode === 'short' && <>
     <p>対象：{season}シーズン・レギュラーシーズン・試合全体。画面の視点・区間・条件は引き継ぎません。</p>
     {error || result?.error ? <div role="alert"><p>{error || result?.error}</p><button type="button" onClick={() => setAttempt(n => n + 1)}>もう一度読み込む</button></div> : !input ? <p role="status">チーム・リーグ・前季・選手の記録を読み込んでいます…</p> : null}
     {input && <label className="ai-export-opponent">比較する相手
@@ -68,5 +76,6 @@ export default function AiExportDialog({ season, teamId, close }: { season: stri
     {output && !error && <label className="ai-export-preview">Markdownプレビュー（コピー・保存される全文）
       <textarea ref={text} readOnly wrap="off" value={output.markdown} spellCheck={false} aria-label="書き出すMarkdown全文" />
     </label>}
+    </>}
   </dialog>;
 }

@@ -122,6 +122,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 312章: ランキング（チーム・シーズン成績）の名前の下は、すべての項目で**「◯試合（◯勝◯敗）」**（値の計算に使った試合と同じ試合。Shooting・Forced TOV はスポーツナビの記録がある試合、2P内訳は「内訳対象 x/y試合（…）」、区間はその区間の値がある試合。結果だけの試合は入れない。`RankedList` の `recordTextOf`・`src/lib/teamRankingRecord.ts`。`npm run validate:team-ranking-record`）。**画面だけの変更でキー不変**
 - 313章: ランキング（チーム・シーズン成績）の自チーム視点に**「失点」（opp PTS）**を足した（Traditional の PTS の右。値は opp 視点の PTS と同じ・少ないほうが上位。opp・+/- 視点には出さない。`buildOppPtsColumn`）。**画面だけの変更でキー不変**
 - 314章: 地区・クラブの選び方を日程の「対象クラブ」にそろえた（ランキングの地区・図解の地区は複数選択 `divisionMultiAxis`、1試合記録の対戦相手に「◯地区を選択」、図解の年間1試合はクラブの複数選択）。`dv`・`div` はカンマ区切りで、古い1つの形も読める。対戦地区の選択肢・「対◯地区」の行は `opponentDivisionChoices`（シーズン・リーグの地区の数に合わせる）。比較・対戦成績の相手は1つ選びのまま。検証は `npm run validate:division-select`。**画面だけの変更でキー不変**
+- 315章: チーム詳細の md「詳しい版」の段階1（`AiDetailedPanel.tsx`・`src/lib/aiExportScope.ts`・`aiDetailedExport.ts`・`aiDetailedExportLoad.ts`。ターム＝1シーズン・直近5試合、対戦相手＝全チーム／勝率6割以上〔直近5試合は絞ってから5試合〕、時間帯は `TimeSlice`。短い版は変えない）。選手の ORtg・DRtg・NetRtg・USG% は選手スタッツタブと同じ（全選手スタッツはチーム全試合で割るので違う）。検証は `npm run validate:ai-export-detailed`。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

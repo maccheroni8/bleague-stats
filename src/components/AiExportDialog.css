@@ -12,4 +12,11 @@
 .ai-export-notice { min-height: 1.5em; margin: 8px 0; }
 .ai-export-preview { display: block; }
 .ai-export-preview textarea { box-sizing: border-box; display: block; width: 100%; height: 48dvh; min-height: 220px; margin-top: 8px; padding: 12px; resize: vertical; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; font: 14px/1.7 monospace; tab-size: 2; }
+.ai-export-tabs { display: flex; gap: 8px; margin: 12px 0; }
+.ai-export-tabs button[aria-pressed="true"] { border-color: var(--fg); font-weight: 700; }
+.ai-detailed-group { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 8px 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: 4px; }
+.ai-detailed-group legend { padding: 0 4px; font-weight: 700; }
+.ai-detailed-group label { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
+.ai-detailed-group input:disabled + * , .ai-detailed-group label:has(input:disabled) { opacity: .55; }
+.ai-detailed-hint { flex-basis: 100%; margin: 0; font-size: .9rem; }
 @media (max-width: 560px) { .ai-export-dialog { padding: 12px; } .ai-export-preview textarea { font-size: 16px; } .ai-export-heading h2 { font-size: 1.05rem; } }
