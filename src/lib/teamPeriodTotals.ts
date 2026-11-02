@@ -90,6 +90,32 @@ function hasValue(file: TeamPeriodIndexFile, r: number, atoms: readonly number[]
 }
 
 /**
+ * 区間ごとの勝ち越し・負け越し・同点の数。sumTeamPeriodTotals と同じ試合（区間の値が両チームにある試合）について、
+ * その区間の自チームの得点と相手の得点を比べる（試合の勝敗ではない。Q別タブ用）
+ */
+export function countPeriodResults(
+  source: TeamPeriodSource,
+  logs: readonly TeamGameLog[],
+  value: TeamPeriodValue,
+): { wins: number; losses: number; ties: number } {
+  const atoms = PERIOD_ATOM_INDEXES[value];
+  const { file } = source;
+  const r = { wins: 0, losses: 0, ties: 0 };
+  for (const g of logs) {
+    const n = source.gameNo.get(g.scheduleKey);
+    if (n === undefined) continue;
+    const own = n * 2 + (g.isHome ? 0 : 1);
+    const opp = n * 2 + (g.isHome ? 1 : 0);
+    if (!hasValue(file, own, atoms) || !hasValue(file, opp, atoms)) continue;
+    const d = sumAt(file, own, atoms, "pts") - sumAt(file, opp, atoms, "pts");
+    if (d > 0) r.wins += 1;
+    else if (d < 0) r.losses += 1;
+    else r.ties += 1;
+  }
+  return r;
+}
+
+/**
  * 試合ログ（絞り込み済み）のうち、その区間の値がある試合の合計（sumTeamGameLogs と同じ項目）と、数えた試合。
  * 数えた試合は、平均の分母と勝敗に使う（勝敗は試合の勝敗のまま）
  */

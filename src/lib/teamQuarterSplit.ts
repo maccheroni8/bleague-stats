@@ -7,7 +7,7 @@ import type { TeamGameLog } from "../../shared/types";
 import { formatDecimal, formatSigned } from "./format";
 import type { SeasonDisplayMode } from "./playerSeasonBoxscore";
 import { buildSeasonPeriodRow, type SeasonPeriodRow } from "./teamSeasonPeriod";
-import type { TeamPeriodSource, TeamPeriodValue } from "./teamPeriodTotals";
+import { countPeriodResults, type TeamPeriodSource, type TeamPeriodValue } from "./teamPeriodTotals";
 import { EMPTY_TOTALS } from "./teamStatsColumns";
 
 /** 行の並びと名前 */
@@ -21,7 +21,25 @@ export const QUARTER_ROWS: readonly { value: TeamPeriodValue; label: string }[] 
   { value: "ot", label: "延長" },
 ];
 
-export type QuarterRow = SeasonPeriodRow & { value: TeamPeriodValue; label: string };
+/** その区間の勝ち越し・負け越し・同点の数（試合の勝敗は SeasonPeriodRow の wins・losses）。合計は games.length と一致する */
+export interface QuarterResults {
+  periodWins: number;
+  periodLosses: number;
+  periodTies: number;
+}
+
+export type QuarterRow = SeasonPeriodRow & QuarterResults & { value: TeamPeriodValue; label: string };
+
+/** 区間の勝率。同点は0.5勝として数える（勝ち越し＋同点×0.5）÷ 試合数。試合が無ければ null */
+export function periodWinPct(r: QuarterResults): number | null {
+  const n = r.periodWins + r.periodLosses + r.periodTies;
+  return n === 0 ? null : (r.periodWins + r.periodTies / 2) / n;
+}
+
+/** 区間の勝敗の表記。「7勝5敗1分」（同点が無いときは「7勝5敗」） */
+export function formatPeriodRecord(r: QuarterResults): string {
+  return `${r.periodWins}勝${r.periodLosses}敗${r.periodTies > 0 ? `${r.periodTies}分` : ""}`;
+}
 
 /** 絞り込んだ試合ログ（試合種別）から、7つの区間の行を作る。source が無い（読み込み中・読めない）ときは status で表す */
 export function buildQuarterRows(
@@ -31,7 +49,11 @@ export function buildQuarterRows(
   logs: readonly TeamGameLog[],
 ): QuarterRow[] {
   const state = loading ? ({ status: "loading" } as const) : source ? ({ status: "ready", source } as const) : ({ status: "unreadable" } as const);
-  return QUARTER_ROWS.map((q) => ({ ...buildSeasonPeriodRow(season, state, logs, q.value, EMPTY_TOTALS), ...q }));
+  return QUARTER_ROWS.map((q) => {
+    const base = buildSeasonPeriodRow(season, state, logs, q.value, EMPTY_TOTALS);
+    const res = base.status === "ready" && source ? countPeriodResults(source, logs, q.value) : { wins: 0, losses: 0, ties: 0 };
+    return { ...base, ...q, periodWins: res.wins, periodLosses: res.losses, periodTies: res.ties };
+  });
 }
 
 export interface QuarterScoreCells {

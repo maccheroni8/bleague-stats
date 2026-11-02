@@ -5,6 +5,7 @@
 //     全チームスタッツの同じ区間の列（PTS の自チーム／opp／+/-、ORtg、DRtg、NetRtg）の表示と一致する
 //  2. 足し合わせ: 区間の記録がある試合について、1Q〜4Q＋延長の得点の合計が試合の得点と一致し、前半＝1Q＋2Q、後半＝3Q＋4Q（得点・失点・攻撃回数）
 //  3. 延長: 試合数は延長のあった試合（試合ログの overtimes が1以上）の数。延長が無ければ全部「-」
+//  5. 勝敗: その時間帯の勝ち越し・負け越し・同点の数。合計が G（数えた試合）と一致し、試合を1つずつ足した得失点の符号から数えた値とも一致する
 //  4. レーティング: 合計の得点と攻撃回数を足してから割った値（試合ごとの率の平均ではない）。NetRtg は丸める前の ORtg−DRtg
 //
 // 使い方: npm run validate:team-quarter。1つでも食い違いがあれば終了コード1
@@ -18,7 +19,8 @@ import { offensiveRating } from "../shared/formulas";
 import { formatDecimal, formatSigned } from "../src/lib/format";
 import { buildAdvancedColumns, buildTraditionalColumns, type AllTeamsRow, type TeamPerspective } from "../src/lib/teamStatsColumns";
 import type { TeamPeriodSource } from "../src/lib/teamPeriodTotals";
-import { buildQuarterRows, quarterScoreCells, QUARTER_ROWS } from "../src/lib/teamQuarterSplit";
+import { buildQuarterRows, formatPeriodRecord, periodWinPct, quarterScoreCells, QUARTER_ROWS } from "../src/lib/teamQuarterSplit";
+import { sumTeamPeriodTotals } from "../src/lib/teamPeriodTotals";
 import type { SeasonDisplayMode } from "../src/lib/playerSeasonBoxscore";
 
 let failures = 0;
@@ -47,6 +49,13 @@ async function main(): Promise<void> {
   const noteSum = (m: string) => {
     ngSum += 1;
     if (firstSum.length < 12) firstSum.push(m);
+  };
+  let resultChecked = 0;
+  let ngRes = 0;
+  const firstRes: string[] = [];
+  const noteRes = (m: string) => {
+    ngRes += 1;
+    if (firstRes.length < 12) firstRes.push(m);
   };
   let sumChecked = 0;
   let otChecked = 0;
@@ -104,6 +113,22 @@ async function main(): Promise<void> {
           }
         }
 
+        // 5. 時間帯の勝敗
+        for (const r of rows) {
+          if (r.status !== "ready") continue;
+          resultChecked += 1;
+          if (r.periodWins + r.periodLosses + r.periodTies !== r.games.length) noteRes(`${season} ${t.teamId} ${gameType} ${r.value}: 勝+敗+分 ${r.periodWins + r.periodLosses + r.periodTies} ≠ G ${r.games.length}`);
+          let w = 0, l = 0, tie = 0;
+          for (const g of r.games) {
+            const one = sumTeamPeriodTotals(source, [g], r.value).totals;
+            if (one.pts > one.oppPts) w += 1;
+            else if (one.pts < one.oppPts) l += 1;
+            else tie += 1;
+          }
+          if (w !== r.periodWins || l !== r.periodLosses || tie !== r.periodTies) noteRes(`${season} ${t.teamId} ${gameType} ${r.value}: ${r.periodWins}-${r.periodLosses}-${r.periodTies} ≠ 試合ごと ${w}-${l}-${tie}`);
+          if ((r.value === "q1" || r.value === "q2" || r.value === "q3" || r.value === "q4") && r.games.length > 0 && periodWinPct(r) === null) noteRes(`${season} ${t.teamId}: 勝率が出ない`);
+        }
+
         // 2. 足し合わせ（1Q の行に入る試合＝区間の記録がある試合で比べる）
         const q1 = byValue.get("q1")!;
         if (q1.status === "ready") {
@@ -132,13 +157,14 @@ async function main(): Promise<void> {
           if (gameType === "regular" && ot.status === "ready") otRanking.push({ season, team: t.teamId, games: ot.games.length });
         }
         if (season === "2026-27" && gameType === "regular" && /宇都宮|utsunomiya/i.test(t.teamName ?? "")) {
-          utsunomiya = rows.map((r) => `${r.label} ${r.status === "ready" ? `${r.games.length}試合 ${Object.values(quarterScoreCells(r, "perGame")).join(" / ")}` : r.status}`);
+          utsunomiya = rows.map((r) => `${r.label} ${r.status === "ready" ? `${r.games.length}試合 ${formatPeriodRecord(r)} ${Object.values(quarterScoreCells(r, "perGame")).join(" / ")}` : r.status}`);
         }
       }
     }
   }
   check(`上の表が全チームスタッツの同じ区間の列と一致（${cells.toLocaleString()} 件）／レーティングは合計から割った値（${ratingChecked} 行）`, ng === 0, `${ng}件\n   ${first.join("\n   ")}`);
   check(`1Q〜4Q＋延長＝試合の得点、前半＝1Q＋2Q、後半＝3Q＋4Q、延長の試合数（${sumChecked}・${otChecked} チーム・条件）`, ngSum === 0, `${ngSum}件\n   ${firstSum.join("\n   ")}`);
+  check(`時間帯の勝敗: 勝+敗+分＝G、試合ごとの得失点の符号と一致（${resultChecked} 行）`, ngRes === 0, `${ngRes}件\n   ${firstRes.join("\n   ")}`);
   console.log("宇都宮 2026-27 レギュラー（平均）:\n  " + (utsunomiya.join("\n  ") || "見つからない"));
   otRanking.sort((a, b) => b.games - a.games);
   console.log("延長のあった試合が多いチーム・シーズン: " + otRanking.slice(0, 5).map((o) => `${o.season} ${o.team}（${o.games}試合）`).join("、"));

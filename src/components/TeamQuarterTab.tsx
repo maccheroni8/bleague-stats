@@ -3,7 +3,6 @@ import { ConditionTitle } from "./ConditionTitle";
 import { FilterBar } from "./FilterBar";
 import { RuleChangeFootnote } from "./RuleChangeFootnote";
 import { StatHeaderLabel } from "./StatHeaderLabel";
-import { TeamRecordShort } from "./TeamRecordShort";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "./BoxscoreTable";
 import { composeLabels, displayModeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { displayModeAxis, gameTypeAxis } from "../lib/filterAxes";
@@ -12,11 +11,10 @@ import type { SeasonDisplayMode } from "../lib/playerSeasonBoxscore";
 import { foulColumnsSplit } from "../lib/ruleChange";
 import { statDescription } from "../lib/statDescriptions";
 import { seasonPeriodCell, seasonPeriodFormatters } from "../lib/teamSeasonPeriod";
-import { buildQuarterRows, quarterScoreCells } from "../lib/teamQuarterSplit";
+import { buildQuarterRows, formatPeriodRecord, periodWinPct, quarterScoreCells } from "../lib/teamQuarterSplit";
 import { useTeamPeriodSource } from "../lib/teamPeriodTotals";
 import { OVERTIME_GAMES_NOTE, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason } from "../lib/seasonPeriod";
 import type { League } from "../lib/league";
-import { safeDiv } from "../../shared/formulas";
 import { filterByGameType, type SeasonGameTypeFilter } from "../../shared/gameType";
 import type { TeamGameLog } from "../../shared/types";
 
@@ -102,7 +100,7 @@ export function TeamQuarterTab({
             <thead>
               <tr>
                 <th className="align-left">区間</th>
-                <th className="align-right" title={statDescription("試合数")}>試合数</th>
+                <th className="align-right" title={statDescription("G")}>G</th>
                 {SCORE_COLUMNS.map((c) => (
                   <th className="align-right" key={c.key} title={statDescription(c.label, "team")}>
                     <StatHeaderLabel label={c.label} />
@@ -128,6 +126,7 @@ export function TeamQuarterTab({
             </tbody>
           </table>
         </div>
+        <ConditionTitle section title={`${season}シーズン Q別：${categoryLabel}`} conditions={conditions} />
         <div className="tab-bar">
           {BOXSCORE_TABS.filter((t) => QUARTER_TAB_KEYS.includes(t.key)).map((t) => (
             <button key={t.key} className={`tab-button${category === t.key ? " active" : ""}`} onClick={() => onCategoryChange(t.key)} type="button">
@@ -135,15 +134,13 @@ export function TeamQuarterTab({
             </button>
           ))}
         </div>
-        <ConditionTitle section title={`${season}シーズン Q別：${categoryLabel}`} conditions={conditions} />
         <div className="table-scroll">
           <table className="stats-table">
             <thead>
               <tr>
                 <th className="align-left">区間</th>
-                <th className="align-right" title={statDescription("試合数")}>試合数</th>
-                <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
-                <th className="align-right" title={statDescription("勝率")}>勝率</th>
+                <th className="align-right" title={statDescription("時間帯勝敗")}>時間帯勝敗</th>
+                <th className="align-right" title={statDescription("時間帯勝率")}>時間帯勝率</th>
                 {columns.map((c) => (
                   <th className="align-right" key={c.key} title={statDescription(c.label, "team")}>
                     <StatHeaderLabel label={c.label} />
@@ -157,9 +154,8 @@ export function TeamQuarterTab({
                 return (
                   <tr key={r.value}>
                     <td className="align-left">{r.label}</td>
-                    <td className="align-right">{ready ? r.games.length : "-"}</td>
-                    <td className="align-right">{ready ? <TeamRecordShort wins={r.wins} losses={r.losses} /> : "-"}</td>
-                    <td className="align-right">{ready ? formatWinPct(safeDiv(r.wins, r.wins + r.losses)) : "-"}</td>
+                    <td className="align-right">{ready ? formatPeriodRecord(r) : "-"}</td>
+                    <td className="align-right">{ready ? formatWinPct(periodWinPct(r) ?? 0) : "-"}</td>
                     {columns.map((c) => (
                       <td className="align-right" key={c.key}>
                         {seasonPeriodCell(formatters, c.label, r, teamId, teamName)}
@@ -172,10 +168,7 @@ export function TeamQuarterTab({
           </table>
         </div>
         {category === "misc" && <RuleChangeFootnote seasons={[season]} />}
-        <p className="page-subtitle">{OVERTIME_GAMES_NOTE}延長のあった試合が無いときは「-」です。勝敗は試合の勝敗です。</p>
-        <p className="page-subtitle">
-          ORtg・DRtgは、得点（失点）と攻撃回数を区間ごとに足してから割った値で、攻撃回数はその区間の記録から推定した値です。NetRtgは丸める前のORtg−DRtgです。
-        </p>
+        <p className="page-subtitle">{OVERTIME_GAMES_NOTE}延長のあった試合が無いときは「-」です。ORtg・DRtg・時間帯勝敗・時間帯勝率の数え方は用語集に書いてあります。</p>
         {otRow?.status === "empty" && <p className="page-subtitle">この条件では延長のあった試合がありません。</p>}
         {hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
         {hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
