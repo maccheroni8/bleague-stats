@@ -15398,3 +15398,11 @@ players.json に在コートの合計は足していない（Scoring・Misc は�
   - 勝率は **同点を0.5勝**として、（勝ち越し＋同点×0.5）÷ 試合数。同点を分母から外すと、同点の多い時間帯で勝ち越しの割合が実態より高く見えるため。
 - 表の下の注記は短くし、ORtg・DRtg・NetRtg と時間帯勝敗・勝率の説明は用語集へ移した。
 - 確かめたこと: `validate:team-quarter` に、勝+敗+分＝G と、試合を1つずつ足した得失点の符号から数え直した値との一致（3,274行）を追加。`validate:all` 65本・typecheck・build・check-layout 通過。`validate:stat-names` 通過。保存キーの対象ファイルは変えていない（`teamPeriodTotals.ts` は対象外）。
+
+## 311. 図解（選手）に「トップスコアラー」の散布図（2026-11-02。**画面だけの変更でキー不変**。allKey `51f5d32fb946b3a6f2120c7589db46ff` のまま）
+
+Codex の試作（`codex/top-scorers`）を取り込んだ。各チームの平均得点上位3人を点で出す（横軸は出場試合の勝率・%PTS・eFG%・On ORtg・PPP・PPS、縦軸は平均得点）。`src/figures/TopScorersFigure.tsx`・`src/lib/figureTopScorers.ts`、検証は `npm run validate:top-scorers`。既存の試合ログだけで計算し、集計・`shared/` は変えない。
+
+- 出場率の下限は他の画面と同じスライダー（`EligibilitySlider`、URL `sgp`、初期値85%）。
+- 写真がない選手は、自作の人の上半身の影（SVG）に名字を重ねる。点に収めるため、名字だけ（`surnameOf`）・3文字までは1行・4文字以上は2行に折り返して文字を小さくする。フルネームは吹き出しと一覧に出す。
+- 検証は出場率85%の各チーム上位3人の平均得点を、選手の試合ログだけから数え直した値と全シーズンで突き合わせる。
