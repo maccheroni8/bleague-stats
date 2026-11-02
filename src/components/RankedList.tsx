@@ -84,6 +84,8 @@ export interface RankedListProps<T> {
    * （「仙台・SG/SF・6試合」）。写真なしの版の名前の横（exportTeam）も同じ
    */
   gamesOf?: (row: T) => number | undefined;
+  /** 指定時、名前の下の行（subLabel が無い表）と、写真なしの保存画像の名前の横に、渡した文（「5試合（4勝1敗）」）を出す。gamesOf より優先 */
+  recordTextOf?: (row: T) => string | undefined;
   /**
    * 同じ順位の行を広げて出すときの、表示する行数の上限（全体で）。同じ順位が数千件になる記録（0の同率など）でも表を重くしないため。
    * 超えるときは、ボタンに「上限◯件まで表示」と出す。画像出力の「20位タイ ほか◯件」は実際の件数のまま
@@ -124,6 +126,7 @@ export function RankedList<T>({
   renderValue,
   compare,
   gamesOf,
+  recordTextOf,
   tieExpandMax,
   related,
 }: RankedListProps<T>) {
@@ -248,7 +251,8 @@ export function RankedList<T>({
             // 名前の横に添えるチーム略称（保存画像の写真なしの版でだけ表示）
             // 名前の下の行が無い表（チーム）は、試合数だけを名前の下の行と、写真なしの版の名前の横に出す
             const games = gamesOf?.(row);
-            const gamesOnly = !subLabel && games !== undefined ? `${games}試合` : null;
+            const recordText = recordTextOf?.(row);
+            const gamesOnly = subLabel ? null : recordText ?? (games !== undefined ? `${games}試合` : null);
             const abbrText = teamAbbr ?? gamesOnly;
             const abbr = abbrText ? <span className="export-team-abbr">{abbrText}</span> : null;
             const relatedValues = related?.of(row);

@@ -24,10 +24,14 @@ export interface PaintInput {
 export interface PaintPair {
   own: PaintInput;
   opp: PaintInput;
+  /** その試合の勝敗（内訳対象の試合の勝敗を数えるため。無ければ勝敗は数えない） */
+  win?: boolean;
 }
 
 export interface PaintSide {
   games: number;
+  /** 内訳対象の試合のうち勝った試合 */
+  wins: number;
   pm: number;
   pa: number;
   mm: number;
@@ -46,7 +50,7 @@ export interface PaintSummary {
   teams: number;
 }
 
-const emptySide = (): PaintSide => ({ games: 0, pm: 0, pa: 0, mm: 0, ma: 0 });
+const emptySide = (): PaintSide => ({ games: 0, wins: 0, pm: 0, pa: 0, mm: 0, ma: 0 });
 
 /** 記録が揃っている（整数・非負・成功≦試投・内訳の合計＝2P全体）かどうか。 */
 export function validPaint(p: PaintInput): boolean {
@@ -61,6 +65,7 @@ export function validPaint(p: PaintInput): boolean {
 
 export function paintPair(g: TeamGameLog): PaintPair {
   return {
+    win: g.win,
     own: { pm: g.paint2m, pa: g.paint2a, mm: g.mid2m, ma: g.mid2a, tm: g.fgm - g.tpm, ta: g.fga - g.tpa },
     opp: {
       pm: g.opponentPaint2m,
@@ -82,8 +87,9 @@ export function summarizePaint(pairs: readonly PaintPair[]): PaintSummary {
     bothOpp: emptySide(),
     teams: 1,
   };
-  const add = (to: PaintSide, p: PaintInput) => {
+  const add = (to: PaintSide, p: PaintInput, win?: boolean) => {
     to.games++;
+    if (win) to.wins++;
     to.pm += p.pm;
     to.pa += p.pa;
     to.mm += p.mm;
@@ -92,11 +98,11 @@ export function summarizePaint(pairs: readonly PaintPair[]): PaintSummary {
   for (const pair of pairs) {
     const ownValid = validPaint(pair.own);
     const oppValid = validPaint(pair.opp);
-    if (ownValid) add(summary.own, pair.own);
-    if (oppValid) add(summary.opp, pair.opp);
+    if (ownValid) add(summary.own, pair.own, pair.win);
+    if (oppValid) add(summary.opp, pair.opp, pair.win);
     if (ownValid && oppValid) {
-      add(summary.bothOwn, pair.own);
-      add(summary.bothOpp, pair.opp);
+      add(summary.bothOwn, pair.own, pair.win);
+      add(summary.bothOpp, pair.opp, pair.win);
     }
   }
   return summary;
@@ -124,7 +130,7 @@ export function mergePaint(items: readonly object[]): PaintSummary {
     merged.total += p.total;
     merged.teams += p.teams;
     for (const side of ["own", "opp", "bothOwn", "bothOpp"] as const) {
-      for (const k of ["games", "pm", "pa", "mm", "ma"] as const) merged[side][k] += p[side][k];
+      for (const k of ["games", "wins", "pm", "pa", "mm", "ma"] as const) merged[side][k] += p[side][k];
     }
   }
   return merged;
@@ -135,6 +141,13 @@ function sidesFor(s: PaintSummary, perspective: TeamPerspective): [PaintSide, Pa
   if (perspective === "own") return [s.own];
   if (perspective === "opp") return [s.opp];
   return [s.bothOwn, s.bothOpp];
+}
+
+/** 内訳対象の試合の試合数と勝ち数（視点ごとに、値の計算に使う試合） */
+export function paintRecord(s: PaintSummary | undefined, perspective: TeamPerspective): { games: number; wins: number } | undefined {
+  if (!s) return undefined;
+  const side = sidesFor(s, perspective)[0];
+  return { games: side.games, wins: side.wins };
 }
 
 /** 「記録が揃う試合数／全試合数」 */

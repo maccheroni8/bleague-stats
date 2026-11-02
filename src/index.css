@@ -2985,6 +2985,7 @@ table.rankings-table-compact {
 .export-rendering.export-plain .export-team-abbr {
   display: inline;
   margin-left: 10px;
+  white-space: nowrap;
   color: var(--muted);
   font-size: 0.7em;
   font-weight: 400;

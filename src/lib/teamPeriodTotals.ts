@@ -152,7 +152,7 @@ export function sumTeamPeriodTotals(
         ta: count("pt2a"),
       };
     };
-    paintPairs.push({ own: paintSide(own), opp: paintSide(opp) });
+    paintPairs.push({ own: paintSide(own), opp: paintSide(opp), win: g.win });
     const poss = file.rows.poss[value as PeriodPossKey]?.[own] ?? -1;
     t.pts += o("pts");
     t.oppPts += p("pts");
