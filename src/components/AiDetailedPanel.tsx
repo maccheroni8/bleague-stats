@@ -5,6 +5,10 @@ import { OPPONENT_KIND_LABELS, TERM_CHOICES, TIME_SLICE_CHOICES, type OpponentKi
 
 const KIND_CHOICES: { key: DetailedKind; label: string }[] = [{ key: 'team', label: 'チーム情報' }, { key: 'player', label: '選手情報' }];
 const OPP_CHOICES: OpponentKind[] = ['all', 'atLeast60'];
+const TERM_HINTS: Partial<Record<TermKind, string>> = {
+  threeTerms: 'リーグ共通の中断期間（11月と2月ごろ）で、開幕〜11月の中断／中断明け〜2月の中断／2月の中断明け〜の3つに分けます。チーム情報では最後にシーズン全体の列も付きます。分けられないシーズンは理由を出します。',
+  halves: '各チームの試合数の半分で前半戦・後半戦に分けます（奇数は前半戦が1試合多い）。進行中のシーズンは30試合目までを前半戦にします。',
+};
 
 /** 「詳しい版」の選ぶ画面と書き出し。選ぶのは 種類 → ターム → 時間帯 → 対戦相手 → 前季比較（チーム情報のときだけ）。 */
 export function AiDetailedPanel({ season, teamId }: { season: string; teamId: string }) {
@@ -50,12 +54,13 @@ export function AiDetailedPanel({ season, teamId }: { season: string; teamId: st
     } catch { setNotice('保存を開始できませんでした。「コピー」または「全文を選択」を使ってください。'); }
   };
   return <div className="ai-detailed">
-    <p>対象：{season}シーズン・レギュラーシーズン。選んだ条件で、AIに渡しやすい形の表を書き出します（下の「書き出しを作る」を押すと作ります）。</p>
+    <p>対象：{season}シーズン・レギュラーシーズン。選んだ条件で、AIに渡しやすい形の表を書き出します（下の「書き出しを作る」を押すと作ります。チーム情報は全チームの記録を読むので、少し時間がかかります）。</p>
     <fieldset className="ai-detailed-group"><legend>種類</legend>
       {KIND_CHOICES.map(c => <label key={c.key}><input type="radio" name="ai-detailed-kind" checked={kind === c.key} onChange={() => setKind(c.key)} />{c.label}</label>)}
     </fieldset>
     <fieldset className="ai-detailed-group"><legend>ターム</legend>
       {TERM_CHOICES.map(c => <label key={c.kind}><input type="radio" name="ai-detailed-term" disabled={!c.available} checked={term === c.kind} onChange={() => setTerm(c.kind)} />{c.label}{c.available ? '' : '（準備中）'}</label>)}
+      {TERM_HINTS[term] && <p className="ai-detailed-hint">{TERM_HINTS[term]}</p>}
     </fieldset>
     <fieldset className="ai-detailed-group"><legend>時間帯</legend>
       {TIME_SLICE_CHOICES.map(c => { const ok = c.available(season); return <label key={c.key}><input type="radio" name="ai-detailed-slice" disabled={!ok} checked={timeSlice === c.key} onChange={() => setTimeSlice(c.key)} />{c.label}{ok ? '' : '（準備中）'}</label>; })}

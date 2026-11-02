@@ -162,7 +162,8 @@ import {
   SEASON_TOTAL_ONLY_LABELS,
 } from "../lib/conditionLabels";
 import { isWeekdayGame } from "../lib/japaneseHolidays";
-import { classificationGroup, splitClassificationSeason, splitGroupOf } from "../lib/classificationFilter";
+import { splitClassificationSeason } from "../lib/classificationFilter";
+import { registrationLabel } from "../lib/registrationLabel";
 import { loadSeasonRegistrations } from "../lib/registrationScope";
 import type { SeasonRegistrationEntry } from "../../shared/registration";
 import { ComparisonTable, type ComparisonRow } from "./ComparePage";
@@ -726,19 +727,6 @@ const SHOOTING_TAB_TOOLTIP =
 /** 所属チームの情報が読めなかったシーズンの「対戦相手別」用（分母は空） */
 const EMPTY_OWN_TEAMS = new Map<string, GameTeamInfo>();
 const EMPTY_TEAM_LOGS = new Map<string, TeamGameLog[]>();
-
-/**
- * 個人詳細の「登録区分」の表示（DESIGN.md 298章）。2026-27 以降は、そのシーズンの登録区分の記録（外国籍・帰化・アジア特別枠。見做し日本人は「日本人（見做し日本人）」、
- * シーズン途中の変更は「外国籍 → 帰化（2027-01-10から）」）。2025-26 以前は「日本人」か「外国籍・帰化・アジア」（区分を分けて記録していない）
- */
-function registrationLabel(season: string, classification: PlayerSummary["classification"], entry: SeasonRegistrationEntry | undefined): string {
-  if (!splitClassificationSeason(season)) return classificationGroup(classification) ?? classification ?? "-";
-  const name = (c: PlayerSummary["classification"], deemed?: boolean) => (deemed ? "日本人（見做し日本人）" : (splitGroupOf(c) ?? "-"));
-  if (!entry) return name(classification);
-  const parts = [name(entry.classification, entry.deemedJapanese)];
-  for (const c of entry.changes ?? []) parts.push(`${name(c.classification, c.deemedJapanese)}（${c.from.replaceAll("-", "/")}から）`);
-  return parts.join(" → ");
-}
 
 export function PlayerDetailPage({ season }: { season: string }) {
   const league = useLeague();

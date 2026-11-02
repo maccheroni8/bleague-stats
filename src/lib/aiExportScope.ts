@@ -10,6 +10,8 @@ export const TERM_KIND_LABELS: Record<TermKind, string> = { season: '1シーズ�
 /** 中断とみなす「試合のない日」の日数（既存の BIWEEK_GAP_DAYS=10〔開催日の差〕と同じ境界） */
 export const BREAK_MIN_OFF_DAYS = 9;
 export const RECENT_GAMES = 5;
+/** 進行中のシーズンの前半戦の試合数（60試合の半分） */
+export const HALF_GAMES = 30;
 
 export interface Gap { before: string; after: string; offDays: number }
 
@@ -124,15 +126,15 @@ export function buildTerms(kind: TermKind, input: ScopeInput): { terms: Term[] }
     return { terms: [makeTerm('recent5', `直近${RECENT_GAMES}試合`, last, 0, `結果が確定した試合の最後の${RECENT_GAMES}試合${last.length < RECENT_GAMES ? `（${last.length}試合しかない）` : ''}`)] };
   }
   if (kind === 'halves') {
-    // 終わったシーズン: 行った試合数の半分（奇数は前半戦に1多く）。進行中: 予定の試合数（確定＋今後の予定）の半分で固定
-    const planned = games.length + upcoming.length;
-    const n = input.complete ? games.length : planned;
-    const split = Math.ceil(n / 2);
-    const rule = input.complete ? `行った${games.length}試合を半分に分ける（前半戦${split}試合）` : `予定の${planned}試合の半分＝${split}試合目までを前半戦（進行中でも境界は動かさない）`;
+    // 終わったシーズン: そのチームの結果確定試合数の半分（奇数は前半戦に1多く）。進行中のシーズン: 30試合目まで＝前半戦で固定
+    // （60試合の半分を定数で持つ。予定の試合数から数えない：B.ONE などは公式の日程にまだ載っていない試合があり、数えると境目がずれる）
+    const split = input.complete ? Math.ceil(games.length / 2) : HALF_GAMES;
+    const rule = input.complete ? `行った${games.length}試合を半分に分ける（前半戦${split}試合。奇数は前半戦が1試合多い）` : `${HALF_GAMES}試合目までを前半戦（進行中でも境界は動かさない。60試合の半分）`;
+    const h1Upcoming = Math.max(0, split - games.length);
     return {
       terms: [
-        makeTerm('h1', '前半戦', games.slice(0, split), Math.max(0, split - games.length), `1〜${split}試合目。${rule}`),
-        makeTerm('h2', '後半戦', games.slice(split), upcoming.length - Math.max(0, split - games.length), `${split + 1}試合目以降。${rule}`),
+        makeTerm('h1', '前半戦', games.slice(0, split), h1Upcoming, `1〜${split}試合目。${rule}`),
+        makeTerm('h2', '後半戦', games.slice(split), Math.max(0, upcoming.length - h1Upcoming), `${split + 1}試合目以降。${rule}`),
       ],
     };
   }
@@ -223,6 +225,6 @@ export interface TermChoice { kind: TermKind; label: string; available: boolean 
 export const TERM_CHOICES: readonly TermChoice[] = [
   { kind: 'season', label: '1シーズン', available: true },
   { kind: 'recent5', label: '直近5試合', available: true },
-  { kind: 'threeTerms', label: '3ターム', available: false },
-  { kind: 'halves', label: '前半戦・後半戦', available: false },
+  { kind: 'threeTerms', label: '3ターム', available: true },
+  { kind: 'halves', label: '前半戦・後半戦', available: true },
 ];

@@ -12,12 +12,24 @@ import { sumTeamGameLogsFor } from './playerSeasonBoxscore';
 import { seasonBoxColumnsWithFtr } from './ftrColumn';
 import { teamScoringShareFromTotals, teamClassificationShareFromTotals, fgaShare } from './shareCharts';
 import { buildBackToBackStatus } from './situational';
+import { sumForeignCourt, sumForeignDetail, type ForeignPeriodValue } from './teamForeignCourt';
+import { seasonOnCourtSummaryFromDetail } from './teamLineupOnCourt';
+import { formatMinutesFromSeconds } from './boxscoreAggregate';
+import { sumTtsTotals, ttsRowValues, TTS_TABLE_ITEMS, formatTtsSeconds, formatTtsPct, type TtsSource } from './teamTts';
+import type { TeamPeriodSource } from './teamPeriodTotals';
+import { buildStreakTeamRow } from './streaksTab';
+import { leagueDirections, leagueRanks, pooledRow } from './aiDetailedLeague';
+import { ageBaseDate, ageForSeason, formatBaseDateLabel, AGE_BASE_NOTE } from './age';
+import { positionText, heightText, weightText, seasonHasProfileFallback } from './profileMark';
+import { registrationLabel } from './registrationLabel';
+import { splitClassificationSeason } from './classificationFilter';
+import type { SeasonRegistrationFile } from '../../shared/registration';
 import { buildOpponentSeasonWinRates } from './opponentSeasonWinRate';
 import { teamNameInSeason } from './teamLabel';
 import { previousSeason } from './seasonCompare';
 import { buildSituationalRecordGroups, teamSeasonColumnLabels } from '../pages/TeamDetailPage';
 import {
-  buildTermsWithOpponent, MIN_OPP_GAMES, OPPONENT_KIND_LABELS, TERM_KIND_LABELS, TIME_SLICE_CHOICES,
+  buildTermsWithOpponent, teamConfirmedGames, MIN_OPP_GAMES, OPPONENT_KIND_LABELS, TERM_KIND_LABELS, TIME_SLICE_CHOICES,
   type OpponentKind, type Term, type TermKind, type TimeSlice,
 } from './aiExportScope';
 
@@ -46,6 +58,16 @@ export interface DetailedInput {
   cur: DetailedSeason;
   prev: DetailedSeason | null;
   players: { player: PlayerSummary; logs: PlayerGameLog[] }[];
+  /** 2026-27以降の、そのシーズン・リーグの登録区分の記録（選手情報の登録区分。読めなかったときは null） */
+  registrations?: SeasonRegistrationFile | null;
+  /** リーグ全チームのレギュラーシーズンの試合ログ（リーグ順位・リーグ平均。チーム情報だけ。自チームも含む） */
+  leagueLogs?: ReadonlyMap<string, TeamGameLog[]>;
+  /** 区間の索引（オンザコート別。チーム情報だけ） */
+  periodSource?: TeamPeriodSource | null;
+  /** Time to Shot の索引（2020-21以降。チーム情報だけ） */
+  ttsSource?: TtsSource | null;
+  /** コートに同時に出られる外国籍・帰化・アジア特別枠の最大人数（規程） */
+  maxForeignOnCourt?: number;
   /** 「書き出した日」に書く文字列 */
   exportedAt: string;
 }
@@ -104,6 +126,8 @@ const GLOSSARY_TEAM = [
 const GLOSSARY_PLAYER = [
   '%PTS・%FGM などの%系と ORtg・DRtg・NetRtg・USG% の分母は、その選手が出た試合のチーム合計。',
 ];
+/** 良し悪しの向きが無い項目（出場時間・攻撃回数・テンポ）は順位を付けない（リーグ平均は付ける） */
+const NO_RANK = new Set(['G', 'MIN', 'POSS', 'PACE']);
 const PLAYER_DROP = new Set(['G', 'GS', 'MIN', 'PTS']);
 
 /** 相手のその試合に入る時点の勝敗の文字（対象の試合の一覧用） */
@@ -139,7 +163,7 @@ function aboutTable(i: DetailedInput, ctx: { name: string; ended: string; comple
     ['データの基準日', `${ctx.ended}（収録済みのリーグの最新の終了試合日）`],
     ['リーグ', `${i.season >= '2026-27' ? 'B.PREMIER' : 'B1'}（レギュラーシーズンだけ。ポストシーズンは入れない）`],
     ['チーム', `${ctx.name}${ctx.complete ? '' : '（シーズン途中）'}`],
-    ['ターム', TERM_KIND_LABELS[i.term]],
+    ['ターム', `${TERM_KIND_LABELS[i.term]}${ctx.terms.length > 1 && i.kind === 'team' ? '（比べやすいよう、最後の列にシーズン全体を参考に付ける）' : ''}`],
     ['時間帯', ctx.slices.length === 1 ? '試合全体（延長を含む）' : ctx.slices.map(s => SLICE_LABEL[s]).join('・')],
     ['対戦相手', i.opp === 'all' ? '全チーム' : `${OPPONENT_KIND_LABELS[i.opp]}（${OPP_RULE}）。${i.term === 'recent5' ? '直近5試合は、相手で絞ってから最後の5試合を選ぶ（ほかのタームは期間を決めてから絞る）' : 'タームを先に決めてから絞る（直近5試合だけは、相手で絞ってから最後の5試合を選ぶ）'}`],
     ...ctx.extra,
@@ -157,10 +181,14 @@ function gameTable(i: DetailedInput, terms: FTerm[]): string {
   }));
 }
 
-function gameListTable(i: DetailedInput, terms: FTerm[], teamsOf: DetailedSeason, history: TeamHistoryEntry[]): string {
-  return table(['日付', '相手', '会場', '結果', '相手の勝敗（試合前）'], terms.flatMap(t => t.games).map(g => {
+/** 絞り込んだときの、対象の試合の一覧。直近5試合はその5試合、ほかはシーズン全体の該当試合（複数のタームのときはどのタームかを添える） */
+function gameListTable(i: DetailedInput, terms: FTerm[], seasonTerm: FTerm, teamsOf: DetailedSeason, history: TeamHistoryEntry[]): string {
+  const multi = terms.length > 1;
+  const list = i.term === 'recent5' ? terms.flatMap(t => t.games) : seasonTerm.games;
+  const termOf = (g: { scheduleKey: string }) => terms.find(t => t.games.some(x => x.scheduleKey === g.scheduleKey))?.label ?? '-';
+  return table([...(multi ? ['ターム'] : []), '日付', '相手', '会場', '結果', '相手の勝敗（試合前）'], list.map(g => {
     const opp = teamsOf.teams.find(t => t.teamId === g.log.opponentTeamId);
-    return [g.date, opp ? teamNameInSeason(history, opp.teamId, i.season, opp.teamName) : g.log.opponentTeamId, g.isHome ? 'ホーム' : 'アウェイ', `${g.win ? '勝' : '敗'} ${g.resultOnly ? '（結果だけ）' : `${g.log.teamScore}-${g.log.opponentScore}`}`, oppPreRecord(teamsOf.summaries, g)];
+    return [...(multi ? [termOf(g)] : []), g.date, opp ? teamNameInSeason(history, opp.teamId, i.season, opp.teamName) : g.log.opponentTeamId, g.isHome ? 'ホーム' : 'アウェイ', `${g.win ? '勝' : '敗'} ${g.resultOnly ? '（結果だけ）' : `${g.log.teamScore}-${g.log.opponentScore}`}`, oppPreRecord(teamsOf.summaries, g)];
   }));
 }
 
@@ -169,17 +197,47 @@ function foreignTimeTable(i: DetailedInput, terms: FTerm[]): string[] {
   const games = terms.flatMap(t => t.games).filter(g => !g.resultOnly);
   const nameOf = (id: string) => { const o = i.cur.teams.find(t => t.teamId === id); return o ? teamNameInSeason(i.history, o.teamId, i.season, o.teamName) : id; };
   const min = (sec: number | undefined) => (sec === undefined ? '-' : (sec / 60).toFixed(1));
+  const multi = terms.length > 1;
+  const termOf = (g: { scheduleKey: string }) => terms.find(t => t.games.some(x => x.scheduleKey === g.scheduleKey))?.label ?? '-';
   const rows = games.map(g => {
     const sec = g.log.foreignCourtSeconds;
     const longest = g.log.foreignPlayerCount;
-    return [g.date, nameOf(g.log.opponentTeamId), `${g.win ? '勝' : '敗'} ${g.log.teamScore}-${g.log.opponentScore}`, ...[0, 1, 2, 3, 4].map(n => min(sec?.[n])), longest === undefined ? '-' : `${longest}人`];
+    return [...(multi ? [termOf(g)] : []), g.date, nameOf(g.log.opponentTeamId), `${g.win ? '勝' : '敗'} ${g.log.teamScore}-${g.log.opponentScore}`, ...[0, 1, 2, 3, 4].map(n => min(sec?.[n])), longest === undefined ? '-' : `${longest}人`];
   });
   return [
     '#### 試合ごとの、コート上の外国籍・帰化・アジアの人数別の時間（分）', '',
     '- 「0人〜4人」は、その人数がコートに同時にいた時間（分）。いちばん長い人数が、シチュエーション別勝敗の「コート上の外国籍・帰化・アジアの人数（最も長かった人数）」の値（最後の列）。1試合に出た人数・登録した人数ではない。',
     '- 外国籍・帰化・アジア特別枠の合計で、日本人は数えない。登録区分が分からない選手がいる区間は数えないので、合計が試合時間に満たないことがある。2人が最も長くても、前後で人数が違った試合は多い（途中退場・途中出場で人数が変わる）。',
     ...(i.season < '2020-21' ? ['- **2019-20以前のシーズンは、コートにいた選手を試合の記録から推定して復元した値で、精度が下がる。** 特に2016-17・2017-18は時間が粗く（同じ長さの人数が並ぶ試合がある）、その試合の「最も長かった人数」は並んだ人数のどれか1つ。'] : []),
-    '', table(['日付', '相手', '結果', '0人', '1人', '2人', '3人', '4人', '最も長かった人数'], rows), '',
+    '', table([...(multi ? ['ターム'] : []), '日付', '相手', '結果', '0人', '1人', '2人', '3人', '4人', '最も長かった人数'], rows), '',
+  ];
+}
+
+/** 選手のプロフィール表（ポジション・身長・体重・年齢・登録区分）。個人詳細と同じ表記・同じ決め方 */
+function profileTable(i: DetailedInput, terms: FTerm[], complete: boolean): string[] {
+  const keys = new Set(terms.flatMap(t => t.statLogs.map(g => g.scheduleKey)));
+  const list = i.players
+    .map(({ player, logs }) => { const mine = logs.filter(g => keys.has(g.scheduleKey)); return { player, min: mine.reduce((a, g) => a + g.min, 0), games: mine.length }; })
+    .filter(x => x.games > 0)
+    .sort((a, b) => b.min - a.min);
+  const rows = list.map(({ player: p }) => [
+    normalizePlayerName(p.name),
+    positionText(p) ?? '-',
+    heightText(p) ?? '-',
+    weightText(p) ?? '-',
+    p.birthDate ? `${ageForSeason(p.birthDate, i.season)}歳` : '-',
+    registrationLabel(i.season, p.classification, i.registrations?.players[p.playerId]),
+  ]);
+  const base = formatBaseDateLabel(ageBaseDate(i.season));
+  return [
+    '### 選手のプロフィール', '',
+    `- 年齢は **${base.replace(' 現在', '')}時点**（各シーズンの6月30日時点。進行中のシーズンは本日時点。個人詳細・図解の年齢分布と同じ決め方）。生年月日が無い選手は「-」。`,
+    `- 身長・体重・ポジションは${complete ? '当時の値（そのシーズンの1月15日に固定した値）' : '現在の値（進行中のシーズンは、1月15日に固定するまで現在の値）'}。値が無い選手は「-」。` + (seasonHasProfileFallback(list.map(x => x.player)) ? '＊が付いた値は、当時の値が見つからず補った値（ポジションは近いシーズンの当時の値、無ければ現在の値。身長・体重は現在の値）。' : ''),
+    splitClassificationSeason(i.season)
+      ? '- 登録区分は、このシーズンの登録区分の記録（外国籍・帰化・アジア特別枠。見做し日本人は「日本人（見做し日本人）」）。シーズン途中で区分が変わった選手は「外国籍 → 帰化（2027-01-10から）」のように変わった日を添える。'
+      : '- 登録区分は、2025-26以前は区分を分けて記録していないため、選手マスタの区分を参考値として「日本人」か「外国籍・帰化・アジア」で出す。',
+    ...(splitClassificationSeason(i.season) && !i.registrations ? ['- **このシーズンの登録区分の記録を読み込めなかったため、登録区分は選手マスタの区分で出した（参考値）。**'] : []),
+    '', table(['選手', 'ポジション', '身長', '体重', '年齢', '登録区分'], rows), '',
   ];
 }
 
@@ -196,6 +254,7 @@ export function buildDetailedExport(i: DetailedInput): DetailedOutput {
   const ended = cur.summaries.filter(g => g.gameType === 'regular' && g.gameEndedFlg).map(g => g.date).sort().at(-1) ?? '-';
   const complete = isRegularSeasonComplete({ schedule: cur.schedule, summaries: cur.summaries });
   const terms = detailedTerms(cur, i.term, i.opp, teamId, i.history);
+  const seasonTerm = terms.length > 1 ? detailedTerms(cur, 'season', i.opp, teamId, i.history)[0]! : terms[0]!;
   const filename = detailedFilename(i, name, ended);
   const out: string[] = [];
   const finish = (empty = false): DetailedOutput => { const markdown = out.join('\n'); return { markdown, filename, characters: Array.from(markdown).length, empty }; };
@@ -203,10 +262,11 @@ export function buildDetailedExport(i: DetailedInput): DetailedOutput {
 
   if (i.kind === 'player') {
     out.push(`# ${name} ${i.season} 選手情報（詳しい版）`, '', '## この書き出しについて', '');
-    out.push(aboutTable(i, { name, ended, complete, terms, slices, extra: [['対象の選手', `このチームで出場した${i.players.length}人（移籍した選手は、このチームでの試合だけ）`]] }), '');
+    out.push(aboutTable(i, { name, ended, complete, terms, slices, extra: [['対象の選手', `このチームで出場した${i.players.length}人（移籍した選手は、このチームでの試合だけ）`], ['年齢の基準日', `${formatBaseDateLabel(ageBaseDate(i.season)).replace(' 現在', '')}時点（${AGE_BASE_NOTE}）`]] }), '');
     out.push('### チームの試合', '', gameTable(i, terms), '');
-    if (i.opp !== 'all') out.push('#### 対象の試合（相手と、その試合に入る時点の相手の勝敗）', '', gameListTable(i, terms, cur, i.history), '');
+    if (i.opp !== 'all') out.push('#### 対象の試合（相手と、その試合に入る時点の相手の勝敗）', '', gameListTable(i, terms, seasonTerm, cur, i.history), '');
     if (allEmpty) { out.push(...EMPTY_NOTE(i)); return finish(true); }
+    out.push(...profileTable(i, terms, complete));
     out.push('### 数字の書き方', '', '- 1試合平均（分母は、その選手がそのターム・時間帯に出場した試合数＝各表の G）。%系（%PTS など）の分母は、その選手が出た試合のチームの合計（今の選手スタッツタブと同じ）。小数は第2位まで、時間は 分:秒。「-」は値が無い。',
       '- ORtg・DRtg・NetRtg・USG% も、分母は「その選手が出た試合のチーム合計」（チーム詳細の選手スタッツタブと同じ）。全選手スタッツの同じ項目は「チームの全試合の合計」で割るので、出ていない試合が多い選手ほど少し違う。',
       '- 列の重複を減らすため、G・GS・MIN・PTS は Traditional の表だけに出し、他の表では省く。', '- 出場の無い選手は、そのタームの表から省く。', '',
@@ -240,7 +300,9 @@ export function buildDetailedExport(i: DetailedInput): DetailedOutput {
 
   // ---- チーム情報 ----
   const mkCol = (key: string, label: string, t: Term, tid = teamId): Col => ({ key, label, logs: t.statLogs, term: t, rows: new Map(slices.map(s => [s, sliceRow(tid, t.statLogs, s)])) });
-  const cols: Col[] = terms.map(t => mkCol(t.key, t.label, t));
+  // 列＝タームの区分（区分が2つ以上なら最後に「シーズン全体」を参考に足す）
+  const termCols: Col[] = terms.map(t => mkCol(t.key, t.label, t));
+  const cols: Col[] = terms.length > 1 ? [...termCols, mkCol('season', 'シーズン全体', seasonTerm)] : termCols;
   let prevCol: Col | null = null;
   let prevName = '';
   if (i.compare && i.prev) {
@@ -248,13 +310,74 @@ export function buildDetailedExport(i: DetailedInput): DetailedOutput {
     const pt = detailedTerms(i.prev, 'season', i.opp, teamId, i.history)[0]!;
     prevCol = mkCol('prev', `前季全体（${i.prev.season}${i.opp === 'all' ? '' : `・${OPPONENT_KIND_LABELS[i.opp]}`}）`, pt);
   }
+  const fm = new Map(PERSPECTIVES.map(([p]) => [p, seasonPeriodFormatters('perGame', p, foulSplit)]));
+  const numFm = (p: TeamPerspective, label: string, r: AllTeamsRow): number => Number(String(fm.get(p)!.get(label)!(r, startYear)).replace(/[%+]/g, ''));
+  const heading = (slice: TimeSlice) => (slices.length > 1 ? [`### ${SLICE_LABEL[slice]}`, ''] : []);
+
+  // ---- リーグ順位・リーグ平均（選んだ期間・対戦相手の絞り込みを、全チームに同じ決め方で当てはめる） ----
+  interface LeagueCol { rows: Map<string, AllTeamsRow>; pooled: AllTeamsRow; n: number }
+  const leagueCols = new Map<string, LeagueCol>();
+  if (i.leagueLogs) {
+    const perTeam = new Map<string, { terms: FTerm[]; season: FTerm }>();
+    for (const t of cur.teams) {
+      const logs = i.leagueLogs.get(t.teamId);
+      if (!logs) continue;
+      const ds: DetailedSeason = { ...cur, team: t, regular: logs };
+      const tt = detailedTerms(ds, i.term, i.opp, t.teamId, i.history);
+      perTeam.set(t.teamId, { terms: tt, season: tt.length > 1 ? detailedTerms(ds, 'season', i.opp, t.teamId, i.history)[0]! : tt[0]! });
+    }
+    for (const c of cols) {
+      const rows = new Map<string, AllTeamsRow>();
+      const allLogs: TeamGameLog[] = [];
+      for (const [tid, pt] of perTeam) {
+        const term = c.key === 'season' ? pt.season : pt.terms.find(x => x.key === c.key);
+        if (!term || !term.statLogs.length) continue;
+        rows.set(tid, sliceRow(tid, term.statLogs, 'game'));
+        allLogs.push(...term.statLogs);
+      }
+      leagueCols.set(c.key, { rows, pooled: pooledRow([...rows.values()], allLogs), n: rows.size });
+    }
+  }
+  const hasLeague = leagueCols.size > 0;
+  const dirs = new Map(PERSPECTIVES.map(([p]) => [p, leagueDirections(p, foulSplit, startYear)] as const));
+  const rankCache = new Map<string, Map<string, number>>();
+  /** 自チームの値に順位を添える（「85.50（3位）」）。対象の試合が無いチーム・向きが決まらない項目（G など）は値だけ */
+  const rankedCell = (c: Col, p: TeamPerspective, label: string, slice: TimeSlice): string => {
+    const r = c.rows.get(slice)!;
+    const f = fm.get(p)!.get(label);
+    if (!f || !r.gamesPlayed) return '-';
+    const v = f(r, startYear);
+    const lc = leagueCols.get(c.key);
+    const dir = dirs.get(p)!.get(label);
+    if (!lc || !dir || NO_RANK.has(label)) return v;
+    const key = `${c.key}|${p}|${label}`;
+    let ranks = rankCache.get(key);
+    if (!ranks) { ranks = leagueRanks(lc.rows, dir, rr => f(rr, startYear)); rankCache.set(key, ranks); }
+    const rk = ranks.get(teamId);
+    return rk === undefined ? v : `${v}（${rk}位）`;
+  };
+  const leagueAvgCell = (c: Col, p: TeamPerspective, label: string): string => {
+    const lc = leagueCols.get(c.key);
+    const f = fm.get(p)!.get(label);
+    if (!lc || !f || label === 'G' || !lc.pooled.gamesPlayed) return '-';
+    return f(lc.pooled, startYear);
+  };
+  /** 列の見出し（リーグ平均の列を右に添える） */
+  const colHeads = (list: Col[]): string[] => list.flatMap(c => (leagueCols.has(c.key) ? [c.label, `${c.label} リーグ平均`] : [c.label]));
+  const colCells = (list: Col[], p: TeamPerspective, label: string, slice: TimeSlice): string[] => list.flatMap(c => (leagueCols.has(c.key) ? [rankedCell(c, p, label, slice), leagueAvgCell(c, p, label)] : [rankedCell(c, p, label, slice)]));
+
+  const leagueNote = (): string => {
+    if (!hasLeague) return '付けない';
+    const counts = cols.map(c => `${c.label} ${leagueCols.get(c.key)?.n ?? 0}チーム`).join('・');
+    return `チームのまとめ・Traditional・Advanced・Misc・Scoring の表で、自チームの値に「85.50（3位）」の形でリーグ順位を添え、各列の右に「リーグ平均」の列を付ける。順位は、選んだ期間・対戦相手の絞り込みを全チームに同じ決め方で当てはめて比べる（3ターム＝リーグ共通の中断期間、前半戦・後半戦と直近5試合＝各チームの試合、勝率6割以上＝各チームがその試合に入る時点の相手の勝率）。多いほうが良い項目は多い順、少ないほうが良い項目（失点・TOV・DRtg・ファウルなど。opp の視点では向きが反転）は少ない順で、サイトのランキングと同じ向き。同じ値（表の丸めた値が同じ）は同じ順位で、次の順位はその分飛ばす（1位・2位・2位・4位）。対象の試合が0のチームは順位を付けない。順位の対象チーム数：${counts}。リーグ平均は、リーグの全チームの対象の試合を合計して出した1試合平均・割合（チームごとの平均の平均ではない）。G・MIN・POSS・PACE は良し悪しの向きが無いので順位を付けない（リーグ平均は付ける。G は付けない）。得点失点構成・オンザコート別・Time to Shot・Streaks・シチュエーション別勝敗には付けない`;
+  };
   out.push(`# ${name} ${i.season} チーム情報（詳しい版）`, '', '## この書き出しについて', '');
-  out.push(aboutTable(i, { name, ended, complete, terms, slices, extra: [['前季との比較', prevCol ? `する（「チームのまとめ」だけ。${i.prev!.season} ${prevName} の前季全体${i.opp === 'all' ? '' : '（前季も同じ相手の条件で絞る）'}と比べる）` : i.compare ? 'しない（前季にこのチームの記録がない）' : 'しない']] }), '');
-  out.push('### 対象試合', '', gameTable(i, terms), '');
-  if (i.opp !== 'all') out.push('#### 対象の試合（相手と、その試合に入る時点の相手の勝敗）', '', gameListTable(i, terms, cur, i.history), '');
+  out.push(aboutTable(i, { name, ended, complete, terms, slices, extra: [['リーグ順位・リーグ平均', leagueNote()], ['前季との比較', prevCol ? `する（「チームのまとめ」だけ。${i.prev!.season} ${prevName} の前季全体${i.opp === 'all' ? '' : '（前季も同じ相手の条件で絞る）'}と比べる）` : i.compare ? 'しない（前季にこのチームの記録がない）' : 'しない']] }), '');
+  out.push('### 対象試合', '', gameTable(i, terms.length > 1 ? [...terms, { ...seasonTerm, label: 'シーズン全体（参考）' }] : terms), '');
+  if (i.opp !== 'all') out.push('#### 対象の試合（相手と、その試合に入る時点の相手の勝敗）', '', gameListTable(i, terms, seasonTerm, cur, i.history), '');
   if (allEmpty) { out.push(...EMPTY_NOTE(i)); return finish(true); }
   out.push(...foreignTimeTable(i, terms));
-  out.push('### 欠けているもの', '', '- 次の表はこの版にまだ入っていない：Shooting・Forced TOV・オンザコート別・Time to Shot・Streaks（準備中）', '');
+  out.push('### 欠けているもの', '', '- 次の表はこの版にまだ入っていない：Shooting・Forced TOV（準備中）', '');
   out.push('### 数字の書き方', '',
     '- 平均は1試合平均（分母はその表のスタッツの対象試合数）。割合（%）は合計の分子÷合計の分母（試合ごとの割合の平均ではない）。小数は第2位まで。',
     '- 勝率は .750 の形、時間は 分:秒。「差」は自チーム−相手（構成比・成功率の差はパーセントポイント）。「opp」は相手チームの値。',
@@ -262,13 +385,8 @@ export function buildDetailedExport(i: DetailedInput): DetailedOutput {
     '- 結果だけの試合（不戦勝・ボックススコアの無い試合）は、勝敗・試合数には数え、スタッツには入れない。', '',
     '#### 用語（数え方が名前から分かりにくい項目）', '', ...[...GLOSSARY_TEAM, ...GLOSSARY_COMMON].map(t => `- ${t}`), '');
 
-  const fm = new Map(PERSPECTIVES.map(([p]) => [p, seasonPeriodFormatters('perGame', p, foulSplit)]));
-  const numFm = (p: TeamPerspective, label: string, r: AllTeamsRow): number => Number(String(fm.get(p)!.get(label)!(r, startYear)).replace(/[%+]/g, ''));
-  const heading = (slice: TimeSlice) => (slices.length > 1 ? [`### ${SLICE_LABEL[slice]}`, ''] : []);
-
   // 1. チームのまとめ
   out.push('## 1. チームのまとめ', '');
-  const allCols = prevCol ? [...cols, prevCol] : cols;
   const SUMMARY: [TeamPerspective, string, string][] = [
     ['own', 'PTS', '得点'], ['opp', 'PTS', '失点'], ['own', '+/-', '得失点差'], ['own', 'ORtg', ''], ['own', 'DRtg', ''], ['own', 'NetRtg', ''], ['own', 'PACE', ''],
     ['own', 'eFG%', ''], ['opp', 'eFG%', ''], ['own', 'TOV%', ''], ['opp', 'TOV%', ''], ['own', 'OR%', ''], ['opp', 'OR%', ''], ['own', 'FTR', ''], ['opp', 'FTR', ''],
@@ -278,13 +396,15 @@ export function buildDetailedExport(i: DetailedInput): DetailedOutput {
     if (!supportsSlice(slice)) continue;
     out.push(...heading(slice));
     const main = cols.at(-1)!;
-    const head = ['項目', ...allCols.map(c => c.label), ...(prevCol ? [`差（${main.label}−前季全体）`] : [])];
+    const head = ['項目', ...colHeads(cols), ...(prevCol ? [prevCol.label, `差（${main.label}−前季全体）`] : [])];
     const rows: string[][] = [];
-    rows.push(['試合（勝敗）', ...allCols.map(c => `${c.term.games.length}（${c.term.games.filter(g => g.win).length}-${c.term.games.filter(g => !g.win).length}）`), ...(prevCol ? ['-'] : [])]);
+    const recText = (c: Col) => `${c.term.games.length}（${c.term.games.filter(g => g.win).length}-${c.term.games.filter(g => !g.win).length}）`;
+    rows.push(['試合（勝敗）', ...cols.flatMap(c => (leagueCols.has(c.key) ? [recText(c), '-'] : [recText(c)])), ...(prevCol ? [recText(prevCol), '-'] : [])]);
     for (const [p, label, ja] of SUMMARY) {
       const f = fm.get(p)!.get(label);
       if (!f) continue;
-      const cells = allCols.map(c => { const r = c.rows.get(slice)!; return r.gamesPlayed ? f(r, startYear) : '-'; });
+      const cells = colCells(cols, p, label, slice);
+      const prevCell = prevCol ? (() => { const r = prevCol.rows.get(slice)!; return r.gamesPlayed ? f(r, startYear) : '-'; })() : '-';
       let diff = '-';
       if (prevCol) {
         const a = main.rows.get(slice)!, b = prevCol.rows.get(slice)!;
@@ -293,7 +413,7 @@ export function buildDetailedExport(i: DetailedInput): DetailedOutput {
           diff = `${v > 0 ? '+' : ''}${v.toFixed(2)}${/%/.test(label) || label === 'FTR' ? 'ポイント' : ''}`;
         }
       }
-      rows.push([`${p === 'opp' ? 'opp ' : ''}${label}${ja ? `（${ja}）` : ''}`, ...cells, ...(prevCol ? [diff] : [])]);
+      rows.push([`${p === 'opp' ? 'opp ' : ''}${label}${ja ? `（${ja}）` : ''}`, ...cells, ...(prevCol ? [prevCell, diff] : [])]);
     }
     out.push(table(head, rows), '');
   }
@@ -351,15 +471,85 @@ export function buildDetailedExport(i: DetailedInput): DetailedOutput {
       for (const [p, prefix] of PERSPECTIVES) {
         for (const label of labels) {
           if (MOVED_TO_COMPOSITION.has(label) || (p !== 'own' && OWN_ONLY.has(label))) continue;
-          const f = fm.get(p)!.get(label);
-          const cells = cols.map(c => { const r = c.rows.get(slice)!; return f && r.gamesPlayed > 0 ? f(r, startYear) : '-'; });
+          const cells = colCells(cols, p, label, slice);
           if (cells.every(v => v === '-')) continue;
           rows.push([`${prefix}${label}`, ...cells]);
         }
       }
-      out.push(`### ${cat}${slices.length > 1 ? `・${SLICE_LABEL[slice]}` : ''}`, '', table(['項目', ...cols.map(c => c.label)], rows), '');
+      out.push(`### ${cat}${slices.length > 1 ? `・${SLICE_LABEL[slice]}` : ''}`, '', table(['項目', ...colHeads(cols)], rows), '');
     }
   }
+  // オンザコート別（On-Court Foreign とまとめる）。試合全体（区間は段階4）
+  const tp = i.periodSource ?? null;
+  const missingTables: string[] = [];
+  out.push('### オンザコート別（コート上の外国籍・帰化・アジア特別枠の人数）', '', '人数ごとの出場時間（合計）、時間の割合、その時間の得点・失点・ORtg・DRtg・NetRtg（2020-21以降は実際の攻撃回数）。「相手の割合」は相手チームのコート上の人数の時間の割合。「ラインナップ > オンザコート別」と同じ値。外国籍・帰化・アジア特別枠の合計で、日本人は数えない。', '');
+  for (const c of cols) {
+    const logs = c.logs;
+    if (!logs.length) { out.push(`#### ${c.label}`, '', '- 該当する試合なし', ''); continue; }
+    const detail = tp && i.maxForeignOnCourt !== undefined ? sumForeignDetail(tp, logs, 'all' as ForeignPeriodValue) : null;
+    const oppSec = tp ? sumForeignCourt(tp, logs, 'all' as ForeignPeriodValue, 'opp') : null;
+    if (!detail || i.maxForeignOnCourt === undefined) { out.push(`#### ${c.label}`, '', '- 記録なし', ''); if (!missingTables.includes('オンザコート別')) missingTables.push('オンザコート別'); continue; }
+    const oc = seasonOnCourtSummaryFromDetail(detail, i.maxForeignOnCourt);
+    const oppTotal = oppSec ? oppSec.seconds.reduce((a, b) => a + b, 0) : 0;
+    const f2 = (v: number | null) => (v === null ? '-' : v.toFixed(2));
+    const sgn = (v: number) => `${v > 0 ? '+' : ''}${v}`;
+    const rows = oc.rows.filter(r => r.seconds > 0 || (r.count !== null && oppSec && oppSec.seconds[r.count]! > 0)).map(r => [r.count === null ? '集計外' : `${r.count}人`, formatMinutesFromSeconds(r.seconds), r.pct === null ? '-' : `${r.pct.toFixed(2)}%`, String(r.ownPoints), String(r.oppPoints), sgn(r.netPoints), f2(r.ortg), f2(r.drtg), r.netRtg === null ? '-' : `${r.netRtg > 0 ? '+' : ''}${r.netRtg.toFixed(2)}`, r.count !== null && oppSec && oppTotal ? `${((oppSec.seconds[r.count]! / oppTotal) * 100).toFixed(2)}%` : '-']);
+    rows.push(['合計', formatMinutesFromSeconds(oc.totals.seconds), '', String(oc.totals.ownPoints), String(oc.totals.oppPoints), sgn(oc.totals.ownPoints - oc.totals.oppPoints), f2(oc.total.ortg), f2(oc.total.drtg), oc.total.netRtg === null ? '-' : `${oc.total.netRtg > 0 ? '+' : ''}${oc.total.netRtg.toFixed(2)}`, '']);
+    out.push(`#### ${c.label}（${oc.games}試合）`, '', table(['人数', '時間', '割合', '得点', '失点', '得失点', 'ORtg', 'DRtg', 'NetRtg', '相手の割合'], rows), '');
+  }
+  if (i.season < '2020-21') out.push('- 2019-20以前のシーズンは、攻撃回数と在コートが推定で、ORtg・DRtg は推定の値。', '');
+
+  // Time to Shot（2020-21以降）
+  if (i.season >= '2020-21' && i.ttsSource) {
+    const tts = i.ttsSource;
+    out.push('### Time to Shot', '', '攻撃の始まりから最初のFG試投までの平均秒数（秒）と、その始まり方の割合。差は自チーム−相手（秒）。「チーム詳細 > チームスタッツ > Time to Shot」と同じ値。', '');
+    const vals = cols.map(c => { const own = sumTtsTotals(tts, c.logs, 'all', 'own'), opp = sumTtsTotals(tts, c.logs, 'all', 'opp'); return { own: ttsRowValues(own, opp, 'own'), opp: ttsRowValues(own, opp, 'opp'), diff: ttsRowValues(own, opp, 'diff') }; });
+    const rows: string[][] = [];
+    for (const x of TTS_TABLE_ITEMS) {
+      rows.push([`${x.abbr}（秒）`, ...vals.map(v => formatTtsSeconds(v.own[x.item].avg, 'own'))]);
+      rows.push([`opp ${x.abbr}（秒）`, ...vals.map(v => formatTtsSeconds(v.opp[x.item].avg, 'opp'))]);
+      rows.push([`差 ${x.abbr}（秒）`, ...vals.map(v => formatTtsSeconds(v.diff[x.item].avg, 'diff'))]);
+      if (x.hasPct) { rows.push([`${x.abbr}（割合%）`, ...vals.map(v => formatTtsPct(v.own[x.item].pct, 'own'))]); rows.push([`opp ${x.abbr}（割合%）`, ...vals.map(v => formatTtsPct(v.opp[x.item].pct, 'opp'))]); }
+    }
+    out.push(table(['項目', ...cols.map(c => c.label)], rows), '');
+  } else if (i.season < '2020-21') missingTables.push('Time to Shot（2020-21より前は無い）');
+
+  // Streaks（試合の最終勝敗。結果だけの試合も数える＝今の Streaks と同じ）
+  const allGames = teamConfirmedGames(teamId, cur.regular, cur.schedule);
+  const multiTerm = terms.length > 1 || i.term === 'recent5';
+  out.push('### Streaks', '',
+    '連勝・連敗は、**そのターム（列）の中の試合だけで数える**。タームの境目をまたぐ連勝・連敗は、前後のタームでそれぞれ切れて数えるので、「境目で切れた連続」の列に、どちらの境目で切れたか（前を含めた本来の長さ）を書く。「シーズン全体」の列は切れずに数える（チーム詳細 > チームスタッツ > Streaks と同じ）。結果だけの試合も数える。' + (i.opp === 'all' ? '' : '対戦相手で絞ったときは、絞ったあとの試合を順に並べて数える（間の絞られた試合は飛ばす）ので、境目の判定はしない。'), '');
+  const run = (st: { length: number; runs: { first: { date: string }; last: { date: string } }[] } | null | undefined) => (!st ? '0' : st.runs.length > 2 ? `${st.length}（${st.runs.length}回）` : `${st.length}（${st.runs.map(r => `${r.first.date}〜${r.last.date}`).join('、')}）`);
+  const boundary = (c: Col): string => {
+    if (c.key === 'season' || !multiTerm) return '-';
+    if (i.opp !== 'all') return '判定しない（絞り込み）';
+    const g = c.term.games;
+    if (!g.length) return '-';
+    const at = allGames.findIndex(x => x.scheduleKey === g[0]!.scheduleKey);
+    const parts: string[] = [];
+    const before = allGames[at - 1];
+    if (before && before.win === g[0]!.win) {
+      let inTerm = 0; while (inTerm < g.length && g[inTerm]!.win === g[0]!.win) inTerm++;
+      let total = inTerm; for (let k = at - 1; k >= 0 && allGames[k]!.win === g[0]!.win; k--) total++;
+      parts.push(`冒頭の${inTerm}${g[0]!.win ? '連勝' : '連敗'}は前のタームから続く（前を含めて${total}${g[0]!.win ? '連勝' : '連敗'}）`);
+    }
+    const last = g.at(-1)!;
+    const endAt = allGames.findIndex(x => x.scheduleKey === last.scheduleKey);
+    const after = allGames[endAt + 1];
+    if (after && after.win === last.win) {
+      let inTerm = 0; while (inTerm < g.length && g[g.length - 1 - inTerm]!.win === last.win) inTerm++;
+      let total = inTerm; for (let k = endAt + 1; k < allGames.length && allGames[k]!.win === last.win; k++) total++;
+      parts.push(`最後の${inTerm}${last.win ? '連勝' : '連敗'}は次のタームへ続く（先を含めて${total}${last.win ? '連勝' : '連敗'}）`);
+    }
+    return parts.length ? parts.join('。') : 'なし';
+  };
+  const stRows = cols.map(c => {
+    const row = buildStreakTeamRow({ teamId, teamName: name }, i.season, c.term.games.map(g => g.log), !complete);
+    const curS = row.all.current;
+    return [c.label, run(row.all.maxWin as never), run(row.all.maxLoss as never), `${row.home?.maxWin ?? 0}／${row.home?.maxLoss ?? 0}`, `${row.away?.maxWin ?? 0}／${row.away?.maxLoss ?? 0}`, curS && curS.count ? `${curS.count}${curS.type === 'win' ? '連勝' : '連敗'}` : '-', ...(multiTerm ? [boundary(c)] : [])];
+  });
+  out.push(table(['ターム', '最長連勝（期間）', '最長連敗（期間）', 'ホーム 最長連勝／連敗', 'アウェイ 最長連勝／連敗', 'その列の最後の時点', ...(multiTerm ? ['境目で切れた連続'] : [])], stRows), '');
+  if (missingTables.length) out.push('### この版で出せなかった表', '', ...missingTables.map(m => `- ${m}`), '');
   out.push('## 用語', '', '- 略称の意味はサイトの用語集と同じ（例：ORtg＝100ポゼッションあたりの得点、POSS・PACE は B.LEAGUE 公式の推定式）。', '- ペイント内外（Paint・Mid-range）は公式の区分。', '');
   return finish();
 }
