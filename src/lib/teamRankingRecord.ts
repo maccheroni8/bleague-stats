@@ -28,3 +28,15 @@ export function yahooRecordByTeam(gameLogsByTeam: ReadonlyMap<string, readonly T
   }
   return map;
 }
+
+/**
+ * 試合が0のチーム（対象期間・試合種別に該当する試合が無い）は、値を「-」にして順位を付けず、末尾に並べる（0.00 として順位に入れない）。
+ * RankedList の unranked・unrankedLabel・renderValue にそのまま渡す。extraUnranked は、ほかの理由で順位を付けない行（2P内訳の対象外など。順位欄は「参考」）
+ */
+export function noGamesRanking<T extends { gamesPlayed: number }>(format: (row: T) => string, extraUnranked: (row: T) => boolean = () => false) {
+  return {
+    unranked: (row: T) => row.gamesPlayed === 0 || extraUnranked(row),
+    unrankedLabel: (row: T) => (row.gamesPlayed === 0 ? "-" : "参考"),
+    renderValue: (row: T) => (row.gamesPlayed === 0 ? "-" : format(row)),
+  };
+}

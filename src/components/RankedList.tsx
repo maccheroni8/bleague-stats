@@ -42,6 +42,8 @@ export interface RankedListProps<T> {
   rows: T[];
   /** 順位を付けない行（参考値として末尾にまとめ、順位欄に「参考」と出す） */
   unranked?: (row: T) => boolean;
+  /** 順位を付けない行の順位欄の文字（既定は「参考」。試合が0のチームは「-」） */
+  unrankedLabel?: (row: T) => string;
   def: RankableStat<T>;
   rowKey: (row: T) => string;
   name: (row: T) => ReactNode;
@@ -106,6 +108,7 @@ function defaultSortDir<T>(def: RankableStat<T>): "asc" | "desc" {
 export function RankedList<T>({
   rows,
   unranked,
+  unrankedLabel,
   def,
   rowKey,
   name,
@@ -165,7 +168,8 @@ export function RankedList<T>({
   // 順位（DESIGN.md 146章）: 同じ値は同じ順位にし、次の順位はその分飛ばす（1位・2位・2位・4位）。
   // 同じかどうかは画面に表示している値（def.format。小数は丸めた後）で判定する。limit の境目で同じ順位が続く分は、
   // 「同じ順位のほか◯人を表示」で広げる。差で並べているときは、差の表示値で判定する
-  const ranks = sorted.map((row) => (bySortDiff ? compare.diffText(row) : (tieKey ?? def.format)(row)));
+  // 順位を付けない行は、ほかの行と同じ順位にまとめない（行ごとに別の文字列にする）
+  const ranks = sorted.map((row) => (unranked?.(row) ? `\0${rowKey(row)}` : bySortDiff ? compare.diffText(row) : (tieKey ?? def.format)(row)));
   const rankAt = (i: number): number => {
     let j = i;
     while (j > 0 && ranks[j - 1] === ranks[i]) j -= 1;
@@ -275,7 +279,7 @@ export function RankedList<T>({
                   className={`align-right rank-cell${accent ? " row-accent-cell" : ""}`}
                   style={accent ? ({ "--team-color": accent } as CSSProperties) : undefined}
                 >
-                  {unranked?.(row) ? "参考" : rankOf(i)}
+                  {unranked?.(row) ? (unrankedLabel?.(row) ?? "参考") : rankOf(i)}
                 </td>
                 <td className={`align-left${externalLinkTo?.(row) ? " has-external-link" : ""}`}>
                   {(() => {

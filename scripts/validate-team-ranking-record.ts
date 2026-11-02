@@ -10,7 +10,11 @@ import { filterByGameType } from "../shared/gameType";
 import { paintOf, paintRecord, summarizePaintLogs, validPaint, paintPair } from "../src/lib/teamPaint2";
 import { buildTeamCategoryColumns } from "../src/lib/teamSeasonRanking";
 import { sumTeamGameLogs, type AllTeamsRow } from "../src/lib/teamStatsColumns";
-import { recordOfLogs, teamRecordText, yahooRecordByTeam } from "../src/lib/teamRankingRecord";
+import { createElement as h } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { MemoryRouter } from "react-router-dom";
+import { RankedList } from "../src/components/RankedList";
+import { noGamesRanking, recordOfLogs, teamRecordText, yahooRecordByTeam } from "../src/lib/teamRankingRecord";
 
 const DATA = path.resolve("data");
 const read = (p: string) => JSON.parse(gunzipSync(fs.readFileSync(p)).toString("utf8"));
@@ -20,6 +24,37 @@ assert.equal(teamRecordText({ games: 5, wins: 4 }), "5試合（4勝1敗）");
 assert.equal(teamRecordText({ games: 0, wins: 0 }), "0試合（0勝0敗）");
 assert.deepEqual(recordOfLogs([{ win: true }, { win: false }, { win: true }]), { games: 3, wins: 2 });
 assert.equal(yahooRecordByTeam(null).size, 0);
+
+// 試合が0のチームは「-」・順位なしで末尾（少ないほうが上位の項目でも、昇順・降順のどちらでも）
+{
+  type Row = { id: string; gamesPlayed: number; v: number };
+  const rows: Row[] = [
+    { id: "zero", gamesPlayed: 0, v: 0 },
+    { id: "a", gamesPlayed: 5, v: 70 },
+    { id: "b", gamesPlayed: 5, v: 70 },
+    { id: "c", gamesPlayed: 4, v: 80 },
+  ];
+  const fmt = (r: Row) => r.v.toFixed(2);
+  for (const higherIsBetter of [false, true]) {
+    const html = renderToStaticMarkup(
+      h(MemoryRouter, null, h(RankedList<Row>, {
+        rows,
+        def: { key: "t", label: "T", value: (r) => r.v, format: fmt, higherIsBetter },
+        ...noGamesRanking<Row>(fmt),
+        rowKey: (r) => r.id,
+        name: (r) => h("span", null, r.id),
+        linkTo: () => undefined,
+      })),
+    );
+    const cells = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => m[1]!).filter((x) => x.includes("rank-cell"));
+    assert.equal(cells.length, 4);
+    assert(cells[3]!.includes(">zero<"), "0試合のチームは末尾");
+    assert(cells[3]!.includes(">-</td>"), "順位欄が「-」");
+    assert(cells[3]!.includes('rank-value">-<'), "値が「-」（0.00 ではない）");
+    assert(!/>0\.00</.test(html), "0.00 を出さない");
+    assert(/rank-cell[^>]*>(1|2)</.test(cells[0]!), "ほかのチームには順位が付く");
+  }
+}
 
 let seasons = 0;
 let teamsChecked = 0;

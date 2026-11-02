@@ -6,7 +6,8 @@ import { TeamSeasonRecordRanking } from "../components/TeamSeasonRecordRanking";
 import { PlayerCareerRecordRanking, TeamCareerRecordRanking } from "../components/CareerRecordRanking";
 import { EligibilitySlider } from "../components/EligibilitySlider";
 import { isPaint2Key, paintOf, paintRankable, paintRecord } from "../lib/teamPaint2";
-import { teamRecordText, yahooRecordByTeam } from "../lib/teamRankingRecord";
+import { noGamesRanking, teamRecordText, yahooRecordByTeam } from "../lib/teamRankingRecord";
+import type { AllTeamsRow } from "../lib/teamStatsColumns";
 import { useCompareCleanup, useFoulConditionCleanup, useFoulStatKeyCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { COMPARE_LABEL, COMPARE_PARAM, buildCompare, compareUnsupportedReason, previousSeason } from "../lib/seasonCompare";
 import { postseasonLabel } from "../../shared/gameType";
@@ -657,7 +658,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
             <RankedList
                 statScope="team"
               rows={boxCompare ? boxCompare.rows : boxRows}
-              unranked={isPaint2Key(teamDef.key) ? (r) => !paintRankable(paintOf(r.totals), teamDef.key, perspective) : undefined}
+              // 試合が0のチームは、値を「-」にして順位を付けず末尾に並べる（2P内訳の対象外は「参考」）
+              {...noGamesRanking<AllTeamsRow>(teamDef.format, (r) => isPaint2Key(teamDef.key) && !paintRankable(paintOf(r.totals), teamDef.key, perspective))}
               compare={boxCompare?.compare}
               def={teamDef}
               recordTextOf={(r) => {
