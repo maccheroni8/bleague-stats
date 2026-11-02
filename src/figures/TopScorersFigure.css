@@ -1,0 +1,17 @@
+.scorers-export .ratings-plot-wrap { margin-left:48px; margin-right:48px; }
+.scorer-point { width:36px; height:36px; padding:0; border-width:2px; }
+.scorer-point img { width:32px; height:32px; object-fit:contain; border-radius:50%; }
+.scorer-silhouette { position:relative; display:block; width:32px; height:32px; border-radius:50%; overflow:hidden; background:var(--bg); }
+.scorer-silhouette svg { position:absolute; inset:0; fill:color-mix(in srgb, var(--fg) 32%, var(--bg)); }
+.scorer-name { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; line-height:1; font-weight:700; color:var(--fg); white-space:nowrap; text-shadow:0 0 2px var(--bg), 0 0 2px var(--bg), 0 0 3px var(--bg); }
+.scorer-name-one .scorer-name { font-size:10px; }
+.scorer-name-two .scorer-name { font-size:9px; }
+.scorer-name-long .scorer-name { font-size:7.5px; }
+.scorers-export .ratings-tick-x { font-size:10px; }
+.export-rendering.scorers-export .ratings-plot-wrap { margin-left:48px; margin-right:48px; }
+.export-rendering.scorers-export .scorer-point { width:36px; height:36px; padding:0; border-width:2px; }
+.export-rendering.scorers-export .scorer-point img { width:32px; height:32px; }
+.export-rendering.scorers-export .scorer-silhouette { width:32px; height:32px; }
+@media(max-width:560px) { .scorers-export .ratings-plot-wrap { margin-left:28px; margin-right:28px; } .scorer-point { width:28px; height:28px; } .scorer-point img, .scorer-silhouette { width:24px; height:24px; } .scorer-name-one .scorer-name { font-size:8px; } .scorer-name-two .scorer-name { font-size:7px; } .scorer-name-long .scorer-name { font-size:6px; } .scorers-export .scorer-tick-secondary { visibility:hidden; } }
+
+.scorers-table th, .scorers-table td { white-space:nowrap; }

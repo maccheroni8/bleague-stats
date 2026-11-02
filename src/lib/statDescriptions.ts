@@ -24,6 +24,7 @@ const PAINT_SPLIT_NOTE = "公式の記録の区分（インサイドペイント
 export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   // --- 試合数・勝敗 ---
   G: "試合数",
+  "出場試合の勝率": "本人が出場した試合のチーム勝利数 ÷ 本人の出場試合数。出場時間0の試合は含めない。",
   GS: "スタメン出場試合数",
   試合数: "試合数",
   勝: "勝利数",

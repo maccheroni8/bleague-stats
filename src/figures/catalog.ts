@@ -14,6 +14,7 @@ export interface FigureDefinition {
   load: () => Promise<{ default: ComponentType<FigureProps> }>;
 }
 export const FIGURES: readonly FigureDefinition[] = [
+  { id: "top-scorers", entity: "player", label: "トップスコアラー", group: "得点", load: () => import("./TopScorersFigure") },
   { id: "age", entity: "team", label: "年齢分布", group: "年齢", load: () => import("./AgeDistributionFigure") },
   { id: "ratings", entity: "team", label: "ORtg・DRtg", group: "効率", load: () => import("./RatingsScatterFigure") },
   { id: "one-game", entity: "team", label: "年間1試合の対戦", group: "日程", load: () => import("./OneGameMatchupsFigure") },
