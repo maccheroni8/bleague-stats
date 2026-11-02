@@ -335,6 +335,52 @@ check('1シーズン・試合全体の値がチームスタッツタブ・選手
   check('集計と試合記録が揃わないときは作らない', mismatch);
 }
 
+// ---- 4b. 外国籍人数の名前・人数別の時間の表・用語の一覧 ----
+{
+  let rowsChecked = 0, bad = 0, noteBad = 0, labelBad = 0;
+  for (const season of seasons) for (const t of sd(season).teams) {
+    const md = buildDetailedExport(inputFor(season, t.teamId, 'team')).markdown;
+    const logs = sd(season).logs.get(t.teamId)!.filter(g => g.gameType === 'regular');
+    const lines = md.split('\n');
+    const at = lines.findIndex(l => l.startsWith('#### 試合ごとの、コート上の外国籍・帰化・アジアの人数別の時間'));
+    if (at < 0) { bad++; continue; }
+    const rows = lines.slice(at).filter(l => /^\|\d{4}-\d{2}-\d{2}\|/.test(l)).map(cells);
+    if (rows.length !== logs.length) bad++;
+    const byDate = new Map(logs.map(g => [g.scheduleKey, g]));
+    void byDate;
+    const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
+    sorted.forEach((g, i) => {
+      const r = rows[i]; if (!r) return;
+      rowsChecked++;
+      const sec = g.foreignCourtSeconds;
+      const want = [0, 1, 2, 3, 4].map(n => (sec?.[n] === undefined ? '-' : (sec[n]! / 60).toFixed(1)));
+      if (r.slice(3, 8).join(',') !== want.join(',') || r[8] !== (g.foreignPlayerCount === undefined ? '-' : `${g.foreignPlayerCount}人`)) bad++;
+    });
+    const hasNote = lines.some(l => l.includes('2019-20以前のシーズンは、コートにいた選手を試合の記録から推定'));
+    if (hasNote !== (season < '2020-21')) noteBad++;
+    if (md.includes('自チーム外国籍人数') || !md.includes('コート上の外国籍・帰化・アジアの人数（最も長かった人数）') && logs.some(g => g.foreignPlayerCount !== undefined)) labelBad++;
+    for (const w of ['1POS差以内（3点差以内）', '試合中の点差（試合中に一度でも', '対戦相手の強さ（相手の今の勝率', '#### 用語（数え方が名前から分かりにくい項目）']) if (!md.includes(w) && (w !== '1POS差以内（3点差以内）' || logs.some(g => Math.abs(g.teamScore - g.opponentScore) <= 3))) labelBad++;
+  }
+  console.log(`人数別の時間の表: ${rowsChecked}試合を試合ログと突き合わせた`);
+  check('人数別の時間の表＝試合ごとの在コート秒数（分）・最長の人数が試合ログの値と同じ・行数＝スタッツのある試合数', bad === 0, `${bad}件`);
+  check('2019-20以前のシーズンにだけ「推定」の注記がある', noteBad === 0, `${noteBad}件`);
+  check('項目名（外国籍人数・1POS・試合中の点差・対戦相手の強さ）と用語の一覧が入っている・旧名が残らない', labelBad === 0, `${labelBad}件`);
+  const t0 = sd('2026-27').teams.find(x => x.teamName.includes('宇都宮'))!;
+  const player = buildDetailedExport(inputFor('2026-27', t0.teamId, 'player')).markdown;
+  check('選手情報にも用語の一覧がある', player.includes('#### 用語（数え方が名前から分かりにくい項目）'));
+  // 最長の人数＝在コート秒数が最も長い人数（同じ長さのときは先の人数）かの確認
+  let argBad = 0, argTotal = 0, argTie = 0;
+  for (const season of seasons) for (const t of sd(season).teams) for (const g of sd(season).logs.get(t.teamId)!.filter(x => x.gameType === 'regular')) {
+    const sec = g.foreignCourtSeconds; if (!sec || g.foreignPlayerCount === undefined) continue;
+    argTotal++;
+    const max = Math.max(...sec);
+    if (sec.filter(v => v === max).length > 1) argTie++;
+    if (sec[g.foreignPlayerCount] !== max) argBad++;
+  }
+  console.log(`参考: 「最も長かった人数」の確認 ${argTotal}試合、最長でない人数が入っている ${argBad}、同じ長さで並んだ試合 ${argTie}`);
+  check('「最も長かった人数」が人数別の時間の最長と同じ', argBad === 0, `${argBad}件`);
+}
+
 // ---- 5. 短い書き出しを変えていない ----
 {
   let changed = '';

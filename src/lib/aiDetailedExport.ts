@@ -74,6 +74,36 @@ const OWN_ONLY = new Set(['G', 'MIN', 'POSS', 'PACE', 'ORtg', 'DRtg', 'NetRtg', 
 // 構成の章に移す列（得点・失点構成とまとめる）
 const MOVED_TO_COMPOSITION = new Set(['%3PA', '%2PA', '%PAINT2A', '%MID2A', '日本人 PTS', '外国籍・帰化・アジア PTS', '%日本人 PTS', '%外国籍・帰化・アジア PTS']);
 const PERSPECTIVES: [TeamPerspective, string][] = [['own', ''], ['opp', 'opp '], ['diff', '差 ']];
+/** シチュエーション別勝敗で、数え方が名前から分かりにくい項目の名前（画面の名前に意味を足す） */
+const SITUATION_GROUP_LABEL: Record<string, string> = {
+  foreignPlayerCount: 'コート上の外国籍・帰化・アジアの人数（最も長かった人数）',
+  inGameMargin: '試合中の点差（試合中に一度でもそうなった。同じ試合が複数の行に入る）',
+  opponentStrength: '対戦相手の強さ（相手の今の勝率で分ける。基準日時点・最新）',
+};
+const SITUATION_ROW_LABEL: Record<string, string> = {
+  poss1: '1POS差以内（3点差以内）',
+  poss2: '2POS差以内（6点差以内）',
+};
+/** 数え方が名前から分かりにくい項目（「数字の書き方」に載せる） */
+const GLOSSARY_COMMON = [
+  'G：チームの表は試合数。選手の表は、その選手が出た試合数（平均の分母にも使う）。opp は相手チームの値、差は自チーム−相手。',
+  'BSR＝被ブロック数（自分のシュートが相手にブロックされた回数）。FD＝被ファウル、F＝ファウル。STOCKS＝STL＋BLK。',
+  'EFF：Bリーグ公式の貢献度（(PTS＋AST＋BLK＋STL＋FD＋TR)−(TOV＋BSR＋F)−(FGA−FGM)−(FTA−FTM)）。',
+  'POSS・PACE・ORtg・DRtg・NetRtg：公式の推定ポゼッションが元。年度で式・元データが違う（2022-23以降は公式の値、それより前は推定式）。',
+  'AST2M・AST3M・ASTFTM：アシストされた成功数。%PTS ASTED：得点のうちアシストされた得点の割合。',
+  'PITP・FBPS・2ND PTS・PTSOFFTO：ペイント内・速攻・セカンドチャンス・ターンオーバー後の得点（プレーバイプレーのタグ由来）。',
+  'BENCH PTS・STARTER PTS：控え選手・先発（公式の先発5人）の得点。',
+];
+const GLOSSARY_TEAM = [
+  '内訳対象（21/21）：2P内訳（ペイント／ミッド）の記録がある試合数／全試合数。内訳の平均・成功率は、記録がある試合だけで計算する。',
+  '得点：外国籍・帰化・アジア など：得点した選手の登録区分（2025-26以前は日本人／外国籍・帰化・アジアの2区分、2026-27以降は3区分の合算）。コート上の人数とは別。',
+  '連戦 GAME1／GAME2：直前の自チームの試合から中1日以内なら GAME2、その連戦の最初が GAME1。相手が同じかは問わない。',
+  '100点ゲーム：どちらか一方でも100点以上の試合。地区（対東地区など）：その試合のシーズンの相手の所属地区。土日祝開催：祝日は土日側に入る。',
+  '対戦相手の絞り込みの「勝率6割以上」は、その試合に入る時点の相手の勝率。シチュエーション別勝敗の「対戦相手の強さ」は、相手の今の勝率（別の基準）。',
+];
+const GLOSSARY_PLAYER = [
+  '%PTS・%FGM などの%系と ORtg・DRtg・NetRtg・USG% の分母は、その選手が出た試合のチーム合計。',
+];
 const PLAYER_DROP = new Set(['G', 'GS', 'MIN', 'PTS']);
 
 /** 相手のその試合に入る時点の勝敗の文字（対象の試合の一覧用） */
@@ -134,6 +164,25 @@ function gameListTable(i: DetailedInput, terms: FTerm[], teamsOf: DetailedSeason
   }));
 }
 
+/** 試合ごとの、コート上の外国籍・帰化・アジア特別枠の人数別の時間（分）。シチュエーション別勝敗の「最も長かった人数」の根拠 */
+function foreignTimeTable(i: DetailedInput, terms: FTerm[]): string[] {
+  const games = terms.flatMap(t => t.games).filter(g => !g.resultOnly);
+  const nameOf = (id: string) => { const o = i.cur.teams.find(t => t.teamId === id); return o ? teamNameInSeason(i.history, o.teamId, i.season, o.teamName) : id; };
+  const min = (sec: number | undefined) => (sec === undefined ? '-' : (sec / 60).toFixed(1));
+  const rows = games.map(g => {
+    const sec = g.log.foreignCourtSeconds;
+    const longest = g.log.foreignPlayerCount;
+    return [g.date, nameOf(g.log.opponentTeamId), `${g.win ? '勝' : '敗'} ${g.log.teamScore}-${g.log.opponentScore}`, ...[0, 1, 2, 3, 4].map(n => min(sec?.[n])), longest === undefined ? '-' : `${longest}人`];
+  });
+  return [
+    '#### 試合ごとの、コート上の外国籍・帰化・アジアの人数別の時間（分）', '',
+    '- 「0人〜4人」は、その人数がコートに同時にいた時間（分）。いちばん長い人数が、シチュエーション別勝敗の「コート上の外国籍・帰化・アジアの人数（最も長かった人数）」の値（最後の列）。1試合に出た人数・登録した人数ではない。',
+    '- 外国籍・帰化・アジア特別枠の合計で、日本人は数えない。登録区分が分からない選手がいる区間は数えないので、合計が試合時間に満たないことがある。2人が最も長くても、前後で人数が違った試合は多い（途中退場・途中出場で人数が変わる）。',
+    ...(i.season < '2020-21' ? ['- **2019-20以前のシーズンは、コートにいた選手を試合の記録から推定して復元した値で、精度が下がる。** 特に2016-17・2017-18は時間が粗く（同じ長さの人数が並ぶ試合がある）、その試合の「最も長かった人数」は並んだ人数のどれか1つ。'] : []),
+    '', table(['日付', '相手', '結果', '0人', '1人', '2人', '3人', '4人', '最も長かった人数'], rows), '',
+  ];
+}
+
 const EMPTY_NOTE = (i: DetailedInput) => ['## この条件に当てはまる試合はありません', '', `- ${TERM_KIND_LABELS[i.term]}${i.opp === 'all' ? '' : `・${OPPONENT_KIND_LABELS[i.opp]}`}の条件に当てはまる試合が1つも無いため、表は出しません。`, ''];
 
 export function buildDetailedExport(i: DetailedInput): DetailedOutput {
@@ -160,7 +209,8 @@ export function buildDetailedExport(i: DetailedInput): DetailedOutput {
     if (allEmpty) { out.push(...EMPTY_NOTE(i)); return finish(true); }
     out.push('### 数字の書き方', '', '- 1試合平均（分母は、その選手がそのターム・時間帯に出場した試合数＝各表の G）。%系（%PTS など）の分母は、その選手が出た試合のチームの合計（今の選手スタッツタブと同じ）。小数は第2位まで、時間は 分:秒。「-」は値が無い。',
       '- ORtg・DRtg・NetRtg・USG% も、分母は「その選手が出た試合のチーム合計」（チーム詳細の選手スタッツタブと同じ）。全選手スタッツの同じ項目は「チームの全試合の合計」で割るので、出ていない試合が多い選手ほど少し違う。',
-      '- 列の重複を減らすため、G・GS・MIN・PTS は Traditional の表だけに出し、他の表では省く。', '- 出場の無い選手は、そのタームの表から省く。', '');
+      '- 列の重複を減らすため、G・GS・MIN・PTS は Traditional の表だけに出し、他の表では省く。', '- 出場の無い選手は、そのタームの表から省く。', '',
+      '#### 用語（数え方が名前から分かりにくい項目）', '', ...[...GLOSSARY_PLAYER, ...GLOSSARY_COMMON].map(t => `- ${t}`), '');
     const own = { teamId, teamName: cur.team.teamName };
     let section = 1;
     for (const t of terms) {
@@ -203,12 +253,14 @@ export function buildDetailedExport(i: DetailedInput): DetailedOutput {
   out.push('### 対象試合', '', gameTable(i, terms), '');
   if (i.opp !== 'all') out.push('#### 対象の試合（相手と、その試合に入る時点の相手の勝敗）', '', gameListTable(i, terms, cur, i.history), '');
   if (allEmpty) { out.push(...EMPTY_NOTE(i)); return finish(true); }
+  out.push(...foreignTimeTable(i, terms));
   out.push('### 欠けているもの', '', '- 次の表はこの版にまだ入っていない：Shooting・Forced TOV・オンザコート別・Time to Shot・Streaks（準備中）', '');
   out.push('### 数字の書き方', '',
     '- 平均は1試合平均（分母はその表のスタッツの対象試合数）。割合（%）は合計の分子÷合計の分母（試合ごとの割合の平均ではない）。小数は第2位まで。',
     '- 勝率は .750 の形、時間は 分:秒。「差」は自チーム−相手（構成比・成功率の差はパーセントポイント）。「opp」は相手チームの値。',
     '- 「-」は値が無い（分母が0・その区間の記録が無い・そのシーズンに無い項目）。0 は実際に0。',
-    '- 結果だけの試合（不戦勝・ボックススコアの無い試合）は、勝敗・試合数には数え、スタッツには入れない。', '');
+    '- 結果だけの試合（不戦勝・ボックススコアの無い試合）は、勝敗・試合数には数え、スタッツには入れない。', '',
+    '#### 用語（数え方が名前から分かりにくい項目）', '', ...[...GLOSSARY_TEAM, ...GLOSSARY_COMMON].map(t => `- ${t}`), '');
 
   const fm = new Map(PERSPECTIVES.map(([p]) => [p, seasonPeriodFormatters('perGame', p, foulSplit)]));
   const numFm = (p: TeamPerspective, label: string, r: AllTeamsRow): number => Number(String(fm.get(p)!.get(label)!(r, startYear)).replace(/[%+]/g, ''));
@@ -248,7 +300,7 @@ export function buildDetailedExport(i: DetailedInput): DetailedOutput {
 
   // 2. シチュエーション別勝敗（試合の最終勝敗。結果だけの試合は入らない＝今の画面と同じ）
   const withOpp = i.opp !== 'all';
-  out.push('## 2. シチュエーション別勝敗', '', `スタッツのある試合の最終勝敗（今の画面と同じく、結果だけの試合は入らない）。「対戦相手の強さ（最新勝率）」の行は概要の表と同じく相手の今季（基準日時点）の勝率で分ける${withOpp ? '（上の絞り込みは試合前の勝率なので、基準が違う）' : ''}。1Q・前半・3Q終了時点は試合ログのクォーター別得点から判定する。月別は出さない（タームと重なる）。`, '');
+  out.push('## 2. シチュエーション別勝敗', '', `スタッツのある試合の最終勝敗（今の画面と同じく、結果だけの試合は入らない）。「対戦相手の強さ」の行は概要の表と同じく相手の今季（基準日時点）の勝率で分ける${withOpp ? '（上の絞り込みは試合前の勝率なので、基準が違う）' : ''}。1Q・前半・3Q終了時点は試合ログのクォーター別得点から判定する。月別は出さない（タームと重なる）。`, '');
   const groups = buildSituationalRecordGroups(cur.regular, teamId, buildBackToBackStatus(cur.summaries), buildOpponentSeasonWinRates(cur.teams), cur.division as never, i.season, 'premier');
   const checkpoint = (g: TeamGameLog, q: number) => {
     const own = (g.periodPoints ?? []).slice(0, q), opp = (g.opponentPeriodPoints ?? []).slice(0, q);
@@ -267,7 +319,7 @@ export function buildDetailedExport(i: DetailedInput): DetailedOutput {
         : (g: TeamGameLog) => row.predicate(g, undefined as never);
       const cells = cols.map(c => { const m = c.logs.filter(pred); const w = m.filter(g => g.win).length; return m.length ? `${w}-${m.length - w}` : '-'; });
       if (cells.every(v => v === '-')) continue;
-      sitRows.push([gr.label, row.label, ...cells]);
+      sitRows.push([SITUATION_GROUP_LABEL[gr.key] ?? gr.label, SITUATION_ROW_LABEL[row.key] ?? row.label, ...cells]);
     }
   }
   out.push(table(['区分', '条件', ...cols.map(c => `${c.label}（勝-敗）`)], sitRows), '');
