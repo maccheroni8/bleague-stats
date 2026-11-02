@@ -86,13 +86,16 @@ export function cleanupForSeason(input: SeasonScopedFilters, scope: SeasonScope)
       changed = true;
     }
   }
-  if (filter.division && (filter.division === "east" || filter.division === "west") && scope.divisions && !scope.divisions.has(filter.division)) {
+  if (filter.division && filter.division !== "same" && filter.division !== "other" && scope.divisions && !scope.divisions.has(filter.division)) {
     filter = { ...filter, division: undefined };
     changed = true;
   }
-  if (filter.ownDivision && (!scope.divisions || !scope.divisions.has(filter.ownDivision))) {
-    filter = { ...filter, ownDivision: undefined };
-    changed = true;
+  if (filter.ownDivisions?.length) {
+    const kept = filter.ownDivisions.filter((d) => scope.divisions?.has(d));
+    if (kept.length < filter.ownDivisions.length) {
+      filter = { ...filter, ownDivisions: kept.length > 0 ? kept : undefined };
+      changed = true;
+    }
   }
   if (filter.months?.length) {
     const kept = filter.months.filter((m) => scope.months.has(m));

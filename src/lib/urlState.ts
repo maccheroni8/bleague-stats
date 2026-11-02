@@ -1,6 +1,7 @@
 import { LEAGUE_PARAM } from "./league";
 import { useCallback, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { useLocation, useNavigate, type NavigateFunction } from "react-router-dom";
+import type { Division } from "../../shared/types";
 import type { SituationalFilter } from "./situational";
 import type { StatConditionOp, StatConditionsState } from "./statConditions";
 
@@ -110,6 +111,28 @@ export function listParam(key: string): UrlCodec<string[]> {
   };
 }
 
+const DIVISION_URL_ORDER: readonly Division[] = ["east", "central", "west", "north", "south"];
+
+/**
+ * 地区の複数選択（dv=east,west）。古いURLの1つだけの形（dv=east）もそのまま読める。並びは東・中・西・北・南に固定する（同じ選択なら同じURL）。
+ * 知らない値は捨てる。extra は地区以外に許す値（図解の「unknown」＝地区不明）。何も選ばなければ載せない（旧い dv=all は「選んでいない」）
+ */
+export function parseDivisionList<T extends string = Division>(raw: string | null, extra: readonly T[] = []): (Division | T)[] {
+  if (!raw) return [];
+  const wanted = new Set(raw.split(","));
+  return [...DIVISION_URL_ORDER, ...extra].filter((d) => wanted.has(d));
+}
+
+export function divisionListParam<T extends string = Division>(key: string, extra: readonly T[] = []): UrlCodec<(Division | T)[]> {
+  return {
+    keys: [key],
+    read: (p) => (p.get(key) === null ? undefined : parseDivisionList<T>(p.get(key), extra)),
+    write: (p, v) => {
+      if (v.length > 0) p.set(key, v.join(","));
+    },
+  };
+}
+
 export function numberParam(key: string, defaultValue: number, opts: { min?: number; max?: number } = {}): UrlCodec<number> {
   return {
     keys: [key],
@@ -150,8 +173,7 @@ export function rangeParam(key: string, defaultValue: readonly [number, number],
 
 const RESULT = ["win", "loss"] as const;
 const VENUE = ["home", "away"] as const;
-const DIVISION = ["east", "west", "same", "other"] as const;
-const OWN_DIVISION = ["east", "central", "west", "north", "south"] as const;
+const DIVISION = ["east", "west", "central", "north", "south", "same", "other"] as const;
 const NEW_YEAR = ["before", "after"] as const;
 const OPP_WIN = ["under50", "atLeast50", "atLeast60"] as const;
 const MARGIN = ["lead10", "lead20", "trail10", "trail20", "close"] as const;
@@ -187,8 +209,8 @@ export const situationalParam: UrlCodec<SituationalFilter> = {
     if (homeAway) f.homeAway = homeAway;
     const division = pick(p.get("div"), DIVISION);
     if (division) f.division = division;
-    const ownDivision = pick(p.get("dv"), OWN_DIVISION);
-    if (ownDivision) f.ownDivision = ownDivision;
+    const ownDivisions = parseDivisionList(p.get("dv"));
+    if (ownDivisions.length > 0) f.ownDivisions = ownDivisions;
     const months = (p.get("mon") ?? "")
       .split(",")
       .map(Number)
@@ -211,7 +233,7 @@ export const situationalParam: UrlCodec<SituationalFilter> = {
     if (f.result) p.set("res", f.result);
     if (f.homeAway) p.set("ven", f.homeAway);
     if (f.division) p.set("div", f.division);
-    if (f.ownDivision) p.set("dv", f.ownDivision);
+    if (f.ownDivisions?.length) p.set("dv", f.ownDivisions.join(","));
     if (f.months?.length) p.set("mon", f.months.join(","));
     if (f.newYear) p.set("ny", f.newYear);
     if (f.weekday) p.set("day", "wkday");

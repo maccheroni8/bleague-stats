@@ -10,7 +10,7 @@ import { postseasonLabel } from "../../shared/gameType";
 import { useParams } from "react-router-dom";
 import { LEAGUE_LABELS, ONE_SEASONS, useLeague, type League } from "../lib/league";
 import { seasonRuleFor } from "../../shared/seasonRules";
-import { divisionOrder } from "../lib/divisionGroups";
+import { opponentDivisionChoices } from "../lib/divisionGroups";
 import { ONE_TEAM_DETAIL_TAB_REASONS } from "../lib/leagueAvailability";
 import type { Division } from "../../shared/types";
 import { SeasonLink as RouterLink } from "../components/SeasonLink";
@@ -1702,13 +1702,13 @@ function OtherLeagueSeasonLinks({
   );
 }
 
-/** 「対◯地区」の行。B.PREMIER は今までどおり東・西、B.ONE は公式の並び（北→東→中→西→南）の5地区 */
+/** 「対◯地区」の行。そのシーズン・リーグにある地区（東西・東中西・B.ONE の北→東→中→西→南。DESIGN.md 314章） */
 function opponentDivisionRows(
   divisionHistory: DivisionHistoryFile | null | undefined,
   season: string,
   league: League,
 ): { key: string; label: string; predicate: (g: TeamGameLog) => boolean }[] {
-  const divisions: Division[] = league === "one" ? divisionOrder("one") : ["east", "west"];
+  const divisions = opponentDivisionChoices(divisionHistory, season, league);
   return divisions.map((d) => ({
     key: d,
     label: `対${DIVISION_LABELS[d]}`,
@@ -3998,6 +3998,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     ...situationalAxes(teamShotChartFilter, setTeamShotChartFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
+      opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
     }),
   ];
   const clearTeamShotChartFilters = () => {
@@ -4015,6 +4016,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     ...situationalAxes(playerStatsFilter, setPlayerStatsFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
+      opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
     }),
   ];
   const clearPlayerStatsFilters = () => {
@@ -5908,6 +5910,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     onFilter={(f) => updateSlot({ filter: f })}
                     opponentWinRateSupported={!!compareOpponentRecords[i]}
                     ownTeamDivisionSupported={!!divisionHistory}
+                    opponentDivisions={opponentDivisionChoices(divisionHistory, slot.season, league)}
                     {...(slot.league ? { situationalDisabledNote: LEAGUE_SLOT_NOTE } : {})}
                   />
                 </div>

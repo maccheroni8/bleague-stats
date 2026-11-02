@@ -128,6 +128,7 @@ import { careerRecordRankingUrl } from "../components/CareerRecordRanking";
 import { TEAM_SEASON_RECORD_ITEMS, teamSeasonRecordEntries, teamSeasonRecordRankingUrl } from "../components/TeamSeasonRecordRanking";
 import { TeamRecordLeaderCard } from "../components/TeamRecordLeaderCard";
 import { TEAM_RECORD_MODE_LABELS, allTimeTeamRecordRows, teamRecordItems, type TeamRecordMode } from "../lib/teamGameRecords";
+import { opponentDivisionChoices } from "../lib/divisionGroups";
 import { TEAM_DIVISIONS } from "../../scripts/lib/divisions";
 import {
   buildAdvancedColumns,
@@ -1040,6 +1041,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
+      opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
       disabledReason: filterDisabledReason,
     }),
   ];

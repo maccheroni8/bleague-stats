@@ -3,8 +3,8 @@
 import { createElement } from "react";
 import { MarginRangeEditor } from "../components/MarginRangeEditor";
 import type { Division } from "../../shared/types";
-import { DIVISION_LABELS } from "./divisionGroups";
-import { FILTER_ALL_LABEL, multiSelectAxis, type FilterAxis, type FilterAxisOption } from "./filterAxes";
+import { divisionPresets } from "./divisionGroups";
+import { FILTER_ALL_LABEL, divisionMultiAxis, multiSelectAxis, type FilterAxis, type FilterAxisOption } from "./filterAxes";
 import { OVERTIME_CONDITIONS, OVERTIME_LABELS, marginRangeLabel, type GameRecordConditions, type OvertimeCondition } from "./gameRecordConditions";
 import { MARGIN_CONDITION_LABELS, type MarginCondition } from "./situational";
 
@@ -15,6 +15,8 @@ export interface GameRecordAxesInput {
   teams: { value: string; label: string }[];
   /** 地区の選択肢（空なら地区の軸を出さない） */
   divisions: Division[];
+  /** 対戦相手の「◯地区を選択」ボタン用の、クラブの地区（シーズン: そのシーズンの地区、歴代: 最後にいたシーズンの地区）。省略時はボタンなし */
+  teamDivisions?: Record<string, Division>;
   /** 前後半5分の特別な試合を含めるかの今の扱い（既定を含む）と、その既定 */
   includeSpecial: boolean;
   includeSpecialDefault: boolean;
@@ -55,7 +57,7 @@ export function gameRecordPrimaryAxes({ conditions: c, onChange }: GameRecordAxe
 }
 
 /** 対戦相手・延長・最終点差・試合中の点差・地区・前後半5分の特別な試合（詳細フィルタ） */
-export function gameRecordAdvancedAxes({ conditions: c, onChange, teams, divisions, includeSpecial, includeSpecialDefault }: GameRecordAxesInput): FilterAxis[] {
+export function gameRecordAdvancedAxes({ conditions: c, onChange, teams, divisions, teamDivisions, includeSpecial, includeSpecialDefault }: GameRecordAxesInput): FilterAxis[] {
   const selectAxis = (id: string, label: string, value: string, options: FilterAxisOption[], set: (v: string) => GameRecordConditions): FilterAxis => ({
     kind: "select",
     id,
@@ -66,7 +68,10 @@ export function gameRecordAdvancedAxes({ conditions: c, onChange, teams, divisio
     defaultValue: "",
     onChange: (v) => onChange(set(v)),
   });
-  const divisionOptions = divisions.map((d) => ({ value: d, label: DIVISION_LABELS[d] }));
+  // 対戦相手のクラブの複数選択に、日程ページの「対象クラブ」と同じ「◯地区を選択」ボタンを付ける（DESIGN.md 314章）
+  const clubPresets = teamDivisions
+    ? divisionPresets(teams.map((t) => t.value), (id) => teamDivisions[id]).map((p) => ({ label: p.label, values: p.teamIds }))
+    : undefined;
   const rangeText = marginRangeLabel(c.marginMin, c.marginMax)?.replace("最終点差 ", "") ?? "";
 
   return [
@@ -78,6 +83,8 @@ export function gameRecordAdvancedAxes({ conditions: c, onChange, teams, divisio
       selected: c.opponents,
       onChangeSelected: (values) => onChange({ ...c, opponents: values }),
       allLabel: "全クラブ",
+      presets: clubPresets,
+      collapseGroups: clubPresets,
       searchable: true,
     }),
     selectAxis(
@@ -110,10 +117,23 @@ export function gameRecordAdvancedAxes({ conditions: c, onChange, teams, divisio
       (Object.keys(MARGIN_CONDITION_LABELS) as MarginCondition[]).map((k) => ({ value: k, label: MARGIN_CONDITION_LABELS[k] })),
       (v) => ({ ...c, margin: v === "" ? undefined : (v as MarginCondition) }),
     ),
-    ...(divisionOptions.length > 0
+    ...(divisions.length > 0
       ? [
-          selectAxis("g.ownDivision", "地区", c.ownDivision ?? "", divisionOptions, (v) => ({ ...c, ownDivision: v === "" ? undefined : (v as Division) })),
-          selectAxis("g.oppDivision", "対戦相手の地区", c.oppDivision ?? "", divisionOptions, (v) => ({ ...c, oppDivision: v === "" ? undefined : (v as Division) })),
+          divisionMultiAxis({
+            id: "g.ownDivision",
+            tier: "advanced",
+            divisions,
+            selected: c.ownDivisions ?? [],
+            onChange: (next) => onChange({ ...c, ownDivisions: next.length === 0 ? undefined : next }),
+          }),
+          divisionMultiAxis({
+            id: "g.oppDivision",
+            label: "対戦相手の地区",
+            tier: "advanced",
+            divisions,
+            selected: c.oppDivisions ?? [],
+            onChange: (next) => onChange({ ...c, oppDivisions: next.length === 0 ? undefined : next }),
+          }),
         ]
       : []),
     {

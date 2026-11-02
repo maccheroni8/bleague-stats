@@ -74,6 +74,20 @@ export function seasonDivisions(
 }
 
 /**
+ * 「対◯地区」（対戦相手の地区）の選択肢・行にする地区。そのシーズン・リーグにある地区（東西2地区制・東中西3地区制・B.ONE の5地区）を
+ * 公式の並びで返す。履歴が読めない・そのシーズンが無いときは、B.PREMIER は東・西、B.ONE は5地区（DESIGN.md 314章）
+ */
+export function opponentDivisionChoices(
+  history: DivisionHistoryFile | null | undefined,
+  season: string,
+  league: Category = "premier",
+): Division[] {
+  const present = seasonDivisions(history, season, league);
+  if (present.length > 0) return present;
+  return league === "one" ? divisionOrder("one") : ["east", "west"];
+}
+
+/**
  * クラブの複数選択の表示（ボタン・チップ・タイトルの下の行で共通。DESIGN.md 252章）。
  * - 地区のクラブが全部選ばれているときは「東地区」のように地区名で書く。
  * - 地区のほとんど（外れているのが2クラブ以下で、選ばれているほうが多い）が選ばれているときは「東地区（群馬を除く）」と書く。

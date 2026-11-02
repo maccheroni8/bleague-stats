@@ -102,8 +102,8 @@ eq("理由 Q別・前後半（個人は使える）", [compareUnsupportedReason(
 eq("理由 Q別の選手の PACE", compareUnsupportedReason({ ...base, statKey: "pace", fromGameLogs: true, period: "h1" })?.includes("PACE"), true);
 eq("理由 期間指定", compareUnsupportedReason({ ...base, filter: { range: { kind: "dateRange", start: "2025-11-01", end: "2025-12-01" } } })?.includes("期間指定"), true);
 eq("理由 直近N試合は使える", compareUnsupportedReason({ ...base, filter: { range: { kind: "recent", n: 5 } } }), null);
-eq("理由 前季に無い地区", compareUnsupportedReason({ ...base, filter: { range: { kind: "all" }, ownDivision: "central" } })?.includes("中地区"), true);
-eq("理由 前季にある地区", compareUnsupportedReason({ ...base, filter: { range: { kind: "all" }, ownDivision: "west" } }), null);
+eq("理由 前季に無い地区", compareUnsupportedReason({ ...base, filter: { range: { kind: "all" }, ownDivisions: ["central"] } })?.includes("中地区"), true);
+eq("理由 前季にある地区", compareUnsupportedReason({ ...base, filter: { range: { kind: "all" }, ownDivisions: ["west"] } }), null);
 eq("理由 前季にポストシーズンが無い", compareUnsupportedReason({ ...base, season: "2020-21", gameType: "playoff" })?.includes("開催されなかった"), true);
 eq("理由 前季の表に無いファウルの列", compareUnsupportedReason({ ...base, season: "2026-27", statKey: "tf1" })?.includes("表にない"), true);
 eq("理由 前季の表にあるファウルの列", compareUnsupportedReason({ ...base, season: "2026-27", statKey: "pts" }), null);

@@ -1,3 +1,4 @@
+import type { Division } from "../../shared/types";
 import { FilterBar } from "./FilterBar";
 import {
   gameTypeAxis,
@@ -36,6 +37,8 @@ interface CompareSlotFilterProps {
   boundary?: SeasonHalfBoundary | null;
   opponentWinRateSupported?: boolean;
   ownTeamDivisionSupported?: boolean;
+  /** 「対戦地区」の「対◯地区」の選択肢（スロットのシーズン・リーグにある地区。opponentDivisionChoices） */
+  opponentDivisions?: Division[];
   /** 指定時、シチュエーションの絞り込みを出さず、この注記を出す（リーグ平均はシーズン全体の値のため。DESIGN.md 149章） */
   situationalDisabledNote?: string;
 }
@@ -57,6 +60,7 @@ export function CompareSlotFilter({
   boundary,
   opponentWinRateSupported,
   ownTeamDivisionSupported,
+  opponentDivisions,
   situationalDisabledNote,
 }: CompareSlotFilterProps) {
   const selectAxes: FilterAxis[] = selects.map((s) => ({
@@ -76,7 +80,7 @@ export function CompareSlotFilter({
     if (gameType) axes.push(gameTypeAxis(gameType.value, gameType.onChange, gameType.season));
     if (!situationalDisabledNote) axes.push(
       // 会場はスロットでは詳細フィルタ側に置く（スロットの幅では主要軸を絞るため）
-      ...situationalAxes(filter, onFilter, { boundary, opponentWinRateSupported, ownTeamDivisionSupported }).map(
+      ...situationalAxes(filter, onFilter, { boundary, opponentWinRateSupported, ownTeamDivisionSupported, opponentDivisions }).map(
         (a): FilterAxis => (a.id === "s.homeAway" ? { ...a, tier: "advanced" } : a),
       ),
     );

@@ -114,7 +114,7 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
   const among = useMemo(() => (entries ?? []).flatMap((x) => [x.assisterName, x.scorerName]), [entries]);
   const seasonOf = (e: PairRow) => e.season ?? e.lastSeason ?? season;
 
-  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, includeSpecial: true, includeSpecialDefault: true };
+  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial: true, includeSpecialDefault: true };
   const axes: FilterAxis[] = [
     ...(singleSeason ? [] : [activeAxis(activeParam, setActive)]),
     gameTypeAxis(gameType, setGameType, seasonForTitle),

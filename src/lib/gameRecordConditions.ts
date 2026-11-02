@@ -4,7 +4,7 @@
 import type { Division } from "../../shared/types";
 import { DIVISION_LABELS } from "./divisionGroups";
 import { MARGIN_CONDITION_LABELS, type MarginCondition } from "./situational";
-import type { UrlCodec } from "./urlState";
+import { parseDivisionList, type UrlCodec } from "./urlState";
 
 /** 延長の条件: なし／あり（1本以上）／ちょうど1本／ちょうど2本／3本以上 */
 export type OvertimeCondition = "none" | "any" | "1" | "2" | "3";
@@ -28,9 +28,9 @@ export interface GameRecordConditions {
   marginMax?: number;
   /** 試合中の最大点差（既存の「点差」と同じ選択肢。DESIGN.md 150章） */
   margin?: MarginCondition;
-  /** 自チームの地区・対戦相手の地区（どちらも、その試合のシーズンの地区。行ごとに判定する） */
-  ownDivision?: Division;
-  oppDivision?: Division;
+  /** 自チームの地区・対戦相手の地区（どちらも、その試合のシーズンの地区。行ごとに判定する。複数はいずれかに当てはまればよい） */
+  ownDivisions?: Division[];
+  oppDivisions?: Division[];
   /** 前後半5分の特別な試合を含めるか。未指定は、少ない方から並べるとき除き、多い方から並べるとき含める */
   includeSpecial?: boolean;
 }
@@ -47,8 +47,8 @@ export function hasGameConditions(c: GameRecordConditions): boolean {
     c.marginMin !== undefined ||
     c.marginMax !== undefined ||
     !!c.margin ||
-    !!c.ownDivision ||
-    !!c.oppDivision
+    !!c.ownDivisions?.length ||
+    !!c.oppDivisions?.length
   );
 }
 
@@ -61,7 +61,6 @@ export function effectiveIncludeSpecial(c: GameRecordConditions, lowerFirst: boo
 
 const RESULT = ["win", "loss"] as const;
 const VENUE = ["home", "away"] as const;
-const DIVISIONS = ["east", "central", "west", "north", "south"] as const;
 const MARGIN = ["lead10", "lead20", "trail10", "trail20", "close"] as const;
 const FM_RE = /^(\d*)-(\d*)$/;
 
@@ -97,10 +96,11 @@ export const gameRecordConditionsParam: UrlCodec<GameRecordConditions> = {
     }
     const margin = pick(p.get("mg"), MARGIN);
     if (margin) c.margin = margin;
-    const ownDivision = pick(p.get("dv"), DIVISIONS);
-    if (ownDivision) c.ownDivision = ownDivision;
-    const oppDivision = pick(p.get("div"), DIVISIONS);
-    if (oppDivision) c.oppDivision = oppDivision;
+    // dv・div はカンマ区切りで複数も読める（古い URL の 1 つだけの形もそのまま読める）
+    const ownDivisions = parseDivisionList(p.get("dv"));
+    if (ownDivisions.length > 0) c.ownDivisions = ownDivisions;
+    const oppDivisions = parseDivisionList(p.get("div"));
+    if (oppDivisions.length > 0) c.oppDivisions = oppDivisions;
     const sp = p.get("sp");
     if (sp === "1") c.includeSpecial = true;
     else if (sp === "0") c.includeSpecial = false;
@@ -113,8 +113,8 @@ export const gameRecordConditionsParam: UrlCodec<GameRecordConditions> = {
     if (c.overtime) p.set("ot", c.overtime);
     if (c.marginMin !== undefined || c.marginMax !== undefined) p.set("fm", `${c.marginMin ?? ""}-${c.marginMax ?? ""}`);
     if (c.margin) p.set("mg", c.margin);
-    if (c.ownDivision) p.set("dv", c.ownDivision);
-    if (c.oppDivision) p.set("div", c.oppDivision);
+    if (c.ownDivisions?.length) p.set("dv", c.ownDivisions.join(","));
+    if (c.oppDivisions?.length) p.set("div", c.oppDivisions.join(","));
     if (c.includeSpecial !== undefined) p.set("sp", c.includeSpecial ? "1" : "0");
   },
 };
@@ -144,8 +144,8 @@ export function gameRecordConditionLabels(c: GameRecordConditions, opponentLabel
   const range = marginRangeLabel(c.marginMin, c.marginMax);
   if (range) labels.push(range);
   if (c.margin) labels.push(MARGIN_CONDITION_LABELS[c.margin]);
-  if (c.ownDivision) labels.push(`地区: ${DIVISION_LABELS[c.ownDivision]}`);
-  if (c.oppDivision) labels.push(`対戦相手の地区: ${DIVISION_LABELS[c.oppDivision]}`);
+  if (c.ownDivisions?.length) labels.push(`地区: ${c.ownDivisions.map((d) => DIVISION_LABELS[d]).join("・")}`);
+  if (c.oppDivisions?.length) labels.push(`対戦相手の地区: ${c.oppDivisions.map((d) => DIVISION_LABELS[d]).join("・")}`);
   if (c.includeSpecial !== undefined && c.includeSpecial !== includeSpecialDefault) {
     labels.push(c.includeSpecial ? "前後半5分の特別試合を含む" : "前後半5分の特別試合を除く");
   }
@@ -160,7 +160,11 @@ export function cleanGameConditionsForSeason(c: GameRecordConditions, teamIds: r
   let next = c;
   const kept = c.opponents.filter((id) => teamIds.includes(id));
   if (kept.length < c.opponents.length) next = { ...next, opponents: kept };
-  if (c.ownDivision && !divisions.includes(c.ownDivision)) next = { ...next, ownDivision: undefined };
-  if (c.oppDivision && !divisions.includes(c.oppDivision)) next = { ...next, oppDivision: undefined };
+  for (const key of ["ownDivisions", "oppDivisions"] as const) {
+    const list = c[key];
+    if (!list?.length) continue;
+    const keptDivisions = list.filter((d) => divisions.includes(d));
+    if (keptDivisions.length < list.length) next = { ...next, [key]: keptDivisions.length > 0 ? keptDivisions : undefined };
+  }
   return next === c ? null : next;
 }

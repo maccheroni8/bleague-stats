@@ -48,7 +48,8 @@ import {
   type SlotStatus,
   type TeamSlotData,
 } from "../lib/useCompareSlotData";
-import type { DivisionHistoryFile } from "../../shared/types";
+import type { Division, DivisionHistoryFile } from "../../shared/types";
+import { opponentDivisionChoices } from "../lib/divisionGroups";
 import { useSeasonKeyedData } from "../lib/useSeasonKeyedData";
 import { usePickerSources, usePlayerPickerGroups, type PickerSources } from "../lib/usePlayerPickerGroups";
 import { pickerEntryKey, pickerPlayerIdOf } from "../lib/playerPickerOrder";
@@ -407,6 +408,8 @@ interface SlotCardProps {
   /** 対象selectの選択中の値。省略時は選んでいるID（選手の一覧は、チームごとの選択肢の値で渡す） */
   entityValue?: string;
   data: Pick<TeamSlotData, "status" | "error" | "boundary" | "opponentWinRateSupported" | "ownTeamDivisionSupported" | "gamesCount" | "pendingGames">;
+  /** 「対戦地区」の「対◯地区」の選択肢（スロットのシーズンにある地区） */
+  opponentDivisions?: Division[];
   onSeason: (season: string) => void;
   onEntity: (id: string) => void;
   onFilter: (filter: SituationalFilter) => void;
@@ -430,6 +433,7 @@ function CompareSlotCard({
   entityValid,
   entityValue,
   data,
+  opponentDivisions,
   onSeason,
   onEntity,
   onFilter,
@@ -464,6 +468,7 @@ function CompareSlotCard({
         boundary={data.boundary}
         opponentWinRateSupported={data.opponentWinRateSupported}
         ownTeamDivisionSupported={data.ownTeamDivisionSupported}
+        opponentDivisions={opponentDivisions}
         {...(slot.id === LEAGUE_TEAM_ID ? { situationalDisabledNote: LEAGUE_SLOT_NOTE } : {})}
       />
       {entityLoaded && entityOptions.length === 0 && <p className="compare-slot-note">このシーズンのデータがありません</p>}
@@ -591,6 +596,7 @@ function TeamCompareView({
             entityLoaded={lists[i] !== null && lists[i] !== undefined}
             entityValid={valid[i]!}
             data={slotData[i]!}
+            opponentDivisions={opponentDivisionChoices(divisionHistory, slots[i]!.season)}
             onSeason={(season) => onUpdateSlot(i, { season, filter: DEFAULT_FILTER })}
             onGameType={(gameType) => onUpdateSlot(i, { gameType })}
             onEntity={(id) => onUpdateSlot(i, { id })}
@@ -721,6 +727,7 @@ function PlayerCompareView({
             entityLoaded={lists[i] !== null && lists[i] !== undefined}
             entityValid={valid[i]!}
             data={slotData[i]!}
+            opponentDivisions={opponentDivisionChoices(divisionHistory, slots[i]!.season)}
             onSeason={(season) => onUpdateSlot(i, { season, filter: DEFAULT_FILTER })}
             onGameType={(gameType) => onUpdateSlot(i, { gameType })}
             onEntity={(key) => {

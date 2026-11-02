@@ -158,6 +158,8 @@ export interface GameRecordOptions {
   teams: { value: string; label: string; name: string }[];
   /** 地区の選択肢（シーズン: そのシーズンの地区。歴代: どこかのシーズンにある地区） */
   divisions: Division[];
+  /** クラブごとの地区（対戦相手の「◯地区を選択」ボタン用。シーズン: そのシーズンの地区、歴代: 最後にいたシーズンの地区） */
+  teamDivisions: Record<string, Division>;
   /** 選択肢が読み込めたか（読み込み前に、選択中の値を外さないために使う） */
   ready: boolean;
 }
@@ -169,20 +171,29 @@ export function useGameRecordOptions(scope: RecordsScope, season: string): GameR
   return useMemo<GameRecordOptions>(() => {
     if (scope === "season") {
       const options = (teams ?? []).map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName), name: t.teamName }));
-      return { teams: options.sort((a, b) => a.label.localeCompare(b.label, "ja")), divisions: seasonDivisions(history, season), ready: !!teams && history !== null };
+      return {
+        teams: options.sort((a, b) => a.label.localeCompare(b.label, "ja")),
+        divisions: seasonDivisions(history, season),
+        teamDivisions: { ...(history?.premier?.[season] ?? {}) },
+        ready: !!teams && history !== null,
+      };
     }
     const ids = new Set<string>();
     const divisions = new Set<Division>();
-    for (const bySeason of Object.values(history?.premier ?? {})) {
-      for (const [teamId, division] of Object.entries(bySeason)) {
+    const latest: Record<string, Division> = {};
+    // シーズンの古い順に並べて、後のシーズンの地区で上書きする（歴代は最後にいたシーズンの地区）
+    for (const season of Object.keys(history?.premier ?? {}).sort()) {
+      for (const [teamId, division] of Object.entries(history!.premier![season]!)) {
         ids.add(teamId);
         divisions.add(division);
+        latest[teamId] = division;
       }
     }
     const options = [...ids].map((id) => ({ value: id, label: teamShortName(id, leagueTeamDisplayName(id)), name: leagueTeamDisplayName(id) }));
     return {
       teams: options.sort((a, b) => a.label.localeCompare(b.label, "ja")),
       divisions: DIVISION_ORDER.filter((d) => divisions.has(d)),
+      teamDivisions: latest,
       ready: history !== null,
     };
   }, [scope, season, history, teams]);

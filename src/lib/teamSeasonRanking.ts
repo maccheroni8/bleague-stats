@@ -193,10 +193,14 @@ export function useTeamSeasonRanking(
   // 自チームの地区で絞る（ランキングのシーズン成績。DESIGN.md 213章）。試合の絞り込み（filterGameLogs）では地区の外のチームは試合数0になるだけで
   // 一覧に残るので、そのシーズンの地区が違うチームは一覧から外す。履歴が読めるまでは空にする（絞り込みの前の順位を一瞬出さない）
   const rowsInOwnDivision: AllTeamsRow[] = useMemo(() => {
-    if (!filter.ownDivision) return rows;
+    const wanted = filter.ownDivisions;
+    if (!wanted?.length) return rows;
     if (!divisionHistory) return [];
-    return rows.filter((r) => teamDivisionForSeason(divisionHistory, r.team.teamId, season) === filter.ownDivision);
-  }, [rows, filter.ownDivision, divisionHistory, season]);
+    return rows.filter((r) => {
+      const d = teamDivisionForSeason(divisionHistory, r.team.teamId, season);
+      return !!d && wanted.includes(d);
+    });
+  }, [rows, filter.ownDivisions, divisionHistory, season]);
   const conditionRows = isBoxscoreCategory(category) ? rowsInOwnDivision : seasonRows;
   const teamById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t])), [teams]);
   // 区間の値も登録区分別・ベンチ／スタメンの得点を持つ（チームの索引。256章の段階1）ので、区間でも出せる

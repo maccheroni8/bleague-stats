@@ -113,7 +113,7 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
   const entries = result?.rows;
   const failure = index.error ?? rookies.error ?? active.error ?? current.error;
 
-  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, includeSpecial: true, includeSpecialDefault: true };
+  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial: true, includeSpecialDefault: true };
   const axes: FilterAxis[] = [
     classificationAxis(group, setGroup, {
       rookie: { disabledReason: !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined },

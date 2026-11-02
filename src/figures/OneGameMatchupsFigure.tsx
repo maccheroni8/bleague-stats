@@ -7,17 +7,20 @@ import { ExportImageButton } from "../components/ExportImageButton";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { teamLogoUrl, fetchDivisionHistory, fetchGameSummaries, fetchSchedule, fetchStandingsHistory, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
-import { enumParam, stringParam, useUrlState } from "../lib/urlState";
-import { DIVISION_LABELS } from "../lib/divisionGroups";
+import { divisionListParam, stringParam, useUrlState } from "../lib/urlState";
+import { FilterBar } from "../components/FilterBar";
+import { teamMultiAxis } from "../lib/filterAxes";
+import { DIVISION_LABELS, divisionPresets, summarizeClubSelection } from "../lib/divisionGroups";
 import { MATCHUP_STATUS_LABELS, buildOneGameMatchups, jstToday, matchupOutcome, type OneGameMatchup, type OneGameTeam } from "../lib/oneGameMatchups";
 import type { FigureProps } from "./catalog";
 import "./OneGameMatchupsFigure.css";
 
 const TITLE = "年間1試合の対戦";
-type DivisionChoice = "all" | "east" | "west";
+const NO_DIVISIONS: Division[] = [];
 type ExportScope = "auto" | "both" | "east" | "west";
 const EXPORT_SCOPE_LABELS: Record<Exclude<ExportScope, "auto">, string> = { both: "東地区・西地区（縦並び）", east: "東地区のみ", west: "西地区のみ" };
-const divisionCodec = enumParam<DivisionChoice>("dv", ["all", "east", "west"], "all");
+// クラブは日程ページの「対象クラブ」と同じ複数選択（club=ID,ID,…。選ばなければ all）。古い URL の dv=east（地区）・club=ID（1クラブ）もそのまま読める
+const divisionCodec = divisionListParam("dv");
 const clubCodec = stringParam("club", "all");
 
 // 図の下端まで一度に保存するため、画面外のロゴも遅延せず読む。取得できないときは名前の短縮形を出す。
@@ -35,7 +38,7 @@ function resultText(m: OneGameMatchup): string {
 }
 
 export default function OneGameMatchupsFigure({ season, category }: FigureProps) {
-  const [division, setDivision] = useUrlState(divisionCodec, "all");
+  const [division, setDivision] = useUrlState(divisionCodec, NO_DIVISIONS);
   const [club, setClub] = useUrlState(clubCodec, "all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [exportScope, setExportScope] = useState<ExportScope>("auto");
@@ -70,13 +73,26 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
   const cell = new Map(result.matchups.map(m => [`${m.homeId}|${m.awayId}`, m] as const));
   const cellFor = (e: string, w: string) => { const m = cell.get(`${e}|${w}`) ?? cell.get(`${w}|${e}`); return m ? { m, eastHome: m.homeId === e } : null; };
   const selected = result.matchups.find(m => m.id === selectedId) ?? null;
-  const activeClub = club !== "all" && teamById.has(club) ? club : "all";
-  const activeDivision: DivisionChoice = division;
-  const listTeams = [...east, ...west].filter(t => (activeDivision === "all" || t.division === activeDivision) && (activeClub === "all" || t.teamId === activeClub));
-  const clubOptions = [...east, ...west].filter(t => activeDivision === "all" || t.division === activeDivision);
-  const conditions = [season, ...(activeDivision === "all" ? [] : [DIVISION_LABELS[activeDivision as Division]]), ...(activeClub === "all" ? [] : [teamById.get(activeClub)!.teamName])];
-  // 保存する地区。選ばなければ画面の地区の絞り込みに合わせる（全チームなら両方、東地区・西地区ならその地区だけ）。
-  const effectiveScope: Exclude<ExportScope, "auto"> = exportScope === "auto" ? (activeDivision === "all" ? "both" : activeDivision) : exportScope;
+  const allTeams = [...east, ...west];
+  const clubIds = club === "all" ? [] : club.split(",").filter(id => teamById.has(id));
+  // 選んだクラブ。クラブの指定が無く、古い URL の地区（dv）だけあるときは、その地区のクラブ全部
+  const selectedClubs = clubIds.length > 0 ? clubIds : division.length > 0 ? allTeams.filter(t => t.division && division.includes(t.division)).map(t => t.teamId) : [];
+  const limited = selectedClubs.length > 0;
+  const listTeams = allTeams.filter(t => !limited || selectedClubs.includes(t.teamId));
+  const clubOptionList = allTeams.map(t => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName) }));
+  const clubGroups = divisionPresets(allTeams.map(t => t.teamId), id => teamById.get(id)?.division, category).map(p => ({ label: p.label, values: p.teamIds }));
+  const clubSummary = summarizeClubSelection(selectedClubs, clubOptionList, clubGroups);
+  const clubAxis = teamMultiAxis({
+    options: allTeams.map(t => ({ teamId: t.teamId, teamName: t.teamName })),
+    selected: limited ? new Set(selectedClubs) : null,
+    onChange: next => { setClub(next ? [...next].join(",") : "all"); setDivision(NO_DIVISIONS); setExportScope("auto"); },
+    divisionOf: id => teamById.get(id)?.division,
+    league: category,
+  });
+  const conditions = [season, ...(clubSummary ? [clubSummary] : [])];
+  // 保存する地区。選ばなければ画面の絞り込みに合わせる（全クラブなら両方、選んだクラブが東地区だけ・西地区だけならその地区だけ）。
+  const listDivisions = new Set(listTeams.map(t => t.division));
+  const effectiveScope: Exclude<ExportScope, "auto"> = exportScope === "auto" ? (listDivisions.size === 1 && listDivisions.has("east") ? "east" : listDivisions.size === 1 && listDivisions.has("west") ? "west" : "both") : exportScope;
   const scopeSingle = effectiveScope !== "both";
   const baseDate = { kind: "season" as const, season, gameType: "regular" as const };
   const notes = <div className="figure-notes export-hide">
@@ -85,12 +101,7 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
   </div>;
 
   return <section aria-label={TITLE} className="onegame">
-    <div className="figures-controls">
-      <label>地区<select value={activeDivision} onChange={e => { setDivision(e.target.value as DivisionChoice); setClub("all"); setExportScope("auto"); }}>
-        <option value="all">全チーム</option><option value="east">東地区</option><option value="west">西地区</option></select></label>
-      <label>クラブ<select value={activeClub} onChange={e => setClub(e.target.value)}>
-        <option value="all">すべて</option>{clubOptions.map(t => <option key={t.teamId} value={t.teamId}>{t.teamName}</option>)}</select></label>
-    </div>
+    <FilterBar axes={[clubAxis]} stateKey="figures:one-game" onClearAll={() => { setClub("all"); setDivision(NO_DIVISIONS); setExportScope("auto"); }} />
     <div className="onegame-layout">
       <div className="onegame-matrix-block">
         <ExportImageButton targetRef={matrixTarget} filename={`年間1試合の対戦_対戦表_${season}`} baseDate={baseDate} />
@@ -135,7 +146,7 @@ export default function OneGameMatchupsFigure({ season, category }: FigureProps)
         </div>
         <ExportTarget ref={listTarget} className={`onegame-export${scopeSingle ? " onegame-export-single" : ""}`} baseDate={baseDate}>
           <ConditionTitle title={`${TITLE}（チーム別）`} exportScope={`${season}シーズン`} conditions={conditions} />
-          {scopeSingle && activeDivision === "all" && <p className="onegame-export-scope export-only">{DIVISION_LABELS[effectiveScope as Division]}のみ</p>}
+          {scopeSingle && !limited && <p className="onegame-export-scope export-only">{DIVISION_LABELS[effectiveScope as Division]}のみ</p>}
           {(["east", "west"] as const).map(dv => {
             const rows = listTeams.filter(t => t.division === dv);
             if (!rows.length) return null;

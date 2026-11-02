@@ -38,13 +38,13 @@ export interface SituationalAndFilters {
    * 所属地区以外の2地区をまとめる）。same/otherは自チームの地区が必要なため、呼び出し側が
    * OwnTeamResolverを渡さないと該当試合0件になる
    */
-  division?: "east" | "west" | "same" | "other";
+  division?: Division | "same" | "other";
   /**
-   * 自チームの地区（その試合の自チームの、そのシーズンの地区。data/division-history.json。DESIGN.md 213章）。上の対戦相手の地区（division）とは別の条件。
+   * 自チームの地区（複数選択はいずれかに当てはまればよい（OR）。その試合の自チームの、そのシーズンの地区。data/division-history.json。DESIGN.md 213章）。上の対戦相手の地区（division）とは別の条件。
    * シーズンの途中で所属が変わった選手は、試合ごとに自チームで判定する。自チームの地区が分からない試合（履歴に無いシーズン・クラブ、
    * OwnTeamResolver が無い）はどの地区にも該当しない。ランキング（シーズン成績）だけが画面に出す
    */
-  ownDivision?: Division;
+  ownDivisions?: Division[];
   /** 1〜12（開催月）の複数選択。選んだ月のいずれかに該当すればよい（OR）。空配列・未指定は絞り込みなし */
   months?: number[];
   /** 年明け（1月）を境にした前後半。B.LEAGUEのシーズンは10月開幕〜翌年5,6月終幕のため、
@@ -145,7 +145,7 @@ export function isDefaultFilter(filter: SituationalFilter): boolean {
     !filter.result &&
     !filter.homeAway &&
     !filter.division &&
-    !filter.ownDivision &&
+    !filter.ownDivisions?.length &&
     !filter.months?.length &&
     !filter.newYear &&
     !filter.weekday &&
@@ -434,7 +434,7 @@ export type OwnTeamResolver = (g: { scheduleKey: string; isHome: boolean }) => s
  */
 export function matchesDivision<T extends { opponentTeamId: string; scheduleKey?: string; isHome?: boolean }>(
   g: T,
-  division: "east" | "west" | "same" | "other" | Division,
+  division: "same" | "other" | Division,
   history: DivisionHistoryFile | null | undefined,
   season: string,
   category: Category = "premier",
@@ -530,7 +530,7 @@ export function matchesSituationalAndFilters<
   if (filters.homeAway === "home" && !g.isHome) return false;
   if (filters.homeAway === "away" && g.isHome) return false;
   if (filters.division && (!season || !matchesDivision(g, filters.division, divisionHistory, season, league, ownTeamOf))) return false;
-  if (filters.ownDivision && (!season || !matchesOwnDivision(g, filters.ownDivision, divisionHistory, season, league, ownTeamOf))) return false;
+  if (filters.ownDivisions?.length && (!season || !filters.ownDivisions.some((d) => matchesOwnDivision(g, d, divisionHistory, season, league, ownTeamOf)))) return false;
   if (filters.months?.length && !filters.months.some((m) => matchesMonth(g, m))) return false;
   if (filters.newYear && !matchesNewYearHalf(g, filters.newYear)) return false;
   if (filters.weekday && !isWeekdayGame(g.date)) return false;

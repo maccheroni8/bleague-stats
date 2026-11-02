@@ -250,7 +250,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const shareRange = LINEUP_SHARE_RANGE[unit];
   const shareDefault = LINEUP_SHARE_DEFAULT[unit];
   const shareSummary = `チームの${sharePct}%以上`;
-  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, includeSpecial: true, includeSpecialDefault: true };
+  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial: true, includeSpecialDefault: true };
   const axes: FilterAxis[] = [
     classificationAxis(group, setGroup, { rookie: {}, season: allTime ? null : season }),
     ...(allTime ? [activeAxis(activeParam, setActive)] : []),

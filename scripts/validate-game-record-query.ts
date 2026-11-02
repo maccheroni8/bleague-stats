@@ -236,8 +236,8 @@ function matchesLog(f: LogFacts, c: GameRecordConditions, gameType: SeasonGameTy
   if (c.marginMin !== undefined && f.absMargin < c.marginMin) return false;
   if (c.marginMax !== undefined && f.absMargin > c.marginMax) return false;
   if (c.margin && !matchesMargin(f, c.margin)) return false;
-  if (c.ownDivision && divisionOf(f.teamId, f.season) !== c.ownDivision) return false;
-  if (c.oppDivision && divisionOf(f.opponentTeamId, f.season) !== c.oppDivision) return false;
+  if (c.ownDivisions?.length && !c.ownDivisions.includes(divisionOf(f.teamId, f.season) as never)) return false;
+  if (c.oppDivisions?.length && !c.oppDivisions.includes(divisionOf(f.opponentTeamId, f.season) as never)) return false;
   return true;
 }
 const playerLogFacts = (g: RecordGame): LogFacts => ({
@@ -287,13 +287,13 @@ const conditionCases: { label: string; c: GameRecordConditions }[] = [
   { label: "20点以上リード", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, margin: "lead20" } },
   { label: "10点以上ビハインド", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, margin: "trail10" } },
   { label: "一度も10点差が開かない", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, margin: "close" } },
-  { label: "自チーム 東地区", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, ownDivision: "east" } },
-  { label: "自チーム 中地区", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, ownDivision: "central" } },
-  { label: "自チーム 西地区", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, ownDivision: "west" } },
-  { label: "対戦相手 東地区", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, oppDivision: "east" } },
-  { label: "対戦相手 西地区", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, oppDivision: "west" } },
-  { label: "自チーム 東 × 対戦相手 西", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, ownDivision: "east", oppDivision: "west" } },
-  { label: "組み合わせ（勝ち・延長あり・アウェイ・対戦相手 西）", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, result: "win", overtime: "any", homeAway: "away", oppDivision: "west" } },
+  { label: "自チーム 東地区", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, ownDivisions: ["east"] } },
+  { label: "自チーム 中地区", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, ownDivisions: ["central"] } },
+  { label: "自チーム 西地区", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, ownDivisions: ["west"] } },
+  { label: "対戦相手 東地区", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, oppDivisions: ["east"] } },
+  { label: "対戦相手 西地区", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, oppDivisions: ["west"] } },
+  { label: "自チーム 東 × 対戦相手 西", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, ownDivisions: ["east"], oppDivisions: ["west"] } },
+  { label: "組み合わせ（勝ち・延長あり・アウェイ・対戦相手 西）", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, result: "win", overtime: "any", homeAway: "away", oppDivisions: ["west"] } },
   { label: "組み合わせ（負け・点差5以下・10点以上リード）", c: { ...DEFAULT_GAME_RECORD_CONDITIONS, result: "loss", marginMax: 5, margin: "lead10" } },
 ];
 
@@ -336,7 +336,7 @@ g2p.report();
   const id = movers[0]!;
   const byDiv = new Map<string, Set<string>>();
   for (const div of ["east", "central", "west"] as const) {
-    const rows = queryTeamGameRecords({ views: tViews, gameType: "both", conditions: { ...DEFAULT_GAME_RECORD_CONDITIONS, ownDivision: div }, statConditions: DEFAULT_STAT_CONDITIONS, stat: ptsDef, includeSpecial: true, topN: ALL }).rows.filter((r) => r.teamId === id);
+    const rows = queryTeamGameRecords({ views: tViews, gameType: "both", conditions: { ...DEFAULT_GAME_RECORD_CONDITIONS, ownDivisions: [div] }, statConditions: DEFAULT_STAT_CONDITIONS, stat: ptsDef, includeSpecial: true, topN: ALL }).rows.filter((r) => r.teamId === id);
     byDiv.set(div, new Set(rows.map((r) => r.season)));
   }
   const ok = seasons.every((s) => {

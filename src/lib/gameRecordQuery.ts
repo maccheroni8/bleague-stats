@@ -9,7 +9,7 @@ import { GAME_FLAG_PLAYOFF, GAME_FLAG_SHORT, ROW_FLAG_HOME, type IndexGames, typ
 import { PLAYER_GAME_RECORD_STATS, type PlayerGameRecordDef, type PlayerRecordGame } from "../../shared/playerGameRecords";
 import { periodRecordKindDef, periodScore, type PeriodKey, type PeriodRecordKind } from "../../shared/teamPeriodRecords";
 import { TEAM_RECORD_STATS, teamRecordDetail, type TeamRecordValueDef } from "../../shared/teamRecords";
-import type { PlayerGameRecordEntry, RookieEligibilityFile, TeamGameLog } from "../../shared/types";
+import type { Division, PlayerGameRecordEntry, RookieEligibilityFile, TeamGameLog } from "../../shared/types";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { formatMinutesFromSeconds } from "./boxscoreAggregate";
 import { indexRowClassMatches, positionFilterValue, type PlayerGroupFilter } from "./classificationFilter";
@@ -115,8 +115,8 @@ export function matchesGame(f: GameSideFacts, gameType: SeasonGameTypeFilter, c:
   if (c.marginMin !== undefined && f.absMargin < c.marginMin) return false;
   if (c.marginMax !== undefined && f.absMargin > c.marginMax) return false;
   if (c.margin && !matchesMargin(f, c.margin)) return false;
-  if (c.ownDivision && f.ownDivision !== c.ownDivision) return false;
-  if (c.oppDivision && f.oppDivision !== c.oppDivision) return false;
+  if (c.ownDivisions?.length && !c.ownDivisions.includes(f.ownDivision as Division)) return false;
+  if (c.oppDivisions?.length && !c.oppDivisions.includes(f.oppDivision as Division)) return false;
   return true;
 }
 

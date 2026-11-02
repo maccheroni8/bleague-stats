@@ -78,7 +78,7 @@ import { usePlayerLabel } from "../lib/playerLabel";
 import { DEFAULT_STAT_CONDITIONS, statConditionsTitle } from "../lib/statConditions";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { clearUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
-import { seasonDivisions } from "../lib/divisionGroups";
+import { opponentDivisionChoices, seasonDivisions } from "../lib/divisionGroups";
 import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PAIR_UNIT_PARAM, PERSPECTIVE_PARAM, PLAYER_SEASON_PERIOD_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM, TEAM_SEASON_PERIOD_PARAM } from "../lib/urlFilterParams";
 import { OVERTIME_ELIGIBILITY_LABEL, OVERTIME_ELIGIBILITY_REASON, OVERTIME_GAMES_NOTE, SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason } from "../lib/seasonPeriod";
 import { OVERTIME_MIN_TEAM_GAMES_FOR_RANKING } from "../lib/teamPeriodTotals";
@@ -498,6 +498,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
       ownDivisions: seasonDivisions(divisionHistory, season),
+      opponentDivisions: opponentDivisionChoices(divisionHistory, season),
       disabledReason: teamFilterDisabledReason,
     }),
     compareAxis(compareParam, setCompareParam, compareReason),
@@ -1011,6 +1012,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
       ownDivisions: seasonDivisions(divisionHistory, season),
+      opponentDivisions: opponentDivisionChoices(divisionHistory, season),
       disabledReason: playerFilterDisabledReason,
     }),
     eligibilityAxis,

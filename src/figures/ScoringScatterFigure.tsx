@@ -10,8 +10,8 @@ import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory, teamLogoUrl } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { GAME_TYPE_PARAM, PERSPECTIVE_PARAM } from "../lib/urlFilterParams";
-import { enumParam, situationalParam, useUrlState, type UrlCodec } from "../lib/urlState";
-import { gameTypeAxis, perspectiveAxis, situationalAxes, type FilterAxis } from "../lib/filterAxes";
+import { divisionListParam, enumParam, situationalParam, useUrlState, type UrlCodec } from "../lib/urlState";
+import { divisionMultiAxis, gameTypeAxis, perspectiveAxis, situationalAxes, type FilterAxis } from "../lib/filterAxes";
 import { type SituationalFilter } from "../lib/situational";
 import { situationalFilterLabels } from "../lib/conditionLabels";
 import { DIVISION_LABELS, divisionOrder } from "../lib/divisionGroups";
@@ -32,8 +32,9 @@ const rangeCodec: UrlCodec<SituationalFilter> = {
   }, write:(p,value)=>situationalParam.write(p,{range:value.range}),
 };
 const gameCodec={...enumParam<SeasonGameTypeFilter>("gt",["regular","playoff","both"],"regular"),read:GAME_TYPE_PARAM.read};
-type DivisionChoice = Division | "all" | "unknown";
-const divisionCodec=enumParam<DivisionChoice>("dv",["all","east","central","west","north","south","unknown"],"all");
+type DivisionChoice = Division | "unknown";
+const divisionCodec=divisionListParam<"unknown">("dv",["unknown"]);
+const NO_DIVISIONS:DivisionChoice[]=[];
 const yCodec=enumParam<ScoringYMode>("yc",["foreign","intl"],"foreign");
 const divisionLabel=(division: Division | "unknown")=>division === "unknown" ? "地区不明" : DIVISION_LABELS[division];
 
@@ -48,7 +49,7 @@ const shareText=(value:number|null,pv:TeamPerspective)=>value===null?"—":pv===
 export default function ScoringScatterFigure({season,category}:FigureProps) {
   const [filter,setFilter]=useUrlState(rangeCodec,DEFAULT_RANGE);
   const [gameType,setGameType]=useUrlState(gameCodec,"regular");
-  const [division,setDivision]=useUrlState(divisionCodec,"all");
+  const [division,setDivision]=useUrlState(divisionCodec,NO_DIVISIONS);
   const [perspective,setPerspective]=useUrlState(PERSPECTIVE_PARAM,"own");
   const [yParam,setYParam]=useUrlState(yCodec,"foreign");
   const [sort,setSort]=useState<{key:"x"|"y"|"games"|"xs"|"ys";desc:boolean}>({key:"y",desc:true});
@@ -73,10 +74,10 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
     const values=new Set(model?.points.map(point=>point.division??"unknown"));
     return [...divisionOrder(category).filter(d=>values.has(d)),...(values.has("unknown")?["unknown" as const]:[])];
   },[model,category]);
-  const activeDivision=division === "all" || present.includes(division) ? division : "all";
+  const activeDivision=division.filter(d=>present.includes(d));
   const xKey=scoringAxisKey("x",yMode) as Key, yKey=scoringAxisKey("y",yMode) as Key;
   const xOf=(p:ScoringPoint)=>scoringPerGame(p,xKey,perspective), yOf=(p:ScoringPoint)=>scoringPerGame(p,yKey,perspective);
-  const visible=model?.points.filter(point=>activeDivision === "all" || (point.division??"unknown")===activeDivision)??[];
+  const visible=model?.points.filter(point=>activeDivision.length === 0 || activeDivision.includes(point.division??"unknown"))??[];
   const selected=visible.find(point=>point.teamId===selectedId)??null;
   const tooltip=visible.find(point=>point.teamId===tooltipId)??null;
   // 軸・リーグ平均はリーグ全体が基準（地区で絞っても変えない）
@@ -98,11 +99,8 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
     kind:"select",id:"scoringY",label:"縦軸",tier:"primary",value:yMode,defaultValue:modes[0]!,
     options:modes.map(m=>({value:m,label:SCORING_Y_LABELS[m]})),onChange:value=>setYParam(value as ScoringYMode),
     ...(modes.length<2?{disabledReason:"外国籍だけを分けて見られるのは2026-27シーズンからです。それより前は外国籍・帰化・アジアの合計で表示します。"}:{}),
-  },{
-    kind:"select",id:"scoringDivision",label:"地区",tier:"primary",value:activeDivision,defaultValue:"all",
-    options:[{value:"all",label:"全チーム"},...present.map(d=>({value:d,label:divisionLabel(d)}))],onChange:value=>setDivision(value as DivisionChoice),
-  }];
-  const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision === "all"?[]:[divisionLabel(activeDivision)])];
+  },divisionMultiAxis<"unknown">({id:"scoringDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision})];
+  const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")])];
   const xName=statName(xKey,perspective), yName=statName(yKey,perspective);
   const sorted=[...visible].sort((a,b)=>{
     const value=(p:ScoringPoint)=>sort.key==="x"?xOf(p):sort.key==="y"?yOf(p):sort.key==="games"?p.games:(scoringShare(p,sort.key==="xs"?xKey:yKey,perspective)??-Infinity);
@@ -119,7 +117,7 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
     <span>{yName} {perGameText(yOf(p),perspective)}（割合 {shareText(scoringShare(p,yKey,perspective),perspective)}）</span>
   </>;
   return <section aria-label="日本人と外国籍の得点の散布図">
-    <FilterBar axes={axes} stateKey="figures:scoring" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision("all");setPerspective("own");setYParam("foreign");}} />
+    <FilterBar axes={axes} stateKey="figures:scoring" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);setPerspective("own");setYParam("foreign");}} />
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!league || !visible.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
       <ExportImageButton targetRef={target} filename={`${xName}_${yName}_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={target} className="ratings-export scoring-export" baseDate={baseDate}>

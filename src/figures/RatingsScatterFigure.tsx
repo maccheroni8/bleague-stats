@@ -10,8 +10,8 @@ import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory, fetchStandingsHistory, teamLogoUrl } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { GAME_TYPE_PARAM } from "../lib/urlFilterParams";
-import { enumParam, situationalParam, useUrlState, type UrlCodec } from "../lib/urlState";
-import { gameTypeAxis, situationalAxes, type FilterAxis } from "../lib/filterAxes";
+import { divisionListParam, enumParam, situationalParam, useUrlState, type UrlCodec } from "../lib/urlState";
+import { divisionMultiAxis, gameTypeAxis, situationalAxes, type FilterAxis } from "../lib/filterAxes";
 import { type SituationalFilter } from "../lib/situational";
 import { situationalFilterLabels } from "../lib/conditionLabels";
 import { DIVISION_LABELS, divisionOrder } from "../lib/divisionGroups";
@@ -31,14 +31,15 @@ const rangeCodec: UrlCodec<SituationalFilter> = {
   }, write:(p,value)=>situationalParam.write(p,{range:value.range}),
 };
 const gameCodec={...enumParam<SeasonGameTypeFilter>("gt",["regular","playoff","both"],"regular"),read:GAME_TYPE_PARAM.read};
-type DivisionChoice = Division | "all" | "unknown";
-const divisionCodec=enumParam<DivisionChoice>("dv",["all","east","central","west","north","south","unknown"],"all");
+type DivisionChoice = Division | "unknown";
+const divisionCodec=divisionListParam<"unknown">("dv",["unknown"]);
+const NO_DIVISIONS:DivisionChoice[]=[];
 const divisionLabel=(division: Division | "unknown")=>division === "unknown" ? "地区不明" : DIVISION_LABELS[division];
 
 export default function RatingsScatterFigure({season,category}:FigureProps) {
   const [filter,setFilter]=useUrlState(rangeCodec,DEFAULT_RANGE);
   const [gameType,setGameType]=useUrlState(gameCodec,"regular");
-  const [division,setDivision]=useUrlState(divisionCodec,"all");
+  const [division,setDivision]=useUrlState(divisionCodec,NO_DIVISIONS);
   const [sort,setSort]=useState<{key:RatingKey|"division";bestFirst:boolean}>({key:"netrtg",bestFirst:true});
   const [tooltipId,setTooltipId]=useState<string|null>(null);
   const [selectedId,setSelectedId]=useState<string|null>(null);
@@ -59,19 +60,16 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
     const values=new Set(model?.points.map(point=>point.division??"unknown"));
     return [...divisionOrder(category).filter(d=>values.has(d)),...(values.has("unknown")?["unknown" as const]:[])];
   },[model]);
-  const activeDivision=division === "all" || present.includes(division) ? division : "all";
-  const visible=model?.points.filter(point=>activeDivision === "all" || (point.division??"unknown")===activeDivision)??[];
+  const activeDivision=division.filter(d=>present.includes(d));
+  const visible=model?.points.filter(point=>activeDivision.length === 0 || activeDivision.includes(point.division??"unknown"))??[];
   const selected=visible.find(point=>point.teamId===selectedId)??null;
   const tooltip=visible.find(point=>point.teamId===tooltipId)??null;
   const rangeAxes=situationalAxes(filter,next=>setFilter({range:next.range})).filter(axis=>axis.id === "s.range" || (filter.range.kind === "dateRange" && (axis.id === "s.dateStart" || axis.id === "s.dateEnd"))).map(axis=>{
     if(axis.kind === "select") return {...axis,options:axis.options.filter(option=>["all","recent:5","recent:10","custom"].includes(option.value))};
     return {...axis,tier:"primary" as const};
   });
-  const axes:FilterAxis[]=[...rangeAxes,gameTypeAxis(gameType,setGameType,season),{
-    kind:"select",id:"ratingsDivision",label:"地区",tier:"primary",value:activeDivision,defaultValue:"all",
-    options:[{value:"all",label:"全チーム"},...present.map(d=>({value:d,label:divisionLabel(d)}))],onChange:value=>setDivision(value as DivisionChoice),
-  }];
-  const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision === "all"?[]:[divisionLabel(activeDivision)])];
+  const axes:FilterAxis[]=[...rangeAxes,gameTypeAxis(gameType,setGameType,season),divisionMultiAxis<"unknown">({id:"ratingsDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision})];
+  const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")])];
   const standingById=new Map(request.data?.standings?.teams.map(team=>[team.teamId,team]));
   const sortedVisible=[...visible].sort((a,b)=>{
     if(sort.key==="division") {
@@ -85,7 +83,7 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
   const baseDate={kind:"season" as const,season,gameType};
   const choose=(id:string,scroll=false)=>{setSelectedId(id);setTooltipId(scroll?null:id);if(scroll)plot.current?.scrollIntoView({block:"center",behavior:"smooth"});};
   return <section aria-label="ORtg・DRtgの散布図">
-    <FilterBar axes={axes} stateKey="figures:ratings" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision("all");}} />
+    <FilterBar axes={axes} stateKey="figures:ratings" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);}} />
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!model?.league || !visible.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
       <ExportImageButton targetRef={target} filename={`ORtg_DRtg_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={target} className="ratings-export" baseDate={baseDate}>

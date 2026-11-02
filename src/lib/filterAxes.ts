@@ -172,6 +172,38 @@ export function multiSelectAxis(input: {
   };
 }
 
+/**
+ * 地区の複数選択（ランキングの「地区」・図解の「地区」）。クラブの複数選択（teamMultiAxis）と同じ部品（multiSelectAxis）で、
+ * 何も選ばなければ全地区。選択肢は呼び出し側がそのシーズン・リーグにある地区だけを渡す（B.ONE は北・東・中・西・南。seasonDivisions）。
+ * extra は地区以外の選択肢（図解の「地区不明」）
+ */
+export function divisionMultiAxis<T extends string = Division>(input: {
+  id: string;
+  label?: string;
+  divisions: Division[];
+  extra?: { value: T; label: string }[];
+  selected: (Division | T)[];
+  onChange: (next: (Division | T)[]) => void;
+  tier?: "primary" | "advanced";
+  disabledReason?: string;
+}): FilterAxis {
+  const options = [
+    ...input.divisions.map((d) => ({ value: d as Division | T, label: DIVISION_LABELS[d] })),
+    ...(input.extra ?? []).map((e) => ({ value: e.value as Division | T, label: e.label })),
+  ];
+  return multiSelectAxis({
+    id: input.id,
+    label: input.label ?? "地区",
+    tier: input.tier ?? "primary",
+    options,
+    selected: input.selected,
+    onChangeSelected: (values) => input.onChange(options.filter((o) => values.includes(o.value)).map((o) => o.value)),
+    allLabel: "全地区",
+    maxShown: Infinity,
+    disabledReason: input.disabledReason,
+  });
+}
+
 export const FILTER_ALL_LABEL = "すべて";
 
 /**
@@ -428,6 +460,11 @@ export interface SituationalAxesContext {
    * ランキング（シーズン成績）だけが渡す（DESIGN.md 213章）。判定に OwnTeamResolver が要るので、呼び出し側は filterGameLogs に渡すこと
    */
   ownDivisions?: Division[];
+  /**
+   * 「対戦地区」の「対◯地区」の選択肢（そのシーズン・リーグにある地区。seasonDivisions）。未指定なら東・西。
+   * 「同地区」「他地区」は ownTeamDivisionSupported のときだけ
+   */
+  opponentDivisions?: Division[];
   /** S軸すべてが今のタブで効かないときの理由 */
   disabledReason?: string;
 }
@@ -467,9 +504,21 @@ function rangeFromValue(
 export function situationalAndAxes<T extends SituationalAndFilters>(
   filter: T,
   onChange: (filter: T) => void,
-  ctx: { opponentWinRateSupported?: boolean; ownTeamDivisionSupported?: boolean; ownDivisions?: Division[]; disabledReason?: string } = {},
+  ctx: {
+    opponentWinRateSupported?: boolean;
+    ownTeamDivisionSupported?: boolean;
+    ownDivisions?: Division[];
+    opponentDivisions?: Division[];
+    disabledReason?: string;
+  } = {},
 ): FilterAxis[] {
-  const { opponentWinRateSupported = false, ownTeamDivisionSupported = false, ownDivisions = [], disabledReason } = ctx;
+  const {
+    opponentWinRateSupported = false,
+    ownTeamDivisionSupported = false,
+    ownDivisions = [],
+    opponentDivisions = ["east", "west"] as Division[],
+    disabledReason,
+  } = ctx;
   const andAxis = (
     id: string,
     label: string,
@@ -497,14 +546,13 @@ export function situationalAndAxes<T extends SituationalAndFilters>(
     // 自チームの地区（ランキングのシーズン成績だけ。そのシーズンにある地区だけを選択肢にする。履歴に地区が無いシーズンは軸ごと出さない）
     ...(ownDivisions.length > 0
       ? [
-          andAxis(
-            "s.ownDivision",
-            "地区",
-            "primary",
-            filter.ownDivision ?? "",
-            ownDivisions.map((d) => ({ value: d, label: DIVISION_LABELS[d] })),
-            (f, v) => ({ ...f, ownDivision: v === "" ? undefined : (v as Division) }),
-          ),
+          divisionMultiAxis({
+            id: "s.ownDivision",
+            divisions: ownDivisions,
+            selected: filter.ownDivisions ?? [],
+            onChange: (next) => onChange({ ...filter, ownDivisions: next.length === 0 ? undefined : next }),
+            disabledReason,
+          }),
         ]
       : []),
     andAxis("s.result", "勝敗", "advanced", filter.result ?? "", [
@@ -512,8 +560,7 @@ export function situationalAndAxes<T extends SituationalAndFilters>(
       { value: "loss", label: "負けた試合" },
     ], (f, v) => ({ ...f, result: v === "" ? undefined : (v as "win" | "loss") })),
     andAxis("s.division", "対戦地区", "advanced", filter.division ?? "", [
-      { value: "east", label: "対東地区" },
-      { value: "west", label: "対西地区" },
+      ...opponentDivisions.map((d) => ({ value: d, label: `対${DIVISION_LABELS[d]}` })),
       ...(ownTeamDivisionSupported
         ? [
             { value: "same", label: "同地区" },
@@ -575,7 +622,7 @@ export function situationalAxes(
   onChange: (filter: SituationalFilter) => void,
   ctx: SituationalAxesContext = {},
 ): FilterAxis[] {
-  const { boundary = null, opponentWinRateSupported = false, ownTeamDivisionSupported = false, ownDivisions, disabledReason } = ctx;
+  const { boundary = null, opponentWinRateSupported = false, ownTeamDivisionSupported = false, ownDivisions, opponentDivisions, disabledReason } = ctx;
   const rangeValue = rangeValueOf(filter, boundary);
   const dateRange = filter.range.kind === "dateRange" ? filter.range : null;
   const dateDisabledReason = disabledReason ?? (dateRange ? undefined : "対象期間で「期間指定」を選ぶと入力できます");
@@ -609,7 +656,7 @@ export function situationalAxes(
           ? `${dateRange.start || "…"}〜${dateRange.end || "…"}`
           : undefined,
     },
-    ...situationalAndAxes(filter, onChange, { opponentWinRateSupported, ownTeamDivisionSupported, ownDivisions, disabledReason }),
+    ...situationalAndAxes(filter, onChange, { opponentWinRateSupported, ownTeamDivisionSupported, ownDivisions, opponentDivisions, disabledReason }),
   ];
 
   const dateAxis = (id: string, label: string, key: "start" | "end"): FilterAxis => ({

@@ -1,4 +1,5 @@
 import { seasonBoxColumnsWithFtr } from "../lib/ftrColumn";
+import { DIVISION_LABELS, opponentDivisionChoices } from "../lib/divisionGroups";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
@@ -2150,10 +2151,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
     {
       key: "division",
       label: "地区",
-      rows: [
-        { key: "east", label: "対東地区", predicate: (g) => matchesDivision(g, "east", divisionHistory, situationalStatsSeason) },
-        { key: "west", label: "対西地区", predicate: (g) => matchesDivision(g, "west", divisionHistory, situationalStatsSeason) },
-      ],
+      // そのシーズン・リーグにある地区だけ（東西・東中西・B.ONE の北→東→中→西→南。DESIGN.md 314章）
+      rows: opponentDivisionChoices(divisionHistory, situationalStatsSeason, league).map((d) => ({
+        key: d,
+        label: `対${DIVISION_LABELS[d]}`,
+        predicate: (g) => matchesDivision(g, d, divisionHistory, situationalStatsSeason, league),
+      })),
     },
     {
       key: "weekday",
@@ -2394,6 +2397,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     ...situationalAndAxes(shotChartFilters, setShotChartFilters, {
       opponentWinRateSupported: !!shotChartGameSummaries,
       ownTeamDivisionSupported: !!divisionHistory && !!shotChartGameSummaries,
+      opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
     }).map((a): FilterAxis => (a.id === "s.result" ? { ...a, tier: "primary" } : a)),
     periodAxis(shotChartPeriod, setShotChartPeriod, SEASON_PERIOD_OPTIONS),
   ];
@@ -3326,6 +3330,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     boundary={compareBoundaries[i]}
                     opponentWinRateSupported={!!compareOpponentRecords[i]}
                     ownTeamDivisionSupported={!!divisionHistory && !!careerTeamData?.get(slot.season)}
+                    opponentDivisions={opponentDivisionChoices(divisionHistory, slot.season, league)}
                   />
                 </div>
               );

@@ -62,7 +62,15 @@ export function situationalFilterLabels(filter: SituationalFilter, options: Situ
   return parts.length > 0 ? parts : [SITUATIONAL_DEFAULT_LABEL];
 }
 
-const DIVISION_FILTER_LABELS = { east: "対東地区", west: "対西地区", same: "対同地区", other: "対他地区" } as const;
+const DIVISION_FILTER_LABELS: Record<NonNullable<SituationalAndFilters["division"]>, string> = {
+  east: "対東地区",
+  west: "対西地区",
+  central: "対中地区",
+  north: "対北地区",
+  south: "対南地区",
+  same: "対同地区",
+  other: "対他地区",
+};
 
 /** AND合成の各軸（勝敗・会場・地区・月別・年明け前後・平日開催・対勝率別）。SituationalFilterと
  * ShotChartGameFiltersが共有する（situational.tsのmatchesSituationalAndFiltersと同じ軸） */
@@ -72,7 +80,7 @@ function situationalAndFilterParts(filter: SituationalAndFilters): string[] {
   if (filter.homeAway) parts.push(filter.homeAway === "home" ? "ホーム" : "アウェイ");
   if (filter.division) parts.push(DIVISION_FILTER_LABELS[filter.division]);
   // 自チームの地区は、指定したときだけ「地区: 東地区」の形で書く（登録区分・ポジションと同じ見出し付き。ファイル名では値だけになる）
-  if (filter.ownDivision) parts.push(`地区: ${DIVISION_LABELS[filter.ownDivision]}`);
+  if (filter.ownDivisions?.length) parts.push(`地区: ${filter.ownDivisions.map((d) => DIVISION_LABELS[d]).join("・")}`);
   if (filter.months?.length) parts.push([...filter.months].sort((a, b) => a - b).map((m) => `${m}月`).join("・"));
   if (filter.newYear) parts.push(filter.newYear === "before" ? "年明け前" : "年明け後");
   if (filter.weekday) parts.push("平日開催");

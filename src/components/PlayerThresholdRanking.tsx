@@ -149,7 +149,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   const failure = index.error ?? rookies.error ?? active.error ?? current.error ?? rosters.error;
   const hasLte = activeStatConditions(threshold, THRESHOLD_ITEMS).some((c) => c.condition.op === "lte");
 
-  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, includeSpecial, includeSpecialDefault: false };
+  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial, includeSpecialDefault: false };
   const axes: FilterAxis[] = [
     classificationAxis(group, setGroup, {
       rookie: { disabledReason: !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined },

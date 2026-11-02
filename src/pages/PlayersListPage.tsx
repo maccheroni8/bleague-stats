@@ -50,7 +50,7 @@ import {
   type FilterAxis,
 } from "../lib/filterAxes";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
-import { divisionPresets } from "../lib/divisionGroups";
+import { divisionPresets, opponentDivisionChoices } from "../lib/divisionGroups";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { OnCourtShareNote } from "../components/OnCourtShareNote";
@@ -1169,6 +1169,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     ...situationalAxes(situationalFilter, setSituationalFilter, {
       opponentWinRateSupported: !!gameSummaries,
       ownTeamDivisionSupported: !!divisionHistory && !!gameSummaries,
+      opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
       disabledReason: shootingReason,
     }),
     tab === "scoringComposition"

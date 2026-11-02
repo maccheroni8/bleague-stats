@@ -88,8 +88,9 @@ export function compareUnsupportedReason(input: CompareSupportInput): string | n
     if (filter.range.kind === "dateRange") {
       return `期間指定は日付がシーズンごとに違い、前のシーズンには当てはめられないため、${COMPARE_LABEL}は選べません。`;
     }
-    if (filter.ownDivision && prevDivisions && !prevDivisions.includes(filter.ownDivision)) {
-      return `${DIVISION_LABELS[filter.ownDivision]}は${prev}にない地区のため、${COMPARE_LABEL}は選べません。`;
+    const missingDivision = prevDivisions ? filter.ownDivisions?.find((d) => !prevDivisions.includes(d)) : undefined;
+    if (missingDivision) {
+      return `${DIVISION_LABELS[missingDivision]}は${prev}にない地区のため、${COMPARE_LABEL}は選べません。`;
     }
     if (gameType !== "regular" && postseasonFormat(prev) === null) {
       return `${prev}は${postseasonLabel(prev)}が開催されなかったため、${COMPARE_LABEL}は選べません。`;
