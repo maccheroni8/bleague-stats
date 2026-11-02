@@ -15,6 +15,7 @@ import {
   buildAdvancedColumns,
   buildMiscColumns,
   buildScoringColumns,
+  buildOppPtsColumn,
   buildTraditionalColumns,
   DEFAULT_SORT_KEY,
   sumTeamGameLogs,
@@ -80,8 +81,13 @@ export function buildTeamCategoryColumns(
   foulSplit: boolean,
 ): Column<AllTeamsRow>[] {
   switch (category) {
-    case "traditional":
-      return buildTraditionalColumns(mode, perspective);
+    case "traditional": {
+      const columns = buildTraditionalColumns(mode, perspective);
+      if (perspective !== "own") return columns;
+      // 自チーム視点だけ、PTS の右に失点（opp PTS）を足す
+      const at = columns.findIndex((c) => c.key === "pts");
+      return [...columns.slice(0, at + 1), buildOppPtsColumn(mode), ...columns.slice(at + 1)];
+    }
     case "advanced":
       return buildAdvancedColumns(mode, perspective);
     case "misc":

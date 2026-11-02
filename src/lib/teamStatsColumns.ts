@@ -569,6 +569,14 @@ function unavailableColumn(key: string, label: string): Column<AllTeamsRow> {
   return { key, label, sortValue: () => 0, format: () => "-" };
 }
 
+/**
+ * ランキング（チーム）の自チーム視点に足す「opp PTS（失点）」。値は opp 視点の PTS と同じ（相手の得点）。少ないほうが上位。
+ * 視点の切り替えには出さない（opp・+/- 視点では PTS がすでに失点・得失点差を表すため）
+ */
+export function buildOppPtsColumn(mode: SeasonDisplayMode): Column<AllTeamsRow> {
+  return countColumn("opppts", "opp PTS", (t) => t.oppPts, (t) => t.oppPts, mode, "own", { higherIsBetter: false });
+}
+
 export function buildTraditionalColumns(mode: SeasonDisplayMode, perspective: TeamPerspective): Column<AllTeamsRow>[] {
   return [
     {

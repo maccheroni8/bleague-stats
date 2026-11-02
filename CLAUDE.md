@@ -120,6 +120,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 309章: チーム詳細 > ラインナップ > オンザコート別の**合計の行に ORtg・DRtg・NetRtg**（得点・失点と攻撃回数を足してから割る。割合は空欄のまま）。5人組の出場区間の攻撃回数なので、全チームスタッツの値（推定式）とは少しずれる。**画面だけの変更でキー不変**
 - 310章: チーム詳細の**「Q別」タブ**（`チームスタッツ` の隣。行＝1Q〜4Q・前半・後半・延長。上の表＝得点・失点・得失点・ORtg・DRtg・NetRtg、下の表＝チームスタッツと同じ Traditional・Advanced・Misc・Scoring。試合種別・平均／合計。値はチームスタッツタブの区間と同じ集計〔`teamSeasonPeriod.ts`〕・レーティングは足してから割る・延長は延長のあった試合で割る）。`src/components/TeamQuarterTab.tsx`・`src/lib/teamQuarterSplit.ts`・`npm run validate:team-quarter`。**画面だけの変更でキー不変**
 - 312章: ランキング（チーム・シーズン成績）の名前の下は、すべての項目で**「◯試合（◯勝◯敗）」**（値の計算に使った試合と同じ試合。Shooting・Forced TOV はスポーツナビの記録がある試合、2P内訳は「内訳対象 x/y試合（…）」、区間はその区間の値がある試合。結果だけの試合は入れない。`RankedList` の `recordTextOf`・`src/lib/teamRankingRecord.ts`。`npm run validate:team-ranking-record`）。**画面だけの変更でキー不変**
+- 313章: ランキング（チーム・シーズン成績）の自チーム視点に**「失点」（opp PTS）**を足した（Traditional の PTS の右。値は opp 視点の PTS と同じ・少ないほうが上位。opp・+/- 視点には出さない。`buildOppPtsColumn`）。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

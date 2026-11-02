@@ -8,6 +8,8 @@ import { gunzipSync } from "node:zlib";
 import type { TeamGameLog } from "../shared/types";
 import { filterByGameType } from "../shared/gameType";
 import { paintOf, paintRecord, summarizePaintLogs, validPaint, paintPair } from "../src/lib/teamPaint2";
+import { buildTeamCategoryColumns } from "../src/lib/teamSeasonRanking";
+import { sumTeamGameLogs, type AllTeamsRow } from "../src/lib/teamStatsColumns";
 import { recordOfLogs, teamRecordText, yahooRecordByTeam } from "../src/lib/teamRankingRecord";
 
 const DATA = path.resolve("data");
@@ -53,6 +55,19 @@ for (const season of fs.readdirSync(DATA).filter((d) => /^\d{4}-\d{2}$/.test(d))
     const both = regular.filter((g) => validPaint(paintPair(g).own) && validPaint(paintPair(g).opp));
     for (const [persp, set] of [["own", own], ["opp", opp], ["diff", both]] as const) {
       assert.deepEqual(paintRecord(summary, persp), recordOfLogs(set), `${season} ${t.teamId} 2P内訳 ${persp}`);
+    }
+    // 失点（opp PTS。自チーム視点だけ）は opp 視点の PTS と同じ値で、少ないほうが上位。平均・合計とも
+    const row: AllTeamsRow = { team: { teamId: t.teamId, teamName: "" }, gamesPlayed: regular.length, wins: all.wins, losses: regular.length - all.wins, totals: sumTeamGameLogs(regular) };
+    for (const mode of ["perGame", "total"] as const) {
+      const ownCols = buildTeamCategoryColumns("traditional", mode, "own", true, true, false);
+      const oppCols = buildTeamCategoryColumns("traditional", mode, "opp", true, true, false);
+      const diffCols = buildTeamCategoryColumns("traditional", mode, "diff", true, true, false);
+      const oppPts = ownCols.find((c) => c.key === "opppts")!;
+      assert.equal(ownCols[ownCols.findIndex((c) => c.key === "pts") + 1]!.key, "opppts", "PTS の右に置く");
+      assert.equal(oppPts.higherIsBetter, false);
+      assert.equal(oppPts.sortValue(row), oppCols.find((c) => c.key === "pts")!.sortValue(row), `${season} ${t.teamId} 失点 ${mode}`);
+      assert.equal(oppPts.format!(row), oppCols.find((c) => c.key === "pts")!.format!(row));
+      assert(!oppCols.some((c) => c.key === "opppts") && !diffCols.some((c) => c.key === "opppts"), "opp・+/- 視点には出さない");
     }
     assert.equal(paintOf(summary), undefined, "withPaint を通していない合計には内訳は付かない");
   }
