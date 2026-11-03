@@ -69,7 +69,7 @@ export function AiDetailedPanel({ season, teamId, league }: { season: string; te
     } catch { setNotice('保存を開始できませんでした。「コピー」または「全文を選択」を使ってください。'); }
   };
   return <div className="ai-detailed">
-    <p>対象：{LEAGUE_LABELS[league]}・{season}シーズン・レギュラーシーズン。選んだ条件で、AIに渡しやすい形の表を書き出します（下の「書き出しを作る」を押すと作ります。チーム情報は全チームの記録を読むので、少し時間がかかります。ターム・対戦相手の条件によっては、スポーツナビの記録も多く読むため、さらに時間がかかります）。</p>
+    <p>対象：{LEAGUE_LABELS[league]}・{season}シーズン・レギュラーシーズン。選んだ条件で、AIに渡しやすい形の表を書き出します（下の「書き出しを作る」を押すと作ります。チーム情報は全チームの記録を読むので、少し時間がかかります。前半戦・後半戦、3ターム、勝率6割以上などの重い条件は、スポーツナビの記録も多く読むため、パソコンで数秒、スマホでは30秒ほどかかることがあります。進み具合が出て、途中で中止できます）。</p>
     {league === 'one' && <p className="ai-detailed-hint">B.ONE にはスポーツナビの記録が無いため、Shooting・Forced TOV の表は出ません（書き出しにも理由を書きます）。</p>}
     <fieldset className="ai-detailed-group"><legend>種類</legend>
       {KIND_CHOICES.map(c => <label key={c.key}><input type="radio" name="ai-detailed-kind" checked={kind === c.key} onChange={() => setKind(c.key)} />{c.label}</label>)}
