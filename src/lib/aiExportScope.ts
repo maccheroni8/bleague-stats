@@ -221,7 +221,7 @@ export type TimeSlice = 'game' | 'h1' | 'h2';
 export interface TimeSliceChoice { key: string; label: string; slices: readonly TimeSlice[]; available: (season: string) => boolean }
 export const TIME_SLICE_CHOICES: readonly TimeSliceChoice[] = [
   { key: 'game', label: '試合全体だけ', slices: ['game'], available: () => true },
-  { key: 'halves', label: '前半・後半も含める', slices: ['game', 'h1', 'h2'], available: () => false },
+  { key: 'halves', label: '前半・後半も含める', slices: ['game', 'h1', 'h2'], available: () => true },
 ];
 export interface TermChoice { kind: TermKind; label: string; available: boolean }
 export const TERM_CHOICES: readonly TermChoice[] = [

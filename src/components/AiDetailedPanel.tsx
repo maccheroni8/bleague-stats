@@ -3,6 +3,7 @@ import { buildDetailedExport, type DetailedKind, type DetailedOutput } from '../
 import { loadDetailedExport } from '../lib/aiDetailedExportLoad';
 import { OPPONENT_KIND_LABELS, ONE_THREE_TERMS_REASON, TERM_CHOICES, TIME_SLICE_CHOICES, type OpponentKind, type TermKind } from '../lib/aiExportScope';
 import { LEAGUE_LABELS, type League } from '../lib/league';
+import { ONE_PERIOD_REASON } from '../lib/leagueAvailability';
 
 const KIND_CHOICES: { key: DetailedKind; label: string }[] = [{ key: 'team', label: 'チーム情報' }, { key: 'player', label: '選手情報' }];
 const OPP_CHOICES: OpponentKind[] = ['all', 'atLeast60'];
@@ -23,13 +24,16 @@ export function AiDetailedPanel({ season, teamId, league }: { season: string; te
   const [error, setError] = useState('');
   const [output, setOutput] = useState<DetailedOutput | null>(null);
   const [notice, setNotice] = useState('');
+  const [partIdx, setPartIdx] = useState(0);
   const [progress, setProgress] = useState('');
   const run = useRef(0);
   const abort = useRef({ aborted: false });
   // 選び直したら、前に作った内容は古いので消す（選んだ条件と違う内容をコピー・保存させない）
-  useEffect(() => { run.current++; abort.current.aborted = true; setOutput(null); setError(''); setNotice(''); setBusy(false); setProgress(''); }, [kind, term, timeSlice, opp, compare, season, teamId, league]);
+  useEffect(() => { run.current++; abort.current.aborted = true; setOutput(null); setPartIdx(0); setError(''); setNotice(''); setBusy(false); setProgress(''); }, [kind, term, timeSlice, opp, compare, season, teamId, league]);
   // B.ONE では3タームを選べない（選んだままリーグが変わったときは1シーズンに戻す）
   useEffect(() => { if (league === 'one' && term === 'threeTerms') setTerm('season'); }, [league, term]);
+  // 前半・後半は B.ONE ではまだ選べない（チーム詳細の Q別・前後半と同じ）
+  useEffect(() => { if (league === 'one' && timeSlice !== 'game') setTimeSlice('game'); }, [league, timeSlice]);
 
   const cancel = () => { run.current++; abort.current.aborted = true; setBusy(false); setProgress(''); setNotice('中止しました。'); };
   const create = async () => {
@@ -54,18 +58,24 @@ export function AiDetailedPanel({ season, teamId, league }: { season: string; te
     } finally { window.clearTimeout(timeout); if (run.current === id) { setBusy(false); setProgress(''); } }
   };
   const selectAll = () => { text.current?.focus(); text.current?.select(); };
-  const copy = async () => {
-    if (!output) return;
-    try { await navigator.clipboard.writeText(output.markdown); setNotice('コピーしました。'); }
+  /** 2ファイルに分けたときは parts に2つ。プレビューは選んだほう */
+  const shown = output ? (output.parts?.[partIdx] ?? output) : null;
+  const copyText = async (md: string, label: string) => {
+    try { await navigator.clipboard.writeText(md); setNotice(`コピーしました${label}。`); }
     catch { selectAll(); setNotice('コピーできませんでした。全文を選択しました。端末のコピー操作を使ってください。'); }
+  };
+  const copy = () => { if (shown) void copyText(shown.markdown, output?.parts ? `（${output.parts[partIdx]!.label}）` : ''); };
+  const download = (md: string, filename: string) => {
+    const url = URL.createObjectURL(new Blob([md], { type: 'text/markdown;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.append(a); a.click(); a.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
   const save = () => {
     if (!output) return;
     try {
-      const url = URL.createObjectURL(new Blob([output.markdown], { type: 'text/markdown;charset=utf-8' }));
-      const a = document.createElement('a'); a.href = url; a.download = output.filename;
-      document.body.append(a); a.click(); a.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      setNotice('保存を開始しました。端末によっては、開いたファイルの共有メニューから保存できます。');
+      const files = output.parts ?? [output];
+      files.forEach((f, k) => window.setTimeout(() => { try { download(f.markdown, f.filename); } catch { setNotice('保存を開始できませんでした。「コピー」または「全文を選択」を使ってください。'); } }, k * 400));
+      setNotice(files.length > 1 ? '2つのファイル（試合全体・前半後半）の保存を開始しました。端末によっては、開いたファイルの共有メニューから保存できます。' : '保存を開始しました。端末によっては、開いたファイルの共有メニューから保存できます。');
     } catch { setNotice('保存を開始できませんでした。「コピー」または「全文を選択」を使ってください。'); }
   };
   return <div className="ai-detailed">
@@ -80,7 +90,9 @@ export function AiDetailedPanel({ season, teamId, league }: { season: string; te
       {TERM_HINTS[term] && <p className="ai-detailed-hint">{TERM_HINTS[term]}</p>}
     </fieldset>
     <fieldset className="ai-detailed-group"><legend>時間帯</legend>
-      {TIME_SLICE_CHOICES.map(c => { const ok = c.available(season); return <label key={c.key}><input type="radio" name="ai-detailed-slice" disabled={!ok} checked={timeSlice === c.key} onChange={() => setTimeSlice(c.key)} />{c.label}{ok ? '' : '（準備中）'}</label>; })}
+      {TIME_SLICE_CHOICES.map(c => { const ok = c.available(season) && !(league === 'one' && c.slices.length > 1); return <label key={c.key}><input type="radio" name="ai-detailed-slice" disabled={!ok} checked={timeSlice === c.key} onChange={() => setTimeSlice(c.key)} />{c.label}{ok ? '' : league === 'one' ? '（選べません）' : '（準備中）'}</label>; })}
+      {league === 'one' && <p className="ai-detailed-hint">{ONE_PERIOD_REASON}</p>}
+      {timeSlice === 'halves' && <p className="ai-detailed-hint">前半（1Q・2Q）・後半（3Q・4Q）の表を、試合全体の表に加えます（延長は含みません。1Q〜4Q・延長の区間は出しません）。前半・後半の表は自チームの値だけで、リーグ順位・リーグ平均は付きません。10万字を超えるときは、試合全体と前半・後半の2つのファイルに分けます。</p>}
     </fieldset>
     <fieldset className="ai-detailed-group"><legend>対戦相手</legend>
       {OPP_CHOICES.map(o => <label key={o}><input type="radio" name="ai-detailed-opp" checked={opp === o} onChange={() => setOpp(o)} />{OPPONENT_KIND_LABELS[o]}</label>)}
@@ -92,16 +104,22 @@ export function AiDetailedPanel({ season, teamId, league }: { season: string; te
     <div className="ai-export-actions">
       <button type="button" disabled={busy} onClick={create}>{busy ? '作っています…' : '書き出しを作る'}</button>
       {busy && <button type="button" onClick={cancel}>中止</button>}
-      <button type="button" disabled={!output} onClick={copy}>コピー</button>
-      <button type="button" disabled={!output} onClick={save}>Markdownで保存</button>
+      <button type="button" disabled={!output} onClick={copy}>{output?.parts ? `コピー（${output.parts[partIdx]!.label}）` : 'コピー'}</button>
+      <button type="button" disabled={!output} onClick={save}>{output?.parts ? 'Markdownで保存（2ファイル）' : 'Markdownで保存'}</button>
       <button type="button" disabled={!output} onClick={selectAll}>全文を選択</button>
-      {output && <span>{output.characters.toLocaleString('ja-JP')}文字{output.empty ? '（当てはまる試合なし）' : ''}</span>}
+      {output && !output.parts && <span>{output.characters.toLocaleString('ja-JP')}文字{output.empty ? '（当てはまる試合なし）' : ''}</span>}
+      {output?.parts && <span>{output.parts.map(p => `${p.label} ${p.characters.toLocaleString('ja-JP')}文字`).join('／')}</span>}
     </div>
     {busy && progress && <p role="status">{progress}</p>}
     {error && <p role="alert">{error}</p>}
     <p className="ai-export-notice" role="status">{notice}</p>
-    {output && <label className="ai-export-preview">Markdownプレビュー（コピー・保存される全文）
-      <textarea ref={text} readOnly wrap="off" value={output.markdown} spellCheck={false} aria-label="書き出すMarkdown全文" />
+    {output?.parts && <div className="ai-detailed-group" role="group" aria-label="2つのファイル">
+      <p className="ai-detailed-hint">10万字を超えるため、時間帯で2つのファイルに分けました。保存は2つとも保存します。コピーは、下で選んだほうをコピーします。</p>
+      {output.parts.map((p, k) => <button key={p.filename} type="button" aria-pressed={partIdx === k} onClick={() => setPartIdx(k)}>{p.label}（{p.characters.toLocaleString('ja-JP')}文字）</button>)}
+      <p className="ai-detailed-hint">{output.parts[partIdx]!.filename}</p>
+    </div>}
+    {shown && <label className="ai-export-preview">Markdownプレビュー（{output?.parts ? `${output.parts[partIdx]!.label}のファイルの全文` : 'コピー・保存される全文'}）
+      <textarea ref={text} readOnly wrap="off" value={shown.markdown} spellCheck={false} aria-label="書き出すMarkdown全文" />
     </label>}
   </div>;
 }

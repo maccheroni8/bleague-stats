@@ -127,17 +127,18 @@ export function forcedMetrics(): Metric<TovPair>[] {
 export interface PlayerShots { breakdown: ShotTypeBreakdown; games: number; extraGames: number }
 
 /** 選手が出た試合（playedKeys）のうち、記録（pbps）がある試合のシュートを足す。出場0分の試合（zeroMinKeys）は、本人のシュートの記録があればシュートだけ足す */
-export function playerShots(playerId: string, playedKeys: Iterable<string>, pbps: ReadonlyMap<string, YahooGamePbp>, zeroMinKeys: Iterable<string> = []): PlayerShots {
+export function playerShots(playerId: string, playedKeys: Iterable<string>, pbps: ReadonlyMap<string, YahooGamePbp>, zeroMinKeys: Iterable<string> = [], periods?: readonly number[]): PlayerShots {
   const shots = [];
+  const inPeriod = (s: { period: number }) => !periods || periods.includes(s.period);
   let games = 0, extraGames = 0;
   for (const k of playedKeys) {
     const p = pbps.get(k);
     if (!p) continue;
     games += 1;
-    for (const s of p.shots) if (s.playerId === playerId) shots.push(s);
+    for (const s of p.shots) if (s.playerId === playerId && inPeriod(s)) shots.push(s);
   }
   for (const k of zeroMinKeys) {
-    const mine = pbps.get(k)?.shots.filter(s => s.playerId === playerId) ?? [];
+    const mine = pbps.get(k)?.shots.filter(s => s.playerId === playerId && inPeriod(s)) ?? [];
     if (!mine.length) continue;
     extraGames += 1;
     shots.push(...mine);
@@ -148,4 +149,34 @@ export function playerShots(playerId: string, playedKeys: Iterable<string>, pbps
 /** 選手の Shooting の列（1試合平均。分母は記録がある試合）。選手スタッツの Shooting と同じ列の式 */
 export function playerShootingColumns(keys: string[]) {
   return shotTypeEntityColumns<PlayerShots>(keys, r => r.breakdown, 'perGame', r => r.games);
+}
+
+// ---- 前半・後半（スポーツナビの記録の period で絞る。1Q・2Q＝前半、3Q・4Q＝後半。延長は入れない） ----
+
+/** 区間ごとのピリオド番号 */
+export const HALF_PERIODS: Record<'h1' | 'h2', readonly number[]> = { h1: [1, 2], h2: [3, 4] };
+
+/** 試合ログ（記録がある試合＝shotTypes がある）の、指定したピリオドのシュート内訳。記録（pbps）が無ければ止める */
+export function shotPairInPeriods(logs: readonly TeamGameLog[], pbps: ReadonlyMap<string, YahooGamePbp>, teamId: string, periods: readonly number[]): ShotPair {
+  let r = emptyShotPair();
+  for (const g of logs) {
+    if (!g.shotTypes) continue;
+    const p = pbps.get(g.scheduleKey);
+    if (!p) throw new Error('スポーツナビの記録が読み込まれていません。');
+    const mine = p.shots.filter(s => periods.includes(s.period));
+    r = addShotPair(r, { own: buildShotTypeBreakdown(mine.filter(s => s.teamId === teamId)), opp: buildShotTypeBreakdown(mine.filter(s => s.teamId !== teamId)), games: 1 });
+  }
+  return r;
+}
+
+/** 試合ログ（記録がある試合）の、指定したピリオドの Forced TOV。記録（pbps）が無ければ止める */
+export function tovPairInPeriods(logs: readonly TeamGameLog[], pbps: ReadonlyMap<string, YahooGamePbp>, teamId: string, periods: readonly number[]): TovPair {
+  const list: YahooGamePbp[] = [];
+  for (const g of logs) {
+    if (!g.shotTypes) continue;
+    const p = pbps.get(g.scheduleKey);
+    if (!p) throw new Error('スポーツナビの記録が読み込まれていません。');
+    list.push({ ...p, turnovers: p.turnovers.filter(t => periods.includes(t.period)) });
+  }
+  return sumForcedTurnovers(list, teamId);
 }

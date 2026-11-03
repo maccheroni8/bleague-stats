@@ -4,6 +4,8 @@ import { ONE_SEASONS, type League } from './league';
 import { loadSeasonRegistrations } from './registrationScope';
 import { splitClassificationSeason } from './classificationFilter';
 import { loadTeamPeriodSource } from './teamPeriodTotals';
+import { loadSeasonPeriodSource } from './seasonPeriod';
+import { TIME_SLICE_CHOICES } from './aiExportScope';
 import { loadTtsSource } from './teamTts';
 import { seasonRuleFor } from '../../shared/seasonRules';
 import { isSupportedGameIndex, playerGameAt, viewPlayerGameIndex } from './gameIndex';
@@ -12,7 +14,7 @@ import type { TeamGameLog, YahooGamePbp } from '../../shared/types';
 import { detailedTerms, type DetailedInput, type DetailedKind, type DetailedSeason } from './aiDetailedExport';
 import type { OpponentKind, TermKind } from './aiExportScope';
 
-export const aiDetailedSource = { fetchTeams, fetchTeamGameLogs, fetchSchedule, fetchGameSummaries, fetchPlayers, fetchPlayerGameLogs, fetchTeamHistory, fetchPlayerGameIndex, fetchSeasons, fetchDivisionHistory, fetchSeasonRules, fetchYahooGamePbp, loadTeamPeriodSource, loadTtsSource, loadSeasonRegistrations };
+export const aiDetailedSource = { fetchTeams, fetchTeamGameLogs, fetchSchedule, fetchGameSummaries, fetchPlayers, fetchPlayerGameLogs, fetchTeamHistory, fetchPlayerGameIndex, fetchSeasons, fetchDivisionHistory, fetchSeasonRules, fetchYahooGamePbp, loadTeamPeriodSource, loadSeasonPeriodSource, loadTtsSource, loadSeasonRegistrations };
 export type AiDetailedSource = typeof aiDetailedSource;
 export interface DetailedChoice { league?: League; kind: DetailedKind; term: TermKind; opp: OpponentKind; timeSlice: string; compare: boolean }
 
@@ -95,10 +97,15 @@ export async function loadDetailedExport(season: string, teamId: string, choice:
   }
   // スポーツナビの記録（Shooting・Forced TOV）。B.ONE と2022-23以前には無い。必要な試合のうち、記録がある試合（試合ログに shotTypes がある）だけを読む。
   // 1シーズン・全チームのチーム情報は teams.json の値を使うので読まない
+  // 前半・後半を含めるときは、自チームの対象の試合の記録も読む（前半・後半の Shooting・Forced TOV は自チームだけで、全チームの記録は読まない）
+  const wantsHalves = (TIME_SLICE_CHOICES.find(c => c.key === choice.timeSlice)?.slices.length ?? 1) > 1;
   let pbps: Map<string, YahooGamePbp> | undefined;
+  let pbpsScope: 'league' | 'own' | undefined;
   const yahoo = league === 'premier' && cur.teams.some(t => !!t.shotTypes);
-  const needFiles = yahoo && (choice.kind === 'player' || !(choice.term === 'season' && choice.opp === 'all'));
+  const leagueNeed = yahoo && choice.kind === 'team' && !(choice.term === 'season' && choice.opp === 'all');
+  const needFiles = yahoo && (leagueNeed || choice.kind === 'player' || wantsHalves);
   if (needFiles) {
+    pbpsScope = leagueNeed ? 'league' : 'own';
     const need = new Set<string>();
     const collect = (ds: DetailedSeason, tid: string) => {
       // 複数のタームのときだけ「シーズン全体」の列が付く（書き出しの組み立てと同じ）
@@ -106,7 +113,7 @@ export async function loadDetailedExport(season: string, teamId: string, choice:
       const sets = terms.length > 1 ? [...terms, ...detailedTerms(ds, 'season', choice.opp, tid, history, league)] : terms;
       for (const t of sets) for (const g of t.statLogs) if (g.shotTypes) need.add(g.scheduleKey);
     };
-    if (choice.kind === 'team' && leagueLogs) for (const t of cur.teams) { const logs = leagueLogs.get(t.teamId); if (logs) collect({ ...cur, team: t, regular: logs }, t.teamId); }
+    if (leagueNeed && leagueLogs) for (const t of cur.teams) { const logs = leagueLogs.get(t.teamId); if (logs) collect({ ...cur, team: t, regular: logs }, t.teamId); }
     else collect(cur, teamId);
     const keys = [...need];
     let done = 0;
@@ -145,8 +152,14 @@ export async function loadDetailedExport(season: string, teamId: string, choice:
     players.push(...loaded);
   }
   // 選手情報の登録区分（2026-27以降はシーズン別の記録。読めなければ選手マスタの区分で出し、その旨を書く＝個人詳細と同じ）
+  // 選手情報で前半・後半を含めるときの、選手の区間の索引（チーム詳細の選手スタッツタブの期間指定と同じ読み込み）
+  let seasonPeriod: DetailedInput['seasonPeriod'] = null;
+  if (choice.kind === 'player' && wantsHalves) {
+    seasonPeriod = await source.loadSeasonPeriodSource(season, league);
+    if (!seasonPeriod) throw new Error('選手の区間の索引を確認できません。');
+  }
   const registrations = choice.kind === 'player' && splitClassificationSeason(season) ? await source.loadSeasonRegistrations(season, league).catch(() => null) : null;
   const d = now();
   const exportedAt = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  return { ...choice, league, season, teamId, history, cur, prev, players, registrations, leagueLogs, periodSource, ttsSource, maxForeignOnCourt, pbps, exportedAt };
+  return { ...choice, league, season, teamId, history, cur, prev, players, registrations, leagueLogs, periodSource, ttsSource, maxForeignOnCourt, pbps, pbpsScope, seasonPeriod, exportedAt };
 }

@@ -15,7 +15,7 @@ import { gunzipSync } from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 import type { TeamSummary, TeamGameLog, PlayerSummary, PlayerGameLog, GameSummary, TeamHistoryEntry, YahooGamePbp } from '../shared/types.ts';
 import type { ScheduleFileExtended } from '../shared/resultOnlyGames.ts';
-import { buildDetailedExport, detailedTerms, type DetailedInput, type DetailedSeason } from '../src/lib/aiDetailedExport.ts';
+import { buildDetailedExport, buildDetailedWhole, detailedTerms, type DetailedInput, type DetailedSeason } from '../src/lib/aiDetailedExport.ts';
 import { loadDetailedExport, LoadAborted, type AiDetailedSource } from '../src/lib/aiDetailedExportLoad.ts';
 import { threeTermBreaks, buildTermsWithOpponent, judgeOpponent, teamConfirmedGames, RECENT_GAMES, TIME_SLICE_CHOICES, TERM_CHOICES } from '../src/lib/aiExportScope.ts';
 import { buildRecordsBeforeGame, matchesOpponentWinRateTier, buildGameTeamsByScheduleKey, resolveOwnTeam } from '../src/lib/situational.ts';
@@ -26,7 +26,8 @@ import { seasonBoxColumnsWithFtr } from '../src/lib/ftrColumn.ts';
 import { normalizePlayerName } from '../shared/playerName.ts';
 import { sumForeignCourt, type ForeignPeriodValue } from '../src/lib/teamForeignCourt.ts';
 import { sumTtsTotals, loadTtsSource, type TtsSource } from '../src/lib/teamTts.ts';
-import { loadTeamPeriodSource, type TeamPeriodSource } from '../src/lib/teamPeriodTotals.ts';
+import { loadTeamPeriodSource, sumTeamPeriodTotals, type TeamPeriodSource } from '../src/lib/teamPeriodTotals.ts';
+import { loadSeasonPeriodSource, seasonPeriodTotalsOf, type SeasonPeriodSource } from '../src/lib/seasonPeriod.ts';
 import { positionText, heightText, weightText } from '../src/lib/profileMark.ts';
 import { ageForSeason, ageBaseDate } from '../src/lib/age.ts';
 import { registrationLabel } from '../src/lib/registrationLabel.ts';
@@ -38,7 +39,15 @@ import { viewPlayerGameIndex, playerGameAt } from '../src/lib/gameIndex.ts';
 import { shotTypeEntityColumns, shotTypeDiffColumns, sortShotTypeKeys } from '../src/lib/shotTypeBreakdown.ts';
 import { forcedTurnoverColumns } from '../src/lib/opponentSplit.ts';
 import { rankPositions } from '../src/lib/seasonCompare.ts';
-import { sumShotPair, sumTovPair, playerShots, type ShotPair } from '../src/lib/aiDetailedYahoo.ts';
+import { sumShotPair, sumTovPair, playerShots, shotPairInPeriods, tovPairInPeriods, type ShotPair } from '../src/lib/aiDetailedYahoo.ts';
+import { buildQuarterRows } from '../src/lib/teamQuarterSplit.ts';
+import { seasonPeriodFormatters, seasonPeriodCell } from '../src/lib/teamSeasonPeriod.ts';
+import { teamSeasonColumnLabels } from '../src/pages/TeamDetailPage.tsx';
+import { shotTypeLabel, buildShotTypeBreakdown } from '../src/lib/shotTypeBreakdown.ts';
+import { sumTeamGameLogs } from '../src/lib/teamStatsColumns.ts';
+import { gameOvertimes } from '../src/lib/gameFacts.ts';
+import { sumForeignDetail } from '../src/lib/teamForeignCourt.ts';
+import { ONE_PERIOD_REASON } from '../src/lib/leagueAvailability.ts';
 import { ONE_THREE_TERMS_REASON } from '../src/lib/aiExportScope.ts';
 import type { TeamPerspective } from '../src/lib/teamStatsColumns.ts';
 
@@ -58,6 +67,8 @@ const history = read<TeamHistoryEntry[]>('team-history');
 const periodSources = new Map<string, TeamPeriodSource | null>();
 const ttsSources = new Map<string, TtsSource | null>();
 for (const season of readdirSync('data').filter(x => /^\d{4}-\d{2}$/.test(x)).sort()) { periodSources.set(season, await loadTeamPeriodSource(season, 'premier')); ttsSources.set(season, await loadTtsSource(season, 'premier')); }
+const seasonPeriods = new Map<string, SeasonPeriodSource | null>();
+for (const season of readdirSync('data').filter(x => /^\d{4}-\d{2}$/.test(x)).sort()) seasonPeriods.set(season, await loadSeasonPeriodSource(season, 'premier'));
 const seasonRules = read<Parameters<typeof seasonRuleFor>[0]>('season-rules');
 const division = read<unknown>('division-history');
 
@@ -170,7 +181,7 @@ function inputFor(season: string, teamId: string, kind: 'team' | 'player', over:
   const registrations = kind === 'player' && season >= '2026-27' ? read<SeasonRegistrationFile>(`${season}/registrations`) : null;
   return { kind, season, teamId, term: 'season', opp: 'all', timeSlice: 'game', compare: false, history, cur, prev: null, players, registrations, leagueLogs: kind === 'team' ? leagueLogs : undefined,
     periodSource: kind === 'team' ? periodSources.get(season) ?? null : null, ttsSource: kind === 'team' ? ttsSources.get(season) ?? null : null, maxForeignOnCourt: seasonRuleFor(seasonRules, season, 'premier')?.maxForeignOnCourt ?? 4,
-    pbps: sd(season).teams.some(t => !!t.shotTypes) ? pbpsOfSeason(season) : undefined, exportedAt: 'test', ...over };
+    pbps: sd(season).teams.some(t => !!t.shotTypes) ? pbpsOfSeason(season) : undefined, pbpsScope: 'league', seasonPeriod: kind === 'player' ? seasonPeriods.get(season) ?? null : null, exportedAt: 'test', ...over };
 }
 
 /** teams.json（チームスタッツの元）から、md の項目名ごとの値（1試合平均・%は0〜100）を取り出す */
@@ -355,8 +366,7 @@ check('1シーズン・試合全体の値がチームスタッツタブ・選手
   check('0試合（選手情報）も同じ', zp.empty && /この条件に当てはまる試合はありません/.test(zp.markdown));
   const full = buildDetailedExport(inputFor('2026-27', t0.teamId, 'team', { term: 'recent5', opp: 'atLeast60' }));
   console.log(`今季（11月）の ${t0.teamName} 直近5試合×6割以上: ${full.empty ? '0試合' : '試合あり'}`);
-  check('「準備中」の時間帯は書き出せない', (() => { try { buildDetailedExport(inputFor('2026-27', t0.teamId, 'team', { timeSlice: 'halves' })); return false; } catch { return true; } })());
-  check('選択肢: ターム4つは選べる・準備中は時間帯の「前半・後半も含める」だけ', TERM_CHOICES.every(c => c.available) && TERM_CHOICES.length === 4 && TIME_SLICE_CHOICES.filter(c => !c.available('2026-27')).length === 1);
+  check('選択肢: ターム4つ・時間帯2つ（試合全体だけ／前半・後半も含める）がすべて選べる（準備中なし）', TERM_CHOICES.every(c => c.available) && TERM_CHOICES.length === 4 && TIME_SLICE_CHOICES.length === 2 && TIME_SLICE_CHOICES.every(c => c.available('2026-27') && c.available('2016-17')));
 }
 {
   // 読み込み: 実データのとおりに作れる／失敗したら完成版にしない
@@ -368,6 +378,7 @@ check('1シーズン・試合全体の値がチームスタッツタブ・選手
     fetchPlayerGameLogs: async (s: string, id: string) => read<PlayerGameLog[]>(`${s}/player-games/${id}`),
     fetchYahooGamePbp: async (sn: string, key: string) => pbpsOfSeason(sn).get(key) ?? null,
     fetchSeasonRules: async () => seasonRules, loadTeamPeriodSource: async (s: string) => periodSources.get(s) ?? null, loadTtsSource: async (s: string) => ttsSources.get(s) ?? null,
+    loadSeasonPeriodSource: async (s: string) => seasonPeriods.get(s) ?? null,
     loadSeasonRegistrations: async (s: string) => (s >= '2026-27' ? read<SeasonRegistrationFile>(`${s}/registrations`) : null), ...over,
   } as AiDetailedSource);
   const t0 = sd('2026-27').teams[0]!;
@@ -641,6 +652,7 @@ check('1シーズン・試合全体の値がチームスタッツタブ・選手
   }
 }
 
+const tovTotal = (d: { offensiveFoul: number; violation24sec: number; backcourtViolation: number; violation5sec: number; violation8sec: number; otherDead: number; live: number }) => d.offensiveFoul + d.violation24sec + d.backcourtViolation + d.violation5sec + d.violation8sec + d.otherDead + d.live;
 const stripRank = (v: string | undefined) => (v ?? '').replace(/（\d+位）$/, '');
 const rankOf = (v: string | undefined) => { const m = /（(\d+)位）$/.exec(v ?? ''); return m ? Number(m[1]) : undefined; };
 // ---- 7. 段階3：Shooting・Forced TOV（スポーツナビの記録）・B.ONE ----
@@ -1029,6 +1041,347 @@ const rankOf = (v: string | undefined) => { const m = /（(\d+)位）$/.exec(v ?
   yahooCalls.length = 0; aborted = false;
   try { await run('team', 'halves', 'all', {}, { signal: sig, onProgress: (d: number) => { if (d >= 20) sig.aborted = true; } }); } catch (e) { aborted = e instanceof LoadAborted; }
   check('読み込みの途中で中止すると、残りを読まずに止まる', aborted && yahooCalls.length < allKeys.size / 2, String(yahooCalls.length));
+}
+
+// ---- 10. 段階4：前半・後半・2ファイル ----
+{
+  const H1 = '前半（1Q・2Q）', H2 = '後半（3Q・4Q）';
+  const bad: string[] = [];
+  const miss = (m: string) => { if (bad.length < 12) bad.push(m); };
+  const PRE: [TeamPerspective, string][] = [['own', ''], ['opp', 'opp '], ['diff', '差 ']];
+  const parseLabel = (l: string): [TeamPerspective, string] => (l.startsWith('opp ') ? ['opp', l.slice(4)] : l.startsWith('差 ') ? ['diff', l.slice(2)] : ['own', l]);
+
+  // 10-1. チーム：Traditional・Advanced・Misc・Scoring の前半・後半の値＝チーム詳細の Q別タブ・チームスタッツタブで前半・後半を選んだときの値
+  //   （Q別タブ＝buildQuarterRows、チームスタッツ＝seasonPeriodFormatters・seasonPeriodCell。1シーズン・前半戦後半戦・3ターム・6割以上）
+  let teamCells = 0, rowsBuilt = 0;
+  for (const season of seasons) {
+    const src = periodSources.get(season); if (!src) continue;
+    const foulSplit = season >= '2026-27';
+    const fms = new Map(PRE.map(([p]) => [p, seasonPeriodFormatters('perGame', p, foulSplit)] as const));
+    for (const t of sd(season).teams) {
+      const ds = seasonOf(season, t.teamId);
+      for (const [term, opp] of [['season', 'all'], ['halves', 'all'], ['threeTerms', 'all'], ['season', 'atLeast60']] as const) {
+        if (term === 'threeTerms' && !threeTermBreaks(season, 'premier', ds.summaries, ds.schedule).ok) continue;
+        if (opp === 'atLeast60' && t !== sd(season).teams[0]) continue;
+        const terms = detailedTerms(ds, term, opp, t.teamId, history);
+        const colLogs = [...terms.map(x => x.statLogs), ...(terms.length > 1 ? [detailedTerms(ds, 'season', opp, t.teamId, history)[0]!.statLogs] : [])];
+        const md = buildDetailedExport(inputFor(season, t.teamId, 'team', { term, opp, timeSlice: 'halves' })).markdown;
+        rowsBuilt++;
+        for (const cat of Object.keys(teamSeasonColumnLabels())) {
+          for (const [slice, word] of [['h1', H1], ['h2', H2]] as const) {
+            const tbl = mdTable(md, new RegExp(`^### ${cat}・${word.replace(/[（）]/g, m => `\\${m}`)}$`));
+            if (!tbl.size) { if (colLogs.some(l => l.length)) miss(`${season} ${t.teamName} ${term}・${opp}: ${cat}・${word} の表が無い`); continue; }
+            const qrows = colLogs.map(l => buildQuarterRows(season, src, false, l).find(q => q.value === slice)!);
+            for (const [label, vals] of tbl) {
+              if (label === '項目') continue;
+              if (label === '対象試合（勝敗）') {
+                qrows.forEach((q, k) => { teamCells++; if (vals[k] !== `${q.games.length}（${q.wins}-${q.losses}）`) miss(`${season} ${t.teamName} ${cat}・${word} 対象試合 md=${vals[k]} Q別=${q.games.length}（${q.wins}-${q.losses}）`); });
+                continue;
+              }
+              const [p, base] = parseLabel(label);
+              qrows.forEach((q, k) => {
+                teamCells++;
+                const want = seasonPeriodCell(fms.get(p)!, base, q, t.teamId, t.teamName);
+                if (vals[k] !== want) miss(`${season} ${t.teamName} ${term}・${opp} ${cat}・${word} 「${label}」col${k} md=${vals[k]} 画面=${want}`);
+              });
+              if (vals.length !== qrows.length) miss(`${season} ${t.teamName} ${cat}・${word} 「${label}」: 列に順位・平均が付いている（${vals.length}列）`);
+            }
+          }
+        }
+      }
+    }
+  }
+  console.log(`前半・後半（チーム）: ${rowsBuilt}通り・${teamCells}セルを Q別タブ・チームスタッツタブの値（buildQuarterRows・seasonPeriodCell）と比べた`);
+  for (const b of bad) console.log(`   ${b}`);
+  check('チームの前半・後半の値が Q別タブ・チームスタッツタブの前半・後半と同じ（順位・平均は付かない）', bad.length === 0, `${bad.length}件`);
+  bad.length = 0;
+
+  // 10-2. 前半＋後半が試合全体と合う項目（延長の無い試合で、加算できる項目の合計）。チームの索引・Shooting・Forced TOV・オンザコート別・Time to Shot
+  const ADD_KEYS = ['pts', 'oppPts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'oreb', 'dreb', 'ast', 'stl', 'blk', 'tov', 'pf', 'oppFgm', 'oppFga', 'oppTpm', 'oppTpa', 'oppFtm', 'oppFta', 'oppOreb', 'oppDreb', 'oppAst', 'oppStl', 'oppBlk', 'oppTov', 'oppPf'] as const;
+  let addChecks = 0, shotAdd = 0, ocAdd = 0, ttsAdd = 0;
+  const OT = Array.from({ length: 12 }, (_, k) => k + 5);
+  const normB = (b: unknown) => JSON.stringify(Object.entries((b ?? {}) as Record<string, unknown>).sort(([a], [c]) => a.localeCompare(c)));
+  const sumB = (...bs: Record<string, { twoPoint: { made: number; attempted: number }; threePoint: { made: number; attempted: number } }>[]) => { const r: typeof bs[0] = {}; for (const b of bs) for (const [k, v] of Object.entries(b)) { const c = r[k] ?? { twoPoint: { made: 0, attempted: 0 }, threePoint: { made: 0, attempted: 0 } }; c.twoPoint.made += v.twoPoint.made; c.twoPoint.attempted += v.twoPoint.attempted; c.threePoint.made += v.threePoint.made; c.threePoint.attempted += v.threePoint.attempted; r[k] = c; } return r; };
+  for (const season of seasons) {
+    const src = periodSources.get(season); const tts = ttsSources.get(season);
+    for (const t of sd(season).teams) {
+      const logs = seasonOf(season, t.teamId).regular.filter(g => !(g as TeamGameLog & { resultOnly?: boolean }).resultOnly);
+      const noOt = logs.filter(g => gameOvertimes(g) === 0);
+      if (src && noOt.length) {
+        const a = sumTeamPeriodTotals(src, noOt, 'h1'), b = sumTeamPeriodTotals(src, noOt, 'h2');
+        const same = a.games.map(g => g.scheduleKey).join() === b.games.map(g => g.scheduleKey).join();
+        const all = a.games.length ? sumTeamGameLogs(a.games) : null;
+        addChecks++;
+        if (!same) miss(`${season} ${t.teamName}: 前半と後半で数えた試合が違う`);
+        else if (all) for (const k of ADD_KEYS) if ((a.totals as never)[k] + (b.totals as never)[k] !== (all as never)[k]) miss(`${season} ${t.teamName}: 前半＋後半≠試合全体 ${k} ${(a.totals as never)[k]}+${(b.totals as never)[k]}≠${(all as never)[k]}`);
+      }
+      if (src) {
+        // オンザコート別（人数別の時間・得点・失点）・Time to Shot：前半＋後半＋延長＝試合全体
+        const ocAll = sumForeignDetail(src, logs, 'all' as ForeignPeriodValue);
+        const parts = (['h1', 'h2', 'ot'] as const).map(v => sumForeignDetail(src, logs, v as ForeignPeriodValue));
+        if (ocAll && parts.every(Boolean)) {
+          ocAdd++;
+          // 試合全体の時間は試合ログの出場時間÷5。区間は索引の合計。人数別の時間は索引どうしで合う（延長は延長に出た試合だけが分母）
+          for (let n = 0; n < 5; n++) { const sec = parts.reduce((s, x) => s + x!.byCount[n]!.seconds, 0); const ref = ocAll.byCount[n]!.seconds; if (Math.abs(sec - ref) > 2) miss(`${season} ${t.teamName}: オンザコート別 ${n}人の時間 前半＋後半＋延長=${sec} 試合全体=${ref}`); }
+        }
+      }
+      if (tts) {
+        const a = sumTtsTotals(tts, logs, 'all', 'own');
+        const ps = (['h1', 'h2', 'ot'] as const).map(v => sumTtsTotals(tts, logs, v, 'own'));
+        ttsAdd++;
+        for (const [cat, v] of Object.entries(a.byCategory)) { const n = ps.reduce((s, x) => s + (x.byCategory as never as Record<string, { n: number }>)[cat]!.n, 0); if (n !== v.n) miss(`${season} ${t.teamName}: Time to Shot ${cat} の本数 前半＋後半＋延長=${n} 試合全体=${v.n}`); }
+      }
+      if (sd(season).teams.some(x => !!x.shotTypes)) {
+        const pbps = pbpsOfSeason(season);
+        const all = sumShotPair(logs);
+        const h1 = shotPairInPeriods(logs, pbps, t.teamId, [1, 2]), h2 = shotPairInPeriods(logs, pbps, t.teamId, [3, 4]), ot = shotPairInPeriods(logs, pbps, t.teamId, OT);
+        shotAdd++;
+        if (normB(sumB(h1.own, h2.own, ot.own)) !== normB(all.own) || normB(sumB(h1.opp, h2.opp, ot.opp)) !== normB(all.opp)) miss(`${season} ${t.teamName}: Shooting 前半＋後半＋延長≠試合全体`);
+        const tAll = sumTovPair(logs, pbps, t.teamId), tp = [[1, 2], [3, 4], OT].map(pp => tovPairInPeriods(logs, pbps, t.teamId, pp));
+        if (tovTotal(tAll.forced) !== tp.reduce((s, x) => s + tovTotal(x.forced), 0) || tovTotal(tAll.committed) !== tp.reduce((s, x) => s + tovTotal(x.committed), 0)) miss(`${season} ${t.teamName}: Forced TOV 前半＋後半＋延長≠試合全体`);
+      }
+    }
+  }
+  console.log(`前半＋後半＋延長＝試合全体: 索引の加算項目 ${addChecks}チームシーズン・オンザコート別 ${ocAdd}・Time to Shot ${ttsAdd}・Shooting・Forced TOV ${shotAdd}`);
+  for (const b of bad) console.log(`   ${b}`);
+  check('前半＋後半（＋延長）が試合全体と合う項目はすべて合う', bad.length === 0, `${bad.length}件`);
+  bad.length = 0;
+
+  // 10-3. Shooting・Forced TOV の前半・後半：スポーツナビの生の記録から数え直した値と一致（自チームだけの記録・記録がある試合の数）
+  let sfCells = 0, noLeagueOk = 0;
+  const f2 = (v: number) => v.toFixed(2);
+  for (const season of seasons.filter(s => sd(s).teams.some(t => !!t.shotTypes))) {
+    const pbps = pbpsOfSeason(season);
+    for (const t of sd(season).teams) {
+      const logs = seasonOf(season, t.teamId).regular;
+      const rec = logs.filter(g => g.shotTypes);
+      const md = buildDetailedExport(inputFor(season, t.teamId, 'team', { timeSlice: 'halves', pbpsScope: 'league' })).markdown;
+      for (const [slice, word, periods] of [['h1', H1, [1, 2]], ['h2', H2, [3, 4]]] as const) {
+        const sh = mdTable(md, new RegExp(`^### Shooting・${word.replace(/[（）]/g, m => `\\${m}`)}$`));
+        const tv = mdTable(md, new RegExp(`^### Forced TOV・${word.replace(/[（）]/g, m => `\\${m}`)}$`));
+        if (sh.get('記録がある試合／スタッツの対象試合')?.[0] !== `${rec.length}／${logs.length}`) miss(`${season} ${t.teamName} ${slice}: 記録がある試合 ${sh.get('記録がある試合／スタッツの対象試合')?.[0]}`);
+        if (tv.get('データあり試合数')?.[0] !== String(rec.length)) miss(`${season} ${t.teamName} ${slice}: Forced のデータあり試合数 ${tv.get('データあり試合数')?.[0]}`);
+        // 生の記録から（共通の関数を使わず）数える
+        const own = new Map<string, number[]>(), opp = new Map<string, number[]>();
+        let forced = 0, committed = 0;
+        for (const g of rec) {
+          const p = pbps.get(g.scheduleKey)!;
+          for (const s of p.shots) { if (!periods.includes(s.period as never)) continue; const m = (s.teamId === t.teamId ? own : opp); const a = m.get(s.shotType) ?? [0, 0, 0, 0]; m.set(s.shotType, a); const o = s.shotValue === 3 ? 2 : 0; a[o + 1]!++; if (s.made) a[o]!++; }
+          for (const x of p.turnovers) { if (!periods.includes(x.period as never)) continue; if (x.teamId === t.teamId) committed++; else forced++; }
+        }
+        const n = rec.length;
+        for (const [pre, m] of [['', own], ['opp ', opp]] as const) for (const [type, a] of m) {
+          const label = shotTypeLabel(type);
+          const pairs: [string, number, number][] = [['2PM', a[0]!, a[1]!], ['2PA', a[0]!, a[1]!], ['2P%', a[0]!, a[1]!], ['3PM', a[2]!, a[3]!], ['3PA', a[2]!, a[3]!], ['3P%', a[2]!, a[3]!]];
+          for (const [suf, made, att] of pairs) {
+            const fct = 1 / n; // 画面の列と同じく、成功数・試投数を 1/試合数 倍してから成功率を出す
+            const want = att === 0 ? '-' : suf.endsWith('M') ? f2(made * fct) : suf.endsWith('A') ? f2(att * fct) : `${((100 * (made * fct)) / (att * fct)).toFixed(2)}%`;
+            const row = sh.get(`${pre}${label} ${suf}`);
+            sfCells++;
+            if ((row?.[0] ?? '-') !== want) miss(`${season} ${t.teamName} ${slice} Shooting「${pre}${label} ${suf}」md=${row?.[0]} 生の記録=${want}`);
+          }
+        }
+        const row = tv.get('合計'), orow = tv.get('opp 合計');
+        sfCells += 2;
+        if (n > 0 && (row?.[0] !== f2(forced / n) || orow?.[0] !== f2(committed / n))) miss(`${season} ${t.teamName} ${slice} Forced TOV 合計 md=${row?.[0]}/${orow?.[0]} 生の記録=${f2(forced / n)}/${f2(committed / n)}`);
+        // リーグ順位・リーグ平均は付けない
+        if (/リーグ平均|（\d+位）/.test(`${[...sh].map(([k, v]) => k + v.join()).join()}${[...tv].map(([k, v]) => k + v.join()).join()}`)) miss(`${season} ${t.teamName} ${slice}: 前半・後半の Shooting・Forced TOV に順位・平均がある`); else noLeagueOk++;
+      }
+    }
+  }
+  console.log(`前半・後半の Shooting・Forced TOV: ${sfCells}セルをスポーツナビの生の記録から数え直して比べた（順位・平均なし ${noLeagueOk}表）`);
+  for (const b of bad) console.log(`   ${b}`);
+  check('前半・後半の Shooting・Forced TOV が生の記録の数え直しと同じ・順位とリーグ平均を付けない', bad.length === 0, `${bad.length}件`);
+  bad.length = 0;
+
+  // 10-4. 試合全体の列は今までどおり順位・リーグ平均が付く（前半・後半を含めても）
+  {
+    const t = sd('2025-26').teams[0]!;
+    const md = buildDetailedExport(inputFor('2025-26', t.teamId, 'team', { timeSlice: 'halves' })).markdown;
+    const full = mdTable(md, /^### Traditional・試合全体$/), h = mdTable(md, /^### Traditional・前半（1Q・2Q）$/);
+    check('試合全体の表には順位とリーグ平均が付き、前半・後半の表には付かない', full.get('項目')?.includes('シーズン全体 リーグ平均') === true && /（\d+位）/.test(full.get('PTS')?.[0] ?? '') && !h.get('項目')?.some(x => /リーグ平均/.test(x)) && !/（\d+位）/.test(h.get('PTS')?.join() ?? ''));
+    const tbls = [...md.matchAll(/^### (.+)$/gm)].map(m => m[1]!);
+    check('前半・後半を含めると、チームのまとめ・得点失点構成・Streaks は試合全体だけ、出す表は区間ごとにある', !tbls.some(x => /^(チームのまとめ)/.test(x)) && (md.match(/^### Shooting・/gm) ?? []).length === 3 && (md.match(/^### Time to Shot・/gm) ?? []).length === 3 && (md.match(/^### オンザコート別.*・/gm) ?? []).length === 3 && !/^## 1\. チームのまとめ[\s\S]*?・前半/m.test(md.split('## 2.')[0]!));
+    check('1Q〜4Q・延長の区間は出さない', !/^### .*・(1Q|2Q|3Q|4Q|延長)$/m.test(md) && !/\|(1Q|2Q|3Q|4Q)\|/.test(md.split('## 4.')[1] ?? ''));
+  }
+
+  // 10-5. 選手：前半・後半の表＝チーム詳細の選手スタッツタブの期間指定（buildTeamSplitRowsFromPeriodSource）。前半＋後半＝試合全体（延長の無い試合の個人の得点など）
+  let pCells = 0, pGames = 0;
+  for (const season of seasons) {
+    const sp = seasonPeriods.get(season); if (!sp) continue;
+    const foulSplit = season >= '2026-27', startYear = Number(season.slice(0, 4));
+    const gameTeams = buildGameTeamsByScheduleKey(sd(season).summaries);
+    for (const t of sd(season).teams) {
+      const input = inputFor(season, t.teamId, 'player', { timeSlice: 'halves' });
+      const md = buildDetailedExport(input).markdown;
+      const gameLogs = seasonOf(season, t.teamId).regular;
+      for (const tab of ['traditional', 'advanced', 'misc', 'scoring'] as const) {
+        const cols = seasonBoxColumnsWithFtr(tab, foulSplit);
+        const T = `${tab[0]!.toUpperCase()}${tab.slice(1)}`;
+        for (const [slice, word] of [['h1', H1], ['h2', H2]] as const) {
+          const tbl = mdTable(md, new RegExp(`^### ${T}・${word.replace(/[（）]/g, m => `\\${m}`)}$`));
+          const head = tbl.get('選手') ?? [];
+          for (const { player } of input.players) {
+            const row = tbl.get(normalizePlayerName(player.name));
+            const logs = read<PlayerGameLog[]>(`${season}/player-games/${player.playerId}`).filter(g => g.gameType === 'regular');
+            const own = new Map<string, { teamId: string; teamName: string }>();
+            for (const g of logs) { if (g.min <= 0) continue; const o = resolveOwnTeam(g, gameTeams); if (o) own.set(g.scheduleKey, o); }
+            const keys = new Set(logs.filter(g => g.min > 0 && own.get(g.scheduleKey)?.teamId === t.teamId).map(g => g.scheduleKey));
+            const split = buildTeamSplitRowsFromPeriodSource(player.playerId, logs, own as never, new Map([[t.teamId, sumTeamGameLogsFor(gameLogs, keys)]]), 'perGame', startYear, player.playerId, slice, sp).find(r => r.teamId === t.teamId);
+            if (!split) { if (row) miss(`${season} ${t.teamName} ${player.name} ${T}・${slice}: 画面に行が無いのに md にある`); continue; }
+            if (!row) { miss(`${season} ${t.teamName} ${player.name} ${T}・${slice}: md に行が無い`); continue; }
+            head.forEach((lb, i) => { const c = cols.find(x => x.label === lb); if (!c) return; pCells++; const want = c.format(split.ctx, 'perGame'); if (row[i] !== want) miss(`${season} ${t.teamName} ${player.name} ${T}・${slice} ${lb}: md=${row[i]} / 選手スタッツ=${want}`); });
+          }
+        }
+      }
+      // 前半＋後半＝試合全体（延長の無い試合の個人の記録）
+      for (const { player, logs } of input.players) {
+        for (const g of logs) {
+          if (gameOvertimes(g) !== 0 || sp.shortGames.has(g.scheduleKey)) continue;
+          const a = seasonPeriodTotalsOf(sp, player.playerId, g.scheduleKey, g.isHome, 'h1'), b = seasonPeriodTotalsOf(sp, player.playerId, g.scheduleKey, g.isHome, 'h2');
+          if (!a || !b) continue;
+          pGames++;
+          for (const k of ['pts', 'pt2m', 'pt2a', 'pt3m', 'pt3a', 'ftm', 'fta', 'ast', 'stl', 'blk', 'tov'] as const) if ((a.player as never)[k] + (b.player as never)[k] !== (g as never)[k === 'pt2m' ? 'fgm' : k === 'pt2a' ? 'fga' : k === 'pt3m' ? 'tpm' : k === 'pt3a' ? 'tpa' : k] - (k === 'pt2m' ? (g as never)['tpm'] : k === 'pt2a' ? (g as never)['tpa'] : 0)) { miss(`${season} ${player.name} ${g.scheduleKey}: 前半＋後半≠試合全体 ${k}`); break; }
+        }
+      }
+    }
+  }
+  console.log(`前半・後半（選手）: ${pCells}セルを選手スタッツタブの期間指定の値と比べた・前半＋後半＝試合全体 ${pGames}選手試合（延長の無い試合）`);
+  for (const b of bad) console.log(`   ${b}`);
+  check('選手の前半・後半の値が選手スタッツタブの前半・後半と同じ・前半＋後半が試合全体と合う', bad.length === 0, `${bad.length}件`);
+  bad.length = 0;
+}
+
+// ---- 10b. 段階4：選手の Shooting（前半・後半）・2ファイル・読み込み・B.ONE ----
+{
+  const H1 = '前半（1Q・2Q）', H2 = '後半（3Q・4Q）';
+  const esc = (w: string) => w.replace(/[（）]/g, m => `\\${m}`);
+  const bad: string[] = [];
+  const miss = (m: string) => { if (bad.length < 12) bad.push(m); };
+
+  // 10-6. 選手の Shooting の前半・後半：生の記録（ピリオドで絞る）から数え直した値と一致。出場0分の試合のシュートの扱いは試合全体と同じ
+  let cells = 0;
+  for (const season of seasons.filter(s => sd(s).teams.some(t => !!t.shotTypes))) {
+    const pbps = pbpsOfSeason(season);
+    for (const t of sd(season).teams) {
+      const input = inputFor(season, t.teamId, 'player', { timeSlice: 'halves' });
+      const md = buildDetailedExport(input).markdown;
+      for (const [slice, word, periods] of [['h1', H1, [1, 2]], ['h2', H2, [3, 4]]] as const) {
+        const tbl = mdTable(md, new RegExp(`^### Shooting・${esc(word)}$`));
+        const head = tbl.get('選手') ?? [];
+        for (const { player, logs, zeroMinKeys } of input.players) {
+          const row = tbl.get(normalizePlayerName(player.name)); if (!row) { miss(`${season} ${t.teamName} ${player.name} ${slice}: Shooting の行が無い`); continue; }
+          const played = logs.map(g => g.scheduleKey).filter(k => pbps.has(k));
+          const shots = [...played, ...(zeroMinKeys ?? [])].flatMap(k => (pbps.get(k)?.shots ?? []).filter(s => s.playerId === player.playerId && periods.includes(s.period as never)));
+          const cols = shotTypeEntityColumns<{ b: ReturnType<typeof buildShotTypeBreakdown>; n: number }>(sortShotTypeKeys(Object.keys(buildShotTypeBreakdown(shots))), r => r.b, 'perGame', r => r.n);
+          const r0 = { b: buildShotTypeBreakdown(shots), n: played.length };
+          if (row[0] !== `${played.length}／${logs.length}`) miss(`${season} ${t.teamName} ${player.name} ${slice}: 記録のある試合／出場 ${row[0]}`);
+          for (const c of cols) { const k = head.indexOf(c.label); const want = played.length ? c.format!(r0) : '-'; cells++; if (k < 1 ? want !== '-' : row[k] !== want) miss(`${season} ${t.teamName} ${player.name} ${slice} 「${c.label}」md=${row[k]} 生の記録=${want}`); }
+        }
+      }
+    }
+  }
+  console.log(`選手の Shooting（前半・後半）: ${cells}セルを生の記録から数え直して比べた`);
+  for (const b of bad) console.log(`   ${b}`);
+  check('選手の前半・後半の Shooting が生の記録の数え直しと同じ', bad.length === 0, `${bad.length}件`);
+  bad.length = 0;
+
+  // 10-7. 10万字を超える組み合わせは時間帯で2ファイル。10万字以下は分けない。2つで1ファイル版と同じ表がそろい、各ファイルが10万字以下
+  const tablesOf = (md: string) => { const out: string[] = []; let cur: string[] = []; for (const l of md.split('\n')) { if (l.startsWith('|')) cur.push(l); else if (cur.length) { out.push(cur.join('\n')); cur = []; } } if (cur.length) out.push(cur.join('\n')); return out.filter(x => !x.startsWith('|項目|内容|')); };
+  let n = 0, splits = 0, maxWhole = 0, maxPart = 0, unsplit = 0, maxUnsplit = 0;
+  const splitEx: string[] = [];
+  for (const season of seasons) {
+    const ts = sd(season).teams;
+    for (const t of ts) {
+      if (season !== '2025-26' && season !== '2026-27' && season !== '2023-24' && t !== ts[0]) continue;
+      const ds = seasonOf(season, t.teamId);
+      for (const kind of ['team', 'player'] as const) for (const [term, opp] of [['threeTerms', 'all'], ['halves', 'all'], ['season', 'all'], ['recent5', 'atLeast60'], ['halves', 'atLeast60']] as const) {
+        if (term === 'threeTerms' && !threeTermBreaks(season, 'premier', ds.summaries, ds.schedule).ok) continue;
+        const prev = kind === 'team' && seasons.includes(prevOf(season)) && sd(prevOf(season)).teams.some(x => x.teamId === t.teamId) ? seasonOf(prevOf(season), t.teamId) : null;
+        const inp = inputFor(season, t.teamId, kind, { term, opp, timeSlice: 'halves', compare: kind === 'team', prev });
+        const whole = buildDetailedWhole(inp), out = buildDetailedExport(inp);
+        n++;
+        maxWhole = Math.max(maxWhole, whole.characters);
+        if (whole.empty) { if (out.parts) miss(`${season} ${t.teamName} ${kind}・${term}・${opp}: 0試合なのに分けた`); continue; }
+        if (whole.characters <= 100_000) {
+          unsplit++; maxUnsplit = Math.max(maxUnsplit, whole.characters);
+          if (out.parts || out.markdown !== whole.markdown) miss(`${season} ${t.teamName} ${kind}・${term}・${opp}: ${whole.characters}字なのに分けた`);
+          continue;
+        }
+        splits++;
+        const label = `${season} ${t.teamName} ${kind}・${term}・${opp}（${whole.characters}字）`;
+        if (!out.parts || out.parts.length !== 2) { miss(`${label}: 10万字を超えるのに2ファイルに分けていない`); continue; }
+        const [a, b] = out.parts as [typeof out.parts[0], typeof out.parts[0]];
+        maxPart = Math.max(maxPart, a.characters, b.characters);
+        if (splitEx.length < 3) splitEx.push(`${label} → ${a.label} ${a.characters}字・${b.label} ${b.characters}字`);
+        if (a.characters > 100_000 || b.characters > 100_000) miss(`${label}: 分けたあとも10万字を超える（${a.characters}・${b.characters}）`);
+        if (!/_試合全体\.md$/.test(a.filename) || !/_前半後半\.md$/.test(b.filename) || !a.markdown.includes(b.filename) || !b.markdown.includes(a.filename)) miss(`${label}: ファイル名・もう1つのファイル名の書き方`);
+        const want = tablesOf(whole.markdown).sort(), got = [...tablesOf(a.markdown), ...tablesOf(b.markdown)].sort();
+        // 両方のファイルにある表（対象試合・プロフィール）は1つにまとめて比べる
+        const dedup = (xs: string[]) => [...new Set(xs)].sort();
+        if (JSON.stringify(dedup(want)) !== JSON.stringify(dedup(got))) miss(`${label}: 2ファイルの表が1ファイル版と同じにそろわない`);
+        if (/^### .*・(前半|後半)/m.test(a.markdown)) miss(`${label}: 試合全体のファイルに前半・後半の表がある`);
+        if (/### Traditional・試合全体|^### Shooting・試合全体/m.test(b.markdown)) miss(`${label}: 前半後半のファイルに試合全体の表がある`);
+        if (NOT_NUM.test(a.markdown) || NOT_NUM.test(b.markdown)) miss(`${label}: NaN 等`);
+      }
+    }
+  }
+  console.log(`2ファイル: ${n}通りを確認（分けた ${splits}・分けない ${unsplit}、1ファイル版の最大 ${maxWhole}字、分けたあとの最大 ${maxPart}字、分けない最大 ${maxUnsplit}字）`);
+  for (const e of splitEx) console.log(`   例: ${e}`);
+  for (const b of bad) console.log(`   ${b}`);
+  check('10万字を超える組み合わせだけ2ファイルに分け、2つで同じ表がそろい、各ファイルが10万字以下', bad.length === 0 && splits > 0, `${bad.length}件・分けた${splits}`);
+  bad.length = 0;
+
+  // 10-8. 読み込み：前半・後半の Shooting・Forced TOV は自チームの記録だけ読む。選手の区間の索引。B.ONE は前半・後半を選べない
+  {
+    const season = '2025-26', tid = sd(season).teams.find(t => t.teamName.includes('宇都宮'))!.teamId;
+    const calls: string[] = [];
+    const mk = (over: Partial<AiDetailedSource> = {}): AiDetailedSource => ({
+      fetchSeasons: async () => seasons.map(s => ({ season: s })) as never,
+      fetchTeams: async (s: string) => sd(s).teams, fetchSchedule: async (s: string) => sd(s).schedule, fetchGameSummaries: async (s: string) => sd(s).summaries,
+      fetchTeamGameLogs: async (s: string, id: string) => sd(s).logs.get(id)!, fetchTeamHistory: async () => history, fetchDivisionHistory: async () => division as never,
+      fetchPlayers: async (s: string) => read<PlayerSummary[]>(`${s}/players`), fetchPlayerGameIndex: async (s: string) => read<PlayerGameIndexFile>(`${s}/player-game-index`),
+      fetchPlayerGameLogs: async (s: string, id: string) => read<PlayerGameLog[]>(`${s}/player-games/${id}`),
+      fetchYahooGamePbp: async (s: string, k: string) => { calls.push(k); return pbpsOfSeason(s).get(k) ?? null; },
+      fetchSeasonRules: async () => seasonRules, loadTeamPeriodSource: async (s: string) => periodSources.get(s) ?? null, loadTtsSource: async (s: string) => ttsSources.get(s) ?? null,
+      loadSeasonPeriodSource: async (s: string) => { calls.push(`period:${s}`); return seasonPeriods.get(s) ?? null; },
+      loadSeasonRegistrations: async (s: string) => (s >= '2026-27' ? read<SeasonRegistrationFile>(`${s}/registrations`) : null), ...over,
+    } as AiDetailedSource);
+    const run = (kind: 'team' | 'player', term: 'season' | 'halves' | 'threeTerms', opp: 'all' | 'atLeast60', over: Partial<AiDetailedSource> = {}) =>
+      loadDetailedExport(season, tid, { kind, term, opp, timeSlice: 'halves', compare: false }, mk(over), () => new Date('2026-11-03T10:00:00'));
+    const own = seasonOf(season, tid).regular.filter(g => g.shotTypes).length;
+    calls.length = 0; const a = await run('team', 'season', 'all');
+    check(`チーム情報・1シーズン・前半後半は、自チームの記録（${own}試合）だけ読む（全チームの記録は読まない）`, calls.length === own && a.pbpsScope === 'own', `${calls.length}・${a.pbpsScope}`);
+    check('読み込み経由と直接で同じ内容（チーム・1シーズン・前半後半）', buildDetailedExport(a).markdown === buildDetailedExport(inputFor(season, tid, 'team', { term: 'season', timeSlice: 'halves', exportedAt: a.exportedAt })).markdown);
+    calls.length = 0; const b = await run('team', 'halves', 'all');
+    check('チーム情報・前半戦後半戦は、試合全体の Forced TOV のために全チームの記録を読む（範囲＝league）', calls.length > own * 5 && b.pbpsScope === 'league');
+    check('読み込み経由と直接で同じ内容（チーム・前半戦後半戦・前半後半）', buildDetailedExport(b).markdown === buildDetailedExport(inputFor(season, tid, 'team', { term: 'halves', timeSlice: 'halves', exportedAt: b.exportedAt })).markdown);
+    calls.length = 0; const c = await run('player', 'season', 'all');
+    check('選手情報は選手の区間の索引を読み、自チームの記録だけ読む', calls.includes(`period:${season}`) && calls.filter(k => !k.startsWith('period')).length === own && !!c.seasonPeriod);
+    check('読み込み経由と直接で同じ内容（選手・前半後半）', buildDetailedExport(c).markdown === buildDetailedExport(inputFor(season, tid, 'player', { timeSlice: 'halves', exportedAt: c.exportedAt })).markdown);
+    let failed = false;
+    try { await run('player', 'season', 'all', { loadSeasonPeriodSource: async () => null }); } catch { failed = true; }
+    check('選手の区間の索引が読めなければ完成版を作らない', failed);
+    failed = false;
+    try { await run('team', 'season', 'all', { loadTeamPeriodSource: async () => null }); } catch { failed = true; }
+    check('チームの区間の索引が読めなければ完成版を作らない', failed);
+    let msg = '';
+    try { const oneT = read<TeamSummary[]>('2026-27/one/teams')[0]!; buildDetailedExport({ ...inputFor('2026-27', sd('2026-27').teams[0]!.teamId, 'team'), league: 'one', cur: { ...seasonOf('2026-27', sd('2026-27').teams[0]!.teamId) }, timeSlice: 'halves' }); void oneT; } catch (e) { msg = e instanceof Error ? e.message : ''; }
+    check('B.ONE では前半・後半を選べない（理由つき）', /B\.ONE ではまだ選べません/.test(msg) && /B\.ONE/.test(ONE_PERIOD_REASON), msg);
+  }
+
+  // 10-9. 前半・後半を含む組み合わせで NaN 等が無い・0試合の書き方（2ファイルも）
+  {
+    let m = 0;
+    for (const season of seasons) for (const t of sd(season).teams.slice(0, 2)) for (const kind of ['team', 'player'] as const) for (const [term, opp] of [['season', 'all'], ['recent5', 'all'], ['halves', 'atLeast60'], ['threeTerms', 'all']] as const) {
+      const ds = seasonOf(season, t.teamId);
+      if (term === 'threeTerms' && !threeTermBreaks(season, 'premier', ds.summaries, ds.schedule).ok) continue;
+      const o = buildDetailedExport(inputFor(season, t.teamId, kind, { term, opp, timeSlice: 'halves' }));
+      m++;
+      for (const f of o.parts ?? [o]) check(`${season} ${t.teamName} ${kind}・${term}・${opp}・前半後半 に NaN 等が無い`, !NOT_NUM.test(f.markdown) && /\.md$/.test(f.filename) && !/\s/.test(f.filename));
+    }
+    console.log(`書式（前半・後半を含む）: ${m}通りで確認`);
+  }
 }
 
 // ---- 5. 短い書き出しを変えていない ----
