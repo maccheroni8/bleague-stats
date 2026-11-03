@@ -4088,7 +4088,7 @@ export function TeamDetailPage({ season }: { season: string }) {
         <Link to="/teams" className="back-link">
           ← チーム一覧に戻る
         </Link>
-        {league === "premier" && <AiExportButton season={season} teamId={team.teamId} />}
+        <AiExportButton season={season} teamId={team.teamId} league={league} />
       </div>
 
       <div className="team-detail-header" style={accentColor ? { borderTopColor: accentColor } : undefined}>

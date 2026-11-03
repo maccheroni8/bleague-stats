@@ -1,4 +1,5 @@
 import { Component, lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
+import type { League } from '../lib/league';
 const AI_EXPORT_BUTTON_LABEL = 'md';
 
 /** 書き出し画面の部品（別ファイル）を読み込めなかったことを表す。画面の中の別のエラーとは区別する。 */
@@ -23,7 +24,7 @@ class DialogLoadBoundary extends Component<{ onFail: () => void; children: React
 }
 
 /** チーム詳細からはこのボタンだけを置く。部品の読み込みも取得も、ボタンを押したときに始める。 */
-export function AiExportButton({ season, teamId }: { season: string; teamId: string }) {
+export function AiExportButton({ season, teamId, league }: { season: string; teamId: string; league: League }) {
   const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);
   // 読み込みの試行ごとに作り直す（失敗した読み込みの結果は React.lazy に残るため、同じものでは再試行できない）
@@ -38,7 +39,7 @@ export function AiExportButton({ season, teamId }: { season: string; teamId: str
     <button type="button" className="export-image-button ai-export-button" aria-label="AI向けにデータを書き出す" title="AI向けにデータを書き出す" onClick={press}>{AI_EXPORT_BUTTON_LABEL}</button>
     {open && !failed && <DialogLoadBoundary key={attempt} onFail={() => setFailed(true)}>
       <Suspense fallback={<p role="status">書き出し画面を準備しています…</p>}>
-        <Dialog key={`${season}/${teamId}`} season={season} teamId={teamId} close={() => setOpen(false)} />
+        <Dialog key={`${league}/${season}/${teamId}`} season={season} teamId={teamId} league={league} close={() => setOpen(false)} />
       </Suspense>
     </DialogLoadBoundary>}
     {open && failed && <div className="ai-export-load-error" role="alert">

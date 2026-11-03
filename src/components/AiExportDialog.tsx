@@ -3,9 +3,10 @@ import { buildAiExport, type AiExportInput } from '../lib/aiExport';
 import { loadAiExport } from '../lib/aiExportLoad';
 import { teamNameInSeason, useTeamLabel } from '../lib/teamLabel';
 import { AiDetailedPanel } from './AiDetailedPanel';
+import type { League } from '../lib/league';
 import './AiExportDialog.css';
 
-export default function AiExportDialog({ season, teamId, close }: { season: string; teamId: string; close: () => void }) {
+export default function AiExportDialog({ season, teamId, league, close }: { season: string; teamId: string; league: League; close: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const text = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState<AiExportInput | null>(null);
@@ -13,10 +14,12 @@ export default function AiExportDialog({ season, teamId, close }: { season: stri
   const [attempt, setAttempt] = useState(0);
   const [opponentId, setOpponentId] = useState('');
   const [notice, setNotice] = useState('');
-  const [mode, setMode] = useState<'short' | 'detailed'>('short');
+  // 短い版は B.PREMIER の書き出し（変えていない）。B.ONE は詳しい版だけ
+  const [mode, setMode] = useState<'short' | 'detailed'>(league === 'one' ? 'detailed' : 'short');
   const teamLabel = useTeamLabel();
   useEffect(() => { dialog.current?.showModal(); }, []);
   useEffect(() => {
+    if (league === 'one') return;
     let active = true;
     setInput(null); setError(''); setNotice('');
     const timeout = window.setTimeout(() => {
@@ -28,7 +31,7 @@ export default function AiExportDialog({ season, teamId, close }: { season: stri
       if (active) { window.clearTimeout(timeout); setError('必要なデータを読み込めませんでした。完成版としてコピー・保存できません。時間をおいて、もう一度お試しください。'); }
     });
     return () => { active = false; window.clearTimeout(timeout); };
-  }, [season, teamId, attempt]);
+  }, [season, teamId, attempt, league]);
   const result = useMemo(() => {
     if (!input) return null;
     try { return { output: buildAiExport({ ...input, opponentId: opponentId || undefined }), error: '' }; }
@@ -53,10 +56,11 @@ export default function AiExportDialog({ season, teamId, close }: { season: stri
   return <dialog ref={dialog} className="ai-export-dialog" aria-labelledby="ai-export-title" onClose={close}>
     <div className="ai-export-heading"><h2 id="ai-export-title">AI向けにデータを書き出す</h2><button type="button" onClick={() => dialog.current?.close()}>閉じる</button></div>
     <div className="ai-export-tabs" role="group" aria-label="書き出しの種類">
-      <button type="button" aria-pressed={mode === 'short'} onClick={() => setMode('short')}>短い版</button>
+      <button type="button" aria-pressed={mode === 'short'} disabled={league === 'one'} title={league === 'one' ? '短い版は、B.ONE ではまだ使えません（今後対応します）。' : undefined} onClick={() => setMode('short')}>短い版</button>
       <button type="button" aria-pressed={mode === 'detailed'} onClick={() => setMode('detailed')}>詳しい版</button>
     </div>
-    {mode === 'detailed' && <AiDetailedPanel season={season} teamId={teamId} />}
+    {league === 'one' && <p className="ai-detailed-hint">短い版は、B.ONE ではまだ使えません（今後対応します）。詳しい版を使えます。</p>}
+    {mode === 'detailed' && <AiDetailedPanel season={season} teamId={teamId} league={league} />}
     {mode === 'short' && <>
     <p>対象：{season}シーズン・レギュラーシーズン・試合全体。画面の視点・区間・条件は引き継ぎません。</p>
     {error || result?.error ? <div role="alert"><p>{error || result?.error}</p><button type="button" onClick={() => setAttempt(n => n + 1)}>もう一度読み込む</button></div> : !input ? <p role="status">チーム・リーグ・前季・選手の記録を読み込んでいます…</p> : null}

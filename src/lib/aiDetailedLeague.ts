@@ -6,7 +6,7 @@ import { buildTraditionalColumns, buildAdvancedColumns, buildMiscColumns, buildS
 import { rankPositions } from './seasonCompare';
 import { teamPeriodEffTotal } from './teamSituationalPeriod';
 
-export interface RankDirection { sort: (r: AllTeamsRow) => number; higherIsBetter: boolean }
+export interface RankDirection<T = AllTeamsRow> { sort: (r: T) => number; higherIsBetter: boolean }
 
 /** 列の名前 → 並べ替えの値と向き（ランキングの列の定義。同じ名前は先のカテゴリを使う。G・BSR・EFF はここに無い） */
 export function leagueDirections(perspective: TeamPerspective, foulSplit: boolean, seasonStartYear: number): Map<string, RankDirection> {
@@ -29,7 +29,7 @@ export function leagueDirections(perspective: TeamPerspective, foulSplit: boolea
 }
 
 /** 順位（teamId → 順位）。値のある（NaN でない）チームだけを並べる。texts はそのチームの値を画面に出す文字（同じ文字は同じ順位） */
-export function leagueRanks(pool: ReadonlyMap<string, AllTeamsRow>, dir: RankDirection, text: (r: AllTeamsRow) => string): Map<string, number> {
+export function leagueRanks<T = AllTeamsRow>(pool: ReadonlyMap<string, T>, dir: RankDirection<T>, text: (r: T) => string): Map<string, number> {
   const entries = [...pool].map(([teamId, row]) => ({ teamId, value: dir.sort(row), text: text(row) })).filter(e => Number.isFinite(e.value));
   entries.sort((a, b) => (dir.higherIsBetter ? b.value - a.value : a.value - b.value));
   const ranks = rankPositions(entries.map(e => e.text));

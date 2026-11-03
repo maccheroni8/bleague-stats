@@ -57,6 +57,8 @@ export function pickBreak(gaps: readonly Gap[], year: number, month: number): Br
   return longest.length === 1 ? { gap: longest[0]!, candidates } : { gap: null, candidates, reason: 'tie' };
 }
 
+/** B.ONE で3タームを選べない理由（画面にも出す） */
+export const ONE_THREE_TERMS_REASON = 'B.ONE は、リーグ共通の中断期間（11月と2月ごろ）を決められないため、3タームを選べません。';
 export type ThreeTermBreaks = { ok: true; nov: Gap; feb: Gap; novCandidates: Gap[]; febCandidates: Gap[] } | { ok: false; reason: string; nov: BreakPick; feb: BreakPick };
 export function threeTermBreaks(season: string, league: 'premier' | 'one', summaries: readonly GameSummary[], schedule: ScheduleFileExtended): ThreeTermBreaks {
   const y = Number(season.slice(0, 4));
