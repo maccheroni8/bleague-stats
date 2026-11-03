@@ -126,6 +126,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 316章: md「詳しい版」の読み違え対策。「自チーム外国籍人数」＝その試合で最も長い時間コートにいた外国籍・帰化・アジアの同時人数（改名し、試合ごとの人数別の時間の表を添えた）、1POS差・試合中の点差・対戦相手の強さの項目名に意味を足し、「数字の書き方」に用語の一覧。POSS は公式の攻撃回数がある試合はそれ、ない試合は推定式（2022-23以降はほぼ全試合が公式）。**画面だけの変更でキー不変**
 - 317章: md「詳しい版」の段階2。3ターム・前半戦後半戦（`aiExportScope.ts`）、オンザコート別・Time to Shot・Streaks（境目で切れた連続は別の列に書く）、チーム情報のリーグ順位とリーグ平均（`aiDetailedLeague.ts`・ランキングと同じ列の定義と向き・全チームの試合記録を読む）、選手情報のプロフィール（`registrationLabel.ts` を個人詳細から切り出し）。画面だけの変更でキー不変（allKey 51f5d32f…）。検証は `validate:ai-export-detailed`。
 - 318章: md「詳しい版」の段階3。Shooting・Forced TOV（記録がある試合だけで数え、記録がある試合の数を書く。`aiDetailedYahoo.ts`。1シーズン・全チームの Forced TOV だけ teams.json の値）、選手の Shooting、B.ONE 対応（リーグを通す・短い版は不可・3ターム不可・記録が無い表は理由つきで省く）、記録の読み込みの進み具合と中止。画面だけの変更でキー不変（allKey 51f5d32f…）。重い条件はスマホで約26秒。
+- 319章: md「詳しい版」の段階4。時間帯「前半・後半も含める」（前半＝1Q・2Q、後半＝3Q・4Q。チーム＝Traditional〜Scoring・Shooting・Forced TOV・オンザコート別・Time to Shot、選手＝Traditional〜Scoring・Shooting。順位・リーグ平均は試合全体の列だけ。前半・後半の Shooting・Forced TOV は自チームの記録だけ読む。`aiDetailedYahoo.ts`）、B.ONE は前半・後半不可、10万字超は時間帯で2ファイル（`SPLIT_LIMIT_CHARACTERS`）。画面だけの変更でキー不変（allKey 51f5d32f…）。
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
