@@ -166,6 +166,7 @@ import { splitClassificationSeason } from "../lib/classificationFilter";
 import { registrationLabel } from "../lib/registrationLabel";
 import { loadSeasonRegistrations } from "../lib/registrationScope";
 import type { SeasonRegistrationEntry } from "../../shared/registration";
+import { CompareCategoryBar } from "../components/CompareCategoryBar";
 import { ComparisonTable, type ComparisonRow } from "./ComparePage";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageForSeason } from "../lib/age";
@@ -3325,18 +3326,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
             })}
           </div>
           <FilterBar simple stateKey={pk("compareCommon")} axes={[gameTypeAxis(compareGameType, setCompareGameType, null)]} />
-          <div className="tab-bar">
-            {SEASON_BOX_TABS.map((t) => (
-              <button
-                key={t.key}
-                className={`tab-button${compareTab === t.key ? " active" : ""}`}
-                onClick={() => setCompareTab(t.key)}
-                type="button"
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <CompareCategoryBar tabs={SEASON_BOX_TABS} category={compareTab} onCategory={setCompareTab} />
           {compareSlotDescriptions.length > 0 && (
             <ConditionTitle title={compareTitle.title} conditions={compareTitle.conditions} />
           )}

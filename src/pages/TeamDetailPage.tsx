@@ -213,6 +213,7 @@ import {
   sortShotTypeKeys,
   sumShotTypeCounts,
 } from "../lib/shotTypeBreakdown";
+import { CompareCategoryBar } from "../components/CompareCategoryBar";
 import { ComparisonTable, type ComparisonRow } from "./ComparePage";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { PeriodScoringCells, PeriodScoringHeaderCells, periodScoringNote } from "../components/TeamPeriodCells";
@@ -5933,21 +5934,14 @@ export function TeamDetailPage({ season }: { season: string }) {
             stateKey={pk("compareCommon")}
             axes={[
               gameTypeAxis(compareGameType, setCompareGameType, null),
-              perspectiveAxis(comparePerspective, setComparePerspective),
             ]}
           />
-          <div className="tab-bar">
-            {BOXSCORE_TABS.map((t) => (
-              <button
-                key={t.key}
-                className={`tab-button${compareTab === t.key ? " active" : ""}`}
-                onClick={() => setCompareTab(t.key)}
-                type="button"
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <CompareCategoryBar
+            category={compareTab}
+            onCategory={setCompareTab}
+            perspective={comparePerspective}
+            onPerspective={setComparePerspective}
+          />
           {compareSlotDescriptions.length > 0 && (
             <ConditionTitle title={compareTitle.title} conditions={compareTitle.conditions} />
           )}

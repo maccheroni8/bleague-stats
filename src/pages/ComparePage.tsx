@@ -18,9 +18,8 @@ import { ExternalLinkIcon } from "../components/ExternalLinkIcon";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { RuleChangeFootnote } from "../components/RuleChangeFootnote";
 import { foulColumnsSplit } from "../lib/ruleChange";
+import { CompareCategoryBar } from "../components/CompareCategoryBar";
 import { CompareSlotFilter } from "../components/CompareSlotFilter";
-import { FilterBar } from "../components/FilterBar";
-import { perspectiveAxis } from "../lib/filterAxes";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import {
   buildExportFilename,
@@ -493,6 +492,7 @@ interface ViewCommonProps {
   teamColors: Record<string, TeamColors> | null;
   divisionHistory: DivisionHistoryFile | null;
   cat: BoxscoreTabKey;
+  onCat: (key: BoxscoreTabKey) => void;
   onUpdateSlot: (index: number, next: Partial<SlotValue>) => void;
 }
 
@@ -507,12 +507,15 @@ function TeamCompareView({
   teamColors,
   divisionHistory,
   cat,
+  onCat,
   perspective,
+  onPerspective,
   teamsBySeason,
   resultOnlyBySeason,
   onUpdateSlot,
 }: ViewCommonProps & {
   perspective: TeamPerspective;
+  onPerspective: (v: TeamPerspective) => void;
   teamsBySeason: Map<string, TeamSummary[] | null> | null;
   /** シーズンごとの結果だけの試合（228章。G の勝敗の横の「※」の説明用） */
   resultOnlyBySeason: Map<string, ResultOnlyGameEntry[] | null> | null;
@@ -604,6 +607,7 @@ function TeamCompareView({
           />
         ))}
       </div>
+      <CompareCategoryBar category={cat} onCategory={onCat} perspective={perspective} onPerspective={onPerspective} />
       <ExportImageButton
         targetRef={exportRef}
         filename={filename}
@@ -645,6 +649,7 @@ function PlayerCompareView({
   teamColors,
   divisionHistory,
   cat,
+  onCat,
   playersBySeason,
   pickerSources,
   onUpdateSlot,
@@ -738,6 +743,7 @@ function PlayerCompareView({
           />
         ))}
       </div>
+      <CompareCategoryBar category={cat} onCategory={onCat} />
       <ExportImageButton
         targetRef={exportRef}
         filename={filename}
@@ -866,6 +872,7 @@ export function ComparePage({ season }: { season: string }) {
     teamColors: teamColors ?? null,
     divisionHistory: divisionHistory ?? null,
     cat,
+    onCat: (key: BoxscoreTabKey) => setOrDelete("cat", key, "traditional"),
   };
 
   return (
@@ -884,26 +891,6 @@ export function ComparePage({ season }: { season: string }) {
           個人
         </button>
       </div>
-      {mode === "team" && (
-        <FilterBar
-          simple
-          stateKey="compare:common"
-          axes={[perspectiveAxis(perspective, (v) => setOrDelete("v", v, "own"))]}
-        />
-      )}
-      <div className="tab-bar">
-        {BOXSCORE_TABS.map((t) => (
-          <button
-            key={t.key}
-            className={`tab-button${cat === t.key ? " active" : ""}`}
-            onClick={() => setOrDelete("cat", t.key, "traditional")}
-            type="button"
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
       {seasonsLoading || !seasons ? (
         <p className="loading">読み込み中...</p>
       ) : mode === "team" ? (
@@ -911,6 +898,7 @@ export function ComparePage({ season }: { season: string }) {
           {...common}
           slots={resolvedTeamSlots}
           perspective={perspective}
+          onPerspective={(v) => setOrDelete("v", v, "own")}
           teamsBySeason={teamsBySeason}
           resultOnlyBySeason={resultOnlyBySeason}
           onUpdateSlot={makeUpdateSlot("t", resolvedTeamSlots)}
