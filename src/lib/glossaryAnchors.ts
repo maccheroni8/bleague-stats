@@ -27,6 +27,7 @@ export const GLOSSARY_ANCHORS = {
   profile: "profile",
   career: "career",
   doubleDouble: "double-double",
+  winPctScatter: "winpct-scatter",
 } as const;
 
 export type GlossaryAnchor = (typeof GLOSSARY_ANCHORS)[keyof typeof GLOSSARY_ANCHORS];

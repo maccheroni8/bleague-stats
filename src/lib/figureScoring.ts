@@ -24,7 +24,7 @@ export interface ScoringQuery { season: string; category: Category; range: Situa
 
 const finite = (...values: unknown[]) => values.every(value => typeof value === "number" && Number.isFinite(value));
 /** 区分別得点が揃っている試合だけ。欠けた値を 0 点として数えない（分母にも入れない）。 */
-function hasPoints(g: TeamGameLog) {
+export function hasPoints(g: TeamGameLog) {
   return finite(g.teamScore, g.opponentScore, g.japanesePoints, g.foreignPoints, g.naturalizedOrAsianPoints, g.opponentJapanesePoints, g.opponentForeignPoints, g.opponentNaturalizedOrAsianPoints);
 }
 const emptySums = (): SideSums => ({ pts: 0, japanese: 0, foreign: 0, intl: 0 });

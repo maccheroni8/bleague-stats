@@ -20,6 +20,7 @@ export const FIGURES: readonly FigureDefinition[] = [
   { id: "ratings", entity: "team", label: "ORtg・DRtg", group: "効率", load: () => import("./RatingsScatterFigure") },
   { id: "one-game", entity: "team", label: "年間1試合の対戦", group: "日程", load: () => import("./OneGameMatchupsFigure") },
   { id: "scoring", entity: "team", label: "日本人・外国籍の得点", group: "得点", load: () => import("./ScoringScatterFigure") },
+  { id: "winpct-class", entity: "team", label: "勝率と登録区分別の得失点", group: "得点", load: () => import("./WinPctScatterFigure") },
 ];
 
 export function figuresForEntity(entity: FigureEntity, catalog: readonly FigureDefinition[] = FIGURES) {

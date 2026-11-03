@@ -1,0 +1,5 @@
+.winpct-r { position:absolute; right:0; top:-28px; font-size:13px; white-space:nowrap; color:var(--fg); }
+.winpct-trend { z-index:1; }
+.winpct-trend-key { width:24px !important; height:0 !important; border:0 !important; border-top:3px solid var(--trend) !important; border-radius:0 !important; }
+.winpct-zero-key { width:24px !important; height:0 !important; border:0 !important; border-top:2px dashed var(--fg) !important; border-radius:0 !important; }
+.winpct-zero-v { position:absolute; top:0; height:100%; border-left:2px dashed var(--fg); pointer-events:none; z-index:1; }
