@@ -1,0 +1,8 @@
+.usg-ppp-export .ratings-tick-y { font-size:10px; }
+.usg-ppp-export .ratings-plot-wrap { margin-left:54px; margin-right:54px; }
+.export-rendering.usg-ppp-export .ratings-plot-wrap { margin-left:54px; margin-right:54px; }
+@media(max-width:560px) {
+  .usg-ppp-export .ratings-plot-wrap { margin-left:38px; margin-right:38px; }
+  .usg-ppp-export .usg-tick-secondary { visibility:hidden; }
+  .usg-ppp-export .ratings-tick-x { font-size:9px; }
+}

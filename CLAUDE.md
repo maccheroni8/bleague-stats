@@ -127,6 +127,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 317章: md「詳しい版」の段階2。3ターム・前半戦後半戦（`aiExportScope.ts`）、オンザコート別・Time to Shot・Streaks（境目で切れた連続は別の列に書く）、チーム情報のリーグ順位とリーグ平均（`aiDetailedLeague.ts`・ランキングと同じ列の定義と向き・全チームの試合記録を読む）、選手情報のプロフィール（`registrationLabel.ts` を個人詳細から切り出し）。画面だけの変更でキー不変（allKey 51f5d32f…）。検証は `validate:ai-export-detailed`。
 - 318章: md「詳しい版」の段階3。Shooting・Forced TOV（記録がある試合だけで数え、記録がある試合の数を書く。`aiDetailedYahoo.ts`。1シーズン・全チームの Forced TOV だけ teams.json の値）、選手の Shooting、B.ONE 対応（リーグを通す・短い版は不可・3ターム不可・記録が無い表は理由つきで省く）、記録の読み込みの進み具合と中止。画面だけの変更でキー不変（allKey 51f5d32f…）。重い条件はスマホで約26秒。
 - 319章: md「詳しい版」の段階4。時間帯「前半・後半も含める」（前半＝1Q・2Q、後半＝3Q・4Q。チーム＝Traditional〜Scoring・Shooting・Forced TOV・オンザコート別・Time to Shot、選手＝Traditional〜Scoring・Shooting。順位・リーグ平均は試合全体の列だけ。前半・後半の Shooting・Forced TOV は自チームの記録だけ読む。`aiDetailedYahoo.ts`）、B.ONE は前半・後半不可、10万字超は時間帯で2ファイル（`SPLIT_LIMIT_CHARACTERS`）。画面だけの変更でキー不変（allKey 51f5d32f…）。
+- 321章: 図解（個人）**USG% × PPP**（`figure=usg-ppp`。初期値は平均得点15点以上・出場率85%以上、軸の基本は USG% 10〜40・PPP 0.75〜1.50、移籍した選手は合算で1人1点、平均線は表示中の選手の単純平均。`src/figures/UsgPppFigure.tsx`・`src/lib/figureUsgPpp.ts`・`npm run validate:usg-ppp`）。一覧の列は「選手／チーム」（トップスコアラーもそろえた）。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

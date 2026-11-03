@@ -94,7 +94,7 @@ export default function TopScorersFigure({season,category}:FigureProps){
    </div></div>
   </ExportTarget>
   <div className="figure-notes"><p>条件と出場率の下限で絞った後、各チームの平均得点上位3人を表示。平均得点が同じ場合は総得点、出場時間、選手IDの順で決めます。数値は丸める前に比較しています。</p><p>出場率は対象期間のチーム試合数が分母。直近5・10試合はチームごとに選び、その後に試合種別を絞ります。移籍した選手はチームごとに別の点です。勝率は本人が出場した試合だけで計算します。</p><p>写真は現在保存されている1枚を使うため、当時のユニフォームとは限りません。写真がない場合は人の影の上に名字を表示します。重なる選手はチーム選択または下の一覧から選べます。</p><p>{scorerAxisTitle(axis)}。%PTSとOn ORtgは記録のそろう試合で計算します。PPPは既存の個人攻撃効率と同じ計算、PPSは得点÷FG試投数です。</p>{season<'2020-21'&&<p>%PTS・On ORtgは2020-21以降のため、横軸の選択肢に出していません。</p>}{plotted.length<visible.length&&<p>横軸の値がない{visible.length-plotted.length}人は図から除き、一覧には「—」で残しています。次点の選手との入れ替えはしません。</p>}</div>
-  <div className="ratings-table-scroll scorers-table" tabIndex={0} role="region" aria-label="チーム別の選手一覧"><table className="ratings-table"><thead><tr><th>{sortButton('team','チーム／選手')}</th><th>{sortButton('games','G')}</th><th>{sortButton('pts','PTS')}</th>{SCORER_AXES.map(a=><th key={a}>{sortButton(a,SCORER_LABELS[a])}</th>)}</tr></thead><tbody>{sorted.map(p=><tr key={p.id} className={team===p.teamId?'is-selected':''}><td><button onClick={()=>select(p)}>{teamLabel(p.teamId,p.teamName)} / {playerLabel(p.name)}</button></td><td>{p.games}</td><td>{formatDecimal(p.pts)}</td>{SCORER_AXES.map(a=><td key={a}>{valueText(p.values[a],a)}</td>)}</tr>)}</tbody></table></div>
+  <div className="ratings-table-scroll scorers-table" tabIndex={0} role="region" aria-label="チーム別の選手一覧"><table className="ratings-table"><thead><tr><th>{sortButton('team','選手／チーム')}</th><th>{sortButton('games','G')}</th><th>{sortButton('pts','PTS')}</th>{SCORER_AXES.map(a=><th key={a}>{sortButton(a,SCORER_LABELS[a])}</th>)}</tr></thead><tbody>{sorted.map(p=><tr key={p.id} className={team===p.teamId?'is-selected':''}><td><button onClick={()=>select(p)}>{playerLabel(p.name)} / {teamLabel(p.teamId,p.teamName)}</button></td><td>{p.games}</td><td>{formatDecimal(p.pts)}</td>{SCORER_AXES.map(a=><td key={a}>{valueText(p.values[a],a)}</td>)}</tr>)}</tbody></table></div>
   </>}
  </section>;
 }
@@ -113,7 +113,7 @@ function ScorerSilhouette({name}:{name:string}){
   <span className="scorer-name">{lines.map((l,i)=><span key={i}>{l}</span>)}</span>
  </span>;
 }
-function ScorerPhoto({point,label,selected,expanded,left,top,onSelect,onDismiss}:{point:ScorerPoint;label:string;selected:boolean;expanded:boolean;left:number;top:number;onSelect:()=>void;onDismiss:()=>void}){
+export function ScorerPhoto({point,label,selected,expanded,left,top,onSelect,onDismiss}:{point:Pick<ScorerPoint,'playerId'|'name'|'division'>;label:string;selected:boolean;expanded:boolean;left:number;top:number;onSelect:()=>void;onDismiss:()=>void}){
  const [failed,setFailed]=useState(false);
  return <button className={`ratings-point scorer-point${selected?' is-selected':''}${expanded?' is-expanded':''}`} aria-label={label} aria-pressed={selected} style={{left:`${left}%`,top:`${top}%`,borderColor:DIVISION_RATING_COLORS[point.division??'unknown']}} onPointerEnter={e=>{if(e.pointerType==='mouse')onSelect();}} onPointerLeave={e=>{if(e.pointerType==='mouse')onDismiss();}} onFocus={onSelect} onBlur={onDismiss} onClick={onSelect}>
  {!failed?<img src={playerPhotoUrl(point.playerId)} alt="" loading="eager" width={32} height={32} onError={()=>setFailed(true)}/>:<ScorerSilhouette name={point.name}/>}
