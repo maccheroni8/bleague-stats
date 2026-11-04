@@ -10,16 +10,18 @@
 
 .fourfactors-export { margin-top:16px; }
 .fourfactors-scroll { overflow-x:auto; }
-.fourfactors-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:13px; min-width:1060px; font-variant-numeric:tabular-nums; }
+.fourfactors-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:13px; min-width:1084px; font-variant-numeric:tabular-nums; }
 /* 列の幅: 順位・チームのほかの11列（レーティング3＋OFFENSE4＋DEFENSE4）は同じ幅 */
-.fourfactors-table .ff-col-rank { width:44px; }
-.fourfactors-table .ff-col-team { width:180px; }
-.fourfactors-table .ff-col-value { width:76px; }
+.fourfactors-table .ff-col-rank { width:40px; }
+/* チーム名は1行（最長の「東京ユナイテッドバスケットボールクラブ」が入る幅） */
+.fourfactors-table .ff-col-team { width:296px; }
+.fourfactors-table .ff-col-value { width:68px; }
 .fourfactors-table .ff-opp { display:block; line-height:1.2; }
 .fourfactors-table th,.fourfactors-table td { border-bottom:1px solid var(--border); padding:6px 8px; text-align:center; white-space:nowrap; }
 .fourfactors-table thead th { background:var(--header-bg); }
 .fourfactors-table .ff-group { font-size:12px; border-bottom:1px solid var(--border); }
 .fourfactors-table .ff-team { text-align:left; }
+.fourfactors-table .team-name-cell { white-space:nowrap; }
 .fourfactors-table .ff-rank { width:2.5em; color:var(--muted); }
 .fourfactors-table .ff-group-start { border-left:2px solid var(--border); }
 .fourfactors-table th button { background:none; border:0; color:var(--fg); cursor:pointer; padding:0; font:inherit; }
@@ -30,7 +32,7 @@
 .export-rendering .fourfactors-scroll { overflow:visible; }
 .export-rendering .fourfactors-table { min-width:0; }
 @media(max-width:560px) {
-  .fourfactors-table { min-width:976px; width:976px; }
+  .fourfactors-table { min-width:884px; width:884px; }
   .fourfactors-table .ff-col-team { width:96px; }
   .fourfactors-table th,.fourfactors-table td { padding:6px 4px; }
   .fourfactors-table .ff-team { position:sticky; left:0; background:var(--bg); z-index:1; }

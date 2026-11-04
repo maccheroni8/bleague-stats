@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import type { Division } from "../../shared/types";
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from "../../shared/gameType";
 import { FilterBar } from "../components/FilterBar";
@@ -36,8 +36,21 @@ const divisionCodec=divisionListParam<"unknown">("dv",["unknown"]);
 const NO_DIVISIONS:DivisionChoice[]=[];
 const divisionLabel=(division: Division | "unknown")=>division === "unknown" ? "地区不明" : DIVISION_LABELS[division];
 const headerTitle=(label:string)=>label.startsWith("opp ")?`相手の${statDescription(label.slice(4),"team")??statJa(label,"team")}`:statDescription(label,"team")??statJa(label,"team");
+// 並べ替え（ffs=項目 または 項目:rev）。初期値（NetRtg の良い順）は URL に載せない
+type SortState={key:FfKey;bestFirst:boolean};
+const DEFAULT_SORT:SortState={key:"netrtg",bestFirst:true};
+const sortCodec:UrlCodec<SortState>={
+  keys:["ffs"],read:p=>{
+    const [key,dir]=(p.get("ffs")??"").split(":");
+    const found=FF_DEFS.find(def=>def.key===key);
+    return found?{key:found.key,bestFirst:dir!=="rev"}:undefined;
+  },write:(p,value)=>{
+    p.delete("ffs");
+    if(value.key!==DEFAULT_SORT.key||!value.bestFirst)p.set("ffs",value.bestFirst?value.key:`${value.key}:rev`);
+  },
+};
 const GROUPS=[
-  {id:"rating",label:"レーティング"},
+  {id:"rating",label:"RATING"},
   {id:"offense",label:"OFFENSE"},
   {id:"defense",label:"DEFENSE"},
 ] as const;
@@ -46,7 +59,7 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
   const [filter,setFilter]=useUrlState(rangeCodec,DEFAULT_RANGE);
   const [gameType,setGameType]=useUrlState(gameCodec,"regular");
   const [division,setDivision]=useUrlState(divisionCodec,NO_DIVISIONS);
-  const [sort,setSort]=useState<{key:FfKey;bestFirst:boolean}>({key:"netrtg",bestFirst:true});
+  const [sort,setSort]=useUrlState(sortCodec,DEFAULT_SORT);
   const request=useJsonData(async()=>{
     const teams=await fetchTeams(season,category);
     const [divisions,entries]=await Promise.all([fetchDivisionHistory().catch(()=>null),Promise.all(teams.map(async team=>{
@@ -74,22 +87,24 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
   const [periodLabel]=situationalFilterLabels(filter);
   // 副題は「期間／試合種別／（絞り込んだときだけ）地区」。期間は「シーズン全体」のときも書く
   const conditions=[`${season} ${periodLabel}`,seasonGameTypeLabels(season)[gameType],...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")])];
+  // 並べている項目と向き（↓＝値が大きい順、↑＝小さい順）。副題の末尾に書く
+  const sortLabel=`${FF_DEF[sort.key].label}${sort.bestFirst===FF_DEF[sort.key].higherIsBetter?"↓":"↑"}`;
   const baseDate={kind:"season" as const,season,gameType};
   const targetRef=useRef<HTMLDivElement>(null);
   const toggleSort=(key:FfKey)=>setSort(previous=>({key,bestFirst:previous.key===key?!previous.bestFirst:true}));
   return <section aria-label="Four Factors とレーティングの色分け表">
-    <FilterBar axes={axes} stateKey="figures:fourfactors" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);}} />
+    <FilterBar axes={axes} stateKey="figures:fourfactors" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);setSort(DEFAULT_SORT);}} />
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!model || !rows.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
       <ExportImageButton targetRef={targetRef} filename={`Four_Factors_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={targetRef} className="ratings-export fourfactors-export" baseDate={baseDate}>
-        <ConditionTitle title="Four Factors" exportScope={`${season}シーズン`} conditions={conditions} />
+        <ConditionTitle title="Four Factors" exportScope={`${season}シーズン`} conditions={[...conditions,sortLabel]} />
         <div className="fourfactors-scroll" tabIndex={0} role="region" aria-label="Four Factors とレーティングの表">
           <table className="fourfactors-table">
             <colgroup><col className="ff-col-rank"/><col className="ff-col-team"/>{FF_DEFS.map(def=><col key={def.key} className="ff-col-value"/>)}</colgroup>
             <thead>
               <tr>
-                <th rowSpan={2} className="ff-rank">順位</th>
-                <th rowSpan={2} className="ff-team">チーム</th>
+                <th rowSpan={2} className="ff-rank">#</th>
+                <th rowSpan={2} className="ff-team">TEAM</th>
                 {GROUPS.map(group=><th key={group.id} colSpan={FF_DEFS.filter(def=>def.group===group.id).length} className={`ff-group ff-group-${group.id}`}>{group.label}</th>)}
               </tr>
               <tr>
@@ -101,7 +116,7 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
             <tbody>
               {sorted.map((row,i)=><tr key={row.item.teamId}>
                 <td className="ff-rank">{ranks[i]}</td>
-                <td className="ff-team"><span className="team-name-cell"><TeamLogo teamId={row.item.teamId} size={20}/><ResponsiveTeamName teamId={row.item.teamId} name={row.item.teamName}/></span></td>
+                <td className="ff-team"><span className="team-name-cell"><TeamLogo teamId={row.item.teamId} size={20}/><ResponsiveTeamName teamId={row.item.teamId} name={row.item.teamName} nowrap/></span></td>
                 {FF_DEFS.map(def=><td key={def.key} className={`ff-cell ff-l${row.levels[def.key]}${def.key==="efg"||def.key==="oppefg"||def.key==="netrtg"?" ff-group-start":""}`} data-level={row.levels[def.key]}>{ffText(def.key,row.item.row)}</td>)}
               </tr>)}
             </tbody>
