@@ -1,0 +1,29 @@
+/* 色の5段階（0＝悪い側 … 4＝良い側）。サイトの落ち着いた配色になじむ淡い赤→黄→緑。ダークは暗めの同系色で、数字（--fg）を読めるようにする。
+   保存画像は複製側の data-theme が light 固定なので、ライトの色になる */
+:root {
+  --ff-l0: #f2b8b2; --ff-l1: #f7d3b2; --ff-l2: #f5eab0; --ff-l3: #cfe5b6; --ff-l4: #a2d4aa;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --ff-l0: #7d3535; --ff-l1: #7a542f; --ff-l2: #6e6a2e; --ff-l3: #41693a; --ff-l4: #2b7048; }
+}
+:root[data-theme="dark"] { --ff-l0: #7d3535; --ff-l1: #7a542f; --ff-l2: #6e6a2e; --ff-l3: #41693a; --ff-l4: #2b7048; }
+
+.fourfactors-export { margin-top:16px; }
+.fourfactors-scroll { overflow-x:auto; }
+.fourfactors-table { width:100%; border-collapse:collapse; font-size:13px; min-width:900px; font-variant-numeric:tabular-nums; }
+.fourfactors-table th,.fourfactors-table td { border-bottom:1px solid var(--border); padding:6px 8px; text-align:center; white-space:nowrap; }
+.fourfactors-table thead th { background:var(--header-bg); }
+.fourfactors-table .ff-group { font-size:12px; border-bottom:1px solid var(--border); }
+.fourfactors-table .ff-team { text-align:left; }
+.fourfactors-table .ff-rank { width:2.5em; color:var(--muted); }
+.fourfactors-table .ff-group-start { border-left:2px solid var(--border); }
+.fourfactors-table th button { background:none; border:0; color:var(--fg); cursor:pointer; padding:0; font:inherit; }
+.fourfactors-table .ff-cell { color:var(--fg); }
+.ff-l0 { background:var(--ff-l0); } .ff-l1 { background:var(--ff-l1); } .ff-l2 { background:var(--ff-l2); } .ff-l3 { background:var(--ff-l3); } .ff-l4 { background:var(--ff-l4); }
+.ff-note { text-align:center; }
+.export-rendering.fourfactors-export { width:1100px !important; }
+.export-rendering .fourfactors-table { min-width:0; }
+@media(max-width:560px) {
+  .fourfactors-table .ff-team { position:sticky; left:0; background:var(--bg); z-index:1; }
+  .fourfactors-table thead .ff-team { background:var(--header-bg); }
+}

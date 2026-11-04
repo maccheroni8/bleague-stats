@@ -129,6 +129,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 319章: md「詳しい版」の段階4。時間帯「前半・後半も含める」（前半＝1Q・2Q、後半＝3Q・4Q。チーム＝Traditional〜Scoring・Shooting・Forced TOV・オンザコート別・Time to Shot、選手＝Traditional〜Scoring・Shooting。順位・リーグ平均は試合全体の列だけ。前半・後半の Shooting・Forced TOV は自チームの記録だけ読む。`aiDetailedYahoo.ts`）、B.ONE は前半・後半不可、10万字超は時間帯で2ファイル（`SPLIT_LIMIT_CHARACTERS`）。画面だけの変更でキー不変（allKey 51f5d32f…）。
 - 321章: 図解（個人）**USG% × PPP**（`figure=usg-ppp`。初期値は平均得点15点以上・出場率85%以上、軸の基本は USG% 10〜40・PPP 0.75〜1.50、移籍した選手は合算で1人1点、平均線は表示中の選手の単純平均。`src/figures/UsgPppFigure.tsx`・`src/lib/figureUsgPpp.ts`・`npm run validate:usg-ppp`）。一覧の列は「選手／チーム」（トップスコアラーもそろえた）。**画面だけの変更でキー不変**
 - 322章: 図解（チーム）**勝率と登録区分別の得失点**（`figure=winpct-class`。縦軸＝勝率、横軸＝区分（外国籍・帰化・アジア／日本人／外国籍のみ〔2026-27以降〕）×（得点・失点・得失点差）の1試合平均。傾向線・r・平均線は**表示しているチームで計算**。`src/figures/WinPctScatterFigure.tsx`・`src/lib/figureWinPct.ts`・`npm run validate:winpct-scatter`）。**画面だけの変更でキー不変**
+- 323章: 図解（チーム）**Four Factors とレーティングの色分け表**（`figure=four-factors`。NetRtg・ORtg・DRtg・オフェンス／ディフェンス（相手）の eFG%・TOV%・OR%・FTR。値は全チームスタッツの Advanced 列そのまま。色は表示しているチームの中のパーセンタイルで5段階〔少ないほうが良い列は逆向き。地区で絞ったら絞った中で決め直す〕。`src/lib/figureFourFactors.ts`。検証は `npm run validate:four-factors`。**画面だけの変更でキー不変**）
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
