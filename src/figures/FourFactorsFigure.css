@@ -10,7 +10,12 @@
 
 .fourfactors-export { margin-top:16px; }
 .fourfactors-scroll { overflow-x:auto; }
-.fourfactors-table { width:100%; border-collapse:collapse; font-size:13px; min-width:900px; font-variant-numeric:tabular-nums; }
+.fourfactors-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:13px; min-width:1060px; font-variant-numeric:tabular-nums; }
+/* 列の幅: 順位・チームのほかの11列（レーティング3＋OFFENSE4＋DEFENSE4）は同じ幅 */
+.fourfactors-table .ff-col-rank { width:44px; }
+.fourfactors-table .ff-col-team { width:180px; }
+.fourfactors-table .ff-col-value { width:76px; }
+.fourfactors-table .ff-opp { display:block; line-height:1.2; }
 .fourfactors-table th,.fourfactors-table td { border-bottom:1px solid var(--border); padding:6px 8px; text-align:center; white-space:nowrap; }
 .fourfactors-table thead th { background:var(--header-bg); }
 .fourfactors-table .ff-group { font-size:12px; border-bottom:1px solid var(--border); }
@@ -20,10 +25,14 @@
 .fourfactors-table th button { background:none; border:0; color:var(--fg); cursor:pointer; padding:0; font:inherit; }
 .fourfactors-table .ff-cell { color:var(--fg); }
 .ff-l0 { background:var(--ff-l0); } .ff-l1 { background:var(--ff-l1); } .ff-l2 { background:var(--ff-l2); } .ff-l3 { background:var(--ff-l3); } .ff-l4 { background:var(--ff-l4); }
-.ff-note { text-align:center; }
-.export-rendering.fourfactors-export { width:1100px !important; }
+.ff-note { text-align:left; }
+.export-rendering.fourfactors-export { width:1160px !important; }
+.export-rendering .fourfactors-scroll { overflow:visible; }
 .export-rendering .fourfactors-table { min-width:0; }
 @media(max-width:560px) {
+  .fourfactors-table { min-width:976px; width:976px; }
+  .fourfactors-table .ff-col-team { width:96px; }
+  .fourfactors-table th,.fourfactors-table td { padding:6px 4px; }
   .fourfactors-table .ff-team { position:sticky; left:0; background:var(--bg); z-index:1; }
   .fourfactors-table thead .ff-team { background:var(--header-bg); }
 }

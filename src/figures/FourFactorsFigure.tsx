@@ -38,8 +38,8 @@ const divisionLabel=(division: Division | "unknown")=>division === "unknown" ? "
 const headerTitle=(label:string)=>label.startsWith("opp ")?`相手の${statDescription(label.slice(4),"team")??statJa(label,"team")}`:statDescription(label,"team")??statJa(label,"team");
 const GROUPS=[
   {id:"rating",label:"レーティング"},
-  {id:"offense",label:"オフェンスの Four Factors"},
-  {id:"defense",label:"ディフェンスの Four Factors（相手の数字）"},
+  {id:"offense",label:"OFFENSE"},
+  {id:"defense",label:"DEFENSE"},
 ] as const;
 
 export default function FourFactorsFigure({season,category}:FigureProps) {
@@ -71,7 +71,9 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
     return {...axis,tier:"primary" as const};
   });
   const axes:FilterAxis[]=[...rangeAxes,gameTypeAxis(gameType,setGameType,season),divisionMultiAxis<"unknown">({id:"fourFactorsDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision})];
-  const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")])];
+  const [periodLabel]=situationalFilterLabels(filter);
+  // 副題は「期間／試合種別／（絞り込んだときだけ）地区」。期間は「シーズン全体」のときも書く
+  const conditions=[`${season} ${periodLabel}`,seasonGameTypeLabels(season)[gameType],...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")])];
   const baseDate={kind:"season" as const,season,gameType};
   const targetRef=useRef<HTMLDivElement>(null);
   const toggleSort=(key:FfKey)=>setSort(previous=>({key,bestFirst:previous.key===key?!previous.bestFirst:true}));
@@ -83,6 +85,7 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
         <ConditionTitle title="Four Factors" exportScope={`${season}シーズン`} conditions={conditions} />
         <div className="fourfactors-scroll" tabIndex={0} role="region" aria-label="Four Factors とレーティングの表">
           <table className="fourfactors-table">
+            <colgroup><col className="ff-col-rank"/><col className="ff-col-team"/>{FF_DEFS.map(def=><col key={def.key} className="ff-col-value"/>)}</colgroup>
             <thead>
               <tr>
                 <th rowSpan={2} className="ff-rank">順位</th>
@@ -91,7 +94,7 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
               </tr>
               <tr>
                 {FF_DEFS.map(def=><th key={def.key} className={`ff-col${def.key==="efg"||def.key==="oppefg"||def.key==="netrtg"?" ff-group-start":""}`} aria-sort={sort.key===def.key?(sort.bestFirst===def.higherIsBetter?"descending":"ascending"):"none"}>
-                  <button title={headerTitle(def.label)} onClick={()=>toggleSort(def.key)}>{def.label}<span className="export-hide">{sort.key===def.key?(sort.bestFirst===def.higherIsBetter?" ↓":" ↑"):" ↕"}</span></button>
+                  <button title={headerTitle(def.label)} onClick={()=>toggleSort(def.key)}>{def.label.startsWith("opp ")?<><span className="ff-opp">opp</span><span className="ff-opp">{def.label.slice(4)}<span className="export-hide">{sort.key===def.key?(sort.bestFirst===def.higherIsBetter?" ↓":" ↑"):" ↕"}</span></span></>:<>{def.label}<span className="export-hide">{sort.key===def.key?(sort.bestFirst===def.higherIsBetter?" ↓":" ↑"):" ↕"}</span></>}</button>
                 </th>)}
               </tr>
             </thead>
