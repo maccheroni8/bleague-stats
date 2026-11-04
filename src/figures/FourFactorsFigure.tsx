@@ -143,7 +143,7 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
       </ExportTarget>
       {tip&&tipRow&&<div role="tooltip" className="ff-tooltip" style={{left:`clamp(8px, calc(${tip.x}px - 130px), calc(100vw - 268px))`,...(tip.bottom+120>innerHeight&&tip.top>130?{top:tip.top-6,transform:"translateY(-100%)"}:{top:tip.bottom+6})}}>
         <strong>{teamLabel(tipRow.item.teamId,tipRow.item.teamName)}</strong>
-        <span>{FF_DEF[tip.key].label}（{statJa(FF_DEF[tip.key].label,"team")}）</span>
+        <span>{FF_DEF[tip.key].label}</span>
         <span>{ffText(tip.key,tipRow.item.row)}</span>
         <span>{rankMaps[tip.key].get(tip.teamId)}位／{rows.length}チーム</span>
       </div>}
