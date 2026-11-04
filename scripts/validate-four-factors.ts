@@ -114,6 +114,16 @@ if (source) {
             assert.equal(goodFirst[0]!.levels[key], 4, `${season} ${category} ${key} 最良は緑`);
             assert.equal(goodFirst.at(-1)!.levels[key], 0, `${season} ${category} ${key} 最悪は赤`);
           }
+          // ポップアップの順位（表示しているチームの中・良い順）が色の段階と矛盾しない: 順位が上なら段階は同じか良い。1位は最良の値
+          const ranks = ffRanks(ff, key);
+          assert.equal(Math.min(...ranks), 1, `${season} ${category} ${key} 1位がある`);
+          ff.forEach((a, i) => ff.forEach((b, j) => {
+            if (ranks[i]! < ranks[j]!) assert.ok(a.levels[key] >= b.levels[key], `${season} ${category} ${key} 順位と段階が矛盾`);
+            if (ranks[i] === ranks[j]) assert.equal(a.values[key], b.values[key], `${season} ${category} ${key} 同順位は同じ値`);
+            if (ranks[i]! < ranks[j]!) assert.ok(def.higherIsBetter ? a.values[key] > b.values[key] : a.values[key] < b.values[key], `${season} ${category} ${key} 上位は良い値（向き）`);
+          }));
+          const best = ff.filter((_, i) => ranks[i] === 1);
+          assert.ok(best.every(row => row.values[key] === goodFirst[0]!.values[key]), `${season} ${category} ${key} 1位は最良の値`);
           colorChecks++;
         }
         // 絞り込み（先頭の半分だけ）では、残ったチームの中で色を決め直す

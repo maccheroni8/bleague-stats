@@ -38,3 +38,10 @@
   .fourfactors-table .ff-team { position:sticky; left:0; background:var(--bg); z-index:1; }
   .fourfactors-table thead .ff-team { background:var(--header-bg); }
 }
+
+/* 数字のマスのポップアップ（ORtg × DRtg の図の吹き出しと同じ見た目。画面の中だけ・保存画像の枠の外に出す） */
+.ff-tooltip { position:fixed; z-index:50; width:260px; max-width:calc(100vw - 16px); box-sizing:border-box; padding:8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg); box-shadow:0 2px 8px #0003; font-size:12px; pointer-events:none; }
+.ff-tooltip strong { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:5px; }
+.ff-tooltip span { display:block; line-height:21px; }
+.fourfactors-table .ff-cell { cursor:default; }
+.fourfactors-table .ff-cell:focus-visible { outline:2px solid var(--fg); outline-offset:-2px; }

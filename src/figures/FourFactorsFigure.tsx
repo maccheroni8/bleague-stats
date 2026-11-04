@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Division } from "../../shared/types";
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from "../../shared/gameType";
 import { FilterBar } from "../components/FilterBar";
@@ -16,9 +16,10 @@ import { type SituationalFilter } from "../lib/situational";
 import { situationalFilterLabels } from "../lib/conditionLabels";
 import { DIVISION_LABELS, divisionOrder } from "../lib/divisionGroups";
 import { buildRatingScatter } from "../lib/figureRatings";
-import { buildFourFactors, ffRanks, ffText, sortFourFactors, FF_DEF, FF_DEFS, FF_NOTE, type FfKey } from "../lib/figureFourFactors";
+import { buildFourFactors, ffRanks, ffText, sortFourFactors, FF_DEF, FF_DEFS, FF_KEYS, FF_NOTE, type FfKey } from "../lib/figureFourFactors";
 import { statDescription } from "../lib/statDescriptions";
 import { statJa } from "../lib/statNames";
+import { useTeamLabel } from "../lib/teamLabel";
 import type { FigureProps } from "./catalog";
 import "./FourFactorsFigure.css";
 
@@ -79,6 +80,22 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
   const rows=useMemo(()=>buildFourFactors((model?.points??[]).filter(point=>activeDivision.length === 0 || activeDivision.includes(point.division??"unknown"))),[model,activeDivision.join(",")]);
   const sorted=useMemo(()=>sortFourFactors(rows,sort.key,sort.bestFirst),[rows,sort]);
   const ranks=useMemo(()=>ffRanks(sorted,sort.key),[sorted,sort.key]);
+  // 数字のマスのポップアップ（ORtg × DRtg の図の吹き出しと同じ動き: マウスを乗せると出て外すと消える、タッチ・キーボードは押す／フォーカス）。順位は表示しているチームの中（色の向きと同じ）
+  const rankMaps=useMemo(()=>Object.fromEntries(FF_KEYS.map(key=>{const list=ffRanks(rows,key);return [key,new Map(rows.map((row,i)=>[row.item.teamId,list[i]!]))];})) as Record<FfKey,Map<string,number>>,[rows]);
+  const [tip,setTip]=useState<{teamId:string;key:FfKey;x:number;top:number;bottom:number}|null>(null);
+  const teamLabel=useTeamLabel();
+  const tipCell=useRef<{cell:HTMLElement;at:number}|null>(null);
+  const showTip=(teamId:string,key:FfKey,cell:HTMLElement)=>{tipCell.current={cell,at:Date.now()};const r=cell.getBoundingClientRect();setTip({teamId,key,x:r.left+r.width/2,top:r.top,bottom:r.bottom});};
+  useEffect(()=>{
+    if(!tip)return;
+    const hide=()=>setTip(null);
+    // 押した直後はブラウザが押したマスを見える位置へ動かす（スクロールが起きる）ので、そのときは消さずに位置を取り直す。ほかのスクロールでは消す
+    const onScroll=()=>{const shown=tipCell.current;if(shown&&Date.now()-shown.at<500&&shown.cell.isConnected){const r=shown.cell.getBoundingClientRect();setTip(previous=>previous&&{...previous,x:r.left+r.width/2,top:r.top,bottom:r.bottom});}else hide();};
+    const outside=(event:PointerEvent)=>{if(!(event.target as Element | null)?.closest?.(".ff-cell"))hide();};
+    document.addEventListener("pointerdown",outside);window.addEventListener("scroll",onScroll,true);window.addEventListener("resize",hide);
+    return ()=>{document.removeEventListener("pointerdown",outside);window.removeEventListener("scroll",onScroll,true);window.removeEventListener("resize",hide);};
+  },[tip]);
+  const tipRow=tip?rows.find(row=>row.item.teamId===tip.teamId):undefined;
   const rangeAxes=situationalAxes(filter,next=>setFilter({range:next.range})).filter(axis=>axis.id === "s.range" || (filter.range.kind === "dateRange" && (axis.id === "s.dateStart" || axis.id === "s.dateEnd"))).map(axis=>{
     if(axis.kind === "select") return {...axis,options:axis.options.filter(option=>["all","recent:5","recent:10","custom"].includes(option.value))};
     return {...axis,tier:"primary" as const};
@@ -117,13 +134,19 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
               {sorted.map((row,i)=><tr key={row.item.teamId}>
                 <td className="ff-rank">{ranks[i]}</td>
                 <td className="ff-team"><span className="team-name-cell"><TeamLogo teamId={row.item.teamId} size={20}/><ResponsiveTeamName teamId={row.item.teamId} name={row.item.teamName} nowrap/></span></td>
-                {FF_DEFS.map(def=><td key={def.key} className={`ff-cell ff-l${row.levels[def.key]}${def.key==="efg"||def.key==="oppefg"||def.key==="netrtg"?" ff-group-start":""}`} data-level={row.levels[def.key]}>{ffText(def.key,row.item.row)}</td>)}
+                {FF_DEFS.map(def=><td key={def.key} tabIndex={0} onPointerEnter={event=>{if(event.pointerType==="mouse")showTip(row.item.teamId,def.key,event.currentTarget);}} onPointerLeave={event=>{if(event.pointerType==="mouse")setTip(null);}} onFocus={event=>showTip(row.item.teamId,def.key,event.currentTarget)} onBlur={()=>setTip(null)} onClick={event=>showTip(row.item.teamId,def.key,event.currentTarget)} className={`ff-cell ff-l${row.levels[def.key]}${def.key==="efg"||def.key==="oppefg"||def.key==="netrtg"?" ff-group-start":""}`} data-level={row.levels[def.key]}>{ffText(def.key,row.item.row)}</td>)}
               </tr>)}
             </tbody>
           </table>
         </div>
         <p className="figure-notes ff-note">{FF_NOTE}</p>
       </ExportTarget>
+      {tip&&tipRow&&<div role="tooltip" className="ff-tooltip" style={{left:`clamp(8px, calc(${tip.x}px - 130px), calc(100vw - 268px))`,...(tip.bottom+120>innerHeight&&tip.top>130?{top:tip.top-6,transform:"translateY(-100%)"}:{top:tip.bottom+6})}}>
+        <strong>{teamLabel(tipRow.item.teamId,tipRow.item.teamName)}</strong>
+        <span>{FF_DEF[tip.key].label}（{statJa(FF_DEF[tip.key].label,"team")}）</span>
+        <span>{ffText(tip.key,tipRow.item.row)}</span>
+        <span>{rankMaps[tip.key].get(tip.teamId)}位／{rows.length}チーム</span>
+      </div>}
       {model.omitted.length>0&&<p className="figure-notes export-hide">対象試合がない、または値を確認できない{model.omitted.length}チームは表示していません。</p>}
       {!request.data?.divisions&&<p className="figure-notes export-hide">地区の情報を読み込めないため、地区不明として扱っています。</p>}
     </>}
