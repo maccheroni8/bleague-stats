@@ -419,17 +419,27 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
   },
 ];
 
-/** プレーオフ進出ラインまでの見通しの列（ラインを設定したシーズン・リーグだけ。ゲーム差の右に足す） */
+/** プレーオフ進出ラインまでの見通しの列（ラインを設定したシーズン・リーグだけ。右端の「対戦相手の強さ」の右に足す） */
 function withPlayoffLineColumn(columns: Column<StandingsRow>[], line: PlayoffWinLine | null): Column<StandingsRow>[] {
   if (!line) return columns;
   const col: Column<StandingsRow> = {
     key: "playoffLine",
     label: `${line.wins}勝まで`,
     sortValue: (t) => playoffLineSortValue(playoffLineStatus(t.wins, t.losses, line)),
-    format: (t) => playoffLineText(playoffLineStatus(t.wins, t.losses, line)),
+    // スマホ幅では「あと25勝」と「（残り21敗まで可）」を2行にする（1行だと列が広すぎて、固定の列の下に隠れて全体が見えない）
+    render: (t) => {
+      const st = playoffLineStatus(t.wins, t.losses, line);
+      if (st.kind !== "open") return playoffLineText(st);
+      return (
+        <span className="win-line-cell">
+          <span>あと{st.needWins}勝</span>
+          <span>（残り{st.maxLosses}敗まで可）</span>
+        </span>
+      );
+    },
     higherIsBetter: false,
   };
-  const i = columns.findIndex((c) => c.key === "divisionGamesBehind");
+  const i = columns.findIndex((c) => c.key === "opponentStrength");
   return i < 0 ? [...columns, col] : [...columns.slice(0, i + 1), col, ...columns.slice(i + 1)];
 }
 

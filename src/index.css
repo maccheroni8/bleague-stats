@@ -8568,3 +8568,9 @@ table.sortable-table.tts-table th {
 .tts-name-legend dd {
   margin: 0;
 }
+
+/* 順位表の「36勝まで」の列（2行にするのはスマホ幅だけ。設計書327章） */
+.win-line-cell > span { display: inline-block; }
+@media (max-width: 760px) {
+  .win-line-cell > span { display: block; }
+}

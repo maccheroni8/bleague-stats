@@ -132,6 +132,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 323章: 図解（チーム）**Four Factors とレーティングの色分け表**（`figure=four-factors`。NetRtg・ORtg・DRtg・オフェンス／ディフェンス（相手）の eFG%・TOV%・OR%・FTR。値は全チームスタッツの Advanced 列そのまま。色は表示しているチームの中のパーセンタイルで5段階〔少ないほうが良い列は逆向き。地区で絞ったら絞った中で決め直す〕。`src/lib/figureFourFactors.ts`。検証は `npm run validate:four-factors`。**画面だけの変更でキー不変**）
 - 325章: 図解の見た目の統一（主タブ・保存ボタンは右端に固定・一覧は `SortableTable`・掲載基準は `eligibilityAxis.tsx`・説明文は用語集 `GlossaryFigures.tsx` へ）と、**「地区間の対戦数」**（`figure=division-matchups`。全シーズン・両リーグ。ふつうの対戦数＝いちばん多い対戦数〔同数は小さいほう〕、少ないマスは青・多いマスは橙。`src/lib/divisionMatchups.ts`・`npm run validate:one-game-matchups`）。年齢分布は ●日本人 ◆外国籍 ▲帰化・アジア特別枠。**画面だけの変更でキー不変**
 - 326章: 保守とランキング・順位表のまとめ（継続／移籍・合計の試合数・PPP・相手の見出し・「36勝まで」列〔`playoffWinLine.ts`〕・プレーオフ圏内ボタン〔`playoffZone.ts`〕・3点差以内／6点差以内・全選手スタッツのシーズン切替の不具合）。**画面だけの変更でキー不変**
+- 327章: 順位表「36勝まで」の列を「対戦相手の強さ」の右へ移動。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 
