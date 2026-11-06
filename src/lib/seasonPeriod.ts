@@ -15,6 +15,7 @@ import {
   PERIOD_ROW_FLAG_PLUS_MINUS,
   PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED,
   PLAYER_PERIOD_STAT_COLUMNS,
+  PLAYER_PERIOD_ASSIST_POINTS_COLUMN,
   TEAM_PERIOD_COUNT_COLUMNS,
   type PeriodPossKey,
   type PlayerPeriodStatColumn,
@@ -207,6 +208,10 @@ export function seasonPeriodTotalsOf(
   // 出場中の割合の材料（2020-21以降の索引だけが持つ列。割合の品質ビットが立たない試合・値の無い行は持たせない）
   const oc = { pts: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, fgAssists: 0 };
   let ocOk = source.period.file.rows.stats["ocQuality"] !== undefined;
+  // ポイントクリエイトの材料（本人のアシストから生まれた得点。古い索引には無い。値が -1 の行はプレーバイプレーの無い試合。DESIGN.md 333章）
+  const apColumn = source.period.file.rows.stats[PLAYER_PERIOD_ASSIST_POINTS_COLUMN];
+  let apOk = apColumn !== undefined;
+  let assistPoints = 0;
   const from = source.period.start[i]!;
   if (from !== -1) {
     const { stats, period: periods, flags } = source.period.file.rows;
@@ -220,6 +225,11 @@ export function seasonPeriodTotalsOf(
           for (const key of ["pts", "fgm", "fga", "tpm", "tpa", "ftm", "fta"] as const) oc[key] += stats[`ocOwn.${key}`]![k]!;
           oc.fgAssists += stats["fgAssists"]![k]!;
         }
+      }
+      if (apOk) {
+        const v = apColumn![k]!;
+        if (v < 0) apOk = false;
+        else assistPoints += v;
       }
       const officialPm = (flags[k]! & (PERIOD_ROW_FLAG_PLUS_MINUS | PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED)) !== 0;
       if (officialPm) hasPlusMinus = true;
@@ -235,7 +245,16 @@ export function seasonPeriodTotalsOf(
   if (!own || !opp) return null;
   const poss = source.teamPeriod.rows.poss[value as PeriodPossKey]?.[ownRow] ?? 0;
   const isStarter = (source.player.file.rows.flags[i]! & ROW_FLAG_STARTER) !== 0;
-  return { player: playerCountsOf(sum, hasPlusMinus), own, opp, poss: poss < 0 ? 0 : poss, isStarter, ...(ocOk && found ? { onCourt: oc } : {}) };
+  return {
+    player: playerCountsOf(sum, hasPlusMinus),
+    own,
+    opp,
+    poss: poss < 0 ? 0 : poss,
+    isStarter,
+    ...(ocOk && found ? { onCourt: oc } : {}),
+    // 区間に記録の無い試合（その区間に出ていない）は 0 として数える（G と同じ試合）
+    ...(apOk ? { assistPoints } : {}),
+  };
 }
 
 /** 延長に出た試合が基準以上の選手の選手ID（シーズン全体・試合区分を問わない） */
@@ -336,10 +355,9 @@ export function buildTeamSplitRowsFromPeriodSource(
   playerId: string,
   period: PeriodRangeValue,
   source: SeasonPeriodSource | null | undefined,
-  combinedTeamOverride?: TeamSeasonRawTotals,
 ): TeamSplitRow[] {
   if (period === "all") {
-    return buildTeamSplitRows(keyPrefix, logs, ownTeamByScheduleKey, teamTotalsByTeamId, displayMode, seasonStartYear, combinedTeamOverride);
+    return buildTeamSplitRows(keyPrefix, logs, ownTeamByScheduleKey, teamTotalsByTeamId, displayMode, seasonStartYear);
   }
   const played = logs.filter((g) => g.min > 0);
   if (played.length === 0 || !source) return [];

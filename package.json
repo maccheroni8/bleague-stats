@@ -116,6 +116,8 @@
     "validate:tts-index": "node --experimental-strip-types scripts/validate-tts-index.ts",
     "validate:time-to-shot": "node --experimental-strip-types scripts/validate-time-to-shot.ts",
     "validate:top-scorers": "esbuild scripts/validate-top-scorers.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-top-scorers.mjs && node node_modules/.cache/validate-top-scorers.mjs",
+    "validate:points-created": "esbuild scripts/validate-points-created.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-points-created.mjs && node node_modules/.cache/validate-points-created.mjs",
+    "validate:forced-turnover-logs": "esbuild scripts/validate-forced-turnover-logs.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-forced-turnover-logs.mjs && node node_modules/.cache/validate-forced-turnover-logs.mjs",
     "validate:usg-ppp": "esbuild scripts/validate-usg-ppp.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-usg-ppp.mjs && node node_modules/.cache/validate-usg-ppp.mjs"
   },
   "dependencies": {

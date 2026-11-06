@@ -8,7 +8,7 @@
 //  3. 「全体」の行の Periods が、試合ログの区間別の得点の合計と一致する
 //  選手
 //  4. 相手ごとの行の出場試合数・勝敗・合計の項目を全部足すと「全体」と一致する（レギュラー・ポストシーズン・合算。移籍した選手も所属の違う試合を相手ごとにまとめる）
-//  5. 「全体」の行が、個人詳細のスタッツタブのシーズン別成績の同じ条件の行（移籍した選手は「複数チーム」の行。分母は所属期間ごとの合計）と、
+//  5. 「全体」の行が、個人詳細のスタッツタブのシーズン別成績の同じ条件の行（移籍した選手は「複数チーム」の行。USG%・PPP・DRtg の分母は本人が出場した試合の所属チームの合計。DESIGN.md 333章）と、
 //     Traditional〜Scoring の全項目の表示まで一致する。レギュラーシーズンの試合数・合計の主な項目は players.json とも一致する
 //
 // 使い方: npm run validate:opponent-split。1つでも食い違いがあれば終了コード1
@@ -23,7 +23,6 @@ import {
   buildTeamSplitRows,
   seasonBoxColumnsFor,
   sumTeamTotalsForLogs,
-  transferredCombinedTeam,
 } from "../src/lib/playerSeasonBoxscore.ts";
 import { buildGameTeamsByScheduleKey, resolveOwnTeam, type GameTeamInfo } from "../src/lib/situational.ts";
 
@@ -209,13 +208,7 @@ for (const season of seasons) {
       const playedLogs = filterByGameType(logs, gameType).filter((g: any) => g.min > 0);
       if (!total) continue;
       const seasonStartYear = Number(season.split("-")[0]);
-      const combinedTeam = transferredCombinedTeam(
-        logs,
-        filterByGameType(logs, gameType),
-        ownTeamByScheduleKey,
-        new Map([...teamLogsByTeamId].map(([teamId, teamLogs]) => [teamId, filterByGameType(teamLogs, gameType)])),
-      );
-      const split = buildTeamSplitRows(season, playedLogs, ownTeamByScheduleKey, sumTeamTotalsForLogs(playedLogs, ownTeamByScheduleKey, teamLogsByTeamId), "perGame", seasonStartYear, combinedTeam);
+      const split = buildTeamSplitRows(season, playedLogs, ownTeamByScheduleKey, sumTeamTotalsForLogs(playedLogs, ownTeamByScheduleKey, teamLogsByTeamId), "perGame", seasonStartYear);
       const stats = split[split.length - 1]!;
       for (const tab of BOX_TABS) {
         for (const col of seasonBoxColumnsFor(tab, false)) {

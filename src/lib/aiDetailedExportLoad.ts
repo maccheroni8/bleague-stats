@@ -96,16 +96,15 @@ export async function loadDetailedExport(season: string, teamId: string, choice:
     leagueLogs = new Map(loaded);
   }
   // スポーツナビの記録（Shooting・Forced TOV）。B.ONE と2022-23以前には無い。必要な試合のうち、記録がある試合（試合ログに shotTypes がある）だけを読む。
-  // 1シーズン・全チームのチーム情報は teams.json の値を使うので読まない
-  // 前半・後半を含めるときは、自チームの対象の試合の記録も読む（前半・後半の Shooting・Forced TOV は自チームだけで、全チームの記録は読まない）
+  // チーム情報の試合全体の Shooting・Forced TOV は試合ログに保存した値を使うので読まない（全チームの記録の読み込みは不要。DESIGN.md 333章）
+  // 前半・後半を含めるときは、自チームの対象の試合の記録を読む（前半・後半の Shooting・Forced TOV は自チームだけ）。選手情報は選手の Shooting のために読む
   const wantsHalves = (TIME_SLICE_CHOICES.find(c => c.key === choice.timeSlice)?.slices.length ?? 1) > 1;
   let pbps: Map<string, YahooGamePbp> | undefined;
   let pbpsScope: 'league' | 'own' | undefined;
   const yahoo = league === 'premier' && cur.teams.some(t => !!t.shotTypes);
-  const leagueNeed = yahoo && choice.kind === 'team' && !(choice.term === 'season' && choice.opp === 'all');
-  const needFiles = yahoo && (leagueNeed || choice.kind === 'player' || wantsHalves);
+  const needFiles = yahoo && (choice.kind === 'player' || wantsHalves);
   if (needFiles) {
-    pbpsScope = leagueNeed ? 'league' : 'own';
+    pbpsScope = 'own';
     const need = new Set<string>();
     const collect = (ds: DetailedSeason, tid: string) => {
       // 複数のタームのときだけ「シーズン全体」の列が付く（書き出しの組み立てと同じ）
@@ -113,8 +112,7 @@ export async function loadDetailedExport(season: string, teamId: string, choice:
       const sets = terms.length > 1 ? [...terms, ...detailedTerms(ds, 'season', choice.opp, tid, history, league)] : terms;
       for (const t of sets) for (const g of t.statLogs) if (g.shotTypes) need.add(g.scheduleKey);
     };
-    if (leagueNeed && leagueLogs) for (const t of cur.teams) { const logs = leagueLogs.get(t.teamId); if (logs) collect({ ...cur, team: t, regular: logs }, t.teamId); }
-    else collect(cur, teamId);
+    collect(cur, teamId);
     const keys = [...need];
     let done = 0;
     hooks.onProgress?.(0, keys.length);

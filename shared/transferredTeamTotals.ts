@@ -1,5 +1,5 @@
-// シーズンの途中で移籍した選手のチーム合計（USG%・%-shareスタッツ・個人ORtg/DRtg・PERの分母）。DESIGN.md 213・216章。
-// 画面（ランキング・選手一覧・個人詳細・比較）と、集計（scripts/aggregate.ts の players.json）で同じ関数を使い、値を揃える
+// シーズンの途中で移籍した選手のチーム合計（PER の分母と、図解の出場率の分母〔所属期間のチームの試合数〕）。DESIGN.md 213・216章。
+// USG%・PPP（個人ORtg）・DRtg の分母には使わない（本人が出場した試合の所属チームの合計＝shared/playedTeamTotals.ts。DESIGN.md 333章）
 import { EMPTY_TEAM_TOTALS, sumTeamGameLogsFor, sumTeamSeasonTotals } from "./teamSeasonTotals.ts";
 import type { PlayerGameLog, TeamGameLog, TeamSeasonRawTotals } from "./types.ts";
 

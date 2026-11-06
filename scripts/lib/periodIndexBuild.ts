@@ -17,6 +17,7 @@ import {
   PERIOD_ROW_FLAG_PLUS_MINUS,
   PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED,
   PLAYER_PERIOD_ONCOURT_COLUMNS,
+  PLAYER_PERIOD_ASSIST_POINTS_COLUMN,
   PLAYER_PERIOD_ONCOURT_OPP_KEYS,
   PLAYER_PERIOD_ONCOURT_OWN_KEYS,
   PLAYER_PERIOD_STAT_COLUMNS,
@@ -50,7 +51,7 @@ import { foreignCourtByPeriod, type ForeignPeriodTotals } from "../../shared/for
 import { buildMiscEventCounts, countTechnicalFouls, teamPointsBreakdown, ZERO_MISC_EVENTS } from "../../shared/teamGameEvents.ts";
 import { computePointsOffTurnovers } from "../../shared/pointsOffTurnovers.ts";
 import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../../shared/playTypePoints.ts";
-import { computeAssistedScoring } from "../../shared/assistedScoring.ts";
+import { assistPointsByAssisterPeriod, computeAssistedScoring } from "../../shared/assistedScoring.ts";
 import { buildOfficialPaintSplit } from "../../shared/paintSplit.ts";
 import { buildPlayerBoxscores, buildTeamTotalCounts, computeTeamRatings, rowsInPeriodRange, type BoxscoreCounts } from "../../src/lib/boxscoreAggregate";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeOption } from "../../src/lib/periodRange";
@@ -238,7 +239,7 @@ export async function buildPeriodIndex(
   allGames.sort((a, b) => gameNumber.get(String(a.scheduleKey))! - gameNumber.get(String(b.scheduleKey))!);
 
   // 選手: 行ごとの区間の値を集めてから (row, period) の昇順に書く
-  const perRow = new Map<number, { period: number; flags: number; values: number[]; ocValues: number[] | null }[]>();
+  const perRow = new Map<number, { period: number; flags: number; values: number[]; ocValues: number[] | null; assistPoints: number }[]>();
   // 出場中の材料の列は、数え上げのあるシーズン（2020-21以降）の索引だけが持つ
   const withOnCourtColumns = substitutionModelForSeason(season) === "modern";
   // 復元の Q別 +/- は、公式のピリオド別の値が無いシーズン（2016-17〜2021-22）だけ。2022-23以降は公式の値を使い、欠けた行も補わない
@@ -285,6 +286,8 @@ export async function buildPeriodIndex(
         : null;
     const foreignValues = foreignValuesByAtom(game, onCourt, classify, maxForeignOnCourt);
     const fgAssists = withOnCourtColumns && onCourt ? fgAssistsByPlayer(game.raw.PlayByPlays) : null;
+    // ポイントクリエイトの材料（本人のアシストから生まれた得点。区間ごと。プレーバイプレーが無い試合は -1。DESIGN.md 333章）
+    const assistPointsByPeriod = game.raw.PlayByPlays.length > 0 ? assistPointsByAssisterPeriod(game.raw.PlayByPlays) : null;
     for (const side of [0, 1] as const) {
       const teamId = side === 0 ? game.homeTeam.id : game.awayTeam.id;
       const ownForeign = foreignValues.get(teamId);
@@ -303,7 +306,11 @@ export async function buildPeriodIndex(
         withOnCourtColumns && onCourt
           ? teamOnCourtQuality(onCourt, teamId, side === 0 ? game.awayTeam.id : game.homeTeam.id, ownRows, oppRows, ownScore, oppScore, totalPeriods)
           : -1;
-      const sideEntries: { row: number; playerId: string; entry: { period: number; flags: number; values: number[]; ocValues: number[] | null } }[] = [];
+      const sideEntries: {
+        row: number;
+        playerId: string;
+        entry: { period: number; flags: number; values: number[]; ocValues: number[] | null; assistPoints: number };
+      }[] = [];
       PERIOD_ATOMS.forEach((atom, ai) => {
         const opt = atoms[ai]!;
         if (!usable(atom, opt)) return;
@@ -335,7 +342,10 @@ export async function buildPeriodIndex(
                 ]
               : new Array<number>(PLAYER_PERIOD_ONCOURT_COLUMNS.length).fill(-1)
             : null;
-          sideEntries.push({ row, playerId: p.playerId, entry: { period: ai, flags: flag, values, ocValues } });
+          const assistPoints = assistPointsByPeriod
+            ? [...(assistPointsByPeriod.get(p.playerId) ?? [])].filter(([period]) => inAtom(period)).reduce((a, [, n]) => a + n, 0)
+            : -1;
+          sideEntries.push({ row, playerId: p.playerId, entry: { period: ai, flags: flag, values, ocValues, assistPoints } });
         }
         teamCounts[`${atom}.offFouls`]![tg * 2 + side] = offFouls;
         teamCounts[`${atom}.charges`]![tg * 2 + side] = charges;
@@ -400,6 +410,7 @@ export async function buildPeriodIndex(
       rows.flags.push(e.flags);
       PLAYER_PERIOD_STAT_COLUMNS.forEach((c, ci) => rows.stats[c].push(e.values[ci]!));
       if (e.ocValues) PLAYER_PERIOD_ONCOURT_COLUMNS.forEach((c, ci) => (rows.stats[c] ??= []).push(e.ocValues![ci]!));
+      (rows.stats[PLAYER_PERIOD_ASSIST_POINTS_COLUMN] ??= []).push(e.assistPoints);
     }
   }
 

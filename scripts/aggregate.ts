@@ -47,7 +47,7 @@ import { computeForeignPlayerCourtSeconds, foreignCourtSecondsArray, playerForei
 import { buildMiscEventCounts, countTechnicalFouls, teamPointsBreakdown, type MiscEventCounts } from "../shared/teamGameEvents.ts";
 import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
 import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../shared/playTypePoints.ts";
-import { computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
+import { assistPointsByAssister, computeAssistedScoring, type AssistedScoringCounts } from "../shared/assistedScoring.ts";
 import { gameShotStreakSummary } from "../shared/shotStreaks.ts";
 import { hasOnCourtValues, fgAssistsByPlayer, playerOnCourtByPeriod, sumOverPeriods, teamOnCourtQuality, teamStintTotals } from "../shared/playerOnCourt.ts";
 import { buildOfficialPaintSplit, type PaintSplitCounts as OfficialPaintSplitCounts } from "../shared/paintSplit.ts";
@@ -64,6 +64,7 @@ import { sumTeamSeasonMisc } from "../shared/teamSeasonMisc.ts";
 import { filterByGameType } from "../shared/gameType.ts";
 import { opponentOliverBox, teamOliverBox } from "../shared/teamSeasonTotals.ts";
 import { teamTotalsForTransferredPlayer } from "../shared/transferredTeamTotals.ts";
+import { teamTotalsForPlayedGames } from "../shared/playedTeamTotals.ts";
 import { gameMaxMargins } from "../shared/gameMargins.ts";
 import { clutchByPlayer, maxRuns, scoringSequence, type TeamRun } from "../shared/gameFlow.ts";
 import { buildAssistPairsFile, sortedAssistPairRows, type AssistPairRow } from "../shared/assistPairs.ts";
@@ -178,9 +179,15 @@ function emptyForcedTurnovers(): TeamForcedTurnovers {
 async function buildForcedTurnoversByTeam(
   season: string,
   games: StoredGame[],
-): Promise<{ forced: Map<string, TeamForcedTurnovers>; committed: Map<string, TeamForcedTurnovers> }> {
+): Promise<{
+  forced: Map<string, TeamForcedTurnovers>;
+  committed: Map<string, TeamForcedTurnovers>;
+  /** 試合ごとの自チームの forced・committed（"チームID|ScheduleKey"。全試合区分。記録の無い試合は無し。DESIGN.md 333章） */
+  byTeamGame: Map<string, { forced: TeamForcedTurnovers; committed: TeamForcedTurnovers }>;
+}> {
   const forced = new Map<string, TeamForcedTurnovers>();
   const committed = new Map<string, TeamForcedTurnovers>();
+  const byTeamGame = new Map<string, { forced: TeamForcedTurnovers; committed: TeamForcedTurnovers }>();
   const ensure = (byTeam: Map<string, TeamForcedTurnovers>, teamId: string): TeamForcedTurnovers => {
     let t = byTeam.get(teamId);
     if (!t) {
@@ -189,25 +196,36 @@ async function buildForcedTurnoversByTeam(
     }
     return t;
   };
-  // teams.jsonの他フィールド（totals等）と同じくレギュラーシーズンのみを対象にする
-  // （processTeams()がgameType==="regular"のみ加算するのと同じ方針）
-  const regularGames = games.filter((g) => classifyGameType(g.raw.Game.ConventionNameJ) === "regular");
-  for (const game of regularGames) {
+  for (const game of games) {
     const pbp = await readJson<YahooGamePbp>(path.join(DATA_DIR, season, "yahoo", `${game.scheduleKey}.json`));
     if (!pbp) continue;
-    for (const byTeam of [forced, committed]) {
-      ensure(byTeam, game.homeTeam.id).gamesWithData += 1;
-      ensure(byTeam, game.awayTeam.id).gamesWithData += 1;
-    }
+    // 試合ごとの値（試合全体。全試合区分）。試合ログに保存し、画面は期間・相手・試合種別で絞ってから足す
+    const ids = [game.homeTeam.id, game.awayTeam.id];
+    const perGame = new Map<string, { forced: TeamForcedTurnovers; committed: TeamForcedTurnovers }>(
+      ids.map((id) => [id, { forced: { ...emptyForcedTurnovers(), gamesWithData: 1 }, committed: { ...emptyForcedTurnovers(), gamesWithData: 1 } }]),
+    );
     for (const to of pbp.turnovers) {
       // toの主体（teamId）はターンオーバーを犯した側＝相手にとっての「強制した」側は対戦相手の方
       const forcingTeamId = to.teamId === game.homeTeam.id ? game.awayTeam.id : game.homeTeam.id;
       const bucket = classifyForcedTurnover(to);
-      ensure(forced, forcingTeamId)[bucket] += 1;
-      ensure(committed, to.teamId)[bucket] += 1;
+      const f = perGame.get(forcingTeamId);
+      const c = perGame.get(to.teamId);
+      if (f) f.forced[bucket] += 1;
+      if (c) c.committed[bucket] += 1;
+    }
+    for (const [id, v] of perGame) byTeamGame.set(`${id}|${game.scheduleKey}`, v);
+    // teams.jsonの他フィールド（totals等）と同じくレギュラーシーズンのみをシーズンの合計にする
+    // （processTeams()がgameType==="regular"のみ加算するのと同じ方針）。合計は試合ごとの値を足したもの
+    if (classifyGameType(game.raw.Game.ConventionNameJ) !== "regular") continue;
+    const addTo = (t: TeamForcedTurnovers, add: TeamForcedTurnovers) => {
+      for (const k of Object.keys(add) as (keyof TeamForcedTurnovers)[]) t[k] += add[k];
+    };
+    for (const [id, v] of perGame) {
+      addTo(ensure(forced, id), v.forced);
+      addTo(ensure(committed, id), v.committed);
     }
   }
-  return { forced, committed };
+  return { forced, committed, byTeamGame };
 }
 
 /** buildShotTypeBreakdownsの内部ヘルパー。1本のショットをキー（playerIdまたはteamId）単位の内訳に加算する */
@@ -868,6 +886,8 @@ export async function aggregateSeason(season: string, category: Category = "prem
     const fbpsByPlayer = fbps.byPlayer;
     const secondChanceByPlayer = secondChance.byPlayer;
     const assistedScoring = computeAssistedScoring(game.raw.PlayByPlays);
+    // ポイントクリエイト（PC）の材料: 本人のアシストから生まれた得点（アシストした側で足す。DESIGN.md 333章）。プレーバイプレーが無い試合は持たない
+    const assistPointsByPlayer = game.raw.PlayByPlays && game.raw.PlayByPlays.length > 0 ? assistPointsByAssister(assistedScoring.pairs.values()) : null;
     // 得点の流れ（最大のラン・勝ち越し弾・同点弾・決勝弾。shared/gameFlow.ts、DESIGN.md 221章）。アシストペアの試合ごとの行は assist-pairs.json.gz に書く
     const flow = scoringSequence(game.raw.PlayByPlays);
     const teamRuns = maxRuns(flow.events);
@@ -891,6 +911,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       fbpsByPlayer,
       secondChanceByPlayer,
       assistedScoring.byScorer,
+      assistPointsByPlayer,
       miscEvents.byPlayer,
       paintSplit.byPlayer,
       onCourtRatingsByPlayer,
@@ -956,10 +977,14 @@ export async function aggregateSeason(season: string, category: Category = "prem
   // ターンオーバーの種類別カウント（相手に強制した／自チームが犯した、の両方向。Yahoo!スポーツ
   // play-by-play由来、2023-24シーズン以降・取得済み試合のみ。DESIGN.md参照）。B.ONE等では
   // Yahoo PBPデータ自体が存在しないため、premierカテゴリのみ計算する
-  const { forced: forcedTurnoversByTeam, committed: turnoversCommittedByTeam } =
+  const { forced: forcedTurnoversByTeam, committed: turnoversCommittedByTeam, byTeamGame: forcedTurnoversByTeamGame } =
     category === "premier"
       ? await buildForcedTurnoversByTeam(season, games)
-      : { forced: new Map<string, TeamForcedTurnovers>(), committed: new Map<string, TeamForcedTurnovers>() };
+      : {
+          forced: new Map<string, TeamForcedTurnovers>(),
+          committed: new Map<string, TeamForcedTurnovers>(),
+          byTeamGame: new Map<string, { forced: TeamForcedTurnovers; committed: TeamForcedTurnovers }>(),
+        };
   // シュートタイプ別の成功/試投カウント（Yahoo!スポーツplay-by-play由来。選手別・チーム別を
   // 1回の走査で同時に集計する。DESIGN.md参照）
   const {
@@ -1016,6 +1041,15 @@ export async function aggregateSeason(season: string, category: Category = "prem
     );
     if (totals) transferredTotalsByPlayer.set(p.playerId, totals);
   }
+  // USG%・PPP（個人ORtg）・DRtg の分母: 本人が出場したレギュラーシーズンの試合だけの、その試合の所属チームの合計（移籍した選手も同じ。DESIGN.md 333章）。
+  // 画面（全選手スタッツの条件あり・個人詳細・ランキングなど）と同じ関数。PER は上の所属期間の合計のまま
+  const playedTotalsByPlayer = new Map<string, TeamSeasonRawTotals>();
+  for (const p of players.values()) {
+    playedTotalsByPlayer.set(
+      p.playerId,
+      teamTotalsForPlayedGames(filterByGameType(p.gameLogs, "regular"), (g) => p.teamOfGame.get(g.scheduleKey), regularTeamLogsByTeamId),
+    );
+  }
 
   const uPerByPlayer = new Map<string, number>();
   let sumWeightedUPer = 0;
@@ -1033,11 +1067,12 @@ export async function aggregateSeason(season: string, category: Category = "prem
   const playersJson = [...players.values()]
     .map((p) => {
       const statBlock = buildStatBlock(p.totals, seasonStartYear);
-      // Usage%はチームの出場全体（シーズン合計）を基準に算出する。移籍選手は直近所属チームで近似する
       const team = teams.get(p.teamId);
-      // 移籍した選手は、所属期間ごとの、所属した各チームの合計で割る（DESIGN.md 216章）。1チームだけの選手は、所属チームのシーズン合計
+      // PER の分母: 移籍した選手は、所属期間ごとの、所属した各チームの合計（DESIGN.md 216章）。1チームだけの選手は、所属チームのシーズン合計
       const transferred = transferredTotalsByPlayer.get(p.playerId);
-      const usage = transferred ? usagePct(p.totals, transferred) : team ? usagePct(p.totals, team.totals) : 0;
+      // USG%・PPP・DRtg は、本人が出場した試合だけのチーム合計（DESIGN.md 333章）
+      const played = playedTotalsByPlayer.get(p.playerId)!;
+      const usage = played.min > 0 ? usagePct(p.totals, played) : 0;
       const teamPaceForPlayer = transferred ? pace(transferred.poss, transferred.min) : team ? pace(team.totals.poss, team.totals.min) : 0;
       // PERのリーグ平均（lgAvgUPer）は、従来の値（移籍した選手は最新の所属チームで算出したuPER）のまま使う。
       // 移籍した選手のuPERを変えると、全選手のPERが少しずつ動いてしまい、1チームだけの選手の値が変わるため
@@ -1046,21 +1081,15 @@ export async function aggregateSeason(season: string, category: Category = "prem
         : (uPerByPlayer.get(p.playerId) ?? 0);
       const per = teamPaceForPlayer > 0 ? finalizePer(uPerValueOfPlayer, teamPaceForPlayer, lgPace, lgAvgUPer) : 0;
       // PPP = 個人ORtg（Dean Oliver方式、試合詳細ページの個人ORtgと同じindividualOffRtg()）/ 100。
-      // シーズン合計値をそのまま渡す（移籍選手はUsage%と同様、直近所属チームで近似する）。
+      // シーズン合計値をそのまま渡す（チームは本人が出場した試合だけの合計）。
       // 出場時間4分未満（シーズン合計）ではindividualOffRtg()自体がundefinedを返す
-      const individualSeasonOffRtg = transferred
-        ? individualOffRtg(toOliverBoxFromTotals(p.totals), teamOliverBox(transferred), opponentOliverBox(transferred))
-        : team
-          ? individualOffRtg(toOliverBoxFromTotals(p.totals), toOliverBoxFromTotals(team.totals), toOliverBoxFromTotals(team.opponentTotals))
-          : undefined;
+      const individualSeasonOffRtg =
+        played.min > 0 ? individualOffRtg(toOliverBoxFromTotals(p.totals), teamOliverBox(played), opponentOliverBox(played)) : undefined;
       const ppp = individualSeasonOffRtg !== undefined ? individualSeasonOffRtg / 100 : undefined;
-      // 個人DRtg（Dean Oliver方式。individualDefRtg）。ORtgと同じ合計（移籍した選手は所属期間ごとの各チームの合計）と、
+      // 個人DRtg（Dean Oliver方式。individualDefRtg）。ORtgと同じ合計（本人が出場した試合だけのチーム合計）と、
       // そのチームのPOSSの合計を使う。出場時間4分未満（シーズン合計）はundefined。NetRtgは保存せず、画面で丸める前のORtg−DRtgで出す
-      const individualDrtg = transferred
-        ? individualDefRtg(toOliverBoxFromTotals(p.totals), teamOliverBox(transferred), opponentOliverBox(transferred), transferred.poss)
-        : team
-          ? individualDefRtg(toOliverBoxFromTotals(p.totals), toOliverBoxFromTotals(team.totals), toOliverBoxFromTotals(team.opponentTotals), team.totals.poss)
-          : undefined;
+      const individualDrtg =
+        played.min > 0 ? individualDefRtg(toOliverBoxFromTotals(p.totals), teamOliverBox(played), opponentOliverBox(played), played.poss) : undefined;
       // 国籍・身長体重・生年月日・ポジションはplayers-master.jsonから突合（未登録選手は全て未定義のまま）
       const master = masterById.get(p.playerId);
       const profile = useSeasonProfile
@@ -1082,6 +1111,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         shotTypes: shotTypesByPlayer.get(p.playerId),
         ...statBlock,
         ...(transferred ? { transferredTeamTotals: transferred } : {}),
+        ...(played.min > 0 ? { playedTeamTotals: played } : {}),
         advanced: {
           eff: statBlock.advanced.eff,
           usagePct: usage,
@@ -1245,6 +1275,12 @@ export async function aggregateSeason(season: string, category: Category = "prem
       if (shot) {
         log.shotTypes = shot.own;
         log.opponentShotTypes = shot.opp;
+      }
+      // 試合ごとのターンオーバーの種類別（自チームが強制した／記録した。試合全体。スポーツナビの記録がある試合だけ。DESIGN.md 333章）
+      const tov = forcedTurnoversByTeamGame.get(`${t.teamId}|${log.scheduleKey}`);
+      if (tov) {
+        log.forcedTurnovers = tov.forced;
+        log.turnoversCommitted = tov.committed;
       }
     }
     const gameLogs = [...t.gameLogs].sort((a, b) => a.date.localeCompare(b.date));
@@ -1576,6 +1612,7 @@ function processPlayers(
   fbpsByPlayer: Map<string, number>,
   secondChanceByPlayer: Map<string, number>,
   assistedScoringByPlayer: Map<string, AssistedScoringCounts>,
+  assistPointsByPlayer: Map<string, number> | null,
   miscEventsByPlayer: Map<string, MiscEventCounts>,
   paintSplitByPlayer: Map<string, PaintSplitCounts>,
   onCourtRatingsByPlayer: Record<string, PlayerOnCourtRatings>,
@@ -1698,6 +1735,7 @@ function processPlayers(
       assisted2m: assistedScoringByPlayer.get(row.PlayerID)?.assisted2m ?? 0,
       assisted3m: assistedScoringByPlayer.get(row.PlayerID)?.assisted3m ?? 0,
       assistedFtm: assistedScoringByPlayer.get(row.PlayerID)?.assistedFtm ?? 0,
+      ...(assistPointsByPlayer ? { assistPoints: assistPointsByPlayer.get(row.PlayerID) ?? 0 } : {}),
       paint2m: paintSplitByPlayer.get(row.PlayerID)?.paint2m ?? 0,
       paint2a: paintSplitByPlayer.get(row.PlayerID)?.paint2a ?? 0,
       mid2m: paintSplitByPlayer.get(row.PlayerID)?.mid2m ?? 0,

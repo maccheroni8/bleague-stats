@@ -105,7 +105,6 @@ import {
   SEASON_BOX_TABS,
   buildSeasonBoxscoreCtx,
   buildTeamSplitRows,
-  transferredCombinedTeam,
   countDigits,
   countDoubleTripleDoubles,
   filterByGameType,
@@ -1960,23 +1959,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
       const slotTeamTotals = teamInfo
         ? sumTeamTotalsForLogs(filtered, teamInfo.ownTeamByScheduleKey, teamInfo.teamLogsByTeamId)
         : new Map<string, TeamSeasonRawTotals>();
-      // シーズンの途中で移籍した選手の分母は、所属期間ごとの、所属した各チームの合計（条件に当てはまるチームの試合だけ。DESIGN.md 216章）
-      const slotCombinedTeam = teamInfo
-        ? transferredCombinedTeam(
-            logs,
-            filtered,
-            teamInfo.ownTeamByScheduleKey,
-            new Map(
-              [...teamInfo.teamLogsByTeamId].map(([teamId, teamLogs]) => [
-                teamId,
-                filterByGameType(
-                  filterGameLogs(teamLogs, { ...slot.filter, includePlayoffs: true }, compareOpponentRecords[i], divisionHistory, slot.season, () => teamId, "premier"),
-                  compareGameType,
-                ),
-              ]),
-            ),
-          )
-        : undefined;
       const splitRows = buildTeamSplitRows(
         `slot${i}`,
         filtered,
@@ -1984,7 +1966,6 @@ export function PlayerDetailPage({ season }: { season: string }) {
         slotTeamTotals,
         "perGame",
         seasonStartYear,
-        slotCombinedTeam,
       );
       const combined = splitRows[splitRows.length - 1];
       if (!combined) return null;
@@ -3453,16 +3434,7 @@ function SeasonBreakdownTable({
       if (played.length === 0) continue;
       const info = teamData?.get(cd.season);
       const seasonStartYear = Number(cd.season.split("-")[0]);
-      // シーズンの途中で移籍した選手の「複数チーム」の行（と通算）の分母は、所属期間ごとの、所属した各チームの合計（DESIGN.md 216章）。
-      // 試合種別（レギュラー/プレーオフ/合算）で絞った試合だけを数える。チーム別の行は、出場した試合のチーム合計のまま
-      const combinedTeam = info
-        ? transferredCombinedTeam(
-            cd.logs,
-            filterByGameType(cd.logs, gameTypeFilter),
-            info.ownTeamByScheduleKey,
-            new Map([...info.teamLogsByTeamId].map(([teamId, teamLogs]) => [teamId, filterByGameType(teamLogs, gameTypeFilter)])),
-          )
-        : undefined;
+      // 移籍した選手の「複数チーム」の行（と通算）の USG%・PPP・DRtg の分母も、本人が出場した試合の所属チームの合計（チーム別の行の合計。DESIGN.md 333章）
       const splitRows = buildTeamSplitRowsFromPeriodSource(
         cd.season,
         played,
@@ -3474,7 +3446,6 @@ function SeasonBreakdownTable({
         playerId,
         period,
         periodSources.get(cd.season),
-        combinedTeam,
       );
       // on/off タブ: 試合ごとの所属チームの試合ログで Off を出す（試合全体・2020-21以降だけ。DESIGN.md 304章）
       const onOffTeamLogOf = (g: PlayerGameLog) => {

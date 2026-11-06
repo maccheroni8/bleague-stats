@@ -25,10 +25,10 @@ import {
 } from "../../shared/formulas";
 import { BOX_CATEGORY_TABS, type BoxCategoryKey } from "./categoryLabels";
 import { addFoulCategoryCounts } from "../../shared/foulCodes";
-import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTotals";
 import { filterFoulColumns } from "./ruleChange";
 import {
   astToTovRatio,
+  buildAssistPairs,
   buildPlayTypeCounts,
   buildPlayerBoxscores,
   buildTeamTotalCounts,
@@ -49,6 +49,7 @@ import { buildPeriodRangeOptions, type PeriodRangeOption } from "./periodRange";
 import type { BoxscoreRow, PlayerGameLog, PlayerMasterEntry, StoredGame, TeamGameLog, TeamSeasonRawTotals, YahooTurnoverEvent } from "../../shared/types";
 import type { GameTeamInfo } from "./situational";
 import { teamShortName } from "../../shared/teamNames";
+import { assistPointsByAssister } from "../../shared/assistedScoring";
 import { regulationPeriodScores } from "../../shared/periodPoints";
 import {
   ON_COURT_QUALITY_SHARES,
@@ -150,6 +151,15 @@ export interface PlayerSeasonRawTotals {
   ocTeamFtm: number;
   ocTeamFta: number;
   ocFgAssists: number;
+  /**
+   * ポイントクリエイト（PC）の材料（DESIGN.md 333章）。プレーバイプレーのある出場試合（試合ログの assistPoints がある試合）だけを足す。
+   * pcGames＝その試合数（0なら「-」）、pcPts・pcMin＝その試合の本人の得点・出場時間、assistPoints＝本人のアシストから生まれた得点。
+   * PC＝pcPts＋assistPoints。古い経路（集計済みのシーズン合計から作る値など）には無い（無ければ「-」）
+   */
+  pcGames?: number;
+  pcPts?: number;
+  pcMin?: number;
+  assistPoints?: number;
 }
 
 const EMPTY_RAW_TOTALS: PlayerSeasonRawTotals = {
@@ -269,9 +279,33 @@ export function sumPlayerGameLogs(logs: PlayerGameLog[]): PlayerSeasonRawTotals 
       onCourtOppPoss: acc.onCourtOppPoss + g.onCourtOppPoss,
       onCourtSeconds: acc.onCourtSeconds + g.onCourtSeconds,
       ...addOnCourtShare(acc, g),
+      ...addPointsCreated(acc, g.assistPoints === undefined ? null : { pts: g.pts, min: g.min, assistPoints: g.assistPoints }),
     }),
     { ...EMPTY_RAW_TOTALS },
   );
+}
+
+/** ポイントクリエイトの材料を足す（プレーバイプレーのある試合だけ。無い試合は足さない。DESIGN.md 333章） */
+function addPointsCreated(
+  acc: PlayerSeasonRawTotals,
+  g: { pts: number; min: number; assistPoints: number } | null,
+): Pick<PlayerSeasonRawTotals, "pcGames" | "pcPts" | "pcMin" | "assistPoints"> {
+  return {
+    pcGames: (acc.pcGames ?? 0) + (g ? 1 : 0),
+    pcPts: (acc.pcPts ?? 0) + (g ? g.pts : 0),
+    pcMin: (acc.pcMin ?? 0) + (g ? g.min : 0),
+    assistPoints: (acc.assistPoints ?? 0) + (g ? g.assistPoints : 0),
+  };
+}
+
+/** ポイントクリエイト（PC）の表示の値（合計・1試合平均・30分換算）。対象の試合が無ければ null（「-」） */
+export function pointsCreatedValue(raw: PlayerSeasonRawTotals, mode: SeasonDisplayMode): number | null {
+  const games = raw.pcGames ?? 0;
+  if (games <= 0) return null;
+  const total = (raw.pcPts ?? 0) + (raw.assistPoints ?? 0);
+  if (mode === "total") return total;
+  if (mode === "per30") return (raw.pcMin ?? 0) > 0 ? (total * 30) / raw.pcMin! : null;
+  return total / games;
 }
 
 /** 試合ログの出場中の材料のうち、割合のビット（ON_COURT_QUALITY_SHARES）が立つ試合だけを、出場中の割合・AST% の材料に足す */
@@ -483,23 +517,6 @@ export function sumTeamTotalsForLogs(
 }
 
 /**
- * シーズンの途中で移籍した選手の「複数チーム」の分母（所属期間ごとの、所属した各チームの合計。shared/transferredTeamTotals.ts、DESIGN.md 216章）。
- * allLogs＝絞り込み前の全試合、scopedLogs＝絞り込み後の試合、scopedTeamLogsByTeamId＝チームごとに、選手と同じ条件で絞り込み済みの試合ログ。
- * 1チームだけの選手は undefined（従来どおりの分母）
- */
-export function transferredCombinedTeam(
-  allLogs: PlayerGameLog[],
-  scopedLogs: PlayerGameLog[],
-  ownTeamByScheduleKey: Map<string, GameTeamInfo>,
-  scopedTeamLogsByTeamId: Map<string, TeamGameLog[]>,
-): TeamSeasonRawTotals | undefined {
-  return (
-    teamTotalsForTransferredPlayer(allLogs, scopedLogs, (g) => ownTeamByScheduleKey.get(g.scheduleKey)?.teamId, scopedTeamLogsByTeamId) ??
-    undefined
-  );
-}
-
-/**
  * 試合ログを、試合ログから動的に導出した所属チーム（resolveOwnTeam）ごとに分割する
  * （シーズン内移籍対応。個人詳細ページ「シーズン別成績」「シチュエーション別成績」・
  * チーム詳細ページ「選手スタッツ」共通のロジック。DESIGN.md参照）。
@@ -513,9 +530,6 @@ export function buildTeamSplitRows(
   teamTotalsByTeamId: Map<string, TeamSeasonRawTotals>,
   displayMode: SeasonDisplayMode,
   seasonStartYear: number,
-  /** 「複数チーム」の合計行の分母。シーズンの途中で移籍した選手は、所属期間ごとの、所属した各チームの合計（transferredCombinedTeam）を渡す。
-   * 渡さないときは、チーム別の行の分母（出場した試合のチーム合計）の合計 */
-  combinedTeamOverride?: TeamSeasonRawTotals,
 ): TeamSplitRow[] {
   const played = logs.filter((g) => g.min > 0);
   if (played.length === 0) return [];
@@ -564,9 +578,8 @@ export function buildTeamSplitRows(
       isCombined: false,
     };
   });
-  const combinedTeam =
-    combinedTeamOverride ??
-    teamIds.reduce((acc, id) => sumTeamSeasonTotals(acc, teamTotalsByTeamId.get(id) ?? EMPTY_TEAM_TOTALS), EMPTY_TEAM_TOTALS);
+  // 「複数チーム」の合計行の USG%・PPP・DRtg の分母は、チーム別の行の分母（本人が出場した試合のチーム合計）の合計（移籍した選手も特別に扱わない。DESIGN.md 333章）
+  const combinedTeam = teamIds.reduce((acc, id) => sumTeamSeasonTotals(acc, teamTotalsByTeamId.get(id) ?? EMPTY_TEAM_TOTALS), EMPTY_TEAM_TOTALS);
   rows.push({
     key: `${keyPrefix}|combined`,
     teamId: null,
@@ -1196,6 +1209,17 @@ export const SEASON_SCORING_COLUMNS: SeasonBoxscoreColumn[] = [
       formatPct100(safeDiv(100 * (c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm), c.raw.pts)),
     value: (c) => safeDiv(100 * (c.raw.assisted2m * 2 + c.raw.assisted3m * 3 + c.raw.assistedFtm), c.raw.pts),
   },
+  // ポイントクリエイト（PTS＋本人のアシストから生まれた得点）。プレーバイプレーのある試合だけで数え、平均はその試合数（raw.pcGames）で割る。
+  // 対象の試合数の列は出さない（G と違うのは 2017-18 の1810に出た選手だけ。ランキングの名前の下の試合数だけ PC の対象試合数にする）
+  {
+    key: "pc",
+    label: "PC",
+    format: (c, mode) => {
+      const v = pointsCreatedValue(c.raw, mode);
+      return v === null ? NA : formatDecimal(v, countDigits(mode));
+    },
+    value: (c, mode) => pointsCreatedValue(c.raw, mode) ?? 0,
+  },
   {
     key: "paint2m",
     label: "PAINT2M",
@@ -1619,6 +1643,8 @@ export interface GamePeriodTotals {
    * （分子・分母の両方から外す）
    */
   onCourt?: PeriodOnCourtShare;
+  /** 本人のアシストから生まれた得点（その区間。ポイントクリエイトの材料。プレーバイプレーの無い試合・古い索引は無し。DESIGN.md 333章） */
+  assistPoints?: number;
 }
 
 /** 区間の出場中の自チームの数（%PTS〜%FTA・AST% の分母）と、本人の FGにつながったアシスト */
@@ -1793,7 +1819,18 @@ export function computeGamePeriodTotals(
     const pm = reconstructedPlusMinusOf(game, isHome, playerId, option);
     if (pm !== null) counts = { ...counts, plusMinus: pm, hasPlusMinus: true };
   }
-  return { player: counts, own, opp, poss, isStarter: player.startingFlg === 1, ...(onCourt ? { onCourt } : {}) };
+  // ポイントクリエイトの材料（区間のプレーバイプレーでアシストから生まれた得点。索引の経路と同じ数え方。DESIGN.md 333章）
+  const assistPoints =
+    game.raw.PlayByPlays.length > 0 ? (assistPointsByAssister(buildAssistPairs(game.raw.PlayByPlays, option)).get(playerId) ?? 0) : undefined;
+  return {
+    player: counts,
+    own,
+    opp,
+    poss,
+    isStarter: player.startingFlg === 1,
+    ...(onCourt ? { onCourt } : {}),
+    ...(assistPoints !== undefined ? { assistPoints } : {}),
+  };
 }
 
 /**
@@ -1882,6 +1919,14 @@ export function buildPeriodFilteredRawTotals(contributions: GamePeriodTotals[]):
     mid2m: playerSum.nonPaint2m,
     mid2a: playerSum.nonPaint2a,
     ...periodOnCourtShareTotals(contributions),
+    ...contributions.reduce<Pick<PlayerSeasonRawTotals, "pcGames" | "pcPts" | "pcMin" | "assistPoints">>(
+      (acc, c) =>
+        addPointsCreated(
+          acc as PlayerSeasonRawTotals,
+          c.assistPoints === undefined ? null : { pts: c.player.pts, min: c.player.minSec / 60, assistPoints: c.assistPoints },
+        ),
+      { pcGames: 0, pcPts: 0, pcMin: 0, assistPoints: 0 },
+    ),
   };
 
   const team: TeamSeasonRawTotals = {
@@ -1934,11 +1979,9 @@ export function buildTeamSplitRowsForPeriod(
   playerId: string,
   option: PeriodRangeOption | undefined,
   gamesByScheduleKey: Map<string, StoredGame>,
-  /** 「複数チーム」の合計行の分母（Q別・前後半を選んでいないときだけ使う。buildTeamSplitRows参照） */
-  combinedTeamOverride?: TeamSeasonRawTotals,
 ): TeamSplitRow[] {
   if (!option || option.periods === null) {
-    return buildTeamSplitRows(keyPrefix, logs, ownTeamByScheduleKey, teamTotalsByTeamId, displayMode, seasonStartYear, combinedTeamOverride);
+    return buildTeamSplitRows(keyPrefix, logs, ownTeamByScheduleKey, teamTotalsByTeamId, displayMode, seasonStartYear);
   }
 
   const played = logs.filter((g) => g.min > 0);

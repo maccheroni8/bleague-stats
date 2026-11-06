@@ -1,6 +1,5 @@
 // 画面専用。既存の試合ログと個人詳細の列定義から計算する。
 import type { Category, Division, DivisionHistoryFile, PlayerGameLog, PlayerSummary, TeamGameLog } from '../../shared/types';
-import { teamTotalsForTransferredPlayer } from '../../shared/transferredTeamTotals';
 import type { SeasonRegistrationFile } from '../../shared/registration';
 import { filterByGameType, type SeasonGameTypeFilter } from '../../shared/gameType';
 import { filterGameLogs, type SituationalRange } from './situational';
@@ -44,8 +43,8 @@ export function buildTopScorers(data:ScorerData,q:ScorerQuery):ScorerPoint[] {
       const raw=sumPlayerGameLogs(logs);
       // 条件ありは個人詳細のシチュエーションと同じく本人の出場試合のチーム合計。
       const full=q.range.kind==='all'&&q.gameType==='regular'&&!(group!=='all'&&changed.has(p.playerId));
-      const keys=new Set((full?scoped:logs).map(g=>g.scheduleKey));
-      const teamTotals=teamTotalsForTransferredPlayer(data.playerLogs.get(p.playerId)??[],logs,ownTeamOf,new Map([[team.teamId,scoped]]))??sumTeamGameLogsFor(scoped,keys);
+      // USG%・PPP・DRtg の分母は、本人が出場した試合のチーム合計（DESIGN.md 333章）
+      const teamTotals=sumTeamGameLogsFor(scoped,new Set(logs.map(g=>g.scheduleKey)));
       const ctx=buildSeasonBoxscoreCtx(raw,teamTotals,'perGame',Number(q.season.slice(0,4)));
       const ortg=SEASON_ADVANCED_COLUMNS.find(c=>c.key==='ortg')!;
       const on=q.season>='2020-21'?onOffTotalsFromLogs(logs,g=>byKey.get(g.scheduleKey)):null;

@@ -90,6 +90,12 @@ export const PLAYER_PERIOD_ONCOURT_COLUMNS = [
   "ocQuality",
 ] as const;
 
+/**
+ * ポイントクリエイト（PC）の材料の列: 本人のアシストから生まれた得点（その区間。PlayerGameLog.assistPoints と同じ数え方）。
+ * プレーバイプレーの無い試合の行は -1。古い索引には無い（DESIGN.md 333章）
+ */
+export const PLAYER_PERIOD_ASSIST_POINTS_COLUMN = "assistPoints";
+
 /** チームの統計の列（BoxscoreCounts の項目名のまま。出場時間は秒）。相手の値は、同じ試合の相手の行から引く */
 export const TEAM_PERIOD_COUNT_COLUMNS = [
   "minSec",

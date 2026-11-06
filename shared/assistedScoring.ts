@@ -162,3 +162,35 @@ export function computeAssistedScoring(playByPlays: PlayByPlayEvent[]): Assisted
 
   return { byScorer, pairs, byTeam };
 }
+
+/**
+ * アシストした選手ごとの、アシストから生まれた得点（2P成功×2＋3P成功×3＋FT成功。FTは成功した本数をすべて数える。DESIGN.md 333章）。
+ * ポイントクリエイト（PC）＝本人の得点＋この値。pairs の「アシストした側」を合計する（AssistedScoringCounts の byScorer は受けた側なので使わない）
+ */
+export function assistPointsByAssister(pairs: Iterable<AssistPair>): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const p of pairs) out.set(p.assisterId, (out.get(p.assisterId) ?? 0) + p.assisted2m * 2 + p.assisted3m * 3 + p.assistedFtm);
+  return out;
+}
+
+/**
+ * ピリオドごと（Period の番号）の、アシストした選手ごとのアシストから生まれた得点（Q別の索引用。DESIGN.md 333章）。
+ * アシストは同じピリオドの得点にしか結び付かないので、ピリオドごとに数えた値の合計は、試合全体で数えた値と同じ
+ */
+export function assistPointsByAssisterPeriod(playByPlays: PlayByPlayEvent[]): Map<string, Map<number, number>> {
+  const byPeriod = new Map<number, PlayByPlayEvent[]>();
+  for (const e of playByPlays) {
+    let list = byPeriod.get(e.Period);
+    if (!list) byPeriod.set(e.Period, (list = []));
+    list.push(e);
+  }
+  const out = new Map<string, Map<number, number>>();
+  for (const [period, list] of byPeriod) {
+    for (const [pid, n] of assistPointsByAssister(computeAssistedScoring(list).pairs.values())) {
+      let m = out.get(pid);
+      if (!m) out.set(pid, (m = new Map()));
+      m.set(period, (m.get(period) ?? 0) + n);
+    }
+  }
+  return out;
+}

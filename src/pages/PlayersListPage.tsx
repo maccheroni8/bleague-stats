@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFoulConditionCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason, useSeasonRookies } from "../lib/rookieFilter";
 import { foulColumnsSplit } from "../lib/ruleChange";
-import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTotals";
+import { teamTotalsForPlayedGames } from "../../shared/playedTeamTotals";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { postseasonLabel } from "../../shared/gameType";
@@ -145,7 +145,6 @@ import {
   countDoubleTripleDoubles,
   seasonBoxColumnsFor,
   sumPlayerGameLogs,
-  sumTeamGameLogsFor,
   type SeasonBoxTabKey,
   type SeasonBoxscoreColumn,
   type SeasonBoxscoreCtx,
@@ -912,16 +911,6 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   // 全選手を対象に機能するようにするため）。シチュエーション別フィルタ選択時は、絞り込んだ
   // 試合ログの合算値（+その試合に絞ったチーム総計、個人詳細ページ「シチュエーション別成績」と
   // 同じsumTeamGameLogsFor方式）からctxを組み立てる
-  // シーズンの途中で移籍した選手の分母（所属期間ごとの、所属した各チームの合計。DESIGN.md 213・216章）に使う、チームごとの絞り込み済みの試合ログ
-  const scopedTeamLogsByTeamId = useMemo(() => {
-    if (!filterActive || !teamGameLogsByTeam) return null;
-    const map = new Map<string, TeamGameLog[]>();
-    for (const [teamId, teamLogs] of teamGameLogsByTeam) {
-      const situational = filterGameLogs(teamLogs, { ...situationalFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => teamId, league);
-      map.set(teamId, filterByGameType(situational, gameType));
-    }
-    return map;
-  }, [filterActive, teamGameLogsByTeam, situationalFilter, gameType, opponentRecords, divisionHistory, season, league]);
 
   // on/off タブ: 試合ごとの所属チームの試合ログ（移籍した選手は試合ごとのチーム）で Off を出す。2016-17〜2019-20 は出さない（DESIGN.md 304章）
   const teamLogIndex = useMemo(() => {
@@ -945,11 +934,8 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
             gameType,
           );
           const raw = sumPlayerGameLogs(filteredLogs);
-          const scheduleKeys = new Set(filteredLogs.map((g) => g.scheduleKey));
-          const teamLogs = teamGameLogsByTeam?.get(p.teamId) ?? [];
-          const team =
-            (scopedTeamLogsByTeamId && ownTeamOf ? teamTotalsForTransferredPlayer(logs, filteredLogs, ownTeamOf, scopedTeamLogsByTeamId) : null) ??
-            sumTeamGameLogsFor(teamLogs, scheduleKeys);
+          // USG%・PPP・DRtg の分母: 本人が出場した試合の、その試合の所属チームの合計（移籍した選手も同じ。DESIGN.md 333章）
+          const team = teamTotalsForPlayedGames(filteredLogs, ownTeamOf ?? (() => p.teamId), teamGameLogsByTeam ?? new Map());
           return {
             season,
             player: p,
@@ -961,9 +947,9 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
         // 選手側の試合ログもレギュラーに揃える（Misc/スコアリングタブはこの経路）
         const raw = sumPlayerGameLogs(filterByGameType(logs, "regular"));
         const teamTotals = teamTotalsById.get(p.teamId);
-        // 移籍した選手の分母は、集計済みの値（players.json の transferredTeamTotals）を使う
-        const team: TeamSeasonRawTotals = p.transferredTeamTotals
-          ? p.transferredTeamTotals
+        // USG%・PPP・DRtg の分母は、集計済みの値（players.json の playedTeamTotals。本人が出場した試合の所属チームの合計。DESIGN.md 333章）を使う
+        const team: TeamSeasonRawTotals = p.playedTeamTotals
+          ? p.playedTeamTotals
           : teamTotals
           ? {
               ...EMPTY_TEAM_TOTALS,
@@ -995,7 +981,6 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
       divisionHistory,
       season,
       teamGameLogsByTeam,
-      scopedTeamLogsByTeamId,
       displayMode,
       teamLogIndex,
       tab,

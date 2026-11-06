@@ -3,8 +3,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { buildUsgPpp, usgPppAverage, usgPppDomain } from '../src/lib/figureUsgPpp';
 import type { ScorerData } from '../src/lib/figureTopScorers';
-import { sumPlayerGameLogs, sumTeamGameLogsFor, buildSeasonBoxscoreCtx, SEASON_ADVANCED_COLUMNS } from '../src/lib/playerSeasonBoxscore';
-import { teamTotalsForTransferredPlayer } from '../shared/transferredTeamTotals';
+import { sumPlayerGameLogs, sumTeamGameLogsFor, sumTeamSeasonTotals, EMPTY_TEAM_TOTALS, buildSeasonBoxscoreCtx, SEASON_ADVANCED_COLUMNS } from '../src/lib/playerSeasonBoxscore';
 import { changedRegistrations, scopeLogsByClassification, scopedPlayerMatches } from '../src/lib/registrationScopeCore';
 import { figureClassGroup } from '../src/lib/figureAge';
 import type { PlayerGameLog, PlayerSummary, TeamGameLog } from '../shared/types';
@@ -38,6 +37,17 @@ for (const season of readdirSync('data').filter(s => /^20\d\d-\d\d$/.test(s)).so
   const own = new Map<string, string>();
   for (const [id, logs] of data.teamLogs) for (const g of logs) own.set(`${g.scheduleKey}|${g.isHome}`, id);
   const ownTeamOf = (g: { scheduleKey: string; isHome: boolean }) => own.get(`${g.scheduleKey}|${g.isHome}`);
+  // USG%・PPP の分母（DESIGN.md 333章）: 本人が出場した試合だけの、その試合の所属チームの合計（移籍した選手も同じ）。画面の共通関数を使わずに組み立てる
+  const playedTeam = (logs: PlayerGameLog[]) => {
+    const keysByTeam = new Map<string, Set<string>>();
+    for (const g of logs) {
+      if (!(g.min > 0)) continue;
+      const id = ownTeamOf(g)!;
+      if (!keysByTeam.has(id)) keysByTeam.set(id, new Set());
+      keysByTeam.get(id)!.add(g.scheduleKey);
+    }
+    return [...keysByTeam].reduce((acc, [id, keys]) => sumTeamSeasonTotals(acc, sumTeamGameLogsFor(data.teamLogs.get(id)!, keys)), { ...EMPTY_TEAM_TOTALS });
+  };
   // 期間の試合集合は画面関数に依存せず、直接切り出して比較する。
   const ranges: UsgPppQuery['range'][] = [{ kind: 'recent', n: 5 }, { kind: 'recent', n: 10 }, { kind: 'dateRange', start: `${season.slice(0,4)}-10-01`, end: `${season.slice(0,4)}-10-31` }];
   const samples: unknown[] = [];
@@ -50,14 +60,13 @@ for (const season of readdirSync('data').filter(s => /^20\d\d-\d\d$/.test(s)).so
       const period = range.kind === 'recent' ? played.slice(-range.n) : range.kind === 'dateRange' ? played.filter(g => g.date >= range.start && g.date <= range.end) : played;
       return period.filter(g => gameType === 'both' || g.gameType === gameType);
     };
-    const scopedTeams = new Map([...data.teamLogs].map(([id, logs]) => [id, scope(logs)]));
     const group = figureClassGroup(classification), changed = changedRegistrations(data.registrations);
     for (const point of scoped) {
       const p = players.find(p => p.playerId === point.playerId)!;
       assert(scopedPlayerMatches(p, group, changed));
       const allLogs = scopeLogsByClassification(data.playerLogs.get(p.playerId)!, p.playerId, group, changed), logs = scope(allLogs);
       const raw = sumPlayerGameLogs(logs);
-      const tt = teamTotalsForTransferredPlayer(allLogs, logs, ownTeamOf, scopedTeams) ?? sumTeamGameLogsFor(data.teamLogs.get(p.teamId)!, new Set(logs.map(g => g.scheduleKey)));
+      const tt = playedTeam(logs);
       const ctx = buildSeasonBoxscoreCtx(raw, tt, 'perGame', Number(season.slice(0,4)));
       const expectedUsg = tt.min > 0 ? 100 * (raw.fga + 0.44 * raw.fta + raw.tov) * (tt.min / 5) / (raw.min * (tt.fga + 0.44 * tt.fta + tt.tov)) : null;
       close(point.usg, expectedUsg && Number.isFinite(expectedUsg) ? expectedUsg : expectedUsg === 0 ? 0 : null, `${season} ${point.name} 期間USG%`);
@@ -75,17 +84,20 @@ for (const season of readdirSync('data').filter(s => /^20\d\d-\d\d$/.test(s)).so
     const all = data.playerLogs.get(point.playerId)!;
     const logs = all.filter(g => g.min > 0 && g.gameType === 'regular');
     const raw = sumPlayerGameLogs(logs), p = players.find(p => p.playerId === point.playerId)!;
-    const teamMap = new Map([...data.teamLogs].map(([id, list]) => [id, list.filter(g => g.gameType === 'regular')]));
-    const team = teamTotalsForTransferredPlayer(all, logs, ownTeamOf, teamMap) ?? sumTeamGameLogsFor(data.teamLogs.get(p.teamId)!, new Set(logs.map(g => g.scheduleKey)));
+    void p;
+    const team = playedTeam(logs);
     const ctx = buildSeasonBoxscoreCtx(raw, team, 'perGame', Number(season.slice(0,4)));
     const usg = SEASON_ADVANCED_COLUMNS.find(c => c.key === 'usg')!.value(ctx, 'perGame');
     const ortg = SEASON_ADVANCED_COLUMNS.find(c => c.key === 'ortg')!;
     const ppp = ortg.format(ctx, 'perGame') === '-' ? null : ortg.value(ctx, 'perGame') / 100;
-    if (point.usg !== null && point.ppp !== null && ppp !== null && Math.abs(point.usg - usg) < 1e-8 && Math.abs(point.ppp - ppp) < 1e-8) detailChecks++;
+    const same = (x: number | null, y: number | null) => (x === null && y === null) || (x !== null && y !== null && Math.abs(x - y) < 1e-8);
+    if (same(point.usg, Number.isFinite(usg) ? usg : null) && same(point.ppp, ppp)) detailChecks++;
     else detailDifferent++;
     if (detailExamples.length < 5 && point.pts >= 15 && point.ratio >= 85) detailExamples.push({ name: point.name, games: point.games, teamGames: point.teamGames, usg: point.usg, ppp: point.ppp, detailUsg: usg, detailPpp: ppp });
     if (point.teamIds.length > 1 && transfers.length < 3) transfers.push({ name: point.name, teamIds: point.teamIds, games: point.games, teamGames: point.teamGames, ratio: point.ratio, usg: point.usg, ppp: point.ppp });
   }
+  // 分母をそろえたので、一覧（保存した値）と個人詳細（本人が出た試合から計算）は全員で一致する（DESIGN.md 333章）
+  assert.equal(detailDifferent, 0, `${season} ${category}: 一覧と個人詳細の USG%・PPP が食い違う選手 ${detailDifferent}人`);
   const counts = [0, 5, 8, 10, 12, 15].map(minPts => ({ minPts, count: full.filter(p => p.ratio >= 85 && p.pts >= minPts && p.usg !== null && p.ppp !== null).length }));
   const eligible = full.filter(p => p.ratio >= 85 && p.pts >= 15 && p.usg !== null && p.ppp !== null);
   const avg = usgPppAverage(eligible);

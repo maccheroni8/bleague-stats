@@ -108,6 +108,7 @@ export const STAT_NAMES: Record<string, StatJaName> = {
   PER: "PER",
   "AST%": "アシスト率",
   "%PTS ASTED": "被アシスト率",
+  PC: "ポイントクリエイト",
   FTR: "フリースロー獲得率",
   "OR%": "オフェンスリバウンド率",
   "%OR": "チームORに占める割合",

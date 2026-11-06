@@ -676,10 +676,16 @@ export interface PlayerSummary {
   shooting: ShootingStats;
   advanced: PlayerAdvancedStats;
   /**
-   * そのシーズンの途中で移籍した選手（試合ログが2チーム以上にまたがる）だけが持つ、USG%・%-shareスタッツ・個人ORtg/DRtg・PERの分母
-   * （レギュラーシーズン。所属期間ごとの、所属した各チームの合計。DESIGN.md 217章）。1チームだけの選手は持たない（所属チームのシーズン合計を使う）
+   * そのシーズンの途中で移籍した選手（試合ログが2チーム以上にまたがる）だけが持つ、PERの分母
+   * （レギュラーシーズン。所属期間ごとの、所属した各チームの合計。DESIGN.md 217章）。1チームだけの選手は持たない（所属チームのシーズン合計を使う）。
+   * USG%・PPP（個人ORtg）・DRtg には使わない（playedTeamTotals。DESIGN.md 333章）
    */
   transferredTeamTotals?: TeamSeasonRawTotals;
+  /**
+   * USG%・PPP（個人ORtg）・DRtg の分母（レギュラーシーズン）。本人が出場した試合（出場時間が0より大きい）だけの、その試合で所属していたチームの合計
+   * （移籍した選手も同じ。shared/playedTeamTotals.ts。DESIGN.md 333章）。古いデータには無い
+   */
+  playedTeamTotals?: TeamSeasonRawTotals;
   /**
    * data/players-master.json（scrape-roster.ts）から突合した選手属性。マスタに未登録の選手
    * （新加入直後でまだスクレイプできていない等）は全フィールド未定義になりうる。
@@ -832,6 +838,11 @@ export interface PlayerGameLog extends Partial<FoulCategoryCounts> {
   assisted3m: number;
   /** アシストされたFT成功数 */
   assistedFtm: number;
+  /**
+   * 本人のアシストから生まれた得点（本人がアシストした側。アシストした2P成功×2＋3P成功×3＋FT成功。shared/assistedScoring.ts の pairs を合計）。
+   * ポイントクリエイト（PC）＝PTS＋この値。プレーバイプレーが無い試合（2017-18 の1810）と古いデータには無い（0と区別する。DESIGN.md 333章）
+   */
+  assistPoints?: number;
   /** ペイント内2P成功数（ショットチャート座標由来。2022-23シーズン以降のみ、それ以前は常に0） */
   paint2m: number;
   /** ペイント内2P試投数（同上） */
@@ -950,6 +961,12 @@ export interface TeamGameLog extends Partial<FoulCategoryCounts>, Partial<Oppone
   /** その試合の自チーム・相手のシュートタイプ別（スポーツナビの記録がある試合だけ。DESIGN.md 304章） */
   shotTypes?: ShotTypeBreakdown;
   opponentShotTypes?: ShotTypeBreakdown;
+  /**
+   * その試合のターンオーバーの種類別（試合全体。スポーツナビの記録がある試合だけ。gamesWithData は常に1。DESIGN.md 333章）。
+   * forcedTurnovers＝相手に強制した（相手が記録した）、turnoversCommitted＝自チームが記録した。記録の無い試合・古いデータには無い（0件と区別する）
+   */
+  forcedTurnovers?: TeamForcedTurnovers;
+  turnoversCommitted?: TeamForcedTurnovers;
   /**
    * 相手チームのボックススコア（個人ORtg/DRtgのDean Oliver方式で「opponent」役として必要な
    * フィールドのみ。opponentScoreがptsに相当するためptsは別途持たない）。DESIGN.md参照

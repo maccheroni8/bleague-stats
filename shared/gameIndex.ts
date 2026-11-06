@@ -78,6 +78,12 @@ export const PLAYER_INDEX_STAT_COLUMNS = [
 export const PLAYER_INDEX_STREAK_COLUMNS = ["ftPre", "ftSuf", "ftInMax", "ftInN", "tpPre", "tpSuf", "tpInMax", "tpInN"] as const;
 export type PlayerIndexStreakColumn = (typeof PLAYER_INDEX_STREAK_COLUMNS)[number];
 
+/**
+ * ポイントクリエイト（PC）の材料の列: 本人のアシストから生まれた得点（PlayerGameLog.assistPoints）。プレーバイプレーが無い試合は -1（DESIGN.md 333章）。
+ * PLAYER_INDEX_STAT_COLUMNS とは別に持つ（勝負所の列の位置を変えないため）。古い索引には無い
+ */
+export const PLAYER_INDEX_ASSIST_POINTS_COLUMN = "assistPoints" as const;
+
 /** 勝負所の列（clutchIndex の順）。PLAYER_INDEX_STAT_COLUMNS の末尾の18個 */
 export const PLAYER_INDEX_CLUTCH_COLUMNS = PLAYER_INDEX_STAT_COLUMNS.slice(-18) as unknown as readonly (typeof PLAYER_INDEX_STAT_COLUMNS)[number][];
 
@@ -155,7 +161,8 @@ export interface PlayerGameIndexFile {
     player: number[];
     game: number[];
     flags: number[];
-    stats: Record<(typeof PLAYER_INDEX_STAT_COLUMNS)[number], number[]> & Partial<Record<PlayerIndexStreakColumn, number[]>>;
+    stats: Record<(typeof PLAYER_INDEX_STAT_COLUMNS)[number], number[]> &
+      Partial<Record<PlayerIndexStreakColumn | typeof PLAYER_INDEX_ASSIST_POINTS_COLUMN, number[]>>;
     /**
      * その試合での登録区分の番号（shared/registration.ts の CLASSIFICATION_CODES。0 日本人・1 外国籍・2 帰化選手・3 アジア特別枠・-1 不明）。
      * 外国籍・帰化・アジア特別枠を分けて選べるシーズン（2026-27 以降）だけ持つ。古い索引・2025-26 以前には無い（DESIGN.md 295章）

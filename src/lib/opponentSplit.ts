@@ -58,7 +58,8 @@ export const OPPONENT_SPLIT_CATEGORIES: { key: OpponentSplitCategory; label: str
 
 /** Yahoo の記録（シュートの種類・ターンオーバーの種類）が要るカテゴリ */
 export function categoryNeedsYahoo(category: OpponentSplitCategory): boolean {
-  return category === "shooting" || category === "forcedTurnovers";
+  // Forced TOV は試合ログに保存した試合ごとの値を使うので、記録を読まない（DESIGN.md 333章）
+  return category === "shooting";
 }
 
 /** 視点を「+/-」にできないカテゴリ（On-Court Foreign は全チームスタッツと同じく対象外。Shooting は自チーム／opp の値を並べるだけ） */
@@ -230,6 +231,29 @@ export function sumForcedTurnovers(pbps: readonly YahooGamePbp[], ownTeamId: str
     }
   }
   return { forced, committed };
+}
+
+/**
+ * チームの試合ログに保存した試合ごとの Forced TOV（forcedTurnovers・turnoversCommitted。スポーツナビの記録がある試合だけ。DESIGN.md 333章）を足す。
+ * 記録の無い試合は数えない（0件の試合とは区別する）。sumForcedTurnovers（記録を読み直す）と同じ値になる
+ */
+export function sumForcedTurnoversFromLogs(logs: readonly TeamGameLog[]): { forced: TeamForcedTurnovers; committed: TeamForcedTurnovers } {
+  const forced = emptyForced();
+  const committed = emptyForced();
+  const add = (into: TeamForcedTurnovers, v: TeamForcedTurnovers) => {
+    for (const k of Object.keys(into) as (keyof TeamForcedTurnovers)[]) into[k] += v[k] ?? 0;
+  };
+  for (const g of logs) {
+    if (!g.forcedTurnovers || !g.turnoversCommitted) continue;
+    add(forced, g.forcedTurnovers);
+    add(committed, g.turnoversCommitted);
+  }
+  return { forced, committed };
+}
+
+/** スポーツナビの記録がある試合（shotTypes がある）なのに、試合ごとの Forced TOV が無い試合ログがあるか（古いデータ。読み直してもらう） */
+export function lacksForcedTurnoverLogs(logs: readonly TeamGameLog[]): boolean {
+  return logs.some((g) => !!g.shotTypes && !g.forcedTurnovers);
 }
 
 /**

@@ -18,13 +18,12 @@ import {
   forcedTurnoverColumns,
   foreignColumns,
   foreignSplitData,
-  pbpsOf,
   periodColumns,
   scoringCompositionColumns,
   shootingColumns,
   shootingSplitData,
   standardColumns,
-  sumForcedTurnovers,
+  sumForcedTurnoversFromLogs,
   type OpponentSplitCategory,
   type OpponentSplitRow,
 } from "../lib/opponentSplit";
@@ -108,9 +107,10 @@ export function TeamOpponentSplit({
   const forcedData = useMemo(() => {
     if (category !== "forcedTurnovers") return null;
     const map = new Map<string, { forced: TeamForcedTurnovers; committed: TeamForcedTurnovers }>();
-    for (const r of allRows) map.set(r.key, sumForcedTurnovers(pbpsOf(r.logs, yahooPbp), teamId));
+    // 試合ログに保存した試合ごとの値を足す（スポーツナビの記録を読み直さない。DESIGN.md 333章）
+    for (const r of allRows) map.set(r.key, sumForcedTurnoversFromLogs(r.logs));
     return map;
-  }, [category, allRows, yahooPbp, teamId]);
+  }, [category, allRows]);
   const shootingData = useMemo(
     () => (category === "shooting" ? shootingSplitData(allRows, yahooPbp, teamId, effectivePerspective === "opp" ? "opp" : "own") : null),
     [category, allRows, yahooPbp, teamId, effectivePerspective],
@@ -173,7 +173,7 @@ export function TeamOpponentSplit({
     body = <p className="loading">読み込み中...</p>;
   } else if (scopedLogs.length === 0) {
     body = <p className="empty-message">該当する試合がありません</p>;
-  } else if (needsYahoo && !yahooSupported) {
+  } else if ((needsYahoo || category === "forcedTurnovers") && !yahooSupported) {
     body = <p className="empty-message">このシーズンのデータには対応していません</p>;
   } else if (needsYahoo && !yahooReady) {
     body = <p className="loading">読み込み中...</p>;

@@ -30,7 +30,7 @@ import {
   type SeasonGameTypeFilter,
   type TeamSeasonRawTotals,
 } from "./playerSeasonBoxscore";
-import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTotals";
+import { teamTotalsForPlayedGames } from "../../shared/playedTeamTotals";
 import { shotTypeEntityColumns, SHOT_TYPE_DISPLAY_ORDER } from "./shotTypeBreakdown";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "./teamRankingData";
 import { OVERTIME_MIN_GAMES, overtimeCandidates, seasonPeriodOption, seasonPeriodTotalsOf, useSeasonPeriodSources } from "./seasonPeriod";
@@ -678,8 +678,6 @@ export function usePlayerSeasonRanking(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameLogsByTeam, filtersApply, filter, gameType, opponentRecords, divisionHistory, season]);
   const teamTotalsByTeamId = teamScopes?.totals ?? null;
-  // シーズンの途中で移籍した選手の分母は、条件の有無によらず、条件に当てはまる試合で所属していた各チームの所属期間の合計にする
-  // （選手の最新の所属チームだけで割ると、条件に当てはまる試合の外のチームで割ってしまう。DESIGN.md 213・216章）。1チームだけの選手は、所属チームの合計
 
   // Q別・前後半は、ピリオド別の索引が読めてから集計する（読めないシーズンは表を出さない）
   const periodDataReady = !effPeriodActive || !!periodSource;
@@ -711,19 +709,18 @@ export function usePlayerSeasonRanking(
         const logs = classLogs(gameLogsByPlayer!, p.playerId);
         const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf);
         const scoped = filterByGameType(situational, effGameType);
-        if (teamScopes && playerOwnTeamOf) {
-          team = teamTotalsForTransferredPlayer(logs, scoped, playerOwnTeamOf, teamScopes.logs) ?? team;
-        }
+        // USG%・PPP・DRtg の分母: 本人が出場した試合の、その試合の所属チームの合計（条件の有無・移籍によらない。DESIGN.md 333章）
+        if (gameLogsByTeam) team = teamTotalsForPlayedGames(scoped, playerOwnTeamOf ?? (() => p.teamId), gameLogsByTeam);
         map.set(p.playerId, buildSeasonBoxscoreCtx(sumPlayerGameLogs(scoped), team, "perGame", seasonStartYear));
       } else {
-        // 試合ログを読まない経路（条件なし）。移籍した選手の分母は、集計済みの値（players.json の transferredTeamTotals）を使う
-        map.set(p.playerId, buildSeasonBoxscoreCtx(rawTotalsFromPlayerSummary(p), p.transferredTeamTotals ?? team, "perGame", seasonStartYear));
+        // 試合ログを読まない経路（条件なし）。分母は集計済みの値（players.json の playedTeamTotals。本人が出場した試合の所属チームの合計）を使う
+        map.set(p.playerId, buildSeasonBoxscoreCtx(rawTotalsFromPlayerSummary(p), p.playedTeamTotals ?? team, "perGame", seasonStartYear));
       }
     }
     return map;
   }, [
     teamTotalsByTeamId,
-    teamScopes,
+    gameLogsByTeam,
     needsGameLogRecompute,
     gameLogsByPlayer,
     eligible,
@@ -806,6 +803,8 @@ export function usePlayerSeasonRanking(
     if (!modeApplies) return undefined;
     if (statKey === "dd2" || statKey === "td3" || statKey === "pts10") return undefined;
     if (category === "shooting" || statKey === "eff") return p.gamesPlayed;
+    // ポイントクリエイトは、プレーバイプレーのある試合だけで割る（DESIGN.md 333章）
+    if (statKey === "pc") return ctxByPlayer?.get(p.playerId)?.raw.pcGames;
     return ctxByPlayer?.get(p.playerId)?.raw.gamesPlayed;
   };
 

@@ -332,8 +332,9 @@ for (const season of seasons) {
   console.log(`参考: 全選手スタッツ（players.json の事前計算値）との比較 ORtg・DRtg・NetRtg・USG%: ${allCells}セル中 食い違い${allDiff}（うち移籍した選手の行 ${allTransDiff}／${allTransCells}）`);
   for (const [k, n] of [...allBy].sort()) console.log(`   ${k}: ${n}件`);
   for (const g of allGaps) console.log(`   例: ${g}`);
-  console.log(`原因の確認: 同一チームのみの選手を「チームの全試合の合計」で割ると全選手スタッツと一致するか: ${fullCells}セル中 食い違い${fullDiff}`);
-  for (const g of fullGaps) console.log(`   ${g}`);
+  // 分母を「本人が出場した試合の所属チームの合計」にそろえたので、1チームだけの選手は md と全選手スタッツが一致する（DESIGN.md 333章）
+  check('md の選手の ORtg・DRtg・NetRtg・USG%（1チームだけの選手）が全選手スタッツと同じ', [...allBy].filter(([k]) => k.startsWith('同一チームのみ')).every(([, n]) => n === 0), [...allBy].map(([k, n]) => `${k} ${n}`).join('、'));
+  console.log(`参考: 同一チームのみの選手を「チームの全試合の合計」で割ったときの全選手スタッツとの差（出場していない試合がある選手は今は違って当然）: ${fullCells}セル中 ${fullDiff}`);
 }
 console.log(`値の比較: チーム表${valueCells}セル・選手表${playerCells}セル、食い違い${gaps.length}`);
 // 選手の合計で分母がチーム合計の項目（%PTS など）は、タブがチーム合計の一部の項目しか持たない経路があるので、食い違いは種類ごとにまとめて報告する
@@ -746,9 +747,19 @@ const rankOf = (v: string | undefined) => { const m = /（(\d+)位）$/.exec(v ?
     if (a !== b && !diffEx) diffEx = `${season} ${t.teamName}`;
   }
   check(`teams.json の値の経路と記録から数える経路が同じ書き出し（${sameN}チームシーズン）`, !diffEx, diffEx);
+  // 試合全体の Forced TOV は試合ログの値なので、条件を付けても記録なしで作れ、記録を読んだときと同じ内容（DESIGN.md 333章）
   let thrown = false;
-  try { buildDetailedExport(inputFor('2025-26', sd('2025-26').teams[0]!.teamId, 'team', { term: 'recent5', pbps: undefined })); } catch { thrown = true; }
-  check('1シーズン・全チーム以外で記録が読まれていないときは作らない', thrown);
+  {
+    const tid0 = sd('2025-26').teams[0]!.teamId;
+    const withPbp = buildDetailedExport(inputFor('2025-26', tid0, 'team', { term: 'recent5' })).markdown;
+    const without = buildDetailedExport(inputFor('2025-26', tid0, 'team', { term: 'recent5', pbps: undefined })).markdown;
+    check('直近5試合のチーム情報は、記録を読まなくても同じ内容で作れる', withPbp === without);
+    // 古いデータ（記録はあるのに試合ごとの Forced TOV が無い）は作らない（0件で補わない）
+    const base = inputFor('2025-26', tid0, 'team', { term: 'recent5', pbps: undefined });
+    const old = (g: TeamGameLog): TeamGameLog => ({ ...g, forcedTurnovers: undefined, turnoversCommitted: undefined });
+    try { buildDetailedExport({ ...base, cur: { ...base.cur, regular: base.cur.regular.map(old) } }); } catch { thrown = true; }
+    check('試合ごとの Forced TOV が無い古いデータでは作らない', thrown);
+  }
   thrown = false;
   try { buildDetailedExport(inputFor('2025-26', sd('2025-26').teams[0]!.teamId, 'player', { pbps: undefined })); } catch { thrown = true; }
   check('選手の Shooting で記録が読まれていないときは作らない', thrown);
@@ -782,7 +793,7 @@ const rankOf = (v: string | undefined) => { const m = /（(\d+)位）$/.exec(v ?
         const terms = detailedTerms(ds, kind, opp, t.teamId, history);
         let sumGames = 0, sumRec = 0, sumShot = { m2: 0, a2: 0, m3: 0, a3: 0 }, sumForced = 0, sumCommitted = 0;
         for (const term of terms) {
-          const pair = sumShotPair(term.statLogs), tov = sumTovPair(term.statLogs, pbps, t.teamId);
+          const pair = sumShotPair(term.statLogs), tov = sumTovPair(term.statLogs);
           const raw = rawTotals(term.statLogs.map(g => g.scheduleKey), pbps, t.teamId);
           const tt = pairTotals(pair);
           termCells++;
@@ -791,7 +802,7 @@ const rankOf = (v: string | undefined) => { const m = /（(\d+)位）$/.exec(v ?
         }
         if (kind === 'halves' || kind === 'threeTerms') {
           const all = opp === 'all' ? season1 : detailedTerms(ds, 'season', opp, t.teamId, history)[0]!;
-          const pair = sumShotPair(all.statLogs), tov = sumTovPair(all.statLogs, pbps, t.teamId);
+          const pair = sumShotPair(all.statLogs), tov = sumTovPair(all.statLogs);
           const tt = pairTotals(pair);
           if (sumGames !== all.statLogs.length || sumRec !== pair.games || JSON.stringify(sumShot) !== JSON.stringify(tt) || sumForced !== tovTotal(tov.forced) || sumCommitted !== tovTotal(tov.committed)) miss(`${season} ${t.teamName} ${kind}・${opp}: ターム合計≠シーズン全体`);
         }
@@ -806,7 +817,8 @@ const rankOf = (v: string | undefined) => { const m = /（(\d+)位）$/.exec(v ?
     const season = '2025-26', teamId = sd(season).teams.find(t => t.teamName.includes('宇都宮'))!.teamId;
     const base = inputFor(season, teamId, 'team');
     const drop = new Set(base.cur.regular.slice(5, 8).map(g => g.scheduleKey));
-    const strip = (g: TeamGameLog): TeamGameLog => (drop.has(g.scheduleKey) ? { ...g, shotTypes: undefined, opponentShotTypes: undefined } : g);
+    const strip = (g: TeamGameLog): TeamGameLog =>
+      drop.has(g.scheduleKey) ? { ...g, shotTypes: undefined, opponentShotTypes: undefined, forcedTurnovers: undefined, turnoversCommitted: undefined } : g;
     const reg = base.cur.regular.map(strip);
     const pbps = new Map([...pbpsOfSeason(season)].filter(([k]) => !drop.has(k)));
     const inp: DetailedInput = { ...base, cur: { ...base.cur, regular: reg }, leagueLogs: new Map([...base.leagueLogs!, [teamId, reg]]), pbps };
@@ -819,7 +831,7 @@ const rankOf = (v: string | undefined) => { const m = /（(\d+)位）$/.exec(v ?
     const att = pair.own[key]!.twoPoint.attempted;
     const lab = `${shotTypeEntityColumns<ShotPair>([key], r => r.own, 'perGame', r => r.games)[1]!.label}`;
     check('人工: 平均の分母は記録がある57試合（60試合で割らない）', stripRank(sh.get(lab)?.[0]) === (att / 57).toFixed(2) && (att / 57).toFixed(2) !== (att / 60).toFixed(2), `${lab}: ${sh.get(lab)?.[0]} / 期待 ${(att / 57).toFixed(2)}`);
-    const tvPair = sumTovPair(reg, pbps, teamId);
+    const tvPair = sumTovPair(reg);
     check('人工: Forced TOV の合計も57試合の平均', stripRank(tv.get('合計')?.[0]) === (tovTotal(tvPair.forced) / 57).toFixed(2), `${tv.get('合計')?.[0]} / 期待 ${(tovTotal(tvPair.forced) / 57).toFixed(2)}`);
     check('人工: 記録が無い試合があるときの注記がある', /記録が無い試合があるため、その試合は Shooting・Forced TOV の平均・成功率に入れていない/.test(md));
     check('人工: NaN 等が無い', !NOT_NUM.test(md));
@@ -1007,40 +1019,38 @@ const rankOf = (v: string | undefined) => { const m = /（(\d+)位）$/.exec(v ?
   } as AiDetailedSource);
   const run = (kind: 'team' | 'player', term: 'season' | 'recent5' | 'halves', opp: 'all' | 'atLeast60', over: Partial<AiDetailedSource> = {}, hooks = {}) =>
     loadDetailedExport(season, tid, { kind, term, opp, timeSlice: 'game', compare: false }, mk(over), () => new Date('2026-11-03T10:00:00'), hooks);
-  yahooCalls.length = 0; await run('team', 'season', 'all');
-  check('1シーズン・全チームのチーム情報は、スポーツナビの記録を1件も読まない（teams.json の値を使う）', yahooCalls.length === 0, String(yahooCalls.length));
-  yahooCalls.length = 0; const r5 = await run('team', 'recent5', 'all', {}, { onProgress: (d: number, t: number) => progress.push([d, t]) });
-  const need5 = new Set<string>();
-  for (const t of sd(season).teams) { const ds = seasonOf(season, t.teamId); for (const term of detailedTerms(ds, 'recent5', 'all', t.teamId, history)) for (const g of term.statLogs) if (g.shotTypes) need5.add(g.scheduleKey); }
-  check(`直近5試合は必要な試合（${need5.size}試合）だけ読む`, yahooCalls.length === need5.size && new Set(yahooCalls).size === need5.size && [...need5].every(k => yahooCalls.includes(k)), `${yahooCalls.length}`);
-  check('進み具合を知らせる（0から全体まで）', progress.length === need5.size + 1 && progress[0]![0] === 0 && progress.at(-1)![0] === need5.size && progress.every(p => p[1] === need5.size));
-  check('読み込み経由と直接で同じ内容（直近5試合）', buildDetailedExport(r5).markdown === buildDetailedExport(inputFor(season, tid, 'team', { term: 'recent5', exportedAt: r5.exportedAt })).markdown);
-  yahooCalls.length = 0; const hv = await run('team', 'halves', 'all');
-  const allKeys = new Set([...sd(season).logs.values()].flatMap(l => l.filter(g => g.gameType === 'regular' && g.shotTypes).map(g => g.scheduleKey)));
-  check(`前半戦後半戦は全チームの全試合（${allKeys.size}試合）を読む`, yahooCalls.length === allKeys.size);
-  check('読み込み経由と直接で同じ内容（前半戦後半戦）', buildDetailedExport(hv).markdown === buildDetailedExport(inputFor(season, tid, 'team', { term: 'halves', exportedAt: hv.exportedAt })).markdown);
-  yahooCalls.length = 0; await run('player', 'season', 'all');
+  // チーム情報（試合全体）は、試合ログに保存した試合ごとの Forced TOV と Shooting を使うので、条件を付けてもスポーツナビの記録を読まない（DESIGN.md 333章）
+  for (const [term, opp] of [['season', 'all'], ['recent5', 'all'], ['halves', 'all'], ['season', 'atLeast60']] as const) {
+    yahooCalls.length = 0; progress.length = 0;
+    const r = await run('team', term, opp, {}, { onProgress: (d: number, t: number) => progress.push([d, t]) });
+    check(`チーム情報（${term}・${opp}・試合全体）は、スポーツナビの記録を1件も読まない`, yahooCalls.length === 0, String(yahooCalls.length));
+    check(`読み込み経由と直接で同じ内容（チーム・${term}・${opp}）`, buildDetailedExport(r).markdown === buildDetailedExport(inputFor(season, tid, 'team', { term, opp, pbps: undefined, exportedAt: r.exportedAt })).markdown);
+  }
+  // 選手情報は選手の Shooting のために、自チームの記録がある試合だけ読む（進み具合・失敗・中止もここで確かめる）
   const own = seasonOf(season, tid).regular.filter(g => g.shotTypes).length;
+  yahooCalls.length = 0; progress.length = 0;
+  await run('player', 'season', 'all', {}, { onProgress: (d: number, t: number) => progress.push([d, t]) });
   check(`選手情報は自チームの記録がある試合（${own}試合）だけ読む`, yahooCalls.length === own, String(yahooCalls.length));
+  check('進み具合を知らせる（0から全体まで）', progress.length === own + 1 && progress[0]![0] === 0 && progress.at(-1)![0] === own && progress.every(p => p[1] === own));
   // 失敗・中止
   let failed = false;
-  try { await run('team', 'recent5', 'all', { fetchYahooGamePbp: async () => null }); } catch { failed = true; }
-  check('記録が1件でも読めなかったら完成版を作らない（チーム）', failed);
+  try { await run('player', 'season', 'all', { fetchYahooGamePbp: async () => null }); } catch { failed = true; }
+  check('記録が1件でも読めなかったら完成版を作らない（全部読めない）', failed);
   failed = false;
   const ownKey = seasonOf(season, tid).regular.filter(g => g.shotTypes)[3]!.scheduleKey;
   try { await run('player', 'season', 'all', { fetchYahooGamePbp: async (s: string, k: string) => (k === ownKey ? null : pbpsOfSeason(s).get(k) ?? null) }); } catch { failed = true; }
-  check('記録が1件でも読めなかったら完成版を作らない（選手）', failed);
+  check('記録が1件でも読めなかったら完成版を作らない（1件だけ読めない）', failed);
   failed = false;
-  try { await run('team', 'recent5', 'all', { fetchYahooGamePbp: async () => { throw new Error('x'); } }); } catch { failed = true; }
+  try { await run('player', 'season', 'all', { fetchYahooGamePbp: async () => { throw new Error('x'); } }); } catch { failed = true; }
   check('記録の読み込みで例外が出ても完成版を作らない', failed);
   let aborted = false;
   yahooCalls.length = 0;
-  try { await run('team', 'halves', 'all', {}, { signal: { aborted: true } }); } catch (e) { aborted = e instanceof LoadAborted; }
+  try { await run('player', 'season', 'all', {}, { signal: { aborted: true } }); } catch (e) { aborted = e instanceof LoadAborted; }
   check('中止すると、記録を読まずに止まる', aborted && yahooCalls.length === 0);
   const sig = { aborted: false };
   yahooCalls.length = 0; aborted = false;
-  try { await run('team', 'halves', 'all', {}, { signal: sig, onProgress: (d: number) => { if (d >= 20) sig.aborted = true; } }); } catch (e) { aborted = e instanceof LoadAborted; }
-  check('読み込みの途中で中止すると、残りを読まずに止まる', aborted && yahooCalls.length < allKeys.size / 2, String(yahooCalls.length));
+  try { await run('player', 'season', 'all', {}, { signal: sig, onProgress: (d: number) => { if (d >= 10) sig.aborted = true; } }); } catch (e) { aborted = e instanceof LoadAborted; }
+  check('読み込みの途中で中止すると、残りを読まずに止まる', aborted && yahooCalls.length < own, String(yahooCalls.length));
 }
 
 // ---- 10. 段階4：前半・後半・2ファイル ----
@@ -1137,7 +1147,7 @@ const rankOf = (v: string | undefined) => { const m = /（(\d+)位）$/.exec(v ?
         const h1 = shotPairInPeriods(logs, pbps, t.teamId, [1, 2]), h2 = shotPairInPeriods(logs, pbps, t.teamId, [3, 4]), ot = shotPairInPeriods(logs, pbps, t.teamId, OT);
         shotAdd++;
         if (normB(sumB(h1.own, h2.own, ot.own)) !== normB(all.own) || normB(sumB(h1.opp, h2.opp, ot.opp)) !== normB(all.opp)) miss(`${season} ${t.teamName}: Shooting 前半＋後半＋延長≠試合全体`);
-        const tAll = sumTovPair(logs, pbps, t.teamId), tp = [[1, 2], [3, 4], OT].map(pp => tovPairInPeriods(logs, pbps, t.teamId, pp));
+        const tAll = sumTovPair(logs), tp = [[1, 2], [3, 4], OT].map(pp => tovPairInPeriods(logs, pbps, t.teamId, pp));
         if (tovTotal(tAll.forced) !== tp.reduce((s, x) => s + tovTotal(x.forced), 0) || tovTotal(tAll.committed) !== tp.reduce((s, x) => s + tovTotal(x.committed), 0)) miss(`${season} ${t.teamName}: Forced TOV 前半＋後半＋延長≠試合全体`);
       }
     }
@@ -1354,7 +1364,12 @@ const rankOf = (v: string | undefined) => { const m = /（(\d+)位）$/.exec(v ?
     check(`チーム情報・1シーズン・前半後半は、自チームの記録（${own}試合）だけ読む（全チームの記録は読まない）`, calls.length === own && a.pbpsScope === 'own', `${calls.length}・${a.pbpsScope}`);
     check('読み込み経由と直接で同じ内容（チーム・1シーズン・前半後半）', buildDetailedExport(a).markdown === buildDetailedExport(inputFor(season, tid, 'team', { term: 'season', timeSlice: 'halves', exportedAt: a.exportedAt })).markdown);
     calls.length = 0; const b = await run('team', 'halves', 'all');
-    check('チーム情報・前半戦後半戦は、試合全体の Forced TOV のために全チームの記録を読む（範囲＝league）', calls.length > own * 5 && b.pbpsScope === 'league');
+    // 試合全体の Forced TOV は試合ログに保存した値を使うので、全チームの記録は読まない（DESIGN.md 333章）
+    check(`チーム情報・前半戦後半戦も、自チームの記録（${own}試合）だけ読む（全チームの記録は読まない）`, calls.length === own && b.pbpsScope === 'own', `${calls.length}・${b.pbpsScope}`);
+    calls.length = 0;
+    const g = await loadDetailedExport(season, tid, { kind: 'team', term: 'halves', opp: 'atLeast60', timeSlice: 'game', compare: false }, mk(), () => new Date('2026-11-03T10:00:00'));
+    check('チーム情報・試合全体だけなら、条件を付けてもスポーツナビの記録を1つも読まない', calls.length === 0 && g.pbps === undefined, `${calls.length}`);
+    check('読み込み経由と直接で同じ内容（チーム・前半戦後半戦・勝率6割以上・試合全体）', buildDetailedExport(g).markdown === buildDetailedExport(inputFor(season, tid, 'team', { term: 'halves', opp: 'atLeast60', timeSlice: 'game', pbps: undefined, exportedAt: g.exportedAt })).markdown);
     check('読み込み経由と直接で同じ内容（チーム・前半戦後半戦・前半後半）', buildDetailedExport(b).markdown === buildDetailedExport(inputFor(season, tid, 'team', { term: 'halves', timeSlice: 'halves', exportedAt: b.exportedAt })).markdown);
     calls.length = 0; const c = await run('player', 'season', 'all');
     check('選手情報は選手の区間の索引を読み、自チームの記録だけ読む', calls.includes(`period:${season}`) && calls.filter(k => !k.startsWith('period')).length === own && !!c.seasonPeriod);

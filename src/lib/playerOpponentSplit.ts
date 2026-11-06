@@ -1,7 +1,7 @@
 // 個人詳細 > 対戦相手別（選んだシーズンの、対戦相手ごとの成績を1行ずつ）の行の作り方と列の定義。
 // 行の作り方は個人詳細のシチュエーション別成績・シーズン別成績と同じ（試合ログを絞り、所属チームごとの分母〔USG%・%-share等〕を足して
-// buildTeamSplitRows に渡す）。シーズンの途中で移籍した選手は、所属の違う試合も相手ごとに1行にまとめ、分母は「所属期間ごとの、所属した各チームの合計」
-// （DESIGN.md 216章。transferredCombinedTeam）。出場しなかった試合（出場時間0）は数えない。
+// buildTeamSplitRows に渡す）。シーズンの途中で移籍した選手は、所属の違う試合も相手ごとに1行にまとめ、USG%・PPP・DRtg の分母は本人が出場した試合の所属チームの合計
+// （DESIGN.md 333章）。出場しなかった試合（出場時間0）は数えない。
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
 import type { Column } from "../components/SortableTable";
 import type { OpponentRowBase } from "../components/OpponentSplitTable";
@@ -16,7 +16,6 @@ import {
   filterByGameType,
   seasonBoxColumnsFor,
   sumTeamTotalsForLogs,
-  transferredCombinedTeam,
   type SeasonBoxscoreCtx,
   type SeasonBoxTabKey,
   type SeasonDisplayMode,
@@ -76,14 +75,7 @@ export function buildPlayerOpponentRows(input: PlayerOpponentInput): { rows: Pla
   if (played.length === 0) return { rows: [], total: null };
 
   const rowFor = (key: string, name: string, opponentTeamId: string | null, matched: PlayerGameLog[]): PlayerOpponentRow | null => {
-    const scopedTeamLogs = new Map(
-      [...teamLogsByTeamId].map(([teamId, teamLogs]) => [
-        teamId,
-        filterByGameType(teamLogs, gameType).filter((g) => opponentTeamId === null || g.opponentTeamId === opponentTeamId),
-      ]),
-    );
-    const combined = transferredCombinedTeam(logs, matched, ownTeamByScheduleKey, scopedTeamLogs);
-    const split = buildTeamSplitRows(key, matched, ownTeamByScheduleKey, sumTeamTotalsForLogs(matched, ownTeamByScheduleKey, teamLogsByTeamId), displayMode, seasonStartYear, combined);
+    const split = buildTeamSplitRows(key, matched, ownTeamByScheduleKey, sumTeamTotalsForLogs(matched, ownTeamByScheduleKey, teamLogsByTeamId), displayMode, seasonStartYear);
     // 所属の違う試合もまとめる: 複数チームにまたがるときは最後の行（合計）、1チームだけならその行
     const row = split[split.length - 1];
     if (!row) return null;

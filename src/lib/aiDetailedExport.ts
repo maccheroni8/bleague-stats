@@ -25,7 +25,7 @@ import { buildShotTypeBreakdown } from './shotTypeBreakdown';
 import { buildStreakTeamRow } from './streaksTab';
 import { leagueDirections, leagueRanks, pooledRow } from './aiDetailedLeague';
 import {
-  HALF_PERIODS, shotPairInPeriods, tovPairInPeriods, YAHOO_PERSPECTIVES, addShotPair, addTovPair, emptyShotPair, emptyTovPair, forcedMetrics, playerShootingColumns, playerShots, shootingMetrics, shotKeysOf, sumShotPair, sumTovPair, tovPairFromTeam,
+  HALF_PERIODS, shotPairInPeriods, tovPairInPeriods, YAHOO_PERSPECTIVES, addShotPair, addTovPair, emptyShotPair, emptyTovPair, forcedMetrics, playerShootingColumns, playerShots, shootingMetrics, shotKeysOf, sumShotPair, sumTovPair,
   type Metric, type ShotPair, type TovPair,
 } from './aiDetailedYahoo';
 import { ageBaseDate, ageForSeason, formatBaseDateLabel, AGE_BASE_NOTE } from './age';
@@ -633,17 +633,9 @@ function buildPart(i: DetailedInput, slices: TimeSlice[], split: SplitInfo | und
       ...metricRows(shootingMetrics(keys), cols.map((c, k) => ({ own: shotOwn[k]!.games > 0 ? shotOwn[k] : undefined, league: shotLeague[k] })), m => perspectivePrefix.get(m.perspective) ?? ''),
     ]), '');
     // ---- Forced TOV ----
-    const wholeSeasonAll = i.opp === 'all' && (terms.length === 1 && i.term === 'season');
-    const tovOf = (c: Col, logs: TeamGameLog[], tid: string): TovPair => {
-      if (i.pbps && (i.pbpsScope ?? 'league') === 'league') return sumTovPair(logs, i.pbps, tid);
-      // 1シーズン・全チームのときだけ teams.json の値（全試合の合計）を使う（読み込みを省く）
-      const t = cur.teams.find(x => x.teamId === tid);
-      const p = wholeSeasonAll && t ? tovPairFromTeam(t) : null;
-      if (!p) throw new Error('スポーツナビの記録が読み込まれていません。');
-      return p;
-    };
-    const tovOwn = cols.map(c => tovOf(c, c.logs, teamId));
-    const tovLeague = cols.map(c => (hasLeague ? leagueOf(c, (logs, tid) => tovOf(c, logs, tid), d => d.forced.gamesWithData > 0, addTovPair, emptyTovPair) : undefined));
+    // 試合全体の Forced TOV は試合ログに保存した値の合計（全チームの記録を読み直さない。DESIGN.md 333章）
+    const tovOwn = cols.map(c => sumTovPair(c.logs));
+    const tovLeague = cols.map(c => (hasLeague ? leagueOf(c, logs => sumTovPair(logs), d => d.forced.gamesWithData > 0, addTovPair, emptyTovPair) : undefined));
     out.push(`### Forced TOV${slices.length > 1 ? '・試合全体' : ''}`, '', `ターンオーバーの種類別の1試合平均（スポーツナビの記録）。視点は 自チーム＝相手から奪った（自チームが強制した）／opp＝相手に強制された（自チームが記録した）／差＝奪った−強制された。「全チームスタッツ > Forced TOV」と同じ値・同じ分類。**分母は、スポーツナビの記録がある試合だけ**（データあり試合数）。「ライブボール（参考）」はスティール由来で参考値${noteLeague ? noteLeague.replace('成功率', '割合') + '。順位の向きは、自チーム・差は多いほうが上位、opp（相手に強制された）は少ないほうが上位' : ''}。`, '');
     out.push(table(['項目', ...colHeads(cols)], [
       ['データあり試合数', ...cols.flatMap((c, k) => (leagueCols.has(c.key) ? [String(tovOwn[k]!.forced.gamesWithData), `チーム延べ${tovLeague[k]?.pooled?.forced.gamesWithData ?? 0}試合`] : [String(tovOwn[k]!.forced.gamesWithData)]))],

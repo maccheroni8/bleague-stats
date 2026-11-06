@@ -358,6 +358,19 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     category: "basic",
   },
   {
+    // ポイントクリエイト（DESIGN.md 333章）。players.json には持たない（試合ログから出す）ので、ここは用語集の説明のための行
+    key: "pc",
+    label: "PC",
+    value: () => 0,
+    format: () => "-",
+    formulaText:
+      "ポイントクリエイト。PTS ＋（自分のアシストから生まれた得点＝アシストした2PM×2＋3PM×3＋FTM）。フリースローは、アシストの付いたフリースローの成功した本数をすべて数える。" +
+      "試合の流れの記録（プレーバイプレー）が無い試合（2017-18の1試合）は数えず、平均はその試合を除いた出場試合数で割る。" +
+      "記録から誰の得点か分からないアシストは数えない。得点した選手とアシストした選手の両方に同じ得点が入るので、選手のPCを足してもチームの得点にはならない",
+    source: "custom",
+    category: "basic",
+  },
+  {
     key: "tov",
     label: "TOV",
     value: (p) => p.perGame.tov,
@@ -460,7 +473,7 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     label: "USG%",
     value: (p) => p.advanced.usagePct,
     format: (p) => formatPct100(p.advanced.usagePct),
-    formulaText: "100 × ((FGA+0.44×FTA+TOV)×(チームMIN/5)) / (MIN×(チームFGA+0.44×チームFTA+チームTOV))",
+    formulaText: "100 × ((FGA+0.44×FTA+TOV)×(チームMIN/5)) / (MIN×(チームFGA+0.44×チームFTA+チームTOV))。チームの値は、本人が出場した試合だけの、その試合で所属していたチームの合計（シーズン途中で移籍した選手も、試合ごとの所属チームの値を足す）",
     source: "nba",
     category: "rating",
   },
@@ -501,7 +514,20 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     format: (p) => (p.advanced.ppp !== undefined ? formatDecimal(p.advanced.ppp, 2) : "-"),
     formulaText:
       "個人ORtg（Dean Oliver方式。試合詳細ページの個人ORtgと同じ計算式をシーズン合計値に適用） / 100。" +
+      "チームの値は、本人が出場した試合だけの、その試合で所属していたチームの合計（シーズン途中で移籍した選手も、試合ごとの所属チームの値を足す）。" +
       "同じ計算式を再利用しているため、シーズン合計出場時間4分未満は算出不能（-表示）",
+    source: "nba",
+    category: "rating",
+  },
+  {
+    key: "individualDrtg",
+    label: "DRtg",
+    value: (p) => p.advanced.individualDrtg ?? 0,
+    format: (p) => (p.advanced.individualDrtg !== undefined ? formatDecimal(p.advanced.individualDrtg) : "-"),
+    higherIsBetter: false,
+    formulaText:
+      "個人DRtg（Dean Oliver方式。100ポゼッションあたりに許した得点）。シーズン合計値に計算式を1回だけ適用する。" +
+      "チームの値は、本人が出場した試合だけの、その試合で所属していたチームの合計（シーズン途中で移籍した選手も、試合ごとの所属チームの値を足す）。シーズン合計出場時間4分未満は算出不能（-表示）",
     source: "nba",
     category: "rating",
   },

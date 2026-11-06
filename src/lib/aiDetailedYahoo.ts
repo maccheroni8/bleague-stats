@@ -1,10 +1,10 @@
 // AI向けMarkdown（詳しい版）：Shooting と Forced TOV（スポーツナビの記録）。画面・通信に依存しない純粋な関数だけ（保存キーの対象外）。
 // 値は画面と同じ集計・同じ列の式を呼ぶ：Shooting＝shotTypeEntityColumns・shotTypeDiffColumns（全チームスタッツの Shooting）、
-// Forced TOV＝sumForcedTurnovers・FORCED_TURNOVER_COLUMNS（全チームスタッツの Forced TOV）。
+// Forced TOV＝試合全体は試合ログの値（sumForcedTurnoversFromLogs）、前半・後半は記録を読み直す（sumForcedTurnovers）・FORCED_TURNOVER_COLUMNS（全チームスタッツの Forced TOV）。
 // 「記録がある試合」だけで数える：記録が無い試合を 0 として分母にも合計にも入れない。
 import type { ShotTypeBreakdown, TeamForcedTurnovers, TeamGameLog, YahooGamePbp } from '../../shared/types';
 import { buildShotTypeBreakdown, shotTypeDiffColumns, shotTypeEntityColumns, sortShotTypeKeys, sumShotTypeCounts } from './shotTypeBreakdown';
-import { sumForcedTurnovers } from './opponentSplit';
+import { lacksForcedTurnoverLogs, sumForcedTurnovers, sumForcedTurnoversFromLogs } from './opponentSplit';
 import { FORCED_TURNOVER_COLUMNS } from './forcedTurnoverColumns';
 import { formatDecimal } from './format';
 import type { TeamPerspective } from './teamStatsColumns';
@@ -86,15 +86,10 @@ const addTov = (a: TeamForcedTurnovers, b: TeamForcedTurnovers): TeamForcedTurno
 });
 export function addTovPair(a: TovPair, b: TovPair): TovPair { return { forced: addTov(a.forced, b.forced), committed: addTov(a.committed, b.committed) }; }
 
-/** 試合ログ（そのチームの）のうち、スポーツナビの記録（pbps）がある試合の合計 */
-export function sumTovPair(logs: readonly TeamGameLog[], pbps: ReadonlyMap<string, YahooGamePbp>, teamId: string): TovPair {
-  const list = logs.flatMap(g => { const p = pbps.get(g.scheduleKey); return p ? [p] : []; });
-  return sumForcedTurnovers(list, teamId);
-}
-
-/** teams.json の値（シーズン全体・全試合のとき）。どちらかが無ければ null */
-export function tovPairFromTeam(t: { forcedTurnovers?: TeamForcedTurnovers; turnoversCommitted?: TeamForcedTurnovers }): TovPair | null {
-  return t.forcedTurnovers && t.turnoversCommitted ? { forced: t.forcedTurnovers, committed: t.turnoversCommitted } : null;
+/** 試合ログ（そのチームの）に保存した試合ごとの Forced TOV の合計（スポーツナビの記録がある試合だけ。DESIGN.md 333章）。古いデータで値が無ければ止める */
+export function sumTovPair(logs: readonly TeamGameLog[]): TovPair {
+  if (lacksForcedTurnoverLogs(logs)) throw new Error('集計と試合記録が揃っていません。時間をおいて読み直してください。');
+  return sumForcedTurnoversFromLogs(logs);
 }
 
 /** Forced TOV の行（視点 × 種類）。1試合平均（分母は記録がある試合＝データあり試合数）。視点は 自チーム＝奪った／opp＝相手に強制された（自チームが記録）／差＝奪った−記録 */

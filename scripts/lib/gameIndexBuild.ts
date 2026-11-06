@@ -15,6 +15,7 @@ import {
   PLAYER_INDEX_CLUTCH_COLUMNS,
   PLAYER_INDEX_STAT_COLUMNS,
   PLAYER_INDEX_STREAK_COLUMNS,
+  PLAYER_INDEX_ASSIST_POINTS_COLUMN,
   type PlayerIndexStreakColumn,
   ROW_FLAG_HOME,
   ROW_FLAG_STARTER,
@@ -225,6 +226,7 @@ export async function buildGameIndex(
   const playerStats = {} as Record<PlayerStatColumn, number[]>;
   for (const c of PLAYER_INDEX_STAT_COLUMNS) playerStats[c] = [];
   const streakStats = Object.fromEntries(PLAYER_INDEX_STREAK_COLUMNS.map((c) => [c, [] as number[]])) as Record<PlayerIndexStreakColumn, number[]>;
+  const assistPoints: number[] = [];
   const rowPlayer: number[] = [];
   const rowGame: number[] = [];
   const rowFlags: number[] = [];
@@ -239,6 +241,8 @@ export async function buildGameIndex(
     for (const [kind, summary] of [["ft", r.g.ftStreak], ["tp", r.g.tpStreak]] as const) {
       (["Pre", "Suf", "InMax", "InN"] as const).forEach((suffix, i) => streakStats[`${kind}${suffix}`].push(summary ? summary[2 + i]! : -1));
     }
+    // ポイントクリエイトの材料（プレーバイプレーが無い試合は -1。DESIGN.md 333章）
+    assistPoints.push(r.g.assistPoints ?? -1);
   }
   const player: PlayerGameIndexFile = {
     version: GAME_INDEX_VERSION,
@@ -247,7 +251,7 @@ export async function buildGameIndex(
     teams,
     games,
     players,
-    rows: { player: rowPlayer, game: rowGame, flags: rowFlags, stats: { ...playerStats, ...streakStats }, ...(splitClasses ? { cls: rowClasses } : {}) },
+    rows: { player: rowPlayer, game: rowGame, flags: rowFlags, stats: { ...playerStats, ...streakStats, [PLAYER_INDEX_ASSIST_POINTS_COLUMN]: assistPoints }, ...(splitClasses ? { cls: rowClasses } : {}) },
   };
   return { player, team };
 }

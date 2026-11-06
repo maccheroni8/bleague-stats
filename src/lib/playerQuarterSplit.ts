@@ -8,7 +8,6 @@ import type { PeriodRangeValue } from "./periodRange";
 import {
   filterByGameType,
   sumTeamTotalsForLogs,
-  transferredCombinedTeam,
   type SeasonDisplayMode,
   type SeasonGameTypeFilter,
   type TeamSplitRow,
@@ -64,8 +63,6 @@ export function buildPlayerQuarterRows(input: PlayerQuarterInput): { rows: Playe
   const seasonStartYear = Number(season.split("-")[0]);
   const played = filterByGameType(logs, gameType).filter((g) => g.min > 0);
   if (played.length === 0) return { rows: [], empty: [] };
-  const scopedTeamLogs = new Map([...teamLogsByTeamId].map(([teamId, teamLogs]) => [teamId, filterByGameType(teamLogs, gameType)]));
-  const combined = transferredCombinedTeam(logs, played, ownTeamByScheduleKey, scopedTeamLogs);
   const teamTotals = sumTeamTotalsForLogs(played, ownTeamByScheduleKey, teamLogsByTeamId);
   const rows: PlayerQuarterRow[] = [];
   const empty: PlayerQuarterEmptyPeriod[] = [];
@@ -80,7 +77,6 @@ export function buildPlayerQuarterRows(input: PlayerQuarterInput): { rows: Playe
       playerId,
       q.value,
       source,
-      combined,
     );
     if (split.length === 0) empty.push({ periodValue: q.value, periodLabel: q.label });
     split.forEach((r, i) => rows.push({ ...r, periodValue: q.value, periodLabel: q.label, firstOfPeriod: i === 0 }));

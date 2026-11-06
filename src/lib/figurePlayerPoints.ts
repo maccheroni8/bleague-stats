@@ -3,9 +3,10 @@
 import type { Division, TeamSeasonRawTotals } from '../../shared/types';
 import { filterByGameType } from '../../shared/gameType';
 import { teamTotalsForTransferredPlayer } from '../../shared/transferredTeamTotals';
+import { teamTotalsForPlayedGames } from '../../shared/playedTeamTotals';
 import { filterGameLogs } from './situational';
 import {
-  buildSeasonBoxscoreCtx, sumPlayerGameLogs, sumTeamGameLogsFor, SEASON_ADVANCED_COLUMNS, SEASON_TRADITIONAL_COLUMNS,
+  buildSeasonBoxscoreCtx, sumPlayerGameLogs, SEASON_ADVANCED_COLUMNS, SEASON_TRADITIONAL_COLUMNS,
   type PlayerSeasonRawTotals, type SeasonDisplayMode,
 } from './playerSeasonBoxscore';
 import { changedRegistrations, scopedPlayerMatches, scopeLogsByClassification } from './registrationScopeCore';
@@ -36,10 +37,9 @@ export function buildPlayerFigurePoints(data: ScorerData, q: PlayerFigureQuery):
     const logs = scope(classLogs);
     const raw = sumPlayerGameLogs(logs);
     if (!raw.gamesPlayed) continue;
-    const full = q.range.kind === 'all' && q.gameType === 'regular' && !(group !== 'all' && changed.has(p.playerId));
-    const teamLogs = data.teamLogs.get(p.teamId) ?? [];
+    // 出場率の分母（所属期間）にだけ使う。USG%・PPP・DRtg の分母は本人が出場した試合の所属チームの合計（DESIGN.md 333章）
     const transferred = teamTotalsForTransferredPlayer(classLogs, logs, ownTeamOf, scopedTeams);
-    const team = transferred ?? sumTeamGameLogsFor(teamLogs, new Set((full ? scopedTeams.get(p.teamId) ?? [] : logs).map(g => g.scheduleKey)));
+    const team = teamTotalsForPlayedGames(logs, ownTeamOf, data.teamLogs);
     const teamIds = [...new Set(logs.filter(g => g.min > 0).map(ownTeamOf).filter((id): id is string => !!id))];
     // 移籍選手の出場率も、分母の計算と同じ所属期間で数える。
     let teamGames = scopedTeams.get(p.teamId)?.length ?? 0;

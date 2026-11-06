@@ -13,7 +13,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   8-9 問い合わせの待ち時間の上限・再試行と、取得の失敗で取り込みを止めない形、30分おきの日程の取得は当日・前日だけ
   （14日分の見直しは深夜だけ）で、当日のページに載った試合の試合日のずれはその場で直す
 - 16章: 新競技規則（2026-27先行適用）とファウル種別コード。16-7 公式の記録が新表記（ActionCD1=91〜94。旧24→91/92、旧25→93/94）へ移行した対応（`shared/foulCodes.ts`） 16-8 ファウルの列の分け方（2026-27以降だけの表はTF1・TF2・FLAG・DISR、2025-26以前を含む表はUFOUL・TFの合計。`src/lib/ruleChange.ts`の`foulColumnsSplit`）
-- 216章: 移籍した選手の分母（USG%・%-share・ORtg/DRtg・PER）は、条件の有無によらず「所属期間ごとの、所属した各チームの合計」（`shared/transferredTeamTotals.ts`。集計と画面で同じ関数）
+- 216章: 移籍した選手の PER の分母は、条件の有無によらず「所属期間ごとの、所属した各チームの合計」（`shared/transferredTeamTotals.ts`。集計と画面で同じ関数）。**USG%・PPP・DRtg は333章で「本人が出場した試合の所属チームの合計」に変えた**
 - 35章・38章・129章: スポーツナビ（Yahoo PBP）の取得・UI反映・2026-27対応
 - 51章・101章: シーズン別ロースター・選手マスタ（ポジション・身長体重の扱い）
 - 52章・84章: 外国籍選手の同時出場人数（オンザコート）
@@ -135,6 +135,9 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 327章: 順位表「36勝まで」の列を「対戦相手の強さ」の右へ移動。**画面だけの変更でキー不変**
 - 328章: 個人詳細の**「Q別」タブ**（行＝1Q〜4Q・前半・後半・延長、Traditional〜Scoring、試合種別・平均／合計、シーズンはページのもの。移籍した選手は区間ごとにチーム別の行＋複数チームの合計行。`src/components/PlayerQuarterTab.tsx`・`src/lib/playerQuarterSplit.ts`）と、シーズン別成績 Traditional の G の右の**「勝敗」「勝率」**（本人が出場した試合のチームの勝敗。区間を選ぶと G と同じ試合）。検証は `npm run validate:player-quarter`。**画面だけの変更でキー不変**
 - 329章: 図解に3つ（のちに強調するクラブ・値で絞るベン図・チームの視点 opp／+/-・得点×アシストの下限を追加。強調は `hcl`・`highlightClubs.ts`）: **ベン図（旧名「上位チームのベン図」）**（`figure=team-venn`。3つの円の項目はランキングと同じ列・上位5/8/10・境目が同じ表示値なら全部入れる・`src/lib/figureVenn.ts`・`figureVennItems.ts`・`npm run validate:figure-venn`）、**シュート% × 試投数**（チーム `team-shooting`・選手 `player-shooting`。試投数の下限は1試合平均で判定・`figureShooting.ts`・`figureAxis.ts`）、**得点 × アシスト**（選手 `pts-ast`）。検証は `npm run validate:figure-shooting`。**画面だけの変更でキー不変**
+- 333章: **作り直しのまとめ**（保存キーが変わる。allKey `dcefa68c0d5a0e39475357df245e4e5b`）。**ポイントクリエイト（PC）**＝PTS＋本人のアシストから生まれた得点（`assistPointsByAssister`。アシストした側。FT は成功本数すべて。試合ログの `assistPoints`・索引の列 `assistPoints`・1試合記録 `pc`。プレーバイプレーの無い試合〔1810〕は数えず0にしない。表に対象試合数の列は出さず、ランキングの名前の下の試合数だけ PC の対象試合数）。
+  **試合ごとの Forced TOV**（`TeamGameLog.forcedTurnovers`・`turnoversCommitted`。試合全体だけ。対戦相手別・md のチーム情報は試合ログの値を足し、全チームの記録を読まない）。
+  **USG%・PPP・DRtg の分母**は、本人が出場した試合だけの、その試合の所属チームの合計（`shared/playedTeamTotals.ts`・players.json の `playedTeamTotals`。移籍の特別扱いなし。PER は216章のまま）。検証は `validate:points-created`・`validate:forced-turnover-logs`・`validate:individual-drtg`・`validate:usg-ppp`
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

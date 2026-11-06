@@ -79,6 +79,8 @@ export interface IndexedPlayerGame {
   assisted2m: number;
   assisted3m: number;
   assistedFtm: number;
+  /** 本人のアシストから生まれた得点（ポイントクリエイト＝PTS＋この値）。プレーバイプレーが無い試合・古い索引は undefined（DESIGN.md 333章） */
+  assistPoints?: number;
   /** 勝ち越し弾・同点弾・決勝弾（18個。位置は shared/gameFlow.ts の clutchIndex）。1つも無い試合は undefined */
   clutch?: number[];
 }
@@ -174,6 +176,7 @@ export function playerGameAt(view: PlayerGameIndexView, i: number): IndexedPlaye
     assisted3m: s.assisted3m?.[i] ?? 0,
     assistedFtm: s.assistedFtm?.[i] ?? 0,
     ...(clutch ? { clutch } : {}),
+    ...((s.assistPoints?.[i] ?? -1) >= 0 ? { assistPoints: s.assistPoints![i]! } : {}),
   };
 }
 

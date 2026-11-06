@@ -15676,3 +15676,55 @@ Codex の試作（`codex/top-scorers`）を取り込んだ。各チームの平�
 3. **選手の図のポップアップ**。点を押すと出て、図の中の点以外を押すと消える（チームの図と同じ。`onPointerDown`）。スマホ（タッチ）では focus が外れないため、これが無いと消えなかった。`AxisScatter` の `onDismiss`。
 - 検証: `npm run validate:figure-labels`（文節・人数の行・置き場所）。
 
+## 333. 作り直しのまとめ: ポイントクリエイト（PC）・試合ごとの Forced TOV・USG%／PPP／DRtg の分母の統一（2026-11-07。**保存キーが変わる**。全シーズンの作り直し1回。allKey `dcefa68c0d5a0e39475357df245e4e5b`）
+
+保存キーが変わる3つの変更を1回の作り直しにまとめた。決め方の材料は Codex の調査（作り直しを1回にまとめる調査・実装計画。2026-11-06。保管先は `bleague-stats-archive/2026-11/`）。決定はユーザー承認済み。
+
+### 333-1. ポイントクリエイト（PC）
+
+- **定義**: PC＝本人の得点（PTS）＋本人のアシストから生まれた得点（アシストした2P成功×2＋3P成功×3＋FT成功）。FT は、アシストの付いた FT の**成功した本数をすべて**数える（`shared/assistedScoring.ts` の `computeAssistedScoring` の pairs を**アシストした側**で合計する `assistPointsByAssister`。試合詳細「誰へのアシストが多いか」の得点の列と同じ数え方。`PlayerGameLog.assisted2m` などは**アシストされた側**なので使わない）。記録から得点の相手が分からないアシストは数えない（既存の表と同じ）。
+  Dean Oliver 式の PProd（`individualPointsProduced`）や PPP とは別の項目。得点者とアシストした選手の両方に同じ得点が入るので、選手の PC を足してもチームの得点にはならない。
+- **表示名**は略称「PC」・日本語名「ポイントクリエイト」・分類は Scoring（`statNames.ts`・`statDescriptions.ts`・用語集〔`statDefs.ts` の説明の行〕）。画面の表の注記は出さない。
+- **プレーバイプレーの無い試合は数えない**（0点にしない）。対象は 2017-18 の1810（手入力のボックススコア。275章）だけ。シーズンの合計・平均はプレーバイプレーのある出場試合だけで数え、平均はその試合数で割る（`PlayerSeasonRawTotals` の `pcGames`・`pcPts`・`pcMin`・`assistPoints`、`pointsCreatedValue`）。
+  対象の試合数の列は表に出さない（G と違うのは1810に出た選手だけで、そのために列を増やすと表がかさばる。ユーザー決定）。**ランキング（シーズン成績）で PC を選んだときだけ、名前の下の試合数を PC の対象試合数にする**（`gamesDividedBy`）。用語集の PC の説明に、記録の無い試合を除くことを書いた。
+- **保存（キーの対象）**:
+  - `PlayerGameLog.assistPoints`（`scripts/aggregate.ts`。プレーバイプレーがある試合だけ持つ。古いデータ・1810 には無い）
+  - 1試合の索引の列 `assistPoints`（`PLAYER_INDEX_ASSIST_POINTS_COLUMN`。勝負所の18列の位置を変えないよう `PLAYER_INDEX_STAT_COLUMNS` とは別の列。無い試合は -1）、`shared/gameIndexRead.ts` が `IndexedPlayerGame.assistPoints` に戻す
+  - Q別の索引の列 `assistPoints`（`PLAYER_PERIOD_ASSIST_POINTS_COLUMN`。区間ごと。アシストは同じピリオドの得点にしか結び付かないので、ピリオドごとに数えた値〔`assistPointsByAssisterPeriod`〕の合計は試合全体の値と同じ）。`seasonPeriodTotalsOf`・`computeGamePeriodTotals` が `GamePeriodTotals.assistPoints` に入れる
+  - 1試合記録の項目 `pc`（`shared/playerGameRecords.ts` の `PLAYER_GAME_RECORD_STATS`。`filter` でプレーバイプレーの無い試合を除く。成功率の基準の filter と重ならないよう `LEAGUE_PCT_FILTERS.get(key) ?? d.filter`）。上位20位のファイル・ランキングの1試合記録・記録タブ・キャリアハイに出る
+- **画面**: Scoring の列 `pc`（`SEASON_SCORING_COLUMNS`。%PTS ASTED の右。個人詳細・チーム詳細の選手スタッツ・全選手スタッツ・比較・ランキング・Q別・前後半）。
+- 1810 の選手: 2017-18 は、1810に出た選手の PC の対象試合が G より1少ない。
+
+### 333-2. 試合ごとの Forced TOV
+
+- `TeamGameLog.forcedTurnovers`・`turnoversCommitted`（試合全体の7種類＋`gamesWithData`＝1。スポーツナビの記録がある試合だけ。0件の試合と記録の無い試合を区別する）。Q別などの細かい単位は作らない（ユーザー決定）。
+  作り方は `buildForcedTurnoversByTeam`（`scripts/aggregate.ts`）の試合ごとの値（全試合区分）。teams.json のシーズン合計（レギュラーシーズン）は、その試合ごとの値を足す形にした（値は変わらない）。
+- **画面の切り替え**: チーム詳細の対戦相手別の Forced TOV と、md「詳しい版」のチーム情報の試合全体の Forced TOV（順位・リーグ平均を含む）は、試合ログの値の合計（`sumForcedTurnoversFromLogs`・`aiDetailedYahoo.ts` の `sumTovPair`）。
+  **md のチーム情報は、条件を付けても全チームのスポーツナビの記録を読まなくなった**（前半・後半を含めるときに自チームの記録だけ読む。選手情報は選手の Shooting のために読む。2025-26 の全試合なら約780ファイル・3.4MiB の読み込みが減る）。対戦相手別で Forced TOV を開いたときも記録を読まない（`categoryNeedsYahoo` は Shooting だけ）。
+  前半・後半の Forced TOV（md）は今までどおり自チームの記録を読み直す（試合ごとの値は試合全体だけのため）。古いデータ（記録はあるのに試合ごとの値が無い）は md では「読み直してください」で止める（`lacksForcedTurnoverLogs`。0件で補わない）。
+- 全チームスタッツ・ランキング（チーム）の Forced TOV は、今までどおり teams.json のシーズン合計（「シーズン全体のみ」）。条件で絞れるようにするのは、試合ログの値で出せるようになったので、別の作業でできる（画面だけの変更）。
+- **数字の変化は無い**: 全4シーズン（2023-24〜2026-27）のチーム×試合 4,886件で、試合ごとの値が記録を読み直した値と一致し、teams.json のシーズン合計も変わらない（`validate:forced-turnover-logs`）。
+
+### 333-3. USG%・PPP（個人ORtg）・DRtg の分母の統一
+
+- **定義**: チームの合計は、**本人が出場した試合（出場時間が0より大きい）だけの、その試合で所属していたチームの合計**（`shared/playedTeamTotals.ts` の `teamTotalsForPlayedGames`。集計と画面で同じ関数）。
+  **シーズンの途中で移籍した選手の特別扱い（216章の所属期間の合計）はやめた**。各試合でその時に所属していたチームの数字を足す。式（`usagePct`・`individualOffRtg`・`individualDefRtg`）は変えていない。合計を作ってから1回だけ式を当てる。
+- **PER は変えない**（216章の所属期間の合計のまま。`transferredTeamTotals` は PER にだけ残す。players.json の `transferredTeamTotals` も残す）。%PTS 等・AST% は出場中の値（304章）で、今回の対象外。
+- **保存**: players.json の `advanced.usagePct`・`ppp`・`individualDrtg` をこの分母で計算し、分母そのものを `playedTeamTotals` に持つ（レギュラーシーズン。出場の無い選手は持たない）。
+- **画面**: 条件なしの経路（全選手スタッツ・ランキング）は `playedTeamTotals`、条件ありの経路（全選手スタッツ・ランキング・図解の USG% × PPP・トップスコアラー・シュート% × 試投数）は `teamTotalsForPlayedGames`。
+  個人詳細（シーズン別・シチュエーション別・比較・Q別・対戦相手別・通算）と比較ページの「複数チーム」の行は、チーム別の行の分母（出場した試合のチーム合計）の合計（`transferredCombinedTeam` と `buildTeamSplitRows` の `combinedTeamOverride` を外した）。
+  これで、**同じ試合の集合なら、全選手スタッツ・個人詳細・チーム詳細・ランキング・比較・md・図解で同じ値**になる（ランキングの条件ありで、単一チームの選手もチームの全試合で割っていた食い違いも解消）。
+- **変わった件数**（出場のある 4,028 選手・シーズン、両リーグ）: 2桁の表示で USG% 2,954・PPP 1,293・DRtg 3,078、いずれか 3,139。調査の試算と同じ。
+  例（旧→新）: 2016-17 ファジーカス（60試合すべて出場）USG% 37.51・PPP 1.25・DRtg 95.64 のまま、2025-26 ガルシア（28/60）USG% 25.54→25.66・PPP 1.30→1.31・DRtg 105.00→102.47、
+  2025-26 小川敦也（42/60）19.87→20.00・0.98→0.99・114.29→117.13、2025-26 マクリーン（移籍）18.24→18.37・1.05→1.06・112.81→112.20、2026-27 トレイ・ケル 32.52→32.46・1.15・111.21→107.56。PER はすべて同じ。
+- 用語集（`statDefs.ts`）の USG%・PPP の説明に分母を書き、個人の DRtg の行を足した。
+
+### 333-4. 確認
+
+- `validate:points-created`（新規）: 手で追った5例（2016-17 101 田中大貴 PTS 8＋8＝16、2017-18 1574 オルトン 10＋9＝19〔金丸の FT 5本・橋本の FT 2本・桜木の2P〕、2019-20 4151 橋本竜馬 4＋10＝14、2025-26 504728 クック 20＋7＝27、2026-27 506379 デイビス 24＋14＝38）、
+  全シーズンでプレーバイプレーのある試合の出場行がすべて値を持ち 1810 は持たない、チームごとに「アシストした側の合計＝アシストされた側の得点」、シーズンの合計・平均・対象試合数、索引の列と試合ログの一致、Q別の区間の合計＝試合全体、1試合記録の除外。
+- `validate:forced-turnover-logs`（新規）: 上の 333-2。
+- `validate:individual-drtg`・`validate:usg-ppp`: 分母を試合ログ（player-games・team-games）から組み立て直した合計と `playedTeamTotals` が全員一致し、DRtg・PPP・USG% がその合計で計算されている。全選手スタッツ（保存値）と個人詳細（試合ログから計算）が全員一致。仙台のトゥーレ（58/60）の DRtg の固定値を 104.10→103.94（NetRtg +6.92→+7.09）に直した。
+- `validate:ai-export-detailed`: Forced TOV は試合ログの値と記録の数え直しを比べる形に、読み込みの確かめは「チーム情報は条件を付けても全チームの記録を読まない」に直した。
+- 作り直しの前後の導出データ全体を比べ、変わったのは上の項目だけ（players.json の USG%・PPP・DRtg と `playedTeamTotals` の追加、試合ログの `assistPoints`・`forcedTurnovers`・`turnoversCommitted` の追加、索引の `assistPoints` の列、1試合記録の `pc`）。PER・チームの数字・通算記録・ランキングのファイルなど、ほかの値は1つも変わっていない。
+- 手元の作成は約2分（作り直しの前とほぼ同じ）。

@@ -37,6 +37,14 @@ export function assistedPoints(g: Pick<PlayerGameLog, "assisted2m" | "assisted3m
   return (g.assisted2m ?? 0) * 2 + (g.assisted3m ?? 0) * 3 + (g.assistedFtm ?? 0);
 }
 
+/**
+ * ポイントクリエイト（PC）＝本人の得点＋本人のアシストから生まれた得点（PlayerGameLog.assistPoints。DESIGN.md 333章）。
+ * プレーバイプレーが無い試合（assistPoints が無い）は undefined（数えない。0点にしない）
+ */
+export function pointsCreated(g: Pick<PlayerGameLog, "pts" | "assistPoints">): number | undefined {
+  return g.assistPoints === undefined ? undefined : g.pts + g.assistPoints;
+}
+
 /** 被アシスト率（得点のうち、アシストされた得点の割合）の1試合記録の最低得点。得点が少ない試合の100%・0%が上位・下位に並ぶのを避ける（ユーザー決定。DESIGN.md 221章） */
 export const PLAYER_ASTED_MIN_POINTS = 20;
 
@@ -126,6 +134,8 @@ const PLAYER_GAME_RECORD_STATS_BASE: PlayerGameRecordDef[] = [
   { key: "foulsDrawn", label: "FD", value: (g) => g.foulsDrawn },
   { key: "eff", label: "EFF", value: effOfGame },
   { key: "plusMinus", label: "+/-", value: (g) => g.plusMinus, kind: "signed" },
+  // ポイントクリエイト（PTS＋本人のアシストから生まれた得点）。プレーバイプレーが無い試合は対象外（DESIGN.md 333章）
+  { key: "pc", label: "PC", value: (g) => pointsCreated(g) ?? 0, filter: (g) => g.assistPoints !== undefined },
   { key: "pt2in", label: "PITP", value: (g) => g.pt2in },
   { key: "ptfb", label: "FBPS", value: (g) => g.ptfb },
   { key: "pt2nd", label: "2ND PTS", value: (g) => g.pt2nd },
@@ -138,7 +148,7 @@ const PLAYER_GAME_RECORD_STATS_BASE: PlayerGameRecordDef[] = [
 
 export const PLAYER_GAME_RECORD_STATS: PlayerGameRecordDef[] = PLAYER_GAME_RECORD_STATS_BASE.map((d) => ({
   ...d,
-  filter: LEAGUE_PCT_FILTERS.get(d.key),
+  filter: LEAGUE_PCT_FILTERS.get(d.key) ?? d.filter,
   fraction: PLAYER_PCT_FRACTIONS.get(d.key),
 }));
 
