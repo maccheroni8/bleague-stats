@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TeamColors } from "../../shared/types";
-import { isSplitClassificationGroup, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
+import { isRookieFilter, splitSeasonsOnly, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
 import { ClassificationNotes } from "./ClassificationNotes";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { selectedPositionLabels } from "../lib/classificationFilter";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels, periodLabels } from "../lib/conditionLabels";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
-import { classificationAxis, gameTypeAxis, multiSelectAxis, simpleSelectAxis, type FilterAxis } from "../lib/filterAxes";
+import { classificationAxis, rookieAxis, gameTypeAxis, multiSelectAxis, simpleSelectAxis, type FilterAxis } from "../lib/filterAxes";
 import { formatDecimal, formatInteger, formatSigned } from "../lib/format";
 import { formatMinutesColon } from "../lib/minutesFormat";
 import { DEFAULT_GAME_RECORD_CONDITIONS, cleanGameConditionsForSeason, gameRecordConditionLabels, gameRecordConditionsParam } from "../lib/gameRecordConditions";
@@ -169,14 +169,14 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const { data: careerSeasons, error: careerError } = useJsonData<string[] | null>(() => (allTime ? lineupCareerSeasons() : Promise.resolve(null)), [allTime]);
   // 2025-26 以前のシーズンで分けた区分を選んでいるときは、表の代わりに理由を出す。通算で分けた区分は 2026-27 以降のシーズンだけを読む
   const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
-  const splitGroup = isSplitClassificationGroup(group);
+  const splitGroup = splitSeasonsOnly(group);
   const seasons = useMemo(
     () => (allTime ? (careerSeasons ? careerSeasons.filter((s) => !splitGroup || s >= SPLIT_CLASSIFICATION_FIRST_SEASON) : null) : supported ? [season] : null),
     [allTime, careerSeasons, splitGroup, supported, season],
   );
   const lineup = useLineupData(seasons, supported && !classBlocked);
   const options = useGameRecordOptions(allTime ? "allTime" : "season", season);
-  const rookies = useRookieFile(group === "rookie");
+  const rookies = useRookieFile(isRookieFilter(group));
   const active = useActivePlayerIds(activeOn);
   // 通算は、選手名を今の登録名にそろえる
   const current = useCurrentPlayerNames(allTime);
@@ -187,7 +187,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
 
   // 行を作る計算は重い（通算の3人組は数秒）。下限だけを変えるときは作り直さず、作った行に当てはめる。
   // 通算は、「集計中」を先に表示するため、描画のあとに計算する（シーズンは軽いので、その場で計算する）
-  const ready = !!lineup.data && (group !== "rookie" || !!rookies.file) && (!activeOn || !!active.ids) && (!allTime || !!current.names);
+  const ready = !!lineup.data && (!isRookieFilter(group) || !!rookies.file) && (!activeOn || !!active.ids) && (!allTime || !!current.names);
   const buildQuery = useMemo<LineupBuildQuery | null>(
     () =>
       ready && lineup.data
@@ -252,7 +252,8 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const shareSummary = `チームの${sharePct}%以上`;
   const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial: true, includeSpecialDefault: true };
   const axes: FilterAxis[] = [
-    classificationAxis(group, setGroup, { rookie: {}, season: allTime ? null : season }),
+    classificationAxis(group, setGroup, { season: allTime ? null : season }),
+    rookieAxis(group, setGroup),
     ...(allTime ? [activeAxis(activeParam, setActive)] : []),
     gameTypeAxis(gameType, setGameType, seasonForTitle),
     simpleSelectAxis({
@@ -457,7 +458,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
               <p className="rule-change-footnote export-hide">※ 選手詳細の「オンコート/オフコート比較」は別の数え方（試合の記録を秒の境界で振り分ける）で、同じ選手でも値が食い違うことがあります。</p>
               {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
               <ClassificationNotes filter={group} scope={allTime ? "allTime" : "season"} />
-              {group === "rookie" && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
+              {isRookieFilter(group) && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
             </PlayerNamePool>
           </ExportTarget>
           <GlossaryNote anchor={GLOSSARY_ANCHORS.lineupRanking} label="On/Off・組み合わせ" />

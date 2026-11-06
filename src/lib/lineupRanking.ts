@@ -12,7 +12,7 @@ import { onCourtByGroup, onOffByPlayer, teamTotals, type CompactStints, type OnC
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import type { RookieEligibilityFile } from "../../shared/types";
 import { indexClassScope } from "./indexClassScope";
-import { positionFilterValue, type PlayerGroupFilter } from "./classificationFilter";
+import { classPartOf, isRookieFilter, positionFilterValue, type PlayerGroupFilter } from "./classificationFilter";
 import { rookieOfIndex, type PlayerGameIndexView } from "./gameIndex";
 import type { GameRecordConditions } from "./gameRecordConditions";
 import { gameFacts, matchesGame, type GameSideFacts } from "./gameRecordQuery";
@@ -216,14 +216,15 @@ function seasonContext(view: PlayerGameIndexView): SeasonContext {
 function playerFilter(q: LineupBuildQuery, ctx: SeasonContext, view: PlayerGameIndexView): (id: string) => boolean {
   const season = view.season;
   const positionSet = q.positions.length > 0 ? new Set(q.positions) : null;
-  const classScope = q.group === "rookie" || q.group === "all" ? null : indexClassScope(view.file, q.group);
+  const classPart = classPartOf(q.group);
+  const classScope = classPart === "all" ? null : indexClassScope(view.file, classPart);
+  const rookie = isRookieFilter(q.group);
   return (id) => {
     const p = ctx.players.get(id);
     if (!p) return false;
     if (q.activeIds && !q.activeIds.has(id)) return false;
-    if (q.group === "rookie") {
-      if (season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, season, id)) return false;
-    } else if (classScope && classScope.status(id) === "none") return false;
+    if (rookie && (season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, season, id))) return false;
+    if (classScope && classScope.status(id) === "none") return false;
     if (positionSet && !(p[2] && positionSet.has(positionFilterValue(p[2])))) return false;
     return true;
   };
@@ -241,7 +242,8 @@ export function buildLineupRows(q: LineupBuildQuery): LineupRow[] {
     const season = view.season;
     const playerOk = playerFilter(q, ctx, view);
     // 登録区分の途中の変更（その区分で出場した試合だけで数え直す選手）
-    const classScope = q.group === "rookie" || q.group === "all" ? null : indexClassScope(view.file, q.group);
+    const classPart = classPartOf(q.group);
+    const classScope = classPart === "all" ? null : indexClassScope(view.file, classPart);
     const partial = (id: string) => classScope !== null && classScope.status(id) === "some";
     for (const [teamId, c] of stints) {
       const baseInclude = (scheduleKey: string) => {

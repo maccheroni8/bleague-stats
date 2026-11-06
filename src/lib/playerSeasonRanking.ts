@@ -34,7 +34,7 @@ import { teamTotalsForTransferredPlayer } from "../../shared/transferredTeamTota
 import { shotTypeEntityColumns, SHOT_TYPE_DISPLAY_ORDER } from "./shotTypeBreakdown";
 import { useAllTeamGameLogs, useLeagueSituationalContext } from "./teamRankingData";
 import { OVERTIME_MIN_GAMES, overtimeCandidates, seasonPeriodOption, seasonPeriodTotalsOf, useSeasonPeriodSources } from "./seasonPeriod";
-import { matchesPositionFilter, type PlayerGroupFilter } from "./classificationFilter";
+import { isRookieFilter, matchesPositionFilter, type PlayerGroupFilter } from "./classificationFilter";
 import { needsClassificationRecompute, scopedPlayerMatches, scopeLogsByClassification, useClassScopedPlayers } from "./registrationScope";
 import { EXTRA_ELIGIBILITY_RULES, filterEligiblePlayers } from "./playerRankingEligibility";
 import { formatDecimal } from "./format";
@@ -474,7 +474,7 @@ export function usePlayerSeasonRanking(
 ) {
   const enabled = opts.enabled ?? true;
   const { category, statKey, gamesRatio, achievable, extraThreshold, group, rookieIds, positions, filter, gameType, displayMode, period, statConditions } = params;
-  const rookieActive = group === "rookie";
+  const rookieActive = isRookieFilter(group);
 
   // シーズンを切り替えた直後は、読み込み中の間、前のシーズンのデータが残る（useJsonData）。別のシーズンのデータで集計しないよう、どのシーズンのデータかを添えて読み、今のシーズンと一致するときだけ使う
   const { data: playersData, loading: playersFetching, error: playersError } = useJsonData(
@@ -491,7 +491,7 @@ export function usePlayerSeasonRanking(
   // 登録区分を選んだときは、シーズンの途中で区分が変わった選手を、その区分で出場した試合だけの値にする（DESIGN.md 298章。ランキングは B.PREMIER だけ）
   const classScope = useClassScopedPlayers(season, "premier", players, group, enabled);
   const scopedPlayers = classScope.players;
-  const groupOk = (p: PlayerSummary) => (group === "rookie" ? rookieIds !== null && rookieIds.has(p.playerId) : scopedPlayerMatches(p, group, classScope.changed));
+  const groupOk = (p: PlayerSummary) => ((!rookieActive || (rookieIds !== null && rookieIds.has(p.playerId))) && scopedPlayerMatches(p, group, classScope.changed));
   /** 試合ログ（途中で区分が変わった選手は、選んだ区分の試合だけ） */
   const classLogs = (map: Map<string, PlayerGameLog[]>, id: string) => scopeLogsByClassification(map.get(id) ?? [], id, group, classScope.changed);
   // USG%・%-shareスタッツ・個人ORtg/DRtgの分母（チーム総計）用に、チーム版ランキングと共通の

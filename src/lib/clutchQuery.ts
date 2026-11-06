@@ -9,7 +9,7 @@ import { assistPairPoints, ASSIST_PAIRS_VERSION, type AssistPairsFile } from "..
 import type { RookieEligibilityFile } from "../../shared/types";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { FIRST_LEAGUE_SEASON } from "../../shared/rookieEligibility";
-import { indexRowClassMatches, type PlayerGroupFilter } from "./classificationFilter";
+import { classPartOf, indexRowClassMatches, isRookieFilter, type PlayerGroupFilter } from "./classificationFilter";
 import type { PlayerGameIndexView } from "./gameIndex";
 import { rookieOfIndex } from "./gameIndex";
 import type { GameRecordConditions } from "./gameRecordConditions";
@@ -98,6 +98,8 @@ interface ClutchAcc {
 export function queryClutch(q: ClutchQuery): { rows: ClutchRow[]; players: number } {
   const [fgCol, ftCol] = clutchColumns(q.window, q.measure);
   const acc = new Map<string, ClutchAcc>();
+  const rookie = isRookieFilter(q.group);
+  const classPart = classPartOf(q.group);
   for (const view of q.views) {
     const file = view.file;
     const facts = gameFacts(file);
@@ -114,9 +116,8 @@ export function queryClutch(q: ClutchQuery): { rows: ClutchRow[]; players: numbe
       if (!matchesGame(facts[g * 2 + (home ? 0 : 1)]!, q.gameType, q.conditions)) continue;
       const p = players[rows.player[i]!]!;
       if (q.activeIds && !q.activeIds.has(p[0])) continue;
-      if (q.group === "rookie") {
-        if (view.season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, view.season, p[0])) continue;
-      } else if (!indexRowClassMatches(file, i, q.group)) continue;
+      if (rookie && (view.season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, view.season, p[0]))) continue;
+      if (!indexRowClassMatches(file, i, classPart)) continue;
       const team = teams[home ? games.home[g]! : games.away[g]!]!;
       const date = games.date[g]!;
       const key = games.key[g]!;

@@ -27,6 +27,7 @@ import { BOXSCORE_TABS } from "../components/BoxscoreTable";
 import { FilterBar } from "../components/FilterBar";
 import {
   classificationAxis,
+  rookieAxis,
   displayModeAxis,
   gameTypeAxis,
   multiSelectAxis,
@@ -44,6 +45,10 @@ import { SEASON_BOX_TABS } from "../lib/playerSeasonBoxscore";
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeLabel } from "../lib/shotTypeBreakdown";
 import {
   isSplitClassificationGroup,
+  includesSplitClassification,
+  isRookieFilter,
+  withRookie,
+  classPartOf,
   positionFilterOptions,
   selectedPositionLabels,
   SPLIT_CLASSIFICATION_UNAVAILABLE_REASON,
@@ -718,11 +723,11 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   // 登録区分（全選手・日本人・外国籍/帰化/アジア）と、4つ目の「ルーキー」（cls=rookie。DESIGN.md 217章）。ルーキーを選べないシーズン（2016-17）では「全選手」として扱う
   const [selectedGroup, setSelectedGroup] = useUrlState(PLAYER_GROUP_PARAM, "all");
   const rookieSupported = rookieSupportedSeason(season);
-  const selectedClassification: PlayerGroupFilter = selectedGroup === "rookie" && !rookieSupported ? "all" : selectedGroup;
-  const rookieActive = selectedClassification === "rookie";
+  const selectedClassification: PlayerGroupFilter = isRookieFilter(selectedGroup) && !rookieSupported ? withRookie(selectedGroup, false) : selectedGroup;
+  const rookieActive = isRookieFilter(selectedClassification);
   // そのシーズンのルーキー（登録区分でルーキーを選んだときの絞り込み用）
   const rookies = useSeasonRookies(season, rookieActive);
-  useRookieFilterCleanup(season, selectedGroup, () => setSelectedGroup("all"));
+  useRookieFilterCleanup(season, selectedGroup, () => setSelectedGroup(withRookie(selectedGroup, false)));
   // ポジション（複数選択、未選択＝全ポジション）。登録どおり（PG・PG/SG 等の完全一致）で、どれかに当てはまる選手（DESIGN.md 171章）
   const [positions, setPositions] = useUrlState(POSITION_PARAM, EMPTY_POSITIONS);
   const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_RANKING_FILTER);
@@ -791,7 +796,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   const prevSeason = previousSeason(season);
   // 前季が 2025-26 以前のときは、外国籍・帰化・アジア特別枠を分けた区分で前季と比べられない（前季は区分を分けて記録していない）
   const splitCompareReason =
-    isSplitClassificationGroup(selectedClassification) && prevSeason !== null && !splitClassificationSeason(prevSeason)
+    includesSplitClassification(selectedClassification) && prevSeason !== null && !splitClassificationSeason(prevSeason)
       ? `前のシーズン（${prevSeason}）は外国籍・帰化・アジア特別枠を分けて記録していないため、前シーズンと比べられません。`
       : null;
   const compareReason = splitCompareReason ?? compareUnsupportedReason({
@@ -815,7 +820,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       gamesRatio,
       achievable,
       extraThreshold,
-      group: selectedClassification === "rookie" ? "all" : selectedClassification,
+      group: classPartOf(selectedClassification),
       rookieIds: null,
       positions,
       filter,
@@ -986,7 +991,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     ),
   };
   const playerFilterAxes: FilterAxis[] = [
-    classificationAxis(selectedGroup, setSelectedGroup, { rookie: { disabledReason: rookieSupported ? undefined : ROOKIE_UNSUPPORTED_REASON }, season }),
+    classificationAxis(selectedGroup, setSelectedGroup, { season }),
+    rookieAxis(selectedGroup, setSelectedGroup, { disabledReason: rookieSupported ? undefined : ROOKIE_UNSUPPORTED_REASON }),
     multiSelectAxis({
       id: "position",
       label: "ポジション",

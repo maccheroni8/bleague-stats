@@ -41,6 +41,7 @@ import { SortableTable, type Column } from "../components/SortableTable";
 import { FilterBar } from "../components/FilterBar";
 import {
   classificationAxis,
+  rookieAxis,
   displayModeAxis,
   gameTypeAxis,
   leagueVenueAxis,
@@ -86,6 +87,8 @@ import {
 } from "../lib/situational";
 import {
   type PlayerGroupFilter,
+  isRookieFilter,
+  withRookie,
   matchesPositionFilter,
   positionFilterOptions,
   selectedPositionLabels,
@@ -718,10 +721,10 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   const [groupFilter, setGroupFilter] = useUrlState(PLAYER_GROUP_PARAM, "all");
   // ルーキーの判定は B.PREMIER の規程に準じたもの。B.ONE では選べない
   const rookieSupported = league === "premier" && rookieSupportedSeason(season);
-  const classificationFilter: PlayerGroupFilter = groupFilter === "rookie" && !rookieSupported ? "all" : groupFilter;
-  const rookieActive = classificationFilter === "rookie";
+  const classificationFilter: PlayerGroupFilter = isRookieFilter(groupFilter) && !rookieSupported ? withRookie(groupFilter, false) : groupFilter;
+  const rookieActive = isRookieFilter(classificationFilter);
   const rookies = useSeasonRookies(season, rookieActive);
-  useRookieFilterCleanup(season, groupFilter, () => setGroupFilter("all"));
+  useRookieFilterCleanup(season, groupFilter, () => setGroupFilter(withRookie(groupFilter, false)));
   // 2025-26 以前で外国籍・帰化・アジア特別枠を選んでいるときは、表の代わりに理由を出す（DESIGN.md 298章）
   const classBlocked = splitClassificationBlocked(classificationFilter, season);
   // 登録区分を選んだときは、シーズンの途中で区分が変わった選手を、その区分で出場した試合だけの値にする（DESIGN.md 298章）
@@ -730,7 +733,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   // 途中で区分が変わった選手がいるときは、試合ログから足し直す経路（条件で絞ったときと同じ）で表を作る
   const classRecompute = needsClassificationRecompute(players ?? [], classificationFilter, classScope.changed);
   const groupOk = (p: PlayerSummary) =>
-    classificationFilter === "rookie" ? rookies.ids !== null && rookies.ids.has(p.playerId) : scopedPlayerMatches(p, classificationFilter, classScope.changed);
+    (!rookieActive || (rookies.ids !== null && rookies.ids.has(p.playerId))) && scopedPlayerMatches(p, classificationFilter, classScope.changed);
   /** 試合ログ（途中で区分が変わった選手は、選んだ区分の試合だけ） */
   const classLogs = (map: Map<string, PlayerGameLog[]>, id: string) => scopeLogsByClassification(map.get(id) ?? [], id, classificationFilter, classScope.changed);
   const [clubList, setClubList] = useUrlState(CLUB_PARAM, EMPTY_LIST);
@@ -1141,10 +1144,8 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     ),
   };
   const filterAxes: FilterAxis[] = [
-    classificationAxis(groupFilter, setGroupFilter, {
-      rookie: { disabledReason: league === "one" ? ONE_ROOKIE_REASON : rookieSupported ? undefined : ROOKIE_UNSUPPORTED_REASON },
-      season,
-    }),
+    classificationAxis(groupFilter, setGroupFilter, { season }),
+    rookieAxis(groupFilter, setGroupFilter, { disabledReason: league === "one" ? ONE_ROOKIE_REASON : rookieSupported ? undefined : ROOKIE_UNSUPPORTED_REASON }),
     multiSelectAxis({
       id: "position",
       label: "ポジション",

@@ -5,7 +5,7 @@ import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS } from "../lib/playerCond
 import type { LeagueRankingGameType, LeagueTeamRankEntry, TeamColors } from "../../shared/types";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote } from "../lib/activePlayers";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, leagueVenueLabels, type LeagueVenue } from "../lib/conditionLabels";
-import { isSplitClassificationGroup, topFileClassKey, type SplitClassificationGroup } from "../lib/classificationFilter";
+import { classTokens, isSplitClassificationGroup, topFileClassKey, type SplitClassificationGroup } from "../lib/classificationFilter";
 import type { LeaguePlayerCareerTopFileWithSplit, SplitCareerKey } from "../../shared/careerTopSplit";
 import { ClassificationNotes } from "./ClassificationNotes";
 import { formatLeaguePlayerRecordValue, formatLeagueTeamCareerValue } from "../lib/careerRecords";
@@ -51,6 +51,7 @@ const TEAM_STAT_PARAM = stringParam("stat", "wins", (v) => CAREER_TOTAL_DEFS.som
 const PLAYER_RANK_TOP_N = 20;
 /** 分けた区分 → 通算記録の上位のファイルの鍵 */
 const SPLIT_CAREER_KEY: Record<SplitClassificationGroup, SplitCareerKey> = { 外国籍: "foreign", 帰化: "naturalized", アジア特別枠: "asia" };
+const MULTI_CLASS_REASON = "通算記録は、区分を複数選んだ組み合わせでは見られません。日本人／外国籍／帰化／アジア特別枠／外国籍・帰化・アジアのどれか1つだけを選んでください。";
 const SPLIT_COUNT_REASON = "回数・在籍の項目は、外国籍・帰化・アジア特別枠を分けた区分では見られません（試合ごとの区分で分けられないため）。";
 
 /** 通算記録のランキングの URL（個人・チームの記録タブのカードから移るとき） */
@@ -86,8 +87,12 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
   const classKey = topFileClassKey(classification);
   const splitKey = isSplitClassificationGroup(classification) ? SPLIT_CAREER_KEY[classification] : null;
   const splitCountBlocked = !!splitKey && !!countDef;
+  // 通算記録の表は区分ごとに1つずつ作ってあるので、区分を複数選んだ組み合わせは見られない
+  const multiClassBlocked = classTokens(classification).length > 1;
   // 現役を選んだときは、今季の名簿の選手だけの中での上位（現役の表。登録区分と組み合わせられる）
-  const source = splitKey
+  const source = multiClassBlocked
+    ? undefined
+    : splitKey
     ? activeOn
       ? file?.byActiveSplitClass?.[splitKey]
       : file?.bySplitClass?.[splitKey]
@@ -125,6 +130,8 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
       <FilterBar simple wide stateKey="rankings:player:career:stat" axes={[statItemAxis(PLAYER_ITEMS, def.key, setStatKey)]} />
       {loading ? (
         <p className="loading">読み込み中...</p>
+      ) : multiClassBlocked ? (
+        <p className="empty-message">{MULTI_CLASS_REASON}</p>
       ) : splitCountBlocked ? (
         <p className="empty-message">{SPLIT_COUNT_REASON}</p>
       ) : !file || !source ? (

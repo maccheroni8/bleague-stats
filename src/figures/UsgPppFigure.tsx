@@ -2,11 +2,12 @@ import { useMemo, useRef, useState } from 'react';
 import { fetchPlayers, fetchTeams, fetchPlayerGameLogs, fetchTeamGameLogs, fetchDivisionHistory, fetchSeasonRegistrations } from '../lib/data';
 import { useJsonData } from '../lib/useJsonData';
 import { enumParam, listParam, numberParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
-import { gameTypeAxis, situationalAxes, teamMultiAxis, type FilterAxis } from '../lib/filterAxes';
+import { classificationAxis, gameTypeAxis, situationalAxes, teamMultiAxis, type FilterAxis } from '../lib/filterAxes';
 import type { SituationalFilter } from '../lib/situational';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
-import { FIGURE_CLASSES, figureClassGroup, type FigureClass } from '../lib/figureAge';
-import { splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
+import { figureClassGroup } from '../lib/figureAge';
+import { CLASSIFICATION_PARAM } from '../lib/urlFilterParams';
+import { classificationFilterLabel, splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
 import { buildUsgPpp, usgPppAverage, usgPppDomain, type UsgPppPoint } from '../lib/figureUsgPpp';
 import { divisionPresets } from '../lib/divisionGroups';
 import { clubSelectionLabels, situationalFilterLabels } from '../lib/conditionLabels';
@@ -34,7 +35,7 @@ const rangeCodec: UrlCodec<SituationalFilter> = {
   write: (p, v) => situationalParam.write(p, { range: v.range }),
 };
 const gameCodec = enumParam<SeasonGameTypeFilter>('gt', ['regular', 'playoff', 'both'], 'regular');
-const clsCodec = enumParam<FigureClass>('cls', FIGURE_CLASSES.map(c => c.value), 'all');
+const clsCodec = CLASSIFICATION_PARAM;
 const ratioCodec = numberParam('ugp', DEFAULT_RATIO, { min: 0, max: 100 });
 const ptsCodec = numberParam('upts', DEFAULT_PTS, { min: 0, max: 50 });
 const clubsCodec = listParam('ucl');
@@ -83,12 +84,12 @@ export default function UsgPppFigure({ season, category }: FigureProps) {
     .filter(a => a.id === 's.range' || (filter.range.kind === 'dateRange' && (a.id === 's.dateStart' || a.id === 's.dateEnd')))
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season),
-    { kind: 'select', id: 'usgClass', label: '登録区分', tier: 'primary', value: classification, defaultValue: 'all', options: FIGURE_CLASSES.map(c => ({ value: c.value, label: c.label })), onChange: v => setClassification(v as FigureClass) },
+    classificationAxis(classification, setClassification, { season }),
     teamMultiAxis({ id: 'usgClubs', options: teams, selected: clubs.length ? new Set(clubs) : null, onChange: v => setClubs(v ? [...v] : []), divisionOf, league: category }),
     { kind: 'popover', id: 'usgPts', label: '平均得点', tier: 'primary', value: String(minPts), defaultValue: String(DEFAULT_PTS), onChange: () => setMinPts(DEFAULT_PTS), summary: `平均得点${minPts}以上`, chipValue: `平均得点${minPts}以上`, content: <EligibilitySlider label="平均得点" value={minPts} min={0} max={50} step={0.5} format={v => `${v}点`} onChange={setMinPts} /> },
     { kind: 'popover', id: 'usgRatio', label: '出場率', tier: 'primary', value: String(minRatio), defaultValue: String(DEFAULT_RATIO), onChange: () => setMinRatio(DEFAULT_RATIO), summary: `出場率${minRatio}%以上`, chipValue: `出場率${minRatio}%以上`, content: <EligibilitySlider label="出場率" value={minRatio} min={0} max={100} step={1} format={v => `${v}%`} onChange={setMinRatio} /> },
   ];
-  const conditions = [season, seasonGameTypeLabels(season)[gameType], ...situationalFilterLabels(filter), FIGURE_CLASSES.find(c => c.value === classification)!.label,
+  const conditions = [season, seasonGameTypeLabels(season)[gameType], ...situationalFilterLabels(filter), classificationFilterLabel(classification),
     ...(clubs.length ? clubLabels : []), `平均得点${minPts}以上`, `出場率${minRatio}%以上`];
   const baseDate = { kind: 'season' as const, season, gameType };
   const sorted = [...visible].sort((a, b) => {

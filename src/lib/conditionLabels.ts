@@ -24,7 +24,7 @@ import {
   type SeasonGameTypeFilter,
 } from "./playerSeasonBoxscore";
 import { TEAM_PERSPECTIVE_LABELS, type TeamPerspective } from "./teamStatsColumns";
-import type { PlayerGroupFilter } from "./classificationFilter";
+import { classificationFilterLabel, classPartOf, isRookieFilter, type PlayerGroupFilter } from "./classificationFilter";
 import { CATEGORY_LABELS } from "./categoryLabels";
 import { DIVISION_LABELS, summarizeClubSelection } from "./divisionGroups";
 
@@ -139,8 +139,8 @@ export function perspectiveLabels(perspective: TeamPerspective): string[] {
  * 自チームの視点は「日本人選手」「帰化選手」など、opp の視点は相手の同じ区分の選手なので「相手の日本人選手」など
  */
 export function teamClassLabels(filter: PlayerGroupFilter, perspective: TeamPerspective): string[] {
-  if (filter === "all" || filter === "rookie") return [];
-  return [`${perspective === "opp" ? "相手の" : ""}${filter === "帰化" ? "帰化" : filter}選手`];
+  if (classPartOf(filter) === "all") return [];
+  return [`${perspective === "opp" ? "相手の" : ""}${classificationFilterLabel(filter)}選手`];
 }
 
 /**
@@ -148,7 +148,10 @@ export function teamClassLabels(filter: PlayerGroupFilter, perspective: TeamPers
  * 条件の区切りと紛れないよう、ポジション・クラブと同じ見出し付き）。「全選手」はタイトルの下の行・ファイル名には出ない（visibleConditionLabels）
  */
 export function classificationLabels(filter: PlayerGroupFilter): string[] {
-  return [filter === "all" ? "全選手" : `登録区分: ${filter === "rookie" ? "ルーキー" : filter}`];
+  if (filter === "all") return ["全選手"];
+  const labels = classPartOf(filter) === "all" ? [] : [`登録区分: ${classificationFilterLabel(filter)}`];
+  if (isRookieFilter(filter)) labels.push("ルーキー");
+  return labels;
 }
 
 export interface EligibilityLabelInput {

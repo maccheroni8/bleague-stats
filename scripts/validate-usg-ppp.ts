@@ -43,7 +43,7 @@ for (const season of readdirSync('data').filter(s => /^20\d\d-\d\d$/.test(s)).so
   const samples: unknown[] = [];
   let scopedChecks = 0, detailChecks = 0, detailDifferent = 0;
   const detailExamples: unknown[] = [], transfers: unknown[] = [];
-  for (const range of ranges) for (const gameType of ['regular', 'playoff', 'both'] as const) for (const classification of ['all', 'jp', 'intl'] as const) {
+  for (const range of ranges) for (const gameType of ['regular', 'playoff', 'both'] as const) for (const classification of ['all', '日本人', '外国籍・帰化・アジア'] as const) {
     const scoped = buildUsgPpp(data, { ...q, range, gameType, classification });
     const scope = <T extends { min: number; date: string; gameType: string }>(logs: T[]) => {
       const played = logs.filter(g => g.min > 0);

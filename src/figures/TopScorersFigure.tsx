@@ -3,12 +3,13 @@ import { fetchPlayers, fetchTeams, fetchPlayerGameLogs, fetchTeamGameLogs, fetch
 import { useJsonData } from '../lib/useJsonData';
 import type { Division } from '../../shared/types';
 import { divisionListParam, enumParam, numberParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
-import { divisionMultiAxis, gameTypeAxis, situationalAxes, type FilterAxis } from '../lib/filterAxes';
+import { classificationAxis, divisionMultiAxis, gameTypeAxis, situationalAxes, type FilterAxis } from '../lib/filterAxes';
 import type { SituationalFilter } from '../lib/situational';
 import type { SeasonGameTypeFilter } from '../../shared/gameType';
 import { seasonGameTypeLabels } from '../../shared/gameType';
-import { FIGURE_CLASSES, figureClassGroup, type FigureClass } from '../lib/figureAge';
-import { splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
+import { figureClassGroup } from '../lib/figureAge';
+import { CLASSIFICATION_PARAM } from '../lib/urlFilterParams';
+import { classificationFilterLabel, splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
 import { buildTopScorers, scorerDomain, SCORER_AXES, SCORER_LABELS, scorerAxisTitle, type ScorerAxis, type ScorerPoint } from '../lib/figureTopScorers';
 import { DIVISION_LABELS, divisionOrder } from '../lib/divisionGroups';
 import { DIVISION_RATING_COLORS } from '../lib/figureRatings';
@@ -30,7 +31,7 @@ import './TopScorersFigure.css';
 const DEFAULT:SituationalFilter={range:{kind:'all'}};
 const rangeCodec:UrlCodec<SituationalFilter>={keys:['rng'],read:p=>{const range=situationalParam.read(p)?.range;return range&&(range.kind!=='recent'||range.n===5||range.n===10)?{range}:undefined;},write:(p,v)=>situationalParam.write(p,{range:v.range})};
 const gameCodec=enumParam<SeasonGameTypeFilter>('gt',['regular','playoff','both'],'regular');
-const clsCodec=enumParam<FigureClass>('cls',FIGURE_CLASSES.map(c=>c.value),'all');
+const clsCodec=CLASSIFICATION_PARAM;
 const xCodec=enumParam<ScorerAxis>('sx',SCORER_AXES,'win');
 const DEFAULT_RATIO=85;
 const ratioCodec=numberParam('sgp',DEFAULT_RATIO,{min:0,max:100});
@@ -60,10 +61,10 @@ export default function TopScorersFigure({season,category}:FigureProps){
  const rangeAxes=situationalAxes(filter,v=>setFilter({range:v.range})).filter(a=>a.id==='s.range'||(filter.range.kind==='dateRange'&&(a.id==='s.dateStart'||a.id==='s.dateEnd'))).map(a=>a.kind==='select'?{...a,options:a.options.filter(o=>['all','recent:5','recent:10','custom'].includes(o.value))}:{...a,tier:'primary' as const});
  const axes:FilterAxis[]=[...rangeAxes,gameTypeAxis(gameType,setGameType,season),
  {kind:'select',id:'scorerX',label:'横軸',tier:'primary',value:axis,defaultValue:'win',options:axesAvailable.map(a=>({value:a,label:SCORER_LABELS[a]})),onChange:v=>setX(v as ScorerAxis)},
- {kind:'select',id:'scorerClass',label:'登録区分',tier:'primary',value:classification,defaultValue:'all',options:FIGURE_CLASSES.map(c=>({value:c.value,label:c.label})),onChange:v=>setClassification(v as FigureClass)},
+ classificationAxis(classification,setClassification,{season}),
  divisionMultiAxis({id:'scorerDivision',divisions:divisionOrder(category).filter(d=>points.some(p=>p.division===d)),selected:division,onChange:setDivision}),
  {kind:'popover',id:'scorerRatio',label:'出場率',tier:'primary',value:String(minRatio),defaultValue:String(DEFAULT_RATIO),onChange:()=>setMinRatio(DEFAULT_RATIO),summary:`出場率${minRatio}%以上`,chipValue:`出場率${minRatio}%以上`,content:<EligibilitySlider label="出場率" value={minRatio} min={0} max={100} step={1} format={v=>`${v}%`} onChange={setMinRatio}/>}];
- const conditions=[season,seasonGameTypeLabels(season)[gameType],...situationalFilterLabels(filter),FIGURE_CLASSES.find(c=>c.value===classification)!.label,...(division.length===0?[]:[division.map(d=>DIVISION_LABELS[d]).join('・')]),`出場率${minRatio}%以上`];
+ const conditions=[season,seasonGameTypeLabels(season)[gameType],...situationalFilterLabels(filter),classificationFilterLabel(classification),...(division.length===0?[]:[division.map(d=>DIVISION_LABELS[d]).join('・')]),`出場率${minRatio}%以上`];
  const baseDate={kind:'season' as const,season,gameType};
  const sorted=[...visible].sort((a,b)=>{
   if(sort.key==='team')return (a.teamName.localeCompare(b.teamName,'ja')||b.pts-a.pts)*(sort.desc?-1:1);

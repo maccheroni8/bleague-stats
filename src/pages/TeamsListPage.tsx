@@ -7,7 +7,8 @@ import { GlossaryNote } from "../components/GlossaryNote";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { choiceNumberParam, clearUrlParams, enumParam, situationalParam, statConditionsParam, stringParam, useUrlState } from "../lib/urlState";
 import { CLASSIFICATION_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PERSPECTIVE_PARAM, TEAM_SEASON_PERIOD_PARAM, VENUE_PARAM } from "../lib/urlFilterParams";
-import { hasUnclassifiedRows, maskClassSplitColumns, splitClassOfFilter, sumClassTotals, withOppMinutes, type SplitClass } from "../lib/teamClassSplit";
+import { classificationFilterLabel } from "../lib/classificationFilter";
+import { hasUnclassifiedRows, maskClassSplitColumns, splitClassOfFilter, sumClassTotals, withOppMinutes, type TeamClassSelection } from "../lib/teamClassSplit";
 import { useClassSplitSource } from "../lib/teamClassSplitLoad";
 import { SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason, seasonPeriodOption } from "../lib/seasonPeriod";
 import { sumTeamPeriodTotals, useTeamPeriodSource, type TeamPeriodSource, type TeamPeriodValue } from "../lib/teamPeriodTotals";
@@ -518,7 +519,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   // 2025-26 以前で外国籍・帰化・アジア特別枠を選んでいるときは、表の代わりに理由を出す（DESIGN.md 298章）
   const classBlocked = classTab && !periodActive && splitClassificationBlocked(classFilter, season);
   const classActive = classTab && classFilter !== "all" && !periodActive && !classBlocked;
-  const splitClass: SplitClass = splitClassOfFilter(classFilter) ?? "jp";
+  const splitClass: TeamClassSelection = splitClassOfFilter(classFilter) ?? "jp";
   const { state: classState, retry: retryClass } = useClassSplitSource(season, classActive, league);
   const classSource = classActive && classState.status === "ready" ? classState.source : null;
   const { source: periodSource, loading: periodLoading } = useTeamPeriodSource(season, periodActive, league);
@@ -1113,7 +1114,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
         })}
       />
       {classActive && teamPerspective === "opp" && (
-        <p className="page-subtitle">相手チームの{classFilter}選手の成績です（自チームではなく、対戦相手の同じ区分の選手の合計）。</p>
+        <p className="page-subtitle">相手チームの{classificationFilterLabel(classFilter)}選手の成績です（自チームではなく、対戦相手の同じ区分の選手の合計）。</p>
       )}
       {classActive && teamPerspective === "diff" && (
         <p className="page-subtitle">+/- の視点は、登録区分別では出せません。「自チーム」か「opp」を選んでください。</p>
@@ -1474,7 +1475,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           {classActive && classSource && (
             <>
               <p className="page-subtitle">
-                {classFilter}選手の合計です。勝敗は試合の勝敗です。OR・DR・TR・TOV・F・TF は選手の分だけです（チームリバウンド・チームターンオーバー・ベンチ／コーチのファウルを含みません）。
+                {classificationFilterLabel(classFilter)}選手の合計です。勝敗は試合の勝敗です。OR・DR・TR・TOV・F・TF は選手の分だけです（チームリバウンド・チームターンオーバー・ベンチ／コーチのファウルを含みません）。
                 PACE・ORtg・DRtg・NetRtg・OR%・+/-・TF1/TF2/FLAG/DISR・ベンチ／スタメン得点・登録区分別得点は、区分では出せないので「-」にしています。
               </p>
               {classUnclassified && (

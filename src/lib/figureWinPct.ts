@@ -8,7 +8,7 @@ import { hasPoints, scoringDomain } from "./figureScoring";
 
 export type WinPctClass = "intl" | "japanese" | "foreign";
 export type WinPctMetric = "pts" | "opp" | "diff";
-export const WIN_PCT_CLASS_LABELS: Record<WinPctClass, string> = { intl: "外国籍・帰化・アジア", japanese: "日本人", foreign: "外国籍のみ" };
+export const WIN_PCT_CLASS_LABELS: Record<WinPctClass, string> = { intl: "外国籍・帰化・アジア", japanese: "日本人", foreign: "外国籍" };
 export const WIN_PCT_METRIC_LABELS: Record<WinPctMetric, string> = { pts: "得点", opp: "失点", diff: "得失点差" };
 /** 傾向線の色（横軸の指標ごと）。ライト・ダークとも見分けがつく中間の濃さ */
 export const WIN_PCT_METRIC_COLORS: Record<WinPctMetric, string> = { pts: "#2f6fdb", opp: "#e8791d", diff: "#2e9d4e" };

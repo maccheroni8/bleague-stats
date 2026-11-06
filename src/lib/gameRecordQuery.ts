@@ -12,7 +12,7 @@ import { TEAM_RECORD_STATS, teamRecordDetail, type TeamRecordValueDef } from "..
 import type { Division, PlayerGameRecordEntry, RookieEligibilityFile, TeamGameLog } from "../../shared/types";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import { formatMinutesFromSeconds } from "./boxscoreAggregate";
-import { indexRowClassMatches, positionFilterValue, type PlayerGroupFilter } from "./classificationFilter";
+import { classPartOf, indexRowClassMatches, isRookieFilter, positionFilterValue, type PlayerGroupFilter } from "./classificationFilter";
 import { formatPct, formatSigned } from "./format";
 import {
   playerGameAt,
@@ -253,15 +253,18 @@ export function rowSideFacts(view: PlayerGameIndexView, facts: GameSideFacts[], 
  */
 export function playerRowFilter(q: PlayerRowFilterInput): (view: PlayerGameIndexView, facts: GameSideFacts[], i: number) => boolean {
   const positionSet = q.positions.length > 0 ? new Set(q.positions) : null;
+  const rookie = isRookieFilter(q.group);
+  const classPart = classPartOf(q.group);
   return (view, facts, i) => {
     const f = rowSideFacts(view, facts, i);
     if (!matchesGame(f, q.gameType, q.conditions)) return false;
     const p = view.file.players[view.file.rows.player[i]!]!;
     if (q.activeIds && !q.activeIds.has(p[0])) return false;
-    if (q.group === "rookie") {
+    if (rookie) {
       // 2016-17は、それ以前の経歴が無くルーキーを判定できない（rookieFilter.ts の rookieSupportedSeason と同じ）
       if (view.season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, view.season, p[0])) return false;
-    } else if (!indexRowClassMatches(view.file, i, q.group)) return false;
+    }
+    if (!indexRowClassMatches(view.file, i, classPart)) return false;
     if (positionSet && !(p[2] && positionSet.has(positionFilterValue(p[2])))) return false;
     return true;
   };

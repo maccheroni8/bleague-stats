@@ -7,7 +7,7 @@ import type { SituationalFilter } from "./situational";
 import { foulColumnsSplit, foulKeyVisible } from "./ruleChange";
 import type { StatConditionsState } from "./statConditions";
 import { rookieSupportedSeason } from "./rookieFilter";
-import type { PlayerGroupFilter } from "./classificationFilter";
+import { isRookieFilter, type PlayerGroupFilter } from "./classificationFilter";
 import { previousSeason } from "./seasonCompare";
 
 /**
@@ -161,7 +161,7 @@ export function useRookieFilterCleanup(season: string, value: PlayerGroupFilter,
   useEffect(() => {
     if (checkedSeasonRef.current === season) return;
     checkedSeasonRef.current = season;
-    if (latest.current.value === "rookie" && !rookieSupportedSeason(season)) latest.current.reset();
+    if (isRookieFilter(latest.current.value) && !rookieSupportedSeason(season)) latest.current.reset();
   }, [season]);
 }
 

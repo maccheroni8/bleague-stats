@@ -2,7 +2,7 @@
 // 読み込み・React の部品は registrationScope.ts（ここは data.ts を読まないので、検証スクリプトからも使える）。画面だけの部品（保存キーの対象外）。
 import { registrationOn, SPLIT_CLASSIFICATION_FIRST_SEASON, type Classification, type SeasonRegistrationEntry, type SeasonRegistrationFile } from "../../shared/registration";
 import type { PlayerGameLog, PlayerSummary } from "../../shared/types";
-import { classificationMatches, type ClassificationGroupFilter, type PlayerGroupFilter } from "./classificationFilter";
+import { classificationMatches, classPartOf, type ClassificationGroupFilter, type PlayerGroupFilter } from "./classificationFilter";
 import { countDoubleTripleDoubles, sumPlayerGameLogs } from "./playerSeasonBoxscore";
 import { currentSeason } from "./season";
 
@@ -44,9 +44,10 @@ export function everMatches(entry: SeasonRegistrationEntry, filter: Classificati
  * （値は scopeLogsByClassification で、その区分の試合だけに絞って足し直す）。ほかの選手は集計済みの区分（players.json）で判定する
  */
 export function scopedPlayerMatches(p: PlayerSummary, filter: PlayerGroupFilter, changed: ChangedRegistrations): boolean {
-  if (filter === "all" || filter === "rookie") return true;
+  const classPart = classPartOf(filter);
+  if (classPart === "all") return true;
   const entry = changed.get(p.playerId);
-  return entry ? everMatches(entry, filter) : classificationMatches(p.classification, filter);
+  return entry ? everMatches(entry, classPart) : classificationMatches(p.classification, classPart);
 }
 
 /** 途中で区分が変わった選手の試合ログを、その区分で出場した試合だけにする（変わっていない選手・区分を選んでいないときはそのまま） */
@@ -56,14 +57,15 @@ export function scopeLogsByClassification<T extends Pick<PlayerGameLog, "date">>
   filter: PlayerGroupFilter,
   changed: ChangedRegistrations,
 ): T[] {
-  const entry = filter === "all" || filter === "rookie" ? undefined : changed.get(playerId);
+  const classPart = classPartOf(filter);
+  const entry = classPart === "all" ? undefined : changed.get(playerId);
   if (!entry) return logs as T[];
-  return logs.filter((g) => classificationMatches(classificationOnDate(entry, g.date), filter as ClassificationGroupFilter));
+  return logs.filter((g) => classificationMatches(classificationOnDate(entry, g.date), classPart));
 }
 
 /** 区分を選んでいて、対象の選手の中に途中で区分が変わった選手がいるか（いれば、試合ログから足し直す経路にする） */
 export function needsClassificationRecompute(players: readonly Pick<PlayerSummary, "playerId">[], filter: PlayerGroupFilter, changed: ChangedRegistrations): boolean {
-  if (filter === "all" || filter === "rookie" || changed.size === 0) return false;
+  if (classPartOf(filter) === "all" || changed.size === 0) return false;
   return players.some((p) => changed.has(p.playerId));
 }
 

@@ -5,7 +5,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { SPLIT_CLASSIFICATION_FIRST_SEASON, type SeasonRegistrationFile } from "../../shared/registration";
 import type { PlayerGameLog, PlayerSummary } from "../../shared/types";
-import type { PlayerGroupFilter } from "./classificationFilter";
+import { classPartOf, type PlayerGroupFilter } from "./classificationFilter";
 import {
   changedRegistrations,
   EMPTY_CHANGED as EMPTY,
@@ -84,7 +84,7 @@ export function useClassScopedPlayers(
   filter: PlayerGroupFilter,
   enabled: boolean = true,
 ): ClassScopedPlayers {
-  const classActive = enabled && filter !== "all" && filter !== "rookie" && season >= SPLIT_CLASSIFICATION_FIRST_SEASON;
+  const classActive = enabled && classPartOf(filter) !== "all" && season >= SPLIT_CLASSIFICATION_FIRST_SEASON;
   const seasons = classActive ? [season] : [];
   const reg = useRegistrationChanges(seasons, league, classActive);
   const changed = (classActive && reg.bySeason?.get(season)) || EMPTY;

@@ -13,6 +13,7 @@
 // - 出せないもの（POSS・PACE・ORtg・DRtg・NetRtg・+/-・TF1/TF2/FLAG/DISR・ベンチ／スタメン得点・OR% など相手の値が要るもの）は CLASS_SPLIT_UNAVAILABLE に挙げ、列の側で「-」にする
 // - opp の視点は「相手チームの、同じ区分の選手」の値（opp* の項目に入れる）
 import { NATURALIZED_ASIA_LABEL } from "./statNames";
+import { classTokens } from "./classificationFilter";
 import { PLAYER_INDEX_STAT_COLUMNS, ROW_FLAG_HOME, type PlayerGameIndexFile } from "../../shared/gameIndex";
 import { PLAYER_PERIOD_STAT_COLUMNS, type PlayerPeriodIndexFile } from "../../shared/periodIndex";
 import type { TeamGameLog } from "../../shared/types";
@@ -28,8 +29,20 @@ export const SPLIT_CLASSES: readonly SplitClass[] = ["jp", "intl"];
 /** 帰化とアジア特別枠は足して1行（natAsia）にして見せる。帰化だけ・アジア特別枠だけは絞り込みで選んだときの区分 */
 export const DETAILED_SPLIT_CLASSES: readonly SplitClass[] = ["jp", "foreign", "natAsia"];
 
-/** 画面の登録区分の絞り込み → チームの区分（全選手・ルーキーは null） */
-export function splitClassOfFilter(filter: string): SplitClass | null {
+/** 足し込む区分の番号の集まり（複数選んだ区分は、選んだ区分の番号を合わせたもの） */
+export type TeamClassSelection = SplitClass | readonly number[];
+
+/**
+ * 画面の登録区分の絞り込み → チームの区分（全選手・ルーキーは null）。複数選んだときは、選んだ区分の足し込み先を合わせた番号の集まり
+ * （帰化＋アジア特別枠は、帰化だけ・アジア特別枠だけの合計と同じ）
+ */
+export function splitClassOfFilter(filter: string): TeamClassSelection | null {
+  const tokens = classTokens(filter);
+  if (tokens.length > 1) {
+    const numbers = new Set<number>();
+    for (const t of tokens) for (const n of CLASS_NUMBERS[splitClassOfFilter(t) as SplitClass]) numbers.add(n);
+    return [...numbers].sort((a, b) => a - b);
+  }
   switch (filter) {
     case "日本人":
       return "jp";
@@ -297,8 +310,8 @@ export interface ClassSideValues {
 }
 
 /** チームの行（試合の番号×2＋〔ホーム 0／アウェイ 1〕）の、指定した区分（"none" は区分なし）の値 */
-export function classSideValues(source: ClassSplitSource, teamRow: number, cls: SplitClass | "none"): ClassSideValues {
-  const c = CLASS_NUMBERS[cls];
+export function classSideValues(source: ClassSplitSource, teamRow: number, cls: TeamClassSelection | "none"): ClassSideValues {
+  const c = typeof cls === "string" ? CLASS_NUMBERS[cls] : cls;
   const g = (col: string) => gameValue(source, teamRow, c, col);
   const p = (col: string) => (source.period && source.hasPeriod[teamRow] ? periodValue(source, teamRow, c, col) : 0);
   return {
@@ -390,7 +403,7 @@ function oppKey(k: (typeof OWN_KEYS)[number]): keyof TeamTotals {
  * 自チームの項目は自チームのその区分の選手、opp の項目は相手チームの同じ区分の選手の値。
  * 索引に無い試合（試合の番号が引けない）は数えず、数えた試合を games に返す（平均の分母と勝敗は、呼び出し側がこの games で出す）
  */
-export function sumClassTotals(source: ClassSplitSource, logs: readonly TeamGameLog[], cls: SplitClass): { games: TeamGameLog[]; totals: TeamTotals } {
+export function sumClassTotals(source: ClassSplitSource, logs: readonly TeamGameLog[], cls: TeamClassSelection): { games: TeamGameLog[]; totals: TeamTotals } {
   const totals: TeamTotals = { ...EMPTY_TOTALS };
   const t = totals as unknown as Record<string, number>;
   const games: TeamGameLog[] = [];

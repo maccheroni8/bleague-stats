@@ -22,6 +22,8 @@ export type SplitClassificationGroup = "外国籍" | "帰化" | "アジア特別
 /** まとめの区分（2025-26 以前と旧URL） */
 export const COMBINED_INTL_GROUP = "外国籍・帰化・アジア";
 export type ClassificationGroup = "日本人" | typeof COMBINED_INTL_GROUP | SplitClassificationGroup;
+/** 複数選んだ区分（"外国籍,帰化" のように、並びの決まった区分名をカンマでつないだ文字列。複数選択のチェックの値） */
+export type MultiClassificationFilter = `${ClassificationGroup},${string}`;
 
 export const SPLIT_CLASSIFICATION_GROUPS: readonly SplitClassificationGroup[] = ["外国籍", "帰化", "アジア特別枠"];
 
@@ -42,6 +44,93 @@ const CLASSIFICATION_OF_SPLIT: Record<SplitClassificationGroup, Classification> 
 
 export function isSplitClassificationGroup(filter: string): filter is SplitClassificationGroup {
   return (SPLIT_CLASSIFICATION_GROUPS as readonly string[]).includes(filter);
+}
+
+/** ルーキーのスイッチの値（URL の cls に区分と並べて書く。cls=rookie だけで開いても「ルーキーのみ」が入る） */
+export const ROOKIE_TOKEN = "rookie";
+
+/** チェックの並び（保存・URL・表示で共通。まとめは最後） */
+const CLASS_TOKEN_ORDER: readonly ClassificationGroup[] = ["日本人", "外国籍", "帰化", "アジア特別枠", COMBINED_INTL_GROUP];
+
+/** 絞り込みの値（"all"・単独・複数・ルーキー入り）→ 区分の並び（ルーキーと "all" は含めない） */
+export function classTokens(filter: string): ClassificationGroup[] {
+  const set = new Set(filter.split(","));
+  return CLASS_TOKEN_ORDER.filter((t) => set.has(t));
+}
+
+/** ルーキーのスイッチが入っているか */
+export function isRookieFilter(filter: string): boolean {
+  return filter.split(",").includes(ROOKIE_TOKEN);
+}
+
+/**
+ * 区分の並び → 絞り込みの値。重複は除き、並びは固定。日本人と外国籍・帰化・アジア特別枠がすべてそろったとき
+ * （日本人＋まとめも同じ）は全選手と同じなので "all"
+ */
+export function joinClassTokens(tokens: readonly string[]): ClassificationGroupFilter {
+  const set = new Set(tokens);
+  if (set.has("日本人") && (set.has(COMBINED_INTL_GROUP) || SPLIT_CLASSIFICATION_GROUPS.every((g) => set.has(g)))) return "all";
+  const ordered = CLASS_TOKEN_ORDER.filter((t) => set.has(t));
+  return (ordered.length === 0 ? "all" : ordered.join(",")) as ClassificationGroupFilter;
+}
+
+/** 区分のチェックとルーキーのスイッチを、1つの値にまとめる */
+export function composeGroupFilter(classPart: ClassificationGroupFilter, rookie: boolean): PlayerGroupFilter {
+  if (!rookie) return classPart;
+  return (classPart === "all" ? ROOKIE_TOKEN : `${classPart},${ROOKIE_TOKEN}`) as PlayerGroupFilter;
+}
+
+/** 値から、ルーキーを除いた区分の絞り込み */
+export function classPartOf(filter: PlayerGroupFilter): ClassificationGroupFilter {
+  return joinClassTokens(classTokens(filter));
+}
+
+/** ルーキーのスイッチだけを入れる・外す */
+export function withRookie(filter: PlayerGroupFilter, rookie: boolean): PlayerGroupFilter {
+  return composeGroupFilter(classPartOf(filter), rookie);
+}
+
+/** 分けた区分（外国籍・帰化・アジア特別枠）が1つでも入っているか */
+export function includesSplitClassification(filter: string): boolean {
+  return classTokens(filter).some((t) => isSplitClassificationGroup(t));
+}
+
+/**
+ * 索引を 2026-27 以降だけ読めばよいか（分けた区分だけを選んでいるとき。日本人・まとめが入っていれば、それ以前の試合も
+ * 選手の辞書の区分で数えるので全シーズンを読む）
+ */
+export function splitSeasonsOnly(filter: string): boolean {
+  const tokens = classTokens(filter);
+  return tokens.length > 0 && tokens.every((t) => isSplitClassificationGroup(t));
+}
+
+/** 日本人が入っているか */
+export function includesJapanese(filter: string): boolean {
+  return classTokens(filter).includes("日本人");
+}
+
+/**
+ * 選んだ区分の書き方（タイトルの下・チップ・保存画像の見出し）。「日本人・帰化・アジア特別枠」のように固定の並びを「・」でつなぐ。
+ * 外国籍・帰化・アジア特別枠がそろっていれば「外国籍・帰化・アジア」と書く。ルーキーは含めない
+ */
+export function classificationFilterLabel(filter: string): string {
+  const tokens = classTokens(filter);
+  if (tokens.length === 0) return "全選手";
+  const hasAllSplit = SPLIT_CLASSIFICATION_GROUPS.every((g) => tokens.includes(g));
+  const names: string[] = [];
+  for (const t of tokens) {
+    if (hasAllSplit && isSplitClassificationGroup(t)) {
+      if (t === "外国籍" && !tokens.includes(COMBINED_INTL_GROUP)) names.push(COMBINED_INTL_GROUP);
+      continue;
+    }
+    names.push(t);
+  }
+  return names.join("・");
+}
+
+/** 「外国籍・帰化・アジア特別枠をまとめて選ぶ」ボタンで入れる区分（分けて選べるシーズンは3つ、そうでなければまとめ） */
+export function bulkIntlTokens(season: string | null): ClassificationGroup[] {
+  return season !== null && splitClassificationSeason(season) ? [...SPLIT_CLASSIFICATION_GROUPS] : [COMBINED_INTL_GROUP];
 }
 
 /** 分けた区分を選べるシーズンか（2026-27 以降） */
@@ -68,14 +157,14 @@ export const CLASSIFICATION_GAMES_NOTE = "登録区分は試合ごとの区分�
  * SPLIT_CLASSIFICATION_UNAVAILABLE_REASON を出す。通算・歴代（シーズンをまたぐ表）は null を渡す（2026-27 以降の試合だけを数える）
  */
 export function splitClassificationBlocked(filter: string, season: string | null): boolean {
-  return season !== null && isSplitClassificationGroup(filter) && !splitClassificationSeason(season);
+  return season !== null && includesSplitClassification(filter) && !splitClassificationSeason(season);
 }
 
 /** 表の下に出す区分の注記。scope が "allTime" のときは、分けた区分に 2026-27 以降だけの注記を付ける */
 export function classificationNotes(filter: string, scope: "season" | "allTime"): string[] {
   const notes: string[] = [];
-  if (filter === "日本人") notes.push(JAPANESE_DEEMED_NOTE);
-  if (isSplitClassificationGroup(filter) && scope === "allTime") notes.push(SPLIT_CLASSIFICATION_ALL_TIME_NOTE);
+  if (includesJapanese(filter)) notes.push(JAPANESE_DEEMED_NOTE);
+  if (includesSplitClassification(filter) && scope === "allTime") notes.push(SPLIT_CLASSIFICATION_ALL_TIME_NOTE);
   return notes;
 }
 
@@ -105,15 +194,19 @@ export function splitGroupOf(c: Classification | undefined): "日本人" | Split
   return c === "帰化選手" ? "帰化" : c;
 }
 
-export type ClassificationGroupFilter = "all" | ClassificationGroup;
+export type ClassificationGroupFilter = "all" | ClassificationGroup | MultiClassificationFilter;
 
-/** 登録区分の4値が絞り込みに当てはまるか（"all" は常に当てはまる。区分が分からない選手は「全選手」だけ） */
+function classificationMatchesToken(c: Classification, token: ClassificationGroup): boolean {
+  if (token === "日本人") return c === "日本人";
+  if (token === COMBINED_INTL_GROUP) return c !== "日本人";
+  return c === CLASSIFICATION_OF_SPLIT[token];
+}
+
+/** 登録区分の4値が絞り込みに当てはまるか（"all" は常に当てはまる。複数選んだときはどれかに当てはまれば。区分が分からない選手は「全選手」だけ） */
 export function classificationMatches(c: Classification | undefined, filter: ClassificationGroupFilter): boolean {
   if (filter === "all") return true;
   if (c === undefined) return false;
-  if (filter === "日本人") return c === "日本人";
-  if (filter === COMBINED_INTL_GROUP) return c !== "日本人";
-  return c === CLASSIFICATION_OF_SPLIT[filter];
+  return classTokens(filter).some((t) => classificationMatchesToken(c, t));
 }
 
 /** 索引の行の区分の番号（rows.cls。0 日本人・1 外国籍・2 帰化選手・3 アジア特別枠・-1 不明）が絞り込みに当てはまるか */
@@ -130,16 +223,17 @@ export function indexRowClassMatches(file: Pick<PlayerGameIndexFile, "players" |
   if (filter === "all") return true;
   const code = file.rows.cls?.[i];
   if (code !== undefined) return classificationCodeMatches(code, filter);
-  if (isSplitClassificationGroup(filter)) return false;
   const key = file.players[file.rows.player[i]!]![5];
-  return filter === "日本人" ? key === "jp" : key === "intl";
+  // 行ごとの区分が無い行は、分けた区分には当てはまらない（日本人・まとめだけ、選手の辞書の区分で見る）
+  return classTokens(filter).some((t) => (t === "日本人" ? key === "jp" : t === COMBINED_INTL_GROUP ? key === "intl" : false));
 }
 
 /**
  * 上位だけのファイル（選手の1試合記録・通算記録）のどの表を使うか。"all" は全選手の表、jp・intl は区分ごとの表。
  * 分けた区分はファイルに表が無いので null（索引から集計する）
  */
-export function topFileClassKey(filter: ClassificationGroupFilter): ClassKey | "all" | null {
+export function topFileClassKey(filter: PlayerGroupFilter): ClassKey | "all" | null {
+  if (isRookieFilter(filter)) return null;
   if (filter === "all") return "all";
   if (filter === "日本人") return "jp";
   if (filter === COMBINED_INTL_GROUP) return "intl";
@@ -150,7 +244,7 @@ export function topFileClassKey(filter: ClassificationGroupFilter): ClassKey | "
  * 全選手スタッツ・ランキングのシーズン成績（個人）の登録区分の選択肢には、最後に「ルーキー」がある（DESIGN.md 217章）。
  * ルーキーは、日本人・外国籍・帰化・アジア特別枠の区分と並ぶ選択肢（ルーキーは規程の定義で日本人だけ）
  */
-export type PlayerGroupFilter = ClassificationGroupFilter | "rookie";
+export type PlayerGroupFilter = ClassificationGroupFilter | typeof ROOKIE_TOKEN | `${ClassificationGroupFilter},${typeof ROOKIE_TOKEN}`;
 
 /**
  * 登録区分＋ルーキーの絞り込み。filterが"rookie"のときは、そのシーズンのルーキーの選手ID（rookieIds）に入っている選手だけ
@@ -162,8 +256,8 @@ export function matchesPlayerGroupFilter(
   filter: PlayerGroupFilter,
   rookieIds: ReadonlySet<string> | null,
 ): boolean {
-  if (filter === "rookie") return rookieIds !== null && rookieIds.has(p.playerId);
-  return matchesClassificationGroupFilter(p, filter);
+  if (isRookieFilter(filter) && !(rookieIds !== null && rookieIds.has(p.playerId))) return false;
+  return matchesClassificationGroupFilter(p, classPartOf(filter));
 }
 
 /** filterが"all"のときは絞り込みなし */

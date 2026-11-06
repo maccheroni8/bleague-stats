@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
-import { isSplitClassificationGroup, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
+import { isRookieFilter, splitSeasonsOnly, withRookie, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
 import { ClassificationNotes } from "./ClassificationNotes";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { selectedPositionLabels } from "../lib/classificationFilter";
-import { classificationAxis, gameTypeAxis, multiSelectAxis, simpleSelectAxis, type FilterAxis } from "../lib/filterAxes";
+import { classificationAxis, rookieAxis, gameTypeAxis, multiSelectAxis, simpleSelectAxis, type FilterAxis } from "../lib/filterAxes";
 import { currentSeason } from "../lib/season";
 import { seasonGameTypeLabels } from "../../shared/gameType";
 import { DEFAULT_GAME_RECORD_CONDITIONS, cleanGameConditionsForSeason, gameRecordConditionLabels, gameRecordConditionsParam } from "../lib/gameRecordConditions";
@@ -73,9 +73,9 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   // 2025-26 以前のシーズンで分けた区分を選んでいるときは、表の代わりに理由を出す。全シーズンの表で分けた区分は 2026-27 以降の索引だけを読む
   const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
   const index = useGameIndexViews("player", allTime ? "allTime" : "season", season, ready && !classBlocked, {
-    fromSeason: isSplitClassificationGroup(group) ? SPLIT_CLASSIFICATION_FIRST_SEASON : null,
+    fromSeason: splitSeasonsOnly(group) ? SPLIT_CLASSIFICATION_FIRST_SEASON : null,
   });
-  const rookies = useRookieFile(ready && group === "rookie");
+  const rookies = useRookieFile(ready && isRookieFilter(group));
   // 今季の名簿は、現役の絞り込みと、連続記録の「継続中」の判定に使う
   const active = useActivePlayerIds(activeOn || (ready && unit === "streak"));
   const rosters = useSeasonRosters(ready && unit === "streak");
@@ -83,7 +83,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   const current = useCurrentPlayerNames(allTime);
 
   const result = useMemo(() => {
-    if (!ready || !index.views || (group === "rookie" && !rookies.file) || ((activeOn || unit === "streak") && !active.ids) || (allTime && !current.names)) return null;
+    if (!ready || !index.views || (isRookieFilter(group) && !rookies.file) || ((activeOn || unit === "streak") && !active.ids) || (allTime && !current.names)) return null;
     const input = {
       views: index.views,
       gameType,
@@ -112,7 +112,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   // シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い対戦相手・地区・ルーキーを外す
   useEffect(() => {
     if (allTime) return;
-    if (group === "rookie" && !rookieSupportedSeason(season)) setGroup("all");
+    if (isRookieFilter(group) && !rookieSupportedSeason(season)) setGroup(withRookie(group, false));
     if (!options.ready) return;
     const next = cleanGameConditionsForSeason(conditions, options.teams.map((t) => t.value), options.divisions);
     if (next) setConditions(next);
@@ -152,9 +152,9 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial, includeSpecialDefault: false };
   const axes: FilterAxis[] = [
     classificationAxis(group, setGroup, {
-      rookie: { disabledReason: !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined },
       season: allTime ? null : season,
     }),
+    rookieAxis(group, setGroup, { disabledReason: !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined }),
     ...(allTime ? [activeAxis(activeParamValue, setActive)] : []),
     unit === "streak"
       ? simpleSelectAxis({
@@ -363,7 +363,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
             )}
             {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
             <ClassificationNotes filter={group} scope={allTime ? "allTime" : "season"} />
-            {group === "rookie" && <p className="rule-change-footnote">※ {ROOKIE_NOTE}{allTime ? "2016-17は、ルーキーを判定できないため、含めていません。" : ""}</p>}
+            {isRookieFilter(group) && <p className="rule-change-footnote">※ {ROOKIE_NOTE}{allTime ? "2016-17は、ルーキーを判定できないため、含めていません。" : ""}</p>}
           </ExportTarget>
         </>
       )}

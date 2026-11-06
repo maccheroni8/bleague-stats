@@ -20,8 +20,7 @@ import { makeClassifier, registrationOn, type SeasonRegistrationFile } from "../
 import { filterByClassification } from "../shared/careerTopSplit.ts";
 import type { PlayerGameLog, PlayerMasterEntry, PlayerSummary, TeamGameLog, TeamStintsFile } from "../shared/types.ts";
 import {
-  CLASSIFICATION_GROUP_OPTIONS,
-  CLASSIFICATION_URL_ALIASES,
+  classificationFilterLabel,
   classificationMatches,
   indexRowClassMatches,
   splitClassificationBlocked,
@@ -29,7 +28,7 @@ import {
   type ClassificationGroupFilter,
 } from "../src/lib/classificationFilter.ts";
 import { classificationAxis } from "../src/lib/filterAxes.ts";
-import { enumParam } from "../src/lib/urlState.ts";
+import { PLAYER_GROUP_PARAM } from "../src/lib/classificationParam.ts";
 import {
   changedRegistrations,
   needsClassificationRecompute,
@@ -38,6 +37,10 @@ import {
   summaryScopedToClassification,
 } from "../src/lib/registrationScopeCore.ts";
 import { indexClassScope } from "../src/lib/indexClassScope.ts";
+import { viewPlayerGameIndex } from "../src/lib/gameIndex.ts";
+import { DEFAULT_GAME_RECORD_CONDITIONS } from "../src/lib/gameRecordConditions.ts";
+import { playerQueryStats, queryPlayerGameRecords } from "../src/lib/gameRecordQuery.ts";
+import { DEFAULT_STAT_CONDITIONS } from "../src/lib/statConditions.ts";
 import { viewPlayerGameIndex } from "../shared/gameIndexRead.ts";
 import { DEFAULT_GAME_RECORD_CONDITIONS } from "../src/lib/gameRecordConditions.ts";
 import { DEFAULT_STAT_CONDITIONS } from "../src/lib/statConditions.ts";
@@ -57,27 +60,59 @@ const dir = path.join(DATA_DIR, SEASON);
 
 // ---- 1. 選択肢・URL ----
 {
-  // urlFilterParams.ts の PLAYER_GROUP_PARAM と同じ定義（あちらは読み込みの部品をたどるので、ここでは同じ値・書き方で作る）
-  const param = enumParam<string>("cls", ["all", ...CLASSIFICATION_GROUP_OPTIONS, "rookie"], "all", CLASSIFICATION_URL_ALIASES as Record<string, string>);
+  const param = PLAYER_GROUP_PARAM;
   const read = (cls: string) => param.read(new URLSearchParams(`cls=${cls}`));
+  const write = (v: string) => {
+    const q = new URLSearchParams();
+    param.write(q, v as never);
+    return q.toString();
+  };
   check(
     "URL の cls（jp・foreign・nat・asia・intl・rookie）を読める",
     read("jp") === "日本人" && read("foreign") === "外国籍" && read("nat") === "帰化" && read("asia") === "アジア特別枠" && read("intl") === "外国籍・帰化・アジア" && read("rookie") === "rookie",
   );
-  const optionsOf = (value: "all" | "外国籍・帰化・アジア", season: string | null) =>
-    (classificationAxis(value, () => {}, { rookie: {}, season }) as { options: { value: string }[] }).options.map((o) => o.value);
-  const now = optionsOf("all", SEASON);
-  const ORDER = ["all", "日本人", "外国籍", "帰化", "アジア特別枠", "外国籍・帰化・アジア", "rookie"];
   check(
-    "選択肢は 全選手／日本人／外国籍／帰化／アジア特別枠／外国籍・帰化・アジア／ルーキー（2026-27・2025-26・通算で同じ）",
-    [now, optionsOf("all", "2025-26"), optionsOf("all", null)].every((o) => JSON.stringify(o) === JSON.stringify(ORDER)),
-    now.join(","),
+    "複数選択の URL（nat,asia）を読める。並びは固定で、順序や重複が違っても同じ値。書き出して読み直すと同じ値",
+    read("nat,asia") === "帰化,アジア特別枠" && read("asia,nat") === "帰化,アジア特別枠" && read("nat,nat,asia") === "帰化,アジア特別枠" && read(encodeURIComponent("帰化,アジア特別枠")) === "帰化,アジア特別枠" && write("帰化,アジア特別枠") === "cls=nat%2Casia" && read("nat%2Casia".replace("%2C", ",")) === read(new URLSearchParams(write("帰化,アジア特別枠")).get("cls")!),
   );
   check(
-    "2025-26 以前で分けた区分を選ぶと理由を出す（通算・歴代と 2026-27 は出さない）",
-    splitClassificationBlocked("帰化", "2025-26") && !splitClassificationBlocked("帰化", SEASON) && !splitClassificationBlocked("帰化", null) && !splitClassificationBlocked("日本人", "2016-17"),
+    "ルーキーのスイッチ: cls=rookie だけでも、cls=jp,rookie でも読める（区分は残る）。書き出しも同じ",
+    read("rookie") === "rookie" && read("jp,rookie") === "日本人,rookie" && read("rookie,jp") === "日本人,rookie" && write("日本人,rookie") === "cls=jp%2Crookie" && write("rookie") === "cls=rookie",
   );
-  check("分けた区分は上位20位のファイルに表が無い（索引から集計する）", topFileClassKey("帰化") === null && topFileClassKey("日本人") === "jp" && topFileClassKey("外国籍・帰化・アジア") === "intl");
+  check(
+    "日本人＋まとめ・日本人＋外国籍＋帰化＋アジア特別枠は全選手と同じ（cls を載せない）。外国籍・帰化・アジア特別枠の3つだけは区分のまま",
+    read("jp,intl") === "all" && read("jp,foreign,nat,asia") === "all" && write("all") === "" && read("foreign,nat,asia") === "外国籍,帰化,アジア特別枠",
+  );
+  const axisOf = (value: string, season: string | null) =>
+    classificationAxis(value as never, () => {}, { season }) as unknown as { options: { value: string; disabled?: boolean }[]; selected: string[]; presets: { label: string; values: string[] }[]; summary: string };
+  const optionsOf = (season: string | null) => axisOf("all", season).options.map((o) => o.value);
+  const now = optionsOf(SEASON);
+  check(
+    "チェックの選択肢: 2026-27 は 日本人／外国籍／帰化／アジア特別枠。2025-26 以前は分けた区分が灰色で、まとめが付く。通算は全部",
+    JSON.stringify(now) === JSON.stringify(["日本人", "外国籍", "帰化", "アジア特別枠"]) &&
+      JSON.stringify(optionsOf("2025-26")) === JSON.stringify(["日本人", "外国籍", "帰化", "アジア特別枠", "外国籍・帰化・アジア"]) &&
+      axisOf("all", "2025-26").options.filter((o) => o.disabled).map((o) => o.value).join() === "外国籍,帰化,アジア特別枠" &&
+      JSON.stringify(optionsOf(null)) === JSON.stringify(["日本人", "外国籍", "帰化", "アジア特別枠", "外国籍・帰化・アジア"]),
+  );
+  check(
+    "まとめ（intl）は、分けて選べるシーズンでは3つにチェックが入った状態で表示される。一括ボタンは 2026-27 が3つ、2025-26 以前と通算がまとめ",
+    axisOf("外国籍・帰化・アジア", SEASON).selected.join() === "外国籍,帰化,アジア特別枠" &&
+      axisOf("all", SEASON).presets[0]!.values.join() === "外国籍,帰化,アジア特別枠" &&
+      axisOf("all", "2025-26").presets[0]!.values.join() === "外国籍・帰化・アジア" &&
+      axisOf("all", null).presets[0]!.values.join() === "外国籍・帰化・アジア",
+  );
+  check(
+    "選んだ区分の書き方: 帰化・アジア特別枠／日本人・帰化／外国籍・帰化・アジア／全選手",
+    classificationFilterLabel("帰化,アジア特別枠") === "帰化・アジア特別枠" &&
+      classificationFilterLabel("日本人,帰化") === "日本人・帰化" &&
+      classificationFilterLabel("外国籍,帰化,アジア特別枠") === "外国籍・帰化・アジア" &&
+      classificationFilterLabel("all") === "全選手",
+  );
+  check(
+    "2025-26 以前で分けた区分を含めて選ぶと理由を出す（通算・歴代と 2026-27 は出さない）",
+    splitClassificationBlocked("帰化", "2025-26") && splitClassificationBlocked("日本人,帰化", "2025-26") && !splitClassificationBlocked("帰化", SEASON) && !splitClassificationBlocked("帰化", null) && !splitClassificationBlocked("日本人", "2016-17"),
+  );
+  check("分けた区分・複数選択・ルーキーは上位20位のファイルに表が無い（索引から集計する）", topFileClassKey("帰化") === null && topFileClassKey("帰化,アジア特別枠") === null && topFileClassKey("rookie") === null && topFileClassKey("日本人") === "jp" && topFileClassKey("外国籍・帰化・アジア") === "intl");
 }
 
 // ---- 2. 区分の判定 ----
@@ -301,6 +336,49 @@ const baseView = viewPlayerGameIndex(indexFile);
     `通算の集計: 外国籍は変更日より前（${fo.length}試合）、帰化は変更日以降（${na.length}試合）、日本人には入らない`,
     fo.length === before.length && na.length === after.length && fo.every((g) => g.date < CHANGE_FROM) && na.every((g) => g.date >= CHANGE_FROM) && jp === undefined,
   );
+}
+
+// ---- 9. 複数選択（チェックを複数入れた区分の値＝それぞれの区分の値を合わせたもの。DESIGN.md 324章） ----
+{
+  const ptsCol = (indexFile.rows.stats as unknown as Record<string, ArrayLike<number>>).pts!;
+  const rowTotals = (f: string) => {
+    let n = 0;
+    let pts = 0;
+    for (let i = 0; i < indexFile.rows.player.length; i++) if (indexRowClassMatches(indexFile, i, f as ClassificationGroupFilter)) { n += 1; pts += ptsCol[i]!; }
+    return { n, pts };
+  };
+  const COMBOS: [string, string[]][] = [
+    ["帰化,アジア特別枠", ["帰化", "アジア特別枠"]],
+    ["外国籍,帰化", ["外国籍", "帰化"]],
+    ["日本人,帰化", ["日本人", "帰化"]],
+    ["外国籍,帰化,アジア特別枠", ["外国籍", "帰化", "アジア特別枠"]],
+  ];
+  const stat = playerQueryStats("record").find((q) => q.key === "pts")!;
+  const view = viewPlayerGameIndex(indexFile);
+  const queryRows = (group: string) =>
+    queryPlayerGameRecords({ views: [view], gameType: "regular", conditions: DEFAULT_GAME_RECORD_CONDITIONS, group: group as never, positions: [], statConditions: DEFAULT_STAT_CONDITIONS, rookies: null, stat, includeSpecial: true, topN: 1_000_000 }).rows;
+  const signature = (rows: { playerId: string; value: number; scheduleKey?: string; date?: string }[]) => rows.map((r) => `${r.playerId}|${r.value}|${r.scheduleKey ?? r.date ?? ""}`).sort();
+  for (const [multi, singles] of COMBOS) {
+    const m = rowTotals(multi);
+    const sumN = singles.reduce((a, f) => a + rowTotals(f).n, 0);
+    const sumPts = singles.reduce((a, f) => a + rowTotals(f).pts, 0);
+    check(`索引の行（${multi}）: 行数 ${m.n} と PTS 合計 ${m.pts} が、${singles.join("＋")} を合わせたものと一致する`, m.n === sumN && m.pts === sumPts);
+    const playerCount = players.filter((p) => classificationMatches(p.classification, multi as ClassificationGroupFilter)).length;
+    const playerSum = singles.reduce((a, f) => a + players.filter((p) => classificationMatches(p.classification, f as ClassificationGroupFilter)).length, 0);
+    check(`全選手スタッツ（${multi}）: 選手 ${playerCount} 人が、${singles.join("＋")} を合わせたものと一致する`, playerCount === playerSum);
+    const rows = queryRows(multi);
+    const merged = singles.flatMap((f) => queryRows(f));
+    check(
+      `ランキング 1試合記録 PTS（${multi}）: ${rows.length} 行が、${singles.join("＋")} を合わせたものと一致する`,
+      rows.length === merged.length && JSON.stringify(signature(rows as never)) === JSON.stringify(signature(merged as never)),
+    );
+  }
+  const intlRows = rowTotals("外国籍・帰化・アジア");
+  const threeRows = rowTotals("外国籍,帰化,アジア特別枠");
+  check(`「外国籍・帰化・アジア」のまとめ（${intlRows.n}行）は、外国籍・帰化・アジア特別枠の3つにチェックを入れたものと同じ（2026-27）`, intlRows.n === threeRows.n && intlRows.pts === threeRows.pts);
+  const twoSame = queryRows("外国籍・帰化・アジア").length === queryRows("外国籍,帰化,アジア特別枠").length;
+  check("ランキング 1試合記録でも、まとめ＝3つにチェック（2026-27）", twoSame);
+  check("ルーキーのスイッチは区分と重ねられる（日本人，rookie は日本人以下の行数）", queryRows("日本人,rookie").length <= queryRows("日本人").length);
 }
 
 console.log(failures === 0 ? "\nすべて ok" : `\n${failures} 件の食い違い`);

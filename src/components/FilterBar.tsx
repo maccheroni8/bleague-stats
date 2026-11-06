@@ -142,7 +142,7 @@ function MultiSelectContent({ axis }: { axis: FilterMultiAxis }) {
       <div className="filter-multi-list">
         {visible.map((o) => (
           <label key={o.value} className="filter-multi-item">
-            <input type="checkbox" checked={selected.has(o.value)} onChange={() => toggle(o.value)} />
+            <input type="checkbox" checked={selected.has(o.value)} disabled={o.disabled && !selected.has(o.value)} title={o.disabledReason} onChange={() => toggle(o.value)} />
             {o.label}
           </label>
         ))}
@@ -229,7 +229,7 @@ export function FilterBar({ axes, stateKey, onClearAll, simple = false, compact 
     ...new Set([
       ...axes.filter((a) => a.disabledReason && !a.quietDisabled).map((a) => a.disabledReason as string),
       // 選択肢だけが選べないときの理由（登録区分のルーキー。2016-17）
-      ...axes.flatMap((a) => (a.kind === "select" ? a.options.filter((o) => o.disabled && o.disabledReason).map((o) => o.disabledReason as string) : [])),
+      ...axes.flatMap((a) => (a.kind === "select" || a.kind === "multi" ? a.options.filter((o) => o.disabled && o.disabledReason).map((o) => o.disabledReason as string) : [])),
     ]),
   ];
 

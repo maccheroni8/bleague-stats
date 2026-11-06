@@ -56,7 +56,7 @@ for(const season of readdirSync('data').filter(s=>/^20\d\d-\d\d$/.test(s)).sort(
    const scoped=buildTopScorers(data,{...query,range,minRatio:60});
    for(const p of scoped){assert(p.games/p.teamGames>=0.6);assert(p.games<=p.teamGames);}
  }
- const japanese=buildTopScorers(data,{...query,classification:'jp'});
+ const japanese=buildTopScorers(data,{...query,classification:'日本人'});
  for(const p of japanese){const original=points.find(o=>o.id===p.id);if(original&&p.games===original.games)assert.equal(p.values.ppp,original.values.ppp,'登録区分だけで同じ出場試合のPPPを変えない');}
  const photos=points.filter(p=>existsSync(`data/player-photos/${p.playerId}.webp`));
  reports.push({season,category,teams:teams.length,points:points.length,photos:photos.length,missing:points.filter(p=>!photos.includes(p)).map(p=>`${p.name} (${p.playerId})`),verified,samples:points.slice(0,3)});

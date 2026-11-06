@@ -14,7 +14,20 @@ import { teamShortName } from "../../shared/teamNames";
 import type { Category, Division } from "../../shared/types";
 import { DIVISION_LABELS, divisionPresets, summarizeClubSelection } from "./divisionGroups";
 import { LEAGUE_VENUE_LABELS, periodLabels, type LeagueVenue } from "./conditionLabels";
-import { COMBINED_INTL_GROUP, SPLIT_CLASSIFICATION_GROUPS, type PlayerGroupFilter } from "./classificationFilter";
+import {
+  bulkIntlTokens,
+  classificationFilterLabel,
+  classTokens,
+  COMBINED_INTL_GROUP,
+  composeGroupFilter,
+  isRookieFilter,
+  joinClassTokens,
+  SPLIT_CLASSIFICATION_GROUPS,
+  SPLIT_CLASSIFICATION_UNAVAILABLE_REASON,
+  splitClassificationSeason,
+  withRookie,
+  type PlayerGroupFilter,
+} from "./classificationFilter";
 import type { PeriodRangeOption, PeriodRangeValue } from "./periodRange";
 import {
   MARGIN_CONDITION_LABELS,
@@ -351,34 +364,62 @@ export function periodAxis(
 }
 
 /**
- * 登録区分: 全選手／日本人／外国籍／帰化／アジア特別枠。rookie を渡すと、最後に「ルーキー」の選択肢が付く（DESIGN.md 217章・298章）。
- * rookie.disabledReason があるとき（2016-17）は、その選択肢だけ選べなくし、理由をバーの下に出す。
- * まとめの「外国籍・帰化・アジア」は、アジア特別枠とルーキーの間にいつも出す（ユーザーの判断。DESIGN.md 298章）。
- * 分けた区分は 2025-26 以前でも選べ、選んだときは表の代わりに理由を出す（splitClassificationBlocked）。season は表のシーズン（通算・歴代は null。今は選択肢を変えない）
+ * 登録区分: 日本人／外国籍／帰化／アジア特別枠のチェック（複数選べる。何も選ばなければ全選手）。選んだ区分の選手を合わせて数える。
+ * 値（value・onChange）は classificationFilter.ts の絞り込みの値（"帰化,アジア特別枠" のような文字列。ルーキーのスイッチが入っていれば "rookie" を含む）。
+ * 2025-26 以前では外国籍・帰化・アジア特別枠は選べず（理由を出す）、まとめの「外国籍・帰化・アジア」を1つの選択肢として出す。
+ * 通算・歴代（season が null）では分けた区分もまとめも選べる（分けた区分は 2026-27 以降の試合だけを数える）。
+ * 「外国籍・帰化・アジア特別枠」の一括ボタン付き（DESIGN.md 298章・324章）
  */
 export function classificationAxis<V extends PlayerGroupFilter>(
   value: V,
   onChange: (v: V) => void,
-  opts: SimpleAxisOptions & { rookie?: { disabledReason?: string }; season?: string | null } = {},
+  opts: SimpleAxisOptions & { season?: string | null } = {},
 ): FilterAxis {
-  return {
-    kind: "select",
+  const season = opts.season ?? null;
+  const splitOk = season === null || splitClassificationSeason(season);
+  const rookie = isRookieFilter(value);
+  // 分けて選べるシーズンでは、まとめ（URL の intl）は外国籍・帰化・アジア特別枠の3つにチェックが入った状態として表示する
+  const tokens = classTokens(value).flatMap((t) => (t === COMBINED_INTL_GROUP && season !== null && splitOk ? [...SPLIT_CLASSIFICATION_GROUPS] : [t]));
+  const options: FilterAxisOption[] = [
+    { value: "日本人", label: "日本人" },
+    ...SPLIT_CLASSIFICATION_GROUPS.map((c) => ({ value: c, label: c, disabled: !splitOk, disabledReason: splitOk ? undefined : SPLIT_CLASSIFICATION_UNAVAILABLE_REASON })),
+    ...(season === null || !splitOk ? [{ value: COMBINED_INTL_GROUP, label: COMBINED_INTL_GROUP }] : []),
+  ];
+  const axis = multiSelectAxis({
     id: "classification",
     label: "登録区分",
     tier: opts.tier ?? "primary",
-    options: [
-      { value: "all", label: "全選手" },
-      { value: "日本人", label: "日本人" },
-      ...SPLIT_CLASSIFICATION_GROUPS.map((c) => ({ value: c, label: c })),
-      { value: COMBINED_INTL_GROUP, label: COMBINED_INTL_GROUP },
-      ...(opts.rookie
-        ? [{ value: "rookie", label: "ルーキー", disabled: !!opts.rookie.disabledReason, disabledReason: opts.rookie.disabledReason }]
-        : []),
-    ],
-    value,
-    defaultValue: "all",
-    onChange: (v) => onChange(v as V),
+    options,
+    selected: tokens,
+    onChangeSelected: (values) => onChange(composeGroupFilter(joinClassTokens(values), rookie) as V),
+    allLabel: "全選手",
+    presets: [{ label: "外国籍・帰化・アジア特別枠", values: bulkIntlTokens(season) }],
+    maxShown: Infinity,
     disabledReason: opts.disabledReason,
+  });
+  // ボタン・チップの書き方は、タイトルの下・保存画像の見出しと同じ（固定の並び・「・」でつなぐ）
+  const label = classificationFilterLabel(value);
+  return { ...axis, summary: label, chipValue: label } as FilterAxis;
+}
+
+/** ルーキーのみのスイッチ（登録区分のチェックとは別。ルーキーを選べる場所だけに置く。DESIGN.md 217章・324章） */
+export function rookieAxis<V extends PlayerGroupFilter>(
+  value: V,
+  onChange: (v: V) => void,
+  opts: SimpleAxisOptions & { disabledReason?: string } = {},
+): FilterAxis {
+  return {
+    kind: "select",
+    id: "rookie",
+    label: "ルーキーのみ",
+    tier: opts.tier ?? "primary",
+    options: [
+      { value: "off", label: "しない" },
+      { value: "on", label: "する", disabled: !!opts.disabledReason, disabledReason: opts.disabledReason },
+    ],
+    value: isRookieFilter(value) ? "on" : "off",
+    defaultValue: "off",
+    onChange: (v) => onChange(withRookie(value, v === "on") as V),
   };
 }
 
