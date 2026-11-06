@@ -116,7 +116,9 @@
             "id": "706",
             "name": "アルバルク東京"
           },
-          "status": "upcoming",
+          "status": "final",
+          "homeScore": 90,
+          "awayScore": 85,
           "neutral": false,
           "venue": "Fengshan Stadium",
           "source": "https://www.easl.basketball/schedule-results"
@@ -134,7 +136,9 @@
             "name": "Hong Kong Eastern",
             "shortName": "HKE"
           },
-          "status": "upcoming",
+          "status": "final",
+          "homeScore": 96,
+          "awayScore": 104,
           "neutral": false,
           "venue": "沖縄アリーナ",
           "source": "https://www.easl.basketball/schedule-results"
@@ -356,7 +360,7 @@
           "source": "https://www.easl.basketball/schedule-results"
         }
       ],
-      "easlUpdatedAt": "2026-10-28T18:41:29.066Z",
+      "easlUpdatedAt": "2026-11-04T18:41:08.365Z",
       "notes": [
         "天皇杯は大会概要で確認できるファイナルラウンドの期間のみ掲載しています（休養日を含む）。対戦カード・結果、各地の予選日程は未収録です。",
         "天皇杯・オールスターの大会期間は公式発表に基づく掲載です。日程変更は公式情報もご確認ください。"
