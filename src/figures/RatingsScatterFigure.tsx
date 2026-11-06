@@ -3,9 +3,10 @@ import type { Division } from "../../shared/types";
 import { teamShortName } from "../../shared/teamNames";
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from "../../shared/gameType";
 import { FilterBar } from "../components/FilterBar";
+import { SortableTable, type Column } from "../components/SortableTable";
 import { ExportTarget } from "../components/ExportTarget";
 import { ConditionTitle } from "../components/ConditionTitle";
-import { ExportImageButton } from "../components/ExportImageButton";
+import { FigureExportButton } from "./FigureExport";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory, fetchStandingsHistory, teamLogoUrl } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
@@ -40,7 +41,6 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
   const [filter,setFilter]=useUrlState(rangeCodec,DEFAULT_RANGE);
   const [gameType,setGameType]=useUrlState(gameCodec,"regular");
   const [division,setDivision]=useUrlState(divisionCodec,NO_DIVISIONS);
-  const [sort,setSort]=useState<{key:RatingKey|"division";bestFirst:boolean}>({key:"netrtg",bestFirst:true});
   const [tooltipId,setTooltipId]=useState<string|null>(null);
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const target=useRef<HTMLDivElement>(null);
@@ -71,21 +71,20 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
   const axes:FilterAxis[]=[...rangeAxes,gameTypeAxis(gameType,setGameType,season),divisionMultiAxis<"unknown">({id:"ratingsDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision})];
   const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")])];
   const standingById=new Map(request.data?.standings?.teams.map(team=>[team.teamId,team]));
-  const sortedVisible=[...visible].sort((a,b)=>{
-    if(sort.key==="division") {
-      const sa=standingById.get(a.teamId),sb=standingById.get(b.teamId);
-      const order=(d:Division|undefined)=>d?divisionOrder(category).indexOf(d):99;
-      return ((order(sa?.division)-order(sb?.division))||((sa?.divisionRank??999)-(sb?.divisionRank??999))||a.teamId.localeCompare(b.teamId))*(sort.bestFirst?1:-1);
-    }
-    return (a[sort.key]-b[sort.key])*(sort.key === "drtg"?1:-1)*(sort.bestFirst?1:-1);
-  });
-  const toggleSort=(key:RatingKey|"division")=>setSort(previous=>({key,bestFirst:previous.key===key?!previous.bestFirst:true}));
+  const standingText=(p:RatingPoint)=>{const st=standingById.get(p.teamId);return st?.division&&st.divisionRank?`${DIVISION_LABELS[st.division][0]}${st.divisionRank}`:"—";};
+  // 小さいほど上位（地区順位）。他ページの表と同じく、最初に押したときは上位が先頭に来るよう符号を逆にする
+  const standingOrder=(p:RatingPoint)=>{const st=standingById.get(p.teamId);return -((st?.division?divisionOrder(category).indexOf(st.division):99)*100+(st?.divisionRank??99));};
+  const columns:Column<RatingPoint>[]=[
+    {key:"team",label:"チーム",align:"left",sortValue:p=>p.teamName,render:p=><button className="ratings-team-button" onClick={()=>choose(p.teamId,true)}><ResponsiveTeamName teamId={p.teamId} name={p.teamName}/></button>},
+    {key:"division",label:"地区順位",sortValue:standingOrder,render:standingText},
+    ...RATING_KEYS.map(key=>({key,label:RATING_LABELS[key],sortValue:(p:RatingPoint)=>p[key],render:(p:RatingPoint)=>`${ratingColumn(key).format!(p.row)}（${p.ranks[key]}位）`})),
+  ];
   const baseDate={kind:"season" as const,season,gameType};
   const choose=(id:string,scroll=false)=>{setSelectedId(id);setTooltipId(scroll?null:id);if(scroll)plot.current?.scrollIntoView({block:"center",behavior:"smooth"});};
   return <section aria-label="ORtg・DRtgの散布図">
     <FilterBar axes={axes} stateKey="figures:ratings" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);}} />
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!model?.league || !visible.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
-      <ExportImageButton targetRef={target} filename={`ORtg_DRtg_${conditions.join("_")}`} baseDate={baseDate}/>
+      <FigureExportButton targetRef={target} filename={`ORtg_DRtg_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={target} className="ratings-export" baseDate={baseDate}>
         {/* 見出しと条件の行はほかのページと同じ部品（半角スペースでだけ折り返す・区切りは「／」・初期値は書かない。DESIGN.md 239章・296章） */}
         <ConditionTitle title={`${statJa("ORtg","team")} × ${statJa("DRtg","team")}`} exportScope={`${season}シーズン`} conditions={conditions} />
@@ -95,23 +94,17 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
           <RatingChart points={visible} all={model.points} league={model.league} selectedId={selected?.teamId??null} tooltip={tooltip} teamLabel={teamLabel} onSelect={id=>choose(id)} onDismiss={()=>setTooltipId(null)}/>
           <RatingChart exportOnly points={visible} all={model.points} league={model.league} selectedId={null} tooltip={null} teamLabel={teamLabel} onSelect={()=>{}} onDismiss={()=>{}}/>
         </div>
-        <div className="figure-notes"><p>破線の十字は選択した期間・試合区分のリーグ平均。地区で絞っても、軸・平均・順位はリーグ全体が基準です。区画名はリーグ平均に対する相対評価です。</p>
-          <p>斜めの薄い線はNetRtg 0（ORtgとDRtgが等しい位置）。試合ごとの値の平均ではなく、選択した試合の合計から計算しています。</p>
-          {filter.range.kind === "recent"&&<p>直近の試合はチームごとに選ぶため対象日は異なります。全チームスタッツと同じく、直近の試合を先に選び、その後に試合区分を絞ります。対象試合数が指定より少なくなる場合があります。</p>}
-          {model.omitted.length>0&&<p>対象試合がない、または値を確認できない{model.omitted.length}チームは表示していません。</p>}
-          {!request.data?.divisions&&<p>地区の情報を読み込めないため、色分けは地区不明として表示しています。</p>}
-        </div>
+        <p className="figure-notes">破線の十字：選択した期間・試合区分のリーグ平均</p>
       </ExportTarget>
+      {(model.omitted.length>0||!request.data?.divisions)&&<div className="figure-notes export-hide">{model.omitted.length>0&&<p>対象試合がない、または値を確認できない{model.omitted.length}チームは表示していません。</p>}{!request.data?.divisions&&<p>地区の情報を読み込めないため、色分けは地区不明として表示しています。</p>}</div>}
       <div id="ratings-team-detail" className="ratings-team-detail" aria-live="polite">{selected?<>
         <h3><ResponsiveTeamName teamId={selected.teamId} name={selected.teamName}/></h3>
         <p>{selected.games}試合（{selected.firstDate}〜{selected.lastDate}）</p>
         <p>{RATING_KEYS.map(key=><span key={key}>{RATING_LABELS[key]} {ratingColumn(key).format!(selected.row)}（{selected.ranks[key]}位）　</span>)}</p>
       </>:<p>ロゴに触れるか押すと、チームの値とリーグ順位を表示します。</p>}</div>
-      <p className="figure-notes">ロゴが重なる場合は下の一覧から選ぶと、そのチームを手前に表示します。順位は表示値の同率を同順位とし、次の順位を飛ばしています。</p>
-      <p className="figure-notes">地区順位はシーズンの最新の順位表が基準です{request.data?.standings?`（${request.data.standings.date}）`:"（取得できない場合は—）"}。対象期間を変えても変わりません。</p>
-      <div className="ratings-table-scroll" tabIndex={0} role="region" aria-label="散布図のチーム一覧">
-        <table className="ratings-table"><thead><tr><th>チーム</th><th aria-sort={sort.key==="division"?(sort.bestFirst?"ascending":"descending"):"none"}><button onClick={()=>toggleSort("division")}>地区順位{sort.key==="division"?(sort.bestFirst?" ↑":" ↓"):" ↕"}</button></th>{RATING_KEYS.map(key=><th key={key} aria-sort={sort.key===key?(sort.bestFirst===(key==="drtg")?"ascending":"descending"):"none"}><button title={statDescription(RATING_LABELS[key],"team")} onClick={()=>toggleSort(key)}>{RATING_LABELS[key]}（リーグ順位）{sort.key===key?(sort.bestFirst===(key==="drtg")?" ↑":" ↓"):" ↕"}</button></th>)}</tr></thead>
-        <tbody>{sortedVisible.map(point=><tr key={point.teamId} className={selected?.teamId===point.teamId?"is-selected":""}><td><button onClick={()=>choose(point.teamId,true)}><ResponsiveTeamName teamId={point.teamId} name={point.teamName}/></button></td><td className="ratings-standing">{(()=>{const standing=standingById.get(point.teamId);return standing?.division&&standing.divisionRank?`${DIVISION_LABELS[standing.division][0]}${standing.divisionRank}`:"—";})()}</td>{RATING_KEYS.map(key=><td key={key}>{ratingColumn(key).format!(point.row)}（{point.ranks[key]}位）</td>)}</tr>)}</tbody></table>
+      <div className="table-scroll" tabIndex={0} role="region" aria-label="散布図のチーム一覧">
+        <SortableTable columns={columns} rows={visible} rowKey={p=>p.teamId} defaultSortKey="netrtg" statScope="team"
+          rowHighlightColor={p=>selected?.teamId===p.teamId?"var(--accent)":undefined} rowHighlightStrength={()=>"half"}/>
       </div>
     </>}
   </section>;

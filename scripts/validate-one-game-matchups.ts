@@ -1,15 +1,15 @@
-// 図解「年間1試合の対戦」の判定を確かめる。調査メモ（調査依頼D）の26組と一致すること、
-// 条件を満たさないときは断定しない（日程を確認中）こと、対象外の理由が出ることを見る。
+// 図解「地区間の対戦数」の判定を確かめる。全シーズン・両リーグで、日程（試合の記録＋予定・中止・結果だけ）から数え直した値と一致すること、
+// 2026-27（B.PREMIER）の「他地区と1試合だけ」の26組が調査メモの一覧と一致すること、ふつうの対戦数の決め方・H/A・中止の数え方を見る。
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
-import { buildOneGameMatchups, matchupOutcome, matchupStatus, oneGameUnsupportedReason } from '../src/lib/oneGameMatchups.ts';
+import { buildDivisionMatchups, type TeamDeviation, matchupOutcome, matchupStatus, mostCommonCount, pairKey } from '../src/lib/divisionMatchups.ts';
 import { teamShortName } from '../shared/teamNames.ts';
 import type { Division, GameSummary, TeamSummary } from '../shared/types.ts';
 import type { ScheduleFileExtended } from '../shared/resultOnlyGames.ts';
 
 const rd = <T>(f: string): T => JSON.parse(zlib.gunzipSync(fs.readFileSync(f)).toString('utf8'));
-// 調査メモ 2章の一覧（試合ID, 日付, ホーム, アウェー）
+// 調査メモ 2章の一覧（試合ID, 日付, ホーム, アウェー）。2026-27 B.PREMIER で他地区と1試合だけの組み合わせ
 const EXPECTED: [string, string, string, string][] = [
   ['506433','2026-10-07','富山','京都'],['506461','2026-10-12','大阪','A東京'],['506462','2026-10-12','佐賀','群馬'],
   ['506498','2026-10-23','大阪','東京SR'],['506502','2026-10-24','宇都宮','信州'],['506507','2026-10-24','広島','北海道'],
@@ -22,74 +22,127 @@ const EXPECTED: [string, string, string, string][] = [
   ['507096','2027-04-20','島根','秋田'],['507158','2027-05-02','琉球','仙台'],
 ];
 
+const ORDER: Record<'premier' | 'one', Division[]> = { premier: ['east', 'central', 'west'], one: ['north', 'east', 'central', 'west', 'south'] };
+const history = rd<Record<string, Record<string, Record<string, Division>>>>('data/division-history.json.gz');
+let checked = 0;
+const report: string[] = [];
+for (const season of fs.readdirSync('data').filter(s => /^20\d\d-\d\d$/.test(s)).sort()) for (const league of ['premier', 'one'] as const) {
+  const dir = league === 'one' ? `data/${season}/one` : `data/${season}`;
+  if (!fs.existsSync(`${dir}/games-summary.json.gz`) || !fs.existsSync(`${dir}/teams.json.gz`)) continue;
+  const divisions = history[league]?.[season];
+  if (!divisions) continue;
+  const summaries = rd<GameSummary[]>(`${dir}/games-summary.json.gz`);
+  const schedule = fs.existsSync(`${dir}/schedule.json.gz`) ? rd<ScheduleFileExtended>(`${dir}/schedule.json.gz`) : null;
+  const teams = rd<TeamSummary[]>(`${dir}/teams.json.gz`).map(t => ({ teamId: t.teamId, teamName: t.teamName }));
+  const r = buildDivisionMatchups({ season, summaries, schedule, teams, divisions, divisionOrder: ORDER[league], today: '2026-11-06' });
+  // 日程から数え直す（試合ID＝scheduleKey ごとに1試合。予定・中止は名前からクラブを特定）
+  const idByName = new Map(teams.map(t => [t.teamName, t.teamId]));
+  for (const g of summaries) { idByName.set(g.homeTeamName, g.homeTeamId); idByName.set(g.awayTeamName, g.awayTeamId); }
+  const rawGames = new Map<string, [string | undefined, string | undefined]>();
+  for (const g of schedule?.upcomingGames ?? []) rawGames.set(g.scheduleKey, [idByName.get(g.homeTeamName), idByName.get(g.awayTeamName)]);
+  for (const g of schedule?.cancelledGames ?? []) rawGames.set(g.scheduleKey, [idByName.get(g.homeTeamName), idByName.get(g.awayTeamName)]);
+  for (const g of schedule?.resultOnlyGames ?? []) rawGames.set(g.scheduleKey, [g.homeTeamId, g.awayTeamId]);
+  for (const g of summaries) if (g.gameType === 'regular') rawGames.set(g.scheduleKey, [g.homeTeamId, g.awayTeamId]);
+  for (const g of summaries) if (g.gameType !== 'regular') rawGames.delete(g.scheduleKey);
+  const counts = new Map<string, number>();
+  for (const [h, a] of rawGames.values()) { if (h && a && divisions[h] && divisions[a]) counts.set(pairKey(h, a), (counts.get(pairKey(h, a)) ?? 0) + 1); }
+  if (r.kind === 'unsupported') { assert.equal([...counts].filter(([k]) => { const [a, b] = k.split('|'); return divisions[a!] !== divisions[b!]; }).length, 0, `${season} ${league}: 他地区の対戦があるのに対象外`); continue; }
+  const expectedRows = new Map<string, Map<number, number>>();
+  const cross: number[] = [];
+  for (const [k, n] of counts) {
+    const [a, b] = k.split('|') as [string, string];
+    const [da, db] = [divisions[a]!, divisions[b]!];
+    const key = da === db ? `same:${da}` : `cross:${[da, db].sort((x, y) => ORDER[league].indexOf(x) - ORDER[league].indexOf(y)).join('-')}`;
+    const m = expectedRows.get(key) ?? new Map<number, number>();
+    m.set(n, (m.get(n) ?? 0) + 1); expectedRows.set(key, m);
+    if (da !== db) cross.push(n);
+  }
+  assert.equal(r.pairs.size, counts.size, `${season} ${league}: 組み合わせの数`);
+  for (const [k, n] of counts) assert.equal(r.pairs.get(k)?.count, n, `${season} ${league}: ${k} の対戦数`);
+  for (const row of r.rows) {
+    const key = row.kind === 'same' ? `same:${row.divisions[0]}` : `cross:${row.divisions.join('-')}`;
+    const e = expectedRows.get(key) ?? new Map<number, number>();
+    assert.deepEqual(row.counts.map(c => [c.count, c.pairs]), [...e].sort((x, y) => x[0] - y[0]), `${season} ${league}: ${key} の対戦数ごとの組数`);
+    report.push(`${season} ${league} ${key} ${row.counts.map(c => `${c.count}試合${c.pairs}組`).join(' ')}`);
+  }
+  assert.equal(r.rows.length, expectedRows.size, `${season} ${league}: 行の数`);
+  // ふつう＝いちばん多い（同数は小さいほう）
+  const tally = new Map<number, number>(); for (const n of cross) tally.set(n, (tally.get(n) ?? 0) + 1);
+  const top = Math.max(...tally.values());
+  assert.equal(r.normal, Math.min(...[...tally].filter(([, c]) => c === top).map(([n]) => n)), `${season} ${league}: ふつうの対戦数`);
+  // チーム別＝ふつうと違う他地区の相手だけ。両クラブに同じ組が出る
+  let deviating = 0;
+  for (const [k, n] of counts) { const [a, b] = k.split('|') as [string, string]; if (divisions[a] !== divisions[b] && n !== r.normal) deviating++; }
+  const listed = [...r.byTeam.values()].reduce((s, l) => s + l.length, 0);
+  assert.equal(listed, deviating * 2, `${season} ${league}: チーム別の相手の数`);
+  for (const [id, list] of r.byTeam) for (const d of list) {
+    assert.notEqual(d.count, r.normal); assert.notEqual(divisions[id], divisions[d.opponentId]);
+    assert.equal(d.games.length, d.count, `${season} ${league}: ${id}-${d.opponentId} の試合数`);
+    assert.equal(d.direction, d.count < r.normal ? 'fewer' : 'more');
+  }
+  assert.equal(r.totalGames, rawGames.size - [...rawGames.values()].filter(([h, a]) => !h || !a || !divisions[h] || !divisions[a]).length, `${season} ${league}: 全試合数`);
+  checked++;
+}
+assert(checked >= 12, `全シーズン・両リーグの確認が少なすぎる: ${checked}`);
+fs.mkdirSync('node_modules/.cache', { recursive: true });
+fs.writeFileSync('node_modules/.cache/division-matchups-report.txt', report.join('\n'));
+
+// 2026-27 B.PREMIER: 他地区と1試合だけの26組が調査メモの一覧と一致。ふつうは2試合
 const season = '2026-27';
 const summaries = rd<GameSummary[]>(`data/${season}/games-summary.json.gz`);
 const schedule = rd<ScheduleFileExtended>(`data/${season}/schedule.json.gz`);
 const teams = rd<TeamSummary[]>(`data/${season}/teams.json.gz`).map(t => ({ teamId: t.teamId, teamName: t.teamName }));
-const divisions = rd<Record<string, Record<string, Record<string, Division>>>>('data/division-history.json.gz').premier?.[season];
-const input = { season, league: 'premier' as const, summaries, schedule, teams, divisions, today: '2026-10-30' };
-
-const r = buildOneGameMatchups(input);
-assert.equal(r.kind, 'ready', r.kind === 'checking' ? r.problems.join(' / ') : r.kind);
+const divisions = history.premier![season]!;
+const input = { season, summaries, schedule, teams, divisions, divisionOrder: ORDER.premier, today: '2026-10-30' };
+const r = buildDivisionMatchups(input);
+assert.equal(r.kind, 'ready');
 if (r.kind !== 'ready') throw new Error();
-assert.equal(r.matchups.length, 26);
+assert.equal(r.totalGames, 780);
 assert.equal(r.teams.length, 26);
+assert.equal(r.normal, 2);
+assert.deepEqual(r.divisions, ['east', 'west']);
+const ones = [...r.pairs.values()].filter(p => !p.sameDivision && p.count === 1).map(p => p.games[0]!).sort((x, y) => x.date.localeCompare(y.date) || x.id.localeCompare(y.id));
 const short = (id: string) => teamShortName(id, r.teams.find(t => t.teamId === id)!.teamName);
-const actual = r.matchups.map(m => [m.id, m.date, short(m.homeId), short(m.awayId)]);
-assert.deepEqual(actual, EXPECTED);
-for (const t of r.teams) assert.equal(r.byTeam.get(t.teamId)!.length, 2, `${t.teamName}の相手は2クラブ`);
-// 各組は必ず東×西
-for (const m of r.matchups) assert.notEqual(r.teams.find(t => t.teamId === m.homeId)!.division, r.teams.find(t => t.teamId === m.awayId)!.division);
-// 状態: 506498 は日付が過ぎて結果が無いので「結果未収録」
-const byId = new Map(r.matchups.map(m => [m.id, m]));
-// 506498 は調査時点で結果が無かった。今のデータで結果があるかは問わず、結果を外した状態で「結果未収録」になることを見る
+assert.deepEqual(ones.map(m => [m.id, m.date, short(m.homeId), short(m.awayId)]), EXPECTED);
+for (const t of r.teams) { const list: TeamDeviation[] = r.byTeam.get(t.teamId)!; assert.equal(list.length, 2, `${t.teamName}の相手は2クラブ`); for (const d of list) assert.equal(d.direction, 'fewer'); }
+// 状態: 日付が過ぎて結果が無い試合は「結果未収録」。結果を外して確かめる
 const played = summaries.find(g => g.scheduleKey === '506498');
 const asUpcoming = played ? [{ scheduleKey: '506498', date: played.date, homeTeamName: played.homeTeamName, awayTeamName: played.awayTeamName }] : [];
-const without = buildOneGameMatchups({ ...input, summaries: summaries.filter(g => g.scheduleKey !== '506498'),
+const without = buildDivisionMatchups({ ...input, summaries: summaries.filter(g => g.scheduleKey !== '506498'),
   schedule: { ...schedule, upcomingGames: [...schedule.upcomingGames.filter(g => g.scheduleKey !== '506498'), ...asUpcoming] } });
 assert.equal(without.kind, 'ready');
-if (without.kind === 'ready') assert.equal(without.matchups.find(m => m.id === '506498')!.status, 'unrecorded');
-assert.equal(byId.get('506433')!.status, 'final');
-assert.equal(byId.get('507158')!.status, 'upcoming');
-// 勝敗は「そのチームから見て」。506461 は大阪（ホーム）78-103 A東京: 大阪は負・A東京は勝。予定・結果未収録は空欄
+if (without.kind === 'ready') {
+  assert.equal(without.pairs.size, r.pairs.size, '結果が無くても組み合わせは数える');
+  const g = [...without.pairs.values()].flatMap(p => p.games).find(x => x.id === '506498')!;
+  assert.equal(g.status, 'unrecorded'); assert.equal(matchupOutcome(g, true), null);
+}
+// 中止の試合も当初の日程どおり1試合として数える（結果を外して中止に移しても対戦数は変わらない）
+if (played) {
+  const cancelled = buildDivisionMatchups({ ...input, summaries: summaries.filter(g => g.scheduleKey !== '506498'),
+    schedule: { ...schedule, upcomingGames: schedule.upcomingGames.filter(g => g.scheduleKey !== '506498'), cancelledGames: [...(schedule.cancelledGames ?? []), ...asUpcoming] } as ScheduleFileExtended });
+  assert.equal(cancelled.kind, 'ready');
+  if (cancelled.kind === 'ready') {
+    assert.equal(cancelled.pairs.size, r.pairs.size);
+    assert.equal([...cancelled.pairs.values()].flatMap(p => p.games).find(x => x.id === '506498')!.status, 'cancelled');
+    assert.deepEqual(cancelled.rows, r.rows);
+  }
+}
+// 勝敗は「そのチームから見て」。506461 は大阪（ホーム）78-103 A東京
+const byId = new Map([...r.pairs.values()].flatMap(p => p.games).map(g => [g.id, g]));
 const g506461 = byId.get('506461')!;
 assert.equal(g506461.homeScore, 78); assert.equal(g506461.awayScore, 103);
-assert.equal(matchupOutcome(g506461, true), 'loss');
-assert.equal(matchupOutcome(g506461, false), 'win');
-const osaka = r.byTeam.get(g506461.homeId)!.find(o => o.game.id === '506461')!;
-const tokyo = r.byTeam.get(g506461.awayId)!.find(o => o.game.id === '506461')!;
-assert.equal(matchupOutcome(osaka.game, osaka.isHome), 'loss');
-assert.equal(matchupOutcome(tokyo.game, tokyo.isHome), 'win');
+assert.equal(matchupOutcome(g506461, true), 'loss'); assert.equal(matchupOutcome(g506461, false), 'win');
 assert.equal(matchupOutcome(byId.get('507158')!, true), null);
 assert.equal(matchupOutcome({ ...g506461, status: 'live' }, true), null);
 assert.equal(matchupOutcome({ ...g506461, status: 'cancelled' }, true), null);
-if (without.kind === 'ready') assert.equal(matchupOutcome(without.matchups.find(m => m.id === '506498')!, true), null);
-// 今日が前なら予定のまま（日付を過ぎたものだけ未収録）
 assert.equal(matchupStatus({ id: 'x', date: '2026-10-23', competition: 'league', home: { name: 'a' }, away: { name: 'b' }, status: 'upcoming' }, '2026-10-23'), 'upcoming');
-
-// 条件を満たさないとき: 試合が欠ける・地区が分からない・名前が解決できない → 日程を確認中
-// 1試合を消して欠けさせる。予定の一覧には、結果が入ったのに予定に残っている試合（日程の更新の遅れ）があり、
-// それを消しても欠けないので、結果がまだ入っていない予定の試合を消す。
-// そういう試合が無いとき（シーズン終盤など）は、予定に載っていない結果の試合を消す（どちらも「試合が欠ける」の確認）
-const recordedKeys = new Set(summaries.map(g => g.scheduleKey));
-const upcomingKeys = new Set(schedule.upcomingGames.map(g => g.scheduleKey));
-const dropUpcoming = schedule.upcomingGames.find(g => !recordedKeys.has(g.scheduleKey));
-const dropSummary = summaries.find(g => !upcomingKeys.has(g.scheduleKey));
-assert.ok(dropUpcoming || dropSummary, '消して欠けさせる試合が見つからない');
-const missing = dropUpcoming
-  ? buildOneGameMatchups({ ...input, schedule: { ...schedule, upcomingGames: schedule.upcomingGames.filter(g => g.scheduleKey !== dropUpcoming.scheduleKey) } })
-  : buildOneGameMatchups({ ...input, summaries: summaries.filter(g => g.scheduleKey !== dropSummary!.scheduleKey) });
-assert.equal(missing.kind, 'checking', `試合 ${dropUpcoming?.scheduleKey ?? dropSummary!.scheduleKey} を消しても欠けない`);
-const noDiv = buildOneGameMatchups({ ...input, divisions: undefined });
-assert.equal(noDiv.kind, 'checking');
-const dup = buildOneGameMatchups({ ...input, schedule: { ...schedule, upcomingGames: [...schedule.upcomingGames, { ...schedule.upcomingGames[0]!, scheduleKey: 'dup-1' }] } });
-assert.equal(dup.kind, 'checking', '別IDの重複は断定しない');
-// 同じ試合IDの再掲載は1件にまとまる（判定は変わらない）
-const again = buildOneGameMatchups({ ...input, schedule: { ...schedule, upcomingGames: [...schedule.upcomingGames, schedule.upcomingGames[0]!] } });
-assert.equal(again.kind, 'ready');
-// 対象外
-assert.equal(buildOneGameMatchups({ ...input, league: 'one' }).kind, 'unsupported');
-assert.equal(buildOneGameMatchups({ ...input, season: '2025-26' }).kind, 'unsupported');
-assert(oneGameUnsupportedReason('2026-27', 'one')!.includes('B.ONE'));
-assert.equal(oneGameUnsupportedReason('2026-27', 'premier'), null);
-console.log('年間1試合の対戦: 26組が調査メモの一覧と一致・各クラブ2相手・状態・確認中・対象外を確認');
+// ふつうの対戦数: いちばん多い。同数のときは小さいほう
+assert.equal(mostCommonCount([2, 2, 1, 1]), 1);
+assert.equal(mostCommonCount([2, 2, 2, 1, 4]), 2);
+assert.equal(mostCommonCount([4, 4, 2, 2, 1]), 2);
+assert.equal(mostCommonCount([]), null);
+// 地区が分からない・他地区の対戦が無いときは対象外
+assert.equal(buildDivisionMatchups({ ...input, divisions: undefined }).kind, 'unsupported');
+const onlyEast = Object.fromEntries(Object.entries(divisions).map(([k]) => [k, 'east' as Division]));
+assert.equal(buildDivisionMatchups({ ...input, divisions: onlyEast }).kind, 'unsupported');
+console.log(`地区間の対戦数: ${checked}（シーズン×リーグ）で日程から数え直した組数・ふつうの対戦数・チーム別と一致、2026-27の1試合の26組が調査メモと一致、中止・ふつうの決め方を確認`);

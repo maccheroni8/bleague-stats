@@ -3,9 +3,11 @@ import type { Division } from "../../shared/types";
 import { teamShortName } from "../../shared/teamNames";
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from "../../shared/gameType";
 import { FilterBar } from "../components/FilterBar";
+import { SortableTable, type Column } from "../components/SortableTable";
 import { ExportTarget } from "../components/ExportTarget";
 import { ConditionTitle } from "../components/ConditionTitle";
-import { ExportImageButton } from "../components/ExportImageButton";
+import { FigureExportButton } from "./FigureExport";
+import { TeamListLogo } from "../components/TeamListLogo";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory, teamLogoUrl } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
@@ -50,7 +52,6 @@ export default function WinPctScatterFigure({season,category}:FigureProps) {
   const [division,setDivision]=useUrlState(divisionCodec,NO_DIVISIONS);
   const [classParam,setClassParam]=useUrlState(classCodec,"intl");
   const [metric,setMetric]=useUrlState(metricCodec,"pts");
-  const [sort,setSort]=useState<{key:"x"|"rate"|"games";desc:boolean}>({key:"rate",desc:true});
   const [tooltipId,setTooltipId]=useState<string|null>(null);
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const target=useRef<HTMLDivElement>(null);
@@ -104,12 +105,12 @@ export default function WinPctScatterFigure({season,category}:FigureProps) {
   const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")])];
   const xName=`${WIN_PCT_CLASS_LABELS[cls]}の${WIN_PCT_METRIC_LABELS[metric]}`;
   const color=WIN_PCT_METRIC_COLORS[metric];
-  const sorted=[...visible].sort((a,b)=>{
-    const value=(p:WinPctPoint)=>sort.key==="x"?xOf(p):sort.key==="rate"?winPctRate(p):p.games;
-    return (value(a)-value(b))*(sort.desc?-1:1)||a.teamId.localeCompare(b.teamId);
-  });
-  const toggleSort=(key:typeof sort.key)=>setSort(previous=>({key,desc:previous.key===key?!previous.desc:true}));
-  const arrow=(key:typeof sort.key)=>sort.key===key?(sort.desc?" ↓":" ↑"):" ↕";
+  const columns:Column<WinPctPoint>[]=[
+    {key:"team",label:"チーム",align:"left",sortValue:p=>p.teamName,render:p=><button className="ratings-team-button" onClick={()=>choose(p.teamId,true)}><TeamListLogo teamId={p.teamId} name={p.teamName}/><ResponsiveTeamName teamId={p.teamId} name={p.teamName}/></button>},
+    {key:"games",label:"G",sortValue:p=>p.games},
+    {key:"rate",label:"勝率",sortValue:winPctRate,render:p=>formatWinPct(winPctRate(p))},
+    {key:"x",label:xName,sortValue:xOf,render:p=>valueText(xOf(p),metric).replace(/点$/,"")},
+  ];
   const baseDate={kind:"season" as const,season,gameType};
   const choose=(id:string,scroll=false)=>{setSelectedId(id);setTooltipId(scroll?null:id);if(scroll)plot.current?.scrollIntoView({block:"center",behavior:"smooth"});};
   const x=(value:number)=>(value-domain.min)/(domain.max-domain.min)*100, y=(value:number)=>100-value;
@@ -117,7 +118,7 @@ export default function WinPctScatterFigure({season,category}:FigureProps) {
   return <section aria-label="勝率と登録区分別の得失点の散布図">
     <FilterBar axes={axes} stateKey="figures:winpct" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);setClassParam("intl");setMetric("pts");}} />
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!average || !visible.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
-      <ExportImageButton targetRef={target} filename={`勝率_${xName}_${conditions.join("_")}`} baseDate={baseDate}/>
+      <FigureExportButton targetRef={target} filename={`勝率_${xName}_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={target} className="ratings-export scoring-export winpct-export" baseDate={baseDate}>
         <ConditionTitle title={`勝率 × ${xName}`} exportScope={`${season}シーズン`} conditions={conditions} />
         <div className="ratings-legend">{present.map(d=><span key={d}><i style={{borderColor:DIVISION_RATING_COLORS[d]}}/>{divisionLabel(d)}</span>)}<span><i className="winpct-trend-key" style={{"--trend":color} as CSSProperties}/>傾向線</span><span><i className="scoring-average-key"/>平均</span>{metric==="diff"&&<span><i className="winpct-zero-key"/>0</span>}</div>
@@ -153,13 +154,9 @@ export default function WinPctScatterFigure({season,category}:FigureProps) {
         <p>{selected.games}試合（{selected.firstDate}〜{selected.lastDate}）</p>
         <p><span>{tooltipText(selected)}</span><span>{xName} {valueText(xOf(selected),metric)}</span></p>
       </>:<p>ロゴに触れるか押すと、チームの勝率と横軸の値を表示します。</p>}</div>
-      <div className="ratings-table-scroll" tabIndex={0} role="region" aria-label="散布図のチーム一覧">
-        <table className="ratings-table"><thead><tr><th>チーム</th>
-          <th><button onClick={()=>toggleSort("games")}>試合数{arrow("games")}</button></th>
-          <th><button onClick={()=>toggleSort("rate")}>勝率{arrow("rate")}</button></th>
-          <th><button onClick={()=>toggleSort("x")}>{xName}{arrow("x")}</button></th></tr></thead>
-        <tbody>{sorted.map(point=><tr key={point.teamId} className={selected?.teamId===point.teamId?"is-selected":""}><td><button onClick={()=>choose(point.teamId,true)}><ResponsiveTeamName teamId={point.teamId} name={point.teamName}/></button></td>
-          <td>{point.games}</td><td>{formatWinPct(winPctRate(point))}</td><td>{valueText(xOf(point),metric)}</td></tr>)}</tbody></table>
+      <div className="table-scroll" tabIndex={0} role="region" aria-label="散布図のチーム一覧">
+        <SortableTable columns={columns} rows={visible} rowKey={p=>p.teamId} defaultSortKey="rate" statScope="team"
+          rowHighlightColor={p=>selected?.teamId===p.teamId?"var(--accent)":undefined} rowHighlightStrength={()=>"half"}/>
       </div>
     </>}
   </section>;

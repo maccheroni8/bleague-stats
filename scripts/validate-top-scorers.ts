@@ -46,6 +46,7 @@ for(const season of readdirSync('data').filter(s=>/^20\d\d-\d\d$/.test(s)).sort(
   const raw=sumPlayerGameLogs(logs),ctx=buildSeasonBoxscoreCtx(raw,sumTeamGameLogsFor(tl,new Set(tl.filter(g=>g.gameType==='regular').map(g=>g.scheduleKey))),'perGame',Number(season.slice(0,4)));
   const pps=SEASON_ADVANCED_COLUMNS.find(c=>c.key==='pps')!;
   assert(Math.abs(pps.value(ctx,'perGame')-p.values.pps!)<1e-8);
+  assert(Math.abs(source.perGame.min-p.values.min!)<1e-8,`${season} ${p.name} 出場時間（全選手スタッツの1試合平均MINと一致）`);
   const share=SEASON_SCORING_COLUMNS.find(c=>c.label==='%PTS')!;
   if(p.values.share!==null) assert(Math.abs(share.value(ctx,'perGame')-p.values.share)<1e-8);
   if(p.values.on!==null){ctx.onOff=onOffTotalsFromLogs(logs,g=>tl.find(t=>t.scheduleKey===g.scheduleKey));const col=SEASON_ONOFF_COLUMNS.find(c=>c.label==='On ORtg')!;assert(Math.abs(col.value(ctx,'perGame')-p.values.on)<1e-8);}

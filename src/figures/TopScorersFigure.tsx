@@ -17,12 +17,16 @@ import { surnameOf } from '../lib/playerSurname';
 import { useTeamLabel } from '../lib/teamLabel';
 import { usePlayerLabel } from '../lib/playerLabel';
 import { statDescription } from '../lib/statDescriptions';
+import { teamShortName } from '../../shared/teamNames';
+import { formatMinutesColon } from '../lib/minutesFormat';
 import { formatDecimal, formatPct100, formatWinPct } from '../lib/format';
 import { situationalFilterLabels } from '../lib/conditionLabels';
 import { EligibilitySlider } from '../components/EligibilitySlider';
 import { FilterBar } from '../components/FilterBar';
+import { ratioEligibilityAxis } from './eligibilityAxis';
+import { SortableTable, type Column } from '../components/SortableTable';
 import { ExportTarget } from '../components/ExportTarget';
-import { ExportImageButton } from '../components/ExportImageButton';
+import { FigureExportButton } from "./FigureExport";
 import { ConditionTitle } from '../components/ConditionTitle';
 import type { FigureProps } from './catalog';
 import './RatingsScatterFigure.css';
@@ -37,13 +41,12 @@ const DEFAULT_RATIO=85;
 const ratioCodec=numberParam('sgp',DEFAULT_RATIO,{min:0,max:100});
 const divisionCodec=divisionListParam('dv');
 const NO_DIVISIONS:Division[]=[];
-const valueText=(v:number|null,axis:ScorerAxis)=>v===null?'—':axis==='win'?formatWinPct(v/100):axis==='share'||axis==='efg'?formatPct100(v):formatDecimal(v);
+const valueText=(v:number|null,axis:ScorerAxis)=>v===null?'—':axis==='win'?formatWinPct(v/100):axis==='min'?formatMinutesColon(v):axis==='share'||axis==='efg'?formatPct100(v):formatDecimal(v);
 export default function TopScorersFigure({season,category}:FigureProps){
  const [filter,setFilter]=useUrlState(rangeCodec,DEFAULT),[gameType,setGameType]=useUrlState(gameCodec,'regular');
  const [classification,setClassification]=useUrlState(clsCodec,'all'),[xParam,setX]=useUrlState(xCodec,'win');
  const [minRatio,setMinRatio]=useUrlState(ratioCodec,DEFAULT_RATIO),[division,setDivision]=useUrlState(divisionCodec,NO_DIVISIONS);
  const [team,setTeam]=useState('all'),[hover,setHover]=useState<string|null>(null);
- const [sort,setSort]=useState<{key:'team'|'pts'|'games'|ScorerAxis;desc:boolean}>({key:'team',desc:false});
  const target=useRef<HTMLDivElement>(null),teamLabel=useTeamLabel();
  const request=useJsonData(async()=>{
    const [players,teams,divisions,registrations]=await Promise.all([fetchPlayers(season,category),fetchTeams(season,category),fetchDivisionHistory(),season>='2026-27'?fetchSeasonRegistrations(season,category):Promise.resolve(null)]);
@@ -63,22 +66,23 @@ export default function TopScorersFigure({season,category}:FigureProps){
  {kind:'select',id:'scorerX',label:'横軸',tier:'primary',value:axis,defaultValue:'win',options:axesAvailable.map(a=>({value:a,label:SCORER_LABELS[a]})),onChange:v=>setX(v as ScorerAxis)},
  classificationAxis(classification,setClassification,{season}),
  divisionMultiAxis({id:'scorerDivision',divisions:divisionOrder(category).filter(d=>points.some(p=>p.division===d)),selected:division,onChange:setDivision}),
- {kind:'popover',id:'scorerRatio',label:'出場率',tier:'primary',value:String(minRatio),defaultValue:String(DEFAULT_RATIO),onChange:()=>setMinRatio(DEFAULT_RATIO),summary:`出場率${minRatio}%以上`,chipValue:`出場率${minRatio}%以上`,content:<EligibilitySlider label="出場率" value={minRatio} min={0} max={100} step={1} format={v=>`${v}%`} onChange={setMinRatio}/>}];
+ ratioEligibilityAxis({id:'scorerRatio',value:minRatio,defaultValue:DEFAULT_RATIO,onChange:setMinRatio})];
  const conditions=[season,seasonGameTypeLabels(season)[gameType],...situationalFilterLabels(filter),classificationFilterLabel(classification),...(division.length===0?[]:[division.map(d=>DIVISION_LABELS[d]).join('・')]),`出場率${minRatio}%以上`];
  const baseDate={kind:'season' as const,season,gameType};
- const sorted=[...visible].sort((a,b)=>{
-  if(sort.key==='team')return (a.teamName.localeCompare(b.teamName,'ja')||b.pts-a.pts)*(sort.desc?-1:1);
-  const val=(p:ScorerPoint)=>sort.key==='pts'?p.pts:sort.key==='games'?p.games:p.values[sort.key as ScorerAxis];
-  const av=val(a),bv=val(b);return av===null?bv===null?0:1:bv===null?-1:(av-bv)*(sort.desc?-1:1);
- });
  const select=(p:ScorerPoint)=>{setTeam(p.teamId);setHover(p.id);};
- const sortButton=(key:typeof sort.key,label:string)=><button title={statDescription(label)} onClick={()=>setSort(s=>({key,desc:s.key===key?!s.desc:true}))}>{label}{sort.key===key?(sort.desc?' ↓':' ↑'):' ↕'}</button>;
+ const columns:Column<ScorerPoint>[]=[
+  {key:'team',label:'選手名（チーム）',align:'left',sortValue:p=>p.name,render:p=><button className="ratings-team-button" onClick={()=>select(p)}>{playerLabel(p.name)}（{teamShortName(p.teamId,p.teamName)}）</button>},
+  {key:'games',label:'G',sortValue:p=>p.games},
+  {key:'pts',label:'PTS',sortValue:p=>p.pts,render:p=>formatDecimal(p.pts)},
+  ...SCORER_AXES.map(a=>({key:a,label:SCORER_LABELS[a],sortValue:(p:ScorerPoint)=>p.values[a]??Number.NaN,render:(p:ScorerPoint)=>valueText(p.values[a],a)})),
+ ];
  const major=(tick:number,step:number)=>Math.abs(tick/(step*2)-Math.round(tick/(step*2)))<1e-6;
  return <section aria-label="各チームのトップスコアラー3人">
   <FilterBar axes={axes} stateKey="figures:top-scorers" onClearAll={()=>{setFilter(DEFAULT);setGameType('regular');setClassification('all');setDivision(NO_DIVISIONS);setMinRatio(DEFAULT_RATIO);setX('win');setTeam('all');}}/>
   {splitClassificationBlocked(figureClassGroup(classification),season)?<p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p>:request.loading?<p role="status">選手の試合データを読み込み中…</p>:request.error?<p role="alert">データを読み込めませんでした。ページを読み直してください。</p>:!visible.length?<p>この条件に該当する選手はいません。</p>:<>
-  <div className="figures-controls"><label>手前に表示するチーム<select value={visible.some(p=>p.teamId===team)?team:'all'} onChange={e=>{setTeam(e.target.value);setHover(null);}}><option value="all">指定なし</option>{[...new Map(visible.map(p=>[p.teamId,p])).values()].map(p=><option key={p.teamId} value={p.teamId}>{teamLabel(p.teamId,p.teamName)}</option>)}</select></label><span>{plotted.length}人を表示</span></div>
-  <ExportImageButton targetRef={target} filename={`トップスコアラー_${SCORER_LABELS[axis]}_${conditions.join('_')}`} baseDate={baseDate}/>
+  <div className="figures-controls"><label>手前に表示するチーム<select value={visible.some(p=>p.teamId===team)?team:'all'} onChange={e=>{setTeam(e.target.value);setHover(null);}}><option value="all">指定なし</option>{[...new Map(visible.map(p=>[p.teamId,p])).values()].map(p=><option key={p.teamId} value={p.teamId}>{teamLabel(p.teamId,p.teamName)}</option>)}</select></label></div>
+  <p className="figure-count">{plotted.length}人を表示</p>
+  <FigureExportButton targetRef={target} filename={`トップスコアラー_${SCORER_LABELS[axis]}_${conditions.join('_')}`} baseDate={baseDate}/>
   <ExportTarget ref={target} className="ratings-export scorers-export" baseDate={baseDate}>
    <ConditionTitle title={`各チームのトップスコアラー3人：${SCORER_LABELS[axis]} × 平均得点`} exportScope={`${season}シーズン`} conditions={conditions}/>
    <div className="ratings-chart"><div className="ratings-plot-wrap">
@@ -91,11 +95,12 @@ export default function TopScorersFigure({season,category}:FigureProps){
     </div>
     {xDomain.ticks.filter(t=>major(t,xDomain.step)).map(t=><span className={`ratings-tick-x${Math.abs(t/(xDomain.step*4)-Math.round(t/(xDomain.step*4)))<1e-6?'':' scorer-tick-secondary'}`} key={t} style={{left:`${x(t)}%`}}>{axis==='ppp'||axis==='pps'?t.toFixed(1):t}</span>)}
     {yDomain.ticks.filter(t=>major(t,yDomain.step)).map(t=><span className="ratings-tick-y" key={t} style={{top:`${y(t)}%`}}>{t}</span>)}
-    <span className="ratings-x-label">{SCORER_LABELS[axis]}{['win','share','efg'].includes(axis)?'（%）':''} →</span>
+    <span className="ratings-x-label">{SCORER_LABELS[axis]}{['win','share','efg'].includes(axis)?'（%）':axis==='min'?'（1試合平均）':''} →</span>
    </div></div>
   </ExportTarget>
-  <div className="figure-notes"><p>条件と出場率の下限で絞った後、各チームの平均得点上位3人を表示。平均得点が同じ場合は総得点、出場時間、選手IDの順で決めます。数値は丸める前に比較しています。</p><p>出場率は対象期間のチーム試合数が分母。直近5・10試合はチームごとに選び、その後に試合種別を絞ります。移籍した選手はチームごとに別の点です。勝率は本人が出場した試合だけで計算します。</p><p>写真は現在保存されている1枚を使うため、当時のユニフォームとは限りません。写真がない場合は人の影の上に名字を表示します。重なる選手はチーム選択または下の一覧から選べます。</p><p>{scorerAxisTitle(axis)}。%PTSとOn ORtgは記録のそろう試合で計算します。PPPは既存の個人攻撃効率と同じ計算、PPSは得点÷FG試投数です。</p>{season<'2020-21'&&<p>%PTS・On ORtgは2020-21以降のため、横軸の選択肢に出していません。</p>}{plotted.length<visible.length&&<p>横軸の値がない{visible.length-plotted.length}人は図から除き、一覧には「—」で残しています。次点の選手との入れ替えはしません。</p>}</div>
-  <div className="ratings-table-scroll scorers-table" tabIndex={0} role="region" aria-label="チーム別の選手一覧"><table className="ratings-table"><thead><tr><th>{sortButton('team','選手／チーム')}</th><th>{sortButton('games','G')}</th><th>{sortButton('pts','PTS')}</th>{SCORER_AXES.map(a=><th key={a}>{sortButton(a,SCORER_LABELS[a])}</th>)}</tr></thead><tbody>{sorted.map(p=><tr key={p.id} className={team===p.teamId?'is-selected':''}><td><button onClick={()=>select(p)}>{playerLabel(p.name)} / {teamLabel(p.teamId,p.teamName)}</button></td><td>{p.games}</td><td>{formatDecimal(p.pts)}</td>{SCORER_AXES.map(a=><td key={a}>{valueText(p.values[a],a)}</td>)}</tr>)}</tbody></table></div>
+  {plotted.length<visible.length&&<p className="figure-notes export-hide">横軸の値がない{visible.length-plotted.length}人は図から除き、一覧には「—」で残しています。</p>}
+  <div className="table-scroll scorers-table" tabIndex={0} role="region" aria-label="チーム別の選手一覧"><SortableTable columns={columns} rows={visible} rowKey={p=>p.id} defaultSortKey="pts"
+    rowHighlightColor={p=>team===p.teamId?'var(--accent)':undefined} rowHighlightStrength={()=>'half'}/></div>
   </>}
  </section>;
 }

@@ -29,20 +29,30 @@ export function figureRowClassKey(view: PlayerGameIndexView, i: number, fallback
   return code === 0 ? "jp" : code > 0 ? "intl" : "";
 }
 
+/**
+ * 年齢分布の印のための区分。分けられるシーズン（2026-27 以降の行ごとの区分 rows.cls）は
+ * jp＝日本人・foreign＝外国籍・naturalized＝帰化／アジア特別枠。分けられないときは従来どおり jp／intl（外国籍・帰化・アジア）
+ */
+export function figureRowRegistration(view: PlayerGameIndexView, i: number, fallback: "jp" | "intl" | ""): string {
+  const code = view.file.rows.cls?.[i];
+  if (code === undefined) return fallback;
+  return code === 0 ? "jp" : code === 1 ? "foreign" : code > 1 ? "naturalized" : "";
+}
+
 export function figureAgeData(view: PlayerGameIndexView, options: {
   season: string; gameType: SeasonGameTypeFilter; min: number; classification: FigureClass; eligiblePlayerIds?: ReadonlySet<string>;
 }) {
   const memberships = new Map<string, { playerId: string; name: string; teamId: string; birth: string; registration: string; minutes: number; games: number }>();
   for (let i = 0; i < view.size; i++) {
     const g = playerGameAt(view, i);
-    const classKey = figureRowClassKey(view, i, g.classKey);
+    const registrationKey = figureRowRegistration(view, i, g.classKey);
     if (options.eligiblePlayerIds && !options.eligiblePlayerIds.has(g.playerId)) continue;
     if (options.gameType !== "both" && g.gameType !== options.gameType) continue;
     // 区分は試合ごと（2026-27 以降は行ごとの区分。その区分で出場した試合だけを数える）
     if (options.classification !== "all" && !indexRowClassMatches(view.file, i, figureClassGroup(options.classification))) continue;
     if (!(g.min > 0)) continue; // DNPは平均の分母に含めない。「なし」も出場者が対象。
     const key = `${g.playerId}@${g.teamId}`;
-    const row = memberships.get(key) ?? { playerId: g.playerId, name: g.playerName, teamId: g.teamId, birth: g.birthDate, registration: classKey, minutes: 0, games: 0 };
+    const row = memberships.get(key) ?? { playerId: g.playerId, name: g.playerName, teamId: g.teamId, birth: g.birthDate, registration: registrationKey, minutes: 0, games: 0 };
     row.minutes += g.min;
     row.games++;
     memberships.set(key, row);
@@ -68,7 +78,8 @@ export function figureAgeData(view: PlayerGameIndexView, options: {
 export type FigureMarkerShape = "circle" | "diamond" | "square" | "triangle" | "unknown";
 const REGISTRATION_MARKERS: Readonly<Record<string, FigureMarkerShape>> = {
   jp: "circle", 日本人: "circle", 見做し日本人: "circle", みなし日本人: "circle",
-  intl: "diamond", 外国籍: "diamond", 帰化選手: "diamond", 帰化: "diamond", アジア特別枠: "diamond",
+  intl: "diamond", foreign: "diamond", 外国籍: "diamond",
+  naturalized: "triangle", 帰化選手: "triangle", 帰化: "triangle", アジア特別枠: "triangle",
 };
 export function figureMarkerShape(registration: string | undefined): FigureMarkerShape {
   return REGISTRATION_MARKERS[registration ?? ""] ?? "unknown";

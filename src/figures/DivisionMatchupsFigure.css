@@ -1,0 +1,60 @@
+.dmatch-layout { display:flex; flex-direction:column; gap:24px; }
+.dmatch-matrix, .dmatch-list { border-collapse:collapse; font-size:12px; }
+.dmatch-matrix { font-size:14px; }
+.dmatch-matrix th, .dmatch-matrix td, .dmatch-list th, .dmatch-list td { border:1px solid var(--border); padding:4px 6px; text-align:center; }
+.dmatch-matrix thead th, .dmatch-list thead th { background:var(--header-bg); white-space:nowrap; }
+.dmatch-matrix tbody th { text-align:left; white-space:nowrap; background:var(--header-bg); }
+.dmatch-list { width:100%; min-width:0; }
+.dmatch-list tbody th { text-align:left; background:var(--header-bg); }
+.dmatch-nowrap { white-space:nowrap; }
+.dmatch-cell { min-width:48px; font-size:14px; color:var(--muted); }
+.dmatch-cell.is-fewer { padding:0; background:color-mix(in srgb, #2b6cb0 28%, var(--bg)); border:2px solid #2b6cb0; font-weight:bold; color:var(--fg); }
+.dmatch-cell.is-more { padding:0; background:color-mix(in srgb, #dd6b20 28%, var(--bg)); border:2px solid #dd6b20; font-weight:bold; color:var(--fg); }
+.dmatch-cell.is-normal { padding:0; }
+.dmatch-cell.is-normal button { font-weight:normal; color:var(--muted); }
+.dmatch-badge { display:inline-block; padding:1px 8px; border-radius:10px; font-weight:bold; white-space:nowrap; }
+.dmatch-badge.is-fewer { background:color-mix(in srgb, #2b6cb0 28%, var(--bg)); border:1px solid #2b6cb0; }
+.dmatch-badge.is-more { background:color-mix(in srgb, #dd6b20 28%, var(--bg)); border:1px solid #dd6b20; }
+.dmatch-badge.is-normal { border:1px solid var(--border); color:var(--muted); }
+.dmatch-summary { border-collapse:collapse; font-size:13px; margin:0 auto; }
+.dmatch-summary th, .dmatch-summary td { border:1px solid var(--border); padding:4px 10px; text-align:left; }
+.dmatch-summary thead th { background:var(--header-bg); }
+.dmatch-summary td > span { margin-right:12px; white-space:nowrap; }
+.dmatch-matrix-title { margin:16px 0 4px; font-size:14px; text-align:center; }
+.dmatch-ref { color:var(--muted); }
+.dmatch-games { display:flex; flex-direction:column; gap:2px; }
+.dmatch-cell button { width:100%; min-width:48px; min-height:44px; font-size:14px; border:0; background:transparent; color:var(--fg); font:inherit; font-weight:bold; cursor:pointer; }
+.dmatch-cell button.is-selected { background:var(--accent); color:var(--bg); }
+.dmatch-legend { font-size:12px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.dmatch-legend .dmatch-badge { margin:0 2px; }
+.dmatch-detail { display:flex; flex-wrap:wrap; gap:6px 16px; min-height:44px; padding:10px 12px; margin-top:12px; border:1px solid var(--border); background:var(--header-bg); font-size:13px; }
+.dmatch-hint { color:var(--muted); }
+.dmatch-export { margin-top:16px; }
+.export-rendering.dmatch-export { width:1100px !important; }
+.export-rendering .dmatch-export .figure-scroll { overflow:visible; }
+@media(min-width:900px) { .dmatch-layout { gap:32px; } }
+@media(max-width:560px) { .dmatch-list { min-width:0; } .dmatch-list th, .dmatch-list td { padding:4px 3px; } }
+
+.dmatch-matrix .dmatch-logo-head { padding:2px; min-width:52px; background:var(--header-bg); }
+.dmatch-logo-button { display:flex; justify-content:center; align-items:center; width:100%; min-height:44px; padding:0; border:0; background:transparent; color:var(--fg); cursor:pointer; }
+.dmatch-matrix .team-logo { width:36px; height:36px; }
+.dmatch-corner { font-size:11px; line-height:1.4; white-space:nowrap; }
+.dmatch-side { text-align:center !important; font-size:12px; line-height:1.3; padding:4px 4px !important; }
+.dmatch-side > span > span { display:block; }
+.dmatch-logo-fallback { font-size:10px; line-height:1.1; }
+.dmatch-tapped { font-size:12px; color:var(--muted); margin:8px 0 0; }
+.dmatch-division { margin-top:16px; }
+.dmatch-division h3 { margin:0 0 8px; padding:8px; background:var(--header-bg); font-size:14px; }
+.dmatch-list .team-name-cell { gap:8px; font-size:14px; font-weight:600; }
+.dmatch-list .team-logo { width:32px; height:32px; }
+
+.dmatch-export-controls { display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; margin-bottom:8px; }
+.dmatch-export-controls label { display:flex; flex-direction:column; gap:5px; font-size:13px; }
+.dmatch-export-controls select { padding:8px; background:var(--bg); color:var(--fg); border:1px solid var(--border); }
+.dmatch-matrix { margin:0 auto; }
+.export-rendering.dmatch-export-matrix { width:900px !important; }
+.export-rendering.dmatch-export-single { width:760px !important; }
+.dmatch-export-scope { text-align:center; margin:4px 0; }
+
+.dmatch-outcome { white-space:nowrap; }
+.dmatch-outcome .result-badge { padding:1px 6px; }

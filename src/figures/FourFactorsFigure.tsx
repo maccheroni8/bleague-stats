@@ -4,7 +4,7 @@ import { seasonGameTypeLabels, type SeasonGameTypeFilter } from "../../shared/ga
 import { FilterBar } from "../components/FilterBar";
 import { ExportTarget } from "../components/ExportTarget";
 import { ConditionTitle } from "../components/ConditionTitle";
-import { ExportImageButton } from "../components/ExportImageButton";
+import { FigureExportButton } from "./FigureExport";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { TeamLogo } from "../components/TeamLogo";
 import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory } from "../lib/data";
@@ -112,7 +112,7 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
   return <section aria-label="Four Factors とレーティングの色分け表">
     <FilterBar axes={axes} stateKey="figures:fourfactors" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);setSort(DEFAULT_SORT);}} />
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!model || !rows.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
-      <ExportImageButton targetRef={targetRef} filename={`Four_Factors_${conditions.join("_")}`} baseDate={baseDate}/>
+      <FigureExportButton targetRef={targetRef} filename={`Four_Factors_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={targetRef} className="ratings-export fourfactors-export" baseDate={baseDate}>
         <ConditionTitle title="Four Factors" exportScope={`${season}シーズン`} conditions={[...conditions,sortLabel]} />
         <div className="fourfactors-scroll" tabIndex={0} role="region" aria-label="Four Factors とレーティングの表">

@@ -9,10 +9,10 @@ import { onOffTotalsFromLogs } from './playerOnOffColumns';
 import { changedRegistrations, scopedPlayerMatches, scopeLogsByClassification } from './registrationScopeCore';
 import { figureClassGroup, type FigureClass } from './figureAge';
 import { statJa } from './statNames';
-export const SCORER_AXES = ['win', 'share', 'efg', 'on', 'ppp', 'pps'] as const;
+export const SCORER_AXES = ['win', 'min', 'share', 'efg', 'on', 'ppp', 'pps'] as const;
 export type ScorerAxis = typeof SCORER_AXES[number];
-export const SCORER_LABELS: Record<ScorerAxis,string> = {win:statJa('出場試合の勝率'),share:'%PTS',efg:'eFG%',on:'On ORtg',ppp:'PPP',pps:'PPS'};
-export const scorerAxisTitle = (axis:ScorerAxis) => axis === 'win' ? SCORER_LABELS.win : statJa(SCORER_LABELS[axis]);
+export const SCORER_LABELS: Record<ScorerAxis,string> = {win:statJa('出場試合の勝率'),min:'出場時間',share:'%PTS',efg:'eFG%',on:'On ORtg',ppp:'PPP',pps:'PPS'};
+export const scorerAxisTitle = (axis:ScorerAxis) => axis === 'win' || axis === 'min' ? SCORER_LABELS[axis] : statJa(SCORER_LABELS[axis]);
 export interface ScorerPoint {
   id:string; playerId:string; name:string; teamId:string; teamName:string; division?:Division;
   games:number; teamGames:number; wins:number; pts:number; totalPts:number; minutes:number;
@@ -54,7 +54,7 @@ export function buildTopScorers(data:ScorerData,q:ScorerQuery):ScorerPoint[] {
       candidates.push({id:`${p.playerId}@${team.teamId}`,playerId:p.playerId,name:p.name,...team,
         division:data.divisions?.[q.category]?.[q.season]?.[team.teamId],games:logs.length,teamGames:scoped.length,wins,
         pts:raw.pts/raw.gamesPlayed,totalPts:raw.pts,minutes:raw.min,
-        values:{win:100*wins/logs.length,share:q.season>='2020-21'?onCourtSharePct(raw,raw.ocPts,raw.ocTeamPts):null,
+        values:{win:100*wins/logs.length,min:raw.gamesPlayed>0?raw.min/raw.gamesPlayed:null,share:q.season>='2020-21'?onCourtSharePct(raw,raw.ocPts,raw.ocTeamPts):null,
           efg:raw.fga>0?100*(raw.fgm+0.5*raw.tpm)/raw.fga:null,
           on:on&&on.on.ownPoss>0?100*on.on.ownPts/on.on.ownPoss:null,
           ppp:full&&singleTeam?(p.advanced.ppp??null):ortg.format(ctx,'perGame')==='-'?null:ortg.value(ctx,'perGame')/100,
@@ -66,7 +66,7 @@ export function buildTopScorers(data:ScorerData,q:ScorerQuery):ScorerPoint[] {
   return points;
 }
 export function scorerDomain(values:(number|null)[],axis:ScorerAxis|'pts'){
-  const base:Record<ScorerAxis|'pts',[number,number,number]>={pts:[0,30,5],win:[0,100,5],share:[0,50,5],efg:[30,80,5],on:[70,140,5],ppp:[0.5,1.5,0.05],pps:[0.5,2,0.05]};
+  const base:Record<ScorerAxis|'pts',[number,number,number]>={pts:[0,30,5],win:[0,100,5],min:[0,40,5],share:[0,50,5],efg:[30,80,5],on:[70,140,5],ppp:[0.5,1.5,0.05],pps:[0.5,2,0.05]};
   const [lo,hi,step]=base[axis],valid=values.filter((v):v is number=>v!==null&&Number.isFinite(v));
   const min=Math.min(lo,...valid.map(v=>Math.floor(v/step)*step)),max=Math.max(hi,...valid.map(v=>Math.ceil(v/step)*step));
   return {min,max,step,ticks:Array.from({length:Math.round((max-min)/step)+1},(_,i)=>Number((min+i*step).toFixed(6)))};

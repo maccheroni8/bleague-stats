@@ -53,10 +53,18 @@ console.log("年齢分布: DNP・しきい値・誕生日・移籍・登録区�
   assert.equal(figureAgeData(withCls, { ...options, min: 0 }).byTeam.get("a")?.find(d => d.playerId === "r")?.registration ?? "missing-birth", "missing-birth", "生年月日の無い選手は除外のまま");
   const unknown = figureAgeData(viewPlayerGameIndex({ ...file, players: [...file.players.slice(0, 2), ["r", "R", "", "", "1995-01-01", "jp"]], rows: { ...file.rows, cls: [0, 0, 0, 0, 1, -1, 0] } } as PlayerGameIndexFile), { ...options, min: 0 });
   assert.equal(unknown.byTeam.get("a")?.find(d => d.playerId === "r")?.registration, "", "行の区分が -1 なら区分不明（推測で日本人にしない）");
+  // 印のための区分: 1 外国籍→◆、2 帰化選手・3 アジア特別枠→▲
+  for (const [code, shape] of [[1, "diamond"], [2, "triangle"], [3, "triangle"]] as const) {
+    const one = figureAgeData(viewPlayerGameIndex({ ...file, rows: { ...file.rows, cls: [0, code, code, code, code, -1, code] } } as PlayerGameIndexFile), { ...options, min: 0, classification: "外国籍・帰化・アジア" });
+    assert.equal(figureMarkerShape(one.byTeam.get("a")?.find(d => d.playerId === "p")?.registration), shape, `区分${code}の印`);
+  }
   console.log("年齢分布: 行ごとの区分（2026-27 以降）を優先する OK");
 }
 
 const { normalizeFigureParams } = await import("../src/lib/figureRoute");
+// 旧「年間1試合の対戦」のURLは「地区間の対戦数」で開く（条件はそのまま）
+assert.equal(normalizeFigureParams(new URLSearchParams("entity=team&figure=one-game&season=2026-27")).get("figure"), "division-matchups");
+assert.equal(normalizeFigureParams(new URLSearchParams("entity=team&figure=one-game&season=2026-27")).get("season"), "2026-27");
 for (const old of ["season=2026-27", "season=2026-27&entity=player&min=20&cls=jp&line=median", "entity=player&figure=age", "entity=player&line=both&gp=85-100"]) {
   const before = new URLSearchParams(old);
   const next = normalizeFigureParams(before);
@@ -75,7 +83,9 @@ console.log("図解URL: 旧URLの移動・条件保持・選手タブ・再読�
 assert.equal(result.byTeam.get("a")?.[0]?.registration, "jp");
 assert.equal(result.byTeam.get("b")?.[1]?.registration, "intl");
 for (const registration of ["jp", "日本人", "見做し日本人", "みなし日本人"]) assert.equal(figureMarkerShape(registration), "circle");
-for (const registration of ["intl", "外国籍", "帰化", "帰化選手", "アジア特別枠"]) assert.equal(figureMarkerShape(registration), "diamond");
+for (const registration of ["intl", "foreign", "外国籍"]) assert.equal(figureMarkerShape(registration), "diamond");
+// 帰化・アジア特別枠は▲（2026-27 以降で分けられるとき）。分けられないときの intl は従来どおり◆
+for (const registration of ["naturalized", "帰化", "帰化選手", "アジア特別枠"]) assert.equal(figureMarkerShape(registration), "triangle");
 assert.equal(figureMarkerShape(undefined), "unknown", "区分不明を日本人扱いしない");
 for (const count of [1, 2, 3, 6]) {
   const layout = centeredAgeDots(Array.from({length:count}, (_,i) => ({playerId:String(i),name:"P",age:25,averageMinutes:20,registration:i%2 ? "intl" : "jp"})));

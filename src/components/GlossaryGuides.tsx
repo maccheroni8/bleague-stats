@@ -11,6 +11,7 @@ import {
   SCORING_SHARE_MIN_MPG,
   SCORING_SHARE_MIN_TOTAL_MIN,
 } from "../lib/tableThresholds";
+import { GlossaryFigures } from "./GlossaryFigures";
 import { PLAYER_PCT_MIN_MADE_NOTE, TEAM_PCT_MIN_MADE_NOTE } from "../lib/topRecords";
 
 /**
@@ -751,6 +752,7 @@ export function GlossaryGuides() {
           個人タイトルは、得点王・リバウンド王・アシスト王・スティール王・ブロック王・ベスト3P成功率賞・ベストFT成功率賞の受賞数の合計です。受賞の年表は、個人一覧の「歴代アワード」で見られます。
         </p>
       </section>
+      <GlossaryFigures />
     </>
   );
 }

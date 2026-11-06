@@ -3,9 +3,11 @@ import type { Division } from "../../shared/types";
 import { teamShortName } from "../../shared/teamNames";
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from "../../shared/gameType";
 import { FilterBar } from "../components/FilterBar";
+import { SortableTable, type Column } from "../components/SortableTable";
 import { ExportTarget } from "../components/ExportTarget";
 import { ConditionTitle } from "../components/ConditionTitle";
-import { ExportImageButton } from "../components/ExportImageButton";
+import { FigureExportButton } from "./FigureExport";
+import { TeamListLogo } from "../components/TeamListLogo";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory, teamLogoUrl } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
@@ -52,7 +54,6 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
   const [division,setDivision]=useUrlState(divisionCodec,NO_DIVISIONS);
   const [perspective,setPerspective]=useUrlState(PERSPECTIVE_PARAM,"own");
   const [yParam,setYParam]=useUrlState(yCodec,"foreign");
-  const [sort,setSort]=useState<{key:"x"|"y"|"games"|"xs"|"ys";desc:boolean}>({key:"y",desc:true});
   const [tooltipId,setTooltipId]=useState<string|null>(null);
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const target=useRef<HTMLDivElement>(null);
@@ -102,12 +103,16 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
   },divisionMultiAxis<"unknown">({id:"scoringDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision})];
   const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")])];
   const xName=statName(xKey,perspective), yName=statName(yKey,perspective);
-  const sorted=[...visible].sort((a,b)=>{
-    const value=(p:ScoringPoint)=>sort.key==="x"?xOf(p):sort.key==="y"?yOf(p):sort.key==="games"?p.games:(scoringShare(p,sort.key==="xs"?xKey:yKey,perspective)??-Infinity);
-    return (value(a)-value(b))*(sort.desc?-1:1)||a.teamId.localeCompare(b.teamId);
-  });
-  const toggleSort=(key:typeof sort.key)=>setSort(previous=>({key,desc:previous.key===key?!previous.desc:true}));
-  const arrow=(key:typeof sort.key)=>sort.key===key?(sort.desc?" ↓":" ↑"):" ↕";
+  const cellNum=(value:number)=>perGameText(value,perspective).replace(/点$/,"");
+  const cellShare=(value:number|null)=>shareText(value,perspective).replace(/ポイント$/,"");
+  const columns:Column<ScoringPoint>[]=[
+    {key:"team",label:"チーム",align:"left",sortValue:p=>p.teamName,render:p=><button className="ratings-team-button" onClick={()=>choose(p.teamId,true)}><TeamListLogo teamId={p.teamId} name={p.teamName}/><ResponsiveTeamName teamId={p.teamId} name={p.teamName}/></button>},
+    {key:"games",label:"G",sortValue:p=>p.games},
+    {key:"x",label:xName,sortValue:xOf,render:p=>cellNum(xOf(p))},
+    {key:"y",label:yName,sortValue:yOf,render:p=>cellNum(yOf(p))},
+    {key:"xs",label:`${xName}の割合`,sortValue:p=>scoringShare(p,xKey,perspective)??Number.NaN,render:p=>cellShare(scoringShare(p,xKey,perspective))},
+    {key:"ys",label:`${yName}の割合`,sortValue:p=>scoringShare(p,yKey,perspective)??Number.NaN,render:p=>cellShare(scoringShare(p,yKey,perspective))},
+  ];
   const baseDate={kind:"season" as const,season,gameType};
   const choose=(id:string,scroll=false)=>{setSelectedId(id);setTooltipId(scroll?null:id);if(scroll)plot.current?.scrollIntoView({block:"center",behavior:"smooth"});};
   const league=model?.league??null;
@@ -119,7 +124,7 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
   return <section aria-label="日本人と外国籍の得点の散布図">
     <FilterBar axes={axes} stateKey="figures:scoring" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);setPerspective("own");setYParam("foreign");}} />
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!league || !visible.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
-      <ExportImageButton targetRef={target} filename={`${xName}_${yName}_${conditions.join("_")}`} baseDate={baseDate}/>
+      <FigureExportButton targetRef={target} filename={`${xName}_${yName}_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={target} className="ratings-export scoring-export" baseDate={baseDate}>
         <ConditionTitle title={`${xName} × ${yName}`} exportScope={`${season}シーズン`} conditions={conditions} />
         <p className="ratings-league">1試合平均　リーグ平均：{xName} {perGameText(xOf(league),perspective)} ／ {yName} {perGameText(yOf(league),perspective)}</p>
@@ -147,33 +152,16 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
             </div>
           </div>
         </div>
-        <div className="figure-notes">
-          <p>点は1試合平均の得点です。破線の十字は選択した期間・試合区分のリーグ平均（全チームの合計 ÷ 全チームの試合数）。地区で絞っても、軸・平均はリーグ全体が基準です。</p>
-          <p>日本人には見做し日本人を含みます。{yMode==="foreign"?"外国籍のみの縦軸では、帰化選手・アジア特別枠の得点はどちらの軸にも入りません。":"縦軸は外国籍・帰化・アジア特別枠の合計です。"}{!splitSeason(modes)&&"2025-26シーズン以前は、現在の登録情報に基づく参考値です。"}</p>
-          {perspective==="diff"&&<p>+/-は、同じ試合の「自チーム − 相手」の1試合平均です（選手の出場中の+/-とは別の値）。0の線を太く示しています。</p>}
-          {perspective==="opp"&&<p>相手は、そのチームとの試合で対戦相手が記録した得点です。</p>}
-          {filter.range.kind === "recent"&&<p>直近の試合はチームごとに選ぶため対象日は異なります。直近の試合を先に選び、その後に試合区分を絞るため、対象試合数が指定より少なくなる場合があります。</p>}
-          <p>ボックススコアが公式に無い試合（結果だけの試合）は、平均の対象に含めていません。</p>
-          {model!.omitted.length>0&&<p>対象試合がない、または値を確認できない{model!.omitted.length}チームは表示していません。</p>}
-          {!request.data?.divisions&&<p>地区の情報を読み込めないため、色分けは地区不明として表示しています。</p>}
-        </div>
       </ExportTarget>
       <div className="ratings-team-detail scoring-detail" aria-live="polite">{selected?<>
         <h3><ResponsiveTeamName teamId={selected.teamId} name={selected.teamName}/></h3>
         <p>{selected.games}試合（{selected.firstDate}〜{selected.lastDate}）</p>
         <p>{detail(selected)}</p>
       </>:<p>ロゴに触れるか押すと、チームの1試合平均と得点の割合を表示します。</p>}</div>
-      <p className="figure-notes">ロゴが重なる場合は下の一覧から選ぶと、そのチームを手前に表示します。割合は区分の得点 ÷ 総得点で、{perspective==="diff"?"差は自チームの割合 − 相手の割合（ポイント）です。":"選んだ視点のチームの得点が基準です。"}</p>
-      <div className="ratings-table-scroll" tabIndex={0} role="region" aria-label="散布図のチーム一覧">
-        <table className="ratings-table"><thead><tr><th>チーム</th>
-          <th><button onClick={()=>toggleSort("games")}>試合数{arrow("games")}</button></th>
-          <th><button onClick={()=>toggleSort("x")}>{xName}{arrow("x")}</button></th>
-          <th><button onClick={()=>toggleSort("y")}>{yName}{arrow("y")}</button></th>
-          <th><button onClick={()=>toggleSort("xs")}>{xName}の割合{arrow("xs")}</button></th>
-          <th><button onClick={()=>toggleSort("ys")}>{yName}の割合{arrow("ys")}</button></th></tr></thead>
-        <tbody>{sorted.map(point=><tr key={point.teamId} className={selected?.teamId===point.teamId?"is-selected":""}><td><button onClick={()=>choose(point.teamId,true)}><ResponsiveTeamName teamId={point.teamId} name={point.teamName}/></button></td>
-          <td>{point.games}</td><td>{perGameText(xOf(point),perspective)}</td><td>{perGameText(yOf(point),perspective)}</td>
-          <td>{shareText(scoringShare(point,xKey,perspective),perspective)}</td><td>{shareText(scoringShare(point,yKey,perspective),perspective)}</td></tr>)}</tbody></table>
+      {(model!.omitted.length>0||!request.data?.divisions)&&<div className="figure-notes export-hide">{model!.omitted.length>0&&<p>対象試合がない、または値を確認できない{model!.omitted.length}チームは表示していません。</p>}{!request.data?.divisions&&<p>地区の情報を読み込めないため、色分けは地区不明として表示しています。</p>}</div>}
+      <div className="table-scroll" tabIndex={0} role="region" aria-label="散布図のチーム一覧">
+        <SortableTable columns={columns} rows={visible} rowKey={p=>p.teamId} defaultSortKey="y" statScope="team"
+          rowHighlightColor={p=>selected?.teamId===p.teamId?"var(--accent)":undefined} rowHighlightStrength={()=>"half"}/>
       </div>
     </>}
   </section>;

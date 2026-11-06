@@ -2,7 +2,7 @@
 .ratings-league { text-align:center; font-size:14px; }
 .ratings-legend { display:flex; justify-content:center; flex-wrap:wrap; gap:8px 20px; font-size:12px; }
 .ratings-legend > span { display:inline-flex; align-items:center; gap:6px; }
-.ratings-legend i { display:inline-block; width:12px; height:12px; border:3px solid; border-radius:50%; box-sizing:border-box; }
+.ratings-legend i { display:inline-block; width:12px; height:12px; border:2px solid; border-radius:50%; box-sizing:border-box; }
 .ratings-legend i.ratings-diagonal-key { width:24px; height:0; border:0; border-top:1px solid var(--muted); border-radius:0; }
 .ratings-chart { width:100%; max-width:850px; margin:auto; padding-top:38px; }
 .ratings-plot-wrap { position:relative; margin:0 28px 55px 52px; }
@@ -15,7 +15,7 @@
 .ratings-net-zero { position:absolute; left:0; top:0; width:141.421356%; border-top:1px solid var(--muted); transform:rotate(45deg); transform-origin:0 0; opacity:.35; pointer-events:none; }
 .ratings-quadrant { position:absolute; font-size:12px; color:var(--muted); pointer-events:none; background:var(--bg); padding:2px 4px; }
 .ratings-quadrant.top { top:6px; }.ratings-quadrant.bottom { bottom:6px; }.ratings-quadrant.left { left:6px; }.ratings-quadrant.right { right:6px; }
-.ratings-point { position:absolute; z-index:2; transform:translate(-50%,-50%); width:46px; height:46px; padding:3px; display:flex; justify-content:center; align-items:center; border:3px solid; border-radius:50%; background:#fff; color:#222; cursor:pointer; }
+.ratings-point { position:absolute; z-index:2; transform:translate(-50%,-50%); width:46px; height:46px; padding:3px; display:flex; justify-content:center; align-items:center; border:2px solid; border-radius:50%; background:#fff; color:#222; cursor:pointer; }
 .ratings-point img { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
 .ratings-point.is-selected { z-index:5; }
 .ratings-point.is-expanded { transform:translate(-50%,-50%) scale(1.2); outline:2px solid var(--fg); outline-offset:2px; }
@@ -34,7 +34,7 @@
 .export-rendering.ratings-export { width:1100px !important; }.export-rendering .ratings-chart { max-width:950px; }
 .export-rendering .ratings-point.is-expanded { transform:translate(-50%,-50%); outline:none; z-index:2; }
 @media(max-width:560px) { .ratings-plot-wrap { margin-left:35px; margin-right:18px; } .ratings-point { width:32px; height:32px; padding:2px; border-width:2px; } .ratings-point img { width:24px; height:24px; } .ratings-fallback { font-size:8px; } .ratings-quadrant { font-size:10px; padding:1px 2px; } .ratings-legend { gap:6px 12px; } }
-.export-rendering.ratings-export .ratings-point { width:46px; height:46px; padding:3px; border-width:3px; }
+.export-rendering.ratings-export .ratings-point { width:46px; height:46px; padding:3px; border-width:2px; }
 .export-rendering.ratings-export .ratings-point img { width:34px; height:34px; }.export-rendering.ratings-export .ratings-fallback { font-size:9px; }
 
 .ratings-guide-clip { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
@@ -51,3 +51,7 @@
 .ratings-rank-label { position:absolute; z-index:3; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; padding:2px 4px; font-family:monospace; line-height:1.4; background:var(--bg); color:var(--fg); pointer-events:none; }
 .ratings-rank-label span { white-space:nowrap; }
 .ratings-label-leader { position:absolute; z-index:1; border-top:1px solid var(--muted); transform-origin:0 0; pointer-events:none; }
+
+/* 一覧のチーム名（左にロゴ） */
+.ratings-table button.ratings-team-button { display:inline-flex; align-items:center; gap:8px; }
+.ratings-team-button .team-list-logo { width:24px; height:24px; flex-shrink:0; border-radius:4px; }

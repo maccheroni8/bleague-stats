@@ -29,6 +29,12 @@ export const GLOSSARY_ANCHORS = {
   doubleDouble: "double-double",
   winPctScatter: "winpct-scatter",
   fourFactors: "four-factors",
+  figureAge: "figure-age",
+  figureRatings: "figure-ratings",
+  figureDivisionMatchups: "figure-division-matchups",
+  figureScoring: "figure-scoring",
+  figureTopScorers: "figure-top-scorers",
+  figureUsgPpp: "figure-usg-ppp",
 } as const;
 
 export type GlossaryAnchor = (typeof GLOSSARY_ANCHORS)[keyof typeof GLOSSARY_ANCHORS];
