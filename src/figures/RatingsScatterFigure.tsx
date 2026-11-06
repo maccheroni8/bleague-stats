@@ -21,6 +21,7 @@ import { useNarrow, useTeamLabel } from "../lib/teamLabel";
 import { statJa } from "../lib/statNames";
 import { statDescription } from "../lib/statDescriptions";
 import type { FigureProps } from "./catalog";
+import { useHighlightClubs } from "./highlightClubs";
 import "./RatingsScatterFigure.css";
 
 const DEFAULT_RANGE: SituationalFilter = {range:{kind:"all"}};
@@ -61,6 +62,7 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
     return [...divisionOrder(category).filter(d=>values.has(d)),...(values.has("unknown")?["unknown" as const]:[])];
   },[model]);
   const activeDivision=division.filter(d=>present.includes(d));
+  const hl=useHighlightClubs({season,category,teams:request.data?.teams??[],divisionOf:id=>request.data?.divisions?.[category]?.[season]?.[id]});
   const visible=model?.points.filter(point=>activeDivision.length === 0 || activeDivision.includes(point.division??"unknown"))??[];
   const selected=visible.find(point=>point.teamId===selectedId)??null;
   const tooltip=visible.find(point=>point.teamId===tooltipId)??null;
@@ -68,8 +70,8 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
     if(axis.kind === "select") return {...axis,options:axis.options.filter(option=>["all","recent:5","recent:10","custom"].includes(option.value))};
     return {...axis,tier:"primary" as const};
   });
-  const axes:FilterAxis[]=[...rangeAxes,gameTypeAxis(gameType,setGameType,season),divisionMultiAxis<"unknown">({id:"ratingsDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision})];
-  const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")])];
+  const axes:FilterAxis[]=[...rangeAxes,gameTypeAxis(gameType,setGameType,season),divisionMultiAxis<"unknown">({id:"ratingsDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision}),hl.axis];
+  const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")]),...hl.labels];
   const standingById=new Map(request.data?.standings?.teams.map(team=>[team.teamId,team]));
   const standingText=(p:RatingPoint)=>{const st=standingById.get(p.teamId);return st?.division&&st.divisionRank?`${DIVISION_LABELS[st.division][0]}${st.divisionRank}`:"—";};
   // 小さいほど上位（地区順位）。他ページの表と同じく、最初に押したときは上位が先頭に来るよう符号を逆にする
@@ -82,7 +84,7 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
   const baseDate={kind:"season" as const,season,gameType};
   const choose=(id:string,scroll=false)=>{setSelectedId(id);setTooltipId(scroll?null:id);if(scroll)plot.current?.scrollIntoView({block:"center",behavior:"smooth"});};
   return <section aria-label="ORtg・DRtgの散布図">
-    <FilterBar axes={axes} stateKey="figures:ratings" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);}} />
+    <FilterBar axes={axes} stateKey="figures:ratings" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);hl.setIds([]);}} />
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!model?.league || !visible.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
       <FigureExportButton targetRef={target} filename={`ORtg_DRtg_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={target} className="ratings-export" baseDate={baseDate}>
@@ -91,8 +93,8 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
         <p className="ratings-league">リーグ平均：ORtg {model.league.ortg.toFixed(2)} ／ DRtg {model.league.drtg.toFixed(2)}</p>
         <div className="ratings-legend">{present.map(d=><span key={d}><i style={{borderColor:DIVISION_RATING_COLORS[d]}}/>{divisionLabel(d)}</span>)}<span><i className="ratings-diagonal-key"/>NetRtg 0</span></div>
         <div ref={plot} onPointerDown={event=>{if(!(event.target as Element).closest(".ratings-point"))setTooltipId(null);}}>
-          <RatingChart points={visible} all={model.points} league={model.league} selectedId={selected?.teamId??null} tooltip={tooltip} teamLabel={teamLabel} onSelect={id=>choose(id)} onDismiss={()=>setTooltipId(null)}/>
-          <RatingChart exportOnly points={visible} all={model.points} league={model.league} selectedId={null} tooltip={null} teamLabel={teamLabel} onSelect={()=>{}} onDismiss={()=>{}}/>
+          <RatingChart points={visible} all={model.points} league={model.league} selectedId={selected?.teamId??null} emphasized={hl.has} tooltip={tooltip} teamLabel={teamLabel} onSelect={id=>choose(id)} onDismiss={()=>setTooltipId(null)}/>
+          <RatingChart exportOnly points={visible} all={model.points} league={model.league} selectedId={null} emphasized={hl.has} tooltip={null} teamLabel={teamLabel} onSelect={()=>{}} onDismiss={()=>{}}/>
         </div>
         <p className="figure-notes">破線の十字：選択した期間・試合区分のリーグ平均</p>
       </ExportTarget>
@@ -104,21 +106,21 @@ export default function RatingsScatterFigure({season,category}:FigureProps) {
       </>:<p>ロゴに触れるか押すと、チームの値とリーグ順位を表示します。</p>}</div>
       <div className="table-scroll" tabIndex={0} role="region" aria-label="散布図のチーム一覧">
         <SortableTable columns={columns} rows={visible} rowKey={p=>p.teamId} defaultSortKey="netrtg" statScope="team"
-          rowHighlightColor={p=>selected?.teamId===p.teamId?"var(--accent)":undefined} rowHighlightStrength={()=>"half"}/>
+          rowHighlightColor={p=>selected?.teamId===p.teamId||hl.has([p.teamId])?"var(--accent)":undefined} rowHighlightStrength={()=>"half"}/>
       </div>
     </>}
   </section>;
 }
-function RatingLogo({point,label,selected,expanded,left,top,onSelect,onDismiss}:{point:RatingPoint;label:string;selected:boolean;expanded:boolean;left:number;top:number;onSelect:()=>void;onDismiss:()=>void}) {
+function RatingLogo({point,label,selected,emphasized,expanded,left,top,onSelect,onDismiss}:{point:RatingPoint;label:string;selected:boolean;emphasized:boolean;expanded:boolean;left:number;top:number;onSelect:()=>void;onDismiss:()=>void}) {
   const[failed,setFailed]=useState(false);
   const description=`${label}：${RATING_KEYS.map(key=>`${RATING_LABELS[key]} ${ratingColumn(key).format!(point.row)}（${point.ranks[key]}位）`).join("、")}`;
-  return <button className={`ratings-point${selected?" is-selected":""}${expanded?" is-expanded":""}`} style={{left:`${left}%`,top:`${top}%`,borderColor:DIVISION_RATING_COLORS[point.division??"unknown"]}}
+  return <button className={`ratings-point${selected?" is-selected":""}${emphasized?" is-emphasized":""}${expanded?" is-expanded":""}`} style={{left:`${left}%`,top:`${top}%`,borderColor:DIVISION_RATING_COLORS[point.division??"unknown"]}}
     aria-label={description} aria-pressed={selected} onPointerEnter={event=>{if(event.pointerType==="mouse")onSelect();}} onPointerLeave={event=>{if(event.pointerType==="mouse")onDismiss();}} onFocus={onSelect} onBlur={onDismiss} onClick={onSelect}>
     {failed?<span className="ratings-fallback">{teamShortName(point.teamId,point.teamName)}</span>:<img src={teamLogoUrl(point.teamId)} alt="" width={26} height={26} loading="eager" onError={()=>setFailed(true)}/>}
   </button>;
 }
 
-function RatingChart({points,all,league,selectedId,tooltip,teamLabel,onSelect,onDismiss,exportOnly=false}:{points:RatingPoint[];all:RatingPoint[];league:Record<RatingKey,number>;selectedId:string|null;tooltip:RatingPoint|null;teamLabel:(id:string,name:string)=>string;onSelect:(id:string)=>void;onDismiss:()=>void;exportOnly?:boolean}) {
+function RatingChart({points,all,league,selectedId,emphasized,tooltip,teamLabel,onSelect,onDismiss,exportOnly=false}:{points:RatingPoint[];all:RatingPoint[];league:Record<RatingKey,number>;selectedId:string|null;emphasized:(teamIds:readonly string[])=>boolean;tooltip:RatingPoint|null;teamLabel:(id:string,name:string)=>string;onSelect:(id:string)=>void;onDismiss:()=>void;exportOnly?:boolean}) {
   const ref=useRef<HTMLDivElement>(null);
   const [size,setSize]=useState(exportOnly?870:770);
   useEffect(()=>{
@@ -149,7 +151,7 @@ function RatingChart({points,all,league,selectedId,tooltip,teamLabel,onSelect,on
             <span className="ratings-rank-label" style={{left:`${box.x/size*100}%`,top:`${box.y/size*100}%`,width:box.width,height:box.height,fontSize:mobile?9:10}}>{box.texts.map(text=><span key={text}>{text}</span>)}</span>
           </span>;
         })}
-        {points.map(point=><RatingLogo key={point.teamId} point={point} label={teamLabel(point.teamId,point.teamName)} selected={selectedId===point.teamId} expanded={tooltip?.teamId===point.teamId} left={position(point.ortg)} top={position(point.drtg)} onSelect={()=>onSelect(point.teamId)} onDismiss={onDismiss}/>)}
+        {points.map(point=><RatingLogo key={point.teamId} point={point} label={teamLabel(point.teamId,point.teamName)} selected={selectedId===point.teamId} emphasized={emphasized([point.teamId])} expanded={tooltip?.teamId===point.teamId} left={position(point.ortg)} top={position(point.drtg)} onSelect={()=>onSelect(point.teamId)} onDismiss={onDismiss}/>)}
         {tooltip&&<div role="tooltip" className="ratings-tooltip" style={{left:`clamp(0px, calc(${position(tooltip.ortg)}% - 100px), calc(100% - 200px))`,top:`clamp(0px, calc(${position(tooltip.drtg)}% + 30px), calc(100% - 120px))`}}><strong>{teamLabel(tooltip.teamId,tooltip.teamName)}</strong>{RATING_KEYS.map(key=><span key={key}>{RATING_LABELS[key]} {ratingColumn(key).format!(tooltip.row)}（{tooltip.ranks[key]}位）</span>)}</div>}
       </div>
       {domain.ticks.map(tick=><span key={`x${tick}`} className="ratings-tick-x" style={{left:`${position(tick)}%`}}>{tick}</span>)}

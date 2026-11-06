@@ -1,0 +1,19 @@
+/* 図解の散布図（シュート%・得点×アシスト）。余白と目盛りの大きさは USG% × PPP の図と同じ */
+.axis-scatter-export .ratings-plot-wrap { margin-left:54px; margin-right:54px; }
+.axis-scatter-export .ratings-tick-x, .axis-scatter-export .ratings-tick-y { font-size:10px; }
+.export-rendering.axis-scatter-export .ratings-plot-wrap { margin-left:54px; margin-right:54px; }
+.axis-scatter .ratings-point.team-logo-point { width:40px; height:40px; padding:2px; }
+.axis-scatter .ratings-point.team-logo-point img { width:32px; height:32px; }
+@media(max-width:560px) {
+  .axis-scatter-export .ratings-plot-wrap { margin-left:38px; margin-right:30px; }
+  .axis-scatter-export .ratings-tick-x { font-size:9px; }
+  .axis-scatter .ratings-point.team-logo-point { width:30px; height:30px; padding:2px; }
+  .axis-scatter .ratings-point.team-logo-point img { width:24px; height:24px; }
+}
+.export-rendering.axis-scatter-export .ratings-point.team-logo-point { width:40px; height:40px; padding:2px; }
+.export-rendering.axis-scatter-export .ratings-point.team-logo-point img { width:32px; height:32px; }
+.axis-note { font-size:12px; color:var(--muted); text-align:center; }
+.axis-controls { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; margin:8px 0; }
+.axis-zero-v, .axis-zero-h { position:absolute; pointer-events:none; z-index:1; background:color-mix(in srgb, var(--fg) 55%, transparent); }
+.axis-zero-v { top:0; width:2px; height:100%; transform:translateX(-1px); }
+.axis-zero-h { left:0; height:2px; width:100%; transform:translateY(-1px); }

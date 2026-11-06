@@ -15,12 +15,16 @@ export interface FigureDefinition {
 }
 export const FIGURES: readonly FigureDefinition[] = [
   { id: "top-scorers", entity: "player", label: "トップスコアラー", group: "得点", load: () => import("./TopScorersFigure") },
+  { id: "player-shooting", entity: "player", label: "シュート% × 試投数", group: "効率", load: () => import("./PlayerShootingFigure") },
+  { id: "pts-ast", entity: "player", label: "得点 × アシスト", group: "得点", load: () => import("./PtsAstFigure") },
   { id: "usg-ppp", entity: "player", label: "USG% × PPP", group: "効率", load: () => import("./UsgPppFigure") },
   { id: "age", entity: "team", label: "年齢分布", group: "年齢", load: () => import("./AgeDistributionFigure") },
   { id: "ratings", entity: "team", label: "ORtg・DRtg", group: "効率", load: () => import("./RatingsScatterFigure") },
   { id: "division-matchups", entity: "team", label: "地区間の対戦数", group: "日程", load: () => import("./DivisionMatchupsFigure") },
   { id: "scoring", entity: "team", label: "日本人・外国籍の得点", group: "得点", load: () => import("./ScoringScatterFigure") },
   { id: "winpct-class", entity: "team", label: "勝率と登録区分別の得失点", group: "得点", load: () => import("./WinPctScatterFigure") },
+  { id: "team-venn", entity: "team", label: "上位チームのベン図", group: "効率", load: () => import("./TeamVennFigure") },
+  { id: "team-shooting", entity: "team", label: "シュート% × 試投数", group: "効率", load: () => import("./TeamShootingFigure") },
   { id: "four-factors", entity: "team", label: "Four Factors", group: "効率", load: () => import("./FourFactorsFigure") },
 ];
 

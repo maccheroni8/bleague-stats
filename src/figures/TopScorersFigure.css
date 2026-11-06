@@ -15,3 +15,5 @@
 @media(max-width:560px) { .scorers-export .ratings-plot-wrap { margin-left:28px; margin-right:28px; } .scorer-point { width:28px; height:28px; } .scorer-point img, .scorer-silhouette { width:24px; height:24px; } .scorer-name-one .scorer-name { font-size:8px; } .scorer-name-two .scorer-name { font-size:7px; } .scorer-name-long .scorer-name { font-size:6px; } .scorers-export .scorer-tick-secondary { visibility:hidden; } }
 
 .scorers-table th, .scorers-table td { white-space:nowrap; }
+/* 強調するクラブの選手は手前に出して1.5倍にする（倍率の仕組みは ORtg × DRtg の図の CSS と共通） */
+.scorer-point.is-emphasized { --emph:1.5; }

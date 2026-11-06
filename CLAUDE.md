@@ -134,6 +134,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 326章: 保守とランキング・順位表のまとめ（継続／移籍・合計の試合数・PPP・相手の見出し・「36勝まで」列〔`playoffWinLine.ts`〕・プレーオフ圏内ボタン〔`playoffZone.ts`〕・3点差以内／6点差以内・全選手スタッツのシーズン切替の不具合）。**画面だけの変更でキー不変**
 - 327章: 順位表「36勝まで」の列を「対戦相手の強さ」の右へ移動。**画面だけの変更でキー不変**
 - 328章: 個人詳細の**「Q別」タブ**（行＝1Q〜4Q・前半・後半・延長、Traditional〜Scoring、試合種別・平均／合計、シーズンはページのもの。移籍した選手は区間ごとにチーム別の行＋複数チームの合計行。`src/components/PlayerQuarterTab.tsx`・`src/lib/playerQuarterSplit.ts`）と、シーズン別成績 Traditional の G の右の**「勝敗」「勝率」**（本人が出場した試合のチームの勝敗。区間を選ぶと G と同じ試合）。検証は `npm run validate:player-quarter`。**画面だけの変更でキー不変**
+- 329章: 図解に3つ（のちに強調するクラブ・値で絞るベン図・チームの視点 opp／+/-・得点×アシストの下限を追加。強調は `hcl`・`highlightClubs.ts`）: **上位チームのベン図**（`figure=team-venn`。3つの円の項目はランキングと同じ列・上位5/8/10・境目が同じ表示値なら全部入れる・`src/lib/figureVenn.ts`・`figureVennItems.ts`・`npm run validate:figure-venn`）、**シュート% × 試投数**（チーム `team-shooting`・選手 `player-shooting`。試投数の下限は1試合平均で判定・`figureShooting.ts`・`figureAxis.ts`）、**得点 × アシスト**（選手 `pts-ast`）。検証は `npm run validate:figure-shooting`。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

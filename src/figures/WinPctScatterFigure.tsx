@@ -23,6 +23,7 @@ import { buildWinPctScatter, linearFit, winPctAverages, winPctDomain, winPctRate
 import { formatWinPct } from "../lib/format";
 import { useTeamLabel } from "../lib/teamLabel";
 import type { FigureProps } from "./catalog";
+import { useHighlightClubs } from "./highlightClubs";
 import "./RatingsScatterFigure.css";
 import "./ScoringScatterFigure.css";
 import "./WinPctScatterFigure.css";
@@ -75,6 +76,7 @@ export default function WinPctScatterFigure({season,category}:FigureProps) {
     return [...divisionOrder(category).filter(d=>values.has(d)),...(values.has("unknown")?["unknown" as const]:[])];
   },[model,category]);
   const activeDivision=division.filter(d=>present.includes(d));
+  const hl=useHighlightClubs({season,category,teams:request.data?.teams??[],divisionOf:id=>request.data?.divisions?.[category]?.[season]?.[id]});
   const xOf=(p:WinPctPoint)=>winPctX(p,cls,metric);
   const visible=model?.points.filter(point=>activeDivision.length === 0 || activeDivision.includes(point.division??"unknown"))??[];
   const selected=visible.find(point=>point.teamId===selectedId)??null;
@@ -101,8 +103,8 @@ export default function WinPctScatterFigure({season,category}:FigureProps) {
   },{
     kind:"select",id:"winPctMetric",label:"横軸",tier:"primary",value:metric,defaultValue:"pts",
     options:(["pts","opp","diff"] as const).map(m=>({value:m,label:WIN_PCT_METRIC_LABELS[m]})),onChange:value=>setMetric(value as WinPctMetric),
-  },divisionMultiAxis<"unknown">({id:"winPctDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision})];
-  const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")])];
+  },divisionMultiAxis<"unknown">({id:"winPctDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision}),hl.axis];
+  const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")]),...hl.labels];
   const xName=`${WIN_PCT_CLASS_LABELS[cls]}の${WIN_PCT_METRIC_LABELS[metric]}`;
   const color=WIN_PCT_METRIC_COLORS[metric];
   const columns:Column<WinPctPoint>[]=[
@@ -116,7 +118,7 @@ export default function WinPctScatterFigure({season,category}:FigureProps) {
   const x=(value:number)=>(value-domain.min)/(domain.max-domain.min)*100, y=(value:number)=>100-value;
   const tooltipText=(p:WinPctPoint)=>`勝率 ${formatWinPct(winPctRate(p))}（${p.wins}勝${p.games-p.wins}敗）`;
   return <section aria-label="勝率と登録区分別の得失点の散布図">
-    <FilterBar axes={axes} stateKey="figures:winpct" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);setClassParam("intl");setMetric("pts");}} />
+    <FilterBar axes={axes} stateKey="figures:winpct" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);hl.setIds([]);setClassParam("intl");setMetric("pts");}} />
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!average || !visible.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
       <FigureExportButton targetRef={target} filename={`勝率_${xName}_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={target} className="ratings-export scoring-export winpct-export" baseDate={baseDate}>
@@ -135,7 +137,7 @@ export default function WinPctScatterFigure({season,category}:FigureProps) {
                 {fit&&<div className="ratings-guide-clip winpct-trend" aria-hidden="true"><svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%">
                   <line x1={x(domain.min)} y1={y(fit.intercept+fit.slope*domain.min)} x2={x(domain.max)} y2={y(fit.intercept+fit.slope*domain.max)} stroke={color} strokeWidth={3} vectorEffect="non-scaling-stroke" strokeLinecap="round"/>
                 </svg></div>}
-                {visible.map(point=><WinPctLogo key={point.teamId} point={point} label={teamLabel(point.teamId,point.teamName)} selected={selected?.teamId===point.teamId} expanded={tooltip?.teamId===point.teamId} left={x(xOf(point))} top={y(100*winPctRate(point))}
+                {visible.map(point=><WinPctLogo key={point.teamId} point={point} label={teamLabel(point.teamId,point.teamName)} selected={selected?.teamId===point.teamId} emphasized={hl.has([point.teamId])} expanded={tooltip?.teamId===point.teamId} left={x(xOf(point))} top={y(100*winPctRate(point))}
                   description={`${teamLabel(point.teamId,point.teamName)}：${tooltipText(point)}、${xName} ${valueText(xOf(point),metric)}`} onSelect={()=>choose(point.teamId)} onDismiss={()=>setTooltipId(null)}/>)}
                 {tooltip&&<div role="tooltip" className="ratings-tooltip scoring-tooltip" style={{left:`clamp(0px, calc(${x(xOf(tooltip))}% - 130px), calc(100% - 260px))`,top:`clamp(0px, calc(${y(100*winPctRate(tooltip))}% + 30px), calc(100% - 110px))`}}>
                   <strong>{teamLabel(tooltip.teamId,tooltip.teamName)}</strong>
@@ -156,14 +158,14 @@ export default function WinPctScatterFigure({season,category}:FigureProps) {
       </>:<p>ロゴに触れるか押すと、チームの勝率と横軸の値を表示します。</p>}</div>
       <div className="table-scroll" tabIndex={0} role="region" aria-label="散布図のチーム一覧">
         <SortableTable columns={columns} rows={visible} rowKey={p=>p.teamId} defaultSortKey="rate" statScope="team"
-          rowHighlightColor={p=>selected?.teamId===p.teamId?"var(--accent)":undefined} rowHighlightStrength={()=>"half"}/>
+          rowHighlightColor={p=>selected?.teamId===p.teamId||hl.has([p.teamId])?"var(--accent)":undefined} rowHighlightStrength={()=>"half"}/>
       </div>
     </>}
   </section>;
 }
-function WinPctLogo({point,label,description,selected,expanded,left,top,onSelect,onDismiss}:{point:WinPctPoint;label:string;description:string;selected:boolean;expanded:boolean;left:number;top:number;onSelect:()=>void;onDismiss:()=>void}) {
+function WinPctLogo({point,label,description,selected,emphasized,expanded,left,top,onSelect,onDismiss}:{point:WinPctPoint;label:string;description:string;selected:boolean;emphasized:boolean;expanded:boolean;left:number;top:number;onSelect:()=>void;onDismiss:()=>void}) {
   const[failed,setFailed]=useState(false);
-  return <button className={`ratings-point${selected?" is-selected":""}${expanded?" is-expanded":""}`} style={{left:`${left}%`,top:`${top}%`,borderColor:DIVISION_RATING_COLORS[point.division??"unknown"]}}
+  return <button className={`ratings-point${selected?" is-selected":""}${emphasized?" is-emphasized":""}${expanded?" is-expanded":""}`} style={{left:`${left}%`,top:`${top}%`,borderColor:DIVISION_RATING_COLORS[point.division??"unknown"]}}
     aria-label={description} aria-pressed={selected} onPointerEnter={event=>{if(event.pointerType==="mouse")onSelect();}} onPointerLeave={event=>{if(event.pointerType==="mouse")onDismiss();}} onFocus={onSelect} onBlur={onDismiss} onClick={onSelect}>
     {failed?<span className="ratings-fallback">{teamShortName(point.teamId,point.teamName)}</span>:<img src={teamLogoUrl(point.teamId)} alt="" width={26} height={26} loading="eager" onError={()=>setFailed(true)}/>}
     <span className="scoring-sr">{label}</span>

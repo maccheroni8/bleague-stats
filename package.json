@@ -73,6 +73,8 @@
     "validate:roster-nationality": "node --experimental-strip-types --test scripts/test-roster-nationality.ts",
     "validate:four-factors": "esbuild scripts/validate-four-factors.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-four-factors.mjs && node node_modules/.cache/validate-four-factors.mjs data",
     "validate:winpct-scatter": "esbuild scripts/validate-winpct-scatter.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-winpct-scatter.mjs && node node_modules/.cache/validate-winpct-scatter.mjs data",
+    "validate:figure-venn": "esbuild scripts/validate-figure-venn.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-figure-venn.mjs && node node_modules/.cache/validate-figure-venn.mjs data",
+    "validate:figure-shooting": "esbuild scripts/validate-figure-shooting.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-figure-shooting.mjs && node node_modules/.cache/validate-figure-shooting.mjs data",
     "validate:figures": "esbuild scripts/validate-figures.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-figures.mjs && node node_modules/.cache/validate-figures.mjs data",
     "validate:all": "node --experimental-strip-types scripts/validate-all.ts",
     "validate:dnp-rows": "node --experimental-strip-types scripts/validate-dnp-rows.ts",

@@ -23,6 +23,7 @@ import type { TeamPerspective } from "../lib/teamStatsColumns";
 import { useTeamLabel } from "../lib/teamLabel";
 import { statJa } from "../lib/statNames";
 import type { FigureProps } from "./catalog";
+import { useHighlightClubs } from "./highlightClubs";
 import "./RatingsScatterFigure.css";
 import "./ScoringScatterFigure.css";
 
@@ -76,6 +77,7 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
     return [...divisionOrder(category).filter(d=>values.has(d)),...(values.has("unknown")?["unknown" as const]:[])];
   },[model,category]);
   const activeDivision=division.filter(d=>present.includes(d));
+  const hl=useHighlightClubs({season,category,teams:request.data?.teams??[],divisionOf:id=>request.data?.divisions?.[category]?.[season]?.[id]});
   const xKey=scoringAxisKey("x",yMode) as Key, yKey=scoringAxisKey("y",yMode) as Key;
   const xOf=(p:ScoringPoint)=>scoringPerGame(p,xKey,perspective), yOf=(p:ScoringPoint)=>scoringPerGame(p,yKey,perspective);
   const visible=model?.points.filter(point=>activeDivision.length === 0 || activeDivision.includes(point.division??"unknown"))??[];
@@ -100,8 +102,8 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
     kind:"select",id:"scoringY",label:"縦軸",tier:"primary",value:yMode,defaultValue:modes[0]!,
     options:modes.map(m=>({value:m,label:SCORING_Y_LABELS[m]})),onChange:value=>setYParam(value as ScoringYMode),
     ...(modes.length<2?{disabledReason:"外国籍だけを分けて見られるのは2026-27シーズンからです。それより前は外国籍・帰化・アジアの合計で表示します。"}:{}),
-  },divisionMultiAxis<"unknown">({id:"scoringDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision})];
-  const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")])];
+  },divisionMultiAxis<"unknown">({id:"scoringDivision",divisions:present.filter((d):d is Division=>d!=="unknown"),extra:present.includes("unknown")?[{value:"unknown",label:"地区不明"}]:[],selected:activeDivision,onChange:setDivision}),hl.axis];
+  const conditions=[season,seasonGameTypeLabels(season)[gameType],...(filter.range.kind === "all"?[]:situationalFilterLabels(filter)),...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")]),...hl.labels];
   const xName=statName(xKey,perspective), yName=statName(yKey,perspective);
   const cellNum=(value:number)=>perGameText(value,perspective).replace(/点$/,"");
   const cellShare=(value:number|null)=>shareText(value,perspective).replace(/ポイント$/,"");
@@ -122,7 +124,7 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
     <span>{yName} {perGameText(yOf(p),perspective)}（割合 {shareText(scoringShare(p,yKey,perspective),perspective)}）</span>
   </>;
   return <section aria-label="日本人と外国籍の得点の散布図">
-    <FilterBar axes={axes} stateKey="figures:scoring" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);setPerspective("own");setYParam("foreign");}} />
+    <FilterBar axes={axes} stateKey="figures:scoring" onClearAll={()=>{setFilter(DEFAULT_RANGE);setGameType("regular");setDivision(NO_DIVISIONS);hl.setIds([]);setPerspective("own");setYParam("foreign");}} />
     {request.loading?<p role="status">読み込み中…</p>:request.error || request.data?.missing.length?<p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p>:!league || !visible.length?<p className="empty-message">この条件で表示できるチームがありません。</p>:<>
       <FigureExportButton targetRef={target} filename={`${xName}_${yName}_${conditions.join("_")}`} baseDate={baseDate}/>
       <ExportTarget ref={target} className="ratings-export scoring-export" baseDate={baseDate}>
@@ -138,7 +140,7 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
                 {domain.ticks.map(tick=><span key={`h${tick}`} className={`ratings-grid-h scoring-grid ${isMajorTick(tick)?"is-major":"is-minor"}`} style={{top:`${y(tick)}%`}}/>)}
                 <span className="ratings-average-v" style={{left:`${x(xOf(league))}%`}}/><span className="ratings-average-h" style={{top:`${y(yOf(league))}%`}}/>
                 {perspective==="diff"&&<><span className="scoring-zero-v" style={{left:`${x(0)}%`}}/><span className="scoring-zero-h" style={{top:`${y(0)}%`}}/></>}
-                {visible.map(point=><ScoringLogo key={point.teamId} point={point} label={teamLabel(point.teamId,point.teamName)} selected={selected?.teamId===point.teamId} expanded={tooltip?.teamId===point.teamId} left={x(xOf(point))} top={y(yOf(point))}
+                {visible.map(point=><ScoringLogo key={point.teamId} point={point} label={teamLabel(point.teamId,point.teamName)} selected={selected?.teamId===point.teamId} emphasized={hl.has([point.teamId])} expanded={tooltip?.teamId===point.teamId} left={x(xOf(point))} top={y(yOf(point))}
                   description={`${teamLabel(point.teamId,point.teamName)}：${xName} ${perGameText(xOf(point),perspective)}、${yName} ${perGameText(yOf(point),perspective)}、${point.games}試合`} onSelect={()=>choose(point.teamId)} onDismiss={()=>setTooltipId(null)}/>)}
                 {tooltip&&<div role="tooltip" className="ratings-tooltip scoring-tooltip" style={{left:`clamp(0px, calc(${x(xOf(tooltip))}% - 130px), calc(100% - 260px))`,top:`clamp(0px, calc(${y(yOf(tooltip))}% + 30px), calc(100% - 150px))`}}>
                   <strong>{teamLabel(tooltip.teamId,tooltip.teamName)}</strong>
@@ -161,15 +163,15 @@ export default function ScoringScatterFigure({season,category}:FigureProps) {
       {(model!.omitted.length>0||!request.data?.divisions)&&<div className="figure-notes export-hide">{model!.omitted.length>0&&<p>対象試合がない、または値を確認できない{model!.omitted.length}チームは表示していません。</p>}{!request.data?.divisions&&<p>地区の情報を読み込めないため、色分けは地区不明として表示しています。</p>}</div>}
       <div className="table-scroll" tabIndex={0} role="region" aria-label="散布図のチーム一覧">
         <SortableTable columns={columns} rows={visible} rowKey={p=>p.teamId} defaultSortKey="y" statScope="team"
-          rowHighlightColor={p=>selected?.teamId===p.teamId?"var(--accent)":undefined} rowHighlightStrength={()=>"half"}/>
+          rowHighlightColor={p=>selected?.teamId===p.teamId||hl.has([p.teamId])?"var(--accent)":undefined} rowHighlightStrength={()=>"half"}/>
       </div>
     </>}
   </section>;
 }
 const splitSeason=(modes:ScoringYMode[])=>modes.length>1;
-function ScoringLogo({point,label,description,selected,expanded,left,top,onSelect,onDismiss}:{point:ScoringPoint;label:string;description:string;selected:boolean;expanded:boolean;left:number;top:number;onSelect:()=>void;onDismiss:()=>void}) {
+function ScoringLogo({point,label,description,selected,emphasized,expanded,left,top,onSelect,onDismiss}:{point:ScoringPoint;label:string;description:string;selected:boolean;emphasized:boolean;expanded:boolean;left:number;top:number;onSelect:()=>void;onDismiss:()=>void}) {
   const[failed,setFailed]=useState(false);
-  return <button className={`ratings-point${selected?" is-selected":""}${expanded?" is-expanded":""}`} style={{left:`${left}%`,top:`${top}%`,borderColor:DIVISION_RATING_COLORS[point.division??"unknown"]}}
+  return <button className={`ratings-point${selected?" is-selected":""}${emphasized?" is-emphasized":""}${expanded?" is-expanded":""}`} style={{left:`${left}%`,top:`${top}%`,borderColor:DIVISION_RATING_COLORS[point.division??"unknown"]}}
     aria-label={description} aria-pressed={selected} onPointerEnter={event=>{if(event.pointerType==="mouse")onSelect();}} onPointerLeave={event=>{if(event.pointerType==="mouse")onDismiss();}} onFocus={onSelect} onBlur={onDismiss} onClick={onSelect}>
     {failed?<span className="ratings-fallback">{teamShortName(point.teamId,point.teamName)}</span>:<img src={teamLogoUrl(point.teamId)} alt="" width={26} height={26} loading="eager" onError={()=>setFailed(true)}/>}
     <span className="scoring-sr">{label}</span>

@@ -35,6 +35,10 @@ export const GLOSSARY_ANCHORS = {
   figureScoring: "figure-scoring",
   figureTopScorers: "figure-top-scorers",
   figureUsgPpp: "figure-usg-ppp",
+  figureTeamVenn: "figure-team-venn",
+  figureShooting: "figure-shooting",
+  figurePtsAst: "figure-pts-ast",
+  figureHighlightClubs: "figure-highlight-clubs",
 } as const;
 
 export type GlossaryAnchor = (typeof GLOSSARY_ANCHORS)[keyof typeof GLOSSARY_ANCHORS];

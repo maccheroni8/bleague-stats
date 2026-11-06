@@ -26,6 +26,7 @@ import { ExportTarget } from '../components/ExportTarget';
 import { FigureExportButton } from "./FigureExport";
 import { ConditionTitle } from '../components/ConditionTitle';
 import { ScorerPhoto } from './TopScorersFigure';
+import { useHighlightClubs } from './highlightClubs';
 import type { FigureProps } from './catalog';
 import './UsgPppFigure.css';
 
@@ -54,7 +55,7 @@ export default function UsgPppFigure({ season, category }: FigureProps) {
   const [minRatio, setMinRatio] = useUrlState(ratioCodec, DEFAULT_RATIO);
   const [minPts, setMinPts] = useUrlState(ptsCodec, DEFAULT_PTS);
   const [clubs, setClubs] = useUrlState(clubsCodec, EMPTY);
-  const [team, setTeam] = useState('all'), [hover, setHover] = useState<string | null>(null);
+  const [hover, setHover] = useState<string | null>(null);
   const target = useRef<HTMLDivElement>(null), teamLabel = useTeamLabel();
   const request = useJsonData(async () => {
     const [players, teams, divisions, registrations] = await Promise.all([
@@ -82,21 +83,23 @@ export default function UsgPppFigure({ season, category }: FigureProps) {
   const divisionOf = (id: string) => request.data?.divisions?.[category]?.[season]?.[id];
   const namesOf = (p: UsgPppPoint) => p.teamIds.map(id => teamLabel(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
   const teamAbbr = (p: UsgPppPoint) => p.teamIds.map(id => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
+  const hl = useHighlightClubs({ season, category, teams, divisionOf });
   const groups = divisionPresets(teams.map(t => t.teamId), divisionOf, category).map(g => ({ label: g.label, values: g.teamIds }));
-  const clubLabels = clubSelectionLabels('対象クラブ', clubs, teams.map(t => ({ value: t.teamId, label: teamLabel(t.teamId, t.teamName) })), groups);
+  const clubLabels = clubSelectionLabels('表示クラブ', clubs, teams.map(t => ({ value: t.teamId, label: teamLabel(t.teamId, t.teamName) })), groups);
   const rangeAxes = situationalAxes(filter, v => setFilter({ range: v.range }))
     .filter(a => a.id === 's.range' || (filter.range.kind === 'dateRange' && (a.id === 's.dateStart' || a.id === 's.dateEnd')))
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season),
     classificationAxis(classification, setClassification, { season }),
-    teamMultiAxis({ id: 'usgClubs', options: teams, selected: clubs.length ? new Set(clubs) : null, onChange: v => setClubs(v ? [...v] : []), divisionOf, league: category, presets: playoffZonePresets }),
+    teamMultiAxis({ id: 'usgClubs', label: '表示するクラブ', options: teams, selected: clubs.length ? new Set(clubs) : null, onChange: v => setClubs(v ? [...v] : []), divisionOf, league: category, presets: playoffZonePresets }),
     { kind: 'popover', id: 'usgPts', label: '平均得点', tier: 'primary', value: String(minPts), defaultValue: String(DEFAULT_PTS), onChange: () => setMinPts(DEFAULT_PTS), summary: `平均得点${minPts}以上`, chipValue: `平均得点${minPts}以上`, content: <EligibilitySlider label="平均得点" value={minPts} min={0} max={50} step={0.5} format={v => `${v}点`} onChange={setMinPts} /> },
+    hl.axis,
     ratioEligibilityAxis({ id: 'usgRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio }),
   ];
   const conditions = [season, seasonGameTypeLabels(season)[gameType], ...situationalFilterLabels(filter), classificationFilterLabel(classification),
-    ...(clubs.length ? clubLabels : []), `平均得点${minPts}以上`, `出場率${minRatio}%以上`];
+    ...(clubs.length ? clubLabels : []), `平均得点${minPts}以上`, `出場率${minRatio}%以上`, ...hl.labels];
   const baseDate = { kind: 'season' as const, season, gameType };
-  const select = (p: UsgPppPoint) => { setTeam(p.teamIds.includes(team) ? team : p.teamIds[0] ?? 'all'); setHover(p.id); };
+  const select = (p: UsgPppPoint) => { setHover(p.id); };
   const columns: Column<UsgPppPoint>[] = [
     { key: 'team', label: '選手名（チーム）', align: 'left', sortValue: p => p.name, render: p => <button className="ratings-team-button" onClick={() => select(p)}>{playerLabel(p.name)}（{teamAbbr(p)}）{p.teamIds.length > 1 ? '合算' : ''}</button> },
     { key: 'games', label: 'G', sortValue: p => p.games },
@@ -106,9 +109,8 @@ export default function UsgPppFigure({ season, category }: FigureProps) {
     { key: 'ppp', label: PPP, sortValue: p => p.ppp ?? Number.NaN, render: p => text(p.ppp) },
   ];
   return <section aria-label={`${USG} × ${PPP}`}>
-    <FilterBar axes={axes} stateKey="figures:usg-ppp" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setClubs(EMPTY); setMinPts(DEFAULT_PTS); setMinRatio(DEFAULT_RATIO); setTeam('all'); setHover(null); }} />
+    <FilterBar axes={axes} stateKey="figures:usg-ppp" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setClubs(EMPTY); setMinPts(DEFAULT_PTS); setMinRatio(DEFAULT_RATIO); hl.setIds([]); setHover(null); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !visible.length ? <p>この条件に該当する選手はいません。</p> : <>
-      <div className="figures-controls"><label>手前に表示するチーム<select value={team} onChange={e => { setTeam(e.target.value); setHover(null); }}><option value="all">指定なし</option>{teams.filter(t => visible.some(p => p.teamIds.includes(t.teamId))).map(t => <option key={t.teamId} value={t.teamId}>{teamLabel(t.teamId, t.teamName)}</option>)}</select></label></div>
       <p className="figure-count">{plotted.length}人を表示</p>
       <FigureExportButton targetRef={target} filename={`USG_PPP_${conditions.join('_')}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export scorers-export usg-ppp-export" baseDate={baseDate}>
@@ -120,7 +122,7 @@ export default function UsgPppFigure({ season, category }: FigureProps) {
             {yd.ticks.map(t => <span key={`y${t}`} className={`ratings-grid-h scoring-grid ${major(t, yd.step) ? 'is-major' : 'is-minor'}`} style={{ top: `${y(t)}%` }} />)}
             {average.usg !== null && <span className="ratings-average-v" style={{ left: `${x(average.usg)}%` }}><span className="avg-line-label avg-line-label-v">{text(average.usg, true)}</span></span>}
             {average.ppp !== null && <span className="ratings-average-h" style={{ top: `${y(average.ppp)}%` }}><span className="avg-line-label avg-line-label-h">{text(average.ppp)}</span></span>}
-            {plotted.map(p => <ScorerPhoto key={p.id} point={p} label={`${playerLabel(p.name)}：${USG} ${text(p.usg, true)}、${PPP} ${text(p.ppp)}`} selected={p.teamIds.includes(team)} expanded={p.id === hover} left={x(p.usg!)} top={y(p.ppp!)} onSelect={() => setHover(p.id)} onDismiss={() => setHover(null)} />)}
+            {plotted.map(p => <ScorerPhoto key={p.id} point={p} label={`${playerLabel(p.name)}：${USG} ${text(p.usg, true)}、${PPP} ${text(p.ppp)}`} selected={hl.has(p.teamIds)} expanded={p.id === hover} left={x(p.usg!)} top={y(p.ppp!)} onSelect={() => setHover(p.id)} onDismiss={() => setHover(null)} />)}
             {tip && <div className="ratings-tooltip scoring-tooltip" role="tooltip" style={{ left: `clamp(0px, calc(${x(tip.usg!)}% - 130px), calc(100% - 260px))`, top: `clamp(0px, calc(${y(tip.ppp!)}% + 24px), calc(100% - 130px))` }}><strong>{playerLabel(tip.name)}（{namesOf(tip)}）</strong><span>{USG} {text(tip.usg, true)} / {PPP} {text(tip.ppp)}</span><span>平均得点 {text(tip.pts)} / 出場率 {text(tip.ratio, true)}</span><span>{tip.games}試合{tip.teamIds.length > 1 ? '・複数チームの合算' : ''}</span></div>}
           </div>
           {xd.ticks.filter(t => major(t, xd.step)).map(t => <span className="ratings-tick-x" key={t} style={{ left: `${x(t)}%` }}>{text(t)}</span>)}
@@ -129,7 +131,7 @@ export default function UsgPppFigure({ season, category }: FigureProps) {
         </div></div>
       </ExportTarget>
       <div className="table-scroll scorers-table" tabIndex={0} role="region" aria-label="選手一覧"><SortableTable columns={columns} rows={visible} rowKey={p => p.id} defaultSortKey="pts"
-        rowHighlightColor={p => p.teamIds.includes(team) ? 'var(--accent)' : undefined} rowHighlightStrength={() => 'half'} /></div>
+        rowHighlightColor={p => hl.has(p.teamIds) ? 'var(--accent)' : undefined} rowHighlightStrength={() => 'half'} /></div>
     </>}
   </section>;
 }
