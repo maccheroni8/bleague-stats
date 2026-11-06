@@ -133,6 +133,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 325章: 図解の見た目の統一（主タブ・保存ボタンは右端に固定・一覧は `SortableTable`・掲載基準は `eligibilityAxis.tsx`・説明文は用語集 `GlossaryFigures.tsx` へ）と、**「地区間の対戦数」**（`figure=division-matchups`。全シーズン・両リーグ。ふつうの対戦数＝いちばん多い対戦数〔同数は小さいほう〕、少ないマスは青・多いマスは橙。`src/lib/divisionMatchups.ts`・`npm run validate:one-game-matchups`）。年齢分布は ●日本人 ◆外国籍 ▲帰化・アジア特別枠。**画面だけの変更でキー不変**
 - 326章: 保守とランキング・順位表のまとめ（継続／移籍・合計の試合数・PPP・相手の見出し・「36勝まで」列〔`playoffWinLine.ts`〕・プレーオフ圏内ボタン〔`playoffZone.ts`〕・3点差以内／6点差以内・全選手スタッツのシーズン切替の不具合）。**画面だけの変更でキー不変**
 - 327章: 順位表「36勝まで」の列を「対戦相手の強さ」の右へ移動。**画面だけの変更でキー不変**
+- 328章: 個人詳細の**「Q別」タブ**（行＝1Q〜4Q・前半・後半・延長、Traditional〜Scoring、試合種別・平均／合計、シーズンはページのもの。移籍した選手は区間ごとにチーム別の行＋複数チームの合計行。`src/components/PlayerQuarterTab.tsx`・`src/lib/playerQuarterSplit.ts`）と、シーズン別成績 Traditional の G の右の**「勝敗」「勝率」**（本人が出場した試合のチームの勝敗。区間を選ぶと G と同じ試合）。検証は `npm run validate:player-quarter`。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

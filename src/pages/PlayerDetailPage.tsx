@@ -175,6 +175,8 @@ import { recordOfLogs, seasonBoxCompareDefs, type CompareColumnData } from "../l
 import { statDescription } from "../lib/statDescriptions";
 import { PlayerSeasonScoringChart } from "../components/PlayerScoringShareCharts";
 import { PlayerOpponentSplit } from "../components/PlayerOpponentSplit";
+import { PlayerQuarterTab } from "../components/PlayerQuarterTab";
+import { formatPlayerRecord, formatPlayerWinPct, playerRecordOfLogs, playerWinPct, type PlayerRecord } from "../lib/playerQuarterSplit";
 import type { PlayerOpponentCategory } from "../lib/playerOpponentSplit";
 import {
   attemptsFirst,
@@ -260,10 +262,11 @@ function toGameLogColumns(tabKey: BoxscoreTabKey, foulSplit: boolean): Column<Ga
   return [...fixed, ...statColumns];
 }
 
-type DetailTab = "stats" | "gamelog" | "opponentSplit" | "career" | "highs" | "compare";
+type DetailTab = "stats" | "quarter" | "gamelog" | "opponentSplit" | "career" | "highs" | "compare";
 
 const TAB_LABELS: Record<DetailTab, string> = {
   stats: "スタッツ",
+  quarter: "Q別",
   gamelog: "試合ログ",
   opponentSplit: "対戦相手別",
   career: "通算成績",
@@ -952,6 +955,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const [opponentSplitCategory, setOpponentSplitCategory] = usePageState<PlayerOpponentCategory>(pk("opponentSplitCategory"), "traditional");
   const [opponentSplitGameType, setOpponentSplitGameType] = usePageState<SeasonGameTypeFilter>(pk("opponentSplitGameType"), "regular");
   const [opponentSplitDisplayMode, setOpponentSplitDisplayMode] = usePageState<SeasonDisplayMode>(pk("opponentSplitDisplayMode"), "perGame");
+  // 「Q別」タブ: ページで選んでいるシーズンの1Q〜4Q・前半・後半・延長。カテゴリ・試合区分・平均/合計は、このタブ専用の独立した状態を持つ
+  const [quarterCategory, setQuarterCategory] = usePageState<SeasonBoxTabKey>(pk("quarterCategory"), "traditional");
+  const [quarterGameType, setQuarterGameType] = usePageState<SeasonGameTypeFilter>(pk("quarterGameType"), "regular");
+  const [quarterDisplayMode, setQuarterDisplayMode] = usePageState<SeasonDisplayMode>(pk("quarterDisplayMode"), "perGame");
   // Q別/前後半トグル（periodRawGamesキャッシュ・fetchロジックは「シーズン別成績」と共有。上の
   // seasonBreakdownPeriod参照）
   const [situationalStatsPeriod, setSituationalStatsPeriod] = usePageState<PeriodRangeValue>(
@@ -1260,7 +1267,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
   useEffect(() => {
     if (
-      (tab !== "stats" && tab !== "opponentSplit" && tab !== "career" && tab !== "highs" && tab !== "compare") ||
+      (tab !== "stats" && tab !== "quarter" && tab !== "opponentSplit" && tab !== "career" && tab !== "highs" && tab !== "compare") ||
       !playerId ||
       !seasons ||
       careerFetchStartedRef.current
@@ -1731,6 +1738,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
   // 「対戦相手別」タブ: 試合ログ・所属チームごとの分母は、通算成績と同じ全シーズン分の読み込み（careerData・careerTeamData）を使い回す。
   // Shooting だけは、選んだシーズンの出場した試合のスポーツナビの記録（この選手のシュート）を読む
+  // 「Q別」タブ: 試合ログ・所属チームごとの分母は、通算成績と同じ全シーズン分の読み込みを使い回す
+  const quarterLogs = careerData?.find((cd) => cd.season === season)?.logs;
+  const quarterTeamInfo = careerTeamData?.get(season);
   const opponentSplitSeasons = useMemo(() => [...(careerData ?? [])].map((cd) => cd.season).reverse(), [careerData]);
   const opponentSplitSeason = opponentSplitSeasons.includes(opponentSplitSeasonState) ? opponentSplitSeasonState : (opponentSplitSeasons[0] ?? opponentSplitSeasonState);
   const opponentSplitLogs = careerData?.find((cd) => cd.season === opponentSplitSeason)?.logs;
@@ -3133,6 +3143,24 @@ export function PlayerDetailPage({ season }: { season: string }) {
           </div>
         ))}
 
+      {tab === "quarter" && playerId && (
+        <PlayerQuarterTab
+          playerId={playerId}
+          season={season}
+          league={league}
+          logs={quarterLogs}
+          ownTeamByScheduleKey={quarterTeamInfo?.ownTeamByScheduleKey ?? (careerTeamData ? EMPTY_OWN_TEAMS : undefined)}
+          teamLogsByTeamId={quarterTeamInfo?.teamLogsByTeamId ?? (careerTeamData ? EMPTY_TEAM_LOGS : undefined)}
+          loading={careerLoading || !careerData || !careerTeamData}
+          category={quarterCategory}
+          onCategoryChange={setQuarterCategory}
+          gameType={quarterGameType}
+          onGameTypeChange={setQuarterGameType}
+          displayMode={quarterDisplayMode}
+          onDisplayModeChange={setQuarterDisplayMode}
+        />
+      )}
+
       {tab === "opponentSplit" && playerId && (
         <PlayerOpponentSplit
           playerId={playerId}
@@ -3419,7 +3447,7 @@ function SeasonBreakdownTable({
   // または単一チームの行のみ（countsTowardTotal）にし、チーム別の内訳行を二重に足し込まないようにする
   const seasonRows = useMemo(() => {
     if (!careerData) return [];
-    const rows: (TeamSplitRow & { season: string; ddtd: { dd: number; td: number; p10: number }; countsTowardTotal: boolean })[] = [];
+    const rows: (TeamSplitRow & { season: string; ddtd: { dd: number; td: number; p10: number }; countsTowardTotal: boolean; record: PlayerRecord })[] = [];
     for (const cd of [...careerData].reverse()) {
       const played = playedFilteredLogs(cd.logs);
       if (played.length === 0) continue;
@@ -3461,6 +3489,8 @@ function SeasonBreakdownTable({
           season: cd.season,
           ddtd: countDoubleTripleDoubles(row.logs),
           countsTowardTotal: row.isCombined || splitRows.length === 1,
+          // 本人が出場した試合のチームの勝敗（区間を選んでいるときは、Gと同じ試合）
+          record: playerRecordOfLogs(row.logs, playerId, period, periodSources.get(cd.season)),
         });
       }
     }
@@ -3495,10 +3525,18 @@ function SeasonBreakdownTable({
     if (totalRaw.gamesPlayed === 0) return null;
     const ctx = { ...buildSeasonBoxscoreCtx(totalRaw, totalTeam, displayMode, latestSeasonStartYear), onOff: mergeOnOffTotals(totalRows.map((r) => r.ctx.onOff)) };
     const totalEffSum = totalRows.reduce((sum, r) => sum + seasonTotalEff(r.ctx.raw, r.ctx.seasonStartYear), 0);
+    const record = careerData.reduce<PlayerRecord>(
+      (acc, cd) => {
+        const r = playerRecordOfLogs(playedFilteredLogs(cd.logs), playerId, period, periodSources.get(cd.season));
+        return { wins: acc.wins + r.wins, losses: acc.losses + r.losses };
+      },
+      { wins: 0, losses: 0 },
+    );
     return {
       ctx,
       ddtd: countDoubleTripleDoubles(allPlayed),
       effValue: totalEffSum * modeFactor(totalRaw, displayMode),
+      record,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [careerData, gameTypeFilter, seasonRows, displayMode, playerId, period, periodSources]);
@@ -3551,6 +3589,10 @@ function SeasonBreakdownTable({
         return r.season;
       case "team":
         return r.teamLabel;
+      case "record":
+        return r.record.wins - r.record.losses + r.record.wins / 1000;
+      case "winpct":
+        return playerWinPct(r.record) ?? -1;
       case "dd2":
         return ddtdUnavailable ? 0 : r.ddtd.dd;
       case "td3":
@@ -3670,16 +3712,28 @@ function SeasonBreakdownTable({
                 チーム{sortIndicator("team")}
               </th>
               {(tab === "shooting" ? seasonShotColumns : columns).map((col) => (
-                <th
-                  key={col.key}
-                  className="align-right sortable-col"
-                  title={statDescription(col.label)}
-                  onClick={() => handleHeaderClick(col.key)}
-                  aria-sort={sortAria(col.key)}
-                >
-                  {col.label}
-                  {sortIndicator(col.key)}
-                </th>
+                <Fragment key={col.key}>
+                  <th
+                    className="align-right sortable-col"
+                    title={statDescription(col.label)}
+                    onClick={() => handleHeaderClick(col.key)}
+                    aria-sort={sortAria(col.key)}
+                  >
+                    {col.label}
+                    {sortIndicator(col.key)}
+                  </th>
+                  {/* 勝敗・勝率: Gの右（トラディショナルだけ） */}
+                  {tab === "traditional" && col.key === "g" && (
+                    <>
+                      <th className="align-right sortable-col" title={statDescription("勝敗")} onClick={() => handleHeaderClick("record")} aria-sort={sortAria("record")}>
+                        勝敗{sortIndicator("record")}
+                      </th>
+                      <th className="align-right sortable-col" title={statDescription("勝率")} onClick={() => handleHeaderClick("winpct")} aria-sort={sortAria("winpct")}>
+                        勝率{sortIndicator("winpct")}
+                      </th>
+                    </>
+                  )}
+                </Fragment>
               ))}
               <th className="align-right sortable-col" title={statDescription("DD2")} onClick={() => handleHeaderClick("dd2")} aria-sort={sortAria("dd2")}>
                 DD2{sortIndicator("dd2")}
@@ -3715,9 +3769,15 @@ function SeasonBreakdownTable({
                       </td>
                     ))
                   : columns.map((col) => (
-                      <td key={col.key} className="align-right">
-                        {col.format(r.ctx, displayMode)}
-                      </td>
+                      <Fragment key={col.key}>
+                        <td className="align-right">{col.format(r.ctx, displayMode)}</td>
+                        {tab === "traditional" && col.key === "g" && (
+                          <>
+                            <td className="align-right">{formatPlayerRecord(r.record)}</td>
+                            <td className="align-right">{formatPlayerWinPct(r.record)}</td>
+                          </>
+                        )}
+                      </Fragment>
                     ))}
                 <td className="align-right">{ddtdUnavailable ? "-" : r.ddtd.dd}</td>
                 <td className="align-right">{ddtdUnavailable ? "-" : r.ddtd.td}</td>
@@ -3735,11 +3795,19 @@ function SeasonBreakdownTable({
                       </td>
                     ))
                   : columns.map((col) => (
-                      <td key={col.key} className="align-right">
-                        {col.key === "eff"
-                          ? formatDecimal(total.effValue, countDigits(displayMode))
-                          : col.format(total.ctx, displayMode)}
-                      </td>
+                      <Fragment key={col.key}>
+                        <td className="align-right">
+                          {col.key === "eff"
+                            ? formatDecimal(total.effValue, countDigits(displayMode))
+                            : col.format(total.ctx, displayMode)}
+                        </td>
+                        {tab === "traditional" && col.key === "g" && (
+                          <>
+                            <td className="align-right">{formatPlayerRecord(total.record)}</td>
+                            <td className="align-right">{formatPlayerWinPct(total.record)}</td>
+                          </>
+                        )}
+                      </Fragment>
                     ))}
                 <td className="align-right">{ddtdUnavailable ? "-" : total.ddtd.dd}</td>
                 <td className="align-right">{ddtdUnavailable ? "-" : total.ddtd.td}</td>
