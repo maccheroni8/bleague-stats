@@ -23,7 +23,7 @@ export const FIGURES: readonly FigureDefinition[] = [
   { id: "division-matchups", entity: "team", label: "地区間の対戦数", group: "日程", load: () => import("./DivisionMatchupsFigure") },
   { id: "scoring", entity: "team", label: "日本人・外国籍の得点", group: "得点", load: () => import("./ScoringScatterFigure") },
   { id: "winpct-class", entity: "team", label: "勝率と登録区分別の得失点", group: "得点", load: () => import("./WinPctScatterFigure") },
-  { id: "team-venn", entity: "team", label: "上位チームのベン図", group: "効率", load: () => import("./TeamVennFigure") },
+  { id: "team-venn", entity: "team", label: "ベン図", group: "効率", load: () => import("./TeamVennFigure") },
   { id: "team-shooting", entity: "team", label: "シュート% × 試投数", group: "効率", load: () => import("./TeamShootingFigure") },
   { id: "four-factors", entity: "team", label: "Four Factors", group: "効率", load: () => import("./FourFactorsFigure") },
 ];

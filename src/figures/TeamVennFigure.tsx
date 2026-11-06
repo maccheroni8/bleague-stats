@@ -122,7 +122,7 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
       render: r => `${textOf(r, i)}（${model?.rankOf[i]!.get(r.team.teamId) ?? '—'}位）` })),
   ];
   const chartProps = { emphasized: hl.ids, model, selection, labels, circleNames, circleLines, counts, hover, setHover, teamLabel, byId, textOf, total, tipRow };
-  return <section aria-label="上位チームのベン図">
+  return <section aria-label="ベン図">
     <FilterBar axes={axes} stateKey="figures:team-venn" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setTop(String(DEFAULT_VENN_TOP) as `${VennTop}`); setSel([...DEFAULT_VENN_SELECTION]); setBasis('rank'); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); }} />
     <div className="venn-pickers">
       {selection.map((s, i) => <div key={i} className={`venn-picker ${SLOT_COLORS[i]}`}>

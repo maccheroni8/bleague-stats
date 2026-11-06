@@ -1,4 +1,4 @@
-// 図解「上位チームのベン図」の検証。人工データで上位の選び方（向き・同じ値・上位の数）と配置を確かめ、
+// 図解「ベン図」の検証。人工データで上位の選び方（向き・同じ値・上位の数）と配置を確かめ、
 // 実データでは、ランキング（RankedList）と同じ手順で独立に順位を付け直して、選んだ項目の値・順位・上位の入れ方が一致することを確かめる。元データは読むだけ。
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";

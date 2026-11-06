@@ -1,4 +1,4 @@
-/* 上位チームのベン図。円の色はサイトの地区の色（青・緑・橙）の系統。保存画像（ライト固定）でも読める濃さの枠＋薄い塗り */
+/* ベン図。円の色はサイトの地区の色（青・緑・橙）の系統。保存画像（ライト固定）でも読める濃さの枠＋薄い塗り */
 .venn-a { --venn: #2878b5; } .venn-b { --venn: #218357; } .venn-c { --venn: #cd681b; }
 .venn-pickers { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:flex-end; margin:8px 0 12px; }
 .venn-picker { display:flex; flex-wrap:wrap; gap:6px 10px; align-items:flex-end; }

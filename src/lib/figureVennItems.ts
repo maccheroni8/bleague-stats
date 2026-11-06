@@ -1,4 +1,4 @@
-// 画面専用（図解「上位チームのベン図」）。選べる項目は、ランキング（チーム・シーズン成績）で選べる Traditional・Advanced・Misc・Scoring の項目。
+// 画面専用（図解「ベン図」）。選べる項目は、ランキング（チーム・シーズン成績）で選べる Traditional・Advanced・Misc・Scoring の項目。
 // 値・向き（higherIsBetter）・表示値は、全チームスタッツ／ランキングと同じ列定義をそのまま使う。
 import type { Category, TeamGameLog } from '../../shared/types';
 import { filterByGameType, type SeasonGameTypeFilter } from '../../shared/gameType';
