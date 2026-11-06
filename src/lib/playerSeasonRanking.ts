@@ -269,10 +269,31 @@ export function seasonBoxColumnsByTab(foulSplit: boolean): Record<SeasonBoxTabKe
   };
 }
 
-/** アドバンスドカテゴリのみ、SeasonBoxscoreColumnには無いPER・PPP（statDefs.ts、シーズン合計値の
+/**
+ * PPP（1ポゼッションあたりの得点）＝ORtg ÷ 100。ORtg の列から作り、Advanced の ORtg の右に並べる（平均／合計・条件・Q別を ORtg と同じに扱う）。
+ * 保存キーの対象（playerSeasonBoxscore.ts）は変えず、ランキング側で足す
+ */
+export function withPppColumn(cols: SeasonBoxscoreColumn[]): SeasonBoxscoreColumn[] {
+  const i = cols.findIndex((c) => c.key === "ortg");
+  if (i < 0 || cols.some((c) => c.key === "ppp")) return cols;
+  const o = cols[i]!;
+  const ppp: SeasonBoxscoreColumn = {
+    ...o,
+    key: "ppp",
+    label: "PPP",
+    value: (c, m) => o.value(c, m) / 100,
+    format: (c, m) => {
+      const t = o.format(c, m);
+      return t === "-" ? t : formatDecimal(o.value(c, m) / 100, 2);
+    },
+  };
+  return [...cols.slice(0, i + 1), ppp, ...cols.slice(i + 1)];
+}
+
+/** アドバンスドカテゴリのみ、SeasonBoxscoreColumnには無いPER（statDefs.ts、シーズン合計値の
  * みでフィルタ非対応）を追加する。ランキングページが従来から提供していた項目を引き続き
  * 使えるようにするための補完 */
-export const EXTRA_ADVANCED_PLAYER_ITEMS: PlayerRankItem[] = PLAYER_STAT_DEFS.filter((d) => d.key === "per" || d.key === "ppp").map(
+export const EXTRA_ADVANCED_PLAYER_ITEMS: PlayerRankItem[] = PLAYER_STAT_DEFS.filter((d) => d.key === "per").map(
   (d) => ({
     key: d.key,
     label: d.label,
@@ -370,7 +391,7 @@ export function buildPlayerConditionDefs(
   const defs: StatConditionItemDef<PlayerSummary>[] = [];
   const columnsByTab = seasonBoxColumnsByTab(foulColumnsSplit([season]));
   for (const tab of SEASON_BOX_TABS) {
-    for (const col of columnsByTab[tab.key]) {
+    for (const col of tab.key === "advanced" ? withPppColumn(columnsByTab[tab.key]) : columnsByTab[tab.key]) {
       if (col.key === "eff") {
         defs.push({ key: "eff", label: col.label, group: tab.label, display: (p) => effText(p, mode), displayOther: (p) => effText(p, other), seasonTotal: true });
         continue;
@@ -779,10 +800,10 @@ export function usePlayerSeasonRanking(
     return map;
   }, [ctxByPlayer]);
   const ctxFor = (p: PlayerSummary, mode: PlayerRankMode) => (mode === "total" ? totalCtxByPlayer : ctxByPlayer)?.get(p.playerId) ?? null;
-  // 「平均」で表示しているとき、値を割った試合数（ランキングが値の横に添える）。合計・割合の項目・Profile・Career、
-  // DD2・TD3（値に「27/60」と試合数が入っている）は添えない。EFF・シューティングはシーズンの出場試合数で割っている
+  // 「平均」でも「合計」でも、その選手の試合数（平均なら値を割った試合数）をランキングが添える。割合の項目・Profile・Career、
+  // DD2・TD3（値に「27/60」と試合数が入っている）は添えない。EFF・シューティングはシーズンの出場試合数
   const gamesDividedBy = (p: PlayerSummary): number | undefined => {
-    if (!modeApplies || rankMode !== "perGame") return undefined;
+    if (!modeApplies) return undefined;
     if (statKey === "dd2" || statKey === "td3" || statKey === "pts10") return undefined;
     if (category === "shooting" || statKey === "eff") return p.gamesPlayed;
     return ctxByPlayer?.get(p.playerId)?.raw.gamesPlayed;
@@ -832,7 +853,8 @@ export function usePlayerSeasonRanking(
     }
     if (category === "profile") return buildProfileItems(season);
     if (category === "career") return buildCareerItems((p) => careerBySeason?.[p.playerId]);
-    const items = seasonBoxColumnsByTab(foulColumnsSplit([season]))[category].map((col) => boxColumnItem(col, rankMode));
+    const boxCols = seasonBoxColumnsByTab(foulColumnsSplit([season]))[category];
+    const items = (category === "advanced" ? withPppColumn(boxCols) : boxCols).map((col) => boxColumnItem(col, rankMode));
     if (category === "traditional") return [...items, ...doubleItems((p) => doublesByPlayer.get(p.playerId), rankMode)];
     return category === "advanced" ? [...items, ...EXTRA_ADVANCED_PLAYER_ITEMS] : items;
   }, [category, shootingColumns, shootingColumnsTotal, season, careerBySeason, rankMode, doublesByPlayer]);

@@ -6,6 +6,7 @@ import { fetchPlayers, fetchTeams, fetchPlayerGameLogs, fetchTeamGameLogs, fetch
 import { useJsonData } from '../lib/useJsonData';
 import { enumParam, listParam, numberParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
 import { classificationAxis, gameTypeAxis, situationalAxes, teamMultiAxis, type FilterAxis } from '../lib/filterAxes';
+import { usePlayoffZonePresets } from '../lib/playoffZone';
 import type { SituationalFilter } from '../lib/situational';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
 import { figureClassGroup } from '../lib/figureAge';
@@ -66,6 +67,7 @@ export default function UsgPppFigure({ season, category }: FigureProps) {
     ]);
     return { players, teams, divisions, registrations, playerLogs: new Map(playerLogs), teamLogs: new Map(teamLogs) };
   }, [season, category]);
+  const playoffZonePresets = usePlayoffZonePresets(season, category);
   const points = useMemo(() => request.data ? buildUsgPpp(request.data, { season, category, range: filter.range, gameType, classification }) : [], [request.data, season, category, filter, gameType, classification]);
   const visible = useMemo(() => points.filter(p => p.ratio >= minRatio && p.pts >= minPts && (!clubs.length || p.teamIds.some(id => clubs.includes(id)))), [points, minRatio, minPts, clubs]);
   const plotted = visible.filter(p => p.usg !== null && p.ppp !== null);
@@ -87,7 +89,7 @@ export default function UsgPppFigure({ season, category }: FigureProps) {
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season),
     classificationAxis(classification, setClassification, { season }),
-    teamMultiAxis({ id: 'usgClubs', options: teams, selected: clubs.length ? new Set(clubs) : null, onChange: v => setClubs(v ? [...v] : []), divisionOf, league: category }),
+    teamMultiAxis({ id: 'usgClubs', options: teams, selected: clubs.length ? new Set(clubs) : null, onChange: v => setClubs(v ? [...v] : []), divisionOf, league: category, presets: playoffZonePresets }),
     { kind: 'popover', id: 'usgPts', label: '平均得点', tier: 'primary', value: String(minPts), defaultValue: String(DEFAULT_PTS), onChange: () => setMinPts(DEFAULT_PTS), summary: `平均得点${minPts}以上`, chipValue: `平均得点${minPts}以上`, content: <EligibilitySlider label="平均得点" value={minPts} min={0} max={50} step={0.5} format={v => `${v}点`} onChange={setMinPts} /> },
     ratioEligibilityAxis({ id: 'usgRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio }),
   ];

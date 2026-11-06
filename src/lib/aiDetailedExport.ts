@@ -131,8 +131,8 @@ const SITUATION_GROUP_LABEL: Record<string, string> = {
   opponentStrength: '対戦相手の強さ（相手の今の勝率で分ける。基準日時点・最新）',
 };
 const SITUATION_ROW_LABEL: Record<string, string> = {
-  poss1: '1POS差以内（3点差以内）',
-  poss2: '2POS差以内（6点差以内）',
+  poss1: '3点差以内',
+  poss2: '6点差以内',
 };
 /** 数え方が名前から分かりにくい項目（「数字の書き方」に載せる） */
 const GLOSSARY_COMMON = [

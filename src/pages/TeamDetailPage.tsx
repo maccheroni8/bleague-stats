@@ -1639,14 +1639,14 @@ interface SituationalRecordGroupDef {
 }
 
 /** 1ポゼッションあたりの平均得点（両チーム合計点 / (POSS×2)）。「点差決着」グループの
- * 1POS/2POS差以内判定では現在使用していない（2026-08-29、固定点差方式に変更したため。
+ * 3点差以内・6点差以内判定では現在使用していない（2026-08-29、固定点差方式に変更したため。
  * 下記marginWithinPossessions()参照）。他の用途で再利用する可能性があるため残してある */
 function pointsPerPossession(g: TeamGameLog): number {
   return safeDiv(g.teamScore + g.opponentScore, 2 * g.poss);
 }
 
 /** その試合の実際のPOSSデータから算出したポゼッション差判定（現在未使用。2026-08-29、
- * 「点差決着」グループの1POS/2POS差以内は固定点差（3点/6点）方式に変更したため、
+ * 「点差決着」グループの3点差以内・6点差以内は固定点差（3点/6点）方式に変更したため、
  * marginWithinFixedPoints()に置き換えた。関数自体は削除せず残してある） */
 function marginWithinPossessions(g: TeamGameLog, n: number): boolean {
   const ppp = pointsPerPossession(g);
@@ -1654,8 +1654,8 @@ function marginWithinPossessions(g: TeamGameLog, n: number): boolean {
   return Math.abs(g.teamScore - g.opponentScore) <= Math.round(ppp * n);
 }
 
-/** 1POS/2POS差以内の判定基準（固定点差）。ユーザー指定により2026-08-29、POSSベースの
- * marginWithinPossessions()から固定点差方式に変更した: 1POS差=3点差以内、2POS差=6点差以内 */
+/** 3点差以内・6点差以内の判定基準（固定点差）。ユーザー指定により2026-08-29、POSSベースの
+ * marginWithinPossessions()から固定点差方式に変更した: 3点差以内・6点差以内 */
 function marginWithinFixedPoints(g: TeamGameLog, points: number): boolean {
   return Math.abs(g.teamScore - g.opponentScore) <= points;
 }
@@ -1836,8 +1836,8 @@ export function buildSituationalRecordGroups(
       rows: [
         { key: "margin10", label: "10点差以上", predicate: (g: TeamGameLog) => Math.abs(g.teamScore - g.opponentScore) >= 10 },
         { key: "margin20", label: "20点差以上", predicate: (g: TeamGameLog) => Math.abs(g.teamScore - g.opponentScore) >= 20 },
-        { key: "poss1", label: "1POS差以内", predicate: (g: TeamGameLog) => marginWithinFixedPoints(g, 3) },
-        { key: "poss2", label: "2POS差以内", predicate: (g: TeamGameLog) => marginWithinFixedPoints(g, 6) },
+        { key: "poss1", label: "3点差以内", predicate: (g: TeamGameLog) => marginWithinFixedPoints(g, 3) },
+        { key: "poss2", label: "6点差以内", predicate: (g: TeamGameLog) => marginWithinFixedPoints(g, 6) },
       ],
     },
     // 試合中の最大リード・最大ビハインド（延長戦を含む。DESIGN.md 150章）。同じ試合が複数の行に入ることがある

@@ -122,7 +122,7 @@ export interface FilterMultiAxis extends FilterAxisBase {
    * 一括選択のプリセット（例: 東地区のクラブ全部）。ボタンは「{label}を選択」で、押すとそのクラブを今の選択に加える。
    * すべて選択済みのときは「{label}を解除」になり、押すとそのクラブだけを外す
    */
-  presets?: { label: string; values: string[] }[];
+  presets?: { label: string; values: string[]; title?: string }[];
   /** trueのとき、選択肢を絞り込む検索欄を出す（選択肢が多いクラブ用） */
   searchable?: boolean;
   /** ボタン・チップに出す選択内容（未選択は allLabel） */
@@ -148,7 +148,7 @@ export function multiSelectAxis(input: {
   selected: string[];
   onChangeSelected: (values: string[]) => void;
   allLabel: string;
-  presets?: { label: string; values: string[] }[];
+  presets?: { label: string; values: string[]; title?: string }[];
   searchable?: boolean;
   disabledReason?: string;
   /** ボタン・チップに並べる件数の上限（超えた分は「他N」）。省略時は3件。Infinity で省略しない */
@@ -229,7 +229,7 @@ export function teamMultiAxis(input: {
   options: { teamId: string; teamName: string }[];
   selected: Set<string> | null;
   onChange: (next: Set<string> | null) => void;
-  presets?: { label: string; teamIds: string[] }[];
+  presets?: { label: string; teamIds: string[]; title?: string }[];
   /** そのシーズンの各クラブの地区。指定すると、選択肢の先頭に地区ごとの一括選択（divisionPresets）を置く */
   divisionOf?: (teamId: string) => Division | null | undefined;
   /** 地区の並びのリーグ（B.ONE は北→東→中→西→南。DESIGN.md 297章）。省略時は B.PREMIER */
@@ -237,7 +237,7 @@ export function teamMultiAxis(input: {
   tier?: "primary" | "advanced";
 }): FilterAxis {
   const divisions = input.divisionOf ? divisionPresets(input.options.map((t) => t.teamId), input.divisionOf, input.league) : [];
-  const presets = [...divisions, ...(input.presets ?? [])];
+  const presets: { label: string; teamIds: string[]; title?: string }[] = [...divisions, ...(input.presets ?? [])];
   return multiSelectAxis({
     id: input.id ?? "teams",
     label: input.label ?? "対象クラブ",
@@ -246,7 +246,7 @@ export function teamMultiAxis(input: {
     selected: input.selected ? [...input.selected] : [],
     onChangeSelected: (values) => input.onChange(values.length === 0 ? null : new Set(values)),
     allLabel: "全クラブ",
-    presets: presets.map((p) => ({ label: p.label, values: p.teamIds })),
+    presets: presets.map((p) => ({ label: p.label, values: p.teamIds, title: p.title })),
     collapseGroups: divisions.map((p) => ({ label: p.label, values: p.teamIds })),
     searchable: true,
   });

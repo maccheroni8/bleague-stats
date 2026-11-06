@@ -460,7 +460,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const teamBoxscoreTitle = makeRankingTitle(
     "チーム",
     season,
-    statJa(teamDef?.label ?? "", "team"),
+    // 相手（opp）の値のランキングは、見出し・ファイル名とも「相手の3P%」の形にする（自チーム視点の失点などはそのまま）
+    `${perspective === "opp" ? "相手の" : ""}${statJa(teamDef?.label ?? "", "team")}`,
     composeLabels(
       boxscoreCategoryLabel,
       compareActive && COMPARE_LABEL,
@@ -858,10 +859,14 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   // スマホ幅では名字だけ（同じ一覧で名字が重なる選手はフルネーム）
   const playerLabel = usePlayerLabel(shownRows.map((p) => p.name));
   const teamLabel = useTeamLabel();
-  // 「平均」で割った試合数（名前の下の行・写真なしの保存画像の名前の横に入れる。「6試合」）
+  // その選手の試合数（名前の下の行・写真なしの保存画像の名前の横に入れる。「6試合」）。前季と比べているときは、すぐ隣に
+  // 「継続」（前季の最後のチームと今季の今のチームが同じ）か「移籍」（違う）を添える。シーズン途中の移籍は、どちらも最後に所属したチームで比べる
+  const prevTeamByPlayer = useMemo(() => new Map(prevRanking.rows.map((r) => [r.playerId, r.teamId])), [prevRanking.rows]);
   const gamesText = (p: PlayerSummary) => {
     const g = gamesDividedBy(p);
-    return g === undefined ? undefined : `${g}試合`;
+    const prevTeam = compareActive ? prevTeamByPlayer.get(p.playerId) : undefined;
+    const move = prevTeam === undefined ? undefined : prevTeam === p.teamId ? "継続" : "移籍";
+    return [g === undefined ? undefined : `${g}試合`, move].filter(Boolean).join("・") || undefined;
   };
 
   // 「プロフィール」カテゴリの年齢の基準日ラベル（表・画像出力に出す。そのシーズンの6月30日か今日の早い方。DESIGN.md 172章）。

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { GlossaryNote } from "./GlossaryNote";
 import { postseasonLabel } from "../../shared/gameType";
-import { postseasonFormat, postseasonQualifiedTeamIds } from "../../shared/postseasonFormat";
+import { postseasonFormat } from "../../shared/postseasonFormat";
+import { playoffZonePreset } from "../lib/playoffZone";
 import { SortableTable, type Column } from "./SortableTable";
 import { TeamLogo } from "./TeamLogo";
 import { FilterBar } from "./FilterBar";
@@ -111,7 +112,7 @@ function describeCondition(condition: ConditionalCondition): string {
           ? `終盤戦${GAME_PHASE_WINDOW}試合`
           : `中盤戦${GAME_PHASE_WINDOW}試合`;
     case "margin":
-      return condition.points === 3 ? "1POS差（3点差）決着試合" : "2POS差（6点差）決着試合";
+      return condition.points === 3 ? "3点差以内の試合" : "6点差以内の試合";
     case "inGameMargin":
       return MARGIN_CONDITION_LABELS[condition.value];
   }
@@ -300,10 +301,7 @@ export function ConditionalStandingsTable({
   // シーズンごとの出場形式（各地区の上位○クラブ＋ワイルドカード○クラブ。shared/postseasonFormat.ts）で算出する。
   // 形式の無いシーズン（CS中止の2019-20）と地区データの無いシーズンは null（進出圏のボタン自体を出さない）
   const format = postseasonFormat(season, league);
-  const playoffQualifiedIds = useMemo(
-    () => (format && teams.some((t) => t.division) ? postseasonQualifiedTeamIds(teams, format) : null),
-    [teams, format],
-  );
+  const playoffZone = useMemo(() => playoffZonePreset(season, league, teams), [season, league, teams]);
 
   const teamIdByName = useMemo(() => new Map(teams.map((t) => [t.teamName, t.teamId])), [teams]);
   const teamOptions = useMemo(
@@ -387,8 +385,8 @@ export function ConditionalStandingsTable({
     {
       label: "点差決着",
       options: [
-        { key: "margin-1pos", label: "1POS差（3点差）決着試合", condition: { kind: "margin", points: 3 } },
-        { key: "margin-2pos", label: "2POS差（6点差）決着試合", condition: { kind: "margin", points: 6 } },
+        { key: "margin-1pos", label: "3点差以内の試合", condition: { kind: "margin", points: 3 } },
+        { key: "margin-2pos", label: "6点差以内の試合", condition: { kind: "margin", points: 6 } },
       ],
     },
     {
@@ -435,9 +433,7 @@ export function ConditionalStandingsTable({
       onChange: setSelectedTeamIds,
       divisionOf: (id) => divisionByTeamId.get(id),
       league,
-      presets: [
-        ...(playoffQualifiedIds ? [{ label: `${postseasonLabel(season)}進出圏（現時点）`, teamIds: [...playoffQualifiedIds] }] : []),
-      ],
+      presets: playoffZone ? [playoffZone] : [],
     }),
   ];
   const clearFilters = () => {

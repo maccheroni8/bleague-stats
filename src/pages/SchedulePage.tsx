@@ -5,6 +5,7 @@ import { TeamLogo } from "../components/TeamLogo";
 import { usePageState, useSkipFirstEffectRun } from "../lib/pageStateCache";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { FilterBar } from "../components/FilterBar";
+import { usePlayoffZonePresets } from "../lib/playoffZone";
 import { simpleSelectAxis, teamMultiAxis, type FilterAxis } from "../lib/filterAxes";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { clubSelectionLabels, composeLabels, multiSelectLabels } from "../lib/conditionLabels";
@@ -281,6 +282,7 @@ export function SchedulePage({ season }: { season: string }) {
   const { data: teamHistory } = useJsonData(() => fetchTeamHistory().catch(() => []), []);
   // クラブの複数選択の「◯地区を選択」ボタン用（そのシーズンの地区構成）
   const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory().catch(() => null), []);
+  const playoffZonePresets = usePlayoffZonePresets(season, league);
   const teamIdByName = useMemo(() => {
     const map = new Map<string, string>();
     for (const t of prevTeams ?? []) map.set(t.teamName, t.teamId);
@@ -451,6 +453,7 @@ export function SchedulePage({ season }: { season: string }) {
       onChange: setSelectedTeamIds,
       divisionOf: (id) => teamDivisionForSeason(divisionHistory, id, season, league),
       league,
+      presets: playoffZonePresets,
     }),
   ];
   const clearFilters = () => {

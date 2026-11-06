@@ -236,8 +236,10 @@ export function PlayersListPage({ season }: { season: string }) {
         ))}
       </div>
       {league === "one" && ONE_PLAYERS_TAB_REASONS[urlTab] && <p className="standings-tab-note">{ONE_PLAYERS_TAB_REASONS[urlTab]}</p>}
+      {/* 全選手スタッツはシーズンごとに作り直す（key）。作り直さないと、新しいシーズンの選手一覧を読み込む前の古い一覧（useJsonData は読み込み中も
+          前の値を持つ）で新しいシーズンの試合ログを取りに行って「取得済み」の印を付け、そのあと選手一覧が替わって取得が取り消されるため、「読み込み中」のまま止まる */}
       {tab === "stats" ? (
-        <AllPlayersStatsTab season={season} league={league} />
+        <AllPlayersStatsTab key={`${league}-${season}`} season={season} league={league} />
       ) : tab === "records" ? (
         <PlayerRecordsTab season={season} />
       ) : tab === "awards" ? (

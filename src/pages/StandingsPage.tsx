@@ -24,6 +24,8 @@ import { WinLossGrid, WinLossLegend } from "../components/WinLossGrid";
 import { HeadToHeadMatrix } from "../components/HeadToHeadMatrix";
 import { FilterBar } from "../components/FilterBar";
 import { teamMultiAxis } from "../lib/filterAxes";
+import { playoffZonePreset } from "../lib/playoffZone";
+import { playoffLineSortValue, playoffLineStatus, playoffLineText, playoffWinLine, type PlayoffWinLine } from "../lib/playoffWinLine";
 import { ConditionalStandingsTable } from "../components/ConditionalStandingsTable";
 import { ConditionLine, ConditionTitle } from "../components/ConditionTitle";
 import { clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
@@ -417,6 +419,20 @@ const divisionStandingsColumns: Column<StandingsRow>[] = [
   },
 ];
 
+/** プレーオフ進出ラインまでの見通しの列（ラインを設定したシーズン・リーグだけ。ゲーム差の右に足す） */
+function withPlayoffLineColumn(columns: Column<StandingsRow>[], line: PlayoffWinLine | null): Column<StandingsRow>[] {
+  if (!line) return columns;
+  const col: Column<StandingsRow> = {
+    key: "playoffLine",
+    label: `${line.wins}勝まで`,
+    sortValue: (t) => playoffLineSortValue(playoffLineStatus(t.wins, t.losses, line)),
+    format: (t) => playoffLineText(playoffLineStatus(t.wins, t.losses, line)),
+    higherIsBetter: false,
+  };
+  const i = columns.findIndex((c) => c.key === "divisionGamesBehind");
+  return i < 0 ? [...columns, col] : [...columns.slice(0, i + 1), col, ...columns.slice(i + 1)];
+}
+
 // 地区データが無いシーズン用のフォールバック列（「地区順位」列を除いたもの）
 const overallStandingsColumns: Column<StandingsRow>[] = divisionStandingsColumns.filter(
   (c) => c.key !== "divisionRank",
@@ -647,6 +663,8 @@ export function StandingsPage({ season }: { season: string }) {
   if (!history || history.length === 0 || !latest) return v2(<p className="empty-message">データがありません</p>);
 
   const teams = latest.teams;
+  const playoffZone = playoffZonePreset(season, league, teams);
+  const winLine = playoffWinLine(season, league);
   // schedule.upcomingGamesは古いschedule.jsonスナップショット（スクレイパーにこのフィールドを
   // 追加する前に取得されたもの）には存在しないことがあるため、undefinedの可能性を必ず考慮する
   // 試合の記録（games-summary）がある試合は開催予定から除く（外れないまま残っていても、残り試合に数えない）
@@ -853,7 +871,7 @@ export function StandingsPage({ season }: { season: string }) {
                     <div className="table-scroll standings-sticky-3">
                       <SortableTable
                         statScope="team"
-                        columns={divisionStandingsColumns}
+                        columns={withPlayoffLineColumn(divisionStandingsColumns, winLine)}
                         rows={g.rows}
                         rowKey={(t) => t.teamId}
                         defaultSortKey="divisionRank"
@@ -870,7 +888,7 @@ export function StandingsPage({ season }: { season: string }) {
                     <div className="table-scroll standings-sticky-2">
                       <SortableTable
                         statScope="team"
-                        columns={overallStandingsColumns}
+                        columns={withPlayoffLineColumn(overallStandingsColumns, winLine)}
                         rows={allStandingsRows}
                         rowKey={(t) => t.teamId}
                         defaultSortKey="rank"
@@ -902,7 +920,7 @@ export function StandingsPage({ season }: { season: string }) {
                 <div className="table-scroll standings-sticky-3">
                   <SortableTable
                     statScope="team"
-                    columns={wildcardStandingsColumns}
+                    columns={withPlayoffLineColumn(wildcardStandingsColumns, winLine)}
                     rows={wildcardStandingsRows}
                     rowKey={(t) => t.teamId}
                     defaultSortKey="wildcardRank"
@@ -936,7 +954,7 @@ export function StandingsPage({ season }: { season: string }) {
                 <div className="table-scroll standings-sticky-3">
                   <SortableTable
                     statScope="team"
-                    columns={allStandingsColumns}
+                    columns={withPlayoffLineColumn(allStandingsColumns, winLine)}
                     rows={allStandingsRows}
                     rowKey={(t) => t.teamId}
                     defaultSortKey="rank"
@@ -1005,6 +1023,7 @@ export function StandingsPage({ season }: { season: string }) {
                   selected: h2hSelectedTeamIds,
                   onChange: setH2hSelectedTeamIds,
                   divisionOf: (id) => divisionByTeamId.get(id),
+                  presets: playoffZone ? [playoffZone] : [],
                 }),
               ]}
               stateKey="standings:h2h"

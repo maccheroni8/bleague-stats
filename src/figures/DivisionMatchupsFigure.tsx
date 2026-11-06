@@ -10,6 +10,7 @@ import { useJsonData } from "../lib/useJsonData";
 import { divisionListParam, stringParam, useUrlState } from "../lib/urlState";
 import { FilterBar } from "../components/FilterBar";
 import { teamMultiAxis } from "../lib/filterAxes";
+import { usePlayoffZonePresets } from "../lib/playoffZone";
 import { DIVISION_LABELS, divisionOrder, divisionPresets, summarizeClubSelection } from "../lib/divisionGroups";
 import { MATCHUP_STATUS_LABELS, buildDivisionMatchups, jstToday, matchupOutcome, pairKey, type DivisionPairRow, type MatchupGame, type MatchupTeam, type PairInfo } from "../lib/divisionMatchups";
 import type { FigureProps } from "./catalog";
@@ -53,6 +54,7 @@ export default function DivisionMatchupsFigure({ season, category }: FigureProps
     ]);
     return { summaries, schedule, teams, divisions: divisions[category]?.[season], standings: standings?.at(-1)?.teams ?? [] };
   }, [season, category]);
+  const playoffZonePresets = usePlayoffZonePresets(season, category);
   const result = useMemo(() => {
     const d = request.data;
     if (!d) return null;
@@ -83,6 +85,7 @@ export default function DivisionMatchupsFigure({ season, category }: FigureProps
     onChange: next => { setClub(next ? [...next].join(",") : "all"); setDivision(NO_DIVISIONS); setExportScope("all"); },
     divisionOf: id => teamById.get(id)?.division,
     league: category,
+    presets: playoffZonePresets,
   });
   const conditions = [season, ...(clubSummary ? [clubSummary] : [])];
   const listDivisions = divisions.filter(d => listTeams.some(t => t.division === d));

@@ -129,7 +129,7 @@ function MultiSelectContent({ axis }: { axis: FilterMultiAxis }) {
             ? axis.selected.filter((v) => !presetSet.has(v))
             : [...axis.selected, ...p.values.filter((v) => !selected.has(v))];
           return (
-            <button key={p.label} type="button" onClick={() => axis.onChangeSelected(next)} aria-pressed={allSelected}>
+            <button key={p.label} type="button" title={p.title} onClick={() => axis.onChangeSelected(next)} aria-pressed={allSelected}>
               {p.label}
               {allSelected ? "を解除" : "を選択"}
             </button>

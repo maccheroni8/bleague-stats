@@ -422,12 +422,12 @@ check('1シーズン・試合全体の値がチームスタッツタブ・選手
     const hasNote = lines.some(l => l.includes('2019-20以前のシーズンは、コートにいた選手を試合の記録から推定'));
     if (hasNote !== (season < '2020-21')) noteBad++;
     if (md.includes('自チーム外国籍人数') || !md.includes('コート上の外国籍・帰化・アジアの人数（最も長かった人数）') && logs.some(g => g.foreignPlayerCount !== undefined)) labelBad++;
-    for (const w of ['1POS差以内（3点差以内）', '試合中の点差（試合中に一度でも', '対戦相手の強さ（相手の今の勝率', '#### 用語（数え方が名前から分かりにくい項目）']) if (!md.includes(w) && (w !== '1POS差以内（3点差以内）' || logs.some(g => Math.abs(g.teamScore - g.opponentScore) <= 3))) labelBad++;
+    for (const w of ['3点差以内', '試合中の点差（試合中に一度でも', '対戦相手の強さ（相手の今の勝率', '#### 用語（数え方が名前から分かりにくい項目）']) if (!md.includes(w) && (w !== '3点差以内' || logs.some(g => Math.abs(g.teamScore - g.opponentScore) <= 3))) labelBad++;
   }
   console.log(`人数別の時間の表: ${rowsChecked}試合を試合ログと突き合わせた`);
   check('人数別の時間の表＝試合ごとの在コート秒数（分）・最長の人数が試合ログの値と同じ・行数＝スタッツのある試合数', bad === 0, `${bad}件`);
   check('2019-20以前のシーズンにだけ「推定」の注記がある', noteBad === 0, `${noteBad}件`);
-  check('項目名（外国籍人数・1POS・試合中の点差・対戦相手の強さ）と用語の一覧が入っている・旧名が残らない', labelBad === 0, `${labelBad}件`);
+  check('項目名（外国籍人数・3点差以内・試合中の点差・対戦相手の強さ）と用語の一覧が入っている・旧名が残らない', labelBad === 0, `${labelBad}件`);
   const t0 = sd('2026-27').teams.find(x => x.teamName.includes('宇都宮'))!;
   const player = buildDetailedExport(inputFor('2026-27', t0.teamId, 'player')).markdown;
   check('選手情報にも用語の一覧がある', player.includes('#### 用語（数え方が名前から分かりにくい項目）'));
