@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { joinLabels, LABEL_SEPARATOR, visibleConditionLabels } from "../lib/conditionLabels";
 import { exportHeadingLines } from "../lib/exportHeading";
 import { LEAGUE_LABELS, useLeague } from "../lib/league";
+import { titlePhrases } from "../lib/titlePhrases";
 
 /**
  * 条件ラベル1つ。ラベルの途中では折り返さないが、複数選択の並び（「ポジション: PG、PG/SG、…」）は長くなりうるので、
@@ -22,16 +23,19 @@ function ConditionLabel({ label }: { label: string }) {
 }
 
 /**
- * 大見出しは、半角スペースの位置でだけ折り返す（「2026-27シーズン 得点ランキング」「A vs B」。単語や名前の途中で
+ * 大見出しは、半角スペースの位置と文節の切れ目（titlePhrases）でだけ折り返す（「2026-27シーズン 得点ランキング」「A vs B」。単語や名前の途中で
  * 「組み/合わせ」「名古/屋〜」のように切れないように。DESIGN.md 239章）
  */
 function renderTitle(title: string) {
   const parts = title.split(" ");
-  if (parts.length === 1) return title;
   return parts.map((part, i) => (
     <Fragment key={i}>
       {i > 0 && " "}
-      <span className="title-nowrap">{part}</span>
+      {titlePhrases(part).map((phrase, j) => (
+        <span key={j} className="title-nowrap">
+          {phrase}
+        </span>
+      ))}
     </Fragment>
   ));
 }

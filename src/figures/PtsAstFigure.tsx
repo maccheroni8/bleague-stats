@@ -1,3 +1,4 @@
+import { playerCountLines } from '../lib/figurePlayerCounts';
 import { useMemo, useRef, useState } from 'react';
 import { teamShortName } from '../../shared/teamNames';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
@@ -65,6 +66,7 @@ export default function PtsAstFigure({ season, category }: FigureProps) {
   const eligible = useMemo(() => base.filter(p => p.ratio >= minRatio && (!clubs.length || p.teamIds.some(id => clubs.includes(id)))), [base, minRatio, clubs]);
   const plotted = useMemo(() => ptsAstPoints(eligible, season, m, minPts, minAst), [eligible, season, m, minPts, minAst]);
   const items = plotted.map(s => ({ ...s, id: s.p.id }));
+  const countLines = playerCountLines(plotted.map(s => s.p.playerId), request.data?.players ?? [], request.data?.registrations, classification);
   const playerLabel = usePlayerLabel(eligible.map(p => p.name));
   const avgX = meanOf(plotted.map(s => s.x)), avgY = meanOf(plotted.map(s => s.y));
   const maxGames = Math.max(0, ...plotted.map(s => s.p.teamGames));
@@ -113,7 +115,7 @@ export default function PtsAstFigure({ season, category }: FigureProps) {
         <ConditionTitle title="得点 × アシスト" exportScope={`${season}シーズン`} conditions={conditions} />
         <AxisScatter points={items} xDomain={xDomain} yDomain={yDomain} xLabel={xName} yLabel={yName}
           xTick={v => formatDecimal(v, 0)} yTick={v => formatDecimal(v, 0)}
-          avgX={avgX} avgY={avgY} avgXText={formatDecimal(avgX!)} avgYText={formatDecimal(avgY!)}
+          avgX={avgX} avgY={avgY} avgXText={formatDecimal(avgX!)} avgYText={formatDecimal(avgY!)} countLines={countLines} onDismiss={() => setHover(null)}
           renderMarker={(i, left, top) => <ScorerPhoto key={i.id} point={{ playerId: i.p.playerId, name: i.p.name, division: i.p.division }}
             label={`${playerLabel(i.p.name)}：得点 ${txt(i.p, 'pts')}、アシスト ${txt(i.p, 'ast')}`}
             selected={hl.has(i.p.teamIds)} expanded={i.id === hover} left={left} top={top} onSelect={() => pick(i.p)} onDismiss={() => setHover(null)} />}

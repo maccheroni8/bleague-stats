@@ -1,3 +1,4 @@
+import { playerCountLines } from '../lib/figurePlayerCounts';
 import { teamShortName } from '../../shared/teamNames';
 import { ratioEligibilityAxis } from './eligibilityAxis';
 import { SortableTable, type Column } from '../components/SortableTable';
@@ -28,6 +29,7 @@ import { ConditionTitle } from '../components/ConditionTitle';
 import { ScorerPhoto } from './TopScorersFigure';
 import { useHighlightClubs } from './highlightClubs';
 import type { FigureProps } from './catalog';
+import { PlotCounts } from './PlotCounts';
 import './UsgPppFigure.css';
 
 const DEFAULT: SituationalFilter = { range: { kind: 'all' } };
@@ -72,6 +74,7 @@ export default function UsgPppFigure({ season, category }: FigureProps) {
   const points = useMemo(() => request.data ? buildUsgPpp(request.data, { season, category, range: filter.range, gameType, classification }) : [], [request.data, season, category, filter, gameType, classification]);
   const visible = useMemo(() => points.filter(p => p.ratio >= minRatio && p.pts >= minPts && (!clubs.length || p.teamIds.some(id => clubs.includes(id)))), [points, minRatio, minPts, clubs]);
   const plotted = visible.filter(p => p.usg !== null && p.ppp !== null);
+  const countLines = playerCountLines(plotted.map(p => p.playerId), request.data?.players ?? [], request.data?.registrations, classification);
   const average = usgPppAverage(plotted), playerLabel = usePlayerLabel(visible.map(p => p.name));
   // 固定範囲を基本に、表示する選手がはみ出すときだけ広げる。
   const xd = usgPppDomain([...plotted.map(p => p.usg), average.usg], 'usg');
@@ -115,7 +118,7 @@ export default function UsgPppFigure({ season, category }: FigureProps) {
       <FigureExportButton targetRef={target} filename={`USG_PPP_${conditions.join('_')}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export scorers-export usg-ppp-export" baseDate={baseDate}>
         <ConditionTitle title={`${USG} × ${PPP}`} exportScope={`${season}シーズン`} conditions={conditions} />
-        <div className="ratings-chart"><div className="ratings-plot-wrap">
+        <div className="ratings-chart" onPointerDown={e => { if (!(e.target as Element).closest('.ratings-point')) setHover(null); }}><div className="ratings-plot-wrap">
           <span className="ratings-y-label">↑ {PPP}</span>
           <div className="ratings-plot">
             {xd.ticks.map(t => <span key={`x${t}`} className={`ratings-grid-v scoring-grid ${major(t, xd.step) ? 'is-major' : 'is-minor'}`} style={{ left: `${x(t)}%` }} />)}
@@ -123,6 +126,7 @@ export default function UsgPppFigure({ season, category }: FigureProps) {
             {average.usg !== null && <span className="ratings-average-v" style={{ left: `${x(average.usg)}%` }}><span className="avg-line-label avg-line-label-v">{text(average.usg, true)}</span></span>}
             {average.ppp !== null && <span className="ratings-average-h" style={{ top: `${y(average.ppp)}%` }}><span className="avg-line-label avg-line-label-h">{text(average.ppp)}</span></span>}
             {plotted.map(p => <ScorerPhoto key={p.id} point={p} label={`${playerLabel(p.name)}：${USG} ${text(p.usg, true)}、${PPP} ${text(p.ppp)}`} selected={hl.has(p.teamIds)} expanded={p.id === hover} left={x(p.usg!)} top={y(p.ppp!)} onSelect={() => setHover(p.id)} onDismiss={() => setHover(null)} />)}
+            <PlotCounts points={plotted.map(p => ({ left: x(p.usg!), top: y(p.ppp!) }))} lines={countLines} />
             {tip && <div className="ratings-tooltip scoring-tooltip" role="tooltip" style={{ left: `clamp(0px, calc(${x(tip.usg!)}% - 130px), calc(100% - 260px))`, top: `clamp(0px, calc(${y(tip.ppp!)}% + 24px), calc(100% - 130px))` }}><strong>{playerLabel(tip.name)}（{namesOf(tip)}）</strong><span>{USG} {text(tip.usg, true)} / {PPP} {text(tip.ppp)}</span><span>平均得点 {text(tip.pts)} / 出場率 {text(tip.ratio, true)}</span><span>{tip.games}試合{tip.teamIds.length > 1 ? '・複数チームの合算' : ''}</span></div>}
           </div>
           {xd.ticks.filter(t => major(t, xd.step)).map(t => <span className="ratings-tick-x" key={t} style={{ left: `${x(t)}%` }}>{text(t)}</span>)}

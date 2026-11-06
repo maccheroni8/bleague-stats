@@ -30,6 +30,8 @@ import { ExportTarget } from '../components/ExportTarget';
 import { FigureExportButton } from "./FigureExport";
 import { ConditionTitle } from '../components/ConditionTitle';
 import type { FigureProps } from './catalog';
+import { PlotCounts } from './PlotCounts';
+import { playerCountLines } from '../lib/figurePlayerCounts';
 import './RatingsScatterFigure.css';
 import './ScoringScatterFigure.css';
 import './TopScorersFigure.css';
@@ -62,6 +64,7 @@ export default function TopScorersFigure({season,category}:FigureProps){
  const axis=axesAvailable.includes(xParam)?xParam:'win';
  const visible=points.filter(p=>division.length===0||(!!p.division&&division.includes(p.division)));
  const plotted=visible.filter(p=>p.values[axis]!==null),tip=plotted.find(p=>p.id===hover);
+ const countLines=playerCountLines(plotted.map(p=>p.playerId),request.data?.players??[],request.data?.registrations,classification);
  const xDomain=scorerDomain(points.map(p=>p.values[axis]),axis),yDomain=scorerDomain(points.map(p=>p.pts),'pts');
  const x=(v:number)=>(v-xDomain.min)/(xDomain.max-xDomain.min)*100,y=(v:number)=>(yDomain.max-v)/(yDomain.max-yDomain.min)*100;
  const rangeAxes=situationalAxes(filter,v=>setFilter({range:v.range})).filter(a=>a.id==='s.range'||(filter.range.kind==='dateRange'&&(a.id==='s.dateStart'||a.id==='s.dateEnd'))).map(a=>a.kind==='select'?{...a,options:a.options.filter(o=>['all','recent:5','recent:10','custom'].includes(o.value))}:{...a,tier:'primary' as const});
@@ -88,12 +91,13 @@ export default function TopScorersFigure({season,category}:FigureProps){
   <FigureExportButton targetRef={target} filename={`トップスコアラー_${SCORER_LABELS[axis]}_${conditions.join('_')}`} baseDate={baseDate}/>
   <ExportTarget ref={target} className="ratings-export scorers-export" baseDate={baseDate}>
    <ConditionTitle title={`各チームのトップスコアラー3人：${SCORER_LABELS[axis]} × 平均得点`} exportScope={`${season}シーズン`} conditions={conditions}/>
-   <div className="ratings-chart"><div className="ratings-plot-wrap">
+   <div className="ratings-chart" onPointerDown={e=>{if(!(e.target as Element).closest('.ratings-point'))setHover(null);}}><div className="ratings-plot-wrap">
     <span className="ratings-y-label">↑ 平均得点（PTS）</span>
     <div className="ratings-plot">
      {xDomain.ticks.map(t=><span key={`x${t}`} className={`ratings-grid-v scoring-grid ${major(t,xDomain.step)?'is-major':'is-minor'}`} style={{left:`${x(t)}%`}}/>)}
      {yDomain.ticks.map(t=><span key={`y${t}`} className={`ratings-grid-h scoring-grid ${major(t,yDomain.step)?'is-major':'is-minor'}`} style={{top:`${y(t)}%`}}/>)}
      {plotted.map(p=><ScorerPhoto key={p.id} point={p} label={`${playerLabel(p.name)}：平均得点 ${formatDecimal(p.pts)}、${SCORER_LABELS[axis]} ${valueText(p.values[axis],axis)}`} selected={hl.has([p.teamId])} expanded={hover===p.id} left={x(p.values[axis]!)} top={y(p.pts)} onSelect={()=>select(p)} onDismiss={()=>setHover(null)}/>)}
+     <PlotCounts points={plotted.map(p=>({left:x(p.values[axis]!),top:y(p.pts)}))} lines={countLines}/>
      {tip&&<div className="ratings-tooltip scoring-tooltip" role="tooltip" style={{left:`clamp(0px, calc(${x(tip.values[axis]!)}% - 130px), calc(100% - 260px))`,top:`clamp(0px, calc(${y(tip.pts)}% + 24px), calc(100% - 120px))`}}><strong>{playerLabel(tip.name)}（{teamLabel(tip.teamId,tip.teamName)}）</strong><span>平均得点 {formatDecimal(tip.pts)}</span><span>{SCORER_LABELS[axis]} {valueText(tip.values[axis],axis)}</span><span>{tip.games}試合・{tip.wins}勝{tip.games-tip.wins}敗</span></div>}
     </div>
     {xDomain.ticks.filter(t=>major(t,xDomain.step)).map(t=><span className={`ratings-tick-x${Math.abs(t/(xDomain.step*4)-Math.round(t/(xDomain.step*4)))<1e-6?'':' scorer-tick-secondary'}`} key={t} style={{left:`${x(t)}%`}}>{axis==='ppp'||axis==='pps'?t.toFixed(1):t}</span>)}

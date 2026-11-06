@@ -1,3 +1,4 @@
+import { playerCountLines } from '../lib/figurePlayerCounts';
 import { useMemo, useRef, useState } from 'react';
 import { teamShortName } from '../../shared/teamNames';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
@@ -72,6 +73,7 @@ export default function PlayerShootingFigure({ season, category }: FigureProps) 
   const eligible = useMemo(() => base.filter(p => p.ratio >= minRatio && (division.length === 0 || (!!p.division && division.includes(p.division)))), [base, minRatio, division]);
   const plotted = useMemo(() => shootPlayerPoints(eligible, season, m, xAxis, yAxis, minAttempts), [eligible, season, m, xAxis, yAxis, minAttempts]);
   const items = plotted.map(s => ({ id: s.p.id, x: s.x, y: s.y, s }));
+  const countLines = playerCountLines(plotted.map(s => s.p.playerId), request.data?.players ?? [], request.data?.registrations, classification);
   const playerLabel = usePlayerLabel(eligible.map(p => p.name));
   const avgX = meanOf(plotted.map(s => s.x)), avgY = meanOf(plotted.map(s => s.y));
   const maxGames = Math.max(0, ...plotted.map(s => s.p.teamGames));
@@ -122,7 +124,7 @@ export default function PlayerShootingFigure({ season, category }: FigureProps) 
         <ConditionTitle title={`${yName} × ${xName}`} exportScope={`${season}シーズン`} conditions={conditions} />
         <AxisScatter points={items} xDomain={xDomain} yDomain={yDomain} xLabel={xTitle} yLabel={yName}
           xTick={v => mode === 'total' ? formatDecimal(v, 0) : Number.isInteger(xDomain.step) ? formatDecimal(v, 0) : formatDecimal(v, 1)} yTick={v => `${v}%`}
-          avgX={avgX} avgY={avgY} avgXText={formatDecimal(avgX!)} avgYText={formatPct100(avgY!)}
+          avgX={avgX} avgY={avgY} avgXText={formatDecimal(avgX!)} avgYText={formatPct100(avgY!)} countLines={countLines} onDismiss={() => setHover(null)}
           renderMarker={(i, left, top) => <ScorerPhoto key={i.id} point={{ playerId: i.s.p.playerId, name: i.s.p.name, division: i.s.p.division }}
             label={`${playerLabel(i.s.p.name)}：${yName} ${txt(i.s.p, SHOOT_Y_COLUMN[yAxis])}、${xName} ${txt(i.s.p, SHOOT_X_COLUMN[xAxis])}`}
             selected={hl.has(i.s.p.teamIds)} expanded={i.id === hover} left={left} top={top} onSelect={() => select_(i.s.p)} onDismiss={() => setHover(null)} />}
