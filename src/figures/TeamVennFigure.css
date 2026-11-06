@@ -41,3 +41,15 @@
 .venn-circle-name span { display:block; }
 .venn-threshold { width:96px; }
 .export-rendering .venn-circle-name { color:var(--venn); }
+
+/* 選手のベン図: 円の中の名前（ロゴの代わりの文字の札）と、入りきらない領域の人数の札 */
+.venn-player { flex-direction:row; justify-content:center; align-items:center; }
+.venn-player-label { display:block; max-width:100%; line-height:1; white-space:nowrap; font-weight:600; padding:1px 2px; border-radius:3px; background:color-mix(in srgb, var(--bg) 78%, transparent); }
+.venn-badge .venn-player-label { border:1px solid var(--venn-badge, var(--border)); background:var(--bg); }
+.venn-badge.is-open .venn-player-label { border-color:var(--fg); }
+.venn-player.is-emphasized .venn-player-label { background:var(--accent); color:#fff; }
+.venn-badge.is-emphasized .venn-player-label { background:var(--bg); color:var(--fg); border:2px solid var(--accent); }
+.venn-region-list { margin-top:14px; }
+.venn-none-toggle { margin-left:8px; font-size:12px; }
+.venn-none-list .venn-player { height:auto; }
+.export-rendering .venn-none-toggle { display:none; }

@@ -36,6 +36,7 @@ export const GLOSSARY_ANCHORS = {
   figureTopScorers: "figure-top-scorers",
   figureUsgPpp: "figure-usg-ppp",
   figureTeamVenn: "figure-team-venn",
+  figurePlayerVenn: "figure-player-venn",
   figureShooting: "figure-shooting",
   figurePtsAst: "figure-pts-ast",
   figureHighlightClubs: "figure-highlight-clubs",

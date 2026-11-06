@@ -15654,3 +15654,16 @@ Codex の試作（`codex/top-scorers`）を取り込んだ。各チームの平�
 
 - 変えた場所: 図の一覧（`catalog.ts` の label）・図の見出し（`GlossaryFigures.tsx` の h2 と説明文）・図の aria-label（`TeamVennFigure.tsx`）・コメント・検証スクリプトの冒頭。保存画像の見出し・ファイル名は元から「ベン図」（`ベン図_…`）。
 - 変えていない場所: 内部の識別名（`figure=team-venn`・ファイル名・関数名）。今ある URL はそのまま開ける。
+
+## 331. 図解（選手）に「ベン図」を追加（2026-11-07。**画面だけの変更でキー不変**。allKey `1d0ba482e15217723fa28e3f8d1a47f4` のまま）
+
+- 場所: 図解 > 選手 > 「ベン図」（`figure=player-venn`。`src/figures/PlayerVennFigure.tsx`・`src/lib/figurePlayerVenn.ts`・`figureVenn.ts` に `layoutVennNames` を追加）。チームのベン図（329・330章）の部品・見た目・操作をそのまま使う（円・円の名前・色・保存画像の型・CSS は `TeamVennFigure.css` を共用）。
+- 違い: **条件は値だけ**（順位で絞る・上位N・視点はなし）。円ごとに「項目」と「基準の値（以上／以下）」を選ぶ。項目はランキング（個人・シーズン成績）の Traditional・Advanced（FTR・PPP 入り）・Misc・Scoring の1試合平均で、値・向き・表示値は全選手スタッツと同じ列定義（`seasonBoxColumnsByTab`）。初期は PTS 15以上・AST 5以上・3P% 40%以上。ほかの項目の初期値は表示中の選手の単純平均。URL は `vca`〜`vcc`（項目）・`vta`〜`vtc`（基準）・`vpr`（出場率）。
+- 対象: ほかの選手の図と同じ出場率の基準（初期85%以上）・移籍は1人の合算（`buildPlayerFigurePoints`）。期間・試合種別・登録区分・強調するクラブも同じ。地区の絞り込み・平均／合計の切り替えは付けない。
+- 円の中は選手名。入りきらない領域は「◯人」（押すと図の下に名前の一覧。保存画像は人数にした領域の一覧を図の下に付ける）。どれにも入らない選手は人数と「名前を見る」。配置は `layoutVennNames`（文字を小さくして全員入れ、入らなければ人数の多い領域から人数だけにする）。
+- 成功率の項目（FG%・2P%・3P%・FT%・eFG%・TS%・FTR）は、分母の試投が1本もない選手は値なし（列の定義は 0.00% を返すが、試投のない選手の値ではないため、円に入らない）。
+- 保存ファイル名は `選手_ベン図_{円の名前}_{条件}`（チームは `ベン図_…`）。説明は用語集（`figure-player-venn`）。画面に注記は出さない。
+- B.PREMIER／B.ONE はチームのベン図と同じ（リーグ・シーズンはヘッダーに従う）。
+- 検証: `npm run validate:player-venn`（人工データで名前の配置・項目の選び方、実データ 2026-27・2025-26・2016-17 の両リーグで、試合ログの合計から独立に出し直した PTS・AST・3P%・TOV と円への振り分けが150通りの条件で一致）。
+- 注意: 列の組み立てに `playerSeasonRanking.ts` を import しない（B.ONE の読み込みの通し忘れの検査 `validate:league-wiring` の対象に入って失敗する）。PPP の列は `figurePlayerVenn.ts` で ORtg から作る（ランキングの `withPppColumn` と同じ式）。
+- 検証の結果: validate:all は76本中、最初の実行で league-wiring だけ失敗（上の理由）。直したあと league-wiring・player-venn・figures・figure-venn・typecheck・build を流し直して通過。ほかの75本は直す前の結果。
