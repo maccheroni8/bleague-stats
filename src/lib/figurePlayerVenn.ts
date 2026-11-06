@@ -2,24 +2,19 @@
 // 値・向き（higherIsBetter）・表示値は、全選手スタッツ／ランキングと同じ列定義をそのまま使う。円に入るのは、基準の値以上（以下）の選手だけ。
 import { buildSeasonBoxscoreCtx, SEASON_SCORING_COLUMNS, SEASON_TRADITIONAL_COLUMNS, seasonBoxColumnsFor, type SeasonBoxscoreColumn, type SeasonBoxscoreCtx } from "./playerSeasonBoxscore";
 import { SEASON_ADVANCED_COLUMNS_WITH_FTR } from "./ftrColumn";
-import { formatDecimal } from "./format";
+import { withPppColumn } from "./pppColumn";
 import { foulColumnsSplit } from "./ruleChange";
 import { BOX_CATEGORY_TABS, type BoxCategoryKey } from "./categoryLabels";
 import { computeVenn, displayNumber, thresholdVennRows, type VennCircleSpec } from "./figureVenn";
 import { formatVennThreshold } from "./figureVennItems";
 import type { PlayerFigurePoint } from "./figurePlayerPoints";
+import type { StatConditionItemDef } from "./statConditions";
 
 export const PLAYER_VENN_CATEGORIES = BOX_CATEGORY_TABS;
 
 /** ランキング（個人・シーズン成績）と同じ列の組み立て。PPP は ORtg の列から作る（ランキングの withPppColumn と同じ。
  * playerSeasonRanking.ts を import すると、B.ONE の読み込みの通し忘れの検査の対象になるため、ここでは読み込みを持たない列定義だけを使う） */
-function advancedWithPpp(): SeasonBoxscoreColumn[] {
-  const cols = SEASON_ADVANCED_COLUMNS_WITH_FTR, i = cols.findIndex(c => c.key === "ortg");
-  if (i < 0 || cols.some(c => c.key === "ppp")) return cols;
-  const o = cols[i]!;
-  const ppp: SeasonBoxscoreColumn = { ...o, key: "ppp", label: "PPP", value: (c, m) => o.value(c, m) / 100, format: (c, m) => { const t = o.format(c, m); return t === "-" ? t : formatDecimal(o.value(c, m) / 100, 2); } };
-  return [...cols.slice(0, i + 1), ppp, ...cols.slice(i + 1)];
-}
+const advancedWithPpp = () => withPppColumn(SEASON_ADVANCED_COLUMNS_WITH_FTR);
 export function playerVennColumns(category: BoxCategoryKey, season: string): SeasonBoxscoreColumn[] {
   switch (category) {
     case "traditional": return SEASON_TRADITIONAL_COLUMNS;
@@ -130,4 +125,24 @@ export function computePlayerVenn(points: readonly PlayerFigurePoint[], itemIds:
     return t === null || t === undefined || !Number.isFinite(t) ? [] : thresholdVennRows(ranked, t, specs[i]!.higherIsBetter);
   });
   return { model, valueOf: (id: string, i: number) => cache[i]!.get(id) ?? null, columns };
+}
+
+/**
+ * 詳細フィルター（スタッツの条件）に選べる項目。ランキング（個人・シーズン成績）と同じ列（出場試合数 G・出場時間 MIN など）を、
+ * ベン図の円と同じ1試合平均の値で判定する（表示の値で判定。出せない値は「-」）。同じ key の項目は最初の1つだけ
+ */
+export function playerVennConditionDefs(season: string): StatConditionItemDef<PlayerFigurePoint>[] {
+  const defs: StatConditionItemDef<PlayerFigurePoint>[] = [], seen = new Set<string>();
+  for (const tab of PLAYER_VENN_CATEGORIES) {
+    for (const column of playerVennColumns(tab.key, season)) {
+      if (column.key === "name" || column.key === "team" || seen.has(column.key)) continue;
+      seen.add(column.key);
+      defs.push({
+        key: column.key, label: column.label, group: tab.label,
+        display: p => { const ctx = playerVennCtx(p, season); return hasAttempts(ctx, column.key) ? column.format(ctx, "perGame") : "-"; },
+        displayOther: p => { const ctx = playerVennCtx(p, season); return hasAttempts(ctx, column.key) ? column.format(ctx, "total") : "-"; },
+      });
+    }
+  }
+  return defs;
 }

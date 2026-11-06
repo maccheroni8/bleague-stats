@@ -15728,3 +15728,12 @@ Codex の試作（`codex/top-scorers`）を取り込んだ。各チームの平�
 - `validate:ai-export-detailed`: Forced TOV は試合ログの値と記録の数え直しを比べる形に、読み込みの確かめは「チーム情報は条件を付けても全チームの記録を読まない」に直した。
 - 作り直しの前後の導出データ全体を比べ、変わったのは上の項目だけ（players.json の USG%・PPP・DRtg と `playedTeamTotals` の追加、試合ログの `assistPoints`・`forcedTurnovers`・`turnoversCommitted` の追加、索引の `assistPoints` の列、1試合記録の `pc`）。PER・チームの数字・通算記録・ランキングのファイルなど、ほかの値は1つも変わっていない。
 - 手元の作成は約2分（作り直しの前とほぼ同じ）。
+
+## 334. 個人の PPP を一般的な式に変更・選手のベン図に詳細フィルター（2026-11-07。**保存キーが変わる**。allKey `761a8dada285e1a2838c1fd2c46cb239` → `4dcec1e91599df073f981c44d8b45580`）
+
+- **PPP ＝ PTS ÷ (FGA + 0.44×FTA + TOV)**（`shared/formulas.ts` の `playerPpp`）。これまでは個人 ORtg ÷ 100（アシスト・OREB の貢献を含む Dean Oliver 方式）だった。分母が0（シュートも TOV も無い）の選手は値なし（「-」）。合計でも1試合平均でも同じ値（比）。
+- **ORtg は変えない**。`players.json` の `advanced.ppp` は新しい式の値になり、個人 ORtg は新しい項目 `advanced.individualOrtg`（丸めない）に残した（全選手スタッツの ORtg・NetRtg はこちらを読む）。出場時間4分未満は従来どおり値なし。
+- 画面の PPP は `src/lib/pppColumn.ts` の列（`PPP_COLUMN`・`withPppColumn`）に1か所化。ランキング（個人・シーズン成績）・図解（ベン図・USG% × PPP・トップスコアラー）はこれを使う。PPP は選手本人の記録だけで決まるので、条件・Q別・期間を選んでも同じ式で出る（ランキングの「シーズン合計のまま」の注記から PPP を外した）。
+- 個人詳細・比較・md には PPP の列がもともと無い（ORtg だけ）ので、ここでは変わらない。チームの PPP（チーム詳細の1試合ごとの PPP など）は選手以外なので変えていない。
+- **選手のベン図に詳細フィルター**（スタッツの条件。ランキング（個人）と同じ部品 `statConditionsBarExtra`・`filterByStatConditions`。URL は `sc`・`sm`）。項目は Traditional〜Scoring の列（出場試合数 G・出場時間 MIN など。ベン図の円と同じ1試合平均の値で判定）。出場率の掲載基準を通ったあとに絞り、円・人数・一覧・保存画像のタイトルのすべてに効く。プロフィール・キャリア・シューティングの項目は入れていない。
+- 検証: `validate:player-ppp`（新規。全シーズン・両リーグで式と分母0・画面の列）、`validate:usg-ppp`・`validate:individual-drtg`・`validate:ai-export-detailed` を新しい式に合わせて直した、`validate:player-venn` に詳細フィルターを足した。変更前後の導出データは PPP・individualOrtg・generatedAt 以外すべて同一。

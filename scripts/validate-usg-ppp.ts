@@ -70,8 +70,9 @@ for (const season of readdirSync('data').filter(s => /^20\d\d-\d\d$/.test(s)).so
       const ctx = buildSeasonBoxscoreCtx(raw, tt, 'perGame', Number(season.slice(0,4)));
       const expectedUsg = tt.min > 0 ? 100 * (raw.fga + 0.44 * raw.fta + raw.tov) * (tt.min / 5) / (raw.min * (tt.fga + 0.44 * tt.fta + tt.tov)) : null;
       close(point.usg, expectedUsg && Number.isFinite(expectedUsg) ? expectedUsg : expectedUsg === 0 ? 0 : null, `${season} ${point.name} 期間USG%`);
-      const ortg = SEASON_ADVANCED_COLUMNS.find(c => c.key === 'ortg')!;
-      close(point.ppp, ortg.format(ctx, 'perGame') === '-' ? null : ortg.value(ctx, 'perGame') / 100, `${season} ${point.name} 期間PPP`);
+      // PPP は一般的な式 PTS ÷ (FGA + 0.44×FTA + TOV)（DESIGN.md 334章）。分母が0なら値なし
+      const pppDenominator = raw.fga + 0.44 * raw.fta + raw.tov;
+      close(point.ppp, pppDenominator > 0 ? raw.pts / pppDenominator : null, `${season} ${point.name} 期間PPP`);
       close(point.pts, raw.pts / raw.gamesPlayed, '期間PTS');
       assert.equal(point.games, logs.length);
       if (range.kind === 'recent') assert(point.games <= range.n);
@@ -88,8 +89,8 @@ for (const season of readdirSync('data').filter(s => /^20\d\d-\d\d$/.test(s)).so
     const team = playedTeam(logs);
     const ctx = buildSeasonBoxscoreCtx(raw, team, 'perGame', Number(season.slice(0,4)));
     const usg = SEASON_ADVANCED_COLUMNS.find(c => c.key === 'usg')!.value(ctx, 'perGame');
-    const ortg = SEASON_ADVANCED_COLUMNS.find(c => c.key === 'ortg')!;
-    const ppp = ortg.format(ctx, 'perGame') === '-' ? null : ortg.value(ctx, 'perGame') / 100;
+    const pppDenominator = raw.fga + 0.44 * raw.fta + raw.tov;
+    const ppp = pppDenominator > 0 ? raw.pts / pppDenominator : null;
     const same = (x: number | null, y: number | null) => (x === null && y === null) || (x !== null && y !== null && Math.abs(x - y) < 1e-8);
     if (same(point.usg, Number.isFinite(usg) ? usg : null) && same(point.ppp, ppp)) detailChecks++;
     else detailDifferent++;

@@ -307,13 +307,13 @@ for (const season of seasons) {
             const full = buildTeamSplitRowsFromPeriodSource(player.playerId, logs, own as never, new Map([[t.teamId, sumTeamGameLogsFor(gameLogs, new Set(gameLogs.map(g => g.scheduleKey)))]]), 'perGame', startYear, player.playerId, 'all', null).find(r => r.teamId === t.teamId);
             const cc = cols.filter(x => ADV.includes(x.label));
             const ad0 = pj.advanced as unknown as Record<string, number | undefined>;
-            const o0 = ad0.ppp !== undefined ? ad0.ppp * 100 : undefined, d0 = ad0.individualDrtg;
+            const o0 = ad0.individualOrtg, d0 = ad0.individualDrtg;
             const exp: Record<string, string> = { ORtg: o0 !== undefined ? o0.toFixed(2) : '-', DRtg: d0 !== undefined ? d0.toFixed(2) : '-', NetRtg: o0 !== undefined && d0 !== undefined ? `${o0 - d0 > 0 ? '+' : ''}${(o0 - d0).toFixed(2)}` : '-', 'USG%': `${(ad0.usagePct ?? NaN).toFixed(2)}%` };
             for (const c of cc) { fullCells++; if (full && c.format(full.ctx, 'perGame') !== exp[c.label]) { fullDiff++; if (fullGaps.length < 5) fullGaps.push(`${season} ${t.teamName} ${player.name} ${c.label}: チームの全試合の合計で計算=${c.format(full.ctx, 'perGame')} / 全選手スタッツ=${exp[c.label]}`); } }
           }
           if (tab === 'advanced' && pj) {
             const ad = pj.advanced as unknown as Record<string, number | undefined>;
-            const ortg = ad.ppp !== undefined ? ad.ppp * 100 : undefined, drtg = ad.individualDrtg;
+            const ortg = ad.individualOrtg, drtg = ad.individualDrtg;
             const pjv: Record<string, string> = { ORtg: ortg !== undefined ? ortg.toFixed(2) : '-', DRtg: drtg !== undefined ? drtg.toFixed(2) : '-', NetRtg: ortg !== undefined && drtg !== undefined ? `${ortg - drtg > 0 ? '+' : ''}${(ortg - drtg).toFixed(2)}` : '-', 'USG%': `${(ad.usagePct ?? NaN).toFixed(2)}%` };
             for (const lb of ADV) {
               const i = labels.indexOf(lb); if (i < 0) continue;

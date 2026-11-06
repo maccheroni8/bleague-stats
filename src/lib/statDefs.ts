@@ -512,10 +512,7 @@ export const PLAYER_STAT_DEFS: StatDef<PlayerSummary>[] = [
     label: "PPP",
     value: (p) => p.advanced.ppp ?? 0,
     format: (p) => (p.advanced.ppp !== undefined ? formatDecimal(p.advanced.ppp, 2) : "-"),
-    formulaText:
-      "個人ORtg（Dean Oliver方式。試合詳細ページの個人ORtgと同じ計算式をシーズン合計値に適用） / 100。" +
-      "チームの値は、本人が出場した試合だけの、その試合で所属していたチームの合計（シーズン途中で移籍した選手も、試合ごとの所属チームの値を足す）。" +
-      "同じ計算式を再利用しているため、シーズン合計出場時間4分未満は算出不能（-表示）",
+    formulaText: "PTS / (FGA + 0.44 × FTA + TOV)。アシスト・OREBの貢献を含む個人ORtgとは別の、一般的な式。分母が0のときは算出不能（-表示）",
     source: "nba",
     category: "rating",
   },

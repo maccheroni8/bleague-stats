@@ -9,6 +9,8 @@ import { buildPlayerFigurePoints } from "../src/lib/figurePlayerPoints";
 import {
   availablePlayerVennItems, computePlayerVenn, DEFAULT_PLAYER_VENN_ITEMS, defaultPlayerVennThreshold, playerVennItemId, playerVennItems, resolvePlayerVennSelection,
 } from "../src/lib/figurePlayerVenn";
+import { buildStatConditionItems, filterByStatConditions } from "../src/lib/statConditions";
+import { playerVennConditionDefs } from "../src/lib/figurePlayerVenn";
 import { layoutVennNames, VENN_MASKS, type VennMask } from "../src/lib/figureVenn";
 import { FIGURES } from "../src/figures/catalog";
 
@@ -63,6 +65,20 @@ for (const season of targets) for (const category of ["premier", "one"] as const
       const eligible = points.filter(p => p.ratio >= minRatio);
       if (!eligible.length) continue;
       const available = availablePlayerVennItems(eligible, season);
+      // 詳細フィルター（スタッツの条件）: 出場時間・出場試合数で絞った人だけが残り、円に入る人も絞った中だけ
+      {
+        const items = buildStatConditionItems(playerVennConditionDefs(season), eligible, "perGame");
+        for (const [key, op, value, ok] of [["min", "gte", "20", (p: typeof eligible[number]) => Math.round(p.raw.min / p.raw.gamesPlayed * 60) >= 1200], ["g", "gte", "10", (p: typeof eligible[number]) => p.raw.gamesPlayed >= 10]] as const) {
+          const filtered = filterByStatConditions(eligible, { match: "all", conditions: [{ id: 1, key, op, value }] }, items);
+          assert.deepEqual(filtered.map(p => p.id), eligible.filter(ok).map(p => p.id), `${season} ${category} ${key} の詳細フィルター`);
+          if (filtered.length) {
+            const { model } = computePlayerVenn(filtered, [...DEFAULT_PLAYER_VENN_ITEMS], season, [15, 5, 40]);
+            const inside = new Set(filtered.map(p => p.id));
+            for (const m of model.members) for (const p of m) assert.ok(inside.has(p.row.id), "円の中は絞り込んだ選手だけ");
+          }
+        }
+        assert.equal(filterByStatConditions(eligible, { match: "all", conditions: [] }, items).length, eligible.length, "条件なしは全員");
+      }
       for (const id of ["traditional.pts", "traditional.ast", "traditional.3ppct", "traditional.tov"]) assert.ok(available.has(id) || eligible.every(p => p.raw.tpa === 0), `${id} は選べる`);
       const ids = [playerVennItemId("traditional", "pts"), playerVennItemId("traditional", "ast"), playerVennItemId("traditional", "3ppct")];
       const cases: [number, number, number][] = [[15, 5, 40], [8, 2, 30], [20, 7, 35.5], [0, 0, 0]];

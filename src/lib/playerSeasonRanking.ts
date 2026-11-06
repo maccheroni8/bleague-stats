@@ -1,3 +1,4 @@
+import { withPppColumn } from "./pppColumn";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORY_LABELS } from "./categoryLabels";
 import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayers, fetchPlayoffRace, fetchRegisteredPlayers, fetchTeams } from "./data";
@@ -269,26 +270,7 @@ export function seasonBoxColumnsByTab(foulSplit: boolean): Record<SeasonBoxTabKe
   };
 }
 
-/**
- * PPP（1ポゼッションあたりの得点）＝ORtg ÷ 100。ORtg の列から作り、Advanced の ORtg の右に並べる（平均／合計・条件・Q別を ORtg と同じに扱う）。
- * 保存キーの対象（playerSeasonBoxscore.ts）は変えず、ランキング側で足す
- */
-export function withPppColumn(cols: SeasonBoxscoreColumn[]): SeasonBoxscoreColumn[] {
-  const i = cols.findIndex((c) => c.key === "ortg");
-  if (i < 0 || cols.some((c) => c.key === "ppp")) return cols;
-  const o = cols[i]!;
-  const ppp: SeasonBoxscoreColumn = {
-    ...o,
-    key: "ppp",
-    label: "PPP",
-    value: (c, m) => o.value(c, m) / 100,
-    format: (c, m) => {
-      const t = o.format(c, m);
-      return t === "-" ? t : formatDecimal(o.value(c, m) / 100, 2);
-    },
-  };
-  return [...cols.slice(0, i + 1), ppp, ...cols.slice(i + 1)];
-}
+export { withPppColumn };
 
 /** アドバンスドカテゴリのみ、SeasonBoxscoreColumnには無いPER（statDefs.ts、シーズン合計値の
  * みでフィルタ非対応）を追加する。ランキングページが従来から提供していた項目を引き続き

@@ -30,6 +30,7 @@ import {
   usagePct,
   type OliverBoxStats,
   type PerLeagueTotals,
+  playerPpp,
 } from "../shared/formulas.ts";
 import {
   STINT_COUNT_KEYS,
@@ -1085,7 +1086,8 @@ export async function aggregateSeason(season: string, category: Category = "prem
       // 出場時間4分未満（シーズン合計）ではindividualOffRtg()自体がundefinedを返す
       const individualSeasonOffRtg =
         played.min > 0 ? individualOffRtg(toOliverBoxFromTotals(p.totals), teamOliverBox(played), opponentOliverBox(played)) : undefined;
-      const ppp = individualSeasonOffRtg !== undefined ? individualSeasonOffRtg / 100 : undefined;
+      // PPP は一般的な式 PTS ÷ (FGA + 0.44×FTA + TOV)（DESIGN.md 334章）。個人ORtgは individualOrtg に別に残す
+      const ppp = playerPpp(p.totals.pts, p.totals.fga, p.totals.fta, p.totals.tov);
       // 個人DRtg（Dean Oliver方式。individualDefRtg）。ORtgと同じ合計（本人が出場した試合だけのチーム合計）と、
       // そのチームのPOSSの合計を使う。出場時間4分未満（シーズン合計）はundefined。NetRtgは保存せず、画面で丸める前のORtg−DRtgで出す
       const individualDrtg =
@@ -1123,6 +1125,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
           offCourtNetPerGame: (p.totals.teamNetSum - p.totals.plusMinus) / (p.totals.gamesPlayed || 1),
           per,
           ppp,
+          individualOrtg: individualSeasonOffRtg,
           individualDrtg,
         },
       };
@@ -1412,7 +1415,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
         birthDate: master.birthDate,
         shotTypes: undefined,
         ...emptyBlock,
-        advanced: { eff: 0, usagePct: 0, onCourtNet: 0, onCourtNetPerGame: 0, offCourtNet: 0, offCourtNetPerGame: 0, per: 0, ppp: undefined, individualDrtg: undefined },
+        advanced: { eff: 0, usagePct: 0, onCourtNet: 0, onCourtNetPerGame: 0, offCourtNet: 0, offCourtNetPerGame: 0, per: 0, ppp: undefined, individualOrtg: undefined, individualDrtg: undefined },
       });
     }
     registeredPlayersJson.sort((a, b) => a.teamId.localeCompare(b.teamId) || a.playerId.localeCompare(b.playerId));

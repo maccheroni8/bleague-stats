@@ -51,7 +51,7 @@ function toBox(t: StatTotals): OliverBoxStats {
   for (const w of want) {
     const p = players.find((x) => x.playerId === w.id);
     const drtg = p?.advanced.individualDrtg;
-    const ortg = p?.advanced.ppp !== undefined ? p.advanced.ppp * 100 : undefined;
+    const ortg = p?.advanced.individualOrtg;
     check(`${w.name} DRtg ${w.drtgText}`, drtg !== undefined && Math.abs(drtg - w.drtg) < 1e-8 && formatDecimal(drtg) === w.drtgText, String(drtg));
     const net = ortg !== undefined && drtg !== undefined ? formatSigned(ortg - drtg) : "-";
     check(`${w.name} NetRtg ${w.netText}（丸める前の ORtg − DRtg）`, net === w.netText, net);
@@ -109,9 +109,11 @@ for (const season of readdirSync(DATA).filter((d) => /^\d{4}-\d{2}$/.test(d)).so
         const expectUsg = usagePct(p.totals, rebuilt);
         const ok =
           expect !== undefined && drtg !== undefined && Math.abs(expect - drtg) < 1e-9 &&
-          (expectOrtg === undefined ? p.advanced.ppp === undefined : p.advanced.ppp !== undefined && Math.abs(expectOrtg / 100 - p.advanced.ppp) < 1e-9) &&
+          (expectOrtg === undefined ? p.advanced.individualOrtg === undefined : p.advanced.individualOrtg !== undefined && Math.abs(expectOrtg - p.advanced.individualOrtg) < 1e-9) &&
+          // PPP は一般的な式 PTS ÷ (FGA + 0.44×FTA + TOV)（DESIGN.md 334章）。分母が0なら値なし
+          (p.totals.fga + 0.44 * p.totals.fta + p.totals.tov > 0 ? p.advanced.ppp !== undefined && Math.abs(p.totals.pts / (p.totals.fga + 0.44 * p.totals.fta + p.totals.tov) - p.advanced.ppp) < 1e-9 : p.advanced.ppp === undefined) &&
           Math.abs(expectUsg - p.advanced.usagePct) < 1e-9;
-        if (!ok) transferredMismatch.push(`${p.name} DRtg ${drtg}/${expect} PPP ${p.advanced.ppp}/${expectOrtg} USG ${p.advanced.usagePct}/${expectUsg}`);
+        if (!ok) transferredMismatch.push(`${p.name} DRtg ${drtg}/${expect} ORtg ${p.advanced.individualOrtg}/${expectOrtg} PPP ${p.advanced.ppp} USG ${p.advanced.usagePct}/${expectUsg}`);
       }
     }
     const label = path.relative(DATA, file);

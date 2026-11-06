@@ -30,6 +30,16 @@ export function orbPct(teamOreb: number, oppDreb: number): number {
 }
 
 /**
+ * 個人のPPP（1ポゼッションあたりの得点）＝ PTS ÷ (FGA + 0.44×FTA + TOV)（DESIGN.md 334章）。
+ * 個人ORtg（Dean Oliver方式。アシスト・OREBの貢献を含む）とは別の、一般的な式。分母が0なら undefined（「-」）。
+ * 合計でも1試合平均でも同じ値（比なので）
+ */
+export function playerPpp(pts: number, fga: number, fta: number, tov: number): number | undefined {
+  const d = fga + 0.44 * fta + tov;
+  return d > 0 ? pts / d : undefined;
+}
+
+/**
  * TOV% = 100 * TOV / (FGA + 0.44*FTA + TOV)。Four Factorsの標準定義（Basketball-Reference等）。
  * 「関与したプレー全体に占めるターンオーバーの割合」で、AST/TOV（分母にASTを含む別の比率）とは
  * 別の指標として併存させる（ボックススコアのTOV RATIO列と混同しないこと）

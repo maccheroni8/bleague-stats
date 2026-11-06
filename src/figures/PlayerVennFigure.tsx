@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { numberParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
+import { numberParam, situationalParam, statConditionsParam, useUrlState, type UrlCodec } from '../lib/urlState';
 import { classificationAxis, gameTypeAxis, situationalAxes, type FilterAxis } from '../lib/filterAxes';
 import { CLASSIFICATION_PARAM, GAME_TYPE_PARAM } from '../lib/urlFilterParams';
 import { enumParam } from '../lib/urlState';
@@ -15,8 +15,10 @@ import { formatPct100 } from '../lib/format';
 import { buildPlayerFigurePoints, type PlayerFigurePoint } from '../lib/figurePlayerPoints';
 import {
   availablePlayerVennItems, computePlayerVenn, defaultPlayerVennThreshold, DEFAULT_PLAYER_VENN_ITEMS, playerVennCtx, playerVennHigher, playerVennItems,
-  playerVennValue, PLAYER_VENN_CATEGORIES, resolvePlayerVennSelection, playerVennColumn,
+  playerVennValue, PLAYER_VENN_CATEGORIES, resolvePlayerVennSelection, playerVennColumn, playerVennConditionDefs,
 } from '../lib/figurePlayerVenn';
+import { buildStatConditionItems, DEFAULT_STAT_CONDITIONS, filterByStatConditions, statConditionLabels } from '../lib/statConditions';
+import { statConditionsBarExtra } from '../components/StatConditionsEditor';
 import { formatVennThreshold } from '../lib/figureVennItems';
 import { VENN_CENTERS, VENN_DESIGN_HEIGHT, VENN_DESIGN_WIDTH, VENN_RADIUS, layoutVennNames, vennEmphasisScales, vennLabelBoxes, type VennMask } from '../lib/figureVenn';
 import { FilterBar } from '../components/FilterBar';
@@ -63,6 +65,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const [gameType, setGameType] = useUrlState(gameCodec, 'regular');
   const [classification, setClassification] = useUrlState(CLASSIFICATION_PARAM, 'all');
   const [minRatio, setMinRatio] = useUrlState(ratioCodec, DEFAULT_RATIO);
+  const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
   const [selParam, setSel] = useUrlState(selectionCodec, NO_SELECTION);
   const [thrParam, setThr] = useUrlState(thresholdCodec, NO_THRESHOLDS);
   const [hover, setHover] = useState<string | null>(null);
@@ -73,7 +76,10 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const hl = useHighlightClubs({ season, category, teams, divisionOf: id => request.data?.divisions?.[category]?.[season]?.[id] });
   const blocked = splitClassificationBlocked(figureClassGroup(classification), season);
   const base = useMemo(() => request.data && !blocked ? buildPlayerFigurePoints(request.data, { season, category, range: filter.range, gameType, classification }) : [], [request.data, blocked, season, category, filter, gameType, classification]);
-  const eligible = useMemo(() => base.filter(p => p.ratio >= minRatio), [base, minRatio]);
+  const ratioPassed = useMemo(() => base.filter(p => p.ratio >= minRatio), [base, minRatio]);
+  // 詳細フィルター（スタッツの条件）。円の中の選手・人数・一覧・保存画像のすべてに効く
+  const conditionItems = useMemo(() => buildStatConditionItems(playerVennConditionDefs(season), ratioPassed, 'perGame'), [ratioPassed, season]);
+  const eligible = useMemo(() => filterByStatConditions(ratioPassed, statConditions, conditionItems), [ratioPassed, statConditions, conditionItems]);
   const items = playerVennItems(season);
   const available = useMemo(() => availablePlayerVennItems(eligible, season), [eligible, season]);
   const itemIds = resolvePlayerVennSelection(selParam, available.size ? available : new Set(items.map(i => i.id)), items.map(i => i.id));
@@ -109,7 +115,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), classificationAxis(classification, setClassification, { season }),
     hl.axis, ratioEligibilityAxis({ id: 'vennRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio })];
   const [periodLabel] = situationalFilterLabels(filter);
-  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], classificationFilterLabel(classification), `出場率${minRatio}%以上`, ...hl.labels].filter(Boolean);
+  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], classificationFilterLabel(classification), `出場率${minRatio}%以上`, ...statConditionLabels(statConditions, conditionItems), ...hl.labels].filter(Boolean);
   const baseDate = { kind: 'season' as const, season, gameType };
   const columns: Column<PlayerFigurePoint>[] = [
     { key: 'player', label: '選手名（チーム）', align: 'left', sortValue: p => p.name, render: p => <button className="ratings-team-button" onClick={() => setHover(p.id)}>{playerLabel(p.name)}（{abbr(p)}）{p.teamIds.length > 1 ? '合算' : ''}</button> },
@@ -119,7 +125,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   ];
   const chartProps = { emphIds, model, labels, circleNames, circleLines, counts, hover, setHover, byId, valueText, playerLabel, abbr, teamNames, total: eligible.length, openMask, setOpenMask };
   return <section aria-label="ベン図">
-    <FilterBar axes={axes} stateKey="figures:player-venn" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setMinRatio(DEFAULT_RATIO); setSel(NO_SELECTION); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); setOpenMask(null); }} />
+    <FilterBar axes={axes} stateKey="figures:player-venn" advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, { defaultKey: 'min' })} onClearAll={() => { setStatConditions(DEFAULT_STAT_CONDITIONS); setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setMinRatio(DEFAULT_RATIO); setSel(NO_SELECTION); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); setOpenMask(null); }} />
     <div className="venn-pickers">
       {itemIds.map((id, i) => <div key={i} className={`venn-picker ${SLOT_COLORS[i]}`}>
         <span className="venn-dot" aria-hidden="true" />

@@ -425,7 +425,7 @@ function plusMinusColumn(mode: SeasonDisplayMode): Column<PlayerRow> {
 // 踏襲しているが、値の出所はPlayerGameLogの積み上げ（ctx）ではなくPlayerSummaryの既存集計値
 // （シーズン平均）をそのまま使う。ORtg/DRtg/NetRtg/PACE/POSSは、リーグ全選手分を正確に出すには
 // 選手ごとのplayer-gamesとチームごとのteam-games（相手チーム分含む）が必要で通信量が
-// 大きくなりすぎるため、advanced.ppp（個人ORtg/100、季集計済みの正確な値）から求まるORtgのみ
+// 大きくなりすぎるため、advanced.individualOrtg（季集計済みの正確な値）から求まるORtgのみ
 // 含め、DRtg/NetRtg/PACE/POSSはこの一覧には含めていない。平均/合計トグル
 // はカウント系の列のみ対象（率・比率・レート系の列はmodeに関わらず同じ値のまま）
 function buildTraditionalColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
@@ -538,10 +538,9 @@ function buildAdvancedColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
   ];
 }
 
-/** 個人ORtg（players.json の ppp×100。丸めない） */
+/** 個人ORtg（players.json の individualOrtg。丸めない） */
 function individualOrtgOf(r: PlayerRow): number | undefined {
-  const ppp = r.player.advanced.ppp;
-  return ppp !== undefined ? ppp * 100 : undefined;
+  return r.player.advanced.individualOrtg;
 }
 
 /** 個人NetRtg＝丸める前の ORtg − DRtg（保存しない）。どちらかが無ければ undefined */

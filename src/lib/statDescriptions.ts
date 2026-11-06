@@ -121,7 +121,7 @@ export const STAT_DESCRIPTIONS: Record<string, StatDescription> = {
   "eFG%": "(FGM＋0.5×3PM) / FGA",
   "TS%": "PTS / (2 × (FGA＋0.44×FTA))",
   PPS: "PTS / FGA",
-  PPP: "1ポゼッションあたりの得点。個人ORtg ÷ 100",
+  PPP: "1ポゼッションあたりの得点。PTS ÷ (FGA + 0.44×FTA + TOV)。アシスト・OREBの貢献を含む個人ORtgとは別の、一般的な式",
   PER: "Hollinger方式の総合指標（NBA/Basketball-Reference流）。リーグ平均が15になるように調整した値",
   POSS: "推定ポゼッション数（Bリーグ公式の式）。自チーム・相手チームの両方の視点から推定した値の平均。チーム単位の値",
   PACE: {

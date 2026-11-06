@@ -3,7 +3,8 @@ import type { Category, Division, DivisionHistoryFile, PlayerGameLog, PlayerSumm
 import type { SeasonRegistrationFile } from '../../shared/registration';
 import { filterByGameType, type SeasonGameTypeFilter } from '../../shared/gameType';
 import { filterGameLogs, type SituationalRange } from './situational';
-import { sumPlayerGameLogs, sumTeamGameLogsFor, buildSeasonBoxscoreCtx, SEASON_ADVANCED_COLUMNS, onCourtSharePct } from './playerSeasonBoxscore';
+import { sumPlayerGameLogs, sumTeamGameLogsFor, buildSeasonBoxscoreCtx, onCourtSharePct } from './playerSeasonBoxscore';
+import { pppOfRaw } from './pppColumn';
 import { onOffTotalsFromLogs } from './playerOnOffColumns';
 import { changedRegistrations, scopedPlayerMatches, scopeLogsByClassification } from './registrationScopeCore';
 import { figureClassGroup, type FigureClass } from './figureAge';
@@ -46,7 +47,6 @@ export function buildTopScorers(data:ScorerData,q:ScorerQuery):ScorerPoint[] {
       // USG%・PPP・DRtg の分母は、本人が出場した試合のチーム合計（DESIGN.md 333章）
       const teamTotals=sumTeamGameLogsFor(scoped,new Set(logs.map(g=>g.scheduleKey)));
       const ctx=buildSeasonBoxscoreCtx(raw,teamTotals,'perGame',Number(q.season.slice(0,4)));
-      const ortg=SEASON_ADVANCED_COLUMNS.find(c=>c.key==='ortg')!;
       const on=q.season>='2020-21'?onOffTotalsFromLogs(logs,g=>byKey.get(g.scheduleKey)):null;
       const wins=logs.filter(g=>g.win).length;
       const singleTeam=(data.playerLogs.get(p.playerId)??[]).filter(g=>g.min>0&&g.gameType==='regular').length===logs.length;
@@ -56,7 +56,7 @@ export function buildTopScorers(data:ScorerData,q:ScorerQuery):ScorerPoint[] {
         values:{win:100*wins/logs.length,min:raw.gamesPlayed>0?raw.min/raw.gamesPlayed:null,share:q.season>='2020-21'?onCourtSharePct(raw,raw.ocPts,raw.ocTeamPts):null,
           efg:raw.fga>0?100*(raw.fgm+0.5*raw.tpm)/raw.fga:null,
           on:on&&on.on.ownPoss>0?100*on.on.ownPts/on.on.ownPoss:null,
-          ppp:full&&singleTeam?(p.advanced.ppp??null):ortg.format(ctx,'perGame')==='-'?null:ortg.value(ctx,'perGame')/100,
+          ppp:pppOfRaw(raw)??null,
           pps:raw.fga>0?raw.pts/raw.fga:null}});
     }
     candidates.sort((a,b)=>b.pts-a.pts||b.totalPts-a.totalPts||b.minutes-a.minutes||a.playerId.localeCompare(b.playerId,undefined,{numeric:true}));

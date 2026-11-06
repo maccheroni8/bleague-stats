@@ -5,6 +5,7 @@ import { teamTotalsForTransferredPlayer } from '../../shared/transferredTeamTota
 import { teamTotalsForPlayedGames } from '../../shared/playedTeamTotals';
 import { filterGameLogs } from './situational';
 import { buildSeasonBoxscoreCtx, sumPlayerGameLogs, SEASON_ADVANCED_COLUMNS } from './playerSeasonBoxscore';
+import { pppOfRaw } from './pppColumn';
 import { changedRegistrations, scopedPlayerMatches, scopeLogsByClassification } from './registrationScopeCore';
 import { figureClassGroup } from './figureAge';
 import type { ScorerData, ScorerQuery } from './figureTopScorers';
@@ -16,7 +17,6 @@ export interface UsgPppPoint {
 }
 export type UsgPppQuery = Omit<ScorerQuery, 'minRatio'>;
 const usgColumn = SEASON_ADVANCED_COLUMNS.find(c => c.key === 'usg')!;
-const ortgColumn = SEASON_ADVANCED_COLUMNS.find(c => c.key === 'ortg')!;
 const finite = (v: number | undefined): number | null => v !== undefined && Number.isFinite(v) ? v : null;
 
 /** 移籍選手は1選手1点。期間は全選手スタッツと同じく、選手の試合ログに適用する。 */
@@ -56,7 +56,7 @@ export function buildUsgPpp(data: ScorerData, q: UsgPppQuery): UsgPppPoint[] {
       games: raw.gamesPlayed, teamGames, ratio: teamGames ? 100 * raw.gamesPlayed / teamGames : 0,
       pts: raw.pts / raw.gamesPlayed,
       usg: full ? finite(p.advanced.usagePct) : team.min > 0 ? finite(usgColumn.value(ctx, 'perGame')) : null,
-      ppp: full ? finite(p.advanced.ppp) : ortgColumn.format(ctx, 'perGame') === '-' ? null : finite(ortgColumn.value(ctx, 'perGame') / 100),
+      ppp: full ? finite(p.advanced.ppp) : finite(pppOfRaw(raw)),
     });
   }
   return points;

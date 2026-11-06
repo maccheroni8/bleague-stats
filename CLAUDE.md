@@ -138,6 +138,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 333章: **作り直しのまとめ**（保存キーが変わる。allKey `761a8dada285e1a2838c1fd2c46cb239`）。**ポイントクリエイト（PC）**＝PTS＋本人のアシストから生まれた得点（`assistPointsByAssister`。アシストした側。FT は成功本数すべて。試合ログの `assistPoints`・索引の列 `assistPoints`・1試合記録 `pc`。プレーバイプレーの無い試合〔1810〕は数えず0にしない。表に対象試合数の列は出さず、ランキングの名前の下の試合数だけ PC の対象試合数）。
   **試合ごとの Forced TOV**（`TeamGameLog.forcedTurnovers`・`turnoversCommitted`。試合全体だけ。対戦相手別・md のチーム情報は試合ログの値を足し、全チームの記録を読まない）。
   **USG%・PPP・DRtg の分母**は、本人が出場した試合だけの、その試合の所属チームの合計（`shared/playedTeamTotals.ts`・players.json の `playedTeamTotals`。移籍の特別扱いなし。PER は216章のまま）。検証は `validate:points-created`・`validate:forced-turnover-logs`・`validate:individual-drtg`・`validate:usg-ppp`
+- 334章: **個人の PPP ＝ PTS ÷ (FGA + 0.44×FTA + TOV)**（`playerPpp`・画面は `src/lib/pppColumn.ts`。分母0は値なし）。個人 ORtg はそのまま `advanced.individualOrtg` に残す（`advanced.ppp` はもう ORtg ÷ 100 ではない）。選手のベン図に詳細フィルター（`sc`・`sm`）。**保存キーが変わる**（allKey `4dcec1e91599df073f981c44d8b45580`）。検証は `validate:player-ppp`
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

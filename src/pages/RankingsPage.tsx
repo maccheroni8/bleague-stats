@@ -891,12 +891,12 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   if (playersError) return <p className="error-message">{playersError}</p>;
   if (!players || players.length === 0) return <p className="empty-message">データがありません</p>;
 
-  // 表・画像出力に出すタイトル。EFF/PER/PPPはシチュエーション・G・Q別の対象外（シーズン合計値を
+  // 表・画像出力に出すタイトル。EFF/PERはシチュエーション・G・Q別の対象外（シーズン合計値を
   // そのまま表示している。上の注記と同じ条件）ため、いずれかの絞り込みが有効なときは実際の値の
   // 範囲（レギュラーシーズン・シーズン全体・試合全体）を出し、対象外である旨を添える
   const filterIgnoredForItem =
     category !== "shooting" &&
-    ["eff", "per", "ppp"].includes(selectedItem.key) &&
+    ["eff", "per"].includes(selectedItem.key) &&
     (filterActive || gameTypeActive || periodActive);
   const playerCategoryLabel =
     category === "shooting"
@@ -1109,7 +1109,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           {comparison && `（今季・前季（${prevSeason}）とも掲載基準を満たす選手）`}
           {conditionActive && "（スタッツの条件で絞り込んだ中での順位）"}
         </p>
-        {(needsGameLogRecompute || periodActive) && ["eff", "per", "ppp"].includes(selectedItem.key) && (
+        {(needsGameLogRecompute || periodActive) && ["eff", "per"].includes(selectedItem.key) && (
           <p className="page-subtitle">
             「{statJa(selectedItem.label)}」はシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}選択・Q別/前後半トグルの対象外のため、シーズン合計の値をそのまま表示しています
           </p>

@@ -521,13 +521,15 @@ export interface PlayerAdvancedStats {
    */
   per: number;
   /**
-   * PPP（Points Per Possession）。個人ORtg（Dean Oliver方式、shared/formulas.tsの
-   * individualOffRtg。ボックススコア試合詳細ページの個人ORtgと同じ計算式をシーズン合計値に
-   * 適用）を100で割った値。同じ計算式をそのまま再利用しているため、qASTの分母近傍0の
-   * 不安定性ガード（MIN_MINUTES_FOR_INDIVIDUAL_RATING、シーズン合計出場時間4分未満）も
-   * 引き継ぎ、該当選手はundefined（算出不能）になる
+   * PPP（Points Per Possession）＝ PTS ÷ (FGA + 0.44×FTA + TOV)（一般的な式。DESIGN.md 334章）。
+   * 分母が0（シュートもTOVも無い）ならundefined。アシスト・OREBの貢献を含む個人ORtgは individualOrtg
    */
   ppp?: number;
+  /**
+   * 個人ORtg（Dean Oliver方式、shared/formulas.tsのindividualOffRtg）。丸めない。出場時間4分未満（シーズン合計）はundefined。
+   * 334章より前は ppp×100 がこの値だった
+   */
+  individualOrtg?: number;
   /**
    * 個人DRtg（Dean Oliver方式、shared/formulas.tsのindividualDefRtg）。pppと同じ合計（移籍した選手は所属期間ごとの
    * 各チームの合計。DESIGN.md 216章）とチームのPOSSの合計から求める。出場時間4分未満（シーズン合計）はundefined。
