@@ -153,6 +153,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 347章: 条件別勝敗に**試合割合**の列（その条件の試合数÷表の対象の試合数。チーム詳細は勝率の右、条件別順位表は連勝/連敗と残り試合数の間。書き方はサイト全体の小数第2位「21.43%」）。**画面だけの変更でキー不変**
 - 348章: 図解（チーム）の**自由な散布図**（`figure=team-shooting`〔IDは変えない〕。縦軸・横軸それぞれで項目〔全チームスタッツの列。Shooting・Forced TOV を含む〕と視点〔自チーム／opp／+/-〕。URL `fx`・`fy`・`fxv`・`fyv`、以前の `shx`・`shy`・`v` も読む。目盛りと単位は項目から自動。`src/lib/figureTeamFree.ts`）と、**図の設定の保存**（チーム・選手のすべての図。localStorage `bleague-stats:figure-presets`・URL の条件と同じ中身・保存できない環境ではボタンを押せなくする。`src/lib/figurePresets.ts`・`FigurePresets.tsx`）。検証は `npm run validate:figure-team-free`。**画面だけの変更でキー不変**
 - 349章: 図解（選手）の詳細フィルターに、プロフィール（年齢・身長・体重）・キャリア・シューティング・ポジションを足した（ランキングと同じ定義。`playerVennConditionDefs`・`usePlayerFigureFilter`。B.ONE はシューティング・キャリア不可）。**画面だけの変更でキー不変**
+- 350章: 図解（選手）の**散布図**（`figure=player-scatter`。x・y を自由に選ぶ。項目はランキング（個人）の項目。URL `px`・`py`。`src/lib/figurePlayerFree.ts`）。チームの「自由な散布図」は「散布図」に改名（ID `team-shooting` は不変）。以前の選手の3つの図（得点×アシスト・USG%×PPP・シュート%×試投数）は図の一覧から消え、「用意された設定」（`figurePlayerLegacy.ts`）と古い URL・保存した設定の読み替えで開く。詳細フィルターに DD2・TD3・PTS10。検証は `npm run validate:figure-player-free`。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

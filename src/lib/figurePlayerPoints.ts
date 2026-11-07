@@ -6,7 +6,7 @@ import { teamTotalsForTransferredPlayer } from '../../shared/transferredTeamTota
 import { teamTotalsForPlayedGames } from '../../shared/playedTeamTotals';
 import { filterGameLogs } from './situational';
 import {
-  buildSeasonBoxscoreCtx, sumPlayerGameLogs, SEASON_ADVANCED_COLUMNS, SEASON_TRADITIONAL_COLUMNS,
+  buildSeasonBoxscoreCtx, countDoubleTripleDoubles, sumPlayerGameLogs, SEASON_ADVANCED_COLUMNS, SEASON_TRADITIONAL_COLUMNS,
   type PlayerSeasonRawTotals, type SeasonDisplayMode,
 } from './playerSeasonBoxscore';
 import { changedRegistrations, scopedPlayerMatches, scopeLogsByClassification } from './registrationScopeCore';
@@ -19,6 +19,8 @@ export interface PlayerFigurePoint {
   raw: PlayerSeasonRawTotals; team: TeamSeasonRawTotals;
   /** 選手マスタの行（プロフィール・キャリア・シューティング・ポジションの詳細フィルターに使う） */
   summary: PlayerSummary;
+  /** DD2・TD3・PTS10 の回数と出場試合数（ランキングと同じ。出場した試合の試合ログから数える） */
+  doubles: { dd: number; td: number; p10: number; games: number };
 }
 export type PlayerFigureQuery = Omit<ScorerQuery, 'minRatio'>;
 
@@ -39,6 +41,8 @@ export function buildPlayerFigurePoints(data: ScorerData, q: PlayerFigureQuery):
     const logs = scope(classLogs);
     const raw = sumPlayerGameLogs(logs);
     if (!raw.gamesPlayed) continue;
+    const played = logs.filter(g => g.min > 0);
+    const doubles = { ...countDoubleTripleDoubles(played), games: played.length };
     // 出場率の分母（所属期間）にだけ使う。USG%・PPP・DRtg の分母は本人が出場した試合の所属チームの合計（DESIGN.md 333章）
     const transferred = teamTotalsForTransferredPlayer(classLogs, logs, ownTeamOf, scopedTeams);
     const team = teamTotalsForPlayedGames(logs, ownTeamOf, data.teamLogs);
@@ -54,7 +58,7 @@ export function buildPlayerFigurePoints(data: ScorerData, q: PlayerFigureQuery):
     }
     points.push({ id: p.playerId, playerId: p.playerId, name: p.name, teamId: p.teamId, teamName: p.teamName,
       division: data.divisions?.[q.category]?.[q.season]?.[p.teamId], teamIds,
-      games: raw.gamesPlayed, teamGames, ratio: teamGames ? 100 * raw.gamesPlayed / teamGames : 0, raw, team, summary: p });
+      games: raw.gamesPlayed, teamGames, ratio: teamGames ? 100 * raw.gamesPlayed / teamGames : 0, raw, team, summary: p, doubles });
   }
   return points;
 }

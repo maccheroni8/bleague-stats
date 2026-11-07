@@ -14,6 +14,25 @@ import { mapConditionDefs, playerCareerConditionDefs, playerProfileConditionDefs
 import { shotTypeEntityColumns, SHOT_TYPE_DISPLAY_ORDER } from "./shotTypeBreakdown";
 import { CATEGORY_LABELS } from "./categoryLabels";
 
+/** DD2・TD3・PTS10（ランキング（個人）の項目と同じ名前・キー） */
+export const PLAYER_DOUBLE_ITEMS = [
+  { key: "dd2", label: "DD2", count: (d: PlayerFigurePoint["doubles"]) => d.dd },
+  { key: "td3", label: "TD3", count: (d: PlayerFigurePoint["doubles"]) => d.td },
+  { key: "pts10", label: "PTS10", count: (d: PlayerFigurePoint["doubles"]) => d.p10 },
+] as const;
+/** 達成した試合の割合（0〜1）。合計のときは回数。出場した試合が無ければ null */
+export function playerDoubleValue(p: PlayerFigurePoint, key: string, mode: "perGame" | "total"): number | null {
+  const d = PLAYER_DOUBLE_ITEMS.find(x => x.key === key);
+  if (!d || !p.doubles.games) return null;
+  const n = d.count(p.doubles);
+  return mode === "total" ? n : n / p.doubles.games;
+}
+/** ランキングの条件の表示と同じ（平均は「45.00%」、合計は回数） */
+export function playerDoubleText(p: PlayerFigurePoint, key: string, mode: "perGame" | "total"): string {
+  const v = playerDoubleValue(p, key, mode);
+  return v === null ? "-" : mode === "total" ? String(v) : `${(100 * v).toFixed(2)}%`;
+}
+
 export const PLAYER_VENN_CATEGORIES = BOX_CATEGORY_TABS;
 
 /** ランキング（個人・シーズン成績）と同じ列の組み立て。PPP は ORtg の列から作る（ランキングの withPppColumn と同じ。
@@ -68,7 +87,7 @@ export function resolvePlayerVennSelection(input: readonly (string | undefined)[
 }
 
 /** 成功率の項目は、分母の試投が1本もない選手は値を出さない（列の定義は 0 を返すが、「0.00%」は試投のない選手の値ではない） */
-function hasAttempts(ctx: SeasonBoxscoreCtx, key: string): boolean {
+export function hasAttempts(ctx: SeasonBoxscoreCtx, key: string): boolean {
   const r = ctx.raw;
   switch (key) {
     case "fgpct": case "efg": case "ftr": return r.fga > 0;
@@ -146,6 +165,18 @@ export function playerVennConditionDefs(season: string, league: "premier" | "one
         display: p => { const ctx = playerVennCtx(p, season); return hasAttempts(ctx, column.key) ? column.format(ctx, "perGame") : "-"; },
         displayOther: p => { const ctx = playerVennCtx(p, season); return hasAttempts(ctx, column.key) ? column.format(ctx, "total") : "-"; },
       });
+    }
+    // DD2・TD3・PTS10（ランキングと同じ定義: 出場した試合のうち達成した試合。1試合平均は達成率、合計は回数。DESIGN.md 179・299-5章）
+    if (tab.key === "traditional") {
+      for (const d of PLAYER_DOUBLE_ITEMS) {
+        if (seen.has(d.key)) continue;
+        seen.add(d.key);
+        defs.push({
+          key: d.key, label: d.label, group: tab.label,
+          display: p => playerDoubleText(p, d.key, "perGame"),
+          displayOther: p => playerDoubleText(p, d.key, "total"),
+        });
+      }
     }
   }
   // ランキング（個人・シーズン成績）と同じ、シューティング・プロフィール・キャリアの項目（値はシーズン通算。B.ONE にはシュートの種類・リーグをまたぐ経歴の記録が無いので、シューティング・キャリアは選べない）

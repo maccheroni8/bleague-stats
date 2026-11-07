@@ -34,7 +34,7 @@ import { filterGameLogs } from "../src/lib/situational";
   for (const y of SHOOT_Y) for (const who of ["team", "player"] as const) { const b = SHOOT_Y_BASE[who][y]; assert.ok(b.hi > b.lo && (b.hi - b.lo) % b.step === 0, `${who} ${y} 範囲が刻み幅の倍数`); }
   for (const x of SHOOT_X) for (const who of ["team", "player"] as const) { const b = SHOOT_X_BASE[who][x]; assert.ok(b.hi > b.lo && (b.hi - b.lo) % b.step === 0, `${who} ${x} 範囲が刻み幅の倍数`); }
   assert.equal(SHOOT_Y.length, 6); assert.equal(SHOOT_X.length, 4);
-  assert.ok(FIGURES.some(f => f.id === "team-shooting" && f.entity === "team") && FIGURES.some(f => f.id === "player-shooting" && f.entity === "player") && FIGURES.some(f => f.id === "pts-ast" && f.entity === "player"), "図解に登録");
+  assert.ok(FIGURES.some(f => f.id === "team-shooting" && f.entity === "team") && FIGURES.some(f => f.id === "player-scatter" && f.entity === "player"), "図解に登録（選手の「シュート% × 試投数」「得点 × アシスト」は散布図に置き換えた）");
   for (const y of SHOOT_Y) { const b = SHOOT_DIFF_Y_BASE[y]; assert.ok(b.lo < 0 && b.hi > 0 && b.lo === -b.hi, `+/- の縦軸 ${y} は0を中心にした左右対称`); assert.equal(shootTeamYBase(y, "diff"), b); assert.equal(shootTeamYBase(y, "opp"), SHOOT_Y_BASE.team[y], "opp は自チームと同じ範囲"); }
   for (const x of SHOOT_X) { const b = SHOOT_DIFF_X_BASE[x]; assert.ok(b.lo < 0 && b.hi > 0 && b.lo === -b.hi, `+/- の横軸 ${x} は0を中心にした左右対称`); assert.equal(shootTeamXBase(x, "diff"), b); }
   assert.deepEqual(axisDomain([0.5, -3], SHOOT_DIFF_Y_BASE["3p"]).ticks.includes(0), true, "+/- の軸は0の目盛りを含む");

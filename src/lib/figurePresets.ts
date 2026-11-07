@@ -1,6 +1,8 @@
 // 画面専用（図解の「設定の保存」）。図の設定（URL の条件）に名前を付けて、このブラウザの localStorage に保存する。
 // 保存する中身は URL の条件と同じ文字列（season・league・entity・figure は含めない）。読めない項目は図が無視するので、図の設定が増えても古い保存が開ける。
 // 読み書きはすべて失敗しうる（プライベートモードなど）ので、例外は外に出さない。
+import { isLegacyPlayerScatterFigure, legacyPlayerScatterParams, PLAYER_SCATTER_ID } from './figurePlayerLegacy';
+
 export const PRESET_STORAGE_KEY = 'bleague-stats:figure-presets';
 export const PRESET_NAME_MAX = 40;
 /** 保存の対象外にする URL のキー（シーズン・リーグは今開いているものを使う） */
@@ -86,3 +88,10 @@ export function presetUrl(baseHref: string, preset: FigurePreset, current: URLSe
 /** 今の設定が、保存した設定と同じか */
 export const presetMatches = (preset: FigurePreset, entity: string, figure: string, params: URLSearchParams) =>
   preset.entity === entity && preset.figure === figure && preset.query === presetQuery(params);
+
+/** 選手の散布図に置き換えた3つの図（得点 × アシスト・USG% × PPP・シュート% × 試投数）で保存した設定は、選手の散布図の設定として扱う（保存済みの文字列は書き換えない） */
+export function migrateLegacyPreset(preset: FigurePreset): FigurePreset {
+  if (preset.entity !== 'player' || !isLegacyPlayerScatterFigure(preset.figure)) return preset;
+  const converted = legacyPlayerScatterParams(preset.figure, new URLSearchParams(preset.query));
+  return converted ? { ...preset, figure: PLAYER_SCATTER_ID, query: presetQuery(converted) } : preset;
+}

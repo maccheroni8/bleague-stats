@@ -15920,3 +15920,17 @@ Codex の試作（`codex/top-scorers`）を取り込んだ。各チームの平�
 - 条件は URL（`sc`・`sm`・`pos`）に残り、図の設定の保存（348章）は URL の条件をそのまま保存するので、年齢などの条件もそのまま保存・復元される。
 
 検証は `npm run validate:player-figure-filter`（年齢・身長・体重・ポジション・シューティング・キャリアを、選手マスタの元の値から出し直した結果と一致することを確かめる）。
+
+
+## 350. 図解（選手）の「散布図」（x・y 自由）・名前の変更・詳細フィルターの DD2/TD3/PTS10（2026-11-08。画面だけ・保存キーは不変 `4dcec1e91599df073f981c44d8b45580`）
+
+- **名前**: チームの「自由な散布図」（348章。`figure=team-shooting`）を「散布図」にした（図の一覧・用語集。ID・URL は変えない）。
+- **選手の散布図**（`figure=player-scatter`。`src/figures/PlayerFreeScatterFigure.tsx`・`src/lib/figurePlayerFree.ts`）: 縦軸・横軸それぞれで項目を選ぶ（URL `py`・`px`。項目は `分類.キー`）。項目はランキング（個人・シーズン成績）の Traditional〔DD2・TD3・PTS10 を含む〕・Advanced〔PPP・PER を含む〕・Misc・Scoring・Shooting・Profile（身長・体重・年齢。Career は選べない）。
+  値・書式は全選手スタッツ／ランキングと同じ列定義（`playerVennColumns`）。平均／合計（`pam`）・出場率（`pag`・初期値85%）・登録区分・表示するクラブ（`pcl`、以前の地区 `dv` も読む）・ポジション・詳細フィルター（`sc`・`sm`）・強調するクラブ・保存画像・図の設定の保存（348章）は、ほかの選手の図と同じ部品。
+  目盛り・単位はチームの散布図と同じ関数（`inferFreeAxis`〔列の型を選手の点に一般化・`axis` で単位を直接指定〕・`freeAxisDomain`・`freeTickText`）。見出しは「縦 × 横」。平均線は表示中の選手の単純平均。
+  Shooting・PER はシーズン通算のため、使うと期間・試合種別の絞り込みは効かない（理由つきで操作不可）。B.ONE の Shooting・記録のないシーズン・2019-20以前の出場中の割合（%PTS〜%FTA・AST%）は理由つきで選べない（ランキングと同じ文）。画面に注記は足さない（説明は用語集）。
+- **用意された設定**（`src/lib/figurePlayerLegacy.ts`・`FigurePresets.tsx`）: 「得点 × アシスト」「USG% × PPP」（平均得点15以上）「シュート% × 試投数」（3P% × 3PA・3PA 1.5以上）。保存した設定とは別の一覧で、名前の変更・削除はできない。以前の図の下限・シュートの種類は項目と詳細フィルター（`sc`）で表す。
+  以前の3つの図（`pts-ast`・`usg-ppp`・`player-shooting`）は図の一覧から消し、**古い URL は `normalizeFigureParams` が、保存した設定は `migrateLegacyPreset` が**、選手の散布図で同じ組み合わせ・同じ条件に読み替える（保存済みの文字列は書き換えない）。以前の `sc` が「どれかを満たす」のときは、下限は「すべて満たす」と混ぜられないので、そのまま条件に足す（この組み合わせは実用上まれ）。
+  図のコンポーネント（`PtsAstFigure`・`UsgPppFigure`・`PlayerShootingFigure`）は削除した（計算部品 `figureShooting.ts`・`figureUsgPpp.ts` は検証の突き合わせ先として残す）。
+- **詳細フィルターの DD2・TD3・PTS10**: 選手の図解のすべての図（`playerVennConditionDefs`）に足した。定義はランキングと同じ（出場した試合のうち達成した試合の割合〔表示は「45.00%」〕・合計は回数。点に `doubles`〔`PlayerFigurePoint`〕を持たせ、試合ログの出場した試合から数える）。
+- 検証は `npm run validate:figure-player-free`（点の値＝全選手スタッツの値と一致〔平均・合計〕、用意された設定・古い URL が以前の3つの図と同じ選手・同じ点・同じ人数〔5シーズン・リーグ×390通り〕、DD2/TD3/PTS10 の人数が試合ログから独立に数えた結果と一致〔players.json の保存値とも〕、URL・保存した設定の読み替え、選べない項目）。**画面だけの変更でキー不変**。

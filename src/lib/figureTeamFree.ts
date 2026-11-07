@@ -1,4 +1,4 @@
-// 画面専用（図解「チームの自由な散布図」）。縦軸・横軸それぞれで「項目」と「視点」を選ぶ。
+// 画面専用（図解「散布図（チーム）」）。縦軸・横軸それぞれで「項目」と「視点」を選ぶ。
 // 項目は全チームスタッツの列（Traditional・Advanced・Misc・Scoring・Shooting・Forced TOV）。値・書式は全チームスタッツの表と同じ列の定義をそのまま使う。
 import type { Category, Division, DivisionHistoryFile, TeamForcedTurnovers, TeamGameLog, TeamSummary } from '../../shared/types';
 import { filterByGameType, type SeasonGameTypeFilter } from '../../shared/gameType';
@@ -45,7 +45,8 @@ export const freeItemId = (category: FreeCategory, key: string) => `${category}.
 export const DEFAULT_FREE_X = freeItemId('traditional', '3pa');
 export const DEFAULT_FREE_Y = freeItemId('traditional', '3ppct');
 
-export interface FreeColumn { key: string; label: string; value: (r: FreeRow) => number | null; text: (r: FreeRow) => string }
+/** 軸の列。R は行の型（チームは FreeRow、選手の散布図は選手の点）。axis を渡すと、表の書式からの単位の推定をせずにそれを使う */
+export interface FreeColumn<R = FreeRow> { key: string; label: string; value: (r: R) => number | null; text: (r: R) => string; axis?: FreeAxisKind }
 
 const finiteOrNull = (v: unknown, text: string) => {
   const n = Number(v);
@@ -228,7 +229,8 @@ export interface FreeAxisKind {
 const TIME_RE = /^[+-]?[\d,]+:\d{2}$/;
 const num = (text: string) => Number(text.replace(/[,%+]/g, ''));
 /** 表の書式（%・m:ss・小数の桁数・符号）から単位を決める */
-export function inferFreeAxis(column: FreeColumn, rows: readonly FreeRow[]): FreeAxisKind {
+export function inferFreeAxis<R = FreeRow>(column: FreeColumn<R>, rows: readonly R[]): FreeAxisKind {
+  if (column.axis) return column.axis;
   const texts = rows.map(r => ({ r, t: column.text(r).trim() })).filter(x => x.t !== '-' && x.t !== '');
   if (!texts.length) return { unit: 'number', scale: 1, signed: false, digits: 2 };
   const signed = texts.some(x => x.t.startsWith('+'));
