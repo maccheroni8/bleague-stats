@@ -123,6 +123,7 @@ import {
 import { substitutionModelForSeason } from "../../shared/onCourt";
 import {
   buildBackToBackStatus,
+  backToBackGameLabels,
   buildGameTeamsByScheduleKey,
   buildRecordsBeforeGame,
   computeOpponentWinPctAvg,
@@ -1793,7 +1794,7 @@ export function buildSituationalRecordGroups(
       key: "backToBack",
       label: "連戦",
       rows: backToBack
-        ? (["GAME1", "GAME2"] as const).map((status) => ({
+        ? backToBackGameLabels(backToBack, new Set(logs.map((g) => g.scheduleKey))).map((status) => ({
             key: status,
             label: status,
             predicate: (g: TeamGameLog) => backToBack.get(g.scheduleKey)?.get(teamId) === status,
@@ -1899,6 +1900,8 @@ interface SituationalRecordStats {
   wins: number;
   losses: number;
   winPct: number;
+  /** 試合割合＝その区分の試合数 ÷ 表の対象の試合数（347章） */
+  gameShare: number;
 }
 
 /** 勝率に応じた背景色（緑=高勝率〜赤=低勝率のグラデーション）。h2h-win/h2h-lossと同じ
@@ -3471,6 +3474,7 @@ export function TeamDetailPage({ season }: { season: string }) {
             wins,
             losses: matched.length - wins,
             winPct: safeDiv(wins, matched.length),
+            gameShare: safeDiv(matched.length, situationalRecordScopedLogs.length),
           },
         ];
       });
@@ -3579,7 +3583,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       key: "backToBack",
       label: "連戦",
       rows: situationalTeamBackToBack
-        ? (["GAME1", "GAME2"] as const).map((status) => ({
+        ? backToBackGameLabels(situationalTeamBackToBack).map((status) => ({
             key: status,
             label: status,
             predicate: (g: TeamGameLog) => situationalTeamBackToBack.get(g.scheduleKey)?.get(team.teamId) === status,
@@ -4300,20 +4304,21 @@ export function TeamDetailPage({ season }: { season: string }) {
             <p className="empty-message">対象試合がありません</p>
           ) : (
             <div className="table-scroll">
-              <table className="stats-table">
+              <table className="stats-table situational-record-table">
                 <thead>
                   <tr>
                     <th className="align-left">区分</th>
                     <th className="align-right" title={statDescription("試合数")}>試合数</th>
                     <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
                     <th className="align-right" title={statDescription("勝率")}>勝率</th>
+                    <th className="align-right" title={statDescription("試合割合")}>試合割合</th>
                   </tr>
                 </thead>
                 <tbody>
                   {situationalRecordGroups.map((group) => (
                     <Fragment key={group.key}>
                       <tr className="situational-group-heading">
-                        <td colSpan={4}>{group.label}</td>
+                        <td colSpan={5}>{group.label}</td>
                       </tr>
                       {group.rows.map((row) => (
                         <tr key={row.key}>
@@ -4323,6 +4328,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                           <td className="align-right" style={{ background: winPctBackground(row.winPct) }}>
                             {formatWinPct(row.winPct)}
                           </td>
+                          <td className="align-right">{formatPct(row.gameShare)}</td>
                         </tr>
                       ))}
                     </Fragment>
@@ -4347,20 +4353,21 @@ export function TeamDetailPage({ season }: { season: string }) {
           ) : (
             <>
               <div className="table-scroll">
-                <table className="stats-table">
+                <table className="stats-table situational-record-table">
                   <thead>
                     <tr>
                       <th className="align-left">区分</th>
                       <th className="align-right" title={statDescription("試合数")}>試合数</th>
                       <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
                       <th className="align-right" title={statDescription("勝率")}>勝率</th>
+                    <th className="align-right" title={statDescription("試合割合")}>試合割合</th>
                     </tr>
                   </thead>
                   <tbody>
                     {situationalRecordRawGroups.map((group) => (
                       <Fragment key={group.key}>
                         <tr className="situational-group-heading">
-                          <td colSpan={4}>{group.label}</td>
+                          <td colSpan={5}>{group.label}</td>
                         </tr>
                         {group.rows.map((row) => (
                           <tr key={row.key}>
@@ -4370,6 +4377,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                             <td className="align-right" style={{ background: winPctBackground(row.winPct) }}>
                               {formatWinPct(row.winPct)}
                             </td>
+                            <td className="align-right">{formatPct(row.gameShare)}</td>
                           </tr>
                         ))}
                       </Fragment>
@@ -4950,6 +4958,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       <th className="align-right" title={statDescription("試合数")}>試合数</th>
                       <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
                       <th className="align-right" title={statDescription("勝率")}>勝率</th>
+                    <th className="align-right" title={statDescription("試合割合")}>試合割合</th>
                       <PeriodScoringHeaderCells />
                     </tr>
                   </thead>
@@ -5101,6 +5110,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                     <th className="align-right" title={statDescription("試合数")}>試合数</th>
                     <th className="align-right" title={statDescription("勝敗")}>勝敗</th>
                     <th className="align-right" title={statDescription("勝率")}>勝率</th>
+                    <th className="align-right" title={statDescription("試合割合")}>試合割合</th>
                     {seasonTableColumns.map((c) => (
                       <th className="align-right" key={c.key} title={statDescription(c.label, "team")}>
                         <StatHeaderLabel label={c.label} />

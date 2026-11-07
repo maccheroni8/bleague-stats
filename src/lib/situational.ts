@@ -263,22 +263,21 @@ export function computeOpponentWinPctAvg<T extends { scheduleKey: string; oppone
   return oppWinPcts.length > 0 ? safeDiv(oppWinPcts.reduce((s, v) => s + v, 0), oppWinPcts.length) : undefined;
 }
 
-export type BackToBackGame = "GAME1" | "GAME2";
+/** 連戦の何試合目か。"GAME1"（1試合目）、"GAME2"（2試合目）、3試合以上続くときは "GAME3"、"GAME4"…（347章） */
+export type BackToBackGame = `GAME${number}`;
 
 function daysBetweenDates(d1: string, d2: string): number {
   return (new Date(d2).getTime() - new Date(d1).getTime()) / (1000 * 60 * 60 * 24);
 }
 
 /**
- * 連戦GAME1/GAME2判定。シーズンの試合日程（games-summary.json、`gameEndedFlg`の試合のみ対象。
- * レギュラー/プレーオフとも対象に含める。過密日程による疲労という観点のため、対戦相手が
- * 同じかどうかは問わない）から、チームごとに日付昇順で並べ、直前の自チームの試合との間隔が
- * 中1日以内（連日=1日差、または中1日空き=2日差）の試合を「連戦」とみなす。
- * Map<scheduleKey, Map<teamId, BackToBackGame>>（1試合につき対戦した2チーム分、それぞれ独立に
- * 判定した結果を持つ。片方のチームだけが連戦中というケースもありうる）。
- * 3試合以上が中1日以内で連続する場合（プレーオフのBest-of-3等）は、直前の自チームの試合が
- * 近接している試合をすべてGAME2（＝短い休養日数でプレーした試合）とし、GAME1はその連戦の
- * 最初の1試合のみとする（実データ確認済み。DESIGN.md参照）
+ * 連戦の判定（347章）。連戦＝「同じ相手と、中1日以内（連日＝1日差、中1日空き＝2日差）に続けて行った試合」。
+ * シーズンの試合日程（games-summary.json、`gameEndedFlg`の試合のみ。レギュラー／プレーオフとも）から、
+ * チームごとに日付順（同日は scheduleKey 順）に並べ、直前の自チームの試合が「同じ相手」かつ「2日差以内」なら
+ * 同じ連戦の続きとする。相手が違う試合を間にはさんだり、中2日以上空いたりしたら、そこで連戦は区切る
+ * （プレーオフの一続きの途中に中2日以上空くと、その前後は別の連戦として1から数え直す）。
+ * 連戦の1試合目が GAME1、2試合目が GAME2、3試合以上続けば GAME3、GAME4…。1試合だけで終わる試合は連戦に数えない。
+ * Map<scheduleKey, Map<teamId, BackToBackGame>>（1試合につき対戦した2チーム分。同じ相手との連戦なので両チームで同じ番号になる）
  */
 export function buildBackToBackStatus(games: GameSummary[]): Map<string, Map<string, BackToBackGame>> {
   const byTeam = new Map<string, GameSummary[]>();
@@ -295,31 +294,44 @@ export function buildBackToBackStatus(games: GameSummary[]): Map<string, Map<str
   }
 
   const result = new Map<string, Map<string, BackToBackGame>>();
-  const setStatus = (scheduleKey: string, teamId: string, status: BackToBackGame) => {
+  const setStatus = (scheduleKey: string, teamId: string, n: number) => {
     let m = result.get(scheduleKey);
     if (!m) {
       m = new Map();
       result.set(scheduleKey, m);
     }
-    m.set(teamId, status);
+    m.set(teamId, `GAME${n}`);
   };
 
   for (const [teamId, list] of byTeam) {
-    list.sort((a, b) => a.date.localeCompare(b.date));
+    list.sort((a, b) => a.date.localeCompare(b.date) || a.scheduleKey.localeCompare(b.scheduleKey));
+    const opponentOf = (g: GameSummary) => (g.homeTeamId === teamId ? g.awayTeamId : g.homeTeamId);
+    const continues = (prev: GameSummary | undefined, game: GameSummary) =>
+      prev !== undefined && opponentOf(prev) === opponentOf(game) && daysBetweenDates(prev.date, game.date) <= 2;
+    let n = 0;
     for (let i = 0; i < list.length; i++) {
       const game = list[i]!;
-      const prev = list[i - 1];
+      n = continues(list[i - 1], game) ? n + 1 : 1;
       const next = list[i + 1];
-      const closeToPrev = prev !== undefined && daysBetweenDates(prev.date, game.date) <= 2;
-      const closeToNext = next !== undefined && daysBetweenDates(game.date, next.date) <= 2;
-      if (closeToPrev) {
-        setStatus(game.scheduleKey, teamId, "GAME2");
-      } else if (closeToNext) {
-        setStatus(game.scheduleKey, teamId, "GAME1");
-      }
+      if (n > 1 || (next !== undefined && continues(game, next))) setStatus(game.scheduleKey, teamId, n);
     }
   }
   return result;
+}
+
+/** 連戦の行・ボタンに出す番号の一覧。GAME1・GAME2は常に出し、GAME3以降は実際に当てはまる試合があるときだけ足す */
+export function backToBackGameLabels(
+  status: Map<string, Map<string, BackToBackGame>> | undefined,
+  scheduleKeys?: ReadonlySet<string>,
+): BackToBackGame[] {
+  let max = 2;
+  if (status) {
+    for (const [key, byTeam] of status) {
+      if (scheduleKeys && !scheduleKeys.has(key)) continue;
+      for (const v of byTeam.values()) max = Math.max(max, Number(v.slice(4)));
+    }
+  }
+  return Array.from({ length: max }, (_, i) => `GAME${i + 1}` as BackToBackGame);
 }
 
 /** 「バイウィーク」判定の間隔基準（日）。個別チームの試合間隔ではなく、リーグ全体で試合が

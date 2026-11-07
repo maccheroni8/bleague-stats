@@ -124,6 +124,7 @@ import {
 } from "../lib/playerSeasonBoxscore";
 import {
   buildBackToBackStatus,
+  backToBackGameLabels,
   buildGameTeamsByScheduleKey,
   buildRecordsBeforeGame,
   computeOpponentWinPctAvg,
@@ -2209,7 +2210,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       // 常に不一致になってしまうため）
       rows:
         situationalStatsBackToBack
-          ? (["GAME1", "GAME2"] as const).map((status) => ({
+          ? backToBackGameLabels(situationalStatsBackToBack).map((status) => ({
               key: status,
               label: status,
               predicate: (g: PlayerGameLog) =>
@@ -2831,7 +2832,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                 相手の消化試合数が5試合未満の対戦は、勝率が極端な値になりやすいため集計から除外しています。
               </dd>
               <dt>連戦</dt>
-              <dd>中1日以内の間隔で連続して試合を行った場合の、1試合目（GAME1）／2試合目以降（GAME2）別の成績です。</dd>
+              <dd>同じ相手と中1日以内（連日または1日空き）に続けて行った試合の、1試合目（GAME1）・2試合目（GAME2）別の成績です。3試合以上続くとき（プレーオフなど）は GAME3・GAME4…と番号を続けます。相手が違う試合や中2日以上空いた試合は連戦に数えません。</dd>
               <dt>自チーム外国籍人数</dt>
               <dd>
                 その試合で自チームが最も長くコートに立たせていた、外国籍・帰化選手・アジア特別枠選手の

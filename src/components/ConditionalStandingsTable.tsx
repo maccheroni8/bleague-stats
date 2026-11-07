@@ -10,7 +10,7 @@ import { FilterBar } from "./FilterBar";
 import { simpleSelectAxis, teamMultiAxis, type FilterAxis, type FilterAxisOption } from "../lib/filterAxes";
 import { ConditionLine } from "./ConditionTitle";
 import { clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
-import { formatSigned, formatWinPct } from "../lib/format";
+import { formatPct, formatSigned, formatWinPct } from "../lib/format";
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak } from "../../shared/teamRecords";
 import { teamShortName } from "../../shared/teamNames";
@@ -21,6 +21,7 @@ import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { useLeagueSituationalContext } from "../lib/teamRankingData";
 import {
   buildBackToBackStatus,
+  backToBackGameLabels,
   buildBiweekPeriods,
   buildRecordsBeforeGame,
   matchesBiweekPeriod,
@@ -100,7 +101,7 @@ function describeCondition(condition: ConditionalCondition): string {
     case "opponentWinRate":
       return condition.tier === "under50" ? "対5割未満" : condition.tier === "atLeast50" ? "対5割以上" : "対6割以上";
     case "backToBack":
-      return condition.value === "GAME1" ? "連戦時GAME1" : "連戦時GAME2";
+      return `連戦時${condition.value}`;
     case "biweekPeriod":
       return condition.period.label;
     case "recent":
@@ -237,6 +238,8 @@ interface ConditionalRow {
   oppPts: number;
   pointDiff: number;
   streakLabel: string;
+  /** 試合割合＝その条件の試合数 ÷ そのクラブのレギュラーシーズンの対象試合数（347章）。対象試合が0のときは0 */
+  gameShare: number;
   remaining: number | null;
 }
 
@@ -282,6 +285,10 @@ export function ConditionalStandingsTable({
     [summaries, statOpponentRecords, resultOnlyGames],
   );
   const backToBackStatus = useMemo(() => (summaries ? buildBackToBackStatus(summaries) : undefined), [summaries]);
+  const regularScheduleKeys = useMemo(
+    () => new Set((summaries ?? []).filter((g) => g.gameType === "regular").map((g) => g.scheduleKey)),
+    [summaries],
+  );
   // シーズンをバイウィークで区切った区間一覧（例: 「開幕〜11月バイウィーク前」「11月
   // バイウィーク以降〜2月バイウィーク前」「2月バイウィーク以降〜」）。区間数はシーズンごとに
   // 検出されたギャップの数に応じて動的に変わる（buildBiweekPeriods参照）
@@ -353,11 +360,13 @@ export function ConditionalStandingsTable({
       ],
     },
     {
-      label: "連戦（中1日以内の連戦）",
-      options: [
-        { key: "b2b-1", label: "連戦時GAME1", condition: { kind: "backToBack", value: "GAME1" } },
-        { key: "b2b-2", label: "連戦時GAME2", condition: { kind: "backToBack", value: "GAME2" } },
-      ],
+      label: "連戦（同じ相手と中1日以内の連戦）",
+      // GAME3以降は、この表の対象（レギュラーシーズン）に当てはまる試合があるときだけ出す
+      options: backToBackGameLabels(backToBackStatus, regularScheduleKeys).map((value) => ({
+        key: `b2b-${value.slice(4)}`,
+        label: `連戦時${value}`,
+        condition: { kind: "backToBack", value } as ConditionalCondition,
+      })),
     },
     {
       label: "バイウィーク（リーグ全体で10日以上試合が無い期間で区切った区間）",
@@ -471,6 +480,7 @@ export function ConditionalStandingsTable({
         oppPts,
         pointDiff: pts - oppPts,
         streakLabel: formatTeamStreak(currentStreak(filtered)),
+        gameShare: safeDiv(filtered.length, sorted.length),
         remaining,
       };
     });
@@ -552,6 +562,12 @@ export function ConditionalStandingsTable({
     { key: "oppPts", label: "失点", sortValue: (r) => r.oppPts, format: (r) => String(r.oppPts), higherIsBetter: false },
     { key: "pointDiff", label: "得失点差", sortValue: (r) => r.pointDiff, format: (r) => formatSigned(r.pointDiff, 0) },
     { key: "streak", label: "連勝/連敗", sortValue: (r) => r.wins - r.losses, format: (r) => r.streakLabel },
+    {
+      key: "gameShare",
+      label: "試合割合",
+      sortValue: (r) => (r.gamesPlayed === 0 ? -1 : r.gameShare),
+      format: (r) => (r.gamesPlayed === 0 ? "-" : formatPct(r.gameShare)),
+    },
     {
       key: "remaining",
       label: "残り試合数",

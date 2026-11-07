@@ -8574,3 +8574,15 @@ table.sortable-table.tts-table th {
 @media (max-width: 760px) {
   .win-line-cell > span { display: block; }
 }
+
+/* シチュエーション別勝敗（チーム詳細）: スマホ幅で列が増えても横にはみ出さないよう、区分名は折り返し、余白を詰める（347章） */
+@media (max-width: 600px) {
+  table.situational-record-table th,
+  table.situational-record-table td {
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+  table.situational-record-table td.align-left {
+    white-space: normal;
+  }
+}
