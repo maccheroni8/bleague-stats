@@ -318,18 +318,19 @@ export interface VennNameLayout<K> {
   collapsed: Map<VennMask, VennPlacement>;
   /** 領域ごとの置き場所の確保に成功したか */
   fitted: boolean;
+  /** 写真で置いたときの写真の直径（px。名前で置いたときは undefined） */
+  photo?: number;
 }
 
 /**
  * 領域ごとの選手の名前を置く。全員の名前が入る最大の文字の大きさ（font から minFont まで）を探し、
  * 入らないときは、人数の多い領域から順に「◯人」の1か所だけにして、残りの領域の名前が入るまで繰り返す。
  */
-export function layoutVennNames<K extends string>(groups: ReadonlyMap<VennMask, readonly { key: K; label: string }[]>, opts: { size: number; font: number; minFont?: number; obstacles?: readonly VennRect[] }): VennNameLayout<K> {
+export function layoutVennNames<K extends string>(groups: ReadonlyMap<VennMask, readonly { key: K; label: string }[]>, opts: { size: number; font: number; minFont?: number; obstacles?: readonly VennRect[]; photo?: { max: number; min: number } }): VennNameLayout<K> {
   const scale = opts.size / VENN_DESIGN_WIDTH, obstacles = opts.obstacles ?? [];
   const minFont = Math.min(opts.font, opts.minFont ?? 9);
   const widest = (font: number) => Math.max(textWidthEstimate("00人", font), ...[...groups.values()].flat().map(i => textWidthEstimate(i.label, font)));
-  const attempt = (font: number, collapsed: ReadonlySet<VennMask>) => {
-    const box = { width: Math.ceil(widest(font)) + 6, height: font + 6 };
+  const attempt = (box: VennItemBox, collapsed: ReadonlySet<VennMask>) => {
     const input = new Map<VennMask, { key: string; label: string }[]>();
     for (const [mask, items] of groups) {
       if (!items.length) continue;
@@ -338,24 +339,47 @@ export function layoutVennNames<K extends string>(groups: ReadonlyMap<VennMask, 
     const placements = tryLayout(input, scale, box, obstacles);
     return placements ? { box, placements } : null;
   };
-  const build = (font: number, collapsed: ReadonlySet<VennMask>, r: { box: VennItemBox; placements: Map<string, VennPlacement> }): VennNameLayout<K> => {
+  const build = (font: number, r: { box: VennItemBox; placements: Map<string, VennPlacement> }, photo?: number): VennNameLayout<K> => {
     const placements = new Map<K, VennPlacement>(), cmap = new Map<VennMask, VennPlacement>();
     for (const [key, p] of r.placements) { if (key.startsWith("__n")) cmap.set(Number(key.slice(3)), p); else placements.set(key as K, p); }
-    return { font, box: r.box, placements, collapsed: cmap, fitted: true };
+    return { font, box: r.box, placements, collapsed: cmap, fitted: true, ...(photo ? { photo } : {}) };
   };
-  for (let font = opts.font; font >= minFont; font--) {
-    const r = attempt(font, new Set());
-    if (r) return build(font, new Set(), r);
-  }
   const order = [...groups].filter(([, items]) => items.length > 1).sort((a, b) => b[1].length - a[1].length).map(([mask]) => mask);
+  if (opts.photo) {
+    // 写真: 全員の写真が入る最大の大きさ（max から min まで）を探し、入らないときは min の大きさのまま、人数の多い領域から順に「◯人」の1か所にする
+    const min = opts.photo.min, max = Math.max(min, opts.photo.max);
+    const boxOf = (d: number) => ({ width: Math.max(d, Math.ceil(textWidthEstimate("00人", opts.font)) + 6), height: d });
+    for (let d = Math.round(max); d >= min; d -= 2) {
+      const r = attempt(boxOf(d), new Set());
+      if (r) return build(opts.font, r, d);
+    }
+    const collapsed = new Set<VennMask>();
+    for (const mask of order) {
+      collapsed.add(mask);
+      const r = attempt(boxOf(min), collapsed);
+      if (r) return build(opts.font, r, min);
+    }
+    const cmap = new Map<VennMask, VennPlacement>();
+    for (const [mask, items] of groups) {
+      if (!items.length) continue;
+      const cands = candidatesFor(mask, 4, 4, scale, 4);
+      cmap.set(mask, { x: cands.length ? cands.reduce((s, c) => s + c.x, 0) / cands.length : opts.size / 2, y: cands.length ? cands.reduce((s, c) => s + c.y, 0) / cands.length : opts.size / 2 });
+    }
+    return { font: opts.font, box: boxOf(min), placements: new Map(), collapsed: cmap, fitted: false, photo: min };
+  }
+  const nameBox = (font: number) => ({ width: Math.ceil(widest(font)) + 6, height: font + 6 });
+  for (let font = opts.font; font >= minFont; font--) {
+    const r = attempt(nameBox(font), new Set());
+    if (r) return build(font, r);
+  }
   const collapsed = new Set<VennMask>();
   for (const mask of order) {
     collapsed.add(mask);
-    const r = attempt(opts.font, collapsed);
-    if (r) return build(opts.font, collapsed, r);
+    const r = attempt(nameBox(opts.font), collapsed);
+    if (r) return build(opts.font, r);
   }
   // すべて1か所にしても入らないときは、領域の中心に集めて返す
-  const box = { width: Math.ceil(widest(opts.font)) + 6, height: opts.font + 6 };
+  const box = nameBox(opts.font);
   const cmap = new Map<VennMask, VennPlacement>();
   for (const [mask, items] of groups) {
     if (!items.length) continue;
