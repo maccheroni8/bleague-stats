@@ -139,7 +139,7 @@ export function TeamOpponentSplit({
   const renderName = useCallback(
     (r: OpponentSplitRow) => (
       <button type="button" className="opp-split-link" onClick={() => onSelectOpponent(r.opponentTeamId!)}>
-        <ResponsiveTeamName teamId={r.opponentTeamId!} name={r.name} />
+        <ResponsiveTeamName teamId={r.opponentTeamId!} name={r.name} nowrap />
       </button>
     ),
     [onSelectOpponent],

@@ -15,7 +15,8 @@
 import { NATURALIZED_ASIA_LABEL } from "./statNames";
 import { classTokens } from "./classificationFilter";
 import { PLAYER_INDEX_STAT_COLUMNS, ROW_FLAG_HOME, type PlayerGameIndexFile } from "../../shared/gameIndex";
-import { PLAYER_PERIOD_STAT_COLUMNS, type PlayerPeriodIndexFile } from "../../shared/periodIndex";
+import { PERIOD_ATOMS, PLAYER_PERIOD_STAT_COLUMNS, type PlayerPeriodIndexFile } from "../../shared/periodIndex";
+import { PERIOD_ATOM_INDEXES, type GameRecordPeriod } from "./periodIndex";
 import type { TeamGameLog } from "../../shared/types";
 import type { Column } from "../components/SortableTable";
 import { paintOf, summarizePaint, withPaint, type PaintInput, type PaintPair } from "./teamPaint2";
@@ -125,6 +126,10 @@ export const CLASS_SPLIT_GAME_COLUMNS = [
 /** ピリオド別の索引から足す列 */
 const PERIOD_COLS = ["paint2m", "paint2a", "mid2m", "mid2a", "disqualifyingFouls"] as const satisfies readonly (typeof PLAYER_PERIOD_STAT_COLUMNS)[number][];
 
+/** 区間ごと（1Q〜4Q・延長）に足す列。試合全体の列とペイント内外・DQFOUL（Q別と登録区分を一緒に選ぶときに使う） */
+const ATOM_COLS: readonly (typeof PLAYER_PERIOD_STAT_COLUMNS)[number][] = [...CLASS_SPLIT_GAME_COLUMNS, ...PERIOD_COLS];
+const ATOM_COUNT = PERIOD_ATOMS.length;
+
 /** 区分の行では出せない TeamTotals の項目。列の側で「-」にする（unavailableColumn） */
 export const CLASS_SPLIT_UNAVAILABLE: ReadonlySet<keyof TeamTotals> = new Set<keyof TeamTotals>([
   "poss",
@@ -210,6 +215,10 @@ export interface ClassSplitSource {
   period: Float64Array | null;
   /** チームの行ごとに、ピリオド別の行がある選手が1人でもいたか（1／0）。period が null のときは空 */
   hasPeriod: Uint8Array;
+  /** 区間ごとの合計（ピリオド別の索引。Q別・前後半・延長と登録区分を一緒に選ぶとき）。位置は (((チームの行×区分の数)＋区分)×区間の数＋区間)×列数＋列。索引が無いときは null */
+  atom: Float64Array | null;
+  /** チームの行×区間（PERIOD_ATOMS の番号）に、ピリオド別の行がある選手が1人でもいたか（1／0）。atom が null のときは空 */
+  atomHas: Uint8Array;
   /** 行ごとの区分（rows.cls）を持つ索引か（2026-27 以降）。true なら外国籍・帰化・アジア特別枠を分けて出せる */
   detailed: boolean;
 }
@@ -242,17 +251,24 @@ export function buildClassSplitSource(index: PlayerGameIndexFile, periodIndex: P
     for (let i = 0; i < n; i++) game[slot[i]! * CLASS_SPLIT_GAME_COLUMNS.length + c]! += col[i]!;
   }
   let period: Float64Array | null = null;
+  let atom: Float64Array | null = null;
+  const atomHas = new Uint8Array(periodIndex ? teamRows * ATOM_COUNT : 0);
   const hasPeriod = new Uint8Array(periodIndex ? teamRows : 0);
   if (periodIndex && periodIndex.indexRows === n) {
     period = new Float64Array(teamRows * CLASS_COUNT * PERIOD_COLS.length);
+    atom = new Float64Array(teamRows * CLASS_COUNT * ATOM_COUNT * ATOM_COLS.length);
     const pr = periodIndex.rows;
     for (let k = 0; k < pr.row.length; k++) {
       const s = slot[pr.row[k]!]!;
       hasPeriod[Math.floor(s / CLASS_COUNT)] = 1;
       for (let c = 0; c < PERIOD_COLS.length; c++) period[s * PERIOD_COLS.length + c]! += pr.stats[PERIOD_COLS[c]!][k]!;
+      const a = pr.period[k]!;
+      atomHas[Math.floor(s / CLASS_COUNT) * ATOM_COUNT + a] = 1;
+      const base = (s * ATOM_COUNT + a) * ATOM_COLS.length;
+      for (let c = 0; c < ATOM_COLS.length; c++) atom[base + c]! += pr.stats[ATOM_COLS[c]!][k]!;
     }
   }
-  return { season: index.season, gameNo: new Map(games.key.map((k, i) => [k, i])), game, period, hasPeriod, detailed: rows.cls !== undefined };
+  return { season: index.season, gameNo: new Map(games.key.map((k, i) => [k, i])), game, period, hasPeriod, atom, atomHas, detailed: rows.cls !== undefined };
 }
 
 function gameValue(source: ClassSplitSource, teamRow: number, cls: readonly number[], col: string): number {
@@ -265,6 +281,18 @@ function periodValue(source: ClassSplitSource, teamRow: number, cls: readonly nu
   let v = 0;
   for (const c of cls) v += source.period![(teamRow * CLASS_COUNT + c) * PERIOD_COLS.length + periodCol.get(col)!]!;
   return v;
+}
+
+function atomValue(source: ClassSplitSource, teamRow: number, cls: readonly number[], atoms: readonly number[], col: string): number {
+  const ci = ATOM_COLS.indexOf(col as (typeof ATOM_COLS)[number]);
+  let v = 0;
+  for (const c of cls) for (const a of atoms) v += source.atom![((teamRow * CLASS_COUNT + c) * ATOM_COUNT + a) * ATOM_COLS.length + ci]!;
+  return v;
+}
+
+/** Q別・前後半・延長と登録区分を一緒に出せる索引か（ピリオド別の索引が読めたシーズン） */
+export function classPeriodAvailable(source: ClassSplitSource): boolean {
+  return source.atom !== null;
 }
 
 /** その区分を、このシーズンの索引で出せるか（外国籍・帰化・アジア特別枠は行ごとの区分がある索引だけ） */
@@ -310,10 +338,11 @@ export interface ClassSideValues {
 }
 
 /** チームの行（試合の番号×2＋〔ホーム 0／アウェイ 1〕）の、指定した区分（"none" は区分なし）の値 */
-export function classSideValues(source: ClassSplitSource, teamRow: number, cls: TeamClassSelection | "none"): ClassSideValues {
+export function classSideValues(source: ClassSplitSource, teamRow: number, cls: TeamClassSelection | "none", atoms?: readonly number[]): ClassSideValues {
   const c = typeof cls === "string" ? CLASS_NUMBERS[cls] : cls;
-  const g = (col: string) => gameValue(source, teamRow, c, col);
-  const p = (col: string) => (source.period && source.hasPeriod[teamRow] ? periodValue(source, teamRow, c, col) : 0);
+  // 区間（atoms）を指定したときは、試合全体の索引ではなくピリオド別の索引の、その区間の合計を使う
+  const g = atoms ? (col: string) => atomValue(source, teamRow, c, atoms, col) : (col: string) => gameValue(source, teamRow, c, col);
+  const p = atoms ? g : (col: string) => (source.period && source.hasPeriod[teamRow] ? periodValue(source, teamRow, c, col) : 0);
   return {
     pts: g("pts"),
     fgm: g("fgm"),
@@ -352,8 +381,9 @@ export function classSideValues(source: ClassSplitSource, teamRow: number, cls: 
 }
 
 /** ペイント内外の1試合分。ピリオド別の行が無い試合は -1（記録なし。validPaint が通らず、内訳の対象から外れる） */
-function paintInput(source: ClassSplitSource, teamRow: number, v: ClassSideValues): PaintInput {
-  if (!source.period || !source.hasPeriod[teamRow]) return { pm: -1, pa: -1, mm: -1, ma: -1, tm: -1, ta: -1 };
+function paintInput(source: ClassSplitSource, teamRow: number, v: ClassSideValues, atoms?: readonly number[]): PaintInput {
+  // 区間を選んでいるときは、選んだ区間のどれかにピリオド別の行が無ければ記録なし
+  if (atoms ? !atoms.every((a) => source.atomHas[teamRow * ATOM_COUNT + a]) : !source.period || !source.hasPeriod[teamRow]) return { pm: -1, pa: -1, mm: -1, ma: -1, tm: -1, ta: -1 };
   return { pm: v.paint2m, pa: v.paint2a, mm: v.mid2m, ma: v.mid2a, tm: v.fgm - v.tpm, ta: v.fga - v.tpa };
 }
 
@@ -403,25 +433,34 @@ function oppKey(k: (typeof OWN_KEYS)[number]): keyof TeamTotals {
  * 自チームの項目は自チームのその区分の選手、opp の項目は相手チームの同じ区分の選手の値。
  * 索引に無い試合（試合の番号が引けない）は数えず、数えた試合を games に返す（平均の分母と勝敗は、呼び出し側がこの games で出す）
  */
-export function sumClassTotals(source: ClassSplitSource, logs: readonly TeamGameLog[], cls: TeamClassSelection): { games: TeamGameLog[]; totals: TeamTotals } {
+export function sumClassTotals(
+  source: ClassSplitSource,
+  logs: readonly TeamGameLog[],
+  cls: TeamClassSelection,
+  period: GameRecordPeriod | "all" = "all",
+): { games: TeamGameLog[]; totals: TeamTotals } {
   const totals: TeamTotals = { ...EMPTY_TOTALS };
   const t = totals as unknown as Record<string, number>;
   const games: TeamGameLog[] = [];
   const pairs: PaintPair[] = [];
+  // 区間を選んだとき: ピリオド別の索引の、その区間の値がある試合（前後半5分の特別な試合の1Q〜4Q・延長の無い試合の延長は数えない。チームの区間別と同じ）
+  const atoms = period === "all" ? undefined : PERIOD_ATOM_INDEXES[period];
+  if (atoms && !source.atom) return { games, totals: withPaint(totals, summarizePaint(pairs)) };
   for (const g of logs) {
     const no = source.gameNo.get(g.scheduleKey);
     if (no === undefined) continue;
     const ownRow = no * 2 + (g.isHome ? 0 : 1);
     const oppRow = no * 2 + (g.isHome ? 1 : 0);
-    const own = classSideValues(source, ownRow, cls);
-    const opp = classSideValues(source, oppRow, cls);
+    if (atoms && !(atoms.some((a) => source.atomHas[ownRow * ATOM_COUNT + a]) && atoms.some((a) => source.atomHas[oppRow * ATOM_COUNT + a]))) continue;
+    const own = classSideValues(source, ownRow, cls, atoms);
+    const opp = classSideValues(source, oppRow, cls, atoms);
     games.push(g);
     for (const k of OWN_KEYS) {
       t[k] = (t[k] ?? 0) + own[k];
       const ok = oppKey(k);
       t[ok] = (t[ok] ?? 0) + opp[k];
     }
-    pairs.push({ own: paintInput(source, ownRow, own), opp: paintInput(source, oppRow, opp) });
+    pairs.push({ own: paintInput(source, ownRow, own, atoms), opp: paintInput(source, oppRow, opp, atoms) });
   }
   return { games, totals: withPaint(totals, summarizePaint(pairs)) };
 }

@@ -5,7 +5,8 @@
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
 import type { TeamGameLog } from "../../shared/types";
 import type { SeasonDisplayMode } from "./playerSeasonBoxscore";
-import { DETAILED_SPLIT_CLASSES, SPLIT_CLASS_LABELS, SPLIT_CLASSES, sumClassTotals, withOppMinutes, CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS, type SplitClass } from "./teamClassSplit";
+import type { GameRecordPeriod } from "./periodIndex";
+import { classPeriodAvailable, DETAILED_SPLIT_CLASSES, SPLIT_CLASS_LABELS, SPLIT_CLASSES, sumClassTotals, withOppMinutes, CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS, type SplitClass } from "./teamClassSplit";
 import { splitClassificationSeason } from "./classificationFilter";
 import type { ClassSplitSourceState } from "./teamClassSplitLoad";
 import {
@@ -37,11 +38,14 @@ export function buildSeasonClassRow(
   cls: SplitClass,
   perspective: TeamPerspective,
   emptyTotals: TeamTotals,
+  /** Q別・前後半・延長を選んでいるとき、その区間の値（選手のピリオド別の記録を区分ごとに足す） */
+  period: GameRecordPeriod | "all" = "all",
 ): SeasonPeriodRow {
   const none = { season, games: [], wins: 0, losses: 0, totals: emptyTotals };
   if (!state || state.status === "loading") return { ...none, status: "loading" };
   if (state.status === "unreadable") return { ...none, status: "unreadable" };
-  const { games, totals } = sumClassTotals(state.source, regularLogs, cls);
+  if (period !== "all" && !classPeriodAvailable(state.source)) return { ...none, status: "unreadable" };
+  const { games, totals } = sumClassTotals(state.source, regularLogs, cls, period);
   if (games.length === 0) return { ...none, status: "empty" };
   const wins = games.filter((g) => g.win).length;
   return { season, status: "ready", games, wins, losses: games.length - wins, totals: perspective === "opp" ? withOppMinutes(totals) : totals };

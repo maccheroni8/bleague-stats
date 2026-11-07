@@ -297,7 +297,7 @@ export function TeamHeadToHead({
                   <tr key={r.key}>
                     <td className="align-left">{r.label}</td>
                     <td className="align-left">
-                      <ResponsiveTeamName teamId={opponentId} name={r.opponentName} />
+                      <ResponsiveTeamName teamId={opponentId} name={r.opponentName} nowrap />
                     </td>
                     <td className="align-right">{formatRecord(r.sum.wins, r.sum.losses)}</td>
                     <td className="align-right">{formatRecord(r.sum.homeWins, r.sum.homeLosses)}</td>
@@ -353,7 +353,7 @@ export function TeamHeadToHead({
                       </td>
                       <td className="align-left">
                         <Link to={`/games/${g.scheduleKey}?season=${g.season}`} className="cell-link">
-                          {g.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={opponentId} name={g.opponentTeamName} />
+                          {g.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={opponentId} name={g.opponentTeamName} nowrap />
                           {g.gameType === "playoff" && <span className="playoff-badge">PO</span>}
                         </Link>
                       </td>

@@ -3122,7 +3122,7 @@ export function TeamDetailPage({ season }: { season: string }) {
     league,
   );
 
-  // シーズン別成績の登録区分別（DESIGN.md 288章）。開いたシーズンの行だけ、区分別の索引を読む（初期表示では読まない）。区間との併用は段階6まで選べない
+  // シーズン別成績の登録区分別（DESIGN.md 288章）。開いたシーズンの行だけ、区分別の索引を読む（初期表示では読まない）。区間（Q別・前後半・延長）とも一緒に出せる
   const [openClassSeasons, setOpenClassSeasons] = usePageState<Set<string>>(pk("seasonBoxClassOpen"), new Set());
   const classSeasonList = [...openClassSeasons].sort();
   const classSplitSources = useClassSplitSources(classSeasonList, tab === "teamStats" && classSeasonList.length > 0, league);
@@ -4964,7 +4964,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                             </RouterLink>
                           </td>
                           <td className="align-left">
-                            <ResponsiveTeamName teamId={team.teamId} name={r.teamName} />
+                            <ResponsiveTeamName teamId={team.teamId} name={r.teamName} nowrap />
                           </td>
                           <td className="align-right">{r.team.gamesPlayed}</td>
                           <td className="align-right"><TeamRecordShort wins={r.team.wins} losses={r.team.losses} resultOnlyGames={r.team.resultOnlyGames} /></td>
@@ -5024,7 +5024,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                             </RouterLink>
                           </td>
                           <td className="align-left">
-                            <ResponsiveTeamName teamId={team.teamId} name={teamName} />
+                            <ResponsiveTeamName teamId={team.teamId} name={teamName} nowrap />
                           </td>
                           <td className="align-right">{row.games}</td>
                           <td className="align-right">{formatRecord(row.wins, row.losses)}</td>
@@ -5112,75 +5112,29 @@ export function TeamDetailPage({ season }: { season: string }) {
                   {seasonHistoryDesc.map((r) => {
                     const misc = teamSeasonMiscBySeason.get(r.season) ?? EMPTY_TEAM_SEASON_MISC;
                     const pr = seasonPeriodTableRows?.get(r.season);
-                    if (pr && seasonPeriodFmt) {
-                      const ready = pr.status === "ready";
-                      return (
-                        <tr key={r.season}>
-                          <td className="align-left">
-                            <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
-                              {r.season}
-                            </RouterLink>
-                          </td>
-                          <td className="align-left">
-                            <ResponsiveTeamName teamId={team.teamId} name={r.teamName} />
-                          </td>
-                          <td className="align-right">{ready ? pr.games.length : "-"}</td>
-                          <td className="align-right">{ready ? <TeamRecordShort wins={pr.wins} losses={pr.losses} /> : "-"}</td>
-                          <td className="align-right">{ready ? formatWinPct(safeDiv(pr.wins, pr.wins + pr.losses)) : "-"}</td>
-                          {pr.status === "unreadable" || pr.status === "loading" ? (
-                            <td className="align-left" colSpan={seasonTableColumns.length}>
-                              {pr.status === "loading" ? "読み込み中..." : "この区間の記録を読み込めませんでした"}
-                            </td>
-                          ) : (
-                            seasonTableColumns.map((c) => (
-                              <td className="align-right" key={c.key}>
-                                {seasonPeriodCell(seasonPeriodFmt, c.label, pr, team.teamId, r.teamName)}
-                              </td>
-                            ))
-                          )}
-                        </tr>
-                      );
-                    }
+                    const classPeriod = seasonBoxPeriodOn ? (seasonBoxPeriodValue as TeamPeriodValue) : "all";
                     const classOpen = openClassSeasons.has(r.season);
-                    return (
-                      <Fragment key={r.season}>
-                      <tr>
-                        <td className="align-left season-class-cell">
-                          <button
-                            type="button"
-                            className="season-class-toggle"
-                            aria-expanded={classOpen}
-                            aria-label={`${r.season}の登録区分別を${classOpen ? "閉じる" : "開く"}`}
-                            title="登録区分別（日本人／外国籍・帰化・アジア）"
-                            onClick={() =>
-                              setOpenClassSeasons((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(r.season)) next.delete(r.season);
-                                else next.add(r.season);
-                                return next;
-                              })
-                            }
-                          >
-                            {classOpen ? "▾" : "▸"}
-                          </button>
-                          <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
-                            {r.season}
-                          </RouterLink>
-                        </td>
-                        <td className="align-left">
-                          <ResponsiveTeamName teamId={team.teamId} name={r.teamName} />
-                        </td>
-                        <td className="align-right">{r.team.gamesPlayed}</td>
-                        <td className="align-right"><TeamRecordShort wins={r.team.wins} losses={r.team.losses} resultOnlyGames={r.team.resultOnlyGames} /></td>
-                        <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
-                        {seasonTableColumns.map((c) => (
-                          <td className="align-right" key={c.key}>
-                            {c.format(r, misc, seasonBoxDisplayMode, seasonBoxPerspective)}
-                          </td>
-                        ))}
-                      </tr>
-                      {classOpen &&
-                        seasonSplitClasses(r.season).map((cls) => {
+                    const classToggle = (
+                      <button
+                        type="button"
+                        className="season-class-toggle"
+                        aria-expanded={classOpen}
+                        aria-label={`${r.season}の登録区分別を${classOpen ? "閉じる" : "開く"}`}
+                        title="登録区分別（日本人／外国籍・帰化・アジア）"
+                        onClick={() =>
+                          setOpenClassSeasons((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(r.season)) next.delete(r.season);
+                            else next.add(r.season);
+                            return next;
+                          })
+                        }
+                      >
+                        {classOpen ? "▾" : "▸"}
+                      </button>
+                    );
+                    const classRows = classOpen
+                      ? seasonSplitClasses(r.season).map((cls) => {
                           const cr = buildSeasonClassRow(
                             r.season,
                             classSplitSources.states.get(r.season),
@@ -5188,6 +5142,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                             cls,
                             seasonBoxPerspective,
                             EMPTY_TOTALS,
+                            classPeriod,
                           );
                           const ready = cr.status === "ready";
                           return (
@@ -5210,7 +5165,63 @@ export function TeamDetailPage({ season }: { season: string }) {
                               )}
                             </tr>
                           );
-                        })}
+                        })
+                      : null;
+                    if (pr && seasonPeriodFmt) {
+                      const ready = pr.status === "ready";
+                      return (
+                        <Fragment key={r.season}>
+                        <tr>
+                          <td className="align-left season-class-cell">
+                            {classToggle}
+                            <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
+                              {r.season}
+                            </RouterLink>
+                          </td>
+                          <td className="align-left">
+                            <ResponsiveTeamName teamId={team.teamId} name={r.teamName} nowrap />
+                          </td>
+                          <td className="align-right">{ready ? pr.games.length : "-"}</td>
+                          <td className="align-right">{ready ? <TeamRecordShort wins={pr.wins} losses={pr.losses} /> : "-"}</td>
+                          <td className="align-right">{ready ? formatWinPct(safeDiv(pr.wins, pr.wins + pr.losses)) : "-"}</td>
+                          {pr.status === "unreadable" || pr.status === "loading" ? (
+                            <td className="align-left" colSpan={seasonTableColumns.length}>
+                              {pr.status === "loading" ? "読み込み中..." : "この区間の記録を読み込めませんでした"}
+                            </td>
+                          ) : (
+                            seasonTableColumns.map((c) => (
+                              <td className="align-right" key={c.key}>
+                                {seasonPeriodCell(seasonPeriodFmt, c.label, pr, team.teamId, r.teamName)}
+                              </td>
+                            ))
+                          )}
+                        </tr>
+                        {classRows}
+                        </Fragment>
+                      );
+                    }
+                    return (
+                      <Fragment key={r.season}>
+                      <tr>
+                        <td className="align-left season-class-cell">
+                          {classToggle}
+                          <RouterLink to={`/teams/${team.teamId}?season=${r.season}`} className="cell-link">
+                            {r.season}
+                          </RouterLink>
+                        </td>
+                        <td className="align-left">
+                          <ResponsiveTeamName teamId={team.teamId} name={r.teamName} nowrap />
+                        </td>
+                        <td className="align-right">{r.team.gamesPlayed}</td>
+                        <td className="align-right"><TeamRecordShort wins={r.team.wins} losses={r.team.losses} resultOnlyGames={r.team.resultOnlyGames} /></td>
+                        <td className="align-right">{formatWinPct(safeDiv(r.team.wins, r.team.wins + r.team.losses))}</td>
+                        {seasonTableColumns.map((c) => (
+                          <td className="align-right" key={c.key}>
+                            {c.format(r, misc, seasonBoxDisplayMode, seasonBoxPerspective)}
+                          </td>
+                        ))}
+                      </tr>
+                      {classRows}
                       </Fragment>
                     );
                   })}
@@ -5223,11 +5234,11 @@ export function TeamDetailPage({ season }: { season: string }) {
                 <RuleChangeFootnote seasons={seasonHistoryDesc.map((r) => r.season)} />
               </>
             )}
-            {openClassSeasons.size > 0 && !seasonBoxPeriodOn && (
+            {openClassSeasons.size > 0 && (
               <>
                 <p className="page-subtitle">
                   ▸ を押したシーズンの登録区分別の行です。{seasonBoxPerspective === "opp" ? "opp の視点は、相手チームの同じ区分の選手の合計です。" : "その区分の選手の合計です。"}
-                  OR・DR・TR・TOV・F・TF は選手の分だけです（チームリバウンド等を含みません）。PACE・ORtg・DRtg・NetRtg・OR%・BSR・+/-・TF1/TF2/FLAG/DISR・ベンチ／スタメン得点・登録区分別得点は、区分では出せないので「-」にしています。
+                  {seasonBoxPeriodOn && "Q別・前後半・延長を選んでいるときは、その区間に出た選手の記録の合計です。"}OR・DR・TR・TOV・F・TF は選手の分だけです（チームリバウンド等を含みません）。PACE・ORtg・DRtg・NetRtg・OR%・BSR・+/-・TF1/TF2/FLAG/DISR・ベンチ／スタメン得点・登録区分別得点は、区分では出せないので「-」にしています。
                   {seasonBoxPerspective === "diff" && " +/- の視点は、登録区分別では出せません。"}
                 </p>
                 {[...openClassSeasons].some((sn) => {
@@ -6025,7 +6036,7 @@ function ScheduleLeadCells({ row, shortDate = false }: { row: TeamScheduleRow; /
       <td className="align-left">
         <MaybeLink to={linkTo}>
           {row.isHome ? "vs" : "@"}{" "}
-          {row.opponentTeamId ? <ResponsiveTeamName teamId={row.opponentTeamId} name={row.opponentName} /> : row.opponentName}
+          {row.opponentTeamId ? <ResponsiveTeamName teamId={row.opponentTeamId} name={row.opponentName} nowrap /> : row.opponentName}
           {row.gameType === "playoff" && <span className="playoff-badge">PO</span>}
         </MaybeLink>
       </td>
@@ -6171,7 +6182,7 @@ function ClubRecordCard({
       {rank && <div className="career-high-rank">{rank}</div>}
       <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}`} className="career-high-game-link">
         {game.date}　{game.isHome ? "vs" : "@"}
-        <ResponsiveTeamName teamId={game.opponentTeamId} name={game.opponentTeamName} always />
+        <ResponsiveTeamName teamId={game.opponentTeamId} name={game.opponentTeamName} always nowrap />
         {scoreOf(game)}
       </RouterLink>
       {firstDetail && <div>{firstDetail}</div>}
@@ -6186,7 +6197,7 @@ function ClubRecordCard({
                 <li key={g.scheduleKey}>
                   <RouterLink to={`/games/${g.scheduleKey}?season=${g.season}`} className="career-high-game-link">
                     {g.date}　{g.isHome ? "vs" : "@"}
-                    <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always />
+                    <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always nowrap />
                     {scoreOf(g)}
                   </RouterLink>
                   {detailOf(g, g.maxRun ?? 0) && <div>{detailOf(g, g.maxRun ?? 0)}</div>}
@@ -6208,7 +6219,7 @@ function ClubRecordCard({
                 <td>
                   <RouterLink to={`/games/${e.game.scheduleKey}?season=${e.game.season}`} className="career-high-game-link">
                     <span className="record-date-nowrap">{e.game.date}</span>　{e.game.isHome ? "vs" : "@"}
-                    <ResponsiveTeamName teamId={e.game.opponentTeamId} name={e.game.opponentTeamName} always />
+                    <ResponsiveTeamName teamId={e.game.opponentTeamId} name={e.game.opponentTeamName} always nowrap />
                     {scoreOf(e.game)}
                   </RouterLink>
                   {detailOf(e.game, e.value) && <div>{detailOf(e.game, e.value)}</div>}
