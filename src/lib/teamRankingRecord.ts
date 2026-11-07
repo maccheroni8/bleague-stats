@@ -20,11 +20,11 @@ export function recordOfLogs(logs: readonly Pick<TeamGameLog, "win">[]): TeamRan
  * Shooting・Forced TOV の元になる、スポーツナビの記録がある試合（レギュラーシーズン）の試合数と勝敗。
  * 試合ごとのシュートタイプ別（shotTypes）は、スポーツナビの記録がある試合にだけ付く
  */
-export function yahooRecordByTeam(gameLogsByTeam: ReadonlyMap<string, readonly TeamGameLog[]> | null | undefined): Map<string, TeamRankingRecord> {
+export function yahooRecordByTeam(gameLogsByTeam: ReadonlyMap<string, readonly TeamGameLog[]> | null | undefined, alreadyScoped = false): Map<string, TeamRankingRecord> {
   const map = new Map<string, TeamRankingRecord>();
   if (!gameLogsByTeam) return map;
   for (const [teamId, logs] of gameLogsByTeam) {
-    map.set(teamId, recordOfLogs(filterByGameType([...logs], "regular").filter((g) => g.shotTypes !== undefined)));
+    map.set(teamId, recordOfLogs((alreadyScoped ? [...logs] : filterByGameType([...logs], "regular")).filter((g) => g.shotTypes !== undefined)));
   }
   return map;
 }

@@ -7,6 +7,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { commitNumberText, type NumberTextKind } from "../src/lib/numberTextInput";
+import { buildStatConditionItems, isSignedDisplay } from "../src/lib/statConditions";
 
 let failures = 0;
 function eq(label: string, actual: unknown, expected: unknown): void {
@@ -88,6 +89,16 @@ for (const file of walk("src")) {
   }
 }
 eq("数値・時間を手で入れる欄は NumberTextInput だけ（ほかの <input> で作っていない）", offenders, []);
+
+// 3. スタッツの条件の「−」ボタンを出す項目（339章）: 表の値に符号つきの数が1つでもある項目だけ。値が無いときの「-」だけの項目・ふつうの数・割合・時間は出さない
+for (const [text, want] of [["-3", true], ["+3", true], ["−3.5", true], ["-0.45", true], ["+12.5%", true], ["-", false], ["", false], ["3", false], ["12.5%", false], ["20:15", false], ["0.00", false]] as const) {
+  eq(`符号つきの値か「${text}」`, isSignedDisplay(text), want);
+}
+type Row = Record<string, string>;
+const rows: Row[] = [{ pm: "+3", pts: "12", pct: "40.0%", empty: "-", min: "20:15" }, { pm: "-5", pts: "8", pct: "-", empty: "-", min: "10:00" }, { pm: "0", pts: "15", pct: "35.0%", empty: "-", min: "30:00" }];
+const defs = (["pm", "pts", "pct", "empty", "min"] as const).map((k) => ({ key: k, label: k, group: "t", display: (r: Row) => r[k]! }));
+const items = buildStatConditionItems(defs, rows, null);
+eq("条件の項目の signed（+/- のような値だけ true）", Object.fromEntries(items.map((i) => [i.key, i.signed])), { pm: true, pts: false, pct: false, empty: false, min: false });
 
 if (failures > 0) {
   console.error(`${failures}件の食い違い`);

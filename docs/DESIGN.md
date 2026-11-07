@@ -15778,3 +15778,26 @@ Codex の試作（`codex/top-scorers`）を取り込んだ。各チームの平�
 
 - `npm run validate:number-input`（新規。データを読まない）: `commitNumberText` の読み方と、`src/` の文字を打つ `<input>` が `NumberTextInput` の中だけにあること（1文字ごとに書き戻す作りへ戻ることを防ぐ）。
 - `node scripts/check-mobile-input.mjs <サイトのURL> both`（手で実行。validate:all には入れない。確認用サーバーか公開サイトと Playwright が要る）: iPhone・Android の画面を再現し、上の全部の欄で「60」「15.5」「0」「20:00」などを数字キー・日本語（半角）・日本語（全角）の3通りで打ち、入力中の表示・入力中は URL が変わらない・確定後の表示と URL・確定で表／グラフが変わる・消して入れ直せる、と「:」ボタン・「−」ボタン・最終点差を打ったまま外を触って閉じたときの確定を確かめる。
+
+## 339. 小さな直し4つ: PPP の並び・Forced TOV の条件別・試合の PC／PPP・スタッツの条件の「−」（2026-11-07。画面だけ・保存キーは不変 `4dcec1e91599df073f981c44d8b45580`）
+
+### 339-1. Advanced の PPP の並び
+- PPP を **FTR と PPS の間**に移した（335章までは ORtg の右）。`withPppColumn`（`src/lib/pppColumn.ts`）が一括で並べる: PPS があればその直前、無ければ FTR の右、FTR も無ければ TS% の右、TS% も無ければ ORtg の右。
+- 対象: ランキング（個人・シーズン成績）の項目一覧と表、個人詳細・Q別・md（詳しい版）・チーム詳細（FTR あり: 「TS%、FTR、PPP、PPS」）、比較・対戦相手別（FTR なし: 「TS%、PPP、PPS」）、選手のベン図。
+- 全選手スタッツの Advanced（条件なし）には PPP の列が無かった（条件の項目としてだけ選べた）ので、同じ並び（FTR と PPS の間）で足した。分母が0の選手は「-」で並べ替えの最後。絞り込み中の表は、これまでどおり PPP を出さない（シーズン通算の値だけの列のため）。
+
+### 339-2. Forced TOV を期間・相手・ホーム／アウェーなどで絞れるように
+- 全チームスタッツの Forced TOV とランキング（チーム）の Forced TOV は、`teams.json` のシーズン合計だけだった。試合ごとの値（`TeamGameLog.forcedTurnovers`・`turnoversCommitted`。333章）の合計に変え、試合種別（レギュラー／CS／合算）・対象期間・会場・相手・勝敗などの条件（試合の絞り込み）を連動させた。
+- 集計は `src/lib/teamTurnoverScoped.ts`（`scopedTurnovers`）。平均の分母は条件に当てはまる試合数、リーグ平均は「記録のあるチームの合計 ÷ 試合のあるチーム数」（`league-average.json` と同じ作り方）。試合ログに値が無い古いデータのときだけ従来の `teams.json` の値に戻る。
+- 区間（Q別・前後半）と登録区分は選べない（試合全体の記録のため。理由を表示）。ランキングの名前の下の勝敗は、条件に当てはまる試合のうち記録がある試合のもの。
+- **条件なしの数字は変わらない**: `npm run validate:team-turnover-scoped`（新規）が、全シーズン・両リーグで `teams.json`／`league-average.json` と一致すること、ホーム＋アウェー＝全体・前半の試合＋後半の試合＝全体、1試合の条件＝その試合の値を確かめる。
+
+### 339-3. ボックススコア・試合ログに PC と PPP
+- 試合詳細のボックススコアと個人詳細の試合ログに、PC（Scoring の %PTS ASTED の右）と PPP（Advanced の FTR と PPS の間。試合ログは FTR が無いので TS% と PPS の間）を足した。B.PREMIER・B.ONE とも。
+- PC は共通の関数 `pointsCreated`（PTS＋本人のアシストから生まれた得点）、PPP は `playerPpp`。アシストから生まれた得点は、試合詳細ではその試合のプレーバイプレー（選んだ期間 Q別・前後半の分）から `assistPointsByAssister`、試合ログでは試合の生データから同じ関数で出す（集計の `assistPoints` と同じ数え方）。プレーバイプレーが無い試合の PC、分母が0の PPP は「-」。チーム・内訳集計（スタメン・ベンチ・登録区分）の行の PC は「-」（足し合わせる意味が無いため）、PPP はその行の合計から。
+- `src/components/BoxscoreTable.tsx` の `withPcColumn`・`withPppBoxColumn`・`gameLogBoxColumnsFor`。`boxscoreAggregate.ts` など保存キーの対象は触っていない。検証は `npm run validate:game-pc-ppp`（新規。列の並びと、生データから出した値が試合ログの値からの手計算と一致すること）。
+
+### 339-4. スタッツの条件に「−」ボタン
+- iPhone の数字キーボードには「−」が無いため、スタッツの条件の値に負の値（+/- など）を入れられなかった。337章のベン図と同じ「−」ボタン（`NumberTextInput` の `toggleSign`）を、スタッツの条件の欄（ランキングのシーズン成績・1試合記録・達成記録、全選手・全チームスタッツ、選手のベン図の詳細フィルター）に付けた。
+- **負の値になりうる項目を選んでいるときだけ**出す: 項目の `signed`（`StatConditionItem.signed`）。表の値のどれかが「-3」「+3」の形の項目、1試合記録は +/-・得失点差など。すでに負の値が入っている行にも出す。
+- 検証は `npm run validate:number-input`（符号つきの値の判定と項目の `signed`）、`node scripts/check-mobile-input.mjs <URL> both`（iPhone・Android の画面で 3 → − → Enter が「-3」になり、もう一度押すと外れ、PTS では出ない）。

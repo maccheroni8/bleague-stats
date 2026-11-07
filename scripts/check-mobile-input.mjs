@@ -67,8 +67,18 @@ const FIELDS = [
     texts: [["20:00", "20:00", "sc=min.ge.20:00"], ["0", "0:00", "sc=min.ge.0:00"]] },
   { name: "全チームスタッツ・スタッツの条件", hash: "/teams?season=2026-27&sc=pts.ge.", advanced: true, label: "条件1の値",
     texts: [["60", "60", "sc=pts.ge.60"], ["15.5", "15.5", "sc=pts.ge.15.5"]] },
-  { name: "選手ベン図・詳細フィルター", hash: "/figures?entity=player&figure=player-venn&season=2026-27&sc=min.ge.", advanced: true, label: "条件1の値",
+  { name: "選手ベン図・詳細フィルター", key: "netrtg", hash: "/figures?entity=player&figure=player-venn&season=2026-27&sc=min.ge.", advanced: true, label: "条件1の値",
     texts: [["20:00", "20:00", "sc=min.ge.20:00"], ["0", "0:00", "sc=min.ge.0:00"]] },
+];
+
+/** 「−」ボタンの確かめ（スタッツの条件。NetRtg が入った状態で開く） */
+const SIGN_FIELDS = [
+  { name: "ランキング個人シーズン", key: "netrtg", hash: "/rankings?season=2026-27&m=player&sc=netrtg.ge." },
+  { name: "ランキングチームシーズン", key: "netrtg", hash: "/rankings?season=2026-27&sc=netrtg.ge." },
+  { name: "ランキング個人1試合", key: "plusMinus", hash: "/rankings?season=2026-27&m=player&k=game&sc=plusMinus.ge." },
+  { name: "全選手スタッツ", key: "netrtg", hash: "/players?season=2026-27&sc=netrtg.ge." },
+  { name: "全チームスタッツ", key: "netrtg", hash: "/teams?season=2026-27&sc=netrtg.ge." },
+  { name: "選手ベン図・詳細フィルター", key: "netrtg", hash: "/figures?entity=player&figure=player-venn&season=2026-27&sc=netrtg.ge." },
 ];
 
 const failures = [];
@@ -204,6 +214,37 @@ async function runDevice(deviceName) {
       check("チームベン図・「−」ボタン", "確定後のURL", query().includes("vta=-3"), true);
     } catch (e) {
       check("チームベン図・「−」ボタン", "操作", `エラー ${String(e).slice(0, 120)}`, "エラーなし");
+    }
+  }
+  // スタッツの条件の「−」ボタン（DESIGN.md 339章）: 負の値になりうる項目（NetRtg）を選んだときだけ出る。3 → − → Enter で「-3」がURLに入る。PTS では出ない
+  for (const f of SIGN_FIELDS) {
+    if (only && !f.name.includes(only) && !"−".includes(only)) continue;
+    try {
+      const loc = await open({ ...f, label: "条件1の値", advanced: true });
+      check(f.name + "・「−」ボタン", "負になりうる項目を選ぶと出る", (await page.getByRole("button", { name: /条件1の値の符号/ }).count()) > 0, true);
+      await clear(loc);
+      await typeKeys("3");
+      await page.getByRole("button", { name: /条件1の値の符号/ }).first().tap();
+      await wait(200);
+      check(f.name + "・「−」ボタン", "3 → − の表示", await loc.inputValue(), "-3");
+      await loc.press("Enter");
+      await wait(900);
+      check(f.name + "・「−」ボタン", "確定後のURL", query().includes(`sc=${f.key}.ge.-3`), true);
+      await page.getByRole("button", { name: /条件1の値の符号/ }).first().tap();
+      await wait(200);
+      check(f.name + "・「−」ボタン", "もう一度押すと外れる", await loc.inputValue(), "3");
+      await loc.press("Enter");
+      await wait(600);
+      check(f.name + "・「−」ボタン", "外した後のURL", query().includes(`sc=${f.key}.ge.3`), true);
+      // PTS（負にならない項目）では出ない
+      await page.goto(`${base}#${f.hash.replace(f.key, "pts")}`);
+      await wait(2500);
+      const b = page.locator(".filter-advanced-toggle").first();
+      if ((await b.getAttribute("aria-expanded")) !== "true") await b.tap();
+      await wait(400);
+      check(f.name + "・「−」ボタン", "PTS では出ない", await page.getByRole("button", { name: /条件1の値の符号/ }).count(), 0);
+    } catch (e) {
+      check(f.name + "・「−」ボタン", "操作", `エラー ${String(e).slice(0, 120)}`, "エラーなし");
     }
   }
   // 最終点差: 打ったあと欄の外を触って閉じても確定する

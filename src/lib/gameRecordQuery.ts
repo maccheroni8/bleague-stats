@@ -524,6 +524,7 @@ function playerConditionItem(def: PlayerGameRecordDef): StatConditionItem<Indexe
     kind,
     unit: kind === "pct" ? "%" : kind === "minutes" ? "分:秒" : "",
     suffix: kind === "pct" ? "%" : "",
+    signed: def.kind === "signed",
     display: (row) => {
       const game = row as unknown as PlayerRecordGame;
       // 区間の +/- で、公式のピリオド別の値が無い行は「-」
@@ -578,6 +579,7 @@ function teamConditionItem(def: TeamRecordValueDef): StatConditionItem<IndexedTe
     kind: pct ? "pct" : "count",
     unit: pct ? "%" : "",
     suffix: pct ? "%" : "",
+    signed: def.key === "margin" || /bestDiff|worstDiff/.test(def.key),
     display: (row) => {
       const game = row as unknown as TeamGameLog;
       if (def.fraction) {

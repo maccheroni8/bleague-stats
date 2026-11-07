@@ -491,6 +491,13 @@ function buildAdvancedColumns(mode: SeasonDisplayMode): Column<PlayerRow>[] {
     pctColumn("efg", "eFG%", (p) => p.shooting.efgPct),
     pctColumn("ts", "TS%", (p) => p.shooting.tsPct),
     pctColumn("ftr", "FTR", (p) => p.shooting.ftRate),
+    // PPP（339章: FTR と PPS の間）。分母が0なら「-」で、並べ替えは最後（NaN）。絞り込み中は表から消える（PER と同じ）
+    {
+      key: "ppp",
+      label: "PPP",
+      sortValue: (r) => r.player.advanced.ppp ?? Number.NaN,
+      format: (r) => (r.player.advanced.ppp !== undefined ? formatDecimal(r.player.advanced.ppp, 2) : "-"),
+    },
     {
       key: "pps",
       label: "PPS",

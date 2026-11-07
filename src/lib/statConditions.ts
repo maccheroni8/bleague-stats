@@ -47,6 +47,11 @@ export interface StatConditionItem<R> {
   suffix: string;
   /** 表と同じ表示の文字列（値が無ければ「-」） */
   display: (row: R) => string;
+  /**
+   * 負の値になりうる項目（+/-・NetRtg など）か。スマホの数字キーボードに「−」が無いので、条件の欄に「−」ボタンを出す項目の目印
+   * （表の値のどれかが「-3」「+3」の形。DESIGN.md 339章）。省略は false
+   */
+  signed?: boolean;
 }
 
 /** 項目を作るための定義。display は今の平均/合計のもの、displayOther は平均/合計を逆にしたもの（あれば、カウント系かの判定に使う） */
@@ -110,6 +115,17 @@ export function parseConditionInputFor(text: string, kind: StatValueKind | undef
   return parseConditionInput(text);
 }
 
+/** 表示の文字列が符号つきの数値（「-3」「+3」「−3.5」）か。値が無いときの「-」だけは含めない */
+export function isSignedDisplay(text: string): boolean {
+  return /^[-+−－＋]\s?[\d０-９.．]/.test(text.trim());
+}
+
+/** 負の値になりうる項目か（見本の行の表示に、符号つきの値が1つでもあるか） */
+function detectSigned<R>(def: StatConditionItemDef<R>, rows: readonly R[]): boolean {
+  for (const r of rows) if (isSignedDisplay(def.display(r))) return true;
+  return false;
+}
+
 function detectKind<R>(def: StatConditionItemDef<R>, rows: readonly R[]): StatValueKind {
   if (def.fixedSuffix !== undefined) return "fixed";
   const sample = rows.slice(0, 40);
@@ -150,7 +166,7 @@ export function buildStatConditionItems<R>(
               ? modeUnit
               : "";
     const unit = def.seasonTotal ? [base, "シーズン通算"].filter(Boolean).join("・") : base;
-    items.push({ key: def.key, label: def.label, group: def.group, kind, unit, suffix, display: def.display });
+    items.push({ key: def.key, label: def.label, group: def.group, kind, unit, suffix, display: def.display, signed: detectSigned(def, rows) });
   }
   return items;
 }

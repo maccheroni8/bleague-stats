@@ -21,11 +21,16 @@ export const PPP_COLUMN: SeasonBoxscoreColumn = {
   value: (c) => pppOfRaw(c.raw) ?? 0,
 };
 
-/** Advanced の ORtg の右に PPP を足す（すでにあれば足さない） */
-export function withPppColumn(cols: SeasonBoxscoreColumn[]): SeasonBoxscoreColumn[] {
-  const i = cols.findIndex((c) => c.key === "ortg");
-  if (i < 0 || cols.some((c) => c.key === "ppp")) return cols;
-  return [...cols.slice(0, i + 1), PPP_COLUMN, ...cols.slice(i + 1)];
+/**
+ * Advanced の PPP の置き場所（335章を339章で変更）: FTR と PPS の間。
+ * PPS がなければ FTR の右、FTR もなければ TS% の右、TS% もなければ ORtg の右、それもなければ末尾（すでにあれば足さない）
+ */
+export function withPppColumn<T extends { key: string }>(cols: T[], ppp: T = PPP_COLUMN as unknown as T): T[] {
+  if (cols.some((c) => c.key === "ppp")) return cols;
+  const at = (k: string) => cols.findIndex((c) => c.key === k);
+  let i = at("pps");
+  if (i < 0) { const j = [at("ftr"), at("ts"), at("ortg")].find((x) => x >= 0); i = j === undefined ? cols.length : j + 1; }
+  return [...cols.slice(0, i), ppp, ...cols.slice(i)];
 }
 
 /** seasonBoxColumnsWithFtr の PPP 入り版（Advanced だけ ORtg の右に PPP が増える。個人詳細・Q別・md） */
