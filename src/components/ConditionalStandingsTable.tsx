@@ -10,7 +10,7 @@ import { FilterBar } from "./FilterBar";
 import { simpleSelectAxis, teamMultiAxis, type FilterAxis, type FilterAxisOption } from "../lib/filterAxes";
 import { ConditionLine } from "./ConditionTitle";
 import { clubSelectionLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
-import { formatSigned, formatWinPct } from "../lib/format";
+import { formatPct, formatSigned, formatWinPct } from "../lib/format";
 import { safeDiv } from "../../shared/formulas";
 import { currentStreak, formatTeamStreak } from "../../shared/teamRecords";
 import { teamShortName } from "../../shared/teamNames";
@@ -238,6 +238,8 @@ interface ConditionalRow {
   oppPts: number;
   pointDiff: number;
   streakLabel: string;
+  /** 試合割合＝その条件の試合数 ÷ そのクラブのレギュラーシーズンの対象試合数（347章）。対象試合が0のときは0 */
+  gameShare: number;
   remaining: number | null;
 }
 
@@ -478,6 +480,7 @@ export function ConditionalStandingsTable({
         oppPts,
         pointDiff: pts - oppPts,
         streakLabel: formatTeamStreak(currentStreak(filtered)),
+        gameShare: safeDiv(filtered.length, sorted.length),
         remaining,
       };
     });
@@ -559,6 +562,12 @@ export function ConditionalStandingsTable({
     { key: "oppPts", label: "失点", sortValue: (r) => r.oppPts, format: (r) => String(r.oppPts), higherIsBetter: false },
     { key: "pointDiff", label: "得失点差", sortValue: (r) => r.pointDiff, format: (r) => formatSigned(r.pointDiff, 0) },
     { key: "streak", label: "連勝/連敗", sortValue: (r) => r.wins - r.losses, format: (r) => r.streakLabel },
+    {
+      key: "gameShare",
+      label: "試合割合",
+      sortValue: (r) => (r.gamesPlayed === 0 ? -1 : r.gameShare),
+      format: (r) => (r.gamesPlayed === 0 ? "-" : formatPct(r.gameShare)),
+    },
     {
       key: "remaining",
       label: "残り試合数",

@@ -6,6 +6,12 @@ import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { buildBackToBackStatus, backToBackGameLabels } from "../src/lib/situational";
 import { DATA_DIR, readJson } from "./lib/storage.ts";
+import { formatPct } from "../src/lib/format";
+import { buildSituationalRecordGroups } from "../src/pages/TeamDetailPage";
+import { filterByGameType } from "../src/lib/playerSeasonBoxscore";
+import type { TeamGameLog, DivisionHistoryFile } from "../shared/types.ts";
+import { buildOpponentSeasonWinRates } from "../src/lib/opponentSeasonWinRate";
+import type { TeamSummary } from "../shared/types.ts";
 import type { GameSummary } from "../shared/types.ts";
 
 const day = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 86400000;
@@ -111,3 +117,26 @@ console.log(`プレーオフの同じ対戦で中2日〜7日空いた箇所 ${ga
 console.log("宇都宮(703) 2026-27 レギュラー:", JSON.stringify(utsunomiya));
 assert.deepEqual(utsunomiya, { GAME1: [1, 2], GAME2: [1, 2] }, "宇都宮 2026-27 は GAME1 1勝2敗・GAME2 1勝2敗");
 console.log("ok 宇都宮 2026-27: GAME1 1勝2敗・GAME2 1勝2敗");
+
+// 試合割合（347章）: 宇都宮 2026-27 レギュラー。GAME1・GAME2 は各3試合。分母は勝敗の対象の試合数（team-games のレギュラー）
+{
+  const season = "2026-27";
+  const all = (await readJson<TeamGameLog[]>(path.join(DATA_DIR, season, "team-games", "703.json")))!;
+  const regular = filterByGameType(all, "regular");
+  const summaries = (await readJson<GameSummary[]>(path.join(DATA_DIR, season, "games-summary.json")))!;
+  const byHand = summaries.filter((x) => x.gameEndedFlg && x.gameType === "regular" && (x.homeTeamId === "703" || x.awayTeamId === "703")).length;
+  assert.equal(regular.length, byHand, "分母は日程から手で数えた試合数と同じ");
+  const teams = (await readJson<TeamSummary[]>(path.join(DATA_DIR, season, "teams.json")))!;
+  const dh = await readJson<DivisionHistoryFile>(path.join(DATA_DIR, "division-history.json"));
+  const groups = buildSituationalRecordGroups(regular, "703", buildBackToBackStatus(summaries), buildOpponentSeasonWinRates(teams), dh, season);
+  const rows = groups.find((x) => x.key === "backToBack")!.rows;
+  const counts = rows.map((r) => regular.filter((x) => r.predicate(x, undefined)).length);
+  assert.deepEqual(counts, [3, 3]);
+  const shares = counts.map((n) => formatPct(n / regular.length));
+  console.log(`宇都宮 2026-27 レギュラー ${regular.length}試合: GAME1 3試合 ${shares[0]}、GAME2 3試合 ${shares[1]}`);
+  assert.equal(shares[0], formatPct(3 / byHand));
+  // 会場: ホーム＋アウェイ＝100%
+  const venue = groups.find((x) => x.key === "venue")!.rows;
+  assert.equal(venue.reduce((n, r) => n + regular.filter((x) => r.predicate(x, undefined)).length, 0), regular.length, "ホーム＋アウェイの試合割合の合計は100%");
+  console.log("ok 試合割合（宇都宮 2026-27）");
+}
