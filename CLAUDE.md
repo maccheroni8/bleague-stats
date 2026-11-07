@@ -200,6 +200,14 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - **pushの直前に自動更新（`chore: update 20xx-xx stats`）が入ったとき**（2026-10-25 の決まり）: 取り込んだ変更が `data/2026-27`（現在のシーズン）だけなら、**validate:all の全件は直前の結果を使い、変更に関係する検証だけ流し直す**
   （`validate:all` が30分近くかかる日は、30分おきの更新が毎回入り、取り込んだ直後の状態では終わらないため）。報告には「validate:all の全件は、取り込み一つ前の状態での結果」と書く。`data/` の変更が現在のシーズン以外に及ぶときは、手順どおり全件を通し直す
 - **pushする時間は、毎時00〜15分か30〜45分**（2026-10-25 の決まり）。本番の30分おきの更新は cron-job.org が毎時22分・52分に起動する（GitHub 側の 07分・37分は予備）ので、その前後を避ける。深夜の更新（3:10ごろ起動・15〜25分）の間も避ける。直前に `git fetch` して origin/main に追いつかせてから push する
+- **作業場所の確認用サーバーを `preview_start` で起動する手順**（2026-11-07 に確かめた）: `preview_start` が読む `launch.json` は、**セッションを開いたフォルダ（`10_Claude関連`）の `.claude/launch.json`** で、
+  作業場所（`../bleague-stats-xxx`）の中の `.claude/launch.json` は読まれない（足しても `No server named …` になる）。このフォルダの `launch.json` はコミットされず、全作業場所で共通。
+  作業場所用の設定は**そちらに足す**。`cwd` の指定は使えないので、node で vite を直接指定し、相対パスは `10_Claude関連` から数える。ポートは他の作業場所と重ならない値（5173〜5199 から空きを選ぶ。`--strictPort` を付ける）:
+  `{ "name": "xxx-dev", "runtimeExecutable": "/opt/homebrew/bin/node", "runtimeArgs": ["bleague-stats-xxx/node_modules/vite/bin/vite.js", "bleague-stats-xxx", "--port", "5193", "--strictPort"], "port": 5193 }`。
+  足したあとは `preview_start {name: "xxx-dev"}`（再起動不要）。起動したら `lsof -nP -iTCP:5193 -sTCP:LISTEN` と `ps -Ao pid,command | grep vite.js` で、コマンドの引数が自分の作業場所になっているか確かめる。
+  `launch.json` を編集するときは、ほかのセッションの設定（`small-a-dev` など）を消さない（JSON として読み込んで足す）。片付けで自分の設定だけ消す。
+  予備（`preview_start` が使えないとき）: 作業場所で `npx vite --port 5193 --strictPort`（Bash のバックグラウンド）で起動し、`preview_start {url: "http://localhost:5193/bleague-stats/"}` で開く。終わったら `pkill -f "vite --port 5193"` で止める。
+  どちらでも、新しい作業場所は先に `npm run build:data` を流す（無いと画面にデータが出ない）。
 - **確認用サーバー（`vite` など）は、使い終わったら止める**（2026-10-25 の決まり。動いたままの `vite` が CPU を使い続け、`validate:all` が約11分から約30分に延びた疑いがある）。**`validate:all` の前に、動いたままの確認用サーバーが無いか確かめる**
   （`lsof -nP -iTCP -sTCP:LISTEN | grep node`、`ps -Ao pid,pcpu,etime,command | grep vite`）。自分が起動していないものは、止める前にユーザーに報告する
 - `.github/workflows/` のファイルを変えたときは、**pushの前に** `actionlint .github/workflows/*.yml` を通し、エラー0件にする（未導入なら `brew install actionlint`。
