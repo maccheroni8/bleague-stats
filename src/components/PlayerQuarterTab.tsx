@@ -8,7 +8,7 @@ import { RuleChangeFootnote } from "./RuleChangeFootnote";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { composeLabels, displayModeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { displayModeAxis, gameTypeAxis } from "../lib/filterAxes";
-import { seasonBoxColumnsWithFtr } from "../lib/ftrColumn";
+import { seasonBoxColumnsWithFtrPpp } from "../lib/pppColumn";
 import type { League } from "../lib/league";
 import { PLAYER_QUARTER_CATEGORY_KEYS, buildPlayerQuarterRows } from "../lib/playerQuarterSplit";
 import type { SeasonBoxTabKey, SeasonDisplayMode, SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
@@ -75,7 +75,7 @@ export function PlayerQuarterTab({
   );
 
   const foulSplit = foulColumnsSplit([season]);
-  const columns = useMemo(() => seasonBoxColumnsWithFtr(category, foulSplit), [category, foulSplit]);
+  const columns = useMemo(() => seasonBoxColumnsWithFtrPpp(category, foulSplit), [category, foulSplit]);
   const categoryLabel = CATEGORY_LABELS[category];
   const conditions = composeLabels(gameTypeLabels(gameType, season), displayModeLabels(displayMode));
   const axes = [gameTypeAxis(gameType, onGameTypeChange, season), displayModeAxis(displayMode, onDisplayModeChange)];

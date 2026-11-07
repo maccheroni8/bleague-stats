@@ -3,6 +3,7 @@
 // トップレベル比較ページ（#/compare、ComparePage.tsx）も同じ列定義・表示ロジックを使うため
 // （DESIGN.md 100章）、ここに切り出して3箇所から共有する。詳細ページ側の挙動は変更していない。
 
+import { seasonBoxColumnsWithPpp } from "./pppColumn";
 import { isPaint2Key, paintOf, paintFormat, paintValue, paintCoverage, PAINT2_COVERAGE, leaguePaintComplete } from "./teamPaint2";
 import type { BoxscoreColumn, BoxscoreTabKey, ColumnCtx } from "../components/BoxscoreTable";
 import type { ComparisonStatDef } from "../pages/ComparePage";
@@ -471,7 +472,7 @@ export function seasonBoxCompareDefs(
   /** 比べるシーズンがすべて2026-27以降のとき true（Miscのファウルの列を TF1・TF2・FLAG・DISR にする） */
   foulSplit = false,
 ): ComparisonStatDef<CompareColumnData>[] {
-  const defs: ComparisonStatDef<CompareColumnData>[] = seasonBoxColumnsFor(tabKey, foulSplit).map((col) => ({
+  const defs: ComparisonStatDef<CompareColumnData>[] = seasonBoxColumnsWithPpp(tabKey, foulSplit).map((col) => ({
     key: col.key,
     label: col.label,
     value: (r) => col.value(r.ctx, "perGame"),

@@ -22,7 +22,7 @@ import { buildRecordsBeforeGame, matchesOpponentWinRateTier, buildGameTeamsBySch
 import { buildTeamSplitRowsFromPeriodSource } from '../src/lib/seasonPeriod.ts';
 import { sumTeamGameLogsFor } from '../src/lib/playerSeasonBoxscore.ts';
 import { sumPlayerGameLogs, buildSeasonBoxscoreCtx, EMPTY_TEAM_TOTALS, type TeamSeasonRawTotals } from '../src/lib/playerSeasonBoxscore.ts';
-import { seasonBoxColumnsWithFtr } from '../src/lib/ftrColumn.ts';
+import { seasonBoxColumnsWithFtrPpp } from '../src/lib/pppColumn.ts';
 import { normalizePlayerName } from '../shared/playerName.ts';
 import { sumForeignCourt, type ForeignPeriodValue } from '../src/lib/teamForeignCourt.ts';
 import { sumTtsTotals, loadTtsSource, type TtsSource } from '../src/lib/teamTts.ts';
@@ -238,7 +238,7 @@ for (const season of seasons) {
     check(`${season} ${t.teamName} 選手情報に NaN 等が無い`, !NOT_NUM.test(md));
     for (const tab of ['traditional', 'advanced', 'misc', 'scoring'] as const) {
       const tbl = mdTable(md, new RegExp(`^### ${tab[0]!.toUpperCase()}${tab.slice(1)}$`));
-      const cols = seasonBoxColumnsWithFtr(tab, foulSplit);
+      const cols = seasonBoxColumnsWithFtrPpp(tab, foulSplit);
       const lines = md.split('\n');
       const hi = lines.findIndex(l => l === `### ${tab[0]!.toUpperCase()}${tab.slice(1)}`);
       const labels = cells(lines[hi + 2]!).slice(1);
@@ -279,7 +279,7 @@ for (const season of seasons) {
       const lines = md.split('\n');
       const gameLogs = seasonOf(season, t.teamId).regular;
       for (const tab of ['traditional', 'advanced', 'misc', 'scoring'] as const) {
-        const cols = seasonBoxColumnsWithFtr(tab, foulSplit);
+        const cols = seasonBoxColumnsWithFtrPpp(tab, foulSplit);
         const hi = lines.findIndex(l => l === `### ${tab[0]!.toUpperCase()}${tab.slice(1)}`);
         const labels = cells(lines[hi + 2]!).slice(1);
         const tbl = mdTable(md, new RegExp(`^### ${tab[0]!.toUpperCase()}${tab.slice(1)}$`));
@@ -1226,7 +1226,7 @@ const rankOf = (v: string | undefined) => { const m = /（(\d+)位）$/.exec(v ?
       const md = buildDetailedExport(input).markdown;
       const gameLogs = seasonOf(season, t.teamId).regular;
       for (const tab of ['traditional', 'advanced', 'misc', 'scoring'] as const) {
-        const cols = seasonBoxColumnsWithFtr(tab, foulSplit);
+        const cols = seasonBoxColumnsWithFtrPpp(tab, foulSplit);
         const T = `${tab[0]!.toUpperCase()}${tab.slice(1)}`;
         for (const [slice, word] of [['h1', H1], ['h2', H2]] as const) {
           const tbl = mdTable(md, new RegExp(`^### ${T}・${word.replace(/[（）]/g, m => `\\${m}`)}$`));

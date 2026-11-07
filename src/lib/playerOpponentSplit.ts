@@ -3,6 +3,7 @@
 // buildTeamSplitRows に渡す）。シーズンの途中で移籍した選手は、所属の違う試合も相手ごとに1行にまとめ、USG%・PPP・DRtg の分母は本人が出場した試合の所属チームの合計
 // （DESIGN.md 333章）。出場しなかった試合（出場時間0）は数えない。
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
+import { seasonBoxColumnsWithPpp } from "./pppColumn";
 import type { Column } from "../components/SortableTable";
 import type { OpponentRowBase } from "../components/OpponentSplitTable";
 import type { PlayerGameLog, ShotTypeBreakdown, TeamGameLog, YahooShotEvent } from "../../shared/types";
@@ -114,7 +115,7 @@ export function buildPlayerOpponentRows(input: PlayerOpponentInput): { rows: Pla
 
 /** 個人詳細のシーズン別成績と同じ列（G は左に固定の列があるので除く）に、DD2・TD3 を足す。Q別を選べないので、DD2・TD3 は常に出せる */
 export function playerStandardColumns(category: SeasonBoxTabKey, mode: SeasonDisplayMode, foulSplit: boolean): Column<PlayerOpponentRow>[] {
-  const columns: Column<PlayerOpponentRow>[] = seasonBoxColumnsFor(category, foulSplit)
+  const columns: Column<PlayerOpponentRow>[] = seasonBoxColumnsWithPpp(category, foulSplit)
     .filter((c) => c.key !== "g")
     .map((c) => ({
       key: c.key,

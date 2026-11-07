@@ -12,6 +12,7 @@
 //     Traditional〜Scoring の全項目の表示まで一致する。レギュラーシーズンの試合数・合計の主な項目は players.json とも一致する
 //
 // 使い方: npm run validate:opponent-split。1つでも食い違いがあれば終了コード1
+import { seasonBoxColumnsWithPpp } from "../src/lib/pppColumn.ts";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import path from "node:path";
@@ -211,7 +212,7 @@ for (const season of seasons) {
       const split = buildTeamSplitRows(season, playedLogs, ownTeamByScheduleKey, sumTeamTotalsForLogs(playedLogs, ownTeamByScheduleKey, teamLogsByTeamId), "perGame", seasonStartYear);
       const stats = split[split.length - 1]!;
       for (const tab of BOX_TABS) {
-        for (const col of seasonBoxColumnsFor(tab, false)) {
+        for (const col of seasonBoxColumnsWithPpp(tab, false)) {
           checkedColumns++;
           const a = col.format(total.ctx, "perGame");
           const b = col.format(stats.ctx, "perGame");

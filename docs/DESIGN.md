@@ -15737,3 +15737,13 @@ Codex の試作（`codex/top-scorers`）を取り込んだ。各チームの平�
 - 個人詳細・比較・md には PPP の列がもともと無い（ORtg だけ）ので、ここでは変わらない。チームの PPP（チーム詳細の1試合ごとの PPP など）は選手以外なので変えていない。
 - **選手のベン図に詳細フィルター**（スタッツの条件。ランキング（個人）と同じ部品 `statConditionsBarExtra`・`filterByStatConditions`。URL は `sc`・`sm`）。項目は Traditional〜Scoring の列（出場試合数 G・出場時間 MIN など。ベン図の円と同じ1試合平均の値で判定）。出場率の掲載基準を通ったあとに絞り、円・人数・一覧・保存画像のタイトルのすべてに効く。プロフィール・キャリア・シューティングの項目は入れていない。
 - 検証: `validate:player-ppp`（新規。全シーズン・両リーグで式と分母0・画面の列）、`validate:usg-ppp`・`validate:individual-drtg`・`validate:ai-export-detailed` を新しい式に合わせて直した、`validate:player-venn` に詳細フィルターを足した。変更前後の導出データは PPP・individualOrtg・generatedAt 以外すべて同一。
+
+## 335. 個人詳細・比較・対戦相手別・Q別・md に PPP の列を足す（2026-11-07。画面だけ・保存キーは不変 `4dcec1e91599df073f981c44d8b45580`）
+
+- 334章で一般的な式にした個人の PPP を、ORtg が出ていた個人向けの表にも足した。列の場所は全選手スタッツと同じ（Advanced の ORtg の右）。Advanced 以外の表には出ない。
+  - 個人詳細: シーズン別・通算・シチュエーション別・Q別（`seasonBoxColumnsWithFtrPpp`）、対戦相手別（`seasonBoxColumnsWithPpp`）、比較（個人。`seasonBoxCompareDefs`）。
+  - md: 詳しい版のチーム別・ターム別の選手の Advanced 表（`aiDetailedExport.ts`）。簡単な版には選手の ORtg の表が無いので変わらない。
+- 値は、その表の範囲（シーズン・Q・対戦相手・通算など）の合計から 334章と同じ `playerPpp` で出す（試合ごとの PPP の平均にはしない）。分母が 0 なら「-」。B.PREMIER・B.ONE の両方。画面に注記は足さない。
+- 列の組み立ては `src/lib/pppColumn.ts` の `seasonBoxColumnsWithFtrPpp`・`seasonBoxColumnsWithPpp` の2か所。画面専用で、保存キーの対象ファイルは触っていない（`code-files` の一覧に入っていない）。
+- 触っていない所: ゲームログ・試合詳細のボックススコア（1試合ごとの在コートの ORtg の列）、チーム詳細の選手スタッツ表。
+- 検証: `validate:player-ppp` に、個人詳細・Q別・md・対戦相手別・比較の Advanced で PPP が ORtg の右にあること・全選手スタッツと同じ並び・Advanced 以外に出ないこと・全選手（4,057人）で値が一致することを足した。`validate:ai-export-detailed`・`validate:opponent-split` の期待の列にも PPP を入れた。

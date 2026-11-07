@@ -139,6 +139,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
   **試合ごとの Forced TOV**（`TeamGameLog.forcedTurnovers`・`turnoversCommitted`。試合全体だけ。対戦相手別・md のチーム情報は試合ログの値を足し、全チームの記録を読まない）。
   **USG%・PPP・DRtg の分母**は、本人が出場した試合だけの、その試合の所属チームの合計（`shared/playedTeamTotals.ts`・players.json の `playedTeamTotals`。移籍の特別扱いなし。PER は216章のまま）。検証は `validate:points-created`・`validate:forced-turnover-logs`・`validate:individual-drtg`・`validate:usg-ppp`
 - 334章: **個人の PPP ＝ PTS ÷ (FGA + 0.44×FTA + TOV)**（`playerPpp`・画面は `src/lib/pppColumn.ts`。分母0は値なし）。個人 ORtg はそのまま `advanced.individualOrtg` に残す（`advanced.ppp` はもう ORtg ÷ 100 ではない）。選手のベン図に詳細フィルター（`sc`・`sm`）。**保存キーが変わる**（allKey `4dcec1e91599df073f981c44d8b45580`）。検証は `validate:player-ppp`
+- 335章: **個人詳細・Q別・対戦相手別・比較・md（詳しい版）の Advanced に PPP を足した**（ORtg の右。全選手スタッツと同じ並び。`seasonBoxColumnsWithFtrPpp`・`seasonBoxColumnsWithPpp`＝`src/lib/pppColumn.ts`。合計から `playerPpp`・分母0は「-」）。**画面だけでキー不変**。個人の表に Advanced の列を足すときはこの2つを通す
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

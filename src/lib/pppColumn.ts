@@ -3,7 +3,8 @@
 // このファイルを保存キーの対象のファイルから import しないこと。
 import { playerPpp } from "../../shared/formulas";
 import { formatDecimal } from "./format";
-import type { SeasonBoxscoreColumn } from "./playerSeasonBoxscore";
+import { seasonBoxColumnsWithFtr } from "./ftrColumn";
+import { seasonBoxColumnsFor, type SeasonBoxscoreColumn, type SeasonBoxTabKey } from "./playerSeasonBoxscore";
 
 /** 合計でも平均でも同じ値（比）。分母が0なら undefined */
 export function pppOfRaw(raw: { pts: number; fga: number; fta: number; tov: number }): number | undefined {
@@ -25,4 +26,16 @@ export function withPppColumn(cols: SeasonBoxscoreColumn[]): SeasonBoxscoreColum
   const i = cols.findIndex((c) => c.key === "ortg");
   if (i < 0 || cols.some((c) => c.key === "ppp")) return cols;
   return [...cols.slice(0, i + 1), PPP_COLUMN, ...cols.slice(i + 1)];
+}
+
+/** seasonBoxColumnsWithFtr の PPP 入り版（Advanced だけ ORtg の右に PPP が増える。個人詳細・Q別・md） */
+export function seasonBoxColumnsWithFtrPpp(tab: SeasonBoxTabKey, foulSplit: boolean): SeasonBoxscoreColumn[] {
+  const cols = seasonBoxColumnsWithFtr(tab, foulSplit);
+  return tab === "advanced" ? withPppColumn(cols) : cols;
+}
+
+/** seasonBoxColumnsFor の PPP 入り版（比較・対戦相手別。FTR は足さない） */
+export function seasonBoxColumnsWithPpp(tab: SeasonBoxTabKey, foulSplit: boolean): SeasonBoxscoreColumn[] {
+  const cols = seasonBoxColumnsFor(tab, foulSplit);
+  return tab === "advanced" ? withPppColumn(cols) : cols;
 }

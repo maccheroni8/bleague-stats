@@ -1,4 +1,4 @@
-import { seasonBoxColumnsWithFtr } from "../lib/ftrColumn";
+import { seasonBoxColumnsWithFtrPpp } from "../lib/pppColumn";
 import { DIVISION_LABELS, opponentDivisionChoices } from "../lib/divisionGroups";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
@@ -2263,7 +2263,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           const col = situationalStatsShotColumns.find((c) => c.key === key);
           return col ? col.sortValue(row) : 0;
         }
-        const col = seasonBoxColumnsWithFtr(situationalStatsTab, foulColumnsSplit([situationalStatsSeason])).find((c) => c.key === key);
+        const col = seasonBoxColumnsWithFtrPpp(situationalStatsTab, foulColumnsSplit([situationalStatsSeason])).find((c) => c.key === key);
         return col ? col.value(row.ctx, situationalStatsDisplayMode) : 0;
       }
     }
@@ -2711,7 +2711,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                     >
                       対戦相手勝率{situationalStatsSortIndicator("oppWinPct")}
                     </th>
-                    {(situationalStatsTab === "shooting" ? situationalStatsShotColumns : seasonBoxColumnsWithFtr(situationalStatsTab, situationalFoulSplit)).map(
+                    {(situationalStatsTab === "shooting" ? situationalStatsShotColumns : seasonBoxColumnsWithFtrPpp(situationalStatsTab, situationalFoulSplit)).map(
                       (col) => (
                         <th
                           key={col.key}
@@ -2733,7 +2733,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                       <tr className="situational-group-heading">
                         <td
                           colSpan={
-                            (situationalStatsTab === "shooting" ? situationalStatsShotColumns : seasonBoxColumnsWithFtr(situationalStatsTab, situationalFoulSplit))
+                            (situationalStatsTab === "shooting" ? situationalStatsShotColumns : seasonBoxColumnsWithFtrPpp(situationalStatsTab, situationalFoulSplit))
                               .length + 3
                           }
                         >
@@ -2762,7 +2762,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                                   {col.format!(row)}
                                 </td>
                               ))
-                            : seasonBoxColumnsWithFtr(situationalStatsTab, situationalFoulSplit).map((col) => (
+                            : seasonBoxColumnsWithFtrPpp(situationalStatsTab, situationalFoulSplit).map((col) => (
                                 <td key={col.key} className="align-right">
                                   {col.format(row.ctx, situationalStatsDisplayMode)}
                                 </td>
@@ -3517,7 +3517,7 @@ function SeasonBreakdownTable({
       ? []
       : tab === "onoff"
         ? SEASON_ONOFF_COLUMNS
-        : seasonBoxColumnsWithFtr(tab, foulColumnsSplit((careerData ?? []).map((cd) => cd.season)));
+        : seasonBoxColumnsWithFtrPpp(tab, foulColumnsSplit((careerData ?? []).map((cd) => cd.season)));
   // DD2・TD3 は試合全体の記録でしか判定できないため、Q別/前後半を選んでいるときは「-」（ベンチ得点の列と同じ扱い。DESIGN.md 180章）
   const ddtdUnavailable = !!periodOption && periodOption.periods !== null;
 

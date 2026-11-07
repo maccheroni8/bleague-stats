@@ -10,7 +10,7 @@ import { sumTeamGameLogs, EMPTY_TOTALS, type AllTeamsRow, type TeamPerspective }
 import { seasonPeriodFormatters } from './teamSeasonPeriod';
 import { buildTeamSplitRowsFromPeriodSource } from './seasonPeriod';
 import { sumTeamGameLogsFor } from './playerSeasonBoxscore';
-import { seasonBoxColumnsWithFtr } from './ftrColumn';
+import { seasonBoxColumnsWithFtrPpp } from './pppColumn';
 import { teamScoringShareFromTotals, teamClassificationShareFromTotals, fgaShare } from './shareCharts';
 import { buildBackToBackStatus } from './situational';
 import { sumForeignCourt, sumForeignDetail, type ForeignPeriodValue } from './teamForeignCourt';
@@ -369,7 +369,7 @@ function buildPart(i: DetailedInput, slices: TimeSlice[], split: SplitInfo | und
         }).sort((a, b) => b.ctx.raw.min - a.ctx.raw.min);
         if (!rows.length) { out.push('- このタームに出場した選手はいません。', ''); continue; }
         for (const tab of ['traditional', 'advanced', 'misc', 'scoring'] as const) {
-          const cs = seasonBoxColumnsWithFtr(tab, foulSplit).filter(c => tab === 'traditional' || !PLAYER_DROP.has(c.label));
+          const cs = seasonBoxColumnsWithFtrPpp(tab, foulSplit).filter(c => tab === 'traditional' || !PLAYER_DROP.has(c.label));
           const body = rows.map(x => [normalizePlayerName(x.player.name), ...cs.map(c => c.format(x.ctx, 'perGame'))]);
           const keep = cs.map((_, k) => body.some(r => r[k + 1] !== '-'));
           out.push(`### ${tab[0]!.toUpperCase()}${tab.slice(1)}${slices.length > 1 ? `・${SLICE_LABEL[slice]}` : ''}`, '', table(['選手', ...cs.filter((_, k) => keep[k]).map(c => c.label)], body.map(r => [r[0]!, ...r.slice(1).filter((_, k) => keep[k])])), '');
