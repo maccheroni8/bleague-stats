@@ -1268,10 +1268,13 @@ export function RankingsPage({ season }: { season: string }) {
   // 個人には1シーズン記録が無く、チームには勝負所・アシストペアが無いので、URLにそのkがあっても通常のシーズン成績にする
   const kind: RankingKind =
     (mode === "player" && (kindParam === "special" || kindParam === "attendance")) || (mode === "team" && (kindParam === "clutch" || kindParam === "assistPair" || kindParam === "threshold" || kindParam === "lineup")) ? "season" : kindParam;
-  const [pairUnit, setPairUnit] = useUrlState(PAIR_UNIT_PARAM, "season");
+  const [urlPairUnit, setPairUnit] = useUrlState(PAIR_UNIT_PARAM, "season");
+  // B.ONE の勝負所・アシストペア・達成記録・On/Off は、シーズン（そのシーズンの試合）だけ
+  const pairUnit = league === "one" ? "season" : urlPairUnit;
   const [thresholdUnit, setThresholdUnit] = useUrlState(THRESHOLD_UNIT_PARAM, "count");
   const [lineupUnit, setLineupUnit] = useUrlState(LINEUP_UNIT_PARAM, "onoff");
-  const [lineupRange, setLineupRange] = useUrlState(LINEUP_RANGE_PARAM, "season");
+  const [urlLineupRange, setLineupRange] = useUrlState(LINEUP_RANGE_PARAM, "season");
+  const lineupRange = league === "one" ? "season" : urlLineupRange;
   const setMode = (next: Mode) => {
     if (next === mode) return;
     clearUrlParams();
@@ -1295,7 +1298,7 @@ export function RankingsPage({ season }: { season: string }) {
     (kind === "attendance" && attendanceScope === "allTime") ||
     ((gameRecords || kind === "clutch") && scope === "allTime") ||
     (kind === "assistPair" && pairUnit !== "season") ||
-    (kind === "threshold" && (thresholdUnit !== "count" || scope === "allTime")) ||
+    (kind === "threshold" && league === "premier" && (thresholdUnit !== "count" || scope === "allTime")) ||
     (kind === "lineup" && lineupRange === "career");
 
   return (
@@ -1337,7 +1340,14 @@ export function RankingsPage({ season }: { season: string }) {
               ["season", "シーズン"],
             ] as const
           ).map(([key, label]) => (
-            <button key={key} type="button" className={scope === key ? "active" : ""} onClick={() => setScopeParam(key)}>
+            <button
+              key={key}
+              type="button"
+              className={scope === key ? "active" : ""}
+              onClick={() => setScopeParam(key)}
+              disabled={league === "one" && key === "allTime"}
+              title={league === "one" && key === "allTime" ? ONE_RANKING_ALLTIME_REASON : undefined}
+            >
               {label}
             </button>
           ))}
@@ -1346,7 +1356,14 @@ export function RankingsPage({ season }: { season: string }) {
       {kind === "assistPair" && (
         <div className="mode-toggle records-scope-toggle">
           {PAIR_UNITS.map((u) => (
-            <button key={u} type="button" className={pairUnit === u ? "active" : ""} onClick={() => setPairUnit(u)}>
+            <button
+              key={u}
+              type="button"
+              className={pairUnit === u ? "active" : ""}
+              onClick={() => setPairUnit(u)}
+              disabled={league === "one" && u !== "season"}
+              title={league === "one" && u !== "season" ? ONE_RANKING_ALLTIME_REASON : undefined}
+            >
               {PAIR_UNIT_LABELS[u]}
             </button>
           ))}
@@ -1369,7 +1386,14 @@ export function RankingsPage({ season }: { season: string }) {
                   ["season", "シーズン"],
                 ] as const
               ).map(([key, label]) => (
-                <button key={key} type="button" className={scope === key ? "active" : ""} onClick={() => setScopeParam(key)}>
+                <button
+                  key={key}
+                  type="button"
+                  className={scope === key ? "active" : ""}
+                  onClick={() => setScopeParam(key)}
+                  disabled={league === "one" && key === "allTime"}
+                  title={league === "one" && key === "allTime" ? ONE_RANKING_ALLTIME_REASON : undefined}
+                >
                   {label}
                 </button>
               ))}
@@ -1393,7 +1417,14 @@ export function RankingsPage({ season }: { season: string }) {
                 ["career", "通算"],
               ] as const
             ).map(([key, label]) => (
-              <button key={key} type="button" className={lineupRange === key ? "active" : ""} onClick={() => setLineupRange(key)}>
+              <button
+                key={key}
+                type="button"
+                className={lineupRange === key ? "active" : ""}
+                onClick={() => setLineupRange(key)}
+                disabled={league === "one" && key === "career"}
+                title={league === "one" && key === "career" ? ONE_RANKING_ALLTIME_REASON : undefined}
+              >
                 {label}
               </button>
             ))}
@@ -1425,13 +1456,13 @@ export function RankingsPage({ season }: { season: string }) {
       {/* カテゴリのタブを「ページの主タブ」ではなく従のタブとして扱うため、ルート直下に置かない（v2のCSSは > .tab-bar だけを主タブにする） */}
       <div>
         {kind === "lineup" ? (
-          <PlayerLineupRanking season={season} teamColors={teamColors ?? undefined} />
+          <PlayerLineupRanking key={`${league}-${season}`} season={season} teamColors={teamColors ?? undefined} />
         ) : kind === "threshold" ? (
-          <PlayerThresholdRanking season={season} teamColors={teamColors ?? undefined} />
+          <PlayerThresholdRanking key={`${league}-${season}`} season={season} teamColors={teamColors ?? undefined} />
         ) : kind === "clutch" ? (
-          <PlayerClutchRanking season={season} teamColors={teamColors ?? undefined} />
+          <PlayerClutchRanking key={`${league}-${season}`} season={season} teamColors={teamColors ?? undefined} />
         ) : kind === "assistPair" ? (
-          <AssistPairRanking season={season} teamColors={teamColors ?? undefined} />
+          <AssistPairRanking key={`${league}-${season}`} season={season} teamColors={teamColors ?? undefined} />
         ) : kind === "special" ? (
           <TeamSeasonRecordRanking teamColors={teamColors ?? undefined} />
         ) : kind === "attendance" ? (

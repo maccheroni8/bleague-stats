@@ -1,4 +1,5 @@
 import { useLeague } from "../lib/league";
+import { ONE_ROOKIE_REASON } from "../lib/leagueAvailability";
 import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
 import { isRookieFilter, splitSeasonsOnly, withRookie, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
@@ -22,7 +23,7 @@ import { useGameIndexViews, useGameRecordOptions, useRookieFile } from "../lib/u
 import { ROOKIE_NOTE, ROOKIE_UNSUPPORTED_REASON, rookieSupportedSeason } from "../lib/rookieFilter";
 import { useNarrow } from "../lib/teamLabel";
 import { useUrlState } from "../lib/urlState";
-import { CLUTCH_MEASURE_PARAM, CLUTCH_WINDOW_PARAM, GAME_TYPE_PARAM, PLAYER_GROUP_PARAM, RECORDS_SCOPE_PARAM } from "../lib/urlFilterParams";
+import { CLUTCH_MEASURE_PARAM, CLUTCH_WINDOW_PARAM, GAME_TYPE_PARAM, PLAYER_GROUP_PARAM, RECORDS_SCOPE_PARAM, type RecordsScope } from "../lib/urlFilterParams";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
 import { ExportTarget } from "./ExportTarget";
@@ -61,7 +62,9 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
   const exportRef = useRef<HTMLDivElement>(null);
   const narrow = useNarrow();
   const league = useLeague();
-  const [scope] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
+  const [urlScope] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
+  // B.ONE は通算（全シーズン）が無いので、シーズンだけ。URL に通算と書いてあっても、そのシーズンで出す
+  const scope: RecordsScope = league === "one" ? "season" : urlScope;
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [group, setGroup] = useUrlState(PLAYER_GROUP_PARAM, "all");
   const [measure, setMeasure] = useUrlState(CLUTCH_MEASURE_PARAM, "goAhead");
@@ -92,11 +95,11 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
   // シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い対戦相手・地区・ルーキーを外す
   useEffect(() => {
     if (allTime) return;
-    if (isRookieFilter(group) && !rookieSupportedSeason(season)) setGroup(withRookie(group, false));
+    if (isRookieFilter(group) && (league === "one" || !rookieSupportedSeason(season))) setGroup(withRookie(group, false));
     if (!options.ready) return;
     const next = cleanGameConditionsForSeason(conditions, options.teams.map((t) => t.value), options.divisions);
     if (next) setConditions(next);
-  }, [allTime, season, group, conditions, options, setGroup, setConditions]);
+  }, [allTime, season, league, group, conditions, options, setGroup, setConditions]);
 
   const teamName = (id: string) => {
     const t = options.teams.find((o) => o.value === id);
@@ -115,12 +118,12 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
   const entries = result?.rows;
   const failure = index.error ?? rookies.error ?? active.error ?? current.error;
 
-  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial: true, includeSpecialDefault: true };
+  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial: true, includeSpecialDefault: true, league };
   const axes: FilterAxis[] = [
     classificationAxis(group, setGroup, {
       season: allTime ? null : season,
     }),
-    rookieAxis(group, setGroup, { disabledReason: !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined }),
+    rookieAxis(group, setGroup, { disabledReason: league === "one" ? ONE_ROOKIE_REASON : !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined }),
     ...(allTime ? [activeAxis(activeParam, setActive)] : []),
     gameTypeAxis(gameType, setGameType, seasonForTitle),
     simpleSelectAxis({

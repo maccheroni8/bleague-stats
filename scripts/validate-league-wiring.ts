@@ -462,10 +462,12 @@ console.log("9. ランキング（B.ONE のシーズン成績・1試合記録）
   const text = sources.get(rankingsFile)!.getFullText();
   check(ONE_PAGE_AVAILABILITY.rankings.ready === true, "B.ONE でランキングが見られるページになっていない");
   // ランキングの種類の一覧のうち、シーズン成績・1試合記録以外は、B.ONE で選べない理由を持つ
+  // B.ONE で見られるランキングの種類（段階1: シーズン成績・1試合記録、段階2-A: 勝負所・アシストペア・達成記録・On/Off。いずれもシーズンだけ）
+  const ONE_READY_KINDS = ["season", "game", "clutch", "assistPair", "threshold", "lineup"];
   const kinds = /const RANKING_KIND_PARAM = enumParam<RankingKind>\("k", \[([^\]]+)\]/.exec(text)?.[1]?.match(/"(\w+)"/g)?.map((v) => v.replace(/"/g, "")) ?? [];
   check(kinds.length >= 9, `ランキングの種類の一覧を読めない（${kinds.join(",")}）`);
   for (const k of kinds) {
-    if (k === "season" || k === "game") check(!ONE_RANKING_KIND_REASONS[k], `${k} は B.ONE で見られるのに選べない理由がある`);
+    if (ONE_READY_KINDS.includes(k)) check(!ONE_RANKING_KIND_REASONS[k], `${k} は B.ONE で見られるのに選べない理由がある`);
     else check(!!ONE_RANKING_KIND_REASONS[k], `ランキングの種類 ${k} が B.ONE で選べない理由を持っていない`);
   }
   // 画面の区画は、リーグを受けて、リーグが変わったら作り直す（同じシーズンでリーグだけ変えても別のリーグの値が残らない）
@@ -479,6 +481,18 @@ console.log("9. ランキング（B.ONE のシーズン成績・1試合記録）
   const hookCalls = text.match(/use(Player|Team)SeasonRanking\(/g)?.length ?? 0;
   const hookWithLeague = text.match(/\}, \{ league \}\);|league \},\n  \);/g)?.length ?? 0;
   check(hookCalls === 4 && hookWithLeague >= 4, `集計フックの呼び出し ${hookCalls}か所のうち、リーグを渡しているのは ${hookWithLeague}か所`);
+  // 段階2-A: 勝負所・アシストペア・達成記録・On/Off も、範囲は B.ONE ではシーズンだけ（通算・歴代・1試合〔歴代〕は選べない）。区画はリーグで作り直す
+  for (const comp of ["PlayerClutchRanking", "AssistPairRanking", "PlayerThresholdRanking", "PlayerLineupRanking"]) {
+    check(new RegExp(`<${comp}\\s+key=\\{`).test(text), `${comp} にリーグの鍵（key）が渡っていない`);
+  }
+  check(/league === "one" \? "season" : urlScope/.test(sources.get("src/components/PlayerClutchRanking.tsx")!.getFullText()), "勝負所: B.ONE の範囲がシーズンに固定されていない");
+  check(/league === "one" \? "season" : urlUnit/.test(sources.get("src/components/AssistPairRanking.tsx")!.getFullText()), "アシストペア: B.ONE の範囲がシーズンに固定されていない");
+  check(/league === "one" \? false : /.test(sources.get("src/components/PlayerThresholdRanking.tsx")!.getFullText()), "達成記録: B.ONE の範囲がシーズンに固定されていない");
+  check(/league === "one" \? false : range === "career"/.test(sources.get("src/components/PlayerLineupRanking.tsx")!.getFullText()), "On/Off: B.ONE の範囲がシーズンに固定されていない");
+  for (const f of ["src/components/PlayerClutchRanking.tsx", "src/components/AssistPairRanking.tsx", "src/components/PlayerThresholdRanking.tsx", "src/components/PlayerLineupRanking.tsx"]) {
+    check(/useGameRecordOptions\([^;]*league\)/.test(sources.get(f)!.getFullText()), `${f}: 選択肢の読み込みにリーグが渡っていない`);
+  }
+  check(/useLineupData\([^;]*league\)/.test(sources.get("src/components/PlayerLineupRanking.tsx")!.getFullText()), "On/Off: 出場区間の読み込みにリーグが渡っていない");
   // 1試合記録: 範囲は B.ONE ではシーズンだけ
   for (const f of ["src/components/PlayerGameRecordRanking.tsx", "src/components/TeamGameRecordRanking.tsx"]) {
     const t = sources.get(f)!.getFullText();

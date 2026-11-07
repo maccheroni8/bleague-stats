@@ -7,6 +7,9 @@
 //  3. 1試合記録: 条件なしの経路（シーズンの player-game-records.json／全クラブの試合ログから作る一覧）と、条件付きの経路（1試合行の索引から集計）が、
 //     同じ条件（全選手・日本人・外国籍・帰化・アジア／レギュラー／ポスト／合算 × 全項目）で一致する。勝った試合だけ・ホームだけの条件は、元の試合ログから数え直した値と一致する
 //  4. 掲載基準「達成可能」を出す条件: 進出争いのデータが判定を止めている間は出さない（B.ONE の日程が出そろうまで）
+//  6. 段階2-A（勝負所・アシストペア・達成記録・On/Off）: B.ONE の元の試合から数え直した値と、画面が読む索引・ペア・出場区間からの集計が一致する
+//     勝負所＝第4Q・延長の残り2分の勝ち越し弾（元のプレーバイプレーの得点の流れから）、アシストペア＝選手ごとのアシスト数（ペアのファイルと元のボックススコアのAS）、
+//     達成記録＝PTS20以上の試合数・連続・初めて達成した試合（元のボックススコアから）、On/Off＝出場時間と、出場した試合のチームの得点（元のボックススコア）
 //  5. B.ONE で選べない種類・カテゴリに理由があり、リーグの範囲（地区5つ・OC上限3）が B.ONE のものになっている
 //
 // 使い方: npm run validate:one-ranking（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
@@ -30,6 +33,13 @@ import { ONE_RANKING_KIND_REASONS, ONE_PAGE_AVAILABILITY } from "../src/lib/leag
 import { divisionOrder } from "../src/lib/divisionGroups.ts";
 import { seasonRuleFor } from "../shared/seasonRules.ts";
 import type { RookieEligibilityFile } from "../shared/types.ts";
+import { chronologicalPlayByPlays } from "../shared/pbpOrder.ts";
+import type { AssistPairsFile } from "../shared/assistPairs.ts";
+import type { TeamStintsFile } from "../shared/types.ts";
+import { compactStints } from "../shared/onCourtTotals.ts";
+import { queryClutch, queryAssistPairs } from "../src/lib/clutchQuery.ts";
+import { DEFAULT_THRESHOLD, queryThresholdAge, queryThresholdCount, queryThresholdStreaks } from "../src/lib/thresholdQuery.ts";
+import { buildLineupRows } from "../src/lib/lineupRanking.ts";
 
 const SEASON = "2026-27";
 let failures = 0;
@@ -231,6 +241,187 @@ for (const [label, cond, pred] of [
   check(`個人 1試合記録（${label}）: 得点の最高が、元の試合ログの最高（${best}点）と一致`, rows[0]?.value === best, `索引 ${rows[0]?.value}`);
 }
 
+
+// ---- 6. 段階2-A: 勝負所・アシストペア・達成記録・On/Off ----
+// 元の試合から、選手ごとの試合の並び（日付順）・勝ち越し弾・アシスト数を数え直す
+interface RawAppearance { date: string; key: string; teamId: string; pts: number; seconds: number; ast: number }
+const rawAppearances = new Map<string, RawAppearance[]>();
+const rawGoAhead = new Map<string, number>();
+const orderedGames = [...rawGames].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : Number(a.scheduleKey) - Number(b.scheduleKey)));
+for (const g of orderedGames) {
+  for (const row of [...g.raw.HomeBoxscores, ...g.raw.AwayBoxscores]) {
+    if (!row.PlayerID || row.Category !== 1 || row.PeriodCategory !== 18) continue;
+    const sec = seconds(row.PlayTime);
+    if (sec <= 0) continue;
+    const list = rawAppearances.get(row.PlayerID) ?? [];
+    list.push({ date: g.date, key: g.scheduleKey, teamId: String(row.TeamID), pts: row.Point ?? 0, seconds: sec, ast: row.AS ?? 0 });
+    rawAppearances.set(row.PlayerID, list);
+  }
+  // 勝ち越し弾（第4Q・延長の残り2分以内。得点前に同点か負けていて、得点後にリード）。得点イベント（ActionCD1 = 1, 3, 4, 7, 44）の Score の累計の昇順に並べて、自分で数える
+  const events = chronologicalPlayByPlays(g.raw.PlayByPlays)
+    .filter((e) => [1, 3, 4, 7, 44].includes(e.ActionCD1 as number) && /^\d+-\d+$/.test(e.Score ?? ""))
+    .map((e) => {
+      const [h, a] = e.Score!.split("-").map(Number) as [number, number];
+      const m = /^(\d+):(\d{2})$/.exec(e.RestTime ?? "");
+      return { h, a, period: e.Period as number, rest: m ? Number(m[1]) * 60 + Number(m[2]) : 0, id: e.PlayerID1 as string | null };
+    });
+  const scoring: typeof events = [];
+  let seen = 0;
+  for (const e of [...events].sort((x, y) => x.h + x.a - (y.h + y.a))) {
+    if (e.h + e.a > seen) {
+      scoring.push(e);
+      seen = e.h + e.a;
+    }
+  }
+  scoring.forEach((e, i) => {
+    const prev = scoring[i - 1] ?? { h: 0, a: 0 };
+    const home = e.h !== prev.h;
+    const before = home ? prev.h - prev.a : prev.a - prev.h;
+    const after = home ? e.h - e.a : e.a - e.h;
+    if (e.period >= 4 && e.rest <= 120 && e.id && before <= 0 && after > 0) rawGoAhead.set(e.id, (rawGoAhead.get(e.id) ?? 0) + 1);
+  });
+}
+
+// 6-1 勝負所
+{
+  const rows = queryClutch({ views: [pView], gameType: "regular", conditions: DEFAULT_GAME_RECORD_CONDITIONS, group: "all", rookies, measure: "goAhead", window: "2", topN: 100000 }).rows;
+  const mine = new Map(rows.map((r) => [r.playerId, r.value]));
+  const ids = new Set([...mine.keys(), ...rawGoAhead.keys()]);
+  const bad = [...ids].filter((id) => (mine.get(id) ?? 0) !== (rawGoAhead.get(id) ?? 0));
+  check(`勝負所: 勝ち越し弾（残り2分）が、元のプレーバイプレーから数え直した値と全選手で一致（${ids.size}人・合計${[...rawGoAhead.values()].reduce((a, b) => a + b, 0)}本）`, bad.length === 0, bad.slice(0, 4).map((id) => `${id}: 画面${mine.get(id) ?? 0}／元${rawGoAhead.get(id) ?? 0}`).join(", "));
+  const top = rows[0]!;
+  console.log(`     勝負所の例: ${top.playerName} 勝ち越し弾 ${top.value}本（FG ${top.fg}・FT ${top.ft}）。元のプレーバイプレーでも ${rawGoAhead.get(top.playerId)}本`);
+}
+
+// 6-2 アシストペア
+{
+  const pairsFile = (await readJson<AssistPairsFile>(path.join(oneDir, "assist-pairs.json")))!;
+  const r = pairsFile.rows;
+  // (a) 公式のプレーバイプレーのアシストイベント（ActionCD1=12）の数が、ボックススコアの AS と全選手で一致する（ペアの元になるアシストが欠けていない）
+  const pbpAssists = new Map<string, number>();
+  // (b) アシストイベントの直前（同じチーム・同じピリオド。タイムアウト・交代などの管理イベントは飛ばす）の成功した3P・2Pの得点者を、自分で数え直す
+  const rePaired = new Map<string, { n2: number; n3: number }>();
+  for (const g of rawGames) {
+    const arr = chronologicalPlayByPlays(g.raw.PlayByPlays);
+    arr.forEach((e, i) => {
+      if (e.ActionCD1 !== 12 || !e.PlayerID1) return;
+      pbpAssists.set(e.PlayerID1, (pbpAssists.get(e.PlayerID1) ?? 0) + 1);
+      for (let j = i - 1, steps = 0; j >= 0 && steps < 8; j--, steps++) {
+        const c = arr[j]!;
+        if ([16, 22, 84, 85, 86, 87, 88].includes(c.ActionCD1 as number)) continue;
+        if ([1, 3, 4].includes(c.ActionCD1 as number) && c.TeamID === e.TeamID && c.Period === e.Period && c.PlayerID1) {
+          const key = `${e.PlayerID1}:${c.PlayerID1}`;
+          const v = rePaired.get(key) ?? { n2: 0, n3: 0 };
+          if (c.ActionCD1 === 1) v.n3 += 1;
+          else v.n2 += 1;
+          rePaired.set(key, v);
+        }
+        break;
+      }
+    });
+  }
+  let total = 0;
+  const bad: string[] = [];
+  for (const [id, list] of rawAppearances) {
+    const ast = list.reduce((a, x) => a + x.ast, 0);
+    total += ast;
+    if ((pbpAssists.get(id) ?? 0) !== ast) bad.push(`${id}: プレーバイプレーのアシスト${pbpAssists.get(id) ?? 0}／ボックススコアAS ${ast}`);
+  }
+  check(`アシストペア: 元のプレーバイプレーのアシストの数が、元のボックススコアの AS と全選手で一致（${rawAppearances.size}人・${total}本）`, bad.length === 0, `${bad.length}人ずれ ${bad.slice(0, 4).join(", ")}`);
+  const fileFg = new Map<string, { n2: number; n3: number }>();
+  const rr = pairsFile.rows;
+  for (let k = 0; k < rr.game.length; k++) {
+    if (rr.n2[k]! + rr.n3[k]! === 0) continue;
+    const key = `${pairsFile.players[rr.assister[k]!]}:${pairsFile.players[rr.scorer[k]!]}`;
+    const v = fileFg.get(key) ?? { n2: 0, n3: 0 };
+    v.n2 += rr.n2[k]!;
+    v.n3 += rr.n3[k]!;
+    fileFg.set(key, v);
+  }
+  const badPairs = [...new Set([...fileFg.keys(), ...rePaired.keys()])].filter((key) => {
+    const x = fileFg.get(key), y = rePaired.get(key);
+    return !x || !y || x.n2 !== y.n2 || x.n3 !== y.n3;
+  });
+  check(`アシストペア: 2P・3P のアシストペア（${fileFg.size}組）が、元のプレーバイプレーから数え直した組と一致`, badPairs.length <= Math.ceil(fileFg.size * 0.002), `${badPairs.length}組ずれ ${badPairs.slice(0, 4).join(", ")}`);
+  const q = queryAssistPairs({ data: [{ pairs: pairsFile, index: pView }], gameType: "regular", conditions: DEFAULT_GAME_RECORD_CONDITIONS, unit: "season", topN: 5 });
+  const top = q.rows[0]!;
+  let n2 = 0, n3 = 0, nf = 0;
+  for (let k = 0; k < r.game.length; k++) if (pairsFile.players[r.assister[k]!] === top.assisterId && pairsFile.players[r.scorer[k]!] === top.scorerId) { n2 += r.n2[k]!; n3 += r.n3[k]!; nf += r.nf[k]!; }
+  check(`アシストペア: シーズンの1位（${top.assisterName}→${top.scorerName} ${top.value}点）が、ペアのファイルの合計（2P×${n2}・3P×${n3}・FT×${nf}）と一致`, top.n2 === n2 && top.n3 === n3 && top.nf === nf && top.value === n2 * 2 + n3 * 3 + nf);
+}
+
+// 6-3 達成記録（PTS 20以上）: 回数・達成率・連続・初めて達成した年齢
+{
+  const base = { views: [pView], gameType: "regular" as const, conditions: DEFAULT_GAME_RECORD_CONDITIONS, group: "all" as const, positions: [], rookies, threshold: DEFAULT_THRESHOLD, includeSpecial: false, topN: 100000 };
+  const rawCount = new Map<string, { hit: number; games: number }>();
+  const rawStreak = new Map<string, number>();
+  const rawFirst = new Map<string, string>();
+  for (const [id, list] of rawAppearances) {
+    let hit = 0, run = 0, best = 0;
+    for (const a of list) {
+      if (a.pts >= 20) {
+        hit += 1;
+        run += 1;
+        best = Math.max(best, run);
+        if (!rawFirst.has(id)) rawFirst.set(id, a.date);
+      } else run = 0;
+    }
+    if (hit > 0) { rawCount.set(id, { hit, games: list.length }); rawStreak.set(id, best); }
+  }
+  const countRows = queryThresholdCount({ ...base, sort: "count", career: false })!.rows;
+  const badCount = [...new Set([...countRows.map((x) => x.playerId), ...rawCount.keys()])].filter((id) => {
+    const row = countRows.find((x) => x.playerId === id);
+    const raw = rawCount.get(id);
+    return !row || !raw || row.count !== raw.hit || row.games !== raw.games;
+  });
+  check(`達成記録（回数）: PTS 20以上の試合数と出場試合数（達成率の分母）が、元のボックススコアから数え直した値と全選手で一致（${rawCount.size}人）`, badCount.length === 0, badCount.slice(0, 4).join(", "));
+  const streakRows = queryThresholdStreaks({ ...base, gameType: "regular", rosters: {}, currentIds: null, ongoingOnly: false })!.rows;
+  const badStreak = [...new Set([...streakRows.map((x) => x.playerId), ...rawStreak.keys()])].filter((id) => (streakRows.find((x) => x.playerId === id)?.value ?? 0) !== (rawStreak.get(id) ?? 0));
+  check(`達成記録（連続）: PTS 20以上の最長連続が、元のボックススコアの試合順から数え直した値と全選手で一致（今季の中だけ）`, badStreak.length === 0, badStreak.slice(0, 4).map((id) => `${id}: 画面${streakRows.find((x) => x.playerId === id)?.value}／元${rawStreak.get(id)}`).join(", "));
+  const ageRows = queryThresholdAge({ ...base, which: "young" })!.rows;
+  const badAge = ageRows.filter((x) => rawFirst.get(x.playerId) !== x.date);
+  check(`達成記録（年齢）: 「初めて達成した試合」の日付が、元のボックススコアの最初の達成と一致（${ageRows.length}人）`, badAge.length === 0, badAge.slice(0, 3).map((x) => `${x.playerId} ${x.date}／元${rawFirst.get(x.playerId)}`).join(", "));
+  const top = ageRows[0]!;
+  console.log(`     達成記録の例: 回数1位 ${countRows[0]!.playerName} ${countRows[0]!.count}/${countRows[0]!.games}試合、連続1位 ${streakRows[0]!.playerName} ${streakRows[0]!.value}試合、最年少 ${top.playerName} ${top.age.years}歳${top.age.days}日（${top.date}）`);
+}
+
+// 6-4 On/Off: 出場時間と、出場した試合のチームの得点（On＋Off）
+{
+  const stints = new Map<string, ReturnType<typeof compactStints>>();
+  for (const t of teams) stints.set(t.teamId, compactStints((await readJson<TeamStintsFile>(path.join(oneDir, "team-stints", `${t.teamId}.json`)))!));
+  const rows = buildLineupRows({ data: [{ view: pView, stints }], unit: "onoff", gameType: "regular", conditions: DEFAULT_GAME_RECORD_CONDITIONS, group: "all", positions: [], rookies: null, periods: null });
+  const teamPointsByGame = new Map<string, number>();
+  const teamOppByGame = new Map<string, number>();
+  for (const g of rawGames) {
+    teamPointsByGame.set(`${g.scheduleKey}:${g.homeTeam.id}`, g.homeScore);
+    teamPointsByGame.set(`${g.scheduleKey}:${g.awayTeam.id}`, g.awayScore);
+    teamOppByGame.set(`${g.scheduleKey}:${g.homeTeam.id}`, g.awayScore);
+    teamOppByGame.set(`${g.scheduleKey}:${g.awayTeam.id}`, g.homeScore);
+  }
+  let secBad = 0, ptsBad = 0, checked = 0, maxSecDiff = 0, gamesDiffer = 0, ptsChecked = 0;
+  const samples: string[] = [];
+  for (const row of rows) {
+    const id = row.players[0]!.id;
+    const list = (rawAppearances.get(id) ?? []).filter((a) => a.teamId === row.teamId);
+    if (list.length === 0) continue;
+    checked += 1;
+    const rawSec = list.reduce((a, x) => a + x.seconds, 0);
+    const diff = Math.abs(rawSec - row.on.seconds);
+    maxSecDiff = Math.max(maxSecDiff, diff);
+    if (diff > list.length * 2) { secBad += 1; if (samples.length < 3) samples.push(`${row.players[0]!.name} 出場時間 区間${row.on.seconds}秒／元${rawSec}秒`); }
+    // 元のボックススコアでは出場していない（DNP）試合に、出場区間の記録だけ短く残っている選手がいる（公式の記録のずれ）。その試合を含む行は、得点の合計の突き合わせから外して数だけ報告する
+    if (row.on.games !== list.length) { gamesDiffer += 1; continue; }
+    const rawOwn = list.reduce((a, x) => a + (teamPointsByGame.get(`${x.key}:${row.teamId}`) ?? 0), 0);
+    const rawOpp = list.reduce((a, x) => a + (teamOppByGame.get(`${x.key}:${row.teamId}`) ?? 0), 0);
+    ptsChecked += 1;
+    if (row.off && (row.on.ownPoints + row.off.ownPoints !== rawOwn || row.on.oppPoints + row.off.oppPoints !== rawOpp)) { ptsBad += 1; if (samples.length < 6) samples.push(`${row.players[0]!.name} 得点 On+Off ${row.on.ownPoints + row.off.ownPoints}-${row.on.oppPoints + row.off.oppPoints}／元${rawOwn}-${rawOpp}`); }
+  }
+  check(`On/Off: コートにいた時間（On）が、元のボックススコアの出場時間と一致（1試合あたり2秒以内。${checked}人。最大のずれ ${maxSecDiff.toFixed(1)}秒）`, secBad === 0, samples.join(" / "));
+  check(`On/Off: 出場した試合の On と Off の得点・失点の合計が、その試合のチームの得点・失点（元の試合）と一致（${ptsChecked}人。出場区間の試合数が元の出場試合数と違う${gamesDiffer}人は除く）`, ptsBad === 0 && gamesDiffer <= Math.ceil(checked * 0.01), samples.join(" / "));
+  const ex = rows.find((r) => r.off && r.on.ownPoss > 500)!;
+  console.log(`     On/Off の例: ${ex.players[0]!.name}（${ex.teamName}） On ${Math.round(ex.on.seconds)}秒・${Math.round(ex.on.ownPoss)}ポゼッション`);
+}
+
 // ---- 4. 「達成可能」を出す条件 ----
 const race = await readJson<PlayoffRaceFile>(path.join(oneDir, "playoff-race.json"));
 const short = (race?.teams ?? []).filter((t) => t.wins + t.losses + t.remaining !== 60);
@@ -244,8 +435,8 @@ console.log(`     日程が60試合に足りないクラブ: ${short.length}（$
 // ---- 5. B.ONE の範囲 ----
 check("B.ONE: ランキングは見られるページ", ONE_PAGE_AVAILABILITY.rankings.ready === true);
 check(
-  "B.ONE: 選べない種類（通算記録・1シーズン記録・観客動員・勝負所・アシストペア・達成記録・On/Off）すべてに理由がある",
-  ["career", "special", "attendance", "clutch", "assistPair", "threshold", "lineup"].every((k) => !!ONE_RANKING_KIND_REASONS[k]) && !ONE_RANKING_KIND_REASONS.season && !ONE_RANKING_KIND_REASONS.game,
+  "B.ONE: 選べない種類（通算記録・1シーズン記録・観客動員）に理由があり、見られる種類〔シーズン成績・1試合記録・勝負所・アシストペア・達成記録・On/Off〕には無い",
+  ["career", "special", "attendance"].every((k) => !!ONE_RANKING_KIND_REASONS[k]) && ["season", "game", "clutch", "assistPair", "threshold", "lineup"].every((k) => !ONE_RANKING_KIND_REASONS[k]),
 );
 check("B.ONE: 地区は5地区", divisionOrder("one").length === 5, divisionOrder("one").join(","));
 const rules = (await readJson<unknown>(path.join(DATA_DIR, "season-rules.json"))) as Parameters<typeof seasonRuleFor>[0];

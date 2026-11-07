@@ -9,7 +9,7 @@ import { gameTypeAxis, type FilterAxis } from "../lib/filterAxes";
 import { DEFAULT_GAME_RECORD_CONDITIONS, cleanGameConditionsForSeason, gameRecordConditionLabels, gameRecordConditionsParam } from "../lib/gameRecordConditions";
 import { gameRecordAdvancedAxes, gameRecordPrimaryAxes } from "../lib/gameRecordAxes";
 import { GAME_RECORD_TIE_EXPAND_MAX } from "../lib/gameRecordQuery";
-import { PAIR_UNIT_LABELS, queryAssistPairs, type PairRow } from "../lib/clutchQuery";
+import { PAIR_UNIT_LABELS, queryAssistPairs, type PairRow, type PairUnit } from "../lib/clutchQuery";
 import { useAssistPairData, useGameRecordOptions } from "../lib/useGameRecordData";
 import { useNarrow } from "../lib/teamLabel";
 import { useUrlState } from "../lib/urlState";
@@ -78,7 +78,9 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
   const exportRef = useRef<HTMLDivElement>(null);
   const narrow = useNarrow();
   const league = useLeague();
-  const [unit] = useUrlState(PAIR_UNIT_PARAM, "season");
+  const [urlUnit] = useUrlState(PAIR_UNIT_PARAM, "season");
+  // B.ONE は歴代の1試合・通算が無いので、シーズンだけ（URL に書いてあっても、そのシーズンで出す）
+  const unit: PairUnit = league === "one" ? "season" : urlUnit;
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [conditions, setConditions] = useUrlState(gameRecordConditionsParam, DEFAULT_GAME_RECORD_CONDITIONS);
   const [activeParam, setActive] = useUrlState(ACTIVE_PARAM, "all");
@@ -116,7 +118,7 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
   const among = useMemo(() => (entries ?? []).flatMap((x) => [x.assisterName, x.scorerName]), [entries]);
   const seasonOf = (e: PairRow) => e.season ?? e.lastSeason ?? season;
 
-  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial: true, includeSpecialDefault: true };
+  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial: true, includeSpecialDefault: true, league };
   const axes: FilterAxis[] = [
     ...(singleSeason ? [] : [activeAxis(activeParam, setActive)]),
     gameTypeAxis(gameType, setGameType, seasonForTitle),

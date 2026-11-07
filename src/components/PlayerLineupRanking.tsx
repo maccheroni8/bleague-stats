@@ -1,7 +1,8 @@
 import { useLeague } from "../lib/league";
+import { ONE_ROOKIE_REASON } from "../lib/leagueAvailability";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TeamColors } from "../../shared/types";
-import { isRookieFilter, splitSeasonsOnly, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
+import { isRookieFilter, withRookie, splitSeasonsOnly, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
 import { ClassificationNotes } from "./ClassificationNotes";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { selectedPositionLabels } from "../lib/classificationFilter";
@@ -162,7 +163,8 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const shareCodec = useMemo(() => lineupShareParam(unit), [unit]);
   const [sharePct, setSharePct] = useUrlState(shareCodec, LINEUP_SHARE_DEFAULT[unit]);
   const league = useLeague();
-  const allTime = range === "career";
+  // B.ONE は通算（全シーズン）が無いので、シーズンだけ（URL に通算と書いてあっても、そのシーズンで出す）
+  const allTime = league === "one" ? false : range === "career";
   // 現役の絞り込みは通算だけ（過去の選手が混ざる範囲）
   const activeOn = allTime && activeParam === "active";
   const seasonForTitle = allTime ? null : season;
@@ -219,6 +221,11 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const builtRows = allTime ? (deferred && deferred.query === buildQuery ? deferred.rows : null) : syncRows;
   const result = useMemo(() => (builtRows ? applyLineupThreshold(builtRows, unit, sharePct) : null), [builtRows, unit, sharePct]);
 
+  // B.ONE はルーキーを選べない（URL に書いてあれば外す）
+  useEffect(() => {
+    if (league === "one" && isRookieFilter(group)) setGroup(withRookie(group, false));
+  }, [league, group, setGroup]);
+
   // シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い対戦相手・地区を外す
   useEffect(() => {
     if (allTime || !options.ready) return;
@@ -252,10 +259,10 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const shareRange = LINEUP_SHARE_RANGE[unit];
   const shareDefault = LINEUP_SHARE_DEFAULT[unit];
   const shareSummary = `チームの${sharePct}%以上`;
-  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial: true, includeSpecialDefault: true };
+  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial: true, includeSpecialDefault: true, league };
   const axes: FilterAxis[] = [
     classificationAxis(group, setGroup, { season: allTime ? null : season }),
-    rookieAxis(group, setGroup),
+    rookieAxis(group, setGroup, { disabledReason: league === "one" ? ONE_ROOKIE_REASON : undefined }),
     ...(allTime ? [activeAxis(activeParam, setActive)] : []),
     gameTypeAxis(gameType, setGameType, seasonForTitle),
     simpleSelectAxis({

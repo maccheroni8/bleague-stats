@@ -1,4 +1,5 @@
 import { useLeague } from "../lib/league";
+import { ONE_ROOKIE_REASON } from "../lib/leagueAvailability";
 import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
 import { isRookieFilter, splitSeasonsOnly, withRookie, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
@@ -45,6 +46,9 @@ const EMPTY_POSITIONS: string[] = [];
  * しきい値は1試合記録のスタッツの条件と同じ部品（項目・以上/以下・値。複数なら「すべて／どれか」）。試合の条件・登録区分・ポジション・現役も1試合記録と同じ。
  * 1試合行の索引（219章）を読んで集計する（画面だけの処理）。前後半5分の特別な試合は、既定で数えない
  */
+/** B.ONE の連続記録に渡す名簿の一覧。そのシーズンの中だけを数えるので、名簿外のシーズンをはさむ判定は起きない（索引の選手がそのシーズンの名簿） */
+const ONE_SEASON_ONLY_ROSTERS: { rosters: Readonly<Record<string, Readonly<Record<string, unknown>>>>; loading: false; error: null; retry: () => void } = { rosters: {}, loading: false, error: null, retry: () => undefined };
+
 export function PlayerThresholdRanking({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
   const exportRef = useRef<HTMLDivElement>(null);
   const league = useLeague();
@@ -64,7 +68,8 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   const gameType = unit === "streak" && gameTypeParam === "both" ? "regular" : gameTypeParam;
   const ongoingOnly = unit === "streak" && ongoingParam === "ongoing";
   // 達成試合数だけ、通算（全シーズン）かシーズン（選んでいるシーズン）かを選べる。ほかは全シーズン
-  const allTime = unit !== "count" || scope === "allTime";
+  // B.ONE は全シーズンの表が無いので、どの表もそのシーズンの試合だけで出す（連続記録・達成年齢も、そのシーズンの中だけ）
+  const allTime = league === "one" ? false : unit !== "count" || scope === "allTime";
   // 現役の絞り込みは全シーズンの表だけ（過去の選手が混ざる範囲）
   const activeOn = allTime && activeParamValue === "active";
   const seasonForTitle = allTime ? null : season;
@@ -81,7 +86,9 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   const rookies = useRookieFile(ready && isRookieFilter(group));
   // 今季の名簿は、現役の絞り込みと、連続記録の「継続中」の判定に使う
   const active = useActivePlayerIds(activeOn || (ready && unit === "streak"));
-  const rosters = useSeasonRosters(ready && unit === "streak");
+  // 連続記録が名簿外のシーズンをはさんで途切れる判定は、B.PREMIER の登録季の一覧を使う。B.ONE はそのシーズンの中だけを数えるので、一覧は要らない
+  const premierRosters = useSeasonRosters(ready && unit === "streak" && league === "premier");
+  const rosters = league === "one" ? ONE_SEASON_ONLY_ROSTERS : premierRosters;
   // 全シーズンの表は、選手名を今の登録名にそろえる
   const current = useCurrentPlayerNames(allTime);
 
@@ -115,11 +122,11 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   // シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い対戦相手・地区・ルーキーを外す
   useEffect(() => {
     if (allTime) return;
-    if (isRookieFilter(group) && !rookieSupportedSeason(season)) setGroup(withRookie(group, false));
+    if (isRookieFilter(group) && (league === "one" || !rookieSupportedSeason(season))) setGroup(withRookie(group, false));
     if (!options.ready) return;
     const next = cleanGameConditionsForSeason(conditions, options.teams.map((t) => t.value), options.divisions);
     if (next) setConditions(next);
-  }, [allTime, season, group, conditions, options, setGroup, setConditions]);
+  }, [allTime, season, league, group, conditions, options, setGroup, setConditions]);
 
   const teamName = (id: string) => {
     const t = options.teams.find((o) => o.value === id);
@@ -152,12 +159,12 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   const failure = index.error ?? rookies.error ?? active.error ?? current.error ?? rosters.error;
   const hasLte = activeStatConditions(threshold, THRESHOLD_ITEMS).some((c) => c.condition.op === "lte");
 
-  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial, includeSpecialDefault: false };
+  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial, includeSpecialDefault: false, league };
   const axes: FilterAxis[] = [
     classificationAxis(group, setGroup, {
       season: allTime ? null : season,
     }),
-    rookieAxis(group, setGroup, { disabledReason: !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined }),
+    rookieAxis(group, setGroup, { disabledReason: league === "one" ? ONE_ROOKIE_REASON : !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined }),
     ...(allTime ? [activeAxis(activeParamValue, setActive)] : []),
     unit === "streak"
       ? simpleSelectAxis({
