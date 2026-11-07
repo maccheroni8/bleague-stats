@@ -19,7 +19,7 @@ import {
 import { postseasonLabel } from "../../shared/gameType";
 import { useParams } from "react-router-dom";
 import { SeasonLink as RouterLink } from "../components/SeasonLink";
-import { LEAGUE_LABELS, ONE_SEASONS, useLeague, type League } from "../lib/league";
+import { LEAGUE_LABELS, ONE_SEASONS, isLeagueSeason, useLeague, type League } from "../lib/league";
 import { ONE_PLAYER_DETAIL_TAB_REASONS } from "../lib/leagueAvailability";
 import {
   PolarAngleAxis,
@@ -1639,13 +1639,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 都度取得する（2スロットのみなので配列化せず個別にuseJsonDataを呼ぶ）。比較タブを開いている
   // 間だけ取得する（タブを開くまで無駄な通信をしないため）
   const { data: compareSummaries0 } = useJsonData(
-    () => (tab === "compare" && compareSlots[0].season ? fetchGameSummaries(compareSlots[0].season, "premier") : Promise.resolve(null)),
-    [tab, compareSlots[0].season],
+    () => (tab === "compare" && compareSlots[0].season ? fetchGameSummaries(compareSlots[0].season, league) : Promise.resolve(null)),
+    [tab, compareSlots[0].season, league],
     { discardStale: true },
   );
   const { data: compareSummaries1 } = useJsonData(
-    () => (tab === "compare" && compareSlots[1].season ? fetchGameSummaries(compareSlots[1].season, "premier") : Promise.resolve(null)),
-    [tab, compareSlots[1].season],
+    () => (tab === "compare" && compareSlots[1].season ? fetchGameSummaries(compareSlots[1].season, league) : Promise.resolve(null)),
+    [tab, compareSlots[1].season, league],
     { discardStale: true },
   );
   const compareBoundaries: [SeasonHalfBoundary | null, SeasonHalfBoundary | null] = [
@@ -1973,7 +1973,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         divisionHistory,
         slot.season,
         (g) => teamInfo?.ownTeamByScheduleKey.get(g.scheduleKey)?.teamId,
-        "premier",
+        league,
       );
       if (filtered.length === 0) return null;
       const seasonStartYear = Number(slot.season.split("-")[0]);
@@ -3338,6 +3338,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
                           { value: "", label: "未選択" },
                           ...[...(careerData ?? [])]
                             .map((cd) => cd.season)
+                            // 比較は同じリーグの中どうしだけ。B.ONE は B.ONE のシーズンだけ選べる（旧B2のシーズンは選べない）
+                            .filter((s) => isLeagueSeason(league, s, seasons))
                             .reverse()
                             .map((s) => ({ value: s, label: `${s}シーズン` })),
                         ],

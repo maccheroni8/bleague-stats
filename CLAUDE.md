@@ -146,6 +146,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 339章: **小さな直し4つ（画面だけ・キー不変）**。Advanced の **PPP は FTR と PPS の間**（`withPppColumn`。全選手スタッツにも列を足した）、**Forced TOV は試合ごとの値の合計**で期間・相手・会場などの条件に連動（`teamTurnoverScoped.ts`。区間・登録区分は不可。`validate:team-turnover-scoped`）、試合詳細のボックススコアと個人詳細の試合ログに **PC・PPP**（`BoxscoreTable.tsx` の `withPcColumn`・`withPppBoxColumn`。`validate:game-pc-ppp`）、スタッツの条件に負の値になりうる項目だけ **「−」ボタン**（`StatConditionItem.signed`）
 - 340章: **B.ONE のランキング 段階1**（2026-27 の個人・チームのシーズン成績と1試合記録〔シーズン〕。**画面だけ・キー不変**）。読み込み・条件・キャッシュ・保存状態をリーグ別にし（区画に `key={league-season}`）、Shooting・Forced TOV・Career・ルーキー・前季比較・通算・歴代・ほかの種類は理由つきで選べない（`leagueAvailability.ts` の `ONE_RANKING_*`）。「達成可能」は日程が60試合そろうまで B.ONE では出さない（`achievableSupport.ts`）。検証は `validate:one-ranking`（元の試合から数え直し・条件なしと条件付きの一致）と `validate:league-wiring` の9章。B.ONE の日程不足9クラブは公式がまだ出していない分（手元は公式と738件で一致）
 - 341章: **B.ONE のランキング 段階2-A**（個人の勝負所・アシストペア・達成記録・On/Off。シーズンだけ。**画面だけ・キー不変**）。範囲は B.ONE では固定（通算・歴代は理由つきで選べない）、達成記録の連続は今季の中だけ（`ONE_SEASON_ONLY_ROSTERS`）。検証は `validate:one-ranking` の6章（元の試合から数え直し）と `validate:league-wiring` の9章
+- 343章: **B.ONE 段階2-B**（比較ページ・チーム詳細／選手詳細の「比較」タブ・全チームスタッツの Q別・前後半。**画面だけ・キー不変**）。比較は同じリーグの中どうしだけ（シーズンの選択肢と URL のスロットをリーグの範囲に絞る。`useSeasonKeyedData` の鍵にリーグ）。検証は `validate:one-ranking` の7章と `validate:league-wiring` の10章
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

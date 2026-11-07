@@ -8,7 +8,9 @@ import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { surnameOf } from "../lib/playerSurname";
 import { distinctTeamColors } from "../lib/teamColorPairs";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { SeasonLink as Link } from "../components/SeasonLink";
+import { isLeagueSeason, useLeague, type League } from "../lib/league";
 import { fetchDivisionHistory, fetchPlayers, fetchSchedule, fetchSeasons, fetchTeamColors, fetchTeams } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import type { PlayerSummary, SeasonEntry, TeamColors, TeamSummary } from "../../shared/types";
@@ -489,6 +491,8 @@ interface ViewCommonProps {
   slots: SlotValue[];
   seasonOptions: SeasonEntry[];
   seasons: SeasonEntry[] | null;
+  /** 見ているリーグ。比較はこのリーグの中どうしだけ（スロットのシーズンも、このリーグのシーズンだけ） */
+  league: League;
   teamColors: Record<string, TeamColors> | null;
   divisionHistory: DivisionHistoryFile | null;
   cat: BoxscoreTabKey;
@@ -504,6 +508,7 @@ function TeamCompareView({
   slots,
   seasonOptions,
   seasons,
+  league,
   teamColors,
   divisionHistory,
   cat,
@@ -528,9 +533,9 @@ function TeamCompareView({
   const valid = slots.map((s, i) => !!s.id && (s.id === LEAGUE_TEAM_ID ? !!lists[i] : !!lists[i]?.some((t) => t.teamId === s.id)));
   // スロットごとに独立して（そのスロットが選択されて初めて）取得する。3つのフックは固定数の呼び出し
   const slotData: TeamSlotData[] = [
-    useTeamCompareSlot({ teamId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory, seasons }),
-    useTeamCompareSlot({ teamId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, seasons }),
-    useTeamCompareSlot({ teamId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, seasons }),
+    useTeamCompareSlot({ teamId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory, seasons, league }),
+    useTeamCompareSlot({ teamId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, seasons, league }),
+    useTeamCompareSlot({ teamId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, seasons, league }),
   ];
 
   const rows: ComparisonRow<TeamPageRow>[] = [];
@@ -599,7 +604,7 @@ function TeamCompareView({
             entityLoaded={lists[i] !== null && lists[i] !== undefined}
             entityValid={valid[i]!}
             data={slotData[i]!}
-            opponentDivisions={opponentDivisionChoices(divisionHistory, slots[i]!.season)}
+            opponentDivisions={opponentDivisionChoices(divisionHistory, slots[i]!.season, league)}
             onSeason={(season) => onUpdateSlot(i, { season, filter: DEFAULT_FILTER })}
             onGameType={(gameType) => onUpdateSlot(i, { gameType })}
             onEntity={(id) => onUpdateSlot(i, { id })}
@@ -646,6 +651,7 @@ type PlayerPageRow = CompareColumnData & { playerId: string; teamId: string | nu
 function PlayerCompareView({
   slots,
   seasonOptions,
+  league,
   teamColors,
   divisionHistory,
   cat,
@@ -663,14 +669,14 @@ function PlayerCompareView({
   // 選んだチームはスロットごとに覚える（同じ選手でも、どのチームの下で選んだかを選択中の表示に使う）
   const [pickedTeam, setPickedTeam] = useState<Record<number, string>>({});
   const pickerGroups = [
-    usePlayerPickerGroups(slots[0]!.season, slots[0]!.gameType, playersBySeason?.get(slots[0]!.season) ?? null, pickerSources),
-    usePlayerPickerGroups(slots[1]!.season, slots[1]!.gameType, playersBySeason?.get(slots[1]!.season) ?? null, pickerSources),
-    usePlayerPickerGroups(slots[2]!.season, slots[2]!.gameType, playersBySeason?.get(slots[2]!.season) ?? null, pickerSources),
+    usePlayerPickerGroups(slots[0]!.season, slots[0]!.gameType, playersBySeason?.get(slots[0]!.season) ?? null, pickerSources, league),
+    usePlayerPickerGroups(slots[1]!.season, slots[1]!.gameType, playersBySeason?.get(slots[1]!.season) ?? null, pickerSources, league),
+    usePlayerPickerGroups(slots[2]!.season, slots[2]!.gameType, playersBySeason?.get(slots[2]!.season) ?? null, pickerSources, league),
   ];
   const slotData: PlayerSlotData[] = [
-    usePlayerCompareSlot({ playerId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory }),
-    usePlayerCompareSlot({ playerId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory }),
-    usePlayerCompareSlot({ playerId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory }),
+    usePlayerCompareSlot({ playerId: slots[0]!.id, season: slots[0]!.season, filter: slots[0]!.filter, gameType: slots[0]!.gameType, active: valid[0]!, divisionHistory, league }),
+    usePlayerCompareSlot({ playerId: slots[1]!.id, season: slots[1]!.season, filter: slots[1]!.filter, gameType: slots[1]!.gameType, active: valid[1]!, divisionHistory, league }),
+    usePlayerCompareSlot({ playerId: slots[2]!.id, season: slots[2]!.season, filter: slots[2]!.filter, gameType: slots[2]!.gameType, active: valid[2]!, divisionHistory, league }),
   ];
 
   const rows: ComparisonRow<PlayerPageRow>[] = [];
@@ -732,7 +738,7 @@ function PlayerCompareView({
             entityLoaded={lists[i] !== null && lists[i] !== undefined}
             entityValid={valid[i]!}
             data={slotData[i]!}
-            opponentDivisions={opponentDivisionChoices(divisionHistory, slots[i]!.season)}
+            opponentDivisions={opponentDivisionChoices(divisionHistory, slots[i]!.season, league)}
             onSeason={(season) => onUpdateSlot(i, { season, filter: DEFAULT_FILTER })}
             onGameType={(gameType) => onUpdateSlot(i, { gameType })}
             onEntity={(key) => {
@@ -776,15 +782,16 @@ function PlayerCompareView({
 }
 
 /** そのシーズンの結果だけの試合の一覧（古い日程ファイルには無いので空）。取得に失敗しても比較は止めない（説明の「※」が出ないだけ） */
-async function fetchResultOnlyGames(season: string): Promise<ResultOnlyGameEntry[]> {
+const fetchResultOnlyGamesFor = (league: League) => async (season: string): Promise<ResultOnlyGameEntry[]> => {
   try {
-    return (await fetchSchedule(season)).resultOnlyGames ?? [];
+    return (await fetchSchedule(season, league)).resultOnlyGames ?? [];
   } catch {
     return [];
   }
-}
+};
 
 export function ComparePage({ season }: { season: string }) {
+  const league = useLeague();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const mode: Mode = searchParams.get("cmp") === "player" ? "player" : "team";
@@ -803,23 +810,25 @@ export function ComparePage({ season }: { season: string }) {
   const p2 = useParsedSlot(searchParams.get("p2"), searchParams.get("pf2"), searchParams.get("pg2"));
   const rawTeamSlots = [t0, t1, t2];
   const rawPlayerSlots = [p0, p1, p2];
-  const teamSeasons = rawTeamSlots.map((s) => s.base?.season || season);
-  const playerSeasons = rawPlayerSlots.map((s) => s.base?.season || season);
+  // URL のスロットのシーズンが、見ているリーグに無いとき（B.PREMIER のシーズンのリンクで B.ONE を開いたなど）は、ページのシーズンにする。比較は同じリーグの中どうしだけ
+  const slotSeasonOf = (s: { base: { season: string } | null }) => (s.base?.season && isLeagueSeason(league, s.base.season, seasons) ? s.base.season : season);
+  const teamSeasons = rawTeamSlots.map(slotSeasonOf);
+  const playerSeasons = rawPlayerSlots.map(slotSeasonOf);
 
-  const { dataBySeason: teamsBySeason } = useSeasonKeyedData(teamSeasons, fetchTeams);
-  const { dataBySeason: playersBySeason } = useSeasonKeyedData(playerSeasons, fetchPlayers);
+  const { dataBySeason: teamsBySeason } = useSeasonKeyedData(teamSeasons, (s) => fetchTeams(s, league), league);
+  const { dataBySeason: playersBySeason } = useSeasonKeyedData(playerSeasons, (s) => fetchPlayers(s, league), league);
   // 選手の選択肢（チームごとの並び）に要る順位表・出場時間。個人比較のときだけ読む
-  const pickerSources = usePickerSources(mode === "player" ? playerSeasons : []);
+  const pickerSources = usePickerSources(mode === "player" ? playerSeasons : [], league);
   // 結果だけの試合（G の勝敗の横の「※」の説明用）。チーム比較のときだけ、選んだシーズン分の日程を読む
-  const { dataBySeason: resultOnlyBySeason } = useSeasonKeyedData(mode === "team" ? teamSeasons : [], fetchResultOnlyGames);
+  const { dataBySeason: resultOnlyBySeason } = useSeasonKeyedData(mode === "team" ? teamSeasons : [], fetchResultOnlyGamesFor(league), league);
   // 個人のデフォルト（出場率の足切り）に所属チームの試合数が要る。個人モードのときだけ取得する
-  const { dataBySeason: teamsForPlayerDefaults } = useSeasonKeyedData(mode === "player" ? playerSeasons : [], fetchTeams);
+  const { dataBySeason: teamsForPlayerDefaults } = useSeasonKeyedData(mode === "player" ? playerSeasons : [], (s) => fetchTeams(s, league), league);
 
   // 未上書き（paramが無い）スロットは、ページのシーズンの勝率上位/得点上位（defaultTeamIds/defaultPlayerIds）を
   // 先頭2スロットのデフォルトにする。3つ目は空のまま（選んだスロットの分だけ取得するため）
   const resolveSlots = (raw: typeof rawTeamSlots, defaultIdsBySeason: (slotSeason: string) => string[]): SlotValue[] =>
     raw.map((r, i) => {
-      const slotSeason = r.base?.season || season;
+      const slotSeason = slotSeasonOf(r);
       if (r.base !== null) return { id: r.base.id, season: slotSeason, filter: r.filter, gameType: r.gameType };
       return { id: (i < 2 ? defaultIdsBySeason(slotSeason)[i] : undefined) ?? "", season: slotSeason, filter: r.filter, gameType: r.gameType };
     });
@@ -861,7 +870,7 @@ export function ComparePage({ season }: { season: string }) {
     });
 
   // 開幕前で試合が無いシーズンは選択肢から外す（チーム試合ログが無く取得エラーになるため）
-  const seasonOptions = [...(seasons ?? [])].filter((s) => s.hasCompletedGames).reverse();
+  const seasonOptions = [...(seasons ?? [])].filter((s) => s.hasCompletedGames && isLeagueSeason(league, s.season, seasons)).reverse();
   const activeSlots = mode === "team" ? resolvedTeamSlots : resolvedPlayerSlots;
   const usedSeasons = new Set(activeSlots.filter((s) => s.id).map((s) => s.season));
   const seasonsMatch = usedSeasons.size <= 1;
@@ -869,6 +878,7 @@ export function ComparePage({ season }: { season: string }) {
   const common = {
     seasonOptions,
     seasons: seasons ?? null,
+    league,
     teamColors: teamColors ?? null,
     divisionHistory: divisionHistory ?? null,
     cat,
@@ -895,6 +905,7 @@ export function ComparePage({ season }: { season: string }) {
         <p className="loading">読み込み中...</p>
       ) : mode === "team" ? (
         <TeamCompareView
+          key={league}
           {...common}
           slots={resolvedTeamSlots}
           perspective={perspective}
@@ -905,6 +916,7 @@ export function ComparePage({ season }: { season: string }) {
         />
       ) : (
         <PlayerCompareView
+          key={league}
           {...common}
           slots={resolvedPlayerSlots}
           playersBySeason={playersBySeason}

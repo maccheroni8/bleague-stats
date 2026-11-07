@@ -15,7 +15,7 @@ import { splitClassificationSeason } from "./classificationFilter";
 import { sumSplitClassPoints, type SplitClassPoints } from "./compareShared";
 import { leagueCacheKey, type League } from "./league";
 import { loadLeaguePaintComplete } from "./teamPaint2Load";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   DivisionHistoryFile,
   GameSummary,
@@ -128,15 +128,24 @@ function loadYahoo(season: string, scheduleKey: string, league: League = "premie
 }
 
 /** 指定した試合の生データ・Yahoo PBPを取得する。nullは「取得失敗/データ無し」として確定済みの意味 */
-function useRawGames(season: string, scheduleKeys: string[], needYahoo: boolean) {
+function useRawGames(season: string, scheduleKeys: string[], needYahoo: boolean, league: League) {
   const [games, setGames] = useState<Map<string, StoredGame | null>>(() => new Map());
   const [yahoo, setYahoo] = useState<Map<string, YahooGamePbp | null>>(() => new Map());
   const signature = scheduleKeys.join(",");
+  // 取得済みの試合は、リーグ・シーズンごとに持つ（同じシーズンで B.PREMIER と B.ONE を切り替えても、別のリーグの試合を使わない）
+  const scopeKey = leagueCacheKey(season, league);
+  const scopeRef = useRef(scopeKey);
+  if (scopeRef.current !== scopeKey) {
+    scopeRef.current = scopeKey;
+    if (games.size > 0) setGames(new Map());
+    if (yahoo.size > 0) setYahoo(new Map());
+  }
 
   useEffect(() => {
     const missingGames = scheduleKeys.filter((k) => !games.has(k));
     if (missingGames.length > 0) {
-      void Promise.all(missingGames.map(async (k) => [k, await loadGame(season, k)] as const)).then((results) => {
+      void Promise.all(missingGames.map(async (k) => [k, await loadGame(season, k, league)] as const)).then((results) => {
+        if (scopeRef.current !== scopeKey) return;
         setGames((prev) => {
           const next = new Map(prev);
           for (const [k, g] of results) next.set(k, g);
@@ -146,7 +155,8 @@ function useRawGames(season: string, scheduleKeys: string[], needYahoo: boolean)
     }
     const missingYahoo = needYahoo ? scheduleKeys.filter((k) => !yahoo.has(k)) : [];
     if (missingYahoo.length > 0) {
-      void Promise.all(missingYahoo.map(async (k) => [k, await loadYahoo(season, k)] as const)).then((results) => {
+      void Promise.all(missingYahoo.map(async (k) => [k, await loadYahoo(season, k, league)] as const)).then((results) => {
+        if (scopeRef.current !== scopeKey) return;
         setYahoo((prev) => {
           const next = new Map(prev);
           for (const [k, y] of results) next.set(k, y);
@@ -155,7 +165,7 @@ function useRawGames(season: string, scheduleKeys: string[], needYahoo: boolean)
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [season, signature, needYahoo]);
+  }, [season, signature, needYahoo, league]);
 
   const pending = scheduleKeys.filter((k) => !games.has(k) || (needYahoo && !yahoo.has(k))).length;
   return { games, yahoo, pending };
@@ -168,6 +178,8 @@ interface CommonArgs {
   /** スロットが選択済み（かつそのシーズンに存在する）かどうか。falseの間は何も取得しない */
   active: boolean;
   divisionHistory: DivisionHistoryFile | null;
+  /** 見ているリーグ（B.PREMIER／B.ONE）。読み込み・条件・キャッシュの鍵に使う */
+  league: League;
 }
 
 // --- チーム版 ---
@@ -180,35 +192,36 @@ export function useTeamCompareSlot({
   active,
   divisionHistory,
   seasons,
+  league,
 }: CommonArgs & { teamId: string; seasons: SeasonEntry[] | null }): TeamSlotData {
   // 「リーグ平均」（teamId が LEAGUE_TEAM_ID）: そのシーズン全体の値（data/{season}/league-compare.json）。シチュエーションの絞り込みは使わない
   const isLeague = teamId === LEAGUE_TEAM_ID;
   const leagueFile = useJsonData(
-    () => (active && isLeague ? fetchLeagueCompare(season).then((file) => ({ key: season, file })) : Promise.resolve(null)),
-    [active, isLeague, season],
+    () => (active && isLeague ? fetchLeagueCompare(season, league).then((file) => ({ key: leagueCacheKey(season, league), file })) : Promise.resolve(null)),
+    [active, isLeague, season, league],
   );
   const leaguePaint = useJsonData(
     async () => {
-      const file = leagueFile.data?.key === season ? leagueFile.data.file : null;
+      const file = leagueFile.data?.key === leagueCacheKey(season, league) ? leagueFile.data.file : null;
       const totals = file?.totals[gameType];
       if (!active || !isLeague || !totals) return null;
-      const complete = await loadLeaguePaintComplete(season, gameType, teamTotalsFromBoxTotals(totals));
-      return { key: `${season}|${gameType}`, complete };
+      const complete = await loadLeaguePaintComplete(season, gameType, teamTotalsFromBoxTotals(totals), league);
+      return { key: `${leagueCacheKey(season, league)}|${gameType}`, complete };
     },
-    [active, isLeague, season, gameType, leagueFile.data],
+    [active, isLeague, season, gameType, leagueFile.data, league],
   );
   const { data, loading, error } = useJsonData(
     () =>
       active && !isLeague
-        ? Promise.all([fetchTeamGameLogs(season, teamId), fetchGameSummaries(season)]).then(([logs, summaries]) => ({
-            key: `${season}|${teamId}`,
+        ? Promise.all([fetchTeamGameLogs(season, teamId, league), fetchGameSummaries(season, league)]).then(([logs, summaries]) => ({
+            key: `${leagueCacheKey(season, league)}|${teamId}`,
             logs,
             summaries,
           }))
         : Promise.resolve(null),
-    [active, season, teamId],
+    [active, season, teamId, league],
   );
-  const base = data && data.key === `${season}|${teamId}` && !loading ? data : null;
+  const base = data && data.key === `${leagueCacheKey(season, league)}|${teamId}` && !loading ? data : null;
 
   const boundary = useMemo(() => (base ? computeSeasonHalfBoundary(base.summaries) : null), [base]);
   const opponentRecords = useMemo(() => (base ? buildRecordsBeforeGame(base.summaries) : undefined), [base]);
@@ -222,14 +235,16 @@ export function useTeamCompareSlot({
       divisionHistory,
       season,
       () => teamId,
+      league,
     );
-  }, [base, gameType, filter, opponentRecords, divisionHistory, season, teamId]);
+  }, [base, gameType, filter, opponentRecords, divisionHistory, season, teamId, league]);
 
   const seasonEntry = seasons?.find((s) => s.season === season);
-  const shotChartSupported = seasonEntry?.coverage === "full";
-  const yahooPbpSupported = seasonEntry?.yahooPbp ?? false;
+  // B.ONE にはスポーツナビの記録（シュートの種類・強制ターンオーバーの分類）が無い。seasons.json は B.PREMIER の一覧なので使わない
+  const shotChartSupported = league === "premier" && seasonEntry?.coverage === "full";
+  const yahooPbpSupported = league === "premier" && (seasonEntry?.yahooPbp ?? false);
   const scheduleKeys = useMemo(() => filtered.map((g) => g.scheduleKey), [filtered]);
-  const { games, yahoo, pending } = useRawGames(season, scheduleKeys, yahooPbpSupported);
+  const { games, yahoo, pending } = useRawGames(season, scheduleKeys, yahooPbpSupported, league);
 
   const boxTotals = useMemo(() => {
     if (!base || filtered.length === 0 || pending > 0) return null;
@@ -308,8 +323,8 @@ interface PlayerBase {
  * 複数に分かれうるため、players.jsonの単一teamIdではなく試合ログから動的に導出する
  * （resolveOwnTeam。個人詳細ページの「比較」タブと同じ）
  */
-async function loadPlayerBase(season: string, playerId: string): Promise<PlayerBase> {
-  const [logs, summaries] = await Promise.all([fetchPlayerGameLogs(season, playerId), fetchGameSummaries(season)]);
+async function loadPlayerBase(season: string, playerId: string, league: League): Promise<PlayerBase> {
+  const [logs, summaries] = await Promise.all([fetchPlayerGameLogs(season, playerId, league), fetchGameSummaries(season, league)]);
   const gameTeams = buildGameTeamsByScheduleKey(summaries);
   const ownTeamByScheduleKey = new Map<string, GameTeamInfo>();
   for (const log of logs) {
@@ -322,13 +337,13 @@ async function loadPlayerBase(season: string, playerId: string): Promise<PlayerB
   await Promise.all(
     teamIds.map(async (id) => {
       try {
-        teamLogsByTeamId.set(id, await fetchTeamGameLogs(season, id));
+        teamLogsByTeamId.set(id, await fetchTeamGameLogs(season, id, league));
       } catch {
         // 取得失敗時はこのチームの分だけ空（USG%・%-shareの分母がEMPTY_TEAM_TOTALSにフォールバックする）
       }
     }),
   );
-  return { key: `${season}|${playerId}`, logs, summaries, ownTeamByScheduleKey, teamLogsByTeamId };
+  return { key: `${leagueCacheKey(season, league)}|${playerId}`, logs, summaries, ownTeamByScheduleKey, teamLogsByTeamId };
 }
 
 export function usePlayerCompareSlot({
@@ -338,12 +353,13 @@ export function usePlayerCompareSlot({
   gameType,
   active,
   divisionHistory,
+  league,
 }: CommonArgs & { playerId: string }): PlayerSlotData {
   const { data, loading, error } = useJsonData(
-    () => (active ? loadPlayerBase(season, playerId) : Promise.resolve(null)),
-    [active, season, playerId],
+    () => (active ? loadPlayerBase(season, playerId, league) : Promise.resolve(null)),
+    [active, season, playerId, league],
   );
-  const base = data && data.key === `${season}|${playerId}` && !loading ? data : null;
+  const base = data && data.key === `${leagueCacheKey(season, league)}|${playerId}` && !loading ? data : null;
 
   const boundary = useMemo(() => (base ? computeSeasonHalfBoundary(base.summaries) : null), [base]);
   const opponentRecords = useMemo(() => (base ? buildRecordsBeforeGame(base.summaries) : undefined), [base]);
@@ -357,8 +373,9 @@ export function usePlayerCompareSlot({
       divisionHistory,
       season,
       (g) => base.ownTeamByScheduleKey.get(g.scheduleKey)?.teamId,
+      league,
     );
-  }, [base, gameType, filter, opponentRecords, divisionHistory, season]);
+  }, [base, gameType, filter, opponentRecords, divisionHistory, season, league]);
 
   const result = useMemo(() => {
     if (!base || filtered.length === 0) return null;

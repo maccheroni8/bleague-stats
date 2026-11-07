@@ -15839,3 +15839,14 @@ Codex の試作（`codex/top-scorers`）を取り込んだ。各チームの平�
 - 同じ仕組みを使う他のタブ（シーズン別・Q別・対戦相手別・通算・キャリアハイ・比較）は、全シーズンの通算データから表示するため、シーズンの切り替えでは問題にならない。選手・リーグを素早く切り替えたときの取りこぼしだけ、上の通算の読み込みで防いだ
 - B.ONE のリーグ対応（340〜341章）・PC／PPP の列（335・339章）・Q別タブ（328章）が原因ではない。「取得済みの印」は個人詳細ができたときからの作りで、シーズンを切り替えるとき（試合ログの一覧の読み込みがボックススコアの取得より遅れる場合）に出ていた
 - 検証: `npm run validate:gamelog-season-switch`（条件の比較・読み込みに `discardStale` が付いていること・取り消しの処理があること）。画面での切り替え（PC幅・スマホ幅、B.PREMIER・B.ONE、移籍した選手、開いた直後・読み込み後）の結果は作業記録に残した
+
+## 343. B.ONE 段階2-B（比較ページ・詳細の比較タブ・全チームスタッツの Q別・前後半。2026-11-07。画面だけ・保存キーは不変 `4dcec1e91599df073f981c44d8b45580`）
+
+- ランキング以外で今季の材料で出せる画面を B.ONE の2026-27で使えるようにした（340・341章と同じ作り方: 読み込み・条件・キャッシュ・保存状態にリーグを通し、画面の区画はリーグで作り直す）。
+  - **比較ページ（チーム・個人）**: `leagueAvailability.ts` の `compare` を ready にした。`useCompareSlotData`（チーム・個人の枠）・`useRawGames`・リーグ平均（`fetchLeagueCompare`・ペイントの検算）・結果だけの試合・地区（`opponentDivisionChoices`）・選手の一覧（`usePlayerPickerGroups`・`usePickerSources`・`pickerTeamOrder`）・シーズンごとの読み込み（`useSeasonKeyedData` に鍵 `scopeKey` を足し、リーグが変わったら読み直して前のリーグの結果を返さない）にリーグを通した。取得済みの生データはリーグ・シーズンごとに持ち、リーグが変わったら捨てる。B.ONE にはスポーツナビの記録が無いので、`seasons.json`（B.PREMIER の一覧）のスポーツナビ・ショットチャートの有無は B.PREMIER のときだけ使う。リンクは `SeasonLink`。
+  - **同じリーグの中どうしだけ**: 比較のシーズン・チーム・選手は見ているリーグのものだけを選べる（`isLeagueSeason`）。URL のスロットのシーズンがそのリーグに無いとき（B.PREMIER のリンクを B.ONE で開いた・手で書き換えた）はページのシーズンにして、そのリーグに無いチーム・選手は空の枠になる。リーグを切り替えるとスロットの条件は消える（`leagueSwitchUrl`）。
+  - **チーム詳細・選手詳細の「比較」タブ**: `ONE_TEAM_DETAIL_TAB_REASONS`・`ONE_PLAYER_DETAIL_TAB_REASONS` から `compare` を外し、比較の読み込み（試合日程・生データ・スポーツナビ・リーグ平均・結果だけの試合・条件の判定）の「B.PREMIER」固定をページのリーグに直した。シーズンの選択肢は B.ONE のシーズンだけ（旧B2の2025-26は出さない）。
+  - **全チームスタッツの Q別・前後半**: `TeamsListPage` の B.ONE での停止（`period` を「試合全体」に固定・`ONE_PERIOD_REASON`）を外した。区間の索引（`useTeamPeriodSource` など。すでにリーグ対応）から出す。Shooting・Forced TOV のタブは、B.ONE ではデータが無い理由（`ONE_RANKING_SHOOTING_REASON`・`ONE_RANKING_FORCED_TOV_REASON`）を出す。
+  - 入口: ホームの「ランキングを見る」は340章で開いた。今回開いたのはヘッダーの「比較」（`compare`）とチーム詳細・選手詳細の「比較」タブ。
+- 通算・前季比較・Shooting・Forced TOV は理由つきで選べないまま（比較では、旧B2のシーズンを選択肢に出さないことで前季との比較を選べなくした）。説明は用語集（「比較」「B.ONE のランキング」）。
+- 検証: `validate:one-ranking` に7章を足した。元の試合から数え直して一致: チーム比較＝直近5試合に絞った試合数・得点・勝数・生データの1試合平均得点（25クラブ）、個人比較＝出場試合数・得点・出場時間（322人）、Q別＝1Q・前半・4Q の得点と試合数をクォーター別スコアと突き合わせ（25クラブ×3区間）。`validate:league-wiring` に10章（比較ページの6枠のリーグ・詳細の比較タブの B.PREMIER 固定が無いこと・Q別を止めていないこと）を足した。`validate:one-ranking` の esbuild に `import.meta.env.BASE_URL` の定義を足した。

@@ -7,10 +7,12 @@ import { fetchPlayoffRace, fetchStandingsHistory } from "./data";
 import { loadPlayerGameIndex } from "./gameIndexLoad";
 import { buildPlayerPickerGroups, pickerTeamOrder, type PickerGroup } from "./playerPickerOrder";
 import { useSeasonKeyedData } from "./useSeasonKeyedData";
+import type { League } from "./league";
 
 /** useSeasonKeyedData は配列を返す取得関数を取るので、1件（または無し）の配列にして渡す */
-const fetchRaceList = (season: string) => fetchPlayoffRace(season).then((r): PlayoffRaceFile[] => (r ? [r] : []));
-const fetchIndexList = (season: string) => loadPlayerGameIndex(season).then((v): PlayerGameIndexFile[] => (v ? [v.file] : []));
+const fetchRaceList = (league: League) => (season: string) => fetchPlayoffRace(season, league).then((r): PlayoffRaceFile[] => (r ? [r] : []));
+const fetchIndexList = (league: League) => (season: string) => loadPlayerGameIndex(season, league).then((v): PlayerGameIndexFile[] => (v ? [v.file] : []));
+const fetchStandingsList = (league: League) => (season: string) => fetchStandingsHistory(season, league);
 
 export interface PickerSources {
   standingsBySeason: Map<string, StandingsSnapshot[] | null> | null;
@@ -20,10 +22,10 @@ export interface PickerSources {
 }
 
 /** 選手の一覧を並べるのに要るデータ（順位表・日程の地区割り・出場時間の索引）を、使うシーズン分読む */
-export function usePickerSources(seasons: string[]): PickerSources {
-  const a = useSeasonKeyedData(seasons, fetchStandingsHistory);
-  const b = useSeasonKeyedData(seasons, fetchRaceList);
-  const c = useSeasonKeyedData(seasons, fetchIndexList);
+export function usePickerSources(seasons: string[], league: League = "premier"): PickerSources {
+  const a = useSeasonKeyedData(seasons, fetchStandingsList(league), league);
+  const b = useSeasonKeyedData(seasons, fetchRaceList(league), league);
+  const c = useSeasonKeyedData(seasons, fetchIndexList(league), league);
   return { standingsBySeason: a.dataBySeason, raceBySeason: b.dataBySeason, indexBySeason: c.dataBySeason, loading: a.loading || b.loading || c.loading };
 }
 
@@ -33,6 +35,7 @@ export function usePlayerPickerGroups(
   gameType: SeasonGameTypeFilter,
   players: PlayerSummary[] | null,
   sources: PickerSources,
+  league: League = "premier",
 ): PickerGroup[] {
   const standings = sources.standingsBySeason?.get(season) ?? null;
   const race = sources.raceBySeason?.get(season)?.[0] ?? null;
@@ -46,8 +49,8 @@ export function usePlayerPickerGroups(
       players,
       index,
       gameType,
-      teamOrder: pickerTeamOrder(latest, race),
+      teamOrder: pickerTeamOrder(latest, race, league),
       teamNameOf: (id) => indexNames.get(id) ?? standingNames.get(id),
     });
-  }, [players, standings, race, index, gameType]);
+  }, [players, standings, race, index, gameType, league]);
 }

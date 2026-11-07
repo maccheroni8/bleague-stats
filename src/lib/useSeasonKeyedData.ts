@@ -4,8 +4,10 @@ import { useJsonData } from "./useJsonData";
 export function useSeasonKeyedData<T>(
   seasonsNeeded: string[],
   fetcher: (season: string) => Promise<T[]>,
+  /** 取得の条件が変わる印（リーグなど）。変わったら読み直す（前の条件の結果は返さない） */
+  scopeKey = "",
 ): { dataBySeason: Map<string, T[] | null> | null; loading: boolean } {
-  const key = Array.from(new Set(seasonsNeeded)).sort().join(",");
+  const key = `${scopeKey}|${Array.from(new Set(seasonsNeeded)).sort().join(",")}`;
   const { data, loading } = useJsonData(async () => {
     const uniqueSeasons = Array.from(new Set(seasonsNeeded));
     const settled = await Promise.allSettled(uniqueSeasons.map((s) => fetcher(s)));
@@ -16,6 +18,6 @@ export function useSeasonKeyedData<T>(
     });
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key], { discardStale: true });
   return { dataBySeason: data, loading };
 }

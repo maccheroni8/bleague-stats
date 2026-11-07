@@ -44,7 +44,7 @@ export const ONE_PAGE_AVAILABILITY: Record<LeaguePage, LeagueAvailability> = {
   standings: READY,
   figures: READY,
   rankings: READY,
-  compare: later("比較"),
+  compare: READY,
 };
 
 export function pageAvailability(page: LeaguePage, league: League): LeagueAvailability {
@@ -68,7 +68,6 @@ export const ONE_TEAMS_TAB_REASONS: Partial<Record<string, string>> = {
 export const ONE_TEAM_DETAIL_TAB_REASONS: Partial<Record<string, string>> = {
   career: "通算成績は、B.ONE ではまだ見られません（今後対応します）。",
   clubRecord: "クラブレコードは、B.ONE ではまだ見られません（今後対応します）。",
-  compare: "比較は、B.ONE ではまだ見られません（今後対応します）。",
 };
 /** B.ONE の個人のページ（一覧）で選べないタブ・項目 */
 export const ONE_PLAYERS_TAB_REASONS: Partial<Record<string, string>> = {
@@ -78,7 +77,6 @@ export const ONE_PLAYERS_TAB_REASONS: Partial<Record<string, string>> = {
 export const ONE_ROOKIE_REASON = "ルーキーは、B.PREMIER の規程に準じた判定のため、B.ONE ではまだ選べません。";
 /** B.ONE の選手詳細で選べないタブ */
 export const ONE_PLAYER_DETAIL_TAB_REASONS: Partial<Record<string, string>> = {
-  compare: "比較は、B.ONE ではまだ見られません（今後対応します）。",
 };
 
 /** B.ONE のランキングで選べない「種類」（種類 → 理由）。シーズン成績・1試合記録・勝負所・アシストペア・達成記録・On/Off（いずれもシーズン）が見られる */

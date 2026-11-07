@@ -501,6 +501,28 @@ console.log("9. ランキング（B.ONE のシーズン成績・1試合記録）
   }
 }
 
+// ---- 10. 段階2-B: 比較ページ・詳細の比較タブ・全チームスタッツのQ別 ----
+console.log("10. 比較・Q別（B.ONE の比較ページ・詳細の比較タブ・全チームスタッツの区間）");
+{
+  const text = (f: string) => sources.get(f)!.getFullText();
+  check(ONE_PAGE_AVAILABILITY.compare.ready === true, "B.ONE で比較ページが見られるページになっていない");
+  const cmp = text("src/pages/ComparePage.tsx");
+  check((cmp.match(/useTeamCompareSlot\(\{[^}]*league \}\)/g)?.length ?? 0) === 3, "比較ページ: チームの3つの枠にリーグが渡っていない");
+  check((cmp.match(/usePlayerCompareSlot\(\{[^}]*league \}\)/g)?.length ?? 0) === 3, "比較ページ: 個人の3つの枠にリーグが渡っていない");
+  check(/isLeagueSeason\(league, /.test(cmp) && /<TeamCompareView\s+key=\{league\}/.test(cmp) && /<PlayerCompareView\s+key=\{league\}/.test(cmp), "比較ページ: シーズンをリーグの範囲に絞る・リーグで作り直す、のどちらかが無い");
+  check(/useSeasonKeyedData\([^;]*league\)/.test(cmp), "比較ページ: シーズンごとの読み込みにリーグの鍵が渡っていない");
+  for (const f of ["src/pages/TeamDetailPage.tsx", "src/pages/PlayerDetailPage.tsx"]) {
+    const t = text(f);
+    const bad = t.split("\n").filter((l) => /compareSlots\[\d\]\.season|compareLeague|loadLeaguePaintComplete|compareGameType|fetchGame\(s, scheduleKey|fetchYahooGamePbp\(s, scheduleKey/.test(l) && /"premier"/.test(l));
+    check(bad.length === 0, `${f}: 詳細の比較タブの読み込みに B.PREMIER 固定が残っている（${bad.length}行）`);
+    check(/isLeagueSeason\(league, s, seasons\)/.test(t), `${f}: 詳細の比較タブのシーズンの選択肢をリーグの範囲に絞っていない`);
+  }
+  check(!/ONE_TEAM_DETAIL_TAB_REASONS[\s\S]{0,300}compare:/.test(text("src/lib/leagueAvailability.ts")) && !/ONE_PLAYER_DETAIL_TAB_REASONS[\s\S]{0,200}compare:/.test(text("src/lib/leagueAvailability.ts")), "詳細の「比較」タブが B.ONE で選べない理由のまま");
+  const tl = text("src/pages/TeamsListPage.tsx");
+  check(!/league === "one" \? "all" : urlPeriod/.test(tl) && !/ONE_PERIOD_REASON/.test(tl), "全チームスタッツ: Q別・前後半を B.ONE で止めたままになっている");
+  check(/useTeamPeriodSource\([^;]*league\)/.test(tl), "全チームスタッツ: 区間の索引の読み込みにリーグが渡っていない");
+}
+
 if (failures > 0) {
   console.error(`\n食い違い ${failures}件`);
   process.exit(1);

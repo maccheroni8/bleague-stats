@@ -25,7 +25,7 @@ import { buildTeamConditionDefs } from "../lib/teamConditionItems";
 import { postseasonLabel } from "../../shared/gameType";
 import { Navigate, useLocation } from "react-router-dom";
 import { useLeague, type League } from "../lib/league";
-import { ONE_PERIOD_REASON, ONE_TEAMS_TAB_REASONS } from "../lib/leagueAvailability";
+import { ONE_RANKING_FORCED_TOV_REASON, ONE_RANKING_SHOOTING_REASON, ONE_TEAMS_TAB_REASONS } from "../lib/leagueAvailability";
 import { SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
 import { ClassificationNotes } from "../components/ClassificationNotes";
 import { seasonRuleFor } from "../../shared/seasonRules";
@@ -500,8 +500,8 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   }, [turnoverPerspective]);
   // 区間（試合全体・1Q〜4Q・前半・後半・延長。DESIGN.md 256章の段階2）。Traditional〜Scoring の4つのタブだけで効く。区間の値はチームのピリオド別の索引から出す
   const [urlPeriod, setPeriod] = useUrlState(TEAM_SEASON_PERIOD_PARAM, "all");
-  // B.ONE の Q別・前後半・登録区分別は段階3（URL に書いてあっても試合全体・全選手で出す）
-  const period = league === "one" ? "all" : urlPeriod;
+  // Q別・前後半は B.ONE でも選べる（B.ONE の区間の索引から出す）
+  const period = urlPeriod;
   const periodOption = seasonPeriodOption(period);
   // On-Court Foreign・Scoring % も区間を選べる（256章の段階3。On-Court Foreign は人数別の在コート時間、Scoring % は得点・試投の構成）
   const periodTab =
@@ -1044,9 +1044,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: displayDisabledReason }),
     periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, {
-      disabledReason: league === "one"
-        ? ONE_PERIOD_REASON
-        : periodTab && classTab && classFilter !== "all"
+      disabledReason: periodTab && classTab && classFilter !== "all"
         ? "登録区分を選んでいるときは区間を選べません（併用は準備中です）。登録区分を「全選手」にすると選べます。"
         : periodTab
         ? undefined
@@ -1213,7 +1211,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
 
       {boxTab === "shooting" ? (
         !yahooPbpSupported ? (
-          <p className="empty-message">{league === "one" ? "B.ONE では、まだ見られません（今後対応します）。" : "このシーズンのデータには対応していません"}</p>
+          <p className="empty-message">{league === "one" ? ONE_RANKING_SHOOTING_REASON : "このシーズンのデータには対応していません"}</p>
         ) : (
           <>
             <div className="table-scroll">
@@ -1234,7 +1232,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
         )
       ) : boxTab === "forcedTurnovers" ? (
         !yahooPbpSupported ? (
-          <p className="empty-message">{league === "one" ? "B.ONE では、まだ見られません（今後対応します）。" : "このシーズンのデータには対応していません"}</p>
+          <p className="empty-message">{league === "one" ? ONE_RANKING_FORCED_TOV_REASON : "このシーズンのデータには対応していません"}</p>
         ) : (
           <>
             <div className="table-scroll">

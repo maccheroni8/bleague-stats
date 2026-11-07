@@ -10,6 +10,7 @@
 //  6. 段階2-A（勝負所・アシストペア・達成記録・On/Off）: B.ONE の元の試合から数え直した値と、画面が読む索引・ペア・出場区間からの集計が一致する
 //     勝負所＝第4Q・延長の残り2分の勝ち越し弾（元のプレーバイプレーの得点の流れから）、アシストペア＝選手ごとのアシスト数（ペアのファイルと元のボックススコアのAS）、
 //     達成記録＝PTS20以上の試合数・連続・初めて達成した試合（元のボックススコアから）、On/Off＝出場時間と、出場した試合のチームの得点（元のボックススコア）
+//  7. 段階2-B（比較ページ・全チームスタッツのQ別）: チーム比較（直近5試合の試合数・得点・勝数・生データの平均）・個人比較（出場試合数・得点・出場時間）・Q別（1Q・前半・4Qの得点）が、元の試合から数え直した値と一致する
 //  5. B.ONE で選べない種類・カテゴリに理由があり、リーグの範囲（地区5つ・OC上限3）が B.ONE のものになっている
 //
 // 使い方: npm run validate:one-ranking（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
@@ -40,6 +41,11 @@ import { compactStints } from "../shared/onCourtTotals.ts";
 import { queryClutch, queryAssistPairs } from "../src/lib/clutchQuery.ts";
 import { DEFAULT_THRESHOLD, queryThresholdAge, queryThresholdCount, queryThresholdStreaks } from "../src/lib/thresholdQuery.ts";
 import { buildLineupRows } from "../src/lib/lineupRanking.ts";
+import { buildTeamMultiGameBoxTotals, buildTeamSplitRows, sumTeamTotalsForLogs, filterByGameType as filterLogsByGameType } from "../src/lib/playerSeasonBoxscore.ts";
+import { buildGameTeamsByScheduleKey, filterGameLogs, resolveOwnTeam } from "../src/lib/situational.ts";
+import { sumTeamPeriodTotals, type TeamPeriodSource } from "../src/lib/teamPeriodTotals.ts";
+import type { TeamPeriodIndexFile } from "../shared/periodIndex.ts";
+import type { PlayerGameLog } from "../shared/types.ts";
 
 const SEASON = "2026-27";
 let failures = 0;
@@ -420,6 +426,85 @@ for (const g of orderedGames) {
   check(`On/Off: 出場した試合の On と Off の得点・失点の合計が、その試合のチームの得点・失点（元の試合）と一致（${ptsChecked}人。出場区間の試合数が元の出場試合数と違う${gamesDiffer}人は除く）`, ptsBad === 0 && gamesDiffer <= Math.ceil(checked * 0.01), samples.join(" / "));
   const ex = rows.find((r) => r.off && r.on.ownPoss > 500)!;
   console.log(`     On/Off の例: ${ex.players[0]!.name}（${ex.teamName}） On ${Math.round(ex.on.seconds)}秒・${Math.round(ex.on.ownPoss)}ポゼッション`);
+}
+
+
+// ---- 7. 段階2-B: 比較ページ（個人・チーム）と全チームスタッツのQ別 ----
+{
+  // 7-1 チーム比較: 試合ログ→絞り込み（直近5試合）→生データの合計、が元の試合から数え直した値と一致
+  const teamRows = [...teams].sort((a, b) => a.teamId.localeCompare(b.teamId)).slice(0, 25);
+  const summariesAll = ((await readJson<GameSummary[]>(path.join(oneDir, "games-summary.json"))) ?? []);
+  const storedByKey = new Map(rawGames.map((g) => [g.scheduleKey, g]));
+  let teamBad = 0, teamChecked = 0;
+  const teamSamples: string[] = [];
+  for (const t of teamRows) {
+    const logs = filterLogsByGameType(teamLogs.get(t.teamId) ?? [], "regular");
+    const recent = filterGameLogs(logs, { range: { kind: "recent", n: 5 }, includePlayoffs: true }, undefined, undefined, SEASON, () => t.teamId, "one");
+    const own = orderedGames.filter((g) => g.homeTeam.id === t.teamId || g.awayTeam.id === t.teamId).slice(-5);
+    const rawPts = own.reduce((a, g) => a + (g.homeTeam.id === t.teamId ? g.homeScore : g.awayScore), 0);
+    const rawWins = own.filter((g) => (g.homeTeam.id === t.teamId ? g.homeScore > g.awayScore : g.awayScore > g.homeScore)).length;
+    const entries = recent.map((l) => ({ game: storedByKey.get(l.scheduleKey)!, isHome: l.isHome })).filter((e) => !!e.game);
+    const box = buildTeamMultiGameBoxTotals(entries, new Map(), false, false);
+    const boxPts = box ? Number((box.own as unknown as Record<string, number>).pts) : NaN;
+    teamChecked += 1;
+    const ok = recent.length === own.length && recent.reduce((a, l) => a + l.teamScore, 0) === rawPts && recent.filter((l) => l.win).length === rawWins && Math.abs(boxPts - rawPts / own.length) < 1e-9;
+    if (!ok) { teamBad += 1; if (teamSamples.length < 3) teamSamples.push(`${t.teamName}: ログ${recent.length}試合 得点${recent.reduce((a, l) => a + l.teamScore, 0)}／元${own.length}試合 ${rawPts} 箱${boxPts}`); }
+  }
+  check(`チーム比較: 直近5試合に絞った試合数・得点・勝数・生データの1試合平均得点が、元の試合から数え直した値と全クラブで一致（${teamChecked}クラブ）`, teamBad === 0, teamSamples.join(" / "));
+  const ex = teamRows[0]!;
+  console.log(`     チーム比較の例: ${ex.teamName} 直近5試合の平均得点（元の試合）= ${(orderedGames.filter((g) => g.homeTeam.id === ex.teamId || g.awayTeam.id === ex.teamId).slice(-5).reduce((a, g) => a + (g.homeTeam.id === ex.teamId ? g.homeScore : g.awayScore), 0) / 5).toFixed(2)}`);
+
+  // 7-2 個人比較: 試合ログ→所属チームの解決→1試合平均（G・PTS・MIN）が、元の試合から数え直した値と全選手で一致
+  const gameTeams = buildGameTeamsByScheduleKey(summariesAll);
+  let pBad = 0, pChecked = 0;
+  const pSamples: string[] = [];
+  for (const p of players) {
+    const raw = rawAppearances.get(p.playerId);
+    if (!raw || raw.length === 0) continue;
+    const logs = (await readJson<PlayerGameLog[]>(path.join(oneDir, "player-games", `${p.playerId}.json`))) ?? [];
+    const ownTeamByScheduleKey = new Map<string, { teamId: string; teamName: string }>();
+    for (const l of logs) {
+      if (l.min <= 0) continue;
+      const o = resolveOwnTeam(l, gameTeams);
+      if (o) ownTeamByScheduleKey.set(l.scheduleKey, o as { teamId: string; teamName: string });
+    }
+    const filtered = filterGameLogs(filterLogsByGameType(logs, "regular"), { range: { kind: "all" }, includePlayoffs: true }, undefined, undefined, SEASON, (g) => ownTeamByScheduleKey.get(g.scheduleKey)?.teamId, "one");
+    const teamLogsById = new Map<string, import("../shared/types.ts").TeamGameLog[]>();
+    for (const id of new Set([...ownTeamByScheduleKey.values()].map((x) => x.teamId))) teamLogsById.set(id, teamLogs.get(id) ?? []);
+    const rows = buildTeamSplitRows("slot", filtered, ownTeamByScheduleKey as never, sumTeamTotalsForLogs(filtered, ownTeamByScheduleKey as never, teamLogsById), "perGame", 2026);
+    const ctx = rows[rows.length - 1]?.ctx;
+    pChecked += 1;
+    const rawPts = raw.reduce((a, x) => a + x.pts, 0);
+    const rawSec = raw.reduce((a, x) => a + x.seconds, 0);
+    const okP = !!ctx && ctx.raw.gamesPlayed === raw.length && ctx.raw.pts === rawPts && Math.abs(ctx.raw.min * 60 - rawSec) <= raw.length * 2;
+    if (!okP) { pBad += 1; if (pSamples.length < 3) pSamples.push(`${p.name}: 比較 G${ctx?.raw.gamesPlayed} PTS${ctx?.raw.pts} MIN${ctx?.raw.min}／元 G${raw.length} PTS${rawPts} ${rawSec}秒`); }
+  }
+  check(`個人比較: 出場試合数・得点・出場時間が、元の試合から数え直した値と全選手で一致（${pChecked}人）`, pBad === 0, pSamples.join(" / "));
+
+  // 7-3 全チームスタッツのQ別: 1Q・前半の得点（チームのピリオド別の索引から）が、元の試合の1Q・前半の得点と全クラブで一致
+  const tp = (await readJson<TeamPeriodIndexFile>(path.join(oneDir, "team-period-index.json")))!;
+  const source: TeamPeriodSource = { season: SEASON, file: tp, gameNo: new Map<string, number>(tFile.games.key.map((k, i) => [k, i])) };
+  let qBad = 0, qChecked = 0;
+  const qSamples: string[] = [];
+  for (const t of teams) {
+    const logs = filterLogsByGameType(teamLogs.get(t.teamId) ?? [], "regular");
+    for (const [value, quarters] of [["q1", [0]], ["h1", [0, 1]], ["q4", [3]]] as const) {
+      const res = sumTeamPeriodTotals(source, logs, value);
+      let rawPts = 0, rawGamesCount = 0;
+      for (const g of orderedGames) {
+        const home = g.homeTeam.id === t.teamId;
+        if (!home && g.awayTeam.id !== t.teamId) continue;
+        const qs = home ? g.quarterScores.home : g.quarterScores.away;
+        rawPts += quarters.reduce((a, q) => a + (qs[q] ?? 0), 0);
+        rawGamesCount += 1;
+      }
+      qChecked += 1;
+      if (res.totals.pts !== rawPts || res.games.length !== rawGamesCount) { qBad += 1; if (qSamples.length < 3) qSamples.push(`${t.teamName} ${value}: 索引 ${res.totals.pts}点/${res.games.length}試合／元 ${rawPts}点/${rawGamesCount}試合`); }
+    }
+  }
+  check(`全チームスタッツ Q別・前後半: 1Q・前半・4Q の得点と試合数が、元の試合のクォーター別スコアから数え直した値と全クラブで一致（${qChecked}件）`, qBad === 0, qSamples.join(" / "));
+  const q1 = sumTeamPeriodTotals(source, filterLogsByGameType(teamLogs.get(teams[0]!.teamId) ?? [], "regular"), "q1");
+  console.log(`     Q別の例: ${teams[0]!.teamName} 1Q 合計${q1.totals.pts}点／${q1.games.length}試合 = ${(q1.totals.pts / q1.games.length).toFixed(2)}（元の試合のクォーター別スコアと一致）`);
 }
 
 // ---- 4. 「達成可能」を出す条件 ----
