@@ -743,6 +743,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { data: gameLogs, loading: logsLoading } = useJsonData(
     () => (playerId ? fetchPlayerGameLogs(season, playerId, league) : Promise.resolve([])),
     [season, playerId, league],
+    { discardStale: true },
   );
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   // レーダーチャートのランキング母集団の足切り（所属チーム試合数の85%以上出場）に使う
@@ -1003,6 +1004,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
   // 再発火させcleanupで直前のfetchをcancelしてしまう（自己キャンセルのループ）。
   // そのためfetch開始済みかどうかはstateではなくrefで管理する
   const careerFetchStartedRef = useRef(false);
+  // 選手・リーグが変わるたびに増やす。前の選手・リーグの通算の読み込みが後から返ってきても、今の表示に使わないための印
+  const careerGenerationRef = useRef(0);
 
   // usePageStateで復元した直後の値を、この選手の初回マウント時に上書きしてしまわないよう
   // スキップする（src/lib/pageStateCache.ts参照）。実際に選手が変わった2回目以降の発火では
@@ -1010,6 +1013,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const skipFirstPlayerReset = useSkipFirstEffectRun(playerId);
   useEffect(() => {
     if (skipFirstPlayerReset()) return;
+    careerGenerationRef.current += 1;
     setTab("stats");
     setCareerData(null);
     setCareerError(null);
@@ -1069,15 +1073,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
   }, [gameTypeFilter]);
 
   useEffect(() => {
-    if (
-      !seasonShotChartExpanded ||
-      !playerId ||
-      !gameLogs ||
-      !shotChartSupported ||
-      seasonShotChartFetchStartedRef.current
-    )
-      return;
-    seasonShotChartFetchStartedRef.current = true;
+    if (!seasonShotChartExpanded || !playerId || !gameLogs || !shotChartSupported) return;
+    // 条件（選手・リーグ・シーズン・試合区分）が変わったら前の読み込みの結果は捨てる
+    let cancelled = false;
     setSeasonShotChartLoading(true);
     Promise.all(
       filterByGameType(gameLogs, gameTypeFilter)
@@ -1092,8 +1090,15 @@ export function PlayerDetailPage({ season }: { season: string }) {
           }
         }),
     )
-      .then((results) => setSeasonShotGameData(results))
-      .finally(() => setSeasonShotChartLoading(false));
+      .then((results) => {
+        if (!cancelled) setSeasonShotGameData(results);
+      })
+      .finally(() => {
+        if (!cancelled) setSeasonShotChartLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [seasonShotChartExpanded, playerId, season, gameLogs, shotChartSupported, gameTypeFilter, league]);
 
   // ショットチャートの「対勝率別」フィルタ用の試合日程（対応シーズンでのみ取得。ページ本体の
@@ -1101,6 +1106,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { data: shotChartGameSummaries } = useJsonData(
     () => (seasonShotChartExpanded ? fetchGameSummaries(season, league) : Promise.resolve(null)),
     [seasonShotChartExpanded, season, league],
+    { discardStale: true },
   );
   const shotChartOpponentRecords = useMemo(
     () => (shotChartGameSummaries ? buildRecordsBeforeGame(shotChartGameSummaries) : undefined),
@@ -1145,8 +1151,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
   }, [seasonShotGameData, shotChartFilters, shotChartOpponentRecords, shotChartOwnTeamByScheduleKey, shotChartPeriodOption, league]);
 
   useEffect(() => {
-    if (tab !== "gamelog" || !playerId || !gameLogs || gameBoxFetchStartedRef.current) return;
-    gameBoxFetchStartedRef.current = true;
+    if (tab !== "gamelog" || !playerId || !gameLogs) return;
+    // 条件（選手・リーグ・シーズン）が変わったら前の読み込みの結果は捨てる（遅れて返ってきても表示に使わない）
+    let cancelled = false;
     setGameBoxLoading(true);
     // DNP（出場0分）の試合はスタッツが全て0のため、生データ取得の必要が無い（下のgameLogTableRowsで
     // 「-」表示のmissing行として扱う）。出場した試合のみボックススコアを取得する
@@ -1166,11 +1173,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
         }),
     )
       .then((results) => {
-        setGameBoxRows(results.filter((r): r is PlayerGameBoxscoreRow => r !== null));
+        if (!cancelled) setGameBoxRows(results.filter((r): r is PlayerGameBoxscoreRow => r !== null));
       })
       .finally(() => {
-        setGameBoxLoading(false);
+        if (!cancelled) setGameBoxLoading(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [tab, playerId, season, gameLogs, yahooSeasonSupported, shotChartSupported, league]);
 
   // 「試合ログ」タブのDNP試合表示: 出場していない試合も、日付・対戦カード・チームの勝敗が
@@ -1182,6 +1192,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { data: gameLogGameSummaries } = useJsonData(
     () => (tab === "gamelog" ? fetchGameSummaries(season, league) : Promise.resolve(null)),
     [tab, season, league],
+    { discardStale: true },
   );
   const gameLogGameTeams = useMemo(
     () => (gameLogGameSummaries ? buildGameTeamsByScheduleKey(gameLogGameSummaries) : new Map()),
@@ -1224,6 +1235,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           )
         : Promise.resolve(new Map<string, TeamGameLog[]>()),
     [tab, season, gameLogTeamIds.join("|"), league],
+    { discardStale: true },
   );
   const gameLogTableRows: GameLogTableRow[] = useMemo(() => {
     if (!gameLogs) return [];
@@ -1273,6 +1285,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     )
       return;
     careerFetchStartedRef.current = true;
+    const generation = careerGenerationRef.current;
     setCareerLoading(true);
     setCareerError(null);
     Promise.all(
@@ -1286,13 +1299,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
       }),
     )
       .then((results) => {
-        setCareerData(results.filter((r) => r.logs.length > 0));
+        if (generation === careerGenerationRef.current) setCareerData(results.filter((r) => r.logs.length > 0));
       })
       .catch(() => {
-        setCareerError("通算成績の取得に失敗しました");
+        if (generation === careerGenerationRef.current) setCareerError("通算成績の取得に失敗しました");
       })
       .finally(() => {
-        setCareerLoading(false);
+        if (generation === careerGenerationRef.current) setCareerLoading(false);
       });
   }, [tab, playerId, seasons, league]);
 
@@ -1303,6 +1316,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   useEffect(() => {
     if ((tab !== "career" && tab !== "highs") || careerCategory !== "one" || !playerId || careerOneFetchStartedRef.current) return;
     careerOneFetchStartedRef.current = true;
+    const generation = careerGenerationRef.current;
     setCareerOneLoading(true);
     Promise.all(
       ONE_CATEGORY_SEASONS.map(async (s) => {
@@ -1315,16 +1329,17 @@ export function PlayerDetailPage({ season }: { season: string }) {
       }),
     )
       .then((results) => {
-        setCareerDataOne(results.filter((r) => r.logs.length > 0));
+        if (generation === careerGenerationRef.current) setCareerDataOne(results.filter((r) => r.logs.length > 0));
       })
       .finally(() => {
-        setCareerOneLoading(false);
+        if (generation === careerGenerationRef.current) setCareerOneLoading(false);
       });
   }, [tab, careerCategory, playerId]);
 
   useEffect(() => {
     if (league !== "one" || (tab !== "career" && tab !== "highs") || careerCategory !== "premier" || !playerId || !allSeasons || careerAltFetchStartedRef.current) return;
     careerAltFetchStartedRef.current = true;
+    const generation = careerGenerationRef.current;
     setCareerAltLoading(true);
     Promise.all(
       allSeasons.map(async (s) => {
@@ -1335,8 +1350,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
         }
       }),
     )
-      .then((results) => setCareerDataAlt(results.filter((r) => r.logs.length > 0)))
-      .finally(() => setCareerAltLoading(false));
+      .then((results) => {
+        if (generation === careerGenerationRef.current) setCareerDataAlt(results.filter((r) => r.logs.length > 0));
+      })
+      .finally(() => {
+        if (generation === careerGenerationRef.current) setCareerAltLoading(false);
+      });
   }, [league, tab, careerCategory, playerId, allSeasons]);
 
   // 「シーズン別成績」テーブルのUSG%・%-shareスタッツ用に、careerData取得済みの各シーズンについて
@@ -1348,6 +1367,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
   useEffect(() => {
     if (!careerData || careerTeamDataFetchStartedRef.current) return;
     careerTeamDataFetchStartedRef.current = true;
+    const generation = careerGenerationRef.current;
     Promise.all(
       careerData.map(async (cd) => {
         try {
@@ -1382,6 +1402,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
         }
       }),
     ).then((entries) => {
+      if (generation !== careerGenerationRef.current) return;
       setCareerTeamData(new Map(entries.filter((e): e is readonly [string, CareerSeasonTeamInfo] => e !== null)));
     });
   }, [careerData, playerId, league]);
@@ -1620,10 +1641,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { data: compareSummaries0 } = useJsonData(
     () => (tab === "compare" && compareSlots[0].season ? fetchGameSummaries(compareSlots[0].season, "premier") : Promise.resolve(null)),
     [tab, compareSlots[0].season],
+    { discardStale: true },
   );
   const { data: compareSummaries1 } = useJsonData(
     () => (tab === "compare" && compareSlots[1].season ? fetchGameSummaries(compareSlots[1].season, "premier") : Promise.resolve(null)),
     [tab, compareSlots[1].season],
+    { discardStale: true },
   );
   const compareBoundaries: [SeasonHalfBoundary | null, SeasonHalfBoundary | null] = [
     useMemo(() => (compareSummaries0 ? computeSeasonHalfBoundary(compareSummaries0) : null), [compareSummaries0]),
