@@ -1,0 +1,16 @@
+.figure-presets { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; font-size: 13px; }
+.figure-presets-row, .figure-presets-edit { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.figure-presets-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 100%; }
+.figure-presets-field select { min-width: 12em; max-width: 100%; }
+.figure-presets-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.figure-presets button { min-height: 32px; }
+.figure-presets button:disabled { opacity: 0.5; cursor: not-allowed; }
+.figure-presets-edit label { display: flex; align-items: center; gap: 6px; }
+.figure-presets-edit input[type="text"] { min-width: 12em; max-width: 100%; }
+.figure-presets-url { width: 100%; box-sizing: border-box; }
+.figure-presets-message { margin: 0; color: var(--text-muted, inherit); }
+@media (max-width: 560px) {
+  .figure-presets-field, .figure-presets-field select { width: 100%; }
+  .figure-presets-edit label { flex: 1 1 100%; }
+  .figure-presets-edit input[type="text"] { flex: 1; }
+}

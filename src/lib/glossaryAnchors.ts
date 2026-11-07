@@ -40,6 +40,8 @@ export const GLOSSARY_ANCHORS = {
   figureShooting: "figure-shooting",
   figurePtsAst: "figure-pts-ast",
   figureHighlightClubs: "figure-highlight-clubs",
+  figureFreeScatter: "figure-free-scatter",
+  figureSavedSettings: "figure-saved-settings",
 } as const;
 
 export type GlossaryAnchor = (typeof GLOSSARY_ANCHORS)[keyof typeof GLOSSARY_ANCHORS];

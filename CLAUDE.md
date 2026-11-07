@@ -149,6 +149,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 343章: **B.ONE 段階2-B**（比較ページ・チーム詳細／選手詳細の「比較」タブ・全チームスタッツの Q別・前後半。**画面だけ・キー不変**）。比較は同じリーグの中どうしだけ（シーズンの選択肢と URL のスロットをリーグの範囲に絞る。`useSeasonKeyedData` の鍵にリーグ）。検証は `validate:one-ranking` の7章と `validate:league-wiring` の10章
 - 344章: **登録区分とQ別・前後半・延長の併用**（全チームスタッツとチーム詳細のシーズン別成績の ▸。選手のピリオド別の行を区分ごとに足す `ClassSplitSource.atom`。`sumClassTotals` の `period`。出せない列は試合全体のときと同じ）と、チーム詳細のチーム名の折り返し（`ResponsiveTeamName` の `nowrap`）。検証は `npm run validate:team-class-period`。**画面だけの変更でキー不変**
 - 345章: 図解（選手）5つの図に**「表示するクラブ」と詳細フィルター**（`usePlayerFigureFilter`・`src/lib/figurePlayerFilter.ts`。地区の絞り込み `dv` は表示するクラブに読み替え。トップスコアラーは絞った選手の中から各チーム3人）。検証は `npm run validate:player-figure-filter`。**画面だけの変更でキー不変**
+- 346章: 図解（チーム）の**自由な散布図**（`figure=team-shooting`〔IDは変えない〕。縦軸・横軸それぞれで項目〔全チームスタッツの列。Shooting・Forced TOV を含む〕と視点〔自チーム／opp／+/-〕。URL `fx`・`fy`・`fxv`・`fyv`、以前の `shx`・`shy`・`v` も読む。目盛りと単位は項目から自動。`src/lib/figureTeamFree.ts`）と、**図の設定の保存**（チーム・選手のすべての図。localStorage `bleague-stats:figure-presets`・URL の条件と同じ中身・保存できない環境ではボタンを押せなくする。`src/lib/figurePresets.ts`・`FigurePresets.tsx`）。検証は `npm run validate:figure-team-free`。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

@@ -4,6 +4,7 @@ import { useLeague } from "../lib/league";
 import { normalizeFigureParams } from "../lib/figureRoute";
 import { FIGURES, figuresForEntity, type FigureDefinition, type FigureEntity } from "../figures/catalog";
 import { FigureExportSlot } from "../figures/FigureExport";
+import { FigurePresets } from "../figures/FigurePresets";
 import "./FiguresPage.css";
 
 const COMPONENTS = new Map(FIGURES.map(figure => [figure.id, lazy(figure.load)]));
@@ -43,6 +44,7 @@ export function FiguresPage({ season }: { season: string }) {
       <div className="figure-export-slot" ref={setExportSlot} />
     </div>
     {figures.length > 0 && <FigureTabs figures={figures} selectedId={selectedId} onSelect={id => selectFigure(entity, id)} />}
+    {Figure && <FigurePresets entity={entity} figureId={selectedId} params={normalized} onApply={next => setParams(next, { replace: true })} />}
     {Figure ?
       <section id="figure-active-panel" role="tabpanel" aria-labelledby={`figure-tab-${selectedId}`}>
         <Suspense fallback={<p role="status">読み込み中…</p>}>

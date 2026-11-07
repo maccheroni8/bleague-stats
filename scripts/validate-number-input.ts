@@ -67,7 +67,8 @@ for (const [kind, input, expected] of cases) eq(`${kind}「${input}」→ ${expe
 
 // 2. 画面のコードの見張り: <input> のうち、文字を打つ欄（type が text・number・tel・無指定）は NumberTextInput の中だけに置く
 //    （検索欄 type="search"・日付・チェック・スライダーは対象外）
-const ALLOWED_FILES = new Set(["src/components/NumberTextInput.tsx"]);
+// FigurePresets.tsx は設定の「名前」（数値ではない文字）と読み取り専用の URL の欄だけ
+const ALLOWED_FILES = new Set(["src/components/NumberTextInput.tsx", "src/figures/FigurePresets.tsx"]);
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
