@@ -30,6 +30,20 @@ import { FIGURES } from "../src/figures/catalog";
   const set = new Set<VennMask>(VENN_MASKS);
   for (const m of l2.collapsed.keys()) assert.ok(set.has(m));
   console.log("選手のベン図: 名前の配置（全員表示・人数だけへの切り替え・重ならない）OK");
+  // 写真: 写真は名前より入る人数が少ないので、同じ人数でも札にする領域が増える。写真の大きさは min〜max、重ならない
+  const photo = { max: 40, min: 28 };
+  const p1 = layoutVennNames(few, { size: 640, font: 11, photo });
+  assert.equal(p1.placements.size, 8, "写真: 少ないときは全員の写真を置く");
+  assert.equal(p1.collapsed.size, 0);
+  assert.ok(p1.photo! >= 28 && p1.photo! <= 40, "写真の大きさは範囲内");
+  const mid = new Map<VennMask, { key: string; label: string }[]>([[1, mk(14, "a")], [2, mk(3, "b")], [4, mk(3, "c")], [7, mk(2, "e")]]);
+  const nm = layoutVennNames(mid, { size: 640, font: 11 }), pm = layoutVennNames(mid, { size: 640, font: 11, photo });
+  assert.ok(pm.collapsed.size >= nm.collapsed.size, "写真のほうが札にする領域は同じか多い");
+  const p2 = layoutVennNames(many, { size: 640, font: 11, photo });
+  assert.ok(p2.collapsed.has(1) && !p2.collapsed.has(2) && !p2.collapsed.has(4), "写真: 人数が多い領域だけ人数の札");
+  assert.equal(p2.photo, 28, "札にするときは最小の大きさ");
+  for (const [a, pa] of p2.placements) for (const [b, pb] of p2.placements) if (a < b) assert.ok(Math.abs(pa.x - pb.x) >= p2.box.width - 1 || Math.abs(pa.y - pb.y) >= p2.box.height - 1, `写真: ${a}と${b}が重ならない`);
+  console.log("選手のベン図: 写真の配置（全員表示・札への切り替え・重ならない）OK");
 }
 
 // --- 項目の選び方 ---

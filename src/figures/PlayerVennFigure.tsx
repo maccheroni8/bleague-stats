@@ -32,6 +32,9 @@ import { useHighlightClubs } from './highlightClubs';
 import type { FigureProps } from './catalog';
 import './RatingsScatterFigure.css';
 import './TeamVennFigure.css';
+import { ScorerSilhouette } from './TopScorersFigure';
+import { playerPhotoUrl } from '../lib/data';
+import { DIVISION_RATING_COLORS } from '../lib/figureRatings';
 import { NumberTextInput, type NumberTextInputHandle } from '../components/NumberTextInput';
 
 const DEFAULT: SituationalFilter = { range: { kind: 'all' } };
@@ -43,6 +46,9 @@ const rangeCodec: UrlCodec<SituationalFilter> = {
 };
 const gameCodec = { ...enumParam<SeasonGameTypeFilter>('gt', ['regular', 'playoff', 'both'], 'regular'), read: GAME_TYPE_PARAM.read };
 const ratioCodec = numberParam('vpr', DEFAULT_RATIO, { min: 0, max: 100 });
+// 円の中の選手の表示（写真／名前）。初期は写真
+type VennDisplay = 'photo' | 'name';
+const displayCodec = enumParam<VennDisplay>('vsh', ['photo', 'name'], 'photo');
 // 円ごとの項目（vca・vcb・vcc。「カテゴリ.項目」）と基準の値（vta・vtb・vtc）
 const SEL_KEYS = ['vca', 'vcb', 'vcc'] as const;
 const NO_SELECTION: (string | undefined)[] = [undefined, undefined, undefined];
@@ -69,6 +75,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
   const [selParam, setSel] = useUrlState(selectionCodec, NO_SELECTION);
   const [thrParam, setThr] = useUrlState(thresholdCodec, NO_THRESHOLDS);
+  const [display, setDisplay] = useUrlState(displayCodec, 'photo');
   const [hover, setHover] = useState<string | null>(null);
   const [openMask, setOpenMask] = useState<VennMask | null>(null);
   const target = useRef<HTMLDivElement>(null), teamLabel = useTeamLabel();
@@ -114,6 +121,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const rangeAxes = situationalAxes(filter, v => setFilter({ range: v.range })).filter(a => a.id === 's.range' || (filter.range.kind === 'dateRange' && (a.id === 's.dateStart' || a.id === 's.dateEnd')))
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), classificationAxis(classification, setClassification, { season }),
+    { kind: 'select', id: 'vennDisplay', label: '選手の表示', tier: 'primary', value: display, defaultValue: 'photo', options: [{ value: 'photo', label: '写真' }, { value: 'name', label: '名前' }], onChange: v => setDisplay(v as VennDisplay) },
     hl.axis, ratioEligibilityAxis({ id: 'vennRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio })];
   const [periodLabel] = situationalFilterLabels(filter);
   const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], classificationFilterLabel(classification), `出場率${minRatio}%以上`, ...statConditionLabels(statConditions, conditionItems), ...hl.labels].filter(Boolean);
@@ -124,12 +132,12 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
     { key: 'ratio', label: '出場率', sortValue: p => p.ratio, render: p => formatPct100(p.ratio) },
     ...itemIds.map((_, i): Column<PlayerFigurePoint> => ({ key: `c${i}`, label: labels[i]!, sortValue: p => computed?.valueOf(p.id, i)?.value ?? Number.NaN, render: p => valueText(p, i) })),
   ];
-  const chartProps = { emphIds, model, labels, circleNames, circleLines, counts, hover, setHover, byId, valueText, playerLabel, abbr, teamNames, total: eligible.length, openMask, setOpenMask };
+  const chartProps = { display, emphIds, model, labels, circleNames, circleLines, counts, hover, setHover, byId, valueText, playerLabel, abbr, teamNames, total: eligible.length, openMask, setOpenMask };
   // 負の値になりうる項目（+/-・NetRtg など）は、スマホの数字キーボードに無い「−」をボタンで足せるようにする
   const thrInputs = useRef<(NumberTextInputHandle | null)[]>([]);
   const signed = itemIds.map((_, i) => (thresholds[i] ?? 0) < 0 || sampleValues[i]!.some(v => v.value < 0 || /^[+-]/.test(v.text.trim())));
   return <section aria-label="ベン図">
-    <FilterBar axes={axes} stateKey="figures:player-venn" advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, { defaultKey: 'min' })} onClearAll={() => { setStatConditions(DEFAULT_STAT_CONDITIONS); setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setMinRatio(DEFAULT_RATIO); setSel(NO_SELECTION); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); setOpenMask(null); }} />
+    <FilterBar axes={axes} stateKey="figures:player-venn" advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, { defaultKey: 'min' })} onClearAll={() => { setStatConditions(DEFAULT_STAT_CONDITIONS); setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setMinRatio(DEFAULT_RATIO); setDisplay('photo'); setSel(NO_SELECTION); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); setOpenMask(null); }} />
     <div className="venn-pickers">
       {itemIds.map((id, i) => <div key={i} className={`venn-picker ${SLOT_COLORS[i]}`}>
         <span className="venn-dot" aria-hidden="true" />
@@ -164,7 +172,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
 
 type ChartModel = NonNullable<ReturnType<typeof computePlayerVenn>>['model'];
 interface ChartProps {
-  model: ChartModel | null; labels: string[]; circleNames: string[]; circleLines: string[][]; counts: number[]; emphIds: ReadonlySet<string>;
+  display: VennDisplay; model: ChartModel | null; labels: string[]; circleNames: string[]; circleLines: string[][]; counts: number[]; emphIds: ReadonlySet<string>;
   hover: string | null; setHover: (id: string | null) => void; byId: Map<string, PlayerFigurePoint>; valueText: (p: PlayerFigurePoint, i: number) => string;
   playerLabel: (name: string) => string; abbr: (p: PlayerFigurePoint) => string; teamNames: (p: PlayerFigurePoint) => string; total: number;
   openMask: VennMask | null; setOpenMask: (m: VennMask | null) => void; exportOnly?: boolean;
@@ -176,7 +184,7 @@ function regionTitle(mask: VennMask, labels: readonly string[]): string {
   return names.length === 3 ? '3つとも' : names.length === 1 ? `${names[0]}だけ` : names.join('と');
 }
 
-function VennChart({ model, labels, circleNames, circleLines, counts, emphIds, hover, setHover, byId, valueText, playerLabel, abbr, teamNames, total, openMask, setOpenMask, exportOnly = false }: ChartProps) {
+function VennChart({ display, model, labels, circleNames, circleLines, counts, emphIds, hover, setHover, byId, valueText, playerLabel, abbr, teamNames, total, openMask, setOpenMask, exportOnly = false }: ChartProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(exportOnly ? VENN_DESIGN_WIDTH : 640);
   const [showNone, setShowNone] = useState(false);
@@ -202,7 +210,8 @@ function VennChart({ model, labels, circleNames, circleLines, counts, emphIds, h
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, narrow]);
   const nameBoxes = useMemo(() => vennLabelBoxes(size, circleLines, labelFont + 1), [size, circleLines.join('|'), labelFont]);
-  const layout = useMemo(() => layoutVennNames(groups, { size, font: labelFont, obstacles: nameBoxes }), [groups, size, labelFont, nameBoxes]);
+  const photoRange = useMemo(() => display === 'photo' ? { max: Math.round(40 * u), min: exportOnly || !narrow ? 28 : 24 } : undefined, [display, u, exportOnly, narrow]);
+  const layout = useMemo(() => layoutVennNames(groups, { size, font: labelFont, obstacles: nameBoxes, photo: photoRange }), [groups, size, labelFont, nameBoxes, photoRange]);
   const scales = useMemo(() => vennEmphasisScales(layout.placements, layout.box, emphIds, nameBoxes), [layout, emphIds, nameBoxes]);
   if (!model) return null;
   const none = sorted(model.regions.get(0) ?? []);
@@ -211,12 +220,12 @@ function VennChart({ model, labels, circleNames, circleLines, counts, emphIds, h
   const height = size * VENN_DESIGN_HEIGHT / VENN_DESIGN_WIDTH;
   const tipText = (p: PlayerFigurePoint) => [0, 1, 2].map(i => `${labels[i]} ${valueText(p, i)}`).join('、');
   const tooltip = (p: PlayerFigurePoint) => <><strong>{playerLabel(p.name)}（{teamNames(p)}）</strong>{[0, 1, 2].map(i => <span key={i}>{labels[i]} {valueText(p, i)}</span>)}<span>{p.games}試合・出場率 {formatPct100(p.ratio)}{p.teamIds.length > 1 ? '・複数チームの合算' : ''}</span></>;
-  const chip = (p: PlayerFigurePoint, style: React.CSSProperties) => {
+  const chip = (p: PlayerFigurePoint, style: React.CSSProperties, asPhoto = false) => {
     const emph = emphIds.has(p.id), scale = emph ? scales.get(p.id) ?? 1 : 1;
-    return <button key={p.id} className={`venn-team venn-player${emph ? ' is-emphasized' : ''}${hover === p.id ? ' is-expanded' : ''}`} style={{ ...style, ...(emph ? { '--emph': scale } as React.CSSProperties : {}) }}
+    return <button key={p.id} className={`venn-team venn-player${asPhoto ? ' venn-photo' : ''}${emph ? ' is-emphasized' : ''}${hover === p.id ? ' is-expanded' : ''}`} style={{ ...style, ...(emph ? { '--emph': scale } as React.CSSProperties : {}) }}
       aria-label={`${playerLabel(p.name)}（${abbr(p)}）：${tipText(p)}`}
       onPointerEnter={e => { if (e.pointerType === 'mouse') setHover(p.id); }} onPointerLeave={e => { if (e.pointerType === 'mouse') setHover(null); }} onFocus={() => setHover(p.id)} onBlur={() => setHover(null)} onClick={() => setHover(p.id)}>
-      <span className="venn-player-label" style={{ fontSize: layout.font }}>{playerLabel(p.name)}</span>
+      {asPhoto ? <VennPhoto player={p} diameter={layout.photo ?? 28} /> : <span className="venn-player-label" style={{ fontSize: layout.font }}>{playerLabel(p.name)}</span>}
     </button>;
   };
   const list = (title: string, players: PlayerFigurePoint[]) => <div className="venn-region-list" key={title}>
@@ -233,7 +242,7 @@ function VennChart({ model, labels, circleNames, circleLines, counts, emphIds, h
     <div className="venn-stage" style={{ height }}>
       {VENN_CENTERS.map((c, i) => <span key={i} className={`venn-circle ${SLOT_COLORS[i]}`} style={{ left: (c.x - VENN_RADIUS) * u, top: (c.y - VENN_RADIUS) * u, width: VENN_RADIUS * 2 * u, height: VENN_RADIUS * 2 * u }} />)}
       {nameBoxes.map((b, i) => <span key={`name${i}`} className={`venn-circle-name ${SLOT_COLORS[i]}`} style={{ left: b.x - b.width / 2, top: b.y - b.height / 2, width: b.width, height: b.height, fontSize: labelFont + 1 }}>{circleLines[i]!.map((l, j) => <span key={j}>{l}</span>)}</span>)}
-      {[...layout.placements].map(([id, p]) => chip(byId.get(id)!, { left: p.x - layout.box.width / 2, top: p.y - layout.box.height / 2, width: layout.box.width, height: layout.box.height }))}
+      {[...layout.placements].map(([id, p]) => chip(byId.get(id)!, { left: p.x - layout.box.width / 2, top: p.y - layout.box.height / 2, width: layout.box.width, height: layout.box.height }, layout.photo != null))}
       {[...layout.collapsed].map(([mask, p]) => {
         const players = regionPlayers(mask), hasEmph = players.some(x => emphIds.has(x.id));
         return <button key={`n${mask}`} className={`venn-team venn-player venn-badge${hasEmph ? ' is-emphasized' : ''}${openMask === mask ? ' is-open' : ''}`} style={{ left: p.x - layout.box.width / 2, top: p.y - layout.box.height / 2, width: layout.box.width, height: layout.box.height, ...(hasEmph ? { '--emph': 1 } as React.CSSProperties : {}) }}
@@ -253,4 +262,12 @@ function VennChart({ model, labels, circleNames, circleLines, counts, emphIds, h
       {hover && !place && tipRow && <div role="tooltip" className="venn-none-tip">{tooltip(tipRow)}</div>}
     </div>
   </div>;
+}
+
+/** 円の中の選手の写真（ほかの選手の図と同じ写真・地区の色の枠。写真が無い・読めないときは同じ代わりの表示） */
+function VennPhoto({ player, diameter }: { player: PlayerFigurePoint; diameter: number }) {
+  const [failed, setFailed] = useState(false);
+  return <span className="venn-photo-circle" style={{ width: diameter, height: diameter, borderColor: DIVISION_RATING_COLORS[player.division ?? 'unknown'] }}>
+    {!failed ? <img src={playerPhotoUrl(player.playerId)} alt="" loading="eager" onError={() => setFailed(true)} /> : <ScorerSilhouette name={player.name} />}
+  </span>;
 }

@@ -55,3 +55,9 @@
 .export-rendering .venn-none-toggle { display:none; }
 /* 基準の値の「−」（スマホの数字キーボードに無い符号を足す。負の値になりうる項目だけ） */
 .venn-sign { min-width:32px; padding:3px 8px; border:1px solid var(--border); border-radius:4px; background:transparent; color:var(--muted); font-size:14px; font-weight:700; cursor:pointer; }
+
+/* 選手のベン図の写真表示: 丸い写真（ほかの選手の図と同じ地区の色の枠）。写真が無いときの代わりの表示は枠いっぱいに広げる */
+.venn-photo-circle { display:block; box-sizing:border-box; border:2px solid; border-radius:50%; background:#fff; overflow:hidden; }
+.venn-photo-circle img { display:block; width:100%; height:100%; object-fit:contain; border-radius:50%; }
+.venn-photo-circle .scorer-silhouette { width:100%; height:100%; }
+.venn-photo.is-emphasized .venn-photo-circle { box-shadow:0 0 0 2px var(--accent); }

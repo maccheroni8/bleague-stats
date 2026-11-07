@@ -119,7 +119,7 @@ export function scorerNameLines(name:string):string[]{
  const half=Math.ceil(s.length/2);
  return [s.slice(0,half).join(''),s.slice(half).join('')];
 }
-function ScorerSilhouette({name}:{name:string}){
+export function ScorerSilhouette({name}:{name:string}){
  const lines=scorerNameLines(name),size=lines.length===1?'one':Math.max(...lines.map(l=>Array.from(l).length))>3?'long':'two';
  return <span className={`scorer-silhouette scorer-name-${size}`} aria-hidden="true">
   <svg viewBox="0 0 24 24" width="100%" height="100%"><circle cx="12" cy="8" r="4.2"/><path d="M3 24c0-5.6 4-8.6 9-8.6s9 3 9 8.6z"/></svg>
