@@ -21,6 +21,7 @@ import { isWeekdayGame } from "../lib/japaneseHolidays";
 import { useLeagueSituationalContext } from "../lib/teamRankingData";
 import {
   buildBackToBackStatus,
+  backToBackGameLabels,
   buildBiweekPeriods,
   buildRecordsBeforeGame,
   matchesBiweekPeriod,
@@ -100,7 +101,7 @@ function describeCondition(condition: ConditionalCondition): string {
     case "opponentWinRate":
       return condition.tier === "under50" ? "対5割未満" : condition.tier === "atLeast50" ? "対5割以上" : "対6割以上";
     case "backToBack":
-      return condition.value === "GAME1" ? "連戦時GAME1" : "連戦時GAME2";
+      return `連戦時${condition.value}`;
     case "biweekPeriod":
       return condition.period.label;
     case "recent":
@@ -282,6 +283,10 @@ export function ConditionalStandingsTable({
     [summaries, statOpponentRecords, resultOnlyGames],
   );
   const backToBackStatus = useMemo(() => (summaries ? buildBackToBackStatus(summaries) : undefined), [summaries]);
+  const regularScheduleKeys = useMemo(
+    () => new Set((summaries ?? []).filter((g) => g.gameType === "regular").map((g) => g.scheduleKey)),
+    [summaries],
+  );
   // シーズンをバイウィークで区切った区間一覧（例: 「開幕〜11月バイウィーク前」「11月
   // バイウィーク以降〜2月バイウィーク前」「2月バイウィーク以降〜」）。区間数はシーズンごとに
   // 検出されたギャップの数に応じて動的に変わる（buildBiweekPeriods参照）
@@ -353,11 +358,13 @@ export function ConditionalStandingsTable({
       ],
     },
     {
-      label: "連戦（中1日以内の連戦）",
-      options: [
-        { key: "b2b-1", label: "連戦時GAME1", condition: { kind: "backToBack", value: "GAME1" } },
-        { key: "b2b-2", label: "連戦時GAME2", condition: { kind: "backToBack", value: "GAME2" } },
-      ],
+      label: "連戦（同じ相手と中1日以内の連戦）",
+      // GAME3以降は、この表の対象（レギュラーシーズン）に当てはまる試合があるときだけ出す
+      options: backToBackGameLabels(backToBackStatus, regularScheduleKeys).map((value) => ({
+        key: `b2b-${value.slice(4)}`,
+        label: `連戦時${value}`,
+        condition: { kind: "backToBack", value } as ConditionalCondition,
+      })),
     },
     {
       label: "バイウィーク（リーグ全体で10日以上試合が無い期間で区切った区間）",

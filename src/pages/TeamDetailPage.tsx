@@ -123,6 +123,7 @@ import {
 import { substitutionModelForSeason } from "../../shared/onCourt";
 import {
   buildBackToBackStatus,
+  backToBackGameLabels,
   buildGameTeamsByScheduleKey,
   buildRecordsBeforeGame,
   computeOpponentWinPctAvg,
@@ -1793,7 +1794,7 @@ export function buildSituationalRecordGroups(
       key: "backToBack",
       label: "連戦",
       rows: backToBack
-        ? (["GAME1", "GAME2"] as const).map((status) => ({
+        ? backToBackGameLabels(backToBack, new Set(logs.map((g) => g.scheduleKey))).map((status) => ({
             key: status,
             label: status,
             predicate: (g: TeamGameLog) => backToBack.get(g.scheduleKey)?.get(teamId) === status,
@@ -3579,7 +3580,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       key: "backToBack",
       label: "連戦",
       rows: situationalTeamBackToBack
-        ? (["GAME1", "GAME2"] as const).map((status) => ({
+        ? backToBackGameLabels(situationalTeamBackToBack).map((status) => ({
             key: status,
             label: status,
             predicate: (g: TeamGameLog) => situationalTeamBackToBack.get(g.scheduleKey)?.get(team.teamId) === status,
