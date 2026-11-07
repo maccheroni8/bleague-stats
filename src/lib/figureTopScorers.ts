@@ -23,7 +23,7 @@ export interface ScorerData {
   playerLogs:Map<string,PlayerGameLog[]>; teamLogs:Map<string,TeamGameLog[]>;
   divisions:DivisionHistoryFile|null; registrations:SeasonRegistrationFile|null;
 }
-export interface ScorerQuery {season:string;category:Category;range:SituationalRange;gameType:SeasonGameTypeFilter;classification:FigureClass;minRatio:number}
+export interface ScorerQuery {season:string;category:Category;range:SituationalRange;gameType:SeasonGameTypeFilter;classification:FigureClass;minRatio:number;/** 詳細フィルターなどで絞った選手（無ければ全員） */allowed?:ReadonlySet<string>}
 export function buildTopScorers(data:ScorerData,q:ScorerQuery):ScorerPoint[] {
   const changed=changedRegistrations(data.registrations),group=figureClassGroup(q.classification);
   const points:ScorerPoint[]=[];
@@ -37,6 +37,7 @@ export function buildTopScorers(data:ScorerData,q:ScorerQuery):ScorerPoint[] {
     const byKey=new Map(scoped.map(g=>[g.scheduleKey,g]));
     const candidates:ScorerPoint[]=[];
     for(const p of data.players){
+      if(q.allowed&&!q.allowed.has(p.playerId))continue;
       if(!scopedPlayerMatches(p,group,changed))continue;
       const logs=scopeLogsByClassification(data.playerLogs.get(p.playerId)??[],p.playerId,group,changed)
         .filter(g=>g.min>0&&byKey.get(g.scheduleKey)?.isHome===g.isHome);

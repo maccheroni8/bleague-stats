@@ -1,3 +1,5 @@
+import { usePlayerFigureFilter } from './usePlayerFigureFilter';
+import { buildPlayerFigurePoints } from '../lib/figurePlayerPoints';
 import { useMemo, useRef, useState } from 'react';
 import { fetchPlayers, fetchTeams, fetchPlayerGameLogs, fetchTeamGameLogs, fetchDivisionHistory, fetchSeasonRegistrations, playerPhotoUrl,  } from '../lib/data';
 import { useJsonData } from '../lib/useJsonData';
@@ -42,13 +44,11 @@ const clsCodec=CLASSIFICATION_PARAM;
 const xCodec=enumParam<ScorerAxis>('sx',SCORER_AXES,'win');
 const DEFAULT_RATIO=85;
 const ratioCodec=numberParam('sgp',DEFAULT_RATIO,{min:0,max:100});
-const divisionCodec=divisionListParam('dv');
-const NO_DIVISIONS:Division[]=[];
 const valueText=(v:number|null,axis:ScorerAxis)=>v===null?'—':axis==='win'?formatWinPct(v/100):axis==='min'?formatMinutesColon(v):axis==='share'||axis==='efg'?formatPct100(v):formatDecimal(v);
 export default function TopScorersFigure({season,category}:FigureProps){
  const [filter,setFilter]=useUrlState(rangeCodec,DEFAULT),[gameType,setGameType]=useUrlState(gameCodec,'regular');
  const [classification,setClassification]=useUrlState(clsCodec,'all'),[xParam,setX]=useUrlState(xCodec,'win');
- const [minRatio,setMinRatio]=useUrlState(ratioCodec,DEFAULT_RATIO),[division,setDivision]=useUrlState(divisionCodec,NO_DIVISIONS);
+ const [minRatio,setMinRatio]=useUrlState(ratioCodec,DEFAULT_RATIO);
  const [hover,setHover]=useState<string|null>(null);
  const target=useRef<HTMLDivElement>(null),teamLabel=useTeamLabel();
  const request=useJsonData(async()=>{
@@ -56,13 +56,19 @@ export default function TopScorersFigure({season,category}:FigureProps){
    const [playerLogs,teamLogs]=await Promise.all([Promise.all(players.map(async p=>[p.playerId,await fetchPlayerGameLogs(season,p.playerId,category)] as const)),Promise.all(teams.map(async t=>[t.teamId,await fetchTeamGameLogs(season,t.teamId,category)] as const))]);
    return {players,teams,divisions,registrations,playerLogs:new Map(playerLogs),teamLogs:new Map(teamLogs)};
  },[season,category]);
- const points=useMemo(()=>request.data?buildTopScorers(request.data,{season,category,range:filter.range,gameType,classification,minRatio}):[],[request.data,season,category,filter,gameType,classification,minRatio]);
- const playerLabel=usePlayerLabel(points.map(p=>p.name));
+ const teams=request.data?.teams??[];
  const divisionOf=(id:string)=>request.data?.divisions?.[category]?.[season]?.[id];
- const hl=useHighlightClubs({season,category,teams:request.data?.teams??[],divisionOf});
+ const figurePoints=useMemo(()=>request.data?buildPlayerFigurePoints(request.data,{season,category,range:filter.range,gameType,classification}):[],[request.data,season,category,filter,gameType,classification]);
+ const ratioPassed=useMemo(()=>figurePoints.filter(p=>p.ratio>=minRatio),[figurePoints,minRatio]);
+ const pf=usePlayerFigureFilter({season,category,teams,divisionOf,ratioPassed,clubKey:'scl',legacyDivisionKey:'dv',axisId:'scorerClubs'});
+ // 絞っているときは、その選手の中から各チームの上位3人を選ぶ
+ const allowed=useMemo(()=>pf.active?new Set(pf.eligible.map(p=>p.id)):undefined,[pf.active,pf.eligible]);
+ const points=useMemo(()=>request.data?buildTopScorers(request.data,{season,category,range:filter.range,gameType,classification,minRatio,allowed}):[],[request.data,season,category,filter,gameType,classification,minRatio,allowed]);
+ const playerLabel=usePlayerLabel(points.map(p=>p.name));
+ const hl=useHighlightClubs({season,category,teams,divisionOf});
  const axesAvailable=SCORER_AXES.filter(a=>season>='2020-21'||(a!=='on'&&a!=='share'));
  const axis=axesAvailable.includes(xParam)?xParam:'win';
- const visible=points.filter(p=>division.length===0||(!!p.division&&division.includes(p.division)));
+ const visible=points;
  const plotted=visible.filter(p=>p.values[axis]!==null),tip=plotted.find(p=>p.id===hover);
  const countLines=playerCountLines(plotted.map(p=>p.playerId),request.data?.players??[],request.data?.registrations,classification);
  const xDomain=scorerDomain(points.map(p=>p.values[axis]),axis),yDomain=scorerDomain(points.map(p=>p.pts),'pts');
@@ -71,10 +77,10 @@ export default function TopScorersFigure({season,category}:FigureProps){
  const axes:FilterAxis[]=[...rangeAxes,gameTypeAxis(gameType,setGameType,season),
  {kind:'select',id:'scorerX',label:'横軸',tier:'primary',value:axis,defaultValue:'win',options:axesAvailable.map(a=>({value:a,label:SCORER_LABELS[a]})),onChange:v=>setX(v as ScorerAxis)},
  classificationAxis(classification,setClassification,{season}),
- divisionMultiAxis({id:'scorerDivision',divisions:divisionOrder(category).filter(d=>points.some(p=>p.division===d)),selected:division,onChange:setDivision}),
+ pf.clubAxis,
  hl.axis,
  ratioEligibilityAxis({id:'scorerRatio',value:minRatio,defaultValue:DEFAULT_RATIO,onChange:setMinRatio})];
- const conditions=[season,seasonGameTypeLabels(season)[gameType],...situationalFilterLabels(filter),classificationFilterLabel(classification),...(division.length===0?[]:[division.map(d=>DIVISION_LABELS[d]).join('・')]),`出場率${minRatio}%以上`,...hl.labels];
+ const conditions=[season,seasonGameTypeLabels(season)[gameType],...situationalFilterLabels(filter),classificationFilterLabel(classification),...pf.labels,`出場率${minRatio}%以上`,...hl.labels];
  const baseDate={kind:'season' as const,season,gameType};
  const select=(p:ScorerPoint)=>{setHover(p.id);};
  const columns:Column<ScorerPoint>[]=[
@@ -85,7 +91,7 @@ export default function TopScorersFigure({season,category}:FigureProps){
  ];
  const major=(tick:number,step:number)=>Math.abs(tick/(step*2)-Math.round(tick/(step*2)))<1e-6;
  return <section aria-label="各チームのトップスコアラー3人">
-  <FilterBar axes={axes} stateKey="figures:top-scorers" onClearAll={()=>{setFilter(DEFAULT);setGameType('regular');setClassification('all');setDivision(NO_DIVISIONS);setMinRatio(DEFAULT_RATIO);setX('win');hl.setIds([]);}}/>
+  <FilterBar axes={axes} stateKey="figures:top-scorers" advancedExtra={pf.advancedExtra} onClearAll={()=>{setFilter(DEFAULT);setGameType('regular');setClassification('all');pf.reset();setMinRatio(DEFAULT_RATIO);setX('win');hl.setIds([]);}}/>
   {splitClassificationBlocked(figureClassGroup(classification),season)?<p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p>:request.loading?<p role="status">選手の試合データを読み込み中…</p>:request.error?<p role="alert">データを読み込めませんでした。ページを読み直してください。</p>:!visible.length?<p>この条件に該当する選手はいません。</p>:<>
   <p className="figure-count">{plotted.length}人を表示</p>
   <FigureExportButton targetRef={target} filename={`トップスコアラー_${SCORER_LABELS[axis]}_${conditions.join('_')}`} baseDate={baseDate}/>

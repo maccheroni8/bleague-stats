@@ -2,7 +2,7 @@ import { playerCountLines } from '../lib/figurePlayerCounts';
 import { useMemo, useRef, useState } from 'react';
 import { teamShortName } from '../../shared/teamNames';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
-import { enumParam, listParam, numberParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
+import { enumParam, numberParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
 import { classificationAxis, gameTypeAxis, situationalAxes, teamMultiAxis, type FilterAxis } from '../lib/filterAxes';
 import { usePlayoffZonePresets } from '../lib/playoffZone';
 import type { SituationalFilter } from '../lib/situational';
@@ -28,13 +28,13 @@ import { ratioEligibilityAxis } from './eligibilityAxis';
 import { ScorerPhoto } from './TopScorersFigure';
 import { AxisScatter } from './AxisScatter';
 import { usePlayerFigureData } from './usePlayerFigureData';
+import { usePlayerFigureFilter } from './usePlayerFigureFilter';
 import { useHighlightClubs } from './highlightClubs';
 import type { FigureProps } from './catalog';
 import './RatingsScatterFigure.css';
 import './TopScorersFigure.css';
 
 const DEFAULT: SituationalFilter = { range: { kind: 'all' } };
-const EMPTY: string[] = [];
 const DEFAULT_RATIO = 85;
 const rangeCodec: UrlCodec<SituationalFilter> = {
   keys: ['rng'],
@@ -44,7 +44,6 @@ const rangeCodec: UrlCodec<SituationalFilter> = {
 const gameCodec = { ...enumParam<SeasonGameTypeFilter>('gt', ['regular', 'playoff', 'both'], 'regular'), read: GAME_TYPE_PARAM.read };
 const modeCodec = enumParam<'perGame' | 'total'>('pam', ['perGame', 'total'], 'perGame', { total: 'tot' });
 const ratioCodec = numberParam('pag', DEFAULT_RATIO, { min: 0, max: 100 });
-const clubsCodec = listParam('pcl');
 const minPtsCodec = numberParam('pmp', 0, { min: 0, max: 100 });
 const minAstCodec = numberParam('pma', 0, { min: 0, max: 100 });
 
@@ -54,16 +53,18 @@ export default function PtsAstFigure({ season, category }: FigureProps) {
   const [classification, setClassification] = useUrlState(CLASSIFICATION_PARAM, 'all');
   const [mode, setMode] = useUrlState(modeCodec, 'perGame');
   const [minRatio, setMinRatio] = useUrlState(ratioCodec, DEFAULT_RATIO);
-  const [clubs, setClubs] = useUrlState(clubsCodec, EMPTY);
   const [minPts, setMinPts] = useUrlState(minPtsCodec, 0);
   const [minAst, setMinAst] = useUrlState(minAstCodec, 0);
   const [hover, setHover] = useState<string | null>(null);
   const target = useRef<HTMLDivElement>(null), teamLabel = useTeamLabel();
   const request = usePlayerFigureData(season, category);
-  const playoffZonePresets = usePlayoffZonePresets(season, category);
   const m = mode as SeasonDisplayMode;
   const base = useMemo(() => request.data ? buildPlayerFigurePoints(request.data, { season, category, range: filter.range, gameType, classification }) : [], [request.data, season, category, filter, gameType, classification]);
-  const eligible = useMemo(() => base.filter(p => p.ratio >= minRatio && (!clubs.length || p.teamIds.some(id => clubs.includes(id)))), [base, minRatio, clubs]);
+  const teams = request.data?.teams ?? [];
+  const divisionOf = (id: string) => request.data?.divisions?.[category]?.[season]?.[id];
+  const ratioPassed = useMemo(() => base.filter(p => p.ratio >= minRatio), [base, minRatio]);
+  const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, clubKey: 'pcl', axisId: 'pastClubs' });
+  const eligible = pf.eligible;
   const plotted = useMemo(() => ptsAstPoints(eligible, season, m, minPts, minAst), [eligible, season, m, minPts, minAst]);
   const items = plotted.map(s => ({ ...s, id: s.p.id }));
   const countLines = playerCountLines(plotted.map(s => s.p.playerId), request.data?.players ?? [], request.data?.registrations, classification);
@@ -73,20 +74,16 @@ export default function PtsAstFigure({ season, category }: FigureProps) {
   const xDomain = axisDomain([...plotted.map(s => s.x), avgX], mode === 'total' ? totalBase(PTS_AST_BASE.ast, maxGames) : PTS_AST_BASE.ast);
   const yDomain = axisDomain([...plotted.map(s => s.y), avgY], mode === 'total' ? totalBase(PTS_AST_BASE.pts, maxGames) : PTS_AST_BASE.pts);
   const tip = items.find(i => i.id === hover);
-  const teams = request.data?.teams ?? [];
-  const divisionOf = (id: string) => request.data?.divisions?.[category]?.[season]?.[id];
   const hl = useHighlightClubs({ season, category, teams, divisionOf });
   const abbr = (p: PlayerFigurePoint) => p.teamIds.map(id => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
   const names = (p: PlayerFigurePoint) => p.teamIds.map(id => teamLabel(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
   const txt = (p: PlayerFigurePoint, key: string) => playerColumnText(p, key, m, season);
-  const groups = divisionPresets(teams.map(t => t.teamId), divisionOf, category).map(g => ({ label: g.label, values: g.teamIds }));
-  const clubLabels = clubSelectionLabels('表示クラブ', clubs, teams.map(t => ({ value: t.teamId, label: teamLabel(t.teamId, t.teamName) })), groups);
   const rangeAxes = situationalAxes(filter, v => setFilter({ range: v.range })).filter(a => a.id === 's.range' || (filter.range.kind === 'dateRange' && (a.id === 's.dateStart' || a.id === 's.dateEnd')))
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season),
     { kind: 'select', id: 'pastMode', label: '平均／合計', tier: 'primary', value: mode, defaultValue: 'perGame', options: [{ value: 'perGame', label: '1試合平均' }, { value: 'total', label: '合計' }], onChange: v => setMode(v as 'perGame' | 'total') },
     classificationAxis(classification, setClassification, { season }),
-    teamMultiAxis({ id: 'pastClubs', label: '表示するクラブ', options: teams, selected: clubs.length ? new Set(clubs) : null, onChange: v => setClubs(v ? [...v] : []), divisionOf, league: category, presets: playoffZonePresets }),
+    pf.clubAxis,
     { kind: 'popover', id: 'pastMinPts', label: '得点の下限', tier: 'primary', value: String(minPts), defaultValue: '0', onChange: () => setMinPts(0), summary: `得点 ${formatDecimal(minPts, 1)}以上（1試合）`, chipValue: `得点 ${formatDecimal(minPts, 1)}以上（1試合）`,
       content: <EligibilitySlider label="得点（1試合平均）" value={minPts} min={0} max={PTS_AST_MIN.pts.max} step={PTS_AST_MIN.pts.step} format={v => formatDecimal(v, 1)} onChange={setMinPts} /> },
     { kind: 'popover', id: 'pastMinAst', label: 'アシストの下限', tier: 'primary', value: String(minAst), defaultValue: '0', onChange: () => setMinAst(0), summary: `アシスト ${formatDecimal(minAst, 1)}以上（1試合）`, chipValue: `アシスト ${formatDecimal(minAst, 1)}以上（1試合）`,
@@ -95,7 +92,7 @@ export default function PtsAstFigure({ season, category }: FigureProps) {
     ratioEligibilityAxis({ id: 'pastRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio })];
   const [periodLabel] = situationalFilterLabels(filter);
   const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], mode === 'total' ? '合計' : '1試合平均', classificationFilterLabel(classification),
-    ...(clubs.length ? clubLabels : []), `出場率${minRatio}%以上`, ...(minPts > 0 ? [`得点 ${formatDecimal(minPts, 1)}以上（1試合）`] : []), ...(minAst > 0 ? [`アシスト ${formatDecimal(minAst, 1)}以上（1試合）`] : []), ...hl.labels].filter(Boolean);
+    ...pf.labels, `出場率${minRatio}%以上`, ...(minPts > 0 ? [`得点 ${formatDecimal(minPts, 1)}以上（1試合）`] : []), ...(minAst > 0 ? [`アシスト ${formatDecimal(minAst, 1)}以上（1試合）`] : []), ...hl.labels].filter(Boolean);
   const baseDate = { kind: 'season' as const, season, gameType };
   const pick = (p: PlayerFigurePoint) => { setHover(p.id); };
   const yName = mode === 'total' ? '得点（合計）' : '得点（1試合平均）', xName = mode === 'total' ? 'アシスト（合計）' : 'アシスト（1試合平均）';
@@ -107,7 +104,7 @@ export default function PtsAstFigure({ season, category }: FigureProps) {
     { key: 'ast', label: 'AST', sortValue: s => s.x, render: s => txt(s.p, 'ast') },
   ];
   return <section aria-label="得点 × アシスト">
-    <FilterBar axes={axes} stateKey="figures:pts-ast" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setMode('perGame'); setClubs(EMPTY); setMinPts(0); setMinAst(0); setMinRatio(DEFAULT_RATIO); hl.setIds([]); setHover(null); }} />
+    <FilterBar axes={axes} stateKey="figures:pts-ast" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setMode('perGame'); pf.reset(); setMinPts(0); setMinAst(0); setMinRatio(DEFAULT_RATIO); hl.setIds([]); setHover(null); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !plotted.length ? <p>この条件に該当する選手はいません。</p> : <>
       <p className="figure-count">{plotted.length}人を表示</p>
       <FigureExportButton targetRef={target} filename={`得点_アシスト_${conditions.join('_')}`} baseDate={baseDate} />

@@ -32,6 +32,7 @@ import { ScorerPhoto } from './TopScorersFigure';
 import { AxisScatter } from './AxisScatter';
 import { usePlayerFigureData } from './usePlayerFigureData';
 import { useHighlightClubs } from './highlightClubs';
+import { usePlayerFigureFilter } from './usePlayerFigureFilter';
 import type { FigureProps } from './catalog';
 import './RatingsScatterFigure.css';
 import './TopScorersFigure.css';
@@ -51,7 +52,6 @@ const modeCodec = enumParam<'perGame' | 'total'>('shm', ['perGame', 'total'], 'p
 const ratioCodec = numberParam('shr', DEFAULT_RATIO, { min: 0, max: 100 });
 /** 試投数の下限。-1 ＝ 横軸の項目ごとの初期値 */
 const minCodec = numberParam('shn', -1, { min: -1, max: 50 });
-const divisionCodec = divisionListParam('dv');
 
 export default function PlayerShootingFigure({ season, category }: FigureProps) {
   const [filter, setFilter] = useUrlState(rangeCodec, DEFAULT);
@@ -62,7 +62,6 @@ export default function PlayerShootingFigure({ season, category }: FigureProps) 
   const [mode, setMode] = useUrlState(modeCodec, 'perGame');
   const [minRatio, setMinRatio] = useUrlState(ratioCodec, DEFAULT_RATIO);
   const [minParam, setMin] = useUrlState(minCodec, -1);
-  const [division, setDivision] = useUrlState(divisionCodec, EMPTY);
   const [hover, setHover] = useState<string | null>(null);
   const target = useRef<HTMLDivElement>(null), teamLabel = useTeamLabel();
   const request = usePlayerFigureData(season, category);
@@ -70,7 +69,11 @@ export default function PlayerShootingFigure({ season, category }: FigureProps) 
   const minLimit = SHOOT_MIN_ATTEMPTS[xAxis];
   const minAttempts = minParam < 0 ? minLimit.default : Math.min(minParam, minLimit.max);
   const base = useMemo(() => request.data ? buildPlayerFigurePoints(request.data, { season, category, range: filter.range, gameType, classification }) : [], [request.data, season, category, filter, gameType, classification]);
-  const eligible = useMemo(() => base.filter(p => p.ratio >= minRatio && (division.length === 0 || (!!p.division && division.includes(p.division)))), [base, minRatio, division]);
+  const teams = request.data?.teams ?? [];
+  const divisionOf = (id: string) => request.data?.divisions?.[category]?.[season]?.[id];
+  const ratioPassed = useMemo(() => base.filter(p => p.ratio >= minRatio), [base, minRatio]);
+  const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, clubKey: 'shl', legacyDivisionKey: 'dv', axisId: 'pshClubs' });
+  const eligible = pf.eligible;
   const plotted = useMemo(() => shootPlayerPoints(eligible, season, m, xAxis, yAxis, minAttempts), [eligible, season, m, xAxis, yAxis, minAttempts]);
   const items = plotted.map(s => ({ id: s.p.id, x: s.x, y: s.y, s }));
   const countLines = playerCountLines(plotted.map(s => s.p.playerId), request.data?.players ?? [], request.data?.registrations, classification);
@@ -82,8 +85,6 @@ export default function PlayerShootingFigure({ season, category }: FigureProps) 
   const tip = items.find(i => i.id === hover);
   const yName = SHOOT_Y_LABELS[yAxis], xName = SHOOT_X_LABELS[xAxis];
   const xTitle = `${xName}（${mode === 'total' ? '合計' : '1試合平均'}）`;
-  const teams = request.data?.teams ?? [];
-  const divisionOf = (id: string) => request.data?.divisions?.[category]?.[season]?.[id];
   const hl = useHighlightClubs({ season, category, teams, divisionOf });
   const abbr = (p: PlayerFigurePoint) => p.teamIds.map(id => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
   const names = (p: PlayerFigurePoint) => p.teamIds.map(id => teamLabel(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
@@ -98,14 +99,14 @@ export default function PlayerShootingFigure({ season, category }: FigureProps) 
     select('pshX', '横軸', xAxis, DEFAULT_SHOOT_X, SHOOT_X.map(k => ({ value: k, label: SHOOT_X_LABELS[k] })), v => { setX(v as ShootX); setMin(-1); }),
     select('pshMode', '平均／合計', mode, 'perGame', [{ value: 'perGame', label: '1試合平均' }, { value: 'total', label: '合計' }], v => setMode(v as 'perGame' | 'total')),
     classificationAxis(classification, setClassification, { season }),
-    divisionMultiAxis({ id: 'pshDivision', divisions: divisionOrder(category).filter(d => base.some(p => p.division === d)), selected: division, onChange: setDivision }),
+    pf.clubAxis,
     { kind: 'popover', id: 'pshMin', label: '試投数の下限', tier: 'primary', value: String(minAttempts), defaultValue: String(minLimit.default), onChange: () => setMin(-1), summary: minSummary, chipValue: minSummary,
       content: <EligibilitySlider label={`${xName}（1試合平均）`} value={minAttempts} min={0} max={minLimit.max} step={minLimit.step} format={v => formatDecimal(v, 1)} onChange={v => setMin(v)} /> },
     hl.axis,
     ratioEligibilityAxis({ id: 'pshRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio })];
   const [periodLabel] = situationalFilterLabels(filter);
   const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], mode === 'total' ? '合計' : '1試合平均', classificationFilterLabel(classification),
-    ...(division.length === 0 ? [] : [division.map(d => DIVISION_LABELS[d]).join('・')]), `出場率${minRatio}%以上`, `${xName} ${formatDecimal(minAttempts, 1)}以上（1試合）`, ...hl.labels].filter(Boolean);
+    ...pf.labels, `出場率${minRatio}%以上`, `${xName} ${formatDecimal(minAttempts, 1)}以上（1試合）`, ...hl.labels].filter(Boolean);
   const baseDate = { kind: 'season' as const, season, gameType };
   const select_ = (p: PlayerFigurePoint) => { setHover(p.id); };
   const columns: Column<ShootPlayerPoint>[] = [
@@ -116,7 +117,7 @@ export default function PlayerShootingFigure({ season, category }: FigureProps) 
     { key: 'x', label: xName, sortValue: s => s.x, render: s => txt(s.p, SHOOT_X_COLUMN[xAxis]) },
   ];
   return <section aria-label={`${yName} × ${xName}`}>
-    <FilterBar axes={axes} stateKey="figures:player-shooting" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setY(DEFAULT_SHOOT_Y); setX(DEFAULT_SHOOT_X); setMode('perGame'); setDivision(EMPTY); setMin(-1); setMinRatio(DEFAULT_RATIO); hl.setIds([]); setHover(null); }} />
+    <FilterBar axes={axes} stateKey="figures:player-shooting" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setY(DEFAULT_SHOOT_Y); setX(DEFAULT_SHOOT_X); setMode('perGame'); pf.reset(); setMin(-1); setMinRatio(DEFAULT_RATIO); hl.setIds([]); setHover(null); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !plotted.length ? <p>この条件に該当する選手はいません。</p> : <>
       <p className="figure-count">{plotted.length}人を表示</p>
       <FigureExportButton targetRef={target} filename={`選手_${yName}_${xName}_${conditions.join('_')}`} baseDate={baseDate} />
