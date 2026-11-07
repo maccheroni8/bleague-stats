@@ -278,6 +278,8 @@ export function overtimeCandidates(source: SeasonPeriodSource, minGames: number)
   return ids;
 }
 
+const EMPTY_SOURCES: ReadonlyMap<string, SeasonPeriodSource | null> = new Map();
+
 /**
  * 複数シーズンの索引を読む（Q別・前後半を選んでいるときだけ。enabled が false の間は読まない）。
  * sources はシーズン → 索引（読めなかったシーズンは null）。failedSeasons は読めなかったシーズン。retry() で読めなかったシーズンを読み直す
@@ -287,32 +289,39 @@ export function useSeasonPeriodSources(
   enabled: boolean,
   league: League = "premier",
 ): { sources: ReadonlyMap<string, SeasonPeriodSource | null>; loading: boolean; failedSeasons: string[]; retry: () => void } {
-  const [sources, setSources] = useState<ReadonlyMap<string, SeasonPeriodSource | null>>(new Map());
+  // 読み込んだ索引は、どのリーグのものかを添えて持つ（同じシーズンで B.PREMIER と B.ONE を切り替えても、別のリーグの索引を使わない）
+  const [store, setStore] = useState<{ league: League; map: ReadonlyMap<string, SeasonPeriodSource | null> }>({ league, map: new Map() });
+  const sources = store.league === league ? store.map : EMPTY_SOURCES;
   const [retryNonce, setRetryNonce] = useState(0);
-  const requestedRef = useRef<Set<string>>(new Set());
+  const requestedRef = useRef<{ league: League; seasons: Set<string> }>({ league, seasons: new Set() });
+  const latestLeagueRef = useRef(league);
+  latestLeagueRef.current = league;
   const key = seasons.join("|");
   useEffect(() => {
     if (!enabled) return;
-    const missing = seasons.filter((s) => !requestedRef.current.has(s));
+    if (requestedRef.current.league !== league) requestedRef.current = { league, seasons: new Set() };
+    const requested = requestedRef.current.seasons;
+    const missing = seasons.filter((s) => !requested.has(s));
     if (missing.length === 0) return;
-    for (const s of missing) requestedRef.current.add(s);
+    for (const s of missing) requested.add(s);
     // 読み込みの途中で条件が変わっても、読めた分は捨てない（シーズンごとに持つので、ほかの条件の表とぶつからない。
-    // 捨てると、要求済みのまま二度と読まれず「読み込み中」で止まる）
+    // 捨てると、要求済みのまま二度と読まれず「読み込み中」で止まる）。ただし、読み込み中にリーグが変わったときは、前のリーグの結果を捨てる
     void Promise.all(missing.map((s) => loadSeasonPeriodSource(s, league).then((v) => [s, v] as const, () => [s, null] as const))).then((loaded) => {
-      setSources((prev) => {
-        const next = new Map(prev);
+      if (latestLeagueRef.current !== league) return;
+      setStore((prev) => {
+        const next = new Map(prev.league === league ? prev.map : []);
         for (const [s, v] of loaded) next.set(s, v);
-        return next;
+        return { league, map: next };
       });
       // 読めなかったシーズンは、retry() でもう一度読めるように要求済みから外す
-      for (const [s, v] of loaded) if (!v) requestedRef.current.delete(s);
+      for (const [s, v] of loaded) if (!v) requested.delete(s);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, enabled, retryNonce, league]);
   const loading = enabled && seasons.some((s) => !sources.has(s));
   const failedSeasons = useMemo(() => (enabled ? seasons.filter((s) => sources.has(s) && sources.get(s) === null) : []), [enabled, key, sources]); // eslint-disable-line react-hooks/exhaustive-deps
   const retry = useCallback(() => {
-    setSources((prev) => new Map([...prev].filter(([, v]) => v !== null)));
+    setStore((prev) => ({ league: prev.league, map: new Map([...prev.map].filter(([, v]) => v !== null)) }));
     setRetryNonce((n) => n + 1);
   }, []);
   return { sources, loading, failedSeasons, retry };

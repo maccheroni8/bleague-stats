@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
 import { buildExportFilename, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { fetchLeagueTeamRankings, fetchTeamHistory, fetchTeams } from "../lib/data";
+import { useLeague } from "../lib/league";
 import { gameTypeAxis, periodAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
 import { filterByGameType } from "../../shared/gameType";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
@@ -95,7 +96,10 @@ function TeamGameRecordLine({ r }: { r: TeamGameRecordRow }) {
 export function TeamGameRecordRanking({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
   const exportRef = useRef<HTMLDivElement>(null);
   const narrow = useNarrow();
-  const [scope] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
+  const league = useLeague();
+  const [urlScope] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
+  // B.ONE は歴代（全シーズンの上位）が無いので、シーズンだけ。URL に歴代と書いてあっても、そのシーズンの記録を出す
+  const scope: RecordsScope = league === "one" ? "season" : urlScope;
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [mode, setMode] = useUrlState(RECORD_MODE_PARAM, "record");
   const [statParam, setStatKey] = useUrlState(STAT_PARAM, "pts");
@@ -140,7 +144,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   const hasStatConditions = statConditionMatcher(statConditions, conditionItems) !== null;
   // 条件が無く、前後半5分の特別な試合も除かない間は、これまでどおり（歴代は上位20位のファイル、シーズンは全クラブの試合ログ）。条件・区間・得失点差のときだけ索引を読む
   const useIndex = !!period || stat.indexOnly || hasGameConditions(conditions) || hasStatConditions || !includeSpecial;
-  const options = useGameRecordOptions(scope, season);
+  const options = useGameRecordOptions(scope, season, league);
 
   // 歴代: 集計ファイルと名称の履歴。シーズン: そのシーズンの全クラブの試合ログ（使わない範囲・索引を使うときは読み込まない）
   const useFiles = !useIndex;
@@ -150,12 +154,12 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
   );
   const { data: history } = useJsonData(() => (allTime && useFiles ? fetchTeamHistory() : Promise.resolve(null)), [allTime, useFiles]);
   const { data: teams, loading: teamsLoading } = useJsonData(
-    () => (allTime || !useFiles ? Promise.resolve(null) : fetchTeams(season)),
-    [allTime, season, useFiles],
+    () => (allTime || !useFiles ? Promise.resolve(null) : fetchTeams(season, league)),
+    [allTime, season, useFiles, league],
   );
-  const { gameLogsByTeam, loading: logsLoading } = useAllTeamGameLogs(season, allTime || !useFiles ? null : (teams ?? null));
-  const index = useGameIndexViews("team", scope, season, useIndex);
-  const periodIndex = useTeamPeriodFiles(index.views, useIndex && !!period);
+  const { gameLogsByTeam, loading: logsLoading } = useAllTeamGameLogs(season, allTime || !useFiles ? null : (teams ?? null), league);
+  const index = useGameIndexViews("team", scope, season, useIndex, { league });
+  const periodIndex = useTeamPeriodFiles(index.views, useIndex && !!period, league);
 
   const games = useMemo<TeamRecordGame[]>(() => {
     if (allTime || !useFiles || !teams || !gameLogsByTeam) return [];
@@ -234,7 +238,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
     setConditions(DEFAULT_GAME_RECORD_CONDITIONS);
     setStatConditions({ ...statConditions, conditions: [] });
   };
-  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial, includeSpecialDefault };
+  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial, includeSpecialDefault, league };
   const axes: FilterAxis[] = [
     gameTypeAxis(gameType, setGameType, seasonForTitle),
     periodAxis(periodParam, setPeriod, GAME_RECORD_PERIOD_OPTIONS, {}),

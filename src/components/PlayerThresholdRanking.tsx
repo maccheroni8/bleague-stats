@@ -1,3 +1,4 @@
+import { useLeague } from "../lib/league";
 import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
 import { isRookieFilter, splitSeasonsOnly, withRookie, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
@@ -46,6 +47,7 @@ const EMPTY_POSITIONS: string[] = [];
  */
 export function PlayerThresholdRanking({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
   const exportRef = useRef<HTMLDivElement>(null);
+  const league = useLeague();
   const narrow = useNarrow();
   const [unit] = useUrlState(THRESHOLD_UNIT_PARAM, "count");
   const [scope] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
@@ -69,11 +71,12 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   const includeSpecial = conditions.includeSpecial ?? false;
   const ready = thresholdActive(threshold);
 
-  const options = useGameRecordOptions(allTime ? "allTime" : "season", season);
+  const options = useGameRecordOptions(allTime ? "allTime" : "season", season, league);
   // 2025-26 以前のシーズンで分けた区分を選んでいるときは、表の代わりに理由を出す。全シーズンの表で分けた区分は 2026-27 以降の索引だけを読む
   const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
   const index = useGameIndexViews("player", allTime ? "allTime" : "season", season, ready && !classBlocked, {
     fromSeason: splitSeasonsOnly(group) ? SPLIT_CLASSIFICATION_FIRST_SEASON : null,
+    league,
   });
   const rookies = useRookieFile(ready && isRookieFilter(group));
   // 今季の名簿は、現役の絞り込みと、連続記録の「継続中」の判定に使う

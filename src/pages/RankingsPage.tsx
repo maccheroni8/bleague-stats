@@ -12,7 +12,18 @@ import { useCompareCleanup, useFoulConditionCleanup, useFoulStatKeyCleanup, useR
 import { COMPARE_LABEL, COMPARE_PARAM, buildCompare, compareUnsupportedReason, previousSeason } from "../lib/seasonCompare";
 import { postseasonLabel } from "../../shared/gameType";
 import { isPastSeason } from "../lib/season";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { useLeague, type League } from "../lib/league";
+import {
+  ONE_RANKING_ALLTIME_REASON,
+  ONE_RANKING_CAREER_REASON,
+  ONE_RANKING_COMPARE_REASON,
+  ONE_RANKING_FORCED_TOV_REASON,
+  ONE_RANKING_KIND_REASONS,
+  ONE_RANKING_SHOOTING_REASON,
+  ONE_ROOKIE_REASON,
+} from "../lib/leagueAvailability";
+import { useAchievableSupport } from "../lib/achievableSupport";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { fetchPlayerPageSeasons, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
@@ -318,7 +329,7 @@ const GAMES_ACHIEVABLE_PARAM: UrlCodec<boolean> = {
  * src/lib/teamStatsColumns.ts・src/lib/teamRankingData.tsを共通利用しており、
  * 見せ方だけが「多数列の一覧表」か「1項目ずつのランキング」かで異なる
  */
-function TeamRankingSection({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
+function TeamRankingSection({ season, league, teamColors }: { season: string; league: League; teamColors: Record<string, TeamColors> | undefined }) {
   const teamLabel = useTeamLabel();
   const exportRef = useRef<HTMLDivElement>(null);
 
@@ -326,7 +337,10 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   // 復元する（src/lib/pageStateCache.ts参照。個人・チーム詳細ページと同じ仕組み。
   // RankingsPageはteamId/playerIdのような動的パラメータを持たないため固定キーを使う）
   // カテゴリ・項目・フィルタはURLのクエリに持つ（DESIGN.md 163章）。変えても履歴は増やさず、別のページから戻るとURLから元に戻る
-  const [category, setCategory] = useUrlState(TEAM_CATEGORY_PARAM, "traditional");
+  const [urlTeamCategory, setCategory] = useUrlState(TEAM_CATEGORY_PARAM, "traditional");
+  // B.ONE には、シュートの種類・強制ターンオーバーの分類の記録が無いので選べない（URL に書いてあっても Traditional で出す）
+  const teamCategoryBlocked = league === "one" && (urlTeamCategory === "shooting" || urlTeamCategory === "forcedTurnovers");
+  const category: TeamRankingCategory = teamCategoryBlocked ? "traditional" : urlTeamCategory;
   const defaultTeamStat = teamDefaultStatKey(category);
   const [statKey, setStatKey] = useUrlState(stringParam("stat", defaultTeamStat, isStatKeyLike), defaultTeamStat);
   const [displayMode, setDisplayMode] = useUrlState(DISPLAY_MODE_PARAM, "perGame");
@@ -365,14 +379,15 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     teamsWithShotTypes,
     forcedTurnoverDef,
     teamsWithForcedTurnovers,
-  } = useTeamSeasonRanking(season, { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions });
+  } = useTeamSeasonRanking(season, { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions }, { league });
   // Shooting・Forced TOV は、スポーツナビの記録がある試合（レギュラーシーズン）の試合数と勝敗
   const yahooRecords = useMemo(() => yahooRecordByTeam(gameLogsByTeam), [gameLogsByTeam]);
   // 前シーズン比較（DESIGN.md 218章）。試合の条件・試合区分・視点・平均/合計は前季にも同じように当てはめ、スタッツの条件は今季だけに当てはめる。
   // 前季のデータは、比較をオンにしたときだけ読む
   const [compareParam, setCompareParam] = useUrlState(COMPARE_PARAM, "off");
   const prevSeason = previousSeason(season);
-  const compareReason = compareUnsupportedReason({
+  // B.ONE の前季（旧B2）との比較は、リーグの形が違うのでまだ選べない
+  const compareReason = league === "one" ? ONE_RANKING_COMPARE_REASON : compareUnsupportedReason({
     season,
     categoryKind: isBoxscoreCategory(category) ? "boxscore" : "seasonTotal",
     statKey,
@@ -388,13 +403,13 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
   const prevRanking = useTeamSeasonRanking(
     prevSeason ?? season,
     { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions: DEFAULT_STAT_CONDITIONS },
-    { enabled: compareActive, skipConditionItems: true },
+    { enabled: compareActive, skipConditionItems: true, league },
   );
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
   useFoulConditionCleanup(season, statConditions, setStatConditions);
   useFoulStatKeyCleanup(season, statKey, () => setStatKey(defaultTeamStat));
   // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
-  useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
+  useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType, league });
 
   const selectCategory = (next: TeamRankingCategory) => {
     setCategory(next);
@@ -503,8 +518,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
-      ownDivisions: seasonDivisions(divisionHistory, season),
-      opponentDivisions: opponentDivisionChoices(divisionHistory, season),
+      ownDivisions: seasonDivisions(divisionHistory, season, league),
+      opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
       disabledReason: teamFilterDisabledReason,
     }),
     compareAxis(compareParam, setCompareParam, compareReason),
@@ -543,6 +558,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
             className={`tab-button${category === "shooting" ? " active" : ""}`}
             onClick={() => selectCategory("shooting")}
             type="button"
+            disabled={league === "one"}
+            title={league === "one" ? ONE_RANKING_SHOOTING_REASON : undefined}
           >
             {CATEGORY_LABELS.shooting}
           </button>
@@ -550,6 +567,8 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
             className={`tab-button${category === "forcedTurnovers" ? " active" : ""}`}
             onClick={() => selectCategory("forcedTurnovers")}
             type="button"
+            disabled={league === "one"}
+            title={league === "one" ? ONE_RANKING_FORCED_TOV_REASON : undefined}
           >
             {CATEGORY_LABELS.forcedTurnovers}
           </button>
@@ -569,6 +588,7 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
           </div>
         ) : null}
       </div>
+      {teamCategoryBlocked && <p className="standings-tab-note">{urlTeamCategory === "shooting" ? ONE_RANKING_SHOOTING_REASON : ONE_RANKING_FORCED_TOV_REASON}</p>}
 
       <FilterBar
         axes={[
@@ -708,27 +728,37 @@ function TeamRankingSection({ season, teamColors }: { season: string; teamColors
  * （掲載基準・国籍区分フィルタ通過後）分のPlayerGameLogを取得する
  * （PlayersListPage.tsxの「全選手スタッツ」タブと同じ「フィルタ選択時のみ取得する」遅延方式）
  */
-function PlayerRankingSection({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
+function PlayerRankingSection({ season, league, teamColors }: { season: string; league: League; teamColors: Record<string, TeamColors> | undefined }) {
   const exportRef = useRef<HTMLDivElement>(null);
 
   // ブラウザバック等でページが一度アンマウント・再マウントされても、直前のフィルタ条件を
   // 復元する（src/lib/pageStateCache.ts参照）
   // カテゴリ・項目・フィルタはURLのクエリに持つ（DESIGN.md 163章）。elig＝掲載基準の出場率（%）、ex＝項目ごとの追加の基準
-  const [category, setCategory] = useUrlState(PLAYER_CATEGORY_PARAM, "traditional");
+  const [urlPlayerCategory, setCategory] = useUrlState(PLAYER_CATEGORY_PARAM, "traditional");
+  // B.ONE には、シュートの種類（Shooting）・リーグをまたぐ経歴（Career）の記録が無いので選べない（URL に書いてあっても Traditional で出す）
+  const playerCategoryBlocked = league === "one" && (urlPlayerCategory === "shooting" || urlPlayerCategory === "career");
+  const category: PlayerRankCategory = playerCategoryBlocked ? "traditional" : urlPlayerCategory;
   const defaultPlayerStat = playerDefaultStatKey(category);
   const [statKey, setStatKey] = useUrlState(stringParam("stat", defaultPlayerStat, isStatKeyLike), defaultPlayerStat);
   const [gamesRatio, setGamesRatio] = useUrlState(GAMES_RATIO_ELIG_PARAM, MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
-  const [achievable, setAchievable] = useUrlState(GAMES_ACHIEVABLE_PARAM, false);
+  const [urlAchievable, setAchievable] = useUrlState(GAMES_ACHIEVABLE_PARAM, false);
+  // 掲載基準の「達成可能」は、残り試合数が正しいときだけ（B.ONE は、クラブの日程が60試合そろうまで出さない）
+  const achievableSupported = useAchievableSupport(season, league);
+  const achievable = urlAchievable && achievableSupported;
   const defaultExtra = EXTRA_ELIGIBILITY_RULES[extraRuleKey(statKey)]?.defaultValue ?? 0;
   const [extraThreshold, setExtraThreshold] = useUrlState(numberParam("ex", defaultExtra, { min: 0 }), defaultExtra);
   // 登録区分（全選手・日本人・外国籍/帰化/アジア）と、4つ目の「ルーキー」（cls=rookie。DESIGN.md 217章）。ルーキーを選べないシーズン（2016-17）では「全選手」として扱う
   const [selectedGroup, setSelectedGroup] = useUrlState(PLAYER_GROUP_PARAM, "all");
-  const rookieSupported = rookieSupportedSeason(season);
+  const rookieSupported = league === "premier" && rookieSupportedSeason(season);
   const selectedClassification: PlayerGroupFilter = isRookieFilter(selectedGroup) && !rookieSupported ? withRookie(selectedGroup, false) : selectedGroup;
   const rookieActive = isRookieFilter(selectedClassification);
   // そのシーズンのルーキー（登録区分でルーキーを選んだときの絞り込み用）
   const rookies = useSeasonRookies(season, rookieActive);
   useRookieFilterCleanup(season, selectedGroup, () => setSelectedGroup(withRookie(selectedGroup, false)));
+  // B.ONE はルーキーを選べない（URL に書いてあれば外す）
+  useEffect(() => {
+    if (league === "one" && isRookieFilter(selectedGroup)) setSelectedGroup(withRookie(selectedGroup, false));
+  }, [league, selectedGroup, setSelectedGroup]);
   // ポジション（複数選択、未選択＝全ポジション）。登録どおり（PG・PG/SG 等の完全一致）で、どれかに当てはまる選手（DESIGN.md 171章）
   const [positions, setPositions] = useUrlState(POSITION_PARAM, EMPTY_POSITIONS);
   const [filter, setFilter] = useUrlState(situationalParam, DEFAULT_RANKING_FILTER);
@@ -788,7 +818,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     displayMode,
     period,
     statConditions,
-  });
+  }, { league });
   const positionOptions = useMemo(() => positionFilterOptions(players, positions), [players, positions]);
 
   // 前シーズン比較（DESIGN.md 218章）。試合の条件・試合区分・平均/合計・登録区分（日本人／外国籍・帰化・アジア）・ポジション・掲載基準は前季にも同じように当てはめ、
@@ -800,7 +830,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     includesSplitClassification(selectedClassification) && prevSeason !== null && !splitClassificationSeason(prevSeason)
       ? `前のシーズン（${prevSeason}）は外国籍・帰化・アジア特別枠を分けて記録していないため、前シーズンと比べられません。`
       : null;
-  const compareReason = splitCompareReason ?? compareUnsupportedReason({
+  const compareReason = league === "one" ? ONE_RANKING_COMPARE_REASON : splitCompareReason ?? compareUnsupportedReason({
     season,
     categoryKind: category === "profile" || category === "career" ? "registered" : category === "shooting" ? "seasonTotal" : "boxscore",
     statKey,
@@ -830,13 +860,13 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
       period,
       statConditions: DEFAULT_STAT_CONDITIONS,
     },
-    { enabled: compareActive, skipConditionItems: true },
+    { enabled: compareActive, skipConditionItems: true, league },
   );
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
   useFoulConditionCleanup(season, statConditions, setStatConditions);
   useFoulStatKeyCleanup(season, statKey, () => setStatKey(defaultPlayerStat));
   // シーズンで意味が変わるフィルタ（地区・月・期間指定・ポストシーズン）は、そのシーズンに無ければ外す（DESIGN.md 164・165章）
-  useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType });
+  useSeasonFilterCleanup({ season, filter, setFilter, gameType, setGameType, league });
 
   const selectCategory = (next: PlayerRankCategory) => {
     setCategory(next);
@@ -977,10 +1007,12 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           format={(v) => `${v}%`}
           onChange={(v) => setGamesRatio(v / 100)}
         />
-        <label className="filter-multi-item">
-          <input type="checkbox" checked={achievable} onChange={(e) => setAchievable(e.target.checked)} />
-          {Math.round(gamesRatio * 100)}%以上達成可能
-        </label>
+        {achievableSupported && (
+          <label className="filter-multi-item">
+            <input type="checkbox" checked={achievable} onChange={(e) => setAchievable(e.target.checked)} />
+            {Math.round(gamesRatio * 100)}%以上達成可能
+          </label>
+        )}
         {extraRule && (
           <EligibilitySlider
             label={extraRule.label}
@@ -997,7 +1029,7 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
   };
   const playerFilterAxes: FilterAxis[] = [
     classificationAxis(selectedGroup, setSelectedGroup, { season }),
-    rookieAxis(selectedGroup, setSelectedGroup, { disabledReason: rookieSupported ? undefined : ROOKIE_UNSUPPORTED_REASON }),
+    rookieAxis(selectedGroup, setSelectedGroup, { disabledReason: league === "one" ? ONE_ROOKIE_REASON : rookieSupported ? undefined : ROOKIE_UNSUPPORTED_REASON }),
     multiSelectAxis({
       id: "position",
       label: "ポジション",
@@ -1022,8 +1054,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
-      ownDivisions: seasonDivisions(divisionHistory, season),
-      opponentDivisions: opponentDivisionChoices(divisionHistory, season),
+      ownDivisions: seasonDivisions(divisionHistory, season, league),
+      opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
       disabledReason: playerFilterDisabledReason,
     }),
     eligibilityAxis,
@@ -1065,6 +1097,8 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           className={`tab-button${category === "shooting" ? " active" : ""}`}
           onClick={() => selectCategory("shooting")}
           type="button"
+          disabled={league === "one"}
+          title={league === "one" ? ONE_RANKING_SHOOTING_REASON : undefined}
         >
           {CATEGORY_LABELS.shooting}
         </button>
@@ -1079,10 +1113,13 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
           className={`tab-button${category === "career" ? " active" : ""}`}
           onClick={() => selectCategory("career")}
           type="button"
+          disabled={league === "one"}
+          title={league === "one" ? ONE_RANKING_CAREER_REASON : undefined}
         >
           {CATEGORY_LABELS.career}
         </button>
       </div>
+      {playerCategoryBlocked && <p className="standings-tab-note">{urlPlayerCategory === "shooting" ? ONE_RANKING_SHOOTING_REASON : ONE_RANKING_CAREER_REASON}</p>}
 
       <FilterBar
         axes={[
@@ -1204,10 +1241,16 @@ function PlayerRankingSection({ season, teamColors }: { season: string; teamColo
 }
 
 export function RankingsPage({ season }: { season: string }) {
+  const league = useLeague();
   // チーム/個人はURLのクエリ（m=player）に持つ。切り替えたら前の側のフィルタのクエリは消す（DESIGN.md 163章）
   const [mode, setModeParam] = useUrlState(RANKING_MODE_PARAM, "team");
-  const [kindParam, setKindParam] = useUrlState(RANKING_KIND_PARAM, "season");
-  const [scope, setScopeParam] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
+  const [urlKindParam, setKindParam] = useUrlState(RANKING_KIND_PARAM, "season");
+  // B.ONE で見られるのは、シーズン成績と1試合記録（シーズン）だけ。ほかの種類が URL に書いてあれば、シーズン成績で出して理由を添える
+  const kindBlockedReason = league === "one" ? ONE_RANKING_KIND_REASONS[urlKindParam] : undefined;
+  const kindParam: RankingKind = kindBlockedReason ? "season" : urlKindParam;
+  const [urlScope, setScopeParam] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
+  // B.ONE の1試合記録は、シーズンだけ（歴代は無い）
+  const scope = league === "one" ? "season" : urlScope;
   const [attendanceScope] = useUrlState(ATTENDANCE_SCOPE_PARAM, "season");
   // 個人には1シーズン記録が無く、チームには勝負所・アシストペアが無いので、URLにそのkがあっても通常のシーズン成績にする
   const kind: RankingKind =
@@ -1259,12 +1302,20 @@ export function RankingsPage({ season }: { season: string }) {
       {kinds.length > 1 && (
         <div className="mode-toggle ranking-kind-toggle">
           {kinds.map((k) => (
-            <button key={k} type="button" className={kind === k ? "active" : ""} onClick={() => setKind(k)}>
+            <button
+              key={k}
+              type="button"
+              className={kind === k ? "active" : ""}
+              onClick={() => setKind(k)}
+              disabled={league === "one" && !!ONE_RANKING_KIND_REASONS[k]}
+              title={league === "one" ? ONE_RANKING_KIND_REASONS[k] : undefined}
+            >
               {RANKING_KIND_LABELS[k]}
             </button>
           ))}
         </div>
       )}
+      {kindBlockedReason && <p className="standings-tab-note">{kindBlockedReason}</p>}
       {kind === "clutch" && (
         <div className="mode-toggle records-scope-toggle">
           {(
@@ -1344,7 +1395,14 @@ export function RankingsPage({ season }: { season: string }) {
               ["season", "シーズン"],
             ] as const
           ).map(([key, label]) => (
-            <button key={key} type="button" className={scope === key ? "active" : ""} onClick={() => setScopeParam(key)}>
+            <button
+              key={key}
+              type="button"
+              className={scope === key ? "active" : ""}
+              onClick={() => setScopeParam(key)}
+              disabled={league === "one" && key === "allTime"}
+              title={league === "one" && key === "allTime" ? ONE_RANKING_ALLTIME_REASON : undefined}
+            >
               {label}
             </button>
           ))}
@@ -1373,14 +1431,14 @@ export function RankingsPage({ season }: { season: string }) {
           )
         ) : gameRecords ? (
           mode === "player" ? (
-            <PlayerGameRecordRanking season={season} teamColors={teamColors ?? undefined} />
+            <PlayerGameRecordRanking key={`${league}-${season}`} season={season} teamColors={teamColors ?? undefined} />
           ) : (
-            <TeamGameRecordRanking season={season} teamColors={teamColors ?? undefined} />
+            <TeamGameRecordRanking key={`${league}-${season}`} season={season} teamColors={teamColors ?? undefined} />
           )
         ) : mode === "team" ? (
-          <TeamRankingSection season={season} teamColors={teamColors ?? undefined} />
+          <TeamRankingSection key={`${league}-${season}`} season={season} league={league} teamColors={teamColors ?? undefined} />
         ) : (
-          <PlayerRankingSection season={season} teamColors={teamColors ?? undefined} />
+          <PlayerRankingSection key={`${league}-${season}`} season={season} league={league} teamColors={teamColors ?? undefined} />
         )}
       </div>
     </div>

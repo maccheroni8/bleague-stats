@@ -18,7 +18,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
 import ts from "typescript";
-import { ONE_PAGE_AVAILABILITY, type LeaguePage } from "../src/lib/leagueAvailability";
+import { ONE_PAGE_AVAILABILITY, ONE_RANKING_KIND_REASONS, type LeaguePage } from "../src/lib/leagueAvailability";
 import * as data from "../src/lib/data";
 import * as gameIndexLoad from "../src/lib/gameIndexLoad";
 import { loadSeasonPeriodSource } from "../src/lib/seasonPeriod";
@@ -453,6 +453,38 @@ console.log("8. 保存画像の見出しの1行目");
     visit(sf);
   }
   console.log(`  保存画像のある部品 ${exportFiles.length}ファイル`);
+}
+
+// ---- 9. ランキング（シーズン成績・1試合記録） ----
+console.log("9. ランキング（B.ONE のシーズン成績・1試合記録）");
+{
+  const rankingsFile = "src/pages/RankingsPage.tsx";
+  const text = sources.get(rankingsFile)!.getFullText();
+  check(ONE_PAGE_AVAILABILITY.rankings.ready === true, "B.ONE でランキングが見られるページになっていない");
+  // ランキングの種類の一覧のうち、シーズン成績・1試合記録以外は、B.ONE で選べない理由を持つ
+  const kinds = /const RANKING_KIND_PARAM = enumParam<RankingKind>\("k", \[([^\]]+)\]/.exec(text)?.[1]?.match(/"(\w+)"/g)?.map((v) => v.replace(/"/g, "")) ?? [];
+  check(kinds.length >= 9, `ランキングの種類の一覧を読めない（${kinds.join(",")}）`);
+  for (const k of kinds) {
+    if (k === "season" || k === "game") check(!ONE_RANKING_KIND_REASONS[k], `${k} は B.ONE で見られるのに選べない理由がある`);
+    else check(!!ONE_RANKING_KIND_REASONS[k], `ランキングの種類 ${k} が B.ONE で選べない理由を持っていない`);
+  }
+  // 画面の区画は、リーグを受けて、リーグが変わったら作り直す（同じシーズンでリーグだけ変えても別のリーグの値が残らない）
+  for (const section of ["TeamRankingSection", "PlayerRankingSection"]) {
+    check(new RegExp(`<${section}\\s+key=\\{`).test(text) && new RegExp(`<${section}[^>]*league=\\{league\\}`).test(text), `${section} にリーグの鍵（key）か league が渡っていない`);
+  }
+  for (const comp of ["PlayerGameRecordRanking", "TeamGameRecordRanking"]) {
+    check(new RegExp(`<${comp}\\s+key=\\{`).test(text), `${comp} にリーグの鍵（key）が渡っていない`);
+  }
+  // 集計の呼び出しにリーグが渡っている（今季も前季の比較も）
+  const hookCalls = text.match(/use(Player|Team)SeasonRanking\(/g)?.length ?? 0;
+  const hookWithLeague = text.match(/\}, \{ league \}\);|league \},\n  \);/g)?.length ?? 0;
+  check(hookCalls === 4 && hookWithLeague >= 4, `集計フックの呼び出し ${hookCalls}か所のうち、リーグを渡しているのは ${hookWithLeague}か所`);
+  // 1試合記録: 範囲は B.ONE ではシーズンだけ
+  for (const f of ["src/components/PlayerGameRecordRanking.tsx", "src/components/TeamGameRecordRanking.tsx"]) {
+    const t = sources.get(f)!.getFullText();
+    check(/league === "one" \? "season" : urlScope/.test(t), `${f}: B.ONE の範囲がシーズンに固定されていない`);
+    check(/useGameIndexViews\([^;]*league/.test(t), `${f}: 索引の読み込みにリーグが渡っていない`);
+  }
 }
 
 if (failures > 0) {

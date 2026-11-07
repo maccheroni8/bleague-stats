@@ -62,8 +62,8 @@ export async function lineupCareerSeasons(): Promise<string[]> {
  * 選手の索引と出場区間を読む。seasons が null の間（通算のシーズンの一覧を読むまで）は待つ。
  * 1つでも読めないファイルがあるときは、読めた分だけの順位を出さずにエラーにする（値が欠けるため）
  */
-export function useLineupData(seasons: string[] | null, enabled: boolean): LineupData {
-  const key = seasons ? seasons.join(",") : "";
+export function useLineupData(seasons: string[] | null, enabled: boolean, league: League = "premier"): LineupData {
+  const key = `${league}:${seasons ? seasons.join(",") : ""}`;
   const [state, setState] = useState<{ key: string; data: LineupSeasonData[] | null; error: string | null; progress: LineupProgress }>({
     key: "",
     data: null,
@@ -86,7 +86,7 @@ export function useLineupData(seasons: string[] | null, enabled: boolean): Lineu
       setState({ key, data: null, error: null, progress: { done: 0, total } });
       const views = await runPool(
         list.map((season) => async () => {
-          const view = await loadPlayerGameIndex(season);
+          const view = await loadPlayerGameIndex(season, league);
           if (!view) throw new Error(`${season}の試合のデータを読み込めませんでした`);
           done += 1;
           report();
@@ -98,7 +98,7 @@ export function useLineupData(seasons: string[] | null, enabled: boolean): Lineu
       report();
       const tasks = list.flatMap((season, i) =>
         teamIds[i]!.map((teamId) => async () => {
-          const c = await loadStints(season, teamId).catch(() => {
+          const c = await loadStints(season, teamId, league).catch(() => {
             throw new Error(`${season}の出場区間（チーム ${teamId}）を読み込めませんでした`);
           });
           done += 1;
@@ -119,7 +119,7 @@ export function useLineupData(seasons: string[] | null, enabled: boolean): Lineu
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, key, attempt]);
+  }, [enabled, key, attempt, league]);
 
   const current = state.key === key && !!seasons;
   const waiting = enabled && (!seasons || !current || (!state.data && !state.error));

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Link } from "react-router-dom";
+import { SeasonLink as Link } from "./SeasonLink";
+import { useLeague } from "../lib/league";
 import type { TeamColors } from "../../shared/types";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
@@ -76,6 +77,7 @@ export function PairPerson({ playerId, name, season, among }: { playerId: string
 export function AssistPairRanking({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
   const exportRef = useRef<HTMLDivElement>(null);
   const narrow = useNarrow();
+  const league = useLeague();
   const [unit] = useUrlState(PAIR_UNIT_PARAM, "season");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [conditions, setConditions] = useUrlState(gameRecordConditionsParam, DEFAULT_GAME_RECORD_CONDITIONS);
@@ -85,8 +87,8 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
   const activeOn = !singleSeason && activeParam === "active";
   const seasonForTitle = singleSeason ? season : null;
 
-  const options = useGameRecordOptions(singleSeason ? "season" : "allTime", season);
-  const pairs = useAssistPairData(singleSeason, season);
+  const options = useGameRecordOptions(singleSeason ? "season" : "allTime", season, league);
+  const pairs = useAssistPairData(singleSeason, season, league);
   const active = useActivePlayerIds(activeOn);
   // 1試合（歴代）・通算は、選手名を今の登録名にそろえる。シーズンは、そのシーズンの表記
   const current = useCurrentPlayerNames(!singleSeason);

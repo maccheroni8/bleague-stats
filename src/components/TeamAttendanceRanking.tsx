@@ -1,3 +1,4 @@
+import { useLeague, type League } from "../lib/league";
 import { useMemo, useRef } from "react";
 import type { GameSummary, TeamColors } from "../../shared/types";
 import { ATTENDANCE_LIMITED_SEASONS, attendanceRows, attendanceVenueOptions, type AttendanceDay, type AttendanceFilter, type AttendanceGame, type AttendanceRow } from "../lib/attendanceRanking";
@@ -40,12 +41,12 @@ function formatPeople(n: number): string {
 }
 
 /** 範囲のシーズンの試合の一覧（シーズン内の各試合に season を付ける）。読めないシーズンは飛ばす */
-async function loadGames(allTime: boolean, season: string): Promise<AttendanceGame[]> {
+async function loadGames(allTime: boolean, season: string, league: League): Promise<AttendanceGame[]> {
   const seasons = allTime ? (await fetchSeasons()).map((s) => s.season) : [season];
   const lists = await Promise.all(
     seasons.map(async (s) => {
       try {
-        return (await fetchGameSummaries(s)).map((g: GameSummary) => ({ ...g, season: s }));
+        return (await fetchGameSummaries(s, league)).map((g: GameSummary) => ({ ...g, season: s }));
       } catch {
         return [];
       }
@@ -56,6 +57,7 @@ async function loadGames(allTime: boolean, season: string): Promise<AttendanceGa
 
 export function TeamAttendanceRanking({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
   const exportRef = useRef<HTMLDivElement>(null);
+  const league = useLeague();
   const [scope, setScope] = useUrlState(ATTENDANCE_SCOPE_PARAM, "season");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [day, setDay] = useUrlState(DAY_PARAM, "all");
@@ -64,7 +66,7 @@ export function TeamAttendanceRanking({ season, teamColors }: { season: string; 
   const allTime = scope === "allTime";
   const item = ITEMS.find((i) => i.key === statParam) ?? ITEMS[0]!;
 
-  const { data: games, loading } = useJsonData(() => loadGames(allTime, season), [allTime, season]);
+  const { data: games, loading } = useJsonData(() => loadGames(allTime, season, league), [allTime, season, league]);
 
   const baseFilter: AttendanceFilter = { gameType, day, venue: "", isWeekday: isWeekdayGame };
   const venueOptions = useMemo(() => (games ? attendanceVenueOptions(games, baseFilter) : []), [games, gameType, day]); // eslint-disable-line react-hooks/exhaustive-deps

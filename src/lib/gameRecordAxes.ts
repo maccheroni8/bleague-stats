@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { MarginRangeEditor } from "../components/MarginRangeEditor";
 import type { Division } from "../../shared/types";
 import { divisionPresets } from "./divisionGroups";
+import type { League } from "./league";
 import { FILTER_ALL_LABEL, divisionMultiAxis, multiSelectAxis, type FilterAxis, type FilterAxisOption } from "./filterAxes";
 import { OVERTIME_CONDITIONS, OVERTIME_LABELS, marginRangeLabel, type GameRecordConditions, type OvertimeCondition } from "./gameRecordConditions";
 import { MARGIN_CONDITION_LABELS, type MarginCondition } from "./situational";
@@ -20,6 +21,8 @@ export interface GameRecordAxesInput {
   /** 前後半5分の特別な試合を含めるかの今の扱い（既定を含む）と、その既定 */
   includeSpecial: boolean;
   includeSpecialDefault: boolean;
+  /** 見ているリーグ（地区の並びに使う。省略は B.PREMIER） */
+  league?: League;
 }
 
 /** 勝敗・会場（常時表示） */
@@ -57,7 +60,7 @@ export function gameRecordPrimaryAxes({ conditions: c, onChange }: GameRecordAxe
 }
 
 /** 対戦相手・延長・最終点差・試合中の点差・地区・前後半5分の特別な試合（詳細フィルタ） */
-export function gameRecordAdvancedAxes({ conditions: c, onChange, teams, divisions, teamDivisions, includeSpecial, includeSpecialDefault }: GameRecordAxesInput): FilterAxis[] {
+export function gameRecordAdvancedAxes({ conditions: c, onChange, teams, divisions, teamDivisions, includeSpecial, includeSpecialDefault, league = "premier" }: GameRecordAxesInput): FilterAxis[] {
   const selectAxis = (id: string, label: string, value: string, options: FilterAxisOption[], set: (v: string) => GameRecordConditions): FilterAxis => ({
     kind: "select",
     id,
@@ -70,7 +73,7 @@ export function gameRecordAdvancedAxes({ conditions: c, onChange, teams, divisio
   });
   // 対戦相手のクラブの複数選択に、日程ページの「対象クラブ」と同じ「◯地区を選択」ボタンを付ける（DESIGN.md 314章）
   const clubPresets = teamDivisions
-    ? divisionPresets(teams.map((t) => t.value), (id) => teamDivisions[id]).map((p) => ({ label: p.label, values: p.teamIds }))
+    ? divisionPresets(teams.map((t) => t.value), (id) => teamDivisions[id], league).map((p) => ({ label: p.label, values: p.teamIds }))
     : undefined;
   const rangeText = marginRangeLabel(c.marginMin, c.marginMax)?.replace("最終点差 ", "") ?? "";
 

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { fetchTeams } from "./data";
+import type { League } from "./league";
 import { useJsonData } from "./useJsonData";
 import { foulColumnsSplit } from "./ruleChange";
 import { BOXSCORE_TABS, type BoxscoreTabKey } from "../components/BoxscoreTable";
@@ -123,24 +124,25 @@ export interface TeamRankingParams {
 export function useTeamSeasonRanking(
   season: string,
   params: TeamRankingParams,
-  opts: { enabled?: boolean; skipConditionItems?: boolean } = {},
+  opts: { enabled?: boolean; skipConditionItems?: boolean; league?: League } = {},
 ) {
   const enabled = opts.enabled ?? true;
+  const league: League = opts.league ?? "premier";
   const { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions } = params;
   const { data: teams, loading: teamsLoading, error: teamsError } = useJsonData(
-    () => (enabled ? fetchTeams(season) : Promise.resolve(null)),
-    [season, enabled],
+    () => (enabled ? fetchTeams(season, league) : Promise.resolve(null)),
+    [season, enabled, league],
   );
   // ペイント内外の内訳は、プレーバイプレーの公式の区分で数えるため全シーズンで出る（2026-09-26。DESIGN.md 155章）
   const paintSupported = true;
 
-  const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, enabled ? teams : null);
-  const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season, enabled);
+  const { gameLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, enabled ? teams : null, league);
+  const { divisionHistory, opponentRecords } = useLeagueSituationalContext(season, enabled, league);
 
   // 区間（試合全体・1Q〜4Q・前半・後半・延長）。区間の値はチームのピリオド別の索引から出す（DESIGN.md 256章の段階2。以前は試合の生データを読んでいた）
   const periodOption = seasonPeriodOption(period);
   const periodActive = enabled && isBoxscoreCategory(category) && period !== "all";
-  const { source: periodSource, loading: periodLoading, retry: retryPeriodSource } = useTeamPeriodSource(season, periodActive);
+  const { source: periodSource, loading: periodLoading, retry: retryPeriodSource } = useTeamPeriodSource(season, periodActive, league);
   // ファウルの列は、2026-27以降のシーズンではTF1・TF2・FLAG・DISR、それ以前ではUFOUL・TF。そのシーズンに無い項目・条件は外す（DESIGN.md 16-8章）
   const foulSplit = foulColumnsSplit([season]);
 
@@ -153,12 +155,12 @@ export function useTeamSeasonRanking(
     if (!teams || !gameLogsByTeam) return map;
     for (const team of teams) {
       const logs = gameLogsByTeam.get(team.teamId) ?? [];
-      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => team.teamId);
+      const situational = filterGameLogs(logs, { ...filter, includePlayoffs: true }, opponentRecords, divisionHistory, season, () => team.teamId, league);
       map.set(team.teamId, filterByGameType(situational, gameType));
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season]);
+  }, [teams, gameLogsByTeam, filter, gameType, opponentRecords, divisionHistory, season, league]);
 
   const periodDataReady = !periodActive || !!periodSource;
 
@@ -197,10 +199,10 @@ export function useTeamSeasonRanking(
     if (!wanted?.length) return rows;
     if (!divisionHistory) return [];
     return rows.filter((r) => {
-      const d = teamDivisionForSeason(divisionHistory, r.team.teamId, season);
+      const d = teamDivisionForSeason(divisionHistory, r.team.teamId, season, league);
       return !!d && wanted.includes(d);
     });
-  }, [rows, filter.ownDivisions, divisionHistory, season]);
+  }, [rows, filter.ownDivisions, divisionHistory, season, league]);
   const conditionRows = isBoxscoreCategory(category) ? rowsInOwnDivision : seasonRows;
   const teamById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t])), [teams]);
   // 区間の値も登録区分別・ベンチ／スタメンの得点を持つ（チームの索引。256章の段階1）ので、区間でも出せる
@@ -218,11 +220,12 @@ export function useTeamSeasonRanking(
               shotTypesOf: (r) => teamById.get(r.team.teamId)?.shotTypes,
               shotGamesOf: (r) => teamById.get(r.team.teamId)?.gamesPlayed ?? 0,
               shotTypeKeys: SHOT_TYPE_DISPLAY_ORDER,
+              includeShooting: league === "premier",
             }),
             conditionRows,
             displayMode,
           ),
-    [opts.skipConditionItems, displayMode, paintSupported, conditionClassificationSupported, foulSplit, conditionRows, teamById],
+    [opts.skipConditionItems, league, displayMode, paintSupported, conditionClassificationSupported, foulSplit, conditionRows, teamById],
   );
   const conditionActive = hasActiveStatConditions(statConditions, conditionItems);
   const passingTeamIds = useMemo(

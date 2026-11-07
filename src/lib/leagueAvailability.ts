@@ -43,7 +43,7 @@ export const ONE_PAGE_AVAILABILITY: Record<LeaguePage, LeagueAvailability> = {
   playerDetail: READY,
   standings: READY,
   figures: READY,
-  rankings: later("ランキング"),
+  rankings: READY,
   compare: later("比較"),
 };
 
@@ -80,3 +80,23 @@ export const ONE_ROOKIE_REASON = "ルーキーは、B.PREMIER の規程に準じ
 export const ONE_PLAYER_DETAIL_TAB_REASONS: Partial<Record<string, string>> = {
   compare: "比較は、B.ONE ではまだ見られません（今後対応します）。",
 };
+
+/** B.ONE のランキングで選べない「種類」（種類 → 理由）。シーズン成績と1試合記録（シーズン）だけ見られる */
+export const ONE_RANKING_KIND_REASONS: Partial<Record<string, string>> = {
+  career: "通算記録は、B.ONE ではまだ見られません（今後対応します）。",
+  special: "1シーズン記録は、B.ONE ではまだ見られません（今後対応します）。",
+  attendance: "観客動員は、B.ONE ではまだ見られません（今後対応します）。",
+  clutch: "勝負所は、B.ONE ではまだ見られません（今後対応します）。",
+  assistPair: "アシストペアは、B.ONE ではまだ見られません（今後対応します）。",
+  threshold: "達成記録は、B.ONE ではまだ見られません（今後対応します）。",
+  lineup: "On/Off・組み合わせは、B.ONE ではまだ見られません（今後対応します）。",
+};
+/** B.ONE の1試合記録で選べない範囲（歴代） */
+export const ONE_RANKING_ALLTIME_REASON = "歴代は、B.ONE ではまだ見られません（今後対応します）。今季のシーズンの記録だけ見られます。";
+/** B.ONE のランキングで選べないカテゴリ・項目の理由 */
+export const ONE_RANKING_SHOOTING_REASON = "Shooting は、B.ONE ではシュートの種類の記録が無いため選べません。";
+export const ONE_RANKING_FORCED_TOV_REASON = "Forced TOV は、B.ONE では強制ターンオーバーの分類の記録が無いため選べません。";
+export const ONE_RANKING_CAREER_REASON = "Career は、B.ONE ではリーグをまたぐ経歴の集計が無いため選べません。";
+export const ONE_RANKING_COMPARE_REASON = "前季との比較は、B.ONE ではまだ選べません（今後対応します）。";
+/** 掲載基準の「達成可能」を B.ONE で出さない間の理由（日程が60試合に足りないクラブがあるとき） */
+export const ONE_RANKING_ACHIEVABLE_REASON = "「達成可能」は、B.ONE ではクラブの日程が出そろうまで選べません（残り試合数が正しく出せないため）。";

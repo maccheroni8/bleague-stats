@@ -1,3 +1,4 @@
+import { useLeague } from "../lib/league";
 import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
 import { isRookieFilter, splitSeasonsOnly, withRookie, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
@@ -59,6 +60,7 @@ function ClutchLine({ r, allTime }: { r: ClutchRow; allTime: boolean }) {
 export function PlayerClutchRanking({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
   const exportRef = useRef<HTMLDivElement>(null);
   const narrow = useNarrow();
+  const league = useLeague();
   const [scope] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [group, setGroup] = useUrlState(PLAYER_GROUP_PARAM, "all");
@@ -71,10 +73,10 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
   const activeOn = allTime && activeParam === "active";
   const seasonForTitle = allTime ? null : season;
 
-  const options = useGameRecordOptions(scope, season);
+  const options = useGameRecordOptions(scope, season, league);
   // 2025-26 以前のシーズンで分けた区分を選んでいるときは、表の代わりに理由を出す。通算で分けた区分は 2026-27 以降の索引だけを読む
   const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
-  const index = useGameIndexViews("player", scope, season, !classBlocked, { fromSeason: splitSeasonsOnly(group) ? SPLIT_CLASSIFICATION_FIRST_SEASON : null });
+  const index = useGameIndexViews("player", scope, season, !classBlocked, { fromSeason: splitSeasonsOnly(group) ? SPLIT_CLASSIFICATION_FIRST_SEASON : null, league });
   const rookies = useRookieFile(isRookieFilter(group));
   const active = useActivePlayerIds(activeOn);
   // 通算は、選手名を今の登録名にそろえる

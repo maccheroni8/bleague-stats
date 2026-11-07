@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { teamShortName } from "../../shared/teamNames";
 import type { Division, DivisionHistoryFile, RookieEligibilityFile } from "../../shared/types";
 import { fetchDivisionHistory, fetchPlayerCareers, fetchRookieEligibility, fetchSeasons, fetchTeams } from "./data";
-import { DIVISION_ORDER, seasonDivisions } from "./divisionGroups";
+import { DIVISION_ORDER, divisionOrder, seasonDivisions } from "./divisionGroups";
 import type { PlayerGameIndexView, TeamGameIndexView } from "./gameIndex";
 import { loadAssistPairs, loadPlayerGameIndex, loadTeamGameIndex } from "./gameIndexLoad";
+import { leagueCacheKey, type League } from "./league";
 import type { PlayerPeriodView } from "./periodIndex";
 import { loadPlayerPeriodIndex } from "./periodIndexLoad";
 import type { PairSeasonData } from "./clutchQuery";
@@ -40,11 +41,13 @@ export function useGameIndexViews<S extends IndexSubject>(
   scope: RecordsScope,
   season: string,
   enabled: boolean,
-  opts: { fromSeason?: string | null } = {},
+  opts: { fromSeason?: string | null; league?: League } = {},
 ): GameIndexViews<ViewOf<S>> {
+  const league: League = opts.league ?? "premier";
   // fromSeason: 歴代で、このシーズン以降だけを読む（分けた登録区分は 2026-27 以降の試合だけを数える。DESIGN.md 298章）
   const fromSeason = scope === "season" ? null : (opts.fromSeason ?? null);
-  const key = `${subject}:${scope === "season" ? season : "all"}:${fromSeason ?? ""}`;
+  // 鍵にリーグを入れる（同じシーズンで B.PREMIER と B.ONE を切り替えたとき、別のリーグの索引を使わない）
+  const key = `${league}:${subject}:${scope === "season" ? season : "all"}:${fromSeason ?? ""}`;
   const [state, setState] = useState<IndexState<ViewOf<S>>>({ key: "", views: null, error: null });
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
@@ -57,7 +60,7 @@ export function useGameIndexViews<S extends IndexSubject>(
         scope === "season"
           ? [season]
           : (await fetchSeasons()).filter((s) => s.hasCompletedGames && (!fromSeason || s.season >= fromSeason)).map((s) => s.season).sort();
-      const loaded = await Promise.all(seasons.map((s) => (subject === "player" ? loadPlayerGameIndex(s) : loadTeamGameIndex(s))));
+      const loaded = await Promise.all(seasons.map((s) => (subject === "player" ? loadPlayerGameIndex(s, league) : loadTeamGameIndex(s, league))));
       const missing = seasons.filter((_, i) => loaded[i] === null);
       if (missing.length > 0) throw new Error(`${missing.join("・")}の試合のデータを読み込めませんでした`);
       if (!cancelled) setState({ key, views: loaded as ViewOf<S>[], error: null });
@@ -67,7 +70,7 @@ export function useGameIndexViews<S extends IndexSubject>(
     return () => {
       cancelled = true;
     };
-  }, [enabled, subject, scope, season, key, attempt, fromSeason]);
+  }, [enabled, subject, scope, season, key, attempt, fromSeason, league]);
 
   const current = state.key === key;
   return {
@@ -90,7 +93,7 @@ export interface PlayerPeriodViews {
  * 選手のピリオド別の索引（DESIGN.md 225章）を、読み込み済みの1試合行の索引に結び付けて読む。enabled が false の間は読まない（期間が「試合」のときは読まない）。
  * 1つでも読めない（または1試合行の索引と行数が合わない）シーズンがあるときは、読めた分だけの記録を出さずにエラーにする（値が欠けるため）
  */
-export function usePlayerPeriodViews(main: PlayerGameIndexView[] | null, enabled: boolean): PlayerPeriodViews {
+export function usePlayerPeriodViews(main: PlayerGameIndexView[] | null, enabled: boolean, league: League = "premier"): PlayerPeriodViews {
   const [state, setState] = useState<{ main: PlayerGameIndexView[] | null; views: Map<string, PlayerPeriodView> | null; error: string | null }>({ main: null, views: null, error: null });
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
@@ -99,7 +102,7 @@ export function usePlayerPeriodViews(main: PlayerGameIndexView[] | null, enabled
     if (!enabled || !main) return;
     let cancelled = false;
     (async () => {
-      const loaded = await Promise.all(main.map((v) => loadPlayerPeriodIndex(v)));
+      const loaded = await Promise.all(main.map((v) => loadPlayerPeriodIndex(v, league)));
       const missing = main.filter((_, i) => loaded[i] === null).map((v) => v.season);
       if (missing.length > 0) throw new Error(`${missing.join("・")}のQ別・前後半のデータを読み込めませんでした`);
       if (!cancelled) setState({ main, views: new Map(loaded.map((v) => [v!.season, v!])), error: null });
@@ -109,7 +112,7 @@ export function usePlayerPeriodViews(main: PlayerGameIndexView[] | null, enabled
     return () => {
       cancelled = true;
     };
-  }, [enabled, main, attempt]);
+  }, [enabled, main, attempt, league]);
 
   const current = state.main === main && main !== null;
   return {
@@ -129,8 +132,8 @@ export interface AssistPairData {
 }
 
 /** アシストペアの試合ごとの行と、同じシーズンの選手の索引を読む。1つでも読めないシーズンがあるときはエラーにする（値が欠けるため） */
-export function useAssistPairData(singleSeason: boolean, season: string): AssistPairData {
-  const key = singleSeason ? season : "all";
+export function useAssistPairData(singleSeason: boolean, season: string, league: League = "premier"): AssistPairData {
+  const key = `${leagueCacheKey(season, league)}:${singleSeason ? season : "all"}`;
   const [state, setState] = useState<{ key: string; data: PairSeasonData[] | null; error: string | null }>({ key: "", data: null, error: null });
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
@@ -138,7 +141,7 @@ export function useAssistPairData(singleSeason: boolean, season: string): Assist
     let cancelled = false;
     (async () => {
       const seasons = singleSeason ? [season] : (await fetchSeasons()).filter((s) => s.hasCompletedGames).map((s) => s.season).sort();
-      const loaded = await Promise.all(seasons.map(async (s) => ({ pairs: await loadAssistPairs(s), index: await loadPlayerGameIndex(s) })));
+      const loaded = await Promise.all(seasons.map(async (s) => ({ pairs: await loadAssistPairs(s, league), index: await loadPlayerGameIndex(s, league) })));
       const missing = seasons.filter((_, i) => !loaded[i]!.pairs || !loaded[i]!.index);
       if (missing.length > 0) throw new Error(`${missing.join("・")}の試合のデータを読み込めませんでした`);
       if (!cancelled) setState({ key, data: loaded.map((l) => ({ pairs: l.pairs!, index: l.index! })), error: null });
@@ -148,7 +151,7 @@ export function useAssistPairData(singleSeason: boolean, season: string): Assist
     return () => {
       cancelled = true;
     };
-  }, [singleSeason, season, key, attempt]);
+  }, [singleSeason, season, key, attempt, league]);
   const current = state.key === key;
   return { data: current ? state.data : null, loading: !current || (!state.data && !state.error), error: current ? state.error : null, retry };
 }
@@ -165,16 +168,16 @@ export interface GameRecordOptions {
 }
 
 /** 勝敗以外の条件の選択肢。軽いファイル（チーム一覧・地区の履歴）だけを読む */
-export function useGameRecordOptions(scope: RecordsScope, season: string): GameRecordOptions {
+export function useGameRecordOptions(scope: RecordsScope, season: string, league: League = "premier"): GameRecordOptions {
   const { data: history } = useJsonData<DivisionHistoryFile | null>(() => fetchDivisionHistory().catch(() => null), []);
-  const { data: teams } = useJsonData(() => (scope === "season" ? fetchTeams(season).catch(() => null) : Promise.resolve(null)), [scope, season]);
+  const { data: teams } = useJsonData(() => (scope === "season" ? fetchTeams(season, league).catch(() => null) : Promise.resolve(null)), [scope, season, league]);
   return useMemo<GameRecordOptions>(() => {
     if (scope === "season") {
       const options = (teams ?? []).map((t) => ({ value: t.teamId, label: teamShortName(t.teamId, t.teamName), name: t.teamName }));
       return {
         teams: options.sort((a, b) => a.label.localeCompare(b.label, "ja")),
-        divisions: seasonDivisions(history, season),
-        teamDivisions: { ...(history?.premier?.[season] ?? {}) },
+        divisions: seasonDivisions(history, season, league),
+        teamDivisions: { ...(history?.[league]?.[season] ?? {}) },
         ready: !!teams && history !== null,
       };
     }
@@ -196,7 +199,7 @@ export function useGameRecordOptions(scope: RecordsScope, season: string): GameR
       teamDivisions: latest,
       ready: history !== null,
     };
-  }, [scope, season, history, teams]);
+  }, [scope, season, history, teams, league]);
 }
 
 /** ルーキーの導出データ（ルーキーで絞り込むときだけ読む） */

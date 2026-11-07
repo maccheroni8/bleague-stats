@@ -1,3 +1,4 @@
+import { useLeague } from "../lib/league";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TeamColors } from "../../shared/types";
 import { isRookieFilter, splitSeasonsOnly, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
@@ -160,6 +161,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const [periodValue, setPeriodValue] = useUrlState(LINEUP_PERIOD_PARAM, "all");
   const shareCodec = useMemo(() => lineupShareParam(unit), [unit]);
   const [sharePct, setSharePct] = useUrlState(shareCodec, LINEUP_SHARE_DEFAULT[unit]);
+  const league = useLeague();
   const allTime = range === "career";
   // 現役の絞り込みは通算だけ（過去の選手が混ざる範囲）
   const activeOn = allTime && activeParam === "active";
@@ -174,8 +176,8 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
     () => (allTime ? (careerSeasons ? careerSeasons.filter((s) => !splitGroup || s >= SPLIT_CLASSIFICATION_FIRST_SEASON) : null) : supported ? [season] : null),
     [allTime, careerSeasons, splitGroup, supported, season],
   );
-  const lineup = useLineupData(seasons, supported && !classBlocked);
-  const options = useGameRecordOptions(allTime ? "allTime" : "season", season);
+  const lineup = useLineupData(seasons, supported && !classBlocked, league);
+  const options = useGameRecordOptions(allTime ? "allTime" : "season", season, league);
   const rookies = useRookieFile(isRookieFilter(group));
   const active = useActivePlayerIds(activeOn);
   // 通算は、選手名を今の登録名にそろえる

@@ -21,6 +21,8 @@ export function buildTeamConditionDefs(opts: {
   shotTypesOf: (row: AllTeamsRow) => ShotTypeBreakdown | undefined;
   shotGamesOf: (row: AllTeamsRow) => number;
   shotTypeKeys: string[];
+  /** Shooting の項目を含めるか（B.ONE にはシュートの種類の記録が無いので含めない。既定は含める） */
+  includeShooting?: boolean;
 }): StatConditionItemDef<AllTeamsRow>[] {
   const { mode, columnsFor, sampleRows, shotTypesOf, shotGamesOf, shotTypeKeys } = opts;
   const otherMode: SeasonDisplayMode = mode === "total" ? "perGame" : "total";
@@ -72,5 +74,5 @@ export function buildTeamConditionDefs(opts: {
       seasonTotal: true,
     };
   });
-  return [...defs, ...oppDefs, ...shootingDefs];
+  return [...defs, ...oppDefs, ...(opts.includeShooting === false ? [] : shootingDefs)];
 }

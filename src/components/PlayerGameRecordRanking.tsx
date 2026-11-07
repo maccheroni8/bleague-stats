@@ -5,6 +5,8 @@ import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds 
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
 import { fetchLeaguePlayerGameRecords, fetchPlayerGameRecords } from "../lib/data";
+import { useLeague } from "../lib/league";
+import { ONE_ROOKIE_REASON } from "../lib/leagueAvailability";
 import { classificationAxis, rookieAxis, gameTypeAxis, multiSelectAxis, periodAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
 import { isRookieFilter, positionFilterOptions, selectedPositionLabels, splitSeasonsOnly, withRookie, SPLIT_CLASSIFICATION_FIRST_SEASON, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked, topFileClassKey } from "../lib/classificationFilter";
 import { hasRegistrationChanges, splitRecordedSeasons, useRegistrationChanges } from "../lib/registrationScope";
@@ -82,7 +84,10 @@ export const POSITION_OPTIONS = positionFilterOptions(["PG", "PG/SG", "SG", "SG/
 export function PlayerGameRecordRanking({ season, teamColors }: { season: string; teamColors: Record<string, TeamColors> | undefined }) {
   const exportRef = useRef<HTMLDivElement>(null);
   const narrow = useNarrow();
-  const [scope] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
+  const league = useLeague();
+  const [urlScope] = useUrlState(RECORDS_SCOPE_PARAM, "allTime");
+  // B.ONE は歴代（全シーズンの上位）が無いので、シーズンだけ。URL に歴代と書いてあっても、そのシーズンの記録を出す
+  const scope: RecordsScope = league === "one" ? "season" : urlScope;
   const [gameType, setGameType] = useUrlState(GAME_TYPE_PARAM, "regular");
   const [group, setGroup] = useUrlState(PLAYER_GROUP_PARAM, "all");
   const [mode, setMode] = useUrlState(PLAYER_RECORD_MODE_PARAM, "record");
@@ -125,7 +130,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   // 登録区分の上位20位の表（日本人・外国籍・帰化・アジアのまとめ）。分けた区分（外国籍・帰化・アジア特別枠）はファイルに無いので索引から（null）
   const topKey = topFileClassKey(group);
   // シーズンの途中で区分が変わった選手がいるシーズンは、日本人・まとめも索引の試合ごとの区分で数える（上位20位のファイルは選手ごとの1つの区分で作られている）
-  const registrationChanges = useRegistrationChanges(allTime ? splitRecordedSeasons() : [season], "premier", topKey === "jp" || topKey === "intl");
+  const registrationChanges = useRegistrationChanges(allTime ? splitRecordedSeasons() : [season], league, topKey === "jp" || topKey === "intl");
   // 2025-26 以前のシーズンで分けた区分を選んでいるときは、表の代わりに理由を出す（通算・歴代は 2026-27 以降の試合だけを数える）
   const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
   // 条件が無く、上位20位のファイルで出せる間は索引を読まない。ファイルに無い表（ワースト）・条件・ルーキー・ポジション・前後半5分の特別試合を除く指定は索引から
@@ -142,13 +147,13 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
       topKey === null ||
       hasRegistrationChanges(registrationChanges));
 
-  const options = useGameRecordOptions(scope, season);
+  const options = useGameRecordOptions(scope, season, league);
   const { data: file, loading: fileLoading } = useJsonData(
-    () => (useIndex ? Promise.resolve(null) : allTime ? fetchLeaguePlayerGameRecords() : fetchPlayerGameRecords(season)),
-    [allTime, season, useIndex],
+    () => (useIndex ? Promise.resolve(null) : allTime ? fetchLeaguePlayerGameRecords() : fetchPlayerGameRecords(season, league)),
+    [allTime, season, useIndex, league],
   );
-  const index = useGameIndexViews("player", scope, season, useIndex, { fromSeason: topKey === null && splitSeasonsOnly(group) ? SPLIT_CLASSIFICATION_FIRST_SEASON : null });
-  const periodIndex = usePlayerPeriodViews(index.views, useIndex && !!period);
+  const index = useGameIndexViews("player", scope, season, useIndex, { fromSeason: topKey === null && splitSeasonsOnly(group) ? SPLIT_CLASSIFICATION_FIRST_SEASON : null, league });
+  const periodIndex = usePlayerPeriodViews(index.views, useIndex && !!period, league);
   const rookies = useRookieFile(useIndex && isRookieFilter(group));
   const active = useActivePlayerIds(activeOn);
   // 歴代で索引から作る表は、選手名を今の登録名にそろえる（上位20位のファイルは、作る側でそろえてある）
@@ -183,11 +188,11 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   // シーズンを変えたとき（とページを開いたとき）に、そのシーズンに無い対戦相手・地区・ルーキーを外す
   useEffect(() => {
     if (allTime) return;
-    if (isRookieFilter(group) && !rookieSupportedSeason(season)) setGroup(withRookie(group, false));
+    if (isRookieFilter(group) && (league === "one" || !rookieSupportedSeason(season))) setGroup(withRookie(group, false));
     if (!options.ready) return;
     const next = cleanGameConditionsForSeason(conditions, options.teams.map((t) => t.value), options.divisions);
     if (next) setConditions(next);
-  }, [allTime, season, group, conditions, options, setGroup, setConditions]);
+  }, [allTime, season, league, group, conditions, options, setGroup, setConditions]);
 
   // 登録区分を選んだときは、その区分の選手だけの中での上位（区分ごとの表。DESIGN.md 197章）
   const tables = topKey === "jp" || topKey === "intl" ? file?.byClassification?.[topKey] : file?.byGameType;
@@ -226,12 +231,12 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
     setConditions(DEFAULT_GAME_RECORD_CONDITIONS);
     setStatConditions({ ...statConditions, conditions: [] });
   };
-  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial, includeSpecialDefault };
+  const axesInput = { conditions, onChange: setConditions, teams: options.teams, divisions: options.divisions, teamDivisions: options.teamDivisions, includeSpecial, includeSpecialDefault, league };
   const axes: FilterAxis[] = [
     classificationAxis(group, setGroup, {
       season: allTime ? null : season,
     }),
-    rookieAxis(group, setGroup, { disabledReason: !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined }),
+    rookieAxis(group, setGroup, { disabledReason: league === "one" ? ONE_ROOKIE_REASON : !allTime && !rookieSupportedSeason(season) ? ROOKIE_UNSUPPORTED_REASON : undefined }),
     ...(allTime ? [activeAxis(activeParam, setActive)] : []),
     gameTypeAxis(gameType, setGameType, seasonForTitle),
     periodAxis(periodParam, setPeriod, GAME_RECORD_PERIOD_OPTIONS, {}),
