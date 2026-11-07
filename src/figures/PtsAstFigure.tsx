@@ -83,7 +83,7 @@ export default function PtsAstFigure({ season, category }: FigureProps) {
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season),
     { kind: 'select', id: 'pastMode', label: '平均／合計', tier: 'primary', value: mode, defaultValue: 'perGame', options: [{ value: 'perGame', label: '1試合平均' }, { value: 'total', label: '合計' }], onChange: v => setMode(v as 'perGame' | 'total') },
     classificationAxis(classification, setClassification, { season }),
-    pf.clubAxis,
+    pf.clubAxis, pf.positionAxis,
     { kind: 'popover', id: 'pastMinPts', label: '得点の下限', tier: 'primary', value: String(minPts), defaultValue: '0', onChange: () => setMinPts(0), summary: `得点 ${formatDecimal(minPts, 1)}以上（1試合）`, chipValue: `得点 ${formatDecimal(minPts, 1)}以上（1試合）`,
       content: <EligibilitySlider label="得点（1試合平均）" value={minPts} min={0} max={PTS_AST_MIN.pts.max} step={PTS_AST_MIN.pts.step} format={v => formatDecimal(v, 1)} onChange={setMinPts} /> },
     { kind: 'popover', id: 'pastMinAst', label: 'アシストの下限', tier: 'primary', value: String(minAst), defaultValue: '0', onChange: () => setMinAst(0), summary: `アシスト ${formatDecimal(minAst, 1)}以上（1試合）`, chipValue: `アシスト ${formatDecimal(minAst, 1)}以上（1試合）`,

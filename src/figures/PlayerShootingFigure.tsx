@@ -99,7 +99,7 @@ export default function PlayerShootingFigure({ season, category }: FigureProps) 
     select('pshX', '横軸', xAxis, DEFAULT_SHOOT_X, SHOOT_X.map(k => ({ value: k, label: SHOOT_X_LABELS[k] })), v => { setX(v as ShootX); setMin(-1); }),
     select('pshMode', '平均／合計', mode, 'perGame', [{ value: 'perGame', label: '1試合平均' }, { value: 'total', label: '合計' }], v => setMode(v as 'perGame' | 'total')),
     classificationAxis(classification, setClassification, { season }),
-    pf.clubAxis,
+    pf.clubAxis, pf.positionAxis,
     { kind: 'popover', id: 'pshMin', label: '試投数の下限', tier: 'primary', value: String(minAttempts), defaultValue: String(minLimit.default), onChange: () => setMin(-1), summary: minSummary, chipValue: minSummary,
       content: <EligibilitySlider label={`${xName}（1試合平均）`} value={minAttempts} min={0} max={minLimit.max} step={minLimit.step} format={v => formatDecimal(v, 1)} onChange={v => setMin(v)} /> },
     hl.axis,

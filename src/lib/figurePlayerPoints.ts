@@ -1,6 +1,6 @@
 // 画面専用（図解の選手の散布図）。選手の条件の絞り方・出場率の数え方は USG% × PPP の図と同じ。
 // 値は全選手スタッツと同じ列定義（SEASON_TRADITIONAL_COLUMNS・SEASON_ADVANCED_COLUMNS）で出す。
-import type { Division, TeamSeasonRawTotals } from '../../shared/types';
+import type { Division, PlayerSummary, TeamSeasonRawTotals } from '../../shared/types';
 import { filterByGameType } from '../../shared/gameType';
 import { teamTotalsForTransferredPlayer } from '../../shared/transferredTeamTotals';
 import { teamTotalsForPlayedGames } from '../../shared/playedTeamTotals';
@@ -17,6 +17,8 @@ export interface PlayerFigurePoint {
   id: string; playerId: string; name: string; teamId: string; teamName: string; division?: Division;
   teamIds: string[]; games: number; teamGames: number; ratio: number;
   raw: PlayerSeasonRawTotals; team: TeamSeasonRawTotals;
+  /** 選手マスタの行（プロフィール・キャリア・シューティング・ポジションの詳細フィルターに使う） */
+  summary: PlayerSummary;
 }
 export type PlayerFigureQuery = Omit<ScorerQuery, 'minRatio'>;
 
@@ -52,7 +54,7 @@ export function buildPlayerFigurePoints(data: ScorerData, q: PlayerFigureQuery):
     }
     points.push({ id: p.playerId, playerId: p.playerId, name: p.name, teamId: p.teamId, teamName: p.teamName,
       division: data.divisions?.[q.category]?.[q.season]?.[p.teamId], teamIds,
-      games: raw.gamesPlayed, teamGames, ratio: teamGames ? 100 * raw.gamesPlayed / teamGames : 0, raw, team });
+      games: raw.gamesPlayed, teamGames, ratio: teamGames ? 100 * raw.gamesPlayed / teamGames : 0, raw, team, summary: p });
   }
   return points;
 }

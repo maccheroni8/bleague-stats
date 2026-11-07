@@ -95,7 +95,7 @@ export default function UsgPppFigure({ season, category }: FigureProps) {
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season),
     classificationAxis(classification, setClassification, { season }),
-    pf.clubAxis,
+    pf.clubAxis, pf.positionAxis,
     { kind: 'popover', id: 'usgPts', label: '平均得点', tier: 'primary', value: String(minPts), defaultValue: String(DEFAULT_PTS), onChange: () => setMinPts(DEFAULT_PTS), summary: `平均得点${minPts}以上`, chipValue: `平均得点${minPts}以上`, content: <EligibilitySlider label="平均得点" value={minPts} min={0} max={50} step={0.5} format={v => `${v}点`} onChange={setMinPts} /> },
     hl.axis,
     ratioEligibilityAxis({ id: 'usgRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio }),

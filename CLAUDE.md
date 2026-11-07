@@ -152,6 +152,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 346章: **連戦（GAME1・GAME2…）は「同じ相手と中1日以内」**（相手が違う試合や中2日以上空いた試合は続けない。3試合以上続けば GAME3…、GAME3以降は当てはまる試合があるときだけ行・ボタンを出す。`buildBackToBackStatus`・`backToBackGameLabels`）。検証は `npm run validate:back-to-back`。**画面だけの変更でキー不変**
 - 347章: 条件別勝敗に**試合割合**の列（その条件の試合数÷表の対象の試合数。チーム詳細は勝率の右、条件別順位表は連勝/連敗と残り試合数の間。書き方はサイト全体の小数第2位「21.43%」）。**画面だけの変更でキー不変**
 - 348章: 図解（チーム）の**自由な散布図**（`figure=team-shooting`〔IDは変えない〕。縦軸・横軸それぞれで項目〔全チームスタッツの列。Shooting・Forced TOV を含む〕と視点〔自チーム／opp／+/-〕。URL `fx`・`fy`・`fxv`・`fyv`、以前の `shx`・`shy`・`v` も読む。目盛りと単位は項目から自動。`src/lib/figureTeamFree.ts`）と、**図の設定の保存**（チーム・選手のすべての図。localStorage `bleague-stats:figure-presets`・URL の条件と同じ中身・保存できない環境ではボタンを押せなくする。`src/lib/figurePresets.ts`・`FigurePresets.tsx`）。検証は `npm run validate:figure-team-free`。**画面だけの変更でキー不変**
+- 349章: 図解（選手）の詳細フィルターに、プロフィール（年齢・身長・体重）・キャリア・シューティング・ポジションを足した（ランキングと同じ定義。`playerVennConditionDefs`・`usePlayerFigureFilter`。B.ONE はシューティング・キャリア不可）。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

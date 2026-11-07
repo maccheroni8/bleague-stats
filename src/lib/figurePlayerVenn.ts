@@ -9,6 +9,10 @@ import { computeVenn, displayNumber, thresholdVennRows, type VennCircleSpec } fr
 import { formatVennThreshold } from "./figureVennItems";
 import type { PlayerFigurePoint } from "./figurePlayerPoints";
 import type { StatConditionItemDef } from "./statConditions";
+import type { PlayerCareerCounts, PlayerSummary } from "../../shared/types";
+import { mapConditionDefs, playerCareerConditionDefs, playerProfileConditionDefs } from "./playerConditionItems";
+import { shotTypeEntityColumns, SHOT_TYPE_DISPLAY_ORDER } from "./shotTypeBreakdown";
+import { CATEGORY_LABELS } from "./categoryLabels";
 
 export const PLAYER_VENN_CATEGORIES = BOX_CATEGORY_TABS;
 
@@ -131,7 +135,7 @@ export function computePlayerVenn(points: readonly PlayerFigurePoint[], itemIds:
  * 詳細フィルター（スタッツの条件）に選べる項目。ランキング（個人・シーズン成績）と同じ列（出場試合数 G・出場時間 MIN など）を、
  * ベン図の円と同じ1試合平均の値で判定する（表示の値で判定。出せない値は「-」）。同じ key の項目は最初の1つだけ
  */
-export function playerVennConditionDefs(season: string): StatConditionItemDef<PlayerFigurePoint>[] {
+export function playerVennConditionDefs(season: string, league: "premier" | "one" = "premier", careerOf: (p: PlayerSummary) => PlayerCareerCounts | undefined = () => undefined): StatConditionItemDef<PlayerFigurePoint>[] {
   const defs: StatConditionItemDef<PlayerFigurePoint>[] = [], seen = new Set<string>();
   for (const tab of PLAYER_VENN_CATEGORIES) {
     for (const column of playerVennColumns(tab.key, season)) {
@@ -144,5 +148,16 @@ export function playerVennConditionDefs(season: string): StatConditionItemDef<Pl
       });
     }
   }
+  // ランキング（個人・シーズン成績）と同じ、シューティング・プロフィール・キャリアの項目（値はシーズン通算。B.ONE にはシュートの種類・リーグをまたぐ経歴の記録が無いので、シューティング・キャリアは選べない）
+  const pick = (p: PlayerFigurePoint) => p.summary;
+  if (league !== "one") {
+    for (const c of shotTypeEntityColumns(SHOT_TYPE_DISPLAY_ORDER, (p: PlayerSummary) => p.shotTypes, "perGame", (p) => p.gamesPlayed)) {
+      if (seen.has(c.key)) continue;
+      seen.add(c.key);
+      defs.push({ key: c.key, label: c.label, group: CATEGORY_LABELS.shooting, display: p => { const s = pick(p); return c.format ? c.format(s) : String(c.sortValue(s)); }, seasonTotal: true });
+    }
+  }
+  defs.push(...mapConditionDefs(playerProfileConditionDefs(season), pick));
+  if (league !== "one") defs.push(...mapConditionDefs(playerCareerConditionDefs(careerOf), pick));
   return defs;
 }

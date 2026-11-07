@@ -123,7 +123,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
     .map(a => a.kind === 'select' ? { ...a, options: a.options.filter(o => ['all', 'recent:5', 'recent:10', 'custom'].includes(o.value)) } : { ...a, tier: 'primary' as const });
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), classificationAxis(classification, setClassification, { season }),
     { kind: 'select', id: 'vennDisplay', label: '選手の表示', tier: 'primary', value: display, defaultValue: 'photo', options: [{ value: 'photo', label: '写真' }, { value: 'name', label: '名前' }], onChange: v => setDisplay(v as VennDisplay) },
-    pf.clubAxis, hl.axis, ratioEligibilityAxis({ id: 'vennRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio })];
+    pf.clubAxis, pf.positionAxis, hl.axis, ratioEligibilityAxis({ id: 'vennRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio })];
   const [periodLabel] = situationalFilterLabels(filter);
   const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], classificationFilterLabel(classification), `出場率${minRatio}%以上`, ...pf.labels, ...hl.labels].filter(Boolean);
   const baseDate = { kind: 'season' as const, season, gameType };

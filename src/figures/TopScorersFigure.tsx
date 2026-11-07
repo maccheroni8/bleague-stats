@@ -77,7 +77,7 @@ export default function TopScorersFigure({season,category}:FigureProps){
  const axes:FilterAxis[]=[...rangeAxes,gameTypeAxis(gameType,setGameType,season),
  {kind:'select',id:'scorerX',label:'横軸',tier:'primary',value:axis,defaultValue:'win',options:axesAvailable.map(a=>({value:a,label:SCORER_LABELS[a]})),onChange:v=>setX(v as ScorerAxis)},
  classificationAxis(classification,setClassification,{season}),
- pf.clubAxis,
+ pf.clubAxis, pf.positionAxis,
  hl.axis,
  ratioEligibilityAxis({id:'scorerRatio',value:minRatio,defaultValue:DEFAULT_RATIO,onChange:setMinRatio})];
  const conditions=[season,seasonGameTypeLabels(season)[gameType],...situationalFilterLabels(filter),classificationFilterLabel(classification),...pf.labels,`出場率${minRatio}%以上`,...hl.labels];
