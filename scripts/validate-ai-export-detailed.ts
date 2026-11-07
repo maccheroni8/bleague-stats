@@ -265,6 +265,7 @@ for (const season of seasons) {
 // ---- 3b. ORtg・DRtg・NetRtg・USG%（と全列）: チーム詳細の「選手スタッツ」タブの経路をそのまま再現して比べる（移籍した選手も含む）。全選手スタッツとの違いは報告する ----
 {
   const ADV = ['ORtg', 'DRtg', 'NetRtg', 'USG%'];
+  let pppCells = 0; const pppSamples: string[] = [];
   let tabCells = 0, tabDiff = 0, allCells = 0, allDiff = 0, allTransDiff = 0, allTransCells = 0;
   let fullCells = 0, fullDiff = 0;
   const fullGaps: string[] = [];
@@ -300,6 +301,7 @@ for (const season of seasons) {
             if (!c) return;
             tabCells++;
             const want = c.format(split.ctx, 'perGame');
+            if (lb === 'PPP') { pppCells++; if (pppSamples.length < 6 && want !== '-') pppSamples.push(`${season} ${t.teamName} ${player.name} md=${row[i]} チーム詳細=${want}`); }
             if (want !== row[i]) { tabDiff++; if (tabGaps.length < 8) tabGaps.push(`${season} ${t.teamName} ${player.name} ${lb}: md=${row[i]} / チーム詳細の選手スタッツ=${want}`); }
           });
           // 全選手スタッツ（players.json の事前計算値。条件なしの表）
@@ -327,6 +329,8 @@ for (const season of seasons) {
     }
   }
   console.log(`チーム詳細の選手スタッツと同じ経路: 比べた${tabCells}セル、食い違い${tabDiff}`);
+  console.log(`PPP の列: md とチーム詳細の選手スタッツを${pppCells}セル比べた。例: ${pppSamples.join(' ／ ')}`);
+  check('md の選手表に PPP の列があり、チーム詳細と比べたセルがある', pppCells > 0, `${pppCells}`);
   for (const g of tabGaps) console.log(`   ${g}`);
   check('選手の全列（ORtg・DRtg・NetRtg・USG% を含む）がチーム詳細の選手スタッツタブと同じ（移籍した選手も）', tabDiff === 0, `${tabDiff}件`);
   console.log(`参考: 全選手スタッツ（players.json の事前計算値）との比較 ORtg・DRtg・NetRtg・USG%: ${allCells}セル中 食い違い${allDiff}（うち移籍した選手の行 ${allTransDiff}／${allTransCells}）`);

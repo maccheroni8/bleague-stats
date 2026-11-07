@@ -15747,3 +15747,8 @@ Codex の試作（`codex/top-scorers`）を取り込んだ。各チームの平�
 - 列の組み立ては `src/lib/pppColumn.ts` の `seasonBoxColumnsWithFtrPpp`・`seasonBoxColumnsWithPpp` の2か所。画面専用で、保存キーの対象ファイルは触っていない（`code-files` の一覧に入っていない）。
 - 触っていない所: ゲームログ・試合詳細のボックススコア（1試合ごとの在コートの ORtg の列）、チーム詳細の選手スタッツ表。
 - 検証: `validate:player-ppp` に、個人詳細・Q別・md・対戦相手別・比較の Advanced で PPP が ORtg の右にあること・全選手スタッツと同じ並び・Advanced 以外に出ないこと・全選手（4,057人）で値が一致することを足した。`validate:ai-export-detailed`・`validate:opponent-split` の期待の列にも PPP を入れた。
+
+## 336. チーム詳細の選手スタッツ表に PPP の列を足す（2026-11-07。画面だけ・保存キーは不変 `4dcec1e91599df073f981c44d8b45580`）
+
+- チーム詳細 > 選手スタッツ（`TeamPlayerStatsTable`。Q別・前半後半・条件などの絞り込みも同じ表）の Advanced に、335章と同じ決まりで PPP を足した（ORtg の右・表の範囲の合計から `playerPpp`・分母0は「-」。`seasonBoxColumnsWithFtrPpp`）。チーム詳細で ORtg が出る選手の表はこの1つだけ（ラインナップの ORtg は5人組の在コートの値で別）。
+- md（詳しい版）の選手表との一致は `validate:ai-export-detailed` が PPP のセルを数えて確かめる。ゲームログ・試合詳細のボックススコアは触っていない（別の依頼で PC と一緒に足す）。
