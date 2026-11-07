@@ -1,10 +1,7 @@
 import { useId } from "react";
+import { NumberTextInput } from "./NumberTextInput";
 
-/** 数字だけの入力（空は未指定）。全角数字も受け付ける */
-function parseCount(text: string): number | undefined {
-  const t = text.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/\D/g, "");
-  return t === "" ? undefined : Number(t.slice(0, 3));
-}
+const toCount = (text: string): number | undefined => (text === "" ? undefined : Number(text));
 
 /**
  * 最終点差の範囲の入力欄（ランキングの1試合記録の詳細フィルタ。DESIGN.md 220章）。「◯点以上」「◯点以下」のどちらか片方だけでもよい。
@@ -24,26 +21,22 @@ export function MarginRangeEditor({
   return (
     <div className="margin-range-editor">
       <div className="margin-range-row">
-        <input
+        <NumberTextInput
           id={`${id}-min`}
-          type="text"
-          inputMode="numeric"
-          enterKeyHint="done"
+          kind="count"
           aria-label="最終点差の下限（点）"
-          value={min ?? ""}
-          onChange={(e) => onChange({ min: parseCount(e.target.value), max })}
+          value={min === undefined ? "" : String(min)}
+          onCommit={(text) => onChange({ min: toCount(text), max })}
         />
         <label htmlFor={`${id}-min`}>点以上</label>
       </div>
       <div className="margin-range-row">
-        <input
+        <NumberTextInput
           id={`${id}-max`}
-          type="text"
-          inputMode="numeric"
-          enterKeyHint="done"
+          kind="count"
           aria-label="最終点差の上限（点）"
-          value={max ?? ""}
-          onChange={(e) => onChange({ min, max: parseCount(e.target.value) })}
+          value={max === undefined ? "" : String(max)}
+          onCommit={(text) => onChange({ min, max: toCount(text) })}
         />
         <label htmlFor={`${id}-max`}>点以下</label>
       </div>

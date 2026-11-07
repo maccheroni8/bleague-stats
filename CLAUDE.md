@@ -141,6 +141,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 334章: **個人の PPP ＝ PTS ÷ (FGA + 0.44×FTA + TOV)**（`playerPpp`・画面は `src/lib/pppColumn.ts`。分母0は値なし）。個人 ORtg はそのまま `advanced.individualOrtg` に残す（`advanced.ppp` はもう ORtg ÷ 100 ではない）。選手のベン図に詳細フィルター（`sc`・`sm`）。**保存キーが変わる**（allKey `4dcec1e91599df073f981c44d8b45580`）。検証は `validate:player-ppp`
 - 335章: **個人詳細・Q別・対戦相手別・比較・md（詳しい版）の Advanced に PPP を足した**（ORtg の右。全選手スタッツと同じ並び。`seasonBoxColumnsWithFtrPpp`・`seasonBoxColumnsWithPpp`＝`src/lib/pppColumn.ts`。合計から `playerPpp`・分母0は「-」）。**画面だけでキー不変**。個人の表に Advanced の列を足すときはこの2つを通す
 - 336章: チーム詳細の選手スタッツ表（Q別・条件の絞り込み込み）の Advanced にも PPP を足した（335章と同じ。画面だけでキー不変）
+- 337章: **数値・時間を手で入れる欄は共通の部品 `NumberTextInput`**（`src/components/NumberTextInput.tsx`。入力中は打った文字のまま・確定〔離れる・Enter・欄ごと閉じる〕で読んで親〔URL〕へ渡す・日本語キーボードの変換中は書き換えない。読み方は `src/lib/numberTextInput.ts`）。**1文字ごとに `useUrlState` へ渡して書き戻す欄を作らない**（URL が遅れて届く間に欄が古い値へ戻り、スマホの日本語キーボードで文字が重なる）。検証は `npm run validate:number-input`、スマホ画面で打つ確認は `node scripts/check-mobile-input.mjs <URL> both`（手で実行）。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

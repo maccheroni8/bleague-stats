@@ -27,6 +27,7 @@ import type { FigureProps } from './catalog';
 import { useHighlightClubs } from './highlightClubs';
 import './RatingsScatterFigure.css';
 import './TeamVennFigure.css';
+import { NumberTextInput, type NumberTextInputHandle } from '../components/NumberTextInput';
 
 const DEFAULT: SituationalFilter = { range: { kind: 'all' } };
 const rangeCodec: UrlCodec<SituationalFilter> = {
@@ -122,6 +123,9 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
       render: r => `${textOf(r, i)}（${model?.rankOf[i]!.get(r.team.teamId) ?? '—'}位）` })),
   ];
   const chartProps = { emphasized: hl.ids, model, selection, labels, circleNames, circleLines, counts, hover, setHover, teamLabel, byId, textOf, total, tipRow };
+  // 負の値になりうる項目（+/-・NetRtg など）は、スマホの数字キーボードに無い「−」をボタンで足せるようにする
+  const thrInputs = useRef<(NumberTextInputHandle | null)[]>([]);
+  const signed = selection.map((s, i) => s.perspective === 'diff' || (thresholds[i] ?? 0) < 0 || /^[+-]/.test(sample[i]!.trim()) || rows.some(r => Number(columns3[i]!.sortValue(r)) < 0));
   return <section aria-label="ベン図">
     <FilterBar axes={axes} stateKey="figures:team-venn" onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setTop(String(DEFAULT_VENN_TOP) as `${VennTop}`); setSel([...DEFAULT_VENN_SELECTION]); setBasis('rank'); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); }} />
     <div className="venn-pickers">
@@ -135,9 +139,10 @@ export default function TeamVennFigure({ season, category }: FigureProps) {
           </select>
         </label>
         {basis === 'value' && <label>基準の値（{higher[i] ? '以上' : '以下'}）
-          <input type="number" step="any" className="venn-threshold" value={thrParam[i] ?? (thresholds[i] === null ? '' : Number(thresholds[i]!.toFixed(4)))} aria-label={`${labels[i]}の基準の値`}
-            onChange={e => setThr(thrParam.map((t, j) => j === i ? (e.target.value === '' ? null : Number(e.target.value)) : t))} />
+          <NumberTextInput ref={h => { thrInputs.current[i] = h; }} kind="number" className="venn-threshold" value={thrParam[i] != null ? String(thrParam[i]) : thresholds[i] === null ? '' : String(Number(thresholds[i]!.toFixed(4)))} aria-label={`${labels[i]}の基準の値`}
+            onCommit={text => setThr(thrParam.map((t, j) => j === i ? (text === '' ? null : Number(text)) : t))} />
         </label>}
+        {basis === 'value' && signed[i] && <button type="button" className="venn-sign" aria-label={`${labels[i]}の基準の値の符号（−）を付け外し`} onMouseDown={e => e.preventDefault()} onClick={() => thrInputs.current[i]?.toggleSign()}>−</button>}
         {perspectiveOk.get(s.item) && <label>視点
           <select value={s.perspective} onChange={e => setSlot(i, { perspective: e.target.value as VennPerspective })}>
             <option value="own">自チーム</option><option value="opp">opp</option><option value="diff">+/-</option>

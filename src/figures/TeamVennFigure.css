@@ -53,3 +53,5 @@
 .venn-none-toggle { margin-left:8px; font-size:12px; }
 .venn-none-list .venn-player { height:auto; }
 .export-rendering .venn-none-toggle { display:none; }
+/* 基準の値の「−」（スマホの数字キーボードに無い符号を足す。負の値になりうる項目だけ） */
+.venn-sign { min-width:32px; padding:3px 8px; border:1px solid var(--border); border-radius:4px; background:transparent; color:var(--muted); font-size:14px; font-weight:700; cursor:pointer; }

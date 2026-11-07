@@ -32,6 +32,7 @@ import { useHighlightClubs } from './highlightClubs';
 import type { FigureProps } from './catalog';
 import './RatingsScatterFigure.css';
 import './TeamVennFigure.css';
+import { NumberTextInput, type NumberTextInputHandle } from '../components/NumberTextInput';
 
 const DEFAULT: SituationalFilter = { range: { kind: 'all' } };
 const DEFAULT_RATIO = 85;
@@ -124,6 +125,9 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
     ...itemIds.map((_, i): Column<PlayerFigurePoint> => ({ key: `c${i}`, label: labels[i]!, sortValue: p => computed?.valueOf(p.id, i)?.value ?? Number.NaN, render: p => valueText(p, i) })),
   ];
   const chartProps = { emphIds, model, labels, circleNames, circleLines, counts, hover, setHover, byId, valueText, playerLabel, abbr, teamNames, total: eligible.length, openMask, setOpenMask };
+  // 負の値になりうる項目（+/-・NetRtg など）は、スマホの数字キーボードに無い「−」をボタンで足せるようにする
+  const thrInputs = useRef<(NumberTextInputHandle | null)[]>([]);
+  const signed = itemIds.map((_, i) => (thresholds[i] ?? 0) < 0 || sampleValues[i]!.some(v => v.value < 0 || /^[+-]/.test(v.text.trim())));
   return <section aria-label="ベン図">
     <FilterBar axes={axes} stateKey="figures:player-venn" advancedExtra={statConditionsBarExtra(statConditions, setStatConditions, conditionItems, { defaultKey: 'min' })} onClearAll={() => { setStatConditions(DEFAULT_STAT_CONDITIONS); setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setMinRatio(DEFAULT_RATIO); setSel(NO_SELECTION); setThr(NO_THRESHOLDS); hl.setIds([]); setHover(null); setOpenMask(null); }} />
     <div className="venn-pickers">
@@ -137,9 +141,10 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
           </select>
         </label>
         <label>基準の値（{higher[i] ? '以上' : '以下'}）
-          <input type="number" step="any" className="venn-threshold" value={thrParam[i] ?? (thresholds[i] === null ? '' : Number(thresholds[i]!.toFixed(4)))} aria-label={`${labels[i]}の基準の値`}
-            onChange={e => setThr(thrParam.map((t, j) => j === i ? (e.target.value === '' ? null : Number(e.target.value)) : t))} />
+          <NumberTextInput ref={h => { thrInputs.current[i] = h; }} kind="number" className="venn-threshold" value={thrParam[i] != null ? String(thrParam[i]) : thresholds[i] === null ? '' : String(Number(thresholds[i]!.toFixed(4)))} aria-label={`${labels[i]}の基準の値`}
+            onCommit={text => setThr(thrParam.map((t, j) => j === i ? (text === '' ? null : Number(text)) : t))} />
         </label>
+        {signed[i] && <button type="button" className="venn-sign" aria-label={`${labels[i]}の基準の値の符号（−）を付け外し`} onMouseDown={e => e.preventDefault()} onClick={() => thrInputs.current[i]?.toggleSign()}>−</button>}
       </div>)}
     </div>
     {blocked ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !model ? <p className="empty-message">この条件で表示できる選手がいません。</p> : <>

@@ -1,5 +1,5 @@
-import { useId, type ReactNode } from "react";
-import { formatMinutesColon } from "../lib/minutesFormat";
+import { useId, useRef, type ReactNode } from "react";
+import { NumberTextInput, type NumberTextInputHandle } from "./NumberTextInput";
 import {
   newStatCondition,
   parseConditionInput,
@@ -60,13 +60,8 @@ export function StatConditionsEditor({
   const byKey = new Map(items.map((i) => [i.key, i]));
   const update = (id: number, patch: Partial<StatCondition>) =>
     onChange({ ...state, conditions: state.conditions.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
-  /** MIN の入力欄: 入力欄を離れたとき・Enter で「20:00」の形に整える（読めない入力はそのまま残し、欄の下に案内を出す） */
-  const tidyMinutes = (c: StatCondition) => {
-    const v = parseConditionInputFor(c.value, "minutes");
-    if (v === null || c.value.trim() === "") return;
-    const tidy = formatMinutesColon(v);
-    if (tidy !== c.value) update(c.id, { value: tidy });
-  };
+  /** 値の欄（「:」のボタンから下書きに文字を足す） */
+  const inputs = useRef(new Map<number, NumberTextInputHandle>());
   const remove = (id: number) => onChange({ ...state, conditions: state.conditions.filter((c) => c.id !== id) });
   const add = () => onChange({ ...state, conditions: [...state.conditions, newStatCondition(byKey.has(defaultKey) ? defaultKey : (items[0]?.key ?? defaultKey))] });
   const disabled = !!disabledReason;
@@ -132,25 +127,19 @@ export function StatConditionsEditor({
                 </option>
               ))}
             </select>
-            <input
+            <NumberTextInput
+              ref={(h) => {
+                if (h) inputs.current.set(c.id, h);
+                else inputs.current.delete(c.id);
+              }}
               id={`${baseId}-${c.id}`}
               className={`stat-condition-value${invalid ? " invalid" : ""}`}
-              type="text"
-              inputMode="decimal"
-              enterKeyHint="done"
+              kind={isMinutes ? "minutes" : "text"}
               placeholder={isMinutes ? "20:00" : "値"}
               aria-label={`条件${i + 1}の値`}
               value={c.value}
               disabled={disabled}
-              onChange={(e) => update(c.id, { value: e.target.value })}
-              onBlur={isMinutes ? () => tidyMinutes(c) : undefined}
-              onKeyDown={
-                isMinutes
-                  ? (e) => {
-                      if (e.key === "Enter" && !e.nativeEvent.isComposing) tidyMinutes(c);
-                    }
-                  : undefined
-              }
+              onCommit={(text) => update(c.id, { value: text })}
             />
             <span className="stat-condition-unit">{item?.unit ?? ""}</span>
             <button
@@ -177,9 +166,7 @@ export function StatConditionsEditor({
                   aria-label="コロン（:）を入力"
                   disabled={disabled}
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    if (!c.value.includes(":") && !c.value.includes("：")) update(c.id, { value: `${c.value}:` });
-                  }}
+                  onClick={() => inputs.current.get(c.id)?.appendOnce(":")}
                 >
                   :
                 </button>
