@@ -36,6 +36,7 @@ import {
 import { buildTeamConditionDefs } from "./teamConditionItems";
 import { teamDivisionForSeason } from "../../scripts/lib/divisions";
 import type { PeriodRangeValue } from "./periodRange";
+import { scopedTurnovers } from "./teamTurnoverScoped";
 import type { TeamForcedTurnovers, TeamGameLog, TeamSummary } from "../../shared/types";
 
 /** チームランキングのカテゴリ。既存のBOXSCORE_TABS（トラディショナル/アドバンスド/Misc/
@@ -282,10 +283,23 @@ export function useTeamSeasonRanking(
 
   // 強制ターンオーバーカテゴリ: teams.jsonのforcedTurnovers/turnoversCommitted
   // （Yahoo!スポーツplay-by-play由来、2023-24シーズン以降のみ）をそのまま使う
+  // 選んだ条件（試合区分・試合の条件・地区）に当てはまる試合ログの合計から出す（DESIGN.md 339章）。試合ログに試合ごとの値が無い古いデータのときだけ teams.json の値
+  const scopedTov = useMemo(
+    () => (enabled && category === "forcedTurnovers" && teams && gameLogsByTeam ? scopedTurnovers(scopedLogsByTeam) : null),
+    [enabled, category, teams, gameLogsByTeam, scopedLogsByTeam],
+  );
   const teamsWithForcedTurnovers = useMemo(
-    () => (teams ?? []).filter((t) => !!t.forcedTurnovers && !!t.turnoversCommitted && passes(t.teamId)),
+    () => {
+      if (scopedTov) {
+        return (teams ?? []).flatMap((t): TeamSummary[] => {
+          const r = scopedTov.teams.get(t.teamId);
+          return r && passes(t.teamId) ? [{ ...t, gamesPlayed: r.games, forcedTurnovers: r.forced, turnoversCommitted: r.committed }] : [];
+        });
+      }
+      return (teams ?? []).filter((t) => !!t.forcedTurnovers && !!t.turnoversCommitted && passes(t.teamId));
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [teams, passingTeamIds],
+    [teams, passingTeamIds, scopedTov],
   );
   const selectedTurnoverItem = FORCED_TURNOVER_ITEMS.find((i) => i.key === statKey) ?? FORCED_TURNOVER_ITEMS[0]!;
   const forcedTurnoverDef: RankableStat<TeamSummary> = {
@@ -325,5 +339,7 @@ export function useTeamSeasonRanking(
     teamsWithShotTypes,
     forcedTurnoverDef,
     teamsWithForcedTurnovers,
+    forcedTurnoverScoped: !!scopedTov,
+    scopedLogsByTeam,
   };
 }

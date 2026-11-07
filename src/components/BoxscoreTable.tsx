@@ -7,7 +7,9 @@ import { SeasonLink as Link } from "./SeasonLink";
 import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
-import { efgPct, ftRate, orbPct, safeDiv, tovPartPct, tovPct, tsPct, usagePct } from "../../shared/formulas";
+import { efgPct, ftRate, orbPct, playerPpp, safeDiv, tovPartPct, tovPct, tsPct, usagePct } from "../../shared/formulas";
+import { assistPointsByAssister } from "../../shared/assistedScoring";
+import { pointsCreated } from "../../shared/playerGameRecords";
 import { onCourtPeriodCount, type LineupStint, type PlayerOnCourtRatings } from "../../shared/onCourt";
 import { OR_PCT_UNAVAILABLE_NOTE, computeTeamOrPct, orShare, personalOrPct } from "../lib/gameOrPct";
 import { ON_COURT_SHARE_UNAVAILABLE_NOTE, computeTeamOnCourtShare, gamePlayerAstPct } from "../lib/gameOnCourtShare";
@@ -17,6 +19,7 @@ import { classificationGroup, splitClassificationSeason } from "../lib/classific
 import {
   astToTovRatio,
   buildPlayTypeCounts,
+  buildAssistPairs,
   buildPlayerBoxscores,
   buildTeamCoachesCounts,
   buildTeamTotalCounts,
@@ -448,7 +451,7 @@ export function boxscoreColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): Box
 }
 
 /** 試合詳細だけが選手の行に付ける個人 OR%（0〜100。出せない行は null）。保存キーの対象の BoxscoreCounts は変えず、この画面の中だけで足す */
-type GameBoxscoreCounts = OnCourtShareCounts & { orPct?: number | null };
+type GameBoxscoreCounts = OnCourtShareCounts & { orPct?: number | null; assistPoints?: number | null };
 
 /**
  * 試合詳細のアドバンスドだけに足す OR%。チームの行＝OR ÷（OR＋相手のDR）、選手の行＝本人の OR ÷（本人が出場中の自チーム OR＋出場中の相手 DR。
@@ -465,6 +468,49 @@ const OR_PCT_COLUMN: BoxscoreColumn = {
   },
   value: (c, ctx) => (ctx.isTeamTotalRow ? undefined : ctx.isPlayerRow ? ((c as GameBoxscoreCounts).orPct ?? undefined) : undefined),
 };
+
+/**
+ * 試合詳細だけに足す PC（ポイントクリエイト）＝本人の得点＋本人のアシストから生まれた得点（共通の関数 pointsCreated。DESIGN.md 333章）。
+ * 選手の行だけ。プレーバイプレーが無い試合（assistPoints が null）、チーム・内訳集計の行は「-」。選んだ期間（Q別・前後半）の値
+ */
+const PC_BOX_COLUMN: BoxscoreColumn = {
+  key: "pc",
+  label: "PC",
+  format: (c, ctx) => {
+    const v = ctx.isPlayerRow ? pointsCreated({ pts: c.pts, assistPoints: (c as GameBoxscoreCounts).assistPoints ?? undefined }) : undefined;
+    return v === undefined ? "-" : String(v);
+  },
+  value: (c, ctx) => (ctx.isPlayerRow ? pointsCreated({ pts: c.pts, assistPoints: (c as GameBoxscoreCounts).assistPoints ?? undefined }) : undefined),
+};
+
+/** 個人の PPP（共通の関数 playerPpp。DESIGN.md 334章）。選手・チーム・内訳集計の行とも、その行の合計から。分母が0なら「-」 */
+const PPP_BOX_COLUMN: BoxscoreColumn = {
+  key: "ppp",
+  label: "PPP",
+  format: (c) => {
+    const v = playerPpp(c.pts, c.pt2a + c.pt3a, c.fta, c.tov);
+    return v === undefined ? "-" : formatDecimal(v, 2);
+  },
+  value: (c) => playerPpp(c.pts, c.pt2a + c.pt3a, c.fta, c.tov),
+};
+
+/** Scoring に PC を足す。%PTS ASTED の右（全選手スタッツの Scoring と同じ並び）。試合詳細・個人詳細の試合ログで共通 */
+export function withPcColumn(cols: BoxscoreColumn[]): BoxscoreColumn[] {
+  const a = cols.findIndex((c) => c.key === "pctptsasted");
+  return a < 0 ? [...cols, PC_BOX_COLUMN] : [...cols.slice(0, a + 1), PC_BOX_COLUMN, ...cols.slice(a + 1)];
+}
+
+/** Advanced に PPP を足す。FTR と PPS の間（339章。全選手スタッツの Advanced と同じ並び）。試合詳細・個人詳細の試合ログで共通 */
+export function withPppBoxColumn(cols: BoxscoreColumn[]): BoxscoreColumn[] {
+  const w = cols.findIndex((c) => c.key === "pps");
+  return w < 0 ? [...cols, PPP_BOX_COLUMN] : [...cols.slice(0, w), PPP_BOX_COLUMN, ...cols.slice(w)];
+}
+
+/** 個人詳細の試合ログの列（試合詳細と同じ PC・PPP を足す。OR% は選手の試合ログには出さない） */
+export function gameLogBoxColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): BoxscoreColumn[] {
+  const cols = boxscoreColumnsFor(tab, foulSplit);
+  return tab === "scoring" ? withPcColumn(cols) : tab === "advanced" ? withPppBoxColumn(cols) : cols;
+}
 
 /**
  * 内訳集計（スタメン・ベンチ・登録区分）の %OR＝グループの OR ÷ チームの OR（チームに付いた OR も分母に含む）。個人の OR% とは別の項目。
@@ -515,6 +561,7 @@ const FTR_BOX_COLUMN: BoxscoreColumn = {
 /** 試合詳細のボックススコアの列。アドバンスドは TOV% の右に OR%、TS% の右に FTR を足す */
 export function gameDetailColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): BoxscoreColumn[] {
   const cols = boxscoreColumnsFor(tab, foulSplit);
+  if (tab === "scoring") return withPcColumn(cols);
   if (tab !== "advanced") return cols;
   const withOr = (() => {
     const i = cols.findIndex((c) => c.key === "tovpct");
@@ -522,7 +569,8 @@ export function gameDetailColumnsFor(tab: BoxscoreTabKey, foulSplit: boolean): B
   })();
   // TS% の右に FTR。選手・チーム・内訳集計の行とも、その行の合計の FTA ÷ 合計の FGA（FGA が 0 なら「-」）
   const t = withOr.findIndex((c) => c.key === "ts");
-  return t < 0 ? withOr : [...withOr.slice(0, t + 1), FTR_BOX_COLUMN, ...withOr.slice(t + 1)];
+  const withFtr = t < 0 ? withOr : [...withOr.slice(0, t + 1), FTR_BOX_COLUMN, ...withOr.slice(t + 1)];
+  return withPppBoxColumn(withFtr);
 }
 
 interface BoxscoreTableProps {
@@ -792,6 +840,8 @@ function BoxscoreTeamPanel({
   // 選手の並びは、出場交代と同じ（スタメン上固定・出場時間の長い順・出場なしは末尾。src/lib/boxscoreOrder.ts）。
   // Q別・前後半を選んでも、試合全体の出場時間の順のまま変えない
   const orderIndex = playTimeOrderIndex(ownRows);
+  // PC の材料: 選んだ期間の、本人のアシストから生まれた得点。プレーバイプレーが無い試合は null（「-」）
+  const assistPointsOf = playByPlays.length > 0 ? assistPointsByAssister(buildAssistPairs(playByPlays, periodOption)) : null;
   const players = buildPlayerBoxscores(ownRows, periodOption, playByPlays, yahooTurnovers)
     .map((p) => {
       const { offRtg, defRtg, netRtg } = computeIndividualRatings(p.counts, teamTotal, oppTeamTotal, ratings.poss);
@@ -804,7 +854,7 @@ function BoxscoreTeamPanel({
         reconPm && !p.dnp
           ? { plusMinus: [...reconPm].reduce((a, [period, v]) => a + (periodOption?.periods == null || periodOption.periods.includes(period) ? v : 0), 0), hasPlusMinus: true }
           : {};
-      const counts: GameBoxscoreCounts = { ...p.counts, ...pmOverride, offRtg, defRtg, netRtg, onCourtPace, orPct, ocShare };
+      const counts: GameBoxscoreCounts = { ...p.counts, ...pmOverride, offRtg, defRtg, netRtg, onCourtPace, orPct, ocShare, assistPoints: assistPointsOf ? (assistPointsOf.get(p.playerId) ?? 0) : null };
       return { ...p, counts };
     })
     .sort((a, b) => (orderIndex.get(a.playerId) ?? 0) - (orderIndex.get(b.playerId) ?? 0));

@@ -15786,7 +15786,29 @@ Codex の試作（`codex/top-scorers`）を取り込んだ。各チームの平�
 - 写真を押すとポップアップ（ホバー・フォーカス・クリック）、円の外を押すと消える動きは名前のときと同じ。札を押すと名前の一覧、「どれにも入らない」も名前（写真の一覧にはしない）。保存画像も選んだ表示で出す。画面に注記は足さない。
 - 検証は `validate:player-venn` に写真の配置（全員表示・札への切り替え・重ならない）を足した。
 
-## 339. B.ONE のランキング 段階1（2026-27 の個人・チームのシーズン成績と1試合記録。2026-11-07。画面だけ・保存キーは不変 `4dcec1e91599df073f981c44d8b45580`）
+## 339. 小さな直し4つ: PPP の並び・Forced TOV の条件別・試合の PC／PPP・スタッツの条件の「−」（2026-11-07。画面だけ・保存キーは不変 `4dcec1e91599df073f981c44d8b45580`）
+
+### 339-1. Advanced の PPP の並び
+- PPP を **FTR と PPS の間**に移した（335章までは ORtg の右）。`withPppColumn`（`src/lib/pppColumn.ts`）が一括で並べる: PPS があればその直前、無ければ FTR の右、FTR も無ければ TS% の右、TS% も無ければ ORtg の右。
+- 対象: ランキング（個人・シーズン成績）の項目一覧と表、個人詳細・Q別・md（詳しい版）・チーム詳細（FTR あり: 「TS%、FTR、PPP、PPS」）、比較・対戦相手別（FTR なし: 「TS%、PPP、PPS」）、選手のベン図。
+- 全選手スタッツの Advanced（条件なし）には PPP の列が無かった（条件の項目としてだけ選べた）ので、同じ並び（FTR と PPS の間）で足した。分母が0の選手は「-」で並べ替えの最後。絞り込み中の表は、これまでどおり PPP を出さない（シーズン通算の値だけの列のため）。
+
+### 339-2. Forced TOV を期間・相手・ホーム／アウェーなどで絞れるように
+- 全チームスタッツの Forced TOV とランキング（チーム）の Forced TOV は、`teams.json` のシーズン合計だけだった。試合ごとの値（`TeamGameLog.forcedTurnovers`・`turnoversCommitted`。333章）の合計に変え、試合種別（レギュラー／CS／合算）・対象期間・会場・相手・勝敗などの条件（試合の絞り込み）を連動させた。
+- 集計は `src/lib/teamTurnoverScoped.ts`（`scopedTurnovers`）。平均の分母は条件に当てはまる試合数、リーグ平均は「記録のあるチームの合計 ÷ 試合のあるチーム数」（`league-average.json` と同じ作り方）。試合ログに値が無い古いデータのときだけ従来の `teams.json` の値に戻る。
+- 区間（Q別・前後半）と登録区分は選べない（試合全体の記録のため。理由を表示）。ランキングの名前の下の勝敗は、条件に当てはまる試合のうち記録がある試合のもの。
+- **条件なしの数字は変わらない**: `npm run validate:team-turnover-scoped`（新規）が、全シーズン・両リーグで `teams.json`／`league-average.json` と一致すること、ホーム＋アウェー＝全体・前半の試合＋後半の試合＝全体、1試合の条件＝その試合の値を確かめる。
+
+### 339-3. ボックススコア・試合ログに PC と PPP
+- 試合詳細のボックススコアと個人詳細の試合ログに、PC（Scoring の %PTS ASTED の右）と PPP（Advanced の FTR と PPS の間。試合ログは FTR が無いので TS% と PPS の間）を足した。B.PREMIER・B.ONE とも。
+- PC は共通の関数 `pointsCreated`（PTS＋本人のアシストから生まれた得点）、PPP は `playerPpp`。アシストから生まれた得点は、試合詳細ではその試合のプレーバイプレー（選んだ期間 Q別・前後半の分）から `assistPointsByAssister`、試合ログでは試合の生データから同じ関数で出す（集計の `assistPoints` と同じ数え方）。プレーバイプレーが無い試合の PC、分母が0の PPP は「-」。チーム・内訳集計（スタメン・ベンチ・登録区分）の行の PC は「-」（足し合わせる意味が無いため）、PPP はその行の合計から。
+- `src/components/BoxscoreTable.tsx` の `withPcColumn`・`withPppBoxColumn`・`gameLogBoxColumnsFor`。`boxscoreAggregate.ts` など保存キーの対象は触っていない。検証は `npm run validate:game-pc-ppp`（新規。列の並びと、生データから出した値が試合ログの値からの手計算と一致すること）。
+
+### 339-4. スタッツの条件に「−」ボタン
+- iPhone の数字キーボードには「−」が無いため、スタッツの条件の値に負の値（+/- など）を入れられなかった。337章のベン図と同じ「−」ボタン（`NumberTextInput` の `toggleSign`）を、スタッツの条件の欄（ランキングのシーズン成績・1試合記録・達成記録、全選手・全チームスタッツ、選手のベン図の詳細フィルター）に付けた。
+- **負の値になりうる項目を選んでいるときだけ**出す: 項目の `signed`（`StatConditionItem.signed`）。表の値のどれかが「-3」「+3」の形の項目、1試合記録は +/-・得失点差など。すでに負の値が入っている行にも出す。
+- 検証は `npm run validate:number-input`（符号つきの値の判定と項目の `signed`）、`node scripts/check-mobile-input.mjs <URL> both`（iPhone・Android の画面で 3 → − → Enter が「-3」になり、もう一度押すと外れ、PTS では出ない）。
+## 340. B.ONE のランキング 段階1（2026-27 の個人・チームのシーズン成績と1試合記録。2026-11-07。画面だけ・保存キーは不変 `4dcec1e91599df073f981c44d8b45580`）
 
 - 調査は Codex の `bone-rank-survey.md`（段階1）。ランキングを B.ONE の「見られるページ」にした（`leagueAvailability.ts` の `rankings`）。ただし ready にするだけではなく、読み込み・割る数・登録区分・期間・キャッシュ・ページの保存状態をリーグ別にした（`validate:league-wiring` が通し忘れを調べる）。
   - 個人・チームのシーズン成績（`usePlayerSeasonRanking`・`useTeamSeasonRanking` に `league`。選手・チーム・選手の試合ログ・チームの試合ログ・登録区分の途中変更・今季の登録選手・Q別の索引・地区・勝率別の条件の読み込み、条件の判定〔`filterGameLogs`〕、試合ログの取得済みの記録とリセット）。1試合記録（`useGameRecordData.ts` の索引・ピリオド別の索引・対戦相手と地区の選択肢、`useAllTeamGameLogs`・`useTeamPeriodFiles`、個人の条件なしの上位ファイル）。

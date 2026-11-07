@@ -15,7 +15,7 @@ import {
 } from "../lib/statConditions";
 
 /** 選択肢に出すだけの項目の情報（行の型に依存しない） */
-type ItemOption = Pick<StatConditionItem<unknown>, "key" | "label" | "group" | "unit"> & Partial<Pick<StatConditionItem<unknown>, "kind">>;
+type ItemOption = Pick<StatConditionItem<unknown>, "key" | "label" | "group" | "unit"> & Partial<Pick<StatConditionItem<unknown>, "kind" | "signed">>;
 
 /**
  * スタッツの条件の編集欄（詳細フィルタの一番下に幅いっぱいで置く。DESIGN.md 162章）。
@@ -93,6 +93,8 @@ export function StatConditionsEditor({
         const invalid = c.value.trim() !== "" && parseConditionInputFor(c.value, item?.kind) === null;
         const isMinutes = item?.kind === "minutes";
         const quick = quickValues?.[c.key] ?? [];
+        // 負の値になりうる項目（または、すでに負の値が入っている行）だけ「−」のボタン（スマホの数字キーボードに無い。ベン図と同じ。DESIGN.md 339章）
+        const showSign = !!item?.signed || /^[-−－ー]/.test(c.value.trim());
         return (
           <div key={c.id}>
           <div className="stat-condition-row">
@@ -157,7 +159,7 @@ export function StatConditionsEditor({
               「20」「20:30」「5:05」の形で入力してください（秒は0〜59）
             </p>
           )}
-          {(isMinutes || quick.length > 0) && (
+          {(isMinutes || showSign || quick.length > 0) && (
             <div className="stat-condition-quick" role="group" aria-label={`条件${i + 1}のよく使う値`}>
               {isMinutes && (
                 <button
@@ -169,6 +171,18 @@ export function StatConditionsEditor({
                   onClick={() => inputs.current.get(c.id)?.appendOnce(":")}
                 >
                   :
+                </button>
+              )}
+              {showSign && (
+                <button
+                  type="button"
+                  className="stat-condition-sign"
+                  aria-label={`条件${i + 1}の値の符号（−）を付け外し`}
+                  disabled={disabled}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => inputs.current.get(c.id)?.toggleSign()}
+                >
+                  −
                 </button>
               )}
               {quick.map((q) => (

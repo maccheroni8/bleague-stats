@@ -42,6 +42,7 @@ import {
   fetchTeams,
 } from "../lib/data";
 import { LEAGUE_TEAM_ID, LEAGUE_TEAM_NAME, averageTotals } from "../lib/leagueAverage";
+import { scopedTurnovers } from "../lib/teamTurnoverScoped";
 import { useJsonData } from "../lib/useJsonData";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { useYahooPbpCoverage } from "../lib/useSeasonCoverage";
@@ -819,7 +820,18 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
         )),
   ];
 
+  // Forced TOV は、選んだ条件（試合区分・試合の条件）に当てはまる試合ログの合計から出す（DESIGN.md 339章。区間・登録区分は選べない）。
+  // 試合ログに試合ごとの値が無い古いデータのときだけ、teams.json のシーズン合計のまま出す
+  const scopedTov = useMemo(
+    () => (boxTab === "forcedTurnovers" && teams && gameLogsByTeam ? scopedTurnovers(scopedLogsByTeam) : null),
+    [boxTab, teams, gameLogsByTeam, scopedLogsByTeam],
+  );
   const turnoverRows: TurnoverRow[] = (teams ?? []).flatMap((team) => {
+    if (scopedTov) {
+      const r = scopedTov.teams.get(team.teamId);
+      const data = r && turnoverDataFor(r.forced, r.committed, teamPerspective);
+      return r && data && passes(team.teamId) ? [{ team: { ...team, gamesPlayed: r.games }, data }] : [];
+    }
     const data = turnoverDataFor(team.forcedTurnovers, team.turnoversCommitted, teamPerspective);
     return data && passes(team.teamId) ? [{ team, data }] : [];
   });
@@ -926,9 +938,11 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   // 棒グラフ（On-Court Foreign・Scoring %）は、リーグ平均の棒を並び順の中の該当する位置に入れる（DESIGN.md 149章）
   const withLeague = (list: TeamSummary[] | null | undefined): TeamSummary[] =>
     leagueAverage ? [...(list ?? []), { ...leagueAverage.team, teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME }] : (list ?? []);
-  const leagueTurnoverData = leagueAverage
-    ? turnoverDataFor(leagueAverage.team.forcedTurnovers, leagueAverage.team.turnoversCommitted, teamPerspective)
-    : undefined;
+  const leagueTurnoverData = scopedTov
+    ? scopedTov.league ? turnoverDataFor(scopedTov.league.forced, scopedTov.league.committed, teamPerspective) : undefined
+    : leagueAverage
+      ? turnoverDataFor(leagueAverage.team.forcedTurnovers, leagueAverage.team.turnoversCommitted, teamPerspective)
+      : undefined;
   // +/- の視点は符号つきで出す
   // 平均は、ほかのタブと同じ出場試合数（gamesPlayed。リーグ平均の行も同じ）で割る。合計は整数のまま
   const turnoverAverage = displayMode !== "total";
@@ -938,7 +952,10 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     const digits = turnoverAverage ? 2 : 0;
     return teamPerspective === "diff" ? formatSigned(v, digits) : formatDecimal(v, digits);
   };
-  const leagueTurnoverRow: TurnoverRow | null = leagueAverage && leagueTurnoverData ? { team: leagueAverage.team, data: leagueTurnoverData } : null;
+  const leagueTurnoverRow: TurnoverRow | null =
+    leagueAverage && leagueTurnoverData
+      ? { team: scopedTov?.league ? { ...leagueAverage.team, gamesPlayed: scopedTov.league.games } : leagueAverage.team, data: leagueTurnoverData }
+      : null;
   const turnoverColumns: Column<TurnoverRow>[] = [
     {
       key: "team",
@@ -990,7 +1007,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const streaksOnlyReason = "このタブはレギュラーシーズンの連勝・連敗だけのため、上の絞り込みは連動しません。";
   // Time to Shot は、試合区分・試合の条件・区間・視点（自チーム／opp／+/-）が連動する（290章）。平均／合計・登録区分・スタッツの条件は使わない
   const isTtsCategory = boxTab === "timeToShot";
-  const filterDisabledReason = isMainCategory || isShareCategory || isForeignCategory || isTtsCategory
+  const filterDisabledReason = isMainCategory || isShareCategory || isForeignCategory || isTtsCategory || (boxTab === "forcedTurnovers" && !!scopedTov)
     ? undefined
     : boxTab === "shooting"
       ? "このタブはシーズン通算値のみ対応です（表示の平均/合計だけ連動します）。"
@@ -1037,7 +1054,9 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           ? "このタブは区間別の得点の表のため、区間の選択はほかのタブでだけ効きます。"
           : boxTab === "streaks"
             ? streaksOnlyReason
-            : "このタブはシーズン合計の値だけのため、区間は選べません。",
+            : boxTab === "forcedTurnovers" && scopedTov
+              ? "Forced TOV は試合全体の記録のため、区間（Q別・前後半）は選べません。"
+              : "このタブはシーズン合計の値だけのため、区間は選べません。",
     }),
     ...situationalAxes(filter, setFilter, {
       opponentWinRateSupported: !!opponentRecords,
@@ -1077,7 +1096,9 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           : boxTab === "streaks"
             ? composeLabels(gameTypeLabels("regular", season), "シーズン内の連続")
             : boxTab === "forcedTurnovers"
-            ? composeLabels(displayModeLabels(displayMode), TURNOVER_PERSPECTIVE_LABELS[teamPerspective], SEASON_TOTAL_ONLY_LABELS)
+            ? scopedTov
+              ? composeLabels(displayModeLabels(displayMode), gameTypeLabels(gameType, season), TURNOVER_PERSPECTIVE_LABELS[teamPerspective], situationalFilterLabels(filter))
+              : composeLabels(displayModeLabels(displayMode), TURNOVER_PERSPECTIVE_LABELS[teamPerspective], SEASON_TOTAL_ONLY_LABELS)
             : boxTab === "foreignPlayers"
               ? foreignRows || foreignPeriod !== "all"
                 ? composeLabels(
@@ -1229,7 +1250,9 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
               />
             </div>
             <p className="page-subtitle">
-              レギュラーシーズンのみ（平均/合計・視点だけ連動し、平均は出場試合数で割る。上部のシチュエーション別フィルタ・レギュラー/{postseasonLabel(season)}/合算とは連動しない。自チーム＝相手から奪った分、opp＝自チームが記録した分、+/-＝その差）
+              {scopedTov
+                ? "選んだ試合区分・試合の条件に当てはまる試合の合計（平均は当てはまる試合数で割る。区間・登録区分は選べない）。自チーム＝相手から奪った分、opp＝自チームが記録した分、+/-＝その差"
+                : "レギュラーシーズンのみ（平均/合計・視点だけ連動し、平均は出場試合数で割る。上部のシチュエーション別フィルタ・レギュラー/" + postseasonLabel(season) + "/合算とは連動しない。自チーム＝相手から奪った分、opp＝自チームが記録した分、+/-＝その差）"}
             </p>
           </>
         )

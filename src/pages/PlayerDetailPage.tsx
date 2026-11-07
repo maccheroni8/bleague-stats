@@ -65,7 +65,7 @@ import type {
 } from "../../shared/types";
 import { teamShortName } from "../../shared/teamNames";
 import { SortableTable, type Column } from "../components/SortableTable";
-import { BOXSCORE_TABS, boxscoreColumnsFor, type BoxscoreColumn, type BoxscoreTabKey } from "../components/BoxscoreTable";
+import { BOXSCORE_TABS, gameLogBoxColumnsFor, type BoxscoreColumn, type BoxscoreTabKey } from "../components/BoxscoreTable";
 import { foulColumnsSplit } from "../lib/ruleChange";
 import { buildPlayerGameBoxscoreRow, type PlayerGameBoxscoreRow } from "../lib/playerGameBoxscore";
 import { CompareSlotFilter } from "../components/CompareSlotFilter";
@@ -250,7 +250,7 @@ function toGameLogColumns(tabKey: BoxscoreTabKey, foulSplit: boolean): Column<Ga
     },
   ];
   // AST%（NBA式）はチームの行だけの列なので、選手の試合ログには出さない（選手のAST%は未対応。DESIGN.md 139章）
-  const statColumns: Column<GameLogTableRow>[] = boxscoreColumnsFor(tabKey, foulSplit)
+  const statColumns: Column<GameLogTableRow>[] = gameLogBoxColumnsFor(tabKey, foulSplit)
     .filter((col) => col.key !== "astpct")
     .map((col: BoxscoreColumn) => ({
     key: col.key,

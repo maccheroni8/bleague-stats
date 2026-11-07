@@ -2,7 +2,7 @@
 //  1. 全シーズン・両リーグの全選手で、PPP ＝ PTS ÷ (FGA + 0.44×FTA + TOV)（分母が0なら値なし）
 //  2. 個人ORtg（advanced.individualOrtg）は PPP とは別に残り、出場時間4分未満は値なし
 //  3. 画面の列（ランキング・ベン図の PPP の列）が同じ値を出す
-//  4. 個人詳細・Q別・md（seasonBoxColumnsWithFtrPpp）・比較・対戦相手別の Advanced に PPP が ORtg の右（全選手スタッツと同じ並び）にあり、値が一致する。Advanced 以外には出ない
+//  4. 個人詳細・Q別・md（seasonBoxColumnsWithFtrPpp）・比較・対戦相手別の Advanced に PPP が FTR と PPS の間（全選手スタッツと同じ並び）にあり、値が一致する。Advanced 以外には出ない
 // 使い方: npm run validate:player-ppp（先に npm run build:data）
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
@@ -16,7 +16,15 @@ import { formatDecimal } from "../src/lib/format";
 
 const DATA = path.join(process.cwd(), "data");
 const labelsOf = (cols: { key: string }[]) => cols.map((c) => c.key);
-const afterOrtg = (name: string, keys: string[]) => { const i = keys.indexOf("ortg"); if (i < 0 || keys[i + 1] !== "ppp" || keys.filter((k) => k === "ppp").length !== 1) { console.error(`NG ${name}: PPP が ORtg の右にない (${keys.join(",")})`); process.exit(1); } };
+// 339章: PPP は FTR と PPS の間（FTR が無い表は TS% と PPS の間）。1列だけ
+const afterOrtg = (name: string, keys: string[]) => {
+  const i = keys.indexOf("ppp");
+  const prev = keys.includes("ftr") ? "ftr" : "ts";
+  if (i < 0 || keys[i + 1] !== "pps" || keys[i - 1] !== prev || keys.filter((k) => k === "ppp").length !== 1) {
+    console.error(`NG ${name}: PPP が ${prev} と pps の間にない (${keys.join(",")})`);
+    process.exit(1);
+  }
+};
 const rankingKeys = labelsOf(withPppColumn(SEASON_ADVANCED_COLUMNS_WITH_FTR));
 for (const fs of [false, true]) {
   const a = labelsOf(seasonBoxColumnsWithFtrPpp("advanced", fs)); afterOrtg("個人詳細・Q別・md", a);

@@ -379,9 +379,14 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
     teamsWithShotTypes,
     forcedTurnoverDef,
     teamsWithForcedTurnovers,
+    forcedTurnoverScoped,
+    scopedLogsByTeam: teamScopedLogs,
   } = useTeamSeasonRanking(season, { category, statKey, displayMode, gameType, perspective, filter, turnoverDirection, period, statConditions }, { league });
   // Shooting・Forced TOV は、スポーツナビの記録がある試合（レギュラーシーズン）の試合数と勝敗
-  const yahooRecords = useMemo(() => yahooRecordByTeam(gameLogsByTeam), [gameLogsByTeam]);
+  const yahooRecords = useMemo(
+    () => yahooRecordByTeam(category === "forcedTurnovers" && forcedTurnoverScoped ? teamScopedLogs : gameLogsByTeam, category === "forcedTurnovers" && forcedTurnoverScoped),
+    [gameLogsByTeam, category, forcedTurnoverScoped, teamScopedLogs],
+  );
   // 前シーズン比較（DESIGN.md 218章）。試合の条件・試合区分・視点・平均/合計は前季にも同じように当てはめ、スタッツの条件は今季だけに当てはめる。
   // 前季のデータは、比較をオンにしたときだけ読む
   const [compareParam, setCompareParam] = useUrlState(COMPARE_PARAM, "off");
@@ -498,7 +503,12 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
     season,
     // 項目名は「合計」「24秒バイオレーション」等で、そのままでは何のランキングか分からないので、カテゴリ名を添える
     `強制ターンオーバー（${statJa(forcedTurnoverDef.label, "team")}）`,
-    composeLabels(CATEGORY_LABELS.forcedTurnovers, compareActive && COMPARE_LABEL, TURNOVER_DIRECTION_LABELS[turnoverDirection], SEASON_TOTAL_ONLY_LABELS),
+    composeLabels(
+      CATEGORY_LABELS.forcedTurnovers,
+      compareActive && COMPARE_LABEL,
+      TURNOVER_DIRECTION_LABELS[turnoverDirection],
+      ...(forcedTurnoverScoped ? [gameTypeLabels(gameType, season), situationalFilterLabels(filter)] : [SEASON_TOTAL_ONLY_LABELS]),
+    ),
   );
 
   // フィルタバー（DESIGN.md 105章）。シューティングは表示（平均/合計）のみ、強制ターンオーバーは
@@ -510,8 +520,11 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
       ? "このカテゴリはレギュラーシーズンの通算集計値のみ対応です（表示の平均/合計だけ連動します。2023-24シーズン以降のみ対応）。"
       : "このカテゴリはレギュラーシーズンの通算集計値のみ対応で、上の絞り込みは連動しません（2023-24シーズン以降のみ対応）。";
   const teamDisplayDisabledReason = isBoxscore || isTeamShooting ? undefined : teamFilterDisabledReason;
+  // Forced TOV は試合ごとの値から出すので、試合区分・試合の条件は連動する（DESIGN.md 339章）。視点は上のトグル、区間は選べない
+  const turnoverScopedOk = category === "forcedTurnovers" && forcedTurnoverScoped;
+  const teamScopedReason = turnoverScopedOk ? undefined : teamFilterDisabledReason;
   const teamFilterAxes: FilterAxis[] = [
-    gameTypeAxis(gameType, setGameType, season, { disabledReason: teamFilterDisabledReason }),
+    gameTypeAxis(gameType, setGameType, season, { disabledReason: teamScopedReason }),
     perspectiveAxis(perspective, setPerspective, { disabledReason: teamFilterDisabledReason }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: teamDisplayDisabledReason }),
     periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: teamFilterDisabledReason }),
@@ -520,7 +533,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
       ownTeamDivisionSupported: !!divisionHistory,
       ownDivisions: seasonDivisions(divisionHistory, season, league),
       opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
-      disabledReason: teamFilterDisabledReason,
+      disabledReason: teamScopedReason,
     }),
     compareAxis(compareParam, setCompareParam, compareReason),
   ];
@@ -645,8 +658,8 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
           <p className="empty-message">このシーズンのデータには対応していません</p>
         ) : (
           <>
-            <ExportImageButton targetRef={exportRef} filename={teamForcedTurnoverTitle.filename} baseDate={{ kind: "season", season, gameType: "regular" }} ranking={TEAM_EXPORT_CHOICES} />
-            <ExportTarget ref={exportRef} baseDate={{ kind: "season", season, gameType: "regular" }} className={`export-target-compact export-target-rankings-team${turnoverCompare ? " export-target-compare" : ""}`}>
+            <ExportImageButton targetRef={exportRef} filename={teamForcedTurnoverTitle.filename} baseDate={{ kind: "season", season, gameType: forcedTurnoverScoped ? gameType : "regular" }} ranking={TEAM_EXPORT_CHOICES} />
+            <ExportTarget ref={exportRef} baseDate={{ kind: "season", season, gameType: forcedTurnoverScoped ? gameType : "regular" }} className={`export-target-compact export-target-rankings-team${turnoverCompare ? " export-target-compare" : ""}`}>
               <ConditionTitle title={teamForcedTurnoverTitle.title} conditions={teamForcedTurnoverTitle.conditions} statConditions={statConditionsTitle(statConditions, conditionItems)} />
               <RankedList
                 statScope="team"
