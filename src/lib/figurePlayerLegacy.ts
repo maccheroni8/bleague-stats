@@ -51,13 +51,12 @@ export function legacyPlayerScatterParams(figure: string, params: URLSearchParam
   return next;
 }
 
-/** 用意された設定（選手の散布図）。古い3つの図の初期の設定と同じ条件を、古い URL の読み替えと同じ関数で作る */
-export const PLAYER_SCATTER_BUILTIN_PRESETS: readonly { id: string; name: string; legacyFigure: (typeof LEGACY_PLAYER_SCATTER_FIGURES)[number] }[] = [
-  { id: "builtin:pts-ast", name: "得点 × アシスト", legacyFigure: "pts-ast" },
-  { id: "builtin:usg-ppp", name: "USG% × PPP", legacyFigure: "usg-ppp" },
-  { id: "builtin:player-shooting", name: "シュート% × 試投数", legacyFigure: "player-shooting" },
+/** 初めて開いたブラウザに、保存した設定として1回だけ入れる3つ（古い3つの図の初期の設定と同じ条件を、古い URL の読み替えと同じ関数で作る。figurePresets.ts の seedInitialPresets） */
+export const PLAYER_SCATTER_INITIAL_PRESETS: readonly { name: string; legacyFigure: (typeof LEGACY_PLAYER_SCATTER_FIGURES)[number] }[] = [
+  { name: "得点 × アシスト", legacyFigure: "pts-ast" },
+  { name: "USG% × PPP", legacyFigure: "usg-ppp" },
+  { name: "シュート% × 試投数", legacyFigure: "player-shooting" },
 ];
-export function builtinPresetParams(id: string): URLSearchParams | null {
-  const preset = PLAYER_SCATTER_BUILTIN_PRESETS.find(p => p.id === id);
-  return preset ? legacyPlayerScatterParams(preset.legacyFigure, new URLSearchParams({ entity: "player", figure: preset.legacyFigure })) : null;
+export function initialPresetParams(legacyFigure: (typeof LEGACY_PLAYER_SCATTER_FIGURES)[number]): URLSearchParams {
+  return legacyPlayerScatterParams(legacyFigure, new URLSearchParams({ entity: "player", figure: legacyFigure }))!;
 }

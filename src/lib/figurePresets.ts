@@ -1,7 +1,7 @@
 // 画面専用（図解の「設定の保存」）。図の設定（URL の条件）に名前を付けて、このブラウザの localStorage に保存する。
 // 保存する中身は URL の条件と同じ文字列（season・league・entity・figure は含めない）。読めない項目は図が無視するので、図の設定が増えても古い保存が開ける。
 // 読み書きはすべて失敗しうる（プライベートモードなど）ので、例外は外に出さない。
-import { isLegacyPlayerScatterFigure, legacyPlayerScatterParams, PLAYER_SCATTER_ID } from './figurePlayerLegacy';
+import { initialPresetParams, isLegacyPlayerScatterFigure, legacyPlayerScatterParams, PLAYER_SCATTER_ID, PLAYER_SCATTER_INITIAL_PRESETS } from './figurePlayerLegacy';
 
 export const PRESET_STORAGE_KEY = 'bleague-stats:figure-presets';
 export const PRESET_NAME_MAX = 40;
@@ -94,4 +94,26 @@ export function migrateLegacyPreset(preset: FigurePreset): FigurePreset {
   if (preset.entity !== 'player' || !isLegacyPlayerScatterFigure(preset.figure)) return preset;
   const converted = legacyPlayerScatterParams(preset.figure, new URLSearchParams(preset.query));
   return converted ? { ...preset, figure: PLAYER_SCATTER_ID, query: presetQuery(converted) } : preset;
+}
+
+/** 初期の設定を入れたことの記録（このブラウザ。あとで名前を変えたり削除したりしても、もう一度は入れない） */
+export const PRESET_SEEDED_KEY = 'bleague-stats:figure-presets-seeded';
+/**
+ * 選手の散布図の3つの設定（得点 × アシスト・USG% × PPP・シュート% × 試投数）を、このブラウザにまだ入れていなければ、保存した設定として1回だけ入れる。
+ * 同じ図・同じ中身の設定がすでにあれば二重に入れない。保存できない環境では何もしない（例外は外に出さない）。入れたか（すでに入れていたか）を返す
+ */
+export function seedInitialPresets(storage: PresetStorage | null = defaultStorage(), now = Date.now()): boolean {
+  try {
+    if (!storage || storage.getItem(PRESET_SEEDED_KEY)) return false;
+    let list = loadPresets(storage);
+    for (const seed of PLAYER_SCATTER_INITIAL_PRESETS) {
+      const query = presetQuery(initialPresetParams(seed.legacyFigure));
+      // 以前の図で同じ条件を保存していた設定（読み替えたあとの中身が同じ）も、同じ中身として数える
+      if (list.some(p => { const m = migrateLegacyPreset(p); return m.entity === 'player' && m.figure === PLAYER_SCATTER_ID && m.query === query; })) continue;
+      list = [...list, { id: newPresetId(), name: seed.name, entity: 'player', figure: PLAYER_SCATTER_ID, query, savedAt: now }];
+    }
+    if (!savePresets(list, storage)) return false;
+    storage.setItem(PRESET_SEEDED_KEY, '1');
+    return true;
+  } catch { return false; }
 }

@@ -1,6 +1,6 @@
 // 図解「散布図」（選手）の検証。
 //  1. 点の値が全選手スタッツの値（playerColumnValue・players.json の合計）と一致する（いくつかの項目の組み合わせ・平均／合計）
-//  2. 用意された3つの設定と古い URL が、以前の3つの図（ptsAstPoints・buildUsgPpp・shootPlayerPoints）と同じ選手・同じ点・同じ人数を出す
+//  2. 初めから入れる3つの設定と古い URL が、以前の3つの図（ptsAstPoints・buildUsgPpp・shootPlayerPoints）と同じ選手・同じ点・同じ人数を出す
 //  3. 詳細フィルターの DD2・TD3・PTS10 で絞った人数が、試合ログから数え直した結果と一致する（独立に数える）
 //  4. 古い URL・保存した設定の読み替え、図の一覧、選べない項目
 // 元データは読むだけ。使い方: npm run validate:figure-player-free
@@ -19,8 +19,8 @@ import {
 import { inferFreeAxis } from "../src/lib/figureTeamFree";
 import { ON_COURT_SHARE_STAT_KEYS, ON_COURT_SHARE_LEGACY_REASON } from "../src/lib/playerSeasonRanking";
 import { playerCountLines } from "../src/lib/figurePlayerCounts";
-import { builtinPresetParams, legacyPlayerScatterParams, PLAYER_SCATTER_BUILTIN_PRESETS, PLAYER_SCATTER_ID } from "../src/lib/figurePlayerLegacy";
-import { migrateLegacyPreset, presetQuery, type FigurePreset } from "../src/lib/figurePresets";
+import { initialPresetParams, legacyPlayerScatterParams, PLAYER_SCATTER_ID, PLAYER_SCATTER_INITIAL_PRESETS } from "../src/lib/figurePlayerLegacy";
+import { deletePreset, loadPresets, migrateLegacyPreset, PRESET_SEEDED_KEY, PRESET_STORAGE_KEY, presetQuery, savePresets, seedInitialPresets, type FigurePreset, type PresetStorage } from "../src/lib/figurePresets";
 import { normalizeFigureParams } from "../src/lib/figureRoute";
 import { DEFAULT_STAT_CONDITIONS } from "../src/lib/statConditions";
 import { statConditionsParam } from "../src/lib/urlState";
@@ -77,12 +77,54 @@ const near = (a: number, b: number, label: string, tol = 1e-9) => assert.ok(Math
   assert.equal(new URLSearchParams(m.query).get("sc"), "pts.ge.18"); assert.equal(new URLSearchParams(m.query).get("rng"), "recent:5"); assert.equal(new URLSearchParams(m.query).get("entity"), null);
   assert.equal(migrateLegacyPreset({ ...saved("age", "x=1"), entity: "team" }).figure, "age");
   assert.equal(migrateLegacyPreset({ ...saved("top-scorers", ""), entity: "player" }).figure, "top-scorers");
-  // 用意された設定
-  assert.equal(PLAYER_SCATTER_BUILTIN_PRESETS.length, 3);
-  for (const b of PLAYER_SCATTER_BUILTIN_PRESETS) { const p = builtinPresetParams(b.id)!; assert.equal(p.get("figure"), PLAYER_SCATTER_ID); assert.ok(p.get("entity") === "player"); }
-  assert.equal(builtinPresetParams("builtin:usg-ppp")!.get("sc"), "pts.ge.15");
-  assert.equal(builtinPresetParams("nothing"), null);
-  console.log("選手の散布図: 古い URL・保存した設定・用意された設定の読み替え OK");
+  // 初めから入れる3つの設定
+  assert.equal(PLAYER_SCATTER_INITIAL_PRESETS.length, 3);
+  for (const b of PLAYER_SCATTER_INITIAL_PRESETS) { const p = initialPresetParams(b.legacyFigure); assert.equal(p.get("figure"), PLAYER_SCATTER_ID); assert.equal(p.get("entity"), "player"); }
+  assert.equal(initialPresetParams("usg-ppp").get("sc"), "pts.ge.15");
+  const memory = (): PresetStorage & { data: Map<string, string> } => { const data = new Map<string, string>(); return { data, getItem: k => data.get(k) ?? null, setItem: (k, v) => { data.set(k, v); }, removeItem: k => { data.delete(k); } }; };
+  // 空のブラウザ: 3つ入る → もう一度開いても増えない → 削除したあとに開いても戻らない
+  {
+    const st = memory();
+    assert.equal(seedInitialPresets(st, 1), true);
+    let list = loadPresets(st);
+    assert.deepEqual(list.map(p => p.name), ["得点 × アシスト", "USG% × PPP", "シュート% × 試投数"]);
+    assert.ok(list.every(p => p.entity === "player" && p.figure === PLAYER_SCATTER_ID));
+    assert.equal(new Set(list.map(p => p.id)).size, 3);
+    assert.equal(seedInitialPresets(st, 2), false, "もう一度は入れない");
+    assert.equal(loadPresets(st).length, 3);
+    savePresets(deletePreset(list, list[0]!.id), st);
+    assert.equal(seedInitialPresets(st, 3), false);
+    assert.equal(loadPresets(st).length, 2, "削除したあとに開いても戻らない");
+    savePresets([], st);
+    assert.equal(seedInitialPresets(st, 4), false, "全部削除しても戻らない");
+    assert.equal(loadPresets(st).length, 0);
+    assert.equal(st.data.get(PRESET_SEEDED_KEY), "1");
+  }
+  // 同じ中身がすでにあれば二重に入れない（以前の図で保存した同じ条件の設定も同じ中身）
+  {
+    const st = memory();
+    const usg = initialPresetParams("usg-ppp");
+    const mine: FigurePreset = { id: "x", name: "自分のUSG", entity: "player", figure: "usg-ppp", query: presetQuery(new URLSearchParams("")), savedAt: 0 };
+    const same: FigurePreset = { id: "y", name: "別名の得点アシスト", entity: "player", figure: PLAYER_SCATTER_ID, query: presetQuery(initialPresetParams("pts-ast")), savedAt: 0 };
+    st.setItem(PRESET_STORAGE_KEY, JSON.stringify({ v: 1, items: [mine, same] }));
+    assert.equal(presetQuery(usg), migrateLegacyPreset(mine).query);
+    assert.equal(seedInitialPresets(st, 1), true);
+    const list = loadPresets(st);
+    assert.deepEqual(list.map(p => p.name), ["自分のUSG", "別名の得点アシスト", "シュート% × 試投数"], "同じ中身は入れず、足りない1つだけ入れる");
+  }
+  // 保存できない環境: 何もしない・例外を出さない
+  {
+    assert.equal(seedInitialPresets(null), false);
+    const broken: PresetStorage = { getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("denied"); }, removeItem: () => { throw new Error("denied"); } };
+    assert.equal(seedInitialPresets(broken), false);
+    const readOnly = memory(); readOnly.setItem = () => { throw new Error("quota"); };
+    assert.equal(seedInitialPresets(readOnly), false);
+    assert.equal(readOnly.data.get(PRESET_SEEDED_KEY), undefined, "保存できなかったときは入れたことにしない");
+    const corrupt = memory(); corrupt.data.set(PRESET_STORAGE_KEY, "{broken");
+    assert.equal(seedInitialPresets(corrupt, 1), true, "壊れた保存は空として扱う");
+    assert.equal(loadPresets(corrupt).length, 3);
+  }
+  console.log("選手の散布図: 古い URL・保存した設定・初めから入れる設定 OK");
 }
 
 // ---- 項目 ----
@@ -175,7 +217,7 @@ for (const [season, category] of SETS) {
   assert.equal(inferFreeAxis(playerFreeColumn(resolvePlayerFreeItem("traditional.dd2", season, ""), "total", season)!, points).unit, "number");
   assert.equal(inferFreeAxis(playerFreeColumn(resolvePlayerFreeItem("traditional.min", season, ""), "perGame", season)!, points).unit, "time");
 
-  // 2. 用意された設定・古い URL が以前の図と同じ選手・同じ点
+  // 2. 初めから入れる設定・古い URL が以前の図と同じ選手・同じ点
   const ratioPassed = (r: number) => points.filter(p => p.ratio >= r);
   // 得点 × アシスト
   for (const [qs, mode, minPts, minAst, ratio] of [["", "perGame", 0, 0, 85], ["pam=tot&pmp=10&pma=3&pag=70", "total", 10, 3, 70], ["pmp=15", "perGame", 15, 0, 85]] as const) {
@@ -211,7 +253,7 @@ for (const [season, category] of SETS) {
   }
   // 人数の行（登録区分ごと）も同じ
   {
-    const params = builtinPresetParams("builtin:usg-ppp")!;
+    const params = initialPresetParams("usg-ppp");
     const now = newScatter(points, params, season, category);
     const old = buildUsgPpp(data, { season, category, range: { kind: "all" }, gameType: "regular", classification: "all" }).filter(p => p.ratio >= 85 && p.pts >= 15 && p.usg !== null && p.ppp !== null);
     assert.deepEqual(playerCountLines(now.rows.map(r => r.p.playerId), data.players, null, "all"), playerCountLines(old.map(o => o.playerId), data.players, null, "all"), `${label} 人数の行`);
@@ -244,4 +286,4 @@ for (const [season, category] of SETS) {
   }
 }
 assert.ok(ran >= 3, "実データのシーズンが足りない（先に npm run build:data）");
-console.log(`選手の散布図: 実データ ${ran} 組。値の突き合わせ ${valueChecks} 件・用意された設定／古い URL ${presetChecks} 通り（延べ ${presetPeople} 人）が以前の図と一致・DD2/TD3/PTS10 ${doubleChecks} 通り OK`);
+console.log(`選手の散布図: 実データ ${ran} 組。値の突き合わせ ${valueChecks} 件・初めから入れる設定／古い URL ${presetChecks} 通り（延べ ${presetPeople} 人）が以前の図と一致・DD2/TD3/PTS10 ${doubleChecks} 通り OK`);
