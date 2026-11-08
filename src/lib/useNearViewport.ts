@@ -5,15 +5,15 @@ import { useCallback, useEffect, useState } from "react";
  * 画面の下のほうの欄が使うデータを、その欄に近づいたときに読み始めるために使う。
  * 一気に下までスクロールして目印を通り過ぎたときも true になる（通り過ぎたときの通知で、要素が画面の上にあることを見る）。
  * IntersectionObserver が無い環境では、目印が出た時点で true にする（読み込みを止めない）。
- * 戻り値の ref を目印の要素に付ける
+ * enabled が false の間は見張らない（上の表の読み込みが終わるまで待つため）。戻り値の ref を目印の要素に付ける
  */
-export function useNearViewport(rootMargin = "800px 0px", settleMs = 600): [(el: Element | null) => void, boolean] {
+export function useNearViewport(rootMargin = "800px 0px", settleMs = 1500, enabled = true): [(el: Element | null) => void, boolean] {
   const [target, setTarget] = useState<Element | null>(null);
   const [near, setNear] = useState(false);
   const ref = useCallback((el: Element | null) => setTarget(el), []);
 
   useEffect(() => {
-    if (near || !target) return;
+    if (near || !target || !enabled) return;
     if (typeof IntersectionObserver === "undefined") {
       setNear(true);
       return;
@@ -41,7 +41,7 @@ export function useNearViewport(rootMargin = "800px 0px", settleMs = 600): [(el:
       observer.disconnect();
       if (timer !== null) clearTimeout(timer);
     };
-  }, [target, near, rootMargin, settleMs]);
+  }, [target, near, rootMargin, settleMs, enabled]);
 
   return [ref, near];
 }

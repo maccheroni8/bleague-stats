@@ -850,13 +850,14 @@ export function PlayerDetailPage({ season }: { season: string }) {
       });
   }, [league]);
 
-  const [assistSectionRef, assistSectionNear] = useNearViewport();
   const [storedTab, setTab] = usePageState<DetailTab>(pk("tab"), "stats");
   // B.ONE で見られないタブが残っているときはスタッツにする（タブのボタンには理由を出す）
   const tab: DetailTab = league === "one" && ONE_PLAYER_DETAIL_TAB_REASONS[storedTab] ? "stats" : storedTab;
   const [careerData, setCareerData] = useState<CareerSeasonLogs[] | null>(null);
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerError, setCareerError] = useState<string | null>(null);
+  // 上の表（通算・シーズン別成績）の読み込みが終わってから、下の欄に近づいたかを見る（読み込み中は上の表が短く、欄が一時的に画面の近くに来るため）
+  const [assistSectionRef, assistSectionNear] = useNearViewport("800px 0px", 1500, careerData !== null && !careerLoading);
   // 「シーズン別成績」テーブルのカテゴリタブ（トラディショナル/アドバンスド/Misc/スコアリング）用に、
   // careerData全シーズン分の「試合ログから動的に導出した所属チーム」情報を取得する
   // （シーズン内移籍でチームが複数に分かれうるため、teamIdごとに%-share/USG%の分母を持つ）
