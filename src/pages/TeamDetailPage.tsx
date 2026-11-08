@@ -215,7 +215,7 @@ import {
   sumShotTypeCounts,
 } from "../lib/shotTypeBreakdown";
 import { CompareCategoryBar } from "../components/CompareCategoryBar";
-import { ComparisonTable, type ComparisonRow } from "./ComparePage";
+import { ComparisonTable, type ComparisonRow } from "../components/ComparisonTable";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { PeriodScoringCells, PeriodScoringHeaderCells, periodScoringNote } from "../components/TeamPeriodCells";
 import {

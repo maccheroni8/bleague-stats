@@ -168,7 +168,7 @@ import { registrationLabel } from "../lib/registrationLabel";
 import { loadSeasonRegistrations } from "../lib/registrationScope";
 import type { SeasonRegistrationEntry } from "../../shared/registration";
 import { CompareCategoryBar } from "../components/CompareCategoryBar";
-import { ComparisonTable, type ComparisonRow } from "./ComparePage";
+import { ComparisonTable, type ComparisonRow } from "../components/ComparisonTable";
 import { HeightWeightNote } from "../components/HeightWeightNote";
 import { AGE_BASE_NOTE, ageForSeason } from "../lib/age";
 import { heightText, positionText, weightText } from "../lib/profileMark";

@@ -1,4 +1,4 @@
-// 比較の表（src/pages/ComparePage.tsx の ComparisonTable。DESIGN.md 234章）の、値の無い項目を出さない判定と、G の横の勝敗の検証スクリプト
+// 比較の表（src/components/ComparisonTable.tsx の ComparisonTable。DESIGN.md 234章）の、値の無い項目を出さない判定と、G の横の勝敗の検証スクリプト
 // （検証専用。CIには入れず、必要なときに手で実行する）。
 //
 // 確かめること: すべての対象で「-」の項目だけが外れる（片方だけにある項目は残す・対象を足すと戻る）／勝敗の数え方（勝＋敗＝試合数）／
@@ -18,7 +18,7 @@ import {
   type CompareColumnData,
   type TeamCompareColumnData,
 } from "../src/lib/compareShared";
-import type { ComparisonStatDef } from "../src/pages/ComparePage";
+import type { ComparisonStatDef } from "../src/components/ComparisonTable";
 import { buildSeasonBoxscoreCtx, countDoubleTripleDoubles, sumPlayerGameLogs } from "../src/lib/playerSeasonBoxscore";
 import { sumTeamGameLogs } from "../src/lib/teamStatsColumns";
 import { sumCountsList, type BoxscoreCounts, type PlayTypeCounts } from "../src/lib/boxscoreAggregate";

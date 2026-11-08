@@ -6,7 +6,7 @@
 import { seasonBoxColumnsWithPpp } from "./pppColumn";
 import { isPaint2Key, paintOf, paintFormat, paintValue, paintCoverage, PAINT2_COVERAGE, leaguePaintComplete } from "./teamPaint2";
 import type { BoxscoreColumn, BoxscoreTabKey, ColumnCtx } from "../components/BoxscoreTable";
-import type { ComparisonStatDef } from "../pages/ComparePage";
+import type { ComparisonStatDef } from "../components/ComparisonTable";
 import type { BoxscoreCounts } from "./boxscoreAggregate";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "./format";
 import { ftRate } from "../../shared/formulas";

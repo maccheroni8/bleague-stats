@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { RookieProvider } from "./components/RookieProvider";
 import { HashRouter, Route, Routes, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { SeasonLink, SeasonNavLink } from "./components/SeasonLink";
@@ -10,18 +10,23 @@ import { fetchSeasons } from "./lib/data";
 import { useJsonData } from "./lib/useJsonData";
 import { LEAGUES, LEAGUE_LABELS, isLeagueSeason, latestLeagueSeason, leagueFromParams, leagueSeasonEntries, leagueSwitchUrl, writeLeagueParam, type League } from "./lib/league";
 import { LeagueGate } from "./components/LeagueGate";
-import { HomePage } from "./pages/HomePage";
-import { TeamsListPage, TeamsStatsRedirect } from "./pages/TeamsListPage";
-import { TeamDetailPage } from "./pages/TeamDetailPage";
-import { PlayersListPage } from "./pages/PlayersListPage";
-import { PlayerDetailPage } from "./pages/PlayerDetailPage";
-import { GameDetailPage } from "./pages/GameDetailPage";
-import { SchedulePage } from "./pages/SchedulePage";
-import { RankingsPage } from "./pages/RankingsPage";
-import { ComparePage } from "./pages/ComparePage";
-import { StandingsPage } from "./pages/StandingsPage";
-import { FiguresPage } from "./pages/FiguresPage";
-import { GlossaryPage } from "./pages/GlossaryPage";
+import { lazyPage } from "./lib/lazyPage";
+
+// ページのプログラムは、そのページを開いたときに読む（全ページ分を最初にまとめて読まない。DESIGN.md 356章）。
+// 図解の各図（figures/catalog.ts）と同じ作り。読み込み中は Suspense の「読み込み中...」、失敗は PageErrorBoundary が受ける
+const HomePage = lazyPage(() => import("./pages/HomePage").then((m) => m.HomePage));
+const TeamsListPage = lazyPage(() => import("./pages/TeamsListPage").then((m) => m.TeamsListPage));
+const TeamsStatsRedirect = lazyPage(() => import("./pages/TeamsListPage").then((m) => m.TeamsStatsRedirect));
+const TeamDetailPage = lazyPage(() => import("./pages/TeamDetailPage").then((m) => m.TeamDetailPage));
+const PlayersListPage = lazyPage(() => import("./pages/PlayersListPage").then((m) => m.PlayersListPage));
+const PlayerDetailPage = lazyPage(() => import("./pages/PlayerDetailPage").then((m) => m.PlayerDetailPage));
+const GameDetailPage = lazyPage(() => import("./pages/GameDetailPage").then((m) => m.GameDetailPage));
+const SchedulePage = lazyPage(() => import("./pages/SchedulePage").then((m) => m.SchedulePage));
+const RankingsPage = lazyPage(() => import("./pages/RankingsPage").then((m) => m.RankingsPage));
+const ComparePage = lazyPage(() => import("./pages/ComparePage").then((m) => m.ComparePage));
+const StandingsPage = lazyPage(() => import("./pages/StandingsPage").then((m) => m.StandingsPage));
+const FiguresPage = lazyPage(() => import("./pages/FiguresPage").then((m) => m.FiguresPage));
+const GlossaryPage = lazyPage(() => import("./pages/GlossaryPage").then((m) => m.GlossaryPage));
 
 export default function App() {
   return (
@@ -158,6 +163,7 @@ function AppShell() {
       <main className="app-main">
         <PageErrorBoundary resetKey={location.pathname + location.search}>
           {/* リーグを切り替えたらページを作り直す（前のリーグの状態・読み込みを持ち越さない） */}
+          <Suspense fallback={<p className="loading">読み込み中...</p>}>
           <Routes key={league}>
             <Route path="/" element={<LeagueGate page="home"><HomePage season={season} /></LeagueGate>} />
             <Route path="/teams" element={<LeagueGate page="teams"><TeamsListPage season={season} /></LeagueGate>} />
@@ -173,6 +179,7 @@ function AppShell() {
             <Route path="/figures" element={<LeagueGate page="figures"><FiguresPage season={season} /></LeagueGate>} />
             <Route path="/glossary" element={<LeagueGate page="glossary"><GlossaryPage /></LeagueGate>} />
           </Routes>
+          </Suspense>
         </PageErrorBoundary>
       </main>
       <ExportDebugPanel />
