@@ -28,6 +28,8 @@ import { statJa } from "../lib/statNames";
 import { RankedList } from "./RankedList";
 import { ResponsivePlayerName } from "./ResponsivePlayerName";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
+import { LastTeamName } from "./LastTeamName";
+import { useLastTeamCheck } from "../lib/lastTeam";
 import { TeamLogo } from "./TeamLogo";
 
 /**
@@ -78,6 +80,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
   const [activeParam, setActive] = useUrlState(ACTIVE_PARAM, "all");
   const [statParam, setStatKey] = useUrlState(PLAYER_STAT_PARAM, "pts");
   const activeOn = activeParam === "active";
+  const isLast = useLastTeamCheck(true);
   const { data: file, loading } = useJsonData(() => fetchLeaguePlayerCareerTop() as Promise<LeaguePlayerCareerTopFileWithSplit>, []);
 
   const item = PLAYER_ITEMS.find((d) => d.key === statParam) ?? PLAYER_ITEMS[0]!;
@@ -163,13 +166,13 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
                 name={(r) => <ResponsivePlayerName name={r.info.name} />}
                 subLabel={(r) => (
                   <>
-                    <ResponsiveTeamName teamId={r.info.teamId} name={r.info.teamName} always nowrap />・{r.info.latestSeason}シーズンまで在籍確認
+                    <LastTeamName teamId={r.info.teamId} name={r.info.teamName} last={isLast(r.info.latestSeason, [r.playerId])} />・{r.info.latestSeason}シーズンまで在籍確認
                   </>
                 )}
                 linkTo={(r) => `/players/${r.playerId}?season=${r.info.latestSeason}`}
                 teamColor={(r) => teamColors?.[r.info.teamId]?.primary}
                 avatar={(r) => <PlayerPhoto playerId={r.playerId} size={56} className="player-cell-photo" placeholder />}
-                exportTeam={(r) => teamShortName(r.info.teamId, r.info.teamName)}
+                exportKeepSub
                 limit={PLAYER_RANK_TOP_N}
                 sortable={false}
                 compact

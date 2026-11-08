@@ -27,7 +27,6 @@ import { CLUTCH_MEASURE_PARAM, CLUTCH_WINDOW_PARAM, GAME_TYPE_PARAM, PLAYER_GROU
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
 import { ExportTarget } from "./ExportTarget";
-import { teamShortName } from "../../shared/teamNames";
 import { baseDateOf } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { PlayerNamePool } from "./PlayerNamePool";
@@ -35,6 +34,8 @@ import { PlayerPhoto } from "./PlayerPhoto";
 import { RankedList } from "./RankedList";
 import { ResponsivePlayerName } from "./ResponsivePlayerName";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
+import { LastTeamName } from "./LastTeamName";
+import { useLastTeamCheck } from "../lib/lastTeam";
 
 /**
  * ランキング > 個人 > 勝負所（DESIGN.md 221章）。勝ち越し弾・同点弾・決勝弾を、選手ごとの回数で並べる。単位は通算（全シーズン）とシーズン（選んでいるシーズン）。
@@ -44,7 +45,7 @@ import { ResponsiveTeamName } from "./ResponsiveTeamName";
  */
 const RANK_TOP_N = 20;
 
-function ClutchLine({ r, allTime }: { r: ClutchRow; allTime: boolean }) {
+function ClutchLine({ r, allTime, last }: { r: ClutchRow; allTime: boolean; last: boolean }) {
   const span = r.firstSeason === r.lastSeason ? r.lastSeason : `${r.firstSeason}〜${r.lastSeason}`;
   return (
     <>
@@ -52,7 +53,7 @@ function ClutchLine({ r, allTime }: { r: ClutchRow; allTime: boolean }) {
         FG {r.fg}・FT {r.ft}
       </span>
       {"　"}
-      <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap />
+      <LastTeamName teamId={r.teamId} name={r.teamName} last={last} />
       {allTime && <span className="record-date-nowrap">　{span}</span>}
     </>
   );
@@ -72,6 +73,7 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
   const [conditions, setConditions] = useUrlState(gameRecordConditionsParam, DEFAULT_GAME_RECORD_CONDITIONS);
   const [activeParam, setActive] = useUrlState(ACTIVE_PARAM, "all");
   const allTime = scope === "allTime";
+  const isLast = useLastTeamCheck(allTime);
   // 現役の絞り込みは通算だけ（過去の選手が混ざる範囲）
   const activeOn = allTime && activeParam === "active";
   const seasonForTitle = allTime ? null : season;
@@ -190,11 +192,10 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
                 tieKey={(e) => String(e.value)}
                 rowKey={(e) => e.playerId}
                 name={(e) => <ResponsivePlayerName name={e.playerName} />}
-                subLabel={(e) => <ClutchLine r={e} allTime={allTime} />}
+                subLabel={(e) => <ClutchLine r={e} allTime={allTime} last={isLast(e.lastSeason, [e.playerId])} />}
                 linkTo={(e) => `/players/${e.playerId}?season=${e.lastSeason}`}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
                 avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
-                exportTeam={(e) => teamShortName(e.teamId, e.teamName)}
                 exportKeepSub
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}

@@ -9,6 +9,8 @@ import { gameTypeAxis, type FilterAxis } from "../lib/filterAxes";
 import { DEFAULT_GAME_RECORD_CONDITIONS, cleanGameConditionsForSeason, gameRecordConditionLabels, gameRecordConditionsParam } from "../lib/gameRecordConditions";
 import { gameRecordAdvancedAxes, gameRecordPrimaryAxes } from "../lib/gameRecordAxes";
 import { GAME_RECORD_TIE_EXPAND_MAX } from "../lib/gameRecordQuery";
+import { LastTeamName } from "./LastTeamName";
+import { useLastTeamCheck } from "../lib/lastTeam";
 import { PAIR_UNIT_LABELS, queryAssistPairs, type PairRow, type PairUnit } from "../lib/clutchQuery";
 import { useAssistPairData, useGameRecordOptions } from "../lib/useGameRecordData";
 import { useNarrow } from "../lib/teamLabel";
@@ -33,7 +35,7 @@ import { ResponsiveTeamName } from "./ResponsiveTeamName";
  */
 const RANK_TOP_N = 20;
 
-function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" }) {
+function PairLine({ r, unit, last }: { r: PairRow; unit: "game" | "season" | "career"; last: boolean }) {
   const narrow = useNarrow();
   const parts = `2P×${r.n2}・3P×${r.n3}・FT×${r.nf}`;
   if (unit === "game") {
@@ -56,7 +58,7 @@ function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" 
       {"　"}
       <span className="record-date-nowrap">{parts}</span>
       {"　"}
-      <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap />
+      <LastTeamName teamId={r.teamId} name={r.teamName} last={last} />
       {unit === "career" && <span className="record-date-nowrap">　{span}</span>}
     </>
   );
@@ -85,6 +87,7 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
   const [conditions, setConditions] = useUrlState(gameRecordConditionsParam, DEFAULT_GAME_RECORD_CONDITIONS);
   const [activeParam, setActive] = useUrlState(ACTIVE_PARAM, "all");
   const singleSeason = unit === "season";
+  const isLast = useLastTeamCheck(unit === "career");
   // 現役の絞り込みは1試合（歴代）と通算だけ（過去の選手が混ざる範囲）
   const activeOn = !singleSeason && activeParam === "active";
   const seasonForTitle = singleSeason ? season : null;
@@ -178,7 +181,7 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
                     <PairPerson playerId={e.scorerId} name={e.scorerName} season={seasonOf(e)} among={among} />
                   </span>
                 )}
-                subLabel={(e) => <PairLine r={e} unit={unit} />}
+                subLabel={(e) => <PairLine r={e} unit={unit} last={isLast(e.lastSeason ?? "", [e.assisterId, e.scorerId])} />}
                 subLinkTo={unit === "game" ? (e) => `/games/${e.scheduleKey}?season=${e.season}` : undefined}
                 linkTo={() => undefined}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}

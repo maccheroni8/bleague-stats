@@ -1,4 +1,3 @@
-import { teamShortName } from "../../shared/teamNames";
 import type { TeamColors } from "../../shared/types";
 import { formatAgeOnDate } from "../../shared/gameAge";
 import { formatPct } from "../lib/format";
@@ -10,13 +9,15 @@ import { PlayerPhoto } from "./PlayerPhoto";
 import { RankedList } from "./RankedList";
 import { ResponsivePlayerName } from "./ResponsivePlayerName";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
+import { LastTeamName } from "./LastTeamName";
+import { useLastTeamCheck } from "../lib/lastTeam";
 
 /** 達成記録の一覧（DESIGN.md 223章）。達成試合数・連続記録・達成時の年齢の3つで共通の見た目（写真・名前・値・名前の下の行） */
 const RANK_TOP_N = 20;
 
 type Colors = Record<string, TeamColors> | undefined;
 
-function CountLine({ r, sort, allTime }: { r: ThresholdCountRow; sort: ThresholdCountSort; allTime: boolean }) {
+function CountLine({ r, sort, allTime, last }: { r: ThresholdCountRow; sort: ThresholdCountSort; allTime: boolean; last: boolean }) {
   const span = r.firstSeason === r.lastSeason ? r.lastSeason : `${r.firstSeason}〜${r.lastSeason}`;
   return (
     <>
@@ -24,7 +25,7 @@ function CountLine({ r, sort, allTime }: { r: ThresholdCountRow; sort: Threshold
         {sort === "count" ? `出場${r.games}試合・達成率${formatPct(r.rate)}` : `${r.count}試合／出場${r.games}試合`}
       </span>
       {"　"}
-      <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap />
+      <LastTeamName teamId={r.teamId} name={r.teamName} last={last} />
       {allTime && <span className="record-date-nowrap">　{span}</span>}
     </>
   );
@@ -41,6 +42,7 @@ export function ThresholdCountList({
   allTime: boolean;
   teamColors: Colors;
 }) {
+  const isLast = useLastTeamCheck(allTime);
   return (
     <PlayerNamePool names={rows.map((e) => e.playerName)}>
       <RankedList
@@ -55,11 +57,10 @@ export function ThresholdCountList({
         tieKey={(e) => String(e.value)}
         rowKey={(e) => e.playerId}
         name={(e) => <ResponsivePlayerName name={e.playerName} />}
-        subLabel={(e) => <CountLine r={e} sort={sort} allTime={allTime} />}
+        subLabel={(e) => <CountLine r={e} sort={sort} allTime={allTime} last={isLast(e.lastSeason, [e.playerId])} />}
         linkTo={(e) => `/players/${e.playerId}?season=${e.lastSeason}`}
         teamColor={(e) => teamColors?.[e.teamId]?.primary}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
-        exportTeam={(e) => teamShortName(e.teamId, e.teamName)}
         exportKeepSub
         limit={RANK_TOP_N}
         tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
@@ -106,7 +107,6 @@ export function ThresholdStreakList({ rows, ongoingOnly, teamColors }: { rows: T
         linkTo={(e) => `/players/${e.playerId}?season=${e.end.season}`}
         teamColor={(e) => teamColors?.[e.teamId]?.primary}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
-        exportTeam={(e) => teamShortName(e.teamId, e.teamName)}
         exportKeepSub
         limit={RANK_TOP_N}
         tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
@@ -151,7 +151,6 @@ export function ThresholdAgeList({ rows, which, teamColors }: { rows: ThresholdA
         subLinkTo={(e) => `/games/${e.scheduleKey}?season=${e.season}`}
         teamColor={(e) => teamColors?.[e.teamId]?.primary}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
-        exportTeam={(e) => teamShortName(e.teamId, e.teamName)}
         exportKeepSub
         limit={RANK_TOP_N}
         tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}

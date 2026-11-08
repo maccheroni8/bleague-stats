@@ -53,7 +53,6 @@ import { useJsonData } from "../lib/useJsonData";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
 import { ExportTarget } from "./ExportTarget";
-import { teamShortName } from "../../shared/teamNames";
 import { baseDateOf } from "../lib/dataBaseDate";
 import { FilterBar } from "./FilterBar";
 import { GameRecordNotes } from "./GameRecordNotes";
@@ -358,7 +357,6 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                 subLinkTo={(e) => `/games/${e.scheduleKey}?season=${seasonOf(e)}`}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
                 avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
-                exportTeam={(e) => teamShortName(e.teamId, e.teamName)}
                 exportKeepSub
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
