@@ -21,6 +21,20 @@ export const LEAGUE_LABELS: Record<League, string> = {
 };
 
 /**
+ * 通算・歴代（複数のシーズンにまたがる記録）の見出しに添える、前身リーグの呼び名。B.PREMIER は旧B1、B.ONE は旧B2（DESIGN.md 360章）。
+ * 1つのシーズンだけの記録には添えない。リーグ名の書き方はここと `leagueScopeLabel` の1か所で決める
+ */
+export const LEAGUE_FORMER_LABELS: Record<League, string> = {
+  premier: "旧B1",
+  one: "旧B2",
+};
+
+/** 通算・歴代の見出しのリーグ名（「B.PREMIER（旧B1）」）。シーズン単独の記録は LEAGUE_LABELS のまま */
+export function leagueScopeLabel(league: League, multiSeason: boolean): string {
+  return multiSeason ? `${LEAGUE_LABELS[league]}（${LEAGUE_FORMER_LABELS[league]}）` : LEAGUE_LABELS[league];
+}
+
+/**
  * B.ONE を選んだときに選べるシーズン（新しい順でなく古い順）。B.ONE の導出データは 2025-26（旧B2）からあるが、
  * 画面に出すのは 2026-27 から（旧B2 2025-26 は選手詳細の通算成績・キャリアハイの「B2」だけ）。シーズンを足すときはここに足す
  */

@@ -13,10 +13,25 @@ export interface ExportHeadingLines {
   name: string;
 }
 
-export function exportHeadingLines(title: string, leagueLabel: string, scope?: string): ExportHeadingLines {
-  if (scope) return { scope: `${leagueLabel} ${scope}`, name: title };
+/** リーグ名と範囲をつなぐ。「B.PREMIER（旧B1）」のように括弧で終わるときは空白を入れない（「B.PREMIER（旧B1）通算」） */
+function joinScope(label: string, range: string): string {
+  return label.endsWith("）") ? `${label}${range}` : `${label} ${range}`;
+}
+
+/** 範囲が「通算」「歴代」で始まる（複数のシーズンにまたがる）か。1つのシーズンの範囲は含まない */
+export function isMultiSeasonScope(scope: string): boolean {
+  return /^(歴代|通算)/.test(scope);
+}
+
+/**
+ * leagueLabel は「B.PREMIER」、formerLabel は「B.PREMIER（旧B1）」（league.ts の leagueScopeLabel(league, true)）。
+ * 範囲が通算・歴代のときだけ formerLabel を使う（省略時は leagueLabel のまま）
+ */
+export function exportHeadingLines(title: string, leagueLabel: string, scope?: string, formerLabel?: string): ExportHeadingLines {
+  const labelFor = (range: string) => (formerLabel && isMultiSeasonScope(range) ? formerLabel : leagueLabel);
+  if (scope) return { scope: joinScope(labelFor(scope), scope), name: title };
   const m = SCOPE_PATTERN.exec(title);
-  if (m) return { scope: `${leagueLabel} ${m[1]}`, name: m[2]! };
+  if (m) return { scope: joinScope(labelFor(m[1]!), m[1]!), name: m[2]! };
   return { scope: leagueLabel, name: title };
 }
 

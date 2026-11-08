@@ -49,6 +49,15 @@
   box-sizing: border-box;
 }
 
+/* iPhone の Safari は、幅の広い画面（保存の間の1280px）で、折り返す段落だけ文字を自動で大きくする（写真がある行の名前の下の行だけ大きく、
+ * 写真が無い行は1行で収まり小さいまま、になっていた）。自動の拡大を止めて、指定した大きさのままにする（DESIGN.md 360章） */
+html,
+body,
+.export-rendering {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -7720,21 +7729,23 @@ table.sortable-table tbody tr:not(.pinned-row) + tr.pinned-row td {
   color: var(--muted);
 }
 
-/* 写真が無い選手の枠（PlayerPhoto の placeholder）。写真と同じ大きさで、シルエットを置く */
+/* 写真が無い選手の枠（PlayerPhoto の placeholder）。写真と同じ大きさで、「NO PHOTO」の文字を置く（人型は使わない。DESIGN.md 360章） */
 .player-photo-placeholder {
-  /* 写真（img）と同じ並び方（行の高さが変わらないように、inline-block の下端を基準にそろえる） */
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   box-sizing: border-box;
   border: 1px solid var(--border);
   color: var(--muted);
   text-align: center;
-  line-height: 0;
+  line-height: 1.1;
 }
 
-.player-photo-placeholder svg {
-  margin-top: 14%;
-  opacity: 0.6;
+.player-photo-placeholder-text {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
 }
 
 /* ロゴが無いクラブの枠（TeamLogo の placeholder）。ロゴと同じ大きさの空の枠 */

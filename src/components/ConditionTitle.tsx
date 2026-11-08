@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { joinLabels, LABEL_SEPARATOR, visibleConditionLabels } from "../lib/conditionLabels";
 import { exportHeadingLines } from "../lib/exportHeading";
-import { LEAGUE_LABELS, useLeague } from "../lib/league";
+import { LEAGUE_LABELS, leagueScopeLabel, useLeague } from "../lib/league";
 import { titlePhrases } from "../lib/titlePhrases";
 
 /**
@@ -72,7 +72,7 @@ export function ConditionTitle({
   // 初期値のままの項目・カテゴリ名・登録区分は書かない（DESIGN.md 170章）
   const shown = visibleConditionLabels(conditions);
   const league = useLeague();
-  const heading = exportHeadingLines(title, LEAGUE_LABELS[league], exportScope);
+  const heading = exportHeadingLines(title, LEAGUE_LABELS[league], exportScope, leagueScopeLabel(league, true));
   return (
     <div className={`condition-title${section ? " condition-title-section" : ""}`}>
       <h2 className="export-hide">{renderTitle(title)}</h2>

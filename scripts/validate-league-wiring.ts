@@ -33,6 +33,7 @@ import {
   leagueCacheKey,
   leagueFromParams,
   leaguePageStateKey,
+  leagueScopeLabel,
   leagueSwitchUrl,
   ONE_SEASONS,
 } from "../src/lib/league";
@@ -429,6 +430,15 @@ eq(exportHeadingLines("通算（2020-21以降） On/Off", "B.PREMIER"), { scope:
 eq(exportHeadingLines("2026-27シーズンの記録", "B.PREMIER"), { scope: "B.PREMIER 2026-27シーズン", name: "記録" }, "見出し: シーズンの〜");
 eq(exportHeadingLines("宇都宮 vs 千葉J", "B.PREMIER", seasonsScope(["2026-27", "2026-27"])), { scope: "B.PREMIER 2026-27シーズン", name: "宇都宮 vs 千葉J" }, "見出し: 比較");
 eq(seasonsScope(["2026-27", "2024-25"]), "2024-25・2026-27シーズン", "比較の範囲（複数シーズン）");
+// 通算・歴代（複数のシーズンにまたがる記録）の1行目は前身リーグの呼び名つき（360章）。1シーズンだけの記録は今までどおり
+eq(leagueScopeLabel("premier", true), "B.PREMIER（旧B1）", "リーグ名: B.PREMIER の通算");
+eq(leagueScopeLabel("one", true), "B.ONE（旧B2）", "リーグ名: B.ONE の通算");
+eq(leagueScopeLabel("premier", false), "B.PREMIER", "リーグ名: シーズン単独");
+eq(exportHeadingLines("通算 達成記録 TR 20以上", "B.PREMIER", undefined, "B.PREMIER（旧B1）"), { scope: "B.PREMIER（旧B1）通算", name: "達成記録 TR 20以上" }, "見出し: 通算に旧B1");
+eq(exportHeadingLines("歴代 個人通算記録 得点ランキング", "B.ONE", undefined, "B.ONE（旧B2）"), { scope: "B.ONE（旧B2）歴代", name: "個人通算記録 得点ランキング" }, "見出し: B.ONE の歴代に旧B2");
+eq(exportHeadingLines("通算（2020-21以降） On/Off", "B.PREMIER", undefined, "B.PREMIER（旧B1）"), { scope: "B.PREMIER（旧B1）通算（2020-21以降）", name: "On/Off" }, "見出し: 期間つきの通算にも旧B1");
+eq(exportHeadingLines("2026-27シーズン 得点ランキング", "B.PREMIER", undefined, "B.PREMIER（旧B1）"), { scope: "B.PREMIER 2026-27シーズン", name: "得点ランキング" }, "見出し: シーズン単独には付けない");
+eq(exportHeadingLines("A vs B", "B.PREMIER", "2024-25・2026-27シーズン", "B.PREMIER（旧B1）"), { scope: "B.PREMIER 2024-25・2026-27シーズン", name: "A vs B" }, "見出し: 比較の複数シーズンは付けない");
 eq(exportHeadingLines("ボックススコア：Traditional", "B.ONE"), { scope: "B.ONE", name: "ボックススコア：Traditional" }, "見出し: 範囲の無いもの");
 eq(exportFilenameWithLeague("個人ランキング_2026-27_得点.png", "B.ONE"), "B.ONE_個人ランキング_2026-27_得点.png", "ファイル名にリーグ名");
 eq(exportFilenameWithLeague("ORtg_DRtg_2026-27", "B.PREMIER"), "B.PREMIER_ORtg_DRtg_2026-27.png", "拡張子の無いファイル名");
