@@ -502,9 +502,6 @@ export function usePlayerSeasonRanking(
   const groupOk = (p: PlayerSummary) => ((!rookieActive || (rookieIds !== null && rookieIds.has(p.playerId))) && scopedPlayerMatches(p, group, classScope.changed));
   /** 試合ログ（途中で区分が変わった選手は、選んだ区分の試合だけ） */
   const classLogs = (map: Map<string, PlayerGameLog[]>, id: string) => scopeLogsByClassification(map.get(id) ?? [], id, group, classScope.changed);
-  // USG%・%-shareスタッツ・個人ORtg/DRtgの分母（チーム総計）用に、チーム版ランキングと共通の
-  // フックで26チーム分のTeamGameLogを取得する
-  const { gameLogsByTeam } = useAllTeamGameLogs(season, enabled ? teams : null, league);
 
   const filterActive = !isDefaultFilter(filter);
   const gameTypeActive = gameType !== "regular";
@@ -617,6 +614,12 @@ export function usePlayerSeasonRanking(
     category === "scoring" ||
     conditionNeedsLogs ||
     (filtersApply && needsClassificationRecompute(eligible, group, classScope.changed));
+  // USG%・%-shareスタッツ・個人ORtg/DRtgの分母（チーム総計）用に、チーム版ランキングと共通の
+  // フックで26チーム分のTeamGameLogを取得する。条件なしの表は players.json の playedTeamTotals（集計済みの分母）で足りるので、
+  // 試合ログから足し直すとき（条件・Misc・Scoring など）と、playedTeamTotals の無い古いデータのときだけ読む
+  // （スマホで、チームの試合ログ26件を読み終えるまで表が出なかった。DESIGN.md 355章）
+  const teamLogsNeeded = needsGameLogRecompute || eligible.some((p) => !p.playedTeamTotals);
+  const { gameLogsByTeam } = useAllTeamGameLogs(season, enabled && teamLogsNeeded ? teams : null, league);
   useEffect(() => {
     if (!needsGameLogRecompute || eligible.length === 0) return;
     const missing = eligible.filter((p) => !fetchedPlayerIdsRef.current.has(p.playerId));
@@ -674,7 +677,7 @@ export function usePlayerSeasonRanking(
 
   const seasonStartYear = Number(season.split("-")[0]);
   const ctxByPlayer = useMemo<Map<string, SeasonBoxscoreCtx> | null>(() => {
-    if (!teamTotalsByTeamId) return null;
+    if (teamLogsNeeded && !teamTotalsByTeamId) return null;
     if (needsGameLogRecompute && !gameLogsByPlayer) return null;
     if (effPeriodActive && !periodDataReady) return null;
     const map = new Map<string, SeasonBoxscoreCtx>();
@@ -694,7 +697,7 @@ export function usePlayerSeasonRanking(
         map.set(p.playerId, buildSeasonBoxscoreCtx(raw, team, "perGame", seasonStartYear));
         continue;
       }
-      let team = teamTotalsByTeamId.get(p.teamId) ?? EMPTY_TEAM_TOTALS;
+      let team = teamTotalsByTeamId?.get(p.teamId) ?? EMPTY_TEAM_TOTALS;
       if (needsGameLogRecompute) {
         const logs = classLogs(gameLogsByPlayer!, p.playerId);
         const situational = filterGameLogs(logs, { ...effFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, playerOwnTeamOf, league);
@@ -709,6 +712,7 @@ export function usePlayerSeasonRanking(
     }
     return map;
   }, [
+    teamLogsNeeded,
     teamTotalsByTeamId,
     gameLogsByTeam,
     needsGameLogRecompute,
@@ -899,7 +903,7 @@ export function usePlayerSeasonRanking(
     !enabled ||
     !raceReady ||
     (needsGameLogRecompute && (gameLogsLoading || !gameLogsByPlayer)) ||
-    !teamTotalsByTeamId ||
+    (teamLogsNeeded && !teamTotalsByTeamId) ||
     !ctxByPlayer ||
     (effPeriodActive && periodSourceLoading) ||
     (careersNeeded && (careersLoading || !careers)) ||

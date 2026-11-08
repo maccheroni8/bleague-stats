@@ -4,7 +4,8 @@ import type { TeamColors } from "../../shared/types";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
 import { useCurrentPlayerNames } from "../lib/currentPlayerNames";
 import { buildExportFilename, classificationLabels, composeLabels, gameTypeLabels, multiSelectLabels } from "../lib/conditionLabels";
-import { fetchLeaguePlayerGameRecords, fetchPlayerGameRecords } from "../lib/data";
+import { fetchLeaguePlayerGameRecordTable, fetchPlayerGameRecords } from "../lib/data";
+import type { PlayerRecordPartGroup } from "../lib/leagueRecordParts";
 import { useLeague } from "../lib/league";
 import { ONE_ROOKIE_REASON } from "../lib/leagueAvailability";
 import { classificationAxis, rookieAxis, gameTypeAxis, multiSelectAxis, periodAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
@@ -148,10 +149,20 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
       hasRegistrationChanges(registrationChanges));
 
   const options = useGameRecordOptions(scope, season, league);
-  const { data: file, loading: fileLoading } = useJsonData(
-    () => (useIndex ? Promise.resolve(null) : allTime ? fetchLeaguePlayerGameRecords() : fetchPlayerGameRecords(season, league)),
+  // 登録区分の上位20位の表（日本人・外国籍・帰化・アジアのまとめ）か、全選手の表か
+  const partGroup: PlayerRecordPartGroup = topKey === "jp" || topKey === "intl" ? topKey : "all";
+  // シーズン: そのシーズンの上位20位のファイル。歴代: 表示する表（区分・試合区分・項目）だけを読む
+  // （歴代のファイルは全部の表で約520KBあり、スマホで表示まで約6秒かかっていた。DESIGN.md 355章）
+  const { data: seasonFile, loading: seasonFileLoading } = useJsonData(
+    () => (useIndex || allTime ? Promise.resolve(null) : fetchPlayerGameRecords(season, league)),
     [allTime, season, useIndex, league],
   );
+  const { data: allTimeTable, loading: allTimeTableLoading } = useJsonData(
+    () => (useIndex || !allTime ? Promise.resolve(null) : fetchLeaguePlayerGameRecordTable(partGroup, gameType, def.key).then((entries) => ({ entries }))),
+    [allTime, useIndex, partGroup, gameType, def.key],
+    { discardStale: true },
+  );
+  const fileLoading = allTime ? allTimeTableLoading : seasonFileLoading;
   const index = useGameIndexViews("player", scope, season, useIndex, { fromSeason: topKey === null && splitSeasonsOnly(group) ? SPLIT_CLASSIFICATION_FIRST_SEASON : null, league });
   const periodIndex = usePlayerPeriodViews(index.views, useIndex && !!period, league);
   const rookies = useRookieFile(useIndex && isRookieFilter(group));
@@ -195,11 +206,13 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   }, [allTime, season, league, group, conditions, options, setGroup, setConditions]);
 
   // 登録区分を選んだときは、その区分の選手だけの中での上位（区分ごとの表。DESIGN.md 197章）
-  const tables = topKey === "jp" || topKey === "intl" ? file?.byClassification?.[topKey] : file?.byGameType;
-  const entries: PlayerRecordRow[] | undefined = useIndex ? result?.rows : (tables?.[gameType]?.[def.key] ?? []);
+  const seasonTables = partGroup === "all" ? seasonFile?.byGameType : seasonFile?.byClassification?.[partGroup];
+  // 表が無い（ファイルが無い・その区分の表が無い）ときは null
+  const fileEntries = allTime ? (allTimeTable?.entries ?? null) : seasonTables ? (seasonTables[gameType]?.[def.key] ?? []) : null;
+  const entries: PlayerRecordRow[] | undefined = useIndex ? result?.rows : (fileEntries ?? []);
   const loading = registrationChanges.loading || (useIndex ? index.loading || periodIndex.loading || rookies.loading || active.loading || current.loading : fileLoading);
   const failure = useIndex ? (index.error ?? periodIndex.error ?? rookies.error ?? active.error ?? current.error) : null;
-  const noData = !classBlocked && !useIndex && !loading && !tables;
+  const noData = !classBlocked && !useIndex && !loading && !fileEntries;
 
   const teamName = (id: string) => {
     const t = options.teams.find((o) => o.value === id);

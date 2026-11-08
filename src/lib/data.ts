@@ -19,6 +19,8 @@ import type { PlayerPeriodIndexFile, TeamPeriodIndexFile } from "../../shared/pe
 import type { TtsIndexFile } from "../../shared/ttsIndex";
 import type {
   LeaguePlayerGameRecordsFile,
+  LeagueRecordEntry,
+  PlayerGameRecordEntry,
   PlayerGameRecordsFile,
   PeriodAveragesFile,
   Category,
@@ -58,6 +60,7 @@ import { legibleAccentColor, MONO_FALLBACK_COLOR } from "./color";
 import { fillUnnamedPlayers } from "./unknownPlayer";
 import { TEAM_COLOR_OVERRIDES, TEAM_SUB_COLORS } from "./teamColorOverrides";
 import type { LeagueCompareFile } from "./leagueAverage";
+import { playerRecordPartPath, teamRecordPartPath, type PlayerRecordPartGroup, type TeamRecordPartTable } from "./leagueRecordParts";
 
 const dataBase = `${import.meta.env.BASE_URL}data`;
 
@@ -239,6 +242,26 @@ export async function fetchLeaguePlayerGameRecords(): Promise<LeaguePlayerGameRe
   }
 }
 
+/**
+ * 全シーズンの選手の1試合の記録の上位のうち、1つの表（区分・試合区分・項目）だけ（DESIGN.md 355章）。
+ * 公開用のビルドが分けた小さなファイルを先に読み、無い・読めないときは元のファイル（fetchLeaguePlayerGameRecords）から取り出す。
+ * 元のファイルも無ければ null（その区分の表が無いときも null）
+ */
+export async function fetchLeaguePlayerGameRecordTable(
+  group: PlayerRecordPartGroup,
+  gameType: string,
+  key: string,
+): Promise<PlayerGameRecordEntry[] | null> {
+  try {
+    return await fetchJson<PlayerGameRecordEntry[]>(`${dataBase}/${playerRecordPartPath(group, gameType, key)}`);
+  } catch {
+    const file = await fetchLeaguePlayerGameRecords();
+    const tables = group === "all" ? file?.byGameType : file?.byClassification?.[group];
+    if (!tables) return null;
+    return tables[gameType as keyof typeof tables]?.[key] ?? [];
+  }
+}
+
 /** 選手の1試合行の索引（data/{season}/player-game-index.json、DESIGN.md 219章）。ファイルが無ければ null。読み方は src/lib/gameIndex.ts */
 export async function fetchPlayerGameIndex(season: string, league: League = "premier"): Promise<PlayerGameIndexFile | null> {
   try {
@@ -402,6 +425,20 @@ export function fetchDivisionHistory(): Promise<DivisionHistoryFile> {
  * 夜間実行で毎晩作り直す、シーズン非依存の単一ファイル（DESIGN.md 143-4） */
 export function fetchLeagueTeamRankings(): Promise<LeagueTeamRankingsFile> {
   return fetchJson<LeagueTeamRankingsFile>(`${dataBase}/league-team-rankings.json`);
+}
+
+/**
+ * 歴代のクラブ横断順位のうち、1試合記録の1つの表（表・試合区分・項目）だけ（DESIGN.md 355章）。
+ * 公開用のビルドが分けた小さなファイルを先に読み、無い・読めないときは元のファイル（fetchLeagueTeamRankings）から取り出す
+ */
+export async function fetchLeagueTeamRecordTable(table: TeamRecordPartTable, gameType: string, key: string): Promise<LeagueRecordEntry[]> {
+  try {
+    return await fetchJson<LeagueRecordEntry[]>(`${dataBase}/${teamRecordPartPath(table, gameType, key)}`);
+  } catch {
+    const file = await fetchLeagueTeamRankings();
+    const tables = file[table] as Record<string, Record<string, LeagueRecordEntry[]>> | undefined;
+    return tables?.[gameType]?.[key] ?? [];
+  }
 }
 
 /** 通算成績の歴代選手横断順位（個人版「歴代記録」タブ）。

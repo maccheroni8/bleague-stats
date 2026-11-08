@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
 import { buildExportFilename, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
-import { fetchLeagueTeamRankings, fetchTeamHistory, fetchTeams } from "../lib/data";
+import { fetchLeagueTeamRecordTable, fetchTeamHistory, fetchTeams } from "../lib/data";
 import { useLeague } from "../lib/league";
 import { gameTypeAxis, periodAxis, simpleSelectAxis, statItemAxis, type FilterAxis } from "../lib/filterAxes";
 import { filterByGameType } from "../../shared/gameType";
@@ -9,7 +9,8 @@ import { useAllTeamGameLogs } from "../lib/teamRankingData";
 import {
   TEAM_RECORD_MODE_LABELS,
   TEAM_RECORD_TOP_N,
-  allTimeTeamRecordRows,
+  teamRecordRowsFromEntries,
+  teamRecordTableName,
   formatTeamRecordDetail,
   formatTeamRecordValue,
   leagueTeamDisplayName,
@@ -148,9 +149,12 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
 
   // 歴代: 集計ファイルと名称の履歴。シーズン: そのシーズンの全クラブの試合ログ（使わない範囲・索引を使うときは読み込まない）
   const useFiles = !useIndex;
-  const { data: rankings, loading: rankingsLoading } = useJsonData(
-    () => (allTime && useFiles ? fetchLeagueTeamRankings() : Promise.resolve(null)),
-    [allTime, useFiles],
+  // 歴代は、表示する表（種類・試合区分・項目）だけを読む（歴代のファイルは全部の表で約440KBあり、スマホで表示まで時間がかかっていた。DESIGN.md 355章）
+  const recordTable = teamRecordTableName(mode, item.key);
+  const { data: allTimeEntries, loading: rankingsLoading } = useJsonData(
+    () => (allTime && useFiles ? fetchLeagueTeamRecordTable(recordTable, gameType, item.key) : Promise.resolve(null)),
+    [allTime, useFiles, recordTable, gameType, item.key],
+    { discardStale: true },
   );
   const { data: history } = useJsonData(() => (allTime && useFiles ? fetchTeamHistory() : Promise.resolve(null)), [allTime, useFiles]);
   const { data: teams, loading: teamsLoading } = useJsonData(
@@ -190,9 +194,9 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
       useIndex
         ? (result?.rows ?? [])
         : allTime
-          ? allTimeTeamRecordRows(rankings, history, mode, gameType, item.key, leagueTeamDisplayName)
+          ? teamRecordRowsFromEntries(allTimeEntries ?? [], history, leagueTeamDisplayName)
           : seasonTeamRecordRows(games, mode, item.key),
-    [useIndex, result, allTime, rankings, history, mode, gameType, item.key, games],
+    [useIndex, result, allTime, allTimeEntries, history, mode, item.key, games],
   );
   const loading = useIndex ? index.loading || periodIndex.loading || !result : allTime ? rankingsLoading : teamsLoading || logsLoading;
 

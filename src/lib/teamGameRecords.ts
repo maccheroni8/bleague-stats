@@ -16,6 +16,7 @@ import type { SeasonGameTypeFilter } from "./playerSeasonBoxscore";
 import { formatPct } from "./format";
 import { scaledMinForPeriod } from "./periodMinimum";
 import { teamNameInSeason } from "./teamLabel";
+import type { TeamRecordPartTable } from "./leagueRecordParts";
 export { leagueTeamDisplayName } from "./leagueTeamNames";
 import { attemptsFirst, computeTopRecordEntries } from "./topRecords";
 
@@ -185,15 +186,22 @@ export function allTimeTeamRecordRows(
   teamName: (teamId: string) => string,
 ): TeamGameRecordRow[] {
   if (!rankings) return [];
-  const isPeriod = parsePeriodItemKey(key) !== null;
-  const table = isPeriod
-    ? rankings.periodRecordTop20
-    : mode === "record"
-      ? rankings.clubRecordTop20
-      : mode === "worst"
-        ? rankings.clubRecordWorstTop20
-        : rankings.clubRecordAgainstTop20;
-  const entries: LeagueRecordEntry[] = table?.[gameType]?.[key] ?? [];
+  const entries: LeagueRecordEntry[] = rankings[teamRecordTableName(mode, key)]?.[gameType]?.[key] ?? [];
+  return teamRecordRowsFromEntries(entries, history, teamName);
+}
+
+/** 歴代の集計ファイルで、その種類・項目の行がある表の名前（区間の項目は区間の表） */
+export function teamRecordTableName(mode: TeamRecordMode, key: string): TeamRecordPartTable {
+  if (parsePeriodItemKey(key) !== null) return "periodRecordTop20";
+  return mode === "record" ? "clubRecordTop20" : mode === "worst" ? "clubRecordWorstTop20" : "clubRecordAgainstTop20";
+}
+
+/** 歴代の集計ファイルの1つの表の行から、画面の行を作る。チーム名・相手の名称は、その試合のシーズンの名称 */
+export function teamRecordRowsFromEntries(
+  entries: readonly LeagueRecordEntry[],
+  history: readonly TeamHistoryEntry[] | null | undefined,
+  teamName: (teamId: string) => string,
+): TeamGameRecordRow[] {
   return entries.flatMap((e) =>
     e.scheduleKey && e.date && e.opponentTeamId
       ? [
