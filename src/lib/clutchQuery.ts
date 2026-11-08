@@ -110,7 +110,6 @@ export function queryClutch(q: ClutchQuery): { rows: ClutchRow[]; players: numbe
     for (let i = 0; i < view.size; i++) {
       const fg = fgValues[i]!;
       const ft = ftValues[i]!;
-      if (fg === 0 && ft === 0) continue;
       const g = rows.game[i]!;
       const home = (rows.flags[i]! & ROW_FLAG_HOME) !== 0;
       if (!matchesGame(facts[g * 2 + (home ? 0 : 1)]!, q.gameType, q.conditions)) continue;
@@ -118,6 +117,10 @@ export function queryClutch(q: ClutchQuery): { rows: ClutchRow[]; players: numbe
       if (q.activeIds && !q.activeIds.has(p[0])) continue;
       if (rookie && (view.season <= FIRST_LEAGUE_SEASON || !rookieOfIndex(q.rookies, view.season, p[0]))) continue;
       if (!indexRowClassMatches(file, i, classPart)) continue;
+      // 最終所属とシーズンの範囲は、勝負所の得点があったかに関係なく、出場した（出場時間がある）試合から決める
+      const minSec = rows.stats.minSec;
+      const played = !minSec || minSec[i]! > 0;
+      if (!played && fg === 0 && ft === 0) continue;
       const team = teams[home ? games.home[g]! : games.away[g]!]!;
       const date = games.date[g]!;
       const key = games.key[g]!;
@@ -140,6 +143,7 @@ export function queryClutch(q: ClutchQuery): { rows: ClutchRow[]; players: numbe
     }
   }
   const sorted = [...acc.values()]
+    .filter((a) => a.fg + a.ft > 0)
     .map<Omit<ClutchRow, "rank">>((a) => ({
       value: a.fg + a.ft,
       fg: a.fg,

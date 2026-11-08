@@ -64,8 +64,13 @@ async function loadCareerData(): Promise<{
 }> {
   const byPlayer = new Map<string, PlayerSeasonLogs[]>();
   const info = new Map<string, LeaguePlayerInfo>();
+  /** 選手ごとの、最後に出場した（出場時間がある）試合のシーズンとチーム。最終所属の元（DESIGN.md 358章） */
+  const lastPlayed = new Map<string, { season: string; date: string; key: string; teamId: string; teamName: string }>();
+  const seasonDirs = listSeasonDirs();
 
-  for (const season of listSeasonDirs()) {
+  for (const season of seasonDirs) {
+    const summary = (await readJson<{ scheduleKey: string; homeTeamId: string; homeTeamName: string; awayTeamId: string; awayTeamName: string }[]>(path.join(DATA_DIR, season, "games-summary.json"))) ?? [];
+    const summaryByKey = new Map(summary.map((g) => [g.scheduleKey, g]));
     const dir = path.join(DATA_DIR, season, "player-games");
     if (existsSync(dir)) {
       const files = readdirSync(dir).filter((f) => f.endsWith(".json.gz"));
@@ -78,6 +83,19 @@ async function loadCareerData(): Promise<{
         const arr = byPlayer.get(playerId) ?? [];
         arr.push({ season, logs: real });
         byPlayer.set(playerId, arr);
+        for (const g of real) {
+          const game = summaryByKey.get(g.scheduleKey);
+          if (!game) continue;
+          const prev = lastPlayed.get(playerId);
+          if (prev && (prev.season > season || (prev.season === season && (prev.date > g.date || (prev.date === g.date && prev.key >= g.scheduleKey))))) continue;
+          lastPlayed.set(playerId, {
+            season,
+            date: g.date,
+            key: g.scheduleKey,
+            teamId: g.isHome ? game.homeTeamId : game.awayTeamId,
+            teamName: g.isHome ? game.homeTeamName : game.awayTeamName,
+          });
+        }
       }
     }
 
@@ -87,6 +105,14 @@ async function loadCareerData(): Promise<{
         info.set(p.playerId, { name: p.name, teamId: p.teamId, teamName: p.teamName, latestSeason: season });
       }
     }
+  }
+
+  // 最終所属は「最後に出場した試合のチーム」（players.json は出場なしの行も含み、チームもその行のもの）。最新のシーズンの名簿にいる選手は今のチームのまま
+  const newestSeason = seasonDirs[seasonDirs.length - 1];
+  for (const [id, p] of info) {
+    const last = lastPlayed.get(id);
+    if (!last || p.latestSeason === newestSeason) continue;
+    info.set(id, { ...p, teamId: last.teamId, teamName: last.teamName, latestSeason: last.season });
   }
 
   // 複数のシーズンをまたぐ表なので、選手名は選手マスタの今の登録名にそろえる（マスタに無い選手は最新のシーズンの名前。空白はそろえる。DESIGN.md 222-5）

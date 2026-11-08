@@ -145,7 +145,7 @@ export interface ThresholdCountRow {
   rate: number;
   playerId: string;
   playerName: string;
-  /** 最後に達成した試合のチーム */
+  /** 最後に出場した試合のチーム（条件を達成した試合とは限らない） */
   teamId: string;
   teamName: string;
   firstSeason: string;
@@ -261,21 +261,25 @@ export function queryThresholdCount(q: ThresholdCountQuery): { rows: ThresholdCo
     let a = acc.get(p[0]);
     if (!a) acc.set(p[0], (a = { count: 0, games: 0, playerId: p[0], playerName: p[1], teamId: "", teamName: "", lastDate: "", lastKey: "", firstSeason: "", lastSeason: "" }));
     a.games += 1;
-    if (!hit) return;
-    a.count += 1;
+    // 最終所属とシーズンの範囲は「条件を達成したか」に関係なく、出場した（出場時間がある）試合から決める
     const g = rows.game[i]!;
     const date = games.date[g]!;
     const key = games.key[g]!;
-    if (!a.firstSeason || view.season < a.firstSeason) a.firstSeason = view.season;
-    if (date > a.lastDate || (date === a.lastDate && key > a.lastKey)) {
-      const team = teams[(rows.flags[i]! & ROW_FLAG_HOME) !== 0 ? games.home[g]! : games.away[g]!]!;
-      a.lastDate = date;
-      a.lastKey = key;
-      a.lastSeason = view.season;
-      a.playerName = p[1];
-      a.teamId = team[0];
-      a.teamName = team[1];
+    const minSec = rows.stats.minSec;
+    if (!minSec || minSec[i]! > 0) {
+      if (!a.firstSeason || view.season < a.firstSeason) a.firstSeason = view.season;
+      if (date > a.lastDate || (date === a.lastDate && key > a.lastKey)) {
+        const team = teams[(rows.flags[i]! & ROW_FLAG_HOME) !== 0 ? games.home[g]! : games.away[g]!]!;
+        a.lastDate = date;
+        a.lastKey = key;
+        a.lastSeason = view.season;
+        a.playerName = p[1];
+        a.teamId = team[0];
+        a.teamName = team[1];
+      }
     }
+    if (!hit) return;
+    a.count += 1;
   });
   if (!scan) return null;
   const eligible = q.sort !== "rate" ? null : q.career ? careerEligiblePlayers(q.views, q.gameType, q.includeSpecial) : ratioEligiblePlayers(q.views, q.gameType, q.includeSpecial);
