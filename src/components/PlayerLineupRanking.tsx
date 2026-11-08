@@ -60,8 +60,6 @@ import { POSITION_OPTIONS } from "./PlayerGameRecordRanking";
 import { RankedList } from "./RankedList";
 import { ResponsivePlayerName } from "./ResponsivePlayerName";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
-import { LastTeamName } from "./LastTeamName";
-import { useLastTeamCheck } from "../lib/lastTeam";
 
 /**
  * ランキング > 個人 > On/Off・組み合わせ（DESIGN.md 224章）。
@@ -115,11 +113,11 @@ function SideLine({ label, s, narrow }: { label: string; s: LineupSide; narrow: 
   );
 }
 
-function RowLine({ row, unit, allTime, narrow, last }: { row: LineupRow; unit: LineupUnit; allTime: boolean; narrow: boolean; last: boolean }) {
+function RowLine({ row, unit, allTime, narrow }: { row: LineupRow; unit: LineupUnit; allTime: boolean; narrow: boolean }) {
   const span = row.firstSeason === row.lastSeason ? row.lastSeason : `${row.firstSeason}〜${row.lastSeason}`;
   return (
     <>
-      <LastTeamName teamId={row.teamId} name={row.teamName} last={last} />
+      <ResponsiveTeamName teamId={row.teamId} name={row.teamName} always nowrap />
       {narrow ? (
         // スマホ幅: 空白を nowrap の外に出し、「チーム名」「シーズン」「試合数」の間で折り返せるようにする（通算でチーム名が長いと値の列にかかる）
         <>
@@ -169,7 +167,6 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const allTime = league === "one" ? false : range === "career";
   // 現役の絞り込みは通算だけ（過去の選手が混ざる範囲）
   const activeOn = allTime && activeParam === "active";
-  const isLast = useLastTeamCheck(allTime);
   const seasonForTitle = allTime ? null : season;
   const supported = allTime || lineupSeasonSupported(season);
 
@@ -426,7 +423,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                     </span>
                   )
                 }
-                subLabel={(r) => <RowLine row={r} unit={unit} allTime={allTime} narrow={narrow} last={isLast(r.lastSeason, r.players.map((p) => p.id))} />}
+                subLabel={(r) => <RowLine row={r} unit={unit} allTime={allTime} narrow={narrow} />}
                 linkTo={(r) => (unit === "onoff" ? `/players/${r.players[0]!.id}?season=${r.lastSeason}` : undefined)}
                 avatar={unit === "onoff" ? (r) => <PlayerPhoto playerId={r.players[0]!.id} size={56} className="player-cell-photo" placeholder /> : undefined}
                 teamColor={(r) => teamColors?.[r.teamId]?.primary}

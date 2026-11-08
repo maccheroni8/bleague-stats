@@ -28,11 +28,18 @@ check("名簿が読めない間は最後のシーズンだけで判定（今季�
 check("名簿が読めない間は最後のシーズンだけで判定（過去）", isLastTeamRow("2023-24", ["a"], null, S) === true);
 check("組み合わせは全員が今季のときだけ今季の行", isLastTeamRow(S, ["a", "b"], active, S) === false && isLastTeamRow(S, ["a", "z"], active, S) === true);
 
-const files = ["ThresholdLists", "CareerRecordRanking", "PlayerClutchRanking", "AssistPairRanking", "PlayerLineupRanking"];
+const files = ["ThresholdLists", "CareerRecordRanking", "PlayerClutchRanking"];
 for (const f of files) {
   const src = readFileSync(`src/components/${f}.tsx`, "utf8");
   check(`${f}: LastTeamName を使う`, src.includes("<LastTeamName"));
   check(`${f}: 名前の下の行にチーム名を出す表で exportTeam を足さない`, !src.includes("exportTeam="));
+}
+// 行がチームごと・ペアが一緒にプレーしたチームの種類は「最終所属：」を付けず、その行のチームとシーズンの範囲だけを出す（359章）
+for (const f of ["AssistPairRanking", "PlayerLineupRanking"]) {
+  const src = readFileSync(`src/components/${f}.tsx`, "utf8");
+  check(`${f}: 「最終所属」を付けない（LastTeamName・useLastTeamCheck を使わない）`, !src.includes("LastTeamName") && !src.includes("useLastTeamCheck"));
+  check(`${f}: チーム名は ResponsiveTeamName で出す`, src.includes("<ResponsiveTeamName teamId={"));
+  check(`${f}: exportTeam を足さない`, !src.includes("exportTeam="));
 }
 check("PlayerGameRecordRanking: exportTeam を足さない", !readFileSync("src/components/PlayerGameRecordRanking.tsx", "utf8").includes("exportTeam="));
 check("在籍確認の文言は最終所属の書き方とセット", !/[^>}]シーズンまで在籍確認/.test(readFileSync("src/components/CareerRecordRanking.tsx", "utf8").replace(/\{r\.info\.latestSeason\}シーズンまで在籍確認/, "")));
