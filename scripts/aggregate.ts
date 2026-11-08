@@ -44,6 +44,7 @@ import {
   type OnCourtReconstruction,
   type PlayerOnCourtRatings,
 } from "../shared/onCourt.ts";
+import { benchForeignCounts, on4Feasible, on4RuleApplies } from "../shared/on4Possible.ts";
 import { computeForeignPlayerCourtSeconds, foreignCourtSecondsArray, playerForeignOnCourt, type ForeignOverLimitTally, type PlayerForeignOnCourt } from "../shared/foreignOnCourt.ts";
 import { buildMiscEventCounts, countTechnicalFouls, teamPointsBreakdown, type MiscEventCounts } from "../shared/teamGameEvents.ts";
 import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
@@ -868,6 +869,8 @@ export async function aggregateSeason(season: string, category: Category = "prem
       ? computeForeignPlayerCourtSeconds(onCourt.lineupStints, (id) => classifyAt(id, game.date), maxForeignOnCourt, foreignOverLimit)
       : new Map<string, Map<number, number>>();
     const foreignPlayerCounts = computeForeignPlayerCounts(foreignPlayerCourtSeconds);
+    // on4 が可能だった試合（ベンチ入りの人数から。353章）。同時出場の上限が4人のシーズンだけ
+    const on4Counts = on4RuleApplies(maxForeignOnCourt) ? benchForeignCounts(game, (id, date) => classifyAt(id, date)) : null;
     // 個人PACE用の在コート区間ポゼッション（DESIGN.md参照）。既存のPACE表示ポリシー
     // （17-4章）と同じくcoverage==="full"（2022-23シーズン以降）のみ算出する
     const onCourtRatingsByPlayer: Record<string, PlayerOnCourtRatings> =
@@ -947,6 +950,7 @@ export async function aggregateSeason(season: string, category: Category = "prem
       classifyAt,
       teamRuns,
       onCourtMaterials,
+      on4Counts,
     );
     processLineups(game, teamLineups, teamLineupGames, onCourt);
     if (writeTeamStints) collectTeamStints(game, teamStints, onCourt);
@@ -1853,6 +1857,12 @@ function foreignCourtFields(own: Map<number, number> | undefined, opp: Map<numbe
   return { ...(ownSeconds ? { foreignCourtSeconds: ownSeconds } : {}), ...(oppSeconds ? { opponentForeignCourtSeconds: oppSeconds } : {}) };
 }
 
+/** on4 が可能だった試合か（上限が4人のシーズンだけ。ボックススコアにそのチームの選手行が無いときは付けない） */
+function on4Fields(counts: ReturnType<typeof benchForeignCounts> | null, teamId: string): Pick<TeamGameLog, "on4Possible"> {
+  const c = counts?.get(teamId);
+  return c ? { on4Possible: on4Feasible(c) } : {};
+}
+
 function processTeams(
   game: StoredGame,
   gameType: GameType,
@@ -1871,6 +1881,7 @@ function processTeams(
   classifyAt: ClassifyAt,
   teamRuns: [TeamRun | null, TeamRun | null],
   onCourtMaterials: GameOnCourtMaterials | null,
+  on4Counts: ReturnType<typeof benchForeignCounts> | null,
 ): void {
   const homeRow = pickTeamRow(game.raw.HomeBoxscores, 3)[0];
   const awayRow = pickTeamRow(game.raw.AwayBoxscores, 3)[0];
@@ -2031,6 +2042,7 @@ function processTeams(
     foreignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     ...foreignCourtFields(foreignPlayerCourtSeconds.get(game.homeTeam.id), foreignPlayerCourtSeconds.get(game.awayTeam.id)),
+    ...on4Fields(on4Counts, game.homeTeam.id),
     ...teamOnCourtFields(onCourtMaterials, game.homeTeam.id),
     ...teamGameLogStats(homeRow, gamePoss),
     ...opponentGameLogStats(awayRow),
@@ -2084,6 +2096,7 @@ function processTeams(
     foreignPlayerCount: foreignPlayerCounts.get(game.awayTeam.id),
     opponentForeignPlayerCount: foreignPlayerCounts.get(game.homeTeam.id),
     ...foreignCourtFields(foreignPlayerCourtSeconds.get(game.awayTeam.id), foreignPlayerCourtSeconds.get(game.homeTeam.id)),
+    ...on4Fields(on4Counts, game.awayTeam.id),
     ...teamOnCourtFields(onCourtMaterials, game.awayTeam.id),
     gameType,
     ...teamGameLogStats(awayRow, gamePoss),

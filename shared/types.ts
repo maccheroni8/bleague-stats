@@ -954,6 +954,11 @@ export interface TeamGameLog extends Partial<FoulCategoryCounts>, Partial<Oppone
   /** 相手チームの同じ値（相手の視点。古いデータには無い） */
   opponentForeignCourtSeconds?: number[];
   /**
+   * そのチームのベンチ入り（出場しなかった選手を含む）に、同時に4人出せるだけの外国籍・帰化・アジア特別枠の選手がいた試合か（shared/on4Possible.ts。DESIGN.md 353章）。
+   * 同時出場の上限が4人のシーズン（B.PREMIER の2026-27〜）だけ。それ以外・古いデータには無い
+   */
+  on4Possible?: boolean;
+  /**
    * チームの出場区間の合計（[秒, 自チーム×STINT_COUNT_KEYS, 相手×STINT_COUNT_KEYS]。shared/playerOnCourt.ts の teamStintTotals）。
    * 個人の Off＝この合計 − 本人の On（PlayerGameLog.onCourt）。2020-21以降のプレーバイプレーのある試合だけ。古いデータには無い
    */

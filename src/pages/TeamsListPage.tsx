@@ -109,8 +109,7 @@ import {
 import { usePageState } from "../lib/pageStateCache";
 import { ExportImageButton } from "../components/ExportImageButton";
 import { ExportTarget } from "../components/ExportTarget";
-import { on4Key, on4Supported } from "../lib/on4Games";
-import { useOn4Games } from "../lib/useOn4Games";
+import { logsHaveOn4, on4Supported, onlyOn4Games } from "../lib/on4Core";
 import { buildExportFilename } from "../lib/conditionLabels";
 import { SCORING_ORDER_LABELS, ScoringCompositionChart, type PointsShareOrder } from "../components/ScoringCompositionChart";
 import {
@@ -419,6 +418,7 @@ function turnoverTotal(data: TeamForcedTurnovers): number {
 }
 
 const ON4_ONLY_LABEL = "on4が可能だった試合だけ";
+const ON4_NO_DATA_REASON = "このシーズンのデータには、on4が可能だった試合の判定がまだ入っていません。";
 const ON4_UNAVAILABLE_REASON = "on4（外国籍・帰化・アジア特別枠が同時に4人）が可能なのは、B.PREMIER の2026-27シーズンだけです。";
 
 /** On-Court Foreign の表の行（絞り込んだ試合・区間の、人数別の在コート時間の合計。DESIGN.md 256章の段階3） */
@@ -552,14 +552,9 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const [storedForeignGames, setForeignGames] = usePageState<"all" | "on4">("teams:foreignGames", "all");
   const foreignMax = foreignRules ? seasonRuleFor(foreignRules, season, league)?.maxForeignOnCourt : undefined;
   const on4Ok = on4Supported(league, foreignMax);
-  const on4Active = boxTab === "foreignPlayers" && on4Ok && storedForeignGames === "on4";
-  const on4ScheduleKeys = useMemo(() => {
-    if (!on4Active || !gameLogsByTeam) return null;
-    const keys = new Set<string>();
-    for (const logs of gameLogsByTeam.values()) for (const g of filterByGameType(logs, gameType)) keys.add(g.scheduleKey);
-    return [...keys];
-  }, [on4Active, gameLogsByTeam, gameType]);
-  const on4 = useOn4Games(season, league, on4ScheduleKeys, on4Active);
+  // 試合ログに on4 の判定が無い古いデータでは、切り替えは効かない（すべての試合のまま）
+  const on4Logs = useMemo(() => !!gameLogsByTeam && [...gameLogsByTeam.values()].some((logs) => logsHaveOn4(logs)), [gameLogsByTeam]);
+  const on4Active = boxTab === "foreignPlayers" && on4Ok && on4Logs && storedForeignGames === "on4";
   const exportRef = useRef<HTMLDivElement>(null);
 
   // 選んだ条件（シチュエーション別のフィルタ・試合区分）に当てはまる、チームごとの試合ログ。表の集計と Periods の区間別の得点が同じ試合を使う
@@ -931,14 +926,12 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const foreignRows = useMemo<ForeignCourtRow[] | null>(() => {
     if (boxTab !== "foreignPlayers" || !teams || !gameLogsByTeam) return null;
     if (!foreignCourtReady(foreignPeriod, periodSource, foreignLogsSupported)) return null;
-    if (on4Active && !on4.result) return null;
-    const feasible = on4Active ? on4.result!.feasible : null;
     const list: ForeignCourtRow[] = [];
     const leagueSeconds = [0, 0, 0, 0, 0];
     let leagueGames = 0;
     for (const team of teams) {
       const teamLogs = scopedLogsByTeam.get(team.teamId) ?? [];
-      const logs = feasible ? teamLogs.filter((g) => feasible.get(on4Key(team.teamId, g.scheduleKey)) === true) : teamLogs;
+      const logs = on4Active ? onlyOn4Games(teamLogs) : teamLogs;
       const sum = sumForeignCourt(periodSource, logs, foreignPeriod, foreignSide);
       if (!sum || sum.games === 0 || sum.seconds.every((v) => v === 0)) continue;
       list.push({ team, games: sum.games, share: foreignShareFromSeconds(sum.seconds, sum.games) });
@@ -953,7 +946,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       });
     }
     return list;
-  }, [boxTab, teams, gameLogsByTeam, foreignPeriod, periodSource, foreignLogsSupported, scopedLogsByTeam, foreignSide, on4Active, on4.result]);
+  }, [boxTab, teams, gameLogsByTeam, foreignPeriod, periodSource, foreignLogsSupported, scopedLogsByTeam, foreignSide, on4Active]);
   const foreignShareById = useMemo(() => new Map((foreignRows ?? []).map((r) => [r.team.teamId, r.share])), [foreignRows]);
   // 表の人数の列は規定の上限まで。上限を超える人数でも、時間のあるチームがあれば出す
   const foreignCounts = FOREIGN_COUNTS.filter(
@@ -1304,27 +1297,11 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                 value: on4Ok ? storedForeignGames : "all",
                 defaultValue: "all",
                 onChange: (v) => setForeignGames(v as "all" | "on4"),
-                disabledReason: on4Ok || !foreignRules ? undefined : ON4_UNAVAILABLE_REASON,
+                disabledReason: !foreignRules ? undefined : !on4Ok ? ON4_UNAVAILABLE_REASON : !on4Logs && gameLogsByTeam ? ON4_NO_DATA_REASON : undefined,
               }),
             ]}
           />
-          {on4Active && !on4.result ? (
-            <div className="loading" role="status">
-              {on4.error ? (
-                <>
-                  <p>試合の元ファイルを読み込めませんでした。</p>
-                  <button type="button" className="tab-button" onClick={on4.retry}>
-                    再読み込み
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p>試合の元ファイルを読み込み中... {on4.progress ? `${on4.progress.done} / ${on4.progress.total}試合` : "準備中"}</p>
-                  <progress max={on4.progress?.total ?? 1} value={on4.progress?.done ?? 0} style={{ width: "100%", maxWidth: 360 }} />
-                </>
-              )}
-            </div>
-          ) : foreignRows ? (
+          {foreignRows ? (
             <>
               <ExportImageButton
                 targetRef={exportRef}

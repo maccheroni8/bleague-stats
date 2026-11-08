@@ -3176,6 +3176,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           league={league}
           logs={quarterLogs}
           ownTeamByScheduleKey={quarterTeamInfo?.ownTeamByScheduleKey ?? (careerTeamData ? EMPTY_OWN_TEAMS : undefined)}
+          teamLogsByTeamId={quarterTeamInfo?.teamLogsByTeamId ?? (careerTeamData ? EMPTY_TEAM_LOGS : undefined)}
           loading={careerLoading || !careerData || !careerTeamData}
         />
       )}

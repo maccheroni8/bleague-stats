@@ -1,6 +1,6 @@
 import { useMemo, useRef, type ReactNode } from "react";
 import { seasonRuleFor } from "../../shared/seasonRules";
-import type { PlayerGameLog } from "../../shared/types";
+import type { PlayerGameLog, TeamGameLog } from "../../shared/types";
 import { ConditionTitle } from "./ConditionTitle";
 import { ExportImageButton } from "./ExportImageButton";
 import { ExportTarget } from "./ExportTarget";
@@ -13,7 +13,7 @@ import { formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
 import { formatDecimal } from "../lib/format";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import type { League } from "../lib/league";
-import { on4Key, on4Supported } from "../lib/on4Games";
+import { logsHaveOn4, on4Key, on4Supported } from "../lib/on4Core";
 import { usePageState } from "../lib/pageStateCache";
 import { PLAYER_FOREIGN_COUNTS, sumPlayerForeign, type PlayerForeignBucket } from "../lib/playerForeignCourt";
 import type { SeasonDisplayMode, SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
@@ -21,8 +21,8 @@ import { foreignShareFromSeconds } from "../lib/shareCharts";
 import { statDescription } from "../lib/statDescriptions";
 import type { GameTeamInfo } from "../lib/situational";
 import { useJsonData } from "../lib/useJsonData";
-import { useOn4Games } from "../lib/useOn4Games";
 
+const ON4_NO_DATA_REASON = "このシーズンのデータには、on4が可能だった試合の判定がまだ入っていません。";
 const ON4_UNAVAILABLE_REASON = "on4（外国籍・帰化・アジア特別枠が同時に4人）が可能なのは、B.PREMIER の2026-27シーズンだけです。";
 const ON4_ONLY_LABEL = "on4が可能だった試合だけ";
 
@@ -71,6 +71,7 @@ export function PlayerForeignTab({
   league,
   logs,
   ownTeamByScheduleKey,
+  teamLogsByTeamId,
   loading,
 }: {
   playerId: string;
@@ -79,6 +80,8 @@ export function PlayerForeignTab({
   league: League;
   logs: PlayerGameLog[] | undefined;
   ownTeamByScheduleKey: Map<string, GameTeamInfo> | undefined;
+  /** チームごとの試合ログ（on4 が可能だった試合の判定を読む） */
+  teamLogsByTeamId: Map<string, TeamGameLog[]> | undefined;
   loading: boolean;
 }) {
   const pk = (s: string) => `player:${playerId}:oc:${s}`;
@@ -92,7 +95,6 @@ export function PlayerForeignTab({
   const { data: file, loading: fileLoading } = useJsonData(() => fetchPlayerForeign(season, league), [season, league], { discardStale: true });
   const foreignMax = rules ? seasonRuleFor(rules, season, league)?.maxForeignOnCourt : undefined;
   const on4Ok = on4Supported(league, foreignMax);
-  const on4Active = on4Ok && storedGames === "on4";
 
   const games = useMemo(
     () =>
@@ -100,14 +102,28 @@ export function PlayerForeignTab({
     [logs, ownTeamByScheduleKey],
   );
   const typeMatches = (t: string) => gameType === "both" || gameType === t;
-  const on4Keys = useMemo(() => (on4Active ? games.filter((g) => typeMatches(g.gameType)).map((g) => g.scheduleKey) : null), [on4Active, games, gameType]); // eslint-disable-line react-hooks/exhaustive-deps
-  const on4 = useOn4Games(season, league, on4Keys, on4Active);
+  // on4 が可能だった試合（集計が試合ログに保存した判定を読む。古いデータには無い）
+  const on4Feasible = useMemo(() => {
+    const keys = new Set<string>();
+    let has = false;
+    for (const [teamId, logs] of teamLogsByTeamId ?? []) {
+      if (logsHaveOn4(logs)) has = true;
+      for (const g of logs) if (g.on4Possible === true) keys.add(on4Key(teamId, g.scheduleKey));
+    }
+    return { keys, has };
+  }, [teamLogsByTeamId]);
+  const on4Active = on4Ok && on4Feasible.has && storedGames === "on4";
 
   const totals = useMemo(() => {
-    if (!file || (on4Active && !on4.result)) return null;
-    const feasible = on4Active ? on4.result!.feasible : null;
-    return sumPlayerForeign(file, playerId, games, side, (g) => typeMatches(g.gameType) && (!feasible || (!!g.teamId && feasible.get(on4Key(g.teamId, g.scheduleKey)) === true)));
-  }, [file, playerId, games, side, gameType, on4Active, on4.result]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!file) return null;
+    return sumPlayerForeign(
+      file,
+      playerId,
+      games,
+      side,
+      (g) => typeMatches(g.gameType) && (!on4Active || (!!g.teamId && on4Feasible.keys.has(on4Key(g.teamId, g.scheduleKey)))),
+    );
+  }, [file, playerId, games, side, gameType, on4Active, on4Feasible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const total = displayMode === "total";
   const heading = `${season}シーズン ${playerName} On-Court Foreign`;
@@ -142,7 +158,7 @@ export function PlayerForeignTab({
       value: on4Ok ? storedGames : "all",
       defaultValue: "all",
       onChange: (v) => setGames(v as "all" | "on4"),
-      disabledReason: on4Ok ? undefined : ON4_UNAVAILABLE_REASON,
+      disabledReason: !rules ? undefined : !on4Ok ? ON4_UNAVAILABLE_REASON : !on4Feasible.has && teamLogsByTeamId ? ON4_NO_DATA_REASON : undefined,
     }),
   ];
 
@@ -152,20 +168,6 @@ export function PlayerForeignTab({
     body = <p className="loading">読み込み中...</p>;
   } else if (!file) {
     body = <p className="empty-message">このシーズンのデータには対応していません（2020-21シーズン以降）</p>;
-  } else if (on4Active && !on4.result) {
-    body = on4.error ? (
-      <div className="loading" role="status">
-        <p>試合の元ファイルを読み込めませんでした。</p>
-        <button type="button" className="tab-button" onClick={on4.retry}>
-          再読み込み
-        </button>
-      </div>
-    ) : (
-      <div className="loading" role="status">
-        <p>試合の元ファイルを読み込み中... {on4.progress ? `${on4.progress.done} / ${on4.progress.total}試合` : "準備中"}</p>
-        <progress max={on4.progress?.total ?? 1} value={on4.progress?.done ?? 0} style={{ width: "100%", maxWidth: 360 }} />
-      </div>
-    );
   } else if (!totals || totals.games === 0) {
     body = <p className="empty-message">該当する試合がありません</p>;
   } else {

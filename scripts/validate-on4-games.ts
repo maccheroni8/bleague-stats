@@ -1,5 +1,6 @@
-// 「on4 が可能だった試合」（src/lib/on4Core.ts）と、個人の On-Court Foreign の足し合わせ（src/lib/playerForeignCourt.ts）の検証（DESIGN.md 352章。手で実行）。
-//  1. 2026-27 の B.PREMIER の全試合で、ベンチ入りの選手（試合全体の行）を別の書き方で数え直した人数と on4Core の判定が一致する
+// 「on4 が可能だった試合」（shared/on4Possible.ts。試合ログ TeamGameLog.on4Possible に保存した値。DESIGN.md 353章）と、個人の On-Court Foreign の足し合わせ（src/lib/playerForeignCourt.ts）の検証（DESIGN.md 352章。手で実行）。
+//  1. 2026-27 の B.PREMIER の全試合で、ベンチ入りの選手（試合全体の行）を別の書き方で数え直した人数と判定が一致し、試合ログに保存した on4Possible も同じ値
+//     （B.ONE・過去のシーズンの試合ログには on4Possible が無い）
 //  2. on4 が不可能と判定した試合では、そのチームの On-Court Foreign の4人の時間（試合ログ）が 0（可能と判定した試合の数・不可能な試合の数も出す）
 //  3. 個人: 全選手・全試合で、sumPlayerForeign（1試合ずつ）の合計と、player-foreign.json を直接足した値が一致する。
 //     人数ごとの時間の合計が出場時間（試合ログの min）とどれだけ違うか（除外した5人組の分）を出す
@@ -7,7 +8,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import path from "node:path";
-import { benchForeignCounts, on4Feasible } from "../src/lib/on4Core.ts";
+import { benchForeignCounts, on4Feasible } from "../shared/on4Possible.ts";
 import { sumPlayerForeign } from "../src/lib/playerForeignCourt.ts";
 import { makeClassifier } from "../shared/registration.ts";
 
@@ -78,12 +79,15 @@ for (const s of samples) console.log(`   例: ${s}`);
 
 // 2. 不可能な試合では OC4 の時間が 0
 let oc4Violations = 0;
+let storedChecked = 0;
 let oc4InFeasible = 0;
 for (const f of readdirSync(`${DATA}/${season}/team-games`).filter((x) => x.endsWith(".json.gz"))) {
   const teamId = f.replace(".json.gz", "");
   for (const g of rj(path.join(`${DATA}/${season}/team-games`, f))) {
     const ok = feasibleByKey.get(`${teamId}|${g.scheduleKey}`);
     if (ok === undefined) continue;
+    storedChecked++;
+    if (g.on4Possible !== ok) fail(`${teamId} ${g.scheduleKey}: 試合ログの on4Possible ${g.on4Possible} と判定 ${ok} が違う`);
     const oc4 = g.foreignCourtSeconds?.[4] ?? 0;
     if (!ok && oc4 > 0) {
       oc4Violations++;
@@ -92,7 +96,8 @@ for (const f of readdirSync(`${DATA}/${season}/team-games`).filter((x) => x.ends
     if (ok && oc4 > 0) oc4InFeasible++;
   }
 }
-console.log(`2. 不可能と判定した試合で OC4 の時間がある: ${oc4Violations}件（可能な試合で OC4 がある: ${oc4InFeasible}試合）`);
+console.log(`2. 試合ログの on4Possible を ${storedChecked}チーム分で確認`);
+console.log(`   不可能と判定した試合で OC4 の時間がある: ${oc4Violations}件（可能な試合で OC4 がある: ${oc4InFeasible}試合）`);
 if (oc4Violations > 0) ng += oc4Violations;
 
 // 3. 個人
@@ -136,6 +141,18 @@ for (const f of readdirSync(pgDir).filter((x) => x.endsWith(".json.gz"))) {
   }
 }
 console.log(`3. 選手 ${checkedPlayers}人: 足し合わせは一致。人数別の時間の合計が出場時間と1秒より違う試合 ${diffGames} / ${totalGames}（最大 ${Math.round(maxDiffSec)}秒。区分が不明などで外した5人組の分）`);
+// 4. 上限が4人でないシーズン・B.ONE の試合ログには on4Possible が無い
+let leaked = 0;
+for (const sd of readdirSync(DATA).filter((d) => /^\d{4}-\d{2}$/.test(d))) {
+  for (const base of [`${DATA}/${sd}/team-games`, `${DATA}/${sd}/one/team-games`]) {
+    if (!existsSync(base) || (sd === season && base.endsWith(`${sd}/team-games`))) continue;
+    for (const f of readdirSync(base).filter((x) => x.endsWith(".json.gz"))) {
+      if (rj(path.join(base, f)).some((g: any) => g.on4Possible !== undefined)) leaked++;
+    }
+  }
+}
+console.log(`4. 対象外（過去のシーズン・B.ONE）のチームの試合ログで on4Possible があるファイル: ${leaked}`);
+ng += leaked;
 if (ng > 0) {
   console.log(`NG ${ng}件`);
   process.exit(1);
