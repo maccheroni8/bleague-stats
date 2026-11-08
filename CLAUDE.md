@@ -155,6 +155,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 349章: 図解（選手）の詳細フィルターに、プロフィール（年齢・身長・体重）・キャリア・シューティング・ポジションを足した（ランキングと同じ定義。`playerVennConditionDefs`・`usePlayerFigureFilter`。B.ONE はシューティング・キャリア不可）。**画面だけの変更でキー不変**
 - 350章: 図解（選手）の**散布図**（`figure=player-scatter`。x・y を自由に選ぶ。項目はランキング（個人）の項目。URL `px`・`py`。`src/lib/figurePlayerFree.ts`）。チームの「自由な散布図」は「散布図」に改名（ID `team-shooting` は不変）。以前の選手の3つの図（得点×アシスト・USG%×PPP・シュート%×試投数）は図の一覧から消え、古い URL・保存した設定の読み替え（`figurePlayerLegacy.ts`）で開く。3つの設定は351章で「保存した設定」に1回だけ入れる形にした。詳細フィルターに DD2・TD3・PTS10。検証は `npm run validate:figure-player-free`。**画面だけの変更でキー不変**
 - 351章: 選手の散布図の「用意された設定」の欄を消し、3つ（得点×アシスト・USG%×PPP・シュート%×試投数）を図の設定の保存（348章）の「保存した設定」に、**ブラウザごとに1回だけ**入れる（`seedInitialPresets`〔`figurePresets.ts`〕を `src/main.tsx` で呼ぶ。記録は localStorage `bleague-stats:figure-presets-seeded`。同じ中身がすでにあれば入れない・削除しても戻さない・保存できない環境では何もしない）。古い URL の読み替えは残す。検証は `validate:figure-player-free`。**画面だけの変更でキー不変**
+- 352章: **On-Court Foreign のまとめ**。全チームスタッツと個人詳細（新タブ「On-Court Foreign」）に「対象の試合」（すべて／**on4 が可能だった試合だけ**＝ベンチ入り〔出場しなかった選手を含む〕に外国籍3名以上＋帰化・アジア特別枠1名以上。B.PREMIER 2026-27 だけ。試合の元ファイルを読む〔進み具合つき〕。`src/lib/on4Core.ts`・`on4Games.ts`・`useOn4Games.ts`）、個人の人数別の本人の成績（`PlayerForeignTab.tsx`・`playerForeignCourt.ts`）、画像保存（ダークの画面でもグラフの文字が白く抜けないよう、写し取る間だけ `data-theme` をライトにする）。検証は `npm run validate:on4-games`。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

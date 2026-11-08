@@ -144,7 +144,18 @@ export async function renderExportCanvas(
       const before = html2canvasContainers();
       // 写し取る直前（広い画面に描き直したあと）の、表の中の <img> の位置を覚えておく
       slots = detachImages ? planImageSlots(el, isCloned) : [];
-      const promise = html2canvas(el, html2canvasOptions);
+      // html2canvas は写し取るとき、画面の計算済みの色（グラフ〔SVG〕の文字の色など）をそのまま複製に書き込む。ダークの画面から保存すると
+      // グラフの文字が白く抜けるので、写し取る呼び出しの間（同期の処理の中なので画面には出ない）だけ、画面の配色をライトにする
+      const root = document.documentElement;
+      const previousTheme = root.getAttribute("data-theme");
+      root.setAttribute("data-theme", "light");
+      let promise: ReturnType<typeof html2canvas>;
+      try {
+        promise = html2canvas(el, html2canvasOptions);
+      } finally {
+        if (previousTheme === null) root.removeAttribute("data-theme");
+        else root.setAttribute("data-theme", previousTheme);
+      }
       // html2canvas は呼んだその場で iframe を作って表を写し取り終え、そのあと iframe の読み込み完了・フォント・画像を待つ。
       // 記録（debug=export）のときは、その待ちの様子を2秒ごとに見る
       for (const frame of document.querySelectorAll<HTMLIFrameElement>(HTML2CANVAS_CONTAINER_SELECTOR)) {

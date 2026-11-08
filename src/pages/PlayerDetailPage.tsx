@@ -176,6 +176,7 @@ import { statDescription } from "../lib/statDescriptions";
 import { PlayerSeasonScoringChart } from "../components/PlayerScoringShareCharts";
 import { PlayerOpponentSplit } from "../components/PlayerOpponentSplit";
 import { PlayerQuarterTab } from "../components/PlayerQuarterTab";
+import { PlayerForeignTab } from "../components/PlayerForeignTab";
 import { formatPlayerRecord, formatPlayerWinPct, playerRecordOfLogs, playerWinPct, type PlayerRecord } from "../lib/playerQuarterSplit";
 import type { PlayerOpponentCategory } from "../lib/playerOpponentSplit";
 import {
@@ -262,11 +263,12 @@ function toGameLogColumns(tabKey: BoxscoreTabKey, foulSplit: boolean): Column<Ga
   return [...fixed, ...statColumns];
 }
 
-type DetailTab = "stats" | "quarter" | "gamelog" | "opponentSplit" | "career" | "highs" | "compare";
+type DetailTab = "stats" | "quarter" | "foreign" | "gamelog" | "opponentSplit" | "career" | "highs" | "compare";
 
 const TAB_LABELS: Record<DetailTab, string> = {
   stats: "スタッツ",
   quarter: "Q別",
+  foreign: "On-Court Foreign",
   gamelog: "試合ログ",
   opponentSplit: "対戦相手別",
   career: "通算成績",
@@ -1279,7 +1281,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
   useEffect(() => {
     if (
-      (tab !== "stats" && tab !== "quarter" && tab !== "opponentSplit" && tab !== "career" && tab !== "highs" && tab !== "compare") ||
+      (tab !== "stats" && tab !== "quarter" && tab !== "foreign" && tab !== "opponentSplit" && tab !== "career" && tab !== "highs" && tab !== "compare") ||
       !playerId ||
       !seasons ||
       careerFetchStartedRef.current
@@ -3163,6 +3165,18 @@ export function PlayerDetailPage({ season }: { season: string }) {
           onGameTypeChange={setQuarterGameType}
           displayMode={quarterDisplayMode}
           onDisplayModeChange={setQuarterDisplayMode}
+        />
+      )}
+
+      {tab === "foreign" && playerId && (
+        <PlayerForeignTab
+          playerId={playerId}
+          playerName={player?.name ?? ""}
+          season={season}
+          league={league}
+          logs={quarterLogs}
+          ownTeamByScheduleKey={quarterTeamInfo?.ownTeamByScheduleKey ?? (careerTeamData ? EMPTY_OWN_TEAMS : undefined)}
+          loading={careerLoading || !careerData || !careerTeamData}
         />
       )}
 

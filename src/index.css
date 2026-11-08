@@ -8586,3 +8586,23 @@ table.sortable-table.tts-table th {
     white-space: normal;
   }
 }
+
+/* On-Court Foreign（全チームスタッツ・個人詳細）の保存範囲。画面は幅いっぱい、保存画像は幅を固定する（DESIGN.md 352章） */
+.export-rendering.export-target-oc {
+  width: 1180px;
+  max-width: none;
+}
+
+/* 個人詳細（v2 の見出し・表の規則）の中でも、保存画像の見出しと表はチーム全体の On-Court Foreign と同じ大きさにする */
+[data-design="v2"] .export-wide.export-target-oc .condition-title h2 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+[data-design="v2"] .export-wide.export-target-oc .stats-table {
+  font-size: 14px;
+}
+
+.export-target-oc .table-scroll + .table-scroll {
+  margin-top: 16px;
+}

@@ -129,7 +129,8 @@
     "validate:top-scorers": "esbuild scripts/validate-top-scorers.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-top-scorers.mjs && node node_modules/.cache/validate-top-scorers.mjs",
     "validate:points-created": "esbuild scripts/validate-points-created.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-points-created.mjs && node node_modules/.cache/validate-points-created.mjs",
     "validate:forced-turnover-logs": "esbuild scripts/validate-forced-turnover-logs.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-forced-turnover-logs.mjs && node node_modules/.cache/validate-forced-turnover-logs.mjs",
-    "validate:usg-ppp": "esbuild scripts/validate-usg-ppp.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-usg-ppp.mjs && node node_modules/.cache/validate-usg-ppp.mjs"
+    "validate:usg-ppp": "esbuild scripts/validate-usg-ppp.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/validate-usg-ppp.mjs && node node_modules/.cache/validate-usg-ppp.mjs",
+    "validate:on4-games": "esbuild scripts/validate-on4-games.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-on4-games.mjs && node node_modules/.cache/validate-on4-games.mjs"
   },
   "dependencies": {
     "cheerio": "^1.0.0",

@@ -1,5 +1,5 @@
 import { withPaint, mergePaint, PAINT2_NOTE } from "../lib/teamPaint2";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useFoulConditionCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
 import { foulColumnsSplit } from "../lib/ruleChange";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
@@ -107,6 +107,11 @@ import {
   type ForeignCourtOrder,
 } from "../components/ForeignPlayerCourtTimeChart";
 import { usePageState } from "../lib/pageStateCache";
+import { ExportImageButton } from "../components/ExportImageButton";
+import { ExportTarget } from "../components/ExportTarget";
+import { on4Key, on4Supported } from "../lib/on4Games";
+import { useOn4Games } from "../lib/useOn4Games";
+import { buildExportFilename } from "../lib/conditionLabels";
 import { SCORING_ORDER_LABELS, ScoringCompositionChart, type PointsShareOrder } from "../components/ScoringCompositionChart";
 import {
   CLASSIFICATION_ORDER_LABELS,
@@ -413,6 +418,9 @@ function turnoverTotal(data: TeamForcedTurnovers): number {
   );
 }
 
+const ON4_ONLY_LABEL = "on4が可能だった試合だけ";
+const ON4_UNAVAILABLE_REASON = "on4（外国籍・帰化・アジア特別枠が同時に4人）が可能なのは、B.PREMIER の2026-27シーズンだけです。";
+
 /** On-Court Foreign の表の行（絞り込んだ試合・区間の、人数別の在コート時間の合計。DESIGN.md 256章の段階3） */
 interface ForeignCourtRow {
   team: TeamSummary;
@@ -540,6 +548,19 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     storedClassificationOrder in CLASSIFICATION_ORDER_LABELS ? storedClassificationOrder : "total";
   // 並べ替えで規定上ありえない人数の区分を飛ばすため、シーズンごとのオンザコートの規定を読む
   const { data: foreignRules } = useJsonData(() => (boxTab === "foreignPlayers" ? fetchSeasonRules() : Promise.resolve(null)), [boxTab]);
+  // 対象の試合（すべての試合／on4 が可能だった試合だけ。DESIGN.md 352章）。同時出場の上限が4人の B.PREMIER のシーズンだけ選べる
+  const [storedForeignGames, setForeignGames] = usePageState<"all" | "on4">("teams:foreignGames", "all");
+  const foreignMax = foreignRules ? seasonRuleFor(foreignRules, season, league)?.maxForeignOnCourt : undefined;
+  const on4Ok = on4Supported(league, foreignMax);
+  const on4Active = boxTab === "foreignPlayers" && on4Ok && storedForeignGames === "on4";
+  const on4ScheduleKeys = useMemo(() => {
+    if (!on4Active || !gameLogsByTeam) return null;
+    const keys = new Set<string>();
+    for (const logs of gameLogsByTeam.values()) for (const g of filterByGameType(logs, gameType)) keys.add(g.scheduleKey);
+    return [...keys];
+  }, [on4Active, gameLogsByTeam, gameType]);
+  const on4 = useOn4Games(season, league, on4ScheduleKeys, on4Active);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   // 選んだ条件（シチュエーション別のフィルタ・試合区分）に当てはまる、チームごとの試合ログ。表の集計と Periods の区間別の得点が同じ試合を使う
   const scopedLogsByTeam = useMemo(() => {
@@ -910,11 +931,15 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   const foreignRows = useMemo<ForeignCourtRow[] | null>(() => {
     if (boxTab !== "foreignPlayers" || !teams || !gameLogsByTeam) return null;
     if (!foreignCourtReady(foreignPeriod, periodSource, foreignLogsSupported)) return null;
+    if (on4Active && !on4.result) return null;
+    const feasible = on4Active ? on4.result!.feasible : null;
     const list: ForeignCourtRow[] = [];
     const leagueSeconds = [0, 0, 0, 0, 0];
     let leagueGames = 0;
     for (const team of teams) {
-      const sum = sumForeignCourt(periodSource, scopedLogsByTeam.get(team.teamId) ?? [], foreignPeriod, foreignSide);
+      const teamLogs = scopedLogsByTeam.get(team.teamId) ?? [];
+      const logs = feasible ? teamLogs.filter((g) => feasible.get(on4Key(team.teamId, g.scheduleKey)) === true) : teamLogs;
+      const sum = sumForeignCourt(periodSource, logs, foreignPeriod, foreignSide);
       if (!sum || sum.games === 0 || sum.seconds.every((v) => v === 0)) continue;
       list.push({ team, games: sum.games, share: foreignShareFromSeconds(sum.seconds, sum.games) });
       for (const n of FOREIGN_COUNTS) leagueSeconds[n]! += sum.seconds[n]!;
@@ -928,9 +953,8 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       });
     }
     return list;
-  }, [boxTab, teams, gameLogsByTeam, foreignPeriod, periodSource, foreignLogsSupported, scopedLogsByTeam, foreignSide]);
+  }, [boxTab, teams, gameLogsByTeam, foreignPeriod, periodSource, foreignLogsSupported, scopedLogsByTeam, foreignSide, on4Active, on4.result]);
   const foreignShareById = useMemo(() => new Map((foreignRows ?? []).map((r) => [r.team.teamId, r.share])), [foreignRows]);
-  const foreignMax = foreignRules ? seasonRuleFor(foreignRules, season, league)?.maxForeignOnCourt : undefined;
   // 表の人数の列は規定の上限まで。上限を超える人数でも、時間のあるチームがあれば出す
   const foreignCounts = FOREIGN_COUNTS.filter(
     (n) => foreignMax === undefined || n <= foreignMax || (foreignRows ?? []).some((r) => r.share.seconds[n]! > 0),
@@ -1100,6 +1124,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                     foreignSide === "opp" ? perspectiveLabels("opp") : [],
                     situationalFilterLabels(filter),
                     periodLabels(periodOption),
+                    on4Active ? ON4_ONLY_LABEL : [],
                     "在コート時間ベース",
                   )
                 : composeLabels(SEASON_TOTAL_ONLY_LABELS, "在コート時間ベース")
@@ -1197,11 +1222,14 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
         </div>
       </div>
 
-      <ConditionTitle
-        title={statsTitle.title}
-        conditions={statsTitle.conditions}
-        statConditions={conditionTab ? statConditionsTitle(statConditions, conditionItems) : undefined}
-      />
+      {/* On-Court Foreign は、見出しも保存画像の範囲の中に入れる（下の ExportTarget） */}
+      {!(boxTab === "foreignPlayers" && foreignRows) && (
+        <ConditionTitle
+          title={statsTitle.title}
+          conditions={statsTitle.conditions}
+          statConditions={conditionTab ? statConditionsTitle(statConditions, conditionItems) : undefined}
+        />
+      )}
       <ResultOnlyNote variant={boxTab === "streaks" ? "record" : "stats"} games={scheduleForNote?.resultOnlyGames} />
 
       {boxTab === "shooting" ? (
@@ -1266,29 +1294,65 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                 defaultValue: "foreignDesc",
                 onChange: (v) => setForeignOrder(v as ForeignCourtOrder),
               }),
+              simpleSelectAxis({
+                id: "foreignGames",
+                label: "対象の試合",
+                options: [
+                  { value: "all", label: "すべての試合" },
+                  { value: "on4", label: "on4が可能だった試合だけ" },
+                ],
+                value: on4Ok ? storedForeignGames : "all",
+                defaultValue: "all",
+                onChange: (v) => setForeignGames(v as "all" | "on4"),
+                disabledReason: on4Ok || !foreignRules ? undefined : ON4_UNAVAILABLE_REASON,
+              }),
             ]}
           />
-          {foreignRows ? (
+          {on4Active && !on4.result ? (
+            <div className="loading" role="status">
+              {on4.error ? (
+                <>
+                  <p>試合の元ファイルを読み込めませんでした。</p>
+                  <button type="button" className="tab-button" onClick={on4.retry}>
+                    再読み込み
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p>試合の元ファイルを読み込み中... {on4.progress ? `${on4.progress.done} / ${on4.progress.total}試合` : "準備中"}</p>
+                  <progress max={on4.progress?.total ?? 1} value={on4.progress?.done ?? 0} style={{ width: "100%", maxWidth: 360 }} />
+                </>
+              )}
+            </div>
+          ) : foreignRows ? (
             <>
-              <ForeignPlayerCourtTimeChart
-                teams={foreignRows.map((r) => r.team)}
-                order={foreignOrder}
-                maxOnCourt={foreignMax}
-                shareOf={(t) => foreignShareById.get(t.teamId) ?? foreignShareFromSeconds(undefined, 0)}
+              <ExportImageButton
+                targetRef={exportRef}
+                filename={buildExportFilename([statsTitle.title, ...statsTitle.conditions])}
+                baseDate={{ kind: "season", season, gameType }}
               />
-              <div className="table-scroll">
-                <SortableTable
-                  rowNumbers
-                  statScope="team"
-                  key={`foreign-${displayMode}`}
-                  columns={foreignCourtColumns(displayMode === "total" ? "total" : "perGame", foreignCounts)}
-                  rows={foreignRows.filter((r) => r.team.teamId !== LEAGUE_TEAM_ID)}
-                  rowKey={(r) => r.team.teamId}
-                  defaultSortKey="avgCount"
-                  linkTo={(r) => `/teams/${r.team.teamId}`}
-                  pinnedRows={foreignRows.filter((r) => r.team.teamId === LEAGUE_TEAM_ID)}
+              <ExportTarget ref={exportRef} className="export-target-oc" baseDate={{ kind: "season", season, gameType }}>
+                <ConditionTitle title={statsTitle.title} conditions={statsTitle.conditions} />
+                <ForeignPlayerCourtTimeChart
+                  teams={foreignRows.map((r) => r.team)}
+                  order={foreignOrder}
+                  maxOnCourt={foreignMax}
+                  shareOf={(t) => foreignShareById.get(t.teamId) ?? foreignShareFromSeconds(undefined, 0)}
                 />
-              </div>
+                <div className="table-scroll">
+                  <SortableTable
+                    rowNumbers
+                    statScope="team"
+                    key={`foreign-${displayMode}`}
+                    columns={foreignCourtColumns(displayMode === "total" ? "total" : "perGame", foreignCounts)}
+                    rows={foreignRows.filter((r) => r.team.teamId !== LEAGUE_TEAM_ID)}
+                    rowKey={(r) => r.team.teamId}
+                    defaultSortKey="avgCount"
+                    linkTo={(r) => `/teams/${r.team.teamId}`}
+                    pinnedRows={foreignRows.filter((r) => r.team.teamId === LEAGUE_TEAM_ID)}
+                  />
+                </div>
+              </ExportTarget>
               {foreignPeriod === "ot" && (
                 <p className="page-subtitle">延長は、延長のあった試合だけの値です（すべての延長の合計）。G は延長のあった試合数で、平均はその試合数で割っています。</p>
               )}

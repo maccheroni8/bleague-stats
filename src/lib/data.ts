@@ -43,6 +43,7 @@ import type {
   SeasonRules,
   StandingsSnapshot,
   StoredGame,
+  PlayerForeignFile,
   TeamColors,
   TeamGameLog,
   TeamHistoryEntry,
@@ -143,6 +144,20 @@ export function fetchPlayerGameLogs(season: string, playerId: string, league: Le
 /** 試合の生データ。PBPは時系列に並べ直して返す（メモリ上だけ。2020-21以降の延長戦は公式の配列が時系列にならない。shared/pbpOrder.ts・DESIGN.md 212章） */
 export function fetchGame(season: string, scheduleKey: string, league: League = "premier"): Promise<StoredGame> {
   return fetchJson<StoredGame>(`${categoryBase(season, league)}/games/${scheduleKey}.json`).then(fillUnnamedPlayers).then(withChronologicalPlayByPlays);
+}
+
+/** 選手の On-Court Foreign の人数別の材料（data/{season}/player-foreign.json。2020-21以降。無いシーズン・読めないときは null。DESIGN.md 304章） */
+export async function fetchPlayerForeign(season: string, league: League = "premier"): Promise<PlayerForeignFile | null> {
+  try {
+    return await fetchJson<PlayerForeignFile>(`${categoryBase(season, league)}/player-foreign.json`);
+  } catch {
+    return null;
+  }
+}
+
+/** 試合の生データをそのまま読む（PBPの並べ替え・名前の補いをしない軽い版。ベンチ入りの選手の一覧など、ボックススコアだけが要るとき用） */
+export function fetchGameAsStored(season: string, scheduleKey: string, league: League = "premier"): Promise<StoredGame> {
+  return fetchJson<StoredGame>(`${categoryBase(season, league)}/games/${scheduleKey}.json`);
 }
 
 /**
