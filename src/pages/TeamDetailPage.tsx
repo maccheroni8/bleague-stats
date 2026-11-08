@@ -2269,7 +2269,6 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 通算成績・クラブレコードの歴代クラブ横断順位（Phase H7）。scripts/aggregate-league-rankings.tsが
   // 夜間実行で作り直す単一ファイル。ファイルが未生成でもfetchJsonが
   // エラーを投げるだけでページ全体は壊れない（leagueRankingsがnullのまま＝順位バッジ非表示になる）
-  const { data: leagueRankings } = useJsonData(() => fetchLeagueTeamRankings(), []);
   const { data: allSeasons } = useJsonData(() => fetchSeasons(), []);
   // このリーグのシーズン（B.ONE は 2026-27 だけ。seasons.json は B.PREMIER の一覧）。通算・シーズン別の取得はこの一覧を使う
   const seasons = useMemo(() => (allSeasons && league === "one" ? allSeasons.filter((s) => ONE_SEASONS.includes(s.season)) : allSeasons), [allSeasons, league]);
@@ -2296,6 +2295,13 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [storedTab, setTabState] = usePageState<DetailTab>(pk("tab"), "overview");
   // B.ONE で見られないタブが残っているときは概要にする（タブのボタンには理由を出す）
   const tab: DetailTab = league === "one" && ONE_TEAM_DETAIL_TAB_REASONS[storedTab] ? "overview" : storedTab;
+  // 順位バッジを出すのは「通算成績」「クラブレコード」タブだけ。そのタブを開いたときに読み、一度読んだら他のタブへ移っても保持する
+  const [leagueRankingsWanted, setLeagueRankingsWanted] = useState(false);
+  if (!leagueRankingsWanted && (tab === "career" || tab === "clubRecord")) setLeagueRankingsWanted(true);
+  const { data: leagueRankings } = useJsonData(
+    () => (leagueRankingsWanted ? fetchLeagueTeamRankings() : Promise.resolve(null)),
+    [leagueRankingsWanted],
+  );
   // 「対戦成績」「ラインナップ」タブはURLにも載せる（?tab=h2h&vs=相手のID、?tab=lineups。DESIGN.md 185章・207章）。そのURLを開いたときはこのタブから始める
   const [urlTab, setUrlTab] = useUrlState(enumParam<"" | "h2h" | "lineups">("tab", ["", "h2h", "lineups"], ""), "");
   const setTab = (next: DetailTab) => {

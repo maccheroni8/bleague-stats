@@ -1,5 +1,5 @@
 import { fitNamesIn } from "./nameLayout";
-import html2canvas from "html2canvas";
+import type html2canvas from "html2canvas";
 import {
   baseDateFooterText,
   exportFilenameWithOptions,
@@ -99,6 +99,10 @@ export async function renderExportCanvas(
   deadline?: ExportDeadline,
 ): Promise<{ canvas: HTMLCanvasElement; info: ExportRenderInfo }> {
   let requested = scale;
+  // 画像保存のライブラリは保存を始めたときに読む（最初の画面の読み込みに含めない）。読み込みは複製・描画の同期処理の前に済ませる
+  // （複製から元に戻すまでを1つの同期処理で行う決まりのため。DESIGN.md 241章）。読み込みに失敗したら、保存の失敗として呼び出し元に伝わる
+  deadline?.checkpoint();
+  const html2canvasFn = (await import("html2canvas")).default;
   // 試し方（debug=export のときの exp=…。ふだんは空で、動きは変わらない。244・247章。残しているのは keepimg だけ）
   const exp = exportExperiments();
   const forceWide = env.forceWide;
@@ -151,7 +155,7 @@ export async function renderExportCanvas(
       root.setAttribute("data-theme", "light");
       let promise: ReturnType<typeof html2canvas>;
       try {
-        promise = html2canvas(el, html2canvasOptions);
+        promise = html2canvasFn(el, html2canvasOptions);
       } finally {
         if (previousTheme === null) root.removeAttribute("data-theme");
         else root.setAttribute("data-theme", previousTheme);

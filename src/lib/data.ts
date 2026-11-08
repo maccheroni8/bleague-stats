@@ -64,22 +64,41 @@ const dataBase = `${import.meta.env.BASE_URL}data`;
 /** リーグ（B.PREMIER／B.ONE）。保存の置き場所は shared/types.ts の Category と同じ（B.ONE は data/{season}/one/） */
 export type League = Category;
 
+/**
+ * 同じURLを同時に読みに行くときの、読み込み中の取得（URL → 展開後の本文）。終わったら（成功でも失敗でも）すぐ外すので、
+ * 結果は覚えない（あとから読む呼び出しはまた新しいかを確かめる。失敗も残らない）。URLにシーズン・リーグが含まれるので区別はURLで足りる。
+ * 渡すのは本文（文字列）で、JSONへの変換は呼び出しごとに行う（呼び出し側が受け取った配列・オブジェクトを書き換えても、ほかの呼び出しに影響しない）
+ */
+const inflightTexts = new Map<string, Promise<string>>();
+
+function fetchGzText(gzUrl: string): Promise<string> {
+  const running = inflightTexts.get(gzUrl);
+  if (running) return running;
+  const task = (async () => {
+    // ブラウザのキャッシュを使う前に、毎回サーバーへ新しいかを確かめる（変わっていなければ304で中身は送られない）。
+    // GitHub Pages は max-age=600 を返すため、確かめないとデプロイ直後の再読み込みで新しい画面が最大10分前のデータを
+    // 読むことがあった（CDNはURLの「?」以降を区別しないので、URLに印を付ける形は採らなかった。DESIGN.md 167章）
+    const res = await fetch(gzUrl, { cache: "no-cache" });
+    if (!res.ok || !res.body) {
+      throw new Error(`${gzUrl} の取得に失敗しました (status: ${res.status})`);
+    }
+    // サーバーが既にContent-Encoding: gzipで透過展開済みならそのまま読む。
+    // そうでなければ（GitHub Pages等）圧縮バイト列のままなのでDecompressionStreamで展開する
+    const alreadyDecoded = res.headers.get("content-encoding") === "gzip";
+    return alreadyDecoded
+      ? await res.text()
+      : await new Response(res.body.pipeThrough(new DecompressionStream("gzip"))).text();
+  })();
+  inflightTexts.set(gzUrl, task);
+  const forget = () => {
+    if (inflightTexts.get(gzUrl) === task) inflightTexts.delete(gzUrl);
+  };
+  task.then(forget, forget);
+  return task;
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
-  const gzUrl = `${url}.gz`;
-  // ブラウザのキャッシュを使う前に、毎回サーバーへ新しいかを確かめる（変わっていなければ304で中身は送られない）。
-  // GitHub Pages は max-age=600 を返すため、確かめないとデプロイ直後の再読み込みで新しい画面が最大10分前のデータを
-  // 読むことがあった（CDNはURLの「?」以降を区別しないので、URLに印を付ける形は採らなかった。DESIGN.md 167章）
-  const res = await fetch(gzUrl, { cache: "no-cache" });
-  if (!res.ok || !res.body) {
-    throw new Error(`${gzUrl} の取得に失敗しました (status: ${res.status})`);
-  }
-  // サーバーが既にContent-Encoding: gzipで透過展開済みならそのまま読む。
-  // そうでなければ（GitHub Pages等）圧縮バイト列のままなのでDecompressionStreamで展開する
-  const alreadyDecoded = res.headers.get("content-encoding") === "gzip";
-  const text = alreadyDecoded
-    ? await res.text()
-    : await new Response(res.body.pipeThrough(new DecompressionStream("gzip"))).text();
-  return JSON.parse(text) as T;
+  return JSON.parse(await fetchGzText(`${url}.gz`)) as T;
 }
 
 /** B.PREMIERは`data/{season}/...`のまま、B.ONEは`data/{season}/one/...`に保存されている

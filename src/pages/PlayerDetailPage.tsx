@@ -50,6 +50,7 @@ import {
   ONE_CATEGORY_SEASONS,
 } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
+import { useNearViewport } from "../lib/useNearViewport";
 import { isShotChartSupported, useSeasonCoverage, useYahooPbpCoverage } from "../lib/useSeasonCoverage";
 import type {
   Category,
@@ -768,7 +769,17 @@ export function PlayerDetailPage({ season }: { season: string }) {
   const { data: playerHistory } = useJsonData(() => fetchPlayerHistory(), []);
   const { data: playerAwards } = useJsonData(() => fetchPlayerAwards(), []);
   // 優勝回数: レギュラーシーズン終了時に優勝チームに所属していたシーズン（data/player-careers.json。DESIGN.md 147章）
-  const { data: playerCareers } = useJsonData(() => fetchPlayerCareers(), []);
+  const { data: playerCareers, error: playerCareersError } = useJsonData(() => fetchPlayerCareers(), []);
+  // B.PREMIER で在籍（登録）していたことが分かっているシーズン。通算成績などで全シーズンの試合ログを順に問い合わせると、在籍していないシーズンが 404 になるため、
+  // 在籍が分かっているシーズンだけを読む。履歴が読み込めない・この選手の履歴が無いときは null（従来どおり全シーズンを試す）。
+  // careersSettled＝履歴の読み込みが終わった（成功か失敗）。終わるまでは全シーズンの取得を始めない
+  const careersSettled = playerCareers !== null || playerCareersError !== null;
+  const premierEnrolledSeasons = useMemo(() => {
+    if (!playerCareers || !playerId) return null;
+    const set = new Set<string>();
+    for (const [s, byPlayer] of Object.entries(playerCareers.seasons)) if (byPlayer?.[playerId]) set.add(s);
+    return set.size > 0 ? set : null;
+  }, [playerCareers, playerId]);
   const { data: divisionHistory } = useJsonData(() => fetchDivisionHistory(), []);
   const { coverage } = useSeasonCoverage(season);
   const shotChartSupported = league === "premier" && isShotChartSupported(coverage);
@@ -839,6 +850,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       });
   }, [league]);
 
+  const [assistSectionRef, assistSectionNear] = useNearViewport();
   const [storedTab, setTab] = usePageState<DetailTab>(pk("tab"), "stats");
   // B.ONE で見られないタブが残っているときはスタッツにする（タブのボタンには理由を出す）
   const tab: DetailTab = league === "one" && ONE_PLAYER_DETAIL_TAB_REASONS[storedTab] ? "stats" : storedTab;
@@ -1284,6 +1296,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       (tab !== "stats" && tab !== "quarter" && tab !== "foreign" && tab !== "opponentSplit" && tab !== "career" && tab !== "highs" && tab !== "compare") ||
       !playerId ||
       !seasons ||
+      !careersSettled ||
       careerFetchStartedRef.current
     )
       return;
@@ -1291,8 +1304,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
     const generation = careerGenerationRef.current;
     setCareerLoading(true);
     setCareerError(null);
+    const careerSeasons = league === "premier" && premierEnrolledSeasons ? seasons.filter((s) => premierEnrolledSeasons.has(s.season)) : seasons;
     Promise.all(
-      seasons.map(async (s) => {
+      careerSeasons.map(async (s) => {
         try {
           const logs = await fetchPlayerGameLogs(s.season, playerId, league);
           return { season: s.season, logs };
@@ -1310,7 +1324,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       .finally(() => {
         if (generation === careerGenerationRef.current) setCareerLoading(false);
       });
-  }, [tab, playerId, seasons, league]);
+  }, [tab, playerId, seasons, league, careersSettled, premierEnrolledSeasons]);
 
   // 「通算成績」「キャリアハイ」タブでB.ONEを選んだ時だけ遅延取得する（ONE_CATEGORY_SEASONSは
   // 既知の取得済みシーズンの列挙。data/{season}/one/player-games/{playerId}.jsonが存在しない
@@ -1340,12 +1354,13 @@ export function PlayerDetailPage({ season }: { season: string }) {
   }, [tab, careerCategory, playerId]);
 
   useEffect(() => {
-    if (league !== "one" || (tab !== "career" && tab !== "highs") || careerCategory !== "premier" || !playerId || !allSeasons || careerAltFetchStartedRef.current) return;
+    if (league !== "one" || (tab !== "career" && tab !== "highs") || careerCategory !== "premier" || !playerId || !allSeasons || !careersSettled || careerAltFetchStartedRef.current) return;
     careerAltFetchStartedRef.current = true;
     const generation = careerGenerationRef.current;
     setCareerAltLoading(true);
+    const altSeasons = premierEnrolledSeasons ? allSeasons.filter((s) => premierEnrolledSeasons.has(s.season)) : allSeasons;
     Promise.all(
-      allSeasons.map(async (s) => {
+      altSeasons.map(async (s) => {
         try {
           return { season: s.season, logs: await fetchPlayerGameLogs(s.season, playerId, "premier") };
         } catch {
@@ -1359,7 +1374,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       .finally(() => {
         if (generation === careerGenerationRef.current) setCareerAltLoading(false);
       });
-  }, [league, tab, careerCategory, playerId, allSeasons]);
+  }, [league, tab, careerCategory, playerId, allSeasons, careersSettled, premierEnrolledSeasons]);
 
   // 「シーズン別成績」テーブルのUSG%・%-shareスタッツ用に、careerData取得済みの各シーズンについて
   // 所属チームを試合ログから動的に導出（games-summary.jsonのhomeTeamId/awayTeamId×isHome、
@@ -1709,14 +1724,15 @@ export function PlayerDetailPage({ season }: { season: string }) {
     // 開いている間はQ別/前後半トグルの選択に関わらず取得する（チーム詳細ページの
     // 「選手スタッツ」タブと同じ「Misc系の正確性を優先し0コスト経路は設けない」方針）
     const option = seasonPeriodOption(situationalStatsPeriod);
-    const needsRawGames = tab === "stats" || (!!option && option.periods !== null);
+    // 「アシストの関係性」「オンコート/オフコート比較」は画面の下のほうにあるので、その欄に近づいたとき（assistSectionNear）に試合の元ファイルを読む
+    const needsRawGames = (tab === "stats" && assistSectionNear) || (!!option && option.periods !== null);
     if (!needsRawGames || !situationalStatsLogs) return;
     const needed = situationalStatsLogs
       .filter((g) => g.min > 0 && !periodRawGamesRequestedRef.current.has(g.scheduleKey))
       .map((g) => ({ season: situationalStatsSeason, scheduleKey: g.scheduleKey }));
     if (needed.length === 0) return;
     loadPeriodRawGames(needed);
-  }, [situationalStatsPeriod, situationalStatsLogs, situationalStatsSeason, tab, periodRawGamesRetryNonce, loadPeriodRawGames]);
+  }, [situationalStatsPeriod, situationalStatsLogs, situationalStatsSeason, tab, assistSectionNear, periodRawGamesRetryNonce, loadPeriodRawGames]);
 
   // やり直しても読めなかった試合の数（読み込み中は0）。「シーズン別成績」は、期間が「試合」以外のとき全シーズンの出場試合、
   // 「シチュエーション別成績」は、選択中シーズンの出場試合（アシストの関係性・オンコート/オフコートは「スタッツ」タブでは常に生データを使う）が対象
@@ -2858,6 +2874,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           {situationalStatsPeriod !== "all" && situationalStatsGameType !== "playoff" && situationalStatsTab !== "shooting" && hasManualBoxscoreSeason([situationalStatsSeason]) && (
             <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>
           )}
+          <div ref={assistSectionRef} aria-hidden="true" />
           <ConditionTitle section title="アシストの関係性" conditions={assistConditions} />
           {!assistRelationships ? (
             <p className="loading">読み込み中...</p>

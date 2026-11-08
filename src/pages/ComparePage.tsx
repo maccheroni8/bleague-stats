@@ -816,7 +816,8 @@ export function ComparePage({ season }: { season: string }) {
   const playerSeasons = rawPlayerSlots.map(slotSeasonOf);
 
   const { dataBySeason: teamsBySeason } = useSeasonKeyedData(teamSeasons, (s) => fetchTeams(s, league), league);
-  const { dataBySeason: playersBySeason } = useSeasonKeyedData(playerSeasons, (s) => fetchPlayers(s, league), league);
+  // 選手の一覧は個人比較のときだけ読む（チーム比較では使わない。個人に切り替えたとき読む）
+  const { dataBySeason: playersBySeason } = useSeasonKeyedData(mode === "player" ? playerSeasons : [], (s) => fetchPlayers(s, league), league);
   // 選手の選択肢（チームごとの並び）に要る順位表・出場時間。個人比較のときだけ読む
   const pickerSources = usePickerSources(mode === "player" ? playerSeasons : [], league);
   // 結果だけの試合（G の勝敗の横の「※」の説明用）。チーム比較のときだけ、選んだシーズン分の日程を読む

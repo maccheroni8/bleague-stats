@@ -95,6 +95,7 @@ const ALLOWED_RAW_LINKS: Record<string, string> = {
 /** 読み込みの使い回しのうち、リーグに関係しないもの（理由つき）。ファイル単位 */
 const ALLOWED_CACHES: Record<string, string> = {
   "src/lib/pageStateCache.ts": "鍵は usePageState が leaguePageStateKey で作る",
+  "src/lib/data.ts": "同時に読み込み中の取得の共有（inflightTexts）。鍵は読み込む URL そのもの（B.ONE は data/{season}/one/ を含む）で、終わったらすぐ外す（結果は覚えない）",
 };
 
 // ---------------------------------------------------------------------------
