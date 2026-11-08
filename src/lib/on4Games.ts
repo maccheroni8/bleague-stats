@@ -40,11 +40,25 @@ function classifierFor(season: string, league: League): Promise<ClassLookup> {
   return p;
 }
 
+/** 一時的な失敗（公開サイトの 503 など）で全体が止まらないよう、1試合ごとに3回まで（間を空けて）読み直す */
+async function fetchWithRetry<T>(load: () => Promise<T>, attempts = 4): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await load();
+    } catch (e) {
+      lastError = e;
+      await new Promise((r) => setTimeout(r, 600 * (i + 1)));
+    }
+  }
+  throw lastError;
+}
+
 function gameCounts(season: string, league: League, scheduleKey: string, classify: ClassLookup): Promise<Map<string, BenchForeignCount>> {
   const key = `${leagueCacheKey(season, league)}|${scheduleKey}`;
   let p = gameCache.get(key);
   if (!p) {
-    p = fetchGameAsStored(season, scheduleKey, league).then((g) => benchForeignCounts(g, classify));
+    p = fetchWithRetry(() => fetchGameAsStored(season, scheduleKey, league)).then((g) => benchForeignCounts(g, classify));
     p.catch(() => gameCache.delete(key));
     gameCache.set(key, p);
   }
