@@ -87,9 +87,9 @@ export const PLAYER_SHOOT_COLUMNS: readonly ShootColumnDef[] = [
   { key: "efg", label: "eFG%", color: true, higherIsBetter: true },
   { key: "ts", label: "TS%", color: true, higherIsBetter: true },
   { key: "3ppct", label: "3P%", color: true, higherIsBetter: true },
-  { key: "ftpct", label: "FT%", color: true, higherIsBetter: true },
   { key: "mid2pct", label: "MID2%", color: true, higherIsBetter: true },
   { key: "paint2pct", label: "PAINT2%", color: true, higherIsBetter: true },
+  { key: "ftpct", label: "FT%", color: true, higherIsBetter: true },
 ];
 
 /** チームの視点。own＝自チーム、opp＝相手（失点・相手の成功率）、diff＝差（自チーム−相手） */
@@ -117,8 +117,8 @@ export const TEAM_SHOOT_SLOTS: readonly TeamShootSlot[] = [
   { key: "pts", color: false, category: "traditional", source: view => ({ column: "pts", perspective: view }), label: view => view === "own" ? "PTS" : view === "opp" ? "opp PTS" : "PTS +/-" },
   // 相手の視点は DRtg（失点側のレーティング）、差の視点は NetRtg
   { key: "rating", color: false, category: "advanced", source: view => ({ column: view === "own" ? "ortg" : view === "opp" ? "drtg" : "netrtg", perspective: "own" }), label: view => view === "own" ? "ORtg" : view === "opp" ? "DRtg" : "NetRtg" },
-  rate("efg", "eFG%", "advanced"), rate("ts", "TS%", "advanced"), rate("3ppct", "3P%", "traditional"), rate("ftpct", "FT%", "traditional"),
-  rate("mid2pct", "MID2%", "misc"), rate("paint2pct", "PAINT2%", "misc"),
+  rate("efg", "eFG%", "advanced"), rate("ts", "TS%", "advanced"), rate("3ppct", "3P%", "traditional"),
+  rate("mid2pct", "MID2%", "misc"), rate("paint2pct", "PAINT2%", "misc"), rate("ftpct", "FT%", "traditional"),
 ];
 /** 色の向き: 自チーム・差は高いほど緑、相手は低いほど緑（相手に決められていないほど良い） */
 export const teamShootHigherIsBetter = (view: TeamShootView) => view !== "opp";
