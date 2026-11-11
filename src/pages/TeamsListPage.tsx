@@ -111,6 +111,7 @@ import { ExportImageButton } from "../components/ExportImageButton";
 import { ExportTarget } from "../components/ExportTarget";
 import { logsHaveOn4, on4Supported, onlyOn4Games } from "../lib/on4Core";
 import { buildExportFilename } from "../lib/conditionLabels";
+import { addGameFlow } from "../lib/gameFlowTotals";
 import { AssistSelfChart, type AssistSelfChartTeam } from "../components/AssistSelfChart";
 import { ASSIST_SELF_ORDER_LABELS, SELF_SHOT_KIND_LABELS, assistSelfShare, type AssistSelfOrder, type SelfShotKind } from "../lib/selfScoring";
 import { SCORING_ORDER_LABELS, ScoringCompositionChart, type PointsShareOrder } from "../components/ScoringCompositionChart";
@@ -472,7 +473,10 @@ function foreignCourtColumns(mode: "perGame" | "total", counts: readonly number[
 /** チームの合計を足し合わせる（リーグ平均の材料。全チームの試合ログを足した値と同じ） */
 function sumTotalsOf(list: readonly TeamTotals[]): TeamTotals {
   const sum: TeamTotals = { ...EMPTY_TOTALS };
-  for (const t of list) for (const k of Object.keys(sum) as (keyof TeamTotals)[]) sum[k] += t[k];
+  for (const t of list) {
+    for (const k of Object.keys(sum) as (keyof TeamTotals)[]) if (k !== "flow") (sum[k] as number) += t[k] as number;
+    sum.flow = addGameFlow(sum.flow, t.flow);
+  }
   return sum;
 }
 

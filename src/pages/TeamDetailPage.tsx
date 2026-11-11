@@ -250,6 +250,7 @@ import { TeamOpponentSplit } from "../components/TeamOpponentSplit";
 import { enumParam, useUrlState } from "../lib/urlState";
 import { fgaShare, foreignShareFromSeconds, teamClassificationShareFromTotals, teamScoringShareFromTotals, type ForeignShare } from "../lib/shareCharts";
 import { EMPTY_TOTALS, sumTeamGameLogs, type AllTeamsRow } from "../lib/teamStatsColumns";
+import { addGameFlowLog, EMPTY_GAME_FLOW, opponentRunOf, formatGameFlow, GAME_FLOW_LABELS, gameFlowOf, gameFlowValue, sumGameFlow, withGameFlow, type GameFlowKey } from "../lib/gameFlowTotals";
 import { noFlowOf, noFlowTotalsOf, selfCountsOf, selfPct, selfSplitOf, SELF_PCT_DEFS, withNoFlow, type SelfCounts, type SelfShotKind, type ShotMadeSource } from "../lib/selfScoring";
 import { paintColumns, summarizePaintLogs, withPaint, PAINT2_NOTE } from "../lib/teamPaint2";
 import { loadLeaguePaintComplete } from "../lib/teamPaint2Load";
@@ -1270,6 +1271,14 @@ const ALL_TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "DUNK",
     format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.dunks, m.oppDunks, r.team.gamesPlayed, mode, p),
   },
+  // 最大リード・最大ランの1試合平均とシーズン最大（試合ログの値。全チームスタッツの Misc と同じ。DESIGN.md 361章）
+  ...(Object.keys(GAME_FLOW_LABELS) as GameFlowKey[]).map(
+    (key): TeamSeasonBoxColumn => ({
+      key,
+      label: GAME_FLOW_LABELS[key],
+      format: (_r, m, _mode, p) => formatGameFlow(gameFlowValue(gameFlowOf(m), key, p), key, p),
+    }),
+  ),
   // ベンチ/スタメン得点・国籍区分別得点（Batch 1でヘッダータイルから移設）。r.team.advancedに
   // 既にシーズン平均値が集計済みのため、+/-列と同じ「perGame×gamesPlayedで合計値を復元する」
   // 方式でmode（平均/合計）・perspective（own/opp/diff）に対応する
@@ -2223,6 +2232,19 @@ const TEAM_POINTS_SHARE_COLUMNS: TeamPointsExtraColumn[] = [
   },
 ];
 
+/** 日程結果の Misc に足す、1試合ごとの最大リード・最大ラン（自チームの視点。opp は相手側、+/- は差。試合の流れの記録が無い試合は「-」） */
+type ScheduleFlowKey = "maxlead" | "maxrun";
+const SCHEDULE_FLOW_LABELS: Record<ScheduleFlowKey, string> = { maxlead: "MAX LEAD", maxrun: "MAX RUN" };
+const SCHEDULE_FLOW_DESCRIPTIONS: Record<ScheduleFlowKey, string> = {
+  maxlead: "その試合で最も大きくリードした点差（延長を含む）。opp は相手のリード（自チームの最大ビハインド）、+/- は差",
+  maxrun: "その試合の最大ラン（相手が無得点の間の連続得点）。opp は相手の最大ラン、+/- は差",
+};
+
+function scheduleFlowText(log: TeamGameLog | undefined, key: ScheduleFlowKey, perspective: TeamPerspective): string {
+  if (!log) return "-";
+  return formatGameFlow(gameFlowValue(addGameFlowLog({ ...EMPTY_GAME_FLOW }, log, opponentRunOf(log)), key, perspective), key, perspective);
+}
+
 function teamPointsExtraColumnsForTab(tab: BoxscoreTabKey | "shooting" | "forcedTurnovers"): TeamPointsExtraColumn[] {
   return tab === "misc" ? TEAM_POINTS_MISC_COLUMNS : tab === "scoring" ? TEAM_POINTS_SHARE_COLUMNS : [];
 }
@@ -2453,7 +2475,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       new Map(
         (careerData ?? []).map((cd) => [
           cd.season,
-          withNoFlow(withPaint(sumTeamSeasonMisc(cd.logs), summarizePaintLogs(filterByGameType(cd.logs, "regular"))), noFlowTotalsOf(filterByGameType(cd.logs, "regular"))),
+          withGameFlow(withNoFlow(withPaint(sumTeamSeasonMisc(cd.logs), summarizePaintLogs(filterByGameType(cd.logs, "regular"))), noFlowTotalsOf(filterByGameType(cd.logs, "regular"))), sumGameFlow(filterByGameType(cd.logs, "regular"))),
         ]),
       ),
     [careerData],
@@ -3887,6 +3909,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const foulSplit = foulColumnsSplit([season]);
   const scheduleBoxColumns = scheduleBoxTab === "periods" ? [] : teamBoxscoreColumnsFor(scheduleBoxTab, foulSplit);
   // Misc・Scoringタブの末尾にベンチ得点・スタメン得点を足す（他の表と同じ置き場所）。TeamGameLogにだけある値のため、Q別/前後半の表示では「-」
+  const scheduleFlowKeys: ScheduleFlowKey[] = scheduleBoxTab === "misc" ? ["maxlead", "maxrun"] : [];
   const schedulePointsColumns = scheduleBoxTab === "periods" ? [] : teamPointsExtraColumnsForTab(scheduleBoxTab).filter((c) => SCHEDULE_POINTS_COLUMN_KEYS.has(c.key));
   // Periods（DESIGN.md 226章）: ラインスコア。1Q〜4Qと延長が1本までは試合ログから、2本以上の延長は読み込み済みの生データの公式のクォーター別スコアから
   const scheduleLinescores = new Map<string, Linescore | null>();
@@ -4538,6 +4561,11 @@ export function TeamDetailPage({ season }: { season: string }) {
                           <StatHeaderLabel label={col.label} />
                         </th>
                       ))}
+                      {scheduleFlowKeys.map((key) => (
+                        <th key={key} className="align-right" title={SCHEDULE_FLOW_DESCRIPTIONS[key]}>
+                          {SCHEDULE_FLOW_LABELS[key]}
+                        </th>
+                      ))}
                       <th className="align-left">会場</th>
                     </tr>
                   </thead>
@@ -4563,6 +4591,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                           boxTotals={boxTotals}
                           pointsColumns={schedulePointsColumns}
                           points={schedulePointsSupported ? scheduleGamePointsBreakdown(gameLogsByScheduleKey.get(row.scheduleKey)) : null}
+                          flowKeys={scheduleFlowKeys}
+                          flowLog={gameLogsByScheduleKey.get(row.scheduleKey)}
                         />
                       );
                     })}
@@ -6054,6 +6084,8 @@ function TeamScheduleRowView({
   boxTotals,
   pointsColumns,
   points,
+  flowKeys,
+  flowLog,
 }: {
   row: TeamScheduleRow;
   perspective: TeamPerspective;
@@ -6061,6 +6093,8 @@ function TeamScheduleRowView({
   boxTotals: TeamGameBoxTotals | null;
   pointsColumns: TeamPointsExtraColumn[];
   points: TeamPointsBreakdownResult | null;
+  flowKeys: ScheduleFlowKey[];
+  flowLog: TeamGameLog | undefined;
 }) {
   return (
     <tr className={`schedule-row status-${row.status}`}>
@@ -6079,6 +6113,11 @@ function TeamScheduleRowView({
       {pointsColumns.map((col) => (
         <td key={col.key} className="align-right">
           {formatTeamPointsExtraColumn(points, col, perspective, "total")}
+        </td>
+      ))}
+      {flowKeys.map((key) => (
+        <td key={key} className="align-right">
+          {scheduleFlowText(flowLog, key, perspective)}
         </td>
       ))}
       <td className="align-left">{row.venue ?? "-"}</td>

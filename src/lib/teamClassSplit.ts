@@ -182,6 +182,10 @@ export const CLASS_SPLIT_UNAVAILABLE_COLUMN_KEYS: ReadonlySet<string> = new Set(
   "internationalPts3",
   "pctjapanese3",
   "pctinternational3",
+  "avglead",
+  "maxlead",
+  "avgrun",
+  "maxrun",
 ]);
 
 /**

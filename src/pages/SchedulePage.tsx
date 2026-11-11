@@ -21,6 +21,8 @@ import type { CancelledGameEntry } from "../../shared/scheduleCancelled";
 import type { ResultOnlyGameEntry, ResultOnlyReason } from "../../shared/resultOnlyGames";
 import { resultOnlyReasonLabel } from "../lib/resultOnlyGames";
 import { useSearchParams } from "react-router-dom";
+import { loadTeamGameIndex } from "../lib/gameIndexLoad";
+import { buildScheduleFlow, scheduleFlowTexts, type ScheduleFlow } from "../lib/scheduleFlow";
 import { currentSeason } from "../lib/season";
 
 type ScheduleStatus = "final" | "live" | "upcoming" | "cancelled";
@@ -245,6 +247,9 @@ export function SchedulePage({ season }: { season: string }) {
   // schedule.jsonの取得に失敗しても開催予定が出ないだけで日程ページ自体は表示できるようにする
   const { data: schedule, loading: scheduleLoading } = useJsonData(() => fetchSchedule(season, league), [season, league]);
   const { data: teams } = useJsonData(() => fetchTeams(season, league), [season, league]);
+  // 終わった試合の行に添える最大リード・最大ラン（チームの1試合行の索引から。読めなければ添えない）
+  const { data: flowIndex } = useJsonData(() => loadTeamGameIndex(season, league).catch(() => null), [season, league]);
+  const flowByKey = useMemo(() => buildScheduleFlow(flowIndex ?? null), [flowIndex]);
   const { data: teamColors } = useJsonData(() => fetchTeamColors(), []);
   const [jumpDate, setJumpDate] = useState("");
   const [, setSearchParams] = useSearchParams();
@@ -531,7 +536,7 @@ export function SchedulePage({ season }: { season: string }) {
                   </thead>
                   <tbody>
                     {gamesOnDate.map((row) => (
-                      <ScheduleRowView key={row.scheduleKey} row={row} teamColors={teamColors ?? undefined} />
+                      <ScheduleRowView key={row.scheduleKey} row={row} teamColors={teamColors ?? undefined} flow={flowByKey.get(row.scheduleKey)} />
                     ))}
                   </tbody>
                 </table>
@@ -565,13 +570,17 @@ function MaybeLink({ to, children }: { to?: string; children: ReactNode }) {
   );
 }
 
-function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: Record<string, TeamColors> }) {
+function ScheduleRowView({ row, teamColors, flow }: { row: ScheduleRow; teamColors?: Record<string, TeamColors>; flow?: ScheduleFlow }) {
   // 開催予定はまだ生データ（試合詳細ページのソース）が無いのでリンクしない
   // 開催予定・中止はリンクしない（試合詳細の生データが無い）
   const linkTo = row.status === "upcoming" || row.status === "cancelled" || row.resultOnly ? undefined : `/games/${row.scheduleKey}`;
   const homeColor = row.homeTeamId ? teamColors?.[row.homeTeamId]?.primary : undefined;
   const awayColor = row.awayTeamId ? teamColors?.[row.awayTeamId]?.primary : undefined;
+  const showFlow = row.status === "final" && !row.resultOnly && flow !== undefined;
+  const flowHome = teamShortName(row.homeTeamId ?? "", row.homeTeamName);
+  const flowAway = teamShortName(row.awayTeamId ?? "", row.awayTeamName);
   return (
+    <>
     <tr className={`schedule-row status-${row.status}`}>
       <td className="align-left schedule-team-cell">
         <MaybeLink to={linkTo}>
@@ -608,6 +617,18 @@ function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: R
       </td>
       <td className="align-left schedule-venue-cell">{row.venue ?? "-"}</td>
     </tr>
+    {showFlow && (
+      <tr className="schedule-flow-row">
+        <td colSpan={4} className="align-left">
+          {scheduleFlowTexts(flow!, flowHome, flowAway).map((t) => (
+            <span key={t} className="schedule-flow-text">
+              {t}
+            </span>
+          ))}
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
 

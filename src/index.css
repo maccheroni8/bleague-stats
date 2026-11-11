@@ -8617,3 +8617,21 @@ table.sortable-table.tts-table th {
 .export-target-oc .table-scroll + .table-scroll {
   margin-top: 16px;
 }
+
+/* 日程: 終わった試合の行の下に添える最大リード・最大ラン（小さく。スマホ幅では折り返す） */
+table.schedule-table tr.schedule-flow-row td {
+  padding-top: 0;
+  padding-bottom: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: normal;
+  border-top: none;
+}
+table.schedule-table tr.schedule-flow-row .schedule-flow-text {
+  display: inline-block;
+  margin-right: 14px;
+}
+table.schedule-table tr.schedule-row:has(+ tr.schedule-flow-row) td {
+  border-bottom: none;
+}

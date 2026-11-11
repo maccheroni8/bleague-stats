@@ -1,3 +1,4 @@
+import { addGameFlowLog, EMPTY_GAME_FLOW, formatGameFlow, GAME_FLOW_LABELS, gameFlowValue, opponentRunOf, type GameFlowKey, type GameFlowTotals } from "./gameFlowTotals";
 import { hasFlowRecord, SELF_PCT_DEFS, selfCountsOf, selfPct, selfSplitOf, type SelfShotKind, type ShotMadeSource } from "./selfScoring";
 import type { Column } from "../components/SortableTable";
 import type { BoxscoreTabKey } from "../components/BoxscoreTable";
@@ -127,6 +128,8 @@ export interface TeamTotals {
    * Self2M・Self3M・SelfFTM（アシストが付かなかった成功数）の材料。試合の流れ（プレーバイプレーの記録）が無い試合（2017-18 の1810）は、
    * アシストの数が0になってしまうので Self の合計から除く。noFlowGames＝その試合数、noFlow*＝その試合の2PM・3PM・FTM（自チーム・相手）
    */
+  /** 最大リード・最大ビハインド・最大ランの合計（試合の流れの記録がある試合だけ。gameFlowTotals.ts） */
+  flow: GameFlowTotals;
   noFlowGames: number;
   noFlow2m: number;
   noFlow3m: number;
@@ -226,6 +229,7 @@ export const EMPTY_TOTALS: TeamTotals = {
   oppFlagrantFouls: 0,
   oppDisruptiveFouls: 0,
   oppAssisted2m: 0,
+  flow: EMPTY_GAME_FLOW,
   noFlowGames: 0,
   noFlow2m: 0,
   noFlow3m: 0,
@@ -333,6 +337,7 @@ export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
       oppDisruptiveFouls: acc.oppDisruptiveFouls + (g.opponentDisruptiveFouls ?? 0),
       oppAssisted2m: acc.oppAssisted2m + g.opponentAssisted2m,
       ...addNoFlow(acc, g),
+      flow: addGameFlowLog(acc.flow, g, opponentRunOf(g)),
       oppAssisted3m: acc.oppAssisted3m + g.opponentAssisted3m,
       oppAssistedFtm: acc.oppAssistedFtm + g.opponentAssistedFtm,
       oppPaint2m: acc.oppPaint2m + g.opponentPaint2m,
@@ -768,7 +773,26 @@ export function buildMiscColumns(
     pointsBreakdownSupported
       ? countColumn("starterPts", "STARTER PTS", (t) => t.starterPoints, (t) => t.oppStarterPoints, mode, perspective)
       : unavailableColumn("starterPts", "STARTER PTS"),
+    ...buildFlowColumns(perspective),
   ];
+}
+
+/**
+ * 最大リード・最大ランの列（Misc の末尾。画面専用。DESIGN.md 361章）。値は試合ごとの最大リード・最大ランの、1試合平均（AVG）とシーズン最大（MAX）。
+ * 平均／合計の切り替えには従わない。opp の視点は相手側（最大リード→自チームの最大ビハインド、最大ラン→相手の最大ラン）。
+ * 試合の流れの記録が無い試合（1810）は数えない。対象の試合が無い・相手の最大ランを添えていない値は「-」
+ */
+function buildFlowColumns(perspective: TeamPerspective): Column<AllTeamsRow>[] {
+  return (Object.keys(GAME_FLOW_LABELS) as GameFlowKey[]).map((key) => {
+    const valueFor = (r: AllTeamsRow) => gameFlowValue(r.totals.flow, key, perspective);
+    return {
+      key,
+      label: GAME_FLOW_LABELS[key],
+      sortValue: (r) => valueFor(r) ?? Number.NaN,
+      format: (r) => formatGameFlow(valueFor(r), key, perspective),
+      higherIsBetter: higherIsBetterForPerspective(true, perspective),
+    };
+  });
 }
 
 // %PAINT2M/%PAINT2A/%MID2M/%MID2Aはショットチャート座標（X/Y/AreaCD）由来のため
