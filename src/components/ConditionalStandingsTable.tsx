@@ -62,7 +62,8 @@ export type ConditionalCondition =
   | { kind: "all" }
   | { kind: "newYear"; half: "before" | "after" }
   | { kind: "homeAway"; value: "home" | "away" }
-  | { kind: "division"; value: Division }
+  /** 対戦相手の地区。same＝対同地区（自クラブと同じ地区）、other＝対他地区（自クラブと違う地区）。地区の構成はそのシーズンの決まりに従う */
+  | { kind: "division"; value: Division | "same" | "other" }
   | { kind: "weekday"; value: boolean }
   | { kind: "month"; value: number }
   | { kind: "opponentWinRate"; tier: "under50" | "atLeast50" | "atLeast60" }
@@ -93,7 +94,7 @@ function describeCondition(condition: ConditionalCondition): string {
     case "homeAway":
       return condition.value === "home" ? "ホーム" : "アウェイ";
     case "division":
-      return `対${DIVISION_LABELS[condition.value]}`;
+      return divisionConditionLabel(condition.value);
     case "weekday":
       return condition.value ? "平日開催" : "休日開催";
     case "month":
@@ -119,6 +120,11 @@ function describeCondition(condition: ConditionalCondition): string {
   }
 }
 
+/** 「対東地区」「対同地区」「対他地区」 */
+function divisionConditionLabel(value: Division | "same" | "other"): string {
+  return value === "same" ? "対同地区" : value === "other" ? "対他地区" : `対${DIVISION_LABELS[value]}`;
+}
+
 interface ConditionContext {
   teamId: string;
   season: string;
@@ -129,7 +135,7 @@ interface ConditionContext {
 }
 
 /** 日付昇順ソート済みのTeamGameLog[]に、選択中の条件を1つ適用する */
-function applyConditionalCondition(
+export function applyConditionalCondition(
   logs: TeamGameLog[],
   condition: ConditionalCondition,
   ctx: ConditionContext,
@@ -142,7 +148,7 @@ function applyConditionalCondition(
     case "homeAway":
       return logs.filter((g) => (condition.value === "home" ? g.isHome : !g.isHome));
     case "division":
-      return logs.filter((g) => matchesDivision(g, condition.value, ctx.divisionHistory, ctx.season, ctx.league));
+      return logs.filter((g) => matchesDivision(g, condition.value, ctx.divisionHistory, ctx.season, ctx.league, () => ctx.teamId));
     case "weekday":
       return logs.filter((g) => isWeekdayGame(g.date) === condition.value);
     case "month":
@@ -208,7 +214,13 @@ function computeRemainingCount(
     case "division":
       return myGames.filter((g) => {
         const oppId = teamIdByName.get(g.opponentTeamName);
-        return !!oppId && teamDivisionForSeason(divisionHistory, oppId, season, league) === condition.value;
+        if (!oppId) return false;
+        const oppDivision = teamDivisionForSeason(divisionHistory, oppId, season, league);
+        if (condition.value !== "same" && condition.value !== "other") return oppDivision === condition.value;
+        const ownId = teamIdByName.get(teamName);
+        const ownDivision = ownId ? teamDivisionForSeason(divisionHistory, ownId, season, league) : undefined;
+        if (!ownDivision || !oppDivision) return false;
+        return condition.value === "same" ? ownDivision === oppDivision : ownDivision !== oppDivision;
       }).length;
     case "weekday":
       return myGames.filter((g) => isWeekdayGame(g.date) === condition.value).length;
@@ -342,6 +354,13 @@ export function ConditionalStandingsTable({
           label: `対${DIVISION_LABELS[d]}`,
           condition: { kind: "division", value: d } as ConditionalCondition,
         })),
+        // 対同地区・対他地区（自クラブから見た相手の地区。地区が2つ以上あるシーズンだけ）
+        ...(presentDivisions.length >= 2
+          ? [
+              { key: "div-same", label: "対同地区", condition: { kind: "division", value: "same" } as ConditionalCondition },
+              { key: "div-other", label: "対他地区", condition: { kind: "division", value: "other" } as ConditionalCondition },
+            ]
+          : []),
       ],
     },
     {
