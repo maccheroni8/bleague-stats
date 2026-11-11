@@ -17,6 +17,7 @@ export const FIGURES: readonly FigureDefinition[] = [
   { id: "top-scorers", entity: "player", label: "トップスコアラー", group: "得点", load: () => import("./TopScorersFigure") },
   { id: "player-scatter", entity: "player", label: "散布図", group: "効率", load: () => import("./PlayerFreeScatterFigure") },
   { id: "player-venn", entity: "player", label: "ベン図", group: "効率", load: () => import("./PlayerVennFigure") },
+  { id: "shoot-table-player", entity: "player", label: "シュート成功率の一覧", group: "効率", load: () => import("./PlayerShootTableFigure") },
   { id: "age", entity: "team", label: "年齢分布", group: "年齢", load: () => import("./AgeDistributionFigure") },
   { id: "ratings", entity: "team", label: "ORtg・DRtg", group: "効率", load: () => import("./RatingsScatterFigure") },
   { id: "division-matchups", entity: "team", label: "地区間の対戦数", group: "日程", load: () => import("./DivisionMatchupsFigure") },
@@ -24,6 +25,7 @@ export const FIGURES: readonly FigureDefinition[] = [
   { id: "winpct-class", entity: "team", label: "勝率と登録区分別の得失点", group: "得点", load: () => import("./WinPctScatterFigure") },
   { id: "team-venn", entity: "team", label: "ベン図", group: "効率", load: () => import("./TeamVennFigure") },
   { id: "team-shooting", entity: "team", label: "散布図", group: "効率", load: () => import("./TeamFreeScatterFigure") },
+  { id: "shoot-table-team", entity: "team", label: "シュート成功率の一覧", group: "効率", load: () => import("./TeamShootTableFigure") },
   { id: "four-factors", entity: "team", label: "Four Factors", group: "効率", load: () => import("./FourFactorsFigure") },
 ];
 
