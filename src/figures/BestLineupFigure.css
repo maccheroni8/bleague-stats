@@ -1,0 +1,44 @@
+/* 図解「歴代最強ラインナップ」（DESIGN.md 370章）。1行＝1組。PC: 順位・クラブとシーズン（下に時間・試合数・POSS）・選手の写真と名前・3指標。
+   スマホ: 上に順位とクラブ、その下に写真を1列、その下に3指標。人数が少ない組も同じ形（写真の枠の数だけが変わる） */
+.best-lineup-export { margin-top:8px; }
+.best-lineup-export .condition-title, .best-lineup-export > :first-child { margin-bottom:10px; }
+.best-lineup-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.best-lineup-card { display:grid; grid-template-columns:36px 240px 1fr auto; align-items:center; gap:12px; padding:8px 12px; border:1px solid var(--border); border-left:4px solid transparent; border-radius:8px; background:var(--bg); }
+.best-lineup-card.is-highlighted { border-left-color:var(--hl-color); background:color-mix(in srgb, var(--hl-color) 10%, var(--bg)); }
+.best-lineup-card.is-highlighted .best-lineup-photo { outline:2px solid var(--hl-color); outline-offset:1px; }
+/* ダークは白を混ぜて明るくする（黒に近いクラブの色でも見えるように。ほかの表のチームカラーの線と同じ） */
+:root[data-theme="dark"] .best-lineup-card.is-highlighted { --hl-color-shown:color-mix(in srgb, var(--hl-color) 62%, #ffffff); border-left-color:var(--hl-color-shown); background:color-mix(in srgb, var(--hl-color-shown) 12%, var(--bg)); }
+:root[data-theme="dark"] .best-lineup-card.is-highlighted .best-lineup-photo { outline-color:var(--hl-color-shown); }
+.best-lineup-rank { font-size:20px; font-weight:700; text-align:center; font-variant-numeric:tabular-nums; }
+.best-lineup-club { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.best-lineup-club-name { display:flex; align-items:center; gap:6px; font-weight:700; }
+.best-lineup-season { font-weight:400; color:var(--muted); font-size:13px; }
+.best-lineup-sub { white-space:nowrap; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+.best-lineup-sub.is-active { color:var(--accent); font-weight:700; }
+.best-lineup-players { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:6px; }
+.best-lineup-player { display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; text-align:center; }
+.best-lineup-photo { width:44px; height:44px; border-radius:50%; object-fit:cover; background:color-mix(in srgb, var(--fg) 6%, var(--bg)); }
+.best-lineup-player-name { font-size:11px; line-height:1.25; word-break:keep-all; overflow-wrap:anywhere; }
+.best-lineup-metrics { display:grid; grid-template-columns:repeat(3, 72px); gap:4px; }
+.best-lineup-metric { display:flex; flex-direction:column; align-items:flex-end; }
+.best-lineup-metric-label { font-size:11px; color:var(--muted); }
+.best-lineup-metric-value { font-size:15px; font-variant-numeric:tabular-nums; }
+.best-lineup-metric.is-active .best-lineup-metric-label { color:var(--accent); font-weight:700; }
+.best-lineup-metric.is-active .best-lineup-metric-value { color:var(--accent); font-weight:700; font-size:17px; }
+.best-lineup-outside { margin-top:14px; padding-top:10px; border-top:1px dashed var(--border); display:flex; flex-direction:column; gap:8px; }
+.best-lineup-outside-title { margin:0 0 4px; font-size:13px; font-weight:700; }
+@media(max-width:560px) {
+  .best-lineup-card { grid-template-columns:28px 1fr; grid-template-areas:"rank club" "players players" "metrics metrics"; gap:6px 8px; padding:8px; }
+  .best-lineup-rank { grid-area:rank; font-size:17px; }
+  .best-lineup-club { grid-area:club; }
+  .best-lineup-players { grid-area:players; }
+  .best-lineup-metrics { grid-area:metrics; grid-template-columns:repeat(3, 1fr); }
+  .best-lineup-metric { align-items:center; }
+  .best-lineup-photo { width:40px; height:40px; }
+  .best-lineup-player-name { font-size:10px; }
+}
+.export-rendering.best-lineup-export { width:1000px !important; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .best-lineup-card.is-highlighted { --hl-color-shown:color-mix(in srgb, var(--hl-color) 62%, #ffffff); border-left-color:var(--hl-color-shown); background:color-mix(in srgb, var(--hl-color-shown) 12%, var(--bg)); }
+  :root:not([data-theme="light"]) .best-lineup-card.is-highlighted .best-lineup-photo { outline-color:var(--hl-color-shown); }
+}

@@ -17,6 +17,7 @@ import type { PlayerGameIndexFile, TeamGameIndexFile } from "../../shared/gameIn
 import type { AssistPairsFile } from "../../shared/assistPairs";
 import type { PlayerPeriodIndexFile, TeamPeriodIndexFile } from "../../shared/periodIndex";
 import type { TtsIndexFile } from "../../shared/ttsIndex";
+import { bestLineupFileName, type BestLineupSize, type BestLineupsFile } from "../../shared/bestLineups";
 import type {
   LeaguePlayerGameRecordsFile,
   LeagueRecordEntry,
@@ -492,6 +493,11 @@ export async function fetchLeagueTeamRecordTable(table: TeamRecordPartTable, gam
  * シーズン非依存の単一ファイル */
 export function fetchLeaguePlayerRankings(): Promise<LeaguePlayerRankingsFile> {
   return fetchJson<LeaguePlayerRankingsFile>(`${dataBase}/league-player-rankings.json`);
+}
+
+/** 図解「歴代最強ラインナップ」の人数ごとの組（data/best-lineups-{人数}.json。scripts/aggregate-best-lineups.ts。DESIGN.md 370章） */
+export function fetchBestLineups(size: BestLineupSize): Promise<BestLineupsFile> {
+  return fetchJson<BestLineupsFile>(`${dataBase}/${bestLineupFileName(size).replace(/\.gz$/, "")}`);
 }
 
 /** 個人の通算成績の上位20位（data/league-player-career-top.json、DESIGN.md 192章）。ファイルが無ければ null */

@@ -227,6 +227,7 @@ function buildCross(): void {
   node("ルーキーの対象シーズン", "aggregate-rookie-eligibility.ts"); // 選手のキャリア・選手の試合ログ・所属履歴から作る（214・215章）
   node("個人歴代記録", "aggregate-league-player-rankings.ts");
   node("選手の1試合の記録（歴代）", "aggregate-league-player-game-records.ts");
+  node("歴代最強ラインナップ", "aggregate-best-lineups.ts"); // 2〜5人の組（370章）
 }
 
 function cleanDerived(): void {

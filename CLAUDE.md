@@ -167,6 +167,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 367章: **保存画像のチーム略称の塗りの色の手動上書きを `TEAM_CHIP_OVERRIDES`（`src/lib/teamChipColors.ts`。背景 `bg`・文字 `ink` を別々に指定可）にし、A東京・富山・名古屋D・広島・佐賀を直した**。変えるのは保存画像の塗りだけ（チームカラー本体は `teamColorOverrides.ts` のまま）。画面だけ・キー不変。
 - 368章: シュート成功率の成功率の列の並びを **eFG%・TS%・3P%・MID2%・PAINT2%・FT%** に（`figureShootTable.ts` の1か所。画面・保存画像・色・並べ替え・サブタイトルの並び順に同じ並びが効く）。**画面だけの変更でキー不変**
 - 369章: **名古屋Dのメインの色を #CD1B2F に**（`teamColorOverrides.ts` の上書きに足す。サブカラーは橙 #f0a000）。保存画像の塗り（367章）と同じ値。画面だけ・キー不変。
+- 370章: 図解（チーム）**「歴代最強ラインナップ」**（`figure=best-lineup`。B.PREMIER 2020-21〜今季の1シーズン×1クラブ×同じ組み合わせ〔2〜5人〕を NetRtg・ORtg・DRtg・出場時間で並べる。導出データ `data/best-lineups-{人数}.json.gz`〔`scripts/aggregate-best-lineups.ts`・`shared/bestLineups.ts`。集計スクリプトはキー対象外〕、画面の計算は `src/lib/bestLineups.ts`。下限は人数ごと〔5人 100/200/400 など〕・出場時間順でも同じく効く。OC は試合の日の登録区分で数え、区分が変わった組は OC ごとの行）。検証は `npm run validate:best-lineups`。**導出データの登録で保存キーが変わった**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

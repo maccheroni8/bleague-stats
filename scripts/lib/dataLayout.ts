@@ -76,6 +76,10 @@ export const GLOBAL_RAW_ENTRIES = [
 
 /** data/ 直下の導出データ（B）。全シーズンをまたぐ集計 */
 export const GLOBAL_DERIVED_ENTRIES = [
+  "best-lineups-2.json.gz",
+  "best-lineups-3.json.gz",
+  "best-lineups-4.json.gz",
+  "best-lineups-5.json.gz",
   "league-player-career-top.json.gz",
   "league-player-game-records.json.gz",
   "league-player-rankings.json.gz",

@@ -5,6 +5,10 @@ tsconfig.tsbuildinfo
 *.log
 
 # BEGIN 導出データ（scripts/lib/dataLayout.ts から作る。手で直さない。デプロイのときに npm run build:data で作る）
+/data/best-lineups-2.json.gz
+/data/best-lineups-3.json.gz
+/data/best-lineups-4.json.gz
+/data/best-lineups-5.json.gz
 /data/league-player-career-top.json.gz
 /data/league-player-game-records.json.gz
 /data/league-player-rankings.json.gz
