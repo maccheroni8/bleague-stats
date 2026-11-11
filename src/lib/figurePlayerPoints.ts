@@ -15,7 +15,10 @@ import type { ScorerData, ScorerQuery } from './figureTopScorers';
 
 export interface PlayerFigurePoint {
   id: string; playerId: string; name: string; teamId: string; teamName: string; division?: Division;
-  teamIds: string[]; games: number; teamGames: number; ratio: number;
+  teamIds: string[];
+  /** 表示中の範囲（期間・試合区分）で最後に出場した試合のチーム。1チームなら teamIds[0] */
+  lastTeamId: string;
+  games: number; teamGames: number; ratio: number;
   raw: PlayerSeasonRawTotals; team: TeamSeasonRawTotals;
   /** 選手マスタの行（プロフィール・キャリア・シューティング・ポジションの詳細フィルターに使う） */
   summary: PlayerSummary;
@@ -47,6 +50,7 @@ export function buildPlayerFigurePoints(data: ScorerData, q: PlayerFigureQuery):
     const transferred = teamTotalsForTransferredPlayer(classLogs, logs, ownTeamOf, scopedTeams);
     const team = teamTotalsForPlayedGames(logs, ownTeamOf, data.teamLogs);
     const teamIds = [...new Set(logs.filter(g => g.min > 0).map(ownTeamOf).filter((id): id is string => !!id))];
+    const lastPlayed = logs.filter(g => g.min > 0).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0).map(ownTeamOf).filter((id): id is string => !!id).pop();
     // 移籍選手の出場率も、分母の計算と同じ所属期間で数える。
     let teamGames = scopedTeams.get(p.teamId)?.length ?? 0;
     if (transferred) {
@@ -57,7 +61,7 @@ export function buildPlayerFigurePoints(data: ScorerData, q: PlayerFigureQuery):
       }
     }
     points.push({ id: p.playerId, playerId: p.playerId, name: p.name, teamId: p.teamId, teamName: p.teamName,
-      division: data.divisions?.[q.category]?.[q.season]?.[p.teamId], teamIds,
+      division: data.divisions?.[q.category]?.[q.season]?.[p.teamId], teamIds, lastTeamId: lastPlayed ?? teamIds[teamIds.length - 1] ?? p.teamId,
       games: raw.gamesPlayed, teamGames, ratio: teamGames ? 100 * raw.gamesPlayed / teamGames : 0, raw, team, summary: p, doubles });
   }
   return points;

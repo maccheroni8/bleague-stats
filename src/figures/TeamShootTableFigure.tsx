@@ -9,7 +9,7 @@ import { situationalFilterLabels } from "../lib/conditionLabels";
 import { DIVISION_LABELS, divisionOrder } from "../lib/divisionGroups";
 import { buildFreeRows, type FreeRow } from "../lib/figureTeamFree";
 import { shootReference, teamShootCells } from "../lib/figureShootTableData";
-import { TEAM_SHOOT_COLUMNS, percentileLevel, sharedRanks, sortByValue } from "../lib/figureShootTable";
+import { TEAM_SHOOT_SLOTS, TEAM_SHOOT_VIEWS, TEAM_SHOOT_VIEW_LABELS, TEAM_SHOOT_VIEW_TITLES, percentileLevel, sharedRanks, sortByValue, teamShootHigherIsBetter, type TeamShootView } from "../lib/figureShootTable";
 import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { FilterBar } from "../components/FilterBar";
@@ -34,13 +34,16 @@ type DivisionChoice = Division | "unknown";
 const divisionCodec = divisionListParam<"unknown">("dv", ["unknown"]);
 const NO_DIVISIONS: DivisionChoice[] = [];
 const divisionLabel = (d: DivisionChoice) => d === "unknown" ? "地区不明" : DIVISION_LABELS[d];
-const DEFAULT_SORT: ShootSort = { key: "netrtg", descending: true };
-// 並べ替え（tss=列 または 列:asc）。初期値（NetRtg の高い順）は URL に載せない
+// 視点（tsv）。初期値（自チーム）は URL に載せない
+const viewCodec = enumParam<TeamShootView>("tsv", ["own", "opp", "diff"], "own");
+// 並べ替えの列は視点によらず同じ（pts・rating・成功率）。初期は rating（ORtg／DRtg／NetRtg）の高い順
+const DEFAULT_SORT: ShootSort = { key: "rating", descending: true };
+// 並べ替え（tss=列 または 列:asc）。初期値は URL に載せない
 const sortCodec: UrlCodec<ShootSort> = {
   keys: ["tss"],
   read: p => {
     const [key, dir] = (p.get("tss") ?? "").split(":");
-    const found = TEAM_SHOOT_COLUMNS.find(c => c.key === key);
+    const found = TEAM_SHOOT_SLOTS.find(c => c.key === key);
     return found ? { key: found.key, descending: dir !== "asc" } : undefined;
   },
   write: (p, v) => { p.delete("tss"); if (v.key !== DEFAULT_SORT.key || !v.descending) p.set("tss", v.descending ? v.key : `${v.key}:asc`); },
@@ -50,6 +53,7 @@ export default function TeamShootTableFigure({ season, category }: FigureProps) 
   const [filter, setFilter] = useUrlState(rangeCodec, DEFAULT);
   const [gameType, setGameType] = useUrlState(gameCodec, "regular");
   const [division, setDivision] = useUrlState(divisionCodec, NO_DIVISIONS);
+  const [view, setView] = useUrlState(viewCodec, "own");
   const [sort, setSort] = useUrlState(sortCodec, DEFAULT_SORT);
   const target = useRef<HTMLDivElement>(null);
   const request = useJsonData(async () => {
@@ -68,39 +72,41 @@ export default function TeamShootTableFigure({ season, category }: FigureProps) 
     return [...divisionOrder(category).filter(d => values.has(d)), ...(values.has("unknown") ? ["unknown" as const] : [])];
   }, [allRows, category]);
   const activeDivision = division.filter(d => present.includes(d));
-  const cells = useMemo(() => teamShootCells(allRows, season), [allRows, season]);
+  const cells = useMemo(() => teamShootCells(allRows, season, view), [allRows, season, view]);
   // 色の基準は全チーム（地区で絞っても変わらない）
-  const reference = useMemo(() => shootReference(cells.values(), TEAM_SHOOT_COLUMNS.map(d => d.key)), [cells]);
+  const reference = useMemo(() => shootReference(cells.values(), TEAM_SHOOT_SLOTS.map(d => d.key)), [cells]);
   const visible = allRows.filter(r => activeDivision.length === 0 || activeDivision.includes(r.division ?? "unknown"));
   const sorted = useMemo(() => sortByValue(visible, r => cells.get(r.teamId)![sort.key]!.value, sort.descending), [visible, cells, sort]);
   const ranks = useMemo(() => sharedRanks(sorted, r => cells.get(r.teamId)![sort.key]!.value, sort.descending), [sorted, cells, sort]);
   // 値が1チームもない列（記録が無いシーズン）は出さない
-  const shown = TEAM_SHOOT_COLUMNS.filter(def => sorted.some(r => cells.get(r.teamId)![def.key]!.value !== null));
-  const sortKey = shown.some(c => c.key === sort.key) ? sort : { key: shown[0]?.key ?? DEFAULT_SORT.key, descending: true };
+  const shown = TEAM_SHOOT_SLOTS.filter(def => sorted.some(r => cells.get(r.teamId)![def.key]!.value !== null));
+  const sortKey = shown.some(c => c.key === sort.key) ? sort : { key: shown.find(c => c.key === DEFAULT_SORT.key)?.key ?? shown[0]?.key ?? DEFAULT_SORT.key, descending: true };
+  const higher = teamShootHigherIsBetter(view);
   const columns: ShootViewColumn<FreeRow>[] = shown.map(def => ({
-    key: def.key, label: def.label, scope: "team", stat: def.label,
-    groupStart: def.key === "opppts" ? false : ["pts", "ortg", "efg"].includes(def.key),
+    key: def.key, label: def.label(view), scope: "team", stat: def.label(view),
+    groupStart: ["pts", "efg"].includes(def.key),
     text: r => cells.get(r.teamId)![def.key]!.text,
-    level: r => { const v = cells.get(r.teamId)![def.key]!.value; return def.color && v !== null ? percentileLevel(v, reference[def.key]!, def.higherIsBetter) : null; },
+    level: r => { const v = cells.get(r.teamId)![def.key]!.value; return def.color && v !== null ? percentileLevel(v, reference[def.key]!, higher) : null; },
   }));
   const rangeAxes = situationalAxes(filter, v => setFilter({ range: v.range })).filter(a => a.id === "s.range" || (filter.range.kind === "dateRange" && (a.id === "s.dateStart" || a.id === "s.dateEnd")))
     .map(a => a.kind === "select" ? { ...a, options: a.options.filter(o => ["all", "recent:5", "recent:10", "custom"].includes(o.value)) } : { ...a, tier: "primary" as const });
-  const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season),
+  const viewAxis: FilterAxis = { kind: "select", id: "shootView", label: "視点", tier: "primary", value: view, defaultValue: "own", options: TEAM_SHOOT_VIEWS.map(v => ({ value: v, label: TEAM_SHOOT_VIEW_LABELS[v] })), onChange: v => setView(v as TeamShootView) };
+  const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), viewAxis,
     divisionMultiAxis<"unknown">({ id: "shootTeamDivision", divisions: present.filter((d): d is Division => d !== "unknown"), extra: present.includes("unknown") ? [{ value: "unknown", label: "地区不明" }] : [], selected: activeDivision, onChange: setDivision }),
     hl.axis];
   const [periodLabel] = situationalFilterLabels(filter);
-  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], ...(activeDivision.length === 0 ? [] : [activeDivision.map(divisionLabel).join("・")]), ...hl.labels];
+  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], TEAM_SHOOT_VIEW_TITLES[view], ...(activeDivision.length === 0 ? [] : [activeDivision.map(divisionLabel).join("・")]), ...hl.labels];
   const baseDate = { kind: "season" as const, season, gameType };
   const toggleSort = (key: string) => setSort(prev => ({ key, descending: prev.key === key ? !prev.descending : true }));
-  return <section aria-label="シュート成功率の一覧（チーム）">
-    <FilterBar axes={axes} stateKey="figures:team-shoot-table" onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); setDivision(NO_DIVISIONS); setSort(DEFAULT_SORT); hl.setIds([]); }} />
+  return <section aria-label="シュート成功率（チーム）">
+    <FilterBar axes={axes} stateKey="figures:team-shoot-table" onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); setDivision(NO_DIVISIONS); setView("own"); setSort(DEFAULT_SORT); hl.setIds([]); }} />
     {request.loading ? <p role="status">読み込み中…</p> : request.error || request.data?.missing ? <p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p> : !model || !sorted.length ? <p className="empty-message">この条件で表示できるチームがありません。</p> : <>
-      <FigureExportButton targetRef={target} filename={`Team_Shooting_Efficiency_${conditions.join("_")}`} baseDate={baseDate} />
-      <ExportTarget ref={target} className="ratings-export shoot-export shoot-export-team" baseDate={baseDate}>
-        <ConditionTitle title="Team Shooting Efficiency" exportScope={`${season}シーズン`} conditions={conditions} />
-        <ShootTableView rows={sorted} rowKey={r => r.teamId} columns={columns} sort={sortKey} onSort={toggleSort} ranks={ranks} nameHeader="TEAM" ariaLabel="シュート成功率の一覧（チーム）" highlight={r => hl.has([r.teamId])}
+      <FigureExportButton targetRef={target} filename={`チーム_シュート成功率_${conditions.join("_")}`} baseDate={baseDate} />
+      <ExportTarget ref={target} className="ratings-export shoot-export" baseDate={baseDate}>
+        <ConditionTitle title="シュート成功率" exportScope={`${season}シーズン`} conditions={conditions} />
+        <ShootTableView rows={sorted} rowKey={r => r.teamId} columns={columns} sort={sortKey} onSort={toggleSort} ranks={ranks} nameHeader="TEAM" ariaLabel="シュート成功率（チーム）" highlight={r => hl.has([r.teamId])}
           renderName={r => <span className="shoot-team-line"><TeamLogo teamId={r.teamId} size={24} /><ResponsiveTeamName teamId={r.teamId} name={r.teamName} nowrap /></span>} />
-        <ShootLegend />
+        <ShootLegend reversed={!higher} />
       </ExportTarget>
     </>}
   </section>;

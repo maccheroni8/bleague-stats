@@ -24,8 +24,8 @@
 /* 選手・チームの名前の行（写真／ロゴ＋名前＋所属） */
 .shoot-who { display:flex; align-items:center; gap:10px; min-width:0; }
 .shoot-who .player-cell-photo { flex:none; }
-.shoot-who-text { display:flex; flex-direction:column; min-width:0; line-height:1.3; }
-.shoot-who-sub { display:flex; align-items:center; gap:4px; color:var(--muted); font-size:12px; }
+.shoot-who-line { min-width:0; line-height:1.3; }
+.shoot-abbr { color:var(--muted); white-space:nowrap; }
 .shoot-team-line { display:flex; align-items:center; gap:8px; white-space:nowrap; }
 
 /* 強調するクラブの行（名前のマスだけ。成績のマスは色分けを保つ） */
@@ -39,13 +39,12 @@
 .shoot-swatch { display:inline-block; width:22px; height:10px; border:1px solid var(--border); }
 
 .export-rendering.shoot-export { width:1100px !important; }
-/* チームは列が11（名前の列を含め約1180px）あるので、保存画像の幅を広げる */
-.export-rendering.shoot-export.shoot-export-team { width:1300px !important; }
 .export-rendering .shoot-scroll { overflow:visible; }
 .export-rendering .shoot-table { min-width:0; }
 @media(max-width:560px) {
-  .shoot-table { min-width:640px; width:640px; }
-  .shoot-table .shoot-name { width:120px; }
+  .shoot-table { min-width:700px; width:700px; }
+  .shoot-table .shoot-name { width:176px; }
+  .shoot-who .player-cell-photo { width:32px !important; height:32px !important; }
   .shoot-table .shoot-col { width:58px; }
   .shoot-table th,.shoot-table td { padding:6px 4px; }
   .shoot-table .shoot-name { position:sticky; left:0; background:var(--bg); z-index:1; }

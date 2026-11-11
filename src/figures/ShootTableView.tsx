@@ -26,11 +26,12 @@ const headerTitle = (label: string, scope: "player" | "team") => {
 };
 
 /** 色の見方（低い〜高い）。表の下に小さく出す。保存画像にも入る */
-export function ShootLegend() {
+export function ShootLegend({ reversed = false }: { reversed?: boolean }) {
+  // 相手の視点は低いほど緑なので、左（赤）が「高い」、右（緑）が「低い」
   return <div className="shoot-legend" aria-label="色の見方">
-    <span>低い</span>
+    <span>{reversed ? "高い" : "低い"}</span>
     {Array.from({ length: SHOOT_LEVELS }, (_, i) => <span key={i} className={`shoot-swatch shoot-l${i}`} />)}
-    <span>高い</span>
+    <span>{reversed ? "低い" : "高い"}</span>
   </div>;
 }
 

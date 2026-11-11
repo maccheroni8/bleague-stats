@@ -12,9 +12,10 @@ import type { PlayerGameLog, PlayerSummary, TeamGameLog, TeamSummary } from "../
 import { filterByGameType } from "../shared/gameType";
 import { buildPlayerFigurePoints } from "../src/lib/figurePlayerPoints";
 import { buildFreeRows } from "../src/lib/figureTeamFree";
+import { buildAdvancedColumns, buildTraditionalColumns, type AllTeamsRow } from "../src/lib/teamStatsColumns";
 import type { ScorerData } from "../src/lib/figureTopScorers";
 import {
-  PLAYER_SHOOT_COLUMNS, TEAM_SHOOT_COLUMNS, percentileLevel, selectByPoints, sharedRanks, shownNumber, sortByValue,
+  PLAYER_SHOOT_COLUMNS, TEAM_SHOOT_SLOTS, TEAM_SHOOT_VIEWS, TEAM_SHOOT_VIEW_LABELS, percentileLevel, selectByPoints, sharedRanks, shownNumber, sortByValue, teamShootHigherIsBetter,
 } from "../src/lib/figureShootTable";
 import { playerShootCells, shootReference, teamShootCells } from "../src/lib/figureShootTableData";
 import { FIGURES } from "../src/figures/catalog";
@@ -94,6 +95,21 @@ for (const [season, category] of SETS) {
   const points = buildPlayerFigurePoints(data, { season, category, range: { kind: "all" }, gameType: "regular", classification: "all" });
   const passed = points.filter(p => p.ratio >= 85);
   assert.ok(passed.length > 5, `${label}: 掲載基準を満たした選手がいる`);
+  // 名前の右の略称（移籍した選手は表示中の範囲で最後に出場した試合のチーム）を、試合ログから独立に求めた結果と突き合わせる
+  {
+    const ownTeams = new Map<string, string>();
+    for (const [id, logs] of data.teamLogs) for (const g of logs) ownTeams.set(`${g.scheduleKey}|${g.isHome}`, id);
+    let moved = 0;
+    for (const p of points) {
+      const logs = filterByGameType(data.playerLogs.get(p.playerId) ?? [], "regular").filter(g => g.min > 0);
+      if (!logs.length) continue;
+      const last = [...logs].sort((a, b) => a.date.localeCompare(b.date)).pop()!;
+      assert.equal(p.lastTeamId, ownTeams.get(`${last.scheduleKey}|${last.isHome}`), `${label} ${p.name} 最後のチーム`);
+      assert.ok(p.teamIds.includes(p.lastTeamId), `${label} ${p.name}: 最後のチームは所属したチームのどれか`);
+      if (p.teamIds.length > 1) moved++;
+    }
+    console.log(`  ${label}: 移籍した選手 ${moved}人の最後のチームを確認`);
+  }
   const cells = playerShootCells(passed, season);
   const keys = PLAYER_SHOOT_COLUMNS.map(d => d.key);
   for (const p of passed) {
@@ -102,13 +118,14 @@ for (const [season, category] of SETS) {
     const summary = data.players.find(x => x.playerId === p.playerId)!;
     const logs = filterByGameType(data.playerLogs.get(p.playerId) ?? [], "regular");
     const sum = (f: (g: PlayerGameLog) => number) => logs.reduce((a, g) => a + f(g), 0);
-    const pts = sum(g => g.pts), fgm = sum(g => g.fgm), fga = sum(g => g.fga), tpm = sum(g => g.tpm), tpa = sum(g => g.tpa), fta = sum(g => g.fta);
+    const pts = sum(g => g.pts), fgm = sum(g => g.fgm), fga = sum(g => g.fga), tpm = sum(g => g.tpm), tpa = sum(g => g.tpa), ftm = sum(g => g.ftm), fta = sum(g => g.fta);
     const games = logs.filter(g => g.min > 0).length;
     if (p.teamIds.length === 1 && games === p.games && games > 0) {
       same(c.pts!.text, dec2(pts / games), `${label} ${p.name} PTS`); playerChecks++;
       if (fga > 0) { same(c.efg!.text, pct2((fgm + 0.5 * tpm) / fga), `${label} ${p.name} eFG%`); playerChecks++; }
       if (fga + fta > 0) { same(c.ts!.text, pct2(pts / (2 * (fga + 0.44 * fta))), `${label} ${p.name} TS%`); playerChecks++; }
       if (tpa > 0) { same(c["3ppct"]!.text, pct2(tpm / tpa), `${label} ${p.name} 3P%`); playerChecks++; }
+      if (fta > 0) { same(c.ftpct!.text, pct2(ftm / fta), `${label} ${p.name} FT%`); playerChecks++; } else assert.equal(c.ftpct!.text, "-", `${label} ${p.name} FT% 試投なし`);
       const mid2m = sum(g => g.mid2m), mid2a = sum(g => g.mid2a), paint2m = sum(g => g.paint2m), paint2a = sum(g => g.paint2a);
       if (mid2a > 0) same(c.mid2pct!.text, pct2(mid2m / mid2a), `${label} ${p.name} MID2%`); else assert.equal(c.mid2pct!.text, "-", `${label} ${p.name} MID2% 記録なし`);
       if (paint2a > 0) same(c.paint2pct!.text, pct2(paint2m / paint2a), `${label} ${p.name} PAINT2%`); else assert.equal(c.paint2pct!.text, "-", `${label} ${p.name} PAINT2% 記録なし`);
@@ -139,57 +156,76 @@ for (const [season, category] of SETS) {
   const bySort = sortByValue(passed, p => cells.get(p.id)!.pts!.value, true);
   assert.equal(cells.get(bySort[0]!.id)!.pts!.value, Math.max(...passed.map(p => cells.get(p.id)!.pts!.value!)), `${label}: 得点の多い順の先頭`);
 
-  // ---- チーム ----
+  // ---- チーム（3つの視点） ----
   const { rows } = buildFreeRows(data.teams, data.teamLogs, null, { season, category, range: { kind: "all" }, gameType: "regular", seasonTotals: false });
   assert.ok(rows.length > 5, `${label}: チームの行`);
-  const tcells = teamShootCells(rows, season);
-  for (const r of rows) {
-    const c = tcells.get(r.teamId)!;
-    const logs = filterByGameType(data.teamLogs.get(r.teamId) ?? [], "regular");
-    if (!logs.length) continue;
-    const n = logs.length, sum = (f: (g: TeamGameLog) => number) => logs.reduce((a, g) => a + f(g), 0);
-    const pts = sum(g => g.teamScore), opp = sum(g => g.opponentScore), fgm = sum(g => g.fgm), fga = sum(g => g.fga), tpm = sum(g => g.tpm), tpa = sum(g => g.tpa), fta = sum(g => g.fta);
-    same(c.pts!.text, dec2(pts / n), `${label} ${r.teamName} PTS`);
-    same(c.opppts!.text, dec2(opp / n), `${label} ${r.teamName} 失点`);
-    same(c.diffpts!.text, dec2((pts - opp) / n), `${label} ${r.teamName} 得失点差`);
-    same(c.efg!.text, pct2((fgm + 0.5 * tpm) / fga), `${label} ${r.teamName} eFG%`);
-    same(c.ts!.text, pct2(pts / (2 * (fga + 0.44 * fta))), `${label} ${r.teamName} TS%`);
-    same(c["3ppct"]!.text, pct2(tpm / tpa), `${label} ${r.teamName} 3P%`);
-    const mid2m = sum(g => g.mid2m), mid2a = sum(g => g.mid2a), paint2m = sum(g => g.paint2m), paint2a = sum(g => g.paint2a);
-    if (logs.every(g => g.paint2a + g.mid2a > 0)) {
-      same(c.mid2pct!.text, pct2(mid2m / mid2a), `${label} ${r.teamName} MID2%`);
-      same(c.paint2pct!.text, pct2(paint2m / paint2a), `${label} ${r.teamName} PAINT2%`);
+  for (const view of TEAM_SHOOT_VIEWS) {
+    const tcells = teamShootCells(rows, season, view);
+    // 全チームスタッツの同じ視点の列（Traditional・Advanced）と、文字まで一致
+    const direct = new Map<string, (r: AllTeamsRow) => string>();
+    for (const [key, col] of [["3ppct", buildTraditionalColumns("perGame", view)], ["ftpct", buildTraditionalColumns("perGame", view)], ["pts", buildTraditionalColumns("perGame", view)], ["efg", buildAdvancedColumns("perGame", view)], ["ts", buildAdvancedColumns("perGame", view)]] as const) {
+      const c = col.find(x => x.key === key)!; direct.set(key, r => c.format!(r));
     }
-    // 集計済み teams.json の ORtg・DRtg・NetRtg と同じ（表示は小数第2位）
-    const summary = data.teams.find(t => t.teamId === r.teamId) as TeamSummary | undefined;
-    const adv = summary?.advanced as { offRtg?: number; defRtg?: number; netRtg?: number } | undefined;
-    if (adv?.offRtg !== undefined && summary?.gamesPlayed === n) {
-      assert.ok(Math.abs(c.ortg!.value! - adv.offRtg) <= 0.0051, `${label} ${r.teamName} ORtg ${c.ortg!.text} と ${adv.offRtg}`);
-      assert.ok(Math.abs(c.drtg!.value! - adv.defRtg!) <= 0.0051, `${label} ${r.teamName} DRtg`);
-      assert.ok(Math.abs(c.netrtg!.value! - adv.netRtg!) <= 0.0101, `${label} ${r.teamName} NetRtg`);
+    for (const r of rows) {
+      const c = tcells.get(r.teamId)!;
+      for (const [key, f] of direct) { assert.equal(c[key]!.text, f(r.row), `${label} ${view} ${r.teamName} ${key} は全チームスタッツの値`); teamChecks++; }
+      const logs = filterByGameType(data.teamLogs.get(r.teamId) ?? [], "regular");
+      if (!logs.length) continue;
+      const n = logs.length, sum = (f: (g: TeamGameLog) => number) => logs.reduce((a, g) => a + f(g), 0);
+      const own = { pts: sum(g => g.teamScore), fgm: sum(g => g.fgm), fga: sum(g => g.fga), tpm: sum(g => g.tpm), tpa: sum(g => g.tpa), ftm: sum(g => g.ftm), fta: sum(g => g.fta), mid2m: sum(g => g.mid2m), mid2a: sum(g => g.mid2a), paint2m: sum(g => g.paint2m), paint2a: sum(g => g.paint2a) };
+      const opp = { pts: sum(g => g.opponentScore), fgm: sum(g => g.opponentFgm), fga: sum(g => g.opponentFga), tpm: sum(g => g.opponentTpm), tpa: sum(g => g.opponentTpa), ftm: sum(g => g.opponentFtm), fta: sum(g => g.opponentFta), mid2m: sum(g => g.opponentMid2m), mid2a: sum(g => g.opponentMid2a), paint2m: sum(g => g.opponentPaint2m), paint2a: sum(g => g.opponentPaint2a) };
+      type Side = typeof own;
+      const rates = (t: Side) => ({ efg: pct2((t.fgm + 0.5 * t.tpm) / t.fga), ts: pct2(t.pts / (2 * (t.fga + 0.44 * t.fta))), "3ppct": pct2(t.tpm / t.tpa), ftpct: pct2(t.ftm / t.fta), mid2pct: pct2(t.mid2m / t.mid2a), paint2pct: pct2(t.paint2m / t.paint2a) });
+      const ro = rates(own), rp = rates(opp);
+      const expectedPts = view === "own" ? own.pts / n : view === "opp" ? opp.pts / n : (own.pts - opp.pts) / n;
+      same(c.pts!.text, dec2(expectedPts), `${label} ${view} ${r.teamName} ${TEAM_SHOOT_SLOTS[0]!.label(view)}`);
+      const paintOk = logs.every(g => g.paint2a + g.mid2a > 0 && g.opponentPaint2a + g.opponentMid2a > 0);
+      for (const key of ["efg", "ts", "3ppct", "ftpct", "mid2pct", "paint2pct"] as const) {
+        if ((key === "mid2pct" || key === "paint2pct") && !paintOk) continue;
+        const expected = view === "own" ? ro[key] : view === "opp" ? rp[key] : ro[key] - rp[key];
+        same(c[key]!.text, expected, `${label} ${view} ${r.teamName} ${key}`); teamChecks++;
+      }
+      // 集計済み teams.json の ORtg・DRtg・NetRtg（視点の列: 自チーム＝ORtg・相手＝DRtg・差＝NetRtg）
+      const summary = data.teams.find(t => t.teamId === r.teamId) as TeamSummary | undefined;
+      const adv = summary?.advanced as { offRtg?: number; defRtg?: number; netRtg?: number } | undefined;
+      if (adv?.offRtg !== undefined && summary?.gamesPlayed === n) {
+        const expected = view === "own" ? adv.offRtg : view === "opp" ? adv.defRtg! : adv.netRtg!;
+        assert.ok(Math.abs(c.rating!.value! - expected) <= 0.0101, `${label} ${view} ${r.teamName} レーティング ${c.rating!.text} と ${expected}`);
+      }
+      teamChecks += 2;
     }
-    teamChecks += 9;
-  }
-  // 色: 全チームから数え直す。地区などで絞っても同じ
-  const tref = shootReference(tcells.values(), TEAM_SHOOT_COLUMNS.map(d => d.key));
-  for (const def of TEAM_SHOOT_COLUMNS) {
-    if (!def.color) continue;
-    const values = rows.map(r => tcells.get(r.teamId)![def.key]!.value).filter((v): v is number => v !== null);
-    assert.equal(tref[def.key]!.length, values.length, `${label} ${def.label} の基準は全チーム`);
-    const best = rows.reduce((b, r) => (tcells.get(r.teamId)![def.key]!.value ?? -Infinity) > (tcells.get(b.teamId)![def.key]!.value ?? -Infinity) ? r : b);
-    if (values.length > 5) assert.equal(percentileLevel(tcells.get(best.teamId)![def.key]!.value!, tref[def.key]!), 4, `${label} ${def.label} 最高のチームは緑`);
-    colorChecks++;
+    // 色: 全チームから数え直す。向きは 自チーム・差＝高いほど緑、相手＝低いほど緑。地区で絞っても同じ
+    const tref = shootReference(tcells.values(), TEAM_SHOOT_SLOTS.map(d => d.key));
+    const higher = teamShootHigherIsBetter(view);
+    assert.equal(higher, view !== "opp", `${label}: 色の向き`);
+    for (const slot of TEAM_SHOOT_SLOTS) {
+      if (!slot.color) continue;
+      const values = rows.map(r => tcells.get(r.teamId)![slot.key]!.value).filter((v): v is number => v !== null);
+      if (values.length < 6) continue;
+      assert.equal(tref[slot.key]!.length, values.length, `${label} ${slot.key} の基準は全チーム`);
+      const top = Math.max(...values), low = Math.min(...values);
+      assert.equal(percentileLevel(top, tref[slot.key]!, higher), higher ? 4 : 0, `${label} ${view} ${slot.key} 最高値の色`);
+      assert.equal(percentileLevel(low, tref[slot.key]!, higher), higher ? 0 : 4, `${label} ${view} ${slot.key} 最低値の色`);
+      colorChecks += 2;
+    }
   }
 }
 assert.ok(ran > 0, "実データがある");
 console.log(`シュート成功率の一覧: 実データ ${ran}セット（選手の値 ${playerChecks}・チームの値 ${teamChecks}・色 ${colorChecks}）OK`);
 
-// ---- 5. 図の一覧 ----
+// ---- 5. 図の一覧・列・視点 ----
 {
-  assert.ok(FIGURES.some(f => f.id === "shoot-table-player" && f.entity === "player" && f.label === "シュート成功率の一覧"), "選手タブに登録");
-  assert.ok(FIGURES.some(f => f.id === "shoot-table-team" && f.entity === "team" && f.label === "シュート成功率の一覧"), "チームタブに登録");
-  assert.deepEqual(PLAYER_SHOOT_COLUMNS.map(c => c.label), ["PTS", "eFG%", "TS%", "3P%", "MID2%", "PAINT2%"], "選手の列の並び");
-  assert.deepEqual(TEAM_SHOOT_COLUMNS.map(c => c.label), ["PTS", "opp PTS", "PTS +/-", "ORtg", "DRtg", "NetRtg", "eFG%", "TS%", "3P%", "MID2%", "PAINT2%"], "チームの列の並び");
-  assert.ok(TEAM_SHOOT_COLUMNS.filter(c => c.color).every(c => c.higherIsBetter), "色を塗る成功率の列は高いほど緑");
-  console.log("シュート成功率の一覧: 図の一覧・列の並び OK");
+  assert.ok(FIGURES.some(f => f.id === "shoot-table-player" && f.entity === "player" && f.label === "シュート成功率"), "選手タブに登録（名前は「シュート成功率」・IDは変えない）");
+  assert.ok(FIGURES.some(f => f.id === "shoot-table-team" && f.entity === "team" && f.label === "シュート成功率"), "チームタブに登録");
+  assert.deepEqual(PLAYER_SHOOT_COLUMNS.map(c => c.label), ["PTS", "eFG%", "TS%", "3P%", "FT%", "MID2%", "PAINT2%"], "選手の列の並び（FT% は 3P% の右）");
+  assert.ok(PLAYER_SHOOT_COLUMNS.find(c => c.key === "ftpct")!.color, "FT% も色を塗る");
+  const labels = (view: (typeof TEAM_SHOOT_VIEWS)[number]) => TEAM_SHOOT_SLOTS.map(c => c.label(view));
+  assert.deepEqual(labels("own"), ["PTS", "ORtg", "eFG%", "TS%", "3P%", "FT%", "MID2%", "PAINT2%"], "自チームの見出し");
+  assert.deepEqual(labels("opp"), ["opp PTS", "DRtg", "opp eFG%", "opp TS%", "opp 3P%", "opp FT%", "opp MID2%", "opp PAINT2%"], "相手の見出し");
+  assert.deepEqual(labels("diff"), ["PTS +/-", "NetRtg", "eFG% +/-", "TS% +/-", "3P% +/-", "FT% +/-", "MID2% +/-", "PAINT2% +/-"], "差の見出し");
+  assert.equal(new Set(TEAM_SHOOT_VIEWS.map(v => labels(v).length)).size, 1, "列の数は視点によらず同じ");
+  assert.deepEqual(TEAM_SHOOT_VIEWS.map(v => TEAM_SHOOT_VIEW_LABELS[v]), ["自チーム", "相手（opp）", "差（+/-）"]);
+  assert.deepEqual(TEAM_SHOOT_VIEWS.map(teamShootHigherIsBetter), [true, false, true], "色の向き: 自チーム・差は高いほど緑、相手は低いほど緑");
+  assert.deepEqual(TEAM_SHOOT_SLOTS.filter(c => c.color).map(c => c.key), ["efg", "ts", "3ppct", "ftpct", "mid2pct", "paint2pct"], "色を塗るのは成功率の列");
+  console.log("シュート成功率: 図の名前・列の並び・視点・色の向き OK");
 }

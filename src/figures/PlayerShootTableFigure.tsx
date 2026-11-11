@@ -21,7 +21,6 @@ import { NumberTextInput } from "../components/NumberTextInput";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { PlayerNamePool } from "../components/PlayerNamePool";
 import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
-import { TeamLogo } from "../components/TeamLogo";
 import { FigureExportButton } from "./FigureExport";
 import { ratioEligibilityAxis } from "./eligibilityAxis";
 import { usePlayerFigureData } from "./usePlayerFigureData";
@@ -109,19 +108,20 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
   const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], selectionSummary, classificationFilterLabel(classification), ...pf.labels, `出場率${minRatio}%以上`, ...hl.labels].filter(Boolean);
   const baseDate = { kind: "season" as const, season, gameType };
   const toggleSort = (key: string) => setSort(prev => ({ key, descending: prev.key === key ? !prev.descending : true }));
-  const teamsLine = (p: PlayerFigurePoint) => p.teamIds.map(id => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join("・");
-  return <section aria-label="シュート成功率の一覧（選手）">
+  // 移籍した選手は、表示中の範囲で最後に出場した試合のチームの略称
+  const teamAbbr = (p: PlayerFigurePoint) => teamShortName(p.lastTeamId, teams.find(t => t.teamId === p.lastTeamId)?.teamName ?? p.teamName);
+  return <section aria-label="シュート成功率（選手）">
     <FilterBar axes={axes} stateKey="figures:player-shoot-table" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); setClassification("all"); setKind("min"); setMinPts(DEFAULT_SHOOT_MIN_PTS); setTopN(DEFAULT_SHOOT_TOP_N); setSort(DEFAULT_SORT); pf.reset(); setMinRatio(DEFAULT_RATIO); hl.setIds([]); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !sorted.length ? <p className="empty-message">この条件に該当する選手はいません。</p> : <>
       <p className="figure-count">{sorted.length}人を表示</p>
-      <FigureExportButton targetRef={target} filename={`Shooting_Efficiency_${conditions.join("_")}`} baseDate={baseDate} />
+      <FigureExportButton targetRef={target} filename={`シュート成功率_${conditions.join("_")}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export shoot-export" baseDate={baseDate}>
-        <ConditionTitle title="Shooting Efficiency" exportScope={`${season}シーズン`} conditions={conditions} />
+        <ConditionTitle title="シュート成功率" exportScope={`${season}シーズン`} conditions={conditions} />
         <PlayerNamePool names={names}>
-          <ShootTableView rows={sorted} rowKey={p => p.id} columns={columns} sort={sortKey} onSort={toggleSort} ranks={ranks} nameHeader="PLAYER" highlight={p => hl.has(p.teamIds)} ariaLabel="シュート成功率の一覧（選手）"
+          <ShootTableView rows={sorted} rowKey={p => p.id} columns={columns} sort={sortKey} onSort={toggleSort} ranks={ranks} nameHeader="PLAYER" highlight={p => hl.has(p.teamIds)} ariaLabel="シュート成功率（選手）"
             renderName={p => <div className="shoot-who">
               <PlayerPhoto playerId={p.playerId} size={44} className="player-cell-photo" placeholder />
-              <span className="shoot-who-text"><ResponsivePlayerName name={p.name} among={names} /><span className="shoot-who-sub">{p.teamIds.length === 1 ? <TeamLogo teamId={p.teamIds[0]!} size={14} /> : null}{teamsLine(p)}</span></span>
+              <span className="shoot-who-line"><ResponsivePlayerName name={p.name} among={names} /><span className="shoot-abbr">（{teamAbbr(p)}）</span></span>
             </div>} />
         </PlayerNamePool>
         <ShootLegend />
