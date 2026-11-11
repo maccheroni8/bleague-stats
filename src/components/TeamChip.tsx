@@ -3,7 +3,7 @@ import { teamChipColor, teamChipStyle, useTeamColorsForChip } from "../lib/teamC
 
 /**
  * 選手が並ぶ画面のチームの略称（横にロゴが無い所）。画面ではただの文字で、保存画像だけチームの色で塗る
- * （CSS の `.export-rendering .team-chip`。DESIGN.md 363章。塗りと文字の色は ranking の写真なしの塗りと同じ部品〔teamChipColors.ts〕）
+ * （CSS の `.export-rendering .team-chip`。DESIGN.md 364章。塗りと文字の色は ranking の写真なしの塗りと同じ部品〔teamChipColors.ts〕）
  */
 export function TeamChip({ teamId, children }: { teamId: string; children: ReactNode }) {
   const colors = useTeamColorsForChip();
