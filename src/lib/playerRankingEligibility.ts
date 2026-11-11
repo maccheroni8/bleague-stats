@@ -81,6 +81,12 @@ export const EXTRA_ELIGIBILITY_RULES: Partial<Record<string, ExtraEligibilityRul
  * チームの全試合数は、今までの試合数（スタッツのある試合）に残り試合数を足したもの。残り試合が無い（終わったシーズン）と、
  * 今の掲載基準（出場試合数÷チームの試合数が minRatio 以上）と同じ結果になる。残り試合数が分からないチームは0として扱う
  */
+/** 「達成可能」の判定の式（出場率は 0〜1。残り試合数が分からないチームは 0）。図解・全選手スタッツ・チーム内リーダーもこの式を使う（achievableGames.ts） */
+export function isAchievable(gamesPlayed: number, teamGames: number, remaining: number, minRatio: number): boolean {
+  if (teamGames <= 0) return false;
+  return (gamesPlayed + remaining) / (teamGames + remaining) >= minRatio;
+}
+
 export function filterAchievablePlayers<T extends { teamId: string; gamesPlayed: number }>(
   players: T[],
   teams: Pick<TeamSummary, "teamId" | "gamesPlayed">[],
@@ -90,9 +96,8 @@ export function filterAchievablePlayers<T extends { teamId: string; gamesPlayed:
   const teamGamesById = new Map(teams.map((t) => [t.teamId, t.gamesPlayed]));
   return players.filter((p) => {
     const teamGames = teamGamesById.get(p.teamId);
-    if (teamGames === undefined || teamGames <= 0) return false;
-    const remaining = remainingByTeam.get(p.teamId) ?? 0;
-    return (p.gamesPlayed + remaining) / (teamGames + remaining) >= minRatio;
+    if (teamGames === undefined) return false;
+    return isAchievable(p.gamesPlayed, teamGames, remainingByTeam.get(p.teamId) ?? 0, minRatio);
   });
 }
 

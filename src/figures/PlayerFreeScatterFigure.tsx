@@ -12,7 +12,7 @@ import { useTeamLabel } from '../lib/teamLabel';
 import { usePlayerLabel } from '../lib/playerLabel';
 import { formatPct100 } from '../lib/format';
 import { playerCountLines } from '../lib/figurePlayerCounts';
-import { buildPlayerFigurePoints, type PlayerFigurePoint } from '../lib/figurePlayerPoints';
+import { buildPlayerFigurePoints, passesRatio, type PlayerFigurePoint } from '../lib/figurePlayerPoints';
 import { freeAxisDomain, freeTickText, inferFreeAxis } from '../lib/figureTeamFree';
 import {
   DEFAULT_PLAYER_FREE_X, DEFAULT_PLAYER_FREE_Y, isPlayerFreeSeasonTotal, PLAYER_FREE_ON_COURT_REASON, playerFreeColumn, playerFreeItemBlock, playerFreeItems, resolvePlayerFreeItem,
@@ -25,6 +25,9 @@ import { ConditionTitle } from '../components/ConditionTitle';
 import { SortableTable, type Column } from '../components/SortableTable';
 import { FigureExportButton } from './FigureExport';
 import { ratioEligibilityAxis } from './eligibilityAxis';
+import { useFigureAchievable } from './useFigureAchievable';
+import { eligibilityLabels } from '../lib/conditionLabels';
+
 import { ScorerPhoto } from './TopScorersFigure';
 import { AxisScatter } from './AxisScatter';
 import { usePlayerFigureData } from './usePlayerFigureData';
@@ -77,7 +80,8 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
     [request.data, season, category, filter, gameType, classification, seasonTotals]);
   const teams = request.data?.teams ?? [];
   const divisionOf = (id: string) => request.data?.divisions?.[category]?.[season]?.[id];
-  const ratioPassed = useMemo(() => base.filter(p => p.ratio >= minRatio), [base, minRatio]);
+  const ach = useFigureAchievable(season, category, { range: filter.range, gameType: seasonTotals ? 'regular' : gameType });
+  const ratioPassed = useMemo(() => base.filter(p => passesRatio(p, minRatio, ach.remaining)), [base, minRatio, ach.remaining]);
   const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, clubKey: 'pcl', legacyDivisionKey: 'dv', axisId: 'pfreeClubs' });
   const eligible = pf.eligible;
   const xCol = playerFreeColumn(xItem, m, season)!, yCol = playerFreeColumn(yItem, m, season)!;
@@ -108,10 +112,10 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
     { kind: 'select', id: 'pfreeMode', label: '平均／合計', tier: 'primary', value: mode, defaultValue: 'perGame', options: [{ value: 'perGame', label: '1試合平均' }, { value: 'total', label: '合計' }], onChange: v => setMode(v as 'perGame' | 'total') },
     classificationAxis(classification, setClassification, { season }),
     pf.clubAxis, pf.positionAxis, hl.axis,
-    ratioEligibilityAxis({ id: 'pfreeRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio })];
+    ratioEligibilityAxis({ id: 'pfreeRatio', value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio, achievable: ach.axis })];
   const [periodLabel] = situationalFilterLabels(seasonTotals ? { range: { kind: 'all' } } : filter);
   const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[seasonTotals ? 'regular' : gameType], mode === 'total' ? '合計' : '1試合平均', classificationFilterLabel(classification),
-    ...pf.labels, `出場率${minRatio}%以上`, ...hl.labels].filter(Boolean);
+    ...pf.labels, ...eligibilityLabels({ gamesRatio: minRatio / 100, achievable: ach.achievable }), ...hl.labels].filter(Boolean);
   const baseDate = { kind: 'season' as const, season, gameType: seasonTotals ? 'regular' as const : gameType };
   const pick = (p: PlayerFigurePoint) => setHover(p.id);
   type Row = typeof items[number];
@@ -123,7 +127,7 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
     { key: 'x', label: xName, sortValue: s => s.x, render: s => xCol.text(s.p) },
   ];
   return <section aria-label={`${yName} × ${xName}`}>
-    <FilterBar axes={axes} stateKey="figures:player-free-scatter" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setYId(DEFAULT_PLAYER_FREE_Y); setXId(DEFAULT_PLAYER_FREE_X); setMode('perGame'); pf.reset(); setMinRatio(DEFAULT_RATIO); hl.setIds([]); setHover(null); }} />
+    <FilterBar axes={axes} stateKey="figures:player-free-scatter" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType('regular'); setClassification('all'); setYId(DEFAULT_PLAYER_FREE_Y); setXId(DEFAULT_PLAYER_FREE_X); setMode('perGame'); pf.reset(); setMinRatio(DEFAULT_RATIO); ach.reset(); hl.setIds([]); setHover(null); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !items.length ? <p>この条件に該当する選手はいません。</p> : <>
       <p className="figure-count">{items.length}人を表示</p>
       <FigureExportButton targetRef={target} filename={`選手_${yName}_${xName}_${conditions.join('_')}`} baseDate={baseDate} />

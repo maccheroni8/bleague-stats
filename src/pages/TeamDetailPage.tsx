@@ -55,6 +55,9 @@ import { LEAGUE_COLOR, LEAGUE_SLOT_NOTE, LEAGUE_TEAM_NAME } from "../lib/leagueA
 import { useJsonData } from "../lib/useJsonData";
 import { NATURALIZED_ASIA_LABEL, statJa } from "../lib/statNames";
 import { isPastSeason } from "../lib/season";
+import { useAchievableSupport } from "../lib/achievableSupport";
+import { useRemainingGames } from "../lib/achievableGames";
+import { AchievableCheckbox } from "../components/AchievableCheckbox";
 import { useResultOnlyBySeason } from "../lib/resultOnlyBySeason";
 import { OtherRuns, StreakPeriod, StreakRecordCard } from "../components/StreakRecordCard";
 import { buildStreakTeamRow, STREAKS_CATEGORY_LABEL } from "../lib/streaksTab";
@@ -3010,6 +3013,11 @@ export function TeamDetailPage({ season }: { season: string }) {
   // 「チーム内リーダー」の掲載基準（出場率）。ランキングページの掲載基準スライダーと同じ部品・同じ既定値（85%）。
   // 3P%等の追加基準（試投/成功数）は項目ごとの既定値のまま（スライダーは出場率のみ）
   const [teamLeadersGamesRatio, setTeamLeadersGamesRatio] = usePageState(pk("teamLeadersGamesRatio"), MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
+  // 掲載基準の「◯%以上達成可能」（ランキングと同じ。初期はチェックなし。B.ONE は日程がそろうまで出さない）
+  const [teamLeadersAchievableChecked, setTeamLeadersAchievable] = usePageState(pk("teamLeadersAchievable"), false);
+  const teamLeadersAchievableSupported = useAchievableSupport(season, league);
+  const teamLeadersAchievable = teamLeadersAchievableChecked && teamLeadersAchievableSupported;
+  const { remainingByTeam: teamLeadersRemaining } = useRemainingGames(season, league, teamLeadersAchievable);
   // 「シチュエーション別成績」（チーム版）専用のレギュラー/プレーオフ/合算トグル。
   // ショットチャートのteamShotChartGameTypeとは独立（個人詳細ページの同名セクションと同じ設計）
   const [situationalTeamGameType, setSituationalTeamGameType] = usePageState<SeasonGameTypeFilter>(pk("situationalTeamGameType"), "regular");
@@ -4044,31 +4052,39 @@ export function TeamDetailPage({ season }: { season: string }) {
     seasonLabel,
     classificationLabels(teamLeadersJpOnly ? "日本人" : "all"),
     gameTypeLabels("regular", null),
-    ...eligibilityLabels({ gamesRatio: teamLeadersGamesRatio }),
+    ...eligibilityLabels({ gamesRatio: teamLeadersGamesRatio, achievable: teamLeadersAchievable }),
   );
   const situationalRecordConditions = composeLabels(seasonLabel, gameTypeLabels(situationalRecordGameType, season));
   // 「チーム内リーダー」の掲載基準（出場率）。ランキングページと同じ popover＋EligibilitySlider
-  const teamLeadersEligibilitySummary = eligibilityLabels({ gamesRatio: teamLeadersGamesRatio }).join(LABEL_SEPARATOR);
+  const teamLeadersEligibilitySummary = eligibilityLabels({ gamesRatio: teamLeadersGamesRatio, achievable: teamLeadersAchievable }).join(LABEL_SEPARATOR);
   const teamLeadersEligibilityAxis: FilterAxis = {
     kind: "popover",
     id: "teamLeadersEligibility",
     label: "掲載基準",
     tier: "primary",
-    value: String(Math.round(teamLeadersGamesRatio * 100)),
-    defaultValue: String(Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)),
-    onChange: () => setTeamLeadersGamesRatio(MIN_GAMES_PLAYED_RATIO_FOR_RANKING),
+    value: `${Math.round(teamLeadersGamesRatio * 100)}|${teamLeadersAchievable ? "ach" : ""}`,
+    defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}|`,
+    onChange: () => {
+      setTeamLeadersGamesRatio(MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
+      setTeamLeadersAchievable(false);
+    },
     summary: teamLeadersEligibilitySummary,
     chipValue: teamLeadersEligibilitySummary,
     content: (
-      <EligibilitySlider
-        label="出場率"
-        value={Math.round(teamLeadersGamesRatio * 100)}
-        min={0}
-        max={100}
-        step={1}
-        format={(v) => `${v}%`}
-        onChange={(v) => setTeamLeadersGamesRatio(v / 100)}
-      />
+      <>
+        <EligibilitySlider
+          label="出場率"
+          value={Math.round(teamLeadersGamesRatio * 100)}
+          min={0}
+          max={100}
+          step={1}
+          format={(v) => `${v}%`}
+          onChange={(v) => setTeamLeadersGamesRatio(v / 100)}
+        />
+        {teamLeadersAchievableSupported && (
+          <AchievableCheckbox ratioPercent={Math.round(teamLeadersGamesRatio * 100)} checked={teamLeadersAchievable} onChange={setTeamLeadersAchievable} />
+        )}
+      </>
     ),
   };
   // 「シチュエーション別成績」: 行がシチュエーション自体のため、S軸（詳細フィルタ）は持たない
@@ -4316,6 +4332,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   teamLeadersGamesRatio,
                   key,
                   extraThreshold,
+                  teamLeadersRemaining,
                 );
                 const top = [...eligiblePool].sort((a, b) => def.value(b) - def.value(a)).slice(0, TEAM_LEADERS_TOP_N);
                 const leader = top[0];

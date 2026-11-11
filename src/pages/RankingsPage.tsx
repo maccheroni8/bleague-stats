@@ -24,6 +24,8 @@ import {
   ONE_ROOKIE_REASON,
 } from "../lib/leagueAvailability";
 import { useAchievableSupport } from "../lib/achievableSupport";
+import { ACHIEVABLE_PARAM } from "../lib/achievableGames";
+import { AchievableCheckbox } from "../components/AchievableCheckbox";
 import { CATEGORY_LABELS } from "../lib/categoryLabels";
 import { fetchPlayerPageSeasons, fetchTeamColors } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
@@ -308,14 +310,6 @@ const GAMES_RATIO_ELIG_PARAM: UrlCodec<number> = {
   },
   write: (p, v) => {
     if (Math.round(v * 100) !== Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)) p.set("elig", String(Math.round(v * 100)));
-  },
-};
-/** 掲載基準の出場率を「達成可能」で判定する（URLでは ach=1。既定は今の出場率のまま） */
-const GAMES_ACHIEVABLE_PARAM: UrlCodec<boolean> = {
-  keys: ["ach"],
-  read: (p) => (p.get("ach") === "1" ? true : undefined),
-  write: (p, v) => {
-    if (v) p.set("ach", "1");
   },
 };
 
@@ -754,7 +748,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
   const defaultPlayerStat = playerDefaultStatKey(category);
   const [statKey, setStatKey] = useUrlState(stringParam("stat", defaultPlayerStat, isStatKeyLike), defaultPlayerStat);
   const [gamesRatio, setGamesRatio] = useUrlState(GAMES_RATIO_ELIG_PARAM, MIN_GAMES_PLAYED_RATIO_FOR_RANKING);
-  const [urlAchievable, setAchievable] = useUrlState(GAMES_ACHIEVABLE_PARAM, false);
+  const [urlAchievable, setAchievable] = useUrlState(ACHIEVABLE_PARAM, false);
   // 掲載基準の「達成可能」は、残り試合数が正しいときだけ（B.ONE は、クラブの日程が60試合そろうまで出さない）
   const achievableSupported = useAchievableSupport(season, league);
   const achievable = urlAchievable && achievableSupported;
@@ -1021,10 +1015,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
           onChange={(v) => setGamesRatio(v / 100)}
         />
         {achievableSupported && (
-          <label className="filter-multi-item">
-            <input type="checkbox" checked={achievable} onChange={(e) => setAchievable(e.target.checked)} />
-            {Math.round(gamesRatio * 100)}%以上達成可能
-          </label>
+          <AchievableCheckbox ratioPercent={Math.round(gamesRatio * 100)} checked={achievable} onChange={setAchievable} />
         )}
         {extraRule && (
           <EligibilitySlider

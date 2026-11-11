@@ -1,10 +1,11 @@
 import { withPppColumn } from "./pppColumn";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORY_LABELS } from "./categoryLabels";
-import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayers, fetchPlayoffRace, fetchRegisteredPlayers, fetchTeams } from "./data";
+import { fetchPlayerCareers, fetchPlayerGameLogs, fetchPlayers, fetchRegisteredPlayers, fetchTeams } from "./data";
 import { leagueCacheKey, type League } from "./league";
 import type { PlayerCareerCounts } from "../../shared/types";
 import { useJsonData } from "./useJsonData";
+import { useRemainingGames } from "./achievableGames";
 import { PLAYER_STAT_DEFS } from "./statDefs";
 import { foulColumnsSplit } from "./ruleChange";
 import type { Column } from "../components/SortableTable";
@@ -541,16 +542,7 @@ export function usePlayerSeasonRanking(
   // 「達成可能」の判定に使う、チームごとの残り試合数（レギュラーシーズン。マジックナンバーの元データと同じ）。チェックを入れたときだけ読む。
   // ファイルが無いシーズンは、残りなし（今の掲載基準と同じ結果）として扱う
   const achievableNeeded = enabled && achievable;
-  const { data: raceData, loading: raceLoading } = useJsonData(
-    () => (achievableNeeded ? fetchPlayoffRace(season, league).then((race) => ({ season, league, race })) : Promise.resolve(null)),
-    [achievableNeeded, season, league],
-  );
-  const raceReady = !achievableNeeded || (!raceLoading && raceData?.season === season && raceData.league === league);
-  const remainingByTeam = useMemo<ReadonlyMap<string, number> | undefined>(() => {
-    if (!achievableNeeded) return undefined;
-    const race = raceData?.season === season && raceData.league === league ? raceData.race : null;
-    return new Map((race?.teams ?? []).map((t) => [t.teamId, t.remaining]));
-  }, [achievableNeeded, raceData, season, league]);
+  const { remainingByTeam, ready: raceReady } = useRemainingGames(season, league, achievableNeeded);
 
   // Q別・前後半の値の元（ピリオド別の索引。そのシーズンの1ファイルずつ。選んでいるときだけ読む）
   const periodFiltersApply = category !== "shooting" && category !== "profile" && category !== "career";

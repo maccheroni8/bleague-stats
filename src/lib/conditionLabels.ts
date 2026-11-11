@@ -215,7 +215,9 @@ export function clubSelectionLabels(
 }
 
 /** 出場試合率の範囲スライダー（下限〜上限、%） */
-export function gamesPlayedRatioRangeLabels(minPct: number, maxPct: number): string[] {
+export function gamesPlayedRatioRangeLabels(minPct: number, maxPct: number, achievable = false): string[] {
+  // 達成可能のときは下限をランキングと同じ書き方（「出場率85%以上達成可能」）にし、上限が100%でなければ今の出場試合率の上限を別に書く
+  if (achievable) return [...eligibilityLabels({ gamesRatio: minPct / 100, achievable: true }), ...(maxPct < 100 ? [`出場試合率${maxPct}%以下`] : [])];
   return [`出場試合率${minPct}%〜${maxPct}%`];
 }
 

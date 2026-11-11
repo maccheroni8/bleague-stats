@@ -1,6 +1,7 @@
 import { FilterBar } from "../components/FilterBar";
 import { classificationAxis, gameTypeAxis, type FilterAxis } from "../lib/filterAxes";
 import { ratioEligibilityAxis } from "./eligibilityAxis";
+import { useFigureAchievable } from "./useFigureAchievable";
 import { CLASSIFICATION_PARAM } from "../lib/urlFilterParams";
 import { matchesGamesPlayedRatioRange } from "../lib/gamesPlayedRatio";
 import { gamesPlayedRatioRangeLabels } from "../lib/conditionLabels";
@@ -41,6 +42,7 @@ export default function AgeFigure({ season, category: league }: FigureProps) {
   const [line, setLine] = useUrlState(lineCodec, "mean");
   const [ratioRange, setRatioRange] = useUrlState(ratioCodec, FIGURE_GAMES_RATIO_RANGE);
   const [minRatio, maxRatio] = ratioRange;
+  const ach = useFigureAchievable(season, league);
   const request = useJsonData(async () => {
     const [index, history, race, colors, players, teams] = await Promise.all([
       loadPlayerGameIndex(season, league), fetchStandingsHistory(season, league), fetchPlayoffRace(season, league), fetchTeamColors(), fetchPlayers(season, league), fetchTeams(season, league),
@@ -52,8 +54,8 @@ export default function AgeFigure({ season, category: league }: FigureProps) {
   const eligiblePlayerIds = useMemo(() => {
     if (!data) return new Set<string>();
     const teamGames = new Map(data.teams.map(t => [t.teamId, t.gamesPlayed]));
-    return new Set(data.players.filter(p => matchesGamesPlayedRatioRange(p.gamesPlayed, teamGames.get(p.teamId), minRatio, maxRatio)).map(p => p.playerId));
-  }, [data, minRatio, maxRatio]);
+    return new Set(data.players.filter(p => matchesGamesPlayedRatioRange(p.gamesPlayed, teamGames.get(p.teamId), minRatio, maxRatio, ach.remaining ? ach.remaining.get(p.teamId) ?? 0 : undefined)).map(p => p.playerId));
+  }, [data, minRatio, maxRatio, ach.remaining]);
   const model = useMemo(() => data?.index ? figureAgeData(data.index, { season, min, classification, gameType, eligiblePlayerIds }) : null, [data, season, min, classification, gameType, eligiblePlayerIds]);
   const gameLabels = seasonGameTypeLabels(season);
   const classLabel = classificationFilterLabel(classification);
@@ -67,7 +69,7 @@ export default function AgeFigure({ season, category: league }: FigureProps) {
     { kind: "select", id: "ageLine", label: "全体の縦線", tier: "primary", value: line, defaultValue: "mean",
       options: [{ value: "mean", label: "平均" }, { value: "median", label: "中央値" }, { value: "both", label: "両方" }], onChange: v => setLine(v as typeof line) },
     classificationAxis(classification, setClassification, { season }),
-    ratioEligibilityAxis({ id: "ageRatio", value: minRatio, defaultValue: FIGURE_GAMES_RATIO_RANGE[0], onChange: v => setRatioRange([v, maxRatio]) }),
+    ratioEligibilityAxis({ id: "ageRatio", value: minRatio, defaultValue: FIGURE_GAMES_RATIO_RANGE[0], onChange: v => setRatioRange([v, maxRatio]), achievable: ach.axis }),
   ];
   const title = min ? `平均${min}:00以上出場した選手の年齢分布` : "出場選手の年齢分布（出場時間の下限なし）";
   const teams = data ? withUnplayedTeams(data.history.at(-1)?.teams ?? [], data.race) : [];
@@ -86,13 +88,13 @@ export default function AgeFigure({ season, category: league }: FigureProps) {
     groups.set(key, group);
   }
   return <section aria-label={AGE_TITLE}>
-    <FilterBar axes={axes} stateKey="figures:age" onClearAll={() => { setRatioRange(FIGURE_GAMES_RATIO_RANGE); setClassification("all"); setMin(15); setGameType("regular"); setLine("mean"); }} />
+    <FilterBar axes={axes} stateKey="figures:age" onClearAll={() => { setRatioRange(FIGURE_GAMES_RATIO_RANGE); ach.reset(); setClassification("all"); setMin(15); setGameType("regular"); setLine("mean"); }} />
     {includesJapanese(classification) && <p className="rule-change-footnote">※ {JAPANESE_DEEMED_NOTE}</p>}
     {classBlocked ? <p className="empty-message">{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">読み込み中…</p> : request.error ? <p role="alert">図のデータを読み込めませんでした。ページを読み直してください。</p> : !model ? <p>このシーズンには図に必要なデータがありません。</p> : <>
       {[...groups].map(([id, group]) => <AgeDistrict key={id}
         divisionLabel={group.label} teams={group.teams} model={model} colors={data!.colors}
         season={season} min={min} classification={classification} gameType={gameType} line={line}
-        classLabel={classLabel} title={title} lower={lower} upper={upper} ratioRange={ratioRange} splitMarks={season >= "2026-27"} />)}
+        classLabel={classLabel} title={title} lower={lower} upper={upper} ratioRange={ratioRange} achievable={ach.achievable} splitMarks={season >= "2026-27"} />)}
     </>}
   </section>;
 }
@@ -106,10 +108,10 @@ function FigureTeamLogo({ teamId }: { teamId: string }) {
 }
 
 type AgeTeam = Pick<StandingsTeamSnapshot, "teamId" | "teamName" | "division">;
-function AgeDistrict({ divisionLabel, teams, model, colors, season, min, classification, gameType, line, classLabel, title, lower, upper, ratioRange, splitMarks }: {
+function AgeDistrict({ divisionLabel, teams, model, colors, season, min, classification, gameType, line, classLabel, title, lower, upper, ratioRange, achievable, splitMarks }: {
   divisionLabel: string; teams: AgeTeam[]; model: ReturnType<typeof figureAgeData>; colors: Record<string, TeamColors>;
   season: string; min: number; classification: ClassificationGroupFilter; gameType: SeasonGameTypeFilter; line: FigureReferenceMode;
-  classLabel: string; title: string; lower: number; upper: number; ratioRange: [number, number]; splitMarks: boolean;
+  classLabel: string; title: string; lower: number; upper: number; ratioRange: [number, number]; achievable: boolean; splitMarks: boolean;
 }) {
   const target = useRef<HTMLDivElement>(null);
   const [tip, setTip] = useState<{ id: string; x: number; top: number; bottom: number } | null>(null);
@@ -119,13 +121,13 @@ function AgeDistrict({ divisionLabel, teams, model, colors, season, min, classif
   const gameLabels = seasonGameTypeLabels(season);
   const baseDate = { kind: "season" as const, season, gameType };
   const references = figureAgeReferences(model.overall, line);
-  const ratioLabels = isDefaultFigureGamesRatio(ratioRange) ? [] : gamesPlayedRatioRangeLabels(...ratioRange);
+  const ratioLabels = isDefaultFigureGamesRatio(ratioRange) && !achievable ? [] : gamesPlayedRatioRangeLabels(...ratioRange, achievable);
   const ratioLabel = ratioLabels.join(" · ");
   // 地区別の画像でも横軸と全体基準線は共通にして比較できるようにする。
   const x = (age: number) => 12 + (age - lower) / (upper - lower) * 576;
   return <section className="figure-age-district" aria-label={`${divisionLabel}の年齢分布`} onPointerDown={e => { if (!(e.target as Element).closest(".figure-age-dot")) setTip(null); }}>
       <h3>{divisionLabel}</h3>
-      <FigureExportButton label={divisionLabel} targetRef={target} filename={`年齢分布_${season}_${divisionLabel}_${min}-00_${classification}_${gameType}_${line}${ratioLabel ? `_gp${ratioRange[0]}-${ratioRange[1]}` : ""}`} baseDate={baseDate} />
+      <FigureExportButton label={divisionLabel} targetRef={target} filename={`年齢分布_${season}_${divisionLabel}_${min}-00_${classification}_${gameType}_${line}${ratioLabel ? `_gp${ratioRange[0]}-${ratioRange[1]}${achievable ? "_ach" : ""}` : ""}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="figure-age-export" baseDate={baseDate}>
         {/* 見出しと条件の行はほかのページと同じ部品（区切りは「／」、初期値〔全選手など〕は書かない。DESIGN.md 239章・296章） */}
         <ConditionTitle title={title} exportScope={`${season}シーズン`} conditions={[season, divisionLabel, gameLabels[gameType], classLabel, ...ratioLabels]} />

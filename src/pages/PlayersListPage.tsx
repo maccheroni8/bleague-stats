@@ -1,5 +1,8 @@
 import { SEASON_ADVANCED_COLUMNS_WITH_FTR } from "../lib/ftrColumn";
 import { GamesPlayedRatioSlider } from "../components/GamesPlayedRatioSlider";
+import { AchievableCheckbox } from "../components/AchievableCheckbox";
+import { useAchievableSupport } from "../lib/achievableSupport";
+import { ACHIEVABLE_PARAM, useRemainingGames } from "../lib/achievableGames";
 import { DEFAULT_MIN_RATIO, DEFAULT_MAX_RATIO, matchesGamesPlayedRatioRange } from "../lib/gamesPlayedRatio";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFoulConditionCleanup, useRookieFilterCleanup, useSeasonFilterCleanup } from "../lib/seasonFilterCleanup";
@@ -722,6 +725,11 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   const [ratioRange, setRatioRange] = useUrlState(GAMES_RATIO_PARAM, DEFAULT_RATIO_RANGE);
   const [minRatio, maxRatio] = ratioRange;
   const setRatio = (mn: number, mx: number) => setRatioRange([mn, mx]);
+  // 出場試合率の下限を「◯%以上達成可能」で判定する（ランキングと同じ。URL `ach=1`・初期はチェックなし・B.ONE は日程がそろうまで出さない）
+  const [urlAchievable, setAchievable] = useUrlState(ACHIEVABLE_PARAM, false);
+  const achievableSupported = useAchievableSupport(season, league);
+  const achievable = urlAchievable && achievableSupported;
+  const { remainingByTeam } = useRemainingGames(season, league, achievable);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // 登録区分（全選手・日本人・外国籍/帰化/アジア）と、4つ目の「ルーキー」（cls=rookie。DESIGN.md 217章）。ルーキーを選べないシーズン（2016-17）では「全選手」として扱う
@@ -866,7 +874,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     if (rookieActive && !rookies.ids) return [];
     return scopedPlayers.filter((p) => {
       const teamGames = teamGamesById.get(p.teamId);
-      if (!matchesGamesPlayedRatioRange(p.gamesPlayed, teamGames, minRatio, maxRatio)) return false;
+      if (!matchesGamesPlayedRatioRange(p.gamesPlayed, teamGames, minRatio, maxRatio, remainingByTeam ? remainingByTeam.get(p.teamId) ?? 0 : undefined)) return false;
       if (!groupOk(p)) return false;
       if (!matchesTeamFilter(p, teamFilter)) return false;
       if (!matchesPositionFilter(p, positionFilter)) return false;
@@ -874,7 +882,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     });
     // groupOk は classificationFilter・rookies.ids・classScope.changed から決まる
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedPlayers, teamGamesById, minRatio, maxRatio, classificationFilter, teamFilter, positionFilter, rookieActive, rookies.ids, classScope.changed]);
+  }, [scopedPlayers, teamGamesById, minRatio, maxRatio, remainingByTeam, classificationFilter, teamFilter, positionFilter, rookieActive, rookies.ids, classScope.changed]);
 
   // Scoring %（得点構成、DESIGN.md 141章）の対象: 所属チームの試合数の85%以上に出場、かつ1試合平均10分以上、かつ合計300分以上
   // （出場試合率のスライダーの代わりに固定。登録区分・ポジション・クラブの絞り込みは効く）。値はレギュラーシーズンの試合ログの合計
@@ -1080,7 +1088,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     classificationLabels(classificationFilter),
     multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positionList), "全ポジション"),
     clubFilterLabels,
-    gamesPlayedRatioRangeLabels(minRatio, maxRatio),
+    gamesPlayedRatioRangeLabels(minRatio, maxRatio, achievable),
   );
   const statsTitle = {
     title: `${season}シーズン 全選手スタッツ：${TAB_LABELS.find((t) => t.key === tab)?.label ?? tab}`,
@@ -1119,21 +1127,25 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     id: "gamesRatio",
     label: "出場試合率",
     tier: "advanced",
-    value: `${minRatio}|${maxRatio}`,
-    defaultValue: ratioDefault,
+    value: `${minRatio}|${maxRatio}|${achievable ? "ach" : ""}`,
+    defaultValue: `${ratioDefault}|`,
     onChange: () => {
       setRatio(DEFAULT_MIN_RATIO, DEFAULT_MAX_RATIO);
+      setAchievable(false);
     },
-    summary: `${minRatio}%〜${maxRatio}%`,
-    chipValue: `${minRatio}%〜${maxRatio}%`,
+    summary: `${minRatio}%〜${maxRatio}%${achievable ? " 達成可能" : ""}`,
+    chipValue: `${minRatio}%〜${maxRatio}%${achievable ? " 達成可能" : ""}`,
     content: (
-      <GamesPlayedRatioSlider
-        min={minRatio}
-        max={maxRatio}
-        onChange={(mn, mx) => {
-          setRatio(mn, mx);
-        }}
-      />
+      <>
+        <GamesPlayedRatioSlider
+          min={minRatio}
+          max={maxRatio}
+          onChange={(mn, mx) => {
+            setRatio(mn, mx);
+          }}
+        />
+        {achievableSupported && <AchievableCheckbox ratioPercent={minRatio} checked={achievable} onChange={setAchievable} />}
+      </>
     ),
   };
   const filterAxes: FilterAxis[] = [

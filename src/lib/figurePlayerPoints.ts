@@ -9,6 +9,7 @@ import {
   buildSeasonBoxscoreCtx, countDoubleTripleDoubles, sumPlayerGameLogs, SEASON_ADVANCED_COLUMNS, SEASON_TRADITIONAL_COLUMNS,
   type PlayerSeasonRawTotals, type SeasonDisplayMode,
 } from './playerSeasonBoxscore';
+import { isAchievable } from './playerRankingEligibility';
 import { changedRegistrations, scopedPlayerMatches, scopeLogsByClassification } from './registrationScopeCore';
 import { figureClassGroup } from './figureAge';
 import type { ScorerData, ScorerQuery } from './figureTopScorers';
@@ -24,6 +25,13 @@ export interface PlayerFigurePoint {
   summary: PlayerSummary;
   /** DD2・TD3・PTS10 の回数と出場試合数（ランキングと同じ。出場した試合の試合ログから数える） */
   doubles: { dd: number; td: number; p10: number; games: number };
+}
+/**
+ * 出場率の掲載基準（minRatio は %）を満たすか。remaining を渡すと「達成可能」で判定する
+ * （今の出場試合数＋チームの残り試合数）÷（チームの今までの試合数＋残り試合数）。残りは現在のチームの分
+ */
+export function passesRatio(p: Pick<PlayerFigurePoint, 'ratio' | 'games' | 'teamGames' | 'teamId'>, minRatio: number, remaining?: ReadonlyMap<string, number>): boolean {
+  return remaining ? isAchievable(p.games, p.teamGames, remaining.get(p.teamId) ?? 0, minRatio / 100) : p.ratio >= minRatio;
 }
 export type PlayerFigureQuery = Omit<ScorerQuery, 'minRatio'>;
 

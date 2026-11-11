@@ -1,4 +1,5 @@
 // 画面専用。既存の試合ログと個人詳細の列定義から計算する。
+import { isAchievable } from './playerRankingEligibility';
 import type { Category, Division, DivisionHistoryFile, PlayerGameLog, PlayerSummary, TeamGameLog } from '../../shared/types';
 import type { SeasonRegistrationFile } from '../../shared/registration';
 import { filterByGameType, type SeasonGameTypeFilter } from '../../shared/gameType';
@@ -23,7 +24,7 @@ export interface ScorerData {
   playerLogs:Map<string,PlayerGameLog[]>; teamLogs:Map<string,TeamGameLog[]>;
   divisions:DivisionHistoryFile|null; registrations:SeasonRegistrationFile|null;
 }
-export interface ScorerQuery {season:string;category:Category;range:SituationalRange;gameType:SeasonGameTypeFilter;classification:FigureClass;minRatio:number;/** 詳細フィルターなどで絞った選手（無ければ全員） */allowed?:ReadonlySet<string>}
+export interface ScorerQuery {season:string;category:Category;range:SituationalRange;gameType:SeasonGameTypeFilter;classification:FigureClass;minRatio:number;/** 出場率を「達成可能」で判定するときの、チームごとの残り試合数 */remainingByTeam?:ReadonlyMap<string,number>;/** 詳細フィルターなどで絞った選手（無ければ全員） */allowed?:ReadonlySet<string>}
 export function buildTopScorers(data:ScorerData,q:ScorerQuery):ScorerPoint[] {
   const changed=changedRegistrations(data.registrations),group=figureClassGroup(q.classification);
   const points:ScorerPoint[]=[];
@@ -41,7 +42,7 @@ export function buildTopScorers(data:ScorerData,q:ScorerQuery):ScorerPoint[] {
       if(!scopedPlayerMatches(p,group,changed))continue;
       const logs=scopeLogsByClassification(data.playerLogs.get(p.playerId)??[],p.playerId,group,changed)
         .filter(g=>g.min>0&&byKey.get(g.scheduleKey)?.isHome===g.isHome);
-      if(!logs.length||logs.length/scoped.length*100<q.minRatio)continue;
+      if(!logs.length||(q.remainingByTeam?!isAchievable(logs.length,scoped.length,q.remainingByTeam.get(p.teamId)??0,q.minRatio/100):logs.length/scoped.length*100<q.minRatio))continue;
       const raw=sumPlayerGameLogs(logs);
       // 条件ありは個人詳細のシチュエーションと同じく本人の出場試合のチーム合計。
       const full=q.range.kind==='all'&&q.gameType==='regular'&&!(group!=='all'&&changed.has(p.playerId));
