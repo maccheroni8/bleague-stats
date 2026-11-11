@@ -2,6 +2,7 @@ import type { BoxscoreRow, SummaryRow } from "../../shared/types";
 import { efgPct, ftRate, orbPct, safeDiv, tovPct } from "../../shared/formulas";
 import { buildTeamTotalCounts, computeTeamRatings } from "../lib/boxscoreAggregate";
 import { formatDecimal } from "../lib/format";
+import type { GameFlowPair } from "../lib/gameFlowForGame";
 import { OpposedBarRow } from "./OpposedBar";
 import { ShootingDonut } from "./ShootingDonut";
 
@@ -28,6 +29,8 @@ interface KeyStatsSectionProps {
   gameSummary?: SummaryRow;
   homeColor?: string;
   awayColor?: string;
+  /** 試合の流れ（最大リード・最大ラン。プレーバイプレーの得点から。記録が無い試合は無し＝カードを出さない） */
+  flow?: GameFlowPair | null;
 }
 
 function benchPoints(rows: BoxscoreRow[]): number {
@@ -53,6 +56,7 @@ export function KeyStatsSection({
   gameSummary,
   homeColor,
   awayColor,
+  flow,
 }: KeyStatsSectionProps) {
   const home = homeColor ?? "var(--accent)";
   const away = awayColor ?? "var(--muted)";
@@ -183,6 +187,14 @@ export function KeyStatsSection({
             format={int0}
           />
           <OpposedBarRow label="BENCH PTS" homeValue={homeBench} awayValue={awayBench} homeColor={home} awayColor={away} format={int0} />
+        </section>
+      )}
+
+      {flow && (
+        <section className="key-stats-card">
+          <h3>試合の流れ</h3>
+          <OpposedBarRow label="MAX LEAD" homeValue={flow.homeLead} awayValue={flow.awayLead} homeColor={home} awayColor={away} format={int0} />
+          <OpposedBarRow label="MAX RUN" homeValue={flow.homeRun} awayValue={flow.awayRun} homeColor={home} awayColor={away} format={int0} />
         </section>
       )}
 

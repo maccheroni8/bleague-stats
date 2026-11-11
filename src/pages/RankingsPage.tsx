@@ -1,4 +1,5 @@
 import { RankedList, type RankCompare, type RankableStat } from "../components/RankedList";
+import { teamChipColor } from "../lib/teamChipColors";
 import { PlayerGameRecordRanking } from "../components/PlayerGameRecordRanking";
 import { TeamGameRecordRanking } from "../components/TeamGameRecordRanking";
 import { TeamAttendanceRanking, ATTENDANCE_SCOPE_PARAM } from "../components/TeamAttendanceRanking";
@@ -53,6 +54,7 @@ import {
 } from "../lib/filterAxes";
 import { statJa } from "../lib/statNames";
 import { teamShortName } from "../../shared/teamNames";
+import { TeamChip } from "../components/TeamChip";
 import type { SituationalFilter } from "../lib/situational";
 import { SEASON_BOX_TABS } from "../lib/playerSeasonBoxscore";
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeLabel } from "../lib/shotTypeBreakdown";
@@ -640,6 +642,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
                 name={(t) => teamLabel(t.teamId, t.teamName)}
                 linkTo={(t) => `/teams/${t.teamId}`}
                 teamColor={(t) => teamColors?.[t.teamId]?.primary}
+                chipColor={(t) => teamChipColor(t.teamId, teamColors)}
                 avatar={(t) => <TeamLogo teamId={t.teamId} size={48} />}
                 compact
               />
@@ -668,6 +671,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
                 name={(t) => teamLabel(t.teamId, t.teamName)}
                 linkTo={(t) => `/teams/${t.teamId}`}
                 teamColor={(t) => teamColors?.[t.teamId]?.primary}
+                chipColor={(t) => teamChipColor(t.teamId, teamColors)}
                 avatar={(t) => <TeamLogo teamId={t.teamId} size={48} />}
                 compact
               />
@@ -705,6 +709,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
               name={(r) => teamLabel(r.team.teamId, r.team.teamName)}
               linkTo={(r) => `/teams/${r.team.teamId}`}
               teamColor={(r) => teamColors?.[r.team.teamId]?.primary}
+              chipColor={(r) => teamChipColor(r.team.teamId, teamColors)}
               avatar={(r) => <TeamLogo teamId={r.team.teamId} size={48} />}
               compact
             />
@@ -1200,21 +1205,25 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
               name={(p) => playerLabel(p.name)}
               // 選手名の下はチーム名とポジション（登録区分はタイトルの下の行）。ポジションの「＊」（当時の値でない印）と注意書きは、
               // 身長・体重・年齢を並べる Profile でだけ出す（DESIGN.md 170章）
-              subLabel={(p) =>
-                [
-                  teamLabel(clubOf(p).teamId, clubOf(p).teamName),
-                  category === "profile" ? positionText(p) : p.position,
-                  gamesText(p),
-                ]
-                  .filter(Boolean)
-                  .join("・")
-              }
+              subLabel={(p) => {
+                // チーム名は保存画像だけチームの色で塗る（TeamChip。画面は今のまま）
+                const team = teamLabel(clubOf(p).teamId, clubOf(p).teamName);
+                const rest = [category === "profile" ? positionText(p) : p.position, gamesText(p)].filter(Boolean).join("・");
+                return (
+                  <>
+                    {team && <TeamChip teamId={clubOf(p).teamId}>{team}</TeamChip>}
+                    {team && rest ? "・" : ""}
+                    {rest}
+                  </>
+                );
+              }}
               linkTo={(p) => {
                 if (!registeredOnlyIds.has(p.playerId)) return `/players/${p.playerId}`;
                 const s = playerPageSeasons?.latestSeason[p.playerId];
                 return s ? `/players/${p.playerId}?season=${s}` : undefined;
               }}
               teamColor={(p) => teamColors?.[clubOf(p).teamId]?.primary}
+              chipColor={(p) => teamChipColor(clubOf(p).teamId, teamColors)}
               avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" placeholder />}
               exportTeam={(p) => [teamShortName(clubOf(p).teamId, clubOf(p).teamName), gamesText(p)].filter(Boolean).join("・")}
               limit={PLAYER_RANK_TOP_N}

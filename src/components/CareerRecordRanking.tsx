@@ -1,4 +1,5 @@
 import { useMemo, useRef } from "react";
+import { teamChipColor } from "../lib/teamChipColors";
 import { PLAYER_CAREER_ASTED_MIN_POINTS, PLAYER_CAREER_TOTAL_DEFS } from "../../shared/playerRecords";
 import { CAREER_TOTAL_DEFS } from "../../shared/teamRecords";
 import { CAREER_CONDITION_KEY_PREFIX, CAREER_ITEM_DEFS } from "../lib/playerConditionItems";
@@ -171,6 +172,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
                 )}
                 linkTo={(r) => `/players/${r.playerId}?season=${r.info.latestSeason}`}
                 teamColor={(r) => teamColors?.[r.info.teamId]?.primary}
+                chipColor={(r) => teamChipColor(r.info.teamId, teamColors)}
                 avatar={(r) => <PlayerPhoto playerId={r.playerId} size={56} className="player-cell-photo" placeholder />}
                 exportKeepSub
                 limit={PLAYER_RANK_TOP_N}
@@ -262,6 +264,7 @@ export function TeamCareerRecordRanking({ teamColors }: { teamColors: Record<str
                 return last ? `/teams/${r.teamId}?season=${last}` : `/teams/${r.teamId}`;
               }}
               teamColor={(r) => teamColors?.[r.teamId]?.primary}
+              chipColor={(r) => teamChipColor(r.teamId, teamColors)}
               avatar={(r) => <TeamLogo teamId={r.teamId} size={48} placeholder />}
               unit="チーム"
               sortable={false}

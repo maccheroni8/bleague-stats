@@ -81,6 +81,7 @@ import {
 } from "../lib/filterAxes";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
+import { TeamChip } from "../components/TeamChip";
 import { RookieBadge } from "../components/RookieBadge";
 import { StickyHeaderScroll } from "../components/StickyHeaderScroll";
 import { useIsRookie } from "../lib/rookieFilter";
@@ -236,7 +237,7 @@ function toGameLogColumns(tabKey: BoxscoreTabKey, foulSplit: boolean): Column<Ga
         const info = gameLogRowInfo(r);
         return (
           <>
-            {info.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={info.opponentTeamId} name={info.opponentTeamName} />
+            {info.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={info.opponentTeamId} name={info.opponentTeamName} chip />
             {info.gameType === "playoff" && <span className="playoff-badge">PO</span>}
           </>
         );
@@ -2484,7 +2485,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
           <ExternalLinkIcon href={bleaguePlayerUrl(player.playerId)} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
         </h1>
         <p className="page-subtitle">
-          {player.teamName}・{season}シーズン・{player.gamesPlayed}試合出場
+          <TeamChip teamId={player.teamId}>{player.teamName}</TeamChip>・{season}シーズン・{player.gamesPlayed}試合出場
         </p>
         {nameHistory.length > 1 && (
           <p className="page-subtitle">
@@ -2549,7 +2550,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
               <ul className="player-awards-list">
                 {championshipSeasons.map((c) => (
                   <li key={c.season}>
-                    {c.season} <ResponsiveTeamName teamId={c.teamId} name={c.teamName} />優勝
+                    {c.season} <ResponsiveTeamName teamId={c.teamId} name={c.teamName} chip />優勝
                   </li>
                 ))}
               </ul>
@@ -2790,7 +2791,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
                           <td className="align-left">
                             {row.teamId ? (
                               <RouterLink to={`/teams/${row.teamId}?season=${situationalStatsSeason}&league=${league}`} className="cell-link">
-                                {row.teamLabel}
+                                <TeamChip teamId={row.teamId}>{row.teamLabel}</TeamChip>
                               </RouterLink>
                             ) : (
                               row.teamLabel
@@ -3786,7 +3787,7 @@ function SeasonBreakdownTable({
                 <td className="align-left">
                   {r.teamId ? (
                     <RouterLink to={`/teams/${r.teamId}?season=${r.season}&league=${league}`} className="cell-link">
-                      {r.teamLabel}
+                      <TeamChip teamId={r.teamId}>{r.teamLabel}</TeamChip>
                     </RouterLink>
                   ) : (
                     r.teamLabel
@@ -3937,7 +3938,7 @@ function CareerHighCard({
       {game ? (
         <RouterLink to={`/games/${game.scheduleKey}?season=${game.season}&league=${gameLeague}`} className="career-high-game-link">
           {game.date}　{game.isHome ? "vs" : "@"}
-          <ResponsiveTeamName teamId={game.opponentTeamId} name={game.opponentTeamName} always />
+          <ResponsiveTeamName teamId={game.opponentTeamId} name={game.opponentTeamName} always chip />
         </RouterLink>
       ) : (
         <div className="career-high-game-link">基準を満たす試合なし</div>
@@ -3953,7 +3954,7 @@ function CareerHighCard({
                 <li key={g.scheduleKey}>
                   <RouterLink to={`/games/${g.scheduleKey}?season=${g.season}&league=${gameLeague}`} className="career-high-game-link">
                     {g.date}　{g.isHome ? "vs" : "@"}
-                    <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always />
+                    <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always chip />
                   </RouterLink>
                 </li>
               ))}
@@ -3973,7 +3974,7 @@ function CareerHighCard({
                 <td>
                   <RouterLink to={`/games/${e.game.scheduleKey}?season=${e.game.season}&league=${gameLeague}`} className="career-high-game-link">
                     <span className="record-date-nowrap">{e.game.date}</span>　{e.game.isHome ? "vs" : "@"}
-                    <ResponsiveTeamName teamId={e.game.opponentTeamId} name={e.game.opponentTeamName} always />
+                    <ResponsiveTeamName teamId={e.game.opponentTeamId} name={e.game.opponentTeamName} always chip />
                   </RouterLink>
                 </td>
               </tr>

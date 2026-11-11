@@ -1,19 +1,19 @@
 import { useMemo, useRef } from "react";
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from "../../shared/gameType";
 import { teamShortName } from "../../shared/teamNames";
+import { TeamChip } from "../components/TeamChip";
 import { enumParam, numberParam, situationalParam, useUrlState, type UrlCodec } from "../lib/urlState";
 import { classificationAxis, gameTypeAxis, situationalAxes, type FilterAxis } from "../lib/filterAxes";
 import type { SituationalFilter } from "../lib/situational";
 import { figureClassGroup } from "../lib/figureAge";
 import { CLASSIFICATION_PARAM, GAME_TYPE_PARAM } from "../lib/urlFilterParams";
-import { classificationFilterLabel, splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from "../lib/classificationFilter";
-import { situationalFilterLabels } from "../lib/conditionLabels";
+import { splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from "../lib/classificationFilter";
+import { classificationLabels, situationalFilterLabels, visibleConditionLabels } from "../lib/conditionLabels";
 import { buildPlayerFigurePoints, type PlayerFigurePoint } from "../lib/figurePlayerPoints";
 import { playerShootCells, shootReference } from "../lib/figureShootTableData";
 import {
-  DEFAULT_SHOOT_MIN_PTS, DEFAULT_SHOOT_TOP_N, PLAYER_SHOOT_COLUMNS, percentileLevel, selectByPoints, sharedRanks, sortByValue, type ShootSelection,
+  DEFAULT_SHOOT_MIN_PTS, DEFAULT_SHOOT_TOP_N, PLAYER_SHOOT_COLUMNS, percentileLevel, playerShootConditions, shootSelectionLabel, shootSortLabel, shootTitle, selectByPoints, sharedRanks, sortByValue, type ShootSelection,
 } from "../lib/figureShootTable";
-import { formatDecimal } from "../lib/format";
 import { FilterBar } from "../components/FilterBar";
 import { ExportTarget } from "../components/ExportTarget";
 import { ConditionTitle } from "../components/ConditionTitle";
@@ -91,7 +91,7 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
   const names = sorted.map(p => p.name);
   const rangeAxes = situationalAxes(filter, v => setFilter({ range: v.range })).filter(a => a.id === "s.range" || (filter.range.kind === "dateRange" && (a.id === "s.dateStart" || a.id === "s.dateEnd")))
     .map(a => a.kind === "select" ? { ...a, options: a.options.filter(o => ["all", "recent:5", "recent:10", "custom"].includes(o.value)) } : { ...a, tier: "primary" as const });
-  const selectionSummary = kind === "min" ? `PTS ${formatDecimal(minPts, 1)}以上` : `PTS 上位${topN}人`;
+  const selectionSummary = shootSelectionLabel(selection);
   const selectionAxis: FilterAxis = {
     kind: "popover", id: "shootSelect", label: "対象の選手", tier: "primary", value: `${kind}:${kind === "min" ? minPts : topN}`, defaultValue: `min:${DEFAULT_SHOOT_MIN_PTS}`,
     summary: selectionSummary, chipValue: selectionSummary,
@@ -105,7 +105,8 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
     classificationAxis(classification, setClassification, { season }), pf.clubAxis, pf.positionAxis, hl.axis,
     ratioEligibilityAxis({ id: "shootRatio", value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio })];
   const [periodLabel] = situationalFilterLabels(filter);
-  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], selectionSummary, classificationFilterLabel(classification), ...pf.labels, `出場率${minRatio}%以上`, ...hl.labels].filter(Boolean);
+  const sortText = shootSortLabel(shown.find(c => c.key === sortKey.key)?.label ?? "PTS", sortKey.descending);
+  const conditions = visibleConditionLabels(playerShootConditions({ scope: `${season} ${periodLabel}`, gameType: seasonGameTypeLabels(season)[gameType], selection, classification: classificationLabels(classification), filters: pf.labels, ratio: minRatio, highlights: hl.labels, sort: sortText }));
   const baseDate = { kind: "season" as const, season, gameType };
   const toggleSort = (key: string) => setSort(prev => ({ key, descending: prev.key === key ? !prev.descending : true }));
   // 移籍した選手は、表示中の範囲で最後に出場した試合のチームの略称
@@ -116,12 +117,12 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
       <p className="figure-count">{sorted.length}人を表示</p>
       <FigureExportButton targetRef={target} filename={`シュート成功率_${conditions.join("_")}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export shoot-export" baseDate={baseDate}>
-        <ConditionTitle title="シュート成功率" exportScope={`${season}シーズン`} conditions={conditions} />
+        <ConditionTitle title={shootTitle(null)} exportScope={`${season}シーズン`} conditions={conditions} />
         <PlayerNamePool names={names}>
           <ShootTableView rows={sorted} rowKey={p => p.id} columns={columns} sort={sortKey} onSort={toggleSort} ranks={ranks} nameHeader="PLAYER" highlight={p => hl.has(p.teamIds)} ariaLabel="シュート成功率（選手）"
             renderName={p => <div className="shoot-who">
               <PlayerPhoto playerId={p.playerId} size={44} className="player-cell-photo" placeholder />
-              <span className="shoot-who-line"><ResponsivePlayerName name={p.name} among={names} /><span className="shoot-abbr">（{teamAbbr(p)}）</span></span>
+              <span className="shoot-who-line"><ResponsivePlayerName name={p.name} among={names} /><span className="shoot-abbr">（<TeamChip teamId={p.lastTeamId}>{teamAbbr(p)}</TeamChip>）</span></span>
             </div>} />
         </PlayerNamePool>
         <ShootLegend />

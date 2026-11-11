@@ -29,8 +29,8 @@ export function PlayerGameRecordLine({ e, season, showPosition = false }: { e: P
         {date}（{season}）
       </span>
       {narrow ? " " : "　"}
-      <ResponsiveTeamName teamId={e.teamId} name={e.teamName} always nowrap /> {e.isHome ? "vs" : "@"}{" "}
-      <ResponsiveTeamName teamId={e.opponentTeamId} name={e.opponentTeamName} always nowrap />
+      <ResponsiveTeamName teamId={e.teamId} name={e.teamName} always nowrap chip /> {e.isHome ? "vs" : "@"}{" "}
+      <ResponsiveTeamName teamId={e.opponentTeamId} name={e.opponentTeamName} always nowrap chip />
       {position && <span className="record-date-nowrap">　{position}</span>}
     </>
   );

@@ -1,4 +1,5 @@
 import { useLeague, type League } from "../lib/league";
+import { teamChipColor } from "../lib/teamChipColors";
 import { useMemo, useRef } from "react";
 import type { GameSummary, TeamColors } from "../../shared/types";
 import { ATTENDANCE_LIMITED_SEASONS, attendanceRows, attendanceVenueOptions, type AttendanceDay, type AttendanceFilter, type AttendanceGame, type AttendanceRow } from "../lib/attendanceRanking";
@@ -167,6 +168,7 @@ export function TeamAttendanceRanking({ season, teamColors }: { season: string; 
               subLabel={(r) => `ホーム${r.games}試合・${item.key === "total" ? `平均 ${formatPeople(r.average)}` : `合計 ${formatPeople(r.total)}`}`}
               linkTo={(r) => `/teams/${r.teamId}${allTime ? "" : `?season=${season}`}`}
               teamColor={(r) => teamColors?.[r.teamId]?.primary}
+              chipColor={(r) => teamChipColor(r.teamId, teamColors)}
               avatar={(r) => <TeamLogo teamId={r.teamId} size={48} placeholder />}
               sortable={false}
               statScope="team"

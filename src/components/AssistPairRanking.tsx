@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { teamChipColor } from "../lib/teamChipColors";
 import { SeasonLink as Link } from "./SeasonLink";
 import { useLeague } from "../lib/league";
 import type { TeamColors } from "../../shared/types";
@@ -44,7 +45,7 @@ function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" 
           {date}（{r.season}）
         </span>
         {narrow ? " " : "　"}
-        <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap /> {r.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={r.opponentTeamId!} name={r.opponentTeamName!} always nowrap />
+        <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap chip /> {r.isHome ? "vs" : "@"} <ResponsiveTeamName teamId={r.opponentTeamId!} name={r.opponentTeamName!} always nowrap chip />
         <span className="record-date-nowrap">　{parts}</span>
       </>
     );
@@ -56,7 +57,7 @@ function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" 
       {"　"}
       <span className="record-date-nowrap">{parts}</span>
       {"　"}
-      <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap />
+      <ResponsiveTeamName teamId={r.teamId} name={r.teamName} always nowrap chip />
       {unit === "career" && <span className="record-date-nowrap">　{span}</span>}
     </>
   );
@@ -182,6 +183,7 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
                 subLinkTo={unit === "game" ? (e) => `/games/${e.scheduleKey}?season=${e.season}` : undefined}
                 linkTo={() => undefined}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
+                chipColor={(e) => teamChipColor(e.teamId, teamColors)}
                 exportKeepSub
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}
