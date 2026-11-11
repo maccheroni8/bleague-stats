@@ -16221,7 +16221,7 @@ iPhone でランキングが開けない（画像保存まで進めない）と�
 - **名前の余白**: 保存画像（1000px 幅）で長い名前が隣と詰まっていた件。選手の列の間を 14px にし、クラブ列を 240→210px・指標の列を 72→64px にして名前の幅を確保（A東京 2022-23 の「セバスチャン・サイズ」と「ジャスティン・コブス」の間が空いた）。スマホ幅は列の間 4px のまま（名字だけなので詰まらない）。
 - 検証: `validate:best-lineups` に 5-2 を足した（人数×シーズン×試合区分×下限〔下端・最初の値・上端〕の対象数が独立の数え直しと一致・歴代の対象数＝シーズン別の合計・スライダーの下端が導出データの下限と一致・丸め）。
 
-## 372. 2016-17〜2019-20 を今と同じ基準で集計する（古い記録の読み替え）（2026-11-12。**保存キーが変わる**。allKey は push のときの値を記録）
+## 372. 2016-17〜2019-20 を今と同じ基準で集計する（古い記録の読み替え）（2026-11-12。**保存キーが変わる**。allKey `05665dc7ac2380bd2ea8932822b3931a` → `f6af5fc10fcaa374593a9b3d11fa8b33`）
 
 - **背景**: 旧4シーズンは、実際のポゼッション・出場区間（team-stints）・5人組の条件別・On/Off・2〜3人組・最強ラインナップ・選手の %PTS〜%FTA と AST%・Time to Shot を「2020-21以降」としていた。
   調査（作業場所 `bleague-stats-old-pbp`・調査メモ `old-pbp-survey.md`。片付けのときに `bleague-stats-archive/2026-11/old-pbp/` へ移した）で、**ポゼッションの数え方に効く違いはチームリバウンドの番号だけ**（旧 18＝OR・19＝DR、今は逆）と分かった。
@@ -16237,4 +16237,5 @@ iPhone でランキングが開けない（画像保存まで進めない）と�
 - **変わらないもの**: 2020-21 以降と今季の導出データは、作成時刻を除いて全ファイルが変更前と同じ（変更前後の `data/` を全件比べた）。
 - **画面**: 「2020-21以降」「推定」の制限と文を外した（On/Off・組み合わせのランキング〔`lineupSeasonSupported`〕、チーム詳細のラインナップ〔`lineupStintsSupported`〕・ラインナップ検索、選手の %PTS〜%FTA・AST%・on/off〔`onCourtShareSeasonUnsupported`。`src/lib/onCourtShareSeason.ts` の `ON_COURT_COUNT_FIRST_SEASON`〕、個人詳細のオンコート／オフコート〔全シーズンで試合ログの材料から。ランキングと同じ値〕、個人の On-Court Foreign、トップスコアラーの図の %PTS・On ORtg、Time to Shot、md 詳しい版のオンザコート別・Time to Shot、最強ラインナップの範囲の見出し「歴代（2016-17〜）」、用語集）。
   判定の関数は残してある（古い導出データ〔デプロイ直後のキャッシュ〕では今までどおり「-」や推定の見出しに戻る）。
+- **md 詳しい版**: 試合ごとの人数別の時間の表に付けていた「2019-20以前は、コートにいた選手を推定して復元した値で精度が下がる」の注記も外した（旧形式も今と同じ精度で復元できる。`validate:ai-export-detailed` は、どのシーズンにもこの注記が無いことを確かめる）。
 - **検証**: `validate:period-index`（攻撃回数の列は全シーズン・特別な試合だけ -1）・`validate:best-lineups`（対象は 2016-17 から）・`validate:lineup-ranking`・`validate:lineups-by-condition`・`validate:player-oncourt`・`validate:rebuild-materials`（player-foreign を全シーズン）・`validate:game-orpct`（旧形式も countsByPeriod・特別な試合は reboundsByPeriod）・`validate:time-to-shot`（2016-17 から・旧形式のリバウンドの番号）・`validate:tts-table` を旧シーズンに広げた。
