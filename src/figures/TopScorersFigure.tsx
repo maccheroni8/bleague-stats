@@ -21,6 +21,7 @@ import { useHighlightClubs } from './highlightClubs';
 import { usePlayerLabel } from '../lib/playerLabel';
 import { statDescription } from '../lib/statDescriptions';
 import { teamShortName } from '../../shared/teamNames';
+import { TeamChip } from '../components/TeamChip';
 import { formatMinutesColon } from '../lib/minutesFormat';
 import { formatDecimal, formatPct100, formatWinPct } from '../lib/format';
 import { situationalFilterLabels } from '../lib/conditionLabels';
@@ -84,7 +85,7 @@ export default function TopScorersFigure({season,category}:FigureProps){
  const baseDate={kind:'season' as const,season,gameType};
  const select=(p:ScorerPoint)=>{setHover(p.id);};
  const columns:Column<ScorerPoint>[]=[
-  {key:'team',label:'選手名（チーム）',align:'left',sortValue:p=>p.name,render:p=><button className="ratings-team-button" onClick={()=>select(p)}>{playerLabel(p.name)}（{teamShortName(p.teamId,p.teamName)}）</button>},
+  {key:'team',label:'選手名（チーム）',align:'left',sortValue:p=>p.name,render:p=><button className="ratings-team-button" onClick={()=>select(p)}>{playerLabel(p.name)}（<TeamChip teamId={p.teamId}>{teamShortName(p.teamId,p.teamName)}</TeamChip>）</button>},
   {key:'games',label:'G',sortValue:p=>p.games},
   {key:'pts',label:'PTS',sortValue:p=>p.pts,render:p=>formatDecimal(p.pts)},
   ...SCORER_AXES.map(a=>({key:a,label:SCORER_LABELS[a],sortValue:(p:ScorerPoint)=>p.values[a]??Number.NaN,render:(p:ScorerPoint)=>valueText(p.values[a],a)})),

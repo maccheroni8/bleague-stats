@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { teamShortName } from '../../shared/teamNames';
+import { TeamChipList } from '../components/TeamChip';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
 import { enumParam, numberParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
 import { classificationAxis, gameTypeAxis, situationalAxes, type FilterAxis } from '../lib/filterAxes';
@@ -91,6 +92,7 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
   const playerLabel = usePlayerLabel(eligible.map(p => p.name));
   const tip = items.find(i => i.id === hover);
   const hl = useHighlightClubs({ season, category, teams, divisionOf });
+  const abbrOf = (id: string, p?: PlayerFigurePoint) => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? p?.teamName ?? '');
   const abbr = (p: PlayerFigurePoint) => p.teamIds.map(id => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
   const names = (p: PlayerFigurePoint) => p.teamIds.map(id => teamLabel(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
   const yName = yItem.label, xName = xItem.label;
@@ -116,7 +118,7 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
   const pick = (p: PlayerFigurePoint) => setHover(p.id);
   type Row = typeof items[number];
   const columns: Column<Row>[] = [
-    { key: 'player', label: '選手名（チーム）', align: 'left', sortValue: s => s.p.name, render: s => <button className="ratings-team-button" onClick={() => pick(s.p)}>{playerLabel(s.p.name)}（{abbr(s.p)}）{s.p.teamIds.length > 1 ? '合算' : ''}</button> },
+    { key: 'player', label: '選手名（チーム）', align: 'left', sortValue: s => s.p.name, render: s => <button className="ratings-team-button" onClick={() => pick(s.p)}>{playerLabel(s.p.name)}（<TeamChipList ids={s.p.teamIds} labelOf={abbrOf} />）{s.p.teamIds.length > 1 ? '合算' : ''}</button> },
     { key: 'g', label: 'G', sortValue: s => s.p.games },
     { key: 'ratio', label: '出場率', sortValue: s => s.p.ratio, render: s => formatPct100(s.p.ratio) },
     { key: 'y', label: yName, sortValue: s => s.y, render: s => yCol.text(s.p) },

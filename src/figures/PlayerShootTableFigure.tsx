@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from "../../shared/gameType";
 import { teamShortName } from "../../shared/teamNames";
+import { TeamChip } from "../components/TeamChip";
 import { enumParam, numberParam, situationalParam, useUrlState, type UrlCodec } from "../lib/urlState";
 import { classificationAxis, gameTypeAxis, situationalAxes, type FilterAxis } from "../lib/filterAxes";
 import type { SituationalFilter } from "../lib/situational";
@@ -121,7 +122,7 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
           <ShootTableView rows={sorted} rowKey={p => p.id} columns={columns} sort={sortKey} onSort={toggleSort} ranks={ranks} nameHeader="PLAYER" highlight={p => hl.has(p.teamIds)} ariaLabel="シュート成功率（選手）"
             renderName={p => <div className="shoot-who">
               <PlayerPhoto playerId={p.playerId} size={44} className="player-cell-photo" placeholder />
-              <span className="shoot-who-line"><ResponsivePlayerName name={p.name} among={names} /><span className="shoot-abbr">（{teamAbbr(p)}）</span></span>
+              <span className="shoot-who-line"><ResponsivePlayerName name={p.name} among={names} /><span className="shoot-abbr">（<TeamChip teamId={p.lastTeamId}>{teamAbbr(p)}</TeamChip>）</span></span>
             </div>} />
         </PlayerNamePool>
         <ShootLegend />

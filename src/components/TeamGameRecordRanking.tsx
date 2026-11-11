@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { teamChipColor } from "../lib/teamChipColors";
 import type { TeamColors } from "../../shared/types";
 import { buildExportFilename, composeLabels, gameTypeLabels } from "../lib/conditionLabels";
 import { fetchLeagueTeamRecordTable, fetchTeamHistory, fetchTeams } from "../lib/data";
@@ -318,6 +319,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
               linkTo={(r) => `/teams/${r.teamId}?season=${r.season}`}
               subLinkTo={(r) => `/games/${r.scheduleKey}?season=${r.season}`}
               teamColor={(r) => teamColors?.[r.teamId]?.primary}
+              chipColor={(r) => teamChipColor(r.teamId, teamColors)}
               avatar={(r) => <TeamLogo teamId={r.teamId} size={48} placeholder />}
               exportKeepSub
               limit={TEAM_RECORD_TOP_N}

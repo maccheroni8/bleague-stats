@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { teamChipColor } from "../lib/teamChipColors";
 import type { LeagueSeasonWorstEntry, LeagueSeasonWorstTop20 } from "../../shared/leagueSeasonWorst";
 import { SHORTENED_REGULAR_SEASONS } from "../../shared/regularSeasonComplete";
 import type { LeagueRecordEntry, LeagueTeamRankingsFile, TeamColors } from "../../shared/types";
@@ -109,6 +110,7 @@ export function TeamSeasonRecordRanking({ teamColors }: { teamColors: Record<str
               subLabel={(e) => `${e.season}シーズン${(e as LeagueSeasonWorstEntry).ongoing ? "・継続中" : ""}`}
               linkTo={(e) => `/teams/${e.teamId}?season=${e.season}`}
               teamColor={(e) => teamColors?.[e.teamId]?.primary}
+              chipColor={(e) => teamChipColor(e.teamId, teamColors)}
               avatar={(e) => <TeamLogo teamId={e.teamId} size={48} placeholder />}
               limit={RANK_TOP_N}
               unit="シーズン"

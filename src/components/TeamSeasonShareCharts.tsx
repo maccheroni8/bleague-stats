@@ -23,6 +23,14 @@ import {
   type ForeignShare,
   type PointsShare,
 } from "../lib/shareCharts";
+import { useState } from "react";
+import {
+  ASSIST_SELF_CATEGORIES,
+  assistSelfShare,
+  SELF_SHOT_KIND_LABELS,
+  type SelfShotKind,
+} from "../lib/selfScoring";
+import { teamShotMadeSource } from "../lib/teamStatsColumns";
 import { ShareBarChart, type ShareBarCategory, type ShareBarRow } from "./ShareBarChart";
 
 /**
@@ -146,8 +154,11 @@ export function TeamSeasonScoringCharts({
   fgaBySeason,
   perspective,
   periodTotals,
+  logTotals,
 }: {
   rows: TeamSeasonShareRow[];
+  /** 区間を選んでいないときの、シーズンごとのレギュラーシーズンの試合ログの合計と試合数（アシストの有無。読み込み中は null） */
+  logTotals?: Map<string, { games: number; totals: TeamTotals }> | null;
   /** 区間を選んでいるとき、シーズンごとの区間の合計と試合数（無いシーズンは行を出さない）。無いときはシーズン全体（teams.json） */
   periodTotals?: Map<string, { games: number; totals: TeamTotals }>;
   /** FG試投構成（試合ログから求める。読み込み中は null） */
@@ -187,7 +198,63 @@ export function TeamSeasonScoringCharts({
       ) : (
         <p className="loading">読み込み中...</p>
       )}
+      <AssistSelfTrend rows={rows} sources={periodTotals ?? logTotals ?? null} opp={opp} />
       <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="得点構成・FG試投構成" scope={`レギュラーシーズン・${periodTotals ? "選んだ区間の" : "シーズン"}合計の値です（上部の視点は自チーム/oppに連動し、平均/合計とは連動しません）。`} />
+    </>
+  );
+}
+
+/**
+ * アシストの有無のシーズン別推移（全チームスタッツの Scoring % と同じ作り。DESIGN.md 363章）。自チームの視点は「アシストの有無」（自チームの成功のうち）、
+ * opp の視点は「相手のアシストの有無」（相手の成功のうち）。シュートの種類（2P・3P・FG・FT・得点全体、最初は FG）は上のプルダウンで選ぶ。
+ * アシストありを濃い色、セルフを薄い色。試合の流れの記録が無い試合（1810）は除く
+ */
+function AssistSelfTrend({
+  rows,
+  sources,
+  opp,
+}: {
+  rows: TeamSeasonShareRow[];
+  sources: Map<string, { games: number; totals: TeamTotals }> | null;
+  opp: boolean;
+}) {
+  const [kind, setKind] = useState<SelfShotKind>("fgm");
+  const unit = kind === "pts" ? "点" : "本";
+  if (!sources) return <p className="loading">読み込み中...</p>;
+  const chartRows: ShareBarRow[] = rows.flatMap((r) => {
+    const src = sources.get(r.season);
+    if (!src) return [];
+    const share = assistSelfShare(teamShotMadeSource(src.totals, opp), kind, src.games - (src.totals.noFlowGames ?? 0));
+    if (share.perGame <= 0) return [];
+    return [
+      {
+        key: r.season,
+        labelLines: [r.season],
+        pct: share.pct,
+        details: share.values.map((v) => v.toFixed(2)),
+        tooltipDetails: share.values.map((v) => `（${v.toFixed(2)}${unit}）`),
+        rightLabel: { wide: `${share.perGame.toFixed(2)}${unit}`, narrow: share.perGame.toFixed(2) },
+        tooltipTitle: r.season,
+        tooltipFooter: `${opp ? "相手の平均" : "平均"}: ${share.perGame.toFixed(2)}${unit}`,
+      },
+    ];
+  });
+  return (
+    <>
+      <h4 className="share-trend-title">
+        {opp ? "相手のアシストの有無" : "アシストの有無"}
+        <label className="share-trend-kind">
+          {" "}
+          <select value={kind} onChange={(e) => setKind(e.target.value as SelfShotKind)} aria-label="アシストの有無のシュート">
+            {(Object.keys(SELF_SHOT_KIND_LABELS) as SelfShotKind[]).map((k) => (
+              <option key={k} value={k}>
+                {SELF_SHOT_KIND_LABELS[k]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </h4>
+      <ShareBarChart rows={chartRows} categories={ASSIST_SELF_CATEGORIES} wideMinSegment={46} labelWidth={{ wide: 64, narrow: 56 }} rightWidth={{ wide: 56, narrow: 36 }} />
     </>
   );
 }

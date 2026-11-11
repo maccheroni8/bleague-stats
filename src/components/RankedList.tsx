@@ -4,7 +4,7 @@ import { SeasonLink as Link } from "./SeasonLink";
 import { ExternalLinkIcon } from "./ExternalLinkIcon";
 import { StatHeaderLabel } from "./StatHeaderLabel";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
-import { readableInkOn } from "../lib/color";
+import { teamChipStyle } from "../lib/teamChipColors";
 import { rankPositions } from "../lib/seasonCompare";
 import { EXPORT_TOP_10, tiesBeyondTop } from "../lib/exportFormat";
 
@@ -56,6 +56,8 @@ export interface RankedListProps<T> {
   /** 指定時、名前の直後にBリーグ公式サイトへの外部リンクアイコンを表示する（選手モードのみ） */
   externalLinkTo?: (row: T) => string | undefined;
   teamColor?: (row: T) => string | undefined;
+  /** 写真・ロゴなしで保存するときの、塗りの色（teamChipColor。無ければ teamColor。アクセント色が mono のチームも塗れる） */
+  chipColor?: (row: T) => string | undefined;
   /** 指定時、名前の左にロゴ・写真等を表示する */
   avatar?: (row: T) => ReactNode;
   /** 指定時、ソート後の上位この件数だけを表示する（未指定は全件） */
@@ -117,6 +119,7 @@ export function RankedList<T>({
   linkTo,
   externalLinkTo,
   teamColor,
+  chipColor,
   avatar,
   limit,
   compact,
@@ -253,8 +256,7 @@ export function RankedList<T>({
           {limited.map((row, i) => {
             const accent = teamColor?.(row);
             // 写真・ロゴなしで保存するときの、チーム名の塗り（チームの色と、その明るさに合う文字の色。CSS の .export-plain 側で使う。DESIGN.md 362章）
-            const ink = readableInkOn(accent);
-            const fillStyle = accent && ink ? ({ "--team-color": accent, "--team-ink": ink } as CSSProperties) : undefined;
+            const fillStyle = teamChipStyle(chipColor ? chipColor(row) : accent);
             const teamAbbr = exportTeam?.(row);
             // 名前の横に添えるチーム略称（保存画像の写真なしの版でだけ表示）
             // 名前の下の行が無い表（チーム）は、試合数だけを名前の下の行と、写真なしの版の名前の横に出す

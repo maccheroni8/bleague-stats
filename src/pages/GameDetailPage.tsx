@@ -16,6 +16,7 @@ import { NATURALIZED_ASIA_LABEL } from "../lib/statNames";
 import { makeClassifier } from "../../shared/registration";
 import { loadSeasonRegistrations } from "../lib/registrationScope";
 import type { BoxscoreRow, PlayByPlayEvent, PlayerSummary, ShotTypeBreakdown } from "../../shared/types";
+import { gameFlowFor } from "../lib/gameFlowForGame";
 import { KeyStatsSection } from "../components/KeyStatsSection";
 import { LeadTrackerChart } from "../components/LeadTrackerChart";
 import { SubstitutionBarChart, type SubstitutionRow } from "../components/SubstitutionBarChart";
@@ -841,6 +842,7 @@ export function GameDetailPage({ season }: { season: string }) {
           gameSummary={gameSummary}
           homeColor={homeColor}
           awayColor={awayColor}
+          flow={gameFlowFor(game)}
         />
       )}
 

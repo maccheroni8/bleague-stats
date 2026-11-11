@@ -1,4 +1,5 @@
 import { useLeague } from "../lib/league";
+import { teamChipColor } from "../lib/teamChipColors";
 import { ONE_ROOKIE_REASON } from "../lib/leagueAvailability";
 import { useEffect, useMemo, useRef } from "react";
 import type { TeamColors } from "../../shared/types";
@@ -195,6 +196,7 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
                 subLabel={(e) => <ClutchLine r={e} allTime={allTime} last={isLast(e.lastSeason, [e.playerId])} />}
                 linkTo={(e) => `/players/${e.playerId}?season=${e.lastSeason}`}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
+                chipColor={(e) => teamChipColor(e.teamId, teamColors)}
                 avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
                 exportKeepSub
                 limit={RANK_TOP_N}

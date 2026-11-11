@@ -3,16 +3,15 @@
 //  2. 相手の最大ラン: 索引から作った「試合×チーム→相手の最大ラン」が、相手チームの試合ログの最大ランと一致する
 //  3. 合計: チームスタッツの列（AVG LEAD・MAX LEAD・AVG RUN・MAX RUN。自チーム・opp・差）が、試合ログから手計算した値と一致する。
 //     試合の流れの記録が無い試合（1810）は数えない
-//  4. 日程: 日程の行に添える文（buildScheduleFlow）の最大リード・最大ランが、両チームの試合ログと一致する
+//  4. 試合詳細のキースタッツ「試合の流れ」（gameFlowFor）の両チームの最大リード・最大ランが、試合ログと一致する（記録が無い試合は出さない）
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
 import type { StoredGame, TeamGameLog } from "../shared/types";
 import { withChronologicalPlayByPlays } from "../shared/pbpOrder";
-import { viewTeamGameIndex } from "../shared/gameIndexRead";
 import { setOpponentRun } from "../src/lib/gameFlowTotals";
 import { buildMiscColumns, sumTeamGameLogs, type AllTeamsRow } from "../src/lib/teamStatsColumns";
-import { buildScheduleFlow, scheduleFlowTexts } from "../src/lib/scheduleFlow";
+import { gameFlowFor } from "../src/lib/gameFlowForGame";
 
 const DATA = path.resolve("data");
 const rj = (p: string) => {
@@ -63,7 +62,6 @@ for (const [base, seasons] of [["", ["2025-26", "2026-27", "2017-18"]], ["/one",
     const dir = `${DATA}/${season}${base}`;
     const indexFile = rj(`${dir}/team-game-index.json`);
     if (!indexFile || !existsSync(`${dir}/team-games`)) continue;
-    const view = viewTeamGameIndex(indexFile);
     const logsByTeam = new Map<string, TeamGameLog[]>();
     for (const f of readdirSync(`${dir}/team-games`)) logsByTeam.set(f.replace(/\.json(\.gz)?$/, ""), rj(`${dir}/team-games/${f}`) ?? []);
     // 2. 索引から作る相手の最大ラン（data.ts の fetchTeamGameLogs と同じ作り方）と、相手の試合ログの比較
@@ -108,10 +106,10 @@ for (const [base, seasons] of [["", ["2025-26", "2026-27", "2017-18"]], ["/one",
       const same = hl.maxLead === rc.homeLead && hl.maxDeficit === rc.awayLead && al.maxLead === rc.awayLead && al.maxDeficit === rc.homeLead;
       check(`${season}${base} ${keys[g]}: 最大リード（生データ＝試合ログ）`, same, `ホーム ${hl.maxLead}/${rc.homeLead} アウェイ ${al.maxLead}/${rc.awayLead}`);
       check(`${season}${base} ${keys[g]}: 最大ラン（生データ＝試合ログ）`, hl.maxRun === rc.homeRun && al.maxRun === rc.awayRun, `ホーム ${hl.maxRun}/${rc.homeRun} アウェイ ${al.maxRun}/${rc.awayRun}`);
-      // 4. 日程の添え書き
-      const flow = buildScheduleFlow(view).get(keys[g]!);
-      const text = flow ? scheduleFlowTexts(flow, "H", "A").join(" ") : "";
-      check(`${season}${base} ${keys[g]}: 日程の添え書き`, text === `最大リード H ${rc.homeLead}／A ${rc.awayLead} 最大ラン H ${rc.homeRun}／A ${rc.awayRun}`, text);
+      // 4. 試合詳細のキースタッツ
+      const kf = gameFlowFor(game);
+      check(`${season}${base} ${keys[g]}: キースタッツの最大リード・最大ラン`, !!kf && kf.homeLead === hl.maxLead && kf.awayLead === al.maxLead && kf.homeRun === hl.maxRun && kf.awayRun === al.maxRun, JSON.stringify(kf));
+      const text = kf ? `最大リード H ${kf.homeLead}／A ${kf.awayLead} 最大ラン H ${kf.homeRun}／A ${kf.awayRun}` : "";
       gamesChecked += 1;
       if (examples.length < 3 && season === "2025-26" && !base) examples.push(`試合${keys[g]}: ${home}/${away} → ${text}`);
     }
