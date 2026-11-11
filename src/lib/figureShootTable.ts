@@ -150,8 +150,8 @@ export const shootSelectionLabel = (selection: ShootSelection) => selection.kind
 export const teamShootViewConditions = (view: TeamShootView): string[] => view === "diff" ? ["+/-"] : [];
 
 /** 選手の図のサブタイトル（画面・保存画像・ファイル名で共通）。絞っていない条件（全選手・全クラブなど）は呼ぶ側が渡さない */
-export function playerShootConditions(p: { scope: string; gameType: string; selection: ShootSelection; classification: readonly string[]; filters: readonly string[]; ratio: number; highlights: readonly string[]; sort: string }): string[] {
-  return [p.scope, p.gameType, shootSelectionLabel(p.selection), ...p.classification, ...p.filters, `出場率${p.ratio}%以上`, ...p.highlights, p.sort].filter(Boolean);
+export function playerShootConditions(p: { scope: string; gameType: string; selection: ShootSelection; classification: readonly string[]; filters: readonly string[]; eligibility: readonly string[]; highlights: readonly string[]; sort: string }): string[] {
+  return [p.scope, p.gameType, shootSelectionLabel(p.selection), ...p.classification, ...p.filters, ...p.eligibility, ...p.highlights, p.sort].filter(Boolean);
 }
 /** チームの図のサブタイトル */
 export function teamShootConditions(p: { scope: string; gameType: string; view: TeamShootView; division: readonly string[]; highlights: readonly string[]; sort: string }): string[] {

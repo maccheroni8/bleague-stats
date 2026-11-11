@@ -8,8 +8,8 @@ import type { SituationalFilter } from "../lib/situational";
 import { figureClassGroup } from "../lib/figureAge";
 import { CLASSIFICATION_PARAM, GAME_TYPE_PARAM } from "../lib/urlFilterParams";
 import { splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from "../lib/classificationFilter";
-import { classificationLabels, situationalFilterLabels, visibleConditionLabels } from "../lib/conditionLabels";
-import { buildPlayerFigurePoints, type PlayerFigurePoint } from "../lib/figurePlayerPoints";
+import { classificationLabels, eligibilityLabels, situationalFilterLabels, visibleConditionLabels } from "../lib/conditionLabels";
+import { buildPlayerFigurePoints, passesRatio, type PlayerFigurePoint } from "../lib/figurePlayerPoints";
 import { playerShootCells, shootReference } from "../lib/figureShootTableData";
 import {
   DEFAULT_SHOOT_MIN_PTS, DEFAULT_SHOOT_TOP_N, PLAYER_SHOOT_COLUMNS, percentileLevel, playerShootConditions, shootSelectionLabel, shootSortLabel, shootTitle, selectByPoints, sharedRanks, sortByValue, type ShootSelection,
@@ -23,6 +23,7 @@ import { PlayerNamePool } from "../components/PlayerNamePool";
 import { ResponsivePlayerName } from "../components/ResponsivePlayerName";
 import { FigureExportButton } from "./FigureExport";
 import { ratioEligibilityAxis } from "./eligibilityAxis";
+import { useFigureAchievable } from "./useFigureAchievable";
 import { usePlayerFigureData } from "./usePlayerFigureData";
 import { usePlayerFigureFilter } from "./usePlayerFigureFilter";
 import { useHighlightClubs } from "./highlightClubs";
@@ -68,7 +69,8 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
   const divisionOf = (id: string) => request.data?.divisions?.[category]?.[season]?.[id];
   const base = useMemo(() => request.data ? buildPlayerFigurePoints(request.data, { season, category, range: filter.range, gameType, classification }) : [], [request.data, season, category, filter, gameType, classification]);
   // 掲載基準（出場率）を満たした全員。色の基準はこの全員の中での位置で、表示する人を絞っても変わらない
-  const ratioPassed = useMemo(() => base.filter(p => p.ratio >= minRatio), [base, minRatio]);
+  const ach = useFigureAchievable(season, category, { range: filter.range, gameType });
+  const ratioPassed = useMemo(() => base.filter(p => passesRatio(p, minRatio, ach.remaining)), [base, minRatio, ach.remaining]);
   const pf = usePlayerFigureFilter({ season, category, teams, divisionOf, ratioPassed, clubKey: "stcl", axisId: "shootClubs" });
   const hl = useHighlightClubs({ season, category, teams, divisionOf });
 
@@ -103,16 +105,16 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
   };
   const axes: FilterAxis[] = [...rangeAxes, gameTypeAxis(gameType, setGameType, season), selectionAxis,
     classificationAxis(classification, setClassification, { season }), pf.clubAxis, pf.positionAxis, hl.axis,
-    ratioEligibilityAxis({ id: "shootRatio", value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio })];
+    ratioEligibilityAxis({ id: "shootRatio", value: minRatio, defaultValue: DEFAULT_RATIO, onChange: setMinRatio, achievable: ach.axis })];
   const [periodLabel] = situationalFilterLabels(filter);
   const sortText = shootSortLabel(shown.find(c => c.key === sortKey.key)?.label ?? "PTS", sortKey.descending);
-  const conditions = visibleConditionLabels(playerShootConditions({ scope: `${season} ${periodLabel}`, gameType: seasonGameTypeLabels(season)[gameType], selection, classification: classificationLabels(classification), filters: pf.labels, ratio: minRatio, highlights: hl.labels, sort: sortText }));
+  const conditions = visibleConditionLabels(playerShootConditions({ scope: `${season} ${periodLabel}`, gameType: seasonGameTypeLabels(season)[gameType], selection, classification: classificationLabels(classification), filters: pf.labels, eligibility: eligibilityLabels({ gamesRatio: minRatio / 100, achievable: ach.achievable }), highlights: hl.labels, sort: sortText }));
   const baseDate = { kind: "season" as const, season, gameType };
   const toggleSort = (key: string) => setSort(prev => ({ key, descending: prev.key === key ? !prev.descending : true }));
   // 移籍した選手は、表示中の範囲で最後に出場した試合のチームの略称
   const teamAbbr = (p: PlayerFigurePoint) => teamShortName(p.lastTeamId, teams.find(t => t.teamId === p.lastTeamId)?.teamName ?? p.teamName);
   return <section aria-label="シュート成功率（選手）">
-    <FilterBar axes={axes} stateKey="figures:player-shoot-table" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); setClassification("all"); setKind("min"); setMinPts(DEFAULT_SHOOT_MIN_PTS); setTopN(DEFAULT_SHOOT_TOP_N); setSort(DEFAULT_SORT); pf.reset(); setMinRatio(DEFAULT_RATIO); hl.setIds([]); }} />
+    <FilterBar axes={axes} stateKey="figures:player-shoot-table" advancedExtra={pf.advancedExtra} onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); setClassification("all"); setKind("min"); setMinPts(DEFAULT_SHOOT_MIN_PTS); setTopN(DEFAULT_SHOOT_TOP_N); setSort(DEFAULT_SORT); pf.reset(); setMinRatio(DEFAULT_RATIO); ach.reset(); hl.setIds([]); }} />
     {splitClassificationBlocked(figureClassGroup(classification), season) ? <p>{SPLIT_CLASSIFICATION_UNAVAILABLE_REASON}</p> : request.loading ? <p role="status">選手の試合データを読み込み中…</p> : request.error ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : !sorted.length ? <p className="empty-message">この条件に該当する選手はいません。</p> : <>
       <p className="figure-count">{sorted.length}人を表示</p>
       <FigureExportButton targetRef={target} filename={`シュート成功率_${conditions.join("_")}`} baseDate={baseDate} />
