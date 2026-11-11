@@ -1,4 +1,4 @@
-// 選手の Self2M・Self3M・SelfFTM と、アシストあり／セルフの割合の列（画面専用。DESIGN.md 361章）。
+// 選手の Self2M・Self3M・SelfFTM と、アシストあり／セルフの割合の列（画面専用。DESIGN.md 362章）。
 // 列の元の定義（playerSeasonBoxscore.ts）は保存キーの対象なので書き換えず、このファイルを読み込んだときに Scoring の列の並び
 // （SEASON_SCORING_COLUMNS。SEASON_BOX_COLUMNS.scoring と同じ配列）へ、画面側から同じ並びで差し込む。
 // 全選手スタッツ・個人詳細・ランキング・比較・md・図解のどれも、この配列から列を作るので、1か所の差し込みで同じ並びになる。

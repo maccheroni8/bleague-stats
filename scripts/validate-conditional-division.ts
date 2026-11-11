@@ -1,4 +1,4 @@
-// 条件別順位表の「対同地区」「対他地区」の検証（DESIGN.md 361章）。使い方: npm run validate:conditional-division（先に npm run build:data）
+// 条件別順位表の「対同地区」「対他地区」の検証（DESIGN.md 362章）。使い方: npm run validate:conditional-division（先に npm run build:data）
 //  1. 地区の構成はシーズンごとの決まり（division-history）に従う: 各クラブ・各試合について、自クラブと相手の地区を履歴から引き直した数と、
 //     表の条件（applyConditionalCondition）で絞った試合の数が一致する（B.PREMIER の3地区制・2地区制、B.ONE の5地区）
 //  2. 同地区＋他地区＝地区が分かる試合のすべて。各地区（対東地区など）の合計＝地区が分かる試合のすべて

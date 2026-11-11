@@ -1,4 +1,4 @@
-// Self2M・Self3M・SelfFTM とアシストあり／セルフの割合の検証（DESIGN.md 361章）。使い方: npm run validate:self-scoring（先に npm run build:data）
+// Self2M・Self3M・SelfFTM とアシストあり／セルフの割合の検証（DESIGN.md 362章）。使い方: npm run validate:self-scoring（先に npm run build:data）
 //  1. 列の並び: 全チームスタッツ・選手の Scoring で、AST の右に Self、種類ごとに「アシストあり→セルフ」が隣り合い、%PTS ASTED の右に %PTS Self。
 //     全チームスタッツの Scoring の表には割合の列を出さない（帯グラフで見せる）。Scoring 以外には出ない
 //  2. チームの値: 試合の生データ（ボックススコアのチーム合計の 2PM・3PM・FTM と、プレーバイプレーから数え直したアシスト付きの数）から手計算した

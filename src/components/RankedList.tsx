@@ -252,7 +252,7 @@ export function RankedList<T>({
         <tbody>
           {limited.map((row, i) => {
             const accent = teamColor?.(row);
-            // 写真・ロゴなしで保存するときの、チーム名の塗り（チームの色と、その明るさに合う文字の色。CSS の .export-plain 側で使う。DESIGN.md 361章）
+            // 写真・ロゴなしで保存するときの、チーム名の塗り（チームの色と、その明るさに合う文字の色。CSS の .export-plain 側で使う。DESIGN.md 362章）
             const ink = readableInkOn(accent);
             const fillStyle = accent && ink ? ({ "--team-color": accent, "--team-ink": ink } as CSSProperties) : undefined;
             const teamAbbr = exportTeam?.(row);

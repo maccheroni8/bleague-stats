@@ -1271,7 +1271,7 @@ const ALL_TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "DUNK",
     format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.dunks, m.oppDunks, r.team.gamesPlayed, mode, p),
   },
-  // 最大リード・最大ランの1試合平均とシーズン最大（試合ログの値。全チームスタッツの Misc と同じ。DESIGN.md 361章）
+  // 最大リード・最大ランの1試合平均とシーズン最大（試合ログの値。全チームスタッツの Misc と同じ。DESIGN.md 362章）
   ...(Object.keys(GAME_FLOW_LABELS) as GameFlowKey[]).map(
     (key): TeamSeasonBoxColumn => ({
       key,

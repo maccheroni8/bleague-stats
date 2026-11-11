@@ -61,7 +61,7 @@ function wcagLuminance(hex: string): number | null {
 }
 
 /**
- * 背景を指定した色で塗るときの文字の色（白か黒）。コントラスト比が高いほうを選ぶ（保存画像のチーム名の塗り。DESIGN.md 361章）。
+ * 背景を指定した色で塗るときの文字の色（白か黒）。コントラスト比が高いほうを選ぶ（保存画像のチーム名の塗り。DESIGN.md 362章）。
  * "#rrggbb" 以外は undefined（塗らない）
  */
 export function readableInkOn(hex: string | undefined | null): "#ffffff" | "#111111" | undefined {

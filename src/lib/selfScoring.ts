@@ -1,4 +1,4 @@
-// Self2M・Self3M・SelfFTM（アシストが付かなかった成功数）と、アシストあり／セルフの割合の計算（画面専用。DESIGN.md 361章）。
+// Self2M・Self3M・SelfFTM（アシストが付かなかった成功数）と、アシストあり／セルフの割合の計算（画面専用。DESIGN.md 362章）。
 // Self2M＝2PM−AST2M、Self3M＝3PM−AST3M、SelfFTM＝FTM−ASTFTM。保存する値は増やさず、読むとき足し引きして出す。
 // このファイルを保存キーの対象のファイルから import しないこと。
 

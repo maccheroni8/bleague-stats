@@ -1,4 +1,4 @@
-// 最大リード・最大ランの合計（チームスタッツ用。画面専用。DESIGN.md 361章）。
+// 最大リード・最大ランの合計（チームスタッツ用。画面専用。DESIGN.md 362章）。
 // 試合ごとの値は試合ログ（TeamGameLog の maxLead・maxDeficit・maxRun）に保存済み。試合ログに無い「相手の最大ラン」は、
 // チームの1試合行の索引（team-game-index）の相手の行から、試合ログを読み込むとき（data.ts の fetchTeamGameLogs）に添える。
 // このファイルを保存キーの対象のファイルから import しないこと。

@@ -1,4 +1,4 @@
-// 最大リード・最大ランのチームスタッツ・日程への追加の検証（DESIGN.md 361章）。使い方: npm run validate:game-flow-totals（先に npm run build:data）
+// 最大リード・最大ランのチームスタッツ・日程への追加の検証（DESIGN.md 362章）。使い方: npm run validate:game-flow-totals（先に npm run build:data）
 //  1. 試合ごとの値: 試合の生データ（プレーバイプレーの得点イベント）から数え直した最大リード・最大ラン（自チーム・相手）が、試合ログ・チームの1試合行の索引と一致する
 //  2. 相手の最大ラン: 索引から作った「試合×チーム→相手の最大ラン」が、相手チームの試合ログの最大ランと一致する
 //  3. 合計: チームスタッツの列（AVG LEAD・MAX LEAD・AVG RUN・MAX RUN。自チーム・opp・差）が、試合ログから手計算した値と一致する。

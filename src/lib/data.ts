@@ -202,7 +202,7 @@ export async function fetchTeamGameLogs(season: string, teamId: string, league: 
   return logs;
 }
 
-// 相手の最大ラン（試合ログには無い。同じ試合の相手の行が持つ値）を、チームの1試合行の索引から試合ログに添える（保存はしない。DESIGN.md 361章）。
+// 相手の最大ラン（試合ログには無い。同じ試合の相手の行が持つ値）を、チームの1試合行の索引から試合ログに添える（保存はしない。DESIGN.md 362章）。
 // 索引は同じシーズンで1回だけ読み、失敗しても試合ログの読み込みは止めない（相手の最大ランは「-」になる）
 const opponentRunCache = new Map<string, Promise<Map<string, number> | null>>();
 
