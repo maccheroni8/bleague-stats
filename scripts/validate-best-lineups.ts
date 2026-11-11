@@ -19,6 +19,7 @@ import { seasonRuleFor } from "../shared/seasonRules.ts";
 import type { PlayerGameIndexFile } from "../shared/gameIndex.ts";
 import { GAME_FLAG_SHORT } from "../shared/gameIndex.ts";
 import {
+  BEST_LINEUP_MIN_POSS_DEFAULT,
   BEST_LINEUP_MIN_POSS_OPTIONS,
   BEST_LINEUP_SIZES,
   bestLineupFileName,
@@ -31,7 +32,10 @@ import { buildLineupRows, type LineupSeasonData } from "../src/lib/lineupRanking
 import { viewPlayerGameIndex } from "../src/lib/gameIndex.ts";
 import { DEFAULT_GAME_RECORD_CONDITIONS } from "../src/lib/gameRecordConditions.ts";
 import {
+  BEST_LINEUP_SLIDER,
   bestLineupGroups,
+  bestLineupGroupsInSeason,
+  clampBestLineupMin,
   highlightedBest,
   queryBestLineups,
   topBestLineups,
@@ -248,6 +252,43 @@ g4.report();
     }
   }
   g5.report();
+  console.log(lines.join("\n"));
+}
+
+// 5-2. 範囲（歴代／シーズン）と下限のスライダー（371章）
+{
+  const g = new Group("5-2. 範囲を1シーズンにした対象数が独立の数え直しと一致（人数×シーズン×試合区分×下限〔スライダーの下端・最初の値・上端〕）");
+  const lines: string[] = [];
+  for (const size of BEST_LINEUP_SIZES) {
+    const sl = BEST_LINEUP_SLIDER[size];
+    const file = files.get(size)!;
+    check(`5-2. ${size}人 スライダーの下端は導出データの下限（${file.minPoss}）と同じ・最初の値は範囲内で刻みの上`,
+      sl.min === file.minPoss && sl.min === BEST_LINEUP_MIN_POSS_OPTIONS[size][0] && BEST_LINEUP_MIN_POSS_DEFAULT[size] >= sl.min && BEST_LINEUP_MIN_POSS_DEFAULT[size] <= sl.max
+        && (BEST_LINEUP_MIN_POSS_DEFAULT[size] - sl.min) % sl.step === 0 && (sl.max - sl.min) % sl.step === 0, JSON.stringify(sl));
+    check(`5-2. ${size}人 下限の丸め（下端未満は下端・上端超は上端）`, clampBestLineupMin(size, 0) === sl.min && clampBestLineupMin(size, 99999) === sl.max && clampBestLineupMin(size, BEST_LINEUP_MIN_POSS_DEFAULT[size]) === BEST_LINEUP_MIN_POSS_DEFAULT[size]);
+    const list = [...indep.get(size)!.entries()];
+    for (const season of seasons) {
+      const inSeason = bestLineupGroupsInSeason(groups.get(size)!, season);
+      g.add(inSeason.every((x) => x.season === season), () => `${size}人 ${season} に別のシーズンが混ざる`);
+      for (const gt of GAME_TYPES) {
+        for (const min of [sl.min, BEST_LINEUP_MIN_POSS_DEFAULT[size], sl.max]) {
+          const ours = queryBestLineups(inSeason, { gameType: gt, oc: null, minPoss: min, sort: "net" }).length;
+          const theirs = list.filter(([k, e]) => {
+            if (!k.startsWith(`${season}:`)) return false;
+            const sum = gt === "both" ? e.sums.regular.map((v, i) => v + e.sums.playoff[i]!) : e.sums[gt];
+            return Math.min(sum[3]!, sum[4]!) >= min && (sum[0]! > 0 || sum.some((v) => v !== 0));
+          }).length;
+          g.add(ours === theirs, () => `${size}人 ${season} ${gt} ${min}: 図 ${ours} / 数え直し ${theirs}`);
+          if (gt === "regular" && min === BEST_LINEUP_MIN_POSS_DEFAULT[size]) lines.push(`   ${size}人 ${season} 最初の値(${min}): ${ours}組`);
+        }
+      }
+    }
+    // 歴代＝シーズン別の合計（組はシーズンをまたがない）
+    const all = queryBestLineups(groups.get(size)!, { gameType: "regular", oc: null, minPoss: BEST_LINEUP_MIN_POSS_DEFAULT[size], sort: "net" }).length;
+    const sum = seasons.reduce((n, season) => n + queryBestLineups(bestLineupGroupsInSeason(groups.get(size)!, season), { gameType: "regular", oc: null, minPoss: BEST_LINEUP_MIN_POSS_DEFAULT[size], sort: "net" }).length, 0);
+    check(`5-2. ${size}人 歴代の対象数＝シーズン別の合計`, all === sum, `${all} / ${sum}`);
+  }
+  g.report();
   console.log(lines.join("\n"));
 }
 

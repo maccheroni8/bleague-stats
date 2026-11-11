@@ -7,15 +7,16 @@ import { enumParam, useUrlState, type UrlCodec } from '../lib/urlState';
 import { gameTypeAxis, type FilterAxis } from '../lib/filterAxes';
 import { GAME_TYPE_PARAM } from '../lib/urlFilterParams';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
-import { BEST_LINEUP_MIN_POSS_DEFAULT, BEST_LINEUP_MIN_POSS_OPTIONS, BEST_LINEUP_SIZES, type BestLineupSize } from '../../shared/bestLineups';
+import { BEST_LINEUP_MIN_POSS_DEFAULT, BEST_LINEUP_SIZES, type BestLineupSize } from '../../shared/bestLineups';
 import {
-  BEST_LINEUP_SORTS, BEST_LINEUP_SORT_LABELS, bestLineupGroups, highlightedBest, ocChoices, queryBestLineups, topBestLineups, type BestLineupSort, type RankedBestLineup,
+  BEST_LINEUP_SLIDER, BEST_LINEUP_SORTS, BEST_LINEUP_SORT_LABELS, bestLineupGroups, bestLineupGroupsInSeason, clampBestLineupMin, highlightedBest, ocChoices, queryBestLineups, topBestLineups, type BestLineupSort, type RankedBestLineup,
 } from '../lib/bestLineups';
 import { formatDecimal } from '../lib/format';
 import { formatMinutesFromSeconds } from '../lib/boxscoreAggregate';
 import { teamShortName } from '../../shared/teamNames';
 import { usePlayerLabel } from '../lib/playerLabel';
 import { teamChipColor, useTeamColorsForChip } from '../lib/teamChipColors';
+import { EligibilitySlider } from '../components/EligibilitySlider';
 import { FilterBar } from '../components/FilterBar';
 import { ExportTarget } from '../components/ExportTarget';
 import { ConditionTitle } from '../components/ConditionTitle';
@@ -39,6 +40,12 @@ const minCodec: UrlCodec<number | null> = {
   read: p => { const v = Number(p.get('blp')); return p.get('blp') && Number.isFinite(v) ? v : undefined; },
   write: (p, v) => { if (v !== null) p.set('blp', String(v)); },
 };
+/** 範囲。無ければ歴代（2020-21〜）、あればそのシーズンだけ（例 2025-26） */
+const rangeCodec: UrlCodec<string | null> = {
+  keys: ['blse'],
+  read: p => { const v = p.get('blse'); return v && /^\d{4}-\d{2}$/.test(v) ? v : undefined; },
+  write: (p, v) => { if (v !== null) p.set('blse', v); },
+};
 /** OC（組の中の外国籍・帰化・アジア特別枠の人数）。無ければすべて */
 const ocCodec: UrlCodec<number | null> = {
   keys: ['bloc'],
@@ -56,14 +63,19 @@ export default function BestLineupFigure({ season, category }: FigureProps) {
   const [gameType, setGameType] = useUrlState(gameCodec, 'regular');
   const [topParam, setTop] = useUrlState(topCodec, '10');
   const [minParam, setMin] = useUrlState(minCodec, null);
+  const [rangeParam, setRange] = useUrlState(rangeCodec, null);
   const [ocParam, setOc] = useUrlState(ocCodec, null);
   const size = Number(sizeParam) as BestLineupSize;
-  const minOptions = BEST_LINEUP_MIN_POSS_OPTIONS[size];
-  const minPoss = minParam !== null && minOptions.includes(minParam) ? minParam : BEST_LINEUP_MIN_POSS_DEFAULT[size];
+  const slider = BEST_LINEUP_SLIDER[size];
+  const minPoss = minParam !== null ? clampBestLineupMin(size, minParam) : BEST_LINEUP_MIN_POSS_DEFAULT[size];
   const top = Number(topParam);
   const target = useRef<HTMLDivElement>(null);
   const request = useJsonData(() => category === 'premier' ? fetchBestLineups(size) : Promise.resolve(null), [size, category], { discardStale: true });
-  const groups = useMemo(() => request.data ? bestLineupGroups(request.data) : [], [request.data]);
+  const allGroups = useMemo(() => request.data ? bestLineupGroups(request.data) : [], [request.data]);
+  const seasons = request.data?.seasons ?? [];
+  // 読み込む前は、URL の範囲をそのまま使う。読み込んだあと、ファイルに無いシーズンは歴代に戻す
+  const rangeSeason = rangeParam !== null && (!request.data || seasons.includes(rangeParam)) ? rangeParam : null;
+  const groups = useMemo(() => bestLineupGroupsInSeason(allGroups, rangeSeason), [allGroups, rangeSeason]);
   const ocValues = useMemo(() => ocChoices(groups, size), [groups, size]);
   const oc = ocParam !== null && ocValues.includes(ocParam) ? ocParam : null;
   const ranked = useMemo(() => queryBestLineups(groups, { gameType, oc, minPoss, sort }), [groups, gameType, oc, minPoss, sort]);
@@ -81,32 +93,35 @@ export default function BestLineupFigure({ season, category }: FigureProps) {
   const names = useMemo(() => [...shown, ...outside.flatMap(o => o.best ? [o.best] : [])].flatMap(r => r.row.group.players.map(p => p.name)), [shown, outside]);
   const playerLabel = usePlayerLabel(names);
 
-  const seasons = request.data?.seasons ?? [];
-  const range = seasons.length ? `${seasons[0]}〜${seasons[seasons.length - 1]}` : '2020-21〜';
+  const range = rangeSeason !== null ? `${rangeSeason}シーズン` : seasons.length ? `${seasons[0]}〜${seasons[seasons.length - 1]}` : '2020-21〜';
+  const isCurrent = rangeSeason !== null && seasons.length > 0 && rangeSeason === seasons[seasons.length - 1];
+  const rangeOptions = [{ value: 'all', label: '歴代（2020-21〜）' }, ...(seasons.length ? [...seasons].reverse() : rangeParam ? [rangeParam] : []).map(v => ({ value: v, label: v }))];
   const gameLabels = seasonGameTypeLabels(null);
   const axes: FilterAxis[] = [
+    { kind: 'select', id: 'blRange', label: '範囲', tier: 'primary', value: rangeSeason ?? 'all', defaultValue: 'all', options: rangeOptions, onChange: v => { setRange(v === 'all' ? null : v); setOc(null); } },
     { kind: 'select', id: 'blSize', label: '人数', tier: 'primary', value: sizeParam, defaultValue: '5', options: SIZE_VALUES.map(v => ({ value: v, label: `${v}人` })), onChange: v => { setSize(v as `${BestLineupSize}`); setMin(null); setOc(null); } },
     { kind: 'select', id: 'blSort', label: '並び順', tier: 'primary', value: sort, defaultValue: 'net', options: BEST_LINEUP_SORTS.map(s => ({ value: s, label: s === 'def' ? `${BEST_LINEUP_SORT_LABELS[s]}（低い順）` : `${BEST_LINEUP_SORT_LABELS[s]}（${s === 'min' ? '長い' : '高い'}順）` })), onChange: v => setSort(v as BestLineupSort) },
     gameTypeAxis(gameType, setGameType, null),
-    { kind: 'select', id: 'blMin', label: '下限', tier: 'primary', value: String(minPoss), defaultValue: String(BEST_LINEUP_MIN_POSS_DEFAULT[size]), options: minOptions.map(n => ({ value: String(n), label: `攻守とも${n}ポゼッション以上` })), onChange: v => setMin(Number(v) === BEST_LINEUP_MIN_POSS_DEFAULT[size] ? null : Number(v)) },
+    { kind: 'popover', id: 'blMin', label: '下限', tier: 'primary', value: String(minPoss), defaultValue: String(BEST_LINEUP_MIN_POSS_DEFAULT[size]), onChange: () => setMin(null), summary: `攻守とも${minPoss}ポゼッション以上`, chipValue: `攻守とも${minPoss}ポゼッション以上`,
+      content: <EligibilitySlider label="ポゼッション（攻守とも）" value={minPoss} min={slider.min} max={slider.max} step={slider.step} format={v => String(v)} onChange={v => setMin(v === BEST_LINEUP_MIN_POSS_DEFAULT[size] ? null : v)} /> },
     { kind: 'select', id: 'blOc', label: 'オンザコート', tier: 'primary', value: oc === null ? 'all' : String(oc), defaultValue: 'all', options: [{ value: 'all', label: 'すべて' }, ...ocValues.map(v => ({ value: String(v), label: `OC${v}` }))], onChange: v => setOc(v === 'all' ? null : Number(v)) },
     { kind: 'select', id: 'blTop', label: '表示', tier: 'primary', value: topParam, defaultValue: '10', options: [{ value: '10', label: '上位10組' }, { value: '20', label: '上位20組' }], onChange: v => setTop(v as '10' | '20') },
     hl.axis,
   ];
   const conditions = [range, `${size}人`, gameLabels[gameType], `攻守とも${minPoss}ポゼッション以上`, ...(oc === null ? [] : [`OC${oc}`]), sortLabel(sort), ...hl.labels];
-  const title = '歴代最強ラインナップ';
-  const baseDate = { kind: 'allTime' as const, gameType };
-  const reset = () => { setSize('5'); setSort('net'); setGameType('regular'); setTop('10'); setMin(null); setOc(null); hl.setIds([]); };
+  const title = '最強ラインナップ';
+  const baseDate = rangeSeason === null ? { kind: 'allTime' as const, gameType } : isCurrent ? { kind: 'season' as const, season: rangeSeason, gameType } : undefined;
+  const reset = () => { setRange(null); setSize('5'); setSort('net'); setGameType('regular'); setTop('10'); setMin(null); setOc(null); hl.setIds([]); };
 
-  if (category !== 'premier') return <section aria-label="歴代最強ラインナップ"><p className="empty-message">この図は B.PREMIER（旧B1）だけです。</p></section>;
+  if (category !== 'premier') return <section aria-label="最強ラインナップ"><p className="empty-message">この図は B.PREMIER（旧B1）だけです。</p></section>;
   const card = (r: RankedBestLineup) => <LineupCard key={r.row.group.key} item={r} size={size} sort={sort} highlighted={hl.ids.includes(r.row.group.teamId)} color={colorOf(r.row.group.teamId)} playerLabel={playerLabel} />;
-  return <section aria-label="歴代最強ラインナップ">
+  return <section aria-label="最強ラインナップ">
     <FilterBar axes={axes} stateKey="figures:best-lineup" onClearAll={reset} />
     {request.loading ? <p role="status">読み込み中…</p> : request.error || !request.data ? <p role="alert">データを読み込めませんでした。ページを読み直してください。</p> : <>
       <p className="figure-count">対象 {ranked.length}組</p>
-      <FigureExportButton targetRef={target} filename={`歴代最強ラインナップ_${conditions.join('_')}`} baseDate={baseDate} />
+      <FigureExportButton targetRef={target} filename={`最強ラインナップ_${conditions.join('_')}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="best-lineup-export" baseDate={baseDate}>
-        <ConditionTitle title={title} exportScope="歴代" conditions={conditions} />
+        <ConditionTitle title={title} exportScope={rangeSeason === null ? '歴代' : `${rangeSeason}シーズン`} conditions={conditions} />
         {shown.length === 0 ? <p className="empty-message">この条件に当てはまる組はありません。</p> : <ol className={`best-lineup-list best-lineup-size-${size}`}>{shown.map(card)}</ol>}
         {outside.length > 0 && <div className="best-lineup-outside">
           {outside.map(o => <div key={o.teamId} className="best-lineup-outside-item">

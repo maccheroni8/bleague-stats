@@ -3,7 +3,7 @@
 .best-lineup-export { margin-top:8px; }
 .best-lineup-export .condition-title, .best-lineup-export > :first-child { margin-bottom:10px; }
 .best-lineup-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
-.best-lineup-card { display:grid; grid-template-columns:36px 240px 1fr auto; align-items:center; gap:12px; padding:8px 12px; border:1px solid var(--border); border-left:4px solid transparent; border-radius:8px; background:var(--bg); }
+.best-lineup-card { display:grid; grid-template-columns:36px 210px 1fr auto; align-items:center; gap:12px; padding:8px 12px; border:1px solid var(--border); border-left:4px solid transparent; border-radius:8px; background:var(--bg); }
 .best-lineup-card.is-highlighted { border-left-color:var(--hl-color); background:color-mix(in srgb, var(--hl-color) 10%, var(--bg)); }
 .best-lineup-card.is-highlighted .best-lineup-photo { outline:2px solid var(--hl-color); outline-offset:1px; }
 /* ダークは白を混ぜて明るくする（黒に近いクラブの色でも見えるように。ほかの表のチームカラーの線と同じ） */
@@ -15,11 +15,11 @@
 .best-lineup-season { font-weight:400; color:var(--muted); font-size:13px; }
 .best-lineup-sub { white-space:nowrap; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
 .best-lineup-sub.is-active { color:var(--accent); font-weight:700; }
-.best-lineup-players { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:6px; }
+.best-lineup-players { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); column-gap:14px; row-gap:6px; }
 .best-lineup-player { display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; text-align:center; }
 .best-lineup-photo { width:44px; height:44px; border-radius:50%; object-fit:cover; background:color-mix(in srgb, var(--fg) 6%, var(--bg)); }
 .best-lineup-player-name { font-size:11px; line-height:1.25; word-break:keep-all; overflow-wrap:anywhere; }
-.best-lineup-metrics { display:grid; grid-template-columns:repeat(3, 72px); gap:4px; }
+.best-lineup-metrics { display:grid; grid-template-columns:repeat(3, 64px); gap:4px; }
 .best-lineup-metric { display:flex; flex-direction:column; align-items:flex-end; }
 .best-lineup-metric-label { font-size:11px; color:var(--muted); }
 .best-lineup-metric-value { font-size:15px; font-variant-numeric:tabular-nums; }
@@ -31,7 +31,7 @@
   .best-lineup-card { grid-template-columns:28px 1fr; grid-template-areas:"rank club" "players players" "metrics metrics"; gap:6px 8px; padding:8px; }
   .best-lineup-rank { grid-area:rank; font-size:17px; }
   .best-lineup-club { grid-area:club; }
-  .best-lineup-players { grid-area:players; }
+  .best-lineup-players { grid-area:players; column-gap:4px; }
   .best-lineup-metrics { grid-area:metrics; grid-template-columns:repeat(3, 1fr); }
   .best-lineup-metric { align-items:center; }
   .best-lineup-photo { width:40px; height:40px; }

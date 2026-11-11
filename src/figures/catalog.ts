@@ -26,7 +26,7 @@ export const FIGURES: readonly FigureDefinition[] = [
   { id: "team-venn", entity: "team", label: "ベン図", group: "効率", load: () => import("./TeamVennFigure") },
   { id: "team-shooting", entity: "team", label: "散布図", group: "効率", load: () => import("./TeamFreeScatterFigure") },
   { id: "shoot-table-team", entity: "team", label: "シュート成功率", group: "効率", load: () => import("./TeamShootTableFigure") },
-  { id: "best-lineup", entity: "team", label: "歴代最強ラインナップ", group: "効率", load: () => import("./BestLineupFigure") },
+  { id: "best-lineup", entity: "team", label: "最強ラインナップ", group: "効率", load: () => import("./BestLineupFigure") },
   { id: "four-factors", entity: "team", label: "Four Factors", group: "効率", load: () => import("./FourFactorsFigure") },
 ];
 

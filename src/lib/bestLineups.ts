@@ -166,3 +166,22 @@ export function highlightedBest(ranked: readonly RankedBestLineup[], shown: read
 export function ocChoices(groups: readonly BestLineupGroup[], size: BestLineupSize): number[] {
   return bestLineupOcValues(groups).filter((v) => v <= size);
 }
+
+/** 下限のスライダー（最小は導出データが持つ候補の下限。それより下は選べない。最大・刻みは人数ごと。DESIGN.md 371章） */
+export const BEST_LINEUP_SLIDER: Record<BestLineupSize, { min: number; max: number; step: number }> = {
+  5: { min: 100, max: 600, step: 50 },
+  4: { min: 400, max: 1400, step: 100 },
+  3: { min: 800, max: 2000, step: 100 },
+  2: { min: 1200, max: 3000, step: 100 },
+};
+
+/** URL の下限を、スライダーの範囲・刻みに収める */
+export function clampBestLineupMin(size: BestLineupSize, v: number): number {
+  const s = BEST_LINEUP_SLIDER[size];
+  return Math.min(s.max, Math.max(s.min, Math.round(v / s.step) * s.step));
+}
+
+/** 範囲（null＝歴代）で組を絞る */
+export function bestLineupGroupsInSeason(groups: readonly BestLineupGroup[], season: string | null): BestLineupGroup[] {
+  return season === null ? [...groups] : groups.filter((g) => g.season === season);
+}
