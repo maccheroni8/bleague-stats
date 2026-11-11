@@ -3000,6 +3000,37 @@ table.rankings-table-compact {
   font-weight: 400;
 }
 
+/* 写真・ロゴなしの保存画像でチームが分かるように、チーム名（チームの表）／名前の横のチーム略称（選手の表）をチームの色で塗る。
+   文字の色はチームの色の明るさに合わせて白か黒（RankedList が --team-ink で渡す） */
+.export-rendering.export-plain.export-plain-team .rank-name[style*="--team-color"] {
+  display: inline-block;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 12px;
+  border-radius: 6px;
+  background: var(--team-color);
+  color: var(--team-ink, #ffffff);
+}
+
+.export-rendering.export-plain.export-plain-team .rank-name[style*="--team-color"] a,
+.export-rendering.export-plain.export-plain-team .rank-name[style*="--team-color"] .cell-link {
+  color: inherit;
+}
+
+.export-rendering.export-plain.export-plain-team .rank-name[style*="--team-color"] .export-team-abbr {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.export-rendering.export-plain:not(.export-plain-team) .export-team-abbr[style*="--team-color"] {
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: var(--team-color);
+  color: var(--team-ink, #ffffff);
+  font-weight: 600;
+}
+
 /* 写真・ロゴを出さない。名前の下の行（所属・ポジション）も、チーム略称を名前の横に添える表では出さず、縦の長さを抑える */
 .export-rendering.export-plain .rank-name-with-logo > :not(.rank-name-cell) {
   display: none;

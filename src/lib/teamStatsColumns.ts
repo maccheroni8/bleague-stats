@@ -784,7 +784,7 @@ export function buildMiscColumns(
  */
 function buildFlowColumns(perspective: TeamPerspective): Column<AllTeamsRow>[] {
   return (Object.keys(GAME_FLOW_LABELS) as GameFlowKey[]).map((key) => {
-    const valueFor = (r: AllTeamsRow) => gameFlowValue(r.totals.flow, key, perspective);
+    const valueFor = (r: AllTeamsRow) => gameFlowValue(r.totals.flow ?? EMPTY_GAME_FLOW, key, perspective);
     return {
       key,
       label: GAME_FLOW_LABELS[key],
@@ -803,19 +803,21 @@ function buildFlowColumns(perspective: TeamPerspective): Column<AllTeamsRow>[] {
 // 算出できないためfalseを渡す（DESIGN.md参照。既定はtrueで既存呼び出し元は無変更のまま動作する）
 /** チームの成功数とアシスト付きの数。試合の流れの記録が無い試合（1810）は除いた値 */
 export function teamShotMadeSource(t: TeamTotals, opp: boolean): ShotMadeSource {
+  // 試合ログの合計以外（リーグ平均など、この項目を持たない合計）は、除く試合が無いものとして読む
+  const n = (v: number | undefined) => v ?? 0;
   return opp
     ? {
-        made2: t.oppFgm - t.oppTpm - t.oppNoFlow2m,
-        made3: t.oppTpm - t.oppNoFlow3m,
-        madeFt: t.oppFtm - t.oppNoFlowFtm,
+        made2: t.oppFgm - t.oppTpm - n(t.oppNoFlow2m),
+        made3: t.oppTpm - n(t.oppNoFlow3m),
+        madeFt: t.oppFtm - n(t.oppNoFlowFtm),
         ast2: t.oppAssisted2m,
         ast3: t.oppAssisted3m,
         astFt: t.oppAssistedFtm,
       }
     : {
-        made2: t.fgm - t.tpm - t.noFlow2m,
-        made3: t.tpm - t.noFlow3m,
-        madeFt: t.ftm - t.noFlowFtm,
+        made2: t.fgm - t.tpm - n(t.noFlow2m),
+        made3: t.tpm - n(t.noFlow3m),
+        madeFt: t.ftm - n(t.noFlowFtm),
         ast2: t.assisted2m,
         ast3: t.assisted3m,
         astFt: t.assistedFtm,
@@ -842,7 +844,7 @@ function buildSelfCountColumns(mode: SeasonDisplayMode, perspective: TeamPerspec
   ];
   return defs.map(([key, label, pick]) => {
     const valueFor = (r: AllTeamsRow) => {
-      const games = r.gamesPlayed - r.totals.noFlowGames;
+      const games = r.gamesPlayed - (r.totals.noFlowGames ?? 0);
       const own = scaledValue(pick(selfCountsOf(teamShotMadeSource(r.totals, false))), games, mode);
       const opp = scaledValue(pick(selfCountsOf(teamShotMadeSource(r.totals, true))), games, mode);
       return perspectiveValue(own, opp, perspective);

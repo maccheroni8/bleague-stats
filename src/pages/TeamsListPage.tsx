@@ -932,7 +932,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     if (!shareTotals) return null;
     const build = (opp: boolean): AssistSelfChartTeam[] => {
       const share = (t: ReturnType<typeof sumTotalsOf>, games: number) =>
-        assistSelfShare(teamShotMadeSource(t, opp), assistKind, games - t.noFlowGames);
+        assistSelfShare(teamShotMadeSource(t, opp), assistKind, games - (t.noFlowGames ?? 0));
       const list = shareTotals.perTeam.map((r) => ({ teamId: r.team.teamId, teamName: r.team.teamName, share: share(r.totals, r.games) }));
       return shareTotals.league
         ? [...list, { teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME, share: share(shareTotals.league.totals, shareTotals.league.games) }]

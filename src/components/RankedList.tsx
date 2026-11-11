@@ -4,6 +4,7 @@ import { SeasonLink as Link } from "./SeasonLink";
 import { ExternalLinkIcon } from "./ExternalLinkIcon";
 import { StatHeaderLabel } from "./StatHeaderLabel";
 import { statDescription, type StatScope } from "../lib/statDescriptions";
+import { readableInkOn } from "../lib/color";
 import { rankPositions } from "../lib/seasonCompare";
 import { EXPORT_TOP_10, tiesBeyondTop } from "../lib/exportFormat";
 
@@ -251,6 +252,9 @@ export function RankedList<T>({
         <tbody>
           {limited.map((row, i) => {
             const accent = teamColor?.(row);
+            // 写真・ロゴなしで保存するときの、チーム名の塗り（チームの色と、その明るさに合う文字の色。CSS の .export-plain 側で使う。DESIGN.md 361章）
+            const ink = readableInkOn(accent);
+            const fillStyle = accent && ink ? ({ "--team-color": accent, "--team-ink": ink } as CSSProperties) : undefined;
             const teamAbbr = exportTeam?.(row);
             // 名前の横に添えるチーム略称（保存画像の写真なしの版でだけ表示）
             // 名前の下の行が無い表（チーム）は、試合数だけを名前の下の行と、写真なしの版の名前の横に出す
@@ -258,7 +262,11 @@ export function RankedList<T>({
             const recordText = recordTextOf?.(row);
             const gamesOnly = subLabel ? null : recordText ?? (games !== undefined ? `${games}試合` : null);
             const abbrText = teamAbbr ?? gamesOnly;
-            const abbr = abbrText ? <span className="export-team-abbr">{abbrText}</span> : null;
+            const abbr = abbrText ? (
+              <span className="export-team-abbr" style={fillStyle}>
+                {abbrText}
+              </span>
+            ) : null;
             const relatedValues = related?.of(row);
             // スマホ幅で、名前の下の行の末尾に続ける（「3PM 1.8／3PA 5.0」。PC幅・保存画像では列に出すので隠す）
             const relatedInline =
@@ -299,7 +307,7 @@ export function RankedList<T>({
                         <span className="rank-name-with-logo">
                           {wrap(avatar?.(row))}
                           <span className="rank-name-cell">
-                            <span className="rank-name">
+                            <span className="rank-name" style={fillStyle}>
                               {wrap(renderName(row))}
                               {abbr}
                             </span>
@@ -319,7 +327,7 @@ export function RankedList<T>({
                       <span className="rank-name-with-logo">
                         {avatar?.(row)}
                         <span className="rank-name-cell">
-                          <span className="rank-name">
+                          <span className="rank-name" style={fillStyle}>
                             {renderName(row)}
                             {abbr}
                           </span>
