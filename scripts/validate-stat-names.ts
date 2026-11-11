@@ -11,6 +11,7 @@
 // 使い方: npm run validate:stat-names（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import "../src/lib/playerSelfColumns.ts";
 import { STAT_ALIASES, STAT_NAMES, canonicalStatLabel, isStatAbbr, statGlossaryTitle, statJa } from "../src/lib/statNames.ts";
 import { STAT_DESCRIPTIONS, statDescription } from "../src/lib/statDescriptions.ts";
 import { PLAYER_STAT_DEFS, TEAM_STAT_DEFS } from "../src/lib/statDefs.ts";

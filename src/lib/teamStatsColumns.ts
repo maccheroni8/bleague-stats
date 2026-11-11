@@ -1,3 +1,4 @@
+import { hasFlowRecord, SELF_PCT_DEFS, selfCountsOf, selfPct, selfSplitOf, type SelfShotKind, type ShotMadeSource } from "./selfScoring";
 import type { Column } from "../components/SortableTable";
 import type { BoxscoreTabKey } from "../components/BoxscoreTable";
 import type { StoredGame, TeamGameLog } from "../../shared/types";
@@ -122,6 +123,17 @@ export interface TeamTotals {
   oppAssisted2m: number;
   oppAssisted3m: number;
   oppAssistedFtm: number;
+  /**
+   * Self2M・Self3M・SelfFTM（アシストが付かなかった成功数）の材料。試合の流れ（プレーバイプレーの記録）が無い試合（2017-18 の1810）は、
+   * アシストの数が0になってしまうので Self の合計から除く。noFlowGames＝その試合数、noFlow*＝その試合の2PM・3PM・FTM（自チーム・相手）
+   */
+  noFlowGames: number;
+  noFlow2m: number;
+  noFlow3m: number;
+  noFlowFtm: number;
+  oppNoFlow2m: number;
+  oppNoFlow3m: number;
+  oppNoFlowFtm: number;
   oppPaint2m: number;
   oppPaint2a: number;
   oppMid2m: number;
@@ -214,6 +226,13 @@ export const EMPTY_TOTALS: TeamTotals = {
   oppFlagrantFouls: 0,
   oppDisruptiveFouls: 0,
   oppAssisted2m: 0,
+  noFlowGames: 0,
+  noFlow2m: 0,
+  noFlow3m: 0,
+  noFlowFtm: 0,
+  oppNoFlow2m: 0,
+  oppNoFlow3m: 0,
+  oppNoFlowFtm: 0,
   oppAssisted3m: 0,
   oppAssistedFtm: 0,
   oppPaint2m: 0,
@@ -229,6 +248,19 @@ export const EMPTY_TOTALS: TeamTotals = {
   oppBenchPoints: 0,
   oppStarterPoints: 0,
 };
+
+function addNoFlow(acc: TeamTotals, g: TeamGameLog): Pick<TeamTotals, "noFlowGames" | "noFlow2m" | "noFlow3m" | "noFlowFtm" | "oppNoFlow2m" | "oppNoFlow3m" | "oppNoFlowFtm"> {
+  const no = !hasFlowRecord(g);
+  return {
+    noFlowGames: acc.noFlowGames + (no ? 1 : 0),
+    noFlow2m: acc.noFlow2m + (no ? g.fgm - g.tpm : 0),
+    noFlow3m: acc.noFlow3m + (no ? g.tpm : 0),
+    noFlowFtm: acc.noFlowFtm + (no ? g.ftm : 0),
+    oppNoFlow2m: acc.oppNoFlow2m + (no ? g.opponentFgm - g.opponentTpm : 0),
+    oppNoFlow3m: acc.oppNoFlow3m + (no ? g.opponentTpm : 0),
+    oppNoFlowFtm: acc.oppNoFlowFtm + (no ? g.opponentFtm : 0),
+  };
+}
 
 export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
   const totals = logs.reduce<TeamTotals>(
@@ -300,6 +332,7 @@ export function sumTeamGameLogs(logs: TeamGameLog[]): TeamTotals {
       oppFlagrantFouls: acc.oppFlagrantFouls + (g.opponentFlagrantFouls ?? 0),
       oppDisruptiveFouls: acc.oppDisruptiveFouls + (g.opponentDisruptiveFouls ?? 0),
       oppAssisted2m: acc.oppAssisted2m + g.opponentAssisted2m,
+      ...addNoFlow(acc, g),
       oppAssisted3m: acc.oppAssisted3m + g.opponentAssisted3m,
       oppAssistedFtm: acc.oppAssistedFtm + g.opponentAssistedFtm,
       oppPaint2m: acc.oppPaint2m + g.opponentPaint2m,
@@ -413,6 +446,17 @@ export function sumTeamGameBoxTotalsForPeriod(
       oppFlagrantFouls: acc.oppFlagrantFouls + (opp.flagrantFouls ?? 0),
       oppDisruptiveFouls: acc.oppDisruptiveFouls + (opp.disruptiveFouls ?? 0),
       oppAssisted2m: acc.oppAssisted2m + opp.assisted2m,
+      ...(game.raw.PlayByPlays.length === 0
+        ? {
+            noFlowGames: acc.noFlowGames + 1,
+            noFlow2m: acc.noFlow2m + own.pt2m,
+            noFlow3m: acc.noFlow3m + own.pt3m,
+            noFlowFtm: acc.noFlowFtm + own.ftm,
+            oppNoFlow2m: acc.oppNoFlow2m + opp.pt2m,
+            oppNoFlow3m: acc.oppNoFlow3m + opp.pt3m,
+            oppNoFlowFtm: acc.oppNoFlowFtm + opp.ftm,
+          }
+        : {}),
       oppAssisted3m: acc.oppAssisted3m + opp.assisted3m,
       oppAssistedFtm: acc.oppAssistedFtm + opp.assistedFtm,
       oppPaint2m: acc.oppPaint2m + opp.paint2m,
@@ -733,6 +777,67 @@ export function buildMiscColumns(
 // classificationSupportedは国籍区分別得点（TeamGameLogにのみ永続化されたシーズン集計値）が
 // 算出可能かどうか。Q別/前後半トグル選択時（sumTeamGameBoxTotalsForPeriod経由）は試合単位では
 // 算出できないためfalseを渡す（DESIGN.md参照。既定はtrueで既存呼び出し元は無変更のまま動作する）
+/** チームの成功数とアシスト付きの数。試合の流れの記録が無い試合（1810）は除いた値 */
+export function teamShotMadeSource(t: TeamTotals, opp: boolean): ShotMadeSource {
+  return opp
+    ? {
+        made2: t.oppFgm - t.oppTpm - t.oppNoFlow2m,
+        made3: t.oppTpm - t.oppNoFlow3m,
+        madeFt: t.oppFtm - t.oppNoFlowFtm,
+        ast2: t.oppAssisted2m,
+        ast3: t.oppAssisted3m,
+        astFt: t.oppAssistedFtm,
+      }
+    : {
+        made2: t.fgm - t.tpm - t.noFlow2m,
+        made3: t.tpm - t.noFlow3m,
+        madeFt: t.ftm - t.noFlowFtm,
+        ast2: t.assisted2m,
+        ast3: t.assisted3m,
+        astFt: t.assistedFtm,
+      };
+}
+
+function teamSelfPct(t: TeamTotals, opp: boolean, kind: SelfShotKind, side: "ast" | "self"): number {
+  const sp = selfSplitOf(teamShotMadeSource(t, opp), kind);
+  return selfPct(side === "ast" ? sp.ast : sp.self, sp.total);
+}
+
+/** 全チームスタッツの Scoring の表では、アシストあり／セルフの割合は列でなく Scoring % の帯グラフで見せる */
+export function withoutSelfPctColumns<T extends { key: string }>(cols: T[]): T[] {
+  const drop = new Set<string>([...SELF_PCT_DEFS.flatMap((d) => [d.astKey, d.selfKey]), "pctptsself"]);
+  return cols.filter((c) => !drop.has(c.key));
+}
+
+/** Self2M・Self3M・SelfFTM。平均は、試合の流れの記録がある試合の数で割る */
+function buildSelfCountColumns(mode: SeasonDisplayMode, perspective: TeamPerspective): Column<AllTeamsRow>[] {
+  const defs: [string, string, (c: ReturnType<typeof selfCountsOf>) => number][] = [
+    ["self2m", "Self2M", (c) => c.self2],
+    ["self3m", "Self3M", (c) => c.self3],
+    ["selfftm", "SelfFTM", (c) => c.selfFt],
+  ];
+  return defs.map(([key, label, pick]) => {
+    const valueFor = (r: AllTeamsRow) => {
+      const games = r.gamesPlayed - r.totals.noFlowGames;
+      const own = scaledValue(pick(selfCountsOf(teamShotMadeSource(r.totals, false))), games, mode);
+      const opp = scaledValue(pick(selfCountsOf(teamShotMadeSource(r.totals, true))), games, mode);
+      return perspectiveValue(own, opp, perspective);
+    };
+    return {
+      key,
+      label,
+      sortValue: valueFor,
+      format: (r: AllTeamsRow) => {
+        const v = valueFor(r);
+        const d = mode === "total" ? 0 : 2;
+        return perspective === "diff" ? formatSigned(v, d) : formatDecimal(v, d);
+      },
+      higherIsBetter: higherIsBetterForPerspective(true, perspective),
+      scalesWithGames: true,
+    };
+  });
+}
+
 export function buildScoringColumns(
   mode: SeasonDisplayMode,
   perspective: TeamPerspective,
@@ -760,11 +865,23 @@ export function buildScoringColumns(
     countColumn("ast2m", "AST2M", (t) => t.assisted2m, (t) => t.oppAssisted2m, mode, perspective),
     countColumn("ast3m", "AST3M", (t) => t.assisted3m, (t) => t.oppAssisted3m, mode, perspective),
     countColumn("astftm", "ASTFTM", (t) => t.assistedFtm, (t) => t.oppAssistedFtm, mode, perspective),
+    ...buildSelfCountColumns(mode, perspective),
+    ...SELF_PCT_DEFS.flatMap((d) => [
+      pct100Column(d.astKey, d.astLabel, (t) => teamSelfPct(t, false, d.kind, "ast"), (t) => teamSelfPct(t, true, d.kind, "ast"), perspective),
+      pct100Column(d.selfKey, d.selfLabel, (t) => teamSelfPct(t, false, d.kind, "self"), (t) => teamSelfPct(t, true, d.kind, "self"), perspective),
+    ]),
     pct100Column(
       "pctptsasted",
       "%PTS ASTED",
       (t) => safeDiv(100 * (t.assisted2m * 2 + t.assisted3m * 3 + t.assistedFtm), t.pts),
       (t) => safeDiv(100 * (t.oppAssisted2m * 2 + t.oppAssisted3m * 3 + t.oppAssistedFtm), t.oppPts),
+      perspective,
+    ),
+    pct100Column(
+      "pctptsself",
+      "%PTS Self",
+      (t) => teamSelfPct(t, false, "pts", "self"),
+      (t) => teamSelfPct(t, true, "pts", "self"),
       perspective,
     ),
     // 総得点に占めるベンチ得点・スタメン得点の割合（チーム詳細のシーズン別成績と同じくScoring。2026-09-26）

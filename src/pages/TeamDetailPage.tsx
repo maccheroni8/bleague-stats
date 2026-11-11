@@ -250,6 +250,7 @@ import { TeamOpponentSplit } from "../components/TeamOpponentSplit";
 import { enumParam, useUrlState } from "../lib/urlState";
 import { fgaShare, foreignShareFromSeconds, teamClassificationShareFromTotals, teamScoringShareFromTotals, type ForeignShare } from "../lib/shareCharts";
 import { EMPTY_TOTALS, sumTeamGameLogs, type AllTeamsRow } from "../lib/teamStatsColumns";
+import { noFlowOf, noFlowTotalsOf, selfCountsOf, selfPct, selfSplitOf, SELF_PCT_DEFS, withNoFlow, type SelfCounts, type SelfShotKind, type ShotMadeSource } from "../lib/selfScoring";
 import { paintColumns, summarizePaintLogs, withPaint, PAINT2_NOTE } from "../lib/teamPaint2";
 import { loadLeaguePaintComplete } from "../lib/teamPaint2Load";
 import { FORCED_TURNOVER_COLUMNS } from "../lib/forcedTurnoverColumns";
@@ -1374,6 +1375,23 @@ const ALL_TEAM_SEASON_MISC_COLUMNS: TeamSeasonBoxColumn[] = [
   },
 ];
 
+/** シーズン別成績の Self 系の材料（成功数とアシスト付きの数）。試合の流れの記録が無い試合の分は除く */
+function seasonShotSource(r: SeasonRecord, m: TeamSeasonMiscTotals, opp: boolean): ShotMadeSource {
+  const nf = noFlowOf(m);
+  const t = r.team.totals;
+  return opp
+    ? { made2: m.oppFgm - m.oppTpm - nf.opp2m, made3: m.oppTpm - nf.opp3m, madeFt: m.oppFtm - nf.oppFtm, ast2: m.oppAssisted2m, ast3: m.oppAssisted3m, astFt: m.oppAssistedFtm }
+    : { made2: t.fgm - t.tpm - nf.own2m, made3: t.tpm - nf.own3m, madeFt: t.ftm - nf.ownFtm, ast2: m.assisted2m, ast3: m.assisted3m, astFt: m.assistedFtm };
+}
+
+function seasonSelfPctText(r: SeasonRecord, m: TeamSeasonMiscTotals, kind: SelfShotKind, side: "ast" | "self", p: TeamPerspective): string {
+  const pick = (opp: boolean) => {
+    const sp = selfSplitOf(seasonShotSource(r, m, opp), kind);
+    return selfPct(side === "ast" ? sp.ast : sp.self, sp.total);
+  };
+  return formatTeamSeasonPct100(pick(false), pick(true), p);
+}
+
 const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
   { key: "g", label: "G", format: (r) => String(r.team.gamesPlayed) },
   {
@@ -1416,6 +1434,30 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
     label: "ASTFTM",
     format: (r, m, mode, p) => formatTeamSeasonCountPerspective(m.assistedFtm, m.oppAssistedFtm, r.team.gamesPlayed, mode, p),
   },
+  ...(
+    [
+      ["self2m", "Self2M", (c: SelfCounts) => c.self2],
+      ["self3m", "Self3M", (c: SelfCounts) => c.self3],
+      ["selfftm", "SelfFTM", (c: SelfCounts) => c.selfFt],
+    ] as const
+  ).map(
+    ([key, label, pick]): TeamSeasonBoxColumn => ({
+      key,
+      label,
+      format: (r, m, mode, p) =>
+        formatTeamSeasonCountPerspective(
+          pick(selfCountsOf(seasonShotSource(r, m, false))),
+          pick(selfCountsOf(seasonShotSource(r, m, true))),
+          r.team.gamesPlayed - noFlowOf(m).games,
+          mode,
+          p,
+        ),
+    }),
+  ),
+  ...SELF_PCT_DEFS.flatMap((d): TeamSeasonBoxColumn[] => [
+    { key: d.astKey, label: d.astLabel, format: (r, m, _mode, p) => seasonSelfPctText(r, m, d.kind, "ast", p) },
+    { key: d.selfKey, label: d.selfLabel, format: (r, m, _mode, p) => seasonSelfPctText(r, m, d.kind, "self", p) },
+  ]),
   {
     key: "pctptsasted",
     label: "%PTS ASTED",
@@ -1426,6 +1468,7 @@ const TEAM_SEASON_SCORING_COLUMNS: TeamSeasonBoxColumn[] = [
         p,
       ),
   },
+  { key: "pctptsself", label: "%PTS Self", format: (r, m, _mode, p) => seasonSelfPctText(r, m, "pts", "self", p) },
   // %BENCH PTS・%STARTER PTS（Batch 1でヘッダータイルから移設）。2026-09-26、全チームスタッツ・ランキングに合わせて
   // 自チーム/opp/+/- に切り替わるようにした（それまでは常に自チームの値。DESIGN.md 152章）
   {
@@ -2410,7 +2453,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       new Map(
         (careerData ?? []).map((cd) => [
           cd.season,
-          withPaint(sumTeamSeasonMisc(cd.logs), summarizePaintLogs(filterByGameType(cd.logs, "regular"))),
+          withNoFlow(withPaint(sumTeamSeasonMisc(cd.logs), summarizePaintLogs(filterByGameType(cd.logs, "regular"))), noFlowTotalsOf(filterByGameType(cd.logs, "regular"))),
         ]),
       ),
     [careerData],

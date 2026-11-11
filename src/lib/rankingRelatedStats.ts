@@ -2,6 +2,7 @@
 // 並べる値は、平均／合計の切り替えに従う（平均なら1試合あたり、合計ならシーズン合計）。割合そのものは切り替えで変わらない。
 // 画面だけの変更（集計・保存キーに触れない）。表示の部品は RankedList の `related`。
 import { formatDecimal } from "./format";
+import { playerSelfUnavailable } from "./playerSelfColumns";
 import { countDigits, modeFactor, type SeasonBoxscoreCtx } from "./playerSeasonBoxscore";
 import type { PlayerRankMode } from "./playerSeasonRanking";
 import type { PlayerSummary } from "../../shared/types";
@@ -29,6 +30,22 @@ const paintSplit = (label: string, get: (s: SeasonBoxscoreCtx["scaled"]) => numb
   label,
   value: (c) => (c.seasonStartYear >= MIN_PAINT_SPLIT_SEASON_START_YEAR ? get(c.scaled) : undefined),
 });
+
+/** Self 系（アシストが付かなかった数）。試合の流れの記録が無い試合で点を取った選手のシーズンは出せない（playerSelfColumns.ts と同じ） */
+const selfOwn = (label: string, get: (s: SeasonBoxscoreCtx["scaled"]) => number): RelatedSpec => ({
+  label,
+  value: (c) => (playerSelfUnavailable(c.raw) ? undefined : get(c.scaled)),
+});
+const AST2M = selfOwn("AST2M", (s) => s.assisted2m);
+const AST3M = selfOwn("AST3M", (s) => s.assisted3m);
+const ASTFTM = selfOwn("ASTFTM", (s) => s.assistedFtm);
+const SELF2M = selfOwn("Self2M", (s) => s.fgm - s.tpm - s.assisted2m);
+const SELF3M = selfOwn("Self3M", (s) => s.tpm - s.assisted3m);
+const SELFFTM = selfOwn("SelfFTM", (s) => s.ftm - s.assistedFtm);
+const MADE2 = selfOwn("2PM", (s) => s.fgm - s.tpm);
+const MADE3 = selfOwn("3PM", (s) => s.tpm);
+const MADEFG = selfOwn("FGM", (s) => s.fgm);
+const MADEFT = selfOwn("FTM", (s) => s.ftm);
 
 const FGM = own("FGM", (s) => s.fgm);
 const FGA = own("FGA", (s) => s.fga);
@@ -74,6 +91,16 @@ const RELATED_BY_KEY: Record<string, RelatedSpec[]> = {
   // Misc: 選手の AST%（FGにつながったアシスト ÷（出場中の自チーム FGM − 本人の FGM））
   astpct: [oc("FG AST", (r) => r.ocFgAssists), oc("TEAM FGM−FGM（出場中）", (r) => r.ocTeamFgm - r.ocFgm)],
   pctptsasted: [own("ASTED PTS", (s) => s.assisted2m * 2 + s.assisted3m * 3 + s.assistedFtm), PTS],
+  // アシストあり／セルフの割合（Scoring）
+  pct2pmast: [AST2M, MADE2],
+  pct2pmself: [SELF2M, MADE2],
+  pct3pmast: [AST3M, MADE3],
+  pct3pmself: [SELF3M, MADE3],
+  pctfgmast: [selfOwn("AST2M＋AST3M", (s) => s.assisted2m + s.assisted3m), MADEFG],
+  pctfgmself: [selfOwn("Self2M＋Self3M", (s) => s.fgm - s.assisted2m - s.assisted3m), MADEFG],
+  pctftmast: [ASTFTM, MADEFT],
+  pctftmself: [SELFFTM, MADEFT],
+  pctptsself: [selfOwn("SELF PTS", (s) => (s.fgm - s.tpm - s.assisted2m) * 2 + (s.tpm - s.assisted3m) * 3 + (s.ftm - s.assistedFtm)), selfOwn("PTS", (s) => (s.fgm - s.tpm) * 2 + s.tpm * 3 + s.ftm)],
   paint2pct: [PAINT2M, PAINT2A],
   mid2pct: [MID2M, MID2A],
   // Scoring: 自分のFGAに占める割合

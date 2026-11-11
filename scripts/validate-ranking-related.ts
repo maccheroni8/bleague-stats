@@ -6,6 +6,7 @@
 //
 // 使い方: npm run validate:ranking-related（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
 
+import "../src/lib/playerSelfColumns";
 import { SEASON_ADVANCED_COLUMNS_WITH_FTR } from "../src/lib/ftrColumn";
 import { SEASON_SCORING_COLUMNS, SEASON_TRADITIONAL_COLUMNS, buildSeasonBoxscoreCtx, type PlayerSeasonRawTotals, type TeamSeasonRawTotals } from "../src/lib/playerSeasonBoxscore";
 import { hasRelatedStats, relatedStatsFor } from "../src/lib/rankingRelatedStats";
@@ -67,7 +68,7 @@ const FORMULA: Record<string, (v: number[]) => number> = {
   paint2pct: (v) => v[0]! / v[1]!,
   mid2pct: (v) => v[0]! / v[1]!,
 };
-const PCT100 = ["pctpts", "pctfgm", "pctfga", "pct3pm", "pct3pa", "pct2pm", "pct2pa", "pctftm", "pctfta", "pctptsasted", "pct3pmown", "pct3paown", "pctpaint2mown", "pctpaint2aown", "pctmid2mown", "pctmid2aown"];
+const PCT100 = ["pctpts", "pctfgm", "pctfga", "pct3pm", "pct3pa", "pct2pm", "pct2pa", "pctftm", "pctfta", "pctptsasted", "pctptsself", "pct2pmast", "pct2pmself", "pct3pmast", "pct3pmself", "pctfgmast", "pctfgmself", "pctftmast", "pctftmself", "pct3pmown", "pct3paown", "pctpaint2mown", "pctpaint2aown", "pctmid2mown", "pctmid2aown"];
 for (const k of PCT100) FORMULA[k] = (v) => (100 * v[0]!) / v[1]!;
 
 const player = { playerId: "p" } as PlayerSummary;
@@ -94,7 +95,7 @@ for (const [key, formula] of Object.entries(FORMULA)) {
     const approx = formula(values);
     // 丸めの影響を避けるため、丸めなしの値（total なら整数なので厳密、perGame なら ×試合数で戻す）で計算し直す
     // 出場中の値の項目は、平均を出場中の記録がそろう試合数（18）で割る
-    const games = key.startsWith("pct") && !key.endsWith("own") && key !== "pctptsasted" ? 18 : 20;
+    const games = key.startsWith("pct") && !key.endsWith("own") && key !== "pctptsasted" && key !== "pctptsself" && !/^pct(2pm|3pm|fgm|ftm)(ast|self)$/.test(key) ? 18 : 20;
     const exact = formula(mode === "total" ? values : values.map((x: number) => x * games));
     const ok = Math.abs(exact - shown) < Math.max(0.02 * Math.abs(shown), 1e-6) + (mode === "total" ? 0 : Math.abs(shown) * 0.02);
     check(`${key}(${mode}): ${rel.labels.join("／")} ${text.join("／")} → ${approx.toFixed(3)}（表 ${shown.toFixed(3)}）`, ok, `許容 ${tol}`);
