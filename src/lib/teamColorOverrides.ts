@@ -34,7 +34,7 @@ export const TEAM_COLOR_OVERRIDES: Record<string, { primary?: string; secondary?
   "745": { primary: "#811B2E", secondary: "#d0b080" }, // 越谷アルファーズ（自動抽出はベージュが主・えんじが副）
   // ライジングゼファー福岡は、公式のクラブ一覧の紺（#0b318f。FE名古屋と同じ値）をユーザーの判断で主の色にした（自動抽出は赤が主・紺が副）
   "753": { primary: "#0b318f", secondary: "#e00020" },
-  // 名古屋ダイヤモンドドルフィンズ: 公式のメインはドルフィンズレッド。ユーザー指定で #CD1B2F（自動抽出は橙 #f0a000 が主。DESIGN.md 368章）。
+  // 名古屋ダイヤモンドドルフィンズ: 公式のメインはドルフィンズレッド。ユーザー指定で #CD1B2F（自動抽出は橙 #f0a000 が主。DESIGN.md 369章）。
   // 保存画像の塗り（teamChipColors.ts の TEAM_CHIP_OVERRIDES）と同じ値。副の色は自動抽出（赤 #e00010）のまま
   "729": { primary: "#CD1B2F" },
 };

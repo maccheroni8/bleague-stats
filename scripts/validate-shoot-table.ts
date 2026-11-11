@@ -262,15 +262,15 @@ console.log(`シュート成功率の一覧: 実データ ${ran}セット（選�
 {
   assert.ok(FIGURES.some(f => f.id === "shoot-table-player" && f.entity === "player" && f.label === "シュート成功率"), "選手タブに登録（名前は「シュート成功率」・IDは変えない）");
   assert.ok(FIGURES.some(f => f.id === "shoot-table-team" && f.entity === "team" && f.label === "シュート成功率"), "チームタブに登録");
-  assert.deepEqual(PLAYER_SHOOT_COLUMNS.map(c => c.label), ["PTS", "eFG%", "TS%", "3P%", "FT%", "MID2%", "PAINT2%"], "選手の列の並び（FT% は 3P% の右）");
+  assert.deepEqual(PLAYER_SHOOT_COLUMNS.map(c => c.label), ["PTS", "eFG%", "TS%", "3P%", "MID2%", "PAINT2%", "FT%"], "選手の列の並び（eFG%・TS%・3P%・MID2%・PAINT2%・FT%）");
   assert.ok(PLAYER_SHOOT_COLUMNS.find(c => c.key === "ftpct")!.color, "FT% も色を塗る");
   const labels = (view: (typeof TEAM_SHOOT_VIEWS)[number]) => TEAM_SHOOT_SLOTS.map(c => c.label(view));
-  assert.deepEqual(labels("own"), ["PTS", "ORtg", "eFG%", "TS%", "3P%", "FT%", "MID2%", "PAINT2%"], "自チームの見出し");
-  assert.deepEqual(labels("opp"), ["opp PTS", "DRtg", "opp eFG%", "opp TS%", "opp 3P%", "opp FT%", "opp MID2%", "opp PAINT2%"], "相手の見出し");
-  assert.deepEqual(labels("diff"), ["PTS +/-", "NetRtg", "eFG% +/-", "TS% +/-", "3P% +/-", "FT% +/-", "MID2% +/-", "PAINT2% +/-"], "差の見出し");
+  assert.deepEqual(labels("own"), ["PTS", "ORtg", "eFG%", "TS%", "3P%", "MID2%", "PAINT2%", "FT%"], "自チームの見出し");
+  assert.deepEqual(labels("opp"), ["opp PTS", "DRtg", "opp eFG%", "opp TS%", "opp 3P%", "opp MID2%", "opp PAINT2%", "opp FT%"], "相手の見出し");
+  assert.deepEqual(labels("diff"), ["PTS +/-", "NetRtg", "eFG% +/-", "TS% +/-", "3P% +/-", "MID2% +/-", "PAINT2% +/-", "FT% +/-"], "差の見出し");
   assert.equal(new Set(TEAM_SHOOT_VIEWS.map(v => labels(v).length)).size, 1, "列の数は視点によらず同じ");
   assert.deepEqual(TEAM_SHOOT_VIEWS.map(v => TEAM_SHOOT_VIEW_LABELS[v]), ["自チーム", "相手（opp）", "差（+/-）"]);
   assert.deepEqual(TEAM_SHOOT_VIEWS.map(teamShootHigherIsBetter), [true, false, true], "色の向き: 自チーム・差は高いほど緑、相手は低いほど緑");
-  assert.deepEqual(TEAM_SHOOT_SLOTS.filter(c => c.color).map(c => c.key), ["efg", "ts", "3ppct", "ftpct", "mid2pct", "paint2pct"], "色を塗るのは成功率の列");
+  assert.deepEqual(TEAM_SHOOT_SLOTS.filter(c => c.color).map(c => c.key), ["efg", "ts", "3ppct", "mid2pct", "paint2pct", "ftpct"], "色を塗るのは成功率の列（並びは eFG%・TS%・3P%・MID2%・PAINT2%・FT%）");
   console.log("シュート成功率: 図の名前・列の並び・視点・色の向き OK");
 }

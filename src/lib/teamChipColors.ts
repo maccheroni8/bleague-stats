@@ -17,7 +17,7 @@ export const TEAM_CHIP_OVERRIDES: Record<string, { bg?: string; ink?: "#ffffff" 
   "2486": { bg: "#001030" }, // アルティーリ千葉（黒系）
   "706": { bg: "#000000" }, // アルバルク東京（黒）
   "696": { ink: "#ffffff" }, // 富山グラウジーズ（背景はロゴの赤のまま、文字を白）
-  "729": { bg: "#CD1B2F" }, // 名古屋ダイヤモンドドルフィンズ（368章でメインの色も #CD1B2F にそろえた。teamColorOverrides.ts）
+  "729": { bg: "#CD1B2F" }, // 名古屋ダイヤモンドドルフィンズ（369章でメインの色も #CD1B2F にそろえた。teamColorOverrides.ts）
   "721": { ink: "#ffffff" }, // 広島ドラゴンフライズ
   "1638": { ink: "#ffffff" }, // 佐賀バルーナーズ
 };
