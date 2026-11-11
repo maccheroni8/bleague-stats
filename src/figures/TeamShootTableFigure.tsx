@@ -5,11 +5,11 @@ import { divisionListParam, enumParam, situationalParam, useUrlState, type UrlCo
 import { divisionMultiAxis, gameTypeAxis, situationalAxes, type FilterAxis } from "../lib/filterAxes";
 import type { SituationalFilter } from "../lib/situational";
 import { GAME_TYPE_PARAM } from "../lib/urlFilterParams";
-import { situationalFilterLabels } from "../lib/conditionLabels";
+import { situationalFilterLabels, visibleConditionLabels } from "../lib/conditionLabels";
 import { DIVISION_LABELS, divisionOrder } from "../lib/divisionGroups";
 import { buildFreeRows, type FreeRow } from "../lib/figureTeamFree";
 import { shootReference, teamShootCells } from "../lib/figureShootTableData";
-import { TEAM_SHOOT_SLOTS, TEAM_SHOOT_VIEWS, TEAM_SHOOT_VIEW_LABELS, TEAM_SHOOT_VIEW_TITLES, percentileLevel, sharedRanks, sortByValue, teamShootHigherIsBetter, type TeamShootView } from "../lib/figureShootTable";
+import { TEAM_SHOOT_SLOTS, TEAM_SHOOT_VIEWS, TEAM_SHOOT_VIEW_LABELS, percentileLevel, sharedRanks, shootSortLabel, shootTitle, sortByValue, teamShootConditions, teamShootDefaultSort, teamShootHigherIsBetter, type TeamShootView } from "../lib/figureShootTable";
 import { fetchTeams, fetchTeamGameLogs, fetchDivisionHistory } from "../lib/data";
 import { useJsonData } from "../lib/useJsonData";
 import { FilterBar } from "../components/FilterBar";
@@ -36,17 +36,16 @@ const NO_DIVISIONS: DivisionChoice[] = [];
 const divisionLabel = (d: DivisionChoice) => d === "unknown" ? "地区不明" : DIVISION_LABELS[d];
 // 視点（tsv）。初期値（自チーム）は URL に載せない
 const viewCodec = enumParam<TeamShootView>("tsv", ["own", "opp", "diff"], "own");
-// 並べ替えの列は視点によらず同じ（pts・rating・成功率）。初期は rating（ORtg／DRtg／NetRtg）の高い順
-const DEFAULT_SORT: ShootSort = { key: "rating", descending: true };
-// 並べ替え（tss=列 または 列:asc）。初期値は URL に載せない
-const sortCodec: UrlCodec<ShootSort> = {
+// 並べ替えの列は視点によらず同じ（pts・rating・成功率）。初期は rating 列を良い順（自チーム＝ORtg の高い順・差＝NetRtg の高い順・相手＝DRtg の低い順。視点で変わる）
+// 並べ替え（tss=列:desc または 列:asc）。URL に無いときは視点ごとの初期の並び順（列だけの古い形は大きい順）
+const sortCodec: UrlCodec<ShootSort | null> = {
   keys: ["tss"],
   read: p => {
     const [key, dir] = (p.get("tss") ?? "").split(":");
     const found = TEAM_SHOOT_SLOTS.find(c => c.key === key);
     return found ? { key: found.key, descending: dir !== "asc" } : undefined;
   },
-  write: (p, v) => { p.delete("tss"); if (v.key !== DEFAULT_SORT.key || !v.descending) p.set("tss", v.descending ? v.key : `${v.key}:asc`); },
+  write: (p, v) => { p.delete("tss"); if (v) p.set("tss", `${v.key}:${v.descending ? "desc" : "asc"}`); },
 };
 
 export default function TeamShootTableFigure({ season, category }: FigureProps) {
@@ -54,7 +53,8 @@ export default function TeamShootTableFigure({ season, category }: FigureProps) 
   const [gameType, setGameType] = useUrlState(gameCodec, "regular");
   const [division, setDivision] = useUrlState(divisionCodec, NO_DIVISIONS);
   const [view, setView] = useUrlState(viewCodec, "own");
-  const [sort, setSort] = useUrlState(sortCodec, DEFAULT_SORT);
+  const [sortParam, setSort] = useUrlState(sortCodec, null);
+  const sort: ShootSort = sortParam ?? teamShootDefaultSort(view);
   const target = useRef<HTMLDivElement>(null);
   const request = useJsonData(async () => {
     const teams = await fetchTeams(season, category);
@@ -80,7 +80,7 @@ export default function TeamShootTableFigure({ season, category }: FigureProps) 
   const ranks = useMemo(() => sharedRanks(sorted, r => cells.get(r.teamId)![sort.key]!.value, sort.descending), [sorted, cells, sort]);
   // 値が1チームもない列（記録が無いシーズン）は出さない
   const shown = TEAM_SHOOT_SLOTS.filter(def => sorted.some(r => cells.get(r.teamId)![def.key]!.value !== null));
-  const sortKey = shown.some(c => c.key === sort.key) ? sort : { key: shown.find(c => c.key === DEFAULT_SORT.key)?.key ?? shown[0]?.key ?? DEFAULT_SORT.key, descending: true };
+  const sortKey = shown.some(c => c.key === sort.key) ? sort : { key: shown.find(c => c.key === "rating")?.key ?? shown[0]?.key ?? "rating", descending: teamShootDefaultSort(view).descending };
   const higher = teamShootHigherIsBetter(view);
   const columns: ShootViewColumn<FreeRow>[] = shown.map(def => ({
     key: def.key, label: def.label(view), scope: "team", stat: def.label(view),
@@ -95,15 +95,16 @@ export default function TeamShootTableFigure({ season, category }: FigureProps) 
     divisionMultiAxis<"unknown">({ id: "shootTeamDivision", divisions: present.filter((d): d is Division => d !== "unknown"), extra: present.includes("unknown") ? [{ value: "unknown", label: "地区不明" }] : [], selected: activeDivision, onChange: setDivision }),
     hl.axis];
   const [periodLabel] = situationalFilterLabels(filter);
-  const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], TEAM_SHOOT_VIEW_TITLES[view], ...(activeDivision.length === 0 ? [] : [activeDivision.map(divisionLabel).join("・")]), ...hl.labels];
+  const sortText = shootSortLabel(columns.find(c => c.key === sortKey.key)?.label ?? "", sortKey.descending);
+  const conditions = visibleConditionLabels(teamShootConditions({ scope: `${season} ${periodLabel}`, gameType: seasonGameTypeLabels(season)[gameType], view, division: activeDivision.length === 0 ? [] : [activeDivision.map(divisionLabel).join("・")], highlights: hl.labels, sort: sortText }));
   const baseDate = { kind: "season" as const, season, gameType };
-  const toggleSort = (key: string) => setSort(prev => ({ key, descending: prev.key === key ? !prev.descending : true }));
+  const toggleSort = (key: string) => setSort({ key, descending: sortKey.key === key ? !sortKey.descending : true });
   return <section aria-label="シュート成功率（チーム）">
-    <FilterBar axes={axes} stateKey="figures:team-shoot-table" onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); setDivision(NO_DIVISIONS); setView("own"); setSort(DEFAULT_SORT); hl.setIds([]); }} />
+    <FilterBar axes={axes} stateKey="figures:team-shoot-table" onClearAll={() => { setFilter(DEFAULT); setGameType("regular"); setDivision(NO_DIVISIONS); setView("own"); setSort(null); hl.setIds([]); }} />
     {request.loading ? <p role="status">読み込み中…</p> : request.error || request.data?.missing ? <p role="alert">チームの試合データを読み込めませんでした。ページを読み直してください。</p> : !model || !sorted.length ? <p className="empty-message">この条件で表示できるチームがありません。</p> : <>
-      <FigureExportButton targetRef={target} filename={`チーム_シュート成功率_${conditions.join("_")}`} baseDate={baseDate} />
+      <FigureExportButton targetRef={target} filename={`チーム_${shootTitle(view)}_${conditions.join("_")}`} baseDate={baseDate} />
       <ExportTarget ref={target} className="ratings-export shoot-export" baseDate={baseDate}>
-        <ConditionTitle title="シュート成功率" exportScope={`${season}シーズン`} conditions={conditions} />
+        <ConditionTitle title={shootTitle(view)} exportScope={`${season}シーズン`} conditions={conditions} />
         <ShootTableView rows={sorted} rowKey={r => r.teamId} columns={columns} sort={sortKey} onSort={toggleSort} ranks={ranks} nameHeader="TEAM" ariaLabel="シュート成功率（チーム）" highlight={r => hl.has([r.teamId])}
           renderName={r => <span className="shoot-team-line"><TeamLogo teamId={r.teamId} size={24} /><ResponsiveTeamName teamId={r.teamId} name={r.teamName} nowrap /></span>} />
         <ShootLegend reversed={!higher} />

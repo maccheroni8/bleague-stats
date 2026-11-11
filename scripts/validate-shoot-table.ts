@@ -15,10 +15,12 @@ import { buildFreeRows } from "../src/lib/figureTeamFree";
 import { buildAdvancedColumns, buildTraditionalColumns, type AllTeamsRow } from "../src/lib/teamStatsColumns";
 import type { ScorerData } from "../src/lib/figureTopScorers";
 import {
-  PLAYER_SHOOT_COLUMNS, TEAM_SHOOT_SLOTS, TEAM_SHOOT_VIEWS, TEAM_SHOOT_VIEW_LABELS, percentileLevel, selectByPoints, sharedRanks, shownNumber, sortByValue, teamShootHigherIsBetter,
+  PLAYER_SHOOT_COLUMNS, TEAM_SHOOT_SLOTS, TEAM_SHOOT_VIEWS, TEAM_SHOOT_VIEW_LABELS, percentileLevel, selectByPoints, sharedRanks, shownNumber, sortByValue, teamShootHigherIsBetter, teamShootDefaultSort, shootTitle, shootSortLabel, shootSelectionLabel, teamShootViewConditions, playerShootConditions, teamShootConditions,
 } from "../src/lib/figureShootTable";
 import { playerShootCells, shootReference, teamShootCells } from "../src/lib/figureShootTableData";
 import { FIGURES } from "../src/figures/catalog";
+import { TEAM_PERSPECTIVE_LABELS } from "../src/lib/teamStatsColumns";
+import { visibleConditionLabels } from "../src/lib/conditionLabels";
 
 const read = <T,>(p: string): T => { const f = existsSync(p) ? p : `${p}.gz`; return JSON.parse((f.endsWith(".gz") ? gunzipSync(readFileSync(f)) : readFileSync(f)).toString()) as T; };
 /** 表の文字（小数第2位）を、独立に計算した値と比べる。表の値は足し算の順序の違いで、ちょうど .5 の境目だけ最後の桁が1違うことがある */
@@ -69,6 +71,35 @@ const same = (text: string, expected: number, label: string) => {
   assert.deepEqual(asc.map(r => r.id), ["d", "b", "c", "a", "f", "e"], "少ない順でも値なしは最後");
   assert.deepEqual(sharedRanks(desc, r => r.pts, true), [1, 2, 3, 3, 5, null], "同値は同順位・次は飛ばす・値なしは空");
   console.log("シュート成功率の一覧: 対象の選び方・並べ替え・順位 OK");
+}
+
+// ---- サブタイトルの条件・タイトル・並び順 ----
+{
+  // 選び方・並び順の書き方
+  assert.equal(shootSelectionLabel({ kind: "min", value: 15 }), "得点15以上");
+  assert.equal(shootSelectionLabel({ kind: "top", n: 20 }), "得点上位20人");
+  assert.equal(shootSortLabel("TS%", true), "TS%↓", "大きい順は↓（Four Factors の「ORtg↓」と同じ）");
+  assert.equal(shootSortLabel("DRtg", false), "DRtg↑", "小さい順は↑");
+  // タイトル: 相手の視点は頭に「相手の」（ランキングと同じ）、差・自チーム・選手は付けない
+  assert.equal(shootTitle("opp"), "相手のシュート成功率"); assert.equal(shootTitle("own"), "シュート成功率"); assert.equal(shootTitle("diff"), "シュート成功率"); assert.equal(shootTitle(null), "シュート成功率");
+  // 視点の条件: ランキングと同じ書き方（差は「+/-」）。相手はタイトルに入るので重ねない。自チームは書かない
+  assert.deepEqual(teamShootViewConditions("diff"), [TEAM_PERSPECTIVE_LABELS.diff]); assert.equal(TEAM_PERSPECTIVE_LABELS.diff, "+/-");
+  assert.deepEqual(teamShootViewConditions("opp"), [], "相手の視点はサブタイトルに重ねない");
+  assert.deepEqual(visibleConditionLabels(teamShootViewConditions("own")), [], "自チームは書かない");
+  // 初期の並び順
+  assert.deepEqual(teamShootDefaultSort("own"), { key: "rating", descending: true }); assert.deepEqual(teamShootDefaultSort("diff"), { key: "rating", descending: true });
+  assert.deepEqual(teamShootDefaultSort("opp"), { key: "rating", descending: false }, "相手は DRtg の低い順（良い順）");
+  // 選手: 何も絞っていなければ「期間／試合区分／選び方／出場率／並び順」だけ。絞ったら条件が並ぶ（順は 選び方→登録区分→クラブ・ポジション・詳細フィルター→出場率→強調→並び順）
+  const base = { scope: "2026-27 シーズン全体", gameType: "レギュラーシーズン", selection: { kind: "min", value: 15 } as const, classification: ["全選手"], filters: [] as string[], ratio: 85, highlights: [] as string[], sort: "PTS↓" };
+  assert.deepEqual(visibleConditionLabels(playerShootConditions(base)), ["2026-27 シーズン全体", "レギュラーシーズン", "得点15以上", "出場率85%以上", "PTS↓"], "絞っていない条件（全選手など）は載せない");
+  const narrowed = visibleConditionLabels(playerShootConditions({ ...base, selection: { kind: "top", n: 20 }, classification: ["登録区分: 日本人"], filters: ["表示クラブ: 東地区", "出場時間20:00以上", "年齢25以下"], highlights: ["強調: 三遠"], sort: "TS%↓" }));
+  assert.deepEqual(narrowed, ["2026-27 シーズン全体", "レギュラーシーズン", "得点上位20人", "登録区分: 日本人", "表示クラブ: 東地区", "出場時間20:00以上", "年齢25以下", "出場率85%以上", "強調: 三遠", "TS%↓"]);
+  // チーム: 自チームは視点を書かず、差は「+/-」、相手は書かない。並び順は常に最後
+  const tb = { scope: "2026-27 シーズン全体", gameType: "レギュラーシーズン", division: [] as string[], highlights: [] as string[], sort: "ORtg↓" };
+  assert.deepEqual(visibleConditionLabels(teamShootConditions({ ...tb, view: "own" })), ["2026-27 シーズン全体", "レギュラーシーズン", "ORtg↓"]);
+  assert.deepEqual(visibleConditionLabels(teamShootConditions({ ...tb, view: "opp", sort: "DRtg↑" })), ["2026-27 シーズン全体", "レギュラーシーズン", "DRtg↑"]);
+  assert.deepEqual(visibleConditionLabels(teamShootConditions({ ...tb, view: "diff", division: ["東地区"], highlights: ["強調: 三遠"], sort: "NetRtg↓" })), ["2026-27 シーズン全体", "レギュラーシーズン", "+/-", "東地区", "強調: 三遠", "NetRtg↓"]);
+  console.log("シュート成功率: サブタイトルの条件・視点のタイトル・並び順の書き方 OK");
 }
 
 // ---- 3〜4. 実データ ----
@@ -193,6 +224,18 @@ for (const [season, category] of SETS) {
         assert.ok(Math.abs(c.rating!.value! - expected) <= 0.0101, `${label} ${view} ${r.teamName} レーティング ${c.rating!.text} と ${expected}`);
       }
       teamChecks += 2;
+    }
+    // 最初の並び順: 自チーム＝ORtg の高い順・差＝NetRtg の高い順・相手＝DRtg の低い順（集計済み teams.json のレーティングから独立に求める）
+    {
+      const def = teamShootDefaultSort(view);
+      assert.deepEqual(def, { key: "rating", descending: view !== "opp" }, `${label} ${view} 初期の並び`);
+      const first = sortByValue(rows, r => tcells.get(r.teamId)!.rating!.value, def.descending)[0]!;
+      const ratings = rows.map(r => data.teams.find(t => t.teamId === r.teamId)?.advanced as { offRtg?: number; defRtg?: number; netRtg?: number } | undefined).filter(a => a?.offRtg !== undefined) as { offRtg: number; defRtg: number; netRtg: number }[];
+      if (ratings.length === rows.length) {
+        const expected = view === "own" ? Math.max(...ratings.map(a => a.offRtg)) : view === "opp" ? Math.min(...ratings.map(a => a.defRtg)) : Math.max(...ratings.map(a => a.netRtg));
+        assert.ok(Math.abs(tcells.get(first.teamId)!.rating!.value! - expected) <= 0.0101, `${label} ${view}: 先頭の ${tcells.get(first.teamId)!.rating!.text} は ${expected}`);
+        colorChecks++;
+      }
     }
     // 色: 全チームから数え直す。向きは 自チーム・差＝高いほど緑、相手＝低いほど緑。地区で絞っても同じ
     const tref = shootReference(tcells.values(), TEAM_SHOOT_SLOTS.map(d => d.key));

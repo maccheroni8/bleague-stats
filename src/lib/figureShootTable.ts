@@ -96,8 +96,6 @@ export const PLAYER_SHOOT_COLUMNS: readonly ShootColumnDef[] = [
 export type TeamShootView = "own" | "opp" | "diff";
 export const TEAM_SHOOT_VIEWS: readonly TeamShootView[] = ["own", "opp", "diff"];
 export const TEAM_SHOOT_VIEW_LABELS: Record<TeamShootView, string> = { own: "自チーム", opp: "相手（opp）", diff: "差（+/-）" };
-/** 条件・見出しに書く視点（保存画像の見出しの条件） */
-export const TEAM_SHOOT_VIEW_TITLES: Record<TeamShootView, string> = { own: "視点：自チーム", opp: "視点：相手（opp）", diff: "視点：差（自チーム−相手）" };
 
 /**
  * チームの列。列の数と並びは視点によらず同じで、見出しの名前と値の取り先だけが視点で変わる。
@@ -124,3 +122,38 @@ export const TEAM_SHOOT_SLOTS: readonly TeamShootSlot[] = [
 ];
 /** 色の向き: 自チーム・差は高いほど緑、相手は低いほど緑（相手に決められていないほど良い） */
 export const teamShootHigherIsBetter = (view: TeamShootView) => view !== "opp";
+
+// ---- サブタイトルの条件・タイトル・並び順 ----
+
+/** 並べ替えの状態。descending＝値の大きい順 */
+export interface ShootSortState { key: string; descending: boolean }
+
+/** 並び順の書き方（Four Factors の「ORtg↓」と同じ。↓＝値の大きい順、↑＝小さい順） */
+export const shootSortLabel = (label: string, descending: boolean) => `${label}${descending ? "↓" : "↑"}`;
+
+/**
+ * チームの最初の並び順。rating 列（ORtg・DRtg・NetRtg）を良い順にする:
+ * 自チーム＝ORtg の高い順、差＝NetRtg の高い順、相手＝DRtg の低い順（失点の少ないチームが先頭）
+ */
+export const teamShootDefaultSort = (view: TeamShootView): ShootSortState => ({ key: "rating", descending: view !== "opp" });
+
+/** 図のタイトル。相手の視点はランキングと同じく頭に「相手の」を付ける（差は付けない） */
+export const shootTitle = (view: TeamShootView | null) => view === "opp" ? "相手のシュート成功率" : "シュート成功率";
+
+/** 対象の選手の決め方の書き方（サブタイトル・ボタン） */
+export const shootSelectionLabel = (selection: ShootSelection) => selection.kind === "min" ? `得点${selection.value}以上` : `得点上位${selection.n}人`;
+
+/**
+ * 視点のサブタイトルの条件。ランキングと同じ（視点のラベルを条件に並べ、自チームは書かない〔初期値〕。相手は図のタイトルに「相手の」が入るので重ねて書かない）。
+ * 差はランキングで「+/-」と書く
+ */
+export const teamShootViewConditions = (view: TeamShootView): string[] => view === "diff" ? ["+/-"] : [];
+
+/** 選手の図のサブタイトル（画面・保存画像・ファイル名で共通）。絞っていない条件（全選手・全クラブなど）は呼ぶ側が渡さない */
+export function playerShootConditions(p: { scope: string; gameType: string; selection: ShootSelection; classification: readonly string[]; filters: readonly string[]; ratio: number; highlights: readonly string[]; sort: string }): string[] {
+  return [p.scope, p.gameType, shootSelectionLabel(p.selection), ...p.classification, ...p.filters, `出場率${p.ratio}%以上`, ...p.highlights, p.sort].filter(Boolean);
+}
+/** チームの図のサブタイトル */
+export function teamShootConditions(p: { scope: string; gameType: string; view: TeamShootView; division: readonly string[]; highlights: readonly string[]; sort: string }): string[] {
+  return [p.scope, p.gameType, ...teamShootViewConditions(p.view), ...p.division, ...p.highlights, p.sort].filter(Boolean);
+}
