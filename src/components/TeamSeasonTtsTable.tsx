@@ -12,13 +12,13 @@ interface SeasonRow {
   teamName: string;
   games: number;
   values: TtsRowValues | null;
-  /** loading＝読み込み中／unreadable＝読めなかった／unsupported＝2019-20以前／ready */
+  /** loading＝読み込み中／unreadable＝読めなかった／unsupported＝導出データの無いシーズン（今は無い）／ready */
   status: "ready" | "loading" | "unreadable" | "unsupported";
 }
 
 /**
  * チーム詳細「チームスタッツ」のシーズン別成績の Time to Shot（DESIGN.md 290章）。シーズンごとに1行、レギュラーシーズンの試合の合計。
- * 視点（自チーム／opp／+/-）と区間（Q別・前後半）が連動する。2019-20以前のシーズンは「-」
+ * 視点（自チーム／opp／+/-）と区間（Q別・前後半）が連動する。導出データの無いシーズンは「-」
  */
 export function TeamSeasonTtsTable({
   teamId,

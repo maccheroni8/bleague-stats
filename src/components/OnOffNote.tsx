@@ -1,4 +1,4 @@
-// on/off タブの注記（src/lib/playerOnOffColumns.ts）。出せない理由（2016-17〜2019-20・Q別・前後半）と、数え方の要点
+// on/off タブの注記（src/lib/playerOnOffColumns.ts）。出せない理由（Q別・前後半）と、数え方の要点
 import { onOffUnavailableReason } from "../lib/playerOnOffColumns";
 
 export function OnOffNote({ seasons, periodSelected }: { seasons: readonly string[]; periodSelected: boolean }) {

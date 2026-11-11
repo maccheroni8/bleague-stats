@@ -723,7 +723,7 @@ interface LineupAccumulator {
   netPoints: number;
   ownPoints: number;
   oppPoints: number;
-  /** 実際のポゼッション数（スティントの数え上げの合計。2020-21以降。DESIGN.md 207章）。数え上げが無いシーズンは hasPoss が false のまま */
+  /** 実際のポゼッション数（スティントの数え上げの合計。全シーズン。DESIGN.md 207・372章）。数え上げが無い試合だけのときは hasPoss が false のまま */
   ownPoss: number;
   oppPoss: number;
   hasPoss: boolean;
@@ -821,9 +821,9 @@ export async function aggregateSeason(season: string, category: Category = "prem
   const teamLineups = new Map<string, Map<string, LineupAccumulator>>();
   /** チームごとの、ラインナップを集計した試合（ScheduleKey）の集合 */
   const teamLineupGames = new Map<string, Set<string>>();
-  /** チームごとの出場区間の数え上げ（2020-21以降。team-stints/ に保存する。DESIGN.md 204章） */
+  /** チームごとの出場区間の数え上げ（全シーズン。team-stints/ に保存する。DESIGN.md 204・372章）。数え上げの無い試合（PBP の無い試合・旧形式の前後半5分の特別な試合）は入らない */
   const teamStints = new Map<string, TeamStintsBuilder>();
-  const writeTeamStints = substitutionModelForSeason(season) === "modern";
+  const writeTeamStints = true;
   /** アシストペアの試合ごとの行（B.PREMIERのレギュラーシーズン・ポストシーズン。assist-pairs.json.gz） */
   const assistPairGames: { key: string; rows: AssistPairRow[] }[] = [];
 
@@ -1500,7 +1500,7 @@ function collectTeamStints(game: StoredGame, store: Map<string, TeamStintsBuilde
 }
 
 /**
- * 1試合分の出場中の材料（在コート基準の再集計。shared/playerOnCourt.ts・DESIGN.md 304章）。数え上げのある試合（2020-21以降のプレーバイプレーのある試合）だけ。
+ * 1試合分の出場中の材料（在コート基準の再集計。shared/playerOnCourt.ts・DESIGN.md 304章）。数え上げのある試合（プレーバイプレーのある試合。旧形式の前後半5分の特別な試合を除く。372章）だけ。
  * チームごとの品質・出場区間の合計・選手のピリオド別の材料と、FGにつながったアシスト
  */
 interface GameOnCourtMaterials {

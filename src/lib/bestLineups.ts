@@ -169,10 +169,10 @@ export function ocChoices(groups: readonly BestLineupGroup[], size: BestLineupSi
 
 /** 下限のスライダー（最小は導出データが持つ候補の下限。それより下は選べない。最大・刻みは人数ごと。DESIGN.md 371章） */
 export const BEST_LINEUP_SLIDER: Record<BestLineupSize, { min: number; max: number; step: number }> = {
-  5: { min: 100, max: 600, step: 50 },
-  4: { min: 400, max: 1400, step: 100 },
-  3: { min: 800, max: 2000, step: 100 },
-  2: { min: 1200, max: 3000, step: 100 },
+  5: { min: 50, max: 600, step: 50 },
+  4: { min: 200, max: 1400, step: 100 },
+  3: { min: 400, max: 2000, step: 100 },
+  2: { min: 600, max: 3000, step: 100 },
 };
 
 /** URL の下限を、スライダーの範囲・刻みに収める */

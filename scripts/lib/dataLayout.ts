@@ -45,8 +45,8 @@ export const SEASON_DERIVED_ENTRIES = [
 
 /**
  * SEASON_DERIVED_ENTRIES のうち、シーズンによっては作られないもの（作成済みかの判定から外す）。
- * team-stints は 2020-21 以降だけ（2019-20 以前は実際のポゼッションの元になる交代の記録が使えない。DESIGN.md 204章）。
- * team-tts.json.gz（Time to Shot）も 2020-21 以降だけ。player-foreign.json.gz（選手の On-Court Foreign の人数別の材料。DESIGN.md 304章）も 2020-21 以降だけ。
+ * team-stints・team-tts.json.gz（Time to Shot）・player-foreign.json.gz（選手の On-Court Foreign の人数別の材料。DESIGN.md 304章）は、372章から全シーズンで作るが、
+ * 数え上げのある試合が1つも無いシーズン・リーグでは作られないことがあるので、作成済みかの判定からは外したままにする。
  * ここに足すのは、シーズンによって作られないと分かっているものだけ。作られるはずのファイルを足すと、作成漏れに気付けなくなる
  */
 export const SEASON_OPTIONAL_DERIVED_ENTRIES = ["team-stints", "team-tts.json.gz", "player-foreign.json.gz"] as const;

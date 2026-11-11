@@ -1,4 +1,5 @@
 import { usePlayerFigureFilter } from './usePlayerFigureFilter';
+import { onCourtShareSeasonUnsupported } from '../lib/onCourtShareSeason';
 import { buildPlayerFigurePoints, passesRatio } from '../lib/figurePlayerPoints';
 import { useMemo, useRef, useState } from 'react';
 import { fetchPlayers, fetchTeams, fetchPlayerGameLogs, fetchTeamGameLogs, fetchDivisionHistory, fetchSeasonRegistrations, playerPhotoUrl,  } from '../lib/data';
@@ -71,7 +72,7 @@ export default function TopScorersFigure({season,category}:FigureProps){
  const points=useMemo(()=>request.data?buildTopScorers(request.data,{season,category,range:filter.range,gameType,classification,minRatio,remainingByTeam:ach.remaining,allowed}):[],[request.data,season,category,filter,gameType,classification,minRatio,ach.remaining,allowed]);
  const playerLabel=usePlayerLabel(points.map(p=>p.name));
  const hl=useHighlightClubs({season,category,teams,divisionOf});
- const axesAvailable=SCORER_AXES.filter(a=>season>='2020-21'||(a!=='on'&&a!=='share'));
+ const axesAvailable=SCORER_AXES.filter(a=>!onCourtShareSeasonUnsupported(season)||(a!=='on'&&a!=='share'));
  const axis=axesAvailable.includes(xParam)?xParam:'win';
  const visible=points;
  const plotted=visible.filter(p=>p.values[axis]!==null),tip=plotted.find(p=>p.id===hover);

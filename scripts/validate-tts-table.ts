@@ -10,7 +10,9 @@ import type { TeamGameLog } from "../shared/types.ts";
 import { sumTtsTotals, ttsItemValues, ttsPerspectiveValues, ttsSeasonSupported, TTS_ITEMS, type TtsSource } from "../src/lib/teamTts.ts";
 import { formatTtsPct, formatTtsSeconds } from "../src/lib/teamTts.ts";
 
-assert.equal(ttsSeasonSupported("2019-20"), false);
+// 372章で 2016-17 から
+assert.equal(ttsSeasonSupported("2016-17"), true);
+assert.equal(ttsSeasonSupported("2019-20"), true);
 assert.equal(ttsSeasonSupported("2020-21"), true);
 assert.equal(formatTtsSeconds(-0.004, "diff"), "0.00");
 assert.equal(formatTtsSeconds(0.004, "diff"), "0.00");

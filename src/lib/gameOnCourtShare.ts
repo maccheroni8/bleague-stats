@@ -9,7 +9,7 @@ import type { PeriodOnCourtShare } from "./playerSeasonBoxscore";
 
 /** 出せない理由 */
 export type OnCourtShareUnavailableReason =
-  /** 2016-17〜2019-20 の試合（出場中の数え上げが無い） */
+  /** 出場中の数え上げが無い試合（372章からは旧形式の前後半5分の特別な試合だけ） */
   | "legacy"
   /** プレーバイプレーが無い試合 */
   | "noPbp"
@@ -64,7 +64,7 @@ export function gamePlayerAstPct(share: PeriodOnCourtShare | null | undefined, p
 }
 
 export const ON_COURT_SHARE_UNAVAILABLE_NOTE: Record<OnCourtShareUnavailableReason, string> = {
-  legacy: "2016-17〜2019-20の試合は、選手の%PTS〜%FTA・AST%を出していません（出場中の記録の数え上げが無いため）",
+  legacy: "この試合は、選手の%PTS〜%FTA・AST%を出していません（前後半5分の特別な試合で、出場中の記録の数え上げが無いため）",
   noPbp: "この試合はプレーバイプレーの記録が無いため、選手の%PTS〜%FTA・AST%を出していません",
   mismatch: "この試合は、出場選手の復元が公式の記録と合わないため、選手の%PTS〜%FTA・AST%を出していません",
 };

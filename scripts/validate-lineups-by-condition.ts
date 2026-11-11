@@ -8,7 +8,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
 import type { TeamLineupsFile, TeamStintsFile } from "../shared/types.ts";
-import { substitutionModelForSeason } from "../shared/onCourt.ts";
+import { GAME_FLAG_SHORT } from "../shared/gameIndex.ts";
 import { lineupMinAvgSeconds, lineupsByCondition } from "../src/lib/lineupsByCondition.ts";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -19,9 +19,11 @@ function check(label: string, ok: boolean, detail = ""): void {
 }
 const readGz = <T>(file: string): T | null => (existsSync(file) ? (JSON.parse(gunzipSync(readFileSync(file)).toString("utf-8")) as T) : null);
 
-const seasons = readdirSync(DATA_DIR).filter((s) => /^\d{4}-\d{2}$/.test(s) && substitutionModelForSeason(s) === "modern").sort();
+// 372章から全シーズン（出場区間のあるシーズン）
+const seasons = readdirSync(DATA_DIR).filter((s) => /^\d{4}-\d{2}$/.test(s) && existsSync(path.join(DATA_DIR, s, "team-stints"))).sort();
 let teamsChecked = 0;
 const mismatches: string[] = [];
+const shortTeams: string[] = [];
 const gamesOffByOne: string[] = [];
 const sumMismatches: string[] = [];
 for (const season of seasons) {
@@ -40,6 +42,21 @@ for (const season of seasons) {
     const typeByKey = new Map(summaries.map((g) => [g.scheduleKey, g.gameType]));
 
     const all = lineupsByCondition(stints, { includeGame: () => true, periods: null });
+    // 旧形式の前後半5分の特別な試合（数え上げない。372章）に出たチーム・シーズンは、ラインナップのファイルにだけその試合の時間・得点が入る。
+    // 攻撃回数は両方ともその試合を含まないので一致し、時間・得点はファイルのほうが多いか同じであることだけを確かめる
+    const tgi = readGz<{ games: { key: string[]; flags: number[] } }>(path.join(DATA_DIR, season, "team-game-index.json.gz"));
+    const shortKeys = new Set((tgi?.games.key ?? []).filter((_, i) => Number(season.slice(0, 4)) < 2020 && (tgi!.games.flags[i]! & GAME_FLAG_SHORT) !== 0));
+    const teamLogs = readGz<{ scheduleKey: string }[]>(path.join(DATA_DIR, season, "team-games", f)) ?? [];
+    if (teamLogs.some((g) => shortKeys.has(g.scheduleKey))) {
+      shortTeams.push(`${season} ${teamId}`);
+      const byKey = new Map(lineups.lineups.map((l) => [l.lineupKey, l]));
+      const okShort = all.lineups.every((l) => {
+        const o = byKey.get(l.lineupKey);
+        return o !== undefined && (o.ownPoss ?? 0) === l.ownPoss && (o.oppPoss ?? 0) === l.oppPoss && o.secondsPlayed >= l.secondsPlayed;
+      });
+      if (!okShort) mismatches.push(`${season} ${teamId}（特別な試合あり）`);
+      continue;
+    }
     // ラインナップのファイルには、時間も得点も無い（出場区間が残っていない）1試合だけの5人組が、ごくまれに入っている。条件別の表には出さない
     const fileLineups = lineups.lineups.filter((l) => !(l.secondsPlayed === 0 && l.ownPoints === 0 && l.oppPoints === 0 && (l.ownPoss ?? 0) === 0 && (l.oppPoss ?? 0) === 0));
     const fileByKey = new Map(fileLineups.map((l) => [l.lineupKey, l]));
@@ -78,6 +95,7 @@ for (const season of seasons) {
     if (!sameSum(parts, whole) || !sameSum({ s: reg.s + po.s, p: reg.p + po.p, o: reg.o + po.o, q: reg.q + po.q }, whole)) sumMismatches.push(`${season} ${teamId}`);
   }
 }
+console.log(`前後半5分の特別な試合に出たチーム・シーズン（攻撃回数の一致と、時間がファイル以下であることだけを確かめた）: ${shortTeams.join("、")}`);
 check(`合算・試合全体の値（出場時間・得点・失点・攻撃回数・並び）が、ラインナップのファイルと一致する（${seasons.join("・")}の ${teamsChecked} クラブ・シーズン）`, teamsChecked > 0 && mismatches.length === 0, mismatches.slice(0, 10).join("\n   "));
 console.log(`参考: 試合数がファイルより1少ない5人組 ${gamesOffByOne.length} 組（0秒だけ出た試合を数えないため）`);
 check("1Q〜4Q＋延長の合計が試合全体と、レギュラー＋ポストが合算と、それぞれ一致する", sumMismatches.length === 0, sumMismatches.slice(0, 10).join("\n   "));

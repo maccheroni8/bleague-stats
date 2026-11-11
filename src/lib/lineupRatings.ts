@@ -1,5 +1,5 @@
-// ラインナップ（5人の組み合わせ）の ORtg・DRtg・NetRtg。実際のポゼッション数があるシーズン（2020-21以降）は実際の値、
-// 無いシーズン（2016-17〜2019-20）は推定値を返す（DESIGN.md 207章）。
+// ラインナップ（5人の組み合わせ）の ORtg・DRtg・NetRtg。実際のポゼッション数があるとき（372章から全シーズン）は実際の値、
+// 無いとき（古い導出データ）は推定値を返す（DESIGN.md 207章）。
 import type { LineupAggregate } from "../../shared/types";
 
 export interface LineupRatings {

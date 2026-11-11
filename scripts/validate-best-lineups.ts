@@ -76,12 +76,12 @@ const groups = new Map<BestLineupSize, BestLineupGroup[]>([...files].map(([s, f]
 const seasons = files.get(5)!.seasons;
 console.log(`シーズン ${seasons.join("・")}`);
 check(
-  "対象のシーズンは 2020-21 から今季まで（収録している B.PREMIER の出場区間のあるシーズンすべて）",
-  seasons[0] === "2020-21" &&
+  "対象のシーズンは 2016-17 から今季まで（収録している B.PREMIER の出場区間のあるシーズンすべて。372章）",
+  seasons[0] === "2016-17" &&
     JSON.stringify(seasons) ===
       JSON.stringify(
         readdirSync(DATA_DIR)
-          .filter((s) => /^\d{4}-\d{2}$/.test(s) && s >= "2020-21" && existsSync(path.join(DATA_DIR, s, "team-stints")))
+          .filter((s) => /^\d{4}-\d{2}$/.test(s) && s >= "2016-17" && existsSync(path.join(DATA_DIR, s, "team-stints")))
           .sort(),
       ),
   seasons.join(","),

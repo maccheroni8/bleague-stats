@@ -1,4 +1,5 @@
 // 画面専用。既存の試合ログと個人詳細の列定義から計算する。
+import { onCourtShareSeasonUnsupported } from './onCourtShareSeason';
 import { isAchievable } from './playerRankingEligibility';
 import type { Category, Division, DivisionHistoryFile, PlayerGameLog, PlayerSummary, TeamGameLog } from '../../shared/types';
 import type { SeasonRegistrationFile } from '../../shared/registration';
@@ -49,13 +50,13 @@ export function buildTopScorers(data:ScorerData,q:ScorerQuery):ScorerPoint[] {
       // USG%・PPP・DRtg の分母は、本人が出場した試合のチーム合計（DESIGN.md 333章）
       const teamTotals=sumTeamGameLogsFor(scoped,new Set(logs.map(g=>g.scheduleKey)));
       const ctx=buildSeasonBoxscoreCtx(raw,teamTotals,'perGame',Number(q.season.slice(0,4)));
-      const on=q.season>='2020-21'?onOffTotalsFromLogs(logs,g=>byKey.get(g.scheduleKey)):null;
+      const on=!onCourtShareSeasonUnsupported(q.season)?onOffTotalsFromLogs(logs,g=>byKey.get(g.scheduleKey)):null;
       const wins=logs.filter(g=>g.win).length;
       const singleTeam=(data.playerLogs.get(p.playerId)??[]).filter(g=>g.min>0&&g.gameType==='regular').length===logs.length;
       candidates.push({id:`${p.playerId}@${team.teamId}`,playerId:p.playerId,name:p.name,...team,
         division:data.divisions?.[q.category]?.[q.season]?.[team.teamId],games:logs.length,teamGames:scoped.length,wins,
         pts:raw.pts/raw.gamesPlayed,totalPts:raw.pts,minutes:raw.min,
-        values:{win:100*wins/logs.length,min:raw.gamesPlayed>0?raw.min/raw.gamesPlayed:null,share:q.season>='2020-21'?onCourtSharePct(raw,raw.ocPts,raw.ocTeamPts):null,
+        values:{win:100*wins/logs.length,min:raw.gamesPlayed>0?raw.min/raw.gamesPlayed:null,share:!onCourtShareSeasonUnsupported(q.season)?onCourtSharePct(raw,raw.ocPts,raw.ocTeamPts):null,
           efg:raw.fga>0?100*(raw.fgm+0.5*raw.tpm)/raw.fga:null,
           on:on&&on.on.ownPoss>0?100*on.on.ownPts/on.on.ownPoss:null,
           ppp:pppOfRaw(raw)??null,

@@ -14,6 +14,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import path from "node:path";
 import { sumForeignCourt, sumForeignDetail, FOREIGN_COUNTS } from "../src/lib/teamForeignCourt.ts";
+import { GAME_FLAG_SHORT } from "../shared/gameIndex.ts";
 import { seasonOnCourtSummary, seasonOnCourtSummaryFromDetail, lineupSeasonTotals } from "../src/lib/teamLineupOnCourt.ts";
 
 const DATA = path.resolve("data");
@@ -28,6 +29,7 @@ const totalDiffs: { season: string; team: string; period: string; kind: string; 
 let totalNg = 0;
 let totalChecked = 0;
 const rtgChanges: string[] = [];
+const shortLegacyTeams: string[] = [];
 for (const season of seasons) {
   if (!existsSync(`${DATA}/${season}/team-period-index.json.gz`)) continue;
   const file = rj(`${DATA}/${season}/team-period-index.json`);
@@ -80,7 +82,11 @@ for (const season of seasons) {
     const legacy = seasonOnCourtSummary(lf.lineups, classify, max, legacyTotals, { teamPoss: t.advanced.poss, teamMin: t.totals.min });
     const detail = sumForeignDetail(source, logs.filter((g: any) => g.min > 0), "all")!;
     const now = seasonOnCourtSummaryFromDetail(detail, max);
-    if (now.real !== legacy.real) summaryNg++;
+    // 旧形式の前後半5分の特別な試合（数え上げない。372章）に出たチーム・シーズンは、その試合を時間・得点には入れ、レーティングからは外す（sumForeignDetail）。
+    // ラインナップのファイルのレーティングはその試合の得点も含むので値は比べず、実際の攻撃回数で出ることだけを確かめる
+    const shortLegacy = Number(season.slice(0, 4)) < 2020 && logs.some((g: any) => (tgi.games.flags[gameNo.get(g.scheduleKey)!]! & GAME_FLAG_SHORT) !== 0);
+    if (shortLegacy) shortLegacyTeams.push(`${season} ${t.teamId}`);
+    if (shortLegacy ? !now.real : now.real !== legacy.real) summaryNg++;
     for (let i = 0; i < now.rows.length; i++) {
       const a = now.rows[i]!;
       const b = legacy.rows[i]!;
@@ -89,7 +95,7 @@ for (const season of seasons) {
         if (summaryNg < 4) console.log("summary mismatch", season, t.teamId, a, b);
       }
       const close = (x: number | null, y: number | null) => (x === null && y === null) || (x !== null && y !== null && Math.abs(x - y) < 1e-6);
-      if (!close(a.ortg, b.ortg) || !close(a.drtg, b.drtg)) {
+      if (!shortLegacy && (!close(a.ortg, b.ortg) || !close(a.drtg, b.drtg))) {
         if (now.real) summaryNg++;
         else if (a.seconds > 0) rtgChanges.push(`${season}\t${t.teamId}\t${t.teamName}\tOC${a.count}\t${b.ortg?.toFixed(1)}→${a.ortg?.toFixed(1)}\t${b.drtg?.toFixed(1)}→${a.drtg?.toFixed(1)}`);
       }
@@ -135,5 +141,6 @@ console.log(rtgChanges.slice(0, 8).join("\n"));
 const bySeason = new Map<string, Set<string>>();
 for (const l of rtgChanges) { const [s, id] = l.split("\t"); if (!bySeason.has(s!)) bySeason.set(s!, new Set()); bySeason.get(s!)!.add(id!); }
 for (const [s, ids] of bySeason) console.log(`${s} 推定のレーティングが変わるチーム ${ids.size}`);
+console.log(`前後半5分の特別な試合に出たチーム・シーズン（オンザコート別のレーティングはその試合を除いて実際の攻撃回数で出す）: ${shortLegacyTeams.join("、")}`);
 console.log(ng === 0 ? "すべて ok" : `NG ${ng}`);
 if (ng > 0) process.exit(1);

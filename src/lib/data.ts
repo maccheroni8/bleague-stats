@@ -170,7 +170,7 @@ export function fetchGame(season: string, scheduleKey: string, league: League = 
   return fetchJson<StoredGame>(`${categoryBase(season, league)}/games/${scheduleKey}.json`).then(fillUnnamedPlayers).then(withChronologicalPlayByPlays);
 }
 
-/** 選手の On-Court Foreign の人数別の材料（data/{season}/player-foreign.json。2020-21以降。無いシーズン・読めないときは null。DESIGN.md 304章） */
+/** 選手の On-Court Foreign の人数別の材料（data/{season}/player-foreign.json。全シーズン〈372章〉。無いシーズン・読めないときは null。DESIGN.md 304章） */
 export async function fetchPlayerForeign(season: string, league: League = "premier"): Promise<PlayerForeignFile | null> {
   try {
     return await fetchJson<PlayerForeignFile>(`${categoryBase(season, league)}/player-foreign.json`);
@@ -336,7 +336,7 @@ export async function fetchTeamPeriodIndex(season: string, league: League = "pre
   }
 }
 
-/** Time to Shot の導出データ（data/{season}/team-tts.json）。2020-21 より前・ファイルが無ければ null */
+/** Time to Shot の導出データ（data/{season}/team-tts.json）。2016-17 より前・ファイルが無ければ null */
 export async function fetchTeamTtsIndex(season: string, league: League = "premier"): Promise<TtsIndexFile | null> {
   try {
     return await fetchJson<TtsIndexFile>(`${categoryBase(season, league)}/team-tts.json`);

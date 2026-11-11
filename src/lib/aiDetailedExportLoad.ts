@@ -6,7 +6,7 @@ import { splitClassificationSeason } from './classificationFilter';
 import { loadTeamPeriodSource } from './teamPeriodTotals';
 import { loadSeasonPeriodSource } from './seasonPeriod';
 import { TIME_SLICE_CHOICES } from './aiExportScope';
-import { loadTtsSource } from './teamTts';
+import { loadTtsSource, ttsSeasonSupported } from './teamTts';
 import { seasonRuleFor } from '../../shared/seasonRules';
 import { isSupportedGameIndex, playerGameAt, viewPlayerGameIndex } from './gameIndex';
 import { previousSeason } from './seasonCompare';
@@ -71,12 +71,12 @@ export async function loadDetailedExport(season: string, teamId: string, choice:
   const [history, division] = await Promise.all([source.fetchTeamHistory(), source.fetchDivisionHistory()]);
   const [cur, prev] = await Promise.all([loadDetailedSeason(source, season, teamId, division, league), prevSeason ? loadDetailedSeason(source, prevSeason, teamId, division, league) : Promise.resolve(null)]);
   if (!cur) throw new Error('対象チームの記録がありません。');
-  // オンザコート別・Time to Shot の索引（チーム情報だけ）。読めないときは空の表にせず止める（Time to Shot は2020-21より前は無い）
+  // オンザコート別・Time to Shot の索引（チーム情報だけ）。読めないときは空の表にせず止める
   let periodSource: DetailedInput['periodSource'] = null, ttsSource: DetailedInput['ttsSource'] = null, maxForeignOnCourt: number | undefined;
   if (choice.kind === 'team') {
     const [tp, tts, rules] = await Promise.all([source.loadTeamPeriodSource(season, league), source.loadTtsSource(season, league), source.fetchSeasonRules()]);
     if (!tp) throw new Error('チームの区間の索引を確認できません。');
-    if (season >= '2020-21' && !tts) throw new Error('Time to Shot の記録を確認できません。');
+    if (ttsSeasonSupported(season) && !tts) throw new Error('Time to Shot の記録を確認できません。');
     periodSource = tp; ttsSource = tts;
     maxForeignOnCourt = seasonRuleFor(rules, season, league)?.maxForeignOnCourt ?? 4;
   }

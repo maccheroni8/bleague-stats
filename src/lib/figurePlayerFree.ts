@@ -35,7 +35,7 @@ export const DEFAULT_PLAYER_FREE_Y = playerFreeItemId("traditional", "pts");
 export const PLAYER_FREE_ON_COURT_SHARE_KEYS: ReadonlySet<string> = new Set(["pctpts", "pctfgm", "pctfga", "pct3pm", "pct3pa", "pct2pm", "pct2pa", "pctftm", "pctfta", "astpct"]);
 /** 出場中の割合の項目を出せないシーズンの理由（ランキングの ON_COURT_SHARE_LEGACY_REASON と同じ文） */
 export const PLAYER_FREE_ON_COURT_REASON = (label: string) =>
-  `「${label}」は選手の出場中の記録から計算するため、2016-17〜2019-20のシーズンは出していません（出場中の記録の数え上げが無いため）。`;
+  `「${label}」は選手の出場中の記録から計算するため、このシーズンは出していません（出場中の記録の数え上げが無いため）。`;
 /** シーズン通算の値で出す項目（期間・試合種別の絞り込みは効かない）: Shooting と PER */
 export const isPlayerFreeSeasonTotal = (item: Pick<PlayerFreeItem, "category" | "key">) => item.category === "shooting" || (item.category === "advanced" && item.key === "per");
 

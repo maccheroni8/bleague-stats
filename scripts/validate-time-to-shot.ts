@@ -45,7 +45,8 @@ const sides=calculateTimeToShot(fixture([[4,'9:50','A'],[4,'9:30','B'],[4,'9:55'
 assert.equal(sumTts(sides.shots,'A').quarter.seconds,10);
 assert.equal(sumTts(sides.shots,'B').score.seconds,20);
 assert.equal(sumTts(sides.shots,'B',[2]).quarter.seconds,5);fixtureChecks++;
-assert.throws(()=>calculateTimeToShot({...fixture([]),season:'2019-20'}));fixtureChecks++;
+// 2016-17〜2019-20 も計算する（DESIGN.md 372章）。旧形式のチームリバウンドの番号（18＝OR・19＝DR）で読む
+{const legacyReb=calculateTimeToShot({...fixture([[5,'9:50','A'],[19,'9:48','B'],[4,'9:40','B']]),season:'2019-20'});assert.equal(legacyReb.shots[1]!.category,'dreb');assert.equal(legacyReb.shots[1]!.seconds,8);fixtureChecks++;}
 const probe=calculateTimeToShot(fixture([[13,'9:50','A'],[4,'9:45','B',1,'ファストブレイク']]));
 assert.equal(probe.diagnostics.filter(d=>d.reason==='unpaired_to_fastbreak_no_stop').length,1);fixtureChecks++;
 
@@ -55,12 +56,11 @@ interface SeasonAudit {
  over24:Record<string,number>; over24Category:Record<string,number>; mismatch:unknown[]; teams:Record<string,unknown>;
  checks:number; invalidBox:number; over24Seconds:Record<string,number>; maxSeconds:number;
 }
-const seasons=readdirSync(path.join(ROOT,'data')).filter(s=>/^20\d\d-\d\d$/.test(s)&&s>=(args.includes('--legacy-research')?'2016-17':'2020-21')).sort();
+const seasons=readdirSync(path.join(ROOT,'data')).filter(s=>/^20\d\d-\d\d$/.test(s)&&s>='2016-17').sort();
 const report:{definition:string;fixtureChecks:number;seasons:SeasonAudit[];examples:Record<string,unknown[]>;over24Examples:Record<string,unknown[]>;diagnosticExamples:Record<string,unknown[]>;sourceCommit:string}={definition:'stage2-v1; FG only; all stored completed games, including regular/postseason/special games; no B.ONE; no garbage/heave removal',fixtureChecks,seasons:[],examples:{},over24Examples:{},diagnosticExamples:{},sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:ROOT,encoding:'utf8'}).trim()};
 function keep(map:Record<string,unknown[]>,key:string,item:unknown,limit=3){const a=map[key]??=[];if(a.length<limit)a.push(item);}
 function timeline(events:TtsMark[],start:TtsMark|null,end:TtsMark){return events.filter(e=>e.period===end.period && e.index>=(start?.index??Math.max(0,end.index-8)) && e.index<=end.index && ![84,85,86,87,12,15].includes(e.code));}
 for(const season of seasons) {
- if(args.includes('--legacy-research') && season>='2020-21')continue;
  if(value('--season') && value('--season')!==season)continue;
  const a:SeasonAudit={season,games:0,noPbp:[],unfinished:[],boxFga:0,pbpFga:0,measured:0,excluded:{},noShots:{},other:{},diagnostics:{},over24:{},over24Category:{},mismatch:[],teams:{},checks:0,invalidBox:0,over24Seconds:{},maxSeconds:0};
  const teamShots=new Map<string,TtsShot[]>();const names=new Map<string,string>();
@@ -71,7 +71,7 @@ for(const season of seasons) {
   const boxes=[boxFga(g.raw.HomeBoxscores),boxFga(g.raw.AwayBoxscores)];
   for(const b of boxes){if(b===null)a.invalidBox++;else a.boxFga+=b;}
   if(!g.raw.PlayByPlays?.length){a.noPbp.push(String(g.scheduleKey));bump(a.excluded,'no_pbp_fga',(boxes[0]??0)+(boxes[1]??0));continue;}
-  const r=calculateTimeToShot(g,{legacyResearch:args.includes('--legacy-research')});
+  const r=calculateTimeToShot(g);
   const suspectTo=new Set(r.diagnostics.filter(d=>d.reason==='unpaired_to_nearby_steal'||d.reason==='unpaired_to_fastbreak_no_stop').map(d=>d.event.index));
   bump(a.diagnostics,'suspect_to_union',suspectTo.size);a.pbpFga+=r.shots.length;
   const rawFG=g.raw.PlayByPlays.filter(e=>[1,2,3,4,5,6].includes(e.ActionCD1));

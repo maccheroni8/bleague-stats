@@ -8,12 +8,15 @@
 export type BestLineupSize = 2 | 3 | 4 | 5;
 export const BEST_LINEUP_SIZES: readonly BestLineupSize[] = [2, 3, 4, 5];
 
-/** 攻守それぞれのポゼッションの下限の選択肢（人数ごと。最初の値は DEFAULT）。ファイルには最も小さい選択肢以上の組を入れる */
+/**
+ * 攻守それぞれのポゼッションの下限の選択肢（人数ごと）。ファイルには最も小さい選択肢以上の組を入れる。
+ * 最も小さい値は、シーズン途中で試合が少なくても組が出るように下げた（5人 50・4人 200・3人 400・2人 600。DESIGN.md 372章）
+ */
 export const BEST_LINEUP_MIN_POSS_OPTIONS: Record<BestLineupSize, readonly number[]> = {
-  5: [100, 200, 400],
-  4: [400, 600, 1000],
-  3: [800, 1200, 1600],
-  2: [1200, 1800, 2400],
+  5: [50, 200, 400],
+  4: [200, 600, 1000],
+  3: [400, 1200, 1600],
+  2: [600, 1800, 2400],
 };
 /**
  * 最初の下限。2〜4人は、5人組（100・200・400）とレギュラーシーズンの対象の組の数が近くなる値にした（2026-11-11 の数え。
@@ -21,8 +24,8 @@ export const BEST_LINEUP_MIN_POSS_OPTIONS: Record<BestLineupSize, readonly numbe
  */
 export const BEST_LINEUP_MIN_POSS_DEFAULT: Record<BestLineupSize, number> = { 5: 200, 4: 600, 3: 1200, 2: 1800 };
 
-/** 対象の最初のシーズン（実際のポゼッションを数えているシーズン） */
-export const BEST_LINEUP_FIRST_SEASON = "2020-21";
+/** 対象の最初のシーズン（実際のポゼッションを数えているシーズン。372章で 2016-17 から） */
+export const BEST_LINEUP_FIRST_SEASON = "2016-17";
 
 export function bestLineupFileName(size: BestLineupSize): string {
   return `best-lineups-${size}.json.gz`;

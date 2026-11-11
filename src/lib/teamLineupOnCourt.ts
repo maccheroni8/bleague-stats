@@ -63,7 +63,7 @@ export interface EstimatedPace {
 }
 
 /**
- * シーズン単位のオンザコート別の合計。行は人数（上限から0）と、必要なら集計外。ORtg・DRtg・NetRtg は、実際のポゼッションがあるシーズン（2020-21以降）は
+ * シーズン単位のオンザコート別の合計。行は人数（上限から0）と、必要なら集計外。ORtg・DRtg・NetRtg は、実際のポゼッションがあるとき（372章から全シーズン）は
  * 5人組の攻撃回数の合計から、無いシーズンは今のラインナップの表と同じ推定（チームのシーズン平均のペースで時間から按分）で出す。集計外の行は出さない（null）
  */
 export function seasonOnCourtSummary(
@@ -126,7 +126,7 @@ export function seasonOnCourtSummary(
 /**
  * 試合区分・区間を選べるオンザコート別の合計（DESIGN.md 256章の段階3）。材料はチームのピリオド別の索引（src/lib/teamForeignCourt.ts の sumForeignDetail）。
  * 人数を数えた時間・得点・失点は、よく使われるラインナップと同じ数え方（試合区分が合算・区間が試合全体なら、ラインナップのファイルからの値と同じ）。
- * ORtg・DRtg・NetRtg は、人数ごとの攻撃回数がある（2020-21以降）ときはその値、無いときは推定（その条件のチームの攻撃回数を、時間の割合で人数ごとに分ける。256-7章の決定4）。
+ * ORtg・DRtg・NetRtg は、人数ごとの攻撃回数がある（372章から全シーズン）ときはその値、無いときは推定（その条件のチームの攻撃回数を、時間の割合で人数ごとに分ける。256-7章の決定4）。
  * 規定の上限を超える人数の時間は集計外に入る（今までと同じ）
  */
 export function seasonOnCourtSummaryFromDetail(
@@ -151,13 +151,13 @@ export function seasonOnCourtSummaryFromDetail(
     const pct = countedSeconds > 0 ? (100 * s.seconds) / countedSeconds : null;
     const b = detail.byCount[s.count]!;
     const est = detail.seconds > 0 ? (detail.teamPoss * s.seconds) / detail.seconds : 0;
-    const ortg = per100(s.ownPoints, real ? b.ownPoss : est);
-    const drtg = per100(s.oppPoints, real ? b.oppPoss : est);
+    const ortg = per100(real ? (b.ratingOwnPoints ?? s.ownPoints) : s.ownPoints, real ? b.ownPoss : est);
+    const drtg = per100(real ? (b.ratingOppPoints ?? s.oppPoints) : s.oppPoints, real ? b.oppPoss : est);
     return { ...s, pct, ortg, drtg, netRtg: ortg !== null && drtg !== null ? ortg - drtg : null };
   });
   // 合計の行: 実際の攻撃回数は、集計外（人数の上限を超える人数）も含めた全人数の合計。推定は条件のチームの攻撃回数
   const total = real
-    ? totalRatings(totals.ownPoints, totals.oppPoints, detail.byCount.reduce((a, b) => a + b.ownPoss, 0), detail.byCount.reduce((a, b) => a + b.oppPoss, 0))
+    ? totalRatings(detail.ratingOwnPoints ?? totals.ownPoints, detail.ratingOppPoints ?? totals.oppPoints, detail.byCount.reduce((a, b) => a + b.ownPoss, 0), detail.byCount.reduce((a, b) => a + b.oppPoss, 0))
     : totalRatings(totals.ownPoints, totals.oppPoints, detail.teamPoss, detail.teamPoss);
   return { rows, real, totals, games: detail.games, total };
 }

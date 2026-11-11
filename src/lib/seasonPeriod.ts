@@ -205,7 +205,7 @@ export function seasonPeriodTotalsOf(
   for (const c of PLAYER_PERIOD_STAT_COLUMNS) sum[c] = 0;
   let found = false;
   let hasPlusMinus = false;
-  // 出場中の割合の材料（2020-21以降の索引だけが持つ列。割合の品質ビットが立たない試合・値の無い行は持たせない）
+  // 出場中の割合の材料（372章から全シーズンの索引が持つ列。古い索引には無い。割合の品質ビットが立たない試合・値の無い行は持たせない）
   const oc = { pts: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, fgAssists: 0 };
   let ocOk = source.period.file.rows.stats["ocQuality"] !== undefined;
   // ポイントクリエイトの材料（本人のアシストから生まれた得点。古い索引には無い。値が -1 の行はプレーバイプレーの無い試合。DESIGN.md 333章）

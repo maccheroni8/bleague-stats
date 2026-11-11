@@ -811,7 +811,9 @@ async function checkForeignDetail(d: SeasonData): Promise<void> {
   const classification = new Map(players.map((p) => [p.playerId, p.classification]));
   const rules = (await readJson<SeasonRules[]>(path.join(DATA_DIR, "season-rules.json"))) ?? [];
   const max = rules.find((r) => r.season === season)?.maxForeignOnCourt ?? 4;
-  const modern = Number(season.slice(0, 4)) >= 2020;
+  // 攻撃回数（Poss の列）は全シーズンで持つ（372章）。持たないのは旧形式の前後半5分の特別な試合（数え上げない）だけ
+  const legacySeason = Number(season.slice(0, 4)) < 2020;
+  const modern = true; // 372章から全シーズンで攻撃回数を持つ（前は 2020-21 以降だけ）
   const teamOfRow = new Map<number, string>();
   const logOfRow = new Map<number, TeamGameLog>();
   const gameNumber = new Map(teamIndex.games.key.map((k, i) => [k, i]));
@@ -833,6 +835,7 @@ async function checkForeignDetail(d: SeasonData): Promise<void> {
     const log = logOfRow.get(r)!;
     const gi = Math.floor(r / 2);
     const short = (teamIndex.games.flags[gi]! & GAME_FLAG_SHORT) !== 0;
+    const withPoss = !(legacySeason && short);
     const seconds = TEAM_PERIOD_FOREIGN_COLUMNS.map((c) => all(c, r));
     const expectSeconds = log.foreignCourtSeconds ?? [-1, -1, -1, -1, -1];
     if (seconds.some((v, i) => v !== expectSeconds[i])) {
@@ -843,8 +846,8 @@ async function checkForeignDetail(d: SeasonData): Promise<void> {
     for (const c of [...TEAM_PERIOD_FOREIGN_COLUMNS, ...TEAM_PERIOD_FOREIGN_DETAIL_COLUMNS]) {
       const whole = all(c, r);
       const isPoss = c.endsWith("Poss");
-      if (isPoss && (modern ? whole < 0 : whole !== -1)) possNg += 1;
-      if (!short && !(isPoss && !modern)) {
+      if (isPoss && (withPoss ? whole < 0 : whole !== -1)) possNg += 1;
+      if (!short && !(isPoss && !withPoss)) {
         const sum = PERIOD_ATOMS.reduce((a, at) => a + Math.max(0, team.rows.counts[`${at}.${c}`]?.[r] ?? Number.NaN), 0);
         if (Math.abs(sum - whole) > 1e-9) {
           sumNg += 1;
@@ -891,7 +894,7 @@ async function checkForeignDetail(d: SeasonData): Promise<void> {
   }
   ok(`${season} 人数別の秒数（試合全体）= 試合ログ（${teamOfRow.size}行）`, wholeNg === 0, `${wholeNg} ${first}`);
   ok(`${season} 人数別の得点・失点・攻撃回数・秒数の区間の合計 = 試合全体（特別な試合を除く）`, sumNg === 0, `${sumNg} ${first}`);
-  ok(`${season} 攻撃回数の列は${modern ? "値がある" : "すべて -1"}`, possNg === 0, `${possNg}`);
+  ok(`${season} 攻撃回数の列は値がある（旧形式の前後半5分の特別な試合だけ -1）`, possNg === 0, `${possNg}`);
   ok(`${season} チームのシーズンの人数別の合計 = よく使われるラインナップを人数ごとに足した値（${lineupTeams}チーム）`, lineupNg === 0, `${lineupNg} ${first}`);
 }
 

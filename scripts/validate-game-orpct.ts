@@ -148,10 +148,16 @@ check("5854 ジェフ・ギブス 15.0%", round1(pctOf(g5854.game, g5854.stints,
 check("5854 ジャック・クーリー 21.9%", round1(pctOf(g5854.game, g5854.stints, "クーリー")) === 21.9, String(pctOf(g5854.game, g5854.stints, "クーリー")));
 check("507159 ジェイコブ・ポラコヴィッチ 25.0%", round1(pctOf(g507159.game, g507159.stints, "ポラコヴィッチ")) === 25.0, String(pctOf(g507159.game, g507159.stints, "ポラコヴィッチ")));
 check("507159 アルナルド・トロ 16.7%", round1(pctOf(g507159.game, g507159.stints, "トロ")) === 16.7, String(pctOf(g507159.game, g507159.stints, "トロ")));
-// 旧形式（2016-17〜2019-20。在コートの復元の reboundsByPeriod）: 2018-19 3000 ガニ・ラワル 5/(8+25)=15.2%
+// 旧形式（2016-17〜2019-20）: 372章から、チームリバウンドの番号を読み替えて countsByPeriod で数える。2018-19 3000 ガニ・ラワル 5/(8+25)=15.2%（前と同じ値）
 const g3000 = compareGame("2018-19", "3000");
 check("3000 ガニ・ラワル 15.2%（5/(8+25)）", round1(pctOf(g3000.game, g3000.stints, "ラワル")) === 15.2, String(pctOf(g3000.game, g3000.stints, "ラワル")));
-check("旧形式の区間は countsByPeriod を持たない（攻撃回数を数えたことにしない）", g3000.stints.every((s) => s.countsByPeriod === undefined && s.reboundsByPeriod !== undefined));
+check("旧形式の区間も countsByPeriod を持つ（372章）", g3000.stints.every((s) => s.countsByPeriod !== undefined && s.reboundsByPeriod === undefined));
+// 旧形式の前後半5分の特別な試合（数え上げない）は、今までどおりリバウンドだけ（reboundsByPeriod）で OR% を出す
+{
+  const g1330 = loadGame("2016-17", "1330");
+  const stints = reconstruct(g1330).lineupStints;
+  check("前後半5分の特別な試合 1330 は countsByPeriod を持たず reboundsByPeriod を持つ", stints.length > 0 && stints.every((s) => s.countsByPeriod === undefined && s.reboundsByPeriod !== undefined));
+}
 
 // --- 期間を選ぶと変わる・分母0で「-」 ---
 {

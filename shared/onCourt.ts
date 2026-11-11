@@ -205,14 +205,15 @@ export interface LineupStint {
    */
   pointsByPeriod: Record<number, { own: number; opp: number }>;
   /**
-   * ポゼッション・FGM/FGA・FTM/FTA・TOV・OR/DR・AST などの数え上げ（ピリオド別。キーはPeriod）。
-   * 2020-21以降のみ。DESIGN.md 204章。旧形式（2016-17〜2019-20）は、攻撃の終わりの判定が新形式の記録の番号を前提にしているので数えない
-   * （旧形式もチームリバウンドの記録はある。1810以外の全試合で、プレーバイプレーの OR・DR がボックススコアのチーム合計と一致する。DESIGN.md 300-3章）
+   * ポゼッション・FGM/FGA・FTM/FTA・TOV・OR/DR・AST などの数え上げ（ピリオド別。キーはPeriod）。DESIGN.md 204章。
+   * 全シーズンで持つ。旧形式（2016-17〜2019-20）は、チームリバウンドの番号（18・19）を新形式に読み替えてから数える（buildRelevantEvents。DESIGN.md 372章）。
+   * 持たないのは、旧形式の前後半5分の特別な試合（4試合。ピリオドの長さが違う）だけ
    */
   countsByPeriod?: Record<number, StintCountsPair>;
   /**
-   * 旧形式（2016-17〜2019-20）だけの、リバウンドの数え上げ（ピリオド別。キーはPeriod）。旧形式の番号は 10・18＝OR、9・19＝DR（新形式は 18＝DR・19＝OR）。
-   * countsByPeriod とは別に持つ（countsByPeriod がある＝攻撃回数も実際に数えた、という前提を崩さないため）。個人 OR% の分母に使う
+   * リバウンドだけの数え上げ（ピリオド別。キーはPeriod）。旧形式の番号は 10・18＝OR、9・19＝DR（新形式は 18＝DR・19＝OR）。
+   * countsByPeriod とは別に持つ（countsByPeriod がある＝攻撃回数も実際に数えた、という前提を崩さないため）。個人 OR% の分母に使う。
+   * 372章からは、countsByPeriod を持たない旧形式の試合（前後半5分の特別な試合）と、呼び出し側が countStats: false を指定したときだけ
    */
   reboundsByPeriod?: Record<number, StintReboundPair>;
   /** 復元の中での区間の番号（両チーム通しの連番。playerEventsByPeriod の oppSeq が指す）。trackPlayerEvents のときだけ */
@@ -220,7 +221,7 @@ export interface LineupStint {
   /**
    * 区間の間の、選手本人の記録（ピリオド別。PLAYER_EVENT_KEYS の並び）。その記録の瞬間の相手チームの区間（oppSeq。相手が5人でなかった等で
    * 区間が残らなかったときは -1）ごとに分ける。チームの数え上げ（countsByPeriod）と同じイベント・同じ瞬間の区間に入れる。
-   * 2020-21以降で、trackPlayerEvents のときだけ（選手の On-Court Foreign の人数別の本人の成績。DESIGN.md 304章）
+   * 数え上げのある試合で、trackPlayerEvents のときだけ（選手の On-Court Foreign の人数別の本人の成績。DESIGN.md 304章）
    */
   playerEventsByPeriod?: Record<number, { playerId: string; oppSeq: number; counts: number[] }[]>;
 }
@@ -282,7 +283,7 @@ export interface OnCourtReconstruction {
   /** 同じ秒の交代の間にフリースローが挟まっていたため、交代をフリースローの前に動かした場所の一覧（空なら補正なし） */
   orderRepairs: SubOrderRepair[];
   /**
-   * チームごとの、試合全体の数え上げ（スティントに入れられなかった分も含む。検証用）。数え上げをしないシーズン（旧形式）は無い。
+   * チームごとの、試合全体の数え上げ（スティントに入れられなかった分も含む。検証用）。数え上げをしない試合（旧形式の前後半5分の特別な試合）は無い。
    * キーはチームID。DESIGN.md 204章
    */
   teamTotals?: Record<string, StintCounts>;
@@ -330,9 +331,16 @@ interface RelevantEvent {
 
 // ポゼッションなどの数え上げに使う、得点以外のプレーバイプレーのコード（DESIGN.md 204章）:
 // 2=3P失敗、5・6=2P失敗、8=FT失敗、9・18=DR（個人・チーム）、10・19=OR、12=AST、13・17=TOV（個人・チーム）、
+// （旧形式はチームの DR・OR が 19・18 で逆。buildRelevantEvents で新形式の番号に読み替えてから使う。DESIGN.md 372章）
 // 反則の種類（20・21・24=テクニカル、25・26=アンスポーツマン・ディスクォリファイング、22・23=通常・オフェンス）。
 // 2026-27の新表記は、24→91・92（テクニカル カテゴリ1・2）、25→93・94（フレグラント・ディスラプティブ）。旧コードと同じ扱いにする（shared/foulCodes.ts・DESIGN.md 16-7章）
 const STAT_CODES = new Set([2, 5, 6, 8, 9, 10, 12, 13, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 91, 92, 93, 94]);
+
+/** 旧形式のチームリバウンドの番号を新形式に読み替える（旧 18＝OR → 19、旧 19＝DR → 18。ほかの番号はそのまま。DESIGN.md 372章） */
+function modernStatCode(code: number, model: SubstitutionModel): number {
+  if (model !== "legacy") return code;
+  return code === 18 ? 19 : code === 19 ? 18 : code;
+}
 
 function buildRelevantEvents(
   playByPlays: PlayByPlayEvent[],
@@ -369,7 +377,8 @@ function buildRelevantEvents(
           teamId: ev.TeamID,
           playerId: ev.PlayerID1 ?? "",
           points: 0,
-          actionCd: ev.ActionCD1,
+          // 数え上げのときは旧形式のチームリバウンドを新形式の番号にそろえる（旧形式のリバウンドだけを数えるときは元の番号のまま。bumpLegacyRebound が旧形式の番号で見る）
+          actionCd: countStats ? modernStatCode(ev.ActionCD1, model) : ev.ActionCD1,
         });
       }
       continue;
@@ -578,6 +587,16 @@ function repairSubOrderAroundFreeThrows(events: RelevantEvent[]): SubOrderRepair
   return repairs;
 }
 
+/** events[i] と同じピリオド・同じ秒に、teamId のターンオーバー（個人・チーム）があるか */
+function turnoverAtSameSecond(events: readonly RelevantEvent[], i: number, teamId: string): boolean {
+  const e = events[i]!;
+  const same = (x: RelevantEvent) => x.period === e.period && x.elapsedSec === e.elapsedSec;
+  const isTo = (x: RelevantEvent) => x.teamId === teamId && (x.actionCd === 13 || x.actionCd === 17);
+  for (let j = i + 1; j < events.length && same(events[j]!); j += 1) if (isTo(events[j]!)) return true;
+  for (let j = i - 1; j >= 0 && same(events[j]!); j -= 1) if (isTo(events[j]!)) return true;
+  return false;
+}
+
 /**
  * ポゼッションの終わりを数える（NBAの数え方。DESIGN.md 204章）。並べ替え・並びの補正が済んだイベント列を受け取り、
  * ポゼッションの終わりのイベント（kind="poss"）を、終わらせた動きの前後に挟んだ新しい列を返す。
@@ -591,8 +610,10 @@ function repairSubOrderAroundFreeThrows(events: RelevantEvent[]): SubOrderRepair
  * - ピリオドの終わりに、リバウンドが記録されない外れが残っているとき
  * - 暗黙の終わり: 攻撃中のはずのチームの記録が無いまま、相手のシュート・ターンオーバー・フリースローが記録されたとき
  *   （24秒などの記録漏れ。implicit=true。ターンオーバーの数には足さない）
+ * - 旧形式だけ: 攻撃中のチームのオフェンスファウルに、同じ秒の同じチームのターンオーバーが付いていないとき（2016-17 はオフェンスファウルに
+ *   ターンオーバーがほぼ付かない）。その場で終わりとして数える（ターンオーバーの数には足さない。DESIGN.md 372章）
  */
-function injectPossessionEvents(events: RelevantEvent[]): RelevantEvent[] {
+function injectPossessionEvents(events: RelevantEvent[], model: SubstitutionModel = "modern"): RelevantEvent[] {
   const GAME_ROW_CODES = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 17, 18, 19, 44]);
   const isGameRow = (e: RelevantEvent): boolean => (e.kind === "score" || e.kind === "stat") && e.actionCd !== undefined && GAME_ROW_CODES.has(e.actionCd);
   const teams = [...new Set(events.filter((e) => e.kind !== "poss").map((e) => e.teamId))];
@@ -635,8 +656,13 @@ function injectPossessionEvents(events: RelevantEvent[]): RelevantEvent[] {
     const t = e.teamId;
     if (c !== undefined && TECHNICAL_FT_FOUL_CODES.has(c)) tripKind = "tech";
     else if (c !== undefined && UNSPORTSMANLIKE_FT_FOUL_CODES.has(c)) tripKind = "unsport";
-    else if (c === 22 || c === 23) tripKind = "normal";
-    else if (c !== undefined && isGameRow(e)) {
+    else if (c === 22 || c === 23) {
+      tripKind = "normal";
+      if (model === "legacy" && c === 23 && offense === t && !pendingMiss && !turnoverAtSameSecond(events, i, t)) {
+        after.push(mk(e, t, false));
+        offense = opp(t);
+      }
+    } else if (c !== undefined && isGameRow(e)) {
       let next: RelevantEvent | null = null;
       for (let j = i + 1; j < events.length; j += 1) {
         if (isGameRow(events[j]!)) {
@@ -977,16 +1003,18 @@ export function reconstructOnCourt(
     byPeriod[period] = acc;
   };
 
-  // ポゼッションなどの数え上げは2020-21以降（modernモデル）だけ。攻撃の終わりの判定（injectPossessionEvents）が新形式の番号を前提にしているため（DESIGN.md 204・300-3章）
-  const countStats = options.countStats ?? substitutionModel === "modern";
-  // 旧形式は、リバウンドだけを別に数える（reboundsByPeriod。数え上げ countStats とは別）
+  // ポゼッションなどの数え上げは全シーズン（DESIGN.md 204・372章）。旧形式は buildRelevantEvents でチームリバウンドの番号を新形式に読み替える。
+  // 旧形式の前後半5分の特別な試合（ピリオドが4つ未満。2016-17・2017-18 の4試合）は、ピリオドの長さが違い出場区間の時間が合わないので数えない
+  const legacyShortGame = substitutionModel === "legacy" && totalPeriods < 4;
+  const countStats = options.countStats ?? !legacyShortGame;
+  // 数え上げをしない旧形式の試合は、リバウンドだけを別に数える（reboundsByPeriod。数え上げ countStats とは別）
   const countLegacyRebounds = !countStats && substitutionModel === "legacy" && options.countLegacyRebounds !== false;
   // 選手本人の記録を区間ごとに数える（数え上げのあるときだけ。呼び出し側が指定したときだけ）
   const trackPlayerEvents = countStats && options.trackPlayerEvents === true;
   const rawEvents = buildRelevantEvents(playByPlays, warnings, substitutionModel, countStats, countLegacyRebounds);
   // 同じ秒の交代の間にフリースローが挟まる並びは、交代をフリースローの前とみなす（検証スクリプトは false で補正前と比べる）
   const orderRepairs = options.repairSubOrder === false ? [] : repairSubOrderAroundFreeThrows(rawEvents);
-  const events = countStats ? injectPossessionEvents(rawEvents) : rawEvents;
+  const events = countStats ? injectPossessionEvents(rawEvents, substitutionModel) : rawEvents;
 
   let i = 0;
   while (i < events.length) {

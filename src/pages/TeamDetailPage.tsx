@@ -123,7 +123,6 @@ import {
   seasonPeriodOption,
   useSeasonPeriodSources,
 } from "../lib/seasonPeriod";
-import { substitutionModelForSeason } from "../../shared/onCourt";
 import {
   buildBackToBackStatus,
   backToBackGameLabels,
@@ -2403,8 +2402,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   const [lineupOcPeriod, setLineupOcPeriod] = usePageState<PeriodRangeValue>(pk("lineupOcPeriod"), "all");
   const [lineupOcDisplay, setLineupOcDisplay] = usePageState<SeasonDisplayMode>(pk("lineupOcDisplay"), "total");
   const { source: lineupPeriodSource, loading: lineupPeriodLoading } = useTeamPeriodSource(season, tab === "lineups", league);
-  // 5人組ごとの数字を条件別に出す材料（出場区間ごとの数え上げ。2020-21以降）。ラインナップ検索と共有する
-  const lineupStintsSupported = pbpSupported && substitutionModelForSeason(season) === "modern";
+  // 5人組ごとの数字を条件別に出す材料（出場区間ごとの数え上げ。全シーズン。372章で 2016-17〜2019-20 も）。ラインナップ検索と共有する
+  const lineupStintsSupported = pbpSupported;
   const {
     data: lineupStintsRaw,
     loading: lineupStintsLoading,
@@ -3380,7 +3379,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       const row = splitRows.find((r) => r.teamId === teamId);
       const player = playerById.get(c.playerId);
       if (!row || !player) continue;
-      // on/off タブ: このチームにいた試合だけ（row.logs）。Off はこのチームの試合ログの出場区間の合計 − On（試合全体・2020-21以降だけ。DESIGN.md 304章）
+      // on/off タブ: このチームにいた試合だけ（row.logs）。Off はこのチームの試合ログの出場区間の合計 − On（試合全体だけ。DESIGN.md 304・372章）
       const onOff =
         playerStatsBoxTab === "onoff" && !onOffUnavailableReason(season, playerStatsPeriod2 !== "all")
           ? onOffTotalsFromLogs(
@@ -3840,8 +3839,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const eligibleLineups = allLineups.filter(
     (l) => l.gamesPlayed > 0 && l.secondsPlayed / l.gamesPlayed >= MIN_LINEUP_AVG_SECONDS && l.gamesPlayed >= MIN_LINEUP_GAME_SHARE * lineupTeamGames,
   );
-  // 実際のポゼッションで計算できるシーズン（2020-21以降）は「推定」を付けず、できないシーズンは推定値と分かるようにする（DESIGN.md 207章）
-  const lineupRatingsReal = lineupsHaveRealPossessions(allLineups);
+  // 実際のポゼッションで計算できるとき（全シーズン。372章）は「推定」を付けず、できないとき（古い導出データ）は推定値と分かるようにする（DESIGN.md 207章）
   // オンザコート（5人のうち外国籍・帰化・アジアの選手の人数）。試合詳細のラインナップ別成績と同じ数え方で、区分はシーズンの選手一覧から引く
   const classificationById = new Map((players ?? []).map((p) => [p.playerId, p.classification] as const));
   const classifyLineupPlayer = (id: string) => classificationById.get(id);
@@ -3867,7 +3865,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const activeLineupOc = lineupMaxForeign === undefined ? undefined : lineupOcFilter;
   const ocFilteredLineups = (list: typeof allLineups) =>
     activeLineupOc === undefined ? list : list.filter((l) => lineupBucket(l, classifyLineupPlayer, lineupMaxForeign!) === activeLineupOc);
-  // 5人組の表は、上の条件（試合区分・区間・合計／平均）に合わせる。2020-21以降は出場区間から足し直す。それ以前のシーズン（と、読めなかったとき）は、
+  // 5人組の表は、上の条件（試合区分・区間・合計／平均）に合わせる。出場区間から足し直す。出場区間を読めなかったときは、
   // 条件を選べず、ラインナップのファイルの値（合算・試合全体）のまま。条件を選べないとき（上の選択欄が使えない古いデータ）も初期値で出す
   const lineupCondActive = !!lineupOcFromIndex;
   const lineupTableGameType: SeasonGameTypeFilter = lineupCondActive ? lineupOcGameType : "both";
@@ -3885,6 +3883,8 @@ export function TeamDetailPage({ season }: { season: string }) {
       : null;
   const lineupTableByCondition = stintLineups !== null;
   const tableLineups = stintLineups ? stintLineups.lineups : allLineups;
+  // 見出しの「推定」は、表に出す組（出場区間から足し直したときはその組）で決める。ラインナップのファイルの組で決めると、数え上げない試合（旧形式の前後半5分の特別な試合）にだけ出た組があるチームで、表全体が「推定」になる（372章）
+  const lineupRatingsReal = lineupsHaveRealPossessions(tableLineups);
   const lineupBasisGames = stintLineups ? stintLineups.teamGames : lineupTeamGames;
   const tableEligibleLineups = stintLineups
     ? stintLineups.lineups.filter((l) => isFrequentLineup(l, lineupTablePeriod, stintLineups.teamGames))

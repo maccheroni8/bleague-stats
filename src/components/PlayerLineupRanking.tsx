@@ -1,4 +1,5 @@
 import { useLeague } from "../lib/league";
+import { FIRST_LEAGUE_SEASON } from "../../shared/rookieEligibility";
 import { teamChipColor } from "../lib/teamChipColors";
 import { ONE_ROOKIE_REASON } from "../lib/leagueAvailability";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -66,7 +67,7 @@ import { ResponsiveTeamName } from "./ResponsiveTeamName";
  * ランキング > 個人 > On/Off・組み合わせ（DESIGN.md 224章）。
  * On/Off: 選手がコートにいた間と、いなかった間（その選手が出場した試合の分）のNetRtg（ORtg・DRtg）と、その差。
  * 2人・3人: 同じチームの2人（3人）が同時にコートにいた間のNetRtg（ORtg・DRtg）。
- * チーム詳細のラインナップ検索と同じ数え方（各チームの出場区間〈team-stints。204章〉から計算する）。2020-21以降。
+ * チーム詳細のラインナップ検索と同じ数え方（各チームの出場区間〈team-stints。204章〉から計算する）。全シーズン（372章で 2016-17〜2019-20 も）。
  * 1選手×1チームで1行（移籍した選手はチームごとに別の行）。ポゼッションが少ない行は、チームのポゼッション数に対する割合（絶対の下限あり）で除く
  */
 const RANK_TOP_N = 20;
@@ -248,7 +249,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
     periodOption.periods !== null && periodLabels(periodOption),
     gameRecordConditionLabels(conditions, teamName, false),
   );
-  const scopeText = allTime ? `通算（${seasons?.[0] ?? "2020-21"}以降）` : `${season}シーズン`;
+  const scopeText = allTime ? `通算（${seasons?.[0] ?? FIRST_LEAGUE_SEASON}以降）` : `${season}シーズン`;
   const metricLabel = LINEUP_METRIC_LABELS[metric];
   // タイトル・ファイル名には日本語名（表の見出しは略称のまま）
   const metricJa = statJa(metricLabel);
@@ -306,7 +307,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
       onChangeSelected: setPositions,
       allLabel: "全ポジション",
     }),
-    // 前後半5分の特別な試合は2020-21以降には無いので、その扱いの軸は出さない
+    // 前後半5分の特別な試合は出場区間を持たない（数え上げない。372章）ので、その扱いの軸は出さない
     ...gameRecordAdvancedAxes(axesInput).filter((a) => a.id !== "g.special"),
   ];
   const clearAll = () => {
@@ -440,7 +441,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                 {unit === "onoff"
                   ? "※ On/Off差は、選手が出場中と不在中（その選手が出た試合のみ）のNetRtgの差です。"
                   : `※ 同じチームの${unit === "duo" ? "2人" : "3人"}が同時にコートにいた間のNetRtgです。`}
-                2020-21以降、ポゼッション100以上が対象で、ポゼッションが少ないほど値はぶれます。移籍した選手はチームごとに別の行です。
+                ポゼッション100以上が対象で、ポゼッションが少ないほど値はぶれます。移籍した選手はチームごとに別の行です。
               </p>
               <p className="rule-change-footnote export-hide">
                 {unit === "onoff"
@@ -456,7 +457,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
               <p className="rule-change-footnote export-hide">
                 ※ 移籍した選手は、チームごとに別の行です。
                 {allTime ? "通算は、同じチームの記録をシーズンをまたいで足しています。" : ""}
-                {`2020-21以降のシーズンだけが対象です（それ以前は、実際のポゼッションを数えていません）。ポゼッションの下限は、チームの全ポゼッション（条件に当てはまる試合の分${allTime ? "。通算は、その選手・組が出場したシーズンの合計" : ""}）に対する割合で、${LINEUP_MIN_POSSESSIONS}ポゼッションを下回る行は常に除きます。`}
+                {`ポゼッションの下限は、チームの全ポゼッション（条件に当てはまる試合の分${allTime ? "。通算は、その選手・組が出場したシーズンの合計" : ""}）に対する割合で、${LINEUP_MIN_POSSESSIONS}ポゼッションを下回る行は常に除きます。`}
               </p>
               <p className="rule-change-footnote export-hide">
                 ※ ポゼッションが少ないほど、値は偶然でぶれます。目安（得点の偶然のばらつきだけを見た概算）：
@@ -465,7 +466,6 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                   : `200ポゼッションのときのNetRtgの誤差は±${formatDecimal(netRatingError(200))}、500で±${formatDecimal(netRatingError(500))}、1,000で±${formatDecimal(netRatingError(1000))}。`}
                 進行中のシーズンや条件を絞ったときは、試合が少ないため特にぶれます。
               </p>
-              <p className="rule-change-footnote export-hide">※ 選手詳細の「オンコート/オフコート比較」は別の数え方（試合の記録を秒の境界で振り分ける）で、同じ選手でも値が食い違うことがあります。</p>
               {activeOn && <p className="rule-change-footnote">※ {activeNote()}</p>}
               <ClassificationNotes filter={group} scope={allTime ? "allTime" : "season"} />
               {isRookieFilter(group) && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}

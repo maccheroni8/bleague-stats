@@ -89,7 +89,8 @@ for (const season of seasons) {
   for (const category of ["premier", "one"] as Category[]) {
     const dir = path.join(DATA_DIR, seasonDirName(season, category));
     if (!existsSync(path.join(dir, "games"))) continue;
-    const modern = substitutionModelForSeason(season) === "modern";
+    // 372章から全シーズンで数え上げがある（名前は「数え上げのあるシーズン」の意味で残す）
+    const modern = true;
     const tally: (typeof qualityTally)[string] = { teams: 0, shares: 0, rebounds: 0, pmTeams: 0, pm: 0, pmNg: [] };
     qualityTally[`${category === "one" ? "B.ONE " : ""}${season}`] = tally;
     const playerLogs = await readLogs<PlayerGameLog>(path.join(dir, "player-games"));
@@ -126,7 +127,7 @@ for (const season of seasons) {
         const byPeriod = [...(fgAst.get(id)?.values() ?? [])].reduce((a, b) => a + b, 0);
         const box = [...game.raw.HomeBoxscores, ...game.raw.AwayBoxscores].find((r) => r.Category === 1 && r.PeriodCategory === 18 && r.PlayerID === id)?.AS;
         const log = logOf.get(`${id}|${game.scheduleKey}`);
-        g3.add(byPeriod === (whole.get(id) ?? 0) && (box === undefined || byPeriod <= box) && (!modern || !log || log.fgAssists === byPeriod), () => `${season} ${game.scheduleKey} ${id}: ピリオドごと ${byPeriod} / 試合全体 ${whole.get(id)} / AST ${box} / 試合ログ ${log?.fgAssists}`);
+        g3.add(byPeriod === (whole.get(id) ?? 0) && (box === undefined || byPeriod <= box) && (!modern || !rec.teamTotals || !log || log.fgAssists === byPeriod), () => `${season} ${game.scheduleKey} ${id}: ピリオドごと ${byPeriod} / 試合全体 ${whole.get(id)} / AST ${box} / 試合ログ ${log?.fgAssists}`);
       }
       const scores = gamePeriodScores(game);
       for (const home of [true, false]) {
@@ -152,7 +153,8 @@ for (const season of seasons) {
         g4.add(orRes.available === ((quality & ON_COURT_QUALITY_REBOUNDS) !== 0), () => `${season} ${game.scheduleKey} ${teamId}: OR% ${orRes.available} / ビット ${quality}`);
         const byPlayer = playerOnCourtByPeriod(rec.lineupStints, teamId, periods);
         const teamLog = teamLogOf.get(`${teamId}|${game.scheduleKey}`);
-        if (modern && teamLog) {
+        // 数え上げの無い試合（旧形式の前後半5分の特別な試合。372章）は試合ログに材料を持たない
+        if (modern && rec.teamTotals && teamLog) {
           // 1. 試合ログ
           const sum = emptyOnCourtValues();
           for (const [pid, bp] of byPlayer) {

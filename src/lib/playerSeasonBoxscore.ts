@@ -132,7 +132,7 @@ export interface PlayerSeasonRawTotals {
   onCourtSeconds: number;
   /**
    * 出場中の割合（%PTS〜%FTA）・AST% の材料（在コート基準の再集計。DESIGN.md 304章）。出場中の記録がそろう試合（試合ログの onCourt があり、
-   * onCourtQuality の割合のビットが立つ出場試合。2020-21以降）だけを足す。分子（本人）・分母（出場中の自チーム）・FGにつながったアシストを同じ試合で足すので、
+   * onCourtQuality の割合のビットが立つ出場試合。372章から全シーズン）だけを足す。分子（本人）・分母（出場中の自チーム）・FGにつながったアシストを同じ試合で足すので、
    * 記録が欠けた試合は分子・分母の両方から外れる。ocGames はその試合数（0なら「-」）
    */
   ocGames: number;
@@ -1664,10 +1664,10 @@ const onCourtCache = new WeakMap<StoredGame, { rec: OnCourtReconstruction; perio
 
 /**
  * 生データから、選手のその区間の出場中の材料。割合の品質ビット（shared/playerOnCourt.ts の teamOnCourtQuality。試合全体で判定）が立たないチーム・
- * 数え上げの無い試合（2019-20以前）・プレーバイプレーの無い試合は undefined
+ * 数え上げの無い試合（372章からは旧形式の前後半5分の特別な試合だけ）・プレーバイプレーの無い試合は undefined
  */
 export function periodOnCourtShareFromGame(game: StoredGame, isHome: boolean, playerId: string, option: PeriodRangeOption | undefined): PeriodOnCourtShare | undefined {
-  if (game.raw.PlayByPlays.length === 0 || substitutionModelForSeason(game.season) !== "modern") return undefined;
+  if (game.raw.PlayByPlays.length === 0) return undefined;
   let cached = onCourtCache.get(game);
   if (!cached) {
     const periods = onCourtPeriodCount(game.season, game.quarterScores.home.length, game.raw.PlayByPlays);
@@ -1675,6 +1675,7 @@ export function periodOnCourtShareFromGame(game: StoredGame, isHome: boolean, pl
     cached = { rec, periods, fgAssists: fgAssistsByPlayer(game.raw.PlayByPlays) };
     onCourtCache.set(game, cached);
   }
+  if (!cached.rec.teamTotals) return undefined;
   const teamId = isHome ? game.homeTeam.id : game.awayTeam.id;
   const opponentId = isHome ? game.awayTeam.id : game.homeTeam.id;
   const quality = teamOnCourtQuality(

@@ -93,6 +93,7 @@ import { formatDecimal, formatPct, formatPct100, formatSigned, formatWinPct } fr
 import { formatMinutesFromSeconds, astToTovRatio, buildAssistPairs } from "../lib/boxscoreAggregate";
 import type { AssistPair } from "../../shared/assistedScoring";
 import { onCourtPeriodCount, reconstructOnCourt, substitutionModelForSeason } from "../../shared/onCourt";
+import { onCourtShareSeasonUnsupported } from "../lib/onCourtShareSeason";
 import { computeGameOnOffSplit, mergeOnOffSplits, onOffSplitFromLogs, type OnOffBucket, type OnOffSplit } from "../lib/onCourtSplit";
 import { buildShotTypeBreakdown, shotTypeEntityColumns, sortShotTypeKeys } from "../lib/shotTypeBreakdown";
 import { ShotChartPanel } from "../components/ShotChart";
@@ -1935,8 +1936,9 @@ export function PlayerDetailPage({ season }: { season: string }) {
     if (!playerId || !situationalStatsLogs) return null;
     const scopedLogs = filterByGameType(situationalStatsLogs, situationalStatsGameType).filter((g) => g.min > 0);
     const substitutionModel = substitutionModelForSeason(situationalStatsSeason);
-    // 2020-21以降は、試合ログの出場中の材料から、ランキングの On/Off と同じ計算で出す（DESIGN.md 304章）。2019-20以前は今までの計算のまま
-    if (substitutionModel === "modern") {
+    // 試合ログの出場中の材料から、ランキングの On/Off と同じ計算で出す（DESIGN.md 304章。372章で 2016-17〜2019-20 も）。
+    // 出場中の数え上げが無いシーズン（今は無い）だけ、今までの計算（在コートの復元から推定）のまま
+    if (!onCourtShareSeasonUnsupported(situationalStatsSeason)) {
       if (!situationalStatsTeamGameLogsByTeam) return { merged: mergeOnOffSplits([]), dataReady: false };
       const teamLogOf = (g: PlayerGameLog) => {
         const teamId = situationalStatsOwnTeamByScheduleKey.get(g.scheduleKey)?.teamId;
@@ -3507,7 +3509,7 @@ function SeasonBreakdownTable({
         period,
         periodSources.get(cd.season),
       );
-      // on/off タブ: 試合ごとの所属チームの試合ログで Off を出す（試合全体・2020-21以降だけ。DESIGN.md 304章）
+      // on/off タブ: 試合ごとの所属チームの試合ログで Off を出す（試合全体だけ。DESIGN.md 304・372章）
       const onOffTeamLogOf = (g: PlayerGameLog) => {
         const teamId = info?.ownTeamByScheduleKey.get(g.scheduleKey)?.teamId;
         return teamId ? info?.teamLogsByTeamId.get(teamId)?.find((t) => t.scheduleKey === g.scheduleKey) : undefined;

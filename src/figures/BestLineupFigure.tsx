@@ -1,4 +1,4 @@
-// 図解（チーム）「歴代最強ラインナップ」（figure=best-lineup。DESIGN.md 370章）。B.PREMIER（旧B1）2020-21〜今季の、1シーズン×1クラブ×同じ組み合わせ（2〜5人）を
+// 図解（チーム）「歴代最強ラインナップ」（figure=best-lineup。DESIGN.md 370章）。B.PREMIER（旧B1）2016-17〜今季の、1シーズン×1クラブ×同じ組み合わせ（2〜5人）を
 // NetRtg・ORtg・DRtg・出場時間の順に並べる。材料は人数ごとの導出データ（data/best-lineups-{人数}.json。選んだ人数の分だけ読む）。計算は src/lib/bestLineups.ts。
 import { useMemo, useRef, type CSSProperties } from 'react';
 import { fetchBestLineups } from '../lib/data';
@@ -7,7 +7,7 @@ import { enumParam, useUrlState, type UrlCodec } from '../lib/urlState';
 import { gameTypeAxis, type FilterAxis } from '../lib/filterAxes';
 import { GAME_TYPE_PARAM } from '../lib/urlFilterParams';
 import { seasonGameTypeLabels, type SeasonGameTypeFilter } from '../../shared/gameType';
-import { BEST_LINEUP_MIN_POSS_DEFAULT, BEST_LINEUP_SIZES, type BestLineupSize } from '../../shared/bestLineups';
+import { BEST_LINEUP_FIRST_SEASON, BEST_LINEUP_MIN_POSS_DEFAULT, BEST_LINEUP_SIZES, type BestLineupSize } from '../../shared/bestLineups';
 import {
   BEST_LINEUP_SLIDER, BEST_LINEUP_SORTS, BEST_LINEUP_SORT_LABELS, bestLineupGroups, bestLineupGroupsInSeason, clampBestLineupMin, highlightedBest, ocChoices, queryBestLineups, topBestLineups, type BestLineupSort, type RankedBestLineup,
 } from '../lib/bestLineups';
@@ -40,7 +40,7 @@ const minCodec: UrlCodec<number | null> = {
   read: p => { const v = Number(p.get('blp')); return p.get('blp') && Number.isFinite(v) ? v : undefined; },
   write: (p, v) => { if (v !== null) p.set('blp', String(v)); },
 };
-/** 範囲。無ければ歴代（2020-21〜）、あればそのシーズンだけ（例 2025-26） */
+/** 範囲。無ければ歴代（2016-17〜）、あればそのシーズンだけ（例 2025-26） */
 const rangeCodec: UrlCodec<string | null> = {
   keys: ['blse'],
   read: p => { const v = p.get('blse'); return v && /^\d{4}-\d{2}$/.test(v) ? v : undefined; },
@@ -93,9 +93,9 @@ export default function BestLineupFigure({ season, category }: FigureProps) {
   const names = useMemo(() => [...shown, ...outside.flatMap(o => o.best ? [o.best] : [])].flatMap(r => r.row.group.players.map(p => p.name)), [shown, outside]);
   const playerLabel = usePlayerLabel(names);
 
-  const range = rangeSeason !== null ? `${rangeSeason}シーズン` : seasons.length ? `${seasons[0]}〜${seasons[seasons.length - 1]}` : '2020-21〜';
+  const range = rangeSeason !== null ? `${rangeSeason}シーズン` : seasons.length ? `${seasons[0]}〜${seasons[seasons.length - 1]}` : `${BEST_LINEUP_FIRST_SEASON}〜`;
   const isCurrent = rangeSeason !== null && seasons.length > 0 && rangeSeason === seasons[seasons.length - 1];
-  const rangeOptions = [{ value: 'all', label: '歴代（2020-21〜）' }, ...(seasons.length ? [...seasons].reverse() : rangeParam ? [rangeParam] : []).map(v => ({ value: v, label: v }))];
+  const rangeOptions = [{ value: 'all', label: `歴代（${BEST_LINEUP_FIRST_SEASON}〜）` }, ...(seasons.length ? [...seasons].reverse() : rangeParam ? [rangeParam] : []).map(v => ({ value: v, label: v }))];
   const gameLabels = seasonGameTypeLabels(null);
   const axes: FilterAxis[] = [
     { kind: 'select', id: 'blRange', label: '範囲', tier: 'primary', value: rangeSeason ?? 'all', defaultValue: 'all', options: rangeOptions, onChange: v => { setRange(v === 'all' ? null : v); setOc(null); } },

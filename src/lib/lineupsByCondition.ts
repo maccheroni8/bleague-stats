@@ -1,5 +1,5 @@
 // チーム詳細「よく使われるラインナップ」を、試合区分・区間（1Q〜4Q・前半・後半・延長）で出す。
-// 材料はチームの出場区間ごとの数え上げ（data/{season}/team-stints/{teamId}.json。2020-21以降。DESIGN.md 204章）。
+// 材料はチームの出場区間ごとの数え上げ（data/{season}/team-stints/{teamId}.json。全シーズン〈372章〉。DESIGN.md 204章）。
 // 5人組ごとに足し直した値は、シーズン全体（合算・試合全体）では lineups/{teamId}.json の値と一致する（validate:lineups-by-condition）。
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
 import type { LineupAggregate, TeamStintsFile } from "../../shared/types";

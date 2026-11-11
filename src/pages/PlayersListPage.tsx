@@ -929,7 +929,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   // 試合ログの合算値（+その試合に絞ったチーム総計、個人詳細ページ「シチュエーション別成績」と
   // 同じsumTeamGameLogsFor方式）からctxを組み立てる
 
-  // on/off タブ: 試合ごとの所属チームの試合ログ（移籍した選手は試合ごとのチーム）で Off を出す。2016-17〜2019-20 は出さない（DESIGN.md 304章）
+  // on/off タブ: 試合ごとの所属チームの試合ログ（移籍した選手は試合ごとのチーム）で Off を出す（DESIGN.md 304章。372章で全シーズン）
   const teamLogIndex = useMemo(() => {
     if (tab !== "onoff" || !teamGameLogsByTeam) return null;
     return new Map([...teamGameLogsByTeam].map(([id, list]) => [id, new Map(list.map((l) => [l.scheduleKey, l] as const))] as const));

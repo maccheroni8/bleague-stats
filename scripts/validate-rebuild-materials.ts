@@ -189,7 +189,8 @@ for (const season of seasons) {
     }
     // 4. On-Court Foreign（選手）
     const foreign = await readJson<PlayerForeignFile>(path.join(dir, "player-foreign.json"));
-    if (substitutionModelForSeason(season) === "modern") {
+    // 372章から全シーズン
+    {
       check(`${season} ${category} player-foreign.json がある`, foreign !== null);
       if (!foreign) continue;
       const master = new Map(((await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? []).map((m) => [m.playerId, m] as const));
@@ -200,6 +201,8 @@ for (const season of seasons) {
         foreignGames++;
         const periods = onCourtPeriodCount(g.season, g.quarterScores.home.length, g.raw.PlayByPlays);
         const rec = reconstructOnCourt(g.raw.PlayByPlays, g.raw.HomeBoxscores, g.raw.AwayBoxscores, g.homeTeam.id, g.awayTeam.id, periods, substitutionModelForSeason(g.season));
+        // 数え上げの無い試合（旧形式の前後半5分の特別な試合。372章）は、選手の材料を持たない
+        if (!rec.teamTotals) continue;
         const full = totalGameSeconds(periods);
         for (const home of [true, false]) {
           const tid = home ? g.homeTeam.id : g.awayTeam.id;
@@ -274,8 +277,6 @@ for (const season of seasons) {
           }
         }
       }
-    } else {
-      check(`${season} ${category} 旧形式のシーズンには player-foreign.json が無い`, foreign === null);
     }
     void classifyGameType;
   }

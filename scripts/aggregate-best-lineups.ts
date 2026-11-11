@@ -1,6 +1,6 @@
 // data/best-lineups-{2,3,4,5}.json.gz（図解「歴代最強ラインナップ」。DESIGN.md 370章）を作る。全シーズンをまたぐ導出データで、デプロイのたびに作り直す。
 //
-// 対象: B.PREMIER（旧B1）の 2020-21 以降（実際のポゼッションを数えているシーズン）。今季は途中経過。B.ONE・旧B2・2019-20 以前は入れない。
+// 対象: B.PREMIER（旧B1）の 2016-17 以降（全シーズンで実際のポゼッションを数えている。DESIGN.md 372章）。今季は途中経過。B.ONE・旧B2は入れない。
 // 材料: チームの出場区間（data/{season}/team-stints/）。数え方はチーム詳細の5人組の表（src/lib/lineupsByCondition.ts）・ランキングの2人／3人の組み合わせ
 // （shared/onCourtTotals.ts の onCourtByGroup）と同じ: その組が同時にコートにいた区間の時間・得点・失点・攻守のポゼッションを足し、
 // 時間か数え上げのあった試合を試合数に数える。試合区分は試合一覧（games-summary）のレギュラーシーズン／ポストシーズン。
@@ -17,7 +17,6 @@ import { existsSync, readdirSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { DATA_DIR, readJson, writeJsonIfChanged } from "./lib/storage.ts";
 import { currentSeason } from "./lib/season.ts";
-import { substitutionModelForSeason } from "../shared/onCourt.ts";
 import { foreignCountInLineup } from "../shared/foreignOnCourt.ts";
 import { makeClassifier, type SeasonRegistrationFile } from "../shared/registration.ts";
 import { seasonRuleFor } from "../shared/seasonRules.ts";
@@ -76,7 +75,7 @@ async function main(): Promise<void> {
   const seasons = readdirSync(DATA_DIR, { withFileTypes: true })
     .filter((e) => e.isDirectory() && SEASON_DIR_PATTERN.test(e.name))
     .map((e) => e.name)
-    .filter((s) => s >= BEST_LINEUP_FIRST_SEASON && s <= currentSeason() && substitutionModelForSeason(s) === "modern")
+    .filter((s) => s >= BEST_LINEUP_FIRST_SEASON && s <= currentSeason())
     .filter((s) => existsSync(path.join(DATA_DIR, s, "team-stints")))
     .sort();
 

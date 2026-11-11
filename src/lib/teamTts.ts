@@ -2,7 +2,7 @@
 // 導出データ（data/{season}/team-tts.json。形式は shared/ttsIndex.ts）から、絞り込み済みの試合ログの合計を出す。
 // - 平均＝秒数の合計 ÷ 本数、割合＝その分類の本数 ÷ 計測できた FG の総数。区間（前後半など）は秒数の合計と本数を足してから割る
 // - 視点: own＝自チーム、opp＝同じ試合の相手のシュート、diff＝自チーム−opp（割合はポイントの差）
-// - 2020-21 より前は導出データが無い（null）。画面は「-」にして理由を注記する
+// - TTS_FIRST_SEASON（372章で 2016-17）より前は導出データが無い（null）。画面は「-」にして理由を注記する（今は該当するシーズンが無い）
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
 import { leagueCacheKey, type League } from "./league";
 import { useEffect, useState } from "react";
@@ -29,7 +29,7 @@ export interface TtsSource {
   gameNo: Map<string, number>;
 }
 
-/** そのシーズンに導出データがあるか（2020-21 以降） */
+/** そのシーズンに導出データがあるか（TTS_FIRST_SEASON 以降） */
 export function ttsSeasonSupported(season: string): boolean {
   return season >= TTS_FIRST_SEASON;
 }
@@ -186,5 +186,5 @@ function formatTtsNumber(v: number | null, perspective: TtsPerspective): string 
 export const formatTtsSeconds = formatTtsNumber;
 export const formatTtsPct = formatTtsNumber;
 
-/** 2020-21 より前のシーズンの注記（表は「-」にする） */
-export const TTS_UNSUPPORTED_NOTE = "Time to Shot は 2020-21 シーズン以降だけです（それ以前は公式の記録の形式が違い、基準に届かないため「-」にしています）。";
+/** 導出データの無いシーズンの注記（表は「-」にする） */
+export const TTS_UNSUPPORTED_NOTE = `Time to Shot は ${TTS_FIRST_SEASON} シーズン以降だけです（それより前のシーズンは「-」にしています）。`;

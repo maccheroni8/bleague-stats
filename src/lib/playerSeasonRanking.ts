@@ -206,7 +206,7 @@ export function boxColumnItem(col: SeasonBoxscoreColumn, mode: PlayerRankMode): 
 export const ON_COURT_SHARE_STAT_KEYS: ReadonlySet<string> = new Set(["pctpts", "pctfgm", "pctfga", "pct3pm", "pct3pa", "pct2pm", "pct2pa", "pctftm", "pctfta", "astpct"]);
 export { onCourtShareSeasonUnsupported } from "./onCourtShareSeason";
 export const ON_COURT_SHARE_LEGACY_REASON = (label: string) =>
-  `「${label}」は選手の出場中の記録から計算するため、2016-17〜2019-20のシーズンは出していません（出場中の記録の数え上げが無いため）。`;
+  `「${label}」は選手の出場中の記録から計算するため、このシーズンは出していません（出場中の記録の数え上げが無いため）。`;
 
 export const DDTD_PERIOD_REASON = (label: string) => `「${label}」は試合全体の記録でしか判定できないため、Q別・前後半を選んでいるときは対象外です。`;
 

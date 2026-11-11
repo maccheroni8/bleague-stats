@@ -4,7 +4,7 @@
 // - ORtg・DRtg は、得点と攻撃回数（攻撃の終わりの数）をシーズンで足してから割る（試合ごとの率の平均にしない）。平均／合計の切り替えでも試合数で割らない。
 //   攻撃回数0は「-」。NetRtg＝ORtg−DRtg、On-Off は On − Off
 // - Min は出場中・出場していない時間。平均のときは、材料のある試合の数で割る
-// - 2020-21以降・試合全体だけ。2016-17〜2019-20、Q別・前後半は「-」（理由は注記）。材料の無い試合は数えない（0として扱わない）
+// - 全シーズン（372章で 2016-17〜2019-20 も）・試合全体だけ。Q別・前後半は「-」（理由は注記）。材料の無い試合は数えない（0として扱わない）
 // - 個人の ORtg（Dean Oliver 方式。Advanced）とは別の項目
 import type { PlayerGameLog, TeamGameLog } from "../../shared/types";
 import { onOffSplitFromLogs, type OnOffBucket } from "./onCourtSplit";
@@ -32,7 +32,7 @@ export function onOffTotalsFromLogs(logs: readonly PlayerGameLog[], teamLogOf: (
 
 /** On/Off を出せない理由（null は出せる） */
 export function onOffUnavailableReason(season: string | null, periodSelected: boolean): string | null {
-  if (season && onCourtShareSeasonUnsupported(season)) return "2016-17〜2019-20 は、on/off の項目を出していません（出場中の記録の数え上げが無いため）。";
+  if (season && onCourtShareSeasonUnsupported(season)) return "このシーズンは、on/off の項目を出していません（出場中の記録の数え上げが無いため）。";
   if (periodSelected) return "on/off の項目は試合全体でだけ出します。Q別・前後半を選んでいるときは「-」です。";
   return null;
 }

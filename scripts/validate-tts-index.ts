@@ -29,7 +29,9 @@ for (const season of seasons) {
     if (gn === undefined) continue; // オールスター等は索引に無い（サイトに出ない）
     const g: number = gn;
     const hasPbp = (game.raw.PlayByPlays?.length ?? 0) > 0;
-    const calc = hasPbp ? calculateTimeToShot(game) : null;
+    // 前後半5分の特別な試合（旧形式の4試合）は、作る側と同じく値なし（-1。Qの区切りが違う。372章）
+    const short = game.quarterScores.home.length < 4 && (game.raw.PlayByPlays ?? []).reduce((n, e) => Math.max(n, e.Period), 0) < 4;
+    const calc = hasPbp && !short ? calculateTimeToShot(game) : null;
     if (!calc) noPbp++;
     for (const side of [0, 1] as const) {
       const team = side === 0 ? game.homeTeam : game.awayTeam;

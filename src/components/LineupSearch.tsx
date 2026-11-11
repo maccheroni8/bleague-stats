@@ -33,7 +33,7 @@ interface Props {
   stateKey: (field: string) => string;
   /** スマホ幅では名字だけにする選手名 */
   playerLabel: (name: string) => string;
-  /** このシーズンが実際のポゼッションの数え上げに対応しているか（2020-21以降） */
+  /** このシーズンが実際のポゼッションの数え上げに対応しているか（プレーバイプレーのあるシーズン。372章で 2016-17 から） */
   supported: boolean;
   /** このチームの出場区間ごとの数え上げ（親が読む。「よく使われるラインナップ」と共有する） */
   stints: TeamStintsFile | null;
@@ -103,7 +103,7 @@ export function LineupSearch({ season, teamId, playerNameById, games, stateKey, 
     <>
       <ConditionTitle section title="ラインナップ検索" conditions={conditions} />
       {!supported ? (
-        <p className="empty-message">このシーズンは実際のポゼッションを数えていないため、ラインナップ検索は使えません（2020-21以降のシーズンで使えます）</p>
+        <p className="empty-message">このシーズンは実際のポゼッションを数えていないため、ラインナップ検索は使えません</p>
       ) : loading && !file ? (
         <p className="loading">読み込み中...</p>
       ) : error || !file ? (

@@ -108,8 +108,8 @@ export interface ForeignDetailSum {
   /** 数えた試合数（平均の分母。延長は延長のあった試合） */
   games: number;
   /** 人数ごと（0〜4人） */
-  byCount: { seconds: number; ownPoints: number; oppPoints: number; ownPoss: number; oppPoss: number }[];
-  /** 攻撃回数が人数ごとにある（2020-21以降）。無いシーズンは推定 */
+  byCount: { seconds: number; ownPoints: number; oppPoints: number; ownPoss: number; oppPoss: number; ratingOwnPoints?: number; ratingOppPoints?: number }[];
+  /** 攻撃回数が人数ごとにある（372章から全シーズン）。無いとき（古い索引）は推定 */
   realPoss: boolean;
   /** 条件の試合時間（秒）・チームの得点・失点 */
   seconds: number;
@@ -117,6 +117,12 @@ export interface ForeignDetailSum {
   oppPoints: number;
   /** 条件のチームの攻撃回数（推定に使う） */
   teamPoss: number;
+  /**
+   * レーティングに使う得点・失点（実際の攻撃回数のときだけ）。攻撃回数を数えない試合（旧形式の前後半5分の特別な試合。372章）の分を除いた値。
+   * 人数ごとの ratingOwnPoints・ratingOppPoints も同じ。無ければ得点・失点と同じ
+   */
+  ratingOwnPoints?: number;
+  ratingOppPoints?: number;
 }
 
 /**
@@ -127,8 +133,10 @@ export function sumForeignDetail(source: TeamPeriodSource | null, logs: readonly
   if (!source || !hasForeignDetailColumns(source)) return null;
   const { file } = source;
   const keys = keysOf(period);
-  const byCount = FOREIGN_COUNTS.map(() => ({ seconds: 0, ownPoints: 0, oppPoints: 0, ownPoss: 0, oppPoss: 0 }));
+  const byCount = FOREIGN_COUNTS.map(() => ({ seconds: 0, ownPoints: 0, oppPoints: 0, ownPoss: 0, oppPoss: 0, ratingOwnPoints: 0, ratingOppPoints: 0 }));
   let games = 0;
+  let ratingOwnPoints = 0;
+  let ratingOppPoints = 0;
   let seconds = 0;
   let ownPoints = 0;
   let oppPoints = 0;
@@ -140,15 +148,26 @@ export function sumForeignDetail(source: TeamPeriodSource | null, logs: readonly
     if (!rows) continue;
     if (period !== "all" && (!hasPeriod(file, rows.own, period) || !hasPeriod(file, rows.opp, period))) continue;
     games += 1;
+    // 前後半5分の特別な試合（1Q〜4Q が無い）で攻撃回数が無いものは、時間・得点には入れ、レーティングからは外す（数え上げない試合。372章）
+    const noPossShort =
+      period === "all" &&
+      !hasPeriod(file, rows.own, "q1") &&
+      FOREIGN_COUNTS.some((n) => sumCol(file, rows.own, keys, `oc${n}`).has && !sumCol(file, rows.own, keys, `oc${n}Poss`).has);
     if (period === "all") {
       seconds += Math.round((g.min * 60) / 5);
       ownPoints += g.teamScore;
       oppPoints += g.opponentScore;
+      if (!noPossShort) {
+        ratingOwnPoints += g.teamScore;
+        ratingOppPoints += g.opponentScore;
+      }
       teamPoss += g.poss > 0 ? g.poss : 0;
     } else {
       seconds += Math.round(sumCol(file, rows.own, keys, "minSec").value / 5);
       ownPoints += sumCol(file, rows.own, keys, "pts").value;
       oppPoints += sumCol(file, rows.opp, keys, "pts").value;
+      ratingOwnPoints += sumCol(file, rows.own, keys, "pts").value;
+      ratingOppPoints += sumCol(file, rows.opp, keys, "pts").value;
       const p = file.rows.poss[period as PeriodPossKey]?.[rows.own] ?? -1;
       teamPoss += p > 0 ? p : 0;
     }
@@ -158,8 +177,13 @@ export function sumForeignDetail(source: TeamPeriodSource | null, logs: readonly
       any = true;
       const b = byCount[n]!;
       b.seconds += sec.value;
-      b.ownPoints += sumCol(file, rows.own, keys, `oc${n}Pts`).value;
-      b.oppPoints += sumCol(file, rows.own, keys, `oc${n}OppPts`).value;
+      const pts = sumCol(file, rows.own, keys, `oc${n}Pts`).value;
+      const oppPts = sumCol(file, rows.own, keys, `oc${n}OppPts`).value;
+      b.ownPoints += pts;
+      b.oppPoints += oppPts;
+      if (noPossShort) continue;
+      b.ratingOwnPoints += pts;
+      b.ratingOppPoints += oppPts;
       const own = sumCol(file, rows.own, keys, `oc${n}Poss`);
       const opp = sumCol(file, rows.own, keys, `oc${n}OppPoss`);
       if (!own.has || !opp.has) realPoss = false;
@@ -167,5 +191,5 @@ export function sumForeignDetail(source: TeamPeriodSource | null, logs: readonly
       b.oppPoss += opp.value;
     }
   }
-  return { games, byCount, realPoss: any && realPoss, seconds, ownPoints, oppPoints, teamPoss };
+  return { games, byCount, realPoss: any && realPoss, seconds, ownPoints, oppPoints, teamPoss, ratingOwnPoints, ratingOppPoints };
 }

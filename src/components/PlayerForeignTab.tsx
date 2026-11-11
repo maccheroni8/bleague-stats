@@ -167,7 +167,7 @@ export function PlayerForeignTab({
   if (loading || fileLoading || !rules) {
     body = <p className="loading">読み込み中...</p>;
   } else if (!file) {
-    body = <p className="empty-message">このシーズンのデータには対応していません（2020-21シーズン以降）</p>;
+    body = <p className="empty-message">このシーズンのデータには対応していません</p>;
   } else if (!totals || totals.games === 0) {
     body = <p className="empty-message">該当する試合がありません</p>;
   } else {

@@ -1,6 +1,6 @@
 // 試合詳細のボックススコア（アドバンスド）の個人 OR% と、内訳集計の %OR。**画面だけの計算（保存キーの対象のファイルからは読まない）**。
 // 個人 OR% = 100 × 本人の OR ÷（本人が出場中の自チーム OR ＋ 出場中の相手 DR）。分母は、在コートの復元（lineupStints）の
-// 区間ごとの数え上げ（新形式は countsByPeriod、旧形式 2016-17〜2019-20 は reboundsByPeriod の own.or・opp.dr。チームリバウンド込み）を、
+// 区間ごとの数え上げ（countsByPeriod。372章から旧形式 2016-17〜2019-20 も。数え上げない旧形式の前後半5分の特別な試合は reboundsByPeriod の own.or・opp.dr。チームリバウンド込み）を、
 // 本人が含まれる区間について足したもの。時間の比などの近似は使わない。その試合のデータから数え上げが公式のチーム合計と合うと判定できたチームだけ出す。
 import { stintReboundsByPeriod, type LineupStint } from "../../shared/onCourt";
 import { safeDiv } from "../../shared/formulas";

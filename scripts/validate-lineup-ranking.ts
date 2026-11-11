@@ -437,7 +437,7 @@ const activeIds = new Set(
   check(`下限を変えると行数が変わる（通算 15% ${a}行、25% ${b}行）`, b < a);
   check(`試合区分を変えると行数が変わる（ポストシーズン ${c}行）`, c !== a);
   check("minPossessions は絶対の下限を下回らない", minPossessions(300, 15) === LINEUP_MIN_POSSESSIONS && minPossessions(4400, 15) === 660);
-  check("2016-17〜2019-20 は対象外", !lineupSeasonSupported("2019-20") && lineupSeasonSupported("2020-21"));
+  check("2016-17〜2019-20 も対象（372章）", lineupSeasonSupported("2016-17") && lineupSeasonSupported("2019-20") && lineupSeasonSupported("2020-21"));
 }
 
 // ---- 7. 感度（出場区間を1か所壊すと、searchLineup との照合が NG になる） ----

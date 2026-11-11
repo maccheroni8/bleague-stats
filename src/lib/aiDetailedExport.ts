@@ -76,7 +76,7 @@ export interface DetailedInput {
   leagueLogs?: ReadonlyMap<string, TeamGameLog[]>;
   /** 区間の索引（オンザコート別。チーム情報だけ） */
   periodSource?: TeamPeriodSource | null;
-  /** Time to Shot の索引（2020-21以降。チーム情報だけ） */
+  /** Time to Shot の索引（チーム情報だけ） */
   ttsSource?: TtsSource | null;
   /** コートに同時に出られる外国籍・帰化・アジア特別枠の最大人数（規程） */
   maxForeignOnCourt?: number;
@@ -666,7 +666,7 @@ function buildPart(i: DetailedInput, slices: TimeSlice[], split: SplitInfo | und
   }
   // オンザコート別（On-Court Foreign とまとめる）。試合全体（区間は段階4）
   for (const slice of slices) {
-  out.push(`### オンザコート別（コート上の外国籍・帰化・アジア特別枠の人数）${sfx(slice)}`, '', '人数ごとの出場時間（合計）、時間の割合、その時間の得点・失点・ORtg・DRtg・NetRtg（2020-21以降は実際の攻撃回数）。「相手の割合」は相手チームのコート上の人数の時間の割合。「ラインナップ > オンザコート別」と同じ値。外国籍・帰化・アジア特別枠の合計で、日本人は数えない。', '');
+  out.push(`### オンザコート別（コート上の外国籍・帰化・アジア特別枠の人数）${sfx(slice)}`, '', '人数ごとの出場時間（合計）、時間の割合、その時間の得点・失点・ORtg・DRtg・NetRtg（実際の攻撃回数）。「相手の割合」は相手チームのコート上の人数の時間の割合。「ラインナップ > オンザコート別」と同じ値。外国籍・帰化・アジア特別枠の合計で、日本人は数えない。', '');
   for (const c of cols) {
     const logs = c.logs;
     if (!logs.length) { out.push(`#### ${c.label}`, '', '- 該当する試合なし', ''); continue; }
@@ -682,10 +682,9 @@ function buildPart(i: DetailedInput, slices: TimeSlice[], split: SplitInfo | und
     out.push(`#### ${c.label}（${oc.games}試合）`, '', table(['人数', '時間', '割合', '得点', '失点', '得失点', 'ORtg', 'DRtg', 'NetRtg', '相手の割合'], rows), '');
   }
   }
-  if (i.season < '2020-21') out.push('- 2019-20以前のシーズンは、攻撃回数と在コートが推定で、ORtg・DRtg は推定の値。', '');
 
-  // Time to Shot（2020-21以降）
-  if (i.season >= '2020-21' && i.ttsSource) for (const slice of slices) {
+  // Time to Shot（372章で 2016-17 から）
+  if (i.ttsSource) for (const slice of slices) {
     const tts = i.ttsSource;
     const tv = slice === 'game' ? 'all' as const : slice;
     out.push(`### Time to Shot${sfx(slice)}`, '', '攻撃の始まりから最初のFG試投までの平均秒数（秒）と、その始まり方の割合。差は自チーム−相手（秒）。「チーム詳細 > チームスタッツ > Time to Shot」と同じ値。', '');
@@ -699,7 +698,6 @@ function buildPart(i: DetailedInput, slices: TimeSlice[], split: SplitInfo | und
     }
     out.push(table(['項目', ...cols.map(c => c.label)], rows), '');
   }
-  if (i.season < '2020-21') missingTables.push('Time to Shot（2020-21より前は無い）');
 
   // Streaks（試合の最終勝敗。結果だけの試合も数える＝今の Streaks と同じ）。試合全体だけ
   if (hasGame) {

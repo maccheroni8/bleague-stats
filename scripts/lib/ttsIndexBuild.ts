@@ -1,5 +1,5 @@
 // Time to Shot の導出データを作る（形式は shared/ttsIndex.ts。計算は shared/timeToShot.ts）。
-// 1試合行の索引（team-game-index.json。先に作っておく）の行に結び付ける。2020-21 より前のシーズンは作らない（null）。
+// 1試合行の索引（team-game-index.json。先に作っておく）の行に結び付ける。TTS_FIRST_SEASON（2016-17）より前のシーズンは作らない（null）。
 import path from "node:path";
 import { DATA_DIR, readAllGames, readJson, seasonDirName } from "./storage.ts";
 import type { Category } from "../../shared/types.ts";
@@ -29,7 +29,7 @@ export async function buildTtsIndex(season: string, category: Category = "premie
     if (g === undefined) continue;
     // PBP が無い試合は値なし（-1）。ボックスの FGA は復元できない
     if (!game.raw.PlayByPlays?.length) continue;
-    // 前後半5分の特別な試合（旧形式）は 2020-21 以降に無いが、Qの区切りが違うので作らない
+    // 前後半5分の特別な試合（旧形式の4試合）は、Qの区切りが違うので作らない（-1）
     if (game.quarterScores.home.length < 4 && game.raw.PlayByPlays.reduce((n, e) => Math.max(n, e.Period), 0) < 4) continue;
     const result = calculateTimeToShot(game);
     const periods = new Set(result.shots.map((s) => s.period));

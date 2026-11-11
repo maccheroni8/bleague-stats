@@ -32,9 +32,12 @@ function mark(e: PlayByPlayEvent, index: number): TtsMark {
   return { index, period: e.Period, clock: e.RestTime, code: e.ActionCD1, team: e.TeamID, text: e.PlayText ?? '' };
 }
 interface Segment { team: string; start: TtsMark; category: TtsCategory; reason: string; flags: string[] }
-/** Never invent a start time for an implicit change of possession. Legacy is research-only. */
-export function calculateTimeToShot(game: StoredGame, options: { legacyResearch?: boolean } = {}): TtsResult {
-  if (game.season < '2020-21' && !options.legacyResearch) throw new Error('TTS supports 2020-21 onward');
+/**
+ * Never invent a start time for an implicit change of possession.
+ * 2016-17〜2019-20 (legacy PBP) is supported since DESIGN.md 372: team rebound codes are read as legacy codes below,
+ * and the clock-stamping difference (about 0.5-1 s per start category) is documented in the glossary, not corrected.
+ */
+export function calculateTimeToShot(game: StoredGame): TtsResult {
   const es = chronologicalPlayByPlays(game.raw.PlayByPlays ?? []);
   const events = es.map(mark);
   const result: TtsResult = { shots: [], noShots: [], diagnostics: [], events };

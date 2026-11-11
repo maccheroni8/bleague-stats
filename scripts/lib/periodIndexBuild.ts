@@ -240,8 +240,8 @@ export async function buildPeriodIndex(
 
   // 選手: 行ごとの区間の値を集めてから (row, period) の昇順に書く
   const perRow = new Map<number, { period: number; flags: number; values: number[]; ocValues: number[] | null; assistPoints: number }[]>();
-  // 出場中の材料の列は、数え上げのあるシーズン（2020-21以降）の索引だけが持つ
-  const withOnCourtColumns = substitutionModelForSeason(season) === "modern";
+  // 出場中の材料の列は、全シーズンの索引が持つ（2016-17〜2019-20 も数え上げる。DESIGN.md 372章）。数え上げの無い試合の行は -1
+  const withOnCourtColumns = true;
   // 復元の Q別 +/- は、公式のピリオド別の値が無いシーズン（2016-17〜2021-22）だけ。2022-23以降は公式の値を使い、欠けた行も補わない
   const reconstructsPeriodPlusMinus = Number(season.slice(0, 4)) < 2022;
   // チーム: 試合番号×2＋(ホーム 0／アウェイ 1)

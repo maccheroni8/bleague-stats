@@ -141,7 +141,9 @@ const near = (a: number, b: number, label: string, tol = 1e-9) => assert.ok(Math
   assert.equal(playerFreeItemBlock(shooting, null, "one", reasons, "2026-27"), "S", "B.ONE では Shooting を選べない");
   assert.equal(playerFreeItemBlock(shooting, null, "premier", reasons, "2025-26"), undefined);
   assert.equal(playerFreeItemBlock(shooting, [{ shotTypes: undefined } as PlayerSummary], "premier", reasons, "2025-26"), "N", "記録のないシーズン");
-  assert.ok(playerFreeItemBlock(share, null, "premier", reasons, "2019-20")?.startsWith("O:"), "2019-20 は出場中の割合を選べない");
+  // 372章から 2016-17〜2019-20 も出場中の割合を選べる
+  assert.equal(playerFreeItemBlock(share, null, "premier", reasons, "2019-20"), undefined, "2019-20 も出場中の割合を選べる");
+  assert.equal(playerFreeItemBlock(share, null, "premier", reasons, "2016-17"), undefined, "2016-17 も出場中の割合を選べる");
   assert.equal(playerFreeItemBlock(share, null, "premier", reasons, "2025-26"), undefined);
   assert.ok(isPlayerFreeSeasonTotal(shooting) && isPlayerFreeSeasonTotal(items.find(i => i.key === "per")!) && !isPlayerFreeSeasonTotal(items.find(i => i.key === "pts")!));
   console.log("選手の散布図: 項目・選べない理由 OK");

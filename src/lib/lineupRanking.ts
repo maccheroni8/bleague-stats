@@ -7,7 +7,7 @@
 // チームごとに判定する。登録区分・ポジション・現役・ルーキーは索引の選手辞書で選手ごとに判定し、組み合わせは「組の全員が当てはまる」ものだけ。
 // 1選手×1チームで1行（移籍した選手は、チームごとに別の行）。通算は、同じチームの行をシーズンをまたいで足す。
 import { FIRST_LEAGUE_SEASON } from "../../shared/rookieEligibility";
-import { substitutionModelForSeason } from "../../shared/onCourt";
+import { ON_COURT_COUNT_FIRST_SEASON } from "./onCourtShareSeason";
 import { onCourtByGroup, onOffByPlayer, teamTotals, type CompactStints, type OnCourtTotals } from "../../shared/onCourtTotals";
 import type { SeasonGameTypeFilter } from "../../shared/gameType";
 import type { RookieEligibilityFile } from "../../shared/types";
@@ -29,16 +29,16 @@ export type LineupMetric = "net" | "off" | "def";
 export const LINEUP_METRICS: LineupMetric[] = ["net", "off", "def"];
 export const LINEUP_METRIC_LABELS: Record<LineupMetric, string> = { net: "NetRtg", off: "ORtg", def: "DRtg" };
 
-/** 範囲: シーズン（選んでいるシーズン）／通算（2020-21以降の合計） */
+/** 範囲: シーズン（選んでいるシーズン）／通算（全シーズンの合計） */
 export type LineupRange = "season" | "career";
 
-/** 実際のポゼッションを数えているシーズンか（2020-21以降。ラインナップ検索と同じ） */
+/** 実際のポゼッションを数えているシーズンか（372章で全シーズン。ラインナップ検索と同じ） */
 export function lineupSeasonSupported(season: string): boolean {
-  return substitutionModelForSeason(season) === "modern";
+  return season >= ON_COURT_COUNT_FIRST_SEASON;
 }
 
 export const LINEUP_UNSUPPORTED_REASON =
-  "2016-17〜2019-20は、旧形式のプレーバイプレーでコートにいる5人の復元の前提が違い、実際のポゼッションを数えていないため、On/Offと組み合わせのNetRtgを出せません（2020-21以降で使えます）。";
+  "このシーズンは実際のポゼッションを数えていないため、On/Offと組み合わせのNetRtgを出せません。";
 
 // ---- 最低の基準（ポゼッション数） ----
 
