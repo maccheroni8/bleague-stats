@@ -56,6 +56,7 @@ import type {
 } from "../../shared/types";
 import { withChronologicalPlayByPlays } from "../../shared/pbpOrder";
 import type { ScheduleFileExtended } from "../../shared/resultOnlyGames";
+import { setOpponentRun } from "./gameFlowTotals";
 import { legibleAccentColor, MONO_FALLBACK_COLOR } from "./color";
 import { fillUnnamedPlayers } from "./unknownPlayer";
 import { TEAM_COLOR_OVERRIDES, TEAM_SUB_COLORS } from "./teamColorOverrides";
@@ -195,8 +196,53 @@ export async function fetchYahooGamePbp(season: string, scheduleKey: string, lea
   }
 }
 
-export function fetchTeamGameLogs(season: string, teamId: string, league: League = "premier"): Promise<TeamGameLog[]> {
-  return fetchJson<TeamGameLog[]>(`${categoryBase(season, league)}/team-games/${teamId}.json`);
+export async function fetchTeamGameLogs(season: string, teamId: string, league: League = "premier"): Promise<TeamGameLog[]> {
+  const logs = await fetchJson<TeamGameLog[]>(`${categoryBase(season, league)}/team-games/${teamId}.json`);
+  await attachOpponentRuns(season, league, teamId, logs);
+  return logs;
+}
+
+// 相手の最大ラン（試合ログには無い。同じ試合の相手の行が持つ値）を、チームの1試合行の索引から試合ログに添える（保存はしない。DESIGN.md 362章）。
+// 索引は同じシーズンで1回だけ読み、失敗しても試合ログの読み込みは止めない（相手の最大ランは「-」になる）
+const opponentRunCache = new Map<string, Promise<Map<string, number> | null>>();
+
+function loadOpponentRuns(season: string, league: League): Promise<Map<string, number> | null> {
+  const cacheKey = `${league}|${season}`;
+  let p = opponentRunCache.get(cacheKey);
+  if (!p) {
+    p = fetchTeamGameIndex(season, league).then((file) => {
+      const stats = file?.rows?.stats as { maxRun?: number[] } | undefined;
+      if (!file || !stats?.maxRun) return null;
+      const out = new Map<string, number>();
+      for (let g = 0; g < file.games.key.length; g++) {
+        const home = file.teams[file.games.home[g]!]?.[0];
+        const away = file.teams[file.games.away[g]!]?.[0];
+        const key = file.games.key[g]!;
+        const homeRun = stats.maxRun[g * 2] ?? -1;
+        const awayRun = stats.maxRun[g * 2 + 1] ?? -1;
+        // 自チームの行の相手の最大ラン＝相手の行の最大ラン
+        if (home && awayRun >= 0) out.set(`${key}|${home}`, awayRun);
+        if (away && homeRun >= 0) out.set(`${key}|${away}`, homeRun);
+      }
+      return out;
+    });
+    p.then((v) => v ?? opponentRunCache.delete(cacheKey), () => opponentRunCache.delete(cacheKey));
+    opponentRunCache.set(cacheKey, p);
+  }
+  return p;
+}
+
+async function attachOpponentRuns(season: string, league: League, teamId: string, logs: TeamGameLog[]): Promise<void> {
+  try {
+    const runs = await loadOpponentRuns(season, league);
+    if (!runs) return;
+    for (const g of logs) {
+      const v = runs.get(`${g.scheduleKey}|${teamId}`);
+      if (v !== undefined) setOpponentRun(g, v);
+    }
+  } catch {
+    // 相手の最大ランが添えられなくても、試合ログはそのまま使う
+  }
 }
 
 export function fetchStandingsHistory(season: string, league: League = "premier"): Promise<StandingsSnapshot[]> {

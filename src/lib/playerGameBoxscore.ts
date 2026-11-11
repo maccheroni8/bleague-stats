@@ -92,6 +92,7 @@ export function buildPlayerGameBoxscoreRow(
       isTeamTotalRow: false,
       shotChartSupported,
       yahooPbpSupported: yahooPbp !== null,
+      noFlow: assistPoints === null,
     },
   };
 }

@@ -120,7 +120,7 @@ export function ExportImageButton({
     );
     try {
       const prepared = await prepareExportImage(target, filename, {
-        options: { plain: ranking ? plain : false, top10: ranking ? top10 : false },
+        options: { plain: ranking ? plain : false, top10: ranking ? top10 : false, teamNames: ranking?.media === "ロゴ" },
         resolveBaseDate: baseDate ? () => resolveBaseDate(baseDate, league) : undefined,
         env,
         onPhase: setPhase,

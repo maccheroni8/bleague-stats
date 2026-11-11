@@ -111,6 +111,9 @@ import { ExportImageButton } from "../components/ExportImageButton";
 import { ExportTarget } from "../components/ExportTarget";
 import { logsHaveOn4, on4Supported, onlyOn4Games } from "../lib/on4Core";
 import { buildExportFilename } from "../lib/conditionLabels";
+import { addGameFlow } from "../lib/gameFlowTotals";
+import { AssistSelfChart, type AssistSelfChartTeam } from "../components/AssistSelfChart";
+import { ASSIST_SELF_ORDER_LABELS, SELF_SHOT_KIND_LABELS, assistSelfShare, type AssistSelfOrder, type SelfShotKind } from "../lib/selfScoring";
 import { SCORING_ORDER_LABELS, ScoringCompositionChart, type PointsShareOrder } from "../components/ScoringCompositionChart";
 import {
   CLASSIFICATION_ORDER_LABELS,
@@ -140,6 +143,8 @@ import {
   buildAdvancedColumns,
   buildMiscColumns,
   buildScoringColumns,
+  withoutSelfPctColumns,
+  teamShotMadeSource,
   buildTraditionalColumns,
   DEFAULT_SORT_KEY,
   sumTeamGameLogs,
@@ -468,7 +473,10 @@ function foreignCourtColumns(mode: "perGame" | "total", counts: readonly number[
 /** チームの合計を足し合わせる（リーグ平均の材料。全チームの試合ログを足した値と同じ） */
 function sumTotalsOf(list: readonly TeamTotals[]): TeamTotals {
   const sum: TeamTotals = { ...EMPTY_TOTALS };
-  for (const t of list) for (const k of Object.keys(sum) as (keyof TeamTotals)[]) sum[k] += t[k];
+  for (const t of list) {
+    for (const k of Object.keys(sum) as (keyof TeamTotals)[]) if (k !== "flow") (sum[k] as number) += t[k] as number;
+    sum.flow = addGameFlow(sum.flow, t.flow);
+  }
   return sum;
 }
 
@@ -543,6 +551,11 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
   // FG試投構成の並び順（2026-09-27）。FG試投構成と opp FG試投構成は同じ並び順を使う
   const [storedFgaOrder, setFgaOrder] = usePageState<FgaShareOrder>("teams:fgaOrder", "total");
   const fgaOrder: FgaShareOrder = storedFgaOrder in FGA_ORDER_LABELS ? storedFgaOrder : "total";
+  // アシストの有無（Scoring %）: シュートの種類と並び順
+  const [storedAssistKind, setAssistKind] = usePageState<SelfShotKind>("teams:assistSelfKind", "fgm");
+  const assistKind: SelfShotKind = storedAssistKind in SELF_SHOT_KIND_LABELS ? storedAssistKind : "fgm";
+  const [storedAssistOrder, setAssistOrder] = usePageState<AssistSelfOrder>("teams:assistSelfOrder", "total");
+  const assistOrder: AssistSelfOrder = storedAssistOrder in ASSIST_SELF_ORDER_LABELS ? storedAssistOrder : "total";
   const [storedClassificationOrder, setClassificationOrder] = usePageState<ClassificationShareOrder>("teams:classificationOrder", "total");
   const classificationOrder: ClassificationShareOrder =
     storedClassificationOrder in CLASSIFICATION_ORDER_LABELS ? storedClassificationOrder : "total";
@@ -713,7 +726,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                   ? buildAdvancedColumns(mode, p)
                   : tab === "misc"
                     ? buildMiscColumns(mode, p, true, foulSplit)
-                    : buildScoringColumns(mode, p, paintSupported),
+                    : withoutSelfPctColumns(buildScoringColumns(mode, p, paintSupported)),
             ),
           sampleRows: conditionRows,
           shotTypesOf: (r) => teamById.get(r.team.teamId)?.shotTypes,
@@ -742,7 +755,7 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
       case "misc":
         return [...LEADING_COLUMNS, ...maskCols(buildMiscColumns(displayMode, teamPerspective, true, foulSplit))];
       case "scoring":
-        return [...LEADING_COLUMNS, ...maskCols(buildScoringColumns(displayMode, teamPerspective, paintSupported))];
+        return [...LEADING_COLUMNS, ...maskCols(withoutSelfPctColumns(buildScoringColumns(displayMode, teamPerspective, paintSupported)))];
       case "shooting":
       case "forcedTurnovers":
       case "foreignPlayers":
@@ -914,6 +927,19 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
     };
     return { own: build("own"), opponent: build("opponent") };
   }, [shareTotals]);
+  // アシストの有無（Scoring %）。自チームの成功のうち・相手の成功のうちの、アシストあり／セルフ。試合の流れの記録が無い試合（1810）は除いて、残りの試合数で割る
+  const assistSelfTeams = useMemo(() => {
+    if (!shareTotals) return null;
+    const build = (opp: boolean): AssistSelfChartTeam[] => {
+      const share = (t: ReturnType<typeof sumTotalsOf>, games: number) =>
+        assistSelfShare(teamShotMadeSource(t, opp), assistKind, games - (t.noFlowGames ?? 0));
+      const list = shareTotals.perTeam.map((r) => ({ teamId: r.team.teamId, teamName: r.team.teamName, share: share(r.totals, r.games) }));
+      return shareTotals.league
+        ? [...list, { teamId: LEAGUE_TEAM_ID, teamName: LEAGUE_TEAM_NAME, share: share(shareTotals.league.totals, shareTotals.league.games) }]
+        : list;
+    };
+    return { own: build(false), opponent: build(true) };
+  }, [shareTotals, assistKind]);
   // On-Court Foreign（DESIGN.md 256章の段階3）: 選んだ試合区分・試合の条件・区間の、人数別の在コート時間の合計。視点は自チーム／相手（相手のコート上の人数）。
   // 試合全体は試合ログ、区間は索引から。人数を数えられた時間が無いチームは出さない。リーグ平均は全チームの合計を延べ試合数で割る。
   // 試合ログに人数別の時間が無い古いデータのときは、teams.json（レギュラーシーズンの合計）のまま出す（絞り込みは連動しない）
@@ -1383,6 +1409,22 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
                 onChange: (v) => setFgaOrder(v as FgaShareOrder),
               }),
               simpleSelectAxis({
+                id: "assistSelfKind",
+                label: "アシストの有無のシュート",
+                options: (Object.keys(SELF_SHOT_KIND_LABELS) as SelfShotKind[]).map((o) => ({ value: o, label: SELF_SHOT_KIND_LABELS[o] })),
+                value: assistKind,
+                defaultValue: "fgm",
+                onChange: (v) => setAssistKind(v as SelfShotKind),
+              }),
+              simpleSelectAxis({
+                id: "assistSelfOrder",
+                label: "アシストの有無の並び順",
+                options: (Object.keys(ASSIST_SELF_ORDER_LABELS) as AssistSelfOrder[]).map((o) => ({ value: o, label: ASSIST_SELF_ORDER_LABELS[o] })),
+                value: assistOrder,
+                defaultValue: "total",
+                onChange: (v) => setAssistOrder(v as AssistSelfOrder),
+              }),
+              simpleSelectAxis({
                 id: "classificationOrder",
                 label: "登録区分の並び順",
                 options: (Object.keys(CLASSIFICATION_ORDER_LABELS) as ClassificationShareOrder[]).map((o) => ({
@@ -1405,6 +1447,11 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           <h3>opp FG試投構成（相手のFGAに占める割合）</h3>
           {fgaTeams ? <FgaCompositionChart teams={fgaTeams.opponent} mode="opponent" order={fgaOrder} /> : <p className="loading">読み込み中...</p>}
           <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="FG試投構成" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />
+          <h3>アシストの有無（{SELF_SHOT_KIND_LABELS[assistKind]}の成功のうちアシストありとセルフの割合）</h3>
+          {assistSelfTeams ? <AssistSelfChart teams={assistSelfTeams.own} mode="own" kind={assistKind} order={assistOrder} /> : <p className="loading">読み込み中...</p>}
+          <h3>相手のアシストの有無（相手の成功のうちアシストありとセルフの割合）</h3>
+          {assistSelfTeams ? <AssistSelfChart teams={assistSelfTeams.opponent} mode="opponent" kind={assistKind} order={assistOrder} /> : <p className="loading">読み込み中...</p>}
+          <GlossaryNote anchor={GLOSSARY_ANCHORS.composition} label="アシストの有無" scope="上部で選んだ試合区分・試合の条件・区間に当てはまる試合の合計の値です。" />
           <h3>得点構成（登録区分）</h3>
           <ClassificationCompositionChart teams={scoringTeams} mode="own" order={classificationOrder} shareOf={scoringShareOf.classification} />
           <h3>失点構成（登録区分）</h3>

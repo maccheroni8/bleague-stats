@@ -1,5 +1,5 @@
 // 試合詳細のボックススコアと個人詳細の試合ログに足した PC・PPP の検証（DESIGN.md 339章）。使い方: npm run validate:game-pc-ppp（先に npm run build:data）
-//  1. 列の並び: Advanced の PPP は FTR と PPS の間（試合ログは FTR が無いので TS% と PPS の間）、Scoring の PC は %PTS ASTED の右。Advanced・Scoring 以外には出ない
+//  1. 列の並び: Advanced の PPP は FTR と PPS の間（試合ログは FTR が無いので TS% と PPS の間）、Scoring の PC は %PTS Self（%PTS ASTED の右）の右。Advanced・Scoring 以外には出ない
 //  2. 値: 試合の生データから出した行（buildPlayerGameBoxscoreRow。試合詳細と同じ部品）の PC・PPP が、集計済みの選手の試合ログ（player-games）の
 //     pts・assistPoints・fga・fta・tov から、共通の式（PC＝PTS＋アシストから生まれた得点、PPP＝PTS÷(FGA＋0.44×FTA＋TOV)）で手計算した値と一致する
 //  3. 試合の流れ（プレーバイプレーの記録）が無い試合の PC は「-」、分母が0の PPP は「-」（B.PREMIER・B.ONE の両方）
@@ -28,7 +28,7 @@ for (const fs of [false, true]) {
     if (i < 0 || adv.filter((k) => k === "ppp").length !== 1 || adv[i + 1] !== "pps" || adv[i - 1] !== prev) fail(`${name} Advanced の PPP の位置 (${adv.join(",")})`);
     const sc = fn("scoring", fs).map((c) => c.key);
     const j = sc.indexOf("pc");
-    if (j < 0 || sc.filter((k) => k === "pc").length !== 1 || sc[j - 1] !== "pctptsasted") fail(`${name} Scoring の PC の位置 (${sc.join(",")})`);
+    if (j < 0 || sc.filter((k) => k === "pc").length !== 1 || sc[j - 1] !== "pctptsself") fail(`${name} Scoring の PC の位置 (${sc.join(",")})`);
     for (const tab of ["traditional", "misc"] as const) if (fn(tab, fs).some((c) => c.key === "pc" || c.key === "ppp")) fail(`${name} ${tab} に PC・PPP が出ている`);
     if (sc.includes("ppp") || adv.includes("pc")) fail(`${name} 違うタブに出ている`);
   }

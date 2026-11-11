@@ -47,3 +47,28 @@ export function legibleAccentColor(hex: string | undefined | null): string | und
 // （ライト: 黒系、ダーク: 白系）を使う。var(--fg)は本文の文字色と同じ変数で、
 // 手動テーマ切り替え（index.css の[data-theme]）にも自動で追従する
 export const MONO_FALLBACK_COLOR = "var(--fg)";
+
+/** WCAG の相対輝度（0〜1）。"#rrggbb" 以外は null */
+function wcagLuminance(hex: string): number | null {
+  const match = /^#?([0-9a-fA-F]{6})$/.exec(hex);
+  if (!match) return null;
+  const v = match[1]!;
+  const lin = (i: number) => {
+    const c = parseInt(v.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4);
+}
+
+/**
+ * 背景を指定した色で塗るときの文字の色（白か黒）。コントラスト比が高いほうを選ぶ（保存画像のチーム名の塗り。DESIGN.md 362章）。
+ * "#rrggbb" 以外は undefined（塗らない）
+ */
+export function readableInkOn(hex: string | undefined | null): "#ffffff" | "#111111" | undefined {
+  if (!hex) return undefined;
+  const l = wcagLuminance(hex);
+  if (l === null) return undefined;
+  const withWhite = 1.05 / (l + 0.05);
+  const withBlack = (l + 0.05) / 0.05; // 黒（輝度0）に対する比
+  return withWhite >= withBlack ? "#ffffff" : "#111111";
+}

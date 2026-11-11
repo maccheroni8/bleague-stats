@@ -1,6 +1,7 @@
 // リーグ平均（DESIGN.md 149章。NBA準拠: 割合は合計÷合計、1試合平均は合計÷延べ試合数）。
 // シーズン単位の値は scripts/aggregate.ts が data/{season}/league-average.json に出す。条件で絞った一覧（全チームスタッツ）は、
 // 画面で絞った全チームの合計から averageTotals で出す（カウント系をチーム数で割る。「合計」表示では平均的な1チームの合計）
+import { addGameFlow, EMPTY_GAME_FLOW, type GameFlowTotals } from "./gameFlowTotals";
 import type { TeamGameBoxTotals } from "./playerSeasonBoxscore";
 
 export const LEAGUE_TEAM_ID = "league";
@@ -19,6 +20,9 @@ export function averageTotals<T extends object>(list: T[]): T {
     for (const [k, v] of Object.entries(item)) if (typeof v === "number") sum[k] = (sum[k] ?? 0) + v;
   }
   for (const k of Object.keys(sum)) sum[k] = sum[k]! / list.length;
+  // 最大リード・最大ランの合計（入れ子の値）は、平均にせず全チームの合計にする（割る・割られる両方が合計なので、1試合平均は変わらない。最大は最大）
+  const flows = list.map((item) => (item as { flow?: GameFlowTotals }).flow).filter((f): f is GameFlowTotals => !!f);
+  if (flows.length > 0) (sum as unknown as { flow: GameFlowTotals }).flow = flows.reduce(addGameFlow, { ...EMPTY_GAME_FLOW });
   return sum as T;
 }
 

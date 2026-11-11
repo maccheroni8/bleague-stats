@@ -8,6 +8,8 @@ export type BaseDateGameType = GameType | "both";
 export interface ExportOptions {
   /** 写真・ロゴを出さず、選手名の横にチーム略称を添える版（ランキング） */
   plain?: boolean;
+  /** plain のうち、チームの表（「ロゴ」なし）。チーム名をチームの色で塗る。選手の表（「写真」なし）は名前の横のチーム略称を塗る */
+  teamNames?: boolean;
   /** 上位10名だけにする版（ランキング。それ以外は画面に出している件数のまま） */
   top10?: boolean;
   /** データの基準日（「2026/10/11」形式）。表に入っている試合のうち終わった試合の最も新しい試合日。分からないときは出さない */

@@ -8,6 +8,7 @@ import { PeriodRangeToggle } from "./PeriodRangeToggle";
 import { buildPeriodRangeOptions, type PeriodRangeOption, type PeriodRangeValue } from "../lib/periodRange";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
 import { efgPct, ftRate, orbPct, playerPpp, safeDiv, tovPartPct, tovPct, tsPct, usagePct } from "../../shared/formulas";
+import { SELF_COUNT_DEFS, SELF_PCT_DEFS, selfCountsOf, selfPct, selfSplitOf, type SelfShotKind, type ShotMadeSource } from "../lib/selfScoring";
 import { assistPointsByAssister } from "../../shared/assistedScoring";
 import { pointsCreated } from "../../shared/playerGameRecords";
 import { onCourtPeriodCount, type LineupStint, type PlayerOnCourtRatings } from "../../shared/onCourt";
@@ -60,6 +61,8 @@ export interface ColumnCtx {
   shotChartSupported: boolean;
   /** Yahoo!スポーツplay-by-play由来の列（LIVETOV/DEADTOV等）が算出可能か。DESIGN.md参照 */
   yahooPbpSupported: boolean;
+  /** 試合の流れ（プレーバイプレーの記録）が無い試合。アシストの数が0になるので、Self 系の列は「-」にする */
+  noFlow?: boolean;
 }
 
 export interface BoxscoreColumn {
@@ -363,6 +366,26 @@ const MISC_COLUMNS: BoxscoreColumn[] = [
   },
 ];
 
+function boxShotSource(c: BoxscoreCounts): ShotMadeSource {
+  return { made2: c.pt2m, made3: c.pt3m, madeFt: c.ftm, ast2: c.assisted2m, ast3: c.assisted3m, astFt: c.assistedFtm };
+}
+
+function boxSelfPctColumn(key: string, label: string, kind: SelfShotKind, side: "ast" | "self"): BoxscoreColumn {
+  const calc = (c: BoxscoreCounts) => {
+    const sp = selfSplitOf(boxShotSource(c), kind);
+    return sp.total > 0 ? selfPct(side === "ast" ? sp.ast : sp.self, sp.total) : undefined;
+  };
+  return {
+    key,
+    label,
+    format: (c, ctx) => {
+      const v = ctx.noFlow ? undefined : calc(c);
+      return v === undefined ? "-" : formatPct100(v);
+    },
+    value: (c, ctx) => (ctx.noFlow ? undefined : calc(c)),
+  };
+}
+
 const SCORING_COLUMNS: BoxscoreColumn[] = [
   { key: "min", label: "MIN", format: (c) => formatMinutesFromSeconds(c.minSec), value: (c) => c.minSec },
   { key: "pts", label: "PTS", format: (c) => String(c.pts), value: (c) => c.pts },
@@ -381,6 +404,18 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
   { key: "ast2m", label: "AST2M", format: (c) => String(c.assisted2m), value: (c) => c.assisted2m },
   { key: "ast3m", label: "AST3M", format: (c) => String(c.assisted3m), value: (c) => c.assisted3m },
   { key: "astftm", label: "ASTFTM", format: (c) => String(c.assistedFtm), value: (c) => c.assistedFtm },
+  ...SELF_COUNT_DEFS.map(
+    (d): BoxscoreColumn => ({
+      key: d.key,
+      label: d.label,
+      format: (c, ctx) => (ctx.noFlow ? "-" : String(d.pick(selfCountsOf(boxShotSource(c))))),
+      value: (c, ctx) => (ctx.noFlow ? undefined : d.pick(selfCountsOf(boxShotSource(c)))),
+    }),
+  ),
+  ...SELF_PCT_DEFS.flatMap((d): BoxscoreColumn[] => [
+    boxSelfPctColumn(d.astKey, d.astLabel, d.kind, "ast"),
+    boxSelfPctColumn(d.selfKey, d.selfLabel, d.kind, "self"),
+  ]),
   {
     key: "pctptsasted",
     label: "%PTS ASTED",
@@ -388,6 +423,7 @@ const SCORING_COLUMNS: BoxscoreColumn[] = [
       formatPct100(sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts)),
     value: (c) => sharePct(c.assisted2m * 2 + c.assisted3m * 3 + c.assistedFtm, c.pts),
   },
+  boxSelfPctColumn("pctptsself", "%PTS Self", "pts", "self"),
   // ペイント内外の2P内訳（PAINT2M〜MID2%）は、プレーバイプレーの公式の区分で数える（全シーズン。DESIGN.md 155章）
   {
     key: "paint2m",
@@ -494,9 +530,9 @@ const PPP_BOX_COLUMN: BoxscoreColumn = {
   value: (c) => playerPpp(c.pts, c.pt2a + c.pt3a, c.fta, c.tov),
 };
 
-/** Scoring に PC を足す。%PTS ASTED の右（全選手スタッツの Scoring と同じ並び）。試合詳細・個人詳細の試合ログで共通 */
+/** Scoring に PC を足す。%PTS Self（%PTS ASTED の右）の右（全選手スタッツの Scoring と同じ並び）。試合詳細・個人詳細の試合ログで共通 */
 export function withPcColumn(cols: BoxscoreColumn[]): BoxscoreColumn[] {
-  const a = cols.findIndex((c) => c.key === "pctptsasted");
+  const a = cols.findIndex((c) => c.key === "pctptsself");
   return a < 0 ? [...cols, PC_BOX_COLUMN] : [...cols.slice(0, a + 1), PC_BOX_COLUMN, ...cols.slice(a + 1)];
 }
 
@@ -914,6 +950,7 @@ function BoxscoreTeamPanel({
     isTeamTotalRow: false,
     shotChartSupported,
     yahooPbpSupported,
+    noFlow: manualBoxscore,
   };
   const nonPlayerCtx: ColumnCtx = {
     own: teamTotal,
@@ -922,6 +959,7 @@ function BoxscoreTeamPanel({
     isTeamTotalRow: false,
     shotChartSupported,
     yahooPbpSupported,
+    noFlow: manualBoxscore,
   };
   const teamTotalCtx: ColumnCtx = {
     own: teamTotal,
@@ -932,6 +970,7 @@ function BoxscoreTeamPanel({
     isTeamTotalRow: true,
     shotChartSupported,
     yahooPbpSupported,
+    noFlow: manualBoxscore,
   };
   // 内訳集計セクションの「チーム合計」行は+/-を除きteamTotalCtxと同じ扱い（POSS/PACE等は引き続き表示する）
   const summaryTotalCtx: ColumnCtx = teamTotalCtx;

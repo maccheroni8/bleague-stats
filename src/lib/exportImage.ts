@@ -318,6 +318,7 @@ function prepareClone(doc: Document, clonedEl: HTMLElement, options: ExportOptio
   // 画面と同じ部品を、PC表記の型（.export-wide）で描く。上端の帯・余白・アカウント名・白い背景・注記の要点は .export-rendering の側
   clonedEl.classList.add("export-rendering", "export-wide");
   if (options.plain) clonedEl.classList.add("export-plain");
+  if (options.plain && options.teamNames) clonedEl.classList.add("export-plain-team");
   if (options.top10) clonedEl.classList.add("export-top10");
   fitNamesIn(clonedEl);
   convertModernColors(clonedEl);

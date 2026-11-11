@@ -16108,8 +16108,20 @@ iPhone でランキングが開けない（画像保存まで進めない）と�
   位置＝（自分より低い人数＋同値の他の人数÷2）÷（全員−1）を5段階（Four Factors と同じ式・色）。期間・試合種別・登録区分を変えると基準の全員が変わるので色も変わる。図の下に色の見方（低い〜高い）を小さく出す。画面の注記は足さない（説明は用語集）。
 - 並べ替えは見出し（同じ列を再度で逆順）。値のない行は向きによらず最後。左端の番号は並べた列での順位（同値は同順位）。
 - 検証は `npm run validate:shoot-table`（色の段階・絞っても不変・向き・同値、対象の選び方・並べ替え・順位、実データ5セットで選手・チームの値を players.json／teams.json と試合ログの合計から独立に計算し直して図の文字と一致、色を全員から数え直して一致）。
+## 362. Self2M・Self3M・SelfFTM とアシストの有無、最大リード・最大ラン、条件別順位表の対同地区・対他地区、ロゴなし保存画像のチーム名の色（2026-11-11。画面だけ・保存キーは不変 7c13d2a17d0a255bf747ac3424bb5194）
 
-## 362. シュート成功率（361章の直し）（2026-11-11。画面だけ・保存キーは不変 7c13d2a17d0a255bf747ac3424bb5194）
+- **Self2M・Self3M・SelfFTM**（アシストが付かなかった成功数）＝2PM−AST2M・3PM−AST3M・FTM−ASTFTM。保存する値は増やさず、読むとき引いて出す。AST2M などが出ているすべての場所（全チームスタッツ・全選手スタッツ・個人詳細・チーム詳細〔シーズン別成績・日程結果・Q別・シチュエーション〕・ランキング・比較・md・試合詳細）に、同じ並び（ASTFTM の右）で足した。チームは opp・差も AST 系と同じ。
+  割合は、種類ごとにアシストあり→セルフを隣り合わせ（2PM %AST・2PM %Self・3PM %AST・3PM %Self・FGM %AST・FGM %Self〔2P＋3P〕・FTM %AST・FTM %Self）、すでにあった「%PTS ASTED」の右に「%PTS Self」。割合は表の列（選手・チーム詳細・比較・md・ランキング）。**全チームスタッツの Scoring の表だけは、割合を列にせず Scoring % の帯グラフにした**（`AssistSelfChart.tsx`。「アシストの有無」＝自チームの成功のうち、「相手のアシストの有無」＝相手の成功のうち。シュートの種類は 2P・3P・FG・FT・得点全体のプルダウン、最初は FG。アシストありは濃い青・セルフは薄い青。条件・区間・並び順・リーグ平均・画像保存は他の帯グラフと同じ。チーム詳細のシーズン別の帯グラフには足していない）。
+- **試合の流れの記録（プレーバイプレーの得点）が無い試合（2017-18 の1810）は Self から除く**（アシストの数が0になり、Self が実際より多くなるため）。チームは `TeamTotals` の `noFlow*`（その試合の 2PM・3PM・FTM）を成功数から引き、平均の試合数も `noFlowGames` 分だけ減らす。試合の流れの有無は `maxLead` が無いこと（`hasFlowRecord`。全データで1810だけ）。試合詳細・個人の試合ログは「-」。**選手のシーズン合計は1810のぶんだけを切り分けられない**（合計の材料に持っていない）ので、1810で得点した選手の2017-18 の行は Self 系を「-」にした（`playerSelfUnavailable`＝合計の得点が PBP のある試合の得点より多い）。登録区分別の行（`teamClassSplit`）は1810を除いていない（1810の2クラブの2017-18 のその行だけ）。
+- 実装は保存キーの対象のファイルに触れない: 計算・列は `src/lib/selfScoring.ts`・`teamStatsColumns.ts`（`buildScoringColumns` に足す。表は `withoutSelfPctColumns` で全チームスタッツから外す）・`playerSelfColumns.ts`（選手の Scoring の列の並び `SEASON_SCORING_COLUMNS` へ、`src/main.tsx` の読み込みで差し込む。ランキング・比較・md・図解が同じ配列から列を作るので1か所で足りる。**選手の Scoring の列を使う検証・スクリプトは `playerSelfColumns` も読み込む**）・`BoxscoreTable.tsx`（試合詳細・試合ログ。`withPcColumn` の PC は %PTS Self の右）。ランキングの関連スタッツ（`rankingRelatedStats.ts`）・名前と説明文（`statNames.ts`・`statDescriptions.ts`・用語集 `GlossaryGuides.tsx`・md の用語）も同時に足した。
+- **最大リード・最大ラン**: 試合ごとの値は**すでに保存済み**（試合ログ `TeamGameLog` の `maxLead`・`maxDeficit`〔＝相手の最大リード〕・`maxRun`、1試合行の索引 `team-game-index` の `games.homeMaxLead/awayMaxLead` と `rows.stats.maxRun`）。相手の最大ランだけは試合ログに無いので、試合ログを読み込むとき（`data.ts` の `fetchTeamGameLogs`）に、索引の相手の行から添える（`gameFlowTotals.ts` の `setOpponentRun`。保存しない・索引が読めなければ「-」）。**保存キーが変わる変更は要らなかった**。
+  全チームスタッツの Misc とチーム詳細のシーズン別成績の末尾に **AVG LEAD・MAX LEAD・AVG RUN・MAX RUN**（1試合平均とシーズン〔選んだ試合〕の最大。opp は相手側＝最大リードは自チームの最大ビハインド・最大ランは相手の最大ラン、+/- は差。平均／合計の切り替えには従わない。流れの記録が無い試合は数えない。Q別・登録区分の行は「-」）。チーム詳細の日程結果（Misc）に試合ごとの MAX LEAD・MAX RUN。日程の終わった試合の行の下に「最大リード 宇都宮 18／琉球 5」「最大ラン …」を小さく添える（全幅の行・スマホでは折り返す。`scheduleFlow.ts`）。期間・相手などの条件は試合ログの絞り込みに連動する。検証は `npm run validate:game-flow-totals`（生データのプレーバイプレーから数え直した最大リード・最大ランが試合ログ・索引と一致、相手の最大ランが相手の試合ログと一致、列の値が手計算と一致、日程の添え書きが一致）。
+- **条件別順位表の「対同地区」「対他地区」**（B.PREMIER・B.ONE。地区が2つ以上あるシーズンだけ。`ConditionalCondition` の `division` の値に `same`・`other`。相手の地区・自クラブの地区は `division-history` のそのシーズンの決まり〔`matchesDivision`〕。残り試合数も同じ判定）。検証は `npm run validate:conditional-division`（全シーズン・両リーグで、同地区＋他地区＝地区が分かる試合、各地区の合計と一致）。
+- **ロゴなしの保存画像のチーム名に色を付けた**（ランキングの「ロゴ」を「なし」で保存するチームの表〔`ExportOptions.teamNames`・複製側のクラス `export-plain-team`〕: チーム名の部分をチームの色で塗り、文字の色はチームの色の明るさに合わせて白か黒〔`readableInkOn`＝コントラスト比が高いほう〕。選手の表で「写真」を「なし」にしたときの名前の横のチーム略称も同じ塗り。色は `RankedList` が `--team-color`・`--team-ink` で渡す）。
+- 確認した値の例（元データから手計算と一致）: 2025-26 北海道の 504750 は 2PM 20−11＝Self2M 9・3PM 14−14＝Self3M 0・FTM 10−2＝SelfFTM 8。選手 18430 のシーズンは Self2M 50・Self3M 3・SelfFTM 39（44試合）。2017-18 のチーム 704 は 1810 を除いた 59/60 試合。最大リード・ランは 2025-26 の 504734（A東京 1／宇都宮 27、最大ラン 7／13）など。
+- 検証: `npm run validate:self-scoring`（列の並び・生データから手計算した Self とのチーム・選手の一致・割合の合計・1810）、`validate:game-flow-totals`、`validate:conditional-division`。
+
+## 363. シュート成功率（361章の直し）（2026-11-11。画面だけ・保存キーは不変 7c13d2a17d0a255bf747ac3424bb5194）
 
 - **図の名前を「シュート成功率」に**（図の一覧・見出し・保存画像の見出しとファイル名・用語集〔`figureShootTable`〕・aria）。URL の識別名 `shoot-table-player`・`shoot-table-team`・`tsv` などは変えない。見出しは361章では英語（Shooting Efficiency）だったが、同じ名前にそろえて日本語にした。
 - **FT% の列を足した**（選手は 3P% の右、チームは 3P% の右。ほかの成功率と同じく色を塗る。試投が1本もない選手は「-」）。
