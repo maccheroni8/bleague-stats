@@ -1079,7 +1079,9 @@ const rankOf = (v: string | undefined) => { const m = /（(\d+)位）$/.exec(v ?
         if (opp === 'atLeast60' && t !== sd(season).teams[0]) continue;
         const terms = detailedTerms(ds, term, opp, t.teamId, history);
         const colLogs = [...terms.map(x => x.statLogs), ...(terms.length > 1 ? [detailedTerms(ds, 'season', opp, t.teamId, history)[0]!.statLogs] : [])];
-        const md = buildDetailedExport(inputFor(season, t.teamId, 'team', { term, opp, timeSlice: 'halves' })).markdown;
+        const out10 = buildDetailedExport(inputFor(season, t.teamId, 'team', { term, opp, timeSlice: 'halves' }));
+        // 10万字を超えると2ファイルに分かれる（前半・後半は別のファイル）ので、すべてのファイルをつなげて探す
+        const md = out10.parts ? out10.parts.map(x => x.markdown).join('\n') : out10.markdown;
         rowsBuilt++;
         for (const cat of Object.keys(teamSeasonColumnLabels())) {
           for (const [slice, word] of [['h1', H1], ['h2', H2]] as const) {

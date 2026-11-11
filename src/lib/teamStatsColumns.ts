@@ -824,6 +824,29 @@ export function teamShotMadeSource(t: TeamTotals, opp: boolean): ShotMadeSource 
       };
 }
 
+/** アシストあり／セルフの割合の列。その種類の成功が0本のときは「-」（試合詳細の列と同じ） */
+function selfPctColumn(key: string, label: string, kind: SelfShotKind, side: "ast" | "self", perspective: TeamPerspective): Column<AllTeamsRow> {
+  const valueFor = (r: AllTeamsRow): number | null => {
+    const part = (opp: boolean) => {
+      const sp = selfSplitOf(teamShotMadeSource(r.totals, opp), kind);
+      return sp.total > 0 ? selfPct(side === "ast" ? sp.ast : sp.self, sp.total) : null;
+    };
+    const own = part(false);
+    const opp = part(true);
+    return perspective === "own" ? own : perspective === "opp" ? opp : own === null || opp === null ? null : own - opp;
+  };
+  return {
+    key,
+    label,
+    sortValue: (r) => valueFor(r) ?? Number.NaN,
+    format: (r) => {
+      const v = valueFor(r);
+      return v === null ? "-" : perspective === "diff" ? `${formatSigned(v, 2)}%` : formatPct100(v);
+    },
+    higherIsBetter: higherIsBetterForPerspective(true, perspective),
+  };
+}
+
 function teamSelfPct(t: TeamTotals, opp: boolean, kind: SelfShotKind, side: "ast" | "self"): number {
   const sp = selfSplitOf(teamShotMadeSource(t, opp), kind);
   return selfPct(side === "ast" ? sp.ast : sp.self, sp.total);
@@ -893,8 +916,8 @@ export function buildScoringColumns(
     countColumn("astftm", "ASTFTM", (t) => t.assistedFtm, (t) => t.oppAssistedFtm, mode, perspective),
     ...buildSelfCountColumns(mode, perspective),
     ...SELF_PCT_DEFS.flatMap((d) => [
-      pct100Column(d.astKey, d.astLabel, (t) => teamSelfPct(t, false, d.kind, "ast"), (t) => teamSelfPct(t, true, d.kind, "ast"), perspective),
-      pct100Column(d.selfKey, d.selfLabel, (t) => teamSelfPct(t, false, d.kind, "self"), (t) => teamSelfPct(t, true, d.kind, "self"), perspective),
+      selfPctColumn(d.astKey, d.astLabel, d.kind, "ast", perspective),
+      selfPctColumn(d.selfKey, d.selfLabel, d.kind, "self", perspective),
     ]),
     pct100Column(
       "pctptsasted",
@@ -903,13 +926,7 @@ export function buildScoringColumns(
       (t) => safeDiv(100 * (t.oppAssisted2m * 2 + t.oppAssisted3m * 3 + t.oppAssistedFtm), t.oppPts),
       perspective,
     ),
-    pct100Column(
-      "pctptsself",
-      "%PTS Self",
-      (t) => teamSelfPct(t, false, "pts", "self"),
-      (t) => teamSelfPct(t, true, "pts", "self"),
-      perspective,
-    ),
+    selfPctColumn("pctptsself", "%PTS Self", "pts", "self", perspective),
     // 総得点に占めるベンチ得点・スタメン得点の割合（チーム詳細のシーズン別成績と同じくScoring。2026-09-26）
     classificationSupported
       ? pct100Column(
