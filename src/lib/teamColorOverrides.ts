@@ -34,6 +34,9 @@ export const TEAM_COLOR_OVERRIDES: Record<string, { primary?: string; secondary?
   "745": { primary: "#811B2E", secondary: "#d0b080" }, // 越谷アルファーズ（自動抽出はベージュが主・えんじが副）
   // ライジングゼファー福岡は、公式のクラブ一覧の紺（#0b318f。FE名古屋と同じ値）をユーザーの判断で主の色にした（自動抽出は赤が主・紺が副）
   "753": { primary: "#0b318f", secondary: "#e00020" },
+  // 名古屋ダイヤモンドドルフィンズ: 公式のメインはドルフィンズレッド。ユーザー指定で #CD1B2F（自動抽出は橙 #f0a000 が主。DESIGN.md 368章）。
+  // 保存画像の塗り（teamChipColors.ts の TEAM_CHIP_OVERRIDES）と同じ値。副の色は自動抽出（赤 #e00010）のまま
+  "729": { primary: "#CD1B2F" },
 };
 
 /**
@@ -68,7 +71,7 @@ export const TEAM_SUB_COLORS: Record<string, TeamSubColor> = {
   "716": { color: "mono", name: "黒", source: "https://www.b-warriors.net/team/", valueFrom: "mono" },
   "697": { color: "#e0c000", name: "イエロー（ロゴの黄）", source: "https://www.neophoenix.jp/about/", valueFrom: "logo" },
   "728": { color: "mono", name: "トラディショナルブラック", source: "https://go-seahorses.jp/team/teamcolor/", valueFrom: "mono" },
-  "729": { color: "#e00010", name: "ドルフィンズレッド", source: "https://nagoya-dolphins.jp/", valueFrom: "logo" },
+  "729": { color: "#f0a000", name: "橙（ロゴから抽出した、これまでのメインの色。メインを #CD1B2F にしたので、サブに回した）", source: "https://nagoya-dolphins.jp/", valueFrom: "logo" },
   "698": { color: "#c9a227", name: "ゴールド", source: "https://www.lakestars.net/news/detail/id=17451", valueFrom: "representative" },
   "699": { color: "mono", name: "ブラック", source: "https://hannaryz.jp/", valueFrom: "mono" },
   "700": { color: "#d0b070", name: "KINGLY GOLD", source: "https://www.evessa.com/", valueFrom: "logo" },
