@@ -1,4 +1,5 @@
 import type { TeamColors } from "../../shared/types";
+import { teamChipColor } from "../lib/teamChipColors";
 import { formatAgeOnDate } from "../../shared/gameAge";
 import { formatPct } from "../lib/format";
 import { GAME_RECORD_TIE_EXPAND_MAX } from "../lib/gameRecordQuery";
@@ -60,6 +61,7 @@ export function ThresholdCountList({
         subLabel={(e) => <CountLine r={e} sort={sort} allTime={allTime} last={isLast(e.lastSeason, [e.playerId])} />}
         linkTo={(e) => `/players/${e.playerId}?season=${e.lastSeason}`}
         teamColor={(e) => teamColors?.[e.teamId]?.primary}
+        chipColor={(e) => teamChipColor(e.teamId, teamColors)}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
         exportKeepSub
         limit={RANK_TOP_N}
@@ -81,8 +83,8 @@ function StreakGameLine({ label, g, ongoing }: { label: string; g: StreakGame; o
         {label} {date}（{g.season}）
       </span>
       {narrow ? " " : "　"}
-      <ResponsiveTeamName teamId={g.teamId} name={g.teamName} always nowrap /> {g.isHome ? "vs" : "@"}{" "}
-      <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always nowrap />
+      <ResponsiveTeamName teamId={g.teamId} name={g.teamName} always nowrap chip /> {g.isHome ? "vs" : "@"}{" "}
+      <ResponsiveTeamName teamId={g.opponentTeamId} name={g.opponentTeamName} always nowrap chip />
       {g.detail && <span className="record-date-nowrap">　{g.detail}</span>}
       {ongoing && <span className="threshold-ongoing">継続中</span>}
     </span>
@@ -106,6 +108,7 @@ export function ThresholdStreakList({ rows, ongoingOnly, teamColors }: { rows: T
         )}
         linkTo={(e) => `/players/${e.playerId}?season=${e.end.season}`}
         teamColor={(e) => teamColors?.[e.teamId]?.primary}
+        chipColor={(e) => teamChipColor(e.teamId, teamColors)}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
         exportKeepSub
         limit={RANK_TOP_N}
@@ -142,14 +145,15 @@ export function ThresholdAgeList({ rows, which, teamColors }: { rows: ThresholdA
               {narrow ? e.date.replace(/-/g, "/").slice(2) : e.date}（{e.season}）
             </span>
             {narrow ? " " : "　"}
-            <ResponsiveTeamName teamId={e.teamId} name={e.teamName} always nowrap /> {e.isHome ? "vs" : "@"}{" "}
-            <ResponsiveTeamName teamId={e.opponentTeamId} name={e.opponentTeamName} always nowrap />
+            <ResponsiveTeamName teamId={e.teamId} name={e.teamName} always nowrap chip /> {e.isHome ? "vs" : "@"}{" "}
+            <ResponsiveTeamName teamId={e.opponentTeamId} name={e.opponentTeamName} always nowrap chip />
             {e.detail && <span className="record-date-nowrap">　{e.detail}</span>}
           </>
         )}
         linkTo={(e) => `/players/${e.playerId}?season=${e.season}`}
         subLinkTo={(e) => `/games/${e.scheduleKey}?season=${e.season}`}
         teamColor={(e) => teamColors?.[e.teamId]?.primary}
+        chipColor={(e) => teamChipColor(e.teamId, teamColors)}
         avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
         exportKeepSub
         limit={RANK_TOP_N}

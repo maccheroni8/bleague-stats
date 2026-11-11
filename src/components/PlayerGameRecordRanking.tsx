@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { teamChipColor } from "../lib/teamChipColors";
 import type { PlayerGameRecordDef } from "../../shared/playerGameRecords";
 import type { TeamColors } from "../../shared/types";
 import { ACTIVE_LABEL, ACTIVE_PARAM, activeAxis, activeNote, useActivePlayerIds } from "../lib/activePlayers";
@@ -356,6 +357,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                 linkTo={(e) => `/players/${e.playerId}?season=${seasonOf(e)}`}
                 subLinkTo={(e) => `/games/${e.scheduleKey}?season=${seasonOf(e)}`}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
+                chipColor={(e) => teamChipColor(e.teamId, teamColors)}
                 avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
                 exportKeepSub
                 limit={RANK_TOP_N}

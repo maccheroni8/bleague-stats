@@ -2502,6 +2502,20 @@ export function TeamDetailPage({ season }: { season: string }) {
     [careerData],
   );
 
+  // アシストの有無（Scoring % のシーズン別推移）: シーズンごとのレギュラーシーズンの試合ログの合計
+  const teamSeasonLogTotals = useMemo(
+    () =>
+      careerData
+        ? new Map(
+            careerData.map((cd) => {
+              const logs = filterByGameType(cd.logs, "regular");
+              return [cd.season, { games: logs.length, totals: sumTeamGameLogs(logs) }] as const;
+            }),
+          )
+        : null,
+    [careerData],
+  );
+
   const careerFilteredLogs = useMemo(
     () => (careerData ? filterByGameType(careerData.flatMap((cd) => cd.logs), careerGameTypeFilter) : []),
     [careerData, careerGameTypeFilter],
@@ -5174,6 +5188,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   rows={seasonHistoryDesc}
                   fgaBySeason={seasonPeriodTableRows ? seasonPeriodFgaBySeason : teamSeasonFgaBySeason}
                   periodTotals={seasonPeriodTableRows ? seasonPeriodShareTotals : undefined}
+                  logTotals={teamSeasonLogTotals}
                 />
                 {seasonBoxPeriodOn && <SeasonPeriodNotes chart period={seasonBoxPeriodValue} {...periodRowIssues(seasonPeriodTableRows)} />}
               </>

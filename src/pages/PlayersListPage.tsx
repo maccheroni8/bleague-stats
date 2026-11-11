@@ -157,6 +157,7 @@ import { PlayerSeasonRecords } from "../components/PlayerSeasonRecords";
 import { formatLeaguePlayerRecordValue } from "../lib/careerRecords";
 import { CareerLeaderCard } from "../components/CareerLeaderCard";
 import { ResponsiveTeamName } from "../components/ResponsiveTeamName";
+import { TeamChip } from "../components/TeamChip";
 import { PLAYER_COUNT_ITEMS, careerRecordRankingUrl } from "../components/CareerRecordRanking";
 import { fetchLeaguePlayerCareerTop } from "../lib/data";
 import { LeaguePlayerGameRecords } from "../components/LeaguePlayerGameRecords";
@@ -334,6 +335,8 @@ const teamColumn: Column<PlayerRow> = {
   align: "left",
   sortValue: (r) => teamShortName(r.player.teamId, r.player.teamName),
   format: (r) => teamShortName(r.player.teamId, r.player.teamName),
+  // 保存画像だけチームの色で塗る（TeamChip）
+  render: (r) => <TeamChip teamId={r.player.teamId}>{teamShortName(r.player.teamId, r.player.teamName)}</TeamChip>,
 };
 
 const gamesColumn: Column<PlayerRow> = {
@@ -1396,7 +1399,7 @@ function LeaguePlayerCareerRecords({ categoryAxis }: { categoryAxis: FilterAxis 
                 name={<ResponsivePlayerName name={info.name} />}
                 sub={
                   <>
-                    <ResponsiveTeamName teamId={info.teamId} name={info.teamName} always />・{info.latestSeason}シーズンまで
+                    <ResponsiveTeamName teamId={info.teamId} name={info.teamName} always chip />・{info.latestSeason}シーズンまで
                   </>
                 }
                 otherCount={others}
@@ -1417,7 +1420,7 @@ function LeaguePlayerCareerRecords({ categoryAxis }: { categoryAxis: FilterAxis 
                     name={<ResponsivePlayerName name={info.name} />}
                     sub={
                       <>
-                        <ResponsiveTeamName teamId={info.teamId} name={info.teamName} always />・{info.latestSeason}シーズンまで
+                        <ResponsiveTeamName teamId={info.teamId} name={info.teamName} always chip />・{info.latestSeason}シーズンまで
                       </>
                     }
                     otherCount={others}
@@ -1633,6 +1636,7 @@ function AwardEntryRow({
     : master
       ? teamShortName(master.teamId, master.teamName)
       : undefined;
+  const teamId = player?.teamId ?? master?.teamId;
   return (
     <li className="award-entry">
       <Link to={`/players/${entry.playerId}?season=${season}`} className="cell-link">
@@ -1644,7 +1648,8 @@ function AwardEntryRow({
             </span>
             <span className="rank-sublabel">
               {awardLabel(entry.name, entry.category)}
-              {team ? `・${team}` : ""}
+              {team ? "・" : ""}
+              {team && teamId ? <TeamChip teamId={teamId}>{team}</TeamChip> : team}
             </span>
           </span>
         </span>
@@ -1838,6 +1843,7 @@ function PlayerRecentFormTab({ season, league }: { season: string; league: Leagu
       align: "left",
       sortValue: (r) => teamShortName(r.player.teamId, r.player.teamName),
       format: (r) => teamShortName(r.player.teamId, r.player.teamName),
+      render: (r) => <TeamChip teamId={r.player.teamId}>{teamShortName(r.player.teamId, r.player.teamName)}</TeamChip>,
     },
     { key: "g", label: "G", sortValue: (r) => r.gamesPlayed, format: (r) => String(r.gamesPlayed) },
     { key: "gs", label: "GS", sortValue: (r) => r.gamesStarted, format: (r) => String(r.gamesStarted) },

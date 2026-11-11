@@ -9,6 +9,7 @@ import { situationalFilterLabels } from '../lib/conditionLabels';
 import { classificationFilterLabel, splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
 import { figureClassGroup } from '../lib/figureAge';
 import { teamShortName } from '../../shared/teamNames';
+import { TeamChipList } from '../components/TeamChip';
 import { usePlayerLabel } from '../lib/playerLabel';
 import { useTeamLabel, useNarrow } from '../lib/teamLabel';
 import { formatPct100 } from '../lib/format';
@@ -112,6 +113,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const playerLabel = usePlayerLabel(eligible.map(p => p.name));
   const byId = useMemo(() => new Map(eligible.map(p => [p.id, p])), [eligible]);
   const emphIds = useMemo(() => new Set(eligible.filter(p => hl.has(p.teamIds)).map(p => p.id)), [eligible, hl.ids.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
+  const abbrOf = (id: string) => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? '');
   const abbr = (p: PlayerFigurePoint) => p.teamIds.map(id => teamShortName(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
   const teamNames = (p: PlayerFigurePoint) => p.teamIds.map(id => teamLabel(id, teams.find(t => t.teamId === id)?.teamName ?? p.teamName)).join('・');
   const counts = model ? model.members.map(m => m.length) : [0, 0, 0];
@@ -128,7 +130,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
   const conditions = [`${season} ${periodLabel}`, seasonGameTypeLabels(season)[gameType], classificationFilterLabel(classification), `出場率${minRatio}%以上`, ...pf.labels, ...hl.labels].filter(Boolean);
   const baseDate = { kind: 'season' as const, season, gameType };
   const columns: Column<PlayerFigurePoint>[] = [
-    { key: 'player', label: '選手名（チーム）', align: 'left', sortValue: p => p.name, render: p => <button className="ratings-team-button" onClick={() => setHover(p.id)}>{playerLabel(p.name)}（{abbr(p)}）{p.teamIds.length > 1 ? '合算' : ''}</button> },
+    { key: 'player', label: '選手名（チーム）', align: 'left', sortValue: p => p.name, render: p => <button className="ratings-team-button" onClick={() => setHover(p.id)}>{playerLabel(p.name)}（<TeamChipList ids={p.teamIds} labelOf={abbrOf} />）{p.teamIds.length > 1 ? '合算' : ''}</button> },
     { key: 'g', label: 'G', sortValue: p => p.games },
     { key: 'ratio', label: '出場率', sortValue: p => p.ratio, render: p => formatPct100(p.ratio) },
     ...itemIds.map((_, i): Column<PlayerFigurePoint> => ({ key: `c${i}`, label: labels[i]!, sortValue: p => computed?.valueOf(p.id, i)?.value ?? Number.NaN, render: p => valueText(p, i) })),

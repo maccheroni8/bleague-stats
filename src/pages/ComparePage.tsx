@@ -566,6 +566,7 @@ function PlayerCompareView({
           subLabel={(r) => r.subLabel}
           avatar={(r) => <PlayerPhoto playerId={r.playerId} size={72} className="compare-photo" placeholder />}
           caption={(r) => r.teamName}
+          captionTeamId={(r) => r.teamId ?? undefined}
           jaNames
           emptyMessage={anyBusy ? "データ取得中..." : "比較する選手を選んでください"}
         />

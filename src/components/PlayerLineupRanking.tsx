@@ -1,4 +1,5 @@
 import { useLeague } from "../lib/league";
+import { teamChipColor } from "../lib/teamChipColors";
 import { ONE_ROOKIE_REASON } from "../lib/leagueAvailability";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TeamColors } from "../../shared/types";
@@ -117,7 +118,7 @@ function RowLine({ row, unit, allTime, narrow }: { row: LineupRow; unit: LineupU
   const span = row.firstSeason === row.lastSeason ? row.lastSeason : `${row.firstSeason}〜${row.lastSeason}`;
   return (
     <>
-      <ResponsiveTeamName teamId={row.teamId} name={row.teamName} always nowrap />
+      <ResponsiveTeamName teamId={row.teamId} name={row.teamName} always nowrap chip />
       {narrow ? (
         // スマホ幅: 空白を nowrap の外に出し、「チーム名」「シーズン」「試合数」の間で折り返せるようにする（通算でチーム名が長いと値の列にかかる）
         <>
@@ -427,6 +428,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                 linkTo={(r) => (unit === "onoff" ? `/players/${r.players[0]!.id}?season=${r.lastSeason}` : undefined)}
                 avatar={unit === "onoff" ? (r) => <PlayerPhoto playerId={r.players[0]!.id} size={56} className="player-cell-photo" placeholder /> : undefined}
                 teamColor={(r) => teamColors?.[r.teamId]?.primary}
+                chipColor={(r) => teamChipColor(r.teamId, teamColors)}
                 exportKeepSub
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}

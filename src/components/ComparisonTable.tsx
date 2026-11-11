@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { TeamChip } from "./TeamChip";
 import { NameText } from "./NameText";
 import { SeasonLink as Link } from "./SeasonLink";
 import { ExternalLinkIcon } from "./ExternalLinkIcon";
@@ -55,6 +56,8 @@ interface ComparisonTableProps<T> {
   avatar?: (row: T) => ReactNode;
   /** 列見出しで名前の下に添える文字（選手の所属チーム） */
   caption?: (row: T) => string | undefined;
+  /** 見出しのチーム名を、保存画像だけチームの色で塗る（選手の比較。TeamChip）チームのID */
+  captionTeamId?: (row: T) => string | undefined;
   /** 項目名（略称）の下に日本語名を小さく添える（比較ページ・チーム詳細・個人詳細の比較タブ。画面・保存画像とも。辞書で略称と同じ項目は出さない） */
   jaNames?: boolean;
   emptyMessage?: string;
@@ -73,6 +76,7 @@ export function ComparisonTable<T>({
   subLabel,
   avatar,
   caption,
+  captionTeamId,
   jaNames,
   emptyMessage = "比較する項目を選んでください",
   statScope = "player",
@@ -135,7 +139,17 @@ export function ComparisonTable<T>({
                   {externalLinkTo?.(item) && (
                     <ExternalLinkIcon href={externalLinkTo(item)!} title="Bリーグ公式サイトで見る（新しいタブで開く）" />
                   )}
-                  {caption?.(item) && <span className="compare-caption"><NameText name={caption(item)!} kind="team" /></span>}
+                  {caption?.(item) && (
+                    <span className="compare-caption">
+                      {captionTeamId?.(item) ? (
+                        <TeamChip teamId={captionTeamId(item)!}>
+                          <NameText name={caption(item)!} kind="team" />
+                        </TeamChip>
+                      ) : (
+                        <NameText name={caption(item)!} kind="team" />
+                      )}
+                    </span>
+                  )}
                   <span className="compare-season-tag">{season}</span>
                   {sub && <span className="compare-season-tag compare-condition-tag">{sub}</span>}
                 </th>
