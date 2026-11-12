@@ -3,6 +3,10 @@ export interface CalendarClub {
   id?: string;
   name: string;
   shortName?: string;
+  /** EASL公式のチームID。海外クラブのロゴ（data/logos/easl/{easlTeamId}.png）の鍵 */
+  easlTeamId?: string;
+  /** EASL公式のチームカラー（#なし6桁）。ロゴが無いときの札の色 */
+  color?: string;
 }
 export interface CalendarGame {
   id: string;
@@ -18,6 +22,8 @@ export interface CalendarGame {
   venue?: string;
   gameLink?: string;
   source?: string;
+  /** EASL公式の試合ページ（日程タブから新しいタブで開く）。見つからなければ公式の日程ページ */
+  link?: string;
   note?: string;
 }
 export interface CalendarEvent {

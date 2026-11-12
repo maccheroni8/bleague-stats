@@ -34,14 +34,17 @@
           },
           "away": {
             "name": "Busan KCC Egis",
-            "shortName": "KCC"
+            "shortName": "KCC",
+            "easlTeamId": "71f8b351-5acf-11ef-bb6d-61c6d18c4379",
+            "color": "000080"
           },
           "status": "final",
           "homeScore": 83,
           "awayScore": 98,
           "neutral": false,
           "venue": "Happiness Arena",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/nagasakivelcavsbusankccegis-oct142026071000pm"
         },
         {
           "id": "easl:dfc36c0e-b036-11f1-9b09-1be8591dc5ce",
@@ -54,14 +57,17 @@
           },
           "away": {
             "name": "South Gobi Broncos",
-            "shortName": "BRO"
+            "shortName": "BRO",
+            "easlTeamId": "cbf7cf59-99df-11f0-a4c2-2d0f1dbbfaba",
+            "color": "000000"
           },
           "status": "final",
           "homeScore": 113,
           "awayScore": 78,
           "neutral": false,
           "venue": "Arena Tachikawa Tachihi",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/alvarktokyovsbroncos-oct142026071000pm"
         },
         {
           "id": "easl:cc5ec257-b040-11f1-af12-c1c4c06cc772",
@@ -70,7 +76,9 @@
           "tipoff": "21:10",
           "home": {
             "name": "Macau Hou Chon",
-            "shortName": "MHC"
+            "shortName": "MHC",
+            "easlTeamId": "6c173781-a6bf-11f1-a95a-31326737faaf",
+            "color": "000000"
           },
           "away": {
             "id": "2488",
@@ -81,7 +89,8 @@
           "awayScore": 97,
           "neutral": false,
           "venue": "Tap Seac Multi-Sports Pavilion",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/macauhouchonvsnagasakivelca-oct282026081000pm"
         },
         {
           "id": "easl:cc60814c-b040-11f1-bb21-07340fcc4528",
@@ -90,7 +99,9 @@
           "tipoff": "20:10",
           "home": {
             "name": "Taoyuan Pauian Pilots",
-            "shortName": "TPP"
+            "shortName": "TPP",
+            "easlTeamId": "f170040e-5ad9-11ef-b4d4-070129f618c6",
+            "color": "000000"
           },
           "away": {
             "id": "701",
@@ -101,7 +112,8 @@
           "awayScore": 103,
           "neutral": false,
           "venue": "Taoyuan Arena",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/taoyuanpauianpilotsvsryukyugoldenkings-oct282026071000pm"
         },
         {
           "id": "easl:cc61de29-b040-11f1-9dc5-73ad5d43cfce",
@@ -110,7 +122,9 @@
           "tipoff": "20:10",
           "home": {
             "name": "TSG Ghosthawks",
-            "shortName": "TSG"
+            "shortName": "TSG",
+            "easlTeamId": "992dc7e4-a6c0-11f1-a824-177f9ea87398",
+            "color": "000000"
           },
           "away": {
             "id": "706",
@@ -121,7 +135,8 @@
           "awayScore": 85,
           "neutral": false,
           "venue": "Fengshan Stadium",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/tsgghosthawksvsalvarktokyo-nov42026071000pm"
         },
         {
           "id": "easl:cc62c2c3-b040-11f1-a175-d5f85ebe6ea8",
@@ -134,14 +149,17 @@
           },
           "away": {
             "name": "Hong Kong Eastern",
-            "shortName": "HKE"
+            "shortName": "HKE",
+            "easlTeamId": "27492b3f-5ada-11ef-86eb-61fb7e764dd2",
+            "color": "0000ff"
           },
           "status": "final",
           "homeScore": 96,
           "awayScore": 104,
           "neutral": false,
           "venue": "沖縄アリーナ",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/ryukyugoldenkingsvshongkongeastern-nov42026074000pm"
         },
         {
           "id": "easl:cc6c0e3e-b040-11f1-b3a3-3b289415936a",
@@ -150,7 +168,9 @@
           "tipoff": "19:10",
           "home": {
             "name": "Goyang Sono Skygunners",
-            "shortName": "SON"
+            "shortName": "SON",
+            "easlTeamId": "b9a6e682-a6bf-11f1-9adf-156b7f4d27a3",
+            "color": "000000"
           },
           "away": {
             "id": "706",
@@ -159,7 +179,8 @@
           "status": "upcoming",
           "neutral": false,
           "venue": "고양소노아레나",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/goyangsonoskygunnersvsalvarktokyo-dec92026071000pm"
         },
         {
           "id": "easl:cc6d0a51-b040-11f1-82e3-8515541a6212",
@@ -168,7 +189,9 @@
           "tipoff": "20:10",
           "home": {
             "name": "Taipei Fubon Braves",
-            "shortName": "TFB"
+            "shortName": "TFB",
+            "easlTeamId": "86515908-b0f5-11ed-ac6b-c199a9dea184",
+            "color": "000080"
           },
           "away": {
             "id": "2488",
@@ -177,7 +200,8 @@
           "status": "upcoming",
           "neutral": false,
           "venue": "台北和平籃球館",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/taipeifubonbravesvsnagasakivelca-dec92026071000pm"
         },
         {
           "id": "easl:cc6e0d0c-b040-11f1-9fc4-d7451a858254",
@@ -190,12 +214,15 @@
           },
           "away": {
             "name": "Abra Weavers",
-            "shortName": "ABR"
+            "shortName": "ABR",
+            "easlTeamId": "9f419ff5-a6be-11f1-a9d1-335289d35d91",
+            "color": "0053fd"
           },
           "status": "upcoming",
           "neutral": false,
           "venue": "沖縄アリーナ",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/ryukyugoldenkingsvsabraweavers-dec92026074000pm"
         },
         {
           "id": "easl:cc715038-b040-11f1-a24a-1d8b9a1b91b6",
@@ -204,7 +231,9 @@
           "tipoff": "20:10",
           "home": {
             "name": "South Gobi Broncos",
-            "shortName": "BRO"
+            "shortName": "BRO",
+            "easlTeamId": "cbf7cf59-99df-11f0-a4c2-2d0f1dbbfaba",
+            "color": "000000"
           },
           "away": {
             "id": "706",
@@ -213,7 +242,8 @@
           "status": "upcoming",
           "neutral": false,
           "venue": "M Bank Arena",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/broncosvsalvarktokyo-dec232026071000pm"
         },
         {
           "id": "easl:cc7492c7-b040-11f1-898e-4db2f412b29c",
@@ -226,12 +256,15 @@
           },
           "away": {
             "name": "Taipei Fubon Braves",
-            "shortName": "TFB"
+            "shortName": "TFB",
+            "easlTeamId": "86515908-b0f5-11ed-ac6b-c199a9dea184",
+            "color": "000080"
           },
           "status": "upcoming",
           "neutral": false,
           "venue": "Happiness Arena",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/nagasakivelcavstaipeifubonbraves-dec232026071000pm"
         },
         {
           "id": "easl:cc749be2-b040-11f1-91bd-33324445878c",
@@ -240,7 +273,9 @@
           "tipoff": "21:10",
           "home": {
             "name": "Hong Kong Eastern",
-            "shortName": "HKE"
+            "shortName": "HKE",
+            "easlTeamId": "27492b3f-5ada-11ef-86eb-61fb7e764dd2",
+            "color": "0000ff"
           },
           "away": {
             "id": "701",
@@ -249,7 +284,8 @@
           "status": "upcoming",
           "neutral": false,
           "venue": "TBC",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/hongkongeasternvsryukyugoldenkings-dec232026081000pm"
         },
         {
           "id": "easl:cc7856eb-b040-11f1-a5f4-c93b3e361075",
@@ -262,12 +298,15 @@
           },
           "away": {
             "name": "TSG Ghosthawks",
-            "shortName": "TSG"
+            "shortName": "TSG",
+            "easlTeamId": "992dc7e4-a6c0-11f1-a824-177f9ea87398",
+            "color": "000000"
           },
           "status": "upcoming",
           "neutral": false,
           "venue": "Arena Tachikawa Tachihi",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/alvarktokyovstsgghosthawks-jan132027071000pm"
         },
         {
           "id": "easl:cc7952de-b040-11f1-9d80-350f9c1d66d1",
@@ -276,7 +315,9 @@
           "tipoff": "19:10",
           "home": {
             "name": "Busan KCC Egis",
-            "shortName": "KCC"
+            "shortName": "KCC",
+            "easlTeamId": "71f8b351-5acf-11ef-bb6d-61c6d18c4379",
+            "color": "000080"
           },
           "away": {
             "id": "2488",
@@ -285,7 +326,8 @@
           "status": "upcoming",
           "neutral": false,
           "venue": "Busan Sajik Gymnasium",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/busankccegisvsnagasakivelca-jan132027071000pm"
         },
         {
           "id": "easl:cc7a5a56-b040-11f1-b05e-b161c86f682f",
@@ -294,7 +336,9 @@
           "tipoff": "20:10",
           "home": {
             "name": "Abra Weavers",
-            "shortName": "ABR"
+            "shortName": "ABR",
+            "easlTeamId": "9f419ff5-a6be-11f1-a9d1-335289d35d91",
+            "color": "0053fd"
           },
           "away": {
             "id": "701",
@@ -303,7 +347,8 @@
           "status": "upcoming",
           "neutral": false,
           "venue": "TBC",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/abraweaversvsryukyugoldenkings-jan132027071000pm"
         },
         {
           "id": "easl:cc7a88f0-b040-11f1-be18-2da15d6d8880",
@@ -316,12 +361,15 @@
           },
           "away": {
             "name": "Goyang Sono Skygunners",
-            "shortName": "SON"
+            "shortName": "SON",
+            "easlTeamId": "b9a6e682-a6bf-11f1-9adf-156b7f4d27a3",
+            "color": "000000"
           },
           "status": "upcoming",
           "neutral": false,
           "venue": "Arena Tachikawa Tachihi",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/alvarktokyovsgoyangsonoskygunners-jan202027071000pm"
         },
         {
           "id": "easl:cc7b210d-b040-11f1-b6d1-15ed6e9c3545",
@@ -334,12 +382,15 @@
           },
           "away": {
             "name": "Macau Hou Chon",
-            "shortName": "MHC"
+            "shortName": "MHC",
+            "easlTeamId": "6c173781-a6bf-11f1-a95a-31326737faaf",
+            "color": "000000"
           },
           "status": "upcoming",
           "neutral": false,
           "venue": "Happiness Arena",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/nagasakivelcavsmacauhouchon-jan202027071000pm"
         },
         {
           "id": "easl:cc7b4648-b040-11f1-aa92-71a0eedf5e14",
@@ -352,15 +403,18 @@
           },
           "away": {
             "name": "Taoyuan Pauian Pilots",
-            "shortName": "TPP"
+            "shortName": "TPP",
+            "easlTeamId": "f170040e-5ad9-11ef-b4d4-070129f618c6",
+            "color": "000000"
           },
           "status": "upcoming",
           "neutral": false,
           "venue": "沖縄アリーナ",
-          "source": "https://www.easl.basketball/schedule-results"
+          "source": "https://www.easl.basketball/schedule-results",
+          "link": "https://www.easl.basketball/schedules/ryukyugoldenkingsvstaoyuanpauianpilots-jan202027074000pm"
         }
       ],
-      "easlUpdatedAt": "2026-11-04T18:41:08.365Z",
+      "easlUpdatedAt": "2026-11-12T18:49:54.454Z",
       "notes": [
         "天皇杯は大会概要で確認できるファイナルラウンドの期間のみ掲載しています（休養日を含む）。対戦カード・結果、各地の予選日程は未収録です。",
         "天皇杯・オールスターの大会期間は公式発表に基づく掲載です。日程変更は公式情報もご確認ください。"

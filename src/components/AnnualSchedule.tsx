@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import type { AnnualCalendarFile, CalendarGame } from '../../shared/annualSchedule';
+import type { CalendarGame } from '../../shared/annualSchedule';
+import { easlGameUrl, fetchCalendar } from '../lib/easlCalendar';
+import { EaslLogo } from './EaslLogo';
 import { annualLeagueGames, calendarDates, calendarResult } from '../lib/annualSchedule';
 import { fetchGameSummaries, fetchSchedule, fetchTeams, fetchDivisionHistory, fetchStandingsHistory, fetchPlayoffRace } from '../lib/data';
 import { teamDivisionForSeason } from '../../scripts/lib/divisions';
@@ -16,12 +18,6 @@ import './AnnualSchedule.css';
 const STANDING_LABELS = ['試合数', '勝', '負', '勝率', '残', 'ゲーム差'];
 const statStyle = (i: number) => ({ '--annual-stat-offset': `${i * 42}px` }) as CSSProperties;
 const COMPETITIONS = { league: 'リーグ戦', easl: 'EASL', cup: '天皇杯' };
-async function fetchCalendar(): Promise<AnnualCalendarFile> {
-  const res = await fetch(`${import.meta.env.BASE_URL}data/annual-calendar.json`, { cache: 'no-cache' });
-  if (!res.ok) throw new Error('大会日程を取得できませんでした。');
-  return res.json();
-}
-
 export function AnnualSchedule({ season, league }: { season: string; league: League }) {
   // シーズン変更時は親のkeyで再作成。古いシーズンの読み込み結果を表示しない。
   const { data, loading, error } = useJsonData(async () => {
@@ -114,7 +110,7 @@ export function AnnualSchedule({ season, league }: { season: string; league: Lea
                 const label = `${date} ${COMPETITIONS[g.competition]} ${team.teamName} 対 ${opp.name} ${side} ${result} ${g.tipoff ?? ''}`;
                 return <button type="button" key={`${g.competition}:${g.id}`} className={`annual-game ${g.neutral ? 'annual-neutral' : home ? 'annual-home' : 'annual-away'} ${g.status === 'cancelled' ? 'annual-cancelled' : ''}`} onClick={() => setSelected({ game: g, teamId: team.teamId })} title={label} aria-label={label}>
                   <small>{g.competition === 'league' ? side : `${g.competition === 'cup' ? '天皇杯' : 'EASL'} ${side}`}</small>
-                  {opp.id ? <TeamLogo teamId={opp.id} size={30} /> : <span className="annual-opponent">{opp.shortName ?? opp.name}</span>}
+                  {opp.id ? <TeamLogo teamId={opp.id} size={30} /> : <EaslLogo club={opp} size={30} />}
                   <span>{result || '·'}</span>
                 </button>;
               })}</td>)}
@@ -143,7 +139,7 @@ function GameDialog({ game: g, teamId, close }: { game: CalendarGame; teamId: st
     <p>{g.venue ?? '会場未定'}{g.neutral ? '（中立会場）' : ''}</p>
     {g.note && <p>{g.note}</p>}
     {g.gameLink && <p><SeasonLink to={g.gameLink}>試合詳細へ</SeasonLink></p>}
-    {g.source && <p><a href={g.source} target="_blank" rel="noreferrer">公式情報へ</a></p>}
+    {g.competition === 'easl' ? <p><a href={easlGameUrl(g)} target="_blank" rel="noreferrer">EASL公式の試合ページへ</a></p> : g.source && <p><a href={g.source} target="_blank" rel="noreferrer">公式情報へ</a></p>}
     <form method="dialog"><button type="submit">閉じる</button></form>
   </dialog>;
 }

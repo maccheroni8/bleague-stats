@@ -3,6 +3,7 @@ import { statDescription } from "../lib/statDescriptions";
 import { statJa } from "../lib/statNames";
 import { SHOOT_LEVELS } from "../lib/figureShootTable";
 import "./ShootTableFigure.css";
+import { SortMark } from "../components/SortMark";
 
 export interface ShootViewColumn<R> {
   key: string;
@@ -49,7 +50,7 @@ export function ShootTableView<R>({ rows, rowKey, columns, sort, onSort, ranks, 
         {columns.map(c => <th key={c.key} className={`shoot-col${c.groupStart ? " shoot-group-start" : ""}`} aria-sort={sort.key === c.key ? (sort.descending ? "descending" : "ascending") : "none"}>
           <button title={headerTitle(c.stat ?? c.label, c.scope)} onClick={() => onSort(c.key)}>
             {c.label.startsWith("opp ") ? <><span className="shoot-opp">opp</span><span className="shoot-opp">{c.label.slice(4)}</span></> : c.label}
-            <span className="export-hide">{sort.key === c.key ? (sort.descending ? " ↓" : " ↑") : " ↕"}</span>
+            <SortMark active={sort.key === c.key} descending={sort.descending} />
           </button>
         </th>)}
       </tr></thead>

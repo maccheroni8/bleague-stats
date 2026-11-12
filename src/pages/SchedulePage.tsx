@@ -22,10 +22,15 @@ import type { ResultOnlyGameEntry, ResultOnlyReason } from "../../shared/resultO
 import { resultOnlyReasonLabel } from "../lib/resultOnlyGames";
 import { useSearchParams } from "react-router-dom";
 import { currentSeason } from "../lib/season";
+import type { CalendarClub, CalendarGame } from "../../shared/annualSchedule";
+import { easlGameUrl, fetchCalendar } from "../lib/easlCalendar";
+import { EaslClubName, EaslLogo } from "../components/EaslLogo";
 
 type ScheduleStatus = "final" | "live" | "upcoming" | "cancelled";
 type ScheduleView = "list" | "calendar";
 type ScheduleStatusFilter = "all" | "upcoming" | "finished";
+/** 大会の絞り込み: B.LEAGUE の試合だけ／EASL（東アジアスーパーリーグ）の試合だけ */
+type ScheduleCompetitionFilter = "all" | "league" | "easl";
 
 interface ScheduleRow {
   scheduleKey: string;
@@ -48,6 +53,29 @@ interface ScheduleRow {
   /** 1日の中の並び順に使う時刻。試合の状態（予定・試合中・終了）で決め方を変えない:
    *  試合ごとの時刻（games-summary の tipoffTime、開催予定は日程の時刻）→無ければ schedule.json の tipoffTimes（取り込み後も残す日程の時刻） */
   sortTime?: string;
+  /** EASL の試合（日程タブに並べるだけ。B.LEAGUE の成績・順位・ランキング・図解には入らない。試合詳細は作らず公式のページを新しいタブで開く） */
+  easl?: { url: string; homeClub: CalendarClub; awayClub: CalendarClub };
+}
+
+/** EASL の試合を日程の行にする。日本のクラブが今のリーグ（teamIds）に入っている試合だけ */
+function easlRows(games: CalendarGame[], teamIds: Set<string>): ScheduleRow[] {
+  return games
+    .filter((g) => g.competition === "easl" && [g.home.id, g.away.id].some((id) => id && teamIds.has(id)))
+    .map((g) => ({
+      scheduleKey: g.id,
+      date: g.date,
+      homeTeamId: g.home.id,
+      homeTeamName: g.home.name,
+      awayTeamId: g.away.id,
+      awayTeamName: g.away.name,
+      status: g.status,
+      homeScore: g.homeScore,
+      awayScore: g.awayScore,
+      venue: g.venue,
+      tipoffTime: g.tipoff,
+      sortTime: g.tipoff,
+      easl: { url: easlGameUrl(g), homeClub: g.home, awayClub: g.away },
+    }));
 }
 
 /**
@@ -63,6 +91,7 @@ function toRows(
   scheduleTipoffTimes: Record<string, string>,
   cancelled: CancelledGameEntry[] = [],
   resultOnly: ResultOnlyGameEntry[] = [],
+  easl: ScheduleRow[] = [],
 ): ScheduleRow[] {
   const summaryKeys = new Set(summaries.map((g) => g.scheduleKey));
   const finishedRows: ScheduleRow[] = summaries.map((g) => ({
@@ -130,7 +159,7 @@ function toRows(
       sortTime: g.tipoffTime ?? scheduleTipoffTimes[g.scheduleKey],
     }));
   // 1日の中はティップオフ時刻の早い順（試合中・終了した試合も同じ）。同じ時刻は従来どおりScheduleKey順、時刻の無い試合はその日の最後
-  return [...finishedRows, ...resultOnlyRows, ...upcomingRows, ...cancelledRows].sort(
+  return [...finishedRows, ...resultOnlyRows, ...upcomingRows, ...cancelledRows, ...easl].sort(
     (a, b) =>
       a.date.localeCompare(b.date) ||
       (a.sortTime ?? "99:99").localeCompare(b.sortTime ?? "99:99") ||
@@ -260,6 +289,8 @@ export function SchedulePage({ season }: { season: string }) {
   const [calendarMonth, setCalendarMonth] = usePageState<string | null>(pk("calendarMonth"), null);
   // リスト表示のみに適用する試合ステータスの絞り込み（カレンダー表示は月単位のため対象外）
   const [statusFilter, setStatusFilter] = usePageState<ScheduleStatusFilter>(pk("statusFilter"), "all");
+  // 大会の絞り込み（EASL の試合の有無）。リスト・カレンダーの両方に効く
+  const [competitionFilter, setCompetitionFilter] = usePageState<ScheduleCompetitionFilter>(pk("competitionFilter"), "all");
 
   // シーズンが変わったらチームフィルタ・カレンダー月・ステータス絞り込みの選択状態をリセットする
   // （前シーズンのチーム構成・月範囲・絞り込み条件は引き継がない）。初回マウント時は、usePageStateで復元した値を
@@ -270,6 +301,7 @@ export function SchedulePage({ season }: { season: string }) {
     setSelectedTeamIds(null);
     setCalendarMonth(null);
     setStatusFilter("all");
+    setCompetitionFilter("all");
   }, [season]);
 
   // 開催前のシーズンは teams.json に試合をしたクラブしか無いため、前シーズンのクラブ一覧と改称の履歴（team-history.json）で
@@ -290,6 +322,12 @@ export function SchedulePage({ season }: { season: string }) {
     for (const t of teams ?? []) map.set(t.teamName, t.teamId);
     return map;
   }, [teams, prevTeams, teamHistory]);
+  // EASL の試合（年間スケジュールと同じ大会日程。読み込めなくても B.LEAGUE の日程は出す）
+  const { data: calendar } = useJsonData(() => fetchCalendar().catch(() => null), []);
+  const easl = useMemo(() => {
+    const ids = new Set([...(teams ?? []), ...(prevTeams ?? [])].map((t) => t.teamId));
+    return easlRows(calendar?.seasons[season]?.games ?? [], ids);
+  }, [calendar, season, teams, prevTeams]);
   const rows = useMemo(
     () =>
       summaries
@@ -300,9 +338,10 @@ export function SchedulePage({ season }: { season: string }) {
             schedule?.tipoffTimes ?? {},
             schedule?.cancelledGames ?? [],
             schedule?.resultOnlyGames ?? [],
+            easl,
           )
         : [],
-    [summaries, schedule, teamIdByName],
+    [summaries, schedule, teamIdByName, easl],
   );
 
   const teamOptions = useMemo(
@@ -314,11 +353,12 @@ export function SchedulePage({ season }: { season: string }) {
   );
 
   const filteredRows = useMemo(() => {
-    if (selectedTeamIds === null) return rows;
-    return rows.filter(
+    const byCompetition = competitionFilter === "all" ? rows : rows.filter((r) => (competitionFilter === "easl") === !!r.easl);
+    if (selectedTeamIds === null) return byCompetition;
+    return byCompetition.filter(
       (r) => (r.homeTeamId && selectedTeamIds.has(r.homeTeamId)) || (r.awayTeamId && selectedTeamIds.has(r.awayTeamId)),
     );
-  }, [rows, selectedTeamIds]);
+  }, [rows, selectedTeamIds, competitionFilter]);
 
   // ステータス絞り込みはリスト表示のみに適用する（カレンダー表示はfilteredRowsをそのまま使う）。
   // 進行中（live）の試合はまだ結果が確定していないため「今後の試合」側に含める
@@ -427,6 +467,7 @@ export function SchedulePage({ season }: { season: string }) {
     view === "list" ? "リスト表示" : "カレンダー表示",
     view === "list" ? { all: "全試合", upcoming: "今後の試合", finished: "終了した試合" }[statusFilter] : formatMonthLabel(effectiveMonth),
     `レギュラー+${postseasonLabel(season)}`,
+    competitionFilter === "league" ? "B.LEAGUEのみ" : competitionFilter === "easl" ? "EASLのみ" : easl.length > 0 ? "EASLを含む" : null,
     scheduleClubLabels,
   );
 
@@ -447,6 +488,21 @@ export function SchedulePage({ season }: { season: string }) {
           }),
         ]
       : []),
+    ...(easl.length > 0
+      ? [
+          simpleSelectAxis({
+            id: "competition",
+            label: "大会",
+            options: [
+              { value: "all", label: "すべて（EASLを含む）" },
+              { value: "league", label: "B.LEAGUEのみ" },
+              { value: "easl", label: "EASLのみ" },
+            ],
+            value: competitionFilter,
+            onChange: (v) => setCompetitionFilter(v as ScheduleCompetitionFilter),
+          }),
+        ]
+      : []),
     teamMultiAxis({
       options: teamOptions,
       selected: selectedTeamIds,
@@ -458,6 +514,7 @@ export function SchedulePage({ season }: { season: string }) {
   ];
   const clearFilters = () => {
     setStatusFilter("all");
+    setCompetitionFilter("all");
     setSelectedTeamIds(null);
   };
 
@@ -565,7 +622,53 @@ function MaybeLink({ to, children }: { to?: string; children: ReactNode }) {
   );
 }
 
+/** EASL の試合のカード。試合詳細は作らず、EASL 公式の試合ページを新しいタブで開く */
+function EaslLink({ url, children }: { url: string; children: ReactNode }) {
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="cell-link" title="EASL公式の試合ページを新しいタブで開く">
+      {children}
+    </a>
+  );
+}
+
+/** EASL の試合のスコアの欄 */
+function EaslResult({ row }: { row: ScheduleRow }) {
+  return (
+    <>
+      {row.status === "final" && <span>{`${row.homeScore}-${row.awayScore}`}</span>}
+      {row.status === "live" && <span className="live-badge">進行中</span>}
+      {row.status === "cancelled" && <span className="cancelled-badge">中止</span>}
+      {row.status === "upcoming" && (row.tipoffTime ? <span className="schedule-tipoff">{row.tipoffTime}</span> : <span className="upcoming-badge">予定</span>)}
+      <span className="easl-badge-tag">EASL</span>
+    </>
+  );
+}
+
+function EaslRowView({ row, easl }: { row: ScheduleRow; easl: NonNullable<ScheduleRow["easl"]> }) {
+  return (
+    <tr className={`schedule-row status-${row.status} schedule-row-easl`}>
+      <td className="align-left schedule-team-cell">
+        <EaslLink url={easl.url}>
+          {easl.homeClub.id ? <TeamLogo teamId={easl.homeClub.id} size={24} /> : <EaslLogo club={easl.homeClub} size={24} />}
+          <span className="schedule-team-chip"><EaslClubName club={easl.homeClub} /></span>
+        </EaslLink>
+      </td>
+      <td className="align-center">
+        <EaslLink url={easl.url}><EaslResult row={row} /></EaslLink>
+      </td>
+      <td className="align-right schedule-team-cell">
+        <EaslLink url={easl.url}>
+          <span className="schedule-team-chip schedule-team-chip-away"><EaslClubName club={easl.awayClub} /></span>
+          {easl.awayClub.id ? <TeamLogo teamId={easl.awayClub.id} size={24} /> : <EaslLogo club={easl.awayClub} size={24} />}
+        </EaslLink>
+      </td>
+      <td className="align-left schedule-venue-cell">{row.venue ?? "-"}</td>
+    </tr>
+  );
+}
+
 function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: Record<string, TeamColors> }) {
+  if (row.easl) return <EaslRowView row={row} easl={row.easl} />;
   // 開催予定はまだ生データ（試合詳細ページのソース）が無いのでリンクしない
   // 開催予定・中止はリンクしない（試合詳細の生データが無い）
   const linkTo = row.status === "upcoming" || row.status === "cancelled" || row.resultOnly ? undefined : `/games/${row.scheduleKey}`;
@@ -675,6 +778,7 @@ function CalendarView({
 }
 
 function CalendarGameChip({ row }: { row: ScheduleRow }) {
+  if (row.easl) return <EaslCalendarChip row={row} easl={row.easl} />;
   const linkTo = row.status === "upcoming" || row.status === "cancelled" || row.resultOnly ? undefined : `/games/${row.scheduleKey}`;
   const scoreLabel = row.status === "final" ? ` ${row.homeScore}-${row.awayScore}` : "";
   const tipoffLabel = row.status === "upcoming" && row.tipoffTime ? ` ${row.tipoffTime}` : "";
@@ -705,5 +809,29 @@ function CalendarGameChip({ row }: { row: ScheduleRow }) {
     </Link>
   ) : (
     content
+  );
+}
+
+function EaslCalendarChip({ row, easl }: { row: ScheduleRow; easl: NonNullable<ScheduleRow["easl"]> }) {
+  const score = row.status === "final" ? ` ${row.homeScore}-${row.awayScore}` : row.status === "upcoming" && row.tipoffTime ? ` ${row.tipoffTime}` : "";
+  const title = `EASL ${easl.homeClub.name}${score} vs ${easl.awayClub.name}（EASL公式の試合ページを新しいタブで開く）`;
+  const logo = (club: CalendarClub) => (club.id ? <TeamLogo teamId={club.id} size={32} /> : <EaslLogo club={club} size={32} />);
+  return (
+    <a href={easl.url} target="_blank" rel="noopener noreferrer" className="calendar-game-chip-link" title={title}>
+      <span className={`calendar-game-chip calendar-game-chip-easl status-${row.status}`}>
+        {logo(easl.homeClub)}
+        {row.status === "final" ? (
+          <span className="calendar-game-chip-score">{row.homeScore}-{row.awayScore}</span>
+        ) : row.status === "cancelled" ? (
+          <span className="calendar-game-chip-cancelled">中止</span>
+        ) : row.tipoffTime ? (
+          <span className="calendar-game-chip-time">{row.tipoffTime}</span>
+        ) : (
+          <span className="calendar-game-chip-vs">-</span>
+        )}
+        {logo(easl.awayClub)}
+        <span className="easl-badge-tag">EASL</span>
+      </span>
+    </a>
   );
 }

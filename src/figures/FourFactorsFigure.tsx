@@ -22,6 +22,7 @@ import { statJa } from "../lib/statNames";
 import { useTeamLabel } from "../lib/teamLabel";
 import type { FigureProps } from "./catalog";
 import "./FourFactorsFigure.css";
+import { SortMark, sortOrderLabel } from "../components/SortMark";
 
 const DEFAULT_RANGE: SituationalFilter = {range:{kind:"all"}};
 // 期間だけを共通のURL形式で読む（ORtg・DRtgの図と同じ）。
@@ -104,8 +105,8 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
   const [periodLabel]=situationalFilterLabels(filter);
   // 副題は「期間／試合種別／（絞り込んだときだけ）地区」。期間は「シーズン全体」のときも書く
   const conditions=[`${season} ${periodLabel}`,seasonGameTypeLabels(season)[gameType],...(activeDivision.length === 0?[]:[activeDivision.map(divisionLabel).join("・")])];
-  // 並べている項目と向き（↓＝値が大きい順、↑＝小さい順）。副題の末尾に書く
-  const sortLabel=`${FF_DEF[sort.key].label}${sort.bestFirst===FF_DEF[sort.key].higherIsBetter?"↓":"↑"}`;
+  // 並べている項目と向き（▼＝値が大きい順、▲＝小さい順。ランキングと同じ印）。副題の末尾に書く
+  const sortLabel=sortOrderLabel(FF_DEF[sort.key].label,sort.bestFirst===FF_DEF[sort.key].higherIsBetter);
   const baseDate={kind:"season" as const,season,gameType};
   const targetRef=useRef<HTMLDivElement>(null);
   const toggleSort=(key:FfKey)=>setSort(previous=>({key,bestFirst:previous.key===key?!previous.bestFirst:true}));
@@ -126,7 +127,7 @@ export default function FourFactorsFigure({season,category}:FigureProps) {
               </tr>
               <tr>
                 {FF_DEFS.map(def=><th key={def.key} className={`ff-col${def.key==="efg"||def.key==="oppefg"||def.key==="netrtg"?" ff-group-start":""}`} aria-sort={sort.key===def.key?(sort.bestFirst===def.higherIsBetter?"descending":"ascending"):"none"}>
-                  <button title={headerTitle(def.label)} onClick={()=>toggleSort(def.key)}>{def.label.startsWith("opp ")?<><span className="ff-opp">opp</span><span className="ff-opp">{def.label.slice(4)}<span className="export-hide">{sort.key===def.key?(sort.bestFirst===def.higherIsBetter?" ↓":" ↑"):" ↕"}</span></span></>:<>{def.label}<span className="export-hide">{sort.key===def.key?(sort.bestFirst===def.higherIsBetter?" ↓":" ↑"):" ↕"}</span></>}</button>
+                  <button title={headerTitle(def.label)} onClick={()=>toggleSort(def.key)}>{def.label.startsWith("opp ")?<><span className="ff-opp">opp</span><span className="ff-opp">{def.label.slice(4)}<SortMark active={sort.key===def.key} descending={sort.bestFirst===def.higherIsBetter}/></span></>:<>{def.label}<SortMark active={sort.key===def.key} descending={sort.bestFirst===def.higherIsBetter}/></>}</button>
                 </th>)}
               </tr>
             </thead>

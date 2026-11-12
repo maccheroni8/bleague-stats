@@ -169,5 +169,5 @@ export function sortFoulRows<T>(rows: readonly T[], sortValue: (r: T) => number,
   return descending ? { rows: sorted, ranks } : { rows: sorted.reverse(), ranks: ranks.reverse() };
 }
 
-/** サブタイトルの並び順（「合計↓」＝多い順・「合計↑」＝少ない順。シュート成功率の表と同じ書き方） */
-export const foulSortLabel = (label: string, descending: boolean) => `${label}${descending ? "↓" : "↑"}`;
+/** サブタイトルの並び順（「合計▼」＝多い順・「合計▲」＝少ない順。シュート成功率の表と同じ書き方） */
+export const foulSortLabel = (label: string, descending: boolean) => `${label}${descending ? "▼" : "▲"}`;
