@@ -16470,3 +16470,33 @@ iPhone でランキングが開けない（画像保存まで進めない）と�
 - **変えたところ**: 図解の Four Factors・シュート成功率（選手・チーム）・ファウル（チーム・選手）の見出し。それまでは「↓／↑」と、並べていない列に「↕」を付けていた。共通の部品 `src/components/SortMark.tsx`（`SortMark`）にして3つの図で使う。ファウルの表だけにあった灰色／アクセント色の指定（`.fouls-sort-mark`）は外した。印は `sort-mark export-hide` なので保存画像には写らない。
 - **保存画像の副題の並び順**: 「合計▼」「コーチ▲」「TS%▼」「DRtg▲」の形（画面の印と同じ記号。`sortOrderLabel`、`shootSortLabel`、`foulSortLabel`）。**ランキングの保存画像は並び順を副題に書かない**（印も写さない）ので、ここは図解のほうにだけある書き方。ランキングの形に完全にそろえるなら副題から並び順を外す（1行の変更）。最強ラインナップの副題は「↓／↑」のまま（図の下の一覧の見出しに印は無い）。
 - 並べ替えの動き（1回目は多い順〔小さいほど良い項目は少ない順〕、2回目で逆、順位の付け方、トップ3の塗り）は変えていない。検証 `validate:shoot-table`・`validate:fouls-index` の期待値を新しい記号に直した。用語集（図解）の説明も合わせた。
+
+## 382. 日程タブに EASL の試合・海外クラブのロゴ（2026-11-13。**画面だけの変更で保存キーは変わらない**。allKey は `636a3d1cd186ec5cc6c18059399de219` のまま）
+
+271章の年間スケジュールが持っている EASL（東アジアスーパーリーグ）の試合を、日程タブにも出した。あわせて海外クラブのロゴを日程タブと年間スケジュールの両方に出す。
+
+### 382-1. EASL の情報の出どころと更新
+- 元データは `data/annual-calendar.json`（元データ（A）・保存キー対象外）の `competition: "easl"` の行。日本のクラブ（今季は A東京・長崎・琉球）が出る試合だけを持つ（今季18試合）。
+- 取得は `scripts/scrape-annual-schedule.ts`（271-3章）。公式サイト `https://www.easl.basketball/schedule-results` のシーズン選択肢からシーズンIDを見つけ、公式ページが使う公開API（`easl.joshricha.com/api/v1/matches?type=schedule|results`）を直列（3秒間隔）で取る。
+- **更新は自動。ただし深夜ジョブ（3:10ごろ起動）の1日1回だけ**（30分おきの更新では動かさない）。そのため試合が終わった結果は、早くて翌日の深夜に載る。失敗したときは前回のデータを保持して、最後に失敗通知（0件・形式の変更・既存試合の欠落は書き換えない）。
+- 更新を早める案（今回は作っていない）: 30分おきの更新に「今日か前日に EASL の試合がある日だけ」このスクリプトを足す（`annual-calendar.json` の日付で判定。3回の問い合わせ＋ロゴの確認なし）。EASL の試合がある日は年に十数日なので、負荷はほぼ増えない。
+
+### 382-2. 試合ページのリンク
+- 各試合に `link`（EASL 公式の試合ページ。例 `https://www.easl.basketball/schedules/nagasakivelcavsbusankccegis-oct142026071000pm`）を持たせた。公式の日程ページのHTMLにある `/schedules/…` のリンクから、**会場の現地時間（API の `startTimeLocal`。時の0埋めがある形・ない形の両方）と日本のクラブ名**で選ぶ（`scripts/lib/easlSchedule.ts` の `easlLinkSlugs`・`easlGameLink`）。見つからなければ公式の日程ページ（`schedule-results`）にする。今季の18試合はすべて試合ページに合った。
+- 日程タブのカードを押すと、サイトの試合詳細ではなくこのページを**新しいタブ**で開く（`rel="noopener noreferrer"`）。試合詳細ページは作らない。
+
+### 382-3. 日程タブ（`src/pages/SchedulePage.tsx`）
+- 行は B.LEAGUE の試合と同じ表（リスト）・カレンダーに混ぜる（日付・時刻の順）。EASL の行は左端の青い線・結果の欄の「EASL」の札・カレンダーは青い下線と「EASL」の札。開催予定は時刻（日本時間）、終了は得点（勝敗の印は付けない）。
+- 出す条件: 日本のクラブが今のリーグ（B.PREMIER／B.ONE）のクラブである試合だけ（B.ONE の画面には今季の EASL の3クラブは出ない）。
+- 絞り込み: 既存の「対象クラブ」はそのまま EASL の試合にも効く（日本のクラブのIDで判定）。新しく**「大会」（すべて・B.LEAGUEのみ・EASLのみ）**を足した（EASL の試合があるシーズンだけ。リスト・カレンダーの両方。タイトルの下の行にも出る）。
+- **EASL の試合はこの画面の行にするだけ**。成績・順位・ランキング・図解・選手やチームのスタッツ・連勝連敗・試合割合には入れない。読む場所は日程タブ・年間スケジュールだけ（`src/lib/easlCalendar.ts` を通す）。検証は `npm run validate:annual-schedule`（読む場所の限定・導出データ・`schedule.json` に EASL が混ざっていないこと）。
+
+### 382-4. 海外クラブのロゴ
+- 置き場所は `data/logos/easl/{EASLのチームID}.png`（400×400の透過PNG。B.LEAGUE のクラブの `data/logos/{teamId}.png` と同じ大きさ・置き方。元データ（A）の `logos` の下なので仕分けと保存キーは変わらない）。**取り先の台帳は `data/logos/easl/sources.json`**（チームID → クラブ名・取り先URL・取得日）。取り先は EASL 公式の試合データの `competitors[].logo`（公式サイトの日程・結果が使っている画像）。
+- 取得は `scripts/lib/easlLogos.ts`（足りないロゴだけ・取り直さない・1件の失敗で止めない）。深夜ジョブの EASL の更新（`scrape-annual-schedule.ts`）が新しい海外クラブを見つけたら自動で取る。取れなかったときは画面が**そのクラブのチームカラー（EASL 公式の色）の札に略称**を入れる（`EaslLogo.tsx`。空白にしない）。
+- 年間スケジュールの海外クラブは、以前は略称の文字だけだったのを、ロゴ（または札）にした。ダイアログのリンクは EASL の試合ページ。
+- 今季の海外クラブ9つ（Busan KCC Egis・Taipei Fubon Braves・Macau Hou Chon・Taoyuan Pauian Pilots・TSG Ghosthawks・Hong Kong Eastern・Goyang Sono Skygunners・South Gobi Broncos・Abra Weavers）を保存した。
+
+### 382-5. 確認
+- `npm run typecheck`・`npm run build`・`npm run build:data -- check-layout`・`npm run validate:all`。`npm run build:data -- code-files` の一覧は変更前と同じ（保存キーの対象のファイルは変えていない）。
+- ローカルの画面で、リスト・カレンダー・「大会」の絞り込み（すべて 798行〔うち EASL 18〕・B.LEAGUEのみ 780・EASLのみ 18）・スマホ幅（375px）・年間スケジュールのロゴ・ロゴ読み込み失敗時の札を確認した。
