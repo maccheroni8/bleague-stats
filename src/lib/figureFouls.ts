@@ -157,3 +157,17 @@ export function sortByCounts<T>(rows: readonly T[], keys: readonly ((r: T) => nu
     return name(a).localeCompare(name(b), "ja");
   });
 }
+
+/**
+ * 表の並べ替え。並べる列（sortValue）の多い順に並べ、順位はその列の多い順の順位（同じ数は同じ順位、次はとばす）。
+ * 少ない順（descending=false）は、多い順の並びと順位をそのまま逆にする（順位の数字は変えない）。
+ * 同じ数の中は ties（ほかの列）の多い順、それでも同じなら名前の順（少ない順はその逆）
+ */
+export function sortFoulRows<T>(rows: readonly T[], sortValue: (r: T) => number, ties: readonly ((r: T) => number)[], name: (r: T) => string, descending: boolean): { rows: T[]; ranks: number[] } {
+  const sorted = sortByCounts(rows, [sortValue, ...ties], name);
+  const ranks = competitionRanks(sorted.map(sortValue));
+  return descending ? { rows: sorted, ranks } : { rows: sorted.reverse(), ranks: ranks.reverse() };
+}
+
+/** サブタイトルの並び順（「合計↓」＝多い順・「合計↑」＝少ない順。シュート成功率の表と同じ書き方） */
+export const foulSortLabel = (label: string, descending: boolean) => `${label}${descending ? "↓" : "↑"}`;

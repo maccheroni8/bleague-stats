@@ -13,7 +13,7 @@ import { buildFoulsIndex } from "./lib/foulsIndexBuild.ts";
 import { PLAYER_FOUL_COLUMNS, TEAM_FOUL_COLUMNS, type FoulsIndexFile } from "../shared/foulsIndex.ts";
 import type { Category, PlayerGameLog, TeamGameLog } from "../shared/types.ts";
 import type { PlayerGameIndexFile, TeamGameIndexFile } from "../shared/gameIndex.ts";
-import { competitionRanks, playerFoulRows, teamFoulRows, topThreeLevels } from "../src/lib/figureFouls.ts";
+import { competitionRanks, foulSortLabel, playerFoulRows, sortFoulRows, teamFoulRows, topThreeLevels } from "../src/lib/figureFouls.ts";
 
 const PERSONAL_FOUL_CODES = new Set([22, 23, 24, 25, 26, 91, 92, 93, 94]);
 const UNTYPED_FOUL_CODE = 31;
@@ -132,6 +132,19 @@ assert.deepEqual(topThreeLevels([5, 4, 3, 3, 0, 0]), [1, 2, 3, 3, null, null]);
 assert.deepEqual(topThreeLevels([2, 2, 2, 1]), [1, 1, 1, null], "同数の1位が3人なら全員が1位の濃さ、次（4位）は塗らない");
 assert.deepEqual(topThreeLevels([4, 3, 2, 2, 2, 1]), [1, 2, 3, 3, 3, null], "3位が何人いても全員塗る");
 assert.deepEqual(topThreeLevels([0, 0]), [null, null], "0 は塗らない");
+{
+  // 並べ替え: 多い順の順位、少ない順は並びと順位をそのまま逆に（順位の数字は変えない）
+  const rows = [{ n: "A", v: 1, w: 5 }, { n: "B", v: 3, w: 0 }, { n: "C", v: 3, w: 2 }, { n: "D", v: 0, w: 9 }];
+  const desc = sortFoulRows(rows, (r) => r.v, [(r) => r.w], (r) => r.n, true);
+  assert.deepEqual(desc.rows.map((r) => r.n), ["C", "B", "A", "D"], "同じ数はほかの列の多い順");
+  assert.deepEqual(desc.ranks, [1, 1, 3, 4]);
+  const asc = sortFoulRows(rows, (r) => r.v, [(r) => r.w], (r) => r.n, false);
+  assert.deepEqual(asc.rows.map((r) => r.n), ["D", "A", "B", "C"]);
+  assert.deepEqual(asc.ranks, [4, 3, 1, 1], "少ない順でも順位の数字は多い順のまま");
+  assert.equal(foulSortLabel("合計", true), "合計↓");
+  assert.equal(foulSortLabel("コーチ", false), "コーチ↑");
+  checks += 6;
+}
 {
   const mini: FoulsIndexFile = {
     version: 1, generatedAt: "", season: "2026-27",

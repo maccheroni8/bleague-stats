@@ -15,6 +15,13 @@
 .fouls-table .fouls-name { text-align:left; width:300px; white-space:normal; }
 .fouls-table .fouls-col { width:96px; }
 .fouls-table .fouls-cell { color:var(--fg); }
+/* 数の列の見出しは押して並べ替える。マス全体を押せるように（スマホでも押しやすく） */
+.fouls-table th.fouls-col { padding:0; }
+.fouls-table th.fouls-col button { display:block; width:100%; min-height:36px; padding:6px 8px; background:none; border:0; color:var(--fg); cursor:pointer; font:inherit; }
+.fouls-table th.fouls-col button:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+.fouls-table th.fouls-sorted button { font-weight:700; }
+.fouls-sort-mark { margin-left:2px; color:var(--muted); font-weight:400; }
+.fouls-table th.fouls-sorted .fouls-sort-mark { color:var(--accent); }
 .fouls-l1 { background:var(--fouls-l1); font-weight:600; } .fouls-l2 { background:var(--fouls-l2); } .fouls-l3 { background:var(--fouls-l3); }
 .fouls-table .fouls-average td { border-top:2px solid var(--border); font-weight:600; }
 
@@ -38,6 +45,7 @@
   .fouls-table .fouls-col { width:auto; }
   .fouls-table th,.fouls-table td { padding:6px 4px; }
   .fouls-table th.fouls-col { font-size:11px; line-height:1.2; white-space:normal; word-break:break-all; }
+  .fouls-table th.fouls-col button { min-height:44px; padding:6px 2px; }
   /* チームの表は名前（ロゴ＋略称）が短いので詰めて、数の列の見出しを1行に収める */
   .fouls-table:has(.fouls-team-line) .fouls-name { width:96px; }
   .fouls-who { gap:6px; }

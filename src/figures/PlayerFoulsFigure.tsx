@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { foulSplitSeason, playerFoulRows, sortByCounts, type PlayerFoulRow } from "../lib/figureFouls";
+import { foulSplitSeason, playerFoulRows, type PlayerFoulRow } from "../lib/figureFouls";
 import { useActivePlayerIds } from "../lib/activePlayers";
 import { isLastTeamRow } from "../lib/lastTeamRule";
 import { currentSeason } from "../lib/season";
@@ -26,6 +26,7 @@ const UF_COLUMNS_NEW: Col[] = [
   { key: "ufTwice", label: "1試合で2回", value: r => r.ufTwice },
 ];
 const DQ_COLUMNS: Col[] = [{ key: "dq", label: "DQ", value: r => r.dq }];
+const playerName = (r: PlayerFoulRow) => r.name;
 
 export default function PlayerFoulsFigure({ season, category }: FigureProps) {
   const { scope, conditions, filterBar, request } = useFoulsScope(season, category, "figures:player-fouls");
@@ -36,20 +37,20 @@ export default function PlayerFoulsFigure({ season, category }: FigureProps) {
   const split = foulSplitSeason(season);
   const ufColumns = split ? UF_COLUMNS_NEW : UF_COLUMNS_OLD;
   const tables = [
-    { id: "tf", title: "テクニカルファウル（選手）", label: "TF", file: "選手_テクニカルファウル", columns: TF_COLUMNS, main: TF_COLUMNS[0]! },
-    { id: "uf", title: "アンスポーツマンライクファウル系（選手）", label: "UF", file: "選手_アンスポーツマンライクファウル系", columns: ufColumns, main: ufColumns.find(c => c.key === "uf")! },
-    { id: "dq", title: "ディスクォリファイングファウル（選手）", label: "DQ", file: "選手_ディスクォリファイングファウル", columns: DQ_COLUMNS, main: DQ_COLUMNS[0]! },
+    { id: "tf", title: "テクニカルファウル（選手）", label: "TF", file: "選手_テクニカルファウル", columns: TF_COLUMNS, main: TF_COLUMNS[0]!, sortParam: "fpt" },
+    { id: "uf", title: "アンスポーツマンライクファウル系（選手）", label: "UF", file: "選手_アンスポーツマンライクファウル系", columns: ufColumns, main: ufColumns.find(c => c.key === "uf")!, sortParam: "fpu" },
+    { id: "dq", title: "ディスクォリファイングファウル（選手）", label: "DQ", file: "選手_ディスクォリファイングファウル", columns: DQ_COLUMNS, main: DQ_COLUMNS[0]!, sortParam: "fpd" },
   ];
   const status = foulsStatus(request);
   return <section aria-label="ファウル（選手）" className="fouls-figure">
     {filterBar}
     {status ?? tables.map(t => {
       // 1回以上吹かれた選手だけ（0回の選手は載せない）
-      const listed = sortByCounts(rows.filter(r => t.main.value(r) > 0), [t.main.value, ...t.columns.filter(c => c !== t.main).map(c => c.value)], r => r.name);
+      const listed = rows.filter(r => t.main.value(r) > 0);
       const names = listed.map(r => r.name);
-      return <PlayerNamePool key={t.id} names={names}>
+      return <PlayerNamePool key={`${t.id}:${split}`} names={names}>
         <FoulTable title={t.title} exportLabel={t.label} filename={t.file} season={season} conditions={conditions} gameType={scope.gameType}
-          rows={listed} rowKey={r => r.playerId} columns={t.columns} rankColumn={t.main} nameHeader="PLAYER" emptyText="この条件で吹かれた選手はいません。"
+          rows={listed} rowKey={r => r.playerId} rowName={playerName} columns={t.columns} mainKey={t.main.key} sortParam={t.sortParam} nameHeader="PLAYER" emptyText="この条件で吹かれた選手はいません。"
           renderName={r => <div className="fouls-who">
             <PlayerPhoto playerId={r.playerId} size={40} className="player-cell-photo" placeholder season={season} teamId={r.lastTeamId} />
             <span className="fouls-who-line">
