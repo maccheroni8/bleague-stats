@@ -19,6 +19,8 @@ tsconfig.tsbuildinfo
 /data/seasons.json.gz
 /data/*/assist-pairs.json.gz
 /data/*/one/assist-pairs.json.gz
+/data/*/fouls.json.gz
+/data/*/one/fouls.json.gz
 /data/*/games-summary.json.gz
 /data/*/one/games-summary.json.gz
 /data/*/head-to-head.json.gz

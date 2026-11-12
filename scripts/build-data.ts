@@ -183,6 +183,7 @@ function seasonSteps(season: string, category: "premier" | "one"): Step[] {
     nodeStep(`${name} 1試合行の索引`, "aggregate-game-index.ts", "--season", season, ...cat),
     [`${name} ピリオド別の索引`, "npm", ["run", "--silent", "aggregate:period-index", "--", "--season", season, ...cat]], // 1試合行の索引に結び付けるので、その後（225章）
     nodeStep(`${name} Time to Shot の導出データ`, "aggregate-tts-index.ts", "--season", season, ...cat), // 1試合行の索引に結び付ける
+    nodeStep(`${name} ファウルの導出データ`, "aggregate-fouls-index.ts", "--season", season, ...cat), // 1試合行の索引の試合の並び・チーム辞書を使う
     nodeStep(`${name} 選手の1試合の記録`, "aggregate-player-game-records.ts", "--season", season, ...cat), // 上位20位は索引から作る（221章）
     [`${name} 比較用のリーグ平均`, "npm", ["run", "--silent", "aggregate:league-compare", "--", "--season", season, ...cat]],
   ];

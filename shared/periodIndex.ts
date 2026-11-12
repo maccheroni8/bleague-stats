@@ -21,7 +21,7 @@ export const PERIOD_GAME_ATOMS = ["q1", "q2", "q3", "q4", "ot"] as const satisfi
 /** クラッチの区間の番号（PERIOD_ATOMS の位置） */
 export const CLUTCH_ATOM_INDEX = 5;
 /**
- * チームのクラッチの品質の列（「clutch.quality」。shared/clutchTime.ts の CLUTCH_QUALITY_* のビット）。クラッチになった試合だけ値を持ち、それ以外は -1。
+ * チームのクラッチの品質の列（「clutch.quality」。shared/clutchTime.ts の CLUTCH_QUALITY_* のビット）。クラッチタイムになった試合だけ値を持ち、それ以外は -1。
  * 立っている項目は、その試合のプレーバイプレーの記録が公式の値と合わない（ターンオーバーなど）。古い索引には無い
  */
 export const TEAM_CLUTCH_QUALITY_KEY = "clutch.quality";

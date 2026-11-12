@@ -17,6 +17,7 @@ import type { PlayerGameIndexFile, TeamGameIndexFile } from "../../shared/gameIn
 import type { AssistPairsFile } from "../../shared/assistPairs";
 import type { PlayerPeriodIndexFile, TeamPeriodIndexFile } from "../../shared/periodIndex";
 import type { TtsIndexFile } from "../../shared/ttsIndex";
+import type { FoulsIndexFile } from "../../shared/foulsIndex";
 import { bestLineupFileName, type BestLineupSize, type BestLineupsFile } from "../../shared/bestLineups";
 import type {
   LeaguePlayerGameRecordsFile,
@@ -331,6 +332,15 @@ export async function fetchPlayerPeriodIndex(season: string, league: League = "p
 export async function fetchTeamPeriodIndex(season: string, league: League = "premier"): Promise<TeamPeriodIndexFile | null> {
   try {
     return await fetchJson<TeamPeriodIndexFile>(`${categoryBase(season, league)}/team-period-index.json`);
+  } catch {
+    return null;
+  }
+}
+
+/** ファウルの導出データ（data/{season}/fouls.json。B.ONE は one/ 側。図解「ファウル」だけが読む）。ファイルが無ければ null */
+export async function fetchFoulsIndex(season: string, league: League = "premier"): Promise<FoulsIndexFile | null> {
+  try {
+    return await fetchJson<FoulsIndexFile>(`${categoryBase(season, league)}/fouls.json`);
   } catch {
     return null;
   }

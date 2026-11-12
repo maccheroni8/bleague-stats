@@ -959,7 +959,7 @@ export interface TeamGameLog extends Partial<FoulCategoryCounts>, Partial<Oppone
    */
   on4Possible?: boolean;
   /**
-   * クラッチになった試合か（第4Q・延長の残り5:00以下で5点差以内の時間か、対象のプレーがあった。shared/clutchTime.ts。設計書375章）。
+   * クラッチタイムになった試合か（第4Q・延長の残り5:00以下で5点差以内の時間か、対象のプレーがあった。shared/clutchTime.ts。設計書375章）。
    * 判定できない試合（プレーバイプレーが無い 2017-18 の1810・前後半5分の特別な試合・得点の累計が合わない試合）と、古いデータには無い
    */
   clutchGame?: boolean;

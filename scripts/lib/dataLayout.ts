@@ -20,6 +20,7 @@ export const SEASON_RAW_ENTRIES = ["games", "yahoo", "schedule.json.gz", "regist
 /** シーズンのディレクトリ（data/{season}/ と data/{season}/one/）にある導出データ（B）。ディレクトリは中身ごと */
 export const SEASON_DERIVED_ENTRIES = [
   "assist-pairs.json.gz",
+  "fouls.json.gz",
   "games-summary.json.gz",
   "head-to-head.json.gz",
   "league-average.json.gz",
@@ -118,6 +119,7 @@ export const BUILD_CODE_ENTRIES = [
   "scripts/aggregate-game-index.ts",
   "scripts/aggregate-period-index.ts",
   "scripts/aggregate-tts-index.ts",
+  "scripts/aggregate-fouls-index.ts",
   "scripts/aggregate-league-compare.ts",
 ] as const;
 export const BUILD_CODE_EXTRA_FILES = ["package-lock.json"] as const;

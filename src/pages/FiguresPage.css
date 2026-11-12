@@ -86,6 +86,8 @@
   .figures-top { margin-bottom:8px; }
   .figure-export-slot .export-image-button { padding:5px 10px; font-size:12px; }
   .figure-export-slot:has(.figure-export-item) { width:100%; justify-content:flex-end; padding-bottom:6px; }
+  /* 保存の対象が3つ以上（ファウルの3つの表など）は1行に入らないので折り返す（左にはみ出さない） */
+  .figure-export-slot:has(.figure-export-item:nth-child(3)) { flex-wrap:wrap; }
   .figure-export-label { font-size:11px; }
 }
 
