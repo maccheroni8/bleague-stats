@@ -13,6 +13,7 @@ import { useJsonData } from "../lib/useJsonData";
 import { useLeague, type League } from "../lib/league";
 import { ONE_STANDINGS_TAB_REASONS } from "../lib/leagueAvailability";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
+import { useTrendPlayback } from "../lib/trendPlayback";
 import { SortableTable, type Column } from "../components/SortableTable";
 import { StandingsLineChart, type ChartTeam } from "../components/StandingsLineChart";
 import { AnnualSchedule } from "../components/AnnualSchedule";
@@ -478,22 +479,15 @@ const allStandingsColumns: Column<StandingsRow>[] = divisionStandingsColumns.map
 
 /**
  * historyを日付ごとの{date, teamId: 値}行に変換する。
- * revealCountを指定した場合（アニメーション再生中）、それ以降のインデックスの行は
- * dateだけを持たせチーム値を一切設定しない。これにより、X軸のドメイン（日付範囲）は
- * historyの全期間で固定されたままになり、まだ明かされていない区間はチーム値が
- * undefinedのまま（=末端のロゴがXAxisの実際の日付位置を左から右へ移動していくように
- * 見える）。revealCountを渡さない場合は全期間分の値をそのまま設定する
- * （X軸ドメインが表示データに応じて可変だった旧実装では、末端の点が常にプロット領域の
- * 右端に固定表示されてしまい、アニメーション中もロゴが移動して見えない不具合があった）
+ * アニメーション再生中も全期間分をそのまま渡す（軸は固定。進み具合の分だけ見せるのは
+ * グラフの側の再生用の層。設計書378章）
  */
 function reshape(
   history: StandingsSnapshot[],
   metric: (t: StandingsTeamSnapshot) => number,
-  revealCount?: number,
 ) {
-  return history.map((snapshot, i) => {
+  return history.map((snapshot) => {
     const row: Record<string, number | string> = { date: snapshot.date };
-    if (revealCount !== undefined && i >= revealCount) return row;
     for (const t of snapshot.teams) row[t.teamId] = metric(t);
     return row;
   });
@@ -527,13 +521,11 @@ function collectWildcardTeams(history: StandingsSnapshot[], format: PostseasonFo
  * だったチームだけを、プール内の順位（wildcardRank。古いデータは全体順位rank）の昇順に並べ、その順位（1始まり）を割り当てる。
  * 自動出場圏内に浮上した日はその日の値を持たない（=StandingsLineChartのconnectGaps={false}と
  * 組み合わせて、グラフ上でその期間だけ線が途切れる。静的な最終順位ベースの固定メンバーでは
- * なく、日々の実際の在籍状況を動的に反映する）。revealCountの意味・目的はreshape()と同じ
- * （アニメーション中もX軸ドメインを固定するため）
+ * なく、日々の実際の在籍状況を動的に反映する）
  */
-function reshapeWildcardRank(history: StandingsSnapshot[], format: PostseasonFormat, revealCount?: number) {
-  return history.map((snapshot, i) => {
+function reshapeWildcardRank(history: StandingsSnapshot[], format: PostseasonFormat) {
+  return history.map((snapshot) => {
     const row: Record<string, number | string> = { date: snapshot.date };
-    if (revealCount !== undefined && i >= revealCount) return row;
     const poolTeamsAtDate = snapshot.teams
       .filter((t) => isInWildcardPool(t, format))
       .sort((a, b) => wildcardOrderRank(a) - wildcardOrderRank(b));
@@ -551,11 +543,9 @@ function reshapeWildcardMetric(
   history: StandingsSnapshot[],
   format: PostseasonFormat,
   metric: (t: StandingsTeamSnapshot) => number,
-  revealCount?: number,
 ) {
-  return history.map((snapshot, i) => {
+  return history.map((snapshot) => {
     const row: Record<string, number | string> = { date: snapshot.date };
-    if (revealCount !== undefined && i >= revealCount) return row;
     for (const t of snapshot.teams) {
       if (isInWildcardPool(t, format)) row[t.teamId] = metric(t);
     }
@@ -591,31 +581,14 @@ export function StandingsPage({ season }: { season: string }) {
     setH2hSelectedTeamIds(null);
   }, [season]);
 
-  // 順位推移・勝ち星推移タブの「アニメーション再生」。animFrame===nullなら通常表示（全期間分）、
-  // 非nullならhistoryの先頭からanimFrame件だけを各グラフに渡す
-  const [animFrame, setAnimFrame] = useState<number | null>(null);
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  useEffect(() => {
-    setAnimFrame(null);
-    setIsAnimating(false);
-  }, [season]);
-
-  useEffect(() => {
-    if (!isAnimating || animFrame === null || !history) return;
-    if (animFrame >= history.length) {
-      setIsAnimating(false);
-      setAnimFrame(null);
-      return;
-    }
-    const timer = setTimeout(() => setAnimFrame((f) => (f ?? 0) + 1), 180);
-    return () => clearTimeout(timer);
-  }, [isAnimating, animFrame, history]);
-
-  const playAnimation = () => {
-    setAnimFrame(1);
-    setIsAnimating(true);
-  };
+  // 順位推移・勝ち星推移・貯金推移タブの「アニメーション再生」。進み具合は1つの値で、グラフが毎フレーム
+  // その値からラインの先端とロゴの位置を出す（src/lib/trendPlayback.ts。設計書378章）
+  const {
+    isAnimating,
+    play: playAnimation,
+    playback: trendPlayback,
+  } = useTrendPlayback(history?.length ?? 0, `${league}:${season}`);
+  const playback = isAnimating ? trendPlayback : undefined;
 
   const latest = history && history.length > 0 ? history[history.length - 1]! : null;
   const { gameLogsByTeam: statLogsByTeam, loading: gameLogsLoading } = useAllTeamGameLogs(season, latest?.teams ?? null, league);
@@ -755,14 +728,11 @@ export function StandingsPage({ season }: { season: string }) {
     : [];
   const filteredHeadToHead =
     headToHead && h2hSelectedTeamIds ? headToHead.filter((r) => h2hSelectedTeamIds.has(r.teamId)) : headToHead;
-  // revealCount===undefined（animFrame===null）なら全期間を表示する。
-  // アニメーション再生中はhistory全体を渡しつつrevealCountで区切ることで、
-  // X軸ドメイン（日付範囲）を固定したまま値だけを段階的に明かす（詳細はreshape()参照）
-  const revealCount = animFrame ?? undefined;
-  const rankData = reshape(history, (t) => t.rank, revealCount);
-  const winsData = reshape(history, (t) => t.wins, revealCount);
-  const gamesAboveData = reshape(history, (t) => t.wins - t.losses, revealCount);
-  const divisionRankData = reshape(history, (t) => t.divisionRank ?? NaN, revealCount);
+  // グラフには再生中も全期間分を渡す（軸を固定したまま、グラフの側で進み具合の分だけ見せる。設計書378章）
+  const rankData = reshape(history, (t) => t.rank);
+  const winsData = reshape(history, (t) => t.wins);
+  const gamesAboveData = reshape(history, (t) => t.wins - t.losses);
+  const divisionRankData = reshape(history, (t) => t.divisionRank ?? NaN);
 
   const divisionGroups = groupByDivision(teams, league);
 
@@ -788,18 +758,12 @@ export function StandingsPage({ season }: { season: string }) {
     : null;
   const wildcardHistory = wildcardCutoffIndex !== null ? history.slice(wildcardCutoffIndex) : [];
   const wildcardTeams: ChartTeam[] = wcFormat ? collectWildcardTeams(wildcardHistory, wcFormat) : [];
-  // wildcardHistoryは全期間historyの後半部分の切り出しのため、revealCount（history全体での
-  // フレーム番号）をこの切り出し分だけ前倒しして、アニメーションの進行と時系列を合わせる
-  const wildcardRevealCount =
-    revealCount === undefined || wildcardCutoffIndex === null
-      ? revealCount
-      : Math.max(0, revealCount - wildcardCutoffIndex);
-  const wildcardRankData = wcFormat ? reshapeWildcardRank(wildcardHistory, wcFormat, wildcardRevealCount) : [];
-  const wildcardWinsData = wcFormat
-    ? reshapeWildcardMetric(wildcardHistory, wcFormat, (t) => t.wins, wildcardRevealCount)
-    : [];
+  // wildcardHistoryは全期間historyの後半部分の切り出しのため、再生ではこの切り出し分だけ遅れて始まる
+  const wildcardPlaybackOffset = wildcardCutoffIndex ?? 0;
+  const wildcardRankData = wcFormat ? reshapeWildcardRank(wildcardHistory, wcFormat) : [];
+  const wildcardWinsData = wcFormat ? reshapeWildcardMetric(wildcardHistory, wcFormat, (t) => t.wins) : [];
   const wildcardGamesAboveData = wcFormat
-    ? reshapeWildcardMetric(wildcardHistory, wcFormat, (t) => t.wins - t.losses, wildcardRevealCount)
+    ? reshapeWildcardMetric(wildcardHistory, wcFormat, (t) => t.wins - t.losses)
     : [];
   // ワイルドカードプールの1日あたりの人数（各地区の自動出場圏＝上位divisionTopを除いた残り）は、
   // シーズンを通じて常に一定。動的な出入りにより凡例に載る延べチーム数
@@ -830,17 +794,22 @@ export function StandingsPage({ season }: { season: string }) {
   const seasonLabel = `${season}シーズン`;
   const asOfLabel = `${latest.date}時点`;
   const standingsConditions = composeLabels(seasonLabel, asOfLabel, gameTypeLabels("regular", null));
-  // アニメーション再生中は、その時点までに表示済みの最終日を対象期間の終端にする
-  const revealedLastDate =
-    revealCount !== undefined ? history[Math.min(revealCount, history.length) - 1]?.date : undefined;
-  const trendEndLabel = revealedLastDate ? `${revealedLastDate}（再生中）` : latest.date;
-  const trendConditions = composeLabels(seasonLabel, gameTypeLabels("regular", null), `開幕〜${trendEndLabel}`);
-  const wildcardTrendConditions = composeLabels(
-    seasonLabel,
-    gameTypeLabels("regular", null),
-    wildcardCutoffDate ? `${wildcardCutoffDate}〜${trendEndLabel}（2月バイウィーク明け以降）` : null,
-    wcFormat ? `${wildcardPoolLabel}（日ごとに入れ替わり）` : null,
-  );
+  // アニメーション再生中は、その時点までに表示済みの最終日を対象期間の終端にする（playbackIndex＝いま何番目の日付まで進んだか）
+  const trendEndLabelAt = (playbackIndex?: number) => {
+    const date = playbackIndex === undefined ? undefined : history[Math.min(playbackIndex, history.length - 1)]?.date;
+    return date ? `${date}（再生中）` : latest.date;
+  };
+  const trendConditionsAt = (playbackIndex?: number) =>
+    composeLabels(seasonLabel, gameTypeLabels("regular", null), `開幕〜${trendEndLabelAt(playbackIndex)}`);
+  const wildcardTrendConditionsAt = (playbackIndex?: number) =>
+    composeLabels(
+      seasonLabel,
+      gameTypeLabels("regular", null),
+      wildcardCutoffDate ? `${wildcardCutoffDate}〜${trendEndLabelAt(playbackIndex)}（2月バイウィーク明け以降）` : null,
+      wcFormat ? `${wildcardPoolLabel}（日ごとに入れ替わり）` : null,
+    );
+  const trendConditions = trendConditionsAt();
+  const wildcardTrendConditions = wildcardTrendConditionsAt();
   const h2hClubLabels = !h2hSelectedTeamIds
     ? multiSelectLabels("対象クラブ", [], "全クラブ")
     : h2hSelectedTeamIds.size === 0
@@ -1121,7 +1090,8 @@ export function StandingsPage({ season }: { season: string }) {
               reversed
               height={720}
               teamColors={teamColors ?? undefined}
-              isAnimating={isAnimating}
+              playback={playback}
+              playingConditions={trendConditionsAt}
               conditions={trendConditions}
             />
           ) : (
@@ -1135,7 +1105,8 @@ export function StandingsPage({ season }: { season: string }) {
                   reversed
                   height={640}
                   teamColors={teamColors ?? undefined}
-                  isAnimating={isAnimating}
+                  playback={playback}
+                  playingConditions={trendConditionsAt}
                   conditions={trendConditions}
                 />
               ))}
@@ -1147,7 +1118,9 @@ export function StandingsPage({ season }: { season: string }) {
                   reversed
                   height={640}
                   teamColors={teamColors ?? undefined}
-                  isAnimating={isAnimating}
+                  playback={playback}
+                  playbackOffset={wildcardPlaybackOffset}
+                  playingConditions={wildcardTrendConditionsAt}
                   connectGaps={false}
                   rankDomainMax={wildcardRankDomainMax}
                   conditions={wildcardTrendConditions}
@@ -1172,7 +1145,8 @@ export function StandingsPage({ season }: { season: string }) {
               teams={teams}
               height={560}
               teamColors={teamColors ?? undefined}
-              isAnimating={isAnimating}
+              playback={playback}
+              playingConditions={trendConditionsAt}
               conditions={trendConditions}
             />
           ) : (
@@ -1185,7 +1159,8 @@ export function StandingsPage({ season }: { season: string }) {
                   teams={g.teams}
                   height={520}
                   teamColors={teamColors ?? undefined}
-                  isAnimating={isAnimating}
+                  playback={playback}
+                  playingConditions={trendConditionsAt}
                   conditions={trendConditions}
                 />
               ))}
@@ -1196,7 +1171,9 @@ export function StandingsPage({ season }: { season: string }) {
                   teams={wildcardTeams}
                   height={520}
                   teamColors={teamColors ?? undefined}
-                  isAnimating={isAnimating}
+                  playback={playback}
+                  playbackOffset={wildcardPlaybackOffset}
+                  playingConditions={wildcardTrendConditionsAt}
                   connectGaps={false}
                   conditions={wildcardTrendConditions}
                 />
@@ -1220,7 +1197,8 @@ export function StandingsPage({ season }: { season: string }) {
               teams={teams}
               height={560}
               teamColors={teamColors ?? undefined}
-              isAnimating={isAnimating}
+              playback={playback}
+              playingConditions={trendConditionsAt}
               conditions={trendConditions}
             />
           ) : (
@@ -1233,7 +1211,8 @@ export function StandingsPage({ season }: { season: string }) {
                   teams={g.teams}
                   height={520}
                   teamColors={teamColors ?? undefined}
-                  isAnimating={isAnimating}
+                  playback={playback}
+                  playingConditions={trendConditionsAt}
                   conditions={trendConditions}
                 />
               ))}
@@ -1244,7 +1223,9 @@ export function StandingsPage({ season }: { season: string }) {
                   teams={wildcardTeams}
                   height={520}
                   teamColors={teamColors ?? undefined}
-                  isAnimating={isAnimating}
+                  playback={playback}
+                  playbackOffset={wildcardPlaybackOffset}
+                  playingConditions={wildcardTrendConditionsAt}
                   connectGaps={false}
                   conditions={wildcardTrendConditions}
                 />

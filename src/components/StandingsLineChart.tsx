@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useEffect, useMemo, useState } from "react";
+import { CartesianGrid, Customized, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { teamLogoUrl } from "../lib/data";
 import { teamShortName } from "../../shared/teamNames";
 import type { TeamColors } from "../../shared/types";
 import { ConditionLine } from "./ConditionTitle";
+import { StandingsTrendPlaybackLayer } from "./StandingsTrendPlaybackLayer";
+import type { TrendPlayback } from "../lib/trendPlayback";
 
 export interface ChartTeam {
   teamId: string;
@@ -20,9 +22,13 @@ interface StandingsLineChartProps {
   /** 指定時、折れ線の色にチームカラー（primary）を使う。未取得のチーム（過去在籍のみの
    * クラブ等、data/team-colors.jsonに無いチーム）は従来通りインデックス由来の虹色にフォールバックする */
   teamColors?: Record<string, TeamColors>;
-  /** アニメーション再生中: 末端のロゴ（フォールバック時は円）がCSSトランジションで
-   * 前の位置から新しい位置へ滑らかに移動するようにする（再生中以外は瞬時に位置更新する） */
-  isAnimating?: boolean;
+  /** アニメーション再生中だけ渡す、再生の時計。渡されている間は、ラインとロゴを再生用の層
+   * （StandingsTrendPlaybackLayer）が描く。data は再生中も全期間分のまま渡す（軸は動かさない）。設計書378章 */
+  playback?: TrendPlayback;
+  /** このグラフの最初の日付が、再生全体の何番目か（ワイルドカードのグラフは途中から始まる）。既定は0 */
+  playbackOffset?: number;
+  /** 再生中のタイトル直下の条件。再生全体でいま何番目の日付まで進んだかを受け取って返す */
+  playingConditions?: (playbackIndex: number) => string[];
   /** trueなら値が欠けている区間（undefined）の前後を直線で結ぶ（従来の挙動）。falseにすると
    * 値が欠けている区間で線が途切れる（例: ワイルドカードグラフで、あるチームが地区3位以内に
    * 浮上している期間はプール対象外になり値を持たないため、その区間だけ線を途切れさせたい場合） */
@@ -59,7 +65,9 @@ export function StandingsLineChart({
   reversed = false,
   height = 320,
   teamColors,
-  isAnimating = false,
+  playback,
+  playbackOffset = 0,
+  playingConditions,
   connectGaps = true,
   rankDomainMax,
   conditions,
@@ -123,7 +131,11 @@ export function StandingsLineChart({
   return (
     <div className="standings-chart">
       <h3>{title}</h3>
-      {conditions && <ConditionLine conditions={conditions} />}
+      {playback && playingConditions ? (
+        <PlayingConditionLine playback={playback} conditionsAt={playingConditions} />
+      ) : (
+        conditions && <ConditionLine conditions={conditions} />
+      )}
       <ResponsiveContainer width="100%" height={height}>
         {/* topマージンはロゴ半径（LOGO_SIZE/2）分以上確保する。順位グラフの1位は
             プロット領域の最上端ちょうどに位置するため、これが無いとロゴの上部がプロット領域の
@@ -147,10 +159,13 @@ export function StandingsLineChart({
             axisLine={false}
             width={32}
           />
-          <Tooltip
-            contentStyle={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--fg)" }}
-            labelStyle={{ color: "var(--fg)" }}
-          />
+          {/* 再生中は、まだ出ていない日の値が出ないようにツールチップを止める */}
+          {!playback && (
+            <Tooltip
+              contentStyle={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--fg)" }}
+              labelStyle={{ color: "var(--fg)" }}
+            />
+          )}
           {/* Legendはteams配列（現在の順位が良い順）そのままの表示順にするため、明示的な
               payloadを渡す（下のLine描画順とは独立させる） */}
           <Legend
@@ -176,7 +191,7 @@ export function StandingsLineChart({
                 dataKey={t.teamId}
                 name={teamShortName(t.teamId, t.teamName)}
                 stroke={color}
-                dot={(props: any) => {
+                dot={playback ? false : (props: any) => {
                   const { cx, cy, index } = props;
                   if (index !== lastIndex || cx === undefined || cy === undefined) {
                     return <circle key={`${t.teamId}-dot-${index}`} cx={cx} cy={cy} r={0} fill="none" />;
@@ -190,7 +205,6 @@ export function StandingsLineChart({
                         cy={cy}
                         r={4}
                         fill={color}
-                        style={isAnimating ? { transition: "cx 180ms linear, cy 180ms linear" } : undefined}
                       />
                     );
                   }
@@ -203,18 +217,50 @@ export function StandingsLineChart({
                       width={LOGO_SIZE}
                       height={LOGO_SIZE}
                       onError={() => markLogoFailed(t.teamId)}
-                      style={isAnimating ? { transition: "x 180ms linear, y 180ms linear" } : undefined}
                     />
                   );
                 }}
+                // 再生中は再生用の層が描くので、こちらの線は見せない（位置の計算には使うので外さない）
+                strokeOpacity={playback ? 0 : 1}
+                activeDot={!playback}
                 strokeWidth={2}
                 connectNulls={connectGaps}
                 isAnimationActive={false}
               />
             );
           })}
+          {playback && (
+            <Customized
+              component={
+                <StandingsTrendPlaybackLayer
+                  playback={playback}
+                  playbackOffset={playbackOffset}
+                  teams={teams}
+                  colorByTeamId={colorByTeamId}
+                  connectGaps={connectGaps}
+                  logoSize={LOGO_SIZE}
+                  tieOffsetStep={TIE_OFFSET_STEP}
+                  failedLogos={failedLogos}
+                  onLogoError={markLogoFailed}
+                />
+              }
+            />
+          )}
         </LineChart>
       </ResponsiveContainer>
     </div>
   );
+}
+
+/** 再生中のタイトル直下の条件。日付が1日進んだときだけ、この1行だけを描き直す */
+function PlayingConditionLine({
+  playback,
+  conditionsAt,
+}: {
+  playback: TrendPlayback;
+  conditionsAt: (playbackIndex: number) => string[];
+}) {
+  const [index, setIndex] = useState(() => Math.floor(playback.getProgress()));
+  useEffect(() => playback.subscribe((progress) => setIndex(Math.floor(progress))), [playback]);
+  return <ConditionLine conditions={conditionsAt(index)} />;
 }
