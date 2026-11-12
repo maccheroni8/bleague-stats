@@ -16240,6 +16240,14 @@ iPhone でランキングが開けない（画像保存まで進めない）と�
 - **md 詳しい版**: 試合ごとの人数別の時間の表に付けていた「2019-20以前は、コートにいた選手を推定して復元した値で精度が下がる」の注記も外した（旧形式も今と同じ精度で復元できる。`validate:ai-export-detailed` は、どのシーズンにもこの注記が無いことを確かめる）。
 - **検証**: `validate:period-index`（攻撃回数の列は全シーズン・特別な試合だけ -1）・`validate:best-lineups`（対象は 2016-17 から）・`validate:lineup-ranking`・`validate:lineups-by-condition`・`validate:player-oncourt`・`validate:rebuild-materials`（player-foreign を全シーズン）・`validate:game-orpct`（旧形式も countsByPeriod・特別な試合は reboundsByPeriod）・`validate:time-to-shot`（2016-17 から・旧形式のリバウンドの番号）・`validate:tts-table` を旧シーズンに広げた。
 
+## 373. 検索サイトに載せない（2026-11-12。**画面だけの変更でキー不変** allKey `f6af5fc10fcaa374593a9b3d11fa8b33`）
+
+- 目的: 公開サイト（GitHub Pages の `/bleague-stats/`）を、検索サイトの結果（サイト・ページ・選手の写真）に出さない。URL を知っている人が見ることは防がない。
+- やったこと: `index.html` の `<head>` に `robots`・`googlebot` の meta タグ（`noindex, nofollow, noimageindex, noarchive, nosnippet`）を入れた。画面は index.html 1枚から全ページを出す作りなので、全ページに効く。検証は `npm run validate:noindex`。
+- `robots.txt` は置かない: プロジェクトのサイトは `maccheroni8.github.io/bleague-stats/` の下にあり、検索サイトが読む robots.txt はドメイン直下（`maccheroni8.github.io/robots.txt`）のものだけ。`/bleague-stats/robots.txt` は読まれない。また robots.txt で巡回を止めると、検索サイトが noindex を読めず、他サイトからのリンクで題名だけ載ることがある。meta の noindex のほうが確実。
+- `maccheroni8.github.io`（ユーザー用のサイト）のリポジトリは存在しない（2026-11-12 時点）。作れば直下の robots.txt を置けるが、そのサイトの全プロジェクトに効く。今回は作らない。
+- 検索サイトに見つけられやすくするもの（サイトの地図・canonical・OGP・構造化データ）は、このリポジトリに無い。
+
 ## 374. 選手の写真をシーズンごとに切り替える（2026-11-12。**保存キーは変わらない**）
 
 - **背景**: 写真は1人1枚（`data/player-photos/{選手ID}.webp`。毎週の名簿の取得で今の写真に上書き）で、過去の試合・シーズンの画面にも今の所属のユニフォームが出ていた。
