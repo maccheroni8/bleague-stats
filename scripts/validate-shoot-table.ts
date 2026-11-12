@@ -92,8 +92,8 @@ const same = (text: string, expected: number, label: string) => {
   // 選手: 何も絞っていなければ「期間／試合区分／選び方／出場率／並び順」だけ。絞ったら条件が並ぶ（順は 選び方→登録区分→クラブ・ポジション・詳細フィルター→出場率→強調→並び順）
   const base = { scope: "2026-27 シーズン全体", gameType: "レギュラーシーズン", selection: { kind: "min", value: 15 } as const, classification: ["全選手"], filters: [] as string[], eligibility: ["出場率85%以上"], highlights: [] as string[], sort: "PTS▼" };
   assert.deepEqual(visibleConditionLabels(playerShootConditions(base)), ["2026-27 シーズン全体", "レギュラーシーズン", "得点15以上", "出場率85%以上", "PTS▼"], "絞っていない条件（全選手など）は載せない");
-  const narrowed = visibleConditionLabels(playerShootConditions({ ...base, selection: { kind: "top", n: 20 }, classification: ["登録区分: 日本人"], filters: ["表示クラブ: 東地区", "出場時間20:00以上", "年齢25以下"], highlights: ["強調: 三遠"], sort: "TS%↓" }));
-  assert.deepEqual(narrowed, ["2026-27 シーズン全体", "レギュラーシーズン", "得点上位20人", "登録区分: 日本人", "表示クラブ: 東地区", "出場時間20:00以上", "年齢25以下", "出場率85%以上", "強調: 三遠", "TS%↓"]);
+  const narrowed = visibleConditionLabels(playerShootConditions({ ...base, selection: { kind: "top", n: 20 }, classification: ["登録区分: 日本人"], filters: ["表示クラブ: 東地区", "出場時間20:00以上", "年齢25以下"], highlights: ["強調: 三遠"], sort: "TS%▼" }));
+  assert.deepEqual(narrowed, ["2026-27 シーズン全体", "レギュラーシーズン", "得点上位20人", "登録区分: 日本人", "表示クラブ: 東地区", "出場時間20:00以上", "年齢25以下", "出場率85%以上", "強調: 三遠", "TS%▼"]);
   // 掲載基準の「達成可能」はランキングと同じ書き方（「出場率85%以上達成可能」）で、出場率の位置に載る
   assert.deepEqual(visibleConditionLabels(playerShootConditions({ ...base, eligibility: ["出場率85%以上達成可能"] })), ["2026-27 シーズン全体", "レギュラーシーズン", "得点15以上", "出場率85%以上達成可能", "PTS▼"]);
   // チーム: 自チームは視点を書かず、差は「+/-」、相手は書かない。並び順は常に最後
