@@ -1,0 +1,2506 @@
+{
+ "v": 1,
+ "season": "2021-22",
+ "photos": [
+  {
+   "teamId": "702",
+   "playerId": "5100000053",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/5100000053_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ccf29d662e4e03a5fb36fe9737b3c85a7b00efa47e964a7d645ff9064b11cbb4"
+  },
+  {
+   "teamId": "702",
+   "playerId": "8587",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/8587_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4179c33fabf377e12e509a99759d6858851f375c54f92cddbdc40233ec055f51"
+  },
+  {
+   "teamId": "702",
+   "playerId": "30437",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/30437_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "230cd2ef6b28c7788930f2f1eaeb4f21a129eeda380a7782cc80435b7b5a11a4"
+  },
+  {
+   "teamId": "702",
+   "playerId": "18148",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/18148_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e00a7d1a0db6e745c03bb3a23f2bd486046a37bb72e851a53fc0d4d582315393"
+  },
+  {
+   "teamId": "702",
+   "playerId": "15818",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/15818_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1a0b368dd9923c5fcb44ee0df2a1cd6fb1467e0587512b7474f17a7edac760c8"
+  },
+  {
+   "teamId": "702",
+   "playerId": "20003",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/20003_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f10e35290a095896ed12879cfb80c23a8667da44febfa360813f704bf0eb2784"
+  },
+  {
+   "teamId": "702",
+   "playerId": "20025",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/20025_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "548b9710efc1ad1c8a4da65ae5382f9f83fa58cd357ed3bbd4cac58202d56107"
+  },
+  {
+   "teamId": "702",
+   "playerId": "51000123",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/51000123_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8663e526def2300f117c76cc916f61ebff67c8a80190e4a02cbbdbc3a5a0153c"
+  },
+  {
+   "teamId": "702",
+   "playerId": "20031",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/20031_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "272d6ccca2f0e87b1b259337ed0f578933b46ecb2ec16d257b734be301f1e2a0"
+  },
+  {
+   "teamId": "702",
+   "playerId": "8509",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/8509_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2d10183fe279708c99f123dee264bad18fc85f78664702c25899b3b021977728"
+  },
+  {
+   "teamId": "702",
+   "playerId": "26913",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/26913_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2c009c7a6c6665ed720751d1a67e4d3f5d1e2c42e7a8d9187f228696c9ff177a"
+  },
+  {
+   "teamId": "702",
+   "playerId": "8506",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/8506_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "762d3fd771950caa1e70064f1496d0f53a85f20fe70fe1ce90ba89d43c7b012c"
+  },
+  {
+   "teamId": "702",
+   "playerId": "9392",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/702/2021-22/9392_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8bedc0d98c3442889780eabbbd865208326f79b9af523da32af0dc5b65d985bf"
+  },
+  {
+   "teamId": "693",
+   "playerId": "5100000007",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/5100000007_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "64cc54041a4d3c51b5f35e05df51989a867c243a31a55a35f389af33fc3e4025"
+  },
+  {
+   "teamId": "693",
+   "playerId": "5100000047",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/5100000047_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1f746b0fe83ae219c73aca690db33b6e0d9cd65b0ad8121b3ef73dbffe7f5bcd"
+  },
+  {
+   "teamId": "693",
+   "playerId": "10848",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/10848_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "59b48c21618c4ee026155e1e55505275eabe885e137d9b07c6f0ed0f7ede45d4"
+  },
+  {
+   "teamId": "693",
+   "playerId": "5100000041",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/5100000041_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bf0fdaf582d6c1efd381d3c1bef0ba76b769209cfe5f9131560459d299b23b23"
+  },
+  {
+   "teamId": "693",
+   "playerId": "30513",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/30513_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4ef4f6d50daa893ef42fc3b5a6683fb23e2ca18dab700fd1c81e62866fceee89"
+  },
+  {
+   "teamId": "693",
+   "playerId": "8446",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/8446_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9810d0e94b9d807d5794c9c63236677bf28ae61933f3e3aa23881774ab5b88ce"
+  },
+  {
+   "teamId": "693",
+   "playerId": "8468",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/8468_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a63879e00d2f3b24a0a67da0c27dd3cba1f96fec7f1f059a1a76f8fd77cd4eb8"
+  },
+  {
+   "teamId": "693",
+   "playerId": "8727",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/8727_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d0066e5d18edfd8c6fbfd3fd6cfb92b100efcb939e3472d72abdbfc0e3bdf541"
+  },
+  {
+   "teamId": "693",
+   "playerId": "8500",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/8500_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "17058913bee0c44f66722caa1171308a0e7888667594a23ada02cefec4ebc6ca"
+  },
+  {
+   "teamId": "693",
+   "playerId": "33045",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/33045_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "36bdff6dc99d527b206498436c8d0de891fae4c38cd1828d1eefd609f7078c5d"
+  },
+  {
+   "teamId": "693",
+   "playerId": "10878",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/10878_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c623c20cd11265b7d3603c9882b810d4ecad96aca692c34bf39a647e4da38834"
+  },
+  {
+   "teamId": "693",
+   "playerId": "30457",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/30457_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e45f3b39920b8d9baaaedc14aebc94c690b36616b06f258e863bee8ede64d0d6"
+  },
+  {
+   "teamId": "693",
+   "playerId": "15829",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/693/2021-22/15829_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "302156e53cdc59958e0630e08bf5380adfdf7df1ae02ebaeca2b9336a7aa138a"
+  },
+  {
+   "teamId": "712",
+   "playerId": "51000116",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/51000116_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f3b8d66edb6ef65bc52437ca44d972d2f0d259eab232497e452c29afb39f544e"
+  },
+  {
+   "teamId": "712",
+   "playerId": "5100000086",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/5100000086_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "242c18af1a142f8fb22d3f107f99cbaa47ab2a4f596a6635a9eb6657baf3fa6c"
+  },
+  {
+   "teamId": "712",
+   "playerId": "12595",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/12595_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "616e0e12d8576ca2e361344744b1c8afbbe88ef2ee3fdd6da12b93b02b271664"
+  },
+  {
+   "teamId": "712",
+   "playerId": "12634",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/12634_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4ca315afc7c0c8006f6748461b6c156c73d9b33a89c1fd6814c7500a5393d65e"
+  },
+  {
+   "teamId": "712",
+   "playerId": "9340",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/9340_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4cca89bf569c64de3c7a532c96b05812dd3bf42519d4ac9a3adfea3db31d0f0b"
+  },
+  {
+   "teamId": "712",
+   "playerId": "8470",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/8470_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a9b0093ee227bdb6a76965611d2088e643cd2f392d8e680ad1fc904bdb713c64"
+  },
+  {
+   "teamId": "712",
+   "playerId": "8561",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/8561_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "04419127221a7e4de4df52e68326c4696577448e7d5b5a9c7645259632bdebb7"
+  },
+  {
+   "teamId": "712",
+   "playerId": "22405",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/22405_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0d0565d2b4adf515d579d4fee14c8bfcc42c91313df78b642758a2ed6a9fde1e"
+  },
+  {
+   "teamId": "712",
+   "playerId": "18845",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/18845_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "377760fa021e44dbd317e0859b45cde4f5bf0cf89744ce5e69761a079b57186e"
+  },
+  {
+   "teamId": "712",
+   "playerId": "8621",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/8621_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "754991b829e717add88f6c4a4306ea099237a1738fdb0167bb3dfa1946f47834"
+  },
+  {
+   "teamId": "712",
+   "playerId": "8507",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/8507_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "03142c87b4638670415be426ea733df159cf3b31a023581de42badcf97b9792c"
+  },
+  {
+   "teamId": "712",
+   "playerId": "9044",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/9044_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7c0ab6097b03a9c5eba85b85da76f88c3e90bf2ce2709acd082ca2160aaca387"
+  },
+  {
+   "teamId": "712",
+   "playerId": "8642",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/8642_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2d18f9508ef4f1fc21704cfc331b44d3b9949c250d2e5537c447c7198ca9169c"
+  },
+  {
+   "teamId": "703",
+   "playerId": "5100000079",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/5100000079_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d430a29b8488476c6c96c2fbd80418f59bf818f2bfe7a690bd3231a70ade02e8"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8657",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/8657_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "fb157f0b54404ac34dbe58988d6589de4384b26b87bcd2949ce839aaac995c70"
+  },
+  {
+   "teamId": "703",
+   "playerId": "12631",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/12631_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2490d4eed05c7cac8836ef09071126ffffc97b402d1d38296570d7c2d5de4fc7"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8650",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/8650_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2c4d33a33d598faf8a7cb17750b321887b53e8eeff355ee835dbf1076157ae6c"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8589",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/8589_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "897fdbde4b7d44e000470c94a7ab802c6771bf09a6b3b2258b2742e73c2c04f8"
+  },
+  {
+   "teamId": "703",
+   "playerId": "5100000021",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/5100000021_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bdbb90e9538fec1bba7ab361e09a7b608125cdec25d94c95e84bbe954607c137"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8726",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/8726_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "383fe8bdfbff5e10ed27bae4f65a473d1020b4bb07ba2e2f952c5cb9c3e076d2"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8499",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/8499_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "719fa31105d023fdc4efb30925e4e2c43c7e0b6f0ceaad255adec924de3de3d5"
+  },
+  {
+   "teamId": "703",
+   "playerId": "5100000081",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/5100000081_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "718e3ec3fa7b7b0597e0065a040d0ce357ffbcbf2b4c36be6cf3fe8c0e694755"
+  },
+  {
+   "teamId": "703",
+   "playerId": "5100000080",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/5100000080_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2b48617cbd3e30ffeeeb9cf764f1368b95d9502ca369ca7789250560eefdd0e5"
+  },
+  {
+   "teamId": "703",
+   "playerId": "30438",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/30438_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "26d68fc7dc8c4c0fe2a77fe8e4af9ac0a5936718c598698eda57d9c5503ca0c1"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8529",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/8529_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "929c2433b906194dbb426b43ab7a34f4ace8c34f47e3fb4773cb198201506414"
+  },
+  {
+   "teamId": "703",
+   "playerId": "5100000012",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/5100000012_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "62ba09fe97e272b09cbe0c3a801f579abc642e926dda617251ecfa5485c68ee5"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8497",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/703/2021-22/8497_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b48dab63ac492760bfc7b8de251ea848ac13413576f27640f3e4992116cb185f"
+  },
+  {
+   "teamId": "713",
+   "playerId": "8504",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/8504_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "527d725a53379382a47b95c3af0f228be639213102712165b4eb35013760625b"
+  },
+  {
+   "teamId": "713",
+   "playerId": "30512",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/30512_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d5c7c95c1912319ee745d601424644996835c7d3ff26156616455eb556948f5b"
+  },
+  {
+   "teamId": "713",
+   "playerId": "5100000065",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/5100000065_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "419347f91803a5d1a46e1ceed376e3c6ad41ff56949e95a9cc4f9f9de80b6956"
+  },
+  {
+   "teamId": "713",
+   "playerId": "8581",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/8581_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c880448fe40de6857b95c0b633cf7b3e4cf4c97b1114e1c4526ef69970f0c07a"
+  },
+  {
+   "teamId": "713",
+   "playerId": "18167",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/18167_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "eea5b58b658666bb2ce15fe81cb1ffc02ec8bf880cb0647e7529ee8dd4a857bb"
+  },
+  {
+   "teamId": "713",
+   "playerId": "9379",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/9379_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "15a8772fdeedbc40c30ca30122dca8e94795396a2231a02b9df01257b819abf9"
+  },
+  {
+   "teamId": "713",
+   "playerId": "18172",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/18172_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5f1df29f5346dac9908cc807ba087ed4bb172b8aa8ccf8d4c27bc2fe2b0bf9a3"
+  },
+  {
+   "teamId": "713",
+   "playerId": "8486",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/8486_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7597aaa1c34d7d9e63324e5db14b059f17cdb3ee44835d948f1af7de9075d341"
+  },
+  {
+   "teamId": "713",
+   "playerId": "8645",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/8645_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "48bea1b99dafb3b40369aa04f0818dcc56f6a1aa33f8c3f24a4e853d45891ddf"
+  },
+  {
+   "teamId": "713",
+   "playerId": "8448",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/8448_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0c6659c2297b612f089788134f3d0f1702fe83efca46c0b958b4d80a784afcd9"
+  },
+  {
+   "teamId": "713",
+   "playerId": "5100000016",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/5100000016_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "49b358804e03ff2b1042cc3d5d203331d66e2a37e45bbf429730d9d89e79665a"
+  },
+  {
+   "teamId": "713",
+   "playerId": "32953",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/32953_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6d9ad5ccc64f7280df525fa4fbddd5c94e1a5d91b9d3bfc3eec0f8756a1b81a2"
+  },
+  {
+   "teamId": "713",
+   "playerId": "18441",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/18441_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "28187181a713590ee307e9cc4101161d6ccc5753b70600242d27f8924fbdfe96"
+  },
+  {
+   "teamId": "713",
+   "playerId": "8579",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/713/2021-22/8579_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d455b68caab5c2ab19786789c0083608b669f05b58f220aafa2942be0ddac8e3"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8736",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/8736_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7e3c666d332261d9f8881b92b83378052097a73a14600f703fa1dbc7c41e7697"
+  },
+  {
+   "teamId": "704",
+   "playerId": "30351",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/30351_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0ca45fa97ccacfa6734096fda4ea196f041d9d15b01a81cae04f59cd888cb4ce"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8653",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/8653_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "736ca0673dd2b22b21fb218edc58d343498728a09fd2b634c83174c521c983d1"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8580",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/8580_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "66754a92ca9d83d448d679d2c7226f6953bca086c48b50a3cca0ae1ee54e5a3b"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8593",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/8593_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "05016246ae847e8d4a6a9069b27f080bd0ee0957d43fc798e95f791247a50cac"
+  },
+  {
+   "teamId": "704",
+   "playerId": "18440",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/18440_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7dba8f064b9928e14841e59f60f260c9cadb35d33b73d751ddc5f71c4340ab52"
+  },
+  {
+   "teamId": "704",
+   "playerId": "51000112",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/51000112_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c26d115aaaad4d2b3cc4d95149f6cc1231fefd386c47fec8bc875f6d0410bd85"
+  },
+  {
+   "teamId": "704",
+   "playerId": "5100000055",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/5100000055_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "63bb08313992202f8f10b06d3e1b8eef949962b8b66079de36ae60432dca35ba"
+  },
+  {
+   "teamId": "704",
+   "playerId": "15811",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/15811_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "dc8d21a0aa4168528237e69741f3db5b5baa533d892827e85d32b48cdd5ed8b2"
+  },
+  {
+   "teamId": "704",
+   "playerId": "30521",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/30521_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "60c19b0a86afa804b519d6c094fecafb80e57c6762a2b70d475c2a7c720e932d"
+  },
+  {
+   "teamId": "704",
+   "playerId": "5100000054",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/5100000054_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4ea16b68fdc5aa8b0fbccc0c203f4012a3dd30df98b93b85f59778e36fd378e1"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8584",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/8584_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8fa235d878e6cf35abf42b2022fb7f88a4f4722b34b0ea9adf938822ca95e746"
+  },
+  {
+   "teamId": "704",
+   "playerId": "9055",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/9055_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7d4391b44e145881620371d5fbfab126e5a09cccf73768a1d02dcb978475bf39"
+  },
+  {
+   "teamId": "704",
+   "playerId": "30465",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/704/2021-22/30465_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bf17b4bd6ced1b656c600a8331a24f43253c74f769a81033b056f839046a28eb"
+  },
+  {
+   "teamId": "706",
+   "playerId": "8456",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/8456_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7764a5694eb3499ed3f0accca716bd71d3d53d7ace66560027055bff04b0d7d2"
+  },
+  {
+   "teamId": "706",
+   "playerId": "15838",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/15838_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "193a9d605daaa06d3c3994dc3b7ecfe1d08643561ed6b88c20da7b1eee5438c1"
+  },
+  {
+   "teamId": "706",
+   "playerId": "8649",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/8649_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8f1c5bb555fd9c5770a674b868a577b53dd7e1f37d7f70df77cc572e76c957cc"
+  },
+  {
+   "teamId": "706",
+   "playerId": "10815",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/10815_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1467bca196d15573ebc02e453af5829a9a40f8c6b75d2d53feb03f00344cdc59"
+  },
+  {
+   "teamId": "706",
+   "playerId": "30348",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/30348_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "30a65ce2c4e5cdee2451744fe3c7b4fd55f4426dd4c4ce8062f00475c0c0883a"
+  },
+  {
+   "teamId": "706",
+   "playerId": "26921",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/26921_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3c582d3d8800ab4da2ce56c56e4e82e25bf5f3fbc44a8b37ce63345bef3666f5"
+  },
+  {
+   "teamId": "706",
+   "playerId": "9031",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/9031_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bd700fe4a9b784f6262e768a475c45e84263eea61b909d0537b642cfa747aac3"
+  },
+  {
+   "teamId": "706",
+   "playerId": "30347",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/30347_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7818c160dfd6773f887bb477100e9876a51bb8f572b0f6d56a6068ecc48e8a94"
+  },
+  {
+   "teamId": "706",
+   "playerId": "12582",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/12582_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9db9dcd6d699bc6729a9cd620111652cda9a09bf38df62cf0a5b7e754d337aee"
+  },
+  {
+   "teamId": "706",
+   "playerId": "9032",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/9032_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a41e12f485466a26366ff0e8983231ca9ae3bb6820b1811550ca3d9ca310cc92"
+  },
+  {
+   "teamId": "706",
+   "playerId": "20021",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/20021_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a05abaf858a72e3a2e3b881b5e93901ee2cbab552d194f5d287642e625c740d3"
+  },
+  {
+   "teamId": "706",
+   "playerId": "32994",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/32994_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "10aaf88b80febc6935dc33d23d2fe42aaf4e8f535482326d99d0bac8ef91ca6c"
+  },
+  {
+   "teamId": "706",
+   "playerId": "9037",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/706/2021-22/9037_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8e7f8c7636c71df2523d681da65330c232883e9c6d699c83d4011da66a4b4c6b"
+  },
+  {
+   "teamId": "726",
+   "playerId": "20017",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/20017_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f99b46bdeb8fa4001eeba9350345e69eefeaa5a92433a308da280408d33c2beb"
+  },
+  {
+   "teamId": "726",
+   "playerId": "19998",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/19998_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b9abaf3e6e4099385f992a6a77f5ce08d0e0cf0c1de5478f152f2a13c5d83dd4"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8571",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/8571_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "283f2019aa22118f845b1da463504796112ff92d10354f3bc3e7be02ebbd6ec1"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8583",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/8583_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9ee0e70e2f0edc47c8be1677c0afea99418e4be416396770ff8f157c3c8249b4"
+  },
+  {
+   "teamId": "726",
+   "playerId": "15815",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/15815_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bde4f613b6b3f0ab507f3b1284f71c8c781d90150b76bf9543ebf67788f6425e"
+  },
+  {
+   "teamId": "726",
+   "playerId": "10850",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/10850_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "dd3804ee93d079e6b6521e920ef34d89811f6de0ffd6e5dc4d73ba9637c19a4a"
+  },
+  {
+   "teamId": "726",
+   "playerId": "5100000033",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/5100000033_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8200005183b881d893340afd7f3c73d6d85b703a8ae4faaef01e0996553ed0c9"
+  },
+  {
+   "teamId": "726",
+   "playerId": "32992",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/32992_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5e49495eb002e2bc3ce20571ab566d4088a4051145144975bc8ef2b545546976"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8450",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/8450_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "50af968f477a45fa671d955b0f93dbb4028233474bc9389e952e18e1f708025d"
+  },
+  {
+   "teamId": "726",
+   "playerId": "9063",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/9063_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e834001f94821b45269e2e51b0a86b4104391b9dd1b167d16dd5e508a3410564"
+  },
+  {
+   "teamId": "726",
+   "playerId": "10818",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/10818_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1efc5c09ad3ce42e5d86a4e84dcb5a2516d67d3f0f7b6717815d408c1222e24b"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8447",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/8447_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2e43344929698a3d56cd1a6b8b339d019865ebed7cdf634084490b794de6e431"
+  },
+  {
+   "teamId": "726",
+   "playerId": "30468",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/30468_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "64eb02de6445a1a4c83440236796ea2330823513addd98bb16d7a1810de489fb"
+  },
+  {
+   "teamId": "726",
+   "playerId": "9329",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/9329_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "dbfd0725bf7ee834c969d4a8b289cdfb266725afa79becdb01ba55272731b445"
+  },
+  {
+   "teamId": "726",
+   "playerId": "51000100",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/51000100_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "23c3348fd8e5e39d2dab1a7cf7bc1593c890c4dc532ad8a888a1186068742152"
+  },
+  {
+   "teamId": "726",
+   "playerId": "18398",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/726/2021-22/18398_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "567e3f92f721ef75c38df5e44c80331a95a064c08038360afb2544becb0dd1aa"
+  },
+  {
+   "teamId": "727",
+   "playerId": "5100000059",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/5100000059_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "01098f278ba15399a335e0da818d1ed345cd3b37028b43cb1581b640e299d6ed"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8484",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/8484_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "dc719442651e8ca97449480c52d3946cde5a3140dc9f98145e718bb5c48c3685"
+  },
+  {
+   "teamId": "727",
+   "playerId": "32952",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/32952_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3510104e94dac5683d2db05531ede2944e518d8557f066633e5f4e4b8c9f0b36"
+  },
+  {
+   "teamId": "727",
+   "playerId": "20000",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/20000_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f71792a74cb2cc81783ad770cf113c1212b8a12aee78452eb875f9470511bd54"
+  },
+  {
+   "teamId": "727",
+   "playerId": "20024",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/20024_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f155b21789efcfdfe637a8e2f6c34f323178945f56ca3a2b2a5016f7e3d62876"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8489",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/8489_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2fa7a6e37a4256bfa008d4299850e486b5c027113158ca5bfe0649bd739f9368"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8498",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/8498_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "dabf6441ff556bf8ba37e5ec3a83197d2c0146f99fcaa63c3e2ceb7bbb4bd3ce"
+  },
+  {
+   "teamId": "727",
+   "playerId": "20018",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/20018_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5072a5d3e9eec95d5d1ba6f6267610d665569c832396dea5fc62afd63b259f6c"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8482",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/8482_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "cf21b884e8262d63613f5869cd1fd147bec3fd53f50ca8a4beb30297ad1bcc35"
+  },
+  {
+   "teamId": "727",
+   "playerId": "5100000022",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/5100000022_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7b5ea14acf7e89f1e8e6ec2ca4c35c5ea1ebda247921870ca1ca3dbd91db4f2d"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8490",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/8490_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "53af5c243bcc172f2f74d6a939cbf1e4497dc0c8258b7cae12b045ee404e43a8"
+  },
+  {
+   "teamId": "727",
+   "playerId": "26874",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/26874_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "681490bf66c04d563a429e54844b1f1417c23bda97402106aaad6b8514e1fdb3"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8492",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/727/2021-22/8492_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "23d37ad111148d91b496994d3a4c65921e9400bead56ecdfc78f106d25683069"
+  },
+  {
+   "teamId": "694",
+   "playerId": "30401",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/30401_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6c507c7448fb5e3e102b41a1f97c4ed62024bd39a7a109219dcb7d461ed5649d"
+  },
+  {
+   "teamId": "694",
+   "playerId": "33035",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/33035_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1086a1d3e406411ff0febfa2b2d063df5e1fcac1cf9cdc007d0a9c20dac22453"
+  },
+  {
+   "teamId": "694",
+   "playerId": "10258",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/10258_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e14cdec5f4970afc892207455bdc8e7d0aa8958d216b4fc3e1da8b2fac853f84"
+  },
+  {
+   "teamId": "694",
+   "playerId": "5100000060",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/5100000060_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "841e2e6623bdbb5b345d6b00ba146922befe7ceec248611e12121d08c4ed9128"
+  },
+  {
+   "teamId": "694",
+   "playerId": "30460",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/30460_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a79a5c5977fa4a568bafd1f1aec2f9ec2662cee88668155442ea247fed70b4d4"
+  },
+  {
+   "teamId": "694",
+   "playerId": "51000097",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/51000097_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bedc61c7a1c05707da724157e3b16252cdb65d21df2b2c13eb7187a63b6bf86a"
+  },
+  {
+   "teamId": "694",
+   "playerId": "9259",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/9259_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3bc9fcfe5198a9378386897f58af5af38fca680bb44dec540bcbca0e5af44cec"
+  },
+  {
+   "teamId": "694",
+   "playerId": "26915",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/26915_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "46cb51e8dfaf22c56723b11121b72d819c6848afe96c18689358d26df22509c7"
+  },
+  {
+   "teamId": "694",
+   "playerId": "10822",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/10822_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "872146dc78a09f9414ac4f5ca31b8daa9c47d264bd9ef4783d750aa127942e61"
+  },
+  {
+   "teamId": "694",
+   "playerId": "9405",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/9405_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9d4b2fb65b4c4f2dd1f7013ed40f9f4bf68662ee4cebceab95a974695bcdcea4"
+  },
+  {
+   "teamId": "694",
+   "playerId": "32956",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/32956_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "49fcce6a99b063ded0b18d9f84dcc5d97558a612d480e9215fcc4d5f436aa4e5"
+  },
+  {
+   "teamId": "694",
+   "playerId": "10851",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/10851_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7abb1fed28a8db15f32c4d247a929c1a361f5375587ecbc8fab21d9f3c4579b9"
+  },
+  {
+   "teamId": "694",
+   "playerId": "51000098",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/51000098_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e1c69f64cafbaf3633142750ef41e3ed4f1a955212202e4ba2c6648ff43e46bf"
+  },
+  {
+   "teamId": "694",
+   "playerId": "12500",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/12500_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7da081a64cbed1aab0b8d77bc4b9ef8c3048c154868f2dab0761dcd5f5e08d87"
+  },
+  {
+   "teamId": "694",
+   "playerId": "5100000024",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/694/2021-22/5100000024_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d67d443e58a8d3299c4f1468227c70d863e443d1cac50acce4ede25c819d17a4"
+  },
+  {
+   "teamId": "695",
+   "playerId": "30399",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/30399_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "52c79ef380817e53f822b1cc15213bd7ed287d37e9ddece34c39d46b11698afc"
+  },
+  {
+   "teamId": "695",
+   "playerId": "18433",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/18433_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f64b4ee84903598bf80dec36434e0af7e27b112cdf0fdc75e022f2c9349ee75d"
+  },
+  {
+   "teamId": "695",
+   "playerId": "8839",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/8839_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c94a3eb9cbdcd3125f81fa165aa94d7e2706c5c08a7f3af1c268d72d57bcf918"
+  },
+  {
+   "teamId": "695",
+   "playerId": "10886",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/10886_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5f3ce60af7f461206429900eb17ed17cf7fee3d02ddcece60c6086df3569738e"
+  },
+  {
+   "teamId": "695",
+   "playerId": "8475",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/8475_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e59ef99ae5441416477a117ccf068791784fddb14b965b1dbb5800fb2d348364"
+  },
+  {
+   "teamId": "695",
+   "playerId": "30436",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/30436_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7d3bc11fd94ad9bd6effd2cd46434e57f1d0f993177b51f864161aca28164e66"
+  },
+  {
+   "teamId": "695",
+   "playerId": "9369",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/9369_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c3fb042dd99a6099a842798b58588e7bbb4048dc0fd49aaac2d4b727d73e9f87"
+  },
+  {
+   "teamId": "695",
+   "playerId": "8476",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/8476_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f118452e0c9f363dc708fac9bd518b91cf9aea58a2afe2bab85698c8d07ca3b0"
+  },
+  {
+   "teamId": "695",
+   "playerId": "5100000082",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/5100000082_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7da21b420d68acb3279fbf2fbe4368e5b5adcbecc00b4819f85289ea59767544"
+  },
+  {
+   "teamId": "695",
+   "playerId": "8681",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/8681_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1b11df8c50d107aade817260a481f2d969dd652f4676cddb2014f4c108fa7c29"
+  },
+  {
+   "teamId": "695",
+   "playerId": "32978",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/32978_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "78be1b2a239638e074d89466f72733ecbc3876f91117b04eb47f36eaf9e7c6a8"
+  },
+  {
+   "teamId": "695",
+   "playerId": "5100000066",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/5100000066_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "27f3a4ba96de95c0343277b0d415146d105597e666146e948347915e9998d985"
+  },
+  {
+   "teamId": "695",
+   "playerId": "5100000044",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/695/2021-22/5100000044_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6046f3f1cc62cbb47524fd0bc55bbfd20974f7c43a8723bd1b4421e1514e5301"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8641",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/8641_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d6881b0b0ae10dd15b94610ac84b44b531a0fd2a29770be4c40c02d301f6c5fd"
+  },
+  {
+   "teamId": "696",
+   "playerId": "5100000078",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/5100000078_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9a2e053cb973f46e398499895a397ead19e362a5a4d72b6f28683bbae1eb3b76"
+  },
+  {
+   "teamId": "696",
+   "playerId": "5100000039",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/5100000039_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "cc28f70322a812cd1fac0abc2e8c1d6b9a0c79f21842e7fc3fe9bc4d49dcb826"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8585",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/8585_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d1a710ae0ef030fbfa6e32fa9616226528a0dac5e9ef3e3a1a12b807b61aa943"
+  },
+  {
+   "teamId": "696",
+   "playerId": "30404",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/30404_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "96e2d65260cfd80cac560ce27dfea5be3fd50702822479c5ea654b624d686e23"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8578",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/8578_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "275c36cc9999a7003327efa8d20ea32de3fef5d8a030d93f3cbf129a8365722e"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8483",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/8483_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f22fdfeba595cfecf832500cc57093a1623792eb91db5352c7d471f180d345a6"
+  },
+  {
+   "teamId": "696",
+   "playerId": "51000102",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/51000102_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "433d5c934a65d15dea529864a5346b33736a253ac7ac37244789af1828215552"
+  },
+  {
+   "teamId": "696",
+   "playerId": "9034",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/9034_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "20be7d39758d1d728ef28054dac1ee5bd82e88d1a3c6981c470994548f6d42da"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8501",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/8501_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ada00b763dbb0db5acfb541f18e3b0bb06a5477ba6707cbd31ddf9d62d88ddef"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8503",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/8503_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "15afda6a99a65d68d6f6dae16841567a0a2a3f048843bc733ab6f522a5410fbc"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8709",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/8709_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "93c1d12915f128b8a7e03c6fd2fd1b5647d8f2eb1dcf11a071e2f908996ec398"
+  },
+  {
+   "teamId": "696",
+   "playerId": "12633",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/696/2021-22/12633_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "68dc964be4e790892f3ef6d0b57ee5fbea25990b6b993766ca946b128bff9321"
+  },
+  {
+   "teamId": "716",
+   "playerId": "12598",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/12598_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e1edf69072d6788b6ea0ac6df93563e92ce7152578d907e17d3475a983ea2248"
+  },
+  {
+   "teamId": "716",
+   "playerId": "30402",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/30402_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3535f9f81063d35de4bc92fb921b946b198fb4e1d4b8de8590846126691ed087"
+  },
+  {
+   "teamId": "716",
+   "playerId": "18428",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/18428_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0e6ef900018020517c904ac5cdb0c87184a0fd9c824591cf34e526e3aeaaefd0"
+  },
+  {
+   "teamId": "716",
+   "playerId": "18475",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/18475_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2ebe79c3a339d92fee57d63a5cd3d62d8ab0db05bdf2b85409576cbd4ab0e941"
+  },
+  {
+   "teamId": "716",
+   "playerId": "8843",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/8843_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a212fc80f72e18d7c13ae534747fc58343c82d1c2f9cf7860f41ec452229a954"
+  },
+  {
+   "teamId": "716",
+   "playerId": "8547",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/8547_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7554972e182d890af4298df1ca863af8d496ec6d71c5dd19ab144d716f7d1224"
+  },
+  {
+   "teamId": "716",
+   "playerId": "9267",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/9267_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d58f3ac7f05f65044ce86753aabd7029079bed97c91d0f353aca5da61d77ec6d"
+  },
+  {
+   "teamId": "716",
+   "playerId": "19957",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/19957_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b50e5b29139e751be99e06804d648aed044cf6699700736124e71de65cf3c962"
+  },
+  {
+   "teamId": "716",
+   "playerId": "51000104",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/51000104_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2fe192c3d1566c7da0d7aa8324163c7cee0a1e9c794020f5153ec84670fe365a"
+  },
+  {
+   "teamId": "716",
+   "playerId": "33036",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/33036_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f8b709645f006009f251fdcfbf6348b8b7bfc5cfa176a579beee65ebd94ca372"
+  },
+  {
+   "teamId": "716",
+   "playerId": "18429",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/18429_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a9a3348d1002b8e4232407266ff353d5210140a9a575da599a8b8906269641bd"
+  },
+  {
+   "teamId": "716",
+   "playerId": "10842",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/10842_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7ef157c5c440a993f05bb660182d25b87be0e51613824189665801ed69ed17bb"
+  },
+  {
+   "teamId": "716",
+   "playerId": "8651",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/716/2021-22/8651_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4e31c56fce71ecec2d5800fd562eedeb55b5ab7e184fd5184a2dba32bc5cb0ff"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8658",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/8658_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "661eb5049059a72dd0b2a13d95f121774df8b3ff76a16236fe8156b553fc9d91"
+  },
+  {
+   "teamId": "697",
+   "playerId": "5100000068",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/5100000068_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5b2739e8bb76d5d3c61ffbf4c1f6ae7a37f4817bcff9c165354fed1447e2f722"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8567",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/8567_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3649d1bdb4cb8fd504129e8f89c5fe21b02b0fd59a20b9c616d258832af91071"
+  },
+  {
+   "teamId": "697",
+   "playerId": "51000126",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/51000126_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5c81eeb6cf6a87d11336c2207805ca11d58ad52698b02aa538eb397b8636ed85"
+  },
+  {
+   "teamId": "697",
+   "playerId": "15834",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/15834_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4ec8a77f5025bf796fa855794298ae6e4d6c1de4851e6ca10e9081e289fbd174"
+  },
+  {
+   "teamId": "697",
+   "playerId": "10820",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/10820_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e42ec31875f933cd1a7c9374be08c499fb8f8c4ab5193acfa5ff5be80d1cf384"
+  },
+  {
+   "teamId": "697",
+   "playerId": "30434",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/30434_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "92ef923172cca24440ecb3e5d9ea6e41ee3bd464f27c2beba56c0ff58a2a4aec"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8654",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/8654_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "887260328a791b488df7b7f7e72d0f6f510facb9242fa8e51f450016619a7713"
+  },
+  {
+   "teamId": "697",
+   "playerId": "26825",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/26825_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c7d5f9a34fda74a9177e1f26b33f0e877ddf9473227204cec0c2df00258106f6"
+  },
+  {
+   "teamId": "697",
+   "playerId": "12454",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/12454_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d933bc00409a3e40bc98d17af07104288dbdfe616515ead2aaa128fa561667e5"
+  },
+  {
+   "teamId": "697",
+   "playerId": "32980",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/32980_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4b5804ea525e7580840c5b7995ac1c7957731f7200e3894cdc27c7c356f70e7b"
+  },
+  {
+   "teamId": "697",
+   "playerId": "5100000067",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/5100000067_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "97c8c7fd42652167961de4088a0cf50feb4dae6ff3f0951ad8cb43a65ad00cd1"
+  },
+  {
+   "teamId": "697",
+   "playerId": "5100000011",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/5100000011_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "35b0885311c7898de36e16e39d4673b9578555fa0cc7ccb928d1221b2e4b2f87"
+  },
+  {
+   "teamId": "697",
+   "playerId": "5100000040",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/5100000040_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "763dccb2150be645d0545a9cec358b007f30d84ab20628235f4ad4f0967bc5c1"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8565",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/8565_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4de8d8308d95a6dfd0b4f7aace12f1bd555d116fc29d01acbc2706061f7829b4"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8688",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/8688_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "10b663ef22846324e5a562c1555ec76c48354818df68ad93466edeff2ce653ff"
+  },
+  {
+   "teamId": "728",
+   "playerId": "9040",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/9040_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6340d0bcb9e84f058b80cbd2812582939b07d75e906cfd2ad7009fc2433af078"
+  },
+  {
+   "teamId": "728",
+   "playerId": "30514",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/30514_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4ed6b554fbee39ec1880e1510677ded881267b893869e0ccb15b6ebdd609bfad"
+  },
+  {
+   "teamId": "728",
+   "playerId": "5100000083",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/5100000083_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0bee9433b500069d78e4962b6ed8609617fb1adc6a98ed37d9693dc55ba0152e"
+  },
+  {
+   "teamId": "728",
+   "playerId": "19956",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/19956_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6a4952d68f6032ce5fe51103a565eab88fd8f2cd60d4aa4d16f8a54099e82e87"
+  },
+  {
+   "teamId": "728",
+   "playerId": "33091",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/33091_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2cbcb5a813e1761fd308b7b1a4f6e2fd00bb1af13dff92f17febbbc9fef19cdd"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8588",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/8588_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "edb225b85da7c2a34a10cc1c647728b7e044c151e8b4d5b96f9632531e71a543"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8496",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/8496_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "fd9548501165428bf1d0b8ad776484ba7ae5c24bd29cc6ef29a44b4621efb26a"
+  },
+  {
+   "teamId": "728",
+   "playerId": "18399",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/18399_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "32d416950e88002b734e868ae07c0544853f52b8e949ac3ec4a6ef29e25a3a68"
+  },
+  {
+   "teamId": "728",
+   "playerId": "32982",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/32982_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "90ccaad4c29b988da4b377b4f1920073458b7f9152cf086e45b28a6a744a4f4d"
+  },
+  {
+   "teamId": "728",
+   "playerId": "51000130",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/51000130_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "240a0606e2035c46d49d305c532ad40c520a24058391ec522c739c28460d16e5"
+  },
+  {
+   "teamId": "728",
+   "playerId": "30403",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/30403_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8d1cc189edb44fb014d139751f042b8e9e2c1e080aff368fd23fcf86f3df9447"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8712",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/8712_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "05d6e9f338761a6e67a79669c7a39ca06706e12ef2ef6e2f6170e5854c65bec8"
+  },
+  {
+   "teamId": "728",
+   "playerId": "33037",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/728/2021-22/33037_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "58aaaeb49bc212ba3b6b1188aaa41be930f1e89d71280767ae4058db9febac4d"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8516",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/8516_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6fda20a92feddb0864df5e03512b3a93c01c6f4038c5acbf5a9a846cfba280ce"
+  },
+  {
+   "teamId": "729",
+   "playerId": "33093",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/33093_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9c53c0824ae5cf80e1b8ab5cb3294ada1861b5e3637d96dd4d1e9dc66885e720"
+  },
+  {
+   "teamId": "729",
+   "playerId": "10849",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/10849_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "654c12f65624dc962ea7666e69ebfa3f4a2f5b87f6bd688e29e15b7276d27e1a"
+  },
+  {
+   "teamId": "729",
+   "playerId": "5100000069",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/5100000069_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ba2d1057a8631ce92081503f374dfc0d469383e666aaced8fa8c45a1a5a90981"
+  },
+  {
+   "teamId": "729",
+   "playerId": "5100000048",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/5100000048_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9fed3acbe03150a20be73ef9ecb4e0ca2f8c2c51fd3c884c35481477e79a0097"
+  },
+  {
+   "teamId": "729",
+   "playerId": "5100000061",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/5100000061_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "946c12f3d612336535cf09cf25fcdb0ded32484bc8d93d7ac842ac50a7e071d6"
+  },
+  {
+   "teamId": "729",
+   "playerId": "14301",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/14301_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ebb5839d26d99a577a552028f3c741d6e8a57e16755d016f55a959c57ced0abd"
+  },
+  {
+   "teamId": "729",
+   "playerId": "5100000046",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/5100000046_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "453690e1834ad094fc2f113fcc907434bb3241bcc838ad55922f0f74d756f8c3"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8462",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/8462_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0d082c318b9cf1c7c302b4940c1874c8a5d7a836b3d4e0def5746ac29601e250"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8479",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/8479_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1750239861e6f4f686f39bfccc272dc3987ce2f610ef0522d1b1ca701a435bc1"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8463",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/8463_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "54a79150617b69ec697f83b4ff5deced29f7f000619cdf01d61f263d358f6772"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8738",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/8738_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b6e6ac2b7931eda91271c5f3c33a4cd5006fc5bada6823b7a077e9ab01f3df70"
+  },
+  {
+   "teamId": "729",
+   "playerId": "5100000027",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/5100000027_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1e36b2e45dd8d2f1b8f020d30f0d245914c29c928b1aa0e69df80ce7a6ba8810"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8494",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/8494_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e0e3b80af080ac46336214a84328580b6623106df025cd8615dad4bb3e3ff24e"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8739",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/729/2021-22/8739_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2d3a4800cea88632bd0c7f1a0ab7abb34e056d7ff38935c5b6be1fe2396b974a"
+  },
+  {
+   "teamId": "698",
+   "playerId": "5100000062",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/5100000062_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d446179eabc9739e5a4826ae393f03aa6a627d1465e57e7e97f601c213299371"
+  },
+  {
+   "teamId": "698",
+   "playerId": "5100000087",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/5100000087_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c0639234ee9cae2a9d449edf8a1a821e54d7c39c0983e876c7d73ed533fb6f1f"
+  },
+  {
+   "teamId": "698",
+   "playerId": "26912",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/26912_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d5f818b2cf16aa8071c6fe65b02deaf3cb032a74501eeceadd00186534a24cd3"
+  },
+  {
+   "teamId": "698",
+   "playerId": "22491",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/22491_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2b9630aa2bc54453c2bf1ac75f42a960a1238bf3d8ca26b036e5d88cb8a14977"
+  },
+  {
+   "teamId": "698",
+   "playerId": "22496",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/22496_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "082871e7325d0ffcc00db51f3c04f66b53a5634c6f01d29af279c96a1cb5d913"
+  },
+  {
+   "teamId": "698",
+   "playerId": "10871",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/10871_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "dbf7ac20f9d4b28110ecf8ec8a3da693002bb16f7567c6d1394e5a5a9385973b"
+  },
+  {
+   "teamId": "698",
+   "playerId": "5100000015",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/5100000015_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b908f9581092b8341c81a7347c6602562c2d5356a1beba50879ca8389943ab25"
+  },
+  {
+   "teamId": "698",
+   "playerId": "10894",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/10894_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7fa31b7a9f959563bdca288a8798fbcc28eb7c819aca786c3a78ab9daffeeff3"
+  },
+  {
+   "teamId": "698",
+   "playerId": "10832",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/10832_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8dfc8a2bede75c25c2e4eff9a82796c7423eea1c0444f8af30f986f91d58df6c"
+  },
+  {
+   "teamId": "698",
+   "playerId": "51000108",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/51000108_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d13a588545488010b70c18c6dbbb10809de110dafe6229f48f22770f4bc74d35"
+  },
+  {
+   "teamId": "698",
+   "playerId": "5100000028",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/5100000028_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5aedf7dc27bd68be9e03ce0032f240be17c0e3029ed5cbca0fe8a1672666b295"
+  },
+  {
+   "teamId": "698",
+   "playerId": "15816",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/15816_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3746bfa068c4697111af7d90db238f007c3b29750199a13d6915aaf8d232cc78"
+  },
+  {
+   "teamId": "698",
+   "playerId": "36416",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/36416_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bf5aa77a1ce094e7ac06cfb424fce440a0e0a24a7bcd74e80fd8d8748c689ef2"
+  },
+  {
+   "teamId": "699",
+   "playerId": "51000109",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/51000109_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "899650c22fd28879a07ef387971b32d78635807c6903c8ea84d1ca1cb496dabd"
+  },
+  {
+   "teamId": "699",
+   "playerId": "18460",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/18460_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "72b6cb126cb91ce0452763bca6f8818510cd318516a4df998ffdb10b222814d6"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8493",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/8493_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "850f074a96aa1b13b4f4719d19848bdc9f3e62b9be128269f6ef89aeac970c1b"
+  },
+  {
+   "teamId": "699",
+   "playerId": "10844",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/10844_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "97495da744902f4143a2a404da4bd72a2af4ffbdd5c75c87c86afdd7d078dab3"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8595",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/8595_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "38f0158e6eed78587df4e9e9d0657d1e9789fe33b66af328d209e723840b1815"
+  },
+  {
+   "teamId": "699",
+   "playerId": "10824",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/10824_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "da621e9a53958912597846727099a6e31712cee9f596e333b6b8008d5928ee17"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8568",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/8568_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e845be08a6593f922eebf47554b1f14e906179c2244c4278c6e9a286446db016"
+  },
+  {
+   "teamId": "699",
+   "playerId": "22394",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/22394_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d18f4346d3960504f2ddbf24ff7c0e18ffa19db070c92dc960eb496b624cba72"
+  },
+  {
+   "teamId": "699",
+   "playerId": "9382",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/9382_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e9e087e2350a2bfa73949026b929d757d044cef2c736a2d0d15749282cf07832"
+  },
+  {
+   "teamId": "699",
+   "playerId": "33032",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/33032_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "605f468187bba3d87ac87d0c2dec3e0102c19e06e0f3aa44b21fff3dd6423d03"
+  },
+  {
+   "teamId": "699",
+   "playerId": "51000117",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/51000117_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "eac841573ffe99776c1b4ceef42945b7378a92f77066c087d49aecf47342226f"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8459",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/8459_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "cdc67a7bb2817e4ffce0ef214bf5f99f54aaa1c48c659866e49f7c26e8a592b4"
+  },
+  {
+   "teamId": "699",
+   "playerId": "30469",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/30469_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6585a0ed4d0330f3ad1a490777d177a4e13499a44a5ab99ca6aadbec16b4eb68"
+  },
+  {
+   "teamId": "699",
+   "playerId": "30519",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/30519_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "486e222b0317e4b6778b00f5ee6282a5bbfccb84fc8cbb39d6fb6c1682e26c02"
+  },
+  {
+   "teamId": "699",
+   "playerId": "22402",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/699/2021-22/22402_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9d4cf1fceefee74963dfa66c63571a53924edc33704416f173e86a3f381b3415"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8690",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/8690_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7bd5bc0cb18769a20f70995a4072f563d8f112eea43d07eca0c5594e90f7a429"
+  },
+  {
+   "teamId": "700",
+   "playerId": "5100000036",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/5100000036_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "28c3814c74649eaa2f5d916266e197e715c180ec75ade08ecb72ef8c64262eb5"
+  },
+  {
+   "teamId": "700",
+   "playerId": "30463",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/30463_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2d1c2f24a752b1f5aaa5456362253a4cce08bc56ff215811fae97e98d8ab54cf"
+  },
+  {
+   "teamId": "700",
+   "playerId": "32984",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/32984_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "cc9ff7dafa895146ffc89584cc4b6d08bf81dfaaa1983432bd6fa24b60a8dd7a"
+  },
+  {
+   "teamId": "700",
+   "playerId": "5100000063",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/5100000063_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5a19717b04d8609a9e84168a50a67c4aa674e97f2584bc62d6b22be64398def6"
+  },
+  {
+   "teamId": "700",
+   "playerId": "33085",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/33085_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "add55cc0e8a69cdfcacf03ddb540dc7517dd61fa9ddd262106c885d20b3f7168"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8452",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/8452_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ac724e014412df59a8dd3f47014d5b8c7f3ec492dcb3f109610c26f06be8b2fe"
+  },
+  {
+   "teamId": "700",
+   "playerId": "18396",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/18396_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7f9d80f741bb4acb4fb431a9c2047456e5701259b0d75d12473d3128528cf5d3"
+  },
+  {
+   "teamId": "700",
+   "playerId": "20034",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/20034_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2378fb5a8b14cdd7fb226ed264c9491f2e8d5eab2ec0f00509c8b0e4c1530f48"
+  },
+  {
+   "teamId": "700",
+   "playerId": "30349",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/30349_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8de6d2ed5d88b0eedda9188ccea300aa2986eeb5c63af8776563a9c0db39bec1"
+  },
+  {
+   "teamId": "700",
+   "playerId": "51000113",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/51000113_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c62b4bc0a6f3c8d9216cff82f354f36d1d0eed06ac499de069b79f8d53654073"
+  },
+  {
+   "teamId": "700",
+   "playerId": "33083",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/33083_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4ea1ac147a82d050c35893500806e3d7ab3a05a7d54776e8659be76f4e71a05e"
+  },
+  {
+   "teamId": "700",
+   "playerId": "9033",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/9033_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8cc0950493804eb96af5216606f87eb006a5516e914db80a68553e2c9b4afe39"
+  },
+  {
+   "teamId": "700",
+   "playerId": "33029",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/33029_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d1f9e1b04a586ef0de460bb3bf8a46ea93f0e5695758b9ded9edb51487b27073"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8701",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/8701_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "217fa9989936a924313154dd8abc669cd9a3c506ba454db5ae680aebd8474a97"
+  },
+  {
+   "teamId": "700",
+   "playerId": "22522",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/22522_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "758d90e3fc1e20be76770511599d41a1761baa6b94075b358748c1ffcdc0a855"
+  },
+  {
+   "teamId": "720",
+   "playerId": "33094",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/33094_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ff2902227d0da118824795d66a378bb1a1f90fdf276a1d843bcd91dc48c3eb36"
+  },
+  {
+   "teamId": "720",
+   "playerId": "9264",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/9264_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "93ac4fd91b05fee4e5f42ab1232b5d62d190f548bcbd56e72cdd0beee64229fc"
+  },
+  {
+   "teamId": "720",
+   "playerId": "8532",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/8532_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bf371d87d7f7cf53e750a3cf5885d4474b4f61c72dd87a9cf0a805fde1a306d5"
+  },
+  {
+   "teamId": "720",
+   "playerId": "8734",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/8734_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e6b632090dc368a07c1b8396cb4472e46489b911a6ef5eb547bb65e9fb3c6924"
+  },
+  {
+   "teamId": "720",
+   "playerId": "8467",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/8467_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "948df78d39457a5d13f3e7262abf23a2633348c9fd0f60e65e4a9e06c7ddccba"
+  },
+  {
+   "teamId": "720",
+   "playerId": "9310",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/9310_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1781daf2e184e137865dccaa4828605457ec4175cc4801558faa24cffa77775a"
+  },
+  {
+   "teamId": "720",
+   "playerId": "8592",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/8592_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "62b0b1349c7115cf05a8a565337311a061b5acd727ef3056bc0eb54d0792ae70"
+  },
+  {
+   "teamId": "720",
+   "playerId": "9283",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/9283_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "99518a78366bbb32f163a972fc0274648c156435b345dfbb2344eca1be91d73e"
+  },
+  {
+   "teamId": "720",
+   "playerId": "5100000017",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/5100000017_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7afbc91ff25a6b68bcf16f53429b7701739fdc52ec37c36c4fb627399fc403a6"
+  },
+  {
+   "teamId": "720",
+   "playerId": "5100000088",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/5100000088_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "14ee4b6528c2c8905579e9dc769fa82d2156e9ba13e28b5b7f986a5d2c7b605c"
+  },
+  {
+   "teamId": "720",
+   "playerId": "9345",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/9345_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f460ae3ac59c2ded4f98bc44820b0274882e9793055e8caa6bbb95ddaadff993"
+  },
+  {
+   "teamId": "720",
+   "playerId": "15756",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/15756_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "74a8d776e20a04ae1ae06b7530efaffb2502423ccd67bb1a14dd4fda48c81812"
+  },
+  {
+   "teamId": "720",
+   "playerId": "33095",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/720/2021-22/33095_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d567357555cbd77dcc670b1f663ebcc1d2fbd8c9f3ae3165cb49ae041bb9988d"
+  },
+  {
+   "teamId": "721",
+   "playerId": "8608",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/8608_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "72f619422b5e3b2ae24c8ade73712dc5e663e1a30c71851aaa1f43e6822e3f5c"
+  },
+  {
+   "teamId": "721",
+   "playerId": "32995",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/32995_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "92983cdeabf73ded7eaae91e46e108bcb3dfc4a2d429e48fbe1d857a98b8ddaa"
+  },
+  {
+   "teamId": "721",
+   "playerId": "5100000029",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/5100000029_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e34930f2e9c4b3eb485d85a36a109b128ddd4903b15bb5343b3eab6181c72163"
+  },
+  {
+   "teamId": "721",
+   "playerId": "26922",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/26922_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6f52e7ddef351cf82a8eddaea03584d246066355081c2bf39e387cff801a71d7"
+  },
+  {
+   "teamId": "721",
+   "playerId": "5100000035",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/5100000035_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d8538ebac3e5ebcf1b3368a8e28ef981b47fb2eabd07392f56273604968dd2fa"
+  },
+  {
+   "teamId": "721",
+   "playerId": "5100000023",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/5100000023_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "43fb7dc46ba914d23fe9250ecd3acd72331492386bbf8f329c1adce45fd948db"
+  },
+  {
+   "teamId": "721",
+   "playerId": "15817",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/15817_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4599686e80ee2960dfbf9bfa46eb4a2185886f4ca1506e8ae31c071de7ffc7bf"
+  },
+  {
+   "teamId": "721",
+   "playerId": "8737",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/8737_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "20acf7ef9b0ff5ae6ccbd497b4786800e7103f5df7eb89e77e1a5f64512b7c58"
+  },
+  {
+   "teamId": "721",
+   "playerId": "5100000014",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/5100000014_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e1510d0a8024c509c562756de87bf3e9e14cd1d37cbd43c8445014b118972877"
+  },
+  {
+   "teamId": "721",
+   "playerId": "30400",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/30400_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "fc8efc057912ce06b1cd2a92328ca4ce049ddfb5f5e4d2c52bcd1ba9ac9d83f9"
+  },
+  {
+   "teamId": "721",
+   "playerId": "26890",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/26890_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d283093b226022541cc4016c446f34b84b9553f65ff3fbd469cd8e3926fcfd16"
+  },
+  {
+   "teamId": "721",
+   "playerId": "51000110",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/51000110_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "584dc1673a4a56094b9df8019f00405a65252b5aee593a3d95c1a3747245b780"
+  },
+  {
+   "teamId": "721",
+   "playerId": "18432",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/18432_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ca29a611513418e536988582000916b561ffe849b6ff2af7ba2a8bd8e3bc4b17"
+  },
+  {
+   "teamId": "721",
+   "playerId": "8487",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/8487_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5efab6fedfff7abeb308abf6c3ee17c82cd221484a6f9af04caa3b3d8372ddc4"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8655",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/8655_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8873f473d38ad23492a81c9d7ca0f91ae16901d86c1e9f3749a123f09ce3b299"
+  },
+  {
+   "teamId": "701",
+   "playerId": "30398",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/30398_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4a7a8ae9b24f5a92d106b12c6a371251d1f1cb1a6b11e7110d3d4114c6e4006d"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8656",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/8656_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5cf295918bd5de0eb2dd22167c51df14b155b5113cdd4b27e780733ce8ced9e0"
+  },
+  {
+   "teamId": "701",
+   "playerId": "9489",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/9489_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c861b45e70c2aa3e8bccdcaf8ce01f8ea4574879427b7e8c65c8e41195607292"
+  },
+  {
+   "teamId": "701",
+   "playerId": "22497",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/22497_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0cc5b3412144f042ce7531f63b62dffc8b5f4afec0292993d8b9ce9dc2538089"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8662",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/8662_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3218c7e1f796bd6fd3315075bf1f08d65aa488892d6c56dc12a2a38683dc1c8f"
+  },
+  {
+   "teamId": "701",
+   "playerId": "9456",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/9456_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "056df54ca4f9c7f629949346f1efc1938ff573265e9e50c6e132090b8d5b6b81"
+  },
+  {
+   "teamId": "701",
+   "playerId": "22399",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/22399_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "356592baf6d1555cbc031cbdee05715ceb032ddb50dccac5567a3595d7c020b4"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8756",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/8756_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c93a2a70fe8665fc31ae4eb155d7ea97ee0eda46d6277ce16ac6dfe988a97f73"
+  },
+  {
+   "teamId": "701",
+   "playerId": "14302",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/14302_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "09006977daff35db9904dc93ee043bbb75a199192aca0ef940a6e866d7d6b072"
+  },
+  {
+   "teamId": "701",
+   "playerId": "33097",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/33097_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1a2bb1644550a177575298c4f41c9120f2c28969538e43608d41d4e901321704"
+  },
+  {
+   "teamId": "701",
+   "playerId": "5100000049",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/5100000049_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8479baedda3a495fbff6e8db2a5c5a25d66e712041ae5555dde618c3471deacc"
+  },
+  {
+   "teamId": "701",
+   "playerId": "51000138",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/51000138_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f22a7eeb9e593f6e4433369d1d383ecb0b83a35dfb2be8ac3299bc7d8adf0fdb"
+  },
+  {
+   "teamId": "701",
+   "playerId": "26914",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/701/2021-22/26914_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4f4fa6d043057a308753ddac148467b5b593e6fbc3a86b712734a6a7de93adb6"
+  },
+  {
+   "teamId": "697",
+   "playerId": "51000100",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/697/2021-22/51000100_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1f40601a21798cc4fbbbd93dfa00b365a8a893ebe9fa5af03123faf0a7a0f4e2"
+  },
+  {
+   "teamId": "698",
+   "playerId": "36414",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/698/2021-22/36414_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "97e57732c32a195b599cd3b0d4b3a624f00636fb3fb9875937802480643f32cb"
+  },
+  {
+   "teamId": "700",
+   "playerId": "5100000064",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/700/2021-22/5100000064_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "07d87984b59d1d2392a9d831ab0eeea80e2cc699f572afca5aa2dbaaf1de311d"
+  },
+  {
+   "teamId": "721",
+   "playerId": "8534",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/721/2021-22/8534_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b05bffac1cfa1691e09af2826890a9951dc9bd66de5e4802d1ec7c8753a78c3a"
+  },
+  {
+   "teamId": "712",
+   "playerId": "8510",
+   "origin": "official",
+   "url": "https://bleague.bl.kuroco-img.app/files/user/roster/712/2021-22/8510_03.png",
+   "fetchedAt": "2026-11-11",
+   "sha256": "743e282a4524c63e58298fff4353579e894793141b05ca9adf91a8c6725ff877"
+  }
+ ],
+ "missing": {
+  "693|12459": "2026-11-11",
+  "696|51000136": "2026-11-11",
+  "696|51000137": "2026-11-11",
+  "699|5100000072": "2026-11-11",
+  "699|5100000084": "2026-11-11",
+  "699|51000131": "2026-11-11",
+  "700|26876": "2026-11-11",
+  "712|51000132": "2026-11-11",
+  "729|36414": "2026-11-11",
+  "729|9354": "2026-11-11"
+ }
+}
