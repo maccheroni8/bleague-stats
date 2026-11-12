@@ -302,7 +302,7 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
       const row = rowOf(view, i);
       if (!row) {
         // 前後半5分の特別な試合は、1Q〜4Q・前半・後半を持たない（延長は元々無い）
-        // 延長・クラッチは、延長のあった試合・クラッチになった試合だけが対象なので、行の無い試合を数えない（設計書373章）
+        // 延長・クラッチは、延長のあった試合・クラッチになった試合だけが対象なので、行の無い試合を数えない（設計書375章）
         if (f.short && q.period && !isSubsetPeriod(q.period.period)) periodShortGames += 1;
         else if (!f.short && q.period && !isSubsetPeriod(q.period.period) && true) periodNoRecordGames += 1;
         continue;

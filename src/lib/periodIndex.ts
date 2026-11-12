@@ -80,7 +80,7 @@ export function periodGameAt(main: PlayerGameIndexView, period: PlayerPeriodView
     for (const c of PLAYER_PERIOD_STAT_COLUMNS) if (c !== "plusMinus" || officialPm) sum[c] += stats[c][k]!;
   }
   if (!found) return null;
-  // クラッチの被ファウルは「値なし」（プレーバイプレーの記録が足りない。画面は「-」。2020-21以降の EFF もこの値を使うので「-」になる。設計書373章）
+  // クラッチの被ファウルは「値なし」（プレーバイプレーの記録が足りない。画面は「-」。2020-21以降の EFF もこの値を使うので「-」になる。設計書375章）
   if (atoms.includes(CLUTCH_ATOM_INDEX)) sum.foulsDrawn = Number.NaN;
   const base = playerGameAt(main, i);
   // 試合全体の値を、区間の値に置き換える（出場時間は分に戻す）。勝負所（第4Q・延長の窓）は区間の値ではないので外す

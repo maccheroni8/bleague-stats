@@ -564,7 +564,7 @@ function PlayerCompareView({
           linkTo={(r) => `/players/${r.playerId}`}
           teamColor={(r) => slotColorByKey.get(r.key)}
           subLabel={(r) => r.subLabel}
-          avatar={(r) => <PlayerPhoto playerId={r.playerId} size={72} className="compare-photo" placeholder />}
+          avatar={(r) => <PlayerPhoto playerId={r.playerId} size={72} className="compare-photo" placeholder season={r.season} teamId={r.teamId} />}
           caption={(r) => r.teamName}
           captionTeamId={(r) => r.teamId ?? undefined}
           jaNames

@@ -128,7 +128,7 @@ for (const season of readdirSync(DATA).filter((d) => /^\d{4}-\d{2}$/.test(d)).so
       let negative = 0;
       if (pcol) {
         for (let k = 0; k < period.rows.row.length; k++) {
-          // クラッチの行（第4Q・延長と重なる。設計書373章）は試合全体の合計に入れない
+          // クラッチの行（第4Q・延長と重なる。設計書375章）は試合全体の合計に入れない
           if (period.rows.period[k] === CLUTCH_ATOM_INDEX) continue;
           const v = pcol[k]!;
           if (v < 0) negative += 1;

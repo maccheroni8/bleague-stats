@@ -1,0 +1,2275 @@
+{
+ "v": 1,
+ "season": "2018-19",
+ "photos": [
+  {
+   "teamId": "702",
+   "playerId": "8509",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/8509_01.jpg?v=1536267885",
+   "snapshot": "20260613135112",
+   "fetchedAt": "2026-11-11",
+   "sha256": "226d5e5734902790285f47172adc511b4f3220ef2144ccc6cfb0f708414344bf"
+  },
+  {
+   "teamId": "702",
+   "playerId": "9337",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/9337_01.jpg",
+   "snapshot": "20190325104903",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d3008c9ae615d9c6c6d14e1391ae930b2dc125ef6a1cc3bad353376376606ad7"
+  },
+  {
+   "teamId": "702",
+   "playerId": "8507",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/8507_01.jpg?v=1536267885",
+   "snapshot": "20190428121615",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9cda779ba8826215099466dc2ae23e59b32edcd9b71ecf0886a3fd107f276ea7"
+  },
+  {
+   "teamId": "702",
+   "playerId": "22394",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/22394_01.jpg",
+   "snapshot": "20190325104905",
+   "fetchedAt": "2026-11-11",
+   "sha256": "149bd41b41cacfc6be9681a59404cfb7100566d5289abed7bec17ae04a8f35d5"
+  },
+  {
+   "teamId": "702",
+   "playerId": "8508",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/8508_01.jpg?v=1536267885",
+   "snapshot": "20200713102835",
+   "fetchedAt": "2026-11-11",
+   "sha256": "235539c21ab887f5c0253984930535170d67c81a16b05f2e9c3adcd83c914a72"
+  },
+  {
+   "teamId": "702",
+   "playerId": "8506",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/8506_01.jpg",
+   "snapshot": "20190325104903",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e2c699d779ce32402349b86c293b59e4a41e8643ac3ab56b7a52f711c3a15328"
+  },
+  {
+   "teamId": "702",
+   "playerId": "8614",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/8614_01.jpg",
+   "snapshot": "20190325104905",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7566887743d08a0057ad2c18bf72adf193a0e3247b46b4bcbd2288e34df7ca99"
+  },
+  {
+   "teamId": "702",
+   "playerId": "18396",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/18396_01.jpg?v=1536267885",
+   "snapshot": "20190427022655",
+   "fetchedAt": "2026-11-11",
+   "sha256": "176f0f30aa687ecb51cf77d6ef1375ff80c6f39087f0472f76ef7d115885fd7c"
+  },
+  {
+   "teamId": "702",
+   "playerId": "12595",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/12595_01.jpg",
+   "snapshot": "20181107021626",
+   "fetchedAt": "2026-11-11",
+   "sha256": "678bcdcfceae0a697825a0ea758d3e035a905181bd6e4d39c9391c39cb9e7017"
+  },
+  {
+   "teamId": "702",
+   "playerId": "19958",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/19958_01.jpg",
+   "snapshot": "20190325104905",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d7b80052605ba1fda444ed8409fad6a457209f61d785df1954489bacfa45809c"
+  },
+  {
+   "teamId": "702",
+   "playerId": "10850",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/10850_01.jpg",
+   "snapshot": "20181114031753",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5d9ba347fd87633f3c24225cd2763d436b055484c6a18244a21524b341889d45"
+  },
+  {
+   "teamId": "702",
+   "playerId": "8513",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/8513_01.jpg?v=1536267885",
+   "snapshot": "20260613134257",
+   "fetchedAt": "2026-11-11",
+   "sha256": "803b50e4dea06847492129c5536b5f01fef31e17639b20220b4e9a69ebc5d467"
+  },
+  {
+   "teamId": "702",
+   "playerId": "8597",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/8597_01.jpg",
+   "snapshot": "20181107021645",
+   "fetchedAt": "2026-11-11",
+   "sha256": "cc573545eff838b4f5c9e7c76e921371c66a32a5001a4ad842ed2907c572ed07"
+  },
+  {
+   "teamId": "702",
+   "playerId": "8512",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/8512_01.jpg",
+   "snapshot": "20190114084343",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5c0b357f1282521d02e3c3b095ee3c66efb56a8fffce590fd7dd903e726ef012"
+  },
+  {
+   "teamId": "702",
+   "playerId": "20031",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/20031_01.jpg",
+   "snapshot": "20190325104910",
+   "fetchedAt": "2026-11-11",
+   "sha256": "73ac99f61a6126903d5a00d39e81449bde06b4d0a9a59c25f367d7e3afd1cd93"
+  },
+  {
+   "teamId": "702",
+   "playerId": "10880",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/702/2018-19/10880_01.jpg",
+   "snapshot": "20190325104908",
+   "fetchedAt": "2026-11-11",
+   "sha256": "82c89f053ad45c26ceda0c1c6ad9a10ab4e642f5bc9935d8670dd2faf0cbde4a"
+  },
+  {
+   "teamId": "693",
+   "playerId": "8470",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/8470_01.jpg",
+   "snapshot": "20190326074131",
+   "fetchedAt": "2026-11-11",
+   "sha256": "04a0cf51252aaa69d7af3dae8bbfd9ccbc04477c248ef3a49db5a0f3b0849578"
+  },
+  {
+   "teamId": "693",
+   "playerId": "15829",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/15829_01.jpg",
+   "snapshot": "20190401180227",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7482dedae7759f581e513f773452c7bf6816c03cda7bee07c43cf379ccd733e3"
+  },
+  {
+   "teamId": "693",
+   "playerId": "8544",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/8544_01.jpg?v=1536267882",
+   "snapshot": "20190428090559",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a65cc7f99de9e55744a4b9faf3a2d9545b1cd876903a7373f762559ff501615f"
+  },
+  {
+   "teamId": "693",
+   "playerId": "10848",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/10848_01.jpg?v=1536267882",
+   "snapshot": "20190427015544",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a1d5cdfb3785fb96e23b69752b2817cb956c22ff7337a5822ed7f1d6c0eeb06a"
+  },
+  {
+   "teamId": "693",
+   "playerId": "10878",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/10878_01.jpg",
+   "snapshot": "20190326074129",
+   "fetchedAt": "2026-11-11",
+   "sha256": "fef008be80b7e42968f403cf68c46fbd5d45be88bc401da4fe4b3d339d0a6555"
+  },
+  {
+   "teamId": "693",
+   "playerId": "18172",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/18172_01.jpg?v=1536267882",
+   "snapshot": "20190427211923",
+   "fetchedAt": "2026-11-11",
+   "sha256": "fac5eab18e7abb581ff1fcf9f35718bf253f6a0cb7318aa44a2a68e513a324b0"
+  },
+  {
+   "teamId": "693",
+   "playerId": "12459",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/12459_01.jpg?v=1536267882",
+   "snapshot": "20190427022036",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9181797de47cb58385931980d5880762d9ef15a1635691f6d544b02d42f3e149"
+  },
+  {
+   "teamId": "693",
+   "playerId": "8756",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/8756_01.jpg?v=1536267882",
+   "snapshot": "20190430112807",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3b13e9dbcfe77ea971674333e576ca0a65b971b644ecc9abb1f92efb69ca9b2a"
+  },
+  {
+   "teamId": "693",
+   "playerId": "8734",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/8734_01.jpg",
+   "snapshot": "20190208044119",
+   "fetchedAt": "2026-11-11",
+   "sha256": "56b0eaddba0cf8033a37d22ae603e59fcaba2cfce3d68f6f1c4f93ad037f51a4"
+  },
+  {
+   "teamId": "693",
+   "playerId": "19955",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/19955_01.jpg?v=1550264498",
+   "snapshot": "20190508091750",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ab75b96b6b8b821959e67d46d40ded32dc2539710ab6cf696907ae8934016159"
+  },
+  {
+   "teamId": "693",
+   "playerId": "8542",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/8542_01.jpg?v=1536267882",
+   "snapshot": "20190430140810",
+   "fetchedAt": "2026-11-11",
+   "sha256": "787627a7e05977f4b5bc946c0372b1594207d84da1a8c3479ef314537fd78eef"
+  },
+  {
+   "teamId": "693",
+   "playerId": "8486",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/8486_01.jpg",
+   "snapshot": "20190326074127",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6625baefd4e8c18f9044005b4451581235567a70c375ce538666a48ac2ea0ace"
+  },
+  {
+   "teamId": "693",
+   "playerId": "10845",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/10845_01.jpg?v=1536267882",
+   "snapshot": "20190430080026",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3cf66c91580019a6408a5376f36264d68cc09300f733a3728f9ecd3334b92ed6"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8496",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/8496_01.jpg?v=1536267885",
+   "snapshot": "20190501104130",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ca128caf06c903e106ef606584b4599c24fad0c530ca2033d2f5514506c3e6f1"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8497",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/8497_01.jpg?v=1536267885",
+   "snapshot": "20190427015438",
+   "fetchedAt": "2026-11-11",
+   "sha256": "cc2c3c0a67e9e4d1b37b95ec55c3581dc1274ded43332aad2a48c90e1529c1ae"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8499",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/8499_01.jpg?v=1536267885",
+   "snapshot": "20190501104131",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3ad5a588927676050fa104017861121fd062afb0d9ef8100875194106a1568c6"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8835",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/8835_01.jpg?v=1536267885",
+   "snapshot": "20190427015416",
+   "fetchedAt": "2026-11-11",
+   "sha256": "797f511171ef0a041cb194bbfa779001c0c9cb85b90fe33de566124fa8bc39ac"
+  },
+  {
+   "teamId": "703",
+   "playerId": "9035",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/9035_01.jpg?v=1536354093",
+   "snapshot": "20190501104147",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ea5e97d2947a2c15abad944a629617163971a0bf3899eb792cba4b29b1991c8b"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8529",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/8529_01.jpg?v=1536267885",
+   "snapshot": "20190501104135",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c2e5aa17001f5613a27f985597147957cd32438adeeffcc6f201a9693e48fa7d"
+  },
+  {
+   "teamId": "703",
+   "playerId": "18452",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/18452_01.jpg?v=",
+   "snapshot": "20181218010900",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f3a428d3b9a0a510a8955acbb6d4f1f9fe1cda0951b3156a328176510ab39359"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8589",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/8589_01.jpg?v=1547845345",
+   "snapshot": "20190501104136",
+   "fetchedAt": "2026-11-11",
+   "sha256": "56e72ba70ae1ae0245672c77711b0c3a42b1e6ab1a5bfb60f17baa5e2372dedd"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8504",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/8504_01.jpg?v=1536267885",
+   "snapshot": "20190501104132",
+   "fetchedAt": "2026-11-11",
+   "sha256": "13355223a7541531bb17cd9fbfdfc4090950342b1d7fd8129b15f91e7be893ea"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8485",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/8485_01.jpg?v=1536267885",
+   "snapshot": "20190501104129",
+   "fetchedAt": "2026-11-11",
+   "sha256": "af35e9fb4ed84af089ef99d3222a1e5567ae9ac4cfbbd8c60812e3895516ad14"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8650",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/8650_01.jpg?v=1536267885",
+   "snapshot": "20190501104139",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7429c7cd1896d8b8c705d94e84ab4306a405553b763595ca0e617da3e1131ecf"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8657",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/8657_01.jpg?v=1537045243",
+   "snapshot": "20190501104129",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0afa24303740d510a353c492563b10f0a3378ad23d5c1ab1e12e060d6bc0af5f"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8726",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/8726_01.jpg?v=1536267885",
+   "snapshot": "20190501104132",
+   "fetchedAt": "2026-11-11",
+   "sha256": "aa9b39436b820c1ef5c8ff6dff8aafe31f76dbfbad1be0fec34d8c94cce6a1e2"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8649",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/703/2018-19/8649_01.jpg?v=1536354093",
+   "snapshot": "20190427015025",
+   "fetchedAt": "2026-11-11",
+   "sha256": "092dafbf1c079fb4958b09adf5f4cabc7152d29cfdd76b3e47b1a5e8903e9994"
+  },
+  {
+   "teamId": "704",
+   "playerId": "9055",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/9055_01.jpg?v=1536267882",
+   "snapshot": "20190427013902",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7a3cf1a8c63b6c53d5138070f9c97df020c0dec0550a367f09914dead5f0fa35"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8593",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/8593_01.jpg?v=1536267882",
+   "snapshot": "20190427022904",
+   "fetchedAt": "2026-11-11",
+   "sha256": "80add54134f16668a87fb016441fe2a2ccf46299dcb948f2591600f28a48a3b1"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8584",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/8584_01.jpg?v=1537736427",
+   "snapshot": "20190501104108",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b738be2ea5345fd9ea285d8c3897f820fc31e79199ce24f1fb4fe5932f082cd1"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8448",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/8448_01.jpg?v=1536267882",
+   "snapshot": "20190501104116",
+   "fetchedAt": "2026-11-11",
+   "sha256": "094fe834a0d726e54bfeec5066ace2350c0566ae8ae8bbadaaacf75de4166fd3"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8653",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/8653_01.jpg?v=1536267882",
+   "snapshot": "20190501104105",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e970e059560acf17a16d6909785da6b2371e60346aa86f1806ec4335a3a996ab"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8583",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/8583_01.jpg?v=1536267882",
+   "snapshot": "20190428064147",
+   "fetchedAt": "2026-11-11",
+   "sha256": "014bfcd7294ab513767522f63b6e56c119eba7b9679c17fff7c095af99857a52"
+  },
+  {
+   "teamId": "704",
+   "playerId": "18441",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/18441_01.jpg?v=1536354091",
+   "snapshot": "20190501104059",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5f2ff437f7d0cf0805c800b08749c6e695e321873654452d333888afa5132306"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8585",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/8585_01.jpg?v=1536267882",
+   "snapshot": "20190501104111",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0c93dde62c87fb569556e5cb47752a878b45b4139da74b0d9c30167374cd96e0"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8580",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/8580_01.jpg?v=1537736427",
+   "snapshot": "20190501104109",
+   "fetchedAt": "2026-11-11",
+   "sha256": "89360798f71575382678f2aa2036b7c781325bde77e8df9209d40305301b83be"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8736",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/8736_01.jpg?v=1536267882",
+   "snapshot": "20190501104107",
+   "fetchedAt": "2026-11-11",
+   "sha256": "291ab834a4cd4f180100204f77cd8ddd74d275c091e7e97f53df84203177a36c"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8468",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/8468_01.jpg?v=1536267882",
+   "snapshot": "20190501104104",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3de5da65782215b1f30b528b48564a15f392c0a67f37cedc8169b6aecdc601a8"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8579",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/8579_01.jpg?v=1536267882",
+   "snapshot": "20190428084011",
+   "fetchedAt": "2026-11-11",
+   "sha256": "be8d620f9af973b53e0a3cd3ded725dcc5ccc20a2b621576e9076cdf34844d0c"
+  },
+  {
+   "teamId": "704",
+   "playerId": "18440",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/704/2018-19/18440_01.jpg?v=1536354091",
+   "snapshot": "20190501104126",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c59bca9d4066675d4d27565879fe7d3946ee6dddf4110fae293af46aaea43a02"
+  },
+  {
+   "teamId": "706",
+   "playerId": "8467",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/8467_01.jpg?v=1536267887",
+   "snapshot": "20190428080746",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5153dfb77978de3ef2756ce5285ae3ee170b84b7f845452e563e9a0d9b767634"
+  },
+  {
+   "teamId": "706",
+   "playerId": "12580",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/12580_01.jpg?v=1536267887",
+   "snapshot": "20190501104142",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c37393d8d1519a8dad70ffffce4aca896ed1a7acd9f0bc610802661664960bfe"
+  },
+  {
+   "teamId": "706",
+   "playerId": "12582",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/12582_01.jpg?v=1536267887",
+   "snapshot": "20190428123625",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b9e6dd8aff802f33d21b617c7da148b821d14d51dea04a7f618d46c9bdeca620"
+  },
+  {
+   "teamId": "706",
+   "playerId": "14301",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/14301_01.jpg?v=1536267887",
+   "snapshot": "20190501104141",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3685d92c9cd1b758dec62c7084fb999728e3a0479148469b57eeeaaaf656cf47"
+  },
+  {
+   "teamId": "706",
+   "playerId": "18397",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/18397_01.jpg?v=1536267887",
+   "snapshot": "20190501104142",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ee5ec15268da3ebb86b681ea811d7f4297489db509cbc5e94d7f510496222cf6"
+  },
+  {
+   "teamId": "706",
+   "playerId": "19956",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/19956_01.jpg?v=1545426019",
+   "snapshot": "20190501104148",
+   "fetchedAt": "2026-11-11",
+   "sha256": "33f919acaf64c8989c1b7b5db4e309f25acc6298c239b31cc493524c64701076"
+  },
+  {
+   "teamId": "706",
+   "playerId": "9032",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/9032_01.jpg?v=1536267887",
+   "snapshot": "20190501104150",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b41dbab184462ae628cae015b02d47601da32c93dc379315fa1414825575cb73"
+  },
+  {
+   "teamId": "706",
+   "playerId": "8456",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/8456_01.jpg?v=1536267887",
+   "snapshot": "20190501104155",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7482c941711679c35843264298d080205ca516e527f926bc694d6ff4400162a0"
+  },
+  {
+   "teamId": "706",
+   "playerId": "12577",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/12577_01.jpg?v=1536267887",
+   "snapshot": "20190428121611",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7f2203d04d93715a47cd98169dd0c49614c2374254346d38c013e5ddfc05f21e"
+  },
+  {
+   "teamId": "706",
+   "playerId": "9037",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/9037_01.jpg?v=1536267887",
+   "snapshot": "20190501104152",
+   "fetchedAt": "2026-11-11",
+   "sha256": "20d7919cdf6f878a8f436d3d4df53ecfc8c191a9298f59a2f251bf2dff3b425f"
+  },
+  {
+   "teamId": "706",
+   "playerId": "9033",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/9033_01.jpg?v=1536267887",
+   "snapshot": "20190501104134",
+   "fetchedAt": "2026-11-11",
+   "sha256": "71267658b81bab27ae30fb676b7cba8a2b72001675625aa449fc7b0a79ef921b"
+  },
+  {
+   "teamId": "706",
+   "playerId": "9031",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/9031_01.jpg?v=1536267887",
+   "snapshot": "20190501104139",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ff4afbfe256443d35782f7a13bd62aeacfe44050ffd6f908a73295d009028a42"
+  },
+  {
+   "teamId": "706",
+   "playerId": "9029",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2018-19/9029_01.jpg?v=1536267887",
+   "snapshot": "20190501104156",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a7f1f7c13fe6f0e96bb95be216fe99b142c644a0022e5fc3b0db81505c38f226"
+  },
+  {
+   "teamId": "726",
+   "playerId": "10820",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/10820_01.jpg?v=1536267884",
+   "snapshot": "20190501104147",
+   "fetchedAt": "2026-11-11",
+   "sha256": "20ba54fab44d9085843034b133572a5446d5d4fba2ca281574bece299feeff15"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8662",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/8662_01.jpg?v=1536267884",
+   "snapshot": "20190501104154",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f21e1eacd0f63d7c6fa193e819cd0186ea2970df8f084baf3038c1d95cdfe769"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8554",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/8554_01.jpg?v=1540933270",
+   "snapshot": "20190501104142",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8440f4552ec8b3d57577c04a4a5ef99a2b9d6e6c4cd450e694769ab9a926a267"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8658",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/8658_01.jpg?v=1536267884",
+   "snapshot": "20190501104146",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d4581e36e0bead50b366932a5f22ec88ec90ef928c607386ef109c5689e6c3db"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8594",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/8594_01.jpg?v=1536267884",
+   "snapshot": "20190501104143",
+   "fetchedAt": "2026-11-11",
+   "sha256": "edcf65c91e48b1f9fedaad8473b90715f470259ffc1da8f3d0c442553ac215e0"
+  },
+  {
+   "teamId": "726",
+   "playerId": "19998",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/19998_01.jpg?v=1549400431",
+   "snapshot": "20190501104153",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2c72e4ffa07d5bddf93fd1bb6a2f6bdefb76a4666560e293d8e008543c00ed5a"
+  },
+  {
+   "teamId": "726",
+   "playerId": "18398",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/18398_01.jpg?v=1536267884",
+   "snapshot": "20190428160720",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bd4f208dea1d4c847a588d6d33d120209d8883dedc4b68e570430bd99f2a0118"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8446",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/8446_01.jpg?v=1536267884",
+   "snapshot": "20190501104204",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4fec025c78d484ead1f3206b8fd4bc9e7ca966eb247050b5170decbfc72aaa80"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8784",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/8784_01.jpg?v=1536267884",
+   "snapshot": "20190501104158",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5e466b2aaa11adcc1234aa9b7c38c139c9557f292be33993f2c856f311e9b3a5"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8730",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/8730_01.jpg?v=1536267884",
+   "snapshot": "20190501104140",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f3d036e6833283a3c11ff1ba1c0aa60b1d959efaaf58634542066f64fc6bd98e"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8447",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/8447_01.jpg?v=1536267884",
+   "snapshot": "20190501104151",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4bae8f45b2cab01719b290c64dc7745fde7b2fcd7e509f54c7919d6b26419a20"
+  },
+  {
+   "teamId": "726",
+   "playerId": "9372",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/9372_01.jpg?v=1536267884",
+   "snapshot": "20190501104156",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e5fb40361df89763fab9a094ed38d2b798b4cf5727a33daf765fb7f687f4ab28"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8450",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/8450_01.jpg?v=1536613346",
+   "snapshot": "20190501104148",
+   "fetchedAt": "2026-11-11",
+   "sha256": "13869645237d0844db53cb8c571c645d1dc0ef2b87d7d1b4b8792c7b6b0da126"
+  },
+  {
+   "teamId": "727",
+   "playerId": "12591",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/12591_01.jpg?v=1536267886",
+   "snapshot": "20190501104123",
+   "fetchedAt": "2026-11-11",
+   "sha256": "15ecb369f42eab9a7994ed2fb39047340ce47fbd799cab18247fdb857abd14a4"
+  },
+  {
+   "teamId": "727",
+   "playerId": "15817",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/15817_01.jpg?v=1536267886",
+   "snapshot": "20190501104113",
+   "fetchedAt": "2026-11-11",
+   "sha256": "859bb192bb3162c87d21a7be873dd067db2e4611449f6b921f678ed862cfc33b"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8488",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/8488_01.jpg?v=1536267886",
+   "snapshot": "20190501104125",
+   "fetchedAt": "2026-11-11",
+   "sha256": "243b17eac6929509c1f3b6b4a3868fb2db7ff4e8432ce9c66ef6717b781e73b3"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8482",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/8482_01.jpg?v=1536267886",
+   "snapshot": "20190427013754",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5d2e3391a86ca96ba8f33c7d91e40f69ff3e0223f377eb1d20d0a50aed7942a0"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8492",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/8492_01.jpg?v=1536267886",
+   "snapshot": "20190501104114",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2bd8fc3844be7ba262f44d196752f7a3f2c0c79dadf1e9674de8e3375cd76d2f"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8487",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/8487_01.jpg?v=1536267886",
+   "snapshot": "20190501104131",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2a23eef912fd81bbe03c019836864be06991ba78a62fda5603508cff7125f2b0"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8484",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/8484_01.jpg?v=1536267886",
+   "snapshot": "20190501104108",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0057e864fb04af42532611de4d0ceb10631612bb46f3762ef11da8d09b8e80bf"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8489",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/8489_01.jpg?v=1536267886",
+   "snapshot": "20190501104112",
+   "fetchedAt": "2026-11-11",
+   "sha256": "cf622cd8e4a4de0a9dd10ae0021c45662a3265691085d058c31ae5c38001abef"
+  },
+  {
+   "teamId": "727",
+   "playerId": "18427",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/18427_01.jpg?v=1536267886",
+   "snapshot": "20190501104118",
+   "fetchedAt": "2026-11-11",
+   "sha256": "623643ab526fa6d1514fd3786bcaf3148870130981a033aceef5f698f5b4c415"
+  },
+  {
+   "teamId": "727",
+   "playerId": "20018",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/20018_01.jpg",
+   "snapshot": "20190402032939",
+   "fetchedAt": "2026-11-11",
+   "sha256": "26b934b71060277663dff306da9ab0645358ff1b344b94f05487adbd8f0f7752"
+  },
+  {
+   "teamId": "727",
+   "playerId": "15816",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/15816_01.jpg?v=1536267886",
+   "snapshot": "20190501104119",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bd2a4115297522aac68ae7e4950d4f5dcf680a7657fc63db7f0c7e48aa8cec6f"
+  },
+  {
+   "teamId": "727",
+   "playerId": "8490",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/8490_01.jpg?v=1536267886",
+   "snapshot": "20190426212817",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a0cd293ed336c83e55be5f419a3ed7a1e523ed01edbd6cfe58e7d03610d9f663"
+  },
+  {
+   "teamId": "727",
+   "playerId": "18426",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/727/2018-19/18426_01.jpg?v=1536267886",
+   "snapshot": "20190501104110",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6659875e03e014992d6da796be14a55b61bdac3a1575381fc476f2856a6eac48"
+  },
+  {
+   "teamId": "694",
+   "playerId": "8684",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/8684_01.jpg",
+   "snapshot": "20190403093123",
+   "fetchedAt": "2026-11-11",
+   "sha256": "63484e6a65f29838b09fc6ec175ad6d2b79cc52332164a354517b56099ff7fc3"
+  },
+  {
+   "teamId": "694",
+   "playerId": "18169",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/18169_01.jpg?v=",
+   "snapshot": "20180923005805",
+   "fetchedAt": "2026-11-11",
+   "sha256": "05b2adb0360ac454c2479e45199ba47a237258b69ba65aec712b52bc81ef24cb"
+  },
+  {
+   "teamId": "694",
+   "playerId": "8721",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/8721_01.jpg?v=1544043643",
+   "snapshot": "20190427015231",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1250cce8d35d20801e630ffe5d3b96eaddcb96bc9a161380f6d90883d3f944d7"
+  },
+  {
+   "teamId": "694",
+   "playerId": "18846",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/18846_01.jpg",
+   "snapshot": "20190403082828",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bc9f53cc334b1f63e0f77cf71524aba6d53b7415e086b3617d7573f3f68beedf"
+  },
+  {
+   "teamId": "694",
+   "playerId": "10821",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/10821_01.jpg",
+   "snapshot": "20190403162435",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2db5134ded9e01554bd6ee943d2865d500de02e0d89dde74c060bf3f396dbdfd"
+  },
+  {
+   "teamId": "694",
+   "playerId": "18473",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/18473_01.jpg",
+   "snapshot": "20190422074059",
+   "fetchedAt": "2026-11-11",
+   "sha256": "90e21578f025a0772e781e6e16c771fe9e6b95eac99708c5d3355289c09a08aa"
+  },
+  {
+   "teamId": "694",
+   "playerId": "10873",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/10873_01.jpg",
+   "snapshot": "20190403162438",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d91a98596fcf9edfb0d6f3e820f631607c5ee16e8debcd990a9c289c532f1171"
+  },
+  {
+   "teamId": "694",
+   "playerId": "12637",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/12637_01.jpg",
+   "snapshot": "20190403160301",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b8c27ee933a1b2706d70bfb3f4f5717c3e4fbcbeb9cc60a38be48649e5bc4f03"
+  },
+  {
+   "teamId": "694",
+   "playerId": "12454",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/12454_01.jpg",
+   "snapshot": "20190124203849",
+   "fetchedAt": "2026-11-11",
+   "sha256": "34e848c413db2988a1395bcbffb56715156dfbc6afc3085ba0804fe9371afe06"
+  },
+  {
+   "teamId": "694",
+   "playerId": "19995",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/19995_01.jpg",
+   "snapshot": "20190403173021",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ab02f27073ad8547421a885f6668b01d6eac51cecd9f34f306c459269ea36381"
+  },
+  {
+   "teamId": "694",
+   "playerId": "9259",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/9259_01.jpg",
+   "snapshot": "20190201205943",
+   "fetchedAt": "2026-11-11",
+   "sha256": "18e9e43b57e4407040db4f16de6465465c2c2885bba08513b0451945e7c28060"
+  },
+  {
+   "teamId": "694",
+   "playerId": "8713",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/8713_01.jpg",
+   "snapshot": "20190403120236",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8a9086c4435d77ae68138a736598ae1babe36a097e594b3d66743fffda767ab7"
+  },
+  {
+   "teamId": "694",
+   "playerId": "8720",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/8720_01.jpg",
+   "snapshot": "20190403103215",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8c1fe8dd0da66ebe892acd560b521084346a1abba47b6ec8b05a5b548322829e"
+  },
+  {
+   "teamId": "694",
+   "playerId": "8719",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/8719_01.jpg",
+   "snapshot": "20190403153055",
+   "fetchedAt": "2026-11-11",
+   "sha256": "06eb23da561d7d1d3df509073236d774cda333cf4405f925f28a9dd4947acfab"
+  },
+  {
+   "teamId": "694",
+   "playerId": "8712",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/694/2018-19/8712_01.jpg",
+   "snapshot": "20190201201138",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1b797beaa332f23f21bd1ef53e9a48f73b2ca223c0b26aba23ff14deb1638cfa"
+  },
+  {
+   "teamId": "695",
+   "playerId": "8645",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/8645_01.jpg?v=1537736427",
+   "snapshot": "20190428143701",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5c6bb0ef32bdf607232111f3c44c8dd6af2c9a7172a49d329019528bac6ffb6d"
+  },
+  {
+   "teamId": "695",
+   "playerId": "8476",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/8476_01.jpg",
+   "snapshot": "20190324120448",
+   "fetchedAt": "2026-11-11",
+   "sha256": "42b536e9e6c7c19b03945682b7bd8f4a91e7beebbe39ec4c7011d6265785077f"
+  },
+  {
+   "teamId": "695",
+   "playerId": "8581",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/8581_01.jpg",
+   "snapshot": "20190324120446",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2f9b46317a252156acad00047e5d2495f3c36fe88730d681eccc66e634538308"
+  },
+  {
+   "teamId": "695",
+   "playerId": "18168",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/18168_01.jpg",
+   "snapshot": "20190324120451",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d3ac783f37265cc696cf8afe754d99b60fa334f9aebfee4408e678ba373e863a"
+  },
+  {
+   "teamId": "695",
+   "playerId": "10851",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/10851_01.jpg",
+   "snapshot": "20190324120450",
+   "fetchedAt": "2026-11-11",
+   "sha256": "cdf43ac2d431a79140b8c7d277d147b9fa81b7671721c3ea62d921ed4a00b6b3"
+  },
+  {
+   "teamId": "695",
+   "playerId": "9040",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/9040_01.jpg?v=1537736427",
+   "snapshot": "20190428063735",
+   "fetchedAt": "2026-11-11",
+   "sha256": "577e5711780655511707ad75d8c137f76e8f62a3c79c4cfc3b063f5240db9f36"
+  },
+  {
+   "teamId": "695",
+   "playerId": "15757",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/15757_01.jpg",
+   "snapshot": "20190324120453",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6170002a96e22993a52d9fe7cd262d6d96d15f46db1508fe883a1ed40545eb64"
+  },
+  {
+   "teamId": "695",
+   "playerId": "20022",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/20022_01.jpg",
+   "snapshot": "20190324120448",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d7ffd06a7ad97fd6406288f3cd5bc76757da7c31114abdd7beca8d6d9d5b4e5a"
+  },
+  {
+   "teamId": "695",
+   "playerId": "9384",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/9384_01.jpg?v=1537736427",
+   "snapshot": "20190428062333",
+   "fetchedAt": "2026-11-11",
+   "sha256": "67b9d8aa8838c3b7729a476fa9c696743fa110759c1e850650ab5e3052f8f875"
+  },
+  {
+   "teamId": "695",
+   "playerId": "8515",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/8515_01.jpg",
+   "snapshot": "20190324120455",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e73f849ca4879f9517808abbeff3f1962ca1e9324b74dbcf596d935d57cd800a"
+  },
+  {
+   "teamId": "695",
+   "playerId": "8588",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/8588_01.jpg?v=1537736427",
+   "snapshot": "20190427204028",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6f783ce4346bcc9fb73da3012012125edd0f23f7f9e6c76ff3d9bedee045c49f"
+  },
+  {
+   "teamId": "695",
+   "playerId": "9329",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/9329_01.jpg",
+   "snapshot": "20190324120451",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9077da8c88f62b251f7687ecaced4b4bad2208fd95001c82456e4e14c317342a"
+  },
+  {
+   "teamId": "695",
+   "playerId": "8641",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/695/2018-19/8641_01.jpg",
+   "snapshot": "20190324120451",
+   "fetchedAt": "2026-11-11",
+   "sha256": "cf54e1dbbf1a637e34662890bbecf1808c510aaf58e338e8356f4291b72218e4"
+  },
+  {
+   "teamId": "696",
+   "playerId": "20032",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/20032_01.jpg",
+   "snapshot": "20190329061602",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9fbca8e655891235c06c8b1f353421bb45abba6a3344555af9c6d29b234a33e8"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8768",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/8768_01.jpg",
+   "snapshot": "20190208004143",
+   "fetchedAt": "2026-11-11",
+   "sha256": "265600368f8b5409b772016528166b196e7fc8593490881bd824ae99e8a59cc3"
+  },
+  {
+   "teamId": "696",
+   "playerId": "10897",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/10897_01.jpg?v=1536267886",
+   "snapshot": "20190427022428",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1ed4624bc9331ca62d2c05cfeffe977c63ff67716f9223aeae31753b0b212d20"
+  },
+  {
+   "teamId": "696",
+   "playerId": "20024",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/20024_01.jpg",
+   "snapshot": "20190329061607",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bd4234105d22574fd3b969c8530d63eac606bee95b7040b34f274191c6320bcf"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8503",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/8503_01.jpg?v=1536267886",
+   "snapshot": "20190428070659",
+   "fetchedAt": "2026-11-11",
+   "sha256": "67f2d67ebb3c4fc41a2b825c88f4f45be4a6f64b48400f7aa16b932d590a82c0"
+  },
+  {
+   "teamId": "696",
+   "playerId": "9318",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/9318_01.jpg",
+   "snapshot": "20190329061603",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f813a3ecf98d6b108492baebcb89020721cfa948d133c7feaec65f4cf0827900"
+  },
+  {
+   "teamId": "696",
+   "playerId": "20023",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/20023_01.jpg",
+   "snapshot": "20190403014213",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1a13a24e0431ab2ea4f38c888e172250b719e2e8a7ca13e0ce56a377c24c6a64"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8501",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/8501_01.jpg?v=1536267886",
+   "snapshot": "20200203092357",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8272ec432f90296c796cdaf8af45d39ac8682f80f412824258c2643d24fac912"
+  },
+  {
+   "teamId": "696",
+   "playerId": "12633",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/12633_01.jpg?v=1536267886",
+   "snapshot": "20190428124525",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7f27c494d20d583da4bb5810f4b97574faf70dbced88a0dcf7fea4a6c124a571"
+  },
+  {
+   "teamId": "696",
+   "playerId": "9423",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/9423_01.jpg",
+   "snapshot": "20190329061605",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1d300a93cfbaa648d7961bd928e1286762aec86ce92938f2c0c936ecce786971"
+  },
+  {
+   "teamId": "696",
+   "playerId": "15818",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/15818_01.jpg",
+   "snapshot": "20190329061604",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9297b1eabc7dc35e3e5ed6479acbe875bd0625554044aff1208c327d3d0a4780"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8449",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/8449_01.jpg?v=1536267886",
+   "snapshot": "20190428063634",
+   "fetchedAt": "2026-11-11",
+   "sha256": "eabe904cbe60fba823707c64a3a3cfab26d164c1d7c1959db5d57d8cb7ed1660"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8737",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/8737_01.jpg",
+   "snapshot": "20190329061604",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8a62d821896133e6ba8bf1a34c8836fc70a8eba4efe24cd613a89fe72d025420"
+  },
+  {
+   "teamId": "696",
+   "playerId": "8578",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/696/2018-19/8578_01.jpg",
+   "snapshot": "20190129075832",
+   "fetchedAt": "2026-11-11",
+   "sha256": "da23257865a7e19bc77d94678aa974baee99cf77e4b939d13e05e64860d36858"
+  },
+  {
+   "teamId": "697",
+   "playerId": "12663",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/12663_01.jpg?v=1542402012",
+   "snapshot": "20190501104122",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5bfea51ab1d36320efd506ee88500877df55abaa54faa70f4a8a5852b6d4ad36"
+  },
+  {
+   "teamId": "697",
+   "playerId": "15849",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/15849_01.jpg?v=1536267883",
+   "snapshot": "20190501104118",
+   "fetchedAt": "2026-11-11",
+   "sha256": "43676c8906ff4376053ecb594bf8eb8c79cfac808eb733ac925b8260f72ddeab"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8577",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/8577_01.jpg?v=1536267883",
+   "snapshot": "20190501104120",
+   "fetchedAt": "2026-11-11",
+   "sha256": "77821ff7f78a584b5313a6c483ea03d746e28411cae74cc75c6c2e267ed117e7"
+  },
+  {
+   "teamId": "697",
+   "playerId": "18148",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/18148_01.jpg?v=1536267883",
+   "snapshot": "20190501104122",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1d24635d339dab098e7237d1efada2a5180e28928ad75d37b0f4d665f0eea836"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8568",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/8568_01.jpg?v=1536267883",
+   "snapshot": "20190428062741",
+   "fetchedAt": "2026-11-11",
+   "sha256": "07e4d36d01aae1926b126ae33687f8be3f8f7e7d1dbb6ce06e1da8388b0fd4b2"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8565",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/8565_01.jpg?v=1536354092",
+   "snapshot": "20190501104116",
+   "fetchedAt": "2026-11-11",
+   "sha256": "97bb5edc69e663dfe6d05dff959844db06a00f1da52841b61238a1326181f475"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8552",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/8552_01.jpg?v=1536267883",
+   "snapshot": "20190501104142",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2a635d9d7306e0ff7171bdb997722652cb8a9ffac24f8810c7163c627e1adbc2"
+  },
+  {
+   "teamId": "697",
+   "playerId": "9354",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/9354_01.jpg",
+   "snapshot": "20181202071512",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f96072ee1ebee1045c4acf58406ef8807856b2c835f7e250c637804d6ec79449"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8567",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/8567_01.jpg?v=1536267883",
+   "snapshot": "20190501104135",
+   "fetchedAt": "2026-11-11",
+   "sha256": "38c5eda2362c9d2d5da5dc7930f787baf3e06d6f81cd4a944f2c66fd2005248c"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8727",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/8727_01.jpg?v=1536267883",
+   "snapshot": "20190427020148",
+   "fetchedAt": "2026-11-11",
+   "sha256": "34363cd8080a12888f6d97e1324a6719c0b6d5383b37fc4b8f6bef15747f52c7"
+  },
+  {
+   "teamId": "697",
+   "playerId": "9495",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/9495_01.jpg?v=1542402012",
+   "snapshot": "20190501104134",
+   "fetchedAt": "2026-11-11",
+   "sha256": "8bd98195fd9b21f4b180282af1fe535e76b28826af890e1ff2f09b4f1bfd47b1"
+  },
+  {
+   "teamId": "697",
+   "playerId": "22397",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/22397_01.jpg",
+   "snapshot": "20190403143919",
+   "fetchedAt": "2026-11-11",
+   "sha256": "92605318e50001fe07939f40eb7c032647367f31282463956a705cd651fd8cfd"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8677",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/8677_01.jpg?v=1536267883",
+   "snapshot": "20190501104121",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9d031e575bc2eb2955e596d2b861bd8938cd7f39da9ae8447adf845502fa63c6"
+  },
+  {
+   "teamId": "697",
+   "playerId": "20033",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/20033_01.jpg?v=1553547712",
+   "snapshot": "20190501104138",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f69e880443f1daff4ea1978ca35a43967d900fdd360f999de5c5a4ec34ddb92b"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8571",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/697/2018-19/8571_01.jpg?v=1536267883",
+   "snapshot": "20190426143926",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9af669caf642a9be4eee227a4563f0062f7a5c25c730aefc1e29c3cd10b6377d"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8596",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/8596_01.jpg?v=1536267882",
+   "snapshot": "20190428065352",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e415235b2b9d97dafb99f7e3c7ac844f5095b8d47c6f79c33301be67b06f9fae"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8595",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/8595_01.jpg?v=1536267882",
+   "snapshot": "20190501104154",
+   "fetchedAt": "2026-11-11",
+   "sha256": "52b434aa85c8b95849a2bb398dbe9879fc6152fe102729c1e6b4b9e27cc82990"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8592",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/8592_01.jpg?v=1536267882",
+   "snapshot": "20190428165013",
+   "fetchedAt": "2026-11-11",
+   "sha256": "626aa997179535203edcde0ddd29c0c364b91e059066dabc678254acf1f104df"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8590",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/8590_01.jpg?v=1536267882",
+   "snapshot": "20190501104207",
+   "fetchedAt": "2026-11-11",
+   "sha256": "fd6b1cd73316466aae1c049dac637bae2f2b43b7b90c33283ad8839d5ee2bc32"
+  },
+  {
+   "teamId": "728",
+   "playerId": "9034",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/9034_01.jpg?v=1536267882",
+   "snapshot": "20190501104202",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5c683ec3f6a7de8e10bccf34358a29071f7b708c450b87608096c3a961912bad"
+  },
+  {
+   "teamId": "728",
+   "playerId": "18479",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/18479_01.jpg?v=1543352424",
+   "snapshot": "20190501104157",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5e0e59598d6603ba79ee2b1069a9b07920f34fe5fd22c8f4ebc8a5140c239762"
+  },
+  {
+   "teamId": "728",
+   "playerId": "9405",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/9405_01.jpg?v=1536267882",
+   "snapshot": "20190501104148",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a2997343181800a26e86c873ee028206d9d90b422c3a5ea216ac6da6ccff8c7d"
+  },
+  {
+   "teamId": "728",
+   "playerId": "18475",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/18475_01.jpg?v=1545426019",
+   "snapshot": "20190501104145",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e765946c6fbff2d160d6b461eb1c103a58ccd0c4778834e923b0aecbe317cc06"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8457",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/8457_01.jpg?v=1536267882",
+   "snapshot": "20190501104159",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3cceeeaad4d54b06c9a3af91200d19a8b8fce3bd05f6c0c7fd3bcfefba452889"
+  },
+  {
+   "teamId": "728",
+   "playerId": "19957",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/19957_01.jpg?v=1545426019",
+   "snapshot": "20190501104206",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7e12f6215c6ba77b4edc6c19813f8de7b3d1a813bfd2b330c70abe4c3caeaf22"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8510",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/8510_01.jpg?v=1536267882",
+   "snapshot": "20190501104208",
+   "fetchedAt": "2026-11-11",
+   "sha256": "60a027a5b54239233aa601ba4419e8b9f5f1f28ed3fa4dd6d6def0d83d69f20b"
+  },
+  {
+   "teamId": "728",
+   "playerId": "18436",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/18436_01.jpg?v=1536267882",
+   "snapshot": "20190501104152",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e5d56ae70b254ddcd09a13ecef11df0df7f30d489c6b68091888f8df24e5246f"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8591",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/8591_01.jpg?v=1536267882",
+   "snapshot": "20190501104155",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3e75ff739f0a07e829a80517feee79cef5dbb3cd69a1fddd597036c528e2c08b"
+  },
+  {
+   "teamId": "728",
+   "playerId": "10822",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/728/2018-19/10822_01.jpg?v=1537045237",
+   "snapshot": "20190501104146",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1fcafdb123f5b5e5176ff607f83a203e4dce098ef9417c1439584cb336fef2a2"
+  },
+  {
+   "teamId": "729",
+   "playerId": "20034",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/20034_01.jpg",
+   "snapshot": "20190426234506",
+   "fetchedAt": "2026-11-11",
+   "sha256": "eed893adcb0246218f037b59b73d182fe24fa120f48f03eac4eee56333dbba51"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8462",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/8462_01.jpg",
+   "snapshot": "20190131153750",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7a868e9f1bcb55283d62fbefc44ed157abebb5033e95004d977447e3b61f1df2"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8479",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/8479_01.jpg?v=1536267884",
+   "snapshot": "20190520021117",
+   "fetchedAt": "2026-11-11",
+   "sha256": "52541bf8e55bddc5b43d6a91524998f135a60739142549405048c165a142945b"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8738",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/8738_01.jpg",
+   "snapshot": "20190204110649",
+   "fetchedAt": "2026-11-11",
+   "sha256": "00178528bf29a9ac08f14be21c6a851f76de5b443d733691164f77f49fe3c930"
+  },
+  {
+   "teamId": "729",
+   "playerId": "18167",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/18167_01.jpg?v=1536267884",
+   "snapshot": "20190515000259",
+   "fetchedAt": "2026-11-11",
+   "sha256": "59671a0933a8833a3da63df2458b63d3299a02e75c0ecc0568ab688d9bd78253"
+  },
+  {
+   "teamId": "729",
+   "playerId": "9383",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/9383_01.jpg",
+   "snapshot": "20190203132305",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9799c7fec76c124eb1d083cad65268f49c73bbeb56e274618e11125ba04ca334"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8517",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/8517_01.jpg?v=1536267884",
+   "snapshot": "20190520225022",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9884b09d1162b3bd70332227ee49cc042f202a65cac479ea2cf5291b5c2e9d4e"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8739",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/8739_01.jpg",
+   "snapshot": "20190426212846",
+   "fetchedAt": "2026-11-11",
+   "sha256": "39d7f3850c53b5ce144c30dcc2e2916e4920f0bb8501b8e61462b0f0cff35e18"
+  },
+  {
+   "teamId": "729",
+   "playerId": "9056",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/9056_01.jpg",
+   "snapshot": "20190427011756",
+   "fetchedAt": "2026-11-11",
+   "sha256": "762d049ade484e0c896cca99b4837bad2444e0919d2c7c0e20a7ecca2fd959bf"
+  },
+  {
+   "teamId": "729",
+   "playerId": "10844",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/10844_01.jpg?v=1537736427",
+   "snapshot": "20190520071029",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0be6fcdf626f608e83ac97ee30b864710daf0c98eb17e54d973400e9b3f02f6e"
+  },
+  {
+   "teamId": "729",
+   "playerId": "10815",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/10815_01.jpg?v=1536267884",
+   "snapshot": "20190427023421",
+   "fetchedAt": "2026-11-11",
+   "sha256": "11b306c96ba4a5233adbcfc403d1b344a7bafd1fb4099888048072f3465f501d"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8516",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/8516_01.jpg?v=1536267884",
+   "snapshot": "20190516004853",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9beeb73ee40796de4a2b9b2db6313aa2f3027ffbaa7da3a1ab4c47c793c7a08e"
+  },
+  {
+   "teamId": "729",
+   "playerId": "18166",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/18166_01.jpg",
+   "snapshot": "20250414113350",
+   "fetchedAt": "2026-11-11",
+   "sha256": "63a187d43b9b7dd18fa922708da93f56947125fa3496e9dfc08a4ef8c09e8c80"
+  },
+  {
+   "teamId": "729",
+   "playerId": "10817",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2018-19/10817_01.jpg",
+   "snapshot": "20190428081441",
+   "fetchedAt": "2026-11-11",
+   "sha256": "cf398fa2e84d2d77e35793c8e1e7bceb3a0bc5f00eaa09855292747f62ba24fa"
+  },
+  {
+   "teamId": "698",
+   "playerId": "8465",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/8465_01.jpg",
+   "snapshot": "20181215022329",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ec15fcaf43d715ea7d430eb47f38a2bc4ce3315c3592c22c47e3f2f4464f893a"
+  },
+  {
+   "teamId": "698",
+   "playerId": "22399",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/22399_01.jpg",
+   "snapshot": "20190403042621",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1c7ec8d71a397786b2200d282993e1d0931c61a642e963b64493f8b17b20dd36"
+  },
+  {
+   "teamId": "698",
+   "playerId": "18845",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/18845_01.jpg",
+   "snapshot": "20190403035626",
+   "fetchedAt": "2026-11-11",
+   "sha256": "04626dfc5a2a476f92725914086658d34b022823f4a8c1927cf4aa8265fc1003"
+  },
+  {
+   "teamId": "698",
+   "playerId": "22400",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/22400_01.jpg",
+   "snapshot": "20190403011038",
+   "fetchedAt": "2026-11-11",
+   "sha256": "294d415790ef57a03461fc86e8116e5ba130b2983bfa3083cbaf02e70aca6605"
+  },
+  {
+   "teamId": "698",
+   "playerId": "9030",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/9030_01.jpg",
+   "snapshot": "20181215065754",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ab1ab7ba99e7cf719c8922a388359f0e9f40f2f530cd69a91ad562ad7da535fb"
+  },
+  {
+   "teamId": "698",
+   "playerId": "18171",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/18171_01.jpg",
+   "snapshot": "20181215065825",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f53b2b5ea264272b37c074f092bb1ab7f8eb39aee3e13fd95e94f92e0fdd5143"
+  },
+  {
+   "teamId": "698",
+   "playerId": "18431",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/18431_01.jpg?v=1536354093",
+   "snapshot": "20260613135105",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0609b9c099a006b59abb47458abff6a30c43bed0d8b19450eb99be04ca77a58b"
+  },
+  {
+   "teamId": "698",
+   "playerId": "9321",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/9321_01.jpg",
+   "snapshot": "20181215022331",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6fe10967775a5b63958d73c6e7065c8b1e3ed7c827c143b818eaa8eca8f0e10f"
+  },
+  {
+   "teamId": "698",
+   "playerId": "12585",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/12585_01.jpg?v=1536354093",
+   "snapshot": "20260613135106",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a5d3d3497debe11733c30a3ce7b2c09abb9a98d06d3ec3f07b64ab47306f81e5"
+  },
+  {
+   "teamId": "698",
+   "playerId": "9039",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/9039_01.jpg",
+   "snapshot": "20181215065839",
+   "fetchedAt": "2026-11-11",
+   "sha256": "cf43f2fb1f6bf5330bcacf4e1d20ce732874d0c36f32c427d45bd6783acd4e07"
+  },
+  {
+   "teamId": "698",
+   "playerId": "10818",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/10818_01.jpg",
+   "snapshot": "20181215065752",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7ee586d4338f3f90ec59e871e48e0b25fd37bcfaa7f54d76f607545993e9b2f2"
+  },
+  {
+   "teamId": "698",
+   "playerId": "8582",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/8582_01.jpg",
+   "snapshot": "20181215022253",
+   "fetchedAt": "2026-11-11",
+   "sha256": "55d3e39d85ea3d6a796ca600e3edfe3666fb663528072842018cfa128b1d5d6c"
+  },
+  {
+   "teamId": "698",
+   "playerId": "8569",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/8569_01.jpg",
+   "snapshot": "20181215065826",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b7d26a6e65780806f714411d151273c6755a52b1d5a0101cef7db353a28f7d53"
+  },
+  {
+   "teamId": "698",
+   "playerId": "8463",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/698/2018-19/8463_01.jpg?v=1536354093",
+   "snapshot": "20190427014154",
+   "fetchedAt": "2026-11-11",
+   "sha256": "49cb6a9e7369075aa5dc52b99d4de92263b0cf6179805345ee7749db0cc66328"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8729",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/8729_01.jpg",
+   "snapshot": "20181104211127",
+   "fetchedAt": "2026-11-11",
+   "sha256": "6bd8acea73c024a995852678b36dae5e397de8fe30eee96948a9687f6f3c7f5a"
+  },
+  {
+   "teamId": "699",
+   "playerId": "20019",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/20019_01.jpg",
+   "snapshot": "20190402235419",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3a600d5615605eba8433bcd6aefe819cdb7cec3256c0515ea4f16b3eb1f85584"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8709",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/8709_01.jpg?v=1541538037",
+   "snapshot": "20190428172853",
+   "fetchedAt": "2026-11-11",
+   "sha256": "db28736bee4bf94598d453d42a88373d289424397fcc89d6a8ae4adbabb371a9"
+  },
+  {
+   "teamId": "699",
+   "playerId": "18444",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/18444_01.jpg",
+   "snapshot": "20190403003811",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1c08f20099cfc4b9c9e66802bbf61290f31da2b1d371224fdd10e85d63d40831"
+  },
+  {
+   "teamId": "699",
+   "playerId": "18461",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/18461_01.jpg",
+   "snapshot": "20190402222817",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4b6eb5e7c1cad578743406736fb2c51006f9a6f919bd9e44fe6c3b1ccc7a49e2"
+  },
+  {
+   "teamId": "699",
+   "playerId": "18460",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/18460_01.jpg?v=1538946022",
+   "snapshot": "20190428122149",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7ba89c92d37f177ccf424e31e8192ef51577106f3cfdb0760125ad28b7722cda"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8483",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/8483_01.jpg?v=1536267884",
+   "snapshot": "20190428071412",
+   "fetchedAt": "2026-11-11",
+   "sha256": "98f05a9afffe5dea638fe65cdaade6fcecf15d0301c6e96e494cd5ebd8154e43"
+  },
+  {
+   "teamId": "699",
+   "playerId": "20003",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/20003_01.jpg",
+   "snapshot": "20190402220833",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a2473ea0555b57fbc55f4072e13d9ca5bd939f162b077f77861947f2f5131f69"
+  },
+  {
+   "teamId": "699",
+   "playerId": "10262",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/10262_01.jpg",
+   "snapshot": "20181104211219",
+   "fetchedAt": "2026-11-11",
+   "sha256": "462e9462a2d225531e0f67ed860b46b9dc3eece7a58a708fe6c5c890fdffc27e"
+  },
+  {
+   "teamId": "699",
+   "playerId": "10849",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/10849_01.jpg",
+   "snapshot": "20181104211216",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e6f7051ae483c0d477414786f636fe3efcf2d114a4341c3d285c7100482e631a"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8681",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/8681_01.jpg",
+   "snapshot": "20181104211205",
+   "fetchedAt": "2026-11-11",
+   "sha256": "856e0c2283c8e7fabe8ac904f371ccb33bd78318f9aa1d90f6e71f9a8f14510b"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8481",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/8481_01.jpg?v=1536267884",
+   "snapshot": "20190513080259",
+   "fetchedAt": "2026-11-11",
+   "sha256": "98c802a2e0b72d630c5467df66d93005dd8db107bdd6527a52605ebeb3b4ea72"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8459",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/699/2018-19/8459_01.jpg",
+   "snapshot": "20181104211212",
+   "fetchedAt": "2026-11-11",
+   "sha256": "234d578fcea99bc8eb04fc83a0787a1a5bc824b797c1cb2666a9ebb90ee4cb2d"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8498",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/8498_01.jpg",
+   "snapshot": "20190401142114",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c334e4ef7b5d7f45c5254a0d58b6c139e44b624db9199c1fa7343369c7534a06"
+  },
+  {
+   "teamId": "700",
+   "playerId": "9063",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/9063_01.jpg?v=1536267885",
+   "snapshot": "20190427211039",
+   "fetchedAt": "2026-11-11",
+   "sha256": "d46c86131c3f03d47ee5e465fe45864637faee6c0ca4bcb093971b8783151121"
+  },
+  {
+   "teamId": "700",
+   "playerId": "9488",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/9488_01.jpg",
+   "snapshot": "20190401140118",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5214cfeb710babf3a22b651f97dbc553742536f5295ed5acdebaa8eb067e8b26"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8689",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/8689_01.jpg",
+   "snapshot": "20190401135821",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7cf30ae20aba3e2637d82ba8036ecd74378bfd23820d5e08dfc640ce57135d1a"
+  },
+  {
+   "teamId": "700",
+   "playerId": "20020",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/20020_01.jpg",
+   "snapshot": "20190418092326",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1ca477fcd01c76d8b1fd6a4d29965acc6e1364777751183ba1f0525057832336"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8688",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/8688_01.jpg",
+   "snapshot": "20190401140725",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7b7b049134e9c2c51f4909489c4db9beb1a2a5ef839bd52f43bf539a34959a50"
+  },
+  {
+   "teamId": "700",
+   "playerId": "18399",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/18399_01.jpg",
+   "snapshot": "20190401141024",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0196b177cb8bca7afaf177defe8ea0bedf148b22d407e2a2ea83254ba31b1a09"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8701",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/8701_01.jpg",
+   "snapshot": "20190418092329",
+   "fetchedAt": "2026-11-11",
+   "sha256": "611a13e09b3d74a8ed6b0832a73711a8ac6fb0f2a6411e413f3767fc48e6b0c3"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8690",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/8690_01.jpg",
+   "snapshot": "20190401142231",
+   "fetchedAt": "2026-11-11",
+   "sha256": "82bd4a1926e4a7793996d66f3a7dc39bfc869087031f7ca4f20511c49f323b52"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8451",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/8451_01.jpg",
+   "snapshot": "20190401135403",
+   "fetchedAt": "2026-11-11",
+   "sha256": "0a2efbcccf12ff03b1fd7394a3238e71a59bd10a11953c2e9ceabd4fc0ce08bb"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8680",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/8680_01.jpg",
+   "snapshot": "20190401134713",
+   "fetchedAt": "2026-11-11",
+   "sha256": "44e80c11fc74141d40ed703d189d041b864a444fc6b705bb06dafcf7f7e2530d"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8643",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/8643_01.jpg",
+   "snapshot": "20190131220755",
+   "fetchedAt": "2026-11-11",
+   "sha256": "bfa593210b2ed0fcd143dc429452ab46d38e78c32d078c9e03791c82c1483a30"
+  },
+  {
+   "teamId": "700",
+   "playerId": "9400",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/9400_01.jpg",
+   "snapshot": "20190208190551",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7e2b9f8b6864c83d9f84d4ef1ebdf2c574724c4a3a11c07908fe011a48e1fffe"
+  },
+  {
+   "teamId": "700",
+   "playerId": "9062",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/700/2018-19/9062_01.jpg",
+   "snapshot": "20190401140156",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2b4612dfb23858541e42b8812957f54358de8d9f5da70e8518077e655e8463ec"
+  },
+  {
+   "teamId": "753",
+   "playerId": "12634",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/12634_01.jpg",
+   "snapshot": "20181019075804",
+   "fetchedAt": "2026-11-11",
+   "sha256": "15e749c0c23ebd09447fce6e9ce21331e3f6dbccad99d1c4f06a8bfa61b30052"
+  },
+  {
+   "teamId": "753",
+   "playerId": "8654",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/8654_01.jpg",
+   "snapshot": "20181019075743",
+   "fetchedAt": "2026-11-11",
+   "sha256": "77f1ac8847ec3b85a36516be2b423df7b92e9b596abf0243fac811765bd468f1"
+  },
+  {
+   "teamId": "753",
+   "playerId": "9313",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/9313_01.jpg",
+   "snapshot": "20181019075741",
+   "fetchedAt": "2026-11-11",
+   "sha256": "9c431ea31fba724638d7448ad13343b8483d5175e86168d383964cd6e592aaf7"
+  },
+  {
+   "teamId": "753",
+   "playerId": "19997",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/19997_01.jpg",
+   "snapshot": "20190411104823",
+   "fetchedAt": "2026-11-11",
+   "sha256": "dc765c14fbb1d05e4bb8ee6990b54fbcd29c379f1dedf5706ca9b7286b147c1f"
+  },
+  {
+   "teamId": "753",
+   "playerId": "9311",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/9311_01.jpg",
+   "snapshot": "20181019075749",
+   "fetchedAt": "2026-11-11",
+   "sha256": "aa8e2756bdbf4f434c45608f93c794889ef77767fa478b022c85b9b0f20e62c2"
+  },
+  {
+   "teamId": "753",
+   "playerId": "8731",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/8731_01.jpg?v=1536354093",
+   "snapshot": "20190427203910",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b412593e5899c136d2d5517404f9e7c317c9b25ff75449e437bd9332824315ab"
+  },
+  {
+   "teamId": "753",
+   "playerId": "9317",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/9317_01.jpg",
+   "snapshot": "20181019075747",
+   "fetchedAt": "2026-11-11",
+   "sha256": "94389cccaf4016b76ba86b0078fc25ae214d24934d74764089e8cb8a41d01ecf"
+  },
+  {
+   "teamId": "753",
+   "playerId": "8642",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/8642_01.jpg",
+   "snapshot": "20190405171415",
+   "fetchedAt": "2026-11-11",
+   "sha256": "225747aaccac69e7c7c56054ff0ea30d826faa6bf5458b22767b33bb162defcf"
+  },
+  {
+   "teamId": "753",
+   "playerId": "10885",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/10885_01.jpg",
+   "snapshot": "20181019075755",
+   "fetchedAt": "2026-11-11",
+   "sha256": "93415b3e1e819b1580b72bdf5b35ac83364009ddf3d2d1f91f416242649d64f5"
+  },
+  {
+   "teamId": "753",
+   "playerId": "22398",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/22398_01.jpg",
+   "snapshot": "20190411104823",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7b9952970a237f6017df9d14344b8646e737c6e0dc312d7e5cd7e3b11340bb07"
+  },
+  {
+   "teamId": "753",
+   "playerId": "10265",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/10265_01.jpg",
+   "snapshot": "20181103063306",
+   "fetchedAt": "2026-11-11",
+   "sha256": "e3875e6921fb6129c5c8c2d23fc31f91e08d76dce1211891d3bdf591c8aded05"
+  },
+  {
+   "teamId": "753",
+   "playerId": "9328",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/9328_01.jpg",
+   "snapshot": "20181019075758",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ec581d1a9586609fd09e3edf5a50c179c4739210b06268cada17a0bdfebc6284"
+  },
+  {
+   "teamId": "753",
+   "playerId": "9319",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/9319_01.jpg",
+   "snapshot": "20181019075811",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f5a0a933a23f6a1b40c8e88041602149f1f39a6e481b6fc8a47e8e1ad60a343f"
+  },
+  {
+   "teamId": "753",
+   "playerId": "18442",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/18442_01.jpg?v=1536354093",
+   "snapshot": "20260613134251",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5b5c6b9bf513096cd1f369f7e8518e87472fcc1225eec932555028b995341ba6"
+  },
+  {
+   "teamId": "753",
+   "playerId": "9310",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/753/2018-19/9310_01.jpg?v=1536354093",
+   "snapshot": "20200713102827",
+   "fetchedAt": "2026-11-11",
+   "sha256": "a6122f639d3aa5d664f43ad1a9462ad2131525273f776303ad321495499bedc3"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8656",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/8656_01.jpg?v=1536267885",
+   "snapshot": "20190501104133",
+   "fetchedAt": "2026-11-11",
+   "sha256": "c0bf68a6237c76680f3530a6252d138e2ed5b3aa05be05fa722d1383d9daaccf"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8452",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/8452_01.jpg?v=1536267885",
+   "snapshot": "20190501104130",
+   "fetchedAt": "2026-11-11",
+   "sha256": "7ab3eaa8acbf04c75d19cca6ba0a95b5d75025f8474d6796d7f8b5e62a9edf3f"
+  },
+  {
+   "teamId": "701",
+   "playerId": "20017",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/20017_01.jpg?v=1553288512",
+   "snapshot": "20190501104132",
+   "fetchedAt": "2026-11-11",
+   "sha256": "70b4ef6076e5de1562bad384f5feec71c3a82730fe4bf6f3dd4394bae435d0b8"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8514",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/8514_01.jpg?v=1536267885",
+   "snapshot": "20190501104150",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ac271968d55593e6b5d9e215619c1d0c8b6b3486b70fe260edb803abdbb11b3c"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8494",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/8494_01.jpg?v=1536267885",
+   "snapshot": "20190501104121",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3706ea74d754cfc8134abc661ccea13af41b89effa973eb93f13c932a2858420"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8840",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/8840_01.jpg?v=1536267885",
+   "snapshot": "20190501104126",
+   "fetchedAt": "2026-11-11",
+   "sha256": "003fc2c9d7c6a374fd19858c7aaa3d7f5db3d41939e28b895ad2dc543f0987ec"
+  },
+  {
+   "teamId": "701",
+   "playerId": "12631",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/12631_01.jpg?v=1536267885",
+   "snapshot": "20190501104123",
+   "fetchedAt": "2026-11-11",
+   "sha256": "13d852b2b8480f1ab9bfc5775727d2b1a22567a245534a1aa54dd84f3ee40fca"
+  },
+  {
+   "teamId": "701",
+   "playerId": "10886",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/10886_01.jpg?v=1553288512",
+   "snapshot": "20190427015125",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1490cbc3fbf29e68af201118ea89aa19e2cbad959f78167cc13c8b82bd3354e6"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8587",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/8587_01.jpg",
+   "snapshot": "20250925122428",
+   "fetchedAt": "2026-11-11",
+   "sha256": "aa88ae45d24596c25e0f43e05950c615b3c28c6539f8b1c66f35c673d1ae5ff3"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8655",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/8655_01.jpg?v=1536267885",
+   "snapshot": "20190501104124",
+   "fetchedAt": "2026-11-11",
+   "sha256": "b020eb0221e25a8b9b7955664f4e8b60a0e270280b9c72a12421896f2e92108e"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8500",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/8500_01.jpg?v=1536267885",
+   "snapshot": "20190428121811",
+   "fetchedAt": "2026-11-11",
+   "sha256": "4ffffe73bb7749e946615b3f1258da5307a5eeef2c9541a9315ed089761c2cbd"
+  },
+  {
+   "teamId": "701",
+   "playerId": "9489",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/9489_01.jpg?v=1536267885",
+   "snapshot": "20190426213314",
+   "fetchedAt": "2026-11-11",
+   "sha256": "3694f283ecf7bbb11542b051d859347af4d56e4fdc6a990a48a9cd2d460a62ab"
+  },
+  {
+   "teamId": "701",
+   "playerId": "9058",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/9058_01.jpg?v=1553288512",
+   "snapshot": "20190501104126",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5f2974df38fff1349ead8b819eafe20f62fa82e7131ea766d91b73959468b0ca"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8652",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/701/2018-19/8652_01.jpg?v=1536267885",
+   "snapshot": "20190501104133",
+   "fetchedAt": "2026-11-11",
+   "sha256": "f6e337f72e0c1f7f6ca83d987aba3fa2d020c3e83ddb289cca48cdedac2def65"
+  },
+  {
+   "teamId": "726",
+   "playerId": "10819",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/726/2018-19/10819_01.jpg?v=1536267884",
+   "snapshot": "20190428063630",
+   "fetchedAt": "2026-11-11",
+   "sha256": "5b6595032fe9ec9f62d555a0b746312014a2da9ef24908c97e819abe92c18107"
+  },
+  {
+   "teamId": "693",
+   "playerId": "9345",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/693/2018-19/9345_01.jpg",
+   "snapshot": "20190402003803",
+   "fetchedAt": "2026-11-11",
+   "sha256": "2ea025d39281932b7785e207359a9830e32ec13f1adc4112f46aad5a88c83e54"
+  }
+ ],
+ "missing": {}
+}

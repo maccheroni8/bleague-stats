@@ -265,7 +265,7 @@ export function buildClassSplitSource(index: PlayerGameIndexFile, periodIndex: P
     for (let k = 0; k < pr.row.length; k++) {
       const s = slot[pr.row[k]!]!;
       const a = pr.period[k]!;
-      // 試合全体の合計（5区間）にはクラッチの行を足さない（第4Q・延長と重なる。設計書373章）
+      // 試合全体の合計（5区間）にはクラッチの行を足さない（第4Q・延長と重なる。設計書375章）
       if (a !== CLUTCH_ATOM_INDEX) {
         hasPeriod[Math.floor(s / CLASS_COUNT)] = 1;
         for (let c = 0; c < PERIOD_COLS.length; c++) period[s * PERIOD_COLS.length + c]! += pr.stats[PERIOD_COLS[c]!][k]!;
@@ -469,7 +469,7 @@ export function sumClassTotals(
     }
     pairs.push({ own: paintInput(source, ownRow, own, atoms), opp: paintInput(source, oppRow, opp, atoms) });
   }
-  // クラッチの被ファウルは「値なし」（画面は「-」。設計書373章）
+  // クラッチの被ファウルは「値なし」（画面は「-」。設計書375章）
   if (period === "clutch") {
     totals.fd = Number.NaN;
     totals.oppFd = Number.NaN;

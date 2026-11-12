@@ -81,7 +81,7 @@ export async function downloadTeamLogos(
 }
 
 /** 顔写真中心にクロップしてWebPへリサイズ変換する。品質を段階的に下げてPHOTO_TARGET_BYTES以下に収める */
-async function toCompactWebp(buf: Buffer): Promise<Buffer> {
+export async function toCompactWebp(buf: Buffer): Promise<Buffer> {
   const qualities = [80, 65, 50, 35];
   let out = buf;
   for (const quality of qualities) {

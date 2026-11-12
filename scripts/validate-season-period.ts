@@ -112,7 +112,7 @@ async function validateSeason(season: string) {
         if (next !== null) fail(`${season} ${key} ${playerId} ${option.value}: 特別な試合なのに値がある`);
         continue;
       }
-      // クラッチは、試合の生データにクラッチの行・プレーを足した写し（画面の日程結果などと同じ経路。shared/clutchGame.ts）から出した値と比べる（設計書373章）。
+      // クラッチは、試合の生データにクラッチの行・プレーを足した写し（画面の日程結果などと同じ経路。shared/clutchGame.ts）から出した値と比べる（設計書375章）。
       // 出場中の材料（割合）は写しの経路では出さないので比べない
       if (option.value === "clutch") {
         const view = gameWithClutchView(game);

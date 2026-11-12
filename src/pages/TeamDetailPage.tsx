@@ -3002,7 +3002,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const situationalTeamPeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === situationalTeamPeriod);
   // 「ショットチャート」専用のQ別/前後半
   const [teamShotChartPeriod, setTeamShotChartPeriod] = usePageState<PeriodRangeValue>(pk("teamShotChartPeriod"), "all");
-  // ショットはピリオド番号で絞るので、クラッチは選べない（設計書373章）
+  // ショットはピリオド番号で絞るので、クラッチは選べない（設計書375章）
   const teamShotChartPeriodOption = SEASON_PERIOD_OPTIONS_NO_CLUTCH.find((o) => o.value === teamShotChartPeriod);
   const [situationalTeamBoxTab, setSituationalTeamBoxTab] = usePageState<BoxscoreTabKey | "shooting" | "periods">(pk("situationalTeamBoxTab"), "traditional");
   // Traditional〜Scoring の区間（Q別・前後半）は、試合の生データではなくチームのピリオド別の索引から出す（全チームスタッツの区間別と同じ値。DESIGN.md 273章）。
@@ -3926,7 +3926,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       : scheduleRows.filter((row) => (gameLogsByScheduleKey.get(row.scheduleKey)?.gameType ?? row.gameType) === scheduleGameType);
   // 延長（Periods 以外のカテゴリ）を選んだときは、延長のあった試合だけを出す（その試合数を添える）
   const scheduleOvertimeOnly = schedulePeriod === "ot" && scheduleBoxTab !== "periods";
-  // クラッチも、クラッチになった試合だけを出す（値は試合の生データにクラッチの行を足した写しから。shared/clutchGame.ts。設計書373章）
+  // クラッチも、クラッチになった試合だけを出す（値は試合の生データにクラッチの行を足した写しから。shared/clutchGame.ts。設計書375章）
   const scheduleClutchOnly = schedulePeriod === "clutch" && scheduleBoxTab !== "periods";
   const scheduleFilteredRows = scheduleOvertimeOnly
     ? scheduleGameTypeRows.filter((row) => (gameLogsByScheduleKey.get(row.scheduleKey)?.overtimes ?? 0) > 0)
@@ -4363,7 +4363,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   <div key={key} className="leader-card">
                     <div className="leader-stat-label">{leaderStatLabel(def)}</div>
                     <Link to={`/players/${leader.playerId}`} className="leader-top1">
-                      <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" />
+                      <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" season={season} teamId={teamId} />
                       <div className="leader-info">
                         <div className="leader-value">{def.format(leader)}</div>
                         <div className="leader-name">
@@ -5843,7 +5843,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   stateKey={pk("lineupOcSummaryFilter")}
                   axes={[
                     gameTypeAxis(lineupOcFromIndex ? lineupOcGameType : "both", setLineupOcGameType, season, { defaultValue: "both", disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE }),
-                    // 下の5人組の表（出場区間をピリオドで絞る）にも効くので、クラッチは選べない（設計書373章）
+                    // 下の5人組の表（出場区間をピリオドで絞る）にも効くので、クラッチは選べない（設計書375章）
                     periodAxis(lineupOcFromIndex ? lineupOcPeriod : "all", setLineupOcPeriod, SEASON_PERIOD_OPTIONS_NO_CLUTCH, {
                       disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE,
                     }),

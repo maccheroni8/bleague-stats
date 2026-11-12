@@ -2,7 +2,8 @@ import { usePlayerFigureFilter } from './usePlayerFigureFilter';
 import { onCourtShareSeasonUnsupported } from '../lib/onCourtShareSeason';
 import { buildPlayerFigurePoints, passesRatio } from '../lib/figurePlayerPoints';
 import { useMemo, useRef, useState } from 'react';
-import { fetchPlayers, fetchTeams, fetchPlayerGameLogs, fetchTeamGameLogs, fetchDivisionHistory, fetchSeasonRegistrations, playerPhotoUrl,  } from '../lib/data';
+import { fetchPlayers, fetchTeams, fetchPlayerGameLogs, fetchTeamGameLogs, fetchDivisionHistory, fetchSeasonRegistrations } from '../lib/data';
+import { PlayerPhoto } from '../components/PlayerPhoto';
 import { useJsonData } from '../lib/useJsonData';
 import type { Division } from '../../shared/types';
 import { divisionListParam, enumParam, numberParam, situationalParam, useUrlState, type UrlCodec } from '../lib/urlState';
@@ -108,7 +109,7 @@ export default function TopScorersFigure({season,category}:FigureProps){
     <div className="ratings-plot">
      {xDomain.ticks.map(t=><span key={`x${t}`} className={`ratings-grid-v scoring-grid ${major(t,xDomain.step)?'is-major':'is-minor'}`} style={{left:`${x(t)}%`}}/>)}
      {yDomain.ticks.map(t=><span key={`y${t}`} className={`ratings-grid-h scoring-grid ${major(t,yDomain.step)?'is-major':'is-minor'}`} style={{top:`${y(t)}%`}}/>)}
-     {plotted.map(p=><ScorerPhoto key={p.id} point={p} label={`${playerLabel(p.name)}：平均得点 ${formatDecimal(p.pts)}、${SCORER_LABELS[axis]} ${valueText(p.values[axis],axis)}`} selected={hl.has([p.teamId])} expanded={hover===p.id} left={x(p.values[axis]!)} top={y(p.pts)} onSelect={()=>select(p)} onDismiss={()=>setHover(null)}/>)}
+     {plotted.map(p=><ScorerPhoto key={p.id} point={p} season={season} teamId={p.teamId} label={`${playerLabel(p.name)}：平均得点 ${formatDecimal(p.pts)}、${SCORER_LABELS[axis]} ${valueText(p.values[axis],axis)}`} selected={hl.has([p.teamId])} expanded={hover===p.id} left={x(p.values[axis]!)} top={y(p.pts)} onSelect={()=>select(p)} onDismiss={()=>setHover(null)}/>)}
      <PlotCounts points={plotted.map(p=>({left:x(p.values[axis]!),top:y(p.pts)}))} lines={countLines}/>
      {tip&&<div className="ratings-tooltip scoring-tooltip" role="tooltip" style={{left:`clamp(0px, calc(${x(tip.values[axis]!)}% - 130px), calc(100% - 260px))`,top:`clamp(0px, calc(${y(tip.pts)}% + 24px), calc(100% - 120px))`}}><strong>{playerLabel(tip.name)}（{teamLabel(tip.teamId,tip.teamName)}）</strong><span>平均得点 {formatDecimal(tip.pts)}</span><span>{SCORER_LABELS[axis]} {valueText(tip.values[axis],axis)}</span><span>{tip.games}試合・{tip.wins}勝{tip.games-tip.wins}敗</span></div>}
     </div>
@@ -138,9 +139,8 @@ export function ScorerSilhouette({name}:{name:string}){
   <span className="scorer-name">{lines.map((l,i)=><span key={i}>{l}</span>)}</span>
  </span>;
 }
-export function ScorerPhoto({point,label,selected,expanded,left,top,onSelect,onDismiss}:{point:Pick<ScorerPoint,'playerId'|'name'|'division'>;label:string;selected:boolean;expanded:boolean;left:number;top:number;onSelect:()=>void;onDismiss:()=>void}){
- const [failed,setFailed]=useState(false);
+export function ScorerPhoto({point,season,teamId,label,selected,expanded,left,top,onSelect,onDismiss}:{point:Pick<ScorerPoint,'playerId'|'name'|'division'>;season:string;teamId:string;label:string;selected:boolean;expanded:boolean;left:number;top:number;onSelect:()=>void;onDismiss:()=>void}){
  return <button className={`ratings-point scorer-point${selected?' is-selected is-emphasized':''}${expanded?' is-expanded':''}`} aria-label={label} aria-pressed={selected} style={{left:`${left}%`,top:`${top}%`,borderColor:DIVISION_RATING_COLORS[point.division??'unknown']}} onPointerEnter={e=>{if(e.pointerType==='mouse')onSelect();}} onPointerLeave={e=>{if(e.pointerType==='mouse')onDismiss();}} onFocus={onSelect} onBlur={onDismiss} onClick={onSelect}>
- {!failed?<img src={playerPhotoUrl(point.playerId)} alt="" loading="eager" width={32} height={32} onError={()=>setFailed(true)}/>:<ScorerSilhouette name={point.name}/>}
+ <PlayerPhoto playerId={point.playerId} season={season} teamId={teamId} size={32} plain loading="eager" fallback={<ScorerSilhouette name={point.name}/>}/>
  </button>;
 }

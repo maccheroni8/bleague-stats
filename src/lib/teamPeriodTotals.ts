@@ -242,7 +242,7 @@ export function sumTeamPeriodTotals(
     t.oppBenchPoints += p("benchPoints");
     t.oppStarterPoints += p("starterPoints");
   }
-  // クラッチの被ファウルは「値なし」（プレーバイプレーの記録が足りない。画面は「-」。設計書373章）
+  // クラッチの被ファウルは「値なし」（プレーバイプレーの記録が足りない。画面は「-」。設計書375章）
   if (value === "clutch") {
     t.fd = Number.NaN;
     t.oppFd = Number.NaN;

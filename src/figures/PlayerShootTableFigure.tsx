@@ -123,7 +123,7 @@ export default function PlayerShootTableFigure({ season, category }: FigureProps
         <PlayerNamePool names={names}>
           <ShootTableView rows={sorted} rowKey={p => p.id} columns={columns} sort={sortKey} onSort={toggleSort} ranks={ranks} nameHeader="PLAYER" highlight={p => hl.has(p.teamIds)} ariaLabel="シュート成功率（選手）"
             renderName={p => <div className="shoot-who">
-              <PlayerPhoto playerId={p.playerId} size={44} className="player-cell-photo" placeholder />
+              <PlayerPhoto playerId={p.playerId} size={44} className="player-cell-photo" placeholder season={season} teamId={p.lastTeamId} />
               <span className="shoot-who-line"><ResponsivePlayerName name={p.name} among={names} /><span className="shoot-abbr">（<TeamChip teamId={p.lastTeamId}>{teamAbbr(p)}</TeamChip>）</span></span>
             </div>} />
         </PlayerNamePool>

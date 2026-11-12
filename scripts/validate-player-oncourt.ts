@@ -108,7 +108,7 @@ for (const season of seasons) {
     if (gameIndex && periodIndex && periodIndex.indexRows === gameIndex.rows.player.length) {
       const pr = periodIndex.rows;
       for (let i = 0; i < pr.row.length; i++) {
-        // クラッチの行（第4Q・延長と重なる。validate:clutch が確かめる。設計書373章）は試合全体の合計に入れない
+        // クラッチの行（第4Q・延長と重なる。validate:clutch が確かめる。設計書375章）は試合全体の合計に入れない
         if (pr.period[i] === CLUTCH_ATOM_INDEX) continue;
         const r = pr.row[i]!;
         const k = `${gameIndex.players[gameIndex.rows.player[r]!]![0]}|${gameIndex.games.key[gameIndex.rows.game[r]!]}`;

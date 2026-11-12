@@ -324,7 +324,7 @@ const nameColumn: Column<PlayerRow> = {
   sortValue: (r) => r.player.name,
   render: (r) => (
     <span className="player-cell">
-      <PlayerPhoto playerId={r.player.playerId} size={44} className="player-cell-photo player-cell-photo-lg" />
+      <PlayerPhoto playerId={r.player.playerId} size={44} className="player-cell-photo player-cell-photo-lg" season={r.season} teamId={r.player.teamId} />
       <span className="player-cell-name">
         <ResponsivePlayerName name={r.player.name} />
       </span>
@@ -1653,7 +1653,7 @@ function AwardEntryRow({
     <li className="award-entry">
       <Link to={`/players/${entry.playerId}?season=${season}`} className="cell-link">
         <span className="player-cell">
-          <PlayerPhoto playerId={entry.playerId} size={32} className="player-cell-photo" />
+          <PlayerPhoto playerId={entry.playerId} size={32} className="player-cell-photo" season={season} teamId={teamId} />
           <span className="rank-name-cell">
             <span className="rank-name">
               <ResponsivePlayerName name={name} />
@@ -1842,7 +1842,7 @@ function PlayerRecentFormTab({ season, league }: { season: string; league: Leagu
       sortValue: (r) => r.player.name,
       render: (r) => (
         <span className="player-cell">
-          <PlayerPhoto playerId={r.player.playerId} size={44} className="player-cell-photo player-cell-photo-lg" />
+          <PlayerPhoto playerId={r.player.playerId} size={44} className="player-cell-photo player-cell-photo-lg" season={season} teamId={r.player.teamId} />
           <span className="player-cell-name">
         <ResponsivePlayerName name={r.player.name} />
       </span>

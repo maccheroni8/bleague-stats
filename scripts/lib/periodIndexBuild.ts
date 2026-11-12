@@ -62,7 +62,7 @@ import { buildOfficialPaintSplit } from "../../shared/paintSplit.ts";
 import { buildPlayerBoxscores, buildTeamTotalCounts, computeTeamRatings, rowsInPeriodRange, type BoxscoreCounts } from "../../src/lib/boxscoreAggregate";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeOption } from "../../src/lib/periodRange";
 
-/** クラッチの区間の選択肢（仮のピリオド CLUTCH_PERIOD だけ。設計書373章） */
+/** クラッチの区間の選択肢（仮のピリオド CLUTCH_PERIOD だけ。設計書375章） */
 const CLUTCH_OPTION: PeriodRangeOption = { value: "clutch" as PeriodRangeOption["value"], label: "クラッチ", periods: [CLUTCH_PERIOD] };
 
 /** クラッチ中の人数別の値（FOREIGN_INDEX_COLUMNS の並び）。攻撃回数は持たない（-1。クラッチの攻撃の境目の決まりが無いため）。数えられる5人組が無いチームは含めない */
@@ -324,7 +324,7 @@ export async function buildPeriodIndex(
           )
         : null;
     const foreignValues = foreignValuesByAtom(game, onCourt, classify, maxForeignOnCourt);
-    // クラッチ（設計書373章）: 判定できる試合（プレーバイプレーがある・前後半5分の特別な試合でない・ピリオド別の行がある）で、クラッチになった試合だけ値を持つ。
+    // クラッチ（設計書375章）: 判定できる試合（プレーバイプレーがある・前後半5分の特別な試合でない・ピリオド別の行がある）で、クラッチになった試合だけ値を持つ。
     // 材料（在コートの復元・クラッチの行）は shared/clutchGame.ts（画面の日程結果などと同じ）
     const clutch = !short && !noPeriods ? buildClutchGame(game) : null;
     const clutchForeign = clutch ? clutchForeignValues(clutch.onCourt.lineupStints, classify, maxForeignOnCourt, clutch.judgement.windows) : null;
@@ -420,7 +420,7 @@ export async function buildPeriodIndex(
           }
         }
       }
-      // クラッチの区間（設計書373章）。クラッチのプレーだけの仮のピリオドの行・プレーバイプレーを、Q別と同じ関数に渡す
+      // クラッチの区間（設計書375章）。クラッチのプレーだけの仮のピリオドの行・プレーバイプレーを、Q別と同じ関数に渡す
       if (clutch && clutchSides) {
         const cs = clutchSides[side]!;
         const opt = CLUTCH_OPTION;

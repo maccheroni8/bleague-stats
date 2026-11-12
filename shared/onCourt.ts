@@ -328,7 +328,7 @@ interface RelevantEvent {
   actionCd?: number;
   /** poss: プレーバイプレーに記録が無く、次の動きから終わっていたと判断したか */
   implicit?: boolean;
-  /** score・stat: クラッチのプレー（options.clutchEvents に入っている。CLUTCH_PERIOD の区間にも数える。設計書373章） */
+  /** score・stat: クラッチのプレー（options.clutchEvents に入っている。CLUTCH_PERIOD の区間にも数える。設計書375章） */
   clutch?: boolean;
 }
 
@@ -880,7 +880,7 @@ export function reconstructOnCourt(
     /**
      * クラッチのプレー（playByPlays の要素そのもの。shared/clutchTime.ts の judgeClutch）。指定すると、その得点・数え上げを、
      * 本来のピリオドに加えて CLUTCH_PERIOD の区間（pointsByPeriod・countsByPeriod・playerEventsByPeriod）にも数える（teamTotals・+/- は二重に数えない）。
-     * ポゼッションの終わり（poss）は数えない。クラッチの索引を作るときだけ指定する（設計書373章）
+     * ポゼッションの終わり（poss）は数えない。クラッチの索引を作るときだけ指定する（設計書375章）
      */
     clutchEvents?: ReadonlySet<PlayByPlayEvent>;
   } = {},

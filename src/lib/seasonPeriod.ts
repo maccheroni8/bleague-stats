@@ -43,7 +43,7 @@ import {
 } from "./playerSeasonBoxscore";
 import type { GameTeamInfo } from "./situational";
 
-/** クラッチ（第4Q・延長の残り5:00以下で5点差以内。shared/clutchTime.ts。設計書373章）。periods は索引の仮のピリオド番号で、試合の生データにはこの番号のプレーは無い */
+/** クラッチ（第4Q・延長の残り5:00以下で5点差以内。shared/clutchTime.ts。設計書375章）。periods は索引の仮のピリオド番号で、試合の生データにはこの番号のプレーは無い */
 export const CLUTCH_PERIOD_OPTION: PeriodRangeOption = { value: "clutch", label: "クラッチ", periods: [CLUTCH_PERIOD] };
 
 /** 延長のピリオド番号（第1延長が5）。生データを使う表（アシストの関係性など）が延長を絞り込むときに使う。10回の延長まで */
@@ -58,7 +58,7 @@ export const SEASON_PERIOD_OPTIONS: PeriodRangeOption[] = [
 
 /**
  * クラッチを除いた選択肢。試合の生データ（プレーバイプレー・ショット）をピリオド番号で絞る表（ショットチャート・ラインナップの出場区間など）用。
- * クラッチはピリオド番号では絞れないので、索引から読む表だけで選べる（設計書373章）
+ * クラッチはピリオド番号では絞れないので、索引から読む表だけで選べる（設計書375章）
  */
 export const SEASON_PERIOD_OPTIONS_NO_CLUTCH: PeriodRangeOption[] = SEASON_PERIOD_OPTIONS.filter((o) => o.value !== "clutch");
 
@@ -70,9 +70,9 @@ export function seasonPeriodOption(value: PeriodRangeValue): PeriodRangeOption {
 export const OVERTIME_MIN_GAMES = 3;
 export const OVERTIME_ELIGIBILITY_LABEL = `延長に出た試合が${OVERTIME_MIN_GAMES}試合以上`;
 export const OVERTIME_ELIGIBILITY_REASON = `延長は、${OVERTIME_ELIGIBILITY_LABEL}の選手が対象です（出場率などの掲載基準は使いません）。`;
-/** Shooting（スポーツナビの記録）はプレーバイプレーと結び付かず、クラッチの判定ができないので出さない（設計書373章。2段階目の候補） */
+/** Shooting（スポーツナビの記録）はプレーバイプレーと結び付かず、クラッチの判定ができないので出さない（設計書375章。2段階目の候補） */
 export const SHOOTING_CLUTCH_UNSUPPORTED_REASON = "Shooting（スポーツナビの記録）は、クラッチでは出せません（Q別・前後半・延長は選べます）。";
-/** クラッチのランキングの掲載基準: クラッチに出た試合の数（延長と同じ数。設計書373章） */
+/** クラッチのランキングの掲載基準: クラッチに出た試合の数（延長と同じ数。設計書375章） */
 export const CLUTCH_ELIGIBILITY_LABEL = `クラッチに出た試合が${OVERTIME_MIN_GAMES}試合以上`;
 export const CLUTCH_ELIGIBILITY_REASON = `クラッチは、${CLUTCH_ELIGIBILITY_LABEL}の選手が対象です（出場率などの掲載基準は使いません）。`;
 /** 延長・クラッチの掲載基準の表示（それ以外の区間は null） */
@@ -261,7 +261,7 @@ export function seasonPeriodTotalsOf(
     }
   }
   if (isSubsetPeriod(value) && !found) return null;
-  // クラッチの被ファウルは「値なし」（画面は「-」。periodIndex.ts の periodGameAt と同じ。設計書373章）
+  // クラッチの被ファウルは「値なし」（画面は「-」。periodIndex.ts の periodGameAt と同じ。設計書375章）
   if (value === "clutch") sum.foulsDrawn = Number.NaN;
   const ownRow = g * 2 + (isHome ? 0 : 1);
   const oppRow = g * 2 + (isHome ? 1 : 0);

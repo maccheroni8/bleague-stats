@@ -56,7 +56,7 @@ export function teamPeriodGameAt(view: TeamGameIndexView, file: TeamPeriodIndexF
     pt2in: own("pt2in"),
     pft: own("pft"),
     pt2nd: own("pt2nd"),
-    // クラッチの被ファウルは「値なし」（画面は「-」。設計書373章）
+    // クラッチの被ファウルは「値なし」（画面は「-」。設計書375章）
     foulsDrawn: period === "clutch" ? Number.NaN : own("foulsDrawn"),
     dunks: own("dunks"),
     benchPoints: own("benchPoints"),

@@ -1153,7 +1153,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
     return [...byId.entries()].map(([teamId, teamName]) => ({ teamId, label: teamShortName(teamId, teamName) }));
   }, [shotChartOwnTeamByScheduleKey]);
 
-  // ショットはピリオド番号で絞るので、クラッチは選べない（設計書373章）
+  // ショットはピリオド番号で絞るので、クラッチは選べない（設計書375章）
   const shotChartPeriodOption = SEASON_PERIOD_OPTIONS_NO_CLUTCH.find((o) => o.value === shotChartPeriod);
   const filteredSeasonShotEvents = useMemo(() => {
     if (!seasonShotGameData) return [];
@@ -1833,7 +1833,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       const rawGame = periodRawGames.get(g.scheduleKey);
       if (!rawGame) continue;
       readyCount++;
-      // クラッチは、試合の生データにクラッチのプレー（仮のピリオド）を足した写しで数える。クラッチにならなかった試合は数えない（設計書373章）
+      // クラッチは、試合の生データにクラッチのプレー（仮のピリオド）を足した写しで数える。クラッチにならなかった試合は数えない（設計書375章）
       const game = situationalStatsPeriod === "clutch" && rawGame.raw.PlayByPlays.length > 0 ? gameWithClutchView(rawGame) : rawGame;
       if (!game) continue;
       if (game.raw.PlayByPlays.length === 0) {
@@ -2518,7 +2518,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
       <div className="player-header-columns">
         <div className="player-header-photo">
-          <PlayerPhoto playerId={player.playerId} size={280} />
+          <PlayerPhoto playerId={player.playerId} size={280} season={season} teamId={player.teamId} />
         </div>
 
         <div className="player-header-profile">

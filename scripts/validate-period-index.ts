@@ -26,7 +26,7 @@ import { isManualBoxscoreKey } from "./lib/manualBoxscores.ts";
 import path from "node:path";
 import { DATA_DIR, readAllGames, readJson } from "./lib/storage.ts";
 import {
-  // 試合全体の区間（クラッチは第4Q・延長と重なるので足さない。クラッチの区間は validate:clutch が確かめる。設計書373章）
+  // 試合全体の区間（クラッチは第4Q・延長と重なるので足さない。クラッチの区間は validate:clutch が確かめる。設計書375章）
   PERIOD_GAME_ATOMS as PERIOD_ATOMS,
   CLUTCH_ATOM_INDEX,
   PERIOD_INDEX_VERSION,

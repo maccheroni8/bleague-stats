@@ -136,7 +136,7 @@ const TRADITIONAL_COLUMNS: BoxscoreColumn[] = [
   { key: "stocks", label: "STOCKS", format: (c) => String(c.stl + c.blk), value: (c) => c.stl + c.blk },
   { key: "bsr", label: "BSR", format: (c) => String(c.bson), value: (c) => c.bson, higherIsBetter: false },
   { key: "f", label: "F", format: (c) => String(c.foul), value: (c) => c.foul, higherIsBetter: false },
-  // 値なし（NaN。クラッチの被ファウル・EFF。設計書373章）は「-」
+  // 値なし（NaN。クラッチの被ファウル・EFF。設計書375章）は「-」
   { key: "fd", label: "FD", format: (c) => (Number.isNaN(c.foulon) ? "-" : String(c.foulon)), value: (c) => c.foulon },
   { key: "eff", label: "EFF", format: (c) => (Number.isNaN(c.eff) ? "-" : String(c.eff)), value: (c) => c.eff },
   plusMinusCol,

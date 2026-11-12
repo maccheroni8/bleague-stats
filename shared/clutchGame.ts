@@ -1,4 +1,4 @@
-// 1試合分のクラッチの材料（設計書373章）。Q別の索引を作るとき（scripts/lib/periodIndexBuild.ts）と、試合の生データを画面で読む表（日程結果など）で同じものを使う。
+// 1試合分のクラッチの材料（設計書375章）。Q別の索引を作るとき（scripts/lib/periodIndexBuild.ts）と、試合の生データを画面で読む表（日程結果など）で同じものを使う。
 // 判定は shared/clutchTime.ts。ここでは、クラッチのプレーを CLUTCH_PERIOD の区間にも数えた在コートの復元と、チームごとのクラッチのボックススコアの行を作る。
 import {
   CLUTCH_PERIOD,

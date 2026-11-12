@@ -25,7 +25,8 @@ export function TeamDetailPublicLogo({ season, pageTeamId, ...props }: Component
 export function TeamDetailPublicPlayerPhoto({ season, pageTeamId, ...props }: ComponentProps<typeof PlayerPhoto> & {
   season: string; pageTeamId: string;
 }) {
-  if (pageTeamId !== TARGET_TEAM) return <PlayerPhoto {...props} />;
+  // 257章の対応表を置いていないチーム・シーズンは、シーズン別の選手写真の台帳（public/media/player-photos/）でそのシーズン・チームの写真
+  if (pageTeamId !== TARGET_TEAM || !hasMediaCatalog(season)) return <PlayerPhoto {...props} season={season} teamId={pageTeamId} />;
   // チーム別の表なので選手マスタの現在所属ではなくページの所属を指定する。
   const { playerId, ...appearance } = props;
   return <PublicPlayerPhoto request={{ kind: "player", context: "team", season, teamId: pageTeamId, playerId }} {...appearance} />;

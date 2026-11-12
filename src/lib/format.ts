@@ -3,7 +3,7 @@
  * 小数のある値は区切らない（小数・割合・年・ID は区切らない方針）
  */
 export function formatDecimal(value: number, digits = 2): string {
-  // 値なし（NaN。クラッチの被ファウルなど、出せない項目。設計書373章）は「-」
+  // 値なし（NaN。クラッチの被ファウルなど、出せない項目。設計書375章）は「-」
   if (Number.isNaN(value)) return "-";
   return digits === 0 ? formatInteger(value) : value.toFixed(digits);
 }

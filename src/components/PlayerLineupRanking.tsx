@@ -188,7 +188,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const current = useCurrentPlayerNames(allTime);
 
   // 区間は1Q〜4Q・前半・後半・延長（すべての延長の合計。第1延長・第2延長は分けない。DESIGN.md 273章）
-  // 出場区間（team-stints）はピリオドで絞るので、クラッチは選べない（設計書373章）
+  // 出場区間（team-stints）はピリオドで絞るので、クラッチは選べない（設計書375章）
   const periodOptions = SEASON_PERIOD_OPTIONS_NO_CLUTCH;
   const periodOption = periodOptions.find((o) => o.value === periodValue) ?? periodOptions[0]!;
 
@@ -420,7 +420,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                               ×
                             </span>
                           )}
-                          <PairPerson playerId={p.id} name={p.name} season={r.lastSeason} among={among} />
+                          <PairPerson playerId={p.id} name={p.name} season={r.lastSeason} among={among} photoSeason={allTime ? null : r.lastSeason} teamId={r.teamId} />
                         </span>
                       ))}
                     </span>
@@ -428,7 +428,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
                 }
                 subLabel={(r) => <RowLine row={r} unit={unit} allTime={allTime} narrow={narrow} />}
                 linkTo={(r) => (unit === "onoff" ? `/players/${r.players[0]!.id}?season=${r.lastSeason}` : undefined)}
-                avatar={unit === "onoff" ? (r) => <PlayerPhoto playerId={r.players[0]!.id} size={56} className="player-cell-photo" placeholder /> : undefined}
+                avatar={unit === "onoff" ? (r) => <PlayerPhoto playerId={r.players[0]!.id} size={56} className="player-cell-photo" placeholder season={allTime ? null : r.lastSeason} teamId={r.teamId} /> : undefined}
                 teamColor={(r) => teamColors?.[r.teamId]?.primary}
                 chipColor={(r) => teamChipColor(r.teamId, teamColors)}
                 exportKeepSub

@@ -608,7 +608,7 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
                 ? FORCED_TURNOVER_ITEMS
                 : columns
                     .filter((c) => c.key !== "paint2games")
-                    // クラッチの被ファウルは「値なし」なので選べない（設計書373章）
+                    // クラッチの被ファウルは「値なし」なので選べない（設計書375章）
                     .map((c) => (period === "clutch" && c.key === "fd" ? { ...c, label: `${c.label}（クラッチは対象外）`, disabled: true } : c)),
             statKey,
             setStatKey,
@@ -1229,7 +1229,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
               }}
               teamColor={(p) => teamColors?.[clubOf(p).teamId]?.primary}
               chipColor={(p) => teamChipColor(clubOf(p).teamId, teamColors)}
-              avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" placeholder />}
+              avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" placeholder season={season} teamId={clubOf(p).teamId} />}
               exportTeam={(p) => [teamShortName(clubOf(p).teamId, clubOf(p).teamName), gamesText(p)].filter(Boolean).join("・")}
               limit={PLAYER_RANK_TOP_N}
               compact

@@ -10,7 +10,7 @@ import { CLUTCH_PERIOD } from "../../shared/clutchTime";
 export const GAME_RECORD_PERIOD_OPTIONS: PeriodRangeOption[] = [
   ...buildPeriodRangeOptions(4),
   { value: "ot", label: "延長", periods: [5] },
-  // クラッチ（第4Q・延長の残り5:00以下で5点差以内。クラッチになった試合だけ。設計書373章）
+  // クラッチ（第4Q・延長の残り5:00以下で5点差以内。クラッチになった試合だけ。設計書375章）
   { value: "clutch", label: "クラッチ", periods: [CLUTCH_PERIOD] },
 ];
 
@@ -37,7 +37,7 @@ export function gameRecordPeriodLabel(value: PeriodRangeValue): string | null {
 export const PERIOD_WORST_UNSUPPORTED_REASON =
   "Q別・前後半では、ワースト（少ない順）は選べません。少ない方から並べると、0の同率が大量に並ぶためです（試合全体のときだけ選べます）。";
 
-/** クラッチを選んだとき、被ファウル・EFF を選べない理由（プレーバイプレーの被ファウルの記録が足りない。EFF は 2020-21以降の式が被ファウルを含む。設計書373章） */
+/** クラッチを選んだとき、被ファウル・EFF を選べない理由（プレーバイプレーの被ファウルの記録が足りない。EFF は 2020-21以降の式が被ファウルを含む。設計書375章） */
 export const CLUTCH_UNSUPPORTED_STAT_KEYS: readonly string[] = ["foulsDrawn", "eff"];
 export const CLUTCH_UNSUPPORTED_STAT_REASON = "被ファウル（FD）とEFFは、試合の流れの記録に被ファウルの記録が足りないため、クラッチでは選べません。";
 

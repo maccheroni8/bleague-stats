@@ -161,7 +161,7 @@ async function validateSeason(season: string, rawSeason: boolean) {
       for (const q of PLAYER_QUARTER_ROWS) {
         const tr = totalRow.get(q.value);
         const expected = eligible.filter((g) => seasonPeriodTotalsOf(source, playerId, g.scheduleKey, g.isHome, q.value) !== null).length;
-        // 延長・クラッチは、その区間の値がある試合だけ（設計書373章）
+        // 延長・クラッチは、その区間の値がある試合だけ（設計書375章）
         if (q.value !== "ot" && q.value !== "clutch") {
           if (expected !== eligible.length) fail(`${tag} ${gameType} ${q.value}: 値のある試合 ${expected} ≠ 出場した試合 ${eligible.length}`);
         }

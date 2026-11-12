@@ -1,0 +1,43 @@
+{
+ "v": 1,
+ "season": "2016-17",
+ "photos": [
+  {
+   "teamId": "706",
+   "playerId": "9033",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2016-17/9033_02.jpg?v=1519365159",
+   "snapshot": "20221127163025",
+   "fetchedAt": "2026-11-11",
+   "sha256": "ab62dc2406c4a8bc3ff27b75d285a388dd1c1e56f69b232df6f420b43d19fad9"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8517",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2016-17/8517_02.jpg",
+   "snapshot": "20221127162938",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1d14542c263fe590d2180e78cdacc3bbba33e49d87969f0883a6a36e864200fb"
+  },
+  {
+   "teamId": "729",
+   "playerId": "9383",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/729/2016-17/9383_02.jpg?v=1519360772",
+   "snapshot": "20221127163113",
+   "fetchedAt": "2026-11-11",
+   "sha256": "354141a35f1a2ba4a6de06a7b160aa6fd879f24503be9d36063c3bf2c670e8cd"
+  },
+  {
+   "teamId": "706",
+   "playerId": "9028",
+   "origin": "wayback",
+   "url": "https://www.bleague.jp/files/user/roster/706/2016-17/9028_02.jpg",
+   "snapshot": "20221127163007",
+   "fetchedAt": "2026-11-11",
+   "sha256": "1b0ecb66af874171ea6b7b0a6e22b227f235d10d113178de9c4bbb81cf47c313"
+  }
+ ],
+ "missing": {}
+}

@@ -510,7 +510,7 @@ export function usePlayerSeasonRanking(
   const periodOption = seasonPeriodOption(period);
   const periodActive = periodOption.periods !== null;
   // 延長は、出場率などの掲載基準の代わりに「延長に出た試合が3試合以上」（256章の決定4）
-  // クラッチも延長と同じ（クラッチに出た試合が3試合以上。設計書373章）
+  // クラッチも延長と同じ（クラッチに出た試合が3試合以上。設計書375章）
   const overtimeActive = period === "ot" || period === "clutch";
   const conditionKeys = activeStatConditionKeys(statConditions);
   const conditionNeedsLogs = conditionKeys.some((k) => PLAYER_CONDITION_KEYS_NEEDING_LOGS.has(k));

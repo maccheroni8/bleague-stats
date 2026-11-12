@@ -362,7 +362,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                 subLinkTo={(e) => `/games/${e.scheduleKey}?season=${seasonOf(e)}`}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
                 chipColor={(e) => teamChipColor(e.teamId, teamColors)}
-                avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
+                avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder season={seasonOf(e)} teamId={e.teamId} />}
                 exportKeepSub
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}

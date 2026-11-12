@@ -2017,7 +2017,7 @@ function processTeams(
 
   // 延長の本数（DESIGN.md 219章）
   const overtimes = overtimeCount(game);
-  // クラッチになった試合か（第4Q・延長の残り5:00以下で5点差以内の時間かプレーがあった。判定できない試合〔プレーバイプレーが無い・前後半5分の特別な試合など〕は持たない。設計書373章）
+  // クラッチになった試合か（第4Q・延長の残り5:00以下で5点差以内の時間かプレーがあった。判定できない試合〔プレーバイプレーが無い・前後半5分の特別な試合など〕は持たない。設計書375章）
   const clutchJudged = game.raw.PlayByPlays.length > 0 ? judgeClutch(game.raw.PlayByPlays, game.homeTeam.id, game.homeScore, game.awayScore) : null;
   const clutchFields = clutchJudged?.ok ? { clutchGame: clutchJudged.judgement.isClutchGame } : {};
 

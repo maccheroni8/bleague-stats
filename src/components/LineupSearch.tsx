@@ -64,7 +64,7 @@ export function LineupSearch({ season, teamId, playerNameById, games, stateKey, 
   const selected = selectedRaw.filter((id) => candidates.includes(id));
 
   // 区間は1Q〜4Q・前半・後半・延長（すべての延長の合計。第1延長・第2延長は分けない。DESIGN.md 273章）
-  // 出場区間（team-stints）はピリオドで絞るので、クラッチは選べない（設計書373章）
+  // 出場区間（team-stints）はピリオドで絞るので、クラッチは選べない（設計書375章）
   const periodOptions = SEASON_PERIOD_OPTIONS_NO_CLUTCH;
   const periodOption = periodOptions.find((o) => o.value === periodValue) ?? periodOptions[0]!;
 

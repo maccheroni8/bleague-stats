@@ -64,10 +64,18 @@ function PairLine({ r, unit }: { r: PairRow; unit: "game" | "season" | "career" 
 }
 
 /** 1人分: 写真と、写真の下の名前（個人ページへのリンク）。幅は固定（CSS）。幅が狭いときの名前は名字（ResponsivePlayerName） */
-export function PairPerson({ playerId, name, season, among }: { playerId: string; name: string; season: string; among: readonly string[] }) {
+export function PairPerson({ playerId, name, season, among, photoSeason, teamId }: {
+  playerId: string;
+  name: string;
+  season: string;
+  among: readonly string[];
+  /** 写真のシーズン（1試合・シーズンの行はそのシーズン。通算の行は null＝今の写真） */
+  photoSeason?: string | null;
+  teamId?: string | null;
+}) {
   return (
     <Link to={`/players/${playerId}?season=${season}`} className="cell-link pair-person">
-      <PlayerPhoto playerId={playerId} size={44} className="player-cell-photo" placeholder />
+      <PlayerPhoto playerId={playerId} size={44} className="player-cell-photo" placeholder season={photoSeason} teamId={teamId} />
       <span className="pair-person-name">
         <ResponsivePlayerName name={name} among={among} breakAtDot />
       </span>
@@ -172,11 +180,11 @@ export function AssistPairRanking({ season, teamColors }: { season: string; team
                 rowKey={(e) => `${e.assisterId}>${e.scorerId}${e.scheduleKey ? `-${e.scheduleKey}` : ""}`}
                 name={(e) => (
                   <span className="pair-people">
-                    <PairPerson playerId={e.assisterId} name={e.assisterName} season={seasonOf(e)} among={among} />
+                    <PairPerson playerId={e.assisterId} name={e.assisterName} season={seasonOf(e)} among={among} photoSeason={unit === "career" ? null : seasonOf(e)} teamId={e.teamId} />
                     <span className="pair-arrow" aria-label="アシスト">
                       ⇒
                     </span>
-                    <PairPerson playerId={e.scorerId} name={e.scorerName} season={seasonOf(e)} among={among} />
+                    <PairPerson playerId={e.scorerId} name={e.scorerName} season={seasonOf(e)} among={among} photoSeason={unit === "career" ? null : seasonOf(e)} teamId={e.teamId} />
                   </span>
                 )}
                 subLabel={(e) => <PairLine r={e} unit={unit} />}
