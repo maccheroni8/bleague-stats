@@ -39,6 +39,8 @@ interface Expected {
   key: string;
   seconds: number;
   points: [number, number];
+  /** チームのターンオーバー［ホーム, アウェイ］（旧形式のチーム用のIDの13を含む） */
+  tov?: [number, number];
   players?: { name: string; pts: number; fgm: number; fga: number; ftm?: number; fta?: number }[];
 }
 const EXPECTED: Expected[] = [
@@ -93,6 +95,8 @@ function LEGACY_EXPECTED(): Expected[] {
       key: "4183",
       seconds: 300,
       points: [10, 13],
+      // 京都: 2:31 チームのターンオーバー（チーム用のIDの13）・中村 1:19・松井 0:01。富山: 3:35 チーム（17）・スミス 2:17・宇都 1:35
+      tov: [3, 3],
       players: [
         { name: "デイヴィッド・サイモン", pts: 5, fgm: 2, fga: 3, ftm: 1, fta: 2 },
         { name: "松井 啓十郎", pts: 5, fgm: 1, fga: 2, ftm: 2, fta: 2 },
@@ -398,7 +402,10 @@ async function validateSeason(season: string, category: Category): Promise<void>
       if (!okP) playerOk = false;
       detail.push(`${p.name} ${got ? `${got.pts}点 FG${got.fgm}/${got.fga} FT${got.ftm}/${got.fta}` : "行なし"}`);
     }
-    check(`${label} ${ex.key}: 手で数えた値（${ex.seconds}秒・${ex.points.join("-")}）と一致`, sec === ex.seconds && pts[0] === ex.points[0] && pts[1] === ex.points[1] && playerOk, `索引 ${sec}秒・${pts.join("-")} ${detail.join(" / ")}`);
+    const tov: [number, number] = [tc("tov", g * 2), tc("tov", g * 2 + 1)];
+    const tovOk = !ex.tov || (tov[0] === ex.tov[0] && tov[1] === ex.tov[1]);
+    if (ex.tov) detail.push(`TOV ${tov.join("-")}`);
+    check(`${label} ${ex.key}: 手で数えた値（${ex.seconds}秒・${ex.points.join("-")}）と一致`, sec === ex.seconds && pts[0] === ex.points[0] && pts[1] === ex.points[1] && playerOk && tovOk, `索引 ${sec}秒・${pts.join("-")} ${detail.join(" / ")}`);
   }
 }
 

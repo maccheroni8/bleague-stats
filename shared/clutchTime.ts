@@ -291,7 +291,8 @@ export function clutchBoxscoreRows(
     const code = ev.ActionCD1;
     if (code === teamOr) { team.RB_OFF += 1; team.RB_TOT += 1; continue; }
     if (code === teamDr) { team.RB_DEF += 1; team.RB_TOT += 1; continue; }
-    if (code === 17 || (code === 13 && !ev.PlayerID1)) { team.TO += 1; continue; }
+    // チームのターンオーバー: 17、選手IDの無い13、旧形式（2019-20以前）の「チーム用のID」付きの13（24秒など。選手の行に無いID。設計書372章の調査）
+    if (code === 17 || (code === 13 && (!ev.PlayerID1 || !byPlayer.has(ev.PlayerID1)))) { team.TO += 1; continue; }
     if (code === 20 || code === 21) { team.FOUL += 1; continue; }
     const row = ev.PlayerID1 ? byPlayer.get(ev.PlayerID1) : undefined;
     if (row) bumpPlayerRow(row as unknown as Record<string, number>, code);
