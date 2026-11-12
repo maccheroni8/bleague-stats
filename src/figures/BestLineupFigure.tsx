@@ -28,6 +28,7 @@ import { FigureExportButton } from './FigureExport';
 import type { FigureProps } from './catalog';
 import { useHighlightClubs } from './highlightClubs';
 import './BestLineupFigure.css';
+import { sortOrderLabel } from '../components/SortMark';
 
 const SIZE_VALUES = BEST_LINEUP_SIZES.map(String) as `${BestLineupSize}`[];
 const sizeCodec = enumParam<`${BestLineupSize}`>('bls', SIZE_VALUES, '5');
@@ -53,8 +54,8 @@ const ocCodec: UrlCodec<number | null> = {
   write: (p, v) => { if (v !== null) p.set('bloc', String(v)); },
 };
 
-/** 並び順の書き方（↓＝値の大きい順、↑＝小さい順。ほかの図と同じ） */
-const sortLabel = (s: BestLineupSort) => `${BEST_LINEUP_SORT_LABELS[s]}${s === 'def' ? '↑' : '↓'}`;
+/** 並び順の書き方（▼＝値の大きい順、▲＝小さい順。ほかの図・ランキングと同じ印。381・383章） */
+const sortLabel = (s: BestLineupSort) => sortOrderLabel(BEST_LINEUP_SORT_LABELS[s], s !== 'def');
 const signed = (v: number | null) => v === null ? '-' : `${v > 0 ? '+' : ''}${formatDecimal(v)}`;
 
 export default function BestLineupFigure({ season, category }: FigureProps) {
