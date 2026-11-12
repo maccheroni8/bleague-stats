@@ -57,11 +57,17 @@ export function ConditionTitle({
   section = false,
   statConditions,
   exportScope,
+  exportNameHidden = false,
+  exportOmitLabels,
 }: {
   title: string;
   /** 保存画像の見出しの1行目に出す範囲（「2026-27シーズン」）。見出しの先頭に範囲が書いてあるときは要らない */
   exportScope?: string;
   conditions: string[];
+  /** 保存画像の見出しから2行目（図の名前）を外す（比較。1行目の範囲と表の間を詰める）。画面の見出しは変えない */
+  exportNameHidden?: boolean;
+  /** 保存画像の条件の行から外すラベル（比較の「平均」「合計」）。画面の条件の行は変えない */
+  exportOmitLabels?: readonly string[];
   section?: boolean;
   /**
    * スタッツの条件（DESIGN.md 162章）。ほかの条件と同じ行につなぐと「または」がどこまで掛かるか読めないため、
@@ -73,24 +79,36 @@ export function ConditionTitle({
   const shown = visibleConditionLabels(conditions);
   const league = useLeague();
   const heading = exportHeadingLines(title, LEAGUE_LABELS[league], exportScope, leagueScopeLabel(league, true));
+  const renderConditions = (labels: string[], className: string) => (
+    // 幅が足りず折り返すときは、条件ラベルの区切り（／）でだけ折り返す（「試合全/体」のような単語の途中で切らない）
+    <p className={className}>
+      {labels.map((label, i) => (
+        <Fragment key={`${i}:${label}`}>
+          {i > 0 && LABEL_SEPARATOR}
+          <ConditionLabel label={label} />
+        </Fragment>
+      ))}
+    </p>
+  );
+  // 保存画像だけ条件のラベルを減らすときは、画面用（export-hide）と保存画像用（export-only）の2つを出す
+  const exportShown = exportOmitLabels ? shown.filter((label) => !exportOmitLabels.includes(label)) : shown;
+  const splitConditions = exportOmitLabels !== undefined && exportShown.length !== shown.length;
   return (
     <div className={`condition-title${section ? " condition-title-section" : ""}`}>
       <h2 className="export-hide">{renderTitle(title)}</h2>
       <div className="export-only export-heading">
         <p className="export-heading-scope">{heading.scope}</p>
-        <h2>{renderTitle(heading.name)}</h2>
+        {!exportNameHidden && <h2>{renderTitle(heading.name)}</h2>}
       </div>
-      {shown.length > 0 && (
-        // 幅が足りず折り返すときは、条件ラベルの区切り（／）でだけ折り返す（「試合全/体」のような単語の途中で切らない）
-        <p className="condition-title-conditions">
-          {shown.map((label, i) => (
-            <Fragment key={`${i}:${label}`}>
-              {i > 0 && LABEL_SEPARATOR}
-              <ConditionLabel label={label} />
-            </Fragment>
-          ))}
-        </p>
-      )}
+      {shown.length > 0 &&
+        (splitConditions ? (
+          <>
+            {renderConditions(shown, "condition-title-conditions export-hide")}
+            {exportShown.length > 0 && renderConditions(exportShown, "condition-title-conditions export-only")}
+          </>
+        ) : (
+          renderConditions(shown, "condition-title-conditions")
+        ))}
       {statConditions && statConditions.labels.length > 0 && (
         <p className="condition-title-conditions condition-title-stat">
           {statConditions.labels.map((label, i) => (

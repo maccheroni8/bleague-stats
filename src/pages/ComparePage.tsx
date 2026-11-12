@@ -36,7 +36,7 @@ import {
   type CompareColumnData,
   type TeamCompareColumnData,
 } from "../lib/compareShared";
-import { SEASON_GAME_TYPE_KEYS, type SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
+import { SEASON_DISPLAY_MODE_LABELS, SEASON_GAME_TYPE_KEYS, type SeasonGameTypeFilter } from "../lib/playerSeasonBoxscore";
 import type { SituationalFilter } from "../lib/situational";
 import { TEAM_PERSPECTIVE_LABELS, type TeamPerspective } from "../lib/teamStatsColumns";
 import {
@@ -62,6 +62,9 @@ import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
 import { seasonsScope } from "../lib/exportHeading";
 
 type Mode = "team" | "player";
+
+/** 保存画像の条件の行から外すラベル（平均・合計など表示方法の名前。画面の条件の行には残す） */
+const COMPARE_EXPORT_OMIT_LABELS: readonly string[] = Object.values(SEASON_DISPLAY_MODE_LABELS);
 
 /**
  * 比較の大見出し（「長崎ヴェルカ vs 宇都宮ブレックス」）。同じ名前が並ぶとき（同じチームの別シーズン等）だけ、シーズンを添えて区別する
@@ -418,7 +421,13 @@ function TeamCompareView({
         className={`export-target-versus export-versus-${Math.max(1, rows.length)}`}
         baseDate={compareBaseDate(slots.filter((_, i) => valid[i]))}
       >
-        {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} exportScope={seasonsScope(rows.map((r) => r.season))} />}
+        {rows.length > 0 && <ConditionTitle
+            title={title}
+            conditions={conditions}
+            exportScope={seasonsScope(rows.map((r) => r.season))}
+            exportNameHidden
+            exportOmitLabels={COMPARE_EXPORT_OMIT_LABELS}
+          />}
         <ComparisonTable
           statScope="team"
           rows={rows}
@@ -555,7 +564,13 @@ function PlayerCompareView({
         className={`export-target-versus export-versus-${Math.max(1, rows.length)}`}
         baseDate={compareBaseDate(slots.filter((_, i) => valid[i]))}
       >
-        {rows.length > 0 && <ConditionTitle title={title} conditions={conditions} exportScope={seasonsScope(rows.map((r) => r.season))} />}
+        {rows.length > 0 && <ConditionTitle
+            title={title}
+            conditions={conditions}
+            exportScope={seasonsScope(rows.map((r) => r.season))}
+            exportNameHidden
+            exportOmitLabels={COMPARE_EXPORT_OMIT_LABELS}
+          />}
         <ComparisonTable
           rows={rows}
           defs={defs}
