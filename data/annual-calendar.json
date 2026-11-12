@@ -10,7 +10,7 @@
           "end": "2027-01-11",
           "label": "天皇杯 ファイナル",
           "source": "https://gunma.pba-japanbasketball.jp/wp-content/uploads/2026/03/dfe23f0a6862f9b3334094cf223a54b2.pdf",
-          "note": "2026年4月の大会概要による開催期間。休養日を含みます。対戦カードは未収録です。"
+          "note": "2026年4月の大会概要による開催期間。休養日を含みます。"
         },
         {
           "id": "allstar-2027",
@@ -412,15 +412,1309 @@
           "venue": "沖縄アリーナ",
           "source": "https://www.easl.basketball/schedule-results",
           "link": "https://www.easl.basketball/schedules/ryukyugoldenkingsvstaoyuanpauianpilots-jan202027074000pm"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-05",
+          "tipoff": "11:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "1回戦",
+          "matchCode": "M2",
+          "cupStage": "final",
+          "id": "cup:M2",
+          "home": {
+            "id": "716",
+            "name": "信州ブレイブウォリアーズ"
+          },
+          "away": {
+            "name": "近畿ブロック代表"
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-05",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第二体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "1回戦",
+          "matchCode": "M3",
+          "cupStage": "final",
+          "id": "cup:M3",
+          "home": {
+            "name": "関東ブロック代表"
+          },
+          "away": {
+            "id": "714",
+            "name": "横浜エクセレンス"
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-05",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "1回戦",
+          "matchCode": "M4",
+          "cupStage": "final",
+          "id": "cup:M4",
+          "home": {
+            "id": "711",
+            "name": "福島ファイヤーボンズ"
+          },
+          "away": {
+            "name": "北信越ブロック代表"
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-05",
+          "tipoff": "17:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "1回戦",
+          "matchCode": "M6",
+          "cupStage": "final",
+          "id": "cup:M6",
+          "home": {
+            "id": "718",
+            "name": "神戸ストークス"
+          },
+          "away": {
+            "name": "Camellia"
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-05",
+          "tipoff": "20:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "1回戦",
+          "matchCode": "M8",
+          "cupStage": "final",
+          "id": "cup:M8",
+          "home": {
+            "id": "2727",
+            "name": "立川ダイス"
+          },
+          "away": {
+            "name": "中国ブロック代表"
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "11:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M9",
+          "cupStage": "final",
+          "id": "cup:M9:2488",
+          "home": {
+            "id": "2488",
+            "name": "長崎ヴェルカ"
+          },
+          "away": {
+            "name": "M1（東海ブロック代表 vs 徳島クラブ）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "11:00",
+          "venue": "国立代々木競技場第二体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M10",
+          "cupStage": "final",
+          "id": "cup:M10:713",
+          "home": {
+            "name": "M2（信州ブレイブウォリアーズ vs 近畿ブロック代表）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "713",
+            "name": "群馬クレインサンダーズ"
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "11:00",
+          "venue": "国立代々木競技場第二体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M10",
+          "cupStage": "final",
+          "id": "cup:M10:716",
+          "home": {
+            "id": "716",
+            "name": "信州ブレイブウォリアーズ"
+          },
+          "away": {
+            "id": "713",
+            "name": "群馬クレインサンダーズ"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第二体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M11",
+          "cupStage": "final",
+          "id": "cup:M11:703",
+          "home": {
+            "id": "703",
+            "name": "宇都宮ブレックス"
+          },
+          "away": {
+            "name": "M3（関東ブロック代表 vs 横浜エクセレンス）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第二体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M11",
+          "cupStage": "final",
+          "id": "cup:M11:714",
+          "home": {
+            "id": "703",
+            "name": "宇都宮ブレックス"
+          },
+          "away": {
+            "id": "714",
+            "name": "横浜エクセレンス"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M12",
+          "cupStage": "final",
+          "id": "cup:M12:704",
+          "home": {
+            "name": "M4（福島ファイヤーボンズ vs 北信越ブロック代表）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "704",
+            "name": "千葉ジェッツ"
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M12",
+          "cupStage": "final",
+          "id": "cup:M12:711",
+          "home": {
+            "id": "711",
+            "name": "福島ファイヤーボンズ"
+          },
+          "away": {
+            "id": "704",
+            "name": "千葉ジェッツ"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "17:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M13",
+          "cupStage": "final",
+          "id": "cup:M13:701",
+          "home": {
+            "id": "701",
+            "name": "琉球ゴールデンキングス"
+          },
+          "away": {
+            "name": "M5（山形クベーラ vs 日本体育大）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "17:00",
+          "venue": "国立代々木競技場第二体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M14",
+          "cupStage": "final",
+          "id": "cup:M14:718",
+          "home": {
+            "id": "718",
+            "name": "神戸ストークス"
+          },
+          "away": {
+            "id": "728",
+            "name": "シーホース三河"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "17:00",
+          "venue": "国立代々木競技場第二体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M14",
+          "cupStage": "final",
+          "id": "cup:M14:728",
+          "home": {
+            "name": "M6（神戸ストークス vs Camellia）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "728",
+            "name": "シーホース三河"
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "20:00",
+          "venue": "国立代々木競技場第二体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M15",
+          "cupStage": "final",
+          "id": "cup:M15:706",
+          "home": {
+            "id": "706",
+            "name": "アルバルク東京"
+          },
+          "away": {
+            "name": "M7（九州ブロック代表 vs JR秋田）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "20:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M16",
+          "cupStage": "final",
+          "id": "cup:M16:729",
+          "home": {
+            "name": "M8（立川ダイス vs 中国ブロック代表）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "729",
+            "name": "名古屋ダイヤモンドドルフィンズ"
+          },
+          "status": "upcoming"
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-06",
+          "tipoff": "20:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "2回戦",
+          "matchCode": "M16",
+          "cupStage": "final",
+          "id": "cup:M16:2727",
+          "home": {
+            "id": "2727",
+            "name": "立川ダイス"
+          },
+          "away": {
+            "id": "729",
+            "name": "名古屋ダイヤモンドドルフィンズ"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "11:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M17",
+          "cupStage": "final",
+          "id": "cup:M17:713",
+          "home": {
+            "name": "M9（長崎ヴェルカ vs M1の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "713",
+            "name": "群馬クレインサンダーズ"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "11:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M17",
+          "cupStage": "final",
+          "id": "cup:M17:716",
+          "home": {
+            "name": "M9（長崎ヴェルカ vs M1の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "716",
+            "name": "信州ブレイブウォリアーズ"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "11:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M17",
+          "cupStage": "final",
+          "id": "cup:M17:2488",
+          "home": {
+            "id": "2488",
+            "name": "長崎ヴェルカ"
+          },
+          "away": {
+            "name": "M10（M2の勝者 vs 群馬クレインサンダーズ）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M18",
+          "cupStage": "final",
+          "id": "cup:M18:703",
+          "home": {
+            "id": "703",
+            "name": "宇都宮ブレックス"
+          },
+          "away": {
+            "name": "M12（M4の勝者 vs 千葉ジェッツ）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M18",
+          "cupStage": "final",
+          "id": "cup:M18:704",
+          "home": {
+            "name": "M11（宇都宮ブレックス vs M3の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "704",
+            "name": "千葉ジェッツ"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M18",
+          "cupStage": "final",
+          "id": "cup:M18:711",
+          "home": {
+            "name": "M11（宇都宮ブレックス vs M3の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "711",
+            "name": "福島ファイヤーボンズ"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M18",
+          "cupStage": "final",
+          "id": "cup:M18:714",
+          "home": {
+            "id": "714",
+            "name": "横浜エクセレンス"
+          },
+          "away": {
+            "name": "M12（M4の勝者 vs 千葉ジェッツ）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "17:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M19",
+          "cupStage": "final",
+          "id": "cup:M19:701",
+          "home": {
+            "id": "701",
+            "name": "琉球ゴールデンキングス"
+          },
+          "away": {
+            "name": "M14（M6の勝者 vs シーホース三河）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "17:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M19",
+          "cupStage": "final",
+          "id": "cup:M19:718",
+          "home": {
+            "name": "M13（琉球ゴールデンキングス vs M5の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "718",
+            "name": "神戸ストークス"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "17:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M19",
+          "cupStage": "final",
+          "id": "cup:M19:728",
+          "home": {
+            "name": "M13（琉球ゴールデンキングス vs M5の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "728",
+            "name": "シーホース三河"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "20:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M20",
+          "cupStage": "final",
+          "id": "cup:M20:706",
+          "home": {
+            "id": "706",
+            "name": "アルバルク東京"
+          },
+          "away": {
+            "name": "M16（M8の勝者 vs 名古屋ダイヤモンドドルフィンズ）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "20:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M20",
+          "cupStage": "final",
+          "id": "cup:M20:729",
+          "home": {
+            "name": "M15（アルバルク東京 vs M7の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "729",
+            "name": "名古屋ダイヤモンドドルフィンズ"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-08",
+          "tipoff": "20:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準々決勝",
+          "matchCode": "M20",
+          "cupStage": "final",
+          "id": "cup:M20:2727",
+          "home": {
+            "name": "M15（アルバルク東京 vs M7の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "2727",
+            "name": "立川ダイス"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M21",
+          "cupStage": "final",
+          "id": "cup:M21:703",
+          "home": {
+            "name": "M17（M9の勝者 vs M10の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "703",
+            "name": "宇都宮ブレックス"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M21",
+          "cupStage": "final",
+          "id": "cup:M21:704",
+          "home": {
+            "name": "M17（M9の勝者 vs M10の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "704",
+            "name": "千葉ジェッツ"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M21",
+          "cupStage": "final",
+          "id": "cup:M21:711",
+          "home": {
+            "name": "M17（M9の勝者 vs M10の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "711",
+            "name": "福島ファイヤーボンズ"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M21",
+          "cupStage": "final",
+          "id": "cup:M21:713",
+          "home": {
+            "id": "713",
+            "name": "群馬クレインサンダーズ"
+          },
+          "away": {
+            "name": "M18（M11の勝者 vs M12の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M21",
+          "cupStage": "final",
+          "id": "cup:M21:714",
+          "home": {
+            "name": "M17（M9の勝者 vs M10の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "714",
+            "name": "横浜エクセレンス"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M21",
+          "cupStage": "final",
+          "id": "cup:M21:716",
+          "home": {
+            "id": "716",
+            "name": "信州ブレイブウォリアーズ"
+          },
+          "away": {
+            "name": "M18（M11の勝者 vs M12の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "14:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M21",
+          "cupStage": "final",
+          "id": "cup:M21:2488",
+          "home": {
+            "id": "2488",
+            "name": "長崎ヴェルカ"
+          },
+          "away": {
+            "name": "M18（M11の勝者 vs M12の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "19:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M22",
+          "cupStage": "final",
+          "id": "cup:M22:701",
+          "home": {
+            "id": "701",
+            "name": "琉球ゴールデンキングス"
+          },
+          "away": {
+            "name": "M20（M15の勝者 vs M16の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "19:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M22",
+          "cupStage": "final",
+          "id": "cup:M22:706",
+          "home": {
+            "name": "M19（M13の勝者 vs M14の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "706",
+            "name": "アルバルク東京"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "19:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M22",
+          "cupStage": "final",
+          "id": "cup:M22:718",
+          "home": {
+            "id": "718",
+            "name": "神戸ストークス"
+          },
+          "away": {
+            "name": "M20（M15の勝者 vs M16の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "19:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M22",
+          "cupStage": "final",
+          "id": "cup:M22:728",
+          "home": {
+            "id": "728",
+            "name": "シーホース三河"
+          },
+          "away": {
+            "name": "M20（M15の勝者 vs M16の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "19:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M22",
+          "cupStage": "final",
+          "id": "cup:M22:729",
+          "home": {
+            "name": "M19（M13の勝者 vs M14の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "729",
+            "name": "名古屋ダイヤモンドドルフィンズ"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-09",
+          "tipoff": "19:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "準決勝",
+          "matchCode": "M22",
+          "cupStage": "final",
+          "id": "cup:M22:2727",
+          "home": {
+            "name": "M19（M13の勝者 vs M14の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "2727",
+            "name": "立川ダイス"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:701",
+          "home": {
+            "name": "M21（M17の勝者 vs M18の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "701",
+            "name": "琉球ゴールデンキングス"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:703",
+          "home": {
+            "id": "703",
+            "name": "宇都宮ブレックス"
+          },
+          "away": {
+            "name": "M22（M19の勝者 vs M20の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:704",
+          "home": {
+            "id": "704",
+            "name": "千葉ジェッツ"
+          },
+          "away": {
+            "name": "M22（M19の勝者 vs M20の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:706",
+          "home": {
+            "name": "M21（M17の勝者 vs M18の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "706",
+            "name": "アルバルク東京"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:711",
+          "home": {
+            "id": "711",
+            "name": "福島ファイヤーボンズ"
+          },
+          "away": {
+            "name": "M22（M19の勝者 vs M20の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:713",
+          "home": {
+            "id": "713",
+            "name": "群馬クレインサンダーズ"
+          },
+          "away": {
+            "name": "M22（M19の勝者 vs M20の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:714",
+          "home": {
+            "id": "714",
+            "name": "横浜エクセレンス"
+          },
+          "away": {
+            "name": "M22（M19の勝者 vs M20の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:716",
+          "home": {
+            "id": "716",
+            "name": "信州ブレイブウォリアーズ"
+          },
+          "away": {
+            "name": "M22（M19の勝者 vs M20の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:718",
+          "home": {
+            "name": "M21（M17の勝者 vs M18の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "718",
+            "name": "神戸ストークス"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:728",
+          "home": {
+            "name": "M21（M17の勝者 vs M18の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "728",
+            "name": "シーホース三河"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:729",
+          "home": {
+            "name": "M21（M17の勝者 vs M18の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "729",
+            "name": "名古屋ダイヤモンドドルフィンズ"
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:2488",
+          "home": {
+            "id": "2488",
+            "name": "長崎ヴェルカ"
+          },
+          "away": {
+            "name": "M22（M19の勝者 vs M20の勝者）の勝者",
+            "placeholder": true
+          },
+          "status": "upcoming",
+          "projected": true
+        },
+        {
+          "competition": "cup",
+          "date": "2027-01-11",
+          "tipoff": "15:00",
+          "venue": "国立代々木競技場第一体育館",
+          "neutral": true,
+          "source": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "link": "https://zennihon.japanbasketball.jp/2026-27/schedule/final/",
+          "round": "決勝",
+          "matchCode": "M23",
+          "cupStage": "final",
+          "id": "cup:M23:2727",
+          "home": {
+            "name": "M21（M17の勝者 vs M18の勝者）の勝者",
+            "placeholder": true
+          },
+          "away": {
+            "id": "2727",
+            "name": "立川ダイス"
+          },
+          "status": "upcoming",
+          "projected": true
         }
       ],
       "easlUpdatedAt": "2026-11-12T18:49:54.454Z",
       "notes": [
-        "天皇杯は大会概要で確認できるファイナルラウンドの期間のみ掲載しています（休養日を含む）。対戦カード・結果、各地の予選日程は未収録です。",
+        "天皇杯は B.PREMIER・B.ONE のクラブが出る試合を公式サイトから自動で取得しています（決まった試合と、勝ち上がった場合の予定を薄く表示）。ファイナルラウンドの大会期間は休養日を含みます。",
         "天皇杯・オールスターの大会期間は公式発表に基づく掲載です。日程変更は公式情報もご確認ください。"
       ],
       "finalsEnd": "2027-06-01",
-      "finalsSource": "https://www.bleague.jp/schedule/?club=700&tab=1"
+      "finalsSource": "https://www.bleague.jp/schedule/?club=700&tab=1",
+      "cupUpdatedAt": "2026-11-12T20:36:22.338Z"
     }
   }
 }

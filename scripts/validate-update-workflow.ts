@@ -84,7 +84,14 @@ for (const id of premierFetchIds) {
   check(`B.PREMIER の ${id}: B.ONE を指定していない`, !!s && !/--category/.test(s.body));
 }
 check("スポーツナビの取得は B.PREMIER の条件で動く", !!yahoo && (yahoo.if ?? "").includes("steps.proceed.outputs.premier == 'true'"), yahoo?.if);
-check("コミットは proceed の run を見る", !!commit && (commit.if ?? "") === "steps.proceed.outputs.run == 'true'", commit?.if);
+check("コミットは proceed の run か天皇杯の更新を見る", !!commit && (commit.if ?? "") === "steps.proceed.outputs.run == 'true' || steps.emperors_cup.outputs.changed == 'true'", commit?.if);
+{
+  // 天皇杯（385章）: 30分おきは天皇杯の試合がある日だけ取りに行く（--cup-days-only）。深夜は毎回
+  const cup = byId.get("emperors_cup");
+  check("天皇杯の更新は 30分おきのとき --cup-days-only を付ける", !!cup && cup.body.includes("steps.mode.outputs.nightly != 'true' && '--cup-days-only'"), cup?.body);
+  check("天皇杯の更新は失敗しても後続を止めない", !!cup && cup.continueOnError === true);
+  check("天皇杯の更新の失敗は通知する", steps.some((x) => x.body.includes("天皇杯の日程・結果の取得に失敗")));
+}
 {
   const proceed = byId.get("proceed");
   check("proceed が run・premier・one を出す", !!proceed && ["run=", "premier=", "one="].every((k) => proceed.body.includes(`echo "${k}`)));

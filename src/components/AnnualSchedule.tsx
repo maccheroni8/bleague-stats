@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { CalendarGame } from '../../shared/annualSchedule';
-import { easlGameUrl, fetchCalendar } from '../lib/easlCalendar';
-import { EaslLogo } from './EaslLogo';
+import { cupGameUrl, cupRoundText, easlGameUrl, fetchCalendar } from '../lib/easlCalendar';
+import { CupClubName, CupLogo, EaslLogo } from './EaslLogo';
 import { annualLeagueGames, calendarDates, calendarResult } from '../lib/annualSchedule';
 import { fetchGameSummaries, fetchSchedule, fetchTeams, fetchDivisionHistory, fetchStandingsHistory, fetchPlayoffRace } from '../lib/data';
 import { teamDivisionForSeason } from '../../scripts/lib/divisions';
@@ -72,7 +72,7 @@ export function AnnualSchedule({ season, league }: { season: string; league: Lea
       <button type="button" onClick={() => jump(today)} disabled={!dates.includes(today)}>今日</button>
       {months.map(m => <button type="button" key={m} onClick={() => jump(dates.find(d => d.startsWith(m))!)}>{Number(m.slice(5))}月</button>)}
     </div>
-    <p className="annual-legend"><span className="annual-home">H ホーム</span><span className="annual-away">A アウェー</span><span>N 中立会場</span><span>○ 勝ち　● 負け</span><span>マスを選ぶと試合の詳細を表示</span></p>
+    <p className="annual-legend"><span className="annual-home">H ホーム</span><span className="annual-away">A アウェー</span><span>N 中立会場</span><span>○ 勝ち　● 負け</span><span className="annual-projected-key">薄い表示＝天皇杯で勝ち上がった場合の予定</span><span>マスを選ぶと試合の詳細を表示</span></p>
     {external.error && <p role="alert">大会日程を取得できませんでした。リーグ戦のみ表示しています。</p>}
     {!external.loading && !external.error && !supplement && <p>このシーズンの天皇杯・EASL・オールスターの日程は未収録です。</p>}
     {groups.map(group => <section className="annual-division-section" key={group.label}>
@@ -107,11 +107,11 @@ export function AnnualSchedule({ season, league }: { season: string; league: Lea
                 const opp = home ? g.away : g.home;
                 const side = g.neutral ? 'N' : home ? 'H' : 'A';
                 const result = calendarResult(g, home);
-                const label = `${date} ${COMPETITIONS[g.competition]} ${team.teamName} 対 ${opp.name} ${side} ${result} ${g.tipoff ?? ''}`;
-                return <button type="button" key={`${g.competition}:${g.id}`} className={`annual-game ${g.neutral ? 'annual-neutral' : home ? 'annual-home' : 'annual-away'} ${g.status === 'cancelled' ? 'annual-cancelled' : ''}`} onClick={() => setSelected({ game: g, teamId: team.teamId })} title={label} aria-label={label}>
+                const label = `${date} ${COMPETITIONS[g.competition]}${g.competition === 'cup' ? ' ' + cupRoundText(g) : ''} ${team.teamName} 対 ${opp.name} ${side} ${result} ${g.tipoff ?? ''}`;
+                return <button type="button" key={`${g.competition}:${g.id}`} className={`annual-game ${g.neutral ? 'annual-neutral' : home ? 'annual-home' : 'annual-away'} ${g.status === 'cancelled' ? 'annual-cancelled' : ''} ${g.projected ? 'annual-projected' : ''}`} onClick={() => setSelected({ game: g, teamId: team.teamId })} title={label} aria-label={label}>
                   <small>{g.competition === 'league' ? side : `${g.competition === 'cup' ? '天皇杯' : 'EASL'} ${side}`}</small>
-                  {opp.id ? <TeamLogo teamId={opp.id} size={30} /> : <EaslLogo club={opp} size={30} />}
-                  <span>{result || '·'}</span>
+                  {opp.id ? <TeamLogo teamId={opp.id} size={30} /> : g.competition === 'cup' ? <CupLogo club={opp} size={30} /> : <EaslLogo club={opp} size={30} />}
+                  <span>{result || (g.projected ? '予定' : '·')}</span>
                 </button>;
               })}</td>)}
             </tr>)}
@@ -124,6 +124,7 @@ export function AnnualSchedule({ season, league }: { season: string; league: Lea
     {supplement?.finalsSource && <p className="annual-note">終端はFINALSの最終戦予定日です。<a href={supplement.finalsSource} target="_blank" rel="noreferrer">公式日程</a></p>}
     {supplement?.notes.map(n => <p className="annual-note" key={n}>{n}</p>)}
     {supplement?.easlUpdatedAt && <p className="annual-note">EASLの日程・結果の更新：{supplement.easlUpdatedAt.slice(0, 10)}　<a href="https://www.easl.basketball/schedule-results" target="_blank" rel="noreferrer">公式日程</a></p>}
+    {supplement?.cupUpdatedAt && <p className="annual-note">天皇杯の日程・結果の更新：{supplement.cupUpdatedAt.slice(0, 10)}　<a href="https://zennihon.japanbasketball.jp/" target="_blank" rel="noreferrer">公式サイト</a></p>}
     {selected && <GameDialog game={selected.game} teamId={selected.teamId} close={() => setSelected(null)} />}
   </section>;
 }
@@ -133,13 +134,14 @@ function GameDialog({ game: g, teamId, close }: { game: CalendarGame; teamId: st
   useEffect(() => { ref.current?.showModal(); }, []);
   const result = calendarResult(g, g.home.id === teamId);
   return <dialog ref={ref} className="annual-dialog" onClose={close} aria-labelledby="annual-game-title">
-    <h3 id="annual-game-title">{COMPETITIONS[g.competition]} · {g.date} {g.tipoff}</h3>
-    <p><ResponsiveTeamName teamId={g.home.id ?? ''} name={g.home.name} /> vs <ResponsiveTeamName teamId={g.away.id ?? ''} name={g.away.name} /></p>
+    <h3 id="annual-game-title">{COMPETITIONS[g.competition]}{g.competition === 'cup' && g.round ? ' ' + g.round : ''} · {g.date} {g.tipoff}</h3>
+    {g.projected && <p>勝ち上がった場合の予定の試合です。</p>}
+    <p>{g.competition === 'cup' ? <><CupClubName club={g.home} /> vs <CupClubName club={g.away} /></> : <><ResponsiveTeamName teamId={g.home.id ?? ''} name={g.home.name} /> vs <ResponsiveTeamName teamId={g.away.id ?? ''} name={g.away.name} /></>}</p>
     <p>{g.status === 'final' || g.status === 'live' ? `${g.homeScore ?? '-'} − ${g.awayScore ?? '-'}` : g.status === 'cancelled' ? '中止' : '開催予定'} {result}</p>
     <p>{g.venue ?? '会場未定'}{g.neutral ? '（中立会場）' : ''}</p>
     {g.note && <p>{g.note}</p>}
     {g.gameLink && <p><SeasonLink to={g.gameLink}>試合詳細へ</SeasonLink></p>}
-    {g.competition === 'easl' ? <p><a href={easlGameUrl(g)} target="_blank" rel="noreferrer">EASL公式の試合ページへ</a></p> : g.source && <p><a href={g.source} target="_blank" rel="noreferrer">公式情報へ</a></p>}
+    {g.competition === 'easl' ? <p><a href={easlGameUrl(g)} target="_blank" rel="noreferrer">EASL公式の試合ページへ</a></p> : g.competition === 'cup' ? <p><a href={cupGameUrl(g)} target="_blank" rel="noopener noreferrer">天皇杯公式サイトの試合ページへ</a></p> : g.source && <p><a href={g.source} target="_blank" rel="noreferrer">公式情報へ</a></p>}
     <form method="dialog"><button type="submit">閉じる</button></form>
   </dialog>;
 }

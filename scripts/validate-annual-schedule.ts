@@ -4,6 +4,8 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { parseEaslMatches, easlLinkSlugs, easlLogoSources } from './lib/easlSchedule.ts';
 import { annualLeagueGames, calendarDates, calendarResult } from '../src/lib/annualSchedule.ts';
+import { buildCupGames, cupDates, type CupNode } from '../shared/emperorsCup.ts';
+import { parseCupBracket, parseCupStagePage, resolveCupClub } from './lib/emperorsCup.ts';
 import type { ScheduleFileExtended } from '../shared/resultOnlyGames.ts';
 import type { GameSummary } from '../shared/types.ts';
 import type { AnnualCalendarFile } from '../shared/annualSchedule.ts';
@@ -91,20 +93,129 @@ for (const g of easlGames) {
 function listFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? listFiles(path.join(dir, e.name)) : [path.join(dir, e.name)]);
 }
-const readers = new Set(['src/components/AnnualSchedule.tsx', 'src/components/EaslLogo.tsx', 'src/pages/SchedulePage.tsx', 'src/lib/easlCalendar.ts', 'src/lib/annualSchedule.ts', 'scripts/lib/dataLayout.ts']); // dataLayout は元データの一覧にファイル名を書くだけ
-for (const f of [...listFiles('src'), ...listFiles('shared'), ...listFiles('scripts').filter(x => !x.includes('annual-schedule') && !x.includes('easl'))]) {
+const readers = new Set(['shared/emperorsCup.ts', 'scripts/lib/emperorsCup.ts', 'scripts/scrape-emperors-cup.ts', 'src/components/AnnualSchedule.tsx', 'src/components/EaslLogo.tsx', 'src/pages/SchedulePage.tsx', 'src/lib/easlCalendar.ts', 'src/lib/annualSchedule.ts', 'scripts/lib/dataLayout.ts', 'shared/annualSchedule.ts']); // dataLayout は元データの一覧にファイル名を書くだけ
+for (const f of [...listFiles('src'), ...listFiles('shared'), ...listFiles('scripts').filter(x => !x.includes('annual-schedule') && !x.includes('easl') && !x.includes('emperors-cup') && !x.includes('emperorsCup'))]) {
   if (!/\.(ts|tsx)$/.test(f) || readers.has(f.replaceAll(path.sep, '/'))) continue;
   const text = fs.readFileSync(f, 'utf8');
-  assert(!/annual-calendar|easlCalendar|easlSchedule|competition:\s*'easl'/.test(text), `EASLの大会日程をB.LEAGUEの集計・画面で読んでいる: ${f}`);
+  assert(!/annual-calendar|easlCalendar|easlSchedule|emperorsCup|competition:\s*'(easl|cup)'/.test(text), `EASLの大会日程をB.LEAGUEの集計・画面で読んでいる: ${f}`);
 }
 // ②作った集計・日程にEASLの試合が混ざっていない
 for (const file of ['data/2026-27/schedule.json', 'data/2026-27/one/schedule.json']) {
-  if (fs.existsSync(file)) assert(!fs.readFileSync(file, 'utf8').includes('easl:'), `${file} にEASLの試合が入っている`);
+  if (fs.existsSync(file)) { const t = fs.readFileSync(file, 'utf8'); assert(!t.includes('easl:'), `${file} にEASLの試合が入っている`); assert(!t.includes('cup:M') && !t.includes('zennihon'), `${file} に天皇杯の試合が入っている`); }
 }
 for (const file of ['games-summary.json.gz', 'teams.json.gz', 'players.json.gz', 'standings-history.json.gz', 'playoff-race.json.gz']) {
   const full = path.join('data/2026-27', file);
   if (!fs.existsSync(full)) continue; // 導出データは build:data のあとだけある
   const text = zlib.gunzipSync(fs.readFileSync(full)).toString('utf8');
   assert(!/easl/i.test(text), `${full} にEASLの試合が入っている`);
+  assert(!/cup:M|zennihon/.test(text), `${full} に天皇杯の試合が入っている`);
 }
-console.log('年間スケジュール: 重複・結果のみ・試合中・閏日・UTC→JST・日英チーム名・EASL18試合の整合を確認');
+// --- 天皇杯（設計書385章）: 公式サイトの読み取り・勝ち上がりの予定・置き換え・保存した日程の整合 ---
+{
+  const side = (code: string): CupNode['home'] => ({ from: code });
+  const team = (name: string, tag?: string, score?: number): CupNode['home'] => ({ club: resolveCupClub(name, tag), ...(score !== undefined ? { score } : {}) });
+  const node = (code: string, round: string, date: string, home: CupNode['home'], away: CupNode['home'], status: CupNode['status'] = 'upcoming'): CupNode =>
+    ({ code, stage: 'final', round, date, tipoff: '11:00', venue: '国立代々木競技場第一体育館', status, home, away, link: 'https://example.com/schedule/final/' });
+  // 名前の解決: 正式名称・略称（札なし／B1〜B3の札）。B.LEAGUE 以外は id なし。略称でも別の札（WF など）が付けば B.LEAGUE のクラブにしない
+  assert.equal(resolveCupClub('長崎ヴェルカ').id, '2488');
+  assert.equal(resolveCupClub('長崎', 'B1①').id, '2488');
+  assert.equal(resolveCupClub('A東京').id, '706');
+  assert.equal(resolveCupClub('千葉J', 'B1③').id, '704');
+  assert.equal(resolveCupClub('横浜EX', 'B3①').id, '714');
+  assert.equal(resolveCupClub('山形', '東北').id, undefined);
+  assert.equal(resolveCupClub('山形クベーラ', '東北').id, undefined);
+  assert.equal(resolveCupClub('東海ブロック代表', '東海').id, undefined);
+
+  // 小さな組み合わせ表（長崎 vs M1勝者 → 準々決勝 M3 ← M2〔群馬 vs M0の勝者〕）で、予定の行・置き換え・消えるを確かめる
+  const m1 = node('M1', '1回戦', '2027-01-05', team('東海ブロック代表', '東海'), team('徳島クラブ', '四国'));
+  const m2 = node('M2', '2回戦', '2027-01-06', side('M1'), team('群馬', 'B1⑦'));
+  const m4 = node('M4', '2回戦', '2027-01-06', team('長崎', 'B1①'), team('宇都宮', 'B1⑤'));
+  const m3 = node('M3', '準決勝', '2027-01-08', side('M2'), side('M4'));
+  const rows = buildCupGames([m1, m2, m4, m3]);
+  const byId = new Map(rows.map(r => [r.id, r]));
+  assert(!byId.has('cup:M1'), 'B.LEAGUE のクラブが出ない試合は出さない');
+  // M2: 群馬（決まっている）と M1の勝者。M1 に B クラブはいないので予定の行は無く、群馬の行だけ。相手は説明文
+  assert.equal(byId.get('cup:M2:713')?.away.name, '群馬クレインサンダーズ');
+  assert.equal(byId.get('cup:M2:713')?.home.name, 'M1（東海ブロック代表 vs 徳島クラブ）の勝者');
+  assert.equal(byId.get('cup:M2:713')?.home.placeholder, true);
+  assert.equal(byId.get('cup:M2:713')?.projected, undefined);
+  // M4: 両方決まっている → 1行（決まった試合）
+  assert(byId.has('cup:M4') && !byId.get('cup:M4')!.projected);
+  // M3: 群馬・長崎・宇都宮が勝ち上がった場合の3行。相手は「M4（長崎 vs 宇都宮）の勝者」のように、どの試合の勝者かが分かる
+  const m3Rows = rows.filter(r => r.matchCode === 'M3');
+  assert.deepEqual(m3Rows.map(r => r.id).sort(), ['cup:M3:2488', 'cup:M3:703', 'cup:M3:713']);
+  assert(m3Rows.every(r => r.projected && r.round === '準決勝' && r.date === '2027-01-08' && r.tipoff === '11:00' && r.venue && r.link));
+  assert.equal(byId.get('cup:M3:713')!.away.name, 'M4（長崎ヴェルカ vs 宇都宮ブレックス）の勝者');
+  assert.equal(byId.get('cup:M3:2488')!.home.name, 'M2（M1の勝者 vs 群馬クレインサンダーズ）の勝者');
+  assert.equal(byId.get('cup:M3:2488')!.home.placeholder, true);
+  assert.equal(calendarResult(byId.get('cup:M3:713')!, true), '');
+  // 結果が出る（M4 は長崎が勝った）: 公式の表が書き換わり、M3 の片側が長崎に決まる → 長崎の行は予定でなくなり、宇都宮の予定は消える
+  const m4done = node('M4', '2回戦', '2027-01-06', team('長崎', 'B1①', 80), team('宇都宮', 'B1⑤', 70), 'final');
+  const m3next = node('M3', '準決勝', '2027-01-08', side('M2'), team('長崎'));
+  const after = buildCupGames([m1, m2, m4done, m3next]);
+  const m4Row = after.find(r => r.id === 'cup:M4')!;
+  assert.equal(m4Row.status, 'final');
+  assert.equal(`${m4Row.homeScore}-${m4Row.awayScore}`, '80-70');
+  assert.equal(calendarResult(m4Row, true), '○');
+  assert(!after.some(r => r.id === 'cup:M3:703'), '負けたクラブの予定は消える');
+  assert.equal(after.find(r => r.id === 'cup:M3:2488')?.projected, undefined, '決まった長崎の準決勝は予定ではない');
+  assert.equal(after.find(r => r.id === 'cup:M3:2488')?.away.name, '長崎ヴェルカ');
+  assert.equal(after.find(r => r.id === 'cup:M3:2488')?.home.name, 'M2（M1の勝者 vs 群馬クレインサンダーズ）の勝者');
+  assert.equal(after.find(r => r.id === 'cup:M3:713')?.projected, true, '群馬の予定は残る');
+  assert.equal(after.find(r => r.id === 'cup:M3:713')?.away.name, '長崎ヴェルカ', '相手は決まった長崎に置き換わる');
+  // 同じ入力なら同じ結果、行のIDは重ならない
+  assert.deepEqual(buildCupGames([m1, m2, m4, m3]), rows);
+  assert.equal(new Set(after.map(r => r.id)).size, after.length);
+  // 30分おきの更新は、予定の試合を含む試合のある日だけ
+  assert(cupDates(rows).has('2027-01-08') && !cupDates(rows).has('2027-01-07'));
+
+  // 公式サイトの形（組み合わせ表の planned / 終わった試合）の読み取り
+  const plannedHtml = '<section aria-labelledby="bk-final-male"><h2 id="bk-final-male">天皇杯 ファイナルラウンド</h2>'
+    + '<div data-bracket-node="M9"><span class="sr-only">2回戦<!-- --> </span><span class="flex truncate">M9<!-- -->・<!-- -->1/6<!-- --> <!-- -->11:00</span><span class="shrink-0" data-bracket-court="代々木一">代々木一</span>'
+    + '<span class="bk-side"><span class="bk-name">長崎</span><span class="tag">B1①</span><span class="score--mark score--mark-home">HOME</span></span>'
+    + '<span class="bk-side"><span class="bk-name">M1 の勝者</span><span class="score--mark score--mark-away">AWAY</span></span></div></section>'
+    + '<section><h2>皇后杯 ファイナルラウンド</h2><div data-bracket-node="W9"><span class="sr-only">2回戦</span><span class="truncate">W9・1/5 12:00</span><span class="bk-side"><span class="bk-name">富士通</span></span><span class="bk-side"><span class="bk-name">W1 の勝者</span></span></div></section>';
+  const planned = parseCupBracket(plannedHtml, '2026-27');
+  assert.equal(planned.length, 1, '皇后杯は読まない');
+  assert.deepEqual([planned[0]!.code, planned[0]!.date, planned[0]!.tipoff, planned[0]!.venue, planned[0]!.status], ['M9', '2027-01-06', '11:00', '国立代々木競技場第一体育館', 'upcoming']);
+  assert.equal(planned[0]!.home.club?.id, '2488');
+  assert.equal(planned[0]!.away.from, 'M1');
+  const doneHtml = '<section><h2>天皇杯 ファイナルラウンド</h2><a data-bracket-node="M9" href="/2026-27/games/gp-1/"><span class="sr-only">2回戦</span><span class="truncate">M9・1/7（水）</span><span class="shrink-0">確定</span>'
+    + '<span class="bk-side is-winner"><span class="bk-name">群馬</span><span class="score"><span class="score__value">94</span></span></span><span class="bk-side is-loser"><span class="bk-name">リンタツ</span><span class="score"><span class="score__value">59</span></span></span></a></section>';
+  const done = parseCupBracket(doneHtml, '2025-26')[0]!;
+  assert.deepEqual([done.date, done.status, done.home.score, done.away.score, done.link], ['2026-01-07', 'final', 94, 59, 'https://zennihon.japanbasketball.jp/2026-27/games/gp-1/'.replace('2026-27', '2026-27')]);
+  // 1R・2R の日程は B.LEAGUE のクラブが出る試合だけ取る（皇后杯・B.LEAGUE 以外だけの試合は取らない）
+  const stageHtml = '<h2>11/22（日）<span>3 試合</span></h2>'
+    + '<article data-game-id="gp-1"><div><span>3回戦</span><span>09:00<!-- -->・延岡アリーナA</span><span>天皇杯</span><span data-live-badge="">予定</span></div><div data-side="home"><span class="truncate">宇都宮ブレックス</span></div><div data-side="away"><span class="truncate">MT10の勝者</span></div></article>'
+    + '<article data-game-id="gp-2"><div><span>3回戦</span><span>09:00・延岡アリーナC</span><span>天皇杯</span><span data-live-badge="">予定</span></div><div data-side="home"><span class="truncate">白鷗大学</span></div><div data-side="away"><span class="truncate">MT12の勝者</span></div></article>'
+    + '<article data-game-id="gp-3"><div><span>3回戦</span><span>09:00・延岡アリーナA</span><span>皇后杯</span><span data-live-badge="">予定</span></div><div data-side="home"><span class="truncate">宇都宮ブレックス</span></div><div data-side="away"><span class="truncate">MW10の勝者</span></div></article>';
+  const stage = parseCupStagePage(stageHtml, '2026-27', 'r2');
+  assert.equal(stage.cards, 2);
+  assert.equal(stage.nodes.length, 1);
+  assert.deepEqual([stage.nodes[0]!.date, stage.nodes[0]!.tipoff, stage.nodes[0]!.venue, stage.nodes[0]!.round], ['2026-11-22', '09:00', '延岡アリーナA', '3回戦']);
+  const stageRows = buildCupGames(stage.nodes);
+  assert.equal(stageRows.length, 1);
+  assert.equal(stageRows[0]!.away.name, 'MT10の勝者');
+
+  // 保存した日程
+  const cup = current.games.filter(g => g.competition === 'cup');
+  assert(cup.length > 0, '天皇杯の試合が保存されていない');
+  assert.equal(new Set(cup.map(g => g.id)).size, cup.length);
+  assert(!current.games.filter(g => g.competition !== 'cup').some(g => g.id.startsWith('cup:')));
+  const fr = cup.filter(g => g.cupStage === 'final');
+  assert(fr.every(g => /^cup:M\d+(:\d+)?$/.test(g.id) && g.matchCode && g.round && g.link?.startsWith('https://zennihon.japanbasketball.jp/')), '天皇杯の行にコード・回戦・公式サイトのリンクが無い');
+  for (const g of cup) {
+    assert(g.home.id || g.away.id, `B.LEAGUE のクラブが出ない天皇杯の試合: ${g.id}`);
+    assert(!(g.home.placeholder && g.away.placeholder));
+    if (g.projected) assert.equal(g.status, 'upcoming');
+    if (g.status === 'final') assert(g.homeScore !== undefined && g.awayScore !== undefined);
+  }
+  for (const g of cup.filter(g => g.projected)) {
+    assert(g.id.split(':').length === 3, `予定の行のIDにクラブが無い: ${g.id}`);
+    assert([g.home.id, g.away.id].includes(g.id.split(':')[2]), `予定の行のクラブがIDと合わない: ${g.id}`);
+  }
+  // 日程の「勝敗の印」は付けない（日程タブは得点だけ）。年間スケジュールの勝敗は終わった試合だけ
+  for (const g of cup.filter(g => g.status !== 'final')) assert.equal(calendarResult(g, true), g.status === 'live' ? '試合中' : g.status === 'cancelled' ? '中止' : '');
+}
+
+console.log('年間スケジュール: 重複・結果のみ・試合中・閏日・UTC→JST・日英チーム名・EASL18試合・天皇杯の読み取り／勝ち上がりの予定／置き換え／B.LEAGUEの集計に入っていないことの整合を確認');

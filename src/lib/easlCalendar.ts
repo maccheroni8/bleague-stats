@@ -31,3 +31,13 @@ export function clubBadgeColors(club: CalendarClub): { background: string; color
   const light = (0.299 * r! + 0.587 * g! + 0.114 * b!) > 160;
   return { background: `#${hex}`, color: light ? '#111' : '#fff' };
 }
+
+/** 天皇杯の試合のリンク先（公式サイトの試合ページ。無ければその日の日程ページ）。新しいタブで開く */
+export function cupGameUrl(game: CalendarGame): string {
+  return game.link ?? game.source ?? 'https://zennihon.japanbasketball.jp/';
+}
+
+/** 天皇杯の行の説明（回戦と、勝ち上がった場合の予定の印） */
+export function cupRoundText(game: CalendarGame): string {
+  return (game.round ?? '') + (game.projected ? '（勝ち上がった場合）' : '');
+}

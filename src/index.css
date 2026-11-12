@@ -8731,3 +8731,81 @@ table.sortable-table.tts-table th {
   width: fit-content;
   margin: 2px auto 0;
 }
+
+/* --- 天皇杯の試合（日程タブ・年間スケジュール）。左端の線と「天皇杯」の札。B.LEAGUE 以外のチームはチーム名の札、
+       まだ決まっていない相手は「?」の札。勝ち上がった場合の予定（.cup-projected）は薄く表示する --- */
+.cup-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 700;
+  line-height: 1;
+  overflow: hidden;
+  background: #6b7280;
+  color: #fff;
+}
+.cup-badge-pending {
+  background: transparent;
+  color: var(--muted, #6b7280);
+  border: 1px dashed currentColor;
+}
+.cup-pending-text {
+  font-size: 0.85em;
+  white-space: normal;
+}
+.cup-badge-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid #b4402a;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #b4402a;
+  white-space: nowrap;
+}
+:root[data-theme="dark"] .cup-badge-tag {
+  border-color: #f0907d;
+  color: #f0907d;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .cup-badge-tag {
+    border-color: #f0907d;
+    color: #f0907d;
+  }
+}
+.cup-round-text {
+  display: block;
+  font-size: 10px;
+  color: var(--muted, #6b7280);
+  white-space: nowrap;
+}
+.schedule-row-cup > td:first-child {
+  box-shadow: inset 3px 0 0 #b4402a;
+}
+.schedule-row-cup.cup-projected td {
+  opacity: 0.55;
+}
+.schedule-row-cup td.align-center .cup-badge-tag {
+  display: block;
+  width: fit-content;
+  margin: 2px auto 0;
+}
+.calendar-game-chip-cup {
+  position: relative;
+  box-shadow: inset 0 -2px 0 #b4402a;
+}
+.calendar-game-chip-cup.cup-projected {
+  opacity: 0.55;
+  border-style: dashed;
+}
+.calendar-game-chip-cup .cup-badge-tag {
+  position: absolute;
+  top: -6px;
+  right: 0;
+  margin: 0;
+  padding: 0 3px;
+  font-size: 8px;
+  background: var(--bg);
+}

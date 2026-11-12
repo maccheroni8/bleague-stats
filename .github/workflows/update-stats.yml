@@ -317,11 +317,20 @@ jobs:
         continue-on-error: true
         run: node --experimental-strip-types scripts/scrape-annual-schedule.ts --season ${{ steps.season.outputs.season }}
 
+      # 天皇杯（全日本バスケットボール選手権）の日程・結果（大会日程専用。設計書385章）。深夜は毎回、30分おきは天皇杯の試合がある日
+      # （勝ち上がった場合の予定を含む）だけ公式サイトに問い合わせる（無い日は何もしない）。リーグ戦の本処理が要らない回でも動かす
+      # （この回のコミットは下の Commit and push が行う）。失敗しても前回の内容を残し、末尾の「Fail if emperors cup update failed」で通知する
+      - name: Update emperors cup schedule
+        id: emperors_cup
+        if: ${{ steps.proceed.outputs.run == 'true' || steps.mode.outputs.nightly != 'true' }}
+        continue-on-error: true
+        run: node --experimental-strip-types scripts/scrape-emperors-cup.ts --season ${{ steps.season.outputs.season }} ${{ steps.mode.outputs.nightly != 'true' && '--cup-days-only' || '' }}
+
       # ジョブが長時間(最大90分)かかるため、実行中に他のコミットがmainにpushされていることがある。
       # そのままpushすると非fast-forwardで弾かれるので、rebaseしてから再試行する
       - name: Commit and push if changed
         id: commit
-        if: steps.proceed.outputs.run == 'true'
+        if: steps.proceed.outputs.run == 'true' || steps.emperors_cup.outputs.changed == 'true'
         env:
           WATCH_SUMMARY_FILE: ${{ runner.temp }}/watch-summary.txt
         run: |
@@ -368,6 +377,12 @@ jobs:
           retention-days: 1
 
       # 日程・ボックススコアの取得の失敗をジョブの失敗として通知する（取れた分の集計・commit&pushは上のステップで完了済み。DESIGN.md 8-9）
+      - name: Fail if emperors cup update failed
+        if: ${{ always() && steps.emperors_cup.outcome == 'failure' }}
+        run: |
+          echo "::error::天皇杯の日程・結果の取得に失敗しました。取れなかったページは前回の内容を保持し、リーグ戦の更新・コミットは続けています。"
+          exit 1
+
       - name: Fail if annual calendar update failed
         if: ${{ always() && steps.annual_schedule.outcome == 'failure' }}
         run: |

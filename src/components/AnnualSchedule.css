@@ -70,3 +70,7 @@
 
 .annual-grid .annual-event td { position: relative; }
 .annual-grid .annual-event-span a { position: absolute; left: 0; top: 0; height: 100%; white-space: nowrap; z-index: 0; }
+
+/* 天皇杯: 勝ち上がった場合の予定は薄く・破線で、決まった試合と見分ける */
+.annual-projected { opacity: .55; outline: 1px dashed var(--muted); outline-offset: -3px; }
+.annual-projected-key { opacity: .7; }

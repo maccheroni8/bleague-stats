@@ -23,14 +23,14 @@ import { resultOnlyReasonLabel } from "../lib/resultOnlyGames";
 import { useSearchParams } from "react-router-dom";
 import { currentSeason } from "../lib/season";
 import type { CalendarClub, CalendarGame } from "../../shared/annualSchedule";
-import { easlGameUrl, fetchCalendar } from "../lib/easlCalendar";
-import { EaslClubName, EaslLogo } from "../components/EaslLogo";
+import { cupGameUrl, cupRoundText, easlGameUrl, fetchCalendar } from "../lib/easlCalendar";
+import { CupClubName, CupLogo, EaslClubName, EaslLogo } from "../components/EaslLogo";
 
 type ScheduleStatus = "final" | "live" | "upcoming" | "cancelled";
 type ScheduleView = "list" | "calendar";
 type ScheduleStatusFilter = "all" | "upcoming" | "finished";
-/** 大会の絞り込み: B.LEAGUE の試合だけ／EASL（東アジアスーパーリーグ）の試合だけ */
-type ScheduleCompetitionFilter = "all" | "league" | "easl";
+/** 大会の絞り込み: B.LEAGUE の試合だけ／EASL（東アジアスーパーリーグ）の試合だけ／天皇杯の試合だけ */
+type ScheduleCompetitionFilter = "all" | "league" | "easl" | "cup";
 
 interface ScheduleRow {
   scheduleKey: string;
@@ -55,6 +55,12 @@ interface ScheduleRow {
   sortTime?: string;
   /** EASL の試合（日程タブに並べるだけ。B.LEAGUE の成績・順位・ランキング・図解には入らない。試合詳細は作らず公式のページを新しいタブで開く） */
   easl?: { url: string; homeClub: CalendarClub; awayClub: CalendarClub };
+  /** 天皇杯の試合（EASL と同じ扱い。日程タブに並べるだけで、成績・順位・ランキング・図解には入らない。公式サイトの試合ページを新しいタブで開く）。projected＝勝ち上がった場合の予定 */
+  cup?: { url: string; homeClub: CalendarClub; awayClub: CalendarClub; round: string; projected: boolean };
+}
+
+function rowCompetition(r: ScheduleRow): "league" | "easl" | "cup" {
+  return r.easl ? "easl" : r.cup ? "cup" : "league";
 }
 
 /** EASL の試合を日程の行にする。日本のクラブが今のリーグ（teamIds）に入っている試合だけ */
@@ -75,6 +81,27 @@ function easlRows(games: CalendarGame[], teamIds: Set<string>): ScheduleRow[] {
       tipoffTime: g.tipoff,
       sortTime: g.tipoff,
       easl: { url: easlGameUrl(g), homeClub: g.home, awayClub: g.away },
+    }));
+}
+
+/** 天皇杯の試合を日程の行にする。B.PREMIER／B.ONE のクラブが今のリーグ（teamIds）に入っている試合だけ（勝ち上がった場合の予定を含む） */
+function cupRows(games: CalendarGame[], teamIds: Set<string>): ScheduleRow[] {
+  return games
+    .filter((g) => g.competition === "cup" && [g.home.id, g.away.id].some((id) => id && teamIds.has(id)))
+    .map((g) => ({
+      scheduleKey: g.id,
+      date: g.date,
+      homeTeamId: g.home.id,
+      homeTeamName: g.home.name,
+      awayTeamId: g.away.id,
+      awayTeamName: g.away.name,
+      status: g.status,
+      homeScore: g.homeScore,
+      awayScore: g.awayScore,
+      venue: g.venue,
+      tipoffTime: g.tipoff,
+      sortTime: g.tipoff,
+      cup: { url: cupGameUrl(g), homeClub: g.home, awayClub: g.away, round: g.round ?? "", projected: !!g.projected },
     }));
 }
 
@@ -328,6 +355,10 @@ export function SchedulePage({ season }: { season: string }) {
     const ids = new Set([...(teams ?? []), ...(prevTeams ?? [])].map((t) => t.teamId));
     return easlRows(calendar?.seasons[season]?.games ?? [], ids);
   }, [calendar, season, teams, prevTeams]);
+  const cup = useMemo(() => {
+    const ids = new Set([...(teams ?? []), ...(prevTeams ?? [])].map((t) => t.teamId));
+    return cupRows(calendar?.seasons[season]?.games ?? [], ids);
+  }, [calendar, season, teams, prevTeams]);
   const rows = useMemo(
     () =>
       summaries
@@ -338,10 +369,10 @@ export function SchedulePage({ season }: { season: string }) {
             schedule?.tipoffTimes ?? {},
             schedule?.cancelledGames ?? [],
             schedule?.resultOnlyGames ?? [],
-            easl,
+            [...easl, ...cup],
           )
         : [],
-    [summaries, schedule, teamIdByName, easl],
+    [summaries, schedule, teamIdByName, easl, cup],
   );
 
   const teamOptions = useMemo(
@@ -353,7 +384,7 @@ export function SchedulePage({ season }: { season: string }) {
   );
 
   const filteredRows = useMemo(() => {
-    const byCompetition = competitionFilter === "all" ? rows : rows.filter((r) => (competitionFilter === "easl") === !!r.easl);
+    const byCompetition = competitionFilter === "all" ? rows : rows.filter((r) => rowCompetition(r) === competitionFilter);
     if (selectedTeamIds === null) return byCompetition;
     return byCompetition.filter(
       (r) => (r.homeTeamId && selectedTeamIds.has(r.homeTeamId)) || (r.awayTeamId && selectedTeamIds.has(r.awayTeamId)),
@@ -467,7 +498,7 @@ export function SchedulePage({ season }: { season: string }) {
     view === "list" ? "リスト表示" : "カレンダー表示",
     view === "list" ? { all: "全試合", upcoming: "今後の試合", finished: "終了した試合" }[statusFilter] : formatMonthLabel(effectiveMonth),
     `レギュラー+${postseasonLabel(season)}`,
-    competitionFilter === "league" ? "B.LEAGUEのみ" : competitionFilter === "easl" ? "EASLのみ" : easl.length > 0 ? "EASLを含む" : null,
+    competitionFilter === "league" ? "B.LEAGUEのみ" : competitionFilter === "easl" ? "EASLのみ" : competitionFilter === "cup" ? "天皇杯のみ" : easl.length > 0 || cup.length > 0 ? `${[easl.length > 0 ? "EASL" : "", cup.length > 0 ? "天皇杯" : ""].filter(Boolean).join("・")}を含む` : null,
     scheduleClubLabels,
   );
 
@@ -488,15 +519,16 @@ export function SchedulePage({ season }: { season: string }) {
           }),
         ]
       : []),
-    ...(easl.length > 0
+    ...(easl.length > 0 || cup.length > 0
       ? [
           simpleSelectAxis({
             id: "competition",
             label: "大会",
             options: [
-              { value: "all", label: "すべて（EASLを含む）" },
+              { value: "all", label: `すべて（${[easl.length > 0 ? "EASL" : "", cup.length > 0 ? "天皇杯" : ""].filter(Boolean).join("・")}を含む）` },
               { value: "league", label: "B.LEAGUEのみ" },
-              { value: "easl", label: "EASLのみ" },
+              ...(easl.length > 0 ? [{ value: "easl", label: "EASLのみ" }] : []),
+              ...(cup.length > 0 ? [{ value: "cup", label: "天皇杯のみ" }] : []),
             ],
             value: competitionFilter,
             onChange: (v) => setCompetitionFilter(v as ScheduleCompetitionFilter),
@@ -667,8 +699,49 @@ function EaslRowView({ row, easl }: { row: ScheduleRow; easl: NonNullable<Schedu
   );
 }
 
+/** 天皇杯の試合のカード。試合詳細は作らず、公式サイトの試合ページ（なければその日の日程ページ）を新しいタブで開く */
+function CupLink({ url, children }: { url: string; children: ReactNode }) {
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="cell-link" title="天皇杯公式サイトの試合ページを新しいタブで開く">
+      {children}
+    </a>
+  );
+}
+
+function CupRowView({ row, cup }: { row: ScheduleRow; cup: NonNullable<ScheduleRow["cup"]> }) {
+  return (
+    <tr className={`schedule-row status-${row.status} schedule-row-cup${cup.projected ? " cup-projected" : ""}`}>
+      <td className="align-left schedule-team-cell">
+        <CupLink url={cup.url}>
+          <CupLogo club={cup.homeClub} size={24} />
+          <span className="schedule-team-chip"><CupClubName club={cup.homeClub} /></span>
+        </CupLink>
+      </td>
+      <td className="align-center">
+        <CupLink url={cup.url}>
+          {row.status === "final" && <span>{`${row.homeScore}-${row.awayScore}`}</span>}
+          {row.status === "live" && <span className="live-badge">進行中</span>}
+          {row.status === "cancelled" && <span className="cancelled-badge">中止</span>}
+          {row.status === "upcoming" && (row.tipoffTime ? <span className="schedule-tipoff">{row.tipoffTime}</span> : <span className="upcoming-badge">予定</span>)}
+          <span className="cup-badge-tag">天皇杯</span>
+          {cup.round && <span className="cup-round-text">{cup.round}</span>}
+          {cup.projected && <span className="cup-round-text">（勝ち上がった場合）</span>}
+        </CupLink>
+      </td>
+      <td className="align-right schedule-team-cell">
+        <CupLink url={cup.url}>
+          <span className="schedule-team-chip schedule-team-chip-away"><CupClubName club={cup.awayClub} /></span>
+          <CupLogo club={cup.awayClub} size={24} />
+        </CupLink>
+      </td>
+      <td className="align-left schedule-venue-cell">{row.venue ?? "-"}</td>
+    </tr>
+  );
+}
+
 function ScheduleRowView({ row, teamColors }: { row: ScheduleRow; teamColors?: Record<string, TeamColors> }) {
   if (row.easl) return <EaslRowView row={row} easl={row.easl} />;
+  if (row.cup) return <CupRowView row={row} cup={row.cup} />;
   // 開催予定はまだ生データ（試合詳細ページのソース）が無いのでリンクしない
   // 開催予定・中止はリンクしない（試合詳細の生データが無い）
   const linkTo = row.status === "upcoming" || row.status === "cancelled" || row.resultOnly ? undefined : `/games/${row.scheduleKey}`;
@@ -779,6 +852,7 @@ function CalendarView({
 
 function CalendarGameChip({ row }: { row: ScheduleRow }) {
   if (row.easl) return <EaslCalendarChip row={row} easl={row.easl} />;
+  if (row.cup) return <CupCalendarChip row={row} cup={row.cup} />;
   const linkTo = row.status === "upcoming" || row.status === "cancelled" || row.resultOnly ? undefined : `/games/${row.scheduleKey}`;
   const scoreLabel = row.status === "final" ? ` ${row.homeScore}-${row.awayScore}` : "";
   const tipoffLabel = row.status === "upcoming" && row.tipoffTime ? ` ${row.tipoffTime}` : "";
@@ -831,6 +905,29 @@ function EaslCalendarChip({ row, easl }: { row: ScheduleRow; easl: NonNullable<S
         )}
         {logo(easl.awayClub)}
         <span className="easl-badge-tag">EASL</span>
+      </span>
+    </a>
+  );
+}
+
+function CupCalendarChip({ row, cup }: { row: ScheduleRow; cup: NonNullable<ScheduleRow["cup"]> }) {
+  const score = row.status === "final" ? ` ${row.homeScore}-${row.awayScore}` : row.status === "upcoming" && row.tipoffTime ? ` ${row.tipoffTime}` : "";
+  const title = `天皇杯 ${cup.round}${cup.projected ? "（勝ち上がった場合）" : ""} ${cup.homeClub.name}${score} vs ${cup.awayClub.name}（天皇杯公式サイトの試合ページを新しいタブで開く）`;
+  return (
+    <a href={cup.url} target="_blank" rel="noopener noreferrer" className="calendar-game-chip-link" title={title}>
+      <span className={`calendar-game-chip calendar-game-chip-cup status-${row.status}${cup.projected ? " cup-projected" : ""}`}>
+        <CupLogo club={cup.homeClub} size={32} />
+        {row.status === "final" ? (
+          <span className="calendar-game-chip-score">{row.homeScore}-{row.awayScore}</span>
+        ) : row.status === "cancelled" ? (
+          <span className="calendar-game-chip-cancelled">中止</span>
+        ) : row.tipoffTime ? (
+          <span className="calendar-game-chip-time">{row.tipoffTime}</span>
+        ) : (
+          <span className="calendar-game-chip-vs">-</span>
+        )}
+        <CupLogo club={cup.awayClub} size={32} />
+        <span className="cup-badge-tag">天皇杯</span>
       </span>
     </a>
   );
