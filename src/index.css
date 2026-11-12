@@ -8663,3 +8663,71 @@ table.sortable-table.tts-table th {
 .export-rendering .team-chip[style*="--team-color"] * {
   color: inherit;
 }
+
+/* --- EASL（東アジアスーパーリーグ）の試合（日程タブ・年間スケジュール）。B.LEAGUE の試合と見分けがつくように、
+       「EASL」の札と左端の線を付ける。海外クラブのロゴが無いときはチームカラーの札（.easl-badge） --- */
+.easl-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 700;
+  line-height: 1;
+  overflow: hidden;
+}
+
+.easl-badge-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid #1d6fb8;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1d6fb8;
+  white-space: nowrap;
+}
+
+:root[data-theme="dark"] .easl-badge-tag {
+  border-color: #6cb2ee;
+  color: #6cb2ee;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .easl-badge-tag {
+    border-color: #6cb2ee;
+    color: #6cb2ee;
+  }
+}
+
+.schedule-row-easl > td:first-child {
+  box-shadow: inset 3px 0 0 #1d6fb8;
+}
+
+.calendar-game-chip-easl {
+  position: relative;
+  box-shadow: inset 0 -2px 0 #1d6fb8;
+}
+
+.calendar-game-chip-easl .easl-badge-tag {
+  position: absolute;
+  top: -6px;
+  right: 0;
+  margin: 0;
+  padding: 0 3px;
+  font-size: 8px;
+  background: var(--bg);
+}
+
+@media (max-width: 560px) {
+  [data-design="v2"] .calendar-game-chip .easl-badge {
+    font-size: 6px !important;
+  }
+}
+
+/* 日程の一覧: 結果の列は狭いので、「EASL」の札は2行目に置く */
+.schedule-row-easl td.align-center .easl-badge-tag {
+  display: block;
+  width: fit-content;
+  margin: 2px auto 0;
+}

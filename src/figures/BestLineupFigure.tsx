@@ -54,7 +54,7 @@ const ocCodec: UrlCodec<number | null> = {
   write: (p, v) => { if (v !== null) p.set('bloc', String(v)); },
 };
 
-/** 並び順の書き方（▼＝値の大きい順、▲＝小さい順。ほかの図・ランキングと同じ印。381・382章） */
+/** 並び順の書き方（▼＝値の大きい順、▲＝小さい順。ほかの図・ランキングと同じ印。381・383章） */
 const sortLabel = (s: BestLineupSort) => sortOrderLabel(BEST_LINEUP_SORT_LABELS[s], s !== 'def');
 const signed = (v: number | null) => v === null ? '-' : `${v > 0 ? '+' : ''}${formatDecimal(v)}`;
 

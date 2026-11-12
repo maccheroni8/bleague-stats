@@ -1,0 +1,47 @@
+{
+  "27492b3f-5ada-11ef-86eb-61fb7e764dd2": {
+    "name": "Hong Kong Eastern",
+    "source": "https://images.dc.connect.sportradar.com/b1e0z/adf60619aed949ffb17b68c344ba8302?size=RAW",
+    "fetchedAt": "2026-11-12"
+  },
+  "6c173781-a6bf-11f1-a95a-31326737faaf": {
+    "name": "Macau Hou Chon",
+    "source": "https://images.dc.connect.sportradar.com/b1e0z/ea7a20753e974139aef468db58926811?size=RAW",
+    "fetchedAt": "2026-11-12"
+  },
+  "71f8b351-5acf-11ef-bb6d-61c6d18c4379": {
+    "name": "Busan KCC Egis",
+    "source": "https://images.dc.connect.sportradar.com/b1e0z/1ee08a84e1c04d96a3d19621477dccfe?size=RAW",
+    "fetchedAt": "2026-11-12"
+  },
+  "86515908-b0f5-11ed-ac6b-c199a9dea184": {
+    "name": "Taipei Fubon Braves",
+    "source": "https://images.dc.connect.sportradar.com/b1e0z/5a015b28e60544af8c882fb3b78fe7d6?size=RAW",
+    "fetchedAt": "2026-11-12"
+  },
+  "992dc7e4-a6c0-11f1-a824-177f9ea87398": {
+    "name": "TSG Ghosthawks",
+    "source": "https://images.dc.connect.sportradar.com/b1e0z/c539b3e99f4f45edaf3d9d3aff106aea?size=RAW",
+    "fetchedAt": "2026-11-12"
+  },
+  "9f419ff5-a6be-11f1-a9d1-335289d35d91": {
+    "name": "Abra Weavers",
+    "source": "https://images.dc.connect.sportradar.com/b1e0z/f437b8fd6bb9420b802de18217b4b915?size=RAW",
+    "fetchedAt": "2026-11-12"
+  },
+  "b9a6e682-a6bf-11f1-9adf-156b7f4d27a3": {
+    "name": "Goyang Sono Skygunners",
+    "source": "https://images.dc.connect.sportradar.com/b1e0z/3c4d8feb29084117bd75d2d0a3609cc6?size=RAW",
+    "fetchedAt": "2026-11-12"
+  },
+  "cbf7cf59-99df-11f0-a4c2-2d0f1dbbfaba": {
+    "name": "South Gobi Broncos",
+    "source": "https://images.dc.connect.sportradar.com/b1e0z/5f22eced404d465f88e4d0944f316475?size=RAW",
+    "fetchedAt": "2026-11-12"
+  },
+  "f170040e-5ad9-11ef-b4d4-070129f618c6": {
+    "name": "Taoyuan Pauian Pilots",
+    "source": "https://images.dc.connect.sportradar.com/b1e0z/613ec1e996cc4dde9890b18646d74339?size=RAW",
+    "fetchedAt": "2026-11-12"
+  }
+}

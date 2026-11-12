@@ -3,7 +3,8 @@
 import fs from 'node:fs';
 import { load } from 'cheerio';
 import { createThrottledFetch } from './lib/throttle.ts';
-import { parseEaslMatches } from './lib/easlSchedule.ts';
+import { parseEaslMatches, easlLinkSlugs, easlLogoSources } from './lib/easlSchedule.ts';
+import { fetchMissingEaslLogos } from './lib/easlLogos.ts';
 import type { AnnualCalendarFile } from '../shared/annualSchedule.ts';
 
 const args = process.argv.slice(2);
@@ -27,8 +28,14 @@ for (const type of ['schedule', 'results']) {
   if (!Array.isArray(response)) throw new Error('EASLの応答形式が変わりました');
   all.push(...response);
 }
-const games = [...new Map(parseEaslMatches(all, season).map(g => [g.id, g])).values()];
+const games = [...new Map(parseEaslMatches(all, season, easlLinkSlugs(html)).map(g => [g.id, g])).values()];
 if (!games.length) throw new Error('EASLの日程が0件のため前回のデータを保持します');
+// 海外クラブのロゴ。取れなくても日程の更新は続ける（画面はチームカラーの札になる）
+try {
+  const logos = await fetchMissingEaslLogos(easlLogoSources(all), async url => { const r = await fetcher(url); return r; });
+  if (logos.saved) console.log(`EASLロゴ: ${logos.saved}件を保存`);
+  if (logos.failed.length) console.warn(`EASLロゴ: 取得できなかったクラブ ${logos.failed.join('、')}`);
+} catch (error) { console.warn(`EASLロゴの取得に失敗: ${(error as Error).message}`); }
 const previous = data.seasons[season] ?? { games: [], events: [], notes: ['天皇杯・オールスターの大会期間は未収録です。'] };
 const before = previous.games.filter(g => g.competition === 'easl');
 if (before.some(g => !games.some(n => n.id === g.id))) throw new Error('EASLの既存試合が応答から欠けました。削除せず前回のデータを保持します');
