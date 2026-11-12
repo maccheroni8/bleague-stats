@@ -38,7 +38,7 @@ const CDX_CACHE = path.join(ROOT, "node_modules", ".cache", "season-photos-cdx.t
 const FIRST_OFFICIAL_SEASON = "2021-22";
 const IMG_HOST = "https://bleague.bl.kuroco-img.app";
 const USER_AGENT = "Mozilla/5.0 (bleague-stats personal research; read-only)";
-const throttledFetch = createThrottledFetch(3000, USER_AGENT);
+export const throttledFetch = createThrottledFetch(3000, USER_AGENT);
 const SAVE_EVERY = 25;
 
 type Pair = { teamId: string; playerId: string };
@@ -115,7 +115,7 @@ async function loadWaybackCaptures(): Promise<Map<string, { url: string; ts: str
   return out;
 }
 
-async function fetchImage(url: string): Promise<Buffer | null> {
+export async function fetchImage(url: string): Promise<Buffer | null> {
   const res = await throttledFetch(url);
   if (res.status === 404 || res.status === 403 || res.status === 410) {
     await res.body?.cancel();
@@ -125,8 +125,10 @@ async function fetchImage(url: string): Promise<Buffer | null> {
   const type = res.headers.get("content-type") ?? "";
   const buf = Buffer.from(await res.arrayBuffer());
   if (!type.startsWith("image/")) {
+    // 種類（content-type）が付かないだけで中身は画像のことがある（Wayback の一部の保存。374-5章）。中身が画像として読めれば受け取る
+    const looksLikeImage = type === "" || type === "application/octet-stream" ? await sharp(buf).metadata().then((m) => !!m.format, () => false) : false;
     // Wayback が一時停止のときは 200 で HTML を返すことがある。取れなかったと記録せず、止める
-    throw new Error(`画像でない応答（${type || "種類なし"}）: ${url}`);
+    if (!looksLikeImage) throw new Error(`画像でない応答（${type || "種類なし"}）: ${url}`);
   }
   const meta = await sharp(buf).metadata();
   if (!meta.width || !meta.height || meta.width < 100) return null;
@@ -146,7 +148,7 @@ function seasonsFromArgs(args: string[]): string[] {
   return out;
 }
 
-function loadState(season: string): { index: SeasonPhotoIndex; sources: SeasonPhotoSources } {
+export function loadState(season: string): { index: SeasonPhotoIndex; sources: SeasonPhotoSources } {
   const indexPath = path.join(SEASON_PHOTO_DIR, `${season}.json`);
   const sourcesPath = path.join(SEASON_PHOTO_DIR, season, "sources.json");
   const index: SeasonPhotoIndex = existsSync(indexPath)
@@ -159,7 +161,7 @@ function loadState(season: string): { index: SeasonPhotoIndex; sources: SeasonPh
 }
 
 /** 台帳を名簿の順（チームの並び）にそろえて書く。同じ中身なら同じバイトになるようにする */
-function saveState(season: string, pairs: Pair[], sources: SeasonPhotoSources): void {
+export function saveState(season: string, pairs: Pair[], sources: SeasonPhotoSources): void {
   const dir = path.join(SEASON_PHOTO_DIR, season);
   mkdirSync(dir, { recursive: true });
   const have = new Set(sources.photos.map((p) => `${p.teamId}|${p.playerId}`));

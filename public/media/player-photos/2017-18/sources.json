@@ -22,6 +22,26 @@
   },
   {
    "teamId": "702",
+   "playerId": "8508",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rh/2017-18/501906150/01/player.jpg",
+   "snapshot": "20170928175442",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "levanga.com 20180615005051 折茂 武彦",
+   "sha256": "819bbda5146a815cbbec6f0a51152eae3e1c76ce27f748b1643a1021cad2d7d4"
+  },
+  {
+   "teamId": "702",
+   "playerId": "10297",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rh/2017-18/500631591/01/player.jpg",
+   "snapshot": "20170928175553",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "levanga.com 20180615005051 田原 隆徳",
+   "sha256": "5834cad8a7a1c0994d6373d3f6518a8f9837d390b719e057c07af75330cb4b6f"
+  },
+  {
+   "teamId": "702",
    "playerId": "8507",
    "origin": "wayback",
    "url": "https://www.bleague.jp/files/user/roster/702/2017-18/8507_01.jpg",
@@ -31,12 +51,42 @@
   },
   {
    "teamId": "702",
+   "playerId": "8506",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rh/2017-18/508442152/01/player.jpg",
+   "snapshot": "20170928173210",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "levanga.com 20180615005051 牧 全",
+   "sha256": "3cb37ba96e880d9bb79b383c3fd9929f0bb0e161650f1b951818723022a1f2b4"
+  },
+  {
+   "teamId": "702",
+   "playerId": "10880",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rh/2017-18/501098184/01/player.jpg",
+   "snapshot": "20170928173300",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "levanga.com 20180615005051 川邉 亮平",
+   "sha256": "79df6cc8c493edaaea55529b872e7d8858f8a499daf1ea8c3a8ee7d009cbb6fd"
+  },
+  {
+   "teamId": "702",
    "playerId": "9392",
    "origin": "wayback",
    "url": "https://www.bleague.jp/files/user/roster/702/2017-18/9392_01.jpg",
    "snapshot": "20240611020434",
    "fetchedAt": "2026-11-11",
    "sha256": "d50ad1f3341898979ff1d64cf18b933fca405092533330fb42e6581670ed3896"
+  },
+  {
+   "teamId": "702",
+   "playerId": "15845",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rh/2017-18/510491789/01/player.jpg",
+   "snapshot": "20180615004729",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "levanga.com 20180615005051 ディジョン・トンプソン",
+   "sha256": "1a9734a813a30863340573a389789127567fb45d35eec77385ab9f9f57b331dc"
   },
   {
    "teamId": "702",
@@ -66,6 +116,46 @@
    "sha256": "c38eaa50abc479339a2747fe0b23ed2ca14b59a54fc24f8553dc39dc479fc810"
   },
   {
+   "teamId": "702",
+   "playerId": "9039",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rh/2017-18/501858853/01/player.jpg",
+   "snapshot": "20180215195124",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "levanga.com 20180615005051 伊藤 大司",
+   "sha256": "ed85bebb84fd36becc43c05849acdfb6e2630a7f58acd142c7417875995b874c"
+  },
+  {
+   "teamId": "703",
+   "playerId": "9035",
+   "origin": "club",
+   "url": "http://tochigibrex.jp/fs/2/1/0/6/9/2/_/thumb/player_12_201718.jpg",
+   "snapshot": "20170905185918",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20170905185918 アンドリュー・ネイミック",
+   "sha256": "68caaba4add508ed7ffcf1413e70b4d6f53bda57c33fd87e7aa51495be593e9b"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8657",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/501895601/01/player.jpg",
+   "snapshot": "20180616053413",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 喜多川 修平",
+   "sha256": "3153bc80424c89bad907379a534f23579afbed471e5d53ab0fbfd52b5ef05f60"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8496",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/500626486/01/player.jpg",
+   "snapshot": "20180616053349",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 橋本 晃佑",
+   "sha256": "312f1182bb047da11f925bddb59558732db7aeb2300645859e04e7f3313b15a1"
+  },
+  {
    "teamId": "703",
    "playerId": "8649",
    "origin": "wayback",
@@ -73,6 +163,196 @@
    "snapshot": "20240306121909",
    "fetchedAt": "2026-11-11",
    "sha256": "8cdd5ba7410be117e2ad67704ae7d315595e3f623734eab46c854e20e5c38850"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8495",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/500168523/01/player.jpg",
+   "snapshot": "20180616053915",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 前村 雄大",
+   "sha256": "85debc16d715a2d9a73205719b4fd1e8ce01a96d18fb1536771af8d6088ff5c1"
+  },
+  {
+   "teamId": "703",
+   "playerId": "10822",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/502031598/01/player.jpg",
+   "snapshot": "20180616054010",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 生原 秀将",
+   "sha256": "95d0397756c99adcf6358b0d412effa7df44510d7bc8ac14126c04a24c58e1eb"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8835",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/503246653/01/player.jpg",
+   "snapshot": "20180616053417",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 ジェフ・ギブス",
+   "sha256": "7694bc83f26e126c0f9097ecca4dae6ffa44f21dfeba28487f542cfe7779abc9"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8650",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/503241179/01/player.jpg",
+   "snapshot": "20171229173852",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 田臥 勇太",
+   "sha256": "901e878d06c62a7ab04f61620f55012dc7b6a9948de33daf047757888caa1c61"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8504",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/501439393/01/player.jpg",
+   "snapshot": "20180616054048",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 山崎 稜",
+   "sha256": "6921560ba13baa3bead9e6f38689da58711926f35d933e09a59ba0cdf4e9d4e6"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8499",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/501786903/01/player.jpg",
+   "snapshot": "20180616054030",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 渡邉 裕規",
+   "sha256": "17c0221c91e04ac723440961096962a2c6af0f8212a6490ed5342780129d1bc9"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8497",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/501185731/01/player.jpg",
+   "snapshot": "20180616053800",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 遠藤 祐亮",
+   "sha256": "e3626f7fc1a593a75c91fc994bb41ff91f728c46b568d6303c46da8182dd5e2e"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8529",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/500583484/01/player.jpg",
+   "snapshot": "20180616053654",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 鵤 誠司",
+   "sha256": "136778e3e25f3d9b6c5e4fe6d50d09d97f625c361517d9af4f5e606e03548296"
+  },
+  {
+   "teamId": "703",
+   "playerId": "9331",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/506436919/01/player.jpg",
+   "snapshot": "20180616053625",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 セドリック・ボーズマン",
+   "sha256": "63be9404cd12039221d8dc5a1dfaf54c199492d381ee6d0c848e9416f9aa3520"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8648",
+   "origin": "club",
+   "url": "http://tochigibrex.jp/fs/2/1/0/6/7/9/_/thumb/player_91_201718.jpg",
+   "snapshot": "20170905185918",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20170905185918 落合 知也",
+   "sha256": "e526be6e2fc4f1390dc74ed492570a07e8c00256002d73e677d1d07de9b0b199"
+  },
+  {
+   "teamId": "703",
+   "playerId": "15843",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/503917711/01/player.jpg",
+   "snapshot": "20180616053838",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 須田 昂太郎",
+   "sha256": "b3090b06d5eba95e787b86e16e7832c8a4364f192624cbb49837d3d536903328"
+  },
+  {
+   "teamId": "703",
+   "playerId": "8726",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rt/2017-18/501899580/01/player.jpg",
+   "snapshot": "20180123193725",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "tochigibrex.jp 20180616053745 竹内 公輔",
+   "sha256": "537e31b82ecef38d32f304bc8d86de6ed821add9babd8010184eccf2e61e07a5"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8584",
+   "origin": "club",
+   "url": "https://data.bleague.jp/cj/2017-18/500931098/01/player.jpg",
+   "snapshot": "20170903094026",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "chibajets.jp 20180605105315 原 修太",
+   "sha256": "248c57fe89236c00af1d09493e59968fc062fec625e01fc9b977e076f22666f1"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8448",
+   "origin": "club",
+   "url": "https://data.bleague.jp/cj/2017-18/506425534/01/player.jpg",
+   "snapshot": "20170903094116",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "chibajets.jp 20180605105315 アキ・チェンバース",
+   "sha256": "d4b333c29549c6bfdd5e436cb1cfe63d38b9be7391d04fc64b3806d804c65b15"
+  },
+  {
+   "teamId": "704",
+   "playerId": "12457",
+   "origin": "club",
+   "url": "https://data.bleague.jp/cj/2017-18/510332498/01/player.jpg",
+   "snapshot": "20170903094124",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "chibajets.jp 20170912074810 トニー・ガフニー",
+   "sha256": "a03905001d456f6796b77e2bc214314339e66a1cde7924c63ebfa6068e964b37"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8582",
+   "origin": "club",
+   "url": "https://data.bleague.jp/cj/2017-18/501860688/01/player.jpg",
+   "snapshot": "20170903094207",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "chibajets.jp 20180605105315 荒尾 岳",
+   "sha256": "62e0f706e8748f4f12bc8e1369bf1e05a05809a1495b2abf6fd446aed1365516"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8585",
+   "origin": "club",
+   "url": "https://data.bleague.jp/cj/2017-18/501860602/01/player.jpg",
+   "snapshot": "20170903094212",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "chibajets.jp 20180605105315 小野 龍猛",
+   "sha256": "30a2252f6928c2a167fb9c5c2c6a30b7b012cf563352dca9d6212cb52e98384f"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8583",
+   "origin": "club",
+   "url": "https://data.bleague.jp/cj/2017-18/502345964/01/player.jpg",
+   "snapshot": "20170903094127",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "chibajets.jp 20180605105315 石井 講祐",
+   "sha256": "5f65bf9211a42c323d7803b8b63bee596e9c43bc1880880256056f08218aa768"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8578",
+   "origin": "club",
+   "url": "https://data.bleague.jp/cj/2017-18/501906134/01/player.jpg",
+   "snapshot": "20170903094203",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "chibajets.jp 20180605105315 阿部 友和",
+   "sha256": "eba8968fda6ba71707bf0979bec5a18a1821d1b702bbdce4d523fd4946f18afd"
   },
   {
    "teamId": "704",
@@ -100,6 +380,26 @@
    "snapshot": "20220404011508",
    "fetchedAt": "2026-11-11",
    "sha256": "fe620311c44f19ef54c8572fe9b37813ec93cb5078660f59a2694f92592d234d"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8579",
+   "origin": "club",
+   "url": "https://data.bleague.jp/cj/2017-18/506401646/01/player.jpg",
+   "snapshot": "20170903094209",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "chibajets.jp 20180605105315 マイケル・パーカー",
+   "sha256": "6e29a2b1ae3a90c65baef1ea3bb1e5df513b48f92efc1bb983aab69729586c81"
+  },
+  {
+   "teamId": "704",
+   "playerId": "8580",
+   "origin": "club",
+   "url": "https://data.bleague.jp/cj/2017-18/501905282/01/player.jpg",
+   "snapshot": "20170903094029",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "chibajets.jp 20180605105315 西村 文男",
+   "sha256": "77ed9aa9eddfa4c815314271163a2a934a35a3a8d0b35d4df9064579e55543a8"
   },
   {
    "teamId": "706",
@@ -208,6 +508,126 @@
    "snapshot": "20180729012846",
    "fetchedAt": "2026-11-11",
    "sha256": "81e4772e9b7f888fc86d5c962cfe90e7a2af3e1a00271a20f1a1535f3d6f2541"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8730",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ht/2017-18/503408298/01/player.jpg",
+   "snapshot": "20180122034041",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hitachi-sunrockers.co.jp 20180510100158 清水 太志郎",
+   "sha256": "188f3c2ab5bcd063ff81152ac033cf139db0b41a5be2686f20d4c611d05ae3bd"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8446",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ht/2017-18/500042163/01/player.jpg",
+   "snapshot": "20180122041923",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hitachi-sunrockers.co.jp 20180510100158 伊藤 駿",
+   "sha256": "fc5ef0f5f7743f8f914b2ab5bb587aa4a00e60561cc7f44a24bcb83274424423"
+  },
+  {
+   "teamId": "726",
+   "playerId": "10820",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ht/2017-18/503713315/01/player.jpg",
+   "snapshot": "20180209005737",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hitachi-sunrockers.co.jp 20180510100158 杉浦 佑成",
+   "sha256": "d0f8163702a530e2656b1293b1c1185dd2ecaa75489c3d8ec17417c4f4c60132"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8479",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ht/2017-18/501191776/01/player.jpg",
+   "snapshot": "20180123020551",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hitachi-sunrockers.co.jp 20180510100158 菊池 真人",
+   "sha256": "836e697fde39746cc1f2b5e8e16ebdde70c5176e33b90329394ccc1d66d54c41"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8658",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ht/2017-18/500040221/01/player.jpg",
+   "snapshot": "20180123010537",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hitachi-sunrockers.co.jp 20180510100158 山内 盛久",
+   "sha256": "5417d0904a19d6a540dfefa2d570dea3c1b0d13a0f134c5d9ee52c3bb349abeb"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8447",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ht/2017-18/500167349/01/player.jpg",
+   "snapshot": "20180122042257",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hitachi-sunrockers.co.jp 20180510100158 ベンドラメ 礼生",
+   "sha256": "7285d0346297ebfa55c6989bad10b1a01527c7465bbb7c85c471e1cde7a6edd7"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8594",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ht/2017-18/500006620/01/player.jpg",
+   "snapshot": "20180122040200",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hitachi-sunrockers.co.jp 20180510100158 長谷川 智也",
+   "sha256": "4d340e95853efb5b938efa6c0c5ec5f363eae32bb71f58444a2147ccb19df336"
+  },
+  {
+   "teamId": "726",
+   "playerId": "9063",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ht/2017-18/509437079/01/player.jpg",
+   "snapshot": "20180122033110",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hitachi-sunrockers.co.jp 20180510100158 ジョシュ・ハレルソン",
+   "sha256": "d0abe1c569336c18e21e8c4ff983f90fdcc53819d55d2a0068c69849cb4cb7af"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8662",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ht/2017-18/500039691/01/player.jpg",
+   "snapshot": "20180123015009",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hitachi-sunrockers.co.jp 20180510100158 満原 優樹",
+   "sha256": "e2476014026d5ec493b1fc7d35aaa88398e7dfee3dc4d935ee8b4e7b4e7bc120"
+  },
+  {
+   "teamId": "726",
+   "playerId": "12508",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ht/2017-18/510356335/01/player.jpg",
+   "snapshot": "20180123021814",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hitachi-sunrockers.co.jp 20180121082034 ブランデン・ドーソン",
+   "sha256": "4d6b1d66440910ad3f25b636daa37277403cb8a4a6280d36ad198a11c7b440c3"
+  },
+  {
+   "teamId": "726",
+   "playerId": "8450",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ht/2017-18/501785957/01/player.jpg",
+   "snapshot": "20180123013750",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hitachi-sunrockers.co.jp 20180510100158 広瀬 健太",
+   "sha256": "12c6616fbf07755ea5b0c7bb82653c635522e8be62a4bd915167b20606607e2c"
+  },
+  {
+   "teamId": "726",
+   "playerId": "15756",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ht/2017-18/501849786/01/player.jpg",
+   "snapshot": "20180209002946",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hitachi-sunrockers.co.jp 20180510100158 阿部 諒",
+   "sha256": "9942d6004116cfa8ac450a2e811adfc7baf95e9881c12f50f11b61400cc77638"
   },
   {
    "teamId": "727",
@@ -355,6 +775,16 @@
   },
   {
    "teamId": "694",
+   "playerId": "8713",
+   "origin": "club",
+   "url": "https://data.bleague.jp/yb/2017-18/500042081/01/player.jpg",
+   "snapshot": "20180215053426",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "b-corsairs.com 20180218091240 湊谷 安玲久司朱",
+   "sha256": "05a066352cc3d1280daa56b19fd78f179dcf2b9a268dc31b8440d47f11af5e50"
+  },
+  {
+   "teamId": "694",
    "playerId": "8719",
    "origin": "wayback",
    "url": "https://www.bleague.jp/files/user/roster/694/2017-18/8719_01.jpg",
@@ -364,12 +794,102 @@
   },
   {
    "teamId": "694",
+   "playerId": "8720",
+   "origin": "club",
+   "url": "https://data.bleague.jp/yb/2017-18/503241242/01/player.jpg",
+   "snapshot": "20180215061423",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "b-corsairs.com 20180218091240 竹田 謙",
+   "sha256": "a82490dca8b59a07f17fb997715fbb34547498f6700040671c69bf090b9fc349"
+  },
+  {
+   "teamId": "694",
+   "playerId": "8454",
+   "origin": "club",
+   "url": "https://data.bleague.jp/yb/2017-18/503241227/01/player.jpg",
+   "snapshot": "20180215053718",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "b-corsairs.com 20180218091240 山田 謙治",
+   "sha256": "d9d1dba4c9fc6b6c0221651196a29f41863217e2266946a23eb66522b2b8dbf3"
+  },
+  {
+   "teamId": "694",
+   "playerId": "9398",
+   "origin": "club",
+   "url": "https://data.bleague.jp/yb/2017-18/503423215/01/player.jpg",
+   "snapshot": "20180215061216",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "b-corsairs.com 20180218091240 ジェフリー・パーマー",
+   "sha256": "5372402ead78cffb6b521a6872a6338229c5062a11d0e11e5f3dd5b3dd07fa60"
+  },
+  {
+   "teamId": "694",
+   "playerId": "12640",
+   "origin": "club",
+   "url": "https://data.bleague.jp/yb/2017-18/510411212/01/player.jpg",
+   "snapshot": "20180209030714",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "b-corsairs.com 20180218091240 ハシーム・サビート・マンカ",
+   "sha256": "4725da6d28b6bfd7118f502d70202d0bd26c7ef25ec300a144f214e39c5fbd57"
+  },
+  {
+   "teamId": "694",
+   "playerId": "12663",
+   "origin": "club",
+   "url": "https://data.bleague.jp/yb/2017-18/510454094/01/player.jpg",
+   "snapshot": "20180215062220",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "b-corsairs.com 20180218091240 ウィリアム・マクドナルド",
+   "sha256": "9a6227e9b5757d8348177242a37ee2707f89888e5ca4eb50144acb42e9023c28"
+  },
+  {
+   "teamId": "694",
+   "playerId": "9403",
+   "origin": "club",
+   "url": "https://data.bleague.jp/yb/2017-18/509455171/01/player.jpg",
+   "snapshot": "20180729170152",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "b-corsairs.com 20171101150929 ジェイソン・ウォッシュバーン",
+   "sha256": "60be5772a87f3697b2aecb2054b8d80bd6b405ffb3fb61ff64a275cc4b6d1129"
+  },
+  {
+   "teamId": "694",
+   "playerId": "8455",
+   "origin": "club",
+   "url": "https://data.bleague.jp/yb/2017-18/501670012/01/player.jpg",
+   "snapshot": "20180215054157",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "b-corsairs.com 20180218091240 蒲谷 正之",
+   "sha256": "be79735c420cb2fb3ec6a5729c89895201685791232484499442e95c74b1a611"
+  },
+  {
+   "teamId": "694",
    "playerId": "8712",
    "origin": "wayback",
    "url": "https://www.bleague.jp/files/user/roster/694/2017-18/8712_01.jpg",
    "snapshot": "20190722073720",
    "fetchedAt": "2026-11-11",
    "sha256": "0b4c17cca04d70a0906215872880be9e245752271b6fdd9553af5b231d0bf87d"
+  },
+  {
+   "teamId": "694",
+   "playerId": "8458",
+   "origin": "club",
+   "url": "https://data.bleague.jp/yb/2017-18/501670031/01/player.jpg",
+   "snapshot": "20180215062124",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "b-corsairs.com 20180218091240 佐藤 託矢",
+   "sha256": "7237a50eb7817cffe2072c4e547513096f6f712877f7bba4f14109a8a9397466"
+  },
+  {
+   "teamId": "694",
+   "playerId": "10844",
+   "origin": "club",
+   "url": "https://data.bleague.jp/yb/2017-18/500931320/01/player.jpg",
+   "snapshot": "20180215060014",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "b-corsairs.com 20180218091240 満田 丈太郎",
+   "sha256": "f8ea539e27137f08837a8108c1db1381053364fafae2b3ea38b4f751ccdd0098"
   },
   {
    "teamId": "694",
@@ -526,6 +1046,16 @@
   },
   {
    "teamId": "696",
+   "playerId": "8664",
+   "origin": "club",
+   "url": "https://data.bleague.jp/tg/2017-18/508469934/01/player.jpg",
+   "snapshot": "20180126072742",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "grouses.jp 20180129203920 ドリュー・ヴァイニー",
+   "sha256": "9d8de410d975fb4f546ddff851567c10f98413090397b19681c11cb9f36aa8fb"
+  },
+  {
+   "teamId": "696",
    "playerId": "15818",
    "origin": "wayback",
    "url": "https://www.bleague.jp/files/user/roster/696/2017-18/15818_01.jpg",
@@ -643,12 +1173,92 @@
   },
   {
    "teamId": "697",
+   "playerId": "9058",
+   "origin": "club",
+   "url": "https://data.bleague.jp/hh/2017-18/508448661/01/player.jpg",
+   "snapshot": "20170930234929",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "neophoenix.jp 20180622171350 スコット・モリソン",
+   "sha256": "f45030d54fa7cdbaedf78d8d08078ea09dc462ac886adcf413b059b67aaa3f90"
+  },
+  {
+   "teamId": "697",
    "playerId": "8571",
    "origin": "wayback",
    "url": "https://www.bleague.jp/files/user/roster/697/2017-18/8571_01.jpg",
    "snapshot": "20181202071342",
    "fetchedAt": "2026-11-11",
    "sha256": "cfecbd6d873b92487cce09c82758819de3b7371f4ea5848dd5a28b3103d07434"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8563",
+   "origin": "club",
+   "url": "https://data.bleague.jp/hh/2017-18/503408303/01/player.jpg",
+   "snapshot": "20171001000416",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "neophoenix.jp 20180622171350 大石 慎之介",
+   "sha256": "22059ba0c541db8f6d697b3bb3dafdb50927673c416632e089f0120f130cab4c"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8568",
+   "origin": "club",
+   "url": "https://data.bleague.jp/hh/2017-18/500162299/01/player.jpg",
+   "snapshot": "20170930235851",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "neophoenix.jp 20180622171350 鈴木 達也",
+   "sha256": "bc55e4671018b1a5361b3c54d68ca677488b989687e493063f8a03589484514e"
+  },
+  {
+   "teamId": "697",
+   "playerId": "12523",
+   "origin": "club",
+   "url": "https://data.bleague.jp/hh/2017-18/510367357/01/player.jpg",
+   "snapshot": "20170930233355",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "neophoenix.jp 20170930202220 カルティエ・マーティン",
+   "sha256": "ad7d00b8cb69560f690220cfb27667833c8884788d71398ad0ec7f43eddea398"
+  },
+  {
+   "teamId": "697",
+   "playerId": "9423",
+   "origin": "club",
+   "url": "https://data.bleague.jp/hh/2017-18/503255119/01/player.jpg",
+   "snapshot": "20170930234029",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "neophoenix.jp 20180622171350 比留木 謙司",
+   "sha256": "9a8b95f75f0302ba20f83f528d043b91c12324bed994c273faa1149fec905ebf"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8564",
+   "origin": "club",
+   "url": "https://data.bleague.jp/hh/2017-18/503258993/01/player.jpg",
+   "snapshot": "20170930234714",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "neophoenix.jp 20180622171350 大口 真洋",
+   "sha256": "796384625b4c9c795f79277b821fd1e84fac9c3f9547f6e8da4117d103a7805b"
+  },
+  {
+   "teamId": "697",
+   "playerId": "10896",
+   "origin": "club",
+   "url": "https://data.bleague.jp/hh/2017-18/501028996/01/player.jpg",
+   "snapshot": "20171001000426",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "neophoenix.jp 20180622171350 岩田 涼太",
+   "sha256": "84918fd4b50137a0d27e44415b7bca73af17e95ff6e3759e16c13988549d7d25"
+  },
+  {
+   "teamId": "697",
+   "playerId": "8569",
+   "origin": "club",
+   "url": "https://data.bleague.jp/hh/2017-18/501905402/01/player.jpg",
+   "snapshot": "20170930235037",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "neophoenix.jp 20180622171350 鹿野 洵生",
+   "sha256": "b2847143ea4c135316731a70ca140be26a21ce289996080855ecc44b9a23e50f"
   },
   {
    "teamId": "697",
@@ -678,6 +1288,126 @@
    "sha256": "97040732302103471a92b1c5595c26198478a23ba64a0e005dae55d17ed0cdef"
   },
   {
+   "teamId": "728",
+   "playerId": "8595",
+   "origin": "club",
+   "url": "https://data.bleague.jp/am/2017-18/500944974/01/player.jpg",
+   "snapshot": "20171220162834",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "go-seahorses.jp 20180518203256 加藤 寿一",
+   "sha256": "c5603cb364f906dbc429727009f8b34f21d21eef2d2c9e80a106bf0c97e4b4ba"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8592",
+   "origin": "club",
+   "url": "https://data.bleague.jp/am/2017-18/500031831/01/player.jpg",
+   "snapshot": "20171220165851",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "go-seahorses.jp 20180518203256 金丸 晃輔",
+   "sha256": "4ec8a91860db4bfa5aa0012dba214e4ee3ce949328066a94b0619521d403ca95"
+  },
+  {
+   "teamId": "728",
+   "playerId": "9034",
+   "origin": "club",
+   "url": "https://data.bleague.jp/am/2017-18/503118874/01/player.jpg",
+   "snapshot": "20171220162858",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "go-seahorses.jp 20180518203256 松井 啓十郎",
+   "sha256": "1fe44add4fbbb0078836706ee774bc625d7dc2e68235c49cffe9010c9a5d2ec6"
+  },
+  {
+   "teamId": "728",
+   "playerId": "15847",
+   "origin": "club",
+   "url": "https://data.bleague.jp/am/2017-18/510492803/01/player.jpg",
+   "snapshot": "20180616153415",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "go-seahorses.jp 20180518203256 コートニー・シムズ",
+   "sha256": "f97464b9ef4da2429f16542339e159fb399357a432abf6e1e5e35a028ddf7160"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8587",
+   "origin": "club",
+   "url": "https://data.bleague.jp/am/2017-18/500011480/01/player.jpg",
+   "snapshot": "20171220165430",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "go-seahorses.jp 20180518203256 橋本 竜馬",
+   "sha256": "6cd4e2d392e504c21e0e133c8e9b05aa2844a427edcb739f99b4ca700df54d35"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8590",
+   "origin": "club",
+   "url": "https://data.bleague.jp/am/2017-18/504433283/01/player.jpg",
+   "snapshot": "20171220160135",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "go-seahorses.jp 20180518203256 狩俣 昌也",
+   "sha256": "3598a9476642cd5cc3479eef39b2839d6af72e912e7efc9e6d905eac0fdd4a19"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8510",
+   "origin": "club",
+   "url": "https://data.bleague.jp/am/2017-18/500032402/01/player.jpg",
+   "snapshot": "20171220155938",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "go-seahorses.jp 20180518203256 西川 貴之",
+   "sha256": "cb2d508b666750fa6c28c9c93a279d4aae0e5e93b14ff65fcf1b1dc03589110f"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8457",
+   "origin": "club",
+   "url": "https://data.bleague.jp/am/2017-18/503359183/01/player.jpg",
+   "snapshot": "20171220155129",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "go-seahorses.jp 20180518203256 村上 直",
+   "sha256": "d5d20d139e060ff137acf97475d0158a5941f67a2ceb4a9040c779cc8c4e3bbd"
+  },
+  {
+   "teamId": "728",
+   "playerId": "12636",
+   "origin": "club",
+   "url": "https://data.bleague.jp/am/2017-18/510370052/01/player.jpg",
+   "snapshot": "20171220170848",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "go-seahorses.jp 20171024000955 ダニエル・オルトン",
+   "sha256": "14a9b21146bd65d3f188914428198d45c6c131bc1cdb29e588db28c26fc400f6"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8589",
+   "origin": "club",
+   "url": "https://data.bleague.jp/am/2017-18/500042184/01/player.jpg",
+   "snapshot": "20171220164447",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "go-seahorses.jp 20180518203256 比江島 慎",
+   "sha256": "c94efe60d65f33a2b789708b4e90a9ee567afa85984504f0384411d5478346bb"
+  },
+  {
+   "teamId": "728",
+   "playerId": "9405",
+   "origin": "club",
+   "url": "https://data.bleague.jp/am/2017-18/500145462/01/player.jpg",
+   "snapshot": "20171220164422",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "go-seahorses.jp 20180518203256 森川 正明",
+   "sha256": "2bbd3e27a29da642ffc378c4422f3655187670a18b9d9c8dc0fbc10f21a12acc"
+  },
+  {
+   "teamId": "728",
+   "playerId": "8591",
+   "origin": "club",
+   "url": "https://data.bleague.jp/am/2017-18/507446153/01/player.jpg",
+   "snapshot": "20171220162936",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "go-seahorses.jp 20180518203256 アイザック・バッツ",
+   "sha256": "c5feb6615ca0c9b1788894f14c4fca1f9b8cfa5c0c3cfd7010df940e46d14626"
+  },
+  {
    "teamId": "729",
    "playerId": "9383",
    "origin": "wayback",
@@ -688,12 +1418,122 @@
   },
   {
    "teamId": "729",
+   "playerId": "8653",
+   "origin": "club",
+   "url": "https://data.bleague.jp/mn/2017-18/503241213/01/player.jpg",
+   "snapshot": "20171007103622",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "nagoya-dolphins.jp 20180126004731 大宮 宏正",
+   "sha256": "5ebe5432459a9eebd9b33732e598c9cf52ef217aa24ef2a08264d3dd3cdad1c3"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8738",
+   "origin": "club",
+   "url": "https://data.bleague.jp/mn/2017-18/500042231/01/player.jpg",
+   "snapshot": "20171007102309",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "nagoya-dolphins.jp 20180126004731 張本 天傑",
+   "sha256": "09b57b6527f453b1c5529da53bba8f9c173e7f3c2866ab4322e22a1182c22c8f"
+  },
+  {
+   "teamId": "729",
+   "playerId": "9382",
+   "origin": "club",
+   "url": "https://data.bleague.jp/mn/2017-18/506436129/01/player.jpg",
+   "snapshot": "20171007102629",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "nagoya-dolphins.jp 20180126004731 ジェロウム・ティルマン",
+   "sha256": "f18a3333e5cd780b6c0370f032845ee93e03911926c806d65bdc4cdfbb9e19c9"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8739",
+   "origin": "club",
+   "url": "https://data.bleague.jp/mn/2017-18/501786893/01/player.jpg",
+   "snapshot": "20171007101951",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "nagoya-dolphins.jp 20180126004731 中務 敏宏",
+   "sha256": "b6b1bc7fbfa269ee788c944ced1f84ccf9ddec3f05ea0edcb39f11a82e89a82d"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8736",
+   "origin": "club",
+   "url": "https://data.bleague.jp/mn/2017-18/500928150/01/player.jpg",
+   "snapshot": "20171007101848",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "nagoya-dolphins.jp 20180126004731 藤永 佳昭",
+   "sha256": "598c8a16dd028bb04e6ff4179c6e5eef749aaa7b21de3f14ab53d14be9684ed8"
+  },
+  {
+   "teamId": "729",
+   "playerId": "10815",
+   "origin": "club",
+   "url": "https://data.bleague.jp/mn/2017-18/500443020/01/player.jpg",
+   "snapshot": "20171007103317",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "nagoya-dolphins.jp 20180126004731 安藤 周人",
+   "sha256": "a7e6ef607199f373ef99140a67066fb12105aa1bb06bac52b4bd6bf3d62f2a2c"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8588",
+   "origin": "club",
+   "url": "https://data.bleague.jp/mn/2017-18/501895533/01/player.jpg",
+   "snapshot": "20171007103212",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "nagoya-dolphins.jp 20180126004731 柏木 真介",
+   "sha256": "afedb44f34e0d9e67d05c31ad12650796fe3dc49a77603a20dcaf1f3490e62fd"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8516",
+   "origin": "club",
+   "url": "https://data.bleague.jp/mn/2017-18/501664521/01/player.jpg",
+   "snapshot": "20171007103215",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "nagoya-dolphins.jp 20180126004731 中東 泰斗",
+   "sha256": "f23a359281fbaa33281bc99fffc12bc1d550f78cca8d8e0ca2a3fa8ad985476e"
+  },
+  {
+   "teamId": "729",
+   "playerId": "10817",
+   "origin": "club",
+   "url": "https://data.bleague.jp/mn/2017-18/509549774/01/player.jpg",
+   "snapshot": "20171007103526",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "nagoya-dolphins.jp 20180126004731 クレイグ・ブラッキンズ",
+   "sha256": "9cc5991c0dd3eb183887e8457f7487e40a3748df76b077654afc1cdc1919fc4b"
+  },
+  {
+   "teamId": "729",
    "playerId": "8517",
    "origin": "wayback",
    "url": "https://www.bleague.jp/files/user/roster/729/2017-18/8517_02.jpg",
    "snapshot": "20221122082952",
    "fetchedAt": "2026-11-11",
    "sha256": "4210d0a172c2885a14fa931423cc5f711e645391e8734fd0087d0a2e81a3b714"
+  },
+  {
+   "teamId": "729",
+   "playerId": "8737",
+   "origin": "club",
+   "url": "https://data.bleague.jp/mn/2017-18/500446507/01/player.jpg",
+   "snapshot": "20171007103529",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "nagoya-dolphins.jp 20180126004731 船生 誠也",
+   "sha256": "d0a40593cbb3e282de2ea1d1f760e088fd386591a03e164bf94f5a47a8bc4740"
+  },
+  {
+   "teamId": "698",
+   "playerId": "8577",
+   "origin": "club",
+   "url": "https://data.bleague.jp/sl/2017-18/500162257/01/player.jpg",
+   "snapshot": "20180203204407",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "lakestars.net 20180410072055 長谷川 智伸",
+   "sha256": "cc1c9c25f3c1aabdcee8b0c760bea3a3b28b0a692a5d71391e76bf5ccb9aa518"
   },
   {
    "teamId": "698",
@@ -706,12 +1546,32 @@
   },
   {
    "teamId": "698",
+   "playerId": "8461",
+   "origin": "club",
+   "url": "https://data.bleague.jp/sl/2017-18/501218275/01/player.jpg",
+   "snapshot": "20180614172123",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "lakestars.net 20180410072055 横江 豊",
+   "sha256": "dbeee82695e74e884e0598c0e3257ef42628eb6f58ce96c7d0a7baa2fbfb38e6"
+  },
+  {
+   "teamId": "698",
    "playerId": "12585",
    "origin": "wayback",
    "url": "https://www.bleague.jp/files/user/roster/698/2017-18/12585_01.jpg",
    "snapshot": "20201217090153",
    "fetchedAt": "2026-11-11",
    "sha256": "9a37dcb70479b088f4452dfac2f90fdd3716b27b2f86f4885ad6c832e699ec58"
+  },
+  {
+   "teamId": "698",
+   "playerId": "8465",
+   "origin": "club",
+   "url": "https://data.bleague.jp/sl/2017-18/500899067/01/player.jpg",
+   "snapshot": "20180614172038",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "lakestars.net 20180410072055 樋口 大倫",
+   "sha256": "f1c93ad2702743f852e1b29f6e00ccc79aa4fd3cdc4d391ba2453098cc8ef09f"
   },
   {
    "teamId": "698",
@@ -724,12 +1584,72 @@
   },
   {
    "teamId": "698",
+   "playerId": "10818",
+   "origin": "club",
+   "url": "https://data.bleague.jp/sl/2017-18/501208853/01/player.jpg",
+   "snapshot": "20180614171536",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "lakestars.net 20180410072055 高橋 耕陽",
+   "sha256": "bc5fe62dcae20c658faa4f8b45c05b5339f4bf8882946e3836034eacce122b5c"
+  },
+  {
+   "teamId": "698",
+   "playerId": "8462",
+   "origin": "club",
+   "url": "https://data.bleague.jp/sl/2017-18/500042241/01/player.jpg",
+   "snapshot": "20180614171722",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "lakestars.net 20180410072055 小林 遥太",
+   "sha256": "73387e289a8b06da959dd75aeabaf09ad85134ef858dc9753b80574b623cd0c7"
+  },
+  {
+   "teamId": "698",
+   "playerId": "8758",
+   "origin": "club",
+   "url": "https://data.bleague.jp/sl/2017-18/506512195/01/player.jpg",
+   "snapshot": "20180614171808",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "lakestars.net 20180410072055 澤地 サミュエルJr.",
+   "sha256": "d80dbd28f278aa6c90eeaa1c622eac8f230dccbe93ef1d7178e6ae782f919325"
+  },
+  {
+   "teamId": "698",
+   "playerId": "15811",
+   "origin": "club",
+   "url": "https://data.bleague.jp/sl/2017-18/501471753/01/player.jpg",
+   "snapshot": "20180614172041",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "lakestars.net 20180410072055 佐藤 卓磨",
+   "sha256": "38621c632f292f83804b65dbeb5842338f14c40e76cb593831273f1faa8e2263"
+  },
+  {
+   "teamId": "698",
    "playerId": "9489",
    "origin": "wayback",
    "url": "https://www.bleague.jp/files/user/roster/698/2017-18/9489_01.jpg",
    "snapshot": "20201217090200",
    "fetchedAt": "2026-11-11",
    "sha256": "a77158e437073d069b2ecd24e59b04a5dad6b4e1ccbeb41d250228b0734a9872"
+  },
+  {
+   "teamId": "698",
+   "playerId": "8761",
+   "origin": "club",
+   "url": "https://data.bleague.jp/sl/2017-18/503259667/01/player.jpg",
+   "snapshot": "20180614172001",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "lakestars.net 20180410072055 菅原 洋介",
+   "sha256": "1a445fd325692171049786355d537eb1cfc52a1113ed9ade4cf91c09b5f1364e"
+  },
+  {
+   "teamId": "698",
+   "playerId": "15812",
+   "origin": "club",
+   "url": "https://data.bleague.jp/sl/2017-18/510482863/01/player.jpg",
+   "snapshot": "20180402163131",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "lakestars.net 20180410072055 ベンキー・ジョイス",
+   "sha256": "f6a2254cf7ff9e04c94af88c4e57110c942502535b684f25047a0638a239bb25"
   },
   {
    "teamId": "699",
@@ -739,6 +1659,446 @@
    "snapshot": "20180711200159",
    "fetchedAt": "2026-11-11",
    "sha256": "bb0914ebb1c28be56bbd9c65d4102431e7fe4e2595b6ed12008bab5c96ebfd93"
+  },
+  {
+   "teamId": "699",
+   "playerId": "9360",
+   "origin": "club",
+   "url": "https://data.bleague.jp/kh/2017-18/509454682/01/player.jpg",
+   "snapshot": "20180528134342",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hannaryz.jp 20180616041457 マーカス・ダブ",
+   "sha256": "e2a3b6e0ed695d84f8be7909b80babba8988102305f9f33031e56c240892b91d"
+  },
+  {
+   "teamId": "699",
+   "playerId": "10838",
+   "origin": "club",
+   "url": "https://data.bleague.jp/kh/2017-18/500928143/01/player.jpg",
+   "snapshot": "20180616130114",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hannaryz.jp 20180616041457 坂東 拓",
+   "sha256": "aa49953d3aa971543691483dc71a03043e52a5a4718a8b22a2bc3d15fa51ba12"
+  },
+  {
+   "teamId": "699",
+   "playerId": "12633",
+   "origin": "club",
+   "url": "https://data.bleague.jp/kh/2017-18/510393082/01/player.jpg",
+   "snapshot": "20180219150856",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hannaryz.jp 20180616041457 ジョシュア・スミス",
+   "sha256": "155a46632c9a0e4115d96d200a7bac5f5c74f7d2370d90d8bda983cfe546874f"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8481",
+   "origin": "club",
+   "url": "https://data.bleague.jp/kh/2017-18/503241303/01/player.jpg",
+   "snapshot": "20180616130012",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hannaryz.jp 20180616041457 片岡 大晴",
+   "sha256": "1038756dc01df76c8655ebcaae21c53f5657eb0480f9da8f76c52b3d86c95771"
+  },
+  {
+   "teamId": "699",
+   "playerId": "10262",
+   "origin": "club",
+   "url": "https://data.bleague.jp/kh/2017-18/500387657/01/player.jpg",
+   "snapshot": "20180616153336",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hannaryz.jp 20180616041457 頓宮 裕人",
+   "sha256": "63fb3690ef1ab7e5ce3a73db3040d66b4248720ba716ae6b95cb12beeb73f995"
+  },
+  {
+   "teamId": "699",
+   "playerId": "10849",
+   "origin": "club",
+   "url": "https://data.bleague.jp/kh/2017-18/500587936/01/player.jpg",
+   "snapshot": "20180616153506",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hannaryz.jp 20180616041457 伊藤 達哉",
+   "sha256": "8f3349e5bb979f689e79d5fbc055d9f925e6d1cb6d96cd189e5d8ee0b4520c8a"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8483",
+   "origin": "club",
+   "url": "https://data.bleague.jp/kh/2017-18/500638646/01/player.jpg",
+   "snapshot": "20180616130035",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hannaryz.jp 20180616041457 晴山 ケビン",
+   "sha256": "ff8d4f8b906e273407f890217b405b16dbb0b7d1a3e7806662779d0202775446"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8493",
+   "origin": "club",
+   "url": "https://data.bleague.jp/kh/2017-18/500042223/01/player.jpg",
+   "snapshot": "20180616153440",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hannaryz.jp 20180616041457 永吉 佑也",
+   "sha256": "c757a4043b89bd0ec3de38ffebfd9fb8459040c4292fcdfc046883bad7a6dbbc"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8681",
+   "origin": "club",
+   "url": "https://data.bleague.jp/kh/2017-18/503115882/01/player.jpg",
+   "snapshot": "20180616130130",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hannaryz.jp 20180616041457 綿貫 瞬",
+   "sha256": "65698e31b4e4e05e83d577fd6d609389d2639f5e8de8f9d096bccf7ed5394f87"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8459",
+   "origin": "club",
+   "url": "https://data.bleague.jp/kh/2017-18/501670041/01/player.jpg",
+   "snapshot": "20180616130344",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hannaryz.jp 20180616041457 内海 慎吾",
+   "sha256": "1e86eea603722c3fe7ad63ec043b070b66a38cbec716d7e9749a8366ba693b5c"
+  },
+  {
+   "teamId": "699",
+   "playerId": "8709",
+   "origin": "club",
+   "url": "https://data.bleague.jp/kh/2017-18/508424052/01/player.jpg",
+   "snapshot": "20180528134327",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "hannaryz.jp 20180616041457 ジュリアン・マブンガ",
+   "sha256": "f39d30a45f5831b8d49b5a6f7e4fc32080407d665397f69c07af32fef86e6791"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8838",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/501670053/01/player.jpg",
+   "snapshot": "20170922194657",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 安部 潤",
+   "sha256": "528ce7da3fbb71ef34ad9b7aed3c58d3dae5d32e6d85a4132e1adb9feceb2769"
+  },
+  {
+   "teamId": "700",
+   "playerId": "10887",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/509561052/01/player.jpg",
+   "snapshot": "20170922194655",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20171017224931 トレント・プレイステッド",
+   "sha256": "c41c4984e873d370e95cc840c2907a3795b720fe9fdd3238b2ba76dd800aca1f"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8680",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/503420171/01/player.jpg",
+   "snapshot": "20170923002054",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 今野 翔太",
+   "sha256": "4e3bf20a5f85b3f4df77b143777cb50d7081d19adf24203ed91407d099affba5"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8498",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/501218268/01/player.jpg",
+   "snapshot": "20170922194533",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 熊谷 尚也",
+   "sha256": "97357e3b654f4af72da6965edfa9032a8359bb3f3598284fb79201fc4b83720c"
+  },
+  {
+   "teamId": "700",
+   "playerId": "12583",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/510356299/01/player.jpg",
+   "snapshot": "20170922194536",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 デイビッド・ウェア",
+   "sha256": "bf496e168a41c278dea1ce362cb89a98ef81017945dce87e0b33a49e94fcc671"
+  },
+  {
+   "teamId": "700",
+   "playerId": "12584",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/510356284/01/player.jpg",
+   "snapshot": "20170922194803",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20171017224931 グレッグ・スミス",
+   "sha256": "f522911758b80ac508bec908a0cf34bfa726cf42e7cc69bec5596e7ba6ecc96e"
+  },
+  {
+   "teamId": "700",
+   "playerId": "15814",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/510484595/01/player.jpg",
+   "snapshot": "20180215200949",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 キース・ベンソン",
+   "sha256": "9f72ff0621c0f5be3770c7456bd49450121a72b4d5291c35e3e91759a87b434c"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8701",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/505414074/01/player.jpg",
+   "snapshot": "20170923002052",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 橋本 拓哉",
+   "sha256": "e3d32e70aa7ace7b80435b42349040261f49f53bec830c13f0e60ebe27ae6c0e"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8688",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/501786919/01/player.jpg",
+   "snapshot": "20170922195017",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 根来 新之助",
+   "sha256": "12775c21aab04209da4fcd8c240f588f0324d60716a88d220c3e7573a706c784"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8690",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/500236336/01/player.jpg",
+   "snapshot": "20170922194728",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 合田 怜",
+   "sha256": "c8210b36587624fe3a937dfe71fb518c4332ab1023ac118ca977ff2fc0953c15"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8840",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/501860679/01/player.jpg",
+   "snapshot": "20170922194806",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 寒竹 隼人",
+   "sha256": "a90ce914fb87b1b2ecbc92a14fe49695751ae38cc489f1cba4b8e6146413b3b3"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8451",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/502255136/01/player.jpg",
+   "snapshot": "20170922193931",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 藤高 宗一郎",
+   "sha256": "001be5cd50b2f2583329b04ca03f33182f2a5ebb207b8aa7764c994d320523ba"
+  },
+  {
+   "teamId": "700",
+   "playerId": "10263",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/501440770/01/player.jpg",
+   "snapshot": "20170922194808",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 澤邉 圭太",
+   "sha256": "30df814282846ebe701c0319c022f5400d56fb13f85cd4d8ec886872b4c3798d"
+  },
+  {
+   "teamId": "700",
+   "playerId": "8689",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/501785904/01/player.jpg",
+   "snapshot": "20170922195051",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 木下 博之",
+   "sha256": "533e569c8bc39b8b184eef1ea1fa56e5998a7557117522fa96bca345b1bf141c"
+  },
+  {
+   "teamId": "700",
+   "playerId": "9062",
+   "origin": "club",
+   "url": "https://data.bleague.jp/oe/2017-18/508511824/01/player.jpg",
+   "snapshot": "20180824052215",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "evessa.com 20180301045539 エグゼビア・ギブソン",
+   "sha256": "0bb59f51c3a4cd089eb18edb4e8f59fbfa2c51da3d4a533c0c74022e16aaf76f"
+  },
+  {
+   "teamId": "718",
+   "playerId": "8538",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/501718542/01/player.jpg",
+   "snapshot": "20180124184408",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180614194349 道原 紀晃",
+   "sha256": "0387277cdeb75a963342484fab61cf58e8f49c06fe6da261566a78ab4ed4a80d"
+  },
+  {
+   "teamId": "718",
+   "playerId": "8537",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/500004286/01/player.jpg",
+   "snapshot": "20171003170732",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180614194349 坂井 レオ",
+   "sha256": "6ebed4a84b5928fdbf6a5c502cc1831933332712e4a6daaf4d6bd2e53d200a22"
+  },
+  {
+   "teamId": "718",
+   "playerId": "8732",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/503348287/01/player.jpg",
+   "snapshot": "20180614171626",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180614194349 岡田 優",
+   "sha256": "43bd82f650008be96d2f1ce8c03943f2c916ca287b5247bfe55cf3c138fbdcbe"
+  },
+  {
+   "teamId": "718",
+   "playerId": "8518",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/500066765/01/player.jpg",
+   "snapshot": "20171003172136",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20171119100059 大塚 勇人",
+   "sha256": "090ffb088e996783b4428db9cf87abce4091798cb1814a8603a740d8ba30207d"
+  },
+  {
+   "teamId": "718",
+   "playerId": "9460",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/509506695/01/player.jpg",
+   "snapshot": "20171003171816",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20171119100059 ジョーダン・ヴァンデンバーグ",
+   "sha256": "4a9b4a40727e9eb471356f2e1da18bb19787b6522b75248628ad8c33026f214b"
+  },
+  {
+   "teamId": "718",
+   "playerId": "10258",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/503606799/01/player.jpg",
+   "snapshot": "20180614194345",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180614194349 土屋 アリスター時生",
+   "sha256": "45eab3d36bea709a86cc58d70904a60f9c17cba0ee341cab7cdc2a9a863ae3fe"
+  },
+  {
+   "teamId": "718",
+   "playerId": "10257",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/503787418/01/player.jpg",
+   "snapshot": "20180614171950",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180614194349 内藤 健太",
+   "sha256": "303380a977e9a74319e24db1f8d463fd960ecc80468729ed261d948f625e5ec5"
+  },
+  {
+   "teamId": "718",
+   "playerId": "9090",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/509443182/01/player.jpg",
+   "snapshot": "20180614171931",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180425230146 キャメロン・リドリー",
+   "sha256": "c23ccdee6f38c8a7b59de4e49f6c533155cadfc490f5d92f3a177cdc0253ae17"
+  },
+  {
+   "teamId": "718",
+   "playerId": "12596",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/510356667/01/player.jpg",
+   "snapshot": "20180614171756",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180425230146 ハーバート・ヒル",
+   "sha256": "4f8c88e8f1659b33fd2dc5ecba7bf0c6807efb51bba80a169445b483acb6d008"
+  },
+  {
+   "teamId": "718",
+   "playerId": "8539",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/501786881/01/player.jpg",
+   "snapshot": "20180124174842",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180614194349 梁川 禎浩",
+   "sha256": "a76be9d1cda7fc8b95e545f0f4b478f1ab2b2a493b2dfbec17d36e0dedbe88bc"
+  },
+  {
+   "teamId": "718",
+   "playerId": "10256",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/504630327/01/player.jpg",
+   "snapshot": "20180124184650",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180425230146 ドゥレイロン・バーンズ",
+   "sha256": "70f3a1084c07453d1e5815031aea3e339ca61143422b730e978f9df655fb7939"
+  },
+  {
+   "teamId": "718",
+   "playerId": "8536",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/500317480/01/player.jpg",
+   "snapshot": "20171003170514",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180614194349 谷 直樹",
+   "sha256": "022fcf443a25dd027d91fd4300d8c3fe40aae9c06679b6518885c4b83f5a4739"
+  },
+  {
+   "teamId": "718",
+   "playerId": "9068",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/500044659/01/player.jpg",
+   "snapshot": "20180124205050",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180614194349 谷口 淳",
+   "sha256": "2e778dfb6d836b2ab51d38616c32f8c9f5168793da4830dcf00132a47dd157cd"
+  },
+  {
+   "teamId": "718",
+   "playerId": "8535",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/500161593/01/player.jpg",
+   "snapshot": "20180124195605",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180614194349 松崎 賢人",
+   "sha256": "cc6f69c169252e01a9df73e0d1f99c0f025ca59df7800eeb7f2473c60a896def"
+  },
+  {
+   "teamId": "718",
+   "playerId": "9027",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/507514033/01/player.jpg",
+   "snapshot": "20180124194131",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180614194349 セオン・エディ",
+   "sha256": "d178bd899ba97d019108986254fa75dc99c35da6faa011660db361f0465e3ea3"
+  },
+  {
+   "teamId": "718",
+   "playerId": "9070",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/500044580/01/player.jpg",
+   "snapshot": "20180124220106",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20180614194349 石塚 裕也",
+   "sha256": "ef411d6ae4449ceafb5b7179e44d31dd0ae60cb9a6de676ecc1f4af41e5d3dd5"
+  },
+  {
+   "teamId": "718",
+   "playerId": "9089",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ns/2017-18/509443173/01/player.jpg",
+   "snapshot": "20171003171324",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "storks.jp 20171119100059 コナー・ ラマート",
+   "sha256": "1e4a008ec3a3c3bc0dbf0a031db6ac7febc767bcec627acf215606ff9a66bf51"
+  },
+  {
+   "teamId": "720",
+   "playerId": "9057",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ss/2017-18/509407087/01/player.jpg",
+   "snapshot": "20180203201626",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "susanoo-m.com 20180130114504 タイラー・ストーン",
+   "sha256": "1806933f90a5983134ed93fc3f432e7c896b14bc8854bbcd5c735f59e2d177f9"
   },
   {
    "teamId": "720",
@@ -760,12 +2120,132 @@
   },
   {
    "teamId": "720",
+   "playerId": "15809",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ss/2017-18/510485083/01/player.jpg",
+   "snapshot": "20180215210640",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "susanoo-m.com 20180130114504 ジャミール・マッケイ",
+   "sha256": "0c3c42404c5e405bdd6e38f1f455aa25b991c2a5e39733160c8fb071bdfea323"
+  },
+  {
+   "teamId": "720",
+   "playerId": "9283",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ss/2017-18/500232473/01/player.jpg",
+   "snapshot": "20171220161939",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "susanoo-m.com 20180616001032 小阪 彰久",
+   "sha256": "8fdbc1f5fce76592aba997afd4c3fd1caff15b5812a5276e73b2c40c479fb686"
+  },
+  {
+   "teamId": "720",
+   "playerId": "8724",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ss/2017-18/501860650/01/player.jpg",
+   "snapshot": "20171220160039",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "susanoo-m.com 20180616001032 熊谷 宜之",
+   "sha256": "c729251470d507f09122bc668020970cb30429e3dcd17234566c728237275a46"
+  },
+  {
+   "teamId": "720",
+   "playerId": "9264",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ss/2017-18/500540493/01/player.jpg",
+   "snapshot": "20171220155957",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "susanoo-m.com 20180616001032 後藤 翔平",
+   "sha256": "2bc8e8222473db421d92ebd61b1d94865a9eb665bcb856b3792372b8c3b7e267"
+  },
+  {
+   "teamId": "720",
+   "playerId": "8552",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ss/2017-18/500025217/01/player.jpg",
+   "snapshot": "20171220164501",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "susanoo-m.com 20180616001032 渡邊 翔太",
+   "sha256": "aed451f2f9793a49733ccd7484e88621195559304619ca87c2d647b3e14bc982"
+  },
+  {
+   "teamId": "720",
+   "playerId": "8839",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ss/2017-18/500167339/01/player.jpg",
+   "snapshot": "20171220155800",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "susanoo-m.com 20180616001032 岡本 飛竜",
+   "sha256": "a47d37b31d85be3904db369dc377f498025ba12b2cf32b9b1ef2e2fe37a13ee5"
+  },
+  {
+   "teamId": "720",
+   "playerId": "12631",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ss/2017-18/510374325/01/player.jpg",
+   "snapshot": "20171220162214",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "susanoo-m.com 20180616001032 ジョシュ・スコット",
+   "sha256": "1dac83c262684ec6e34b9b7163f7aae213284bd12bd888e9eb6b0c67f3e2537c"
+  },
+  {
+   "teamId": "720",
+   "playerId": "8836",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ss/2017-18/503319314/01/player.jpg",
+   "snapshot": "20171220171104",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "susanoo-m.com 20180616001032 山本 エドワード",
+   "sha256": "132855f94f68c52a774f12e1c46139c34b6fe1f98a691ad38d5261ac0be3fd33"
+  },
+  {
+   "teamId": "720",
+   "playerId": "15848",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ss/2017-18/510493702/01/player.jpg",
+   "snapshot": "20180617093051",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "susanoo-m.com 20180616001032 アル・ソーントン",
+   "sha256": "9da08961061b8da37550aecc3f7452bc1fe36f7a3e372e07ad3487de5872b5d1"
+  },
+  {
+   "teamId": "720",
    "playerId": "9266",
    "origin": "wayback",
    "url": "https://www.bleague.jp/files/user/roster/720/2017-18/9266_01.jpg",
    "snapshot": "20240507122042",
    "fetchedAt": "2026-11-11",
    "sha256": "508e38184c6a876ffdbc56553c71dbd2de5d1ed8d3822c2f07113803ce9b3826"
+  },
+  {
+   "teamId": "720",
+   "playerId": "8683",
+   "origin": "club",
+   "url": "https://data.bleague.jp/ss/2017-18/500178204/01/player.jpg",
+   "snapshot": "20171220170623",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "susanoo-m.com 20180616001032 相馬 卓弥",
+   "sha256": "c9049c4ff597efffbc5e77f598ef130a827408e6a97549d96c4290a1ae9a7425"
+  },
+  {
+   "teamId": "701",
+   "playerId": "9030",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rg/2017-18/500244859/01/player.jpg",
+   "snapshot": "20170927052959",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "goldenkings.jp 20180605014802 二ノ宮 康平",
+   "sha256": "b423c2d45f76b52db78a8e30356e271e6f6d0e8cc179c2c2a65a8ff7122fd2a8"
+  },
+  {
+   "teamId": "701",
+   "playerId": "8514",
+   "origin": "club",
+   "url": "https://data.bleague.jp/rg/2017-18/503319282/01/player.jpg",
+   "snapshot": "20180215110948",
+   "fetchedAt": "2026-11-12",
+   "clubPage": "goldenkings.jp 20180605014802 石崎 巧",
+   "sha256": "c55c59dff6c4c97a3aa1e8464afa8ea8417a12b5cade5a2e0d4690fd632a4930"
   },
   {
    "teamId": "706",
@@ -777,8 +2257,5 @@
    "sha256": "4ceeeb1859e06dc823e702a5dede88009256ba2f3a6d7faa03e187f5efc258fa"
   }
  ],
- "missing": {
-  "720|8683": "2026-11-11",
-  "728|8591": "2026-11-11"
- }
+ "missing": {}
 }

@@ -19,7 +19,8 @@ export interface SeasonPhotoIndex {
   photos: Record<string, string[]>;
 }
 
-export type SeasonPhotoOrigin = "official" | "wayback";
+/** official＝公式の名簿の画像サーバー／wayback＝Wayback に残る公式の名簿の写真／club＝当時のクラブ公式サイトの選手一覧ページ（Wayback）から本人を決めた写真（374-5章） */
+export type SeasonPhotoOrigin = "official" | "wayback" | "club";
 
 export interface SeasonPhotoSource {
   teamId: string;
@@ -30,6 +31,8 @@ export interface SeasonPhotoSource {
   /** Wayback の保存日時（YYYYMMDDhhmmss） */
   snapshot?: string;
   fetchedAt: string;
+  /** club のとき: 本人を決めた一覧ページ（「ドメイン 保存日時 ページ上の名前」） */
+  clubPage?: string;
   /** 保存した WebP の sha256 */
   sha256: string;
 }

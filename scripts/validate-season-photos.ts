@@ -14,6 +14,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { isSeasonPhotoIndex, pickSeasonPhotoTeam, seasonPhotoFileName, type SeasonPhotoIndex, type SeasonPhotoSources } from "../shared/seasonPhotos.ts";
 import { currentSeason } from "./lib/season.ts";
+import { clubPhotoLabels, matchClubPlayer, parseClubRosterPage } from "./lib/clubRosterPage.ts";
 
 const DIR = path.join("public", "media", "player-photos");
 let problems = 0;
@@ -51,8 +52,21 @@ for (const season of seasons) {
   for (const f of listed) if (!bySource.has(f)) fail(`${season}: 取得の記録が無い ${f}`);
   for (const [f, s] of bySource) {
     if (!listed.has(f)) fail(`${season}: 記録だけあって台帳に無い ${f}`);
-    const m = /\/files\/user\/roster\/(\d+)\/(\d{4}-\d{2})\/(\d+)_0[123]\.(?:png|jpg)(?:\?.*)?$/.exec(s.url);
-    if (!m || m[1] !== s.teamId || m[2] !== season || m[3] !== s.playerId) fail(`${season}: 出典のURLのフォルダが台帳と違う ${f} ${s.url}`);
+    if (s.origin === "club") {
+      // クラブの一覧ページから名前で本人を決めた写真（374-5章）。住所のフォルダには選手IDが無いので、決めた根拠（ページ・名前）の記録と、住所の年がそのシーズンの範囲かを見る
+      if (!s.clubPage || !/^\S+ \d{14} .+$/.test(s.clubPage)) fail(`${season}: クラブの一覧ページの記録が無い ${f}`);
+      const y = Number(season.slice(0, 4));
+      const ok = [String(y), season, String(y + 1)];
+      const jba = /^https?:\/\/data\.bleague\.jp\/[a-z0-9]+\/([0-9-]+)\/\d+\/01\/player\.jpg$/.exec(s.url);
+      if (jba) {
+        if (!ok.includes(jba[1]!)) fail(`${season}: 写真の住所の年がシーズンと合わない ${f} ${s.url}`);
+      } else if (!/^https?:\/\/[\w.-]+\/.+\.(?:jpg|jpeg|png)$/i.test(s.url)) fail(`${season}: クラブの写真の住所が読めない ${f} ${s.url}`);
+      const pageTs = s.clubPage?.split(" ")[1] ?? "";
+      if (pageTs < `${y}0701000000` || pageTs > `${y + 1}0630235959`) fail(`${season}: 一覧ページの保存日時がシーズンの範囲の外 ${f} ${pageTs}`);
+    } else {
+      const m = /\/files\/user\/roster\/(\d+)\/(\d{4}-\d{2})\/(\d+)_0[123]\.(?:png|jpg)(?:\?.*)?$/.exec(s.url);
+      if (!m || m[1] !== s.teamId || m[2] !== season || m[3] !== s.playerId) fail(`${season}: 出典のURLのフォルダが台帳と違う ${f} ${s.url}`);
+    }
     if (s.origin === "official" && !s.url.startsWith("https://bleague.bl.kuroco-img.app/")) fail(`${season}: 公式の出典のURLが違う ${f}`);
     if (s.origin === "wayback" && !/^\d{14}$/.test(s.snapshot ?? "")) fail(`${season}: Wayback の保存日時が無い ${f}`);
     const file = path.join(DIR, season, f);
@@ -79,6 +93,25 @@ assert.equal(pickSeasonPhotoTeam(idx, "p3"), null, "台帳に無い選手は今�
 assert.equal(pickSeasonPhotoTeam(null, "p1"), null);
 assert.equal(isSeasonPhotoIndex({ v: 1, season: "2022-23", photos: { p: [] } }), false);
 assert.equal(isSeasonPhotoIndex(idx, "2023-24"), false);
+
+// ---- 2b. クラブの一覧ページの読み方と名前の突き合わせ（374-5章） ----
+{
+  const html = `<li class="player"><a href="/roster/x.html"><div class="thumb"><div class="image-bg" style="background:url(https://data.bleague.jp/cj/2017-18/506425534/01/player.jpg) no-repeat"></div></div>
+    <div class="detail-wrap"><div class="num"><p>10</p></div><div class="detail"><p class="name ja">アキ・チェンバース</p><p class="name en">Aki Chambers</p></div></div></a></li>
+    <li class="player"><a><div class="thumb"><div style="background:url(/fs/2/1/0/4/9/6/_/thumb/player_0_201718.jpg)"></div></div><div class="num"><p>0</p></div><p class="name ja">田臥 勇太</p></li>`;
+  const entries = parseClubRosterPage(html);
+  assert.equal(entries.length, 2);
+  assert.deepEqual(entries[0]!.jba, { club: "cj", label: "2017-18", id: "506425534" });
+  assert.equal(entries[0]!.number, "10");
+  assert.equal(entries[1]!.jba, null);
+  assert.equal(entries[1]!.photo, "/fs/2/1/0/4/9/6/_/thumb/player_0_201718.jpg");
+  const cands = [{ playerId: "1", names: ["アキ チェンバース"] }, { playerId: "2", names: ["田臥勇太"] }, { playerId: "3", names: ["田臥 勇太"] }];
+  assert.deepEqual(matchClubPlayer("アキ・チェンバース", cands), { kind: "match", playerId: "1" });
+  assert.deepEqual(matchClubPlayer("田臥 勇太", cands), { kind: "ambiguous", playerIds: ["2", "3"] });
+  assert.deepEqual(matchClubPlayer("だれか", cands), { kind: "none" });
+  assert.deepEqual(matchClubPlayer("チェンバース アキ", cands), { kind: "match", playerId: "1" }, "姓名の順が逆のページの表記");
+  assert.deepEqual(clubPhotoLabels("2017-18"), ["2017", "2017-18", "2018"]);
+}
 
 // ---- 3. 画面の接続 ----
 /** 今の写真だけを出す所（season を渡さない）。ファイル → 理由 */
