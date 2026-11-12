@@ -49,8 +49,8 @@ import { ResponsiveTeamName } from "./ResponsiveTeamName";
 import { resultOnlySummaries } from "../lib/resultOnlyGames";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
 
-/** 条件「クラッチになった試合」の名前（設計書375章） */
-const CLUTCH_GAMES_LABEL = "クラッチになった試合";
+/** 条件「クラッチタイムになった試合」の名前（設計書375章） */
+const CLUTCH_GAMES_LABEL = "クラッチタイムになった試合";
 
 /**
  * 「条件別順位表」タブが扱う単一選択の条件。SituationalFilterPicker（AND合成の複数選択）とは
@@ -80,7 +80,7 @@ export type ConditionalCondition =
   | { kind: "margin"; points: number }
   // 試合中の最大リード・最大ビハインド（延長戦を含む。DESIGN.md 150章）
   | { kind: "inGameMargin"; value: MarginCondition }
-  // クラッチになった試合（第4Q・延長の残り5:00以下で5点差以内の時間かプレーがあった試合。勝敗は試合の最終結果。判定できない試合は入らない。設計書375章）
+  // クラッチタイムになった試合（第4Q・延長の残り5:00以下で5点差以内の時間かプレーがあった試合。勝敗は試合の最終結果。判定できない試合は入らない。設計書375章）
   | { kind: "clutch" };
 
 /** 「序盤戦/中盤戦/終盤戦20試合」の窓の大きさ（固定） */

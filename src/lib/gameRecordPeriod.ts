@@ -10,7 +10,7 @@ import { CLUTCH_PERIOD } from "../../shared/clutchTime";
 export const GAME_RECORD_PERIOD_OPTIONS: PeriodRangeOption[] = [
   ...buildPeriodRangeOptions(4),
   { value: "ot", label: "延長", periods: [5] },
-  // クラッチ（第4Q・延長の残り5:00以下で5点差以内。クラッチになった試合だけ。設計書375章）
+  // クラッチ（第4Q・延長の残り5:00以下で5点差以内。クラッチタイムになった試合だけ。設計書375章）
   { value: "clutch", label: "クラッチ", periods: [CLUTCH_PERIOD] },
 ];
 

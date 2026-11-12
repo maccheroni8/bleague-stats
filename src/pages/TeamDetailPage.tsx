@@ -3926,7 +3926,7 @@ export function TeamDetailPage({ season }: { season: string }) {
       : scheduleRows.filter((row) => (gameLogsByScheduleKey.get(row.scheduleKey)?.gameType ?? row.gameType) === scheduleGameType);
   // 延長（Periods 以外のカテゴリ）を選んだときは、延長のあった試合だけを出す（その試合数を添える）
   const scheduleOvertimeOnly = schedulePeriod === "ot" && scheduleBoxTab !== "periods";
-  // クラッチも、クラッチになった試合だけを出す（値は試合の生データにクラッチの行を足した写しから。shared/clutchGame.ts。設計書375章）
+  // クラッチも、クラッチタイムになった試合だけを出す（値は試合の生データにクラッチの行を足した写しから。shared/clutchGame.ts。設計書375章）
   const scheduleClutchOnly = schedulePeriod === "clutch" && scheduleBoxTab !== "periods";
   const scheduleFilteredRows = scheduleOvertimeOnly
     ? scheduleGameTypeRows.filter((row) => (gameLogsByScheduleKey.get(row.scheduleKey)?.overtimes ?? 0) > 0)
@@ -5881,7 +5881,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                       {lineupOcPeriodValue === "ot"
                         ? `延長のあった${lineupOcFromIndex.games}試合`
                         : lineupOcPeriodValue === "clutch"
-                          ? `クラッチになった${lineupOcFromIndex.games}試合`
+                          ? `クラッチタイムになった${lineupOcFromIndex.games}試合`
                           : `この条件のチームの全${lineupOcFromIndex.games}試合`}
                       で割っています（その人数の時間が無かった試合も含みます）。
                     </p>

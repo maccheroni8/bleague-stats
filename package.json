@@ -143,7 +143,8 @@
     "validate:on4-games": "esbuild scripts/validate-on4-games.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-on4-games.mjs && node node_modules/.cache/validate-on4-games.mjs",
     "validate:self-scoring": "esbuild scripts/validate-self-scoring.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-self-scoring.mjs && node node_modules/.cache/validate-self-scoring.mjs",
     "validate:game-flow-totals": "esbuild scripts/validate-game-flow-totals.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-game-flow-totals.mjs && node node_modules/.cache/validate-game-flow-totals.mjs",
-    "validate:conditional-division": "esbuild scripts/validate-conditional-division.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-conditional-division.mjs && node node_modules/.cache/validate-conditional-division.mjs"
+    "validate:conditional-division": "esbuild scripts/validate-conditional-division.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-conditional-division.mjs && node node_modules/.cache/validate-conditional-division.mjs",
+    "validate:players-period": "esbuild scripts/validate-players-period.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --define:import.meta.env.BASE_URL='\"/\"' --outfile=node_modules/.cache/validate-players-period.mjs && node node_modules/.cache/validate-players-period.mjs"
   },
   "dependencies": {
     "cheerio": "^1.0.0",

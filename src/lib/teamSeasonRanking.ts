@@ -179,7 +179,7 @@ export function useTeamSeasonRanking(
       const wins = scoped.filter((g) => g.win).length;
       return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: sumTeamGameLogs(scoped) };
     });
-    // 延長のランキングは、延長のあった試合が3試合以上のチームだけ（256章の決定4）。クラッチも同じ（クラッチになった試合が3試合以上。設計書375章）
+    // 延長のランキングは、延長のあった試合が3試合以上のチームだけ（256章の決定4）。クラッチも同じ（クラッチタイムになった試合が3試合以上。設計書375章）
     return periodActive && (period === "ot" || period === "clutch") ? all.filter((r) => r.gamesPlayed >= OVERTIME_MIN_TEAM_GAMES_FOR_RANKING) : all;
   }, [teams, gameLogsByTeam, scopedLogsByTeam, periodActive, periodSource, period]);
 

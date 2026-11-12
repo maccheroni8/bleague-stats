@@ -21,7 +21,7 @@ export const PERIOD_ATOM_INDEXES: Record<GameRecordPeriod, readonly number[]> = 
 };
 
 /**
- * 区間の値がある試合だけを数える区間（延長は延長のあった試合、クラッチはクラッチになった試合。平均の分母・試合数もその試合だけ）。
+ * 区間の値がある試合だけを数える区間（延長は延長のあった試合、クラッチはクラッチタイムになった試合。平均の分母・試合数もその試合だけ）。
  * 1Q〜4Q・前半・後半は、試合に出ていれば区間に出ていなくても0として数える
  */
 export function isSubsetPeriod(value: string): value is "ot" | "clutch" {

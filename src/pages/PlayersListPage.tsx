@@ -49,6 +49,7 @@ import {
   gameTypeAxis,
   leagueVenueAxis,
   multiSelectAxis,
+  periodAxis,
   simpleSelectAxis,
   situationalAxes,
   type FilterAxis,
@@ -72,7 +73,24 @@ import {
   SEASON_TOTAL_ONLY_LABELS,
   situationalFilterLabels,
   eligibilityLabels,
+  periodLabels,
 } from "../lib/conditionLabels";
+import {
+  MANUAL_BOXSCORE_PERIOD_NOTE,
+  OVERTIME_GAMES_NOTE,
+  OVERTIME_MIN_GAMES,
+  SEASON_PERIOD_OPTIONS,
+  SHORT_GAMES_PERIOD_NOTE,
+  hasManualBoxscoreSeason,
+  hasShortGameSeason,
+  overtimeCandidates,
+  seasonPeriodOption,
+  subsetEligibilityLabel,
+  subsetEligibilityReason,
+  useSeasonPeriodSources,
+} from "../lib/seasonPeriod";
+import { isPeriodSelected, isSubsetPeriodValue, periodRowMeetsMinimum, playersListPeriodCtx } from "../lib/playersListPeriod";
+import { PeriodIndexFailure } from "../components/PeriodIndexFailure";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { formatDecimal, formatPct, formatPct100, formatSigned } from "../lib/format";
 import { astToTovRatio, formatAstToRatio, formatMinutesFromSeconds } from "../lib/boxscoreAggregate";
@@ -121,7 +139,7 @@ import {
 } from "../lib/tableThresholds";
 import { usePageState } from "../lib/pageStateCache";
 import { choiceNumberParam, clearUrlParams, enumParam, rangeParam, situationalParam, statConditionsParam, useUrlState } from "../lib/urlState";
-import { VENUE_PARAM, CLUB_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, POSITION_PARAM, PLAYER_GROUP_PARAM } from "../lib/urlFilterParams";
+import { VENUE_PARAM, CLUB_PARAM, DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, POSITION_PARAM, PLAYER_GROUP_PARAM, PLAYER_SEASON_PERIOD_PARAM } from "../lib/urlFilterParams";
 import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import {
   activeStatConditionKeys,
@@ -291,7 +309,9 @@ interface PlayerRow {
   player: PlayerSummary;
   ctx?: SeasonBoxscoreCtx;
   /** DD2・TD3・PTS10（絞り込み中は、絞り込んだ試合のうち出場した試合から数える。個人詳細と同じ数え方）。無ければシーズンの値（players.json） */
-  ddtd?: { dd: number; td: number; p10: number };
+  ddtd?: { dd: number; td: number; p10: number } | null;
+  /** 区間（Q別・前後半・延長・クラッチ）を選んでいるときは true。DD2・TD3・PTS10 は試合全体でしか判定できないので「-」 */
+  periodRow?: boolean;
 }
 
 /** DD2・TD3・PTS10 の列。平均／合計に関わらず回数（個人詳細のシーズン別成績と同じ値） */
@@ -300,10 +320,10 @@ function doubleDigitColumns(): Column<PlayerRow>[] {
   const td = (r: PlayerRow) => r.ddtd?.td ?? r.player.totals.tripleDoubles ?? 0;
   const p10 = (r: PlayerRow): number | undefined => r.ddtd?.p10 ?? r.player.totals.points10Games;
   return [
-    { key: "dd2", label: "DD2", sortValue: dd, format: (r) => String(dd(r)) },
-    { key: "td3", label: "TD3", sortValue: td, format: (r) => String(td(r)) },
+    { key: "dd2", label: "DD2", sortValue: (r) => (r.periodRow ? -1 : dd(r)), format: (r) => (r.periodRow ? "-" : String(dd(r))) },
+    { key: "td3", label: "TD3", sortValue: (r) => (r.periodRow ? -1 : td(r)), format: (r) => (r.periodRow ? "-" : String(td(r))) },
     // 二桁得点試合（PTS10）。players.json に値の無い古いデータは「-」（0回にしない）
-    { key: "pts10", label: "PTS10", sortValue: (r) => p10(r) ?? -1, format: (r) => (p10(r) === undefined ? "-" : String(p10(r))) },
+    { key: "pts10", label: "PTS10", sortValue: (r) => (r.periodRow ? -1 : p10(r) ?? -1), format: (r) => (r.periodRow || p10(r) === undefined ? "-" : String(p10(r))) },
   ];
 }
 
@@ -767,6 +787,22 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   const filterActive = !isDefaultFilter(situationalFilter) || gameType !== "regular" || classRecompute;
   // スタッツの条件（DESIGN.md 162章）
   const [statConditions, setStatConditions] = useUrlState(statConditionsParam, DEFAULT_STAT_CONDITIONS);
+  // Q別・前後半・延長・クラッチ（URL q。ランキングと同じ選択肢。設計書376章）。値はピリオド別の索引から組み立てる。
+  // シューティング（シーズン通算の値）・得点構成（レギュラーシーズン・シーズン合計）のタブでは使えない（URL に残っていても無視する）
+  const [urlPeriod, setPeriod] = useUrlState(PLAYER_SEASON_PERIOD_PARAM, "all");
+  const periodTabOk = tab !== "shooting" && tab !== "scoringComposition";
+  const period = periodTabOk ? urlPeriod : "all";
+  const periodOption = seasonPeriodOption(period);
+  const periodActive = isPeriodSelected(period);
+  const subsetPeriod = periodActive && isSubsetPeriodValue(period);
+  // 区間を選んだときだけ、そのシーズンのピリオド別の索引を読む
+  const { sources: periodSources, loading: periodSourceLoading, failedSeasons: periodFailedSeasons, retry: retryPeriodSource } = useSeasonPeriodSources([season], periodActive, league);
+  const periodSource = periodSources.get(season) ?? null;
+  const periodFailed = periodActive && periodFailedSeasons.length > 0;
+  // 延長・クラッチは、出場率の代わりに「その区間に出た試合が3試合以上」の選手（シーズン全体で先に選び、条件で絞ったあとの試合数でもう一度確かめる）
+  const subsetIds = useMemo(() => (subsetPeriod && periodSource ? overtimeCandidates(periodSource, OVERTIME_MIN_GAMES, period === "clutch" ? "clutch" : "ot") : null), [subsetPeriod, periodSource, period]);
+  // 試合ログから集計し直す表（条件を付けたとき、または区間を選んだとき）。区間だけを選んだときは、チームの試合ログは要らない
+  const recompute = filterActive || periodActive;
   // ファウルの列は、2026-27以降だけの表ではTF1・TF2・FLAG・DISR、それ以外ではUFOUL・TF（DESIGN.md 16-8章）
   const foulSplit = foulColumnsSplit([season]);
   useFoulConditionCleanup(season, statConditions, setStatConditions);
@@ -783,7 +819,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   });
   const conditionKeys = activeStatConditionKeys(statConditions);
   // Misc・Scoringのタブにしかない項目は、選手の試合ログから出す（読み込みが要る）
-  const conditionNeedsLogs = conditionKeys.some((k) => playerListKeysNeedingLogs(filterActive, foulSplit).has(k));
+  const conditionNeedsLogs = conditionKeys.some((k) => playerListKeysNeedingLogs(recompute, foulSplit).has(k));
   // 通算の項目（player-careers.json）は B.PREMIER だけ
   const conditionNeedsCareers = league === "premier" && conditionKeys.some((k) => k.startsWith(CAREER_CONDITION_KEY_PREFIX));
   const { data: careers, loading: careersLoading } = useJsonData(
@@ -793,7 +829,9 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
 
   const [gameLogs, setGameLogs] = useState<Map<string, PlayerGameLog[]> | null>(null);
   const [gameLogsLoading, setGameLogsLoading] = useState(false);
-  const gameLogsFetchedForSeasonRef = useRef<string | null>(null);
+  // 取得済みの選手（区間を選んだときは、掲載基準などで残った選手の分だけを、足りない分から読む）
+  const fetchedLogIdsRef = useRef<Set<string>>(new Set());
+  const inFlightLogsRef = useRef(0);
 
   // シチュエーション別フィルタ選択時のみ、USG%・ORtg/DRtg等に必要なチーム総計
   // （sumTeamGameLogsFor、個人詳細ページ「シチュエーション別成績」と同じ方式）のため
@@ -806,7 +844,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
     setGameLogs(null);
-    gameLogsFetchedForSeasonRef.current = null;
+    fetchedLogIdsRef.current = new Set();
     setTeamGameLogsByTeam(null);
     teamGameLogsFetchedForSeasonRef.current = null;
   }, [season]);
@@ -816,34 +854,9 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
   }, [minRatio, maxRatio, classificationFilter, teamFilter, positionFilter, rookieActive]);
 
   useEffect(() => {
-    const needsLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || tab === "onoff" || filterActive || conditionNeedsLogs;
-    if (!needsLogs || !players || gameLogsFetchedForSeasonRef.current === season) return;
-    gameLogsFetchedForSeasonRef.current = season;
-    let cancelled = false;
-    setGameLogsLoading(true);
-    Promise.all(
-      players.map(async (p): Promise<readonly [string, PlayerGameLog[]]> => {
-        try {
-          return [p.playerId, await fetchPlayerGameLogs(season, p.playerId, league)] as const;
-        } catch {
-          return [p.playerId, [] as PlayerGameLog[]] as const;
-        }
-      }),
-    )
-      .then((results) => {
-        if (!cancelled) setGameLogs(new Map(results));
-      })
-      .finally(() => {
-        if (!cancelled) setGameLogsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [tab, players, season, filterActive, conditionNeedsLogs, league]);
-
-  useEffect(() => {
     // on/off タブは、Off（チームの出場区間の合計 − On）に所属チームの試合ログが要る
-    if ((!filterActive && tab !== "onoff") || !teams || teamGameLogsFetchedForSeasonRef.current === season) return;
+    // 区間を選んでいるときの on/off は「-」なので、チームの試合ログは要らない
+    if ((!filterActive && !(tab === "onoff" && !periodActive)) || !teams || teamGameLogsFetchedForSeasonRef.current === season) return;
     teamGameLogsFetchedForSeasonRef.current = season;
     let cancelled = false;
     setTeamGameLogsLoading(true);
@@ -865,7 +878,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     return () => {
       cancelled = true;
     };
-  }, [filterActive, teams, season, league, tab]);
+  }, [filterActive, teams, season, league, tab, periodActive]);
 
   const teamGamesById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t.gamesPlayed])), [teams]);
   const teamTotalsById = useMemo(() => new Map((teams ?? []).map((t) => [t.teamId, t.totals])), [teams]);
@@ -877,7 +890,10 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     if (rookieActive && !rookies.ids) return [];
     return scopedPlayers.filter((p) => {
       const teamGames = teamGamesById.get(p.teamId);
-      if (!matchesGamesPlayedRatioRange(p.gamesPlayed, teamGames, minRatio, maxRatio, remainingByTeam ? remainingByTeam.get(p.teamId) ?? 0 : undefined)) return false;
+      // 延長・クラッチ: 出場率の代わりに、その区間に出た試合が基準以上の選手（索引を読み込むまでは空）
+      if (subsetPeriod) {
+        if (!subsetIds || !subsetIds.has(p.playerId)) return false;
+      } else if (!matchesGamesPlayedRatioRange(p.gamesPlayed, teamGames, minRatio, maxRatio, remainingByTeam ? remainingByTeam.get(p.teamId) ?? 0 : undefined)) return false;
       if (!groupOk(p)) return false;
       if (!matchesTeamFilter(p, teamFilter)) return false;
       if (!matchesPositionFilter(p, positionFilter)) return false;
@@ -885,7 +901,40 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     });
     // groupOk は classificationFilter・rookies.ids・classScope.changed から決まる
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedPlayers, teamGamesById, minRatio, maxRatio, remainingByTeam, classificationFilter, teamFilter, positionFilter, rookieActive, rookies.ids, classScope.changed]);
+  }, [scopedPlayers, teamGamesById, minRatio, maxRatio, remainingByTeam, classificationFilter, teamFilter, positionFilter, rookieActive, rookies.ids, classScope.changed, subsetPeriod, subsetIds]);
+
+  // 選手の試合ログ。Misc・Scoring・On/Off・条件付き・区間を選んだときと、スタッツの条件に Misc・Scoring の項目を使うときに読む。
+  // 区間を選んだときは、掲載基準・登録区分・ポジション・クラブで残った選手の分だけを読む（絞り込みを変えたら足りない分を足す）
+  const logsNeeded = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || tab === "onoff" || recompute || conditionNeedsLogs;
+  useEffect(() => {
+    if (!logsNeeded || !players) return;
+    if (periodActive && !periodSource) return;
+    const targets = (periodActive ? filteredPlayers : players).filter((p) => !fetchedLogIdsRef.current.has(p.playerId));
+    if (targets.length === 0) return;
+    for (const p of targets) fetchedLogIdsRef.current.add(p.playerId);
+    inFlightLogsRef.current += 1;
+    setGameLogsLoading(true);
+    void Promise.all(
+      targets.map(async (p): Promise<readonly [string, PlayerGameLog[]]> => {
+        try {
+          return [p.playerId, await fetchPlayerGameLogs(season, p.playerId, league)] as const;
+        } catch {
+          return [p.playerId, [] as PlayerGameLog[]] as const;
+        }
+      }),
+    )
+      .then((results) => {
+        setGameLogs((prev) => {
+          const next = new Map(prev ?? []);
+          for (const [id, logs] of results) next.set(id, logs);
+          return next;
+        });
+      })
+      .finally(() => {
+        inFlightLogsRef.current -= 1;
+        if (inFlightLogsRef.current === 0) setGameLogsLoading(false);
+      });
+  }, [logsNeeded, players, season, league, periodActive, periodSource, filteredPlayers]);
 
   // Scoring %（得点構成、DESIGN.md 141章）の対象: 所属チームの試合数の85%以上に出場、かつ1試合平均10分以上、かつ合計300分以上
   // （出場試合率のスライダーの代わりに固定。登録区分・ポジション・クラブの絞り込みは効く）。値はレギュラーシーズンの試合ログの合計
@@ -944,6 +993,15 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
       filteredPlayers.map((p) => {
         if (!gameLogs) return { season, player: p };
         const logs = classLogs(gameLogs, p.playerId);
+        if (periodActive) {
+          // Q別・前後半・延長・クラッチ: 試合の条件で絞った試合の、区間の値をピリオド別の索引から足す（ランキングと同じ。値のある試合が無ければ ctx なし）
+          const scoped = filterByGameType(
+            filterGameLogs(logs, { ...situationalFilter, includePlayoffs: true }, opponentRecords, divisionHistory, season, ownTeamOf, league),
+            gameType,
+          );
+          const ctx = periodSource ? playersListPeriodCtx(p.playerId, scoped, period, periodSource, displayMode, seasonStartYear) : null;
+          return { season, player: p, ctx: ctx ? { ...ctx, onOff: null } : undefined, ddtd: null, periodRow: true };
+        }
         if (filterActive) {
           // 試合種別は filterGameLogs のあとに3値で絞り込む（includePlayoffs は常に true で全試合を通す）
           const filteredLogs = filterByGameType(
@@ -1004,7 +1062,15 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
       league,
       classificationFilter,
       classScope.changed,
+      periodActive,
+      period,
+      periodSource,
     ],
+  );
+  // 区間を選んだときは、区間の値がある試合が基準（延長・クラッチ3試合、それ以外1試合）に届いた選手だけ
+  const periodRowsOk = useMemo(
+    () => (periodActive ? rows.filter((r) => periodRowMeetsMinimum(r.ctx ?? null, period)) : rows),
+    [periodActive, period, rows],
   );
 
   // スタッツの条件の項目（今のタブに限らず全カテゴリ）と、条件で絞り込んだ行。判定は表と同じ表示の値で行う
@@ -1012,18 +1078,18 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     const allShotTypeKeys = sortShotTypeKeys([...new Set((players ?? []).flatMap((p) => Object.keys(p.shotTypes ?? {})))]);
     const defs = buildPlayerListConditionDefs({
       mode: displayMode,
-      filterActive,
+      filterActive: recompute,
       shotTypeKeys: allShotTypeKeys,
       season,
       careerOf: (p) => careers?.seasons[season]?.[p.playerId],
       league,
     });
-    return buildStatConditionItems(defs, rows, displayMode);
-  }, [players, displayMode, filterActive, season, careers, rows, league]);
+    return buildStatConditionItems(defs, periodRowsOk, displayMode);
+  }, [players, displayMode, recompute, season, careers, periodRowsOk, league]);
   const conditionActive = tab !== "scoringComposition" && hasActiveStatConditions(statConditions, conditionItems);
   const conditionedRows = useMemo(
-    () => (conditionActive ? filterByStatConditions(rows, statConditions, conditionItems) : rows),
-    [conditionActive, rows, statConditions, conditionItems],
+    () => (conditionActive ? filterByStatConditions(periodRowsOk, statConditions, conditionItems) : periodRowsOk),
+    [conditionActive, periodRowsOk, statConditions, conditionItems],
   );
 
   const shootingRows = conditionedRows.filter((r) => r.player.shotTypes);
@@ -1043,11 +1109,11 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     tab === "shooting"
       ? shootingColumns
       : tab === "traditional"
-        ? filterActive
+        ? recompute
           ? [...buildCtxColumns(SEASON_TRADITIONAL_COLUMNS, displayMode), ...doubleDigitColumns()]
           : buildTraditionalColumns(displayMode)
         : tab === "advanced"
-          ? filterActive
+          ? recompute
             ? buildCtxColumns(SEASON_ADVANCED_COLUMNS_WITH_FTR, displayMode)
             : buildAdvancedColumns(displayMode)
           : tab === "misc"
@@ -1058,10 +1124,12 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
 
   const tableRows = tab === "shooting" ? shootingRows : conditionedRows;
   const defaultSort = DEFAULT_SORT[tab];
-  const needsGameLogs = tab === "misc" || tab === "scoring" || tab === "scoringComposition" || tab === "onoff" || filterActive || conditionNeedsLogs;
-  const gameDataLoading = needsGameLogs && (gameLogsLoading || !gameLogs);
+  const needsGameLogs = logsNeeded;
+  // 区間を選んでいるときは、残った選手の試合ログがそろい、索引が読めるまで待つ
+  const periodWaiting = periodActive && !periodFailed && (periodSourceLoading || !periodSource || filteredPlayers.some((p) => !gameLogs?.has(p.playerId)));
+  const gameDataLoading = needsGameLogs && (gameLogsLoading || !gameLogs || periodWaiting);
   const careersDataLoading = conditionActive && conditionNeedsCareers && (careersLoading || !careers);
-  const teamDataLoading = (filterActive || tab === "onoff") && (teamGameLogsLoading || !teamGameLogsByTeam);
+  const teamDataLoading = (filterActive || (tab === "onoff" && !periodActive)) && (teamGameLogsLoading || !teamGameLogsByTeam);
 
   if (playersLoading) return <p className="loading">読み込み中...</p>;
   if (playersError) return <p className="error-message">{playersError}</p>;
@@ -1091,7 +1159,8 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     classificationLabels(classificationFilter),
     multiSelectLabels("ポジション", selectedPositionLabels(positionOptions, positionList), "全ポジション"),
     clubFilterLabels,
-    gamesPlayedRatioRangeLabels(minRatio, maxRatio, achievable),
+    // 延長・クラッチは、出場率の代わりに「その区間に出た試合が3試合以上」（ランキングと同じ書き方）
+    subsetPeriod ? (subsetEligibilityLabel(period) ?? []) : gamesPlayedRatioRangeLabels(minRatio, maxRatio, achievable),
   );
   const statsTitle = {
     title: `${season}シーズン 全選手スタッツ：${TAB_LABELS.find((t) => t.key === tab)?.label ?? tab}`,
@@ -1113,6 +1182,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
             filterAxisLabels,
             gameTypeLabels(gameType, season),
             situationalFilterLabels(situationalFilter),
+            periodActive ? periodLabels(periodOption) : [],
           ),
   };
 
@@ -1175,6 +1245,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     }),
     gameTypeAxis(gameType, setGameType, season, { disabledReason: shootingReason }),
     displayModeAxis(displayMode, setDisplayMode, { disabledReason: tab === "scoringComposition" ? shootingReason : undefined }),
+    periodAxis(period, setPeriod, SEASON_PERIOD_OPTIONS, { disabledReason: shootingReason }),
     ...situationalAxes(situationalFilter, setSituationalFilter, {
       opponentWinRateSupported: !!gameSummaries,
       ownTeamDivisionSupported: !!divisionHistory && !!gameSummaries,
@@ -1186,7 +1257,9 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
           ...ratioAxis,
           disabledReason: `${CATEGORY_LABELS.scoringComposition}の対象は、所属チームの試合数の85%以上に出場し、1試合平均10分以上・合計300分以上出場した選手に固定しています。`,
         }
-      : ratioAxis,
+      : subsetPeriod
+        ? { ...ratioAxis, disabledReason: subsetEligibilityReason(period) ?? undefined }
+        : ratioAxis,
   ];
   const clearAllFilters = () => {
     setGroupFilter("all");
@@ -1195,6 +1268,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
     setRatio(DEFAULT_MIN_RATIO, DEFAULT_MAX_RATIO);
     setGameType("regular");
     setDisplayMode("perGame");
+    setPeriod("all");
     setSituationalFilter(DEFAULT_SITUATIONAL_FILTER);
     setStatConditions({ ...statConditions, conditions: [] });
   };
@@ -1215,8 +1289,8 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
             tab === "scoringComposition" ? `${CATEGORY_LABELS.scoringComposition}はグラフのため、スタッツの条件は表のタブでだけ効きます。` : undefined,
         })}
       />
-      {filterActive && tab !== "shooting" && (
-        <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全選手スタッツ" scope="試合種別・シチュエーション別の絞り込みの選択中は、試合ログから集計し直した値です（シューティングは対象外）。" />
+      {recompute && tab !== "shooting" && (
+        <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全選手スタッツ" scope="試合種別・シチュエーション別・Q別・前後半・延長・クラッチの絞り込みの選択中は、試合ログから集計し直した値です（シューティングは対象外）。" />
       )}
 
       <div className="tab-bar">
@@ -1289,9 +1363,11 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
         )
       ) : tab === "shooting" && !yahooPbpSupported ? (
         <p className="empty-message">{league === "one" ? "B.ONE では、まだ見られません（今後対応します）。" : "このシーズンのデータには対応していません"}</p>
+      ) : periodFailed ? (
+        <PeriodIndexFailure onRetry={retryPeriodSource} />
       ) : gameDataLoading || teamDataLoading || careersDataLoading || rookies.loading || classScope.loading ? (
         <p className="loading">読み込み中...</p>
-      ) : filteredPlayers.length === 0 || (conditionActive && tableRows.length === 0) ? (
+      ) : filteredPlayers.length === 0 || (periodActive && tableRows.length === 0) || (conditionActive && tableRows.length === 0) ? (
         <p className="empty-message">条件に該当する選手がいません</p>
       ) : (
         <>
@@ -1299,7 +1375,7 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
           <div className="table-scroll">
             <SortableTable
               rowNumbers
-              key={`${tab}|${tab === "traditional" || tab === "advanced" ? filterActive : false}`}
+              key={`${tab}|${tab === "traditional" || tab === "advanced" ? recompute : false}`}
               columns={columns}
               rows={tableRows}
               rowKey={(r) => r.player.playerId}
@@ -1317,7 +1393,11 @@ function AllPlayersStatsTab({ season, league }: { season: string; league: League
           )}
           {tab === "misc" && <RuleChangeFootnote seasons={[season]} />}
           <OnCourtShareNote tab={tab} rows={tableRows.map((r) => ({ season, gamesPlayed: r.ctx?.raw.gamesPlayed ?? 0, ocGames: r.ctx?.raw.ocGames ?? 0 }))} />
-          {tab === "onoff" && <OnOffNote seasons={[season]} periodSelected={false} />}
+          {tab === "onoff" && <OnOffNote seasons={[season]} periodSelected={periodActive} />}
+          {periodActive && period === "ot" && <p className="rule-change-footnote">※ {OVERTIME_GAMES_NOTE}</p>}
+          {periodActive && period !== "clutch" && gameType !== "regular" && hasShortGameSeason([season]) && <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>}
+          {periodActive && period !== "clutch" && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
+          {periodActive && <p className="rule-change-footnote">※ G と平均の分母は、{subsetPeriod ? "その区間に出た試合" : "出場した試合"}の数です。DD2・TD3・PTS10 は試合全体でしか判定できないので「-」です。</p>}
           {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
           <ClassificationNotes filter={classificationFilter} scope="season" />
         </>
