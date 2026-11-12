@@ -38,7 +38,7 @@ import type { FigureProps } from './catalog';
 import './RatingsScatterFigure.css';
 import './TeamVennFigure.css';
 import { ScorerSilhouette } from './TopScorersFigure';
-import { playerPhotoUrl } from '../lib/data';
+import { PlayerPhoto } from '../components/PlayerPhoto';
 import { DIVISION_RATING_COLORS } from '../lib/figureRatings';
 import { NumberTextInput, type NumberTextInputHandle } from '../components/NumberTextInput';
 
@@ -139,7 +139,7 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
     { key: 'ratio', label: '出場率', sortValue: p => p.ratio, render: p => formatPct100(p.ratio) },
     ...itemIds.map((_, i): Column<PlayerFigurePoint> => ({ key: `c${i}`, label: labels[i]!, sortValue: p => computed?.valueOf(p.id, i)?.value ?? Number.NaN, render: p => valueText(p, i) })),
   ];
-  const chartProps = { display, emphIds, model, labels, circleNames, circleLines, counts, hover, setHover, byId, valueText, playerLabel, abbr, teamNames, total: eligible.length, openMask, setOpenMask };
+  const chartProps = { season, display, emphIds, model, labels, circleNames, circleLines, counts, hover, setHover, byId, valueText, playerLabel, abbr, teamNames, total: eligible.length, openMask, setOpenMask };
   // 負の値になりうる項目（+/-・NetRtg など）は、スマホの数字キーボードに無い「−」をボタンで足せるようにする
   const thrInputs = useRef<(NumberTextInputHandle | null)[]>([]);
   const signed = itemIds.map((_, i) => (thresholds[i] ?? 0) < 0 || sampleValues[i]!.some(v => v.value < 0 || /^[+-]/.test(v.text.trim())));
@@ -179,6 +179,8 @@ export default function PlayerVennFigure({ season, category }: FigureProps) {
 
 type ChartModel = NonNullable<ReturnType<typeof computePlayerVenn>>['model'];
 interface ChartProps {
+  /** 写真のシーズン（図の対象シーズン） */
+  season: string;
   display: VennDisplay; model: ChartModel | null; labels: string[]; circleNames: string[]; circleLines: string[][]; counts: number[]; emphIds: ReadonlySet<string>;
   hover: string | null; setHover: (id: string | null) => void; byId: Map<string, PlayerFigurePoint>; valueText: (p: PlayerFigurePoint, i: number) => string;
   playerLabel: (name: string) => string; abbr: (p: PlayerFigurePoint) => string; teamNames: (p: PlayerFigurePoint) => string; total: number;
@@ -191,7 +193,7 @@ function regionTitle(mask: VennMask, labels: readonly string[]): string {
   return names.length === 3 ? '3つとも' : names.length === 1 ? `${names[0]}だけ` : names.join('と');
 }
 
-function VennChart({ display, model, labels, circleNames, circleLines, counts, emphIds, hover, setHover, byId, valueText, playerLabel, abbr, teamNames, total, openMask, setOpenMask, exportOnly = false }: ChartProps) {
+function VennChart({ season, display, model, labels, circleNames, circleLines, counts, emphIds, hover, setHover, byId, valueText, playerLabel, abbr, teamNames, total, openMask, setOpenMask, exportOnly = false }: ChartProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(exportOnly ? VENN_DESIGN_WIDTH : 640);
   const [showNone, setShowNone] = useState(false);
@@ -232,7 +234,7 @@ function VennChart({ display, model, labels, circleNames, circleLines, counts, e
     return <button key={p.id} className={`venn-team venn-player${asPhoto ? ' venn-photo' : ''}${emph ? ' is-emphasized' : ''}${hover === p.id ? ' is-expanded' : ''}`} style={{ ...style, ...(emph ? { '--emph': scale } as React.CSSProperties : {}) }}
       aria-label={`${playerLabel(p.name)}（${abbr(p)}）：${tipText(p)}`}
       onPointerEnter={e => { if (e.pointerType === 'mouse') setHover(p.id); }} onPointerLeave={e => { if (e.pointerType === 'mouse') setHover(null); }} onFocus={() => setHover(p.id)} onBlur={() => setHover(null)} onClick={() => setHover(p.id)}>
-      {asPhoto ? <VennPhoto player={p} diameter={layout.photo ?? 28} /> : <span className="venn-player-label" style={{ fontSize: layout.font }}>{playerLabel(p.name)}</span>}
+      {asPhoto ? <VennPhoto player={p} season={season} diameter={layout.photo ?? 28} /> : <span className="venn-player-label" style={{ fontSize: layout.font }}>{playerLabel(p.name)}</span>}
     </button>;
   };
   const list = (title: string, players: PlayerFigurePoint[]) => <div className="venn-region-list" key={title}>
@@ -272,9 +274,8 @@ function VennChart({ display, model, labels, circleNames, circleLines, counts, e
 }
 
 /** 円の中の選手の写真（ほかの選手の図と同じ写真・地区の色の枠。写真が無い・読めないときは同じ代わりの表示） */
-function VennPhoto({ player, diameter }: { player: PlayerFigurePoint; diameter: number }) {
-  const [failed, setFailed] = useState(false);
+function VennPhoto({ player, season, diameter }: { player: PlayerFigurePoint; season: string; diameter: number }) {
   return <span className="venn-photo-circle" style={{ width: diameter, height: diameter, borderColor: DIVISION_RATING_COLORS[player.division ?? 'unknown'] }}>
-    {!failed ? <img src={playerPhotoUrl(player.playerId)} alt="" loading="eager" onError={() => setFailed(true)} /> : <ScorerSilhouette name={player.name} />}
+    <PlayerPhoto playerId={player.playerId} season={season} teamId={player.lastTeamId} plain loading="eager" fallback={<ScorerSilhouette name={player.name} />} />
   </span>;
 }

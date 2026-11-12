@@ -1176,7 +1176,7 @@ function LeaderTop3Row({ label, rows, teamNames, season }: { label: string; rows
     <div className="leader-top3-row">
       <span className="leader-top3-label">{label}</span>
       {top1 && !isUnknownPlayerId(top1.player.PlayerID) ? (
-        <PlayerPhoto playerId={top1.player.PlayerID} size={60} className="leader-top3-photo" />
+        <PlayerPhoto playerId={top1.player.PlayerID} size={60} className="leader-top3-photo" season={season} teamId={top1.player.TeamID} />
       ) : (
         <div className="leader-top3-photo-placeholder" />
       )}
@@ -1266,13 +1266,13 @@ function GameLeadersMatchup({
             }
           >
             <div className="leader-matchup-side leader-matchup-side-home">
-              <LeaderMatchupPlayer leader={homeLeader} displayName={displayName} />
+              <LeaderMatchupPlayer leader={homeLeader} displayName={displayName} season={season} />
               <span className="leader-matchup-value">{homeLeader ? def.format(homeLeader.player) : "—"}</span>
             </div>
             <span className="leader-matchup-label">{def.label}</span>
             <div className="leader-matchup-side leader-matchup-side-away">
               <span className="leader-matchup-value">{awayLeader ? def.format(awayLeader.player) : "—"}</span>
-              <LeaderMatchupPlayer leader={awayLeader} displayName={displayName} />
+              <LeaderMatchupPlayer leader={awayLeader} displayName={displayName} season={season} />
             </div>
           </div>
         );
@@ -1284,16 +1284,18 @@ function GameLeadersMatchup({
 function LeaderMatchupPlayer({
   leader,
   displayName,
+  season,
 }: {
   leader: GameLeaderResult | undefined;
   displayName: (r: BoxscoreRow) => string;
+  season: string;
 }) {
   if (!leader) return <div className="leader-matchup-player" />;
   const { player, otherCount } = leader;
   const unknown = isUnknownPlayerId(player.PlayerID);
   const content = (
     <>
-      {!unknown && <PlayerPhoto playerId={player.PlayerID} size={44} className="leader-matchup-player-photo" />}
+      {!unknown && <PlayerPhoto playerId={player.PlayerID} size={44} className="leader-matchup-player-photo" season={season} teamId={player.TeamID} />}
       <span className="leader-matchup-player-name">
         <span className="leader-matchup-player-name-text">{displayName(player)}</span>
         {otherCount > 0 && <span className="leader-matchup-player-others"> 他{otherCount}人</span>}

@@ -26,6 +26,13 @@ function mediaCatalogSeasons(): string[] {
   return readdirSync(dir).filter((f) => /^\d{4}-\d{2}\.json$/.test(f)).map((f) => f.slice(0, -5)).sort();
 }
 
+/** シーズン別の選手写真の台帳を置いたシーズン（`public/media/player-photos/{season}.json`）。置いていないシーズンは画面が取りに行かない。 */
+function seasonPhotoSeasons(): string[] {
+  const dir = `${projectRoot}/public/media/player-photos`;
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((f) => /^\d{4}-\d{2}\.json$/.test(f)).map((f) => f.slice(0, -5)).sort();
+}
+
 type RecordTables = Record<string, Record<string, unknown[]>>;
 
 /**
@@ -85,6 +92,7 @@ export default defineConfig({
   base: "/bleague-stats/",
   define: {
     __MEDIA_CATALOG_SEASONS__: JSON.stringify(mediaCatalogSeasons()),
+    __SEASON_PHOTO_SEASONS__: JSON.stringify(seasonPhotoSeasons()),
   },
   plugins: [
     react(),

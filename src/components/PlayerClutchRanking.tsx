@@ -197,7 +197,7 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
                 linkTo={(e) => `/players/${e.playerId}?season=${e.lastSeason}`}
                 teamColor={(e) => teamColors?.[e.teamId]?.primary}
                 chipColor={(e) => teamChipColor(e.teamId, teamColors)}
-                avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder />}
+                avatar={(e) => <PlayerPhoto playerId={e.playerId} size={56} className="player-cell-photo" placeholder season={allTime ? null : e.lastSeason} teamId={e.teamId} />}
                 exportKeepSub
                 limit={RANK_TOP_N}
                 tieExpandMax={GAME_RECORD_TIE_EXPAND_MAX}

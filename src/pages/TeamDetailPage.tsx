@@ -4355,7 +4355,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                   <div key={key} className="leader-card">
                     <div className="leader-stat-label">{leaderStatLabel(def)}</div>
                     <Link to={`/players/${leader.playerId}`} className="leader-top1">
-                      <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" />
+                      <PlayerPhoto playerId={leader.playerId} size={56} className="leader-photo" season={season} teamId={teamId} />
                       <div className="leader-info">
                         <div className="leader-value">{def.format(leader)}</div>
                         <div className="leader-name">

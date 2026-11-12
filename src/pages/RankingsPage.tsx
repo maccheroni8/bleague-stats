@@ -1224,7 +1224,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
               }}
               teamColor={(p) => teamColors?.[clubOf(p).teamId]?.primary}
               chipColor={(p) => teamChipColor(clubOf(p).teamId, teamColors)}
-              avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" placeholder />}
+              avatar={(p) => <PlayerPhoto playerId={p.playerId} size={56} className="player-cell-photo" placeholder season={season} teamId={clubOf(p).teamId} />}
               exportTeam={(p) => [teamShortName(clubOf(p).teamId, clubOf(p).teamName), gamesText(p)].filter(Boolean).join("・")}
               limit={PLAYER_RANK_TOP_N}
               compact

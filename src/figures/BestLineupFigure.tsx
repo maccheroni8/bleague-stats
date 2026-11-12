@@ -149,7 +149,7 @@ function LineupCard({ item, size, sort, highlighted, color, playerLabel }: {
     </span>
     <span className="best-lineup-players" style={{ '--bl-size': size } as CSSProperties}>
       {g.players.map(p => <span key={p.id} className="best-lineup-player">
-        <PlayerPhoto playerId={p.id} size={44} className="best-lineup-photo" placeholder />
+        <PlayerPhoto playerId={p.id} size={44} className="best-lineup-photo" placeholder season={g.season} teamId={g.teamId} />
         <span className="best-lineup-player-name"><NameText name={playerLabel(p.name)} /></span>
       </span>)}
     </span>

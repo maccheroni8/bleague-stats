@@ -2511,7 +2511,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
       <div className="player-header-columns">
         <div className="player-header-photo">
-          <PlayerPhoto playerId={player.playerId} size={280} />
+          <PlayerPhoto playerId={player.playerId} size={280} season={season} teamId={player.teamId} />
         </div>
 
         <div className="player-header-profile">

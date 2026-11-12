@@ -139,7 +139,7 @@ export default function PlayerFreeScatterFigure({ season, category }: FigureProp
           xTick={v => freeTickText(v, xKind, xDomain)} yTick={v => freeTickText(v, yKind, yDomain)}
           avgX={avgX} avgY={avgY} avgXText={avgX === null ? '' : avgText(avgX, xKind)} avgYText={avgY === null ? '' : avgText(avgY, yKind)}
           countLines={countLines} onDismiss={() => setHover(null)}
-          renderMarker={(i, left, top) => <ScorerPhoto key={i.id} point={{ playerId: i.p.playerId, name: i.p.name, division: i.p.division }}
+          renderMarker={(i, left, top) => <ScorerPhoto key={i.id} point={{ playerId: i.p.playerId, name: i.p.name, division: i.p.division }} season={season} teamId={i.p.lastTeamId}
             label={`${playerLabel(i.p.name)}：${yName} ${yCol.text(i.p)}、${xName} ${xCol.text(i.p)}`}
             selected={hl.has(i.p.teamIds)} expanded={i.id === hover} left={left} top={top} onSelect={() => pick(i.p)} onDismiss={() => setHover(null)} />}
           tooltip={tip ? { point: tip, node: <><strong>{playerLabel(tip.p.name)}（{names(tip.p)}）</strong><span>{yName} {yCol.text(tip.p)} / {xName} {xCol.text(tip.p)}</span><span>出場率 {formatPct100(tip.p.ratio)}</span><span>{tip.p.games}試合{tip.p.teamIds.length > 1 ? '・複数チームの合算' : ''}</span></> } : null} />
