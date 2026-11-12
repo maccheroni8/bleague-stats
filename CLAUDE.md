@@ -176,6 +176,7 @@ B.LEAGUE（B.PREMIER優先）の個人用スタッツサイト。設計と各機
 - 376章: **全選手スタッツに Q別・前後半・延長・クラッチ**（URL `q`。選択肢はランキングと同じ。値はピリオド別の索引から〔ランキング（個人）と同じ経路。`src/lib/playersListPeriod.ts`〕。G・平均の分母は出場した試合〔延長・クラッチは区間の値がある試合〕、延長・クラッチの掲載基準は3試合。DD2・TD3・PTS10・on/off は「-」、Shooting・Scoring % のタブは区間を選べない。区間を選んだときだけ索引と残った選手の試合ログを読む）と、「クラッチタイムになった試合」への書き換え（保存キー対象のコメントは直さない）。検証は `npm run validate:players-period`。**画面だけの変更でキー不変**
 - 379章: **順位推移・勝ち星推移・貯金推移のアニメーション**は、進み具合を1つの値（`src/lib/trendPlayback.ts`）にして、再生用の層（`StandingsTrendPlaybackLayer.tsx`）が毎フレームその値からラインの切り抜きとロゴの位置を一緒に出す（曲線の式は `trendPlaybackGeometry.ts`。止まっているときの線と同じ式）。**ロゴを CSS の移動（transition）で追いかけさせない・再生中にページを描き直さない**。**画面だけの変更でキー不変**
 - 380章: 図解の**「ファウル」**（チーム `figure=fouls-team`・選手 `fouls-player`。テクニカル〔チームはコーチ／ベンチ／選手〕・アンスポーツマンライク系〔2026-27 からフレグラント／ディスラプティブ〕・DQ の3つの表、トップ3を赤系で塗る〔並べ替えに関係なく〕、「1試合で2回」、見出しを押して並べ替え）。読むのは導出データ `data/{season}/fouls.json.gz` だけ（`shared/foulsIndex.ts`・`scripts/aggregate-fouls-index.ts`。ActionCD1 の 20・21・24/91/92・25/93/94・26 を数え、種類の書かれていない 31 は数えない）。画面の集計は `src/lib/figureFouls.ts`。検証は `npm run validate:fouls-index`（試合ログ・公式の PF との照合）。**保存キーが変わった**（allKey `636a3d1cd186ec5cc6c18059399de219`）
+- 383章: 選手詳細の **md（AI向けの書き出し。詳しい版だけ）**（`AiPlayerExportButton.tsx`・`src/lib/aiPlayer*.ts`。ターム・対戦相手の決め方はチーム詳細の md と同じ関数、ランキングの順位はランキング（個人・シーズン成績・条件なし）と同じ決め方でシーズン全体。ボタンを押したときだけ読む。検証は `npm run validate:ai-player`）。**画面だけの変更でキー不変**
 - 206章: 集計結果（導出データ）はコミットせず、デプロイのときに元データから作る（データの仕分け、`npm run build:data`、キャッシュ）
 - 155章: ペイント内外（Mid-range）は公式の区分（インサイドペイント／アウトサイドペイント）で数える
 

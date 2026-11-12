@@ -1,4 +1,5 @@
 import { seasonBoxColumnsWithFtrPpp } from "../lib/pppColumn";
+import { AiPlayerExportButton } from "../components/AiPlayerExportButton";
 import { DIVISION_LABELS, opponentDivisionChoices } from "../lib/divisionGroups";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
@@ -2484,9 +2485,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
 
   return (
     <div className="player-detail-page" data-design="v2">
-      <Link to="/players" className="back-link">
-        ← 個人一覧に戻る
-      </Link>
+      <div className="team-detail-top-actions">
+        <Link to="/players" className="back-link">
+          ← 個人一覧に戻る
+        </Link>
+        <AiPlayerExportButton season={season} playerId={player.playerId} league={league} />
+      </div>
       <div className="player-detail-title" style={accentColor ? { borderTopColor: accentColor } : undefined}>
         <h1>
           {player.name}
