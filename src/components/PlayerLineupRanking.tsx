@@ -38,7 +38,7 @@ import {
 } from "../lib/lineupRanking";
 import { statJa } from "../lib/statNames";
 import { LINEUP_METRIC_PARAM, LINEUP_PERIOD_PARAM, LINEUP_RANGE_PARAM, LINEUP_UNIT_PARAM, lineupShareParam } from "../lib/lineupParams";
-import { SEASON_PERIOD_OPTIONS } from "../lib/seasonPeriod";
+import { SEASON_PERIOD_OPTIONS_NO_CLUTCH } from "../lib/seasonPeriod";
 import { ROOKIE_NOTE } from "../lib/rookieFilter";
 import { useNarrow } from "../lib/teamLabel";
 import { lineupCareerSeasons, useLineupData } from "../lib/useLineupData";
@@ -188,7 +188,8 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const current = useCurrentPlayerNames(allTime);
 
   // 区間は1Q〜4Q・前半・後半・延長（すべての延長の合計。第1延長・第2延長は分けない。DESIGN.md 273章）
-  const periodOptions = SEASON_PERIOD_OPTIONS;
+  // 出場区間（team-stints）はピリオドで絞るので、クラッチは選べない（設計書373章）
+  const periodOptions = SEASON_PERIOD_OPTIONS_NO_CLUTCH;
   const periodOption = periodOptions.find((o) => o.value === periodValue) ?? periodOptions[0]!;
 
   // 行を作る計算は重い（通算の3人組は数秒）。下限だけを変えるときは作り直さず、作った行に当てはめる。

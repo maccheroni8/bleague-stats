@@ -26,6 +26,8 @@ import {
   GAME_RECORD_PERIOD_OPTIONS,
   GAME_RECORD_PERIOD_PARAM,
   PERIOD_ASTED_UNSUPPORTED_REASON,
+  CLUTCH_UNSUPPORTED_STAT_KEYS,
+  CLUTCH_UNSUPPORTED_STAT_REASON,
   PERIOD_PLUS_MINUS_UNSUPPORTED_REASON,
   PERIOD_WORST_UNSUPPORTED_REASON,
   gameRecordPeriodLabel,
@@ -114,7 +116,9 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
           ? undefined
           : s.key === "astedPct"
             ? PERIOD_ASTED_UNSUPPORTED_REASON
-            : s.key === "plusMinus" && !allTime && periodPlusMinusUnsupported(season)
+            : period === "clutch" && CLUTCH_UNSUPPORTED_STAT_KEYS.includes(s.key)
+              ? CLUTCH_UNSUPPORTED_STAT_REASON
+              : s.key === "plusMinus" && !allTime && periodPlusMinusUnsupported(season)
               ? PERIOD_PLUS_MINUS_UNSUPPORTED_REASON
               : undefined;
         return { ...s, disabled: !!disabledReason, disabledReason };
@@ -231,7 +235,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const defJa = statJa(def.label);
   const title = allTime ? `歴代 個人1試合${modeLabel} ${defJa}ランキング` : `${season}シーズン 個人1試合${modeLabel} ${defJa}ランキング`;
   const filename = buildExportFilename([`個人1試合${modeLabel}`, allTime ? "歴代" : season, defJa, ...conditionLabels]);
-  const minNote = playerGameRecordMinMadeNote(def.key, period ? { key: period, label: period === "ot" ? "延長" : period === "h1" ? "前半" : period === "h2" ? "後半" : `${period.slice(1)}Q` } : undefined);
+  const minNote = playerGameRecordMinMadeNote(def.key, period ? { key: period, label: period === "ot" ? "延長" : period === "clutch" ? "クラッチ" : period === "h1" ? "前半" : period === "h2" ? "後半" : `${period.slice(1)}Q` } : undefined);
   const seasonOf = (e: PlayerRecordRow) => e.season ?? season;
   const periodNotes = period && result ? { overtime: period === "ot", shortGames: result.periodShortGames ?? 0, noRecordGames: result.periodNoRecordGames ?? 0, noPlusMinus: result.excludedNoPlusMinus ?? 0 } : undefined;
 

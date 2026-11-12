@@ -93,7 +93,7 @@ export function PlayerQuarterTab({
 
   // 区間の順に、値のある行と値の無い区間（「-」の行）を並べる
   const lines = useMemo(() => {
-    const order = ["q1", "q2", "q3", "q4", "h1", "h2", "ot"];
+    const order = ["q1", "q2", "q3", "q4", "h1", "h2", "ot", "clutch"];
     const all: ({ kind: "row"; row: (typeof rows)[number] } | { kind: "empty"; value: string; label: string })[] = [
       ...rows.map((row) => ({ kind: "row" as const, row })),
       ...empty.map((e) => ({ kind: "empty" as const, value: e.periodValue, label: e.periodLabel })),

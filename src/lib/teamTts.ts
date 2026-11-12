@@ -16,6 +16,8 @@ import { PERIOD_ATOM_INDEXES, type GameRecordPeriod } from "./periodIndex";
 export const TTS_CATEGORY_LABEL = "Time to Shot";
 
 export type TtsPeriodValue = GameRecordPeriod;
+/** Time to Shot の導出データ（team-tts）はピリオドごとに持つので、クラッチは出せない（設計書373章。2段階目の候補） */
+export const TTS_CLUTCH_UNSUPPORTED_REASON = "Time to Shot は、クラッチでは出せません（Q別・前後半・延長は選べます）。";
 export type TtsPerspective = "own" | "opp" | "diff";
 
 /** 画面に出す項目（キー）。all＝全シュート、first＝初回全体（その他を含む）。ほかは分類の本数 */

@@ -2,7 +2,7 @@ import type { League } from "../lib/league";
 import { useEffect, useMemo, useState } from "react";
 import type { TeamGameLog } from "../../shared/types";
 import { filterByGameType } from "../../shared/gameType";
-import { loadTtsSource, sumTtsTotals, ttsRowValues, ttsSeasonSupported, TTS_UNSUPPORTED_NOTE, type TtsPerspective, type TtsPeriodValue, type TtsRowValues, type TtsSource } from "../lib/teamTts";
+import { loadTtsSource, sumTtsTotals, ttsRowValues, ttsSeasonSupported, TTS_UNSUPPORTED_NOTE, TTS_CLUTCH_UNSUPPORTED_REASON, type TtsPerspective, type TtsPeriodValue, type TtsRowValues, type TtsSource } from "../lib/teamTts";
 import { GlossaryNote } from "./GlossaryNote";
 import { TtsNameLegend, TtsTable, type TtsLeadingColumn } from "./TtsTable";
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
@@ -80,6 +80,7 @@ export function TeamSeasonTtsTable({
   const unreadable = rows.filter((r) => r.status === "unreadable").map((r) => r.season);
   const unsupported = rows.some((r) => r.status === "unsupported");
   const empty = rows.filter((r) => r.status === "ready" && !r.values).map((r) => r.season);
+  if (period === "clutch") return <p className="empty-message">{TTS_CLUTCH_UNSUPPORTED_REASON}</p>;
   return (
     <>
       {loading > 0 && <p className="loading">読み込み中...（残り{loading}シーズン）</p>}

@@ -45,6 +45,7 @@ import {
   type PlayerOnCourtRatings,
 } from "../shared/onCourt.ts";
 import { benchForeignCounts, on4Feasible, on4RuleApplies } from "../shared/on4Possible.ts";
+import { judgeClutch } from "../shared/clutchTime.ts";
 import { computeForeignPlayerCourtSeconds, foreignCourtSecondsArray, playerForeignOnCourt, type ForeignOverLimitTally, type PlayerForeignOnCourt } from "../shared/foreignOnCourt.ts";
 import { buildMiscEventCounts, countTechnicalFouls, teamPointsBreakdown, type MiscEventCounts } from "../shared/teamGameEvents.ts";
 import { computePointsOffTurnovers } from "../shared/pointsOffTurnovers.ts";
@@ -2016,6 +2017,9 @@ function processTeams(
 
   // 延長の本数（DESIGN.md 219章）
   const overtimes = overtimeCount(game);
+  // クラッチになった試合か（第4Q・延長の残り5:00以下で5点差以内の時間かプレーがあった。判定できない試合〔プレーバイプレーが無い・前後半5分の特別な試合など〕は持たない。設計書373章）
+  const clutchJudged = game.raw.PlayByPlays.length > 0 ? judgeClutch(game.raw.PlayByPlays, game.homeTeam.id, game.homeScore, game.awayScore) : null;
+  const clutchFields = clutchJudged?.ok ? { clutchGame: clutchJudged.judgement.isClutchGame } : {};
 
   // 最大リード・最大ビハインド（延長戦を含む。DESIGN.md 150章）
   const margins = gameMaxMargins(game);
@@ -2036,6 +2040,7 @@ function processTeams(
     win: homeWin,
     gameType,
     overtimes,
+    ...clutchFields,
     ...homePeriods,
     ...homeMargins,
     ...runFields(teamRuns[0]),
@@ -2090,6 +2095,7 @@ function processTeams(
     opponentScore: game.homeScore,
     win: awayWin,
     overtimes,
+    ...clutchFields,
     ...awayPeriods,
     ...awayMargins,
     ...runFields(teamRuns[1]),

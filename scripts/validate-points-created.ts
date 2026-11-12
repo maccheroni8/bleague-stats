@@ -9,6 +9,7 @@
 //  5. 1試合記録の項目 PC は、プレーバイプレーの無い試合を数えない
 //
 // 使い方: npm run validate:points-created（先に npm run build:data）。1つでも食い違いがあれば終了コード1
+import { CLUTCH_ATOM_INDEX } from "../shared/periodIndex.ts";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
@@ -127,6 +128,8 @@ for (const season of readdirSync(DATA).filter((d) => /^\d{4}-\d{2}$/.test(d)).so
       let negative = 0;
       if (pcol) {
         for (let k = 0; k < period.rows.row.length; k++) {
+          // クラッチの行（第4Q・延長と重なる。設計書373章）は試合全体の合計に入れない
+          if (period.rows.period[k] === CLUTCH_ATOM_INDEX) continue;
           const v = pcol[k]!;
           if (v < 0) negative += 1;
           else sums.set(period.rows.row[k]!, (sums.get(period.rows.row[k]!) ?? 0) + v);

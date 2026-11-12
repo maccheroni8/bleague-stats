@@ -26,7 +26,9 @@ import { isManualBoxscoreKey } from "./lib/manualBoxscores.ts";
 import path from "node:path";
 import { DATA_DIR, readAllGames, readJson } from "./lib/storage.ts";
 import {
-  PERIOD_ATOMS,
+  // 試合全体の区間（クラッチは第4Q・延長と重なるので足さない。クラッチの区間は validate:clutch が確かめる。設計書373章）
+  PERIOD_GAME_ATOMS as PERIOD_ATOMS,
+  CLUTCH_ATOM_INDEX,
   PERIOD_INDEX_VERSION,
   PERIOD_POSS_KEYS,
   PERIOD_ROW_FLAG_PLUS_MINUS,
@@ -290,6 +292,7 @@ function checkShape(d: SeasonData): void {
   for (let i = 0; i < row.length; i++) {
     const g = playerIndex.rows.game[row[i]!]!;
     if ((gamesTable.flags[g]! & GAME_FLAG_SHORT) !== 0) shortRows += 1;
+    if (period[i] === CLUTCH_ATOM_INDEX) continue;
     if (period[i]! < 0 || period[i]! >= PERIOD_ATOMS.length) badPeriod += 1;
     else if (PERIOD_ATOMS[period[i]!] === "ot" && gamesTable.overtimes[g]! === 0) otNoOt += 1;
   }
@@ -308,9 +311,11 @@ function checkShape(d: SeasonData): void {
   }
   ok(`${label}: 試合に出た選手が区間の行を持つ（出場が数秒だけで記録の無い ${tiny} 行を除く）`, missing === 0, `${missing}`);
   // +/- の旗
-  const withPm = flags.filter((f) => (f & PERIOD_ROW_FLAG_PLUS_MINUS) !== 0).length;
+  // クラッチの行（復元の +/- だけ。validate:clutch が確かめる）は数えない
+  const gameFlags = flags.filter((_, i) => period[i] !== CLUTCH_ATOM_INDEX);
+  const withPm = gameFlags.filter((f) => (f & PERIOD_ROW_FLAG_PLUS_MINUS) !== 0).length;
   const expectNone = season < "2022-23";
-  ok(`${label}: 公式の +/- の旗（${withPm}/${flags.length}行）`, expectNone ? withPm === 0 : withPm / Math.max(1, flags.length) > 0.99, `${withPm}`);
+  ok(`${label}: 公式の +/- の旗（${withPm}/${gameFlags.length}行）`, expectNone ? withPm === 0 : withPm / Math.max(1, gameFlags.length) > 0.99, `${withPm}`);
   // チームの表: -1 の位置
   let teamBad = 0;
   for (let g = 0; g < gamesTable.key.length; g++) {
@@ -325,6 +330,7 @@ function checkShape(d: SeasonData): void {
         if (got !== expectValue) teamBad += 1;
       }
       for (const k of PERIOD_POSS_KEYS) {
+        if (k === "clutch") continue;
         const expectValue = !noPeriods && (k === "ot" ? hasOt : !short);
         if ((team.rows.poss[k][t]! !== -1) !== expectValue) teamBad += 1;
       }
@@ -459,6 +465,7 @@ async function checkValues(d: SeasonData, allGames: StoredGame[]): Promise<void>
         const pmFlags: boolean[] = PERIOD_ATOMS.map(() => false);
         if (start[r]! !== -1) {
           for (let i = start[r]!; i < end[r]!; i++) {
+            if (player.rows.period[i] === CLUTCH_ATOM_INDEX) continue;
             byAtom[player.rows.period[i]!] = periodStats(d, i);
             pmFlags[player.rows.period[i]!] = (player.rows.flags[i]! & (PERIOD_ROW_FLAG_PLUS_MINUS | PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED)) !== 0;
           }

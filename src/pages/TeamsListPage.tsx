@@ -174,6 +174,7 @@ import {
   ttsSeasonSupported,
   sumTtsTotals,
   TTS_UNSUPPORTED_NOTE,
+  TTS_CLUTCH_UNSUPPORTED_REASON,
   useTtsSource,
   type TtsPeriodValue,
   type TtsRowValues,
@@ -1359,10 +1360,10 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
               {foreignPeriod === "ot" && (
                 <p className="page-subtitle">延長は、延長のあった試合だけの値です（すべての延長の合計）。G は延長のあった試合数で、平均はその試合数で割っています。</p>
               )}
-              {foreignPeriod !== "all" && foreignPeriod !== "ot" && gameType !== "regular" && hasShortGameSeason([season]) && (
+              {foreignPeriod !== "all" && foreignPeriod !== "ot" && foreignPeriod !== "clutch" && gameType !== "regular" && hasShortGameSeason([season]) && (
                 <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>
               )}
-              {foreignPeriod !== "all" && foreignPeriod !== "ot" && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && (
+              {foreignPeriod !== "all" && foreignPeriod !== "ot" && foreignPeriod !== "clutch" && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && (
                 <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>
               )}
               <GlossaryNote
@@ -1460,13 +1461,15 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
           {periodActive && period === "ot" && (
             <p className="page-subtitle">延長は、延長のあった試合だけの値です（すべての延長の合計）。右端の得点・失点は、延長のあった試合で割った1試合平均です。</p>
           )}
-          {periodActive && period !== "ot" && gameType !== "regular" && hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
-          {periodActive && period !== "ot" && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
+          {periodActive && period !== "ot" && period !== "clutch" && gameType !== "regular" && hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
+          {periodActive && period !== "ot" && period !== "clutch" && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
         </>
       ) : gameLogsLoading || !gameLogsByTeam || boxTab === "scoringComposition" ? (
         <p className="loading">読み込み中...</p>
       ) : boxTab === "timeToShot" ? (
-        ttsSupported && ttsLoading ? (
+        period === "clutch" ? (
+          <p className="empty-message">{TTS_CLUTCH_UNSUPPORTED_REASON}</p>
+        ) : ttsSupported && ttsLoading ? (
           <p className="loading">読み込み中...</p>
         ) : ttsSupported && !ttsSource ? (
           <p className="empty-message">
@@ -1594,8 +1597,8 @@ function AllTeamsStatsTab({ season, league }: { season: string; league: League }
             <p className="page-subtitle">延長は、延長のあった試合だけの値です（すべての延長の合計）。G は延長のあった試合数で、平均はその試合数で割っています。勝敗は試合の勝敗です。</p>
           )}
           {periodActive && period !== "ot" && <p className="page-subtitle">区間を選んだときも、勝敗は試合の勝敗です。</p>}
-          {periodActive && gameType !== "regular" && hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
-          {periodActive && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
+          {periodActive && period !== "clutch" && gameType !== "regular" && hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
+          {periodActive && period !== "clutch" && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
           <GlossaryNote anchor={GLOSSARY_ANCHORS.boxscoreColumns} label="全チームスタッツ" scope="各チームの試合ログから、選んだ条件で集計し直した値です。" />
         </>
       )}

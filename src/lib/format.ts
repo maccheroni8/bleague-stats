@@ -3,11 +3,14 @@
  * 小数のある値は区切らない（小数・割合・年・ID は区切らない方針）
  */
 export function formatDecimal(value: number, digits = 2): string {
+  // 値なし（NaN。クラッチの被ファウルなど、出せない項目。設計書373章）は「-」
+  if (Number.isNaN(value)) return "-";
   return digits === 0 ? formatInteger(value) : value.toFixed(digits);
 }
 
 /** 整数（四捨五入）を、1,000以上のとき3桁ごとに区切って文字列にする。負の値は先頭に「-」 */
 export function formatInteger(value: number): string {
+  if (Number.isNaN(value)) return "-";
   const fixed = value.toFixed(0);
   const negative = fixed.startsWith("-");
   const digits = negative ? fixed.slice(1) : fixed;
@@ -16,11 +19,13 @@ export function formatInteger(value: number): string {
 }
 
 export function formatPct(value: number, digits = 2): string {
+  if (Number.isNaN(value)) return "-";
   return `${(value * 100).toFixed(digits)}%`;
 }
 
 /** すでに0〜100スケールになっている値（ORB%・Usage%など）を%表記にする */
 export function formatPct100(value: number, digits = 2): string {
+  if (Number.isNaN(value)) return "-";
   return `${value.toFixed(digits)}%`;
 }
 
@@ -31,6 +36,7 @@ export function formatWinPct(value: number, digits = 3): string {
 }
 
 export function formatSigned(value: number, digits = 2): string {
+  if (Number.isNaN(value)) return "-";
   const rounded = digits === 0 ? formatInteger(value) : value.toFixed(digits);
   return value > 0 ? `+${rounded}` : rounded;
 }

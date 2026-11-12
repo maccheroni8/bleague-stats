@@ -19,6 +19,7 @@ import type { PlayerGameLog, StoredGame } from "../shared/types.ts";
 import { viewPlayerGameIndex, viewTeamGameIndex } from "../src/lib/gameIndex";
 import { viewPlayerPeriodIndex } from "../src/lib/periodIndex";
 import { buildPeriodFilteredRawTotals, computeGamePeriodTotals } from "../src/lib/playerSeasonBoxscore";
+import { gameWithClutchView } from "../shared/clutchGame.ts";
 import { OVERTIME_MIN_GAMES, SEASON_PERIOD_OPTIONS, overtimeCandidates, seasonPeriodTotalsOf, type SeasonPeriodSource } from "../src/lib/seasonPeriod";
 import { readFileSync, readdirSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
@@ -55,7 +56,7 @@ async function buildSource(season: string): Promise<SeasonPeriodSource | null> {
 }
 
 function same(a: unknown, b: unknown): boolean {
-  if (typeof a === "number" && typeof b === "number") return Math.abs(a - b) < 1e-9;
+  if (typeof a === "number" && typeof b === "number") return (Number.isNaN(a) && Number.isNaN(b)) || Math.abs(a - b) < 1e-9;
   if (a && b && typeof a === "object" && typeof b === "object") {
     const ka = Object.keys(a as object);
     const kb = Object.keys(b as object);
@@ -92,6 +93,7 @@ async function validateSeason(season: string) {
   let compared = 0;
   let zeroPeriod = 0;
   let otCompared = 0;
+  let clutchCompared = 0;
   const { file } = source.player;
   for (let i = 0; i < file.rows.player.length; i++) {
     const playerId = file.players[file.rows.player[i]!]![0];
@@ -108,6 +110,28 @@ async function validateSeason(season: string) {
       }
       if (source.shortGames.has(key)) {
         if (next !== null) fail(`${season} ${key} ${playerId} ${option.value}: 特別な試合なのに値がある`);
+        continue;
+      }
+      // クラッチは、試合の生データにクラッチの行・プレーを足した写し（画面の日程結果などと同じ経路。shared/clutchGame.ts）から出した値と比べる（設計書373章）。
+      // 出場中の材料（割合）は写しの経路では出さないので比べない
+      if (option.value === "clutch") {
+        const view = gameWithClutchView(game);
+        const fromView = view ? computeGamePeriodTotals(view, isHome, playerId, option) : null;
+        const played = !!fromView && Object.values(fromView.player).some((v) => typeof v === "number" && !Number.isNaN(v) && v !== 0);
+        if (!next) {
+          if (played) fail(`${season} ${key} ${playerId} クラッチ: 写しでは記録があるのに索引に行が無い`);
+          continue;
+        }
+        if (!fromView) {
+          fail(`${season} ${key} ${playerId} クラッチ: 索引に行があるのに写しが無い`);
+          continue;
+        }
+        clutchCompared++;
+        const a = buildPeriodFilteredRawTotals([{ ...fromView, onCourt: undefined }]);
+        const b = buildPeriodFilteredRawTotals([{ ...next, onCourt: undefined }]);
+        const dRaw = diffKeys(a.raw as unknown as Record<string, unknown>, b.raw as unknown as Record<string, unknown>);
+        const dTeam = diffKeys(a.team as unknown as Record<string, unknown>, b.team as unknown as Record<string, unknown>);
+        if (dRaw.length > 0 || dTeam.length > 0) fail(`${season} ${key} ${playerId} クラッチ: 食い違い raw[${dRaw.join(",")}] team[${dTeam.join(",")}]`);
         continue;
       }
       const prev = computeGamePeriodTotals(game, isHome, playerId, option);
@@ -148,7 +172,7 @@ async function validateSeason(season: string) {
   }
   const otIds = overtimeCandidates(source, OVERTIME_MIN_GAMES);
   console.log(
-    `${season}: 比較 ${compared}件（延長 ${otCompared}件・区間に出ていない0の行 ${zeroPeriod}件）。参考: ランキングのQ別で試合数が変わる（DNP の試合を数えなくなる）選手 ${changedG}人、延長に出た試合が${OVERTIME_MIN_GAMES}試合以上の選手 ${otIds.size}人`,
+    `${season}: 比較 ${compared}件（延長 ${otCompared}件・クラッチ ${clutchCompared}件〔試合の生データの写しと比べた〕・区間に出ていない0の行 ${zeroPeriod}件）。参考: ランキングのQ別で試合数が変わる（DNP の試合を数えなくなる）選手 ${changedG}人、延長に出た試合が${OVERTIME_MIN_GAMES}試合以上の選手 ${otIds.size}人`,
   );
 }
 

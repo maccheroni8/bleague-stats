@@ -12,6 +12,7 @@ import { makeClassifier, type SeasonRegistrationFile } from "../../shared/regist
 import { seasonRuleFor } from "../../shared/seasonRules.ts";
 import {
   PERIOD_ATOMS,
+  PERIOD_GAME_ATOMS,
   PERIOD_INDEX_VERSION,
   PERIOD_POSS_KEYS,
   PERIOD_ROW_FLAG_PLUS_MINUS,
@@ -27,6 +28,8 @@ import {
   TEAM_PERIOD_FOUL_COLUMNS,
   TEAM_PERIOD_FOREIGN_DETAIL_COLUMNS,
   TEAM_PERIOD_WHOLE_GAME_KEY,
+  CLUTCH_ATOM_INDEX,
+  TEAM_CLUTCH_QUALITY_KEY,
   type TeamPeriodExtraColumn,
   type PeriodAtom,
   type PeriodPossKey,
@@ -47,7 +50,10 @@ import {
   sumOverPeriods,
   teamOnCourtQuality,
 } from "../../shared/playerOnCourt.ts";
-import { foreignCourtByPeriod, type ForeignPeriodTotals } from "../../shared/foreignOnCourt.ts";
+import { foreignCountInLineup, foreignCourtByPeriod, type ForeignPeriodTotals } from "../../shared/foreignOnCourt.ts";
+import { CLUTCH_PERIOD, clutchOverlapSeconds } from "../../shared/clutchTime.ts";
+import { buildClutchGame } from "../../shared/clutchGame.ts";
+import type { LineupStint } from "../../shared/onCourt.ts";
 import { buildMiscEventCounts, countTechnicalFouls, teamPointsBreakdown, ZERO_MISC_EVENTS } from "../../shared/teamGameEvents.ts";
 import { computePointsOffTurnovers } from "../../shared/pointsOffTurnovers.ts";
 import { computeFastbreakPoints, computePointsInPaint, computeSecondChancePoints } from "../../shared/playTypePoints.ts";
@@ -55,6 +61,38 @@ import { assistPointsByAssisterPeriod, computeAssistedScoring } from "../../shar
 import { buildOfficialPaintSplit } from "../../shared/paintSplit.ts";
 import { buildPlayerBoxscores, buildTeamTotalCounts, computeTeamRatings, rowsInPeriodRange, type BoxscoreCounts } from "../../src/lib/boxscoreAggregate";
 import { buildPeriodRangeOptions, periodInRange, type PeriodRangeOption } from "../../src/lib/periodRange";
+
+/** クラッチの区間の選択肢（仮のピリオド CLUTCH_PERIOD だけ。設計書373章） */
+const CLUTCH_OPTION: PeriodRangeOption = { value: "clutch" as PeriodRangeOption["value"], label: "クラッチ", periods: [CLUTCH_PERIOD] };
+
+/** クラッチ中の人数別の値（FOREIGN_INDEX_COLUMNS の並び）。攻撃回数は持たない（-1。クラッチの攻撃の境目の決まりが無いため）。数えられる5人組が無いチームは含めない */
+function clutchForeignValues(
+  stints: readonly LineupStint[],
+  classify: (id: string) => string | undefined,
+  maxOnCourt: number | undefined,
+  windows: readonly [number, number][],
+): Map<string, number[]> {
+  const out = new Map<string, ForeignPeriodTotals>();
+  const counted = new Set<string>();
+  for (const s of stints) {
+    const n = foreignCountInLineup(s.playerIds, classify);
+    if (n === null || (maxOnCourt !== undefined && n > maxOnCourt)) continue;
+    const b = Math.min(n, 4);
+    let t = out.get(s.teamId);
+    if (!t) out.set(s.teamId, (t = { seconds: [0, 0, 0, 0, 0], ownPoints: [0, 0, 0, 0, 0], oppPoints: [0, 0, 0, 0, 0], ownPoss: null, oppPoss: null }));
+    if (s.endSec - s.startSec > 0) counted.add(s.teamId);
+    t.seconds[b] = t.seconds[b]! + clutchOverlapSeconds(windows, s.startSec, s.endSec);
+    const pts = s.pointsByPeriod[CLUTCH_PERIOD];
+    if (pts) {
+      t.ownPoints[b] = t.ownPoints[b]! + pts.own;
+      t.oppPoints[b] = t.oppPoints[b]! + pts.opp;
+    }
+  }
+  const result = new Map<string, number[]>();
+  for (const [teamId, t] of out) if (counted.has(teamId)) result.set(teamId, foreignColumnValues(t));
+  return result;
+}
+
 
 /** 選手の統計の列の値（BoxscoreCounts から。PlayerGameLog・PlayerSeasonRawTotals と同じ項目への対応は buildPeriodFilteredRawTotals と同じ） */
 function playerStatOf(c: BoxscoreCounts, col: PlayerPeriodStatColumn): number {
@@ -251,6 +289,7 @@ export async function buildPeriodIndex(
     for (const c of [...TEAM_PERIOD_COUNT_COLUMNS, ...TEAM_PERIOD_EXTRA_COLUMNS, ...TEAM_PERIOD_FOUL_COLUMNS, ...FOREIGN_INDEX_COLUMNS]) teamCounts[`${a}.${c}`] = new Array<number>(teamRows).fill(-1);
   }
   for (const c of FOREIGN_INDEX_COLUMNS) teamCounts[`${TEAM_PERIOD_WHOLE_GAME_KEY}.${c}`] = new Array<number>(teamRows).fill(-1);
+  teamCounts[TEAM_CLUTCH_QUALITY_KEY] = new Array<number>(teamRows).fill(-1);
   const teamPoss = Object.fromEntries(PERIOD_POSS_KEYS.map((k) => [k, new Array<number>(teamRows).fill(-1)])) as Record<PeriodPossKey, number[]>;
   const teamGameNumber = new Map<string, number>(teamIndex.games.key.map((k, i) => [k, i]));
 
@@ -285,6 +324,11 @@ export async function buildPeriodIndex(
           )
         : null;
     const foreignValues = foreignValuesByAtom(game, onCourt, classify, maxForeignOnCourt);
+    // クラッチ（設計書373章）: 判定できる試合（プレーバイプレーがある・前後半5分の特別な試合でない・ピリオド別の行がある）で、クラッチになった試合だけ値を持つ。
+    // 材料（在コートの復元・クラッチの行）は shared/clutchGame.ts（画面の日程結果などと同じ）
+    const clutch = !short && !noPeriods ? buildClutchGame(game) : null;
+    const clutchForeign = clutch ? clutchForeignValues(clutch.onCourt.lineupStints, classify, maxForeignOnCourt, clutch.judgement.windows) : null;
+    const clutchSides = clutch ? clutch.sides : null;
     const fgAssists = withOnCourtColumns && onCourt ? fgAssistsByPlayer(game.raw.PlayByPlays) : null;
     // ポイントクリエイトの材料（本人のアシストから生まれた得点。区間ごと。プレーバイプレーが無い試合は -1。DESIGN.md 333章）
     const assistPointsByPeriod = game.raw.PlayByPlays.length > 0 ? assistPointsByAssisterPeriod(game.raw.PlayByPlays) : null;
@@ -362,7 +406,7 @@ export async function buildPeriodIndex(
         const has = new Set(sideEntries.map((e) => `${e.playerId}|${e.entry.period}`));
         let covered = true;
         for (const [pid, bp] of byPlayer) {
-          PERIOD_ATOMS.forEach((atom, ai) => {
+          PERIOD_GAME_ATOMS.forEach((atom, ai) => {
             const v = sumOverPeriods(bp, (period) => (atom === "ot" ? period >= 5 : period === ai + 1));
             if ((v[0]! > 0 || plusMinusOf(v) !== 0) && !has.has(`${pid}|${ai}`)) covered = false;
           });
@@ -375,6 +419,57 @@ export async function buildPeriodIndex(
             e.entry.values[pmIndex] = 0;
           }
         }
+      }
+      // クラッチの区間（設計書373章）。クラッチのプレーだけの仮のピリオドの行・プレーバイプレーを、Q別と同じ関数に渡す
+      if (clutch && clutchSides) {
+        const cs = clutchSides[side]!;
+        const opt = CLUTCH_OPTION;
+        const clutchFgAssists = fgAssistsByPlayer(clutch.pbp);
+        const clutchAssistPoints = assistPointsByAssisterPeriod(clutch.pbp);
+        let offFouls = 0;
+        let charges = 0;
+        for (const p of buildPlayerBoxscores(cs.rows, opt, clutch.pbp, [])) {
+          offFouls += p.counts.offensiveFoulsCommitted;
+          charges += p.counts.chargesDrawn;
+          if (p.dnp) continue;
+          const row = rowOf.get(`${p.playerId}|${key}`);
+          if (row === undefined) continue;
+          // 被ファウルはクラッチの行では「値なし」（NaN）。索引には 0 で書く（読む側が「値なし」に戻す）
+          const values = PLAYER_PERIOD_STAT_COLUMNS.map((c) => playerStatOf(p.counts, c)).map((v) => (Number.isNaN(v) ? 0 : v));
+          if (!isParticipating(values)) continue;
+          const oc = cs.byPlayer.get(p.playerId);
+          // +/- は出場区間の復元の値（クラッチの得点のとき在コートにいた5人。shared/onCourt.ts の clutchEvents）。復元の確かめが通った試合だけ
+          const flag = p.counts.hasPlusMinus ? PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED : 0;
+          const ocValues = withOnCourtColumns
+            ? cs.onCourtOk
+              ? [
+                  oc?.[0] ?? 0,
+                  ...PLAYER_PERIOD_ONCOURT_OWN_KEYS.map((k) => oc?.[onCourtKeyIndex(k, "own")] ?? 0),
+                  ...PLAYER_PERIOD_ONCOURT_OPP_KEYS.map((k) => oc?.[onCourtKeyIndex(k, "opp")] ?? 0),
+                  clutchFgAssists.get(p.playerId)?.get(CLUTCH_PERIOD) ?? 0,
+                  quality,
+                ]
+              : new Array<number>(PLAYER_PERIOD_ONCOURT_COLUMNS.length).fill(-1)
+            : null;
+          const assistPoints = clutchAssistPoints.get(p.playerId)?.get(CLUTCH_PERIOD) ?? 0;
+          sideEntries.push({ row, playerId: p.playerId, entry: { period: CLUTCH_ATOM_INDEX, flags: flag, values, ocValues, assistPoints } });
+        }
+        const atom = "clutch";
+        const r = tg * 2 + side;
+        teamCounts[`${atom}.offFouls`]![r] = offFouls;
+        teamCounts[`${atom}.charges`]![r] = charges;
+        const ownCounts = buildTeamTotalCounts(cs.rows, opt);
+        for (const c of TEAM_PERIOD_COUNT_COLUMNS) {
+          const v = Number((ownCounts as unknown as Record<string, unknown>)[c] ?? 0);
+          teamCounts[`${atom}.${c}`]![r] = Number.isNaN(v) ? 0 : v;
+        }
+        const extra = teamExtraValues(clutch.pbp, cs.rows, teamId, opt, classify);
+        for (const c of TEAM_PERIOD_EXTRA_COLUMNS) teamCounts[`${atom}.${c}`]![r] = Number.isNaN(extra[c]) ? 0 : extra[c];
+        const cf = clutchForeign?.get(teamId);
+        if (cf) FOREIGN_INDEX_COLUMNS.forEach((c, i) => (teamCounts[`${atom}.${c}`]![r] = cf[i]!));
+        teamCounts[TEAM_CLUTCH_QUALITY_KEY]![r] = cs.quality;
+        const oppCounts = buildTeamTotalCounts(clutchSides[side === 0 ? 1 : 0]!.rows, opt);
+        teamPoss.clutch[r] = computeTeamRatings(ownCounts, oppCounts).poss;
       }
       for (const e of sideEntries) {
         let list = perRow.get(e.row);

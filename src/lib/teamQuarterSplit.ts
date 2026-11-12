@@ -19,6 +19,7 @@ export const QUARTER_ROWS: readonly { value: TeamPeriodValue; label: string }[] 
   { value: "h1", label: "前半" },
   { value: "h2", label: "後半" },
   { value: "ot", label: "延長" },
+  { value: "clutch", label: "クラッチ" },
 ];
 
 /** その区間の勝ち越し・負け越し・同点の数（試合の勝敗は SeasonPeriodRow の wins・losses）。合計は games.length と一致する */

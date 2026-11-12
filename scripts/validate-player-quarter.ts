@@ -28,6 +28,7 @@ import {
   filterByGameType,
   type SeasonGameTypeFilter,
 } from "../src/lib/playerSeasonBoxscore";
+import { gameWithClutchView } from "../shared/clutchGame.ts";
 import { SEASON_PERIOD_OPTIONS, buildTeamSplitRowsFromPeriodSource, seasonPeriodTotalsOf, type SeasonPeriodSource } from "../src/lib/seasonPeriod";
 import { PLAYER_QUARTER_ROWS, buildPlayerQuarterRows, formatPlayerRecord, formatPlayerWinPct, playerRecordOfLogs } from "../src/lib/playerQuarterSplit";
 import { buildGameTeamsByScheduleKey, resolveOwnTeam, type GameTeamInfo } from "../src/lib/situational";
@@ -160,7 +161,8 @@ async function validateSeason(season: string, rawSeason: boolean) {
       for (const q of PLAYER_QUARTER_ROWS) {
         const tr = totalRow.get(q.value);
         const expected = eligible.filter((g) => seasonPeriodTotalsOf(source, playerId, g.scheduleKey, g.isHome, q.value) !== null).length;
-        if (q.value !== "ot") {
+        // 延長・クラッチは、その区間の値がある試合だけ（設計書373章）
+        if (q.value !== "ot" && q.value !== "clutch") {
           if (expected !== eligible.length) fail(`${tag} ${gameType} ${q.value}: 値のある試合 ${expected} ≠ 出場した試合 ${eligible.length}`);
         }
         const got = tr ? tr.ctx.raw.gamesPlayed : 0;
@@ -206,7 +208,9 @@ async function validateSeason(season: string, rawSeason: boolean) {
         for (const q of PLAYER_QUARTER_ROWS) {
           const option = SEASON_PERIOD_OPTIONS.find((o) => o.value === q.value)!;
           const contributions = eligible.flatMap((l) => {
-            const game = rawGames.get(l.scheduleKey);
+            const raw = rawGames.get(l.scheduleKey);
+            // クラッチは、試合の生データにクラッチの行・プレーを足した写し（shared/clutchGame.ts）から出す。索引に行がある試合（クラッチに出た試合）だけ
+            const game = raw && q.value === "clutch" ? (seasonPeriodTotalsOf(source, playerId, l.scheduleKey, l.isHome, "clutch") ? gameWithClutchView(raw) : null) : raw;
             const c = game ? computeGamePeriodTotals(game, l.isHome, playerId, option) : null;
             return c ? [c] : [];
           });
@@ -214,7 +218,7 @@ async function validateSeason(season: string, rawSeason: boolean) {
           const tr = totalRow.get(q.value);
           const got = tr ? rawOf(tr.ctx) : null;
           if (!got) {
-            if (contributions.length > 0 && q.value !== "ot") fail(`${tag} ${gameType} ${q.value}: 生データには値があるがQ別の行が無い`);
+            if (contributions.length > 0 && q.value !== "ot" && q.value !== "clutch") fail(`${tag} ${gameType} ${q.value}: 生データには値があるがQ別の行が無い`);
             continue;
           }
           stats.rawGames++;

@@ -8,6 +8,7 @@
 //  5. Q別 +/-（2016-17〜2021-22）: 旗の付いた行の区間の合計＝試合ログの +/-（試合全体の復元）。全選手の区間の値の合計＝チームのその区間の得点差 × 5。出せないチームを報告
 //  6. ピリオド別の索引の出場中の列（2020-21以降）: 区間の合計＝試合ログの onCourt（索引に持つ項目）
 // 使い方: npm run validate:player-oncourt（src/ のコードを使うため esbuild でまとめて実行する）
+import { CLUTCH_ATOM_INDEX } from "../shared/periodIndex.ts";
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { DATA_DIR, readAllGames, readJson, seasonDirName } from "./lib/storage.ts";
@@ -107,6 +108,8 @@ for (const season of seasons) {
     if (gameIndex && periodIndex && periodIndex.indexRows === gameIndex.rows.player.length) {
       const pr = periodIndex.rows;
       for (let i = 0; i < pr.row.length; i++) {
+        // クラッチの行（第4Q・延長と重なる。validate:clutch が確かめる。設計書373章）は試合全体の合計に入れない
+        if (pr.period[i] === CLUTCH_ATOM_INDEX) continue;
         const r = pr.row[i]!;
         const k = `${gameIndex.players[gameIndex.rows.player[r]!]![0]}|${gameIndex.games.key[gameIndex.rows.game[r]!]}`;
         let list = periodRowsOf.get(k);

@@ -179,8 +179,8 @@ export function useTeamSeasonRanking(
       const wins = scoped.filter((g) => g.win).length;
       return { team, gamesPlayed: scoped.length, wins, losses: scoped.length - wins, totals: sumTeamGameLogs(scoped) };
     });
-    // 延長のランキングは、延長のあった試合が3試合以上のチームだけ（256章の決定4）
-    return periodActive && period === "ot" ? all.filter((r) => r.gamesPlayed >= OVERTIME_MIN_TEAM_GAMES_FOR_RANKING) : all;
+    // 延長のランキングは、延長のあった試合が3試合以上のチームだけ（256章の決定4）。クラッチも同じ（クラッチになった試合が3試合以上。設計書373章）
+    return periodActive && (period === "ot" || period === "clutch") ? all.filter((r) => r.gamesPlayed >= OVERTIME_MIN_TEAM_GAMES_FOR_RANKING) : all;
   }, [teams, gameLogsByTeam, scopedLogsByTeam, periodActive, periodSource, period]);
 
   // スタッツの条件の判定に使う行。Shooting・Forced TOV のカテゴリでは上の絞り込みが効かないため、

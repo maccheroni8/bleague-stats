@@ -25,6 +25,7 @@
 import type { BoxscoreRow, PlayByPlayEvent } from "./types.ts";
 import { safeDiv } from "./formulas.ts";
 import { TECHNICAL_FT_FOUL_CODES, UNSPORTSMANLIKE_FT_FOUL_CODES } from "./foulCodes.ts";
+import { CLUTCH_PERIOD } from "./clutchTime.ts";
 
 const REGULAR_PERIOD_SECONDS = 10 * 60;
 const OT_PERIOD_SECONDS = 5 * 60;
@@ -327,6 +328,8 @@ interface RelevantEvent {
   actionCd?: number;
   /** poss: プレーバイプレーに記録が無く、次の動きから終わっていたと判断したか */
   implicit?: boolean;
+  /** score・stat: クラッチのプレー（options.clutchEvents に入っている。CLUTCH_PERIOD の区間にも数える。設計書373章） */
+  clutch?: boolean;
 }
 
 // ポゼッションなどの数え上げに使う、得点以外のプレーバイプレーのコード（DESIGN.md 204章）:
@@ -348,9 +351,11 @@ function buildRelevantEvents(
   model: SubstitutionModel,
   countStats: boolean,
   countLegacyRebounds = false,
+  clutchEvents?: ReadonlySet<PlayByPlayEvent>,
 ): RelevantEvent[] {
   const events: RelevantEvent[] = [];
   for (const ev of playByPlays) {
+    const clutch = clutchEvents?.has(ev) ? { clutch: true } : {};
     const points = POINTS_BY_ACTION_CD1[ev.ActionCD1];
     if (points !== undefined) {
       if (!ev.TeamID) continue;
@@ -364,6 +369,7 @@ function buildRelevantEvents(
         points,
         freeThrow: ev.ActionCD1 === FT_MAKE_CODE,
         actionCd: ev.ActionCD1,
+        ...clutch,
       });
       continue;
     }
@@ -379,6 +385,7 @@ function buildRelevantEvents(
           points: 0,
           // 数え上げのときは旧形式のチームリバウンドを新形式の番号にそろえる（旧形式のリバウンドだけを数えるときは元の番号のまま。bumpLegacyRebound が旧形式の番号で見る）
           actionCd: countStats ? modernStatCode(ev.ActionCD1, model) : ev.ActionCD1,
+          ...clutch,
         });
       }
       continue;
@@ -865,7 +872,18 @@ export function reconstructOnCourt(
   awayTeamId: string,
   totalPeriods: number,
   substitutionModel: SubstitutionModel,
-  options: { repairSubOrder?: boolean; countStats?: boolean; countLegacyRebounds?: boolean; trackPlayerEvents?: boolean } = {},
+  options: {
+    repairSubOrder?: boolean;
+    countStats?: boolean;
+    countLegacyRebounds?: boolean;
+    trackPlayerEvents?: boolean;
+    /**
+     * クラッチのプレー（playByPlays の要素そのもの。shared/clutchTime.ts の judgeClutch）。指定すると、その得点・数え上げを、
+     * 本来のピリオドに加えて CLUTCH_PERIOD の区間（pointsByPeriod・countsByPeriod・playerEventsByPeriod）にも数える（teamTotals・+/- は二重に数えない）。
+     * ポゼッションの終わり（poss）は数えない。クラッチの索引を作るときだけ指定する（設計書373章）
+     */
+    clutchEvents?: ReadonlySet<PlayByPlayEvent>;
+  } = {},
 ): OnCourtReconstruction {
   const warnings: OnCourtWarning[] = [];
 
@@ -922,7 +940,7 @@ export function reconstructOnCourt(
   // 数え上げ（ポゼッション・FGM/FGA・…）を、動いたチームのスティントの own と、相手チームのスティントの opp に加える
   const teamTotals: Record<string, StintCounts> = { [homeTeamId]: emptyStintCounts(), [awayTeamId]: emptyStintCounts() };
   const bumpCount = (teamId: string, period: number, key: keyof StintCounts, delta = 1) => {
-    teamTotals[teamId]![key] += delta;
+    if (period !== CLUTCH_PERIOD) teamTotals[teamId]![key] += delta;
     const opponentId = teamId === homeTeamId ? awayTeamId : homeTeamId;
     for (const [id, side] of [[teamId, "own"], [opponentId, "opp"]] as const) {
       const byPeriod = currentStint[id]!.counts;
@@ -957,6 +975,8 @@ export function reconstructOnCourt(
     else if (c === 12) bumpCount(e.teamId, e.period, "ast");
     else if (c === 13 || c === 17) bumpCount(e.teamId, e.period, "tov");
     if (trackPlayerEvents && e.playerId) bumpPersonal(e);
+    // クラッチのプレーは、CLUTCH_PERIOD の区間にも数える（bumpCount は CLUTCH_PERIOD を teamTotals に足さない）
+    if (e.clutch && e.period !== CLUTCH_PERIOD) countEvent({ ...e, period: CLUTCH_PERIOD });
   };
   const bumpPersonal = (e: RelevantEvent) => {
     const items = e.actionCd === undefined ? undefined : PLAYER_EVENT_BY_CODE[e.actionCd];
@@ -1011,7 +1031,7 @@ export function reconstructOnCourt(
   const countLegacyRebounds = !countStats && substitutionModel === "legacy" && options.countLegacyRebounds !== false;
   // 選手本人の記録を区間ごとに数える（数え上げのあるときだけ。呼び出し側が指定したときだけ）
   const trackPlayerEvents = countStats && options.trackPlayerEvents === true;
-  const rawEvents = buildRelevantEvents(playByPlays, warnings, substitutionModel, countStats, countLegacyRebounds);
+  const rawEvents = buildRelevantEvents(playByPlays, warnings, substitutionModel, countStats, countLegacyRebounds, options.clutchEvents);
   // 同じ秒の交代の間にフリースローが挟まる並びは、交代をフリースローの前とみなす（検証スクリプトは false で補正前と比べる）
   const orderRepairs = options.repairSubOrder === false ? [] : repairSubOrderAroundFreeThrows(rawEvents);
   const events = countStats ? injectPossessionEvents(rawEvents, substitutionModel) : rawEvents;
@@ -1041,6 +1061,10 @@ export function reconstructOnCourt(
       currentStint[opponentTeamId]!.opp += event.points;
       addStintPeriodPoints(event.teamId, event.period, "own", event.points);
       addStintPeriodPoints(opponentTeamId, event.period, "opp", event.points);
+      if (event.clutch) {
+        addStintPeriodPoints(event.teamId, CLUTCH_PERIOD, "own", event.points);
+        addStintPeriodPoints(opponentTeamId, CLUTCH_PERIOD, "opp", event.points);
+      }
       i += 1;
       continue;
     }

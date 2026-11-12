@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, typ
 import { GLOSSARY_ANCHORS } from "../lib/glossaryAnchors";
 import { TeamSeasonTtsTable } from "../components/TeamSeasonTtsTable";
 import { TTS_CATEGORY_LABEL, type TtsPeriodValue } from "../lib/teamTts";
+import { gameWithClutchView } from "../../shared/clutchGame";
 import { GlossaryNote } from "../components/GlossaryNote";
 import { EMPTY_TEAM_SEASON_MISC, sumTeamSeasonMisc, type TeamSeasonMiscTotals } from "../../shared/teamSeasonMisc";
 import { postseasonLabel } from "../../shared/gameType";
@@ -117,6 +118,8 @@ import { hasForeignColumns, sumForeignCourt, sumForeignDetail, type ForeignPerio
 import {
   OVERTIME_GAMES_NOTE,
   SEASON_PERIOD_OPTIONS,
+  SEASON_PERIOD_OPTIONS_NO_CLUTCH,
+  SHOOTING_CLUTCH_UNSUPPORTED_REASON,
   SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason,
   buildTeamSplitRowsFromPeriodSource,
   hasShortGameSeason,
@@ -2999,7 +3002,8 @@ export function TeamDetailPage({ season }: { season: string }) {
   const situationalTeamPeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === situationalTeamPeriod);
   // 「ショットチャート」専用のQ別/前後半
   const [teamShotChartPeriod, setTeamShotChartPeriod] = usePageState<PeriodRangeValue>(pk("teamShotChartPeriod"), "all");
-  const teamShotChartPeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === teamShotChartPeriod);
+  // ショットはピリオド番号で絞るので、クラッチは選べない（設計書373章）
+  const teamShotChartPeriodOption = SEASON_PERIOD_OPTIONS_NO_CLUTCH.find((o) => o.value === teamShotChartPeriod);
   const [situationalTeamBoxTab, setSituationalTeamBoxTab] = usePageState<BoxscoreTabKey | "shooting" | "periods">(pk("situationalTeamBoxTab"), "traditional");
   // Traditional〜Scoring の区間（Q別・前後半）は、試合の生データではなくチームのピリオド別の索引から出す（全チームスタッツの区間別と同じ値。DESIGN.md 273章）。
   // Shooting（スポーツナビの記録）と Periods は今までどおり
@@ -3846,7 +3850,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   const lineupMaxForeign = seasonRulesForTrend ? seasonRuleFor(seasonRulesForTrend, season, league)?.maxForeignOnCourt : undefined;
   // オンザコート別の合計は、チームのピリオド別の索引から、選んだ試合区分・区間で出す（256章の段階3）。索引が古い・読めないときは、
   // 今までのラインナップのファイルからの値（合算・試合全体・合計だけ）に戻す
-  const lineupOcPeriodValue: ForeignPeriodValue = (SEASON_PERIOD_OPTIONS.some((o) => o.value === lineupOcPeriod) ? lineupOcPeriod : "all") as ForeignPeriodValue;
+  const lineupOcPeriodValue: ForeignPeriodValue = (SEASON_PERIOD_OPTIONS_NO_CLUTCH.some((o) => o.value === lineupOcPeriod) ? lineupOcPeriod : "all") as ForeignPeriodValue;
   const lineupOcLogs = filterByGameType((gameLogs ?? []).filter((g) => g.min > 0), lineupOcGameType);
   const lineupOcDetail =
     tab === "lineups" && lineupMaxForeign !== undefined && allLineups.length > 0 && lineupPeriodSource
@@ -3922,9 +3926,13 @@ export function TeamDetailPage({ season }: { season: string }) {
       : scheduleRows.filter((row) => (gameLogsByScheduleKey.get(row.scheduleKey)?.gameType ?? row.gameType) === scheduleGameType);
   // 延長（Periods 以外のカテゴリ）を選んだときは、延長のあった試合だけを出す（その試合数を添える）
   const scheduleOvertimeOnly = schedulePeriod === "ot" && scheduleBoxTab !== "periods";
+  // クラッチも、クラッチになった試合だけを出す（値は試合の生データにクラッチの行を足した写しから。shared/clutchGame.ts。設計書373章）
+  const scheduleClutchOnly = schedulePeriod === "clutch" && scheduleBoxTab !== "periods";
   const scheduleFilteredRows = scheduleOvertimeOnly
     ? scheduleGameTypeRows.filter((row) => (gameLogsByScheduleKey.get(row.scheduleKey)?.overtimes ?? 0) > 0)
-    : scheduleGameTypeRows;
+    : scheduleClutchOnly
+      ? scheduleGameTypeRows.filter((row) => gameLogsByScheduleKey.get(row.scheduleKey)?.clutchGame === true)
+      : scheduleGameTypeRows;
   // 「日程結果」タブのカテゴリタブ用の列定義。試合詳細ページのボックススコアの列から、チームの表向けに Scoring の %系だけ直したもの
   // （%3PM〜%2PA は FGA に占める割合、%PTS・%FGM・%FGA・%FTM・%FTA は外す。teamBoxscoreColumns.ts。DESIGN.md 136章）
   // ファウルの列は、このシーズンが2026-27以降ならTF1・TF2・FLAG・DISR、それ以前ならUFOUL・TF（DESIGN.md 16-8章）
@@ -4113,7 +4121,7 @@ export function TeamDetailPage({ season }: { season: string }) {
   // フィルタバー（DESIGN.md 105章 B4）。ショットチャート専用の絞り込み（旧・チームスタッツの共有バーから独立させた。118章）
   const teamShotChartFilterAxes: FilterAxis[] = [
     gameTypeAxis(teamShotChartGameType, setTeamShotChartGameType, season),
-    periodAxis(teamShotChartPeriod, setTeamShotChartPeriod, SEASON_PERIOD_OPTIONS),
+    periodAxis(teamShotChartPeriod, setTeamShotChartPeriod, SEASON_PERIOD_OPTIONS_NO_CLUTCH),
     ...situationalAxes(teamShotChartFilter, setTeamShotChartFilter, {
       opponentWinRateSupported: !!opponentRecords,
       ownTeamDivisionSupported: !!divisionHistory,
@@ -4602,7 +4610,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                   </thead>
                   <tbody>
                     {scheduleFilteredRows.map((row) => {
-                      const game = statsRawGames.get(row.scheduleKey);
+                      const rawGame = statsRawGames.get(row.scheduleKey);
+                      const game = rawGame && scheduleClutchOnly ? gameWithClutchView(rawGame) : rawGame;
                       const boxTotals = game
                         ? buildTeamGameBoxTotals(
                             game,
@@ -5480,6 +5489,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                 </p>
               </>
             )
+          ) : situationalTeamBoxTab === "shooting" && situationalTeamPeriod === "clutch" ? (
+            <p className="empty-message">{SHOOTING_CLUTCH_UNSUPPORTED_REASON}</p>
           ) : situationalTeamBoxTab === "shooting" && teamYahooPbpLoading ? (
             <p className="loading">読み込み中...</p>
           ) : situationalIndexMode && situationalPeriodLoading ? null : situationalIndexMode && !situationalPeriodSource ? (
@@ -5582,11 +5593,13 @@ export function TeamDetailPage({ season }: { season: string }) {
           )}
           {situationalTeamPeriod !== "all" &&
             situationalTeamPeriod !== "ot" &&
+            situationalTeamPeriod !== "clutch" &&
             situationalTeamBoxTab !== "periods" &&
             situationalTeamGameType !== "regular" &&
             hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
           {situationalTeamPeriod !== "all" &&
             situationalTeamPeriod !== "ot" &&
+            situationalTeamPeriod !== "clutch" &&
             situationalTeamBoxTab !== "periods" &&
             situationalTeamGameType !== "playoff" &&
             hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
@@ -5703,11 +5716,13 @@ export function TeamDetailPage({ season }: { season: string }) {
                 {playerStatsRows.length > 0 &&
                   playerStatsPeriod2 !== "all" &&
                   playerStatsPeriod2 !== "ot" &&
+                  playerStatsPeriod2 !== "clutch" &&
                   playerStatsGameType !== "regular" &&
                   hasShortGameSeason([season]) && <p className="page-subtitle">{SHORT_GAMES_PERIOD_NOTE}</p>}
                 {playerStatsRows.length > 0 &&
                   playerStatsPeriod2 !== "all" &&
                   playerStatsPeriod2 !== "ot" &&
+                  playerStatsPeriod2 !== "clutch" &&
                   playerStatsGameType !== "playoff" &&
                   hasManualBoxscoreSeason([season]) && <p className="page-subtitle">{MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
                 {playerStatsRows.length > 0 && <HeightWeightNote players={players} />}
@@ -5828,7 +5843,8 @@ export function TeamDetailPage({ season }: { season: string }) {
                   stateKey={pk("lineupOcSummaryFilter")}
                   axes={[
                     gameTypeAxis(lineupOcFromIndex ? lineupOcGameType : "both", setLineupOcGameType, season, { defaultValue: "both", disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE }),
-                    periodAxis(lineupOcFromIndex ? lineupOcPeriod : "all", setLineupOcPeriod, SEASON_PERIOD_OPTIONS, {
+                    // 下の5人組の表（出場区間をピリオドで絞る）にも効くので、クラッチは選べない（設計書373章）
+                    periodAxis(lineupOcFromIndex ? lineupOcPeriod : "all", setLineupOcPeriod, SEASON_PERIOD_OPTIONS_NO_CLUTCH, {
                       disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE,
                     }),
                     { ...displayModeAxis(lineupOcFromIndex ? lineupOcDisplay : "total", setLineupOcDisplay, { disabledReason: lineupOcFromIndex ? undefined : LINEUP_OC_CONDITION_UNAVAILABLE }), defaultValue: "total" },
@@ -5862,17 +5878,21 @@ export function TeamDetailPage({ season }: { season: string }) {
                   {lineupOcFromIndex && lineupOcDisplay === "perGame" && (
                     <p className="rule-change-footnote">
                       ※ 1試合平均は、
-                      {lineupOcPeriodValue === "ot" ? `延長のあった${lineupOcFromIndex.games}試合` : `この条件のチームの全${lineupOcFromIndex.games}試合`}
+                      {lineupOcPeriodValue === "ot"
+                        ? `延長のあった${lineupOcFromIndex.games}試合`
+                        : lineupOcPeriodValue === "clutch"
+                          ? `クラッチになった${lineupOcFromIndex.games}試合`
+                          : `この条件のチームの全${lineupOcFromIndex.games}試合`}
                       で割っています（その人数の時間が無かった試合も含みます）。
                     </p>
                   )}
                   {lineupOcFromIndex && lineupOcPeriodValue === "ot" && lineupOcDisplay !== "perGame" && (
                     <p className="rule-change-footnote">※ 延長は、延長のあった{lineupOcFromIndex.games}試合のすべての延長の合計です。</p>
                   )}
-                  {lineupOcFromIndex && lineupOcPeriodValue !== "all" && lineupOcPeriodValue !== "ot" && lineupOcGameType !== "regular" && hasShortGameSeason([season]) && (
+                  {lineupOcFromIndex && lineupOcPeriodValue !== "all" && lineupOcPeriodValue !== "ot" && lineupOcPeriodValue !== "clutch" && lineupOcGameType !== "regular" && hasShortGameSeason([season]) && (
                     <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
                   )}
-                  {lineupOcFromIndex && lineupOcPeriodValue !== "all" && lineupOcPeriodValue !== "ot" && lineupOcGameType !== "playoff" && hasManualBoxscoreSeason([season]) && (
+                  {lineupOcFromIndex && lineupOcPeriodValue !== "all" && lineupOcPeriodValue !== "ot" && lineupOcPeriodValue !== "clutch" && lineupOcGameType !== "playoff" && hasManualBoxscoreSeason([season]) && (
                     <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>
                   )}
                   {!lineupOcSummary.real && (

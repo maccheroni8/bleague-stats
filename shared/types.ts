@@ -959,6 +959,11 @@ export interface TeamGameLog extends Partial<FoulCategoryCounts>, Partial<Oppone
    */
   on4Possible?: boolean;
   /**
+   * クラッチになった試合か（第4Q・延長の残り5:00以下で5点差以内の時間か、対象のプレーがあった。shared/clutchTime.ts。設計書373章）。
+   * 判定できない試合（プレーバイプレーが無い 2017-18 の1810・前後半5分の特別な試合・得点の累計が合わない試合）と、古いデータには無い
+   */
+  clutchGame?: boolean;
+  /**
    * チームの出場区間の合計（[秒, 自チーム×STINT_COUNT_KEYS, 相手×STINT_COUNT_KEYS]。shared/playerOnCourt.ts の teamStintTotals）。
    * 個人の Off＝この合計 − 本人の On（PlayerGameLog.onCourt）。2020-21以降のプレーバイプレーのある試合だけ。古いデータには無い
    */

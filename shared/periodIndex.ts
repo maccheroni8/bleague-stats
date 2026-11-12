@@ -10,16 +10,27 @@ export const PERIOD_INDEX_VERSION = 1;
 
 /**
  * 持つ区間。前半（1Q＋2Q）・後半（3Q＋4Q）は、読むときに足す（選手の値は足し算で出せる。チームのポゼッションだけは足し算にならないので、別に持つ）。
- * ot は、その試合のすべての延長の合計（延長の無い試合は無し）
+ * ot は、その試合のすべての延長の合計（延長の無い試合は無し）。
+ * clutch は、クラッチの時間帯（第4Q・延長の残り5:00以下で5点差以内。shared/clutchTime.ts。設計書373章）。第4Q・延長と重なるので、
+ * **試合全体の値は clutch を除いた区間（PERIOD_GAME_ATOMS）の合計**。クラッチにならなかった試合・判定できない試合は値を持たない（チームは -1、選手は行が無い）。古い索引には無い
  */
-export const PERIOD_ATOMS = ["q1", "q2", "q3", "q4", "ot"] as const;
+export const PERIOD_ATOMS = ["q1", "q2", "q3", "q4", "ot", "clutch"] as const;
 export type PeriodAtom = (typeof PERIOD_ATOMS)[number];
+/** 足すと試合全体になる区間（clutch を除く） */
+export const PERIOD_GAME_ATOMS = ["q1", "q2", "q3", "q4", "ot"] as const satisfies readonly PeriodAtom[];
+/** クラッチの区間の番号（PERIOD_ATOMS の位置） */
+export const CLUTCH_ATOM_INDEX = 5;
+/**
+ * チームのクラッチの品質の列（「clutch.quality」。shared/clutchTime.ts の CLUTCH_QUALITY_* のビット）。クラッチになった試合だけ値を持ち、それ以外は -1。
+ * 立っている項目は、その試合のプレーバイプレーの記録が公式の値と合わない（ターンオーバーなど）。古い索引には無い
+ */
+export const TEAM_CLUTCH_QUALITY_KEY = "clutch.quality";
 
 /** 持つ区間の、試合の生データでのピリオド番号（第1延長が5）。ot の本数は試合ごとに違う */
-export const PERIOD_ATOM_NUMBERS: Record<Exclude<PeriodAtom, "ot">, number[]> = { q1: [1], q2: [2], q3: [3], q4: [4] };
+export const PERIOD_ATOM_NUMBERS: Record<Exclude<PeriodAtom, "ot" | "clutch">, number[]> = { q1: [1], q2: [2], q3: [3], q4: [4] };
 
 /** チームのポゼッションを持つ区間（足し算にならないので、前半・後半も別に持つ） */
-export const PERIOD_POSS_KEYS = ["q1", "q2", "q3", "q4", "ot", "h1", "h2"] as const;
+export const PERIOD_POSS_KEYS = ["q1", "q2", "q3", "q4", "ot", "h1", "h2", "clutch"] as const;
 export type PeriodPossKey = (typeof PERIOD_POSS_KEYS)[number];
 
 /**

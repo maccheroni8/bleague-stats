@@ -2,8 +2,8 @@
 // （ショットチャート・ボックススコア等）で共通して使うためのロジック。
 // UIコンポーネントはcomponents/PeriodRangeToggle.tsx側。
 
-/** ot＝すべての延長の合計、ot1・ot2…＝個別の延長 */
-export type PeriodRangeValue = "all" | `q${number}` | "ot" | `ot${number}` | "h1" | "h2";
+/** ot＝すべての延長の合計、ot1・ot2…＝個別の延長、clutch＝クラッチ（第4Q・延長の残り5:00以下で5点差以内。シーズン成績・索引を読む画面だけ。設計書373章） */
+export type PeriodRangeValue = "all" | `q${number}` | "ot" | `ot${number}` | "h1" | "h2" | "clutch";
 
 export interface PeriodRangeOption {
   value: PeriodRangeValue;

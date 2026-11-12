@@ -15,7 +15,7 @@
 import { NATURALIZED_ASIA_LABEL } from "./statNames";
 import { classTokens } from "./classificationFilter";
 import { PLAYER_INDEX_STAT_COLUMNS, ROW_FLAG_HOME, type PlayerGameIndexFile } from "../../shared/gameIndex";
-import { PERIOD_ATOMS, PLAYER_PERIOD_STAT_COLUMNS, type PlayerPeriodIndexFile } from "../../shared/periodIndex";
+import { CLUTCH_ATOM_INDEX, PERIOD_ATOMS, PLAYER_PERIOD_STAT_COLUMNS, type PlayerPeriodIndexFile } from "../../shared/periodIndex";
 import { PERIOD_ATOM_INDEXES, type GameRecordPeriod } from "./periodIndex";
 import type { TeamGameLog } from "../../shared/types";
 import type { Column } from "../components/SortableTable";
@@ -264,9 +264,12 @@ export function buildClassSplitSource(index: PlayerGameIndexFile, periodIndex: P
     const pr = periodIndex.rows;
     for (let k = 0; k < pr.row.length; k++) {
       const s = slot[pr.row[k]!]!;
-      hasPeriod[Math.floor(s / CLASS_COUNT)] = 1;
-      for (let c = 0; c < PERIOD_COLS.length; c++) period[s * PERIOD_COLS.length + c]! += pr.stats[PERIOD_COLS[c]!][k]!;
       const a = pr.period[k]!;
+      // 試合全体の合計（5区間）にはクラッチの行を足さない（第4Q・延長と重なる。設計書373章）
+      if (a !== CLUTCH_ATOM_INDEX) {
+        hasPeriod[Math.floor(s / CLASS_COUNT)] = 1;
+        for (let c = 0; c < PERIOD_COLS.length; c++) period[s * PERIOD_COLS.length + c]! += pr.stats[PERIOD_COLS[c]!][k]!;
+      }
       atomHas[Math.floor(s / CLASS_COUNT) * ATOM_COUNT + a] = 1;
       const base = (s * ATOM_COUNT + a) * ATOM_COLS.length;
       for (let c = 0; c < ATOM_COLS.length; c++) atom[base + c]! += pr.stats[ATOM_COLS[c]!][k]!;
@@ -465,6 +468,11 @@ export function sumClassTotals(
       t[ok] = (t[ok] ?? 0) + opp[k];
     }
     pairs.push({ own: paintInput(source, ownRow, own, atoms), opp: paintInput(source, oppRow, opp, atoms) });
+  }
+  // クラッチの被ファウルは「値なし」（画面は「-」。設計書373章）
+  if (period === "clutch") {
+    totals.fd = Number.NaN;
+    totals.oppFd = Number.NaN;
   }
   return { games, totals: withPaint(totals, summarizePaint(pairs)) };
 }

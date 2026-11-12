@@ -100,7 +100,7 @@ import { statConditionsBarExtra } from "../components/StatConditionsEditor";
 import { clearUrlParams, enumParam, numberParam, situationalParam, statConditionsParam, stringParam, useUrlState, type UrlCodec } from "../lib/urlState";
 import { opponentDivisionChoices, seasonDivisions } from "../lib/divisionGroups";
 import { DISPLAY_MODE_PARAM, GAME_TYPE_PARAM, PAIR_UNIT_PARAM, PERSPECTIVE_PARAM, PLAYER_SEASON_PERIOD_PARAM, POSITION_PARAM, RECORDS_SCOPE_PARAM, PLAYER_GROUP_PARAM, TEAM_SEASON_PERIOD_PARAM } from "../lib/urlFilterParams";
-import { OVERTIME_ELIGIBILITY_LABEL, OVERTIME_ELIGIBILITY_REASON, OVERTIME_GAMES_NOTE, SEASON_PERIOD_OPTIONS, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason } from "../lib/seasonPeriod";
+import { OVERTIME_ELIGIBILITY_LABEL, OVERTIME_ELIGIBILITY_REASON, OVERTIME_GAMES_NOTE, SEASON_PERIOD_OPTIONS, subsetEligibilityLabel, subsetEligibilityReason, SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason, hasShortGameSeason } from "../lib/seasonPeriod";
 import { OVERTIME_MIN_TEAM_GAMES_FOR_RANKING } from "../lib/teamPeriodTotals";
 import { PeriodIndexFailure } from "../components/PeriodIndexFailure";
 import { PAIR_UNITS, PAIR_UNIT_LABELS } from "../lib/clutchQuery";
@@ -606,7 +606,10 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
               ? shootingStatItems(shootingColumns)
               : category === "forcedTurnovers"
                 ? FORCED_TURNOVER_ITEMS
-                : columns.filter((c) => c.key !== "paint2games"),
+                : columns
+                    .filter((c) => c.key !== "paint2games")
+                    // クラッチの被ファウルは「値なし」なので選べない（設計書373章）
+                    .map((c) => (period === "clutch" && c.key === "fd" ? { ...c, label: `${c.label}（クラッチは対象外）`, disabled: true } : c)),
             statKey,
             setStatKey,
             "team",
@@ -715,8 +718,8 @@ function TeamRankingSection({ season, league, teamColors }: { season: string; le
             />
             {category === "misc" && isRuleChangeStatKey(teamDef.key) && <RuleChangeFootnote seasons={[season]} />}
             {period === "ot" && <p className="rule-change-footnote">※ 延長は、延長のあった試合が{OVERTIME_MIN_TEAM_GAMES_FOR_RANKING}試合以上のチームが対象です。延長のあった試合だけの値（すべての延長の合計）で、平均はその試合数で割っています。勝敗は試合の勝敗です。</p>}
-            {period !== "all" && gameType !== "regular" && hasShortGameSeason([season]) && <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>}
-            {period !== "all" && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
+            {period !== "all" && period !== "clutch" && gameType !== "regular" && hasShortGameSeason([season]) && <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>}
+            {period !== "all" && period !== "clutch" && gameType !== "playoff" && hasManualBoxscoreSeason([season]) && <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>}
             {boxCompare && compareNotes(boxCompare.rows.length === 0)}
           </ExportTarget>
         </>
@@ -973,7 +976,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
       // 切り替えの対象外の項目（割合・Profile・Career）では書かない
       modeApplies ? displayModeLabels(rankMode) : [],
       playerScopeLabels,
-      registeredTarget ? "登録選手" : overtimeActive ? OVERTIME_ELIGIBILITY_LABEL : eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }),
+      registeredTarget ? "登録選手" : overtimeActive ? (subsetEligibilityLabel(period) ?? OVERTIME_ELIGIBILITY_LABEL) : eligibilityLabels({ gamesRatio, achievable, extra: extraRule, extraThreshold }),
     ),
   );
 
@@ -997,7 +1000,7 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
     disabledReason: registeredTarget
       ? "このカテゴリは、このシーズンに登録していた選手全員が対象です（出場の有無を問わず、掲載基準は使いません）。"
       : overtimeActive
-        ? OVERTIME_ELIGIBILITY_REASON
+        ? (subsetEligibilityReason(period) ?? OVERTIME_ELIGIBILITY_REASON)
         : undefined,
     value: `${Math.round(gamesRatio * 100)}|${extraRule ? extraThreshold : ""}|${achievable ? "ach" : ""}`,
     defaultValue: `${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}|${extraRule ? eligibilityDefaultExtra : ""}|`,
@@ -1138,7 +1141,9 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
               : currentItems.map((i) =>
                   effPeriodActive && (i.key === "dd2" || i.key === "td3" || i.key === "pts10")
                     ? { ...i, label: `${statJa(i.label)}（Q別・前後半は対象外）`, disabled: true }
-                    : i,
+                    : effPeriodActive && period === "clutch" && (i.key === "fd" || i.key === "eff")
+                      ? { ...i, label: `${statJa(i.label)}（クラッチは対象外）`, disabled: true }
+                      : i,
                 ),
             statKey,
             selectStat,
@@ -1238,11 +1243,11 @@ function PlayerRankingSection({ season, league, teamColors }: { season: string; 
             {category === "misc" && isRuleChangeStatKey(selectedItem.key) && <RuleChangeFootnote seasons={[season]} />}
             {rookieActive && <p className="rule-change-footnote">※ {ROOKIE_NOTE}</p>}
             <ClassificationNotes filter={selectedClassification} scope="season" />
-            {overtimeActive && <p className="rule-change-footnote">※ {OVERTIME_GAMES_NOTE}</p>}
-            {effPeriodActive && gameType !== "regular" && hasShortGameSeason(compareActive && prevSeason ? [season, prevSeason] : [season]) && (
+            {overtimeActive && period === "ot" && <p className="rule-change-footnote">※ {OVERTIME_GAMES_NOTE}</p>}
+            {effPeriodActive && period !== "clutch" && gameType !== "regular" && hasShortGameSeason(compareActive && prevSeason ? [season, prevSeason] : [season]) && (
               <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
             )}
-            {effPeriodActive && gameType !== "playoff" && hasManualBoxscoreSeason(compareActive && prevSeason ? [season, prevSeason] : [season]) && (
+            {effPeriodActive && period !== "clutch" && gameType !== "playoff" && hasManualBoxscoreSeason(compareActive && prevSeason ? [season, prevSeason] : [season]) && (
               <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>
             )}
             {comparison && <CompareNotes season={season} prevSeason={prevSeason!} mode={hasRelatedStats(category, selectedItem.key) ? "perGame" : rankMode} narrowed={rookieActive || conditionActive} kind="player" empty={comparison.rows.length === 0} />}

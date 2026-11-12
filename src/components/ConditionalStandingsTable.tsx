@@ -49,6 +49,9 @@ import { ResponsiveTeamName } from "./ResponsiveTeamName";
 import { resultOnlySummaries } from "../lib/resultOnlyGames";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
 
+/** 条件「クラッチになった試合」の名前（設計書373章） */
+const CLUTCH_GAMES_LABEL = "クラッチになった試合";
+
 /**
  * 「条件別順位表」タブが扱う単一選択の条件。SituationalFilterPicker（AND合成の複数選択）とは
  * 異なり、こちらは「この条件だけで見た順位表」を1つずつ切り替えて見る用途のため、常に
@@ -76,7 +79,9 @@ export type ConditionalCondition =
   | { kind: "gamePhase"; value: "early" | "mid" | "late" }
   | { kind: "margin"; points: number }
   // 試合中の最大リード・最大ビハインド（延長戦を含む。DESIGN.md 150章）
-  | { kind: "inGameMargin"; value: MarginCondition };
+  | { kind: "inGameMargin"; value: MarginCondition }
+  // クラッチになった試合（第4Q・延長の残り5:00以下で5点差以内の時間かプレーがあった試合。勝敗は試合の最終結果。判定できない試合は入らない。設計書373章）
+  | { kind: "clutch" };
 
 /** 「序盤戦/中盤戦/終盤戦20試合」の窓の大きさ（固定） */
 const GAME_PHASE_WINDOW = 20;
@@ -117,6 +122,8 @@ function describeCondition(condition: ConditionalCondition): string {
       return condition.points === 3 ? "3点差以内の試合" : "6点差以内の試合";
     case "inGameMargin":
       return MARGIN_CONDITION_LABELS[condition.value];
+    case "clutch":
+      return CLUTCH_GAMES_LABEL;
   }
 }
 
@@ -172,6 +179,9 @@ export function applyConditionalCondition(
       return logs.filter((g) => Math.abs(g.teamScore - g.opponentScore) <= condition.points);
     case "inGameMargin":
       return logs.filter((g) => matchesMargin(g, condition.value));
+    case "clutch":
+      // 結果だけの試合・プレーバイプレーの無い試合（1810）・前後半5分の特別な試合は clutchGame を持たないので入らない
+      return logs.filter((g) => g.clutchGame === true);
   }
 }
 
@@ -424,6 +434,10 @@ export function ConditionalStandingsTable({
         label: MARGIN_CONDITION_LABELS[c],
         condition: { kind: "inGameMargin" as const, value: c },
       })),
+    },
+    {
+      label: "クラッチ",
+      options: [{ key: "clutch", label: CLUTCH_GAMES_LABEL, condition: { kind: "clutch" } }],
     },
   ];
 

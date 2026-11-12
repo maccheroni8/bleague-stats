@@ -24,6 +24,7 @@ export const PLAYER_QUARTER_ROWS: readonly { value: PeriodRangeValue; label: str
   { value: "h1", label: "前半" },
   { value: "h2", label: "後半" },
   { value: "ot", label: "延長" },
+  { value: "clutch", label: "クラッチ" },
 ];
 
 /** Q別タブで選べるカテゴリ（チーム詳細のQ別タブと同じ4つ） */

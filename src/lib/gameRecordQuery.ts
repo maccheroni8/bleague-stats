@@ -24,7 +24,7 @@ import {
   type TeamGameIndexView,
 } from "./gameIndex";
 import type { GameRecordConditions } from "./gameRecordConditions";
-import { PERIOD_ATOM_INDEXES, periodGameAt, type GameRecordPeriod, type IndexedPeriodGame, type PlayerPeriodView } from "./periodIndex";
+import { isSubsetPeriod, PERIOD_ATOM_INDEXES, periodGameAt, type GameRecordPeriod, type IndexedPeriodGame, type PlayerPeriodView } from "./periodIndex";
 import { matchesMargin } from "./situational";
 import { statConditionMatcher, type StatConditionItem, type StatConditionsState } from "./statConditions";
 import {
@@ -302,8 +302,9 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
       const row = rowOf(view, i);
       if (!row) {
         // 前後半5分の特別な試合は、1Q〜4Q・前半・後半を持たない（延長は元々無い）
-        if (f.short && q.period && q.period.period !== "ot") periodShortGames += 1;
-        else if (!f.short && q.period && q.period.period !== "ot" && true) periodNoRecordGames += 1;
+        // 延長・クラッチは、延長のあった試合・クラッチになった試合だけが対象なので、行の無い試合を数えない（設計書373章）
+        if (f.short && q.period && !isSubsetPeriod(q.period.period)) periodShortGames += 1;
+        else if (!f.short && q.period && !isSubsetPeriod(q.period.period) && true) periodNoRecordGames += 1;
         continue;
       }
       if (q.period && stat.key === "plusMinus" && (row as IndexedPeriodGame).plusMinusMissing) {
@@ -454,8 +455,8 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
       const row = rowAt(view, i);
       if (!row) {
         // 前後半5分の特別な試合は、1Q〜4Q・前半・後半を持たない。延長の無い試合は延長の値が無いだけ
-        if (f.short && q.period && q.period.period !== "ot") periodShortGames += 1;
-        else if (!f.short && q.period && q.period.period !== "ot" && (i & 1) === 0) periodNoRecordGames += 1;
+        if (f.short && q.period && !isSubsetPeriod(q.period.period)) periodShortGames += 1;
+        else if (!f.short && q.period && !isSubsetPeriod(q.period.period) && (i & 1) === 0) periodNoRecordGames += 1;
         continue;
       }
       if (!passesMinAttempts(row)) continue;

@@ -8,6 +8,8 @@ import { PeriodIndexFailure } from "../components/PeriodIndexFailure";
 import {
   OVERTIME_GAMES_NOTE,
   SEASON_PERIOD_OPTIONS,
+  SEASON_PERIOD_OPTIONS_NO_CLUTCH,
+  SHOOTING_CLUTCH_UNSUPPORTED_REASON,
   SHORT_GAMES_PERIOD_NOTE, MANUAL_BOXSCORE_PERIOD_NOTE, hasManualBoxscoreSeason,
   buildTeamSplitRowsFromPeriodSource,
   hasShortGameSeason,
@@ -100,6 +102,7 @@ import { ShotChartPanel } from "../components/ShotChart";
 import { buildShotEvents, type ShotEvent } from "../lib/shotChart";
 import { periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { addAssistDistribution, assistSharePct, countAssistDistribution, emptyAssistDistribution } from "../lib/assistDistribution";
+import { gameWithClutchView } from "../../shared/clutchGame";
 import { filterPlayersByGamesPlayedRatio } from "../lib/statDefs";
 import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from "../lib/playerRankingEligibility";
 import { safeDiv, eff, efgPct, tsPct } from "../../shared/formulas";
@@ -1150,7 +1153,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
     return [...byId.entries()].map(([teamId, teamName]) => ({ teamId, label: teamShortName(teamId, teamName) }));
   }, [shotChartOwnTeamByScheduleKey]);
 
-  const shotChartPeriodOption = SEASON_PERIOD_OPTIONS.find((o) => o.value === shotChartPeriod);
+  // ショットはピリオド番号で絞るので、クラッチは選べない（設計書373章）
+  const shotChartPeriodOption = SEASON_PERIOD_OPTIONS_NO_CLUTCH.find((o) => o.value === shotChartPeriod);
   const filteredSeasonShotEvents = useMemo(() => {
     if (!seasonShotGameData) return [];
     return seasonShotGameData
@@ -1826,9 +1830,12 @@ export function PlayerDetailPage({ season }: { season: string }) {
     let ownMadeFtm = 0;
     let readyCount = 0;
     for (const g of scopedLogs) {
-      const game = periodRawGames.get(g.scheduleKey);
-      if (!game) continue;
+      const rawGame = periodRawGames.get(g.scheduleKey);
+      if (!rawGame) continue;
       readyCount++;
+      // クラッチは、試合の生データにクラッチのプレー（仮のピリオド）を足した写しで数える。クラッチにならなかった試合は数えない（設計書373章）
+      const game = situationalStatsPeriod === "clutch" && rawGame.raw.PlayByPlays.length > 0 ? gameWithClutchView(rawGame) : rawGame;
+      if (!game) continue;
       if (game.raw.PlayByPlays.length === 0) {
         assistNoPbpGames++;
       } else {
@@ -1925,7 +1932,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       received: receivedList,
       dataReady: readyCount === scopedLogs.length,
     };
-  }, [playerId, situationalStatsLogs, situationalStatsGameType, periodRawGames, situationalStatsAssistPeriodOption]);
+  }, [playerId, situationalStatsLogs, situationalStatsGameType, periodRawGames, situationalStatsAssistPeriodOption, situationalStatsPeriod]);
 
   // オンコート/オフコート比較（Batch 4）: reconstructOnCourt()の在コート区間と、
   // 「よく使われるラインナップ」（78章）と同じポゼッション推定ロジックを再利用し、選手が
@@ -2425,7 +2432,7 @@ export function PlayerDetailPage({ season }: { season: string }) {
       ownTeamDivisionSupported: !!divisionHistory && !!shotChartGameSummaries,
       opponentDivisions: opponentDivisionChoices(divisionHistory, season, league),
     }).map((a): FilterAxis => (a.id === "s.result" ? { ...a, tier: "primary" } : a)),
-    periodAxis(shotChartPeriod, setShotChartPeriod, SEASON_PERIOD_OPTIONS),
+    periodAxis(shotChartPeriod, setShotChartPeriod, SEASON_PERIOD_OPTIONS_NO_CLUTCH),
   ];
   const clearShotChartFilters = () => {
     setShotChartFilters({});
@@ -2644,6 +2651,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
             <PeriodIndexFailure onRetry={breakdownPeriodSources.retry} />
           ) : seasonBreakdownPeriod !== "all" && seasonBreakdownTab !== "shooting" && seasonBreakdownTab !== "scoringComposition" && breakdownPeriodSources.loading ? (
             <p className="loading">この期間の再集計中...</p>
+          ) : seasonBreakdownTab === "shooting" && seasonBreakdownPeriod === "clutch" ? (
+            <p className="empty-message">{SHOOTING_CLUTCH_UNSUPPORTED_REASON}</p>
           ) : (
             <SeasonBreakdownTable
               league={league}
@@ -2664,10 +2673,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
           {seasonBreakdownPeriod === "ot" && seasonBreakdownTab !== "shooting" && seasonBreakdownTab !== "scoringComposition" && (
             <p className="rule-change-footnote">※ {OVERTIME_GAMES_NOTE}</p>
           )}
-          {seasonBreakdownPeriod !== "all" && gameTypeFilter !== "regular" && seasonBreakdownTab !== "shooting" && seasonBreakdownTab !== "scoringComposition" && hasShortGameSeason(careerSeasons) && (
+          {seasonBreakdownPeriod !== "all" && seasonBreakdownPeriod !== "clutch" && gameTypeFilter !== "regular" && seasonBreakdownTab !== "shooting" && seasonBreakdownTab !== "scoringComposition" && hasShortGameSeason(careerSeasons) && (
             <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
           )}
-          {seasonBreakdownPeriod !== "all" && gameTypeFilter !== "playoff" && seasonBreakdownTab !== "shooting" && seasonBreakdownTab !== "scoringComposition" && hasManualBoxscoreSeason(careerSeasons) && (
+          {seasonBreakdownPeriod !== "all" && seasonBreakdownPeriod !== "clutch" && gameTypeFilter !== "playoff" && seasonBreakdownTab !== "shooting" && seasonBreakdownTab !== "scoringComposition" && hasManualBoxscoreSeason(careerSeasons) && (
             <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>
           )}
 
@@ -2720,6 +2729,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
           </div>
           {!careerData ? (
             <p className="loading">読み込み中...</p>
+          ) : situationalStatsTab === "shooting" && situationalStatsPeriod === "clutch" ? (
+            <p className="empty-message">{SHOOTING_CLUTCH_UNSUPPORTED_REASON}</p>
           ) : situationalStatsTab === "shooting" && careerShotsLoading ? (
             <p className="loading">読み込み中...</p>
           ) : situationalPeriodSources.failedSeasons.length > 0 && situationalStatsTab !== "shooting" && situationalStatsPeriod !== "all" ? (
@@ -2872,10 +2883,10 @@ export function PlayerDetailPage({ season }: { season: string }) {
           </div>
 
           {situationalStatsPeriod === "ot" && situationalStatsTab !== "shooting" && <p className="rule-change-footnote">※ {OVERTIME_GAMES_NOTE}</p>}
-          {situationalStatsPeriod !== "all" && situationalStatsGameType !== "regular" && situationalStatsTab !== "shooting" && hasShortGameSeason([situationalStatsSeason]) && (
+          {situationalStatsPeriod !== "all" && situationalStatsPeriod !== "clutch" && situationalStatsGameType !== "regular" && situationalStatsTab !== "shooting" && hasShortGameSeason([situationalStatsSeason]) && (
             <p className="rule-change-footnote">※ {SHORT_GAMES_PERIOD_NOTE}</p>
           )}
-          {situationalStatsPeriod !== "all" && situationalStatsGameType !== "playoff" && situationalStatsTab !== "shooting" && hasManualBoxscoreSeason([situationalStatsSeason]) && (
+          {situationalStatsPeriod !== "all" && situationalStatsPeriod !== "clutch" && situationalStatsGameType !== "playoff" && situationalStatsTab !== "shooting" && hasManualBoxscoreSeason([situationalStatsSeason]) && (
             <p className="rule-change-footnote">※ {MANUAL_BOXSCORE_PERIOD_NOTE}</p>
           )}
           <div ref={assistSectionRef} aria-hidden="true" />

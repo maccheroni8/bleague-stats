@@ -56,7 +56,8 @@ export function teamPeriodGameAt(view: TeamGameIndexView, file: TeamPeriodIndexF
     pt2in: own("pt2in"),
     pft: own("pft"),
     pt2nd: own("pt2nd"),
-    foulsDrawn: own("foulsDrawn"),
+    // クラッチの被ファウルは「値なし」（画面は「-」。設計書373章）
+    foulsDrawn: period === "clutch" ? Number.NaN : own("foulsDrawn"),
     dunks: own("dunks"),
     benchPoints: own("benchPoints"),
     starterPoints: own("starterPoints"),
@@ -80,7 +81,7 @@ export function teamPeriodGameAt(view: TeamGameIndexView, file: TeamPeriodIndexF
     opponentPt2in: opp("pt2in"),
     opponentPft: opp("pft"),
     opponentPt2nd: opp("pt2nd"),
-    opponentFoulsDrawn: opp("foulsDrawn"),
+    opponentFoulsDrawn: period === "clutch" ? Number.NaN : opp("foulsDrawn"),
     opponentDunks: opp("dunks"),
   };
   delete row.attendance;

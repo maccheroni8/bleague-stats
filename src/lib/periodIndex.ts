@@ -1,12 +1,12 @@
 // ピリオド別の索引（data/{season}/player-period-index.json.gz。形式は shared/periodIndex.ts、DESIGN.md 225章）を読む。
 // 1試合行の索引（gameIndex.ts）の行に結び付けて、Q別・前後半の値を持つ「選手の1試合」にする。集計のコードから読まれない場所（src/lib の保存キーの対象外）に置く。
 // 前半・後半は 1Q+2Q／3Q+4Q の合計（選手の値は足し算で出せる。シーズン成績のQ別と同じ関数で出した値を、直接出した前半・後半と全行で照合済み。validate:period-index）。
-import { PERIOD_INDEX_VERSION, PERIOD_ROW_FLAG_PLUS_MINUS,
+import { CLUTCH_ATOM_INDEX, PERIOD_INDEX_VERSION, PERIOD_ROW_FLAG_PLUS_MINUS,
   PERIOD_ROW_FLAG_PLUS_MINUS_RECONSTRUCTED, PLAYER_PERIOD_STAT_COLUMNS, type PlayerPeriodIndexFile, type PlayerPeriodStatColumn } from "../../shared/periodIndex";
 import { playerGameAt, type IndexedPlayerGame, type PlayerGameIndexView } from "./gameIndex";
 
 /** 1試合記録で選べる区間（試合全体を除く） */
-export type GameRecordPeriod = "q1" | "q2" | "q3" | "q4" | "h1" | "h2" | "ot";
+export type GameRecordPeriod = "q1" | "q2" | "q3" | "q4" | "h1" | "h2" | "ot" | "clutch";
 
 /** 区間に含まれる、持っている区間（PERIOD_ATOMS の番号）。前半は1Q・2Q、後半は3Q・4Q */
 export const PERIOD_ATOM_INDEXES: Record<GameRecordPeriod, readonly number[]> = {
@@ -17,7 +17,16 @@ export const PERIOD_ATOM_INDEXES: Record<GameRecordPeriod, readonly number[]> = 
   h1: [0, 1],
   h2: [2, 3],
   ot: [4],
+  clutch: [CLUTCH_ATOM_INDEX],
 };
+
+/**
+ * 区間の値がある試合だけを数える区間（延長は延長のあった試合、クラッチはクラッチになった試合。平均の分母・試合数もその試合だけ）。
+ * 1Q〜4Q・前半・後半は、試合に出ていれば区間に出ていなくても0として数える
+ */
+export function isSubsetPeriod(value: string): value is "ot" | "clutch" {
+  return value === "ot" || value === "clutch";
+}
 
 export interface PlayerPeriodView {
   season: string;
@@ -71,6 +80,8 @@ export function periodGameAt(main: PlayerGameIndexView, period: PlayerPeriodView
     for (const c of PLAYER_PERIOD_STAT_COLUMNS) if (c !== "plusMinus" || officialPm) sum[c] += stats[c][k]!;
   }
   if (!found) return null;
+  // クラッチの被ファウルは「値なし」（プレーバイプレーの記録が足りない。画面は「-」。2020-21以降の EFF もこの値を使うので「-」になる。設計書373章）
+  if (atoms.includes(CLUTCH_ATOM_INDEX)) sum.foulsDrawn = Number.NaN;
   const base = playerGameAt(main, i);
   // 試合全体の値を、区間の値に置き換える（出場時間は分に戻す）。勝負所（第4Q・延長の窓）は区間の値ではないので外す
   const { clutch: _clutch, ...rest } = base;
