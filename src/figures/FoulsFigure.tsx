@@ -17,6 +17,7 @@ import { ExportTarget } from "../components/ExportTarget";
 import { ConditionTitle } from "../components/ConditionTitle";
 import { FigureExportButton } from "./FigureExport";
 import "./FoulsFigure.css";
+import { SortMark } from "../components/SortMark";
 
 const DEFAULT: SituationalFilter = { range: { kind: "all" } };
 const rangeCodec: UrlCodec<SituationalFilter> = {
@@ -61,7 +62,7 @@ function sortCodec(param: string, keys: readonly string[], mainKey: string): Url
 /**
  * 1つの表（見出し・保存ボタン・表）。見出しを押すとその列で並べ替え（1回目は多い順、もう1回で少ない順）。初めは mainKey の列の多い順。
  * 順位は並べている列の多い順の順位（少ない順は並びだけ逆）。塗りは並べ替えに関係なく列ごとのトップ3（0 は塗らない）。
- * 保存画像は画面の並びのまま、サブタイトルに並び順（「合計↓」）
+ * 保存画像は画面の並びのまま、サブタイトルに並び順（「合計▼」）
  */
 export function FoulTable<R>({ title, exportLabel, filename, season, conditions, gameType, rows, rowKey, rowName, columns, mainKey, sortParam, nameHeader, renderName, average, emptyText }: {
   title: string; exportLabel: string; filename: string; season: string; conditions: string[]; gameType: SeasonGameTypeFilter;
@@ -101,7 +102,7 @@ export function FoulTable<R>({ title, exportLabel, filename, season, conditions,
                 const active = c.key === sortCol.key;
                 return <th key={c.key} className={`fouls-col${active ? " fouls-sorted" : ""}`} aria-sort={active ? (descending ? "descending" : "ascending") : "none"}>
                   <button type="button" onClick={() => onSort(c.key)} title={active ? (descending ? "多い順（押すと少ない順）" : "少ない順（押すと多い順）") : "押すと多い順に並べ替え"}>
-                    {c.label}<span className="export-hide fouls-sort-mark">{active ? (descending ? "↓" : "↑") : "↕"}</span>
+                    {c.label}<SortMark active={active} descending={descending} />
                   </button>
                 </th>;
               })}

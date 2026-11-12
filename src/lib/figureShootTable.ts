@@ -128,8 +128,8 @@ export const teamShootHigherIsBetter = (view: TeamShootView) => view !== "opp";
 /** 並べ替えの状態。descending＝値の大きい順 */
 export interface ShootSortState { key: string; descending: boolean }
 
-/** 並び順の書き方（Four Factors の「ORtg↓」と同じ。↓＝値の大きい順、↑＝小さい順） */
-export const shootSortLabel = (label: string, descending: boolean) => `${label}${descending ? "↓" : "↑"}`;
+/** 並び順の書き方（Four Factors の「ORtg▼」と同じ。▼＝値の大きい順、▲＝小さい順。画面の印と同じ） */
+export const shootSortLabel = (label: string, descending: boolean) => `${label}${descending ? "▼" : "▲"}`;
 
 /**
  * チームの最初の並び順。rating 列（ORtg・DRtg・NetRtg）を良い順にする:

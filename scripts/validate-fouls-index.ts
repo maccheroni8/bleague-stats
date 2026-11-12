@@ -141,8 +141,8 @@ assert.deepEqual(topThreeLevels([0, 0]), [null, null], "0 は塗らない");
   const asc = sortFoulRows(rows, (r) => r.v, [(r) => r.w], (r) => r.n, false);
   assert.deepEqual(asc.rows.map((r) => r.n), ["D", "A", "B", "C"]);
   assert.deepEqual(asc.ranks, [4, 3, 1, 1], "少ない順でも順位の数字は多い順のまま");
-  assert.equal(foulSortLabel("合計", true), "合計↓");
-  assert.equal(foulSortLabel("コーチ", false), "コーチ↑");
+  assert.equal(foulSortLabel("合計", true), "合計▼");
+  assert.equal(foulSortLabel("コーチ", false), "コーチ▲");
   checks += 6;
 }
 {
