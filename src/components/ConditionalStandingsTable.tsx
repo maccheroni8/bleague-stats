@@ -410,7 +410,7 @@ export function ConditionalStandingsTable({
           {numberKind === "count" ? "人数" : "点数"}：
           <NumberTextInput
             kind="count"
-            aria-label={numberKind === "count" ? "外国籍の人数" : "点数"}
+            aria-label={numberKind === "count" ? "人数" : "点数"}
             value={String(numbers[numberKind])}
             onCommit={(t) => {
               const n = Math.floor(Number(t));

@@ -1,4 +1,5 @@
 import { seasonBoxColumnsWithFtrPpp } from "../lib/pppColumn";
+import { foreignSituationalGroups } from "../lib/situationalRecords";
 import { AiPlayerExportButton } from "../components/AiPlayerExportButton";
 import { DIVISION_LABELS, opponentDivisionChoices } from "../lib/divisionGroups";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -2250,24 +2251,8 @@ export function PlayerDetailPage({ season }: { season: string }) {
             }))
           : [],
     },
-    {
-      key: "foreignPlayerCount",
-      label: "自チーム外国籍人数",
-      rows: [0, 1, 2, 3].map((n) => ({
-        key: `own${n}`,
-        label: `${n}人`,
-        predicate: (g: PlayerGameLog) => g.foreignPlayerCount === n,
-      })),
-    },
-    {
-      key: "opponentForeignPlayerCount",
-      label: "相手チーム外国籍人数",
-      rows: [0, 1, 2, 3].map((n) => ({
-        key: `opp${n}`,
-        label: `${n}人`,
-        predicate: (g: PlayerGameLog) => g.opponentForeignPlayerCount === n,
-      })),
-    },
+    // 外国籍の人数（3つの数え方×自チーム・相手。チーム詳細・条件別順位表と同じ判定。設計書392章）
+    ...foreignSituationalGroups<PlayerGameLog>(["own", "opp"]),
   ];
 
   // シューティングタブ選択時のみ、グループ横断で各行のショット内訳（breakdown）を組み立てる。
@@ -2870,13 +2855,19 @@ export function PlayerDetailPage({ season }: { season: string }) {
               </dd>
               <dt>連戦</dt>
               <dd>同じ相手と中1日以内（連日または1日空き）に続けて行った試合の、1試合目（GAME1）・2試合目（GAME2）別の成績です。3試合以上続くとき（プレーオフなど）は GAME3・GAME4…と番号を続けます。相手が違う試合や中2日以上空いた試合は連戦に数えません。</dd>
-              <dt>自チーム外国籍人数</dt>
+              <dt>外国籍の出場人数</dt>
               <dd>
-                その試合で自チームが最も長くコートに立たせていた、外国籍・帰化選手・アジア特別枠選手の
-                同時出場人数（0〜3人）別の成績です。
+                その試合に自チームで出場した（出場時間が0秒より長い）外国籍選手の人数（0〜3人）別の成績です。帰化選手・アジア特別枠は含めません。
               </dd>
-              <dt>相手チーム外国籍人数</dt>
-              <dd>上記を相手チーム視点で見た成績です。</dd>
+              <dt>外国籍・帰化・アジアの出場人数</dt>
+              <dd>その試合に自チームで出場した、外国籍・帰化選手・アジア特別枠の選手の合計人数（0〜4人）別の成績です。</dd>
+              <dt>最長のオンザコート人数</dt>
+              <dd>
+                その試合で自チームが最も長くコートに立たせていた、外国籍・帰化選手・アジア特別枠選手の同時出場人数（0〜4人）別の成績です。
+              </dd>
+              <dd>
+                3つとも、区分は試合の日の登録区分で数え、出場しなかった選手は数えません。「相手の」が付いたものは、同じ数え方で相手チームの人数を見た成績です。
+              </dd>
               <dt>対戦相手勝率</dt>
               <dd>
                 その行に属する各試合について、対戦相手の「その試合時点までの」勝率を求め単純平均した値です
