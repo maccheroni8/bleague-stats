@@ -1,3 +1,4 @@
+import { useTeamLogoSources } from "../lib/logoDataUrl";
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Customized, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { teamLogoUrl } from "../lib/data";
@@ -137,6 +138,8 @@ export function StandingsLineChart({
     return offsets;
   }, [teams, data, lastValidIndexByTeam]);
 
+  // 保存画像にもロゴが出るよう、ロゴは data: のURLで埋め込む（src/lib/logoDataUrl.ts）
+  const logoSource = useTeamLogoSources(teams.map((t) => t.teamId));
   const [failedLogos, setFailedLogos] = useState<Set<string>>(new Set());
   const markLogoFailed = (teamId: string) => {
     setFailedLogos((prev) => (prev.has(teamId) ? prev : new Set(prev).add(teamId)));
@@ -231,7 +234,7 @@ export function StandingsLineChart({
                   return (
                     <image
                       key={`${t.teamId}-logo`}
-                      href={teamLogoUrl(t.teamId)}
+                      href={logoSource(t.teamId)}
                       x={dotX - LOGO_SIZE / 2}
                       y={cy - LOGO_SIZE / 2}
                       width={LOGO_SIZE}
