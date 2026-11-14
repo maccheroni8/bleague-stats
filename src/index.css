@@ -8820,7 +8820,14 @@ table.sortable-table.tts-table th {
   background: var(--bg);
 }
 
-/* 順位表ページの画像保存（DESIGN.md 391章）。保存ボタンは保存範囲の右上。保存画像の幅は表の幅に合わせる（横に長い表は長いまま。PC幅で見る前提） */
+/* 同じ値が3つ以上並ぶときの順位の添え書き（「1位（5人が同じ値）」） */
+.rankings-table .rank-tie-count {
+  display: block;
+  font-size: 0.7em;
+  font-weight: 400;
+  color: var(--muted);
+  white-space: nowrap;
+/* 順位表ページの画像保存（DESIGN.md 392章）。保存ボタンは保存範囲の右上。保存画像の幅は表の幅に合わせる（横に長い表は長いまま。PC幅で見る前提） */
 .savable-block {
   margin-top: 12px;
 }

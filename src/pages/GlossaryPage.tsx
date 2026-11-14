@@ -11,6 +11,7 @@ import {
   type StatSource,
 } from "../lib/statDefs";
 import { statGlossaryTitle } from "../lib/statNames";
+import { RANK_DIRECTION_GLOSSARY } from "../lib/rankDirection";
 
 const SOURCE_LABELS: Record<StatSource, string> = {
   official: "Bリーグ公式",
@@ -139,6 +140,25 @@ export function GlossaryPage() {
         <p>
           内訳集計（スタメン・ベンチ・登録区分）だけの項目で、チーム全体に占める割合です。%USG は 100 × グループの（FGA＋0.44×FTA＋TOV）÷ チーム全体の同じ値、
           %AST は 100 × グループのAST ÷ チームのASTです。チーム合計の行は100%です。個人の USG%・AST% とは別の項目です。
+        </p>
+      </section>
+
+      <section className="glossary-section">
+        <h2>ランキングの順位の向き・最低試投数</h2>
+        <p>
+          ランキングは「1位＝良いほう」にそろえます。次の3種類に分けています。同じ値は同じ順位（次の順位はとばす）で、3つ以上が並ぶときは「1位（5人が同じ値）」のように添えます。
+          1試合記録の成功率は、同じ成功率なら成功数が多いほうを上にします（成功数も同じなら同順位）。
+        </p>
+        {RANK_DIRECTION_GLOSSARY.map((g) => (
+          <div key={g.direction}>
+            <h3>{g.title}</h3>
+            <p>{g.items}</p>
+          </div>
+        ))}
+        <h3>成功率の最低試投数</h3>
+        <p>
+          FG%・2P%・3P%・FT% は、ランキングの掲載基準（出場率と、1試合平均の成功数）のとおりです。シュートタイプ・エリア別の成功率（Shooting）は、
+          その期間のチームの試合数の半分以上（端数は切り上げ。60試合なら30本、5試合なら3本）の試投がある選手だけに順位を付けます。チームには最低ラインを付けません。
         </p>
       </section>
 

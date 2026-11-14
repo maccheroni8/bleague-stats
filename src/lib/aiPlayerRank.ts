@@ -8,7 +8,8 @@ import {
   EXTRA_ADVANCED_PLAYER_ITEMS, ON_COURT_SHARE_STAT_KEYS, boxColumnItem, buildProfileItems, doubleItems, extraRuleKey, rawTotalsFromPlayerSummary, seasonBoxColumnsByTab,
   withPppColumn, type PlayerRankItem,
 } from './playerSeasonRanking';
-import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers } from './playerRankingEligibility';
+import { EXTRA_ELIGIBILITY_RULES, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, filterEligiblePlayers, filterShotPctMinAttempts } from './playerRankingEligibility';
+import { rankDirectionOf, RANK_DIRECTION_TEXT } from './rankDirection';
 import { zeroDenominator } from './aiPlayerCommon';
 import { buildSeasonBoxscoreCtx, sumPlayerGameLogs, EMPTY_TEAM_TOTALS, type SeasonBoxscoreCtx, countDoubleTripleDoubles } from './playerSeasonBoxscore';
 import { shotTypeEntityColumns, SHOT_TYPE_DISPLAY_ORDER } from './shotTypeBreakdown';
@@ -41,13 +42,11 @@ export interface RankLine {
   /** 同じ値（表示の文字が同じ）の人数（自分を含む。順位が付いたときだけ） */
   ties: number;
   /** 良い悪いの向き。none は向きが決まっていない項目（順位を付けない） */
-  direction: '多い順' | '少ない順' | 'none';
+  direction: string;
 }
 
-/** ランキングのページで良し悪しの向きを決めていない項目（多い順に並べるが良し悪しの意味が無い）。md では順位を付けない */
-const NO_DIRECTION = new Set(['flag', 'disr', 'ufoul', 'dqfoul', 'offfoul']);
 
-export const RANK_ELIGIBILITY_TEXT = `出場率${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}%以上（所属チームの試合数に対する出場試合数）。項目によって追加の基準がある（FG%：FGM 1.5本/試合以上、2P%：2PM 1.0本/試合以上、3P%：3PM 1.5本/試合以上、FT%：FTM 1.0本/試合以上）`;
+export const RANK_ELIGIBILITY_TEXT = `出場率${Math.round(MIN_GAMES_PLAYED_RATIO_FOR_RANKING * 100)}%以上（所属チームの試合数に対する出場試合数）。項目によって追加の基準がある（FG%：FGM 1.5本/試合以上、2P%：2PM 1.0本/試合以上、3P%：3PM 1.5本/試合以上、FT%：FTM 1.0本/試合以上。シュートタイプ・エリア別の成功率：その期間のチームの試合数の半分以上〔端数は切り上げ〕の試投）`;
 
 /** Misc・Scoring の順位のために試合ログが要る選手（出場率の掲載基準を満たす選手） */
 export function rankLogPlayers(players: PlayerSummary[], teams: TeamSummary[]): PlayerSummary[] {
@@ -90,10 +89,13 @@ export function buildRankLines(data: AiPlayerRankData, target: PlayerSummary): R
       // G・GS・MIN・PTS は Traditional だけ（ほかの表では繰り返さない）
       if (category !== 'traditional' && category !== 'shooting' && ['g', 'gs', 'min', 'pts'].includes(item.key)) continue;
       const ctxOf = ctxFor(item.key);
-      const eligible = filterEligiblePlayers(pool, teams, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, extraRuleKey(item.key), EXTRA_ELIGIBILITY_RULES[extraRuleKey(item.key)]?.defaultValue ?? 0);
+      const poolForItem = category === 'shooting' ? filterShotPctMinAttempts(pool, teams, item.key) : pool;
+      const eligible = filterEligiblePlayers(poolForItem, teams, MIN_GAMES_PLAYED_RATIO_FOR_RANKING, extraRuleKey(item.key), EXTRA_ELIGIBILITY_RULES[extraRuleKey(item.key)]?.defaultValue ?? 0);
       const isEligible = eligible.some(p => p.playerId === target.playerId);
-      const higher = item.higherIsBetter !== false;
-      const direction = NO_DIRECTION.has(item.key) ? 'none' : higher ? '多い順' : '少ない順';
+      // 順位の向きは共通の定義（rankDirection.ts）。良し悪しなしの項目も多い順に順位を付ける
+      const dir = rankDirectionOf(item.key);
+      const higher = dir !== 'lower';
+      const direction = RANK_DIRECTION_TEXT[dir];
       const text = (p: PlayerSummary) => {
         const c = ctxOf(p);
         if (c && zeroDenominator(item.key, item.label, c.raw)) return '-';
@@ -109,7 +111,6 @@ export function buildRankLines(data: AiPlayerRankData, target: PlayerSummary): R
       const base = { category, key: item.key, label: item.label, value, total: rows.length, direction } as const;
       if (value === '-') lines.push({ ...base, rank: null, note: '値なし（順位なし）', ties: 0 });
       else if (!isEligible) lines.push({ ...base, rank: null, note: '掲載基準未達', ties: 0 });
-      else if (direction === 'none') lines.push({ ...base, rank: null, note: '順位なし（ランキングで良し悪しの向きを決めていない項目）', ties: 0 });
       else if (at < 0) lines.push({ ...base, rank: null, note: 'この項目の対象外（値なし）', ties: 0 });
       else lines.push({ ...base, rank: ranks[at]!, note: '', ties: sorted.filter(x => x.t === sorted[at]!.t).length });
     }

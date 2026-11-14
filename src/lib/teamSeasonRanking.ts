@@ -1,3 +1,4 @@
+import { rankDirectionProps } from "./rankDirection";
 import { useMemo } from "react";
 import { fetchTeams } from "./data";
 import type { League } from "./league";
@@ -250,7 +251,7 @@ export function useTeamSeasonRanking(
         label: selectedColumn.label,
         value: (row) => Number(selectedColumn.sortValue(row)),
         format: (row) => (selectedColumn.format ? selectedColumn.format(row) : String(selectedColumn.sortValue(row))),
-        higherIsBetter: selectedColumn.higherIsBetter,
+        ...rankDirectionProps(selectedColumn.key, perspective),
       }
     : null;
 
@@ -277,7 +278,7 @@ export function useTeamSeasonRanking(
         label: selectedShootingColumn.label,
         value: (t) => Number(selectedShootingColumn.sortValue(t)),
         format: (t) => (selectedShootingColumn.format ? selectedShootingColumn.format(t) : String(selectedShootingColumn.sortValue(t))),
-        higherIsBetter: selectedShootingColumn.higherIsBetter,
+        ...rankDirectionProps(selectedShootingColumn.key),
       }
     : null;
 

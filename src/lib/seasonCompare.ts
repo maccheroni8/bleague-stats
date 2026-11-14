@@ -164,8 +164,8 @@ export function displayedDiff(currentText: string, prevText: string): DisplayedD
 }
 
 /** 差の色。少ない方が良い項目（higherIsBetter が false）は、減ったほうを「良くなった」にする。差が0のときは flat */
-export function diffTone(diff: number, higherIsBetter: boolean | undefined): "good" | "bad" | "flat" {
-  if (diff === 0) return "flat";
+export function diffTone(diff: number, higherIsBetter: boolean | undefined, neutral?: boolean): "good" | "bad" | "flat" {
+  if (diff === 0 || neutral) return "flat";
   const better = higherIsBetter === false ? diff < 0 : diff > 0;
   return better ? "good" : "bad";
 }
@@ -199,7 +199,7 @@ export interface CompareEntry<P> {
 export function buildCompare<T, P>(opts: {
   currentRows: readonly T[];
   currentKey: (row: T) => string;
-  currentDef: { format: (row: T) => string; higherIsBetter?: boolean };
+  currentDef: { format: (row: T) => string; higherIsBetter?: boolean; neutral?: boolean };
   prevRows: readonly P[];
   prevKey: (row: P) => string;
   prevDef: { format: (row: P) => string };
@@ -218,7 +218,7 @@ export function buildCompare<T, P>(opts: {
     const d = displayedDiff(currentDef.format(row), prevText);
     if (!d) continue;
     rows.push(row);
-    entries.set(key, { prev, prevText, diff: d.diff, diffText: d.text, tone: diffTone(d.diff, currentDef.higherIsBetter) });
+    entries.set(key, { prev, prevText, diff: d.diff, diffText: d.text, tone: diffTone(d.diff, currentDef.higherIsBetter, currentDef.neutral) });
   }
   return { rows, entries };
 }

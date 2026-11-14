@@ -1,3 +1,4 @@
+import { rerankByMade, tieKeyWithMade } from "../lib/recordTieBreak";
 import { useEffect, useMemo, useRef } from "react";
 import { teamChipColor } from "../lib/teamChipColors";
 import type { TeamColors } from "../../shared/types";
@@ -39,6 +40,7 @@ import {
 import { gameRecordAdvancedAxes, gameRecordPrimaryAxes } from "../lib/gameRecordAxes";
 import {
   GAME_RECORD_TIE_EXPAND_MAX,
+  GAME_RECORD_TOP_N,
   TEAM_STAT_CONDITION_ITEMS,
   TEAM_STAT_CONDITION_ITEMS_PERIOD,
   queryTeamGameRecords,
@@ -192,11 +194,14 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
 
   const rows = useMemo<TeamGameRecordRow[]>(
     () =>
-      useIndex
-        ? (result?.rows ?? [])
-        : allTime
-          ? teamRecordRowsFromEntries(allTimeEntries ?? [], history, leagueTeamDisplayName)
-          : seasonTeamRecordRows(games, mode, item.key),
+      rerankByMade(
+        useIndex
+          ? (result?.rows ?? [])
+          : allTime
+            ? teamRecordRowsFromEntries(allTimeEntries ?? [], history, leagueTeamDisplayName)
+            : seasonTeamRecordRows(games, mode, item.key),
+        GAME_RECORD_TOP_N,
+      ),
     [useIndex, result, allTime, allTimeEntries, history, mode, item.key, games],
   );
   const loading = useIndex ? index.loading || periodIndex.loading || !result : allTime ? rankingsLoading : teamsLoading || logsLoading;
@@ -312,7 +317,7 @@ export function TeamGameRecordRanking({ season, teamColors }: { season: string; 
                   {r.fromPbp && <span title={PBP_NOTE}>※</span>}
                 </>
               )}
-              tieKey={(r) => String(r.value)}
+              tieKey={tieKeyWithMade}
               rowKey={(r) => `${r.scheduleKey}-${r.teamId}`}
               name={(r) => <ResponsiveTeamName teamId={r.teamId} name={r.teamName} />}
               subLabel={(r) => <TeamGameRecordLine r={r} />}
