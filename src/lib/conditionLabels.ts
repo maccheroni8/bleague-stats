@@ -112,6 +112,15 @@ export function gameTypeLabels(gameType: SeasonGameTypeFilter, season: string | 
   return [gameType === "both" ? `レギュラー+${postseasonLabel(season)}` : seasonGameTypeLabels(season)[gameType]];
 }
 
+/** サブタイトル・保存画像でのクラッチの名前（選択肢の名前は「クラッチ」。設計書387章） */
+export const CLUTCH_TIME_LABEL = "クラッチタイム";
+/** 保存画像のフッターに書くクラッチタイムの定義（設計書375章と同じ中身。クラッチタイムの条件が条件の行にあるときだけ） */
+export const CLUTCH_TIME_DEFINITION = "クラッチタイム：第4Q・延長の残り5:00以下で、点差5点以内の時間帯";
+/** 条件の行のラベルがクラッチタイムの話か（「クラッチタイム」「クラッチタイムに出た試合が…」「クラッチタイムになった試合」） */
+export function hasClutchTimeLabel(labels: readonly string[]): boolean {
+  return labels.some((l) => l.startsWith(CLUTCH_TIME_LABEL));
+}
+
 /**
  * P軸: Q別/前後半。「試合」（絞り込みなし）は「試合全体」と明示する（Q別と区別できるように）。
  * 前半/後半は、S軸の「前半戦/後半戦」（シーズンの前半・後半）と紛らわしいため、
@@ -121,6 +130,8 @@ export function periodLabels(option: PeriodRangeOption | undefined): string[] {
   if (!option || option.periods === null) return ["試合全体"];
   if (option.value === "h1") return ["試合前半"];
   if (option.value === "h2") return ["試合後半"];
+  // 選択肢の名前は「クラッチ」のまま、サブタイトル・保存画像では「クラッチタイム」（設計書387章）
+  if (option.value === "clutch") return [CLUTCH_TIME_LABEL];
   return [option.label];
 }
 

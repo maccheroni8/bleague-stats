@@ -73,7 +73,7 @@ export const OVERTIME_ELIGIBILITY_REASON = `延長は、${OVERTIME_ELIGIBILITY_L
 /** Shooting（スポーツナビの記録）はプレーバイプレーと結び付かず、クラッチの判定ができないので出さない（設計書375章。2段階目の候補） */
 export const SHOOTING_CLUTCH_UNSUPPORTED_REASON = "Shooting（スポーツナビの記録）は、クラッチでは出せません（Q別・前後半・延長は選べます）。";
 /** クラッチのランキングの掲載基準: クラッチに出た試合の数（延長と同じ数。設計書375章） */
-export const CLUTCH_ELIGIBILITY_LABEL = `クラッチに出た試合が${OVERTIME_MIN_GAMES}試合以上`;
+export const CLUTCH_ELIGIBILITY_LABEL = `クラッチタイムに出た試合が${OVERTIME_MIN_GAMES}試合以上`;
 export const CLUTCH_ELIGIBILITY_REASON = `クラッチは、${CLUTCH_ELIGIBILITY_LABEL}の選手が対象です（出場率などの掲載基準は使いません）。`;
 /** 延長・クラッチの掲載基準の表示（それ以外の区間は null） */
 export function subsetEligibilityLabel(period: string): string | null {

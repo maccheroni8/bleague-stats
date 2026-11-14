@@ -355,7 +355,8 @@ export function periodAxis(
     id: "period",
     label: opts.label ?? PERIOD_AXIS_LABEL,
     tier: opts.tier ?? "primary",
-    options: options.map((o) => ({ value: o.value, label: periodLabels(o)[0] ?? o.label })),
+    // 選択肢の名前は、クラッチだけ「クラッチ」のまま（サブタイトル・保存画像の「クラッチタイム」とは別。設計書387章）
+    options: options.map((o) => ({ value: o.value, label: o.value === "clutch" ? o.label : (periodLabels(o)[0] ?? o.label) })),
     value,
     defaultValue: "all",
     onChange: (v) => onChange(v as PeriodRangeValue),

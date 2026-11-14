@@ -2969,6 +2969,16 @@ table.rankings-table-compact {
   font-size: 15px;
 }
 
+/* クラッチタイムの定義（フッターの1行目。lib/exportImage.ts が足す） */
+.export-rendering .export-footer {
+  flex-wrap: wrap;
+}
+.export-rendering .export-footer-definition {
+  flex: 0 0 100%;
+  white-space: normal;
+  margin-bottom: 6px;
+}
+
 .export-rendering .export-footer-account {
   color: #1a1a1a;
   font-weight: 700;

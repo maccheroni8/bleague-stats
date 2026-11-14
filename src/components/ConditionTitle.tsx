@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { joinLabels, LABEL_SEPARATOR, visibleConditionLabels } from "../lib/conditionLabels";
+import { hasClutchTimeLabel, joinLabels, LABEL_SEPARATOR, visibleConditionLabels } from "../lib/conditionLabels";
 import { exportHeadingLines } from "../lib/exportHeading";
 import { LEAGUE_LABELS, leagueScopeLabel, useLeague } from "../lib/league";
 import { titlePhrases } from "../lib/titlePhrases";
@@ -95,6 +95,8 @@ export function ConditionTitle({
   const splitConditions = exportOmitLabels !== undefined && exportShown.length !== shown.length;
   return (
     <div className={`condition-title${section ? " condition-title-section" : ""}`}>
+      {/* クラッチタイムの条件のときの目印。保存画像のフッターに定義を足す（lib/exportImage.ts。設計書387章） */}
+      {hasClutchTimeLabel(shown) && <span data-clutch-time hidden />}
       <h2 className="export-hide">{renderTitle(title)}</h2>
       <div className="export-only export-heading">
         <p className="export-heading-scope">{heading.scope}</p>
@@ -130,5 +132,10 @@ export function ConditionTitle({
 export function ConditionLine({ conditions }: { conditions: string[] }) {
   const shown = visibleConditionLabels(conditions);
   if (shown.length === 0) return null;
-  return <p className="condition-title-conditions condition-line">{joinLabels(shown)}</p>;
+  return (
+    <p className="condition-title-conditions condition-line">
+      {hasClutchTimeLabel(shown) && <span data-clutch-time hidden />}
+      {joinLabels(shown)}
+    </p>
+  );
 }

@@ -5,6 +5,7 @@ import { buildPeriodRangeOptions } from "./periodRange";
 import type { GameRecordPeriod } from "./periodIndex";
 import { enumParam } from "./urlState";
 import { CLUTCH_PERIOD } from "../../shared/clutchTime";
+import { CLUTCH_TIME_LABEL } from "./conditionLabels";
 
 /** 試合・1Q〜4Q・前半・後半・延長。延長は、試合のすべての延長の合計（第1延長・第2延長は分けない） */
 export const GAME_RECORD_PERIOD_OPTIONS: PeriodRangeOption[] = [
@@ -30,6 +31,7 @@ export function gameRecordPeriodLabel(value: PeriodRangeValue): string | null {
   if (value === "all") return null;
   if (value === "h1") return "試合前半";
   if (value === "h2") return "試合後半";
+  if (value === "clutch") return CLUTCH_TIME_LABEL;
   return GAME_RECORD_PERIOD_OPTIONS.find((o) => o.value === value)?.label ?? null;
 }
 

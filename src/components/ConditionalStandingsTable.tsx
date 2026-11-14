@@ -46,6 +46,20 @@ import type {
   UpcomingGameEntry,
 } from "../../shared/types";
 import { ResponsiveTeamName } from "./ResponsiveTeamName";
+import { NumberTextInput } from "./NumberTextInput";
+import {
+  hasOvertimeLog,
+  isCenturyGame,
+  LEAD_LABELS,
+  leadStatusFromLog,
+  marginAtLeast,
+  matchesBothScores,
+  matchesForeignCount,
+  matchesTeamScore,
+  type CountMode,
+  type Lead,
+} from "../lib/situationalRecords";
+import { buildOpponentSeasonWinRates, matchesOpponentSeasonWinRate, type OpponentSeasonTier } from "../lib/opponentSeasonWinRate";
 import { resultOnlySummaries } from "../lib/resultOnlyGames";
 import type { ResultOnlyGameEntry } from "../../shared/resultOnlyGames";
 
@@ -81,7 +95,30 @@ export type ConditionalCondition =
   // 試合中の最大リード・最大ビハインド（延長戦を含む。DESIGN.md 150章）
   | { kind: "inGameMargin"; value: MarginCondition }
   // クラッチタイムになった試合（第4Q・延長の残り5:00以下で5点差以内の時間かプレーがあった試合。勝敗は試合の最終結果。判定できない試合は入らない。設計書375章）
-  | { kind: "clutch" };
+  | { kind: "clutch" }
+  // チーム詳細の「シチュエーション別勝敗」と同じ条件（設計書387章。判定は lib/situationalRecords.ts の共通の関数）
+  /** 自チームの外国籍人数（試合ごとの同時出場人数）。eq＝ちょうど、le＝以下、ge＝以上 */
+  | { kind: "foreign"; mode: CountMode; n: number }
+  /** 得点（own）・失点（opp）が n 点以下／以上 */
+  | { kind: "score"; side: "own" | "opp"; mode: "le" | "ge"; n: number }
+  | { kind: "bothScore"; value: "ge" | "lt" }
+  | { kind: "century" }
+  | { kind: "marginAtLeast"; points: number }
+  /** 第 q 終了時点（1・2〔前半終了〕・3）のリード状況 */
+  | { kind: "checkpoint"; q: 1 | 2 | 3; status: Lead }
+  | { kind: "overtime"; value: "ot" | "regulation" }
+  /** 対戦相手の最新の勝率（概要の「対戦相手の強さ」と同じ。その時点までの勝率とは別） */
+  | { kind: "opponentLatestWinRate"; tier: OpponentSeasonTier };
+
+/** 条件の「●人」「●点」の数を持つ条件か（持つ条件は数を入れる欄を出す） */
+function conditionNumberKind(c: ConditionalCondition): "count" | "score" | null {
+  if (c.kind === "foreign" && c.mode !== "eq") return "count";
+  if (c.kind === "score") return "score";
+  return null;
+}
+const NUMBER_CONDITION_DEFAULTS = { count: 2, score: 80 } as const;
+const MODE_LABELS = { eq: "", le: "以下", ge: "以上" } as const;
+const CHECKPOINT_LABELS = { 1: "Q1終了時点", 2: "前半終了時点", 3: "3Q終了時点" } as const;
 
 /** 「序盤戦/中盤戦/終盤戦20試合」の窓の大きさ（固定） */
 const GAME_PHASE_WINDOW = 20;
@@ -124,6 +161,22 @@ function describeCondition(condition: ConditionalCondition): string {
       return MARGIN_CONDITION_LABELS[condition.value];
     case "clutch":
       return CLUTCH_GAMES_LABEL;
+    case "foreign":
+      return `自チーム外国籍${condition.n}人${MODE_LABELS[condition.mode]}`;
+    case "score":
+      return `${condition.side === "own" ? "得点" : "失点"}${condition.n}点${MODE_LABELS[condition.mode]}`;
+    case "bothScore":
+      return condition.value === "ge" ? "お互い80点以上" : "お互い80点未満";
+    case "century":
+      return "100点ゲーム";
+    case "marginAtLeast":
+      return `${condition.points}点差以上の試合`;
+    case "checkpoint":
+      return `${CHECKPOINT_LABELS[condition.q]}・${LEAD_LABELS[condition.status]}`;
+    case "overtime":
+      return condition.value === "ot" ? "OT試合" : "レギュレーション決着";
+    case "opponentLatestWinRate":
+      return `対${condition.tier === "under50" ? "5割未満" : condition.tier === "atLeast50" ? "5割以上" : "6割以上"}（最新勝率）`;
   }
 }
 
@@ -139,6 +192,8 @@ interface ConditionContext {
   opponentRecords?: Map<string, Map<string, RecordBeforeGame>>;
   divisionHistory?: DivisionHistoryFile | null;
   backToBackStatus?: Map<string, Map<string, BackToBackGame>>;
+  /** 相手の最新のレギュラーシーズン勝率（概要の「対戦相手の強さ」と同じ） */
+  opponentLatestWinRates?: ReadonlyMap<string, number>;
 }
 
 /** 日付昇順ソート済みのTeamGameLog[]に、選択中の条件を1つ適用する */
@@ -182,6 +237,22 @@ export function applyConditionalCondition(
     case "clutch":
       // 結果だけの試合・プレーバイプレーの無い試合（1810）・前後半5分の特別な試合は clutchGame を持たないので入らない
       return logs.filter((g) => g.clutchGame === true);
+    case "foreign":
+      return logs.filter((g) => matchesForeignCount(g, condition.mode, condition.n));
+    case "score":
+      return logs.filter((g) => matchesTeamScore(g, condition.side, condition.mode, condition.n));
+    case "bothScore":
+      return logs.filter((g) => matchesBothScores(g, condition.value));
+    case "century":
+      return logs.filter((g) => isCenturyGame(g));
+    case "marginAtLeast":
+      return logs.filter((g) => marginAtLeast(g, condition.points));
+    case "checkpoint":
+      return logs.filter((g) => leadStatusFromLog(g, condition.q) === condition.status);
+    case "overtime":
+      return logs.filter((g) => hasOvertimeLog(g) === (condition.value === "ot"));
+    case "opponentLatestWinRate":
+      return logs.filter((g) => matchesOpponentSeasonWinRate(g.opponentTeamId, condition.tier, ctx.opponentLatestWinRates ?? new Map()));
   }
 }
 
@@ -341,6 +412,11 @@ export function ConditionalStandingsTable({
     [teams],
   );
 
+  // 「●人」「●点」の数（条件を切り替えても、打った数を覚えておく）
+  const [numbers, setNumbers] = useState<{ count: number; score: number }>({ count: NUMBER_CONDITION_DEFAULTS.count, score: NUMBER_CONDITION_DEFAULTS.score });
+  const numberFor = (kind: "count" | "score") => numbers[kind];
+  const opponentLatestWinRates = useMemo(() => buildOpponentSeasonWinRates(teams), [teams]);
+
   const conditionGroups: ConditionGroup[] = [
     {
       label: "年明け前後",
@@ -425,8 +501,53 @@ export function ConditionalStandingsTable({
       options: [
         { key: "margin-1pos", label: "3点差以内の試合", condition: { kind: "margin", points: 3 } },
         { key: "margin-2pos", label: "6点差以内の試合", condition: { kind: "margin", points: 6 } },
+        { key: "margin-10plus", label: "10点差以上の試合", condition: { kind: "marginAtLeast", points: 10 } },
+        { key: "margin-20plus", label: "20点差以上の試合", condition: { kind: "marginAtLeast", points: 20 } },
       ],
     },
+    {
+      label: "自チーム外国籍人数",
+      options: [
+        ...[0, 1, 2, 3].map((n) => ({ key: `foreign-eq-${n}`, label: `${n}人`, condition: { kind: "foreign", mode: "eq", n } as ConditionalCondition })),
+        { key: "foreign-le", label: "●人以下", condition: { kind: "foreign", mode: "le", n: numberFor("count") } },
+        { key: "foreign-ge", label: "●人以上", condition: { kind: "foreign", mode: "ge", n: numberFor("count") } },
+      ],
+    },
+    {
+      label: "得点・失点",
+      options: [
+        { key: "score-own-le", label: "得点●点以下", condition: { kind: "score", side: "own", mode: "le", n: numberFor("score") } },
+        { key: "score-own-ge", label: "得点●点以上", condition: { kind: "score", side: "own", mode: "ge", n: numberFor("score") } },
+        { key: "score-opp-le", label: "失点●点以下", condition: { kind: "score", side: "opp", mode: "le", n: numberFor("score") } },
+        { key: "score-opp-ge", label: "失点●点以上", condition: { kind: "score", side: "opp", mode: "ge", n: numberFor("score") } },
+        { key: "both80ge", label: "お互い80点以上", condition: { kind: "bothScore", value: "ge" } },
+        { key: "both80lt", label: "お互い80点未満", condition: { kind: "bothScore", value: "lt" } },
+        { key: "century", label: "100点ゲーム", condition: { kind: "century" } },
+      ],
+    },
+    {
+      label: "対戦相手の強さ（最新勝率）",
+      options: (["under50", "atLeast50", "atLeast60"] as const).map((tier) => ({
+        key: `oppLatest-${tier}`,
+        label: `対${tier === "under50" ? "5割未満" : tier === "atLeast50" ? "5割以上" : "6割以上"}（最新勝率）`,
+        condition: { kind: "opponentLatestWinRate", tier } as ConditionalCondition,
+      })),
+    },
+    {
+      label: "延長",
+      options: [
+        { key: "ot", label: "OT試合", condition: { kind: "overtime", value: "ot" } },
+        { key: "regulation", label: "レギュレーション決着", condition: { kind: "overtime", value: "regulation" } },
+      ],
+    },
+    ...([1, 2, 3] as const).map((q) => ({
+      label: CHECKPOINT_LABELS[q],
+      options: (["lead", "tie", "behind"] as const).map((status) => ({
+        key: `cp${q}-${status}`,
+        label: LEAD_LABELS[status],
+        condition: { kind: "checkpoint", q, status } as ConditionalCondition,
+      })),
+    })),
     {
       label: "試合中の点差（延長戦を含む）",
       options: (Object.keys(MARGIN_CONDITION_LABELS) as MarginCondition[]).map((c) => ({
@@ -444,6 +565,9 @@ export function ConditionalStandingsTable({
   // フィルタバー（DESIGN.md 105章 B6）。条件は排他の単一選択なので、グループ付きの1つのドロップダウンにする
   // （選ぶと「条件」のチップが1つだけ出る）。月別も同じドロップダウンの1グループにまとめた
   const conditionKeyOf = (c: ConditionalCondition) => JSON.stringify(c);
+  // 「●人」「●点」の条件は、数を除いた形で選択肢と照らす
+  const withoutNumber = (c: ConditionalCondition): ConditionalCondition =>
+    conditionNumberKind(c) ? ({ ...c, n: 0 } as ConditionalCondition) : c;
   const conditionOptions: FilterAxisOption[] = [
     { value: "all", label: "条件なし（シーズン全体）" },
     ...conditionGroups.flatMap((g) => g.options.map((o) => ({ value: o.key, label: o.label, group: g.label }))),
@@ -458,7 +582,7 @@ export function ConditionalStandingsTable({
       ? "all"
       : condition.kind === "month"
         ? `month-${condition.value}`
-        : (conditionGroups.flatMap((g) => g.options).find((o) => conditionKeyOf(o.condition) === conditionKeyOf(condition))?.key ?? "all");
+        : (conditionGroups.flatMap((g) => g.options).find((o) => conditionKeyOf(withoutNumber(o.condition)) === conditionKeyOf(withoutNumber(condition)))?.key ?? "all");
   const divisionByTeamId = new Map(teams.map((t) => [t.teamId, t.division]));
   const filterAxes: FilterAxis[] = [
     simpleSelectAxis({
@@ -478,6 +602,7 @@ export function ConditionalStandingsTable({
       presets: playoffZone ? [playoffZone] : [],
     }),
   ];
+  const numberKind = conditionNumberKind(condition);
   const clearFilters = () => {
     setCondition({ kind: "all" });
     setSelectedTeamIds(null);
@@ -497,6 +622,7 @@ export function ConditionalStandingsTable({
         opponentRecords,
         divisionHistory,
         backToBackStatus,
+        opponentLatestWinRates,
       });
       const wins = filtered.filter((g) => g.win).length;
       const losses = filtered.length - wins;
@@ -543,6 +669,7 @@ export function ConditionalStandingsTable({
     teamIdByName,
     selectedTeamIds,
     league,
+    opponentLatestWinRates,
   ]);
 
   // 「相手の勝率」の条件: 相手の消化試合数が下限に満たない時点の試合は数えない。対象の試合の数を表の上に出す
@@ -615,6 +742,24 @@ export function ConditionalStandingsTable({
   return (
     <div>
       <FilterBar axes={filterAxes} stateKey="standings:conditional" onClearAll={clearFilters} />
+      {numberKind && (
+        <p className="standings-number-condition">
+          {numberKind === "count" ? "人数" : "点数"}：
+          <NumberTextInput
+            kind="count"
+            aria-label={numberKind === "count" ? "外国籍の人数" : "点数"}
+            value={String(numbers[numberKind])}
+            onCommit={(t) => {
+              const n = Math.floor(Number(t));
+              if (!Number.isFinite(n) || n < 0) return;
+              setNumbers((prev) => ({ ...prev, [numberKind]: n }));
+              setCondition((c) => (conditionNumberKind(c) === numberKind ? ({ ...c, n } as ConditionalCondition) : c));
+            }}
+            size={4}
+          />{" "}
+          {numberKind === "count" ? "人" : "点"}
+        </p>
+      )}
 
       <h2>{describeCondition(condition)} 順位表</h2>
       {/* 見出しは条件（単一軸）のみ。シーズン・対象試合・チーム絞り込みは条件行で補う（Batch 5、DESIGN.md 99章） */}
