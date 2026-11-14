@@ -254,7 +254,7 @@ async function loadActivePlayerIds(season: string): Promise<Set<string>> {
   return ids;
 }
 
-/** シーズンごとの区分の決め方（集計と同じ shared/registration.ts の makeClassifier。2026-27 以降は登録区分の記録、それより前は選手マスタ） */
+/** シーズンごとの区分の決め方（集計と同じ shared/registration.ts の makeClassifier。全シーズン登録区分の記録〔旧B1 は台帳から作った区分表。387章〕） */
 async function loadClassifiers(seasons: readonly string[], master: PlayerMasterEntry[]): Promise<Map<string, ClassifyAt>> {
   const masterById = new Map(master.map((p) => [p.playerId, p]));
   const out = new Map<string, ClassifyAt>();
@@ -294,7 +294,7 @@ async function main() {
   const careers = await readJson<PlayerCareersFile>(path.join(DATA_DIR, "player-careers.json"));
   const careerCounts = topOfCareerCounts(careers, info);
   // 登録区分ごとに、その区分で出場した試合だけの通算で順位をつけ直した上位20位（試合ごとの区分。DESIGN.md 197・298章）。
-  // 日本人・外国籍・帰化・アジアのまとめは全シーズン（2025-26 以前は選手マスタの区分）、分けた区分は 2026-27 以降の試合だけ。
+  // 日本人・外国籍・帰化・アジアのまとめも分けた区分も全シーズン（387章から。試合の日の区分）。
   // 回数・在籍（試合で分けられない）は、日本人・まとめは選手マスタの区分の選手で数え、分けた区分は出さない
   const master = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
   const classKeyById = new Map(master.map((p) => [p.playerId, classKeyOf(p.classification)]));

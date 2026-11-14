@@ -80,7 +80,7 @@ export function PlayerClutchRanking({ season, teamColors }: { season: string; te
   const seasonForTitle = allTime ? null : season;
 
   const options = useGameRecordOptions(scope, season, league);
-  // 2025-26 以前のシーズンで分けた区分を選んでいるときは、表の代わりに理由を出す。通算で分けた区分は 2026-27 以降の索引だけを読む
+  // 分けた区分を選べないシーズン（387章から無い）で選んでいるときは、表の代わりに理由を出す。通算で分けた区分は記録のあるシーズン（全シーズン）の索引を読む
   const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
   const index = useGameIndexViews("player", scope, season, !classBlocked, { fromSeason: splitSeasonsOnly(group) ? SPLIT_CLASSIFICATION_FIRST_SEASON : null, league });
   const rookies = useRookieFile(isRookieFilter(group));

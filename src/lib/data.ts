@@ -151,7 +151,7 @@ export async function fetchPlayerPageSeasons(): Promise<PlayerPageSeasonsFile> {
 export const ONE_CATEGORY_SEASONS: string[] = ["2025-26", "2026-27"];
 
 /**
- * そのシーズン・リーグの登録区分の記録（data/{season}/registrations.json。B.ONE は one/ 側。2026-27 以降の元データ。DESIGN.md 295・298章）。
+ * そのシーズン・リーグの登録区分の記録（data/{season}/registrations.json。B.ONE は one/ 側。元データ。旧B1 は台帳から作った区分表。DESIGN.md 295・298・387章）。
  * 無いシーズン（2025-26 以前）・読めないときは null
  */
 export async function fetchSeasonRegistrations(season: string, league: League = "premier"): Promise<SeasonRegistrationFile | null> {

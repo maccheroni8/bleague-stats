@@ -13,7 +13,7 @@ import type { SeasonGameTypeFilter } from '../../shared/gameType';
 import { seasonGameTypeLabels } from '../../shared/gameType';
 import { figureClassGroup } from '../lib/figureAge';
 import { CLASSIFICATION_PARAM } from '../lib/urlFilterParams';
-import { classificationFilterLabel, splitClassificationBlocked, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
+import { classificationFilterLabel, splitClassificationBlocked, splitClassificationSeason, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON } from '../lib/classificationFilter';
 import { buildTopScorers, scorerDomain, SCORER_AXES, SCORER_LABELS, scorerAxisTitle, type ScorerAxis, type ScorerPoint } from '../lib/figureTopScorers';
 import { DIVISION_LABELS, divisionOrder } from '../lib/divisionGroups';
 import { DIVISION_RATING_COLORS } from '../lib/figureRatings';
@@ -58,7 +58,7 @@ export default function TopScorersFigure({season,category}:FigureProps){
  const [hover,setHover]=useState<string|null>(null);
  const target=useRef<HTMLDivElement>(null),teamLabel=useTeamLabel();
  const request=useJsonData(async()=>{
-   const [players,teams,divisions,registrations]=await Promise.all([fetchPlayers(season,category),fetchTeams(season,category),fetchDivisionHistory(),season>='2026-27'?fetchSeasonRegistrations(season,category):Promise.resolve(null)]);
+   const [players,teams,divisions,registrations]=await Promise.all([fetchPlayers(season,category),fetchTeams(season,category),fetchDivisionHistory(),splitClassificationSeason(season)?fetchSeasonRegistrations(season,category):Promise.resolve(null)]);
    const [playerLogs,teamLogs]=await Promise.all([Promise.all(players.map(async p=>[p.playerId,await fetchPlayerGameLogs(season,p.playerId,category)] as const)),Promise.all(teams.map(async t=>[t.teamId,await fetchTeamGameLogs(season,t.teamId,category)] as const))]);
    return {players,teams,divisions,registrations,playerLogs:new Map(playerLogs),teamLogs:new Map(teamLogs)};
  },[season,category]);

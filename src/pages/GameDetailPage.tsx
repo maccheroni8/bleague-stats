@@ -342,7 +342,7 @@ export function GameDetailPage({ season }: { season: string }) {
   // カバー済みだが、それ以外（バックフィル対象外の選手・legacy期間の一覧漏れ等）は
   // classification未定義のままになりうる
   const { data: players, loading: playersLoading } = useJsonData(() => fetchPlayers(season, league), [season, league]);
-  // 2026-27 以降は、試合の日の登録区分（登録区分の記録 registrations.json。シーズン途中の変更・見做し日本人を含む。DESIGN.md 298章）
+  // 試合の日の登録区分（登録区分の記録 registrations.json。シーズン途中の変更・見做し日本人を含む。387章から全シーズン。DESIGN.md 298章）
   const classificationSplit = splitClassificationSeason(season);
   const { data: registrations, loading: registrationsLoading } = useJsonData(
     () => (classificationSplit ? loadSeasonRegistrations(season, league).catch(() => null) : Promise.resolve(null)),

@@ -145,7 +145,7 @@ export interface TeamCompareColumnData {
 
 /**
  * 試合ログの外国籍・帰化・アジア特別枠の得点の合計（自チーム・相手。DESIGN.md 298章）。試合ログの値は試合ごとの登録区分で集計済み
- * （2026-27 以降は登録区分の記録）。区分を分けて記録していない 2025-26 以前は作らない（null。比較の行は「-」）
+ * （登録区分の記録。387章から全シーズン）。区分を分けて記録していないシーズンは作らない（null。比較の行は「-」）
  */
 export interface SplitClassPoints {
   foreign: number;

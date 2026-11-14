@@ -678,7 +678,7 @@ export function BoxscoreTable({
   reconstructedPlusMinus,
   manualBoxscore = false,
 }: BoxscoreTableProps) {
-  // 2026-27 以降の試合は、登録区分の内訳で外国籍・帰化・アジア特別枠を分ける（classificationById はその試合の日の区分。DESIGN.md 298章）
+  // 登録区分の記録のあるシーズン（387章から全シーズン）の試合は、登録区分の内訳で外国籍・帰化・アジア特別枠を分ける（classificationById はその試合の日の区分。DESIGN.md 298章）
   const classificationSplit = !!season && splitClassificationSeason(season);
   const [internalActiveTab, setInternalActiveTab] = useState<BoxscoreTabKey>("traditional");
   const [internalPeriodRange, setInternalPeriodRange] = useState<PeriodRangeValue>("all");
@@ -814,7 +814,7 @@ function BoxscoreTeamPanel({
   periodOption: PeriodRangeOption | undefined;
   columns: BoxscoreColumn[];
   classificationById: Map<string, PlayerSummary["classification"]>;
-  /** 外国籍・帰化・アジア特別枠を分けて出すか（2026-27 以降の試合。classificationById はその試合の日の区分） */
+  /** 外国籍・帰化・アジア特別枠を分けて出すか（記録のあるシーズンの試合。classificationById はその試合の日の区分） */
   classificationSplit: boolean;
   shotChartSupported: boolean;
   onCourtRatings: Record<string, PlayerOnCourtRatings>;
@@ -934,7 +934,7 @@ function BoxscoreTeamPanel({
 
   const starters = players.filter((p) => p.startingFlg === 1);
   const bench = players.filter((p) => p.startingFlg !== 1);
-  // 登録区分の内訳は全シーズン「日本人」「外国籍・帰化・アジア」の2行（2026-27 以降は、その試合の日の区分で分け、DESIGN.md 298章・305章）
+  // 登録区分の内訳は全シーズン「日本人」「外国籍・帰化・アジア」の2行（その試合の日の区分で分け、DESIGN.md 298章・305章・387章）
   const classGroups: { label: string; players: typeof players }[] = [
     { label: "日本人選手合計", players: players.filter((p) => classificationGroup(classificationById.get(p.playerId)) === "日本人") },
     { label: "外国籍・帰化・アジア合計", players: players.filter((p) => classificationGroup(classificationById.get(p.playerId)) === "外国籍・帰化・アジア") },

@@ -40,6 +40,7 @@
     "validate:noindex": "node --experimental-strip-types scripts/validate-noindex.ts",
     "validate:update-workflow": "node --experimental-strip-types scripts/validate-update-workflow.ts",
     "validate:registrations": "node --experimental-strip-types scripts/validate-registrations.ts",
+    "validate:registration-history": "node --experimental-strip-types scripts/validate-registration-history.ts",
     "validate:roster-leagues": "node --experimental-strip-types scripts/validate-roster-leagues.ts",
     "check:rule-change": "node --experimental-strip-types scripts/check-rule-change.ts",
     "validate:points-off-turnovers": "node --experimental-strip-types scripts/validate-points-off-turnovers.ts",

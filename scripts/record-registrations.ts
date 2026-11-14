@@ -1,5 +1,6 @@
 // そのシーズン・リーグの登録区分の記録（data/{season}/registrations.json、B.ONE は data/{season}/one/registrations.json。
-// 形式は shared/registration.ts。DESIGN.md 295章）を作る・足す。2026-27 以降だけ。
+// 形式は shared/registration.ts。DESIGN.md 295章）を作る・足す。2026-27 以降だけ（2016-17〜2025-26 は根拠の台帳から作る区分表。
+// scripts/build-registration-history.ts・DESIGN.md 387章。ここからは書き換えない）。
 //
 // - 既定（深夜実行の名簿の取得のあと）: 今の名簿（current-roster.json）とそのシーズンの試合に出た選手のうち、まだ記録の無い選手を、
 //   選手マスタの今の区分（classification・deemedJapanese）で足す。**記録済みの選手は書き換えない**（来季以降に選手マスタの区分が
@@ -21,7 +22,7 @@ import { DATA_DIR, gamesDir, readJson, seasonDirName, writeJsonIfChanged } from 
 import { isMainModule } from "./lib/isMain.ts";
 import {
   CLASSIFICATION_CODES,
-  hasSplitClassification,
+  REGISTRATION_RECORDING_FIRST_SEASON,
   type Classification,
   type SeasonRegistrationEntry,
   type SeasonRegistrationFile,
@@ -96,8 +97,8 @@ async function main(): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  if (!hasSplitClassification(season)) {
-    console.log(`${season}: 登録区分の記録は 2026-27 以降だけです（何もしません）`);
+  if (season < REGISTRATION_RECORDING_FIRST_SEASON) {
+    console.log(`${season}: ここで記録するのは ${REGISTRATION_RECORDING_FIRST_SEASON} 以降だけです（それより前は docs/registration-history/ の台帳を直して build-registration-history.ts を流す。何もしません）`);
     return;
   }
 

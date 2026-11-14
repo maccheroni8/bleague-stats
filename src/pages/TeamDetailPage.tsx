@@ -262,7 +262,7 @@ import { loadLeaguePaintComplete } from "../lib/teamPaint2Load";
 import { FORCED_TURNOVER_COLUMNS } from "../lib/forcedTurnoverColumns";
 import { categoryNeedsYahoo, type OpponentSplitCategory } from "../lib/opponentSplit";
 import { useClassSplitSources } from "../lib/teamClassSplitLoad";
-import { JAPANESE_DEEMED_NOTE, SPLIT_CLASSIFICATION_FIRST_SEASON, splitClassificationSeason } from "../lib/classificationFilter";
+import { JAPANESE_DEEMED_NOTE, splitClassificationSeason } from "../lib/classificationFilter";
 import { hasUnclassifiedRows } from "../lib/teamClassSplit";
 import { buildSeasonClassRow, classRowLabel, seasonClassFormatters, seasonSplitClasses } from "../lib/teamSeasonClassSplit";
 import { buildSeasonPeriodRow, seasonPeriodCell, seasonPeriodFormatters, unavailableSeasonPeriodLabels, useTeamPeriodSources } from "../lib/teamSeasonPeriod";
@@ -5377,7 +5377,7 @@ export function TeamDetailPage({ season }: { season: string }) {
                 }) && <p className="page-subtitle">登録区分が付いていない選手（選手マスタに無い選手）の記録は、どの区分にも入れていません。</p>}
                 <p className="page-subtitle">
                   {[...openClassSeasons].some((sn) => splitClassificationSeason(sn))
-                    ? `${SPLIT_CLASSIFICATION_FIRST_SEASON}シーズン以降は外国籍・帰化・アジア特別枠を分け、試合ごとの区分で数えています（それより前は「外国籍・帰化・アジア」のまとめ）。`
+                    ? "外国籍・帰化・アジア特別枠を分け、試合ごとの区分で数えています。"
                     : ""}
                   {JAPANESE_DEEMED_NOTE}
                 </p>

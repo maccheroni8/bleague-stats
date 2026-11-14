@@ -1,10 +1,10 @@
-// 登録区分の分割（外国籍・帰化・アジア特別枠。2026-27 以降。shared/registration.ts・DESIGN.md 295章）の検証。データだけで動く。
+// 登録区分の分割（外国籍・帰化・アジア特別枠。387章から全シーズン。shared/registration.ts・DESIGN.md 295・387章）の検証。データだけで動く。
 //
-// 1. 区分を決める処理: シーズン途中の変更は日付で当てる・2025-26 以前は記録を見ない・記録の無い選手は選手マスタ
+// 1. 区分を決める処理: シーズン途中の変更は日付で当てる・全シーズン記録を見る・記録の無い選手は選手マスタ・自動の記録は 2026-27 以降だけ
 // 2. 登録区分の記録（data/{season}/registrations.json・one/ 側）の形: シーズン・リーグ・区分の値・変更の日付の並びと範囲・見做し日本人は日本人だけ・選手マスタにある選手
 // 3. 選手マスタ: 見做し日本人は日本人で印つき。手動の上書き一覧の帰化選手・アジア特別枠が選手マスタの区分と同じ
-// 4. 導出データ（npm run build:data のあと）: 2026-27 以降の1試合の索引は行ごとの区分（rows.cls）を持ち、その区分で足した得点が、
-//    チームの試合ログの日本人・外国籍・帰化・アジア特別枠の得点と試合ごとに一致する。2025-26 以前の索引は rows.cls を持たない
+// 4. 導出データ（npm run build:data のあと）: 全シーズンの1試合の索引は行ごとの区分（rows.cls）を持ち、その区分で足した得点が、
+//    チームの試合ログの日本人・外国籍・帰化・アジア特別枠の得点と試合ごとに一致する
 // 記録の無い出場選手（深夜の記録の前に試合に出た選手）は、選手マスタの区分で数えるので失敗にはせず件数だけ出す
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
@@ -12,6 +12,7 @@ import { DATA_DIR, readAllGames, readJson, seasonDirName } from "./lib/storage.t
 import { CLASSIFICATION_OVERRIDES, DEEMED_JAPANESE_PLAYER_IDS } from "./lib/playerClassificationOverrides.ts";
 import {
   CLASSIFICATION_CODES,
+  REGISTRATION_RECORDING_FIRST_SEASON,
   SPLIT_CLASSIFICATION_FIRST_SEASON,
   hasSplitClassification,
   makeClassifier,
@@ -38,10 +39,11 @@ function check(name: string, ok: boolean, detail = ""): void {
     ["2", { classification: "日本人" as const }],
   ]);
   const reg: SeasonRegistrationFile = { season: "x", league: "premier", players: { "1": { classification: "アジア特別枠" } } };
-  check("2026-27 以降は記録の区分", makeClassifier("2026-27", reg, master)("1") === "アジア特別枠");
-  check("2026-27 以降でも記録の無い選手は選手マスタ", makeClassifier("2026-27", reg, master)("2") === "日本人");
-  check("2025-26 以前は記録があっても選手マスタ", makeClassifier("2025-26", reg, master)("1") === "外国籍");
-  check("分けて選べる最初のシーズンは 2026-27", SPLIT_CLASSIFICATION_FIRST_SEASON === "2026-27" && hasSplitClassification("2026-27") && !hasSplitClassification("2025-26"));
+  check("2026-27 は記録の区分", makeClassifier("2026-27", reg, master)("1") === "アジア特別枠");
+  check("記録の無い選手は選手マスタ", makeClassifier("2026-27", reg, master)("2") === "日本人");
+  check("2025-26 以前も記録の区分（旧B1 の台帳）", makeClassifier("2025-26", reg, master)("1") === "アジア特別枠" && makeClassifier("2016-17", reg, master)("1") === "アジア特別枠");
+  check("分けて選べる最初のシーズンは 2016-17", SPLIT_CLASSIFICATION_FIRST_SEASON === "2016-17" && hasSplitClassification("2016-17") && hasSplitClassification("2026-27"));
+  check("選手マスタから自動で記録するのは 2026-27 から", REGISTRATION_RECORDING_FIRST_SEASON === "2026-27");
 }
 
 const masterList = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
@@ -66,7 +68,7 @@ for (const season of seasons) {
     const file = await readJson<SeasonRegistrationFile>(path.join(DATA_DIR, seasonDirName(season, league), "registrations.json"));
     if (!file) continue;
     const label = `${season} ${league}`;
-    check(`${label}: 2026-27 以降のシーズン`, hasSplitClassification(season));
+    check(`${label}: 区分を分けて記録するシーズン`, hasSplitClassification(season));
     check(`${label}: ファイルのシーズン・リーグが置き場所と同じ`, file.season === season && file.league === league, `${file.season} ${file.league}`);
     const start = `${season.slice(0, 4)}-08-01`;
     const end = `${Number(season.slice(0, 4)) + 1}-07-31`;
@@ -103,10 +105,7 @@ for (const season of seasons) {
     const index = await readJson<PlayerGameIndexFile>(path.join(dir, "player-game-index.json"));
     if (!index) continue;
     const label = `${season} ${league}`;
-    if (!hasSplitClassification(season)) {
-      check(`${label}: 2025-26 以前の索引は行ごとの区分を持たない`, index.rows.cls === undefined);
-      continue;
-    }
+    if (!hasSplitClassification(season)) continue;
     derivedChecked += 1;
     const cls = index.rows.cls;
     check(`${label}: 索引が行ごとの区分を持つ`, !!cls && cls.length === index.rows.player.length);
@@ -142,7 +141,7 @@ for (const season of seasons) {
     }
   }
 }
-check("2026-27 以降の索引を1つ以上確かめた", derivedChecked > 0);
+check(`索引を全シーズン（${seasons.length}）確かめた`, derivedChecked >= seasons.length);
 
 if (failed > 0) {
   console.error(`\n${failed}件の確認が通りませんでした`);
