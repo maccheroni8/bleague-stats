@@ -99,6 +99,7 @@ import {
 } from "../lib/filterAxes";
 import { periodInRange, type PeriodRangeValue } from "../lib/periodRange";
 import { gameHasOvertime } from "../lib/gamePeriods";
+import { isCenturyGame, leadStatusFromLog, marginAtLeast, matchesBothScores, matchesForeignCount, matchesTeamScore } from "../lib/situationalRecords";
 import { PlayerPhoto } from "../components/PlayerPhoto";
 import { TeamDetailPublicMediaScope, TeamDetailPublicLogo, TeamDetailPublicPlayerPhoto } from "../components/TeamDetailPublicMedia";
 import { formatDecimal, formatPct, formatPct100, formatRecord, formatSigned, formatWinPct } from "../lib/format";
@@ -1718,25 +1719,14 @@ function marginWithinFixedPoints(g: TeamGameLog, points: number): boolean {
   return Math.abs(g.teamScore - g.opponentScore) <= points;
 }
 
-function cumulativeQuarterScore(scores: number[], throughQuarter: number): number {
-  return scores.slice(0, throughQuarter).reduce((a, b) => a + b, 0);
-}
-
-/** 指定Q終了時点でのリード/同点/ビハインドを、rawGame.quarterScores（既存の試合詳細ページの
- * スコアボードと同じデータ）から判定する。rawGame未取得ならundefined（呼び出し側で除外） */
+/** 指定Q終了時点でのリード/同点/ビハインド。試合ログの1Q〜4Qの得点（periodPoints）から判定する
+ * （条件別順位表と同じ関数。lib/situationalRecords.ts。公式のクォーター別スコアが欠けた試合も、補った得点で判定できる。設計書387章） */
 function statusAtCheckpoint(
   g: TeamGameLog,
-  rawGame: StoredGame | undefined,
+  _rawGame: StoredGame | undefined,
   throughQuarter: number,
 ): "lead" | "tie" | "behind" | undefined {
-  if (!rawGame) return undefined;
-  const home = cumulativeQuarterScore(rawGame.quarterScores.home, throughQuarter);
-  const away = cumulativeQuarterScore(rawGame.quarterScores.away, throughQuarter);
-  const own = g.isHome ? home : away;
-  const opp = g.isHome ? away : home;
-  if (own > opp) return "lead";
-  if (own < opp) return "behind";
-  return "tie";
+  return leadStatusFromLog(g, throughQuarter);
 }
 
 /**
@@ -1864,36 +1854,36 @@ export function buildSituationalRecordGroups(
       rows: [0, 1, 2, 3].map((n) => ({
         key: `own${n}`,
         label: `${n}人`,
-        predicate: (g: TeamGameLog) => g.foreignPlayerCount === n,
+        predicate: (g: TeamGameLog) => matchesForeignCount(g, "eq", n),
       })),
     },
     {
       key: "score",
       label: "得点/失点",
       rows: [
-        { key: "score80plus", label: "80得点以上", predicate: (g: TeamGameLog) => g.teamScore >= 80 },
-        { key: "score80under", label: "80得点未満", predicate: (g: TeamGameLog) => g.teamScore < 80 },
-        { key: "allow80under", label: "80失点未満", predicate: (g: TeamGameLog) => g.opponentScore < 80 },
-        { key: "allow80plus", label: "80失点以上", predicate: (g: TeamGameLog) => g.opponentScore >= 80 },
+        { key: "score80plus", label: "80得点以上", predicate: (g: TeamGameLog) => matchesTeamScore(g, "own", "ge", 80) },
+        { key: "score80under", label: "80得点未満", predicate: (g: TeamGameLog) => !matchesTeamScore(g, "own", "ge", 80) },
+        { key: "allow80under", label: "80失点未満", predicate: (g: TeamGameLog) => !matchesTeamScore(g, "opp", "ge", 80) },
+        { key: "allow80plus", label: "80失点以上", predicate: (g: TeamGameLog) => matchesTeamScore(g, "opp", "ge", 80) },
         {
           key: "both80plus",
           label: "お互い80点以上",
-          predicate: (g: TeamGameLog) => g.teamScore >= 80 && g.opponentScore >= 80,
+          predicate: (g: TeamGameLog) => matchesBothScores(g, "ge"),
         },
         {
           key: "both80under",
           label: "お互い80点未満",
-          predicate: (g: TeamGameLog) => g.teamScore < 80 && g.opponentScore < 80,
+          predicate: (g: TeamGameLog) => matchesBothScores(g, "lt"),
         },
-        { key: "century", label: "100点ゲーム", predicate: (g: TeamGameLog) => g.teamScore >= 100 || g.opponentScore >= 100 },
+        { key: "century", label: "100点ゲーム", predicate: (g: TeamGameLog) => isCenturyGame(g) },
       ],
     },
     {
       key: "margin",
       label: "点差決着",
       rows: [
-        { key: "margin10", label: "10点差以上", predicate: (g: TeamGameLog) => Math.abs(g.teamScore - g.opponentScore) >= 10 },
-        { key: "margin20", label: "20点差以上", predicate: (g: TeamGameLog) => Math.abs(g.teamScore - g.opponentScore) >= 20 },
+        { key: "margin10", label: "10点差以上", predicate: (g: TeamGameLog) => marginAtLeast(g, 10) },
+        { key: "margin20", label: "20点差以上", predicate: (g: TeamGameLog) => marginAtLeast(g, 20) },
         { key: "poss1", label: "3点差以内", predicate: (g: TeamGameLog) => marginWithinFixedPoints(g, 3) },
         { key: "poss2", label: "6点差以内", predicate: (g: TeamGameLog) => marginWithinFixedPoints(g, 6) },
       ],

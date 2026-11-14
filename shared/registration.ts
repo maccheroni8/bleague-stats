@@ -4,14 +4,14 @@
 // - 全シーズン（SPLIT_CLASSIFICATION_FIRST_SEASON＝2016-17 から）: そのシーズン・リーグの登録区分の記録（data/{season}/registrations.json、B.ONE は one/ 側）が
 //   あればその値。シーズン途中の変更（changes）は、その日以降の試合だけに当てる。記録に無い選手は選手マスタの区分。
 //   2026-27 以降は record-registrations.ts が記録する（REGISTRATION_RECORDING_FIRST_SEASON）。2016-17〜2025-26（旧B1）は
-//   根拠の台帳（docs/registration-history/）から作った区分表（DESIGN.md 387章。scripts/build-registration-history.ts）
+//   根拠の台帳（docs/registration-history/）から作った区分表（DESIGN.md 388章。scripts/build-registration-history.ts）
 //
 // 見做し日本人は classification を「日本人」にして deemedJapanese を付ける（国籍は書き換えない）。オンザコートの人数には数えない
 import type { PlayerMasterEntry } from "./types.ts";
 
 export type Classification = NonNullable<PlayerMasterEntry["classification"]>;
 
-/** 外国籍・帰化・アジア特別枠を分けて選べる最初のシーズン（登録区分の記録を読む最初のシーズン。387章で旧B1 の台帳を入れて 2016-17 から） */
+/** 外国籍・帰化・アジア特別枠を分けて選べる最初のシーズン（登録区分の記録を読む最初のシーズン。388章で旧B1 の台帳を入れて 2016-17 から） */
 export const SPLIT_CLASSIFICATION_FIRST_SEASON = "2016-17";
 
 /** record-registrations.ts が選手マスタから記録を足す最初のシーズン（それより前は台帳から作った区分表で、自動では書き足さない） */

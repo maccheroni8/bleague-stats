@@ -355,7 +355,8 @@ export function periodAxis(
     id: "period",
     label: opts.label ?? PERIOD_AXIS_LABEL,
     tier: opts.tier ?? "primary",
-    options: options.map((o) => ({ value: o.value, label: periodLabels(o)[0] ?? o.label })),
+    // 選択肢の名前は、クラッチだけ「クラッチ」のまま（サブタイトル・保存画像の「クラッチタイム」とは別。設計書387章）
+    options: options.map((o) => ({ value: o.value, label: o.value === "clutch" ? o.label : (periodLabels(o)[0] ?? o.label) })),
     value,
     defaultValue: "all",
     onChange: (v) => onChange(v as PeriodRangeValue),
@@ -366,7 +367,7 @@ export function periodAxis(
 /**
  * 登録区分: 日本人／外国籍／帰化／アジア特別枠のチェック（複数選べる。何も選ばなければ全選手）。選んだ区分の選手を合わせて数える。
  * 値（value・onChange）は classificationFilter.ts の絞り込みの値（"帰化,アジア特別枠" のような文字列。ルーキーのスイッチが入っていれば "rookie" を含む）。
- * 分けた区分を選べないシーズンでは外国籍・帰化・アジア特別枠は選べず（理由を出す）、まとめの「外国籍・帰化・アジア」を1つの選択肢として出す（387章から当てはまるシーズンは無い）。
+ * 分けた区分を選べないシーズンでは外国籍・帰化・アジア特別枠は選べず（理由を出す）、まとめの「外国籍・帰化・アジア」を1つの選択肢として出す（388章から当てはまるシーズンは無い）。
  * 通算・歴代（season が null）では分けた区分もまとめも選べる（全シーズンの試合を試合の日の区分で数える）。
  * 「外国籍・帰化・アジア特別枠」の一括ボタン付き（DESIGN.md 298章・324章）
  */

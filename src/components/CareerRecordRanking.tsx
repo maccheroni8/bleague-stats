@@ -87,7 +87,7 @@ export function PlayerCareerRecordRanking({ teamColors }: { teamColors: Record<s
   const item = PLAYER_ITEMS.find((d) => d.key === statParam) ?? PLAYER_ITEMS[0]!;
   const countDef = PLAYER_COUNT_ITEMS.find((d) => `${CAREER_CONDITION_KEY_PREFIX}${d.key}` === item.key);
   const def = { key: item.key, label: item.label };
-  // 登録区分を選んだときは、その区分で出場した試合だけの通算での上位（区分ごとの表。DESIGN.md 197・298・387章）。分けた区分も全シーズンの試合
+  // 登録区分を選んだときは、その区分で出場した試合だけの通算での上位（区分ごとの表。DESIGN.md 197・298・388章）。分けた区分も全シーズンの試合
   const classKey = topFileClassKey(classification);
   const splitKey = isSplitClassificationGroup(classification) ? SPLIT_CAREER_KEY[classification] : null;
   const splitCountBlocked = !!splitKey && !!countDef;

@@ -1,5 +1,5 @@
 // 旧B1（2016-17〜2025-26）の登録区分の根拠（docs/registration-history/{season}.json）から、集計に使う最小の区分表
-// （data/{season}/registrations.json.gz。元データ）を作る（DESIGN.md 387章）。中身が同じなら書き換えない（保存キーは変わらない）。
+// （data/{season}/registrations.json.gz。元データ）を作る（DESIGN.md 388章）。中身が同じなら書き換えない（保存キーは変わらない）。
 // 根拠の区分・切り替えの日付を直したら、これを流して区分表もコミットする（validate:registration-history が食い違いを検出する）。
 //   node --experimental-strip-types scripts/build-registration-history.ts
 import path from "node:path";

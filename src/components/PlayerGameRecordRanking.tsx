@@ -136,7 +136,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const topKey = topFileClassKey(group);
   // シーズンの途中で区分が変わった選手がいるシーズンは、日本人・まとめも索引の試合ごとの区分で数える（上位20位のファイルは選手ごとの1つの区分で作られている）
   const registrationChanges = useRegistrationChanges(allTime ? splitRecordedSeasons() : [season], league, topKey === "jp" || topKey === "intl");
-  // 分けた区分を選べないシーズン（387章から無い）で選んでいるときは、表の代わりに理由を出す（通算・歴代は全シーズンの試合を試合の日の区分で数える）
+  // 分けた区分を選べないシーズン（388章から無い）で選んでいるときは、表の代わりに理由を出す（通算・歴代は全シーズンの試合を試合の日の区分で数える）
   const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
   // 条件が無く、上位20位のファイルで出せる間は索引を読まない。ファイルに無い表（ワースト）・条件・ルーキー・ポジション・前後半5分の特別試合を除く指定は索引から
   const useIndex =

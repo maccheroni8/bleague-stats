@@ -1,6 +1,6 @@
 // そのシーズン・リーグの登録区分の記録（data/{season}/registrations.json、B.ONE は data/{season}/one/registrations.json。
 // 形式は shared/registration.ts。DESIGN.md 295章）を作る・足す。2026-27 以降だけ（2016-17〜2025-26 は根拠の台帳から作る区分表。
-// scripts/build-registration-history.ts・DESIGN.md 387章。ここからは書き換えない）。
+// scripts/build-registration-history.ts・DESIGN.md 388章。ここからは書き換えない）。
 //
 // - 既定（深夜実行の名簿の取得のあと）: 今の名簿（current-roster.json）とそのシーズンの試合に出た選手のうち、まだ記録の無い選手を、
 //   選手マスタの今の区分（classification・deemedJapanese）で足す。**記録済みの選手は書き換えない**（来季以降に選手マスタの区分が

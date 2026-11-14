@@ -13,7 +13,7 @@ import path from "node:path";
 export const SEASON_DIR_PATTERN = /^\d{4}-\d{2}$/;
 
 /** シーズンのディレクトリ（data/{season}/ と data/{season}/one/）にある元データ（A） */
-// registrations.json.gz: そのシーズン・リーグの登録区分の記録（2026-27 以降は record-registrations.ts、2016-17〜2025-26 は根拠の台帳 docs/registration-history/ から作った区分表。shared/registration.ts。DESIGN.md 295・387章）。
+// registrations.json.gz: そのシーズン・リーグの登録区分の記録（2026-27 以降は record-registrations.ts、2016-17〜2025-26 は根拠の台帳 docs/registration-history/ から作った区分表。shared/registration.ts。DESIGN.md 295・388章）。
 // シーズンの元データなので、変えても保存キーが変わるのはそのシーズンだけ（進行中のシーズンは保存しないので作り直しは起きない）
 export const SEASON_RAW_ENTRIES = ["games", "yahoo", "schedule.json.gz", "registrations.json.gz"] as const;
 

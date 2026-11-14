@@ -7,7 +7,7 @@ import type { PlayerSummary } from "../../shared/types";
  * 選手の登録区分フィルタ・表示区分（DESIGN.md 94章・295章・298章）。
  *
  * 選択肢は「全選手／日本人／外国籍／帰化／アジア特別枠」（＋ルーキー）。外国籍・帰化・アジア特別枠を分けて選べるのは
- * 登録区分の記録 registrations.json があるシーズン（shared/registration.ts）。387章で旧B1（2016-17〜2025-26）の台帳を入れたので全シーズン。
+ * 登録区分の記録 registrations.json があるシーズン（shared/registration.ts）。388章で旧B1（2016-17〜2025-26）の台帳を入れたので全シーズン。
  * 分けて選べるシーズンでは、まとめ（URL cls=intl）は外国籍・帰化・アジア特別枠の3つにチェックが入った状態として出す（通算・歴代ではまとめも選べる）。
  *
  * 区分を選んだときは「その区分で出場した試合だけ」を数える。シーズンの途中で区分が変わった選手は、試合ごとの区分で分ける
@@ -16,7 +16,7 @@ import type { PlayerSummary } from "../../shared/types";
  *
  * 「全選手」タブ（PlayersListPage.tsx）・ランキング・チームの区分別・図解から共通に使う
  */
-/** 分けた区分（登録区分の記録のあるシーズンで選べる。387章から全シーズン） */
+/** 分けた区分（登録区分の記録のあるシーズンで選べる。388章から全シーズン） */
 export type SplitClassificationGroup = "外国籍" | "帰化" | "アジア特別枠";
 /** まとめの区分（通算・歴代と旧URL） */
 export const COMBINED_INTL_GROUP = "外国籍・帰化・アジア";
@@ -132,14 +132,14 @@ export function bulkIntlTokens(season: string | null): ClassificationGroup[] {
   return season !== null && splitClassificationSeason(season) ? [...SPLIT_CLASSIFICATION_GROUPS] : [COMBINED_INTL_GROUP];
 }
 
-/** 分けた区分を選べるシーズンか（387章で旧B1 の台帳を入れて全シーズン。B.ONE は 2026-27 から） */
+/** 分けた区分を選べるシーズンか（388章で旧B1 の台帳を入れて全シーズン。B.ONE は 2026-27 から） */
 export function splitClassificationSeason(season: string): boolean {
   return hasSplitClassification(season);
 }
 
 export { SPLIT_CLASSIFICATION_FIRST_SEASON };
 
-/** 分けた区分を選べないシーズンで選んだときの理由（表の代わりに出す。387章から当てはまるシーズンは無い） */
+/** 分けた区分を選べないシーズンで選んだときの理由（表の代わりに出す。388章から当てはまるシーズンは無い） */
 export const SPLIT_CLASSIFICATION_UNAVAILABLE_REASON = `外国籍・帰化・アジア特別枠を分けて見られるのは${SPLIT_CLASSIFICATION_FIRST_SEASON}シーズンからです（それより前は区分を分けて記録していません）。${COMBINED_INTL_GROUP}をまとめて見るときは「${COMBINED_INTL_GROUP}」を選んでください。`;
 
 
@@ -157,7 +157,7 @@ export function splitClassificationBlocked(filter: string, season: string | null
   return season !== null && includesSplitClassification(filter) && !splitClassificationSeason(season);
 }
 
-/** 表の下に出す区分の注記（387章で全シーズンの区分を分けて記録したので、通算・歴代でも分けた区分の注記は付けない。scope は呼び出し側との互換のため残す） */
+/** 表の下に出す区分の注記（388章で全シーズンの区分を分けて記録したので、通算・歴代でも分けた区分の注記は付けない。scope は呼び出し側との互換のため残す） */
 export function classificationNotes(filter: string, _scope: "season" | "allTime"): string[] {
   const notes: string[] = [];
   if (includesJapanese(filter)) notes.push(JAPANESE_DEEMED_NOTE);
@@ -212,7 +212,7 @@ export function classificationCodeMatches(code: number, filter: ClassificationGr
 
 /**
  * 選手の1試合行の索引の i 行目が、登録区分の絞り込みに当てはまるか（その試合での区分）。
- * 記録のあるシーズン（387章から全シーズン）の索引は行ごとの区分（rows.cls。シーズン途中の変更・見做し日本人を含む）、それより前（と古い索引）は選手の辞書の区分（jp／intl）。
+ * 記録のあるシーズン（388章から全シーズン）の索引は行ごとの区分（rows.cls。シーズン途中の変更・見做し日本人を含む）、それより前（と古い索引）は選手の辞書の区分（jp／intl）。
  * 分けた区分は行ごとの区分がある行だけが当てはまる（通算・歴代で選ぶと 2026-27 以降の試合だけになる）
  */
 export function indexRowClassMatches(file: Pick<PlayerGameIndexFile, "players" | "rows">, i: number, filter: ClassificationGroupFilter): boolean {

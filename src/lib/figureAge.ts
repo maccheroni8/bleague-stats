@@ -30,7 +30,7 @@ export function figureRowClassKey(view: PlayerGameIndexView, i: number, fallback
 }
 
 /**
- * 年齢分布の印のための区分。分けられるシーズン（行ごとの区分 rows.cls。387章から全シーズン）は
+ * 年齢分布の印のための区分。分けられるシーズン（行ごとの区分 rows.cls。388章から全シーズン）は
  * jp＝日本人・foreign＝外国籍・naturalized＝帰化／アジア特別枠。分けられないときは従来どおり jp／intl（外国籍・帰化・アジア）
  */
 export function figureRowRegistration(view: PlayerGameIndexView, i: number, fallback: "jp" | "intl" | ""): string {

@@ -1,4 +1,4 @@
-// 旧B1（B.PREMIER の 2016-17〜2025-26）の登録区分の台帳（DESIGN.md 387章）。
+// 旧B1（B.PREMIER の 2016-17〜2025-26）の登録区分の台帳（DESIGN.md 388章）。
 // 根拠（docs/registration-history/{season}.json。URL・確かさ・所属の観測など）と、集計に使う最小の区分表（data/{season}/registrations.json.gz。
 // 選手ID・シーズンの初めの区分・切り替えの日付だけ）を分ける。区分表は根拠から作るので、根拠を書き足しただけでは区分表（＝保存キー）は変わらない。
 // 集計からは読まない（保存キーの対象外）。作るのは scripts/build-registration-history.ts、確かめるのは scripts/validate-registration-history.ts

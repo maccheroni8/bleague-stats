@@ -258,7 +258,7 @@ export function useTeamCompareSlot({
     return buildTeamMultiGameBoxTotals(entries, yahooTurnovers, shotChartSupported, yahooPbpSupported);
   }, [base, filtered, pending, games, yahoo, shotChartSupported, yahooPbpSupported]);
 
-  // 外国籍・帰化・アジア特別枠の得点は、区分を分けて記録しているシーズン（387章から全シーズン）だけ（DESIGN.md 298章）
+  // 外国籍・帰化・アジア特別枠の得点は、区分を分けて記録しているシーズン（388章から全シーズン）だけ（DESIGN.md 298章）
   const logTotals = useMemo(
     () =>
       base && filtered.length > 0

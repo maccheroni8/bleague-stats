@@ -173,7 +173,7 @@ export function PlayerLineupRanking({ season, teamColors }: { season: string; te
   const supported = allTime || lineupSeasonSupported(season);
 
   const { data: careerSeasons, error: careerError } = useJsonData<string[] | null>(() => (allTime ? lineupCareerSeasons() : Promise.resolve(null)), [allTime]);
-  // 分けた区分を選べないシーズン（387章から無い）で選んでいるときは、表の代わりに理由を出す。通算で分けた区分は記録のあるシーズン（全シーズン）を読む
+  // 分けた区分を選べないシーズン（388章から無い）で選んでいるときは、表の代わりに理由を出す。通算で分けた区分は記録のあるシーズン（全シーズン）を読む
   const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
   const splitGroup = splitSeasonsOnly(group);
   const seasons = useMemo(

@@ -183,7 +183,7 @@ export async function buildGameIndex(
   const summaryById = new Map(playersJson.map((p) => [p.playerId, p]));
   const master = (await readJson<PlayerMasterEntry[]>(path.join(DATA_DIR, "players-master.json"))) ?? [];
   const masterById = new Map(master.map((p) => [p.playerId, p]));
-  // 外国籍・帰化・アジア特別枠を分けて選べるシーズン（387章から全シーズン）は、行ごとにその試合での登録区分を持つ（shared/registration.ts。DESIGN.md 295章）
+  // 外国籍・帰化・アジア特別枠を分けて選べるシーズン（388章から全シーズン）は、行ごとにその試合での登録区分を持つ（shared/registration.ts。DESIGN.md 295章）
   const splitClasses = hasSplitClassification(season);
   const classifyAt = makeClassifier(
     season,

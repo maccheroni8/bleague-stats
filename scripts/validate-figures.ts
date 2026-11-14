@@ -315,7 +315,7 @@ if(source){
   assert.equal(scoringLabelStep(282,od),10,"スマホ幅でも重ならなければ10刻み");
   assert.equal(scoringLabelStep(120,od),20,"重なるときだけ20刻み");
   assert.equal(SCORING_AXIS_MIN,10);assert.equal(SCORING_AXIS_MAX,60);
-  assert.deepEqual(scoringYModes("2025-26"),["foreign","intl"],"387章から過去シーズンも外国籍だけを分けられる");
+  assert.deepEqual(scoringYModes("2025-26"),["foreign","intl"],"388章から過去シーズンも外国籍だけを分けられる");
   assert.deepEqual(scoringYModes("2016-17"),["foreign","intl"]);
   assert.deepEqual(scoringYModes("2026-27"),["foreign","intl"]);
   console.log("日本人・外国籍の得点の散布図: 分母・視点・欠損・リーグ平均・軸 OK");

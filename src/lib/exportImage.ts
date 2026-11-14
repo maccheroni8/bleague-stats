@@ -16,6 +16,7 @@ import {
 } from "./exportFormat";
 import { exportDebug, exportDebugEnabled, exportExperiments } from "./exportDebugLog";
 import { NARROW_QUERY } from "./teamLabel";
+import { CLUTCH_TIME_DEFINITION } from "./conditionLabels";
 import { withForcedViewportWidth } from "./useMediaQuery";
 
 export { baseDateFooterText, exportFilenameWithOptions };
@@ -336,6 +337,13 @@ function prepareClone(doc: Document, clonedEl: HTMLElement, options: ExportOptio
     footer.prepend(date);
   }
   date.textContent = baseDateFooterText(options.baseDate);
+  // クラッチタイムの条件のときだけ、フッターの1行目に定義を書く（設計書387章）
+  if (clonedEl.querySelector("[data-clutch-time]") && !footer.querySelector(".export-footer-definition")) {
+    const def = doc.createElement("span");
+    def.className = "export-footer-definition";
+    def.textContent = CLUTCH_TIME_DEFINITION;
+    footer.prepend(def);
+  }
   const account = doc.createElement("span");
   account.className = "export-footer-account";
   account.textContent = EXPORT_ACCOUNT_NAME;
