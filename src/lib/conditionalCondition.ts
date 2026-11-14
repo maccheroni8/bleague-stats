@@ -24,9 +24,12 @@ import {
   leadStatusFromLog,
   marginAtLeast,
   matchesBothScores,
+  FOREIGN_MEASURE_LABELS,
+  FOREIGN_MEASURE_MAX,
   matchesForeignCount,
   matchesTeamScore,
   type CountMode,
+  type ForeignMeasure,
   type Lead,
 } from "./situationalRecords";
 import { matchesOpponentSeasonWinRate, type OpponentSeasonTier } from "./opponentSeasonWinRate";
@@ -65,8 +68,11 @@ export type ConditionalCondition =
   // クラッチタイムになった試合（第4Q・延長の残り5:00以下で5点差以内の時間かプレーがあった試合。勝敗は試合の最終結果。判定できない試合は入らない。設計書375章）
   | { kind: "clutch" }
   // チーム詳細の「シチュエーション別勝敗」と同じ条件（設計書387章。判定は lib/situationalRecords.ts の共通の関数）
-  /** 自チームの外国籍人数（試合ごとの同時出場人数）。eq＝ちょうど、le＝以下、ge＝以上 */
-  | { kind: "foreign"; mode: CountMode; n: number }
+  /**
+   * 自チームの外国籍の人数。measure＝数え方（外国籍の出場人数／外国籍・帰化・アジアの出場人数／最長のオンザコート人数。
+   * 省略は最長のオンザコート人数〔392章より前の URL・保存した設定の「foreign-…」〕）。eq＝ちょうど、le＝以下、ge＝以上
+   */
+  | { kind: "foreign"; mode: CountMode; n: number; measure?: ForeignMeasure }
   /** 得点（own）・失点（opp）が n 点以下／以上 */
   | { kind: "score"; side: "own" | "opp"; mode: "le" | "ge"; n: number }
   | { kind: "bothScore"; value: "ge" | "lt" }
@@ -89,6 +95,13 @@ export function conditionNumberKind(c: ConditionalCondition): "count" | "score" 
 export const NUMBER_CONDITION_DEFAULTS = { count: 2, score: 80 } as const;
 const MODE_LABELS = { eq: "", le: "以下", ge: "以上" } as const;
 export const CHECKPOINT_LABELS = { 1: "Q1終了時点", 2: "前半終了時点", 3: "3Q終了時点" } as const;
+
+/** 外国籍の人数の条件のキーの頭（数え方ごと） */
+const FOREIGN_CONDITION_KEYS: { measure: ForeignMeasure; prefix: string }[] = [
+  { measure: "foreignPlayed", prefix: "fplayed" },
+  { measure: "intlPlayed", prefix: "iplayed" },
+  { measure: "longestOnCourt", prefix: "foreign" },
+];
 
 /** 「序盤戦/中盤戦/終盤戦20試合」の窓の大きさ（固定） */
 const GAME_PHASE_WINDOW = 20;
@@ -132,7 +145,7 @@ export function describeCondition(condition: ConditionalCondition): string {
     case "clutch":
       return CLUTCH_GAMES_LABEL;
     case "foreign":
-      return `自チーム外国籍${condition.n}人${MODE_LABELS[condition.mode]}`;
+      return `${FOREIGN_MEASURE_LABELS[condition.measure ?? "longestOnCourt"]}${condition.n}人${MODE_LABELS[condition.mode]}`;
     case "score":
       return `${condition.side === "own" ? "得点" : "失点"}${condition.n}点${MODE_LABELS[condition.mode]}`;
     case "bothScore":
@@ -215,7 +228,7 @@ export function applyConditionalCondition(
       // 結果だけの試合・プレーバイプレーの無い試合（1810）・前後半5分の特別な試合は clutchGame を持たないので入らない
       return logs.filter((g) => g.clutchGame === true);
     case "foreign":
-      return logs.filter((g) => matchesForeignCount(g, condition.mode, condition.n));
+      return logs.filter((g) => matchesForeignCount(g, condition.mode, condition.n, condition.measure ?? "longestOnCourt"));
     case "score":
       return logs.filter((g) => matchesTeamScore(g, condition.side, condition.mode, condition.n));
     case "bothScore":
@@ -351,14 +364,20 @@ export function buildConditionGroups({ presentDivisions, backToBackStatus, regul
         { key: "margin-20plus", label: "20点差以上の試合", condition: { kind: "marginAtLeast", points: 20 } },
       ],
     },
-    {
-      label: "自チーム外国籍人数",
+    // 外国籍の人数（3つの数え方。設計書392章）。最長のオンザコート人数のキーは 392章より前の「foreign-…」のまま（URL・保存した設定を読めるように）
+    ...FOREIGN_CONDITION_KEYS.map(({ measure, prefix }) => ({
+      label: FOREIGN_MEASURE_LABELS[measure],
       options: [
-        ...[0, 1, 2, 3].map((n) => ({ key: `foreign-eq-${n}`, label: `${n}人`, condition: { kind: "foreign", mode: "eq", n } as ConditionalCondition })),
-        { key: "foreign-le", label: "●人以下", condition: { kind: "foreign", mode: "le", n: numbers.count } },
-        { key: "foreign-ge", label: "●人以上", condition: { kind: "foreign", mode: "ge", n: numbers.count } },
+        ...Array.from({ length: FOREIGN_MEASURE_MAX[measure] + 1 }, (_, n) => ({
+          key: `${prefix}-eq-${n}`,
+          // 選んだあとの札・閉じた選択欄でどの数え方か分かるよう、名前を付ける（「得点●点以上」と同じ書き方）
+          label: `${FOREIGN_MEASURE_LABELS[measure]}${n}人`,
+          condition: { kind: "foreign", mode: "eq", n, measure } as ConditionalCondition,
+        })),
+        { key: `${prefix}-le`, label: `${FOREIGN_MEASURE_LABELS[measure]}●人以下`, condition: { kind: "foreign", mode: "le", n: numbers.count, measure } as ConditionalCondition },
+        { key: `${prefix}-ge`, label: `${FOREIGN_MEASURE_LABELS[measure]}●人以上`, condition: { kind: "foreign", mode: "ge", n: numbers.count, measure } as ConditionalCondition },
       ],
-    },
+    })),
     {
       label: "得点・失点",
       options: [

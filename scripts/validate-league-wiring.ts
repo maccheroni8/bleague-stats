@@ -98,7 +98,7 @@ const ALLOWED_CACHES: Record<string, string> = {
   "src/lib/pageStateCache.ts": "鍵は usePageState が leaguePageStateKey で作る",
   "src/lib/data.ts": "同時に読み込み中の取得の共有（inflightTexts）。鍵は読み込む URL そのもの（B.ONE は data/{season}/one/ を含む）で、終わったらすぐ外す（結果は覚えない）",
   "src/lib/seasonPhotos.ts": "シーズン別の選手写真の台帳（設計書374章）。鍵はシーズンだけで、中身は選手ID・チームID（リーグをまたいで同じID）。台帳は B.PREMIER の名簿の写真で、リーグで変わらない",
-  "src/lib/logoDataUrl.ts": "チームのロゴ画像の読み込み（設計書392章）。鍵はチームIDだけで、ロゴはリーグで変わらない（同じIDは同じロゴ）",
+  "src/lib/logoDataUrl.ts": "チームのロゴ画像の読み込み（設計書393章）。鍵はチームIDだけで、ロゴはリーグで変わらない（同じIDは同じロゴ）",
 };
 
 // ---------------------------------------------------------------------------

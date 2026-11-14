@@ -8827,7 +8827,7 @@ table.sortable-table.tts-table th {
   font-weight: 400;
   color: var(--muted);
   white-space: nowrap;
-/* 順位表ページの画像保存（DESIGN.md 392章）。保存ボタンは保存範囲の右上。保存画像の幅は表の幅に合わせる（横に長い表は長いまま。PC幅で見る前提） */
+/* 順位表ページの画像保存（DESIGN.md 393章）。保存ボタンは保存範囲の右上。保存画像の幅は表の幅に合わせる（横に長い表は長いまま。PC幅で見る前提） */
 .savable-block {
   margin-top: 12px;
 }

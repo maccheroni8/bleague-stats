@@ -47,7 +47,7 @@ const check = (label: string, good: boolean, detail = "") => {
 
 // ---------- 6. 部品 ----------
 {
-  for (const spec of [DEFAULT_COND, { key: "oppRate", oppMode: "lt", oppRate: 0.5 }, { key: "home" }, { key: "foreign-ge", n: 2 }, { key: "score-own-ge", n: 90 }] as CondSpec[]) {
+  for (const spec of [DEFAULT_COND, { key: "oppRate", oppMode: "lt", oppRate: 0.5 }, { key: "home" }, { key: "foreign-ge", n: 2 }, { key: "fplayed-le", n: 2 }, { key: "iplayed-ge", n: 4 }, { key: "score-own-ge", n: 90 }] as CondSpec[]) {
     const back = parseCondSpec(condSpecToText(spec));
     assert.ok(back && sameCond(back, spec), `条件の読み書き ${condSpecToText(spec)}`);
   }

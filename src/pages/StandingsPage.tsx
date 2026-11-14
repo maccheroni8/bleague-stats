@@ -726,7 +726,7 @@ export function StandingsPage({ season }: { season: string }) {
   const playback = isAnimating ? trendPlayback : undefined;
 
   // 順位表タブの画像保存: 保存する表（地区順位〔全地区まとめて1枚〕・ワイルドカード順位表・全体順位表）を選ぶ。
-  // 選んだ表を包む保存範囲の要素を、選択に応じてボタンへ渡す（DESIGN.md 392章）
+  // 選んだ表を包む保存範囲の要素を、選択に応じてボタンへ渡す（DESIGN.md 393章）
   const [saveWhich, setSaveWhich] = useState<StandingsSaveChoice>("divisions");
   const saveWhichRef = useRef(saveWhich);
   saveWhichRef.current = saveWhich;

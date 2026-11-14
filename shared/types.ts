@@ -818,6 +818,17 @@ export interface PlayerGameLog extends Partial<FoulCategoryCounts> {
   foreignPlayerCount?: number;
   /** 対戦相手チームの同時出場外国籍選手数（foreignPlayerCountと同じ算出方法、相手チーム視点） */
   opponentForeignPlayerCount?: number;
+  /**
+   * その試合に出場した（出場時間が0秒より長い）自チームの外国籍選手の人数（帰化・アジア特別枠は含めない）。区分は試合の日の登録区分、
+   * 区分の分からない選手は数えない（shared/playedForeignCount.ts。設計書392章）。古いデータには無い
+   */
+  foreignPlayedCount?: number;
+  /** その試合に出場した自チームの外国籍・帰化・アジア特別枠の選手の合計人数（foreignPlayedCount と同じ数え方） */
+  intlPlayedCount?: number;
+  /** 相手チームの foreignPlayedCount */
+  opponentForeignPlayedCount?: number;
+  /** 相手チームの intlPlayedCount */
+  opponentIntlPlayedCount?: number;
   /** ターンオーバーからの得点（PTSOFFTO）。PlayTextの公式判定タグ集計。shared/pointsOffTurnovers.ts参照。
    * 2016-17のタグは表記が違う（「ポイントフロムターンオーバ」）が、同じように数える（DESIGN.md 221章） */
   ptsOffTov: number;
@@ -945,6 +956,12 @@ export interface TeamGameLog extends Partial<FoulCategoryCounts>, Partial<Oppone
   foreignPlayerCount?: number;
   /** PlayerGameLog.opponentForeignPlayerCountと同じ（対戦相手チーム視点） */
   opponentForeignPlayerCount?: number;
+  /** PlayerGameLog.foreignPlayedCount と同じ（出場した外国籍の人数。設計書392章） */
+  foreignPlayedCount?: number;
+  /** PlayerGameLog.intlPlayedCount と同じ（出場した外国籍・帰化・アジア特別枠の人数） */
+  intlPlayedCount?: number;
+  opponentForeignPlayedCount?: number;
+  opponentIntlPlayedCount?: number;
   /**
    * 外国籍・帰化・アジアの選手が同時に何人コートにいたかごとの、その試合の在コート秒数（[0人, 1人, 2人, 3人, 4人]。DESIGN.md 256章）。
    * 数え方は teams.json の foreignPlayerCourtSeconds（On-Court Foreign）と同じで、レギュラーシーズンの試合の合計がその値になる。
