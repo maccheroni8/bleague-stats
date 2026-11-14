@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CartesianGrid, Customized, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Customized, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { teamLogoUrl } from "../lib/data";
 import { teamShortName } from "../../shared/teamNames";
 import type { TeamColors } from "../../shared/types";
@@ -41,6 +41,19 @@ interface StandingsLineChartProps {
   rankDomainMax?: number;
   /** タイトル直下に添える「選択中の条件」（シーズン・対象期間等。src/lib/conditionLabels.ts参照）。未指定なら出さない */
   conditions?: string[];
+  /** 縦軸を固定の範囲・目盛り・書き方にする（勝率推移: .000〜1.000）。未指定なら従来どおり自動 */
+  fixedYAxis?: FixedYAxis;
+}
+
+/** 縦軸を固定したいグラフ用の指定（設計書389章） */
+export interface FixedYAxis {
+  domain: [number, number];
+  ticks: number[];
+  /** 目盛り・ツールチップの値の書き方 */
+  format: (value: number) => string;
+  /** 目立ちすぎない基準線を引く値（例: 勝率の.500） */
+  referenceLine?: number;
+  width?: number;
 }
 
 /** チーム数に応じて均等に色相を割り振る簡易パレット。teamColorsに無いチーム用のフォールバック */
@@ -71,6 +84,7 @@ export function StandingsLineChart({
   connectGaps = true,
   rankDomainMax,
   conditions,
+  fixedYAxis,
 }: StandingsLineChartProps) {
   const rankMax = Math.max(rankDomainMax ?? teams.length, 1);
   // アニメーション再生中はdataが徐々に伸びていくため、折れ線の末端（=最新地点）の位置は
@@ -150,20 +164,26 @@ export function StandingsLineChart({
             // 任せると、実際のチーム数を超えた「きりのいい」上限（例: 13チームなのに16位まで）
             // まで軸が伸びてしまう。順位は1〜チーム数の範囲に収まることが自明なため、domainを
             // 明示的に指定して実データの範囲ちょうどに固定する
-            domain={reversed ? [1, rankMax] : undefined}
+            domain={fixedYAxis ? fixedYAxis.domain : reversed ? [1, rankMax] : undefined}
             // domainを固定しても、目盛りの間隔自体はrechartsが自動生成するため（例: 1, 4, 7,
             // 10, 13のように間引かれる）、1位から最下位までの全順位を目盛りとして明示的に指定する
-            ticks={reversed ? Array.from({ length: rankMax }, (_, i) => i + 1) : undefined}
+            ticks={fixedYAxis ? fixedYAxis.ticks : reversed ? Array.from({ length: rankMax }, (_, i) => i + 1) : undefined}
+            tickFormatter={fixedYAxis ? (v: number) => fixedYAxis.format(v) : undefined}
             tick={{ fontSize: 11 }}
             tickLine={false}
             axisLine={false}
-            width={32}
+            width={fixedYAxis?.width ?? 32}
           />
+          {/* 基準線は折れ線より奥（先に描く）。グリッドより少し濃いだけの細い実線 */}
+          {fixedYAxis?.referenceLine !== undefined && (
+            <ReferenceLine y={fixedYAxis.referenceLine} stroke="var(--fg)" strokeOpacity={0.3} strokeWidth={1} />
+          )}
           {/* 再生中は、まだ出ていない日の値が出ないようにツールチップを止める */}
           {!playback && (
             <Tooltip
               contentStyle={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--fg)" }}
               labelStyle={{ color: "var(--fg)" }}
+              formatter={fixedYAxis ? (v: unknown) => (typeof v === "number" ? fixedYAxis.format(v) : String(v)) : undefined}
             />
           )}
           {/* Legendはteams配列（現在の順位が良い順）そのままの表示順にするため、明示的な

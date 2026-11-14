@@ -13,9 +13,9 @@ import { useJsonData } from "../lib/useJsonData";
 import { useLeague, type League } from "../lib/league";
 import { ONE_STANDINGS_TAB_REASONS } from "../lib/leagueAvailability";
 import { useAllTeamGameLogs } from "../lib/teamRankingData";
-import { useTrendPlayback } from "../lib/trendPlayback";
+import { useTrendPlayback, type TrendPlayback } from "../lib/trendPlayback";
 import { SortableTable, type Column } from "../components/SortableTable";
-import { StandingsLineChart, type ChartTeam } from "../components/StandingsLineChart";
+import { StandingsLineChart, type ChartTeam, type FixedYAxis } from "../components/StandingsLineChart";
 import { AnnualSchedule } from "../components/AnnualSchedule";
 import { enumParam, useUrlState } from "../lib/urlState";
 import { TeamLogo } from "../components/TeamLogo";
@@ -52,11 +52,13 @@ import { DIVISION_LABELS, divisionPresets, groupByDivision } from "../lib/divisi
 import { formatGamesBehind, standingsStatCells, withUnplayedTeams, type StandingsTeam } from "../lib/standingsTeams";
 import { findFebruaryBiweekGap } from "../lib/situational";
 import type {
+  Division,
   HeadToHeadTeamRow,
   PlayoffRaceFile,
   PlayoffRaceTeam,
   StandingsSnapshot,
   StandingsTeamSnapshot,
+  TeamColors,
   TeamGameLog,
   UpcomingGameEntry,
 } from "../../shared/types";
@@ -70,6 +72,7 @@ type StandingsTab =
   | "conditional"
   | "rankTrend"
   | "winsTrend"
+  | "winPctTrend"
   | "gamesAboveTrend";
 
 const TAB_LABELS: Record<StandingsTab, string> = {
@@ -81,6 +84,7 @@ const TAB_LABELS: Record<StandingsTab, string> = {
   conditional: "条件別順位表",
   rankTrend: "順位推移",
   winsTrend: "勝ち星推移",
+  winPctTrend: "勝率推移",
   gamesAboveTrend: "貯金推移",
 };
 
@@ -553,6 +557,96 @@ function reshapeWildcardMetric(
   });
 }
 
+/** 勝率推移の縦軸: .000〜1.000 で固定。5割（.500）に目立ちすぎない基準線を引く（設計書388章） */
+const WIN_PCT_Y_AXIS: FixedYAxis = {
+  domain: [0, 1],
+  ticks: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+  format: (v) => formatWinPct(v),
+  referenceLine: 0.5,
+  width: 40,
+};
+
+type TrendTabProps = {
+  /** タブの名前（グラフのタイトルの元。「東地区勝ち星推移」のように地区名・ワイルドカードを前に付ける） */
+  name: string;
+  data: Record<string, number | string>[];
+  wildcardData: Record<string, number | string>[];
+  fixedYAxis?: FixedYAxis;
+  isAnimating: boolean;
+  onPlay: () => void;
+  divisionGroups: { division: Division; teams: StandingsTeamSnapshot[] }[];
+  teams: StandingsTeamSnapshot[];
+  teamColors?: Record<string, TeamColors>;
+  playback?: TrendPlayback;
+  conditionsAt: (playbackIndex?: number) => string[];
+  conditions: string[];
+  wildcardTeams: ChartTeam[];
+  wildcardPlaybackOffset: number;
+  wildcardConditionsAt: (playbackIndex?: number) => string[];
+  wildcardConditions: string[];
+};
+
+/**
+ * 勝ち星推移・勝率推移・貯金推移の中身。再生ボタン・地区別のグラフ・ワイルドカードのグラフの構成は3つで共通で、
+ * 違うのはデータと（勝率だけ）縦軸の固定
+ */
+function MetricTrendTab(props: TrendTabProps) {
+  const { name, data, wildcardData, fixedYAxis } = props;
+  const common = {
+    teamColors: props.teamColors,
+    playback: props.playback,
+    fixedYAxis,
+  };
+  return (
+    <div>
+      <div className="mode-toggle">
+        <button type="button" className={props.isAnimating ? "active" : ""} onClick={props.onPlay} disabled={props.isAnimating}>
+          {props.isAnimating ? "再生中..." : "▶ アニメーション再生"}
+        </button>
+      </div>
+      {props.divisionGroups.length === 0 ? (
+        <StandingsLineChart
+          title={name}
+          data={data}
+          teams={props.teams}
+          height={560}
+          playingConditions={props.conditionsAt}
+          conditions={props.conditions}
+          {...common}
+        />
+      ) : (
+        <div className="standings-stack">
+          {props.divisionGroups.map((g) => (
+            <StandingsLineChart
+              key={g.division}
+              title={`${DIVISION_LABELS[g.division]}${name}`}
+              data={data}
+              teams={g.teams}
+              height={520}
+              playingConditions={props.conditionsAt}
+              conditions={props.conditions}
+              {...common}
+            />
+          ))}
+          {props.wildcardTeams.length > 0 && (
+            <StandingsLineChart
+              title={`ワイルドカード${name}`}
+              data={wildcardData}
+              teams={props.wildcardTeams}
+              height={520}
+              playbackOffset={props.wildcardPlaybackOffset}
+              playingConditions={props.wildcardConditionsAt}
+              connectGaps={false}
+              conditions={props.wildcardConditions}
+              {...common}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function StandingsPage({ season }: { season: string }) {
   const league = useLeague();
   const [urlTab, setTab] = useUrlState(enumParam("tab", Object.keys(TAB_LABELS) as StandingsTab[], "standings"), "standings");
@@ -732,6 +826,8 @@ export function StandingsPage({ season }: { season: string }) {
   const rankData = reshape(history, (t) => t.rank);
   const winsData = reshape(history, (t) => t.wins);
   const gamesAboveData = reshape(history, (t) => t.wins - t.losses);
+  // 勝率は順位表と同じ値（スナップショットの winPct＝勝÷(勝＋敗)。結果だけの試合も順位表と同じく勝敗に入っている）
+  const winPctData = reshape(history, (t) => t.winPct);
   const divisionRankData = reshape(history, (t) => t.divisionRank ?? NaN);
 
   const divisionGroups = groupByDivision(teams, league);
@@ -765,6 +861,7 @@ export function StandingsPage({ season }: { season: string }) {
   const wildcardGamesAboveData = wcFormat
     ? reshapeWildcardMetric(wildcardHistory, wcFormat, (t) => t.wins - t.losses)
     : [];
+  const wildcardWinPctData = wcFormat ? reshapeWildcardMetric(wildcardHistory, wcFormat, (t) => t.winPct) : [];
   // ワイルドカードプールの1日あたりの人数（各地区の自動出場圏＝上位divisionTopを除いた残り）は、
   // シーズンを通じて常に一定。動的な出入りにより凡例に載る延べチーム数
   // （wildcardTeams.length）はこれより多くなりうるため、順位グラフのY軸上限には
@@ -825,6 +922,22 @@ export function StandingsPage({ season }: { season: string }) {
           ).map((g) => ({ label: g.label, values: g.teamIds })),
         );
   const h2hConditions = composeLabels(gameTypeLabels("regular", null), asOfLabel, h2hClubLabels);
+
+  // 勝ち星推移・勝率推移・貯金推移で共通の部品に渡すもの（再生・地区別・ワイルドカードの構成は3つで同じ）
+  const trendTabShared = {
+    isAnimating,
+    onPlay: playAnimation,
+    divisionGroups,
+    teams,
+    teamColors: teamColors ?? undefined,
+    playback,
+    conditionsAt: trendConditionsAt,
+    conditions: trendConditions,
+    wildcardTeams,
+    wildcardPlaybackOffset,
+    wildcardConditionsAt: wildcardTrendConditionsAt,
+    wildcardConditions: wildcardTrendConditions,
+  };
 
   return (
     <div data-design="v2" className="standings-page">
@@ -1132,107 +1245,21 @@ export function StandingsPage({ season }: { season: string }) {
       )}
 
       {activeTab === "winsTrend" && (
-        <div>
-          <div className="mode-toggle">
-            <button type="button" className={isAnimating ? "active" : ""} onClick={playAnimation} disabled={isAnimating}>
-              {isAnimating ? "再生中..." : "▶ アニメーション再生"}
-            </button>
-          </div>
-          {divisionGroups.length === 0 ? (
-            <StandingsLineChart
-              title="勝ち星推移"
-              data={winsData}
-              teams={teams}
-              height={560}
-              teamColors={teamColors ?? undefined}
-              playback={playback}
-              playingConditions={trendConditionsAt}
-              conditions={trendConditions}
-            />
-          ) : (
-            <div className="standings-stack">
-              {divisionGroups.map((g) => (
-                <StandingsLineChart
-                  key={g.division}
-                  title={`${DIVISION_LABELS[g.division]}勝ち星推移`}
-                  data={winsData}
-                  teams={g.teams}
-                  height={520}
-                  teamColors={teamColors ?? undefined}
-                  playback={playback}
-                  playingConditions={trendConditionsAt}
-                  conditions={trendConditions}
-                />
-              ))}
-              {wildcardTeams.length > 0 && (
-                <StandingsLineChart
-                  title="ワイルドカード勝ち星推移"
-                  data={wildcardWinsData}
-                  teams={wildcardTeams}
-                  height={520}
-                  teamColors={teamColors ?? undefined}
-                  playback={playback}
-                  playbackOffset={wildcardPlaybackOffset}
-                  playingConditions={wildcardTrendConditionsAt}
-                  connectGaps={false}
-                  conditions={wildcardTrendConditions}
-                />
-              )}
-            </div>
-          )}
-        </div>
+        <MetricTrendTab {...trendTabShared} name="勝ち星推移" data={winsData} wildcardData={wildcardWinsData} />
+      )}
+
+      {activeTab === "winPctTrend" && (
+        <MetricTrendTab
+          {...trendTabShared}
+          name="勝率推移"
+          data={winPctData}
+          wildcardData={wildcardWinPctData}
+          fixedYAxis={WIN_PCT_Y_AXIS}
+        />
       )}
 
       {activeTab === "gamesAboveTrend" && (
-        <div>
-          <div className="mode-toggle">
-            <button type="button" className={isAnimating ? "active" : ""} onClick={playAnimation} disabled={isAnimating}>
-              {isAnimating ? "再生中..." : "▶ アニメーション再生"}
-            </button>
-          </div>
-          {divisionGroups.length === 0 ? (
-            <StandingsLineChart
-              title="貯金推移"
-              data={gamesAboveData}
-              teams={teams}
-              height={560}
-              teamColors={teamColors ?? undefined}
-              playback={playback}
-              playingConditions={trendConditionsAt}
-              conditions={trendConditions}
-            />
-          ) : (
-            <div className="standings-stack">
-              {divisionGroups.map((g) => (
-                <StandingsLineChart
-                  key={g.division}
-                  title={`${DIVISION_LABELS[g.division]}貯金推移`}
-                  data={gamesAboveData}
-                  teams={g.teams}
-                  height={520}
-                  teamColors={teamColors ?? undefined}
-                  playback={playback}
-                  playingConditions={trendConditionsAt}
-                  conditions={trendConditions}
-                />
-              ))}
-              {wildcardTeams.length > 0 && (
-                <StandingsLineChart
-                  title="ワイルドカード貯金推移"
-                  data={wildcardGamesAboveData}
-                  teams={wildcardTeams}
-                  height={520}
-                  teamColors={teamColors ?? undefined}
-                  playback={playback}
-                  playbackOffset={wildcardPlaybackOffset}
-                  playingConditions={wildcardTrendConditionsAt}
-                  connectGaps={false}
-                  conditions={wildcardTrendConditions}
-                />
-              )}
-            </div>
-          )}
-        </div>
+        <MetricTrendTab {...trendTabShared} name="貯金推移" data={gamesAboveData} wildcardData={wildcardGamesAboveData} />
       )}
     </div>
   );
