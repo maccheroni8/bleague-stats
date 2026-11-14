@@ -590,7 +590,7 @@ export function matchesShotChartGameFilters<
 }
 
 /** filter.rangeによる「試合の範囲」の絞り込み（前半戦/後半戦を含む3種、互いに排他） */
-function applySituationalRange<T extends { date: string }>(games: T[], range: SituationalRange): T[] {
+export function applySituationalRange<T extends { date: string }>(games: T[], range: SituationalRange): T[] {
   switch (range.kind) {
     case "all":
       return games;

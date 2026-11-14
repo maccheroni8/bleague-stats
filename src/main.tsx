@@ -5,13 +5,15 @@ import App from "./App";
 // ページの部品が読む CSS は共通の CSS より前にここで読む（以前は App がページを読み込んだ順に、index.css より前に入っていた。DESIGN.md 356章）
 import "./components/AnnualSchedule.css";
 import "./figures/FigurePresets.css";
+import "./figures/CondPicker.css";
 import "./pages/FiguresPage.css";
 import "./index.css";
-import { seedInitialPresets } from "./lib/figurePresets";
+import { seedCondWinPctPresets, seedInitialPresets } from "./lib/figurePresets";
 import "./lib/playerSelfColumns";
 
 // 図の設定の保存に、選手の散布図の3つの設定をこのブラウザで1回だけ入れる（保存できない環境では何もしない）
 seedInitialPresets();
+seedCondWinPctPresets();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

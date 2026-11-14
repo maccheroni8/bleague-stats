@@ -12,12 +12,12 @@ import { CATEGORY_LABELS, type BoxCategoryKey } from './categoryLabels';
 import { SHOT_TYPE_DISPLAY_ORDER, shotTypeDiffColumns, shotTypeEntityColumns } from './shotTypeBreakdown';
 import { FORCED_TURNOVER_ITEMS } from './teamSeasonRanking';
 import { scopedTurnovers } from './teamTurnoverScoped';
-import { formatDecimal, formatSigned } from './format';
+import { formatDecimal, formatSigned, formatWinPct } from './format';
 import type { SeasonDisplayMode } from './playerSeasonBoxscore';
 import type { Column } from '../components/SortableTable';
 import { niceStep, type AxisDomain } from './figureAxis';
 
-export type FreeCategory = BoxCategoryKey | 'shooting' | 'forcedTurnovers';
+export type FreeCategory = BoxCategoryKey | 'shooting' | 'forcedTurnovers' | 'winpct';
 export const FREE_CATEGORIES: readonly { key: FreeCategory; label: string }[] = [
   { key: 'traditional', label: CATEGORY_LABELS.traditional },
   { key: 'advanced', label: CATEGORY_LABELS.advanced },
@@ -42,11 +42,18 @@ export interface FreeRow {
 
 export interface FreeItem { id: string; category: FreeCategory; categoryLabel: string; key: string; label: string }
 export const freeItemId = (category: FreeCategory, key: string) => `${category}.${key}`;
+/** 勝率の軸（条件なしの勝率・条件付きの勝率）。値は条件別順位表と同じ部品で数える（figureCondWinPct.ts）ので、箱型の列には入れない */
+export const WINPCT_CATEGORY_LABEL = '勝率';
+export const WINPCT_ITEM_ID = freeItemId('winpct', 'rate');
+export const WINPCT_COND_ITEM_ID = freeItemId('winpct', 'cond');
+export const isWinPctItem = (item: Pick<FreeItem, 'category'>) => item.category === 'winpct';
 export const DEFAULT_FREE_X = freeItemId('traditional', '3pa');
 export const DEFAULT_FREE_Y = freeItemId('traditional', '3ppct');
 
 /** 軸の列。R は行の型（チームは FreeRow、選手の散布図は選手の点）。axis を渡すと、表の書式からの単位の推定をせずにそれを使う */
-export interface FreeColumn<R = FreeRow> { key: string; label: string; value: (r: R) => number | null; text: (r: R) => string; axis?: FreeAxisKind }
+export interface FreeColumn<R = FreeRow> { key: string; label: string; value: (r: R) => number | null; text: (r: R) => string; axis?: FreeAxisKind;
+  /** 吹き出し・表に出す詳しい文字（条件付きの勝率の「.800（4勝1敗）」など。無ければ text） */
+  detail?: (r: R) => string }
 
 const finiteOrNull = (v: unknown, text: string) => {
   const n = Number(v);
@@ -80,6 +87,7 @@ export function turnoverDataFor(forced: TeamForcedTurnovers | undefined, committ
 const columnCache = new Map<string, FreeColumn[]>();
 /** その分類・視点・平均／合計の列の一覧（全チームスタッツと同じ式） */
 export function freeColumns(category: FreeCategory, perspective: TeamPerspective, mode: FreeMode, season: string): FreeColumn[] {
+  if (category === 'winpct') return [];
   const foulSplit = foulColumnsSplit([season]);
   const cacheKey = `${category}:${perspective}:${mode}:${foulSplit}`;
   const cached = columnCache.get(cacheKey);
@@ -119,12 +127,17 @@ export function freeItems(season: string): FreeItem[] {
   const cacheKey = foulColumnsSplit([season]) ? 'new' : 'old';
   let items = itemCache.get(cacheKey);
   if (!items) {
-    items = FREE_CATEGORIES.flatMap(cat => freeColumns(cat.key, 'own', 'perGame', season).map(c => ({ id: freeItemId(cat.key, c.key), category: cat.key, categoryLabel: cat.label, key: c.key, label: c.label })));
+    const winpct: FreeItem[] = [
+      { id: WINPCT_ITEM_ID, category: 'winpct', categoryLabel: WINPCT_CATEGORY_LABEL, key: 'rate', label: '勝率' },
+      { id: WINPCT_COND_ITEM_ID, category: 'winpct', categoryLabel: WINPCT_CATEGORY_LABEL, key: 'cond', label: '条件付きの勝率' },
+    ];
+    items = [...winpct, ...FREE_CATEGORIES.flatMap(cat => freeColumns(cat.key, 'own', 'perGame', season).map(c => ({ id: freeItemId(cat.key, c.key), category: cat.key, categoryLabel: cat.label, key: c.key, label: c.label })))];
     itemCache.set(cacheKey, items);
   }
   return items;
 }
 export function freeColumn(item: FreeItem, perspective: TeamPerspective, mode: FreeMode, season: string): FreeColumn | undefined {
+  if (item.category === 'winpct') return undefined;
   return freeColumns(item.category, perspective, mode, season).find(c => c.key === item.key);
 }
 /** 軸の名前（opp の視点は「opp ORtg」、+/- は「ORtg +/-」。Forced TOV は「Forced TOV 合計」のように分類名を付ける） */
@@ -216,7 +229,7 @@ export function buildFreeRows(teams: readonly TeamSummary[], logsByTeam: Readonl
 
 // ---- 軸（目盛りと単位を項目に合わせて整える） ----
 
-export type FreeUnit = 'percent' | 'time' | 'number';
+export type FreeUnit = 'percent' | 'time' | 'number' | 'rate';
 export interface FreeAxisKind {
   unit: FreeUnit;
   /** 表示の値 = 列の値 × scale（率が 0〜1 の列は 100、時間は秒にするため 60） */
@@ -259,6 +272,7 @@ export function freeAxisDomain(values: readonly (number | null | undefined)[], k
   const nonNegative = Math.min(...valid) >= 0;
   let min = Math.floor((lo - span * 0.06) / step + 1e-9) * step, max = Math.ceil((hi + span * 0.06) / step - 1e-9) * step;
   if (nonNegative && min < 0) min = 0;
+  if (kind.unit === 'rate') { min = Math.max(0, min); max = Math.min(1, max); }
   if (kind.unit === 'percent') { if (nonNegative && max > 100) max = Math.max(100, Math.ceil(hi / step - 1e-9) * step); }
   return { min: round6(min), max: round6(max), step, ticks: Array.from({ length: Math.round((max - min) / step) + 1 }, (_, i) => round6(min + i * step)) };
 }
@@ -270,6 +284,7 @@ export function freeTickText(v: number, kind: FreeAxisKind, domain: AxisDomain):
     const text = `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
     return v < 0 ? `-${text}` : kind.signed && v > 0 ? `+${text}` : text;
   }
+  if (kind.unit === 'rate') return formatWinPct(v);
   const digits = decimalsOf(domain.step);
   const body = formatDecimal(v, digits);
   return `${kind.signed && v > 0 ? '+' : ''}${body}${kind.unit === 'percent' ? '%' : ''}`;

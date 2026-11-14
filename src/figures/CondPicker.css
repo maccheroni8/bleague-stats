@@ -1,0 +1,4 @@
+.cond-picker { display:inline-flex; flex-wrap:wrap; gap:6px 10px; align-items:flex-end; }
+.cond-picker label { display:flex; flex-direction:column; gap:2px; font-size:12px; }
+.cond-picker-number { width:72px; }
+.cond-pickers { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:flex-end; margin:8px 0 12px; }

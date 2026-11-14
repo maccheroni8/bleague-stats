@@ -221,6 +221,8 @@ export interface VennCircleSpec<T> {
   value: (row: T) => number;
   text: (row: T) => string;
   higherIsBetter: boolean;
+  /** 値で絞るときの向き。ge＝基準以上、lt＝基準未満（勝率の円。指定が無ければ higherIsBetter から決める） */
+  thresholdMode?: "ge" | "lt";
 }
 export interface VennModel<T> {
   /** 円ごとの並び（値が有限な行だけ。順位つき） */
@@ -280,8 +282,14 @@ export function displayNumber(text: string): number {
  * 基準の値で絞った円の行。値は画面に出している値（丸めた後）で比べる（同じ表示なら同じ扱い。順位で絞るときの同値の扱いと同じ）。
  * 良い向きが「多いほう」なら基準以上、「少ないほう」なら基準以下（基準と同じ値は入る）。
  */
-export function thresholdVennRows<T>(ranked: readonly VennRanked<T>[], threshold: number, higherIsBetter: boolean): VennRanked<T>[] {
-  return ranked.filter(r => { const v = displayNumber(r.text); return Number.isFinite(v) && (higherIsBetter ? v >= threshold - 1e-9 : v <= threshold + 1e-9); });
+export function thresholdVennRows<T>(ranked: readonly VennRanked<T>[], threshold: number, higherIsBetter: boolean, mode?: "ge" | "lt"): VennRanked<T>[] {
+  return ranked.filter(r => {
+    const v = displayNumber(r.text);
+    if (!Number.isFinite(v)) return false;
+    if (mode === "ge") return v >= threshold - 1e-9;
+    if (mode === "lt") return v < threshold - 1e-9;
+    return higherIsBetter ? v >= threshold - 1e-9 : v <= threshold + 1e-9;
+  });
 }
 
 // ---- 強調するクラブのロゴの倍率 ----

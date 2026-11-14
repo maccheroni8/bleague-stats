@@ -117,3 +117,34 @@ export function seedInitialPresets(storage: PresetStorage | null = defaultStorag
     return true;
   } catch { return false; }
 }
+
+/** 条件付きの勝率（389章）の初期の設定を入れたことの記録（このブラウザ。選手の散布図の記録とは別。あとで消しても、もう一度は入れない） */
+export const PRESET_SEEDED_COND_WINPCT_KEY = 'bleague-stats:figure-presets-seeded-cond-winpct';
+/** 保存した設定に最初から入れる、条件付きの勝率の2つ（散布図とベン図）。params は図の URL の条件と同じ（画面の部品が書く形） */
+export const COND_WINPCT_INITIAL_PRESETS: readonly { name: string; figure: string; params: Record<string, string> }[] = [
+  // X：勝率、Y：勝率.600以上の相手への勝率（条件は初期のまま＝URL に書かない）
+  { name: '今季の勝率 × 勝率.600以上の相手への勝率', figure: 'team-shooting', params: { fx: 'winpct.rate', fy: 'winpct.cond' } },
+  // 勝率.600以上 × 勝率.500未満の相手に勝率.800以上 × 勝率.600以上の相手に勝率.500以上（値で絞る）
+  {
+    name: '勝率.600以上×対.500未満で.800以上×対.600以上で.500以上', figure: 'team-venn',
+    params: { vbs: 'value', vca: 'winpct.rate', vcb: 'winpct.cond', vcc: 'winpct.cond', vkb: 'oppRate~lt~0.5', vkc: 'oppRate~ge~0.6', vta: '0.6', vtb: '0.8', vtc: '0.5' },
+  },
+];
+/**
+ * 条件付きの勝率の2つの設定（散布図・ベン図）を、このブラウザにまだ入れていなければ、保存した設定として1回だけ入れる。
+ * 同じ図・同じ中身の設定がすでにあれば二重に入れない。保存できない環境では何もしない（例外は外に出さない）。入れたかを返す
+ */
+export function seedCondWinPctPresets(storage: PresetStorage | null = defaultStorage(), now = Date.now()): boolean {
+  try {
+    if (!storage || storage.getItem(PRESET_SEEDED_COND_WINPCT_KEY)) return false;
+    let list = loadPresets(storage);
+    for (const seed of COND_WINPCT_INITIAL_PRESETS) {
+      const query = presetQuery(new URLSearchParams(seed.params));
+      if (list.some(p => p.entity === 'team' && p.figure === seed.figure && p.query === query)) continue;
+      list = [...list, { id: newPresetId(), name: seed.name, entity: 'team', figure: seed.figure, query, savedAt: now }];
+    }
+    if (!savePresets(list, storage)) return false;
+    storage.setItem(PRESET_SEEDED_COND_WINPCT_KEY, '1');
+    return true;
+  } catch { return false; }
+}
