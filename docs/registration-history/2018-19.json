@@ -1,0 +1,8876 @@
+{
+ "season": "2018-19",
+ "league": "premier",
+ "note": "旧B1 の登録区分の根拠（集計には使わない）。集計に使う区分表は data/{season}/registrations.json.gz で、scripts/build-registration-history.ts がこのファイルから作る。期間は JST の日付で from を含み toExclusive を含まない。7/1・翌7/1 はシーズンの便宜の境界（契約・登録の日ではない）",
+ "reviewedAt": "2026-11-14",
+ "players": {
+  "10262": {
+   "name": "頓宮 裕人",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10265": {
+   "name": "デクスター・ピットマン",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-03-16"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10297": {
+   "name": "田原 隆徳",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-02-10"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10815": {
+   "name": "安藤 周人",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-29"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10817": {
+   "name": "クレイグ・ブラッキンズ",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2018-10-12",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10818": {
+   "name": "高橋 耕陽",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10819": {
+   "name": "ロバート・サクレ",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10820": {
+   "name": "杉浦 佑成",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10821": {
+   "name": "中村 太地",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-24",
+     "lastObserved": "2019-04-13"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10822": {
+   "name": "生原 秀将",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10844": {
+   "name": "満田 丈太郎",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-29"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10845": {
+   "name": "成田 正弘",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10848": {
+   "name": "中山 拓哉",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10849": {
+   "name": "伊藤 達哉",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10850": {
+   "name": "関野 剛平",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-14"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10851": {
+   "name": "森井 健太",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10873": {
+   "name": "小原 翼",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10878": {
+   "name": "保岡 龍斗",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10880": {
+   "name": "川邉 亮平",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10885": {
+   "name": "青木 ブレイク",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10886": {
+   "name": "ジェフ・エアーズ",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-07"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "10897": {
+   "name": "レオ・ライオンズ",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "12454": {
+   "name": "田渡 凌",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "12459": {
+   "name": "カディーム・コールビー",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "12577": {
+   "name": "馬場 雄大",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "12580": {
+   "name": "ジャワッド・ウィリアムズ",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-10-07",
+     "lastObserved": "2019-03-23"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "12582": {
+   "name": "アレックス・カーク",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "確実",
+     "evidenceType": "決まりと日付から導いた",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://goldenkings.jp/news/detail/id=19546",
+       "summary": "1/25許可発表id=19539。1/30登録完了発表、1/31からN出場。タマヨは1/18退団（id=19521、日付は二次記事でも照合）。"
+      },
+      {
+       "kind": "決まりと日付から導いた",
+       "url": "https://goldenkings.jp/news/detail/id=19546",
+       "summary": "対象旧B1在籍・出場は帰化前、又は当季F継続を明記。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "1/25許可発表id=19539。1/30登録完了発表、1/31からN出場。タマヨは1/18退団（id=19521、日付は二次記事でも照合）。"
+   ]
+  },
+  "12585": {
+   "name": "ディオール・フィッシャー",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-01-16"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "12591": {
+   "name": "ジュフ・伴馬",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2018-12-22",
+     "lastObserved": "2019-02-10"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "確実",
+     "evidenceType": "決まりと日付から導いた",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://trains.co.jp/news/detail/id=14842",
+       "summary": "許可当日を明記。旧B1対象2017-18/2018-19は帰化前F。"
+      },
+      {
+       "kind": "決まりと日付から導いた",
+       "url": "https://trains.co.jp/news/detail/id=14842",
+       "summary": "対象旧B1在籍・出場は帰化前、又は当季F継続を明記。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "許可当日を明記。旧B1対象2017-18/2018-19は帰化前F。"
+   ]
+  },
+  "12595": {
+   "name": "マーク・トラソリーニ",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "12631": {
+   "name": "ジョシュ・スコット",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2018-12-26"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "12633": {
+   "name": "ジョシュア・スミス",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "12634": {
+   "name": "エリック・ジェイコブセン",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "12637": {
+   "name": "ハンター・コート",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2018-11-24"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "12663": {
+   "name": "ウィリアム・マクドナルド",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "14301": {
+   "name": "齋藤 拓実",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "14302": {
+   "name": "今村 佳太",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2019-04-13",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "15757": {
+   "name": "石井 峻平",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "15811": {
+   "name": "佐藤 卓磨",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2019-04-13",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "15816": {
+   "name": "林 翔太郎",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-04-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "15817": {
+   "name": "青木 保憲",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-04-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "15818": {
+   "name": "葛原 大智",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "15829": {
+   "name": "長谷川 暢",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-12-27",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "15838": {
+   "name": "平岩 玄",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2019-01-05",
+     "lastObserved": "2019-02-10"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "15849": {
+   "name": "ダシルバ ヒサシ",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18148": {
+   "name": "寺園 脩斗",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18149": {
+   "name": "生原 秀将",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": null,
+     "lastObserved": null
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18150": {
+   "name": "ファイ パプ 月瑠",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": null,
+     "lastObserved": null
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "帰化選手",
+     "confidence": "要確認",
+     "evidenceType": "既存資料・未確認",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "既存資料・未確認",
+       "url": null,
+       "summary": "9400との同一人物対応は既存override。2018-19の2IDで同一人物の在籍を二重計上しない。許可/登録一次発表未確認。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "9400との同一人物対応は既存override。2018-19の2IDで同一人物の在籍を二重計上しない。許可/登録一次発表未確認。"
+   ]
+  },
+  "18166": {
+   "name": "マーキース・カミングス",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-03-13"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18167": {
+   "name": "笠井 康平",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-29"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18168": {
+   "name": "アマンゼ・エゲケゼ",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2019-04-14",
+     "lastObserved": "2019-04-21"
+    },
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2018-11-17"
+    },
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2019-01-05",
+     "lastObserved": "2019-02-03"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695",
+      "694",
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18169": {
+   "name": "チャールズ・ガルシア",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2018-10-17"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18171": {
+   "name": "紺野 ニズベット 翔",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-10"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18172": {
+   "name": "ジャスティン・キーナン",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18173": {
+   "name": "ドゥワン・サマーズ",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": null,
+     "lastObserved": null
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18178": {
+   "name": "関口 サムエル",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": null,
+     "lastObserved": null
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18396": {
+   "name": "デイビッド・ドブラス",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18397": {
+   "name": "ミルコ・ビエリツァ",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18398": {
+   "name": "ライアン・ケリー",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18399": {
+   "name": "長野 誠史",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18426": {
+   "name": "バーノン・マクリン",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-04-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18427": {
+   "name": "シェーン・エドワーズ",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-04-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18430": {
+   "name": "グラント・ジェレット",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2018-12-23"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18431": {
+   "name": "ガニ・ラワル",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-14"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18436": {
+   "name": "ジェームズ・サザランド",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-10-07",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18440": {
+   "name": "ジョシュ・ダンカン",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18441": {
+   "name": "トレイ・ジョーンズ",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-13",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18442": {
+   "name": "ベンジャミン・ローソン",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-13",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18444": {
+   "name": "シャキール・モリス",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2018-11-07",
+     "lastObserved": "2019-04-20"
+    },
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-13",
+     "lastObserved": "2018-10-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699",
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18452": {
+   "name": "エリック・ロバーツ",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-01-06"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18459": {
+   "name": "ジャボン・マックレア",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-07",
+     "lastObserved": "2018-11-24"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18460": {
+   "name": "デビッド・サイモン",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18461": {
+   "name": "岸田 篤生",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18473": {
+   "name": "プリンス・イベ",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-11-03",
+     "lastObserved": "2019-01-30"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18475": {
+   "name": "岡田 侑大",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-11-16",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18479": {
+   "name": "ケネディ・ミークス",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-11-24",
+     "lastObserved": "2019-04-19"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18845": {
+   "name": "中村 功平",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-12-08",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "18846": {
+   "name": "アーサー・スティーブンソン",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-12-08",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "19955": {
+   "name": "ドワイト・コールビー",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-12-22",
+     "lastObserved": "2019-04-19"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "19956": {
+   "name": "シェーファー アヴィ幸樹",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-12-22",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "19957": {
+   "name": "熊谷 航",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-12-22",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "19958": {
+   "name": "バイロン・ミュレンズ",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-12-23",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "19995": {
+   "name": "ブランドン・コストナー",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-12-26",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "19997": {
+   "name": "マーカス・ブレイクリー",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2019-03-03",
+     "lastObserved": "2019-04-14"
+    },
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-12-29",
+     "lastObserved": "2019-02-10"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753",
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "19998": {
+   "name": "盛實 海翔",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2019-01-16",
+     "lastObserved": "2019-03-30"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20003": {
+   "name": "玉木 祥護",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2019-01-05",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20017": {
+   "name": "ケビン・ジョーンズ",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2019-01-16",
+     "lastObserved": "2019-05-07"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20018": {
+   "name": "増田 啓介",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2019-01-16",
+     "lastObserved": "2019-02-10"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20019": {
+   "name": "鶴田 美勇士",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2019-02-02",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20020": {
+   "name": "トレバー・ムバクウェ",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2019-01-23",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20021": {
+   "name": "吉井 裕鷹",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2019-01-23",
+     "lastObserved": "2019-04-03"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20022": {
+   "name": "髙橋 浩平",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2019-02-02",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20023": {
+   "name": "松山 駿",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2019-01-27",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20024": {
+   "name": "前田 悟",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2019-01-26",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20025": {
+   "name": "ナナー ダニエル弾",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2019-01-30",
+     "lastObserved": "2019-02-03"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20031": {
+   "name": "中野 司",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2019-02-09",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20032": {
+   "name": "アラン・ハーンドン",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2019-03-27",
+     "lastObserved": "2019-03-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20033": {
+   "name": "セドリック・シモンズ",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2019-03-03",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20034": {
+   "name": "木下 誠",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2019-02-10",
+     "lastObserved": "2019-04-29"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "20037": {
+   "name": "佐々木 隆成",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2019-02-09",
+     "lastObserved": "2019-04-03"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "22394": {
+   "name": "内田 旦人",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2019-03-02",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "22395": {
+   "name": "長島 蓮",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2019-03-02",
+     "lastObserved": "2019-05-05"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "22396": {
+   "name": "ジョナサン・ホームズ",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2019-03-24",
+     "lastObserved": "2019-03-24"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "22397": {
+   "name": "近藤 崚太",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2019-03-03",
+     "lastObserved": "2019-03-03"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "22398": {
+   "name": "鈴木 龍雄",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2019-03-02",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "22399": {
+   "name": "アレン・ダーラム",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2019-03-02",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "22400": {
+   "name": "ヘンリー・ウォーカー",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2019-03-02",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8446": {
+   "name": "伊藤 駿",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8447": {
+   "name": "ベンドラメ 礼生",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8448": {
+   "name": "アキ・チェンバース",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8449": {
+   "name": "大塚 裕土",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8450": {
+   "name": "広瀬 健太",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-03-31"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8451": {
+   "name": "藤高 宗一郎",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8452": {
+   "name": "アイラ・ブラウン",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2018-10-12",
+     "lastObserved": "2019-05-07"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "帰化選手",
+     "confidence": "推定",
+     "evidenceType": "発表に書いてある",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://www.sunrockers.jp/news/24842/",
+       "summary": "2017/5/22契約満了発表で帰化選手と明記。許可年月は既存overrideからの候補。年度ごとの登録/在籍日は未確定。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "2017/5/22契約満了発表で帰化選手と明記。許可年月は既存overrideからの候補。年度ごとの登録/在籍日は未確定。"
+   ]
+  },
+  "8456": {
+   "name": "小島 元基",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8457": {
+   "name": "村上 直",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8459": {
+   "name": "内海 慎吾",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8462": {
+   "name": "小林 遥太",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-29"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8463": {
+   "name": "狩野 祐介",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8465": {
+   "name": "樋口 大倫",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8467": {
+   "name": "安藤 誓哉",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8468": {
+   "name": "田口 成浩",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8470": {
+   "name": "谷口 大智",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8476": {
+   "name": "池田 雄一",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8479": {
+   "name": "菊池 真人",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-29"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8481": {
+   "name": "片岡 大晴",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2018-10-12",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8482": {
+   "name": "藤井 祐眞",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-04-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8483": {
+   "name": "晴山 ケビン",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8484": {
+   "name": "篠山 竜青",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-04-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8485": {
+   "name": "栗原 貴宏",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-10"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8486": {
+   "name": "野本 建吾",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8487": {
+   "name": "辻 直人",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-04-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8488": {
+   "name": "谷口 光貴",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2018-11-17",
+     "lastObserved": "2019-04-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8489": {
+   "name": "鎌田 裕也",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-04-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8490": {
+   "name": "ニック・ファジーカス",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-04-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "帰化選手",
+     "confidence": "推定",
+     "evidenceType": "発表に書いてある",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://kawasaki-bravethunders.com/news/20180501_2/",
+       "summary": "許可発表4/26。4/27・28はF。5/1変更完了発表、5/2からN出場可。完了実日は発表以前の可能性。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "許可発表4/26。4/27・28はF。5/1変更完了発表、5/2からN出場可。完了実日は発表以前の可能性。"
+   ]
+  },
+  "8492": {
+   "name": "長谷川 技",
+   "teams": [
+    {
+     "teamId": "727",
+     "teamName": "川崎ブレイブサンダース",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-04-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "727"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8493": {
+   "name": "永吉 佑也",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2019-04-13",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8494": {
+   "name": "須田 侑太郎",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-07"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8496": {
+   "name": "橋本 晃佑",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-05"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8497": {
+   "name": "遠藤 祐亮",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-05"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8498": {
+   "name": "熊谷 尚也",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8499": {
+   "name": "渡邉 裕規",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-05"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8500": {
+   "name": "古川 孝敏",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-07"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8501": {
+   "name": "水戸 健史",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8503": {
+   "name": "宇都 直輝",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8504": {
+   "name": "山崎 稜",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-05"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8506": {
+   "name": "牧 全",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2019-04-20",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8507": {
+   "name": "多嶋 朝飛",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8508": {
+   "name": "折茂 武彦",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8509": {
+   "name": "桜井 良太",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8510": {
+   "name": "西川 貴之",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8512": {
+   "name": "野口 大介",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8513": {
+   "name": "松島 良豪",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-02-03"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8514": {
+   "name": "石崎 巧",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-07"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8515": {
+   "name": "鵜澤 潤",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8516": {
+   "name": "中東 泰斗",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-29"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8517": {
+   "name": "笹山 貴哉",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-29"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8529": {
+   "name": "鵤 誠司",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-05"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8542": {
+   "name": "下山 大地",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8544": {
+   "name": "下山 貴裕",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8552": {
+   "name": "渡邊 翔太",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-13",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8554": {
+   "name": "秋葉 真司",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2018-10-13",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8565": {
+   "name": "太田　敦也",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8567": {
+   "name": "岡田　慎吾",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8568": {
+   "name": "鈴木 達也",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-27",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8569": {
+   "name": "鹿野　洵生",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8571": {
+   "name": "田渡 修人",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8577": {
+   "name": "長谷川 智伸",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8578": {
+   "name": "阿部　友和",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8579": {
+   "name": "マイケル・パーカー",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "帰化選手",
+     "confidence": "推定",
+     "evidenceType": "発表に書いてある",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://chibajets.jp/news/detail/id=16405",
+       "summary": "2019-20帰化の契約発表。許可年月は既存override由来。2016-17からN候補。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "2019-20帰化の契約発表。許可年月は既存override由来。2016-17からN候補。"
+   ]
+  },
+  "8580": {
+   "name": "西村　文男",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8581": {
+   "name": "上江田　勇樹",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8582": {
+   "name": "荒尾 岳",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8583": {
+   "name": "石井 講祐",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8584": {
+   "name": "原 修太",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8585": {
+   "name": "小野 龍猛",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8587": {
+   "name": "橋本 竜馬",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-07"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8588": {
+   "name": "柏木　真介",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8589": {
+   "name": "比江島 慎",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2019-01-16",
+     "lastObserved": "2019-05-05"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8590": {
+   "name": "狩俣　昌也",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-13"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8591": {
+   "name": "アイザック・バッツ",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8592": {
+   "name": "金丸 晃輔",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8593": {
+   "name": "ギャビン・エドワーズ",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "確実",
+     "evidenceType": "決まりと日付から導いた",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://chibajets.jp/news/detail/id=16939",
+       "summary": "2019-20はパーカー在籍でF継続を明記。パーカー期限付移籍期間は2020-07-01〜2021-05-31（id=17312）。2020-21はN予定の発表id=17454。"
+      },
+      {
+       "kind": "決まりと日付から導いた",
+       "url": "https://chibajets.jp/news/detail/id=16939",
+       "summary": "対象旧B1在籍・出場は帰化前、又は当季F継続を明記。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "2019-20はパーカー在籍でF継続を明記。パーカー期限付移籍期間は2020-07-01〜2021-05-31（id=17312）。2020-21はN予定の発表id=17454。"
+   ]
+  },
+  "8594": {
+   "name": "長谷川 智也",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8595": {
+   "name": "加藤 寿一",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8596": {
+   "name": "桜木　ジェイアール",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "帰化選手",
+     "confidence": "推定",
+     "evidenceType": "発表に書いてある",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://go-seahorses.jp/team/players/detail/id=7623?PlayerID=8596&Year=2019",
+       "summary": "クラブ選手ページの区分帰化。許可年は既存override。過去ページの現行プロフィールに注意。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "クラブ選手ページの区分帰化。許可年は既存override。過去ページの現行プロフィールに注意。"
+   ]
+  },
+  "8597": {
+   "name": "市岡 ショーン",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2018-12-15"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8598": {
+   "name": "俊野 達彦",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2018-11-04"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8614": {
+   "name": "山本 柊輔",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8641": {
+   "name": "山口 祐希",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-27"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8642": {
+   "name": "遥　天翼",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8643": {
+   "name": "畠山　俊樹",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8645": {
+   "name": "五十嵐 圭",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8649": {
+   "name": "ライアン・ロシター",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-04"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "確実",
+     "evidenceType": "決まりと日付から導いた",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://www.utsunomiyabrex.com/news/detail/id=16088",
+       "summary": "12/7・8はFと明記。12/11帰化枠出場は二次報道のみ確認。一次の登録完了日未確定、12/9以降要確認。"
+      },
+      {
+       "kind": "決まりと日付から導いた",
+       "url": "https://www.utsunomiyabrex.com/news/detail/id=16088",
+       "summary": "対象旧B1在籍・出場は帰化前、又は当季F継続を明記。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "12/7・8はFと明記。12/11帰化枠出場は二次報道のみ確認。一次の登録完了日未確定、12/9以降要確認。"
+   ]
+  },
+  "8650": {
+   "name": "田臥 勇太",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-05"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8652": {
+   "name": "金城　茂之",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-07"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8653": {
+   "name": "大宮 宏正",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8654": {
+   "name": "津山 尚大",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8655": {
+   "name": "岸本 隆一",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-07"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8656": {
+   "name": "田代 直希",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-07"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8657": {
+   "name": "喜多川 修平",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2019-03-02",
+     "lastObserved": "2019-05-05"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8658": {
+   "name": "山内 盛久",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-03-24"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8662": {
+   "name": "満原　優樹",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8677": {
+   "name": "菅野 翔太",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8680": {
+   "name": "今野　翔太",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8681": {
+   "name": "綿貫　瞬",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8684": {
+   "name": "橋本　尚明",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-12",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8688": {
+   "name": "根来　新之助",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8689": {
+   "name": "木下　博之",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8690": {
+   "name": "合田 怜",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8701": {
+   "name": "橋本 拓哉",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2019-04-13",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8709": {
+   "name": "ジュリアン・マブンガ",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8712": {
+   "name": "細谷 将司",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8713": {
+   "name": "湊谷　安玲久司朱",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8719": {
+   "name": "高島　一貴",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8720": {
+   "name": "竹田　謙",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8721": {
+   "name": "川村　卓也",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8726": {
+   "name": "竹内 公輔",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-05"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8727": {
+   "name": "川嶋 勇人",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8729": {
+   "name": "岡田　優介",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8730": {
+   "name": "清水　太志郎",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8731": {
+   "name": "城宝　匡史",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8734": {
+   "name": "白濱 僚祐",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8736": {
+   "name": "藤永 佳昭",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8737": {
+   "name": "船生 誠也",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8738": {
+   "name": "張本 天傑",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-29"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8739": {
+   "name": "中務　敏宏",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-29"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8756": {
+   "name": "小野寺 祥太",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-14"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8768": {
+   "name": "山田 大治",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8784": {
+   "name": "ファイ サンバ",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "帰化選手",
+     "confidence": "推定",
+     "evidenceType": "発表に書いてある",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://b-corsairs.com/news/game_20170111_1/",
+       "summary": "2017/1/25対戦クラブ公式案内でサンバを帰化と明記。正確な許可/登録日は未確認。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "2017/1/25対戦クラブ公式案内でサンバを帰化と明記。正確な許可/登録日は未確認。"
+   ]
+  },
+  "8835": {
+   "name": "ジェフ・ギブス",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-05"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "8840": {
+   "name": "寒竹 隼人",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-07"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9029": {
+   "name": "正中　岳城",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9030": {
+   "name": "二ノ宮　康平",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9031": {
+   "name": "ザック・バランスキー",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9032": {
+   "name": "菊地　祥平",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9033": {
+   "name": "竹内 譲次",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9034": {
+   "name": "松井 啓十郎",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9035": {
+   "name": "アンドリュー・ネイミック",
+   "teams": [
+    {
+     "teamId": "703",
+     "teamName": "栃木ブレックス",
+     "firstObserved": "2018-10-20",
+     "lastObserved": "2019-05-05"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "703"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9037": {
+   "name": "田中 大貴",
+   "teams": [
+    {
+     "teamId": "706",
+     "teamName": "アルバルク東京",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "706"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9039": {
+   "name": "伊藤　大司",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9040": {
+   "name": "ダバンテ・ガードナー",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9055": {
+   "name": "富樫 勇樹",
+   "teams": [
+    {
+     "teamId": "704",
+     "teamName": "千葉ジェッツ",
+     "firstObserved": "2018-10-04",
+     "lastObserved": "2019-05-11"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "704"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9056": {
+   "name": "ヒルトン・アームストロング",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2019-01-30",
+     "lastObserved": "2019-04-29"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9058": {
+   "name": "スコット・モリソン",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2019-03-23",
+     "lastObserved": "2019-04-14"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9062": {
+   "name": "エグゼビア・ギブソン",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9063": {
+   "name": "ジョシュ・ハレルソン",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "確実",
+     "evidenceType": "決まりと日付から導いた",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://ballooners.jp/news/detail/id=46662?nf=0",
+       "summary": "2023年9月帰化・帰化枠契約。リーグ登録実日未確認。2022-23以前はF。"
+      },
+      {
+       "kind": "決まりと日付から導いた",
+       "url": "https://ballooners.jp/news/detail/id=46662?nf=0",
+       "summary": "対象旧B1在籍・出場は帰化前、又は当季F継続を明記。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "2023年9月帰化・帰化枠契約。リーグ登録実日未確認。2022-23以前はF。"
+   ]
+  },
+  "9259": {
+   "name": "エドワード・モリス",
+   "teams": [
+    {
+     "teamId": "694",
+     "teamName": "横浜ビー・コルセアーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2018-10-03",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "決まりと日付から導いた",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://b-corsairs.com/news/team_20181003_1/",
+       "summary": "許可9/3、10/3登録完了発表、10/6からN。対象季の公式戦は登録完了発表後。"
+      }
+     ]
+    },
+    {
+     "from": "2018-10-03",
+     "toExclusive": "2019-07-01",
+     "classification": "帰化選手",
+     "confidence": "推定",
+     "evidenceType": "発表に書いてある",
+     "teamIds": [
+      "694"
+     ],
+     "boundary": "発表日等の暫定境界",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://b-corsairs.com/news/team_20181003_1/",
+       "summary": "許可9/3、10/3登録完了発表、10/6からN。対象季の公式戦は登録完了発表後。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "許可9/3、10/3登録完了発表、10/6からN。対象季の公式戦は登録完了発表後。",
+    "登録完了発表日を暫定境界とする。実登録日が明記されない場合は確実にしない。"
+   ]
+  },
+  "9310": {
+   "name": "山下 泰弘",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9311": {
+   "name": "小林 大祐",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9313": {
+   "name": "薦田 拓也",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9317": {
+   "name": "石谷 聡",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9318": {
+   "name": "青野 文彦",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9319": {
+   "name": "加納 誠也",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9321": {
+   "name": "西 裕太郎",
+   "teams": [
+    {
+     "teamId": "698",
+     "teamName": "滋賀レイクスターズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "698"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9328": {
+   "name": "波多野 和也",
+   "teams": [
+    {
+     "teamId": "753",
+     "teamName": "ライジングゼファー福岡",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "753"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9329": {
+   "name": "渡辺 竜之佑",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9337": {
+   "name": "溝口 秀人",
+   "teams": [
+    {
+     "teamId": "702",
+     "teamName": "レバンガ北海道",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "702"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9341": {
+   "name": "近 忍",
+   "teams": [
+    {
+     "teamId": "699",
+     "teamName": "京都ハンナリーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-01-23"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "699"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9345": {
+   "name": "ウィリアムス ニカ",
+   "teams": [
+    {
+     "teamId": "693",
+     "teamName": "秋田ノーザンハピネッツ",
+     "firstObserved": "2018-10-12",
+     "lastObserved": "2018-10-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-04-21",
+     "classification": "外国籍",
+     "confidence": "確実",
+     "evidenceType": "決まりと日付から導いた",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://northern-happinets.com/news/detail/id=14253",
+       "summary": "4/20帰化許可の報告。最終戦に出場せず、登録変更は翌季と明記。2019-20N予定はid=14301、2020-21N契約は島根id=13952。"
+      },
+      {
+       "kind": "決まりと日付から導いた",
+       "url": "https://northern-happinets.com/news/detail/id=14253",
+       "summary": "対象旧B1在籍・出場は帰化前、又は当季F継続を明記。"
+      }
+     ]
+    },
+    {
+     "from": "2019-04-21",
+     "toExclusive": "2019-07-01",
+     "classification": "帰化選手",
+     "confidence": "確実",
+     "evidenceType": "決まりと日付から導いた",
+     "teamIds": [
+      "693"
+     ],
+     "boundary": "クラブの発表（2019-04-20）の翌日",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "発表に書いてある",
+       "url": "https://northern-happinets.com/news/detail/id=14253",
+       "summary": "4/20帰化許可の報告。最終戦に出場せず、登録変更は翌季と明記。2019-20N予定はid=14301、2020-21N契約は島根id=13952。"
+      },
+      {
+       "kind": "決まりと日付から導いた",
+       "url": "https://northern-happinets.com/news/detail/id=14253",
+       "summary": "対象旧B1在籍・出場は帰化前、又は当季F継続を明記。"
+      },
+      {
+       "kind": "ユーザーの確認",
+       "url": null,
+       "summary": "2019-04-19 の官報で日本国籍を取得。シーズン終盤は帰化（切り替えはクラブの発表の翌日。その後の出場なし）。2026-11-14 ユーザーの訂正"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "4/20帰化許可の報告。最終戦に出場せず、登録変更は翌季と明記。2019-20N予定はid=14301、2020-21N契約は島根id=13952。"
+   ],
+   "correction": "2026-11-14 ユーザーの訂正: 2019-04-19 の官報で日本国籍を取得。2019-04-21 から帰化"
+  },
+  "9354": {
+   "name": "ロバート・ドジャー",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2018-12-09"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9372": {
+   "name": "マーカリ・サンダース・フリソン",
+   "teams": [
+    {
+     "teamId": "726",
+     "teamName": "サンロッカーズ渋谷",
+     "firstObserved": "2019-02-03",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "726"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9383": {
+   "name": "ジャスティン・バーレル",
+   "teams": [
+    {
+     "teamId": "729",
+     "teamName": "名古屋ダイヤモンドドルフィンズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-29"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "729"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9384": {
+   "name": "ラモント・ハミルトン",
+   "teams": [
+    {
+     "teamId": "695",
+     "teamName": "新潟アルビレックスBB",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "695"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9400": {
+   "name": "ファイ パプ月瑠",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "帰化選手",
+     "confidence": "要確認",
+     "evidenceType": "既存資料・未確認",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      },
+      {
+       "kind": "既存資料・未確認",
+       "url": null,
+       "summary": "許可年月は既存資料と二次資料のみ。18150との同一人物対応は既存override。IDを統合せず両行を残す。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": true,
+   "notes": [
+    "許可年月は既存資料と二次資料のみ。18150との同一人物対応は既存override。IDを統合せず両行を残す。"
+   ]
+  },
+  "9405": {
+   "name": "森川 正明",
+   "teams": [
+    {
+     "teamId": "728",
+     "teamName": "シーホース三河",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-20"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "728"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9423": {
+   "name": "比留木　謙司",
+   "teams": [
+    {
+     "teamId": "696",
+     "teamName": "富山グラウジーズ",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-04-28"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "696"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9488": {
+   "name": "ジャマール・ソープ",
+   "teams": [
+    {
+     "teamId": "700",
+     "teamName": "大阪エヴェッサ",
+     "firstObserved": "2018-10-17",
+     "lastObserved": "2019-01-16"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "700"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9489": {
+   "name": "並里 成",
+   "teams": [
+    {
+     "teamId": "701",
+     "teamName": "琉球ゴールデンキングス",
+     "firstObserved": "2018-10-06",
+     "lastObserved": "2019-05-07"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "日本人",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "701"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  },
+  "9495": {
+   "name": "ジョシュ・チルドレス",
+   "teams": [
+    {
+     "teamId": "697",
+     "teamName": "三遠ネオフェニックス",
+     "firstObserved": "2018-11-17",
+     "lastObserved": "2019-04-21"
+    }
+   ],
+   "intervals": [
+    {
+     "from": "2018-07-01",
+     "toExclusive": "2019-07-01",
+     "classification": "外国籍",
+     "confidence": "推定",
+     "evidenceType": "今の情報からの仮置き",
+     "teamIds": [
+      "697"
+     ],
+     "boundary": "未確認（年度境界）",
+     "sources": [
+      {
+       "kind": "今の情報からの仮置き",
+       "url": null,
+       "summary": "data/players-master.json.gz の現在区分。時系列の確定根拠ではない。"
+      }
+     ]
+    }
+   ],
+   "userReviewed": false
+  }
+ }
+}

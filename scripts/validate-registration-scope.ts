@@ -2,7 +2,7 @@
 // シーズンの途中で区分が変わった選手は今は0人なので、実際の 2026-27 の選手1人に人工の変更（外国籍 → 帰化）を入れて確かめる。
 // 実データは書き換えない（読み込んだものをメモリの中だけで変える）。`npm run build:data` のあとに実行する。
 //
-//  1. 選択肢・URL: cls=jp／foreign／nat／asia／intl／rookie を読める。並びは全選手／日本人／外国籍／帰化／アジア特別枠／まとめ／ルーキー。2025-26 以前の分けた区分は理由を出す
+//  1. 選択肢・URL: cls=jp／foreign／nat／asia／intl／rookie を読める。並びは全選手／日本人／外国籍／帰化／アジア特別枠／まとめ／ルーキー。過去シーズン（388章から全シーズン）も分けた区分を選べる
 //  2. 区分の判定: 見做し日本人は日本人。行ごとの区分（rows.cls）があればそれ、無ければ選手の辞書の jp／intl。分けた区分は行ごとの区分がある行だけ
 //  3. 人工の変更（外国籍 → 帰化）で、試合ログが変更日の前後に分かれ、足し直したシーズンの値（出場試合数・得点・出場時間）の合計が players.json と一致する
 //  4. 1試合記録・勝負所（索引）: 帰化を選ぶと変更日以降、外国籍を選ぶと変更日より前の行だけが出る。2つの合計＝全選手
@@ -88,17 +88,19 @@ const dir = path.join(DATA_DIR, SEASON);
   const optionsOf = (season: string | null) => axisOf("all", season).options.map((o) => o.value);
   const now = optionsOf(SEASON);
   check(
-    "チェックの選択肢: 2026-27 は 日本人／外国籍／帰化／アジア特別枠。2025-26 以前は分けた区分が灰色で、まとめが付く。通算は全部",
+    "チェックの選択肢: 1つのシーズンは（388章から 2016-17 も）日本人／外国籍／帰化／アジア特別枠で、灰色の選択肢なし。通算は全部",
     JSON.stringify(now) === JSON.stringify(["日本人", "外国籍", "帰化", "アジア特別枠"]) &&
-      JSON.stringify(optionsOf("2025-26")) === JSON.stringify(["日本人", "外国籍", "帰化", "アジア特別枠", "外国籍・帰化・アジア"]) &&
-      axisOf("all", "2025-26").options.filter((o) => o.disabled).map((o) => o.value).join() === "外国籍,帰化,アジア特別枠" &&
+      JSON.stringify(optionsOf("2025-26")) === JSON.stringify(["日本人", "外国籍", "帰化", "アジア特別枠"]) &&
+      JSON.stringify(optionsOf("2016-17")) === JSON.stringify(["日本人", "外国籍", "帰化", "アジア特別枠"]) &&
+      axisOf("all", "2016-17").options.filter((o) => o.disabled).length === 0 &&
       JSON.stringify(optionsOf(null)) === JSON.stringify(["日本人", "外国籍", "帰化", "アジア特別枠", "外国籍・帰化・アジア"]),
   );
   check(
-    "まとめ（intl）は、分けて選べるシーズンでは3つにチェックが入った状態で表示される。一括ボタンは 2026-27 が3つ、2025-26 以前と通算がまとめ",
+    "まとめ（intl）は、分けて選べるシーズンでは3つにチェックが入った状態で表示される。一括ボタンは1つのシーズンが3つ、通算がまとめ",
     axisOf("外国籍・帰化・アジア", SEASON).selected.join() === "外国籍,帰化,アジア特別枠" &&
       axisOf("all", SEASON).presets[0]!.values.join() === "外国籍,帰化,アジア特別枠" &&
-      axisOf("all", "2025-26").presets[0]!.values.join() === "外国籍・帰化・アジア" &&
+      axisOf("all", "2025-26").presets[0]!.values.join() === "外国籍,帰化,アジア特別枠" &&
+      axisOf("外国籍・帰化・アジア", "2016-17").selected.join() === "外国籍,帰化,アジア特別枠" &&
       axisOf("all", null).presets[0]!.values.join() === "外国籍・帰化・アジア",
   );
   check(
@@ -109,8 +111,8 @@ const dir = path.join(DATA_DIR, SEASON);
       classificationFilterLabel("all") === "全選手",
   );
   check(
-    "2025-26 以前で分けた区分を含めて選ぶと理由を出す（通算・歴代と 2026-27 は出さない）",
-    splitClassificationBlocked("帰化", "2025-26") && splitClassificationBlocked("日本人,帰化", "2025-26") && !splitClassificationBlocked("帰化", SEASON) && !splitClassificationBlocked("帰化", null) && !splitClassificationBlocked("日本人", "2016-17"),
+    "分けた区分を選んでも、どのシーズン・通算でも理由を出さない（388章から全シーズン分けて記録）",
+    !splitClassificationBlocked("帰化", "2025-26") && !splitClassificationBlocked("日本人,帰化", "2016-17") && !splitClassificationBlocked("帰化", SEASON) && !splitClassificationBlocked("帰化", null) && !splitClassificationBlocked("日本人", "2016-17"),
   );
   check("分けた区分・複数選択・ルーキーは上位20位のファイルに表が無い（索引から集計する）", topFileClassKey("帰化") === null && topFileClassKey("帰化,アジア特別枠") === null && topFileClassKey("rookie") === null && topFileClassKey("日本人") === "jp" && topFileClassKey("外国籍・帰化・アジア") === "intl");
 }
@@ -139,12 +141,14 @@ const dir = path.join(DATA_DIR, SEASON);
   const old = await readJson<PlayerGameIndexFile>(path.join(DATA_DIR, "2025-26", "player-game-index.json"));
   if (old) {
     let split = 0;
+    let intl = 0;
     let jpOrIntl = 0;
     for (let i = 0; i < old.rows.player.length; i++) {
       if (indexRowClassMatches(old, i, "外国籍") || indexRowClassMatches(old, i, "帰化") || indexRowClassMatches(old, i, "アジア特別枠")) split += 1;
+      if (indexRowClassMatches(old, i, "外国籍・帰化・アジア")) intl += 1;
       if (indexRowClassMatches(old, i, "日本人") || indexRowClassMatches(old, i, "外国籍・帰化・アジア")) jpOrIntl += 1;
     }
-    check(`2025-26 の索引（行ごとの区分なし）は、分けた区分に1行も入らず、日本人・まとめで全行を分けられる（${jpOrIntl}／${old.rows.player.length}行）`, split === 0 && jpOrIntl === old.rows.player.length);
+    check(`2025-26 の索引は行ごとの区分を持ち（388章）、分けた区分の行（${split}）がまとめの行（${intl}）と同じで、日本人・まとめで全行を分けられる（${jpOrIntl}／${old.rows.player.length}行）`, old.rows.cls !== undefined && split > 0 && split === intl && jpOrIntl === old.rows.player.length);
   }
 }
 

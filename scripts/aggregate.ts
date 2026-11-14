@@ -1109,8 +1109,9 @@ export async function aggregateSeason(season: string, category: Category = "prem
         teamName: p.teamName,
         position: profile.position,
         nationality: master?.nationality,
-        // シーズンの初めの区分（2026-27 以降は登録区分の記録。途中の変更は試合ごとの値で見る）
-        classification: classifyAt(p.playerId) ?? master?.classification,
+        // 1つだけ出す区分は、そのシーズンの最初の出場試合の日の区分（DESIGN.md 388章。出場が無ければシーズンの初めの区分）。
+        // 途中の変更は試合ごとの値で見る（registrationScope.ts）
+        classification: classifyAt(p.playerId, firstPlayedDate(p.gameLogs)) ?? master?.classification,
         heightCm: profile.heightCm,
         weightKg: profile.weightKg,
         ...(profile.fallback ? { profileFallback: profile.fallback } : {}),
@@ -2621,4 +2622,11 @@ if (isMainModule(import.meta.url)) {
     console.error(err);
     process.exitCode = 1;
   });
+}
+
+/** そのシーズンの最初の出場試合（出場時間が0より大きい試合）の日。出場が無ければ undefined（＝シーズンの初めの区分。DESIGN.md 388章） */
+function firstPlayedDate(logs: readonly PlayerGameLog[]): string | undefined {
+  let first: string | undefined;
+  for (const g of logs) if (g.min > 0 && (first === undefined || g.date < first)) first = g.date;
+  return first;
 }

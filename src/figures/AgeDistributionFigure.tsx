@@ -13,7 +13,7 @@ import { loadPlayerGameIndex } from "../lib/gameIndexLoad";
 import { useJsonData } from "../lib/useJsonData";
 import { choiceNumberParam, enumParam, rangeParam, useUrlState } from "../lib/urlState";
 import { ageSummary, figureAgeData, centeredAgeDots, figureMarkerShape, figureAgeReferences, type FigureReferenceMode, FIGURE_GAMES_RATIO_RANGE, isDefaultFigureGamesRatio, figureClassGroup } from "../lib/figureAge";
-import { classificationFilterLabel, includesJapanese, JAPANESE_DEEMED_NOTE, type ClassificationGroupFilter, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked } from "../lib/classificationFilter";
+import { classificationFilterLabel, includesJapanese, JAPANESE_DEEMED_NOTE, type ClassificationGroupFilter, SPLIT_CLASSIFICATION_UNAVAILABLE_REASON, splitClassificationBlocked, splitClassificationSeason } from "../lib/classificationFilter";
 import { pickerTeamOrder } from "../lib/playerPickerOrder";
 import { withUnplayedTeams } from "../lib/standingsTeams";
 import { DIVISION_LABELS } from "../lib/divisionGroups";
@@ -94,7 +94,7 @@ export default function AgeFigure({ season, category: league }: FigureProps) {
       {[...groups].map(([id, group]) => <AgeDistrict key={id}
         divisionLabel={group.label} teams={group.teams} model={model} colors={data!.colors}
         season={season} min={min} classification={classification} gameType={gameType} line={line}
-        classLabel={classLabel} title={title} lower={lower} upper={upper} ratioRange={ratioRange} achievable={ach.achievable} splitMarks={season >= "2026-27"} />)}
+        classLabel={classLabel} title={title} lower={lower} upper={upper} ratioRange={ratioRange} achievable={ach.achievable} splitMarks={splitClassificationSeason(season)} />)}
     </>}
   </section>;
 }

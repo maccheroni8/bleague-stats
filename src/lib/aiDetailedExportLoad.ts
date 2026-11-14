@@ -149,7 +149,7 @@ export async function loadDetailedExport(season: string, teamId: string, choice:
     });
     players.push(...loaded);
   }
-  // 選手情報の登録区分（2026-27以降はシーズン別の記録。読めなければ選手マスタの区分で出し、その旨を書く＝個人詳細と同じ）
+  // 選手情報の登録区分（シーズン別の記録。読めなければ選手マスタの区分で出し、その旨を書く＝個人詳細と同じ）
   // 選手情報で前半・後半を含めるときの、選手の区間の索引（チーム詳細の選手スタッツタブの期間指定と同じ読み込み）
   let seasonPeriod: DetailedInput['seasonPeriod'] = null;
   if (choice.kind === 'player' && wantsHalves) {

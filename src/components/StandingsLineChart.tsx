@@ -45,7 +45,7 @@ interface StandingsLineChartProps {
   fixedYAxis?: FixedYAxis;
 }
 
-/** 縦軸を固定したいグラフ用の指定（設計書388章） */
+/** 縦軸を固定したいグラフ用の指定（設計書389章） */
 export interface FixedYAxis {
   domain: [number, number];
   ticks: number[];

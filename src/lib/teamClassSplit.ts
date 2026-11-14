@@ -2,7 +2,7 @@
 // 選手の1試合行の索引（player-game-index。形式は shared/gameIndex.ts）の行を、「チームの試合×区分」ごとに足して、
 // 試合ログの合計（teamStatsColumns.ts の sumTeamGameLogs）と同じ形の TeamTotals にする。画面だけの変更で、保存キーの対象のファイルは触らない。
 //
-// 区分は試合ごとの区分（DESIGN.md 298章）。2026-27 以降の索引は行ごとの区分（rows.cls。日本人・外国籍・帰化選手・アジア特別枠。シーズン途中の変更・見做し日本人を含む）、
+// 区分は試合ごとの区分（DESIGN.md 298章）。記録のあるシーズン（388章から全シーズン）の索引は行ごとの区分（rows.cls。日本人・外国籍・帰化選手・アジア特別枠。シーズン途中の変更・見做し日本人を含む）、
 // それより前は選手マスタの classification（選手ごとに1つ。索引の選手の辞書の6番目。jp／intl の2つだけ）。区分が付かない行（マスタに無い選手）はどの区分にも入れない
 // （unclassified に別に数える。推測しない。51章）。所属チームは行の「ホーム」の旗で決めるので、移籍した選手は試合ごとにそのときのチームに数えられる。
 //
@@ -22,11 +22,11 @@ import type { Column } from "../components/SortableTable";
 import { paintOf, summarizePaint, withPaint, type PaintInput, type PaintPair } from "./teamPaint2";
 import { EMPTY_TOTALS, type AllTeamsRow, type TeamTotals } from "./teamStatsColumns";
 
-/** 区分: jp＝日本人、intl＝外国籍・帰化・アジア（まとめ）、foreign＝外国籍・naturalized＝帰化・asia＝アジア特別枠（2026-27 以降だけ分けられる） */
+/** 区分: jp＝日本人、intl＝外国籍・帰化・アジア（まとめ）、foreign＝外国籍・naturalized＝帰化・asia＝アジア特別枠（記録のあるシーズンだけ分けられる。388章から全シーズン） */
 export type SplitClass = "jp" | "intl" | "foreign" | "naturalized" | "asia" | "natAsia";
-/** 2025-26 以前（と古い索引）で出せる区分 */
+/** 分けられないシーズン（と古い索引）で出せる区分 */
 export const SPLIT_CLASSES: readonly SplitClass[] = ["jp", "intl"];
-/** 外国籍・帰化・アジア特別枠を分けて出せるシーズン（2026-27 以降）の区分 */
+/** 外国籍・帰化・アジア特別枠を分けて出せるシーズン（388章から全シーズン）の区分 */
 /** 帰化とアジア特別枠は足して1行（natAsia）にして見せる。帰化だけ・アジア特別枠だけは絞り込みで選んだときの区分 */
 export const DETAILED_SPLIT_CLASSES: readonly SplitClass[] = ["jp", "foreign", "natAsia"];
 
@@ -223,7 +223,7 @@ export interface ClassSplitSource {
   atom: Float64Array | null;
   /** チームの行×区間（PERIOD_ATOMS の番号）に、ピリオド別の行がある選手が1人でもいたか（1／0）。atom が null のときは空 */
   atomHas: Uint8Array;
-  /** 行ごとの区分（rows.cls）を持つ索引か（2026-27 以降）。true なら外国籍・帰化・アジア特別枠を分けて出せる */
+  /** 行ごとの区分（rows.cls）を持つ索引か（388章から全シーズン）。true なら外国籍・帰化・アジア特別枠を分けて出せる */
   detailed: boolean;
 }
 

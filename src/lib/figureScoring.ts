@@ -9,7 +9,7 @@ import { splitClassificationSeason } from "./classificationFilter";
 /** 縦軸: 外国籍のみ／外国籍・帰化・アジアの合計。合計は foreignPoints + naturalizedOrAsianPoints（internationalPoints と同じ） */
 export type ScoringYMode = "foreign" | "intl";
 export const SCORING_Y_LABELS: Record<ScoringYMode, string> = { foreign: "外国籍のみ", intl: "外国籍・帰化・アジア合計" };
-/** 外国籍だけを分けて見られるのは 2026-27 以降。それより前は合計だけ（現在の登録情報による参考値） */
+/** 外国籍だけを分けて見られるのは、登録区分の記録のあるシーズン（388章から全シーズン）。それ以外は合計だけ */
 export const scoringYModes = (season: string): ScoringYMode[] => splitClassificationSeason(season) ? ["foreign", "intl"] : ["intl"];
 
 export interface ScoringTeam { teamId: string; teamName: string }

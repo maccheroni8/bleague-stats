@@ -1,5 +1,5 @@
 // チーム詳細 > チームスタッツ > シーズン別成績の、登録区分別（各シーズンの行から、日本人／外国籍・帰化・アジアの2行を開く。DESIGN.md 288章の段階4）。
-// 2026-27 以降のシーズンは、日本人／外国籍／帰化／アジア特別枠の4行（試合ごとの区分。DESIGN.md 298章）。
+// 登録区分の記録のあるシーズン（388章から全シーズン）は、日本人／外国籍／帰化／アジア特別枠の4行（試合ごとの区分。DESIGN.md 298章）。
 // 値は teamClassSplit.ts の sumClassTotals（自チームのその区分の選手の合計。opp の視点は相手チームの同じ区分の選手）。
 // 列の値の出し方は、区間別（teamSeasonPeriod.ts）と同じく全チームスタッツの列の式を名前で引き、区分では出せない列は「-」にする。
 // 集計のコードから読まれない場所（保存キーの対象外）に置く。
@@ -25,7 +25,7 @@ export function classRowLabel(cls: SplitClass, perspective: TeamPerspective): st
   return perspective === "opp" ? `相手の${name}` : name;
 }
 
-/** そのシーズンの区分の行（2026-27 以降は外国籍・帰化・アジア特別枠を分ける） */
+/** そのシーズンの区分の行（記録のあるシーズンは外国籍・帰化・アジア特別枠を分ける） */
 export function seasonSplitClasses(season: string): readonly SplitClass[] {
   return splitClassificationSeason(season) ? DETAILED_SPLIT_CLASSES : SPLIT_CLASSES;
 }

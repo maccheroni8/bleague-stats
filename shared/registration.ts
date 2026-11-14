@@ -1,17 +1,21 @@
 // 登録区分（日本人／外国籍／帰化選手／アジア特別枠）を、試合ごとに決める1か所の処理（DESIGN.md 295章）。
 // 集計（aggregate.ts）・1試合の索引（gameIndexBuild.ts）・ピリオド別の索引（periodIndexBuild.ts）・オンザコートの人数がこれを通る。
 //
-// - 2026-27 以降（SPLIT_CLASSIFICATION_FIRST_SEASON）: そのシーズン・リーグの登録区分の記録（data/{season}/registrations.json、B.ONE は one/ 側）が
+// - 全シーズン（SPLIT_CLASSIFICATION_FIRST_SEASON＝2016-17 から）: そのシーズン・リーグの登録区分の記録（data/{season}/registrations.json、B.ONE は one/ 側）が
 //   あればその値。シーズン途中の変更（changes）は、その日以降の試合だけに当てる。記録に無い選手は選手マスタの区分。
-// - 2025-26 以前: 今までどおり選手マスタの区分（シーズンによって変わらない1つの値）。画面でも「外国籍・帰化・アジア」のまとめだけを選べる
+//   2026-27 以降は record-registrations.ts が記録する（REGISTRATION_RECORDING_FIRST_SEASON）。2016-17〜2025-26（旧B1）は
+//   根拠の台帳（docs/registration-history/）から作った区分表（DESIGN.md 388章。scripts/build-registration-history.ts）
 //
 // 見做し日本人は classification を「日本人」にして deemedJapanese を付ける（国籍は書き換えない）。オンザコートの人数には数えない
 import type { PlayerMasterEntry } from "./types.ts";
 
 export type Classification = NonNullable<PlayerMasterEntry["classification"]>;
 
-/** 外国籍・帰化・アジア特別枠を分けて選べる最初のシーズン */
-export const SPLIT_CLASSIFICATION_FIRST_SEASON = "2026-27";
+/** 外国籍・帰化・アジア特別枠を分けて選べる最初のシーズン（登録区分の記録を読む最初のシーズン。388章で旧B1 の台帳を入れて 2016-17 から） */
+export const SPLIT_CLASSIFICATION_FIRST_SEASON = "2016-17";
+
+/** record-registrations.ts が選手マスタから記録を足す最初のシーズン（それより前は台帳から作った区分表で、自動では書き足さない） */
+export const REGISTRATION_RECORDING_FIRST_SEASON = "2026-27";
 
 export function hasSplitClassification(season: string): boolean {
   return season >= SPLIT_CLASSIFICATION_FIRST_SEASON;
@@ -68,7 +72,7 @@ export type ClassifyAt = (playerId: string, date?: string) => Classification | u
 
 /**
  * そのシーズンの区分の決め方。date を渡すと、シーズン途中の変更を考える（渡さなければシーズンの初めの区分）。
- * 2025-26 以前は登録区分の記録を見ない（記録があっても使わない）
+ * 試合ごとの区分（オンザコートの人数・区分別の得点・索引の行）は必ず試合の日を渡す
  */
 export function makeClassifier(
   season: string,
@@ -83,7 +87,7 @@ export function makeClassifier(
   };
 }
 
-/** 索引の行に持つ詳細の区分の番号（2026-27 以降の行だけ）。-1 は区分が分からない */
+/** 索引の行に持つ詳細の区分の番号（登録区分の記録のあるシーズンの行）。-1 は区分が分からない */
 export const CLASSIFICATION_CODES: Classification[] = ["日本人", "外国籍", "帰化選手", "アジア特別枠"];
 
 export function classificationCode(c: Classification | undefined): number {

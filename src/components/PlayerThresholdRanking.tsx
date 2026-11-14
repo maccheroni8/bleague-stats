@@ -77,7 +77,7 @@ export function PlayerThresholdRanking({ season, teamColors }: { season: string;
   const ready = thresholdActive(threshold);
 
   const options = useGameRecordOptions(allTime ? "allTime" : "season", season, league);
-  // 2025-26 以前のシーズンで分けた区分を選んでいるときは、表の代わりに理由を出す。全シーズンの表で分けた区分は 2026-27 以降の索引だけを読む
+  // 分けた区分を選べないシーズン（388章から無い）で選んでいるときは、表の代わりに理由を出す。全シーズンの表で分けた区分は記録のあるシーズン（全シーズン）の索引を読む
   const classBlocked = splitClassificationBlocked(group, allTime ? null : season);
   const index = useGameIndexViews("player", allTime ? "allTime" : "season", season, ready && !classBlocked, {
     fromSeason: splitSeasonsOnly(group) ? SPLIT_CLASSIFICATION_FIRST_SEASON : null,
