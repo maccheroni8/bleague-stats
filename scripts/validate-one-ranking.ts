@@ -14,6 +14,7 @@
 //  5. B.ONE で選べない種類・カテゴリに理由があり、リーグの範囲（地区5つ・OC上限3）が B.ONE のものになっている
 //
 // 使い方: npm run validate:one-ranking（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
+import { rerankByMade } from "../src/lib/recordTieBreak";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { DATA_DIR, readAllGames, readJson, seasonDirName } from "./lib/storage.ts";
@@ -187,7 +188,7 @@ for (const gameType of GAME_TYPES) {
     for (const stat of playerQueryStats("record")) {
       const rows = queryPlayerGameRecords({ views: [pView], gameType, conditions: DEFAULT_GAME_RECORD_CONDITIONS, group, positions: [], statConditions: DEFAULT_STAT_CONDITIONS, rookies, stat, includeSpecial: true }).rows;
       const mine = rows.map((r) => ({ rank: r.rank, value: r.value, key: `${r.scheduleKey}-${r.playerId}` }));
-      const theirs = (tables[gameType][stat.key] ?? []).map((r) => ({ rank: r.rank, value: r.value, key: `${r.scheduleKey}-${r.playerId}` }));
+      const theirs = rerankByMade(tables[gameType][stat.key] ?? [], 20).map((r) => ({ rank: r.rank, value: r.value, key: `${r.scheduleKey}-${r.playerId}` }));
       pTotal += 1;
       if (!same(mine, theirs)) {
         pBad += 1;
@@ -214,7 +215,7 @@ for (const mode of ["record", "worst", "against"] as TeamRecordMode[]) {
       const theirs = seasonTeamRecordRows(filterByGameType(teamGames, gameType), mode, item.key);
       const key = (r: TeamGameRecordRow) => `${r.scheduleKey}-${r.teamId}-${JSON.stringify(r.detail ?? null)}`;
       const a = mine.map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
-      const b = theirs.map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
+      const b = rerankByMade(theirs, 20).map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
       tTotal += 1;
       if (!same(a, b)) {
         tBad += 1;

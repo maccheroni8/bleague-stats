@@ -16618,3 +16618,21 @@ iPhone でランキングが開けない（画像保存まで進めない）と�
 - 用語集に「図解：条件付きの勝率」を足した（画面には注記を足していない）。
 - **検証** `npm run validate:figure-cond-winpct`: ①全シーズン・両リーグ・全チームで、条件別順位表の行の作り方を書き写したものと `condRecord` の勝敗が、選べる全条件〔月別・「●人」「●点」の代表の数を含む〕で一致（30,229件）②相手の勝率の以上／未満は試合ごとの直接の比較と一致・以上＋未満＝相手の勝率がある試合の全部・.500以上／未満・.600以上は既存の「対5割以上／未満・6割以上（最新勝率）」と同じ ③期間（直近5試合）・試合区分が先に効く ④相手の最新勝率の元（teams.json）が順位表の最新の勝敗と同じ ⑤感度（勝敗を1つ壊すと検出）⑥条件の文字列・勝率の入力・軸・ベン図の円・URL ⑦保存した設定の初期の2つ。
 - **既知の失敗**（変更前の main と同じ）: `validate:all` の winpct-scatter・figures は、B.ONE 2026-27 の公式記録が未確定の試合 507355（新潟−岐阜）による区分の合計のずれ（`validate-figures` は最初の失敗〔岐阜 1363〕で止まる）。ai-export-detailed は丸めのずれ。
+
+## 391. ランキングの「順位の基準」を共通の部品にした（2026-11-15。**画面だけの変更でキー不変**。allKey `b36c933171791947b570c28a639b28e3` のまま）
+
+ランキング・比較・チーム詳細・md で共通に使う「順位の基準」を決め、まずランキング（個人・チームのシーズン成績）と選手 md に入れた。比較とチーム詳細は、あとでこの基準をそのまま使う。
+
+- **順位の向きは1か所**（`src/lib/rankDirection.ts`。`rankDirectionOf(key, perspective)`・`rankDirectionProps`・用語集用の `RANK_DIRECTION_GLOSSARY`）。「1位＝良いほう」にそろえる。
+  多いほど良い（既定）／少ないほど良い（TOV・TOV%・F・BSR・DRtg・失点〔opp PTS〕・TF/TF1/TF2/UFOUL/FLAG/DISR/DQFOUL/OFF FOUL）／良し悪しなし（G・GS・MIN・POSS・PACE、USG%、構成比・内訳）。
+  良し悪しなしは多い順に並べるが、前季との差に良い・悪いの色を付けない（`RankableStat.neutral`・`diffTone` の3つ目の引数）。
+  チームの opp（相手）の視点は自チームの向きを反転する（相手の FG%・失点は少ないほうが良い。相手の TOV・F は奪った・誘った数なので多いほうが良い）。+/- は自チームの向き。
+  列定義の `higherIsBetter` は他の画面（比較・チーム詳細）でまだ使っているので消していない。ランキング（`boxColumnItem`・チームの `teamDef`）と md（`aiPlayerRank.ts`）は、この定義で上書きする。
+- **md の「順位の向き」の列**は共通の定義の文字（「多い順」「少ない順」「多い順（良し悪しなし）」）。以前の「向きなし（順位を付けない）」は、FLAG・DISR・UFOUL・DQFOUL・OFF FOUL が「少ない順」になったので無くなった。
+- **成功率の最低試投数**（`playerRankingEligibility.ts` の `shotPctMinAttempts`・`filterShotPctMinAttempts`）: シュートタイプ・エリア別の成功率（キーが `…_2ppct`・`…_3ppct`）は、その期間のチームの試合数の半分以上（端数切り上げ）の試投がない選手に順位を付けない。
+  FG%・2P%・3P%・FT% は今の掲載基準（成功数）のまま。チームには付けない。ランキング（Shooting）と md の両方で同じ。Shooting は試合区分・条件が効かないので「その期間」はシーズン。
+- **同じ値**: 3つ以上が同じ値のとき、先頭の行の順位に「（5人が同じ値）」を添える（`RankedList` の `tieSizeAt`）。1試合記録の成功率は、同じ成功率なら成功数の多いほうを上にし、成功数も同じなら同順位
+  （`gameRecordQuery.ts` の `compareCandidates`・`rankTop`、上位だけを書き出したファイルの行は画面側で `recordTieBreak.ts` の `rerankByMade` を当てる。**書き出し側〔`scripts/lib/playerGameRecordsTop.ts`〕は保存キーの対象なので触っていない**）。
+- **PACE・POSS が「-」**: 条件なしの個人ランキングが試合の記録を読まず、集計済みの値には在コートの材料が無かった。PACE・POSS を選んだときだけ試合の記録を読む（`needsGameLogRecompute`）。
+  POSS は列の定義が常に「-」（`playerSeasonBoxscore.ts` は保存キーの対象）なので、ランキング側（`boxColumnItem`）だけで「本人が出ている間の自チームと相手の攻撃回数の平均」を出す。個人詳細などの表の POSS は今までどおり「-」。
+- 用語集に「ランキングの順位の向き・最低試投数」を足した。画面には注記を足していない。検証は `npm run validate:rank-direction`。

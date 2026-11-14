@@ -121,7 +121,7 @@ export function matchesGame(f: GameSideFacts, gameType: SeasonGameTypeFilter, c:
 }
 
 export interface GameRecordQueryResult<R> {
-  /** 上位（同じ順位の行はすべて。順位つき）。並びは、値→（成功率は試投数の多い順）→新しい試合 */
+  /** 上位（同じ順位の行はすべて。順位つき）。並びは、値→（成功率は成功数の多い順）→新しい試合 */
   rows: R[];
   /** 前後半5分の特別な試合のうち、ほかの条件に当てはまるが除いた行の数 */
   excludedSpecial: number;
@@ -137,7 +137,7 @@ interface Candidate {
   vi: number;
   i: number;
   v: number;
-  attempts: number;
+  made: number;
   date: string;
   id: string;
   key: string;
@@ -146,7 +146,7 @@ interface Candidate {
 function compareCandidates(lowerFirst: boolean, dateOldFirst: boolean) {
   return (a: Candidate, b: Candidate): number =>
     (lowerFirst ? a.v - b.v : b.v - a.v) ||
-    b.attempts - a.attempts ||
+    b.made - a.made ||
     (dateOldFirst ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)) ||
     a.id.localeCompare(b.id) ||
     a.key.localeCompare(b.key);
@@ -157,7 +157,7 @@ function rankTop(sorted: Candidate[], topN: number): { cand: Candidate; rank: nu
   const out: { cand: Candidate; rank: number }[] = [];
   let rank = 0;
   for (let i = 0; i < sorted.length; i++) {
-    if (i === 0 || sorted[i]!.v !== sorted[i - 1]!.v) rank = i + 1;
+    if (i === 0 || sorted[i]!.v !== sorted[i - 1]!.v || sorted[i]!.made !== sorted[i - 1]!.made) rank = i + 1;
     if (rank > topN) break;
     out.push({ cand: sorted[i]!, rank });
   }
@@ -323,7 +323,7 @@ export function queryPlayerGameRecords(q: PlayerQuery): GameRecordQueryResult<Pl
         vi,
         i,
         v: def.value(game),
-        attempts: def.fraction ? def.fraction(game)[1] : 0,
+        made: def.fraction ? def.fraction(game)[0] : 0,
         date: games.date[g]!,
         id: p[0],
         key: games.key[g]!,
@@ -472,7 +472,7 @@ export function queryTeamGameRecords(q: TeamQuery): GameRecordQueryResult<TeamGa
         vi,
         i,
         v,
-        attempts: stat.fraction ? stat.fraction(row)[1] : 0,
+        made: stat.fraction ? stat.fraction(row)[0] : 0,
         date: games.date[g]!,
         id: teams[(i & 1) === 0 ? games.home[g]! : games.away[g]!]![0],
         key: games.key[g]!,

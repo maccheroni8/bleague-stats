@@ -174,16 +174,16 @@ function sectionRank(i: PlayerMdInput, p: PlayerSummary, notes: string[]): strin
   out.push(
     `- 順位は**${i.season}シーズンのレギュラーシーズン全体**の1試合平均（対象期間・対戦相手の絞り込みは反映しない）。ランキング > 個人 > シーズン成績の、条件なし・全選手の表と同じ決め方。`,
     `- 掲載基準：${RANK_ELIGIBILITY_TEXT}。基準を満たさない項目は「掲載基準未達」とし、順位は付けない。`,
-    '- 順位の付け方：同じ値（表示の文字が同じ）は同じ順位、次は飛ばす（1位・2位・2位・4位）。「順位の向き」が「少ない順」の項目（TOV など）は少ないほうが上位。値が「-」の人は順位を付けず、人数にも入れない。同じ値の人が多い項目（0.00 など）は「同じ値の人 N人」と書く。', '- シュートタイプの成功率には、ランキングのページに試投数の基準が無い（1本中1本で100%＝1位になりうる）。md の順位の欄に「試投数の基準なし」と書いた。', '- FLAG・DISR・UFOUL・DQFOUL・OFF FOUL は、ランキングのページで良し悪しの向きを決めていないので順位を付けない。', '');
+    '- 順位の付け方：同じ値（表示の文字が同じ）は同じ順位、次は飛ばす（1位・2位・2位・4位）。「順位の向き」が「少ない順」の項目（TOV・ファウル系など）は少ないほうが上位。「多い順（良し悪しなし）」の項目（G・MIN・POSS・PACE・構成比など）は、多い順に並べた位置で、良い・悪いの意味は無い。値が「-」の人は順位を付けず、人数にも入れない。3人以上が同じ値の項目は「同じ値の人 N人」と書く。', '- シュートタイプ・エリア別の成功率は、その期間のチームの試合数の半分以上（端数は切り上げ）の試投がない選手には順位を付けない（「掲載基準未達」）。', '');
   if (cmp) out.push(prevLines ? `- 前季全体＝${i.prevName}シーズンのレギュラーシーズン全体の順位（そのシーズンの掲載基準・対象人数で出したもの）。差は順位の差（今回−前季。マイナスは順位が上がった）。` : `- 前季なし：${i.prevReason ?? '-'}`, '');
   for (const cat of ['traditional', 'advanced', 'misc', 'scoring', 'shooting']) {
     const ls = lines.filter(l => l.category === cat);
     if (!ls.length) continue;
-    const rk = (l: RankLine | undefined) => (!l ? '-' : l.rank ? `${l.rank}位／${l.total}人中${l.ties > 1 ? `（同じ値の人 ${l.ties}人）` : ''}${cat === 'shooting' && /%$/.test(l.value) ? '（試投数の基準なし）' : ''}` : l.note || '-');
+    const rk = (l: RankLine | undefined) => (!l ? '-' : l.rank ? `${l.rank}位／${l.total}人中${l.ties > 2 ? `（同じ値の人 ${l.ties}人）` : ''}` : l.note || '-');
     const body = ls.map(l => {
       const pl = prevLines?.find(x => x.category === cat && x.key === l.key);
       const diff = l.rank && pl?.rank ? `${l.rank - pl.rank > 0 ? '+' : ''}${l.rank - pl.rank}` : '-';
-      return [l.label, l.direction === 'none' ? '向きなし' : l.direction, l.value, rk(l), ...(cmp ? (prevLines ? [pl?.value ?? '-', rk(pl), diff] : ['前季なし', '前季なし', '-']) : [])];
+      return [l.label, l.direction, l.value, rk(l), ...(cmp ? (prevLines ? [pl?.value ?? '-', rk(pl), diff] : ['前季なし', '前季なし', '-']) : [])];
     });
     out.push(`### ${RANK_CATEGORY_LABEL[cat]}`, '', mdTable(['項目', '順位の向き', '値（平均）', 'リーグ内の順位（掲載基準を満たし、値がある人数中）', ...(cmp ? ['前季全体の値（平均）', '前季全体の順位', '順位の差（今回−前季）'] : [])], body), '');
   }

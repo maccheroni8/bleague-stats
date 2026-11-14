@@ -11,6 +11,7 @@
 //  6. 条件を1か所間違えると NG になること（感度の確認）
 //
 // 使い方: npm run validate:game-record-query（src/ のコードを使うため esbuild でまとめて実行する）。1つでも食い違いがあれば終了コード1
+import { rerankByMade } from "../src/lib/recordTieBreak";
 import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { DATA_DIR, readJson } from "./lib/storage.ts";
@@ -153,7 +154,7 @@ for (const season of seasons) {
       for (const stat of recordStats) {
         const rows = queryPlayerGameRecords({ views: [pViewBySeason.get(season)!], gameType, conditions: DEFAULT_GAME_RECORD_CONDITIONS, group, positions: [], statConditions: DEFAULT_STAT_CONDITIONS, rookies, stat, includeSpecial: true }).rows;
         const mine = rows.map((r) => ({ rank: r.rank, value: r.value, key: `${r.scheduleKey}-${r.playerId}` }));
-        const theirs = (tables[gameType][stat.key] ?? []).map((r) => ({ rank: r.rank, value: r.value, key: `${r.scheduleKey}-${r.playerId}` }));
+        const theirs = rerankByMade(tables[gameType][stat.key] ?? [], 20).map((r) => ({ rank: r.rank, value: r.value, key: `${r.scheduleKey}-${r.playerId}` }));
         g1p.add(sameRows(mine, theirs), () => `${season} ${gameType} ${group} ${stat.key}: 索引 ${brief(mine)} / ファイル ${brief(theirs)}`);
       }
     }
@@ -166,7 +167,7 @@ for (const gameType of GAME_TYPES) {
       const rows = queryPlayerGameRecords({ views: pViews, gameType, conditions: DEFAULT_GAME_RECORD_CONDITIONS, group, positions: [], statConditions: DEFAULT_STAT_CONDITIONS, rookies, stat, includeSpecial: true }).rows;
       const key = (r: { scheduleKey: string; playerId: string; season?: string }) => `${r.season}-${r.scheduleKey}-${r.playerId}`;
       const mine = rows.map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
-      const theirs = (tables[gameType][stat.key] ?? []).map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
+      const theirs = rerankByMade(tables[gameType][stat.key] ?? [], 20).map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
       g1pAll.add(sameRows(mine, theirs), () => `歴代 ${gameType} ${group} ${stat.key}: 索引 ${brief(mine)} / ファイル ${brief(theirs)}`);
     }
   }
@@ -183,7 +184,7 @@ for (const mode of ["record", "worst", "against"] as TeamRecordMode[]) {
       const mine = queryTeamGameRecords({ views: tViews, gameType, conditions: DEFAULT_GAME_RECORD_CONDITIONS, statConditions: DEFAULT_STAT_CONDITIONS, stat, includeSpecial: true }).rows;
       const fileRows: TeamGameRecordRow[] = allTimeTeamRecordRows(teamRankings, null, mode, gameType, item.key, (id) => id);
       const key = (r: TeamGameRecordRow) => `${r.season}-${r.scheduleKey}-${r.teamId}-${JSON.stringify(r.detail ?? null)}`;
-      const theirs = fileRows.map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
+      const theirs = rerankByMade(fileRows, 20).map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
       g1tAll.add(sameRows(mine.map((r) => ({ rank: r.rank, value: r.value, key: key(r) })), theirs), () => `歴代 ${mode} ${gameType} ${item.key}: 索引 ${brief(mine.map((r) => ({ rank: r.rank, value: r.value, key: key(r) })))} / ファイル ${brief(theirs)}`);
     }
   }
@@ -198,7 +199,7 @@ for (const season of seasons) {
         const theirs = seasonTeamRecordRows(filterByGameType(teamGamesBySeason.get(season)!, gameType), mode, item.key);
         const key = (r: TeamGameRecordRow) => `${r.scheduleKey}-${r.teamId}-${JSON.stringify(r.detail ?? null)}`;
         const a = mine.map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
-        const b = theirs.map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
+        const b = rerankByMade(theirs, 20).map((r) => ({ rank: r.rank, value: r.value, key: key(r) }));
         g1tSeason.add(sameRows(a, b), () => `${season} ${mode} ${gameType} ${item.key}: 索引 ${brief(a)} / ログ ${brief(b)}`);
       }
     }
@@ -387,7 +388,9 @@ function checkRanking<R extends { rank: number; value: number; date: string; sch
   // all は topN=ALL の結果（全件・順位つき）。rows は topN=20 の結果
   const sortedOk = all.every((r, i) => i === 0 || (lowerFirst ? all[i - 1]!.value <= r.value : all[i - 1]!.value >= r.value));
   g4.add(sortedOk, () => `${label}: 値の向き`);
-  const ranksOk = all.every((r, i) => r.rank === (i === 0 || r.value !== all[i - 1]!.value ? i + 1 : all[i - 1]!.rank));
+  // 成功率の項目は（値, 成功数）が同じときだけ同順位
+  const sameAsPrev = (r: (typeof all)[number], p: (typeof all)[number]) => r.value === p.value && (!fraction || (r.made ?? 0) === (p.made ?? 0));
+  const ranksOk = all.every((r, i) => r.rank === (i === 0 || !sameAsPrev(r, all[i - 1]!) ? i + 1 : all[i - 1]!.rank));
   g4.add(ranksOk, () => `${label}: 順位が 1・2・2・4`);
   const cutoff = all.filter((r) => r.rank <= 20);
   g4.add(JSON.stringify(rows.map((r) => [r.rank, r.value, r.scheduleKey])) === JSON.stringify(cutoff.map((r) => [r.rank, r.value, r.scheduleKey])), () => `${label}: 20位までの切り方（${rows.length}件 / ${cutoff.length}件）`);
@@ -395,10 +398,10 @@ function checkRanking<R extends { rank: number; value: number; date: string; sch
   const tiesOk = all.every((r, i) => {
     if (i === 0 || r.value !== all[i - 1]!.value) return true;
     const p = all[i - 1]!;
-    if (fraction && (p.attempted ?? 0) !== (r.attempted ?? 0)) return (p.attempted ?? 0) > (r.attempted ?? 0);
+    if (fraction && (p.made ?? 0) !== (r.made ?? 0)) return (p.made ?? 0) > (r.made ?? 0);
     return dateOldFirst ? p.date <= r.date : p.date >= r.date;
   });
-  g4.add(tiesOk, () => `${label}: 同じ値の中の並び（${fraction ? "試投数の多い順→" : ""}${dateOldFirst ? "古い" : "新しい"}試合から）`);
+  g4.add(tiesOk, () => `${label}: 同じ値の中の並び（${fraction ? "成功数の多い順→" : ""}${dateOldFirst ? "古い" : "新しい"}試合から）`);
 }
 for (const stat of [...playerQueryStats("record"), ...playerQueryStats("worst")] as PlayerQueryStat[]) {
   const q = (topN: number) => queryPlayerGameRecords({ views: pViews, gameType: "both", conditions: { ...DEFAULT_GAME_RECORD_CONDITIONS, result: "win" }, group: "all", positions: [], statConditions: DEFAULT_STAT_CONDITIONS, rookies, stat, includeSpecial: false, topN });

@@ -39,7 +39,8 @@ import { useAllTeamGameLogs, useLeagueSituationalContext } from "./teamRankingDa
 import { OVERTIME_MIN_GAMES, overtimeCandidates, seasonPeriodOption, seasonPeriodTotalsOf, useSeasonPeriodSources } from "./seasonPeriod";
 import { isRookieFilter, matchesPositionFilter, type PlayerGroupFilter } from "./classificationFilter";
 import { needsClassificationRecompute, scopedPlayerMatches, scopeLogsByClassification, useClassScopedPlayers } from "./registrationScope";
-import { EXTRA_ELIGIBILITY_RULES, filterEligiblePlayers } from "./playerRankingEligibility";
+import { EXTRA_ELIGIBILITY_RULES, filterEligiblePlayers, filterShotPctMinAttempts } from "./playerRankingEligibility";
+import { rankDirectionProps } from "./rankDirection";
 import { formatDecimal } from "./format";
 import { hasRelatedStats, relatedStatsFor } from "./rankingRelatedStats";
 import { ageForSeason } from "./age";
@@ -78,6 +79,7 @@ export interface PlayerRankItem {
   key: string;
   label: string;
   higherIsBetter?: boolean;
+  neutral?: boolean;
   value: (p: PlayerSummary, ctx: SeasonBoxscoreCtx | null) => number;
   format: (p: PlayerSummary, ctx: SeasonBoxscoreCtx | null) => string;
 }
@@ -184,15 +186,31 @@ export function boxColumnItem(col: SeasonBoxscoreColumn, mode: PlayerRankMode): 
     return {
       key: col.key,
       label: col.label,
-      higherIsBetter: col.higherIsBetter,
+      ...rankDirectionProps(col.key),
       value: (p) => effValue(p, mode),
       format: (p) => effText(p, mode),
+    };
+  }
+  // POSS: 列の定義は常に「-」なので、ランキングでは本人が出ている間のポゼッション数（PACE と同じ材料: 在コートの自チームと相手の攻撃回数の平均）を出す。
+  // 出場中の記録がそろわないと「-」（保存キーの対象の列定義は変えない）
+  if (col.key === "poss") {
+    const poss = (ctx: SeasonBoxscoreCtx | null): number | null =>
+      ctx && ctx.raw.onCourtSeconds > 0 ? (ctx.scaled.onCourtOwnPoss + ctx.scaled.onCourtOppPoss) / 2 : null;
+    return {
+      key: col.key,
+      label: col.label,
+      ...rankDirectionProps(col.key),
+      value: (_p, ctx) => poss(ctx) ?? 0,
+      format: (_p, ctx) => {
+        const v = poss(ctx);
+        return v === null ? "-" : formatDecimal(v, countDigits(mode));
+      },
     };
   }
   return {
     key: col.key,
     label: col.label,
-    higherIsBetter: col.higherIsBetter,
+    ...rankDirectionProps(col.key),
     value: (_p, ctx) => (ctx ? col.value(ctx, mode) : 0),
     format: (_p, ctx) => (ctx ? col.format(ctx, mode) : "-"),
   };
@@ -281,7 +299,7 @@ export const EXTRA_ADVANCED_PLAYER_ITEMS: PlayerRankItem[] = PLAYER_STAT_DEFS.fi
   (d) => ({
     key: d.key,
     label: d.label,
-    higherIsBetter: d.higherIsBetter,
+    ...rankDirectionProps(d.key),
     value: (p: PlayerSummary) => d.value(p),
     format: (p: PlayerSummary) => d.format(p),
   }),
@@ -576,7 +594,7 @@ export function usePlayerSeasonRanking(
     const base = filterEligiblePlayers(players, teams, gamesRatio, extraRuleKey(statKey), extraThreshold, remainingByTeam).filter(
       (p) => groupOk(p) && matchesPositionFilter(p, positionSet),
     );
-    return category === "shooting" ? base.filter((p) => !!p.shotTypes) : base;
+    return category === "shooting" ? filterShotPctMinAttempts(base.filter((p) => !!p.shotTypes), teams, statKey) : base;
     // groupOk は group・rookieIds・classScope.changed から決まる
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopedPlayers, teams, gamesRatio, remainingByTeam, statKey, extraThreshold, group, positions, rookieActive, rookieIds, category, registeredTarget, registeredPlayers, overtimeActive, periodFiltersApply, overtimeIds, classScope.changed]);
@@ -605,6 +623,8 @@ export function usePlayerSeasonRanking(
     (filtersApply && (filterActive || gameTypeActive || periodActive)) ||
     category === "misc" ||
     category === "scoring" ||
+    // PACE・POSS は試合の記録から数える（集計済みの値には無く、条件なしだと「-」になっていた）
+    (category === "advanced" && (statKey === "pace" || statKey === "poss")) ||
     conditionNeedsLogs ||
     (filtersApply && needsClassificationRecompute(eligible, group, classScope.changed));
   // USG%・%-shareスタッツ・個人ORtg/DRtgの分母（チーム総計）用に、チーム版ランキングと共通の
@@ -833,7 +853,7 @@ export function usePlayerSeasonRanking(
       return (rankMode === "total" ? shootingColumnsTotal : shootingColumns).map((c) => ({
         key: c.key,
         label: c.label,
-        higherIsBetter: c.higherIsBetter,
+        ...rankDirectionProps(c.key),
         value: (p: PlayerSummary) => Number(c.sortValue(p)),
         format: (p: PlayerSummary) => (c.format ? c.format(p) : String(c.sortValue(p))),
       }));
@@ -879,6 +899,7 @@ export function usePlayerSeasonRanking(
     key: selectedItem.key,
     label: selectedItem.label,
     higherIsBetter: selectedItem.higherIsBetter,
+    neutral: selectedItem.neutral,
     value: (p) => selectedItem.value(p, ctxFor(p, rankMode)),
     format: (p) => selectedItem.format(p, ctxFor(p, rankMode)),
   };

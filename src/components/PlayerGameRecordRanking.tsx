@@ -1,3 +1,4 @@
+import { rerankByMade, tieKeyWithMade } from "../lib/recordTieBreak";
 import { useEffect, useMemo, useRef } from "react";
 import { teamChipColor } from "../lib/teamChipColors";
 import type { PlayerGameRecordDef } from "../../shared/playerGameRecords";
@@ -213,7 +214,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
   const seasonTables = partGroup === "all" ? seasonFile?.byGameType : seasonFile?.byClassification?.[partGroup];
   // 表が無い（ファイルが無い・その区分の表が無い）ときは null
   const fileEntries = allTime ? (allTimeTable?.entries ?? null) : seasonTables ? (seasonTables[gameType]?.[def.key] ?? []) : null;
-  const entries: PlayerRecordRow[] | undefined = useIndex ? result?.rows : (fileEntries ?? []);
+  const entries: PlayerRecordRow[] | undefined = useIndex ? result?.rows : rerankByMade(fileEntries ?? [], RANK_TOP_N);
   const loading = registrationChanges.loading || (useIndex ? index.loading || periodIndex.loading || rookies.loading || active.loading || current.loading : fileLoading);
   const failure = useIndex ? (index.error ?? periodIndex.error ?? rookies.error ?? active.error ?? current.error) : null;
   const noData = !classBlocked && !useIndex && !loading && !fileEntries;
@@ -354,7 +355,7 @@ export function PlayerGameRecordRanking({ season, teamColors }: { season: string
                   higherIsBetter: !stat.lowerFirst,
                 }}
                 renderValue={(e) => <RecordValue text={formatPlayerGameRecordValue(def, e.value)} fraction={playerGameRecordFraction(e)} />}
-                tieKey={(e) => String(e.value)}
+                tieKey={tieKeyWithMade}
                 rowKey={(e) => `${e.scheduleKey}-${e.playerId}`}
                 name={(e) => <ResponsivePlayerName name={e.playerName} />}
                 subLabel={(e) => <PlayerGameRecordLine e={e} season={seasonOf(e)} showPosition={positions.length > 0} />}

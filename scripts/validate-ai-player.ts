@@ -60,11 +60,12 @@ async function one(season: string, league: 'premier' | 'one', p: PlayerSummary, 
       void cur;
     } else check(`${tag} 前季なしは理由を書く`, /前季なし：/.test(oc.markdown));
   }
-  // 値が「-」の項目に順位が付かない・G/GS/MIN/PTS を繰り返さない・向きなしの項目に順位が付かない・PACE が2章と3章で同じ
+  // 値が「-」の項目に順位が付かない・G/GS/MIN/PTS を繰り返さない・ファウル系は少ない順・テンポは良し悪しなし・PACE が2章と3章で同じ
   const rankPart = out.markdown.split('## 3. ランキングでの位置')[1]?.split('\n## 4.')[0] ?? '';
   const rankRows = rankPart.split('\n').filter(l => l.startsWith('|') && !l.startsWith('|---') && !l.startsWith('|項目|'));
   check(`${tag} 値が「-」なのに順位が付いている行が無い`, rankRows.every(l => { const c = l.split('|'); return c[3] !== '-' || !/位／/.test(c[4] ?? ''); }), rankRows.find(l => l.split('|')[3] === '-' && /位／/.test(l.split('|')[4] ?? '')) ?? '');
-  check(`${tag} 向きなしの項目（FLAG・DISR など）に順位が付かない`, rankRows.filter(l => /^\|(FLAG|DISR|UFOUL|DQFOUL|OFF FOUL)\|/.test(l)).every(l => !/位／/.test(l)));
+  check(`${tag} ファウル系（FLAG・DISR など）は「少ない順」（順位の向きの共通の定義）`, rankRows.filter(l => /^\|(FLAG|DISR|UFOUL|DQFOUL|OFF FOUL|TF1|TF2|TF)\|/.test(l)).every(l => l.split('|')[2] === '少ない順'));
+  check(`${tag} G・MIN・PACE・POSS は「多い順（良し悪しなし）」`, rankRows.filter(l => /^\|(G|GS|MIN|PACE|POSS)\|/.test(l)).every(l => l.split('|')[2] === '多い順（良し悪しなし）'));
   for (const cat of ['Advanced', 'Misc', 'Scoring']) {
     const part = rankPart.split(`### ${cat}\n`)[1]?.split('\n### ')[0] ?? '';
     check(`${tag} ${cat} の順位の表に G・GS・MIN・PTS が無い`, !/^\|(G|GS|MIN|PTS)\|/m.test(part));
